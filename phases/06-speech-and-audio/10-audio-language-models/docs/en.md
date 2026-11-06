@@ -1,6 +1,6 @@
 # Audio-Language Models — Qwen2.5-Omni, Audio Flamingo, GPT-4o Audio
 
-> 2026 audio-language models reason over speech + environmental sound + music. Qwen2.5-Omni-7B matches GPT-4o Audio on MMAU-Pro. Audio Flamingo Next beats Gemini 2.5 Pro on LongAudioBench. The gap between open and closed is essentially closed — except on multi-audio tasks, where everyone is near random.
+> Các mô hình ngôn ngữ âm thanh năm 2026 suy luận trên tiếng nói + âm thanh môi trường + âm nhạc. Qwen2.5-Omni-7B ngang GPT-4o Audio trên MMAU-Pro. Audio Flamingo Next thắng Gemini 2.5 Pro trên LongAudioBench. Khoảng cách giữa mở và đóng về cơ bản đã khép lại — ngoại trừ các tác vụ nhiều âm thanh, nơi mọi bên đều gần mức ngẫu nhiên.
 
 **Type:** Learn
 **Languages:** Python
@@ -9,14 +9,14 @@
 
 ## The Problem
 
-You have 5 seconds of audio: dog barks, someone yells "stop!", then silence. Useful questions span multiple axes:
+Bạn có 5 giây âm thanh: chó sủa, ai đó hét "dừng lại!", rồi im lặng. Các câu hỏi hữu ích trải trên nhiều trục:
 
-- **Transcription.** "What was said?" — ASR territory.
-- **Semantic reasoning.** "Is the person in danger?" — requires joint understanding of the bark + yell + silence.
-- **Music reasoning.** "What instruments play the melody?"
-- **Long-audio retrieval.** "Where in this 90-minute lecture did the instructor explain gradient descent?"
+- **Chép lời.** "Đã nói gì?" — lãnh địa ASR.
+- **Suy luận ngữ nghĩa.** "Người đó có gặp nguy hiểm không?" — đòi hỏi hiểu kết hợp tiếng sủa + tiếng hét + sự im lặng.
+- **Suy luận âm nhạc.** "Những nhạc cụ nào chơi giai điệu?"
+- **Truy xuất âm thanh dài.** "Trong bài giảng 90 phút này giảng viên giải thích gradient descent ở đâu?"
 
-A single model that answers all of these with one prompt is an **audio-language model** (LALM / ALM). Separate from pure ASR: LALMs produce free-form natural-language answers, not just transcripts.
+Một mô hình duy nhất trả lời tất cả những câu này bằng một prompt là một **mô hình ngôn ngữ âm thanh** (LALM / ALM). Khác với ASR thuần: LALM tạo các câu trả lời ngôn ngữ tự nhiên tự do, không chỉ các bản chép lời.
 
 ## The Concept
 
@@ -24,61 +24,61 @@ A single model that answers all of these with one prompt is an **audio-language 
 
 ### The three-component template
 
-Every 2026 LALM has the same skeleton:
+Mọi LALM năm 2026 có cùng khung:
 
-1. **Audio encoder.** Whisper encoder · BEATs · CLAP · WavLM · or a custom encoder per model.
-2. **Projector.** Linear or MLP bridging audio-encoder features into the LLM's token embedding space.
-3. **LLM.** Llama / Qwen / Gemma-based decoder. Takes interleaved text + audio tokens; generates text.
+1. **Encoder âm thanh.** Encoder Whisper · BEATs · CLAP · WavLM · hoặc một encoder tùy chỉnh theo mô hình.
+2. **Bộ chiếu.** Tuyến tính hoặc MLP nối các đặc trưng encoder âm thanh vào không gian embedding token của LLM.
+3. **LLM.** Decoder dựa trên Llama / Qwen / Gemma. Nhận văn bản + token âm thanh xen kẽ; sinh văn bản.
 
-Training:
+Huấn luyện:
 
-- **Stage 1.** Freeze encoder + LLM; train projector only on ASR / captioning data.
-- **Stage 2.** Full / LoRA fine-tune on instruction-following audio tasks (QA, reasoning, music understanding).
-- **Stage 3 (optional).** Voice-in / voice-out adds a speech decoder. Qwen2.5-Omni and AF3-Chat do this.
+- **Giai đoạn 1.** Đóng băng encoder + LLM; chỉ huấn luyện bộ chiếu trên dữ liệu ASR / chú thích.
+- **Giai đoạn 2.** Fine-tune đầy đủ / LoRA trên các tác vụ âm thanh tuân theo chỉ dẫn (QA, suy luận, hiểu âm nhạc).
+- **Giai đoạn 3 (tùy chọn).** Giọng vào / giọng ra thêm một decoder tiếng nói. Qwen2.5-Omni và AF3-Chat làm điều này.
 
 ### The 2026 model map
 
-| Model | Backbone | Audio encoder | Output modality | Access |
+| Mô hình | Backbone | Encoder âm thanh | Phương thức đầu ra | Truy cập |
 |-------|----------|---------------|-----------------|--------|
-| Qwen2.5-Omni-7B | Qwen2.5-7B | Custom + Whisper | text + speech | Apache-2.0 |
-| Qwen3-Omni | Qwen3 | Custom | text + speech | Apache-2.0 |
-| Audio Flamingo 3 | Qwen2 | AF-CLAP | text | NVIDIA non-commercial |
-| Audio Flamingo Next | Qwen2 | AF-CLAP v2 | text | NVIDIA non-commercial |
-| SALMONN | Vicuna | Whisper + BEATs | text | Apache-2.0 |
-| LTU / LTU-AS | Llama | CAV-MAE | text | Apache-2.0 |
-| GAMA | Llama | AST + Q-Former | text | Apache-2.0 |
-| Gemini 2.5 Flash/Pro (closed) | Gemini | proprietary | text + speech | API |
-| GPT-4o Audio (closed) | GPT-4o | proprietary | text + speech | API |
+| Qwen2.5-Omni-7B | Qwen2.5-7B | Tùy chỉnh + Whisper | văn bản + tiếng nói | Apache-2.0 |
+| Qwen3-Omni | Qwen3 | Tùy chỉnh | văn bản + tiếng nói | Apache-2.0 |
+| Audio Flamingo 3 | Qwen2 | AF-CLAP | văn bản | NVIDIA phi thương mại |
+| Audio Flamingo Next | Qwen2 | AF-CLAP v2 | văn bản | NVIDIA phi thương mại |
+| SALMONN | Vicuna | Whisper + BEATs | văn bản | Apache-2.0 |
+| LTU / LTU-AS | Llama | CAV-MAE | văn bản | Apache-2.0 |
+| GAMA | Llama | AST + Q-Former | văn bản | Apache-2.0 |
+| Gemini 2.5 Flash/Pro (đóng) | Gemini | độc quyền | văn bản + tiếng nói | API |
+| GPT-4o Audio (đóng) | GPT-4o | độc quyền | văn bản + tiếng nói | API |
 
 ### Benchmark reality check (2026)
 
-**MMAU-Pro.** 1800 QA pairs covering speech / sound / music / mixed. Multi-audio subset included.
+**MMAU-Pro.** 1800 cặp QA bao phủ tiếng nói / âm thanh / âm nhạc / hỗn hợp. Bao gồm tập con nhiều âm thanh.
 
-| Model | Overall | Speech | Sound | Music | Multi-audio |
+| Mô hình | Tổng thể | Tiếng nói | Âm thanh | Âm nhạc | Nhiều âm thanh |
 |-------|---------|--------|-------|-------|-------------|
 | Gemini 2.5 Pro | ~60% | 73.4% | 51.9% | 64.9% | ~22% |
 | Gemini 2.5 Flash | ~57% | 73.4% | 50.5% | 64.9% | 21.2% |
 | GPT-4o Audio | 52.5% | — | — | — | 26.5% |
 | Qwen2.5-Omni-7B | 52.2% | 57.4% | 47.6% | 61.5% | ~20% |
 | Audio Flamingo 3 | ~54% | — | — | — | — |
-| Audio Flamingo Next | SOTA on LongAudioBench | — | — | — | — |
+| Audio Flamingo Next | SOTA trên LongAudioBench | — | — | — | — |
 
-The **multi-audio column is damning for everyone.** Random chance on 4-option multiple choice = 25%; most models score around there. LALMs still struggle to compare two clips.
+**Cột nhiều âm thanh là bằng chứng bất lợi cho mọi bên.** Mức ngẫu nhiên trên trắc nghiệm 4 lựa chọn = 25%; hầu hết các mô hình chấm quanh mức đó. LALM vẫn chật vật so sánh hai đoạn.
 
 ### Where LALMs are useful in 2026
 
-- **Compliance audit of call-center recordings.** "Did the agent mention the required disclosure?"
-- **Accessibility.** Describe sound events to deaf users (not just transcription).
-- **Content moderation.** Detect violent language + threatening tone + background context.
-- **Podcast / meeting chaptering.** Semantic summary, not just speaker turns.
-- **Music catalog analysis.** "Find all tracks with a B-section key change."
+- **Kiểm toán tuân thủ các bản ghi trung tâm cuộc gọi.** "Nhân viên có nhắc đến thông báo bắt buộc không?"
+- **Hỗ trợ tiếp cận.** Mô tả các sự kiện âm thanh cho người dùng điếc (không chỉ chép lời).
+- **Kiểm duyệt nội dung.** Phát hiện ngôn ngữ bạo lực + giọng đe dọa + ngữ cảnh nền.
+- **Chia chương podcast / cuộc họp.** Tóm tắt ngữ nghĩa, không chỉ các lượt người nói.
+- **Phân tích danh mục âm nhạc.** "Tìm mọi track có chuyển giọng ở phần B."
 
 ### Where they are NOT (yet) useful
 
-- Fine-grained music theory (below chord-level).
-- Speaker-attributed reasoning over long conversations (degrades past 10 minutes).
-- Multi-audio comparison (22-26% is barely above random).
-- Real-time streaming reasoning (most are offline batch inference).
+- Lý thuyết âm nhạc chi tiết (dưới cấp hợp âm).
+- Suy luận gắn người nói trên các cuộc hội thoại dài (suy giảm sau 10 phút).
+- So sánh nhiều âm thanh (22-26% chỉ nhỉnh hơn ngẫu nhiên).
+- Suy luận luồng thời gian thực (hầu hết là suy luận batch ngoại tuyến).
 
 ```figure
 v4-alm-tokens
@@ -123,7 +123,7 @@ class AudioProjector(nn.Module):
         return self.up(self.act(self.down(audio_features)))
 ```
 
-That's it. The projector is usually 1-3 linear layers. Training it on ASR pairs (audio → transcript) is the Stage-1 pretext task.
+Chỉ vậy thôi. Bộ chiếu thường là 1-3 tầng tuyến tính. Huấn luyện nó trên các cặp ASR (âm thanh → bản chép lời) là tác vụ tiền đề Giai đoạn 1.
 
 ### Step 3: benchmarking MMAU / LongAudioBench
 
@@ -140,52 +140,52 @@ for item in mcq:
 print(f"Accuracy: {correct / len(mcq):.3f}")
 ```
 
-`audio_path` points into the dataset repo's `data.zip` (about 47 GB), so download and unzip it before scoring. This exact-match loop is a sanity check, not the benchmark scorer, so its number is not comparable with published MMAU-Pro results. The official evaluator matches multiple-choice answers by embedding similarity (NV-Embed-v2), grades open-ended answers with an LLM judge, and checks instruction-following answers with regex rules: write predictions to a `model_output` column and run `evaluate_mmau_pro_comprehensive.py` from the [MMAU-Pro repo](https://github.com/sonalkum/MMAUPro). Report each `category` (speech, sound, music, multi, and the rest) separately. Aggregate numbers hide where the model fails.
+`audio_path` trỏ vào `data.zip` của kho tập dữ liệu (khoảng 47 GB), nên tải và giải nén nó trước khi chấm điểm. Vòng lặp khớp chính xác này là một kiểm tra hợp lý, không phải bộ chấm benchmark, nên con số của nó không so sánh được với các kết quả MMAU-Pro đã công bố. Bộ đánh giá chính thức khớp các câu trả lời trắc nghiệm bằng độ tương đồng embedding (NV-Embed-v2), chấm các câu trả lời mở bằng một LLM giám khảo và kiểm tra các câu trả lời tuân theo chỉ dẫn bằng các quy tắc regex: ghi các dự đoán vào một cột `model_output` và chạy `evaluate_mmau_pro_comprehensive.py` từ [kho MMAU-Pro](https://github.com/sonalkum/MMAUPro). Báo cáo từng `category` (tiếng nói, âm thanh, âm nhạc, nhiều âm thanh và phần còn lại) riêng. Các con số tổng hợp che giấu nơi mô hình thất bại.
 
 ## Use It
 
-| Task | 2026 pick |
+| Tác vụ | Lựa chọn năm 2026 |
 |------|-----------|
-| Free-form audio QA (open) | Qwen2.5-Omni-7B |
-| Best open on long audio | Audio Flamingo Next |
-| Best closed | Gemini 2.5 Pro |
-| Voice-in / voice-out agent | Qwen2.5-Omni or GPT-4o Audio |
-| Music reasoning | Audio Flamingo 3 or 2 (music-specialized AF-CLAP) |
-| Call-center audit | Gemini 2.5 Pro via API, with RAG over your policy docs |
+| QA âm thanh tự do (mở) | Qwen2.5-Omni-7B |
+| Mở tốt nhất trên âm thanh dài | Audio Flamingo Next |
+| Đóng tốt nhất | Gemini 2.5 Pro |
+| Tác tử giọng vào / giọng ra | Qwen2.5-Omni hoặc GPT-4o Audio |
+| Suy luận âm nhạc | Audio Flamingo 3 hoặc 2 (AF-CLAP chuyên âm nhạc) |
+| Kiểm toán trung tâm cuộc gọi | Gemini 2.5 Pro qua API, với RAG trên các tài liệu chính sách của bạn |
 
 ## Pitfalls
 
-- **Over-trust on multi-audio.** If your task needs "which clip has X," random-chance-level performance is real.
-- **Long-audio degradation.** Past 10 minutes, most models' speaker attribution breaks. Diarize first (Lesson 6), then summarize.
-- **Hallucinations on silence.** Same Whisper-style issue inherited by LALMs that use Whisper encoder. VAD-gate.
-- **Benchmark cherry-picking.** Vendor blog posts highlight best-case categories. Run MMAU-Pro multi-audio subset yourself.
+- **Tin quá mức vào nhiều âm thanh.** Nếu tác vụ của bạn cần "đoạn nào có X", hiệu năng ở mức ngẫu nhiên là có thật.
+- **Suy giảm âm thanh dài.** Sau 10 phút, việc gán người nói của hầu hết các mô hình hỏng. Phân đoạn người nói trước (Bài 6), rồi tóm tắt.
+- **Ảo giác trên sự im lặng.** Cùng vấn đề kiểu Whisper được các LALM dùng encoder Whisper kế thừa. Chặn VAD.
+- **Chọn lọc benchmark có lợi.** Các bài blog nhà cung cấp nhấn mạnh các nhóm tốt nhất. Tự chạy tập con nhiều âm thanh MMAU-Pro.
 
 ## Ship It
 
-Save as `outputs/skill-alm-picker.md`. Pick LALM + benchmark subset + output-modality (text vs speech) for a given audio-understanding task.
+Lưu thành `outputs/skill-alm-picker.md`. Chọn LALM + tập con benchmark + phương thức đầu ra (văn bản so với tiếng nói) cho một tác vụ hiểu âm thanh nhất định.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py` to see a toy projector pattern + fake LALM routing of (audio-embedding, text-tokens) → output tokens.
-2. **Medium.** Score Qwen2.5-Omni-7B on 100 MMAU-Pro speech items. Compare to the paper's reported number.
-3. **Hard.** Build a minimal audio-captioning baseline: BEATs encoder + 2-layer projector + frozen Llama-3.2-1B. Fine-tune only the projector on AudioCaps. Compare to SALMONN on Clotho-AQA.
+1. **Dễ.** Chạy `code/main.py` để thấy một mẫu bộ chiếu đồ chơi + định tuyến LALM giả của (embedding âm thanh, token văn bản) → token đầu ra.
+2. **Trung bình.** Chấm Qwen2.5-Omni-7B trên 100 mục tiếng nói MMAU-Pro. So sánh với con số bài báo báo cáo.
+3. **Khó.** Xây dựng một baseline chú thích âm thanh tối thiểu: encoder BEATs + bộ chiếu 2 tầng + Llama-3.2-1B đóng băng. Chỉ fine-tune bộ chiếu trên AudioCaps. So sánh với SALMONN trên Clotho-AQA.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| LALM | Audio ChatGPT | Audio encoder + projector + LLM decoder. |
-| Projector | Adapter | Small MLP mapping audio features into LLM embedding space. |
-| MMAU | The benchmark | 10k audio-QA pairs across speech, sound, music. |
-| MMAU-Pro | Harder MMAU | 1800 multi-audio / reasoning-heavy questions. |
-| LongAudioBench | Long-form eval | Multi-minute clips with semantic queries. |
-| Voice-in / voice-out | Speech-native | Model ingests speech and emits speech without text detour. |
+| LALM | ChatGPT âm thanh | Encoder âm thanh + bộ chiếu + decoder LLM. |
+| Projector (Bộ chiếu) | Adapter | MLP nhỏ ánh xạ các đặc trưng âm thanh vào không gian embedding LLM. |
+| MMAU | Benchmark | 10k cặp QA âm thanh trên tiếng nói, âm thanh, âm nhạc. |
+| MMAU-Pro | MMAU khó hơn | 1800 câu hỏi nhiều âm thanh / nặng suy luận. |
+| LongAudioBench | Đánh giá dạng dài | Các đoạn nhiều phút với các truy vấn ngữ nghĩa. |
+| Voice-in / voice-out (Giọng vào / giọng ra) | Nguyên bản tiếng nói | Mô hình nhận tiếng nói và phát tiếng nói không đi vòng qua văn bản. |
 
 ## Further Reading
 
-- [Chu et al. (2024). Qwen2-Audio](https://arxiv.org/abs/2407.10759) — reference architecture.
-- [Alibaba (2025). Qwen2.5-Omni](https://huggingface.co/Qwen/Qwen2.5-Omni-7B) — speech-in-speech-out.
-- [NVIDIA (2025). Audio Flamingo 3](https://arxiv.org/abs/2507.08128) — the open long-audio leader.
-- [NVIDIA (2026). Audio Flamingo Next](https://arxiv.org/abs/2604.10905) — LongAudioBench SOTA.
-- [Tang et al. (2023). SALMONN](https://arxiv.org/abs/2310.13289) — dual-encoder pioneer.
-- [MMAU-Pro leaderboard](https://sonalkum.github.io/mmau-pro/) — live 2026 rankings.
+- [Chu et al. (2024). Qwen2-Audio](https://arxiv.org/abs/2407.10759) — kiến trúc tham chiếu.
+- [Alibaba (2025). Qwen2.5-Omni](https://huggingface.co/Qwen/Qwen2.5-Omni-7B) — tiếng nói vào-tiếng nói ra.
+- [NVIDIA (2025). Audio Flamingo 3](https://arxiv.org/abs/2507.08128) — dẫn đầu âm thanh dài mở.
+- [NVIDIA (2026). Audio Flamingo Next](https://arxiv.org/abs/2604.10905) — SOTA LongAudioBench.
+- [Tang et al. (2023). SALMONN](https://arxiv.org/abs/2310.13289) — tiên phong encoder kép.
+- [MMAU-Pro leaderboard](https://sonalkum.github.io/mmau-pro/) — các thứ hạng trực tiếp năm 2026.
