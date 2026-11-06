@@ -1,6 +1,6 @@
 # Inference Platform Economics — Fireworks, Together, Baseten, Modal, Replicate, Anyscale
 
-> The 2026 inference market is no longer GPU time rental. It bifurcates into custom silicon (Groq, Cerebras, SambaNova), GPU platforms (Baseten, Together, Fireworks, Modal), and API-first marketplaces (Replicate, DeepInfra). Fireworks raised price $1/hr per GPU on May 1, 2026, and $4B valuation on 10T+ tokens/day tells you the volume-driven model works. Baseten closed $300M Series E at $5B in January 2026. The competitive positioning rule is simple: Fireworks optimizes latency, Together optimizes catalog breadth, Baseten optimizes enterprise polish, Modal optimizes Python-native DX, Replicate optimizes multimodal reach, Anyscale optimizes distributed Python. This lesson gives you a matrix you can hand a founder.
+> Thị trường suy luận năm 2026 không còn là cho thuê thời gian GPU. Nó phân nhánh thành chip tùy chỉnh (Groq, Cerebras, SambaNova), các nền tảng GPU (Baseten, Together, Fireworks, Modal), và các chợ ưu tiên API (Replicate, DeepInfra). Fireworks tăng giá $1/giờ mỗi GPU vào ngày 1 tháng 5 năm 2026, và định giá $4B trên 10T+ token/ngày cho bạn biết mô hình dựa trên khối lượng hoạt động. Baseten chốt Series E $300M ở $5B vào tháng 1 năm 2026. Quy tắc định vị cạnh tranh đơn giản: Fireworks tối ưu độ trễ, Together tối ưu bề rộng danh mục, Baseten tối ưu độ trau chuốt doanh nghiệp, Modal tối ưu DX thuần Python, Replicate tối ưu độ bao phủ đa phương thức, Anyscale tối ưu Python phân tán. Bài này cho bạn một ma trận có thể đưa cho một nhà sáng lập.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy per-call economics comparator)
@@ -9,86 +9,86 @@
 
 ## Learning Objectives
 
-- Name the three market segments (custom silicon, GPU platforms, API-first) and map each vendor to a segment.
-- Explain why the "per-token" API pricing model compresses toward the serving engine's cost curve, not the hardware's.
-- Compute effective cost per request across at least three vendors and explain when per-minute (Baseten, Modal) beats per-token.
-- Identify which platform is the right default for a given workload (serverless bursty, steady high-throughput, fine-tuned variants, multimodal).
+- Nêu ba phân khúc thị trường (chip tùy chỉnh, các nền tảng GPU, ưu tiên API) và ánh xạ mỗi nhà cung cấp tới một phân khúc.
+- Giải thích vì sao mô hình giá API “theo token” nén về đường cong chi phí của engine phục vụ, không phải của phần cứng.
+- Tính chi phí hiệu dụng mỗi yêu cầu trên ít nhất ba nhà cung cấp và giải thích khi nào theo phút (Baseten, Modal) vượt theo token.
+- Xác định nền tảng nào là mặc định phù hợp cho một khối lượng công việc nhất định (serverless bùng phát, thông lượng cao ổn định, các biến thể tinh chỉnh, đa phương thức).
 
 ## The Problem
 
-You evaluated managed hyperscaler platforms. You decided you need a narrower, faster provider — Fireworks for latency, Together for breadth, Baseten for a fine-tuned custom model. Now you have six real choices and the pricing pages do not line up. Fireworks shows $/M tokens; Baseten shows $/minute; Modal shows $/second; Replicate shows $/prediction. You cannot compare them head-to-head without modeling the workload.
+Bạn đánh giá các nền tảng siêu quy mô được quản lý. Bạn quyết định cần một nhà cung cấp hẹp hơn, nhanh hơn — Fireworks cho độ trễ, Together cho bề rộng, Baseten cho một mô hình tùy chỉnh được tinh chỉnh. Giờ bạn có sáu lựa chọn thực và các trang giá không khớp nhau. Fireworks hiển thị $/M token; Baseten hiển thị $/phút; Modal hiển thị $/giây; Replicate hiển thị $/dự đoán. Bạn không thể so sánh trực tiếp nếu không mô hình hóa khối lượng công việc.
 
-Worse, the business model behind each pricing page is different. Fireworks runs its own custom engine (FireAttention) on shared GPUs; the per-token rate reflects their utilization curve. Baseten gives you Truss + dedicated GPUs; per-minute reflects exclusivity. Modal is true Python serverless — per-second billing with sub-second cold starts. Same output (an LLM response), three different cost functions.
+Tệ hơn, mô hình kinh doanh sau mỗi trang giá khác nhau. Fireworks chạy engine tùy chỉnh riêng (FireAttention) trên các GPU dùng chung; giá theo token phản ánh đường cong mức sử dụng của họ. Baseten cho bạn Truss + các GPU chuyên dụng; theo phút phản ánh tính độc quyền. Modal là serverless Python thực — tính phí theo giây với khởi động nguội dưới một giây. Cùng đầu ra (một phản hồi LLM), ba hàm chi phí khác nhau.
 
-This lesson models the six and tells you when each wins.
+Bài này mô hình hóa sáu bên và cho bạn biết khi nào mỗi bên thắng.
 
 ## The Concept
 
 ### The three segments
 
-**Custom silicon** — Groq (LPU), Cerebras (WSE), SambaNova (RDU). Typically 5-10x faster decode than a GPU-based cluster on the same model. Higher per-token price (Groq was ~$0.99/M on Llama-70B late 2025) but unbeatable for latency-sensitive use cases. Groq is the production pick for voice agents and real-time translation.
+**Chip tùy chỉnh** — Groq (LPU), Cerebras (WSE), SambaNova (RDU). Thường giải mã nhanh hơn 5-10x so với một cụm dựa trên GPU trên cùng mô hình. Giá theo token cao hơn (Groq ở ~$0.99/M trên Llama-70B cuối năm 2025) nhưng không thể bị vượt cho các trường hợp sử dụng nhạy độ trễ. Groq là lựa chọn sản xuất cho các agent giọng nói và dịch thời gian thực.
 
-**GPU platforms** — Baseten, Together, Fireworks, Modal, Anyscale. Run on NVIDIA (H100, H200, B200 in 2026) or sometimes AMD. The economic layer between "raw GPU rental" (RunPod, Lambda) and "hyperscaler managed service" (Bedrock).
+**Các nền tảng GPU** — Baseten, Together, Fireworks, Modal, Anyscale. Chạy trên NVIDIA (H100, H200, B200 năm 2026) hoặc đôi khi AMD. Lớp kinh tế giữa “thuê GPU thô” (RunPod, Lambda) và “dịch vụ được nhà cung cấp siêu quy mô quản lý” (Bedrock).
 
-**API-first marketplaces** — Replicate, DeepInfra, OpenRouter, Fal. Broad catalog, pay-per-prediction or pay-per-second, emphasize time-to-first-call.
+**Các chợ ưu tiên API** — Replicate, DeepInfra, OpenRouter, Fal. Danh mục rộng, trả theo dự đoán hoặc trả theo giây, nhấn mạnh thời gian tới lệnh gọi đầu tiên.
 
 ### Fireworks — latency-optimized GPU platform
 
-- FireAttention engine (custom); marketed as 4x lower latency than vLLM on equivalent configs.
-- Batch tier at ~50% of serverless rate for non-interactive workloads.
-- Fine-tuned model served at the same rate as the base model — a real differentiator versus providers that charge a premium for your LoRA.
-- Mid-2026: raised on-demand GPU rental $1/hour effective May 1, 2026. Volume pricing negotiable at scale.
-- Financial signal: $4B valuation, 10T+ tokens/day handled.
+- Engine FireAttention (tùy chỉnh); được tiếp thị là độ trễ thấp hơn 4x so với vLLM trên các cấu hình tương đương.
+- Tầng xử lý lô ở ~50% giá serverless cho các khối lượng công việc không tương tác.
+- Mô hình tinh chỉnh được phục vụ cùng giá với mô hình cơ sở — một điểm khác biệt thực so với các nhà cung cấp tính phụ phí cho LoRA của bạn.
+- Giữa năm 2026: tăng giá thuê GPU theo nhu cầu $1/giờ có hiệu lực ngày 1 tháng 5 năm 2026. Giá theo khối lượng có thể đàm phán ở quy mô lớn.
+- Tín hiệu tài chính: định giá $4B, xử lý 10T+ token/ngày.
 
 ### Together — breadth-optimized
 
-- 200+ models including open-source releases within days of upstream publication.
-- 50-70% cheaper than Replicate on equivalent LLM models — the "AI Native Cloud" positioning is volume and catalog.
-- Inference + fine-tuning + training in one API.
+- 200+ mô hình bao gồm các bản phát hành mã nguồn mở trong vài ngày sau công bố thượng nguồn.
+- Rẻ hơn 50-70% so với Replicate trên các mô hình LLM tương đương — định vị “AI Native Cloud” là khối lượng và danh mục.
+- Suy luận + tinh chỉnh + huấn luyện trong một API.
 
 ### Baseten — enterprise-polish-optimized
 
-- Truss framework: model packaging with dependencies, secrets, serving config in one manifest.
-- GPU range from T4 through B200. Per-minute billing with reasonable cold-start mitigation.
-- SOC 2 Type II, HIPAA-ready. Common fintech and healthcare pick.
-- $5B valuation, January 2026 Series E ($300M from CapitalG, IVP, NVIDIA).
+- Framework Truss: đóng gói mô hình với các phụ thuộc, bí mật, cấu hình phục vụ trong một manifest.
+- Dải GPU từ T4 tới B200. Tính phí theo phút với giảm thiểu khởi động nguội hợp lý.
+- SOC 2 Type II, sẵn sàng HIPAA. Lựa chọn fintech và chăm sóc sức khỏe phổ biến.
+- Định giá $5B, Series E tháng 1 năm 2026 ($300M từ CapitalG, IVP, NVIDIA).
 
 ### Modal — Python-native-optimized
 
-- Infrastructure-as-code in pure Python. Decorate a function with `@modal.function(gpu="A100")` and deploy with one command.
-- Per-second billing. Cold starts 2-4s with pre-warming; <1s for small models.
-- $87M Series B at $1.1B valuation (2025). Strongest developer experience score in independent surveys.
+- Cơ sở hạ tầng dưới dạng mã bằng Python thuần. Trang trí một hàm bằng `@modal.function(gpu="A100")` và triển khai bằng một lệnh.
+- Tính phí theo giây. Khởi động nguội 2-4s với làm nóng trước; <1s cho các mô hình nhỏ.
+- Series B $87M ở định giá $1.1B (2025). Điểm trải nghiệm nhà phát triển mạnh nhất trong các khảo sát độc lập.
 
 ### Replicate — multimodal breadth
 
-- Pay-per-prediction. The default platform for image, video, and audio models.
-- Integration ecosystem (Zapier, Vercel, CMS plugins).
-- Less competitive on LLM per-token rates but wins on multimodal variety.
+- Trả theo dự đoán. Nền tảng mặc định cho các mô hình hình ảnh, video, và âm thanh.
+- Hệ sinh thái tích hợp (Zapier, Vercel, các plugin CMS).
+- Kém cạnh tranh hơn về giá LLM theo token nhưng thắng về đa dạng đa phương thức.
 
 ### Anyscale — Ray-native
 
-- Built on Ray; RayTurbo is Anyscale's proprietary inference engine (competes with vLLM).
-- Best for distributed Python workloads where the inference step is one node in a larger graph.
-- Managed Ray clusters; tight integration with Ray AIR and Ray Serve.
+- Được xây trên Ray; RayTurbo là engine suy luận độc quyền của Anyscale (cạnh tranh với vLLM).
+- Tốt nhất cho các khối lượng công việc Python phân tán nơi bước suy luận là một node trong một đồ thị lớn hơn.
+- Các cụm Ray được quản lý; tích hợp chặt với Ray AIR và Ray Serve.
 
 ### Per-token versus per-minute — when each wins
 
-Per-token makes sense when the workload is latency-insensitive and bursty — you only pay for what you use. Per-minute makes sense when utilization is high and predictable — you beat per-token once you're saturating the GPU.
+Theo token hợp lý khi khối lượng công việc không nhạy độ trễ và bùng phát — bạn chỉ trả cho những gì dùng. Theo phút hợp lý khi mức sử dụng cao và có thể dự đoán — bạn vượt theo token một khi làm bão hòa GPU.
 
-Rough rule: for workloads above ~30% sustained utilization of a dedicated GPU, per-minute (Baseten, Modal) starts to beat per-token (Fireworks, Together). Below that, per-token wins because you avoid paying for idle.
+Quy tắc thô: với các khối lượng công việc trên mức sử dụng duy trì ~30% của một GPU chuyên dụng, theo phút (Baseten, Modal) bắt đầu vượt theo token (Fireworks, Together). Dưới mức đó, theo token thắng vì bạn tránh trả cho nhàn rỗi.
 
 ### Custom engine is the real moat
 
-Every platform above vLLM and SGLang claims a custom engine. FireAttention, RayTurbo, Baseten's inference stack. Custom-engine claims shade marketing — the honest framing is that vLLM + SGLang represent about 80% of production open-source inference, and the differentiators at the platform layer are DX, attribution, and SLAs.
+Mọi nền tảng trên vLLM và SGLang tuyên bố một engine tùy chỉnh. FireAttention, RayTurbo, ngăn xếp suy luận Baseten. Các tuyên bố engine tùy chỉnh nghiêng về tiếp thị — cách định hình thẳng thắn là vLLM + SGLang đại diện khoảng 80% suy luận mã nguồn mở sản xuất, và các điểm khác biệt ở lớp nền tảng là DX, quy chi phí, và các SLA.
 
 ### Numbers you should remember
 
-- Fireworks GPU rental: $1/hr raise effective May 1, 2026.
-- Fireworks claim: 4x lower latency than vLLM on equivalent configs.
-- Together: 50-70% cheaper than Replicate on LLMs.
-- Baseten valuation: $5B (Series E, Jan 2026, $300M round).
-- Modal valuation: $1.1B (Series B, 2025).
-- Per-minute beats per-token above ~30% sustained utilization.
+- Thuê GPU Fireworks: tăng $1/giờ có hiệu lực ngày 1 tháng 5 năm 2026.
+- Tuyên bố Fireworks: độ trễ thấp hơn 4x so với vLLM trên các cấu hình tương đương.
+- Together: rẻ hơn 50-70% so với Replicate trên các LLM.
+- Định giá Baseten: $5B (Series E, tháng 1 năm 2026, vòng $300M).
+- Định giá Modal: $1.1B (Series B, 2025).
+- Theo phút vượt theo token trên mức sử dụng duy trì ~30%.
 
 ```figure
 cost-per-token
@@ -96,40 +96,40 @@ cost-per-token
 
 ## Use It
 
-`code/main.py` compares the six vendors on a synthetic workload across pricing models. Reports $/day and effective $/M tokens. Run it to find the break-even between per-token and per-minute.
+`code/main.py` so sánh sáu nhà cung cấp trên một khối lượng công việc tổng hợp qua các mô hình giá. Báo cáo $/ngày và $/M token hiệu dụng. Chạy nó để tìm điểm hòa vốn giữa theo token và theo phút.
 
 ## Ship It
 
-This lesson produces `outputs/skill-inference-platform-picker.md`. Given workload profile, SLA, and budget, picks the primary inference platform and names the runner-up.
+Bài này tạo ra `outputs/skill-inference-platform-picker.md`. Với hồ sơ khối lượng công việc, SLA, và ngân sách, chọn nền tảng suy luận chính và nêu bên về nhì.
 
 ## Exercises
 
-1. Run `code/main.py`. At what sustained utilization does Baseten (per-minute) beat Fireworks (per-token) for a 70B model on one H100? Derive the crossover yourself and compare to the rule of thumb.
-2. Your product serves image generation plus chat plus speech-to-text. Pick platforms for each modality and name the gateway pattern that unifies them.
-3. Fireworks raises prices by $1/hr on your primary model. Model the blended cost impact if 40% of your traffic moves to batch tier (50% off).
-4. A regulated customer requires SOC 2 Type II + HIPAA + dedicated GPUs. Which three platforms are viable and which one wins on FinOps?
-5. Compare cost per 1,000 predictions for Llama 3.1 70B on Fireworks serverless, Together on-demand, Baseten dedicated, and Replicate API. Which is cheapest at 10 predictions/day? At 10,000?
+1. Chạy `code/main.py`. Ở mức sử dụng duy trì nào Baseten (theo phút) vượt Fireworks (theo token) cho một mô hình 70B trên một H100? Tự suy ra điểm giao và so sánh với quy tắc kinh nghiệm.
+2. Sản phẩm của bạn phục vụ sinh hình ảnh cộng trò chuyện cộng giọng nói thành văn bản. Chọn các nền tảng cho mỗi phương thức và nêu mẫu gateway thống nhất chúng.
+3. Fireworks tăng giá $1/giờ trên mô hình chính của bạn. Mô hình hóa tác động chi phí pha trộn nếu 40% lưu lượng chuyển sang tầng xử lý lô (giảm 50%).
+4. Một khách hàng được quản lý yêu cầu SOC 2 Type II + HIPAA + các GPU chuyên dụng. Ba nền tảng nào khả thi và bên nào thắng về FinOps?
+5. So sánh chi phí mỗi 1,000 dự đoán cho Llama 3.1 70B trên Fireworks serverless, Together theo nhu cầu, Baseten chuyên dụng, và API Replicate. Bên nào rẻ nhất ở 10 dự đoán/ngày? Ở 10,000?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Custom silicon | "non-GPU chips" | Groq LPU, Cerebras WSE, SambaNova RDU — optimized for decode |
-| FireAttention | "Fireworks engine" | Custom attention kernel; marketed at 4x lower latency than vLLM |
-| Truss | "Baseten's format" | Model packaging manifest; dependencies + secrets + serving config |
-| Per-token | "API pricing" | Charge by tokens consumed; pay for no idle |
-| Per-minute | "dedicated pricing" | Charge by wall-clock GPU time; wins at high utilization |
-| Per-prediction | "Replicate pricing" | Charge per model invocation; common for image/video |
-| RayTurbo | "Anyscale engine" | Proprietary inference on Ray; competes with vLLM on Ray clusters |
-| Batch tier | "50% off" | Non-interactive queue at reduced rate; common on Fireworks, OpenAI |
-| Fine-tuned at base rate | "Fireworks LoRA" | Charge LoRA-served requests at base model's rate (differentiator) |
+| Custom silicon (Chip tùy chỉnh) | “các chip không phải GPU” | Groq LPU, Cerebras WSE, SambaNova RDU — tối ưu cho giải mã |
+| FireAttention | “Engine Fireworks” | Kernel attention tùy chỉnh; được tiếp thị là độ trễ thấp hơn 4x so với vLLM |
+| Truss | “Định dạng của Baseten” | Manifest đóng gói mô hình; các phụ thuộc + bí mật + cấu hình phục vụ |
+| Per-token (Theo token) | “Giá API” | Tính phí theo token tiêu thụ; không trả cho nhàn rỗi |
+| Per-minute (Theo phút) | “giá chuyên dụng” | Tính phí theo thời gian GPU thực; thắng ở mức sử dụng cao |
+| Per-prediction (Theo dự đoán) | “Giá Replicate” | Tính phí theo mỗi lần gọi mô hình; phổ biến cho hình ảnh/video |
+| RayTurbo | “Engine Anyscale” | Suy luận độc quyền trên Ray; cạnh tranh với vLLM trên các cụm Ray |
+| Batch tier (Tầng xử lý lô) | “giảm 50%” | Hàng đợi không tương tác ở giá giảm; phổ biến trên Fireworks, OpenAI |
+| Fine-tuned at base rate (Tinh chỉnh ở giá cơ sở) | “LoRA Fireworks” | Tính phí các yêu cầu phục vụ LoRA ở giá mô hình cơ sở (điểm khác biệt) |
 
 ## Further Reading
 
-- [Fireworks Pricing](https://fireworks.ai/pricing) — per-token rates, batch tier, GPU rental.
-- [Baseten Pricing](https://www.baseten.co/pricing/) — per-minute rates, committed capacity, enterprise tiers.
-- [Modal Pricing](https://modal.com/pricing) — per-second GPU rates and free tier.
-- [Together AI Pricing](https://www.together.ai/pricing) — model catalog and per-token rates.
-- [Anyscale Pricing](https://www.anyscale.com/pricing) — RayTurbo and managed Ray pricing.
-- [Northflank — Fireworks AI Alternatives](https://northflank.com/blog/7-best-fireworks-ai-alternatives-for-inference) — comparative assessment.
-- [Infrabase — AI Inference API Providers 2026](https://infrabase.ai/blog/ai-inference-api-providers-compared) — vendor landscape.
+- [Fireworks Pricing](https://fireworks.ai/pricing) — các giá theo token, tầng xử lý lô, thuê GPU.
+- [Baseten Pricing](https://www.baseten.co/pricing/) — các giá theo phút, dung lượng cam kết, các tầng doanh nghiệp.
+- [Modal Pricing](https://modal.com/pricing) — các giá GPU theo giây và tầng miễn phí.
+- [Together AI Pricing](https://www.together.ai/pricing) — danh mục mô hình và các giá theo token.
+- [Anyscale Pricing](https://www.anyscale.com/pricing) — giá RayTurbo và Ray được quản lý.
+- [Northflank — Fireworks AI Alternatives](https://northflank.com/blog/7-best-fireworks-ai-alternatives-for-inference) — đánh giá so sánh.
+- [Infrabase — AI Inference API Providers 2026](https://infrabase.ai/blog/ai-inference-api-providers-compared) — bối cảnh nhà cung cấp.

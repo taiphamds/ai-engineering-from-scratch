@@ -7,24 +7,24 @@ lesson: 02
 tags: [inference, fireworks, together, baseten, modal, replicate, anyscale, economics]
 ---
 
-Given a workload profile (model, tokens/day, sustained utilization, TTFT SLA, burst factor, compliance, Python vs mixed stack), produce a platform recommendation.
+Với một hồ sơ khối lượng công việc (mô hình, token/ngày, mức sử dụng duy trì, SLA TTFT, hệ số bùng phát, tuân thủ, ngăn xếp Python so với hỗn hợp), tạo một khuyến nghị nền tảng.
 
-Produce:
+Tạo ra:
 
-1. Primary platform. Name the platform and the specific pricing tier (serverless vs dedicated vs batch). Justify with the workload characteristics that match — e.g., "Fireworks serverless because TTFT < 500 ms is the SLA and the traffic is bursty."
-2. Effective cost. Normalize the chosen pricing model to $/M output tokens. Compare to at least two alternatives. Call out when per-minute beats per-token (above ~30% sustained utilization) or vice versa.
-3. Cold-start plan. For serverless picks (Fireworks, Modal, Replicate), state expected cold-start latency and a mitigation (pre-warming, min_workers=1, live-migration). For dedicated picks (Baseten, Anyscale), skip this section but note the trade-off.
-4. Runner-up. Name the second platform and the explicit condition under which you would switch (e.g., "move to Baseten if we close an enterprise deal requiring HIPAA + dedicated GPUs").
-5. Gateway layer. Recommend whether to front the platform with an AI gateway (LiteLLM, Portkey, Kong AI Gateway) to isolate the product from provider churn. Default: yes, unless scale is below 500 RPS.
+1. Nền tảng chính. Nêu nền tảng và tầng giá cụ thể (serverless so với chuyên dụng so với xử lý lô). Giải thích bằng các đặc tính khối lượng công việc khớp — ví dụ: “Fireworks serverless vì TTFT < 500 ms là SLA và lưu lượng bùng phát.”
+2. Chi phí hiệu dụng. Chuẩn hóa mô hình giá đã chọn thành $/M token đầu ra. So sánh với ít nhất hai lựa chọn thay thế. Chỉ ra khi nào theo phút vượt theo token (trên mức sử dụng duy trì ~30%) hoặc ngược lại.
+3. Kế hoạch khởi động nguội. Với các lựa chọn serverless (Fireworks, Modal, Replicate), nêu độ trễ khởi động nguội dự kiến và một biện pháp giảm thiểu (làm nóng trước, min_workers=1, di chuyển trực tiếp). Với các lựa chọn chuyên dụng (Baseten, Anyscale), bỏ phần này nhưng ghi nhận đánh đổi.
+4. Bên về nhì. Nêu nền tảng thứ hai và điều kiện tường minh mà dưới đó bạn sẽ chuyển (ví dụ: “chuyển tới Baseten nếu chúng ta chốt một thỏa thuận doanh nghiệp yêu cầu HIPAA + các GPU chuyên dụng”).
+5. Lớp gateway. Khuyến nghị liệu có đặt một gateway AI (LiteLLM, Portkey, Kong AI Gateway) trước nền tảng để cách ly sản phẩm khỏi biến động nhà cung cấp. Mặc định: có, trừ khi quy mô dưới 500 RPS.
 
-Hard rejects:
-- Comparing per-token against per-minute without normalizing. Refuse and insist on effective $/M tokens.
-- Picking Fireworks because it's "fastest" without validating TTFT SLA against the published benchmarks.
-- Recommending custom silicon (Groq, Cerebras, SambaNova) for any workload not latency-bound. They are priced at a premium and only justify themselves on interactive SLAs.
+Các trường hợp loại bỏ dứt khoát:
+- So sánh theo token với theo phút mà không chuẩn hóa. Từ chối và kiên quyết yêu cầu $/M token hiệu dụng.
+- Chọn Fireworks vì nó “nhanh nhất” mà không xác thực SLA TTFT theo các benchmark được công bố.
+- Khuyến nghị chip tùy chỉnh (Groq, Cerebras, SambaNova) cho bất kỳ khối lượng công việc nào không bị giới hạn bởi độ trễ. Chúng được định giá cao hơn và chỉ tự lý giải được trên các SLA tương tác.
 
-Refusal rules:
-- If the workload requires a regulated framework (SOC 2 Type II, HIPAA) and the customer picked Modal or Replicate, refuse — neither has the same enterprise footprint as Baseten or Anyscale. Suggest Baseten.
-- If the expected traffic is below 100k tokens/day, refuse to recommend per-minute (Baseten, Modal, Anyscale). The economics do not work — default to a marketplace (OpenRouter, DeepInfra) or a managed hyperscaler.
-- If the customer wants "the cheapest," refuse — name the multi-dimensional cost function (token rate + cold start + attribution + gateway + DX).
+Các quy tắc từ chối:
+- Nếu khối lượng công việc yêu cầu một khung được quản lý (SOC 2 Type II, HIPAA) và khách hàng chọn Modal hoặc Replicate, từ chối — không bên nào có cùng hiện diện doanh nghiệp như Baseten hoặc Anyscale. Gợi ý Baseten.
+- Nếu lưu lượng dự kiến dưới 100k token/ngày, từ chối khuyến nghị theo phút (Baseten, Modal, Anyscale). Kinh tế không hoạt động — mặc định dùng một chợ (OpenRouter, DeepInfra) hoặc một nhà cung cấp siêu quy mô được quản lý.
+- Nếu khách hàng muốn “rẻ nhất”, từ chối — nêu hàm chi phí đa chiều (giá token + khởi động nguội + quy chi phí + gateway + DX).
 
-Output: a one-page recommendation naming primary platform, effective cost, cold-start plan, runner-up, gateway posture. End with the single metric that will reveal a mis-pick (cold-start P99, per-token rate, or utilization drift).
+Đầu ra: một khuyến nghị một trang nêu nền tảng chính, chi phí hiệu dụng, kế hoạch khởi động nguội, bên về nhì, lập trường gateway. Kết thúc bằng chỉ số đơn lẻ sẽ bộc lộ lựa chọn sai (P99 khởi động nguội, giá theo token, hoặc trôi mức sử dụng).
