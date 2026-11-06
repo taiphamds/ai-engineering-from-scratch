@@ -1,6 +1,6 @@
 # Music Generation — MusicGen, Stable Audio, Suno, and the Licensing Earthquake
 
-> 2026 music generation: Suno v5 and Udio v4 dominate commercial; MusicGen, Stable Audio Open, and ACE-Step lead open-source. The technical problem is mostly solved. The legal problem (Warner Music $500M settlement, UMG settlement) reshaped the field in 2025-2026.
+> Sinh nhạc năm 2026: Suno v5 và Udio v4 thống trị thương mại; MusicGen, Stable Audio Open và ACE-Step dẫn đầu mã nguồn mở. Bài toán kỹ thuật phần lớn đã được giải quyết. Bài toán pháp lý (thỏa thuận Warner Music $500M, thỏa thuận UMG) định hình lại lĩnh vực trong 2025-2026.
 
 **Type:** Build
 **Languages:** Python
@@ -9,11 +9,11 @@
 
 ## The Problem
 
-Text → a 30-second to 4-minute music clip, with lyrics, vocals, and structure. Three sub-problems:
+Văn bản → một đoạn nhạc dài từ 30 giây đến 4 phút, với lời, giọng hát và cấu trúc. Ba bài toán con:
 
-1. **Instrumental generation.** Text like "lo-fi hip-hop drums with warm keys" → audio. MusicGen, Stable Audio, AudioLDM.
-2. **Song generation (with vocals + lyrics).** "Country song about rainy Texas nights" → full song. Suno, Udio, YuE, ACE-Step.
-3. **Conditional / controllable.** Extend an existing clip, regenerate a bridge, swap genre, stem-separate, or inpaint. Udio's inpainting + stem separation is the 2026 feature to match.
+1. **Sinh nhạc không lời.** Văn bản như "trống lo-fi hip-hop với tiếng phím ấm" → âm thanh. MusicGen, Stable Audio, AudioLDM.
+2. **Sinh bài hát (với giọng hát + lời).** "Bài hát đồng quê về những đêm Texas mưa" → bài hát đầy đủ. Suno, Udio, YuE, ACE-Step.
+3. **Có điều kiện / điều khiển được.** Kéo dài một đoạn hiện có, sinh lại một đoạn chuyển, đổi thể loại, tách stem hoặc inpaint. Inpainting + tách stem của Udio là tính năng cần sánh kịp năm 2026.
 
 ## The Concept
 
@@ -21,52 +21,52 @@ Text → a 30-second to 4-minute music clip, with lyrics, vocals, and structure.
 
 ### Token LM over neural-codec tokens
 
-Meta's **MusicGen** (2023, MIT) and many derivatives: condition on text/melody embeddings, autoregressively predict EnCodec tokens (32 kHz, 4 codebooks), decode with EnCodec. 300M - 3.3B params. Strong baseline; struggles past 30 seconds.
+**MusicGen** của Meta (2023, MIT) và nhiều phái sinh: điều kiện hóa theo embedding văn bản/giai điệu, dự đoán tự hồi quy các token EnCodec (32 kHz, 4 codebook), giải mã bằng EnCodec. 300M - 3.3B tham số. Baseline mạnh; chật vật sau 30 giây.
 
-**ACE-Step** (open-source, 4B XL released April 2026) extends this for full-song lyric-conditioned generation. The open community's closest thing to Suno.
+**ACE-Step** (mã nguồn mở, 4B XL phát hành tháng 4 năm 2026) mở rộng cách này để sinh toàn bài hát được điều kiện hóa theo lời. Thứ gần Suno nhất của cộng đồng mở.
 
 ### Diffusion over mels or latents
 
-**Stable Audio (2023)** and **Stable Audio Open (2024)**: latent diffusion on compressed audio. Excels at loops, sound design, ambient textures. Not great at structured full songs.
+**Stable Audio (2023)** và **Stable Audio Open (2024)**: latent diffusion trên âm thanh được nén. Xuất sắc với các vòng lặp, thiết kế âm thanh, kết cấu âm thanh môi trường. Không giỏi các bài hát đầy đủ có cấu trúc.
 
-**AudioLDM / AudioLDM2**: text-to-audio via T2I-style latent diffusion, generalized to music, sound effects, speech.
+**AudioLDM / AudioLDM2**: văn bản thành âm thanh qua latent diffusion kiểu T2I, khái quát sang âm nhạc, hiệu ứng âm thanh, tiếng nói.
 
 ### Hybrid (production) — Suno, Udio, Lyria
 
-Closed weights. Likely AR codec LM + diffusion-based vocoder with specialized voice / drum / melody heads. Suno v5 (2026) is the ELO 1293 quality leader. Udio v4 adds inpainting + stem separation (bass, drums, vocals separate downloads).
+Trọng số đóng. Có lẽ là LM codec AR + vocoder dựa trên diffusion với các head giọng / trống / giai điệu chuyên biệt. Suno v5 (2026) dẫn đầu chất lượng với ELO 1293. Udio v4 thêm inpainting + tách stem (tải riêng bass, trống, giọng hát).
 
 ### Evaluation
 
-- **FAD (Fréchet Audio Distance).** Embedding-level distance between generated vs real audio distribution using VGGish or PANNs features. Lower is better. MusicGen small: 4.5 FAD on MusicCaps; SOTA ~3.0.
-- **Musicality (subjective).** Human preference. Suno v5 ELO 1293 leads.
-- **Text-audio alignment.** CLAP score between prompt and output.
-- **Musicality artifacts.** Off-beat transitions, vocal-phrase drift, loss of structure past 30 s.
+- **FAD (Fréchet Audio Distance).** Khoảng cách cấp embedding giữa phân phối âm thanh được sinh và thực bằng các đặc trưng VGGish hoặc PANNs. Thấp hơn là tốt hơn. MusicGen small: 4.5 FAD trên MusicCaps; SOTA ~3.0.
+- **Tính nhạc (chủ quan).** Sự ưu tiên của con người. Suno v5 ELO 1293 dẫn đầu.
+- **Căn chỉnh văn bản-âm thanh.** Điểm CLAP giữa prompt và đầu ra.
+- **Các tạo tác tính nhạc.** Các chuyển tiếp lệch nhịp, độ trôi cụm giọng hát, mất cấu trúc sau 30 s.
 
 ## 2026 model map
 
-| Model | Params | Length | Vocals | License |
+| Mô hình | Tham số | Độ dài | Giọng hát | Giấy phép |
 |-------|--------|--------|--------|---------|
-| MusicGen-large | 3.3B | 30 s | no | MIT |
-| Stable Audio Open | 1.2B | 47 s | no | Stability non-commercial |
-| ACE-Step XL (Apr 2026) | 4B | &gt; 2 min | yes | Apache-2.0 |
-| YuE | 7B | &gt; 2 min | yes, multilingual | Apache-2.0 |
-| Suno v5 (closed) | ? | 4 min | yes, ELO 1293 | commercial |
-| Udio v4 (closed) | ? | 4 min | yes + stems | commercial |
-| Google Lyria 3 (closed) | ? | real-time | yes | commercial |
-| MiniMax Music 2.5 | ? | 4 min | yes | commercial API |
+| MusicGen-large | 3.3B | 30 s | không | MIT |
+| Stable Audio Open | 1.2B | 47 s | không | Stability phi thương mại |
+| ACE-Step XL (tháng 4 năm 2026) | 4B | &gt; 2 phút | có | Apache-2.0 |
+| YuE | 7B | &gt; 2 phút | có, đa ngôn ngữ | Apache-2.0 |
+| Suno v5 (đóng) | ? | 4 phút | có, ELO 1293 | thương mại |
+| Udio v4 (đóng) | ? | 4 phút | có + stem | thương mại |
+| Google Lyria 3 (đóng) | ? | thời gian thực | có | thương mại |
+| MiniMax Music 2.5 | ? | 4 phút | có | API thương mại |
 
 ## The legal landscape (2025-2026)
 
-- **Warner Music vs Suno settlement.** $500M. WMG now has oversight of AI-likeness, music rights, and user-generated tracks on Suno. Similar UMG settlement on Udio.
-- **EU AI Act** + **California SB 942**: AI-generated music must be disclosed.
-- **Riffusion / MusicGen** under MIT have no compliance baggage but also no commercial vocals.
+- **Thỏa thuận Warner Music với Suno.** $500M. WMG hiện có quyền giám sát sự mô phỏng bằng AI, quyền âm nhạc và các bản nhạc do người dùng tạo trên Suno. Thỏa thuận UMG tương tự trên Udio.
+- **EU AI Act** + **California SB 942**: nhạc do AI sinh phải được công khai.
+- **Riffusion / MusicGen** theo MIT không mang gánh nặng tuân thủ nhưng cũng không có giọng hát thương mại.
 
-Safe-to-ship patterns:
+Các mẫu an toàn để phát hành:
 
-1. Generate instrumental only (MusicGen, Stable Audio Open, MIT/CC0 outputs).
-2. Use commercial APIs (Suno, Udio, ElevenLabs Music) with per-generation license.
-3. Train on owned or licensed catalog (most enterprises end up here).
-4. Tag generations with watermarks + metadata.
+1. Chỉ sinh nhạc không lời (MusicGen, Stable Audio Open, các đầu ra MIT/CC0).
+2. Dùng các API thương mại (Suno, Udio, ElevenLabs Music) với giấy phép theo lần sinh.
+3. Huấn luyện trên danh mục sở hữu hoặc được cấp phép (hầu hết doanh nghiệp cuối cùng ở đây).
+4. Gắn nhãn các lần sinh bằng watermark + metadata.
 
 ```figure
 sp-codec-tokens
@@ -86,7 +86,7 @@ wav = model.generate(["upbeat synthwave with driving drums, 128 BPM"])
 torchaudio.save("out.wav", wav[0].cpu(), 32000)
 ```
 
-Three sizes: `small` (300M, fast), `medium` (1.5B), `large` (3.3B). Small is enough for "does the idea land."
+Ba kích thước: `small` (300M, nhanh), `medium` (1.5B), `large` (3.3B). Small đủ cho "ý tưởng có hiệu quả không."
 
 ### Step 2: melody conditioning
 
@@ -99,7 +99,7 @@ wav = model.generate_with_chroma(
 )
 ```
 
-MusicGen-melody takes a chromagram and preserves the tune while swapping timbre. Useful for "give me this melody as a string quartet."
+MusicGen-melody nhận một chromagram và giữ giai điệu trong khi đổi âm sắc. Hữu ích cho "cho tôi giai điệu này dưới dạng tứ tấu dây."
 
 ### Step 3: FAD evaluation
 
@@ -110,11 +110,11 @@ fad = FrechetAudioDistance()
 fad.get_fad_score("generated_folder/", "reference_folder/")
 ```
 
-Computes VGGish-embedding distance. Useful for genre-level regression tests; not a substitute for human listeners.
+Tính khoảng cách embedding VGGish. Hữu ích cho các kiểm thử hồi quy cấp thể loại; không thay thế người nghe.
 
 ### Step 4: adding to the LLM-music workflow
 
-Combine with the ideas from Lessons 7-8:
+Kết hợp với các ý tưởng từ Bài 7-8:
 
 ```python
 prompt = "Write a 30-second jazz loop. Describe the drums, bass, and piano voicing."
@@ -124,49 +124,49 @@ music = musicgen.generate([description], duration=30)
 
 ## Use It
 
-| Goal | Stack |
+| Mục tiêu | Ngăn xếp |
 |------|-------|
-| Instrumental sound design | Stable Audio Open |
-| Game / adaptive music | Google Lyria RealTime (closed) |
-| Full songs with vocals (commercial) | Suno v5 or Udio v4 with explicit license |
-| Full songs with vocals (open) | ACE-Step XL or YuE |
-| Short ad jingle | MusicGen melody-conditioned on a hummed reference |
-| Music-video background | MusicGen + Stable Video Diffusion |
+| Thiết kế âm thanh không lời | Stable Audio Open |
+| Nhạc trò chơi / thích nghi | Google Lyria RealTime (đóng) |
+| Các bài hát đầy đủ với giọng hát (thương mại) | Suno v5 hoặc Udio v4 với giấy phép rõ ràng |
+| Các bài hát đầy đủ với giọng hát (mở) | ACE-Step XL hoặc YuE |
+| Nhạc hiệu quảng cáo ngắn | MusicGen được điều kiện hóa theo giai điệu từ một tham chiếu ngân nga |
+| Nhạc nền video âm nhạc | MusicGen + Stable Video Diffusion |
 
 ## Pitfalls that still ship in 2026
 
-- **Copyright-laundering prompts.** "Song in the style of Taylor Swift" — commercial Suno/Udio filter these now, open models do not. Add your own filter list.
-- **Repetition / drift past 30 s.** AR models loop. Crossfade multiple generations, or use ACE-Step for structural coherence.
-- **Tempo drift.** Models wander off the BPM. Use BPM tags in the prompt and post-filter with librosa's `beat_track`.
-- **Vocal intelligibility.** Suno is excellent; open models are often mushy on words. If lyrics matter, use a commercial API or fine-tune.
-- **Mono output.** Open models generate mono or fake-stereo. Upgrade with a proper stereo reconstruction (ezst, Cartesia's stereo diffusion).
+- **Các prompt rửa bản quyền.** "Bài hát theo phong cách Taylor Swift" — Suno/Udio thương mại hiện lọc chúng, các mô hình mở thì không. Thêm danh sách lọc của riêng bạn.
+- **Lặp lại / trôi sau 30 s.** Các mô hình AR lặp vòng. Crossfade nhiều lần sinh, hoặc dùng ACE-Step để có độ mạch lạc cấu trúc.
+- **Độ trôi nhịp độ.** Các mô hình đi chệch BPM. Dùng các nhãn BPM trong prompt và lọc sau bằng `beat_track` của librosa.
+- **Tính dễ hiểu giọng hát.** Suno xuất sắc; các mô hình mở thường không rõ từ. Nếu lời quan trọng, dùng một API thương mại hoặc fine-tune.
+- **Đầu ra mono.** Các mô hình mở sinh mono hoặc stereo giả. Nâng cấp bằng tái tạo stereo đúng (ezst, stereo diffusion của Cartesia).
 
 ## Ship It
 
-Save as `outputs/skill-music-designer.md`. Pick model, license strategy, length / structure plan, and disclosure metadata for a music-gen deployment.
+Lưu thành `outputs/skill-music-designer.md`. Chọn mô hình, chiến lược giấy phép, kế hoạch độ dài / cấu trúc và metadata công khai cho một triển khai sinh nhạc.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. It produces a "generative" chord progression + drum pattern as ASCII symbols — a music-gen cartoon. Play it back via any MIDI renderer if you want.
-2. **Medium.** Install `audiocraft`, generate 10-second clips across 4 genre prompts with MusicGen-small, measure FAD against a reference genre set.
-3. **Hard.** Using ACE-Step (or MusicGen-melody), generate three variations of the same tune with different timbre prompts. Compute CLAP similarity to the prompt to verify alignment.
+1. **Dễ.** Chạy `code/main.py`. Nó tạo một tiến trình hợp âm + mẫu trống "sinh" dưới dạng ký hiệu ASCII — một hình biếm họa sinh nhạc. Phát lại bằng bất kỳ bộ kết xuất MIDI nào nếu bạn muốn.
+2. **Trung bình.** Cài `audiocraft`, sinh các đoạn 10 giây trên 4 prompt thể loại bằng MusicGen-small, đo FAD so với một tập thể loại tham chiếu.
+3. **Khó.** Dùng ACE-Step (hoặc MusicGen-melody), sinh ba biến thể cùng giai điệu với các prompt âm sắc khác nhau. Tính độ tương đồng CLAP với prompt để xác minh căn chỉnh.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| FAD | Audio FID | Fréchet distance between embedding distributions of real vs generated. |
-| Chromagram | Melody as pitches | 12-dim per-frame vector; input to melody conditioning. |
-| Stems | Instrument tracks | Separated bass / drums / vocals / melody as WAV. |
-| Inpainting | Regen a section | Mask a time window; model regenerates just that. |
-| CLAP | Text-audio CLIP | Contrastive audio-text embedding; eval text-audio alignment. |
-| EnCodec | Music codec | Meta's neural codec used by MusicGen; 32 kHz, 4 codebooks. |
+| FAD | FID âm thanh | Khoảng cách Fréchet giữa các phân phối embedding của thực so với được sinh. |
+| Chromagram | Giai điệu dưới dạng cao độ | Vector 12 chiều theo khung; đầu vào để điều kiện hóa giai điệu. |
+| Stems | Các track nhạc cụ | Bass / trống / giọng hát / giai điệu được tách dưới dạng WAV. |
+| Inpainting | Sinh lại một phần | Che một cửa sổ thời gian; mô hình chỉ sinh lại phần đó. |
+| CLAP | CLIP văn bản-âm thanh | Embedding âm thanh-văn bản tương phản; đánh giá căn chỉnh văn bản-âm thanh. |
+| EnCodec | Codec âm nhạc | Codec nơ-ron của Meta được MusicGen dùng; 32 kHz, 4 codebook. |
 
 ## Further Reading
 
-- [Copet et al. (2023). MusicGen](https://arxiv.org/abs/2306.05284) — the open autoregressive benchmark.
-- [Evans et al. (2024). Stable Audio Open](https://arxiv.org/abs/2407.14358) — the sound-design default.
-- [ACE-Step](https://github.com/ace-step/ACE-Step) — open 4B full-song generator, April 2026.
-- [Suno v5 platform docs](https://suno.com) — the commercial quality leader.
-- [AudioLDM2](https://arxiv.org/abs/2308.05734) — latent diffusion for music + sound effects.
-- [WMG-Suno settlement coverage](https://www.musicbusinessworldwide.com/warner-music-group-settles-with-suno-strikes-first-of-its-kind-deal-with-ai-song-generator/) — Nov 2025 precedent.
+- [Copet et al. (2023). MusicGen](https://arxiv.org/abs/2306.05284) — benchmark tự hồi quy mở.
+- [Evans et al. (2024). Stable Audio Open](https://arxiv.org/abs/2407.14358) — mặc định thiết kế âm thanh.
+- [ACE-Step](https://github.com/ace-step/ACE-Step) — bộ sinh toàn bài hát 4B mở, tháng 4 năm 2026.
+- [Suno v5 platform docs](https://suno.com) — dẫn đầu chất lượng thương mại.
+- [AudioLDM2](https://arxiv.org/abs/2308.05734) — latent diffusion cho âm nhạc + hiệu ứng âm thanh.
+- [WMG-Suno settlement coverage](https://www.musicbusinessworldwide.com/warner-music-group-settles-with-suno-strikes-first-of-its-kind-deal-with-ai-song-generator/) — tiền lệ tháng 11 năm 2025.

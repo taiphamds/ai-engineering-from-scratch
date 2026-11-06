@@ -7,21 +7,21 @@ lesson: 09
 tags: [music-generation, musicgen, stable-audio, suno, licensing]
 ---
 
-Given the brief (instrumental vs song, length, commercial vs research, genre, budget), output:
+Với bản yêu cầu (nhạc không lời so với bài hát, độ dài, thương mại so với nghiên cứu, thể loại, ngân sách), xuất ra:
 
-1. Model. MusicGen (size) · Stable Audio Open · ACE-Step XL · YuE · Suno (v5) · Udio (v4) · ElevenLabs Music · Google Lyria 3 / RealTime · MiniMax Music 2.5. One-sentence reason.
-2. License and rights. Commercial license for the generated clip · Attribution (CC) · Non-commercial limited · Owned catalog fine-tune. Document rightsholder and chain.
-3. Length + structure. Single generation · chunked + crossfade · inpainting for bridge · stem separation if tracks need editing. Handle the 30-second drift wall explicitly.
-4. Prompt schema. Key / BPM / genre / instrumentation + (for vocal models) lyrics + mood tags. Restrict celebrity names and trademarked style tags.
-5. Disclosure + metadata. Watermark (AudioSeal where applicable), `isAIGenerated` metadata tag, AI-disclosure overlay for EU AI Act / CA SB 942 compliance.
+1. Mô hình. MusicGen (kích thước) · Stable Audio Open · ACE-Step XL · YuE · Suno (v5) · Udio (v4) · ElevenLabs Music · Google Lyria 3 / RealTime · MiniMax Music 2.5. Lý do trong một câu.
+2. Giấy phép và quyền. Giấy phép thương mại cho đoạn được sinh · Ghi công (CC) · Giới hạn phi thương mại · Fine-tune danh mục sở hữu. Ghi lại chủ quyền và chuỗi quyền.
+3. Độ dài + cấu trúc. Một lần sinh · chia khối + crossfade · inpainting cho đoạn chuyển · tách stem nếu các track cần chỉnh sửa. Xử lý rõ ràng bức tường độ trôi 30 giây.
+4. Schema prompt. Giọng / BPM / thể loại / phối khí + (với các mô hình giọng hát) lời + các nhãn tâm trạng. Hạn chế tên người nổi tiếng và các nhãn phong cách có nhãn hiệu.
+5. Công khai + metadata. Watermark (AudioSeal khi áp dụng), nhãn metadata `isAIGenerated`, lớp phủ công khai AI để tuân thủ EU AI Act / CA SB 942.
 
-Refuse celebrity-style prompts on open models (commercial APIs filter; self-host does not). Refuse non-commercial-licensed generations (Stable Audio Open) for paid products. Refuse deploying vocal-music without disclosure tagging. Flag stem-editing pipelines that depend on Udio stems — those come with commercial terms, not free use.
+Từ chối các prompt phong cách người nổi tiếng trên các mô hình mở (các API thương mại lọc; tự lưu trữ thì không). Từ chối các lần sinh được cấp phép phi thương mại (Stable Audio Open) cho các sản phẩm trả phí. Từ chối triển khai nhạc có giọng hát mà không gắn nhãn công khai. Đánh dấu các pipeline chỉnh stem phụ thuộc vào stem Udio — chúng đi kèm các điều khoản thương mại, không phải dùng miễn phí.
 
-Example input: "Background music for a meditation app. Instrumental. Full commercial rights required. Up to 5 min per track."
+Đầu vào ví dụ: "Nhạc nền cho một ứng dụng thiền. Không lời. Yêu cầu đầy đủ quyền thương mại. Tối đa 5 phút mỗi track."
 
-Example output:
-- Model: MusicGen-large (MIT) for instrumental with full commercial rights. No Stable Audio (non-commercial).
-- License: MIT — commercial rights retained by deployer. Track rightsholder: app company.
-- Length: chunk into 30s segments with 3s crossfade; 10 generations concatenated → 5 min. Add a subtle ambient fade-in/out envelope to hide drift.
-- Prompt: `"slow ambient meditation, 60 BPM, soft strings and low pad, in D minor, no drums"` — pin BPM, pin key, pin instrumentation, explicitly exclude percussive elements.
-- Disclosure: `"AI-generated music"` tag in app credits; metadata `creator=AI-Gen:MusicGen-large, date=<iso>`. AudioSeal optional (instrumental has lower forgery risk, but defense-in-depth).
+Đầu ra ví dụ:
+- Mô hình: MusicGen-large (MIT) cho nhạc không lời với đầy đủ quyền thương mại. Không Stable Audio (phi thương mại).
+- Giấy phép: MIT — bên triển khai giữ quyền thương mại. Chủ quyền track: công ty ứng dụng.
+- Độ dài: chia thành các đoạn 30s với crossfade 3s; 10 lần sinh được nối → 5 phút. Thêm một đường bao âm lượng vào/ra môi trường tinh tế để che độ trôi.
+- Prompt: `"slow ambient meditation, 60 BPM, soft strings and low pad, in D minor, no drums"` — cố định BPM, cố định giọng, cố định phối khí, loại rõ ràng các yếu tố gõ.
+- Công khai: nhãn `"AI-generated music"` trong phần ghi công ứng dụng; metadata `creator=AI-Gen:MusicGen-large, date=<iso>`. AudioSeal tùy chọn (nhạc không lời có rủi ro giả mạo thấp hơn, nhưng phòng vệ nhiều lớp).
