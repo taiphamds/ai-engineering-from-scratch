@@ -1,9 +1,9 @@
 # Lesson 17 - Personal AI Tutor (TypeScript web app)
 
-TypeScript half of the capstone. Python side ships the learner model and
-tutor policy; this project exposes the web-app surface: a curriculum DAG
-walker, a BKT-style learner model, and an FSRS-lite spaced-repetition
-scheduler behind two HTTP routes.
+Nửa TypeScript của bài tổng kết. Phía Python cung cấp mô hình người học và
+chính sách gia sư; dự án này cung cấp bề mặt ứng dụng web: một trình duyệt DAG chương trình học,
+một mô hình người học kiểu BKT, và một bộ lập lịch lặp lại ngắt quãng FSRS-lite
+phía sau hai tuyến HTTP.
 
 ## Layout
 
