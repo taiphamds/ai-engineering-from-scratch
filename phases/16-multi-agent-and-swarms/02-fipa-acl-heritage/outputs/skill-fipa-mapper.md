@@ -7,27 +7,27 @@ lesson: 02
 tags: [multi-agent, protocols, FIPA, speech-acts, interoperability]
 ---
 
-Given a new agent-protocol spec, produce the FIPA-ACL mapping so the reader can tell which parts are reinvention and which are genuine new structure.
+Với một đặc tả giao thức agent mới, tạo ánh xạ FIPA-ACL để người đọc có thể biết những phần nào là tái phát minh và những phần nào là cấu trúc thực sự mới.
 
-Produce:
+Tạo ra:
 
-1. **Envelope mapping.** For each message type the spec defines, name the nearest FIPA performative (`inform`, `request`, `query-if`, `query-ref`, `propose`, `accept-proposal`, `reject-proposal`, `cfp`, `subscribe`, `cancel`, `failure`, `not-understood`, or one of the other ~20). If no performative fits, describe the gap precisely.
-2. **Correlation model.** How does the spec correlate requests to replies, cancellation to the original request, and streamed events to the subscribe? Compare to FIPA's `:conversation-id` and `:reply-with` fields.
-3. **Content-language stance.** Does the spec mandate a content schema (typed artifacts, JSON-Schema), accept natural language, or leave it open? Compare to FIPA's SL0/SL1 and ontology fields.
-4. **Interaction-protocol library.** Which FIPA interaction protocols are implementable on top of the spec: contract-net, subscribe-notify, request-when, propose-accept? Name the messages that would implement each.
-5. **Discovery model.** How does an agent find counterparties and capabilities (MCP `listTools`, A2A Agent Card, ANP DID + meta-protocol)? Compare to FIPA's directory facilitator and yellow-pages service.
-6. **Reinvention vs novelty.** Produce a short table with three columns: [FIPA concept, modern spec equivalent, what changed]. Mark each row as [reinvention] or [novel-structure]. A row is "novel-structure" only when the spec introduces a primitive that FIPA did not have — decentralized identity, typed multimodal artifacts, and LLM-interpretable content are the common candidates.
+1. **Ánh xạ vỏ bọc.** Với mỗi loại thông điệp đặc tả định nghĩa, nêu hành vi ngôn hành FIPA gần nhất (`inform`, `request`, `query-if`, `query-ref`, `propose`, `accept-proposal`, `reject-proposal`, `cfp`, `subscribe`, `cancel`, `failure`, `not-understood`, hoặc một trong ~20 hành vi khác). Nếu không hành vi ngôn hành nào phù hợp, mô tả khoảng trống chính xác.
+2. **Mô hình tương quan.** Đặc tả tương quan các yêu cầu với trả lời, việc hủy với yêu cầu gốc, và các sự kiện truyền luồng với đăng ký như thế nào? So sánh với các trường `:conversation-id` và `:reply-with` của FIPA.
+3. **Lập trường ngôn ngữ nội dung.** Đặc tả bắt buộc một lược đồ nội dung (các hiện vật có kiểu, JSON-Schema), chấp nhận ngôn ngữ tự nhiên, hay để mở? So sánh với SL0/SL1 và các trường bản thể học của FIPA.
+4. **Thư viện giao thức tương tác.** Các giao thức tương tác FIPA nào có thể triển khai trên đặc tả: contract-net, subscribe-notify, request-when, propose-accept? Nêu các thông điệp sẽ triển khai mỗi giao thức.
+5. **Mô hình khám phá.** Một agent tìm các đối tác và năng lực như thế nào (MCP `listTools`, Agent Card A2A, ANP DID + siêu giao thức)? So sánh với bộ hỗ trợ danh bạ và dịch vụ trang vàng của FIPA.
+6. **Tái phát minh so với tính mới.** Tạo một bảng ngắn với ba cột: [khái niệm FIPA, dạng tương đương trong đặc tả hiện đại, những gì thay đổi]. Đánh dấu mỗi hàng là [tái phát minh] hoặc [cấu trúc mới]. Một hàng chỉ là “cấu trúc mới” khi đặc tả đưa vào một nguyên thủy FIPA không có — danh tính phi tập trung, các hiện vật đa phương thức có kiểu, và nội dung LLM có thể diễn giải là các ứng viên phổ biến.
 
-Hard rejects:
+Các trường hợp loại bỏ dứt khoát:
 
-- Any mapping that claims a spec is "revolutionary" without showing a primitive FIPA did not have. Speech-act theory + ontology overhead was the failure mode, not the primitives.
-- Framework comparisons that ignore the discovery layer. A spec without discovery is incomplete, not novel.
-- Statements like "Protocol X replaces FIPA" without addressing what happens when two agents disagree about content meaning (semantic drift).
+- Bất kỳ ánh xạ nào tuyên bố một đặc tả là “cách mạng” mà không cho thấy một nguyên thủy FIPA không có. Lý thuyết hành vi ngôn ngữ + chi phí phụ bản thể học là chế độ lỗi, không phải các nguyên thủy.
+- Các so sánh framework bỏ qua lớp khám phá. Một đặc tả không có khám phá là không đầy đủ, không phải mới.
+- Các tuyên bố như “Giao thức X thay thế FIPA” mà không giải quyết điều gì xảy ra khi hai agent không đồng ý về ý nghĩa nội dung (trôi ngữ nghĩa).
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the spec is pre-standardization (draft < 6 months old, no public implementations), state that the mapping is provisional and flag the three most likely changes.
-- If the spec is closed-source or enterprise-only (some ACP flavors), map what is documented and name the gaps.
-- If the user supplies only a blog post (no spec document), ask for the spec before mapping.
+- Nếu đặc tả ở giai đoạn trước tiêu chuẩn hóa (bản dự thảo < 6 tháng tuổi, không có triển khai công khai), nêu rằng ánh xạ là tạm thời và đánh dấu ba thay đổi có khả năng cao nhất.
+- Nếu đặc tả đóng nguồn hoặc chỉ dành cho doanh nghiệp (một số biến thể ACP), ánh xạ những gì được ghi tài liệu và nêu các khoảng trống.
+- Nếu người dùng chỉ cung cấp một bài blog (không có tài liệu đặc tả), yêu cầu đặc tả trước khi ánh xạ.
 
-Output: a one-page brief. Start with a single-sentence summary ("Protocol X is FIPA `request`/`subscribe` with JSON syntax and a DID-based discovery layer."), then the six sections above, then a closing paragraph answering: "Which old FIPA failure mode will this spec rediscover?"
+Đầu ra: một bản tóm lược một trang. Bắt đầu với một tóm tắt một câu (“Giao thức X là FIPA `request`/`subscribe` với cú pháp JSON và một lớp khám phá dựa trên DID.”), rồi sáu phần ở trên, rồi một đoạn kết trả lời: “Đặc tả này sẽ khám phá lại chế độ lỗi FIPA cũ nào?”

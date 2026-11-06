@@ -1,6 +1,6 @@
 # Heritage of FIPA-ACL and Speech Acts
 
-> Before MCP, before A2A, there was FIPA-ACL. In 2000 the IEEE Foundation for Intelligent Physical Agents ratified an agent communication language with twenty performatives, two content languages, and a set of interaction protocols — contract net, subscribe/notify, request-when. It faded from industry because the ontology overhead was too heavy for the web, but the LLM revival of multi-agent systems is quietly reimplementing the same ideas without the formal semantics: JSON contracts stand in for performatives, natural language stands in for ontologies. This lesson reads FIPA-ACL seriously so you can see which 2026 protocol decisions are reinvention, which are novelty, and where the current wave is going to rediscover problems the 2000s already solved.
+> Trước MCP, trước A2A, đã có FIPA-ACL. Năm 2000, IEEE Foundation for Intelligent Physical Agents phê chuẩn một ngôn ngữ giao tiếp agent với hai mươi hành vi ngôn hành, hai ngôn ngữ nội dung, và một tập giao thức tương tác — contract net, subscribe/notify, request-when. Nó phai nhạt khỏi ngành vì chi phí phụ bản thể học quá nặng cho web, nhưng sự hồi sinh của các hệ thống đa agent nhờ LLM đang âm thầm triển khai lại cùng các ý tưởng mà không có ngữ nghĩa hình thức: các hợp đồng JSON thay cho các hành vi ngôn hành, ngôn ngữ tự nhiên thay cho các bản thể học. Bài này đọc FIPA-ACL nghiêm túc để bạn có thể thấy những quyết định giao thức năm 2026 nào là tái phát minh, những quyết định nào là mới, và nơi làn sóng hiện tại sẽ khám phá lại các vấn đề mà những năm 2000 đã giải quyết.
 
 **Type:** Learn
 **Languages:** Python (stdlib)
@@ -9,40 +9,40 @@
 
 ## Problem
 
-The 2026 agent-protocol landscape is busy: MCP for tools, A2A for agents, ACP for enterprise audit, ANP for decentralized trust, NLIP for natural-language content, plus CA-MCP and two dozen research proposals. Each spec announces itself as foundational.
+Bối cảnh giao thức agent năm 2026 nhộn nhịp: MCP cho công cụ, A2A cho agent, ACP cho kiểm toán doanh nghiệp, ANP cho sự tin cậy phi tập trung, NLIP cho nội dung ngôn ngữ tự nhiên, cộng với CA-MCP và hai chục đề xuất nghiên cứu. Mỗi đặc tả tự tuyên bố là nền tảng.
 
-The honest read is that most of them are rediscovering a very specific twenty-year-old decision tree. Speech-act theory from Austin (1962) and Searle (1969) gave us "utterances are actions." KQML (1993) turned that into a wire protocol. FIPA-ACL (ratified 2000) produced the reference standardization: twenty performatives, content languages SL0/SL1, interaction protocols for contract-net and subscribe-notify. JADE and JACK were the Java reference platforms. The effort faded around 2010 because the ontology overhead was too heavy and the web was winning.
+Cách đọc thẳng thắn là hầu hết chúng đang khám phá lại một cây quyết định rất cụ thể đã hai mươi năm tuổi. Lý thuyết hành vi ngôn ngữ từ Austin (1962) và Searle (1969) cho chúng ta “phát ngôn là hành động.” KQML (1993) biến điều đó thành một giao thức truyền tải. FIPA-ACL (phê chuẩn năm 2000) tạo ra sự tiêu chuẩn hóa tham chiếu: hai mươi hành vi ngôn hành, các ngôn ngữ nội dung SL0/SL1, các giao thức tương tác cho contract-net và subscribe-notify. JADE và JACK là các nền tảng tham chiếu Java. Nỗ lực phai nhạt vào khoảng năm 2010 vì chi phí phụ bản thể học quá nặng và web đang thắng.
 
-When you look at MCP's `tools/call`, A2A's task lifecycle, or CA-MCP's shared context store, you are looking at a softer, JSON-native rehash of FIPA decisions. Knowing the heritage tells you two things: which new "innovations" are actually reinventions, and which old failure modes the new specs will rediscover.
+Khi bạn nhìn `tools/call` của MCP, vòng đời tác vụ của A2A, hoặc kho ngữ cảnh dùng chung của CA-MCP, bạn đang nhìn một bản làm lại mềm hơn, thuần JSON của các quyết định FIPA. Biết di sản cho bạn biết hai điều: những “đổi mới” mới nào thực ra là tái phát minh, và những chế độ lỗi cũ nào các đặc tả mới sẽ khám phá lại.
 
 ## Concept
 
 ### Speech acts, in one paragraph
 
-Austin noticed that some sentences do not describe the world — they change it. "I promise." "I request." "I declare." He called these performative utterances. Searle formalized five categories: assertive, directive, commissive, expressive, declarative. KQML (Finin et al., 1993) made this operational for software agents: a message is a performative (the action) plus content (what the action is about). FIPA-ACL cleaned up KQML's gaps and standardized around twenty performatives.
+Austin nhận thấy rằng một số câu không mô tả thế giới — chúng thay đổi nó. “Tôi hứa.” “Tôi yêu cầu.” “Tôi tuyên bố.” Ông gọi chúng là các phát ngôn ngôn hành. Searle hình thức hóa năm loại: khẳng định, chỉ dẫn, cam kết, biểu cảm, tuyên bố. KQML (Finin và cộng sự, 1993) làm điều này trở nên vận hành được cho các agent phần mềm: một thông điệp là một hành vi ngôn hành (hành động) cộng với nội dung (hành động nói về điều gì). FIPA-ACL dọn các khoảng trống của KQML và tiêu chuẩn hóa quanh hai mươi hành vi ngôn hành.
 
 ### The twenty FIPA performatives (partial list)
 
-| Performative | Intent |
+| Hành vi ngôn hành | Ý định |
 |---|---|
-| `inform` | "I tell you P is true" |
-| `request` | "I ask you to do X" |
-| `query-if` | "Is P true?" |
-| `query-ref` | "What is the value of X?" |
-| `propose` | "I propose we do X" |
-| `accept-proposal` | "I accept the proposal" |
-| `reject-proposal` | "I reject the proposal" |
-| `agree` | "I agree to do X" |
-| `refuse` | "I refuse to do X" |
-| `confirm` | "I confirm P is true" |
-| `disconfirm` | "I deny P" |
-| `not-understood` | "Your message did not parse" |
-| `cfp` | "Call for proposals on X" |
-| `subscribe` | "Notify me when X changes" |
-| `cancel` | "Cancel the ongoing X" |
-| `failure` | "I tried X and failed" |
+| `inform` | “Tôi nói cho bạn biết P là đúng” |
+| `request` | “Tôi yêu cầu bạn làm X” |
+| `query-if` | “P có đúng không?” |
+| `query-ref` | “Giá trị của X là gì?” |
+| `propose` | “Tôi đề xuất chúng ta làm X” |
+| `accept-proposal` | “Tôi chấp nhận đề xuất” |
+| `reject-proposal` | “Tôi từ chối đề xuất” |
+| `agree` | “Tôi đồng ý làm X” |
+| `refuse` | “Tôi từ chối làm X” |
+| `confirm` | “Tôi xác nhận P là đúng” |
+| `disconfirm` | “Tôi phủ nhận P” |
+| `not-understood` | “Thông điệp của bạn không phân tích cú pháp được” |
+| `cfp` | “Mời đề xuất về X” |
+| `subscribe` | “Thông báo cho tôi khi X thay đổi” |
+| `cancel` | “Hủy X đang diễn ra” |
+| `failure` | “Tôi đã thử X và thất bại” |
 
-The full list is in `fipa00037.pdf` (FIPA ACL Message Structure). The point is not to memorize it — the point is that every one of these corresponds to a primitive an LLM protocol eventually re-adds.
+Danh sách đầy đủ nằm trong `fipa00037.pdf` (FIPA ACL Message Structure). Mục đích không phải là ghi nhớ nó — mục đích là mỗi mục này tương ứng với một nguyên thủy mà một giao thức LLM cuối cùng bổ sung lại.
 
 ### Canonical FIPA-ACL message
 
@@ -59,26 +59,26 @@ The full list is in `fipa00037.pdf` (FIPA ACL Message Structure). The point is n
 )
 ```
 
-Seven fields carry the protocol envelope; one field (`content`) carries the payload. The rest of the fields are exactly what you reinvent every time you bolt retries, threading, and ontology onto a JSON protocol.
+Bảy trường mang vỏ bọc giao thức; một trường (`content`) mang payload. Phần còn lại của các trường chính xác là những gì bạn tái phát minh mỗi khi gắn thêm thử lại, phân luồng, và bản thể học vào một giao thức JSON.
 
 ### The two legacy platforms
 
-**JADE** (Java Agent DEvelopment framework, 1999–2020s) was the most-used FIPA-compliant runtime. Agents extended a base class, exchanged ACL messages, ran inside containers, and coordinated using "behaviors." The interaction-protocol library shipped with contract-net, subscribe-notify, request-when, and propose-accept.
+**JADE** (Java Agent DEvelopment framework, 1999–những năm 2020) là môi trường chạy tuân thủ FIPA được sử dụng nhiều nhất. Các agent mở rộng một lớp cơ sở, trao đổi các thông điệp ACL, chạy bên trong các container, và phối hợp bằng các “hành vi.” Thư viện giao thức tương tác được cung cấp với contract-net, subscribe-notify, request-when, và propose-accept.
 
-**JACK** (Agent Oriented Software, commercial) emphasized BDI (Belief-Desire-Intention) reasoning on top of FIPA messages. More formal, less adopted.
+**JACK** (Agent Oriented Software, thương mại) nhấn mạnh suy luận BDI (Niềm tin-Mong muốn-Ý định) trên các thông điệp FIPA. Hình thức hơn, ít được áp dụng hơn.
 
-Both declined once the web stack ate multi-agent use cases. MCP and A2A are the runtime "containers" of 2026.
+Cả hai suy giảm một khi ngăn xếp web nuốt các trường hợp sử dụng đa agent. MCP và A2A là các “container” môi trường chạy của năm 2026.
 
 ### Why FIPA faded
 
-- **Ontology overhead.** FIPA required a shared ontology to parse `content`. Agreeing on ontologies is a years-long standards process. The web just used HTTP + JSON.
-- **Formal semantics nobody used.** SL (Semantic Language) gave rigorous truth conditions, but most production systems used free-form content and ignored the formalism.
-- **Tooling lock-in.** JADE was Java-only; JACK was commercial. Polyglot teams routed around both.
-- **The internet won the stack.** REST, then JSON-RPC, then gRPC replaced ACL's transport.
+- **Chi phí phụ bản thể học.** FIPA yêu cầu một bản thể học dùng chung để phân tích cú pháp `content`. Thống nhất các bản thể học là một quá trình tiêu chuẩn kéo dài nhiều năm. Web chỉ dùng HTTP + JSON.
+- **Ngữ nghĩa hình thức không ai sử dụng.** SL (Ngôn ngữ ngữ nghĩa) đưa ra các điều kiện chân trị nghiêm ngặt, nhưng hầu hết các hệ thống sản xuất sử dụng nội dung dạng tự do và bỏ qua tính hình thức.
+- **Khóa chặt công cụ.** JADE chỉ dành cho Java; JACK là thương mại. Các nhóm đa ngôn ngữ đi vòng qua cả hai.
+- **Internet thắng ngăn xếp.** REST, rồi JSON-RPC, rồi gRPC thay thế lớp truyền tải của ACL.
 
 ### The LLM revival is FIPA-lite
 
-Compare a FIPA `request` to an MCP `tools/call`:
+So sánh một `request` FIPA với một `tools/call` MCP:
 
 ```
 (request                                {
@@ -90,59 +90,59 @@ Compare a FIPA `request` to an MCP `tools/call`:
 )                                        }
 ```
 
-Same envelope, different syntax. Both carry: who, whom, intent, payload, correlation id. Neither is a revolution over the other — they are different trade-offs on the same design.
+Cùng vỏ bọc, khác cú pháp. Cả hai mang: ai, tới ai, ý định, payload, id tương quan. Không bên nào là một cuộc cách mạng so với bên kia — chúng là các đánh đổi khác nhau trên cùng thiết kế.
 
-The 2025 survey by Liu et al. ("A Survey of Agent Interoperability Protocols: MCP, ACP, A2A, ANP", arXiv:2505.02279) makes this lineage explicit: MCP corresponds to tool-use speech acts, A2A to agent-peer speech acts, ACP to audit-trail speech acts, ANP to decentralized-identity extensions. The new specs are ACL descendants with JSON syntax and looser semantics.
+Khảo sát năm 2025 của Liu và cộng sự (“A Survey of Agent Interoperability Protocols: MCP, ACP, A2A, ANP”, arXiv:2505.02279) làm dòng kế thừa này tường minh: MCP tương ứng với các hành vi ngôn ngữ sử dụng công cụ, A2A với các hành vi ngôn ngữ agent ngang hàng, ACP với các hành vi ngôn ngữ dấu vết kiểm toán, ANP với các mở rộng danh tính phi tập trung. Các đặc tả mới là hậu duệ ACL với cú pháp JSON và ngữ nghĩa lỏng hơn.
 
 ### The trade-off, stated plainly
 
-**What FIPA gave you and modern specs drop:**
+**Những gì FIPA cho bạn và các đặc tả hiện đại bỏ:**
 
-- Formal semantics — you can prove `inform` implies the sender believes the content.
-- A canonical catalog of performatives — you do not have to re-argue "should we have a `cancel`?".
-- Decades of interaction-protocol patterns — contract-net, subscribe-notify, propose-accept — with known correctness properties.
+- Ngữ nghĩa hình thức — bạn có thể chứng minh `inform` kéo theo người gửi tin nội dung.
+- Một danh mục chuẩn các hành vi ngôn hành — bạn không phải tranh luận lại “chúng ta có nên có một `cancel` không?”.
+- Nhiều thập kỷ các mẫu giao thức tương tác — contract-net, subscribe-notify, propose-accept — với các thuộc tính đúng đắn đã biết.
 
-**What modern specs give you and FIPA did not:**
+**Những gì các đặc tả hiện đại cho bạn và FIPA không có:**
 
-- JSON-native payloads compatible with every modern tool.
-- Natural-language content that LLMs can interpret without a hand-coded ontology.
-- Web-stack transport (HTTP, SSE, WebSocket).
-- Capability discovery via live MCP `server/discover` and A2A Agent Cards.
+- Các payload thuần JSON tương thích với mọi công cụ hiện đại.
+- Nội dung ngôn ngữ tự nhiên mà LLM có thể diễn giải mà không có một bản thể học viết tay.
+- Truyền tải ngăn xếp web (HTTP, SSE, WebSocket).
+- Khám phá năng lực qua MCP `server/discover` trực tiếp và Agent Card A2A.
 
-Looser intent semantics for easier implementation. That is the exact trade.
+Ngữ nghĩa ý định lỏng hơn để triển khai dễ hơn. Đó là đánh đổi chính xác.
 
 ### Interaction protocols worth porting
 
-FIPA shipped ~15 interaction protocols. Three are worth carrying forward into LLM multi-agent systems:
+FIPA cung cấp ~15 giao thức tương tác. Ba giao thức đáng mang tiếp vào các hệ thống đa agent LLM:
 
-1. **Contract Net Protocol (CNP).** Manager issues `cfp` (call for proposals); bidders respond with `propose`; manager accepts/rejects. This is the canonical task-market pattern (Phase 16 · 16 Negotiation).
-2. **Subscribe/Notify.** Subscriber sends `subscribe`; publisher sends `inform` whenever the topic changes. This is every event-bus in 2026.
-3. **Request-When.** "Do X when condition Y holds." Delayed-action with pre-conditions. The 2026 analog is deferred tasks in durable workflow engines (Phase 16 · 22 Production Scaling).
+1. **Giao thức Contract Net (CNP).** Người quản lý phát `cfp` (mời đề xuất); các bên dự thầu phản hồi bằng `propose`; người quản lý chấp nhận/từ chối. Đây là mẫu thị trường tác vụ chuẩn (Giai đoạn 16 · 16 Đàm phán).
+2. **Đăng ký/Thông báo.** Bên đăng ký gửi `subscribe`; bên xuất bản gửi `inform` mỗi khi chủ đề thay đổi. Đây là mọi bus sự kiện trong năm 2026.
+3. **Yêu cầu khi.** “Làm X khi điều kiện Y đúng.” Hành động trì hoãn với các tiền điều kiện. Dạng tương tự năm 2026 là các tác vụ hoãn trong các engine quy trình bền vững (Giai đoạn 16 · 22 Mở rộng quy mô sản xuất).
 
-Each maps cleanly onto modern message queues, HTTP + polling, or SSE streaming.
+Mỗi giao thức ánh xạ gọn gàng lên các hàng đợi thông điệp hiện đại, HTTP + thăm dò, hoặc truyền luồng SSE.
 
 ### What breaks when you drop the ontology
 
-Without a shared ontology, agents infer meaning from natural-language content. The documented 2026 failure mode is **semantic drift**: two agents use the same word (`"customer"`) for subtly different concepts, the receiver's agent acts on the wrong interpretation, no schema validator catches it. FIPA's ontology requirement would have rejected the message at parse time.
+Không có một bản thể học dùng chung, các agent suy ra ý nghĩa từ nội dung ngôn ngữ tự nhiên. Chế độ lỗi được ghi nhận năm 2026 là **trôi ngữ nghĩa**: hai agent sử dụng cùng từ (`"customer"`) cho các khái niệm khác nhau tinh tế, agent của bên nhận hành động theo diễn giải sai, không bộ xác thực lược đồ nào bắt được nó. Yêu cầu bản thể học của FIPA sẽ từ chối thông điệp tại thời điểm phân tích cú pháp.
 
-Mitigations without going full ontology:
+Các biện pháp giảm thiểu mà không chuyển hoàn toàn sang bản thể học:
 
-- JSON Schema on `content` — rejects structural errors at the wire.
-- Typed artifacts (A2A) — rejects wrong modality.
-- Explicit performative in the envelope — makes intent unambiguous even when content is natural language.
+- JSON Schema trên `content` — từ chối các lỗi cấu trúc trên đường truyền.
+- Các hiện vật có kiểu (A2A) — từ chối sai phương thức.
+- Hành vi ngôn hành tường minh trong vỏ bọc — làm ý định không mơ hồ ngay cả khi nội dung là ngôn ngữ tự nhiên.
 
 ### The 2026 specs, mapped to speech-act heritage
 
-| Modern spec | FIPA analog | What it keeps | What it drops |
+| Đặc tả hiện đại | Dạng tương tự FIPA | Những gì nó giữ | Những gì nó bỏ |
 |---|---|---|---|
-| MCP `tools/call` | `request` | explicit intent, correlation id | formal semantics, ontology |
-| MCP `resources/read` | `query-ref` | explicit intent, correlation id | formal semantics |
-| A2A Task lifecycle | contract-net + request-when | async lifecycle, state transitions | formal completeness guarantees |
-| A2A streaming events | subscribe/notify | async push | typed-predicate subscription |
-| CA-MCP shared context | blackboard (Hayes-Roth 1985) | multi-writer shared memory | logical consistency model |
-| NLIP | natural-language content | LLM-native | schema |
+| MCP `tools/call` | `request` | ý định tường minh, id tương quan | ngữ nghĩa hình thức, bản thể học |
+| MCP `resources/read` | `query-ref` | ý định tường minh, id tương quan | ngữ nghĩa hình thức |
+| Vòng đời Task A2A | contract-net + request-when | vòng đời bất đồng bộ, chuyển trạng thái | các bảo đảm tính đầy đủ hình thức |
+| Các sự kiện truyền luồng A2A | subscribe/notify | đẩy bất đồng bộ | đăng ký vị từ có kiểu |
+| Ngữ cảnh dùng chung CA-MCP | bảng đen (Hayes-Roth 1985) | bộ nhớ dùng chung nhiều người ghi | mô hình nhất quán logic |
+| NLIP | nội dung ngôn ngữ tự nhiên | thuần LLM | lược đồ |
 
-Reading the table top to bottom, the pattern is: keep the structural primitive, drop the formalism, let LLMs paper over the ambiguity.
+Đọc bảng từ trên xuống dưới, mẫu là: giữ nguyên thủy cấu trúc, bỏ tính hình thức, để LLM che lấp sự mơ hồ.
 
 ```figure
 sw-contract-net
@@ -150,62 +150,62 @@ sw-contract-net
 
 ## Build It
 
-`code/main.py` implements a pure-stdlib FIPA-ACL translator. It encodes and decodes the canonical ACL envelope and shows how every MCP / A2A message shape reduces to the same seven fields. The demo:
+`code/main.py` triển khai một bộ chuyển đổi FIPA-ACL thuần thư viện chuẩn. Nó mã hóa và giải mã vỏ bọc ACL chuẩn và cho thấy cách mọi hình dạng thông điệp MCP / A2A quy về cùng bảy trường. Bản demo:
 
-- Encodes five MCP-style and A2A-style messages as FIPA-ACL.
-- Decodes FIPA-ACL back to the modern equivalent.
-- Runs a toy Contract Net negotiation between one manager and three bidders using `cfp`, `propose`, `accept-proposal`, `reject-proposal`.
+- Mã hóa năm thông điệp kiểu MCP và kiểu A2A dưới dạng FIPA-ACL.
+- Giải mã FIPA-ACL trở lại dạng tương đương hiện đại.
+- Chạy một cuộc đàm phán Contract Net đồ chơi giữa một người quản lý và ba bên dự thầu sử dụng `cfp`, `propose`, `accept-proposal`, `reject-proposal`.
 
-Run:
+Chạy:
 
 ```
 python3 code/main.py
 ```
 
-The output is a side-by-side trace showing each modern message in both its 2026 JSON form and its FIPA-ACL form, then a round-trip of a contract-net bid. The same protocol primitives survive the round-trip; only the syntax differs.
+Đầu ra là một dấu vết đặt cạnh nhau cho thấy mỗi thông điệp hiện đại trong cả dạng JSON năm 2026 lẫn dạng FIPA-ACL, rồi một vòng khứ hồi của một giá thầu contract-net. Cùng các nguyên thủy giao thức tồn tại qua vòng khứ hồi; chỉ cú pháp khác.
 
 ## Use It
 
-`outputs/skill-fipa-mapper.md` is a skill that reads any agent-protocol spec and produces the FIPA-ACL mapping. Use it before adopting a new protocol to answer: "Is this genuinely new, or is it `inform` with JSON syntax?"
+`outputs/skill-fipa-mapper.md` là một skill đọc bất kỳ đặc tả giao thức agent nào và tạo ánh xạ FIPA-ACL. Sử dụng nó trước khi áp dụng một giao thức mới để trả lời: “Điều này thực sự mới, hay nó là `inform` với cú pháp JSON?”
 
 ## Ship It
 
-Do not bring FIPA-ACL back. Bring back its checklist:
+Đừng mang FIPA-ACL trở lại. Mang danh sách kiểm tra của nó trở lại:
 
-- What is the intent primitive (performative) of each message?
-- Is there a correlation id for request-response and cancellation?
-- Is there an explicit content language (JSON-RPC, plain text, structured typed artifact)?
-- Are interaction protocols first-class, or are you re-implementing contract-net from scratch?
-- What happens when two agents disagree about content meaning (semantic drift)?
+- Nguyên thủy ý định (hành vi ngôn hành) của mỗi thông điệp là gì?
+- Có một id tương quan cho yêu cầu-phản hồi và hủy không?
+- Có một ngôn ngữ nội dung tường minh (JSON-RPC, văn bản thuần, hiện vật có kiểu có cấu trúc) không?
+- Các giao thức tương tác có là hạng nhất, hay bạn đang triển khai lại contract-net từ đầu?
+- Điều gì xảy ra khi hai agent không đồng ý về ý nghĩa nội dung (trôi ngữ nghĩa)?
 
-Document these five questions for any new protocol before you ship it into production.
+Ghi lại năm câu hỏi này cho bất kỳ giao thức mới nào trước khi bạn đưa nó vào sản xuất.
 
 ## Exercises
 
-1. Run `code/main.py`. Observe the round-trip encoding. Identify which FIPA performative corresponds to `tools/call`, `resources/read`, and A2A task creation.
-2. Extend the contract-net demo with a `cancel` performative that lets the manager withdraw the task mid-bid. What failure case does `cancel` solve that retries alone do not?
-3. Read FIPA ACL Message Structure (http://www.fipa.org/specs/fipa00037/) sections 4.1–4.3. Pick one performative not covered in this lesson and describe its modern JSON-RPC analog.
-4. Read Liu et al., arXiv:2505.02279. For each of MCP, A2A, ACP, ANP, list the FIPA performative families they keep and drop.
-5. Design a minimal JSON-Schema for the `content` field of a `request` performative in your own system. What does that schema give you that pure natural-language does not, and what does it cost?
+1. Chạy `code/main.py`. Quan sát mã hóa khứ hồi. Xác định hành vi ngôn hành FIPA nào tương ứng với `tools/call`, `resources/read`, và tạo tác vụ A2A.
+2. Mở rộng demo contract-net với một hành vi ngôn hành `cancel` cho phép người quản lý rút tác vụ giữa lúc đấu thầu. `cancel` giải quyết trường hợp lỗi nào mà chỉ thử lại không giải quyết được?
+3. Đọc FIPA ACL Message Structure (http://www.fipa.org/specs/fipa00037/) các mục 4.1–4.3. Chọn một hành vi ngôn hành không được trình bày trong bài này và mô tả dạng tương tự JSON-RPC hiện đại của nó.
+4. Đọc Liu và cộng sự, arXiv:2505.02279. Với mỗi giao thức MCP, A2A, ACP, ANP, liệt kê các họ hành vi ngôn hành FIPA mà chúng giữ và bỏ.
+5. Thiết kế một JSON-Schema tối thiểu cho trường `content` của một hành vi ngôn hành `request` trong hệ thống của chính bạn. Lược đồ đó cho bạn điều gì mà ngôn ngữ tự nhiên thuần túy không cho, và nó tốn gì?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Speech act | "An utterance that does something" | Austin/Searle: utterances as actions. The theoretical parent of ACL. |
-| FIPA | "That old XML thing" | IEEE Foundation for Intelligent Physical Agents. Standardized ACL in 2000. |
-| ACL | "Agent Communication Language" | FIPA's envelope format: performative + content + metadata. |
-| Performative | "The verb" | The intent class of a message: `inform`, `request`, `propose`, `cfp`, etc. |
-| KQML | "FIPA's predecessor" | Knowledge Query and Manipulation Language (1993). Simpler, narrower. |
-| Ontology | "Shared vocabulary" | A formal definition of the concepts the content language talks about. |
-| SL0 / SL1 | "FIPA content languages" | Semantic Language levels 0 and 1 — the formal content language family. |
-| Contract Net | "Task market" | Manager issues cfp; bidders propose; manager accepts. The canonical interaction protocol. |
-| Interaction protocol | "Pattern of messages" | A sequence of performatives with known correctness: request-when, subscribe-notify, etc. |
+| Speech act (Hành vi ngôn ngữ) | “Một phát ngôn làm điều gì đó” | Austin/Searle: phát ngôn như hành động. Cha mẹ lý thuyết của ACL. |
+| FIPA | “Thứ XML cũ đó” | IEEE Foundation for Intelligent Physical Agents. Tiêu chuẩn hóa ACL năm 2000. |
+| ACL | “Ngôn ngữ giao tiếp agent” | Định dạng vỏ bọc của FIPA: hành vi ngôn hành + nội dung + siêu dữ liệu. |
+| Performative (Hành vi ngôn hành) | “Động từ” | Loại ý định của một thông điệp: `inform`, `request`, `propose`, `cfp`, v.v. |
+| KQML | “Tiền thân của FIPA” | Ngôn ngữ truy vấn và thao tác tri thức (1993). Đơn giản hơn, hẹp hơn. |
+| Ontology (Bản thể học) | “Bộ từ vựng dùng chung” | Một định nghĩa hình thức về các khái niệm mà ngôn ngữ nội dung nói tới. |
+| SL0 / SL1 | “Các ngôn ngữ nội dung FIPA” | Các cấp Ngôn ngữ ngữ nghĩa 0 và 1 — họ ngôn ngữ nội dung hình thức. |
+| Contract Net (Mạng hợp đồng) | “Thị trường tác vụ” | Người quản lý phát cfp; các bên dự thầu đề xuất; người quản lý chấp nhận. Giao thức tương tác chuẩn. |
+| Interaction protocol (Giao thức tương tác) | “Mẫu thông điệp” | Một chuỗi các hành vi ngôn hành với tính đúng đắn đã biết: request-when, subscribe-notify, v.v. |
 
 ## Further Reading
 
-- [Liu et al. — A Survey of Agent Interoperability Protocols: MCP, ACP, A2A, ANP](https://arxiv.org/html/2505.02279v1) — the canonical 2025 survey connecting modern specs to FIPA heritage
-- [FIPA ACL Message Structure Specification (fipa00037)](http://www.fipa.org/specs/fipa00037/) — the ratified 2000 envelope format
-- [FIPA Communicative Act Library Specification (fipa00037)](http://www.fipa.org/specs/fipa00037/) — the full performative catalog
-- [MCP specification 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28) — the current stateless tool-use equivalent of `request`/`query-ref`
-- [A2A specification](https://a2a-protocol.org/latest/specification/) — the modern agent-peer equivalent of contract-net and subscribe-notify
+- [Liu et al. — A Survey of Agent Interoperability Protocols: MCP, ACP, A2A, ANP](https://arxiv.org/html/2505.02279v1) — khảo sát chuẩn năm 2025 kết nối các đặc tả hiện đại với di sản FIPA
+- [FIPA ACL Message Structure Specification (fipa00037)](http://www.fipa.org/specs/fipa00037/) — định dạng vỏ bọc được phê chuẩn năm 2000
+- [FIPA Communicative Act Library Specification (fipa00037)](http://www.fipa.org/specs/fipa00037/) — danh mục hành vi ngôn hành đầy đủ
+- [MCP specification 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28) — dạng tương đương sử dụng công cụ không trạng thái hiện tại của `request`/`query-ref`
+- [A2A specification](https://a2a-protocol.org/latest/specification/) — dạng tương đương agent ngang hàng hiện đại của contract-net và subscribe-notify
