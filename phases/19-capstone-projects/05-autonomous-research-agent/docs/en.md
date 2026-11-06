@@ -1,6 +1,6 @@
 # Capstone 05 — Autonomous Research Agent (AI-Scientist Class)
 
-> Sakana's AI-Scientist-v2 published full papers. Agent Laboratory ran the experiments. Allen AI shared traces. The 2026 shape is plan-execute-verify tree search over experiments, budgeted cost, sandboxed code execution, a vision-feedback LaTeX writer, and an automated NeurIPS-style reviewer ensemble. The capstone is to build one, run it end to end within $30 per paper, and survive the sandbox-escape red team that Sakana documented.
+> AI-Scientist-v2 của Sakana công bố bài báo đầy đủ. Agent Laboratory chạy thí nghiệm. Allen AI chia sẻ dấu vết. Hình dạng 2026 là tìm kiếm cây lập kế hoạch-thực thi-xác minh trên thí nghiệm, chi phí có ngân sách, thực thi mã trong sandbox, bộ viết LaTeX phản hồi thị giác và tổ hợp phản biện tự động kiểu NeurIPS. Bài tổng kết là xây một hệ thống, chạy đầu cuối trong $30 mỗi bài và trụ qua red team thoát sandbox Sakana ghi nhận.
 
 **Type:** Capstone
 **Languages:** Python (agent + sandbox), LaTeX (output)
@@ -10,17 +10,17 @@
 
 ## Problem
 
-Autonomous research agents crossed a threshold in 2026. Sakana AI's AI-Scientist-v2 was published in Nature with generated papers that cleared workshop peer review. ShinkaEvolve (ICLR 2026) extended the line to evolving hypotheses. AMD's Agent Laboratory shipped reproducible traces. The agents are not magic — they are a plan-execute-verify loop running over a tree of candidate experiments, with cost caps, seed-bound sandboxes, and automated review. The craft is in the loop, the budget, and the safety story.
+Agent nghiên cứu tự chủ vượt ngưỡng năm 2026. AI-Scientist-v2 Sakana AI được công bố trên Nature với bài được sinh vượt phản biện workshop. ShinkaEvolve (ICLR 2026) mở rộng hướng sang giả thuyết tiến hóa. Agent Laboratory AMD cung cấp dấu vết tái lập được. Agent không là phép thuật — là vòng lặp lập kế hoạch-thực thi-xác minh chạy trên cây thí nghiệm ứng viên, với trần chi phí, sandbox gắn seed và phản biện tự động. Kỹ nghệ nằm ở vòng lặp, ngân sách và câu chuyện an toàn.
 
-You learn the loop by implementing one against a seed idea in a narrow domain (for example, attention-sparsity ablations on a 100M-parameter transformer). The value is not in discovering something new on the first run. The value is in the infrastructure: the tree-search, the experiment sandbox, the writer-reviewer loop, the red-team report. The Sakana team documented sandbox-escape failures; your agent must pass the same red team.
+Bạn học vòng lặp bằng triển khai một hệ thống theo ý tưởng hạt giống trong miền hẹp (ví dụ: thí nghiệm loại bỏ độ thưa attention trên transformer 100M tham số). Giá trị không nằm ở khám phá mới trong lần chạy đầu. Giá trị nằm ở hạ tầng: tìm kiếm cây, sandbox thí nghiệm, vòng lặp viết-phản biện, báo cáo red-team. Nhóm Sakana ghi nhận lỗi thoát sandbox; agent của bạn phải vượt cùng red team.
 
 ## Concept
 
-The agent is a best-first tree search. Nodes are experiment specifications: (hypothesis, config, code, expected outcome). An expand step proposes children with small edits (swap optimizer, shift batch size, ablate a component). Each child runs in a fresh sandbox with a hard resource cap. Results feed back into a scoring function that ranks nodes by (novelty × quality × remaining budget). The tree grows until budget is exhausted, then the best branch is written up.
+Agent là tìm kiếm cây ưu tiên tốt nhất. Nút là đặc tả thí nghiệm: (giả thuyết, cấu hình, mã, kết quả kỳ vọng). Bước mở rộng đề xuất nút con với sửa nhỏ (đổi bộ tối ưu, đổi kích thước lô, loại thành phần). Mỗi con chạy sandbox mới với trần tài nguyên cứng. Kết quả đưa lại hàm chấm xếp nút theo (tính mới × chất lượng × ngân sách còn). Cây tăng đến khi hết ngân sách, rồi nhánh tốt nhất được viết thành bài.
 
-The writer is multimodal. It generates a LaTeX draft, compiles it, renders figures, and feeds the rendered PDF back into Claude Opus 4.7's vision mode for critique on layout, figure legibility, and claim-evidence alignment. A reviewer ensemble of five LLM judges emits NeurIPS-style scores (novelty, rigor, clarity, reproducibility, impact); if the average drops below threshold, the paper returns to the writer with critique.
+Bộ viết đa phương thức. Nó tạo bản thảo LaTeX, biên dịch, render hình và đưa PDF đã render trở lại chế độ thị giác Claude Opus 4.7 để phê bình bố cục, độ rõ hình, phù hợp khẳng định-bằng chứng. Tổ hợp năm giám khảo LLM xuất điểm kiểu NeurIPS (tính mới, nghiêm ngặt, rõ ràng, tái lập, tác động); nếu trung bình dưới ngưỡng, bài trở lại bộ viết với phê bình.
 
-Safety is load-bearing. Every experiment runs in an E2B or Daytona sandbox with no network egress, bounded wall-clock, and pinned resource limits. The agent's code-generation step passes through a policy layer that blocks syscalls that escape the sandbox. The red-team report reproduces the Sakana-documented attack surface (fork bombs, filesystem escapes, LLM-written network calls).
+An toàn đóng vai trò quyết định. Mọi thí nghiệm chạy sandbox E2B hoặc Daytona không lưu lượng mạng ra, thời gian thực có giới hạn và giới hạn tài nguyên được ghim. Bước sinh mã agent qua lớp chính sách chặn syscall thoát sandbox. Báo cáo red-team tái tạo bề mặt tấn công Sakana ghi nhận (fork bomb, thoát hệ thống file, lệnh gọi mạng LLM viết).
 
 ## Architecture
 
@@ -60,14 +60,14 @@ seed idea + domain
 
 ## Stack
 
-- Orchestration: LangGraph with checkpointing and human-approval gates
-- Tree search: custom best-first over experiment nodes (AB-MCTS-style from Sakana v2)
-- Sandbox: E2B per experiment, Docker-in-Docker fallback; resource caps via cgroups
-- Literature: Semantic Scholar Graph API + OpenAlex + local FAISS cache of abstracts
-- Writer: LaTeX template + Claude Opus 4.7 (vision mode) for figure critique and layout
-- Reviewer: ensemble of 5 judges (Opus 4.7, GPT-5.4, Gemini 3 Pro, DeepSeek R1, Qwen3-Max) with weighted aggregation
-- Experiment framework: PyTorch 2.5 for the physical experiments, W&B for logging
-- Observability: Langfuse for agent traces, $30 hard budget per paper
+- Điều phối: LangGraph có checkpoint và cổng con người phê duyệt
+- Tìm kiếm cây: ưu tiên tốt nhất tùy chỉnh trên nút thí nghiệm (kiểu AB-MCTS từ Sakana v2)
+- Sandbox: E2B mỗi thí nghiệm, dự phòng Docker-in-Docker; trần tài nguyên qua cgroups
+- Tài liệu nghiên cứu: Semantic Scholar Graph API + OpenAlex + bộ nhớ đệm FAISS cục bộ cho tóm tắt
+- Bộ viết: mẫu LaTeX + Claude Opus 4.7 (chế độ thị giác) để phê bình hình và bố cục
+- Bộ phản biện: tổ hợp 5 giám khảo (Opus 4.7, GPT-5.4, Gemini 3 Pro, DeepSeek R1, Qwen3-Max) với tổng hợp trọng số
+- Framework thí nghiệm: PyTorch 2.5 cho thí nghiệm vật lý, W&B để ghi log
+- Khả năng quan sát: Langfuse cho dấu vết agent, ngân sách cứng $30 mỗi bài
 
 ```figure
 ce-experiment-tree
@@ -75,23 +75,23 @@ ce-experiment-tree
 
 ## Build It
 
-1. **Seed and domain scoping.** Take a seed idea (e.g., "investigate sparsity patterns in attention maps of sub-1B transformers"). Define the search space: models, datasets, compute budget.
+1. **Xác định seed và phạm vi miền.** Lấy ý tưởng hạt giống (ví dụ: "khảo sát mẫu độ thưa trong bản đồ attention của transformer dưới 1B"). Định nghĩa không gian tìm: mô hình, tập dữ liệu, ngân sách tính toán.
 
-2. **Literature pass.** Query Semantic Scholar + OpenAlex for 50 most-cited relevant papers; cache abstracts locally; generate a 1-page domain digest.
+2. **Lượt tài liệu nghiên cứu.** Truy vấn Semantic Scholar + OpenAlex cho 50 bài liên quan được trích nhiều nhất; lưu bộ nhớ đệm tóm tắt cục bộ; tạo bản tổng hợp miền 1 trang.
 
-3. **Tree scaffolding.** Initialize the root with the seed hypothesis. Implement `expand(node) -> children` with small-edit proposals (one config change per child). Implement `score(node)` as a weighted novelty × quality × budget term.
+3. **Dựng khung cây.** Khởi tạo gốc bằng giả thuyết hạt giống. Triển khai `expand(node) -> children` với đề xuất sửa nhỏ (một đổi cấu hình mỗi con). Triển khai `score(node)` như số hạng có trọng số tính mới × chất lượng × ngân sách.
 
-4. **Sandbox wrapping.** Every experiment runs `docker run --network=none --memory=8g --cpus=2 --pids-limit=256 --read-only` (or the equivalent E2B policy). Seeds are written to the sandbox; outputs are mounted read-only back out.
+4. **Bọc sandbox.** Mỗi thí nghiệm chạy `docker run --network=none --memory=8g --cpus=2 --pids-limit=256 --read-only` (hoặc chính sách E2B tương đương). Seed được ghi vào sandbox; đầu ra gắn chỉ đọc trở ra.
 
-5. **Plan-execute-verify loop.** `plan` proposes children. `execute` runs the sandbox, captures logs and metrics. `verify` runs unit checks on metrics (did the loss decrease? did the ablation isolate the effect?). Failed nodes get a failure reason stored on the tree.
+5. **Vòng lặp lập kế hoạch-thực thi-xác minh.** `plan` đề xuất con. `execute` chạy sandbox, thu log và chỉ số. `verify` chạy kiểm tra đơn vị trên chỉ số (mất mát có giảm? loại bỏ có cô lập hiệu ứng?). Nút thất bại có lý do lỗi lưu trên cây.
 
-6. **Writer.** After budget, select the best branch. Render figures with matplotlib. Generate a LaTeX draft via Claude Opus 4.7 with the branch trace in context. Compile. Feed the compiled PDF back to Opus 4.7 vision for critique. Iterate.
+6. **Bộ viết.** Sau ngân sách, chọn nhánh tốt nhất. Render hình bằng matplotlib. Tạo bản thảo LaTeX qua Claude Opus 4.7 với dấu vết nhánh trong ngữ cảnh. Biên dịch. Đưa PDF biên dịch trở lại thị giác Opus 4.7 để phê bình. Lặp.
 
-7. **Reviewer ensemble.** Five judges score the draft on (novelty, rigor, clarity, reproducibility, impact) with NeurIPS-style rubrics. If mean < 4.0/5, return to writer with critique. Hard stop after 3 rewrites.
+7. **Tổ hợp phản biện.** Năm giám khảo chấm bản thảo theo (tính mới, nghiêm ngặt, rõ ràng, tái lập, tác động) bằng tiêu chí kiểu NeurIPS. Nếu trung bình < 4.0/5, trả bộ viết với phê bình. Dừng cứng sau 3 lần viết lại.
 
-8. **Red team.** Build or integrate a set of adversarial tasks targeting the sandbox: fork bombs, network exfiltration attempts, filesystem escapes, LLM-written shell metacharacters. Confirm all are blocked. Write up findings.
+8. **Red team.** Xây hoặc tích hợp tập tác vụ đối kháng nhắm sandbox: fork bomb, nỗ lực đưa dữ liệu ra mạng trái phép, thoát hệ thống file, siêu ký tự shell LLM viết. Xác nhận tất cả bị chặn. Viết phát hiện.
 
-9. **Reproducibility.** Every paper ships with its tree-search trace JSON, seeds, W&B run links, sandbox configs, and a README reproducing it end to end.
+9. **Khả năng tái lập.** Mọi bài đi kèm JSON dấu vết tìm kiếm cây, seed, liên kết lần chạy W&B, cấu hình sandbox và README tái lập đầu cuối.
 
 ## Use It
 
@@ -112,48 +112,48 @@ $ ai-scientist run --seed "attention sparsity in sub-1B transformers" --budget 3
 
 ## Ship It
 
-`outputs/skill-ai-scientist.md` is the deliverable. Given a seed idea + a domain + a $30 budget, it runs the full pipeline and emits a reviewable paper plus a reproducibility bundle.
+`outputs/skill-ai-scientist.md` là sản phẩm bàn giao. Với ý tưởng hạt giống + miền + ngân sách $30, chạy toàn pipeline, xuất bài có thể phản biện cộng gói tái lập.
 
-| Weight | Criterion | How it is measured |
+| Trọng số | Tiêu chí | Cách đo |
 |:-:|---|---|
-| 25 | Paper quality | Blind rubric review against published workshop papers |
-| 20 | Experimental rigor | Baselines, seeds, ablations; every claim backed by a cell in the results table |
-| 20 | Cost and compute discipline | $30/paper ceiling enforced, Langfuse-traced |
-| 20 | Safety | Sandbox red team passes; network policy and kill-switch verified |
-| 15 | Reproducibility | One-command rerun with identical seeds reproduces the paper |
+| 25 | Chất lượng bài | Phản biện mù theo tiêu chí so bài workshop công bố |
+| 20 | Nghiêm ngặt thí nghiệm | Đường cơ sở, seed, loại bỏ; mọi khẳng định được ô bảng kết quả hỗ trợ |
+| 20 | Kỷ luật chi phí và tính toán | Thực thi trần $30/bài, theo dấu Langfuse |
+| 20 | An toàn | Red team sandbox vượt qua; chính sách mạng và công tắc ngắt được xác minh |
+| 15 | Khả năng tái lập | Chạy lại một lệnh với seed giống hệt tái tạo bài |
 | **100** | | |
 
 ## Exercises
 
-1. Run the pipeline against three different seed ideas in the same domain. Compare which parts of the tree-search overlap. Identify duplicated wasted compute.
+1. Chạy pipeline trên ba ý tưởng hạt giống khác trong cùng miền. So phần tìm kiếm cây chồng lấp. Xác định tính toán trùng lặp lãng phí.
 
-2. Add a human-in-the-loop gate before experiment execution for nodes estimated above $5. Measure how much total cost drops.
+2. Thêm cổng con người trong vòng lặp trước thực thi thí nghiệm cho nút ước tính trên $5. Đo tổng chi phí giảm bao nhiêu.
 
-3. Swap the reviewer ensemble for a single judge. Measure the false-accept rate on a held-out set of known-bad papers.
+3. Đổi tổ hợp phản biện thành một giám khảo. Đo tỷ lệ chấp nhận nhầm trên tập giữ riêng bài xấu đã biết.
 
-4. Introduce a network-exfiltration red team test: agent writes code that tries to `curl` an external address. Confirm the `--network=none` policy blocks it. Log the attempt.
+4. Thêm kiểm thử red-team đưa dữ liệu ra mạng: agent viết mã thử `curl` địa chỉ ngoài. Xác nhận chính sách `--network=none` chặn. Ghi log nỗ lực.
 
-5. Compare your tree-search with a flat random baseline (same budget, no expansion strategy). Report the novelty × quality gain.
+5. So tìm kiếm cây với đường cơ sở ngẫu nhiên phẳng (cùng ngân sách, không chiến lược mở rộng). Báo cáo mức tăng tính mới × chất lượng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|-----------------|------------------------|
-| Tree search | "AB-MCTS-style expansion" | Best-first exploration over experiment nodes with a novelty×quality×budget score |
-| Sandbox | "Experiment isolation" | Container with no network, bounded CPU/memory, pinned seeds, read-only inputs |
-| Vision critique | "Render-then-read" | Compile the paper to PDF, feed the PDF back to a VLM for layout and claim-evidence critique |
-| Reviewer ensemble | "Automated peer review" | Multiple LLM judges scoring the paper with a NeurIPS rubric; weighted aggregate gates the pipeline |
-| Novelty score | "Is this new?" | Heuristic that penalizes proximity to the 50-paper literature cache |
-| Cost ceiling | "$ budget" | Hard cap on total spend per paper; Langfuse counters + pre-run estimates |
-| Red team | "Sandbox-escape audit" | Adversarial tasks that would escape the sandbox if the policy is wrong |
+| Tree search (Tìm kiếm cây) | "Mở rộng kiểu AB-MCTS" | Khám phá ưu tiên tốt nhất trên nút thí nghiệm với điểm tính mới×chất lượng×ngân sách |
+| Sandbox | "Cô lập thí nghiệm" | Container không mạng, CPU/bộ nhớ có giới hạn, seed ghim, đầu vào chỉ đọc |
+| Vision critique (Phê bình thị giác) | "Render-rồi-đọc" | Biên dịch bài thành PDF, đưa PDF lại VLM để phê bình bố cục và khẳng định-bằng chứng |
+| Reviewer ensemble (Tổ hợp phản biện) | "Phản biện đồng cấp tự động" | Nhiều giám khảo LLM chấm bài bằng tiêu chí NeurIPS; tổng hợp trọng số kiểm soát pipeline |
+| Novelty score (Điểm tính mới) | "Có mới không?" | Heuristic phạt sự gần với bộ nhớ đệm tài liệu 50 bài |
+| Cost ceiling (Trần chi phí) | "Ngân sách $" | Trần cứng tổng chi tiêu mỗi bài; bộ đếm Langfuse + ước tính trước chạy |
+| Red team | "Kiểm tra thoát sandbox" | Tác vụ đối kháng sẽ thoát sandbox nếu chính sách sai |
 
 ## Further Reading
 
-- [Sakana AI-Scientist-v2 repository](https://github.com/SakanaAI/AI-Scientist-v2) — the reference production research agent
-- [Sakana AI-Scientist-v1 paper (arXiv:2408.06292)](https://arxiv.org/abs/2408.06292) — the original methodology
-- [ShinkaEvolve (Sakana ICLR 2026)](https://sakana.ai) — evolutionary extension
-- [Agent Laboratory (AMD)](https://github.com/SamuelSchmidgall/AgentLaboratory) — multi-role research-lab framework
-- [LangGraph documentation](https://langchain-ai.github.io/langgraph/) — reference orchestration layer
-- [Semantic Scholar Graph API](https://api.semanticscholar.org/) — literature search
-- [E2B sandboxes](https://e2b.dev) — reference experiment isolation
-- [NeurIPS reviewer guidelines](https://neurips.cc/Conferences/2026/ReviewerGuidelines) — the rubric the reviewer ensemble encodes
+- [Sakana AI-Scientist-v2 repository](https://github.com/SakanaAI/AI-Scientist-v2) — agent nghiên cứu sản xuất tham chiếu
+- [Sakana AI-Scientist-v1 paper (arXiv:2408.06292)](https://arxiv.org/abs/2408.06292) — phương pháp ban đầu
+- [ShinkaEvolve (Sakana ICLR 2026)](https://sakana.ai) — mở rộng tiến hóa
+- [Agent Laboratory (AMD)](https://github.com/SamuelSchmidgall/AgentLaboratory) — framework phòng thí nghiệm nghiên cứu đa vai
+- [LangGraph documentation](https://langchain-ai.github.io/langgraph/) — lớp điều phối tham chiếu
+- [Semantic Scholar Graph API](https://api.semanticscholar.org/) — tìm tài liệu nghiên cứu
+- [E2B sandboxes](https://e2b.dev) — cô lập thí nghiệm tham chiếu
+- [NeurIPS reviewer guidelines](https://neurips.cc/Conferences/2026/ReviewerGuidelines) — tiêu chí tổ hợp phản biện mã hóa
