@@ -9,7 +9,7 @@ tags: [jax, functional-programming, autodiff, compilation, vectorization]
 
 # JAX Functional Patterns
 
-JAX transforms pure functions. Every pattern below follows one rule: write a function that takes inputs and returns outputs, with no side effects. Then transform it.
+JAX biến đổi các hàm thuần. Mỗi mẫu bên dưới theo một quy tắc: viết một hàm nhận các đầu vào và trả về các đầu ra, không có tác dụng phụ. Rồi biến đổi nó.
 
 ## The Four Transforms
 
@@ -20,8 +20,8 @@ grads = jax.grad(loss_fn)(params, x, y)
 loss, grads = jax.value_and_grad(loss_fn)(params, x, y)
 ```
 
-Use when: you need gradients for optimization.
-Constraint: the function must return a scalar. For non-scalar outputs, use `jax.jacobian`.
+Sử dụng khi: bạn cần các gradient để tối ưu hóa.
+Ràng buộc: hàm phải trả về một số vô hướng. Với các đầu ra không vô hướng, sử dụng `jax.jacobian`.
 
 ### jit -- Compile a function
 
@@ -29,8 +29,8 @@ Constraint: the function must return a scalar. For non-scalar outputs, use `jax.
 fast_fn = jax.jit(f)
 ```
 
-Use when: the function will be called more than once with same-shaped inputs.
-Constraint: no Python control flow that depends on traced values. Use `jax.lax.cond` for conditionals, `jax.lax.scan` for loops.
+Sử dụng khi: hàm sẽ được gọi hơn một lần với các đầu vào cùng hình dạng.
+Ràng buộc: không có luồng điều khiển Python phụ thuộc các giá trị được truy vết. Sử dụng `jax.lax.cond` cho điều kiện, `jax.lax.scan` cho các vòng lặp.
 
 ### vmap -- Vectorize a function
 
@@ -38,8 +38,8 @@ Constraint: no Python control flow that depends on traced values. Use `jax.lax.c
 batch_fn = jax.vmap(f, in_axes=(None, 0))
 ```
 
-Use when: you wrote a function for one example and need it to work on batches.
-`in_axes` specifies which argument axis to batch over. `None` means do not batch (broadcast).
+Sử dụng khi: bạn đã viết một hàm cho một ví dụ và cần nó hoạt động trên các batch.
+`in_axes` chỉ định trục đối số nào để chia batch. `None` nghĩa là không chia batch (broadcast).
 
 ### pmap -- Parallelize across devices
 
@@ -47,29 +47,29 @@ Use when: you wrote a function for one example and need it to work on batches.
 parallel_fn = jax.pmap(f, axis_name='devices')
 ```
 
-Use when: you have multiple GPUs/TPUs and want data parallelism.
-Inside the function, `jax.lax.pmean(x, 'devices')` averages across devices.
+Sử dụng khi: bạn có nhiều GPU/TPU và muốn song song dữ liệu.
+Bên trong hàm, `jax.lax.pmean(x, 'devices')` lấy trung bình giữa các thiết bị.
 
 ## Composition Rules
 
-Transforms compose. The order matters:
+Các phép biến đổi kết hợp được. Thứ tự quan trọng:
 
 ```python
 per_example_grads = jax.jit(jax.vmap(jax.grad(loss_fn), in_axes=(None, 0, 0)))
 ```
 
-Reading right to left: take gradient of loss_fn, vectorize over examples, compile the result.
+Đọc từ phải sang trái: lấy gradient của loss_fn, vector hóa trên các ví dụ, biên dịch kết quả.
 
-Valid compositions:
-- `jit(grad(f))` -- compiled gradient computation
-- `jit(vmap(f))` -- compiled batched computation
-- `vmap(grad(f))` -- per-example gradients
-- `pmap(jit(f))` -- parallel compiled computation
-- `grad(jit(f))` -- gradient of compiled function (same as jit(grad(f)))
+Các tổ hợp hợp lệ:
+- `jit(grad(f))` -- tính gradient được biên dịch
+- `jit(vmap(f))` -- tính toán theo batch được biên dịch
+- `vmap(grad(f))` -- các gradient theo từng ví dụ
+- `pmap(jit(f))` -- tính toán được biên dịch song song
+- `grad(jit(f))` -- gradient của hàm đã biên dịch (giống jit(grad(f)))
 
 ## Parameter Management Pattern
 
-JAX parameters are pytrees (nested dicts of arrays):
+Các tham số JAX là các pytree (các dict mảng lồng nhau):
 
 ```python
 params = {
@@ -78,19 +78,19 @@ params = {
 }
 ```
 
-Update all parameters at once:
+Cập nhật tất cả các tham số cùng lúc:
 ```python
 params = jax.tree.map(lambda p, g: p - lr * g, params, grads)
 ```
 
-Count parameters:
+Đếm các tham số:
 ```python
 n_params = sum(p.size for p in jax.tree.leaves(params))
 ```
 
 ## PRNG Key Management
 
-JAX requires explicit random keys:
+JAX yêu cầu các khóa ngẫu nhiên tường minh:
 
 ```python
 key = jax.random.PRNGKey(0)
@@ -98,48 +98,48 @@ key, subkey = jax.random.split(key)
 noise = jax.random.normal(subkey, shape)
 ```
 
-For multiple random operations, split once:
+Với nhiều phép toán ngẫu nhiên, tách một lần:
 ```python
 keys = jax.random.split(key, n)
 ```
 
-Never reuse a key. Always split before using.
+Không bao giờ dùng lại một khóa. Luôn tách trước khi sử dụng.
 
 ## Common Mistakes
 
-1. **Mutating arrays inside jit**: JAX arrays are immutable. Use `x.at[i].set(v)` instead of `x[i] = v`.
+1. **Thay đổi các mảng bên trong jit**: Các mảng JAX bất biến. Sử dụng `x.at[i].set(v)` thay cho `x[i] = v`.
 
-2. **Using Python print inside jit**: `print` runs during tracing, not execution. Use `jax.debug.print("{}", x)`.
+2. **Sử dụng print Python bên trong jit**: `print` chạy trong truy vết, không phải thực thi. Sử dụng `jax.debug.print("{}", x)`.
 
-3. **Python if/for inside jit on traced values**: Use `jax.lax.cond`, `jax.lax.switch`, `jax.lax.scan`, `jax.lax.fori_loop`.
+3. **if/for Python bên trong jit trên các giá trị được truy vết**: Sử dụng `jax.lax.cond`, `jax.lax.switch`, `jax.lax.scan`, `jax.lax.fori_loop`.
 
-4. **Forgetting `.block_until_ready()`**: JAX uses async dispatch. For benchmarking, call `.block_until_ready()` to wait for actual completion.
+4. **Quên `.block_until_ready()`**: JAX sử dụng điều phối bất đồng bộ. Khi đo hiệu năng, gọi `.block_until_ready()` để chờ hoàn tất thực sự.
 
-5. **Reusing PRNG keys**: Two operations with the same key produce the same "random" values. Always split.
+5. **Dùng lại các khóa PRNG**: Hai phép toán với cùng khóa tạo ra cùng các giá trị "ngẫu nhiên". Luôn tách.
 
-6. **Global state in jitted functions**: Global variables are captured at trace time. Changes after tracing are invisible. Pass everything as arguments.
+6. **Trạng thái toàn cục trong các hàm được jit**: Các biến toàn cục được thu giữ khi truy vết. Các thay đổi sau truy vết không được nhìn thấy. Truyền mọi thứ dưới dạng đối số.
 
 ## Decision Checklist
 
-1. Is the function called more than once? Add `@jax.jit`.
-2. Does it need gradients? Wrap with `jax.grad` or `jax.value_and_grad`.
-3. Does it process one example but you have a batch? Wrap with `jax.vmap`.
-4. Do you have multiple devices? Wrap with `jax.pmap`.
-5. Does it use randomness? Thread PRNG keys through explicitly.
-6. Does it have Python control flow on array values? Replace with `jax.lax` primitives.
+1. Hàm có được gọi hơn một lần không? Thêm `@jax.jit`.
+2. Nó có cần các gradient không? Bao bọc bằng `jax.grad` hoặc `jax.value_and_grad`.
+3. Nó xử lý một ví dụ nhưng bạn có một batch? Bao bọc bằng `jax.vmap`.
+4. Bạn có nhiều thiết bị không? Bao bọc bằng `jax.pmap`.
+5. Nó có sử dụng tính ngẫu nhiên không? Truyền các khóa PRNG xuyên suốt một cách tường minh.
+6. Nó có luồng điều khiển Python trên các giá trị mảng không? Thay bằng các thành phần nguyên thủy `jax.lax`.
 
 ## When to Use JAX
 
-Use JAX when:
-- You need per-example gradients (differential privacy, Fisher information)
-- You are training on TPUs (JAX is the native framework)
-- You need higher-order derivatives (Hessians, Jacobians)
-- You want to compile the entire training step to a single kernel
-- Your team is at Google DeepMind or Anthropic
+Sử dụng JAX khi:
+- Bạn cần các gradient theo từng ví dụ (quyền riêng tư vi phân, thông tin Fisher)
+- Bạn đang huấn luyện trên TPU (JAX là framework gốc)
+- Bạn cần các đạo hàm bậc cao (Hessian, Jacobian)
+- Bạn muốn biên dịch toàn bộ bước huấn luyện thành một kernel duy nhất
+- Nhóm của bạn ở Google DeepMind hoặc Anthropic
 
-Use PyTorch when:
-- You want the largest ecosystem (HuggingFace, torchvision, Lightning)
-- You prioritize debugging ease over raw speed
-- You are deploying to NVIDIA GPUs with TorchServe/Triton
-- You are hiring (more PyTorch developers exist)
-- You want to iterate fast on new architectures
+Sử dụng PyTorch khi:
+- Bạn muốn hệ sinh thái lớn nhất (HuggingFace, torchvision, Lightning)
+- Bạn ưu tiên dễ gỡ lỗi hơn tốc độ thuần túy
+- Bạn đang triển khai lên các GPU NVIDIA với TorchServe/Triton
+- Bạn đang tuyển dụng (có nhiều nhà phát triển PyTorch hơn)
+- Bạn muốn lặp nhanh trên các kiến trúc mới
