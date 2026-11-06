@@ -1,6 +1,6 @@
 # Multi-Region LLM Serving and KV Cache Locality
 
-> Round-robin load balancing is actively harmful for cached LLM inference. A request that does not land on the node holding its prefix pays full prefill cost — roughly 800 ms at P50 on a long prompt versus ~80 ms with a cache hit. In 2026 the production pattern is a cache-aware router (vLLM Router in Rust, llm-d router) that consumes KV-cache events and routes on prefix-hash match. Recent research (GORGO) makes cross-region network latency an explicit term in the routing objective. Commercial "cross-region inference" offerings (Bedrock cross-region inference, GKE multi-cluster gateways) treat inference as opaque — they handle availability, not TTFT. JPMorgan and Mayo Clinic ran us-east-1 failover in Nov 2024 at ~22 minutes. The DR reality: 32% of LLM DR failures are because teams backed up weights but forgot tokenizer files or quantization configs.
+> Cân bằng tải luân phiên chủ động gây hại cho suy luận LLM có bộ nhớ đệm. Một yêu cầu không đến nút đang giữ tiền tố của nó phải trả toàn bộ chi phí prefill — khoảng 800 ms ở P50 trên một prompt dài so với ~80 ms khi trúng bộ nhớ đệm. Năm 2026, mẫu trong sản xuất là bộ định tuyến nhận biết bộ nhớ đệm (vLLM Router bằng Rust, bộ định tuyến llm-d) tiêu thụ các sự kiện bộ nhớ đệm KV và định tuyến theo khớp hash tiền tố. Nghiên cứu gần đây (GORGO) đưa độ trễ mạng xuyên vùng thành một số hạng tường minh trong mục tiêu định tuyến. Các dịch vụ thương mại "suy luận xuyên vùng" (suy luận xuyên vùng Bedrock, gateway đa cụm GKE) xem suy luận như một hộp đen — chúng xử lý tính khả dụng, không phải TTFT. JPMorgan và Mayo Clinic thực hiện chuyển đổi dự phòng us-east-1 vào tháng 11 năm 2024 trong ~22 phút. Thực tế DR: 32% lỗi DR của LLM là do các nhóm sao lưu trọng số nhưng quên file tokenizer hoặc cấu hình lượng tử hóa.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy prefix-cache-aware router simulator)
@@ -9,83 +9,83 @@
 
 ## Learning Objectives
 
-- Explain why round-robin load balancing breaks cached inference and quantify the TTFT penalty.
-- Diagram a cache-aware router: inputs (KV-cache events), algorithm (prefix-hash match), tie-breaker (GPU utilization).
-- Name the 32% DR failure driver for LLMs (missing tokenizer files / quantization configs) and state a three-file DR checklist.
-- Distinguish commercial cross-region offerings (Bedrock CRI, GKE Multi-Cluster Gateway) from KV-aware routing.
+- Giải thích tại sao cân bằng tải luân phiên phá vỡ suy luận có bộ nhớ đệm và định lượng chi phí TTFT phát sinh.
+- Vẽ sơ đồ bộ định tuyến nhận biết bộ nhớ đệm: đầu vào (sự kiện bộ nhớ đệm KV), thuật toán (khớp hash tiền tố), tiêu chí phá hòa (mức sử dụng GPU).
+- Nêu nguyên nhân gây ra 32% lỗi DR của LLM (thiếu file tokenizer / cấu hình lượng tử hóa) và nêu danh sách kiểm tra DR ba file.
+- Phân biệt các dịch vụ xuyên vùng thương mại (Bedrock CRI, GKE Multi-Cluster Gateway) với định tuyến nhận biết KV.
 
 ## The Problem
 
-Your service runs in us-east-1, us-west-2, and eu-west-1. You put an ALB in front with round-robin. Prefix cache hit rate in production drops to 8%. TTFT P50 triples. Your vLLM logs show every request is paying full prefill cost.
+Dịch vụ của bạn chạy ở us-east-1, us-west-2 và eu-west-1. Bạn đặt một ALB phía trước với cơ chế luân phiên. Tỷ lệ trúng bộ nhớ đệm tiền tố trong sản xuất giảm xuống 8%. TTFT P50 tăng gấp ba. Log vLLM của bạn cho thấy mọi yêu cầu đều trả toàn bộ chi phí prefill.
 
-Round-robin is optimal for stateless services. LLM inference is stateful by design — the KV cache encodes everything the model has seen. Routing blind is routing into the wrong cache.
+Luân phiên là tối ưu cho các dịch vụ không trạng thái. Suy luận LLM có trạng thái theo thiết kế — bộ nhớ đệm KV mã hóa mọi thứ mô hình đã thấy. Định tuyến mù là định tuyến vào sai bộ nhớ đệm.
 
-Separately, your team has a DR plan. You back up model weights to S3 cross-region. A regional outage hits; you attempt failover; the replica refuses to start. You forgot tokenizer.json, the quantization config, and the RoPE scaling config were in a separate bucket you didn't sync.
+Riêng biệt, nhóm của bạn có kế hoạch DR. Bạn sao lưu trọng số mô hình vào S3 xuyên vùng. Một sự cố ngừng hoạt động vùng xảy ra; bạn thử chuyển đổi dự phòng; bản sao từ chối khởi động. Bạn quên rằng tokenizer.json, cấu hình lượng tử hóa và cấu hình mở rộng RoPE nằm trong một bucket riêng mà bạn không đồng bộ.
 
-Multi-region LLM serving is a cache problem, a routing problem, and a DR-hygiene problem — not a load-balancer problem.
+Phục vụ LLM đa vùng là vấn đề bộ nhớ đệm, vấn đề định tuyến và vấn đề giữ gìn DR — không phải vấn đề bộ cân bằng tải.
 
 ## The Concept
 
 ### Cache-aware routing
 
-Request arrives with a prompt. Router hashes the prefix (say, first 512 tokens); it asks each replica "do you have this prefix cached?". Replicas publish KV-cache events on a pub/sub channel as they allocate and evict blocks. Router picks the replica with the match, falls through to GPU-util-based tie-breaker if no one does.
+Yêu cầu đến với một prompt. Bộ định tuyến hash tiền tố (chẳng hạn, 512 token đầu tiên); nó hỏi từng bản sao "bạn có tiền tố này trong bộ nhớ đệm không?". Các bản sao công bố sự kiện bộ nhớ đệm KV trên một kênh pub/sub khi cấp phát và loại bỏ block. Bộ định tuyến chọn bản sao khớp, chuyển sang tiêu chí phá hòa dựa trên mức sử dụng GPU nếu không bản sao nào có.
 
-**vLLM Router** (Rust, 2026 production-stack): subscribes to `kv.cache.block_added` events, maintains a prefix-hash → replica index, routes with O(1) lookup. Falls through to least-queue-depth when no match.
+**vLLM Router** (Rust, production-stack 2026): đăng ký các sự kiện `kv.cache.block_added`, duy trì một chỉ mục hash tiền tố → bản sao, định tuyến bằng tra cứu O(1). Chuyển sang độ sâu hàng đợi nhỏ nhất khi không khớp.
 
-**llm-d router**: same pattern, Kubernetes-native. Publishes events via the ControlPlane API.
+**llm-d router**: cùng mẫu, nguyên bản Kubernetes. Công bố sự kiện qua API ControlPlane.
 
-**SGLang RadixAttention** (Phase 17 · 06) is the intra-replica equivalent. Cross-replica routing is strictly upstream.
+**SGLang RadixAttention** (Giai đoạn 17 · 06) là cơ chế tương đương bên trong bản sao. Định tuyến giữa các bản sao hoàn toàn nằm phía trước.
 
 ### Numbers
 
-TTFT P50 on a 2K-token prompt, Llama 3.3 70B FP8, H100:
-- Cache hit (same replica, prefix resident): ~80 ms.
-- Cache miss (cold prefill): ~800 ms.
+TTFT P50 trên một prompt 2K token, Llama 3.3 70B FP8, H100:
+- Trúng bộ nhớ đệm (cùng bản sao, tiền tố đã nằm trong bộ nhớ): ~80 ms.
+- Trượt bộ nhớ đệm (prefill nguội): ~800 ms.
 
-10x gap. If your router hits 60-80% of prefix cache across replicas, you approximate single-replica performance at N-replica capacity. If it hits 10%, you approximate naive scaling.
+Chênh lệch 10x. Nếu bộ định tuyến của bạn trúng 60-80% bộ nhớ đệm tiền tố trên các bản sao, bạn tiến gần hiệu năng một bản sao ở năng lực N bản sao. Nếu nó trúng 10%, bạn tiến gần mở rộng quy mô đơn giản.
 
 ### Cross-region has a new constraint — network latency
 
-Inter-region RTT:
+RTT liên vùng:
 - us-east-1 ↔ us-west-2: ~65 ms.
 - us-east-1 ↔ eu-west-1: ~75 ms.
 - us-east-1 ↔ ap-southeast-1: ~220 ms.
 
-If routing takes a request from us-east-1 to a hot prefix in ap-southeast-1, the saved prefill (800 → 80 ms) is dwarfed by 440 ms round-trip. GORGO (2026 research) makes this explicit — minimize `prefill_time + network_latency` jointly, not prefill alone. Often the answer is to keep routing regional except on massive multi-MB prefixes where prefill dominates.
+Nếu định tuyến đưa một yêu cầu từ us-east-1 đến một tiền tố nóng ở ap-southeast-1, prefill tiết kiệm được (800 → 80 ms) bị lấn át bởi 440 ms khứ hồi. GORGO (nghiên cứu năm 2026) thể hiện điều này tường minh — cùng tối thiểu hóa `prefill_time + network_latency`, không chỉ prefill. Thường câu trả lời là giữ định tuyến trong vùng, ngoại trừ các tiền tố khổng lồ nhiều MB mà prefill chiếm ưu thế.
 
 ### Commercial "cross-region inference" does not help here
 
-AWS Bedrock cross-region inference automatically routes requests to other regions during capacity pressure. It optimizes availability, not TTFT, and treats inference as opaque. GKE Multi-Cluster Gateway is the same — service-level failover, no awareness of KV cache.
+Suy luận xuyên vùng AWS Bedrock tự động định tuyến yêu cầu sang các vùng khác khi có áp lực năng lực. Nó tối ưu tính khả dụng, không phải TTFT, và xem suy luận như một hộp đen. GKE Multi-Cluster Gateway cũng vậy — chuyển đổi dự phòng cấp dịch vụ, không nhận biết bộ nhớ đệm KV.
 
-You still need an app-layer cache-aware router even when using these. They handle the "us-east-1 is on fire" case. Cache-aware routing handles the TTFT case.
+Bạn vẫn cần một bộ định tuyến nhận biết bộ nhớ đệm ở lớp ứng dụng ngay cả khi dùng chúng. Chúng xử lý trường hợp "us-east-1 đang bốc cháy". Định tuyến nhận biết bộ nhớ đệm xử lý trường hợp TTFT.
 
 ### DR hygiene — the 32% missing-files problem
 
-Widely cited 2026 stat: 32% of LLM DR failures happen because teams backed up weights but forgot:
+Thống kê năm 2026 được trích dẫn rộng rãi: 32% lỗi DR của LLM xảy ra vì các nhóm sao lưu trọng số nhưng quên:
 
-- `tokenizer.json` or `tokenizer.model`
-- Quantization configs (`quantize_config.json`, AWQ scales, GPTQ zero-points)
-- Model-specific configs (RoPE scaling, attention masks, chat templates)
-- Engine config (`vllm_config.yaml`, sampling defaults, LoRA adapter manifests)
+- `tokenizer.json` hoặc `tokenizer.model`
+- Cấu hình lượng tử hóa (`quantize_config.json`, các hệ số tỷ lệ AWQ, các điểm không GPTQ)
+- Cấu hình riêng của mô hình (mở rộng RoPE, mặt nạ attention, mẫu chat)
+- Cấu hình engine (`vllm_config.yaml`, mặc định lấy mẫu, manifest adapter LoRA)
 
-The fix is a three-file minimum DR manifest:
+Giải pháp là một manifest DR tối thiểu ba file:
 
-1. All files under the HF model repo (weights + configs + tokenizer).
-2. Engine-specific serving config.
-3. Deployment manifest (K8s YAML, Dockerfile, dependency lock).
+1. Tất cả file trong repo mô hình HF (trọng số + cấu hình + tokenizer).
+2. Cấu hình phục vụ riêng của engine.
+3. Manifest triển khai (YAML K8s, Dockerfile, khóa phụ thuộc).
 
-Plus: run a DR drill quarterly. The JPMorgan us-east-1 drill hit 22 minutes recovery in Nov 2024 only because the playbook was rehearsed.
+Thêm nữa: thực hiện diễn tập DR hằng quý. Cuộc diễn tập us-east-1 của JPMorgan đạt thời gian khôi phục 22 phút vào tháng 11 năm 2024 chỉ vì cẩm nang đã được diễn tập.
 
 ### Data residency is orthogonal
 
-EU customer PHI cannot leave EU. If your cache-aware router sends a Paris-originated request to us-east-1 for a prefix match, you have violated GDPR regardless of TTFT gain. Partition routers by residency boundary before optimizing for cache.
+PHI của khách hàng EU không thể rời EU. Nếu bộ định tuyến nhận biết bộ nhớ đệm của bạn gửi một yêu cầu xuất phát từ Paris đến us-east-1 để khớp tiền tố, bạn đã vi phạm GDPR bất kể lợi ích TTFT. Phân vùng bộ định tuyến theo ranh giới lưu trú trước khi tối ưu bộ nhớ đệm.
 
 ### Numbers you should remember
 
-- Cache hit vs miss TTFT gap: ~10x (80 ms vs 800 ms on 2K prompt).
-- Inter-region RTT US-EU: ~75 ms.
-- DR failure: 32% miss tokenizer/quant configs.
-- JPMorgan us-east-1 failover Nov 2024: 22 minutes (30-min SLA).
+- Chênh lệch TTFT trúng so với trượt bộ nhớ đệm: ~10x (80 ms so với 800 ms trên prompt 2K).
+- RTT liên vùng Mỹ-EU: ~75 ms.
+- Lỗi DR: 32% thiếu cấu hình tokenizer/lượng tử hóa.
+- Chuyển đổi dự phòng us-east-1 của JPMorgan tháng 11 năm 2024: 22 phút (SLA 30 phút).
 
 ```figure
 cache-aware-router
@@ -93,38 +93,38 @@ cache-aware-router
 
 ## Use It
 
-`code/main.py` simulates three routing strategies (round-robin, cache-aware regional, cache-aware global) on a multi-region workload. Reports cache hit rate, TTFT P50/P99, and cross-region bill.
+`code/main.py` mô phỏng ba chiến lược định tuyến (luân phiên, nhận biết bộ nhớ đệm trong vùng, nhận biết bộ nhớ đệm toàn cầu) trên một khối lượng công việc đa vùng. Báo cáo tỷ lệ trúng bộ nhớ đệm, TTFT P50/P99 và hóa đơn xuyên vùng.
 
 ## Ship It
 
-This lesson produces `outputs/skill-multi-region-router.md`. Given regions, residency constraints, and SLA, designs a routing plan.
+Bài học này tạo ra `outputs/skill-multi-region-router.md`. Với các vùng, ràng buộc lưu trú và SLA, thiết kế một kế hoạch định tuyến.
 
 ## Exercises
 
-1. Run `code/main.py`. At what prompt length does cross-region routing beat local-only routing, given 75 ms RTT?
-2. Your cache hit rate drops from 70% to 12%. Diagnose three possible causes and the observables that would confirm each.
-3. Design a DR manifest for a 70B AWQ-quantized model served in vLLM with 5 LoRA adapters. List every file and config.
-4. Argue whether Bedrock cross-region inference is "enough" for a fintech with strict TTFT SLOs. Cite specific behaviors.
-5. A Paris-origin request matches a prefix in us-east-1. Do you route it? Write the policy.
+1. Chạy `code/main.py`. Ở độ dài prompt nào định tuyến xuyên vùng vượt định tuyến chỉ cục bộ, với RTT 75 ms?
+2. Tỷ lệ trúng bộ nhớ đệm của bạn giảm từ 70% xuống 12%. Chẩn đoán ba nguyên nhân có thể và các đại lượng quan sát xác nhận từng nguyên nhân.
+3. Thiết kế một manifest DR cho một mô hình 70B lượng tử hóa AWQ được phục vụ trong vLLM với 5 adapter LoRA. Liệt kê mọi file và cấu hình.
+4. Lập luận liệu suy luận xuyên vùng Bedrock có "đủ" cho một fintech có SLO TTFT nghiêm ngặt hay không. Trích dẫn các hành vi cụ thể.
+5. Một yêu cầu xuất phát từ Paris khớp một tiền tố ở us-east-1. Bạn có định tuyến nó không? Viết chính sách.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|----------------|------------------------|
-| Cache-aware routing | "smart LB" | Route on prefix-hash match to KV-cache-holding replica |
-| KV-cache events | "cache pub-sub" | Replicas publish block add/evict; router indexes |
-| Prefix hash | "cache key" | Hash of first N tokens used as router lookup |
-| GORGO | "cross-region routing research" | arXiv 2602.11688; network latency as explicit term |
-| Cross-region inference | "Bedrock CRI" | AWS product; availability failover, not TTFT awareness |
-| DR manifest | "the backup list" | Every file needed to restore — not just weights |
-| Data residency | "GDPR boundary" | Legal constraint on which region sees user data |
-| RTT | "round-trip time" | Network latency; 75 ms US-EU, 220 ms US-APAC |
-| LLM-aware LB | "cache-hit LB" | Cache-aware router as a product category |
+| Cache-aware routing (Định tuyến nhận biết bộ nhớ đệm) | "LB thông minh" | Định tuyến theo khớp hash tiền tố đến bản sao giữ bộ nhớ đệm KV |
+| KV-cache events (Sự kiện bộ nhớ đệm KV) | "pub-sub bộ nhớ đệm" | Các bản sao công bố thêm/loại bỏ block; bộ định tuyến lập chỉ mục |
+| Prefix hash (Hash tiền tố) | "khóa bộ nhớ đệm" | Hash của N token đầu tiên được dùng để tra cứu ở bộ định tuyến |
+| GORGO | "nghiên cứu định tuyến xuyên vùng" | arXiv 2602.11688; độ trễ mạng là số hạng tường minh |
+| Cross-region inference (Suy luận xuyên vùng) | "Bedrock CRI" | Sản phẩm AWS; chuyển đổi dự phòng cho tính khả dụng, không nhận biết TTFT |
+| DR manifest (Manifest DR) | "danh sách sao lưu" | Mọi file cần để khôi phục — không chỉ trọng số |
+| Data residency (Lưu trú dữ liệu) | "ranh giới GDPR" | Ràng buộc pháp lý về vùng nào thấy dữ liệu người dùng |
+| RTT | "thời gian khứ hồi" | Độ trễ mạng; 75 ms Mỹ-EU, 220 ms Mỹ-APAC |
+| LLM-aware LB (LB nhận biết LLM) | "LB trúng bộ nhớ đệm" | Bộ định tuyến nhận biết bộ nhớ đệm như một danh mục sản phẩm |
 
 ## Further Reading
 
 - [BentoML — Multi-cloud and cross-region inference](https://bentoml.com/llm/infrastructure-and-operations/multi-cloud-and-cross-region-inference)
-- [arXiv — GORGO (2602.11688)](https://arxiv.org/html/2602.11688v1) — cross-region KV-cache reuse with network latency term.
+- [arXiv — GORGO (2602.11688)](https://arxiv.org/html/2602.11688v1) — tái sử dụng bộ nhớ đệm KV xuyên vùng với số hạng độ trễ mạng.
 - [TianPan — Multi-Region LLM Serving Cache Locality](https://tianpan.co/blog/2026-04-17-multi-region-llm-serving-data-residency-routing)
-- [AWS Bedrock Cross-Region Inference](https://docs.aws.amazon.com/bedrock/latest/userguide/cross-region-inference.html) — availability failover documentation.
-- [vLLM Production Stack Router](https://github.com/vllm-project/production-stack) — cache-aware router source.
+- [AWS Bedrock Cross-Region Inference](https://docs.aws.amazon.com/bedrock/latest/userguide/cross-region-inference.html) — tài liệu chuyển đổi dự phòng cho tính khả dụng.
+- [vLLM Production Stack Router](https://github.com/vllm-project/production-stack) — mã nguồn bộ định tuyến nhận biết bộ nhớ đệm.
