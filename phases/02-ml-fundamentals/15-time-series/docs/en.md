@@ -1,6 +1,6 @@
 # Time Series Fundamentals
 
-> Past performance does predict future results -- if you check for stationarity first.
+> Hiệu năng quá khứ có dự đoán kết quả tương lai -- nếu bạn kiểm tra tính dừng trước.
 
 **Type:** Build
 **Language:** Python
@@ -9,33 +9,33 @@
 
 ## Learning Objectives
 
-- Decompose a time series into trend, seasonality, and residual components and test for stationarity
-- Implement lag features and rolling statistics to convert a time series into a supervised learning problem
-- Build a walk-forward validation framework that prevents future data from leaking into training
-- Explain why random train/test splits are invalid for time series and demonstrate the performance gap versus proper temporal splits
+- Phân rã một chuỗi thời gian thành các thành phần xu hướng, mùa vụ và phần dư và kiểm tra tính dừng
+- Triển khai các đặc trưng trễ và thống kê trượt để chuyển một chuỗi thời gian thành một bài toán học có giám sát
+- Xây dựng một khuôn khổ xác thực tiến dần ngăn dữ liệu tương lai rò rỉ vào huấn luyện
+- Giải thích tại sao các phần chia huấn luyện/kiểm tra ngẫu nhiên không hợp lệ với chuỗi thời gian và minh họa khoảng cách hiệu năng so với các phần chia thời gian đúng
 
 ## The Problem
 
-You have data ordered by time. Daily sales, hourly temperature, per-minute CPU usage, weekly stock prices. You want to predict the next value, the next week, the next quarter.
+Bạn có dữ liệu được sắp xếp theo thời gian. Doanh số hằng ngày, nhiệt độ hằng giờ, mức sử dụng CPU mỗi phút, giá cổ phiếu hằng tuần. Bạn muốn dự đoán giá trị tiếp theo, tuần tiếp theo, quý tiếp theo.
 
-You reach for your standard ML toolkit: random train/test split, cross-validation, feature matrix in, prediction out. Every step is wrong.
+Bạn tìm đến bộ công cụ ML tiêu chuẩn: chia huấn luyện/kiểm tra ngẫu nhiên, xác thực chéo, ma trận đặc trưng vào, dự đoán ra. Mọi bước đều sai.
 
-Time series breaks the assumptions that standard ML relies on. Samples are not independent -- today's temperature depends on yesterday's. Random splits leak future information into the past. Features that look great in backtest fail in production because they rely on patterns that shift over time.
+Chuỗi thời gian phá vỡ các giả định mà ML tiêu chuẩn dựa vào. Các mẫu không độc lập -- nhiệt độ hôm nay phụ thuộc hôm qua. Các phần chia ngẫu nhiên làm rò rỉ thông tin tương lai vào quá khứ. Các đặc trưng trông tuyệt trong kiểm tra hồi cứu thất bại trong sản xuất vì chúng dựa vào các mẫu dịch chuyển theo thời gian.
 
-A model that gets 95% accuracy with random cross-validation might get 55% with proper time-based evaluation. The difference is not a technicality. It is the difference between a model that works on paper and one that works in production.
+Một mô hình đạt độ chính xác 95% với xác thực chéo ngẫu nhiên có thể đạt 55% với đánh giá theo thời gian đúng. Khác biệt không phải chuyện tiểu tiết kỹ thuật. Nó là khác biệt giữa một mô hình hoạt động trên giấy và một mô hình hoạt động trong sản xuất.
 
-This lesson covers the fundamentals: what makes time data different, how to evaluate models honestly, and how to turn a time series into features that standard ML models can consume.
+Bài học này trình bày các nền tảng: điều gì làm dữ liệu thời gian khác biệt, cách đánh giá mô hình trung thực và cách biến một chuỗi thời gian thành các đặc trưng mà các mô hình ML tiêu chuẩn có thể sử dụng.
 
 ## The Concept
 
 ### What Makes Time Series Different
 
-Standard ML assumes i.i.d. -- independent and identically distributed. Each sample is drawn from the same distribution, independently of other samples. Time series violates both:
+ML tiêu chuẩn giả định i.i.d. -- độc lập và cùng phân phối. Mỗi mẫu được rút từ cùng phân phối, độc lập với các mẫu khác. Chuỗi thời gian vi phạm cả hai:
 
-- **Not independent.** Today's stock price depends on yesterday's. This week's sales correlate with last week's.
-- **Not identically distributed.** The distribution shifts over time. Sales in December look different from sales in March.
+- **Không độc lập.** Giá cổ phiếu hôm nay phụ thuộc hôm qua. Doanh số tuần này tương quan với tuần trước.
+- **Không cùng phân phối.** Phân phối dịch chuyển theo thời gian. Doanh số tháng Mười Hai trông khác doanh số tháng Ba.
 
-These violations are not minor. They change how you build features, how you evaluate models, and which algorithms work.
+Các vi phạm này không nhỏ. Chúng thay đổi cách bạn xây dựng đặc trưng, đánh giá mô hình và các thuật toán nào hoạt động.
 
 ```mermaid
 flowchart LR
@@ -60,11 +60,11 @@ flowchart LR
     style T4 fill:#ffd
 ```
 
-In standard ML, samples are interchangeable. Shuffling them changes nothing. In time series, order is everything. Shuffling destroys the signal.
+Trong ML tiêu chuẩn, các mẫu có thể hoán đổi. Xáo trộn chúng không thay đổi gì. Trong chuỗi thời gian, thứ tự là mọi thứ. Xáo trộn phá hủy tín hiệu.
 
 ### Components of a Time Series
 
-Every time series is a combination of:
+Mọi chuỗi thời gian là một kết hợp của:
 
 ```mermaid
 flowchart TD
@@ -77,52 +77,52 @@ flowchart TD
     D --> G[Random variation after removing trend and seasonality]
 ```
 
-- **Trend**: The long-term direction. Revenue growing 10% per year. Global temperature rising.
-- **Seasonality**: Repeating patterns at fixed intervals. Retail sales spike in December. Air conditioning usage peaks in July.
-- **Residual**: Whatever is left after removing trend and seasonality. If the residual looks like white noise, the decomposition captured the signal.
+- **Xu hướng**: Hướng dài hạn. Doanh thu tăng 10% mỗi năm. Nhiệt độ toàn cầu tăng.
+- **Tính mùa vụ**: Các mẫu lặp lại tại các khoảng cố định. Doanh số bán lẻ tăng vọt tháng Mười Hai. Sử dụng điều hòa đạt đỉnh tháng Bảy.
+- **Phần dư**: Bất cứ thứ gì còn lại sau khi loại xu hướng và tính mùa vụ. Nếu phần dư trông như nhiễu trắng, phân rã đã nắm bắt tín hiệu.
 
 ### Stationarity
 
-A time series is stationary if its statistical properties (mean, variance, autocorrelation) do not change over time. Most forecasting methods assume stationarity.
+Một chuỗi thời gian dừng nếu các tính chất thống kê (trung bình, phương sai, tự tương quan) không thay đổi theo thời gian. Hầu hết các phương pháp dự báo giả định tính dừng.
 
-**Why it matters:** A non-stationary series has a mean that drifts. A model trained on data from January has learned a different mean than what February will show. It will be systematically wrong.
+**Tại sao quan trọng:** Một chuỗi không dừng có trung bình trôi. Một mô hình huấn luyện trên dữ liệu tháng Một đã học trung bình khác với những gì tháng Hai sẽ cho thấy. Nó sẽ sai có hệ thống.
 
-**How to check:** Compute rolling mean and rolling standard deviation over windows. If they drift, the series is non-stationary.
+**Cách kiểm tra:** Tính trung bình trượt và độ lệch chuẩn trượt trên các cửa sổ. Nếu chúng trôi, chuỗi không dừng.
 
-**How to fix:** Differencing. Instead of modeling the raw values, model the change between consecutive values:
+**Cách sửa:** Lấy sai phân. Thay vì mô hình hóa các giá trị thô, mô hình hóa thay đổi giữa các giá trị liên tiếp:
 
 ```
 diff[t] = value[t] - value[t-1]
 ```
 
-If one round of differencing does not make the series stationary, apply it again (second-order differencing). Most real-world series need at most two rounds.
+Nếu một lượt lấy sai phân không làm chuỗi dừng, áp dụng lần nữa (sai phân bậc hai). Hầu hết các chuỗi thực tế cần nhiều nhất hai lượt.
 
-**Example:**
+**Ví dụ:**
 
-Original series: [100, 102, 106, 112, 120]
-First difference:  [2, 4, 6, 8] (still trending upward)
-Second difference:  [2, 2, 2] (constant -- stationary)
+Chuỗi gốc: [100, 102, 106, 112, 120]
+Sai phân bậc nhất:  [2, 4, 6, 8] (vẫn có xu hướng tăng)
+Sai phân bậc hai:  [2, 2, 2] (không đổi -- dừng)
 
-The original series had a quadratic trend. First differencing turned it into a linear trend. Second differencing made it flat. In practice, you rarely need more than two rounds.
+Chuỗi gốc có một xu hướng bậc hai. Lấy sai phân bậc nhất biến nó thành xu hướng tuyến tính. Lấy sai phân bậc hai làm nó phẳng. Trong thực tế, hiếm khi cần hơn hai lượt.
 
-**Formal test:** The Augmented Dickey-Fuller (ADF) test is the standard statistical test for stationarity. The null hypothesis is "the series is non-stationary." A p-value below 0.05 means you can reject the null and conclude stationarity. We do not implement ADF from scratch (it requires asymptotic distribution tables), but the rolling statistics approach in our code gives a practical visual check.
+**Kiểm định hình thức:** Kiểm định Dickey-Fuller Mở rộng (ADF) là kiểm định thống kê tiêu chuẩn cho tính dừng. Giả thuyết không là "chuỗi không dừng." Một p-value dưới 0.05 nghĩa là bạn có thể bác bỏ giả thuyết không và kết luận tính dừng. Chúng ta không triển khai ADF từ đầu (nó đòi hỏi các bảng phân phối tiệm cận), nhưng cách tiếp cận thống kê trượt trong mã cho một kiểm tra trực quan thực tế.
 
 ### Autocorrelation
 
-Autocorrelation measures how much a value at time t correlates with the value at time t-k (k steps in the past). The autocorrelation function (ACF) plots this correlation for each lag k.
+Tự tương quan đo mức một giá trị ở thời điểm t tương quan với giá trị tại t-k (k bước trong quá khứ). Hàm tự tương quan (ACF) vẽ tương quan này cho mỗi độ trễ k.
 
-**ACF tells you:**
-- How far back the series remembers. If ACF drops to zero after lag 5, values more than 5 steps ago are irrelevant.
-- Whether seasonality exists. If ACF spikes at lag 12 (monthly data), there is yearly seasonality.
-- How many lag features to create. Use lags up to where ACF becomes negligible.
+**ACF cho bạn biết:**
+- Chuỗi nhớ xa đến đâu. Nếu ACF giảm về không sau độ trễ 5, các giá trị hơn 5 bước trước không liên quan.
+- Tính mùa vụ có tồn tại không. Nếu ACF tăng vọt tại độ trễ 12 (dữ liệu hằng tháng), có tính mùa vụ hằng năm.
+- Cần tạo bao nhiêu đặc trưng trễ. Sử dụng các độ trễ đến nơi ACF trở nên không đáng kể.
 
-**PACF (Partial Autocorrelation Function)** removes indirect correlations. If today correlates with 3 days ago only because both correlate with yesterday, PACF at lag 3 will be zero while ACF at lag 3 will not.
+**PACF (Hàm Tự tương quan Riêng phần)** loại các tương quan gián tiếp. Nếu hôm nay tương quan với 3 ngày trước chỉ vì cả hai tương quan với hôm qua, PACF tại độ trễ 3 sẽ bằng không trong khi ACF tại độ trễ 3 không bằng không.
 
 ### Lag Features: Turning Time Series into Supervised Learning
 
-Standard ML models need a feature matrix X and a target y. Time series gives you a single column of values. The bridge is lag features.
+Các mô hình ML tiêu chuẩn cần một ma trận đặc trưng X và mục tiêu y. Chuỗi thời gian cho bạn một cột giá trị duy nhất. Cầu nối là các đặc trưng trễ.
 
-Take the series [10, 12, 14, 13, 15] and create lag-1 and lag-2 features:
+Lấy chuỗi [10, 12, 14, 13, 15] và tạo các đặc trưng trễ 1 và trễ 2:
 
 | lag_2 | lag_1 | target |
 |-------|-------|--------|
@@ -130,23 +130,23 @@ Take the series [10, 12, 14, 13, 15] and create lag-1 and lag-2 features:
 | 12    | 14    | 13     |
 | 14    | 13    | 15     |
 
-Now you have a standard regression problem. Any ML model (linear regression, random forest, gradient boosting) can predict the target from the lags.
+Giờ bạn có một bài toán hồi quy tiêu chuẩn. Bất kỳ mô hình ML nào (hồi quy tuyến tính, rừng ngẫu nhiên, gradient boosting) đều có thể dự đoán mục tiêu từ các độ trễ.
 
-Additional features you can engineer:
-- **Rolling statistics:** mean, std, min, max over the last k values
-- **Calendar features:** day of week, month, is_holiday, is_weekend
-- **Differenced values:** change from previous step
-- **Expanding statistics:** cumulative mean, cumulative sum
-- **Ratio features:** current value / rolling mean (how far from recent average)
-- **Interaction features:** lag_1 * day_of_week (weekday effects on momentum)
+Các đặc trưng bổ sung bạn có thể tạo:
+- **Thống kê trượt:** trung bình, độ lệch chuẩn, nhỏ nhất, lớn nhất trên k giá trị gần nhất
+- **Đặc trưng lịch:** thứ trong tuần, tháng, is_holiday, is_weekend
+- **Các giá trị sai phân:** thay đổi từ bước trước
+- **Thống kê mở rộng:** trung bình tích lũy, tổng tích lũy
+- **Các đặc trưng tỉ số:** giá trị hiện tại / trung bình trượt (xa trung bình gần đây bao nhiêu)
+- **Các đặc trưng tương tác:** lag_1 * day_of_week (các tác động ngày trong tuần lên momentum)
 
-**How many lags?** Use the autocorrelation function. If ACF is significant up to lag 10, use at least 10 lags. If there is weekly seasonality, include lag 7 (and possibly 14). More lags give the model more history but also more features to fit, increasing the risk of overfitting.
+**Bao nhiêu độ trễ?** Sử dụng hàm tự tương quan. Nếu ACF đáng kể đến độ trễ 10, sử dụng ít nhất 10 độ trễ. Nếu có tính mùa vụ hằng tuần, đưa vào độ trễ 7 (và có thể 14). Nhiều độ trễ hơn cho mô hình nhiều lịch sử hơn nhưng cũng nhiều đặc trưng cần khớp hơn, tăng nguy cơ khớp quá mức.
 
-**The target alignment trap.** When creating lag features, the target must be the value at time t, and all features must use values at time t-1 or earlier. If you accidentally include the value at time t as a feature, you have a perfect predictor -- and a completely useless model. This is the most common bug in time series feature engineering.
+**Bẫy căn chỉnh mục tiêu.** Khi tạo các đặc trưng trễ, mục tiêu phải là giá trị tại thời điểm t, và mọi đặc trưng phải sử dụng giá trị tại thời điểm t-1 hoặc trước đó. Nếu vô tình đưa giá trị tại thời điểm t làm một đặc trưng, bạn có một bộ dự đoán hoàn hảo -- và một mô hình hoàn toàn vô ích. Đây là lỗi phổ biến nhất trong kỹ thuật đặc trưng chuỗi thời gian.
 
 ### Walk-Forward Validation
 
-This is the most important concept in this lesson. Standard k-fold cross-validation randomly assigns samples to train and test. For time series, this leaks future information.
+Đây là khái niệm quan trọng nhất trong bài học này. Xác thực chéo k-fold tiêu chuẩn gán ngẫu nhiên các mẫu cho huấn luyện và kiểm tra. Với chuỗi thời gian, điều này làm rò rỉ thông tin tương lai.
 
 ```mermaid
 flowchart TD
@@ -177,62 +177,62 @@ flowchart TD
     end
 ```
 
-Walk-forward validation:
-1. Train on data up to time t
-2. Predict at time t+1 (or t+1 to t+k for multi-step)
-3. Slide the window forward
-4. Repeat
+Xác thực tiến dần:
+1. Huấn luyện trên dữ liệu đến thời điểm t
+2. Dự đoán tại thời điểm t+1 (hoặc t+1 đến t+k cho nhiều bước)
+3. Trượt cửa sổ về phía trước
+4. Lặp lại
 
-Each test fold only contains data that comes after all training data. No future leakage. This gives you an honest estimate of how the model will perform when deployed.
+Mỗi fold kiểm tra chỉ chứa dữ liệu đến sau tất cả dữ liệu huấn luyện. Không rò rỉ tương lai. Điều này cho một ước lượng trung thực về cách mô hình sẽ hoạt động khi triển khai.
 
-**Expanding window** uses all historical data for training (window grows). **Sliding window** uses a fixed-size training window (window slides). Use expanding when you believe older data is still relevant. Use sliding when the world changes and old data hurts.
+**Cửa sổ mở rộng** sử dụng toàn bộ dữ liệu lịch sử để huấn luyện (cửa sổ lớn dần). **Cửa sổ trượt** sử dụng một cửa sổ huấn luyện kích thước cố định (cửa sổ trượt). Sử dụng mở rộng khi tin dữ liệu cũ vẫn liên quan. Sử dụng trượt khi thế giới thay đổi và dữ liệu cũ gây hại.
 
 ### ARIMA Intuition
 
-ARIMA is the classical time series model. It has three components:
+ARIMA là mô hình chuỗi thời gian cổ điển. Nó có ba thành phần:
 
-- **AR (Autoregressive):** Predict from past values. AR(p) uses the last p values.
-- **I (Integrated):** Differencing to achieve stationarity. I(d) applies d rounds of differencing.
-- **MA (Moving Average):** Predict from past forecast errors. MA(q) uses the last q errors.
+- **AR (Tự hồi quy):** Dự đoán từ các giá trị quá khứ. AR(p) sử dụng p giá trị gần nhất.
+- **I (Tích hợp):** Lấy sai phân để đạt tính dừng. I(d) áp dụng d lượt sai phân.
+- **MA (Trung bình Trượt):** Dự đoán từ các sai số dự báo quá khứ. MA(q) sử dụng q sai số gần nhất.
 
-ARIMA(p, d, q) combines all three. You choose p, d, q based on ACF/PACF analysis or automated search (auto-ARIMA).
+ARIMA(p, d, q) kết hợp cả ba. Bạn chọn p, d, q dựa trên phân tích ACF/PACF hoặc tìm kiếm tự động (auto-ARIMA).
 
-We will not implement ARIMA from scratch -- it requires numerical optimization that is beyond the scope of this lesson. The key insight is understanding what each component does so you can interpret ARIMA results and know when to use it.
+Chúng ta sẽ không triển khai ARIMA từ đầu -- nó đòi hỏi tối ưu hóa số vượt phạm vi bài học. Điểm cốt yếu là hiểu mỗi thành phần làm gì để có thể diễn giải các kết quả ARIMA và biết khi nào dùng nó.
 
 ### When to Use What
 
-| Approach | Best For | Handles Seasonality | Handles External Features |
+| Cách tiếp cận | Tốt nhất Cho | Xử lý Tính mùa vụ | Xử lý Đặc trưng Bên ngoài |
 |----------|---------|-------------------|------------------------|
-| Lag features + ML | Tabular with many external features | With calendar features | Yes |
-| ARIMA | Single univariate series, short-term | SARIMA variant | No (ARIMAX for limited) |
-| Exponential smoothing | Simple trend + seasonality | Yes (Holt-Winters) | No |
-| Prophet | Business forecasting, holidays | Yes (Fourier terms) | Limited |
-| Neural networks (LSTM, Transformer) | Long sequences, many series | Learned | Yes |
+| Các đặc trưng trễ + ML | Dạng bảng với nhiều đặc trưng bên ngoài | Với các đặc trưng lịch | Có |
+| ARIMA | Một chuỗi đơn biến duy nhất, ngắn hạn | Biến thể SARIMA | Không (ARIMAX cho mức hạn chế) |
+| Làm trơn hàm mũ | Xu hướng đơn giản + tính mùa vụ | Có (Holt-Winters) | Không |
+| Prophet | Dự báo kinh doanh, ngày lễ | Có (các số hạng Fourier) | Hạn chế |
+| Mạng nơ-ron (LSTM, Transformer) | Các chuỗi dài, nhiều chuỗi | Được học | Có |
 
-For most practical problems, lag features + gradient boosting is the strongest starting point. It handles external features naturally, does not require stationarity, and is easy to debug.
+Với hầu hết các bài toán thực tế, các đặc trưng trễ + gradient boosting là điểm bắt đầu mạnh nhất. Nó xử lý các đặc trưng bên ngoài tự nhiên, không yêu cầu tính dừng và dễ gỡ lỗi.
 
 ### Forecasting Horizons and Strategies
 
-Single-step forecasting predicts one time step ahead. Multi-step forecasting predicts multiple steps. There are three strategies:
+Dự báo một bước dự đoán trước một bước thời gian. Dự báo nhiều bước dự đoán nhiều bước. Có ba chiến lược:
 
-**Recursive (iterated):** Predict one step ahead, use the prediction as input for the next step. Simple but errors accumulate -- each prediction uses the previous prediction, so mistakes compound.
+**Đệ quy (lặp):** Dự đoán trước một bước, dùng dự đoán làm đầu vào cho bước tiếp theo. Đơn giản nhưng sai số tích lũy -- mỗi dự đoán sử dụng dự đoán trước, nên các lỗi dồn lại.
 
-**Direct:** Train a separate model for each horizon. Model-1 predicts t+1, Model-5 predicts t+5. No error accumulation, but each model has fewer training samples and they do not share information.
+**Trực tiếp:** Huấn luyện một mô hình riêng cho mỗi chân trời. Model-1 dự đoán t+1, Model-5 dự đoán t+5. Không tích lũy sai số, nhưng mỗi mô hình có ít mẫu huấn luyện hơn và chúng không chia sẻ thông tin.
 
-**Multi-output:** Train one model that outputs all horizons simultaneously. Shares information across horizons but requires a model that supports multiple outputs (or a custom loss function).
+**Đa đầu ra:** Huấn luyện một mô hình xuất ra đồng thời tất cả chân trời. Chia sẻ thông tin giữa các chân trời nhưng đòi hỏi một mô hình hỗ trợ nhiều đầu ra (hoặc một hàm mất mát tùy chỉnh).
 
-For most practical problems, start with recursive for short horizons (1-5 steps) and direct for longer horizons.
+Với hầu hết bài toán thực tế, bắt đầu với đệ quy cho các chân trời ngắn (1-5 bước) và trực tiếp cho các chân trời dài hơn.
 
 ### Common Mistakes in Time Series
 
-| Mistake | Why it happens | How to fix |
+| Sai lầm | Tại sao xảy ra | Cách sửa |
 |---------|---------------|-----------|
-| Random train/test split | Habit from standard ML | Use walk-forward or temporal split |
-| Using future features | Feature at time t included by mistake | Audit every feature for temporal alignment |
-| Overfitting to seasonality | Model memorizes calendar patterns | Hold out a full seasonal cycle in the test set |
-| Ignoring scale changes | Revenue doubles but patterns stay | Model percentage change instead of absolute |
-| Too many lag features | "More history is better" | Use ACF to determine relevant lags |
-| Not differencing | "The model will figure it out" | Tree models handle trends; linear models need stationarity |
+| Chia huấn luyện/kiểm tra ngẫu nhiên | Thói quen từ ML tiêu chuẩn | Sử dụng tiến dần hoặc chia theo thời gian |
+| Sử dụng các đặc trưng tương lai | Vô tình đưa đặc trưng tại thời điểm t vào | Rà soát mọi đặc trưng về căn chỉnh thời gian |
+| Khớp quá mức tính mùa vụ | Mô hình ghi nhớ các mẫu lịch | Giữ riêng một chu kỳ mùa vụ đầy đủ trong tập kiểm tra |
+| Bỏ qua thay đổi thang đo | Doanh thu tăng gấp đôi nhưng các mẫu giữ nguyên | Mô hình hóa thay đổi phần trăm thay vì tuyệt đối |
+| Quá nhiều đặc trưng trễ | "Nhiều lịch sử hơn tốt hơn" | Sử dụng ACF để xác định các độ trễ liên quan |
+| Không lấy sai phân | "Mô hình sẽ tự tìm ra" | Các mô hình cây xử lý xu hướng; các mô hình tuyến tính cần tính dừng |
 
 ```figure
 f3-series-decompose
@@ -240,7 +240,7 @@ f3-series-decompose
 
 ## Build It
 
-The code in `code/time_series.py` implements the core building blocks from scratch.
+Mã trong `code/time_series.py` triển khai các khối xây dựng cốt lõi từ đầu.
 
 ### Lag Feature Creator
 
@@ -254,7 +254,7 @@ def make_lag_features(series, n_lags):
     return X[valid], series[valid]
 ```
 
-This converts a 1D series into a feature matrix where each row has the last `n_lags` values as features, and the current value as the target.
+Điều này chuyển một chuỗi 1D thành một ma trận đặc trưng nơi mỗi hàng có `n_lags` giá trị gần nhất làm đặc trưng và giá trị hiện tại làm mục tiêu.
 
 ### Walk-Forward Cross-Validation
 
@@ -270,11 +270,11 @@ def walk_forward_split(n_samples, n_splits=5, min_train=50):
         yield slice(0, train_end), slice(train_end, test_end)
 ```
 
-Each split ensures training data comes strictly before test data. The training window expands with each fold.
+Mỗi lần chia bảo đảm dữ liệu huấn luyện nằm hoàn toàn trước dữ liệu kiểm tra. Cửa sổ huấn luyện mở rộng với mỗi fold.
 
 ### Simple Autoregressive Model
 
-A pure AR model is just linear regression on lag features:
+Một mô hình AR thuần chỉ là hồi quy tuyến tính trên các đặc trưng trễ:
 
 ```python
 class SimpleAR:
@@ -293,11 +293,11 @@ class SimpleAR:
         return self
 ```
 
-This is conceptually identical to linear regression from Lesson 02, but applied to time-lagged versions of the same variable.
+Điều này giống hồi quy tuyến tính từ Bài học 02 về khái niệm, nhưng được áp dụng cho các phiên bản trễ thời gian của cùng biến.
 
 ### Stationarity Check
 
-The code computes rolling statistics to visually and numerically assess stationarity:
+Mã tính các thống kê trượt để đánh giá tính dừng một cách trực quan và bằng số:
 
 ```python
 def check_stationarity(series, window=50):
@@ -312,9 +312,9 @@ def check_stationarity(series, window=50):
     return rolling_mean, rolling_std
 ```
 
-If the rolling mean drifts or the rolling std changes, the series is non-stationary. Apply differencing and check again.
+Nếu trung bình trượt trôi hoặc độ lệch chuẩn trượt thay đổi, chuỗi không dừng. Áp dụng sai phân và kiểm tra lại.
 
-The code also checks stationarity by comparing the first half and second half of the series. If the means differ by more than half a standard deviation or the variance ratio exceeds 2x, the series is flagged as non-stationary.
+Mã cũng kiểm tra tính dừng bằng cách so sánh nửa đầu và nửa sau chuỗi. Nếu các trung bình khác nhau hơn nửa độ lệch chuẩn hoặc tỉ số phương sai vượt 2 lần, chuỗi được đánh dấu không dừng.
 
 ### Autocorrelation
 
@@ -332,7 +332,7 @@ def autocorrelation(series, max_lag=20):
 
 ## Use It
 
-With sklearn, you use lag features directly with any regressor:
+Với sklearn, bạn sử dụng các đặc trưng trễ trực tiếp với bất kỳ bộ hồi quy nào:
 
 ```python
 from sklearn.linear_model import Ridge
@@ -346,7 +346,7 @@ for train_idx, test_idx in walk_forward_split(len(X)):
     predictions = model.predict(X[test_idx])
 ```
 
-For ARIMA, use statsmodels:
+Với ARIMA, sử dụng statsmodels:
 
 ```python
 from statsmodels.tsa.arima.model import ARIMA
@@ -356,11 +356,11 @@ fitted = model.fit()
 forecast = fitted.forecast(steps=30)
 ```
 
-The code in `time_series.py` demonstrates both approaches and compares them using walk-forward validation.
+Mã trong `time_series.py` minh họa cả hai cách tiếp cận và so sánh bằng xác thực tiến dần.
 
 ### sklearn TimeSeriesSplit
 
-sklearn provides `TimeSeriesSplit` which implements walk-forward validation:
+sklearn cung cấp `TimeSeriesSplit` triển khai xác thực tiến dần:
 
 ```python
 from sklearn.model_selection import TimeSeriesSplit
@@ -373,7 +373,7 @@ for train_index, test_index in tscv.split(X):
     score = model.score(X_test, y_test)
 ```
 
-This is equivalent to our from-scratch `walk_forward_split` but integrated into sklearn's cross-validation framework. You can use it with `cross_val_score`:
+Điều này tương đương `walk_forward_split` từ đầu của chúng ta nhưng được tích hợp vào khuôn khổ xác thực chéo của sklearn. Bạn có thể sử dụng với `cross_val_score`:
 
 ```python
 from sklearn.model_selection import cross_val_score
@@ -384,80 +384,80 @@ print(f"Mean score: {scores.mean():.4f} +/- {scores.std():.4f}")
 
 ### Evaluation Metrics
 
-Time series forecasting uses regression metrics, but with time-aware context:
+Dự báo chuỗi thời gian sử dụng các chỉ số hồi quy, nhưng với ngữ cảnh có xét thời gian:
 
-- **MAE (Mean Absolute Error):** Average of |y_true - y_pred|. Easy to interpret in original units. "On average, predictions are off by 3.2 degrees."
-- **RMSE (Root Mean Squared Error):** Square root of mean squared error. Penalizes large errors more than MAE. Use when big errors are worse than many small errors.
-- **MAPE (Mean Absolute Percentage Error):** Average of |error / true_value| * 100. Scale-independent, useful for comparing across different series. But undefined when true values are zero.
-- **Naive baseline comparison:** Always compare against simple baselines. The seasonal naive baseline predicts the value from one period ago (yesterday, last week). If your model cannot beat naive, something is wrong.
+- **MAE (Sai số Tuyệt đối Trung bình):** Trung bình của |y_true - y_pred|. Dễ diễn giải theo đơn vị gốc. "Trung bình, các dự đoán lệch 3.2 độ."
+- **RMSE (Căn Sai số Bình phương Trung bình):** Căn bậc hai của sai số bình phương trung bình. Phạt các sai số lớn hơn MAE. Sử dụng khi các sai số lớn tệ hơn nhiều sai số nhỏ.
+- **MAPE (Sai số Phần trăm Tuyệt đối Trung bình):** Trung bình của |error / true_value| * 100. Độc lập với thang đo, hữu ích để so sánh các chuỗi khác nhau. Nhưng không xác định khi các giá trị thực bằng không.
+- **So sánh mốc cơ sở ngây thơ:** Luôn so sánh với các mốc cơ sở đơn giản. Mốc cơ sở ngây thơ mùa vụ dự đoán giá trị từ một chu kỳ trước (hôm qua, tuần trước). Nếu mô hình không thể vượt ngây thơ, có gì đó sai.
 
 ### Rolling Features
 
-The code demonstrates adding rolling statistics (mean, std, min, max over windows of 7 and 14 days) to lag features. These give the model information about recent trends and volatility that lag features alone do not capture.
+Mã minh họa việc thêm các thống kê trượt (trung bình, độ lệch chuẩn, nhỏ nhất, lớn nhất trên các cửa sổ 7 và 14 ngày) vào các đặc trưng trễ. Chúng cho mô hình thông tin về các xu hướng gần đây và độ biến động mà chỉ các đặc trưng trễ không nắm bắt.
 
-For example, if the rolling mean is rising, it suggests an upward trend. If the rolling std is increasing, it suggests growing volatility. These are the kinds of patterns that tree-based models can learn from but linear models cannot.
+Ví dụ, nếu trung bình trượt tăng, nó gợi ý xu hướng đi lên. Nếu độ lệch chuẩn trượt tăng, nó gợi ý độ biến động tăng. Đây là các loại mẫu mà các mô hình dựa trên cây có thể học nhưng các mô hình tuyến tính không thể.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-time-series-advisor.md` -- a prompt for framing time series problems
-- `code/time_series.py` -- lag features, walk-forward validation, AR model, stationarity checks
+Bài học này tạo ra:
+- `outputs/prompt-time-series-advisor.md` -- một prompt để định hình các bài toán chuỗi thời gian
+- `code/time_series.py` -- các đặc trưng trễ, xác thực tiến dần, mô hình AR, kiểm tra tính dừng
 
 ### Baselines You Must Beat
 
-Before building any model, establish baselines:
+Trước khi xây dựng bất kỳ mô hình nào, thiết lập các mốc cơ sở:
 
-1. **Last value (persistence).** Predict that tomorrow will be the same as today. For many series, this is surprisingly hard to beat.
-2. **Seasonal naive.** Predict that today will be the same as the same day last week (or last year). If your model cannot beat this, it has not learned any useful pattern beyond seasonality.
-3. **Moving average.** Predict the average of the last k values. Smooths noise but cannot capture sudden changes.
+1. **Giá trị gần nhất (duy trì).** Dự đoán ngày mai sẽ giống hôm nay. Với nhiều chuỗi, điều này khó vượt đáng ngạc nhiên.
+2. **Ngây thơ mùa vụ.** Dự đoán hôm nay sẽ giống cùng ngày tuần trước (hoặc năm trước). Nếu mô hình không thể vượt cách này, nó chưa học mẫu hữu ích nào ngoài tính mùa vụ.
+3. **Trung bình trượt.** Dự đoán trung bình k giá trị gần nhất. Làm mượt nhiễu nhưng không thể nắm bắt các thay đổi đột ngột.
 
-If your fancy ML model loses to the seasonal naive baseline, you have a bug. Most commonly: future leakage in features, wrong evaluation method, or the series is truly random and unpredictable.
+Nếu mô hình ML cầu kỳ thua mốc cơ sở ngây thơ mùa vụ, bạn có lỗi. Phổ biến nhất: rò rỉ tương lai trong các đặc trưng, phương pháp đánh giá sai hoặc chuỗi thực sự ngẫu nhiên và không thể dự đoán.
 
 ### Practical Tips
 
-1. **Start with plotting.** Before any modeling, plot the raw series. Look for trends, seasonality, outliers, structural breaks (sudden changes in behavior). A 30-second visual inspection often tells you more than an hour of automated analysis.
+1. **Bắt đầu bằng vẽ đồ thị.** Trước mọi mô hình hóa, vẽ chuỗi thô. Tìm xu hướng, tính mùa vụ, ngoại lệ, điểm gãy cấu trúc (các thay đổi hành vi đột ngột). Một kiểm tra trực quan 30 giây thường cho biết nhiều hơn một giờ phân tích tự động.
 
-2. **Difference first, model second.** If the series has a clear trend, difference it before creating lag features. Tree-based models can handle trends, but linear models cannot, and differencing never hurts.
+2. **Lấy sai phân trước, mô hình hóa sau.** Nếu chuỗi có một xu hướng rõ, lấy sai phân trước khi tạo các đặc trưng trễ. Các mô hình dựa trên cây có thể xử lý xu hướng, nhưng các mô hình tuyến tính không thể, và lấy sai phân không bao giờ gây hại.
 
-3. **Hold out at least one full seasonal cycle.** If you have weekly seasonality, your test set needs at least one full week. If monthly, at least one full month. Otherwise you cannot evaluate whether the model captured the seasonal pattern.
+3. **Giữ riêng ít nhất một chu kỳ mùa vụ đầy đủ.** Nếu có tính mùa vụ hằng tuần, tập kiểm tra cần ít nhất một tuần đầy đủ. Nếu hằng tháng, ít nhất một tháng đầy đủ. Nếu không bạn không thể đánh giá mô hình có nắm bắt mẫu mùa vụ không.
 
-4. **Monitor in production.** Time series models degrade over time as the world changes. Track prediction errors on a rolling basis. When errors start increasing, retrain the model on recent data.
+4. **Giám sát trong sản xuất.** Các mô hình chuỗi thời gian suy giảm theo thời gian khi thế giới thay đổi. Theo dõi sai số dự đoán trên cơ sở trượt. Khi sai số bắt đầu tăng, huấn luyện lại mô hình trên dữ liệu gần đây.
 
-5. **Beware of regime changes.** A model trained on pre-pandemic data will not predict post-pandemic behavior. Include indicators of known regime changes as features, or use a sliding window that forgets old data.
+5. **Cẩn thận với các thay đổi chế độ.** Một mô hình huấn luyện trên dữ liệu trước đại dịch sẽ không dự đoán hành vi sau đại dịch. Đưa các chỉ báo thay đổi chế độ đã biết làm đặc trưng, hoặc sử dụng một cửa sổ trượt quên dữ liệu cũ.
 
-6. **Log-transform skewed series.** Revenue, prices, and counts are often right-skewed. Taking the log stabilizes variance and makes multiplicative patterns additive, which linear models can handle. Forecast in log space, then exponentiate to get back to original units.
+6. **Biến đổi log các chuỗi lệch.** Doanh thu, giá cả và số đếm thường lệch phải. Lấy log ổn định phương sai và biến các mẫu nhân thành cộng, mà các mô hình tuyến tính có thể xử lý. Dự báo trong không gian log, rồi lấy hàm mũ để trở về đơn vị gốc.
 
 ## Exercises
 
-1. **Stationarity experiment.** Generate a series with a linear trend. Check stationarity with rolling statistics. Apply first differencing. Check again. How many rounds of differencing does it take for a quadratic trend?
+1. **Thí nghiệm tính dừng.** Tạo một chuỗi có xu hướng tuyến tính. Kiểm tra tính dừng bằng thống kê trượt. Áp dụng sai phân bậc nhất. Kiểm tra lại. Cần bao nhiêu lượt sai phân cho một xu hướng bậc hai?
 
-2. **Lag selection.** Compute ACF on a seasonal series (period=7). Which lags have the highest autocorrelation? Create lag features using only those lags (not consecutive lags). Does accuracy improve compared to using lags 1 through 7?
+2. **Lựa chọn độ trễ.** Tính ACF trên một chuỗi mùa vụ (period=7). Các độ trễ nào có tự tương quan cao nhất? Tạo các đặc trưng trễ chỉ với các độ trễ đó (không phải các độ trễ liên tiếp). Độ chính xác có cải thiện so với sử dụng các độ trễ từ 1 đến 7 không?
 
-3. **Walk-forward vs random split.** Train a Ridge regression on lag features. Evaluate with random 80/20 split and with walk-forward validation. How much does the random split overestimate performance?
+3. **Tiến dần so với chia ngẫu nhiên.** Huấn luyện hồi quy Ridge trên các đặc trưng trễ. Đánh giá với chia ngẫu nhiên 80/20 và với xác thực tiến dần. Phần chia ngẫu nhiên đánh giá quá cao hiệu năng bao nhiêu?
 
-4. **Feature engineering.** Add rolling mean (window=7), rolling std (window=7), and day-of-week features to the lag features. Compare accuracy with and without these extras using walk-forward validation.
+4. **Kỹ thuật đặc trưng.** Thêm trung bình trượt (window=7), độ lệch chuẩn trượt (window=7) và các đặc trưng thứ trong tuần vào các đặc trưng trễ. So sánh độ chính xác khi có và không có các phần bổ sung bằng xác thực tiến dần.
 
-5. **Multi-step forecasting.** Modify the AR model to predict 5 steps ahead instead of 1. Compare two strategies: (a) predict one step, use the prediction as input for the next step (recursive), and (b) train separate models for each horizon (direct). Which is more accurate?
+5. **Dự báo nhiều bước.** Sửa mô hình AR để dự đoán trước 5 bước thay vì 1. So sánh hai chiến lược: (a) dự đoán một bước, dùng dự đoán làm đầu vào cho bước tiếp theo (đệ quy), và (b) huấn luyện các mô hình riêng cho mỗi chân trời (trực tiếp). Cách nào chính xác hơn?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Stationarity | "The stats don't change over time" | A series whose mean, variance, and autocorrelation structure are constant over time |
-| Differencing | "Subtract consecutive values" | Computing y[t] - y[t-1] to remove trends and achieve stationarity |
-| Autocorrelation (ACF) | "How a series correlates with itself" | The correlation between a time series and a lagged copy of itself, as a function of the lag |
-| Partial autocorrelation (PACF) | "Direct correlation only" | Autocorrelation at lag k after removing the effect of all shorter lags |
-| Lag features | "Past values as inputs" | Using y[t-1], y[t-2], ..., y[t-k] as features to predict y[t] |
-| Walk-forward validation | "Time-respecting cross-validation" | Evaluation where training data always precedes test data chronologically |
-| ARIMA | "The classic time series model" | AutoRegressive Integrated Moving Average: combines past values (AR), differencing (I), and past errors (MA) |
-| Seasonality | "Repeating calendar patterns" | Regular, predictable cycles in a time series tied to calendar periods (daily, weekly, yearly) |
-| Trend | "The long-term direction" | A persistent increase or decrease in the series level over time |
-| Expanding window | "Use all history" | Walk-forward validation where the training set grows with each fold |
-| Sliding window | "Fixed-size history" | Walk-forward validation where the training set is a fixed-length window that slides forward |
+| Stationarity (Tính dừng) | "Các thống kê không thay đổi theo thời gian" | Một chuỗi có trung bình, phương sai và cấu trúc tự tương quan không đổi theo thời gian |
+| Differencing (Lấy sai phân) | "Trừ các giá trị liên tiếp" | Tính y[t] - y[t-1] để loại xu hướng và đạt tính dừng |
+| Autocorrelation (ACF) (Tự tương quan) | "Một chuỗi tương quan với chính nó thế nào" | Tương quan giữa một chuỗi thời gian và một bản sao trễ của nó, như một hàm của độ trễ |
+| Partial autocorrelation (PACF) (Tự tương quan riêng phần) | "Chỉ tương quan trực tiếp" | Tự tương quan tại độ trễ k sau khi loại tác động của mọi độ trễ ngắn hơn |
+| Lag features (Đặc trưng trễ) | "Các giá trị quá khứ làm đầu vào" | Sử dụng y[t-1], y[t-2], ..., y[t-k] làm các đặc trưng để dự đoán y[t] |
+| Walk-forward validation (Xác thực tiến dần) | "Xác thực chéo tôn trọng thời gian" | Đánh giá mà dữ liệu huấn luyện luôn đứng trước dữ liệu kiểm tra theo thời gian |
+| ARIMA | "Mô hình chuỗi thời gian cổ điển" | Tự hồi quy Tích hợp Trung bình Trượt: kết hợp các giá trị quá khứ (AR), sai phân (I) và sai số quá khứ (MA) |
+| Seasonality (Tính mùa vụ) | "Các mẫu lịch lặp lại" | Các chu kỳ đều đặn, có thể dự đoán trong một chuỗi thời gian gắn với các kỳ lịch (hằng ngày, hằng tuần, hằng năm) |
+| Trend (Xu hướng) | "Hướng dài hạn" | Mức tăng hoặc giảm bền bỉ của mức chuỗi theo thời gian |
+| Expanding window (Cửa sổ mở rộng) | "Sử dụng toàn bộ lịch sử" | Xác thực tiến dần nơi tập huấn luyện lớn dần với mỗi fold |
+| Sliding window (Cửa sổ trượt) | "Lịch sử kích thước cố định" | Xác thực tiến dần nơi tập huấn luyện là một cửa sổ độ dài cố định trượt về phía trước |
 
 ## Further Reading
 
-- [Hyndman and Athanasopoulos, Forecasting: Principles and Practice (3rd ed.)](https://otexts.com/fpp3/) -- the best free textbook on time series forecasting
-- [scikit-learn Time Series Split](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.TimeSeriesSplit.html) -- sklearn's walk-forward splitter
-- [statsmodels ARIMA docs](https://www.statsmodels.org/stable/generated/statsmodels.tsa.arima.model.ARIMA.html) -- ARIMA implementation with diagnostics
-- [Makridakis et al., The M5 Competition (2022)](https://www.sciencedirect.com/science/article/pii/S0169207021001874) -- large-scale forecasting competition showing ML methods vs statistical methods
+- [Hyndman and Athanasopoulos, Forecasting: Principles and Practice (3rd ed.)](https://otexts.com/fpp3/) -- giáo trình miễn phí hay nhất về dự báo chuỗi thời gian
+- [scikit-learn Time Series Split](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.TimeSeriesSplit.html) -- bộ chia tiến dần của sklearn
+- [Tài liệu statsmodels ARIMA](https://www.statsmodels.org/stable/generated/statsmodels.tsa.arima.model.ARIMA.html) -- triển khai ARIMA với các chẩn đoán
+- [Makridakis et al., The M5 Competition (2022)](https://www.sciencedirect.com/science/article/pii/S0169207021001874) -- cuộc thi dự báo quy mô lớn cho thấy các phương pháp ML so với các phương pháp thống kê
