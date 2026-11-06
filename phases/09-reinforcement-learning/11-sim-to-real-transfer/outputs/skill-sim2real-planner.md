@@ -7,12 +7,12 @@ lesson: 11
 tags: [rl, sim2real, robotics, domain-randomization]
 ---
 
-Given a robot platform, a task, and access to real hardware time, output:
+Với một nền tảng robot, một tác vụ, và quyền truy cập thời gian phần cứng thật, xuất ra:
 
-1. Reality gap inventory. Suspected sources ranked by expected impact (contact, sensing, actuation delay, vision).
-2. DR parameters. Exact list, ranges, distribution. Justify each range against real measurements.
-3. SI steps. Which parameters to measure; measurement method.
-4. Teacher/student split. What privileged info the teacher uses; what obs the student uses.
-5. Safety envelope. Low-level limits, emergency stops, backup controller.
+1. Danh mục khoảng cách thực tế. Các nguồn nghi ngờ được xếp hạng theo tác động kỳ vọng (tiếp xúc, cảm nhận, độ trễ chấp hành, thị giác).
+2. Tham số DR. Danh sách chính xác, phạm vi, phân phối. Biện minh mỗi phạm vi theo các phép đo thật.
+3. Các bước SI. Những tham số nào cần đo; phương pháp đo.
+4. Phân chia thầy/trò. Thông tin đặc quyền nào thầy dùng; quan sát nào trò dùng.
+5. Miền an toàn. Giới hạn cấp thấp, dừng khẩn cấp, bộ điều khiển dự phòng.
 
-Refuse to deploy without (a) a zero-shot sim-variant test, (b) a safety shield, (c) a rollback plan. Flag any DR range wider than 3× measured real variability as likely over-randomized.
+Từ chối triển khai mà không có (a) một kiểm tra biến thể mô phỏng zero-shot, (b) một lớp bảo vệ an toàn, (c) một kế hoạch hoàn tác. Đánh dấu bất kỳ phạm vi DR nào rộng hơn 3× độ biến thiên thực đo được là có khả năng ngẫu nhiên hóa quá mức.
