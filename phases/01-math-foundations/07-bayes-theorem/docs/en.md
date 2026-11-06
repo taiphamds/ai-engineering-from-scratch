@@ -1,6 +1,6 @@
 # Bayes' Theorem
 
-> Probability is about what you expect. Bayes' theorem is about what you learn.
+> Xác suất nói về những gì bạn kỳ vọng. Định lý Bayes nói về những gì bạn học được.
 
 **Type:** Build
 **Language:** Python
@@ -9,38 +9,38 @@
 
 ## Learning Objectives
 
-- Apply Bayes' theorem to compute posterior probabilities from priors, likelihoods, and evidence
-- Build a Naive Bayes text classifier from scratch with Laplace smoothing and log-space computation
-- Compare MLE and MAP estimation and explain how MAP corresponds to L2 regularization
-- Implement sequential Bayesian updating using Beta-Binomial conjugate priors for A/B testing
+- Áp dụng định lý Bayes để tính xác suất hậu nghiệm từ tiên nghiệm, hợp lý và bằng chứng
+- Xây dựng một bộ phân loại văn bản Naive Bayes từ đầu với làm trơn Laplace và tính toán trong không gian log
+- So sánh ước lượng MLE và MAP và giải thích cách MAP tương ứng với L2 regularization
+- Triển khai cập nhật Bayes tuần tự bằng các tiên nghiệm liên hợp Beta-Binomial cho kiểm thử A/B
 
 ## The Problem
 
-A medical test is 99% accurate. You test positive. What are the chances you actually have the disease?
+Một xét nghiệm y khoa chính xác 99%. Bạn có kết quả dương tính. Khả năng bạn thực sự mắc bệnh là bao nhiêu?
 
-Most people say 99%. The real answer depends on how rare the disease is. If 1 in 10,000 people have it, a positive result only gives you about a 1% chance of being sick. The other 99% of positive results are false alarms from healthy people.
+Hầu hết mọi người nói 99%. Câu trả lời thực tế phụ thuộc vào độ hiếm của bệnh. Nếu 1 trong 10,000 người mắc bệnh, một kết quả dương tính chỉ cho bạn khoảng 1% khả năng bị bệnh. 99% kết quả dương tính còn lại là báo động giả từ những người khỏe mạnh.
 
-This is not a trick question. It is Bayes' theorem. Every spam filter, every medical diagnostic, every machine learning model that quantifies uncertainty uses this exact reasoning. You start with a belief. You see evidence. You update.
+Đây không phải là một câu hỏi mẹo. Đó là định lý Bayes. Mọi bộ lọc thư rác, mọi chẩn đoán y khoa, mọi mô hình học máy định lượng sự không chắc chắn đều sử dụng chính cách suy luận này. Bạn bắt đầu với một niềm tin. Bạn thấy bằng chứng. Bạn cập nhật.
 
-If you build ML systems without understanding this, you will misinterpret model outputs, set bad thresholds, and ship overconfident predictions.
+Nếu xây dựng các hệ thống ML mà không hiểu điều này, bạn sẽ diễn giải sai đầu ra mô hình, đặt ngưỡng không tốt và đưa ra các dự đoán quá tự tin.
 
 ## The Concept
 
 ### From joint probability to Bayes
 
-You already know from Lesson 06 that conditional probability is:
+Bạn đã biết từ Bài học 06 rằng xác suất có điều kiện là:
 
 ```
 P(A|B) = P(A and B) / P(B)
 ```
 
-And symmetrically:
+Và một cách đối xứng:
 
 ```
 P(B|A) = P(A and B) / P(A)
 ```
 
-Both expressions share the same numerator: P(A and B). Set them equal and rearrange:
+Cả hai biểu thức có cùng tử số: P(A and B). Đặt chúng bằng nhau và sắp xếp lại:
 
 ```
 P(A and B) = P(A|B) * P(B) = P(B|A) * P(A)
@@ -50,18 +50,18 @@ Therefore:
 P(A|B) = P(B|A) * P(A) / P(B)
 ```
 
-That is Bayes' theorem. Four quantities, one equation.
+Đó là định lý Bayes. Bốn đại lượng, một phương trình.
 
 ### The four parts
 
-| Part | Name | What it means |
+| Thành phần | Tên | Ý nghĩa |
 |------|------|---------------|
-| P(A\|B) | Posterior | Your updated belief about A after seeing evidence B |
-| P(B\|A) | Likelihood | How probable the evidence B is if A is true |
-| P(A) | Prior | Your belief about A before seeing any evidence |
-| P(B) | Evidence | Total probability of seeing B under all possibilities |
+| P(A\|B) | Hậu nghiệm | Niềm tin đã cập nhật của bạn về A sau khi thấy bằng chứng B |
+| P(B\|A) | Hợp lý | Mức độ có khả năng của bằng chứng B nếu A đúng |
+| P(A) | Tiên nghiệm | Niềm tin của bạn về A trước khi thấy bất kỳ bằng chứng nào |
+| P(B) | Bằng chứng | Tổng xác suất thấy B trên mọi khả năng |
 
-The evidence term P(B) acts as a normalizer. You can expand it using the law of total probability:
+Thành phần bằng chứng P(B) đóng vai trò chuẩn hóa. Bạn có thể khai triển nó bằng định luật xác suất toàn phần:
 
 ```
 P(B) = P(B|A) * P(A) + P(B|not A) * P(not A)
@@ -69,7 +69,7 @@ P(B) = P(B|A) * P(A) + P(B|not A) * P(not A)
 
 ### Medical test example
 
-A disease affects 1 in 10,000 people. The test is 99% accurate (catches 99% of sick people, gives false positives 1% of the time).
+Một bệnh ảnh hưởng đến 1 trong 10,000 người. Xét nghiệm chính xác 99% (phát hiện 99% người bệnh, cho dương tính giả trong 1% trường hợp).
 
 ```
 P(sick)          = 0.0001     (prior: disease is rare)
@@ -87,11 +87,11 @@ P(sick|positive) = P(positive|sick) * P(sick) / P(positive)
                  = 0.98%
 ```
 
-Less than 1%. The prior dominates. When a condition is rare, even accurate tests produce mostly false positives. This is why doctors order confirmation tests.
+Ít hơn 1%. Tiên nghiệm chi phối. Khi một tình trạng hiếm gặp, ngay cả các xét nghiệm chính xác cũng tạo ra chủ yếu dương tính giả. Đây là lý do bác sĩ yêu cầu xét nghiệm xác nhận.
 
 ### Spam filter example
 
-You receive an email containing the word "lottery". Is it spam?
+Bạn nhận được một email chứa từ "lottery". Nó có phải thư rác không?
 
 ```
 P(spam)                = 0.3      (30% of email is spam)
@@ -107,11 +107,11 @@ P(spam|"lottery") = 0.05 * 0.3 / 0.0157
                   = 95.5%
 ```
 
-One word shifts the probability from 30% to 95.5%. A real spam filter applies Bayes across hundreds of words simultaneously.
+Một từ làm xác suất dịch chuyển từ 30% đến 95.5%. Một bộ lọc thư rác thực sự áp dụng Bayes trên hàng trăm từ đồng thời.
 
 ### Naive Bayes: independence assumption
 
-Naive Bayes extends this to multiple features by assuming all features are conditionally independent given the class:
+Naive Bayes mở rộng điều này sang nhiều đặc trưng bằng cách giả định mọi đặc trưng độc lập có điều kiện khi biết lớp:
 
 ```
 P(class | feature_1, feature_2, ..., feature_n)
@@ -119,81 +119,81 @@ P(class | feature_1, feature_2, ..., feature_n)
     / P(feature_1, feature_2, ..., feature_n)
 ```
 
-The "naive" part is the independence assumption. In text, word occurrences are not independent ("New" and "York" are correlated). But the assumption works surprisingly well in practice because the classifier only needs to rank classes, not produce calibrated probabilities.
+Phần "naive" là giả định độc lập. Trong văn bản, sự xuất hiện của các từ không độc lập ("New" và "York" tương quan). Nhưng giả định này hoạt động tốt đáng ngạc nhiên trong thực tế vì bộ phân loại chỉ cần xếp hạng các lớp, không phải tạo ra các xác suất được hiệu chỉnh.
 
-Since the denominator is the same for all classes, you can skip it and just compare numerators:
+Vì mẫu số giống nhau cho mọi lớp, bạn có thể bỏ qua nó và chỉ so sánh các tử số:
 
 ```
 score(class) = P(class) * product of P(feature_i | class)
 ```
 
-Pick the class with the highest score.
+Chọn lớp có điểm cao nhất.
 
 ### Maximum likelihood estimation (MLE)
 
-How do you get P(feature|class) from training data? Count.
+Làm sao có P(feature|class) từ dữ liệu huấn luyện? Đếm.
 
 ```
 P("free"|spam) = (number of spam emails containing "free") / (total spam emails)
 ```
 
-This is MLE: choose the parameter values that make the observed data most likely. You are maximizing the likelihood function, which for discrete counts reduces to relative frequency.
+Đây là MLE: chọn các giá trị tham số làm cho dữ liệu quan sát có khả năng cao nhất. Bạn đang cực đại hóa hàm hợp lý, với số đếm rời rạc thì quy về tần suất tương đối.
 
-Problem: if a word never appears in spam during training, MLE gives it probability zero. One unseen word kills the entire product. Fix this with Laplace smoothing:
+Vấn đề: nếu một từ chưa bao giờ xuất hiện trong thư rác khi huấn luyện, MLE cho nó xác suất bằng không. Một từ chưa từng thấy triệt tiêu toàn bộ tích. Khắc phục bằng làm trơn Laplace:
 
 ```
 P(word|class) = (count(word, class) + 1) / (total_words_in_class + vocabulary_size)
 ```
 
-Adding 1 to every count ensures no probability is ever zero.
+Cộng 1 vào mọi số đếm bảo đảm không có xác suất nào bằng không.
 
 ### Maximum a posteriori (MAP)
 
-MLE asks: what parameters maximize P(data|parameters)?
+MLE hỏi: những tham số nào cực đại hóa P(data|parameters)?
 
-MAP asks: what parameters maximize P(parameters|data)?
+MAP hỏi: những tham số nào cực đại hóa P(parameters|data)?
 
-By Bayes' theorem:
+Theo định lý Bayes:
 
 ```
 P(parameters|data) proportional to P(data|parameters) * P(parameters)
 ```
 
-MAP adds a prior over the parameters themselves. If you believe parameters should be small, you encode that as a prior that penalizes large values. This is identical to L2 regularization in ML. The "ridge" penalty in ridge regression is literally a Gaussian prior on the weights.
+MAP thêm một tiên nghiệm trên chính các tham số. Nếu bạn tin các tham số nên nhỏ, bạn mã hóa điều đó thành một tiên nghiệm phạt các giá trị lớn. Điều này giống hệt L2 regularization trong ML. Hình phạt "ridge" trong hồi quy ridge chính là một tiên nghiệm Gaussian trên các trọng số.
 
-| Estimation | Optimizes | ML equivalent |
+| Ước lượng | Tối ưu hóa | Tương đương trong ML |
 |------------|-----------|---------------|
-| MLE | P(data\|params) | Unregularized training |
+| MLE | P(data\|params) | Huấn luyện không regularization |
 | MAP | P(data\|params) * P(params) | L2 / L1 regularization |
 
 ### Bayesian vs frequentist: the practical difference
 
-Frequentists treat parameters as fixed unknowns. They ask: "If I repeated this experiment many times, what would happen?"
+Những người theo trường phái tần suất xem tham số là các giá trị cố định chưa biết. Họ hỏi: "Nếu tôi lặp lại thí nghiệm này nhiều lần, điều gì sẽ xảy ra?"
 
-Bayesians treat parameters as distributions. They ask: "Given what I have observed, what do I believe about the parameters?"
+Những người theo trường phái Bayes xem tham số là các phân phối. Họ hỏi: "Với những gì tôi đã quan sát, tôi tin điều gì về các tham số?"
 
-For building ML systems, the practical difference:
+Đối với việc xây dựng các hệ thống ML, sự khác biệt thực tế:
 
-| Aspect | Frequentist | Bayesian |
+| Khía cạnh | Tần suất | Bayes |
 |--------|-------------|----------|
-| Output | Point estimate | Distribution over values |
-| Uncertainty | Confidence intervals (about procedure) | Credible intervals (about parameter) |
-| Small data | Can overfit | Prior acts as regularization |
-| Computation | Usually faster | Often requires sampling (MCMC) |
+| Đầu ra | Ước lượng điểm | Phân phối trên các giá trị |
+| Sự không chắc chắn | Khoảng tin cậy (về quy trình) | Khoảng khả tín (về tham số) |
+| Ít dữ liệu | Có thể khớp quá mức | Tiên nghiệm đóng vai trò regularization |
+| Tính toán | Thường nhanh hơn | Thường cần lấy mẫu (MCMC) |
 
-Most production ML is frequentist (SGD, point estimates). Bayesian methods shine when you need calibrated uncertainty (medical decisions, safety-critical systems) or when data is scarce (few-shot learning, cold start).
+Hầu hết ML sản xuất theo trường phái tần suất (SGD, ước lượng điểm). Các phương pháp Bayes tỏa sáng khi bạn cần sự không chắc chắn được hiệu chỉnh (các quyết định y khoa, hệ thống thiết yếu về an toàn) hoặc khi dữ liệu khan hiếm (học ít mẫu, khởi đầu lạnh).
 
 ### Why Bayesian thinking matters for ML
 
-The connection is deeper than analogy:
+Mối liên hệ sâu sắc hơn phép tương tự:
 
-**Priors are regularization.** A Gaussian prior on weights is L2 regularization. A Laplace prior is L1. Every time you add a regularization term, you are making a Bayesian statement about what parameter values you expect.
+**Tiên nghiệm là regularization.** Một tiên nghiệm Gaussian trên các trọng số là L2 regularization. Một tiên nghiệm Laplace là L1. Mỗi khi bạn thêm một thành phần regularization, bạn đang đưa ra một phát biểu Bayes về các giá trị tham số mà bạn kỳ vọng.
 
-**Posteriors are uncertainty.** A single predicted probability tells you nothing about how confident the model is in that estimate. Bayesian methods give you a distribution: "I think P(spam) is between 0.8 and 0.95."
+**Hậu nghiệm là sự không chắc chắn.** Một xác suất dự đoán đơn lẻ không cho bạn biết gì về mức độ tự tin của mô hình vào ước lượng đó. Các phương pháp Bayes cho bạn một phân phối: "Tôi nghĩ P(spam) nằm giữa 0.8 và 0.95."
 
-**Bayes updates are online learning.** Today's posterior becomes tomorrow's prior. When your model sees new data, it updates its beliefs incrementally instead of retraining from scratch.
+**Cập nhật Bayes là học trực tuyến.** Hậu nghiệm hôm nay trở thành tiên nghiệm ngày mai. Khi mô hình thấy dữ liệu mới, nó cập nhật niềm tin từng bước thay vì huấn luyện lại từ đầu.
 
-**Model comparison is Bayesian.** Bayesian information criterion (BIC), marginal likelihood, and Bayes factors all use Bayesian reasoning to choose between models without overfitting.
+**So sánh mô hình mang tính Bayes.** Tiêu chí thông tin Bayes (BIC), hợp lý biên và các hệ số Bayes đều sử dụng suy luận Bayes để lựa chọn giữa các mô hình mà không khớp quá mức.
 
 ```figure
 bayes-update
@@ -254,7 +254,7 @@ class NaiveBayes:
         return best_class
 ```
 
-Log probabilities prevent underflow. Multiplying many small probabilities produces numbers too tiny for floating point. Summing log-probabilities is numerically stable and mathematically equivalent.
+Xác suất log ngăn hụt dưới. Nhân nhiều xác suất nhỏ tạo ra các số quá nhỏ cho dấu phẩy động. Cộng các xác suất log ổn định về mặt số học và tương đương về mặt toán học.
 
 ### Step 3: Train on spam data
 
@@ -315,7 +315,7 @@ show_top_words(classifier, "ham")
 
 ## Use It
 
-Scikit-learn ships production-ready naive Bayes implementations:
+Scikit-learn cung cấp các triển khai naive Bayes sẵn sàng cho sản xuất:
 
 ```python
 from sklearn.feature_extraction.text import CountVectorizer
@@ -333,33 +333,33 @@ for msg, pred in zip(test_messages, predictions):
     print(f"  '{msg}' -> {pred}")
 ```
 
-Same algorithm. CountVectorizer handles tokenization and vocabulary building. MultinomialNB handles smoothing and log-probabilities internally. Your from-scratch version does the same thing in 40 lines.
+Cùng thuật toán. CountVectorizer xử lý tách token và xây dựng từ vựng. MultinomialNB xử lý nội bộ việc làm trơn và các xác suất log. Phiên bản xây dựng từ đầu của bạn làm cùng việc đó trong 40 dòng.
 
 ## Ship It
 
-The NaiveBayes class built here demonstrates the full pipeline: tokenization, probability estimation with Laplace smoothing, log-space prediction. The code in `code/bayes.py` runs end-to-end with no dependencies beyond Python's standard library.
+Lớp NaiveBayes được xây dựng ở đây minh họa toàn bộ quy trình: tách token, ước lượng xác suất với làm trơn Laplace, dự đoán trong không gian log. Mã trong `code/bayes.py` chạy từ đầu đến cuối mà không có phần phụ thuộc nào ngoài thư viện chuẩn của Python.
 
 ### Conjugate Priors
 
-When the prior and posterior belong to the same family of distributions, the prior is called "conjugate." This makes Bayesian updating algebraically clean -- you get a closed-form posterior without numerical integration.
+Khi tiên nghiệm và hậu nghiệm thuộc cùng một họ phân phối, tiên nghiệm được gọi là "liên hợp." Điều này làm cho việc cập nhật Bayes gọn về mặt đại số -- bạn có một hậu nghiệm dạng đóng mà không cần tích phân số.
 
-| Likelihood | Conjugate Prior | Posterior | Example |
+| Hợp lý | Tiên nghiệm liên hợp | Hậu nghiệm | Ví dụ |
 |-----------|----------------|-----------|---------|
-| Bernoulli | Beta(a, b) | Beta(a + successes, b + failures) | Coin flip bias estimation |
-| Normal (known variance) | Normal(mu_0, sigma_0) | Normal(weighted mean, smaller variance) | Sensor calibration |
-| Poisson | Gamma(a, b) | Gamma(a + sum of counts, b + n) | Modeling arrival rates |
-| Multinomial | Dirichlet(alpha) | Dirichlet(alpha + counts) | Topic modeling, language models |
+| Bernoulli | Beta(a, b) | Beta(a + successes, b + failures) | Ước lượng độ thiên lệch khi tung đồng xu |
+| Chuẩn (phương sai đã biết) | Normal(mu_0, sigma_0) | Normal(weighted mean, smaller variance) | Hiệu chuẩn cảm biến |
+| Poisson | Gamma(a, b) | Gamma(a + sum of counts, b + n) | Mô hình hóa tần suất đến |
+| Multinomial | Dirichlet(alpha) | Dirichlet(alpha + counts) | Mô hình hóa chủ đề, mô hình ngôn ngữ |
 
-Why this matters: without conjugate priors, you need Monte Carlo sampling or variational inference to approximate the posterior. With conjugate priors, you just update two numbers.
+Tại sao điều này quan trọng: không có các tiên nghiệm liên hợp, bạn cần lấy mẫu Monte Carlo hoặc suy luận biến phân để xấp xỉ hậu nghiệm. Với các tiên nghiệm liên hợp, bạn chỉ cập nhật hai số.
 
-The Beta distribution is the most common conjugate prior in practice. Beta(a, b) represents your belief about a probability parameter. The mean is a/(a+b). The larger a+b, the more concentrated (confident) the distribution.
+Phân phối Beta là tiên nghiệm liên hợp phổ biến nhất trong thực tế. Beta(a, b) biểu diễn niềm tin của bạn về một tham số xác suất. Trung bình là a/(a+b). a+b càng lớn, phân phối càng tập trung (tự tin).
 
-Special cases of the Beta prior:
-- Beta(1, 1) = uniform. You have no opinion about the parameter.
-- Beta(10, 10) = peaked at 0.5. You strongly believe the parameter is near 0.5.
-- Beta(1, 10) = skewed toward 0. You believe the parameter is small.
+Các trường hợp đặc biệt của tiên nghiệm Beta:
+- Beta(1, 1) = đều. Bạn không có ý kiến về tham số.
+- Beta(10, 10) = có đỉnh tại 0.5. Bạn tin chắc tham số gần 0.5.
+- Beta(1, 10) = lệch về 0. Bạn tin tham số nhỏ.
 
-The update rule is dead simple:
+Quy tắc cập nhật cực kỳ đơn giản:
 
 ```
 Prior:     Beta(a, b)
@@ -367,29 +367,29 @@ Data:      s successes, f failures
 Posterior: Beta(a + s, b + f)
 ```
 
-No integrals. No sampling. Just addition.
+Không tích phân. Không lấy mẫu. Chỉ phép cộng.
 
 ### Sequential Bayesian Updating
 
-Bayesian inference is naturally sequential. Today's posterior becomes tomorrow's prior. This is how real systems learn incrementally without reprocessing all historical data.
+Suy luận Bayes có tính tuần tự tự nhiên. Hậu nghiệm hôm nay trở thành tiên nghiệm ngày mai. Đây là cách các hệ thống thực tế học dần mà không xử lý lại toàn bộ dữ liệu lịch sử.
 
-Concrete example: estimating whether a coin is fair.
+Ví dụ cụ thể: ước lượng xem một đồng xu có cân bằng hay không.
 
-**Day 1: No data yet.**
-Start with Beta(1, 1) -- a uniform prior. You have no opinion.
-- Prior mean: 0.5
-- Prior is flat across [0, 1]
+**Ngày 1: Chưa có dữ liệu.**
+Bắt đầu với Beta(1, 1) -- một tiên nghiệm đều. Bạn không có ý kiến.
+- Trung bình tiên nghiệm: 0.5
+- Tiên nghiệm phẳng trên [0, 1]
 
-**Day 2: Observe 7 heads, 3 tails.**
-Posterior = Beta(1 + 7, 1 + 3) = Beta(8, 4)
-- Posterior mean: 8/12 = 0.667
-- Evidence suggests the coin is biased toward heads
+**Ngày 2: Quan sát 7 mặt ngửa, 3 mặt sấp.**
+Hậu nghiệm = Beta(1 + 7, 1 + 3) = Beta(8, 4)
+- Trung bình hậu nghiệm: 8/12 = 0.667
+- Bằng chứng gợi ý đồng xu thiên về mặt ngửa
 
-**Day 3: Observe 5 more heads, 5 more tails.**
-Use yesterday's posterior as today's prior.
-Posterior = Beta(8 + 5, 4 + 5) = Beta(13, 9)
-- Posterior mean: 13/22 = 0.591
-- The balanced new data pulled the estimate back toward 0.5
+**Ngày 3: Quan sát thêm 5 mặt ngửa, thêm 5 mặt sấp.**
+Sử dụng hậu nghiệm hôm qua làm tiên nghiệm hôm nay.
+Hậu nghiệm = Beta(8 + 5, 4 + 5) = Beta(13, 9)
+- Trung bình hậu nghiệm: 13/22 = 0.591
+- Dữ liệu mới cân bằng kéo ước lượng trở lại về phía 0.5
 
 ```mermaid
 graph LR
@@ -398,26 +398,26 @@ graph LR
     C -->|"5H, 5T"| D["Posterior 2<br/>Beta(13,9)<br/>mean = 0.59"]
 ```
 
-The order of observations does not matter. Beta(1,1) updated with all 12 heads and 8 tails at once gives Beta(13, 9) -- the same result. Sequential updating and batch updating are mathematically equivalent. But sequential updating lets you make decisions at each step without storing raw data.
+Thứ tự các quan sát không quan trọng. Beta(1,1) được cập nhật với tất cả 12 mặt ngửa và 8 mặt sấp cùng lúc cho Beta(13, 9) -- cùng kết quả. Cập nhật tuần tự và cập nhật theo batch tương đương về mặt toán học. Nhưng cập nhật tuần tự cho phép bạn ra quyết định tại mỗi bước mà không lưu dữ liệu thô.
 
-This is the foundation of online learning in production ML systems. Thompson sampling for bandits, incremental recommendation systems, and streaming anomaly detectors all use this pattern.
+Đây là nền tảng của học trực tuyến trong các hệ thống ML sản xuất. Lấy mẫu Thompson cho bandit, các hệ thống đề xuất tăng dần và các bộ phát hiện bất thường theo luồng đều sử dụng mẫu này.
 
 ### Connection to A/B Testing
 
-A/B testing is Bayesian inference in disguise.
+Kiểm thử A/B là suy luận Bayes được ngụy trang.
 
-Setup: you are testing two button colors. Variant A (blue) and variant B (green). You want to know which one gets more clicks.
+Thiết lập: bạn đang kiểm tra hai màu nút. Biến thể A (xanh dương) và biến thể B (xanh lá). Bạn muốn biết biến thể nào nhận nhiều lượt nhấp hơn.
 
-The Bayesian A/B test:
+Kiểm thử A/B Bayes:
 
-1. **Prior.** Start with Beta(1, 1) for both variants. No prior preference.
-2. **Data.** Variant A: 50 clicks out of 1000 views. Variant B: 65 clicks out of 1000 views.
-3. **Posteriors.**
-   - A: Beta(1 + 50, 1 + 950) = Beta(51, 951). Mean = 0.051
-   - B: Beta(1 + 65, 1 + 935) = Beta(66, 936). Mean = 0.066
-4. **Decision.** Compute P(B > A) -- the probability that B's true conversion rate is higher than A's.
+1. **Tiên nghiệm.** Bắt đầu với Beta(1, 1) cho cả hai biến thể. Không có ưu tiên tiên nghiệm.
+2. **Dữ liệu.** Biến thể A: 50 lượt nhấp trong 1000 lượt xem. Biến thể B: 65 lượt nhấp trong 1000 lượt xem.
+3. **Hậu nghiệm.**
+   - A: Beta(1 + 50, 1 + 950) = Beta(51, 951). Trung bình = 0.051
+   - B: Beta(1 + 65, 1 + 935) = Beta(66, 936). Trung bình = 0.066
+4. **Quyết định.** Tính P(B > A) -- xác suất tỉ lệ chuyển đổi thực của B cao hơn của A.
 
-Computing P(B > A) analytically is hard. But Monte Carlo makes it trivial:
+Tính P(B > A) bằng giải tích là khó. Nhưng Monte Carlo làm điều đó trở nên đơn giản:
 
 ```
 1. Draw 100,000 samples from Beta(51, 951)  -> samples_A
@@ -425,50 +425,50 @@ Computing P(B > A) analytically is hard. But Monte Carlo makes it trivial:
 3. P(B > A) = fraction of samples where B > A
 ```
 
-If P(B > A) > 0.95, you ship variant B. If it is between 0.05 and 0.95, you keep collecting data. If P(B > A) < 0.05, you ship variant A.
+Nếu P(B > A) > 0.95, bạn triển khai biến thể B. Nếu nó nằm giữa 0.05 và 0.95, bạn tiếp tục thu thập dữ liệu. Nếu P(B > A) < 0.05, bạn triển khai biến thể A.
 
-Advantages over frequentist A/B testing:
-- You get a direct probability statement: "there is a 97% chance B is better"
-- No p-value confusion. No "fail to reject the null hypothesis" hedging.
-- You can check results at any time without inflating false positive rates (no "peeking problem")
-- You can incorporate prior knowledge (e.g., previous tests suggest conversion rates are usually 3-8%)
+Các lợi thế so với kiểm thử A/B tần suất:
+- Bạn có một phát biểu xác suất trực tiếp: "có 97% khả năng B tốt hơn"
+- Không nhầm lẫn p-value. Không lối nói dè dặt "không bác bỏ được giả thuyết không".
+- Bạn có thể kiểm tra kết quả bất kỳ lúc nào mà không làm tăng tỉ lệ dương tính giả (không có "vấn đề nhìn trộm")
+- Bạn có thể kết hợp kiến thức tiên nghiệm (ví dụ, các kiểm thử trước gợi ý tỉ lệ chuyển đổi thường là 3-8%)
 
-| Aspect | Frequentist A/B | Bayesian A/B |
+| Khía cạnh | A/B tần suất | A/B Bayes |
 |--------|----------------|--------------|
-| Output | p-value | P(B > A) |
-| Interpretation | "How surprising is this data if A=B?" | "How likely is B better than A?" |
-| Early stopping | Inflates false positives | Safe at any point (given a well-chosen prior and correctly specified model) |
-| Prior knowledge | Not used | Encoded as Beta prior |
-| Decision rule | p < 0.05 | P(B > A) > threshold |
+| Đầu ra | p-value | P(B > A) |
+| Diễn giải | "Dữ liệu này đáng ngạc nhiên đến mức nào nếu A=B?" | "Khả năng B tốt hơn A là bao nhiêu?" |
+| Dừng sớm | Làm tăng dương tính giả | An toàn tại mọi thời điểm (với một tiên nghiệm được chọn tốt và mô hình được đặc tả đúng) |
+| Kiến thức tiên nghiệm | Không sử dụng | Được mã hóa thành tiên nghiệm Beta |
+| Quy tắc quyết định | p < 0.05 | P(B > A) > ngưỡng |
 
 ## Exercises
 
-1. **Multiple tests.** A patient tests positive twice on independent tests (both 99% accurate, disease prevalence 1 in 10,000). What is P(sick) after both tests? Use the posterior from the first test as the prior for the second.
+1. **Nhiều xét nghiệm.** Một bệnh nhân có kết quả dương tính hai lần trong các xét nghiệm độc lập (cả hai chính xác 99%, tỉ lệ mắc bệnh 1 trong 10,000). P(sick) sau cả hai xét nghiệm là bao nhiêu? Sử dụng hậu nghiệm từ xét nghiệm đầu tiên làm tiên nghiệm cho xét nghiệm thứ hai.
 
-2. **Smoothing impact.** Run the spam classifier with smoothing values of 0.01, 0.1, 1.0, and 10.0. How do the top word probabilities change? What happens with smoothing=0 and a word that appears only in ham?
+2. **Tác động của làm trơn.** Chạy bộ phân loại thư rác với các giá trị làm trơn 0.01, 0.1, 1.0 và 10.0. Các xác suất từ đứng đầu thay đổi như thế nào? Điều gì xảy ra với smoothing=0 và một từ chỉ xuất hiện trong thư không phải rác?
 
-3. **Add features.** Extend the NaiveBayes class to also use message length (short/long) as a feature alongside word counts. Estimate P(short|spam) and P(short|ham) from the training data and fold it into the prediction score.
+3. **Thêm đặc trưng.** Mở rộng lớp NaiveBayes để cũng sử dụng độ dài tin nhắn (ngắn/dài) làm một đặc trưng bên cạnh số đếm từ. Ước lượng P(short|spam) và P(short|ham) từ dữ liệu huấn luyện và kết hợp nó vào điểm dự đoán.
 
-4. **MAP by hand.** Given observed data (7 heads in 10 coin flips), compute the MAP estimate of the bias using a Beta(2,2) prior. Compare it to the MLE estimate (7/10).
+4. **MAP bằng tay.** Với dữ liệu quan sát (7 mặt ngửa trong 10 lần tung đồng xu), tính ước lượng MAP của độ thiên lệch bằng một tiên nghiệm Beta(2,2). So sánh nó với ước lượng MLE (7/10).
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Prior | "My initial guess" | P(hypothesis) before observing evidence. In ML: the regularization term. |
-| Likelihood | "How well the data fits" | P(evidence\|hypothesis). How probable the observed data is under a specific hypothesis. |
-| Posterior | "My updated belief" | P(hypothesis\|evidence). The prior multiplied by the likelihood, then normalized. |
-| Evidence | "The normalizing constant" | P(data) across all hypotheses. Ensures the posterior sums to 1. |
-| Naive Bayes | "That simple text classifier" | A classifier that assumes features are independent given the class. Works well despite the false assumption. |
-| Laplace smoothing | "Add-one smoothing" | Adding a small count to every feature to prevent zero probabilities from unseen data. |
-| MLE | "Just use the frequencies" | Choose parameters that maximize P(data\|parameters). No prior. Can overfit with small data. |
-| MAP | "MLE with a prior" | Choose parameters that maximize P(data\|parameters) * P(parameters). Equivalent to regularized MLE. |
-| Log-probability | "Work in log space" | Using log(P) instead of P to avoid floating-point underflow when multiplying many small numbers. |
-| False positive | "A wrong alarm" | The test says positive, but the true state is negative. Drives the base rate fallacy. |
+| Prior (Tiên nghiệm) | "Phỏng đoán ban đầu của tôi" | P(hypothesis) trước khi quan sát bằng chứng. Trong ML: thành phần regularization. |
+| Likelihood (Hợp lý) | "Dữ liệu khớp tốt đến mức nào" | P(evidence\|hypothesis). Mức độ có khả năng của dữ liệu quan sát dưới một giả thuyết cụ thể. |
+| Posterior (Hậu nghiệm) | "Niềm tin đã cập nhật của tôi" | P(hypothesis\|evidence). Tiên nghiệm nhân với hợp lý, rồi chuẩn hóa. |
+| Evidence (Bằng chứng) | "Hằng số chuẩn hóa" | P(data) trên tất cả các giả thuyết. Bảo đảm hậu nghiệm có tổng bằng 1. |
+| Naive Bayes | "Bộ phân loại văn bản đơn giản đó" | Một bộ phân loại giả định các đặc trưng độc lập khi biết lớp. Hoạt động tốt bất chấp giả định sai. |
+| Laplace smoothing (Làm trơn Laplace) | "Làm trơn cộng một" | Thêm một số đếm nhỏ vào mọi đặc trưng để ngăn xác suất bằng không từ dữ liệu chưa từng thấy. |
+| MLE | "Chỉ sử dụng các tần suất" | Chọn các tham số cực đại hóa P(data\|parameters). Không tiên nghiệm. Có thể khớp quá mức với ít dữ liệu. |
+| MAP | "MLE có tiên nghiệm" | Chọn các tham số cực đại hóa P(data\|parameters) * P(parameters). Tương đương MLE có regularization. |
+| Log-probability (Xác suất log) | "Làm việc trong không gian log" | Sử dụng log(P) thay vì P để tránh hụt dưới dấu phẩy động khi nhân nhiều số nhỏ. |
+| False positive (Dương tính giả) | "Một báo động sai" | Xét nghiệm báo dương tính, nhưng trạng thái thực là âm tính. Dẫn đến ngụy biện tỉ lệ nền. |
 
 ## Further Reading
 
-- [3Blue1Brown: Bayes' theorem](https://www.youtube.com/watch?v=HZGCoVF3YvM) - visual explanation with the medical test example
-- [Stanford CS229: Generative Learning Algorithms](https://cs229.stanford.edu/main_notes.pdf) - naive Bayes and its connection to discriminative models
-- [Think Bayes](https://greenteapress.com/wp/think-bayes/) - free book, Bayesian statistics with Python code
-- [scikit-learn Naive Bayes](https://scikit-learn.org/stable/modules/naive_bayes.html) - production implementations and when to use each variant
+- [3Blue1Brown: Bayes' theorem](https://www.youtube.com/watch?v=HZGCoVF3YvM) - giải thích trực quan với ví dụ xét nghiệm y khoa
+- [Stanford CS229: Generative Learning Algorithms](https://cs229.stanford.edu/main_notes.pdf) - naive Bayes và mối liên hệ của nó với các mô hình phân biệt
+- [Think Bayes](https://greenteapress.com/wp/think-bayes/) - sách miễn phí, thống kê Bayes với mã Python
+- [scikit-learn Naive Bayes](https://scikit-learn.org/stable/modules/naive_bayes.html) - các triển khai sản xuất và khi nào sử dụng từng biến thể
