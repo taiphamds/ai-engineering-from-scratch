@@ -1,6 +1,6 @@
 # Literature Retrieval
 
-> A hypothesis is cheap. Knowing whether someone already proved it is the expensive part. Build the retrieval layer that answers that question before the runner spins up a sandbox.
+> Một giả thuyết rẻ. Biết liệu ai đó đã chứng minh nó chưa là phần đắt. Xây dựng lớp truy xuất trả lời câu hỏi đó trước khi trình chạy khởi động một sandbox.
 
 **Type:** Build
 **Languages:** Python
@@ -8,17 +8,17 @@
 **Time:** ~90 minutes
 
 ## Learning Objectives
-- Model a small paper record with the fields the loop will read downstream.
-- Build a BM25 index over abstracts with stdlib data structures only.
-- Walk a citation graph to surface papers the lexical search missed.
-- Deduplicate hits across the lexical and graph passes by stable paper id.
-- Wrap two mock external APIs behind a single client so the upstream call site stays the same when real endpoints land.
+- Mô hình hóa một bản ghi bài báo nhỏ với các trường vòng lặp sẽ đọc ở hạ nguồn.
+- Xây dựng một chỉ mục BM25 trên các tóm tắt chỉ bằng các cấu trúc dữ liệu stdlib.
+- Duyệt một đồ thị trích dẫn để đưa ra các bài báo mà tìm kiếm từ vựng bỏ lỡ.
+- Loại trùng các kết quả giữa các lượt từ vựng và đồ thị theo id bài báo ổn định.
+- Bọc hai API bên ngoài giả lập sau một máy khách duy nhất để vị trí gọi thượng nguồn giữ nguyên khi các endpoint thực xuất hiện.
 
 ## Why two retrieval passes
 
-A keyword search over abstracts returns papers that share vocabulary with the query. That covers most of the surface. It misses two cases. The first is when the foundational paper uses different vocabulary; for example a query for "sparse attention" misses a paper titled "block selection in transformer routing." The second is when the relevant paper is a follow up that cites a known anchor; it is more efficient to find the anchor and walk forward than to brute force the abstract pool.
+Một tìm kiếm từ khóa trên các tóm tắt trả về các bài báo chia sẻ từ vựng với truy vấn. Điều đó bao phủ phần lớn bề mặt. Nó bỏ lỡ hai trường hợp. Thứ nhất là khi bài báo nền tảng sử dụng từ vựng khác; ví dụ một truy vấn "attention thưa" bỏ lỡ một bài có tiêu đề "lựa chọn khối trong định tuyến transformer." Thứ hai là khi bài báo liên quan là một bài tiếp nối trích dẫn một neo đã biết; tìm neo và duyệt tới hiệu quả hơn vét cạn tập tóm tắt.
 
-The lesson builds both passes. BM25 over abstracts catches the lexical hits. A citation graph traversal expands a seed set forward and backward by one or two hops. The union is deduplicated by paper id and ranked by a small combined score.
+Bài học xây dựng cả hai lượt. BM25 trên các tóm tắt bắt các kết quả từ vựng. Một phép duyệt đồ thị trích dẫn mở rộng một tập seed tiến và lùi một hoặc hai bước nhảy. Hợp được loại trùng theo id bài báo và được xếp hạng bằng một điểm kết hợp nhỏ.
 
 ## The Paper shape
 
@@ -34,7 +34,7 @@ Paper
   source      : str           (which mock api supplied it, "arxiv" or "s2")
 ```
 
-The references and citations fields form the directed citation graph. The two mock APIs return overlapping but not identical fields, so the corpus loader unions them on `id`.
+Các trường references và citations tạo thành đồ thị trích dẫn có hướng. Hai API giả lập trả về các trường chồng lấn nhưng không giống hệt, nên bộ nạp corpus hợp chúng theo `id`.
 
 ```figure
 cg-citation-hops
@@ -60,13 +60,13 @@ flowchart TD
     M --> O[ranked paper list]
 ```
 
-The retrieval client owns both passes and the merge. The caller hands it a query and gets back a ranked list where each entry carries per paper score fields (`bm25_score`, `graph_distance`, `recency_score`, `final_score`) that explain the ranking.
+Máy khách truy xuất sở hữu cả hai lượt và phép hợp nhất. Bên gọi đưa cho nó một truy vấn và nhận lại một danh sách được xếp hạng mà mỗi mục mang các trường điểm theo bài báo (`bm25_score`, `graph_distance`, `recency_score`, `final_score`) giải thích thứ hạng.
 
 ## BM25 from scratch
 
-The implementation is the standard Okapi BM25 with default parameters `k1=1.5`, `b=0.75`. The index is two dictionaries: `term -> doc_frequency` and `term -> list of (doc_id, term_count)`. The document length is the token count of the abstract. The average document length is computed once at index build time. Scoring a query is a sum over query terms of `idf * tf_norm` where `tf_norm` is the standard BM25 length normalised term frequency.
+Triển khai là Okapi BM25 tiêu chuẩn với các tham số mặc định `k1=1.5`, `b=0.75`. Chỉ mục là hai từ điển: `term -> doc_frequency` và `term -> list of (doc_id, term_count)`. Độ dài tài liệu là số token của tóm tắt. Độ dài tài liệu trung bình được tính một lần lúc dựng chỉ mục. Chấm điểm một truy vấn là một tổng trên các từ truy vấn của `idf * tf_norm` trong đó `tf_norm` là tần suất từ được chuẩn hóa độ dài BM25 tiêu chuẩn.
 
-The tokeniser is `lower` then split on non alphanumeric. It is not stemmed. A production system would swap in a small stemmer. The interface stays the same.
+Tokenizer là `lower` rồi chia theo ký tự không phải chữ-số. Nó không được rút gốc từ. Một hệ thống sản xuất sẽ thay bằng một bộ rút gốc nhỏ. Giao diện giữ nguyên.
 
 ```text
 idf(t)      = log((N - df + 0.5) / (df + 0.5) + 1.0)
@@ -76,13 +76,13 @@ score(d, q) = sum over t in q of idf(t) * tf_norm(t)
 
 ## Citation graph traversal
 
-The graph is built once from the corpus. Forward edges go from a paper to its references. Backward edges go from a paper to its citations. The traversal is a breadth first search seeded by the top BM25 hits, capped at two hops.
+Đồ thị được xây dựng một lần từ corpus. Các cạnh tiến đi từ một bài báo đến các tài liệu tham khảo của nó. Các cạnh lùi đi từ một bài báo đến các bài trích dẫn nó. Phép duyệt là một tìm kiếm theo chiều rộng được khởi tạo bằng các kết quả BM25 đứng đầu, giới hạn ở hai bước nhảy.
 
-Two hops is a deliberate ceiling. One hop is too shallow; the agent often wants the immediate ancestor or descendant. Three hops blows up the result size on a connected graph and tends to drift off topic. The lesson exposes the hop limit as a config knob so a downstream loop can tighten it.
+Hai bước nhảy là một trần có chủ ý. Một bước nhảy quá nông; agent thường muốn tổ tiên hoặc hậu duệ trực tiếp. Ba bước nhảy làm nổ kích thước kết quả trên một đồ thị liên thông và có xu hướng trôi lạc đề. Bài học cung cấp giới hạn bước nhảy như một núm cấu hình để một vòng lặp hạ nguồn có thể siết nó.
 
 ## Dedup and ranking
 
-The two passes return overlapping sets. The merge keys on paper id. For each paper the final score is a weighted blend.
+Hai lượt trả về các tập chồng lấn. Phép hợp nhất đặt khóa theo id bài báo. Với mỗi bài báo điểm cuối là một hỗn hợp có trọng số.
 
 ```text
 final_score = w_bm25 * bm25_score_norm
@@ -90,28 +90,28 @@ final_score = w_bm25 * bm25_score_norm
             + w_recency * recency_score
 ```
 
-`bm25_score_norm` is the BM25 score divided by the maximum BM25 score in the merged set (so the field lives in zero to one). `graph_score` is one for direct lexical hits, then `0.6` for one hop, `0.3` for two hops, zero otherwise. `recency_score` is a linear ramp from zero at the corpus minimum year to one at the maximum.
+`bm25_score_norm` là điểm BM25 chia cho điểm BM25 tối đa trong tập được hợp nhất (nên trường nằm trong không đến một). `graph_score` là một cho các kết quả từ vựng trực tiếp, rồi `0.6` cho một bước nhảy, `0.3` cho hai bước nhảy, không nếu không. `recency_score` là một dốc tuyến tính từ không tại năm nhỏ nhất của corpus đến một tại năm lớn nhất.
 
-Default weights are `0.5`, `0.3`, `0.2`. The weights are config; a stale topic might tune recency down while a fast moving topic raises it.
+Các trọng số mặc định là `0.5`, `0.3`, `0.2`. Các trọng số là cấu hình; một chủ đề cũ có thể giảm độ gần đây trong khi một chủ đề chuyển động nhanh tăng nó.
 
 ## Mock corpus
 
-The corpus is one hundred papers, generated by `build_corpus()`. Each paper has a hand written title and abstract on one of five topics: attention sparsity, retrieval augmentation, low rank adapters, dataset distillation, and evaluation harnesses. References and citations are wired so each topic forms a connected sub graph with a few cross topic edges.
+Corpus là một trăm bài báo, được tạo bởi `build_corpus()`. Mỗi bài có một tiêu đề và tóm tắt viết tay về một trong năm chủ đề: độ thưa attention, tăng cường truy xuất, các adapter hạng thấp, chưng cất tập dữ liệu, và các harness đánh giá. Các tài liệu tham khảo và bài trích dẫn được nối để mỗi chủ đề tạo một đồ thị con liên thông với một vài cạnh chéo chủ đề.
 
-The two mock API clients (`ArxivMockClient`, `SemanticScholarMockClient`) read from the same corpus but expose different fields. Arxiv returns title, abstract, year, authors. Semantic Scholar adds references and citations. The retrieval client unions on id; cross client field disagreement handling is deferred to a follow up lesson.
+Hai máy khách API giả lập (`ArxivMockClient`, `SemanticScholarMockClient`) đọc từ cùng corpus nhưng cung cấp các trường khác nhau. Arxiv trả về title, abstract, year, authors. Semantic Scholar thêm references và citations. Máy khách truy xuất hợp theo id; xử lý bất đồng trường giữa các máy khách được hoãn sang một bài tiếp nối.
 
 ## What lessons 52 and 53 read
 
-The runner in lesson fifty-two reads `paper.id`, `paper.title`, and the top three sentences of the abstract as context for the experiment. The evaluator in lesson fifty-three reads `paper.year` and `paper.references` to attribute a baseline to a specific paper.
+Trình chạy trong bài năm mươi hai đọc `paper.id`, `paper.title`, và ba câu đầu của tóm tắt làm ngữ cảnh cho thí nghiệm. Bộ đánh giá trong bài năm mươi ba đọc `paper.year` và `paper.references` để quy một đường cơ sở về một bài báo cụ thể.
 
-The retrieval client returns a `RetrievalResult` with both the ranked list and the per query metrics: hit count, average score, top score, total wall time. The runner logs these so a downstream observability pass can plot quality over time.
+Máy khách truy xuất trả về một `RetrievalResult` với cả danh sách được xếp hạng và các chỉ số theo truy vấn: số kết quả, điểm trung bình, điểm cao nhất, tổng thời gian thực. Trình chạy ghi nhật ký chúng để một lượt quan sát hạ nguồn có thể vẽ chất lượng theo thời gian.
 
 ## How to read the code
 
-`code/main.py` defines `Paper`, `ArxivMockClient`, `SemanticScholarMockClient`, `BM25Index`, `CitationGraph`, `RetrievalClient`, and a deterministic demo. The mock clients and the corpus are in the same file so the lesson stays portable. The BM25 implementation is one class, sixty lines. The graph traversal is one method.
+`code/main.py` định nghĩa `Paper`, `ArxivMockClient`, `SemanticScholarMockClient`, `BM25Index`, `CitationGraph`, `RetrievalClient`, và một demo tất định. Các máy khách giả lập và corpus nằm trong cùng file để bài học giữ tính di động. Triển khai BM25 là một lớp, sáu mươi dòng. Phép duyệt đồ thị là một phương thức.
 
-`code/tests/test_retrieval.py` covers the lexical path, the graph path, the merge, the dedup, and the empty query.
+`code/tests/test_retrieval.py` bao phủ đường từ vựng, đường đồ thị, hợp nhất, loại trùng, và truy vấn rỗng.
 
 ## Where this slots in
 
-Lesson fifty produces a hypothesis. Lesson fifty-one searches the literature to see whether that hypothesis is already settled. Lesson fifty-two runs the experiment if it is not. Lesson fifty-three reads both the retrieval result and the experiment metrics to write the verdict. The retrieval client is the cheapest of the four stages and runs first in the orchestrator.
+Bài năm mươi tạo một giả thuyết. Bài năm mươi mốt tìm tài liệu để xem liệu giả thuyết đó đã được giải quyết chưa. Bài năm mươi hai chạy thí nghiệm nếu chưa. Bài năm mươi ba đọc cả kết quả truy xuất và các chỉ số thí nghiệm để viết kết luận. Máy khách truy xuất là rẻ nhất trong bốn giai đoạn và chạy trước trong bộ điều phối.
