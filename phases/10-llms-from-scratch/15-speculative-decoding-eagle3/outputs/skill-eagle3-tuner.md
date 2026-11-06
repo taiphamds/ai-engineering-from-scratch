@@ -7,25 +7,25 @@ lesson: 15
 tags: [speculative-decoding, eagle, eagle-3, medusa, inference, vllm, sglang, tensorrt-llm]
 ---
 
-Given a production inference target (verifier model, batch size, sequence length profile, target p50/p99 decode latency, accelerator, expected alpha range from telemetry, task mix), recommend a speculative-decoding strategy and tuning parameters. The recommendation must preserve the verifier's output distribution exactly — no quality tradeoff is acceptable without explicit sign-off.
+Với đích suy luận production (mô hình xác minh, batch, đặc điểm độ dài chuỗi, độ trễ decode p50/p99 mục tiêu, bộ tăng tốc, phạm vi alpha kỳ vọng từ đo từ xa, hỗn hợp tác vụ), đề xuất chiến lược speculative-decoding và tham số điều chỉnh. Đề xuất phải giữ chính xác phân phối đầu ra bộ xác minh — không đánh đổi chất lượng nào chấp nhận được nếu không phê duyệt rõ.
 
-Produce:
+Tạo:
 
-1. Draft family. Pick from vanilla, Medusa, EAGLE-1, EAGLE-2, EAGLE-3, or lookahead. Justify using alpha telemetry (or a calibrated estimate), training cost available (none, small SFT, full 60B+ token run), and whether the verifier ships with a published draft (EAGLE-3 checkpoints exist for Llama 3.1/3.3, DeepSeek-V3, Qwen 2.5, Qwen 3).
-2. Draft length N. Pick the integer N that minimizes expected wall time per token given alpha and draft-to-verifier cost ratio c: minimize (1 + N*c) / ((1 - alpha^(N+1)) / (1 - alpha)). Show the work for three candidate N values around the optimum.
-3. Tree search parameters if EAGLE-2/3. Pick tree depth and branching factor to stay within memory budget. Default to depth 3, branching (4, 2, 2) for batch <=8, depth 2 (4, 2) for batch 16-64, and no tree for batch >64.
-4. Temperature gating. When temperature > 0.8, alpha collapses. Recommend disabling spec decode above a calibrated threshold, or switching to a wider tree with lower per-node branching.
-5. KV rollback plan. Name the specific KV cache implementation (vLLM's scratch buffer vs TensorRT-LLM's logical-length per-sequence) and confirm it supports batched rejection at the target concurrency.
+1. Họ nháp. Chọn nguyên bản, Medusa, EAGLE-1, EAGLE-2, EAGLE-3 hoặc lookahead. Biện minh bằng đo từ xa alpha (hoặc ước tính hiệu chuẩn), chi phí huấn luyện sẵn có (không, SFT nhỏ, lần chạy đầy đủ 60B+ token), và liệu bộ xác minh có nháp công bố không (checkpoint EAGLE-3 tồn tại cho Llama 3.1/3.3, DeepSeek-V3, Qwen 2.5, Qwen 3).
+2. Độ dài nháp N. Chọn số nguyên N giảm thiểu thời gian thực kỳ vọng mỗi token với alpha và tỷ lệ chi phí nháp/bộ xác minh c: tối thiểu hóa (1 + N*c) / ((1 - alpha^(N+1)) / (1 - alpha)). Trình bày tính cho ba N ứng viên quanh tối ưu.
+3. Tham số tìm kiếm cây nếu EAGLE-2/3. Chọn độ sâu và hệ số phân nhánh trong ngân sách bộ nhớ. Mặc định sâu 3, phân nhánh (4, 2, 2) cho batch <=8, sâu 2 (4, 2) cho batch 16-64, và không cây cho batch >64.
+4. Cổng temperature. Khi temperature > 0.8, alpha sụp đổ. Đề xuất tắt spec decode trên ngưỡng hiệu chuẩn, hoặc chuyển sang cây rộng hơn với phân nhánh mỗi nút thấp hơn.
+5. Kế hoạch hoàn tác KV. Nêu triển khai KV cache cụ thể (bộ đệm tạm vLLM so với độ dài logic theo chuỗi TensorRT-LLM) và xác nhận hỗ trợ loại theo batch ở mức đồng thời mục tiêu.
 
-Hard rejects:
-- Any recommendation that changes the verifier's output distribution (e.g., approximate spec-decode, relaxed rejection).
-- Spec decode at batch 1 on a single small model where draft cost exceeds verifier cost saved.
-- EAGLE with a draft checkpoint trained against a different tokenizer or base model revision than the verifier.
-- Running spec decode without KV rollback — will silently corrupt subsequent tokens.
+Từ chối dứt khoát:
+- Mọi đề xuất thay đổi phân phối đầu ra bộ xác minh (ví dụ spec-decode xấp xỉ, loại bỏ nới lỏng).
+- Spec decode ở batch 1 trên mô hình nhỏ đơn lẻ mà chi phí nháp vượt chi phí xác minh tiết kiệm.
+- EAGLE có checkpoint nháp huấn luyện với tokenizer hoặc bản mô hình cơ sở khác bộ xác minh.
+- Chạy spec decode không hoàn tác KV — sẽ âm thầm làm hỏng token sau.
 
-Refusal rules:
-- If alpha telemetry is unavailable AND the task mix is high-temperature creative writing, refuse the recommendation and request a calibration run first.
-- If the verifier is smaller than 7B dense parameters, recommend disabling spec decode rather than picking a strategy.
-- If the serving stack does not support the chosen draft family (e.g., vLLM version without EAGLE-3), downgrade to EAGLE-2 rather than asking the user to rebuild the stack.
+Quy tắc từ chối:
+- Nếu không có đo từ xa alpha VÀ hỗn hợp tác vụ là viết sáng tạo temperature cao, từ chối đề xuất và yêu cầu lần hiệu chuẩn trước.
+- Nếu bộ xác minh nhỏ hơn 7B tham số dense, đề xuất tắt spec decode thay vì chọn chiến lược.
+- Nếu bộ phục vụ không hỗ trợ họ nháp đã chọn (ví dụ phiên bản vLLM không EAGLE-3), hạ xuống EAGLE-2 thay vì yêu cầu người dùng xây lại bộ công cụ.
 
-Output: a one-page recommendation listing draft family, N, tree shape (if applicable), KV rollback confirmation, and expected speedup range. End with an "alpha telemetry plan" paragraph naming the exact logging hooks the user must add to their inference server to verify the recommendation in the first week of production.
+Đầu ra: đề xuất một trang liệt kê họ nháp, N, hình dạng cây (nếu có), xác nhận hoàn tác KV và phạm vi tăng tốc kỳ vọng. Kết thúc bằng đoạn "kế hoạch đo từ xa alpha" nêu hook ghi log chính xác người dùng phải thêm vào máy chủ suy luận để xác minh đề xuất trong tuần production đầu.
