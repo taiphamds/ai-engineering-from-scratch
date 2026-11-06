@@ -1,6 +1,6 @@
 # Stochastic Processes
 
-> Randomness with structure. The math behind random walks, Markov chains, and diffusion models.
+> Tính ngẫu nhiên có cấu trúc. Toán học đằng sau các bước đi ngẫu nhiên, chuỗi Markov và mô hình khuếch tán.
 
 **Type:** Learn
 **Language:** Python
@@ -9,38 +9,38 @@
 
 ## Learning Objectives
 
-- Simulate 1D and 2D random walks and verify the sqrt(n) scaling of displacement
-- Build a Markov chain simulator and compute its stationary distribution via eigendecomposition
-- Implement Metropolis-Hastings MCMC and Langevin dynamics for sampling from target distributions
-- Connect the forward diffusion process to Brownian motion and explain how the reverse process generates data
+- Mô phỏng các bước đi ngẫu nhiên 1D và 2D và xác minh độ dịch chuyển tỉ lệ theo sqrt(n)
+- Xây dựng một bộ mô phỏng chuỗi Markov và tính phân phối dừng của nó bằng phân rã riêng
+- Triển khai MCMC Metropolis-Hastings và động lực học Langevin để lấy mẫu từ các phân phối mục tiêu
+- Kết nối quá trình khuếch tán xuôi với chuyển động Brown và giải thích cách quá trình ngược sinh dữ liệu
 
 ## The Problem
 
-Many AI systems involve randomness that evolves over time. Not static randomness -- structured, sequential randomness where each step depends on what came before.
+Nhiều hệ thống AI liên quan đến tính ngẫu nhiên tiến triển theo thời gian. Không phải tính ngẫu nhiên tĩnh -- tính ngẫu nhiên tuần tự, có cấu trúc nơi mỗi bước phụ thuộc vào những gì đến trước.
 
-Language models generate tokens one at a time. Each token depends on the previous context. The model outputs a probability distribution, samples from it, and moves on. That is a stochastic process.
+Các mô hình ngôn ngữ sinh từng token một. Mỗi token phụ thuộc vào ngữ cảnh trước đó. Mô hình xuất ra một phân phối xác suất, lấy mẫu từ nó và tiếp tục. Đó là một quá trình ngẫu nhiên.
 
-Diffusion models add noise to an image step by step until it becomes pure static. Then they reverse the process, denoising step by step until a new image emerges. The forward process is a Markov chain. The reverse process is a learned Markov chain running backward.
+Các mô hình khuếch tán thêm nhiễu vào một hình ảnh từng bước cho đến khi nó trở thành nhiễu thuần. Rồi chúng đảo ngược quá trình, khử nhiễu từng bước cho đến khi một hình ảnh mới xuất hiện. Quá trình xuôi là một chuỗi Markov. Quá trình ngược là một chuỗi Markov đã học chạy ngược.
 
-Reinforcement learning agents take actions in an environment. Each action leads to a new state with some probability. The agent follows a random policy in a random world. The whole thing is a Markov decision process.
+Các agent học tăng cường thực hiện hành động trong một môi trường. Mỗi hành động dẫn đến một trạng thái mới với một xác suất nào đó. Agent tuân theo một chính sách ngẫu nhiên trong một thế giới ngẫu nhiên. Toàn bộ là một quá trình quyết định Markov.
 
-MCMC sampling -- the backbone of Bayesian inference -- constructs a Markov chain whose stationary distribution is the posterior you want to sample from.
+Lấy mẫu MCMC -- trụ cột của suy luận Bayes -- xây dựng một chuỗi Markov có phân phối dừng là hậu nghiệm bạn muốn lấy mẫu từ đó.
 
-All of these build on four foundational ideas:
-1. Random walks -- the simplest stochastic process
-2. Markov chains -- structured randomness with a transition matrix
-3. Langevin dynamics -- gradient descent with noise
-4. Metropolis-Hastings -- sampling from any distribution
+Tất cả những điều này xây dựng trên bốn ý tưởng nền tảng:
+1. Bước đi ngẫu nhiên -- quá trình ngẫu nhiên đơn giản nhất
+2. Chuỗi Markov -- tính ngẫu nhiên có cấu trúc với một ma trận chuyển
+3. Động lực học Langevin -- gradient descent có nhiễu
+4. Metropolis-Hastings -- lấy mẫu từ bất kỳ phân phối nào
 
 ## The Concept
 
 ### Random Walks
 
-Start at position 0. At each step, flip a fair coin. Heads: move right (+1). Tails: move left (-1).
+Bắt đầu tại vị trí 0. Tại mỗi bước, tung một đồng xu cân bằng. Ngửa: đi sang phải (+1). Sấp: đi sang trái (-1).
 
-After n steps, your position is the sum of n random +/-1 values. The expected position is 0 (the walk is unbiased). But the expected distance from the origin grows as sqrt(n).
+Sau n bước, vị trí của bạn là tổng n giá trị ngẫu nhiên +/-1. Vị trí kỳ vọng là 0 (bước đi không chệch). Nhưng khoảng cách kỳ vọng từ gốc tọa độ tăng theo sqrt(n).
 
-This is counterintuitive. The walk is fair -- no drift in either direction. But over time, it wanders further and further from where it started. The standard deviation after n steps is sqrt(n).
+Điều này trái trực giác. Bước đi công bằng -- không có độ trôi theo cả hai hướng. Nhưng theo thời gian, nó lang thang ngày càng xa nơi bắt đầu. Độ lệch chuẩn sau n bước là sqrt(n).
 
 ```
 Step 0:  Position = 0
@@ -51,35 +51,35 @@ Step 100: Expected distance from origin ~ 10 (sqrt(100))
 Step 10000: Expected distance from origin ~ 100 (sqrt(10000))
 ```
 
-**In 2D**, the walk moves up, down, left, or right with equal probability. The same sqrt(n) scaling applies to the distance from the origin. The path traces a fractal-like pattern.
+**Trong 2D**, bước đi di chuyển lên, xuống, trái hoặc phải với xác suất bằng nhau. Cùng tỉ lệ sqrt(n) áp dụng cho khoảng cách từ gốc tọa độ. Đường đi vạch ra một mẫu giống fractal.
 
-**Why sqrt(n)?** Each step is +1 or -1 with equal probability. After n steps, the position S_n = X_1 + X_2 + ... + X_n where each X_i is +/-1. The variance of each step is 1, and the steps are independent, so Var(S_n) = n. Standard deviation = sqrt(n). By the central limit theorem, S_n / sqrt(n) converges to a standard normal distribution.
+**Tại sao sqrt(n)?** Mỗi bước là +1 hoặc -1 với xác suất bằng nhau. Sau n bước, vị trí S_n = X_1 + X_2 + ... + X_n trong đó mỗi X_i là +/-1. Phương sai mỗi bước là 1, và các bước độc lập, nên Var(S_n) = n. Độ lệch chuẩn = sqrt(n). Theo định lý giới hạn trung tâm, S_n / sqrt(n) hội tụ về một phân phối chuẩn tắc.
 
-This sqrt(n) scaling shows up everywhere in ML. SGD noise scales as 1/sqrt(batch_size). Embedding dimensions scale as sqrt(d). The square root is the signature of independent random additions.
+Tỉ lệ sqrt(n) này xuất hiện khắp nơi trong ML. Nhiễu SGD tỉ lệ theo 1/sqrt(batch_size). Các chiều embedding tỉ lệ theo sqrt(d). Căn bậc hai là dấu hiệu của các phép cộng ngẫu nhiên độc lập.
 
-**Connection to Brownian motion.** Take a random walk with step size 1/sqrt(n) and n steps per unit time. As n goes to infinity, the walk converges to Brownian motion B(t) -- a continuous-time process where B(t) is normally distributed with mean 0 and variance t.
+**Mối liên hệ với chuyển động Brown.** Xét một bước đi ngẫu nhiên với kích thước bước 1/sqrt(n) và n bước trên mỗi đơn vị thời gian. Khi n tiến đến vô cực, bước đi hội tụ về chuyển động Brown B(t) -- một quá trình thời gian liên tục nơi B(t) có phân phối chuẩn với trung bình 0 và phương sai t.
 
-Brownian motion is the mathematical foundation of diffusion. It models the random jiggling of particles in a fluid, the fluctuations of stock prices, and -- crucially -- the noise process in diffusion models.
+Chuyển động Brown là nền tảng toán học của khuếch tán. Nó mô hình hóa chuyển động rung ngẫu nhiên của các hạt trong chất lưu, các dao động giá cổ phiếu và -- thiết yếu -- quá trình nhiễu trong các mô hình khuếch tán.
 
-**Gambler's ruin.** A random walker starting at position k, with absorbing barriers at 0 and N. What is the probability of reaching N before 0? For a fair walk: P(reach N) = k/N. This is surprisingly simple and elegant. It connects to the theory of martingales -- the fair random walk is a martingale (expected future value = current value).
+**Sự phá sản của con bạc.** Một người đi ngẫu nhiên bắt đầu tại vị trí k, với các biên hấp thụ tại 0 và N. Xác suất đạt N trước 0 là bao nhiêu? Với một bước đi công bằng: P(reach N) = k/N. Điều này đơn giản và thanh nhã đáng ngạc nhiên. Nó kết nối với lý thuyết martingale -- bước đi ngẫu nhiên công bằng là một martingale (giá trị kỳ vọng tương lai = giá trị hiện tại).
 
 ### Markov Chains
 
-A Markov chain is a system that transitions between states according to fixed probabilities. The key property: the next state depends only on the current state, not on the history.
+Một chuỗi Markov là một hệ thống chuyển giữa các trạng thái theo các xác suất cố định. Tính chất chính: trạng thái tiếp theo chỉ phụ thuộc vào trạng thái hiện tại, không vào lịch sử.
 
 ```
 P(X_{t+1} = j | X_t = i, X_{t-1} = ...) = P(X_{t+1} = j | X_t = i)
 ```
 
-This is the Markov property. It means you can describe the entire dynamics with a transition matrix P:
+Đây là tính chất Markov. Nó có nghĩa là bạn có thể mô tả toàn bộ động lực học bằng một ma trận chuyển P:
 
 ```
 P[i][j] = probability of going from state i to state j
 ```
 
-Each row of P sums to 1 (you must go somewhere).
+Mỗi hàng của P có tổng bằng 1 (bạn phải đi đâu đó).
 
-**Example -- Weather:**
+**Ví dụ -- Thời tiết:**
 
 ```
 States: Sunny (0), Rainy (1), Cloudy (2)
@@ -89,9 +89,9 @@ P = [[0.7, 0.1, 0.2],    (if sunny: 70% sunny, 10% rainy, 20% cloudy)
      [0.4, 0.2, 0.4]]    (if cloudy: 40% sunny, 20% rainy, 40% cloudy)
 ```
 
-Start in any state. After many transitions, the distribution of states converges to the stationary distribution pi, where pi * P = pi. This is the left eigenvector of P with eigenvalue 1.
+Bắt đầu ở bất kỳ trạng thái nào. Sau nhiều lần chuyển, phân phối trạng thái hội tụ về phân phối dừng pi, trong đó pi * P = pi. Đây là vector riêng trái của P với giá trị riêng 1.
 
-For the weather chain, the stationary distribution is [0.55, 0.18, 0.27] -- over the long run, it is sunny 55% of the time regardless of the starting state.
+Với chuỗi thời tiết, phân phối dừng là [0.55, 0.18, 0.27] -- về lâu dài, trời nắng 55% thời gian bất kể trạng thái bắt đầu.
 
 ```mermaid
 graph LR
@@ -106,78 +106,78 @@ graph LR
     C -->|0.4| C
 ```
 
-**Computing the stationary distribution.** There are two approaches:
+**Tính phân phối dừng.** Có hai cách tiếp cận:
 
-1. **Power method**: multiply any initial distribution by P repeatedly. After enough iterations, it converges.
-2. **Eigenvalue method**: find the left eigenvector of P with eigenvalue 1. This is the eigenvector of P^T with eigenvalue 1.
+1. **Phương pháp lũy thừa**: nhân lặp lại bất kỳ phân phối ban đầu nào với P. Sau đủ lần lặp, nó hội tụ.
+2. **Phương pháp giá trị riêng**: tìm vector riêng trái của P với giá trị riêng 1. Đây là vector riêng của P^T với giá trị riêng 1.
 
-Both approaches require the chain to satisfy convergence conditions.
+Cả hai cách tiếp cận đòi hỏi chuỗi thỏa mãn các điều kiện hội tụ.
 
-**Convergence conditions.** A Markov chain converges to a unique stationary distribution if it is:
-- **Irreducible**: every state is reachable from every other state
-- **Aperiodic**: the chain does not cycle with a fixed period
+**Các điều kiện hội tụ.** Một chuỗi Markov hội tụ về một phân phối dừng duy nhất nếu nó:
+- **Bất khả quy**: mọi trạng thái đều có thể đến được từ mọi trạng thái khác
+- **Phi chu kỳ**: chuỗi không quay vòng với một chu kỳ cố định
 
-Most chains you encounter in ML satisfy both conditions.
+Hầu hết các chuỗi bạn gặp trong ML thỏa mãn cả hai điều kiện.
 
-**Absorbing states.** A state is absorbing if once you enter it, you never leave (P[i][i] = 1). Absorbing Markov chains model processes with terminal states -- a game that ends, a customer who churns, a token sequence that hits the end-of-text token.
+**Các trạng thái hấp thụ.** Một trạng thái là hấp thụ nếu một khi vào đó, bạn không bao giờ rời đi (P[i][i] = 1). Các chuỗi Markov hấp thụ mô hình hóa các quá trình có trạng thái kết thúc -- một trò chơi kết thúc, một khách hàng rời bỏ, một chuỗi token chạm token kết thúc văn bản.
 
-**Mixing time.** How many steps until the chain is "close" to the stationary distribution? Formally, the number of steps until the total variation distance from stationarity drops below some threshold. Fast mixing = few steps needed. The spectral gap of P (1 minus the second-largest eigenvalue) controls the mixing time. Larger gap = faster mixing.
+**Thời gian trộn.** Bao nhiêu bước cho đến khi chuỗi "gần" phân phối dừng? Một cách hình thức, số bước cho đến khi khoảng cách biến phân toàn phần so với trạng thái dừng giảm dưới một ngưỡng nào đó. Trộn nhanh = cần ít bước. Khoảng cách phổ của P (1 trừ giá trị riêng lớn thứ hai) điều khiển thời gian trộn. Khoảng cách lớn hơn = trộn nhanh hơn.
 
 ### Connection to Language Models
 
-Token generation in a language model is approximately a Markov process. Given the current context, the model outputs a distribution over the next token. Temperature controls the sharpness:
+Sinh token trong một mô hình ngôn ngữ xấp xỉ là một quá trình Markov. Với ngữ cảnh hiện tại, mô hình xuất ra một phân phối trên token tiếp theo. Temperature điều khiển độ nhọn:
 
 ```
 P(token_i) = exp(logit_i / temperature) / sum(exp(logit_j / temperature))
 ```
 
-- Temperature = 1.0: standard distribution
-- Temperature < 1.0: sharper (more deterministic)
-- Temperature > 1.0: flatter (more random)
-- Temperature -> 0: argmax (greedy)
+- Temperature = 1.0: phân phối tiêu chuẩn
+- Temperature < 1.0: nhọn hơn (tất định hơn)
+- Temperature > 1.0: phẳng hơn (ngẫu nhiên hơn)
+- Temperature -> 0: argmax (tham lam)
 
-Top-k sampling truncates to the k highest-probability tokens. Top-p (nucleus) sampling truncates to the smallest set of tokens whose cumulative probability exceeds p. Both modify the Markov transition probabilities.
+Lấy mẫu top-k cắt ngọn về k token có xác suất cao nhất. Lấy mẫu top-p (nucleus) cắt ngọn về tập token nhỏ nhất có xác suất tích lũy vượt p. Cả hai sửa đổi các xác suất chuyển Markov.
 
 ### Brownian Motion
 
-The continuous-time limit of the random walk. Position B(t) has three properties:
+Giới hạn thời gian liên tục của bước đi ngẫu nhiên. Vị trí B(t) có ba tính chất:
 1. B(0) = 0
-2. B(t) - B(s) is normally distributed with mean 0 and variance t - s (for t > s)
-3. Increments on non-overlapping intervals are independent
+2. B(t) - B(s) có phân phối chuẩn với trung bình 0 và phương sai t - s (với t > s)
+3. Các số gia trên các khoảng không chồng lấp độc lập
 
-Brownian motion is continuous but nowhere differentiable -- it jiggles at every scale. The path has fractal dimension 2 in the plane.
+Chuyển động Brown liên tục nhưng không đâu khả vi -- nó rung ở mọi thang đo. Đường đi có số chiều fractal 2 trong mặt phẳng.
 
-In discrete simulation, you approximate Brownian motion by:
+Trong mô phỏng rời rạc, bạn xấp xỉ chuyển động Brown bằng:
 
 ```
 B(t + dt) = B(t) + sqrt(dt) * z,    where z ~ N(0, 1)
 ```
 
-The sqrt(dt) scaling is important. It comes from the central limit theorem applied to random walks.
+Tỉ lệ sqrt(dt) quan trọng. Nó đến từ định lý giới hạn trung tâm được áp dụng cho các bước đi ngẫu nhiên.
 
 ### Langevin Dynamics
 
-Gradient descent finds the minimum of a function. Langevin dynamics finds the probability distribution proportional to exp(-U(x)/T), where U is an energy function and T is temperature.
+Gradient descent tìm cực tiểu của một hàm. Động lực học Langevin tìm phân phối xác suất tỉ lệ với exp(-U(x)/T), trong đó U là một hàm năng lượng và T là nhiệt độ.
 
 ```
 x_{t+1} = x_t - dt * gradient(U(x_t)) + sqrt(2 * T * dt) * z_t
 ```
 
-Two forces act on the particle:
-1. **Gradient force** (-dt * gradient(U)): pushes toward low energy (like gradient descent)
-2. **Random force** (sqrt(2*T*dt) * z): pushes in random directions (exploration)
+Hai lực tác động lên hạt:
+1. **Lực gradient** (-dt * gradient(U)): đẩy về phía năng lượng thấp (giống gradient descent)
+2. **Lực ngẫu nhiên** (sqrt(2*T*dt) * z): đẩy theo các hướng ngẫu nhiên (khám phá)
 
-At temperature T = 0, this is pure gradient descent. At high temperature, it is nearly a random walk. At the right temperature, the particle explores the energy landscape and spends more time in low-energy regions.
+Tại nhiệt độ T = 0, đây là gradient descent thuần. Ở nhiệt độ cao, nó gần như một bước đi ngẫu nhiên. Ở nhiệt độ phù hợp, hạt khám phá địa hình năng lượng và dành nhiều thời gian hơn ở các vùng năng lượng thấp.
 
-**Connection to diffusion models.** The forward process of a diffusion model is:
+**Mối liên hệ với mô hình khuếch tán.** Quá trình xuôi của một mô hình khuếch tán là:
 
 ```
 x_t = sqrt(alpha_t) * x_{t-1} + sqrt(1 - alpha_t) * noise
 ```
 
-This is a Markov chain that gradually mixes the data with noise. After enough steps, x_T is pure Gaussian noise.
+Đây là một chuỗi Markov dần trộn dữ liệu với nhiễu. Sau đủ bước, x_T là nhiễu Gaussian thuần.
 
-The reverse process -- going from noise back to data -- is also a Markov chain, but its transition probabilities are learned by a neural network. The network learns to predict the noise that was added at each step, then subtracts it.
+Quá trình ngược -- đi từ nhiễu trở lại dữ liệu -- cũng là một chuỗi Markov, nhưng các xác suất chuyển của nó được học bởi một mạng nơ-ron. Mạng học cách dự đoán nhiễu đã được thêm ở mỗi bước, rồi trừ nó.
 
 ```mermaid
 graph LR
@@ -195,38 +195,38 @@ graph LR
 
 ### MCMC: Markov Chain Monte Carlo
 
-Sometimes you need to sample from a distribution p(x) that you can evaluate (up to a constant) but cannot sample from directly. Bayesian posteriors are the classic example -- you know the likelihood times the prior, but the normalizing constant is intractable.
+Đôi khi bạn cần lấy mẫu từ một phân phối p(x) mà bạn có thể tính giá trị (tới một hằng số) nhưng không thể lấy mẫu trực tiếp. Các hậu nghiệm Bayes là ví dụ kinh điển -- bạn biết hợp lý nhân tiên nghiệm, nhưng hằng số chuẩn hóa không thể tính được.
 
-**Metropolis-Hastings** constructs a Markov chain whose stationary distribution is p(x):
+**Metropolis-Hastings** xây dựng một chuỗi Markov có phân phối dừng là p(x):
 
-1. Start at some position x
-2. Propose a new position x' from a proposal distribution Q(x'|x)
-3. Compute acceptance ratio: a = p(x') * Q(x|x') / (p(x) * Q(x'|x))
-4. Accept x' with probability min(1, a). Otherwise stay at x.
-5. Repeat.
+1. Bắt đầu tại một vị trí x nào đó
+2. Đề xuất một vị trí mới x' từ một phân phối đề xuất Q(x'|x)
+3. Tính tỉ số chấp nhận: a = p(x') * Q(x|x') / (p(x) * Q(x'|x))
+4. Chấp nhận x' với xác suất min(1, a). Nếu không giữ nguyên tại x.
+5. Lặp lại.
 
-If Q is symmetric (e.g., Q(x'|x) = Q(x|x') = N(x, sigma^2)), the ratio simplifies to a = p(x') / p(x). You only need the ratio of probabilities -- the normalizing constant cancels.
+Nếu Q đối xứng (ví dụ, Q(x'|x) = Q(x|x') = N(x, sigma^2)), tỉ số đơn giản thành a = p(x') / p(x). Bạn chỉ cần tỉ số xác suất -- hằng số chuẩn hóa triệt tiêu.
 
-The chain is guaranteed to converge to p(x) under mild conditions. But convergence can be slow if the proposal is too small (random walk) or too large (high rejection). Tuning the proposal is the art of MCMC.
+Chuỗi được bảo đảm hội tụ về p(x) dưới các điều kiện nhẹ. Nhưng hội tụ có thể chậm nếu đề xuất quá nhỏ (bước đi ngẫu nhiên) hoặc quá lớn (loại bỏ cao). Điều chỉnh đề xuất là nghệ thuật của MCMC.
 
-**Why it works.** The acceptance ratio ensures detailed balance: the probability of being at x and moving to x' equals the probability of being at x' and moving to x. Detailed balance implies that p(x) is the stationary distribution of the chain. So after enough steps, the samples come from p(x).
+**Tại sao nó hoạt động.** Tỉ số chấp nhận bảo đảm cân bằng chi tiết: xác suất ở x và chuyển đến x' bằng xác suất ở x' và chuyển đến x. Cân bằng chi tiết hàm ý p(x) là phân phối dừng của chuỗi. Vì vậy sau đủ bước, các mẫu đến từ p(x).
 
-**Practical considerations:**
-- **Burn-in**: discard the first N samples. The chain needs time to reach the stationary distribution from its starting point.
-- **Thinning**: keep every k-th sample to reduce autocorrelation.
-- **Multiple chains**: run several chains from different starting points. If they converge to the same distribution, you have evidence of convergence.
-- **Acceptance rate**: for Gaussian proposals in d dimensions, the optimal acceptance rate is about 23% (Roberts & Rosenthal, 2001). Too high means the chain barely moves. Too low means it rejects everything.
+**Các cân nhắc thực tế:**
+- **Burn-in**: bỏ N mẫu đầu tiên. Chuỗi cần thời gian để đạt phân phối dừng từ điểm bắt đầu.
+- **Làm thưa**: giữ mỗi mẫu thứ k để giảm tự tương quan.
+- **Nhiều chuỗi**: chạy một số chuỗi từ các điểm bắt đầu khác nhau. Nếu chúng hội tụ về cùng phân phối, bạn có bằng chứng hội tụ.
+- **Tỉ lệ chấp nhận**: với các đề xuất Gaussian trong d chiều, tỉ lệ chấp nhận tối ưu khoảng 23% (Roberts & Rosenthal, 2001). Quá cao nghĩa là chuỗi hầu như không di chuyển. Quá thấp nghĩa là nó loại bỏ mọi thứ.
 
 ### Stochastic Processes in AI
 
-| Process | AI Application |
+| Quá trình | Ứng dụng AI |
 |---------|---------------|
-| Random walk | Exploration in RL, Node2Vec embeddings |
-| Markov chain | Text generation, MCMC sampling |
-| Brownian motion | Diffusion models (forward process) |
-| Langevin dynamics | Score-based generative models, SGLD |
-| Markov decision process | Reinforcement learning |
-| Metropolis-Hastings | Bayesian inference, posterior sampling |
+| Bước đi ngẫu nhiên | Khám phá trong RL, embedding Node2Vec |
+| Chuỗi Markov | Sinh văn bản, lấy mẫu MCMC |
+| Chuyển động Brown | Các mô hình khuếch tán (quá trình xuôi) |
+| Động lực học Langevin | Các mô hình tạo sinh dựa trên score, SGLD |
+| Quá trình quyết định Markov | Học tăng cường |
+| Metropolis-Hastings | Suy luận Bayes, lấy mẫu hậu nghiệm |
 
 ```figure
 random-walk-diffusion
@@ -260,7 +260,7 @@ def random_walk_2d(n_steps, seed=None):
     return x, y
 ```
 
-The 1D walk stores cumulative sums. Each step is +1 or -1. After n steps, the position is the sum. The variance grows linearly with n, so the standard deviation grows as sqrt(n).
+Bước đi 1D lưu các tổng tích lũy. Mỗi bước là +1 hoặc -1. Sau n bước, vị trí là tổng. Phương sai tăng tuyến tính theo n, nên độ lệch chuẩn tăng theo sqrt(n).
 
 ### Step 2: Markov chain
 
@@ -294,7 +294,7 @@ class MarkovChain:
         return np.abs(stationary)
 ```
 
-The stationary distribution is the left eigenvector of P with eigenvalue 1. We find it by computing eigenvectors of P^T (transposing turns left eigenvectors into right eigenvectors).
+Phân phối dừng là vector riêng trái của P với giá trị riêng 1. Chúng ta tìm nó bằng cách tính các vector riêng của P^T (chuyển vị biến các vector riêng trái thành vector riêng phải).
 
 ### Step 3: Langevin dynamics
 
@@ -310,7 +310,7 @@ def langevin_dynamics(grad_U, x0, dt, temperature, n_steps, seed=None):
     return np.array(trajectory)
 ```
 
-The gradient pushes x toward low energy. The noise prevents it from getting stuck. At equilibrium, the distribution of samples is proportional to exp(-U(x)/temperature).
+Gradient đẩy x về phía năng lượng thấp. Nhiễu ngăn nó bị kẹt. Ở cân bằng, phân phối các mẫu tỉ lệ với exp(-U(x)/temperature).
 
 ### Step 4: Metropolis-Hastings
 
@@ -331,11 +331,11 @@ def metropolis_hastings(target_log_prob, proposal_std, x0, n_samples, seed=None)
     return np.array(samples), acceptance_rate
 ```
 
-The algorithm proposes a new point, checks if it has higher probability (or accepts with probability proportional to the ratio), and repeats. The acceptance rate should be around 23-50% for good mixing.
+Thuật toán đề xuất một điểm mới, kiểm tra xem nó có xác suất cao hơn không (hoặc chấp nhận với xác suất tỉ lệ với tỉ số), và lặp lại. Tỉ lệ chấp nhận nên quanh 23-50% để trộn tốt.
 
 ## Use It
 
-In practice, you use established libraries for these algorithms. But understanding the mechanics matters for debugging and tuning.
+Trong thực tế, bạn sử dụng các thư viện đã được thiết lập cho các thuật toán này. Nhưng hiểu cơ chế quan trọng để gỡ lỗi và điều chỉnh.
 
 ```python
 import numpy as np
@@ -363,13 +363,13 @@ for _ in range(100):
 print(f"Stationary distribution: {np.round(distribution, 4)}")
 ```
 
-Multiply the initial distribution by P repeatedly. After enough iterations, it converges to the stationary distribution regardless of where you started. This is the power method for finding the dominant left eigenvector.
+Nhân lặp lại phân phối ban đầu với P. Sau đủ lần lặp, nó hội tụ về phân phối dừng bất kể bạn bắt đầu ở đâu. Đây là phương pháp lũy thừa để tìm vector riêng trái trội.
 
 ### Connections to real frameworks
 
-- **PyTorch diffusion:** The `DDPMScheduler` in Hugging Face `diffusers` implements the forward and reverse Markov chains
-- **NumPyro / PyMC:** Use MCMC (NUTS sampler, which improves on Metropolis-Hastings) for Bayesian inference
-- **Gymnasium (RL):** The environment step function defines a Markov decision process
+- **Khuếch tán PyTorch:** `DDPMScheduler` trong `diffusers` của Hugging Face triển khai các chuỗi Markov xuôi và ngược
+- **NumPyro / PyMC:** Sử dụng MCMC (bộ lấy mẫu NUTS, cải tiến so với Metropolis-Hastings) để suy luận Bayes
+- **Gymnasium (RL):** Hàm bước môi trường xác định một quá trình quyết định Markov
 
 ### Verifying Markov chain convergence
 
@@ -385,77 +385,77 @@ print(f"Spectral gap: {spectral_gap:.4f}")
 print(f"Approximate mixing time: {1/spectral_gap:.1f} steps")
 ```
 
-The spectral gap tells you how fast the chain forgets its initial state. A gap of 0.2 means roughly 5 steps to mix. A gap of 0.01 means roughly 100 steps. Always check this before running long simulations -- a slowly mixing chain wastes compute.
+Khoảng cách phổ cho bạn biết chuỗi quên trạng thái ban đầu nhanh đến mức nào. Khoảng cách 0.2 nghĩa là khoảng 5 bước để trộn. Khoảng cách 0.01 nghĩa là khoảng 100 bước. Luôn kiểm tra điều này trước khi chạy các mô phỏng dài -- một chuỗi trộn chậm lãng phí tính toán.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-stochastic-process-advisor.md` -- a prompt that helps identify which stochastic process framework applies to a given problem
+Bài học này tạo ra:
+- `outputs/prompt-stochastic-process-advisor.md` -- một prompt giúp xác định khuôn khổ quá trình ngẫu nhiên nào áp dụng cho một bài toán nhất định
 
 ## Connections
 
-| Concept | Where it shows up |
+| Khái niệm | Nơi xuất hiện |
 |---------|------------------|
-| Random walk | Node2Vec graph embeddings, exploration in RL |
-| Markov chain | Token generation in LLMs, MCMC sampling |
-| Brownian motion | Forward diffusion process in DDPM, SDE-based models |
-| Langevin dynamics | Score-based generative models, stochastic gradient Langevin dynamics (SGLD) |
-| Stationary distribution | MCMC convergence target, PageRank |
-| Metropolis-Hastings | Bayesian posterior sampling, simulated annealing |
-| Temperature | LLM sampling, Boltzmann exploration in RL, simulated annealing |
-| Mixing time | Convergence speed of MCMC, spectral gap analysis |
-| Absorbing state | End-of-sequence token, terminal states in RL |
-| Detailed balance | Correctness guarantee for MCMC samplers |
+| Bước đi ngẫu nhiên | Embedding đồ thị Node2Vec, khám phá trong RL |
+| Chuỗi Markov | Sinh token trong LLM, lấy mẫu MCMC |
+| Chuyển động Brown | Quá trình khuếch tán xuôi trong DDPM, các mô hình dựa trên SDE |
+| Động lực học Langevin | Các mô hình tạo sinh dựa trên score, động lực học Langevin gradient ngẫu nhiên (SGLD) |
+| Phân phối dừng | Mục tiêu hội tụ MCMC, PageRank |
+| Metropolis-Hastings | Lấy mẫu hậu nghiệm Bayes, ủ mô phỏng |
+| Temperature | Lấy mẫu LLM, khám phá Boltzmann trong RL, ủ mô phỏng |
+| Thời gian trộn | Tốc độ hội tụ MCMC, phân tích khoảng cách phổ |
+| Trạng thái hấp thụ | Token kết thúc chuỗi, trạng thái kết thúc trong RL |
+| Cân bằng chi tiết | Bảo đảm tính đúng đắn cho các bộ lấy mẫu MCMC |
 
-Diffusion models deserve special attention. DDPM (Ho et al., 2020) defines a forward Markov chain:
+Các mô hình khuếch tán đáng được chú ý đặc biệt. DDPM (Ho et al., 2020) xác định một chuỗi Markov xuôi:
 
 ```
 q(x_t | x_{t-1}) = N(x_t; sqrt(1-beta_t) * x_{t-1}, beta_t * I)
 ```
 
-where beta_t is a noise schedule. After T steps, x_T is approximately N(0, I). The reverse process is parameterized by a neural network that predicts the noise:
+trong đó beta_t là một lịch nhiễu. Sau T bước, x_T xấp xỉ N(0, I). Quá trình ngược được tham số hóa bởi một mạng nơ-ron dự đoán nhiễu:
 
 ```
 p_theta(x_{t-1} | x_t) = N(x_{t-1}; mu_theta(x_t, t), sigma_t^2 * I)
 ```
 
-Every step of generation is a step in a learned Markov chain. Understanding Markov chains means understanding how and why diffusion models generate data.
+Mỗi bước sinh là một bước trong một chuỗi Markov đã học. Hiểu chuỗi Markov nghĩa là hiểu cách và lý do các mô hình khuếch tán sinh dữ liệu.
 
-SGLD (Stochastic Gradient Langevin Dynamics) combines mini-batch gradient descent with Langevin noise. Instead of computing the full gradient, you use a stochastic estimate and add calibrated noise. As learning rate decays, SGLD transitions from optimization to sampling -- you get approximate Bayesian posterior samples for free. This is one of the simplest ways to get uncertainty estimates from a neural network.
+SGLD (Động lực học Langevin Gradient Ngẫu nhiên) kết hợp gradient descent mini-batch với nhiễu Langevin. Thay vì tính gradient đầy đủ, bạn sử dụng một ước lượng ngẫu nhiên và thêm nhiễu được hiệu chỉnh. Khi tốc độ học giảm, SGLD chuyển từ tối ưu hóa sang lấy mẫu -- bạn nhận các mẫu hậu nghiệm Bayes xấp xỉ mà không tốn thêm công sức. Đây là một trong những cách đơn giản nhất để có các ước lượng sự không chắc chắn từ một mạng nơ-ron.
 
-The key insight across all these connections: stochastic processes are not just theoretical tools. They are the computational mechanisms inside modern AI systems. When you tune the temperature of an LLM, you are adjusting a Markov chain. When you train a diffusion model, you are learning to reverse a Brownian-motion-like process. When you run Bayesian inference, you are constructing a chain that converges to the posterior.
+Điểm cốt yếu xuyên suốt các kết nối này: các quá trình ngẫu nhiên không chỉ là công cụ lý thuyết. Chúng là các cơ chế tính toán bên trong các hệ thống AI hiện đại. Khi bạn điều chỉnh temperature của một LLM, bạn đang điều chỉnh một chuỗi Markov. Khi bạn huấn luyện một mô hình khuếch tán, bạn đang học cách đảo ngược một quá trình giống chuyển động Brown. Khi bạn chạy suy luận Bayes, bạn đang xây dựng một chuỗi hội tụ về hậu nghiệm.
 
 ## Exercises
 
-1. **Simulate 1000 random walks of 10000 steps.** Plot the distribution of final positions. Verify it is approximately Gaussian with mean 0 and standard deviation sqrt(10000) = 100.
+1. **Mô phỏng 1000 bước đi ngẫu nhiên dài 10000 bước.** Vẽ phân phối các vị trí cuối. Xác minh nó xấp xỉ Gaussian với trung bình 0 và độ lệch chuẩn sqrt(10000) = 100.
 
-2. **Build a text generator using a Markov chain.** Train on a small corpus: for each word, count transitions to the next word. Build the transition matrix. Generate new sentences by sampling from the chain.
+2. **Xây dựng một bộ sinh văn bản bằng một chuỗi Markov.** Huấn luyện trên một ngữ liệu nhỏ: với mỗi từ, đếm các lần chuyển sang từ tiếp theo. Xây dựng ma trận chuyển. Sinh các câu mới bằng cách lấy mẫu từ chuỗi.
 
-3. **Implement simulated annealing** using Metropolis-Hastings. Start at high temperature (accept almost everything) and gradually cool down (accept only improvements). Use it to find the minimum of a function with many local minima.
+3. **Triển khai ủ mô phỏng** bằng Metropolis-Hastings. Bắt đầu ở nhiệt độ cao (chấp nhận gần như mọi thứ) và dần làm nguội (chỉ chấp nhận các cải thiện). Sử dụng nó để tìm cực tiểu của một hàm có nhiều cực tiểu cục bộ.
 
-4. **Compare Langevin dynamics at different temperatures.** Sample from a double-well potential U(x) = (x^2 - 1)^2. At low temperature, samples cluster in one well. At high temperature, they spread across both. Find the critical temperature where the chain mixes between wells.
+4. **So sánh động lực học Langevin ở các nhiệt độ khác nhau.** Lấy mẫu từ một thế năng hai giếng U(x) = (x^2 - 1)^2. Ở nhiệt độ thấp, các mẫu tụ trong một giếng. Ở nhiệt độ cao, chúng trải trên cả hai. Tìm nhiệt độ tới hạn nơi chuỗi trộn giữa các giếng.
 
-5. **Implement the forward diffusion process.** Start with a 1D signal (e.g., a sine wave). Add noise progressively over 100 steps with a linear noise schedule. Show how the signal degrades to pure noise. Then implement a simple denoiser that reverses the process (even a naive one that just subtracts the estimated noise).
+5. **Triển khai quá trình khuếch tán xuôi.** Bắt đầu với một tín hiệu 1D (ví dụ, một sóng sin). Thêm nhiễu dần qua 100 bước với một lịch nhiễu tuyến tính. Cho thấy tín hiệu suy giảm thành nhiễu thuần như thế nào. Sau đó triển khai một bộ khử nhiễu đơn giản đảo ngược quá trình (ngay cả một bộ ngây thơ chỉ trừ nhiễu ước lượng).
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Random walk | "Coin-flip movement" | A process where position changes by random increments at each step |
-| Markov property | "Memoryless" | The future depends only on the present state, not on the history |
-| Transition matrix | "The probability table" | P[i][j] = probability of moving from state i to state j |
-| Stationary distribution | "The long-run average" | The distribution pi where pi*P = pi -- the chain's equilibrium |
-| Brownian motion | "Random jiggling" | The continuous-time limit of a random walk, B(t) ~ N(0, t) |
-| Langevin dynamics | "Gradient descent with noise" | Update rule that combines deterministic gradient and random perturbation |
-| MCMC | "Walking toward the target" | Constructing a Markov chain whose stationary distribution is the one you want |
-| Metropolis-Hastings | "Propose and accept/reject" | MCMC algorithm that uses acceptance ratios to ensure convergence |
-| Temperature | "The randomness knob" | Parameter controlling the tradeoff between exploration and exploitation |
-| Diffusion process | "Noise in, noise out" | Forward: gradually add noise. Reverse: gradually remove it. Generates data. |
+| Random walk (Bước đi ngẫu nhiên) | "Di chuyển bằng tung đồng xu" | Một quá trình nơi vị trí thay đổi theo các số gia ngẫu nhiên ở mỗi bước |
+| Markov property (Tính chất Markov) | "Không nhớ" | Tương lai chỉ phụ thuộc vào trạng thái hiện tại, không vào lịch sử |
+| Transition matrix (Ma trận chuyển) | "Bảng xác suất" | P[i][j] = xác suất chuyển từ trạng thái i sang trạng thái j |
+| Stationary distribution (Phân phối dừng) | "Trung bình dài hạn" | Phân phối pi trong đó pi*P = pi -- cân bằng của chuỗi |
+| Brownian motion (Chuyển động Brown) | "Rung ngẫu nhiên" | Giới hạn thời gian liên tục của một bước đi ngẫu nhiên, B(t) ~ N(0, t) |
+| Langevin dynamics (Động lực học Langevin) | "Gradient descent có nhiễu" | Quy tắc cập nhật kết hợp gradient tất định và nhiễu loạn ngẫu nhiên |
+| MCMC | "Đi về phía mục tiêu" | Xây dựng một chuỗi Markov có phân phối dừng là phân phối bạn muốn |
+| Metropolis-Hastings | "Đề xuất và chấp nhận/loại bỏ" | Thuật toán MCMC sử dụng các tỉ số chấp nhận để bảo đảm hội tụ |
+| Temperature (Nhiệt độ) | "Núm tính ngẫu nhiên" | Tham số điều khiển đánh đổi giữa khám phá và khai thác |
+| Diffusion process (Quá trình khuếch tán) | "Nhiễu vào, nhiễu ra" | Xuôi: dần thêm nhiễu. Ngược: dần loại nó. Sinh dữ liệu. |
 
 ## Further Reading
 
-- **Ho, Jain, Abbeel (2020)** -- "Denoising Diffusion Probabilistic Models." The DDPM paper that launched the diffusion model revolution. Clear derivation of the forward and reverse Markov chains.
-- **Song & Ermon (2019)** -- "Generative Modeling by Estimating Gradients of the Data Distribution." Score-based approach using Langevin dynamics for sampling.
-- **Roberts & Rosenthal (2004)** -- "General state space Markov chains and MCMC algorithms." The theory behind when and why MCMC works.
-- **Norris (1997)** -- "Markov Chains." The standard textbook. Covers convergence, stationary distributions, and hitting times.
-- **Welling & Teh (2011)** -- "Bayesian Learning via Stochastic Gradient Langevin Dynamics." Combines SGD with Langevin dynamics for scalable Bayesian inference.
+- **Ho, Jain, Abbeel (2020)** -- "Denoising Diffusion Probabilistic Models." Bài báo DDPM khởi xướng cuộc cách mạng mô hình khuếch tán. Suy ra rõ ràng các chuỗi Markov xuôi và ngược.
+- **Song & Ermon (2019)** -- "Generative Modeling by Estimating Gradients of the Data Distribution." Cách tiếp cận dựa trên score sử dụng động lực học Langevin để lấy mẫu.
+- **Roberts & Rosenthal (2004)** -- "General state space Markov chains and MCMC algorithms." Lý thuyết đằng sau khi nào và tại sao MCMC hoạt động.
+- **Norris (1997)** -- "Markov Chains." Giáo trình tiêu chuẩn. Bao quát hội tụ, các phân phối dừng và thời gian chạm.
+- **Welling & Teh (2011)** -- "Bayesian Learning via Stochastic Gradient Langevin Dynamics." Kết hợp SGD với động lực học Langevin để suy luận Bayes có thể mở rộng.
