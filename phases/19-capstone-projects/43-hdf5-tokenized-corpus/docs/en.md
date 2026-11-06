@@ -1,6 +1,6 @@
 # HDF5 Tokenized Corpus
 
-> The downloaded corpus has to land in a layout the trainer can stream from at line speed. JSONL on disk does not survive 16 dataloader workers. HDF5 with a resizable, chunked integer dataset does. This lesson builds streaming tokenization into a resizable HDF5 dataset, sharded write across multiple files, memory-mapped read at training time, and a sliding-window dataloader that produces fixed-length sequences with the right packing.
+> Corpus đã tải phải nằm trong một bố cục mà bộ huấn luyện có thể truyền luồng từ đó ở tốc độ đường truyền. JSONL trên đĩa không sống sót qua 16 worker dataloader. HDF5 với một tập dữ liệu số nguyên chia đoạn, có thể đổi kích thước thì có. Bài này xây dựng phân tách token truyền luồng vào một tập dữ liệu HDF5 có thể đổi kích thước, ghi chia shard trên nhiều file, đọc ánh xạ bộ nhớ lúc huấn luyện, và một dataloader cửa sổ trượt tạo các chuỗi độ dài cố định với đóng gói đúng.
 
 **Type:** Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Stream documents into a resizable HDF5 integer dataset with deterministic chunking.
-- Shard the write across multiple HDF5 files so failure is bounded and parallelism is possible.
-- Read tokens back through HDF5's page-cache-backed chunked layout so the dataloader copies into batch buffers only at batch time.
-- Implement a sliding-window dataloader that emits fixed-length training sequences with explicit packing rules.
+- Truyền luồng các tài liệu vào một tập dữ liệu số nguyên HDF5 có thể đổi kích thước với chia đoạn tất định.
+- Chia shard việc ghi trên nhiều file HDF5 để thất bại có giới hạn và có thể song song.
+- Đọc lại các token qua bố cục chia đoạn được bộ nhớ đệm trang hỗ trợ của HDF5 để dataloader chỉ sao chép vào bộ đệm lô tại thời điểm lô.
+- Triển khai một dataloader cửa sổ trượt phát ra các chuỗi huấn luyện độ dài cố định với các quy tắc đóng gói rõ ràng.
 
 ## The Problem
 
-A modern language-model training run reads tokens at hundreds of thousands of samples per second across dozens of workers. JSONL on disk dies at the first cold-cache page fault: the JSON parser is slow, the document boundaries are not addressable, and seeking to "sample 4,217,884" requires scanning the file. Even Parquet, which compresses well, is a poor fit because the trainer does not want columns; it wants a flat token stream with O(1) random access.
+Một lần chạy huấn luyện mô hình ngôn ngữ hiện đại đọc token ở hàng trăm nghìn mẫu mỗi giây trên hàng chục worker. JSONL trên đĩa chết ở lỗi trang bộ nhớ đệm nguội đầu tiên: bộ phân tích JSON chậm, các ranh giới tài liệu không thể định địa chỉ, và tìm đến "mẫu 4,217,884" đòi hỏi quét file. Ngay cả Parquet, vốn nén tốt, cũng không phù hợp vì bộ huấn luyện không muốn các cột; nó muốn một luồng token phẳng với truy cập ngẫu nhiên O(1).
 
-HDF5 fits because it offers a chunked, resizable, integer-only dataset whose chunks are page-cache friendly at read time. The trainer asks for a slice of `tokens[3,200,000 : 3,200,8192]` and HDF5 copies the requested hyperslab from the page cache into a freshly allocated NumPy array. The cost is one open file handle and a chunk-sized page-cache footprint per worker, which is negligible compared to the cost of decoding JSONL.
+HDF5 phù hợp vì nó cung cấp một tập dữ liệu chỉ số nguyên, chia đoạn, có thể đổi kích thước mà các đoạn thân thiện với bộ nhớ đệm trang lúc đọc. Bộ huấn luyện yêu cầu một phần của `tokens[3,200,000 : 3,200,8192]` và HDF5 sao chép hyperslab được yêu cầu từ bộ nhớ đệm trang vào một mảng NumPy vừa được cấp phát. Chi phí là một handle file mở và một dấu chân bộ nhớ đệm trang cỡ đoạn mỗi worker, không đáng kể so với chi phí giải mã JSONL.
 
-The build problem is making the write side honest. Resizable datasets are easy to misuse: write one document at a time and the HDF5 file is fragmented to the point of unusable. Write all documents in one resize and a process death loses the whole shard. The right discipline is buffer-then-extend, with a buffer size that matches the chunk size, and a sharded write that splits the workload across files so a crash loses at most one shard.
+Vấn đề xây dựng là làm phía ghi trung thực. Các tập dữ liệu có thể đổi kích thước dễ bị sử dụng sai: ghi từng tài liệu và file HDF5 phân mảnh đến mức không dùng được. Ghi mọi tài liệu trong một lần đổi kích thước và một cái chết tiến trình làm mất toàn shard. Kỷ luật đúng là đệm-rồi-mở rộng, với kích thước bộ đệm khớp kích thước đoạn, và ghi chia shard chia khối lượng công việc trên các file để một sự cố mất nhiều nhất một shard.
 
 ## The Concept
 
@@ -42,19 +42,19 @@ flowchart TD
 
 ### Resizable HDF5 done right
 
-The token dataset is created with `maxshape=(None,)` and a fixed `chunks=(chunk_size,)`. Writing proceeds by buffering tokens in a NumPy array of length `chunk_size`. When the buffer fills, the dataset is resized by exactly `chunk_size` and the buffer is written into the new range. At end-of-shard the residual buffer is written into a final partial range. Every write is contiguous and chunk-aligned except the last one, which the reader is told to truncate at the recorded `token_count` in the shard's HDF5 attributes.
+Tập dữ liệu token được tạo với `maxshape=(None,)` và một `chunks=(chunk_size,)` cố định. Việc ghi tiến hành bằng cách đệm token trong một mảng NumPy độ dài `chunk_size`. Khi bộ đệm đầy, tập dữ liệu được đổi kích thước thêm chính xác `chunk_size` và bộ đệm được ghi vào khoảng mới. Ở cuối shard bộ đệm còn dư được ghi vào một khoảng một phần cuối. Mọi lần ghi liên tục và căn chỉnh theo đoạn trừ lần cuối, mà bộ đọc được bảo cắt tại `token_count` được ghi trong các thuộc tính HDF5 của shard.
 
 ### Sharded write
 
-A single HDF5 file is a single point of failure. The pipeline writes shards in parallel: each input shard from Phase 19 lesson 42 produces one HDF5 output shard. A `shards.json` index records, per shard, the file path, the token count, the document count, and a sha256 over the tokens. The trainer reads `shards.json` to compute global offsets and to validate the corpus.
+Một file HDF5 duy nhất là một điểm lỗi duy nhất. Pipeline ghi các shard song song: mỗi shard đầu vào từ Phase 19 bài 42 tạo một shard đầu ra HDF5. Một chỉ mục `shards.json` ghi, theo shard, đường dẫn file, số token, số tài liệu, và một sha256 trên các token. Bộ huấn luyện đọc `shards.json` để tính các độ lệch toàn cục và xác thực corpus.
 
 ### Memory-mapped read
 
-At training time each worker opens its share of HDF5 files in `swmr=True` mode and asks for `tokens[start:stop]`. HDF5's chunk layout makes this a page-cache-backed read once the chunk is hot. The worker never materialises the whole file: the slice is copied into the dataloader's batch buffer, which the dataloader then copies into a pinned-memory training tensor at batch time. The hot path has one syscall per chunk transition; everything else is RAM access.
+Lúc huấn luyện mỗi worker mở phần các file HDF5 của mình trong chế độ `swmr=True` và yêu cầu `tokens[start:stop]`. Bố cục đoạn của HDF5 biến điều này thành một lần đọc được bộ nhớ đệm trang hỗ trợ khi đoạn nóng. Worker không bao giờ hiện thực hóa toàn file: phần cắt được sao chép vào bộ đệm lô của dataloader, mà dataloader sau đó sao chép vào một tensor huấn luyện bộ nhớ ghim tại thời điểm lô. Đường nóng có một syscall mỗi chuyển tiếp đoạn; mọi thứ khác là truy cập RAM.
 
 ### Sliding-window dataloader
 
-The dataloader is the only stage that knows about training-sequence length. It picks a random start index in the global token stream, reads `window_size + 1` tokens, and returns `(input, target) = (tokens[:-1], tokens[1:])`. Document boundaries are not enforced: a window may straddle two documents, with an explicit `boundary_token_id` between them so the model learns to use the separator. This is the standard packing rule; it is also the rule a beginner forgets, ending up with a corpus that is 8 percent training boundary tokens and 92 percent natural text.
+Dataloader là giai đoạn duy nhất biết về độ dài chuỗi huấn luyện. Nó chọn một chỉ số bắt đầu ngẫu nhiên trong luồng token toàn cục, đọc `window_size + 1` token, và trả về `(input, target) = (tokens[:-1], tokens[1:])`. Các ranh giới tài liệu không được thực thi: một cửa sổ có thể vắt qua hai tài liệu, với một `boundary_token_id` rõ ràng giữa chúng để mô hình học sử dụng dấu phân cách. Đây là quy tắc đóng gói tiêu chuẩn; nó cũng là quy tắc một người mới quên, kết thúc với một corpus gồm 8 phần trăm token ranh giới huấn luyện và 92 phần trăm văn bản tự nhiên.
 
 ```figure
 cc-hdf5-corpus
@@ -62,71 +62,71 @@ cc-hdf5-corpus
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `Tokenizer` - a byte-level deterministic tokenizer good enough for the demo. The interface is `encode(text) -> list[int]` and `vocab_size`.
-- `HDF5ShardWriter` - opens a resizable integer dataset, buffers tokens to chunk size, resizes and writes in fixed-size strides, records `token_count` and `sha256` as HDF5 attributes on close.
-- `ShardedTokenizationPipeline` - iterates input documents, routes them to a writer, and emits a `shards.json` index.
-- `MmapTokenStore` - opens shard files for memory-mapped reads, computes global offsets, exposes a single `get_slice(start, stop)` API.
-- `SlidingWindowDataloader` - picks random windows from the global stream and yields `(input_ids, target_ids)` NumPy arrays.
+- `Tokenizer` - một tokenizer tất định ở mức byte đủ tốt cho demo. Giao diện là `encode(text) -> list[int]` và `vocab_size`.
+- `HDF5ShardWriter` - mở một tập dữ liệu số nguyên có thể đổi kích thước, đệm token đến kích thước đoạn, đổi kích thước và ghi theo các bước kích thước cố định, ghi `token_count` và `sha256` làm các thuộc tính HDF5 khi đóng.
+- `ShardedTokenizationPipeline` - lặp các tài liệu đầu vào, định tuyến chúng đến một bộ ghi, và phát ra một chỉ mục `shards.json`.
+- `MmapTokenStore` - mở các file shard để đọc ánh xạ bộ nhớ, tính các độ lệch toàn cục, cung cấp một API `get_slice(start, stop)` duy nhất.
+- `SlidingWindowDataloader` - chọn các cửa sổ ngẫu nhiên từ luồng toàn cục và sinh các mảng NumPy `(input_ids, target_ids)`.
 
-A demo at the bottom of the file builds a tiny in-memory corpus, tokenizes into two shards, opens them via memory map, runs the dataloader for 10 batches, and prints the per-batch shape and a checksum.
+Một demo ở cuối file xây dựng một corpus tí hon trong bộ nhớ, phân tách token thành hai shard, mở chúng qua ánh xạ bộ nhớ, chạy dataloader trong 10 lô, và in hình dạng theo lô cùng một checksum.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-The script exits zero and prints batch checksums.
+Script thoát với mã không và in các checksum lô.
 
 ## Production Patterns
 
-Four patterns scale this lesson to a real training run.
+Bốn mẫu mở rộng bài này đến một lần chạy huấn luyện thực.
 
-**Chunk size equals the typical read.** The trainer reads `window_size + 1` tokens per sample. Set the HDF5 chunk to a multiple of `window_size` and reads are page-cache aligned. Mismatched chunks halve the throughput because every sample touches two chunks.
+**Kích thước đoạn bằng lần đọc điển hình.** Bộ huấn luyện đọc `window_size + 1` token mỗi mẫu. Đặt đoạn HDF5 thành một bội số của `window_size` và các lần đọc được căn chỉnh bộ nhớ đệm trang. Các đoạn không khớp giảm thông lượng còn một nửa vì mọi mẫu chạm hai đoạn.
 
-**Token count in attributes, not in the dataset.** The trailing slice of the dataset may be partially full because the chunk size does not divide the document boundary. Store the real `token_count` as an HDF5 attribute on the dataset and have the reader truncate at that value. Without this the reader walks off the end into zero-padded tokens and the model learns to predict zero.
+**Số token trong các thuộc tính, không phải trong tập dữ liệu.** Phần cắt cuối của tập dữ liệu có thể chỉ đầy một phần vì kích thước đoạn không chia hết ranh giới tài liệu. Lưu `token_count` thực như một thuộc tính HDF5 trên tập dữ liệu và để bộ đọc cắt tại giá trị đó. Không có điều này bộ đọc đi quá cuối vào các token đệm không và mô hình học dự đoán không.
 
-**Sharded sha256 with parallel verification.** Each shard has its own sha256 over the token bytes. The trainer can verify all shards in parallel before training starts. A wrong sha256 fails the run early, not on epoch three after sixteen hours.
+**Sha256 chia shard với xác minh song song.** Mỗi shard có sha256 riêng trên các byte token. Bộ huấn luyện có thể xác minh mọi shard song song trước khi huấn luyện bắt đầu. Một sha256 sai làm thất bại lần chạy sớm, không phải ở epoch ba sau mười sáu giờ.
 
-**`swmr=True` on both sides, with `libver="latest"` on the writer.** Single-Writer-Multiple-Reader mode requires the writer to open with `libver="latest"`, create every dataset up front, then set `file.swmr_mode = True`. After that the writer must call `dataset.flush()` after each resize so reader workers (opened with `swmr=True`) see consistent data. Skipping `libver="latest"` or enabling SWMR after structural changes is a common source of "file is locked" failures.
+**`swmr=True` ở cả hai phía, với `libver="latest"` trên bộ ghi.** Chế độ Một-bộ-ghi-Nhiều-bộ-đọc yêu cầu bộ ghi mở với `libver="latest"`, tạo mọi tập dữ liệu từ trước, rồi đặt `file.swmr_mode = True`. Sau đó bộ ghi phải gọi `dataset.flush()` sau mỗi lần đổi kích thước để các worker đọc (được mở với `swmr=True`) thấy dữ liệu nhất quán. Bỏ qua `libver="latest"` hoặc bật SWMR sau các thay đổi cấu trúc là một nguồn phổ biến của lỗi "file bị khóa".
 
 ## Use It
 
-Production patterns:
+Các mẫu sản xuất:
 
-- **One HDF5 per source shard.** The downloader (lesson 42) emits one shard per URL; tokenization (this lesson) emits one HDF5 per source shard. The 1:1 mapping makes resume and partial-failure recovery trivial.
-- **Boundary token id.** The boundary token is part of the tokenizer vocab and is the only token the dataloader injects. The training loss masks the boundary token if the model is supposed to ignore it; otherwise it learns to use it as a sequence separator.
-- **`shards.json` as the source of truth.** Adding a new shard means writing the HDF5, computing its sha256, and appending an entry. The trainer reads the file once at startup and never touches the directory listing.
+- **Một HDF5 mỗi shard nguồn.** Trình tải (bài 42) phát ra một shard mỗi URL; phân tách token (bài này) phát ra một HDF5 mỗi shard nguồn. Ánh xạ 1:1 làm tiếp tục và phục hồi lỗi một phần trở nên tầm thường.
+- **Id token ranh giới.** Token ranh giới là một phần của từ vựng tokenizer và là token duy nhất dataloader chèn. Mất mát huấn luyện che token ranh giới nếu mô hình được kỳ vọng bỏ qua nó; nếu không nó học dùng nó như một dấu phân cách chuỗi.
+- **`shards.json` làm nguồn sự thật.** Thêm một shard mới nghĩa là ghi HDF5, tính sha256 của nó, và thêm một mục. Bộ huấn luyện đọc file một lần khi khởi động và không bao giờ chạm danh sách thư mục.
 
 ## Ship It
 
-`outputs/skill-hdf5-tokenized-corpus.md` would, on a real project, describe which tokenizer feeds the pipeline, what chunk size matches the trainer's window, where `shards.json` lives in version control, and how dataloader workers are sharded across files. This lesson ships the engine.
+`outputs/skill-hdf5-tokenized-corpus.md` sẽ, trên một dự án thực, mô tả tokenizer nào cấp cho pipeline, kích thước đoạn nào khớp cửa sổ của bộ huấn luyện, `shards.json` nằm ở đâu trong kiểm soát phiên bản, và cách các worker dataloader được chia shard trên các file. Bài này cung cấp bộ máy.
 
 ## Exercises
 
-1. Add a `--compression gzip` flag to the HDF5 writer and measure the throughput cost on the demo corpus. Defend the chosen default.
-2. Add a deterministic seed to the sliding-window dataloader and verify two runs with the same seed produce identical batches.
-3. Add a `--validate` mode that reads every shard, recomputes the sha256 over its tokens, and compares against `shards.json`. CI should run this before training starts.
-4. Compare the dataloader throughput at chunk sizes equal to, half of, and twice the window size. Report the page-cache effect.
-5. Add a `--max-document-tokens` flag that truncates very long documents at write time. Defend the trade-off against deciding at read time.
+1. Thêm một cờ `--compression gzip` vào bộ ghi HDF5 và đo chi phí thông lượng trên corpus demo. Bảo vệ lựa chọn mặc định.
+2. Thêm một seed tất định vào dataloader cửa sổ trượt và xác minh hai lần chạy với cùng seed tạo các lô giống hệt.
+3. Thêm một chế độ `--validate` đọc mọi shard, tính lại sha256 trên các token của nó, và so sánh với `shards.json`. CI nên chạy điều này trước khi huấn luyện bắt đầu.
+4. So sánh thông lượng dataloader ở các kích thước đoạn bằng, bằng một nửa, và gấp đôi kích thước cửa sổ. Báo cáo hiệu ứng bộ nhớ đệm trang.
+5. Thêm một cờ `--max-document-tokens` cắt ngắn các tài liệu rất dài lúc ghi. Bảo vệ đánh đổi so với quyết định lúc đọc.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Resizable dataset | "Append-only" | An HDF5 dataset with `maxshape=(None,)` that grows via `resize` calls in chunk-sized strides |
-| Chunked layout | "How HDF5 stores it" | Fixed-size on-disk pages that the kernel can memory-map and the dataloader can read contiguously |
-| `swmr` mode | "Read-while-write" | Single-Writer-Multiple-Reader mode that lets dataloader workers share the file safely |
-| Shard index | "shards.json" | The durable index of all token shards with offsets and content hashes |
-| Sliding window | "Training sample" | A fixed-length slice of the global token stream that the trainer pairs with its shift-by-one target |
+| Resizable dataset (Tập dữ liệu có thể đổi kích thước) | "Chỉ thêm" | Một tập dữ liệu HDF5 với `maxshape=(None,)` tăng qua các lệnh gọi `resize` theo các bước cỡ đoạn |
+| Chunked layout (Bố cục chia đoạn) | "Cách HDF5 lưu nó" | Các trang trên đĩa kích thước cố định mà kernel có thể ánh xạ bộ nhớ và dataloader có thể đọc liên tục |
+| `swmr` mode (Chế độ swmr) | "Đọc trong khi ghi" | Chế độ Một-bộ-ghi-Nhiều-bộ-đọc cho phép các worker dataloader dùng chung file an toàn |
+| Shard index (Chỉ mục shard) | "shards.json" | Chỉ mục bền vững của mọi shard token với các độ lệch và băm nội dung |
+| Sliding window (Cửa sổ trượt) | "Mẫu huấn luyện" | Một phần cắt độ dài cố định của luồng token toàn cục mà bộ huấn luyện ghép với đích dịch một vị trí của nó |
 
 ## Further Reading
 
-- [HDF5 chunking documentation](https://support.hdfgroup.org/documentation/hdf5/latest/hdf5_chunking.html) - the chunked, resizable dataset layout this lesson uses
-- [h5py user guide](https://docs.h5py.org/en/stable/) - Python bindings for HDF5
-- [NumPy memory mapping](https://numpy.org/doc/stable/reference/generated/numpy.memmap.html) - the read-side primitive HDF5 exposes through h5py
-- Phase 19 · 42 - the downloader whose output this lesson tokenizes
-- Phase 19 · 44 - the cosine schedule that consumes this dataloader
-- Phase 19 · 45 - the AMP loop that wraps the training step
+- [HDF5 chunking documentation](https://support.hdfgroup.org/documentation/hdf5/latest/hdf5_chunking.html) - bố cục tập dữ liệu chia đoạn, có thể đổi kích thước mà bài này sử dụng
+- [h5py user guide](https://docs.h5py.org/en/stable/) - các binding Python cho HDF5
+- [NumPy memory mapping](https://numpy.org/doc/stable/reference/generated/numpy.memmap.html) - thành phần cơ sở phía đọc mà HDF5 cung cấp qua h5py
+- Phase 19 · 42 - trình tải mà đầu ra của nó bài này phân tách token
+- Phase 19 · 44 - lịch cosine tiêu thụ dataloader này
+- Phase 19 · 45 - vòng lặp AMP bọc bước huấn luyện
