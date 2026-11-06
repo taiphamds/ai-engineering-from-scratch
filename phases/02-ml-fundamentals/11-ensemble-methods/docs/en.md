@@ -1,6 +1,6 @@
 # Ensemble Methods
 
-> A group of weak learners, combined correctly, becomes a strong learner. This is not a metaphor. It is a theorem.
+> Một nhóm các bộ học yếu, được kết hợp đúng, trở thành một bộ học mạnh. Đây không phải phép ẩn dụ. Nó là một định lý.
 
 **Type:** Build
 **Language:** Python
@@ -9,39 +9,39 @@
 
 ## Learning Objectives
 
-- Implement AdaBoost and gradient boosting from scratch and explain how boosting sequentially reduces bias
-- Build a bagging ensemble and demonstrate how averaging decorrelated models reduces variance without increasing bias
-- Compare bagging, boosting, and stacking in terms of what error component each method targets
-- Evaluate ensemble diversity and explain why majority voting accuracy improves with more independent weak learners
+- Triển khai AdaBoost và gradient boosting từ đầu và giải thích cách boosting giảm độ chệch tuần tự
+- Xây dựng một tập hợp bagging và minh họa cách lấy trung bình các mô hình đã khử tương quan giảm phương sai mà không tăng độ chệch
+- So sánh bagging, boosting và stacking về thành phần sai số mà mỗi phương pháp nhắm tới
+- Đánh giá độ đa dạng tập hợp và giải thích tại sao độ chính xác bỏ phiếu đa số cải thiện khi có thêm các bộ học yếu độc lập
 
 ## The Problem
 
-A single decision tree is fast to train and easy to interpret, but it overfits. A single linear model underfits on complex boundaries. You could spend days engineering the perfect model architecture. Or you could combine a bunch of imperfect models and get something better than any of them individually.
+Một cây quyết định đơn lẻ huấn luyện nhanh và dễ diễn giải, nhưng khớp quá mức. Một mô hình tuyến tính đơn lẻ khớp chưa đủ trên các biên phức tạp. Bạn có thể dành nhiều ngày thiết kế kiến trúc mô hình hoàn hảo. Hoặc bạn có thể kết hợp một nhóm mô hình không hoàn hảo và có thứ tốt hơn bất kỳ mô hình riêng lẻ nào.
 
-Ensemble methods do exactly this. They are the most reliable technique for winning Kaggle competitions on tabular data, they power most production ML systems, and they illustrate the bias-variance tradeoff in action. Bagging reduces variance. Boosting reduces bias. Stacking learns which models to trust on which inputs.
+Các phương pháp tập hợp thực hiện chính xác điều này. Chúng là kỹ thuật đáng tin cậy nhất để thắng các cuộc thi Kaggle trên dữ liệu dạng bảng, vận hành hầu hết các hệ thống ML sản xuất và minh họa sự đánh đổi độ chệch-phương sai trong thực tế. Bagging giảm phương sai. Boosting giảm độ chệch. Stacking học mô hình nào đáng tin trên các đầu vào nào.
 
 ## The Concept
 
 ### Why Ensembles Work
 
-Suppose you have N independent classifiers, each with accuracy p > 0.5. The majority vote has accuracy:
+Giả sử bạn có N bộ phân loại độc lập, mỗi bộ có độ chính xác p > 0.5. Bỏ phiếu đa số có độ chính xác:
 
 ```
 P(majority correct) = sum over k > N/2 of C(N,k) * p^k * (1-p)^(N-k)
 ```
 
-For 21 classifiers each with 60% accuracy, majority vote accuracy is about 74%. With 101 classifiers, it rises to 84%. The errors cancel out when the models make different mistakes.
+Với 21 bộ phân loại mỗi bộ có độ chính xác 60%, độ chính xác bỏ phiếu đa số khoảng 74%. Với 101 bộ phân loại, nó tăng đến 84%. Các sai số triệt tiêu khi các mô hình mắc các lỗi khác nhau.
 
-The key requirement is **diversity**. If all models make the same errors, combining them helps nothing. Ensembles work because they produce diverse models through:
+Yêu cầu chính là **độ đa dạng**. Nếu mọi mô hình mắc cùng sai số, kết hợp chúng không giúp gì. Các tập hợp hoạt động vì chúng tạo ra các mô hình đa dạng thông qua:
 
-- Different training subsets (bagging)
-- Different feature subsets (random forests)
-- Sequential error correction (boosting)
-- Different model families (stacking)
+- Các tập con huấn luyện khác nhau (bagging)
+- Các tập con đặc trưng khác nhau (rừng ngẫu nhiên)
+- Sửa sai số tuần tự (boosting)
+- Các họ mô hình khác nhau (stacking)
 
 ### Bagging (Bootstrap Aggregating)
 
-Bagging creates diversity by training each model on a different bootstrap sample of the training data.
+Bagging tạo độ đa dạng bằng cách huấn luyện mỗi mô hình trên một mẫu bootstrap khác nhau của dữ liệu huấn luyện.
 
 ```mermaid
 flowchart TD
@@ -63,15 +63,15 @@ flowchart TD
     V --> P[Final Prediction]
 ```
 
-A bootstrap sample is drawn with replacement from the original data, same size as the original. About 63.2% of unique samples appear in each bootstrap. The remaining 36.8% (out-of-bag samples) provide a free validation set.
+Một mẫu bootstrap được rút có hoàn lại từ dữ liệu gốc, cùng kích thước với bản gốc. Khoảng 63.2% các mẫu duy nhất xuất hiện trong mỗi bootstrap. 36.8% còn lại (các mẫu ngoài túi) cung cấp một tập xác thực miễn phí.
 
-Bagging reduces variance without increasing bias much. Each individual tree overfits to its bootstrap sample, but the overfitting is different for each tree, so averaging cancels out the noise.
+Bagging giảm phương sai mà không tăng độ chệch nhiều. Mỗi cây riêng lẻ khớp quá mức với mẫu bootstrap của nó, nhưng sự khớp quá mức khác nhau ở mỗi cây, nên lấy trung bình triệt tiêu nhiễu.
 
-**Random Forests** are bagging with an extra twist: at each split, only a random subset of features is considered. This forces even more diversity among trees. The typical number of candidate features is `sqrt(n_features)` for classification and `n_features / 3` for regression.
+**Rừng Ngẫu nhiên** là bagging với một biến tấu bổ sung: tại mỗi phép chia, chỉ một tập con ngẫu nhiên các đặc trưng được xét. Điều này buộc các cây đa dạng hơn nữa. Số đặc trưng ứng viên điển hình là `sqrt(n_features)` cho phân loại và `n_features / 3` cho hồi quy.
 
 ### Boosting (Sequential Error Correction)
 
-Boosting trains models sequentially. Each new model focuses on the examples that previous models got wrong.
+Boosting huấn luyện các mô hình tuần tự. Mỗi mô hình mới tập trung vào các ví dụ mà các mô hình trước làm sai.
 
 ```mermaid
 flowchart LR
@@ -85,15 +85,15 @@ flowchart LR
     M3 --> F[Weighted sum of all models]
 ```
 
-Boosting reduces bias. Each new model corrects the systematic errors of the ensemble so far. The final prediction is a weighted sum of all models, where better models get higher weights.
+Boosting giảm độ chệch. Mỗi mô hình mới sửa các sai số hệ thống của tập hợp đến lúc đó. Dự đoán cuối cùng là một tổng có trọng số của tất cả mô hình, nơi các mô hình tốt hơn nhận trọng số cao hơn.
 
-The tradeoff: boosting can overfit if you run too many rounds, because it keeps fitting harder examples, some of which may be noise.
+Đánh đổi: boosting có thể khớp quá mức nếu chạy quá nhiều vòng, vì nó tiếp tục khớp các ví dụ khó hơn, một số có thể là nhiễu.
 
 ### AdaBoost
 
-AdaBoost (Adaptive Boosting) was the first practical boosting algorithm. It works with any base learner, typically decision stumps (depth-1 trees).
+AdaBoost (Boosting Thích nghi) là thuật toán boosting thực tế đầu tiên. Nó hoạt động với bất kỳ bộ học cơ sở nào, thường là các decision stump (cây sâu 1).
 
-The algorithm:
+Thuật toán:
 
 ```
 1. Initialize sample weights: w_i = 1/N for all i
@@ -111,11 +111,11 @@ The algorithm:
 3. Final prediction: H(x) = sign(sum(alpha_t * h_t(x)))
 ```
 
-Models with lower error get higher alpha. Misclassified samples get higher weights so the next model focuses on them.
+Các mô hình có sai số thấp hơn nhận alpha cao hơn. Các mẫu bị phân loại sai nhận trọng số cao hơn để mô hình tiếp theo tập trung vào chúng.
 
 ### Gradient Boosting
 
-Gradient boosting generalizes boosting to arbitrary loss functions. Instead of reweighting samples, it fits each new model to the residuals (negative gradient of the loss) of the current ensemble.
+Gradient boosting tổng quát hóa boosting sang các hàm mất mát tùy ý. Thay vì điều chỉnh lại trọng số mẫu, nó khớp mỗi mô hình mới với các phần dư (gradient âm của mất mát) của tập hợp hiện tại.
 
 ```
 1. Initialize: F_0(x) = argmin_c sum(L(y_i, c))
@@ -132,26 +132,26 @@ Gradient boosting generalizes boosting to arbitrary loss functions. Instead of r
 3. Final prediction: F_T(x)
 ```
 
-For squared error loss, the pseudo-residuals are just the actual residuals: `r_i = y_i - F_{t-1}(x_i)`. Each tree literally fits the errors of the previous ensemble.
+Với mất mát sai số bình phương, các phần dư giả chỉ là các phần dư thực: `r_i = y_i - F_{t-1}(x_i)`. Mỗi cây thực sự khớp các sai số của tập hợp trước.
 
-The learning rate (shrinkage) controls how much each tree contributes. Smaller learning rates require more trees but generalize better. Typical values: 0.01 to 0.3.
+Tốc độ học (thu nhỏ) điều khiển mức đóng góp của mỗi cây. Tốc độ học nhỏ hơn cần nhiều cây hơn nhưng tổng quát hóa tốt hơn. Các giá trị điển hình: 0.01 đến 0.3.
 
 ### XGBoost: Why It Dominates Tabular Data
 
-XGBoost (eXtreme Gradient Boosting) is gradient boosting with engineering optimizations that make it fast, accurate, and resistant to overfitting:
+XGBoost (eXtreme Gradient Boosting) là gradient boosting với các tối ưu hóa kỹ thuật làm nó nhanh, chính xác và chống khớp quá mức:
 
-- **Regularized objective:** L1 and L2 penalties on leaf weights prevent individual trees from being too confident
-- **Second-order approximation:** Uses both first and second derivatives of the loss, giving better split decisions
-- **Sparsity-aware splits:** Handles missing values natively by learning the best direction for missing data at each split
-- **Column subsampling:** Like random forests, samples features at each split for diversity
-- **Weighted quantile sketch:** Efficiently finds split points for continuous features on distributed data
-- **Cache-aware block structure:** Memory layout optimized for CPU cache lines
+- **Mục tiêu có regularization:** Các hình phạt L1 và L2 trên trọng số lá ngăn các cây riêng lẻ quá tự tin
+- **Xấp xỉ bậc hai:** Sử dụng cả đạo hàm bậc nhất và bậc hai của mất mát, cho các quyết định chia tốt hơn
+- **Các phép chia có xét tính thưa:** Hỗ trợ trực tiếp các giá trị thiếu bằng cách học hướng tốt nhất cho dữ liệu thiếu tại mỗi phép chia
+- **Lấy mẫu con cột:** Giống rừng ngẫu nhiên, lấy mẫu các đặc trưng tại mỗi phép chia để có độ đa dạng
+- **Phác họa phân vị có trọng số:** Tìm hiệu quả các điểm chia cho các đặc trưng liên tục trên dữ liệu phân tán
+- **Cấu trúc khối có xét bộ nhớ đệm:** Bố trí bộ nhớ được tối ưu hóa cho các dòng bộ nhớ đệm CPU
 
-For tabular data, XGBoost (and its successor LightGBM) consistently outperforms neural networks. This is not changing anytime soon. If your data fits in a table with rows and columns, start with gradient boosting.
+Với dữ liệu dạng bảng, XGBoost (và người kế nhiệm LightGBM) liên tục vượt mạng nơ-ron. Điều này sẽ không sớm thay đổi. Nếu dữ liệu của bạn vừa trong một bảng có hàng và cột, bắt đầu với gradient boosting.
 
 ### Stacking (Meta-Learning)
 
-Stacking uses the predictions of multiple base models as features for a meta-learner.
+Stacking sử dụng các dự đoán của nhiều mô hình cơ sở làm các đặc trưng cho một bộ học meta.
 
 ```mermaid
 flowchart TD
@@ -170,16 +170,16 @@ flowchart TD
     META --> F[Final Prediction]
 ```
 
-The meta-learner learns which base model to trust for which inputs. If the random forest is better at certain regions and the SVM at others, the meta-learner will learn to route accordingly.
+Bộ học meta học mô hình cơ sở nào đáng tin với đầu vào nào. Nếu rừng ngẫu nhiên tốt hơn ở một số vùng và SVM ở các vùng khác, bộ học meta sẽ học cách định tuyến tương ứng.
 
-To avoid data leakage, base model predictions must be generated via cross-validation on the training set. You never train base models and generate meta-features on the same data.
+Để tránh rò rỉ dữ liệu, các dự đoán mô hình cơ sở phải được tạo qua xác thực chéo trên tập huấn luyện. Bạn không bao giờ huấn luyện mô hình cơ sở và tạo đặc trưng meta trên cùng dữ liệu.
 
 ### Voting
 
-The simplest ensemble. Just combine predictions directly.
+Tập hợp đơn giản nhất. Chỉ kết hợp trực tiếp các dự đoán.
 
-- **Hard voting:** Majority vote on class labels.
-- **Soft voting:** Average predicted probabilities, pick the class with highest average probability. Usually better because it uses confidence information.
+- **Bỏ phiếu cứng:** Bỏ phiếu đa số trên các nhãn lớp.
+- **Bỏ phiếu mềm:** Lấy trung bình các xác suất dự đoán, chọn lớp có xác suất trung bình cao nhất. Thường tốt hơn vì nó sử dụng thông tin độ tự tin.
 
 ```figure
 f3-ensemble-average
@@ -189,7 +189,7 @@ f3-ensemble-average
 
 ### Step 1: Decision Stump (Base Learner)
 
-The code in `code/ensembles.py` implements everything from scratch. We start with a decision stump: a tree with a single split.
+Mã trong `code/ensembles.py` triển khai mọi thứ từ đầu. Chúng ta bắt đầu với một decision stump: một cây có một phép chia duy nhất.
 
 ```python
 class DecisionStump:
@@ -290,66 +290,66 @@ class GradientBoostingScratch:
 
 ### Step 4: Compare against sklearn
 
-The code verifies that our from-scratch implementations produce similar accuracy to sklearn's `AdaBoostClassifier` and `GradientBoostingClassifier`, and compares all methods side by side.
+Mã xác minh các triển khai từ đầu tạo độ chính xác tương tự `AdaBoostClassifier` và `GradientBoostingClassifier` của sklearn, và so sánh mọi phương pháp cạnh nhau.
 
 ## Use It
 
 ### When to Use Each Method
 
-| Method | Reduces | Best for | Watch out for |
+| Phương pháp | Giảm | Tốt nhất cho | Cần chú ý |
 |--------|---------|----------|---------------|
-| Bagging / Random Forest | Variance | Noisy data, many features | Does not help with bias |
-| AdaBoost | Bias | Clean data, simple base learners | Sensitive to outliers and noise |
-| Gradient Boosting | Bias | Tabular data, competitions | Slow to train, easy to overfit without tuning |
-| XGBoost / LightGBM | Both | Production tabular ML | Many hyperparameters |
-| Stacking | Both | Getting last 1-2% accuracy | Complex, risk of overfitting meta-learner |
-| Voting | Variance | Quick combination of diverse models | Only helps if models are diverse |
+| Bagging / Rừng Ngẫu nhiên | Phương sai | Dữ liệu nhiễu, nhiều đặc trưng | Không giúp với độ chệch |
+| AdaBoost | Độ chệch | Dữ liệu sạch, bộ học cơ sở đơn giản | Nhạy với ngoại lệ và nhiễu |
+| Gradient Boosting | Độ chệch | Dữ liệu dạng bảng, các cuộc thi | Huấn luyện chậm, dễ khớp quá mức nếu không điều chỉnh |
+| XGBoost / LightGBM | Cả hai | ML dạng bảng trong sản xuất | Nhiều siêu tham số |
+| Stacking | Cả hai | Đạt 1-2% độ chính xác cuối | Phức tạp, nguy cơ bộ học meta khớp quá mức |
+| Bỏ phiếu | Phương sai | Kết hợp nhanh các mô hình đa dạng | Chỉ giúp nếu các mô hình đa dạng |
 
 ### The Production Stack for Tabular Data
 
-For most tabular prediction problems, this is the order to try:
+Với hầu hết các bài toán dự đoán dạng bảng, đây là thứ tự thử:
 
-1. **LightGBM or XGBoost** with default parameters
-2. Tune n_estimators, learning_rate, max_depth, min_child_weight
-3. If you need the last 0.5%, build a stacking ensemble with 3-5 diverse models
-4. Use cross-validation throughout
+1. **LightGBM hoặc XGBoost** với các tham số mặc định
+2. Điều chỉnh n_estimators, learning_rate, max_depth, min_child_weight
+3. Nếu cần 0.5% cuối cùng, xây dựng một tập hợp stacking với 3-5 mô hình đa dạng
+4. Sử dụng xác thực chéo xuyên suốt
 
-Neural networks on tabular data are almost always worse than gradient boosting, despite continued research attempts. TabNet, NODE, and similar architectures occasionally match but rarely beat a well-tuned XGBoost.
+Mạng nơ-ron trên dữ liệu dạng bảng hầu như luôn kém gradient boosting, bất chấp các nỗ lực nghiên cứu tiếp tục. TabNet, NODE và các kiến trúc tương tự đôi khi ngang bằng nhưng hiếm khi vượt một XGBoost được điều chỉnh tốt.
 
 ## Ship It
 
-This lesson produces `outputs/prompt-ensemble-selector.md` -- a prompt that helps you pick the right ensemble method for a given dataset. Describe your data (size, feature types, noise level, class balance) and the problem you are solving. The prompt walks through a decision checklist, recommends a method, suggests starting hyperparameters, and warns about common mistakes for that method. Also produces `outputs/skill-ensemble-builder.md` with the full selection guide.
+Bài học này tạo ra `outputs/prompt-ensemble-selector.md` -- một prompt giúp bạn chọn phương pháp tập hợp phù hợp cho một tập dữ liệu nhất định. Mô tả dữ liệu (kích thước, các loại đặc trưng, mức nhiễu, cân bằng lớp) và bài toán đang giải. Prompt đi qua một danh sách kiểm tra quyết định, đề xuất một phương pháp, gợi ý các siêu tham số bắt đầu và cảnh báo các lỗi phổ biến với phương pháp đó. Cũng tạo ra `outputs/skill-ensemble-builder.md` với hướng dẫn lựa chọn đầy đủ.
 
 ## Exercises
 
-1. Modify the AdaBoost implementation to track training accuracy after each round. Plot accuracy vs. number of estimators. When does it converge?
+1. Sửa triển khai AdaBoost để theo dõi độ chính xác huấn luyện sau mỗi vòng. Vẽ độ chính xác theo số bộ ước lượng. Khi nào nó hội tụ?
 
-2. Implement a random forest from scratch by adding random feature subsampling to the regression tree. Train 100 trees with `max_features=sqrt(n_features)` and average predictions. Compare variance reduction to a single tree.
+2. Triển khai một rừng ngẫu nhiên từ đầu bằng cách thêm lấy mẫu con đặc trưng ngẫu nhiên vào cây hồi quy. Huấn luyện 100 cây với `max_features=sqrt(n_features)` và lấy trung bình dự đoán. So sánh mức giảm phương sai với một cây đơn lẻ.
 
-3. In the gradient boosting implementation, add early stopping: track validation loss after each round and stop when it has not improved for 10 consecutive rounds. How many trees does it actually need?
+3. Trong triển khai gradient boosting, thêm dừng sớm: theo dõi mất mát xác thực sau mỗi vòng và dừng khi nó không cải thiện trong 10 vòng liên tiếp. Thực sự cần bao nhiêu cây?
 
-4. Build a stacking ensemble with three base models (logistic regression, decision tree, k-nearest neighbors) and a logistic regression meta-learner. Use 5-fold cross-validation to generate meta-features. Compare to each base model alone.
+4. Xây dựng một tập hợp stacking với ba mô hình cơ sở (hồi quy logistic, cây quyết định, k láng giềng gần nhất) và một bộ học meta hồi quy logistic. Sử dụng xác thực chéo 5-fold để tạo các đặc trưng meta. So sánh với từng mô hình cơ sở riêng lẻ.
 
-5. Run XGBoost on the same dataset with default parameters. Compare its accuracy to your from-scratch gradient boosting. Time both. How large is the speed difference?
+5. Chạy XGBoost trên cùng tập dữ liệu với các tham số mặc định. So sánh độ chính xác với gradient boosting từ đầu của bạn. Đo thời gian cả hai. Khác biệt tốc độ lớn đến mức nào?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Bagging | "Train on random subsets" | Bootstrap aggregating: train models on bootstrap samples, average predictions to reduce variance |
-| Boosting | "Focus on hard examples" | Train models sequentially, each correcting errors of the ensemble so far, to reduce bias |
-| AdaBoost | "Reweight the data" | Boosting via sample weight updates; misclassified points get higher weight for the next learner |
-| Gradient boosting | "Fit the residuals" | Boosting via fitting each new model to the negative gradient of the loss function |
-| XGBoost | "The Kaggle weapon" | Gradient boosting with regularization, second-order optimization, and systems-level speed tricks |
-| Stacking | "Models on top of models" | Use predictions of base models as input features for a meta-learner |
-| Random forest | "Many randomized trees" | Bagging with decision trees, adding random feature subsampling at each split for diversity |
-| Ensemble diversity | "Make different mistakes" | Models must be uncorrelated in their errors for the ensemble to improve over individuals |
-| Out-of-bag error | "Free validation" | Samples not in a bootstrap draw (~36.8%) serve as a validation set without needing a holdout |
+| Bagging | "Huấn luyện trên các tập con ngẫu nhiên" | Tổng hợp bootstrap: huấn luyện mô hình trên các mẫu bootstrap, lấy trung bình dự đoán để giảm phương sai |
+| Boosting | "Tập trung vào các ví dụ khó" | Huấn luyện các mô hình tuần tự, mỗi mô hình sửa sai số của tập hợp đến lúc đó, để giảm độ chệch |
+| AdaBoost | "Điều chỉnh lại trọng số dữ liệu" | Boosting qua các cập nhật trọng số mẫu; các điểm bị phân loại sai nhận trọng số cao hơn cho bộ học tiếp theo |
+| Gradient boosting | "Khớp các phần dư" | Boosting bằng cách khớp mỗi mô hình mới với gradient âm của hàm mất mát |
+| XGBoost | "Vũ khí Kaggle" | Gradient boosting với regularization, tối ưu hóa bậc hai và các thủ thuật tốc độ ở cấp hệ thống |
+| Stacking | "Mô hình trên các mô hình" | Sử dụng các dự đoán của mô hình cơ sở làm các đặc trưng đầu vào cho một bộ học meta |
+| Random forest (Rừng ngẫu nhiên) | "Nhiều cây được ngẫu nhiên hóa" | Bagging với các cây quyết định, thêm lấy mẫu con đặc trưng ngẫu nhiên tại mỗi phép chia để có độ đa dạng |
+| Ensemble diversity (Độ đa dạng tập hợp) | "Mắc các lỗi khác nhau" | Các mô hình phải không tương quan trong sai số để tập hợp cải thiện so với từng mô hình riêng lẻ |
+| Out-of-bag error (Sai số ngoài túi) | "Xác thực miễn phí" | Các mẫu không nằm trong một lần rút bootstrap (~36.8%) làm tập xác thực mà không cần một tập giữ riêng |
 
 ## Further Reading
 
-- [Schapire & Freund: Boosting: Foundations and Algorithms](https://mitpress.mit.edu/9780262526036/) -- the book by AdaBoost's creators
-- [Friedman: Greedy Function Approximation: A Gradient Boosting Machine (2001)](https://doi.org/10.1214/aos/1013203451) -- the original gradient boosting paper
-- [Chen & Guestrin: XGBoost (2016)](https://arxiv.org/abs/1603.02754) -- the XGBoost paper
-- [Wolpert: Stacked Generalization (1992)](https://www.sciencedirect.com/science/article/abs/pii/S0893608005800231) -- the original stacking paper
-- [scikit-learn Ensemble Methods](https://scikit-learn.org/stable/modules/ensemble.html) -- practical reference
+- [Schapire & Freund: Boosting: Foundations and Algorithms](https://mitpress.mit.edu/9780262526036/) -- cuốn sách của những người tạo ra AdaBoost
+- [Friedman: Greedy Function Approximation: A Gradient Boosting Machine (2001)](https://doi.org/10.1214/aos/1013203451) -- bài báo gradient boosting gốc
+- [Chen & Guestrin: XGBoost (2016)](https://arxiv.org/abs/1603.02754) -- bài báo XGBoost
+- [Wolpert: Stacked Generalization (1992)](https://www.sciencedirect.com/science/article/abs/pii/S0893608005800231) -- bài báo stacking gốc
+- [scikit-learn Ensemble Methods](https://scikit-learn.org/stable/modules/ensemble.html) -- tài liệu tham khảo thực hành

@@ -9,86 +9,86 @@ tags: [ensemble, bagging, boosting, random-forest, xgboost, stacking]
 
 # Ensemble Method Selection Guide
 
-Ensembles combine multiple models to produce better predictions than any single model. The question is always: which kind of ensemble, and when?
+Các tập hợp kết hợp nhiều mô hình để tạo các dự đoán tốt hơn bất kỳ mô hình đơn lẻ nào. Câu hỏi luôn là: loại tập hợp nào và khi nào?
 
 ## Decision Checklist
 
-1. What is the main problem with your current model?
-   - High variance (overfitting): use bagging (Random Forest)
-   - High bias (underfitting): use boosting (Gradient Boosting, XGBoost)
-   - Both, or you want maximum accuracy: use stacking
+1. Vấn đề chính với mô hình hiện tại của bạn là gì?
+   - Phương sai cao (khớp quá mức): sử dụng bagging (Rừng Ngẫu nhiên)
+   - Độ chệch cao (khớp chưa đủ): sử dụng boosting (Gradient Boosting, XGBoost)
+   - Cả hai, hoặc bạn muốn độ chính xác tối đa: sử dụng stacking
 
-2. How much data do you have?
-   - Under 1,000 rows: Random Forest (robust, hard to misconfigure)
-   - 1,000 to 100,000: XGBoost or LightGBM (best overall for tabular)
-   - Over 100,000: LightGBM (fastest gradient boosting, handles large data well)
+2. Bạn có bao nhiêu dữ liệu?
+   - Dưới 1,000 hàng: Rừng Ngẫu nhiên (bền vững, khó cấu hình sai)
+   - 1,000 đến 100,000: XGBoost hoặc LightGBM (tốt nhất tổng thể cho dạng bảng)
+   - Trên 100,000: LightGBM (gradient boosting nhanh nhất, xử lý dữ liệu lớn tốt)
 
-3. How much tuning time can you invest?
-   - Minimal: Random Forest with defaults (almost always works)
-   - Moderate: XGBoost with learning_rate=0.1, tune n_estimators with early stopping
-   - Maximum: LightGBM or XGBoost with Bayesian hyperparameter search
+3. Bạn có thể đầu tư bao nhiêu thời gian điều chỉnh?
+   - Tối thiểu: Rừng Ngẫu nhiên với các mặc định (hầu như luôn hoạt động)
+   - Vừa phải: XGBoost với learning_rate=0.1, điều chỉnh n_estimators bằng dừng sớm
+   - Tối đa: LightGBM hoặc XGBoost với tìm kiếm siêu tham số Bayes
 
-4. Do you need interpretability?
-   - Yes: single decision tree or small Random Forest with feature importance
-   - Partial: gradient boosting with SHAP values
-   - No: stacking or deep ensembles
+4. Bạn có cần khả năng diễn giải không?
+   - Có: một cây quyết định đơn lẻ hoặc Rừng Ngẫu nhiên nhỏ với độ quan trọng đặc trưng
+   - Một phần: gradient boosting với các giá trị SHAP
+   - Không: stacking hoặc các tập hợp sâu
 
-5. Is the data noisy with many outliers?
-   - Yes: Random Forest (bagging is robust to noise)
-   - No: gradient boosting (can push accuracy further on clean data)
+5. Dữ liệu có nhiễu với nhiều ngoại lệ không?
+   - Có: Rừng Ngẫu nhiên (bagging bền vững với nhiễu)
+   - Không: gradient boosting (có thể đẩy độ chính xác cao hơn trên dữ liệu sạch)
 
 ## When to use each method
 
-**Random Forest (Bagging)**: your safe first choice. Trains many trees on bootstrap samples and averages. Reduces variance without increasing bias. Nearly impossible to overfit on moderate data. Minimal tuning needed: set n_estimators=100-500 and leave defaults.
+**Rừng Ngẫu nhiên (Bagging)**: lựa chọn đầu tiên an toàn. Huấn luyện nhiều cây trên các mẫu bootstrap và lấy trung bình. Giảm phương sai mà không tăng độ chệch. Gần như không thể khớp quá mức trên dữ liệu vừa. Cần điều chỉnh tối thiểu: đặt n_estimators=100-500 và giữ các mặc định.
 
-**AdaBoost**: sequential boosting with sample reweighting. Works well with simple base learners (decision stumps). Sensitive to outliers and noisy labels because it upweights misclassified points. Largely replaced by gradient boosting in practice.
+**AdaBoost**: boosting tuần tự với điều chỉnh lại trọng số mẫu. Hoạt động tốt với các bộ học cơ sở đơn giản (decision stump). Nhạy với ngoại lệ và các nhãn nhiễu vì nó tăng trọng số các điểm bị phân loại sai. Phần lớn được thay thế bởi gradient boosting trong thực tế.
 
-**Gradient Boosting**: fits each new tree to the residuals of the ensemble so far. Reduces bias. The most powerful method for tabular data. Requires tuning: learning_rate, n_estimators, max_depth, min_child_weight, subsample.
+**Gradient Boosting**: khớp mỗi cây mới với các phần dư của tập hợp đến lúc đó. Giảm độ chệch. Phương pháp mạnh nhất cho dữ liệu dạng bảng. Cần điều chỉnh: learning_rate, n_estimators, max_depth, min_child_weight, subsample.
 
-**XGBoost**: gradient boosting with regularization, second-order optimization, and systems-level speedups. Handles missing values natively. The default for Kaggle competitions and production ML on tabular data.
+**XGBoost**: gradient boosting với regularization, tối ưu hóa bậc hai và các tăng tốc cấp hệ thống. Hỗ trợ trực tiếp giá trị thiếu. Mặc định cho các cuộc thi Kaggle và ML sản xuất trên dữ liệu dạng bảng.
 
-**LightGBM**: gradient boosting with leaf-wise growth (instead of level-wise). Faster than XGBoost on large datasets. Uses histogram-based splits. Best for datasets over 50k rows.
+**LightGBM**: gradient boosting với phát triển theo lá (thay vì theo mức). Nhanh hơn XGBoost trên các tập dữ liệu lớn. Sử dụng các phép chia dựa trên biểu đồ tần suất. Tốt nhất cho các tập dữ liệu trên 50k hàng.
 
-**CatBoost**: gradient boosting with native categorical feature handling. No need to one-hot encode. Good when you have many categorical features.
+**CatBoost**: gradient boosting với xử lý trực tiếp các đặc trưng phân loại. Không cần mã hóa one-hot. Tốt khi có nhiều đặc trưng phân loại.
 
-**Stacking**: trains a meta-learner on the predictions of multiple diverse base models. Use when you need the absolute best accuracy and have compute to spare. Always generate base model predictions via cross-validation to avoid leakage.
+**Stacking**: huấn luyện một bộ học meta trên các dự đoán của nhiều mô hình cơ sở đa dạng. Sử dụng khi cần độ chính xác tuyệt đối tốt nhất và có tài nguyên tính toán dư. Luôn tạo các dự đoán mô hình cơ sở qua xác thực chéo để tránh rò rỉ.
 
-**Voting**: simplest ensemble. Hard voting (majority class) or soft voting (average probabilities). Quick way to combine 2-3 diverse models without a meta-learner.
+**Bỏ phiếu**: tập hợp đơn giản nhất. Bỏ phiếu cứng (lớp đa số) hoặc bỏ phiếu mềm (các xác suất trung bình). Cách nhanh để kết hợp 2-3 mô hình đa dạng mà không có bộ học meta.
 
 ## Common mistakes
 
-- Using gradient boosting without early stopping (it will overfit if you let it run too many rounds)
-- Setting learning_rate too high (above 0.3 usually causes instability)
-- Not tuning max_depth for gradient boosting (default of unlimited or very deep trees overfit)
-- Stacking with models that are all the same type (diversity is the point of stacking)
-- Using AdaBoost on noisy data (outliers get higher and higher weight each round)
-- Expecting Random Forest to fix underfitting (it reduces variance, not bias)
+- Sử dụng gradient boosting mà không dừng sớm (nó sẽ khớp quá mức nếu bạn để chạy quá nhiều vòng)
+- Đặt learning_rate quá cao (trên 0.3 thường gây bất ổn)
+- Không điều chỉnh max_depth cho gradient boosting (mặc định không giới hạn hoặc các cây rất sâu khớp quá mức)
+- Stacking với các mô hình đều cùng loại (độ đa dạng là mục đích của stacking)
+- Sử dụng AdaBoost trên dữ liệu nhiễu (các ngoại lệ nhận trọng số ngày càng cao mỗi vòng)
+- Kỳ vọng Rừng Ngẫu nhiên sửa khớp chưa đủ (nó giảm phương sai, không phải độ chệch)
 
 ## Tuning priorities by method
 
-**Random Forest:**
-1. n_estimators: 100-500 (more is rarely worse, just slower)
-2. max_depth: None (let trees grow fully) or cap at 10-20 for speed
-3. max_features: "sqrt" for classification, "log2" or n/3 for regression
+**Rừng Ngẫu nhiên:**
+1. n_estimators: 100-500 (nhiều hơn hiếm khi tệ hơn, chỉ chậm hơn)
+2. max_depth: None (để cây phát triển đầy đủ) hoặc chặn ở 10-20 để có tốc độ
+3. max_features: "sqrt" cho phân loại, "log2" hoặc n/3 cho hồi quy
 
 **XGBoost / LightGBM:**
-1. learning_rate: 0.01-0.3 (lower is better if you have compute for more trees)
-2. n_estimators: use early stopping on a validation set instead of guessing
-3. max_depth: 3-8 (start with 6)
-4. min_child_weight / min_data_in_leaf: 1-20 (higher prevents overfitting)
+1. learning_rate: 0.01-0.3 (thấp hơn tốt hơn nếu bạn có tài nguyên tính toán cho thêm cây)
+2. n_estimators: sử dụng dừng sớm trên một tập xác thực thay vì đoán
+3. max_depth: 3-8 (bắt đầu với 6)
+4. min_child_weight / min_data_in_leaf: 1-20 (cao hơn ngăn khớp quá mức)
 5. subsample: 0.7-1.0
 6. colsample_bytree: 0.7-1.0
-7. reg_alpha (L1) and reg_lambda (L2): 0-10
+7. reg_alpha (L1) và reg_lambda (L2): 0-10
 
 ## Quick reference
 
-| Method | Reduces | Speed | Tuning effort | Best for |
+| Phương pháp | Giảm | Tốc độ | Công sức điều chỉnh | Tốt nhất cho |
 |--------|---------|-------|--------------|----------|
-| Random Forest | Variance | Fast | Low | Noisy data, quick baseline |
-| AdaBoost | Bias | Fast | Low | Simple base learners, clean data |
-| Gradient Boosting | Bias | Medium | High | Tabular data, competitions |
-| XGBoost | Both | Fast | High | Production tabular ML |
-| LightGBM | Both | Fastest | High | Large datasets (50k+ rows) |
-| CatBoost | Both | Medium | Medium | Many categorical features |
-| Stacking | Both | Slow | High | Maximum accuracy, diverse models |
-| Voting | Variance | Fast | None | Quick combination of 2-3 models |
+| Rừng Ngẫu nhiên | Phương sai | Nhanh | Thấp | Dữ liệu nhiễu, mốc cơ sở nhanh |
+| AdaBoost | Độ chệch | Nhanh | Thấp | Các bộ học cơ sở đơn giản, dữ liệu sạch |
+| Gradient Boosting | Độ chệch | Trung bình | Cao | Dữ liệu dạng bảng, các cuộc thi |
+| XGBoost | Cả hai | Nhanh | Cao | ML dạng bảng trong sản xuất |
+| LightGBM | Cả hai | Nhanh nhất | Cao | Các tập dữ liệu lớn (50k+ hàng) |
+| CatBoost | Cả hai | Trung bình | Trung bình | Nhiều đặc trưng phân loại |
+| Stacking | Cả hai | Chậm | Cao | Độ chính xác tối đa, các mô hình đa dạng |
+| Bỏ phiếu | Phương sai | Nhanh | Không có | Kết hợp nhanh 2-3 mô hình |
