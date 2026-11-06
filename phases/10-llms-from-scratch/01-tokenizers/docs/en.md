@@ -1,6 +1,6 @@
 # Tokenizers: BPE, WordPiece, SentencePiece
 
-> Your LLM does not read English. It reads integers. The tokenizer decides whether those integers carry meaning or waste it.
+> LLM của bạn không đọc tiếng Anh. Nó đọc các số nguyên. Tokenizer quyết định liệu các số nguyên đó mang ý nghĩa hay lãng phí nó.
 
 **Type:** Build
 **Languages:** Python
@@ -9,34 +9,34 @@
 
 ## Learning Objectives
 
-- Implement BPE, WordPiece, and Unigram tokenization algorithms from scratch and compare their merge strategies
-- Explain how vocabulary size affects model efficiency: too small creates long sequences, too large wastes embedding parameters
-- Analyze tokenization artifacts across languages and code, identifying where specific tokenizers break down
-- Use the tiktoken and sentencepiece libraries to tokenize text and inspect the resulting token IDs
+- Triển khai các thuật toán token hóa BPE, WordPiece và Unigram từ đầu và so sánh các chiến lược gộp của chúng
+- Giải thích kích thước từ vựng ảnh hưởng hiệu quả mô hình thế nào: quá nhỏ tạo chuỗi dài, quá lớn lãng phí tham số embedding
+- Phân tích các lỗi giả token hóa xuyên ngôn ngữ và mã, xác định nơi các tokenizer cụ thể thất bại
+- Dùng các thư viện tiktoken và sentencepiece để token hóa văn bản và kiểm tra các ID token thu được
 
 ## The Problem
 
-Your LLM does not read English. It does not read any language. It reads numbers.
+LLM của bạn không đọc tiếng Anh. Nó không đọc bất kỳ ngôn ngữ nào. Nó đọc các con số.
 
-The gap between "Hello, world!" and [15496, 11, 995, 0] is the tokenizer. Every word, every space, every punctuation mark must be converted into an integer before a model can process it. This conversion is not neutral. It bakes assumptions into the model that cannot be undone later.
+Khoảng cách giữa "Hello, world!" và [15496, 11, 995, 0] là tokenizer. Mỗi từ, mỗi khoảng trắng, mỗi dấu câu phải được chuyển thành một số nguyên trước khi mô hình có thể xử lý nó. Sự chuyển đổi này không trung lập. Nó đưa các giả định vào mô hình mà sau này không thể hoàn tác.
 
-Get this wrong and your model wastes capacity encoding common words with multiple tokens. "unfortunately" becomes four tokens instead of one. Your 128K context window just shrank by 75% for text heavy in multi-syllable words. Get it right and the same context window holds twice as much meaning. The difference between "this model handles code well" and "this model chokes on Python" often comes down to how the tokenizer was trained.
+Làm sai điều này và mô hình của bạn lãng phí năng lực mã hóa các từ phổ biến bằng nhiều token. "unfortunately" trở thành bốn token thay vì một. Cửa sổ ngữ cảnh 128K của bạn vừa co lại 75% với văn bản có nhiều từ đa âm tiết. Làm đúng và cùng cửa sổ ngữ cảnh chứa gấp đôi ý nghĩa. Khác biệt giữa "mô hình này xử lý mã tốt" và "mô hình này nghẹn với Python" thường quy về cách tokenizer được huấn luyện.
 
-Every API call you make to GPT-4 or Claude is priced per token. Every token your model generates costs compute. The fewer tokens required to represent an output, the faster the end-to-end inference. Tokenization is not preprocessing. It is architecture.
+Mỗi lệnh gọi API bạn thực hiện đến GPT-4 hoặc Claude được tính giá theo token. Mỗi token mô hình của bạn sinh ra tốn tính toán. Càng ít token cần để biểu diễn một đầu ra, suy luận đầu cuối càng nhanh. Token hóa không phải tiền xử lý. Nó là kiến trúc.
 
 ## The Concept
 
 ### Three Approaches That Failed (and One That Won)
 
-There are three obvious ways to convert text to numbers. Two of them do not work at scale.
+Có ba cách hiển nhiên để chuyển văn bản thành số. Hai trong số đó không hoạt động ở quy mô lớn.
 
-**Word-level tokenization** splits on spaces and punctuation. "The cat sat" becomes ["The", "cat", "sat"]. Simple. But what about "tokenization"? Or "GPT-4o"? Or a German compound word like "Geschwindigkeitsbegrenzung"? Word-level requires a massive vocabulary to cover every word in every language. Miss a word and you get the dreaded `[UNK]` token -- the model's way of saying "I have no idea what this is." English alone has over a million word forms. Add code, URLs, scientific notation, and 100 other languages and you need an infinite vocabulary.
+**Token hóa cấp từ** tách theo khoảng trắng và dấu câu. "The cat sat" trở thành ["The", "cat", "sat"]. Đơn giản. Nhưng còn "tokenization"? Hoặc "GPT-4o"? Hoặc một từ ghép tiếng Đức như "Geschwindigkeitsbegrenzung"? Cấp từ đòi hỏi một từ vựng khổng lồ để bao phủ mọi từ trong mọi ngôn ngữ. Thiếu một từ và bạn nhận token `[UNK]` đáng sợ -- cách mô hình nói "Tôi không biết đây là gì." Riêng tiếng Anh đã có hơn một triệu dạng từ. Thêm mã, URL, ký pháp khoa học và 100 ngôn ngữ khác thì bạn cần một từ vựng vô hạn.
 
-**Character-level tokenization** goes the other direction. "hello" becomes ["h", "e", "l", "l", "o"]. Vocabulary is tiny (a few hundred characters). No unknown tokens ever. But sequences become extremely long. A sentence that would be 10 word-level tokens becomes 50 character-level tokens. The model must learn that "t", "h", "e" together mean "the" -- burning attention capacity on something a human learns at age three.
+**Token hóa cấp ký tự** đi hướng ngược lại. "hello" trở thành ["h", "e", "l", "l", "o"]. Từ vựng rất nhỏ (vài trăm ký tự). Không bao giờ có token không biết. Nhưng các chuỗi trở nên cực dài. Một câu vốn là 10 token cấp từ trở thành 50 token cấp ký tự. Mô hình phải học rằng "t", "h", "e" cùng nhau nghĩa là "the" -- đốt năng lực attention cho điều mà con người học lúc ba tuổi.
 
-**Subword tokenization** finds the sweet spot. Common words stay whole: "the" is one token. Rare words decompose into meaningful pieces: "unhappiness" becomes ["un", "happi", "ness"]. Vocabulary stays manageable (30K to 128K tokens). Sequences stay short. Unknown tokens essentially disappear because any word can be built from subword pieces.
+**Token hóa từ con** tìm điểm cân bằng. Các từ phổ biến giữ nguyên: "the" là một token. Các từ hiếm phân rã thành các mảnh có nghĩa: "unhappiness" trở thành ["un", "happi", "ness"]. Từ vựng giữ ở mức quản lý được (30K đến 128K token). Chuỗi giữ ngắn. Token không biết về cơ bản biến mất vì bất kỳ từ nào cũng có thể được xây từ các mảnh từ con.
 
-Every modern LLM uses subword tokenization. GPT-2, GPT-4, BERT, Llama 3, Claude -- all of them. The question is which algorithm.
+Mọi LLM hiện đại dùng token hóa từ con. GPT-2, GPT-4, BERT, Llama 3, Claude -- tất cả. Câu hỏi là thuật toán nào.
 
 ```mermaid
 graph TD
@@ -52,15 +52,15 @@ graph TD
 
 ### BPE: Byte Pair Encoding
 
-BPE is a greedy compression algorithm repurposed for tokenization. The idea is simple enough to fit on an index card.
+BPE là một thuật toán nén tham lam được dùng lại cho token hóa. Ý tưởng đủ đơn giản để vừa trên một thẻ ghi chú.
 
-Start with individual characters. Count every adjacent pair in the training corpus. Merge the most frequent pair into a new token. Repeat until you reach your target vocabulary size.
+Bắt đầu với các ký tự riêng lẻ. Đếm mọi cặp liền kề trong corpus huấn luyện. Gộp cặp thường gặp nhất thành một token mới. Lặp lại cho đến khi đạt kích thước từ vựng mục tiêu.
 
 ```figure
 tokenizer-bpe
 ```
 
-Here is BPE running on a tiny corpus with the words "lower", "lowest", and "newest":
+Đây là BPE chạy trên một corpus nhỏ với các từ "lower", "lowest" và "newest":
 
 ```
 Corpus (with word frequencies):
@@ -106,7 +106,7 @@ Step 4 -- Merge (wes,t) -> "west":
 ...continue until target vocab size reached.
 ```
 
-The merge table is the tokenizer. To encode new text, apply merges in the order they were learned. The training corpus determines which merges exist, and that choice permanently shapes what the model sees.
+Bảng gộp là tokenizer. Để mã hóa văn bản mới, áp dụng các phép gộp theo thứ tự chúng được học. Corpus huấn luyện quyết định những phép gộp nào tồn tại, và lựa chọn đó định hình vĩnh viễn những gì mô hình thấy.
 
 ```mermaid
 graph LR
@@ -123,47 +123,47 @@ graph LR
 
 ### Byte-Level BPE (GPT-2, GPT-3, GPT-4)
 
-Standard BPE operates on Unicode characters. Byte-level BPE operates on raw bytes (0-255). This gives you a base vocabulary of exactly 256, handles any language or encoding, and never produces an unknown token.
+BPE tiêu chuẩn hoạt động trên các ký tự Unicode. BPE cấp byte hoạt động trên byte thô (0-255). Điều này cho bạn một từ vựng cơ sở chính xác 256, xử lý bất kỳ ngôn ngữ hoặc mã hóa nào, và không bao giờ tạo ra token không biết.
 
-GPT-2 introduced this approach. The base vocabulary covers every possible byte. BPE merges build on top of that. OpenAI's tiktoken library implements byte-level BPE with these vocabulary sizes:
+GPT-2 giới thiệu cách tiếp cận này. Từ vựng cơ sở bao phủ mọi byte có thể. Các phép gộp BPE xây trên đó. Thư viện tiktoken của OpenAI triển khai BPE cấp byte với các kích thước từ vựng này:
 
-- GPT-2: 50,257 tokens
-- GPT-3.5/GPT-4: ~100,256 tokens (cl100k_base encoding)
-- GPT-4o: 200,019 tokens (o200k_base encoding)
+- GPT-2: 50,257 token
+- GPT-3.5/GPT-4: ~100,256 token (mã hóa cl100k_base)
+- GPT-4o: 200,019 token (mã hóa o200k_base)
 
 ### WordPiece (BERT)
 
-WordPiece looks similar to BPE but picks merges differently. Instead of raw frequency, it maximizes the likelihood of the training data:
+WordPiece trông giống BPE nhưng chọn các phép gộp khác. Thay vì tần suất thô, nó tối đa hóa likelihood của dữ liệu huấn luyện:
 
 ```
 BPE merge criterion:      count(A, B)
 WordPiece merge criterion: count(AB) / (count(A) * count(B))
 ```
 
-BPE asks: "Which pair appears most often?" WordPiece asks: "Which pair appears together more often than you would expect by chance?" This subtle difference produces different vocabularies. WordPiece favors merges where co-occurrence is surprising, not just frequent.
+BPE hỏi: "Cặp nào xuất hiện thường xuyên nhất?" WordPiece hỏi: "Cặp nào xuất hiện cùng nhau thường xuyên hơn mức bạn kỳ vọng do ngẫu nhiên?" Khác biệt tinh tế này tạo ra các từ vựng khác nhau. WordPiece ưu tiên các phép gộp mà sự đồng xuất hiện gây bất ngờ, không chỉ thường xuyên.
 
-WordPiece also uses a "##" prefix for continuation subwords:
+WordPiece cũng dùng tiền tố "##" cho các từ con tiếp nối:
 
 ```
 "unhappiness" -> ["un", "##happi", "##ness"]
 "embedding"   -> ["em", "##bed", "##ding"]
 ```
 
-The "##" prefix tells you this piece continues a previous token. BERT uses WordPiece with a vocabulary of 30,522 tokens. Every BERT variant -- DistilBERT, RoBERTa's tokenizer is actually BPE, but BERT itself is WordPiece.
+Tiền tố "##" cho bạn biết mảnh này tiếp nối một token trước. BERT dùng WordPiece với một từ vựng 30,522 token. Mọi biến thể BERT -- DistilBERT, tokenizer của RoBERTa thực ra là BPE, nhưng bản thân BERT là WordPiece.
 
 ### SentencePiece (Llama, T5)
 
-SentencePiece treats the input as a raw stream of Unicode characters, including whitespace. No pre-tokenization step. No language-specific rules about word boundaries. This makes it genuinely language-agnostic -- it works on Chinese, Japanese, Thai, and other languages where spaces do not separate words.
+SentencePiece coi đầu vào là một luồng ký tự Unicode thô, gồm cả khoảng trắng. Không bước tiền token hóa. Không quy tắc riêng theo ngôn ngữ về ranh giới từ. Điều này làm nó thực sự độc lập ngôn ngữ -- nó hoạt động trên tiếng Trung, Nhật, Thái và các ngôn ngữ khác mà khoảng trắng không tách từ.
 
-SentencePiece supports two algorithms:
-- **BPE mode**: same merge logic as standard BPE, applied to raw character sequences
-- **Unigram mode**: starts with a large vocabulary and iteratively removes tokens that least affect the overall likelihood. The reverse of BPE -- prune instead of merge.
+SentencePiece hỗ trợ hai thuật toán:
+- **Chế độ BPE**: cùng logic gộp như BPE tiêu chuẩn, áp dụng cho các chuỗi ký tự thô
+- **Chế độ Unigram**: bắt đầu với một từ vựng lớn và lặp việc loại bỏ các token ít ảnh hưởng nhất đến likelihood tổng thể. Ngược với BPE -- cắt tỉa thay vì gộp.
 
-Llama 2 uses SentencePiece BPE with a vocabulary of 32,000 tokens. T5 uses SentencePiece Unigram with 32,000 tokens. Note: Llama 3 switched to a tiktoken-based byte-level BPE tokenizer with 128,256 tokens.
+Llama 2 dùng SentencePiece BPE với một từ vựng 32,000 token. T5 dùng SentencePiece Unigram với 32,000 token. Lưu ý: Llama 3 chuyển sang một tokenizer BPE cấp byte dựa trên tiktoken với 128,256 token.
 
 ### Vocabulary Size Tradeoffs
 
-This is a real engineering decision with measurable consequences.
+Đây là một quyết định kỹ thuật thực với các hệ quả đo được.
 
 ```mermaid
 graph LR
@@ -181,26 +181,26 @@ graph LR
     end
 ```
 
-Concrete numbers. For a 128K vocabulary with 4,096-dimensional embeddings, the embedding matrix alone is 128,000 x 4,096 = 524 million parameters. For a 32K vocabulary, it is 131 million parameters. That is a 400M parameter difference from the tokenizer choice alone.
+Các con số cụ thể. Với một từ vựng 128K có embedding 4,096 chiều, riêng ma trận embedding là 128,000 x 4,096 = 524 triệu tham số. Với một từ vựng 32K, nó là 131 triệu tham số. Đó là một khác biệt 400M tham số chỉ từ lựa chọn tokenizer.
 
-But larger vocabularies compress text more aggressively. The same English paragraph that takes 100 tokens with a 32K vocabulary might take 70 tokens with a 128K vocabulary. That means 30% fewer forward passes during generation. For a model serving millions of requests, that is a direct reduction in compute cost.
+Nhưng các từ vựng lớn hơn nén văn bản mạnh hơn. Cùng đoạn tiếng Anh cần 100 token với một từ vựng 32K có thể cần 70 token với một từ vựng 128K. Điều đó nghĩa là ít lượt truyền xuôi hơn 30% khi sinh. Với một mô hình phục vụ hàng triệu yêu cầu, đó là giảm trực tiếp chi phí tính toán.
 
-The trend is clear: vocabulary sizes are growing. GPT-2 used 50,257. GPT-4 uses ~100K. Llama 3 uses 128K. GPT-4o uses 200K.
+Xu hướng rõ ràng: kích thước từ vựng đang tăng. GPT-2 dùng 50,257. GPT-4 dùng ~100K. Llama 3 dùng 128K. GPT-4o dùng 200K.
 
-| Model | Vocab Size | Tokenizer Type | Avg Tokens per English Word |
+| Mô hình | Kích thước từ vựng | Loại tokenizer | Số token trung bình mỗi từ tiếng Anh |
 |-------|-----------|----------------|---------------------------|
 | BERT | 30,522 | WordPiece | ~1.4 |
-| GPT-2 | 50,257 | Byte-level BPE | ~1.3 |
+| GPT-2 | 50,257 | BPE cấp byte | ~1.3 |
 | Llama 2 | 32,000 | SentencePiece BPE | ~1.4 |
-| GPT-4 | ~100,256 | Byte-level BPE | ~1.2 |
-| Llama 3 | 128,256 | Byte-level BPE (tiktoken) | ~1.1 |
-| GPT-4o | 200,019 | Byte-level BPE | ~1.0 |
+| GPT-4 | ~100,256 | BPE cấp byte | ~1.2 |
+| Llama 3 | 128,256 | BPE cấp byte (tiktoken) | ~1.1 |
+| GPT-4o | 200,019 | BPE cấp byte | ~1.0 |
 
 ### The Multilingual Tax
 
-Tokenizers trained primarily on English are brutal to other languages. Korean text in GPT-2's tokenizer averages 2-3 tokens per word. Chinese can be worse. This means a Korean user effectively has a context window that is half the size of an English user's -- paying the same price for less information density.
+Các tokenizer được huấn luyện chủ yếu trên tiếng Anh khắc nghiệt với các ngôn ngữ khác. Văn bản tiếng Hàn trong tokenizer GPT-2 trung bình 2-3 token mỗi từ. Tiếng Trung có thể tệ hơn. Điều này nghĩa là một người dùng tiếng Hàn thực tế có cửa sổ ngữ cảnh bằng nửa kích thước của người dùng tiếng Anh -- trả cùng giá cho mật độ thông tin ít hơn.
 
-This is why Llama 3 quadrupled its vocabulary from 32K to 128K. More tokens dedicated to non-English scripts means fairer compression across languages.
+Đây là lý do Llama 3 tăng gấp bốn từ vựng từ 32K lên 128K. Nhiều token hơn dành cho các hệ chữ phi tiếng Anh nghĩa là nén công bằng hơn xuyên ngôn ngữ.
 
 ```figure
 tokenizer-tradeoff
@@ -210,7 +210,7 @@ tokenizer-tradeoff
 
 ### Step 1: Character-Level Tokenizer
 
-Start at the foundation. A character-level tokenizer maps each character to its Unicode code point. No training needed. No unknown tokens. Just a direct mapping.
+Bắt đầu ở nền tảng. Một tokenizer cấp ký tự ánh xạ mỗi ký tự đến điểm mã Unicode của nó. Không cần huấn luyện. Không token không biết. Chỉ một ánh xạ trực tiếp.
 
 ```python
 class CharTokenizer:
@@ -221,11 +221,11 @@ class CharTokenizer:
         return "".join(chr(t) for t in tokens)
 ```
 
-"hello" becomes [104, 101, 108, 108, 111]. Every character is its own token. This is the baseline we improve on.
+"hello" trở thành [104, 101, 108, 108, 111]. Mỗi ký tự là token riêng. Đây là baseline mà chúng ta cải thiện.
 
 ### Step 2: BPE Tokenizer from Scratch
 
-The real implementation. We train on raw bytes (like GPT-2), count pairs, merge the most frequent, and record every merge in order. The merge table is the tokenizer.
+Triển khai thực. Chúng ta huấn luyện trên byte thô (như GPT-2), đếm cặp, gộp cặp thường gặp nhất và ghi lại mọi phép gộp theo thứ tự. Bảng gộp là tokenizer.
 
 ```python
 from collections import Counter
@@ -280,11 +280,11 @@ class BPETokenizer:
         return byte_sequence.decode("utf-8", errors="replace")
 ```
 
-The training loop is the core of BPE: count pairs, merge the winner, repeat. Each merge reduces the total token count. After `num_merges` rounds, the vocabulary grows from 256 (base bytes) to 256 + num_merges.
+Vòng lặp huấn luyện là cốt lõi của BPE: đếm cặp, gộp bên thắng, lặp lại. Mỗi phép gộp giảm tổng số token. Sau `num_merges` vòng, từ vựng tăng từ 256 (byte cơ sở) lên 256 + num_merges.
 
-Encoding applies merges in the exact order they were learned. This matters. If merge 1 created "th" and merge 5 created "the", encoding must apply merge 1 first so that "the" can form from "th" + "e" in merge 5.
+Mã hóa áp dụng các phép gộp theo đúng thứ tự chúng được học. Điều này quan trọng. Nếu phép gộp 1 tạo "th" và phép gộp 5 tạo "the", mã hóa phải áp dụng phép gộp 1 trước để "the" có thể hình thành từ "th" + "e" trong phép gộp 5.
 
-Decoding is the inverse: look up each token ID in the vocabulary, concatenate the bytes, decode to UTF-8.
+Giải mã là phép ngược: tra mỗi ID token trong từ vựng, nối các byte, giải mã thành UTF-8.
 
 ### Step 3: Encode and Decode Roundtrip
 
@@ -317,7 +317,7 @@ for sentence in test_sentences:
     print(f"  Roundtrip: {'PASS' if decoded == sentence else 'FAIL'}")
 ```
 
-The compression ratio tells you how effective the tokenizer is. A ratio of 0.50 means the tokenizer compressed the text to half as many tokens as raw bytes. Lower is better. On the training corpus, the ratio will be good. On out-of-distribution text like "unhappiness" (which does not appear in the corpus), the ratio will be worse -- the tokenizer falls back to character-level encoding for unseen patterns.
+Tỷ lệ nén cho bạn biết tokenizer hiệu quả đến đâu. Tỷ lệ 0.50 nghĩa là tokenizer nén văn bản xuống số token bằng một nửa số byte thô. Thấp hơn là tốt hơn. Trên corpus huấn luyện, tỷ lệ sẽ tốt. Trên văn bản ngoài phân phối như "unhappiness" (không xuất hiện trong corpus), tỷ lệ sẽ tệ hơn -- tokenizer quay về mã hóa cấp ký tự cho các mẫu chưa thấy.
 
 ### Step 4: Compare with tiktoken
 
@@ -343,7 +343,7 @@ for text in texts:
     print(f"  tiktoken:  {len(tiktoken_tokens)} tokens -> {tiktoken_pieces}")
 ```
 
-tiktoken uses the exact same algorithm but trained on hundreds of gigabytes of text with 100,000 merges. The algorithm is identical. The difference is the training data and the number of merges. Your tokenizer trained on a paragraph with 40 merges cannot compete with tiktoken's 100K merges on a massive corpus. But the mechanism is the same.
+tiktoken dùng chính thuật toán đó nhưng được huấn luyện trên hàng trăm gigabyte văn bản với 100,000 phép gộp. Thuật toán giống hệt. Khác biệt là dữ liệu huấn luyện và số phép gộp. Tokenizer của bạn được huấn luyện trên một đoạn văn với 40 phép gộp không thể cạnh tranh với 100K phép gộp của tiktoken trên một corpus khổng lồ. Nhưng cơ chế giống nhau.
 
 ### Step 5: Vocabulary Analysis
 
@@ -375,11 +375,11 @@ def analyze_vocabulary(tokenizer, test_texts):
     print(f"\nUnused tokens: {len(unused)} out of {len(tokenizer.vocab)}")
 ```
 
-This reveals the Zipf distribution in your vocabulary. A few tokens dominate (spaces, "the", "e"). Most tokens are rarely used. Production tokenizers optimize for this distribution -- common patterns get short token IDs, rare patterns get longer representations.
+Điều này cho thấy phân phối Zipf trong từ vựng của bạn. Một vài token chi phối (khoảng trắng, "the", "e"). Hầu hết token hiếm khi được dùng. Các tokenizer production tối ưu cho phân phối này -- các mẫu phổ biến nhận ID token ngắn, các mẫu hiếm nhận biểu diễn dài hơn.
 
 ## Use It
 
-Your scratch BPE works. Now see what production tools look like.
+BPE tự viết của bạn hoạt động. Giờ hãy xem các công cụ production trông như thế nào.
 
 ### tiktoken (OpenAI)
 
@@ -395,7 +395,7 @@ print(f"Pieces: {[enc.decode([t]) for t in tokens]}")
 print(f"Roundtrip: {enc.decode(tokens)}")
 ```
 
-tiktoken is written in Rust with Python bindings. It encodes millions of tokens per second. Same BPE algorithm, industrial-strength implementation.
+tiktoken được viết bằng Rust với binding Python. Nó mã hóa hàng triệu token mỗi giây. Cùng thuật toán BPE, triển khai cấp công nghiệp.
 
 ### Hugging Face tokenizers
 
@@ -416,7 +416,7 @@ print(f"Tokens: {output.tokens}")
 print(f"IDs: {output.ids}")
 ```
 
-The Hugging Face tokenizers library is also Rust under the hood. It trains BPE on gigabyte-scale corpora in seconds. This is what you use when training your own model.
+Thư viện tokenizers của Hugging Face cũng dùng Rust bên dưới. Nó huấn luyện BPE trên các corpus quy mô gigabyte trong vài giây. Đây là thứ bạn dùng khi huấn luyện mô hình riêng.
 
 ### Loading Llama's Tokenizer
 
@@ -437,42 +437,42 @@ for text in multilingual:
     print(f"'{text}' -> {len(ids)} tokens")
 ```
 
-Llama 3's 128K vocabulary compresses non-English text significantly better than GPT-2's 50K vocabulary. You can verify this yourself -- encode the same sentence in multiple languages and count the tokens.
+Từ vựng 128K của Llama 3 nén văn bản phi tiếng Anh tốt hơn đáng kể so với từ vựng 50K của GPT-2. Bạn có thể tự xác minh -- mã hóa cùng câu ở nhiều ngôn ngữ và đếm token.
 
 ## Ship It
 
-This lesson produces `outputs/prompt-tokenizer-analyzer.md` -- a reusable prompt that analyzes tokenization efficiency for any text and model combination. Feed it a text sample and it tells you which model's tokenizer handles it best.
+Bài học này tạo ra `outputs/prompt-tokenizer-analyzer.md` -- một prompt tái sử dụng phân tích hiệu quả token hóa cho bất kỳ tổ hợp văn bản và mô hình nào. Đưa cho nó một mẫu văn bản và nó cho bạn biết tokenizer của mô hình nào xử lý tốt nhất.
 
 ## Exercises
 
-1. Modify the BPE tokenizer to print the vocabulary at each merge step. Watch how "t" + "h" becomes "th", then "th" + "e" becomes "the". Track how common English words get assembled piece by piece.
+1. Sửa tokenizer BPE để in từ vựng ở mỗi bước gộp. Quan sát cách "t" + "h" thành "th", rồi "th" + "e" thành "the". Theo dõi cách các từ tiếng Anh phổ biến được lắp từng mảnh.
 
-2. Add special tokens (`<pad>`, `<eos>`, `<unk>`) to the BPE tokenizer. Assign them IDs 0, 1, 2 and shift all other tokens accordingly. Implement a pre-tokenization step that splits on whitespace before running BPE.
+2. Thêm các token đặc biệt (`<pad>`, `<eos>`, `<unk>`) vào tokenizer BPE. Gán chúng ID 0, 1, 2 và dịch tất cả token khác tương ứng. Triển khai một bước tiền token hóa tách theo khoảng trắng trước khi chạy BPE.
 
-3. Implement the WordPiece merge criterion (likelihood ratio instead of frequency). Train both BPE and WordPiece on the same corpus with the same number of merges. Compare the resulting vocabularies -- which one produces more linguistically meaningful subwords?
+3. Triển khai tiêu chí gộp WordPiece (tỷ số likelihood thay vì tần suất). Huấn luyện cả BPE và WordPiece trên cùng corpus với cùng số phép gộp. So sánh các từ vựng thu được -- cái nào tạo ra từ con có ý nghĩa ngôn ngữ học hơn?
 
-4. Build a multilingual tokenizer efficiency benchmark. Take 10 sentences in English, Spanish, Chinese, Korean, and Arabic. Tokenize each with tiktoken (cl100k_base) and measure the average tokens per character. Quantify the "multilingual tax" for each language.
+4. Xây dựng một benchmark hiệu quả tokenizer đa ngôn ngữ. Lấy 10 câu bằng tiếng Anh, Tây Ban Nha, Trung, Hàn và Ả Rập. Token hóa mỗi câu bằng tiktoken (cl100k_base) và đo số token trung bình mỗi ký tự. Định lượng "thuế đa ngôn ngữ" cho mỗi ngôn ngữ.
 
-5. Train your BPE tokenizer on a larger corpus (download a Wikipedia article). Tune the number of merges to achieve a compression ratio within 10% of tiktoken on that same text. This forces you to understand the relationship between corpus size, merge count, and compression quality.
+5. Huấn luyện tokenizer BPE trên một corpus lớn hơn (tải một bài Wikipedia). Điều chỉnh số phép gộp để đạt tỷ lệ nén trong 10% của tiktoken trên cùng văn bản đó. Điều này buộc bạn hiểu quan hệ giữa kích thước corpus, số phép gộp và chất lượng nén.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Token | "A word" | A unit in the model's vocabulary -- could be a character, subword, word, or multi-word chunk |
-| BPE | "Some compression thing" | Byte Pair Encoding -- iteratively merge the most frequent adjacent pair of tokens until the target vocabulary size is reached |
-| WordPiece | "BERT's tokenizer" | Like BPE but merges maximize the likelihood ratio count(AB)/(count(A)*count(B)) instead of raw frequency |
-| SentencePiece | "A tokenizer library" | A language-agnostic tokenizer that operates on raw Unicode without pre-tokenization, supporting BPE and Unigram algorithms |
-| Vocabulary size | "How many words it knows" | The total number of unique tokens: GPT-2 has 50,257, BERT has 30,522, Llama 3 has 128,256 |
-| Fertility | "Not a tokenizer term" | Average number of tokens per word -- measures tokenizer efficiency across languages (1.0 is perfect, 3.0 means the model works three times harder) |
-| Byte-level BPE | "GPT's tokenizer" | BPE operating on raw bytes (0-255) instead of Unicode characters, guaranteeing no unknown tokens for any input |
-| Merge table | "The tokenizer file" | Ordered list of pair merges learned during training -- this IS the tokenizer, and order matters |
-| Pre-tokenization | "Splitting on spaces" | Rules applied before subword tokenization: whitespace splitting, digit separation, punctuation handling |
-| Compression ratio | "How efficient the tokenizer is" | Tokens produced divided by input bytes -- lower means better compression and faster inference |
+| Token | "Một từ" | Một đơn vị trong từ vựng của mô hình -- có thể là một ký tự, từ con, từ, hoặc khối nhiều từ |
+| BPE | "Một thứ nén nào đó" | Mã hóa cặp byte -- lặp việc gộp cặp token liền kề thường gặp nhất cho đến khi đạt kích thước từ vựng mục tiêu |
+| WordPiece | "Tokenizer của BERT" | Như BPE nhưng các phép gộp tối đa hóa tỷ số likelihood count(AB)/(count(A)*count(B)) thay vì tần suất thô |
+| SentencePiece | "Một thư viện tokenizer" | Một tokenizer độc lập ngôn ngữ hoạt động trên Unicode thô không có tiền token hóa, hỗ trợ các thuật toán BPE và Unigram |
+| Vocabulary size (Kích thước từ vựng) | "Nó biết bao nhiêu từ" | Tổng số token duy nhất: GPT-2 có 50,257, BERT có 30,522, Llama 3 có 128,256 |
+| Fertility | "Không phải thuật ngữ tokenizer" | Số token trung bình mỗi từ -- đo hiệu quả tokenizer xuyên ngôn ngữ (1.0 là hoàn hảo, 3.0 nghĩa là mô hình làm việc nặng gấp ba) |
+| Byte-level BPE (BPE cấp byte) | "Tokenizer của GPT" | BPE hoạt động trên byte thô (0-255) thay vì ký tự Unicode, bảo đảm không token không biết cho bất kỳ đầu vào nào |
+| Merge table (Bảng gộp) | "File tokenizer" | Danh sách có thứ tự các phép gộp cặp được học trong huấn luyện -- đây CHÍNH LÀ tokenizer, và thứ tự quan trọng |
+| Pre-tokenization (Tiền token hóa) | "Tách theo khoảng trắng" | Các quy tắc áp dụng trước token hóa từ con: tách khoảng trắng, tách chữ số, xử lý dấu câu |
+| Compression ratio (Tỷ lệ nén) | "Tokenizer hiệu quả đến đâu" | Số token được tạo chia số byte đầu vào -- thấp hơn nghĩa là nén tốt hơn và suy luận nhanh hơn |
 
 ## Further Reading
 
-- [Sennrich et al., 2016 -- "Neural Machine Translation of Rare Words with Subword Units"](https://arxiv.org/abs/1508.07909) -- the paper that introduced BPE for NLP, turning a 1994 compression algorithm into the foundation of modern tokenization
-- [Kudo & Richardson, 2018 -- "SentencePiece: A simple and language independent subword tokenizer"](https://arxiv.org/abs/1808.06226) -- language-agnostic tokenization that made multilingual models practical
-- [OpenAI tiktoken repository](https://github.com/openai/tiktoken) -- production BPE implementation in Rust with Python bindings, used by GPT-3.5/4/4o
-- [Hugging Face Tokenizers documentation](https://huggingface.co/docs/tokenizers) -- production-grade tokenizer training with Rust performance
+- [Sennrich et al., 2016 -- "Neural Machine Translation of Rare Words with Subword Units"](https://arxiv.org/abs/1508.07909) -- bài báo giới thiệu BPE cho NLP, biến một thuật toán nén năm 1994 thành nền tảng của token hóa hiện đại
+- [Kudo & Richardson, 2018 -- "SentencePiece: A simple and language independent subword tokenizer"](https://arxiv.org/abs/1808.06226) -- token hóa độc lập ngôn ngữ làm các mô hình đa ngôn ngữ trở nên thực tiễn
+- [OpenAI tiktoken repository](https://github.com/openai/tiktoken) -- triển khai BPE production bằng Rust với binding Python, được GPT-3.5/4/4o dùng
+- [Hugging Face Tokenizers documentation](https://huggingface.co/docs/tokenizers) -- huấn luyện tokenizer cấp production với hiệu năng Rust
