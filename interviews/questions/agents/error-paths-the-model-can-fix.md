@@ -16,7 +16,7 @@ related: [agents/five-parts-of-an-agent-loop]
 updated: 2026-11-03
 ---
 
-A tool is registered with this schema, and the model sends the four argument sets below. For each one, say what the registry returns and why the shape of the answer matters to the model.
+Một công cụ được đăng ký với schema này, và mô hình gửi bốn tập đối số bên dưới. Với mỗi tập, hãy nói registry trả về gì và tại sao hình dạng câu trả lời có ý nghĩa đối với mô hình.
 
 ```python
 registry.register(
@@ -41,48 +41,48 @@ cases = [
 
 ## Short answer
 
-The first case passes validation and returns an Ok result. The second returns one error at `/id` with keyword `type`, because a string is not an integer and the validator never coerces. The third returns one error at `/id` with keyword `required`, because the property is missing. The fourth returns one error at `/fields/1` with keyword `enum`, because `phone` is not an allowed value, and the path points at the exact element so the model can fix that one value in the next call.
+Trường hợp đầu tiên vượt qua xác thực và trả về một kết quả Ok. Trường hợp thứ hai trả về một lỗi tại `/id` với từ khóa `type`, vì một chuỗi không phải một số nguyên và validator không bao giờ ép kiểu. Trường hợp thứ ba trả về một lỗi tại `/id` với từ khóa `required`, vì thuộc tính bị thiếu. Trường hợp thứ tư trả về một lỗi tại `/fields/1` với từ khóa `enum`, vì `phone` không phải một giá trị được phép, và đường dẫn trỏ đến chính xác phần tử để mô hình có thể sửa giá trị đó trong lời gọi tiếp theo.
 
 ## Full answer
 
 ### The walk
 
-The validator dispatches on `type`. For an object it checks `required` first, then walks each property that has a schema. For an array it walks each element with the `items` schema and appends the index to the path. A type mismatch stops the walk at that node and reports one error, so a wrong type does not produce a cascade of nested errors underneath it.
+Validator điều phối theo `type`. Với một đối tượng nó kiểm tra `required` trước, rồi duyệt mỗi thuộc tính có một schema. Với một mảng nó duyệt mỗi phần tử bằng schema `items` và nối thêm chỉ mục vào đường dẫn. Một kiểu không khớp dừng việc duyệt tại nút đó và báo cáo một lỗi, nên một kiểu sai không tạo ra một chuỗi lỗi lồng nhau bên dưới nó.
 
-| Case | Result | Path | Keyword |
+| Trường hợp | Kết quả | Đường dẫn | Từ khóa |
 |---|---|---|---|
 | `{"id": 42, "fields": ["id", "name"]}` | `Ok` | | |
-| `{"id": "forty-two"}` | one error | `/id` | `type` |
-| `{"fields": ["id"]}` | one error | `/id` | `required` |
-| `{"id": 1, "fields": ["id", "phone"]}` | one error | `/fields/1` | `enum` |
+| `{"id": "forty-two"}` | một lỗi | `/id` | `type` |
+| `{"fields": ["id"]}` | một lỗi | `/id` | `required` |
+| `{"id": 1, "fields": ["id", "phone"]}` | một lỗi | `/fields/1` | `enum` |
 
 ### Why the path is the product
 
-The model reads a pointer better than a sentence. An error that says the email field expected a string, with the path `/user/email`, is fixed in one round trip. A prose message that says the arguments were invalid costs a turn of guessing. Paths follow the JSON pointer form: slash-separated property names and array indices, with `~` and `/` escaped inside a segment.
+Mô hình đọc một con trỏ tốt hơn một câu. Một lỗi nói trường email kỳ vọng một chuỗi, với đường dẫn `/user/email`, được sửa trong một vòng trao đổi. Một thông điệp văn xuôi nói các đối số không hợp lệ tốn một lượt đoán. Các đường dẫn theo dạng JSON pointer: các tên thuộc tính và chỉ mục mảng được phân cách bằng dấu gạch chéo, với `~` và `/` được escape bên trong một đoạn.
 
 ### What the validator refuses to do
 
-- It does not coerce. The string `"42"` fails an integer or number schema. A model that learns that strings are accepted sends strings everywhere.
-- It does not call the handler. The schema is data and the handler is code, and mixing them puts validation inside handlers where it drifts.
-- It is not a security boundary. A handler can misbehave after validation passes. The dispatcher adds timeouts and sandboxing. The registry adds shape.
+- Nó không ép kiểu. Chuỗi `"42"` trượt một schema số nguyên hoặc số. Một mô hình học rằng các chuỗi được chấp nhận gửi các chuỗi ở khắp nơi.
+- Nó không gọi handler. Schema là dữ liệu và handler là mã, và trộn chúng đặt việc xác thực bên trong các handler nơi nó trôi dạt.
+- Nó không phải một ranh giới bảo mật. Một handler có thể hoạt động sai sau khi xác thực đạt. Dispatcher thêm các timeout và sandboxing. Registry thêm hình dạng.
 
 ### Registration hygiene
 
-`register` rejects a name that is already in the table unless the caller passes `override=True`. Two parts of a codebase registering the same name is a bug that takes a week to find in production, so the default is to raise.
+`register` từ chối một tên đã có trong bảng trừ khi bên gọi truyền `override=True`. Hai phần của một codebase đăng ký cùng tên là một lỗi mất một tuần để tìm trong production, nên mặc định là phát sinh ngoại lệ.
 
 ## Follow-ups
 
-- **Level 2:** The model sends `{"id": true}`. What happens? Expected: a type error at `/id`, because the validator treats a boolean as not an integer even though the language would accept it.
-- **Level 2:** Why does a type mismatch stop the walk at that node? Expected: the children have no meaning when the parent is the wrong type, and one clear error beats a list of errors caused by the same mistake.
-- **Level 3:** The schema uses `oneOf`. What does `register` do? Expected: it raises, because the registry supports eight keywords and rejects anything outside the subset at registration time.
-- **Level 3:** The catalog passes fifty tools and schemas start to repeat. What two extensions do you add first? Expected: `$ref` against a local definitions block, and `additionalProperties: false` for a strict shape.
+- **Level 2:** Mô hình gửi `{"id": true}`. Điều gì xảy ra? Expected: một lỗi kiểu tại `/id`, vì validator coi một boolean không phải một số nguyên mặc dù ngôn ngữ sẽ chấp nhận nó.
+- **Level 2:** Tại sao một kiểu không khớp dừng việc duyệt tại nút đó? Expected: các nút con không có ý nghĩa khi nút cha sai kiểu, và một lỗi rõ ràng tốt hơn một danh sách các lỗi do cùng sai lầm gây ra.
+- **Level 3:** Schema dùng `oneOf`. `register` làm gì? Expected: nó phát sinh ngoại lệ, vì registry hỗ trợ tám từ khóa và từ chối bất kỳ thứ gì ngoài tập con tại thời điểm đăng ký.
+- **Level 3:** Catalog vượt năm mươi công cụ và các schema bắt đầu lặp lại. Bạn thêm hai phần mở rộng nào trước? Expected: `$ref` đối với một khối định nghĩa cục bộ, và `additionalProperties: false` cho một hình dạng nghiêm ngặt.
 
 ## Wrong answers
 
-- "Return one message that says invalid arguments and let the model retry." A retry without a path is a guess, and a path fixes the call in one round trip.
-- "Coerce the string to a number, because the intent is clear." Coercion teaches the model that the schema is advice, and the next call sends a string where no coercion exists.
-- "Validation makes the tool safe to call." Validation checks shape, and the handler can still misbehave, so timeouts and sandboxing belong in the dispatcher.
+- "Trả về một thông điệp nói các đối số không hợp lệ và để mô hình thử lại." Một lần thử lại không có đường dẫn là một lần đoán, và một đường dẫn sửa lời gọi trong một vòng trao đổi.
+- "Ép chuỗi thành một số, vì ý định rõ ràng." Ép kiểu dạy mô hình rằng schema là lời khuyên, và lời gọi tiếp theo gửi một chuỗi ở nơi không có ép kiểu.
+- "Xác thực làm cho công cụ an toàn để gọi." Xác thực kiểm tra hình dạng, và handler vẫn có thể hoạt động sai, nên các timeout và sandboxing thuộc về dispatcher.
 
 ## Taught in
 
-The [tool registry lesson](../../../phases/19-capstone-projects/21-tool-registry-schema-validation/) builds the registry, the eight-keyword validator and the pointer paths.
+[Bài học registry công cụ](../../../phases/19-capstone-projects/21-tool-registry-schema-validation/) dựng registry, validator tám từ khóa và các đường dẫn con trỏ.

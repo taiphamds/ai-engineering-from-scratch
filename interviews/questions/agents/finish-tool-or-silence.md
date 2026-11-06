@@ -16,49 +16,49 @@ related: [agents/budget-exhausted-looks-like-an-answer]
 updated: 2026-11-03
 ---
 
-Two engineers disagree about how the loop should end. One wants an explicit `finish` tool that the model must call. The other wants the loop to end as soon as an assistant turn has no tool call in it. Which do you pick, and what does each choice get wrong?
+Hai kỹ sư không thống nhất về cách vòng lặp nên kết thúc. Một người muốn một công cụ `finish` rõ ràng mà mô hình phải gọi. Người kia muốn vòng lặp kết thúc ngay khi một lượt trợ lý không có lời gọi công cụ trong đó. Bạn chọn cách nào, và mỗi lựa chọn sai ở điều gì?
 
 ## Short answer
 
-Both are stop conditions, and a production loop needs both plus a budget. The no-tool-call stop is simple and matches how models behave, but it ends the run on any turn where the model answers in prose, including a turn where it only meant to think aloud. An explicit finish gives a clear signal with a payload, but a model that never calls it runs until the budget. Pick the no-tool-call stop as the default, keep finish as a tool that carries the final answer, and make the budget the last guard.
+Cả hai đều là các điều kiện dừng, và một vòng lặp production cần cả hai cộng một ngân sách. Dừng khi không có lời gọi công cụ đơn giản và khớp với cách các mô hình hành xử, nhưng nó kết thúc lần chạy ở bất kỳ lượt nào mà mô hình trả lời bằng văn xuôi, bao gồm một lượt mà nó chỉ định suy nghĩ thành lời. Một finish rõ ràng cho một tín hiệu rõ ràng có payload, nhưng một mô hình không bao giờ gọi nó chạy cho đến ngân sách. Chọn dừng khi không có lời gọi công cụ làm mặc định, giữ finish là một công cụ mang câu trả lời cuối cùng, và làm ngân sách thành chốt bảo vệ cuối cùng.
 
 ## Full answer
 
 ### What each one gets right
 
-| Stop | Strength | Weakness |
+| Cách dừng | Điểm mạnh | Điểm yếu |
 |---|---|---|
-| Explicit `finish` tool | The end is a structured call with the answer as its payload, so the caller never guesses which text is the answer | A model that forgets to call it, or that is told not to, never stops on its own |
-| No tool call in the turn | Needs no extra tool, and matches a model that answers when it is done | A turn of prose in the middle of a task ends the run early with an incomplete answer |
+| Công cụ `finish` rõ ràng | Điểm kết thúc là một lời gọi có cấu trúc với câu trả lời là payload của nó, nên bên gọi không bao giờ đoán văn bản nào là câu trả lời | Một mô hình quên gọi nó, hoặc được bảo không gọi, không bao giờ tự dừng |
+| Không có lời gọi công cụ trong lượt | Không cần công cụ bổ sung, và khớp với một mô hình trả lời khi đã xong | Một lượt văn xuôi ở giữa một nhiệm vụ kết thúc lần chạy sớm với một câu trả lời chưa hoàn chỉnh |
 
 ### Early termination is the real risk
 
-The lesson asks which choice is safer against early-termination bugs. The no-tool-call stop ends the run on the first prose turn. A model that writes a plan before it acts, or that comments on an observation without a next call, stops the loop too soon. An explicit finish cannot end early by accident, because ending needs a deliberate call.
+Bài học hỏi lựa chọn nào an toàn hơn trước các lỗi chấm dứt sớm. Dừng khi không có lời gọi công cụ kết thúc lần chạy ở lượt văn xuôi đầu tiên. Một mô hình viết một kế hoạch trước khi hành động, hoặc nhận xét về một quan sát mà không có lời gọi tiếp theo, dừng vòng lặp quá sớm. Một finish rõ ràng không thể vô tình kết thúc sớm, vì việc kết thúc cần một lời gọi có chủ ý.
 
 ### Why you need the budget anyway
 
-Neither stop helps when the model loops. A finish tool is never called by a model that keeps retrying. A no-tool-call stop never fires when every turn has a call. The turn budget is the stop that does not depend on what the model emits. In the harness contract the budget yields to the caller, and the caller decides whether to resume.
+Không cách dừng nào giúp khi mô hình lặp. Một công cụ finish không bao giờ được gọi bởi một mô hình cứ thử lại. Dừng khi không có lời gọi công cụ không bao giờ kích hoạt khi mọi lượt đều có một lời gọi. Ngân sách lượt là cách dừng không phụ thuộc vào những gì mô hình phát ra. Trong hợp đồng harness ngân sách nhường quyền cho bên gọi, và bên gọi quyết định có tiếp tục hay không.
 
 ### A practical shape
 
-1. Register `finish` as a tool whose argument is the final answer.
-2. Treat a turn with no tool call as a stop with reason `no_tool_call`, and return the prose as a draft answer, not a final one.
-3. Cap turns per task class, and yield at the cap.
-4. Record which stop fired in the result, so that the caller and the eval can tell them apart.
+1. Đăng ký `finish` làm một công cụ có đối số là câu trả lời cuối cùng.
+2. Coi một lượt không có lời gọi công cụ là một lần dừng với lý do `no_tool_call`, và trả về văn xuôi làm một câu trả lời nháp, không phải câu trả lời cuối cùng.
+3. Đặt mức trần lượt theo lớp nhiệm vụ, và nhường quyền tại mức trần.
+4. Ghi lại cách dừng nào đã kích hoạt trong kết quả, để bên gọi và eval có thể phân biệt chúng.
 
 ## Follow-ups
 
-- **Level 2:** A model returns prose and a tool call in the same turn. Which stop applies? Expected: none, because the turn has a tool call, so the loop dispatches it and continues.
-- **Level 3:** Why does the result need the name of the stop that fired? Expected: an eval that counts a no-tool-call stop as success rewards early termination, so the reason must be visible to the scorer.
-- **Level 3:** Reasoning now travels on a separate channel. Does that change the no-tool-call stop? Expected: yes, a turn with reasoning content and no visible text or tool call must not count as an answer, so the check must read the visible output.
-- **Level 4:** How would you measure early termination across a task set? Expected: compare the stop reason with a gate that checks acceptance commands, and count the runs that stopped with no tool call while the acceptance commands never ran.
+- **Level 2:** Một mô hình trả về văn xuôi và một lời gọi công cụ trong cùng lượt. Cách dừng nào áp dụng? Expected: không cách nào, vì lượt có một lời gọi công cụ, nên vòng lặp điều phối nó và tiếp tục.
+- **Level 3:** Tại sao kết quả cần tên của cách dừng đã kích hoạt? Expected: một eval tính một lần dừng không có lời gọi công cụ là thành công thưởng cho việc chấm dứt sớm, nên lý do phải nhìn thấy được đối với bộ chấm.
+- **Level 3:** Suy luận hiện đi trên một kênh riêng. Điều đó có thay đổi cách dừng không có lời gọi công cụ không? Expected: có, một lượt có nội dung suy luận và không có văn bản hiển thị hoặc lời gọi công cụ không được tính là một câu trả lời, nên phép kiểm tra phải đọc đầu ra hiển thị.
+- **Level 4:** Bạn sẽ đo việc chấm dứt sớm trên một tập nhiệm vụ thế nào? Expected: so sánh lý do dừng với một gate kiểm tra các lệnh nghiệm thu, và đếm các lần chạy dừng không có lời gọi công cụ trong khi các lệnh nghiệm thu chưa bao giờ chạy.
 
 ## Wrong answers
 
-- "Use only the finish tool, because it is explicit." A model that never calls it runs to the budget on every task that it cannot finish.
-- "Use only the no-tool-call stop, because the model knows when it is done." A model that pauses to think in prose ends the run with half the work done.
-- "The budget is enough on its own." The budget is the guard for a loop that never converges, and a run that waits for it wastes every turn after the real end.
+- "Chỉ dùng công cụ finish, vì nó rõ ràng." Một mô hình không bao giờ gọi nó chạy đến ngân sách trên mọi nhiệm vụ mà nó không thể hoàn thành.
+- "Chỉ dùng cách dừng không có lời gọi công cụ, vì mô hình biết khi nào đã xong." Một mô hình tạm dừng để suy nghĩ bằng văn xuôi kết thúc lần chạy với một nửa công việc đã xong.
+- "Ngân sách tự nó là đủ." Ngân sách là chốt bảo vệ cho một vòng lặp không bao giờ hội tụ, và một lần chạy chờ nó lãng phí mọi lượt sau điểm kết thúc thật.
 
 ## Taught in
 
-The [agent loop lesson](../../../phases/14-agent-engineering/01-the-agent-loop/) lists both stops and asks which is safer, and the [harness loop contract](../../../phases/19-capstone-projects/20-agent-harness-loop-contract/) turns the budget into a yield.
+[Bài học vòng lặp agent](../../../phases/14-agent-engineering/01-the-agent-loop/) liệt kê cả hai cách dừng và hỏi cách nào an toàn hơn, và [hợp đồng vòng lặp harness](../../../phases/19-capstone-projects/20-agent-harness-loop-contract/) chuyển ngân sách thành một lần nhường quyền.

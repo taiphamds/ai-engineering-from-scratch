@@ -16,53 +16,53 @@ related: [agents/seven-surfaces-one-symptom-each]
 updated: 2026-11-03
 ---
 
-At the end of each session your agent writes a paragraph that says what it did. The next session still spends its first half hour finding out where things stand. What is missing from the end-of-session artifact, and how do you produce it so that it is never skipped?
+Vào cuối mỗi phiên, agent của bạn viết một đoạn văn nói nó đã làm gì. Phiên tiếp theo vẫn dành nửa giờ đầu để tìm hiểu tình hình hiện tại. Sản phẩm cuối phiên thiếu điều gì, và bạn tạo nó thế nào để nó không bao giờ bị bỏ qua?
 
 ## Short answer
 
-The paragraph is a status report, and a handoff needs seven fields: a summary, the changed files, the commands run, the failed attempts, the open risks, the next action and a pointer to the verification and review reports. The next action is the most important field, because it makes the first step of the next session deterministic. Generate the packet from the workbench artifacts instead of asking the agent to write it, and run a cleanup check first so that the packet describes a tree the next session can trust.
+Đoạn văn là một báo cáo trạng thái, và một lần bàn giao cần bảy trường: một bản tóm tắt, các file đã thay đổi, các lệnh đã chạy, các lần thử thất bại, các rủi ro còn mở, hành động tiếp theo và một con trỏ đến các báo cáo xác minh và đánh giá. Hành động tiếp theo là trường quan trọng nhất, vì nó làm cho bước đầu tiên của phiên tiếp theo có tính xác định. Tạo gói từ các sản phẩm của workbench thay vì yêu cầu agent viết nó, và chạy một phép kiểm tra dọn dẹp trước để gói mô tả một cây làm việc mà phiên tiếp theo có thể tin cậy.
 
 ## Full answer
 
 ### The seven fields
 
-| Field | Question it answers |
+| Trường | Câu hỏi nó trả lời |
 |---|---|
-| `summary` | What was done, in one paragraph |
-| `changed_files` | The diff at a glance |
-| `commands_run` | What was executed, from the feedback records |
-| `failed_attempts` | What was tried and why it did not work |
-| `open_risks` | What can hurt the next session, with a severity |
-| `next_action` | The first concrete step the next session takes |
-| `verdict_pointer` | The path to the verification and review reports |
+| `summary` | Điều đã được làm, trong một đoạn văn |
+| `changed_files` | Diff nhìn thoáng qua |
+| `commands_run` | Những gì đã được thực thi, từ các bản ghi phản hồi |
+| `failed_attempts` | Những gì đã được thử và tại sao không hiệu quả |
+| `open_risks` | Những gì có thể gây hại cho phiên tiếp theo, kèm mức độ nghiêm trọng |
+| `next_action` | Bước cụ thể đầu tiên mà phiên tiếp theo thực hiện |
+| `verdict_pointer` | Đường dẫn đến các báo cáo xác minh và đánh giá |
 
-A packet with every field except `next_action` is a status report. It is useful, but the next session still has to decide what to do first.
+Một gói có mọi trường trừ `next_action` là một báo cáo trạng thái. Nó hữu ích, nhưng phiên tiếp theo vẫn phải quyết định làm gì trước.
 
 ### Generated, not written
 
-A hand-written handoff is the thing that gets skipped on a hard day. The generator reads the state file, the verification report, the review report and the feedback log, and emits the packet in two forms. `handoff.md` is for the human. `handoff.json` is for the next agent. If they disagree, the JSON wins. The agent's job is to leave the workbench in a state the generator can summarize.
+Một bản bàn giao viết tay là thứ bị bỏ qua vào một ngày khó khăn. Bộ tạo đọc file trạng thái, báo cáo xác minh, báo cáo đánh giá và log phản hồi, rồi phát ra gói ở hai dạng. `handoff.md` dành cho con người. `handoff.json` dành cho agent tiếp theo. Nếu chúng không thống nhất, JSON thắng. Công việc của agent là để workbench ở một trạng thái mà bộ tạo có thể tóm tắt.
 
 ### Trim the log
 
-The feedback log can hold hundreds of records. The packet carries only the last K plus every record with a non-zero exit. The next session loads the full log if it needs it.
+Log phản hồi có thể chứa hàng trăm bản ghi. Gói chỉ mang K bản ghi cuối cùng cộng mọi bản ghi có mã thoát khác không. Phiên tiếp theo nạp toàn bộ log nếu cần.
 
 ### Leave a clean state
 
-A perfect packet is useless if the next session opens on a half-applied diff, a stray temp file, a wrong branch and tests that error before they run. Cleanup is its own phase, and it is a check, not a habit. The working tree is committed or stashed with a note. No temp artifacts remain. Tests are green, or red with the failure named in the open risks. The feature board matches reality. The branch is the expected one. The cleanup phase emits a list of blocking issues, and an empty list is the precondition the generator asserts before it writes.
+Một gói hoàn hảo là vô dụng nếu phiên tiếp theo mở ra trên một diff mới áp dụng một phần, một file tạm lạc chỗ, một nhánh sai và các kiểm thử báo lỗi trước khi chạy. Dọn dẹp là một giai đoạn riêng, và nó là một phép kiểm tra, không phải một thói quen. Cây làm việc được commit hoặc stash kèm một ghi chú. Không còn sản phẩm tạm nào. Các kiểm thử xanh, hoặc đỏ với lỗi được nêu trong các rủi ro còn mở. Bảng tính năng khớp thực tế. Nhánh là nhánh được kỳ vọng. Giai đoạn dọn dẹp phát ra một danh sách các vấn đề chặn, và một danh sách rỗng là tiền điều kiện mà bộ tạo khẳng định trước khi viết.
 
 ## Follow-ups
 
-- **Level 1:** Why does the JSON win when the two forms disagree? Expected: the next agent loads the JSON, so the machine-readable form is the one that drives the next session.
-- **Level 2:** Which failed attempts belong in the packet? Expected: every record with a non-zero exit, with the retry chain visible, so that the next session does not repeat a known dead end.
-- **Level 2:** What is the difference between a handoff and the state file? Expected: the state file is read on every turn and holds where the agent is, while the handoff is generated once at session end and tells the next session where to start.
-- **Level 3:** Two sessions on two branches each wrote a handoff. How does the next session pick one? Expected: each packet carries a branch, a last known good commit and a status of active, superseded or archived, and only the active packet for this branch drives the session.
+- **Level 1:** Tại sao JSON thắng khi hai dạng không thống nhất? Expected: agent tiếp theo nạp JSON, nên dạng máy đọc được là dạng điều khiển phiên tiếp theo.
+- **Level 2:** Những lần thử thất bại nào thuộc về gói? Expected: mọi bản ghi có mã thoát khác không, với chuỗi thử lại nhìn thấy được, để phiên tiếp theo không lặp lại một ngõ cụt đã biết.
+- **Level 2:** Sự khác biệt giữa một bản bàn giao và file trạng thái là gì? Expected: file trạng thái được đọc ở mỗi lượt và giữ agent đang ở đâu, trong khi bản bàn giao được tạo một lần vào cuối phiên và cho phiên tiếp theo biết bắt đầu ở đâu.
+- **Level 3:** Hai phiên trên hai nhánh mỗi phiên viết một bản bàn giao. Phiên tiếp theo chọn một bản thế nào? Expected: mỗi gói mang một nhánh, một commit tốt cuối cùng đã biết và một trạng thái đang hoạt động, đã bị thay thế hoặc đã lưu trữ, và chỉ gói đang hoạt động cho nhánh này điều khiển phiên.
 
 ## Wrong answers
 
-- "Ask the agent to write a detailed summary at the end." A written summary is skipped when the session ends badly, and it is the bad sessions that need the handoff most.
-- "The chat history is the handoff." The history is trimmed or gone, and the next session cannot replay an hour of chat in its first minute.
-- "A green verification report is enough to resume." The report proves the task state, not the tree state, and a dirty tree costs the next session its first ten minutes.
+- "Yêu cầu agent viết một bản tóm tắt chi tiết vào cuối." Một bản tóm tắt được viết bị bỏ qua khi phiên kết thúc tệ, và chính các phiên tệ cần bản bàn giao nhất.
+- "Lịch sử trò chuyện là bản bàn giao." Lịch sử bị cắt bớt hoặc mất, và phiên tiếp theo không thể phát lại một giờ trò chuyện trong phút đầu tiên.
+- "Một báo cáo xác minh xanh là đủ để tiếp tục." Báo cáo chứng minh trạng thái nhiệm vụ, không phải trạng thái cây làm việc, và một cây làm việc bẩn làm phiên tiếp theo mất mười phút đầu tiên.
 
 ## Taught in
 
-The [multi-session handoff lesson](../../../phases/14-agent-engineering/40-multi-session-handoff/) builds the packet out of the workbench files and adds the cleanup check.
+[Bài học bàn giao nhiều phiên](../../../phases/14-agent-engineering/40-multi-session-handoff/) dựng gói từ các file workbench và thêm phép kiểm tra dọn dẹp.

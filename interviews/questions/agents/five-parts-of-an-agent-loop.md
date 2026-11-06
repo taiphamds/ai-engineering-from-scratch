@@ -16,47 +16,47 @@ related: []
 updated: 2026-11-03
 ---
 
-A teammate says that their chat application is an agent because it calls a model inside a while loop. Name the parts that a real agent loop needs, and say what goes wrong when each one is missing.
+Một đồng đội nói ứng dụng trò chuyện của họ là một agent vì nó gọi một mô hình bên trong một vòng lặp while. Nêu các phần mà một vòng lặp agent thật cần, và nói điều gì sai khi thiếu mỗi phần.
 
 ## Short answer
 
-An agent loop needs five parts: a message buffer that grows with each turn, a tool registry that the model calls by name, a stop condition, a turn budget, and an observation formatter. The model is the same in a chat bot and in an agent. The difference is that the agent can pause, call a tool, read the result and continue. Without the five parts, the loop is a chat bot with extra steps.
+Một vòng lặp agent cần năm phần: một bộ đệm thông điệp tăng theo mỗi lượt, một registry công cụ mà mô hình gọi theo tên, một điều kiện dừng, một ngân sách lượt, và một bộ định dạng quan sát. Mô hình giống nhau trong một chat bot và trong một agent. Sự khác biệt là agent có thể tạm dừng, gọi một công cụ, đọc kết quả và tiếp tục. Không có năm phần, vòng lặp là một chat bot có thêm các bước.
 
 ## Full answer
 
 ### The loop
 
-The pattern is the one from the ReAct paper. The model writes a thought, picks an action, reads an observation, and repeats until it decides to finish. Modern models move the thought to a separate reasoning channel, but the control flow is the same. Observe, think, act, observe, think, act, stop.
+Mẫu là mẫu từ bài báo ReAct. Mô hình viết một suy nghĩ, chọn một hành động, đọc một quan sát, và lặp lại cho đến khi quyết định kết thúc. Các mô hình hiện đại di chuyển suy nghĩ sang một kênh suy luận riêng, nhưng luồng điều khiển giống nhau. Quan sát, suy nghĩ, hành động, quan sát, suy nghĩ, hành động, dừng.
 
 ### The five parts
 
-| Part | What it does | Failure when missing |
+| Phần | Nó làm gì | Thất bại khi thiếu |
 |---|---|---|
-| Message buffer | Holds the user turn, the assistant turns, the tool turns and the final turn in order | The model forgets what it already did and repeats work |
-| Tool registry | Maps a tool name to a schema and a callable | The model names tools that do not exist, and nothing runs |
-| Stop condition | Ends the run on an explicit finish, on a turn with no tool call, on a budget, or on a guardrail | The run never ends, or ends only when the context is full |
-| Turn budget | Caps the number of iterations for this task class | One bad decision at step 38 becomes an endless run |
-| Observation formatter | Converts every tool output, including every error, into a string the model can read | A failed call becomes a crash instead of a correction |
+| Bộ đệm thông điệp | Giữ lượt người dùng, các lượt trợ lý, các lượt công cụ và lượt cuối cùng theo thứ tự | Mô hình quên những gì nó đã làm và lặp lại công việc |
+| Registry công cụ | Ánh xạ một tên công cụ đến một schema và một callable | Mô hình nêu các công cụ không tồn tại, và không có gì chạy |
+| Điều kiện dừng | Kết thúc lần chạy khi có một finish rõ ràng, một lượt không có lời gọi công cụ, một ngân sách, hoặc một guardrail | Lần chạy không bao giờ kết thúc, hoặc chỉ kết thúc khi ngữ cảnh đầy |
+| Ngân sách lượt | Giới hạn số lần lặp cho lớp nhiệm vụ này | Một quyết định sai ở bước 38 trở thành một lần chạy vô tận |
+| Bộ định dạng quan sát | Chuyển mọi đầu ra công cụ, bao gồm mọi lỗi, thành một chuỗi mô hình có thể đọc | Một lời gọi thất bại trở thành một sự cố thay vì một lần sửa |
 
-The formatter is the part that people forget. The lesson says that every 400 error in the stack must become an observation string, not an exception. A model that sees the error can correct the next call. A model that never sees it cannot.
+Bộ định dạng là phần mọi người quên. Bài học nói mọi lỗi 400 trong stack phải trở thành một chuỗi quan sát, không phải một ngoại lệ. Một mô hình thấy lỗi có thể sửa lời gọi tiếp theo. Một mô hình không bao giờ thấy nó không thể.
 
 ### Why the parts matter now
 
-Agents run 40 to 400 steps per task. Every framework in use today builds the same loop under its own names. The things that differ live around the loop: checkpoints, actor messaging, role templates, tracing. The loop itself does not change.
+Các agent chạy 40 đến 400 bước cho mỗi nhiệm vụ. Mọi framework được dùng hiện nay dựng cùng vòng lặp dưới các tên riêng. Những thứ khác nhau nằm quanh vòng lặp: checkpoint, thông điệp actor, mẫu vai trò, tracing. Bản thân vòng lặp không thay đổi.
 
 ## Follow-ups
 
-- **Level 1:** What is an observation? Expected: the string form of a tool result that the loop appends to the buffer for the next model call.
-- **Level 2:** Why is a turn budget a separate part from the stop condition? Expected: the stop condition depends on what the model emits, and the budget protects the run when the model never emits a stop.
-- **Level 2:** Where does the thought go in a model with a native reasoning channel? Expected: in a separate field that the runtime passes between turns, so the transcript shows tool calls and results without inline thought text.
-- **Level 3:** What changes when two tool calls in one turn return out of order? Expected: each result needs a correlation id that ties it to its call, or the model reads the wrong result for a call.
+- **Level 1:** Một quan sát là gì? Expected: dạng chuỗi của một kết quả công cụ mà vòng lặp nối thêm vào bộ đệm cho lời gọi mô hình tiếp theo.
+- **Level 2:** Tại sao một ngân sách lượt là một phần riêng với điều kiện dừng? Expected: điều kiện dừng phụ thuộc vào những gì mô hình phát ra, và ngân sách bảo vệ lần chạy khi mô hình không bao giờ phát ra một lần dừng.
+- **Level 2:** Suy nghĩ đi đâu trong một mô hình có một kênh suy luận native? Expected: trong một trường riêng mà runtime truyền giữa các lượt, để bản ghi hiển thị các lời gọi công cụ và kết quả mà không có văn bản suy nghĩ inline.
+- **Level 3:** Điều gì thay đổi khi hai lời gọi công cụ trong một lượt trả về không theo thứ tự? Expected: mỗi kết quả cần một id tương quan gắn nó với lời gọi của nó, hoặc mô hình đọc kết quả sai cho một lời gọi.
 
 ## Wrong answers
 
-- "An agent is a model with a long system prompt." A prompt cannot run a tool or read a result, so the model still stops at its first wrong guess.
-- "The loop ends when the model says it is done." A model can say it is done too early or never, so the loop also needs a turn budget and a no-tool-call stop.
-- "Tool errors should raise so that the developer sees them." An error that raises ends the run, while an error that becomes an observation lets the model fix the call.
+- "Một agent là một mô hình có một system prompt dài." Một prompt không thể chạy một công cụ hoặc đọc một kết quả, nên mô hình vẫn dừng tại lần đoán sai đầu tiên.
+- "Vòng lặp kết thúc khi mô hình nói đã xong." Một mô hình có thể nói đã xong quá sớm hoặc không bao giờ, nên vòng lặp cũng cần một ngân sách lượt và một cách dừng không có lời gọi công cụ.
+- "Các lỗi công cụ nên phát sinh ngoại lệ để nhà phát triển thấy chúng." Một lỗi phát sinh ngoại lệ kết thúc lần chạy, trong khi một lỗi trở thành một quan sát cho phép mô hình sửa lời gọi.
 
 ## Taught in
 
-The [agent loop lesson](../../../phases/14-agent-engineering/01-the-agent-loop/) builds the five parts with a scripted model and three tools.
+[Bài học vòng lặp agent](../../../phases/14-agent-engineering/01-the-agent-loop/) dựng năm phần bằng một mô hình theo kịch bản và ba công cụ.

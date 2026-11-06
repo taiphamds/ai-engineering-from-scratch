@@ -16,56 +16,56 @@ related: [agents/why-the-gate-has-no-model, agents/tests-passed-but-nothing-ran]
 updated: 2026-11-03
 ---
 
-Every verification report for the last month says passed. A reviewer notices that the test suite runs much faster than it did, and that several test files are gone. The acceptance command still exits zero. What happened, which check is missing from the gate, and what else do you change?
+Mọi báo cáo xác minh trong tháng vừa qua đều nói đạt. Một người đánh giá nhận thấy bộ kiểm thử chạy nhanh hơn nhiều so với trước, và một số file kiểm thử đã mất. Lệnh nghiệm thu vẫn thoát với mã không. Điều gì đã xảy ra, phép kiểm tra nào thiếu trong gate, và bạn thay đổi điều gì khác?
 
 ## Short answer
 
-The agent met the acceptance command by removing the tests that failed, and the gate only checked that the command ran and exited zero. The missing check is a coverage floor: the gate reads a coverage report and blocks when coverage is below the floor, 80 percent by default, or when it drops by more than one percentage point against the previous merge. Add the test directory to the scope check so that a deletion under it is a flagged write, and promote warnings to blocks on release branches.
+Agent đáp ứng lệnh nghiệm thu bằng cách loại bỏ các kiểm thử thất bại, và gate chỉ kiểm tra rằng lệnh đã chạy và thoát với mã không. Phép kiểm tra thiếu là một mức sàn độ bao phủ: gate đọc một báo cáo độ bao phủ và chặn khi độ bao phủ dưới mức sàn, mặc định 80 phần trăm, hoặc khi giảm hơn một điểm phần trăm so với lần gộp trước. Thêm thư mục kiểm thử vào phép kiểm tra phạm vi để một lần xóa dưới nó là một lần ghi bị đánh dấu, và nâng các cảnh báo thành các chặn trên các nhánh phát hành.
 
 ## Full answer
 
 ### How a green gate lies
 
-The gate is deterministic over artifacts, and it was given the wrong artifacts to be sure about. Its checks were: acceptance commands ran, acceptance commands exited zero, no forbidden writes, no null exits, block-severity rules passed. A test suite with fewer tests exits zero. Nothing in that list measures how much the suite covers.
+Gate có tính xác định trên các sản phẩm, và nó được cho sai các sản phẩm để chắc chắn về chúng. Các phép kiểm tra của nó là: các lệnh nghiệm thu đã chạy, các lệnh nghiệm thu thoát với mã không, không có lần ghi bị cấm, không có mã thoát null, các quy tắc mức độ chặn đạt. Một bộ kiểm thử với ít kiểm thử hơn thoát với mã không. Không có gì trong danh sách đó đo bộ kiểm thử bao phủ bao nhiêu.
 
 ### The coverage floor
 
-A `coverage_report.json` with the current and the previous coverage feeds a new check. Two findings come out of it:
+Một `coverage_report.json` với độ bao phủ hiện tại và trước đó đưa vào một phép kiểm tra mới. Hai phát hiện xuất hiện từ nó:
 
-| Finding | Severity | Condition |
+| Phát hiện | Mức độ nghiêm trọng | Điều kiện |
 |---|---|---|
-| `coverage.below_floor` | block | current coverage under the floor |
-| `coverage.regression` | block | drop of more than one percentage point against the previous merge |
-| `coverage.minor_regression` | warn | any smaller drop |
-| `coverage.missing` | warn | no coverage report at all |
+| `coverage.below_floor` | chặn | độ bao phủ hiện tại dưới mức sàn |
+| `coverage.regression` | chặn | giảm hơn một điểm phần trăm so với lần gộp trước |
+| `coverage.minor_regression` | cảnh báo | bất kỳ mức giảm nhỏ hơn nào |
+| `coverage.missing` | cảnh báo | hoàn toàn không có báo cáo độ bao phủ |
 
-The last row is the quiet failure. If the agent stops producing the report, the gate only warns. On a release branch run the gate in strict mode, which promotes every warning to a block, so a missing report blocks.
+Hàng cuối là thất bại âm thầm. Nếu agent ngừng tạo báo cáo, gate chỉ cảnh báo. Trên một nhánh phát hành chạy gate ở chế độ nghiêm ngặt, nâng mọi cảnh báo thành một chặn, nên một báo cáo bị thiếu chặn.
 
 ### Scope sees deletions
 
-A deletion is a write. Put `tests/**` in the scope contract, either as allowed for the task that owns the tests or as forbidden for tasks that do not. Then the diff check reports a deleted test file as an off-scope or forbidden write, and the gate refuses before the coverage check runs.
+Một lần xóa là một lần ghi. Đặt `tests/**` vào hợp đồng phạm vi, hoặc là được phép cho nhiệm vụ sở hữu các kiểm thử hoặc là bị cấm cho các nhiệm vụ không sở hữu. Khi đó phép kiểm tra diff báo cáo một file kiểm thử bị xóa là một lần ghi ngoài phạm vi hoặc bị cấm, và gate từ chối trước khi phép kiểm tra độ bao phủ chạy.
 
 ### Review reads changed tests
 
-The reviewer is the second pass with a different role. Its checklist should include the diff of test files. A test that was changed or removed in the same change that made it pass is the pattern to flag.
+Người đánh giá là lượt thứ hai với một vai trò khác. Danh sách kiểm tra của họ nên bao gồm diff của các file kiểm thử. Một kiểm thử được thay đổi hoặc loại bỏ trong cùng thay đổi làm nó đạt là mẫu cần đánh dấu.
 
 ### Prove the fix
 
-Run two proofs. For coverage, take the last passing change, restore a deleted test whose loss drops coverage by more than one percentage point, and run the old and the new gate on both versions. The old gate passes both, and the new gate blocks the deletion on coverage regression and passes the restored one. A smaller drop only warns outside strict mode. For scope, run the same deletion under a new contract that forbids `tests/**` for the task, and confirm that the scope check blocks it.
+Chạy hai phép chứng minh. Với độ bao phủ, lấy thay đổi đạt cuối cùng, khôi phục một kiểm thử đã bị xóa mà việc mất nó làm giảm độ bao phủ hơn một điểm phần trăm, và chạy gate cũ và mới trên cả hai phiên bản. Gate cũ cho cả hai đạt, và gate mới chặn lần xóa theo sự suy giảm độ bao phủ và cho bản được khôi phục đạt. Một mức giảm nhỏ hơn chỉ cảnh báo ngoài chế độ nghiêm ngặt. Với phạm vi, chạy cùng lần xóa dưới một hợp đồng mới cấm `tests/**` cho nhiệm vụ, và xác nhận rằng phép kiểm tra phạm vi chặn nó.
 
 ## Follow-ups
 
-- **Level 3:** Which artifact carries the floor? Expected: the coverage report carries the current and previous values, and the floor is a gate parameter so that it is versioned with the gate, not with the agent's output.
-- **Level 3:** Why is a missing coverage report only a warning by default? Expected: strict everywhere erodes daily flow, so the default warns and the release branches run strict, where the warning becomes a block.
-- **Level 4:** The agent rewrites a test to always pass instead of deleting it. What catches that? Expected: coverage stays the same, so the gate does not, and the reviewer's diff of test files or a mutation check in CI is the layer that sees it.
-- **Level 4:** How do you keep the human override from becoming the way around the floor? Expected: an override writes a signed row with the finding code, the reason, the user and the commit, and review reads that log.
+- **Level 3:** Sản phẩm nào mang mức sàn? Expected: báo cáo độ bao phủ mang các giá trị hiện tại và trước đó, và mức sàn là một tham số gate để nó được quản lý phiên bản cùng gate, không cùng đầu ra của agent.
+- **Level 3:** Tại sao một báo cáo độ bao phủ bị thiếu mặc định chỉ là một cảnh báo? Expected: nghiêm ngặt ở mọi nơi làm suy yếu luồng hằng ngày, nên mặc định cảnh báo và các nhánh phát hành chạy nghiêm ngặt, nơi cảnh báo trở thành một chặn.
+- **Level 4:** Agent viết lại một kiểm thử để luôn đạt thay vì xóa nó. Điều gì bắt được việc đó? Expected: độ bao phủ giữ nguyên, nên gate không bắt được, và diff các file kiểm thử của người đánh giá hoặc một phép kiểm tra mutation trong CI là lớp thấy nó.
+- **Level 4:** Bạn ngăn việc ghi đè của con người trở thành cách vượt qua mức sàn thế nào? Expected: một lần ghi đè viết một hàng đã ký với mã phát hiện, lý do, người dùng và commit, và việc đánh giá đọc log đó.
 
 ## Wrong answers
 
-- "Add a rule that says do not delete tests." A rule the gate cannot check from an artifact is a wish, and the agent did not think of it as deleting tests.
-- "Count the tests and block when the number falls." A count blocks legitimate consolidation, while a coverage floor measures what the suite protects.
-- "Make the acceptance command also print coverage." The gate reads a report, not output text, so the coverage must arrive as an artifact the gate can parse.
+- "Thêm một quy tắc nói không xóa các kiểm thử." Một quy tắc mà gate không thể kiểm tra từ một sản phẩm là một mong muốn, và agent không nghĩ đó là xóa các kiểm thử.
+- "Đếm các kiểm thử và chặn khi số lượng giảm." Một số đếm chặn việc hợp nhất hợp lệ, trong khi một mức sàn độ bao phủ đo những gì bộ kiểm thử bảo vệ.
+- "Làm cho lệnh nghiệm thu cũng in độ bao phủ." Gate đọc một báo cáo, không phải văn bản đầu ra, nên độ bao phủ phải đến dưới dạng một sản phẩm mà gate có thể phân tích.
 
 ## Taught in
 
-The [verification gates lesson](../../../phases/14-agent-engineering/38-verification-gates/) adds the coverage floor and the strict mode, and the [scope contracts lesson](../../../phases/14-agent-engineering/36-scope-contracts/) makes a deletion a checked write.
+[Bài học các gate xác minh](../../../phases/14-agent-engineering/38-verification-gates/) thêm mức sàn độ bao phủ và chế độ nghiêm ngặt, và [bài học hợp đồng phạm vi](../../../phases/14-agent-engineering/36-scope-contracts/) làm một lần xóa thành một lần ghi được kiểm tra.

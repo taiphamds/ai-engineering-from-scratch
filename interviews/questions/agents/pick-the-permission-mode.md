@@ -16,50 +16,50 @@ related: []
 updated: 2026-11-03
 ---
 
-A coding agent offers six permission modes, from one that asks before every action to one that approves everything. A colleague runs every task in the mode that approves everything, because the prompts are annoying. Give the rule you use to pick a mode, and say which tasks go where.
+Một coding agent cung cấp sáu chế độ quyền hạn, từ một chế độ hỏi trước mọi hành động đến một chế độ phê duyệt mọi thứ. Một đồng nghiệp chạy mọi nhiệm vụ trong chế độ phê duyệt mọi thứ, vì các lời nhắc gây phiền. Đưa ra quy tắc bạn dùng để chọn một chế độ, và nói những nhiệm vụ nào đi đâu.
 
 ## Short answer
 
-Pick the mode from the task, not from the annoyance. Start an unfamiliar or production-adjacent task in plan mode, where reading the plan is cheaper than undoing a bad run. Use the default mode for most interactive sessions, and the mode that auto-approves file writes for a known refactor across many files. Reserve the classifier-driven auto mode for unattended runs inside a workspace whose reach you have measured, and reserve the approve-everything mode for a disposable container.
+Chọn chế độ từ nhiệm vụ, không từ sự phiền toái. Bắt đầu một nhiệm vụ chưa quen hoặc gần production trong chế độ lập kế hoạch, nơi đọc kế hoạch rẻ hơn hoàn tác một lần chạy sai. Dùng chế độ mặc định cho phần lớn các phiên tương tác, và chế độ tự phê duyệt các lần ghi file cho một lần refactor đã biết trên nhiều file. Dành chế độ auto do bộ phân loại điều khiển cho các lần chạy không giám sát bên trong một workspace mà bạn đã đo tầm với, và dành chế độ phê duyệt mọi thứ cho một container dùng rồi bỏ.
 
 ## Full answer
 
 ### The ladder
 
-| Mode | Behavior | Fits |
+| Chế độ | Hành vi | Phù hợp |
 |---|---|---|
-| `plan` | The agent proposes a plan, and every action is reviewed before it runs | An unfamiliar task, code near production, the first run on a repo |
-| `default` | Actions run, and the agent asks on anything risky such as shell, destructive operations or network | Most interactive sessions |
-| `acceptEdits` | File writes are approved, and shell and network still ask | A refactor across many files |
-| `auto` | A separate classifier model reviews each action and blocks escalation beyond the request | A long unattended run in a constrained workspace |
-| `dontAsk` | Never prompts, and anything not pre-approved by a rule is denied | Ephemeral sandboxes, CI jobs |
-| `bypassPermissions` | Approves everything | Only a container you are willing to throw away |
+| `plan` | Agent đề xuất một kế hoạch, và mọi hành động được đánh giá trước khi chạy | Một nhiệm vụ chưa quen, mã gần production, lần chạy đầu tiên trên một repo |
+| `default` | Các hành động chạy, và agent hỏi về bất kỳ thứ gì rủi ro như shell, thao tác phá hủy hoặc mạng | Phần lớn các phiên tương tác |
+| `acceptEdits` | Các lần ghi file được phê duyệt, và shell cùng mạng vẫn hỏi | Một lần refactor trên nhiều file |
+| `auto` | Một mô hình phân loại riêng đánh giá mỗi hành động và chặn sự leo thang vượt yêu cầu | Một lần chạy dài không giám sát trong một workspace bị ràng buộc |
+| `dontAsk` | Không bao giờ nhắc, và bất kỳ thứ gì không được một quy tắc phê duyệt trước bị từ chối | Các sandbox tạm thời, các job CI |
+| `bypassPermissions` | Phê duyệt mọi thứ | Chỉ một container mà bạn sẵn lòng vứt bỏ |
 
 ### What the classifier mode adds and misses
 
-The auto mode moves approval off the user's path. A separate model judges each proposed action against the declared task and the session state, and a blocked action falls back to the user. It catches plain prompt injection that maps to a known risky action shape, repeated tool loops where action N+1 looks like action N five times in a row, and shell commands that are out of place in a file-edit session. It misses subtle injection that changes behavior without one flagged action, and it misses a harmful trajectory made of individually safe actions, because it judges the action and does not re-derive the user's intent. Availability depends on plan, organization, model and provider, and the documentation is explicit that the classifier is a layer, not a solution.
+Chế độ auto đưa việc phê duyệt ra khỏi đường đi của người dùng. Một mô hình riêng phán xét mỗi hành động được đề xuất đối chiếu với nhiệm vụ được khai báo và trạng thái phiên, và một hành động bị chặn quay về người dùng. Nó bắt prompt injection rõ ràng ánh xạ đến một dạng hành động rủi ro đã biết, các vòng lặp công cụ lặp lại nơi hành động N+1 trông như hành động N năm lần liên tiếp, và các lệnh shell không đúng chỗ trong một phiên chỉnh sửa file. Nó bỏ sót injection tinh vi thay đổi hành vi mà không có một hành động bị đánh dấu, và nó bỏ sót một quỹ đạo gây hại được tạo từ các hành động an toàn riêng lẻ, vì nó phán xét hành động và không suy ra lại ý định của người dùng. Tính khả dụng phụ thuộc vào gói, tổ chức, mô hình và nhà cung cấp, và tài liệu nói rõ bộ phân loại là một lớp, không phải một giải pháp.
 
 ### Budgets travel with the mode
 
-Whatever the mode, set the budget controls: a cap on turns, a dollar cap that aborts the session, and action-count limits per tool. In the unattended case, add an allowlist, an isolated workspace with no credentials and no production mounts, and a trajectory audit afterwards.
+Bất kỳ chế độ nào, đặt các biện pháp kiểm soát ngân sách: một mức trần lượt, một mức trần đô la hủy phiên, và các giới hạn số hành động theo công cụ. Trong trường hợp không giám sát, thêm một danh sách cho phép, một workspace cô lập không có thông tin xác thực và không có mount production, và một lần kiểm toán quỹ đạo sau đó.
 
 ### The answer to the colleague
 
-The approve-everything mode is documented for a disposable container. On a laptop with credentials, a browser session and an open terminal, the attack surface is everything the agent can reach. The prompts are the control, and the fix for too many prompts is a mode one step up the ladder, not the top of it.
+Chế độ phê duyệt mọi thứ được ghi tài liệu dành cho một container dùng rồi bỏ. Trên một laptop có thông tin xác thực, một phiên trình duyệt và một terminal mở, bề mặt tấn công là mọi thứ agent có thể tiếp cận. Các lời nhắc là biện pháp kiểm soát, và cách sửa cho quá nhiều lời nhắc là một chế độ lên một bậc trên thang, không phải đỉnh của nó.
 
 ## Follow-ups
 
-- **Level 2:** Why does the refactor mode still ask on shell commands? Expected: a file write is reversible from version control, while a shell command can delete, send or install, so the mode approves the cheap-to-undo class only.
-- **Level 2:** How does the never-prompt mode differ from the top of the ladder? Expected: the never-prompt mode denies anything that a rule did not pre-approve, while the approve-everything mode approves it.
-- **Level 3:** An unattended run needs a 24-hour budget. What do you set? Expected: a turn cap, a dollar cap, per-tool action caps and an allowlist, each with a reason, inside a workspace with no credentials and no egress you did not opt into.
-- **Level 3:** The classifier approved every action and the run still exfiltrated data. How? Expected: a sequence of allowed actions, such as writing data you own to a file and then pushing to a public repository, where the composition is the problem and no single action was flagged.
+- **Level 2:** Tại sao chế độ refactor vẫn hỏi về các lệnh shell? Expected: một lần ghi file có thể đảo ngược từ quản lý phiên bản, trong khi một lệnh shell có thể xóa, gửi hoặc cài, nên chế độ chỉ phê duyệt lớp rẻ để hoàn tác.
+- **Level 2:** Chế độ không bao giờ nhắc khác với đỉnh thang thế nào? Expected: chế độ không bao giờ nhắc từ chối bất kỳ thứ gì mà một quy tắc chưa phê duyệt trước, trong khi chế độ phê duyệt mọi thứ phê duyệt nó.
+- **Level 3:** Một lần chạy không giám sát cần một ngân sách 24 giờ. Bạn đặt gì? Expected: một mức trần lượt, một mức trần đô la, các mức trần hành động theo công cụ và một danh sách cho phép, mỗi thứ có một lý do, bên trong một workspace không có thông tin xác thực và không có lưu lượng đi ra mà bạn chưa chủ động cho phép.
+- **Level 3:** Bộ phân loại phê duyệt mọi hành động và lần chạy vẫn tuồn dữ liệu ra ngoài. Bằng cách nào? Expected: một chuỗi các hành động được phép, như viết dữ liệu bạn sở hữu vào một file rồi push lên một repository công khai, nơi sự kết hợp là vấn đề và không hành động đơn lẻ nào bị đánh dấu.
 
 ## Wrong answers
 
-- "Approve everything, because the agent is in version control anyway." Version control covers file writes, and the risk is in shell, network and credentials, which no commit reverts.
-- "The classifier mode is safe for anything, because a model reviews each step." The classifier judges actions, not trajectories, and the documentation pairs it with budgets, allowlists and isolation.
-- "Plan mode is for beginners." Plan mode is for the task where a wrong run costs more than a read, and that is a property of the task, not of the operator.
+- "Phê duyệt mọi thứ, vì dù sao agent cũng ở trong quản lý phiên bản." Quản lý phiên bản bao phủ các lần ghi file, và rủi ro nằm trong shell, mạng và thông tin xác thực, mà không commit nào hoàn tác.
+- "Chế độ bộ phân loại an toàn cho bất kỳ thứ gì, vì một mô hình đánh giá mỗi bước." Bộ phân loại phán xét các hành động, không các quỹ đạo, và tài liệu ghép nó với các ngân sách, danh sách cho phép và cô lập.
+- "Chế độ lập kế hoạch dành cho người mới." Chế độ lập kế hoạch dành cho nhiệm vụ mà một lần chạy sai tốn hơn một lần đọc, và đó là một thuộc tính của nhiệm vụ, không của người vận hành.
 
 ## Taught in
 
-The [permission modes lesson](../../../phases/15-autonomous-systems/10-claude-code-permission-modes/) lays out the six modes, the classifier and the budget controls.
+[Bài học các chế độ quyền hạn](../../../phases/15-autonomous-systems/10-claude-code-permission-modes/) trình bày sáu chế độ, bộ phân loại và các biện pháp kiểm soát ngân sách.

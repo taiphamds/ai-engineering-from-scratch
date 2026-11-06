@@ -16,57 +16,57 @@ related: [agents/tests-passed-but-nothing-ran]
 updated: 2026-11-03
 ---
 
-The task given to the agent was to fix one login bug. The diff changes the login route, an email helper, the database driver, the README and the release script. The transcript gives a plausible reason for each change. The reviewer rejects the pull request and asks you what went wrong and how to stop it. What do you say?
+Nhiệm vụ được giao cho agent là sửa một lỗi đăng nhập. Diff thay đổi route đăng nhập, một thành phần trợ giúp email, driver cơ sở dữ liệu, README và script phát hành. Bản ghi đưa ra một lý do có vẻ hợp lý cho mỗi thay đổi. Người đánh giá từ chối pull request và hỏi bạn điều gì đã sai và làm sao ngăn nó. Bạn nói gì?
 
 ## Short answer
 
-This is scope creep, and it is hard to see because the agent explains each step in good faith. The fix is not a stricter prompt. It is a contract on disk that lists the files the task may change and the files it must never change, plus a check that compares the final diff with that contract. The check runs before the gate, and a write to a forbidden path blocks the task.
+Đây là sự phình phạm vi, và khó thấy vì agent giải thích mỗi bước với thiện chí. Cách sửa không phải một prompt nghiêm ngặt hơn. Đó là một hợp đồng trên đĩa liệt kê các file mà nhiệm vụ có thể thay đổi và các file nó không bao giờ được thay đổi, cộng một phép kiểm tra so sánh diff cuối cùng với hợp đồng đó. Phép kiểm tra chạy trước gate, và một lần ghi vào một đường dẫn bị cấm chặn nhiệm vụ.
 
 ## Full answer
 
 ### Why the prompt did not hold
 
-Each change had a local reason. The model does not know where the task ends, so it extends the task every time it finds something related. "Stay in scope" in a prompt is a wish. A file that says what in scope means is a check.
+Mỗi thay đổi có một lý do cục bộ. Mô hình không biết nhiệm vụ kết thúc ở đâu, nên nó mở rộng nhiệm vụ mỗi lần tìm thấy thứ gì đó liên quan. "Ở trong phạm vi" trong một prompt là một mong muốn. Một file nói ở trong phạm vi nghĩa là gì là một phép kiểm tra.
 
 ### The scope contract
 
-| Field | Purpose |
+| Trường | Mục đích |
 |---|---|
-| `task_id` | Points at the task on the board |
-| `goal` | One sentence that a reviewer can verify |
-| `allowed_files` | Globs the agent may write |
-| `forbidden_files` | Globs the agent must not touch, even by accident |
-| `acceptance_criteria` | Commands or assertion lines that prove done |
-| `rollback_plan` | One paragraph an operator can run if the task must be halted |
-| `approvals_required` | Actions outside scope that need a human sign-off |
+| `task_id` | Trỏ đến nhiệm vụ trên bảng |
+| `goal` | Một câu mà một người đánh giá có thể xác minh |
+| `allowed_files` | Các glob mà agent có thể ghi |
+| `forbidden_files` | Các glob mà agent không được chạm đến, ngay cả vô tình |
+| `acceptance_criteria` | Các lệnh hoặc dòng assertion chứng minh đã xong |
+| `rollback_plan` | Một đoạn văn mà người vận hành có thể chạy nếu nhiệm vụ phải bị dừng |
+| `approvals_required` | Các hành động ngoài phạm vi cần con người phê duyệt |
 
-Two rules about the fields. First, a contract without `forbidden_files` is incomplete, because the negative space is half the contract. Second, use globs and not raw paths, so that a file move between sessions does not void the contract.
+Hai quy tắc về các trường. Thứ nhất, một hợp đồng không có `forbidden_files` là chưa đầy đủ, vì không gian âm là một nửa hợp đồng. Thứ hai, dùng glob chứ không đường dẫn thô, để một lần di chuyển file giữa các phiên không vô hiệu hóa hợp đồng.
 
 ### The check
 
-The checker reads the diff, the allowed globs and the forbidden globs, and returns the violations, the in-scope files and the off-scope files. For this pull request it reports the release script as a forbidden write and the README, the email helper and the driver as off-scope writes. Severity differs by path family: an off-scope write under `docs/**` is a warning, and a write under `scripts/**`, `migrations/**` or production config is always a block. That asymmetry lives in the contract, because it changes per project and per task.
+Bộ kiểm tra đọc diff, các glob được phép và các glob bị cấm, và trả về các vi phạm, các file trong phạm vi và các file ngoài phạm vi. Với pull request này nó báo cáo script phát hành là một lần ghi bị cấm và README, thành phần trợ giúp email và driver là các lần ghi ngoài phạm vi. Mức độ nghiêm trọng khác nhau theo họ đường dẫn: một lần ghi ngoài phạm vi dưới `docs/**` là một cảnh báo, và một lần ghi dưới `scripts/**`, `migrations/**` hoặc cấu hình production luôn là một chặn. Sự bất đối xứng đó nằm trong hợp đồng, vì nó thay đổi theo dự án và theo nhiệm vụ.
 
 ### Make it survive the team
 
-A gate that fails on every small slip gets switched off. Give each task a violation budget so that minor slips surface as warnings, and only a budget overrun blocks the merge. One practitioner who wrote scope contracts before each run reported that the rabbit-hole rate fell from 52 percent to 21 percent in three weeks, with the same agent.
+Một gate thất bại trên mọi sai sót nhỏ sẽ bị tắt. Cho mỗi nhiệm vụ một ngân sách vi phạm để các sai sót nhỏ xuất hiện dưới dạng cảnh báo, và chỉ một lần vượt ngân sách chặn việc gộp. Một người thực hành viết các hợp đồng phạm vi trước mỗi lần chạy báo cáo rằng tỷ lệ sa vào ngõ ngách giảm từ 52 phần trăm xuống 21 phần trăm trong ba tuần, với cùng agent.
 
 ### The second altitude
 
-A contract bounds one task, not the project. An agent can respect the login contract and then start a settings page on the next turn. A `feature_list.json` with at most one feature `in_progress` closes that gap. The task contract's allowed files must sit inside what the active feature touches.
+Một hợp đồng giới hạn một nhiệm vụ, không phải dự án. Một agent có thể tuân thủ hợp đồng đăng nhập rồi bắt đầu một trang thiết lập ở lượt tiếp theo. Một `feature_list.json` với tối đa một tính năng `in_progress` đóng khoảng trống đó. Các file được phép của hợp đồng nhiệm vụ phải nằm bên trong những gì tính năng đang hoạt động chạm đến.
 
 ## Follow-ups
 
-- **Level 2:** The agent needed a one-line change in the email helper to fix the bug. What should have happened? Expected: the checker flags the off-scope write, the agent opens a question, and a human either grows the contract or asks the agent to back off.
-- **Level 3:** How do you keep the contract valid when a refactor moves the login code? Expected: write the globs by pattern such as `app/**/login*.py`, not by exact path, and archive the contract when the task closes.
-- **Level 3:** Two contracts apply to one diff, one for the project and one for the task. What is the merge rule? Expected: least privilege, so intersect the allowed globs, union the forbidden globs, and take the most restrictive time budget.
-- **Level 4:** File globs are not the only scope dimension. What else belongs in the contract? Expected: a wall-clock budget and a network egress allowlist, because an agent can stay inside its files and still call a service that was not part of the task.
+- **Level 2:** Agent cần một thay đổi một dòng trong thành phần trợ giúp email để sửa lỗi. Điều gì nên đã xảy ra? Expected: bộ kiểm tra đánh dấu lần ghi ngoài phạm vi, agent mở một câu hỏi, và một con người mở rộng hợp đồng hoặc yêu cầu agent lùi lại.
+- **Level 3:** Bạn giữ hợp đồng hợp lệ thế nào khi một lần refactor di chuyển mã đăng nhập? Expected: viết các glob theo mẫu như `app/**/login*.py`, không theo đường dẫn chính xác, và lưu trữ hợp đồng khi nhiệm vụ đóng.
+- **Level 3:** Hai hợp đồng áp dụng cho một diff, một cho dự án và một cho nhiệm vụ. Quy tắc gộp là gì? Expected: đặc quyền tối thiểu, nên lấy giao các glob được phép, hợp các glob bị cấm, và lấy ngân sách thời gian hạn chế nhất.
+- **Level 4:** Các glob file không phải chiều phạm vi duy nhất. Điều gì khác thuộc về hợp đồng? Expected: một ngân sách thời gian thực và một danh sách cho phép lưu lượng mạng đi ra, vì một agent có thể ở trong các file của nó và vẫn gọi một dịch vụ không thuộc nhiệm vụ.
 
 ## Wrong answers
 
-- "Add a sentence to the prompt that says stay in scope." The agent already believed it was in scope at every step, so the sentence changes nothing without a check.
-- "Review the diff by hand more carefully." Human review caught it this time, after the agent spent the budget, and the point is to catch it before the pull request exists.
-- "Block every write outside the task files." A hard block on a README edit trains the team to disable the gate, so use warnings for low-risk paths and blocks for scripts and migrations.
+- "Thêm một câu vào prompt nói ở trong phạm vi." Agent đã tin nó ở trong phạm vi ở mỗi bước, nên câu đó không thay đổi gì nếu không có một phép kiểm tra.
+- "Đánh giá diff bằng tay cẩn thận hơn." Đánh giá của con người đã bắt được nó lần này, sau khi agent tiêu ngân sách, và mục đích là bắt nó trước khi pull request tồn tại.
+- "Chặn mọi lần ghi ngoài các file nhiệm vụ." Một chặn cứng trên một chỉnh sửa README huấn luyện nhóm tắt gate, nên dùng các cảnh báo cho các đường dẫn rủi ro thấp và các chặn cho script và migration.
 
 ## Taught in
 
-The [scope contracts lesson](../../../phases/14-agent-engineering/36-scope-contracts/) builds the contract, the diff checker and the feature list.
+[Bài học hợp đồng phạm vi](../../../phases/14-agent-engineering/36-scope-contracts/) dựng hợp đồng, bộ kiểm tra diff và danh sách tính năng.

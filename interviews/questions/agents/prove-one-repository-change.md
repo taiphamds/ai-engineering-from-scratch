@@ -16,55 +16,55 @@ related: [agents/ship-a-workbench-pack, agents/green-gate-missing-tests]
 updated: 2026-11-03
 ---
 
-Take-home. Pick a small real change in a repository you may modify, and let one coding agent make it. Bring back evidence that a reviewer can reproduce, not a transcript. Tell us what you would record at each step, how you would prove that your acceptance check can fail, and what you would refuse to claim.
+Bài làm tại nhà. Chọn một thay đổi thật nhỏ trong một repository bạn có thể sửa đổi, và để một coding agent thực hiện nó. Mang lại bằng chứng mà một người đánh giá có thể tái tạo, không phải một bản ghi trò chuyện. Cho chúng tôi biết bạn sẽ ghi lại gì ở mỗi bước, bạn sẽ chứng minh phép kiểm tra nghiệm thu có thể thất bại thế nào, và bạn sẽ từ chối khẳng định gì.
 
 ## Short answer
 
-Record the starting revision, the observable goal, the non-goals, the allowed paths and the acceptance evidence before the agent runs, together with the working mode, the budget and a stop condition. Capture a baseline with the closest existing check before any edit. After the change, write the expected result independently of the implementation, introduce one deliberate wrong result in a disposable copy, and show that the same check fails for that reason. Label every runtime observation as local, staging or live, rehearse a rollback, and leave the branch, the changed files, the open risks and the next action explicit.
+Ghi lại revision bắt đầu, mục tiêu có thể quan sát, các điều không phải mục tiêu, các đường dẫn được phép và bằng chứng nghiệm thu trước khi agent chạy, cùng chế độ làm việc, ngân sách và một điều kiện dừng. Thu một đường cơ sở bằng phép kiểm tra hiện có gần nhất trước bất kỳ chỉnh sửa nào. Sau thay đổi, viết kết quả kỳ vọng độc lập với triển khai, đưa vào một kết quả sai có chủ ý trong một bản sao dùng rồi bỏ, và cho thấy cùng phép kiểm tra thất bại vì lý do đó. Gắn nhãn mọi quan sát runtime là cục bộ, staging hoặc trực tiếp, diễn tập một lần rollback, và để nhánh, các file đã thay đổi, các rủi ro còn mở và hành động tiếp theo rõ ràng.
 
 ## Full answer
 
 ### Frame the task and the autonomy
 
-Write down the starting revision, the goal as something observable, the non-goals, the allowed paths and the evidence that will count as acceptance. Name the real user or operator who needs the behavior. Choose a working mode, guided steps, checkpointed implementation or a bounded autonomous run, and say why the uncertainty, the consequences and the reversibility justify it. Set a wall-time budget and a token or cost limit where the agent exposes one. Define the stop condition for repeated failure, a request for new permissions, budget exhaustion or an unresolved contract decision, and name who resolves it.
+Viết ra revision bắt đầu, mục tiêu như một thứ có thể quan sát, các điều không phải mục tiêu, các đường dẫn được phép và bằng chứng sẽ được tính là nghiệm thu. Nêu người dùng hoặc người vận hành thật cần hành vi đó. Chọn một chế độ làm việc, các bước có hướng dẫn, triển khai có checkpoint hoặc một lần chạy tự chủ có giới hạn, và nói tại sao sự không chắc chắn, hậu quả và khả năng đảo ngược biện minh cho nó. Đặt một ngân sách thời gian thực và một giới hạn token hoặc chi phí ở nơi agent cung cấp. Định nghĩa điều kiện dừng cho thất bại lặp lại, một yêu cầu quyền mới, hết ngân sách hoặc một quyết định hợp đồng chưa được giải quyết, và nêu ai giải quyết nó.
 
 ### Prepare the smallest environment
 
-Retrieve the implementation, its caller, its test and the local instructions, and record why each belongs in context. Make one explicit choice per extension: a skill for a repeatable procedure, a tool for access, a hook for a deterministic check, a plugin for packaged capabilities, each with the least permissions that let it work. Record one proposed addition you rejected and its cost. Recheck one stale note or instruction and retire it if the evidence supports that.
+Lấy triển khai, bên gọi của nó, kiểm thử của nó và các chỉ dẫn cục bộ, và ghi lại tại sao mỗi thứ thuộc về ngữ cảnh. Đưa ra một lựa chọn rõ ràng cho mỗi phần mở rộng: một skill cho một quy trình lặp lại được, một công cụ cho truy cập, một hook cho một phép kiểm tra xác định, một plugin cho các khả năng được đóng gói, mỗi thứ với các quyền tối thiểu cho phép nó hoạt động. Ghi lại một bổ sung được đề xuất mà bạn đã từ chối và chi phí của nó. Kiểm tra lại một ghi chú hoặc chỉ dẫn cũ và loại bỏ nó nếu bằng chứng ủng hộ điều đó.
 
 ### Baseline, then implement
 
-Before any edit, run the closest existing check and record the command, the revision, the result and where the evidence lives. A feature that does not exist yet still has a baseline: the observed response or the unsupported operation. Then let the agent work inside the contract, and keep an intervention log with the reason for each correction, permission change or plan revision.
+Trước bất kỳ chỉnh sửa nào, chạy phép kiểm tra hiện có gần nhất và ghi lại lệnh, revision, kết quả và nơi bằng chứng tồn tại. Một tính năng chưa tồn tại vẫn có một đường cơ sở: phản hồi được quan sát hoặc thao tác không được hỗ trợ. Sau đó để agent làm việc bên trong hợp đồng, và giữ một log can thiệp với lý do cho mỗi lần sửa, thay đổi quyền hoặc sửa đổi kế hoạch.
 
 ### Challenge the evidence
 
-Pick proof that observes the changed surface: the served page at the relevant widths for a UI, the request and the serialized response for an API, the built command with its exit code for a CLI. Write the expected result from the task contract without reading the implementation. In a disposable copy, introduce one specific incorrect result, such as accepting an invalid value or dropping a required field, and run the same acceptance check. It must fail for that reason. If it stays green, strengthen the assertion before you trust it. Restore, rerun, and keep both receipts. A syntax error or a broken test setup does not count as detecting the regression. Ask a peer or a separate reviewer session to challenge the weakest proof without editing the implementation.
+Chọn phép chứng minh quan sát bề mặt đã thay đổi: trang được phục vụ tại các độ rộng liên quan cho một UI, yêu cầu và phản hồi được tuần tự hóa cho một API, lệnh được dựng với mã thoát của nó cho một CLI. Viết kết quả kỳ vọng từ hợp đồng nhiệm vụ mà không đọc triển khai. Trong một bản sao dùng rồi bỏ, đưa vào một kết quả sai cụ thể, như chấp nhận một giá trị không hợp lệ hoặc bỏ một trường bắt buộc, và chạy cùng phép kiểm tra nghiệm thu. Nó phải thất bại vì lý do đó. Nếu nó vẫn xanh, tăng cường assertion trước khi bạn tin nó. Khôi phục, chạy lại, và giữ cả hai bằng chứng. Một lỗi cú pháp hoặc một thiết lập kiểm thử hỏng không được tính là phát hiện sự suy giảm. Yêu cầu một đồng nghiệp hoặc một phiên đánh giá riêng thách thức phép chứng minh yếu nhất mà không chỉnh sửa triển khai.
 
 ### Rehearse operation and recovery
 
-Run the artifact in a disposable local or staging environment and label every observation local, staging or live with the exact revision. Choose one failure signal for the task, with a threshold, an observation window and an owner, and trigger it safely. Rehearse the rollback to a known-good artifact and check that the old behavior returns, including any persistent data. Record any recovery step you could not verify.
+Chạy sản phẩm trong một môi trường cục bộ hoặc staging dùng rồi bỏ và gắn nhãn mọi quan sát là cục bộ, staging hoặc trực tiếp với revision chính xác. Chọn một tín hiệu thất bại cho nhiệm vụ, với một ngưỡng, một cửa sổ quan sát và một người phụ trách, và kích hoạt nó an toàn. Diễn tập rollback về một sản phẩm tốt đã biết và kiểm tra hành vi cũ trở lại, bao gồm bất kỳ dữ liệu bền vững nào. Ghi lại bất kỳ bước khôi phục nào bạn không thể xác minh.
 
 ### Improve the next run and hand off
 
-Compare the result with the baseline, including elapsed time, usage data and human interventions. One task shows what happened on that task, not that an agent is generally faster. Promote one observed correction into a test, a smaller permission or an automation, and rerun the affected check. Remove temporary changes and leave the final branch, the changed files, the open risks and the next action explicit.
+So sánh kết quả với đường cơ sở, bao gồm thời gian đã trôi qua, dữ liệu sử dụng và các can thiệp của con người. Một nhiệm vụ cho thấy điều gì đã xảy ra trên nhiệm vụ đó, không cho thấy một agent nói chung nhanh hơn. Nâng một lần sửa được quan sát thành một kiểm thử, một quyền nhỏ hơn hoặc một tự động hóa, và chạy lại phép kiểm tra bị ảnh hưởng. Loại bỏ các thay đổi tạm và để nhánh cuối cùng, các file đã thay đổi, các rủi ro còn mở và hành động tiếp theo rõ ràng.
 
 ### The rubric
 
-Each row gets `demonstrated`, `needs revision` or `unverified`, with an evidence pointer and a reason. The reviewer reproduces at least the weakest acceptance check. Filled fields and passing scripts are not substitutes for the observations. Leave unavailable evidence as unverified and narrow the claim, and never present the result as a hiring or deployment guarantee.
+Mỗi hàng nhận `demonstrated`, `needs revision` hoặc `unverified`, với một con trỏ bằng chứng và một lý do. Người đánh giá tái tạo ít nhất phép kiểm tra nghiệm thu yếu nhất. Các trường được điền và các script đạt không thay thế cho các quan sát. Để bằng chứng không khả dụng là chưa xác minh và thu hẹp khẳng định, và không bao giờ trình bày kết quả là một bảo đảm tuyển dụng hoặc triển khai.
 
 ## Follow-ups
 
-- **Level 3:** Your planted regression passed the acceptance check. What do you do? Expected: treat the check as untrustworthy, strengthen the assertion or the observation until it fails for that reason, and only then rerun the correct version.
-- **Level 3:** Why must each runtime observation carry an environment label? Expected: a local rehearsal supports a local claim only, and an unlabeled observation lets a reader read a laptop run as production evidence.
-- **Level 4:** The agent finished faster than your baseline. What may you claim? Expected: that this task was faster on this run with this many interventions, and nothing about agents in general.
-- **Level 4:** Which single row would you mark unverified rather than fake? Expected: any row whose evidence you could not observe, such as a recovery step that needs a production mount you do not have, with the claim narrowed to match.
+- **Level 3:** Sự suy giảm bạn cài vào vượt qua phép kiểm tra nghiệm thu. Bạn làm gì? Expected: coi phép kiểm tra là không đáng tin cậy, tăng cường assertion hoặc quan sát cho đến khi nó thất bại vì lý do đó, và chỉ sau đó chạy lại phiên bản đúng.
+- **Level 3:** Tại sao mỗi quan sát runtime phải mang một nhãn môi trường? Expected: một lần diễn tập cục bộ chỉ ủng hộ một khẳng định cục bộ, và một quan sát không nhãn cho phép người đọc hiểu một lần chạy laptop là bằng chứng production.
+- **Level 4:** Agent hoàn tất nhanh hơn đường cơ sở của bạn. Bạn có thể khẳng định gì? Expected: nhiệm vụ này nhanh hơn trong lần chạy này với chừng này can thiệp, và không gì về các agent nói chung.
+- **Level 4:** Bạn sẽ đánh dấu hàng đơn lẻ nào là chưa xác minh thay vì làm giả? Expected: bất kỳ hàng nào có bằng chứng bạn không thể quan sát, như một bước khôi phục cần một mount production mà bạn không có, với khẳng định được thu hẹp cho phù hợp.
 
 ## Wrong answers
 
-- "The transcript shows the agent running the tests, so that is the evidence." A transcript is what the agent said, and the evidence is the check, its exit code and the record a reviewer can rerun.
-- "The acceptance check passed, so the change is proven." A check that never failed proves nothing, and the deliberate wrong result is what shows the check can detect a regression.
-- "Deployment to production is required to complete the exercise." A labeled local or staging rehearsal supports a local claim, and the exercise asks for honest labels, not production access.
+- "Bản ghi cho thấy agent chạy các kiểm thử, nên đó là bằng chứng." Một bản ghi là những gì agent nói, và bằng chứng là phép kiểm tra, mã thoát của nó và bản ghi mà một người đánh giá có thể chạy lại.
+- "Phép kiểm tra nghiệm thu đạt, nên thay đổi đã được chứng minh." Một phép kiểm tra chưa bao giờ thất bại không chứng minh gì, và kết quả sai có chủ ý là thứ cho thấy phép kiểm tra có thể phát hiện một sự suy giảm.
+- "Triển khai lên production là bắt buộc để hoàn thành bài tập." Một lần diễn tập cục bộ hoặc staging có nhãn ủng hộ một khẳng định cục bộ, và bài tập yêu cầu các nhãn trung thực, không truy cập production.
 
 ## Taught in
 
-The [workbench capstone](../../../phases/14-agent-engineering/42-agent-workbench-capstone/) gives the six steps and the manual review rubric for the evidence.
+[Bài tổng kết workbench](../../../phases/14-agent-engineering/42-agent-workbench-capstone/) đưa ra sáu bước và rubric đánh giá thủ công cho bằng chứng.

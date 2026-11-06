@@ -16,50 +16,50 @@ related: [agents/a-handoff-is-not-a-status-report]
 updated: 2026-11-03
 ---
 
-A long coding session has used most of its context window. The runtime offers to summarize the older turns and keep going. Your teammate wants to let it run to the limit, because compaction is automatic. When do you compact, when do you end the session, and what do you measure to choose?
+Một phiên lập trình dài đã dùng phần lớn cửa sổ ngữ cảnh của nó. Runtime đề nghị tóm tắt các lượt cũ hơn và tiếp tục. Đồng đội của bạn muốn để nó chạy đến giới hạn, vì việc nén ngữ cảnh là tự động. Khi nào bạn nén ngữ cảnh, khi nào bạn kết thúc phiên, và bạn đo gì để chọn?
 
 ## Short answer
 
-Compaction extends a session, and a handoff closes one cleanly and starts the next in fresh context. Compaction is fine while the compressed history still carries what the task needs, but quality decays as compression stacks up. The lesson's guidance is to end the session with a generated handoff at 50 to 75 percent of the budget, not at the wall, because the packet is cheap to write while the context is intact and expensive when the model is already losing its place.
+Nén ngữ cảnh kéo dài một phiên, và một bản bàn giao đóng một phiên gọn gàng rồi bắt đầu phiên tiếp theo trong ngữ cảnh mới. Nén ngữ cảnh là ổn khi lịch sử được nén vẫn mang những gì nhiệm vụ cần, nhưng chất lượng suy giảm khi việc nén chồng chất. Hướng dẫn của bài học là kết thúc phiên bằng một bản bàn giao được tạo tại 50 đến 75 phần trăm ngân sách, không phải ở bức tường giới hạn, vì gói rẻ để viết khi ngữ cảnh còn nguyên và đắt khi mô hình đã bắt đầu mất vị trí của nó.
 
 ## Full answer
 
 ### Two different operations
 
-| Operation | What it does | What it costs |
+| Thao tác | Nó làm gì | Nó tốn gì |
 |---|---|---|
-| Compaction | Compresses the history in place and continues the same session | Each pass loses detail, and the losses stack up |
-| Fresh-session handoff | Writes a packet, ends the session, and resumes in a new context | A clean break, with the cost of generating and loading the packet |
+| Nén ngữ cảnh | Nén lịch sử tại chỗ và tiếp tục cùng phiên | Mỗi lượt nén mất chi tiết, và những mất mát chồng chất |
+| Bàn giao sang phiên mới | Viết một gói, kết thúc phiên, và tiếp tục trong một ngữ cảnh mới | Một điểm ngắt sạch, với chi phí tạo và nạp gói |
 
-Runtimes implement compaction in different ways: a server-side opaque summary, a local summary appended as a user message, a progressive multi-stage compression near the top of the window, or a timestamp-based hiding of old messages plus a short summary. The mechanism varies. The need is the same. Whatever survives compression must be serialized into a portable artifact, and that artifact is the handoff packet.
+Các runtime triển khai nén ngữ cảnh theo các cách khác nhau: một bản tóm tắt không trong suốt phía server, một bản tóm tắt cục bộ được nối thêm dưới dạng một thông điệp người dùng, một phép nén nhiều giai đoạn tăng tiến gần đỉnh cửa sổ, hoặc việc ẩn các thông điệp cũ dựa trên dấu thời gian cộng một bản tóm tắt ngắn. Cơ chế thay đổi. Nhu cầu giống nhau. Bất kỳ thứ gì sống sót qua việc nén phải được tuần tự hóa thành một sản phẩm có thể di chuyển, và sản phẩm đó là gói bàn giao.
 
 ### Why not run to the wall
 
-A runtime that compacts at 95 percent compacts a context that is already full of compression artifacts. The packet generator then summarizes degraded state. The mistake is to keep compressing until quality collapses. The fix is to budget for an early, clean handoff. A session that ends at 50 to 75 percent still has the intact history, the real command records and a clear next action.
+Một runtime nén tại 95 phần trăm nén một ngữ cảnh đã đầy các sản phẩm nén. Khi đó bộ tạo gói tóm tắt trạng thái đã suy giảm. Sai lầm là tiếp tục nén cho đến khi chất lượng sụp đổ. Cách sửa là dành ngân sách cho một bản bàn giao sớm, sạch. Một phiên kết thúc tại 50 đến 75 phần trăm vẫn có lịch sử còn nguyên, các bản ghi lệnh thật và một hành động tiếp theo rõ ràng.
 
 ### Make the choice measurable
 
-- Track the context fraction at which the session ends, and compare task outcomes across the two ranges.
-- Count how many times a session was compacted before it ended, and correlate with review findings.
-- Read the handoff packets: a packet with a vague `next_action` is a sign that the generator ran too late.
+- Theo dõi tỷ lệ ngữ cảnh tại đó phiên kết thúc, và so sánh các kết quả nhiệm vụ giữa hai phạm vi.
+- Đếm số lần một phiên được nén trước khi kết thúc, và đối chiếu tương quan với các phát hiện đánh giá.
+- Đọc các gói bàn giao: một gói có `next_action` mơ hồ là dấu hiệu rằng bộ tạo chạy quá muộn.
 
 ### One active handoff per branch
 
-Multi-agent work breaks on stale handoffs more than on bad output. Each packet carries the branch, the last known good commit and a status of active, superseded or archived. Only the active packet drives the next session.
+Công việc đa agent hỏng do các bản bàn giao cũ nhiều hơn do đầu ra sai. Mỗi gói mang nhánh, commit tốt cuối cùng đã biết và một trạng thái đang hoạt động, đã bị thay thế hoặc đã lưu trữ. Chỉ gói đang hoạt động điều khiển phiên tiếp theo.
 
 ## Follow-ups
 
-- **Level 3:** Why is a fresh session better than a third compaction? Expected: compression losses stack up, while a fresh session starts from the packet, the state file and the repo, which are the system of record.
-- **Level 3:** What must be true of the tree before the handoff runs? Expected: the cleanup check passes, so the tree is committed or stashed with a note, no temp files remain, tests are green or named as risks, and the branch is right.
-- **Level 4:** The handoff is cheap, but the next session has to rebuild its working context. How do you keep that cost down? Expected: the packet lists the exact artifacts the next session must load before it acts, and the router points at them, so the session loads the state, the board and the active contract and nothing else.
-- **Level 4:** Two coding agent products are used on one task, one after the other. What makes the transition work? Expected: the packet schema, because the JSON form is product-neutral and both runtimes read the same fields.
+- **Level 3:** Tại sao một phiên mới tốt hơn lần nén thứ ba? Expected: các mất mát do nén chồng chất, trong khi một phiên mới bắt đầu từ gói, file trạng thái và repo, là hệ thống lưu bản ghi chính thức.
+- **Level 3:** Điều gì phải đúng về cây làm việc trước khi bàn giao chạy? Expected: phép kiểm tra dọn dẹp đạt, nên cây làm việc được commit hoặc stash kèm một ghi chú, không còn file tạm, các kiểm thử xanh hoặc được nêu là rủi ro, và nhánh đúng.
+- **Level 4:** Bản bàn giao rẻ, nhưng phiên tiếp theo phải dựng lại ngữ cảnh làm việc của nó. Bạn giữ chi phí đó thấp thế nào? Expected: gói liệt kê chính xác các sản phẩm mà phiên tiếp theo phải nạp trước khi hành động, và router trỏ đến chúng, để phiên nạp trạng thái, bảng và hợp đồng đang hoạt động và không gì khác.
+- **Level 4:** Hai sản phẩm coding agent được dùng trên một nhiệm vụ, lần lượt. Điều gì làm cho việc chuyển tiếp hoạt động? Expected: schema gói, vì dạng JSON trung lập với sản phẩm và cả hai runtime đọc cùng các trường.
 
 ## Wrong answers
 
-- "Compaction is automatic, so let the runtime handle it." Automatic compaction decides when to compress, not whether the compressed state is still good enough to work from.
-- "End every session as early as possible to be safe." Each handoff costs a packet and a reload, so the target is a range, not a minimum.
-- "A longer context window removes the problem." A larger window delays the wall, and the quality decay from stacked compression is the same.
+- "Nén ngữ cảnh là tự động, nên để runtime xử lý." Nén ngữ cảnh tự động quyết định khi nào nén, không quyết định liệu trạng thái được nén có còn đủ tốt để làm việc từ đó hay không.
+- "Kết thúc mọi phiên càng sớm càng tốt để an toàn." Mỗi lần bàn giao tốn một gói và một lần nạp lại, nên mục tiêu là một phạm vi, không phải một giá trị nhỏ nhất.
+- "Một cửa sổ ngữ cảnh dài hơn loại bỏ vấn đề." Một cửa sổ lớn hơn trì hoãn bức tường giới hạn, và sự suy giảm chất lượng từ việc nén chồng chất là như nhau.
 
 ## Taught in
 
-The [multi-session handoff lesson](../../../phases/14-agent-engineering/40-multi-session-handoff/) compares compaction strategies and sets the handoff window.
+[Bài học bàn giao nhiều phiên](../../../phases/14-agent-engineering/40-multi-session-handoff/) so sánh các chiến lược nén ngữ cảnh và đặt cửa sổ bàn giao.

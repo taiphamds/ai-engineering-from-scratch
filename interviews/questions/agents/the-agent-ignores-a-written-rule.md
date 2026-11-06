@@ -16,50 +16,50 @@ related: [agents/router-or-manual, agents/rules-the-workbench-can-check]
 updated: 2026-11-03
 ---
 
-A rule says that no migration file may change without an approval. It lives in `docs/database.md`, which `docs/architecture.md` links, which the top-level instructions file links. The root file also says to always use the ORM, while the database document says to write raw SQL in migrations. The agent changed a migration twice this week without asking. Find the causes and fix them in order.
+Một quy tắc nói không file migration nào được thay đổi nếu không có một phê duyệt. Nó nằm trong `docs/database.md`, được `docs/architecture.md` liên kết, được file chỉ dẫn cấp cao nhất liên kết. File gốc cũng nói luôn dùng ORM, trong khi tài liệu cơ sở dữ liệu nói viết SQL thô trong các migration. Agent đã thay đổi một migration hai lần tuần này mà không hỏi. Tìm các nguyên nhân và sửa chúng theo thứ tự.
 
 ## Short answer
 
-There are three independent causes, and any one of them is enough. The rule is three hops from the router, past the two-hop reachability limit, so the agent never loads it, and it is prose with no check, so nothing refuses the write even when the agent reads it. And the root file conflicts with the database document, and conflicting instructions silently move an agent from asking to guessing. Fix the reach first, make the rule an approval-category rule with a block-severity check, and remove the conflict.
+Có ba nguyên nhân độc lập, và bất kỳ nguyên nhân nào cũng đủ. Quy tắc cách router ba bước nhảy, vượt giới hạn tiếp cận hai bước nhảy, nên agent không bao giờ nạp nó, và nó là văn xuôi không có phép kiểm tra, nên không có gì từ chối lần ghi ngay cả khi agent đọc nó. Và file gốc xung đột với tài liệu cơ sở dữ liệu, và các chỉ dẫn xung đột âm thầm chuyển một agent từ hỏi sang đoán. Sửa tầm tiếp cận trước, làm quy tắc thành một quy tắc danh mục phê duyệt với một phép kiểm tra mức độ chặn, và loại bỏ xung đột.
 
 ## Full answer
 
 ### Cause one: reachability
 
-The agent should reach any rule in at most two hops from the router. This rule needs three. The router must link every topic document by path, so `docs/database.md` belongs in the router, and the rule itself belongs in `docs/agent-rules.md`, which the agent reads at every startup. A pointer that does not resolve is a worse failure than a missing rule, so check that each path in the router exists, and make a broken link a startup violation.
+Agent nên tiếp cận bất kỳ quy tắc nào trong tối đa hai bước nhảy từ router. Quy tắc này cần ba. Router phải liên kết mọi tài liệu chủ đề theo đường dẫn, nên `docs/database.md` thuộc về router, và bản thân quy tắc thuộc về `docs/agent-rules.md`, mà agent đọc ở mỗi lần khởi động. Một con trỏ không phân giải được là một thất bại tệ hơn một quy tắc bị thiếu, nên kiểm tra mỗi đường dẫn trong router tồn tại, và làm một liên kết hỏng thành một vi phạm khởi động.
 
 ### Cause two: an aspirational rule
 
-"Do not change migrations without approval" is a wish until a check exists. Rewrite it as an approval-category rule with a slug, a one-line description, a `check` that compares the diff against `migrations/**` and looks for an approval record, and `block` severity. The runtime refuses on block. The checker reports it. An override needs a human signature in the audit log.
+"Không thay đổi các migration nếu không có phê duyệt" là một mong muốn cho đến khi có một phép kiểm tra. Viết lại nó thành một quy tắc danh mục phê duyệt với một slug, một mô tả một dòng, một `check` so sánh diff với `migrations/**` và tìm một bản ghi phê duyệt, và mức độ `block`. Runtime từ chối ở mức chặn. Bộ kiểm tra báo cáo nó. Một lần ghi đè cần một chữ ký con người trong log kiểm toán.
 
 ### Cause three: conflicting instructions
 
-The root file requires the ORM everywhere. The database document requires raw SQL inside migration files. The agent cannot satisfy both, and the measured effect of conflicting instructions is a quiet shift from an interactive mode, where the agent asks, to a greedy mode, where it guesses. One measurement in the lesson put the resolve rate at 48.8 percent without the conflict and 28 percent with it. An agent in greedy mode does not ask for approval. Number the priorities instead of stacking them flat, or scope the ORM rule to application code and the SQL rule to migrations so that they no longer overlap.
+File gốc yêu cầu ORM ở mọi nơi. Tài liệu cơ sở dữ liệu yêu cầu SQL thô bên trong các file migration. Agent không thể thỏa mãn cả hai, và tác động đo được của các chỉ dẫn xung đột là một sự dịch chuyển âm thầm từ một chế độ tương tác, nơi agent hỏi, sang một chế độ tham lam, nơi nó đoán. Một phép đo trong bài học đặt tỷ lệ giải quyết tại 48.8 phần trăm khi không có xung đột và 28 phần trăm khi có. Một agent trong chế độ tham lam không hỏi phê duyệt. Đánh số các mức ưu tiên thay vì xếp chúng ngang nhau, hoặc giới hạn quy tắc ORM vào mã ứng dụng và quy tắc SQL vào các migration để chúng không còn chồng lấp.
 
 ### The order
 
-1. Move the rule into the rules file and link the database document from the router. Now the agent reads it.
-2. Add the check and the severity. Now the runtime refuses.
-3. Resolve the conflict. Now the agent asks instead of guessing.
-4. Add a workbench lint that fails when the router is over its line budget or references a missing file, so the regression cannot return.
+1. Chuyển quy tắc vào file quy tắc và liên kết tài liệu cơ sở dữ liệu từ router. Bây giờ agent đọc nó.
+2. Thêm phép kiểm tra và mức độ nghiêm trọng. Bây giờ runtime từ chối.
+3. Giải quyết xung đột. Bây giờ agent hỏi thay vì đoán.
+4. Thêm một lint workbench thất bại khi router vượt ngân sách dòng hoặc tham chiếu một file bị thiếu, để sự suy giảm không thể trở lại.
 
 ### Prove it
 
-Run the checker over this week's two runs. The rule report must show the approval rule failing on both, with block severity. Then run the agent on a task that touches a migration and confirm that it opens an approval request before the write.
+Chạy bộ kiểm tra trên hai lần chạy tuần này. Báo cáo quy tắc phải cho thấy quy tắc phê duyệt trượt trên cả hai, với mức độ chặn. Sau đó chạy agent trên một nhiệm vụ chạm đến một migration và xác nhận rằng nó mở một yêu cầu phê duyệt trước lần ghi.
 
 ## Follow-ups
 
-- **Level 3:** Why does a shorter root file help here? Expected: a short router is read in full on every session and on every pull request review, so a pointer to the database document stays current and reachable.
-- **Level 3:** The team wants to keep the rule in the database document because that is where the context is. What do you do? Expected: keep the explanation there, put the rule and its check in the rules file, and link both from the router, so the rule is two hops away and still has its context.
-- **Level 4:** How would you find two rules that contradict each other before an incident? Expected: a lint that flags two rules whose scopes overlap with different verbs, and a review habit of numbering priorities in the router.
-- **Level 4:** The checker passes in CI, and the agent still edits a migration in a live session. Where is the gap? Expected: the checker runs after the fact, so the same check must also run as a pre-tool hook in the runtime, where it can refuse the write before it happens.
+- **Level 3:** Tại sao một file gốc ngắn hơn giúp ở đây? Expected: một router ngắn được đọc đầy đủ ở mỗi phiên và mỗi lần đánh giá pull request, nên một con trỏ đến tài liệu cơ sở dữ liệu giữ tính hiện hành và tiếp cận được.
+- **Level 3:** Nhóm muốn giữ quy tắc trong tài liệu cơ sở dữ liệu vì đó là nơi có ngữ cảnh. Bạn làm gì? Expected: giữ phần giải thích ở đó, đặt quy tắc và phép kiểm tra của nó trong file quy tắc, và liên kết cả hai từ router, để quy tắc cách hai bước nhảy và vẫn có ngữ cảnh của nó.
+- **Level 4:** Bạn sẽ tìm hai quy tắc mâu thuẫn nhau trước một sự cố thế nào? Expected: một lint đánh dấu hai quy tắc có các phạm vi chồng lấp với các động từ khác nhau, và một thói quen đánh giá đánh số các mức ưu tiên trong router.
+- **Level 4:** Bộ kiểm tra đạt trong CI, và agent vẫn chỉnh sửa một migration trong một phiên trực tiếp. Khoảng trống ở đâu? Expected: bộ kiểm tra chạy sau sự việc, nên cùng phép kiểm tra cũng phải chạy như một pre-tool hook trong runtime, nơi nó có thể từ chối lần ghi trước khi xảy ra.
 
 ## Wrong answers
 
-- "Add the rule to the system prompt in capital letters." Emphasis does not add a check, and the conflict in the router still pushes the agent toward guessing.
-- "The model is ignoring instructions, so switch models." The rule was unreachable, uncheckable and contradicted, and a different model meets the same three problems.
-- "Delete the ORM rule, since it caused the conflict." The ORM rule is correct for application code, so scope it rather than delete it.
+- "Thêm quy tắc vào system prompt bằng chữ in hoa." Nhấn mạnh không thêm một phép kiểm tra, và xung đột trong router vẫn đẩy agent về phía đoán.
+- "Mô hình đang phớt lờ các chỉ dẫn, nên đổi mô hình." Quy tắc không tiếp cận được, không kiểm tra được và bị mâu thuẫn, và một mô hình khác gặp cùng ba vấn đề.
+- "Xóa quy tắc ORM, vì nó gây xung đột." Quy tắc ORM đúng cho mã ứng dụng, nên giới hạn phạm vi của nó thay vì xóa nó.
 
 ## Taught in
 
-The [executable constraints lesson](../../../phases/14-agent-engineering/33-instructions-as-executable-constraints/) sets the two-hop rule and the five categories, and the [minimal workbench lesson](../../../phases/14-agent-engineering/32-minimal-agent-workbench/) measures the cost of instructions that contradict each other.
+[Bài học các ràng buộc thực thi được](../../../phases/14-agent-engineering/33-instructions-as-executable-constraints/) đặt quy tắc hai bước nhảy và năm danh mục, và [bài học workbench tối thiểu](../../../phases/14-agent-engineering/32-minimal-agent-workbench/) đo chi phí của các chỉ dẫn mâu thuẫn nhau.

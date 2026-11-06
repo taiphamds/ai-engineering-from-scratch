@@ -16,7 +16,7 @@ related: [agents/the-agent-loops-forever]
 updated: 2026-11-03
 ---
 
-Read this run method from the toy agent loop. A caller shows the returned string to the user as the answer. What is wrong with the contract, and how would you change it?
+Đọc phương thức run này từ vòng lặp agent đồ chơi. Một bên gọi hiển thị chuỗi được trả về cho người dùng như câu trả lời. Hợp đồng sai ở đâu, và bạn sẽ thay đổi nó thế nào?
 
 ```python
 def run(self, user_message: str) -> str:
@@ -37,37 +37,37 @@ def run(self, user_message: str) -> str:
 
 ## Short answer
 
-The method returns a plain string in both cases, so the caller cannot tell a real answer from a run that hit the cap. The text `budget exhausted` goes to the user as if the model said it. The fix is to return a typed result with a reason, or to yield control the way the harness contract does, so that the caller decides whether to extend the budget or stop.
+Phương thức trả về một chuỗi thuần trong cả hai trường hợp, nên bên gọi không thể phân biệt một câu trả lời thật với một lần chạy chạm mức trần. Văn bản `budget exhausted` đến người dùng như thể mô hình đã nói nó. Cách sửa là trả về một kết quả có kiểu kèm một lý do, hoặc nhường quyền điều khiển theo cách hợp đồng harness làm, để bên gọi quyết định mở rộng ngân sách hay dừng.
 
 ## Full answer
 
 ### What the code does
 
-The loop runs at most `max_turns` iterations. Each iteration asks the model for one reply. A `finish` reply ends the run and returns its content. Any other reply is an action: the loop records the thought, dispatches the tool, and appends the observation. When the loop runs out of iterations, it appends a final turn with the text `budget exhausted` and returns that text.
+Vòng lặp chạy tối đa `max_turns` lần lặp. Mỗi lần lặp yêu cầu mô hình một câu trả lời. Một câu trả lời `finish` kết thúc lần chạy và trả về nội dung của nó. Bất kỳ câu trả lời nào khác là một hành động: vòng lặp ghi suy nghĩ, điều phối công cụ, và nối thêm quan sát. Khi vòng lặp hết số lần lặp, nó nối thêm một lượt cuối với văn bản `budget exhausted` và trả về văn bản đó.
 
 ### The three problems
 
-1. **One return type for two outcomes.** A finished run and a capped run both return `str`. The caller has no field to test. Any code that shows the result to the user shows the cap message as an answer.
-2. **The cap is a dead end.** The partial state is in `self.history`, but nothing tells the caller that the run can continue. The harness contract treats the budget as a yield: it emits `budget.warn`, fires `on_budget_exceeded`, and returns a pull request with a reason. The caller inspects the state and calls `resume`.
-3. **A reply with no action and no finish is a crash.** The code reads `reply["action"]` for every non-finish reply. A model that answers in prose without a tool call raises a `KeyError`. The lesson lists a turn with no tool calls as a normal stop condition.
+1. **Một kiểu trả về cho hai kết quả.** Một lần chạy hoàn tất và một lần chạy chạm mức trần đều trả về `str`. Bên gọi không có trường để kiểm tra. Bất kỳ mã nào hiển thị kết quả cho người dùng hiển thị thông điệp mức trần như một câu trả lời.
+2. **Mức trần là một ngõ cụt.** Trạng thái một phần nằm trong `self.history`, nhưng không có gì cho bên gọi biết lần chạy có thể tiếp tục. Hợp đồng harness coi ngân sách là một lần nhường quyền: nó phát ra `budget.warn`, kích hoạt `on_budget_exceeded`, và trả về một yêu cầu pull có lý do. Bên gọi kiểm tra trạng thái và gọi `resume`.
+3. **Một câu trả lời không có hành động và không có finish là một sự cố.** Mã đọc `reply["action"]` cho mọi câu trả lời không phải finish. Một mô hình trả lời bằng văn xuôi mà không có lời gọi công cụ phát sinh một `KeyError`. Bài học liệt kê một lượt không có lời gọi công cụ là một điều kiện dừng bình thường.
 
 ### The change
 
-Return a small result object with the final text, a reason such as `finished`, `budget` or `no_tool_call`, and the turn count. Keep the history on the object so that the caller can resume or hand off. Treat a reply without an action as a stop, not as an error. Keep the budget as a cap on this call, and let the caller decide what to do after it.
+Trả về một đối tượng kết quả nhỏ với văn bản cuối cùng, một lý do như `finished`, `budget` hoặc `no_tool_call`, và số lượt. Giữ lịch sử trên đối tượng để bên gọi có thể tiếp tục hoặc bàn giao. Coi một câu trả lời không có hành động là một lần dừng, không phải một lỗi. Giữ ngân sách làm một mức trần trên lời gọi này, và để bên gọi quyết định làm gì sau nó.
 
 ## Follow-ups
 
-- **Level 2:** Where is the observation formatter in this code? Expected: inside `tools.dispatch`, which returns an error string for an unknown tool, bad arguments, or an exception, so the model always gets a string back.
-- **Level 2:** A tool raises an exception. What does the model see on the next turn? Expected: an observation that starts with `error:` and carries the exception type and text, which lets it correct the call.
-- **Level 3:** How does the harness know which state to return to after a budget pause? Expected: it records the previous state before it pauses, resets the counters on resume, and re-enters executing or reflecting from that record.
-- **Level 3:** What property of the harness makes a saved trace replayable without a model? Expected: the state machine is deterministic, so the same event log re-enters the same state.
+- **Level 2:** Bộ định dạng quan sát nằm ở đâu trong mã này? Expected: bên trong `tools.dispatch`, trả về một chuỗi lỗi cho một công cụ không biết, các đối số sai, hoặc một ngoại lệ, nên mô hình luôn nhận lại một chuỗi.
+- **Level 2:** Một công cụ phát sinh một ngoại lệ. Mô hình thấy gì ở lượt tiếp theo? Expected: một quan sát bắt đầu bằng `error:` và mang kiểu cùng văn bản ngoại lệ, cho phép nó sửa lời gọi.
+- **Level 3:** Harness biết trở về trạng thái nào sau một lần tạm dừng ngân sách thế nào? Expected: nó ghi lại trạng thái trước đó trước khi tạm dừng, đặt lại các bộ đếm khi tiếp tục, và đi lại vào thực thi hoặc phản tư từ bản ghi đó.
+- **Level 3:** Thuộc tính nào của harness làm cho một trace đã lưu có thể phát lại mà không có mô hình? Expected: máy trạng thái có tính xác định, nên cùng log sự kiện đi lại vào cùng trạng thái.
 
 ## Wrong answers
 
-- "Return an empty string at the cap, and the caller will handle it." An empty string is still a string, and the caller still has no reason code to test.
-- "Raise an exception at the cap." The partial history is useful, and an exception forces the caller to restart from zero instead of resuming.
-- "Set the maximum turns high enough that the cap is never reached." The cap exists for the run that does not converge, and a high cap only makes that run longer.
+- "Trả về một chuỗi rỗng tại mức trần, và bên gọi sẽ xử lý nó." Một chuỗi rỗng vẫn là một chuỗi, và bên gọi vẫn không có mã lý do để kiểm tra.
+- "Phát sinh một ngoại lệ tại mức trần." Lịch sử một phần hữu ích, và một ngoại lệ buộc bên gọi bắt đầu lại từ không thay vì tiếp tục.
+- "Đặt số lượt tối đa đủ cao để không bao giờ chạm mức trần." Mức trần tồn tại cho lần chạy không hội tụ, và một mức trần cao chỉ làm lần chạy đó dài hơn.
 
 ## Taught in
 
-The [agent loop lesson](../../../phases/14-agent-engineering/01-the-agent-loop/) ships this loop, and the [harness loop contract](../../../phases/19-capstone-projects/20-agent-harness-loop-contract/) replaces the string with a pull point that the caller resumes.
+[Bài học vòng lặp agent](../../../phases/14-agent-engineering/01-the-agent-loop/) cung cấp vòng lặp này, và [hợp đồng vòng lặp harness](../../../phases/19-capstone-projects/20-agent-harness-loop-contract/) thay chuỗi bằng một điểm pull mà bên gọi tiếp tục.

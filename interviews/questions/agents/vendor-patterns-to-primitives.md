@@ -16,65 +16,65 @@ related: [agents/harness-or-a-smarter-model]
 updated: 2026-11-03
 ---
 
-A vendor deck lists its harness features: a loop that re-injects the original intent when the agent tries to stop early, a plan-execute-verify split, control-plane separation, signed tool-call passports, progressive compaction, hooks, skills with progressive disclosure, and sandboxed agents. Translate each one into the primitive it is, and say what the deck leaves out.
+Một bộ slide nhà cung cấp liệt kê các tính năng harness của họ: một vòng lặp chèn lại ý định gốc khi agent cố dừng sớm, một sự tách lập kế hoạch-thực thi-xác minh, tách mặt phẳng điều khiển, các hộ chiếu lời gọi công cụ đã ký, nén ngữ cảnh tăng tiến, hook, các skill có tiết lộ tăng tiến, và các agent trong sandbox. Chuyển mỗi thứ thành primitive mà nó là, và nói bộ slide bỏ sót gì.
 
 ## Short answer
 
-Every entry is a distributed-systems primitive with a new name. The re-inject loop is a trigger that re-enqueues the task with fresh context, plan-execute-verify is three workers with a queue between them, the passport is an authorization policy enforced by a pre-action worker, and compaction is a state-management worker over session persistence. Hooks are triggers around the invocation path, skills are a function registry whose metadata loads just in time, sandboxes are the compute plane, and the control-plane item is the control-plane and data-plane split that predates agents. The decks usually leave out queues, workers as the unit of deployment, trigger semantics, persistence as its own concern and authorization as a separate plane.
+Mỗi mục là một primitive hệ thống phân tán với một tên mới. Vòng lặp chèn lại là một trigger đưa nhiệm vụ lại vào hàng đợi với ngữ cảnh mới, lập kế hoạch-thực thi-xác minh là ba worker có một hàng đợi giữa chúng, hộ chiếu là một chính sách ủy quyền được một worker trước hành động thực thi, và nén ngữ cảnh là một worker quản lý trạng thái trên lưu giữ phiên. Các hook là các trigger quanh đường gọi, các skill là một registry hàm có metadata nạp đúng lúc, các sandbox là mặt phẳng tính toán, và mục mặt phẳng điều khiển là sự tách mặt phẳng điều khiển và mặt phẳng dữ liệu có trước các agent. Các bộ slide thường bỏ sót hàng đợi, worker là đơn vị triển khai, ngữ nghĩa trigger, lưu giữ là mối quan tâm riêng và ủy quyền là một mặt phẳng riêng.
 
 ## Full answer
 
 ### The eight primitives
 
-| Primitive | What it carries for an agent |
+| Primitive | Nó mang gì cho một agent |
 |---|---|
-| Function | A tool call, a rule check, a verification step, a model invocation |
-| Worker | The builder, the reviewer, the verifier, a protocol server |
-| Trigger | A loop tick, an HTTP request, a queue message, a cron, a file change, a hook |
-| Runtime | The boundary that decides what runs where, with which timeouts and resources |
-| HTTP or RPC | The wire between caller and worker, including the tool-call protocol and the model API |
-| Queue | The durable buffer with back-pressure, retry and idempotency: the task board, the feedback log, the review inbox |
-| Session persistence | The state file, checkpoints, key-value stores, the repository itself |
-| Authorization policy | Allowed and forbidden files, approval boundaries, capability lists |
+| Hàm | Một lời gọi công cụ, một phép kiểm tra quy tắc, một bước xác minh, một lời gọi mô hình |
+| Worker | Người xây dựng, người đánh giá, bộ xác minh, một server giao thức |
+| Trigger | Một nhịp vòng lặp, một yêu cầu HTTP, một thông điệp hàng đợi, một cron, một thay đổi file, một hook |
+| Runtime | Ranh giới quyết định thứ gì chạy ở đâu, với các timeout và tài nguyên nào |
+| HTTP hoặc RPC | Đường truyền giữa bên gọi và worker, bao gồm giao thức lời gọi công cụ và API mô hình |
+| Hàng đợi | Bộ đệm bền vững có back-pressure, thử lại và tính idempotent: bảng nhiệm vụ, log phản hồi, hộp thư đánh giá |
+| Lưu giữ phiên | File trạng thái, checkpoint, các kho khóa-giá trị, chính repository |
+| Chính sách ủy quyền | Các file được phép và bị cấm, các ranh giới phê duyệt, các danh sách khả năng |
 
 ### The translation
 
-| Deck entry | What it is |
+| Mục trong bộ slide | Nó là gì |
 |---|---|
-| Re-inject intent when the agent stops early | A trigger that re-enqueues the task with a clean context; persistence carries the goal forward |
-| Plan, execute, verify | Three workers, one per role, communicating through state and a queue between phases |
-| A control plane apart from the execution plane | The control-plane and data-plane split, decades old |
-| A passport that signs each tool call | An authorization policy enforced by a pre-action worker, with a signed audit queue |
-| Progressive compaction | A state-management worker that runs on a schedule over session persistence to keep it within a budget |
-| Hooks and middleware | Triggers plus functions wrapped around the runtime's invocation path |
-| Skills that disclose themselves step by step | A function registry whose metadata is loaded into context only when needed |
-| Sandboxed agents | The compute plane: a runtime with isolated filesystem, network and lifecycle |
+| Chèn lại ý định khi agent dừng sớm | Một trigger đưa nhiệm vụ lại vào hàng đợi với một ngữ cảnh sạch; lưu giữ mang mục tiêu về phía trước |
+| Lập kế hoạch, thực thi, xác minh | Ba worker, mỗi vai trò một worker, giao tiếp qua trạng thái và một hàng đợi giữa các giai đoạn |
+| Một mặt phẳng điều khiển tách khỏi mặt phẳng thực thi | Sự tách mặt phẳng điều khiển và mặt phẳng dữ liệu, đã có hàng thập kỷ |
+| Một hộ chiếu ký mỗi lời gọi công cụ | Một chính sách ủy quyền được một worker trước hành động thực thi, với một hàng đợi kiểm toán đã ký |
+| Nén ngữ cảnh tăng tiến | Một worker quản lý trạng thái chạy theo lịch trên lưu giữ phiên để giữ nó trong một ngân sách |
+| Hook và middleware | Các trigger cộng các hàm bọc quanh đường gọi của runtime |
+| Các skill tự tiết lộ từng bước | Một registry hàm có metadata được nạp vào ngữ cảnh chỉ khi cần |
+| Các agent trong sandbox | Mặt phẳng tính toán: một runtime với hệ thống file, mạng và vòng đời cô lập |
 
 ### How the surfaces map
 
-Instructions are policy plus function metadata. State is session persistence. Scope is an authorization policy per task. Feedback is an invocation log written into a queue. Verification is a deterministic function triggered on task close that fails closed. Review is a separate worker with read-only access to the builder's artifacts and write-only access to review reports. Handoff is a durable record emitted by a session-end trigger and read by the next session's startup trigger.
+Các chỉ dẫn là chính sách cộng metadata hàm. Trạng thái là lưu giữ phiên. Phạm vi là một chính sách ủy quyền theo nhiệm vụ. Phản hồi là một log lời gọi được viết vào một hàng đợi. Xác minh là một hàm xác định được kích hoạt khi đóng nhiệm vụ và fail-closed. Đánh giá là một worker riêng có quyền chỉ đọc các sản phẩm của người xây dựng và quyền chỉ ghi các báo cáo đánh giá. Bàn giao là một bản ghi bền vững được một trigger cuối phiên phát ra và được trigger khởi động phiên tiếp theo đọc.
 
 ### What the decks leave out
 
-The lesson reads the circulating writeups and finds the same gap: they describe the harness as an object you configure, not as a system you deploy. They rarely name queues, workers as a deployment unit, trigger semantics, session persistence as a separate concern, or an authorization policy as its own plane. The strongest line in that literature, that the harness is the primary security boundary, is authorization policy restated. When the system is built from the primitives, the surfaces fall out of it. When it is built without them, no amount of instruction-file polish replaces the missing queue.
+Bài học đọc các bài viết đang lưu hành và tìm cùng khoảng trống: chúng mô tả harness là một đối tượng bạn cấu hình, không là một hệ thống bạn triển khai. Chúng hiếm khi nêu hàng đợi, worker là một đơn vị triển khai, ngữ nghĩa trigger, lưu giữ phiên là một mối quan tâm riêng, hoặc một chính sách ủy quyền là mặt phẳng riêng. Dòng mạnh nhất trong tài liệu đó, rằng harness là ranh giới bảo mật chính, là chính sách ủy quyền được phát biểu lại. Khi hệ thống được dựng từ các primitive, các bề mặt xuất hiện từ nó. Khi hệ thống được dựng mà không có chúng, không lượng trau chuốt file chỉ dẫn nào thay thế hàng đợi bị thiếu.
 
 ### Why the translation matters
 
-Vocabulary changes every release cycle. The primitives do not. A team that translates each new pattern before adopting it can compare vendors on one table, spot a pattern that is two primitives wearing one name, and notice when a deck has no answer for persistence or authorization.
+Từ vựng thay đổi mỗi chu kỳ phát hành. Các primitive không thay đổi. Một nhóm chuyển mỗi mẫu mới trước khi áp dụng nó có thể so sánh các nhà cung cấp trên một bảng, phát hiện một mẫu là hai primitive mang một tên, và nhận thấy khi một bộ slide không có câu trả lời cho lưu giữ hoặc ủy quyền.
 
 ## Follow-ups
 
-- **Level 3:** Which primitive is most often missing from an agent product that otherwise looks complete? Expected: the queue, because without a durable buffer the board, the feedback log and the review inbox are chat messages that scroll away.
-- **Level 3:** The deck says its hooks are a security boundary. Test the claim. Expected: a hook is a trigger plus a function inside the runtime, and a security boundary is an authorization policy enforced outside the agent's reach, so ask where the policy lives and who can change it.
-- **Level 4:** Two vendors describe the same thing as a handoff and as a checkpoint. How do you tell? Expected: map both to persistence and triggers, and see whether the record is read by the next session's startup trigger, which makes it a handoff, or by the same session on resume, which makes it a checkpoint.
-- **Level 4:** What would make a ninth primitive legitimate? Expected: a capability that cannot be built from the eight, which is rare, so the first check is whether it is a shared-state flavor or a policy flavor you have not seen.
+- **Level 3:** Primitive nào thường thiếu nhất ở một sản phẩm agent trông hoàn chỉnh về mặt khác? Expected: hàng đợi, vì không có một bộ đệm bền vững bảng, log phản hồi và hộp thư đánh giá là các thông điệp trò chuyện cuộn mất.
+- **Level 3:** Bộ slide nói các hook của nó là một ranh giới bảo mật. Kiểm tra khẳng định. Expected: một hook là một trigger cộng một hàm bên trong runtime, và một ranh giới bảo mật là một chính sách ủy quyền được thực thi ngoài tầm với của agent, nên hỏi chính sách nằm ở đâu và ai có thể thay đổi nó.
+- **Level 4:** Hai nhà cung cấp mô tả cùng thứ là một bản bàn giao và một checkpoint. Bạn phân biệt thế nào? Expected: ánh xạ cả hai đến lưu giữ và trigger, và xem liệu bản ghi được trigger khởi động phiên tiếp theo đọc, khiến nó là một bản bàn giao, hay được cùng phiên đọc khi tiếp tục, khiến nó là một checkpoint.
+- **Level 4:** Điều gì sẽ làm một primitive thứ chín hợp lệ? Expected: một khả năng không thể dựng từ tám primitive, điều hiếm, nên phép kiểm tra đầu tiên là liệu nó có phải một dạng trạng thái dùng chung hoặc một dạng chính sách bạn chưa thấy hay không.
 
 ## Wrong answers
 
-- "These patterns are new because agents are new." Each one has a name in distributed systems, and the agent label changes the vocabulary and not the engineering.
-- "Pick the vendor with the most patterns." More names on a deck is not more primitives covered, and the question is which of the eight are missing.
-- "A good instruction file is the harness." Instructions are policy and function metadata, one of eight, and a file cannot replace a queue or a persistence layer.
+- "Các mẫu này mới vì các agent mới." Mỗi mẫu có một tên trong hệ thống phân tán, và nhãn agent thay đổi từ vựng chứ không phần kỹ thuật.
+- "Chọn nhà cung cấp có nhiều mẫu nhất." Nhiều tên hơn trên một bộ slide không phải nhiều primitive được bao phủ hơn, và câu hỏi là primitive nào trong tám primitive bị thiếu.
+- "Một file chỉ dẫn tốt là harness." Các chỉ dẫn là chính sách và metadata hàm, một trong tám, và một file không thể thay thế một hàng đợi hoặc một lớp lưu giữ.
 
 ## Taught in
 
-The [why capable models still fail lesson](../../../phases/14-agent-engineering/31-agent-workbench-why-models-fail/) gives the primitive table, the translation of circulating patterns and the gaps in the vendor writeups.
+[Bài học tại sao các mô hình có năng lực vẫn thất bại](../../../phases/14-agent-engineering/31-agent-workbench-why-models-fail/) đưa ra bảng primitive, việc chuyển các mẫu đang lưu hành và các khoảng trống trong các bài viết nhà cung cấp.

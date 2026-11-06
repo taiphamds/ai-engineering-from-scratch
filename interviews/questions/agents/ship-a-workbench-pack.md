@@ -16,11 +16,11 @@ related: [agents/seven-surfaces-one-symptom-each, agents/rules-the-workbench-can
 updated: 2026-11-03
 ---
 
-Take-home. Your team has the workbench surfaces as loose scripts, a shared document and some memory. Package them into one directory that a new repository can install with one command, and defend what you leave out. Bring the layout, the installer, the versioning rule and the uninstall rule. We grade the second install as much as the first.
+Bài làm tại nhà. Nhóm của bạn có các bề mặt workbench dưới dạng các script rời, một tài liệu chung và một ít ký ức. Đóng gói chúng vào một thư mục mà một repository mới có thể cài bằng một lệnh, và bảo vệ những gì bạn để ra ngoài. Mang bố cục, trình cài đặt, quy tắc phiên bản và quy tắc gỡ cài đặt. Chúng tôi chấm lần cài thứ hai ngang lần đầu.
 
 ## Short answer
 
-Ship a versioned directory with four parts: the docs that carry the rules and the rubric, the schemas that are the contract, the scripts that are the runtime, and a short installer. The installer refuses to install over an existing pack without a force flag, copies the pack, connects CI if a workflows directory exists, and prints the next steps. Running it twice gives the same result. Project tasks, vendor SDK calls and onboarding prose stay out, because the pack is the recipe and each install is a serving.
+Cung cấp một thư mục có phiên bản với bốn phần: các tài liệu mang các quy tắc và rubric, các schema là hợp đồng, các script là runtime, và một trình cài đặt ngắn. Trình cài đặt từ chối cài đè một gói hiện có nếu không có cờ force, sao chép gói, kết nối CI nếu một thư mục workflow tồn tại, và in các bước tiếp theo. Chạy nó hai lần cho cùng kết quả. Các nhiệm vụ dự án, các lời gọi SDK nhà cung cấp và văn xuôi nhập môn ở ngoài, vì gói là công thức và mỗi lần cài là một khẩu phần.
 
 ## Full answer
 
@@ -39,47 +39,47 @@ agent-workbench-pack/
 
 ### In and out
 
-In: the schemas, because they are the contract; the four scripts, because they are the runtime; the four docs, because they are the rules and the rubric.
+Bên trong: các schema, vì chúng là hợp đồng; bốn script, vì chúng là runtime; bốn tài liệu, vì chúng là các quy tắc và rubric.
 
-Out: project-specific tasks, which belong on the target repository's board; vendor SDK calls, because the pack is framework-agnostic; onboarding prose, because the pack lives next to the team's onboarding and not inside it.
+Bên ngoài: các nhiệm vụ đặc thù dự án, thuộc bảng của repository đích; các lời gọi SDK nhà cung cấp, vì gói độc lập với framework; văn xuôi nhập môn, vì gói nằm cạnh phần nhập môn của nhóm chứ không bên trong nó.
 
 ### The installer
 
-1. Refuse to install over an existing pack unless `--force` is passed.
-2. Copy the pack into the target repository.
-3. Connect CI if `.github/workflows/` exists.
-4. Print the next steps: fill the board, set the acceptance commands, run the init script.
+1. Từ chối cài đè một gói hiện có trừ khi `--force` được truyền.
+2. Sao chép gói vào repository đích.
+3. Kết nối CI nếu `.github/workflows/` tồn tại.
+4. In các bước tiếp theo: điền bảng, đặt các lệnh nghiệm thu, chạy script init.
 
-The installer also writes the pack version into the target repository, and emits symlinks so that every coding agent product reads the same root file. Forking the pack for one product is a failure mode.
+Trình cài đặt cũng viết phiên bản gói vào repository đích, và phát ra các symlink để mọi sản phẩm coding agent đọc cùng file gốc. Fork gói cho một sản phẩm là một dạng thất bại.
 
 ### Versioning
 
-`VERSION` is the contract. A schema change or a script change that needs a migration bumps the major. A docs-only change bumps the patch. The target's state file records which pack version it was initialized against, and a lint refuses to ship when the target's recorded version disagrees with the pack's. This is how package managers survive a decade of churn, and nothing about agents changes the rule.
+`VERSION` là hợp đồng. Một thay đổi schema hoặc script cần một migration tăng phiên bản major. Một thay đổi chỉ có tài liệu tăng patch. File trạng thái của đích ghi lại phiên bản gói mà nó được khởi tạo theo, và một lint từ chối phát hành khi phiên bản được ghi của đích không thống nhất với của gói. Đây là cách các trình quản lý gói sống sót qua một thập kỷ biến động, và không có gì về các agent thay đổi quy tắc.
 
 ### Uninstall
 
-The uninstaller removes the schemas, the scripts, the docs and the root file, and refuses to run when the state files have uncommitted changes. It never deletes the state file, the board or the outputs directory. State belongs to the user. The pack does not own it.
+Trình gỡ cài đặt loại bỏ các schema, các script, các tài liệu và file gốc, và từ chối chạy khi các file trạng thái có thay đổi chưa commit. Nó không bao giờ xóa file trạng thái, bảng hoặc thư mục đầu ra. Trạng thái thuộc về người dùng. Gói không sở hữu nó.
 
 ### What we grade
 
-- The second run of the installer changes nothing.
-- The lint fails when the pack drifts from `VERSION`.
-- The uninstaller refuses on non-trivial state and leaves the user's files in place.
-- The written defense of each cut, one paragraph each.
+- Lần chạy thứ hai của trình cài đặt không thay đổi gì.
+- Lint thất bại khi gói lệch khỏi `VERSION`.
+- Trình gỡ cài đặt từ chối trên trạng thái không tầm thường và để các file của người dùng tại chỗ.
+- Phần bảo vệ được viết cho mỗi mục cắt bỏ, mỗi mục một đoạn văn.
 
 ## Follow-ups
 
-- **Level 3:** Which one optional fifth document would you promote into the pack, and why? Expected: a reasoned choice with the cut defended, for example a migration runbook, with the argument that it is needed on every major bump and not on one project.
-- **Level 3:** What counts as non-trivial state for the uninstaller? Expected: any uncommitted change in the state file, the board or the outputs, because those are the user's work and not the pack's.
-- **Level 4:** How do you migrate a hand-rolled workbench to the pack with the least downtime? Expected: install beside it, map each existing file to a schema, run the gate on both for one task, then switch the router pointer and archive the old files.
-- **Level 4:** What breaks if two repositories pin different major versions of the pack? Expected: nothing, as long as each records its version and the lint checks each against its own pack, while a shared CI job must run the matching version per repository.
+- **Level 3:** Một tài liệu thứ năm tùy chọn nào bạn sẽ nâng vào gói, và tại sao? Expected: một lựa chọn có lý lẽ với mục cắt bỏ được bảo vệ, ví dụ một runbook migration, với lập luận rằng nó cần trên mỗi lần tăng major và không phải trên một dự án.
+- **Level 3:** Điều gì được tính là trạng thái không tầm thường cho trình gỡ cài đặt? Expected: bất kỳ thay đổi chưa commit nào trong file trạng thái, bảng hoặc các đầu ra, vì đó là công việc của người dùng và không của gói.
+- **Level 4:** Bạn di chuyển một workbench tự dựng sang gói với ít thời gian ngừng nhất thế nào? Expected: cài cạnh nó, ánh xạ mỗi file hiện có đến một schema, chạy gate trên cả hai cho một nhiệm vụ, rồi đổi con trỏ router và lưu trữ các file cũ.
+- **Level 4:** Điều gì hỏng nếu hai repository ghim các phiên bản major khác nhau của gói? Expected: không gì, miễn mỗi repo ghi phiên bản của nó và lint kiểm tra mỗi repo với gói riêng, trong khi một job CI chung phải chạy phiên bản tương ứng theo repository.
 
 ## Wrong answers
 
-- "Put the team's current backlog into the pack so that new repos start with real tasks." Tasks belong to the target repository, and a pack that carries them is wrong for every repository but one.
-- "Call the vendor SDK from the scripts to save time." The pack must survive a framework change, and an SDK call ties every install to one runtime.
-- "Make the installer overwrite by default so that updates are easy." An overwrite without a flag destroys local changes, and the force flag is what makes an update a decision.
+- "Đặt backlog hiện tại của nhóm vào gói để các repo mới bắt đầu với các nhiệm vụ thật." Các nhiệm vụ thuộc repository đích, và một gói mang chúng là sai cho mọi repository trừ một.
+- "Gọi SDK nhà cung cấp từ các script để tiết kiệm thời gian." Gói phải sống sót qua một thay đổi framework, và một lời gọi SDK gắn mọi lần cài với một runtime.
+- "Làm cho trình cài đặt mặc định ghi đè để cập nhật dễ dàng." Một lần ghi đè không có cờ phá hủy các thay đổi cục bộ, và cờ force là thứ làm một cập nhật thành một quyết định.
 
 ## Taught in
 
-The [workbench capstone](../../../phases/14-agent-engineering/42-agent-workbench-capstone/) assembles the pack, the installer and the version rule.
+[Bài tổng kết workbench](../../../phases/14-agent-engineering/42-agent-workbench-capstone/) lắp ráp gói, trình cài đặt và quy tắc phiên bản.

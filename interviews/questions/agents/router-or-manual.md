@@ -16,54 +16,54 @@ related: [agents/seven-surfaces-one-symptom-each]
 updated: 2026-11-03
 ---
 
-A repo has a 3000-line instructions file for its coding agent. The agent follows about half of it. One engineer wants to cut it to a page. Another says that every line came from an incident and nothing can go. How do you settle it?
+Một repo có một file chỉ dẫn 3000 dòng cho coding agent của nó. Agent tuân theo khoảng một nửa. Một kỹ sư muốn cắt nó xuống một trang. Người khác nói mọi dòng đến từ một sự cố và không có gì có thể bỏ. Bạn giải quyết thế nào?
 
 ## Short answer
 
-Both are right about something, and the answer is a layered file set, not a shorter file. Keep a root router under about 50 lines that holds only pointers and the few hard rules. Move the rules into a rules file with one screen per category, and move the depth into topic documents that the agent loads only when a task touches them. Every rule stays, and the agent reaches any rule in at most two hops.
+Cả hai đều đúng về một điều gì đó, và câu trả lời là một tập file phân lớp, không phải một file ngắn hơn. Giữ một router gốc dưới khoảng 50 dòng chỉ giữ các con trỏ và vài quy tắc cứng. Chuyển các quy tắc vào một file quy tắc với một màn hình cho mỗi danh mục, và chuyển phần chuyên sâu vào các tài liệu chủ đề mà agent chỉ nạp khi một nhiệm vụ chạm đến chúng. Mọi quy tắc ở lại, và agent tiếp cận bất kỳ quy tắc nào trong tối đa hai bước nhảy.
 
 ## Full answer
 
 ### Why the long file fails
 
-The model loads the file, reads the first screen, runs out of attention budget, and acts on a fraction of what it was told. A long manual fails for the same reason a forty-page onboarding document fails. The reader skims it once and never returns to the part that mattered. Long manuals get ignored. Short routers get followed.
+Mô hình nạp file, đọc màn hình đầu tiên, hết ngân sách chú ý, và hành động theo một phần của những gì nó được bảo. Một cẩm nang dài thất bại vì cùng lý do một tài liệu nhập môn bốn mươi trang thất bại. Người đọc lướt nó một lần và không bao giờ trở lại phần có ý nghĩa. Các cẩm nang dài bị phớt lờ. Các router ngắn được tuân theo.
 
 ### The three tiers
 
-| Tier | Lives in | Read when | Size |
+| Tầng | Nằm trong | Đọc khi | Kích thước |
 |---|---|---|---|
-| Router | the root instructions file | Every session | Under about 50 lines |
-| Rules | `docs/agent-rules.md` | Every session, at startup | One screen per category |
-| Topic docs | `docs/<topic>.md` | Only when the task touches that topic | As deep as needed |
+| Router | file chỉ dẫn gốc | Mọi phiên | Dưới khoảng 50 dòng |
+| Quy tắc | `docs/agent-rules.md` | Mọi phiên, khi khởi động | Một màn hình cho mỗi danh mục |
+| Tài liệu chủ đề | `docs/<topic>.md` | Chỉ khi nhiệm vụ chạm đến chủ đề đó | Sâu đến mức cần thiết |
 
-The router points at the state file, the task board, the rules and the verification command. It links every topic document by path, not by description.
+Router trỏ đến file trạng thái, bảng nhiệm vụ, các quy tắc và lệnh xác minh. Nó liên kết mọi tài liệu chủ đề theo đường dẫn, không theo mô tả.
 
 ### Two tests that keep it honest
 
-- **Reachability.** The agent reaches any rule in at most two hops from the router. A pointer that no longer resolves is worse than a missing rule, so a broken link in the router is itself a startup violation.
-- **Freshness.** The router is short enough that a reviewer reads it again on every pull request. That is the only thing that stops it from growing back into the manual.
+- **Khả năng tiếp cận.** Agent tiếp cận bất kỳ quy tắc nào trong tối đa hai bước nhảy từ router. Một con trỏ không còn phân giải được tệ hơn một quy tắc bị thiếu, nên một liên kết hỏng trong router tự nó là một vi phạm khởi động.
+- **Độ mới.** Router đủ ngắn để một người đánh giá đọc lại nó trên mọi pull request. Đó là thứ duy nhất ngăn nó phát triển trở lại thành cẩm nang.
 
 ### What to refuse while you trim
 
-The lesson lists anti-patterns that look like coverage. Conflicting instructions silently drop the agent from asking to guessing; one measurement put the resolve rate at 48.8 percent with clear instructions and 28 percent with conflicting ones. A style rule with no lint command lets the agent invent compliance, so pair every style rule with its command. Lead with commands and end with style. Write for the agent, not for a human reader, because terseness saves context.
+Bài học liệt kê các anti-pattern trông như độ bao phủ. Các chỉ dẫn xung đột âm thầm chuyển agent từ hỏi sang đoán; một phép đo đặt tỷ lệ giải quyết tại 48.8 phần trăm với các chỉ dẫn rõ ràng và 28 phần trăm với các chỉ dẫn xung đột. Một quy tắc phong cách không có lệnh lint cho phép agent bịa ra sự tuân thủ, nên ghép mọi quy tắc phong cách với lệnh của nó. Bắt đầu bằng các lệnh và kết thúc bằng phong cách. Viết cho agent, không cho một người đọc, vì sự ngắn gọn tiết kiệm ngữ cảnh.
 
 ### Nested files
 
-Large repos keep one router per subcomponent. Tools walk from the working file to the root and concatenate every router they find, so a subdirectory file extends the root file. One large repository in the lesson carries 88 of them. Measurements in the lesson place the best files at a quality jump equal to a model upgrade, and the worst files below no file at all.
+Các repo lớn giữ một router cho mỗi thành phần con. Các công cụ đi từ file làm việc đến gốc và nối mọi router chúng tìm thấy, nên một file thư mục con mở rộng file gốc. Một repository lớn trong bài học mang 88 file như vậy. Các phép đo trong bài học đặt các file tốt nhất tại một bước nhảy chất lượng bằng một lần nâng cấp mô hình, và các file tệ nhất dưới mức hoàn toàn không có file.
 
 ## Follow-ups
 
-- **Level 2:** The team keeps a rule in the router because it is important. What is the test for whether it belongs there? Expected: the router holds pointers and the few hard rules that apply to every session, and anything that applies to one kind of task goes in a topic document.
-- **Level 2:** How do you keep one source of truth when the team uses several coding agents? Expected: one root file and symlinks with the names each tool expects, so that every tool reads the same text.
-- **Level 3:** What does a lint for the workbench check? Expected: the router is under the line budget, every path it references exists, and no two rules conflict.
-- **Level 3:** Why does the lesson rank a dead link below a rule that was never written? Expected: the agent trusts the router, follows the pointer, finds nothing, and proceeds as if the rule did not exist, while a missing rule at least leaves no false promise.
+- **Level 2:** Nhóm giữ một quy tắc trong router vì nó quan trọng. Phép kiểm tra cho việc nó có thuộc về đó hay không là gì? Expected: router giữ các con trỏ và vài quy tắc cứng áp dụng cho mọi phiên, và bất kỳ thứ gì áp dụng cho một loại nhiệm vụ đi vào một tài liệu chủ đề.
+- **Level 2:** Bạn giữ một nguồn sự thật thế nào khi nhóm dùng một số coding agent? Expected: một file gốc và các symlink với các tên mà mỗi công cụ kỳ vọng, để mọi công cụ đọc cùng văn bản.
+- **Level 3:** Một lint cho workbench kiểm tra gì? Expected: router dưới ngân sách dòng, mọi đường dẫn nó tham chiếu tồn tại, và không có hai quy tắc xung đột.
+- **Level 3:** Tại sao bài học xếp một liên kết chết dưới một quy tắc chưa bao giờ được viết? Expected: agent tin router, đi theo con trỏ, không tìm thấy gì, và tiếp tục như thể quy tắc không tồn tại, trong khi một quy tắc bị thiếu ít nhất không để lại lời hứa sai.
 
 ## Wrong answers
 
-- "Cut the file to one page and delete the rest." The rules came from incidents, and deleting them repeats the incidents, so move them to tiers instead.
-- "Keep the long file, and tell the agent to read all of it." The model has an attention budget, and an instruction to read everything does not change how much it acts on.
-- "Put the file in the system prompt so that it is always in context." Being in context is not the problem; acting on it is, and a short router with pointers gets followed where a long block does not.
+- "Cắt file xuống một trang và xóa phần còn lại." Các quy tắc đến từ các sự cố, và xóa chúng lặp lại các sự cố, nên chuyển chúng sang các tầng.
+- "Giữ file dài, và bảo agent đọc toàn bộ." Mô hình có một ngân sách chú ý, và một chỉ dẫn đọc mọi thứ không thay đổi lượng nó hành động theo.
+- "Đặt file trong system prompt để nó luôn trong ngữ cảnh." Nằm trong ngữ cảnh không phải vấn đề; hành động theo nó mới là vấn đề, và một router ngắn có các con trỏ được tuân theo ở nơi một khối dài không được.
 
 ## Taught in
 
-The [minimal workbench lesson](../../../phases/14-agent-engineering/32-minimal-agent-workbench/) makes the router one of three files, and the [executable constraints lesson](../../../phases/14-agent-engineering/33-instructions-as-executable-constraints/) gives the tiers and the two tests.
+[Bài học workbench tối thiểu](../../../phases/14-agent-engineering/32-minimal-agent-workbench/) làm router thành một trong ba file, và [bài học các ràng buộc thực thi được](../../../phases/14-agent-engineering/33-instructions-as-executable-constraints/) đưa ra các tầng và hai phép kiểm tra.

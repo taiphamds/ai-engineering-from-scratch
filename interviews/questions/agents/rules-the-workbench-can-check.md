@@ -16,55 +16,55 @@ related: [agents/router-or-manual]
 updated: 2026-11-03
 ---
 
-An instructions file tells the agent to be careful, to test thoroughly, and to ask if it is unsure. Three days later the agent ships a change with no tests, writes into a directory it should not touch, and never asks a question. Redesign these instructions so that a runtime can enforce them and a reviewer can score them.
+Một file chỉ dẫn bảo agent cẩn thận, kiểm thử kỹ lưỡng, và hỏi nếu không chắc. Ba ngày sau agent phát hành một thay đổi không có kiểm thử, ghi vào một thư mục nó không nên chạm đến, và không bao giờ đặt một câu hỏi. Thiết kế lại các chỉ dẫn này để một runtime có thể thực thi ràng buộc và một người đánh giá có thể chấm chúng.
 
 ## Short answer
 
-Rewrite each wish as a rule with a slug, a category, a one-line description and a named check function. Five categories cover most rules: startup, forbidden, definition of done, uncertainty and approval. Give every rule a severity of block, warn or info, so that the runtime refuses only on block. Keep the rules in one markdown file with one rule per heading, so that review can see every change.
+Viết lại mỗi mong muốn thành một quy tắc với một slug, một danh mục, một mô tả một dòng và một hàm kiểm tra có tên. Năm danh mục bao phủ phần lớn quy tắc: khởi động, bị cấm, định nghĩa hoàn tất, sự không chắc chắn và phê duyệt. Cho mọi quy tắc một mức độ chặn, cảnh báo hoặc thông tin, để runtime chỉ từ chối ở mức chặn. Giữ các quy tắc trong một file markdown với một quy tắc cho mỗi tiêu đề, để việc đánh giá có thể thấy mọi thay đổi.
 
 ## Full answer
 
 ### From wishes to rules
 
-| Wish | Category | Rule | Check |
+| Mong muốn | Danh mục | Quy tắc | Phép kiểm tra |
 |---|---|---|---|
-| Be careful | Forbidden | Never edit the release script or production config | A diff check against forbidden globs |
-| Test thoroughly | Definition of done | The acceptance command exits zero, and the feedback log holds the record | A read of the feedback records |
-| Ask if unsure | Uncertainty | Open a question note instead of guessing when an assumption is not backed by a file | A check that a question note exists when the state file lists an assumption with no source |
-| Be careful | Approval | Any new dependency or any production write needs a human sign-off | A check that the approval record exists before the action |
-| Be careful | Startup | The state file exists and is fresh before work begins | A file check at session start |
+| Cẩn thận | Bị cấm | Không bao giờ chỉnh sửa script phát hành hoặc cấu hình production | Một phép kiểm tra diff đối chiếu với các glob bị cấm |
+| Kiểm thử kỹ lưỡng | Định nghĩa hoàn tất | Lệnh nghiệm thu thoát với mã không, và log phản hồi giữ bản ghi | Một lần đọc các bản ghi phản hồi |
+| Hỏi nếu không chắc | Sự không chắc chắn | Mở một ghi chú câu hỏi thay vì đoán khi một giả định không được một file hỗ trợ | Một phép kiểm tra rằng một ghi chú câu hỏi tồn tại khi file trạng thái liệt kê một giả định không có nguồn |
+| Cẩn thận | Phê duyệt | Bất kỳ dependency mới hoặc lần ghi production nào cần một phê duyệt của con người | Một phép kiểm tra rằng bản ghi phê duyệt tồn tại trước hành động |
+| Cẩn thận | Khởi động | File trạng thái tồn tại và còn mới trước khi công việc bắt đầu | Một phép kiểm tra file lúc bắt đầu phiên |
 
-A rule that does not fit one of the five categories usually wants to be two rules. Force the split.
+Một quy tắc không khớp một trong năm danh mục thường muốn là hai quy tắc. Buộc sự tách đó.
 
 ### Severity at write time
 
-Each rule carries `block`, `warn` or `info`. The checker reports all three. The runtime refuses only on block. Tagging at write time forces the calibration up front, because teams that start with every rule as a hard rule later weaken them under deadline pressure without a record. An override of a block rule goes into a signed audit log through the verification gate.
+Mỗi quy tắc mang `block`, `warn` hoặc `info`. Bộ kiểm tra báo cáo cả ba. Runtime chỉ từ chối ở mức chặn. Gắn nhãn tại thời điểm viết buộc việc hiệu chỉnh ngay từ đầu, vì các nhóm bắt đầu với mọi quy tắc là một quy tắc cứng sau đó làm yếu chúng dưới áp lực thời hạn mà không có bản ghi. Một lần ghi đè quy tắc chặn đi vào một log kiểm toán đã ký qua gate xác minh.
 
 ### Expiry as a forcing function
 
-Every rule carries an expiry date, 90 days from authoring by default. The checker warns when a rule has had zero violations for 60 days in a row. At the next review the team keeps it with a reason, lowers it to info, or deletes it. One large review deployment in the lesson, with 131,246 review runs across 5,169 repositories in 30 days, found that rule sets with explicit expiry stayed under 30 rules per repository, while sets without expiry grew past 80 rules that mostly never fired.
+Mọi quy tắc mang một ngày hết hạn, mặc định 90 ngày từ khi soạn. Bộ kiểm tra cảnh báo khi một quy tắc có không vi phạm trong 60 ngày liên tiếp. Tại lần đánh giá tiếp theo nhóm giữ nó với một lý do, hạ nó xuống thông tin, hoặc xóa nó. Một triển khai đánh giá lớn trong bài học, với 131,246 lần chạy đánh giá trên 5,169 repository trong 30 ngày, thấy rằng các tập quy tắc có hết hạn rõ ràng ở dưới 30 quy tắc mỗi repository, trong khi các tập không có hết hạn tăng vượt 80 quy tắc mà phần lớn không bao giờ kích hoạt.
 
 ### Source and cache
 
-The markdown file is the authored source. A JSON lock file is the cache that the checker reads on the hot path, regenerated by a pre-commit hook. The markdown diff is reviewable, and the parse stays out of every turn.
+File markdown là nguồn được soạn. Một file khóa JSON là cache mà bộ kiểm tra đọc trên đường xử lý thường xuyên, được tạo lại bởi một pre-commit hook. Diff markdown có thể đánh giá, và việc phân tích nằm ngoài mỗi lượt.
 
 ### Rules and runtime guardrails
 
-Framework guardrails enforce rules during a turn. The rule file is the human-readable contract that those guardrails implement, and the checker proves in CI that the runtime did the right thing. You need both.
+Các guardrail framework thực thi các quy tắc trong một lượt. File quy tắc là hợp đồng con người đọc được mà các guardrail đó triển khai, và bộ kiểm tra chứng minh trong CI rằng runtime đã làm đúng. Bạn cần cả hai.
 
 ## Follow-ups
 
-- **Level 2:** Why delete a stale rule instead of commenting it out? Expected: the workbench is the source of truth, and a commented rule is a rule the agent might still read while the checker ignores it.
-- **Level 3:** A rule says to follow a published style guide. Why does it fail the design? Expected: it has no enforcement command, so the agent can invent compliance, and the fix is to pair it with the exact lint command.
-- **Level 3:** Where does the uncertainty check get its signal? Expected: from the state file, which lists assumptions, and from the question notes, so an assumption with no source and no note is a violation.
-- **Level 4:** How does the rule set stay portable across three agent products? Expected: the file is markdown plus function names, so each runtime registers the same checks as its own guardrails or interrupts while the file stays the contract.
+- **Level 2:** Tại sao xóa một quy tắc cũ thay vì comment nó đi? Expected: workbench là nguồn sự thật, và một quy tắc được comment là một quy tắc agent vẫn có thể đọc trong khi bộ kiểm tra bỏ qua nó.
+- **Level 3:** Một quy tắc nói tuân theo một hướng dẫn phong cách đã xuất bản. Tại sao nó trượt thiết kế? Expected: nó không có lệnh thực thi ràng buộc, nên agent có thể bịa ra sự tuân thủ, và cách sửa là ghép nó với lệnh lint chính xác.
+- **Level 3:** Phép kiểm tra sự không chắc chắn lấy tín hiệu từ đâu? Expected: từ file trạng thái, liệt kê các giả định, và từ các ghi chú câu hỏi, nên một giả định không có nguồn và không có ghi chú là một vi phạm.
+- **Level 4:** Tập quy tắc giữ tính di chuyển được qua ba sản phẩm agent thế nào? Expected: file là markdown cộng các tên hàm, nên mỗi runtime đăng ký cùng các phép kiểm tra làm các guardrail hoặc ngắt riêng của nó trong khi file vẫn là hợp đồng.
 
 ## Wrong answers
 
-- "Make every rule a hard block so that the agent takes them seriously." Teams quietly weaken blocks under deadline pressure, and a rule set where everything blocks ends with nothing enforced.
-- "Keep the rules in the prompt, where the model reads them." The model reads them and still cannot check them, while a named check function gives the runtime and the reviewer the same verdict.
-- "Rules are permanent because they came from incidents." A rule that never fires still costs attention, so expiry forces a review that keeps, lowers, or deletes it with a reason.
+- "Làm mọi quy tắc thành một chặn cứng để agent coi chúng nghiêm túc." Các nhóm âm thầm làm yếu các chặn dưới áp lực thời hạn, và một tập quy tắc nơi mọi thứ chặn kết thúc với không có gì được thực thi.
+- "Giữ các quy tắc trong prompt, nơi mô hình đọc chúng." Mô hình đọc chúng và vẫn không thể kiểm tra chúng, trong khi một hàm kiểm tra có tên cho runtime và người đánh giá cùng một kết luận.
+- "Các quy tắc là vĩnh viễn vì chúng đến từ các sự cố." Một quy tắc không bao giờ kích hoạt vẫn tốn sự chú ý, nên hết hạn buộc một lần đánh giá giữ, hạ, hoặc xóa nó với một lý do.
 
 ## Taught in
 
-The [executable constraints lesson](../../../phases/14-agent-engineering/33-instructions-as-executable-constraints/) parses the rule file into checks and scores a run against it.
+[Bài học các ràng buộc thực thi được](../../../phases/14-agent-engineering/33-instructions-as-executable-constraints/) phân tích file quy tắc thành các phép kiểm tra và chấm một lần chạy đối chiếu với nó.

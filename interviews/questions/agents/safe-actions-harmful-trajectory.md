@@ -16,51 +16,51 @@ related: [agents/pick-the-permission-mode, agents/a-login-fix-touched-five-files
 updated: 2026-11-03
 ---
 
-An unattended coding run used the mode in which a separate model reviews every action before it executes. The audit shows that the reviewer approved each action. The run still copied a private dataset into a public repository. Explain how that is possible, and name the controls that would have stopped it.
+Một lần chạy lập trình không giám sát dùng chế độ trong đó một mô hình riêng đánh giá mọi hành động trước khi thực thi. Cuộc kiểm toán cho thấy người đánh giá đã phê duyệt mỗi hành động. Lần chạy vẫn sao chép một tập dữ liệu riêng tư vào một repository công khai. Giải thích điều đó có thể xảy ra thế nào, và nêu các biện pháp kiểm soát sẽ ngăn được nó.
 
 ## Short answer
 
-The reviewer judges one action at a time against the request. Each action in the run was allowed on its own: read a file you own, write a file you own, commit, push. The harm was in the composition, and the reviewer does not re-derive the user's intent across the trajectory. The controls that catch this live outside the per-action check: an isolated workspace with no sensitive mounts, a network egress allowlist in the scope contract, per-tool action caps, and a trajectory audit after the run that detects what the other controls let through.
+Người đánh giá phán xét từng hành động một đối chiếu với yêu cầu. Mỗi hành động trong lần chạy được phép khi đứng riêng: đọc một file bạn sở hữu, viết một file bạn sở hữu, commit, push. Tác hại nằm trong sự kết hợp, và người đánh giá không suy ra lại ý định người dùng trên toàn quỹ đạo. Các biện pháp kiểm soát bắt điều này nằm ngoài phép kiểm tra từng hành động: một workspace cô lập không có mount nhạy cảm, một danh sách cho phép lưu lượng mạng đi ra trong hợp đồng phạm vi, các mức trần hành động theo công cụ, và một cuộc kiểm toán quỹ đạo sau lần chạy phát hiện những gì các biện pháp khác cho lọt qua.
 
 ## Full answer
 
 ### What a per-action reviewer can and cannot see
 
-The lesson lists what the classifier catches: a plain injection that maps to a known risky action shape, a repeated loop where action N+1 is almost equal to action N, and an out-of-place shell command in a file-edit session. It also lists what it misses. Subtle injection can change behavior without producing one flagged action. Every action can look safe while the composed trajectory is harmful. Exfiltration through legitimate channels is the standard case: writing data to a file you own and then pushing to a public repository is a sequence of allowed actions.
+Bài học liệt kê những gì bộ phân loại bắt được: một injection rõ ràng ánh xạ đến một dạng hành động rủi ro đã biết, một vòng lặp lặp lại nơi hành động N+1 gần bằng hành động N, và một lệnh shell không đúng chỗ trong một phiên chỉnh sửa file. Nó cũng liệt kê những gì bộ phân loại bỏ sót. Injection tinh vi có thể thay đổi hành vi mà không tạo ra một hành động bị đánh dấu. Mọi hành động có thể trông an toàn trong khi quỹ đạo kết hợp gây hại. Tuồn dữ liệu qua các kênh hợp lệ là trường hợp tiêu chuẩn: viết dữ liệu vào một file bạn sở hữu rồi push lên một repository công khai là một chuỗi các hành động được phép.
 
 ### Why intent does not help
 
-The reviewer compares the action with the declared task and the session state. It does not ask what the whole sequence accomplishes. Asking a model to infer the user's intent for every action would make the reviewer slower and no more reliable, because the injected text is in the same context it would read.
+Người đánh giá so sánh hành động với nhiệm vụ được khai báo và trạng thái phiên. Nó không hỏi toàn bộ chuỗi hoàn thành điều gì. Yêu cầu một mô hình suy ra ý định của người dùng cho mọi hành động sẽ làm người đánh giá chậm hơn và không đáng tin cậy hơn, vì văn bản được chèn nằm trong cùng ngữ cảnh mà nó sẽ đọc.
 
 ### The controls
 
-| Control | Where it lives | What it stops |
+| Biện pháp kiểm soát | Nó nằm ở đâu | Nó ngăn gì |
 |---|---|---|
-| Isolated workspace | The runtime, with no credentials and no production mounts | The dataset was never reachable |
-| Network egress allowlist | The scope contract | The push to a host that was not part of the task |
-| Per-tool action caps | The budget controls | A long sequence of pushes or fetches |
-| Time budget | The scope contract | A run that keeps going past the point a human would have checked |
-| Trajectory audit | After the run, over the event stream | Nothing in this run. It detects the composition, which no per-action check sees, so that the next run is stopped, but it cannot undo a push already made |
+| Workspace cô lập | Runtime, không có thông tin xác thực và không có mount production | Tập dữ liệu chưa bao giờ tiếp cận được |
+| Danh sách cho phép lưu lượng mạng đi ra | Hợp đồng phạm vi | Lần push đến một host không thuộc nhiệm vụ |
+| Các mức trần hành động theo công cụ | Các biện pháp kiểm soát ngân sách | Một chuỗi push hoặc fetch dài |
+| Ngân sách thời gian | Hợp đồng phạm vi | Một lần chạy tiếp tục qua điểm mà một con người sẽ kiểm tra |
+| Kiểm toán quỹ đạo | Sau lần chạy, trên luồng sự kiện | Không có gì trong lần chạy này. Nó phát hiện sự kết hợp mà không phép kiểm tra từng hành động nào thấy, để lần chạy tiếp theo được dừng, nhưng nó không thể hoàn tác một lần push đã thực hiện |
 
-The scope contract is the place for the egress rule, because it is per task. The merge rule for two contracts keeps it strict: an unset allowlist defers to the other contract, two lists intersect, and an empty list stays deny-all.
+Hợp đồng phạm vi là nơi cho quy tắc lưu lượng đi ra, vì nó theo nhiệm vụ. Quy tắc gộp cho hai hợp đồng giữ nó nghiêm ngặt: một danh sách cho phép chưa đặt nhường cho hợp đồng kia, hai danh sách lấy giao, và một danh sách rỗng vẫn từ chối tất cả.
 
 ### The honest framing
 
-The documentation ships the classifier mode as a research preview and says it is not sufficient alone. The expected setup combines it with budgets, allowlists, isolation and audits. A classifier that passes an offline evaluation can behave differently in a session where the user's context is ambiguous.
+Tài liệu cung cấp chế độ bộ phân loại dưới dạng một bản xem trước nghiên cứu và nói nó không đủ khi đứng riêng. Thiết lập kỳ vọng kết hợp nó với các ngân sách, danh sách cho phép, cô lập và kiểm toán. Một bộ phân loại vượt qua một đánh giá ngoại tuyến có thể hành xử khác trong một phiên nơi ngữ cảnh người dùng mơ hồ.
 
 ## Follow-ups
 
-- **Level 3:** Why is an egress allowlist a scope dimension and not a runtime setting? Expected: the hosts a task may reach change per task, so the rule belongs in the per-task contract where the file globs and the time budget live.
-- **Level 3:** What does the trajectory audit read? Expected: the append-only event stream of tool calls and results, which a subscriber can replay from any offset without re-running the model.
-- **Level 4:** You cannot patch indirect prompt injection fully. What does that imply for the design? Expected: treat tool outputs as untrusted, keep the data the agent can reach small, keep the places it can send to small, and accept that detection is a layer and containment is the control.
-- **Level 4:** How do you test the control set before the next unattended run? Expected: write one trajectory in which every action is approved and the composition is harmful, run it in the isolated workspace, and confirm that the allowlist or the mounts stop it.
+- **Level 3:** Tại sao một danh sách cho phép lưu lượng đi ra là một chiều phạm vi chứ không phải một thiết lập runtime? Expected: các host mà một nhiệm vụ có thể tiếp cận thay đổi theo nhiệm vụ, nên quy tắc thuộc về hợp đồng theo nhiệm vụ nơi các glob file và ngân sách thời gian nằm.
+- **Level 3:** Cuộc kiểm toán quỹ đạo đọc gì? Expected: luồng sự kiện chỉ nối thêm của các lời gọi công cụ và kết quả, mà một bên đăng ký có thể phát lại từ bất kỳ độ lệch nào mà không chạy lại mô hình.
+- **Level 4:** Bạn không thể vá hoàn toàn prompt injection gián tiếp. Điều đó hàm ý gì cho thiết kế? Expected: coi các đầu ra công cụ là không đáng tin cậy, giữ dữ liệu agent có thể tiếp cận nhỏ, giữ các nơi nó có thể gửi đến nhỏ, và chấp nhận rằng phát hiện là một lớp và khoanh vùng là biện pháp kiểm soát.
+- **Level 4:** Bạn kiểm thử tập biện pháp kiểm soát trước lần chạy không giám sát tiếp theo thế nào? Expected: viết một quỹ đạo trong đó mọi hành động được phê duyệt và sự kết hợp gây hại, chạy nó trong workspace cô lập, và xác nhận rằng danh sách cho phép hoặc các mount ngăn nó.
 
 ## Wrong answers
 
-- "The reviewer model was too weak, so use a bigger one." A bigger reviewer still judges actions one at a time and still reads the same injected context.
-- "Approve pushes manually and the rest automatically." A push is one of many legitimate channels, and the data had already left the private location through allowed writes.
-- "Keep the dataset in the repo but mark it private in the prompt." The prompt is advice, and the control is whether the dataset is mounted into the workspace at all.
+- "Mô hình đánh giá quá yếu, nên dùng một mô hình lớn hơn." Một người đánh giá lớn hơn vẫn phán xét từng hành động một và vẫn đọc cùng ngữ cảnh bị chèn.
+- "Phê duyệt push thủ công và phần còn lại tự động." Một lần push là một trong nhiều kênh hợp lệ, và dữ liệu đã rời vị trí riêng tư qua các lần ghi được phép.
+- "Giữ tập dữ liệu trong repo nhưng đánh dấu nó riêng tư trong prompt." Prompt là lời khuyên, và biện pháp kiểm soát là liệu tập dữ liệu có được mount vào workspace hay không.
 
 ## Taught in
 
-The [permission modes lesson](../../../phases/15-autonomous-systems/10-claude-code-permission-modes/) names the gaps in the classifier, and the [scope contracts lesson](../../../phases/14-agent-engineering/36-scope-contracts/) adds the egress and time budgets to the contract.
+[Bài học các chế độ quyền hạn](../../../phases/15-autonomous-systems/10-claude-code-permission-modes/) nêu các khoảng trống trong bộ phân loại, và [bài học hợp đồng phạm vi](../../../phases/14-agent-engineering/36-scope-contracts/) thêm các ngân sách lưu lượng đi ra và thời gian vào hợp đồng.

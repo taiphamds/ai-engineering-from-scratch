@@ -16,57 +16,57 @@ related: [agents/tests-passed-but-nothing-ran, agents/rules-the-workbench-can-ch
 updated: 2026-11-03
 ---
 
-A proposal replaces the script that decides whether an agent task is done with a model judge. The argument is that a judge reads the diff, understands intent, and catches more than a script can. Argue for or against, and say where a judge does belong.
+Một đề xuất thay script quyết định liệu một nhiệm vụ agent đã xong hay chưa bằng một mô hình giám khảo. Lập luận là một giám khảo đọc diff, hiểu ý định, và bắt được nhiều hơn một script có thể. Lập luận ủng hộ hoặc phản đối, và nói một giám khảo thực sự thuộc về đâu.
 
 ## Short answer
 
-Against. The gate answers one question, is this task complete, and that verdict must be the same for the same artifacts every time, in version control, in CI, with no way for the agent to argue with it. A model judge gives a different answer on a different day and can be talked into a pass. A judge belongs on the review side, where the question is qualitative: is the code readable, secure and on style.
+Phản đối. Gate trả lời một câu hỏi, nhiệm vụ này đã hoàn tất chưa, và kết luận đó phải giống nhau cho cùng các sản phẩm mỗi lần, trong quản lý phiên bản, trong CI, không có cách nào để agent tranh luận với nó. Một mô hình giám khảo cho một câu trả lời khác vào một ngày khác và có thể bị thuyết phục cho đạt. Một giám khảo thuộc phía đánh giá, nơi câu hỏi mang tính định tính: mã có dễ đọc, an toàn và đúng phong cách không.
 
 ## Full answer
 
 ### What the gate reads and decides
 
-| Check | Source | Severity |
+| Phép kiểm tra | Nguồn | Mức độ nghiêm trọng |
 |---|---|---|
-| Every acceptance command ran | feedback records | block |
-| Every acceptance command exited zero | feedback records | block |
-| No write to a forbidden path | scope report | block |
-| No off-scope write | scope report | block or warn |
-| Every block-severity rule passed | rule report | block |
-| No null exit code | feedback records | block |
-| Touched files match the allowed globs | both | warn |
+| Mọi lệnh nghiệm thu đã chạy | các bản ghi phản hồi | chặn |
+| Mọi lệnh nghiệm thu thoát với mã không | các bản ghi phản hồi | chặn |
+| Không có lần ghi vào một đường dẫn bị cấm | báo cáo phạm vi | chặn |
+| Không có lần ghi ngoài phạm vi | báo cáo phạm vi | chặn hoặc cảnh báo |
+| Mọi quy tắc mức độ chặn đạt | báo cáo quy tắc | chặn |
+| Không có mã thoát null | các bản ghi phản hồi | chặn |
+| Các file đã chạm khớp các glob được phép | cả hai | cảnh báo |
 
-A warn annotates the verdict. A block prevents `passed: true`. Every check is a comparison between artifacts the agent already produced. No judgement is needed, so no judge is needed.
+Một cảnh báo chú thích kết luận. Một chặn ngăn `passed: true`. Mọi phép kiểm tra là một phép so sánh giữa các sản phẩm agent đã tạo. Không cần phán xét, nên không cần giám khảo.
 
 ### Why determinism is the point
 
-Three failure shapes dominate agent work: "looks good", "tests passed" with no record, and acceptance read loosely enough to mean anything. A model judge is subject to all three. It reads the diff and decides it looks good. It reads the transcript and believes the claim. It interprets the acceptance line generously. The script cannot do any of that, because it never reads prose. The lesson pairs the two kinds of signal: verifiable checks such as tests, schema checks and exit codes answer whether the code solved the problem, and rubric judges answer whether it is readable and on style. Mixing them collapses the signal.
+Ba dạng thất bại chi phối công việc agent: "trông tốt", "các kiểm thử đạt" không có bản ghi, và nghiệm thu được đọc lỏng đến mức có thể nghĩa là bất kỳ thứ gì. Một mô hình giám khảo chịu cả ba. Nó đọc diff và quyết định trông tốt. Nó đọc bản ghi trò chuyện và tin khẳng định. Nó diễn giải dòng nghiệm thu rộng rãi. Script không thể làm bất kỳ điều nào trong số đó, vì nó không bao giờ đọc văn xuôi. Bài học ghép hai loại tín hiệu: các phép kiểm tra xác minh được như kiểm thử, phép kiểm tra schema và mã thoát trả lời liệu mã đã giải quyết vấn đề hay chưa, và các giám khảo rubric trả lời liệu nó dễ đọc và đúng phong cách hay không. Trộn chúng làm sụp đổ tín hiệu.
 
 ### Overrides are human and signed
 
-A block cannot be overridden by the agent. A human can override it, and the override writes a row with the finding code, a reason, the signing user and the current commit into an audit log that git tracks. The runtime refuses an override without a signature. That is the line between an override policy and an override theater.
+Một chặn không thể bị agent ghi đè. Một con người có thể ghi đè nó, và lần ghi đè viết một hàng với mã phát hiện, một lý do, người dùng ký và commit hiện tại vào một log kiểm toán mà git theo dõi. Runtime từ chối một lần ghi đè không có chữ ký. Đó là ranh giới giữa một chính sách ghi đè và một màn diễn ghi đè.
 
 ### One report, several layers
 
-The gate writes one `verification_report.json` per task under one path, and CI reads the same path. Around it sit other deterministic layers: a pre-commit hook, a CI status check, a pre-tool authorization hook and a pre-merge gate. A failure in one layer is caught by the next. The pre-commit hook does not depend on the agent following instructions, but it is a local check that `git commit --no-verify` skips, so the CI status check and the pre-merge gate hold the verdict.
+Gate viết một `verification_report.json` cho mỗi nhiệm vụ dưới một đường dẫn, và CI đọc cùng đường dẫn. Quanh nó có các lớp xác định khác: một pre-commit hook, một phép kiểm tra trạng thái CI, một hook ủy quyền trước công cụ và một gate trước gộp. Một thất bại trong một lớp được lớp tiếp theo bắt. Pre-commit hook không phụ thuộc vào việc agent tuân theo các chỉ dẫn, nhưng nó là một phép kiểm tra cục bộ mà `git commit --no-verify` bỏ qua, nên phép kiểm tra trạng thái CI và gate trước gộp giữ kết luận.
 
 ### Where the judge goes
 
-The reviewer, a separate pass with a different role, reads the diff and the reports after the gate passes. It scores readability, security and style. Its output goes to a human or into the handoff, never into the gate's verdict.
+Người đánh giá, một lượt riêng với một vai trò khác, đọc diff và các báo cáo sau khi gate đạt. Nó chấm khả năng đọc, bảo mật và phong cách. Đầu ra của nó đến một con người hoặc vào bản bàn giao, không bao giờ vào kết luận của gate.
 
 ## Follow-ups
 
-- **Level 3:** An agent deletes failing tests, and the gate stays green. Which check is missing? Expected: a coverage floor read from a coverage report, with a block when coverage falls below the floor or drops by more than one percentage point against the previous merge.
-- **Level 3:** When is promoting every warning to a block the right default? Expected: on release branches and in post-incident triage through a strict flag, and not globally, because strict everywhere erodes daily flow.
-- **Level 4:** What stops the override log from becoming a formality? Expected: the runtime refuses an unsigned entry, the log is in git, and review reads it, so every override has a name and a reason attached.
-- **Level 4:** The gate and the reviewer disagree. Who wins? Expected: the gate decides whether the task is done, and the reviewer decides whether it is good, so a gate failure blocks regardless of the review, and a review failure reopens the task without touching the verdict.
+- **Level 3:** Một agent xóa các kiểm thử thất bại, và gate vẫn xanh. Thiếu phép kiểm tra nào? Expected: một mức sàn độ bao phủ được đọc từ một báo cáo độ bao phủ, với một chặn khi độ bao phủ giảm dưới mức sàn hoặc giảm hơn một điểm phần trăm so với lần gộp trước.
+- **Level 3:** Khi nào nâng mọi cảnh báo thành một chặn là mặc định đúng? Expected: trên các nhánh phát hành và trong phân loại sau sự cố thông qua một cờ nghiêm ngặt, và không phải toàn cục, vì nghiêm ngặt ở mọi nơi làm suy yếu luồng hằng ngày.
+- **Level 4:** Điều gì ngăn log ghi đè trở thành một hình thức? Expected: runtime từ chối một mục không có chữ ký, log nằm trong git, và việc đánh giá đọc nó, nên mọi lần ghi đè có một tên và một lý do gắn kèm.
+- **Level 4:** Gate và người đánh giá không thống nhất. Ai thắng? Expected: gate quyết định liệu nhiệm vụ đã xong hay chưa, và người đánh giá quyết định liệu nó tốt hay không, nên một thất bại gate chặn bất kể đánh giá, và một thất bại đánh giá mở lại nhiệm vụ mà không chạm kết luận.
 
 ## Wrong answers
 
-- "A judge understands intent, so it catches more." The gate does not need intent, and a judge that infers intent can be convinced that an incomplete task is complete.
-- "Run the judge and the script, and pass if either passes." The judge then becomes the way around the script, so the deterministic checks must decide done and the judge must only annotate.
-- "Let the agent explain why a block does not apply." The agent is the party under test, and an override needs a human signature with a reason.
+- "Một giám khảo hiểu ý định, nên nó bắt nhiều hơn." Gate không cần ý định, và một giám khảo suy ra ý định có thể bị thuyết phục rằng một nhiệm vụ chưa hoàn tất là hoàn tất.
+- "Chạy giám khảo và script, và cho đạt nếu một trong hai đạt." Khi đó giám khảo trở thành cách vượt qua script, nên các phép kiểm tra xác định phải quyết định đã xong và giám khảo chỉ được chú thích.
+- "Để agent giải thích tại sao một chặn không áp dụng." Agent là bên đang được kiểm tra, và một lần ghi đè cần một chữ ký con người kèm lý do.
 
 ## Taught in
 
-The [verification gates lesson](../../../phases/14-agent-engineering/38-verification-gates/) builds the deterministic gate, the signed override log and the coverage floor.
+[Bài học các gate xác minh](../../../phases/14-agent-engineering/38-verification-gates/) dựng gate xác định, log ghi đè đã ký và mức sàn độ bao phủ.
