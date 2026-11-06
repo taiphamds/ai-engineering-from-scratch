@@ -1,6 +1,6 @@
 # FinOps for LLMs — Unit Economics and Multi-Tenant Attribution
 
-> Traditional FinOps breaks on LLM spend. Costs are token-transactions, not resource-uptime. Tags don't map — an API call is a transaction, not an asset. Engineering decisions (prompt design, context window, output length) are financial decisions. The 2026 playbook has three attribution dimensions to instrument on day one: per-user (`user_id`) for seat pricing and expansion, per-task (`task_id` + `route`) for product surface cost and prioritization, per-tenant (`tenant_id`) for unit economics and renewal. Four token layers — prompt, tool, memory, response — one bucket hides spend. Enforcement ladder for multi-tenant products: rate limits per tenant (2-3x expected peak, clear 429 + retry-after); daily spend cap (1.5-3x contracted ceiling; triggers rate tightening + alert); kill switches on spend z-score > 4 (auto-pause + page on-call). Attribution patterns: tag-and-aggregate, telemetry-joiner (trace-ID → billing; highest accuracy), sampling-and-extrapolation, model-based allocation, event-sourced, real-time streaming. Unit metric: cost per resolved query, cost per generated artifact — not $/M tokens. Retroactive tagging always misses; instrument at request creation.
+> FinOps truyền thống thất bại với chi tiêu LLM. Chi phí là giao dịch token, không phải thời gian hoạt động tài nguyên. Thẻ không ánh xạ được — lệnh gọi API là giao dịch, không phải tài sản. Quyết định kỹ thuật (thiết kế prompt, cửa sổ ngữ cảnh, độ dài đầu ra) là quyết định tài chính. Cẩm nang năm 2026 có ba chiều quy chi phí cần đo đạc ngay ngày đầu: theo người dùng (`user_id`) cho định giá chỗ dùng và mở rộng, theo tác vụ (`task_id` + `route`) cho chi phí bề mặt sản phẩm và ưu tiên, theo tenant (`tenant_id`) cho tính kinh tế đơn vị và gia hạn. Bốn lớp token — prompt, công cụ, bộ nhớ, phản hồi — một nhóm duy nhất che giấu chi tiêu. Thang thực thi cho sản phẩm đa tenant: giới hạn tốc độ theo tenant (2-3x đỉnh dự kiến, 429 rõ ràng + retry-after); trần chi tiêu hằng ngày (1.5-3x trần hợp đồng; kích hoạt siết tốc độ + cảnh báo); công tắc ngắt khi z-score chi tiêu > 4 (tự tạm dừng + gọi người trực). Mẫu quy chi phí: gắn thẻ và tổng hợp, nối dữ liệu đo từ xa (ID dấu vết → hóa đơn; độ chính xác cao nhất), lấy mẫu và ngoại suy, phân bổ dựa trên mô hình, dựa trên sự kiện, truyền theo luồng thời gian thực. Chỉ số đơn vị: chi phí mỗi truy vấn được giải quyết, chi phí mỗi tạo tác được sinh — không phải $/M token. Gắn thẻ hồi tố luôn bỏ sót; đo đạc khi tạo yêu cầu.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy cost-attribution simulator with kill switch)
@@ -9,71 +9,71 @@
 
 ## Learning Objectives
 
-- Explain why traditional FinOps (tags + tiers) breaks on LLM spend and name the three new attribution dimensions.
-- Enumerate the four token layers (prompt, tool, memory, response) and why single-bucket billing hides cost.
-- Design an enforcement ladder (rate → spend cap → kill switch) for a multi-tenant product.
-- Pick a unit metric (cost per resolved query / artifact) instead of $/M tokens.
+- Giải thích tại sao FinOps truyền thống (thẻ + tầng) thất bại với chi tiêu LLM và nêu ba chiều quy chi phí mới.
+- Liệt kê bốn lớp token (prompt, công cụ, bộ nhớ, phản hồi) và tại sao tính phí một nhóm duy nhất che giấu chi phí.
+- Thiết kế thang thực thi (tốc độ → trần chi tiêu → công tắc ngắt) cho một sản phẩm đa tenant.
+- Chọn một chỉ số đơn vị (chi phí mỗi truy vấn được giải quyết / tạo tác) thay vì $/M token.
 
 ## The Problem
 
-Your bill says $40,000. You don't know:
-- Which tenant spent it.
-- Which product feature drove it.
-- Whether any individual user was abusive.
-- Whether prompt bloat, tool calls, or memory amplification was the culprit.
+Hóa đơn của bạn ghi $40,000. Bạn không biết:
+- Tenant nào đã chi.
+- Tính năng sản phẩm nào thúc đẩy nó.
+- Có người dùng riêng lẻ nào lạm dụng hay không.
+- Phình prompt, lệnh gọi công cụ hay khuếch đại bộ nhớ là thủ phạm.
 
-Tag-and-aggregate on provider-side works for cloud resources (EC2, S3) where tags propagate to line items. LLM API calls do not auto-tag — you have to stamp user/task/tenant at the call site and carry through. Retroactive attribution always misses edge cases.
+Gắn thẻ và tổng hợp phía nhà cung cấp hoạt động cho tài nguyên đám mây (EC2, S3) nơi thẻ lan truyền đến các mục hóa đơn. Lệnh gọi API LLM không tự gắn thẻ — bạn phải đóng dấu người dùng/tác vụ/tenant tại nơi gọi và mang theo xuyên suốt. Quy chi phí hồi tố luôn bỏ sót trường hợp biên.
 
 ## The Concept
 
 ### Three attribution dimensions
 
-**Per-user** (`user_id`): who is costing what. Drives seat pricing, expansion conversations, identifies power users.
+**Theo người dùng** (`user_id`): ai đang tốn bao nhiêu. Thúc đẩy định giá chỗ dùng, trao đổi mở rộng, xác định người dùng chuyên sâu.
 
-**Per-task** (`task_id` + `route`): which product surface costs what. Drives feature prioritization, kill-expensive-features decisions.
+**Theo tác vụ** (`task_id` + `route`): bề mặt sản phẩm nào tốn bao nhiêu. Thúc đẩy ưu tiên tính năng, quyết định loại bỏ tính năng đắt.
 
-**Per-tenant** (`tenant_id`): which customer is profitable. Drives unit economics, renewal pricing, tier thresholds.
+**Theo tenant** (`tenant_id`): khách hàng nào có lợi nhuận. Thúc đẩy tính kinh tế đơn vị, định giá gia hạn, ngưỡng tầng.
 
-Instrument all three at call site on day one. Retroactive is always worse.
+Đo đạc cả ba tại nơi gọi ngay ngày đầu. Hồi tố luôn tệ hơn.
 
 ### Four token layers
 
-| Layer | Example | Typical % of total |
+| Lớp | Ví dụ | % tổng điển hình |
 |-------|---------|---------------------|
-| Prompt | system + user input | 40-60% |
-| Tool | tool-call results fed back | 20-40% (agent workloads) |
-| Memory | prior conversation / retrieved docs | 10-30% |
-| Response | model output | 10-30% |
+| Prompt | đầu vào hệ thống + người dùng | 40-60% |
+| Công cụ | kết quả gọi công cụ đưa trở lại | 20-40% (khối lượng công việc agent) |
+| Bộ nhớ | hội thoại trước / tài liệu được truy xuất | 10-30% |
+| Phản hồi | đầu ra mô hình | 10-30% |
 
-Bucketing all four together makes optimization blind. Break them out in your attribution schema.
+Gộp cả bốn vào cùng một nhóm làm tối ưu bị mù. Tách chúng trong schema quy chi phí của bạn.
 
 ### Enforcement ladder
 
-1. **Rate limit** per tenant. 2-3x expected peak. Return 429 with `Retry-After`. Tenant sees friction; no surprise bill.
+1. **Giới hạn tốc độ** theo tenant. 2-3x đỉnh dự kiến. Trả 429 với `Retry-After`. Tenant thấy trở ngại; không hóa đơn bất ngờ.
 
-2. **Daily spend cap** per tenant. 1.5-3x contracted ceiling. Trigger: tighten rate limit + alert customer-success.
+2. **Trần chi tiêu hằng ngày** theo tenant. 1.5-3x trần hợp đồng. Kích hoạt: siết giới hạn tốc độ + cảnh báo bộ phận thành công khách hàng.
 
-3. **Kill switch** on spend z-score > 4 relative to tenant baseline. Auto-pause tenant; page on-call; escalate to ops + CS.
+3. **Công tắc ngắt** khi z-score chi tiêu > 4 so với đường cơ sở tenant. Tự tạm dừng tenant; gọi người trực; chuyển cấp tới vận hành + CS.
 
 ### Attribution patterns
 
-- **Tag-and-aggregate**: stamp metadata headers; aggregate later. Simple; rough.
-- **Telemetry joiner**: join traces to billing via trace IDs. Highest accuracy. What mature teams do.
-- **Sampling + extrapolation**: sample 5-10%, multiply. Cost-effective for rough spend; misses tails.
-- **Model-based allocation**: regression to infer cost driver. For legacy data without tags.
-- **Event-sourced**: cost as events in a stream (Kafka / Kinesis). Real-time.
-- **Real-time streaming**: dashboard updates sub-second.
+- **Gắn thẻ và tổng hợp**: đóng dấu header metadata; tổng hợp sau. Đơn giản; sơ bộ.
+- **Bộ nối dữ liệu đo từ xa**: nối dấu vết với hóa đơn qua ID dấu vết. Độ chính xác cao nhất. Điều các nhóm trưởng thành làm.
+- **Lấy mẫu + ngoại suy**: lấy mẫu 5-10%, nhân lên. Hiệu quả chi phí cho chi tiêu sơ bộ; bỏ sót phần đuôi.
+- **Phân bổ dựa trên mô hình**: hồi quy để suy ra yếu tố chi phí. Cho dữ liệu cũ không có thẻ.
+- **Dựa trên sự kiện**: chi phí dưới dạng sự kiện trong một luồng (Kafka / Kinesis). Thời gian thực.
+- **Truyền theo luồng thời gian thực**: bảng điều khiển cập nhật dưới một giây.
 
 ### Cost per X is the unit metric
 
-$/M tokens is vendor speak. Product metrics:
+$/M token là cách nói của nhà cung cấp. Chỉ số sản phẩm:
 
-- Cost per resolved support ticket.
-- Cost per generated article.
-- Cost per successful agent task.
-- Cost per user-session-minute.
+- Chi phí mỗi phiếu hỗ trợ được giải quyết.
+- Chi phí mỗi bài viết được tạo.
+- Chi phí mỗi tác vụ agent thành công.
+- Chi phí mỗi phút phiên người dùng.
 
-Tie cost to a product outcome. Otherwise optimization is unanchored.
+Gắn chi phí với một kết quả sản phẩm. Nếu không, tối ưu không có điểm tựa.
 
 ### Cost attribution trace shape
 
@@ -93,25 +93,25 @@ trace_id: abc123
   batch: false
 ```
 
-Emit on every call. Store in data lake. Aggregate per dimension. Phase 17 · 13 observability stack is where this lives.
+Phát trên mọi lệnh gọi. Lưu trong hồ dữ liệu. Tổng hợp theo chiều. Ngăn xếp khả năng quan sát Giai đoạn 17 · 13 là nơi chứa điều này.
 
 ### The compounded-savings stack
 
-Stack: cache + batch + route + gateway. With all four:
-- Cache L2 (Phase 17 · 14): ~10x cheaper input.
-- Batch (Phase 17 · 15): 50% off.
-- Route to cheap model (Phase 17 · 16): 60% cost reduction.
-- Gateway efficiency (Phase 17 · 19): redundancy + retries.
+Kết hợp: bộ nhớ đệm + theo lô + định tuyến + gateway. Với cả bốn:
+- Bộ nhớ đệm L2 (Giai đoạn 17 · 14): đầu vào rẻ hơn ~10x.
+- Theo lô (Giai đoạn 17 · 15): giảm 50%.
+- Định tuyến đến mô hình rẻ (Giai đoạn 17 · 16): giảm chi phí 60%.
+- Hiệu quả gateway (Giai đoạn 17 · 19): dự phòng dư thừa + thử lại.
 
-Best-case stacked: ~5-10% of naive baseline. Most teams have 2-3 levers engaged; few stack all four.
+Kết hợp trường hợp tốt nhất: ~5-10% đường cơ sở đơn giản. Hầu hết nhóm có 2-3 đòn bẩy đang dùng; ít nhóm kết hợp cả bốn.
 
 ### Numbers you should remember
 
-- Attribution dimensions: per-user, per-task, per-tenant.
-- Four token layers: prompt, tool, memory, response.
-- Kill switch: spend z-score > 4.
-- Unit metric: cost per resolved query, not $/M tokens.
-- Stacked optimizations: ~5-10% of baseline possible.
+- Chiều quy chi phí: theo người dùng, theo tác vụ, theo tenant.
+- Bốn lớp token: prompt, công cụ, bộ nhớ, phản hồi.
+- Công tắc ngắt: z-score chi tiêu > 4.
+- Chỉ số đơn vị: chi phí mỗi truy vấn được giải quyết, không phải $/M token.
+- Tối ưu kết hợp: có thể ~5-10% đường cơ sở.
 
 ```figure
 i4-spend-ladder
@@ -119,34 +119,34 @@ i4-spend-ladder
 
 ## Use It
 
-`code/main.py` simulates a multi-tenant LLM service with the three-tier enforcement ladder. Injects an abusive tenant and demonstrates the kill switch firing.
+`code/main.py` mô phỏng một dịch vụ LLM đa tenant với thang thực thi ba tầng. Chèn một tenant lạm dụng và minh họa công tắc ngắt kích hoạt.
 
 ## Ship It
 
-This lesson produces `outputs/skill-finops-plan.md`. Given product and scale, designs the attribution schema and enforcement ladder.
+Bài học này tạo ra `outputs/skill-finops-plan.md`. Với sản phẩm và quy mô, thiết kế schema quy chi phí và thang thực thi.
 
 ## Exercises
 
-1. Run `code/main.py`. At what z-score does the kill switch fire? How do you pick the threshold?
-2. Design a per-tenant, per-task cost dashboard. What are the 5 views you build first?
-3. Your largest tenant is unit-economics-negative. Propose three interventions ordered by customer impact.
-4. Compute cost per resolved ticket for a support product: 3M tokens/ticket, ~800 tickets/day, GPT-5 cached rate.
-5. Argue whether retroactive tagging can ever work. When is it acceptable?
+1. Chạy `code/main.py`. Ở z-score nào công tắc ngắt kích hoạt? Bạn chọn ngưỡng như thế nào?
+2. Thiết kế bảng điều khiển chi phí theo tenant, theo tác vụ. 5 khung nhìn bạn xây đầu tiên là gì?
+3. Tenant lớn nhất của bạn có tính kinh tế đơn vị âm. Đề xuất ba can thiệp theo thứ tự tác động khách hàng.
+4. Tính chi phí mỗi phiếu hỗ trợ được giải quyết cho một sản phẩm hỗ trợ: 3M token/phiếu, ~800 phiếu/ngày, giá bộ nhớ đệm GPT-5.
+5. Lập luận liệu gắn thẻ hồi tố có bao giờ hoạt động được không. Khi nào nó chấp nhận được?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|----------------|------------------------|
-| Per-user attribution | "user-level cost" | `user_id` stamped on every call |
-| Per-task attribution | "feature cost" | `task_id` + `route` identify product surface |
-| Per-tenant attribution | "customer cost" | `tenant_id`; drives unit economics |
-| Four token layers | "cost layers" | prompt + tool + memory + response |
-| Rate limit | "429 guard" | Per-tenant ceiling enforced at gateway |
-| Daily spend cap | "daily ceiling" | Tenant-scoped budget with alert |
-| Kill switch | "auto-pause" | Spend z-score > 4 triggers auto-suspension |
-| Cost per resolved | "product unit metric" | Cost tied to product outcome, not tokens |
-| Telemetry joiner | "trace-to-billing" | Highest-accuracy attribution pattern |
-| Stacked optimization | "cache+batch+route+gateway" | Compounding savings to ~5-10% baseline |
+| Per-user attribution (Quy chi phí theo người dùng) | "chi phí cấp người dùng" | `user_id` được đóng dấu trên mọi lệnh gọi |
+| Per-task attribution (Quy chi phí theo tác vụ) | "chi phí tính năng" | `task_id` + `route` xác định bề mặt sản phẩm |
+| Per-tenant attribution (Quy chi phí theo tenant) | "chi phí khách hàng" | `tenant_id`; thúc đẩy tính kinh tế đơn vị |
+| Four token layers (Bốn lớp token) | "các lớp chi phí" | prompt + công cụ + bộ nhớ + phản hồi |
+| Rate limit (Giới hạn tốc độ) | "chốt 429" | Trần theo tenant thực thi tại gateway |
+| Daily spend cap (Trần chi tiêu hằng ngày) | "trần hằng ngày" | Ngân sách theo phạm vi tenant với cảnh báo |
+| Kill switch (Công tắc ngắt) | "tự tạm dừng" | Z-score chi tiêu > 4 kích hoạt tự đình chỉ |
+| Cost per resolved (Chi phí mỗi trường hợp được giải quyết) | "chỉ số đơn vị sản phẩm" | Chi phí gắn với kết quả sản phẩm, không phải token |
+| Telemetry joiner (Bộ nối dữ liệu đo từ xa) | "dấu vết đến hóa đơn" | Mẫu quy chi phí chính xác nhất |
+| Stacked optimization (Tối ưu kết hợp) | "bộ nhớ đệm+theo lô+định tuyến+gateway" | Tiết kiệm cộng hưởng xuống ~5-10% đường cơ sở |
 
 ## Further Reading
 
