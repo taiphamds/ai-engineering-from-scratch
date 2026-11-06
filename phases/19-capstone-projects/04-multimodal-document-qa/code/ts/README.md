@@ -1,9 +1,9 @@
 # Capstone 04 - Multimodal Document QA (TypeScript)
 
-Viewer skeleton that returns a page image URL plus a JSON list of cited bounding
-boxes for a document. The HTML response inlines a small canvas-overlay script
-that draws the cited regions on top of the page image. Pairs with the Python
-pipeline in `../main.py`.
+Khung trình xem trả URL ảnh trang cộng danh sách JSON hộp bao được trích
+dẫn cho tài liệu. Phản hồi HTML nhúng script lớp phủ canvas nhỏ
+vẽ vùng được trích trên ảnh trang. Ghép với pipeline Python
+trong `../main.py`.
 
 ## Layout
 
@@ -33,12 +33,12 @@ npm start          # one self-check pass, exits 0
 npm run serve      # interactive HTTP server on 127.0.0.1:<port>
 ```
 
-The interactive server picks a free port when `PORT` is unset and prints the
-chosen URL on stdout. Visit `/` for the index, `/document/10k-acme-2025` for the
-demo overlay, or set `accept: application/json` to get the structured response.
+Máy chủ tương tác chọn cổng trống khi `PORT` chưa đặt và in
+URL đã chọn ra stdout. Truy cập `/` cho chỉ mục, `/document/10k-acme-2025` cho
+lớp phủ demo, hoặc đặt `accept: application/json` để nhận phản hồi có cấu trúc.
 
 ## Tests
 
-`node --test` runner via tsx. Tests cover fixture lookup (positive + negative),
-HTML escaping for the five hostile characters, document HTML payload structure,
-and the hono routes (200, 404, content negotiation).
+Bộ chạy `node --test` qua tsx. Kiểm thử bao phủ tra fixture (dương + âm),
+escape HTML cho năm ký tự thù địch, cấu trúc payload HTML tài liệu,
+và tuyến hono (200, 404, thương lượng nội dung).

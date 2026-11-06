@@ -7,39 +7,39 @@ lesson: 04
 tags: [capstone, multimodal, rag, colpali, colqwen, late-interaction, pdf]
 ---
 
-Given a corpus of PDFs (10-Ks, scientific papers, scanned documents), build a pipeline that indexes pages as images using ColPali-style late interaction and answers questions with page-level evidence regions.
+Với corpus PDF (10-K, bài báo khoa học, tài liệu quét), xây pipeline lập chỉ mục trang như ảnh bằng tương tác muộn kiểu ColPali và trả lời câu hỏi có vùng bằng chứng cấp trang.
 
-Build plan:
+Kế hoạch xây dựng:
 
-1. Render every PDF page to a 1536x2048 PNG with PyMuPDF at 180 DPI.
-2. Embed every page with ColQwen2.5-v0.2 or ColQwen3-omni. Store multi-vector patch embeddings in Vespa, Qdrant multi-vector, or AstraDB.
-3. Apply DocPruner-style 50% patch pruning. Verify accuracy drop stays under 0.5% on ViDoRe v3.
-4. At query time: embed query tokens; compute MaxSim against every page's patches; rank top-k.
-5. Synthesize with Qwen3-VL-30B or Gemini 2.5 Pro passing the query plus top-5 page images. Require cited `(doc_id, page, region)` anchors.
-6. For equation- or table-heavy pages, run Nougat or dots.ocr as an optional text channel and feed it alongside the image.
-7. Build a Next.js 15 viewer that overlays evidence regions as bounding boxes on the source page.
-8. Evaluate on ViDoRe v3 and M3DocVQA. Produce a content-class × approach matrix comparing vision-first vs OCR-then-text on plain text, tables, charts, handwriting, and equations.
+1. Render mọi trang PDF thành PNG 1536x2048 bằng PyMuPDF ở 180 DPI.
+2. Tạo embedding mọi trang bằng ColQwen2.5-v0.2 hoặc ColQwen3-omni. Lưu embedding patch đa vector trong Vespa, Qdrant multi-vector hoặc AstraDB.
+3. Áp dụng cắt tỉa patch 50% kiểu DocPruner. Xác minh sụt độ chính xác dưới 0.5% trên ViDoRe v3.
+4. Lúc truy vấn: tạo embedding token truy vấn; tính MaxSim với patch mỗi trang; xếp top-k.
+5. Tổng hợp bằng Qwen3-VL-30B hoặc Gemini 2.5 Pro với truy vấn cộng ảnh top-5 trang. Yêu cầu neo trích dẫn `(doc_id, page, region)`.
+6. Với trang nặng phương trình hoặc bảng, chạy Nougat hoặc dots.ocr làm kênh văn bản tùy chọn, đưa cùng ảnh.
+7. Xây trình xem Next.js 15 phủ vùng bằng chứng thành hộp bao trên trang nguồn.
+8. Đánh giá trên ViDoRe v3 và M3DocVQA. Tạo ma trận lớp-nội-dung × cách-tiếp-cận so ưu tiên thị giác với OCR-rồi-văn-bản trên văn thuần, bảng, biểu đồ, viết tay, phương trình.
 
-Assessment rubric:
+Tiêu chí đánh giá:
 
-| Weight | Criterion | Measurement |
+| Trọng số | Tiêu chí | Phép đo |
 |:-:|---|---|
-| 25 | ViDoRe v3 / M3DocVQA accuracy | Benchmark vs OCR-then-text baseline on matched pages |
-| 20 | Evidence-region grounding | Fraction of cited regions that contain the answer span |
-| 20 | Storage and latency engineering | DocPruner compression, index p95, answer p95 under 2s |
-| 20 | Multi-page reasoning | Accuracy on a hand-labeled 100-question multi-page set |
-| 15 | Source-inspection UX | Overlay fidelity, comparison tools, page-by-page explorer |
+| 25 | Độ chính xác ViDoRe v3 / M3DocVQA | Đo chuẩn so đường cơ sở OCR-rồi-văn-bản trên trang đối sánh |
+| 20 | Căn cứ vùng bằng chứng | Tỷ phần vùng được trích chứa khoảng câu trả lời |
+| 20 | Kỹ thuật lưu trữ và độ trễ | Nén DocPruner, p95 chỉ mục, p95 câu trả lời dưới 2s |
+| 20 | Suy luận nhiều trang | Độ chính xác trên tập nhiều trang 100 câu hỏi gắn nhãn tay |
+| 15 | UX xem nguồn | Độ trung thực lớp phủ, công cụ so sánh, trình khám phá từng trang |
 
-Hard rejects:
+Các trường hợp loại bỏ dứt khoát:
 
-- OCR-first pipelines pitched as "vision-first" by retrofitting OCR text into a single-vector embed.
-- Any system that drops patch-level bounding boxes and therefore cannot render evidence overlays.
-- Storage numbers reported without documenting DocPruner settings.
+- Pipeline OCR-trước quảng bá "ưu tiên thị giác" bằng ghép văn bản OCR vào embedding đơn vector.
+- Mọi hệ thống bỏ hộp bao cấp patch nên không render được lớp phủ bằng chứng.
+- Số lưu trữ báo cáo không ghi thiết lập DocPruner.
 
-Refusal rules:
+Quy tắc từ chối:
 
-- Refuse to index scanned legal contracts without a dedicated redaction policy. ColQwen embeddings leak content.
-- Refuse to serve queries against a corpus the user has not disclosed. Audit trail is mandatory for regulated domains.
-- Refuse to compare to OCR-then-text without running both pipelines on the same corpus.
+- Từ chối lập chỉ mục hợp đồng pháp lý quét không có chính sách che riêng. Embedding ColQwen làm lộ nội dung.
+- Từ chối phục vụ truy vấn corpus người dùng chưa công bố. Dấu vết kiểm toán bắt buộc cho miền chịu quy định.
+- Từ chối so OCR-rồi-văn-bản khi chưa chạy cả hai pipeline trên cùng corpus.
 
-Output: a repo containing the ingestion pipeline, the Vespa (or Qdrant multi-vector) config, the 100-question multi-page eval set, the viewer UI, and a write-up with the content-class x approach matrix and a concrete recommendation for which content classes still favor OCR-then-text in 2026.
+Đầu ra: repo chứa pipeline thu nạp, cấu hình Vespa (hoặc Qdrant multi-vector), tập đánh giá nhiều trang 100 câu hỏi, UI trình xem và bài viết có ma trận lớp-nội-dung x cách-tiếp-cận cùng khuyến nghị cụ thể lớp nội dung nào vẫn ưu tiên OCR-rồi-văn-bản năm 2026.

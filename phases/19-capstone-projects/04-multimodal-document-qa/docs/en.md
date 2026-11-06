@@ -1,6 +1,6 @@
 # Capstone 04 — Multimodal Document QA (Vision-First PDF, Tables, Charts)
 
-> The 2026 document-QA frontier moved away from OCR-then-text and toward vision-first late interaction. ColPali, ColQwen2.5, and ColQwen3-omni treat each PDF page as an image, embed it with multi-vector late interaction, and let the query attend to patches directly. On financial 10-Ks, scientific papers, and handwritten notes this pattern beats OCR-first by a large margin. Build the pipeline end to end on 10k pages and publish the side-by-side against OCR-then-text.
+> Biên hỏi đáp tài liệu 2026 chuyển khỏi OCR-rồi-văn-bản sang tương tác muộn ưu tiên thị giác. ColPali, ColQwen2.5 và ColQwen3-omni xem mỗi trang PDF là ảnh, tạo embedding bằng tương tác muộn đa vector, cho truy vấn chú ý trực tiếp patch. Trên 10-K tài chính, bài báo khoa học và ghi chú viết tay, mẫu này thắng OCR-trước với khoảng cách lớn. Xây pipeline đầu cuối trên 10k trang và công bố so sánh cạnh nhau với OCR-rồi-văn-bản.
 
 **Type:** Capstone
 **Languages:** Python (pipeline), TypeScript (viewer UI)
@@ -10,17 +10,17 @@
 
 ## Problem
 
-Enterprises sit on PDFs that OCR pipelines mangle: scanned 10-Ks with rotated tables, scientific papers dense with equations, charts that only make sense as images, handwritten annotations. Treating these as text-first means losing half the signal. The 2026 answer is late-interaction multi-vector retrieval on raw page images. ColPali (Illuin Tech) introduced it; ColQwen2.5-v0.2 and ColQwen3-omni pushed accuracy. On ViDoRe v3, vision-first retrieval scores above OCR-then-text by meaningful margins — and the gap widens on charts, tables, and handwriting.
+Doanh nghiệp giữ PDF bị pipeline OCR làm hỏng: 10-K quét với bảng xoay, bài báo khoa học dày phương trình, biểu đồ chỉ có nghĩa dưới dạng ảnh, chú thích viết tay. Xem chúng ưu tiên văn bản nghĩa là mất nửa tín hiệu. Câu trả lời 2026 là truy xuất đa vector tương tác muộn trên ảnh trang thô. ColPali (Illuin Tech) đưa ra; ColQwen2.5-v0.2 và ColQwen3-omni đẩy độ chính xác. Trên ViDoRe v3, truy xuất ưu tiên thị giác đạt điểm trên OCR-rồi-văn-bản với khoảng cách đáng kể — và khoảng cách rộng hơn ở biểu đồ, bảng, chữ viết tay.
 
-The trade-off is storage and latency. A ColQwen embedding is ~2048 patch vectors per page, not a single 1024-dim vector. Raw storage balloons. DocPruner (2026) brings 50% pruning without measurable accuracy loss. You will index 10k pages, measure ViDoRe v3 nDCG@5, serve answers under 2s, and compare directly against an OCR-then-text baseline.
+Đánh đổi là lưu trữ và độ trễ. Embedding ColQwen là ~2048 vector patch mỗi trang, không phải một vector 1024 chiều. Lưu trữ thô phình ra. DocPruner (2026) mang cắt tỉa 50% không mất độ chính xác đo được. Bạn sẽ lập chỉ mục 10k trang, đo nDCG@5 ViDoRe v3, phục vụ câu trả lời dưới 2s và so trực tiếp với đường cơ sở OCR-rồi-văn-bản.
 
 ## Concept
 
-Late interaction means every query token scores against every patch token, and the maximum score per query token is summed. You get fine-grained matching without needing a single pooled vector. A multi-vector index (Vespa, Qdrant multi-vector, or AstraDB) stores the per-patch embeddings and runs MaxSim at retrieval time.
+Tương tác muộn nghĩa là mỗi token truy vấn chấm với mỗi token patch, rồi cộng điểm tối đa mỗi token truy vấn. Bạn có khớp chi tiết không cần một vector gộp. Chỉ mục đa vector (Vespa, Qdrant multi-vector hoặc AstraDB) lưu embedding theo patch và chạy MaxSim lúc truy xuất.
 
-The answerer is a vision-language model that takes the query plus the top-k retrieved pages as images and writes an answer with evidence regions (bounding boxes or page references). Qwen3-VL-30B, Gemini 2.5 Pro, and InternVL3 are the 2026 frontier choices. For equations and scientific notation, an OCR fallback (Nougat, dots.ocr) is spliced in as an optional text channel.
+Bộ trả lời là mô hình thị giác-ngôn ngữ nhận truy vấn cộng top-k trang truy xuất dưới dạng ảnh và viết câu trả lời có vùng bằng chứng (hộp bao hoặc tham chiếu trang). Qwen3-VL-30B, Gemini 2.5 Pro và InternVL3 là lựa chọn tiên tiến hàng đầu 2026. Với phương trình và ký hiệu khoa học, dự phòng OCR (Nougat, dots.ocr) được ghép như kênh văn bản tùy chọn.
 
-Evaluation is a two-dimensional matrix. One axis: content type (plain text paragraphs, dense tables, bar/line charts, handwritten notes, equations). Other axis: retrieval approach (vision-first late interaction vs OCR-then-text vs hybrid). Each cell gets nDCG@5 and answer accuracy. The report is the deliverable.
+Đánh giá là ma trận hai chiều. Một trục: loại nội dung (đoạn văn thuần, bảng dày, biểu đồ cột/đường, ghi chú viết tay, phương trình). Trục kia: cách truy xuất (tương tác muộn ưu tiên thị giác so với OCR-rồi-văn-bản so với lai). Mỗi ô có nDCG@5 và độ chính xác câu trả lời. Báo cáo là sản phẩm bàn giao.
 
 ## Architecture
 
@@ -50,14 +50,14 @@ query ----+----> retrieve top-k pages (MaxSim)
 
 ## Stack
 
-- Page rendering: PyMuPDF (fitz) at 180 DPI, portrait-normalized
-- Late-interaction model: ColQwen2.5-v0.2 or ColQwen3-omni (vidore team on Hugging Face)
-- Index: Vespa with multi-vector field, or Qdrant multi-vector, or AstraDB with MaxSim
-- Pruning: DocPruner 2026 policy (keep high-variance patches, 50% compression at < 0.5% accuracy loss)
-- OCR fallback (equations / dense tables): dots.ocr or Nougat
-- VLM answerer: Qwen3-VL-30B self-hosted or Gemini 2.5 Pro hosted; InternVL3 as fallback
-- Evaluation: ViDoRe v3 benchmark, M3DocVQA for multi-page reasoning
-- Viewer UI: Next.js 15 with canvas overlay for evidence regions
+- Render trang: PyMuPDF (fitz) ở 180 DPI, chuẩn hóa hướng dọc
+- Mô hình tương tác muộn: ColQwen2.5-v0.2 hoặc ColQwen3-omni (nhóm vidore trên Hugging Face)
+- Chỉ mục: Vespa với trường đa vector, hoặc Qdrant multi-vector, hoặc AstraDB với MaxSim
+- Cắt tỉa: chính sách DocPruner 2026 (giữ patch phương sai cao, nén 50% ở mất độ chính xác < 0.5%)
+- Dự phòng OCR (phương trình / bảng dày): dots.ocr hoặc Nougat
+- VLM trả lời: Qwen3-VL-30B tự lưu trữ hoặc Gemini 2.5 Pro được lưu trữ; InternVL3 dự phòng
+- Đánh giá: phép đo chuẩn ViDoRe v3, M3DocVQA cho suy luận nhiều trang
+- UI trình xem: Next.js 15 với lớp phủ canvas cho vùng bằng chứng
 
 ```figure
 ce-late-interaction
@@ -65,21 +65,21 @@ ce-late-interaction
 
 ## Build It
 
-1. **Ingest.** Walk a corpus of 10k PDF pages across 10-Ks, scientific papers, and scanned documents. Render each page to a 1536x2048 PNG. Persist `{doc_id, page_num, image_path}`.
+1. **Thu nạp.** Duyệt corpus 10k trang PDF gồm 10-K, bài báo khoa học và tài liệu quét. Render mỗi trang thành PNG 1536x2048. Lưu bền `{doc_id, page_num, image_path}`.
 
-2. **Embed.** Run ColQwen2.5-v0.2 on each page image. Output shape ~2048 patch embeddings of dim 128. Apply DocPruner to keep the highest-signal half. Write to Vespa multi-vector field or Qdrant multi-vector.
+2. **Tạo embedding.** Chạy ColQwen2.5-v0.2 trên từng ảnh trang. Hình dạng đầu ra ~2048 embedding patch chiều 128. Áp dụng DocPruner giữ nửa tín hiệu cao nhất. Ghi vào trường đa vector Vespa hoặc Qdrant multi-vector.
 
-3. **Query.** For each incoming query, embed with the query tower (token-level embeddings). Run MaxSim against the index: for every query token, take the max dot-product over page patch embeddings, sum. Return top-k pages.
+3. **Truy vấn.** Với mỗi truy vấn đến, tạo embedding bằng tháp truy vấn (embedding cấp token). Chạy MaxSim với chỉ mục: mỗi token truy vấn, lấy tích vô hướng tối đa trên embedding patch trang, cộng. Trả top-k trang.
 
-4. **Synthesize.** Call Qwen3-VL-30B with the query and the top-5 page images. Prompt: "Answer using only the supplied pages. Cite each claim by (doc_id, page) and name the region (figure, table, paragraph)."
+4. **Tổng hợp.** Gọi Qwen3-VL-30B với truy vấn và ảnh top-5 trang. Prompt: "Trả lời chỉ bằng trang được cung cấp. Trích mỗi khẳng định bằng (doc_id, page) và nêu vùng (hình, bảng, đoạn)."
 
-5. **Evidence regions.** Post-process the answer to extract cited regions. If the VLM emits bounding boxes (Qwen3-VL does), render them as overlays in the viewer.
+5. **Vùng bằng chứng.** Hậu xử lý câu trả lời để trích vùng được dẫn. Nếu VLM xuất hộp bao (Qwen3-VL có), render thành lớp phủ trong trình xem.
 
-6. **OCR fallback.** For pages identified as equation-dense (heuristic on image variance), run Nougat or dots.ocr and pass the OCR text as an extra channel alongside the image.
+6. **Dự phòng OCR.** Với trang xác định dày phương trình (heuristic trên phương sai ảnh), chạy Nougat hoặc dots.ocr và truyền văn bản OCR làm kênh thêm cùng ảnh.
 
-7. **Eval.** Run ViDoRe v3 (retrieval nDCG@5) and M3DocVQA (multi-page QA accuracy). Also run OCR-then-text pipeline on the same corpus with the same synthesizer. Produce a content-type × approach matrix.
+7. **Đánh giá.** Chạy ViDoRe v3 (nDCG@5 truy xuất) và M3DocVQA (độ chính xác QA nhiều trang). Cũng chạy pipeline OCR-rồi-văn-bản trên cùng corpus với cùng bộ tổng hợp. Tạo ma trận loại-nội-dung × cách-tiếp-cận.
 
-8. **UI.** Streamlit prototype first; Next.js 15 production viewer with page-by-page evidence-region overlay.
+8. **UI.** Nguyên mẫu Streamlit trước; trình xem sản xuất Next.js 15 với lớp phủ vùng bằng chứng từng trang.
 
 ## Use It
 
@@ -96,48 +96,48 @@ answer:
 
 ## Ship It
 
-`outputs/skill-doc-qa.md` describes the deliverable: a vision-first multimodal document QA system tuned to a specific corpus and evaluated against an OCR-then-text baseline on ViDoRe v3.
+`outputs/skill-doc-qa.md` mô tả sản phẩm bàn giao: hệ thống QA tài liệu đa phương thức ưu tiên thị giác chỉnh cho corpus cụ thể và đánh giá so đường cơ sở OCR-rồi-văn-bản trên ViDoRe v3.
 
-| Weight | Criterion | How it is measured |
+| Trọng số | Tiêu chí | Cách đo |
 |:-:|---|---|
-| 25 | ViDoRe v3 / M3DocVQA accuracy | Benchmark numbers vs OCR-text baseline and published leaderboard |
-| 20 | Evidence-region grounding | Fraction of cited regions that actually contain the answer span |
-| 20 | Storage and latency engineering | DocPruner compression ratio, index p95, answer p95 |
-| 20 | Multi-page reasoning | Accuracy on a hand-labeled 100-question multi-page set |
-| 15 | Source-inspection UX | Viewer clarity, overlay fidelity, side-by-side comparison tools |
+| 25 | Độ chính xác ViDoRe v3 / M3DocVQA | Số phép đo chuẩn so với đường cơ sở OCR-văn bản và bảng xếp hạng công bố |
+| 20 | Căn cứ vùng bằng chứng | Tỷ phần vùng được trích thực sự chứa khoảng câu trả lời |
+| 20 | Kỹ thuật lưu trữ và độ trễ | Tỷ lệ nén DocPruner, p95 chỉ mục, p95 câu trả lời |
+| 20 | Suy luận nhiều trang | Độ chính xác trên tập nhiều trang 100 câu hỏi gắn nhãn tay |
+| 15 | UX xem nguồn | Độ rõ trình xem, độ trung thực lớp phủ, công cụ so sánh cạnh nhau |
 | **100** | | |
 
 ## Exercises
 
-1. Measure ColQwen2.5-v0.2 vs ColQwen3-omni on the same corpus. Which pages does one get right and the other miss? Add a "content class" tag to the index to route by type.
+1. Đo ColQwen2.5-v0.2 so ColQwen3-omni trên cùng corpus. Trang nào một bên đúng còn bên kia bỏ sót? Thêm thẻ "content class" vào chỉ mục để định tuyến theo loại.
 
-2. Prune embeddings aggressively (75%, 90%). Find the compression cliff: the point where ViDoRe nDCG@5 drops below the OCR baseline.
+2. Cắt tỉa embedding mạnh (75%, 90%). Tìm vách nén: điểm nDCG@5 ViDoRe giảm dưới đường cơ sở OCR.
 
-3. Build a hybrid: run OCR-then-text and ColQwen in parallel, fuse with RRF, rerank with a cross-encoder. Does the hybrid beat either alone? Where does it help most?
+3. Xây dạng lai: chạy OCR-rồi-văn-bản và ColQwen song song, hợp bằng RRF, xếp lại bằng cross-encoder. Dạng lai có thắng mỗi loại riêng không? Giúp nhiều nhất ở đâu?
 
-4. Swap Qwen3-VL-30B for a smaller VLM (Qwen2.5-VL-7B). Measure the accuracy-per-dollar curve.
+4. Đổi Qwen3-VL-30B sang VLM nhỏ hơn (Qwen2.5-VL-7B). Đo đường cong độ chính xác-mỗi-đô-la.
 
-5. Add handwritten-note support. Render the handwriting corpus, embed with ColQwen, measure retrieval. Compare against a handwriting OCR pipeline.
+5. Thêm hỗ trợ ghi chú viết tay. Render corpus viết tay, tạo embedding bằng ColQwen, đo truy xuất. So với pipeline OCR chữ viết tay.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|-----------------|------------------------|
-| Late interaction | "ColPali-style retrieval" | Query tokens score against page patches independently; MaxSim aggregates |
-| Multi-vector | "Per-patch embedding" | Each document has many vectors, not one pooled vector |
-| MaxSim | "Late-interaction scoring" | For every query token, take max similarity over document vectors; sum |
-| DocPruner | "Patch compression" | 2026 pruning that keeps 50% of patches with negligible accuracy loss |
-| ViDoRe v3 | "Document-retrieval benchmark" | The 2026 standard for measuring visual-document retrieval |
-| Evidence region | "Cited bounding box" | A bbox on the source page that localizes the answer span |
-| OCR fallback | "Equation channel" | Text pipeline used alongside vision for equation- or table-heavy pages |
+| Late interaction (Tương tác muộn) | "Truy xuất kiểu ColPali" | Token truy vấn chấm độc lập với patch trang; MaxSim tổng hợp |
+| Multi-vector (Đa vector) | "Embedding theo patch" | Mỗi tài liệu có nhiều vector, không phải một vector gộp |
+| MaxSim | "Chấm tương tác muộn" | Mỗi token truy vấn, lấy tương đồng tối đa trên vector tài liệu; cộng |
+| DocPruner | "Nén patch" | Cắt tỉa 2026 giữ 50% patch với mất độ chính xác không đáng kể |
+| ViDoRe v3 | "Phép đo chuẩn truy xuất tài liệu" | Tiêu chuẩn 2026 đo truy xuất tài liệu thị giác |
+| Evidence region (Vùng bằng chứng) | "Hộp bao trích dẫn" | Bbox trên trang nguồn định vị khoảng câu trả lời |
+| OCR fallback (Dự phòng OCR) | "Kênh phương trình" | Pipeline văn bản dùng cùng thị giác cho trang nặng phương trình hoặc bảng |
 
 ## Further Reading
 
-- [ColPali (Illuin Tech) repository](https://github.com/illuin-tech/colpali) — reference late-interaction doc retrieval
-- [ColPali paper (arXiv:2407.01449)](https://arxiv.org/abs/2407.01449) — the foundational method paper
-- [ColQwen family on Hugging Face](https://huggingface.co/vidore) — production-ready checkpoints
-- [M3DocRAG (Adobe)](https://arxiv.org/abs/2411.04952) — multi-page multimodal RAG baseline
-- [Vespa multi-vector tutorial](https://docs.vespa.ai/en/colpali.html) — reference serving stack
-- [Qdrant multi-vector support](https://qdrant.tech/documentation/concepts/vectors/#multivectors) — alternate index
-- [AstraDB multi-vector](https://docs.datastax.com/en/astra-db-serverless/databases/vector-search.html) — alternate managed index
-- [Nougat OCR](https://github.com/facebookresearch/nougat) — equation-capable OCR fallback
+- [ColPali (Illuin Tech) repository](https://github.com/illuin-tech/colpali) — truy xuất tài liệu tương tác muộn tham chiếu
+- [ColPali paper (arXiv:2407.01449)](https://arxiv.org/abs/2407.01449) — bài phương pháp nền tảng
+- [ColQwen family on Hugging Face](https://huggingface.co/vidore) — checkpoint sẵn sàng sản xuất
+- [M3DocRAG (Adobe)](https://arxiv.org/abs/2411.04952) — đường cơ sở RAG đa phương thức nhiều trang
+- [Vespa multi-vector tutorial](https://docs.vespa.ai/en/colpali.html) — ngăn xếp phục vụ tham chiếu
+- [Qdrant multi-vector support](https://qdrant.tech/documentation/concepts/vectors/#multivectors) — chỉ mục thay thế
+- [AstraDB multi-vector](https://docs.datastax.com/en/astra-db-serverless/databases/vector-search.html) — chỉ mục được quản lý thay thế
+- [Nougat OCR](https://github.com/facebookresearch/nougat) — dự phòng OCR có khả năng phương trình
