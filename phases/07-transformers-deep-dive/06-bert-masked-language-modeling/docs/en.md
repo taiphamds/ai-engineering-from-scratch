@@ -1,6 +1,6 @@
 # BERT — Masked Language Modeling
 
-> GPT predicts the next word. BERT predicts a missing word. One sentence of difference — and half a decade of everything embedding-shaped.
+> GPT dự đoán từ tiếp theo. BERT dự đoán một từ bị thiếu. Một câu khác biệt — và nửa thập kỷ của mọi thứ có hình dạng embedding.
 
 **Type:** Build
 **Languages:** Python
@@ -9,13 +9,13 @@
 
 ## The Problem
 
-In 2018 every NLP task — sentiment, NER, QA, entailment — trained its own model from scratch on its own labeled data. There was no pre-trained "understand English" checkpoint you could fine-tune. ELMo (2018) showed you could pre-train contextual embeddings with a bidirectional LSTM; it helped but did not generalize.
+Năm 2018 mọi tác vụ NLP — cảm xúc, NER, QA, kéo theo — huấn luyện mô hình riêng từ đầu trên dữ liệu có nhãn riêng. Không có checkpoint "hiểu tiếng Anh" được tiền huấn luyện nào bạn có thể fine-tune. ELMo (2018) cho thấy bạn có thể tiền huấn luyện các embedding theo ngữ cảnh bằng một LSTM hai chiều; nó hữu ích nhưng không khái quát.
 
-BERT (Devlin et al. 2018) asked: what if we took a transformer encoder, trained it on every sentence on the internet, and forced it to predict missing words from context on both sides? Then you fine-tune one head on your downstream task. Parameter efficiency was a revelation.
+BERT (Devlin và cộng sự 2018) hỏi: nếu chúng ta lấy một encoder transformer, huấn luyện nó trên mọi câu trên internet và ép nó dự đoán các từ thiếu từ ngữ cảnh hai phía thì sao? Rồi bạn fine-tune một head trên tác vụ phía sau. Hiệu quả tham số là một sự khai sáng.
 
-The result: within 18 months BERT and its variants (RoBERTa, ALBERT, ELECTRA) dominated every NLP leaderboard that existed. By 2020 every search engine, content moderation pipeline, and semantic-search system on earth had a BERT inside.
+Kết quả: trong vòng 18 tháng BERT và các biến thể (RoBERTa, ALBERT, ELECTRA) thống trị mọi bảng xếp hạng NLP tồn tại. Đến năm 2020 mọi công cụ tìm kiếm, pipeline kiểm duyệt nội dung và hệ thống tìm kiếm ngữ nghĩa trên trái đất đều có một BERT bên trong.
 
-In 2026 encoder-only models are still the right tool for classification, retrieval, and structured extraction — they run 5–10× faster per token than decoders and their embeddings are the backbone of every modern retrieval stack. ModernBERT (Dec 2024) pushed the architecture to 8K context with Flash Attention + RoPE + GeGLU.
+Năm 2026 các mô hình chỉ encoder vẫn là công cụ đúng cho phân loại, truy xuất và trích xuất có cấu trúc — chúng chạy nhanh hơn decoder 5–10× mỗi token và các embedding của chúng là backbone của mọi ngăn xếp truy xuất hiện đại. ModernBERT (tháng 12 năm 2024) đẩy kiến trúc lên ngữ cảnh 8K với Flash Attention + RoPE + GeGLU.
 
 ## The Concept
 
@@ -23,55 +23,55 @@ In 2026 encoder-only models are still the right tool for classification, retriev
 
 ### The training signal
 
-Take a sentence: `the quick brown fox jumps over the lazy dog`.
+Lấy một câu: `the quick brown fox jumps over the lazy dog`.
 
-Mask 15% of tokens randomly:
+Che ngẫu nhiên 15% các token:
 
 ```
 input:  the [MASK] brown fox jumps [MASK] the lazy dog
 target: the  quick brown fox jumps  over  the lazy dog
 ```
 
-Train the model to predict the original tokens at masked positions. Because the encoder is bidirectional, predicting `[MASK]` at position 1 can use `brown fox jumps` at positions 2+. That is the thing GPT cannot do.
+Huấn luyện mô hình dự đoán các token gốc ở các vị trí được che. Vì encoder hai chiều, dự đoán `[MASK]` ở vị trí 1 có thể dùng `brown fox jumps` ở các vị trí 2+. Đó là điều GPT không thể làm.
 
 ### The BERT mask rules
 
-Of the 15% of tokens selected for prediction:
+Trong 15% token được chọn để dự đoán:
 
-- 80% are replaced with `[MASK]`.
-- 10% are replaced with a random token.
-- 10% are left unchanged.
+- 80% được thay bằng `[MASK]`.
+- 10% được thay bằng một token ngẫu nhiên.
+- 10% được giữ nguyên.
 
-Why not always `[MASK]`? Because `[MASK]` never appears at inference time. Training the model to expect `[MASK]` at 100% of masked positions would create a distribution shift between pretraining and fine-tuning. The 10% random + 10% unchanged keeps the model honest.
+Vì sao không luôn `[MASK]`? Vì `[MASK]` không bao giờ xuất hiện khi suy luận. Huấn luyện mô hình kỳ vọng `[MASK]` tại 100% các vị trí được che sẽ tạo một dịch chuyển phân phối giữa tiền huấn luyện và fine-tuning. 10% ngẫu nhiên + 10% giữ nguyên giữ mô hình trung thực.
 
 ### Next Sentence Prediction (NSP) — and why it was dropped
 
-Original BERT also trained on NSP: given two sentences A and B, predict if B follows A. RoBERTa (2019) ablated it and showed NSP hurt, not helped. Modern encoders skip it.
+BERT gốc cũng huấn luyện trên NSP: cho hai câu A và B, dự đoán B có theo sau A không. RoBERTa (2019) loại bỏ nó trong thử nghiệm và cho thấy NSP gây hại, không giúp. Các encoder hiện đại bỏ qua nó.
 
 ### What changed in 2026: ModernBERT
 
-The 2024 ModernBERT paper rebuilt the block with 2026 primitives:
+Bài báo ModernBERT năm 2024 xây lại khối bằng các thành phần cơ bản năm 2026:
 
-| Component | Original BERT (2018) | ModernBERT (2024) |
+| Thành phần | BERT gốc (2018) | ModernBERT (2024) |
 |-----------|----------------------|-------------------|
-| Positional | Learned absolute | RoPE |
-| Activation | GELU | GeGLU |
-| Normalization | LayerNorm | Pre-norm RMSNorm |
-| Attention | Full dense | Alternating local (128) + global |
-| Context length | 512 | 8192 |
+| Vị trí | Tuyệt đối được học | RoPE |
+| Kích hoạt | GELU | GeGLU |
+| Chuẩn hóa | LayerNorm | Pre-norm RMSNorm |
+| Attention | Đặc đầy đủ | Luân phiên cục bộ (128) + toàn cục |
+| Độ dài ngữ cảnh | 512 | 8192 |
 | Tokenizer | WordPiece | BPE |
 
-And unlike the 2018 stack, it is Flash-Attention-native. Inference is 2–3× faster at sequence length 8K than DeBERTa-v3 with better GLUE scores.
+Và khác với ngăn xếp năm 2018, nó nguyên bản Flash Attention. Suy luận nhanh hơn 2–3× ở độ dài chuỗi 8K so với DeBERTa-v3 với điểm GLUE tốt hơn.
 
 ### Use cases that still pick an encoder in 2026
 
-| Task | Why encoder beats decoder |
+| Tác vụ | Vì sao encoder thắng decoder |
 |------|---------------------------|
-| Retrieval / semantic search embeddings | Bidirectional context = better embedding quality per token |
-| Classification (sentiment, intent, toxicity) | One forward pass; no generation overhead |
-| NER / token labeling | Per-position output, natively bidirectional |
-| Zero-shot entailment (NLI) | Classifier head on top of encoder |
-| Reranker for RAG | Cross-encoder scoring, 10x faster than LLM rerankers |
+| Các embedding truy xuất / tìm kiếm ngữ nghĩa | Ngữ cảnh hai chiều = chất lượng embedding mỗi token tốt hơn |
+| Phân loại (cảm xúc, ý định, độc hại) | Một lượt truyền xuôi; không chi phí phụ sinh |
+| NER / gán nhãn token | Đầu ra theo vị trí, hai chiều nguyên bản |
+| Kéo theo zero-shot (NLI) | Head phân loại trên encoder |
+| Bộ xếp hạng lại cho RAG | Chấm điểm cross-encoder, nhanh hơn các bộ xếp hạng lại LLM 10 lần |
 
 ```figure
 transformer-residual
@@ -81,7 +81,7 @@ transformer-residual
 
 ### Step 1: masking logic
 
-See `code/main.py`. The function `create_mlm_batch` takes a list of token IDs, a vocab size, and a mask probability. Returns input IDs (with masks applied) and labels (only at masked positions, -100 elsewhere — PyTorch's ignore index convention).
+Xem `code/main.py`. Hàm `create_mlm_batch` nhận một danh sách ID token, kích thước từ vựng và xác suất che. Trả ID đầu vào (đã áp mặt nạ) và nhãn (chỉ tại các vị trí được che, -100 ở nơi khác — quy ước chỉ số bỏ qua của PyTorch).
 
 ```python
 def create_mlm_batch(tokens, vocab_size, mask_prob=0.15, rng=None):
@@ -101,15 +101,15 @@ def create_mlm_batch(tokens, vocab_size, mask_prob=0.15, rng=None):
 
 ### Step 2: run MLM prediction on a tiny corpus
 
-Train a 2-layer encoder + MLM head on a vocabulary of 20 words, 200 sentences. No gradient — we do forward-pass sanity checks. Full training needs PyTorch.
+Huấn luyện một encoder 2 tầng + head MLM trên một từ vựng 20 từ, 200 câu. Không gradient — chúng ta làm các kiểm tra hợp lý lượt truyền xuôi. Huấn luyện đầy đủ cần PyTorch.
 
 ### Step 3: compare mask types
 
-Show how the three-way rule keeps the model usable without `[MASK]`. Predict on an unmasked sentence and on a masked sentence. Both should produce reasonable token distributions because the model saw both patterns in training.
+Cho thấy cách quy tắc ba ngả giữ mô hình dùng được không có `[MASK]`. Dự đoán trên một câu không che và một câu được che. Cả hai nên tạo các phân phối token hợp lý vì mô hình thấy cả hai mẫu trong huấn luyện.
 
 ### Step 4: fine-tune head
 
-Replace the MLM head with a classification head on a toy sentiment dataset. Only the head trains; the encoder is frozen. This is the pattern every BERT application follows.
+Thay head MLM bằng một head phân loại trên một tập dữ liệu cảm xúc đồ chơi. Chỉ head huấn luyện; encoder đóng băng. Đây là mẫu mọi ứng dụng BERT tuân theo.
 
 ## Use It
 
@@ -124,39 +124,39 @@ inputs = tok(text, return_tensors="pt")
 out = model(**inputs).last_hidden_state   # (1, N, 768)
 ```
 
-**Embedding models are fine-tuned BERT.** `sentence-transformers` models like `all-MiniLM-L6-v2` are BERTs trained with contrastive loss. The encoder is the same. The loss changed.
+**Các mô hình embedding là BERT được fine-tune.** Các mô hình `sentence-transformers` như `all-MiniLM-L6-v2` là các BERT được huấn luyện bằng contrastive loss. Encoder giống nhau. Loss thay đổi.
 
-**Cross-encoder rerankers are also fine-tuned BERT.** Pair-classification on `[CLS] query [SEP] doc [SEP]`. The bidirectional attention between query and doc is exactly what gives cross-encoders their quality edge over biencoders.
+**Các bộ xếp hạng lại cross-encoder cũng là BERT được fine-tune.** Phân loại cặp trên `[CLS] query [SEP] doc [SEP]`. Attention hai chiều giữa truy vấn và tài liệu chính xác là thứ cho cross-encoder lợi thế chất lượng so với bi-encoder.
 
-**When not to pick BERT in 2026.** Anything generative. The encoder has no sensible way to autoregressively produce tokens. Also: anything under 1B params where a small decoder can match quality with more flexibility (Phi-3-Mini, Qwen2-1.5B).
+**Khi nào không chọn BERT năm 2026.** Bất kỳ thứ gì có tính sinh. Encoder không có cách hợp lý để tự hồi quy tạo token. Ngoài ra: bất kỳ thứ gì dưới 1B tham số mà một decoder nhỏ có thể khớp chất lượng với linh hoạt hơn (Phi-3-Mini, Qwen2-1.5B).
 
 ## Ship It
 
-See `outputs/skill-bert-finetuner.md`. The skill scopes a BERT fine-tune (backbone choice, head spec, data, eval, stopping) for a new classification or extraction task.
+Xem `outputs/skill-bert-finetuner.md`. Skill xác định phạm vi một fine-tune BERT (lựa chọn backbone, đặc tả head, dữ liệu, đánh giá, dừng) cho một tác vụ phân loại hoặc trích xuất mới.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py` and print the mask distribution across 10,000 tokens. Confirm ~15% are selected, and of those ~80% become `[MASK]`.
-2. **Medium.** Implement whole-word masking: if a word is tokenized into subwords, mask all subwords together or none. Measure whether this improves MLM accuracy on a 500-sentence corpus.
-3. **Hard.** Train a tiny (2-layer, d=64) BERT on 10,000 sentences from a public dataset. Fine-tune the `[CLS]` token for SST-2 sentiment. Compare against a decoder-only baseline at matched params — which wins?
+1. **Dễ.** Chạy `code/main.py` và in phân phối mặt nạ trên 10,000 token. Xác nhận ~15% được chọn, và trong số đó ~80% thành `[MASK]`.
+2. **Trung bình.** Triển khai che toàn từ: nếu một từ được tokenize thành các từ con, che tất cả các từ con cùng nhau hoặc không che từ con nào. Đo liệu điều này có cải thiện accuracy MLM trên một ngữ liệu 500 câu.
+3. **Khó.** Huấn luyện một BERT tí hon (2 tầng, d=64) trên 10,000 câu từ một tập dữ liệu công khai. Fine-tune token `[CLS]` cho cảm xúc SST-2. So sánh với một baseline chỉ decoder ở số tham số tương ứng — bên nào thắng?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| MLM | "Masked language modeling" | Training signal: randomly replace 15% of tokens with `[MASK]`, predict the originals. |
-| Bidirectional | "Looks both ways" | Encoder attention has no causal mask — every position sees every other position. |
-| `[CLS]` | "The pooler token" | A special token prepended to every sequence; its final embedding is used as the sentence-level representation. |
-| `[SEP]` | "Segment separator" | Separates paired sequences (e.g. query/doc, sentence A/B). |
-| NSP | "Next sentence prediction" | BERT's second pretraining task; shown to be useless in RoBERTa, dropped after 2019. |
-| Fine-tuning | "Adapt to a task" | Keep the encoder mostly frozen; train a small head on top for the downstream task. |
-| Cross-encoder | "A reranker" | A BERT that takes both query and doc as input, outputs a relevance score. |
-| ModernBERT | "2024 refresh" | Encoder rebuilt with RoPE, RMSNorm, GeGLU, alternating local/global attention, 8K context. |
+| MLM | "Mô hình hóa ngôn ngữ che mặt nạ" | Tín hiệu huấn luyện: ngẫu nhiên thay 15% token bằng `[MASK]`, dự đoán các bản gốc. |
+| Bidirectional (Hai chiều) | "Nhìn cả hai phía" | Attention encoder không có mặt nạ nhân quả — mọi vị trí thấy mọi vị trí khác. |
+| `[CLS]` | "Token pooler" | Một token đặc biệt được thêm vào đầu mọi chuỗi; embedding cuối của nó được dùng làm biểu diễn cấp câu. |
+| `[SEP]` | "Dấu phân cách phân đoạn" | Phân cách các chuỗi được ghép cặp (ví dụ truy vấn/tài liệu, câu A/B). |
+| NSP | "Dự đoán câu tiếp theo" | Tác vụ tiền huấn luyện thứ hai của BERT; được cho thấy vô dụng trong RoBERTa, bị bỏ sau 2019. |
+| Fine-tuning (Tinh chỉnh) | "Thích nghi với một tác vụ" | Giữ encoder phần lớn đóng băng; huấn luyện một head nhỏ phía trên cho tác vụ phía sau. |
+| Cross-encoder | "Một bộ xếp hạng lại" | Một BERT nhận cả truy vấn và tài liệu làm đầu vào, xuất một điểm liên quan. |
+| ModernBERT | "Làm mới năm 2024" | Encoder được xây lại với RoPE, RMSNorm, GeGLU, attention cục bộ/toàn cục luân phiên, ngữ cảnh 8K. |
 
 ## Further Reading
 
-- [Devlin et al. (2018). BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805) — original paper.
-- [Liu et al. (2019). RoBERTa: A Robustly Optimized BERT Pretraining Approach](https://arxiv.org/abs/1907.11692) — how to train BERT right; kills NSP.
-- [Clark et al. (2020). ELECTRA: Pre-training Text Encoders as Discriminators Rather Than Generators](https://arxiv.org/abs/2003.10555) — replaced-token detection beats MLM at matched compute.
-- [Warner et al. (2024). Smarter, Better, Faster, Longer: A Modern Bidirectional Encoder](https://arxiv.org/abs/2412.13663) — ModernBERT paper.
-- [HuggingFace `modeling_bert.py`](https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/modeling_bert.py) — canonical encoder reference.
+- [Devlin et al. (2018). BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805) — bài báo gốc.
+- [Liu et al. (2019). RoBERTa: A Robustly Optimized BERT Pretraining Approach](https://arxiv.org/abs/1907.11692) — cách huấn luyện BERT đúng; giết NSP.
+- [Clark et al. (2020). ELECTRA: Pre-training Text Encoders as Discriminators Rather Than Generators](https://arxiv.org/abs/2003.10555) — phát hiện token bị thay thế thắng MLM ở tính toán tương ứng.
+- [Warner et al. (2024). Smarter, Better, Faster, Longer: A Modern Bidirectional Encoder](https://arxiv.org/abs/2412.13663) — bài báo ModernBERT.
+- [HuggingFace `modeling_bert.py`](https://github.com/huggingface/transformers/blob/main/src/transformers/models/bert/modeling_bert.py) — tham chiếu encoder kinh điển.
