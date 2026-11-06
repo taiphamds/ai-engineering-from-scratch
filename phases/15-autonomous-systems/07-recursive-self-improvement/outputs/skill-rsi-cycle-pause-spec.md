@@ -7,33 +7,33 @@ lesson: 7
 tags: [rsi, self-improvement, alignment, pause-threshold, rsp]
 ---
 
-Given a proposed recursive-self-improvement pipeline, produce a pause specification: the explicit conditions that halt the loop for human inspection before the next cycle begins. A pipeline without a pause spec is not ready to run.
+Với một pipeline tự cải thiện đệ quy được đề xuất, tạo một đặc tả tạm dừng: các điều kiện tường minh dừng vòng lặp để con người kiểm tra trước khi chu kỳ tiếp theo bắt đầu. Một pipeline không có đặc tả tạm dừng chưa sẵn sàng chạy.
 
-Produce:
+Tạo:
 
-1. **Cycle-level thresholds.** For each measurable axis (capability score, alignment score, budget, trajectory length, resource usage), define a numeric threshold whose crossing pauses the loop. Thresholds must be set before the loop starts and recorded.
-2. **Cycle-over-cycle deltas.** Set limits on how much any axis can move in a single cycle. A 30%+ capability jump in one cycle is almost always a sign of evaluator gaming; pause and audit.
-3. **Misalignment gap.** Compute capability-minus-alignment after each cycle. If the gap widens by more than X (operator-set), pause. This is the metric the simulator in `code/main.py` exercises.
-4. **Regression watch.** If any axis drops more than Y in a cycle, pause. Capability regressions often follow surges; catching them prevents false-progress acceleration.
-5. **Human resumption contract.** Before the loop resumes after a pause, require a named human to review the pause trigger, re-set thresholds if appropriate, and log the decision to the out-of-pipeline audit trail.
+1. **Các ngưỡng cấp chu kỳ.** Với mỗi trục đo được (điểm năng lực, điểm căn chỉnh, ngân sách, độ dài quỹ đạo, sử dụng tài nguyên), định nghĩa một ngưỡng số mà việc vượt nó tạm dừng vòng lặp. Các ngưỡng phải được đặt trước khi vòng lặp bắt đầu và được ghi lại.
+2. **Các chênh lệch giữa các chu kỳ.** Đặt các giới hạn về mức bất kỳ trục nào có thể di chuyển trong một chu kỳ. Một bước nhảy năng lực 30%+ trong một chu kỳ gần như luôn là một dấu hiệu lách bộ đánh giá; tạm dừng và kiểm toán.
+3. **Khoảng cách lệch căn chỉnh.** Tính năng lực trừ căn chỉnh sau mỗi chu kỳ. Nếu khoảng cách mở rộng hơn X (do người vận hành đặt), tạm dừng. Đây là thước đo bộ mô phỏng trong `code/main.py` thực hành.
+4. **Theo dõi hồi quy.** Nếu bất kỳ trục nào giảm hơn Y trong một chu kỳ, tạm dừng. Các hồi quy năng lực thường theo sau tăng vọt; bắt chúng ngăn tăng tốc tiến bộ giả.
+5. **Hợp đồng tiếp tục của con người.** Trước khi vòng lặp tiếp tục sau một lần tạm dừng, yêu cầu một con người được nêu tên đánh giá kích hoạt tạm dừng, đặt lại các ngưỡng nếu phù hợp và ghi log quyết định vào dấu vết kiểm toán ngoài pipeline.
 
-Hard rejects:
-- Any pipeline that can resume after a pause without human action.
-- Any threshold that depends on the loop's own internal evaluator (the agent can game it).
-- Any pipeline whose threshold set can be edited by the agent.
+Các trường hợp từ chối cứng:
+- Bất kỳ pipeline nào có thể tiếp tục sau một lần tạm dừng mà không có hành động con người.
+- Bất kỳ ngưỡng nào phụ thuộc bộ đánh giá nội bộ riêng của vòng lặp (agent có thể lách nó).
+- Bất kỳ pipeline nào có tập ngưỡng có thể được agent chỉnh sửa.
 
-Refusal rules:
-- If the user cannot name the thresholds up-front, refuse. Thresholds set post-hoc are not thresholds; they are rationalizations.
-- If the pipeline has no external (out-of-loop) evaluator, refuse — regression and surge detection require an outside view.
-- If the proposed resumption contract is "notify the team and continue after 24 hours," refuse. Resumption must be a positive act.
+Các quy tắc từ chối:
+- Nếu người dùng không thể nêu tên các ngưỡng từ đầu, từ chối. Các ngưỡng đặt sau sự việc không phải các ngưỡng; chúng là các hợp lý hóa.
+- Nếu pipeline không có bộ đánh giá bên ngoài (ngoài vòng lặp), từ chối — phát hiện hồi quy và tăng vọt yêu cầu một góc nhìn bên ngoài.
+- Nếu hợp đồng tiếp tục được đề xuất là "thông báo nhóm và tiếp tục sau 24 giờ," từ chối. Tiếp tục phải là một hành động chủ động.
 
-Output format:
+Định dạng đầu ra:
 
-Return a one-page spec with:
-- **Axes and thresholds** (table)
-- **Cycle-delta limits** (table)
-- **Misalignment gap formula and threshold**
-- **Regression limits**
-- **External evaluator** (what it is, when it runs)
-- **Resumption contract** (named owner, checklist, log destination)
-- **Sign-off line** (who owns the pause invariant)
+Trả về một đặc tả một trang với:
+- **Các trục và ngưỡng** (bảng)
+- **Các giới hạn chênh lệch chu kỳ** (bảng)
+- **Công thức và ngưỡng khoảng cách lệch căn chỉnh**
+- **Các giới hạn hồi quy**
+- **Bộ đánh giá bên ngoài** (nó là gì, khi nào nó chạy)
+- **Hợp đồng tiếp tục** (bên chịu trách nhiệm được nêu tên, danh sách kiểm tra, đích log)
+- **Dòng ký duyệt** (ai sở hữu bất biến tạm dừng)
