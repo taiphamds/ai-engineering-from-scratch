@@ -7,7 +7,34 @@ const vm = require('node:vm');
 const {createServer, localAssets} = require('./serve-local.cjs');
 const root = path.resolve(__dirname, '..');
 const assets = localAssets();
-const data = vm.runInNewContext(assets.get('/site/data.js') + ';({PHASES,GLOSSARY})');
+const data = vm.runInNewContext(assets.get('/site/data.js') + ';({PHASES,GLOSSARY,LEARNING_PATHS})');
+
+test('local Vietnamese lesson fetch uses checkout content after the upstream loader refactor', async () => {
+  const template = fs.readFileSync(path.join(root, 'site/lesson.html'), 'utf8');
+  const start = template.indexOf('      function fetchLessonDocument(');
+  const end = template.indexOf('      var lessonCodeRequests', start);
+  assert.ok(start >= 0 && end > start);
+  const calls = [];
+  const context = {
+    window: {AIFS_LOCAL_READER_LANGUAGE: 'vi'},
+    fetchRepositoryFile: async resource => {calls.push(resource);return {text: async () => 'Nội dung từ checkout'};},
+    fetch: async () => {throw new Error('Local Vietnamese must not fetch remote translations');},
+  };
+  const load = vm.runInNewContext(template.slice(start, end) + ';fetchLessonDocument', context);
+  const result = await load('vi', 'phases/example/docs/en.md', 'https://example.com/remote.md');
+  assert.equal(result.markdown, 'Nội dung từ checkout');
+  assert.equal(result.lang, 'vi');
+  assert.deepEqual(calls, ['phases/example/docs/en.md']);
+});
+
+test('homepage dictionary covers incoming simulation cards and lesson counters', () => {
+  const context = {window: {AIFS_LOCAL_READER_LANGUAGE: 'vi'}, PHASES: data.PHASES, LEARNING_PATHS: data.LEARNING_PATHS, ARTIFACTS: []};
+  vm.runInNewContext(fs.readFileSync(path.join(root, 'site/home-vi.js'), 'utf8'), context);
+  const strings = context.window.AIFS_UI_STRINGS.vi;
+  assert.equal(strings['Inside a Decompiler'], 'Bên trong một trình dịch ngược');
+  assert.equal(strings['Search lessons'], 'Tìm bài học');
+  assert.equal(strings['{n} lessons'], '{n} bài học');
+});
 
 test('local catalog points to existing lessons and uses their current translated summaries', () => {
   assert.equal(data.PHASES.length, 20);
@@ -17,6 +44,10 @@ test('local catalog points to existing lessons and uses their current translated
     assert.equal(lesson.summary, (markdown.split(/\r?\n/).find(line => line.startsWith('> ')) || '').slice(2));
   }
   assert.match(data.GLOSSARY.find(item => item.term === 'Activation Checkpointing').means, /Một kỹ thuật/);
+  const reverseEngineering = data.LEARNING_PATHS.find(item => item.id === 'reverse-engineering');
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'learning-paths/reverse-engineering.json'), 'utf8'));
+  assert.equal(reverseEngineering.summary, manifest.summary);
+  assert.match(reverseEngineering.summary, /Đọc một chương trình/);
 });
 
 test('local reader serves original Markdown bytes and HTML routes, without exposing private files', async t => {

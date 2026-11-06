@@ -129,7 +129,7 @@ test('the lesson page uses fragments when present and the regex highlighter when
     readMarkdown: () => source,
     languageCodes: ['en'],
   };
-  const fenced = /^```(\w*)\n([\s\S]*?)\n```$/m.exec(source.replace(/^```(?:mermaid|math|figure)\n[\s\S]*?\n```$/gm, ''));
+  const fenced = /^```(\w*)\n([\s\S]*?)\n```$/m.exec(source.replace(/\r\n/g, '\n').replace(/^```(?:mermaid|math|figure)\n[\s\S]*?\n```$/gm, ''));
   assert.ok(fenced, entry.path);
   const marker = '<div class="cb" data-kind="code" data-lang="marker">MARKER</div>';
   const render = readCode => new Promise(resolve => {

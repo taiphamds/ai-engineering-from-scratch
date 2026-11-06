@@ -26,6 +26,7 @@ function localAssets() {
     lesson.summary = (lines.find(line => line.startsWith('> ')) || '').slice(2);
     lesson.keywords = lines.filter(line => line.startsWith('### ')).map(line => line.slice(4)).join(' · ');
   }
+  data.LEARNING_PATHS = build.parseLearningPaths(root, data.PHASES);
   // Retain the author's structured links and categories, replacing text fields
   // with the translated glossary. The source Markdown remains untouched.
   const fields = {'Mọi người thường nói':'says','Ý nghĩa thực tế':'means','Vì sao quan trọng':'whyItMatters',

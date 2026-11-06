@@ -13,6 +13,31 @@
     'Glossary': 'Thuật ngữ',
     'About': 'Giới thiệu',
     'Learning Paths': 'Lộ trình học',
+    'FIG_AGT · Interactive simulation': 'FIG_AGT · Mô phỏng tương tác',
+    'FIG_DEC · Interactive simulation': 'FIG_DEC · Mô phỏng tương tác',
+    'FIG_GPU · Interactive simulation': 'FIG_GPU · Mô phỏng tương tác',
+    'Inside an AI Agent': 'Bên trong một AI agent',
+    'Inside a Decompiler': 'Bên trong một trình dịch ngược',
+    'Inside an LLM Serving GPU': 'Bên trong một GPU phục vụ LLM',
+    'Break the machine →': 'Làm hỏng cỗ máy →',
+    'An AI agent is more than an LLM call. Run one request through a working machine, switch off retrieval, tools or the verifier, and watch what fails.': 'Một AI agent không chỉ là một lời gọi LLM. Chạy một yêu cầu qua một cỗ máy đang hoạt động, tắt truy xuất, công cụ hoặc bộ xác minh, và xem những gì thất bại.',
+    'A decompiler turns bytes into code you can read. Run one small function through nine stations, strip the symbols or switch the decoder, and watch the ledger split what was observed from what was inferred.': 'Một trình dịch ngược chuyển các byte thành mã bạn có thể đọc. Chạy một hàm nhỏ qua chín trạm, loại bỏ các ký hiệu hoặc đổi bộ giải mã, và xem sổ cái tách những gì được quan sát khỏi những gì được suy ra.',
+    'Decode reads every weight for every token. Follow one request through an NVIDIA L4 or GB10, fill the KV pool, switch to FP8, and watch memory bandwidth set the speed with numbers from the SGLang 101 runs.': 'Decode đọc mọi trọng số cho mỗi token. Theo một yêu cầu qua một NVIDIA L4 hoặc GB10, lấp đầy KV pool, chuyển sang FP8, và xem băng thông bộ nhớ quyết định tốc độ với các con số từ các lần chạy SGLang 101.',
+    'Search lessons': 'Tìm bài học',
+    'Search by lesson name': 'Tìm theo tên bài học',
+    'No phases are published yet.': 'Chưa có giai đoạn nào được xuất bản.',
+    'No lessons are published in this phase yet.': 'Chưa có bài học nào được xuất bản trong giai đoạn này.',
+    'Curriculum ·': 'Giáo trình ·',
+    'Manuals': 'Tài liệu hướng dẫn',
+    'Blogs & Guides': 'Blog & hướng dẫn',
+    'Cheat Sheets': 'Bảng tra cứu nhanh',
+    'Practice': 'Thực hành',
+    'Interviews': 'Phỏng vấn',
+    'For devs': 'Dành cho nhà phát triển',
+    '{n} lesson': '{n} bài học',
+    '{n} lessons': '{n} bài học',
+    'of {n} lessons complete': 'trên {n} bài học đã hoàn thành',
+    'of {n} lesson complete': 'trên {n} bài học đã hoàn thành',
     'Certifications': 'Chứng chỉ',
     'Toggle theme': 'Đổi giao diện',
     'Search (⌘K)': 'Tìm kiếm (⌘K)',
@@ -249,6 +274,7 @@
       strings['Phase ' + number] = 'Giai đoạn ' + number;
       strings['Open Phase ' + number + ': ' + phase.name] = 'Mở giai đoạn ' + number + ': ' + name;
       strings[phase.name + ' progress'] = 'Tiến độ ' + name;
+      strings['Open the ' + phase.name + ' overview'] = 'Mở tổng quan về ' + name;
       strings['of ' + phase.lessons.length + ' lessons complete'] = 'trên ' + phase.lessons.length + ' bài học đã hoàn thành';
       phase.lessons.forEach(function (lesson) {
         strings['Open lesson: ' + lesson.name] = 'Mở bài học: ' + lesson.name;
