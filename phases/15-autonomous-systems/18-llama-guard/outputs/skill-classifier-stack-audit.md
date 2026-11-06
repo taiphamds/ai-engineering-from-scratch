@@ -7,35 +7,35 @@ lesson: 18
 tags: [llama-guard, nemo-guardrails, input-rails, output-rails, colang, adversarial-attacks]
 ---
 
-Given a deployment's classifier stack (Llama Guard version, NeMo Guardrails config, custom classifiers, normalization steps), audit it against the 2026 reference and flag attack surface the stack does not cover.
+Với ngăn xếp phân loại của một triển khai (phiên bản Llama Guard, cấu hình NeMo Guardrails, các bộ phân loại tùy chỉnh, các bước chuẩn hóa), kiểm toán nó theo tham chiếu năm 2026 và đánh dấu bề mặt tấn công ngăn xếp không bao phủ.
 
-Produce:
+Tạo ra:
 
-1. **Model inventory.** List the classifiers in use. Llama Guard 3 (8B / 1B-INT4) vs Llama Guard 4 (multimodal, S1–S14). NeMo Guardrails version. Any custom classifiers. If the deployment accepts images, confirm the classifier is multimodal.
-2. **Taxonomy mapping.** Map declared business categories onto the classifier's taxonomy. Every category the operator cares about must map to a classifier category; unmapped categories are unguarded.
-3. **Rail coverage.** Confirm input rails fire before the model turn and output rails fire before the response ships. Dialog rails (Colang in NeMo) enforce cross-turn constraints. Single-turn classifiers cannot catch multi-turn attacks.
-4. **Normalization.** Confirm inputs are NFKC-normalized, homoglyph-mapped, and have zero-width / variation-selector characters stripped before classification. Raw-byte classification is a 100% ASR target for Emoji Smuggling (Huang et al. 2025).
-5. **Attack-corpus coverage.** For each documented attack (emoji smuggling, homoglyph, in-context redirection, semantic paraphrase), name the specific defense in the stack. Classifier-only defense fails this audit; layering with Constitution (Lesson 17) and runtime (Lessons 10, 13, 14) is required.
+1. **Danh mục mô hình.** Liệt kê các bộ phân loại đang được sử dụng. Llama Guard 3 (8B / 1B-INT4) so với Llama Guard 4 (đa phương thức, S1–S14). Phiên bản NeMo Guardrails. Bất kỳ bộ phân loại tùy chỉnh nào. Nếu triển khai chấp nhận hình ảnh, xác nhận bộ phân loại là đa phương thức.
+2. **Ánh xạ hệ phân loại.** Ánh xạ các danh mục nghiệp vụ đã khai báo lên hệ phân loại của bộ phân loại. Mọi danh mục người vận hành quan tâm phải ánh xạ tới một danh mục bộ phân loại; các danh mục chưa ánh xạ không được bảo vệ.
+3. **Độ bao phủ rào chắn.** Xác nhận các rào chắn đầu vào kích hoạt trước lượt mô hình và các rào chắn đầu ra kích hoạt trước khi phản hồi được gửi đi. Các rào chắn hội thoại (Colang trong NeMo) thực thi các ràng buộc xuyên lượt. Các bộ phân loại một lượt không thể bắt các cuộc tấn công nhiều lượt.
+4. **Chuẩn hóa.** Xác nhận các đầu vào được chuẩn hóa NFKC, ánh xạ ký tự đồng dạng, và loại bỏ các ký tự độ rộng bằng không / bộ chọn biến thể trước phân loại. Phân loại byte thô là một mục tiêu ASR 100% cho Emoji Smuggling (Huang và cộng sự 2025).
+5. **Độ bao phủ tập hợp tấn công.** Với mỗi cuộc tấn công được ghi nhận (buôn lậu emoji, ký tự đồng dạng, chuyển hướng trong ngữ cảnh, diễn đạt lại ngữ nghĩa), nêu biện pháp phòng thủ cụ thể trong ngăn xếp. Phòng thủ chỉ bằng bộ phân loại không vượt qua kiểm toán này; xếp lớp với Constitution (Bài 17) và môi trường chạy (Bài 10, 13, 14) là bắt buộc.
 
-Hard rejects:
-- Deployments using a text-only classifier on multimodal inputs.
-- Deployments with no normalization step.
-- Deployments with input rails only (no output rails on sensitive-category outputs).
-- Stack treating the classifier as the single safety layer.
-- ASR claims the operator cannot reproduce on their own distribution.
+Các trường hợp loại bỏ dứt khoát:
+- Các triển khai sử dụng một bộ phân loại chỉ văn bản trên đầu vào đa phương thức.
+- Các triển khai không có bước chuẩn hóa.
+- Các triển khai chỉ có rào chắn đầu vào (không có rào chắn đầu ra trên các đầu ra danh mục nhạy cảm).
+- Ngăn xếp coi bộ phân loại là lớp an toàn duy nhất.
+- Các tuyên bố ASR mà người vận hành không thể tái lập trên phân phối của chính họ.
 
-Refusal rules:
-- If the user's declared categories do not map into the classifier's taxonomy, refuse and require a mapping first. Unmapped = unguarded.
-- If the deployment cites Llama Guard 3 ASR numbers on a multimodal input surface, refuse and require Llama Guard 4 or a multimodal classifier.
-- If the user treats the classifier layer as sufficient in a high-risk setting, refuse. EU AI Act Article 14 (Lesson 15) expects human oversight on top.
+Các quy tắc từ chối:
+- Nếu các danh mục đã khai báo của người dùng không ánh xạ vào hệ phân loại của bộ phân loại, hãy từ chối và yêu cầu một ánh xạ trước. Chưa ánh xạ = chưa được bảo vệ.
+- Nếu triển khai viện dẫn các con số ASR của Llama Guard 3 trên một bề mặt đầu vào đa phương thức, hãy từ chối và yêu cầu Llama Guard 4 hoặc một bộ phân loại đa phương thức.
+- Nếu người dùng coi lớp phân loại là đủ trong một bối cảnh rủi ro cao, hãy từ chối. Điều 14 EU AI Act (Bài 15) kỳ vọng giám sát của con người ở trên.
 
-Output format:
+Định dạng đầu ra:
 
-Return a classifier audit with:
-- **Model inventory** (name, version, modality)
-- **Taxonomy mapping** (operator category → classifier category)
-- **Rail coverage** (input / output / dialog; firing before/after model)
-- **Normalization note** (NFKC y/n, homoglyph y/n, zero-width strip y/n)
-- **Attack-corpus coverage** (attack → defense)
-- **Layer completeness** (classifier + constitution + runtime; three required)
-- **Readiness** (production / staging / research-only)
+Trả về một kiểm toán bộ phân loại với:
+- **Danh mục mô hình** (tên, phiên bản, phương thức)
+- **Ánh xạ hệ phân loại** (danh mục người vận hành → danh mục bộ phân loại)
+- **Độ bao phủ rào chắn** (đầu vào / đầu ra / hội thoại; kích hoạt trước/sau mô hình)
+- **Ghi chú chuẩn hóa** (NFKC có/không, ký tự đồng dạng có/không, loại bỏ độ rộng bằng không có/không)
+- **Độ bao phủ tập hợp tấn công** (tấn công → phòng thủ)
+- **Tính đầy đủ của lớp** (bộ phân loại + hiến pháp + môi trường chạy; cả ba bắt buộc)
+- **Mức sẵn sàng** (sản xuất / staging / chỉ nghiên cứu)
