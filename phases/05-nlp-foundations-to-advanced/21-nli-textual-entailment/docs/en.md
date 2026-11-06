@@ -1,6 +1,6 @@
 # Natural Language Inference — Textual Entailment
 
-> "t entails h" means a human reading t would conclude h is true. NLI is the task of predicting entailment / contradiction / neutral. Boring on the surface, load-bearing in production.
+> "t kéo theo h" nghĩa là một người đọc t sẽ kết luận h đúng. NLI là tác vụ dự đoán kéo theo / mâu thuẫn / trung lập. Bề ngoài nhàm chán, gánh tải trong production.
 
 **Type:** Learn
 **Languages:** Python
@@ -9,42 +9,42 @@
 
 ## The Problem
 
-You built a summarizer. It produced a summary. How do you know the summary does not contain a hallucination?
+Bạn xây dựng một bộ tóm tắt. Nó tạo một bản tóm tắt. Làm thế nào bạn biết bản tóm tắt không chứa một ảo giác?
 
-You built a chatbot. It answered "yes." How do you know the answer is supported by the retrieved passage?
+Bạn xây dựng một chatbot. Nó trả lời "có." Làm thế nào bạn biết câu trả lời được đoạn văn truy xuất hỗ trợ?
 
-You need to classify 10,000 news articles by topic. You have no training labels. Can you reuse a model?
+Bạn cần phân loại 10,000 bài báo tin tức theo chủ đề. Bạn không có nhãn huấn luyện. Bạn có thể tái sử dụng một mô hình không?
 
-All three problems reduce to Natural Language Inference. NLI asks: given a premise `t` and a hypothesis `h`, is `h` entailed by `t`, contradicted, or neutral (unrelated)?
+Cả ba bài toán quy về Suy luận Ngôn ngữ Tự nhiên. NLI hỏi: với một tiền đề `t` và một giả thuyết `h`, `h` được `t` kéo theo, bị phủ định hay trung lập (không liên quan)?
 
-- **Hallucination check:** `t` = source document, `h` = summary claim. Not entailment = hallucination.
-- **Grounded QA:** `t` = retrieved passage, `h` = generated answer. Not entailment = fabrication.
-- **Zero-shot classification:** `t` = document, `h` = verbalized label ("This is about sports"). Entailment = predicted label.
+- **Kiểm tra ảo giác:** `t` = tài liệu nguồn, `h` = khẳng định trong tóm tắt. Không kéo theo = ảo giác.
+- **QA có căn cứ:** `t` = đoạn văn truy xuất, `h` = câu trả lời được sinh. Không kéo theo = bịa đặt.
+- **Phân loại zero-shot:** `t` = tài liệu, `h` = nhãn được diễn đạt bằng lời ("Đây là về thể thao"). Kéo theo = nhãn dự đoán.
 
-One task, three production uses. This is why every RAG evaluation framework ships an NLI model under the hood.
+Một tác vụ, ba cách dùng production. Đây là lý do mọi framework đánh giá RAG cung cấp một mô hình NLI bên dưới.
 
 ## The Concept
 
 ![NLI: three-way classification, premise vs hypothesis](../assets/nli.svg)
 
-**The three labels.**
+**Ba nhãn.**
 
-- **Entailment.** `t` → `h`. "The cat is on the mat" entails "There is a cat."
-- **Contradiction.** `t` → ¬`h`. "The cat is on the mat" contradicts "There is no cat."
-- **Neutral.** No inference either way. "The cat is on the mat" is neutral to "The cat is hungry."
+- **Kéo theo.** `t` → `h`. "Con mèo ở trên tấm thảm" kéo theo "Có một con mèo."
+- **Mâu thuẫn.** `t` → ¬`h`. "Con mèo ở trên tấm thảm" mâu thuẫn với "Không có con mèo nào."
+- **Trung lập.** Không có suy luận theo hướng nào. "Con mèo ở trên tấm thảm" trung lập với "Con mèo đang đói."
 
-**Not logical entailment.** NLI is *natural* language inference — what a typical human reader would infer, not strict logic. "John walked his dog" entails "John has a dog" in NLI, but strict first-order logic would only admit it if you axiomatize possession.
+**Không phải kéo theo logic.** NLI là suy luận ngôn ngữ *tự nhiên* — điều một người đọc thông thường sẽ suy ra, không phải logic nghiêm ngặt. "John dắt chó của mình đi dạo" kéo theo "John có một con chó" trong NLI, nhưng logic bậc nhất nghiêm ngặt chỉ chấp nhận nếu bạn tiên đề hóa sự sở hữu.
 
-**Datasets.**
+**Các tập dữ liệu.**
 
-- **SNLI** (2015). 570k human-annotated pairs, image captions as premises. Narrow domain.
-- **MultiNLI** (2017). 433k pairs across 10 genres. The standard training corpus in 2026.
-- **ANLI** (2019). Adversarial NLI. Humans wrote examples specifically designed to break existing models. Harder.
-- **DocNLI, ConTRoL** (2020–21). Document-length premises. Tests multi-hop and long-range inference.
+- **SNLI** (2015). 570k cặp được con người chú giải, chú thích ảnh làm tiền đề. Miền hẹp.
+- **MultiNLI** (2017). 433k cặp trên 10 thể loại. Ngữ liệu huấn luyện tiêu chuẩn năm 2026.
+- **ANLI** (2019). NLI đối kháng. Con người viết các ví dụ được thiết kế riêng để phá các mô hình hiện có. Khó hơn.
+- **DocNLI, ConTRoL** (2020–21). Các tiền đề dài bằng tài liệu. Kiểm thử suy luận nhiều bước và xa.
 
-**The architecture.** A transformer encoder (BERT, RoBERTa, DeBERTa) reads `[CLS] premise [SEP] hypothesis [SEP]`. The `[CLS]` representation feeds a 3-way softmax. Train on MNLI, evaluate on held-out benchmarks, get 90%+ accuracy on in-distribution pairs.
+**Kiến trúc.** Một encoder transformer (BERT, RoBERTa, DeBERTa) đọc `[CLS] premise [SEP] hypothesis [SEP]`. Biểu diễn `[CLS]` đưa vào một softmax 3 ngả. Huấn luyện trên MNLI, đánh giá trên các benchmark được giữ lại, đạt accuracy 90%+ trên các cặp trong phân phối.
 
-**Zero-shot via NLI.** Given a document and candidate labels, turn each label into a hypothesis ("This text is about sports"). Compute entailment probability for each. Pick the max. This is the mechanism behind Hugging Face's `zero-shot-classification` pipeline.
+**Zero-shot qua NLI.** Với một tài liệu và các nhãn ứng viên, biến mỗi nhãn thành một giả thuyết ("Văn bản này nói về thể thao"). Tính xác suất kéo theo cho mỗi nhãn. Chọn giá trị lớn nhất. Đây là cơ chế đằng sau pipeline `zero-shot-classification` của Hugging Face.
 
 ```figure
 nli-router
@@ -71,7 +71,7 @@ print(result)
 #  {'label': 'contradiction', 'score': 0.01}]
 ```
 
-For production NLI, `facebook/bart-large-mnli` and `MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` are the open defaults. DeBERTa-v3 tops leaderboards.
+Đối với NLI production, `facebook/bart-large-mnli` và `MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` là các mặc định mở. DeBERTa-v3 đứng đầu các bảng xếp hạng.
 
 ### Step 2: zero-shot classification
 
@@ -87,7 +87,7 @@ print(result)
 #  'scores': [0.92, 0.05, 0.02, 0.01]}
 ```
 
-The template is "This example is about {label}." by default. Customize with `hypothesis_template`. No training data required. No fine-tuning. Works out of the box.
+Khuôn mặc định là "Ví dụ này nói về {label}." Tùy chỉnh bằng `hypothesis_template`. Không yêu cầu dữ liệu huấn luyện. Không fine-tuning. Hoạt động ngay khi dùng.
 
 ### Step 3: faithfulness check for RAG
 
@@ -98,38 +98,38 @@ def is_faithful(answer, context, threshold=0.5):
     return entail["score"] > threshold
 ```
 
-This is the core of RAGAS faithfulness. Split the generated answer into atomic claims. Check each claim against the retrieved context. Report the fraction that entail.
+Đây là cốt lõi của độ trung thành RAGAS. Chia câu trả lời được sinh thành các khẳng định nguyên tử. Kiểm tra mỗi khẳng định theo ngữ cảnh truy xuất. Báo cáo tỷ lệ được kéo theo.
 
 ### Step 4: hand-rolled NLI classifier (conceptual)
 
-See `code/main.py` for a stdlib-only toy: premise and hypothesis are compared via lexical overlap + negation detection. Not competitive with transformer models — but it shows the shape of the task: two texts in, 3-way label out, loss = cross-entropy over `{entail, contradict, neutral}`.
+Xem `code/main.py` để có một ví dụ đồ chơi chỉ dùng stdlib: tiền đề và giả thuyết được so sánh qua phần giao từ vựng + phát hiện phủ định. Không cạnh tranh với các mô hình transformer — nhưng cho thấy hình dạng tác vụ: hai văn bản vào, nhãn 3 ngả ra, loss = cross-entropy trên `{entail, contradict, neutral}`.
 
 ## Pitfalls
 
-- **Hypothesis-only shortcuts.** Models can predict the label from the hypothesis alone at ~60% on SNLI because "not", "nobody", "never" correlate with contradiction. Strong baseline for detecting label leakage.
-- **Lexical overlap heuristic.** The subsequence heuristic ("every subsequence is entailed") passes SNLI but fails HANS/ANLI. Use adversarial benchmarks.
-- **Document-length degradation.** Single-sentence NLI models drop 20+ F1 on document-length premises. Use DocNLI-trained models for long context.
-- **Zero-shot template sensitivity.** "This example is about {label}" vs "{label}" vs "The topic is {label}" can swing accuracy by 10+ points. Tune the template.
-- **Domain mismatch.** MNLI trains on general English. Legal, medical, and scientific text need domain-specific NLI models (e.g., SciNLI, MedNLI).
+- **Các lối tắt chỉ giả thuyết.** Các mô hình có thể dự đoán nhãn chỉ từ giả thuyết ở mức ~60% trên SNLI vì "not", "nobody", "never" tương quan với mâu thuẫn. Baseline mạnh để phát hiện rò rỉ nhãn.
+- **Heuristic phần giao từ vựng.** Heuristic dãy con ("mọi dãy con đều được kéo theo") vượt SNLI nhưng thất bại trên HANS/ANLI. Dùng các benchmark đối kháng.
+- **Suy giảm ở độ dài tài liệu.** Các mô hình NLI một câu giảm 20+ F1 trên các tiền đề dài bằng tài liệu. Dùng các mô hình được huấn luyện trên DocNLI cho ngữ cảnh dài.
+- **Độ nhạy khuôn zero-shot.** "Ví dụ này nói về {label}" so với "{label}" so với "Chủ đề là {label}" có thể làm accuracy dao động 10+ điểm. Tinh chỉnh khuôn.
+- **Không khớp lĩnh vực.** MNLI huấn luyện trên tiếng Anh tổng quát. Văn bản pháp lý, y tế và khoa học cần các mô hình NLI riêng lĩnh vực (ví dụ, SciNLI, MedNLI).
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Use case | Model |
+| Trường hợp sử dụng | Mô hình |
 |---------|-------|
-| General-purpose NLI | `MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` |
-| Fast / edge | `cross-encoder/nli-deberta-v3-base` |
-| Zero-shot classification (lightweight) | `facebook/bart-large-mnli` |
-| Document-level NLI | `MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` |
-| Multilingual | `MoritzLaurer/multilingual-MiniLMv2-L6-mnli-xnli` |
-| Hallucination detection in RAG | NLI layer inside RAGAS / DeepEval |
+| NLI đa dụng | `MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` |
+| Nhanh / biên | `cross-encoder/nli-deberta-v3-base` |
+| Phân loại zero-shot (nhẹ) | `facebook/bart-large-mnli` |
+| NLI cấp tài liệu | `MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` |
+| Đa ngôn ngữ | `MoritzLaurer/multilingual-MiniLMv2-L6-mnli-xnli` |
+| Phát hiện ảo giác trong RAG | Tầng NLI bên trong RAGAS / DeepEval |
 
-The 2026 meta-pattern: NLI is the duct tape of text understanding. Whenever you need "does A support B?" or "does A contradict B?" — reach for NLI before you reach for another LLM call.
+Mẫu tổng quát năm 2026: NLI là băng keo của hiểu văn bản. Bất cứ khi nào bạn cần "A có hỗ trợ B không?" hoặc "A có mâu thuẫn B không?" — tìm đến NLI trước khi tìm đến một lời gọi LLM khác.
 
 ## Ship It
 
-Save as `outputs/skill-nli-picker.md`:
+Lưu thành `outputs/skill-nli-picker.md`:
 
 ```markdown
 ---
@@ -153,26 +153,26 @@ Refuse to ship zero-shot classification without a 100-example labeled sanity che
 
 ## Exercises
 
-1. **Easy.** Run `facebook/bart-large-mnli` on 20 hand-crafted (premise, hypothesis, label) triples covering all three classes. Measure accuracy. Add adversarial "subsequence heuristic" traps ("I did not eat the cake" vs "I ate the cake") and see if it breaks.
-2. **Medium.** Compare the zero-shot template `"This text is about {label}"` against `"The topic is {label}"` and `"{label}"` on 100 AG News headlines. Report accuracy swing.
-3. **Hard.** Build a RAG faithfulness checker: atomic-claim decomposition + NLI per claim. Evaluate on 50 RAG-generated answers with gold context. Measure false-positive and false-negative rates vs hand labels.
+1. **Dễ.** Chạy `facebook/bart-large-mnli` trên 20 bộ ba (tiền đề, giả thuyết, nhãn) tạo thủ công bao phủ cả ba lớp. Đo accuracy. Thêm các bẫy đối kháng "heuristic dãy con" ("Tôi đã không ăn chiếc bánh" so với "Tôi đã ăn chiếc bánh") và xem nó có hỏng không.
+2. **Trung bình.** So sánh khuôn zero-shot `"This text is about {label}"` với `"The topic is {label}"` và `"{label}"` trên 100 tiêu đề AG News. Báo cáo dao động accuracy.
+3. **Khó.** Xây dựng một bộ kiểm tra độ trung thành RAG: phân rã khẳng định nguyên tử + NLI cho mỗi khẳng định. Đánh giá trên 50 câu trả lời do RAG sinh với ngữ cảnh chuẩn. Đo tỷ lệ dương tính giả và âm tính giả so với nhãn thủ công.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| NLI | Natural Language Inference | 3-way classification of premise-hypothesis relationship. |
-| RTE | Recognizing Textual Entailment | Older name for NLI; same task. |
-| Entailment | "t implies h" | A typical reader would conclude h is true given t. |
-| Contradiction | "t rules out h" | A typical reader would conclude h is false given t. |
-| Neutral | "undecided" | No inference from t to h either way. |
-| Zero-shot classification | NLI as classifier | Verbalize labels as hypotheses, pick max entailment. |
-| Faithfulness | Is the answer supported? | NLI over (retrieved context, generated answer). |
+| NLI | Suy luận Ngôn ngữ Tự nhiên | Phân loại 3 ngả quan hệ tiền đề-giả thuyết. |
+| RTE | Nhận biết Kéo theo Văn bản | Tên cũ hơn cho NLI; cùng tác vụ. |
+| Entailment (Kéo theo) | "t suy ra h" | Một người đọc thông thường sẽ kết luận h đúng khi biết t. |
+| Contradiction (Mâu thuẫn) | "t loại trừ h" | Một người đọc thông thường sẽ kết luận h sai khi biết t. |
+| Neutral (Trung lập) | "chưa quyết định" | Không có suy luận từ t đến h theo hướng nào. |
+| Zero-shot classification (Phân loại zero-shot) | NLI làm bộ phân loại | Diễn đạt các nhãn thành giả thuyết, chọn kéo theo lớn nhất. |
+| Faithfulness (Độ trung thành) | Câu trả lời có được hỗ trợ không? | NLI trên (ngữ cảnh truy xuất, câu trả lời được sinh). |
 
 ## Further Reading
 
 - [Bowman et al. (2015). A large annotated corpus for learning natural language inference](https://arxiv.org/abs/1508.05326) — SNLI.
 - [Williams, Nangia, Bowman (2017). A Broad-Coverage Challenge Corpus for Sentence Understanding through Inference](https://arxiv.org/abs/1704.05426) — MultiNLI.
-- [Nie et al. (2019). Adversarial NLI](https://arxiv.org/abs/1910.14599) — the ANLI benchmark.
-- [Yin, Hay, Roth (2019). Benchmarking Zero-shot Text Classification](https://arxiv.org/abs/1909.00161) — NLI-as-classifier.
-- [He et al. (2021). DeBERTa: Decoding-enhanced BERT with Disentangled Attention](https://arxiv.org/abs/2006.03654) — the 2026 NLI workhorse.
+- [Nie et al. (2019). Adversarial NLI](https://arxiv.org/abs/1910.14599) — benchmark ANLI.
+- [Yin, Hay, Roth (2019). Benchmarking Zero-shot Text Classification](https://arxiv.org/abs/1909.00161) — NLI làm bộ phân loại.
+- [He et al. (2021). DeBERTa: Decoding-enhanced BERT with Disentangled Attention](https://arxiv.org/abs/2006.03654) — thành phần chủ lực NLI năm 2026.

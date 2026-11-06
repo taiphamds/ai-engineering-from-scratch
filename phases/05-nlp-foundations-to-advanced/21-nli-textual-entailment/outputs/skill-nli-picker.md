@@ -7,11 +7,11 @@ lesson: 21
 tags: [nlp, nli, zero-shot]
 ---
 
-Given a use case (faithfulness check, zero-shot classification, document-level inference), output:
+Với một trường hợp sử dụng (kiểm tra độ trung thành, phân loại zero-shot, suy luận cấp tài liệu), xuất ra:
 
-1. Model. Named NLI checkpoint. Reason tied to domain, length, language.
-2. Template (if zero-shot). Verbalization pattern. Example.
-3. Threshold. Entailment cutoff for the decision rule. Reason based on calibration.
-4. Evaluation. Accuracy on held-out labeled set, hypothesis-only baseline, adversarial subset.
+1. Mô hình. Checkpoint NLI được nêu tên. Lý do gắn với lĩnh vực, độ dài, ngôn ngữ.
+2. Khuôn (nếu zero-shot). Mẫu diễn đạt bằng lời. Ví dụ.
+3. Ngưỡng. Ngưỡng cắt kéo theo cho quy tắc quyết định. Lý do dựa trên hiệu chuẩn.
+4. Đánh giá. Accuracy trên tập có nhãn được giữ lại, baseline chỉ giả thuyết, tập con đối kháng.
 
-Refuse to ship zero-shot classification without a 100-example labeled sanity check. Refuse to use a sentence-level NLI model on document-length premises. Flag any claim that NLI solves hallucination — it reduces it; it does not eliminate it.
+Từ chối phát hành phân loại zero-shot mà không có kiểm tra hợp lý có nhãn 100 ví dụ. Từ chối dùng một mô hình NLI cấp câu trên các tiền đề dài bằng tài liệu. Đánh dấu bất kỳ khẳng định nào rằng NLI giải quyết ảo giác — nó giảm ảo giác; nó không loại bỏ ảo giác.
