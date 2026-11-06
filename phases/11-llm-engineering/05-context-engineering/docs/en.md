@@ -1,37 +1,37 @@
 # Context Engineering: Windows, Budgets, Memory, and Retrieval
 
-> Prompt engineering is a subset. Context engineering is the whole game. A prompt is a string you type. Context is everything that goes into the model's window: system instructions, retrieved documents, tool definitions, conversation history, few-shot examples, and the prompt itself. The best AI engineers in 2026 are context engineers. They decide what goes in, what stays out, and in what order.
+> Prompt engineering là một tập con. Context engineering là toàn bộ cuộc chơi. Prompt là một chuỗi bạn gõ. Ngữ cảnh là mọi thứ đi vào cửa sổ của mô hình: chỉ dẫn hệ thống, tài liệu được truy xuất, định nghĩa công cụ, lịch sử hội thoại, ví dụ few-shot và chính prompt. Các kỹ sư AI giỏi nhất năm 2026 là các kỹ sư ngữ cảnh. Họ quyết định những gì đi vào, những gì ở ngoài và theo thứ tự nào.
 
 **Type:** Build
 **Languages:** Python
 **Prerequisites:** Phase 10 (LLMs from Scratch), Phase 11 Lesson 01-02
 **Time:** ~90 minutes
-**Related:** Phase 11 · 15 (Prompt Caching) — the cache-friendly layout is an extension of context engineering. Phase 5 · 28 (Long-Context Evaluation) for how to measure lost-in-the-middle with NIAH/RULER.
+**Liên quan:** Giai đoạn 11 · 15 (Prompt Caching) — bố trí thân thiện với cache là phần mở rộng của context engineering. Giai đoạn 5 · 28 (Long-Context Evaluation) về cách đo lost-in-the-middle bằng NIAH/RULER.
 
 ## Learning Objectives
 
-- Calculate token budgets across all context window components (system prompt, tools, history, retrieved docs, generation headroom)
-- Implement context window management strategies: truncation, summarization, and sliding window for conversation history
-- Prioritize and order context components to maximize the model's attention on the most relevant information
-- Build a context assembler that dynamically allocates tokens based on query type and available window space
+- Tính ngân sách token trên mọi thành phần cửa sổ ngữ cảnh (system prompt, công cụ, lịch sử, tài liệu truy xuất, phần dư cho sinh)
+- Triển khai các chiến lược quản lý cửa sổ ngữ cảnh: cắt ngắn, tóm tắt và cửa sổ trượt cho lịch sử hội thoại
+- Ưu tiên và sắp thứ tự các thành phần ngữ cảnh để tối đa hóa attention của mô hình trên thông tin liên quan nhất
+- Xây dựng một bộ lắp ráp ngữ cảnh phân bổ token động theo loại truy vấn và không gian cửa sổ sẵn có
 
 ## The Problem
 
-Claude Opus 4.7 has a 200K token window (1M in beta). GPT-5 has 400K. Gemini 3 Pro has 2M. Llama 4 claims 10M. These numbers sound enormous until you fill them.
+Claude Opus 4.7 có cửa sổ 200K token (1M trong beta). GPT-5 có 400K. Gemini 3 Pro có 2M. Llama 4 tuyên bố 10M. Những con số này nghe khổng lồ cho đến khi bạn lấp đầy chúng.
 
-Here is a real breakdown for a coding assistant. System prompt: 500 tokens. Tool definitions for 50 tools: 8,000 tokens. Retrieved documentation: 4,000 tokens. Conversation history (10 turns): 6,000 tokens. Current user query: 200 tokens. Generation budget (max output): 4,000 tokens. Total: 22,700 tokens. That is only 18% of a 128K window.
+Đây là một phân tích thực tế cho trợ lý lập trình. System prompt: 500 token. Định nghĩa cho 50 công cụ: 8,000 token. Tài liệu được truy xuất: 4,000 token. Lịch sử hội thoại (10 lượt): 6,000 token. Truy vấn người dùng hiện tại: 200 token. Ngân sách sinh (đầu ra tối đa): 4,000 token. Tổng: 22,700 token. Đó chỉ là 18% cửa sổ 128K.
 
-But attention does not scale linearly with context length. A model with 128K tokens of context pays quadratic attention cost (O(n^2) in vanilla transformers, though most production models use efficient attention variants). More importantly, retrieval accuracy degrades. The "Needle in a Haystack" test shows that models struggle to find information placed in the middle of long contexts. Research by Liu et al. (2023) showed that LLMs retrieve information at the start and end of long contexts with near-perfect accuracy, but accuracy drops 10-20% for information placed in the middle (positions 40-70% of the context). This "lost-in-the-middle" effect varies by model but affects all current architectures.
+Nhưng attention không tăng tuyến tính theo độ dài ngữ cảnh. Một mô hình có 128K token ngữ cảnh trả chi phí attention bậc hai (O(n^2) trong transformer nguyên bản, dù hầu hết mô hình sản xuất dùng các biến thể attention hiệu quả). Quan trọng hơn, độ chính xác truy xuất suy giảm. Kiểm thử "Needle in a Haystack" cho thấy mô hình gặp khó khi tìm thông tin đặt ở giữa ngữ cảnh dài. Nghiên cứu của Liu và cộng sự (2023) cho thấy LLM truy xuất thông tin ở đầu và cuối ngữ cảnh dài với độ chính xác gần hoàn hảo, nhưng độ chính xác giảm 10-20% cho thông tin đặt ở giữa (các vị trí 40-70% ngữ cảnh). Hiệu ứng "lost-in-the-middle" này khác nhau theo mô hình nhưng ảnh hưởng mọi kiến trúc hiện tại.
 
-The practical lesson: having 200K tokens available does not mean using 200K tokens is effective. A carefully curated 10K token context often outperforms a dumped 100K token context. Context engineering is the discipline of maximizing signal-to-noise ratio within the context window.
+Bài học thực tế: có sẵn 200K token không có nghĩa dùng 200K token là hiệu quả. Một ngữ cảnh 10K token được tuyển chọn cẩn thận thường vượt trội hơn ngữ cảnh 100K token đổ vào. Context engineering là lĩnh vực tối đa hóa tỷ số tín hiệu trên nhiễu trong cửa sổ ngữ cảnh.
 
-Every token you put in the window displaces a token that could carry more relevant information. Every irrelevant tool definition, every stale conversation turn, every chunk of retrieved text that does not answer the question -- each one makes the model slightly worse at the task.
+Mỗi token bạn đưa vào cửa sổ chiếm chỗ một token có thể mang thông tin liên quan hơn. Mọi định nghĩa công cụ không liên quan, mọi lượt hội thoại lỗi thời, mọi chunk văn bản truy xuất không trả lời câu hỏi -- mỗi thứ khiến mô hình kém hơn một chút ở tác vụ.
 
 ## The Concept
 
 ### The Context Window is a Scarce Resource
 
-Think of the context window as RAM, not disk. It is fast and directly accessible, but limited. You cannot fit everything. You must choose.
+Hãy nghĩ cửa sổ ngữ cảnh là RAM, không phải đĩa. Nó nhanh và truy cập trực tiếp được, nhưng có giới hạn. Bạn không thể chứa mọi thứ. Bạn phải chọn.
 
 ```mermaid
 graph TD
@@ -54,20 +54,20 @@ graph TD
     style G fill:#1a1a2e,stroke:#0f3460,color:#fff
 ```
 
-Each component competes for space. Adding more tool definitions means less room for conversation history. Adding more retrieved context means less room for few-shot examples. Context engineering is the art of allocating this budget to maximize task performance.
+Mỗi thành phần cạnh tranh không gian. Thêm định nghĩa công cụ nghĩa là ít chỗ hơn cho lịch sử hội thoại. Thêm ngữ cảnh truy xuất nghĩa là ít chỗ hơn cho ví dụ few-shot. Context engineering là nghệ thuật phân bổ ngân sách này để tối đa hóa hiệu năng tác vụ.
 
 ### Lost-in-the-Middle
 
-The most important empirical finding in context engineering. Models attend better to information at the beginning and end of the context. Information in the middle gets lower attention scores and is more likely to be ignored.
+Phát hiện thực nghiệm quan trọng nhất trong context engineering. Mô hình attend tốt hơn đến thông tin ở đầu và cuối ngữ cảnh. Thông tin ở giữa nhận điểm attention thấp hơn và dễ bị bỏ qua hơn.
 
-Liu et al. (2023) tested this systematically. They placed a relevant document among 20 irrelevant documents at various positions and measured answer accuracy. When the relevant document was first or last, accuracy was 85-90%. When it was in the middle (position 10 of 20), accuracy dropped to 60-70%.
+Liu và cộng sự (2023) kiểm thử điều này có hệ thống. Họ đặt một tài liệu liên quan giữa 20 tài liệu không liên quan ở các vị trí khác nhau và đo độ chính xác câu trả lời. Khi tài liệu liên quan ở đầu hoặc cuối, độ chính xác là 85-90%. Khi ở giữa (vị trí 10 trong 20), độ chính xác giảm còn 60-70%.
 
-This has direct engineering implications:
+Điều này có các hệ quả kỹ thuật trực tiếp:
 
-- Put the most important information first (system prompt, critical instructions)
-- Put the current query and most relevant context last (recency bias helps)
-- Treat the middle of the context as the lowest-priority zone
-- If you must include information in the middle, duplicate the key point at the end
+- Đặt thông tin quan trọng nhất trước (system prompt, chỉ dẫn then chốt)
+- Đặt truy vấn hiện tại và ngữ cảnh liên quan nhất cuối cùng (thiên lệch gần đây giúp ích)
+- Xem phần giữa ngữ cảnh là vùng ưu tiên thấp nhất
+- Nếu bạn phải bao gồm thông tin ở giữa, lặp lại điểm chính ở cuối
 
 ```mermaid
 graph LR
@@ -89,37 +89,37 @@ graph LR
 
 ### Context Components
 
-**System prompt**: sets the persona, constraints, and behavioral rules. This goes first and stays constant across turns. Claude Code uses roughly 6,000 tokens for its system prompt including tool definitions and behavioral instructions. Keep it tight. Every word in the system prompt is repeated on every API call.
+**System prompt**: đặt nhân vật, ràng buộc và quy tắc hành vi. Phần này đi đầu và giữ cố định giữa các lượt. Claude Code dùng khoảng 6,000 token cho system prompt gồm định nghĩa công cụ và chỉ dẫn hành vi. Giữ nó gọn. Mỗi từ trong system prompt được lặp lại ở mỗi lệnh gọi API.
 
-**Tool definitions**: each tool adds 50-200 tokens (name, description, parameter schema). 50 tools at 150 tokens each is 7,500 tokens before any conversation happens. Dynamic tool selection -- only including tools relevant to the current query -- can reduce this by 60-80%.
+**Định nghĩa công cụ**: mỗi công cụ thêm 50-200 token (tên, mô tả, schema tham số). 50 công cụ với 150 token mỗi công cụ là 7,500 token trước khi có bất kỳ hội thoại nào. Lựa chọn công cụ động -- chỉ bao gồm công cụ liên quan đến truy vấn hiện tại -- có thể giảm phần này 60-80%.
 
-**Retrieved context**: documents from a vector database, search results, file contents. The quality of retrieval directly determines the quality of the response. Bad retrieval is worse than no retrieval -- it fills the window with noise and actively misleads the model.
+**Ngữ cảnh được truy xuất**: tài liệu từ cơ sở dữ liệu vector, kết quả tìm kiếm, nội dung file. Chất lượng truy xuất quyết định trực tiếp chất lượng phản hồi. Truy xuất kém tệ hơn không truy xuất -- nó lấp cửa sổ bằng nhiễu và chủ động dẫn mô hình sai hướng.
 
-**Conversation history**: every previous user message and assistant response. Grows linearly with conversation length. A 50-turn conversation at 200 tokens per turn is 10,000 tokens of history. Most of it is irrelevant to the current query.
+**Lịch sử hội thoại**: mọi thông điệp người dùng và phản hồi trợ lý trước đó. Tăng tuyến tính theo độ dài hội thoại. Một hội thoại 50 lượt ở 200 token mỗi lượt là 10,000 token lịch sử. Phần lớn không liên quan đến truy vấn hiện tại.
 
-**Few-shot examples**: input/output pairs that demonstrate the desired behavior. Two to three well-chosen examples often improve output quality more than thousands of tokens of instructions. But they cost space.
+**Ví dụ few-shot**: các cặp đầu vào/đầu ra minh họa hành vi mong muốn. Hai đến ba ví dụ được chọn tốt thường cải thiện chất lượng đầu ra hơn hàng nghìn token chỉ dẫn. Nhưng chúng tốn không gian.
 
-**Generation budget**: the tokens reserved for the model's response. If you fill the window to capacity, the model has no room to answer. Reserve at least 2,000-4,000 tokens for generation.
+**Ngân sách sinh**: các token dành cho phản hồi của mô hình. Nếu bạn lấp đầy cửa sổ đến sức chứa tối đa, mô hình không có chỗ trả lời. Dành ít nhất 2,000-4,000 token cho sinh.
 
 ### Context Compression Strategies
 
-**History summarization**: instead of keeping all previous turns verbatim, periodically summarize the conversation. "We discussed X, decided Y, and the user wants Z" in 100 tokens replaces 10 turns that took 2,000 tokens. Run summarization when history exceeds a threshold (e.g., 5,000 tokens).
+**Tóm tắt lịch sử**: thay vì giữ nguyên văn mọi lượt trước, định kỳ tóm tắt hội thoại. "Chúng ta đã thảo luận X, quyết định Y và người dùng muốn Z" trong 100 token thay thế 10 lượt tốn 2,000 token. Chạy tóm tắt khi lịch sử vượt một ngưỡng (ví dụ 5,000 token).
 
-**Relevance filtering**: score each retrieved document against the current query and drop documents below a threshold. If you retrieved 10 chunks but only 3 are relevant, discard the other 7. Better to have 3 highly relevant chunks than 10 mediocre ones.
+**Lọc mức liên quan**: chấm điểm mỗi tài liệu truy xuất so với truy vấn hiện tại và bỏ tài liệu dưới ngưỡng. Nếu bạn truy xuất 10 chunk nhưng chỉ 3 liên quan, bỏ 7 chunk còn lại. Có 3 chunk rất liên quan tốt hơn 10 chunk tầm thường.
 
-**Tool pruning**: classify the user's query intent and only include tools relevant to that intent. A code question does not need calendar tools. A scheduling question does not need file system tools. This can reduce tool definitions from 8,000 tokens to 1,000.
+**Cắt tỉa công cụ**: phân loại ý định truy vấn người dùng và chỉ bao gồm công cụ liên quan đến ý định đó. Câu hỏi mã không cần công cụ lịch. Câu hỏi lên lịch không cần công cụ hệ thống file. Điều này có thể giảm định nghĩa công cụ từ 8,000 token xuống 1,000.
 
-**Recursive summarization**: for very long documents, summarize in stages. First summarize each section, then summarize the summaries. A 50-page document becomes a 500-token digest that captures the key points.
+**Tóm tắt đệ quy**: với tài liệu rất dài, tóm tắt theo các giai đoạn. Đầu tiên tóm tắt từng phần, rồi tóm tắt các bản tóm tắt. Một tài liệu 50 trang trở thành bản lược 500 token nắm các điểm chính.
 
 ### Memory Systems
 
-Context engineering spans three time horizons.
+Context engineering trải trên ba khoảng thời gian.
 
-**Short-term memory**: the current conversation. Stored in the context window directly. Grows with each turn. Managed by summarization and truncation.
+**Bộ nhớ ngắn hạn**: hội thoại hiện tại. Được lưu trực tiếp trong cửa sổ ngữ cảnh. Tăng với mỗi lượt. Được quản lý bằng tóm tắt và cắt ngắn.
 
-**Long-term memory**: facts and preferences that persist across conversations. "The user prefers TypeScript." "The project uses PostgreSQL." Stored in a database, retrieved on session start. Claude Code stores this in CLAUDE.md files. ChatGPT stores it in its memory feature.
+**Bộ nhớ dài hạn**: các sự kiện và sở thích tồn tại qua các hội thoại. "Người dùng thích TypeScript." "Dự án dùng PostgreSQL." Lưu trong cơ sở dữ liệu, truy xuất khi phiên bắt đầu. Claude Code lưu phần này trong các file CLAUDE.md. ChatGPT lưu trong tính năng bộ nhớ.
 
-**Episodic memory**: specific past interactions that might be relevant. "Last Tuesday, we debugged a similar issue in the auth module." Stored as embeddings, retrieved when the current conversation matches a past episode.
+**Bộ nhớ tình tiết**: các tương tác quá khứ cụ thể có thể liên quan. "Thứ Ba tuần trước, chúng ta gỡ một lỗi tương tự trong mô-đun xác thực." Lưu dưới dạng embedding, truy xuất khi hội thoại hiện tại khớp một tình tiết quá khứ.
 
 ```mermaid
 graph TD
@@ -146,16 +146,16 @@ graph TD
 
 ### Dynamic Context Assembly
 
-The key insight: different queries need different context. A static system prompt + static tools + static history is wasteful. The best systems dynamically assemble context per query.
+Nhận thức chính: truy vấn khác nhau cần ngữ cảnh khác nhau. System prompt tĩnh + công cụ tĩnh + lịch sử tĩnh là lãng phí. Các hệ thống tốt nhất lắp ráp ngữ cảnh động theo từng truy vấn.
 
-1. Classify the query intent
-2. Select relevant tools (not all tools)
-3. Retrieve relevant documents (not a fixed set)
-4. Include relevant history turns (not all history)
-5. Add few-shot examples that match the task type
-6. Order everything by importance: critical first, important last, optional in the middle
+1. Phân loại ý định truy vấn
+2. Chọn công cụ liên quan (không phải mọi công cụ)
+3. Truy xuất tài liệu liên quan (không phải một tập cố định)
+4. Bao gồm các lượt lịch sử liên quan (không phải toàn bộ lịch sử)
+5. Thêm ví dụ few-shot khớp loại tác vụ
+6. Sắp mọi thứ theo mức quan trọng: then chốt đầu tiên, quan trọng cuối cùng, tùy chọn ở giữa
 
-This is what separates a good AI application from a great one. The model is the same. The context is the differentiator.
+Đây là điều tách một ứng dụng AI tốt khỏi một ứng dụng xuất sắc. Mô hình giống nhau. Ngữ cảnh là yếu tố tạo khác biệt.
 
 ```figure
 lost-in-the-middle
@@ -165,7 +165,7 @@ lost-in-the-middle
 
 ### Step 1: Token Counter
 
-You cannot budget what you cannot measure. Build a simple token counter (approximation using whitespace splitting, since the exact count depends on the tokenizer).
+Bạn không thể lập ngân sách cho thứ không đo được. Xây dựng một bộ đếm token đơn giản (xấp xỉ bằng tách theo khoảng trắng, vì số đếm chính xác phụ thuộc tokenizer).
 
 ```python
 import json
@@ -183,7 +183,7 @@ def count_tokens_json(obj):
 
 ### Step 2: Context Budget Manager
 
-The core abstraction. A budget manager tracks how many tokens each component uses and enforces limits.
+Lớp trừu tượng cốt lõi. Một bộ quản lý ngân sách theo dõi số token mỗi thành phần dùng và cưỡng chế giới hạn.
 
 ```python
 class ContextBudget:
@@ -240,7 +240,7 @@ class ContextBudget:
 
 ### Step 3: Lost-in-the-Middle Reordering
 
-Implement the reordering strategy: most important items go first and last, least important go in the middle.
+Triển khai chiến lược sắp lại: các mục quan trọng nhất ở đầu và cuối, ít quan trọng nhất ở giữa.
 
 ```python
 def reorder_lost_in_middle(items, scores):
@@ -271,7 +271,7 @@ def score_relevance(query, documents):
 
 ### Step 4: Conversation History Compressor
 
-Summarize old conversation turns to reclaim token budget.
+Tóm tắt các lượt hội thoại cũ để thu hồi ngân sách token.
 
 ```python
 class ConversationManager:
@@ -322,7 +322,7 @@ class ConversationManager:
 
 ### Step 5: Dynamic Tool Selector
 
-Only include tools relevant to the current query. Classify intent, then filter.
+Chỉ bao gồm công cụ liên quan đến truy vấn hiện tại. Phân loại ý định, rồi lọc.
 
 ```python
 TOOL_REGISTRY = {
@@ -417,7 +417,7 @@ def select_tools(query, token_budget=2000):
 
 ### Step 6: Full Context Assembly Pipeline
 
-Wire everything together. Given a query, dynamically assemble the optimal context.
+Kết nối mọi thứ. Với một truy vấn, lắp ráp động ngữ cảnh tối ưu.
 
 ```python
 class ContextEngine:
@@ -531,64 +531,64 @@ def run_demo():
 
 ### Harness-Managed Context
 
-Claude Code manages context with a layered approach. The system prompt includes behavioral rules and tool definitions (~6K tokens). When you open a file, its contents are injected as context. When you search, results are added. Old conversation turns are summarized. CLAUDE.md provides long-term memory that persists across sessions.
+Claude Code quản lý ngữ cảnh bằng cách tiếp cận nhiều lớp. System prompt bao gồm quy tắc hành vi và định nghĩa công cụ (~6K token). Khi bạn mở một file, nội dung của nó được đưa vào làm ngữ cảnh. Khi bạn tìm kiếm, kết quả được thêm vào. Các lượt hội thoại cũ được tóm tắt. CLAUDE.md cung cấp bộ nhớ dài hạn tồn tại qua các phiên.
 
-The key engineering decision: Claude Code does not dump your entire codebase into the context. It retrieves relevant files on demand. This is context engineering in practice.
+Quyết định kỹ thuật chính: Claude Code không đổ toàn bộ cơ sở mã của bạn vào ngữ cảnh. Nó truy xuất các file liên quan theo nhu cầu. Đây là context engineering trong thực tế.
 
 ### Dynamic Context Loading
 
-Cursor indexes your entire codebase into embeddings. When you type a query, it retrieves the most relevant files and code blocks using vector similarity. Only those pieces go into the context window. A 500K-line codebase is compressed into the 5-10 most relevant code blocks.
+Cursor lập chỉ mục toàn bộ cơ sở mã của bạn thành embedding. Khi bạn gõ truy vấn, nó truy xuất các file và khối mã liên quan nhất bằng độ tương đồng vector. Chỉ những phần đó đi vào cửa sổ ngữ cảnh. Một cơ sở mã 500K dòng được nén thành 5-10 khối mã liên quan nhất.
 
-This is the pattern: embed everything, retrieve on demand, include only what matters.
+Đây là mẫu: nhúng mọi thứ, truy xuất theo nhu cầu, chỉ bao gồm những gì quan trọng.
 
 ### Assistant Long-Term Memory
 
-ChatGPT stores user preferences and facts as long-term memory. On each conversation start, relevant memories are retrieved and included in the system prompt. "The user prefers Python" costs 5 tokens but saves hundreds of tokens of repeated instructions across conversations.
+ChatGPT lưu sở thích và sự kiện của người dùng dưới dạng bộ nhớ dài hạn. Khi mỗi hội thoại bắt đầu, các ký ức liên quan được truy xuất và đưa vào system prompt. "Người dùng thích Python" tốn 5 token nhưng tiết kiệm hàng trăm token chỉ dẫn lặp lại qua các hội thoại.
 
 ### RAG as Context Engineering
 
-Retrieval-Augmented Generation is context engineering formalized. Instead of stuffing knowledge into the model's weights (training) or the system prompt (static context), you retrieve relevant documents at query time and inject them into the context window. The entire RAG pipeline -- chunking, embedding, retrieval, reranking -- exists to solve one problem: putting the right information in the context window.
+Retrieval-Augmented Generation là context engineering được hình thức hóa. Thay vì nhồi kiến thức vào trọng số mô hình (huấn luyện) hoặc system prompt (ngữ cảnh tĩnh), bạn truy xuất tài liệu liên quan ở thời điểm truy vấn và đưa chúng vào cửa sổ ngữ cảnh. Toàn bộ pipeline RAG -- chia chunk, embedding, truy xuất, xếp hạng lại -- tồn tại để giải một vấn đề: đặt đúng thông tin vào cửa sổ ngữ cảnh.
 
 ## Ship It
 
-This lesson produces `outputs/prompt-context-optimizer.md` -- a reusable prompt that audits a context assembly strategy and recommends optimizations. Feed it your system prompt, tool count, average history length, and retrieval strategy, and it identifies token waste and suggests improvements.
+Bài học này tạo ra `outputs/prompt-context-optimizer.md` -- một prompt tái sử dụng rà soát chiến lược lắp ráp ngữ cảnh và khuyến nghị tối ưu. Đưa vào system prompt, số công cụ, độ dài lịch sử trung bình và chiến lược truy xuất của bạn, và nó xác định lãng phí token và đề xuất cải thiện.
 
-It also produces `outputs/skill-context-engineering.md` -- a decision framework for designing context assembly pipelines based on task type, context window size, and latency budget.
+Nó cũng tạo ra `outputs/skill-context-engineering.md` -- một khung quyết định để thiết kế các pipeline lắp ráp ngữ cảnh dựa trên loại tác vụ, kích thước cửa sổ ngữ cảnh và ngân sách độ trễ.
 
 ## Exercises
 
-1. Add a "token waste detector" to the ContextBudget class. It should flag components using more than 30% of the budget and suggest compression strategies specific to each component type (summarize history, prune tools, re-rank documents).
+1. Thêm một "bộ phát hiện lãng phí token" vào lớp ContextBudget. Nó phải đánh dấu các thành phần dùng hơn 30% ngân sách và đề xuất chiến lược nén riêng cho từng loại thành phần (tóm tắt lịch sử, cắt tỉa công cụ, xếp hạng lại tài liệu).
 
-2. Implement semantic deduplication for retrieved context. If two retrieved documents are more than 80% similar (by word overlap or cosine similarity of their embeddings), keep only the higher-scored one. Measure how much token budget this recovers.
+2. Triển khai loại trùng lặp ngữ nghĩa cho ngữ cảnh truy xuất. Nếu hai tài liệu truy xuất tương tự hơn 80% (theo chồng lấp từ hoặc cosine similarity của embedding), chỉ giữ tài liệu điểm cao hơn. Đo lượng ngân sách token thu hồi được.
 
-3. Build a "context replay" tool. Given a conversation transcript, replay it through the ContextEngine and visualize how the budget allocation changes turn by turn. Plot token usage per component over time. Identify the turn where context starts getting compressed.
+3. Xây dựng một công cụ "phát lại ngữ cảnh". Với bản ghi hội thoại, phát lại qua ContextEngine và trực quan hóa cách phân bổ ngân sách thay đổi theo từng lượt. Vẽ mức dùng token mỗi thành phần theo thời gian. Xác định lượt mà ngữ cảnh bắt đầu bị nén.
 
-4. Implement a priority-based tool selector. Instead of binary include/exclude, assign each tool a relevance score to the current query. Include tools in descending relevance order until the tool budget is exhausted. Compare task performance with 5, 10, 20, and 50 tools included.
+4. Triển khai một bộ chọn công cụ theo ưu tiên. Thay vì bao gồm/loại trừ nhị phân, gán mỗi công cụ một điểm liên quan với truy vấn hiện tại. Bao gồm công cụ theo mức liên quan giảm dần đến khi hết ngân sách công cụ. So sánh hiệu năng tác vụ với 5, 10, 20 và 50 công cụ được bao gồm.
 
-5. Build a multi-strategy context compressor. Implement three compression strategies (truncation, summarization, extraction of key sentences) and benchmark them on a set of 20 documents. Measure the tradeoff between compression ratio and information retention (does the compressed version still contain the answer to the query?).
+5. Xây dựng một bộ nén ngữ cảnh đa chiến lược. Triển khai ba chiến lược nén (cắt ngắn, tóm tắt, trích xuất câu chính) và benchmark chúng trên tập 20 tài liệu. Đo sự đánh đổi giữa tỷ lệ nén và giữ thông tin (phiên bản nén có còn chứa câu trả lời cho truy vấn không?).
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Context window | "How much the model can read" | The maximum number of tokens (input + output) the model processes in a single forward pass -- 400K for GPT-5, 200K (1M beta) for Claude Opus 4.7, 2M for Gemini 3 Pro |
-| Context engineering | "Advanced prompt engineering" | The discipline of deciding what goes into the context window, in what order, and at what priority -- encompasses retrieval, compression, tool selection, and memory management |
-| Lost-in-the-middle | "Models forget stuff in the middle" | Empirical finding that LLMs attend better to the beginning and end of context, with 10-20% accuracy drop for information placed in the middle |
-| Token budget | "How many tokens you have left" | An explicit allocation of context window capacity across components (system prompt, tools, history, retrieval, generation) with per-component limits |
-| Dynamic context | "Loading stuff on the fly" | Assembling the context window differently for each query based on intent classification, relevant tool selection, and retrieval results |
-| History summarization | "Compressing the conversation" | Replacing verbatim old conversation turns with a concise summary, reducing token cost while preserving key information |
-| Tool pruning | "Only including relevant tools" | Classifying query intent and only including tool definitions that match, reducing tool token cost by 60-80% |
-| Long-term memory | "Remembering across sessions" | Facts and preferences stored in a database and retrieved at session start -- CLAUDE.md, ChatGPT Memory, and similar systems |
-| Episodic memory | "Remembering specific past events" | Past interactions stored as embeddings and retrieved when the current query is similar to a past conversation |
-| Generation budget | "Room for the answer" | Tokens reserved for the model's output -- if the context fills the window completely, the model has no room to respond |
+| Context window (Cửa sổ ngữ cảnh) | "Mô hình đọc được bao nhiêu" | Số token tối đa (đầu vào + đầu ra) mô hình xử lý trong một forward pass duy nhất -- 400K cho GPT-5, 200K (1M beta) cho Claude Opus 4.7, 2M cho Gemini 3 Pro |
+| Context engineering (Kỹ thuật ngữ cảnh) | "Prompt engineering nâng cao" | Lĩnh vực quyết định những gì đi vào cửa sổ ngữ cảnh, theo thứ tự nào và mức ưu tiên nào -- bao gồm truy xuất, nén, chọn công cụ và quản lý bộ nhớ |
+| Lost-in-the-middle (Lạc ở giữa) | "Mô hình quên những thứ ở giữa" | Phát hiện thực nghiệm rằng LLM attend tốt hơn ở đầu và cuối ngữ cảnh, với giảm độ chính xác 10-20% cho thông tin đặt ở giữa |
+| Token budget (Ngân sách token) | "Bạn còn bao nhiêu token" | Phân bổ rõ ràng sức chứa cửa sổ ngữ cảnh giữa các thành phần (system prompt, công cụ, lịch sử, truy xuất, sinh) với giới hạn cho từng thành phần |
+| Dynamic context (Ngữ cảnh động) | "Nạp các thứ ngay khi cần" | Lắp ráp cửa sổ ngữ cảnh khác nhau cho mỗi truy vấn theo phân loại ý định, chọn công cụ liên quan và kết quả truy xuất |
+| History summarization (Tóm tắt lịch sử) | "Nén hội thoại" | Thay các lượt hội thoại cũ nguyên văn bằng một bản tóm tắt súc tích, giảm chi phí token trong khi giữ thông tin chính |
+| Tool pruning (Cắt tỉa công cụ) | "Chỉ bao gồm công cụ liên quan" | Phân loại ý định truy vấn và chỉ bao gồm định nghĩa công cụ khớp, giảm chi phí token công cụ 60-80% |
+| Long-term memory (Bộ nhớ dài hạn) | "Ghi nhớ qua các phiên" | Sự kiện và sở thích lưu trong cơ sở dữ liệu và truy xuất khi phiên bắt đầu -- CLAUDE.md, ChatGPT Memory và các hệ thống tương tự |
+| Episodic memory (Bộ nhớ tình tiết) | "Ghi nhớ các sự kiện quá khứ cụ thể" | Tương tác quá khứ lưu dưới dạng embedding và truy xuất khi truy vấn hiện tại tương tự một hội thoại quá khứ |
+| Generation budget (Ngân sách sinh) | "Chỗ cho câu trả lời" | Token dành cho đầu ra mô hình -- nếu ngữ cảnh lấp kín cửa sổ, mô hình không có chỗ phản hồi |
 
 ## Further Reading
 
-- [Liu et al., 2023 -- "Lost in the Middle: How Language Models Use Long Contexts"](https://arxiv.org/abs/2307.03172) -- the definitive study on position-dependent attention, showing that models struggle with information in the middle of long contexts
-- [Anthropic's Contextual Retrieval blog post](https://www.anthropic.com/news/contextual-retrieval) -- how Anthropic approaches context-aware chunk retrieval, reducing retrieval failure by 49%
-- [Simon Willison's "Context Engineering"](https://simonwillison.net/2025/Jun/27/context-engineering/) -- the blog post that named the discipline and distinguished it from prompt engineering
-- [LangChain documentation on RAG](https://python.langchain.com/docs/tutorials/rag/) -- practical implementation of retrieval-augmented generation as a context engineering pattern
-- [Greg Kamradt's Needle in a Haystack test](https://github.com/gkamradt/LLMTest_NeedleInAHaystack) -- the benchmark that revealed position-dependent retrieval failures across all major models
-- [Pope et al., "Efficiently Scaling Transformer Inference" (2022)](https://arxiv.org/abs/2211.05102) -- why context length drives memory and latency, and how KV cache, MQA, and GQA change the budget calculation.
-- [Agrawal et al., "SARATHI: Efficient LLM Inference by Piggybacking Decodes with Chunked Prefills" (2023)](https://arxiv.org/abs/2308.16369) -- the two phases of inference that make long prompts expensive in TTFT but cheap in TPOT; the ground truth behind context-packing tradeoffs.
-- [Ainslie et al., "GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints" (EMNLP 2023)](https://arxiv.org/abs/2305.13245) -- the grouped-query attention paper that cut KV memory 8× in production decoders without quality loss.
+- [Liu et al., 2023 -- "Lost in the Middle: How Language Models Use Long Contexts"](https://arxiv.org/abs/2307.03172) -- nghiên cứu có tính quyết định về attention phụ thuộc vị trí, cho thấy mô hình gặp khó với thông tin ở giữa ngữ cảnh dài
+- [Anthropic's Contextual Retrieval blog post](https://www.anthropic.com/news/contextual-retrieval) -- cách Anthropic tiếp cận truy xuất chunk nhận biết ngữ cảnh, giảm thất bại truy xuất 49%
+- [Simon Willison's "Context Engineering"](https://simonwillison.net/2025/Jun/27/context-engineering/) -- bài blog đặt tên lĩnh vực và phân biệt nó với prompt engineering
+- [LangChain documentation on RAG](https://python.langchain.com/docs/tutorials/rag/) -- triển khai thực tế retrieval-augmented generation như một mẫu context engineering
+- [Greg Kamradt's Needle in a Haystack test](https://github.com/gkamradt/LLMTest_NeedleInAHaystack) -- benchmark bộc lộ thất bại truy xuất phụ thuộc vị trí trên mọi mô hình lớn
+- [Pope et al., "Efficiently Scaling Transformer Inference" (2022)](https://arxiv.org/abs/2211.05102) -- tại sao độ dài ngữ cảnh chi phối bộ nhớ và độ trễ, và cách KV cache, MQA, GQA thay đổi phép tính ngân sách.
+- [Agrawal et al., "SARATHI: Efficient LLM Inference by Piggybacking Decodes with Chunked Prefills" (2023)](https://arxiv.org/abs/2308.16369) -- hai giai đoạn suy luận khiến prompt dài đắt ở TTFT nhưng rẻ ở TPOT; sự thật nền tảng đằng sau đánh đổi đóng gói ngữ cảnh.
+- [Ainslie et al., "GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints" (EMNLP 2023)](https://arxiv.org/abs/2305.13245) -- bài báo grouped-query attention cắt bộ nhớ KV 8× trong decoder sản xuất mà không mất chất lượng.
