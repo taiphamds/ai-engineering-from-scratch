@@ -1,17 +1,17 @@
 # Code migration agent dashboard (TypeScript skeleton)
 
-Multi-file TypeScript skeleton for the dashboard layer of the code migration
-agent capstone. The agent (Python) runs in a sandbox; this server renders
-progress for the operator.
+Bộ khung TypeScript nhiều file cho lớp bảng điều khiển của bài tổng kết
+agent di chuyển mã. Agent (Python) chạy trong một sandbox; máy chủ này hiển thị
+tiến độ cho người vận hành.
 
 ## Layout
 
-- `src/index.ts` — entry point, simulates ticks and optionally serves HTTP.
-- `src/server.ts` — Hono routes for `/`, `/dashboard`, `/migrations`, `/migrations/:id`.
-- `src/migrations.ts` — per-file state machine and seed data.
-- `src/cost.ts` — turn count and dollar budget enforcement.
-- `src/types.ts` — shared types.
-- `tests/*.test.ts` — `node --test` style tests via `tsx`.
+- `src/index.ts` — điểm vào, mô phỏng các nhịp và tùy chọn phục vụ HTTP.
+- `src/server.ts` — các tuyến Hono cho `/`, `/dashboard`, `/migrations`, `/migrations/:id`.
+- `src/migrations.ts` — máy trạng thái theo file và dữ liệu seed.
+- `src/cost.ts` — thực thi số lượt và ngân sách đô la.
+- `src/types.ts` — các kiểu dùng chung.
+- `tests/*.test.ts` — kiểm thử kiểu `node --test` qua `tsx`.
 
 ## Install
 
@@ -35,5 +35,5 @@ npm test
 
 ## Spec references
 
-- Source lesson: `phases/19-capstone-projects/09-code-migration-agent/docs/en.md`
-- Recipes: [OpenRewrite](https://docs.openrewrite.org), libcst.
+- Bài học nguồn: `phases/19-capstone-projects/09-code-migration-agent/docs/en.md`
+- Công thức: [OpenRewrite](https://docs.openrewrite.org), libcst.

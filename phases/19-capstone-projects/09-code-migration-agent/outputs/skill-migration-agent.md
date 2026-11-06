@@ -7,40 +7,40 @@ lesson: 09
 tags: [capstone, code-migration, openrewrite, libcst, migrationbench, agent, sandbox]
 ---
 
-Given a Java 8 or Python 2 repo, produce a migrated branch (to Java 17 or Python 3.12) with a green test suite and minimal coverage regression. Evaluate across the 50-repo MigrationBench subset.
+Với một repo Java 8 hoặc Python 2 được cung cấp, tạo một nhánh đã di chuyển (sang Java 17 hoặc Python 3.12) với bộ kiểm thử xanh và mức thoái lui độ bao phủ tối thiểu. Đánh giá trên tập con 50 repo của MigrationBench.
 
-Build plan:
+Kế hoạch xây dựng:
 
-1. Deterministic pass: OpenRewrite (Java) or libcst (Python) runs mechanical rewrites first. Commit as the "recipe" commit with a clean diff.
-2. Daytona sandbox: target runtime preinstalled; per-branch build; read-only source mount.
-3. Agent loop: LangGraph or OpenAI Agents SDK over Claude Opus 4.7 + GPT-5.4-Codex. Tools: `run_build`, `read_file`, `edit_file`, `run_test`, `git_diff`. Classify failure (dep, syntax, test, build-tool), apply targeted fix, rerun.
-4. Budget caps: 30 min, $8, 20 turns. Breaching any halts and files under `budget_exhausted` with the current diff.
-5. Test + coverage gate: build green then tests green; coverage must not drop more than 2%.
-6. PR open with recipe-commit + agent commits + summary comment.
-7. Failure taxonomy: per-repo tag from `{dep_upgrade_required, build_tool_drift, custom_annotation, test_flake, syntax_edge_case, budget_exhausted, coverage_regression}`.
-8. 50-repo run across MigrationBench; publish per-class pass rate, cost-per-repo, and coverage-preservation; compare vs deterministic-only baseline.
+1. Lượt tất định: OpenRewrite (Java) hoặc libcst (Python) chạy các phép viết lại cơ học trước. Commit thành commit "recipe" với một diff sạch.
+2. Sandbox Daytona: runtime đích được cài sẵn; bản dựng theo nhánh; gắn kết nguồn chỉ đọc.
+3. Vòng lặp agent: LangGraph hoặc OpenAI Agents SDK trên Claude Opus 4.7 + GPT-5.4-Codex. Công cụ: `run_build`, `read_file`, `edit_file`, `run_test`, `git_diff`. Phân loại lỗi (phụ thuộc, cú pháp, kiểm thử, công cụ dựng), áp dụng bản sửa có mục tiêu, chạy lại.
+4. Trần ngân sách: 30 phút, $8, 20 lượt. Vi phạm bất kỳ giới hạn nào đều dừng và xếp vào `budget_exhausted` kèm diff hiện tại.
+5. Cổng kiểm thử + độ bao phủ: bản dựng xanh rồi kiểm thử xanh; độ bao phủ không được giảm hơn 2%.
+6. Mở PR với commit công thức + các commit agent + bình luận tóm tắt.
+7. Hệ phân loại lỗi: nhãn cho mỗi repo từ `{dep_upgrade_required, build_tool_drift, custom_annotation, test_flake, syntax_edge_case, budget_exhausted, coverage_regression}`.
+8. Chạy 50 repo trên MigrationBench; công bố tỷ lệ đạt theo lớp, chi phí trên mỗi repo, và mức bảo toàn độ bao phủ; so sánh với đường cơ sở chỉ dùng công cụ tất định.
 
-Assessment rubric:
+Thang đánh giá:
 
-| Weight | Criterion | Measurement |
+| Trọng số | Tiêu chí | Phép đo |
 |:-:|---|---|
-| 25 | MigrationBench pass rate | 50-repo subset pass@1 |
-| 20 | Test-coverage preservation | Mean coverage delta vs base branch |
-| 20 | Cost per migrated repo | Mean $/repo on passing runs |
-| 20 | Agent / deterministic-tool integration | Fraction of fixes handled by OpenRewrite vs agent |
-| 15 | Failure analysis write-up | Taxonomy completeness with exemplars |
+| 25 | Tỷ lệ đạt MigrationBench | pass@1 trên tập con 50 repo |
+| 20 | Bảo toàn độ bao phủ kiểm thử | Chênh lệch độ bao phủ trung bình so với nhánh cơ sở |
+| 20 | Chi phí trên mỗi repo đã di chuyển | $/repo trung bình trên các lần chạy đạt |
+| 20 | Tích hợp agent / công cụ tất định | Tỷ lệ bản sửa do OpenRewrite xử lý so với agent |
+| 15 | Bài viết phân tích lỗi | Mức đầy đủ của hệ phân loại với các ví dụ minh họa |
 
-Hard rejects:
+Các trường hợp loại thẳng:
 
-- Pipelines that skip the deterministic pass. OpenRewrite handles the mechanical 70-80% cheaper and more reliably than any agent.
-- Coverage regressions above 2% treated as passing.
-- PRs that bundle mechanical and agent-authored changes into one commit. Must separate.
-- Reporting pass rate without a matched deterministic-only baseline on the same 50 repos.
+- Pipeline bỏ qua lượt tất định. OpenRewrite xử lý 70-80% phần cơ học rẻ hơn và đáng tin cậy hơn bất kỳ agent nào.
+- Thoái lui độ bao phủ trên 2% được coi là đạt.
+- PR gộp các thay đổi cơ học và do agent tạo vào một commit. Phải tách riêng.
+- Báo cáo tỷ lệ đạt mà không có đường cơ sở chỉ dùng công cụ tất định tương ứng trên cùng 50 repo.
 
-Refusal rules:
+Quy tắc từ chối:
 
-- Refuse to force-push a migrated branch over the base. Always a new branch + PR.
-- Refuse to open a PR whose CI has not flipped green in the sandbox.
-- Refuse to run on corporate repos without explicit license to modify.
+- Từ chối force-push một nhánh đã di chuyển đè lên nhánh cơ sở. Luôn là nhánh mới + PR.
+- Từ chối mở một PR có CI chưa chuyển sang xanh trong sandbox.
+- Từ chối chạy trên repo công ty mà không có quyền sửa đổi rõ ràng.
 
-Output: a repo containing the two-layer migration pipeline, the 50-repo MigrationBench run logs, the failure taxonomy dashboard, a matched deterministic-only baseline run, and a write-up on the three most common failure classes and the recipe change that would eliminate each.
+Đầu ra: một repo chứa pipeline di chuyển hai lớp, nhật ký chạy MigrationBench 50 repo, bảng điều khiển hệ phân loại lỗi, một lần chạy đường cơ sở chỉ dùng công cụ tất định tương ứng, và một bài viết về ba lớp lỗi phổ biến nhất cùng thay đổi công thức sẽ loại bỏ từng lớp.
