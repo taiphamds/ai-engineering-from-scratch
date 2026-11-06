@@ -9,86 +9,86 @@ tags: [imbalanced-data, smote, class-weights, threshold-tuning, evaluation]
 
 # Imbalanced Data Strategy
 
-A decision checklist for handling imbalanced classification. Follow this sequence to pick the right approach for your problem.
+Một danh sách kiểm tra quyết định để xử lý phân loại mất cân bằng. Tuân theo trình tự này để chọn cách tiếp cận phù hợp cho bài toán của bạn.
 
 ## Step 1: Measure the imbalance
 
-- Count samples per class
-- Compute the imbalance ratio (majority / minority)
-- Mild: ratio < 3:1 (e.g., 70/30)
-- Moderate: ratio 3:1 to 20:1 (e.g., 95/5)
-- Severe: ratio > 20:1 (e.g., 99/1)
+- Đếm số mẫu mỗi lớp
+- Tính tỷ lệ mất cân bằng (đa số / thiểu số)
+- Nhẹ: tỷ lệ < 3:1 (ví dụ: 70/30)
+- Vừa phải: tỷ lệ từ 3:1 đến 20:1 (ví dụ: 95/5)
+- Nghiêm trọng: tỷ lệ > 20:1 (ví dụ: 99/1)
 
 ## Step 2: Pick the right metric
 
-Prefer precision/recall/F1 over accuracy for imbalanced datasets. Choose based on your problem:
+Ưu tiên precision/recall/F1 hơn accuracy đối với các tập dữ liệu mất cân bằng. Chọn dựa trên bài toán của bạn:
 
-| Situation | Primary Metric | Secondary Metric |
+| Tình huống | Thước đo chính | Thước đo phụ |
 |-----------|---------------|-----------------|
-| Missing positives is very costly (fraud, disease) | Recall | F2 score |
-| False alarms are costly (spam filter, recommendations) | Precision | F0.5 score |
-| Both matter roughly equally | F1 score | MCC |
-| Need a single ranking metric | AUPRC | AUC-ROC |
-| Need to compare across datasets | MCC | AUPRC |
+| Bỏ sót dương tính rất tốn kém (gian lận, bệnh) | Recall | Điểm F2 |
+| Báo động giả tốn kém (bộ lọc thư rác, gợi ý) | Precision | Điểm F0.5 |
+| Cả hai quan trọng gần như nhau | Điểm F1 | MCC |
+| Cần một thước đo xếp hạng duy nhất | AUPRC | AUC-ROC |
+| Cần so sánh giữa các tập dữ liệu | MCC | AUPRC |
 
 ## Step 3: Choose a rebalancing strategy
 
 ### By imbalance severity
 
-| Imbalance | First Try | Second Try | Avoid |
+| Mất cân bằng | Thử đầu tiên | Thử thứ hai | Tránh |
 |-----------|-----------|------------|-------|
-| Mild (< 3:1) | Class weights | Threshold tuning | Oversampling (unnecessary) |
-| Moderate (3:1 to 20:1) | SMOTE + class weights | Threshold tuning on top | Undersampling (too much data loss) |
-| Severe (> 20:1) | SMOTE + class weights + threshold | Ensemble with balanced bagging | Undersampling alone |
+| Nhẹ (< 3:1) | Trọng số lớp | Điều chỉnh ngưỡng | Lấy mẫu tăng cường (không cần thiết) |
+| Vừa phải (3:1 đến 20:1) | SMOTE + trọng số lớp | Điều chỉnh ngưỡng thêm vào | Lấy mẫu giảm (mất quá nhiều dữ liệu) |
+| Nghiêm trọng (> 20:1) | SMOTE + trọng số lớp + ngưỡng | Ensemble với bagging cân bằng | Chỉ lấy mẫu giảm |
 
 ### By dataset size
 
-| Dataset Size | Preferred Strategy | Reason |
+| Kích thước tập dữ liệu | Chiến lược ưu tiên | Lý do |
 |-------------|-------------------|--------|
-| < 1,000 samples | Oversampling or SMOTE | Cannot afford to lose majority data |
-| 1,000 - 10,000 | SMOTE + threshold tuning | Enough minority samples for k-NN |
-| > 10,000 | Class weights or undersampling | Fast, sufficient minority data |
+| < 1,000 mẫu | Lấy mẫu tăng cường hoặc SMOTE | Không thể chấp nhận mất dữ liệu đa số |
+| 1,000 - 10,000 | SMOTE + điều chỉnh ngưỡng | Đủ mẫu thiểu số cho k-NN |
+| > 10,000 | Trọng số lớp hoặc lấy mẫu giảm | Nhanh, đủ dữ liệu thiểu số |
 
 ## Step 4: Apply the technique
 
 ### Class weights (always try first)
-- In sklearn: `class_weight='balanced'`
-- No data modification needed
-- Works with any loss-based model
-- Equivalent to oversampling in expectation
+- Trong sklearn: `class_weight='balanced'`
+- Không cần sửa đổi dữ liệu
+- Hoạt động với mọi mô hình dựa trên hàm mất mát
+- Tương đương với lấy mẫu tăng cường theo kỳ vọng
 
 ### SMOTE
-- Apply only to training data (never test/validation)
-- Use k=5 neighbors (default)
-- Combine with class weights for best results
-- Watch for noisy synthetic points near the boundary
+- Chỉ áp dụng cho dữ liệu huấn luyện (không bao giờ cho test/validation)
+- Sử dụng k=5 láng giềng (mặc định)
+- Kết hợp với trọng số lớp để có kết quả tốt nhất
+- Chú ý các điểm tổng hợp nhiễu gần ranh giới
 
 ### Threshold tuning
-- Train model, get predicted probabilities on validation set
-- Sweep thresholds from 0.05 to 0.95
-- Pick threshold maximizing your chosen metric
-- Always tune on validation data, never test data
+- Huấn luyện mô hình, lấy các xác suất dự đoán trên tập validation
+- Quét các ngưỡng từ 0.05 đến 0.95
+- Chọn ngưỡng tối đa hóa thước đo bạn đã chọn
+- Luôn điều chỉnh trên dữ liệu validation, không bao giờ trên dữ liệu test
 
 ## Step 5: Validate properly
 
-- Use stratified cross-validation (preserves class ratios in each fold)
-- Report metrics on the original (non-resampled) test set
-- Never apply SMOTE before splitting -- only on training folds
-- Compare against the "always predict majority" baseline
+- Sử dụng kiểm định chéo phân tầng (giữ nguyên tỷ lệ lớp trong mỗi fold)
+- Báo cáo các thước đo trên tập test gốc (không được lấy mẫu lại)
+- Không bao giờ áp dụng SMOTE trước khi chia -- chỉ trên các fold huấn luyện
+- So sánh với đường cơ sở "luôn dự đoán đa số"
 
 ## Step 6: Common mistakes to avoid
 
-- Applying SMOTE to the entire dataset before train/test split (data leakage)
-- Using accuracy as the evaluation metric
-- Not trying class weights first (simplest approach, often sufficient)
-- Oversampling and then cross-validating (synthetic points leak across folds)
-- Ignoring threshold tuning (free performance, no retraining needed)
-- Using random undersampling on small datasets (throws away too much data)
+- Áp dụng SMOTE cho toàn bộ tập dữ liệu trước khi chia train/test (rò rỉ dữ liệu)
+- Sử dụng accuracy làm thước đo đánh giá
+- Không thử trọng số lớp trước (cách tiếp cận đơn giản nhất, thường là đủ)
+- Lấy mẫu tăng cường rồi mới kiểm định chéo (các điểm tổng hợp rò rỉ giữa các fold)
+- Bỏ qua điều chỉnh ngưỡng (hiệu suất có được miễn phí, không cần huấn luyện lại)
+- Sử dụng lấy mẫu giảm ngẫu nhiên trên các tập dữ liệu nhỏ (loại bỏ quá nhiều dữ liệu)
 
 ## Quick Decision Tree
 
-1. Is the imbalance ratio < 3:1? -> Try class weights only
-2. Is the dataset > 10,000 samples? -> Class weights + threshold tuning
-3. Is the dataset < 1,000 samples? -> SMOTE + class weights
-4. Otherwise -> SMOTE + class weights + threshold tuning
-5. Still not good enough? -> Balanced bagging ensemble
+1. Tỷ lệ mất cân bằng < 3:1? -> Chỉ thử trọng số lớp
+2. Tập dữ liệu > 10,000 mẫu? -> Trọng số lớp + điều chỉnh ngưỡng
+3. Tập dữ liệu < 1,000 mẫu? -> SMOTE + trọng số lớp
+4. Nếu không -> SMOTE + trọng số lớp + điều chỉnh ngưỡng
+5. Vẫn chưa đủ tốt? -> Ensemble bagging cân bằng

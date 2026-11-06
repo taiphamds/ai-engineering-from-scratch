@@ -1,6 +1,6 @@
 # Handling Imbalanced Data
 
-> When 99% of your data is "normal," accuracy is a lie.
+> Khi 99% dữ liệu của bạn là "bình thường", accuracy là một lời nói dối.
 
 **Type:** Build
 **Language:** Python
@@ -9,51 +9,51 @@
 
 ## Learning Objectives
 
-- Implement SMOTE from scratch and explain how synthetic oversampling differs from random duplication
-- Evaluate imbalanced classifiers using F1, AUPRC, and Matthews Correlation Coefficient instead of accuracy
-- Compare class weighting, threshold tuning, and resampling strategies and select the right approach for a given imbalance ratio
-- Build a complete imbalanced data pipeline that combines SMOTE, class weights, and threshold optimization
+- Triển khai SMOTE từ đầu và giải thích lấy mẫu tăng cường tổng hợp khác với sao chép ngẫu nhiên như thế nào
+- Đánh giá các bộ phân loại mất cân bằng bằng F1, AUPRC và Matthews Correlation Coefficient thay vì accuracy
+- So sánh các chiến lược gán trọng số lớp, điều chỉnh ngưỡng và lấy mẫu lại, và chọn cách tiếp cận phù hợp cho một tỷ lệ mất cân bằng nhất định
+- Xây dựng một pipeline dữ liệu mất cân bằng hoàn chỉnh kết hợp SMOTE, trọng số lớp và tối ưu hóa ngưỡng
 
 ## The Problem
 
-You build a fraud detection model. It gets 99.9% accuracy. You celebrate. Then you realize it predicts "not fraud" for every single transaction.
+Bạn xây dựng một mô hình phát hiện gian lận. Nó đạt accuracy 99.9%. Bạn ăn mừng. Rồi bạn nhận ra nó dự đoán "không gian lận" cho từng giao dịch một.
 
-This is not a bug. It is the rational thing to do when only 0.1% of transactions are fraudulent. The model learns that always guessing the majority class minimizes overall error. It is technically correct and completely useless.
+Đây không phải là lỗi. Đó là điều hợp lý cần làm khi chỉ 0.1% giao dịch là gian lận. Mô hình học rằng luôn đoán lớp đa số sẽ tối thiểu hóa sai số tổng thể. Về mặt kỹ thuật, nó đúng và hoàn toàn vô dụng.
 
-This happens everywhere real classification matters. Disease diagnosis: 1% positive rate. Network intrusion: 0.01% attacks. Manufacturing defects: 0.5% defective. Spam filtering: 20% spam. Churn prediction: 5% churners. The more consequential the minority class, the rarer it tends to be.
+Điều này xảy ra ở mọi nơi mà phân loại thực sự quan trọng. Chẩn đoán bệnh: tỷ lệ dương tính 1%. Xâm nhập mạng: 0.01% cuộc tấn công. Lỗi sản xuất: 0.5% bị lỗi. Lọc thư rác: 20% thư rác. Dự đoán rời bỏ: 5% người rời bỏ. Lớp thiểu số càng có hệ quả lớn, nó càng có xu hướng hiếm.
 
-Accuracy fails because it treats all correct predictions equally. Correctly labeling a legitimate transaction and correctly catching fraud both count as one point of accuracy. But catching fraud is the entire reason the model exists. We need metrics, techniques, and training strategies that force the model to pay attention to the rare but important class.
+Accuracy thất bại vì nó coi mọi dự đoán đúng như nhau. Gán nhãn đúng một giao dịch hợp lệ và phát hiện đúng gian lận đều được tính là một điểm accuracy. Nhưng phát hiện gian lận là toàn bộ lý do mô hình tồn tại. Chúng ta cần các thước đo, kỹ thuật và chiến lược huấn luyện buộc mô hình chú ý tới lớp hiếm nhưng quan trọng.
 
 ## The Concept
 
 ### Why Accuracy Fails
 
-Consider a dataset with 1000 samples: 990 negative, 10 positive. A model that always predicts negative:
+Xét một tập dữ liệu có 1000 mẫu: 990 âm tính, 10 dương tính. Một mô hình luôn dự đoán âm tính:
 
-|  | Predicted Positive | Predicted Negative |
+|  | Dự đoán dương tính | Dự đoán âm tính |
 |--|---|---|
-| Actually Positive | 0 (TP) | 10 (FN) |
-| Actually Negative | 0 (FP) | 990 (TN) |
+| Thực tế dương tính | 0 (TP) | 10 (FN) |
+| Thực tế âm tính | 0 (FP) | 990 (TN) |
 
 Accuracy = (0 + 990) / 1000 = 99.0%
 
-The model catches zero fraud. Zero disease. Zero defects. But accuracy says 99%. This is why accuracy is dangerous for imbalanced problems.
+Mô hình không phát hiện được gian lận nào. Không bệnh nào. Không lỗi nào. Nhưng accuracy nói 99%. Đây là lý do accuracy nguy hiểm đối với các bài toán mất cân bằng.
 
 ### Better Metrics
 
-**Precision** = TP / (TP + FP). Of everything flagged as positive, how many actually are? High precision means few false alarms.
+**Precision** = TP / (TP + FP). Trong mọi thứ được đánh dấu là dương tính, bao nhiêu thực sự là dương tính? Precision cao nghĩa là ít báo động giả.
 
-**Recall** = TP / (TP + FN). Of everything actually positive, how many did we catch? High recall means few missed positives.
+**Recall** = TP / (TP + FN). Trong mọi thứ thực sự dương tính, chúng ta phát hiện được bao nhiêu? Recall cao nghĩa là ít dương tính bị bỏ sót.
 
-**F1 Score** = 2 * precision * recall / (precision + recall). The harmonic mean. Penalizes extreme imbalance between precision and recall more than the arithmetic mean would.
+**Điểm F1** = 2 * precision * recall / (precision + recall). Trung bình điều hòa. Phạt sự mất cân bằng cực độ giữa precision và recall nhiều hơn trung bình cộng.
 
-**F-beta Score** = (1 + beta^2) * precision * recall / (beta^2 * precision + recall). When beta > 1, recall matters more. When beta < 1, precision matters more. F2 is common in fraud detection (missing fraud is worse than a false alarm).
+**Điểm F-beta** = (1 + beta^2) * precision * recall / (beta^2 * precision + recall). Khi beta > 1, recall quan trọng hơn. Khi beta < 1, precision quan trọng hơn. F2 phổ biến trong phát hiện gian lận (bỏ sót gian lận tệ hơn báo động giả).
 
-**AUPRC** (Area Under Precision-Recall Curve). Like AUC-ROC but more informative for imbalanced data. A random classifier has AUPRC equal to the positive class rate (not 0.5 like ROC). This makes improvements easier to see.
+**AUPRC** (Diện tích dưới đường cong Precision-Recall). Giống AUC-ROC nhưng cung cấp nhiều thông tin hơn đối với dữ liệu mất cân bằng. Một bộ phân loại ngẫu nhiên có AUPRC bằng tỷ lệ lớp dương tính (không phải 0.5 như ROC). Điều này khiến các cải thiện dễ thấy hơn.
 
-**Matthews Correlation Coefficient** = (TP * TN - FP * FN) / sqrt((TP+FP)(TP+FN)(TN+FP)(TN+FN)). Ranges from -1 to +1. Only gives a high score when the model does well on both classes. Balanced even when classes are very different sizes.
+**Matthews Correlation Coefficient** = (TP * TN - FP * FN) / sqrt((TP+FP)(TP+FN)(TN+FP)(TN+FN)). Nằm trong khoảng -1 đến +1. Chỉ cho điểm cao khi mô hình làm tốt trên cả hai lớp. Cân bằng ngay cả khi các lớp có kích thước rất khác nhau.
 
-For the "always predict negative" model above: precision = 0/0 (undefined, often set to 0), recall = 0/10 = 0, F1 = 0, MCC = 0. These metrics correctly identify the model as worthless.
+Với mô hình "luôn dự đoán âm tính" ở trên: precision = 0/0 (không xác định, thường được đặt thành 0), recall = 0/10 = 0, F1 = 0, MCC = 0. Các thước đo này xác định đúng rằng mô hình vô giá trị.
 
 ### The Imbalanced Data Pipeline
 
@@ -75,17 +75,17 @@ flowchart TD
 
 ### SMOTE: Synthetic Minority Oversampling Technique
 
-Random oversampling duplicates existing minority samples. This works but risks overfitting because the model sees identical points repeatedly.
+Lấy mẫu tăng cường ngẫu nhiên sao chép các mẫu thiểu số hiện có. Cách này hoạt động nhưng có nguy cơ quá khớp vì mô hình thấy lặp đi lặp lại các điểm giống hệt nhau.
 
-SMOTE creates new synthetic minority samples that are plausible but not copies. The algorithm:
+SMOTE tạo các mẫu thiểu số tổng hợp mới hợp lý nhưng không phải bản sao. Thuật toán:
 
-1. For each minority sample x, find its k nearest neighbors among other minority samples
-2. Pick one neighbor at random
-3. Create a new sample on the line segment between x and that neighbor
+1. Với mỗi mẫu thiểu số x, tìm k láng giềng gần nhất của nó trong các mẫu thiểu số khác
+2. Chọn ngẫu nhiên một láng giềng
+3. Tạo một mẫu mới trên đoạn thẳng giữa x và láng giềng đó
 
-The formula: `new_sample = x + random(0, 1) * (neighbor - x)`
+Công thức: `new_sample = x + random(0, 1) * (neighbor - x)`
 
-This interpolates between real minority points, creating samples in the same region of feature space without just copying existing data.
+Cách này nội suy giữa các điểm thiểu số thật, tạo ra các mẫu trong cùng vùng không gian đặc trưng mà không chỉ sao chép dữ liệu hiện có.
 
 ```mermaid
 flowchart LR
@@ -114,54 +114,54 @@ flowchart LR
 
 ### Sampling Strategies Compared
 
-**Random Oversampling**: duplicate minority samples to match majority count.
-- Pros: simple, no information loss
-- Cons: exact duplicates cause overfitting, increases training time
+**Lấy mẫu tăng cường ngẫu nhiên**: sao chép các mẫu thiểu số để khớp số lượng đa số.
+- Ưu điểm: đơn giản, không mất thông tin
+- Nhược điểm: các bản sao giống hệt gây quá khớp, tăng thời gian huấn luyện
 
-**Random Undersampling**: remove majority samples to match minority count.
-- Pros: fast training, simple
-- Cons: throws away potentially useful majority data, higher variance
+**Lấy mẫu giảm ngẫu nhiên**: loại bỏ các mẫu đa số để khớp số lượng thiểu số.
+- Ưu điểm: huấn luyện nhanh, đơn giản
+- Nhược điểm: loại bỏ dữ liệu đa số có thể hữu ích, phương sai cao hơn
 
-**SMOTE**: create synthetic minority samples via interpolation.
-- Pros: generates new data points, reduces overfitting compared to random oversampling
-- Cons: can create noisy samples near the decision boundary, does not account for majority class distribution
+**SMOTE**: tạo các mẫu thiểu số tổng hợp thông qua nội suy.
+- Ưu điểm: tạo ra các điểm dữ liệu mới, giảm quá khớp so với lấy mẫu tăng cường ngẫu nhiên
+- Nhược điểm: có thể tạo ra các mẫu nhiễu gần ranh giới quyết định, không tính đến phân phối lớp đa số
 
-| Strategy | Data Changed | Risk | When to Use |
+| Chiến lược | Dữ liệu được thay đổi | Rủi ro | Khi nào sử dụng |
 |----------|-------------|------|-------------|
-| Oversample | Minority duplicated | Overfitting | Small datasets, moderate imbalance |
-| Undersample | Majority removed | Information loss | Large datasets, want fast training |
-| SMOTE | Synthetic minority added | Boundary noise | Moderate imbalance, enough minority samples for k-NN |
+| Lấy mẫu tăng cường | Thiểu số được sao chép | Quá khớp | Tập dữ liệu nhỏ, mất cân bằng vừa phải |
+| Lấy mẫu giảm | Đa số bị loại bỏ | Mất thông tin | Tập dữ liệu lớn, muốn huấn luyện nhanh |
+| SMOTE | Thêm thiểu số tổng hợp | Nhiễu ở ranh giới | Mất cân bằng vừa phải, đủ mẫu thiểu số cho k-NN |
 
 ### Class Weights
 
-Instead of changing the data, change how the model treats errors. Assign higher weight to misclassifying the minority class.
+Thay vì thay đổi dữ liệu, hãy thay đổi cách mô hình xử lý lỗi. Gán trọng số cao hơn cho việc phân loại sai lớp thiểu số.
 
-For a binary problem with 950 negative and 50 positive samples:
-- Weight for negative class = n_samples / (2 * n_negative) = 1000 / (2 * 950) = 0.526
-- Weight for positive class = n_samples / (2 * n_positive) = 1000 / (2 * 50) = 10.0
+Với một bài toán nhị phân có 950 mẫu âm tính và 50 mẫu dương tính:
+- Trọng số cho lớp âm tính = n_samples / (2 * n_negative) = 1000 / (2 * 950) = 0.526
+- Trọng số cho lớp dương tính = n_samples / (2 * n_positive) = 1000 / (2 * 50) = 10.0
 
-The positive class gets 19x the weight. Misclassifying one positive sample costs as much as misclassifying 19 negative samples. The model is forced to pay attention to the minority class.
+Lớp dương tính nhận trọng số gấp 19 lần. Phân loại sai một mẫu dương tính tốn chi phí bằng phân loại sai 19 mẫu âm tính. Mô hình bị buộc phải chú ý tới lớp thiểu số.
 
-In logistic regression, this modifies the loss function:
+Trong hồi quy logistic, điều này sửa đổi hàm mất mát:
 
 ```
 weighted_loss = -sum(w_i * [y_i * log(p_i) + (1-y_i) * log(1-p_i)])
 ```
 
-where w_i depends on the class of sample i.
+trong đó w_i phụ thuộc vào lớp của mẫu i.
 
-Class weights are mathematically equivalent to oversampling in expectation, but without creating new data points. This makes them faster and avoids the overfitting risk of duplicated samples.
+Về mặt toán học, trọng số lớp tương đương với lấy mẫu tăng cường theo kỳ vọng, nhưng không tạo ra các điểm dữ liệu mới. Điều này khiến chúng nhanh hơn và tránh nguy cơ quá khớp của các mẫu bị sao chép.
 
 ### Threshold Tuning
 
-Most classifiers output a probability. The default threshold is 0.5: if P(positive) >= 0.5, predict positive. But 0.5 is arbitrary. When classes are imbalanced, the optimal threshold is usually much lower.
+Hầu hết các bộ phân loại xuất ra một xác suất. Ngưỡng mặc định là 0.5: nếu P(positive) >= 0.5, dự đoán dương tính. Nhưng 0.5 là tùy ý. Khi các lớp mất cân bằng, ngưỡng tối ưu thường thấp hơn nhiều.
 
-The process:
-1. Train a model
-2. Get predicted probabilities on the validation set
-3. Sweep thresholds from 0.0 to 1.0
-4. Compute F1 (or your chosen metric) at each threshold
-5. Pick the threshold that maximizes your metric
+Quy trình:
+1. Huấn luyện một mô hình
+2. Lấy các xác suất dự đoán trên tập validation
+3. Quét các ngưỡng từ 0.0 đến 1.0
+4. Tính F1 (hoặc thước đo bạn chọn) tại mỗi ngưỡng
+5. Chọn ngưỡng tối đa hóa thước đo của bạn
 
 ```mermaid
 flowchart LR
@@ -172,20 +172,20 @@ flowchart LR
     E --> F[Use in Production]
 ```
 
-A model might output P(fraud) = 0.15 for a fraudulent transaction. At threshold 0.5, this is classified as not fraud. At threshold 0.10, it is correctly caught. The probability calibration matters less than the ranking -- as long as fraud gets higher probabilities than non-fraud, there exists a threshold that separates them.
+Một mô hình có thể xuất ra P(fraud) = 0.15 cho một giao dịch gian lận. Ở ngưỡng 0.5, giao dịch này được phân loại là không gian lận. Ở ngưỡng 0.10, nó được phát hiện đúng. Hiệu chỉnh xác suất ít quan trọng hơn thứ hạng -- miễn là gian lận nhận xác suất cao hơn không gian lận, sẽ tồn tại một ngưỡng tách chúng.
 
 ### Cost-Sensitive Learning
 
-Generalization of class weights. Instead of uniform costs, assign specific misclassification costs:
+Sự tổng quát hóa của trọng số lớp. Thay vì các chi phí đồng nhất, gán các chi phí phân loại sai cụ thể:
 
-| | Predict Positive | Predict Negative |
+| | Dự đoán dương tính | Dự đoán âm tính |
 |--|---|---|
-| Actually Positive | 0 (correct) | C_FN = 100 |
-| Actually Negative | C_FP = 1 | 0 (correct) |
+| Thực tế dương tính | 0 (đúng) | C_FN = 100 |
+| Thực tế âm tính | C_FP = 1 | 0 (đúng) |
 
-Missing a fraudulent transaction (FN) costs 100x more than a false alarm (FP). The model optimizes for total cost, not total error count.
+Bỏ sót một giao dịch gian lận (FN) tốn chi phí gấp 100 lần báo động giả (FP). Mô hình tối ưu hóa tổng chi phí, không phải tổng số lỗi.
 
-This is the most principled approach when you can estimate real-world costs. A missed cancer diagnosis has a very different cost than a false alarm that leads to an extra biopsy. Making these costs explicit forces the right tradeoffs.
+Đây là cách tiếp cận có cơ sở nguyên tắc nhất khi bạn có thể ước tính các chi phí thực tế. Một chẩn đoán ung thư bị bỏ sót có chi phí rất khác với một báo động giả dẫn tới một lần sinh thiết bổ sung. Làm rõ các chi phí này buộc phải đưa ra những đánh đổi đúng.
 
 ### Decision Flowchart
 
@@ -459,11 +459,11 @@ best_thresh, best_f1 = find_optimal_threshold(y_val, probs_val, metric="f1")
 preds_thresh = (probs_cw >= best_thresh).astype(int)
 ```
 
-The code file runs all of this in a single script and prints results.
+File mã chạy tất cả nội dung này trong một script duy nhất và in kết quả.
 
 ## Use It
 
-With scikit-learn and imbalanced-learn, these techniques are one-liners:
+Với scikit-learn và imbalanced-learn, các kỹ thuật này chỉ cần một dòng:
 
 ```python
 from sklearn.linear_model import LogisticRegression
@@ -493,42 +493,42 @@ pipeline.fit(X_train, y_train)
 print(classification_report(y_test, pipeline.predict(X_test)))
 ```
 
-The from-scratch implementations show exactly what each technique does. SMOTE is just k-NN interpolation on the minority class. Class weights multiply the loss. Threshold tuning is a for-loop over cutoffs. No magic.
+Các bản triển khai từ đầu cho thấy chính xác mỗi kỹ thuật làm gì. SMOTE chỉ là nội suy k-NN trên lớp thiểu số. Trọng số lớp nhân hàm mất mát. Điều chỉnh ngưỡng là một vòng lặp for qua các mức cắt. Không có phép thuật.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/skill-imbalanced-data.md` -- a decision checklist for handling imbalanced classification problems
+Bài học này tạo ra:
+- `outputs/skill-imbalanced-data.md` -- một danh sách kiểm tra quyết định để xử lý các bài toán phân loại mất cân bằng
 
 ## Exercises
 
-1. **Borderline-SMOTE**: modify the SMOTE implementation to only generate synthetic samples for minority points that are near the decision boundary (those whose k-nearest neighbors include majority class samples). Compare results with standard SMOTE on a dataset where classes overlap.
+1. **Borderline-SMOTE**: sửa bản triển khai SMOTE để chỉ tạo các mẫu tổng hợp cho những điểm thiểu số gần ranh giới quyết định (những điểm có k láng giềng gần nhất bao gồm các mẫu lớp đa số). So sánh kết quả với SMOTE tiêu chuẩn trên một tập dữ liệu mà các lớp chồng lấn.
 
-2. **Cost matrix optimization**: implement cost-sensitive learning where the cost matrix is a parameter. Create a function that takes a cost matrix and returns optimal predictions that minimize expected cost. Test with different cost ratios (1:10, 1:100, 1:1000) and plot how the precision-recall tradeoff changes.
+2. **Tối ưu hóa ma trận chi phí**: triển khai học nhạy chi phí trong đó ma trận chi phí là một tham số. Tạo một hàm nhận ma trận chi phí và trả về các dự đoán tối ưu tối thiểu hóa chi phí kỳ vọng. Kiểm thử với các tỷ lệ chi phí khác nhau (1:10, 1:100, 1:1000) và vẽ cách sự đánh đổi precision-recall thay đổi.
 
-3. **Threshold calibration**: implement Platt scaling (fit a logistic regression on the model's raw outputs to produce calibrated probabilities). Compare the precision-recall curve before and after calibration. Show that calibration does not change the ranking (AUC stays the same) but makes the probabilities more meaningful.
+3. **Hiệu chỉnh ngưỡng**: triển khai Platt scaling (khớp một mô hình hồi quy logistic trên các đầu ra thô của mô hình để tạo ra các xác suất đã hiệu chỉnh). So sánh đường cong precision-recall trước và sau hiệu chỉnh. Cho thấy hiệu chỉnh không thay đổi thứ hạng (AUC giữ nguyên) nhưng khiến các xác suất có ý nghĩa hơn.
 
-4. **Ensemble with balanced bagging**: train multiple models, each on a balanced bootstrap sample (all minority + random subset of majority). Average their predictions. Compare this approach against a single model with SMOTE. Measure both performance and variance across runs.
+4. **Ensemble với bagging cân bằng**: huấn luyện nhiều mô hình, mỗi mô hình trên một mẫu bootstrap cân bằng (toàn bộ thiểu số + tập con ngẫu nhiên của đa số). Lấy trung bình các dự đoán của chúng. So sánh cách tiếp cận này với một mô hình đơn lẻ có SMOTE. Đo cả hiệu suất và phương sai qua các lần chạy.
 
-5. **Imbalance ratio experiment**: take a balanced dataset and progressively increase the imbalance ratio (50/50, 70/30, 90/10, 95/5, 99/1). For each ratio, train with and without SMOTE. Plot F1 vs imbalance ratio for both approaches. At what ratio does SMOTE start making a meaningful difference?
+5. **Thí nghiệm tỷ lệ mất cân bằng**: lấy một tập dữ liệu cân bằng và tăng dần tỷ lệ mất cân bằng (50/50, 70/30, 90/10, 95/5, 99/1). Với mỗi tỷ lệ, huấn luyện có và không có SMOTE. Vẽ F1 theo tỷ lệ mất cân bằng cho cả hai cách tiếp cận. Ở tỷ lệ nào SMOTE bắt đầu tạo ra khác biệt có ý nghĩa?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Class imbalance | "One class has way more samples" | The distribution of classes in the dataset is significantly skewed, causing models to favor the majority class |
-| SMOTE | "Synthetic oversampling" | Creates new minority samples by interpolating between existing minority samples and their k-nearest minority neighbors |
-| Class weights | "Making errors on rare classes more expensive" | Multiplying the loss function by class-specific weights so the model penalizes minority misclassification more heavily |
-| Threshold tuning | "Moving the decision boundary" | Changing the probability cutoff for classification from the default 0.5 to a value that optimizes the desired metric |
-| Precision-recall tradeoff | "You cannot have both" | Lowering the threshold catches more positives (higher recall) but also flags more false positives (lower precision), and vice versa |
-| AUPRC | "Area under the PR curve" | Summarizes the precision-recall curve into a single number; more informative than AUC-ROC when classes are heavily imbalanced |
-| Matthews Correlation Coefficient | "The balanced metric" | A correlation between predicted and actual labels that produces a high score only when the model performs well on both classes |
-| Cost-sensitive learning | "Different mistakes cost different amounts" | Incorporating real-world misclassification costs into the training objective so the model optimizes for total cost, not error count |
-| Random oversampling | "Duplicate the minority" | Repeating minority class samples to balance class counts; simple but risks overfitting to duplicated points |
+| Class imbalance (Mất cân bằng lớp) | "Một lớp có nhiều mẫu hơn hẳn" | Phân phối các lớp trong tập dữ liệu bị lệch đáng kể, khiến các mô hình thiên về lớp đa số |
+| SMOTE | "Lấy mẫu tăng cường tổng hợp" | Tạo các mẫu thiểu số mới bằng cách nội suy giữa các mẫu thiểu số hiện có và k láng giềng thiểu số gần nhất của chúng |
+| Class weights (Trọng số lớp) | "Khiến lỗi trên các lớp hiếm tốn kém hơn" | Nhân hàm mất mát với các trọng số riêng cho từng lớp để mô hình phạt nặng hơn việc phân loại sai thiểu số |
+| Threshold tuning (Điều chỉnh ngưỡng) | "Di chuyển ranh giới quyết định" | Thay đổi mức cắt xác suất để phân loại từ mặc định 0.5 sang một giá trị tối ưu hóa thước đo mong muốn |
+| Precision-recall tradeoff (Sự đánh đổi precision-recall) | "Bạn không thể có cả hai" | Hạ ngưỡng phát hiện nhiều dương tính hơn (recall cao hơn) nhưng cũng đánh dấu nhiều dương tính giả hơn (precision thấp hơn), và ngược lại |
+| AUPRC | "Diện tích dưới đường cong PR" | Tóm tắt đường cong precision-recall thành một con số duy nhất; cung cấp nhiều thông tin hơn AUC-ROC khi các lớp mất cân bằng nặng |
+| Matthews Correlation Coefficient | "Thước đo cân bằng" | Một hệ số tương quan giữa các nhãn dự đoán và thực tế chỉ cho điểm cao khi mô hình hoạt động tốt trên cả hai lớp |
+| Cost-sensitive learning (Học nhạy chi phí) | "Những lỗi khác nhau tốn chi phí khác nhau" | Đưa các chi phí phân loại sai thực tế vào mục tiêu huấn luyện để mô hình tối ưu hóa tổng chi phí, không phải số lỗi |
+| Random oversampling (Lấy mẫu tăng cường ngẫu nhiên) | "Sao chép thiểu số" | Lặp lại các mẫu lớp thiểu số để cân bằng số lượng lớp; đơn giản nhưng có nguy cơ quá khớp các điểm bị sao chép |
 
 ## Further Reading
 
-- [SMOTE: Synthetic Minority Over-sampling Technique (Chawla et al., 2002)](https://arxiv.org/abs/1106.1813) -- the original SMOTE paper, still the most cited work on imbalanced learning
-- [Learning from Imbalanced Data (He & Garcia, 2009)](https://ieeexplore.ieee.org/document/5128907) -- comprehensive survey covering sampling, cost-sensitive, and algorithmic approaches
-- [imbalanced-learn documentation](https://imbalanced-learn.org/stable/) -- Python library with SMOTE variants, undersampling strategies, and pipeline integration
-- [The Precision-Recall Plot Is More Informative than the ROC Plot (Saito & Rehmsmeier, 2015)](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0118432) -- when and why to prefer PR curves over ROC curves for imbalanced problems
+- [SMOTE: Synthetic Minority Over-sampling Technique (Chawla et al., 2002)](https://arxiv.org/abs/1106.1813) -- bài báo SMOTE gốc, vẫn là công trình được trích dẫn nhiều nhất về học trên dữ liệu mất cân bằng
+- [Learning from Imbalanced Data (He & Garcia, 2009)](https://ieeexplore.ieee.org/document/5128907) -- khảo sát toàn diện bao quát các cách tiếp cận lấy mẫu, nhạy chi phí và thuật toán
+- [imbalanced-learn documentation](https://imbalanced-learn.org/stable/) -- thư viện Python với các biến thể SMOTE, chiến lược lấy mẫu giảm và tích hợp pipeline
+- [The Precision-Recall Plot Is More Informative than the ROC Plot (Saito & Rehmsmeier, 2015)](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0118432) -- khi nào và tại sao nên ưu tiên các đường cong PR hơn các đường cong ROC đối với bài toán mất cân bằng
