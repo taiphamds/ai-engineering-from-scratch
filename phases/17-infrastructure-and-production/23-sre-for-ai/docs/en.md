@@ -1,6 +1,6 @@
 # SRE for AI — Multi-Agent Incident Response, Runbooks, Predictive Detection
 
-> AI SRE uses LLMs grounded in infrastructure data (logs, runbooks, service topology) via RAG to automate investigation, documentation, and coordination phases. The 2026 architecture pattern is multi-agent orchestration — specialized agents (logs, metrics, runbooks) coordinated by a supervisor; AI proposes hypotheses and queries, humans approve judgment calls. Datadog Bits AI and Azure SRE Agent ship this as managed products. Runbooks are evolving: NeuBird Hawkeye uses adversarial evaluation (two models analyze the same incident; agreement = confidence, disagreement = uncertainty); operational memory persists across team changes. Auto-remediation stays cautious: AI suggests, humans approve. Fully autonomous action is narrow (restart pod, rollback specific deploy) with tight guardrails — anyone selling "set it and forget it" is overselling. Emerging frontier: pre-incident prediction. MIT research reports an LLM trained on historical logs + GPU temps + API error patterns predicted 89% of outages 10-15 min early. Projection: 95% of enterprise LLMs have automated failover by end-2026.
+> SRE AI dùng LLM được đặt nền trên dữ liệu hạ tầng (log, cẩm nang vận hành, cấu trúc liên kết dịch vụ) qua RAG để tự động hóa các giai đoạn điều tra, lập tài liệu và phối hợp. Mẫu kiến trúc năm 2026 là điều phối đa agent — các agent chuyên biệt (log, chỉ số, cẩm nang vận hành) được một giám sát viên điều phối; AI đề xuất giả thuyết và truy vấn, con người phê duyệt các quyết định cần phán đoán. Datadog Bits AI và Azure SRE Agent cung cấp điều này dưới dạng sản phẩm được quản lý. Cẩm nang vận hành đang tiến hóa: NeuBird Hawkeye dùng đánh giá đối kháng (hai mô hình phân tích cùng sự cố; đồng ý = tin cậy, bất đồng = không chắc chắn); bộ nhớ vận hành tồn tại qua các thay đổi nhóm. Tự khắc phục vẫn thận trọng: AI đề xuất, con người phê duyệt. Hành động hoàn toàn tự chủ có phạm vi hẹp (khởi động lại pod, hoàn tác một triển khai cụ thể) với chốt bảo vệ chặt — bất kỳ ai bán "thiết lập rồi quên đi" đều đang quảng cáo quá mức. Hướng tiên tiến đang nổi lên: dự đoán trước sự cố. Nghiên cứu MIT báo cáo một LLM được huấn luyện trên log lịch sử + nhiệt độ GPU + mẫu lỗi API dự đoán được 89% sự cố ngừng hoạt động sớm 10-15 phút. Dự đoán: 95% LLM doanh nghiệp có chuyển đổi dự phòng tự động trước cuối năm 2026.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy multi-agent incident triage simulator)
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Diagram the multi-agent AI SRE architecture: supervisor + specialized agents (logs, metrics, runbooks) + human approval gate.
-- Explain why auto-remediation is narrow (restart pod, revert deploy) rather than broad (re-architect service).
-- Name the adversarial evaluation pattern (NeuBird Hawkeye): two models agree = confidence; disagree = escalate.
-- Cite the MIT 89% early-detection result and the operational constraint: predictions without actuation are just dashboards.
+- Vẽ sơ đồ kiến trúc SRE AI đa agent: giám sát viên + các agent chuyên biệt (log, chỉ số, cẩm nang vận hành) + cổng phê duyệt của con người.
+- Giải thích tại sao tự khắc phục có phạm vi hẹp (khởi động lại pod, hoàn nguyên triển khai) thay vì rộng (thiết kế lại kiến trúc dịch vụ).
+- Nêu mẫu đánh giá đối kháng (NeuBird Hawkeye): hai mô hình đồng ý = tin cậy; bất đồng = chuyển cấp.
+- Trích dẫn kết quả phát hiện sớm 89% của MIT và ràng buộc vận hành: dự đoán không có hành động chỉ là bảng điều khiển.
 
 ## The Problem
 
-An on-call engineer gets paged at 3 a.m. "High error rate in checkout." They check Datadog, Loki, three runbooks, the deploy log. 30 minutes later they realize the root cause is a vLLM OOM from a KV cache spike. They restart the pod; error clears.
+Một kỹ sư trực nhận cảnh báo lúc 3 giờ sáng. "Tỷ lệ lỗi cao ở thanh toán." Họ kiểm tra Datadog, Loki, ba cẩm nang vận hành, log triển khai. 30 phút sau họ nhận ra nguyên nhân gốc là OOM vLLM do đột biến bộ nhớ đệm KV. Họ khởi động lại pod; lỗi hết.
 
-In 2026 the first 20 minutes of that investigation are automatable. Grouping logs by service, correlating to recent deploys, matching against runbooks — all are RAG + tool-use. A supervised agent can do first-pass triage and present a hypothesis before the human opens Datadog.
+Năm 2026, 20 phút đầu của cuộc điều tra đó có thể tự động hóa. Nhóm log theo dịch vụ, tương quan với triển khai gần đây, đối chiếu với cẩm nang vận hành — tất cả là RAG + dùng công cụ. Một agent có giám sát có thể phân loại sơ bộ và trình bày một giả thuyết trước khi con người mở Datadog.
 
-Fully autonomous remediation is a different problem. Restart pod: safe. Scale GPU pool: safe if policy allows. Re-architect the service: absolutely not. The discipline is drawing the narrow line.
+Khắc phục hoàn toàn tự chủ là vấn đề khác. Khởi động lại pod: an toàn. Mở rộng bể GPU: an toàn nếu chính sách cho phép. Thiết kế lại kiến trúc dịch vụ: tuyệt đối không. Kỷ luật là vạch ranh giới hẹp.
 
 ## The Concept
 
@@ -47,48 +47,48 @@ Fully autonomous remediation is a different problem. Restart pod: safe. Scale GP
         Action (narrow set)
 ```
 
-Supervisor breaks the incident into sub-queries. Specialized agents have tool access (log search, PromQL, doc retrieval). Supervisor synthesizes, presents hypothesis + evidence to human. Human approves or redirects.
+Giám sát viên chia sự cố thành truy vấn con. Các agent chuyên biệt có quyền truy cập công cụ (tìm kiếm log, PromQL, truy xuất tài liệu). Giám sát viên tổng hợp, trình bày giả thuyết + bằng chứng cho con người. Con người phê duyệt hoặc đổi hướng.
 
 ### Auto-remediation scope
 
-**Safe (narrow)**: restart pod, revert specific deploy, scale pool within pre-approved bounds, enable pre-approved feature flag.
+**An toàn (hẹp)**: khởi động lại pod, hoàn nguyên triển khai cụ thể, mở rộng bể trong giới hạn phê duyệt trước, bật cờ tính năng phê duyệt trước.
 
-**Not safe (broad)**: change service topology, modify resource limits, deploy new code, change IAM, alter databases.
+**Không an toàn (rộng)**: thay đổi cấu trúc liên kết dịch vụ, sửa giới hạn tài nguyên, triển khai mã mới, thay đổi IAM, thay đổi cơ sở dữ liệu.
 
-Anyone selling "set it and forget it" is overselling. The safe set grows as AI SRE matures, but the boundary is real.
+Bất kỳ ai bán "thiết lập rồi quên đi" đều đang quảng cáo quá mức. Tập an toàn tăng khi SRE AI trưởng thành, nhưng ranh giới là có thật.
 
 ### Adversarial evaluation (NeuBird Hawkeye)
 
-Two models independently analyze the same incident. If they agree on root cause, confidence is high. If they disagree, escalate to human with both hypotheses visible. Simple pattern, effective filter against hallucinated root causes.
+Hai mô hình độc lập phân tích cùng sự cố. Nếu chúng đồng ý về nguyên nhân gốc, độ tin cậy cao. Nếu chúng bất đồng, chuyển lên con người với cả hai giả thuyết được hiển thị. Mẫu đơn giản, bộ lọc hiệu quả chống nguyên nhân gốc ảo giác.
 
 ### Operational memory
 
-Team turnover is the silent kill of traditional SRE — tribal knowledge leaves. AI SRE stores runbooks + post-mortems in a vector DB; agents retrieve on every new incident. When new engineers join, the AI has full history.
+Biến động nhân sự nhóm là sát thủ âm thầm của SRE truyền thống — kiến thức truyền miệng rời đi. SRE AI lưu cẩm nang vận hành + báo cáo hậu kiểm trong DB vector; agent truy xuất trên mỗi sự cố mới. Khi kỹ sư mới tham gia, AI có toàn bộ lịch sử.
 
 ### Pre-incident prediction
 
-MIT 2025 research: LLM trained on historical logs, GPU temperatures, API error patterns predicted 89% of outages 10-15 minutes before they happened on the test set.
+Nghiên cứu MIT năm 2025: LLM được huấn luyện trên log lịch sử, nhiệt độ GPU, mẫu lỗi API dự đoán được 89% sự cố ngừng hoạt động 10-15 phút trước khi xảy ra trên tập kiểm thử.
 
-Reality check: predictions without actuation are dashboards. The operational question is "when we predict, what do we do?" Pre-emptive drain? Pager? Auto-scale? The answer is policy-specific.
+Kiểm tra thực tế: dự đoán không có hành động là bảng điều khiển. Câu hỏi vận hành là "khi dự đoán, chúng ta làm gì?" Rút công việc trước? Gọi trực? Tự mở rộng quy mô? Câu trả lời phụ thuộc chính sách.
 
 ### Products in 2026
 
-- **Datadog Bits AI** — managed SRE copilot inside Datadog.
-- **Azure SRE Agent** — Azure-native.
-- **NeuBird Hawkeye** — adversarial eval + operational memory.
-- **PagerDuty AIOps** — triage + deduplication.
-- **Incident.io Autopilot** — incident commander + coordination.
+- **Datadog Bits AI** — copilot SRE được quản lý bên trong Datadog.
+- **Azure SRE Agent** — nguyên bản Azure.
+- **NeuBird Hawkeye** — đánh giá đối kháng + bộ nhớ vận hành.
+- **PagerDuty AIOps** — phân loại + khử trùng lặp.
+- **Incident.io Autopilot** — chỉ huy sự cố + phối hợp.
 
 ### Runbooks as code
 
-Runbooks evolve from Confluence pages to versioned markdown with structured sections (symptom, hypothesis, verify, act). Structured runbooks feed better RAG retrieval. Start any AI-SRE rollout by turning unstructured runbooks into structured.
+Cẩm nang vận hành tiến hóa từ trang Confluence sang markdown có phiên bản với các phần có cấu trúc (triệu chứng, giả thuyết, xác minh, hành động). Cẩm nang vận hành có cấu trúc cung cấp đầu vào truy xuất RAG tốt hơn. Bắt đầu mọi đợt triển khai SRE AI bằng việc chuyển cẩm nang vận hành phi cấu trúc thành có cấu trúc.
 
 ### Numbers you should remember
 
-- MIT early-detection: 89% of outages, 10-15 min lead time.
-- Multi-agent triage: supervisor + (logs, metrics, runbooks) + human.
-- Safe auto-remediation set: restart pod, revert deploy, scale within bounds.
-- Adversarial eval: two models independent; agreement = confidence.
+- Phát hiện sớm MIT: 89% sự cố ngừng hoạt động, thời gian báo trước 10-15 phút.
+- Phân loại đa agent: giám sát viên + (log, chỉ số, cẩm nang vận hành) + con người.
+- Tập tự khắc phục an toàn: khởi động lại pod, hoàn nguyên triển khai, mở rộng trong giới hạn.
+- Đánh giá đối kháng: hai mô hình độc lập; đồng ý = tin cậy.
 
 ```figure
 i4-incident-agents
@@ -96,33 +96,33 @@ i4-incident-agents
 
 ## Use It
 
-`code/main.py` simulates a multi-agent triage: log agent finds error, metric agent finds CPU spike, runbook agent matches to known issue. Supervisor ranks hypotheses.
+`code/main.py` mô phỏng phân loại đa agent: agent log tìm lỗi, agent chỉ số tìm đột biến CPU, agent cẩm nang vận hành khớp với vấn đề đã biết. Giám sát viên xếp hạng giả thuyết.
 
 ## Ship It
 
-This lesson produces `outputs/skill-ai-sre-plan.md`. Given current on-call, incident volume, team maturity, designs an AI SRE rollout.
+Bài học này tạo ra `outputs/skill-ai-sre-plan.md`. Với tình hình trực hiện tại, lượng sự cố, mức trưởng thành nhóm, thiết kế đợt triển khai SRE AI.
 
 ## Exercises
 
-1. Run `code/main.py`. What if the log and metric agents disagree? How does the supervisor resolve?
-2. Define three "safe" auto-remediation actions for your service. Justify each.
-3. Write a structured runbook template: sections, required fields, verification commands.
-4. Predictive detection fires at 12 min lead. What's your policy — pager, pre-drain, or both?
-5. Argue whether a 3-person team should adopt AI SRE in 2026 or wait. Consider maturity, volume, risk.
+1. Chạy `code/main.py`. Nếu agent log và chỉ số bất đồng thì sao? Giám sát viên giải quyết thế nào?
+2. Xác định ba hành động tự khắc phục "an toàn" cho dịch vụ của bạn. Giải thích từng hành động.
+3. Viết mẫu cẩm nang vận hành có cấu trúc: các phần, trường bắt buộc, lệnh xác minh.
+4. Phát hiện dự đoán kích hoạt với thời gian báo trước 12 phút. Chính sách của bạn là gì — gọi trực, rút công việc trước, hay cả hai?
+5. Lập luận liệu nhóm 3 người nên áp dụng SRE AI năm 2026 hay chờ. Cân nhắc mức trưởng thành, khối lượng, rủi ro.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|----------------|------------------------|
-| AI SRE | "agent for on-call" | LLM-backed incident investigation + coordination |
-| Supervisor agent | "the orchestrator" | Top-level agent breaking incidents into sub-queries |
-| Specialized agent | "domain agent" | Sub-agent with tool access (logs, metrics, runbooks) |
-| Auto-remediation | "AI fixes it" | Narrow pre-approved action; NOT broad re-architecture |
-| Operational memory | "vector runbooks" | Post-mortems + runbooks in vector DB for RAG |
-| Adversarial eval | "two-model check" | Independent analyses; agreement = confidence |
-| NeuBird Hawkeye | "the adversarial one" | Product with adversarial-eval + memory pattern |
-| Bits AI | "Datadog's SRE agent" | Datadog-managed AI SRE |
-| Pre-incident prediction | "early detection" | 10-15 min lead time on outage prediction |
+| AI SRE (SRE AI) | "agent cho trực" | Điều tra sự cố + phối hợp dựa trên LLM |
+| Supervisor agent (Agent giám sát) | "bộ điều phối" | Agent cấp cao chia sự cố thành truy vấn con |
+| Specialized agent (Agent chuyên biệt) | "agent miền" | Agent phụ có quyền truy cập công cụ (log, chỉ số, cẩm nang vận hành) |
+| Auto-remediation (Tự khắc phục) | "AI sửa nó" | Hành động hẹp phê duyệt trước; KHÔNG phải thiết kế lại kiến trúc rộng |
+| Operational memory (Bộ nhớ vận hành) | "cẩm nang vận hành vector" | Báo cáo hậu kiểm + cẩm nang vận hành trong DB vector cho RAG |
+| Adversarial eval (Đánh giá đối kháng) | "kiểm tra hai mô hình" | Phân tích độc lập; đồng ý = tin cậy |
+| NeuBird Hawkeye | "công cụ đối kháng" | Sản phẩm có mẫu đánh giá đối kháng + bộ nhớ |
+| Bits AI | "agent SRE của Datadog" | SRE AI do Datadog quản lý |
+| Pre-incident prediction (Dự đoán trước sự cố) | "phát hiện sớm" | Thời gian báo trước 10-15 phút khi dự đoán ngừng hoạt động |
 
 ## Further Reading
 
