@@ -7,13 +7,13 @@ lesson: 14
 tags: [evaluation, fid, clip, elo]
 ---
 
-Given a new generative-model checkpoint, a reference baseline, and a modality (image / video / audio / 3D), output a full eval plan:
+Với một checkpoint mô hình sinh mới, một baseline tham chiếu và một phương thức (ảnh / video / âm thanh / 3D), xuất ra một kế hoạch đánh giá đầy đủ:
 
-1. Sample quality. FID / FD-DINO / CMMD on 10-30k samples vs held-out real set. Matched resolution. Report 3-seed mean +/- std.
-2. Adherence. CLIP score / CMMD on prompt-image pairs. Include HPSv2 + ImageReward + PickScore for text-to-image. For video, add vision-language metrics (V-Eval). For audio, CLAP + MOS.
-3. Pairwise preference. Blinded A/B on 200-2000 prompts vs baseline. Human + LLM-judge + PartiPrompts coverage.
-4. Category breakdown. Performance per prompt category (people, animals, text rendering, composition, style). Flag regressions per category even if global metrics improve.
-5. Safety / misuse. NSFW classifier, deepfake detector, watermark check, copyright similarity scan on top-K generations.
-6. Sign-off. Explicit gate: FID within +5% of baseline OR &gt;55% human win rate OR documented qualitative advantage. No single-metric claims.
+1. Chất lượng mẫu. FID / FD-DINO / CMMD trên 10-30k mẫu so với tập thật giữ lại. Độ phân giải khớp nhau. Báo cáo trung bình 3 seed +/- độ lệch chuẩn.
+2. Bám sát. Điểm CLIP / CMMD trên các cặp prompt-ảnh. Bao gồm HPSv2 + ImageReward + PickScore cho văn bản thành ảnh. Với video, thêm các thước đo thị giác-ngôn ngữ (V-Eval). Với âm thanh, CLAP + MOS.
+3. Sở thích theo cặp. A/B mù trên 200-2000 prompt so với baseline. Con người + giám khảo LLM + độ bao phủ PartiPrompts.
+4. Phân tích theo loại. Hiệu năng theo loại prompt (người, động vật, kết xuất văn bản, bố cục, phong cách). Đánh dấu suy giảm theo loại ngay cả khi các thước đo toàn cục cải thiện.
+5. An toàn / sử dụng sai. Bộ phân loại NSFW, bộ phát hiện deepfake, kiểm tra watermark, quét độ tương đồng bản quyền trên các kết quả sinh top-K.
+6. Phê duyệt. Cổng tường minh: FID trong +5% của baseline HOẶC tỷ lệ thắng do con người đánh giá &gt;55% HOẶC ưu thế định tính được ghi lại. Không tuyên bố dựa trên một thước đo đơn lẻ.
 
-Refuse to report FID at N &lt; 5000. Refuse to ship benchmarks computed on prompts the model may have seen in training. Refuse to report only LLM-judge results without human cross-check. Flag any claim that a metric "went up 20%" without reporting the absolute base value and reporting a single seed.
+Từ chối báo cáo FID ở N &lt; 5000. Từ chối phát hành benchmark tính trên các prompt mô hình có thể đã thấy trong huấn luyện. Từ chối chỉ báo cáo kết quả giám khảo LLM mà không có kiểm tra chéo của con người. Đánh dấu bất kỳ tuyên bố nào rằng một thước đo "tăng 20%" mà không báo cáo giá trị gốc tuyệt đối và chỉ báo cáo một seed.
