@@ -7,38 +7,38 @@ lesson: 31
 tags: [workbench, audit, reliability, agent-engineering]
 ---
 
-Given a repository path and the agent product that will run inside it, audit the seven workbench surfaces and produce a readiness report.
+Với một đường dẫn kho mã và sản phẩm agent sẽ chạy bên trong nó, kiểm toán bảy bề mặt workbench và tạo một báo cáo sự sẵn sàng.
 
-The seven surfaces:
+Bảy bề mặt:
 
-1. Instructions: a root file the agent reads first (e.g. `AGENTS.md`), short, that routes to deeper rules.
-2. State: a durable, machine-readable file that records task, touched files, blockers, next action.
-3. Scope: a contract per task listing allowed files, forbidden files, acceptance criteria, rollback plan.
-4. Feedback: a runner that captures command, stdout, stderr, exit code, and feeds the result back into the loop.
-5. Verification: a gate that runs tests, lint, type-check, smoke run, and confirms acceptance criteria.
-6. Review: a second pass with a different role, builder cannot mark its own work.
-7. Handoff: an artifact that summarizes what changed, why, what is left, and the next best action.
+1. Chỉ dẫn: một file gốc mà agent đọc đầu tiên (ví dụ `AGENTS.md`), ngắn, định tuyến đến các quy tắc sâu hơn.
+2. Trạng thái: một file bền vững, máy đọc được ghi lại tác vụ, các file đã chạm, trở ngại, hành động tiếp theo.
+3. Phạm vi: một hợp đồng cho từng tác vụ liệt kê các file được phép, file bị cấm, tiêu chí nghiệm thu, kế hoạch khôi phục.
+4. Phản hồi: một trình chạy ghi lại lệnh, stdout, stderr, mã thoát và đưa kết quả trở lại vòng lặp.
+5. Xác minh: một cổng chạy kiểm thử, lint, kiểm tra kiểu, chạy smoke và xác nhận các tiêu chí nghiệm thu.
+6. Đánh giá: một lượt thứ hai với một vai trò khác, bên xây dựng không thể tự chấm công việc của mình.
+7. Bàn giao: một sản phẩm tóm tắt điều gì thay đổi, vì sao, điều gì còn lại và hành động tốt nhất tiếp theo.
 
-Produce:
+Tạo:
 
-- A score per surface: 0 missing, 1 partial, 2 healthy. Tie each score to a file or process you observed.
-- Three priorities ordered by leverage: which missing surface, if added first, removes the most failure modes.
-- A `workbench_audit.json` machine-readable report plus a `workbench_audit.md` human-readable summary.
-- A starter patch for the weakest surface: the smallest file change that moves the score from 0 to 1.
+- Một điểm cho mỗi bề mặt: 0 thiếu, 1 một phần, 2 tốt. Gắn mỗi điểm với một file hoặc tiến trình bạn đã quan sát.
+- Ba ưu tiên được sắp theo tác động: bề mặt bị thiếu nào, nếu được thêm trước, loại bỏ nhiều chế độ lỗi nhất.
+- Một báo cáo `workbench_audit.json` máy đọc được cộng một bản tóm tắt `workbench_audit.md` cho con người đọc.
+- Một bản vá khởi đầu cho bề mặt yếu nhất: thay đổi file nhỏ nhất chuyển điểm từ 0 lên 1.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- "Healthy" scores without a file path or process reference. Audits without evidence rot.
-- A single combined "agent config" surface. Combining surfaces hides which one failed when a task breaks.
-- Skipping verification because tests are slow. If verification is not on the workbench, builders mark their own homework.
+- Các điểm "Tốt" không có một đường dẫn file hoặc tham chiếu tiến trình. Các cuộc kiểm toán không có bằng chứng mục nát.
+- Một bề mặt "cấu hình agent" kết hợp duy nhất. Kết hợp các bề mặt che giấu bề mặt nào thất bại khi một tác vụ hỏng.
+- Bỏ qua xác minh vì các kiểm thử chậm. Nếu xác minh không ở trên workbench, các bên xây dựng tự chấm bài của mình.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the repo has no test command at all, refuse the verification score and surface it as a blocking finding.
-- If the repo has no version control history, refuse the handoff score and surface it as a blocking finding.
-- If the agent product runs as root or with unrestricted file access, refuse the scope score until a sandbox or write list is defined.
+- Nếu repo hoàn toàn không có lệnh kiểm thử, từ chối điểm xác minh và hiển thị nó như một phát hiện chặn.
+- Nếu repo không có lịch sử quản lý phiên bản, từ chối điểm bàn giao và hiển thị nó như một phát hiện chặn.
+- Nếu sản phẩm agent chạy dưới quyền root hoặc có truy cập file không hạn chế, từ chối điểm phạm vi cho đến khi một sandbox hoặc danh sách ghi được định nghĩa.
 
-Output structure:
+Cấu trúc đầu ra:
 
 ```
 workbench-audit/
@@ -49,8 +49,8 @@ workbench-audit/
 └── README.md
 ```
 
-End with "what to read next" pointing to:
+Kết thúc bằng "đọc gì tiếp theo" chỉ đến:
 
-- Lesson 32 for the minimal repo layout.
-- Lesson 33 for the instructions surface in depth.
-- Lesson 38 for the verification gate.
+- Bài 32 cho bố cục repo tối thiểu.
+- Bài 33 cho bề mặt chỉ dẫn chuyên sâu.
+- Bài 38 cho cổng xác minh.
