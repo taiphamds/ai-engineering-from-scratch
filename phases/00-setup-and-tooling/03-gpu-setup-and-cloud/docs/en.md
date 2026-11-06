@@ -1,6 +1,6 @@
 # GPU Setup & Cloud
 
-> Training on CPU is fine for learning. Training for real needs a GPU.
+> Huấn luyện trên CPU là đủ để học. Huấn luyện thực sự cần GPU.
 
 **Type:** Build
 **Languages:** Python
@@ -9,16 +9,16 @@
 
 ## Learning Objectives
 
-- Verify local GPU availability using `nvidia-smi` and PyTorch's CUDA API
-- Configure Google Colab with a T4 GPU for free cloud-based experiments
-- Benchmark matrix multiplication on CPU vs GPU and measure the speedup
-- Estimate the largest model that fits in your VRAM using the fp16 rule of thumb
+- Xác minh GPU cục bộ có sẵn bằng `nvidia-smi` và API CUDA của PyTorch
+- Cấu hình Google Colab với GPU T4 cho các thử nghiệm miễn phí trên đám mây
+- Đo hiệu năng phép nhân ma trận trên CPU so với GPU và đo mức tăng tốc
+- Ước tính mô hình lớn nhất vừa với VRAM của bạn bằng quy tắc ước lượng fp16
 
 ## The Problem
 
-Most lessons in phases 1-3 run fine on CPU. But once you start training CNNs, transformers, or LLMs (phases 4+), you need GPU acceleration. A training run that takes 8 hours on CPU takes 10 minutes on GPU.
+Hầu hết bài học ở các giai đoạn 1-3 chạy tốt trên CPU. Nhưng khi bạn bắt đầu huấn luyện CNN, transformer hoặc LLM (giai đoạn 4+), bạn cần tăng tốc bằng GPU. Một lượt huấn luyện mất 8 giờ trên CPU chỉ mất 10 phút trên GPU.
 
-You have three options: local GPU, cloud GPU, or Google Colab (free).
+Bạn có ba lựa chọn: GPU cục bộ, GPU đám mây hoặc Google Colab (miễn phí).
 
 ## The Concept
 
@@ -49,13 +49,13 @@ s0-gpu-dispatch
 
 ### Option 1: Local NVIDIA GPU
 
-Check if you have one:
+Kiểm tra xem bạn có GPU hay không:
 
 ```bash
 nvidia-smi
 ```
 
-Install PyTorch with CUDA:
+Cài đặt PyTorch với CUDA:
 
 ```python
 import torch
@@ -69,15 +69,15 @@ if torch.cuda.is_available():
 
 ### Option 2: Google Colab
 
-1. Go to [colab.research.google.com](https://colab.research.google.com)
+1. Truy cập [colab.research.google.com](https://colab.research.google.com)
 2. Runtime > Change runtime type > T4 GPU
-3. Run `!nvidia-smi` to verify
+3. Chạy `!nvidia-smi` để xác minh
 
-Upload notebooks from this course directly to Colab.
+Tải trực tiếp các notebook của khóa học này lên Colab.
 
 ### Option 3: Cloud GPU
 
-For Lambda Labs, RunPod, or Vast.ai:
+Đối với Lambda Labs, RunPod hoặc Vast.ai:
 
 ```bash
 ssh user@your-gpu-instance
@@ -88,7 +88,7 @@ python -c "import torch; print(torch.cuda.get_device_name(0))"
 
 ### No GPU? No problem.
 
-Most lessons work on CPU. The ones that need GPU will say so and include Colab links.
+Hầu hết bài học hoạt động trên CPU. Những bài cần GPU sẽ nêu rõ và kèm liên kết Colab.
 
 ```python
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -126,15 +126,15 @@ if torch.cuda.is_available():
 
 ## Exercises
 
-1. Run the benchmark above and compare CPU vs GPU times
-2. If you don't have a GPU, run it on Google Colab and compare
-3. Check how much GPU memory you have and estimate the largest model you can fit (rule of thumb: 2 bytes per parameter for fp16)
+1. Chạy phép đo hiệu năng bên trên và so sánh thời gian CPU với GPU
+2. Nếu bạn không có GPU, hãy chạy trên Google Colab và so sánh
+3. Kiểm tra dung lượng bộ nhớ GPU bạn có và ước tính mô hình lớn nhất có thể chứa (quy tắc ước lượng: 2 byte mỗi tham số đối với fp16)
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| CUDA | "GPU programming" | NVIDIA's parallel computing platform that lets you run code on the GPU |
-| VRAM | "GPU memory" | Video RAM on the GPU, separate from system RAM. Limits model size. |
-| fp16 | "Half precision" | 16-bit floating point, uses half the memory of fp32 with minimal accuracy loss |
-| Tensor Core | "Fast matrix hardware" | Specialized GPU cores for matrix multiplication, 4-8x faster than regular cores |
+| CUDA | "Lập trình GPU" | Nền tảng tính toán song song của NVIDIA cho phép bạn chạy mã trên GPU |
+| VRAM | "Bộ nhớ GPU" | RAM video trên GPU, tách biệt với RAM hệ thống. Giới hạn kích thước mô hình. |
+| fp16 | "Độ chính xác một nửa" | Số dấu phẩy động 16-bit, sử dụng một nửa bộ nhớ của fp32 với mức suy giảm độ chính xác tối thiểu |
+| Tensor Core | "Phần cứng ma trận nhanh" | Các lõi GPU chuyên dụng cho phép nhân ma trận, nhanh hơn các lõi thông thường 4-8 lần |
