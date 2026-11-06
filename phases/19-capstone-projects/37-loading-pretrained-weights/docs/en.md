@@ -1,6 +1,6 @@
 # Loading Pretrained Weights
 
-> Training a 124 million parameter model from scratch is a budget decision; loading a published checkpoint is a Tuesday. This lesson loads pretrained GPT-2 style weights from a safetensors file into the exact architecture from lesson 35, walks the parameter name mapping piece by piece, and sanity generates a continuation to prove the load worked. No network, no third party loaders, no opaque magic.
+> Huấn luyện một mô hình 124 triệu tham số từ đầu là một quyết định ngân sách; nạp một checkpoint được công bố là việc ngày thứ Ba. Bài này nạp các trọng số tiền huấn luyện kiểu GPT-2 từ một file safetensors vào chính xác kiến trúc từ bài 35, duyệt ánh xạ tên tham số từng phần, và sinh thử một phần tiếp nối để chứng minh việc nạp đã hoạt động. Không mạng, không loader bên thứ ba, không phép màu mờ đục.
 
 **Type:** Build
 **Languages:** Python
@@ -9,17 +9,17 @@
 
 ## Learning Objectives
 
-- Read a safetensors file with the `safetensors` Python library and inspect the tensor names and shapes.
-- Map each pretrained parameter name onto a parameter inside the lesson 35 GPT model.
-- Handle the two name conventions that differ between published GPT-2 weights and the model in this track: `wte/wpe/h.N.attn.c_attn/c_proj` and `mlp.c_fc/c_proj` versus the locally named `tok_embed/pos_embed/blocks.N.attn.qkv/out_proj` and `mlp.fc1/fc2`.
-- Detect and refuse a shape mismatch with a clear error before any weight assignment happens.
-- Generate a short continuation with the loaded weights and confirm the tokens come from the loaded distribution, not the randomly initialized one.
+- Đọc một file safetensors bằng thư viện Python `safetensors` và kiểm tra các tên và hình dạng tensor.
+- Ánh xạ mỗi tên tham số tiền huấn luyện sang một tham số bên trong mô hình GPT bài 35.
+- Xử lý hai quy ước tên khác nhau giữa các trọng số GPT-2 được công bố và mô hình trong track này: `wte/wpe/h.N.attn.c_attn/c_proj` và `mlp.c_fc/c_proj` so với các tên cục bộ `tok_embed/pos_embed/blocks.N.attn.qkv/out_proj` và `mlp.fc1/fc2`.
+- Phát hiện và từ chối một sự không khớp hình dạng với một lỗi rõ ràng trước khi bất kỳ phép gán trọng số nào xảy ra.
+- Sinh một phần tiếp nối ngắn với các trọng số đã nạp và xác nhận các token đến từ phân phối đã nạp, không phải phân phối được khởi tạo ngẫu nhiên.
 
 ## The Problem
 
-Published weights are not packaged for your architecture. They carry the names the original implementation used. The pretrained file has `transformer.h.0.attn.c_attn.weight` of shape `(2304, 768)`; your model expects `blocks.0.attn.qkv.weight` of shape `(2304, 768)` (which is the same matrix in a different layout convention) or your model uses `nn.Linear` which stores the matrix transposed. The same parameter shows up with three subtly different identities (name, shape, byte layout) and the loader has to reconcile all three.
+Các trọng số được công bố không được đóng gói cho kiến trúc của bạn. Chúng mang các tên mà triển khai gốc sử dụng. File tiền huấn luyện có `transformer.h.0.attn.c_attn.weight` hình dạng `(2304, 768)`; mô hình của bạn kỳ vọng `blocks.0.attn.qkv.weight` hình dạng `(2304, 768)` (là cùng ma trận trong một quy ước bố cục khác) hoặc mô hình của bạn sử dụng `nn.Linear` lưu ma trận chuyển vị. Cùng tham số xuất hiện với ba danh tính khác nhau tinh vi (tên, hình dạng, bố cục byte) và loader phải dung hòa cả ba.
 
-A loader that copies blindly puts the right tensor in the wrong place and you get a model that generates nonsense. A loader that refuses to copy when the shape differs but logs nothing leaves you guessing which tensor failed to land. The loader in this lesson is explicit: every assignment is logged, every shape is checked, and a `LoadReport` summarizes hits, misses, and shape mismatches so you can read what happened.
+Một loader sao chép mù quáng đặt tensor đúng vào chỗ sai và bạn nhận một mô hình sinh vô nghĩa. Một loader từ chối sao chép khi hình dạng khác nhưng không ghi nhật ký gì khiến bạn đoán tensor nào không được đặt vào. Loader trong bài này rõ ràng: mọi phép gán được ghi nhật ký, mọi hình dạng được kiểm tra, và một `LoadReport` tóm tắt các lần trúng, thiếu, và không khớp hình dạng để bạn có thể đọc điều đã xảy ra.
 
 ## The Concept
 
@@ -36,61 +36,61 @@ flowchart LR
   RP --> G[generate<br/>sanity sample]
 ```
 
-The name mapper is just a function from string to string. The shape check is one if. The assignment happens inside `torch.no_grad()` so autograd does not track the load. The report holds the outcome of every name.
+Bộ ánh xạ tên chỉ là một hàm từ chuỗi sang chuỗi. Kiểm tra hình dạng là một if. Phép gán xảy ra bên trong `torch.no_grad()` để autograd không theo dõi việc nạp. Báo cáo giữ kết quả của mọi tên.
 
 ### The GPT-2 naming convention
 
-Published GPT-2 weights live under names like:
+Các trọng số GPT-2 được công bố nằm dưới các tên như:
 
-| Pretrained name | Shape | Meaning |
+| Tên tiền huấn luyện | Hình dạng | Ý nghĩa |
 |-----------------|-------|---------|
-| `wte.weight` | (50257, 768) | Token embedding |
-| `wpe.weight` | (1024, 768) | Position embedding |
-| `h.N.ln_1.weight` | (768,) | LayerNorm 1 scale at block N |
-| `h.N.ln_1.bias` | (768,) | LayerNorm 1 shift at block N |
-| `h.N.attn.c_attn.weight` | (768, 2304) | Fused QKV linear weight |
-| `h.N.attn.c_attn.bias` | (2304,) | Fused QKV linear bias |
-| `h.N.attn.c_proj.weight` | (768, 768) | Attention output projection |
-| `h.N.attn.c_proj.bias` | (768,) | Attention output projection bias |
-| `h.N.ln_2.weight` | (768,) | LayerNorm 2 scale |
-| `h.N.ln_2.bias` | (768,) | LayerNorm 2 shift |
-| `h.N.mlp.c_fc.weight` | (768, 3072) | MLP fc1 weight |
-| `h.N.mlp.c_fc.bias` | (3072,) | MLP fc1 bias |
-| `h.N.mlp.c_proj.weight` | (3072, 768) | MLP fc2 weight |
-| `h.N.mlp.c_proj.bias` | (768,) | MLP fc2 bias |
-| `ln_f.weight` | (768,) | Final LayerNorm scale |
-| `ln_f.bias` | (768,) | Final LayerNorm shift |
+| `wte.weight` | (50257, 768) | Embedding token |
+| `wpe.weight` | (1024, 768) | Embedding vị trí |
+| `h.N.ln_1.weight` | (768,) | Hệ số tỷ lệ LayerNorm 1 tại khối N |
+| `h.N.ln_1.bias` | (768,) | Dịch chuyển LayerNorm 1 tại khối N |
+| `h.N.attn.c_attn.weight` | (768, 2304) | Trọng số tuyến tính QKV hợp nhất |
+| `h.N.attn.c_attn.bias` | (2304,) | Bias tuyến tính QKV hợp nhất |
+| `h.N.attn.c_proj.weight` | (768, 768) | Phép chiếu đầu ra attention |
+| `h.N.attn.c_proj.bias` | (768,) | Bias phép chiếu đầu ra attention |
+| `h.N.ln_2.weight` | (768,) | Hệ số tỷ lệ LayerNorm 2 |
+| `h.N.ln_2.bias` | (768,) | Dịch chuyển LayerNorm 2 |
+| `h.N.mlp.c_fc.weight` | (768, 3072) | Trọng số MLP fc1 |
+| `h.N.mlp.c_fc.bias` | (3072,) | Bias MLP fc1 |
+| `h.N.mlp.c_proj.weight` | (3072, 768) | Trọng số MLP fc2 |
+| `h.N.mlp.c_proj.bias` | (768,) | Bias MLP fc2 |
+| `ln_f.weight` | (768,) | Hệ số tỷ lệ LayerNorm cuối |
+| `ln_f.bias` | (768,) | Dịch chuyển LayerNorm cuối |
 
-Two surprises to plan for. The `c_attn`, `c_proj`, `c_fc` linears are stored with the matrix transposed relative to what `nn.Linear.weight` expects. The loader transposes during assignment. The LM head is not in the file at all; the model relies on weight tying with `wte`, so the head is set by aliasing once `wte` lands.
+Hai bất ngờ cần dự liệu. Các lớp tuyến tính `c_attn`, `c_proj`, `c_fc` được lưu với ma trận chuyển vị so với điều `nn.Linear.weight` kỳ vọng. Loader chuyển vị trong lúc gán. Đầu LM hoàn toàn không nằm trong file; mô hình dựa vào buộc trọng số với `wte`, nên đầu được đặt bằng tạo bí danh khi `wte` được nạp vào.
 
 ### The local naming convention
 
-The model in this track uses descriptive names:
+Mô hình trong track này sử dụng các tên mô tả:
 
-| Local name | Meaning |
+| Tên cục bộ | Ý nghĩa |
 |------------|---------|
-| `tok_embed.weight` | Token embedding |
-| `pos_embed.weight` | Position embedding |
-| `blocks.N.ln1.scale` | LayerNorm 1 scale at block N |
-| `blocks.N.ln1.shift` | LayerNorm 1 shift |
-| `blocks.N.attn.qkv.weight` | Fused QKV |
-| `blocks.N.attn.qkv.bias` | Fused QKV bias |
-| `blocks.N.attn.out_proj.weight` | Attention output projection |
-| `blocks.N.attn.out_proj.bias` | Output projection bias |
-| `blocks.N.ln2.scale` | LayerNorm 2 scale |
-| `blocks.N.ln2.shift` | LayerNorm 2 shift |
+| `tok_embed.weight` | Embedding token |
+| `pos_embed.weight` | Embedding vị trí |
+| `blocks.N.ln1.scale` | Hệ số tỷ lệ LayerNorm 1 tại khối N |
+| `blocks.N.ln1.shift` | Dịch chuyển LayerNorm 1 |
+| `blocks.N.attn.qkv.weight` | QKV hợp nhất |
+| `blocks.N.attn.qkv.bias` | Bias QKV hợp nhất |
+| `blocks.N.attn.out_proj.weight` | Phép chiếu đầu ra attention |
+| `blocks.N.attn.out_proj.bias` | Bias phép chiếu đầu ra |
+| `blocks.N.ln2.scale` | Hệ số tỷ lệ LayerNorm 2 |
+| `blocks.N.ln2.shift` | Dịch chuyển LayerNorm 2 |
 | `blocks.N.mlp.fc1.weight` | MLP fc1 |
-| `blocks.N.mlp.fc1.bias` | MLP fc1 bias |
+| `blocks.N.mlp.fc1.bias` | Bias MLP fc1 |
 | `blocks.N.mlp.fc2.weight` | MLP fc2 |
-| `blocks.N.mlp.fc2.bias` | MLP fc2 bias |
-| `final_ln.scale` | Final LayerNorm scale |
-| `final_ln.shift` | Final LayerNorm shift |
+| `blocks.N.mlp.fc2.bias` | Bias MLP fc2 |
+| `final_ln.scale` | Hệ số tỷ lệ LayerNorm cuối |
+| `final_ln.shift` | Dịch chuyển LayerNorm cuối |
 
-The mapping is a fixed function. The lesson ships it as a dict that the loader iterates.
+Ánh xạ là một hàm cố định. Bài học cung cấp nó dưới dạng một dict mà loader lặp qua.
 
 ### The stub fixture
 
-Real GPT-2 weights are 0.5 GB. The demo does not download them; it generates a small safetensors fixture at first run, with the exact GPT-2 naming convention and shapes appropriate to a 12-block model at d_model 192 instead of 768. The fixture has the right structure to exercise every code path in the loader. Swap the fixture for the real file and the loader works without modification.
+Các trọng số GPT-2 thực là 0.5 GB. Demo không tải chúng; nó tạo một fixture safetensors nhỏ ở lần chạy đầu, với chính xác quy ước tên GPT-2 và các hình dạng phù hợp với một mô hình 12 khối ở d_model 192 thay vì 768. Fixture có cấu trúc đúng để thực thi mọi đường mã trong loader. Đổi fixture lấy file thực và loader hoạt động không cần sửa đổi.
 
 ```figure
 cc-weight-remap
@@ -98,65 +98,65 @@ cc-weight-remap
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- A small replica of the lesson 35 `GPTModel` so this lesson is self contained.
-- `make_pretrained_to_local(num_layers)` which expands the per-layer entries.
-- `load_safetensors(model, path)` which iterates names, maps them, checks shape, transposes the conv1d-style weights, and assigns under `torch.no_grad()`. Returns a `LoadReport`.
-- `make_stub_safetensors(path, cfg)` which generates a fixture file with the exact pretrained naming convention.
-- A demo that creates `outputs/gpt2-stub.safetensors` on first run, builds a fresh model, captures one generated continuation from random init, loads the stub, captures another continuation, prints both, and verifies the two are different (the load actually changed the model).
+- Một bản sao nhỏ của `GPTModel` bài 35 để bài này tự chứa.
+- `make_pretrained_to_local(num_layers)` mở rộng các mục theo lớp.
+- `load_safetensors(model, path)` lặp qua các tên, ánh xạ chúng, kiểm tra hình dạng, chuyển vị các trọng số kiểu conv1d, và gán dưới `torch.no_grad()`. Trả về một `LoadReport`.
+- `make_stub_safetensors(path, cfg)` tạo một file fixture với chính xác quy ước tên tiền huấn luyện.
+- Một demo tạo `outputs/gpt2-stub.safetensors` ở lần chạy đầu, xây dựng một mô hình mới, thu một phần tiếp nối được sinh từ khởi tạo ngẫu nhiên, nạp stub, thu một phần tiếp nối khác, in cả hai, và xác minh hai phần khác nhau (việc nạp thực sự thay đổi mô hình).
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-Output: the fixture path, a per-name load log, a `LoadReport` summary, a continuation before the load, a continuation after the load, and a shape mismatch on a single intentionally bad tensor injected into the fixture so the failure path is exercised.
+Đầu ra: đường dẫn fixture, một nhật ký nạp theo tên, một tóm tắt `LoadReport`, một phần tiếp nối trước khi nạp, một phần tiếp nối sau khi nạp, và một sự không khớp hình dạng trên một tensor cố ý sai duy nhất được chèn vào fixture để đường thất bại được thực thi.
 
 ## Stack
 
-- `safetensors` for the on disk format and a streaming reader.
-- `torch` for the model and the assignment math.
-- No `transformers`, no `huggingface_hub`, no network calls.
+- `safetensors` cho định dạng trên đĩa và một bộ đọc truyền luồng.
+- `torch` cho mô hình và toán gán.
+- Không `transformers`, không `huggingface_hub`, không lệnh gọi mạng.
 
 ## Production patterns in the wild
 
-Three patterns make the loader survive contact with weights you did not create.
+Ba mẫu khiến loader sống sót khi tiếp xúc với các trọng số bạn không tạo ra.
 
-**Always validate the file before any assignment.** Open the file, list every tensor name with its dtype and shape, run the full mapping with shape checks, and only on success start assigning. Half-loaded models are silent failure machines.
+**Luôn xác thực file trước bất kỳ phép gán nào.** Mở file, liệt kê mọi tên tensor với dtype và hình dạng của nó, chạy toàn bộ ánh xạ với các kiểm tra hình dạng, và chỉ khi thành công mới bắt đầu gán. Các mô hình nạp nửa chừng là những cỗ máy thất bại âm thầm.
 
-**Log every assignment with the source name and the destination name.** When something looks wrong, the log tells you which tensor landed where; the alternative is reading hexdumps. The `LoadReport` dataclass in this lesson tracks `loaded`, `missing`, `unexpected`, and `shape_mismatch` lists and prints a summary at the end.
+**Ghi nhật ký mọi phép gán với tên nguồn và tên đích.** Khi điều gì trông sai, nhật ký nói cho bạn tensor nào đã vào đâu; lựa chọn còn lại là đọc hexdump. Dataclass `LoadReport` trong bài này theo dõi các danh sách `loaded`, `missing`, `unexpected`, và `shape_mismatch` và in một tóm tắt ở cuối.
 
-**The LM head is a weight tying alias, not a separate copy.** Setting `model.lm_head.weight = model.tok_embed.weight` after loading `tok_embed` is the canonical pattern. Copying the embedding matrix into a fresh `lm_head.weight` parameter breaks tying and quietly doubles your parameter count.
+**Đầu LM là một bí danh buộc trọng số, không phải một bản sao riêng.** Đặt `model.lm_head.weight = model.tok_embed.weight` sau khi nạp `tok_embed` là mẫu chuẩn. Sao chép ma trận embedding vào một tham số `lm_head.weight` mới phá việc buộc và âm thầm tăng gấp đôi số tham số của bạn.
 
 ## Use It
 
-- The loader works for any safetensors file that uses the pretrained naming convention. Real GPT-2 files (small / medium / large / xl) work without code changes; only the model config differs.
-- The same pattern extends to LLaMA, Mistral, Qwen weights once you update the name map. The shape checks and the report stay identical.
-- Sanity generation after a load is a quick gate: if the post-load samples look like the pre-load samples, the load did not change the model, which means the mapping silently missed every tensor.
+- Loader hoạt động cho bất kỳ file safetensors nào sử dụng quy ước tên tiền huấn luyện. Các file GPT-2 thực (small / medium / large / xl) hoạt động không cần thay đổi mã; chỉ cấu hình mô hình khác.
+- Cùng mẫu mở rộng sang các trọng số LLaMA, Mistral, Qwen khi bạn cập nhật ánh xạ tên. Các kiểm tra hình dạng và báo cáo giữ nguyên.
+- Sinh kiểm tra hợp lý sau khi nạp là một cổng nhanh: nếu các mẫu sau nạp trông như các mẫu trước nạp, việc nạp đã không thay đổi mô hình, nghĩa là ánh xạ đã âm thầm bỏ lỡ mọi tensor.
 
 ## Exercises
 
-1. Add a `dtype` argument to the loader that casts each tensor to a target dtype (`bfloat16`, `float16`, `float32`) during assignment. Confirm a `float32` model can be downcast to `bfloat16` and still generate.
-2. Add an `expected_layers` argument that refuses to load a checkpoint whose `h.N` indices do not match the model's `num_layers`.
-3. Plug the loader into the lesson 35 generation function and produce two side by side samples: one from random init, one from the loaded fixture.
-4. Add an export path: write the current model state into a fresh safetensors file using the pretrained naming convention. Round trip the loader and confirm the report has zero shape mismatches.
-5. Extend `NAME_MAP` to handle the LLaMA naming convention (no biases, RMSNorm, fused qkv layout) and re-run the loader on a stub LLaMA fixture you generate.
+1. Thêm một đối số `dtype` vào loader chuyển mỗi tensor sang một dtype đích (`bfloat16`, `float16`, `float32`) trong khi gán. Xác nhận một mô hình `float32` có thể được hạ kiểu xuống `bfloat16` và vẫn sinh.
+2. Thêm một đối số `expected_layers` từ chối nạp một checkpoint có các chỉ số `h.N` không khớp với `num_layers` của mô hình.
+3. Cắm loader vào hàm sinh bài 35 và tạo hai mẫu cạnh nhau: một từ khởi tạo ngẫu nhiên, một từ fixture được nạp.
+4. Thêm một đường xuất: ghi trạng thái mô hình hiện tại vào một file safetensors mới sử dụng quy ước tên tiền huấn luyện. Khứ hồi loader và xác nhận báo cáo không có sự không khớp hình dạng nào.
+5. Mở rộng `NAME_MAP` để xử lý quy ước tên LLaMA (không bias, RMSNorm, bố cục qkv hợp nhất) và chạy lại loader trên một fixture LLaMA stub mà bạn tạo.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Name map | "Key remapping" | The function from pretrained tensor names to local parameter names; usually a literal dict with one entry per layer index expanded over a loop |
-| Shape mismatch | "Bad shape" | The pretrained tensor exists under the mapped name but its dimensions disagree with the local parameter; the loader refuses to assign and logs the pair |
-| Transpose-on-load | "Conv1d layout" | Published GPT-2 stores attention and MLP projections in the transpose of what nn.Linear expects; the loader transposes during assignment |
-| Weight tying alias | "Shared LM head" | Setting model.lm_head.weight = model.tok_embed.weight so the head and embedding share storage; the head is not in the file because of this |
-| Load report | "Coverage summary" | A small dataclass that tracks loaded, missing, unexpected, and shape_mismatch lists; printing it is how you tell whether the load succeeded |
+| Name map (Ánh xạ tên) | "Ánh xạ lại khóa" | Hàm từ tên tensor tiền huấn luyện sang tên tham số cục bộ; thường là một dict trực tiếp với một mục theo chỉ số lớp được mở rộng qua một vòng lặp |
+| Shape mismatch (Không khớp hình dạng) | "Hình dạng sai" | Tensor tiền huấn luyện tồn tại dưới tên được ánh xạ nhưng các chiều của nó không khớp tham số cục bộ; loader từ chối gán và ghi nhật ký cặp đó |
+| Transpose-on-load (Chuyển vị khi nạp) | "Bố cục Conv1d" | GPT-2 được công bố lưu các phép chiếu attention và MLP ở chuyển vị của điều nn.Linear kỳ vọng; loader chuyển vị trong khi gán |
+| Weight tying alias (Bí danh buộc trọng số) | "Đầu LM dùng chung" | Đặt model.lm_head.weight = model.tok_embed.weight để đầu và embedding dùng chung lưu trữ; đầu không nằm trong file vì điều này |
+| Load report (Báo cáo nạp) | "Tóm tắt độ bao phủ" | Một dataclass nhỏ theo dõi các danh sách loaded, missing, unexpected, và shape_mismatch; in nó là cách bạn biết việc nạp có thành công không |
 
 ## Further Reading
 
-- Phase 19 lesson 35 for the architecture that receives the weights.
-- Phase 19 lesson 36 for the training loop that produces a checkpoint of the same shape.
-- Phase 10 lesson 11 (quantization) for what to do with the loaded weights when memory is tight.
-- Phase 10 lesson 13 (building a complete LLM pipeline) for the full lifecycle around load and inference.
+- Phase 19 bài 35 cho kiến trúc nhận các trọng số.
+- Phase 19 bài 36 cho vòng lặp huấn luyện tạo ra một checkpoint cùng hình thức.
+- Phase 10 bài 11 (lượng tử hóa) cho điều cần làm với các trọng số được nạp khi bộ nhớ hạn hẹp.
+- Phase 10 bài 13 (xây dựng một pipeline LLM hoàn chỉnh) cho toàn bộ vòng đời quanh nạp và suy luận.
