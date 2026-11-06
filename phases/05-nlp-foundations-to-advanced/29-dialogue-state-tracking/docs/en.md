@@ -1,6 +1,6 @@
 # Dialogue State Tracking
 
-> "I want a cheap restaurant in the north... actually make it moderate... and add Italian." Three turns, three state updates. DST keeps the slot-value dict in sync so the booking works.
+> "Tôi muốn một nhà hàng rẻ ở phía bắc... thực ra đổi thành giá vừa phải... và thêm món Ý." Ba lượt, ba cập nhật trạng thái. DST giữ dict slot-giá trị đồng bộ để việc đặt chỗ hoạt động.
 
 **Type:** Build
 **Languages:** Python
@@ -9,46 +9,46 @@
 
 ## The Problem
 
-In a task-oriented dialogue system, the user's goal is encoded as a set of slot-value pairs: `{cuisine: italian, area: north, price: moderate}`. Every user turn can add, change, or remove a slot. The system must read the whole conversation and output the current state correctly.
+Trong một hệ thống hội thoại hướng tác vụ, mục tiêu người dùng được mã hóa thành một tập các cặp slot-giá trị: `{cuisine: italian, area: north, price: moderate}`. Mỗi lượt người dùng có thể thêm, thay đổi hoặc loại bỏ một slot. Hệ thống phải đọc toàn bộ cuộc hội thoại và xuất đúng trạng thái hiện tại.
 
-Get a single slot wrong and the system books the wrong restaurant, schedules the wrong flight, or charges the wrong card. DST is the hinge between what the user said and what the backend executes.
+Làm sai một slot duy nhất và hệ thống đặt sai nhà hàng, lên lịch sai chuyến bay hoặc tính phí sai thẻ. DST là bản lề giữa điều người dùng nói và điều backend thực thi.
 
-Why it still matters in 2026 despite LLMs:
+Vì sao nó vẫn quan trọng năm 2026 dù có LLM:
 
-- Compliance-sensitive domains (banking, healthcare, airline booking) require deterministic slot values, not free-form generation.
-- Tool-use agents still need slot resolution before calling APIs.
-- Multi-turn correction is harder than it looks: "actually no, make it Thursday."
+- Các lĩnh vực nhạy cảm tuân thủ (ngân hàng, chăm sóc sức khỏe, đặt vé máy bay) đòi hỏi các giá trị slot tất định, không phải sinh tự do.
+- Các tác tử dùng công cụ vẫn cần phân giải slot trước khi gọi API.
+- Sửa đổi nhiều lượt khó hơn vẻ ngoài: "thực ra không, đổi thành thứ Năm."
 
-The modern pipeline: classical DST concepts + LLM extractors + structured-output guardrails.
+Pipeline hiện đại: các khái niệm DST cổ điển + các bộ trích xuất LLM + các biện pháp bảo vệ đầu ra có cấu trúc.
 
 ## The Concept
 
 ![DST: dialog history → slot-value state](../assets/dst.svg)
 
-**Task structure.** A schema defines domains (restaurant, hotel, taxi) and their slots (cuisine, area, price, people). Each slot can be empty, filled with a value from a closed set (price: {cheap, moderate, expensive}), or a free-form value (name: "The Copper Kettle").
+**Cấu trúc tác vụ.** Một schema định nghĩa các miền (nhà hàng, khách sạn, taxi) và các slot của chúng (ẩm thực, khu vực, giá, số người). Mỗi slot có thể rỗng, được điền bằng một giá trị từ một tập đóng (giá: {rẻ, vừa phải, đắt}) hoặc một giá trị tự do (tên: "The Copper Kettle").
 
-**Two DST formulations.**
+**Hai cách phát biểu DST.**
 
-- **Classification.** For each (slot, candidate_value) pair, predict yes/no. Works for closed-vocab slots. Standard pre-2020.
-- **Generation.** Given the dialogue, generate slot values as free text. Works for open-vocab slots. The modern default.
+- **Phân loại.** Với mỗi cặp (slot, candidate_value), dự đoán có/không. Hoạt động cho các slot từ vựng đóng. Tiêu chuẩn trước 2020.
+- **Sinh.** Với cuộc hội thoại, sinh các giá trị slot dưới dạng văn bản tự do. Hoạt động cho các slot từ vựng mở. Mặc định hiện đại.
 
-**Metric.** Joint Goal Accuracy (JGA) — the fraction of turns where *every* slot is correct. All-or-nothing. MultiWOZ 2.4 leaderboard tops around 83% in 2026.
+**Thước đo.** Joint Goal Accuracy (JGA) — tỷ lệ các lượt mà *mọi* slot đều đúng. Tất cả hoặc không gì. Bảng xếp hạng MultiWOZ 2.4 đạt đỉnh khoảng 83% năm 2026.
 
-**Architectures.**
+**Các kiến trúc.**
 
-1. **Rule-based (slot regex + keyword).** Strong baseline for narrow domains. Debuggable.
-2. **TripPy / BERT-DST.** Copy-based generation with BERT encoding. Pre-LLM standard.
-3. **LDST (LLaMA + LoRA).** Instruction-tuned LLM with domain-slot prompting. Reaches ChatGPT-level quality on MultiWOZ 2.4.
-4. **Ontology-free (2024–26).** Skip the schema; generate slot names and values directly. Handles open domains.
-5. **Prompt + structured output (2024–26).** LLM with Pydantic schema + constrained decoding. 5 lines of code, production-ready.
+1. **Dựa trên quy tắc (regex slot + từ khóa).** Baseline mạnh cho các miền hẹp. Có thể gỡ lỗi.
+2. **TripPy / BERT-DST.** Sinh dựa trên sao chép với mã hóa BERT. Tiêu chuẩn trước LLM.
+3. **LDST (LLaMA + LoRA).** LLM được tinh chỉnh theo chỉ dẫn với prompting miền-slot. Đạt chất lượng cấp ChatGPT trên MultiWOZ 2.4.
+4. **Không ontology (2024–26).** Bỏ schema; sinh trực tiếp tên và giá trị slot. Xử lý các miền mở.
+5. **Prompt + đầu ra có cấu trúc (2024–26).** LLM với schema Pydantic + giải mã có ràng buộc. 5 dòng mã, sẵn sàng production.
 
 ### The classic failure modes
 
-- **Co-reference across turns.** "Let's stay with the first option." Needs to resolve which option.
-- **Over-write vs append.** User says "add Italian." Do you replace cuisine or append?
-- **Implicit confirmations.** "OK cool" — did that accept the offered booking?
-- **Correction.** "Actually make it 7 pm." Must update time without clearing other slots.
-- **Coreference to previous system utterance.** "Yes, that one." Which "that"?
+- **Đồng tham chiếu xuyên lượt.** "Hãy giữ lựa chọn đầu tiên." Cần phân giải lựa chọn nào.
+- **Ghi đè so với nối thêm.** Người dùng nói "thêm món Ý." Bạn thay ẩm thực hay nối thêm?
+- **Các xác nhận ngầm.** "OK tuyệt" — điều đó có chấp nhận việc đặt chỗ được đề xuất không?
+- **Sửa đổi.** "Thực ra đổi thành 7 giờ tối." Phải cập nhật thời gian mà không xóa các slot khác.
+- **Đồng tham chiếu đến phát ngôn hệ thống trước.** "Đúng, cái đó." "Cái đó" nào?
 
 ```figure
 n5-slot-tracker
@@ -58,7 +58,7 @@ n5-slot-tracker
 
 ### Step 1: rule-based slot extractor
 
-See `code/main.py`. Regex + synonym dictionaries cover 70% of canonical utterances in narrow domains:
+Xem `code/main.py`. Regex + các từ điển đồng nghĩa bao phủ 70% các phát ngôn kinh điển trong các miền hẹp:
 
 ```python
 CUISINE_SYNONYMS = {
@@ -74,7 +74,7 @@ def extract_cuisine(utterance):
     return None
 ```
 
-Brittle outside the canonical vocabulary. Works for deterministic slot confirmations.
+Mong manh ngoài từ vựng kinh điển. Hoạt động cho các xác nhận slot tất định.
 
 ### Step 2: state update loop
 
@@ -91,11 +91,11 @@ def update_state(state, utterance):
     return new_state
 ```
 
-Three invariants:
+Ba bất biến:
 
-- Never reset a slot the user did not touch.
-- Explicit negation ("never mind the cuisine") must clear.
-- User correction ("actually...") must overwrite, not append.
+- Không bao giờ đặt lại một slot người dùng không đụng đến.
+- Phủ định tường minh ("thôi không cần quan tâm loại ẩm thực") phải xóa.
+- Sửa đổi của người dùng ("thực ra...") phải ghi đè, không nối thêm.
 
 ### Step 3: LLM-driven DST with structured output
 
@@ -121,7 +121,7 @@ Update the state based on the latest user turn. Output only the JSON state."""
     return llm(prompt, response_model=RestaurantState)
 ```
 
-Instructor + Pydantic guarantees a valid state object. No regex, no schema mismatches, no hallucinated slots.
+Instructor + Pydantic bảo đảm một đối tượng trạng thái hợp lệ. Không regex, không sự không khớp schema, không slot bị ảo giác.
 
 ### Step 4: JGA evaluation
 
@@ -131,7 +131,7 @@ def joint_goal_accuracy(predicted_states, gold_states):
     return correct / len(predicted_states)
 ```
 
-Calibrate: what fraction of turns does the system get ALL slots right? For MultiWOZ 2.4, top 2026 systems: 80-83%. Your in-domain system should exceed that on your narrow vocabulary or the LLM baseline beats you.
+Hiệu chuẩn: ở tỷ lệ lượt nào hệ thống lấy đúng TẤT CẢ các slot? Với MultiWOZ 2.4, các hệ thống hàng đầu năm 2026: 80-83%. Hệ thống trong miền của bạn nên vượt mức đó trên từ vựng hẹp của bạn nếu không baseline LLM thắng bạn.
 
 ### Step 5: handling correction
 
@@ -143,32 +143,32 @@ def is_correction(utterance):
     return any(cue in utterance.lower() for cue in CORRECTION_CUES)
 ```
 
-On a detected correction, overwrite the last-updated slot rather than appending. Hard to get right without LLM help. The modern pattern: always let the LLM regenerate the whole state from history rather than incrementally updating — this naturally handles corrections.
+Khi phát hiện một sửa đổi, ghi đè slot được cập nhật cuối thay vì nối thêm. Khó làm đúng nếu không có trợ giúp LLM. Mẫu hiện đại: luôn để LLM sinh lại toàn bộ trạng thái từ lịch sử thay vì cập nhật tăng dần — điều này tự nhiên xử lý các sửa đổi.
 
 ## Pitfalls
 
-- **Full-history regeneration cost.** Letting the LLM regenerate state each turn costs O(n²) total tokens. Cap history or summarize older turns.
-- **Schema drift.** Adding new slots post-hoc breaks old training data. Version your schema.
-- **Case sensitivity.** "Italian" vs "italian" vs "ITALIAN" — normalize everywhere.
-- **Implicit inheritance.** If the user has previously specified "for 4 people," a new request for a different time should not clear people. Always pass the full history.
-- **Free-form vs closed-set.** Names, times, and addresses need free-form slots; cuisines and areas are closed. Mix both in the schema.
+- **Chi phí sinh lại toàn lịch sử.** Để LLM sinh lại trạng thái mỗi lượt tốn tổng O(n²) token. Giới hạn lịch sử hoặc tóm tắt các lượt cũ.
+- **Độ trôi schema.** Thêm các slot mới sau đó phá dữ liệu huấn luyện cũ. Quản lý phiên bản schema của bạn.
+- **Phân biệt hoa thường.** "Italian" so với "italian" so với "ITALIAN" — chuẩn hóa ở mọi nơi.
+- **Kế thừa ngầm.** Nếu người dùng trước đó chỉ định "cho 4 người", một yêu cầu mới cho thời gian khác không nên xóa số người. Luôn truyền toàn bộ lịch sử.
+- **Tự do so với tập đóng.** Tên, thời gian và địa chỉ cần các slot tự do; ẩm thực và khu vực là đóng. Trộn cả hai trong schema.
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Situation | Approach |
+| Tình huống | Cách tiếp cận |
 |-----------|----------|
-| Narrow domain (one or two intents) | Rule-based + regex |
-| Broad domain, labeled data available | LDST (LLaMA + LoRA on MultiWOZ-style data) |
-| Broad domain, no labels, prod-ready | LLM + Instructor + Pydantic schema |
-| Spoken / voice | ASR + normalizer + LLM-DST |
-| Multi-domain booking flow | Schema-guided LLM with per-domain Pydantic models |
-| Compliance-sensitive | Rule-based primary, LLM fallback with confirmation flow |
+| Miền hẹp (một hoặc hai ý định) | Dựa trên quy tắc + regex |
+| Miền rộng, có dữ liệu gán nhãn | LDST (LLaMA + LoRA trên dữ liệu kiểu MultiWOZ) |
+| Miền rộng, không nhãn, sẵn sàng production | LLM + Instructor + schema Pydantic |
+| Lời nói / giọng nói | ASR + bộ chuẩn hóa + LLM-DST |
+| Luồng đặt chỗ nhiều miền | LLM được hướng dẫn bằng schema với các mô hình Pydantic theo miền |
+| Nhạy cảm tuân thủ | Chính dựa trên quy tắc, dự phòng LLM với luồng xác nhận |
 
 ## Ship It
 
-Save as `outputs/skill-dst-designer.md`:
+Lưu thành `outputs/skill-dst-designer.md`:
 
 ```markdown
 ---
@@ -193,26 +193,26 @@ Refuse LLM-only DST for compliance-sensitive slots without a rule-based secondar
 
 ## Exercises
 
-1. **Easy.** Build the rule-based state tracker in `code/main.py` for 3 slots (cuisine, area, price). Test on 10 hand-crafted dialogues. Measure JGA.
-2. **Medium.** Same dataset with Instructor + Pydantic + a small LLM. Compare JGA. Inspect the hardest turns.
-3. **Hard.** Implement both and route: rule-based primary, LLM fallback when rule-based emits <2 slots with confidence. Measure the combined JGA and inference cost per turn.
+1. **Dễ.** Xây dựng bộ theo dõi trạng thái dựa trên quy tắc trong `code/main.py` cho 3 slot (ẩm thực, khu vực, giá). Kiểm thử trên 10 cuộc hội thoại tạo thủ công. Đo JGA.
+2. **Trung bình.** Cùng tập dữ liệu với Instructor + Pydantic + một LLM nhỏ. So sánh JGA. Kiểm tra các lượt khó nhất.
+3. **Khó.** Triển khai cả hai và định tuyến: chính dựa trên quy tắc, dự phòng LLM khi phần dựa trên quy tắc đưa ra <2 slot với độ tin cậy. Đo JGA kết hợp và chi phí suy luận mỗi lượt.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| DST | Dialogue state tracking | Maintain the slot-value dict across dialogue turns. |
-| Slot | Unit of user intent | Named parameter the backend needs (cuisine, date). |
-| Domain | The task area | Restaurant, hotel, taxi — sets of slots. |
-| JGA | Joint Goal Accuracy | Fraction of turns where every slot is correct. All-or-nothing. |
-| MultiWOZ | The benchmark | Multi-domain WOZ dataset; standard DST evaluation. |
-| Ontology-free DST | No schema | Generate slot names and values directly, no fixed list. |
-| Correction | "Actually..." | Turn that overwrites a previously-filled slot. |
+| DST | Theo dõi trạng thái hội thoại | Duy trì dict slot-giá trị qua các lượt hội thoại. |
+| Slot | Đơn vị ý định người dùng | Tham số có tên mà backend cần (ẩm thực, ngày). |
+| Domain (Miền) | Khu vực tác vụ | Nhà hàng, khách sạn, taxi — các tập slot. |
+| JGA | Độ chính xác Mục tiêu Đồng thời | Tỷ lệ các lượt mà mọi slot đều đúng. Tất cả hoặc không gì. |
+| MultiWOZ | Benchmark | Tập dữ liệu WOZ nhiều miền; đánh giá DST tiêu chuẩn. |
+| Ontology-free DST (DST không ontology) | Không schema | Sinh trực tiếp tên và giá trị slot, không có danh sách cố định. |
+| Correction (Sửa đổi) | "Thực ra..." | Lượt ghi đè một slot được điền trước đó. |
 
 ## Further Reading
 
-- [Budzianowski et al. (2018). MultiWOZ — A Large-Scale Multi-Domain Wizard-of-Oz](https://arxiv.org/abs/1810.00278) — the canonical benchmark.
-- [Feng et al. (2023). Towards LLM-driven Dialogue State Tracking (LDST)](https://arxiv.org/abs/2310.14970) — LLaMA + LoRA instruction tuning for DST.
-- [Heck et al. (2020). TripPy — A Triple Copy Strategy for Value Independent Neural Dialog State Tracking](https://arxiv.org/abs/2005.02877) — the copy-based DST workhorse.
-- [King, Flanigan (2024). Unsupervised End-to-End Task-Oriented Dialogue with LLMs](https://arxiv.org/abs/2404.10753) — EM-based unsupervised TOD.
-- [MultiWOZ leaderboard](https://github.com/budzianowski/multiwoz) — canonical DST results.
+- [Budzianowski et al. (2018). MultiWOZ — A Large-Scale Multi-Domain Wizard-of-Oz](https://arxiv.org/abs/1810.00278) — benchmark kinh điển.
+- [Feng et al. (2023). Towards LLM-driven Dialogue State Tracking (LDST)](https://arxiv.org/abs/2310.14970) — tinh chỉnh theo chỉ dẫn LLaMA + LoRA cho DST.
+- [Heck et al. (2020). TripPy — A Triple Copy Strategy for Value Independent Neural Dialog State Tracking](https://arxiv.org/abs/2005.02877) — thành phần chủ lực DST dựa trên sao chép.
+- [King, Flanigan (2024). Unsupervised End-to-End Task-Oriented Dialogue with LLMs](https://arxiv.org/abs/2404.10753) — TOD không giám sát dựa trên EM.
+- [MultiWOZ leaderboard](https://github.com/budzianowski/multiwoz) — các kết quả DST chuẩn.
