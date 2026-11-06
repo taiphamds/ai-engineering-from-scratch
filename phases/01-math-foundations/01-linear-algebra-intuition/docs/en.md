@@ -1,6 +1,6 @@
 # Linear Algebra Intuition
 
-> Every AI model is just matrix math wearing a fancy hat.
+> Mọi mô hình AI chỉ là toán học ma trận đội một chiếc mũ cầu kỳ.
 
 **Type:** Learn
 **Languages:** Python, Julia
@@ -9,39 +9,39 @@
 
 ## Learning Objectives
 
-- Implement vector and matrix operations (addition, dot product, matrix multiply) from scratch in Python
-- Explain geometrically what the dot product, projection, and Gram-Schmidt process do
-- Determine linear independence, rank, and basis of a set of vectors using row reduction
-- Connect linear algebra concepts to their AI applications: embeddings, attention scores, and LoRA
+- Triển khai các phép toán vector và ma trận (cộng, tích vô hướng, nhân ma trận) từ đầu bằng Python
+- Giải thích về mặt hình học những gì tích vô hướng, phép chiếu và quy trình Gram-Schmidt thực hiện
+- Xác định tính độc lập tuyến tính, hạng và cơ sở của một tập vector bằng phép khử hàng
+- Kết nối các khái niệm đại số tuyến tính với ứng dụng AI của chúng: embedding, điểm attention và LoRA
 
 ## The Problem
 
-Open any ML paper. Within the first page, you'll see vectors, matrices, dot products, and transformations. Without linear algebra intuition, these are just symbols. With it, you can see what a neural network is actually doing -- moving points around in space.
+Mở bất kỳ bài báo ML nào. Ngay trang đầu tiên, bạn sẽ thấy các vector, ma trận, tích vô hướng và các phép biến đổi. Không có trực giác đại số tuyến tính, chúng chỉ là các ký hiệu. Có nó, bạn có thể thấy mạng nơ-ron thực sự đang làm gì -- di chuyển các điểm trong không gian.
 
-You don't need to be a mathematician. You need to see what these operations mean geometrically, then code them yourself.
+Bạn không cần trở thành nhà toán học. Bạn cần thấy các phép toán này có ý nghĩa gì về mặt hình học, rồi tự viết mã cho chúng.
 
 ## The Concept
 
 ### Vectors Are Points (and Directions)
 
-A vector is just a list of numbers. But those numbers mean something -- they're coordinates in space.
+Một vector chỉ là một danh sách các số. Nhưng những số đó có ý nghĩa -- chúng là các tọa độ trong không gian.
 
-**2D vector [3, 2]:**
+**Vector 2D [3, 2]:**
 
-| x | y | Point |
+| x | y | Điểm |
 |---|---|-------|
-| 3 | 2 | The vector points from origin (0,0) to (3, 2) on the plane |
+| 3 | 2 | Vector hướng từ gốc tọa độ (0,0) đến (3, 2) trên mặt phẳng |
 
-The vector has magnitude sqrt(3^2 + 2^2) = sqrt(13) and points up and to the right.
+Vector có độ lớn sqrt(3^2 + 2^2) = sqrt(13) và hướng lên trên và sang phải.
 
-In AI, vectors represent everything:
-- A word → a vector of 768 numbers (its "meaning" in embedding space)
-- An image → a vector of millions of pixel values
-- A user → a vector of preferences
+Trong AI, vector biểu diễn mọi thứ:
+- Một từ → một vector gồm 768 số ("ý nghĩa" của nó trong không gian embedding)
+- Một hình ảnh → một vector gồm hàng triệu giá trị pixel
+- Một người dùng → một vector các sở thích
 
 ### Matrices Are Transformations
 
-A matrix transforms one vector into another. It can rotate, scale, stretch, or project.
+Một ma trận biến đổi một vector thành một vector khác. Nó có thể quay, co giãn, kéo giãn hoặc chiếu.
 
 ```mermaid
 graph LR
@@ -62,14 +62,14 @@ graph LR
     M --> B2
 ```
 
-In AI, matrices ARE the model:
-- Neural network weights → matrices that transform input into output
-- Attention scores → matrices that decide what to focus on
-- Embeddings → matrices that map words to vectors
+Trong AI, ma trận CHÍNH LÀ mô hình:
+- Trọng số mạng nơ-ron → các ma trận biến đổi đầu vào thành đầu ra
+- Điểm attention → các ma trận quyết định tập trung vào điều gì
+- Embedding → các ma trận ánh xạ các từ thành vector
 
 ### The Dot Product Measures Similarity
 
-The dot product of two vectors tells you how similar they are.
+Tích vô hướng của hai vector cho bạn biết chúng tương đồng đến mức nào.
 
 ```
 a · b = a₁×b₁ + a₂×b₂ + ... + aₙ×bₙ
@@ -79,15 +79,15 @@ Perpendicular:       a · b = 0  (unrelated)
 Opposite direction:  a · b < 0  (dissimilar)
 ```
 
-This is literally how search engines, recommendation systems, and RAG work -- find vectors with high dot products.
+Đây chính xác là cách các công cụ tìm kiếm, hệ thống đề xuất và RAG hoạt động -- tìm các vector có tích vô hướng cao.
 
 ### Linear Independence
 
-Vectors are linearly independent if no vector in the set can be written as a combination of the others. If v1, v2, v3 are independent, they span a 3D space. If one is a combination of the others, they only span a plane.
+Các vector độc lập tuyến tính nếu không có vector nào trong tập có thể được viết thành tổ hợp của các vector còn lại. Nếu v1, v2, v3 độc lập, chúng sinh ra một không gian 3D. Nếu một vector là tổ hợp của các vector còn lại, chúng chỉ sinh ra một mặt phẳng.
 
-Why it matters for AI: your feature matrix should have linearly independent columns. If two features are perfectly correlated (linearly dependent), the model cannot distinguish their effects. This causes multicollinearity in regression -- the weight matrix becomes unstable, and small input changes produce wild output swings.
+Tại sao điều này quan trọng đối với AI: ma trận đặc trưng của bạn nên có các cột độc lập tuyến tính. Nếu hai đặc trưng tương quan hoàn hảo (phụ thuộc tuyến tính), mô hình không thể phân biệt tác động của chúng. Điều này gây ra đa cộng tuyến trong hồi quy -- ma trận trọng số trở nên không ổn định, và những thay đổi nhỏ ở đầu vào tạo ra những dao động lớn ở đầu ra.
 
-**Concrete example:**
+**Ví dụ cụ thể:**
 
 ```
 v1 = [1, 0, 0]
@@ -95,42 +95,42 @@ v2 = [0, 1, 0]
 v3 = [2, 1, 0]   # v3 = 2*v1 + v2
 ```
 
-v1 and v2 are independent -- neither is a scalar multiple or combination of the other. But v3 = 2*v1 + v2, so {v1, v2, v3} is a dependent set. These three vectors all lie in the xy-plane. No matter how you combine them, you cannot reach [0, 0, 1]. You have three vectors but only two dimensions of freedom.
+v1 và v2 độc lập -- không vector nào là bội vô hướng hoặc tổ hợp của vector kia. Nhưng v3 = 2*v1 + v2, nên {v1, v2, v3} là một tập phụ thuộc. Cả ba vector này đều nằm trong mặt phẳng xy. Dù kết hợp chúng thế nào, bạn cũng không thể đạt đến [0, 0, 1]. Bạn có ba vector nhưng chỉ có hai chiều tự do.
 
-In a dataset: if feature_3 = 2*feature_1 + feature_2, adding feature_3 gives the model zero new information. Worse, it makes the normal equations singular -- there is no unique solution for the weights.
+Trong một tập dữ liệu: nếu feature_3 = 2*feature_1 + feature_2, việc thêm feature_3 không cung cấp thông tin mới nào cho mô hình. Tệ hơn, nó làm các phương trình chuẩn trở nên suy biến -- không có nghiệm duy nhất cho các trọng số.
 
 ### Basis and Rank
 
-A basis is a minimal set of linearly independent vectors that span the entire space. The number of basis vectors is the dimension of the space.
+Một cơ sở là một tập tối thiểu các vector độc lập tuyến tính sinh ra toàn bộ không gian. Số vector cơ sở là số chiều của không gian.
 
-The standard basis for 3D space is {[1,0,0], [0,1,0], [0,0,1]}. But any three independent vectors in 3D form a valid basis. The choice of basis is a choice of coordinate system.
+Cơ sở chuẩn cho không gian 3D là {[1,0,0], [0,1,0], [0,0,1]}. Nhưng ba vector độc lập bất kỳ trong 3D đều tạo thành một cơ sở hợp lệ. Lựa chọn cơ sở là lựa chọn hệ tọa độ.
 
-Rank of a matrix = number of linearly independent columns = number of linearly independent rows. If rank < min(rows, cols), the matrix is rank-deficient. This means:
-- The system has infinitely many solutions (or none)
-- Information is lost in the transformation
-- The matrix cannot be inverted
+Hạng của một ma trận = số cột độc lập tuyến tính = số hàng độc lập tuyến tính. Nếu rank < min(rows, cols), ma trận bị thiếu hạng. Điều này có nghĩa là:
+- Hệ có vô số nghiệm (hoặc không có nghiệm)
+- Thông tin bị mất trong phép biến đổi
+- Ma trận không thể nghịch đảo
 
-| Situation | Rank | What it means for ML |
+| Tình huống | Hạng | Ý nghĩa đối với ML |
 |-----------|------|---------------------|
-| Full rank (rank = min(m, n)) | Maximum possible | Unique least-squares solution exists. Model is well-conditioned. |
-| Rank deficient (rank < min(m, n)) | Below maximum | Features are redundant. Infinitely many weight solutions. Regularization needed. |
-| Rank 1 | 1 | Every column is a scaled copy of one vector. All data lies on a line. |
-| Near rank-deficient (small singular values) | Numerically low | Matrix is ill-conditioned. Tiny input noise causes large output changes. Use SVD truncation or ridge regression. |
+| Đầy hạng (rank = min(m, n)) | Tối đa có thể | Tồn tại nghiệm bình phương tối thiểu duy nhất. Mô hình có điều kiện tốt. |
+| Thiếu hạng (rank < min(m, n)) | Dưới mức tối đa | Các đặc trưng dư thừa. Vô số nghiệm trọng số. Cần regularization. |
+| Hạng 1 | 1 | Mỗi cột là một bản sao được nhân hệ số của một vector. Tất cả dữ liệu nằm trên một đường thẳng. |
+| Gần thiếu hạng (các giá trị kỳ dị nhỏ) | Thấp về mặt số học | Ma trận có điều kiện kém. Nhiễu đầu vào rất nhỏ gây ra những thay đổi lớn ở đầu ra. Sử dụng cắt ngọn SVD hoặc hồi quy ridge. |
 
 ### Projection
 
-Projecting vector **a** onto vector **b** gives the component of **a** in the direction of **b**:
+Chiếu vector **a** lên vector **b** cho thành phần của **a** theo hướng của **b**:
 
 ```
 proj_b(a) = (a dot b / b dot b) * b
 ```
 
-The residual (a - proj_b(a)) is perpendicular to b. This orthogonal decomposition is the foundation of least-squares fitting.
+Phần dư (a - proj_b(a)) vuông góc với b. Phép phân rã trực giao này là nền tảng của việc khớp bình phương tối thiểu.
 
-Projection is everywhere in ML:
-- Linear regression minimizes the distance from observations to the column space -- the solution IS a projection
-- PCA projects data onto the directions of maximum variance
-- Attention in transformers computes projections of queries onto keys
+Phép chiếu có mặt khắp nơi trong ML:
+- Hồi quy tuyến tính tối thiểu hóa khoảng cách từ các quan sát đến không gian cột -- nghiệm CHÍNH LÀ một phép chiếu
+- PCA chiếu dữ liệu lên các hướng có phương sai lớn nhất
+- Attention trong transformer tính các phép chiếu của query lên key
 
 ```mermaid
 graph LR
@@ -143,21 +143,21 @@ graph LR
     end
 ```
 
-**Example:** a = [3, 4], b = [1, 0]
+**Ví dụ:** a = [3, 4], b = [1, 0]
 
 proj_b(a) = (3*1 + 4*0) / (1*1 + 0*0) * [1, 0] = 3 * [1, 0] = [3, 0]
 
-The projection drops the y-component. This is dimensionality reduction in its simplest form -- throw away the directions you don't care about.
+Phép chiếu loại bỏ thành phần y. Đây là giảm chiều ở dạng đơn giản nhất -- bỏ đi các hướng bạn không quan tâm.
 
 ### Gram-Schmidt Process
 
-Converting any set of independent vectors into an orthonormal basis. Orthonormal means every vector has length 1 and every pair is perpendicular.
+Chuyển đổi một tập vector độc lập bất kỳ thành một cơ sở trực chuẩn. Trực chuẩn có nghĩa là mỗi vector có độ dài 1 và mỗi cặp vuông góc.
 
-The algorithm:
-1. Take the first vector, normalize it
-2. Take the second vector, subtract its projection onto the first, normalize
-3. Take the third vector, subtract its projections onto all previous vectors, normalize
-4. Repeat for remaining vectors
+Thuật toán:
+1. Lấy vector đầu tiên, chuẩn hóa nó
+2. Lấy vector thứ hai, trừ đi hình chiếu của nó lên vector đầu tiên, chuẩn hóa
+3. Lấy vector thứ ba, trừ đi các hình chiếu của nó lên tất cả các vector trước đó, chuẩn hóa
+4. Lặp lại với các vector còn lại
 
 ```
 Input:  v1, v2, v3, ... (linearly independent)
@@ -173,10 +173,10 @@ u3 = w3 / |w3|
 Output: u1, u2, u3, ... (orthonormal basis)
 ```
 
-This is how QR decomposition works internally. Q is the orthonormal basis, R captures the projection coefficients. QR decomposition is used in:
-- Solving linear systems (more stable than Gaussian elimination)
-- Computing eigenvalues (QR algorithm)
-- Least-squares regression (the standard numerical method)
+Đây là cách phân rã QR hoạt động bên trong. Q là cơ sở trực chuẩn, R lưu các hệ số chiếu. Phân rã QR được sử dụng trong:
+- Giải các hệ tuyến tính (ổn định hơn phép khử Gauss)
+- Tính các giá trị riêng (thuật toán QR)
+- Hồi quy bình phương tối thiểu (phương pháp số tiêu chuẩn)
 
 ```figure
 eigen-directions
@@ -361,7 +361,7 @@ print(f"u2 · u3 = {basis[1].dot(basis[2]):.6f}")
 
 ## Use It
 
-Now the same thing with NumPy -- what you'll actually use in practice:
+Bây giờ là cùng việc đó với NumPy -- những gì bạn thực sự sẽ sử dụng trong thực tế:
 
 ```python
 import numpy as np
@@ -414,50 +414,50 @@ print(f"dot product = {similarity.item():.4f}")
 print(f"d(dot)/dx = {x.grad}")
 ```
 
-The gradient of the dot product with respect to x is just y. PyTorch computed this automatically. Every operation in a neural network is built from operations like this -- matrix multiplies, dot products, projections -- and autodiff tracks gradients through all of them.
+Gradient của tích vô hướng theo x chỉ là y. PyTorch đã tính điều này tự động. Mọi phép toán trong một mạng nơ-ron đều được xây dựng từ các phép toán như thế này -- nhân ma trận, tích vô hướng, phép chiếu -- và autodiff theo dõi gradient qua tất cả chúng.
 
-You just built from scratch what NumPy does in one line. Now you know what's happening under the hood.
+Bạn vừa xây dựng từ đầu những gì NumPy thực hiện trong một dòng. Giờ bạn biết điều gì đang diễn ra bên trong.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-linear-algebra-tutor.md` -- a prompt for AI assistants to teach linear algebra through geometric intuition
+Bài học này tạo ra:
+- `outputs/prompt-linear-algebra-tutor.md` -- một prompt dành cho các trợ lý AI để dạy đại số tuyến tính thông qua trực giác hình học
 
 ## Connections
 
-Everything in this lesson connects to specific parts of modern AI:
+Mọi thứ trong bài học này đều kết nối với các phần cụ thể của AI hiện đại:
 
-| Concept | Where it shows up |
+| Khái niệm | Nơi xuất hiện |
 |---------|------------------|
-| Dot product | Attention scores in transformers, cosine similarity in RAG |
-| Matrix multiply | Every neural network layer, every linear transformation |
-| Linear independence | Feature selection, avoiding multicollinearity |
-| Rank | Determining if a system is solvable, LoRA (low-rank adaptation) |
-| Projection | Linear regression (projecting onto column space), PCA |
-| Gram-Schmidt / QR | Numerical solvers, eigenvalue computation |
-| Orthonormal basis | Stable numerical computation, whitening transforms |
+| Tích vô hướng | Điểm attention trong transformer, độ tương đồng cosine trong RAG |
+| Nhân ma trận | Mọi lớp mạng nơ-ron, mọi phép biến đổi tuyến tính |
+| Độc lập tuyến tính | Lựa chọn đặc trưng, tránh đa cộng tuyến |
+| Hạng | Xác định xem một hệ có giải được hay không, LoRA (thích nghi hạng thấp) |
+| Phép chiếu | Hồi quy tuyến tính (chiếu lên không gian cột), PCA |
+| Gram-Schmidt / QR | Các bộ giải số, tính giá trị riêng |
+| Cơ sở trực chuẩn | Tính toán số ổn định, các phép biến đổi làm trắng |
 
-LoRA deserves special mention. It fine-tunes large language models by decomposing weight updates into low-rank matrices. Instead of updating a 4096x4096 weight matrix (16M parameters), LoRA updates two matrices of size 4096x16 and 16x4096 (131K parameters). The rank-16 constraint means LoRA assumes the weight update lives in a 16-dimensional subspace of the full 4096-dimensional space. That is linear algebra doing real work.
+LoRA đáng được đề cập riêng. Nó fine-tune các mô hình ngôn ngữ lớn bằng cách phân rã các cập nhật trọng số thành các ma trận hạng thấp. Thay vì cập nhật một ma trận trọng số 4096x4096 (16M tham số), LoRA cập nhật hai ma trận có kích thước 4096x16 và 16x4096 (131K tham số). Ràng buộc hạng 16 có nghĩa là LoRA giả định cập nhật trọng số nằm trong một không gian con 16 chiều của toàn bộ không gian 4096 chiều. Đó là đại số tuyến tính đang làm công việc thực sự.
 
 ## Exercises
 
-1. Implement `Vector.angle_between(other)` that returns the angle in degrees between two vectors
-2. Create a 2D scaling matrix that doubles the x-coordinate and triples the y-coordinate, then apply it to the vector [1, 1]
-3. Given 5 random word-like vectors (dimension 50), find the two most similar using cosine similarity
-4. Verify that the Gram-Schmidt output is truly orthonormal: check that every pair has dot product 0 and every vector has magnitude 1
-5. Create a 3x3 matrix with rank 2. Verify using the `rank()` method. Then explain what geometric object the columns span.
-6. Project the vector [1, 2, 3] onto [1, 1, 1]. What does the result represent geometrically?
+1. Triển khai `Vector.angle_between(other)` trả về góc tính bằng độ giữa hai vector
+2. Tạo một ma trận co giãn 2D nhân đôi tọa độ x và nhân ba tọa độ y, rồi áp dụng nó vào vector [1, 1]
+3. Cho 5 vector ngẫu nhiên giống vector từ (số chiều 50), tìm hai vector tương đồng nhất bằng độ tương đồng cosine
+4. Xác minh đầu ra Gram-Schmidt thực sự trực chuẩn: kiểm tra mỗi cặp có tích vô hướng 0 và mỗi vector có độ lớn 1
+5. Tạo một ma trận 3x3 có hạng 2. Xác minh bằng phương thức `rank()`. Sau đó giải thích các cột sinh ra đối tượng hình học nào.
+6. Chiếu vector [1, 2, 3] lên [1, 1, 1]. Kết quả biểu diễn điều gì về mặt hình học?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Vector | "An arrow" | A list of numbers representing a point or direction in n-dimensional space |
-| Matrix | "A table of numbers" | A transformation that maps vectors from one space to another |
-| Dot product | "Multiply and sum" | A measure of how aligned two vectors are -- the core of similarity search |
-| Embedding | "Some AI magic" | A vector that represents the meaning of something (word, image, user) |
-| Linear independence | "They don't overlap" | No vector in the set can be written as a combination of the others |
-| Rank | "How many dimensions" | The number of linearly independent columns (or rows) in a matrix |
-| Projection | "The shadow" | The component of one vector in the direction of another |
-| Basis | "The coordinate axes" | A minimal set of independent vectors that span the space |
-| Orthonormal | "Perpendicular unit vectors" | Vectors that are mutually perpendicular and each have length 1 |
+| Vector | "Một mũi tên" | Một danh sách các số biểu diễn một điểm hoặc hướng trong không gian n chiều |
+| Matrix (Ma trận) | "Một bảng các số" | Một phép biến đổi ánh xạ các vector từ không gian này sang không gian khác |
+| Dot product (Tích vô hướng) | "Nhân rồi cộng" | Một thước đo mức độ thẳng hàng của hai vector -- cốt lõi của tìm kiếm tương đồng |
+| Embedding | "Một loại phép thuật AI" | Một vector biểu diễn ý nghĩa của thứ gì đó (từ, hình ảnh, người dùng) |
+| Linear independence (Độc lập tuyến tính) | "Chúng không chồng lấp" | Không vector nào trong tập có thể được viết thành tổ hợp của các vector còn lại |
+| Rank (Hạng) | "Bao nhiêu chiều" | Số cột (hoặc hàng) độc lập tuyến tính trong một ma trận |
+| Projection (Phép chiếu) | "Cái bóng" | Thành phần của một vector theo hướng của một vector khác |
+| Basis (Cơ sở) | "Các trục tọa độ" | Một tập tối thiểu các vector độc lập sinh ra không gian |
+| Orthonormal (Trực chuẩn) | "Các vector đơn vị vuông góc" | Các vector vuông góc với nhau và mỗi vector có độ dài 1 |
