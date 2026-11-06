@@ -1,6 +1,6 @@
 # Supervisor / Orchestrator-Worker Pattern
 
-> One lead agent plans and delegates; specialized workers execute in parallel contexts and report back. This is the pattern behind Anthropic's Research system (Claude Opus 4 as lead, Sonnet 4 as subagents), measured at +90.2% over single-agent Opus 4 on internal research evals. Anthropic's engineering post reports that 80% of the variance on BrowseComp is explained by token usage alone — multi-agent wins largely because each subagent gets a fresh context window. This lesson builds the supervisor pattern from the primitives and covers the 2026 engineering lessons from production deployments.
+> Một agent trưởng lập kế hoạch và giao việc; các worker chuyên biệt thực thi trong các ngữ cảnh song song và báo cáo lại. Đây là mẫu đằng sau hệ thống Research của Anthropic (Claude Opus 4 làm trưởng, Sonnet 4 làm các agent con), được đo ở mức +90.2% so với Opus 4 đơn agent trên các đánh giá nghiên cứu nội bộ. Bài viết kỹ thuật của Anthropic báo cáo rằng 80% phương sai trên BrowseComp được giải thích chỉ bằng mức sử dụng token — đa agent thắng phần lớn vì mỗi agent con nhận một cửa sổ ngữ cảnh mới. Bài này xây dựng mẫu bộ giám sát từ các nguyên thủy và trình bày các bài học kỹ thuật năm 2026 từ các triển khai sản xuất.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib, `threading`)
@@ -9,11 +9,11 @@
 
 ## Problem
 
-Research is the prototypical task that single-agent systems fail. You ask "what changed in multi-agent systems between 2023 and 2026?" A single agent reads five papers sequentially, fills half its context with their text, and then has to reason about all of them together. It forgets the first paper by the time it reaches the fifth. It cannot parallelize.
+Nghiên cứu là tác vụ điển hình mà các hệ thống một agent đơn lẻ thất bại. Bạn hỏi “điều gì thay đổi trong các hệ thống đa agent giữa năm 2023 và 2026?” Một agent đơn lẻ đọc năm bài báo tuần tự, lấp đầy nửa ngữ cảnh bằng văn bản của chúng, rồi phải suy luận về tất cả chúng cùng nhau. Nó quên bài đầu tiên khi tới bài thứ năm. Nó không thể song song hóa.
 
-The supervisor pattern fixes this: one lead agent plans the search, delegates each sub-question to a worker, and synthesizes. Each worker gets its own 200k-token window for a narrow question. The lead never sees the raw papers — only the worker summaries.
+Mẫu bộ giám sát sửa điều này: một agent trưởng lập kế hoạch tìm kiếm, giao mỗi câu hỏi con cho một worker, và tổng hợp. Mỗi worker nhận cửa sổ 200k token riêng cho một câu hỏi hẹp. Agent trưởng không bao giờ thấy các bài báo thô — chỉ các tóm tắt của worker.
 
-Anthropic's production Research system reports +90.2% on internal research evals vs a single Opus 4. The same post notes that 80% of the BrowseComp variance is explained by *token usage alone*. Fresh context per subagent is the main mechanism.
+Hệ thống Research sản xuất của Anthropic báo cáo +90.2% trên các đánh giá nghiên cứu nội bộ so với một Opus 4 đơn lẻ. Cùng bài viết lưu ý rằng 80% phương sai BrowseComp được giải thích bằng *chỉ mức sử dụng token*. Ngữ cảnh mới cho mỗi agent con là cơ chế chính.
 
 ## Concept
 
@@ -35,40 +35,40 @@ Anthropic's production Research system reports +90.2% on internal research evals
          context     context      context
 ```
 
-The lead never reads the raw materials. The workers never see each other's work until the lead synthesizes. Each arrow is a handoff with a narrow artifact.
+Agent trưởng không bao giờ đọc các tài liệu thô. Các worker không bao giờ thấy công việc của nhau cho đến khi agent trưởng tổng hợp. Mỗi mũi tên là một bàn giao với một hiện vật hẹp.
 
 ### Why it wins
 
-Three mechanisms:
+Ba cơ chế:
 
-1. **Fresh context per subagent.** A worker exploring "FIPA-ACL heritage" does not carry the 40k tokens the lead spent planning. It gets a 200k window for one question.
-2. **Specialization via prompt.** The lead's prompt is "decompose and synthesize," not "research." Each worker's prompt is narrow: "find what changed in X." Focused prompts produce focused outputs.
-3. **Parallelism.** Workers run concurrently. Wall-clock time is roughly `max(worker_times) + plan + synthesis`, not `sum(worker_times)`.
+1. **Ngữ cảnh mới cho mỗi agent con.** Một worker khám phá “di sản FIPA-ACL” không mang 40k token mà agent trưởng đã dùng để lập kế hoạch. Nó nhận một cửa sổ 200k cho một câu hỏi.
+2. **Chuyên biệt hóa qua prompt.** Prompt của agent trưởng là “phân rã và tổng hợp”, không phải “nghiên cứu.” Prompt của mỗi worker hẹp: “tìm những gì thay đổi trong X.” Các prompt tập trung tạo ra các đầu ra tập trung.
+3. **Tính song song.** Các worker chạy đồng thời. Thời gian thực trôi qua xấp xỉ `max(worker_times) + plan + synthesis`, không phải `sum(worker_times)`.
 
 ### Engineering lessons (Anthropic 2025)
 
-The Anthropic post lists several production lessons that are still 2026-relevant:
+Bài viết Anthropic liệt kê một số bài học sản xuất vẫn liên quan trong năm 2026:
 
-- **Scale effort to query complexity.** Simple queries: one agent, 3-10 tool calls. Complex queries: 10+ agents. The lead must estimate this, not the caller.
-- **Broad then narrow.** Decompose into broad sub-questions first, then spawn more workers per sub-question if the answer warrants depth.
-- **Rainbow deployments.** Agents are long-running and stateful. Traditional blue-green does not work. Anthropic uses rainbow: gradual rollout of new versions while old ones drain.
-- **Token usage dominates.** Multi-agent is ~15× the tokens of single-agent. Only run it when the task value justifies the cost.
+- **Điều chỉnh nỗ lực theo độ phức tạp truy vấn.** Các truy vấn đơn giản: một agent, 3-10 lệnh gọi công cụ. Các truy vấn phức tạp: 10+ agent. Agent trưởng phải ước tính điều này, không phải bên gọi.
+- **Rộng rồi hẹp.** Phân rã thành các câu hỏi con rộng trước, rồi tạo thêm các worker cho mỗi câu hỏi con nếu câu trả lời cần chiều sâu.
+- **Các triển khai cầu vồng.** Các agent chạy dài và có trạng thái. Xanh lam-xanh lục truyền thống không hoạt động. Anthropic sử dụng cầu vồng: triển khai dần các phiên bản mới trong khi các phiên bản cũ hoàn tất công việc.
+- **Mức sử dụng token chi phối.** Đa agent dùng ~15× token của một agent đơn lẻ. Chỉ chạy nó khi giá trị tác vụ xứng đáng với chi phí.
 
 ### The graph-native turn
 
-LangGraph originally shipped a `langgraph-supervisor` library with a high-level `create_supervisor` helper. In 2025 LangChain moved the recommendation to implementing the supervisor pattern via tool-calling directly, because tool calls give more control over *what the supervisor sees* (context engineering). The library still works; the docs now recommend the tool-calling form.
+LangGraph ban đầu cung cấp một thư viện `langgraph-supervisor` với một hàm hỗ trợ cấp cao `create_supervisor`. Năm 2025 LangChain chuyển khuyến nghị sang triển khai mẫu bộ giám sát trực tiếp qua gọi công cụ, vì các lệnh gọi công cụ cho nhiều quyền kiểm soát hơn đối với *những gì bộ giám sát thấy* (kỹ thuật ngữ cảnh). Thư viện vẫn hoạt động; tài liệu giờ khuyến nghị dạng gọi công cụ.
 
 ### The failure modes
 
-- **Lead hallucinates the plan.** If the lead generates sub-questions that do not decompose the real question, workers do precise research on the wrong target.
-- **Workers over-explore.** Without explicit scope boundaries, workers drift beyond their assigned sub-question and pollute the synthesis step.
-- **Synthesis conflicts.** Two workers return contradictory facts. The lead must either re-ask (add a round) or note the disagreement explicitly. Silent picking of one side is the worst failure: the user never knows disagreement happened.
+- **Agent trưởng ảo giác kế hoạch.** Nếu agent trưởng sinh các câu hỏi con không phân rã câu hỏi thực, các worker thực hiện nghiên cứu chính xác trên mục tiêu sai.
+- **Các worker khám phá quá mức.** Không có các ranh giới phạm vi tường minh, các worker trôi vượt câu hỏi con được giao và làm ô nhiễm bước tổng hợp.
+- **Các xung đột tổng hợp.** Hai worker trả về các sự kiện mâu thuẫn. Agent trưởng phải hoặc hỏi lại (thêm một vòng) hoặc ghi nhận sự bất đồng tường minh. Âm thầm chọn một phía là thất bại tệ nhất: người dùng không bao giờ biết bất đồng đã xảy ra.
 
 ### When supervisor is wrong
 
-- **Sequential tasks.** If step 2 literally needs step 1's output, parallelism buys nothing. Use a pipeline (CrewAI Sequential, LangGraph linear graph).
-- **Simple queries.** Single-agent handles them faster and cheaper. Use the lead's "scale effort" check before spawning workers.
-- **Strict determinism.** Supervisor uses LLM-selected delegation. Static graphs are better when audit/replay matter more than adaptability.
+- **Các tác vụ tuần tự.** Nếu bước 2 thực sự cần đầu ra bước 1, tính song song không mang lại gì. Sử dụng một pipeline (CrewAI Sequential, đồ thị tuyến tính LangGraph).
+- **Các truy vấn đơn giản.** Một agent đơn lẻ xử lý chúng nhanh hơn và rẻ hơn. Sử dụng kiểm tra “điều chỉnh nỗ lực” của agent trưởng trước khi tạo worker.
+- **Tính xác định nghiêm ngặt.** Bộ giám sát sử dụng giao việc do LLM lựa chọn. Các đồ thị tĩnh tốt hơn khi kiểm toán/phát lại quan trọng hơn khả năng thích nghi.
 
 ```figure
 supervisor-hierarchy
@@ -76,60 +76,60 @@ supervisor-hierarchy
 
 ## Build It
 
-`code/main.py` implements a supervisor of three parallel workers using `threading`. The lead decomposes a query into sub-questions, workers run concurrently on each sub-question, and the lead synthesizes. No real LLMs — the workers are scripted to simulate fetch-and-summarize.
+`code/main.py` triển khai một bộ giám sát gồm ba worker song song sử dụng `threading`. Agent trưởng phân rã một truy vấn thành các câu hỏi con, các worker chạy đồng thời trên mỗi câu hỏi con, và agent trưởng tổng hợp. Không có LLM thực — các worker được viết kịch bản để mô phỏng lấy và tóm tắt.
 
-Key structure:
+Cấu trúc then chốt:
 
-- `Lead.plan(query)` splits a query into 3 sub-questions.
-- `Worker.run(sub_q)` returns a fake summary (could be any tool-using agent in production).
-- `Lead.run(query)` kicks off workers in threads, joins, and synthesizes.
+- `Lead.plan(query)` chia một truy vấn thành 3 câu hỏi con.
+- `Worker.run(sub_q)` trả về một tóm tắt giả (có thể là bất kỳ agent sử dụng công cụ nào trong sản xuất).
+- `Lead.run(query)` khởi chạy các worker trong các luồng, chờ kết thúc, và tổng hợp.
 
-Run:
+Chạy:
 
 ```
 python3 code/main.py
 ```
 
-Output shows the plan, the parallel worker traces with start/end timestamps, and the final synthesis. You can see the wall-clock wins: three 0.3-second workers run in ~0.35 seconds, not 0.9.
+Đầu ra cho thấy kế hoạch, các dấu vết worker song song với dấu thời gian bắt đầu/kết thúc, và tổng hợp cuối cùng. Bạn có thể thấy lợi ích về thời gian thực: ba worker 0.3 giây chạy trong ~0.35 giây, không phải 0.9.
 
 ## Use It
 
-`outputs/skill-supervisor-designer.md` takes a user query and produces a supervisor-pattern design: lead system prompt, worker roles, sub-question decomposition rules, and the synthesis template. Use this before building a new research-style agent system.
+`outputs/skill-supervisor-designer.md` nhận một truy vấn người dùng và tạo một thiết kế mẫu bộ giám sát: prompt hệ thống agent trưởng, các vai trò worker, các quy tắc phân rã câu hỏi con, và mẫu tổng hợp. Sử dụng nó trước khi xây dựng một hệ thống agent kiểu nghiên cứu mới.
 
 ## Ship It
 
-Checklist before deploying a supervisor pattern:
+Danh sách kiểm tra trước khi triển khai một mẫu bộ giám sát:
 
-- **Model pairing.** Lead on a reasoning-tier model (Opus class, `o3` class). Workers on a faster, cheaper model (Sonnet, `o4-mini`).
-- **Worker timeout.** Any worker that exceeds 2× median runtime gets killed; the lead either re-spawns with narrower scope or proceeds without it.
-- **Token cap per worker.** Hard limit (say 10× the expected synthesis input) prevents a runaway worker from blowing the budget.
-- **Observability.** Trace the lead's plan, each worker's tool calls, and the synthesis. This is the basis for any post-hoc debugging.
-- **Rainbow rollout.** Stateful long-running agents need gradual version transition, not hot swap.
+- **Ghép mô hình.** Agent trưởng trên một mô hình tầng suy luận (loại Opus, loại `o3`). Các worker trên một mô hình nhanh hơn, rẻ hơn (Sonnet, `o4-mini`).
+- **Thời gian chờ worker.** Bất kỳ worker nào vượt 2× thời gian chạy trung vị bị ngắt; agent trưởng hoặc tạo lại với phạm vi hẹp hơn hoặc tiếp tục không có nó.
+- **Mức trần token theo từng worker.** Giới hạn cứng (chẳng hạn 10× đầu vào tổng hợp dự kiến) ngăn một worker mất kiểm soát phá ngân sách.
+- **Khả năng quan sát.** Truy vết kế hoạch của agent trưởng, các lệnh gọi công cụ của từng worker, và tổng hợp. Đây là cơ sở cho bất kỳ gỡ lỗi sau sự việc nào.
+- **Triển khai cầu vồng.** Các agent có trạng thái chạy dài cần chuyển phiên bản dần, không phải hoán đổi nóng.
 
 ## Exercises
 
-1. Run `code/main.py`, then modify the lead to spawn 5 workers instead of 3. Observe the wall-clock effect. At what worker count does spawn overhead exceed parallel savings in this demo?
-2. Implement a worker timeout: kill any worker that runs longer than 0.5 seconds and have the lead synthesize the remaining results. What observability do you need to know a worker was cut?
-3. Add a conflict-detection step to the lead's synthesis: if two workers return contradictory answers, the lead notes the disagreement rather than picking one. How do you detect contradiction without calling an LLM?
-4. Read Anthropic's Research-system engineering post. List three practices that this toy demo would need to adopt to run in production.
-5. Compare LangGraph's `create_supervisor` (legacy) vs the new tool-calling recommendation. Which gives you better control over what the supervisor sees? Why does Anthropic explicitly pass only sub-answers and not raw worker context into synthesis?
+1. Chạy `code/main.py`, rồi sửa agent trưởng để tạo 5 worker thay vì 3. Quan sát ảnh hưởng thời gian thực. Ở số worker nào chi phí phụ tạo vượt phần tiết kiệm song song trong demo này?
+2. Triển khai một thời gian chờ worker: ngắt bất kỳ worker nào chạy lâu hơn 0.5 giây và để agent trưởng tổng hợp các kết quả còn lại. Bạn cần khả năng quan sát nào để biết một worker đã bị cắt?
+3. Thêm một bước phát hiện xung đột vào tổng hợp của agent trưởng: nếu hai worker trả về các câu trả lời mâu thuẫn, agent trưởng ghi nhận bất đồng thay vì chọn một. Bạn phát hiện mâu thuẫn như thế nào mà không gọi một LLM?
+4. Đọc bài viết kỹ thuật hệ thống Research của Anthropic. Liệt kê ba thực hành demo đồ chơi này cần áp dụng để chạy trong sản xuất.
+5. So sánh `create_supervisor` của LangGraph (cũ) với khuyến nghị gọi công cụ mới. Cách nào cho bạn quyền kiểm soát tốt hơn đối với những gì bộ giám sát thấy? Vì sao Anthropic chỉ chuyển tường minh các câu trả lời con chứ không phải ngữ cảnh worker thô vào tổng hợp?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Supervisor | "Lead agent" | An orchestrator agent that plans, delegates, and synthesizes. Does not do the work itself. |
-| Worker | "Subagent" | A focused agent invoked by the supervisor with narrow scope and its own context window. |
-| Orchestrator-worker | "Supervisor pattern" | Same thing, different name. The 2026 literature uses both. |
-| Fresh context | "Clean window" | A worker's context starts from its system prompt and assigned question, not the lead's history. |
-| Rainbow deployment | "Gradual rollout" | Long-running stateful agents need versioned drain-and-replace, not blue-green. |
-| Token dominance | "Context is the variable" | 80% of research-eval variance comes from total tokens used, not model choice, per Anthropic. |
-| Scale effort | "Match agent count to complexity" | Lead estimates query difficulty, spawns 1 vs 10+ workers accordingly. |
-| Synthesis conflict | "Workers disagree" | Two workers return contradictory facts; the lead must surface disagreement, not silently pick one. |
+| Supervisor (Bộ giám sát) | “Agent trưởng” | Một agent điều phối lập kế hoạch, giao việc, và tổng hợp. Không tự làm công việc. |
+| Worker | “Agent con” | Một agent tập trung được bộ giám sát gọi với phạm vi hẹp và cửa sổ ngữ cảnh riêng. |
+| Orchestrator-worker (Bộ điều phối-worker) | “Mẫu bộ giám sát” | Cùng một thứ, khác tên. Tài liệu năm 2026 dùng cả hai. |
+| Fresh context (Ngữ cảnh mới) | “Cửa sổ sạch” | Ngữ cảnh của một worker bắt đầu từ prompt hệ thống và câu hỏi được giao, không phải lịch sử của agent trưởng. |
+| Rainbow deployment (Triển khai cầu vồng) | “Triển khai dần” | Các agent có trạng thái chạy dài cần hoàn tất và thay thế theo phiên bản, không phải xanh lam-xanh lục. |
+| Token dominance (Sự chi phối của token) | “Ngữ cảnh là biến số” | 80% phương sai đánh giá nghiên cứu đến từ tổng token được dùng, không phải lựa chọn mô hình, theo Anthropic. |
+| Scale effort (Điều chỉnh nỗ lực) | “Khớp số agent với độ phức tạp” | Agent trưởng ước tính độ khó truy vấn, tạo 1 so với 10+ worker tương ứng. |
+| Synthesis conflict (Xung đột tổng hợp) | “Các worker bất đồng” | Hai worker trả về các sự kiện mâu thuẫn; agent trưởng phải trình bày bất đồng, không âm thầm chọn một. |
 
 ## Further Reading
 
-- [Anthropic engineering — How we built our multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system) — the production reference for supervisor pattern
-- [LangGraph workflows and agents](https://docs.langchain.com/oss/python/langgraph/workflows-agents) — tool-calling supervisor is now the recommended form
-- [LangGraph supervisor reference](https://reference.langchain.com/python/langgraph-supervisor) — the legacy helper, still used in 2026 production
-- [OpenAI cookbook — Orchestrating Agents: Routines and Handoffs](https://developers.openai.com/cookbook/examples/orchestrating_agents) — handoff-based supervisor variant
+- [Anthropic engineering — How we built our multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system) — tham chiếu sản xuất cho mẫu bộ giám sát
+- [LangGraph workflows and agents](https://docs.langchain.com/oss/python/langgraph/workflows-agents) — bộ giám sát gọi công cụ giờ là dạng được khuyến nghị
+- [LangGraph supervisor reference](https://reference.langchain.com/python/langgraph-supervisor) — hàm hỗ trợ cũ, vẫn được sử dụng trong sản xuất năm 2026
+- [OpenAI cookbook — Orchestrating Agents: Routines and Handoffs](https://developers.openai.com/cookbook/examples/orchestrating_agents) — biến thể bộ giám sát dựa trên bàn giao
