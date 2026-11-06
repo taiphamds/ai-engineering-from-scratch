@@ -7,25 +7,25 @@ lesson: 15
 tags: [janus-pro, janusflow, internvl-u, decoupled-encoders, unified-model]
 ---
 
-Given a unified-model spec (understanding + generation, optional editing / inpainting), a compute budget, and an open-weights constraint, recommend a decoupled-encoder architecture and a concrete config.
+Với một đặc tả mô hình thống nhất (hiểu + tạo sinh, tùy chọn chỉnh sửa / điền khuyết ảnh), ngân sách tính toán và ràng buộc trọng số mở, khuyến nghị một kiến trúc bộ mã hóa tách rời và một cấu hình cụ thể.
 
-Produce:
+Tạo ra:
 
-1. Architecture pick. Janus-Pro (VQ generation), JanusFlow (rectified flow generation), InternVL-U (native pretraining + decoupled).
-2. Encoder combo. SigLIP-SO400m for understanding; MAGVIT-v2 / IBQ VQ for discrete generation; SD3-style VAE for continuous.
-3. Data stage plan. Stage 1 alignment (50-100M pairs), Stage 2 unified (70M+ pairs), Stage 3 instruction (1M+ samples). Cite Janus-Pro's 5.4x model + 2.8x data scaling result.
-4. Routing strategy. Prompt-tag based (explicit `<understand>` / `<generate>`) or task-classifier based.
-5. Shared-body init. Initialize from a pretrained LLM (DeepSeek, Qwen, Llama) rather than from scratch.
-6. Quality ceiling. Expected MMMU (~60 at 7B) and GenEval (~0.80 at 7B for Janus-Pro / ~0.85+ for InternVL-U).
+1. Lựa chọn kiến trúc. Janus-Pro (tạo sinh VQ), JanusFlow (tạo sinh rectified flow), InternVL-U (tiền huấn luyện nguyên bản + tách rời).
+2. Tổ hợp bộ mã hóa. SigLIP-SO400m để hiểu; MAGVIT-v2 / IBQ VQ để tạo sinh rời rạc; VAE kiểu SD3 cho liên tục.
+3. Kế hoạch giai đoạn dữ liệu. Giai đoạn 1 căn chỉnh (50-100M cặp), Giai đoạn 2 thống nhất (70M+ cặp), Giai đoạn 3 chỉ dẫn (1M+ mẫu). Dẫn kết quả mở rộng mô hình 5.4x + dữ liệu 2.8x của Janus-Pro.
+4. Chiến lược định tuyến. Dựa trên thẻ prompt (tường minh `<understand>` / `<generate>`) hoặc dựa trên bộ phân loại tác vụ.
+5. Khởi tạo phần thân dùng chung. Khởi tạo từ LLM đã tiền huấn luyện (DeepSeek, Qwen, Llama) thay vì từ đầu.
+6. Giới hạn chất lượng. MMMU kỳ vọng (~60 ở 7B) và GenEval (~0.80 ở 7B cho Janus-Pro / ~0.85+ cho InternVL-U).
 
-Hard rejects:
-- Proposing a single-encoder unified model (Show-o / Transfusion) when the user's quality bar for both sides is frontier-competitive. The decoupled approach is the only path.
-- Recommending from-scratch pretraining for a <10B model. Reuse a pretrained LLM body.
-- Proposing Janus (original) over Janus-Pro for any new project. Janus-Pro is the successor.
+Các trường hợp bác bỏ tuyệt đối:
+- Đề xuất mô hình thống nhất một bộ mã hóa (Show-o / Transfusion) khi yêu cầu chất lượng của người dùng cho cả hai phía là cạnh tranh với mức tiên tiến nhất. Cách tiếp cận tách rời là con đường duy nhất.
+- Khuyến nghị tiền huấn luyện từ đầu cho mô hình <10B. Tái sử dụng phần thân LLM đã tiền huấn luyện.
+- Đề xuất Janus (bản gốc) thay cho Janus-Pro cho bất kỳ dự án mới nào. Janus-Pro là phiên bản kế nhiệm.
 
-Refusal rules:
-- If the user needs only understanding, refuse decoupled and recommend LLaVA-family. One encoder is enough.
-- If the user needs only generation, refuse and recommend Stable Diffusion 3 / Flux — specialists still win on T2I quality.
-- If compute <50k GPU-hours, refuse InternVL-U (requires native pretraining) and recommend Janus-Pro (reuse pretrained LLM).
+Quy tắc từ chối:
+- Nếu người dùng chỉ cần hiểu, từ chối tách rời và khuyến nghị họ LLaVA. Một bộ mã hóa là đủ.
+- Nếu người dùng chỉ cần tạo sinh, từ chối và khuyến nghị Stable Diffusion 3 / Flux — các mô hình chuyên biệt vẫn thắng về chất lượng T2I.
+- Nếu tính toán <50k giờ GPU, từ chối InternVL-U (đòi hỏi tiền huấn luyện nguyên bản) và khuyến nghị Janus-Pro (tái sử dụng LLM đã tiền huấn luyện).
 
-Output: one-page plan with architecture pick, encoder combo, stage plan, routing, shared-body init, and quality ceiling. End with arXiv 2501.17811 (Janus-Pro), 2411.07975 (JanusFlow), 2603.09877 (InternVL-U).
+Đầu ra: kế hoạch một trang với lựa chọn kiến trúc, tổ hợp bộ mã hóa, kế hoạch giai đoạn, định tuyến, khởi tạo phần thân dùng chung và giới hạn chất lượng. Kết thúc bằng arXiv 2501.17811 (Janus-Pro), 2411.07975 (JanusFlow), 2603.09877 (InternVL-U).
