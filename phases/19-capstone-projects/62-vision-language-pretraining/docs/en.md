@@ -1,6 +1,6 @@
 # Vision-Language Pretraining
 
-> The encoder, projection, and decoder are wired. Now train them together. Two objectives drive learning: a contrastive image-text loss (InfoNCE) that pulls matching pairs together in the joint embedding space, and a language modeling loss that asks the decoder to caption each image. Combined, they teach the network both to find the right image for a caption and to write a caption for the image.
+> Bộ mã hóa, phép chiếu, và decoder đã được nối. Giờ huấn luyện chúng cùng nhau. Hai mục tiêu điều khiển học: một mất mát ảnh-văn bản tương phản (InfoNCE) kéo các cặp khớp lại gần trong không gian embedding chung, và một mất mát mô hình hóa ngôn ngữ yêu cầu decoder chú thích mỗi ảnh. Kết hợp, chúng dạy mạng cả tìm ảnh đúng cho một chú thích và viết một chú thích cho ảnh.
 
 **Type:** Build
 **Languages:** Python
@@ -9,16 +9,16 @@
 
 ## Learning Objectives
 
-- Implement InfoNCE contrastive loss across a batch of image-caption pairs.
-- Compose contrastive loss with autoregressive language modeling loss.
-- Synthesize a 200-pair mock image-caption corpus with no real dataset download.
-- Run a 50-step demo training loop and observe both losses decreasing.
+- Triển khai mất mát tương phản InfoNCE trên một lô các cặp ảnh-chú thích.
+- Kết hợp mất mát tương phản với mất mát mô hình hóa ngôn ngữ tự hồi quy.
+- Tổng hợp một corpus ảnh-chú thích giả lập 200 cặp mà không tải tập dữ liệu thực.
+- Chạy một vòng lặp huấn luyện demo 50 bước và quan sát cả hai mất mát giảm.
 
 ## The Problem
 
-A vision-language model needs two skills. It must rank: given a caption, find the right image among many. It must generate: given an image, write a caption. Pretraining the model on one skill alone gives you half a system. CLIP nailed ranking but cannot caption. GPT-4V can caption but uses a separate retrieval head for ranking. Multi-objective pretraining gets both in one pass.
+Một mô hình thị giác-ngôn ngữ cần hai kỹ năng. Nó phải xếp hạng: với một chú thích được cung cấp, tìm ảnh đúng giữa nhiều ảnh. Nó phải sinh: với một ảnh được cung cấp, viết một chú thích. Tiền huấn luyện mô hình chỉ trên một kỹ năng cho bạn nửa hệ thống. CLIP làm tốt xếp hạng nhưng không thể chú thích. GPT-4V có thể chú thích nhưng dùng một đầu truy xuất riêng cho xếp hạng. Tiền huấn luyện đa mục tiêu nhận cả hai trong một lượt.
 
-InfoNCE handles the ranking half. For a batch of N pairs, the model treats the N matching pairs as positives and the `N^2 - N` mismatched pairs as negatives, then runs a cross-entropy loss on the resulting `(N, N)` similarity matrix. The LM loss handles the generation half: standard next-token prediction conditioned on the image. Both losses are differentiable and can share the encoder, projector, and decoder weights.
+InfoNCE xử lý nửa xếp hạng. Với một lô N cặp, mô hình coi N cặp khớp là dương tính và `N^2 - N` cặp không khớp là âm tính, rồi chạy một mất mát entropy chéo trên ma trận tương tự `(N, N)` kết quả. Mất mát LM xử lý nửa sinh: dự đoán token tiếp theo tiêu chuẩn điều kiện hóa trên ảnh. Cả hai mất mát khả vi và có thể dùng chung các trọng số bộ mã hóa, bộ chiếu, và decoder.
 
 ## The Concept
 
@@ -42,29 +42,29 @@ flowchart TB
 
 ### InfoNCE in one paragraph
 
-Stack the N image embeddings as rows and the N text embeddings as rows. L2-normalize both. Compute the `N x N` matrix `S = I T^T / tau` where `tau` is a learned temperature. The diagonal entries are the matching pairs; off-diagonal entries are negatives. Apply cross-entropy with the target `argmax` running down the diagonal: row `i` should have its highest entry in column `i`. Do the same symmetrically along columns. The total is the average of the two. This is the CLIP loss in eight lines.
+Xếp N embedding ảnh thành các hàng và N embedding văn bản thành các hàng. Chuẩn hóa L2 cả hai. Tính ma trận `N x N` `S = I T^T / tau` trong đó `tau` là một nhiệt độ được học. Các phần tử đường chéo là các cặp khớp; các phần tử ngoài đường chéo là âm tính. Áp dụng entropy chéo với đích `argmax` chạy dọc đường chéo: hàng `i` nên có phần tử cao nhất ở cột `i`. Làm tương tự đối xứng dọc các cột. Tổng là trung bình của hai thứ. Đây là mất mát CLIP trong tám dòng.
 
 ### Temperature matters
 
-The temperature `tau` controls how peaked the softmax is. Too small (e.g. `tau = 0.01`) and the gradient comes only from the very hardest negative, training is noisy. Too large and the softmax flattens and gradient vanishes. CLIP learns `tau` as a parameter; the demo here does the same.
+Nhiệt độ `tau` kiểm soát softmax nhọn thế nào. Quá nhỏ (ví dụ `tau = 0.01`) và gradient chỉ đến từ mẫu âm khó nhất, huấn luyện nhiễu. Quá lớn và softmax phẳng ra và gradient biến mất. CLIP học `tau` như một tham số; demo ở đây làm tương tự.
 
 ### Language modeling loss
 
-The decoder consumes image memory tokens via cross-attention and predicts the next text token at every position. Loss is standard cross-entropy with the next-position target. Padding positions are masked out of the loss.
+Decoder tiêu thụ các token bộ nhớ ảnh qua cross-attention và dự đoán token văn bản tiếp theo tại mọi vị trí. Mất mát là entropy chéo tiêu chuẩn với đích vị trí tiếp theo. Các vị trí đệm được che khỏi mất mát.
 
 ### Combining the losses
 
-`total = contrastive + lm_weight * lm` where `lm_weight` is a scalar (often 1.0). The two losses share gradients into the encoder and projection; only the decoder receives LM-loss gradient. This is the multi-task recipe that CoCa, BLIP, and SigLIP-style models all use, with various weightings.
+`total = contrastive + lm_weight * lm` trong đó `lm_weight` là một đại lượng vô hướng (thường 1.0). Hai mất mát dùng chung các gradient vào bộ mã hóa và phép chiếu; chỉ decoder nhận gradient mất mát LM. Đây là công thức đa tác vụ mà CoCa, BLIP, và các mô hình kiểu SigLIP đều dùng, với các trọng số khác nhau.
 
-| Component | Loss surface | Affects |
+| Thành phần | Bề mặt mất mát | Ảnh hưởng |
 |-----------|--------------|---------|
-| InfoNCE | Pair ranking in the joint space | Encoder + projection + text head |
-| LM | Token prediction conditioned on image | Encoder + projection + decoder |
-| Combined | Multi-task | Whole stack |
+| InfoNCE | Xếp hạng cặp trong không gian chung | Bộ mã hóa + phép chiếu + đầu văn bản |
+| LM | Dự đoán token điều kiện hóa trên ảnh | Bộ mã hóa + phép chiếu + decoder |
+| Kết hợp | Đa tác vụ | Toàn ngăn xếp |
 
 ### Why 50 steps is enough for a demo
 
-The mock corpus is a synthetic 200-pair set with random images and random caption ids. After 50 SGD steps with batch size 16, both losses drop visibly even if the absolute values stay above what a real-data model would achieve. The point of the demo is to confirm the gradient plumbing works end to end and that adding the LM loss does not destabilize the contrastive objective.
+Corpus giả lập là một tập tổng hợp 200 cặp với các ảnh ngẫu nhiên và các id chú thích ngẫu nhiên. Sau 50 bước SGD với kích thước lô 16, cả hai mất mát giảm rõ ràng ngay cả khi các giá trị tuyệt đối vẫn cao hơn mức một mô hình dữ liệu thực sẽ đạt. Điểm chính của demo là xác nhận hệ thống nối gradient hoạt động từ đầu đến cuối và việc thêm mất mát LM không làm mất ổn định mục tiêu tương phản.
 
 ```figure
 ch-infonce-diagonal
@@ -72,43 +72,43 @@ ch-infonce-diagonal
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `MultimodalModel`, combining a small ViT encoder, the MLP projector, a tiny text-side encoder (mean-pool over embedded ids), and the cross-attention decoder from lesson 61.
-- `info_nce_loss(image_emb, text_emb, temperature)`, the bidirectional CLIP-style contrastive loss.
-- `lm_loss(logits, target_ids, padding_id)`, masked next-token cross-entropy.
-- `make_mock_corpus(seed, n_pairs)`, returning 200 deterministic (image, caption_ids) pairs.
-- A training loop running 50 steps with batch size 16, Adam optimizer, and a learned log-temperature parameter. Both losses are printed every 5 steps.
+- `MultimodalModel`, kết hợp một bộ mã hóa ViT nhỏ, bộ chiếu MLP, một bộ mã hóa phía văn bản tí hon (gộp trung bình trên các id được nhúng), và decoder cross-attention từ bài 61.
+- `info_nce_loss(image_emb, text_emb, temperature)`, mất mát tương phản kiểu CLIP hai chiều.
+- `lm_loss(logits, target_ids, padding_id)`, entropy chéo token tiếp theo được che.
+- `make_mock_corpus(seed, n_pairs)`, trả về 200 cặp (image, caption_ids) tất định.
+- Một vòng lặp huấn luyện chạy 50 bước với kích thước lô 16, bộ tối ưu Adam, và một tham số log-nhiệt độ được học. Cả hai mất mát được in mỗi 5 bước.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-Output: contrastive loss drops from about `ln(16) = 2.77` toward 2.4; LM loss drops from a random-uniform baseline of `ln(512) ≈ 6.24` toward about 4.7. Both decreases prove the gradient is wired correctly. Real models train for millions of steps; the dynamics are the same.
+Đầu ra: mất mát tương phản giảm từ khoảng `ln(16) = 2.77` về 2.4; mất mát LM giảm từ một đường cơ sở ngẫu nhiên đều `ln(512) ≈ 6.24` về khoảng 4.7. Cả hai mức giảm chứng minh gradient được nối chính xác. Các mô hình thực huấn luyện trong hàng triệu bước; động lực giống nhau.
 
 ## Use It
 
-This is the same loss recipe shipped in:
+Đây là cùng công thức mất mát được cung cấp trong:
 
-- **CLIP (2021).** Image-text contrastive only, with a separate frozen-encoder caption probe.
-- **CoCa (2022).** Image-text contrastive plus image-captioning LM loss in one model. The exact pattern this lesson builds.
-- **BLIP (2022) and BLIP-2.** Contrastive plus LM plus image-text matching head. Three losses combined.
-- **SigLIP (2023).** Switches InfoNCE for a sigmoid pair loss; same contrastive role, different functional form.
-- **LLaVA family.** Two-stage training where stage one is alignment (cosine on a frozen LM) and stage two adds LM loss with an unfrozen LM. Lesson 60 maps to stage one; this lesson maps to stage two.
+- **CLIP (2021).** Chỉ tương phản ảnh-văn bản, với một phép thăm dò chú thích bộ mã hóa đóng băng riêng.
+- **CoCa (2022).** Tương phản ảnh-văn bản cộng mất mát LM chú thích ảnh trong một mô hình. Chính xác mẫu bài này xây dựng.
+- **BLIP (2022) và BLIP-2.** Tương phản cộng LM cộng đầu khớp ảnh-văn bản. Ba mất mát kết hợp.
+- **SigLIP (2023).** Đổi InfoNCE thành một mất mát cặp sigmoid; cùng vai trò tương phản, dạng hàm khác.
+- **Họ LLaVA.** Huấn luyện hai giai đoạn mà giai đoạn một là căn chỉnh (cosine trên một LM đóng băng) và giai đoạn hai thêm mất mát LM với một LM không đóng băng. Bài 60 ánh xạ sang giai đoạn một; bài này ánh xạ sang giai đoạn hai.
 
 ## Tests
 
-`code/test_main.py` covers:
+`code/test_main.py` bao phủ:
 
-- InfoNCE loss is symmetric across image/text rows
-- InfoNCE loss returns 0 when the similarity matrix is a perfect diagonal of large positive numbers
-- LM loss correctly masks padding positions
-- model forward pass produces both losses without errors
-- 5-step training loop reduces the combined loss
+- mất mát InfoNCE đối xứng qua các hàng ảnh/văn bản
+- mất mát InfoNCE trả về 0 khi ma trận tương tự là một đường chéo hoàn hảo các số dương lớn
+- mất mát LM che chính xác các vị trí đệm
+- lượt tiến mô hình tạo cả hai mất mát không có lỗi
+- vòng lặp huấn luyện 5 bước giảm mất mát kết hợp
 
-Run them:
+Chạy chúng:
 
 ```bash
 python3 -m unittest code/test_main.py
@@ -116,28 +116,28 @@ python3 -m unittest code/test_main.py
 
 ## Exercises
 
-1. Replace InfoNCE with SigLIP-style sigmoid pair loss and compare convergence on the mock corpus.
+1. Thay InfoNCE bằng mất mát cặp sigmoid kiểu SigLIP và so sánh hội tụ trên corpus giả lập.
 
-2. Add a hard-negative mining step: every other batch, select the hardest off-diagonal pair from the previous batch and append it. Train and inspect whether contrastive loss drops faster.
+2. Thêm một bước khai thác mẫu âm khó: mỗi lô cách một, chọn cặp ngoài đường chéo khó nhất từ lô trước và thêm nó. Huấn luyện và kiểm tra liệu mất mát tương phản giảm nhanh hơn không.
 
-3. Add an image-text matching binary head on top of the joint embedding (true/false: do these match?) for a third loss, replicating BLIP's three-head setup.
+3. Thêm một đầu nhị phân khớp ảnh-văn bản trên embedding chung (đúng/sai: những thứ này có khớp không?) cho một mất mát thứ ba, tái tạo thiết lập ba đầu của BLIP.
 
-4. Replace the mock corpus with caption-id sequences drawn from a Markov chain whose transition matrix is conditioned on image hash. The captioning loss should drop further because there is actual learnable signal.
+4. Thay corpus giả lập bằng các chuỗi id chú thích được lấy từ một chuỗi Markov có ma trận chuyển tiếp điều kiện hóa trên băm ảnh. Mất mát chú thích nên giảm thêm vì có tín hiệu thực có thể học.
 
-5. Train the same model with `lm_weight = 0` and again with `lm_weight = 1`. Compare contrastive loss; the LM loss should not regress the ranking objective.
+5. Huấn luyện cùng mô hình với `lm_weight = 0` và lần nữa với `lm_weight = 1`. So sánh mất mát tương phản; mất mát LM không nên làm thoái lui mục tiêu xếp hạng.
 
 ## Key Terms
 
-| Term | What it means |
+| Thuật ngữ | Ý nghĩa |
 |------|---------------|
-| InfoNCE | Noise contrastive estimation: cross-entropy on a similarity matrix |
-| Temperature | Scalar that controls how peaked the contrastive softmax is |
-| Hard negative | An off-diagonal pair the model finds confusing, useful for sampling |
-| LM loss | Standard next-token cross-entropy on the captioning side |
-| Joint embedding space | The shared space where image and text vectors live after projection |
+| InfoNCE | Ước lượng tương phản nhiễu: entropy chéo trên một ma trận tương tự |
+| Temperature (Nhiệt độ) | Đại lượng vô hướng kiểm soát softmax tương phản nhọn thế nào |
+| Hard negative (Mẫu âm khó) | Một cặp ngoài đường chéo mô hình thấy khó phân biệt, hữu ích cho lấy mẫu |
+| LM loss (Mất mát LM) | Entropy chéo token tiếp theo tiêu chuẩn ở phía chú thích |
+| Joint embedding space (Không gian embedding chung) | Không gian dùng chung nơi các vector ảnh và văn bản nằm sau phép chiếu |
 
 ## Further Reading
 
-- CLIP paper for the original contrastive recipe.
-- CoCa paper for contrastive plus captioning in one model.
-- SigLIP paper for the sigmoid pair-loss variant and why it scales better.
+- Bài báo CLIP cho công thức tương phản gốc.
+- Bài báo CoCa cho tương phản cộng chú thích trong một mô hình.
+- Bài báo SigLIP cho biến thể mất mát cặp sigmoid và tại sao nó mở rộng tốt hơn.
