@@ -1,6 +1,6 @@
 # RL for Games — AlphaZero, MuZero, and the LLM-Reasoning Era
 
-> 1992: TD-Gammon beat human champions at backgammon with pure TD. 2016: AlphaGo beat Lee Sedol. 2017: AlphaZero dominated chess, shogi, and Go from scratch. 2024: DeepSeek-R1 proved the same recipe, with GRPO replacing PPO, works on reasoning. Games are the benchmark that drives every breakthrough in this phase.
+> 1992: TD-Gammon đánh bại các nhà vô địch con người ở backgammon bằng TD thuần túy. 2016: AlphaGo đánh bại Lee Sedol. 2017: AlphaZero thống trị cờ vua, shogi và cờ vây từ đầu. 2024: DeepSeek-R1 chứng minh cùng công thức, với GRPO thay PPO, hoạt động trên suy luận. Trò chơi là benchmark thúc đẩy mọi đột phá trong giai đoạn này.
 
 **Type:** Build
 **Languages:** Python
@@ -9,17 +9,17 @@
 
 ## The Problem
 
-Games have everything RL wants. Clean reward (win/loss). Infinite episodes (self-play resets). Perfect simulation (the game *is* the simulator). Discrete or small continuous action spaces. Multi-agent structure that forces adversarial robustness.
+Trò chơi có mọi thứ RL muốn. Phần thưởng rõ ràng (thắng/thua). Vô hạn episode (tự chơi đặt lại). Mô phỏng hoàn hảo (trò chơi *là* bộ mô phỏng). Không gian hành động rời rạc hoặc liên tục nhỏ. Cấu trúc đa agent buộc phải vững trước đối kháng.
 
-And games are how every major RL breakthrough was tested. TD-Gammon (backgammon, 1992). Atari-DQN (2013). AlphaGo (2016). AlphaZero (2017). OpenAI Five (Dota 2, 2019). AlphaStar (StarCraft II, 2019). MuZero (learned model, 2019). AlphaTensor (matrix multiplication, 2022). AlphaDev (sorting algorithms, 2023). DeepSeek-R1 (math reasoning, 2025) — the latest demonstration that game-RL techniques work on text.
+Và trò chơi là cách mọi đột phá RL lớn được kiểm nghiệm. TD-Gammon (backgammon, 1992). Atari-DQN (2013). AlphaGo (2016). AlphaZero (2017). OpenAI Five (Dota 2, 2019). AlphaStar (StarCraft II, 2019). MuZero (mô hình được học, 2019). AlphaTensor (nhân ma trận, 2022). AlphaDev (thuật toán sắp xếp, 2023). DeepSeek-R1 (suy luận toán học, 2025) — minh chứng mới nhất rằng các kỹ thuật RL trò chơi hoạt động trên văn bản.
 
-This capstone surveys the three landmark architectures — AlphaZero, MuZero, and GRPO — through a single unifying lens: **self-play + search + policy improvement**. Each generalizes the previous; GRPO in particular is AlphaZero's recipe applied to LLM reasoning, with tokens as actions and mathematical verification as the win signal.
+Bài tổng kết này khảo sát ba kiến trúc cột mốc — AlphaZero, MuZero và GRPO — qua một lăng kính thống nhất duy nhất: **tự chơi + tìm kiếm + cải thiện chính sách**. Mỗi kiến trúc khái quát kiến trúc trước; riêng GRPO là công thức AlphaZero được áp dụng cho suy luận LLM, với token làm hành động và xác minh toán học làm tín hiệu thắng.
 
 ## The Concept
 
 ![AlphaZero ↔ MuZero ↔ GRPO: same loop, different environments](../assets/rl-games.svg)
 
-**The unifying loop.**
+**Vòng lặp thống nhất.**
 
 ```
 while True:
@@ -28,57 +28,57 @@ while True:
     policy_net.update(policy_target, value_target)     # supervised on search output
 ```
 
-**AlphaZero (2017).** Silver et al. Given a game (chess, shogi, Go) with known rules:
+**AlphaZero (2017).** Silver và cộng sự. Với một trò chơi (cờ vua, shogi, cờ vây) có luật đã biết:
 
-- Policy-value network: one tower `f_θ(s) → (p, v)`. `p` is a prior over legal moves. `v` is the expected game outcome.
-- Monte Carlo Tree Search (MCTS): at each move, expand a tree of possible continuations. Use `(p, v)` as the prior + bootstrap. Select nodes by UCB (PUCT): `a* = argmax Q(s, a) + c · p(a|s) · √N(s) / (1 + N(s, a))`.
-- Self-play: play games agent-vs-agent. At move `t`, the MCTS visit distribution `π_t` becomes the policy training target.
-- Loss: `L = (v - z)² - π · log p + c · ||θ||²`. `z` is the game outcome (+1 / 0 / -1).
+- Mạng chính sách-giá trị: một tháp `f_θ(s) → (p, v)`. `p` là một tiên nghiệm trên các nước đi hợp lệ. `v` là kết quả ván đấu kỳ vọng.
+- Tìm kiếm cây Monte Carlo (MCTS): ở mỗi nước đi, mở rộng một cây các phần tiếp nối có thể. Dùng `(p, v)` làm tiên nghiệm + bootstrap. Chọn các nút bằng UCB (PUCT): `a* = argmax Q(s, a) + c · p(a|s) · √N(s) / (1 + N(s, a))`.
+- Tự chơi: chơi các ván agent đấu agent. Ở nước đi `t`, phân phối lượt ghé MCTS `π_t` trở thành mục tiêu huấn luyện chính sách.
+- Hàm mất mát: `L = (v - z)² - π · log p + c · ||θ||²`. `z` là kết quả ván đấu (+1 / 0 / -1).
 
-Zero human knowledge. Zero handcrafted heuristics. A single recipe that mastered chess, shogi, and Go after a few tens of millions of self-play games each.
+Không kiến thức con người. Không heuristic thủ công. Một công thức duy nhất làm chủ cờ vua, shogi và cờ vây sau vài chục triệu ván tự chơi cho mỗi trò.
 
-**MuZero (2019).** Schrittwieser et al. Removes the requirement that the rules are known.
+**MuZero (2019).** Schrittwieser và cộng sự. Bỏ yêu cầu rằng luật phải được biết.
 
-- Instead of a fixed environment, learn a *latent dynamics model* `(h, g, f)`:
-  - `h(s)`: encode observation to latent state.
-  - `g(s_latent, a)`: predict next latent state + reward.
-  - `f(s_latent)`: predict policy prior + value.
-- MCTS runs in the *learned latent space*. Same search, same training loop.
-- Works on Go, chess, shogi *and* Atari — one algorithm, no rule knowledge.
+- Thay vì một môi trường cố định, học một *mô hình động lực học tiềm ẩn* `(h, g, f)`:
+  - `h(s)`: mã hóa quan sát thành trạng thái tiềm ẩn.
+  - `g(s_latent, a)`: dự đoán trạng thái tiềm ẩn tiếp theo + phần thưởng.
+  - `f(s_latent)`: dự đoán tiên nghiệm chính sách + giá trị.
+- MCTS chạy trong *không gian tiềm ẩn được học*. Cùng tìm kiếm, cùng vòng lặp huấn luyện.
+- Hoạt động trên cờ vây, cờ vua, shogi *và* Atari — một thuật toán, không kiến thức luật.
 
-**Stochastic MuZero (2022).** Adds stochastic dynamics and chance nodes; extends to backgammon-class games.
+**Stochastic MuZero (2022).** Thêm động lực học ngẫu nhiên và các nút may rủi; mở rộng đến các trò chơi hạng backgammon.
 
-**Muesli, Gumbel MuZero (2022-2024).** Improvements on sample efficiency and deterministic search.
+**Muesli, Gumbel MuZero (2022-2024).** Cải thiện hiệu quả mẫu và tìm kiếm tất định.
 
-**GRPO (2024-2025).** DeepSeek-R1 recipe. Same AlphaZero-shaped loop, applied to language-model reasoning:
+**GRPO (2024-2025).** Công thức DeepSeek-R1. Cùng vòng lặp dạng AlphaZero, được áp dụng cho suy luận mô hình ngôn ngữ:
 
-- "Game": answer a math / coding / reasoning problem. "Win" = verifier (test case passes, numerical answer matches) returns 1.
-- Policy: the LLM. Actions: tokens. State: prompt + response-so-far.
-- No critic (PPO-style V_φ). Instead, for each prompt, sample `G` completions from the policy. Compute reward for each. Use the **group-relative advantage** `A_i = (r_i - mean_r) / std_r` as the signal for REINFORCE-style update.
-- KL penalty to reference policy to prevent drift (like RLHF).
-- Full loss:
+- "Trò chơi": trả lời một bài toán toán học / lập trình / suy luận. "Thắng" = bộ xác minh (ca kiểm thử vượt qua, đáp án số khớp) trả về 1.
+- Chính sách: LLM. Hành động: token. Trạng thái: prompt + phản hồi đến hiện tại.
+- Không critic (V_φ kiểu PPO). Thay vào đó, với mỗi prompt, lấy mẫu `G` phần hoàn thành từ chính sách. Tính phần thưởng cho mỗi phần. Dùng **lợi thế tương đối theo nhóm** `A_i = (r_i - mean_r) / std_r` làm tín hiệu cho cập nhật kiểu REINFORCE.
+- Phạt KL đến chính sách tham chiếu để ngăn trôi (như RLHF).
+- Hàm mất mát đầy đủ:
 
   `L_GRPO(θ) = -E_{q, {o_i}} [ (1/G) Σ_i A_i · log π_θ(o_i | q) ] + β · KL(π_θ || π_ref)`
 
-No reward model, no critic, no MCTS. Group-relative baseline replaces all three. Matches or exceeds PPO-RLHF quality on reasoning benchmarks at a fraction of the compute.
+Không mô hình phần thưởng, không critic, không MCTS. Baseline tương đối theo nhóm thay cả ba. Ngang bằng hoặc vượt chất lượng PPO-RLHF trên các benchmark suy luận với một phần nhỏ tính toán.
 
-**The R1 recipe in full.** DeepSeek-R1 (DeepSeek 2025) is two models in one paper:
+**Công thức R1 đầy đủ.** DeepSeek-R1 (DeepSeek 2025) là hai mô hình trong một bài báo:
 
-- **R1-Zero.** Start from the DeepSeek-V3 base model. No SFT. Apply GRPO directly with two reward components: *accuracy reward* (rule-based — did the final answer parse to the correct number / did the code pass unit tests) and *format reward* (did the completion wrap its chain-of-thought in `<think>…</think>` tags). Over thousands of steps, average response length grows from ~100 to ~10,000 tokens and math benchmark scores climb to near-o1-preview levels. The model learns to reason from scratch. The downside: its chains of thought are often unreadable, mix languages, and lack stylistic polish.
-- **R1.** Fix R1-Zero's readability problems with a four-stage pipeline:
-  1. **Cold-start SFT.** Collect a few thousand long-CoT demonstrations with clean formatting. Supervised-finetune the base model on them. This gives a readable starting point.
-  2. **Reasoning-oriented GRPO.** Apply GRPO with the accuracy+format rewards plus a *language-consistency* reward to prevent code-switching.
-  3. **Rejection sampling + SFT round 2.** Sample ~600K reasoning trajectories from the RL checkpoint, keep only those with correct final answers and readable CoT, and combine with ~200K non-reasoning SFT examples (writing, QA, self-cognition). Fine-tune the base again.
-  4. **Full-spectrum GRPO.** One more RL round covering both reasoning (rule-based rewards) and general alignment (helpfulness/harmlessness preference-based rewards).
+- **R1-Zero.** Bắt đầu từ mô hình cơ sở DeepSeek-V3. Không SFT. Áp dụng GRPO trực tiếp với hai thành phần phần thưởng: *phần thưởng độ chính xác* (dựa trên quy tắc — đáp án cuối có được phân tích thành số đúng / mã có vượt kiểm thử đơn vị không) và *phần thưởng định dạng* (phần hoàn thành có bọc chuỗi suy nghĩ trong các thẻ `<think>…</think>` không). Qua hàng nghìn bước, độ dài phản hồi trung bình tăng từ ~100 lên ~10,000 token và điểm benchmark toán tăng lên gần mức o1-preview. Mô hình học suy luận từ đầu. Nhược điểm: các chuỗi suy nghĩ của nó thường khó đọc, trộn ngôn ngữ và thiếu trau chuốt phong cách.
+- **R1.** Khắc phục các vấn đề dễ đọc của R1-Zero bằng một pipeline bốn giai đoạn:
+  1. **SFT khởi động lạnh.** Thu thập vài nghìn minh họa CoT dài với định dạng rõ ràng. Tinh chỉnh có giám sát mô hình cơ sở trên chúng. Điều này cho một điểm khởi đầu dễ đọc.
+  2. **GRPO hướng suy luận.** Áp dụng GRPO với các phần thưởng độ chính xác+định dạng cộng một phần thưởng *nhất quán ngôn ngữ* để ngăn chuyển đổi ngôn ngữ.
+  3. **Lấy mẫu loại bỏ + SFT vòng 2.** Lấy mẫu ~600K quỹ đạo suy luận từ checkpoint RL, chỉ giữ những quỹ đạo có đáp án cuối đúng và CoT dễ đọc, và kết hợp với ~200K ví dụ SFT không suy luận (viết, QA, tự nhận thức). Tinh chỉnh lại mô hình cơ sở.
+  4. **GRPO toàn phổ.** Một vòng RL nữa bao phủ cả suy luận (phần thưởng dựa trên quy tắc) và căn chỉnh tổng quát (phần thưởng dựa trên sở thích hữu ích/vô hại).
 
-The result matches o1 on AIME and MATH-500 at open weights, and is small enough to distill. The same paper also releases six distilled dense models (Qwen-1.5B through Llama-70B) by SFT'ing on R1's reasoning traces — no RL at the student. Distillation of a strong RL teacher consistently beats RL from scratch at the student's scale.
+Kết quả ngang bằng o1 trên AIME và MATH-500 với trọng số mở, và đủ nhỏ để chưng cất. Cùng bài báo cũng phát hành sáu mô hình dense được chưng cất (từ Qwen-1.5B đến Llama-70B) bằng SFT trên các vết suy luận của R1 — không RL ở mô hình trò. Chưng cất một mô hình thầy RL mạnh luôn đánh bại RL từ đầu ở quy mô mô hình trò.
 
-**Why GRPO instead of PPO for reasoning.** Three reasons in the DeepSeekMath paper (Feb 2024): (1) no value network to train, halving memory; (2) the group baseline naturally handles the sparse end-of-trajectory reward that reasoning tasks produce; (3) per-prompt normalization makes advantages comparable across problems of wildly different difficulty, which PPO's single critic cannot.
+**Vì sao GRPO thay PPO cho suy luận.** Ba lý do trong bài báo DeepSeekMath (tháng 2 năm 2024): (1) không có mạng giá trị để huấn luyện, giảm một nửa bộ nhớ; (2) baseline nhóm tự nhiên xử lý phần thưởng thưa cuối quỹ đạo mà các tác vụ suy luận tạo ra; (3) chuẩn hóa theo prompt làm các lợi thế có thể so sánh xuyên các bài toán có độ khó khác nhau rất lớn, điều mà critic duy nhất của PPO không thể làm.
 
-**Search-free vs search-based.** Games have branched:
+**Không tìm kiếm so với dựa trên tìm kiếm.** Trò chơi đã phân nhánh:
 
-- *Perfect-information games with long horizons* (Go, chess): still search-based. AlphaZero / MuZero dominate.
-- *LLM reasoning*: no MCTS yet in production; GRPO on full rollouts, best-of-N for inference compute. Process reward models (PRMs) hint at step-level search being added back.
+- *Trò chơi thông tin hoàn hảo với chân trời dài* (cờ vây, cờ vua): vẫn dựa trên tìm kiếm. AlphaZero / MuZero chi phối.
+- *Suy luận LLM*: chưa có MCTS trong production; GRPO trên các rollout đầy đủ, best-of-N cho tính toán suy luận. Mô hình phần thưởng quá trình (PRM) gợi ý việc tìm kiếm cấp bước đang được thêm trở lại.
 
 ```figure
 f3-selfplay-ladder
@@ -86,7 +86,7 @@ f3-selfplay-ladder
 
 ## Build It
 
-The code in `code/main.py` implements **GRPO in miniature** — a bandit with multiple groups of samples. The algorithm is the same as on an LLM; only the policy and environment are simpler. It teaches the *loss* and the *group-relative advantage*, which is the 2025 innovation.
+Mã trong `code/main.py` triển khai **GRPO thu nhỏ** — một bandit với nhiều nhóm mẫu. Thuật toán giống như trên một LLM; chỉ chính sách và môi trường đơn giản hơn. Nó dạy *hàm mất mát* và *lợi thế tương đối theo nhóm*, là đổi mới năm 2025.
 
 ### Step 1: a tiny verifier environment
 
@@ -100,7 +100,7 @@ def verify(prompt_idx, answer_token):
     return 1.0 if answer_token == QUESTIONS[prompt_idx]["correct"] else 0.0
 ```
 
-In real GRPO the verifier runs unit tests or checks math equality.
+Trong GRPO thực, bộ xác minh chạy kiểm thử đơn vị hoặc kiểm tra đẳng thức toán học.
 
 ### Step 2: policy: softmax over K answer tokens per prompt
 
@@ -109,7 +109,7 @@ def policy_probs(theta, p_idx):
     return softmax(theta[p_idx])
 ```
 
-Equivalent to the final-layer output of an LLM conditioned on a prompt.
+Tương đương đầu ra lớp cuối của một LLM có điều kiện theo một prompt.
 
 ### Step 3: group sampling and group-relative advantage
 
@@ -131,46 +131,46 @@ def grpo_step(theta, p_idx, G=8, beta=0.01, lr=0.1, rng=None):
         theta[p_idx][i] -= beta * (theta[p_idx][i] - reference[p_idx][i])
 ```
 
-The group-relative advantage is the 2024 DeepSeek trick. No critic needed. The "baseline" is the group mean, and normalization uses group std.
+Lợi thế tương đối theo nhóm là thủ thuật DeepSeek năm 2024. Không cần critic. "Baseline" là trung bình nhóm, và chuẩn hóa dùng độ lệch chuẩn nhóm.
 
 ### Step 4: compare to REINFORCE baseline (value-free)
 
-Same setup, same compute, plain REINFORCE. GRPO converges faster and more stably.
+Cùng thiết lập, cùng tính toán, REINFORCE thông thường. GRPO hội tụ nhanh hơn và ổn định hơn.
 
 ### Step 5: observe entropy and KL
 
-Same diagnostics as RLHF: mean KL to reference, policy entropy, reward-over-time. Once these stabilize, training is done.
+Cùng chẩn đoán như RLHF: KL trung bình đến tham chiếu, entropy chính sách, phần thưởng theo thời gian. Khi chúng ổn định, huấn luyện hoàn tất.
 
 ## Pitfalls
 
-- **Reward hacking via verifier gaming.** GRPO inherits RLHF's risk: if the verifier is wrong or exploitable, the LLM will find the exploit. Robust verifiers (multiple test cases, formal proofs) matter.
-- **Group size too small.** Variance of the group baseline goes like `1/√G`. Below `G = 4`, the advantage signal is noisy; standard choice is `G = 8` to `64`.
-- **Length bias.** LLM completions of different lengths have different log-probabilities. Normalize by token count, or use sequence-level log-prob, or truncate to max length.
-- **Pure self-play cycles.** AlphaZero-style training can get stuck in dominance loops on general-sum games. Mitigated by diverse opponent pools (league play, Lesson 10).
-- **Search-policy mismatch.** AlphaZero trains the policy to mimic search output. If the policy net is too small to represent the search's distribution, training stalls.
-- **Compute floor.** MuZero / AlphaZero need massive compute. A single ablation is often hundreds of GPU-hours. Miniature demos exist (e.g., AlphaZero on Connect Four) for learning.
-- **Verifier coverage.** Unit tests that pass for a buggy solution reinforce the bug. Design verifiers that catch edge cases.
+- **Reward hacking qua thao túng bộ xác minh.** GRPO kế thừa rủi ro của RLHF: nếu bộ xác minh sai hoặc có thể bị khai thác, LLM sẽ tìm ra cách khai thác. Các bộ xác minh vững (nhiều ca kiểm thử, chứng minh hình thức) quan trọng.
+- **Kích thước nhóm quá nhỏ.** Phương sai của baseline nhóm biến thiên như `1/√G`. Dưới `G = 4`, tín hiệu lợi thế nhiều nhiễu; lựa chọn tiêu chuẩn là `G = 8` đến `64`.
+- **Thiên lệch độ dài.** Các phần hoàn thành LLM có độ dài khác nhau có log xác suất khác nhau. Chuẩn hóa theo số token, hoặc dùng log xác suất cấp chuỗi, hoặc cắt ngắn về độ dài tối đa.
+- **Chu kỳ tự chơi thuần túy.** Huấn luyện kiểu AlphaZero có thể bị kẹt trong các vòng thống trị trên trò chơi general-sum. Giảm nhẹ bằng các tập đối thủ đa dạng (chơi liên đoàn, Bài 10).
+- **Không khớp tìm kiếm-chính sách.** AlphaZero huấn luyện chính sách để bắt chước đầu ra tìm kiếm. Nếu mạng chính sách quá nhỏ để biểu diễn phân phối của tìm kiếm, huấn luyện đình trệ.
+- **Mức tính toán tối thiểu.** MuZero / AlphaZero cần tính toán rất lớn. Một thử nghiệm loại bỏ thành phần thường là hàng trăm giờ GPU. Các bản demo thu nhỏ tồn tại (ví dụ AlphaZero trên Connect Four) để học.
+- **Độ bao phủ bộ xác minh.** Các kiểm thử đơn vị vượt qua cho một lời giải có lỗi củng cố lỗi đó. Thiết kế các bộ xác minh bắt được trường hợp biên.
 
 ## Use It
 
-The 2026 game-RL landscape, by domain:
+Bối cảnh RL trò chơi năm 2026, theo miền:
 
-| Domain | Dominant method |
+| Miền | Phương pháp chi phối |
 |--------|-----------------|
-| Two-player zero-sum board games (Go, chess, shogi) | AlphaZero / MuZero / KataGo |
-| Imperfect info card games (poker) | CFR + deep learning (DeepStack, Libratus, Pluribus) |
-| Atari / pixel games | Muesli / MuZero / IMPALA-PPO |
-| Large multiplayer strategy (Dota, StarCraft) | PPO + self-play + league (OpenAI Five, AlphaStar) |
-| LLM math/code reasoning | GRPO (DeepSeek-R1, Qwen-RL, open replications) |
-| LLM alignment | DPO / RLHF-PPO (not GRPO; verifier is preference not verifiable) |
-| Robotics | PPO + DR (not game-RL, but uses same policy-gradient tools) |
-| Combinatorial problems | AlphaZero variants (AlphaTensor, AlphaDev) |
+| Trò chơi bàn cờ hai người tổng bằng không (cờ vây, cờ vua, shogi) | AlphaZero / MuZero / KataGo |
+| Trò chơi bài thông tin không hoàn hảo (poker) | CFR + học sâu (DeepStack, Libratus, Pluribus) |
+| Atari / trò chơi pixel | Muesli / MuZero / IMPALA-PPO |
+| Chiến thuật nhiều người chơi lớn (Dota, StarCraft) | PPO + tự chơi + liên đoàn (OpenAI Five, AlphaStar) |
+| Suy luận toán/mã LLM | GRPO (DeepSeek-R1, Qwen-RL, các bản tái lập mở) |
+| Căn chỉnh LLM | DPO / RLHF-PPO (không phải GRPO; bộ xác minh là sở thích chứ không phải có thể xác minh) |
+| Robot học | PPO + DR (không phải RL trò chơi, nhưng dùng cùng công cụ gradient chính sách) |
+| Bài toán tổ hợp | Các biến thể AlphaZero (AlphaTensor, AlphaDev) |
 
-The *recipe* — self-play, search-augmented improvement, policy distillation — spans text, pixels, and physical control. GRPO is the youngest instance; more are coming.
+*Công thức* — tự chơi, cải thiện tăng cường bằng tìm kiếm, chưng cất chính sách — trải từ văn bản, pixel đến điều khiển vật lý. GRPO là trường hợp trẻ nhất; nhiều trường hợp nữa đang đến.
 
 ## Ship It
 
-Save as `outputs/skill-game-rl-designer.md`:
+Lưu thành `outputs/skill-game-rl-designer.md`:
 
 ```markdown
 ---
@@ -195,23 +195,23 @@ Refuse AlphaZero on imperfect-info games (route to CFR). Refuse GRPO without a t
 
 ## Exercises
 
-1. **Easy.** Implement the GRPO bandit in `code/main.py`. Train on 2 prompts × 4 answer tokens each. Converge in < 1,000 updates with `G=8`.
-2. **Medium.** Plug in PPO (clipped) and vanilla REINFORCE. Compare sample efficiency and reward variance to GRPO on the same bandit.
-3. **Hard.** Extend to a length-2 "reasoning chain": the agent emits two tokens and the verifier rewards the pair. Measure how GRPO handles the credit assignment across two-step sequences. (Hint: compute group advantage per *full sequence*, propagate to both token positions.)
+1. **Dễ.** Triển khai bandit GRPO trong `code/main.py`. Huấn luyện trên 2 prompt × 4 token đáp án mỗi prompt. Hội tụ trong < 1,000 cập nhật với `G=8`.
+2. **Trung bình.** Cắm PPO (được cắt) và REINFORCE nguyên bản vào. So sánh hiệu quả mẫu và phương sai phần thưởng với GRPO trên cùng bandit.
+3. **Khó.** Mở rộng thành một "chuỗi suy luận" dài 2: agent phát ra hai token và bộ xác minh thưởng cho cặp. Đo cách GRPO xử lý gán công trạng trên các chuỗi hai bước. (Gợi ý: tính lợi thế nhóm theo *toàn bộ chuỗi*, lan truyền đến cả hai vị trí token.)
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| MCTS | "Tree search with learned net" | Monte Carlo Tree Search; UCB1/PUCT selection with learned `(p, v)` priors. |
-| AlphaZero | "Self-play + MCTS" | Policy-value net trained to match MCTS visits and game outcome. |
-| MuZero | "Learned-model AlphaZero" | Same loop but in latent space via learned dynamics. |
-| GRPO | "Critic-free PPO" | Group Relative Policy Optimization; REINFORCE with group-mean baseline + KL. |
-| PUCT | "AlphaZero's UCB" | `Q + c · p · √N / (1 + N_a)` — balances value estimate with prior. |
-| Self-play | "Agent vs past self" | Standard for zero-sum; symmetric training signal. |
-| League play | "Population-based self-play" | Past + current + exploiters sampled as opponents. |
-| Verifier reward | "Verifiable RL" | Reward comes from a deterministic checker (tests pass, answer matches). |
-| Process reward | "PRM" | Scores each reasoning step, not just the final answer. |
+| MCTS | "Tìm kiếm cây với mạng được học" | Tìm kiếm cây Monte Carlo; lựa chọn UCB1/PUCT với các tiên nghiệm `(p, v)` được học. |
+| AlphaZero | "Tự chơi + MCTS" | Mạng chính sách-giá trị được huấn luyện để khớp lượt ghé MCTS và kết quả ván đấu. |
+| MuZero | "AlphaZero với mô hình được học" | Cùng vòng lặp nhưng trong không gian tiềm ẩn qua động lực học được học. |
+| GRPO | "PPO không critic" | Tối ưu hóa chính sách tương đối theo nhóm; REINFORCE với baseline trung bình nhóm + KL. |
+| PUCT | "UCB của AlphaZero" | `Q + c · p · √N / (1 + N_a)` — cân bằng ước lượng giá trị với tiên nghiệm. |
+| Self-play (Tự chơi) | "Agent đấu với bản thân quá khứ" | Tiêu chuẩn cho tổng bằng không; tín hiệu huấn luyện đối xứng. |
+| League play (Chơi liên đoàn) | "Tự chơi dựa trên quần thể" | Quá khứ + hiện tại + các exploiter được lấy mẫu làm đối thủ. |
+| Verifier reward (Phần thưởng bộ xác minh) | "RL có thể xác minh" | Phần thưởng đến từ một bộ kiểm tra tất định (kiểm thử vượt qua, đáp án khớp). |
+| Process reward (Phần thưởng quá trình) | "PRM" | Chấm điểm mỗi bước suy luận, không chỉ đáp án cuối. |
 
 ## Further Reading
 
@@ -219,10 +219,10 @@ Refuse AlphaZero on imperfect-info games (route to CFR). Refuse GRPO without a t
 - [Silver et al. (2018). A general reinforcement learning algorithm that masters chess, shogi, and Go through self-play (AlphaZero)](https://www.science.org/doi/10.1126/science.aar6404).
 - [Schrittwieser et al. (2020). Mastering Atari, Go, chess and shogi by planning with a learned model (MuZero)](https://www.nature.com/articles/s41586-020-03051-4).
 - [Vinyals et al. (2019). Grandmaster level in StarCraft II (AlphaStar)](https://www.nature.com/articles/s41586-019-1724-z).
-- [DeepSeek-AI (2024). DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models (GRPO)](https://arxiv.org/abs/2402.03300) — the paper that introduced GRPO and the group-relative baseline.
-- [DeepSeek-AI (2025). DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning](https://arxiv.org/abs/2501.12948) — the full four-stage R1 recipe plus the R1-Zero ablation.
-- [Brown et al. (2019). Superhuman AI for multiplayer poker (Pluribus)](https://www.science.org/doi/10.1126/science.aay2400) — CFR + deep-learning at scale.
-- [Tesauro (1995). Temporal Difference Learning and TD-Gammon](https://dl.acm.org/doi/10.1145/203330.203343) — the paper that started it all.
-- [Hugging Face TRL — GRPOTrainer](https://huggingface.co/docs/trl/main/en/grpo_trainer) — the production reference for applying GRPO with custom reward functions.
-- [Qwen Team (2024). Qwen2.5-Math — GRPO replication](https://github.com/QwenLM/Qwen2.5-Math) — open replication of the R1 recipe at multiple scales.
-- [Sutton & Barto (2018). Ch. 17 — Frontiers of Reinforcement Learning](http://incompleteideas.net/book/RLbook2020.pdf) — the textbook framing for self-play, search, and "designed reward" that R1 instantiates at LLM scale.
+- [DeepSeek-AI (2024). DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models (GRPO)](https://arxiv.org/abs/2402.03300) — bài báo giới thiệu GRPO và baseline tương đối theo nhóm.
+- [DeepSeek-AI (2025). DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning](https://arxiv.org/abs/2501.12948) — công thức R1 bốn giai đoạn đầy đủ cộng thử nghiệm loại bỏ R1-Zero.
+- [Brown et al. (2019). Superhuman AI for multiplayer poker (Pluribus)](https://www.science.org/doi/10.1126/science.aay2400) — CFR + học sâu ở quy mô lớn.
+- [Tesauro (1995). Temporal Difference Learning and TD-Gammon](https://dl.acm.org/doi/10.1145/203330.203343) — bài báo khởi đầu tất cả.
+- [Hugging Face TRL — GRPOTrainer](https://huggingface.co/docs/trl/main/en/grpo_trainer) — tham chiếu production để áp dụng GRPO với các hàm phần thưởng tùy chỉnh.
+- [Qwen Team (2024). Qwen2.5-Math — GRPO replication](https://github.com/QwenLM/Qwen2.5-Math) — tái lập mở công thức R1 ở nhiều quy mô.
+- [Sutton & Barto (2018). Ch. 17 — Frontiers of Reinforcement Learning](http://incompleteideas.net/book/RLbook2020.pdf) — cách nhìn trong giáo trình về tự chơi, tìm kiếm và "phần thưởng được thiết kế" mà R1 hiện thực hóa ở quy mô LLM.

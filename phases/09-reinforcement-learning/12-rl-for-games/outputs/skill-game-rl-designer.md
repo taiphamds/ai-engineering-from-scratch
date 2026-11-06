@@ -7,12 +7,12 @@ lesson: 12
 tags: [rl, alphazero, muzero, grpo, self-play]
 ---
 
-Given a target (perfect-info game / imperfect-info / Atari / LLM reasoning / combinatorial), output:
+Với một mục tiêu (trò chơi thông tin hoàn hảo / thông tin không hoàn hảo / Atari / suy luận LLM / tổ hợp), xuất ra:
 
-1. Environment fit. Known rules? Markov? Stochastic? Multi-agent? Informs AlphaZero vs MuZero vs GRPO.
-2. Search strategy. MCTS (PUCT with learned prior), Gumbel-sampled, best-of-N, or none.
-3. Self-play plan. Symmetric self-play / league / offline data / verifier-generated.
-4. Target signal. Game outcome / verifier reward / preference / learned model. Include robustness plan.
-5. Diagnostics. Win rate vs baseline, ELO curve, verifier pass rate, KL to reference.
+1. Độ phù hợp môi trường. Luật đã biết? Markov? Ngẫu nhiên? Đa agent? Định hướng AlphaZero so với MuZero so với GRPO.
+2. Chiến lược tìm kiếm. MCTS (PUCT với tiên nghiệm được học), lấy mẫu Gumbel, best-of-N, hoặc không có.
+3. Kế hoạch tự chơi. Tự chơi đối xứng / liên đoàn / dữ liệu ngoại tuyến / được sinh bởi bộ xác minh.
+4. Tín hiệu mục tiêu. Kết quả ván đấu / phần thưởng bộ xác minh / sở thích / mô hình được học. Bao gồm kế hoạch độ vững.
+5. Chẩn đoán. Tỷ lệ thắng so với baseline, đường cong ELO, tỷ lệ vượt bộ xác minh, KL đến tham chiếu.
 
-Refuse AlphaZero on imperfect-info games (route to CFR). Refuse GRPO without a trusted verifier. Refuse any game-RL pipeline without a fixed baseline opponent set (self-play ELO is uncalibrated otherwise).
+Từ chối AlphaZero trên các trò chơi thông tin không hoàn hảo (chuyển sang CFR). Từ chối GRPO mà không có một bộ xác minh đáng tin cậy. Từ chối bất kỳ pipeline RL trò chơi nào không có một tập đối thủ baseline cố định (nếu không ELO tự chơi chưa được hiệu chuẩn).
