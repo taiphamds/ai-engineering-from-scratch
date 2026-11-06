@@ -9,39 +9,39 @@ tags: [computer-vision, debugging, preprocessing, tensors]
 
 # Image Tensor Inspector
 
-A diagnostic skill for any point in a vision pipeline where you are holding an image-shaped array and need to know exactly what state it is in.
+Một skill chẩn đoán cho bất kỳ điểm nào trong pipeline thị giác mà bạn đang có một mảng có hình dạng ảnh và cần biết chính xác nó ở trạng thái nào.
 
 ## When to use
 
-- A pretrained model returns garbage predictions and you suspect the preprocessing.
-- Migrating a pipeline between OpenCV and torchvision and the channel order is unclear.
-- Stacking layers from multiple frameworks and the batch axis keeps appearing in the wrong place.
-- Debugging a training loop where loss is stuck at `log(num_classes)`.
+- Một mô hình được tiền huấn luyện trả về các dự đoán rác và bạn nghi ngờ tiền xử lý.
+- Di chuyển một pipeline giữa OpenCV và torchvision và thứ tự kênh không rõ ràng.
+- Xếp chồng các lớp từ nhiều framework và trục batch cứ xuất hiện sai chỗ.
+- Gỡ lỗi một vòng lặp huấn luyện có mất mát mắc kẹt ở `log(num_classes)`.
 
 ## Inputs
 
-- `x`: any 2-D, 3-D, or 4-D array-like (NumPy, PyTorch, JAX).
-- Optional `expected`: a dict of invariants to check against, e.g. `{"layout": "CHW", "range": "standardized"}`.
+- `x`: bất kỳ đối tượng dạng mảng 2-D, 3-D hoặc 4-D nào (NumPy, PyTorch, JAX).
+- `expected` tùy chọn: một dict các bất biến để kiểm tra, ví dụ `{"layout": "CHW", "range": "standardized"}`.
 
 ## Steps
 
-1. **Resolve backend** — detect whether `x` is NumPy, Torch, or JAX. Convert to NumPy for inspection without altering the original.
+1. **Xác định backend** — phát hiện `x` là NumPy, Torch hay JAX. Chuyển sang NumPy để xem xét mà không thay đổi bản gốc.
 
-2. **Classify rank**:
-   - rank 2 -> single-channel image (H, W).
-   - rank 3 -> `HWC` if the last axis is 1, 3, or 4 and is strictly smaller than the other two; otherwise `CHW`.
-   - rank 4 -> prefer `NCHW` if axis 1 is in {1, 3, 4} **and** either axis 2 or axis 3 is larger than 16; otherwise prefer `NHWC`. Pure axis-1 check misclassifies small-image NHWC batches like `(3, 4, 224, 3)`.
-   - Always flag ambiguous cases (e.g. `(1, 3, 3, 3)`) as `ambiguous` rather than guessing; require the caller to provide `expected`.
+2. **Phân loại số chiều**:
+   - số chiều 2 -> hình ảnh một kênh (H, W).
+   - số chiều 3 -> `HWC` nếu trục cuối là 1, 3 hoặc 4 và nhỏ hơn hẳn hai trục kia; nếu không là `CHW`.
+   - số chiều 4 -> ưu tiên `NCHW` nếu trục 1 thuộc {1, 3, 4} **và** trục 2 hoặc trục 3 lớn hơn 16; nếu không ưu tiên `NHWC`. Chỉ kiểm tra trục 1 phân loại sai các batch NHWC hình ảnh nhỏ như `(3, 4, 224, 3)`.
+   - Luôn đánh dấu các trường hợp mơ hồ (ví dụ `(1, 3, 3, 3)`) là `ambiguous` thay vì đoán; yêu cầu bên gọi cung cấp `expected`.
 
-3. **Classify dtype and range**:
-   - `uint8` in [0, 255] -> `raw`.
-   - `float*` with min >= 0 and max <= 1.01 -> `normalized`.
-   - `float*` with min < 0 and |mean| < 0.5 and 0.5 <= std <= 1.5 -> `standardized`.
-   - Anything else -> `unusual`, print the histogram.
+3. **Phân loại dtype và phạm vi**:
+   - `uint8` trong [0, 255] -> `raw`.
+   - `float*` với min >= 0 và max <= 1.01 -> `normalized`.
+   - `float*` với min < 0 và |mean| < 0.5 và 0.5 <= std <= 1.5 -> `standardized`.
+   - Mọi thứ khác -> `unusual`, in histogram.
 
-4. **Per-channel stats** — report mean and std per channel. Compare against ImageNet mean/std if the array looks standardized and surface a match confidence.
+4. **Thống kê từng kênh** — báo cáo trung bình và độ lệch chuẩn từng kênh. So sánh với trung bình/độ lệch chuẩn ImageNet nếu mảng trông được chuẩn hóa thống kê và đưa ra độ tin cậy khớp.
 
-5. **Report** in this exact block:
+5. **Báo cáo** theo đúng khối này:
 
 ```
 [inspector]
@@ -58,14 +58,14 @@ A diagnostic skill for any point in a vision pipeline where you are holding an i
   likely target:    display | training | inference
 ```
 
-6. **Recommend next action** based on the `likely target`:
-   - For `display`: transpose to HWC, clip, convert to uint8.
-   - For `training`: standardize with dataset stats, transpose to CHW, add batch axis.
-   - For `inference`: match the exact invariants in the model card.
+6. **Khuyến nghị hành động tiếp theo** dựa trên `likely target`:
+   - Với `display`: chuyển vị sang HWC, cắt ngưỡng, chuyển sang uint8.
+   - Với `training`: chuẩn hóa thống kê bằng thống kê tập dữ liệu, chuyển vị sang CHW, thêm trục batch.
+   - Với `inference`: khớp đúng các bất biến trong model card.
 
 ## Rules
 
-- Never mutate the input. Print diagnostics only.
-- If `expected` is provided, flag every mismatch with `[expected X got Y]`.
-- Call out silent-failure risks when the layout or channel order is ambiguous.
-- Recommend one action at a time, not a list of options.
+- Không bao giờ thay đổi đầu vào. Chỉ in chẩn đoán.
+- Nếu `expected` được cung cấp, đánh dấu mọi điểm không khớp bằng `[expected X got Y]`.
+- Chỉ ra các nguy cơ thất bại âm thầm khi bố cục hoặc thứ tự kênh mơ hồ.
+- Khuyến nghị một hành động mỗi lần, không phải một danh sách lựa chọn.

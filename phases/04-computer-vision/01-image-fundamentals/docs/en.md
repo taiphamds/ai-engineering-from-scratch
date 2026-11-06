@@ -1,6 +1,6 @@
 # Image Fundamentals — Pixels, Channels, Color Spaces
 
-> An image is a tensor of light samples. Every vision model you will ever use starts from this one fact.
+> Một hình ảnh là một tensor các mẫu ánh sáng. Mọi mô hình thị giác bạn sẽ sử dụng đều bắt đầu từ sự thật này.
 
 **Type:** Build
 **Languages:** Python
@@ -9,24 +9,24 @@
 
 ## Learning Objectives
 
-- Explain how a continuous scene gets discretized into pixels and why sampling/quantization decisions set the ceiling on every downstream model
-- Read, slice, and inspect images as NumPy arrays and switch fluently between HWC and CHW layouts
-- Convert between RGB, grayscale, HSV, and YCbCr and justify why each color space exists
-- Apply pixel-level preprocessing (normalize, standardize, resize, channel-first) exactly as pretrained PyTorch vision models expect it
+- Giải thích cách một cảnh liên tục được rời rạc hóa thành các pixel và tại sao các quyết định lấy mẫu/lượng tử hóa đặt ra giới hạn trên cho mọi mô hình phía sau
+- Đọc, cắt lát và xem xét các hình ảnh dưới dạng mảng NumPy và chuyển đổi thành thạo giữa các bố cục HWC và CHW
+- Chuyển đổi giữa RGB, thang xám, HSV và YCbCr và giải thích tại sao mỗi không gian màu tồn tại
+- Áp dụng tiền xử lý cấp pixel (chuẩn hóa phạm vi, chuẩn hóa thống kê, đổi kích thước, kênh trước) đúng như các mô hình thị giác PyTorch được tiền huấn luyện kỳ vọng
 
 ## The Problem
 
-Every paper you will read, every pretrained weight you will download, every vision API you will call assumes a specific encoding of the input. Pass a `uint8` image where the model wants `float32` and it will still run — and silently produce garbage. Feed BGR to a network trained on RGB and accuracy collapses by ten points. Hand a model channels-last input when it expects channels-first and the first conv layer treats height as a feature channel. None of this throws an error. It just ruins your metrics and you spend a week hunting for a bug that lives in how you loaded the file.
+Mọi bài báo bạn sẽ đọc, mọi trọng số được tiền huấn luyện bạn sẽ tải, mọi API thị giác bạn sẽ gọi đều giả định một cách mã hóa đầu vào cụ thể. Truyền một hình ảnh `uint8` vào nơi mô hình muốn `float32` và nó vẫn chạy — và âm thầm tạo ra rác. Đưa BGR vào một mạng được huấn luyện trên RGB và accuracy giảm mười điểm. Đưa cho một mô hình đầu vào kênh cuối khi nó kỳ vọng kênh trước và lớp tích chập đầu tiên coi chiều cao là một kênh đặc trưng. Không điều nào trong số này ném ra lỗi. Nó chỉ phá hỏng các thước đo và bạn dành một tuần săn tìm một lỗi nằm trong cách bạn tải file.
 
-A convolution is not complicated once you know what it is sliding over. The hard part is that "an image" means different things to a camera, a JPEG decoder, PIL, OpenCV, torchvision, and a CUDA kernel. Each stack has its own axis order, byte range, and channel convention. A vision engineer who cannot keep these straight ships broken pipelines.
+Một phép tích chập không phức tạp một khi bạn biết nó trượt trên cái gì. Phần khó là "một hình ảnh" có những ý nghĩa khác nhau đối với một máy ảnh, một bộ giải mã JPEG, PIL, OpenCV, torchvision và một kernel CUDA. Mỗi bộ công cụ có thứ tự trục, phạm vi byte và quy ước kênh riêng. Một kỹ sư thị giác không thể phân biệt rõ những điều này sẽ đưa ra các pipeline hỏng.
 
-This lesson fixes the foundation so the rest of the phase can build on it. By the end you will know what a pixel is, why there are three numbers per pixel instead of one, what "normalize with ImageNet stats" actually does, and how to move between the two or three layouts that every other lesson in this phase will assume.
+Bài học này sửa nền tảng để phần còn lại của giai đoạn có thể xây dựng trên đó. Khi kết thúc bạn sẽ biết pixel là gì, tại sao có ba số mỗi pixel thay vì một, "chuẩn hóa bằng thống kê ImageNet" thực sự làm gì và cách chuyển giữa hai hoặc ba bố cục mà mọi bài học khác trong giai đoạn này sẽ giả định.
 
 ## The Concept
 
 ### The full preprocessing pipeline at a glance
 
-Every production vision system is the same sequence of reversible transforms. Get one step wrong and the model sees a different input than it was trained on.
+Mọi hệ thống thị giác production đều là cùng một chuỗi các phép biến đổi có thể đảo ngược. Làm sai một bước và mô hình thấy một đầu vào khác với đầu vào nó được huấn luyện.
 
 ```mermaid
 flowchart LR
@@ -46,11 +46,11 @@ flowchart LR
     style H fill:#bfdbfe,stroke:#2563eb
 ```
 
-The two red and blue boxes are where 80% of silent failures live: missing standardization and wrong layout.
+Hai hộp đỏ và xanh dương là nơi 80% các thất bại âm thầm tồn tại: thiếu chuẩn hóa thống kê và sai bố cục.
 
 ### A pixel is a sample, not a square
 
-A camera sensor counts photons that land on a grid of tiny detectors. Each detector integrates light for a fraction of a second and emits a voltage proportional to how many photons hit it. The sensor then discretizes that voltage into an integer. One detector becomes one pixel.
+Một cảm biến máy ảnh đếm các photon rơi lên một lưới các bộ dò nhỏ. Mỗi bộ dò tích phân ánh sáng trong một phần giây và phát ra một điện áp tỷ lệ với số photon chạm nó. Cảm biến sau đó rời rạc hóa điện áp đó thành một số nguyên. Một bộ dò trở thành một pixel.
 
 ```
 Continuous scene                 Sensor grid                     Digital image
@@ -63,16 +63,16 @@ Continuous scene                 Sensor grid                     Digital image
                                  +--+--+--+--+--+                 188 180 165 145 108
 ```
 
-Two choices happen at this step and they fix the ceiling on everything downstream:
+Hai lựa chọn xảy ra ở bước này và chúng cố định giới hạn trên cho mọi thứ phía sau:
 
-- **Spatial sampling** decides how many detectors per degree of the scene. Too few, and edges become jagged (aliasing). Too many, and storage and compute explode.
-- **Intensity quantization** decides how finely the voltage is bucketed. 8 bits gives 256 levels and is standard for display. 10, 12, 16 bits give smoother gradients and matter for medical imaging, HDR, and raw sensor pipelines.
+- **Lấy mẫu không gian** quyết định số bộ dò trên mỗi độ của cảnh. Quá ít, các cạnh trở nên răng cưa (aliasing). Quá nhiều, lưu trữ và tính toán bùng nổ.
+- **Lượng tử hóa cường độ** quyết định điện áp được chia thành các mức mịn tới đâu. 8 bit cho 256 mức và là tiêu chuẩn hiển thị. 10, 12, 16 bit cho các chuyển sắc mượt hơn và quan trọng với hình ảnh y tế, HDR và các pipeline cảm biến thô.
 
-A pixel is not a coloured square with area. It is a single measurement. When you resize or rotate, you are resampling that measurement grid.
+Một pixel không phải một hình vuông có màu có diện tích. Nó là một phép đo đơn lẻ. Khi bạn đổi kích thước hoặc xoay, bạn đang lấy mẫu lại lưới đo đó.
 
 ### Why three channels
 
-One detector counts photons across the whole visible spectrum — that is grayscale. To get colour, the sensor covers the grid with a mosaic of red, green, and blue filters. After demosaicing, every spatial location has three integers: the response of the red-filtered detector, green-filtered, and blue-filtered nearby. Those three integers are a pixel's RGB triplet.
+Một bộ dò đếm photon trên toàn bộ phổ nhìn thấy — đó là thang xám. Để có màu, cảm biến phủ lưới bằng một khảm các bộ lọc đỏ, xanh lá và xanh dương. Sau giải khảm, mọi vị trí không gian có ba số nguyên: phản hồi của bộ dò lọc đỏ, lọc xanh lá và lọc xanh dương ở gần đó. Ba số nguyên đó là bộ ba RGB của một pixel.
 
 ```
 One pixel in memory:
@@ -85,11 +85,11 @@ An H x W RGB image:
                                     each in [0, 255] for uint8
 ```
 
-Three is not magic. Depth cameras add a Z channel. Satellites add infrared and ultraviolet bands. Medical scans often have one channel (X-ray, CT) or many (hyperspectral). The number of channels is the last axis; conv layers learn to mix across it.
+Ba không phải phép thuật. Máy ảnh độ sâu thêm một kênh Z. Vệ tinh thêm các dải hồng ngoại và tử ngoại. Ảnh quét y tế thường có một kênh (X-quang, CT) hoặc nhiều kênh (siêu phổ). Số kênh là trục cuối; các lớp tích chập học cách trộn trên trục đó.
 
 ### Two layout conventions: HWC and CHW
 
-Same tensor, two orderings. Every library picks one.
+Cùng tensor, hai cách sắp thứ tự. Mỗi thư viện chọn một.
 
 ```
 HWC (height, width, channels)           CHW (channels, height, width)
@@ -107,16 +107,16 @@ v |R G B|R G B|R G B|                   v |G G G G G G|
    almost every image file on disk       frameworks, cuDNN kernels
 ```
 
-CHW exists because convolution kernels slide across H and W. Keeping the channel axis first means each kernel sees a contiguous 2D plane per channel, which vectorizes cleanly. Disk formats keep HWC because that matches how scanlines come out of a sensor.
+CHW tồn tại vì các kernel tích chập trượt trên H và W. Giữ trục kênh đầu tiên nghĩa là mỗi kernel thấy một mặt phẳng 2D liền mạch mỗi kênh, dễ vector hóa. Các định dạng đĩa giữ HWC vì nó khớp cách các dòng quét đi ra từ cảm biến.
 
-The one-line conversion you will type a thousand times:
+Phép chuyển đổi một dòng bạn sẽ gõ một nghìn lần:
 
 ```
 img_chw = img_hwc.transpose(2, 0, 1)      # NumPy
 img_chw = img_hwc.permute(2, 0, 1)        # PyTorch tensor
 ```
 
-Memory layout, visualised:
+Bố trí bộ nhớ, được trực quan hóa:
 
 ```mermaid
 flowchart TB
@@ -136,19 +136,19 @@ flowchart TB
 
 ### Byte ranges and dtype
 
-Three conventions dominate:
+Ba quy ước chiếm ưu thế:
 
-| Convention | dtype | Range | Where you see it |
+| Quy ước | dtype | Phạm vi | Nơi bạn gặp |
 |------------|-------|-------|------------------|
-| Raw | `uint8` | [0, 255] | Files on disk, PIL, OpenCV output |
-| Normalized | `float32` | [0.0, 1.0] | After `img.astype('float32') / 255` |
-| Standardized | `float32` | roughly [-2, +2] | After subtracting mean and dividing by std |
+| Thô | `uint8` | [0, 255] | File trên đĩa, PIL, đầu ra OpenCV |
+| Được chuẩn hóa phạm vi | `float32` | [0.0, 1.0] | Sau `img.astype('float32') / 255` |
+| Được chuẩn hóa thống kê | `float32` | khoảng [-2, +2] | Sau khi trừ trung bình và chia độ lệch chuẩn |
 
-Convolutional networks were trained on standardized inputs. ImageNet stats `mean=[0.485, 0.456, 0.406]`, `std=[0.229, 0.224, 0.225]` are the arithmetic mean and standard deviation of the three channels over the full ImageNet training set, computed on [0, 1] normalized pixels. Feeding raw `uint8` into a model that expects standardized float is the single most common silent failure in applied vision.
+Các mạng tích chập được huấn luyện trên các đầu vào đã chuẩn hóa thống kê. Thống kê ImageNet `mean=[0.485, 0.456, 0.406]`, `std=[0.229, 0.224, 0.225]` là trung bình cộng và độ lệch chuẩn của ba kênh trên toàn bộ tập huấn luyện ImageNet, được tính trên các pixel chuẩn hóa về [0, 1]. Đưa `uint8` thô vào một mô hình kỳ vọng float đã chuẩn hóa thống kê là thất bại âm thầm thường gặp nhất trong thị giác ứng dụng.
 
 ### Color spaces and why they exist
 
-RGB is the capture format but it is not always the most useful representation for a model.
+RGB là định dạng thu nhận nhưng không phải lúc nào cũng là biểu diễn hữu ích nhất cho một mô hình.
 
 ```
  RGB               HSV                       YCbCr / YUV
@@ -165,13 +165,13 @@ RGB is the capture format but it is not always the most useful representation fo
                                              to chroma detail than to Y.
 ```
 
-For most modern CNNs you feed RGB. You meet other spaces when:
+Với hầu hết CNN hiện đại bạn đưa vào RGB. Bạn gặp các không gian khác khi:
 
-- **HSV** — classical CV code, color-based segmentation, white-balancing.
-- **YCbCr** — reading JPEG internals, video pipelines, super-resolution models that operate on Y only.
-- **Grayscale** — OCR, document models, any case where color is nuisance variable rather than signal.
+- **HSV** — mã CV cổ điển, phân đoạn dựa trên màu, cân bằng trắng.
+- **YCbCr** — đọc nội bộ JPEG, các pipeline video, các mô hình siêu phân giải chỉ hoạt động trên Y.
+- **Thang xám** — OCR, các mô hình tài liệu, mọi trường hợp màu là biến gây nhiễu thay vì tín hiệu.
 
-Grayscale from RGB is a weighted sum, not an average, because the human eye is more sensitive to green than to red or blue:
+Thang xám từ RGB là một tổng có trọng số, không phải trung bình, vì mắt người nhạy với xanh lá hơn đỏ hoặc xanh dương:
 
 ```
 Y = 0.299 R + 0.587 G + 0.114 B       (ITU-R BT.601, the classic weights)
@@ -179,13 +179,13 @@ Y = 0.299 R + 0.587 G + 0.114 B       (ITU-R BT.601, the classic weights)
 
 ### Aspect ratio, resizing, and interpolation
 
-Every model has a fixed input size (224x224 for most ImageNet classifiers, 384x384 or 512x512 for modern detectors). Your images rarely match. The three resize choices that matter:
+Mỗi mô hình có một kích thước đầu vào cố định (224x224 cho hầu hết bộ phân loại ImageNet, 384x384 hoặc 512x512 cho các bộ phát hiện hiện đại). Các hình ảnh của bạn hiếm khi khớp. Ba lựa chọn đổi kích thước quan trọng:
 
-- **Resize shorter side, then center crop** — the standard ImageNet recipe. Preserves aspect ratio, throws away a strip of edge pixels.
-- **Resize and pad** — preserves aspect ratio and every pixel, adds black bars. Standard for detection and OCR.
-- **Resize directly to target** — stretches the image. Cheap, distorts geometry, fine for many classification tasks.
+- **Đổi kích thước cạnh ngắn hơn, rồi cắt giữa** — công thức ImageNet tiêu chuẩn. Giữ tỷ lệ khung hình, bỏ một dải pixel ở cạnh.
+- **Đổi kích thước và đệm** — giữ tỷ lệ khung hình và mọi pixel, thêm các dải đen. Tiêu chuẩn cho phát hiện và OCR.
+- **Đổi kích thước trực tiếp tới mục tiêu** — kéo giãn hình ảnh. Rẻ, làm méo hình học, ổn cho nhiều tác vụ phân loại.
 
-The interpolation method decides how intermediate pixels are computed when the new grid does not align with the old one:
+Phương pháp nội suy quyết định cách tính các pixel trung gian khi lưới mới không khớp lưới cũ:
 
 ```
 Nearest neighbour     fastest, blocky, only choice for masks/labels
@@ -194,7 +194,7 @@ Bicubic               slower, sharper on upscaling
 Lanczos               slowest, best quality, used for final display
 ```
 
-Rule of thumb: bilinear for training, bicubic or lanczos for assets you will look at, nearest for anything containing integer class IDs.
+Quy tắc kinh nghiệm: song tuyến tính cho huấn luyện, song lập phương hoặc lanczos cho các tài sản bạn sẽ xem, láng giềng gần nhất cho bất cứ thứ gì chứa ID lớp nguyên.
 
 ```figure
 conv-output-size
@@ -204,7 +204,7 @@ conv-output-size
 
 ### Step 1: Build an image tensor and inspect its shape
 
-Start with a deterministic synthetic image so the first lab runs offline with only NumPy. File decoding is a separate boundary: once a JPEG or PNG decoder returns RGB bytes, every tensor operation below is the same.
+Bắt đầu với một hình ảnh tổng hợp tất định để bài thực hành đầu tiên chạy ngoại tuyến chỉ với NumPy. Giải mã file là một ranh giới riêng: một khi bộ giải mã JPEG hoặc PNG trả về các byte RGB, mọi phép toán tensor bên dưới đều giống nhau.
 
 ```python
 import numpy as np
@@ -228,11 +228,11 @@ print(f"max:    {arr.max()}")
 print(f"pixel at (0, 0): {arr[0, 0]}")
 ```
 
-Expected output: `shape: (H, W, 3)`, `dtype: uint8`, range `[0, 255]`. That is the canonical decoded representation whether the bytes came from a camera, an image decoder, or this synthetic generator.
+Đầu ra kỳ vọng: `shape: (H, W, 3)`, `dtype: uint8`, phạm vi `[0, 255]`. Đó là biểu diễn đã giải mã chuẩn bất kể các byte đến từ một máy ảnh, một bộ giải mã hình ảnh hay bộ sinh tổng hợp này.
 
 ### Step 2: Split channels and re-order layout
 
-Pull out R, G, B separately, then convert from HWC to CHW for PyTorch.
+Tách riêng R, G, B, rồi chuyển từ HWC sang CHW cho PyTorch.
 
 ```python
 R = arr[:, :, 0]
@@ -247,11 +247,11 @@ print(f"\nHWC shape: {arr.shape}")
 print(f"CHW shape: {arr_chw.shape}")
 ```
 
-Three grayscale planes, one per channel. CHW just reorders the axes; no data copy is strictly required when the memory layout allows it.
+Ba mặt phẳng thang xám, mỗi kênh một mặt phẳng. CHW chỉ đổi thứ tự các trục; không nhất thiết cần sao chép dữ liệu khi bố trí bộ nhớ cho phép.
 
 ### Step 3: Grayscale and HSV conversions
 
-Weighted-sum grayscale, then a manual RGB-to-HSV.
+Thang xám tổng có trọng số, rồi chuyển RGB-sang-HSV thủ công.
 
 ```python
 def rgb_to_grayscale(rgb):
@@ -289,11 +289,11 @@ print(f"sat range: [{hsv[..., 1].min():.2f}, {hsv[..., 1].max():.2f}]")
 print(f"val range: [{hsv[..., 2].min():.2f}, {hsv[..., 2].max():.2f}]")
 ```
 
-Hue comes out in degrees, saturation and value in [0, 1]. That matches the OpenCV `hsv_full` convention.
+Sắc độ xuất ra theo độ, độ bão hòa và giá trị trong [0, 1]. Điều đó khớp quy ước `hsv_full` của OpenCV.
 
 ### Step 4: Normalize, standardize, and reverse it
 
-Go from raw bytes to the exact tensor a pretrained ImageNet model expects, then back.
+Đi từ các byte thô tới đúng tensor mà một mô hình ImageNet được tiền huấn luyện kỳ vọng, rồi trở lại.
 
 ```python
 mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
@@ -322,11 +322,11 @@ max_diff = np.abs(roundtrip.astype(int) - arr.astype(int)).max()
 print(f"roundtrip max pixel diff: {max_diff}    # should be 0 or 1")
 ```
 
-Per-channel mean should be close to zero, std close to one. The preprocess/deprocess pair is exactly what every torchvision `transforms.Normalize` call is doing under the hood.
+Trung bình mỗi kênh nên gần không, độ lệch chuẩn gần một. Cặp tiền xử lý/hoàn tác tiền xử lý chính xác là điều mọi lời gọi `transforms.Normalize` của torchvision làm bên dưới.
 
 ### Step 5: Resize from scratch
 
-Nearest neighbor rounds each output coordinate to one source pixel. Bilinear interpolation finds the four surrounding pixels and blends them by distance. Both implementations below use endpoint-aligned coordinates so the first and last source pixels stay fixed.
+Láng giềng gần nhất làm tròn mỗi tọa độ đầu ra tới một pixel nguồn. Nội suy song tuyến tính tìm bốn pixel xung quanh và trộn chúng theo khoảng cách. Cả hai bản triển khai bên dưới sử dụng tọa độ căn chỉnh điểm cuối để pixel nguồn đầu và cuối giữ cố định.
 
 ```python
 def resize_coordinates(source_length, target_length):
@@ -371,11 +371,11 @@ for name, out in [("nearest", nearest), ("bilinear", bilinear)]:
     print(f"{name:>8}  shape={out.shape}  roughness={local_roughness(out):6.2f}")
 ```
 
-Nearest scores highest on roughness because it keeps hard edges. Bilinear is smoother because every new pixel blends two positions on each axis. The runnable companion extends the same separable idea to four neighbors per axis with a Catmull-Rom cubic kernel, then prints all three results without an image library.
+Láng giềng gần nhất đạt điểm độ gồ ghề cao nhất vì nó giữ các cạnh cứng. Song tuyến tính mượt hơn vì mỗi pixel mới trộn hai vị trí trên mỗi trục. Phần đi kèm có thể chạy mở rộng cùng ý tưởng tách được sang bốn láng giềng mỗi trục với một kernel lập phương Catmull-Rom, rồi in cả ba kết quả mà không dùng thư viện hình ảnh.
 
 ## Use It
 
-PyTorch performs the same operations on batched, device-aware tensors. The code below resizes the shorter side, takes a center crop, standardizes each channel, and produces the NCHW tensor a pretrained model expects.
+PyTorch thực hiện cùng các phép toán trên các tensor chia batch và nhận biết thiết bị. Mã bên dưới đổi kích thước cạnh ngắn hơn, cắt giữa, chuẩn hóa thống kê từng kênh và tạo tensor NCHW mà một mô hình được tiền huấn luyện kỳ vọng.
 
 ```python
 import torch
@@ -410,37 +410,37 @@ print(f"per-channel mean: {batch.mean(dim=(0, 2, 3)).tolist()}")
 print(f"per-channel std:  {batch.std(dim=(0, 2, 3)).tolist()}")
 ```
 
-Four steps, in this exact order: convert bytes to float and swap HWC to NCHW, resize the shorter side to 256, take a 224x224 center crop, then subtract the ImageNet mean and divide by its standard deviation. Reversing that order silently changes what reaches the model.
+Bốn bước, theo đúng thứ tự này: chuyển các byte thành float và đổi HWC sang NCHW, đổi kích thước cạnh ngắn hơn thành 256, cắt giữa 224x224, rồi trừ trung bình ImageNet và chia cho độ lệch chuẩn của nó. Đảo ngược thứ tự đó âm thầm thay đổi những gì tới mô hình.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-vision-preprocessing-audit.md` — a prompt that turns any model card or dataset card into a checklist of the exact preprocessing invariants a team must honour.
-- `outputs/skill-image-tensor-inspector.md` — a skill that, given any image-shaped tensor or array, reports dtype, layout, range, and whether it looks raw, normalized, or standardized.
+- `outputs/prompt-vision-preprocessing-audit.md` — một prompt biến bất kỳ model card hoặc dataset card nào thành một danh sách kiểm tra các bất biến tiền xử lý chính xác mà một nhóm phải tuân thủ.
+- `outputs/skill-image-tensor-inspector.md` — một skill, với bất kỳ tensor hoặc mảng có hình dạng ảnh nào, báo cáo dtype, bố cục, phạm vi và liệu nó trông thô, được chuẩn hóa phạm vi hay chuẩn hóa thống kê.
 
 ## Exercises
 
-1. **(Easy)** Create a 2x2 RGB `uint8` array with four distinct colors. Convert HWC to CHW and back, print both shapes, and prove the round trip preserves every value.
-2. **(Medium)** Write `standardize(img, mean, std)` and its inverse that together pass a `roundtrip_max_diff <= 1` test on any uint8 image. Your functions must work on a single image in HWC and on a batch in NCHW with the same call.
-3. **(Hard)** Take a 3-channel ImageNet-standardized tensor and run it through a 1x1 conv that learns a weighted mixture of RGB into a single grayscale channel. Initialize the weights to `[0.299, 0.587, 0.114]`, freeze them, and verify the output matches your manual `rgb_to_grayscale` to within floating-point error. What other classical color-space transforms can be written as 1x1 convolutions?
+1. **(Dễ)** Tạo một mảng RGB `uint8` 2x2 với bốn màu khác nhau. Chuyển HWC sang CHW rồi trở lại, in cả hai hình dạng và chứng minh chuyển đổi đi-về giữ nguyên mọi giá trị.
+2. **(Vừa)** Viết `standardize(img, mean, std)` và hàm nghịch đảo của nó để cùng nhau vượt qua phép kiểm tra `roundtrip_max_diff <= 1` trên bất kỳ hình ảnh uint8 nào. Các hàm của bạn phải hoạt động trên một hình ảnh đơn lẻ trong HWC và một batch trong NCHW bằng cùng lời gọi.
+3. **(Khó)** Lấy một tensor 3 kênh đã chuẩn hóa thống kê theo ImageNet và chạy qua một tích chập 1x1 học một hỗn hợp có trọng số của RGB thành một kênh thang xám duy nhất. Khởi tạo các trọng số bằng `[0.299, 0.587, 0.114]`, đóng băng chúng và xác minh đầu ra khớp `rgb_to_grayscale` thủ công của bạn trong phạm vi sai số dấu phẩy động. Những phép biến đổi không gian màu cổ điển nào khác có thể được viết thành các tích chập 1x1?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Pixel | "A coloured square" | One sample of light intensity at one grid location — three numbers for colour, one for grayscale |
-| Channel | "The colour" | One of the parallel spatial grids stacked into an image tensor; last axis in HWC, first in CHW |
-| HWC / CHW | "The shape" | Axis orderings for an image tensor; disk and PIL use HWC, PyTorch and cuDNN use CHW |
-| Normalize | "Scale the image" | Divide by 255 so pixels live in [0, 1] — necessary but not sufficient |
-| Standardize | "Zero-center" | Subtract mean and divide by std per channel so the input distribution matches what the model was trained on |
-| Grayscale conversion | "Average the channels" | A weighted sum with coefficients 0.299/0.587/0.114 that matches human luminance perception |
-| Interpolation | "How resize picks pixels" | The rule that decides output values when the new grid does not align with the old one — nearest for labels, bilinear for training, bicubic for display |
-| Aspect ratio | "Width over height" | The ratio that distinguishes "resize and pad" from "resize and stretch" |
+| Pixel (Điểm ảnh) | "Một hình vuông có màu" | Một mẫu cường độ ánh sáng tại một vị trí lưới — ba số cho màu, một số cho thang xám |
+| Channel (Kênh) | "Màu" | Một trong các lưới không gian song song xếp chồng thành một tensor hình ảnh; trục cuối trong HWC, đầu trong CHW |
+| HWC / CHW | "Hình dạng" | Các thứ tự trục cho một tensor hình ảnh; đĩa và PIL sử dụng HWC, PyTorch và cuDNN sử dụng CHW |
+| Normalize (Chuẩn hóa phạm vi) | "Co giãn hình ảnh" | Chia cho 255 để các pixel nằm trong [0, 1] — cần nhưng chưa đủ |
+| Standardize (Chuẩn hóa thống kê) | "Đặt tâm tại không" | Trừ trung bình và chia độ lệch chuẩn theo từng kênh để phân phối đầu vào khớp những gì mô hình được huấn luyện |
+| Grayscale conversion (Chuyển sang thang xám) | "Lấy trung bình các kênh" | Một tổng có trọng số với các hệ số 0.299/0.587/0.114 khớp cảm nhận độ chói của con người |
+| Interpolation (Nội suy) | "Cách đổi kích thước chọn pixel" | Quy tắc quyết định các giá trị đầu ra khi lưới mới không khớp lưới cũ — gần nhất cho nhãn, song tuyến tính cho huấn luyện, song lập phương cho hiển thị |
+| Aspect ratio (Tỷ lệ khung hình) | "Chiều rộng trên chiều cao" | Tỷ số phân biệt "đổi kích thước và đệm" với "đổi kích thước và kéo giãn" |
 
 ## Further Reading
 
-- [Charles Poynton — A Guided Tour of Color Space](https://web.archive.org/web/20251220000525/https://poynton.ca/PDFs/Guided_tour.pdf) — the clearest technical treatment of why there are so many color spaces and when each one matters
-- [PyTorch Vision Transforms Docs](https://pytorch.org/vision/stable/transforms.html) — the full pipeline of transforms you will actually compose in production
-- [How JPEG Works (Colt McAnlis)](https://www.youtube.com/watch?v=F1kYBnY6mwg) — a sharp visual tour of chroma subsampling, DCT, and why JPEG encodes YCbCr rather than RGB
-- [ImageNet Preprocessing Conventions (torchvision models)](https://pytorch.org/vision/stable/models.html) — the source of truth for `mean=[0.485, 0.456, 0.406]` and why every model in the zoo expects it
+- [Charles Poynton — A Guided Tour of Color Space](https://web.archive.org/web/20251220000525/https://poynton.ca/PDFs/Guided_tour.pdf) — phần trình bày kỹ thuật rõ ràng nhất về tại sao có nhiều không gian màu đến vậy và khi nào mỗi loại quan trọng
+- [PyTorch Vision Transforms Docs](https://pytorch.org/vision/stable/transforms.html) — toàn bộ pipeline các phép biến đổi bạn sẽ thực sự kết hợp trong production
+- [How JPEG Works (Colt McAnlis)](https://www.youtube.com/watch?v=F1kYBnY6mwg) — một chuyến tham quan trực quan sắc sảo về lấy mẫu con sắc độ, DCT và tại sao JPEG mã hóa YCbCr thay vì RGB
+- [ImageNet Preprocessing Conventions (torchvision models)](https://pytorch.org/vision/stable/models.html) — nguồn chuẩn cho `mean=[0.485, 0.456, 0.406]` và tại sao mọi mô hình trong bộ sưu tập đều kỳ vọng nó
