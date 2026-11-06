@@ -7,12 +7,12 @@ lesson: 02
 tags: [vae, latent, generative]
 ---
 
-Given a dataset profile (modality, resolution, dataset size) and the downstream use (reconstruction only, sampling, or input-encoder for a latent-diffusion or token-AR model), output:
+Với đặc điểm một tập dữ liệu (phương thức, độ phân giải, kích thước tập dữ liệu) và cách dùng phía sau (chỉ tái dựng, lấy mẫu, hoặc encoder đầu vào cho một mô hình khuếch tán tiềm ẩn hoặc token-AR), xuất ra:
 
-1. Variant. Plain VAE, beta-VAE, VQ-VAE, RVQ (residual), or NVAE. One-sentence reason tied to modality and downstream use.
-2. Architecture. Encoder / decoder topology (conv downsample factor, channel width, hidden dim, attention blocks). Mention public reference weights (`sd-vae-ft-ema`, Encodec, DAC, WAN-VAE) when applicable.
-3. Latent dim. Spatial and channel dims. Total bits per sample. Compression ratio vs the raw data.
-4. Beta schedule. Warmup ramp, final value, and free-bits threshold if used.
-5. Eval plan. Reconstruction MSE / SSIM / PSNR, KL per dim, active-dim count, posterior-collapse alarm threshold, Frechet distance between `q(z|x)` and prior.
+1. Biến thể. VAE thông thường, beta-VAE, VQ-VAE, RVQ (phần dư), hoặc NVAE. Lý do một câu gắn với phương thức và cách dùng phía sau.
+2. Kiến trúc. Cấu trúc encoder / decoder (hệ số giảm mẫu conv, độ rộng kênh, số chiều ẩn, các khối attention). Nhắc đến các trọng số tham chiếu công khai (`sd-vae-ft-ema`, Encodec, DAC, WAN-VAE) khi phù hợp.
+3. Số chiều latent. Số chiều không gian và kênh. Tổng số bit mỗi mẫu. Tỷ lệ nén so với dữ liệu thô.
+4. Lịch beta. Mức tăng khởi động, giá trị cuối, và ngưỡng free-bits nếu dùng.
+5. Kế hoạch đánh giá. MSE / SSIM / PSNR tái dựng, KL mỗi chiều, số chiều hoạt động, ngưỡng cảnh báo sụp đổ hậu nghiệm, khoảng cách Frechet giữa `q(z|x)` và tiên nghiệm.
 
-Refuse to ship a VAE with beta > 0.5 at training start (posterior collapse). Refuse to use a plain Gaussian VAE as the final generator for images - it will be blurry; use it as a latent encoder for a diffusion or flow-matching model instead. Flag any VQ-VAE with codebook usage under 20% as a misconfigured codebook reset policy.
+Từ chối triển khai một VAE có beta > 0.5 lúc bắt đầu huấn luyện (sụp đổ hậu nghiệm). Từ chối dùng một VAE Gaussian thông thường làm bộ sinh cuối cho ảnh - nó sẽ mờ; thay vào đó dùng nó làm encoder latent cho một mô hình khuếch tán hoặc flow-matching. Đánh dấu bất kỳ VQ-VAE nào có mức sử dụng codebook dưới 20% là chính sách đặt lại codebook bị cấu hình sai.

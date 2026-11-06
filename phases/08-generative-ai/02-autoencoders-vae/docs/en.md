@@ -1,6 +1,6 @@
 # Autoencoders & Variational Autoencoders (VAE)
 
-> A plain autoencoder compresses then reconstructs. It memorizes. It does not generate. Add one trick — force the code to look Gaussian — and you get a sampler. That single trick, the reparameterization of `z = μ + σ·ε`, is why every latent-diffusion and flow-matching image model you use in 2026 has a VAE at the input.
+> Một autoencoder thông thường nén rồi tái dựng. Nó ghi nhớ. Nó không sinh. Thêm một thủ thuật — buộc mã trông như Gaussian — và bạn có một bộ lấy mẫu. Chính thủ thuật đó, phép tái tham số hóa `z = μ + σ·ε`, là lý do mọi mô hình ảnh khuếch tán tiềm ẩn và flow-matching mà bạn dùng vào năm 2026 đều có VAE ở đầu vào.
 
 **Type:** Build
 **Languages:** Python
@@ -9,34 +9,34 @@
 
 ## The Problem
 
-Compress a 784-pixel MNIST digit to a 16-number code, then reconstruct. A plain autoencoder will ace reconstruction MSE but the code space is a lumpy mess. Pick a random point in the code space, decode it, and you get noise. It has no sampler. It is a compression model dressed up.
+Nén một chữ số MNIST 784 pixel thành một mã gồm 16 số, rồi tái dựng. Một autoencoder thông thường sẽ đạt điểm cao về MSE tái dựng nhưng không gian mã là một mớ lổn nhổn. Chọn một điểm ngẫu nhiên trong không gian mã, giải mã nó, và bạn nhận được nhiễu. Nó không có bộ lấy mẫu. Nó là một mô hình nén được khoác áo.
 
-What you actually want is: (a) the code space is a clean, smooth distribution you can sample from — say an isotropic Gaussian `N(0, I)`, (b) decoding any sample produces a plausible digit, and (c) the encoder and decoder still compress well. Three goals, one architecture, one loss.
+Điều bạn thực sự muốn là: (a) không gian mã là một phân phối gọn gàng, trơn mà bạn có thể lấy mẫu — chẳng hạn một Gaussian đẳng hướng `N(0, I)`, (b) giải mã bất kỳ mẫu nào cũng tạo ra một chữ số có vẻ hợp lý, và (c) encoder và decoder vẫn nén tốt. Ba mục tiêu, một kiến trúc, một hàm mất mát.
 
-Kingma's 2013 VAE solves this by training the encoder to output a *distribution* `q(z|x) = N(μ(x), σ(x)²)`, pulling that distribution toward the prior `N(0, I)` via a KL penalty, and then sampling `z` from `q(z|x)` before decoding. At inference time, drop the encoder, sample `z ~ N(0, I)`, decode. The KL penalty is what forces the code space to be structured.
+VAE năm 2013 của Kingma giải quyết điều này bằng cách huấn luyện encoder xuất ra một *phân phối* `q(z|x) = N(μ(x), σ(x)²)`, kéo phân phối đó về tiên nghiệm `N(0, I)` qua một khoản phạt KL, rồi lấy mẫu `z` từ `q(z|x)` trước khi giải mã. Khi suy luận, bỏ encoder, lấy mẫu `z ~ N(0, I)`, giải mã. Khoản phạt KL là thứ buộc không gian mã có cấu trúc.
 
-In 2026 VAEs rarely ship standalone — they have been outclassed by diffusion for raw image quality — but they are the encoder of choice for every latent-diffusion model (SD 1/2/XL/3, Flux, AudioCraft). Learn the VAE and you learn the invisible first layer of every image pipeline you use.
+Vào năm 2026 VAE hiếm khi được triển khai độc lập — chúng đã bị khuếch tán vượt qua về chất lượng ảnh thuần túy — nhưng chúng là encoder được lựa chọn cho mọi mô hình khuếch tán tiềm ẩn (SD 1/2/XL/3, Flux, AudioCraft). Học VAE và bạn học lớp đầu tiên vô hình của mọi pipeline ảnh bạn dùng.
 
 ## The Concept
 
 ![Autoencoder vs VAE: the reparameterization trick](../assets/vae.svg)
 
-**Autoencoder.** `z = encoder(x)`, `x̂ = decoder(z)`, loss = `||x - x̂||²`. Code space unstructured.
+**Autoencoder.** `z = encoder(x)`, `x̂ = decoder(z)`, hàm mất mát = `||x - x̂||²`. Không gian mã không có cấu trúc.
 
-**VAE encoder.** Outputs two vectors: `μ(x)` and `log σ²(x)`. These define `q(z|x) = N(μ, diag(σ²))`.
+**Encoder VAE.** Xuất ra hai vector: `μ(x)` và `log σ²(x)`. Chúng xác định `q(z|x) = N(μ, diag(σ²))`.
 
-**Reparameterization trick.** Sampling from `q(z|x)` is not differentiable. Rewrite the sample as `z = μ + σ·ε` where `ε ~ N(0, I)`. Now `z` is a deterministic function of `(μ, σ)` plus a non-parameter noise — gradients flow through `μ` and `σ`.
+**Thủ thuật tái tham số hóa.** Lấy mẫu từ `q(z|x)` không khả vi. Viết lại mẫu thành `z = μ + σ·ε` trong đó `ε ~ N(0, I)`. Giờ `z` là một hàm tất định của `(μ, σ)` cộng với nhiễu không phải tham số — gradient truyền qua `μ` và `σ`.
 
-**Loss.** Evidence Lower BOund (ELBO), two terms:
+**Hàm mất mát.** Cận dưới bằng chứng (ELBO), hai hạng tử:
 
 ```
 loss = reconstruction + β · KL[q(z|x) || N(0, I)]
      = ||x - x̂||²  + β · Σ_i ( σ_i² + μ_i² - log σ_i² - 1 ) / 2
 ```
 
-Reconstruction pushes `x̂` toward `x`. KL pushes `q(z|x)` toward the prior. They trade off. Small β (<1) = sharper samples, code space less Gaussian. Large β (>1) = cleaner code space, blurrier samples. β-VAE (Higgins 2017) made this knob famous and kicked off disentanglement research.
+Tái dựng đẩy `x̂` về phía `x`. KL đẩy `q(z|x)` về tiên nghiệm. Chúng đánh đổi với nhau. β nhỏ (<1) = mẫu sắc nét hơn, không gian mã ít Gaussian hơn. β lớn (>1) = không gian mã gọn gàng hơn, mẫu mờ hơn. β-VAE (Higgins 2017) đã làm nút điều chỉnh này nổi tiếng và khởi đầu nghiên cứu disentanglement.
 
-**Sampling.** At inference: draw `z ~ N(0, I)`, forward through decoder. One forward pass — no iterative sampling like diffusion.
+**Lấy mẫu.** Khi suy luận: lấy `z ~ N(0, I)`, truyền xuôi qua decoder. Một lượt truyền xuôi — không lấy mẫu lặp như khuếch tán.
 
 ```figure
 vae-latent-grid
@@ -44,7 +44,7 @@ vae-latent-grid
 
 ## Build It
 
-`code/main.py` implements a tiny VAE without numpy or torch. Input is 8-dimensional synthetic data drawn from a 2-component Gaussian mixture in 8-D. Encoder and decoder are single hidden-layer MLPs. We implement tanh activation, forward pass, loss, and a hand-written backward pass. Not production — pedagogy.
+`code/main.py` triển khai một VAE nhỏ không dùng numpy hay torch. Đầu vào là dữ liệu tổng hợp 8 chiều được lấy từ một hỗn hợp Gaussian 2 thành phần trong 8-D. Encoder và decoder là các MLP một lớp ẩn. Chúng ta triển khai kích hoạt tanh, lượt truyền xuôi, hàm mất mát và một lượt truyền ngược viết tay. Không phải production — là sư phạm.
 
 ### Step 1: encoder forward
 
@@ -56,7 +56,7 @@ def encode(x, enc):
     return mu, log_sigma2
 ```
 
-`log σ²` instead of `σ` so the network output is unconstrained (softplus of σ is a trap — gradients die at σ ≈ 0).
+`log σ²` thay vì `σ` để đầu ra của mạng không bị ràng buộc (softplus của σ là một cái bẫy — gradient chết ở σ ≈ 0).
 
 ### Step 2: reparameterize and decode
 
@@ -80,7 +80,7 @@ def elbo(x, x_hat, mu, log_sigma2, beta=1.0):
     return recon + beta * kl, recon, kl
 ```
 
-Exact closed-form KL because both distributions are Gaussian. Do not integrate numerically. People still ship code with monte-carlo KL estimates in 2026 — it is 3x slower for no reason.
+KL dạng đóng chính xác vì cả hai phân phối đều là Gaussian. Đừng tích phân số. Mọi người vẫn phát hành mã với ước lượng KL monte-carlo vào năm 2026 — nó chậm hơn 3x mà không có lý do.
 
 ### Step 4: generate
 
@@ -90,67 +90,67 @@ def sample(dec, z_dim, rng):
     return decode(z, dec)
 ```
 
-That is the generative model. Five lines.
+Đó là mô hình sinh. Năm dòng.
 
 ## Pitfalls
 
-- **Posterior collapse.** KL term drives `q(z|x) → N(0, I)` so aggressively that `z` carries no info about `x`. Fix: β-annealing (start β=0, ramp to 1), free bits, or skip the KL on inactive dimensions.
-- **Blurry samples.** The Gaussian decoder likelihood implies MSE reconstruction, which is Bayes-optimal for L2 (the mean) — the mean of a set of plausible digits is a fuzzy digit. Fix: discrete decoder (VQ-VAE, NVAE), or use the VAE only as an encoder and stack diffusion on the latents (this is what Stable Diffusion does).
-- **β too large, too early.** See posterior collapse. Start at β≈0.01 and ramp.
-- **Latent dim too small.** 16-D works for MNIST, 256-D for ImageNet 256², 2048-D for ImageNet 1024². Stable Diffusion's VAE compresses 512×512×3 → 64×64×4 (32x downsample factor in spatial area, 32x in channels).
+- **Sụp đổ hậu nghiệm.** Hạng tử KL đẩy `q(z|x) → N(0, I)` mạnh đến mức `z` không mang thông tin nào về `x`. Cách khắc phục: β-annealing (bắt đầu β=0, tăng dần đến 1), free bits, hoặc bỏ KL trên các chiều không hoạt động.
+- **Mẫu mờ.** Độ hợp lý của decoder Gaussian ngụ ý tái dựng MSE, vốn tối ưu Bayes cho L2 (trung bình) — trung bình của một tập các chữ số có vẻ hợp lý là một chữ số nhòe. Cách khắc phục: decoder rời rạc (VQ-VAE, NVAE), hoặc chỉ dùng VAE làm encoder và xếp khuếch tán lên các latent (đây là điều Stable Diffusion làm).
+- **β quá lớn, quá sớm.** Xem sụp đổ hậu nghiệm. Bắt đầu ở β≈0.01 và tăng dần.
+- **Số chiều latent quá nhỏ.** 16-D hoạt động cho MNIST, 256-D cho ImageNet 256², 2048-D cho ImageNet 1024². VAE của Stable Diffusion nén 512×512×3 → 64×64×4 (hệ số giảm mẫu 32x về diện tích không gian, 32x về kênh).
 
 ## Use It
 
-The 2026 VAE stack:
+Bộ công cụ VAE năm 2026:
 
-| Situation | Pick |
+| Tình huống | Lựa chọn |
 |-----------|------|
-| Image-latent encoder for diffusion | Stable Diffusion VAE (`sd-vae-ft-ema`) or Flux VAE |
-| Audio-latent encoder | Encodec (Meta), SoundStream, or DAC (Descript) |
-| Video latents | Sora's spatiotemporal patches, Latte VAE, WAN VAE |
-| Disentangled representation learning | β-VAE, FactorVAE, TCVAE |
-| Discrete latents (for transformer modelling) | VQ-VAE, RVQ (ResidualVQ) |
-| Continuous latents for generation | Plain VAE, then condition a flow/diffusion model in that latent space |
+| Encoder latent ảnh cho khuếch tán | VAE Stable Diffusion (`sd-vae-ft-ema`) hoặc VAE Flux |
+| Encoder latent âm thanh | Encodec (Meta), SoundStream, hoặc DAC (Descript) |
+| Latent video | Các patch không gian-thời gian của Sora, Latte VAE, WAN VAE |
+| Học biểu diễn tách biệt | β-VAE, FactorVAE, TCVAE |
+| Latent rời rạc (cho mô hình hóa transformer) | VQ-VAE, RVQ (ResidualVQ) |
+| Latent liên tục cho sinh | VAE thông thường, rồi điều kiện hóa một mô hình flow/khuếch tán trong không gian latent đó |
 
-A latent-diffusion model is a VAE with a diffusion model living between encoder and decoder. The VAE does coarse compression, the diffusion model does the heavy lifting. Same pattern for video (VAE + video-diffusion DiT) and audio (Encodec + MusicGen transformer).
+Một mô hình khuếch tán tiềm ẩn là một VAE có một mô hình khuếch tán nằm giữa encoder và decoder. VAE thực hiện nén thô, mô hình khuếch tán làm phần việc nặng. Cùng mô thức cho video (VAE + DiT khuếch tán video) và âm thanh (Encodec + transformer MusicGen).
 
 ## Ship It
 
-Save `outputs/skill-vae-trainer.md`.
+Lưu `outputs/skill-vae-trainer.md`.
 
-Skill takes: dataset profile + latent-dim target + downstream use (reconstruction, sampling, or latent-diffusion input) and outputs: architecture choice (plain/β/VQ/RVQ), β schedule, latent dim, decoder likelihood (Gaussian vs categorical), and evaluation plan (recon MSE, KL per dim, Fréchet distance between `q(z|x)` and `N(0, I)`).
+Skill nhận: đặc điểm tập dữ liệu + số chiều latent mục tiêu + cách dùng phía sau (tái dựng, lấy mẫu, hoặc đầu vào khuếch tán tiềm ẩn) và xuất ra: lựa chọn kiến trúc (thông thường/β/VQ/RVQ), lịch β, số chiều latent, độ hợp lý của decoder (Gaussian so với phân loại), và kế hoạch đánh giá (MSE tái dựng, KL mỗi chiều, khoảng cách Fréchet giữa `q(z|x)` và `N(0, I)`).
 
 ## Exercises
 
-1. **Easy.** Change `β` in `code/main.py` to `0.01`, `0.1`, `1.0`, `5.0`. Record the final reconstruction MSE and KL. Which β is Pareto-best for your synthetic data?
-2. **Medium.** Replace the Gaussian decoder likelihood with a Bernoulli likelihood (cross-entropy loss). Compare sample quality on a binarized version of the same synthetic data.
-3. **Hard.** Extend `code/main.py` into a mini VQ-VAE: replace the continuous `z` with a nearest-neighbour lookup in a codebook of K=32 entries. Compare reconstruction MSE and report how many codebook entries get used (codebook collapse is real).
+1. **Dễ.** Thay đổi `β` trong `code/main.py` thành `0.01`, `0.1`, `1.0`, `5.0`. Ghi lại MSE tái dựng và KL cuối cùng. β nào tốt nhất theo Pareto cho dữ liệu tổng hợp của bạn?
+2. **Trung bình.** Thay độ hợp lý của decoder Gaussian bằng độ hợp lý Bernoulli (hàm mất mát cross-entropy). So sánh chất lượng mẫu trên một phiên bản nhị phân hóa của cùng dữ liệu tổng hợp.
+3. **Khó.** Mở rộng `code/main.py` thành một VQ-VAE mini: thay `z` liên tục bằng tra cứu láng giềng gần nhất trong một codebook có K=32 mục. So sánh MSE tái dựng và báo cáo bao nhiêu mục codebook được dùng (sụp đổ codebook là có thật).
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Autoencoder | Encode-decode network | `x → z → x̂`, learn MSE. Not generative. |
-| VAE | AE with a sampler | Encoder outputs a distribution, KL penalty shapes code space. |
-| ELBO | Evidence lower bound | `log p(x) ≥ recon - KL[q(z\|x) \|\| p(z)]`; tight when `q = p(z\|x)`. |
-| Reparameterization | `z = μ + σ·ε` | Rewrites stochastic node as deterministic + pure noise. Enables backprop through sampling. |
-| Prior | `p(z)` | Target distribution for the latent, typically `N(0, I)`. |
-| Posterior collapse | "KL term wins" | Encoder ignores `x`, outputs the prior; decoder must hallucinate. |
-| β-VAE | Tunable KL weight | `loss = recon + β·KL`. Higher β = more disentangled but blurrier. |
-| VQ-VAE | Discrete latent | Replace continuous `z` with nearest codebook vector; enables transformer modelling. |
+| Autoencoder (Bộ tự mã hóa) | Mạng mã hóa-giải mã | `x → z → x̂`, học MSE. Không có tính sinh. |
+| VAE | AE có một bộ lấy mẫu | Encoder xuất ra một phân phối, khoản phạt KL định hình không gian mã. |
+| ELBO | Cận dưới bằng chứng | `log p(x) ≥ recon - KL[q(z\|x) \|\| p(z)]`; chặt khi `q = p(z\|x)`. |
+| Reparameterization (Tái tham số hóa) | `z = μ + σ·ε` | Viết lại nút ngẫu nhiên thành tất định + nhiễu thuần túy. Cho phép lan truyền ngược qua lấy mẫu. |
+| Prior (Tiên nghiệm) | `p(z)` | Phân phối mục tiêu cho latent, thường là `N(0, I)`. |
+| Posterior collapse (Sụp đổ hậu nghiệm) | "Hạng tử KL thắng" | Encoder bỏ qua `x`, xuất ra tiên nghiệm; decoder phải tưởng tượng. |
+| β-VAE | Trọng số KL điều chỉnh được | `loss = recon + β·KL`. β cao hơn = tách biệt hơn nhưng mờ hơn. |
+| VQ-VAE | Latent rời rạc | Thay `z` liên tục bằng vector codebook gần nhất; cho phép mô hình hóa transformer. |
 
 ## Production note: the VAE is the hottest path in a diffusion server
 
-In a Stable Diffusion / Flux / SD3 pipeline the VAE is called twice per request — once to encode (if doing img2img / inpainting) and once to decode. At 1024² the decoder pass is often the single largest activation-memory peak in the whole pipeline because it upsamples `128×128×16` latents back to `1024×1024×3`. Two practical consequences:
+Trong một pipeline Stable Diffusion / Flux / SD3, VAE được gọi hai lần mỗi yêu cầu — một lần để mã hóa (nếu làm img2img / inpainting) và một lần để giải mã. Ở 1024², lượt decoder thường là đỉnh bộ nhớ activation đơn lẻ lớn nhất trong toàn bộ pipeline vì nó tăng mẫu các latent `128×128×16` trở lại `1024×1024×3`. Hai hệ quả thực tiễn:
 
-- **Slice or tile the decode.** `diffusers` exposes `pipe.vae.enable_slicing()` and `pipe.vae.enable_tiling()`. Tiling trades a small seam artifact for `O(tile²)` memory instead of `O(H·W)`. Essential for 1024²+ on consumer GPUs.
-- **bf16 decoder, fp32 numerics for the final resize.** The SD 1.x VAE was released in fp32 and *silently produces NaNs* when cast to fp16 at 1024²+. SDXL ships `madebyollin/sdxl-vae-fp16-fix` — always prefer the fp16-fix variant or use bf16.
+- **Chia lát hoặc chia ô việc giải mã.** `diffusers` cung cấp `pipe.vae.enable_slicing()` và `pipe.vae.enable_tiling()`. Chia ô đánh đổi một lỗi giả đường nối nhỏ để có bộ nhớ `O(tile²)` thay vì `O(H·W)`. Thiết yếu cho 1024²+ trên GPU phổ thông.
+- **Decoder bf16, tính toán số fp32 cho lần đổi kích thước cuối.** VAE SD 1.x được phát hành ở fp32 và *âm thầm tạo ra NaN* khi ép sang fp16 ở 1024²+. SDXL cung cấp `madebyollin/sdxl-vae-fp16-fix` — luôn ưu tiên biến thể fp16-fix hoặc dùng bf16.
 
 ## Further Reading
 
-- [Kingma & Welling (2013). Auto-Encoding Variational Bayes](https://arxiv.org/abs/1312.6114) — the VAE paper.
-- [Higgins et al. (2017). β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework](https://openreview.net/forum?id=Sy2fzU9gl) — disentangled β-VAE.
+- [Kingma & Welling (2013). Auto-Encoding Variational Bayes](https://arxiv.org/abs/1312.6114) — bài báo VAE.
+- [Higgins et al. (2017). β-VAE: Learning Basic Visual Concepts with a Constrained Variational Framework](https://openreview.net/forum?id=Sy2fzU9gl) — β-VAE tách biệt.
 - [van den Oord et al. (2017). Neural Discrete Representation Learning](https://arxiv.org/abs/1711.00937) — VQ-VAE.
-- [Vahdat & Kautz (2021). NVAE: A Deep Hierarchical Variational Autoencoder](https://arxiv.org/abs/2007.03898) — state-of-the-art image VAE.
-- [Rombach et al. (2022). High-Resolution Image Synthesis with Latent Diffusion Models](https://arxiv.org/abs/2112.10752) — Stable Diffusion; VAE as encoder.
-- [Défossez et al. (2022). High Fidelity Neural Audio Compression](https://arxiv.org/abs/2210.13438) — Encodec, the audio VAE standard.
+- [Vahdat & Kautz (2021). NVAE: A Deep Hierarchical Variational Autoencoder](https://arxiv.org/abs/2007.03898) — VAE ảnh tiên tiến nhất.
+- [Rombach et al. (2022). High-Resolution Image Synthesis with Latent Diffusion Models](https://arxiv.org/abs/2112.10752) — Stable Diffusion; VAE làm encoder.
+- [Défossez et al. (2022). High Fidelity Neural Audio Compression](https://arxiv.org/abs/2210.13438) — Encodec, tiêu chuẩn VAE âm thanh.
