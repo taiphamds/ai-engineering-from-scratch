@@ -1,6 +1,6 @@
 # The Direct Preference Optimization Family
 
-> Rafailov et al. (2023) showed RLHF's optimum has a closed form in terms of the preference data, so you can skip the explicit reward model and optimize the policy directly. That insight spawned a family — IPO, KTO, SimPO, ORPO, BPO — each fixing a failure mode of DPO. In 2026, direct alignment algorithms ship more frontier post-training runs than PPO. But the over-optimization curve from Lesson 2 still applies: DAAs do not escape Goodhart, they just move where it bites.
+> Rafailov và cộng sự (2023) cho thấy nghiệm tối ưu của RLHF có dạng đóng theo dữ liệu ưu tiên, nên bạn có thể bỏ mô hình phần thưởng tường minh và tối ưu chính sách trực tiếp. Hiểu biết đó sinh ra một họ — IPO, KTO, SimPO, ORPO, BPO — mỗi phương pháp sửa một chế độ lỗi của DPO. Năm 2026, thuật toán căn chỉnh trực tiếp được dùng trong nhiều lần chạy hậu huấn luyện tiên tiến hàng đầu hơn PPO. Nhưng đường cong quá tối ưu hóa từ Bài 2 vẫn áp dụng: DAA không thoát Goodhart, chúng chỉ chuyển nơi nó gây hại.
 
 **Type:** Learn
 **Languages:** Python (stdlib, six-variant preference-loss comparator)
@@ -9,34 +9,34 @@
 
 ## Learning Objectives
 
-- Derive the DPO closed form from the RLHF-with-KL optimum.
-- State the failure mode each of IPO, KTO, SimPO, ORPO, BPO fixes in DPO.
-- Distinguish "implicit reward gap" from "preference strength" and explain why IPO's identity mapping matters.
-- Explain why Rafailov et al. (NeurIPS 2024) prove DAAs over-optimize despite having no explicit RM.
+- Suy ra dạng đóng DPO từ nghiệm tối ưu RLHF có KL.
+- Nêu chế độ lỗi mà từng phương pháp IPO, KTO, SimPO, ORPO, BPO sửa trong DPO.
+- Phân biệt "khoảng cách phần thưởng ngầm" với "cường độ ưu tiên" và giải thích tại sao ánh xạ đồng nhất của IPO quan trọng.
+- Giải thích tại sao Rafailov và cộng sự (NeurIPS 2024) chứng minh DAA quá tối ưu hóa dù không có RM tường minh.
 
 ## The Problem
 
-The RLHF objective (Lesson 1):
+Mục tiêu RLHF (Bài 1):
 
 ```
 max_pi E_{x,y~pi} [ r(x, y) ] - beta * KL(pi || pi_ref)
 ```
 
-has a known optimum:
+có một nghiệm tối ưu đã biết:
 
 ```
 pi*(y|x) = (1/Z(x)) * pi_ref(y|x) * exp(r(x, y) / beta)
 ```
 
-So the reward is implicitly defined by the ratio of the optimal policy to the reference:
+Vì vậy phần thưởng được xác định ngầm bởi tỷ số giữa chính sách tối ưu và tham chiếu:
 
 ```
 r(x, y) = beta * log(pi*(y|x) / pi_ref(y|x)) + beta * log Z(x)
 ```
 
-Substitute this into the Bradley-Terry preference likelihood and the partition function `Z(x)` cancels because it depends only on `x`. What remains is a loss in the policy parameters alone — no reward model needed. That is DPO.
+Thay biểu thức này vào likelihood ưu tiên Bradley-Terry và hàm phân hoạch `Z(x)` triệt tiêu vì nó chỉ phụ thuộc `x`. Phần còn lại là hàm mất mát chỉ theo tham số chính sách — không cần mô hình phần thưởng. Đó là DPO.
 
-The wrinkle: the derivation assumes the optimum is reachable, the preference data is in-distribution, and the reference policy is the true mode anchor. None of these hold exactly. Every family member fixes a different violated assumption.
+Điểm vướng: phép suy dẫn giả định nghiệm tối ưu đạt được, dữ liệu ưu tiên nằm trong phân phối và chính sách tham chiếu là điểm neo mode thực. Không giả định nào đúng hoàn toàn. Mỗi thành viên trong họ sửa một giả định bị vi phạm khác nhau.
 
 ## The Concept
 
@@ -49,35 +49,35 @@ L_DPO = -log sigmoid(
 )
 ```
 
-What can go wrong:
+Điều gì có thể sai:
 
-- The implicit reward gap `beta * (log(pi/pi_ref)_w - log(pi/pi_ref)_l)` is unbounded. A tiny preference can produce an arbitrarily large gap.
-- The loss drives chosen and rejected log-probs in opposite directions. It can push the chosen absolute log-prob down as long as the rejected falls faster. This is the Degraded Chosen Response phenomenon.
-- Out-of-distribution preferences (rare rare pair vs rare rare pair) produce arbitrary implicit rewards.
+- Khoảng cách phần thưởng ngầm `beta * (log(pi/pi_ref)_w - log(pi/pi_ref)_l)` không bị chặn. Một ưu tiên rất nhỏ có thể tạo khoảng cách lớn tùy ý.
+- Hàm mất mát đẩy log-prob được chọn và bị loại theo hai hướng đối lập. Nó có thể đẩy log-prob tuyệt đối của phần được chọn xuống miễn phần bị loại giảm nhanh hơn. Đây là hiện tượng Phản hồi Được chọn Suy giảm.
+- Ưu tiên ngoài phân phối (cặp hiếm hiếm so với cặp hiếm hiếm) tạo phần thưởng ngầm tùy ý.
 
 ### IPO (Azar et al., 2024)
 
-Identity Preference Optimization replaces the log-sigmoid with an identity mapping on the preference probability. The loss becomes a squared-error on a bounded target:
+Tối ưu hóa Ưu tiên Đồng nhất thay log-sigmoid bằng ánh xạ đồng nhất trên xác suất ưu tiên. Hàm mất mát trở thành sai số bình phương trên một mục tiêu bị chặn:
 
 ```
 L_IPO = (log(pi(y_w | x) / pi_ref(y_w | x)) - log(pi(y_l | x) / pi_ref(y_l | x)) - 1/(2 beta))^2
 ```
 
-The margin is bounded by `1/(2 beta)`. Preference strength and implicit-reward gap are proportional. No blow-up.
+Biên bị chặn bởi `1/(2 beta)`. Cường độ ưu tiên và khoảng cách phần thưởng ngầm tỷ lệ thuận. Không bùng nổ.
 
 ### KTO (Ethayarajh et al., 2024)
 
-Kahneman-Tversky Optimization drops pairwise structure entirely. Given a single labeled output and a binary "desirable" or "undesirable" signal, it maps to a prospect-theory utility:
+Tối ưu hóa Kahneman-Tversky bỏ hoàn toàn cấu trúc theo cặp. Với một đầu ra có nhãn duy nhất và tín hiệu nhị phân "mong muốn" hoặc "không mong muốn", nó ánh xạ sang mức thỏa dụng theo lý thuyết triển vọng:
 
 ```
 v(x, y) = sigma(beta * log(pi(y|x) / pi_ref(y|x)) - z_ref)
 ```
 
-with different weights for gains and losses (loss aversion). Benefit: you can use unpaired data, which is far more plentiful.
+với trọng số khác nhau cho được và mất (né tránh mất mát). Lợi ích: bạn có thể dùng dữ liệu không ghép cặp, vốn dồi dào hơn nhiều.
 
 ### SimPO (Meng et al., 2024)
 
-Simple Preference Optimization aligns the training signal with generation. Remove the reference policy entirely and normalize log-likelihood by length:
+Tối ưu hóa Ưu tiên Đơn giản căn chỉnh tín hiệu huấn luyện với quá trình sinh. Loại hoàn toàn chính sách tham chiếu và chuẩn hóa log-likelihood theo độ dài:
 
 ```
 L_SimPO = -log sigmoid(
@@ -87,38 +87,38 @@ L_SimPO = -log sigmoid(
 )
 ```
 
-with a margin `gamma` to stabilize. The length normalization removes the incentive to exploit DPO's length-bias failure mode (longer `y_w` gives a larger log-prob gap by construction).
+với biên `gamma` để ổn định. Chuẩn hóa độ dài loại bỏ động cơ khai thác chế độ lỗi thiên lệch độ dài của DPO (`y_w` dài hơn cho khoảng cách log-prob lớn hơn theo cách xây dựng).
 
 ### ORPO (Hong et al., 2024)
 
-Odds-Ratio Preference Optimization adds a preference term to the standard SFT negative log-likelihood:
+Tối ưu hóa Ưu tiên Tỷ số Odds thêm một số hạng ưu tiên vào log-likelihood âm SFT tiêu chuẩn:
 
 ```
 L_ORPO = L_NLL(y_w) + lambda * L_OR
 L_OR = -log sigmoid(log(odds(y_w) / odds(y_l)))
 ```
 
-No reference policy — the SFT term is the regularizer. Train in a single stage from the base model to the aligned model. No separate SFT checkpoint.
+Không có chính sách tham chiếu — số hạng SFT là bộ điều chuẩn. Huấn luyện trong một giai đoạn từ mô hình nền đến mô hình được căn chỉnh. Không có checkpoint SFT riêng.
 
 ### BPO (ICLR 2026 submission, OpenReview id=b97EwMUWu7)
 
-Identifies the Degraded Chosen Responses problem: DPO preserves the ranking `y_w > y_l` but the absolute log-prob of `y_w` can drop. BPO adds a single-line correction that penalizes downward moves on the chosen response. Reported +10.1% accuracy on Llama-3.1-8B-Instruct on math reasoning over DPO.
+Xác định vấn đề Phản hồi Được chọn Suy giảm: DPO giữ xếp hạng `y_w > y_l` nhưng log-prob tuyệt đối của `y_w` có thể giảm. BPO thêm hiệu chỉnh một dòng phạt việc giảm trên phản hồi được chọn. Báo cáo độ chính xác +10.1% trên Llama-3.1-8B-Instruct ở suy luận toán so với DPO.
 
 ### The universal result: DAAs still over-optimize
 
-Rafailov et al. "Scaling Laws for Reward Model Overoptimization in Direct Alignment Algorithms" (NeurIPS 2024) trained policies with DPO, IPO, SLiC on multiple datasets across KL budgets. The gold-reward-vs-KL curves have the same Gao et al. peak-and-collapse shape. The implicit reward queries out-of-distribution samples during training; KL regularization does not stabilize this.
+Rafailov và cộng sự trong "Scaling Laws for Reward Model Overoptimization in Direct Alignment Algorithms" (NeurIPS 2024) huấn luyện chính sách bằng DPO, IPO, SLiC trên nhiều tập dữ liệu qua các ngân sách KL. Các đường cong phần thưởng chuẩn theo KL có cùng hình dạng đạt đỉnh rồi sụp đổ của Gao và cộng sự. Phần thưởng ngầm truy vấn mẫu ngoài phân phối trong huấn luyện; điều chuẩn KL không ổn định điều này.
 
-DAAs do not escape Goodhart. They change the surface where it bites from "reward model over-optimized" to "reference policy ratio over-optimized." The universal fix — better data, ensembles, early stopping — applies to both.
+DAA không thoát Goodhart. Chúng thay bề mặt nó gây hại từ "mô hình phần thưởng bị quá tối ưu hóa" sang "tỷ số chính sách tham chiếu bị quá tối ưu hóa." Giải pháp phổ quát — dữ liệu tốt hơn, tổ hợp, dừng sớm — áp dụng cho cả hai.
 
 ### Choosing among them (2026)
 
-- If you have large paired preference data: DPO with conservative beta, SimPO if length bias is evident.
-- If you have unpaired binary feedback: KTO.
-- If you want a single-stage pipeline from a base model: ORPO.
-- If you see degraded chosen log-probs in DPO logs: BPO.
-- If preference strengths vary widely and DPO is saturating: IPO.
+- Nếu bạn có dữ liệu ưu tiên ghép cặp lớn: DPO với beta thận trọng, SimPO nếu thiên lệch độ dài rõ ràng.
+- Nếu bạn có phản hồi nhị phân không ghép cặp: KTO.
+- Nếu bạn muốn pipeline một giai đoạn từ mô hình nền: ORPO.
+- Nếu bạn thấy log-prob được chọn suy giảm trong log DPO: BPO.
+- Nếu cường độ ưu tiên biến thiên rộng và DPO đang bão hòa: IPO.
 
-Every lab runs all five on a battery and picks the winner per task. There is no reason the optimum is the same for math reasoning and safety.
+Mọi phòng thí nghiệm chạy cả năm trên một bộ kiểm thử và chọn phương án thắng theo từng tác vụ. Không có lý do nghiệm tối ưu giống nhau cho suy luận toán và an toàn.
 
 ```figure
 dpo-margin
@@ -126,37 +126,37 @@ dpo-margin
 
 ## Use It
 
-`code/main.py` compares six losses (DPO, IPO, KTO, SimPO, ORPO, BPO) on a toy preference dataset where the true preference strength varies by pair. Each loss is optimized against the same 500-pair sample with a small softmax policy. Plots final win rate, chosen-log-prob drift, and implicit-reward spread per method.
+`code/main.py` so sánh sáu hàm mất mát (DPO, IPO, KTO, SimPO, ORPO, BPO) trên tập dữ liệu ưu tiên đơn giản nơi cường độ ưu tiên thực thay đổi theo cặp. Mỗi hàm mất mát được tối ưu trên cùng mẫu 500 cặp với chính sách softmax nhỏ. Vẽ tỷ lệ thắng cuối, độ trôi log-prob được chọn và độ phân tán phần thưởng ngầm theo phương pháp.
 
 ## Ship It
 
-This lesson produces `outputs/skill-preference-loss-selector.md`. Given dataset statistics (paired vs unpaired, variable vs uniform preference strength, length distribution) and a target (single-stage or SFT-then-preference), recommend a preference loss and report the failure mode it protects against.
+Bài học này tạo ra `outputs/skill-preference-loss-selector.md`. Với thống kê tập dữ liệu (ghép cặp so với không ghép cặp, cường độ ưu tiên biến thiên so với đồng nhất, phân phối độ dài) và mục tiêu (một giai đoạn hoặc SFT rồi ưu tiên), khuyến nghị hàm mất mát ưu tiên và báo cáo chế độ lỗi nó bảo vệ chống lại.
 
 ## Exercises
 
-1. Run `code/main.py`. Report the final chosen-log-prob drop for DPO and BPO. BPO should retain higher chosen absolute probability — verify this.
+1. Chạy `code/main.py`. Báo cáo mức giảm log-prob được chọn cuối cho DPO và BPO. BPO nên giữ xác suất tuyệt đối được chọn cao hơn — xác minh điều này.
 
-2. Modify the preference data so that all pairs have equal strength. Which of the six methods is most robust? Which degrades? Explain IPO's advantage here.
+2. Sửa dữ liệu ưu tiên để mọi cặp có cường độ bằng nhau. Phương pháp nào trong sáu phương pháp vững nhất? Phương pháp nào suy giảm? Giải thích lợi thế IPO ở đây.
 
-3. Make the rejected responses on average 2x longer than chosen. Without changing anything else, show DPO's length exploitation numerically and SimPO's fix.
+3. Làm phản hồi bị loại dài trung bình 2x phản hồi được chọn. Không thay đổi gì khác, cho thấy việc DPO khai thác độ dài bằng số và cách SimPO sửa.
 
-4. Rafailov et al. (NeurIPS 2024) claim DAAs over-optimize. Reproduce a single-point version: plot chosen-minus-rejected KL divergence and observe over-optimization in DPO at large beta.
+4. Rafailov và cộng sự (NeurIPS 2024) khẳng định DAA quá tối ưu hóa. Tái tạo phiên bản một điểm: vẽ phân kỳ KL được chọn-trừ-bị loại và quan sát quá tối ưu hóa trong DPO ở beta lớn.
 
-5. Read the BPO paper abstract (OpenReview b97EwMUWu7). Write down the one-line correction BPO adds to DPO. Confirm against the implementation in `code/main.py`.
+5. Đọc tóm tắt bài báo BPO (OpenReview b97EwMUWu7). Viết hiệu chỉnh một dòng BPO thêm vào DPO. Xác nhận với cách triển khai trong `code/main.py`.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|-----------------|------------------------|
-| DPO | "RLHF without a reward model" | Loss derived from the closed-form RLHF optimum; policy parameters only |
-| Implicit reward | "the log-ratio" | `beta * log(pi(y\|x) / pi_ref(y\|x))` — the DPO-implied reward |
-| IPO | "bounded DPO" | Replaces log-sigmoid with identity; implicit reward gap capped by `1/(2 beta)` |
-| KTO | "unpaired DPO" | Prospect-theory utility over single labels with loss aversion |
-| SimPO | "reference-free DPO" | Length-normalized log-likelihood + margin; no reference policy |
-| ORPO | "one-stage DPO" | NLL + odds-ratio preference term; trains from base model in one pass |
-| BPO | "chosen-preserving DPO" | DPO plus a penalty for decreasing the chosen response's absolute log-prob |
-| Degraded Chosen | "chosen goes down" | DPO decreases chosen log-prob so long as rejected falls faster |
-| DAA | "direct alignment algorithm" | Any preference-loss method that skips an explicit RM |
+| DPO | "RLHF không có mô hình phần thưởng" | Hàm mất mát suy ra từ nghiệm tối ưu RLHF dạng đóng; chỉ tham số chính sách |
+| Implicit reward (Phần thưởng ngầm) | "log-ratio" | `beta * log(pi(y\|x) / pi_ref(y\|x))` — phần thưởng được DPO hàm ý |
+| IPO | "DPO bị chặn" | Thay log-sigmoid bằng đồng nhất; khoảng cách phần thưởng ngầm bị chặn bởi `1/(2 beta)` |
+| KTO | "DPO không ghép cặp" | Mức thỏa dụng lý thuyết triển vọng trên nhãn đơn với né tránh mất mát |
+| SimPO | "DPO không tham chiếu" | Log-likelihood chuẩn hóa độ dài + biên; không có chính sách tham chiếu |
+| ORPO | "DPO một giai đoạn" | NLL + số hạng ưu tiên tỷ số odds; huấn luyện từ mô hình nền trong một lượt |
+| BPO | "DPO giữ phần được chọn" | DPO cộng hình phạt cho việc giảm log-prob tuyệt đối của phản hồi được chọn |
+| Degraded Chosen (Phần được chọn suy giảm) | "phần được chọn đi xuống" | DPO giảm log-prob được chọn miễn phần bị loại giảm nhanh hơn |
+| DAA | "thuật toán căn chỉnh trực tiếp" | Mọi phương pháp hàm mất mát ưu tiên bỏ RM tường minh |
 
 ## Further Reading
 
