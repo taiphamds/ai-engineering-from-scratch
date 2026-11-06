@@ -1,6 +1,6 @@
 # Leaderboard Aggregation
 
-> Per-task scores are easy. Per-model rankings across heterogeneous tasks are harder. Statistical significance on a thousand-prediction leaderboard is the part everyone skips. This lesson does not skip it.
+> Các điểm theo tác vụ dễ. Xếp hạng theo mô hình trên các tác vụ không đồng nhất khó hơn. Ý nghĩa thống kê trên một bảng xếp hạng nghìn dự đoán là phần mọi người bỏ qua. Bài này không bỏ qua nó.
 
 **Type:** Build
 **Languages:** Python
@@ -9,11 +9,11 @@
 
 ## Learning objectives
 
-- Aggregate per-task scores across multiple models and multiple tasks into a tidy per-model row.
-- Normalise heterogeneous scores so that pass rates and BLEU values do not over-influence the aggregate.
-- Rank models by mean and by win-rate, and explain when each is the right summary.
-- Compute bootstrap confidence intervals on the mean score per model and on pairwise differences.
-- Output the leaderboard as a JSON report and as a markdown table the runner in lesson 75 can paste into a CI comment.
+- Tổng hợp các điểm theo tác vụ trên nhiều mô hình và nhiều tác vụ thành một hàng gọn gàng theo mô hình.
+- Chuẩn hóa các điểm không đồng nhất để các tỷ lệ đạt và giá trị BLEU không ảnh hưởng quá mức đến tổng hợp.
+- Xếp hạng các mô hình theo trung bình và theo tỷ lệ thắng, và giải thích khi nào mỗi cách là tóm tắt đúng.
+- Tính các khoảng tin cậy bootstrap trên điểm trung bình theo mô hình và trên các chênh lệch từng cặp.
+- Xuất bảng xếp hạng như một báo cáo JSON và như một bảng markdown mà trình chạy trong bài 75 có thể dán vào một bình luận CI.
 
 ```figure
 ci-leaderboard-ci
@@ -21,7 +21,7 @@ ci-leaderboard-ci
 
 ## The shape of input
 
-The aggregator consumes a list of `EvalRun` records:
+Bộ tổng hợp tiêu thụ một danh sách bản ghi `EvalRun`:
 
 ```python
 @dataclass
@@ -33,11 +33,11 @@ class EvalRun:
     category: str
 ```
 
-The runner in lesson 75 emits one record per `(model, task)` pair. The aggregator does not care how the score was produced. It expects normalisation to already have happened: every score is in `[0, 1]`.
+Trình chạy trong bài 75 phát ra một bản ghi mỗi cặp `(model, task)`. Bộ tổng hợp không quan tâm điểm được tạo ra thế nào. Nó kỳ vọng chuẩn hóa đã xảy ra: mọi điểm nằm trong `[0, 1]`.
 
 ## The output
 
-Three tables come out:
+Ba bảng đi ra:
 
 ```mermaid
 flowchart LR
@@ -51,19 +51,19 @@ flowchart LR
     G --> H[JSON + markdown table]
 ```
 
-The leaderboard row contains: `model_id`, `mean_score`, `mean_ci_lo`, `mean_ci_hi`, `win_rate`, `tasks_completed`, and an optional `categories` map for per-category mean.
+Hàng bảng xếp hạng chứa: `model_id`, `mean_score`, `mean_ci_lo`, `mean_ci_hi`, `win_rate`, `tasks_completed`, và một ánh xạ `categories` tùy chọn cho trung bình theo hạng mục.
 
 ## Normalisation
 
-If one task scores in `[0, 1]` and another in `[0, 100]`, the second silently dominates the mean. The aggregator validates that every input score sits in `[0, 1]` and refuses the run otherwise. The fix lives upstream: the metric should already return a fraction. Lessons 71 to 73 enforce that contract.
+Nếu một tác vụ chấm trong `[0, 1]` và tác vụ khác trong `[0, 100]`, cái thứ hai âm thầm chi phối trung bình. Bộ tổng hợp xác thực mọi điểm đầu vào nằm trong `[0, 1]` và từ chối lần chạy nếu không. Cách sửa nằm ở thượng nguồn: chỉ số nên đã trả về một tỷ lệ. Các bài 71 đến 73 thực thi hợp đồng đó.
 
 ## Mean and win-rate
 
-The two ranking schemes serve different goals.
+Hai sơ đồ xếp hạng phục vụ các mục tiêu khác nhau.
 
-Mean score is the average of per-task scores for one model. It is the headline number leaderboards report. It is sensitive to outliers and to task imbalance.
+Điểm trung bình là trung bình các điểm theo tác vụ cho một mô hình. Nó là con số chính các bảng xếp hạng báo cáo. Nó nhạy với các giá trị ngoại lai và sự mất cân bằng tác vụ.
 
-Win-rate counts how often a model beats every other model on the same task. For each task, the model with the highest score wins (ties split). Win rate equals wins divided by the number of tasks where the model has a score. It is less sensitive to outliers and to scale differences but loses information.
+Tỷ lệ thắng đếm tần suất một mô hình vượt mọi mô hình khác trên cùng tác vụ. Với mỗi tác vụ, mô hình có điểm cao nhất thắng (hòa chia đều). Tỷ lệ thắng bằng số thắng chia cho số tác vụ mà mô hình có điểm. Nó ít nhạy với các giá trị ngoại lai và khác biệt thang đo hơn nhưng mất thông tin.
 
 ```python
 def win_rate(model_id, runs_by_task, all_models):
@@ -79,11 +79,11 @@ def win_rate(model_id, runs_by_task, all_models):
     return wins / total if total else 0.0
 ```
 
-The harness reports both. The runner in lesson 75 ranks by mean by default; the markdown column for win-rate is right there in case the user prefers it.
+Harness báo cáo cả hai. Trình chạy trong bài 75 mặc định xếp theo trung bình; cột markdown cho tỷ lệ thắng ở ngay đó nếu người dùng thích nó.
 
 ## Bootstrap confidence intervals
 
-Per-model means come with a confidence interval estimated by bootstrap resampling over tasks. We resample task ids with replacement, compute the mean over the resampled set, repeat `B` times, and take the percentile interval at level `alpha`.
+Các trung bình theo mô hình đi kèm một khoảng tin cậy được ước lượng bằng lấy mẫu lại bootstrap trên các tác vụ. Chúng ta lấy mẫu lại các id tác vụ có hoàn lại, tính trung bình trên tập được lấy mẫu lại, lặp `B` lần, và lấy khoảng phân vị ở mức `alpha`.
 
 ```mermaid
 flowchart TD
@@ -97,17 +97,17 @@ flowchart TD
     G --> H[CI lo, CI hi]
 ```
 
-For pairwise comparisons we bootstrap the per-task difference `score_A - score_B`, take the percentile interval, and report it. The user reads off whether the interval excludes zero. If it does, the difference is significant at level alpha. If it does not, the leaderboard treats the models as tied.
+Với các so sánh từng cặp chúng ta bootstrap chênh lệch theo tác vụ `score_A - score_B`, lấy khoảng phân vị, và báo cáo nó. Người dùng đọc xem khoảng có loại trừ không không. Nếu có, chênh lệch có ý nghĩa ở mức alpha. Nếu không, bảng xếp hạng coi các mô hình hòa.
 
-The low-level helpers (`bootstrap_mean_ci`, `bootstrap_pairwise_diff`) default to `B=1000`; the public aggregators (`aggregate`, `pairwise_diffs`) default to `b=500` so the demo and tests stay quick. The default alpha is 0.05. The lesson keeps the bootstrap pure numpy, no scipy.
+Các hàm hỗ trợ cấp thấp (`bootstrap_mean_ci`, `bootstrap_pairwise_diff`) mặc định `B=1000`; các bộ tổng hợp công khai (`aggregate`, `pairwise_diffs`) mặc định `b=500` để demo và kiểm thử giữ nhanh. Alpha mặc định là 0.05. Bài học giữ bootstrap numpy thuần, không scipy.
 
 ## Categories
 
-If `EvalRun.category` is set, the aggregator also reports per-category mean. This is the column on every leaderboard that says `math`, `reasoning`, `code`, `safety`. It lets the runner spot whether a model is good overall but weak in code, which is information the headline mean hides.
+Nếu `EvalRun.category` được đặt, bộ tổng hợp cũng báo cáo trung bình theo hạng mục. Đây là cột trên mọi bảng xếp hạng nói `math`, `reasoning`, `code`, `safety`. Nó để trình chạy phát hiện liệu một mô hình tốt tổng thể nhưng yếu về mã không, là thông tin trung bình chính che giấu.
 
 ## Markdown rendering
 
-The leaderboard is rendered as a markdown table:
+Bảng xếp hạng được kết xuất như một bảng markdown:
 
 ```text
 | Rank | Model | Mean | 95% CI | Win rate | Tasks |
@@ -117,18 +117,18 @@ The leaderboard is rendered as a markdown table:
 | 3    | random| 0.10 | 0.07-0.13 | 0.04 | 50 |
 ```
 
-The table is sorted by mean score. The CI is rendered to two decimals. Long model ids are truncated to twenty characters.
+Bảng được sắp theo điểm trung bình. CI được hiển thị đến hai chữ số thập phân. Các id mô hình dài bị cắt ở hai mươi ký tự.
 
 ## What this lesson does not do
 
-It does not run models. It does not call the metric layer. It does not implement adaptive ECE or other calibration variants; those are lesson 73. It does not implement task weighting. Every task counts the same here. Production leaderboards weight tasks; we leave that hook open through the `weight` field but ignore it in the aggregator. Add weighting in a follow-up lesson if you need it.
+Nó không chạy các mô hình. Nó không gọi lớp chỉ số. Nó không triển khai ECE thích ứng hoặc các biến thể hiệu chuẩn khác; đó là bài 73. Nó không triển khai trọng số tác vụ. Mọi tác vụ được tính như nhau ở đây. Các bảng xếp hạng sản xuất đặt trọng số tác vụ; chúng ta để hook đó mở qua trường `weight` nhưng bỏ qua nó trong bộ tổng hợp. Thêm trọng số trong một bài tiếp nối nếu bạn cần.
 
 ## How to read the code
 
-`main.py` defines `EvalRun`, `LeaderboardRow`, `aggregate`, `bootstrap_mean_ci`, `bootstrap_pairwise_diff`, and `render_markdown`. The demo builds a synthetic suite of three models and twelve tasks, aggregates, and prints the leaderboard plus the pairwise diff table. The tests in `code/tests/test_leaderboard.py` pin the bootstrap, the markdown rendering, the win-rate edge cases, and the empty-input behaviour.
+`main.py` định nghĩa `EvalRun`, `LeaderboardRow`, `aggregate`, `bootstrap_mean_ci`, `bootstrap_pairwise_diff`, và `render_markdown`. Demo xây dựng một bộ tổng hợp gồm ba mô hình và mười hai tác vụ, tổng hợp, và in bảng xếp hạng cùng bảng diff từng cặp. Các kiểm thử trong `code/tests/test_leaderboard.py` ghim bootstrap, kết xuất markdown, các trường hợp biên tỷ lệ thắng, và hành vi đầu vào rỗng.
 
-Read `main.py` top to bottom. The data shape (EvalRun, LeaderboardRow) comes first, the aggregator next, the bootstrap third, the rendering last. Each function has a focused contract.
+Đọc `main.py` từ trên xuống dưới. Hình thức dữ liệu (EvalRun, LeaderboardRow) đến trước, bộ tổng hợp tiếp theo, bootstrap thứ ba, kết xuất cuối. Mỗi hàm có một hợp đồng tập trung.
 
 ## Going further
 
-The natural next step is paired-task significance instead of unpaired bootstrap. If model A and B both ran the same hundred tasks, the appropriate test is the paired bootstrap on task-by-task differences, which we implement. Beyond that, you want a hierarchical bootstrap that respects task families (math problems are not independent from each other; an arithmetic error pattern affects ten of them). That is a follow-up. The point of this lesson is to get the floor right so the eval reports a number you can defend.
+Bước tiếp theo tự nhiên là ý nghĩa tác vụ ghép cặp thay vì bootstrap không ghép cặp. Nếu mô hình A và B đều chạy cùng một trăm tác vụ, kiểm định thích hợp là bootstrap ghép cặp trên các chênh lệch từng tác vụ, điều chúng ta triển khai. Xa hơn, bạn muốn một bootstrap phân cấp tôn trọng các họ tác vụ (các bài toán không độc lập với nhau; một mẫu lỗi số học ảnh hưởng mười bài). Đó là một phần tiếp nối. Điểm chính của bài này là làm đúng mức sàn để đánh giá báo cáo một con số bạn có thể bảo vệ.
