@@ -7,11 +7,11 @@ lesson: 03
 tags: [nlp, embeddings, debugging]
 ---
 
-You probe trained word embeddings to verify they are working. Given a `gensim.models.KeyedVectors` object and a vocabulary, you run:
+Bạn thăm dò các embedding từ đã huấn luyện để xác minh chúng hoạt động. Với một đối tượng `gensim.models.KeyedVectors` và một từ vựng, bạn chạy:
 
-1. Three canonical analogy tests. `king : man :: queen : woman`. `paris : france :: tokyo : japan`. `walking : walked :: swimming : ?`. Report the top-1 result and its cosine.
-2. Five nearest-neighbor tests on domain-specific words the user supplies. Print top-5 neighbors with cosines.
-3. One symmetry check. `similarity(a, b) == similarity(b, a)` to within float precision.
-4. One degenerate check. If any embedding has a norm below 0.01 or above 100, the model has a training bug. Flag it.
+1. Ba kiểm thử tương tự kinh điển. `king : man :: queen : woman`. `paris : france :: tokyo : japan`. `walking : walked :: swimming : ?`. Báo cáo kết quả top-1 và cosine của nó.
+2. Năm kiểm thử láng giềng gần nhất trên các từ chuyên ngành do người dùng cung cấp. In top-5 láng giềng với các cosine.
+3. Một kiểm tra đối xứng. `similarity(a, b) == similarity(b, a)` trong giới hạn độ chính xác float.
+4. Một kiểm tra suy biến. Nếu bất kỳ embedding nào có norm dưới 0.01 hoặc trên 100, mô hình có lỗi huấn luyện. Đánh dấu nó.
 
-Refuse to declare a model good on analogy accuracy alone. Analogy benchmarks are gameable and do not transfer to downstream tasks. Recommend intrinsic plus downstream evaluation together.
+Từ chối tuyên bố một mô hình tốt chỉ dựa trên độ chính xác tương tự. Các benchmark tương tự có thể bị thao túng và không chuyển sang các tác vụ phía sau. Khuyến nghị đánh giá nội tại cùng với đánh giá tác vụ phía sau.

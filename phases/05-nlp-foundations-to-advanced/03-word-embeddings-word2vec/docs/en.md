@@ -1,6 +1,6 @@
 # Word Embeddings — Word2Vec from Scratch
 
-> A word is the company it keeps. Train a shallow net on that idea and geometry falls out.
+> Một từ là những gì đi cùng nó. Huấn luyện một mạng nông trên ý tưởng đó và hình học tự xuất hiện.
 
 **Type:** Build
 **Languages:** Python
@@ -9,24 +9,24 @@
 
 ## The Problem
 
-TF-IDF knows `dog` and `puppy` are different words. It does not know they mean nearly the same thing. A classifier trained on `dog` cannot generalize to a review about `puppy`. You can paper over this by listing synonyms, but that fails on rare terms, domain jargon, and every language you did not anticipate.
+TF-IDF biết `dog` và `puppy` là những từ khác nhau. Nó không biết chúng có nghĩa gần như giống nhau. Một bộ phân loại được huấn luyện trên `dog` không thể khái quát sang một đánh giá về `puppy`. Bạn có thể che lấp điều này bằng cách liệt kê các từ đồng nghĩa, nhưng cách đó thất bại với các thuật ngữ hiếm, biệt ngữ lĩnh vực và mọi ngôn ngữ bạn không dự liệu.
 
-You want a representation where `dog` and `puppy` land close together in space. Where `king - man + woman` lands near `queen`. Where a model trained on `dog` transfers some signal to `puppy` for free.
+Bạn muốn một biểu diễn mà `dog` và `puppy` nằm gần nhau trong không gian. Mà `king - man + woman` nằm gần `queen`. Mà một mô hình được huấn luyện trên `dog` chuyển một phần tín hiệu sang `puppy` miễn phí.
 
-Word2Vec gave us that space. Two layer neural network, trillion-token training runs, published in 2013. The architecture is almost embarrassingly simple. The results reshaped NLP for a decade.
+Word2Vec cho chúng ta không gian đó. Mạng nơ-ron hai tầng, các lượt huấn luyện nghìn tỷ token, được công bố năm 2013. Kiến trúc gần như đơn giản đến ngượng ngùng. Các kết quả đã định hình lại NLP trong một thập kỷ.
 
 ## The Concept
 
-**Distributional hypothesis** (Firth, 1957): "You shall know a word by the company it keeps." If two words appear in similar contexts, they probably mean similar things.
+**Giả thuyết phân bố** (Firth, 1957): "Bạn sẽ biết một từ qua những gì đi cùng nó." Nếu hai từ xuất hiện trong những ngữ cảnh tương tự, chúng có lẽ mang ý nghĩa tương tự.
 
-Word2Vec comes in two flavors, both exploiting that idea.
+Word2Vec có hai dạng, cả hai khai thác ý tưởng đó.
 
-- **Skip-gram.** Given a center word, predict the surrounding words. `cat -> (the, sat, on)` with window size 2.
-- **CBOW (continuous bag of words).** Given surrounding words, predict the center. `(the, sat, on) -> cat`.
+- **Skip-gram.** Cho một từ trung tâm, dự đoán các từ xung quanh. `cat -> (the, sat, on)` với kích thước cửa sổ 2.
+- **CBOW (bag of words liên tục).** Cho các từ xung quanh, dự đoán từ trung tâm. `(the, sat, on) -> cat`.
 
-Skip-gram is slower to train but handles rare words better. It became the default.
+Skip-gram huấn luyện chậm hơn nhưng xử lý các từ hiếm tốt hơn. Nó trở thành mặc định.
 
-The network has one hidden layer with no nonlinearity. Input is a one-hot vector over the vocabulary. Output is a softmax over the vocabulary. After training, you throw away the output layer. The hidden layer weights are the embeddings.
+Mạng có một tầng ẩn không có tính phi tuyến. Đầu vào là một vector one-hot trên từ vựng. Đầu ra là một softmax trên từ vựng. Sau huấn luyện, bạn bỏ tầng đầu ra. Các trọng số tầng ẩn là các embedding.
 
 ```
 one-hot(center) ── W ──▶ hidden (d-dim) ── W' ──▶ softmax(vocab)
@@ -34,7 +34,7 @@ one-hot(center) ── W ──▶ hidden (d-dim) ── W' ──▶ softmax(vo
                           this is the embedding
 ```
 
-The trick: softmax over 100k words is prohibitively expensive. Word2Vec uses **negative sampling** to turn it into a binary classification task. Predict "did this context word appear near this center word, yes or no". Sample a handful of negative (non-co-occurring) words per training pair instead of computing softmax over the whole vocabulary.
+Thủ thuật: softmax trên 100k từ tốn kém đến mức không thể chấp nhận. Word2Vec dùng **lấy mẫu âm** để biến nó thành một tác vụ phân loại nhị phân. Dự đoán "từ ngữ cảnh này có xuất hiện gần từ trung tâm này không, có hay không". Lấy mẫu một số ít từ âm (không đồng xuất hiện) cho mỗi cặp huấn luyện thay vì tính softmax trên toàn bộ từ vựng.
 
 ```figure
 word-vector-arithmetic
@@ -64,11 +64,11 @@ def skipgram_pairs(docs, window=2):
  ...]
 ```
 
-Every (center, context) pair in a window is a positive training example.
+Mỗi cặp (trung tâm, ngữ cảnh) trong một cửa sổ là một ví dụ huấn luyện dương.
 
 ### Step 2: embedding tables
 
-Two matrices. `W` is the center-word embedding table (the one you keep). `W'` is the context-word table (often discarded, sometimes averaged with `W`).
+Hai ma trận. `W` là bảng embedding từ trung tâm (bảng bạn giữ). `W'` là bảng từ ngữ cảnh (thường bị bỏ, đôi khi được lấy trung bình với `W`).
 
 ```python
 import numpy as np
@@ -81,11 +81,11 @@ def init_embeddings(vocab_size, dim, seed=0):
     return W, W_prime
 ```
 
-Small random init. Vocab size 10k and dim 100 is realistic; for teaching, 50 vocab x 16 dim is enough to see the geometry.
+Khởi tạo ngẫu nhiên nhỏ. Kích thước từ vựng 10k và số chiều 100 là thực tế; để giảng dạy, từ vựng 50 x số chiều 16 là đủ để thấy hình học.
 
 ### Step 3: negative sampling objective
 
-For each positive pair `(center, context)`, sample `k` random words from the vocabulary as negatives. Train the model so the dot product `W[center] · W'[context]` is high for positives and low for negatives.
+Với mỗi cặp dương `(center, context)`, lấy mẫu `k` từ ngẫu nhiên từ từ vựng làm mẫu âm. Huấn luyện mô hình sao cho tích vô hướng `W[center] · W'[context]` cao với mẫu dương và thấp với mẫu âm.
 
 ```python
 def sigmoid(x):
@@ -111,7 +111,7 @@ def train_pair(W, W_prime, center_idx, context_idx, negative_indices, lr):
     W[center_idx] -= lr * grad_center
 ```
 
-The magic formula: logistic loss on positive pair (want sigmoid near 1) plus logistic loss on negative pairs (want sigmoid near 0). Gradients flow to both tables. Full derivation is in the original paper; walk through it once with pencil and paper if you want it to stick.
+Công thức kỳ diệu: logistic loss trên cặp dương (muốn sigmoid gần 1) cộng logistic loss trên các cặp âm (muốn sigmoid gần 0). Gradient truyền đến cả hai bảng. Suy dẫn đầy đủ nằm trong bài báo gốc; đi qua nó một lần bằng bút và giấy nếu bạn muốn nhớ lâu.
 
 ### Step 4: train on a toy corpus
 
@@ -134,7 +134,7 @@ def train(docs, dim=16, window=2, k_neg=5, epochs=100, lr=0.05, seed=0):
     return vocab, W
 ```
 
-After enough epochs on a large corpus, words that share contexts have similar center embeddings. On a toy corpus, you see the effect faintly. On billions of tokens, you see it dramatically.
+Sau đủ epoch trên một ngữ liệu lớn, các từ có chung ngữ cảnh có các embedding trung tâm tương tự. Trên một ngữ liệu đồ chơi, bạn thấy hiệu ứng mờ nhạt. Trên hàng tỷ token, bạn thấy nó rõ rệt.
 
 ### Step 5: the analogy trick
 
@@ -162,18 +162,18 @@ def analogy(vocab, W, a, b, c, topk=5):
     return nearest(vocab, W, v, topk=topk, exclude={vocab[a], vocab[b], vocab[c]})
 ```
 
-On pre-trained 300d Google News vectors:
+Trên các vector Google News 300d được tiền huấn luyện:
 
 ```python
 >>> analogy(vocab, W, "man", "king", "woman")
 [('queen', 0.71), ('monarch', 0.62), ('princess', 0.59), ...]
 ```
 
-`king - man + woman = queen`. Not because the model knows what royalty is. Because the vector `(king - man)` captures something like "royal", and adding it to `woman` lands near the royal-female region.
+`king - man + woman = queen`. Không phải vì mô hình biết hoàng gia là gì. Vì vector `(king - man)` nắm bắt một thứ như "thuộc hoàng gia", và cộng nó vào `woman` đưa đến gần vùng nữ-hoàng gia.
 
 ## Use It
 
-Writing Word2Vec from scratch is teaching. Production NLP uses `gensim`.
+Viết Word2Vec từ đầu là giảng dạy. NLP production dùng `gensim`.
 
 ```python
 from gensim.models import Word2Vec
@@ -198,30 +198,30 @@ print(model.wv["cat"])
 print(model.wv.most_similar("cat", topn=3))
 ```
 
-For real work, you almost never train Word2Vec yourself. You download pre-trained vectors.
+Cho công việc thực tế, bạn gần như không bao giờ tự huấn luyện Word2Vec. Bạn tải các vector được tiền huấn luyện.
 
-- **GloVe** — Stanford's co-occurrence-matrix factorization approach. 50d, 100d, 200d, 300d checkpoints. Good general coverage. Lesson 04 covers GloVe specifically.
-- **fastText** — Facebook's Word2Vec extension that embeds character n-grams. Handles out-of-vocabulary words by composing subwords. Lesson 04.
-- **Pretrained Word2Vec on Google News** — 300d, 3M word vocabulary, published 2013. Still downloaded daily.
+- **GloVe** — cách tiếp cận phân rã ma trận đồng xuất hiện của Stanford. Các checkpoint 50d, 100d, 200d, 300d. Độ bao phủ tổng quát tốt. Bài 04 đề cập riêng GloVe.
+- **fastText** — phần mở rộng Word2Vec của Facebook embedding các n-gram ký tự. Xử lý các từ ngoài từ vựng bằng cách kết hợp các từ con. Bài 04.
+- **Word2Vec được tiền huấn luyện trên Google News** — 300d, từ vựng 3M từ, công bố năm 2013. Vẫn được tải hằng ngày.
 
 ### When Word2Vec still wins in 2026
 
-- Lightweight domain-specific retrieval. Train on medical abstracts in an hour on a laptop, get specialized vectors no general model captures.
-- Analogy-style feature engineering. `gender_vector = mean(man - woman pairs)`. Subtract it from other words to get a gender-neutral axis. Still used in fairness research.
-- Interpretability. 100d is small enough to plot via PCA or t-SNE and actually see clusters form.
-- Anywhere inference has to run on-device with no GPU. Word2Vec lookup is a single row fetch.
+- Truy xuất nhẹ theo lĩnh vực. Huấn luyện trên các tóm tắt y khoa trong một giờ trên máy tính xách tay, có được các vector chuyên biệt mà không mô hình tổng quát nào nắm bắt.
+- Kỹ thuật đặc trưng kiểu tương tự. `gender_vector = mean(man - woman pairs)`. Trừ nó khỏi các từ khác để có một trục trung lập về giới. Vẫn được dùng trong nghiên cứu công bằng.
+- Khả năng diễn giải. 100d đủ nhỏ để vẽ qua PCA hoặc t-SNE và thực sự thấy các cụm hình thành.
+- Bất kỳ nơi nào suy luận phải chạy trên thiết bị mà không có GPU. Tra cứu Word2Vec là lấy một hàng duy nhất.
 
 ### Where Word2Vec fails
 
-The polysemy wall. `bank` has one vector. `river bank` and `financial bank` share it. `table` (spreadsheet vs. furniture) shares it. A classifier downstream cannot distinguish the senses from the vector.
+Bức tường đa nghĩa. `bank` có một vector. `river bank` và `financial bank` dùng chung nó. `table` (bảng tính so với đồ nội thất) dùng chung nó. Một bộ phân loại phía sau không thể phân biệt các nghĩa từ vector.
 
-Contextual embeddings (ELMo, BERT, every transformer since) solved this by producing a different vector for each occurrence of the word based on surrounding context. That is the jump from Word2Vec to BERT: from static to contextual. Phase 7 covers the transformer half.
+Embedding theo ngữ cảnh (ELMo, BERT, mọi transformer kể từ đó) giải quyết điều này bằng cách tạo một vector khác cho mỗi lần xuất hiện của từ dựa trên ngữ cảnh xung quanh. Đó là bước nhảy từ Word2Vec sang BERT: từ tĩnh sang theo ngữ cảnh. Phase 7 đề cập nửa transformer.
 
-The out-of-vocabulary problem is the other failure. Word2Vec has never seen `Zoomer-approved` if it was not in training data. No fallback. fastText fixes this with subword composition (lesson 04).
+Vấn đề ngoài từ vựng là lỗi còn lại. Word2Vec chưa bao giờ thấy `Zoomer-approved` nếu nó không nằm trong dữ liệu huấn luyện. Không có phương án dự phòng. fastText sửa điều này bằng kết hợp từ con (bài 04).
 
 ## Ship It
 
-Save as `outputs/skill-embedding-probe.md`:
+Lưu thành `outputs/skill-embedding-probe.md`:
 
 ```markdown
 ---
@@ -245,23 +245,23 @@ Refuse to declare a model good on analogy accuracy alone. Analogy benchmarks are
 
 ## Exercises
 
-1. **Easy.** Run the training loop on a tiny corpus (20 sentences about cats and dogs). After 200 epochs, verify `nearest(vocab, W, W[vocab["cat"]])` returns `dog` in its top 3. If not, increase epochs or vocabulary.
-2. **Medium.** Add subsampling of frequent words. Words with frequency above `10^-5` are dropped from training pairs with probability proportional to their frequency. Measure the effect on rare-word similarity.
-3. **Hard.** Train a model on the 20 Newsgroups corpus. Compute two bias axes: `he - she` and `doctor - nurse`. Project occupation words onto both axes. Report which occupations have the largest bias gap. This is the kind of probe fairness researchers use.
+1. **Dễ.** Chạy vòng lặp huấn luyện trên một ngữ liệu nhỏ (20 câu về mèo và chó). Sau 200 epoch, xác minh `nearest(vocab, W, W[vocab["cat"]])` trả `dog` trong top 3. Nếu không, tăng số epoch hoặc từ vựng.
+2. **Trung bình.** Thêm lấy mẫu giảm các từ thường gặp. Các từ có tần suất trên `10^-5` bị loại khỏi các cặp huấn luyện với xác suất tỷ lệ với tần suất của chúng. Đo tác động lên độ tương đồng từ hiếm.
+3. **Khó.** Huấn luyện một mô hình trên ngữ liệu 20 Newsgroups. Tính hai trục thiên lệch: `he - she` và `doctor - nurse`. Chiếu các từ nghề nghiệp lên cả hai trục. Báo cáo những nghề nào có khoảng cách thiên lệch lớn nhất. Đây là loại phép thăm dò các nhà nghiên cứu công bằng sử dụng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Word embedding | Word as a vector | A dense, low-dim (typically 100-300) representation learned from context. |
-| Skip-gram | Word2Vec trick | Predict context words from center word. Slower than CBOW, better for rare words. |
-| Negative sampling | Training shortcut | Replace softmax over full vocab with binary classification against `k` random words. |
-| Static embedding | One vector per word | Same vector regardless of context. Fails on polysemy. |
-| Contextual embedding | Context-sensitive vector | Different vector for each occurrence based on surrounding words. What transformers produce. |
-| OOV | Out of vocabulary | Word not seen in training. Word2Vec cannot produce a vector for these. |
+| Word embedding (Embedding từ) | Từ dưới dạng vector | Một biểu diễn đặc, ít chiều (thường 100-300) được học từ ngữ cảnh. |
+| Skip-gram | Thủ thuật Word2Vec | Dự đoán các từ ngữ cảnh từ từ trung tâm. Chậm hơn CBOW, tốt hơn cho từ hiếm. |
+| Negative sampling (Lấy mẫu âm) | Lối tắt huấn luyện | Thay softmax trên toàn bộ từ vựng bằng phân loại nhị phân với `k` từ ngẫu nhiên. |
+| Static embedding (Embedding tĩnh) | Một vector cho mỗi từ | Cùng một vector bất kể ngữ cảnh. Thất bại với đa nghĩa. |
+| Contextual embedding (Embedding theo ngữ cảnh) | Vector nhạy với ngữ cảnh | Vector khác cho mỗi lần xuất hiện dựa trên các từ xung quanh. Thứ transformer tạo ra. |
+| OOV | Ngoài từ vựng | Từ chưa được thấy trong huấn luyện. Word2Vec không thể tạo một vector cho chúng. |
 
 ## Further Reading
 
-- [Mikolov et al. (2013). Distributed Representations of Words and Phrases and their Compositionality](https://arxiv.org/abs/1310.4546) — the negative-sampling paper. Short and readable.
-- [Rong, X. (2014). word2vec Parameter Learning Explained](https://arxiv.org/abs/1411.2738) — the clearest derivation of the gradients, if the original paper's math feels dense.
-- [gensim Word2Vec tutorial](https://radimrehurek.com/gensim/models/word2vec.html) — production training settings that actually work.
+- [Mikolov et al. (2013). Distributed Representations of Words and Phrases and their Compositionality](https://arxiv.org/abs/1310.4546) — bài báo lấy mẫu âm. Ngắn và dễ đọc.
+- [Rong, X. (2014). word2vec Parameter Learning Explained](https://arxiv.org/abs/1411.2738) — suy dẫn các gradient rõ ràng nhất, nếu toán trong bài báo gốc có vẻ dày đặc.
+- [gensim Word2Vec tutorial](https://radimrehurek.com/gensim/models/word2vec.html) — các thiết lập huấn luyện production thực sự hoạt động.
