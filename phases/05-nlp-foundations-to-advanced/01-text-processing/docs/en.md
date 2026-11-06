@@ -1,6 +1,6 @@
 # Text Processing — Tokenization, Stemming, Lemmatization
 
-> Language is continuous. Models are discrete. Preprocessing is the bridge.
+> Ngôn ngữ là liên tục. Mô hình là rời rạc. Tiền xử lý là cây cầu.
 
 **Type:** Build
 **Languages:** Python
@@ -9,25 +9,25 @@
 
 ## The Problem
 
-A model cannot read "The cats were running." It reads integers.
+Một mô hình không thể đọc "Những con mèo đang chạy." Nó đọc các số nguyên.
 
-Every NLP system opens with the same three questions. Where does a word start. What is the root of the word. How do we treat "run", "running", "ran" as the same thing when it helps, and as different things when it doesn't.
+Mọi hệ thống NLP đều mở đầu với cùng ba câu hỏi. Một từ bắt đầu ở đâu. Gốc của từ là gì. Làm thế nào chúng ta coi "run", "running", "ran" là cùng một thứ khi điều đó hữu ích, và là những thứ khác nhau khi điều đó không hữu ích.
 
-Get tokenization wrong and the model learns from garbage. If your tokenizer treats `don't` as one token but `do n't` as two, the training distribution splits. If your stemmer collapses `organization` and `organ` to the same stem, topic modeling dies. If your lemmatizer needs part-of-speech context but you don't pass it, verbs get treated as nouns.
+Làm sai tokenization và mô hình học từ rác. Nếu tokenizer của bạn coi `don't` là một token nhưng `do n't` là hai, phân phối huấn luyện bị chia tách. Nếu stemmer của bạn gộp `organization` và `organ` thành cùng một gốc từ, mô hình hóa chủ đề chết. Nếu lemmatizer của bạn cần ngữ cảnh từ loại nhưng bạn không truyền vào, các động từ bị coi là danh từ.
 
-This lesson builds the three preprocessing steps from scratch, then shows how NLTK and spaCy do the same work so you can see the tradeoffs.
+Bài học này xây dựng ba bước tiền xử lý từ đầu, rồi cho thấy cách NLTK và spaCy làm cùng công việc để bạn có thể thấy các đánh đổi.
 
 ## The Concept
 
-Three operations. Each has a job and a failure mode.
+Ba phép toán. Mỗi phép có một công việc và một dạng lỗi.
 
-**Tokenization** splits a string into tokens. "Token" is deliberately vague because the right granularity depends on the task. Word-level for classical NLP. Subword for transformers. Character for languages without whitespace.
+**Tokenization** chia một chuỗi thành các token. "Token" được cố ý để mơ hồ vì độ hạt phù hợp phụ thuộc vào tác vụ. Cấp từ cho NLP cổ điển. Từ con cho transformer. Ký tự cho các ngôn ngữ không có khoảng trắng.
 
-**Stemming** chops suffixes with rules. Fast, aggressive, dumb. `running -> run`. `organization -> organ`. That second one is the failure mode.
+**Stemming** cắt các hậu tố bằng quy tắc. Nhanh, mạnh tay, ngớ ngẩn. `running -> run`. `organization -> organ`. Trường hợp thứ hai đó là dạng lỗi.
 
-**Lemmatization** reduces a word to its dictionary form using grammar knowledge. Slower, accurate, needs a lookup table or morphological analyzer. `ran -> run` (needs to know "ran" is past tense of "run"). `better -> good` (needs to know comparative forms).
+**Lemmatization** đưa một từ về dạng từ điển của nó bằng kiến thức ngữ pháp. Chậm hơn, chính xác, cần một bảng tra cứu hoặc bộ phân tích hình thái. `ran -> run` (cần biết "ran" là thì quá khứ của "run"). `better -> good` (cần biết các dạng so sánh hơn).
 
-Rule of thumb. Stem when speed matters and you can tolerate noise (search indexing, rough classification). Lemmatize when meaning matters (question answering, semantic search, anything the user will read).
+Quy tắc kinh nghiệm. Lấy gốc từ khi tốc độ quan trọng và bạn có thể chấp nhận nhiễu (lập chỉ mục tìm kiếm, phân loại sơ bộ). Đưa về dạng từ điển khi ý nghĩa quan trọng (hỏi đáp, tìm kiếm ngữ nghĩa, bất kỳ thứ gì người dùng sẽ đọc).
 
 ```figure
 edit-distance
@@ -37,7 +37,7 @@ edit-distance
 
 ### Step 1: a regex word tokenizer
 
-The simplest useful tokenizer splits on non-alphanumeric characters while keeping punctuation as its own tokens. Not perfect, not final, but it runs in one line.
+Tokenizer hữu ích đơn giản nhất chia tại các ký tự không phải chữ hoặc số trong khi giữ dấu câu thành các token riêng. Không hoàn hảo, không phải cuối cùng, nhưng chạy trong một dòng.
 
 ```python
 import re
@@ -46,18 +46,18 @@ def tokenize(text):
     return re.findall(r"[A-Za-z]+(?:'[A-Za-z]+)?|[0-9]+|[^\sA-Za-z0-9]", text)
 ```
 
-Three patterns in order of precedence. Words with optional inner apostrophe (`don't`, `it's`). Pure numbers. Any single non-whitespace non-alphanumeric character as a standalone token (punctuation).
+Ba mẫu theo thứ tự ưu tiên. Các từ với dấu nháy đơn bên trong tùy chọn (`don't`, `it's`). Các số thuần túy. Bất kỳ ký tự đơn nào không phải khoảng trắng và không phải chữ hoặc số đều là một token độc lập (dấu câu).
 
 ```python
 >>> tokenize("The cats weren't running at 3pm.")
 ['The', 'cats', "weren't", 'running', 'at', '3', 'pm', '.']
 ```
 
-Failure modes to notice. `3pm` splits to `['3', 'pm']` because we alternated between letter runs and digit runs. Good enough for most tasks. URLs, emails, hashtags all break. For production, add patterns before the general ones.
+Các dạng lỗi cần chú ý. `3pm` tách thành `['3', 'pm']` vì chúng ta luân phiên giữa các dãy chữ cái và các dãy chữ số. Đủ tốt cho hầu hết tác vụ. URL, email, hashtag đều hỏng. Cho production, thêm các mẫu trước những mẫu tổng quát.
 
 ### Step 2: a Porter stemmer (step 1a only)
 
-The full Porter algorithm has five phases of rules. Step 1a alone covers the most frequent English suffixes and teaches the pattern.
+Thuật toán Porter đầy đủ có năm giai đoạn quy tắc. Chỉ riêng bước 1a đã bao phủ các hậu tố tiếng Anh thường gặp nhất và dạy mẫu này.
 
 ```python
 def stem_step_1a(word):
@@ -77,11 +77,11 @@ def stem_step_1a(word):
 ['caress', 'poni', 'caress', 'cat']
 ```
 
-Read the rules top-down. The `ies -> i` rule is why `ponies -> poni`, not `pony`. Real Porter has step 1b that would fix it. Rules compete. Earlier rules win. The order matters more than any single rule.
+Đọc các quy tắc từ trên xuống. Quy tắc `ies -> i` là lý do `ponies -> poni`, không phải `pony`. Porter thực có bước 1b sẽ sửa điều đó. Các quy tắc cạnh tranh. Các quy tắc trước thắng. Thứ tự quan trọng hơn bất kỳ quy tắc đơn lẻ nào.
 
 ### Step 3: a lookup-based lemmatizer
 
-Lemmatization proper needs morphology. A tractable teaching version uses a small lemma table and a fallback.
+Lemmatization đúng nghĩa cần hình thái học. Một phiên bản giảng dạy có thể xử lý được sử dụng một bảng lemma nhỏ và một phương án dự phòng.
 
 ```python
 LEMMA_TABLE = {
@@ -119,7 +119,7 @@ def lemmatize(word, pos):
 'watched'
 ```
 
-The last case is the key teaching moment. `watched` is not in our table and our fallback only handles `ing`. Real lemmatization covers `ed`, irregular verbs, comparative adjectives, plurals with sound changes (`children -> child`). This is why production systems use WordNet, spaCy's morphologizer, or a full morphological analyzer.
+Trường hợp cuối là thời điểm giảng dạy then chốt. `watched` không có trong bảng của chúng ta và phương án dự phòng chỉ xử lý `ing`. Lemmatization thực bao phủ `ed`, các động từ bất quy tắc, tính từ so sánh hơn, số nhiều có biến đổi âm (`children -> child`). Đây là lý do các hệ thống production dùng WordNet, morphologizer của spaCy hoặc một bộ phân tích hình thái đầy đủ.
 
 ### Step 4: pipe them together
 
@@ -132,11 +132,11 @@ def preprocess(text, pos_tagger=None):
     return {"tokens": tokens, "stems": stems, "lemmas": lemmas}
 ```
 
-The missing piece is a POS tagger. Phase 5 · 07 (POS Tagging) builds one. For now, default everything to `NOUN` and acknowledge the limitation.
+Mảnh còn thiếu là một bộ gán nhãn POS. Phase 5 · 07 (POS Tagging) xây dựng một bộ. Hiện tại, mặc định mọi thứ là `NOUN` và thừa nhận hạn chế.
 
 ## Use It
 
-NLTK and spaCy ship the production versions. A few lines each.
+NLTK và spaCy cung cấp các phiên bản production. Mỗi thư viện chỉ vài dòng.
 
 ### NLTK
 
@@ -170,7 +170,7 @@ def nltk_pos_to_wordnet(tag):
 lemmas = [lemmatizer.lemmatize(t, nltk_pos_to_wordnet(tag)) for t, tag in tagged]
 ```
 
-`word_tokenize` handles contractions, Unicode, edge cases your regex misses. `PorterStemmer` runs all five phases. `WordNetLemmatizer` needs the POS tag translated from NLTK's Penn Treebank scheme to WordNet's abbreviation set. The translation wiring above is the bit most tutorials skip.
+`word_tokenize` xử lý các dạng rút gọn, Unicode, các trường hợp biên mà regex của bạn bỏ sót. `PorterStemmer` chạy cả năm giai đoạn. `WordNetLemmatizer` cần nhãn POS được chuyển từ hệ Penn Treebank của NLTK sang tập viết tắt của WordNet. Phần kết nối chuyển đổi ở trên là phần mà hầu hết hướng dẫn bỏ qua.
 
 ### spaCy
 
@@ -192,29 +192,29 @@ running  run     VERB
 .        .       PUNCT
 ```
 
-spaCy hides the whole pipeline behind `nlp(text)`. Tokenization, POS tagging, and lemmatization all run. Faster than NLTK at scale. More accurate out of the box. The tradeoff is that you cannot easily swap individual components.
+spaCy ẩn toàn bộ pipeline phía sau `nlp(text)`. Tokenization, gán nhãn POS và lemmatization đều chạy. Nhanh hơn NLTK ở quy mô lớn. Chính xác hơn ngay khi dùng. Đánh đổi là bạn không thể dễ dàng hoán đổi từng thành phần.
 
 ### When to pick which
 
-| Situation | Pick |
+| Tình huống | Chọn |
 |-----------|------|
-| Teaching, research, swapping components | NLTK |
-| Production, multi-language, speed matters | spaCy |
-| Transformer pipeline (you'll tokenize with the model's tokenizer anyway) | Use `tokenizers` / `transformers` and skip classical preprocessing |
+| Giảng dạy, nghiên cứu, hoán đổi thành phần | NLTK |
+| Production, đa ngôn ngữ, tốc độ quan trọng | spaCy |
+| Pipeline transformer (dù sao bạn cũng sẽ tokenize bằng tokenizer của mô hình) | Dùng `tokenizers` / `transformers` và bỏ qua tiền xử lý cổ điển |
 
 ### The two failure modes nobody warns you about
 
-Most tutorials teach the algorithms and stop. Two things will bite a real preprocessing pipeline, and they are almost never covered.
+Hầu hết hướng dẫn dạy các thuật toán rồi dừng lại. Hai điều sẽ gây rắc rối cho một pipeline tiền xử lý thực, và chúng gần như không bao giờ được đề cập.
 
-**Reproducibility drift.** NLTK and spaCy change tokenization and lemmatizer behavior between versions. What produced `['do', "n't"]` in spaCy 2.x may produce `["don't"]` in 3.x. Your model was trained on one distribution. Inference now runs on a different one. Accuracy quietly degrades and nobody knows why. Pin library versions in `requirements.txt`. Write a preprocessing regression test that freezes expected tokenization of 20 sample sentences. Run it on every upgrade.
+**Độ trôi khả năng tái lập.** NLTK và spaCy thay đổi hành vi tokenization và lemmatizer giữa các phiên bản. Thứ tạo ra `['do', "n't"]` trong spaCy 2.x có thể tạo ra `["don't"]` trong 3.x. Mô hình của bạn được huấn luyện trên một phân phối. Suy luận hiện chạy trên một phân phối khác. Độ chính xác âm thầm suy giảm và không ai biết tại sao. Ghim các phiên bản thư viện trong `requirements.txt`. Viết một kiểm thử hồi quy tiền xử lý cố định tokenization dự kiến của 20 câu mẫu. Chạy nó ở mỗi lần nâng cấp.
 
-**Training / inference mismatch.** Train with aggressive preprocessing (lowercase, stopword removal, stemming), deploy on raw user input, watch performance crater. This is the single most common production NLP failure. If you preprocess during training, you must run the identical function during inference. Ship preprocessing as a function inside the model package, not as a notebook cell the serving team rewrites.
+**Sự không khớp giữa huấn luyện / suy luận.** Huấn luyện với tiền xử lý mạnh tay (chuyển chữ thường, loại bỏ stopword, stemming), triển khai trên đầu vào thô của người dùng, nhìn hiệu năng sụp đổ. Đây là lỗi NLP production phổ biến nhất. Nếu bạn tiền xử lý khi huấn luyện, bạn phải chạy hàm giống hệt khi suy luận. Phát hành tiền xử lý dưới dạng một hàm bên trong gói mô hình, không phải dưới dạng một ô notebook mà nhóm phục vụ viết lại.
 
 ## Ship It
 
-A reusable prompt that helps engineers pick a preprocessing strategy without reading three textbooks.
+Một prompt tái sử dụng giúp các kỹ sư chọn chiến lược tiền xử lý mà không phải đọc ba giáo trình.
 
-Save as `outputs/prompt-preprocessing-advisor.md`:
+Lưu thành `outputs/prompt-preprocessing-advisor.md`:
 
 ```markdown
 ---
@@ -236,22 +236,22 @@ Refuse to recommend stemming for user-visible text. Refuse to recommend lemmatiz
 
 ## Exercises
 
-1. **Easy.** Extend `tokenize` to keep URLs as single tokens. Test: `tokenize("Visit https://example.com today.")` should produce one URL token.
-2. **Medium.** Implement Porter step 1b. If a word contains a vowel and ends in `ed` or `ing`, remove it. Handle the double-consonant rule (`hopping -> hop`, not `hopp`).
-3. **Hard.** Build a lemmatizer that uses WordNet as a lookup table but falls back to your Porter stemmer when WordNet has no entry. Measure accuracy on a tagged corpus against plain WordNet and plain Porter.
+1. **Dễ.** Mở rộng `tokenize` để giữ URL thành các token đơn. Kiểm thử: `tokenize("Visit https://example.com today.")` phải tạo ra một token URL.
+2. **Trung bình.** Triển khai bước 1b của Porter. Nếu một từ chứa một nguyên âm và kết thúc bằng `ed` hoặc `ing`, loại bỏ nó. Xử lý quy tắc phụ âm kép (`hopping -> hop`, không phải `hopp`).
+3. **Khó.** Xây dựng một lemmatizer dùng WordNet làm bảng tra cứu nhưng quay về Porter stemmer của bạn khi WordNet không có mục tương ứng. Đo độ chính xác trên một ngữ liệu được gán nhãn so với WordNet thuần và Porter thuần.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Token | A word | Whatever unit the model consumes. Can be word, subword, character, or byte. |
-| Stem | Root of a word | Result of rule-based suffix stripping. Not always a real word. |
-| Lemma | Dictionary form | The form you'd look up. Requires grammatical context to compute correctly. |
-| POS tag | Part of speech | Category like NOUN, VERB, ADJ. Needed to lemmatize accurately. |
-| Morphology | Word shape rules | How a word changes form based on tense, number, case. Lemmatization depends on it. |
+| Token | Một từ | Bất kỳ đơn vị nào mô hình tiêu thụ. Có thể là từ, từ con, ký tự hoặc byte. |
+| Stem (Gốc từ) | Gốc của một từ | Kết quả của việc cắt hậu tố dựa trên quy tắc. Không phải lúc nào cũng là một từ thực. |
+| Lemma (Dạng từ điển) | Dạng từ điển | Dạng bạn sẽ tra cứu. Cần ngữ cảnh ngữ pháp để tính đúng. |
+| POS tag (Nhãn từ loại) | Từ loại | Loại như NOUN, VERB, ADJ. Cần để đưa về dạng từ điển chính xác. |
+| Morphology (Hình thái học) | Các quy tắc hình dạng từ | Cách một từ đổi dạng dựa trên thì, số, cách. Lemmatization phụ thuộc vào nó. |
 
 ## Further Reading
 
-- [Porter, M. F. (1980). An algorithm for suffix stripping](https://tartarus.org/martin/PorterStemmer/def.txt) — the original paper, five pages, still the clearest explanation.
-- [spaCy 101 — linguistic features](https://spacy.io/usage/linguistic-features) — how a real pipeline is wired.
-- [NLTK book, chapter 3](https://www.nltk.org/book/ch03.html) — tokenization edge cases you haven't thought of yet.
+- [Porter, M. F. (1980). An algorithm for suffix stripping](https://tartarus.org/martin/PorterStemmer/def.txt) — bài báo gốc, năm trang, vẫn là lời giải thích rõ ràng nhất.
+- [spaCy 101 — linguistic features](https://spacy.io/usage/linguistic-features) — cách một pipeline thực được kết nối.
+- [NLTK book, chapter 3](https://www.nltk.org/book/ch03.html) — các trường hợp biên tokenization bạn còn chưa nghĩ tới.
