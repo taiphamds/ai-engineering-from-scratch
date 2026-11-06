@@ -1,6 +1,6 @@
 # Logistic Regression
 
-> Logistic regression bends a straight line into an S-curve to answer yes-or-no questions with probabilities.
+> Hồi quy logistic uốn một đường thẳng thành đường cong chữ S để trả lời các câu hỏi có-hoặc-không bằng xác suất.
 
 **Type:** Build
 **Languages:** Python
@@ -9,57 +9,57 @@
 
 ## Learning Objectives
 
-- Implement logistic regression from scratch using the sigmoid function and binary cross-entropy loss
-- Compute and interpret precision, recall, F1 score, and the confusion matrix for binary classification
-- Explain why MSE fails for classification and why binary cross-entropy produces a convex cost surface
-- Build a softmax regression model for multi-class classification and evaluate threshold tuning tradeoffs
+- Triển khai hồi quy logistic từ đầu bằng hàm sigmoid và mất mát cross-entropy nhị phân
+- Tính và diễn giải precision, recall, điểm F1 và ma trận nhầm lẫn cho phân loại nhị phân
+- Giải thích tại sao MSE thất bại với phân loại và tại sao cross-entropy nhị phân tạo ra một bề mặt chi phí lồi
+- Xây dựng một mô hình hồi quy softmax cho phân loại đa lớp và đánh giá các đánh đổi khi điều chỉnh ngưỡng
 
 ## The Problem
 
-You want to predict whether a tumor is malignant or benign given its size. You try linear regression. It outputs numbers like 0.3 or 1.7 or -0.5. What do those mean? Is 1.7 "very malignant"? Is -0.5 "very benign"? Linear regression outputs unbounded numbers. Classification needs bounded probabilities between 0 and 1, and a clear decision: yes or no.
+Bạn muốn dự đoán một khối u ác tính hay lành tính khi biết kích thước. Bạn thử hồi quy tuyến tính. Nó xuất ra các số như 0.3 hoặc 1.7 hoặc -0.5. Chúng có nghĩa gì? 1.7 có phải "rất ác tính"? -0.5 có phải "rất lành tính"? Hồi quy tuyến tính xuất ra các số không bị chặn. Phân loại cần các xác suất bị chặn giữa 0 và 1, và một quyết định rõ ràng: có hoặc không.
 
-Logistic regression solves this. It takes the same linear combination (wx + b) and passes it through the sigmoid function, which squashes any number into the range (0, 1). The output is a probability. You set a threshold (usually 0.5) and make a decision.
+Hồi quy logistic giải quyết điều này. Nó lấy cùng tổ hợp tuyến tính (wx + b) và truyền qua hàm sigmoid, nén bất kỳ số nào vào khoảng (0, 1). Đầu ra là một xác suất. Bạn đặt một ngưỡng (thường là 0.5) và đưa ra quyết định.
 
-This is one of the most widely used algorithms in practice. Despite its name, logistic regression is a classification algorithm, not a regression algorithm. The name comes from the logistic (sigmoid) function it uses.
+Đây là một trong những thuật toán được sử dụng rộng rãi nhất trong thực tế. Bất chấp tên gọi, hồi quy logistic là một thuật toán phân loại, không phải thuật toán hồi quy. Tên đến từ hàm logistic (sigmoid) mà nó sử dụng.
 
 ## The Concept
 
 ### Why Linear Regression Fails for Classification
 
-Imagine predicting pass/fail (1/0) based on study hours. Linear regression fits a line through the data:
+Hãy tưởng tượng dự đoán đậu/rớt (1/0) dựa trên số giờ học. Hồi quy tuyến tính khớp một đường qua dữ liệu:
 
 ```
 hours:  1   2   3   4   5   6   7   8   9   10
 actual: 0   0   0   0   1   1   1   1   1   1
 ```
 
-A linear fit might produce predictions like -0.2 at hour 1 and 1.3 at hour 10. These values are not probabilities. They go below 0 and above 1. Worse, a single outlier (someone who studied 50 hours) would drag the entire line, changing predictions for everyone.
+Một phép khớp tuyến tính có thể tạo ra các dự đoán như -0.2 ở giờ 1 và 1.3 ở giờ 10. Các giá trị này không phải xác suất. Chúng xuống dưới 0 và lên trên 1. Tệ hơn, một ngoại lệ duy nhất (người học 50 giờ) sẽ kéo cả đường, thay đổi dự đoán cho mọi người.
 
-Classification needs a function that:
-- Outputs values between 0 and 1 (probabilities)
-- Creates a sharp transition (a decision boundary)
-- Is not distorted by outliers far from the boundary
+Phân loại cần một hàm:
+- Xuất ra các giá trị giữa 0 và 1 (xác suất)
+- Tạo ra một chuyển tiếp rõ nét (một biên quyết định)
+- Không bị làm méo bởi các ngoại lệ xa biên
 
 ### The Sigmoid Function
 
-The sigmoid function does exactly this:
+Hàm sigmoid thực hiện chính xác điều này:
 
 ```
 sigmoid(z) = 1 / (1 + e^(-z))
 ```
 
-Properties:
-- When z is large and positive, sigmoid(z) approaches 1
-- When z is large and negative, sigmoid(z) approaches 0
-- When z = 0, sigmoid(z) = 0.5
-- The output is always between 0 and 1
-- The function is smooth and differentiable everywhere
+Các tính chất:
+- Khi z lớn và dương, sigmoid(z) tiến đến 1
+- Khi z lớn và âm, sigmoid(z) tiến đến 0
+- Khi z = 0, sigmoid(z) = 0.5
+- Đầu ra luôn giữa 0 và 1
+- Hàm trơn và khả vi ở mọi nơi
 
-The derivative has a convenient form: sigmoid'(z) = sigmoid(z) * (1 - sigmoid(z)). This makes gradient computation efficient.
+Đạo hàm có một dạng thuận tiện: sigmoid'(z) = sigmoid(z) * (1 - sigmoid(z)). Điều này làm việc tính gradient hiệu quả.
 
 ### Logistic Regression = Linear Model + Sigmoid
 
-The model computes z = wx + b (same as linear regression), then applies sigmoid:
+Mô hình tính z = wx + b (giống hồi quy tuyến tính), rồi áp dụng sigmoid:
 
 ```mermaid
 flowchart LR
@@ -70,34 +70,34 @@ flowchart LR
     D -->|No| N[Predict 0]
 ```
 
-The output p is interpreted as P(y=1 | x), the probability that the input belongs to class 1. The decision boundary is where wx + b = 0, which makes sigmoid output exactly 0.5.
+Đầu ra p được diễn giải là P(y=1 | x), xác suất đầu vào thuộc lớp 1. Biên quyết định là nơi wx + b = 0, làm sigmoid xuất ra đúng 0.5.
 
 ### Binary Cross-Entropy Loss
 
-You cannot use MSE for logistic regression. MSE with a sigmoid creates a non-convex cost surface with many local minima. Instead, use binary cross-entropy (log loss):
+Bạn không thể sử dụng MSE cho hồi quy logistic. MSE với một sigmoid tạo ra một bề mặt chi phí không lồi có nhiều cực tiểu cục bộ. Thay vào đó, sử dụng cross-entropy nhị phân (mất mát log):
 
 ```
 Loss = -(1/n) * sum(y * log(p) + (1-y) * log(1-p))
 ```
 
-Why this works:
-- When y=1 and p is close to 1: log(1) = 0, so loss is near 0 (correct, low cost)
-- When y=1 and p is close to 0: log(0) approaches negative infinity, so loss is huge (wrong, high cost)
-- When y=0 and p is close to 0: log(1) = 0, so loss is near 0 (correct, low cost)
-- When y=0 and p is close to 1: log(0) approaches negative infinity, so loss is huge (wrong, high cost)
+Tại sao điều này hoạt động:
+- Khi y=1 và p gần 1: log(1) = 0, nên mất mát gần 0 (đúng, chi phí thấp)
+- Khi y=1 và p gần 0: log(0) tiến đến âm vô cực, nên mất mát rất lớn (sai, chi phí cao)
+- Khi y=0 và p gần 0: log(1) = 0, nên mất mát gần 0 (đúng, chi phí thấp)
+- Khi y=0 và p gần 1: log(0) tiến đến âm vô cực, nên mất mát rất lớn (sai, chi phí cao)
 
-This loss function is convex for logistic regression, guaranteeing a single global minimum.
+Hàm mất mát này lồi với hồi quy logistic, bảo đảm một cực tiểu toàn cục duy nhất.
 
 ### Gradient Descent for Logistic Regression
 
-The gradients for binary cross-entropy with sigmoid have a clean form:
+Gradient cho cross-entropy nhị phân với sigmoid có dạng gọn:
 
 ```
 dL/dw = (1/n) * sum((p - y) * x)
 dL/db = (1/n) * sum(p - y)
 ```
 
-These look identical to the linear regression gradients. The difference is that p = sigmoid(wx + b) instead of p = wx + b. The sigmoid introduces the nonlinearity, but the gradient update rule stays the same.
+Chúng trông giống hệt gradient hồi quy tuyến tính. Khác biệt là p = sigmoid(wx + b) thay vì p = wx + b. Sigmoid đưa vào tính phi tuyến, nhưng quy tắc cập nhật gradient giữ nguyên.
 
 ```mermaid
 flowchart TD
@@ -112,62 +112,62 @@ flowchart TD
 
 ### The Decision Boundary
 
-For a 2D input (two features), the decision boundary is the line where:
+Với một đầu vào 2D (hai đặc trưng), biên quyết định là đường nơi:
 
 ```
 w1*x1 + w2*x2 + b = 0
 ```
 
-Points on one side get classified as 1, points on the other side as 0. Logistic regression always produces a linear decision boundary. If you need a curved boundary, you either add polynomial features or use a nonlinear model.
+Các điểm ở một phía được phân loại là 1, các điểm phía kia là 0. Hồi quy logistic luôn tạo ra một biên quyết định tuyến tính. Nếu cần một biên cong, bạn hoặc thêm các đặc trưng đa thức hoặc sử dụng một mô hình phi tuyến.
 
 ### Multi-Class Classification with Softmax
 
-Binary logistic regression handles two classes. For k classes, use the softmax function:
+Hồi quy logistic nhị phân xử lý hai lớp. Với k lớp, sử dụng hàm softmax:
 
 ```
 softmax(z_i) = e^(z_i) / sum(e^(z_j) for all j)
 ```
 
-Each class has its own weight vector. The model computes a score z_i for each class, then softmax converts scores to probabilities that sum to 1. The predicted class is the one with the highest probability.
+Mỗi lớp có vector trọng số riêng. Mô hình tính một điểm z_i cho mỗi lớp, rồi softmax chuyển các điểm thành xác suất có tổng bằng 1. Lớp dự đoán là lớp có xác suất cao nhất.
 
-The loss function becomes categorical cross-entropy:
+Hàm mất mát trở thành cross-entropy categorical:
 
 ```
 Loss = -(1/n) * sum(sum(y_k * log(p_k)))
 ```
 
-where y_k is 1 for the true class and 0 for all others (one-hot encoding).
+trong đó y_k là 1 cho lớp thực và 0 cho tất cả các lớp khác (mã hóa one-hot).
 
 ### Evaluation Metrics
 
-Accuracy alone is not enough. For a dataset with 95% negative and 5% positive, a model that always predicts negative gets 95% accuracy but is useless.
+Chỉ accuracy là không đủ. Với một tập dữ liệu có 95% âm và 5% dương, một mô hình luôn dự đoán âm đạt accuracy 95% nhưng vô ích.
 
-**Confusion Matrix**:
+**Ma trận Nhầm lẫn**:
 
-| | Predicted Positive | Predicted Negative |
+| | Dự đoán Dương | Dự đoán Âm |
 |---|---|---|
-| Actually Positive | True Positive (TP) | False Negative (FN) |
-| Actually Negative | False Positive (FP) | True Negative (TN) |
+| Thực tế Dương | Dương tính Thật (TP) | Âm tính Giả (FN) |
+| Thực tế Âm | Dương tính Giả (FP) | Âm tính Thật (TN) |
 
-**Precision**: Of all predicted positives, how many are actually positive?
+**Precision**: Trong tất cả dự đoán dương, có bao nhiêu thực sự dương?
 ```
 Precision = TP / (TP + FP)
 ```
 
-**Recall** (Sensitivity): Of all actual positives, how many did we catch?
+**Recall** (Độ nhạy): Trong tất cả trường hợp thực sự dương, chúng ta đã phát hiện bao nhiêu?
 ```
 Recall = TP / (TP + FN)
 ```
 
-**F1 Score**: Harmonic mean of precision and recall. Balances both metrics.
+**Điểm F1**: Trung bình điều hòa của precision và recall. Cân bằng cả hai chỉ số.
 ```
 F1 = 2 * (Precision * Recall) / (Precision + Recall)
 ```
 
-When to prioritize:
-- **Precision**: when false positives are costly (spam filter, you do not want to block legitimate email)
-- **Recall**: when false negatives are costly (cancer screening, you do not want to miss a tumor)
-- **F1**: when you need a single balanced metric
+Khi nào ưu tiên:
+- **Precision**: khi dương tính giả tốn kém (bộ lọc thư rác, bạn không muốn chặn email hợp lệ)
+- **Recall**: khi âm tính giả tốn kém (sàng lọc ung thư, bạn không muốn bỏ sót một khối u)
+- **F1**: khi bạn cần một chỉ số cân bằng duy nhất
 
 ```figure
 logistic-sigmoid
@@ -460,7 +460,7 @@ for t in thresholds:
 
 ## Use It
 
-Now the same thing with scikit-learn.
+Bây giờ là cùng điều đó với scikit-learn.
 
 ```python
 from sklearn.linear_model import LogisticRegression as SklearnLR
@@ -495,32 +495,32 @@ print(f"\nConfusion Matrix:\n{confusion_matrix(y_te, y_pred)}")
 print(f"\nClassification Report:\n{classification_report(y_te, y_pred)}")
 ```
 
-Your from-scratch implementation produces the same decision boundary and metrics. Scikit-learn adds solver options (liblinear, lbfgs, saga), automatic regularization, multi-class strategies (one-vs-rest, multinomial), and numerical stability optimizations.
+Triển khai từ đầu của bạn tạo ra cùng biên quyết định và các chỉ số. Scikit-learn bổ sung các lựa chọn bộ giải (liblinear, lbfgs, saga), regularization tự động, các chiến lược đa lớp (một-đối-phần-còn-lại, multinomial) và các tối ưu hóa độ ổn định số học.
 
 ## Ship It
 
-This lesson produces:
-- `code/logistic_regression.py` - logistic regression from scratch with metrics
+Bài học này tạo ra:
+- `code/logistic_regression.py` - hồi quy logistic từ đầu với các chỉ số
 
 ## Exercises
 
-1. Generate a dataset that is NOT linearly separable (e.g., two concentric circles). Train logistic regression and observe its failure. Then add polynomial features (x1^2, x2^2, x1*x2) and train again. Show that the accuracy improves.
-2. Implement a multi-class confusion matrix for the 3-class softmax model. Compute per-class precision and recall. Which class is hardest to classify?
-3. Build an ROC curve from scratch. For 100 threshold values from 0 to 1, compute the true positive rate and false positive rate. Calculate the AUC (area under the curve) using the trapezoidal rule.
+1. Tạo một tập dữ liệu KHÔNG phân tách tuyến tính được (ví dụ, hai đường tròn đồng tâm). Huấn luyện hồi quy logistic và quan sát sự thất bại. Sau đó thêm các đặc trưng đa thức (x1^2, x2^2, x1*x2) và huấn luyện lại. Chỉ ra rằng độ chính xác cải thiện.
+2. Triển khai một ma trận nhầm lẫn đa lớp cho mô hình softmax 3 lớp. Tính precision và recall theo từng lớp. Lớp nào khó phân loại nhất?
+3. Xây dựng một đường cong ROC từ đầu. Với 100 giá trị ngưỡng từ 0 đến 1, tính tỉ lệ dương tính thật và tỉ lệ dương tính giả. Tính AUC (diện tích dưới đường cong) bằng quy tắc hình thang.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Logistic regression | "Regression for classification" | A linear model followed by a sigmoid function that outputs class probabilities |
-| Sigmoid function | "The S-curve" | The function 1/(1+e^(-z)) that maps any real number to the range (0, 1) |
-| Binary cross-entropy | "Log loss" | The loss function -[y*log(p) + (1-y)*log(1-p)] that penalizes confident wrong predictions severely |
-| Decision boundary | "The dividing line" | The surface where the model's output probability equals 0.5, separating predicted classes |
-| Softmax | "Multi-class sigmoid" | A function that converts a vector of scores into probabilities that sum to 1 |
-| Precision | "How many selected are relevant" | TP / (TP + FP), the fraction of positive predictions that are actually positive |
-| Recall | "How many relevant are selected" | TP / (TP + FN), the fraction of actual positives that the model correctly identifies |
-| F1 score | "Balanced accuracy" | The harmonic mean of precision and recall: 2*P*R / (P+R) |
-| Confusion matrix | "The error breakdown" | A table showing TP, TN, FP, FN counts for each class pair |
-| Threshold | "The cutoff" | The probability value above which the model predicts class 1 (default 0.5, tunable) |
-| One-hot encoding | "Binary columns for categories" | Representing class k as a vector of zeros with a 1 at position k |
-| Categorical cross-entropy | "Multi-class log loss" | The extension of binary cross-entropy to k classes using one-hot encoded labels |
+| Logistic regression (Hồi quy logistic) | "Hồi quy cho phân loại" | Một mô hình tuyến tính theo sau bởi một hàm sigmoid xuất ra các xác suất lớp |
+| Sigmoid function (Hàm sigmoid) | "Đường cong chữ S" | Hàm 1/(1+e^(-z)) ánh xạ bất kỳ số thực nào vào khoảng (0, 1) |
+| Binary cross-entropy (Cross-entropy nhị phân) | "Mất mát log" | Hàm mất mát -[y*log(p) + (1-y)*log(1-p)] phạt nặng các dự đoán sai tự tin |
+| Decision boundary (Biên quyết định) | "Đường phân chia" | Bề mặt nơi xác suất đầu ra của mô hình bằng 0.5, phân tách các lớp dự đoán |
+| Softmax | "Sigmoid đa lớp" | Một hàm chuyển một vector điểm số thành các xác suất có tổng bằng 1 |
+| Precision | "Bao nhiêu mục được chọn là liên quan" | TP / (TP + FP), tỉ lệ dự đoán dương thực sự là dương |
+| Recall | "Bao nhiêu mục liên quan được chọn" | TP / (TP + FN), tỉ lệ trường hợp thực sự dương mà mô hình nhận diện đúng |
+| F1 score (Điểm F1) | "Độ chính xác cân bằng" | Trung bình điều hòa của precision và recall: 2*P*R / (P+R) |
+| Confusion matrix (Ma trận nhầm lẫn) | "Phân tích sai số" | Một bảng thể hiện số đếm TP, TN, FP, FN cho mỗi cặp lớp |
+| Threshold (Ngưỡng) | "Điểm cắt" | Giá trị xác suất mà trên đó mô hình dự đoán lớp 1 (mặc định 0.5, có thể điều chỉnh) |
+| One-hot encoding (Mã hóa one-hot) | "Các cột nhị phân cho các loại" | Biểu diễn lớp k thành một vector các số không với một số 1 tại vị trí k |
+| Categorical cross-entropy (Cross-entropy categorical) | "Mất mát log đa lớp" | Mở rộng của cross-entropy nhị phân sang k lớp bằng các nhãn được mã hóa one-hot |

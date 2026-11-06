@@ -9,73 +9,73 @@ tags: [classification, logistic-regression, baseline, preprocessing]
 
 # Classification Baseline Guide
 
-Before trying complex models, establish a baseline with logistic regression. It trains in seconds, produces probabilities, and is fully interpretable. A surprising number of real-world problems never need anything fancier.
+Trước khi thử các mô hình phức tạp, thiết lập một mốc cơ sở bằng hồi quy logistic. Nó huấn luyện trong vài giây, tạo ra xác suất và có thể diễn giải hoàn toàn. Một số lượng đáng ngạc nhiên các bài toán thực tế không bao giờ cần thứ gì cầu kỳ hơn.
 
 ## Decision Checklist
 
-1. Is the decision boundary likely linear?
-   - Yes: logistic regression will probably be sufficient
-   - No: you still want it as a baseline to measure improvement
+1. Biên quyết định có khả năng tuyến tính không?
+   - Có: hồi quy logistic có lẽ sẽ đủ
+   - Không: bạn vẫn muốn nó làm mốc cơ sở để đo cải thiện
 
-2. How many features do you have?
-   - Under 50: standard logistic regression works fine
-   - 50 to 10,000: add L2 regularization (Ridge)
-   - Over 10,000 (e.g., TF-IDF text features): use L1 regularization (Lasso) or LinearSVC
+2. Bạn có bao nhiêu đặc trưng?
+   - Dưới 50: hồi quy logistic tiêu chuẩn hoạt động tốt
+   - 50 đến 10,000: thêm L2 regularization (Ridge)
+   - Trên 10,000 (ví dụ, các đặc trưng văn bản TF-IDF): sử dụng L1 regularization (Lasso) hoặc LinearSVC
 
-3. Is the dataset imbalanced?
-   - Under 5:1 ratio: probably fine without adjustment
-   - 5:1 to 50:1: use `class_weight="balanced"` in sklearn
-   - Over 50:1: combine class weighting with appropriate metric (precision, recall, or F1)
+3. Tập dữ liệu có mất cân bằng không?
+   - Tỉ lệ dưới 5:1: có lẽ ổn mà không cần điều chỉnh
+   - 5:1 đến 50:1: sử dụng `class_weight="balanced"` trong sklearn
+   - Trên 50:1: kết hợp trọng số lớp với chỉ số thích hợp (precision, recall hoặc F1)
 
-4. Are features on different scales?
-   - Always standardize before logistic regression. It uses gradient-based optimization, and unscaled features slow convergence or distort the decision boundary.
+4. Các đặc trưng có các thang đo khác nhau không?
+   - Luôn chuẩn hóa trước hồi quy logistic. Nó sử dụng tối ưu hóa dựa trên gradient, và các đặc trưng chưa co giãn làm chậm hội tụ hoặc làm méo biên quyết định.
 
-5. Are there missing values?
-   - Impute before fitting. Logistic regression cannot handle NaNs.
-   - Use median imputation for numeric columns, mode for categorical.
+5. Có giá trị thiếu không?
+   - Điền khuyết trước khi khớp. Hồi quy logistic không thể xử lý NaN.
+   - Sử dụng điền khuyết trung vị cho các cột số, mốt cho các cột phân loại.
 
 ## When logistic regression is good enough
 
-- Binary classification with mostly linear feature relationships
-- You need probability outputs (not just class labels)
-- Interpretability is required (coefficients indicate feature importance direction and relative magnitude after standardization)
-- Training data is small (hundreds to low thousands of samples)
-- You need a fast model for real-time serving (single dot product at inference)
-- Regulatory or compliance requirements demand explainability
+- Phân loại nhị phân với các quan hệ đặc trưng phần lớn tuyến tính
+- Bạn cần các đầu ra xác suất (không chỉ nhãn lớp)
+- Khả năng diễn giải là bắt buộc (các hệ số cho biết hướng độ quan trọng đặc trưng và độ lớn tương đối sau chuẩn hóa)
+- Dữ liệu huấn luyện nhỏ (hàng trăm đến vài nghìn mẫu)
+- Bạn cần một mô hình nhanh để phục vụ theo thời gian thực (một tích vô hướng duy nhất lúc suy luận)
+- Các yêu cầu quản lý hoặc tuân thủ đòi hỏi khả năng giải thích
 
 ## When to upgrade
 
-- Accuracy plateaus well below the target and you have tried feature engineering
-- The relationship between features and target is clearly nonlinear (check residual plots)
-- You have large tabular data (10k+ rows): try gradient boosting (XGBoost or LightGBM)
-- Features have complex interactions that polynomial features cannot capture
-- You have image, text, or sequential data: logistic regression on raw inputs will not work
+- Độ chính xác chững lại thấp hơn mục tiêu nhiều và bạn đã thử kỹ thuật đặc trưng
+- Quan hệ giữa đặc trưng và mục tiêu rõ ràng phi tuyến (kiểm tra các đồ thị phần dư)
+- Bạn có dữ liệu dạng bảng lớn (10k+ hàng): thử gradient boosting (XGBoost hoặc LightGBM)
+- Các đặc trưng có các tương tác phức tạp mà các đặc trưng đa thức không thể nắm bắt
+- Bạn có dữ liệu hình ảnh, văn bản hoặc tuần tự: hồi quy logistic trên đầu vào thô sẽ không hoạt động
 
 ## Preprocessing steps for a classification baseline
 
-1. **Train/test split** first, before any preprocessing. This prevents data leakage.
-2. **Handle missing values**: median impute numeric, mode impute categorical.
-3. **Encode categoricals**: one-hot for low cardinality (under 10 values), target encoding for higher. Fit target encoding only on training folds (use out-of-fold encoding to prevent leakage).
-4. **Scale numerics**: StandardScaler (zero mean, unit variance). Fit on train, transform both.
-5. **Fit logistic regression** with `C=1.0` (default regularization).
-6. **Evaluate**: confusion matrix, precision, recall, F1. Not just accuracy.
-7. **Tune threshold**: default 0.5 is rarely optimal. Sweep 0.1 to 0.9 and pick the threshold that matches your precision/recall priority.
+1. **Chia huấn luyện/kiểm tra** trước, trước bất kỳ tiền xử lý nào. Điều này ngăn rò rỉ dữ liệu.
+2. **Xử lý các giá trị thiếu**: điền khuyết trung vị cho số, điền khuyết mốt cho phân loại.
+3. **Mã hóa các biến phân loại**: one-hot cho số giá trị phân biệt thấp (dưới 10 giá trị), mã hóa mục tiêu cho mức cao hơn. Chỉ khớp mã hóa mục tiêu trên các fold huấn luyện (sử dụng mã hóa ngoài fold để ngăn rò rỉ).
+4. **Co giãn các biến số**: StandardScaler (trung bình không, phương sai đơn vị). Khớp trên huấn luyện, biến đổi cả hai.
+5. **Khớp hồi quy logistic** với `C=1.0` (regularization mặc định).
+6. **Đánh giá**: ma trận nhầm lẫn, precision, recall, F1. Không chỉ accuracy.
+7. **Điều chỉnh ngưỡng**: mặc định 0.5 hiếm khi tối ưu. Quét từ 0.1 đến 0.9 và chọn ngưỡng khớp ưu tiên precision/recall của bạn.
 
 ## Common mistakes
 
-- Evaluating only accuracy on imbalanced data (a model predicting the majority class scores high but is useless)
-- Forgetting to scale features (logistic regression with unscaled features trains slowly and converges to a worse solution)
-- Using the test set to tune the decision threshold (use validation or cross-validation)
-- Skipping the baseline and jumping straight to XGBoost (you lose interpretability and have no reference point)
-- Not checking for multicollinearity (highly correlated features inflate coefficient variance)
+- Chỉ đánh giá accuracy trên dữ liệu mất cân bằng (một mô hình dự đoán lớp đa số đạt điểm cao nhưng vô ích)
+- Quên co giãn đặc trưng (hồi quy logistic với các đặc trưng chưa co giãn huấn luyện chậm và hội tụ về một nghiệm kém hơn)
+- Sử dụng tập kiểm tra để điều chỉnh ngưỡng quyết định (sử dụng xác thực hoặc xác thực chéo)
+- Bỏ qua mốc cơ sở và nhảy thẳng đến XGBoost (bạn mất khả năng diễn giải và không có điểm tham chiếu)
+- Không kiểm tra đa cộng tuyến (các đặc trưng tương quan cao làm tăng phương sai hệ số)
 
 ## Quick reference
 
-| Scenario | Model | Regularization | Key setting |
+| Tình huống | Mô hình | Regularization | Thiết lập chính |
 |----------|-------|---------------|-------------|
-| Few features, interpretable | LogisticRegression | L2 (default) | C=1.0 |
-| Many features, some irrelevant | LogisticRegression | L1 | penalty="l1", solver="saga" |
-| High-dim sparse (text) | SGDClassifier | L1 or ElasticNet | loss="log_loss" |
-| Imbalanced classes | LogisticRegression | L2 | class_weight="balanced" |
-| Need probabilities | LogisticRegression | L2 | predict_proba() |
-| Need class labels only | LinearSVC | L2 | Faster than LR for large data |
+| Ít đặc trưng, có thể diễn giải | LogisticRegression | L2 (mặc định) | C=1.0 |
+| Nhiều đặc trưng, một số không liên quan | LogisticRegression | L1 | penalty="l1", solver="saga" |
+| Thưa nhiều chiều (văn bản) | SGDClassifier | L1 hoặc ElasticNet | loss="log_loss" |
+| Các lớp mất cân bằng | LogisticRegression | L2 | class_weight="balanced" |
+| Cần xác suất | LogisticRegression | L2 | predict_proba() |
+| Chỉ cần nhãn lớp | LinearSVC | L2 | Nhanh hơn LR với dữ liệu lớn |
