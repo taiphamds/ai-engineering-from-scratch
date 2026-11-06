@@ -9,76 +9,76 @@ tags: [sampling, mcmc, generation]
 
 # Sampling Strategy Selection
 
-How to pick the right sampling method for text generation, Bayesian inference, Monte Carlo estimation, and training.
+Cách chọn phương pháp lấy mẫu phù hợp cho sinh văn bản, suy luận Bayes, ước lượng Monte Carlo và huấn luyện.
 
 ## Decision Checklist
 
-1. Are you generating output (text, images) or estimating a quantity (integral, expectation)?
-2. Can you sample directly from the target distribution, or only evaluate its density?
-3. Is the target distribution discrete or continuous?
-4. What dimension is the sample space? Low (< 5), medium (5-100), or high (> 100)?
-5. Do you need exact samples or approximate ones?
-6. Do you need gradients through the sampling operation?
+1. Bạn đang sinh đầu ra (văn bản, hình ảnh) hay ước lượng một đại lượng (tích phân, kỳ vọng)?
+2. Bạn có thể lấy mẫu trực tiếp từ phân phối mục tiêu hay chỉ tính mật độ của nó?
+3. Phân phối mục tiêu rời rạc hay liên tục?
+4. Không gian mẫu có số chiều nào? Thấp (< 5), trung bình (5-100) hay cao (> 100)?
+5. Bạn cần các mẫu chính xác hay xấp xỉ?
+6. Bạn có cần gradient qua phép lấy mẫu không?
 
 ## When to use each method
 
-| Method | When to use | Complexity | Exact? |
+| Phương pháp | Khi nào sử dụng | Độ phức tạp | Chính xác? |
 |---|---|---|---|
-| Direct sampling | You have the CDF or can use a library function | O(1) per sample | Yes |
-| Inverse CDF | Known closed-form CDF inverse (exponential, Cauchy) | O(1) per sample | Yes |
-| Box-Muller | Need normal samples without a library | O(1) per sample | Yes |
-| Rejection sampling | Can evaluate target PDF, low dimension (1-3) | O(1/acceptance) per sample | Yes |
-| Importance sampling | Need expectations, not individual samples | O(n) for n samples | Approximate |
-| Stratified sampling | Monte Carlo estimation, want lower variance | O(n) for n samples | Approximate |
-| Metropolis-Hastings | High-dimensional, can evaluate unnormalized density | O(1) per step + burn-in | Asymptotically |
-| Gibbs sampling | Can sample from each conditional distribution | O(d) per full sweep | Asymptotically |
-| HMC/NUTS | High-dimensional continuous, smooth density | O(L * d) per step | Asymptotically |
-| Temperature sampling | LLM text generation, control creativity | O(V) for vocab size V | N/A |
-| Top-k sampling | LLM generation, remove unlikely tokens | O(V log k) | N/A |
-| Top-p (nucleus) | LLM generation, adaptive candidate set | O(V log V) | N/A |
-| Reparameterization | Need gradients through Gaussian sampling (VAEs) | O(d) | Yes |
-| Gumbel-Softmax | Need gradients through categorical sampling | O(k) for k classes | Approximate |
+| Lấy mẫu trực tiếp | Bạn có CDF hoặc có thể sử dụng một hàm thư viện | O(1) mỗi mẫu | Có |
+| CDF ngược | Biết nghịch đảo CDF dạng đóng (mũ, Cauchy) | O(1) mỗi mẫu | Có |
+| Box-Muller | Cần các mẫu chuẩn mà không có thư viện | O(1) mỗi mẫu | Có |
+| Lấy mẫu loại bỏ | Có thể tính PDF mục tiêu, số chiều thấp (1-3) | O(1/acceptance) mỗi mẫu | Có |
+| Lấy mẫu quan trọng | Cần kỳ vọng, không phải các mẫu riêng lẻ | O(n) cho n mẫu | Xấp xỉ |
+| Lấy mẫu phân tầng | Ước lượng Monte Carlo, muốn phương sai thấp hơn | O(n) cho n mẫu | Xấp xỉ |
+| Metropolis-Hastings | Nhiều chiều, có thể tính mật độ chưa chuẩn hóa | O(1) mỗi bước + burn-in | Tiệm cận |
+| Lấy mẫu Gibbs | Có thể lấy mẫu từ mỗi phân phối có điều kiện | O(d) mỗi lượt quét đầy đủ | Tiệm cận |
+| HMC/NUTS | Liên tục nhiều chiều, mật độ trơn | O(L * d) mỗi bước | Tiệm cận |
+| Lấy mẫu temperature | Sinh văn bản LLM, điều khiển tính sáng tạo | O(V) cho kích thước từ vựng V | N/A |
+| Lấy mẫu top-k | Sinh LLM, loại các token ít có khả năng | O(V log k) | N/A |
+| Top-p (nucleus) | Sinh LLM, tập ứng viên thích nghi | O(V log V) | N/A |
+| Tái tham số hóa | Cần gradient qua lấy mẫu Gaussian (VAE) | O(d) | Có |
+| Gumbel-Softmax | Cần gradient qua lấy mẫu categorical | O(k) cho k lớp | Xấp xỉ |
 
 ## LLM generation settings
 
-| Use case | Temperature | Top-p | Top-k | Notes |
+| Trường hợp sử dụng | Temperature | Top-p | Top-k | Ghi chú |
 |---|---|---|---|---|
-| Factual Q&A | 0.0 (greedy) | -- | -- | Deterministic, no randomness |
-| Code generation | 0.2-0.5 | 0.9 | -- | Low creativity, high coherence |
-| General chat | 0.7 | 0.9 | -- | Balanced |
-| Creative writing | 0.9-1.2 | 0.95 | -- | Higher diversity |
-| Brainstorming | 1.0-1.5 | 0.95 | -- | Maximum diversity, may lose coherence |
+| Hỏi đáp dựa trên sự kiện | 0.0 (tham lam) | -- | -- | Tất định, không ngẫu nhiên |
+| Sinh mã | 0.2-0.5 | 0.9 | -- | Ít sáng tạo, mạch lạc cao |
+| Trò chuyện chung | 0.7 | 0.9 | -- | Cân bằng |
+| Viết sáng tạo | 0.9-1.2 | 0.95 | -- | Đa dạng cao hơn |
+| Động não | 1.0-1.5 | 0.95 | -- | Đa dạng tối đa, có thể mất mạch lạc |
 
-Temperature and top-p can be combined. Apply temperature first (scale logits), then apply top-p filtering.
+Temperature và top-p có thể kết hợp. Áp dụng temperature trước (điều chỉnh tỉ lệ logits), rồi áp dụng lọc top-p.
 
 ## MCMC method selection
 
-| Property | Metropolis-Hastings | Gibbs | HMC/NUTS |
+| Tính chất | Metropolis-Hastings | Gibbs | HMC/NUTS |
 |---|---|---|---|
-| Dimension | Any | Any (best < 100) | High (100+) |
-| Requires conditionals | No | Yes | No |
-| Requires gradient | No | No | Yes |
-| Acceptance rate | Tune to ~23% | Always 100% | Tune to ~65% |
-| Correlation | High (random walk) | Moderate | Low |
-| Burn-in | Long | Moderate | Short |
-| Best for | Exploration, simple models | Conjugate models, Bayesian networks | Continuous posteriors, deep probabilistic models |
+| Số chiều | Bất kỳ | Bất kỳ (tốt nhất < 100) | Cao (100+) |
+| Cần các phân phối có điều kiện | Không | Có | Không |
+| Cần gradient | Không | Không | Có |
+| Tỉ lệ chấp nhận | Điều chỉnh đến ~23% | Luôn 100% | Điều chỉnh đến ~65% |
+| Tương quan | Cao (bước đi ngẫu nhiên) | Vừa phải | Thấp |
+| Burn-in | Dài | Vừa phải | Ngắn |
+| Tốt nhất cho | Khám phá, các mô hình đơn giản | Các mô hình liên hợp, mạng Bayes | Hậu nghiệm liên tục, mô hình xác suất sâu |
 
 ## Common mistakes
 
-- Using rejection sampling in high dimensions. Acceptance rate drops exponentially with dimension. Above 5 dimensions, switch to MCMC.
-- Setting MCMC proposal variance too high or too low. Too high: most proposals rejected, chain stuck. Too low: all proposals accepted, chain moves slowly. Target ~23% acceptance for random walk MH.
-- Forgetting burn-in. The first N samples from MCMC are biased by the starting point. Discard at least 1000 steps (or more for complex distributions).
-- Using importance sampling with a proposal very different from the target. A few samples get enormous weights, making the estimate unreliable. Monitor the effective sample size: ESS = (sum w_i)^2 / sum(w_i^2).
-- Using temperature > 0 for tasks that need deterministic output (e.g., classification, structured extraction). Use greedy (T=0) or beam search instead.
-- Not combining top-p with temperature. Temperature alone does not remove garbage tokens from the long tail. Top-p does.
-- Backpropagating through a standard sampling operation. Use reparameterization trick for continuous (Gaussian) and Gumbel-Softmax for discrete (categorical).
+- Sử dụng lấy mẫu loại bỏ trong không gian nhiều chiều. Tỉ lệ chấp nhận giảm theo hàm mũ với số chiều. Trên 5 chiều, chuyển sang MCMC.
+- Đặt phương sai đề xuất MCMC quá cao hoặc quá thấp. Quá cao: hầu hết đề xuất bị loại, chuỗi bị kẹt. Quá thấp: mọi đề xuất được chấp nhận, chuỗi di chuyển chậm. Nhắm đến ~23% chấp nhận cho MH bước đi ngẫu nhiên.
+- Quên burn-in. N mẫu đầu tiên từ MCMC bị chệch bởi điểm bắt đầu. Loại bỏ ít nhất 1000 bước (hoặc nhiều hơn với các phân phối phức tạp).
+- Sử dụng lấy mẫu quan trọng với một đề xuất rất khác mục tiêu. Một vài mẫu nhận trọng số khổng lồ, làm ước lượng không đáng tin cậy. Theo dõi kích thước mẫu hiệu dụng: ESS = (sum w_i)^2 / sum(w_i^2).
+- Sử dụng temperature > 0 cho các tác vụ cần đầu ra tất định (ví dụ, phân loại, trích xuất có cấu trúc). Thay vào đó sử dụng tham lam (T=0) hoặc tìm kiếm chùm.
+- Không kết hợp top-p với temperature. Chỉ temperature không loại các token rác khỏi đuôi dài. Top-p có làm điều đó.
+- Lan truyền ngược qua một phép lấy mẫu tiêu chuẩn. Sử dụng thủ thuật tái tham số hóa cho liên tục (Gaussian) và Gumbel-Softmax cho rời rạc (categorical).
 
 ## Quick reference: variance reduction techniques
 
-| Technique | How it works | Variance reduction |
+| Kỹ thuật | Cách hoạt động | Giảm phương sai |
 |---|---|---|
-| Stratified sampling | Divide space into strata, sample each | Always <= standard MC |
-| Antithetic variates | Use both U and 1-U | Works for monotone functions |
-| Control variates | Subtract a known-mean variable | Proportional to correlation |
-| Importance sampling | Reweight samples from a better proposal | Depends on proposal quality |
-| Latin hypercube | Stratify each dimension independently | Better than stratified in high-d |
+| Lấy mẫu phân tầng | Chia không gian thành các tầng, lấy mẫu từng tầng | Luôn <= MC tiêu chuẩn |
+| Biến đối nghịch | Sử dụng cả U và 1-U | Hoạt động cho các hàm đơn điệu |
+| Biến kiểm soát | Trừ một biến có trung bình đã biết | Tỉ lệ với tương quan |
+| Lấy mẫu quan trọng | Điều chỉnh lại trọng số các mẫu từ một đề xuất tốt hơn | Phụ thuộc chất lượng đề xuất |
+| Siêu lập phương Latin | Phân tầng từng chiều độc lập | Tốt hơn phân tầng trong không gian nhiều chiều |

@@ -1,6 +1,6 @@
 # Sampling Methods
 
-> Sampling is how AI explores the space of possibilities.
+> Lấy mẫu là cách AI khám phá không gian các khả năng.
 
 **Type:** Build
 **Language:** Python
@@ -9,40 +9,40 @@
 
 ## Learning Objectives
 
-- Implement inverse CDF, rejection, and importance sampling from scratch using only uniform random numbers
-- Build temperature, top-k, and top-p (nucleus) sampling for language model token generation
-- Explain the reparameterization trick and why it enables backpropagation through sampling in VAEs
-- Run Metropolis-Hastings MCMC to sample from an unnormalized target distribution
+- Triển khai lấy mẫu CDF ngược, loại bỏ và quan trọng từ đầu chỉ bằng các số ngẫu nhiên đều
+- Xây dựng lấy mẫu temperature, top-k và top-p (nucleus) để sinh token mô hình ngôn ngữ
+- Giải thích thủ thuật tái tham số hóa và tại sao nó cho phép lan truyền ngược qua việc lấy mẫu trong VAE
+- Chạy MCMC Metropolis-Hastings để lấy mẫu từ một phân phối mục tiêu chưa chuẩn hóa
 
 ## The Problem
 
-A language model finishes processing your prompt and produces a vector of 50,000 logits. One for every token in its vocabulary. Now it has to pick one. How?
+Một mô hình ngôn ngữ xử lý xong prompt của bạn và tạo ra một vector gồm 50,000 logits. Một cho mỗi token trong từ vựng của nó. Giờ nó phải chọn một. Bằng cách nào?
 
-If it always picks the highest-probability token, every response is identical. Deterministic. Boring. If it picks uniformly at random, the output is gibberish. The answer lives somewhere between these extremes, and that somewhere is controlled by sampling.
+Nếu nó luôn chọn token có xác suất cao nhất, mọi phản hồi giống hệt nhau. Tất định. Nhàm chán. Nếu nó chọn ngẫu nhiên đều, đầu ra vô nghĩa. Câu trả lời nằm ở đâu đó giữa các cực này, và vị trí đó được điều khiển bằng lấy mẫu.
 
-Sampling is not limited to text generation. Reinforcement learning estimates policy gradients by sampling trajectories. VAEs learn latent representations by sampling from learned distributions and backpropagating through the randomness. Diffusion models generate images by sampling noise and iteratively denoising. Monte Carlo methods estimate integrals that have no closed-form solution. MCMC algorithms explore high-dimensional posterior distributions that are impossible to enumerate.
+Lấy mẫu không giới hạn ở sinh văn bản. Học tăng cường ước lượng gradient chính sách bằng cách lấy mẫu các quỹ đạo. VAE học các biểu diễn ẩn bằng cách lấy mẫu từ các phân phối đã học và lan truyền ngược qua tính ngẫu nhiên. Các mô hình khuếch tán tạo hình ảnh bằng cách lấy mẫu nhiễu và lặp lại khử nhiễu. Các phương pháp Monte Carlo ước lượng các tích phân không có nghiệm dạng đóng. Các thuật toán MCMC khám phá các phân phối hậu nghiệm nhiều chiều không thể liệt kê.
 
-Every generative AI system is a sampling system. The sampling strategy determines the quality, diversity, and controllability of the output. This lesson builds every major sampling method from scratch, starting from uniform random numbers and ending with the techniques that power modern LLMs and generative models.
+Mọi hệ thống AI tạo sinh là một hệ thống lấy mẫu. Chiến lược lấy mẫu quyết định chất lượng, độ đa dạng và khả năng điều khiển đầu ra. Bài học này xây dựng mọi phương pháp lấy mẫu chính từ đầu, bắt đầu từ các số ngẫu nhiên đều và kết thúc với các kỹ thuật vận hành LLM và mô hình tạo sinh hiện đại.
 
 ## The Concept
 
 ### Why Sampling Matters
 
-Sampling appears in four fundamental roles across AI and machine learning:
+Lấy mẫu xuất hiện trong bốn vai trò cơ bản trên AI và học máy:
 
-**Generation.** Language models, diffusion models, and GANs all produce output by sampling. The sampling algorithm directly controls creativity, coherence, and diversity. Temperature, top-k, and nucleus sampling are the knobs that engineers turn daily.
+**Sinh.** Các mô hình ngôn ngữ, mô hình khuếch tán và GAN đều tạo đầu ra bằng cách lấy mẫu. Thuật toán lấy mẫu trực tiếp điều khiển tính sáng tạo, mạch lạc và đa dạng. Temperature, top-k và lấy mẫu nucleus là những núm mà các kỹ sư điều chỉnh hằng ngày.
 
-**Training.** Stochastic gradient descent samples mini-batches. Dropout samples neurons to deactivate. Data augmentation samples random transformations. Importance sampling reweights samples to reduce gradient variance in reinforcement learning (PPO, TRPO).
+**Huấn luyện.** Gradient descent ngẫu nhiên lấy mẫu các mini-batch. Dropout lấy mẫu các nơ-ron để vô hiệu hóa. Tăng cường dữ liệu lấy mẫu các phép biến đổi ngẫu nhiên. Lấy mẫu quan trọng điều chỉnh lại trọng số các mẫu để giảm phương sai gradient trong học tăng cường (PPO, TRPO).
 
-**Estimation.** Many quantities in ML have no closed-form solution. The expected loss over a data distribution, the partition function of an energy-based model, the evidence in Bayesian inference. Monte Carlo estimation approximates all of these by averaging over samples.
+**Ước lượng.** Nhiều đại lượng trong ML không có nghiệm dạng đóng. Mất mát kỳ vọng trên một phân phối dữ liệu, hàm phân hoạch của một mô hình dựa trên năng lượng, bằng chứng trong suy luận Bayes. Ước lượng Monte Carlo xấp xỉ tất cả bằng cách lấy trung bình trên các mẫu.
 
-**Exploration.** MCMC algorithms explore posterior distributions in Bayesian inference. Evolutionary strategies sample parameter perturbations. Thompson sampling balances exploration and exploitation in bandits.
+**Khám phá.** Các thuật toán MCMC khám phá các phân phối hậu nghiệm trong suy luận Bayes. Các chiến lược tiến hóa lấy mẫu các nhiễu loạn tham số. Lấy mẫu Thompson cân bằng khám phá và khai thác trong bandit.
 
-The core challenge: you can only sample directly from simple distributions (uniform, normal). For everything else, you need a method to convert simple samples into samples from your target distribution.
+Thách thức cốt lõi: bạn chỉ có thể lấy mẫu trực tiếp từ các phân phối đơn giản (đều, chuẩn). Với mọi thứ khác, bạn cần một phương pháp chuyển các mẫu đơn giản thành các mẫu từ phân phối mục tiêu.
 
 ### Uniform Random Sampling
 
-Every sampling method starts here. A uniform random number generator produces values in [0, 1) where every sub-interval of equal length has equal probability.
+Mọi phương pháp lấy mẫu bắt đầu ở đây. Một bộ sinh số ngẫu nhiên đều tạo ra các giá trị trong [0, 1) nơi mọi khoảng con có độ dài bằng nhau có xác suất bằng nhau.
 
 ```
 U ~ Uniform(0, 1)
@@ -54,13 +54,13 @@ Properties:
   Var(U) = 1/12
 ```
 
-To sample uniformly from a discrete set of n items, generate U and return floor(n * U). To sample from a continuous range [a, b], compute a + (b - a) * U.
+Để lấy mẫu đều từ một tập rời rạc gồm n mục, tạo U và trả về floor(n * U). Để lấy mẫu từ một khoảng liên tục [a, b], tính a + (b - a) * U.
 
-The key insight: a single uniform random number contains exactly the right amount of randomness to produce one sample from any distribution. The trick is finding the right transformation.
+Điểm cốt yếu: một số ngẫu nhiên đều duy nhất chứa chính xác lượng ngẫu nhiên phù hợp để tạo một mẫu từ bất kỳ phân phối nào. Thủ thuật là tìm phép biến đổi phù hợp.
 
 ### Inverse CDF Method (Inverse Transform Sampling)
 
-The cumulative distribution function (CDF) maps values to probabilities:
+Hàm phân phối tích lũy (CDF) ánh xạ các giá trị thành xác suất:
 
 ```
 F(x) = P(X <= x)
@@ -72,7 +72,7 @@ Properties:
   F maps the real line to [0, 1]
 ```
 
-The inverse CDF maps probabilities back to values. If U ~ Uniform(0, 1), then X = F_inverse(U) follows the target distribution.
+CDF ngược ánh xạ xác suất trở lại thành các giá trị. Nếu U ~ Uniform(0, 1), thì X = F_inverse(U) tuân theo phân phối mục tiêu.
 
 ```
 Algorithm:
@@ -83,7 +83,7 @@ Why it works:
   P(X <= x) = P(F_inverse(U) <= x) = P(U <= F(x)) = F(x)
 ```
 
-**Exponential distribution example:**
+**Ví dụ phân phối mũ:**
 
 ```
 PDF: f(x) = lambda * exp(-lambda * x),   x >= 0
@@ -98,13 +98,13 @@ Since (1 - U) and U have the same distribution:
   x = -ln(u) / lambda
 ```
 
-This works perfectly when you can write down F_inverse in closed form. For the normal distribution, there is no closed-form inverse CDF, so we use other methods (Box-Muller, or numerical approximation).
+Điều này hoạt động hoàn hảo khi bạn có thể viết F_inverse ở dạng đóng. Với phân phối chuẩn, không có CDF ngược dạng đóng, nên chúng ta sử dụng các phương pháp khác (Box-Muller hoặc xấp xỉ số).
 
-**Discrete version:** For discrete distributions, build the CDF as a cumulative sum, generate U, and find the first index where the cumulative sum exceeds U. This is how `sample_categorical` works in Lesson 06.
+**Phiên bản rời rạc:** Với các phân phối rời rạc, xây dựng CDF dưới dạng tổng tích lũy, tạo U và tìm chỉ số đầu tiên mà tổng tích lũy vượt U. Đây là cách `sample_categorical` hoạt động trong Bài học 06.
 
 ### Rejection Sampling
 
-When you cannot invert the CDF but can evaluate the target PDF up to a constant, rejection sampling works.
+Khi bạn không thể nghịch đảo CDF nhưng có thể tính PDF mục tiêu tới một hằng số, lấy mẫu loại bỏ hoạt động.
 
 ```
 Target distribution: p(x)  (can evaluate, possibly unnormalized)
@@ -120,15 +120,15 @@ Algorithm:
 Acceptance rate = 1/M
 ```
 
-The tighter the bound M, the higher the acceptance rate. In low dimensions (1-3), rejection sampling works well. In high dimensions, the acceptance rate drops exponentially because most of the proposal volume gets rejected. This is the curse of dimensionality for rejection sampling.
+Cận M càng chặt, tỉ lệ chấp nhận càng cao. Trong không gian ít chiều (1-3), lấy mẫu loại bỏ hoạt động tốt. Trong không gian nhiều chiều, tỉ lệ chấp nhận giảm theo hàm mũ vì hầu hết thể tích đề xuất bị loại bỏ. Đây là lời nguyền số chiều đối với lấy mẫu loại bỏ.
 
-**Example: sampling from a truncated normal.** Use a uniform proposal over the truncated range. The envelope M is the maximum of the normal PDF in that range.
+**Ví dụ: lấy mẫu từ một phân phối chuẩn bị cắt cụt.** Sử dụng một phân phối đề xuất đều trên khoảng cắt cụt. Đường bao M là giá trị lớn nhất của PDF chuẩn trong khoảng đó.
 
-**Example: sampling from a semicircle.** Propose uniformly in the bounding rectangle. Accept if the point falls inside the semicircle. This is how Monte Carlo computes pi: the acceptance rate equals the area ratio pi/4.
+**Ví dụ: lấy mẫu từ một nửa hình tròn.** Đề xuất đều trong hình chữ nhật bao. Chấp nhận nếu điểm rơi trong nửa hình tròn. Đây là cách Monte Carlo tính pi: tỉ lệ chấp nhận bằng tỉ lệ diện tích pi/4.
 
 ### Importance Sampling
 
-Sometimes you do not need samples from the target distribution p(x). You need to estimate an expectation under p(x), and you have samples from a different distribution q(x).
+Đôi khi bạn không cần các mẫu từ phân phối mục tiêu p(x). Bạn cần ước lượng một kỳ vọng theo p(x), và bạn có các mẫu từ một phân phối khác q(x).
 
 ```
 Goal: estimate E_p[f(x)] = integral of f(x) * p(x) dx
@@ -143,9 +143,9 @@ Estimator:
   E_p[f(x)] ~ (1/N) * sum(f(x_i) * w(x_i))    where x_i ~ q(x)
 ```
 
-This is critical in reinforcement learning. In PPO (Proximal Policy Optimization), you collect trajectories under an old policy pi_old but want to optimize a new policy pi_new. The importance weight is pi_new(a|s) / pi_old(a|s). PPO clips these weights to prevent the new policy from diverging too far from the old one.
+Điều này rất quan trọng trong học tăng cường. Trong PPO (Tối ưu hóa Chính sách Lân cận), bạn thu thập các quỹ đạo theo một chính sách cũ pi_old nhưng muốn tối ưu hóa một chính sách mới pi_new. Trọng số quan trọng là pi_new(a|s) / pi_old(a|s). PPO cắt các trọng số này để ngăn chính sách mới lệch quá xa chính sách cũ.
 
-The variance of the importance sampling estimator depends on how similar q is to p. If q is very different from p, a few samples get enormous weights and dominate the estimate. Self-normalized importance sampling divides by the sum of weights to reduce this problem:
+Phương sai của bộ ước lượng lấy mẫu quan trọng phụ thuộc vào mức độ q tương tự p. Nếu q rất khác p, một vài mẫu nhận trọng số khổng lồ và chi phối ước lượng. Lấy mẫu quan trọng tự chuẩn hóa chia cho tổng các trọng số để giảm vấn đề này:
 
 ```
 E_p[f(x)] ~ sum(w_i * f(x_i)) / sum(w_i)
@@ -153,7 +153,7 @@ E_p[f(x)] ~ sum(w_i * f(x_i)) / sum(w_i)
 
 ### Monte Carlo Estimation
 
-Monte Carlo estimation approximates integrals by averaging random samples. The law of large numbers guarantees convergence.
+Ước lượng Monte Carlo xấp xỉ tích phân bằng cách lấy trung bình các mẫu ngẫu nhiên. Định luật số lớn bảo đảm hội tụ.
 
 ```
 Goal: estimate I = integral of g(x) dx over domain D
@@ -165,9 +165,9 @@ Method:
 Error: O(1 / sqrt(N))   regardless of dimension
 ```
 
-The error rate is dimension-independent. This is why Monte Carlo methods dominate in high dimensions where grid-based integration is impossible.
+Tốc độ sai số độc lập với số chiều. Đây là lý do các phương pháp Monte Carlo chiếm ưu thế trong không gian nhiều chiều nơi tích phân dựa trên lưới là bất khả thi.
 
-**Estimating pi:**
+**Ước lượng pi:**
 
 ```
 Sample (x, y) uniformly from [-1, 1] x [-1, 1]
@@ -175,7 +175,7 @@ Count how many fall inside the unit circle: x^2 + y^2 <= 1
 pi ~ 4 * (count inside) / (total count)
 ```
 
-**Estimating expectations:**
+**Ước lượng các kỳ vọng:**
 
 ```
 E[f(X)] ~ (1/N) * sum(f(x_i))    where x_i ~ p(x)
@@ -186,7 +186,7 @@ Variance of the estimator = Var(f(X)) / N
 
 ### Markov Chain Monte Carlo (MCMC): Metropolis-Hastings
 
-MCMC constructs a Markov chain whose stationary distribution is the target distribution p(x). After enough steps, samples from the chain are (approximately) samples from p(x).
+MCMC xây dựng một chuỗi Markov có phân phối dừng là phân phối mục tiêu p(x). Sau đủ bước, các mẫu từ chuỗi là (xấp xỉ) các mẫu từ p(x).
 
 ```
 Target: p(x)  (known up to a normalizing constant)
@@ -205,19 +205,19 @@ Metropolis-Hastings algorithm:
   4. Return remaining samples
 ```
 
-For symmetric proposals (q(x'|x) = q(x|x')), the ratio simplifies to p(x')/p(x). This is the original Metropolis algorithm.
+Với các đề xuất đối xứng (q(x'|x) = q(x|x')), tỉ số đơn giản thành p(x')/p(x). Đây là thuật toán Metropolis gốc.
 
-**Why it works.** The acceptance rule ensures detailed balance: the probability of being at x and moving to x' equals the probability of being at x' and moving to x. Detailed balance implies that p(x) is the stationary distribution of the chain.
+**Tại sao nó hoạt động.** Quy tắc chấp nhận bảo đảm cân bằng chi tiết: xác suất ở x và chuyển đến x' bằng xác suất ở x' và chuyển đến x. Cân bằng chi tiết hàm ý p(x) là phân phối dừng của chuỗi.
 
-**Practical considerations:**
-- Burn-in: discard early samples before the chain reaches equilibrium
-- Thinning: keep every k-th sample to reduce autocorrelation
-- Proposal scale: too small and the chain moves slowly (high acceptance, slow exploration); too large and most proposals are rejected (low acceptance, stuck in place)
-- The optimal acceptance rate for a Gaussian proposal in high dimensions is approximately 0.234
+**Các cân nhắc thực tế:**
+- Burn-in: bỏ các mẫu đầu trước khi chuỗi đạt cân bằng
+- Làm thưa: giữ mỗi mẫu thứ k để giảm tự tương quan
+- Thang đo đề xuất: quá nhỏ và chuỗi di chuyển chậm (chấp nhận cao, khám phá chậm); quá lớn và hầu hết đề xuất bị loại bỏ (chấp nhận thấp, kẹt tại chỗ)
+- Tỉ lệ chấp nhận tối ưu cho một đề xuất Gaussian trong không gian nhiều chiều xấp xỉ 0.234
 
 ### Gibbs Sampling
 
-Gibbs sampling is a special case of MCMC for multivariate distributions. Instead of proposing a move in all dimensions at once, it updates one variable at a time from its conditional distribution.
+Lấy mẫu Gibbs là một trường hợp đặc biệt của MCMC cho các phân phối đa biến. Thay vì đề xuất một bước di chuyển trong mọi chiều cùng lúc, nó cập nhật từng biến từ phân phối có điều kiện của nó.
 
 ```
 Target: p(x_1, x_2, ..., x_d)
@@ -230,18 +230,18 @@ Algorithm:
     Sample x_d^{t+1} ~ p(x_d | x_1^{t+1}, x_2^{t+1}, ..., x_{d-1}^{t+1})
 ```
 
-Gibbs sampling requires that you can sample from each conditional distribution p(x_i | x_{-i}). This is straightforward for many models:
-- Bayesian networks: conditionals follow from the graph structure
-- Gaussian mixtures: conditionals are Gaussian
-- Ising models: each spin's conditional depends only on its neighbors
+Lấy mẫu Gibbs đòi hỏi bạn có thể lấy mẫu từ mỗi phân phối có điều kiện p(x_i | x_{-i}). Điều này đơn giản cho nhiều mô hình:
+- Mạng Bayes: các phân phối có điều kiện suy ra từ cấu trúc đồ thị
+- Hỗn hợp Gaussian: các phân phối có điều kiện là Gaussian
+- Mô hình Ising: phân phối có điều kiện của mỗi spin chỉ phụ thuộc vào các láng giềng của nó
 
-The acceptance rate is always 1 (every proposal is accepted) because sampling from the exact conditional automatically satisfies detailed balance.
+Tỉ lệ chấp nhận luôn là 1 (mọi đề xuất được chấp nhận) vì lấy mẫu từ phân phối có điều kiện chính xác tự động thỏa mãn cân bằng chi tiết.
 
-**Limitation.** When variables are highly correlated, Gibbs sampling mixes slowly because updating one variable at a time cannot make large diagonal moves through the distribution.
+**Hạn chế.** Khi các biến tương quan cao, lấy mẫu Gibbs trộn chậm vì cập nhật từng biến không thể thực hiện các bước chéo lớn qua phân phối.
 
 ### Temperature Sampling (Used in LLMs)
 
-Language models output logits z_1, ..., z_V for each token in the vocabulary. Softmax converts these to probabilities. Temperature rescales the logits before softmax:
+Các mô hình ngôn ngữ xuất ra logits z_1, ..., z_V cho mỗi token trong từ vựng. Softmax chuyển chúng thành xác suất. Temperature điều chỉnh lại tỉ lệ logits trước softmax:
 
 ```
 p_i = exp(z_i / T) / sum(exp(z_j / T))
@@ -253,20 +253,20 @@ T < 1.0: sharpens the distribution (more confident, less diverse)
 T > 1.0: flattens the distribution (less confident, more diverse)
 ```
 
-**Why it works.** Dividing logits by T < 1 amplifies differences between logits. If z_1 = 2 and z_2 = 1, dividing by T = 0.5 gives z_1/T = 4 and z_2/T = 2, making the gap larger. After softmax, the highest-logit token gets a much larger share.
+**Tại sao nó hoạt động.** Chia logits cho T < 1 khuếch đại khác biệt giữa các logits. Nếu z_1 = 2 và z_2 = 1, chia cho T = 0.5 cho z_1/T = 4 và z_2/T = 2, làm khoảng cách lớn hơn. Sau softmax, token có logit cao nhất nhận phần lớn hơn nhiều.
 
-**In practice:**
-- T = 0.0: greedy decoding, best for factual Q&A
-- T = 0.3-0.7: slightly creative, good for code generation
-- T = 0.7-1.0: balanced, good for general conversation
-- T = 1.0-1.5: creative writing, brainstorming
-- T > 1.5: increasingly random, rarely useful
+**Trong thực tế:**
+- T = 0.0: giải mã tham lam, tốt nhất cho hỏi đáp dựa trên sự kiện
+- T = 0.3-0.7: hơi sáng tạo, tốt cho sinh mã
+- T = 0.7-1.0: cân bằng, tốt cho hội thoại chung
+- T = 1.0-1.5: viết sáng tạo, động não
+- T > 1.5: ngày càng ngẫu nhiên, hiếm khi hữu ích
 
-Temperature does not change which tokens are possible. It changes the probability mass allocated to each token.
+Temperature không thay đổi những token nào có thể. Nó thay đổi khối xác suất được phân bổ cho mỗi token.
 
 ### Top-k Sampling
 
-Top-k sampling restricts the candidate set to the k tokens with the highest probabilities, then renormalizes and samples from that restricted set.
+Lấy mẫu top-k giới hạn tập ứng viên về k token có xác suất cao nhất, rồi chuẩn hóa lại và lấy mẫu từ tập bị giới hạn đó.
 
 ```
 Algorithm:
@@ -281,11 +281,11 @@ k = V:  no filtering (standard sampling)
 k = 40: typical setting, removes long tail of unlikely tokens
 ```
 
-Top-k prevents the model from selecting extremely unlikely tokens (typos, nonsense) that exist in the long tail of the vocabulary distribution. The problem: k is fixed regardless of context. When the model is confident (one token has 95% probability), k = 40 still allows 39 alternatives. When the model is uncertain (probability is spread across 1000 tokens), k = 40 cuts off plausible options.
+Top-k ngăn mô hình chọn các token cực kỳ ít có khả năng (lỗi gõ, vô nghĩa) tồn tại ở đuôi dài của phân phối từ vựng. Vấn đề: k cố định bất kể ngữ cảnh. Khi mô hình tự tin (một token có xác suất 95%), k = 40 vẫn cho phép 39 lựa chọn khác. Khi mô hình không chắc chắn (xác suất trải trên 1000 token), k = 40 cắt bỏ các lựa chọn hợp lý.
 
 ### Top-p (Nucleus) Sampling
 
-Top-p sampling dynamically adjusts the candidate set size. Instead of keeping a fixed number of tokens, it keeps the smallest set of tokens whose cumulative probability exceeds p.
+Lấy mẫu top-p điều chỉnh động kích thước tập ứng viên. Thay vì giữ một số token cố định, nó giữ tập token nhỏ nhất có xác suất tích lũy vượt p.
 
 ```
 Algorithm:
@@ -300,18 +300,18 @@ p = 1.0:  no filtering
 p = 0.1:  very restrictive, nearly greedy
 ```
 
-When the model is confident, nucleus sampling keeps few tokens (maybe 2-3). When the model is uncertain, it keeps many (maybe 200). This adaptive behavior is why nucleus sampling generally produces better text than top-k.
+Khi mô hình tự tin, lấy mẫu nucleus giữ ít token (có thể 2-3). Khi mô hình không chắc chắn, nó giữ nhiều (có thể 200). Hành vi thích nghi này là lý do lấy mẫu nucleus thường tạo văn bản tốt hơn top-k.
 
-**Common combinations:**
-- Temperature 0.7 + top-p 0.9: good general-purpose setting
-- Temperature 0.0 (greedy): best for deterministic tasks
-- Temperature 1.0 + top-k 50: Fan et al. (2018) original paper setting
+**Các kết hợp phổ biến:**
+- Temperature 0.7 + top-p 0.9: thiết lập tốt cho mục đích chung
+- Temperature 0.0 (tham lam): tốt nhất cho các tác vụ tất định
+- Temperature 1.0 + top-k 50: thiết lập bài báo gốc của Fan et al. (2018)
 
-Top-k and top-p can be combined. Apply top-k first, then top-p on the remaining set.
+Top-k và top-p có thể kết hợp. Áp dụng top-k trước, rồi top-p trên tập còn lại.
 
 ### Reparameterization Trick (Used in VAEs)
 
-Variational autoencoders (VAEs) learn by encoding inputs into a distribution in latent space, sampling from that distribution, and decoding the sample back. The problem: you cannot backpropagate through a sampling operation.
+Các bộ tự mã hóa biến phân (VAE) học bằng cách mã hóa đầu vào thành một phân phối trong không gian ẩn, lấy mẫu từ phân phối đó và giải mã mẫu trở lại. Vấn đề: bạn không thể lan truyền ngược qua một phép lấy mẫu.
 
 ```
 Standard sampling (not differentiable):
@@ -321,7 +321,7 @@ Standard sampling (not differentiable):
   d/d_mu [sample from N(mu, sigma^2)] = ???
 ```
 
-The reparameterization trick separates the randomness from the parameters:
+Thủ thuật tái tham số hóa tách tính ngẫu nhiên khỏi các tham số:
 
 ```
 Reparameterized sampling:
@@ -335,22 +335,22 @@ Reparameterized sampling:
   Gradients flow through mu and sigma.
 ```
 
-This works because N(mu, sigma^2) has the same distribution as mu + sigma * N(0, 1). The key insight: move the randomness to a parameter-free source (epsilon), then express the sample as a differentiable transformation of the parameters.
+Điều này hoạt động vì N(mu, sigma^2) có cùng phân phối với mu + sigma * N(0, 1). Điểm cốt yếu: chuyển tính ngẫu nhiên sang một nguồn không có tham số (epsilon), rồi biểu diễn mẫu dưới dạng một phép biến đổi khả vi của các tham số.
 
-**In the VAE training loop:**
-1. Encoder outputs mu and log(sigma^2) for each input
-2. Sample epsilon ~ N(0, 1)
-3. Compute z = mu + sigma * epsilon
-4. Decode z to reconstruct the input
-5. Backpropagate through steps 4, 3, 2, 1 (possible because step 3 is differentiable)
+**Trong vòng lặp huấn luyện VAE:**
+1. Bộ mã hóa xuất ra mu và log(sigma^2) cho mỗi đầu vào
+2. Lấy mẫu epsilon ~ N(0, 1)
+3. Tính z = mu + sigma * epsilon
+4. Giải mã z để tái tạo đầu vào
+5. Lan truyền ngược qua các bước 4, 3, 2, 1 (có thể vì bước 3 khả vi)
 
-Without the reparameterization trick, VAEs cannot be trained with standard backpropagation. This single insight made VAEs practical.
+Không có thủ thuật tái tham số hóa, VAE không thể được huấn luyện bằng lan truyền ngược tiêu chuẩn. Hiểu biết duy nhất này đã làm VAE khả thi trong thực tế.
 
 ### Gumbel-Softmax (Differentiable Categorical Sampling)
 
-The reparameterization trick works for continuous distributions (Gaussian). For discrete categorical distributions, we need a different approach. Gumbel-Softmax provides a differentiable approximation to categorical sampling.
+Thủ thuật tái tham số hóa hoạt động cho các phân phối liên tục (Gaussian). Với các phân phối categorical rời rạc, chúng ta cần một cách tiếp cận khác. Gumbel-Softmax cung cấp một xấp xỉ khả vi cho lấy mẫu categorical.
 
-**The Gumbel-Max trick (non-differentiable):**
+**Thủ thuật Gumbel-Max (không khả vi):**
 
 ```
 To sample from a categorical distribution with log-probabilities log(p_1), ..., log(p_k):
@@ -361,7 +361,7 @@ To sample from a categorical distribution with log-probabilities log(p_1), ..., 
 This produces exact categorical samples.
 ```
 
-**Gumbel-Softmax (differentiable approximation):**
+**Gumbel-Softmax (xấp xỉ khả vi):**
 
 ```
 Replace the hard argmax with a soft softmax:
@@ -373,17 +373,17 @@ tau (temperature) controls the approximation:
   tau = 1.0: soft approximation
 ```
 
-Gumbel-Softmax produces a continuous relaxation of a discrete sample. The output is a probability vector (soft one-hot) instead of a hard one-hot. Gradients flow through the softmax. During the forward pass in training, you can use the "straight-through" estimator: use the hard argmax for the forward pass but the soft Gumbel-Softmax gradients for the backward pass.
+Gumbel-Softmax tạo ra một phép nới lỏng liên tục của một mẫu rời rạc. Đầu ra là một vector xác suất (one-hot mềm) thay vì one-hot cứng. Gradient truyền qua softmax. Trong lượt truyền xuôi khi huấn luyện, bạn có thể sử dụng bộ ước lượng "straight-through": dùng argmax cứng cho lượt truyền xuôi nhưng gradient Gumbel-Softmax mềm cho lượt truyền ngược.
 
-**Applications:**
-- Discrete latent variables in VAEs
-- Neural architecture search (choosing discrete operations)
-- Hard attention mechanisms
-- Reinforcement learning with discrete actions
+**Ứng dụng:**
+- Các biến ẩn rời rạc trong VAE
+- Tìm kiếm kiến trúc nơ-ron (chọn các phép toán rời rạc)
+- Các cơ chế attention cứng
+- Học tăng cường với các hành động rời rạc
 
 ### Stratified Sampling
 
-Standard Monte Carlo sampling can leave gaps in the sample space by chance. Stratified sampling forces even coverage by dividing the space into strata and sampling from each.
+Lấy mẫu Monte Carlo tiêu chuẩn có thể ngẫu nhiên để lại các khoảng trống trong không gian mẫu. Lấy mẫu phân tầng buộc phủ đều bằng cách chia không gian thành các tầng và lấy mẫu từ từng tầng.
 
 ```
 Standard Monte Carlo:
@@ -396,7 +396,7 @@ Stratified sampling:
   x_i = (i + u_i) / N   where u_i ~ Uniform(0, 1),  i = 0, ..., N-1
 ```
 
-Stratified sampling always has lower or equal variance compared to standard Monte Carlo:
+Lấy mẫu phân tầng luôn có phương sai thấp hơn hoặc bằng Monte Carlo tiêu chuẩn:
 
 ```
 Var(stratified) <= Var(standard Monte Carlo)
@@ -405,15 +405,15 @@ The improvement is largest when f(x) varies smoothly.
 For piecewise-constant functions, stratified sampling is exact.
 ```
 
-**Applications:**
-- Numerical integration (quasi-Monte Carlo)
-- Training data splits (ensuring class balance in each fold)
-- Importance sampling with stratification (combining both techniques)
-- NeRF (Neural Radiance Fields) uses stratified sampling along camera rays
+**Ứng dụng:**
+- Tích phân số (quasi-Monte Carlo)
+- Các phần chia dữ liệu huấn luyện (bảo đảm cân bằng lớp trong mỗi fold)
+- Lấy mẫu quan trọng có phân tầng (kết hợp cả hai kỹ thuật)
+- NeRF (Trường Bức xạ Nơ-ron) sử dụng lấy mẫu phân tầng dọc theo các tia camera
 
 ### Connection to Diffusion Models
 
-Diffusion models generate images through a sampling process. The forward process adds Gaussian noise to an image over T steps until it becomes pure noise. The reverse process learns to denoise, recovering the original image step by step.
+Các mô hình khuếch tán tạo hình ảnh thông qua một quá trình lấy mẫu. Quá trình xuôi thêm nhiễu Gaussian vào một hình ảnh qua T bước cho đến khi nó trở thành nhiễu thuần. Quá trình ngược học khử nhiễu, khôi phục hình ảnh gốc từng bước.
 
 ```
 Forward process (known):
@@ -429,13 +429,13 @@ Reverse process (learned):
   Each denoising step is a sampling step.
 ```
 
-The connection to the methods in this lesson:
-- Each denoising step uses the reparameterization trick (sample noise, apply deterministic transform)
-- The noise schedule {alpha_t} controls a form of temperature annealing
-- Training uses Monte Carlo estimation to approximate the ELBO (evidence lower bound)
-- Ancestral sampling in diffusion models is a Markov chain (each step depends only on the current state)
+Mối liên hệ với các phương pháp trong bài học này:
+- Mỗi bước khử nhiễu sử dụng thủ thuật tái tham số hóa (lấy mẫu nhiễu, áp dụng phép biến đổi tất định)
+- Lịch nhiễu {alpha_t} điều khiển một dạng ủ nhiệt độ
+- Huấn luyện sử dụng ước lượng Monte Carlo để xấp xỉ ELBO (cận dưới bằng chứng)
+- Lấy mẫu tổ tiên trong các mô hình khuếch tán là một chuỗi Markov (mỗi bước chỉ phụ thuộc vào trạng thái hiện tại)
 
-The entire image generation process is iterative sampling: start from noise, and at each step, sample a slightly less noisy version conditioned on the learned denoising model.
+Toàn bộ quá trình sinh hình ảnh là lấy mẫu lặp: bắt đầu từ nhiễu, và tại mỗi bước, lấy mẫu một phiên bản ít nhiễu hơn một chút có điều kiện theo mô hình khử nhiễu đã học.
 
 ```figure
 monte-carlo-pi
@@ -457,7 +457,7 @@ def sample_exponential_inverse_cdf(lam):
     return -math.log(u) / lam
 ```
 
-Generate 10,000 exponential samples and verify the mean is 1/lambda.
+Tạo 10,000 mẫu phân phối mũ và xác minh trung bình là 1/lambda.
 
 ### Step 2: Rejection sampling
 
@@ -470,7 +470,7 @@ def rejection_sample(target_pdf, proposal_sample, proposal_pdf, M):
             return x
 ```
 
-Use rejection sampling to draw from a truncated normal distribution. Verify the shape by histogramming the samples.
+Sử dụng lấy mẫu loại bỏ để rút mẫu từ một phân phối chuẩn bị cắt cụt. Xác minh hình dạng bằng cách vẽ biểu đồ tần suất các mẫu.
 
 ### Step 3: Importance sampling
 
@@ -484,7 +484,7 @@ def importance_sampling_estimate(f, target_pdf, proposal_pdf, proposal_sample, n
     return total / n
 ```
 
-Estimate E[X^2] under a normal distribution using a uniform proposal. Compare to the known answer (mu^2 + sigma^2).
+Ước lượng E[X^2] theo một phân phối chuẩn bằng một đề xuất đều. So sánh với câu trả lời đã biết (mu^2 + sigma^2).
 
 ### Step 4: Monte Carlo estimation of pi
 
@@ -516,7 +516,7 @@ def metropolis_hastings(target_log_pdf, proposal_sample, proposal_log_pdf, x0, n
     return samples
 ```
 
-Sample from a bimodal distribution (mixture of two Gaussians). Visualize the chain's trajectory.
+Lấy mẫu từ một phân phối hai mode (hỗn hợp hai Gaussian). Trực quan hóa quỹ đạo của chuỗi.
 
 ### Step 6: Gibbs sampling
 
@@ -547,7 +547,7 @@ def temperature_sample(logits, temperature):
     return sample_from_probs(probs)
 ```
 
-Show how temperature changes the output distribution for a set of token logits.
+Cho thấy temperature thay đổi phân phối đầu ra cho một tập logits token như thế nào.
 
 ### Step 8: Top-k and top-p sampling
 
@@ -590,7 +590,7 @@ def reparam_gradient(mu, sigma, epsilon):
     return dz_dmu, dz_dsigma
 ```
 
-Demonstrate that gradients flow through the reparameterized sample but not through direct sampling.
+Minh họa gradient truyền qua mẫu được tái tham số hóa nhưng không qua lấy mẫu trực tiếp.
 
 ### Step 10: Gumbel-Softmax
 
@@ -604,13 +604,13 @@ def gumbel_softmax(logits, temperature):
     return softmax([g / temperature for g in gumbels])
 ```
 
-Show how decreasing temperature makes the output approach a one-hot vector.
+Cho thấy giảm temperature làm đầu ra tiến đến một vector one-hot như thế nào.
 
-Full implementations with all visualizations are in `code/sampling.py`.
+Các triển khai đầy đủ cùng mọi hình trực quan hóa nằm trong `code/sampling.py`.
 
 ## Use It
 
-With NumPy and SciPy, the production versions:
+Với NumPy và SciPy, các phiên bản sản xuất:
 
 ```python
 import numpy as np
@@ -633,52 +633,52 @@ token = rng.choice(len(logits), p=probs)
 print(f"Sampled token index: {token}")
 ```
 
-For MCMC at scale, use dedicated libraries:
-- PyMC: full Bayesian modeling with NUTS (adaptive HMC)
-- emcee: ensemble MCMC sampler
-- NumPyro/JAX: GPU-accelerated MCMC
+Với MCMC ở quy mô lớn, sử dụng các thư viện chuyên dụng:
+- PyMC: mô hình hóa Bayes đầy đủ với NUTS (HMC thích nghi)
+- emcee: bộ lấy mẫu MCMC tập hợp
+- NumPyro/JAX: MCMC được tăng tốc GPU
 
-You built these from scratch. Now you know what the library calls are doing.
+Bạn đã xây dựng chúng từ đầu. Giờ bạn biết các lời gọi thư viện đang làm gì.
 
 ## Exercises
 
-1. Implement inverse CDF sampling for the Cauchy distribution. The CDF is F(x) = 0.5 + arctan(x)/pi. Generate 10,000 samples and plot the histogram against the true PDF. Notice the heavy tails (extreme values far from center).
+1. Triển khai lấy mẫu CDF ngược cho phân phối Cauchy. CDF là F(x) = 0.5 + arctan(x)/pi. Tạo 10,000 mẫu và vẽ biểu đồ tần suất so với PDF thực. Chú ý các đuôi nặng (các giá trị cực đoan xa tâm).
 
-2. Use rejection sampling to generate samples from a Beta(2, 5) distribution using a Uniform(0, 1) proposal. Plot the accepted samples against the true Beta PDF. What is the theoretical acceptance rate?
+2. Sử dụng lấy mẫu loại bỏ để tạo các mẫu từ phân phối Beta(2, 5) bằng một đề xuất Uniform(0, 1). Vẽ các mẫu được chấp nhận so với PDF Beta thực. Tỉ lệ chấp nhận lý thuyết là bao nhiêu?
 
-3. Estimate the integral of sin(x) from 0 to pi using Monte Carlo with 1,000, 10,000, and 100,000 samples. Compare the error at each level. Verify that the error scales as O(1/sqrt(N)).
+3. Ước lượng tích phân của sin(x) từ 0 đến pi bằng Monte Carlo với 1,000, 10,000 và 100,000 mẫu. So sánh sai số ở mỗi mức. Xác minh sai số tỉ lệ theo O(1/sqrt(N)).
 
-4. Implement Metropolis-Hastings to sample from a 2D distribution p(x, y) proportional to exp(-(x^2 * y^2 + x^2 + y^2 - 8*x - 8*y) / 2). Plot the samples and the chain trajectory. Experiment with different proposal standard deviations.
+4. Triển khai Metropolis-Hastings để lấy mẫu từ một phân phối 2D p(x, y) tỉ lệ với exp(-(x^2 * y^2 + x^2 + y^2 - 8*x - 8*y) / 2). Vẽ các mẫu và quỹ đạo chuỗi. Thử nghiệm với các độ lệch chuẩn đề xuất khác nhau.
 
-5. Build a complete text generation demo: given a vocabulary of 10 words with logits, generate sequences of 20 tokens using (a) greedy, (b) temperature=0.7, (c) top-k=3, (d) top-p=0.9. Compare the diversity of outputs across 5 runs.
+5. Xây dựng một demo sinh văn bản hoàn chỉnh: cho một từ vựng 10 từ có logits, sinh các chuỗi 20 token bằng (a) tham lam, (b) temperature=0.7, (c) top-k=3, (d) top-p=0.9. So sánh độ đa dạng đầu ra qua 5 lần chạy.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Sampling | "Drawing random values" | Generating values according to a probability distribution. The mechanism behind all generative AI |
-| Uniform distribution | "All equally likely" | Every value in [a, b] has equal probability density 1/(b-a). The starting point for all sampling methods |
-| Inverse CDF | "Probability transform" | F_inverse(U) converts a uniform sample into a sample from any distribution with known CDF. Exact and efficient |
-| Rejection sampling | "Propose and accept/reject" | Generate from a simple proposal, accept with probability proportional to target/proposal ratio. Exact but wastes samples |
-| Importance sampling | "Reweight samples" | Estimate expectations under p(x) using samples from q(x) by weighting each sample by p(x)/q(x). Core to PPO in RL |
-| Monte Carlo | "Average random samples" | Approximate integrals as sample averages. Error O(1/sqrt(N)) regardless of dimension |
-| MCMC | "Random walk that converges" | Construct a Markov chain whose stationary distribution is the target. Metropolis-Hastings is the foundational algorithm |
-| Metropolis-Hastings | "Accept uphill, sometimes downhill" | Propose moves, accept based on density ratio. Detailed balance ensures convergence to target distribution |
-| Gibbs sampling | "One variable at a time" | Update each variable from its conditional distribution holding others fixed. 100% acceptance rate |
-| Temperature | "Confidence knob" | Divides logits by T before softmax. T<1 sharpens (more confident), T>1 flattens (more diverse) |
-| Top-k sampling | "Keep the k best" | Zero out all but the k highest-probability tokens, renormalize, sample. Fixed candidate set size |
-| Nucleus sampling (top-p) | "Keep the probable ones" | Keep the smallest set of tokens whose cumulative probability exceeds p. Adaptive candidate set size |
-| Reparameterization trick | "Move randomness outside" | Write z = mu + sigma * epsilon where epsilon ~ N(0,1). Makes sampling differentiable. Essential for VAE training |
-| Gumbel-Softmax | "Soft categorical sampling" | Differentiable approximation to categorical sampling using Gumbel noise + softmax with temperature |
-| Stratified sampling | "Forced coverage" | Divide sample space into strata, sample from each. Always lower variance than naive Monte Carlo |
-| Burn-in | "Warm-up period" | Initial MCMC samples discarded before the chain reaches its stationary distribution |
-| Detailed balance | "Reversibility condition" | p(x) * T(x->y) = p(y) * T(y->x). Sufficient condition for p to be the stationary distribution of a Markov chain |
-| Diffusion sampling | "Iterative denoising" | Generate data by starting from noise and applying learned denoising steps. Each step is a conditional sampling operation |
+| Sampling (Lấy mẫu) | "Rút các giá trị ngẫu nhiên" | Tạo các giá trị theo một phân phối xác suất. Cơ chế đằng sau mọi AI tạo sinh |
+| Uniform distribution (Phân phối đều) | "Tất cả có khả năng như nhau" | Mọi giá trị trong [a, b] có mật độ xác suất bằng nhau 1/(b-a). Điểm bắt đầu cho mọi phương pháp lấy mẫu |
+| Inverse CDF (CDF ngược) | "Biến đổi xác suất" | F_inverse(U) chuyển một mẫu đều thành một mẫu từ bất kỳ phân phối nào có CDF đã biết. Chính xác và hiệu quả |
+| Rejection sampling (Lấy mẫu loại bỏ) | "Đề xuất và chấp nhận/loại bỏ" | Sinh từ một đề xuất đơn giản, chấp nhận với xác suất tỉ lệ với tỉ số mục tiêu/đề xuất. Chính xác nhưng lãng phí mẫu |
+| Importance sampling (Lấy mẫu quan trọng) | "Điều chỉnh lại trọng số mẫu" | Ước lượng các kỳ vọng theo p(x) bằng các mẫu từ q(x) với mỗi mẫu có trọng số p(x)/q(x). Cốt lõi của PPO trong RL |
+| Monte Carlo | "Lấy trung bình các mẫu ngẫu nhiên" | Xấp xỉ tích phân bằng các trung bình mẫu. Sai số O(1/sqrt(N)) bất kể số chiều |
+| MCMC | "Bước đi ngẫu nhiên hội tụ" | Xây dựng một chuỗi Markov có phân phối dừng là mục tiêu. Metropolis-Hastings là thuật toán nền tảng |
+| Metropolis-Hastings | "Chấp nhận lên dốc, đôi khi xuống dốc" | Đề xuất các bước di chuyển, chấp nhận dựa trên tỉ số mật độ. Cân bằng chi tiết bảo đảm hội tụ về phân phối mục tiêu |
+| Gibbs sampling (Lấy mẫu Gibbs) | "Từng biến một" | Cập nhật mỗi biến từ phân phối có điều kiện của nó, giữ các biến khác cố định. Tỉ lệ chấp nhận 100% |
+| Temperature (Nhiệt độ) | "Núm độ tự tin" | Chia logits cho T trước softmax. T<1 làm nhọn (tự tin hơn), T>1 làm phẳng (đa dạng hơn) |
+| Top-k sampling (Lấy mẫu top-k) | "Giữ k tốt nhất" | Đặt tất cả về không trừ k token có xác suất cao nhất, chuẩn hóa lại, lấy mẫu. Kích thước tập ứng viên cố định |
+| Nucleus sampling (top-p) (Lấy mẫu nucleus) | "Giữ những token có khả năng" | Giữ tập token nhỏ nhất có xác suất tích lũy vượt p. Kích thước tập ứng viên thích nghi |
+| Reparameterization trick (Thủ thuật tái tham số hóa) | "Chuyển tính ngẫu nhiên ra ngoài" | Viết z = mu + sigma * epsilon trong đó epsilon ~ N(0,1). Làm việc lấy mẫu khả vi. Thiết yếu cho huấn luyện VAE |
+| Gumbel-Softmax | "Lấy mẫu categorical mềm" | Xấp xỉ khả vi của lấy mẫu categorical bằng nhiễu Gumbel + softmax có temperature |
+| Stratified sampling (Lấy mẫu phân tầng) | "Buộc phủ" | Chia không gian mẫu thành các tầng, lấy mẫu từ từng tầng. Luôn có phương sai thấp hơn Monte Carlo ngây thơ |
+| Burn-in | "Giai đoạn làm nóng" | Các mẫu MCMC ban đầu bị loại bỏ trước khi chuỗi đạt phân phối dừng |
+| Detailed balance (Cân bằng chi tiết) | "Điều kiện khả nghịch" | p(x) * T(x->y) = p(y) * T(y->x). Điều kiện đủ để p là phân phối dừng của một chuỗi Markov |
+| Diffusion sampling (Lấy mẫu khuếch tán) | "Khử nhiễu lặp" | Sinh dữ liệu bằng cách bắt đầu từ nhiễu và áp dụng các bước khử nhiễu đã học. Mỗi bước là một phép lấy mẫu có điều kiện |
 
 ## Further Reading
 
-- [Holbrook (2023): The Metropolis-Hastings Algorithm](https://arxiv.org/abs/2304.07010) - detailed tutorial on MCMC foundations
-- [Jang, Gu, Poole (2017): Categorical Reparameterization with Gumbel-Softmax](https://arxiv.org/abs/1611.01144) - original Gumbel-Softmax paper
-- [Holtzman et al. (2020): The Curious Case of Neural Text Degeneration](https://arxiv.org/abs/1904.09751) - nucleus (top-p) sampling paper
-- [Kingma & Welling (2014): Auto-Encoding Variational Bayes](https://arxiv.org/abs/1312.6114) - VAE paper introducing the reparameterization trick
-- [Ho, Jain, Abbeel (2020): Denoising Diffusion Probabilistic Models](https://arxiv.org/abs/2006.11239) - DDPM connects sampling to image generation
+- [Holbrook (2023): The Metropolis-Hastings Algorithm](https://arxiv.org/abs/2304.07010) - hướng dẫn chi tiết về nền tảng MCMC
+- [Jang, Gu, Poole (2017): Categorical Reparameterization with Gumbel-Softmax](https://arxiv.org/abs/1611.01144) - bài báo Gumbel-Softmax gốc
+- [Holtzman et al. (2020): The Curious Case of Neural Text Degeneration](https://arxiv.org/abs/1904.09751) - bài báo lấy mẫu nucleus (top-p)
+- [Kingma & Welling (2014): Auto-Encoding Variational Bayes](https://arxiv.org/abs/1312.6114) - bài báo VAE giới thiệu thủ thuật tái tham số hóa
+- [Ho, Jain, Abbeel (2020): Denoising Diffusion Probabilistic Models](https://arxiv.org/abs/2006.11239) - DDPM kết nối lấy mẫu với sinh hình ảnh
