@@ -1,6 +1,6 @@
 # Speech Recognition (ASR) — CTC, RNN-T, Attention
 
-> Speech recognition is audio classification at every timestep, glued together by a sequence model that knows English and silence. CTC, RNN-T, and attention are the three ways to do it. Pick one and understand why.
+> Nhận dạng tiếng nói là phân loại âm thanh ở mỗi bước thời gian, được ghép lại bằng một mô hình chuỗi biết tiếng Anh và sự im lặng. CTC, RNN-T và attention là ba cách làm điều đó. Chọn một và hiểu vì sao.
 
 **Type:** Build
 **Languages:** Python
@@ -9,44 +9,44 @@
 
 ## The Problem
 
-You have a 10-second 16 kHz clip. You want a string: "turn on the kitchen lights". The challenge is structural: audio frames do not align one-to-one with characters. The word "okay" might take 200 ms or 1200 ms. Silence punctuates the utterance. Some phonemes are longer than others. The number of output tokens is not known in advance.
+Bạn có một đoạn 10 giây 16 kHz. Bạn muốn một chuỗi: "bật đèn bếp". Thách thức có tính cấu trúc: các khung âm thanh không căn chỉnh một-một với các ký tự. Từ "okay" có thể mất 200 ms hoặc 1200 ms. Sự im lặng ngắt phát ngôn. Một số âm vị dài hơn các âm vị khác. Số token đầu ra không được biết trước.
 
-Three formulations solve this:
+Ba cách phát biểu giải quyết điều này:
 
-1. **CTC (Connectionist Temporal Classification).** Emit per-frame token probabilities including a special *blank*. Collapse repeats and blanks at decode time. Non-autoregressive, fast. Used by wav2vec 2.0, MMS.
-2. **RNN-T (Recurrent Neural Network Transducer).** Joint network predicts next token given encoder frame and previous tokens. Streamable. Used by Google's on-device ASR, NVIDIA Parakeet.
-3. **Attention encoder-decoder.** Encoder compresses audio to hidden states, decoder cross-attends to generate tokens autoregressively. Used by Whisper, SeamlessM4T.
+1. **CTC (Connectionist Temporal Classification).** Phát các xác suất token theo khung bao gồm một *blank* đặc biệt. Thu gọn các lần lặp và blank khi giải mã. Không tự hồi quy, nhanh. Được dùng bởi wav2vec 2.0, MMS.
+2. **RNN-T (Recurrent Neural Network Transducer).** Mạng kết hợp dự đoán token tiếp theo khi biết khung encoder và các token trước. Có thể truyền luồng. Được dùng bởi ASR trên thiết bị của Google, NVIDIA Parakeet.
+3. **Encoder-decoder attention.** Encoder nén âm thanh thành các trạng thái ẩn, decoder cross-attention để sinh token tự hồi quy. Được dùng bởi Whisper, SeamlessM4T.
 
-In 2026, SOTA WER on LibriSpeech test-clean is 1.4% (Parakeet-TDT-1.1B, NVIDIA) and 1.58% (Whisper-Large-v3-turbo). The differences are tiny; the deployment differences are huge.
+Năm 2026, WER SOTA trên LibriSpeech test-clean là 1.4% (Parakeet-TDT-1.1B, NVIDIA) và 1.58% (Whisper-Large-v3-turbo). Các khác biệt rất nhỏ; các khác biệt triển khai rất lớn.
 
 ## The Concept
 
 ![Three ASR formulations: CTC, RNN-T, attention-encoder-decoder](../assets/asr-formulations.svg)
 
-**CTC intuition.** Let the encoder output `T` frame-level distributions over `V+1` tokens (V chars + blank). For a target string `y` of length `U < T`, any frame alignment that collapses to `y` counts. CTC loss sums over all such alignments. Inference: per-frame argmax, collapse repeats, remove blanks.
+**Trực giác CTC.** Để encoder xuất `T` phân phối cấp khung trên `V+1` token (V ký tự + blank). Với một chuỗi đích `y` có độ dài `U < T`, bất kỳ căn chỉnh khung nào thu gọn về `y` đều được tính. CTC loss cộng trên tất cả các căn chỉnh như vậy. Suy luận: argmax theo khung, thu gọn các lần lặp, loại các blank.
 
-Advantages: non-autoregressive, streamable, zero lookahead. Drawback: *conditional independence assumption* — each frame prediction is independent of the others, so there is no internal language model. Fix with an external LM via beam search or shallow fusion.
+Ưu điểm: không tự hồi quy, có thể truyền luồng, không nhìn trước. Nhược điểm: *giả định độc lập có điều kiện* — mỗi dự đoán khung độc lập với các dự đoán khác, nên không có mô hình ngôn ngữ nội tại. Sửa bằng một LM bên ngoài qua beam search hoặc shallow fusion.
 
-**RNN-T intuition.** Adds a *predictor* network that embeds the token history and a *joiner* that combines predictor state with encoder frame into a joint distribution over `V+1` (the `+1` is a null / no-emit). Explicitly models the conditional dependence CTC ignored. Streamable because each step conditions only on past frames and past tokens.
+**Trực giác RNN-T.** Thêm một mạng *dự đoán* embedding lịch sử token và một *bộ kết hợp* kết hợp trạng thái bộ dự đoán với khung encoder thành một phân phối đồng thời trên `V+1` (`+1` là null / không phát). Mô hình hóa tường minh phụ thuộc có điều kiện mà CTC bỏ qua. Có thể truyền luồng vì mỗi bước chỉ được điều kiện hóa theo các khung quá khứ và các token quá khứ.
 
-Advantages: streamable + internal LM. Drawback: training is more complex and memory-hungry (3D loss lattice); RNN-T loss kernels are a whole library category on their own.
+Ưu điểm: có thể truyền luồng + LM nội tại. Nhược điểm: huấn luyện phức tạp hơn và ngốn bộ nhớ (lưới loss 3D); các kernel RNN-T loss tự chúng là cả một loại thư viện.
 
-**Attention encoder-decoder.** Encoder (6-32 transformer layers) over log-mel frames. Decoder (6-32 transformer layers) cross-attends to encoder outputs to generate tokens autoregressively. No alignment constraint — attention can look anywhere in the audio. Non-streamable unless you restrict attention (chunked Whisper-Streaming, 2024).
+**Encoder-decoder attention.** Encoder (6-32 tầng transformer) trên các khung log-mel. Decoder (6-32 tầng transformer) cross-attention vào các đầu ra encoder để sinh token tự hồi quy. Không ràng buộc căn chỉnh — attention có thể nhìn bất kỳ đâu trong âm thanh. Không thể truyền luồng trừ khi bạn hạn chế attention (Whisper-Streaming chia khối, 2024).
 
-Advantages: highest quality on offline ASR, easy to train with standard seq2seq tooling. Drawback: autoregressive latency is proportional to output length; cannot stream without engineering.
+Ưu điểm: chất lượng cao nhất trên ASR ngoại tuyến, dễ huấn luyện bằng công cụ seq2seq tiêu chuẩn. Nhược điểm: độ trễ tự hồi quy tỷ lệ với độ dài đầu ra; không thể truyền luồng nếu không làm kỹ thuật.
 
 ### WER: the one number
 
-**Word Error Rate** = `(S + D + I) / N`, where S=substitutions, D=deletions, I=insertions, N=reference word count. Matches Levenshtein edit distance at the word level. Lower is better. A WER above 20% is generally unusable; below 5% is human-parity for read speech. 2026 numbers on standard benchmarks:
+**Tỷ lệ Lỗi Từ** = `(S + D + I) / N`, trong đó S=thay thế, D=xóa, I=chèn, N=số từ tham chiếu. Khớp khoảng cách chỉnh sửa Levenshtein ở cấp từ. Thấp hơn là tốt hơn. WER trên 20% thường không dùng được; dưới 5% là ngang con người cho tiếng nói đọc. Các con số năm 2026 trên các benchmark tiêu chuẩn:
 
-| Model | LibriSpeech test-clean | LibriSpeech test-other | Size |
+| Mô hình | LibriSpeech test-clean | LibriSpeech test-other | Kích thước |
 |-------|------------------------|------------------------|------|
-| Parakeet-TDT-1.1B | 1.40% | 2.78% | 1.1B params |
+| Parakeet-TDT-1.1B | 1.40% | 2.78% | 1.1B tham số |
 | Whisper-Large-v3-turbo | 1.58% | 3.03% | 809M |
 | Canary-1B Flash | 1.48% | 2.87% | 1B |
 | Seamless M4T v2 | 1.7% | 3.5% | 2.3B |
 
-All these are encoder-decoder or RNN-T based. Pure CTC systems (wav2vec 2.0) sit around 1.8–2.1% on test-clean.
+Tất cả đều dựa trên encoder-decoder hoặc RNN-T. Các hệ thống CTC thuần (wav2vec 2.0) nằm quanh 1.8–2.1% trên test-clean.
 
 ```figure
 ctc-collapse
@@ -69,7 +69,7 @@ def ctc_greedy(frame_logits, blank=0, vocab=None):
     return "".join(vocab[i] for i in out) if vocab else out
 ```
 
-Two rules: collapse consecutive repeats, drop blanks. Example: `a a _ _ a b b _ c` → `a a b c`.
+Hai quy tắc: thu gọn các lần lặp liên tiếp, bỏ các blank. Ví dụ: `a a _ _ a b b _ c` → `a a b c`.
 
 ### Step 2: beam-search CTC
 
@@ -89,7 +89,7 @@ def ctc_beam(frame_logits, beam=8, blank=0):
     return beams[0][0]
 ```
 
-Production uses prefix tree beam search with LM fusion; this is the conceptual skeleton.
+Production dùng beam search cây tiền tố với kết hợp LM; đây là khung khái niệm.
 
 ### Step 3: WER
 
@@ -121,7 +121,7 @@ result = model.transcribe("clip.wav")
 print(result["text"])
 ```
 
-One-liner for the strongest general ASR in 2026. Runs on a 24 GB GPU at ~20× realtime.
+Một dòng cho ASR tổng quát mạnh nhất năm 2026. Chạy trên GPU 24 GB ở tốc độ ~20× thời gian thực.
 
 ### Step 5: streaming with Parakeet or wav2vec 2.0
 
@@ -132,54 +132,54 @@ for chunk in streaming_audio():
     print(asr(chunk, return_timestamps=True))
 ```
 
-Streaming ASR needs chunked encoder attention and carryover state; use a library that supports it (NeMo for Parakeet, `transformers` pipeline with `chunk_length_s`).
+ASR luồng cần attention encoder chia khối và trạng thái chuyển tiếp; dùng một thư viện hỗ trợ nó (NeMo cho Parakeet, pipeline `transformers` với `chunk_length_s`).
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Situation | Pick |
+| Tình huống | Chọn |
 |-----------|------|
-| English, offline, max quality | Whisper-large-v3-turbo |
-| Multilingual, robust | SeamlessM4T v2 |
-| Streaming, low latency | Parakeet-TDT-1.1B or Riva |
-| Edge, mobile, <500 ms latency | Whisper-Tiny quantized or Moonshine (2024) |
-| Long-form | Whisper with VAD-based chunking (WhisperX) |
-| Domain-specific (medical, legal) | Fine-tune wav2vec 2.0 + domain LM fusion |
+| Tiếng Anh, ngoại tuyến, chất lượng tối đa | Whisper-large-v3-turbo |
+| Đa ngôn ngữ, vững chắc | SeamlessM4T v2 |
+| Truyền luồng, độ trễ thấp | Parakeet-TDT-1.1B hoặc Riva |
+| Biên, di động, độ trễ <500 ms | Whisper-Tiny được lượng tử hóa hoặc Moonshine (2024) |
+| Dạng dài | Whisper với chia khối dựa trên VAD (WhisperX) |
+| Riêng lĩnh vực (y tế, pháp lý) | Fine-tune wav2vec 2.0 + kết hợp LM lĩnh vực |
 
 ## Pitfalls that still ship in 2026
 
-- **No VAD.** Running Whisper on silence produces hallucinations ("Thanks for watching!"). Always gate with VAD.
-- **Character vs word vs subword WER.** Report word-level WER *after* normalization (lowercase, punctuation stripped).
-- **Language ID drift.** Whisper's auto LID mis-routes noisy clips to Japanese or Welsh; force `language="en"` when you know.
-- **Long clips without chunking.** Whisper has a 30-second window. Use `chunk_length_s=30, stride=5` for anything longer.
+- **Không VAD.** Chạy Whisper trên sự im lặng tạo ảo giác ("Cảm ơn đã xem!"). Luôn chặn bằng VAD.
+- **WER ký tự so với từ so với từ con.** Báo cáo WER cấp từ *sau* chuẩn hóa (chữ thường, bỏ dấu câu).
+- **Độ trôi nhận dạng ngôn ngữ.** LID tự động của Whisper định tuyến sai các đoạn nhiễu sang tiếng Nhật hoặc Welsh; ép `language="en"` khi bạn biết.
+- **Các đoạn dài không chia khối.** Whisper có cửa sổ 30 giây. Dùng `chunk_length_s=30, stride=5` cho bất kỳ thứ gì dài hơn.
 
 ## Ship It
 
-Save as `outputs/skill-asr-picker.md`. Pick model, decoding strategy, chunking, and LM fusion for a given deployment target.
+Lưu thành `outputs/skill-asr-picker.md`. Chọn mô hình, chiến lược giải mã, chia khối và kết hợp LM cho một đích triển khai nhất định.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. It greedily decodes a hand-crafted CTC output and computes WER against a reference.
-2. **Medium.** Implement the prefix-tree beam search in Step 2 properly (account for the blank merge rule). Compare with greedy on a 10-example synthetic dataset.
-3. **Hard.** Use `whisper-large-v3-turbo` on [LibriSpeech test-clean](https://www.openslr.org/12). Compute WER on the first 100 utterances. Compare with published numbers.
+1. **Dễ.** Chạy `code/main.py`. Nó giải mã tham lam một đầu ra CTC được tạo thủ công và tính WER so với một tham chiếu.
+2. **Trung bình.** Triển khai đúng beam search cây tiền tố ở Bước 2 (tính đến quy tắc gộp blank). So sánh với tham lam trên một tập dữ liệu tổng hợp 10 ví dụ.
+3. **Khó.** Dùng `whisper-large-v3-turbo` trên [LibriSpeech test-clean](https://www.openslr.org/12). Tính WER trên 100 phát ngôn đầu. So sánh với các con số đã công bố.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| CTC | The blank-token loss | Marginal over all frame-to-token alignments; non-AR. |
-| RNN-T | The streaming loss | CTC + next-token predictor; handles word-order. |
-| Attention enc-dec | Whisper-style | Encoder + cross-attending decoder; best offline quality. |
-| WER | The number you report | `(S+D+I)/N` at word level. |
-| Blank | The emptiness | Special token in CTC signalling "no emission this frame". |
-| LM fusion | External language model | Add weighted LM log-probs during beam search. |
-| VAD | The silence gate | Voice activity detector; trims non-speech. |
+| CTC | Loss token blank | Lấy biên trên mọi căn chỉnh khung-token; không AR. |
+| RNN-T | Loss truyền luồng | CTC + bộ dự đoán token tiếp theo; xử lý thứ tự từ. |
+| Attention enc-dec | Kiểu Whisper | Encoder + decoder cross-attention; chất lượng ngoại tuyến tốt nhất. |
+| WER | Con số bạn báo cáo | `(S+D+I)/N` ở cấp từ. |
+| Blank | Sự trống rỗng | Token đặc biệt trong CTC báo "không phát ở khung này". |
+| LM fusion (Kết hợp LM) | Mô hình ngôn ngữ bên ngoài | Thêm các log xác suất LM có trọng số trong beam search. |
+| VAD | Cổng im lặng | Bộ phát hiện hoạt động giọng nói; cắt phần không phải tiếng nói. |
 
 ## Further Reading
 
-- [Graves et al. (2006). Connectionist Temporal Classification](https://www.cs.toronto.edu/~graves/icml_2006.pdf) — the CTC paper.
-- [Graves (2012). Sequence Transduction with RNNs](https://arxiv.org/abs/1211.3711) — the RNN-T paper.
-- [Radford et al. / OpenAI (2022). Whisper: Robust Speech Recognition via Large-Scale Weak Supervision](https://arxiv.org/abs/2212.04356) — the 2022 canonical paper; v3-turbo extension in 2024.
-- [NVIDIA NeMo — Parakeet-TDT card](https://huggingface.co/nvidia/parakeet-tdt-1.1b) — 2026 Open ASR Leaderboard leader.
-- [Hugging Face — Open ASR Leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard) — live benchmark across 25+ models.
+- [Graves et al. (2006). Connectionist Temporal Classification](https://www.cs.toronto.edu/~graves/icml_2006.pdf) — bài báo CTC.
+- [Graves (2012). Sequence Transduction with RNNs](https://arxiv.org/abs/1211.3711) — bài báo RNN-T.
+- [Radford et al. / OpenAI (2022). Whisper: Robust Speech Recognition via Large-Scale Weak Supervision](https://arxiv.org/abs/2212.04356) — bài báo kinh điển năm 2022; phần mở rộng v3-turbo năm 2024.
+- [NVIDIA NeMo — Parakeet-TDT card](https://huggingface.co/nvidia/parakeet-tdt-1.1b) — dẫn đầu Open ASR Leaderboard năm 2026.
+- [Hugging Face — Open ASR Leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard) — benchmark trực tiếp trên 25+ mô hình.
