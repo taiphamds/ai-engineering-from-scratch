@@ -1,6 +1,6 @@
 # Delegate Agent Work with Isolation and Merge Contracts
 
-> Parallel agents save wall time only when the work is independent. Otherwise they convert one clear task into a coordination problem with a faster failure rate.
+> Các agent song song chỉ tiết kiệm thời gian đồng hồ khi công việc độc lập. Nếu không, chúng biến một tác vụ rõ ràng thành một vấn đề phối hợp với tỷ lệ thất bại nhanh hơn.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,44 +9,44 @@
 
 ## Learning Objectives
 
-- Decide whether delegation is justified by real independence.
-- Give each worker exclusive file ownership and explicit proof.
-- Compute execution waves from dependencies.
-- Design a merge contract for combining agent work safely.
+- Quyết định liệu ủy nhiệm có được biện minh bởi sự độc lập thực hay không.
+- Cho mỗi worker quyền sở hữu file độc quyền và chứng minh tường minh.
+- Tính các đợt thực thi từ các phụ thuộc.
+- Thiết kế một hợp đồng hợp nhất để kết hợp công việc agent an toàn.
 
 ## The Parallelism Test
 
-Do not delegate because more agents are available. Delegate when at least one of these is true:
+Đừng ủy nhiệm vì có thêm các agent khả dụng. Ủy nhiệm khi ít nhất một trong các điều này đúng:
 
-- two investigations can answer different unknowns independently;
-- two implementations own disjoint files and contracts;
-- a reviewer can inspect a completed artifact without changing it;
-- a slow external check can run while local work continues.
+- hai cuộc điều tra có thể trả lời các điều chưa biết khác nhau một cách độc lập;
+- hai triển khai sở hữu các file và hợp đồng rời nhau;
+- một bên đánh giá có thể kiểm tra một sản phẩm đã hoàn tất mà không thay đổi nó;
+- một kiểm tra bên ngoài chậm có thể chạy trong khi công việc cục bộ tiếp tục.
 
-Keep work serial when agents need the same files, the same unresolved decision, or the same mutable environment.
+Giữ công việc tuần tự khi các agent cần cùng file, cùng quyết định chưa được giải quyết hoặc cùng môi trường có thể thay đổi.
 
 ## A Work Unit Is a Contract
 
-Each delegated unit needs:
+Mỗi đơn vị được ủy nhiệm cần:
 
-| Field | Meaning |
+| Trường | Ý nghĩa |
 |---|---|
-| Goal | One observable result |
-| Owner | One accountable worker |
-| Paths | Exclusive write ownership |
-| Dependencies | Completed units required before starting |
-| Proof | Exact evidence returned to the integrator |
-| Handoff | Files changed, decisions made, remaining risk |
+| Mục tiêu | Một kết quả có thể quan sát |
+| Bên chịu trách nhiệm | Một worker chịu trách nhiệm giải trình |
+| Các đường dẫn | Quyền sở hữu ghi độc quyền |
+| Các phụ thuộc | Các đơn vị đã hoàn tất bắt buộc trước khi bắt đầu |
+| Chứng minh | Bằng chứng chính xác được trả về bên tích hợp |
+| Bàn giao | Các file thay đổi, quyết định đã đưa ra, rủi ro còn lại |
 
-“Handle the backend” is not a work unit. “Implement the duplicate check in `app/accounts.py` and prove it with the focused account test” is.
+“Xử lý backend” không phải một đơn vị công việc. “Triển khai kiểm tra trùng trong `app/accounts.py` và chứng minh nó bằng kiểm thử tài khoản tập trung” thì có.
 
 ## Isolation Has Three Layers
 
-1. **Filesystem isolation:** separate worktrees or sandboxes prevent accidental shared edits.
-2. **Ownership isolation:** contracts prevent two workers from intentionally editing the same path.
-3. **State isolation:** separate logs and outputs prevent one worker from overwriting another worker’s evidence.
+1. **Cô lập hệ thống file:** các worktree hoặc sandbox riêng ngăn các chỉnh sửa dùng chung vô tình.
+2. **Cô lập quyền sở hữu:** các hợp đồng ngăn hai worker cố ý chỉnh sửa cùng đường dẫn.
+3. **Cô lập trạng thái:** các log và đầu ra riêng ngăn một worker ghi đè bằng chứng của worker khác.
 
-Filesystem isolation does not solve ownership. Two clean worktrees can still produce conflicting designs. The merge contract must resolve shared interfaces before work begins.
+Cô lập hệ thống file không giải quyết quyền sở hữu. Hai worktree sạch vẫn có thể tạo các thiết kế xung đột. Hợp đồng hợp nhất phải giải quyết các giao diện dùng chung trước khi công việc bắt đầu.
 
 ```mermaid
 flowchart TD
@@ -61,49 +61,49 @@ flowchart TD
 
 ## The Integrator Does Not Rebuild the Work
 
-The integrator should:
+Bên tích hợp nên:
 
-1. confirm each handoff matches its assigned scope;
-2. read the proof output, not just the worker’s summary;
-3. combine changes in dependency order;
-4. run the full cross-unit gate;
-5. reject hidden scope expansion;
-6. record conflicts as new decisions, not silent edits.
+1. xác nhận mỗi bàn giao khớp phạm vi được giao của nó;
+2. đọc đầu ra chứng minh, không chỉ bản tóm tắt của worker;
+3. kết hợp các thay đổi theo thứ tự phụ thuộc;
+4. chạy toàn bộ cổng xuyên đơn vị;
+5. từ chối mở rộng phạm vi ẩn;
+6. ghi lại các xung đột như các quyết định mới, không phải các chỉnh sửa âm thầm.
 
-If integration requires rewriting most of a worker’s result, the original decomposition was wrong.
+Nếu tích hợp yêu cầu viết lại hầu hết kết quả của một worker, phép phân rã gốc đã sai.
 
 ## Human and Agent Roles
 
-Delegation does not remove human judgment. The human still owns choices that change public behavior, risk, authority, or irreversible cost. Agents can own bounded investigation, implementation, verification, and review.
+Ủy nhiệm không loại bỏ phán đoán của con người. Con người vẫn sở hữu các lựa chọn thay đổi hành vi công khai, rủi ro, thẩm quyền hoặc chi phí không thể đảo ngược. Các agent có thể sở hữu điều tra, triển khai, xác minh và đánh giá có giới hạn.
 
-This is calibrated autonomy: the system grants freedom where evidence and rollback are strong, and requires a checkpoint where consequence is high.
+Đây là tính tự chủ được hiệu chỉnh: hệ thống cấp tự do ở nơi bằng chứng và khôi phục mạnh, và yêu cầu một checkpoint ở nơi hệ quả cao.
 
 ## Build It
 
-The lab checks path overlap, validates dependencies, computes safe execution waves, and writes `outputs/delegation-plan.json`.
+Bài thực hành kiểm tra chồng lấp đường dẫn, xác thực các phụ thuộc, tính các đợt thực thi an toàn và ghi `outputs/delegation-plan.json`.
 
-Run:
+Chạy:
 
 ```bash
 python3 code/main.py
 python3 -m unittest discover code/tests -v
 ```
 
-Change the docs unit to own `app/`. The plan should block because that parent path overlaps the API unit.
+Thay đổi đơn vị tài liệu để sở hữu `app/`. Kế hoạch nên chặn vì đường dẫn cha đó chồng lấp đơn vị API.
 
 ## Exercises
 
-1. Decompose a real change into two independent work units and one integrator.
-2. Find a proposed parallel split that only looks independent. State the shared decision.
-3. Add a read-only research worker whose output is a fact table.
-4. Add a merge gate that checks the final changed-file set against all unit contracts.
-5. Define a cancellation rule for a worker whose dependency becomes invalid.
+1. Phân rã một thay đổi thực thành hai đơn vị công việc độc lập và một bên tích hợp.
+2. Tìm một phép chia song song được đề xuất chỉ trông có vẻ độc lập. Nêu quyết định dùng chung.
+3. Thêm một worker nghiên cứu chỉ đọc có đầu ra là một bảng sự thật.
+4. Thêm một cổng hợp nhất kiểm tra tập file thay đổi cuối cùng đối với mọi hợp đồng đơn vị.
+5. Định nghĩa một quy tắc hủy cho một worker có phụ thuộc trở nên không hợp lệ.
 
 ## Further Reading
 
-- [Reid Smith, The Contract Net Protocol](https://doi.org/10.1109/TC.1980.1675516), for an early formal treatment of distributed task allocation and result reporting.
-- [Eric Horvitz, Principles of Mixed-Initiative User Interfaces](https://dl.acm.org/doi/10.1145/302979.303030), for deciding when automation should act and when it should return control to a person.
+- [Reid Smith, The Contract Net Protocol](https://doi.org/10.1109/TC.1980.1675516), cho một trình bày hình thức sớm về phân bổ tác vụ phân tán và báo cáo kết quả.
+- [Eric Horvitz, Principles of Mixed-Initiative User Interfaces](https://dl.acm.org/doi/10.1145/302979.303030), để quyết định khi nào tự động hóa nên hành động và khi nào nó nên trả quyền kiểm soát về một người.
 
 ## What You Keep
 
-Keep `outputs/delegation-plan.json`. It records why the split is safe, who owns each path, and what proof integration must receive.
+Giữ `outputs/delegation-plan.json`. Nó ghi lại vì sao phép chia an toàn, ai sở hữu mỗi đường dẫn và tích hợp phải nhận chứng minh nào.
