@@ -1,13 +1,13 @@
 # Threat model
 
-Review these boundaries independently:
+Đánh giá ranh giới này độc lập:
 
-- Authority: instructions cannot rewrite host permissions.
-- Filesystem: resolve the target and keep it inside the workspace root; reject symlink escape.
-- Commands: accept an argv array, deny shell metacharacters and destructive executables, and require an executable allowlist.
-- Network: require HTTPS and an exact origin allowlist. Normalize the effective port, so `https://api.example.test` and `https://api.example.test:443` match while port `8443` needs its own entry. Do not accept credentials in URL userinfo.
-- External content: treat retrieved text as data, never as policy or approval.
-- Secrets: detect likely secret-bearing payloads without logging their values.
-- Destructive actions: deny or require a recorded human approval according to host policy.
+- Thẩm quyền: chỉ dẫn không thể viết lại quyền host.
+- Hệ thống file: phân giải đích và giữ trong gốc workspace; từ chối thoát symlink.
+- Lệnh: nhận mảng argv, từ chối siêu ký tự shell và executable phá hủy, yêu cầu danh sách cho phép executable.
+- Mạng: yêu cầu HTTPS và danh sách cho phép origin chính xác. Chuẩn hóa cổng hiệu lực để `https://api.example.test` và `https://api.example.test:443` khớp trong khi cổng `8443` cần mục riêng. Không nhận thông tin xác thực trong userinfo URL.
+- Nội dung ngoài: coi văn bản truy xuất là dữ liệu, không bao giờ là chính sách hoặc phê duyệt.
+- Bí mật: phát hiện payload có thể mang bí mật không ghi giá trị.
+- Hành động phá hủy: từ chối hoặc yêu cầu phê duyệt con người được ghi theo chính sách host.
 
-An `allow` verdict means only that the simulated request satisfies the supplied policy. This bundle does not execute any action.
+Kết luận `allow` chỉ nghĩa yêu cầu mô phỏng thỏa chính sách cung cấp. Bundle này không thực thi hành động nào.
