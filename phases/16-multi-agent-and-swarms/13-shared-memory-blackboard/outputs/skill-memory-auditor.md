@@ -7,27 +7,27 @@ lesson: 13
 tags: [multi-agent, shared-state, blackboard, memory-poisoning, provenance]
 ---
 
-Given a multi-agent codebase or architecture doc, audit the shared-memory design and flag exposure to memory poisoning.
+Với một cơ sở mã đa agent hoặc tài liệu kiến trúc, kiểm toán thiết kế bộ nhớ dùng chung và gắn cờ phơi nhiễm đầu độc bộ nhớ.
 
-Produce:
+Tạo ra:
 
-1. **Topology.** Full message pool, topic-partitioned blackboard, projected per-agent view, or hybrid? Name the data structure (list, dict, pandas frame, vector store, SQL table). Count rough upper bound of writers and readers at steady state.
-2. **Provenance fields.** On every write, does the entry record: writer id, timestamp, prompt hash or prompt text, tool-call trace, source URI or tool name? List the fields present and the fields missing.
-3. **Update model.** Is the log append-only, or do writers mutate in place? If mutation, what is the concurrency-control mechanism (lock, optimistic versioning, none)? Corrections should be supersession entries, not in-place edits — flag any design that does not do this.
-4. **Verifier separation.** Is there a read-only agent with independent source access? Can it write to the main pool (it should not)? Where does its output go?
-5. **Projection schema.** If the design uses projections (LangGraph reducers, blackboard topics, role-scoped views), is the schema documented? How do new agents declare the projection they consume?
-6. **Poisoning risk score.** Score 1-5 on each axis: [provenance completeness], [supersession over mutation], [verifier independence], [projection schema clarity]. A system that scores below 3 on any axis is flagged.
+1. **Cấu trúc liên kết.** Bể thông điệp đầy đủ, bảng đen phân vùng chủ đề, góc nhìn được chiếu theo từng agent, hay lai? Nêu cấu trúc dữ liệu (list, dict, khung pandas, kho vector, bảng SQL). Đếm cận trên xấp xỉ của các bên ghi và bên đọc ở trạng thái ổn định.
+2. **Các trường nguồn gốc.** Trên mọi lần ghi, mục có ghi lại: id bên ghi, dấu thời gian, hàm băm prompt hoặc văn bản prompt, dấu vết lệnh gọi công cụ, URI nguồn hoặc tên công cụ không? Liệt kê các trường hiện diện và các trường còn thiếu.
+3. **Mô hình cập nhật.** Nhật ký là chỉ thêm, hay các bên ghi biến đổi tại chỗ? Nếu biến đổi, cơ chế kiểm soát đồng thời là gì (khóa, quản lý phiên bản lạc quan, không có)? Các sửa chữa nên là các mục thay thế, không phải chỉnh sửa tại chỗ — gắn cờ bất kỳ thiết kế nào không làm điều này.
+4. **Tách biệt bộ xác minh.** Có một agent chỉ đọc với truy cập nguồn độc lập không? Nó có thể ghi vào bể chính không (nó không nên)? Đầu ra của nó đi đâu?
+5. **Lược đồ phép chiếu.** Nếu thiết kế sử dụng các phép chiếu (các reducer LangGraph, các chủ đề bảng đen, các góc nhìn giới hạn theo vai trò), lược đồ có được ghi tài liệu không? Các agent mới khai báo phép chiếu chúng tiêu thụ như thế nào?
+6. **Điểm rủi ro đầu độc.** Chấm điểm 1-5 trên mỗi trục: [tính đầy đủ nguồn gốc], [thay thế hơn biến đổi], [tính độc lập bộ xác minh], [độ rõ ràng lược đồ phép chiếu]. Một hệ thống đạt dưới 3 trên bất kỳ trục nào bị gắn cờ.
 
-Hard rejects:
+Các trường hợp loại bỏ dứt khoát:
 
-- Any audit that does not flag a missing verifier. An unwritable verifier with independent source access is the load-bearing mitigation; every other mitigation is decorative without it.
-- Audits that recommend "add more tests." Tests do not catch memory poisoning because poisoning produces plausible outputs that pass tests.
-- Audits that recommend hashing the content as the sole provenance. A hash tells you *what* was written, not *who* or *from where*.
+- Bất kỳ kiểm toán nào không gắn cờ một bộ xác minh còn thiếu. Một bộ xác minh không thể ghi với truy cập nguồn độc lập là biện pháp giảm thiểu chịu lực; mọi biện pháp giảm thiểu khác là trang trí nếu thiếu nó.
+- Các kiểm toán khuyến nghị “thêm nhiều kiểm thử hơn.” Các kiểm thử không bắt đầu độc bộ nhớ vì đầu độc tạo ra các đầu ra có vẻ hợp lý vượt qua kiểm thử.
+- Các kiểm toán khuyến nghị băm nội dung làm nguồn gốc duy nhất. Một hàm băm cho bạn biết *cái gì* đã được ghi, không phải *ai* hoặc *từ đâu*.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the codebase hides shared state in an external service (Redis, Postgres, vector DB) with no inspection tools, state that the audit cannot complete without production read access.
-- If the system has fewer than three agents, note that memory poisoning risk is low but provenance is still cheap insurance.
-- If the system uses a framework with built-in state management (LangGraph checkpointer, AutoGen pool), audit the framework's guarantees rather than re-deriving them.
+- Nếu cơ sở mã ẩn trạng thái dùng chung trong một dịch vụ bên ngoài (Redis, Postgres, DB vector) không có công cụ kiểm tra, nêu rằng kiểm toán không thể hoàn thành nếu không có truy cập đọc sản xuất.
+- Nếu hệ thống có ít hơn ba agent, ghi nhận rằng rủi ro đầu độc bộ nhớ thấp nhưng nguồn gốc vẫn là bảo hiểm rẻ.
+- Nếu hệ thống sử dụng một framework có quản lý trạng thái tích hợp (bộ tạo checkpoint LangGraph, bể AutoGen), kiểm toán các bảo đảm của framework thay vì suy ra lại chúng.
 
-Output: a two-page report. Start with a one-sentence summary ("Shared state is a full message pool with no provenance and no verifier — high poisoning risk."), then the six sections above. End with a prioritized action list: three changes, each labeled [critical] [should] or [nice-to-have], with estimated time-to-implement.
+Đầu ra: một báo cáo hai trang. Bắt đầu với một tóm tắt một câu (“Trạng thái dùng chung là một bể thông điệp đầy đủ không có nguồn gốc và không có bộ xác minh — rủi ro đầu độc cao.”), rồi sáu phần ở trên. Kết thúc bằng một danh sách hành động theo ưu tiên: ba thay đổi, mỗi thay đổi được gắn nhãn [quan trọng] [nên] hoặc [có thì tốt], với thời gian triển khai ước tính.
