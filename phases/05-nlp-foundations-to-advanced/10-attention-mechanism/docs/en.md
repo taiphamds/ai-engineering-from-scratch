@@ -1,6 +1,6 @@
 # Attention Mechanism — The Breakthrough
 
-> The decoder stops squinting at a compressed summary and starts looking at the whole source. Everything after this is attention plus engineering.
+> Decoder ngừng nheo mắt nhìn một bản tóm tắt được nén và bắt đầu nhìn toàn bộ nguồn. Mọi thứ sau đây là attention cộng kỹ thuật.
 
 **Type:** Build
 **Languages:** Python
@@ -9,52 +9,52 @@
 
 ## The Problem
 
-Lesson 09 ended on a measured failure. A GRU encoder-decoder trained on a toy copy task goes from 89% accuracy at length 5 to near-chance at length 80. The reason is structural, not a training bug: every bit of information the encoder gleaned has to fit in one fixed-size hidden state, and the decoder never sees anything else.
+Bài 09 kết thúc ở một thất bại được đo lường. Một GRU encoder-decoder được huấn luyện trên một tác vụ sao chép đồ chơi đi từ accuracy 89% ở độ dài 5 xuống gần mức ngẫu nhiên ở độ dài 80. Lý do có tính cấu trúc, không phải lỗi huấn luyện: mọi bit thông tin encoder thu được phải vừa trong một trạng thái ẩn kích thước cố định, và decoder không bao giờ thấy bất kỳ thứ gì khác.
 
-Bahdanau, Cho, and Bengio published a three-line fix in 2014. Instead of giving the decoder only the final encoder state, keep every encoder state. At each decoder step, compute a weighted average of encoder states where the weights say "how much does the decoder need to look at encoder position `i` right now?" That weighted average is the context, and it changes every decoder step.
+Bahdanau, Cho và Bengio công bố một cách sửa ba dòng năm 2014. Thay vì chỉ cho decoder trạng thái encoder cuối, giữ mọi trạng thái encoder. Ở mỗi bước decoder, tính một trung bình có trọng số của các trạng thái encoder mà các trọng số nói "decoder cần nhìn vào vị trí encoder `i` ngay lúc này bao nhiêu?" Trung bình có trọng số đó là ngữ cảnh, và nó thay đổi ở mỗi bước decoder.
 
-That is the whole idea. Transformers extended it. Self-attention applied it to a single sequence. Multi-head attention ran it in parallel. But the 2014 version already broke the bottleneck, and once you have it, the pivot to transformers is engineering, not conceptual.
+Đó là toàn bộ ý tưởng. Transformer mở rộng nó. Self-attention áp dụng nó cho một chuỗi duy nhất. Multi-head attention chạy nó song song. Nhưng phiên bản năm 2014 đã phá nút thắt, và một khi bạn có nó, bước chuyển sang transformer là kỹ thuật, không phải khái niệm.
 
 ## The Concept
 
 ![Bahdanau attention: decoder queries all encoder states](../assets/attention.svg)
 
-At each decoder step `t`:
+Ở mỗi bước decoder `t`:
 
-1. Use the previous decoder hidden state `s_{t-1}` as a **query**.
-2. Score it against every encoder hidden state `h_1, ..., h_T`. One scalar per encoder position.
-3. Softmax the scores to get attention weights `α_{t,1}, ..., α_{t,T}` that sum to 1.
-4. Context vector `c_t = Σ α_{t,i} * h_i`. Weighted average of encoder states.
-5. Decoder takes `c_t` plus the previous output token, produces the next token.
+1. Dùng trạng thái ẩn decoder trước `s_{t-1}` làm một **truy vấn**.
+2. Chấm điểm nó với mọi trạng thái ẩn encoder `h_1, ..., h_T`. Một vô hướng cho mỗi vị trí encoder.
+3. Softmax các điểm để có các trọng số attention `α_{t,1}, ..., α_{t,T}` có tổng bằng 1.
+4. Vector ngữ cảnh `c_t = Σ α_{t,i} * h_i`. Trung bình có trọng số của các trạng thái encoder.
+5. Decoder nhận `c_t` cộng token đầu ra trước, tạo token tiếp theo.
 
-The weighted average is the point. When the decoder needs to translate "Je" to "I", it weights the encoder state over "Je" high and the others low. When it needs "not", it weights "pas" high. The context vector reshapes each step.
+Trung bình có trọng số là điểm chính. Khi decoder cần dịch "Je" thành "I", nó gán trọng số cao cho trạng thái encoder trên "Je" và thấp cho những trạng thái khác. Khi cần "not", nó gán trọng số cao cho "pas". Vector ngữ cảnh đổi hình dạng ở mỗi bước.
 
 ## Shapes (the thing that bites everyone)
 
-This is where every attention implementation goes wrong the first time. Read slowly.
+Đây là nơi mọi triển khai attention sai ở lần đầu tiên. Đọc chậm.
 
-| Thing | Shape | Notes |
+| Thành phần | Hình dạng | Ghi chú |
 |-------|-------|-------|
-| Encoder hidden states `H` | `(T_enc, d_h)` | If BiLSTM, `d_h = 2 * d_hidden` |
-| Decoder hidden state `s_{t-1}` | `(d_s,)` | One vector |
-| Attention score `e_{t,i}` | scalar | One per encoder position |
-| Attention weight `α_{t,i}` | scalar | After softmax over all `i` |
-| Context vector `c_t` | `(d_h,)` | Same shape as an encoder state |
+| Các trạng thái ẩn encoder `H` | `(T_enc, d_h)` | Nếu BiLSTM, `d_h = 2 * d_hidden` |
+| Trạng thái ẩn decoder `s_{t-1}` | `(d_s,)` | Một vector |
+| Điểm attention `e_{t,i}` | vô hướng | Một cho mỗi vị trí encoder |
+| Trọng số attention `α_{t,i}` | vô hướng | Sau softmax trên tất cả `i` |
+| Vector ngữ cảnh `c_t` | `(d_h,)` | Cùng hình dạng với một trạng thái encoder |
 
-**Bahdanau (additive) score.** `e_{t,i} = v_α^T * tanh(W_a * s_{t-1} + U_a * h_i)`.
+**Điểm Bahdanau (cộng).** `e_{t,i} = v_α^T * tanh(W_a * s_{t-1} + U_a * h_i)`.
 
-- `s_{t-1}` has shape `(d_s,)`, `h_i` has shape `(d_h,)`.
-- `W_a` has shape `(d_attn, d_s)`. `U_a` has shape `(d_attn, d_h)`.
-- Their sum inside the tanh has shape `(d_attn,)`.
-- `v_α` has shape `(d_attn,)`. The inner product with `v_α` collapses to a scalar. **This is what `v_α` does.** It is not magic. It is the projection that turns an attention-dim vector into a scalar score.
+- `s_{t-1}` có hình dạng `(d_s,)`, `h_i` có hình dạng `(d_h,)`.
+- `W_a` có hình dạng `(d_attn, d_s)`. `U_a` có hình dạng `(d_attn, d_h)`.
+- Tổng của chúng bên trong tanh có hình dạng `(d_attn,)`.
+- `v_α` có hình dạng `(d_attn,)`. Tích trong với `v_α` thu về một vô hướng. **Đây là điều `v_α` làm.** Nó không phải phép thuật. Nó là phép chiếu biến một vector chiều attention thành một điểm vô hướng.
 
-**Luong (multiplicative) score.** Three variants:
+**Điểm Luong (nhân).** Ba biến thể:
 
-- `dot`: `e_{t,i} = s_t^T * h_i`. Requires `d_s == d_h`. Hard constraint. Skip if your encoder is bidirectional.
-- `general`: `e_{t,i} = s_t^T * W * h_i` with `W` shape `(d_s, d_h)`. Removes the equal-dim constraint.
-- `concat`: essentially the Bahdanau form. Rarely used since the first two are cheaper.
+- `dot`: `e_{t,i} = s_t^T * h_i`. Yêu cầu `d_s == d_h`. Ràng buộc cứng. Bỏ qua nếu encoder của bạn là hai chiều.
+- `general`: `e_{t,i} = s_t^T * W * h_i` với `W` có hình dạng `(d_s, d_h)`. Loại bỏ ràng buộc số chiều bằng nhau.
+- `concat`: về cơ bản là dạng Bahdanau. Hiếm khi dùng vì hai dạng đầu rẻ hơn.
 
-**One Bahdanau / Luong gotcha worth naming.** Bahdanau uses `s_{t-1}` (the decoder state *before* generating the current word). Luong uses `s_t` (the state *after*). Mixing them up produces subtly wrong gradients that are extremely hard to debug. Pick one paper and stick to its convention.
+**Một cạm bẫy Bahdanau / Luong cần nêu tên.** Bahdanau dùng `s_{t-1}` (trạng thái decoder *trước* khi sinh từ hiện tại). Luong dùng `s_t` (trạng thái *sau*). Nhầm chúng tạo ra các gradient sai tinh vi cực kỳ khó gỡ lỗi. Chọn một bài báo và bám theo quy ước của nó.
 
 ```figure
 attention-heatmap
@@ -84,7 +84,7 @@ def softmax(x):
     return e / e.sum()
 ```
 
-Check your shapes against the table above. `encoder_states` has shape `(T_enc, d_h)`. `projected_enc` has shape `(T_enc, d_attn)`. `projected_dec` has shape `(d_attn,)` and broadcasts. `combined` has shape `(T_enc, d_attn)`. `scores` has shape `(T_enc,)`. `weights` has shape `(T_enc,)`. `context` has shape `(d_h,)`. Ship it.
+Kiểm tra các hình dạng của bạn theo bảng ở trên. `encoder_states` có hình dạng `(T_enc, d_h)`. `projected_enc` có hình dạng `(T_enc, d_attn)`. `projected_dec` có hình dạng `(d_attn,)` và broadcast. `combined` có hình dạng `(T_enc, d_attn)`. `scores` có hình dạng `(T_enc,)`. `weights` có hình dạng `(T_enc,)`. `context` có hình dạng `(d_h,)`. Phát hành nó.
 
 ### Step 2: Luong dot and general
 
@@ -102,11 +102,11 @@ def general_attention(decoder_state, encoder_states, W):
     return weights @ encoder_states, weights
 ```
 
-Three lines each. This is why Luong's paper landed. Same accuracy on most tasks, a lot less code.
+Mỗi dạng ba dòng. Đây là lý do bài báo của Luong tạo được ảnh hưởng. Cùng accuracy trên hầu hết tác vụ, ít mã hơn rất nhiều.
 
 ### Step 3: a worked numerical example
 
-Given three encoder states (roughly "cat", "sat", "mat") and a decoder state that aligns most with the first, the attention distribution concentrates on position 0. If the decoder state shifts to align with the last, attention moves to position 2. The context vector tracks.
+Cho ba trạng thái encoder (đại khái là "cat", "sat", "mat") và một trạng thái decoder căn chỉnh nhiều nhất với trạng thái đầu, phân phối attention tập trung vào vị trí 0. Nếu trạng thái decoder dịch chuyển để căn chỉnh với trạng thái cuối, attention chuyển đến vị trí 2. Vector ngữ cảnh theo sát.
 
 ```python
 H = np.array([
@@ -124,23 +124,23 @@ print("weights:", w.round(3))
 weights: [0.464 0.305 0.231]
 ```
 
-First row wins. Then move the decoder state closer to the third encoder state and watch the weights shift. That is it. Attention is explicit alignment.
+Hàng đầu thắng. Rồi đưa trạng thái decoder gần trạng thái encoder thứ ba hơn và quan sát các trọng số dịch chuyển. Chỉ vậy thôi. Attention là căn chỉnh tường minh.
 
 ### Step 4: why this is the bridge to transformers
 
-Translate the language above into Q/K/V:
+Chuyển ngôn ngữ ở trên sang Q/K/V:
 
-- **Query** = decoder state `s_{t-1}`
-- **Key** = encoder states (what we score against)
-- **Value** = encoder states (what we weight and sum)
+- **Query** = trạng thái decoder `s_{t-1}`
+- **Key** = các trạng thái encoder (thứ chúng ta chấm điểm với)
+- **Value** = các trạng thái encoder (thứ chúng ta gán trọng số và cộng)
 
-In classical attention, keys and values are the same thing. Self-attention separates them: you can query a sequence against itself, with different learned projections for K and V. Multi-head attention runs it in parallel with different learned projections. Transformers stack the whole stage many times and drop RNNs.
+Trong attention cổ điển, key và value là cùng một thứ. Self-attention tách chúng: bạn có thể truy vấn một chuỗi với chính nó, với các phép chiếu được học khác nhau cho K và V. Multi-head attention chạy nó song song với các phép chiếu được học khác nhau. Transformer xếp chồng toàn bộ công đoạn nhiều lần và bỏ RNN.
 
-The math is the same. The shapes are the same. The pedagogical jump from Bahdanau attention to scaled dot-product attention is mostly notation.
+Phần toán giống nhau. Các hình dạng giống nhau. Bước nhảy sư phạm từ attention Bahdanau sang scaled dot-product attention chủ yếu là ký hiệu.
 
 ## Use It
 
-PyTorch and TensorFlow ship attention directly.
+PyTorch và TensorFlow cung cấp attention trực tiếp.
 
 ```python
 import torch
@@ -159,24 +159,24 @@ print(output.shape, weights.shape)
 torch.Size([2, 5, 128]) torch.Size([2, 5, 10])
 ```
 
-That is a transformer attention layer. Query batch of 5 positions, key/value batch of 10 positions, 128-dim each, 8 heads. `output` is the new context-augmented queries. `weights` is the 5x10 alignment matrix you can visualize.
+Đó là một tầng attention transformer. Batch query có 5 vị trí, batch key/value có 10 vị trí, mỗi vị trí 128 chiều, 8 head. `output` là các query mới được tăng cường ngữ cảnh. `weights` là ma trận căn chỉnh 5x10 mà bạn có thể trực quan hóa.
 
 ### When classical attention still matters
 
-- Pedagogy. The single-head, single-layer, RNN-based version makes every concept visible.
-- On-device sequence tasks where transformers do not fit.
-- Any paper from 2014-2017. You will misread it without knowing Bahdanau's convention.
-- Fine-grained alignment analysis in MT. Raw attention weights are an interpretability tool even on transformer models, and reading them requires knowing what they are.
+- Sư phạm. Phiên bản một head, một tầng, dựa trên RNN khiến mọi khái niệm hiện rõ.
+- Các tác vụ chuỗi trên thiết bị mà transformer không vừa.
+- Bất kỳ bài báo nào từ 2014-2017. Bạn sẽ đọc sai nó nếu không biết quy ước của Bahdanau.
+- Phân tích căn chỉnh chi tiết trong MT. Các trọng số attention thô là một công cụ diễn giải ngay cả trên các mô hình transformer, và đọc chúng đòi hỏi biết chúng là gì.
 
 ### The attention-weight-as-explanation trap
 
-Attention weights look interpretable. They are weights that sum to one across positions; you can plot them; high means "looked at this." Reviewers love them.
+Các trọng số attention có vẻ diễn giải được. Chúng là các trọng số có tổng bằng một trên các vị trí; bạn có thể vẽ chúng; cao nghĩa là "đã nhìn vào đây." Những người đánh giá yêu thích chúng.
 
-They are not as interpretable as they look. Jain and Wallace (2019) showed that attention distributions can be permuted and replaced by arbitrary alternatives without changing model predictions for some tasks. Never report attention weights as evidence of reasoning without an ablation or counterfactual check.
+Chúng không dễ diễn giải như vẻ ngoài. Jain và Wallace (2019) cho thấy các phân phối attention có thể được hoán vị và thay bằng các phương án tùy ý mà không thay đổi các dự đoán mô hình cho một số tác vụ. Không bao giờ báo cáo các trọng số attention làm bằng chứng suy luận mà không có một kiểm tra loại bỏ thành phần hoặc phản thực.
 
 ## Ship It
 
-Save as `outputs/prompt-attention-shapes.md`:
+Lưu thành `outputs/prompt-attention-shapes.md`:
 
 ```markdown
 ---
@@ -200,23 +200,23 @@ For Bahdanau confusion, insist the decoder input is `s_{t-1}` (pre-step state). 
 
 ## Exercises
 
-1. **Easy.** Implement `softmax` masking so padding tokens in the encoder get attention weight zero. Test on a batch with variable-length sequences.
-2. **Medium.** Add multi-head attention to the Luong `general` form. Split `d_h` into `n_heads` groups, run attention per head, concatenate. Verify the single-head case matches your earlier implementation.
-3. **Hard.** Train a GRU encoder-decoder with Bahdanau attention on the toy copy task from lesson 09. Plot accuracy vs sequence length. Compare against the no-attention baseline. You should see the gap widen as length grows, confirming attention lifts the bottleneck.
+1. **Dễ.** Triển khai masking `softmax` để các token đệm trong encoder nhận trọng số attention bằng không. Kiểm thử trên một batch có các chuỗi độ dài thay đổi.
+2. **Trung bình.** Thêm multi-head attention vào dạng Luong `general`. Chia `d_h` thành `n_heads` nhóm, chạy attention cho mỗi head, nối lại. Xác minh trường hợp một head khớp triển khai trước của bạn.
+3. **Khó.** Huấn luyện một GRU encoder-decoder với attention Bahdanau trên tác vụ sao chép đồ chơi từ bài 09. Vẽ accuracy theo độ dài chuỗi. So sánh với baseline không attention. Bạn sẽ thấy khoảng cách nới rộng khi độ dài tăng, xác nhận attention gỡ nút thắt.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Attention | Looking at things | Weighted average of a value sequence, weights computed from a query-key similarity. |
-| Query, Key, Value | QKV | Three projections: Q asks, K is what to match, V is what to return. |
-| Additive attention | Bahdanau | Feed-forward score: `v^T tanh(W q + U k)`. |
-| Multiplicative attention | Luong dot / general | Score is `q^T k` or `q^T W k`. Cheaper, same accuracy on most tasks. |
-| Alignment matrix | The pretty picture | Attention weights as a `(T_dec, T_enc)` grid. Read it to see what the model attended to. |
+| Attention | Nhìn vào các thứ | Trung bình có trọng số của một chuỗi value, các trọng số được tính từ độ tương đồng query-key. |
+| Query, Key, Value (Truy vấn, Khóa, Giá trị) | QKV | Ba phép chiếu: Q hỏi, K là thứ cần khớp, V là thứ cần trả về. |
+| Additive attention (Attention cộng) | Bahdanau | Điểm truyền xuôi: `v^T tanh(W q + U k)`. |
+| Multiplicative attention (Attention nhân) | Luong dot / general | Điểm là `q^T k` hoặc `q^T W k`. Rẻ hơn, cùng accuracy trên hầu hết tác vụ. |
+| Alignment matrix (Ma trận căn chỉnh) | Bức hình đẹp | Các trọng số attention dưới dạng một lưới `(T_dec, T_enc)`. Đọc nó để thấy mô hình đã chú ý vào đâu. |
 
 ## Further Reading
 
-- [Bahdanau, Cho, Bengio (2014). Neural Machine Translation by Jointly Learning to Align and Translate](https://arxiv.org/abs/1409.0473) — the paper.
-- [Luong, Pham, Manning (2015). Effective Approaches to Attention-based Neural Machine Translation](https://arxiv.org/abs/1508.04025) — the three score variants and their comparison.
-- [Jain and Wallace (2019). Attention is not Explanation](https://arxiv.org/abs/1902.10186) — the interpretability caveat.
-- [Dive into Deep Learning — Bahdanau Attention](https://d2l.ai/chapter_attention-mechanisms-and-transformers/bahdanau-attention.html) — runnable walkthrough with PyTorch.
+- [Bahdanau, Cho, Bengio (2014). Neural Machine Translation by Jointly Learning to Align and Translate](https://arxiv.org/abs/1409.0473) — bài báo.
+- [Luong, Pham, Manning (2015). Effective Approaches to Attention-based Neural Machine Translation](https://arxiv.org/abs/1508.04025) — ba biến thể điểm và so sánh của chúng.
+- [Jain and Wallace (2019). Attention is not Explanation](https://arxiv.org/abs/1902.10186) — lưu ý về khả năng diễn giải.
+- [Dive into Deep Learning — Bahdanau Attention](https://d2l.ai/chapter_attention-mechanisms-and-transformers/bahdanau-attention.html) — hướng dẫn chạy được với PyTorch.
