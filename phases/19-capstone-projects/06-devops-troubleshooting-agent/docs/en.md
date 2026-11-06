@@ -1,6 +1,6 @@
 # Capstone 06 — DevOps Troubleshooting Agent for Kubernetes
 
-> AWS's DevOps Agent went GA, Resolve AI published its K8s playbooks, NeuBird demoed semantic monitoring, and Metoro tied AI SRE to per-service SLOs. The production shape is settled: an alert webhook fires, an agent reads telemetry, walks a graph of K8s objects, ranks root-cause hypotheses, and posts a Slack brief with approval buttons. Read-only by default. Every remediation gated by a human. This capstone is that agent, evaluated on 20 synthetic incidents and compared against AWS's Agent on three shared cases.
+> DevOps Agent AWS lên GA, Resolve AI công bố cẩm nang K8s, NeuBird demo giám sát ngữ nghĩa, Metoro gắn SRE AI với SLO theo dịch vụ. Hình dạng sản xuất ổn định: webhook cảnh báo kích hoạt, agent đọc dữ liệu đo từ xa, duyệt đồ thị đối tượng K8s, xếp giả thuyết nguyên nhân gốc và đăng bản tóm tắt Slack có nút phê duyệt. Chỉ đọc mặc định. Mọi khắc phục qua cổng con người. Bài tổng kết là agent đó, đánh giá trên 20 sự cố tổng hợp và so Agent AWS trên ba trường hợp chung.
 
 **Type:** Capstone
 **Languages:** Python (agent), TypeScript (Slack integration)
@@ -10,17 +10,17 @@
 
 ## Problem
 
-The 2025-2026 SRE narrative became: "AI agents triage incidents, humans approve remediations." AWS DevOps Agent, Resolve AI, NeuBird, Metoro, PagerDuty AIOps all ship this shape in production. The agent reads Prometheus metrics, Loki logs, Tempo traces, kube-state-metrics, and a knowledge graph of K8s objects. It produces a ranked root-cause hypothesis with telemetry citations in under five minutes. It never executes destructive commands without explicit human approval through Slack.
+Câu chuyện SRE 2025-2026 thành: "agent AI phân loại sự cố, con người phê duyệt khắc phục." AWS DevOps Agent, Resolve AI, NeuBird, Metoro, PagerDuty AIOps đều cung cấp hình dạng này trong sản xuất. Agent đọc chỉ số Prometheus, log Loki, dấu vết Tempo, kube-state-metrics và đồ thị tri thức đối tượng K8s. Tạo giả thuyết nguyên nhân gốc xếp hạng có trích dẫn đo từ xa dưới năm phút. Không bao giờ thực thi lệnh phá hủy không có phê duyệt con người tường minh qua Slack.
 
-Most of the hard work is scoping and safety, not reasoning. The agent needs a read-only-by-default RBAC surface, a hardened MCP tool server, and audit logs of every command considered vs executed. It needs to know when it is outside its depth and escalate. And it has to run cheap enough that OOM-kill cascades do not generate a $5k agent bill.
+Phần lớn việc khó là phạm vi và an toàn, không phải suy luận. Agent cần bề mặt RBAC chỉ-đọc-mặc-định, máy chủ công cụ MCP gia cố và log kiểm toán mọi lệnh cân nhắc so với thực thi. Cần biết lúc vượt khả năng và chuyển cấp. Và phải chạy đủ rẻ để chuỗi OOM-kill không sinh hóa đơn agent $5k.
 
 ## Concept
 
-The agent operates on a knowledge graph. Nodes are K8s objects (Pods, Deployments, Services, Nodes, HPAs, PVCs) plus telemetry sources (Prometheus series, Loki streams, Tempo traces). Edges encode ownership (Pod -> ReplicaSet -> Deployment), scheduling (Pod -> Node), and observation (Pod -> Prometheus series). The graph is kept fresh by a kube-state-metrics sync and re-sampled on every alert.
+Agent hoạt động trên đồ thị tri thức. Nút là đối tượng K8s (Pods, Deployments, Services, Nodes, HPAs, PVCs) cộng nguồn đo từ xa (chuỗi Prometheus, luồng Loki, dấu vết Tempo). Cạnh mã hóa sở hữu (Pod -> ReplicaSet -> Deployment), lập lịch (Pod -> Node), quan sát (Pod -> chuỗi Prometheus). Đồ thị được giữ mới bằng đồng bộ kube-state-metrics và lấy mẫu lại mỗi cảnh báo.
 
-When an alert fires, the agent root-causes from the affected object. It walks edges, pulls the relevant telemetry slices (last 15 minutes), and drafts a hypothesis. The hypothesis is ranked by evidence: how many telemetry citations support it, how recent, how specific. The top-3 hypotheses go to Slack with graph-path visualizations and approval buttons for remediation actions.
+Khi cảnh báo kích hoạt, agent tìm nguyên nhân gốc từ đối tượng ảnh hưởng. Duyệt cạnh, lấy lát dữ liệu đo từ xa liên quan (15 phút cuối), soạn giả thuyết. Giả thuyết xếp theo bằng chứng: bao nhiêu trích dẫn đo từ xa hỗ trợ, mới đến đâu, cụ thể đến đâu. Top-3 giả thuyết đến Slack với trực quan đường đồ thị và nút phê duyệt hành động khắc phục.
 
-Remediation is gated. Allowed default actions are read-only. Destructive actions (scaling down, rolling back, deleting Pods) require Slack approval; ArgoCD rollback hooks require an auth token the agent never holds. The audit log records every command the agent *considered* — not just executed — so the review process catches near-misses.
+Khắc phục có cổng kiểm soát. Hành động mặc định được phép chỉ đọc. Hành động phá hủy (giảm quy mô, hoàn tác, xóa Pod) cần phê duyệt Slack; hook hoàn tác ArgoCD cần token xác thực agent không bao giờ giữ. Log kiểm toán ghi mọi lệnh agent *cân nhắc* — không chỉ thực thi — để rà soát bắt tình huống suýt xảy ra.
 
 ## Architecture
 
@@ -55,14 +55,14 @@ PagerDuty / Alertmanager webhook
 
 ## Stack
 
-- Observability sources: Prometheus, Loki, Tempo, kube-state-metrics
-- Knowledge graph: Neo4j (managed) or kuzu (embedded) of K8s objects + telemetry edges
-- Agent: LangGraph with per-tool allow-list, read-only by default
-- Tool transport: FastMCP over StreamableHTTP; separate server for destructive tools behind approval gate
-- Models: Claude Sonnet 4.7 for root-cause reasoning, Gemini 2.5 Flash for log summarization
-- Remediation: ArgoCD rollback webhook, PagerDuty escalate, Slack approval card
-- Audit: append-only structured log (considered, executed, approved, outcome)
-- Deployment: K8s deployment with its own narrow RBAC role; separate namespace
+- Nguồn khả năng quan sát: Prometheus, Loki, Tempo, kube-state-metrics
+- Đồ thị tri thức: Neo4j (được quản lý) hoặc kuzu (nhúng) cho đối tượng K8s + cạnh đo từ xa
+- Agent: LangGraph với danh sách cho phép theo công cụ, chỉ đọc mặc định
+- Truyền tải công cụ: FastMCP qua StreamableHTTP; máy chủ riêng cho công cụ phá hủy sau cổng phê duyệt
+- Mô hình: Claude Sonnet 4.7 cho suy luận nguyên nhân gốc, Gemini 2.5 Flash tóm tắt log
+- Khắc phục: webhook hoàn tác ArgoCD, chuyển cấp PagerDuty, thẻ phê duyệt Slack
+- Kiểm toán: log có cấu trúc chỉ nối thêm (cân nhắc, thực thi, phê duyệt, kết quả)
+- Triển khai: deployment K8s có vai RBAC hẹp riêng; namespace riêng
 
 ```figure
 ce-rootcause-walk
@@ -70,23 +70,23 @@ ce-rootcause-walk
 
 ## Build It
 
-1. **Graph ingestion.** Sync kube-state-metrics into Neo4j/kuzu every 30s. Nodes: Pod, Deployment, Node, Service, PVC, HPA. Edges: OWNED_BY, SCHEDULED_ON, EXPOSES, MOUNTS, SCALES. Telemetry overlay edges: OBSERVED_BY (a Pod is observed by a Prometheus series).
+1. **Thu nạp đồ thị.** Đồng bộ kube-state-metrics vào Neo4j/kuzu mỗi 30s. Nút: Pod, Deployment, Node, Service, PVC, HPA. Cạnh: OWNED_BY, SCHEDULED_ON, EXPOSES, MOUNTS, SCALES. Cạnh phủ đo từ xa: OBSERVED_BY (Pod được chuỗi Prometheus quan sát).
 
-2. **Alert receiver.** FastAPI endpoint that accepts PagerDuty or Alertmanager webhooks. Extract the affected object(s) and SLO breach.
+2. **Bộ nhận cảnh báo.** Endpoint FastAPI nhận webhook PagerDuty hoặc Alertmanager. Trích đối tượng ảnh hưởng và vi phạm SLO.
 
-3. **Read-only tool surface.** Wrap kubectl, Prometheus query, Loki logql, Tempo traceql through FastMCP. Every tool has a narrow RBAC verb ("get", "list", "describe"). No "delete", "exec", "scale" in the default server.
+3. **Bề mặt công cụ chỉ đọc.** Bọc kubectl, truy vấn Prometheus, logql Loki, traceql Tempo qua FastMCP. Mọi công cụ có động từ RBAC hẹp ("get", "list", "describe"). Không "delete", "exec", "scale" trong máy chủ mặc định.
 
-4. **Root-cause agent.** LangGraph with three nodes: `sample` pulls the last-15-minutes telemetry slice, `walk` queries the graph for neighboring objects, `hypothesize` drafts ranked root-cause candidates with telemetry citations.
+4. **Agent nguyên nhân gốc.** LangGraph ba nút: `sample` lấy lát đo từ xa 15 phút cuối, `walk` truy vấn đồ thị cho đối tượng lân cận, `hypothesize` soạn ứng viên nguyên nhân gốc xếp hạng có trích dẫn đo từ xa.
 
-5. **Evidence scoring.** Each hypothesis has a score = recency * specificity * graph-path length inverse * citation count. Return top-3.
+5. **Chấm bằng chứng.** Mỗi giả thuyết có score = recency * specificity * graph-path length inverse * citation count. Trả top-3.
 
-6. **Slack brief.** Post an attachment with the hypothesis, the graph-path visualization (a subgraph image rendered server-side), and approval buttons for at most one remediation action.
+6. **Bản tóm tắt Slack.** Đăng đính kèm có giả thuyết, trực quan đường đồ thị (ảnh đồ thị con render phía máy chủ) và nút phê duyệt tối đa một hành động khắc phục.
 
-7. **Remediation gate.** Destructive tools (scale down, roll back, delete) live on a second MCP server behind an approval token. The agent can call them only after the Slack card is approved by a human.
+7. **Cổng khắc phục.** Công cụ phá hủy (giảm quy mô, hoàn tác, xóa) nằm trên máy chủ MCP thứ hai sau token phê duyệt. Agent chỉ gọi sau khi thẻ Slack được con người phê duyệt.
 
-8. **Audit log.** Append-only JSONL: for every candidate command, log whether it was considered, whether it was executed, who approved it. Ship to S3 daily.
+8. **Log kiểm toán.** JSONL chỉ nối thêm: với mọi lệnh ứng viên, ghi có cân nhắc không, có thực thi không, ai phê duyệt. Gửi S3 hằng ngày.
 
-9. **Synthetic incident suite.** Build 20 scenarios: OOMKill cascade, DNS flap, HPA thrash, PVC fill, noisy neighbor, faulty sidecar, bad ConfigMap rollout, certificate rotation, image-pull backoff, etc. Score the agent on root-cause accuracy and time-to-hypothesis.
+9. **Bộ sự cố tổng hợp.** Xây 20 kịch bản: chuỗi OOMKill, DNS chập chờn, HPA dao động mạnh, PVC đầy, hàng xóm gây nhiễu, sidecar lỗi, rollout ConfigMap xấu, luân chuyển chứng chỉ, backoff kéo image, v.v. Chấm agent theo độ chính xác nguyên nhân gốc và thời gian-đến-giả-thuyết.
 
 ## Use It
 
@@ -104,48 +104,48 @@ webhook: alert.pagerduty.com -> checkout-api SLO breach, error rate 14%
 
 ## Ship It
 
-`outputs/skill-devops-agent.md` is the deliverable. Given a K8s cluster and alert source, the agent produces ranked root-cause hypotheses and a Slack-gated remediation flow.
+`outputs/skill-devops-agent.md` là sản phẩm bàn giao. Với cụm K8s và nguồn cảnh báo, agent tạo giả thuyết nguyên nhân gốc xếp hạng và luồng khắc phục qua cổng Slack.
 
-| Weight | Criterion | How it is measured |
+| Trọng số | Tiêu chí | Cách đo |
 |:-:|---|---|
-| 25 | RCA accuracy on scenario suite | ≥80% correct root cause across 20 synthetic incidents |
-| 20 | Safety | Destructive-action guard never fires without Slack approval in the audit log |
-| 20 | Time-to-hypothesis | p50 under 5 minutes from alert to Slack brief |
-| 20 | Explainability | Every hypothesis has graph paths and telemetry citations |
-| 15 | Integration completeness | PagerDuty, Slack, ArgoCD, Prometheus end-to-end working |
+| 25 | Độ chính xác RCA trên bộ kịch bản | ≥80% nguyên nhân gốc đúng trên 20 sự cố tổng hợp |
+| 20 | An toàn | Chốt hành động phá hủy không bao giờ kích hoạt thiếu phê duyệt Slack trong log kiểm toán |
+| 20 | Thời gian đến giả thuyết | p50 dưới 5 phút từ cảnh báo đến bản tóm tắt Slack |
+| 20 | Khả năng giải thích | Mọi giả thuyết có đường đồ thị và trích dẫn đo từ xa |
+| 15 | Đầy đủ tích hợp | PagerDuty, Slack, ArgoCD, Prometheus hoạt động đầu cuối |
 | **100** | | |
 
 ## Exercises
 
-1. Run your agent on the same three incidents AWS's DevOps Agent is demo'd on. Publish the side-by-side. Report where the agent diverges.
+1. Chạy agent trên cùng ba sự cố DevOps Agent AWS được demo. Công bố cạnh nhau. Báo cáo nơi agent khác.
 
-2. Add a "near-miss" audit that flags any command the agent *considered* that would have been destructive without approval. Measure the near-miss rate over one week.
+2. Thêm kiểm toán "suýt xảy ra" đánh dấu mọi lệnh agent *cân nhắc* sẽ phá hủy nếu thiếu phê duyệt. Đo tỷ lệ suýt xảy ra trong một tuần.
 
-3. Swap the hypothesis model from Claude Sonnet 4.7 to a self-hosted Llama 3.3 70B. Measure RCA accuracy delta and dollar per incident.
+3. Đổi mô hình giả thuyết từ Claude Sonnet 4.7 sang Llama 3.3 70B tự lưu trữ. Đo chênh lệch độ chính xác RCA và đô la mỗi sự cố.
 
-4. Build a causal filter: distinguish correlated telemetry spikes from a true root cause. Train a small classifier on the 20-scenario labels.
+4. Xây bộ lọc nhân quả: phân biệt đột biến đo từ xa tương quan với nguyên nhân gốc thực. Huấn luyện bộ phân loại nhỏ trên nhãn 20 kịch bản.
 
-5. Add a rollback dry-run: ArgoCD rollback against a staging cluster with the same manifest. Verify the rollback plan in a live cluster before the Slack approval button.
+5. Thêm chạy thử hoàn tác: hoàn tác ArgoCD đối với cụm staging có cùng manifest. Xác minh kế hoạch hoàn tác trong cụm trực tiếp trước nút phê duyệt Slack.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|-----------------|------------------------|
-| K8s knowledge graph | "Cluster graph" | Nodes = K8s objects + telemetry series; edges = ownership, scheduling, observation |
-| Read-only-by-default | "Scoped RBAC" | Agent's service account has only get/list/describe verbs; destructive verbs live in a separate server behind approval |
-| Audit log | "Considered vs executed" | Append-only record of every candidate command, whether it ran, who approved |
-| Hypothesis ranking | "Evidence score" | Recency × specificity × graph-path length inverse × citation count |
-| Slack approval card | "HITL gate" | Interactive Slack message with remediation buttons; agent cannot proceed until a human clicks |
-| Telemetry citation | "Evidence pointer" | A Prometheus query, Loki selector, or Tempo trace URL that supports a claim |
-| MTTR | "Time to resolution" | Wall-clock from alert fire to SLO recovery |
+| K8s knowledge graph (Đồ thị tri thức K8s) | "Đồ thị cụm" | Nút = đối tượng K8s + chuỗi đo từ xa; cạnh = sở hữu, lập lịch, quan sát |
+| Read-only-by-default (Chỉ đọc mặc định) | "RBAC có phạm vi" | Tài khoản dịch vụ agent chỉ có động từ get/list/describe; động từ phá hủy ở máy chủ riêng sau phê duyệt |
+| Audit log (Log kiểm toán) | "Cân nhắc so với thực thi" | Bản ghi chỉ nối thêm mọi lệnh ứng viên, có chạy không, ai phê duyệt |
+| Hypothesis ranking (Xếp hạng giả thuyết) | "Điểm bằng chứng" | Độ mới × độ cụ thể × nghịch đảo độ dài đường đồ thị × số trích dẫn |
+| Slack approval card (Thẻ phê duyệt Slack) | "Cổng HITL" | Tin nhắn Slack tương tác có nút khắc phục; agent không thể tiếp tục tới khi con người bấm |
+| Telemetry citation (Trích dẫn đo từ xa) | "Con trỏ bằng chứng" | Truy vấn Prometheus, bộ chọn Loki hoặc URL dấu vết Tempo hỗ trợ khẳng định |
+| MTTR | "Thời gian giải quyết" | Thời gian thực từ cảnh báo kích hoạt đến SLO khôi phục |
 
 ## Further Reading
 
-- [AWS DevOps Agent GA](https://aws.amazon.com/blogs/aws/aws-devops-agent-helps-you-accelerate-incident-response-and-improve-system-reliability-preview/) — the canonical 2026 reference
-- [Resolve AI K8s troubleshooting](https://resolve.ai/blog/kubernetes-troubleshooting-in-resolve-ai) — the competitor reference
-- [NeuBird semantic monitoring](https://www.neubird.ai) — semantic-graph approach
-- [Metoro AI SRE](https://metoro.io) — SLO-first production framing
-- [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) — the cluster-state source
-- [LangGraph](https://langchain-ai.github.io/langgraph/) — reference agent orchestrator
-- [FastMCP](https://github.com/jlowin/fastmcp) — Python MCP server framework
-- [ArgoCD rollback](https://argo-cd.readthedocs.io/en/stable/user-guide/commands/argocd_app_rollback/) — the gated remediation target
+- [AWS DevOps Agent GA](https://aws.amazon.com/blogs/aws/aws-devops-agent-helps-you-accelerate-incident-response-and-improve-system-reliability-preview/) — tham chiếu kinh điển 2026
+- [Resolve AI K8s troubleshooting](https://resolve.ai/blog/kubernetes-troubleshooting-in-resolve-ai) — tham chiếu đối thủ
+- [NeuBird semantic monitoring](https://www.neubird.ai) — cách tiếp cận đồ thị ngữ nghĩa
+- [Metoro AI SRE](https://metoro.io) — cách nhìn sản xuất ưu tiên SLO
+- [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) — nguồn trạng thái cụm
+- [LangGraph](https://langchain-ai.github.io/langgraph/) — bộ điều phối agent tham chiếu
+- [FastMCP](https://github.com/jlowin/fastmcp) — framework máy chủ MCP Python
+- [ArgoCD rollback](https://argo-cd.readthedocs.io/en/stable/user-guide/commands/argocd_app_rollback/) — mục tiêu khắc phục có cổng

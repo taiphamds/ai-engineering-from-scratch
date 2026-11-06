@@ -7,40 +7,40 @@ lesson: 06
 tags: [capstone, devops, sre, kubernetes, langgraph, fastmcp, aiops]
 ---
 
-Given a K8s cluster and an alert source (PagerDuty or Alertmanager), build an agent that produces ranked root-cause hypotheses in under five minutes and gates every remediation through a Slack approval card.
+Với cụm K8s và nguồn cảnh báo (PagerDuty hoặc Alertmanager), xây agent tạo giả thuyết nguyên nhân gốc xếp hạng dưới năm phút và kiểm soát mọi khắc phục qua thẻ phê duyệt Slack.
 
-Build plan:
+Kế hoạch xây dựng:
 
-1. Ingest kube-state-metrics into Neo4j or kuzu every 30s. Build a graph of Pods, Deployments, Services, Nodes, PVCs, HPAs plus telemetry-overlay edges to Prometheus, Loki, and Tempo sources.
-2. Stand up a FastAPI webhook receiver for PagerDuty and Alertmanager.
-3. Expose read-only tools through FastMCP with StreamableHTTP transport: kubectl get/describe, promql, logql, traceql.
-4. Build a LangGraph root-cause agent with three nodes: `sample` (pull 15m telemetry), `walk` (traverse graph neighbors), `hypothesize` (rank candidates by recency × specificity × citation count).
-5. Post the top-3 ranked hypotheses with graph-path visualization to Slack with approval buttons.
-6. Put destructive tools (scale, rollback, delete) on a separate FastMCP server behind an approval token the agent obtains only after Slack signoff.
-7. Maintain an append-only audit log: every *considered* command, whether approved, whether executed, who approved.
-8. Build 20 synthetic incident scenarios (OOMKill, DNS flap, HPA thrash, PVC fill, noisy neighbor, faulty sidecar, ConfigMap bad rollout, cert rotation, image-pull backoff, probe failure, and 10 more). Score agent on RCA accuracy and time-to-hypothesis.
+1. Thu nạp kube-state-metrics vào Neo4j hoặc kuzu mỗi 30s. Xây đồ thị Pods, Deployments, Services, Nodes, PVCs, HPAs cộng cạnh phủ đo từ xa đến nguồn Prometheus, Loki, Tempo.
+2. Dựng bộ nhận webhook FastAPI cho PagerDuty và Alertmanager.
+3. Cung cấp công cụ chỉ đọc qua FastMCP với truyền tải StreamableHTTP: kubectl get/describe, promql, logql, traceql.
+4. Xây agent nguyên nhân gốc LangGraph ba nút: `sample` (lấy đo từ xa 15m), `walk` (duyệt lân cận đồ thị), `hypothesize` (xếp ứng viên theo độ mới × độ cụ thể × số trích dẫn).
+5. Đăng top-3 giả thuyết xếp hạng có trực quan đường đồ thị lên Slack với nút phê duyệt.
+6. Đặt công cụ phá hủy (scale, rollback, delete) trên máy chủ FastMCP riêng sau token phê duyệt agent chỉ nhận sau chấp thuận Slack.
+7. Duy trì log kiểm toán chỉ nối thêm: mọi lệnh *cân nhắc*, có phê duyệt không, có thực thi không, ai phê duyệt.
+8. Xây 20 kịch bản sự cố tổng hợp (OOMKill, DNS chập chờn, HPA dao động mạnh, PVC đầy, hàng xóm gây nhiễu, sidecar lỗi, rollout ConfigMap xấu, luân chuyển chứng chỉ, backoff kéo image, lỗi probe và 10 nữa). Chấm agent theo độ chính xác RCA và thời gian đến giả thuyết.
 
-Assessment rubric:
+Tiêu chí đánh giá:
 
-| Weight | Criterion | Measurement |
+| Trọng số | Tiêu chí | Phép đo |
 |:-:|---|---|
-| 25 | RCA accuracy on scenario suite | At least 80% correct root cause across 20 synthetic incidents |
-| 20 | Safety | Destructive-action guard never fires without Slack approval in the audit log |
-| 20 | Time-to-hypothesis | p50 under 5 minutes from alert to Slack brief |
-| 20 | Explainability | Every hypothesis has graph paths and telemetry citations |
-| 15 | Integration completeness | PagerDuty, Slack, ArgoCD, Prometheus end-to-end working |
+| 25 | Độ chính xác RCA trên bộ kịch bản | Ít nhất 80% nguyên nhân gốc đúng trên 20 sự cố tổng hợp |
+| 20 | An toàn | Chốt hành động phá hủy không bao giờ kích hoạt thiếu phê duyệt Slack trong log kiểm toán |
+| 20 | Thời gian đến giả thuyết | p50 dưới 5 phút từ cảnh báo đến bản tóm tắt Slack |
+| 20 | Khả năng giải thích | Mọi giả thuyết có đường đồ thị và trích dẫn đo từ xa |
+| 15 | Đầy đủ tích hợp | PagerDuty, Slack, ArgoCD, Prometheus hoạt động đầu cuối |
 
-Hard rejects:
+Các trường hợp loại bỏ dứt khoát:
 
-- Agents with a single MCP server that mixes read-only and destructive tools.
-- Any RCA produced without telemetry citations. Uncited hypotheses must be rejected.
-- Audit logs that only record executions. They must record every command considered.
-- Claims of accuracy without running the agent against the 20-scenario suite with seeds.
+- Agent có một máy chủ MCP trộn công cụ chỉ đọc và phá hủy.
+- Mọi RCA tạo không trích dẫn đo từ xa. Giả thuyết không trích dẫn phải bị từ chối.
+- Log kiểm toán chỉ ghi thực thi. Phải ghi mọi lệnh cân nhắc.
+- Khẳng định độ chính xác không chạy agent đối với bộ 20 kịch bản có seed.
 
-Refusal rules:
+Quy tắc từ chối:
 
-- Refuse to remediate without Slack approval from a human on-caller. Even if the hypothesis is obvious.
-- Refuse to expose `kubectl exec`, `kubectl port-forward`, or any interactive tool via the read-only MCP. These are destructive in effect.
-- Refuse to batch-apply remediations across multiple deployments without per-deployment approval cards.
+- Từ chối khắc phục thiếu phê duyệt Slack từ người trực. Ngay cả khi giả thuyết rõ ràng.
+- Từ chối cung cấp `kubectl exec`, `kubectl port-forward` hoặc công cụ tương tác qua MCP chỉ đọc. Chúng có tác dụng phá hủy.
+- Từ chối áp dụng hàng loạt khắc phục trên nhiều deployment thiếu thẻ phê duyệt theo deployment.
 
-Output: a repo containing the FastAPI receiver, the LangGraph agent, the read-only and destructive MCP servers, the Slack integration, the 20-scenario test suite, a side-by-side comparison against AWS DevOps Agent on three shared incidents, and a write-up on near-miss commands (what the agent *considered* but did not execute) over a one-week observation window.
+Đầu ra: repo chứa bộ nhận FastAPI, agent LangGraph, máy chủ MCP chỉ đọc và phá hủy, tích hợp Slack, bộ kiểm thử 20 kịch bản, so sánh cạnh nhau với AWS DevOps Agent trên ba sự cố chung và bài viết về lệnh suýt xảy ra (agent *cân nhắc* nhưng không thực thi) trong cửa sổ quan sát một tuần.

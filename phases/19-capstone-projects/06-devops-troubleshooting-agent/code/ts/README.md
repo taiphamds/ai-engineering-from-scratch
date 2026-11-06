@@ -1,9 +1,9 @@
 # Capstone 06 - DevOps Troubleshooting Agent (TypeScript)
 
-Slack-integration skeleton for the on-call agent in `../main.py`. Exposes a
-slash-command endpoint and an interactivity (button-click) endpoint, both gated
-by Slack's HMAC-SHA256 request signature plus a 5-minute replay window.
-Destructive remediations only run after the Slack card is approved.
+Khung tích hợp Slack cho agent trực trong `../main.py`. Cung cấp
+endpoint slash-command và endpoint tương tác (bấm nút), cả hai kiểm soát
+bằng chữ ký yêu cầu HMAC-SHA256 Slack cộng cửa sổ phát lại 5 phút.
+Khắc phục phá hủy chỉ chạy sau thẻ Slack được phê duyệt.
 
 ## Layout
 
@@ -34,16 +34,16 @@ npm start          # one self-check pass, exits 0
 npm run serve      # interactive HTTP server on 127.0.0.1:<port>
 ```
 
-Set `SLACK_SIGNING_SECRET=...` to override the placeholder secret. The
-interactive server prints the chosen port (random when `PORT` is unset).
+Đặt `SLACK_SIGNING_SECRET=...` để ghi đè bí mật giữ chỗ.
+Máy chủ tương tác in cổng đã chọn (ngẫu nhiên khi `PORT` chưa đặt).
 
 ## Tests
 
-`node --test` runner via tsx. Coverage:
+Bộ chạy `node --test` qua tsx. Bao phủ:
 
-- Slack signature verification: valid signature passes, tampered signature is
-  rejected, stale timestamp (>5 min skew) is rejected, non-numeric timestamp is
-  rejected, length-mismatch path is exercised before constant-time compare.
-- Mock agent: OOM keyword path, CrashLoop keyword path, fallback path.
-- Server: `/health`, `/slack/command` happy/tampered/stale paths,
-  `/slack/interactivity` approve action.
+- Xác minh chữ ký Slack: chữ ký hợp lệ qua, chữ ký sửa bị
+  từ chối, dấu thời gian cũ (lệch >5 phút) bị từ chối, dấu thời gian không phải số bị
+  từ chối, đường không khớp độ dài được thực hiện trước so sánh thời gian hằng.
+- Agent giả: đường từ khóa OOM, đường từ khóa CrashLoop, đường dự phòng.
+- Máy chủ: đường thành công/bị sửa/cũ của `/health`, `/slack/command`,
+  hành động phê duyệt `/slack/interactivity`.
