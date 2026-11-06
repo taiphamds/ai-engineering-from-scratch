@@ -1,6 +1,6 @@
 # Skill Invocation and Routing
 
-> Invocation is an authority decision followed by a relevance decision. A good description helps the model choose; a good policy decides whether that choice is allowed.
+> Gọi là quyết định thẩm quyền theo sau quyết định liên quan. Mô tả tốt giúp mô hình chọn; chính sách tốt quyết định lựa chọn có được phép không.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,35 +9,35 @@
 
 ## Learning Objectives
 
-- Distinguish explicit user invocation, implicit model invocation, application invocation, and skill-to-skill invocation.
-- Model human visibility and model eligibility as independent policy dimensions.
-- Write routing descriptions with positive triggers and near-miss boundaries.
-- Separate eligibility, selection, activation, argument binding, and execution in traces and tests.
-- Adapt runtime-specific invocation fields without presenting them as portable frontmatter.
+- Phân biệt người dùng gọi tường minh, mô hình gọi ngầm, ứng dụng gọi và skill gọi skill.
+- Mô hình hóa hiển thị với con người và đủ điều kiện với mô hình thành chiều chính sách độc lập.
+- Viết mô tả định tuyến có kích hoạt dương và ranh giới gần khớp.
+- Tách đủ điều kiện, lựa chọn, kích hoạt, gắn đối số và thực thi trong trace và kiểm thử.
+- Thích nghi trường gọi riêng runtime không trình bày như frontmatter có thể chuyển.
 
 ## The Problem
 
-You install a `database-migration` skill. The user can run it by name, but the model also sees its description and selects it when someone asks a general database question. The skill then proposes a schema change for a task that only needed an explanation.
+Bạn cài skill `database-migration`. Người dùng chạy theo tên được, nhưng mô hình cũng thấy mô tả và chọn khi ai hỏi câu cơ sở dữ liệu tổng quát. Skill rồi đề xuất đổi lược đồ cho tác vụ chỉ cần giải thích.
 
-You add `user-invocable: false`, expecting to block people from running it manually. In another runtime, that field is ignored. You add `disable-model-invocation: true`, expecting the skill to disappear entirely. In the runtime that understands it, the user can still invoke it explicitly.
+Bạn thêm `user-invocable: false`, kỳ vọng chặn người chạy thủ công. Trong runtime khác, trường bị bỏ qua. Bạn thêm `disable-model-invocation: true`, kỳ vọng skill biến mất hoàn toàn. Trong runtime hiểu, người dùng vẫn gọi tường minh được.
 
-Nothing is wrong with the field names. The model is wrong. "User can see it," "model can select it," "application can preload it," and "tools inside it can execute" are separate facts. A single boolean called `invocable` cannot express them.
+Không gì sai với tên trường. Mô hình tư duy sai. "Người dùng thấy được", "mô hình chọn được", "ứng dụng nạp trước được" và "công cụ bên trong thực thi được" là sự thật riêng. Một boolean tên `invocable` không diễn đạt được.
 
-Routing has a second failure mode. If descriptions are vague, several skills become plausible. If descriptions are stuffed with keywords, unrelated tasks trigger them. The catalog is a probabilistic interface: compact enough to fit, specific enough to route.
+Định tuyến có dạng lỗi thứ hai. Nếu mô tả mơ hồ, nhiều skill trở nên hợp lý. Nếu mô tả nhồi từ khóa, tác vụ không liên quan kích hoạt. Danh mục là giao diện xác suất: đủ gọn để vừa, đủ cụ thể để định tuyến.
 
 ## The Concept
 
 ### Five channels can start the lifecycle
 
-| Actor | Invocation shape | Typical use | Main risk |
+| Tác nhân | Hình dạng gọi | Dùng điển hình | Rủi ro chính |
 |---|---|---|---|
-| Human user | Names a skill in the UI or prompt | Deliberate workflow selection | User expects availability or authority the host does not grant |
-| Model or autonomous agent | Selects a catalog entry from task context | Automatic expert procedure | False-positive routing |
-| Application | Activates or preloads a skill through runtime code | Fixed product workflow | Hidden coupling to one host |
-| Another skill or subagent | Requests an exact skill as a workflow dependency | Composition | Cycles, missing dependency, or context bleed |
-| Evaluation harness | Activates an exact skill under a fixed scenario | Repeatable measurement | Tests the skill while accidentally bypassing the production policy under study |
+| Người dùng con người | Nêu tên skill trong UI hoặc prompt | Chọn quy trình chủ ý | Người dùng kỳ vọng sẵn có hoặc thẩm quyền host không cấp |
+| Mô hình hoặc agent tự chủ | Chọn mục danh mục từ ngữ cảnh tác vụ | Thủ tục chuyên gia tự động | Định tuyến dương tính giả |
+| Ứng dụng | Kích hoạt hoặc nạp trước skill qua mã runtime | Quy trình sản phẩm cố định | Gắn kết ẩn với một host |
+| Skill hoặc agent phụ khác | Yêu cầu đúng skill làm phụ thuộc quy trình | Kết hợp | Chu kỳ, thiếu phụ thuộc hoặc rò ngữ cảnh |
+| Bộ khung đánh giá | Kích hoạt đúng skill dưới kịch bản cố định | Đo lặp lại được | Kiểm thử skill nhưng vô tình bỏ qua chính sách sản xuất đang nghiên cứu |
 
-The portable Agent Skills specification defines the package. It does not standardize one universal slash-command UI, implicit-routing flag, application API, or subagent lifecycle.
+Đặc tả Agent Skills có thể chuyển định nghĩa gói. Không chuẩn hóa một UI slash command, cờ định tuyến ngầm, API ứng dụng hoặc vòng đời agent phụ phổ quát.
 
 ### The five invocation stages
 
@@ -45,174 +45,174 @@ The portable Agent Skills specification defines the package. It does not standar
 skill-invocation-stages
 ```
 
-Use these words precisely:
+Dùng chính xác từ này:
 
-- **Eligible** means policy permits this actor to request the skill.
-- **Selected** means the user named it or a router judged it relevant.
-- **Activated** means its instructions entered the working context.
-- **Executing** means the agent began model or tool work under those instructions.
-- **Completed** means the output met an independent success check.
+- **Đủ điều kiện** nghĩa chính sách cho tác nhân này yêu cầu skill.
+- **Đã chọn** nghĩa người dùng nêu tên hoặc bộ định tuyến đánh giá liên quan.
+- **Đã kích hoạt** nghĩa chỉ dẫn vào ngữ cảnh làm việc.
+- **Đang thực thi** nghĩa agent bắt đầu công việc mô hình hoặc công cụ dưới chỉ dẫn đó.
+- **Đã hoàn tất** nghĩa đầu ra đạt kiểm tra thành công độc lập.
 
-A trace that records only `skill_used=true` hides the boundary where a failure happened.
+Trace chỉ ghi `skill_used=true` giấu ranh giới nơi thất bại xảy ra.
 
 ### Human and model invocation form a 2x2 matrix
 
-| Human can invoke | Model can invoke | Mode | Suitable examples |
+| Con người gọi được | Mô hình gọi được | Chế độ | Ví dụ phù hợp |
 |:---:|:---:|---|---|
-| Yes | Yes | Shared | Code explanation, test planning, documentation review |
-| Yes | No | Human-only | Publish preparation, billing export, destructive cleanup plan |
-| No | Yes | Model-only | Internal style guide, domain reference, automatic support procedure |
-| No | No | Disabled or application-only | Staged rollout, deprecated package, programmatic preload |
+| Có | Có | Dùng chung | Giải thích mã, lập kế hoạch kiểm thử, đánh giá tài liệu |
+| Có | Không | Chỉ con người | Chuẩn bị công bố, xuất tính phí, kế hoạch dọn phá hủy |
+| Không | Có | Chỉ mô hình | Hướng dẫn phong cách nội bộ, tham chiếu miền, thủ tục hỗ trợ tự động |
+| Không | Không | Tắt hoặc chỉ ứng dụng | Triển khai theo giai đoạn, gói ngừng dùng, nạp trước lập trình |
 
-The matrix is a policy model, not standard YAML.
+Ma trận là mô hình chính sách, không YAML tiêu chuẩn.
 
-One current host uses `disable-model-invocation: true` for the human-only row and `user-invocable: false` for the model-only row. The default is both. Another host uses `agents/openai.yaml` with `allow_implicit_invocation: false` to keep explicit invocation while disabling implicit selection. These are runtime adapters. Unknown hosts may ignore them.
+Một host hiện tại dùng `disable-model-invocation: true` cho hàng chỉ con người và `user-invocable: false` cho hàng chỉ mô hình. Mặc định cả hai. Host khác dùng `agents/openai.yaml` với `allow_implicit_invocation: false` để giữ gọi tường minh trong khi tắt chọn ngầm. Đây là adapter runtime. Host không biết có thể bỏ qua.
 
-The confusing detail matters: `user-invocable: false` does not mean "the model cannot use this." It removes direct user invocation in the host that defines it. `disable-model-invocation: true` does not mean "the skill is disabled." It removes model-initiated selection while keeping explicit user access.
+Chi tiết gây nhầm quan trọng: `user-invocable: false` không nghĩa "mô hình không dùng được." Nó bỏ gọi người dùng trực tiếp trong host định nghĩa. `disable-model-invocation: true` không nghĩa "skill bị tắt." Nó bỏ lựa chọn do mô hình khởi tạo trong khi giữ truy cập người dùng tường minh.
 
 ### Explicit invocation is identity-first
 
-An explicit invocation supplies identity directly:
+Gọi tường minh cung cấp danh tính trực tiếp:
 
 ```text
 /release-readiness v2.4.0
 ```
 
-or:
+hoặc:
 
 ```text
 release-readiness check v2.4.0 without publishing
 ```
 
-Current Codex interfaces document `/skills` for selection and plain skill names in requests for explicit invocation. Claude Code documents `/skill-name` and host-specific argument expansion. The exact syntax, menu visibility, quoting rules, and variable expansion belong to the host.
+Giao diện Codex hiện tại ghi `/skills` để chọn và tên skill thuần trong yêu cầu để gọi tường minh. Claude Code ghi `/skill-name` và mở rộng đối số riêng host. Cú pháp chính xác, hiển thị menu, quy tắc dấu nháy và mở rộng biến thuộc host.
 
-An explicit request still passes policy. Naming a skill should not bypass missing permissions, workspace constraints, approval gates, or runtime isolation.
+Yêu cầu tường minh vẫn qua chính sách. Nêu tên skill không nên bỏ qua quyền thiếu, ràng buộc workspace, cổng phê duyệt hoặc cô lập runtime.
 
 ### Implicit invocation is description-first
 
-For implicit routing, the model initially sees catalog metadata rather than the full body. The description is therefore the skill's routing interface.
+Với định tuyến ngầm, mô hình ban đầu thấy siêu dữ liệu danh mục thay toàn phần thân. Vì vậy mô tả là giao diện định tuyến skill.
 
-Weak:
+Yếu:
 
 ```yaml
 description: Helps with releases.
 ```
 
-Over-broad:
+Quá rộng:
 
 ```yaml
 description: Use for release, version, package, build, deploy, publish, tag, changelog, GitHub, CI, or software tasks.
 ```
 
-Bounded:
+Có giới hạn:
 
 ```yaml
 description: Inspect an already prepared release candidate and produce a readiness report. Use when the user asks whether a version, tag, package, or image is ready to publish; do not use for ordinary build failures or feature development.
 ```
 
-The bounded version contains:
+Bản có giới hạn chứa:
 
-1. **Capability:** inspect a prepared candidate.
-2. **Output:** readiness report.
-3. **Positive boundary:** asks whether a release artifact is ready.
-4. **Negative boundary:** ordinary builds and development are out of scope.
+1. **Khả năng:** kiểm tra ứng viên chuẩn bị sẵn.
+2. **Đầu ra:** báo cáo sẵn sàng.
+3. **Ranh giới dương:** hỏi sản phẩm phát hành sẵn sàng chưa.
+4. **Ranh giới âm:** bản dựng và phát triển thường ngoài phạm vi.
 
-Negative boundaries are useful when two nearby skills share vocabulary. They are not a replacement for near-miss evals.
+Ranh giới âm hữu ích khi hai skill gần dùng chung từ vựng. Không thay đánh giá gần khớp.
 
 ### Routing is classification with an abstain option
 
-For a skill `s` and request `x`, imagine a router score:
+Với skill `s` và yêu cầu `x`, hình dung điểm bộ định tuyến:
 
 ```text
 score(s, x) = capability_match + trigger_match + context_match - exclusion_match - ambiguity_penalty
 ```
 
-The exact scoring may be an LLM decision rather than arithmetic. The engineering principle still holds: selection should beat a threshold and a competing skill. When evidence is weak, abstain.
+Chấm chính xác có thể là quyết định LLM thay số học. Nguyên tắc kỹ thuật vẫn đúng: lựa chọn nên vượt ngưỡng và skill cạnh tranh. Khi bằng chứng yếu, không chọn.
 
 ```figure
 skill-routing-abstention
 ```
 
-For high-impact skills, implicit routing may be inappropriate even with a strong description. Use human-only policy when the cost of a false positive exceeds the convenience of automatic selection.
+Với skill tác động cao, định tuyến ngầm có thể không phù hợp dù mô tả mạnh. Dùng chính sách chỉ con người khi chi phí dương tính giả vượt tiện lợi chọn tự động.
 
 ### Eligibility must precede ranking
 
-Do not score every discovered skill, choose the strongest match, and check that one skill's policy afterward. A blocked top match would incorrectly prevent an eligible lower-scored candidate from being considered.
+Không chấm mọi skill khám phá, chọn khớp mạnh nhất rồi mới kiểm tra chính sách skill đó. Khớp đầu bị chặn sẽ ngăn sai ứng viên đủ điều kiện điểm thấp hơn được xét.
 
-Use this order for implicit routing:
+Dùng thứ tự này cho định tuyến ngầm:
 
-1. Filter discovered skills by the requesting actor and the active host adapter.
-2. Score only the eligible candidates.
-3. Select the strongest eligible match if it clears the threshold and ambiguity rules.
-4. Abstain when no candidate is eligible or no eligible score is strong enough.
+1. Lọc skill khám phá theo tác nhân yêu cầu và adapter host hoạt động.
+2. Chỉ chấm ứng viên đủ điều kiện.
+3. Chọn khớp đủ điều kiện mạnh nhất nếu vượt ngưỡng và quy tắc mơ hồ.
+4. Không chọn khi không ứng viên đủ điều kiện hoặc không điểm đủ điều kiện nào đủ mạnh.
 
-Suppose `incident-triage` scores `0.80` but its host extension disables model invocation. `incident-review` scores `0.55` and allows model invocation. The router should evaluate `incident-review` as the best eligible candidate. It should not choose `incident-triage`, deny it, and stop.
+Giả sử `incident-triage` điểm `0.80` nhưng phần mở rộng host tắt mô hình gọi. `incident-review` điểm `0.55` và cho mô hình gọi. Bộ định tuyến nên đánh giá `incident-review` là ứng viên đủ điều kiện tốt nhất. Không nên chọn `incident-triage`, từ chối rồi dừng.
 
-This ordering also keeps policy changes from altering the meaning of a relevance score. Eligibility defines the selection set. Relevance ranks that set.
+Thứ tự cũng giữ đổi chính sách không làm đổi nghĩa điểm liên quan. Đủ điều kiện định nghĩa tập lựa chọn. Liên quan xếp hạng tập đó.
 
 ### Routing evals need near misses
 
-Positive cases prove recall:
+Ca dương chứng minh độ thu hồi:
 
 ```json
 {"prompt":"Is version 2.4.0 ready to publish?","expected":"release-readiness"}
 ```
 
-Clear negatives prove basic precision:
+Ca âm rõ chứng minh độ chính xác cơ bản:
 
 ```json
 {"prompt":"Explain rotary position embeddings.","expected":null}
 ```
 
-Near misses expose boundary quality:
+Gần khớp bộc lộ chất lượng ranh giới:
 
 ```json
 {"prompt":"Why did today's package build fail?","expected":"build-diagnostics"}
 ```
 
-The near miss shares `package` and `build` with the release skill but belongs elsewhere. A routing set made only of obvious positives and unrelated negatives will overstate quality.
+Gần khớp dùng chung `package` và `build` với skill phát hành nhưng thuộc nơi khác. Tập định tuyến chỉ có dương rõ và âm không liên quan sẽ phóng đại chất lượng.
 
 ### Arguments have three representations
 
-An invocation argument crosses several boundaries:
+Đối số gọi vượt nhiều ranh giới:
 
 ```figure
 skill-argument-boundaries
 ```
 
-At each boundary, preserve intent without treating text as code.
+Tại mỗi ranh giới, giữ ý định không coi văn bản là mã.
 
-- The host parser decides command syntax and quoting.
-- The skill receives bound text or variables according to host rules.
-- The instructions validate required values and defaults.
-- A tool call converts values to a typed schema and revalidates them.
+- Bộ phân tích host quyết định cú pháp lệnh và dấu nháy.
+- Skill nhận văn bản hoặc biến đã gắn theo quy tắc host.
+- Chỉ dẫn xác thực giá trị bắt buộc và mặc định.
+- Lời gọi công cụ chuyển giá trị sang lược đồ có kiểu và xác thực lại.
 
-Do not interpolate raw arguments into shell commands. Prefer a script invoked with an argument vector or a typed MCP tool.
+Không nội suy đối số thô vào lệnh shell. Ưu tiên script gọi với vector đối số hoặc công cụ MCP có kiểu.
 
 ### Application invocation is explicit orchestration
 
-A product can activate a skill because its workflow already knows the task type. For example, a pull-request review service can preload `pull-request-risk-review` after the user presses Review.
+Sản phẩm có thể kích hoạt skill vì quy trình đã biết loại tác vụ. Ví dụ dịch vụ đánh giá pull request có thể nạp trước `pull-request-risk-review` sau người dùng nhấn Review.
 
-This removes routing uncertainty but creates a dependency on the runtime API. Keep that adapter outside the portable body:
+Bỏ bất định định tuyến nhưng tạo phụ thuộc API runtime. Giữ adapter ngoài phần thân có thể chuyển:
 
 ```figure
 skill-host-adapter
 ```
 
-The skill should remain intelligible when opened by a different compliant client.
+Skill nên còn hiểu được khi mở bởi client tuân thủ khác.
 
 ### Skill-to-skill invocation is a tool-like edge
 
-Suppose `release-readiness` asks for `security-change-review` when dependency files changed.
+Giả sử `release-readiness` yêu cầu `security-change-review` khi file phụ thuộc đổi.
 
-The caller should provide:
+Bên gọi nên cung cấp:
 
-- the target skill identity;
-- a bounded task and artifact paths;
-- the expected response contract;
-- the reason for invocation;
-- a fallback if unavailable;
-- a maximum depth or cycle rule.
+- danh tính skill đích;
+- tác vụ có giới hạn và đường dẫn sản phẩm;
+- hợp đồng phản hồi kỳ vọng;
+- lý do gọi;
+- dự phòng nếu không sẵn;
+- độ sâu tối đa hoặc quy tắc chu kỳ.
 
 ```json
 {
@@ -224,13 +224,13 @@ The caller should provide:
 }
 ```
 
-The second skill is not pasted blindly into the first. The host decides how to activate it and whether it shares context, runs in a fork, or returns through a tool result.
+Skill thứ hai không được dán mù vào thứ nhất. Host quyết định cách kích hoạt và có chia ngữ cảnh, chạy trong fork hay trả qua kết quả công cụ.
 
 ### Context lifecycle is host-specific
 
-After activation, the skill body may remain in the conversation, be summarized during compaction, or run in a delegated context. Tool allowances may last one turn while instructions persist longer. A subagent may receive the skill without the parent's entire history.
+Sau kích hoạt, phần thân skill có thể còn trong hội thoại, được tóm tắt khi nén hoặc chạy trong ngữ cảnh ủy nhiệm. Cho phép công cụ có thể kéo dài một lượt trong khi chỉ dẫn tồn tại lâu hơn. Agent phụ có thể nhận skill không toàn lịch sử cha.
 
-Do not write a skill that depends on an invisible lifetime assumption. Put durable outputs in files or typed state, make re-entry safe, and state what must be reloaded after interruption.
+Không viết skill phụ thuộc giả định vòng đời vô hình. Đặt đầu ra bền vững vào file hoặc trạng thái có kiểu, làm tái nhập an toàn và nêu phải tải lại gì sau gián đoạn.
 
 ```markdown
 On resume, read `artifacts/release-readiness.json` if it exists.
@@ -240,20 +240,20 @@ Do not repeat an external write whose idempotency key is already recorded.
 
 ## Build It
 
-`code/main.py` implements policy and routing as separate adapters.
+`code/main.py` triển khai chính sách và định tuyến như adapter riêng.
 
-The model includes:
+Mô hình gồm:
 
-- `Actor` for human, model, autonomous agent, application, skill, and harness callers;
-- `SkillMetadata` for routing identity;
-- `InvocationPolicy` for the human/model matrix;
-- `InvocationRequest` and `InvocationDecision` for traceable inputs and outcomes;
-- `CorePolicyAdapter` for portable behavior with no host extensions;
-- `ExtensionPolicyAdapter` for recognized runtime fields;
-- `build_invocation_matrix(policy)` for the 2x2 view;
-- `route_request(skills, request, adapter)` for eligibility filtering before relevance ranking, selection, and denial.
+- `Actor` cho bên gọi con người, mô hình, agent tự chủ, ứng dụng, skill và bộ khung;
+- `SkillMetadata` cho danh tính định tuyến;
+- `InvocationPolicy` cho ma trận con người/mô hình;
+- `InvocationRequest` và `InvocationDecision` cho đầu vào và kết quả lần vết được;
+- `CorePolicyAdapter` cho hành vi có thể chuyển không phần mở rộng host;
+- `ExtensionPolicyAdapter` cho trường runtime nhận biết;
+- `build_invocation_matrix(policy)` cho góc nhìn 2x2;
+- `route_request(skills, request, adapter)` để lọc đủ điều kiện trước xếp liên quan, chọn và từ chối.
 
-Run it:
+Chạy:
 
 ```bash
 cd phases/13-tools-and-protocols/25-skill-invocation-and-routing
@@ -261,17 +261,17 @@ python3 code/main.py
 python3 -m unittest discover -s code/tests -v
 ```
 
-The demo prints one matrix and decisions for explicit human, implicit model, autonomous-agent, application, skill-composition, and harness channels. Its extension-adapter results show a blocked top lexical match being removed before an eligible alternative is ranked. It also includes exact-name allowlists. No model API is required. The deterministic router exists to make policy boundaries inspectable, not to claim that lexical matching reproduces production model routing.
+Demo in một ma trận và quyết định cho kênh con người tường minh, mô hình ngầm, agent tự chủ, ứng dụng, kết hợp skill và bộ khung. Kết quả adapter phần mở rộng cho thấy khớp từ vựng đầu bị chặn được bỏ trước xếp lựa chọn đủ điều kiện khác. Cũng gồm danh sách cho phép tên chính xác. Không cần API mô hình. Bộ định tuyến tất định tồn tại để ranh giới chính sách kiểm tra được, không để khẳng định khớp từ vựng tái hiện định tuyến mô hình sản xuất.
 
 ### Why core and extension adapters are separate
 
-If one parser assigns meaning to every observed frontmatter field, it silently promotes runtime conventions into a fake standard. Separate adapters force the caller to name which host semantics are active.
+Nếu một bộ phân tích gán nghĩa mọi trường frontmatter quan sát, nó âm thầm nâng quy ước runtime thành tiêu chuẩn giả. Adapter riêng buộc bên gọi nêu ngữ nghĩa host nào hoạt động.
 
-The `CorePolicyAdapter` uses only application-supplied policy. The `ExtensionPolicyAdapter` recognizes an explicit set of host fields and records which field changed the decision.
+`CorePolicyAdapter` chỉ dùng chính sách ứng dụng cung cấp. `ExtensionPolicyAdapter` nhận tập trường host tường minh và ghi trường nào đổi quyết định.
 
 ## Use It
 
-Write an invocation contract before publishing a skill:
+Viết hợp đồng gọi trước công bố skill:
 
 ```yaml
 actors:
@@ -290,38 +290,38 @@ context:
   max_composition_depth: 2
 ```
 
-This contract is design documentation for adapters and tests. It is not portable `SKILL.md` frontmatter unless a standard explicitly adopts it.
+Hợp đồng này là tài liệu thiết kế cho adapter và kiểm thử. Không phải frontmatter `SKILL.md` có thể chuyển trừ khi tiêu chuẩn nhận rõ.
 
 ## Ship It
 
-This lesson produces the `skill-invocation-router` bundle. It includes an invocation-model reference, an example host policy, and a non-executing CLI that evaluates one human, model, autonomous-agent, application, skill-composition, or harness request and returns a JSON decision with channel, adapter, score, and reason.
+Bài này tạo bundle `skill-invocation-router`. Gồm tham chiếu mô hình gọi, chính sách host ví dụ và CLI không thực thi đánh giá một yêu cầu con người, mô hình, agent tự chủ, ứng dụng, kết hợp skill hoặc bộ khung, trả quyết định JSON với kênh, adapter, điểm và lý do.
 
-The one-request CLI is a policy probe, not a full trigger evaluation. Use the labeled positive and near-miss design in Lesson 27 to compute confusion counts, precision, recall, and repeated-run stability.
+CLI một yêu cầu là thăm dò chính sách, không đánh giá kích hoạt đầy đủ. Dùng thiết kế dương và gần khớp có nhãn Bài 27 để tính số nhầm lẫn, precision, recall và ổn định chạy lặp.
 
 ## Exercises
 
-1. Create all four rows of the human/model matrix and write one legitimate use case for each.
-2. Add application-only activation to `CorePolicyAdapter`. Prove that human and model callers remain denied.
-3. Write ten near misses for a deployment skill. Each prompt must share vocabulary with the skill while belonging to a different workflow.
-4. Add an ambiguity margin between the top two routing scores. Return `ask` when the margin is too small.
-5. Add a maximum composition depth to skill-to-skill requests and detect a two-skill cycle.
-6. Run the same labeled set through core and extension adapters. Explain every changed decision.
+1. Tạo cả bốn hàng ma trận con người/mô hình và viết một trường hợp dùng hợp lệ cho mỗi hàng.
+2. Thêm kích hoạt chỉ ứng dụng vào `CorePolicyAdapter`. Chứng minh bên gọi con người và mô hình vẫn bị từ chối.
+3. Viết mười gần khớp cho skill triển khai. Mỗi prompt phải dùng chung từ vựng skill trong khi thuộc quy trình khác.
+4. Thêm biên mơ hồ giữa hai điểm định tuyến đầu. Trả `ask` khi biên quá nhỏ.
+5. Thêm độ sâu kết hợp tối đa vào yêu cầu skill-sang-skill và phát hiện chu kỳ hai skill.
+6. Chạy cùng tập có nhãn qua adapter lõi và phần mở rộng. Giải thích mọi quyết định đổi.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |---|---|---|
-| Explicit invocation | "Slash command" | An actor supplies skill identity directly, subject to policy |
-| Implicit invocation | "The model chooses" | A router selects from eligible catalog metadata based on task context |
-| User-invocable | "Humans can use it" | A host-specific menu or direct-invocation property, not a core field |
-| Model-invocable | "The agent can use it" | Eligibility for implicit model selection under host policy |
-| Invocation adapter | "Frontmatter parser" | Code that maps a host's fields and APIs into a declared policy model |
-| Near miss | "Hard negative" | A non-triggering request that resembles a skill's intended inputs |
-| Abstention | "No skill selected" | A deliberate routing result when evidence is absent or ambiguous |
+| Explicit invocation (Gọi tường minh) | "Slash command" | Tác nhân cung cấp danh tính skill trực tiếp, chịu chính sách |
+| Implicit invocation (Gọi ngầm) | "Mô hình chọn" | Bộ định tuyến chọn từ siêu dữ liệu danh mục đủ điều kiện theo ngữ cảnh tác vụ |
+| User-invocable (Người dùng gọi được) | "Con người dùng được" | Thuộc tính menu hoặc gọi trực tiếp riêng host, không trường lõi |
+| Model-invocable (Mô hình gọi được) | "Agent dùng được" | Đủ điều kiện để mô hình chọn ngầm dưới chính sách host |
+| Invocation adapter (Adapter gọi) | "Bộ phân tích frontmatter" | Mã ánh xạ trường và API host vào mô hình chính sách khai báo |
+| Near miss (Gần khớp) | "Âm khó" | Yêu cầu không kích hoạt giống đầu vào dự định của skill |
+| Abstention (Không chọn) | "Không skill được chọn" | Kết quả định tuyến chủ ý khi bằng chứng vắng hoặc mơ hồ |
 
 ## Further Reading
 
-- [Optimizing skill descriptions](https://agentskills.io/skill-creation/optimizing-descriptions) for positive triggers, specificity, and evaluation.
-- [Evaluating skills](https://agentskills.io/skill-creation/evaluating-skills) for trigger and output eval design.
-- [OpenAI: Build skills](https://learn.chatgpt.com/docs/build-skills) for current Codex explicit and implicit invocation controls.
-- [Claude Code skills](https://code.claude.com/docs/en/skills) for one host's `user-invocable`, `disable-model-invocation`, arguments, and delegated context.
+- [Optimizing skill descriptions](https://agentskills.io/skill-creation/optimizing-descriptions) cho kích hoạt dương, tính cụ thể và đánh giá.
+- [Evaluating skills](https://agentskills.io/skill-creation/evaluating-skills) cho thiết kế đánh giá kích hoạt và đầu ra.
+- [OpenAI: Build skills](https://learn.chatgpt.com/docs/build-skills) cho kiểm soát gọi tường minh và ngầm Codex hiện tại.
+- [Claude Code skills](https://code.claude.com/docs/en/skills) cho `user-invocable`, `disable-model-invocation`, đối số và ngữ cảnh ủy nhiệm của một host.

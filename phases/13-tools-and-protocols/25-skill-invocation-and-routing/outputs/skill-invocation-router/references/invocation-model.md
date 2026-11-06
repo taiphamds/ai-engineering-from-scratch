@@ -1,15 +1,15 @@
 # Invocation model
 
-| Channel | Initiator | Selection | Typical use |
+| Kênh | Bên khởi tạo | Lựa chọn | Dùng điển hình |
 |---|---|---|---|
-| Explicit human | User | Exact discovered name | Deliberate workflow choice |
-| Implicit model or agent | Model or autonomous agent | Description relevance plus host policy | Context-sensitive routing |
-| Programmatic application | Product runtime | Exact configured name and target allowlist | Deterministic product workflow |
-| Skill composition | Another skill or subagent | Exact target, caller identity, and depth policy | Bounded workflow dependency |
-| Programmatic harness | Evaluation runtime | Exact configured name and target allowlist | Deterministic evaluation |
+| Con người tường minh | Người dùng | Đúng tên đã khám phá | Chọn quy trình chủ ý |
+| Mô hình hoặc agent ngầm | Mô hình hoặc agent tự chủ | Liên quan mô tả cộng chính sách host | Định tuyến nhạy ngữ cảnh |
+| Ứng dụng lập trình | Runtime sản phẩm | Đúng tên cấu hình và danh sách cho phép đích | Quy trình sản phẩm tất định |
+| Kết hợp skill | Skill hoặc agent phụ khác | Đúng đích, danh tính bên gọi và chính sách độ sâu | Phụ thuộc quy trình có giới hạn |
+| Bộ khung lập trình | Runtime đánh giá | Đúng tên cấu hình và danh sách cho phép đích | Đánh giá tất định |
 
-Human and model activation form a 2x2: neither, human only, model only, or both. Application, composition, and harness activation are separate channels with their own target, caller, and depth policies.
+Kích hoạt con người và mô hình tạo 2x2: không bên nào, chỉ con người, chỉ mô hình hoặc cả hai. Kích hoạt ứng dụng, kết hợp và bộ khung là kênh riêng có chính sách đích, bên gọi và độ sâu riêng.
 
-For implicit routing, apply actor and host-extension eligibility before relevance ranking. A blocked high-scoring skill is not the winner; remove it from the selection set and evaluate the remaining eligible candidates. Abstain if the eligible set is empty or its best score misses the threshold.
+Với định tuyến ngầm, áp đủ điều kiện tác nhân và phần mở rộng host trước xếp liên quan. Skill điểm cao bị chặn không phải bên thắng; bỏ khỏi tập lựa chọn và đánh giá ứng viên đủ điều kiện còn lại. Không chọn nếu tập đủ điều kiện rỗng hoặc điểm tốt nhất không đạt ngưỡng.
 
-Fields such as `user-invocable` or `disable-model-invocation` may be meaningful to a particular host. An adapter may enforce them, but portable documentation must not claim that every runtime recognizes the same fields or values.
+Trường như `user-invocable` hoặc `disable-model-invocation` có thể có nghĩa với host cụ thể. Adapter có thể thực thi, nhưng tài liệu có thể chuyển không được khẳng định mọi runtime nhận cùng trường hoặc giá trị.
