@@ -1,6 +1,6 @@
 # Linear Systems
 
-> Solving Ax = b is the oldest problem in mathematics that still runs your neural network.
+> Giải Ax = b là bài toán lâu đời nhất trong toán học vẫn vận hành mạng nơ-ron của bạn.
 
 **Type:** Build
 **Language:** Python
@@ -9,24 +9,24 @@
 
 ## Learning Objectives
 
-- Solve Ax = b using Gaussian elimination with partial pivoting and back substitution
-- Factor matrices with LU, QR, and Cholesky decompositions and explain when each is appropriate
-- Derive the normal equations for least squares and connect them to linear and ridge regression
-- Diagnose ill-conditioned systems using the condition number and apply regularization to stabilize them
+- Giải Ax = b bằng phép khử Gauss với chọn phần tử trụ một phần và thế lùi
+- Phân tích ma trận thành nhân tử với các phân rã LU, QR và Cholesky và giải thích khi nào mỗi loại thích hợp
+- Suy ra các phương trình chuẩn cho bình phương tối thiểu và kết nối chúng với hồi quy tuyến tính và ridge
+- Chẩn đoán các hệ có điều kiện kém bằng số điều kiện và áp dụng regularization để ổn định chúng
 
 ## The Problem
 
-Every time you train a linear regression, you solve a linear system. Every time you compute a least-squares fit, you solve a linear system. Every time a neural network layer computes `y = Wx + b`, it is evaluating one side of a linear system. When you add regularization, you modify the system. When you use Gaussian processes, you factor a matrix. When you invert a covariance matrix for Mahalanobis distance, you solve a linear system.
+Mỗi khi huấn luyện hồi quy tuyến tính, bạn giải một hệ tuyến tính. Mỗi khi tính một phép khớp bình phương tối thiểu, bạn giải một hệ tuyến tính. Mỗi khi một lớp mạng nơ-ron tính `y = Wx + b`, nó đang tính một vế của một hệ tuyến tính. Khi thêm regularization, bạn sửa đổi hệ. Khi sử dụng quá trình Gaussian, bạn phân tích một ma trận thành nhân tử. Khi nghịch đảo ma trận hiệp phương sai cho khoảng cách Mahalanobis, bạn giải một hệ tuyến tính.
 
-The equation Ax = b appears everywhere. A is a matrix of known coefficients. b is a vector of known outputs. x is the vector of unknowns you want to find. In linear regression, A is your data matrix, b is your target vector, and x is the weight vector. The entire model reduces to: find x such that Ax is as close to b as possible.
+Phương trình Ax = b xuất hiện khắp nơi. A là ma trận các hệ số đã biết. b là vector các đầu ra đã biết. x là vector các ẩn bạn muốn tìm. Trong hồi quy tuyến tính, A là ma trận dữ liệu, b là vector mục tiêu và x là vector trọng số. Toàn bộ mô hình quy về: tìm x sao cho Ax gần b nhất có thể.
 
-This lesson builds every major method for solving that equation from scratch. You will understand why some methods are fast and others are stable, why some work only for square systems and others handle overdetermined ones, and why the condition number of your matrix determines whether your answer means anything at all.
+Bài học này xây dựng mọi phương pháp chính để giải phương trình đó từ đầu. Bạn sẽ hiểu tại sao một số phương pháp nhanh và các phương pháp khác ổn định, tại sao một số chỉ hoạt động cho hệ vuông còn các phương pháp khác xử lý hệ thừa xác định, và tại sao số điều kiện của ma trận quyết định câu trả lời của bạn có ý nghĩa gì hay không.
 
 ## The Concept
 
 ### What Ax = b means geometrically
 
-A system of linear equations has a geometric interpretation. Each equation defines a hyperplane. The solution is the point (or set of points) where all hyperplanes intersect.
+Một hệ phương trình tuyến tính có một diễn giải hình học. Mỗi phương trình xác định một siêu phẳng. Nghiệm là điểm (hoặc tập điểm) nơi mọi siêu phẳng giao nhau.
 
 ```
 2x + y = 5          Two lines in 2D.
@@ -39,7 +39,7 @@ graph LR
     B["x - y = 1"] --- S
 ```
 
-Three things can happen:
+Ba điều có thể xảy ra:
 
 ```mermaid
 graph TD
@@ -54,15 +54,15 @@ graph TD
     end
 ```
 
-In matrix form, "one solution" means A is invertible. "No solution" means the system is inconsistent. "Infinite solutions" means A has a null space. Most ML problems fall in the "no exact solution" category because you have more equations (data points) than unknowns (parameters). That is where least squares comes in.
+Trong dạng ma trận, "một nghiệm" nghĩa là A khả nghịch. "Vô nghiệm" nghĩa là hệ không tương thích. "Vô số nghiệm" nghĩa là A có một không gian không. Hầu hết các bài toán ML thuộc loại "không có nghiệm chính xác" vì bạn có nhiều phương trình (điểm dữ liệu) hơn ẩn (tham số). Đó là nơi bình phương tối thiểu xuất hiện.
 
 ### Column picture vs row picture
 
-There are two ways to read Ax = b.
+Có hai cách đọc Ax = b.
 
-**Row picture.** Each row of A defines one equation. Each equation is a hyperplane. The solution is where they all intersect.
+**Cách nhìn theo hàng.** Mỗi hàng của A xác định một phương trình. Mỗi phương trình là một siêu phẳng. Nghiệm là nơi tất cả chúng giao nhau.
 
-**Column picture.** Each column of A is a vector. The question becomes: what linear combination of the columns of A produces b?
+**Cách nhìn theo cột.** Mỗi cột của A là một vector. Câu hỏi trở thành: tổ hợp tuyến tính nào của các cột A tạo ra b?
 
 ```
 A = | 2  1 |    b = | 5 |
@@ -75,13 +75,13 @@ Column picture: find x1, x2 such that:
   2 * [2, 1] + 1 * [1, -1] = [4+1, 2-1] = [5, 1]   check.
 ```
 
-The column picture is more fundamental. If b lies in the column space of A, the system has a solution. If b does not, you find the closest point in the column space. That closest point is the least-squares solution.
+Cách nhìn theo cột cơ bản hơn. Nếu b nằm trong không gian cột của A, hệ có nghiệm. Nếu b không nằm trong đó, bạn tìm điểm gần nhất trong không gian cột. Điểm gần nhất đó là nghiệm bình phương tối thiểu.
 
 ### Gaussian elimination
 
-Gaussian elimination transforms Ax = b into an upper triangular system Ux = c that you solve by back substitution. It is the most direct method.
+Phép khử Gauss biến đổi Ax = b thành một hệ tam giác trên Ux = c mà bạn giải bằng thế lùi. Đây là phương pháp trực tiếp nhất.
 
-The algorithm:
+Thuật toán:
 
 ```
 1. For each column k (the pivot column):
@@ -93,7 +93,7 @@ The algorithm:
 2. Back substitute: solve from the last equation upward.
 ```
 
-Example:
+Ví dụ:
 
 ```
 Original:
@@ -111,11 +111,11 @@ Back substitute:
   2*x1 + 2 + 2 = 8 --> x1 = 2
 ```
 
-Gaussian elimination costs O(n^3) operations. For a 1000x1000 system, that is about a billion floating-point operations. Fast, but you can do better if you need to solve multiple systems with the same A.
+Phép khử Gauss tốn O(n^3) phép toán. Với một hệ 1000x1000, đó là khoảng một tỷ phép toán dấu phẩy động. Nhanh, nhưng bạn có thể làm tốt hơn nếu cần giải nhiều hệ có cùng A.
 
 ### Partial pivoting: why it matters
 
-Without pivoting, Gaussian elimination can fail or produce garbage. If a pivot element is zero, you divide by zero. If it is small, you amplify rounding errors.
+Không có chọn phần tử trụ, phép khử Gauss có thể thất bại hoặc tạo ra kết quả rác. Nếu phần tử trụ bằng không, bạn chia cho không. Nếu nó nhỏ, bạn khuếch đại sai số làm tròn.
 
 ```
 Bad pivot:                       With partial pivoting:
@@ -132,11 +132,11 @@ x1 = (1.001 - 1)/0.001          x1 = (2 - 1)/1 = 1.000 (correct)
    = 0.001/0.001 = 1.000        Stable because the multiplier is small.
 ```
 
-In floating-point arithmetic with limited precision, the unpivoted version can lose significant digits. Partial pivoting always selects the largest available pivot to minimize error amplification.
+Trong số học dấu phẩy động với độ chính xác giới hạn, phiên bản không chọn phần tử trụ có thể mất các chữ số có nghĩa. Chọn phần tử trụ một phần luôn chọn phần tử trụ lớn nhất sẵn có để tối thiểu hóa việc khuếch đại sai số.
 
 ### LU decomposition
 
-LU decomposition factors A into a lower triangular matrix L and an upper triangular matrix U: A = LU. The L matrix stores the multipliers from Gaussian elimination. The U matrix is the result of elimination.
+Phân rã LU phân tích A thành một ma trận tam giác dưới L và một ma trận tam giác trên U: A = LU. Ma trận L lưu các hệ số nhân từ phép khử Gauss. Ma trận U là kết quả khử.
 
 ```
 A = L @ U
@@ -146,7 +146,7 @@ A = L @ U
 | 2  3  1 |   | 1  2  1 |   | 0  0  -2 |
 ```
 
-Why factor instead of just eliminating? Because once you have L and U, solving Ax = b for any new b costs only O(n^2):
+Tại sao phân tích thành nhân tử thay vì chỉ khử? Vì một khi có L và U, giải Ax = b cho bất kỳ b mới nào chỉ tốn O(n^2):
 
 ```
 Ax = b
@@ -156,15 +156,15 @@ Let y = Ux:
   Ux = y    (back substitution, O(n^2))
 ```
 
-The O(n^3) cost is paid once during factorization. Every subsequent solve is O(n^2). If you need to solve 1000 systems with the same A but different b vectors, LU saves a factor of 1000/3 in total work.
+Chi phí O(n^3) được trả một lần trong quá trình phân tích thành nhân tử. Mỗi lần giải tiếp theo là O(n^2). Nếu cần giải 1000 hệ có cùng A nhưng các vector b khác nhau, LU tiết kiệm một hệ số 1000/3 trong tổng lượng công việc.
 
-With partial pivoting, you get PA = LU where P is a permutation matrix recording the row swaps.
+Với chọn phần tử trụ một phần, bạn có PA = LU trong đó P là ma trận hoán vị ghi lại các lần đổi hàng.
 
 ### QR decomposition
 
-QR decomposition factors A into an orthogonal matrix Q and an upper triangular matrix R: A = QR.
+Phân rã QR phân tích A thành một ma trận trực giao Q và một ma trận tam giác trên R: A = QR.
 
-An orthogonal matrix has the property Q^T Q = I. Its columns are orthonormal vectors. Multiplying by Q preserves lengths and angles.
+Một ma trận trực giao có tính chất Q^T Q = I. Các cột của nó là các vector trực chuẩn. Nhân với Q bảo toàn độ dài và góc.
 
 ```
 A = Q @ R
@@ -178,7 +178,7 @@ To solve Ax = b:
   Back substitute to get x.
 ```
 
-QR is numerically more stable than LU for solving least-squares problems. The Gram-Schmidt process builds Q column by column:
+QR ổn định về mặt số học hơn LU để giải các bài toán bình phương tối thiểu. Quy trình Gram-Schmidt xây dựng Q theo từng cột:
 
 ```
 Given columns a1, a2, ... of A:
@@ -194,11 +194,11 @@ q3 = q3 / ||q3||
 R[i][j] = qi . aj    for i <= j
 ```
 
-Each step removes the component along all previous q vectors, leaving only the new orthogonal direction.
+Mỗi bước loại bỏ thành phần dọc theo tất cả các vector q trước đó, chỉ để lại hướng trực giao mới.
 
 ### Cholesky decomposition
 
-When A is symmetric (A = A^T) and positive definite (all eigenvalues positive), you can factor it as A = L L^T where L is lower triangular. This is the Cholesky decomposition.
+Khi A đối xứng (A = A^T) và xác định dương (mọi giá trị riêng dương), bạn có thể phân tích nó thành A = L L^T trong đó L là tam giác dưới. Đây là phân rã Cholesky.
 
 ```
 A = L @ L^T
@@ -210,18 +210,18 @@ L[i][i] = sqrt(A[i][i] - sum(L[i][k]^2 for k < i))
 L[i][j] = (A[i][j] - sum(L[i][k]*L[j][k] for k < j)) / L[j][j]    for i > j
 ```
 
-Cholesky is twice as fast as LU and requires half the storage. It only works for symmetric positive definite matrices, but those show up constantly:
+Cholesky nhanh gấp đôi LU và đòi hỏi một nửa dung lượng lưu trữ. Nó chỉ hoạt động cho các ma trận đối xứng xác định dương, nhưng chúng xuất hiện liên tục:
 
-- Covariance matrices are symmetric positive semi-definite (positive definite with regularization).
-- The kernel matrix in Gaussian processes is symmetric positive definite.
-- The Hessian of a convex function at a minimum is symmetric positive definite.
-- A^T A is always symmetric positive semi-definite.
+- Các ma trận hiệp phương sai đối xứng nửa xác định dương (xác định dương khi có regularization).
+- Ma trận kernel trong các quá trình Gaussian đối xứng xác định dương.
+- Hessian của một hàm lồi tại một cực tiểu đối xứng xác định dương.
+- A^T A luôn đối xứng nửa xác định dương.
 
-In Gaussian processes, you factor the kernel matrix K with Cholesky, then solve K alpha = y to get the predictive mean. The Cholesky factor also gives you the log-determinant for the marginal likelihood: log det(K) = 2 * sum(log(diag(L))).
+Trong các quá trình Gaussian, bạn phân tích ma trận kernel K bằng Cholesky, rồi giải K alpha = y để có trung bình dự đoán. Nhân tử Cholesky cũng cho bạn log-định thức cho hợp lý biên: log det(K) = 2 * sum(log(diag(L))).
 
 ### Least squares: when Ax = b has no exact solution
 
-If A is m x n with m > n (more equations than unknowns), the system is overdetermined. There is no exact solution. Instead, you minimize the squared error:
+Nếu A là m x n với m > n (nhiều phương trình hơn ẩn), hệ thừa xác định. Không có nghiệm chính xác. Thay vào đó, bạn tối thiểu hóa sai số bình phương:
 
 ```
 minimize ||Ax - b||^2
@@ -230,13 +230,13 @@ This is the sum of squared residuals:
   sum((A[i,:] @ x - b[i])^2 for i in range(m))
 ```
 
-The minimizer satisfies the normal equations:
+Điểm cực tiểu thỏa mãn các phương trình chuẩn:
 
 ```
 A^T A x = A^T b
 ```
 
-Derivation: expand ||Ax - b||^2 = (Ax - b)^T (Ax - b) = x^T A^T A x - 2 x^T A^T b + b^T b. Take the gradient with respect to x, set it to zero: 2 A^T A x - 2 A^T b = 0.
+Suy ra: khai triển ||Ax - b||^2 = (Ax - b)^T (Ax - b) = x^T A^T A x - 2 x^T A^T b + b^T b. Lấy gradient theo x, đặt nó bằng không: 2 A^T A x - 2 A^T b = 0.
 
 ```
 Original system (overdetermined, 4 equations, 2 unknowns):
@@ -256,27 +256,27 @@ This is linear regression. x[0] is the intercept, x[1] is the slope.
 
 ### Normal equations = linear regression
 
-The connection is exact. In linear regression, your data matrix X has one row per sample and one column per feature. Your target vector y has one entry per sample. The weight vector w satisfies:
+Mối liên hệ là chính xác. Trong hồi quy tuyến tính, ma trận dữ liệu X có một hàng cho mỗi mẫu và một cột cho mỗi đặc trưng. Vector mục tiêu y có một phần tử cho mỗi mẫu. Vector trọng số w thỏa mãn:
 
 ```
 X^T X w = X^T y
 w = (X^T X)^(-1) X^T y
 ```
 
-This is the closed-form solution to linear regression. Every call to `sklearn.linear_model.LinearRegression.fit()` computes this (or an equivalent via QR or SVD).
+Đây là nghiệm dạng đóng của hồi quy tuyến tính. Mỗi lời gọi `sklearn.linear_model.LinearRegression.fit()` tính điều này (hoặc một cách tương đương qua QR hay SVD).
 
-Add a regularization term lambda * I to the matrix and you get ridge regression:
+Thêm một thành phần regularization lambda * I vào ma trận và bạn có hồi quy ridge:
 
 ```
 (X^T X + lambda * I) w = X^T y
 w = (X^T X + lambda * I)^(-1) X^T y
 ```
 
-The regularization makes the matrix better conditioned (easier to invert accurately) and prevents overfitting by shrinking the weights toward zero. The matrix X^T X + lambda * I is always symmetric positive definite when lambda > 0, so you can use Cholesky to solve it.
+Regularization làm ma trận có điều kiện tốt hơn (dễ nghịch đảo chính xác hơn) và ngăn khớp quá mức bằng cách thu nhỏ các trọng số về phía không. Ma trận X^T X + lambda * I luôn đối xứng xác định dương khi lambda > 0, nên bạn có thể sử dụng Cholesky để giải nó.
 
 ### Pseudoinverse (Moore-Penrose)
 
-The pseudoinverse A+ generalizes matrix inversion to non-square and singular matrices. For any matrix A:
+Giả nghịch đảo A+ tổng quát hóa phép nghịch đảo ma trận cho các ma trận không vuông và suy biến. Với bất kỳ ma trận A nào:
 
 ```
 x = A+ b
@@ -284,7 +284,7 @@ x = A+ b
 where A+ = V Sigma+ U^T    (computed via SVD)
 ```
 
-Sigma+ is formed by taking the reciprocal of each nonzero singular value and transposing the result. If A = U Sigma V^T, then A+ = V Sigma+ U^T.
+Sigma+ được tạo bằng cách lấy nghịch đảo của mỗi giá trị kỳ dị khác không và chuyển vị kết quả. Nếu A = U Sigma V^T, thì A+ = V Sigma+ U^T.
 
 ```
 A = U Sigma V^T        (SVD)
@@ -296,22 +296,22 @@ Sigma = | 5  0 |       Sigma+ = | 1/5  0  0 |
 A+ = V Sigma+ U^T
 ```
 
-The pseudoinverse gives the minimum-norm least-squares solution. If the system has:
-- One solution: A+ b gives it.
-- No solution: A+ b gives the least-squares solution.
-- Infinite solutions: A+ b gives the one with the smallest ||x||.
+Giả nghịch đảo cho nghiệm bình phương tối thiểu có chuẩn nhỏ nhất. Nếu hệ có:
+- Một nghiệm: A+ b cho nghiệm đó.
+- Vô nghiệm: A+ b cho nghiệm bình phương tối thiểu.
+- Vô số nghiệm: A+ b cho nghiệm có ||x|| nhỏ nhất.
 
-NumPy's `np.linalg.lstsq` and `np.linalg.pinv` both use the SVD internally.
+`np.linalg.lstsq` và `np.linalg.pinv` của NumPy đều sử dụng SVD nội bộ.
 
 ### Condition number
 
-The condition number measures how sensitive the solution is to small changes in the input. For a matrix A, the condition number is:
+Số điều kiện đo mức độ nhạy của nghiệm với những thay đổi nhỏ ở đầu vào. Với một ma trận A, số điều kiện là:
 
 ```
 kappa(A) = ||A|| * ||A^(-1)|| = sigma_max / sigma_min
 ```
 
-where sigma_max and sigma_min are the largest and smallest singular values.
+trong đó sigma_max và sigma_min là các giá trị kỳ dị lớn nhất và nhỏ nhất.
 
 ```
 Well-conditioned (kappa ~ 1):        Ill-conditioned (kappa ~ 10^15):
@@ -322,18 +322,18 @@ small change in x                    huge change in x
 | 0  1 |   safe to solve            | 1   1+10^(-15) |   solution is garbage
 ```
 
-Rules of thumb:
-- kappa < 100: safe, solution is accurate.
-- kappa ~ 10^k: you lose about k digits of precision from your floating-point arithmetic.
-- kappa ~ 10^16 (for float64): the solution is meaningless. The matrix is effectively singular.
+Các quy tắc kinh nghiệm:
+- kappa < 100: an toàn, nghiệm chính xác.
+- kappa ~ 10^k: bạn mất khoảng k chữ số chính xác từ số học dấu phẩy động.
+- kappa ~ 10^16 (với float64): nghiệm vô nghĩa. Ma trận thực chất suy biến.
 
-In ML, ill-conditioning happens when features are nearly collinear. Regularization (adding lambda * I) improves the condition number from sigma_max / sigma_min to (sigma_max + lambda) / (sigma_min + lambda).
+Trong ML, điều kiện kém xảy ra khi các đặc trưng gần cộng tuyến. Regularization (thêm lambda * I) cải thiện số điều kiện từ sigma_max / sigma_min thành (sigma_max + lambda) / (sigma_min + lambda).
 
 ### Iterative methods: conjugate gradient
 
-For very large sparse systems (millions of unknowns), direct methods like LU or Cholesky are too expensive. Iterative methods approximate the solution by improving a guess over many iterations.
+Với các hệ thưa rất lớn (hàng triệu ẩn), các phương pháp trực tiếp như LU hoặc Cholesky quá tốn kém. Các phương pháp lặp xấp xỉ nghiệm bằng cách cải thiện một phỏng đoán qua nhiều lần lặp.
 
-Conjugate gradient (CG) solves Ax = b when A is symmetric positive definite. It finds the exact solution in at most n iterations (in exact arithmetic), but typically converges much faster if the eigenvalues of A are clustered.
+Gradient liên hợp (CG) giải Ax = b khi A đối xứng xác định dương. Nó tìm nghiệm chính xác trong nhiều nhất n lần lặp (trong số học chính xác), nhưng thường hội tụ nhanh hơn nhiều nếu các giá trị riêng của A tụ thành nhóm.
 
 ```
 Algorithm sketch:
@@ -350,41 +350,41 @@ Algorithm sketch:
     if ||r_{k+1}|| < tolerance: stop
 ```
 
-CG is used in:
-- Large-scale optimization (Newton-CG method)
-- Solving PDE discretizations
-- Kernel methods where the kernel matrix is too large to factor
-- Preconditioning for other iterative solvers
+CG được sử dụng trong:
+- Tối ưu hóa quy mô lớn (phương pháp Newton-CG)
+- Giải các phép rời rạc hóa PDE
+- Các phương pháp kernel nơi ma trận kernel quá lớn để phân tích thành nhân tử
+- Tiền điều kiện cho các bộ giải lặp khác
 
-The convergence rate depends on the condition number. Better conditioned systems converge faster, which is another reason regularization helps.
+Tốc độ hội tụ phụ thuộc vào số điều kiện. Các hệ có điều kiện tốt hơn hội tụ nhanh hơn, đó là một lý do nữa regularization giúp ích.
 
 ### The full picture: which method when
 
-| Method | Requirements | Cost | Use case |
+| Phương pháp | Yêu cầu | Chi phí | Trường hợp sử dụng |
 |--------|-------------|------|----------|
-| Gaussian elimination | Square, nonsingular A | O(n^3) | One-off solve of a square system |
-| LU decomposition | Square, nonsingular A | O(n^3) factor + O(n^2) solve | Multiple solves with the same A |
-| QR decomposition | Any A (m >= n) | O(mn^2) | Least squares, numerically stable |
-| Cholesky | Symmetric positive definite A | O(n^3/3) | Covariance matrices, Gaussian processes, ridge regression |
-| Normal equations | Overdetermined (m > n) | O(mn^2 + n^3) | Linear regression (small n) |
-| SVD / pseudoinverse | Any A | O(mn^2) | Rank-deficient systems, minimum-norm solutions |
-| Conjugate gradient | Symmetric positive definite, sparse A | O(n * k * nnz) | Large sparse systems, k = iterations |
+| Khử Gauss | A vuông, không suy biến | O(n^3) | Giải một lần một hệ vuông |
+| Phân rã LU | A vuông, không suy biến | O(n^3) phân tích + O(n^2) giải | Giải nhiều lần với cùng A |
+| Phân rã QR | A bất kỳ (m >= n) | O(mn^2) | Bình phương tối thiểu, ổn định về mặt số học |
+| Cholesky | A đối xứng xác định dương | O(n^3/3) | Ma trận hiệp phương sai, quá trình Gaussian, hồi quy ridge |
+| Phương trình chuẩn | Thừa xác định (m > n) | O(mn^2 + n^3) | Hồi quy tuyến tính (n nhỏ) |
+| SVD / giả nghịch đảo | A bất kỳ | O(mn^2) | Hệ thiếu hạng, nghiệm có chuẩn nhỏ nhất |
+| Gradient liên hợp | A đối xứng xác định dương, thưa | O(n * k * nnz) | Các hệ thưa lớn, k = số lần lặp |
 
 ### Connection to ML
 
-Every method in this lesson appears in production ML:
+Mọi phương pháp trong bài học này xuất hiện trong ML sản xuất:
 
-**Linear regression.** The closed-form solution solves the normal equations X^T X w = X^T y. This is done via Cholesky (if n is small) or QR (if numerical stability matters) or SVD (if the matrix might be rank-deficient).
+**Hồi quy tuyến tính.** Nghiệm dạng đóng giải các phương trình chuẩn X^T X w = X^T y. Điều này được thực hiện qua Cholesky (nếu n nhỏ) hoặc QR (nếu độ ổn định số học quan trọng) hoặc SVD (nếu ma trận có thể thiếu hạng).
 
-**Ridge regression.** Adds lambda * I to X^T X. The regularized system (X^T X + lambda * I) w = X^T y is always solvable via Cholesky because X^T X + lambda * I is symmetric positive definite for lambda > 0.
+**Hồi quy ridge.** Thêm lambda * I vào X^T X. Hệ có regularization (X^T X + lambda * I) w = X^T y luôn giải được bằng Cholesky vì X^T X + lambda * I đối xứng xác định dương với lambda > 0.
 
-**Gaussian processes.** The predictive mean requires solving K alpha = y where K is the kernel matrix. Cholesky factorization of K is the standard approach. The log marginal likelihood uses log det(K) = 2 sum(log(diag(L))).
+**Quá trình Gaussian.** Trung bình dự đoán đòi hỏi giải K alpha = y trong đó K là ma trận kernel. Phân tích Cholesky của K là cách tiếp cận tiêu chuẩn. Log hợp lý biên sử dụng log det(K) = 2 sum(log(diag(L))).
 
-**Neural network initialization.** Orthogonal initialization uses QR decomposition to create weight matrices whose columns are orthonormal. This prevents signal collapse in deep networks.
+**Khởi tạo mạng nơ-ron.** Khởi tạo trực giao sử dụng phân rã QR để tạo các ma trận trọng số có các cột trực chuẩn. Điều này ngăn sụp đổ tín hiệu trong mạng sâu.
 
-**Preconditioning.** Large-scale optimizers use incomplete Cholesky or incomplete LU as preconditioners for conjugate gradient solvers.
+**Tiền điều kiện.** Các bộ tối ưu hóa quy mô lớn sử dụng Cholesky không đầy đủ hoặc LU không đầy đủ làm các bộ tiền điều kiện cho các bộ giải gradient liên hợp.
 
-**Feature engineering.** The condition number of X^T X tells you if your features are collinear. If kappa is large, drop features or add regularization.
+**Kỹ thuật đặc trưng.** Số điều kiện của X^T X cho bạn biết các đặc trưng có cộng tuyến hay không. Nếu kappa lớn, bỏ các đặc trưng hoặc thêm regularization.
 
 ```figure
 linear-system-conditioning
@@ -509,7 +509,7 @@ def condition_number(A):
 
 ## Use It
 
-Putting the pieces together for linear regression and ridge regression on real data:
+Ghép các phần lại cho hồi quy tuyến tính và hồi quy ridge trên dữ liệu thực:
 
 ```python
 np.random.seed(42)
@@ -537,45 +537,45 @@ print(f"Ridge weights (sklearn): {ridge_sk.coef_}")
 
 ## Ship It
 
-This lesson produces:
-- `code/linear_systems.py` containing from-scratch implementations of Gaussian elimination, LU decomposition, Cholesky decomposition, least squares, and ridge regression
-- A working demonstration that normal equations and sklearn's LinearRegression produce the same weights
+Bài học này tạo ra:
+- `code/linear_systems.py` chứa các triển khai từ đầu của phép khử Gauss, phân rã LU, phân rã Cholesky, bình phương tối thiểu và hồi quy ridge
+- Một minh họa hoạt động cho thấy các phương trình chuẩn và LinearRegression của sklearn tạo ra cùng trọng số
 
 ## Exercises
 
-1. Solve the system `[[1,2,3],[4,5,6],[7,8,10]] x = [6, 15, 27]` using your Gaussian elimination, your LU solver, and `np.linalg.solve`. Verify all three give the same answer within floating-point tolerance.
+1. Giải hệ `[[1,2,3],[4,5,6],[7,8,10]] x = [6, 15, 27]` bằng phép khử Gauss của bạn, bộ giải LU của bạn và `np.linalg.solve`. Xác minh cả ba cho cùng câu trả lời trong dung sai dấu phẩy động.
 
-2. Generate a 50x5 random matrix X and target y = X @ w_true + noise. Solve for w using normal equations, QR (via `np.linalg.qr`), SVD (via `np.linalg.svd`), and `np.linalg.lstsq`. Compare all four solutions. Measure the condition number of X^T X and explain how it affects which method you trust.
+2. Tạo một ma trận ngẫu nhiên X 50x5 và mục tiêu y = X @ w_true + noise. Giải w bằng các phương trình chuẩn, QR (qua `np.linalg.qr`), SVD (qua `np.linalg.svd`) và `np.linalg.lstsq`. So sánh cả bốn nghiệm. Đo số điều kiện của X^T X và giải thích nó ảnh hưởng thế nào đến phương pháp bạn tin tưởng.
 
-3. Create a nearly singular matrix by making two columns almost identical (e.g., column 2 = column 1 + 1e-10 * noise). Compute its condition number. Solve Ax = b with and without regularization (add 0.01 * I). Compare the solutions and residuals. Explain why regularization helps.
+3. Tạo một ma trận gần suy biến bằng cách làm hai cột gần như giống hệt (ví dụ, cột 2 = cột 1 + 1e-10 * noise). Tính số điều kiện của nó. Giải Ax = b khi có và không có regularization (thêm 0.01 * I). So sánh các nghiệm và phần dư. Giải thích tại sao regularization giúp ích.
 
-4. Implement the conjugate gradient algorithm for a 100x100 random symmetric positive definite matrix. Count how many iterations it takes to converge to tolerance 1e-8. Compare with the theoretical maximum of n iterations.
+4. Triển khai thuật toán gradient liên hợp cho một ma trận ngẫu nhiên đối xứng xác định dương 100x100. Đếm số lần lặp cần để hội tụ đến dung sai 1e-8. So sánh với mức tối đa lý thuyết n lần lặp.
 
-5. Time your Cholesky solver vs your LU solver vs `np.linalg.solve` on symmetric positive definite matrices of size 10, 50, 200, 500. Plot the results. Verify Cholesky is roughly 2x faster than LU.
+5. Đo thời gian bộ giải Cholesky so với bộ giải LU của bạn so với `np.linalg.solve` trên các ma trận đối xứng xác định dương có kích thước 10, 50, 200, 500. Vẽ các kết quả. Xác minh Cholesky nhanh hơn LU khoảng 2 lần.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Linear system | "Solve for x" | A set of linear equations Ax = b. Finding x means finding the input that produces output b under transformation A. |
-| Gaussian elimination | "Row reduce" | Systematically zero out entries below the diagonal using row operations, producing an upper triangular system solvable by back substitution. O(n^3). |
-| Partial pivoting | "Swap rows for stability" | Before eliminating in column k, swap the row with the largest absolute value in that column to the pivot position. Prevents division by small numbers. |
-| LU decomposition | "Factor into triangles" | Write A = LU where L is lower triangular (stores multipliers) and U is upper triangular (the eliminated matrix). Amortizes the O(n^3) cost over multiple solves. |
-| QR decomposition | "Orthogonal factorization" | Write A = QR where Q has orthonormal columns and R is upper triangular. More stable than LU for least squares. |
-| Cholesky decomposition | "Square root of a matrix" | For symmetric positive definite A, write A = LL^T. Half the cost of LU. Used for covariance matrices, kernel matrices, and ridge regression. |
-| Least squares | "Best fit when exact is impossible" | Minimize the sum of squared residuals ||Ax - b||^2 when the system is overdetermined (more equations than unknowns). |
-| Normal equations | "The calculus shortcut" | A^T A x = A^T b. Setting the gradient of ||Ax - b||^2 to zero. This IS the closed-form solution to linear regression. |
-| Pseudoinverse | "Inversion for non-square matrices" | A+ = V Sigma+ U^T via SVD. Gives the minimum-norm least-squares solution for any matrix, square or rectangular, singular or not. |
-| Condition number | "How trustworthy is this answer" | kappa = sigma_max / sigma_min. Measures sensitivity to input perturbations. Lose about log10(kappa) digits of precision. |
-| Ridge regression | "Regularized least squares" | Solve (X^T X + lambda I) w = X^T y. Adding lambda I improves conditioning and shrinks weights toward zero. Prevents overfitting. |
-| Conjugate gradient | "Iterative Ax=b for big matrices" | An iterative solver for symmetric positive definite systems. Converges in at most n steps. Practical for large sparse systems where factorization is too expensive. |
-| Overdetermined system | "More data than parameters" | m > n in an m-by-n system. No exact solution exists. Least squares finds the best approximation. This is every regression problem. |
-| Back substitution | "Solve from the bottom up" | Given an upper triangular system, solve the last equation first, then substitute backward. O(n^2). |
-| Forward substitution | "Solve from the top down" | Given a lower triangular system, solve the first equation first, then substitute forward. O(n^2). Used in the L step of LU solves. |
+| Linear system (Hệ tuyến tính) | "Giải tìm x" | Một tập phương trình tuyến tính Ax = b. Tìm x nghĩa là tìm đầu vào tạo ra đầu ra b dưới phép biến đổi A. |
+| Gaussian elimination (Phép khử Gauss) | "Khử hàng" | Đặt các phần tử dưới đường chéo về không có hệ thống bằng các phép toán hàng, tạo ra một hệ tam giác trên giải được bằng thế lùi. O(n^3). |
+| Partial pivoting (Chọn phần tử trụ một phần) | "Đổi hàng để ổn định" | Trước khi khử ở cột k, đổi hàng có giá trị tuyệt đối lớn nhất trong cột đó đến vị trí trụ. Ngăn chia cho các số nhỏ. |
+| LU decomposition (Phân rã LU) | "Phân tích thành các tam giác" | Viết A = LU trong đó L là tam giác dưới (lưu các hệ số nhân) và U là tam giác trên (ma trận đã khử). Phân bổ chi phí O(n^3) qua nhiều lần giải. |
+| QR decomposition (Phân rã QR) | "Phân tích trực giao thành nhân tử" | Viết A = QR trong đó Q có các cột trực chuẩn và R là tam giác trên. Ổn định hơn LU cho bình phương tối thiểu. |
+| Cholesky decomposition (Phân rã Cholesky) | "Căn bậc hai của một ma trận" | Với A đối xứng xác định dương, viết A = LL^T. Một nửa chi phí của LU. Được sử dụng cho ma trận hiệp phương sai, ma trận kernel và hồi quy ridge. |
+| Least squares (Bình phương tối thiểu) | "Khớp tốt nhất khi chính xác là bất khả thi" | Tối thiểu hóa tổng bình phương phần dư ||Ax - b||^2 khi hệ thừa xác định (nhiều phương trình hơn ẩn). |
+| Normal equations (Phương trình chuẩn) | "Lối tắt giải tích" | A^T A x = A^T b. Đặt gradient của ||Ax - b||^2 bằng không. Đây CHÍNH LÀ nghiệm dạng đóng của hồi quy tuyến tính. |
+| Pseudoinverse (Giả nghịch đảo) | "Nghịch đảo cho các ma trận không vuông" | A+ = V Sigma+ U^T qua SVD. Cho nghiệm bình phương tối thiểu có chuẩn nhỏ nhất với mọi ma trận, vuông hay chữ nhật, suy biến hay không. |
+| Condition number (Số điều kiện) | "Câu trả lời này đáng tin cậy đến mức nào" | kappa = sigma_max / sigma_min. Đo độ nhạy với nhiễu loạn đầu vào. Mất khoảng log10(kappa) chữ số chính xác. |
+| Ridge regression (Hồi quy ridge) | "Bình phương tối thiểu có regularization" | Giải (X^T X + lambda I) w = X^T y. Thêm lambda I cải thiện điều kiện và thu nhỏ trọng số về phía không. Ngăn khớp quá mức. |
+| Conjugate gradient (Gradient liên hợp) | "Ax=b lặp cho các ma trận lớn" | Một bộ giải lặp cho các hệ đối xứng xác định dương. Hội tụ trong nhiều nhất n bước. Thực tế cho các hệ thưa lớn nơi phân tích thành nhân tử quá tốn kém. |
+| Overdetermined system (Hệ thừa xác định) | "Nhiều dữ liệu hơn tham số" | m > n trong một hệ m-by-n. Không tồn tại nghiệm chính xác. Bình phương tối thiểu tìm xấp xỉ tốt nhất. Đây là mọi bài toán hồi quy. |
+| Back substitution (Thế lùi) | "Giải từ dưới lên" | Cho một hệ tam giác trên, giải phương trình cuối trước, rồi thế ngược. O(n^2). |
+| Forward substitution (Thế tiến) | "Giải từ trên xuống" | Cho một hệ tam giác dưới, giải phương trình đầu trước, rồi thế tiến. O(n^2). Được sử dụng trong bước L của các phép giải LU. |
 
 ## Further Reading
 
-- [MIT 18.06: Linear Algebra](https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/) (Gilbert Strang) -- the definitive course on linear systems and matrix factorizations
-- [Numerical Linear Algebra](https://people.maths.ox.ac.uk/trefethen/text.html) (Trefethen & Bau) -- the standard reference for understanding numerical stability, conditioning, and why algorithms fail
-- [Matrix Computations](https://www.press.jhu.edu/books/title/10678/matrix-computations) (Golub & Van Loan) -- the encyclopedic reference for every matrix algorithm
-- [3Blue1Brown: Inverse Matrices](https://www.3blue1brown.com/lessons/inverse-matrices) -- visual intuition for what solving Ax = b means geometrically
+- [MIT 18.06: Linear Algebra](https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/) (Gilbert Strang) -- khóa học chuẩn mực về hệ tuyến tính và phân tích ma trận thành nhân tử
+- [Numerical Linear Algebra](https://people.maths.ox.ac.uk/trefethen/text.html) (Trefethen & Bau) -- tài liệu tham khảo tiêu chuẩn để hiểu độ ổn định số học, điều kiện và tại sao các thuật toán thất bại
+- [Matrix Computations](https://www.press.jhu.edu/books/title/10678/matrix-computations) (Golub & Van Loan) -- tài liệu tham khảo bách khoa cho mọi thuật toán ma trận
+- [3Blue1Brown: Inverse Matrices](https://www.3blue1brown.com/lessons/inverse-matrices) -- trực giác trực quan về ý nghĩa hình học của giải Ax = b
