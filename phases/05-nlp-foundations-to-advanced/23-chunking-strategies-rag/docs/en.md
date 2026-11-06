@@ -1,6 +1,6 @@
 # Chunking Strategies for RAG
 
-> Chunking configuration influences retrieval quality as much as the choice of embedding model (Vectara NAACL 2025). Get chunking wrong and no amount of reranking saves you.
+> Cấu hình chia khối ảnh hưởng chất lượng truy xuất nhiều ngang lựa chọn mô hình embedding (Vectara NAACL 2025). Làm sai chia khối và không lượng xếp hạng lại nào cứu được bạn.
 
 **Type:** Build
 **Languages:** Python
@@ -9,47 +9,47 @@
 
 ## The Problem
 
-You put a 50-page contract into a RAG system. User asks: "What is the termination clause?" The retriever returns the cover page. Why? Because the model was trained on 512-token chunks and the termination clause sits 20 pages in, split across a page break, with no local keywords tying it to the query.
+Bạn đưa một hợp đồng 50 trang vào một hệ thống RAG. Người dùng hỏi: "Điều khoản chấm dứt là gì?" Bộ truy xuất trả trang bìa. Tại sao? Vì mô hình được huấn luyện trên các khối 512 token và điều khoản chấm dứt nằm ở trang thứ 20, bị chia qua một ngắt trang, không có các từ khóa cục bộ gắn nó với truy vấn.
 
-The fix is not "buy a better embedding model." The fix is chunking. How big? Overlap? Where to split? With surrounding context?
+Cách sửa không phải "mua một mô hình embedding tốt hơn." Cách sửa là chia khối. Lớn đến đâu? Chồng lấn? Chia ở đâu? Với ngữ cảnh xung quanh?
 
-Feb 2026 benchmarks show surprising results:
+Các benchmark tháng 2 năm 2026 cho thấy các kết quả đáng ngạc nhiên:
 
-- Vectara's 2026 study: recursive 512-token chunking beat semantic chunking 69% → 54% accuracy.
-- SPLADE + Mistral-8B on Natural Questions: overlap provided zero measurable benefit.
-- Context cliff: response quality drops sharply around 2,500 tokens of context.
+- Nghiên cứu năm 2026 của Vectara: chia khối đệ quy 512 token thắng chia khối ngữ nghĩa với accuracy 69% → 54%.
+- SPLADE + Mistral-8B trên Natural Questions: chồng lấn không mang lại lợi ích đo được nào.
+- Vách ngữ cảnh: chất lượng phản hồi giảm mạnh quanh 2,500 token ngữ cảnh.
 
-The "obvious" answer (semantic chunking, 20% overlap, 1000 tokens) is often wrong. This lesson builds intuition for six strategies and tells you when to reach for which.
+Câu trả lời "hiển nhiên" (chia khối ngữ nghĩa, chồng lấn 20%, 1000 token) thường sai. Bài học này xây dựng trực giác cho sáu chiến lược và cho bạn biết khi nào chọn loại nào.
 
 ## The Concept
 
 ![Six chunking strategies visualized on one passage](../assets/chunking.svg)
 
-**Fixed chunking.** Split every N characters or tokens. Simplest baseline. Breaks mid-sentence. Good compression, bad coherence.
+**Chia khối cố định.** Chia mỗi N ký tự hoặc token. Baseline đơn giản nhất. Ngắt giữa câu. Nén tốt, độ mạch lạc kém.
 
-**Recursive.** LangChain's `RecursiveCharacterTextSplitter`. Try splitting on `\n\n` first, then `\n`, then `.`, then space. Falls back cleanly. The 2026 default.
+**Đệ quy.** `RecursiveCharacterTextSplitter` của LangChain. Thử chia theo `\n\n` trước, rồi `\n`, rồi `.`, rồi khoảng trắng. Quay về phương án dự phòng gọn gàng. Mặc định năm 2026.
 
-**Semantic.** Embed each sentence. Compute cosine similarity between adjacent sentences. Split where similarity drops below a threshold. Preserves topic coherence. Slower; sometimes produces tiny 40-token fragments that hurt retrieval.
+**Ngữ nghĩa.** Embedding mỗi câu. Tính cosine similarity giữa các câu liền kề. Chia nơi độ tương đồng giảm dưới một ngưỡng. Giữ độ gắn kết chủ đề. Chậm hơn; đôi khi tạo các mảnh 40 token nhỏ gây hại truy xuất.
 
-**Sentence.** Split on sentence boundaries. One sentence per chunk or a window of N sentences. Matches semantic chunking up to ~5k tokens at a fraction of the cost.
+**Câu.** Chia tại các ranh giới câu. Một câu mỗi khối hoặc một cửa sổ N câu. Ngang chia khối ngữ nghĩa đến ~5k token với một phần chi phí.
 
-**Parent-document.** Store small child chunks for retrieval *and* the larger parent chunk for context. Retrieve by child; return parent. Degrades gracefully: bad child chunks still return reasonable parents.
+**Tài liệu cha.** Lưu các khối con nhỏ để truy xuất *và* khối cha lớn hơn cho ngữ cảnh. Truy xuất theo con; trả cha. Suy giảm êm: các khối con tệ vẫn trả các khối cha hợp lý.
 
-**Late chunking (2024).** Embed the whole document at the token level first, then pool token embeddings into chunk embeddings. Preserves cross-chunk context. Works with long-context embedders (BGE-M3, Jina v3). Higher compute.
+**Chia khối muộn (2024).** Embedding toàn bộ tài liệu ở cấp token trước, rồi pooling các embedding token thành các embedding khối. Giữ ngữ cảnh xuyên khối. Hoạt động với các bộ embedding ngữ cảnh dài (BGE-M3, Jina v3). Tính toán cao hơn.
 
-**Contextual retrieval (Anthropic, 2024).** Prepend each chunk with an LLM-generated summary of its position in the document ("This chunk is section 3.2 of the termination clauses..."). 35-50% retrieval improvement in Anthropic's own benchmark. Expensive to index.
+**Truy xuất theo ngữ cảnh (Anthropic, 2024).** Thêm vào đầu mỗi khối một bản tóm tắt do LLM sinh về vị trí của nó trong tài liệu ("Khối này là phần 3.2 của các điều khoản chấm dứt..."). Cải thiện truy xuất 35-50% trong benchmark riêng của Anthropic. Tốn kém để lập chỉ mục.
 
 ### The rule that beats every default
 
-Match the chunk size to the query type:
+Khớp kích thước khối với loại truy vấn:
 
-| Query type | Chunk size |
+| Loại truy vấn | Kích thước khối |
 |------------|-----------|
-| Factoid ("what is the CEO's name?") | 256-512 tokens |
-| Analytical / multi-hop | 512-1024 tokens |
-| Whole-section comprehension | 1024-2048 tokens |
+| Sự kiện ngắn ("tên CEO là gì?") | 256-512 token |
+| Phân tích / nhiều bước | 512-1024 token |
+| Hiểu toàn bộ phần | 1024-2048 token |
 
-NVIDIA's 2026 benchmark. The chunk should be big enough to contain the answer plus local context, small enough that the retriever's top-K returns focus on the answer rather than context noise.
+Benchmark năm 2026 của NVIDIA. Khối nên đủ lớn để chứa câu trả lời cộng ngữ cảnh cục bộ, đủ nhỏ để các kết quả top-K của bộ truy xuất tập trung vào câu trả lời thay vì nhiễu ngữ cảnh.
 
 ```figure
 n5-chunk-cuts
@@ -121,7 +121,7 @@ def chunk_semantic(text, encoder, threshold=0.6, min_chars=200, max_chars=2048):
     return result
 ```
 
-Tune `threshold` on your domain. Too high → fragments. Too low → one giant chunk.
+Tinh chỉnh `threshold` trên lĩnh vực của bạn. Quá cao → các mảnh. Quá thấp → một khối khổng lồ.
 
 ### Step 3: parent-document
 
@@ -149,7 +149,7 @@ def retrieve_parent(child_query, mapping, encoder, top_k=3):
     return parents
 ```
 
-Key insight: dedupe parents. Multiple children can map to the same parent; returning all would waste context.
+Nhận thức then chốt: khử trùng lặp các khối cha. Nhiều khối con có thể ánh xạ đến cùng một khối cha; trả tất cả sẽ lãng phí ngữ cảnh.
 
 ### Step 4: contextual retrieval (Anthropic pattern)
 
@@ -165,7 +165,7 @@ Write 50-100 words placing this chunk in the document's context."""
     return [f"{ctx}\n\n{c}" for ctx, c in zip(contexts, chunks)]
 ```
 
-Index the contextualized chunks. At query time, retrieval benefits from the extra surrounding signal.
+Lập chỉ mục các khối được ngữ cảnh hóa. Khi truy vấn, truy xuất hưởng lợi từ tín hiệu xung quanh bổ sung.
 
 ### Step 5: evaluate
 
@@ -181,34 +181,34 @@ def recall_at_k(queries, corpus_chunks, encoder, k=5):
     return hits / len(queries)
 ```
 
-Always benchmark. The "best" strategy for your corpus may not match any blog post.
+Luôn benchmark. Chiến lược "tốt nhất" cho ngữ liệu của bạn có thể không khớp bất kỳ bài blog nào.
 
 ## Pitfalls
 
-- **Chunking evaluated only on factoid queries.** Multi-hop queries reveal very different winners. Use a query-type-stratified eval set.
-- **Semantic chunking without a minimum size.** Produces 40-token fragments that hurt retrieval. Always enforce `min_tokens`.
-- **Overlap as cargo cult.** 2026 studies find overlap often provides zero benefit and doubles index cost. Measure, do not assume.
-- **No min/max enforcement.** Chunks of 5 tokens or 5000 tokens both break retrieval. Clamp.
-- **Cross-doc chunking.** Never let a chunk span two documents. Always chunk per-doc, then merge.
+- **Chia khối chỉ được đánh giá trên các truy vấn sự kiện ngắn.** Các truy vấn nhiều bước cho thấy những phương pháp thắng rất khác. Dùng một tập đánh giá phân tầng theo loại truy vấn.
+- **Chia khối ngữ nghĩa không có kích thước tối thiểu.** Tạo các mảnh 40 token gây hại truy xuất. Luôn buộc `min_tokens`.
+- **Chồng lấn như một sự bắt chước mù quáng.** Các nghiên cứu năm 2026 thấy chồng lấn thường không mang lại lợi ích nào và tăng gấp đôi chi phí chỉ mục. Đo lường, đừng giả định.
+- **Không buộc tối thiểu/tối đa.** Các khối 5 token hoặc 5000 token đều phá truy xuất. Chặn trong khoảng.
+- **Chia khối xuyên tài liệu.** Không bao giờ để một khối trải qua hai tài liệu. Luôn chia khối từng tài liệu, rồi gộp.
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Situation | Strategy |
+| Tình huống | Chiến lược |
 |-----------|----------|
-| First build, unknown corpus | Recursive, 512 tokens, no overlap |
-| Factoid QA | Recursive, 256-512 tokens |
-| Analytical / multi-hop | Recursive, 512-1024 tokens + parent-document |
-| Heavy cross-reference (contracts, papers) | Late chunking or contextual retrieval |
-| Conversational / dialog corpus | Turn-level chunks + speaker metadata |
-| Short utterances (tweets, reviews) | One document = one chunk |
+| Lần xây dựng đầu, ngữ liệu chưa biết | Đệ quy, 512 token, không chồng lấn |
+| QA sự kiện ngắn | Đệ quy, 256-512 token |
+| Phân tích / nhiều bước | Đệ quy, 512-1024 token + tài liệu cha |
+| Nhiều tham chiếu chéo (hợp đồng, bài báo) | Chia khối muộn hoặc truy xuất theo ngữ cảnh |
+| Ngữ liệu hội thoại / đối thoại | Các khối cấp lượt + metadata người nói |
+| Các phát ngôn ngắn (tweet, đánh giá) | Một tài liệu = một khối |
 
-Start with recursive 512. Measure recall@5 on a 50-query eval set. Tune from there.
+Bắt đầu với đệ quy 512. Đo recall@5 trên một tập đánh giá 50 truy vấn. Tinh chỉnh từ đó.
 
 ## Ship It
 
-Save as `outputs/skill-chunker.md`:
+Lưu thành `outputs/skill-chunker.md`:
 
 ```markdown
 ---
@@ -233,26 +233,26 @@ Refuse any chunking strategy without min/max chunk size enforcement. Refuse over
 
 ## Exercises
 
-1. **Easy.** Chunk one 20-page document with fixed(512, 0), recursive(512, 0), and recursive(512, 100). Compare chunk counts and boundary quality.
-2. **Medium.** Build a 30-query eval set over 5 documents. Measure recall@5 for recursive, semantic, and parent-document. Which wins? Does it match the blog posts?
-3. **Hard.** Implement contextual retrieval. Measure MRR improvement over baseline recursive. Report index cost (LLM calls) vs accuracy gain.
+1. **Dễ.** Chia khối một tài liệu 20 trang bằng fixed(512, 0), recursive(512, 0) và recursive(512, 100). So sánh số khối và chất lượng ranh giới.
+2. **Trung bình.** Xây dựng một tập đánh giá 30 truy vấn trên 5 tài liệu. Đo recall@5 cho đệ quy, ngữ nghĩa và tài liệu cha. Phương pháp nào thắng? Nó có khớp các bài blog không?
+3. **Khó.** Triển khai truy xuất theo ngữ cảnh. Đo cải thiện MRR so với baseline đệ quy. Báo cáo chi phí chỉ mục (các lời gọi LLM) so với mức tăng accuracy.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Chunk | A piece of a doc | Sub-document unit that gets embedded, indexed, and retrieved. |
-| Overlap | Safety margin | N tokens shared between adjacent chunks; often useless in 2026 benchmarks. |
-| Semantic chunking | Smart chunking | Split where adjacent-sentence embedding similarity drops. |
-| Parent-document | Two-level retrieval | Retrieve small children, return larger parents. |
-| Late chunking | Chunk after embedding | Embed full doc at token level, pool into chunk vectors. |
-| Contextual retrieval | Anthropic's trick | LLM-generated summary prepended to each chunk before indexing. |
-| Context cliff | 2500-token wall | Quality drop observed around 2.5k context tokens in RAG (Jan 2026). |
+| Chunk (Khối) | Một phần tài liệu | Đơn vị dưới tài liệu được embedding, lập chỉ mục và truy xuất. |
+| Overlap (Chồng lấn) | Biên an toàn | N token dùng chung giữa các khối liền kề; thường vô dụng trong các benchmark năm 2026. |
+| Semantic chunking (Chia khối ngữ nghĩa) | Chia khối thông minh | Chia nơi độ tương đồng embedding của các câu liền kề giảm. |
+| Parent-document (Tài liệu cha) | Truy xuất hai cấp | Truy xuất các khối con nhỏ, trả các khối cha lớn hơn. |
+| Late chunking (Chia khối muộn) | Chia khối sau embedding | Embedding toàn bộ tài liệu ở cấp token, pooling thành các vector khối. |
+| Contextual retrieval (Truy xuất theo ngữ cảnh) | Thủ thuật của Anthropic | Bản tóm tắt do LLM sinh được thêm vào đầu mỗi khối trước khi lập chỉ mục. |
+| Context cliff (Vách ngữ cảnh) | Bức tường 2500 token | Mức giảm chất lượng quan sát được quanh 2.5k token ngữ cảnh trong RAG (tháng 1 năm 2026). |
 
 ## Further Reading
 
-- [Yepes et al. / LangChain — Recursive Character Splitting docs](https://python.langchain.com/docs/how_to/recursive_text_splitter/) — the default in production.
-- [Vectara (2024, NAACL 2025). Chunking configurations analysis](https://arxiv.org/abs/2410.13070) — chunking matters as much as embedding choice.
-- [Jina AI — Late Chunking in Long-Context Embedding Models (2024)](https://jina.ai/news/late-chunking-in-long-context-embedding-models/) — the late chunking paper.
-- [Anthropic — Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval) — 35-50% retrieval improvement with LLM-generated context prefixes.
-- [NVIDIA 2026 chunk-size benchmark — Premai summary](https://blog.premai.io/rag-chunking-strategies-the-2026-benchmark-guide/) — chunk size by query type.
+- [Yepes et al. / LangChain — Recursive Character Splitting docs](https://python.langchain.com/docs/how_to/recursive_text_splitter/) — mặc định trong production.
+- [Vectara (2024, NAACL 2025). Chunking configurations analysis](https://arxiv.org/abs/2410.13070) — chia khối quan trọng ngang lựa chọn embedding.
+- [Jina AI — Late Chunking in Long-Context Embedding Models (2024)](https://jina.ai/news/late-chunking-in-long-context-embedding-models/) — bài báo chia khối muộn.
+- [Anthropic — Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval) — cải thiện truy xuất 35-50% với các tiền tố ngữ cảnh do LLM sinh.
+- [NVIDIA 2026 chunk-size benchmark — Premai summary](https://blog.premai.io/rag-chunking-strategies-the-2026-benchmark-guide/) — kích thước khối theo loại truy vấn.
