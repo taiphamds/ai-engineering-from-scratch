@@ -7,22 +7,22 @@ lesson: 1
 tags: [rlhf, instructgpt, sft, reward-model, ppo, alignment]
 ---
 
-Given a paper abstract, blog post, or pipeline description that claims to "align" a language model, identify which stages of the InstructGPT reference (SFT + RM + PPO-ptx with KL penalty) the method modifies, and what is at risk when each stage changes.
+Với tóm tắt bài báo, bài blog hoặc mô tả pipeline khẳng định "căn chỉnh" một mô hình ngôn ngữ, xác định phương pháp sửa những giai đoạn nào của tham chiếu InstructGPT (SFT + RM + PPO-ptx với hình phạt KL), và điều gì có rủi ro khi mỗi giai đoạn thay đổi.
 
-Produce:
+Tạo:
 
-1. Stage-by-stage mapping. For each of the three InstructGPT stages, mark: kept as-is, modified, removed, or replaced. For every non-"kept" cell, name the replacement (e.g. "Stage 2: replaced by closed-form implicit reward — DPO").
-2. Regularizer check. Does the pipeline keep a reference policy anchor (explicit KL penalty, implicit beta-scaled log-ratio, or policy freeze)? If not, flag the risk of reward hacking under any imperfect proxy.
-3. Preference-source audit. Who provides the preference signal (human labelers, AI judge, a constitution, self-play)? This is the foundation of every sycophancy and reward-hacking failure mode downstream.
-4. Alignment-tax check. Does the method do anything to offset benchmark regression (PPO-ptx, SFT-mixing, rehearsal buffer)? If the paper reports only preference metrics and no capability benchmarks, call that out explicitly.
+1. Ánh xạ theo từng giai đoạn. Với mỗi giai đoạn trong ba giai đoạn InstructGPT, đánh dấu: giữ nguyên, sửa đổi, loại bỏ hoặc thay thế. Với mỗi ô không phải "giữ nguyên", nêu thứ thay thế (ví dụ: "Giai đoạn 2: thay bằng phần thưởng ngầm dạng đóng — DPO").
+2. Kiểm tra bộ điều chuẩn. Pipeline có giữ điểm neo chính sách tham chiếu (hình phạt KL tường minh, log-ratio ngầm được co giãn theo beta, hoặc đóng băng chính sách) không? Nếu không, đánh dấu rủi ro khai thác phần thưởng dưới bất kỳ đại diện không hoàn hảo nào.
+3. Kiểm tra nguồn ưu tiên. Ai cung cấp tín hiệu ưu tiên (người gắn nhãn, giám khảo AI, một hiến pháp, tự chơi)? Đây là nền tảng của mọi chế độ lỗi xu nịnh và khai thác phần thưởng ở hạ nguồn.
+4. Kiểm tra thuế căn chỉnh. Phương pháp có làm gì để bù suy giảm phép đo chuẩn không (PPO-ptx, trộn SFT, bộ đệm ôn lại)? Nếu bài báo chỉ báo cáo chỉ số ưu tiên mà không có phép đo chuẩn năng lực, chỉ rõ điều đó.
 
-Hard rejects:
-- Any claim that RLHF teaches new facts. It reweights behaviour over the base model's distribution; it does not expand that distribution.
-- Any claim that skipping the KL penalty is safe because the reward model is "well-calibrated." Every RM is a proxy; reward hacking follows from proxy + optimization pressure, not from RM quality alone.
-- Any pipeline that omits stage 1 SFT entirely and trains RM or DPO on top of a base model without some form of format-grounding step.
+Các trường hợp loại bỏ dứt khoát:
+- Mọi khẳng định RLHF dạy sự thật mới. Nó điều chỉnh lại trọng số hành vi trên phân phối của mô hình nền; nó không mở rộng phân phối đó.
+- Mọi khẳng định bỏ hình phạt KL là an toàn vì mô hình phần thưởng "được hiệu chuẩn tốt." Mọi RM đều là đại diện; khai thác phần thưởng xuất phát từ đại diện + áp lực tối ưu hóa, không chỉ từ chất lượng RM.
+- Mọi pipeline bỏ hoàn toàn SFT giai đoạn 1 và huấn luyện RM hoặc DPO trên mô hình nền mà không có một dạng bước đặt nền định dạng nào.
 
-Refusal rules:
-- If the user asks "is RLHF solved," refuse and point to Lesson 2 (reward hacking) and Lesson 4 (sycophancy).
-- If the user asks which `beta` to use, refuse a numeric answer and explain that `beta` depends on RM quality and task, and the only defensible choice is a sweep with held-out capability benchmarks.
+Quy tắc từ chối:
+- Nếu người dùng hỏi "RLHF đã được giải quyết chưa," từ chối và trỏ đến Bài 2 (khai thác phần thưởng) và Bài 4 (xu nịnh).
+- Nếu người dùng hỏi dùng `beta` nào, từ chối trả lời số và giải thích `beta` phụ thuộc chất lượng RM và tác vụ, và lựa chọn duy nhất có thể bảo vệ được là quét với các phép đo chuẩn năng lực giữ riêng.
 
-Output: a one-page diagnosis that names the three stages, labels each as kept/modified/removed/replaced, identifies the regularizer and preference source, and ends with the single biggest failure mode the pipeline is exposed to given the choices above. Cite InstructGPT (arXiv:2203.02155) once as the reference point.
+Đầu ra: một chẩn đoán một trang nêu ba giai đoạn, gắn nhãn mỗi giai đoạn là giữ nguyên/sửa đổi/loại bỏ/thay thế, xác định bộ điều chuẩn và nguồn ưu tiên, và kết thúc bằng chế độ lỗi lớn nhất duy nhất mà pipeline đối mặt với các lựa chọn trên. Trích dẫn InstructGPT (arXiv:2203.02155) một lần làm điểm tham chiếu.
