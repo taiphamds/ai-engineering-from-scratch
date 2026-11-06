@@ -1,6 +1,6 @@
 # Multilingual NLP
 
-> One model, 100+ languages, zero training data for most of them. Cross-lingual transfer is the practical miracle of the 2020s.
+> Một mô hình, 100+ ngôn ngữ, không dữ liệu huấn luyện cho hầu hết chúng. Chuyển giao xuyên ngôn ngữ là phép màu thực tế của những năm 2020.
 
 **Type:** Learn
 **Languages:** Python
@@ -9,45 +9,45 @@
 
 ## The Problem
 
-English has billions of labeled examples. Urdu has thousands. Maithili has almost none. Any practical NLP system that serves a global audience has to work on the long tail of languages where task-specific training data does not exist.
+Tiếng Anh có hàng tỷ ví dụ được gán nhãn. Tiếng Urdu có hàng nghìn. Tiếng Maithili gần như không có. Bất kỳ hệ thống NLP thực tế nào phục vụ người dùng toàn cầu đều phải hoạt động trên phần đuôi dài của các ngôn ngữ nơi dữ liệu huấn luyện riêng cho tác vụ không tồn tại.
 
-Multilingual models solve this by training one model on many languages simultaneously. The shared representation lets the model transfer skills learned in high-resource languages to low-resource ones. Fine-tune the model on English sentiment analysis, and it produces surprisingly good sentiment predictions on Urdu out of the box. That is zero-shot cross-lingual transfer, and it has reshaped how NLP ships to the world.
+Các mô hình đa ngôn ngữ giải quyết điều này bằng cách huấn luyện một mô hình trên nhiều ngôn ngữ đồng thời. Biểu diễn dùng chung cho phép mô hình chuyển các kỹ năng học được trong các ngôn ngữ nhiều tài nguyên sang các ngôn ngữ ít tài nguyên. Fine-tune mô hình trên phân tích cảm xúc tiếng Anh, và nó tạo các dự đoán cảm xúc tốt đến ngạc nhiên trên tiếng Urdu ngay khi dùng. Đó là chuyển giao xuyên ngôn ngữ zero-shot, và nó đã định hình lại cách NLP được phát hành ra thế giới.
 
-This lesson names the tradeoffs, the canonical models, and the one decision that trips up teams new to multilingual work: picking a source language for transfer.
+Bài học này nêu tên các đánh đổi, các mô hình kinh điển và một quyết định làm các nhóm mới với công việc đa ngôn ngữ vấp ngã: chọn một ngôn ngữ nguồn để chuyển giao.
 
 ## The Concept
 
 ![Cross-lingual transfer via shared multilingual embedding space](../assets/multilingual.svg)
 
-**Shared vocabulary.** Multilingual models use a SentencePiece or WordPiece tokenizer trained on text from all target languages. The vocabulary is shared: the same subword unit represents the same morpheme across related languages. `anti-` in English and Italian gets the same token.
+**Từ vựng dùng chung.** Các mô hình đa ngôn ngữ dùng một tokenizer SentencePiece hoặc WordPiece được huấn luyện trên văn bản từ mọi ngôn ngữ đích. Từ vựng được dùng chung: cùng một đơn vị từ con biểu diễn cùng một hình vị giữa các ngôn ngữ có quan hệ. `anti-` trong tiếng Anh và tiếng Ý nhận cùng token.
 
-**Shared representation.** A transformer pretrained on masked language modeling across many languages learns that semantically similar sentences in different languages produce similar hidden states. mBERT, XLM-R, and NLLB all exhibit this. Embeddings for "cat" in English cluster near "chat" in French and "gato" in Spanish, and so do full-sentence embeddings.
+**Biểu diễn dùng chung.** Một transformer được tiền huấn luyện bằng mô hình hóa ngôn ngữ che mặt nạ trên nhiều ngôn ngữ học rằng các câu tương tự về ngữ nghĩa trong các ngôn ngữ khác nhau tạo các trạng thái ẩn tương tự. mBERT, XLM-R và NLLB đều thể hiện điều này. Các embedding cho "cat" trong tiếng Anh tạo cụm gần "chat" trong tiếng Pháp và "gato" trong tiếng Tây Ban Nha, và các embedding toàn câu cũng vậy.
 
-**Zero-shot transfer.** Fine-tune the model on labeled data in one language (usually English). At inference, run it on any other language the model supports. No target-language labels needed. Results are strong for typologically related languages and weaker for distant ones.
+**Chuyển giao zero-shot.** Fine-tune mô hình trên dữ liệu có nhãn trong một ngôn ngữ (thường là tiếng Anh). Khi suy luận, chạy nó trên bất kỳ ngôn ngữ nào khác mà mô hình hỗ trợ. Không cần các nhãn ngôn ngữ đích. Kết quả mạnh với các ngôn ngữ có quan hệ về loại hình và yếu hơn với các ngôn ngữ xa nhau.
 
-**Few-shot fine-tuning.** Add 100-500 labeled examples in the target language. Accuracy jumps to 95-98% of the English baseline on classification tasks. This is the single most cost-effective lever in multilingual NLP.
+**Fine-tuning few-shot.** Thêm 100-500 ví dụ có nhãn trong ngôn ngữ đích. Accuracy nhảy lên 95-98% của baseline tiếng Anh trên các tác vụ phân loại. Đây là đòn bẩy hiệu quả chi phí nhất trong NLP đa ngôn ngữ.
 
 ## The models
 
-| Model | Year | Coverage | Notes |
+| Mô hình | Năm | Độ bao phủ | Ghi chú |
 |-------|------|----------|-------|
-| mBERT | 2018 | 104 languages | Trained on Wikipedia. First practical multilingual LM. Weak on low-resource. |
-| XLM-R | 2019 | 100 languages | Trained on CommonCrawl (much larger than Wikipedia). Sets the cross-lingual baseline. Base 270M, Large 550M. |
-| XLM-V | 2023 | 100 languages | XLM-R with 1M-token vocabulary (vs 250k). Better on low-resource. |
-| mT5 | 2020 | 101 languages | T5 architecture for multilingual generation. |
-| NLLB-200 | 2022 | 200 languages | Meta's translation model; includes 55 low-resource languages. |
-| BLOOM | 2022 | 46 languages + 13 programming | Open 176B LLM trained multilingually. |
-| Aya-23 | 2024 | 23 languages | Cohere's multilingual LLM. Strong on Arabic, Hindi, Swahili. |
+| mBERT | 2018 | 104 ngôn ngữ | Được huấn luyện trên Wikipedia. LM đa ngôn ngữ thực tế đầu tiên. Yếu trên ít tài nguyên. |
+| XLM-R | 2019 | 100 ngôn ngữ | Được huấn luyện trên CommonCrawl (lớn hơn nhiều so với Wikipedia). Đặt baseline xuyên ngôn ngữ. Base 270M, Large 550M. |
+| XLM-V | 2023 | 100 ngôn ngữ | XLM-R với từ vựng 1M token (so với 250k). Tốt hơn trên ít tài nguyên. |
+| mT5 | 2020 | 101 ngôn ngữ | Kiến trúc T5 cho sinh đa ngôn ngữ. |
+| NLLB-200 | 2022 | 200 ngôn ngữ | Mô hình dịch của Meta; bao gồm 55 ngôn ngữ ít tài nguyên. |
+| BLOOM | 2022 | 46 ngôn ngữ + 13 ngôn ngữ lập trình | LLM mở 176B được huấn luyện đa ngôn ngữ. |
+| Aya-23 | 2024 | 23 ngôn ngữ | LLM đa ngôn ngữ của Cohere. Mạnh trên tiếng Ả Rập, Hindi, Swahili. |
 
-Pick by use case. Classification works well with XLM-R-base as the sane default. Generation tasks call for mT5 or NLLB depending on translation vs open generation. LLM-style work pairs with Aya-23 or Claude using explicit multilingual prompting.
+Chọn theo trường hợp sử dụng. Phân loại hoạt động tốt với XLM-R-base làm mặc định hợp lý. Các tác vụ sinh cần mT5 hoặc NLLB tùy dịch hay sinh mở. Công việc kiểu LLM ghép với Aya-23 hoặc Claude dùng prompting đa ngôn ngữ tường minh.
 
 ## The source-language decision (2026 research)
 
-Most teams default to English as the fine-tuning source. Recent research (2026) shows this is often wrong.
+Hầu hết các nhóm mặc định tiếng Anh là nguồn fine-tuning. Nghiên cứu gần đây (2026) cho thấy điều này thường sai.
 
-Language similarity predicts transfer quality better than raw corpus size. For Slavic targets, German or Russian often beat English. For Indic targets, Hindi often beats English. The **qWALS** similarity metric (2026, based on World Atlas of Language Structures features) quantifies this. **LANGRANK** (Lin et al., ACL 2019) is a separate, earlier method that ranks candidate source languages from a combination of linguistic similarity, corpus size, and genetic relatedness.
+Độ tương đồng ngôn ngữ dự đoán chất lượng chuyển giao tốt hơn kích thước ngữ liệu thô. Với các đích Slav, tiếng Đức hoặc Nga thường thắng tiếng Anh. Với các đích Ấn, tiếng Hindi thường thắng tiếng Anh. Thước đo tương đồng **qWALS** (2026, dựa trên các đặc trưng World Atlas of Language Structures) định lượng điều này. **LANGRANK** (Lin và cộng sự, ACL 2019) là một phương pháp riêng, sớm hơn, xếp hạng các ngôn ngữ nguồn ứng viên từ sự kết hợp của độ tương đồng ngôn ngữ, kích thước ngữ liệu và quan hệ họ hàng ngôn ngữ.
 
-Practical rule: if your target language has a typologically close high-resource relative, try fine-tuning on that one first, then compare to English fine-tune.
+Quy tắc thực tế: nếu ngôn ngữ đích của bạn có một ngôn ngữ họ hàng nhiều tài nguyên gần về loại hình, thử fine-tuning trên ngôn ngữ đó trước, rồi so sánh với fine-tune tiếng Anh.
 
 ```figure
 n5-crosslingual-bridge
@@ -82,7 +82,7 @@ print(classify("मुझे यह उत्पाद पसंद है!", ["
 print(classify("J'adore ce produit !", ["positive", "negative", "neutral"]))
 ```
 
-One model, three languages, same API. XLM-R trained on NLI data transfers well to classification via the entailment trick.
+Một mô hình, ba ngôn ngữ, cùng API. XLM-R được huấn luyện trên dữ liệu NLI chuyển giao tốt sang phân loại qua thủ thuật kéo theo.
 
 ### Step 2: multilingual embedding space
 
@@ -106,7 +106,7 @@ for eng, other in pairs:
     print(f"  {eng!r} <-> {other!r}: cos={sim:.3f}")
 ```
 
-Translations land close in embedding space. A different English sentence lands further. This is what makes cross-lingual retrieval, clustering, and similarity work.
+Các bản dịch nằm gần nhau trong không gian embedding. Một câu tiếng Anh khác nằm xa hơn. Đây là điều khiến truy xuất xuyên ngôn ngữ, phân cụm và độ tương đồng hoạt động.
 
 ### Step 3: few-shot fine-tuning strategy
 
@@ -136,45 +136,45 @@ def few_shot_finetune(base_model, base_tokenizer, examples):
     return base_model
 ```
 
-For 100-500 target-language examples, `num_train_epochs=5` and `learning_rate=2e-5` are the safe defaults. Higher learning rates cause the multilingual alignment to collapse and you get an English-only model.
+Với 100-500 ví dụ ngôn ngữ đích, `num_train_epochs=5` và `learning_rate=2e-5` là các mặc định an toàn. Các tốc độ học cao hơn khiến sự căn chỉnh đa ngôn ngữ sụp đổ và bạn nhận một mô hình chỉ tiếng Anh.
 
 ## Evaluation that actually works
 
-- **Per-language accuracy on held-out sets.** Not aggregated. The aggregate hides the long tail.
-- **Benchmark against monolingual baseline.** For languages with enough data, a monolingual model trained from scratch sometimes beats the multilingual one. Test.
-- **Entity-level tests.** Named entities in the target language. Multilingual models often have weak tokenization for scripts far from Latin.
-- **Cross-lingual consistency.** Same meaning in two languages should produce the same prediction. Measure the gap.
+- **Accuracy theo ngôn ngữ trên các tập được giữ lại.** Không tổng hợp. Tổng hợp che giấu phần đuôi dài.
+- **Benchmark so với baseline đơn ngôn ngữ.** Với các ngôn ngữ có đủ dữ liệu, một mô hình đơn ngôn ngữ được huấn luyện từ đầu đôi khi thắng mô hình đa ngôn ngữ. Kiểm thử.
+- **Các kiểm thử cấp thực thể.** Các thực thể có tên trong ngôn ngữ đích. Các mô hình đa ngôn ngữ thường có tokenization yếu cho các hệ chữ xa Latin.
+- **Tính nhất quán xuyên ngôn ngữ.** Cùng ý nghĩa trong hai ngôn ngữ nên tạo cùng dự đoán. Đo khoảng cách.
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Task | Recommended |
+| Tác vụ | Khuyến nghị |
 |-----|-------------|
-| Classification, 100 languages | XLM-R-base (~270M) fine-tuned |
-| Zero-shot text classification | `joeddav/xlm-roberta-large-xnli` |
-| Multilingual sentence embeddings | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` |
-| Translation, 200 languages | `facebook/nllb-200-distilled-600M` (see lesson 11) |
-| Generative multilingual | Claude, GPT-4, Aya-23, mT5-XXL |
-| Low-resource language NLP | XLM-V or a domain-specific fine-tune on related high-resource language |
+| Phân loại, 100 ngôn ngữ | XLM-R-base (~270M) được fine-tune |
+| Phân loại văn bản zero-shot | `joeddav/xlm-roberta-large-xnli` |
+| Các embedding câu đa ngôn ngữ | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` |
+| Dịch, 200 ngôn ngữ | `facebook/nllb-200-distilled-600M` (xem bài 11) |
+| Sinh đa ngôn ngữ | Claude, GPT-4, Aya-23, mT5-XXL |
+| NLP ngôn ngữ ít tài nguyên | XLM-V hoặc một fine-tune theo lĩnh vực trên ngôn ngữ nhiều tài nguyên có quan hệ |
 
-Always budget for fine-tuning in the target language if performance matters. Zero-shot is a starting point, not a final answer.
+Luôn dành ngân sách cho fine-tuning trong ngôn ngữ đích nếu hiệu năng quan trọng. Zero-shot là một điểm khởi đầu, không phải câu trả lời cuối.
 
 ### The tokenization tax (what goes wrong for low-resource languages)
 
-Multilingual models share one tokenizer across all their languages. That vocabulary is trained on a corpus dominated by English, French, Spanish, Chinese, German. For any language outside the dominant set, three taxes compound silently:
+Các mô hình đa ngôn ngữ dùng chung một tokenizer trên mọi ngôn ngữ của chúng. Từ vựng đó được huấn luyện trên một ngữ liệu bị chi phối bởi tiếng Anh, Pháp, Tây Ban Nha, Trung, Đức. Với bất kỳ ngôn ngữ nào ngoài tập chi phối, ba khoản thuế âm thầm cộng dồn:
 
-- **Fertility tax.** Low-resource language text tokenizes into far more tokens per word than English. A Hindi sentence can need 3-5x the tokens of an equivalent English sentence. That 3-5x eats your context window, training efficiency, and latency.
-- **Variant recovery tax.** Every typo, diacritic variant, Unicode normalization mismatch, or case variation becomes a cold-start unrelated sequence in embedding space. The model cannot learn orthographic correspondences that a native speaker takes as obvious.
-- **Capacity spillover tax.** Taxes 1 and 2 consume context positions, layer depth, and embedding dimensions. What remains for actual reasoning is systematically smaller than what a high-resource language gets from the same model.
+- **Thuế độ phân mảnh token.** Văn bản ngôn ngữ ít tài nguyên tokenize thành nhiều token mỗi từ hơn tiếng Anh rất nhiều. Một câu Hindi có thể cần số token gấp 3-5 lần một câu tiếng Anh tương đương. Mức 3-5 lần đó ăn vào cửa sổ ngữ cảnh, hiệu quả huấn luyện và độ trễ của bạn.
+- **Thuế khôi phục biến thể.** Mọi lỗi gõ, biến thể dấu phụ, sự không khớp chuẩn hóa Unicode hoặc biến thể kiểu chữ trở thành một chuỗi khởi đầu lạnh không liên quan trong không gian embedding. Mô hình không thể học các tương ứng chính tả mà người bản ngữ coi là hiển nhiên.
+- **Thuế lan tràn năng lực.** Các khoản thuế 1 và 2 tiêu thụ các vị trí ngữ cảnh, độ sâu tầng và số chiều embedding. Phần còn lại cho suy luận thực nhỏ hơn một cách có hệ thống so với những gì một ngôn ngữ nhiều tài nguyên nhận từ cùng mô hình.
 
-The practical symptom: your model trains normally on Hindi, the loss curve looks right, eval perplexity looks reasonable, and production outputs are subtly wrong. Morphology collapses mid-sentence. Rare inflections stay unrecoverable. **You cannot data-scale your way out of a broken tokenizer.**
+Triệu chứng thực tế: mô hình của bạn huấn luyện bình thường trên tiếng Hindi, đường cong loss trông đúng, perplexity đánh giá trông hợp lý và các đầu ra production sai tinh vi. Hình thái sụp đổ giữa câu. Các biến tố hiếm vẫn không khôi phục được. **Bạn không thể mở rộng dữ liệu để thoát khỏi một tokenizer hỏng.**
 
-Mitigations: pick a tokenizer with good coverage for your target language (XLM-V's 1M-token vocabulary is a direct fix); verify tokenization fertility on held-out target text before training; use byte-level fallback (SentencePiece `byte_fallback=True`, GPT-2-style byte-level BPE) for truly long-tail scripts so nothing is ever OOV.
+Các biện pháp giảm thiểu: chọn một tokenizer có độ bao phủ tốt cho ngôn ngữ đích của bạn (từ vựng 1M token của XLM-V là một cách sửa trực tiếp); xác minh độ phân mảnh tokenization trên văn bản đích được giữ lại trước huấn luyện; dùng phương án dự phòng cấp byte (SentencePiece `byte_fallback=True`, BPE cấp byte kiểu GPT-2) cho các hệ chữ thực sự thuộc đuôi dài để không có gì là OOV.
 
 ## Ship It
 
-Save as `outputs/skill-multilingual-picker.md`:
+Lưu thành `outputs/skill-multilingual-picker.md`:
 
 ```markdown
 ---
@@ -198,26 +198,26 @@ Refuse to ship a multilingual model without per-language evaluation — aggregat
 
 ## Exercises
 
-1. **Easy.** Run the zero-shot classification pipeline on 10 sentences per language across English, French, Hindi, and Arabic. Report accuracy on each. You should see strong French, decent Hindi, variable Arabic.
-2. **Medium.** Use `paraphrase-multilingual-MiniLM-L12-v2` to build a cross-lingual retriever over a small mixed-language corpus. Query in English, retrieve documents in any language. Measure recall@5.
-3. **Hard.** Compare English-source and Hindi-source fine-tuning for a Hindi classification task. Use 500 target-language examples for few-shot fine-tuning under both regimes. Report which source produces better Hindi accuracy and by how much. This is the LANGRANK thesis in miniature.
+1. **Dễ.** Chạy pipeline phân loại zero-shot trên 10 câu mỗi ngôn ngữ qua tiếng Anh, Pháp, Hindi và Ả Rập. Báo cáo accuracy trên mỗi ngôn ngữ. Bạn sẽ thấy tiếng Pháp mạnh, Hindi khá, Ả Rập thay đổi.
+2. **Trung bình.** Dùng `paraphrase-multilingual-MiniLM-L12-v2` để xây dựng một bộ truy xuất xuyên ngôn ngữ trên một ngữ liệu trộn ngôn ngữ nhỏ. Truy vấn bằng tiếng Anh, truy xuất tài liệu trong bất kỳ ngôn ngữ nào. Đo recall@5.
+3. **Khó.** So sánh fine-tuning nguồn tiếng Anh và nguồn tiếng Hindi cho một tác vụ phân loại tiếng Hindi. Dùng 500 ví dụ ngôn ngữ đích cho fine-tuning few-shot dưới cả hai chế độ. Báo cáo nguồn nào tạo accuracy Hindi tốt hơn và bao nhiêu. Đây là luận điểm LANGRANK thu nhỏ.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Multilingual model | One model, many languages | Shared vocabulary and parameters across languages. |
-| Cross-lingual transfer | Train on one language, run on another | Fine-tune on source, evaluate on target without target-language labels. |
-| Zero-shot | No target-language labels | Transfer without fine-tuning on the target language. |
-| Few-shot | Small target labels | 100-500 target-language examples used for fine-tuning. |
-| mBERT | First multilingual LM | 104-language BERT pretrained on Wikipedia. |
-| XLM-R | Standard cross-lingual baseline | 100-language RoBERTa pretrained on CommonCrawl. |
-| NLLB | Meta's 200-language MT | No Language Left Behind. Includes 55 low-resource languages. |
+| Multilingual model (Mô hình đa ngôn ngữ) | Một mô hình, nhiều ngôn ngữ | Từ vựng và tham số dùng chung giữa các ngôn ngữ. |
+| Cross-lingual transfer (Chuyển giao xuyên ngôn ngữ) | Huấn luyện trên một ngôn ngữ, chạy trên ngôn ngữ khác | Fine-tune trên nguồn, đánh giá trên đích mà không có nhãn ngôn ngữ đích. |
+| Zero-shot | Không nhãn ngôn ngữ đích | Chuyển giao không fine-tuning trên ngôn ngữ đích. |
+| Few-shot | Ít nhãn đích | 100-500 ví dụ ngôn ngữ đích được dùng cho fine-tuning. |
+| mBERT | LM đa ngôn ngữ đầu tiên | BERT 104 ngôn ngữ được tiền huấn luyện trên Wikipedia. |
+| XLM-R | Baseline xuyên ngôn ngữ tiêu chuẩn | RoBERTa 100 ngôn ngữ được tiền huấn luyện trên CommonCrawl. |
+| NLLB | MT 200 ngôn ngữ của Meta | No Language Left Behind. Bao gồm 55 ngôn ngữ ít tài nguyên. |
 
 ## Further Reading
 
-- [Conneau et al. (2019). Unsupervised Cross-lingual Representation Learning at Scale](https://arxiv.org/abs/1911.02116) — the XLM-R paper.
-- [Pires, Schlinger, Garrette (2019). How Multilingual is Multilingual BERT?](https://arxiv.org/abs/1906.01502) — the analysis paper that started the cross-lingual transfer research line.
-- [Costa-jussà et al. (2022). No Language Left Behind](https://arxiv.org/abs/2207.04672) — NLLB-200 paper.
-- [Üstün et al. (2024). Aya Model: An Instruction Finetuned Open-Access Multilingual Language Model](https://arxiv.org/abs/2402.07827) — Aya, Cohere's multilingual LLM.
-- [Language Similarity Predicts Cross-Lingual Transfer Learning Performance (2026)](https://www.mdpi.com/2504-4990/8/3/65) — the qWALS / LANGRANK source-language paper.
+- [Conneau et al. (2019). Unsupervised Cross-lingual Representation Learning at Scale](https://arxiv.org/abs/1911.02116) — bài báo XLM-R.
+- [Pires, Schlinger, Garrette (2019). How Multilingual is Multilingual BERT?](https://arxiv.org/abs/1906.01502) — bài báo phân tích mở đầu hướng nghiên cứu chuyển giao xuyên ngôn ngữ.
+- [Costa-jussà et al. (2022). No Language Left Behind](https://arxiv.org/abs/2207.04672) — bài báo NLLB-200.
+- [Üstün et al. (2024). Aya Model: An Instruction Finetuned Open-Access Multilingual Language Model](https://arxiv.org/abs/2402.07827) — Aya, LLM đa ngôn ngữ của Cohere.
+- [Language Similarity Predicts Cross-Lingual Transfer Learning Performance (2026)](https://www.mdpi.com/2504-4990/8/3/65) — bài báo ngôn ngữ nguồn qWALS / LANGRANK.

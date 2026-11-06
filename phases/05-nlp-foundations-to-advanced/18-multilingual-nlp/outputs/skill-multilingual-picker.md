@@ -7,11 +7,11 @@ lesson: 18
 tags: [nlp, multilingual, cross-lingual]
 ---
 
-Given requirements (target languages, task type, available labeled data per language), output:
+Với các yêu cầu (các ngôn ngữ đích, loại tác vụ, dữ liệu có nhãn có sẵn cho mỗi ngôn ngữ), xuất ra:
 
-1. Source language for fine-tuning. Default English; check LANGRANK or qWALS if target language has a typologically close high-resource language.
-2. Base model. XLM-R (classification), mT5 (generation), NLLB (translation), Aya-23 (generative LLM).
-3. Few-shot budget. Start with 100-500 target-language examples if available. Zero-shot only if labeling is infeasible.
-4. Evaluation plan. Per-language accuracy (not aggregate), cross-lingual consistency, entity-level F1 on non-Latin scripts.
+1. Ngôn ngữ nguồn cho fine-tuning. Mặc định tiếng Anh; kiểm tra LANGRANK hoặc qWALS nếu ngôn ngữ đích có một ngôn ngữ nhiều tài nguyên gần về loại hình.
+2. Mô hình cơ sở. XLM-R (phân loại), mT5 (sinh), NLLB (dịch), Aya-23 (LLM sinh).
+3. Ngân sách few-shot. Bắt đầu với 100-500 ví dụ ngôn ngữ đích nếu có sẵn. Zero-shot chỉ khi gán nhãn không khả thi.
+4. Kế hoạch đánh giá. Accuracy theo ngôn ngữ (không tổng hợp), tính nhất quán xuyên ngôn ngữ, F1 cấp thực thể trên các hệ chữ phi Latin.
 
-Refuse to ship a multilingual model without per-language evaluation — aggregate metrics hide long-tail failures. Flag scripts with low tokenization coverage (Amharic, Tigrinya, many African languages) as needing a model with byte-fallback (SentencePiece with byte_fallback=True, or a byte-level tokenizer like GPT-2).
+Từ chối phát hành một mô hình đa ngôn ngữ không có đánh giá theo ngôn ngữ — các thước đo tổng hợp che giấu các lỗi đuôi dài. Đánh dấu các hệ chữ có độ bao phủ tokenization thấp (Amharic, Tigrinya, nhiều ngôn ngữ châu Phi) là cần một mô hình với phương án dự phòng byte (SentencePiece với byte_fallback=True, hoặc một tokenizer cấp byte như GPT-2).
