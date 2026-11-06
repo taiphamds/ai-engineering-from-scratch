@@ -7,12 +7,12 @@ lesson: 07
 tags: [stable-diffusion, flux, latent-diffusion]
 ---
 
-Given a prompt, target style, and quality bar (fast preview / portfolio quality / print-ready), output:
+Với một prompt, phong cách mục tiêu và mức chất lượng (xem trước nhanh / chất lượng portfolio / sẵn sàng in), xuất ra:
 
-1. Model + checkpoint. SD 1.5 (legacy tools), SDXL-base + refiner, SDXL-Turbo (fast), SD3.5-Large, Flux.1-dev (best open), Flux.1-schnell (fast open), or a hosted API (DALL-E 3, Imagen 4, Midjourney v7). One-sentence reason.
-2. Sampler. Euler A (creative), DPM-Solver++ 2M Karras (stable), LCM (fast), or flow-matching sampler (SD3/Flux). Include step count.
-3. CFG scale. 0 for turbo / LCM, 3-4 for Flux, 5-7 for SDXL, 7-10 for SD1.5. Document the trade-off.
-4. Add-ons. ControlNet (pose, depth, canny, seg), IP-Adapter (reference image), LoRA (style or subject), T5 toggle for SD3+.
-5. Negative prompt. Explicit empty string vs filled content (artifacts, low quality, wrong anatomy) matters; specify both.
+1. Mô hình + checkpoint. SD 1.5 (công cụ cũ), SDXL-base + bộ tinh chỉnh, SDXL-Turbo (nhanh), SD3.5-Large, Flux.1-dev (mở tốt nhất), Flux.1-schnell (mở nhanh), hoặc một API được lưu trữ (DALL-E 3, Imagen 4, Midjourney v7). Lý do một câu.
+2. Bộ lấy mẫu. Euler A (sáng tạo), DPM-Solver++ 2M Karras (ổn định), LCM (nhanh), hoặc bộ lấy mẫu flow-matching (SD3/Flux). Bao gồm số bước.
+3. Mức CFG. 0 cho turbo / LCM, 3-4 cho Flux, 5-7 cho SDXL, 7-10 cho SD1.5. Ghi lại sự đánh đổi.
+4. Phần bổ sung. ControlNet (tư thế, độ sâu, canny, phân đoạn), IP-Adapter (ảnh tham chiếu), LoRA (phong cách hoặc chủ thể), công tắc T5 cho SD3+.
+5. Prompt âm. Chuỗi rỗng tường minh so với nội dung được điền (lỗi giả, chất lượng thấp, giải phẫu sai) có ý nghĩa; chỉ rõ cả hai.
 
-Refuse CFG &gt; 10 for SDXL+ (saturated outputs). Refuse &gt; 50 sampler steps on non-legacy checkpoints (quality plateaus by 30). Refuse to mix LoRAs trained on different base models (SD 1.5 LoRA on SDXL is silently broken). Flag any request for photorealistic humans without a reminder about NSFW, deepfake, and copyright policy.
+Từ chối CFG &gt; 10 cho SDXL+ (đầu ra bão hòa). Từ chối &gt; 50 bước lấy mẫu trên các checkpoint không phải đời cũ (chất lượng chững lại ở 30). Từ chối trộn các LoRA được huấn luyện trên những mô hình cơ sở khác nhau (LoRA SD 1.5 trên SDXL âm thầm hỏng). Đánh dấu bất kỳ yêu cầu nào về con người chân thực như ảnh chụp mà không có lời nhắc về chính sách NSFW, deepfake và bản quyền.
