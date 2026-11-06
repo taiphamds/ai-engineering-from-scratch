@@ -1,6 +1,6 @@
 # Large Corpus Downloader
 
-> Training a language model begins long before the first forward pass. The corpus has to land on disk, decompressed, deduplicated, and addressable, with the resume story already worked out before the network drops at 4 percent. This lesson builds a streaming downloader that pulls compressed shards, decompresses on the fly with Zstandard, fingerprints near-duplicates via MinHash plus locality-sensitive hashing, and writes a shard manifest the rest of the pipeline can trust.
+> Huấn luyện một mô hình ngôn ngữ bắt đầu từ lâu trước lượt tiến đầu tiên. Corpus phải nằm trên đĩa, được giải nén, loại trùng, và có thể định địa chỉ, với câu chuyện tiếp tục đã được giải quyết trước khi mạng ngắt ở 4 phần trăm. Bài này xây dựng một trình tải truyền luồng kéo các shard nén, giải nén ngay khi chạy bằng Zstandard, lấy dấu vân tay các bản gần trùng qua MinHash cộng băm nhạy cảm cục bộ, và ghi một bản kê khai shard mà phần còn lại của pipeline có thể tin tưởng.
 
 **Type:** Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Stream remote shards with `urllib` and decompress with `zstandard` without buffering the whole file in memory.
-- Resume partial downloads by issuing HTTP `Range` requests against a verified byte offset.
-- Build a MinHash signature per document and bucket it with LSH so near-duplicates collide.
-- Emit a shard manifest with content hash, byte size, document count, and dedup verdict.
+- Truyền luồng các shard từ xa bằng `urllib` và giải nén bằng `zstandard` mà không đệm toàn bộ file trong bộ nhớ.
+- Tiếp tục các bản tải một phần bằng cách phát các yêu cầu HTTP `Range` theo một độ lệch byte đã xác minh.
+- Xây dựng một chữ ký MinHash theo tài liệu và chia nhóm nó bằng LSH để các bản gần trùng va chạm.
+- Phát ra một bản kê khai shard với băm nội dung, kích thước byte, số tài liệu, và kết luận loại trùng.
 
 ## The Problem
 
-The first time you train on a 200 GB corpus the network drops at percent 41 and the script exits with a `urllib` exception. The second time it drops at percent 78. By percent 99 you have rewritten the loop three times. The two failures you have to design for from minute one are partial-download resume and duplicate document removal. Both have well-known solutions; both are routinely skipped because the pipeline begins as a one-line `requests.get` call that grew teeth.
+Lần đầu bạn huấn luyện trên một corpus 200 GB mạng ngắt ở phần trăm 41 và script thoát với một ngoại lệ `urllib`. Lần thứ hai nó ngắt ở phần trăm 78. Đến phần trăm 99 bạn đã viết lại vòng lặp ba lần. Hai thất bại bạn phải thiết kế đối phó từ phút đầu là tiếp tục tải một phần và loại bỏ tài liệu trùng. Cả hai đều có lời giải nổi tiếng; cả hai thường bị bỏ qua vì pipeline bắt đầu như một lệnh gọi `requests.get` một dòng đã mọc răng.
 
-Resume is an HTTP problem. The server has to honour `Range`, the client has to track verified offset against an on-disk record, and the verified offset has to survive process death. If the offset and the file diverge by even one byte the resumed download writes garbage and the corpus is corrupted in a way that only shows up during tokenization.
+Tiếp tục là một vấn đề HTTP. Máy chủ phải tuân thủ `Range`, máy khách phải theo dõi độ lệch đã xác minh theo một bản ghi trên đĩa, và độ lệch đã xác minh phải sống sót qua cái chết tiến trình. Nếu độ lệch và file lệch nhau dù chỉ một byte bản tải tiếp tục ghi rác và corpus bị hỏng theo cách chỉ xuất hiện trong phân tách token.
 
-Deduplication is a signature problem. Exact-hash dedup misses near-duplicates: the same Wikipedia article shows up with three different boilerplate footers, the same code file with a different license header, the same blog post with a tracking parameter on every link. MinHash plus LSH catches these at sub-linear cost. The cost is one signature per document and one bucket lookup per signature.
+Loại trùng là một vấn đề chữ ký. Loại trùng băm chính xác bỏ lỡ các bản gần trùng: cùng bài Wikipedia xuất hiện với ba chân trang mẫu khác nhau, cùng file mã với một header giấy phép khác, cùng bài blog với một tham số theo dõi trên mọi liên kết. MinHash cộng LSH bắt những trường hợp này với chi phí dưới tuyến tính. Chi phí là một chữ ký mỗi tài liệu và một tra cứu nhóm mỗi chữ ký.
 
 ## The Concept
 
@@ -43,21 +43,21 @@ flowchart TD
 
 ### Streaming with `urllib`
 
-The standard-library `urllib.request.urlopen` returns a file-like object. Wrap it in a `zstandard.ZstdDecompressor().stream_reader` and the bytes flow from the network through the decompressor into the document iterator without ever materialising the compressed shard or the decompressed shard in memory. The only memory cost is the line buffer, the MinHash signature for the current document, and the LSH index.
+`urllib.request.urlopen` của thư viện tiêu chuẩn trả về một đối tượng giống file. Bọc nó trong một `zstandard.ZstdDecompressor().stream_reader` và các byte chảy từ mạng qua bộ giải nén vào bộ lặp tài liệu mà không bao giờ hiện thực hóa shard nén hoặc shard đã giải nén trong bộ nhớ. Chi phí bộ nhớ duy nhất là bộ đệm dòng, chữ ký MinHash cho tài liệu hiện tại, và chỉ mục LSH.
 
 ### Resume with `Range`
 
-The downloader writes two files per shard: the shard itself and a `.partial.json` checkpoint. The checkpoint records `verified_bytes`, `expected_size`, `sha256_prefix` (computed over the first `verified_bytes` bytes), and the source URL. On startup the downloader reads the checkpoint, recomputes `sha256_prefix` over the on-disk bytes, and only resumes if the recomputed hash matches. If the hash is wrong the partial is discarded and the download restarts from byte zero. Silent corruption is impossible because the verified bytes are checked, not assumed.
+Trình tải ghi hai file mỗi shard: chính shard và một checkpoint `.partial.json`. Checkpoint ghi `verified_bytes`, `expected_size`, `sha256_prefix` (được tính trên `verified_bytes` byte đầu), và URL nguồn. Khi khởi động trình tải đọc checkpoint, tính lại `sha256_prefix` trên các byte trên đĩa, và chỉ tiếp tục nếu băm được tính lại khớp. Nếu băm sai phần tải một phần bị loại và bản tải bắt đầu lại từ byte không. Hỏng âm thầm là không thể vì các byte được xác minh được kiểm tra, không phải giả định.
 
 ### MinHash plus LSH
 
-MinHash estimates the Jaccard similarity of two sets in fixed space. For a document the set is the shingles (overlapping n-grams) of its text. The signature is `k` minimum hash values, one per independent hash function. Two documents with Jaccard similarity `s` have a probability `s` of agreeing on any single component of the signature.
+MinHash ước lượng độ tương tự Jaccard của hai tập trong không gian cố định. Với một tài liệu tập là các shingle (n-gram chồng lấn) của văn bản nó. Chữ ký là `k` giá trị băm nhỏ nhất, một cho mỗi hàm băm độc lập. Hai tài liệu có độ tương tự Jaccard `s` có xác suất `s` đồng ý ở bất kỳ thành phần chữ ký đơn lẻ nào.
 
-LSH then groups the `k` components into `b` bands of `r` rows each, where `k = b * r`. Two documents collide in at least one band with probability `1 - (1 - s^r)^b`, which is a sharp threshold around the value of `s` you tune `(b, r)` to. The threshold for typical corpus dedup is `s = 0.8`, which the LSH research literature reaches with `k = 128`, `b = 32`, `r = 4`.
+LSH sau đó nhóm `k` thành phần thành `b` dải, mỗi dải `r` hàng, trong đó `k = b * r`. Hai tài liệu va chạm ở ít nhất một dải với xác suất `1 - (1 - s^r)^b`, là một ngưỡng sắc quanh giá trị `s` mà bạn điều chỉnh `(b, r)` tới. Ngưỡng cho loại trùng corpus điển hình là `s = 0.8`, mà tài liệu nghiên cứu LSH đạt với `k = 128`, `b = 32`, `r = 4`.
 
 ### Shard manifest as a contract
 
-The downloader's only durable output is the manifest. The manifest holds, per shard, the URL, the decompressed byte count, the document count, the unique document count after dedup, and the sha256 of the final shard file. Downstream tokenization reads the manifest, not the directory listing. If a shard is missing or its sha256 is wrong, the manifest tells the next stage to refuse to start. The manifest is the deciding edge between "the data is downloaded" and "the data is downloaded and verifiable".
+Đầu ra bền vững duy nhất của trình tải là bản kê khai. Bản kê khai giữ, theo shard, URL, số byte đã giải nén, số tài liệu, số tài liệu duy nhất sau loại trùng, và sha256 của file shard cuối. Phân tách token hạ nguồn đọc bản kê khai, không phải danh sách thư mục. Nếu một shard thiếu hoặc sha256 của nó sai, bản kê khai nói cho giai đoạn tiếp theo từ chối bắt đầu. Bản kê khai là cạnh quyết định giữa "dữ liệu đã được tải" và "dữ liệu đã được tải và có thể xác minh".
 
 ```figure
 cap-corpus-downloader
@@ -65,74 +65,74 @@ cap-corpus-downloader
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `ShardPlanner` - reads a list of shard URLs and produces planned manifest entries.
-- `StreamingDownloader` - opens a `urllib` stream with optional `Range`, writes to a temporary file, updates the `.partial.json` checkpoint on every chunk, and verifies the sha256 prefix on resume.
-- `ZstdDocIterator` - wraps the file-like stream in `zstandard.ZstdDecompressor` and yields one document per line.
-- `MinHasher` - produces a `k`-component signature for a string using a fixed family of hash seeds.
-- `LSHIndex` - buckets signatures by band and reports collisions.
-- `Dedup` - combines hasher and index to label each document `keep` or `near_duplicate` along with the matching shard id.
-- `ManifestWriter` - collects per-shard stats and writes `manifest.json`.
+- `ShardPlanner` - đọc một danh sách URL shard và tạo các mục bản kê khai được lên kế hoạch.
+- `StreamingDownloader` - mở một luồng `urllib` với `Range` tùy chọn, ghi vào một file tạm, cập nhật checkpoint `.partial.json` trên mỗi đoạn, và xác minh tiền tố sha256 khi tiếp tục.
+- `ZstdDocIterator` - bọc luồng giống file trong `zstandard.ZstdDecompressor` và sinh một tài liệu mỗi dòng.
+- `MinHasher` - tạo một chữ ký `k` thành phần cho một chuỗi bằng một họ seed băm cố định.
+- `LSHIndex` - chia nhóm các chữ ký theo dải và báo cáo các va chạm.
+- `Dedup` - kết hợp bộ băm và chỉ mục để gắn nhãn mỗi tài liệu `keep` hoặc `near_duplicate` cùng id shard khớp.
+- `ManifestWriter` - thu thập các thống kê theo shard và ghi `manifest.json`.
 
-A demo at the bottom of the file builds a small synthetic corpus on disk, compresses it with `zstandard`, downloads it through a `file://` URL, deduplicates, and prints the manifest.
+Một demo ở cuối file xây dựng một corpus tổng hợp nhỏ trên đĩa, nén nó bằng `zstandard`, tải nó qua một URL `file://`, loại trùng, và in bản kê khai.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-The script exits zero and prints a manifest summary.
+Script thoát với mã không và in một tóm tắt bản kê khai.
 
 ## Production Patterns
 
-Four patterns scale this lesson to real corpora.
+Bốn mẫu mở rộng bài này đến các corpus thực.
 
-**Checkpoint before write.** The `.partial.json` must be `fsync`-ed before the bytes are appended to the shard. Otherwise a power loss reverses the order: shard bytes on disk, checkpoint without them, next resume believes it has fewer verified bytes than it does, the duplicated suffix bytes corrupt the file. Checkpoint first, then write. This is the same discipline as a write-ahead log.
+**Checkpoint trước khi ghi.** `.partial.json` phải được `fsync` trước khi các byte được thêm vào shard. Nếu không mất điện đảo thứ tự: các byte shard trên đĩa, checkpoint không có chúng, lần tiếp tục sau tin nó có ít byte đã xác minh hơn thực tế, các byte hậu tố trùng làm hỏng file. Checkpoint trước, rồi ghi. Đây là cùng kỷ luật như một nhật ký ghi trước.
 
-**Sharded LSH index.** A single LSH index over the whole corpus does not fit in RAM at the 200 GB scale. Partition the LSH index by the first band hash, store partitions on disk, and consult only the partition a new signature would land in. The cost is one extra disk read per document; the benefit is that the LSH index is no longer a hard memory ceiling.
+**Chỉ mục LSH được chia shard.** Một chỉ mục LSH duy nhất trên toàn corpus không vừa RAM ở quy mô 200 GB. Phân vùng chỉ mục LSH theo băm dải đầu tiên, lưu các phân vùng trên đĩa, và chỉ tham khảo phân vùng mà một chữ ký mới sẽ rơi vào. Chi phí là một lần đọc đĩa bổ sung mỗi tài liệu; lợi ích là chỉ mục LSH không còn là một trần bộ nhớ cứng.
 
-**Tombstone, not delete.** Dropped duplicates are recorded in the manifest with verdict `near_duplicate` and the shard id of the document they collided with. Deleting them loses the link between the duplicate and its keeper. Tombstoning preserves the audit trail and lets a downstream pass change its mind about the threshold.
+**Đánh dấu xóa, không xóa.** Các bản trùng bị bỏ được ghi trong bản kê khai với kết luận `near_duplicate` và id shard của tài liệu chúng va chạm. Xóa chúng làm mất liên kết giữa bản trùng và bản được giữ của nó. Đánh dấu xóa bảo toàn dấu vết kiểm toán và để một lượt hạ nguồn thay đổi ý định về ngưỡng.
 
-**Per-shard sha256 in the manifest, plus a manifest sha256.** The manifest itself gets a content hash. Downstream stages verify the manifest hash before they trust the per-shard entries. Without this the manifest is the silent attack surface: an attacker who can edit a single file can corrupt the whole pipeline.
+**Sha256 theo shard trong bản kê khai, cộng một sha256 bản kê khai.** Chính bản kê khai nhận một băm nội dung. Các giai đoạn hạ nguồn xác minh băm bản kê khai trước khi tin các mục theo shard. Không có điều này bản kê khai là bề mặt tấn công âm thầm: một kẻ tấn công có thể chỉnh sửa một file duy nhất có thể làm hỏng toàn pipeline.
 
 ## Use It
 
-Production patterns:
+Các mẫu sản xuất:
 
-- **Resume on every CI run.** CI runners are ephemeral. The downloader has to assume a fresh disk on every run and recover from cache or remote. `--cache-dir` is a first-class flag.
-- **Dedup before tokenization.** Tokenization is expensive. Running it twice on the same document is twice the cost for the same loss curve. Dedup is upstream of tokenization, not downstream.
-- **Manifest as merge gate.** The training run reads the manifest sha256 from a pinned commit. A new dataset version requires a new manifest commit. The link between code and data is git, not folklore.
+- **Tiếp tục trên mọi lần chạy CI.** Các runner CI tạm thời. Trình tải phải giả định một đĩa mới ở mọi lần chạy và phục hồi từ bộ nhớ đệm hoặc từ xa. `--cache-dir` là một cờ hạng nhất.
+- **Loại trùng trước phân tách token.** Phân tách token tốn kém. Chạy nó hai lần trên cùng tài liệu là gấp đôi chi phí cho cùng đường cong mất mát. Loại trùng ở thượng nguồn phân tách token, không phải hạ nguồn.
+- **Bản kê khai làm cổng hợp nhất.** Lần chạy huấn luyện đọc sha256 bản kê khai từ một commit được ghim. Một phiên bản tập dữ liệu mới đòi hỏi một commit bản kê khai mới. Liên kết giữa mã và dữ liệu là git, không phải truyền miệng.
 
 ## Ship It
 
-`outputs/skill-corpus-downloader.md` would, on a real project, describe which URLs feed the downloader, how the checkpoint directory is laid out, what shingle width and `(k, b, r)` triple the dedup uses, and where the manifest lives in version control. This lesson ships the engine.
+`outputs/skill-corpus-downloader.md` sẽ, trên một dự án thực, mô tả những URL nào cấp cho trình tải, cách thư mục checkpoint được bố trí, độ rộng shingle và bộ ba `(k, b, r)` nào việc loại trùng sử dụng, và bản kê khai nằm ở đâu trong kiểm soát phiên bản. Bài này cung cấp bộ máy.
 
 ## Exercises
 
-1. Add a `--shingle-width` flag and measure how the dedup verdict changes at widths 3, 5, 9. Defend the chosen default.
-2. Add gzip support next to zstd by sniffing the magic bytes. The downloader should not require the caller to specify the codec.
-3. Add a `--resume-only` mode that refuses to start a fresh download if no checkpoint is found. Useful in CI to keep one run from accidentally re-pulling 200 GB.
-4. Move the LSH index to a shelf or sqlite file and measure throughput vs the in-memory variant.
-5. Add a manifest sha256 check on startup. The downloader should fail closed if the manifest on disk disagrees with the manifest hash in `manifest.lock`.
+1. Thêm một cờ `--shingle-width` và đo kết luận loại trùng thay đổi thế nào ở các độ rộng 3, 5, 9. Bảo vệ lựa chọn mặc định.
+2. Thêm hỗ trợ gzip cạnh zstd bằng cách nhận diện các byte đặc trưng. Trình tải không nên yêu cầu bên gọi chỉ định codec.
+3. Thêm một chế độ `--resume-only` từ chối bắt đầu một bản tải mới nếu không tìm thấy checkpoint. Hữu ích trong CI để giữ một lần chạy khỏi vô tình kéo lại 200 GB.
+4. Chuyển chỉ mục LSH sang một file shelf hoặc sqlite và đo thông lượng so với biến thể trong bộ nhớ.
+5. Thêm một kiểm tra sha256 bản kê khai khi khởi động. Trình tải nên đóng khi thất bại nếu bản kê khai trên đĩa không khớp băm bản kê khai trong `manifest.lock`.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Shard | "A file" | A self-contained slice of the corpus with its own sha256, used as the unit of resume and dedup |
-| MinHash signature | "Fingerprint" | A `k`-component sketch of a set, where each component is the minimum of one independent hash over the set |
-| LSH band | "Bucket" | A group of `r` signature components used as a single bucket key for collision detection |
-| Verified bytes | "Resume offset" | Bytes on disk whose sha256 prefix matches the checkpoint; the only safe offset to resume from |
-| Manifest | "The index" | The single durable record of what the downloader produced, including content hashes |
+| Shard (Mảnh dữ liệu) | "Một file" | Một phần corpus tự chứa với sha256 riêng, được dùng làm đơn vị tiếp tục và loại trùng |
+| MinHash signature (Chữ ký MinHash) | "Dấu vân tay" | Một bản phác `k` thành phần của một tập, trong đó mỗi thành phần là giá trị nhỏ nhất của một hàm băm độc lập trên tập |
+| LSH band (Dải LSH) | "Nhóm" | Một nhóm `r` thành phần chữ ký được dùng làm một khóa nhóm duy nhất để phát hiện va chạm |
+| Verified bytes (Các byte đã xác minh) | "Độ lệch tiếp tục" | Các byte trên đĩa có tiền tố sha256 khớp checkpoint; độ lệch an toàn duy nhất để tiếp tục từ đó |
+| Manifest (Bản kê khai) | "Chỉ mục" | Bản ghi bền vững duy nhất về những gì trình tải tạo ra, bao gồm các băm nội dung |
 
 ## Further Reading
 
-- [RFC 7233](https://datatracker.ietf.org/doc/html/rfc7233) - HTTP Range requests, the resume protocol
-- [Zstandard format specification](https://datatracker.ietf.org/doc/html/rfc8478) - frame format that makes streaming decompression safe
-- [MinHash](https://en.wikipedia.org/wiki/MinHash) - the signature family this lesson uses
-- [Locality-sensitive hashing](https://en.wikipedia.org/wiki/Locality-sensitive_hashing) - the banding scheme behind the dedup threshold
-- Phase 19 · 43 - the HDF5 tokenized corpus the downloader feeds
-- Phase 19 · 44 - the cosine schedule that trains on the corpus
-- Phase 19 · 45 - the AMP loop that consumes the schedule
+- [RFC 7233](https://datatracker.ietf.org/doc/html/rfc7233) - các yêu cầu HTTP Range, giao thức tiếp tục
+- [Zstandard format specification](https://datatracker.ietf.org/doc/html/rfc8478) - định dạng frame khiến giải nén truyền luồng an toàn
+- [MinHash](https://en.wikipedia.org/wiki/MinHash) - họ chữ ký bài này sử dụng
+- [Locality-sensitive hashing](https://en.wikipedia.org/wiki/Locality-sensitive_hashing) - sơ đồ chia dải đằng sau ngưỡng loại trùng
+- Phase 19 · 43 - corpus được phân tách token HDF5 mà trình tải cấp dữ liệu
+- Phase 19 · 44 - lịch cosine huấn luyện trên corpus
+- Phase 19 · 45 - vòng lặp AMP tiêu thụ lịch
