@@ -1,6 +1,6 @@
 # Group Chat and Speaker Selection
 
-> Shared-conversation orchestration puts N agents in one conversation; a selector function (LLM, round-robin, or custom) picks who speaks next. This is the archetype of emergent multi-agent conversation — agents do not know their role in a static graph, they just react to the shared pool. AutoGen GroupChat and AG2 GroupChat are the reference implementations: AutoGen v0.2's GroupChat semantics were preserved in the AG2 fork; AutoGen v0.4 rewrote it as an event-driven actor model. Microsoft put AutoGen into maintenance mode in February 2026 and merged it with Semantic Kernel into Microsoft Agent Framework (RC February 2026). The GroupChat primitive survives in both AG2 and Microsoft Agent Framework — learn it once, use it everywhere.
+> Điều phối hội thoại dùng chung đặt N agent trong một cuộc hội thoại; một hàm chọn (LLM, luân phiên, hoặc tùy chỉnh) chọn ai nói tiếp theo. Đây là nguyên mẫu hội thoại đa agent nổi lên — các agent không biết vai trò của chúng trong một đồ thị tĩnh, chúng chỉ phản ứng với bể dùng chung. AutoGen GroupChat và AG2 GroupChat là các triển khai tham chiếu: ngữ nghĩa GroupChat của AutoGen v0.2 được bảo toàn trong bản fork AG2; AutoGen v0.4 viết lại nó thành một mô hình actor hướng sự kiện. Microsoft đưa AutoGen vào chế độ bảo trì tháng 2 năm 2026 và hợp nhất nó với Semantic Kernel thành Microsoft Agent Framework (RC tháng 2 năm 2026). Nguyên thủy GroupChat tồn tại trong cả AG2 và Microsoft Agent Framework — học nó một lần, dùng nó mọi nơi.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,9 +9,9 @@
 
 ## Problem
 
-Static graphs (LangGraph) are great when the workflow is known. Real conversations are not static: sometimes the coder asks the reviewer, sometimes the researcher, sometimes the writer. Hardcoding every possible handoff produces an edge explosion. You want *agents reacting to a shared pool*, with some function deciding who talks next.
+Các đồ thị tĩnh (LangGraph) rất tốt khi quy trình đã biết. Các cuộc hội thoại thực không tĩnh: đôi khi người viết mã hỏi người xem xét, đôi khi nhà nghiên cứu, đôi khi người viết. Mã hóa cứng mọi bàn giao có thể xảy ra tạo ra bùng nổ cạnh. Bạn muốn *các agent phản ứng với một bể dùng chung*, với một hàm nào đó quyết định ai nói tiếp theo.
 
-That is exactly what AutoGen GroupChat does.
+Đó chính xác là những gì AutoGen GroupChat làm.
 
 ## Concept
 
@@ -30,15 +30,15 @@ That is exactly what AutoGen GroupChat does.
                                   "next speaker = C"
 ```
 
-Every agent sees every message. A selector function is invoked at each turn to pick who speaks next.
+Mọi agent thấy mọi thông điệp. Một hàm chọn được gọi ở mỗi lượt để chọn ai nói tiếp theo.
 
 ### The three selector flavors
 
-**Round-robin.** Fixed cycle. Deterministic. Scales linearly in N but ignores context — a coder gets the turn even when the topic is legal review.
+**Luân phiên.** Chu kỳ cố định. Xác định. Mở rộng tuyến tính theo N nhưng bỏ qua ngữ cảnh — một người viết mã nhận lượt ngay cả khi chủ đề là xem xét pháp lý.
 
-**LLM-selected.** A call to an LLM that reads the recent pool and returns the best next speaker. Context-aware but slow: every turn adds an LLM call. AutoGen's default.
+**LLM lựa chọn.** Một lệnh gọi tới một LLM đọc bể gần đây và trả về người nói tiếp theo tốt nhất. Nhận biết ngữ cảnh nhưng chậm: mỗi lượt thêm một lệnh gọi LLM. Mặc định của AutoGen.
 
-**Custom.** A Python function with whatever logic you want. Typical: LLM-selected with fallback rules (e.g., "always give the verifier the turn after the coder").
+**Tùy chỉnh.** Một hàm Python với bất kỳ logic nào bạn muốn. Điển hình: do LLM lựa chọn với các quy tắc dự phòng (ví dụ: “luôn cho bộ xác minh lượt sau người viết mã”).
 
 ### The ConversableAgent API
 
@@ -52,43 +52,43 @@ chat = GroupChat(agents=[coder, reviewer, tester], messages=[])
 manager = GroupChatManager(groupchat=chat, llm_config={...})
 ```
 
-`GroupChatManager` holds the selector. When an agent completes a turn, the manager calls the selector, which returns the next agent. Loop continues until a termination condition.
+`GroupChatManager` giữ bộ chọn. Khi một agent hoàn thành một lượt, bộ quản lý gọi bộ chọn, trả về agent tiếp theo. Vòng lặp tiếp tục cho đến một điều kiện kết thúc.
 
 ### Termination
 
-Three common patterns:
+Ba mẫu phổ biến:
 
-- **Max rounds.** Hard cap on total turns.
-- **"TERMINATE" token.** Agents can emit a sentinel message; the manager stops when one appears.
-- **Goal-reached check.** A lightweight verifier runs each turn and stops the chat when done.
+- **Số vòng tối đa.** Mức trần cứng trên tổng số lượt.
+- **Token “TERMINATE”.** Các agent có thể phát một thông điệp sentinel; bộ quản lý dừng khi một thông điệp xuất hiện.
+- **Kiểm tra đã đạt mục tiêu.** Một bộ xác minh nhẹ chạy mỗi lượt và dừng trò chuyện khi xong.
 
 ### Lineage: forks and mergers
 
-In early 2025, Microsoft began a major rewrite of AutoGen (v0.4) around an event-driven actor model. The community forked AutoGen v0.2's GroupChat semantics as AG2, preserving the API that early adopters had integrated.
+Đầu năm 2025, Microsoft bắt đầu một bản viết lại lớn của AutoGen (v0.4) quanh một mô hình actor hướng sự kiện. Cộng đồng fork ngữ nghĩa GroupChat của AutoGen v0.2 thành AG2, bảo toàn API mà những bên áp dụng sớm đã tích hợp.
 
-In February 2026, Microsoft announced AutoGen would go to maintenance mode, with the event-driven actor model merging into **Microsoft Agent Framework** (RC February 2026, now merged with Semantic Kernel). The GroupChat concept survives in both tracks; the implementation details differ. AG2 is the preferred upstream for v0.2-compatible code.
+Tháng 2 năm 2026, Microsoft công bố AutoGen sẽ chuyển sang chế độ bảo trì, với mô hình actor hướng sự kiện hợp nhất vào **Microsoft Agent Framework** (RC tháng 2 năm 2026, giờ được hợp nhất với Semantic Kernel). Khái niệm GroupChat tồn tại trong cả hai nhánh; các chi tiết triển khai khác nhau. AG2 là nguồn thượng nguồn được ưu tiên cho mã tương thích v0.2.
 
 ### When GroupChat fits
 
-- **Emergent conversations.** You do not want to pre-wire every possible next-speaker.
-- **Role-mixing tasks.** Coder asks researcher, researcher asks archivist, archivist asks coder back. Flow is not a DAG.
-- **Exploratory problem-solving.** Think "brainstorm meeting," not "assembly line."
+- **Các cuộc hội thoại nổi lên.** Bạn không muốn kết nối trước mọi người nói tiếp theo có thể có.
+- **Các tác vụ trộn vai trò.** Người viết mã hỏi nhà nghiên cứu, nhà nghiên cứu hỏi người lưu trữ, người lưu trữ hỏi lại người viết mã. Luồng không phải một DAG.
+- **Giải quyết vấn đề mang tính khám phá.** Nghĩ “cuộc họp động não”, không phải “dây chuyền lắp ráp.”
 
 ### When it fails
 
-- **Strict determinism.** The LLM selector can be inconsistent. Same prompt, different runs, different next speakers.
-- **Sycophancy cascades.** Agents defer to whoever spoke most confidently. Counter-prompt explicitly.
-- **Context bloat.** Every agent reads every message; after 10 turns the context is huge. Use projections (Lesson 15) to scope views.
-- **Hot speakers.** One agent dominates the conversation because the selector favors its specialties. Introduce speaker balance as a selector feature.
+- **Tính xác định nghiêm ngặt.** Bộ chọn LLM có thể không nhất quán. Cùng prompt, các lần chạy khác nhau, các người nói tiếp theo khác nhau.
+- **Các chuỗi lan truyền xu nịnh.** Các agent nhường theo bên nói tự tin nhất. Prompt đối trọng tường minh.
+- **Phình ngữ cảnh.** Mọi agent đọc mọi thông điệp; sau 10 lượt ngữ cảnh khổng lồ. Sử dụng các phép chiếu (Bài 15) để giới hạn phạm vi các góc nhìn.
+- **Các người nói nóng.** Một agent thống trị hội thoại vì bộ chọn thiên về các chuyên môn của nó. Đưa cân bằng người nói vào như một tính năng bộ chọn.
 
 ### Group chat vs supervisor
 
-Same primitives, different defaults:
+Cùng các nguyên thủy, khác các mặc định:
 
-- Supervisor: one agent plans and others execute. Selector is "ask the planner what to do."
-- Group chat: all agents are peers; selector is a function over the shared pool.
+- Bộ giám sát: một agent lập kế hoạch và các agent khác thực thi. Bộ chọn là “hỏi bộ lập kế hoạch làm gì.”
+- Trò chuyện nhóm: mọi agent là ngang hàng; bộ chọn là một hàm trên bể dùng chung.
 
-Both use the four primitives from Lesson 04. Group chat defaults to LLM-selected orchestration and full-pool shared state.
+Cả hai sử dụng bốn nguyên thủy từ Bài 04. Trò chuyện nhóm mặc định dùng điều phối do LLM lựa chọn và trạng thái dùng chung toàn bể.
 
 ```figure
 swarm-speaker
@@ -96,11 +96,11 @@ swarm-speaker
 
 ## Build It
 
-`code/main.py` implements a GroupChat from scratch in stdlib. Three agents (coder, reviewer, manager), round-robin and LLM-selected variants, and a termination on a `TERMINATE` token.
+`code/main.py` triển khai một GroupChat từ đầu bằng thư viện chuẩn. Ba agent (người viết mã, người xem xét, người quản lý), các biến thể luân phiên và do LLM lựa chọn, và kết thúc trên một token `TERMINATE`.
 
-The demo prints the conversation transcript plus the selector's decision trace for both variants.
+Demo in bản ghi hội thoại cộng với dấu vết quyết định của bộ chọn cho cả hai biến thể.
 
-Run:
+Chạy:
 
 ```
 python3 code/main.py
@@ -108,42 +108,42 @@ python3 code/main.py
 
 ## Use It
 
-`outputs/skill-groupchat-selector.md` configures a GroupChat selector for a given task — round-robin vs LLM-selected vs custom, and what selector inputs (recent messages, agent specialties, turn counts) to use.
+`outputs/skill-groupchat-selector.md` cấu hình một bộ chọn GroupChat cho một tác vụ nhất định — luân phiên so với do LLM lựa chọn so với tùy chỉnh, và những đầu vào bộ chọn nào (các thông điệp gần đây, các chuyên môn agent, số lượt) cần dùng.
 
 ## Ship It
 
-Checklist:
+Danh sách kiểm tra:
 
-- **Max rounds cap.** Always. 10-20 for typical tasks.
-- **Speaker-balance metric.** Track turns per agent; alert when imbalance exceeds a threshold.
-- **Termination token.** `TERMINATE` or a dedicated verifier agent.
-- **Projection or scoped memory.** After ~10 messages, consider giving each agent only a scoped view to prevent context bloat.
-- **Selector logging.** For LLM-selected variants, log both the selector's input and its choice. Otherwise debugging is impossible.
+- **Mức trần số vòng tối đa.** Luôn luôn. 10-20 cho các tác vụ điển hình.
+- **Chỉ số cân bằng người nói.** Theo dõi số lượt theo từng agent; cảnh báo khi mất cân bằng vượt một ngưỡng.
+- **Token kết thúc.** `TERMINATE` hoặc một agent xác minh chuyên dụng.
+- **Phép chiếu hoặc bộ nhớ có phạm vi giới hạn.** Sau ~10 thông điệp, cân nhắc chỉ cho mỗi agent một góc nhìn có phạm vi giới hạn để ngăn phình ngữ cảnh.
+- **Ghi nhật ký bộ chọn.** Với các biến thể do LLM lựa chọn, ghi cả đầu vào của bộ chọn và lựa chọn của nó. Nếu không gỡ lỗi là không thể.
 
 ## Exercises
 
-1. Run `code/main.py`. Compare the conversation under round-robin vs LLM-selected. Which agent dominates under each?
-2. Add a "max-speaks-per-agent" rule in the selector. How does it affect the transcript?
-3. Implement a goal-reached termination: stop when the reviewer returns "approved." How often does it trigger before the round cap?
-4. Read the AutoGen stable docs on GroupChat (https://microsoft.github.io/autogen/stable/user-guide/core-user-guide/design-patterns/group-chat.html). Identify the default selector used by `GroupChatManager`.
-5. Read the AG2 repo (https://github.com/ag2ai/ag2) and compare its v0.2 GroupChat to the v0.4 event-driven version. What concrete property (throughput, fault-tolerance, composability) does v0.4 add?
+1. Chạy `code/main.py`. So sánh hội thoại dưới luân phiên với do LLM lựa chọn. Agent nào thống trị dưới mỗi cách?
+2. Thêm một quy tắc “số lần nói tối đa theo từng agent” trong bộ chọn. Nó ảnh hưởng bản ghi như thế nào?
+3. Triển khai một kết thúc đã đạt mục tiêu: dừng khi người xem xét trả về “đã phê duyệt.” Nó kích hoạt trước mức trần số vòng thường xuyên đến đâu?
+4. Đọc tài liệu ổn định AutoGen về GroupChat (https://microsoft.github.io/autogen/stable/user-guide/core-user-guide/design-patterns/group-chat.html). Xác định bộ chọn mặc định được `GroupChatManager` sử dụng.
+5. Đọc repo AG2 (https://github.com/ag2ai/ag2) và so sánh GroupChat v0.2 của nó với phiên bản hướng sự kiện v0.4. v0.4 bổ sung thuộc tính cụ thể nào (thông lượng, khả năng chịu lỗi, khả năng kết hợp)?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| GroupChat | "Agents in one chat room" | Shared message pool + selector function. AutoGen / AG2 primitive. |
-| Speaker selection | "Who talks next" | The function that picks the next agent. Round-robin, LLM-selected, or custom. |
-| GroupChatManager | "The meeting host" | AutoGen component that owns the selector and loops over turns. |
-| ConversableAgent | "The base agent" | AutoGen base class; an agent that can send and receive messages. |
-| Termination token | "The 'stop' word" | Sentinel string (usually `TERMINATE`) that ends the chat. |
-| Hot speaker | "One agent dominates" | Failure mode where the selector keeps picking the same agent. |
-| Context bloat | "Pool grows unbounded" | Each agent reads every prior message; context grows with turns. |
-| Projection | "Scoped view" | Role-specific view into the shared pool to prevent context bloat. |
+| GroupChat (Trò chuyện nhóm) | “Các agent trong một phòng trò chuyện” | Bể thông điệp dùng chung + hàm chọn. Nguyên thủy AutoGen / AG2. |
+| Speaker selection (Lựa chọn người nói) | “Ai nói tiếp theo” | Hàm chọn agent tiếp theo. Luân phiên, do LLM lựa chọn, hoặc tùy chỉnh. |
+| GroupChatManager | “Chủ cuộc họp” | Thành phần AutoGen sở hữu bộ chọn và lặp qua các lượt. |
+| ConversableAgent | “Agent cơ sở” | Lớp cơ sở AutoGen; một agent có thể gửi và nhận các thông điệp. |
+| Termination token (Token kết thúc) | “Từ 'dừng'” | Chuỗi sentinel (thường là `TERMINATE`) kết thúc trò chuyện. |
+| Hot speaker (Người nói nóng) | “Một agent thống trị” | Chế độ lỗi nơi bộ chọn liên tục chọn cùng agent. |
+| Context bloat (Phình ngữ cảnh) | “Bể tăng không giới hạn” | Mỗi agent đọc mọi thông điệp trước đó; ngữ cảnh tăng theo lượt. |
+| Projection (Phép chiếu) | “Góc nhìn có phạm vi giới hạn” | Góc nhìn riêng theo vai trò vào bể dùng chung để ngăn phình ngữ cảnh. |
 
 ## Further Reading
 
-- [AutoGen group chat docs](https://microsoft.github.io/autogen/stable/user-guide/core-user-guide/design-patterns/group-chat.html) — the reference implementation
-- [AG2 repo](https://github.com/ag2ai/ag2) — community AutoGen v0.2 continuation
-- [Microsoft Agent Framework docs](https://learn.microsoft.com/en-us/agent-framework/) — the merged successor, RC February 2026
-- [AutoGen v0.4 release notes](https://microsoft.github.io/autogen/stable/) — event-driven actor model rewrite details
+- [AutoGen group chat docs](https://microsoft.github.io/autogen/stable/user-guide/core-user-guide/design-patterns/group-chat.html) — triển khai tham chiếu
+- [AG2 repo](https://github.com/ag2ai/ag2) — sự tiếp nối AutoGen v0.2 của cộng đồng
+- [Microsoft Agent Framework docs](https://learn.microsoft.com/en-us/agent-framework/) — phiên bản kế nhiệm hợp nhất, RC tháng 2 năm 2026
+- [AutoGen v0.4 release notes](https://microsoft.github.io/autogen/stable/) — chi tiết bản viết lại mô hình actor hướng sự kiện
