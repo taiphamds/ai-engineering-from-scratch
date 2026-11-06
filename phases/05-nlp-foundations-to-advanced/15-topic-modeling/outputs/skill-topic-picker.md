@@ -7,11 +7,11 @@ lesson: 15
 tags: [nlp, topic-modeling]
 ---
 
-Given a corpus description (document count, avg length, domain, language, compute budget), output:
+Với một mô tả ngữ liệu (số tài liệu, độ dài trung bình, lĩnh vực, ngôn ngữ, ngân sách tính toán), xuất ra:
 
-1. Algorithm. LDA / NMF / BERTopic / Top2Vec / FASTopic. One-sentence reason.
-2. Configuration. Number of topics (start at ~sqrt(n_docs)), `min_df` / `max_df` filters, embedding model for neural approaches.
-3. Evaluation. Topic coherence (c_v) via `gensim.models.CoherenceModel`, topic diversity, plus a 20-sample human read.
-4. Failure mode to probe. For LDA, "junk topics" absorbing stopwords and frequent terms. For BERTopic, -1 outlier cluster swallowing ambiguous documents.
+1. Thuật toán. LDA / NMF / BERTopic / Top2Vec / FASTopic. Lý do trong một câu.
+2. Cấu hình. Số chủ đề (bắt đầu tại ~sqrt(n_docs)), các bộ lọc `min_df` / `max_df`, mô hình embedding cho các cách tiếp cận nơ-ron.
+3. Đánh giá. Độ gắn kết chủ đề (c_v) qua `gensim.models.CoherenceModel`, độ đa dạng chủ đề, cộng con người đọc 20 mẫu.
+4. Dạng lỗi cần thăm dò. Với LDA, "các chủ đề rác" hấp thụ stopword và các thuật ngữ thường gặp. Với BERTopic, cụm ngoại lệ -1 nuốt các tài liệu mơ hồ.
 
-Refuse BERTopic on documents longer than the embedding model's context window without a chunking strategy. Refuse LDA on very short text (tweets, reviews under 10 tokens) as coherence collapses. Flag any n_topics choice below 5 or above 200 as likely wrong for real data.
+Từ chối BERTopic trên các tài liệu dài hơn cửa sổ ngữ cảnh của mô hình embedding mà không có chiến lược chia khối. Từ chối LDA trên văn bản rất ngắn (tweet, đánh giá dưới 10 token) vì độ gắn kết sụp đổ. Đánh dấu bất kỳ lựa chọn n_topics nào dưới 5 hoặc trên 200 là có thể sai cho dữ liệu thực.
