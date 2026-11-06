@@ -1,6 +1,6 @@
 # Hybrid Memory: Vector + Graph + KV
 
-> Hybrid memory runs three stores in parallel — vector for semantic similarity, KV for fast fact lookup, graph for entity-relationship reasoning — with a scoring layer that fuses them on retrieval. This is a widely used production pattern for external memory; Mem0 (Chhikara et al., 2025) is one reference implementation.
+> Bộ nhớ lai chạy ba kho song song — vector cho độ tương tự ngữ nghĩa, KV cho tra cứu sự thật nhanh, đồ thị cho suy luận thực thể-quan hệ — với một lớp chấm điểm hợp nhất chúng khi truy xuất. Đây là một mẫu sản xuất được sử dụng rộng rãi cho bộ nhớ bên ngoài; Mem0 (Chhikara và cộng sự, 2025) là một triển khai tham chiếu.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,38 +9,38 @@
 
 ## Learning Objectives
 
-- Explain why a single store (vector only, graph only, KV only) is insufficient for agent memory.
-- Name Mem0's three parallel stores and what each one optimizes for.
-- Describe Mem0's fusion scoring — relevance, importance, recency — and why it is a weighted sum, not a hierarchy.
-- Implement a toy three-store memory in stdlib with an `add()` that writes to all three and a `search()` that fuses results.
+- Giải thích vì sao một kho duy nhất (chỉ vector, chỉ đồ thị, chỉ KV) là không đủ cho bộ nhớ agent.
+- Nêu tên ba kho song song của Mem0 và điều mỗi kho tối ưu hóa.
+- Mô tả chấm điểm hợp nhất của Mem0 — tính liên quan, tầm quan trọng, tính gần đây — và vì sao nó là một tổng có trọng số, không phải một hệ phân cấp.
+- Triển khai một bộ nhớ ba kho mô phỏng bằng thư viện chuẩn với một `add()` ghi vào cả ba và một `search()` hợp nhất các kết quả.
 
 ## The Problem
 
-One store is wrong for one of three query classes:
+Một kho là sai cho một trong ba lớp truy vấn:
 
-- **Semantic similarity** — "what did we discuss about agent drift last week?" Vector wins; KV and graph miss.
-- **Fact lookup** — "what is the user's phone number?" KV wins; vector is wasteful, graph is overkill.
-- **Relationship reasoning** — "which customers share the same billing entity?" Graph wins; vector and KV cannot answer.
+- **Độ tương tự ngữ nghĩa** — "chúng ta đã thảo luận gì về sự trôi dạt agent tuần trước?" Vector thắng; KV và đồ thị bỏ lỡ.
+- **Tra cứu sự thật** — "số điện thoại của người dùng là gì?" KV thắng; vector lãng phí, đồ thị quá mức cần thiết.
+- **Suy luận quan hệ** — "những khách hàng nào dùng chung thực thể thanh toán?" Đồ thị thắng; vector và KV không thể trả lời.
 
-Production agents issue all three in one session. A single-store memory is always wrong for two of them. Mem0's contribution is wiring all three behind a single `add`/`search` surface with a scoring function that fuses them.
+Các agent sản xuất phát ra cả ba trong một phiên. Một bộ nhớ một kho luôn sai cho hai trong số chúng. Đóng góp của Mem0 là nối cả ba phía sau một bề mặt `add`/`search` duy nhất với một hàm chấm điểm hợp nhất chúng.
 
 ## The Concept
 
 ### Three stores in parallel
 
-Mem0 (arXiv:2504.19413, April 2025) on `add(text, user_id, metadata)`:
+Mem0 (arXiv:2504.19413, tháng 4 năm 2025) trên `add(text, user_id, metadata)`:
 
-1. Extract candidate facts from the text (an LLM-driven step).
-2. Write each fact to the vector store (embedding) for semantic search.
-3. Write each fact to the KV store keyed on (user_id, fact_type, entity) for O(1) lookup.
-4. Write each fact to the graph store (Mem0g) as typed edges for relationship queries.
+1. Trích xuất các sự thật ứng viên từ văn bản (một bước do LLM điều khiển).
+2. Ghi mỗi sự thật vào kho vector (embedding) cho tìm kiếm ngữ nghĩa.
+3. Ghi mỗi sự thật vào kho KV được đánh khóa theo (user_id, fact_type, entity) cho tra cứu O(1).
+4. Ghi mỗi sự thật vào kho đồ thị (Mem0g) dưới dạng các cạnh có kiểu cho các truy vấn quan hệ.
 
-On `search(query, user_id)`:
+Trên `search(query, user_id)`:
 
-1. Vector store returns top-k by embedding cosine.
-2. KV store returns direct hits keyed on query-derived (user_id, type, entity).
-3. Graph store returns subgraph reachable from query entities.
-4. A scoring layer fuses the three.
+1. Kho vector trả về top-k theo cosine embedding.
+2. Kho KV trả về các kết quả trúng trực tiếp được đánh khóa theo (user_id, type, entity) suy ra từ truy vấn.
+3. Kho đồ thị trả về đồ thị con có thể đi tới từ các thực thể truy vấn.
+4. Một lớp chấm điểm hợp nhất cả ba.
 
 ### Fusion scoring
 
@@ -50,43 +50,43 @@ score = w_relevance * relevance(q, record)
       + w_recency * recency(record)
 ```
 
-- **Relevance** — vector cosine, KV exact match, graph path weight.
-- **Importance** — tagged at write time or learned (some facts matter more: names, IDs, policies).
-- **Recency** — exponential decay over time since last write or read.
+- **Tính liên quan** — cosine vector, khớp chính xác KV, trọng số đường đi đồ thị.
+- **Tầm quan trọng** — được gắn thẻ tại thời điểm ghi hoặc được học (một số sự thật quan trọng hơn: tên, ID, chính sách).
+- **Tính gần đây** — suy giảm theo hàm mũ theo thời gian kể từ lần ghi hoặc đọc cuối.
 
-Weights are tuned per product. Higher `w_recency` for chat agents; higher `w_importance` for compliance agents; higher `w_relevance` for retrieval agents.
+Các trọng số được điều chỉnh theo sản phẩm. `w_recency` cao hơn cho các agent trò chuyện; `w_importance` cao hơn cho các agent tuân thủ; `w_relevance` cao hơn cho các agent truy xuất.
 
 ### Mem0g and temporal reasoning
 
-Mem0g adds a conflict detector. When a new fact contradicts an existing edge, the existing edge is marked invalid but not deleted. Temporal queries ("what was the user's city in March?") traverse the valid-at-time subgraph.
+Mem0g thêm một bộ phát hiện xung đột. Khi một sự thật mới mâu thuẫn với một cạnh hiện có, cạnh hiện có được đánh dấu không hợp lệ nhưng không bị xóa. Các truy vấn thời gian ("thành phố của người dùng vào tháng Ba là gì?") duyệt đồ thị con hợp lệ tại thời điểm đó.
 
-This is the compliance-grade behavior Letta's invalidation pattern generalizes.
+Đây là hành vi cấp tuân thủ mà mẫu vô hiệu hóa của Letta khái quát hóa.
 
 ### Benchmark numbers
 
-The Mem0 paper reports (2025):
+Bài báo Mem0 báo cáo (2025):
 
-- **LoCoMo** (long-form conversation memory): 91.6
-- **LongMemEval** (long-horizon episodic memory): 93.4
-- **BEAM 1M** (1M-token memory benchmark): 64.1
+- **LoCoMo** (bộ nhớ hội thoại dạng dài): 91.6
+- **LongMemEval** (bộ nhớ tình tiết tầm dài): 93.4
+- **BEAM 1M** (benchmark bộ nhớ 1M token): 64.1
 
-Comparison baselines (full-context 128k LLM, flat vector store, flat KV) all lose by 10+ points. Benchmarks alone don't justify choice — operational shape does — but the numbers show the fusion design is not a rounding error.
+Các đường cơ sở so sánh (LLM toàn bộ ngữ cảnh 128k, kho vector phẳng, KV phẳng) đều thua 10+ điểm. Chỉ các benchmark không biện minh cho lựa chọn — hình thái vận hành làm điều đó — nhưng các con số cho thấy thiết kế hợp nhất không phải một sai số làm tròn.
 
 ### Scope taxonomy
 
-Mem0 splits memory by scope:
+Mem0 phân tách bộ nhớ theo phạm vi:
 
-- **User memory** — persists across sessions, keyed on `user_id`.
-- **Session memory** — persists within one thread.
-- **Agent memory** — per-agent instance state.
+- **Bộ nhớ người dùng** — lưu giữ xuyên các phiên, được đánh khóa theo `user_id`.
+- **Bộ nhớ phiên** — lưu giữ trong một luồng.
+- **Bộ nhớ agent** — trạng thái của từng thể hiện agent.
 
-Every write picks one scope. Retrieval can query across scopes with per-scope weights. Mixing scopes without thought is how you get "the assistant told Alice about Bob's project" incidents.
+Mọi lần ghi chọn một phạm vi. Truy xuất có thể truy vấn xuyên các phạm vi với các trọng số cho từng phạm vi. Trộn các phạm vi mà không suy nghĩ là cách bạn có các sự cố "trợ lý đã kể cho Alice về dự án của Bob".
 
 ### Where this pattern goes wrong
 
-- **Embedding drift.** Vector results that look right on the first hundred queries degrade as the corpus grows. Add periodic re-embedding of the top-N-used records.
-- **KV schema creep.** `(user_id, type, entity)` looks simple until every team adds their own `type`. Audit the type set quarterly.
-- **Graph explosion.** One noisy extractor adds 50 edges per message. Cap graph writes per `add` call; drop low-confidence edges.
+- **Trôi dạt embedding.** Các kết quả vector trông đúng trên một trăm truy vấn đầu suy giảm khi kho ngữ liệu tăng lên. Thêm việc tạo lại embedding định kỳ cho các bản ghi được dùng nhiều nhất top-N.
+- **Schema KV mở rộng dần.** `(user_id, type, entity)` trông đơn giản cho đến khi mỗi nhóm thêm `type` riêng. Kiểm toán tập kiểu hàng quý.
+- **Bùng nổ đồ thị.** Một bộ trích xuất nhiễu thêm 50 cạnh cho mỗi thông điệp. Giới hạn các lần ghi đồ thị cho mỗi lời gọi `add`; loại bỏ các cạnh độ tin cậy thấp.
 
 ```figure
 ae-memory-fusion
@@ -94,56 +94,56 @@ ae-memory-fusion
 
 ## Build It
 
-`code/main.py` implements the three-store pattern in stdlib:
+`code/main.py` triển khai mẫu ba kho bằng thư viện chuẩn:
 
-- `VectorStore` — naive token-overlap similarity as an embedding stand-in.
-- `KVStore` — dict keyed on `(user_id, fact_type, entity)`.
-- `GraphStore` — typed edges (subject, relation, object, valid).
-- `Mem0` — top-level facade with `add()`, `search()`, fusion scoring, and scope-aware retrieval.
-- A worked trace on a multi-user, multi-session conversation.
+- `VectorStore` — độ tương tự chồng lấp token đơn giản làm đại diện cho embedding.
+- `KVStore` — dict được đánh khóa theo `(user_id, fact_type, entity)`.
+- `GraphStore` — các cạnh có kiểu (subject, relation, object, valid).
+- `Mem0` — facade cấp cao với `add()`, `search()`, chấm điểm hợp nhất và truy xuất có nhận biết phạm vi.
+- Một trace được giải đầy đủ trên một hội thoại nhiều người dùng, nhiều phiên.
 
-Run it:
+Chạy nó:
 
 ```
 python3 code/main.py
 ```
 
-The output shows three separate recall paths plus the fused top-k. Flip the scoring weights at the top of `main()` and watch the ranking change.
+Đầu ra cho thấy ba đường hồi tưởng riêng cộng top-k đã hợp nhất. Đổi các trọng số chấm điểm ở đầu `main()` và xem xếp hạng thay đổi.
 
 ## Use It
 
-- **Mem0 (Apache 2.0)** — production-ready. Self-host with Postgres + Qdrant + Neo4j, or use the managed cloud.
-- **Letta** — three-tier core/recall/archival; bring your own vector and graph backends.
-- **Zep** — commercial alternative with temporal KG and fact extraction.
-- **Custom builds** — when you need exact control over the extractor (compliance) or fusion weights (voice agents where recency dominates).
+- **Mem0 (Apache 2.0)** — sẵn sàng cho sản xuất. Tự host với Postgres + Qdrant + Neo4j, hoặc sử dụng đám mây được quản lý.
+- **Letta** — ba tầng cốt lõi/hồi tưởng/lưu trữ; mang các backend vector và đồ thị của riêng bạn.
+- **Zep** — lựa chọn thương mại với KG thời gian và trích xuất sự thật.
+- **Các bản dựng tùy chỉnh** — khi bạn cần kiểm soát chính xác bộ trích xuất (tuân thủ) hoặc các trọng số hợp nhất (các agent giọng nói nơi tính gần đây chiếm ưu thế).
 
 ## Ship It
 
-`outputs/skill-hybrid-memory.md` generates a three-store memory scaffold with a fusion scorer, scope taxonomy, and temporal invalidation wired in.
+`outputs/skill-hybrid-memory.md` tạo một khung bộ nhớ ba kho với một bộ chấm điểm hợp nhất, hệ phân loại phạm vi và vô hiệu hóa theo thời gian được nối sẵn.
 
 ## Exercises
 
-1. Replace the toy vector similarity with a real embedding model (sentence-transformers, Ollama, OpenAI embeddings). Measure recall@10 on a synthetic long conversation. Does the ranking drift over 1000 writes?
-2. Add a temporal query: `search(query, as_of=timestamp)`. Return only records valid at or before that time. Which store needs the most work?
-3. Implement a conflict detector: if an incoming fact contradicts a graph edge, invalidate the old edge and log both. Test on "user lives in Berlin" -> "user lives in Lisbon."
-4. Port the fusion scorer to include a `user_feedback` dimension (thumbs-up on retrieved records). How do you prevent gaming (the agent only returns records it already liked)?
-5. Read the Mem0 docs (`docs.mem0.ai`). Port the toy to `mem0` client calls. Compare retrieval quality on the same 20 test queries.
+1. Thay độ tương tự vector mô phỏng bằng một mô hình embedding thực (sentence-transformers, Ollama, OpenAI embeddings). Đo recall@10 trên một hội thoại dài tổng hợp. Xếp hạng có trôi dạt qua 1000 lần ghi không?
+2. Thêm một truy vấn thời gian: `search(query, as_of=timestamp)`. Chỉ trả về các bản ghi hợp lệ tại hoặc trước thời điểm đó. Kho nào cần nhiều công việc nhất?
+3. Triển khai một bộ phát hiện xung đột: nếu một sự thật đi vào mâu thuẫn với một cạnh đồ thị, vô hiệu hóa cạnh cũ và ghi log cả hai. Kiểm thử trên "người dùng sống ở Berlin" -> "người dùng sống ở Lisbon."
+4. Chuyển bộ chấm điểm hợp nhất sang bao gồm một chiều `user_feedback` (thích trên các bản ghi được truy xuất). Bạn ngăn lách hệ thống như thế nào (agent chỉ trả về các bản ghi nó đã thích)?
+5. Đọc tài liệu Mem0 (`docs.mem0.ai`). Chuyển bản mô phỏng sang các lời gọi client `mem0`. So sánh chất lượng truy xuất trên cùng 20 truy vấn kiểm thử.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |------|----------------|------------------------|
-| Hybrid memory | "Vector plus graph plus KV" | Three stores written in parallel, fused on retrieval |
-| Fact extraction | "Memory ingestion" | LLM step that breaks text into (entity, relation, fact) tuples |
-| Fusion scoring | "Relevance ranking" | Weighted sum of relevance, importance, recency |
-| Scope | "Memory namespace" | user / session / agent — determines who sees what |
-| Mem0g | "Memory graph" | Typed edges with temporal validity for relationship queries |
-| Temporal invalidation | "Soft delete" | Mark contradicted edges invalid; never delete |
-| Embedding drift | "Retrieval rot" | Vector quality degrades as corpus grows; re-embed periodically |
+| Hybrid memory (Bộ nhớ lai) | "Vector cộng đồ thị cộng KV" | Ba kho được ghi song song, hợp nhất khi truy xuất |
+| Fact extraction (Trích xuất sự thật) | "Nạp bộ nhớ" | Bước LLM chia văn bản thành các bộ (thực thể, quan hệ, sự thật) |
+| Fusion scoring (Chấm điểm hợp nhất) | "Xếp hạng tính liên quan" | Tổng có trọng số của tính liên quan, tầm quan trọng, tính gần đây |
+| Scope (Phạm vi) | "Không gian tên bộ nhớ" | người dùng / phiên / agent — quyết định ai nhìn thấy gì |
+| Mem0g | "Đồ thị bộ nhớ" | Các cạnh có kiểu với hiệu lực thời gian cho các truy vấn quan hệ |
+| Temporal invalidation (Vô hiệu hóa theo thời gian) | "Xóa mềm" | Đánh dấu các cạnh bị mâu thuẫn là không hợp lệ; không bao giờ xóa |
+| Embedding drift (Trôi dạt embedding) | "Truy xuất mục nát" | Chất lượng vector suy giảm khi kho ngữ liệu tăng; tạo lại embedding định kỳ |
 
 ## Further Reading
 
-- [Chhikara et al., Mem0 (arXiv:2504.19413)](https://arxiv.org/abs/2504.19413) — the original paper
-- [Mem0 docs](https://docs.mem0.ai/platform/overview) — production API, SDKs, managed cloud
-- [Packer et al., MemGPT (arXiv:2310.08560)](https://arxiv.org/abs/2310.08560) — the virtual-context predecessor
-- [Letta, Memory Blocks blog](https://www.letta.com/blog/memory-blocks) — the three-tier sibling design
+- [Chhikara et al., Mem0 (arXiv:2504.19413)](https://arxiv.org/abs/2504.19413) — bài báo gốc
+- [Mem0 docs](https://docs.mem0.ai/platform/overview) — API sản xuất, các SDK, đám mây được quản lý
+- [Packer et al., MemGPT (arXiv:2310.08560)](https://arxiv.org/abs/2310.08560) — tiền thân ngữ cảnh ảo
+- [Letta, Memory Blocks blog](https://www.letta.com/blog/memory-blocks) — thiết kế ba tầng cùng họ

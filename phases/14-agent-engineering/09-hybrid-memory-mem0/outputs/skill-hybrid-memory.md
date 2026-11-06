@@ -7,26 +7,26 @@ lesson: 09
 tags: [memory, mem0, vector, graph, kv, fusion, scope]
 ---
 
-Given a target runtime, a vector backend (Qdrant, pgvector, Chroma, sqlite-vec), a KV backend (Postgres, Redis, dict), and a graph backend (Neo4j, in-memory edges), produce a fused memory system.
+Với một runtime đích, một backend vector (Qdrant, pgvector, Chroma, sqlite-vec), một backend KV (Postgres, Redis, dict) và một backend đồ thị (Neo4j, các cạnh trong bộ nhớ), tạo một hệ thống bộ nhớ hợp nhất.
 
-Produce:
+Tạo:
 
-1. Three store classes behind an `add(text, user_id, session_id, scope, importance, tags)` facade. On write, the extractor decomposes `text` into records, KV triples, and graph triples. No store is optional.
-2. A fusion scorer `score = w_rel * relevance + w_imp * importance + w_rec * recency`. Expose all three weights as config. Tune per product, not per call.
-3. Scope taxonomy: `user`, `session`, `agent`. Retrieval MUST respect scope. A user query must never leak another user's records.
-4. Temporal invalidation. Contradictions mark old edges/records invalid; never delete. Expose `search(query, as_of=timestamp)` for historical queries.
-5. An extractor interface. The default can be LLM-driven; allow a deterministic regex fallback for tests. Cap graph edges per `add()` to prevent explosion.
+1. Ba lớp kho phía sau một facade `add(text, user_id, session_id, scope, importance, tags)`. Khi ghi, bộ trích xuất phân rã `text` thành các bản ghi, bộ ba KV và bộ ba đồ thị. Không kho nào là tùy chọn.
+2. Một bộ chấm điểm hợp nhất `score = w_rel * relevance + w_imp * importance + w_rec * recency`. Cung cấp cả ba trọng số dưới dạng cấu hình. Điều chỉnh theo sản phẩm, không phải theo lời gọi.
+3. Hệ phân loại phạm vi: `user`, `session`, `agent`. Truy xuất PHẢI tôn trọng phạm vi. Một truy vấn người dùng không bao giờ được làm rò rỉ các bản ghi của người dùng khác.
+4. Vô hiệu hóa theo thời gian. Các mâu thuẫn đánh dấu các cạnh/bản ghi cũ không hợp lệ; không bao giờ xóa. Cung cấp `search(query, as_of=timestamp)` cho các truy vấn lịch sử.
+5. Một giao diện bộ trích xuất. Mặc định có thể do LLM điều khiển; cho phép một phương án dự phòng regex mang tính xác định cho các kiểm thử. Giới hạn các cạnh đồ thị cho mỗi `add()` để ngăn bùng nổ.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Single-store memory described as "Mem0-shaped." Vector-only, KV-only, graph-only products are fine but are not hybrid memory. Do not misname them.
-- Cross-scope retrieval without per-scope weights or an explicit `scope=` filter. Scope leak is a compliance and privacy incident.
-- Deleting on contradiction. Invalidate and time-stamp. Deletion hides bugs and breaks audits.
+- Bộ nhớ một kho được mô tả là "có dạng Mem0." Các sản phẩm chỉ vector, chỉ KV, chỉ đồ thị đều ổn nhưng không phải bộ nhớ lai. Đừng gọi sai tên chúng.
+- Truy xuất xuyên phạm vi mà không có các trọng số cho từng phạm vi hoặc một bộ lọc `scope=` tường minh. Rò rỉ phạm vi là một sự cố tuân thủ và riêng tư.
+- Xóa khi có mâu thuẫn. Vô hiệu hóa và đóng dấu thời gian. Xóa che giấu lỗi và phá vỡ kiểm toán.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the user asks for "no importance weighting," refuse. Flat relevance ranking over a million records is a retrieval failure waiting to happen.
-- If the graph backend has no conflict detector, refuse to call the resulting system "Mem0-shaped." Downgrade the name.
-- If the product involves PII (medical, legal, HR), refuse to ship with an extractor that has not been audited by the product owner.
+- Nếu người dùng yêu cầu "không gán trọng số tầm quan trọng," từ chối. Xếp hạng tính liên quan phẳng trên một triệu bản ghi là một thất bại truy xuất đang chờ xảy ra.
+- Nếu backend đồ thị không có bộ phát hiện xung đột, từ chối gọi hệ thống kết quả là "có dạng Mem0." Hạ mức tên gọi.
+- Nếu sản phẩm liên quan đến PII (y tế, pháp lý, nhân sự), từ chối phát hành với một bộ trích xuất chưa được chủ sản phẩm kiểm toán.
 
-Output: one file per store plus `memory.py` (facade), `config.py` (weights), `README.md` explaining the fusion weights, scope policy, extractor contract, and invalidation semantics. End with "what to read next" pointing to Lesson 10 if the agent needs to learn new skills, Lesson 23 if OTel spans are required on memory ops, or Lesson 27 for untrusted-input handling on retrieval.
+Đầu ra: một file cho mỗi kho cộng `memory.py` (facade), `config.py` (các trọng số), `README.md` giải thích các trọng số hợp nhất, chính sách phạm vi, hợp đồng bộ trích xuất và ngữ nghĩa vô hiệu hóa. Kết thúc bằng "đọc gì tiếp theo" chỉ đến Bài 10 nếu agent cần học các skill mới, Bài 23 nếu các span OTel được yêu cầu trên các thao tác bộ nhớ hoặc Bài 27 cho xử lý đầu vào không đáng tin cậy khi truy xuất.
