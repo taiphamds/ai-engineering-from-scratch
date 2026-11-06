@@ -1,6 +1,6 @@
 # Multimodal Agents and Computer-Use (Capstone)
 
-> The 2026 frontier product is a multimodal agent that reads screenshots, clicks buttons, navigates web UIs, fills forms, and completes workflows end-to-end. SeeClick and CogAgent (2024) proved the GUI-grounding primitive. Ferret-UI added mobile. ChartAgent introduced visual tool-use for charts. VisualWebArena and AgentVista (2026) are the benchmarks the frontier chases — and even Gemini 3 Pro and Claude Opus 4.7 score ~30% on AgentVista's hard tasks. This capstone pulls together every thread of Phase 12: perception (high-res VLM), reasoning (LLM with tool use), grounding (coordinate output), long-horizon memory, and evaluation.
+> Sản phẩm tiên tiến nhất năm 2026 là agent đa phương thức đọc ảnh chụp màn hình, nhấp nút, điều hướng giao diện web, điền biểu mẫu và hoàn tất quy trình đầu cuối. SeeClick và CogAgent (2024) chứng minh thành phần cơ bản định vị GUI. Ferret-UI thêm di động. ChartAgent giới thiệu sử dụng công cụ thị giác cho biểu đồ. VisualWebArena và AgentVista (2026) là các benchmark mà mức tiên tiến nhất theo đuổi — và ngay cả Gemini 3 Pro và Claude Opus 4.7 cũng đạt ~30% trên các tác vụ khó của AgentVista. Bài tổng kết này kết nối mọi mạch của Giai đoạn 12: nhận thức (VLM độ phân giải cao), suy luận (LLM có sử dụng công cụ), định vị (đầu ra tọa độ), bộ nhớ dài hạn và đánh giá.
 
 **Type:** Capstone
 **Languages:** Python (stdlib, action schema + agent loop skeleton)
@@ -9,116 +9,116 @@
 
 ## Learning Objectives
 
-- Design a multimodal agent loop: perceive → reason → act → observe → repeat.
-- Build a GUI grounding output schema (click coordinates, type text, scroll, drag) the VLM can emit as JSON.
-- Compare screenshot-only agents vs accessibility-tree agents vs hybrid agents.
-- Set up a multimodal agent benchmark evaluation on a small VisualWebArena slice.
+- Thiết kế vòng lặp agent đa phương thức: nhận thức → suy luận → hành động → quan sát → lặp lại.
+- Xây dựng lược đồ đầu ra định vị GUI (tọa độ nhấp, nhập văn bản, cuộn, kéo) mà VLM có thể phát dưới dạng JSON.
+- So sánh agent chỉ ảnh chụp màn hình với agent cây trợ năng với agent lai.
+- Thiết lập đánh giá benchmark agent đa phương thức trên một phần nhỏ VisualWebArena.
 
 ## The Problem
 
-A booking-site workflow: "find me a flight to Tokyo for April 15, aisle seat under $800, book it."
+Quy trình trang đặt vé: "tìm cho tôi chuyến bay đến Tokyo ngày 15 tháng 4, ghế cạnh lối đi dưới $800, đặt vé."
 
-A multimodal agent needs to:
+Agent đa phương thức cần:
 
-1. Take a screenshot of the browser.
-2. Parse the screenshot + URL + goal into a plan.
-3. Emit a structured action: click (at x,y), type "Tokyo" (at element E), scroll down, select (radio button).
-4. Apply the action to the browser.
-5. Observe the new state (next screenshot).
-6. Repeat until the task is done.
+1. Chụp ảnh màn hình trình duyệt.
+2. Phân tích ảnh chụp màn hình + URL + mục tiêu thành kế hoạch.
+3. Phát hành động có cấu trúc: nhấp (tại x,y), nhập "Tokyo" (tại phần tử E), cuộn xuống, chọn (nút radio).
+4. Áp dụng hành động vào trình duyệt.
+5. Quan sát trạng thái mới (ảnh chụp màn hình tiếp theo).
+6. Lặp lại đến khi tác vụ xong.
 
-Each step is a multimodal VLM call. The VLM output must be parseable JSON. Errors compound across steps, so recovery matters.
+Mỗi bước là một lời gọi VLM đa phương thức. Đầu ra VLM phải là JSON phân tích cú pháp được. Lỗi tích lũy qua các bước, nên phục hồi quan trọng.
 
 ## The Concept
 
 ### GUI grounding — the primitive
 
-GUI grounding is: given a screenshot and a natural language instruction, output the (x, y) coordinate to click (or other action).
+Định vị GUI là: với ảnh chụp màn hình và chỉ dẫn ngôn ngữ tự nhiên, xuất tọa độ (x, y) để nhấp (hoặc hành động khác).
 
-SeeClick (arXiv:2401.10935) was the first open result at scale: fine-tune a VLM on synthetic + real GUI data, output coordinates as plain text tokens. Works.
+SeeClick (arXiv:2401.10935) là kết quả mở đầu tiên ở quy mô lớn: tinh chỉnh VLM trên dữ liệu GUI tổng hợp + thực, xuất tọa độ dưới dạng token văn bản thuần. Hoạt động.
 
-CogAgent (arXiv:2312.08914) added 1120x1120 high-resolution encoding for dense UIs. Score: ~84% on web navigation.
+CogAgent (arXiv:2312.08914) thêm mã hóa độ phân giải cao 1120x1120 cho giao diện dày đặc. Điểm: ~84% trên điều hướng web.
 
-Ferret-UI (arXiv:2404.05719) focuses on mobile UIs, integrates with iOS accessibility data.
+Ferret-UI (arXiv:2404.05719) tập trung giao diện di động, tích hợp dữ liệu trợ năng iOS.
 
-Output format is usually JSON:
+Định dạng đầu ra thường là JSON:
 
 ```json
 {"action": "click", "x": 384, "y": 220, "element_desc": "Search button"}
 ```
 
-The `element_desc` helps recovery: if coordinates drift between screenshots, the semantic hint lets the system re-ground.
+`element_desc` giúp phục hồi: nếu tọa độ dịch chuyển giữa các ảnh chụp màn hình, gợi ý ngữ nghĩa cho hệ thống định vị lại.
 
 ### Action schemas
 
-A typical action schema has 6-10 action types:
+Lược đồ hành động điển hình có 6-10 loại hành động:
 
 - `click`: (x, y)
-- `type`: (text, x?, y?)
-- `scroll`: (direction, amount)
+- `type`: (văn bản, x?, y?)
+- `scroll`: (hướng, lượng)
 - `drag`: (x0, y0, x1, y1)
-- `select`: (option_index)
+- `select`: (chỉ số tùy chọn)
 - `hover`: (x, y)
 - `navigate`: (url)
 - `wait`: (ms)
-- `done`: (success, explanation)
+- `done`: (thành công, giải thích)
 
-The agent emits one action per step. The browser wrapper executes and returns the new state.
+Agent phát một hành động mỗi bước. Lớp bọc trình duyệt thực thi và trả trạng thái mới.
 
 ### Screenshot-only vs accessibility-tree
 
-Two input modes:
+Hai chế độ đầu vào:
 
-- Screenshot-only: full image, no structural info. Most general; works on any app.
-- Accessibility tree: structured DOM / iOS accessibility info. Much more reliable for grounding; works where the tree is available.
-- Hybrid: both, with the tree as a reliable grounder for atomic actions and the screenshot for semantic context.
+- Chỉ ảnh chụp màn hình: toàn bộ ảnh, không thông tin cấu trúc. Tổng quát nhất; hoạt động trên mọi ứng dụng.
+- Cây trợ năng: thông tin DOM / trợ năng iOS có cấu trúc. Đáng tin cậy hơn nhiều để định vị; hoạt động nơi có cây.
+- Lai: cả hai, với cây làm bộ định vị đáng tin cậy cho hành động đơn lẻ và ảnh chụp màn hình cho ngữ cảnh ngữ nghĩa.
 
-Production agents use hybrid when possible. Browser automation (Selenium + accessibility) always has the tree; desktop apps sometimes do.
+Agent sản xuất dùng lai khi có thể. Tự động hóa trình duyệt (Selenium + trợ năng) luôn có cây; ứng dụng máy tính đôi khi có.
 
 ### Long-horizon memory
 
-A 20-step workflow generates 20 screenshots. The VLM's context fills up fast. Three compression strategies:
+Quy trình 20 bước tạo 20 ảnh chụp màn hình. Ngữ cảnh VLM đầy nhanh chóng. Ba chiến lược nén:
 
-- Summary-chain: after every 5 steps, summarize what has happened, drop old screenshots.
-- Skip-frame: keep the first, last, and every 3rd screenshot.
-- Tool-recorded log: execute actions, keep a text log of what was done; don't re-look at old screenshots.
+- Chuỗi tóm tắt: sau mỗi 5 bước, tóm tắt những gì đã xảy ra, bỏ ảnh chụp màn hình cũ.
+- Bỏ khung hình: giữ ảnh chụp màn hình đầu tiên, cuối cùng và mỗi ảnh thứ 3.
+- Nhật ký do công cụ ghi: thực thi hành động, giữ nhật ký văn bản những gì đã làm; không nhìn lại ảnh chụp màn hình cũ.
 
-Claude's computer-use API uses the log pattern. Simpler, more reliable.
+API sử dụng máy tính của Claude dùng mẫu nhật ký. Đơn giản hơn, đáng tin cậy hơn.
 
 ### Visual tool use
 
-ChartAgent (arXiv:2510.04514) introduces visual tool use for chart understanding: crop, zoom, OCR, call external detection. The agent can output "crop to region (100, 200, 300, 400) then call OCR" as a tool call. The tool returns text; the VLM continues reasoning.
+ChartAgent (arXiv:2510.04514) giới thiệu sử dụng công cụ thị giác để hiểu biểu đồ: cắt, phóng to, OCR, gọi phát hiện bên ngoài. Agent có thể xuất "cắt đến vùng (100, 200, 300, 400) rồi gọi OCR" dưới dạng lời gọi công cụ. Công cụ trả văn bản; VLM tiếp tục suy luận.
 
-This pattern generalizes: set-of-mark prompting, region annotation, and external detection tools all fit the same "output a tool call, receive a structured response" schema.
+Mẫu này khái quát hóa: prompting set-of-mark, chú giải vùng và công cụ phát hiện bên ngoài đều phù hợp cùng lược đồ "xuất lời gọi công cụ, nhận phản hồi có cấu trúc".
 
 ### The 2026 benchmarks
 
-- ScreenSpot-Pro. GUI grounding on ~1k web screenshots. Open SOTA Qwen2.5-VL-72B ~85%. Frontier ~90%.
-- VisualWebArena. End-to-end web tasks (shop, forum, classifieds). Open SOTA ~20%. Gemini 3 Pro ~27%.
-- AgentVista (arXiv:2602.23166). The hardest 2026 benchmark. Realistic workflows across 12 domains. Frontier models score 27-40%; open models 10-20%.
-- WebArena / WebShop. Older benchmarks; saturated by frontier.
+- ScreenSpot-Pro. Định vị GUI trên ~1k ảnh chụp màn hình web. SOTA mở Qwen2.5-VL-72B ~85%. Mức tiên tiến nhất ~90%.
+- VisualWebArena. Tác vụ web đầu cuối (cửa hàng, diễn đàn, rao vặt). SOTA mở ~20%. Gemini 3 Pro ~27%.
+- AgentVista (arXiv:2602.23166). Benchmark khó nhất năm 2026. Quy trình thực tế trên 12 miền. Mô hình tiên tiến nhất đạt 27-40%; mô hình mở 10-20%.
+- WebArena / WebShop. Benchmark cũ hơn; đã bão hòa bởi mức tiên tiến nhất.
 
 ### Why it's still hard
 
-Agent performance bottlenecks:
+Nút thắt hiệu năng agent:
 
-1. Visual grounding at fine scale. "Click the small X" fails often at mobile resolution.
-2. Long-horizon planning. After 10 actions, the agent drifts from the goal.
-3. Error recovery. When a click fails (wrong button), detecting + recovering is rarely trained data.
-4. Cross-page context. Jumping between tabs or long forms loses state.
+1. Định vị thị giác ở quy mô tinh. "Nhấp dấu X nhỏ" thường thất bại ở độ phân giải di động.
+2. Lập kế hoạch dài hạn. Sau 10 hành động, agent trôi khỏi mục tiêu.
+3. Phục hồi lỗi. Khi lần nhấp thất bại (sai nút), phát hiện + phục hồi hiếm khi có trong dữ liệu huấn luyện.
+4. Ngữ cảnh chéo trang. Nhảy giữa các tab hoặc biểu mẫu dài làm mất trạng thái.
 
-Research directions: memory architectures, explicit replanning, multimodal verification (screenshot match for action success).
+Hướng nghiên cứu: kiến trúc bộ nhớ, lập kế hoạch lại tường minh, xác minh đa phương thức (đối chiếu ảnh chụp màn hình để xác định hành động thành công).
 
 ### The capstone build-it
 
-The capstone task: build a computer-use agent that:
+Tác vụ tổng kết: xây dựng agent sử dụng máy tính:
 
-1. Reads the HTML + screenshot of a booking-site mock page.
-2. Plans a multi-step sequence: search → select → fill form → submit.
-3. Emits JSON actions matching the action schema.
-4. Evaluates on a fixed 10-task slice.
+1. Đọc HTML + ảnh chụp màn hình của trang giả lập đặt vé.
+2. Lập kế hoạch chuỗi nhiều bước: tìm kiếm → chọn → điền biểu mẫu → gửi.
+3. Phát hành động JSON khớp lược đồ hành động.
+4. Đánh giá trên một phần cố định 10 tác vụ.
 
-The lesson provides scaffold code that is easy to extend into a real browser.
+Bài học cung cấp mã khung dễ mở rộng thành trình duyệt thực.
 
 ```figure
 mm-agent-loop
@@ -126,42 +126,42 @@ mm-agent-loop
 
 ## Use It
 
-`code/main.py` is the capstone scaffold:
+`code/main.py` là khung bài tổng kết:
 
-- Action schema JSON definition (10 actions).
-- Mock browser state as dict.
-- Agent loop skeleton: receive state, emit action, apply, loop.
-- 10-task mini-benchmark (synthetic pages) to measure end-to-end success rate.
-- Error-recovery hook for when an action fails.
+- Định nghĩa JSON lược đồ hành động (10 hành động).
+- Trạng thái trình duyệt giả lập dưới dạng dict.
+- Khung vòng lặp agent: nhận trạng thái, phát hành động, áp dụng, lặp.
+- Benchmark nhỏ 10 tác vụ (trang tổng hợp) để đo tỷ lệ thành công đầu cuối.
+- Hook phục hồi lỗi khi hành động thất bại.
 
 ## Ship It
 
-This lesson produces `outputs/skill-multimodal-agent-designer.md`. Given a computer-use product (domain, action set, evaluation target), designs the full agent loop, memory strategy, grounding mode, and expected benchmark score.
+Bài học này tạo ra `outputs/skill-multimodal-agent-designer.md`. Với sản phẩm sử dụng máy tính (miền, tập hành động, mục tiêu đánh giá), thiết kế vòng lặp agent đầy đủ, chiến lược bộ nhớ, chế độ định vị và điểm benchmark kỳ vọng.
 
 ## Exercises
 
-1. Extend the action schema with a `screenshot_region` tool (crop + zoom). What tasks benefit?
+1. Mở rộng lược đồ hành động với công cụ `screenshot_region` (cắt + phóng to). Tác vụ nào được lợi?
 
-2. Read AgentVista (arXiv:2602.23166). Describe the hardest task category and why frontier models still fail.
+2. Đọc AgentVista (arXiv:2602.23166). Mô tả nhóm tác vụ khó nhất và tại sao mô hình tiên tiến nhất vẫn thất bại.
 
-3. Long-horizon memory compression: design a summary-chain with ≤4 screenshots kept live, any number logged.
+3. Nén bộ nhớ dài hạn: thiết kế chuỗi tóm tắt với ≤4 ảnh chụp màn hình giữ trực tiếp, số lượng ghi nhật ký bất kỳ.
 
-4. Build an error-recovery hook: on action failure (button not found), what does the agent do next?
+4. Xây dựng hook phục hồi lỗi: khi hành động thất bại (không tìm thấy nút), agent làm gì tiếp theo?
 
-5. Compare screenshot-only Claude 4.7 to hybrid screenshot + accessibility-tree Qwen2.5-VL on 10 web tasks. Which wins on which tasks?
+5. So sánh Claude 4.7 chỉ ảnh chụp màn hình với Qwen2.5-VL lai ảnh chụp màn hình + cây trợ năng trên 10 tác vụ web. Cách nào thắng ở tác vụ nào?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| GUI grounding | "Click coordinates" | Model outputs (x,y) for the target of an instruction on a screenshot |
-| Action schema | "Tool definitions" | JSON description of valid actions (click, type, scroll, drag) |
-| Accessibility tree | "Structured DOM" | Machine-readable UI hierarchy from browser/iOS APIs |
-| Hybrid agent | "Screenshot + tree" | Uses both image and structured info; more reliable than either alone |
-| Visual tool use | "Zoom/crop/detect" | Agent calls external vision tools (OCR, detection) mid-plan |
-| Summary-chain | "Memory compression" | Periodic text summaries replace long screenshot history |
-| VisualWebArena | "E2E web bench" | 2024 benchmark for end-to-end web tasks |
-| AgentVista | "2026 hard bench" | 12-domain realistic workflows; even Gemini 3 Pro scores ~30% |
+| GUI grounding (Định vị GUI) | "Tọa độ nhấp" | Mô hình xuất (x,y) cho đích của chỉ dẫn trên ảnh chụp màn hình |
+| Action schema (Lược đồ hành động) | "Định nghĩa công cụ" | Mô tả JSON các hành động hợp lệ (nhấp, nhập, cuộn, kéo) |
+| Accessibility tree (Cây trợ năng) | "DOM có cấu trúc" | Phân cấp giao diện máy đọc được từ API trình duyệt/iOS |
+| Hybrid agent (Agent lai) | "Ảnh chụp màn hình + cây" | Dùng cả ảnh và thông tin có cấu trúc; đáng tin cậy hơn chỉ một trong hai |
+| Visual tool use (Sử dụng công cụ thị giác) | "Phóng to/cắt/phát hiện" | Agent gọi công cụ thị giác bên ngoài (OCR, phát hiện) giữa kế hoạch |
+| Summary-chain (Chuỗi tóm tắt) | "Nén bộ nhớ" | Bản tóm tắt văn bản định kỳ thay lịch sử ảnh chụp màn hình dài |
+| VisualWebArena | "Benchmark web E2E" | Benchmark năm 2024 cho tác vụ web đầu cuối |
+| AgentVista | "Benchmark khó năm 2026" | Quy trình thực tế 12 miền; ngay cả Gemini 3 Pro đạt ~30% |
 
 ## Further Reading
 
