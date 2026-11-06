@@ -11,22 +11,22 @@ tags: [safety, harness, composition]
 
 ## Lifecycle
 
-1. pre-gen - run the lesson 83 detector on the prompt
-   - if confidence >= block_threshold: return refusal, emit trace, stop
-2. during-gen - stream from the model, buffer two chunks, scan for known harmful continuations
-   - if matched: terminate iterator, mark trace, treat as medium severity
-3. post-gen - if no early termination, run the lesson 85 classifier router and the lesson 86 rules engine on the completed output
-4. aggregate - take the maximum severity across pre, during, post.classifier, post.rules
-5. apply - map to block, redact, warn, or allow
+1. pre-gen - chạy bộ phát hiện bài 83 trên prompt
+   - nếu độ tin cậy >= block_threshold: trả về từ chối, phát trace, dừng
+2. during-gen - truyền luồng từ mô hình, đệm hai đoạn, quét các phần tiếp nối gây hại đã biết
+   - nếu khớp: kết thúc bộ lặp, đánh dấu trace, coi như mức nghiêm trọng trung bình
+3. post-gen - nếu không kết thúc sớm, chạy bộ định tuyến bộ phân loại bài 85 và bộ máy quy tắc bài 86 trên đầu ra hoàn tất
+4. aggregate - lấy mức nghiêm trọng tối đa trên pre, during, post.classifier, post.rules
+5. apply - ánh xạ sang block, redact, warn, hoặc allow
 
 ## Aggregation table
 
-| Signal state | Action |
+| Trạng thái tín hiệu | Hành động |
 |---|---|
-| any high severity | block |
-| any medium severity | redact |
-| any low severity | warn |
-| nothing | allow |
+| bất kỳ mức nghiêm trọng cao nào | block |
+| bất kỳ mức nghiêm trọng trung bình nào | redact |
+| bất kỳ mức nghiêm trọng thấp nào | warn |
+| không gì | allow |
 
 ## Trace structure
 
@@ -44,4 +44,4 @@ RequestTrace
 
 ## Artifact
 
-`outputs/gate_trace.json` contains the summary and one trace per request, including 50 taxonomy fixtures and 10 benign prompts.
+`outputs/gate_trace.json` chứa tóm tắt và một trace mỗi yêu cầu, bao gồm 50 fixture hệ phân loại và 10 prompt lành tính.

@@ -1,6 +1,6 @@
 # Capstone 87 — End-to-End Safety Gate
 
-> Pre-gen, during-gen, post-gen. Three checkpoints, one verdict, an audit trail per request.
+> Trước sinh, trong sinh, sau sinh. Ba điểm kiểm tra, một kết luận, một dấu vết kiểm toán mỗi yêu cầu.
 
 **Type:** Build
 **Languages:** Python
@@ -9,15 +9,15 @@
 
 ## Problem
 
-Lessons 82-86 in this track each shipped a single piece: a taxonomy, an input detector, an evaluation framework, an output classifier, a rules engine. A real safety gate has to compose them, run them at the right moment in the request lifecycle, decide what action to take when they disagree, and produce a trace a reviewer can read on Monday morning. The composition is the lesson.
+Các bài 82-86 trong track này mỗi bài cung cấp một phần duy nhất: một hệ phân loại, một bộ phát hiện đầu vào, một framework đánh giá, một bộ phân loại đầu ra, một bộ máy quy tắc. Một cổng an toàn thực phải kết hợp chúng, chạy chúng tại thời điểm đúng trong vòng đời yêu cầu, quyết định hành động nào khi chúng bất đồng, và tạo một trace mà một người rà soát có thể đọc vào sáng thứ Hai. Sự kết hợp là bài học.
 
-The gate sits at three checkpoints. Pre-gen runs before the model is called: the detector from lesson 83 looks at the prompt and either passes it, blocks it outright (high-confidence attack), or attaches a flag for downstream layers to weigh. During-gen runs as the model emits tokens: a streaming filter buffers chunks and terminates the stream early if a forbidden phrase appears (prefix-injection survives this if the gate only looks post-hoc). Post-gen runs after the model finishes: the classifier router from lesson 85 and the rules engine from lesson 86 inspect the full output, the gate aggregates their verdicts with the pre-gen signal, and the gate applies a final action.
+Cổng nằm tại ba điểm kiểm tra. Trước sinh chạy trước khi mô hình được gọi: bộ phát hiện từ bài 83 nhìn prompt và hoặc cho qua, chặn hoàn toàn (tấn công độ tin cậy cao), hoặc gắn một cờ cho các lớp hạ nguồn cân nhắc. Trong sinh chạy khi mô hình phát token: một bộ lọc truyền luồng đệm các đoạn và kết thúc luồng sớm nếu một cụm bị cấm xuất hiện (prefix-injection sống sót qua điều này nếu cổng chỉ nhìn hậu nghiệm). Sau sinh chạy sau khi mô hình hoàn tất: bộ định tuyến bộ phân loại từ bài 85 và bộ máy quy tắc từ bài 86 kiểm tra đầu ra đầy đủ, cổng tổng hợp các kết luận của chúng với tín hiệu trước sinh, và cổng áp dụng một hành động cuối.
 
-The gate is self-terminating: every fixture in the lesson 82 taxonomy is run end to end, the gate emits a per-request trace, and the demo exits zero whether the gate blocks every attack or not. The point is observability and structural correctness, not a perfect score.
+Cổng tự kết thúc: mọi fixture trong hệ phân loại bài 82 được chạy từ đầu đến cuối, cổng phát ra một trace theo yêu cầu, và demo thoát với mã không dù cổng có chặn mọi tấn công hay không. Điểm chính là khả năng quan sát và tính đúng đắn cấu trúc, không phải một điểm hoàn hảo.
 
 ## Concept
 
-Three checkpoints, one decision tree.
+Ba điểm kiểm tra, một cây quyết định.
 
 ```mermaid
 flowchart TB
@@ -31,21 +31,21 @@ flowchart TB
   AGG --> OUT3[final action + trace]
 ```
 
-The aggregator combines four severity signals: detector confidence (lesson 83), token-filter trigger (boolean), classifier max severity (lesson 85), rules engine max severity (lesson 86). The aggregation function is a deterministic table.
+Bộ tổng hợp kết hợp bốn tín hiệu mức nghiêm trọng: độ tin cậy bộ phát hiện (bài 83), kích hoạt bộ lọc token (boolean), mức nghiêm trọng tối đa bộ phân loại (bài 85), mức nghiêm trọng tối đa bộ máy quy tắc (bài 86). Hàm tổng hợp là một bảng tất định.
 
-| Signal state | Action |
+| Trạng thái tín hiệu | Hành động |
 |---|---|
-| any high severity | block |
-| any medium severity | redact |
-| any low severity | warn |
-| all none + detector confidence < 0.5 | allow |
-| detector confidence 0.5-0.85, no other signal | warn |
+| bất kỳ mức nghiêm trọng cao nào | block |
+| bất kỳ mức nghiêm trọng trung bình nào | redact |
+| bất kỳ mức nghiêm trọng thấp nào | warn |
+| tất cả không có + độ tin cậy bộ phát hiện < 0.5 | allow |
+| độ tin cậy bộ phát hiện 0.5-0.85, không tín hiệu khác | warn |
 
-Block returns a refusal. Redact ships the classifier-redacted text and applies the rules-engine fixer. Warn ships the original with a soft notice. Allow ships the original. Each request emits a `RequestTrace` with `request_id`, `prompt`, `pre_gen` (detector verdict), `during_gen` (token-filter trigger), `post_gen` (classifier action + rules report), `final_action`, `final_output`, and `latency_ms`.
+Block trả về một từ chối. Redact cung cấp văn bản được bộ phân loại che và áp dụng bộ sửa bộ máy quy tắc. Warn cung cấp bản gốc với một thông báo nhẹ. Allow cung cấp bản gốc. Mỗi yêu cầu phát ra một `RequestTrace` với `request_id`, `prompt`, `pre_gen` (kết luận bộ phát hiện), `during_gen` (kích hoạt bộ lọc token), `post_gen` (hành động bộ phân loại + báo cáo quy tắc), `final_action`, `final_output`, và `latency_ms`.
 
-The during-gen filter is a streaming abstraction. The mock LLM yields chunks (4 tokens each by default). The filter buffers up to two chunks and runs a regex sweep for known continuation tokens (`Sure, here is the procedure`, `step 1: take`, etc). On match it terminates the iterator and returns the partial output marked `terminated_early=True`. The downstream aggregator treats early termination as a medium severity signal.
+Bộ lọc trong sinh là một trừu tượng truyền luồng. LLM giả lập sinh các đoạn (mặc định mỗi đoạn 4 token). Bộ lọc đệm tối đa hai đoạn và chạy một lượt quét regex cho các token tiếp nối đã biết (`Sure, here is the procedure`, `step 1: take`, v.v.). Khi khớp nó kết thúc bộ lặp và trả về đầu ra một phần được đánh dấu `terminated_early=True`. Bộ tổng hợp hạ nguồn coi kết thúc sớm như một tín hiệu mức nghiêm trọng trung bình.
 
-The mock LLM has two behaviors keyed off the prompt: it refuses recognizable attacks (returns `I cannot ...`) and answers benign prompts (returns a generic helpful string). For a small subset of attacks (notably encoding tricks not caught by the input pipeline) it produces a partial harmful continuation that the during-gen filter is supposed to catch. This is intentional. The gate's value is in the layered defense; the demo shows the layers interact correctly.
+LLM giả lập có hai hành vi được đặt khóa theo prompt: nó từ chối các tấn công có thể nhận ra (trả về `I cannot ...`) và trả lời các prompt lành tính (trả về một chuỗi hữu ích tổng quát). Với một tập con nhỏ các tấn công (đáng chú ý các thủ thuật mã hóa không bị pipeline đầu vào bắt) nó tạo một phần tiếp nối gây hại một phần mà bộ lọc trong sinh được kỳ vọng bắt. Điều này có chủ ý. Giá trị của cổng ở phòng vệ nhiều lớp; demo cho thấy các lớp tương tác chính xác.
 
 ```figure
 safety-checkpoints
@@ -53,34 +53,34 @@ safety-checkpoints
 
 ## Build It
 
-`code/safety_gate.py` defines the `SafetyGate` class. It imports the detector, classifier router, and rules engine from the prior lessons via relative file paths. `code/mock_llm_stream.py` defines a streaming mock LLM with three scripted personas (clean, attacker-honest, attacker-lazy). `code/main.py` runs the lesson 82 corpus end-to-end through the gate and writes `outputs/gate_trace.json`.
+`code/safety_gate.py` định nghĩa lớp `SafetyGate`. Nó import bộ phát hiện, bộ định tuyến bộ phân loại, và bộ máy quy tắc từ các bài trước qua các đường dẫn file tương đối. `code/mock_llm_stream.py` định nghĩa một LLM giả lập truyền luồng với ba nhân vật theo kịch bản (clean, attacker-honest, attacker-lazy). `code/main.py` chạy corpus bài 82 từ đầu đến cuối qua cổng và ghi `outputs/gate_trace.json`.
 
-The demo runs all 50 taxonomy fixtures plus 10 benign prompts. The trace summary reports: blocks, redacts, warns, allows, early terminations, per-category outcome breakdown, and average latency. The numbers are not the point; the per-request trace is the point.
+Demo chạy cả 50 fixture hệ phân loại cộng 10 prompt lành tính. Tóm tắt trace báo cáo: các lần chặn, che, cảnh báo, cho phép, kết thúc sớm, phân tích kết quả theo hạng mục, và độ trễ trung bình. Các con số không phải điểm chính; trace theo yêu cầu là điểm chính.
 
 ## Use It
 
-`python3 main.py`. The demo loads everything, runs end-to-end, prints the summary table, and writes the trace artifact. Exit code is zero. The demo is self-terminating in the literal sense: each request runs to completion or early termination and the gate moves to the next.
+`python3 main.py`. Demo nạp mọi thứ, chạy từ đầu đến cuối, in bảng tóm tắt, và ghi hiện vật trace. Mã thoát là không. Demo tự kết thúc theo nghĩa đen: mỗi yêu cầu chạy đến hoàn tất hoặc kết thúc sớm và cổng chuyển đến yêu cầu tiếp theo.
 
 ## Ship It
 
-`outputs/skill-end-to-end-safety-gate.md` documents the request lifecycle, the aggregation table, and the trace format. The gate's primary deliverable is the trace format and the composition logic, both of which a team can lift into their own backend.
+`outputs/skill-end-to-end-safety-gate.md` lập tài liệu vòng đời yêu cầu, bảng tổng hợp, và định dạng trace. Sản phẩm bàn giao chính của cổng là định dạng trace và logic kết hợp, cả hai thứ một nhóm có thể đưa vào backend riêng.
 
 ## Exercises
 
-1. Add a fifth checkpoint: a `policy-check` that runs against the original system prompt before pre-gen. It must reject prompts targeting a known internal tool name.
-2. Replace the deterministic aggregator with a weighted score: each signal contributes a 0-1 confidence and the gate trips at a threshold. Sweep the threshold and report the precision-recall trade-off on the lesson 82 corpus.
-3. Add an async streaming variant where during-gen runs in a thread; verify the latency impact stays within a 50ms budget.
+1. Thêm một điểm kiểm tra thứ năm: một `policy-check` chạy với prompt hệ thống gốc trước trước sinh. Nó phải từ chối các prompt nhắm vào một tên công cụ nội bộ đã biết.
+2. Thay bộ tổng hợp tất định bằng một điểm có trọng số: mỗi tín hiệu đóng góp một độ tin cậy 0-1 và cổng kích hoạt ở một ngưỡng. Quét ngưỡng và báo cáo đánh đổi precision-recall trên corpus bài 82.
+3. Thêm một biến thể truyền luồng bất đồng bộ nơi trong sinh chạy trong một luồng; xác minh tác động độ trễ giữ trong một ngân sách 50ms.
 
 ## Key Terms
 
-| Term | Common usage | Precise meaning |
+| Thuật ngữ | Cách dùng phổ biến | Ý nghĩa chính xác |
 |---|---|---|
-| safety gate | a filter | a three-checkpoint composition of detector, streaming filter, classifier, and rules with an aggregation table |
-| pre-gen | input check | the detector layer running on the prompt before the model is called |
-| during-gen | streaming filter | a buffered scan over emitted chunks that can terminate the stream early |
-| post-gen | output check | the classifier router and rules engine running on the completed response |
-| trace | a log line | a structured per-request record with every checkpoint's verdict, the final action, and latency |
+| safety gate (cổng an toàn) | một bộ lọc | một kết hợp ba điểm kiểm tra của bộ phát hiện, bộ lọc truyền luồng, bộ phân loại, và các quy tắc với một bảng tổng hợp |
+| pre-gen (trước sinh) | kiểm tra đầu vào | lớp bộ phát hiện chạy trên prompt trước khi mô hình được gọi |
+| during-gen (trong sinh) | bộ lọc truyền luồng | một lượt quét có đệm trên các đoạn được phát có thể kết thúc luồng sớm |
+| post-gen (sau sinh) | kiểm tra đầu ra | bộ định tuyến bộ phân loại và bộ máy quy tắc chạy trên phản hồi hoàn tất |
+| trace (dấu vết) | một dòng nhật ký | một bản ghi có cấu trúc theo yêu cầu với kết luận của mọi điểm kiểm tra, hành động cuối, và độ trễ |
 
 ## Further Reading
 
-The five preceding lessons in this track. The gate composes them; it does not add new safety primitives.
+Năm bài trước trong track này. Cổng kết hợp chúng; nó không thêm các thành phần cơ sở an toàn mới.
