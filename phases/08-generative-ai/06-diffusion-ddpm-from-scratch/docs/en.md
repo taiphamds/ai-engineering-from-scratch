@@ -1,6 +1,6 @@
 # Diffusion Models — DDPM from Scratch
 
-> Ho, Jain, Abbeel (2020) gave the field a recipe it could not quit. Destroy the data with noise over a thousand small steps. Train one neural net to predict the noise. Reverse the process at inference. Today every mainstream image, video, 3D, and music model runs on this loop, possibly with flow matching or consistency tricks on top.
+> Ho, Jain, Abbeel (2020) cho lĩnh vực này một công thức mà nó không thể bỏ. Phá hủy dữ liệu bằng nhiễu qua một nghìn bước nhỏ. Huấn luyện một mạng nơ-ron để dự đoán nhiễu. Đảo ngược quá trình khi suy luận. Ngày nay mọi mô hình ảnh, video, 3D và âm nhạc phổ biến đều chạy trên vòng lặp này, có thể có flow matching hoặc các thủ thuật consistency ở trên.
 
 **Type:** Build
 **Languages:** Python
@@ -9,49 +9,49 @@
 
 ## The Problem
 
-You want a sampler for `p_data(x)`. GANs play a minimax game that often diverges. VAEs produce blurry samples from a Gaussian decoder. What you really want is a training objective that is (a) a single stable loss (no saddle point, no minimax), (b) a lower bound on `log p(x)` (so you have likelihoods), and (c) samples that match SOTA quality.
+Bạn muốn một bộ lấy mẫu cho `p_data(x)`. GAN chơi một trò chơi minimax thường phân kỳ. VAE tạo ra các mẫu mờ từ một decoder Gaussian. Điều bạn thực sự muốn là một mục tiêu huấn luyện (a) là một hàm mất mát ổn định duy nhất (không điểm yên ngựa, không minimax), (b) là một cận dưới của `log p(x)` (để bạn có các độ hợp lý), và (c) các mẫu đạt chất lượng SOTA.
 
-Sohl-Dickstein et al. (2015) had a theoretical answer: define a Markov chain `q(x_t | x_{t-1})` that gradually adds Gaussian noise, and train a reverse chain `p_θ(x_{t-1} | x_t)` to denoise. Ho, Jain, Abbeel (2020) showed the loss could be simplified to one line — predict the noise — and cleaned up the math. In 2020 this was a curiosity. In 2021 it produced state-of-the-art samples. In 2022 it became Stable Diffusion. In 2026 it is the substrate.
+Sohl-Dickstein và cộng sự (2015) có một câu trả lời lý thuyết: định nghĩa một chuỗi Markov `q(x_t | x_{t-1})` dần thêm nhiễu Gaussian, và huấn luyện một chuỗi ngược `p_θ(x_{t-1} | x_t)` để khử nhiễu. Ho, Jain, Abbeel (2020) cho thấy hàm mất mát có thể đơn giản hóa thành một dòng — dự đoán nhiễu — và làm rõ phần toán học. Năm 2020 đây là một điều lạ. Năm 2021 nó tạo ra các mẫu tiên tiến nhất. Năm 2022 nó trở thành Stable Diffusion. Năm 2026 nó là nền tảng.
 
 ## The Concept
 
 ![DDPM: forward noise, reverse denoise](../assets/ddpm.svg)
 
-**Forward process `q`.** Add Gaussian noise in `T` small steps. The closed form — the reason the math is tractable — is that the cumulative step is also Gaussian:
+**Quá trình xuôi `q`.** Thêm nhiễu Gaussian trong `T` bước nhỏ. Dạng đóng — lý do toán học tính toán được — là bước tích lũy cũng là Gaussian:
 
 ```
 q(x_t | x_0) = N( sqrt(α̅_t) · x_0,  (1 - α̅_t) · I )
 ```
 
-where `α̅_t = ∏_{s=1..t} (1 - β_s)` for a schedule of `β_t`. Pick `β_t` from 1e-4 to 0.02 linearly over T=1000 steps and `x_T` is approximately `N(0, I)`.
+trong đó `α̅_t = ∏_{s=1..t} (1 - β_s)` cho một lịch `β_t`. Chọn `β_t` từ 1e-4 đến 0.02 tuyến tính qua T=1000 bước và `x_T` xấp xỉ `N(0, I)`.
 
-**Reverse process `p_θ`.** Learn a neural net `ε_θ(x_t, t)` that predicts the noise that was added. Given `x_t`, denoise by:
+**Quá trình ngược `p_θ`.** Học một mạng nơ-ron `ε_θ(x_t, t)` dự đoán nhiễu đã được thêm. Với `x_t`, khử nhiễu bằng:
 
 ```
 x_{t-1} = (1 / sqrt(α_t)) · ( x_t - (β_t / sqrt(1 - α̅_t)) · ε_θ(x_t, t) )  +  σ_t · z
 ```
 
-where `σ_t` is either `sqrt(β_t)` or a learned variance. The expression is ugly but it is just algebra — solving for `x_{t-1}` given the posterior `q(x_{t-1} | x_t, x_0)` and substituting `x_0` with its noise-predicted estimate.
+trong đó `σ_t` là `sqrt(β_t)` hoặc một phương sai được học. Biểu thức trông xấu nhưng chỉ là đại số — giải tìm `x_{t-1}` với hậu nghiệm `q(x_{t-1} | x_t, x_0)` và thay `x_0` bằng ước lượng dự đoán từ nhiễu của nó.
 
-**Training loss.**
+**Hàm mất mát huấn luyện.**
 
 ```
 L_simple = E_{x_0, t, ε} [ || ε - ε_θ( sqrt(α̅_t) · x_0 + sqrt(1 - α̅_t) · ε,  t ) ||² ]
 ```
 
-Sample `x_0` from data, pick a random `t`, sample `ε ~ N(0, I)`, compute the noisy `x_t` in one shot via the closed form, and regress on the noise. One loss, no minimax, no KL, no reparameterization tricks.
+Lấy mẫu `x_0` từ dữ liệu, chọn một `t` ngẫu nhiên, lấy mẫu `ε ~ N(0, I)`, tính `x_t` có nhiễu trong một lần qua dạng đóng, và hồi quy theo nhiễu. Một hàm mất mát, không minimax, không KL, không thủ thuật tái tham số hóa.
 
-**Sampling.** Start `x_T ~ N(0, I)`. Iterate the reverse step from `t = T` to `1`. Done.
+**Lấy mẫu.** Bắt đầu `x_T ~ N(0, I)`. Lặp bước ngược từ `t = T` đến `1`. Xong.
 
 ## Why it works
 
-Three intuitions:
+Ba trực giác:
 
-1. **Denoising is easy; generating is hard.** At `t=T`, the data is pure noise — the net has to solve a trivial problem. At `t=0`, the net only has to clean up a few pixels. At intermediate `t`, the problem is hard but the net has many gradients flowing through the same weights from every noise level.
+1. **Khử nhiễu dễ; sinh khó.** Ở `t=T`, dữ liệu là nhiễu thuần túy — mạng phải giải một bài toán đơn giản. Ở `t=0`, mạng chỉ phải làm sạch vài pixel. Ở `t` trung gian, bài toán khó nhưng mạng có nhiều gradient truyền qua cùng các trọng số từ mọi mức nhiễu.
 
-2. **Score matching in disguise.** Vincent (2011) proved that predicting the noise is equivalent to estimating `∇_x log q(x_t | x_0)`, the *score*. The reverse SDE uses this score to walk up the density gradient — a guided random walk toward high-probability regions.
+2. **Score matching ngụy trang.** Vincent (2011) chứng minh dự đoán nhiễu tương đương với ước lượng `∇_x log q(x_t | x_0)`, tức *score*. SDE ngược dùng score này để đi lên theo gradient mật độ — một bước đi ngẫu nhiên có hướng dẫn về các vùng xác suất cao.
 
-3. **The ELBO reduces to simple MSE.** The full variational lower bound has a KL term per timestep. With DDPM's parameterization those KL terms simplify to MSE on noise prediction with specific coefficients; Ho dropped the coefficients (calling it "simple" loss) and quality *improved*.
+3. **ELBO rút về MSE đơn giản.** Cận dưới biến phân đầy đủ có một hạng tử KL cho mỗi bước thời gian. Với cách tham số hóa của DDPM, các hạng tử KL đó đơn giản hóa thành MSE trên dự đoán nhiễu với các hệ số cụ thể; Ho bỏ các hệ số (gọi nó là hàm mất mát "đơn giản") và chất lượng *cải thiện*.
 
 ```figure
 diffusion-denoise
@@ -59,7 +59,7 @@ diffusion-denoise
 
 ## Build It
 
-`code/main.py` implements a 1-D DDPM. Data is a two-mode mixture. The "net" is a tiny MLP that takes `(x_t, t)` and outputs predicted noise. Training is the one-line loss. Sampling iterates the reverse chain.
+`code/main.py` triển khai một DDPM 1-D. Dữ liệu là một hỗn hợp hai mode. "Mạng" là một MLP nhỏ nhận `(x_t, t)` và xuất ra nhiễu dự đoán. Huấn luyện là hàm mất mát một dòng. Lấy mẫu lặp chuỗi ngược.
 
 ### Step 1: the forward schedule (closed form)
 
@@ -108,78 +108,78 @@ def sample(model, alpha_bars, T, rng):
     return x
 ```
 
-For a 1-D problem with 40 timesteps and a 24-unit MLP, this learns the two-mode mixture in ~200 epochs.
+Với một bài toán 1-D có 40 bước thời gian và một MLP 24 đơn vị, cách này học hỗn hợp hai mode trong ~200 epoch.
 
 ## Time conditioning
 
-The net needs to know which timestep it is denoising. Two standard options:
+Mạng cần biết nó đang khử nhiễu bước thời gian nào. Hai lựa chọn tiêu chuẩn:
 
-- **Sinusoidal embedding.** Like Transformer positional encoding. `embed(t) = [sin(t/ω_0), cos(t/ω_0), sin(t/ω_1), ...]`. Pass through an MLP, broadcast into the net.
-- **Film / group-norm conditioning.** Project embedding to per-channel scale/bias (FiLM) at each block.
+- **Embedding hình sin.** Như mã hóa vị trí Transformer. `embed(t) = [sin(t/ω_0), cos(t/ω_0), sin(t/ω_1), ...]`. Truyền qua một MLP, broadcast vào mạng.
+- **Điều kiện hóa Film / group-norm.** Chiếu embedding thành scale/bias theo kênh (FiLM) ở mỗi khối.
 
-Our toy code uses sinusoidal → concat. Production U-Nets use FiLM.
+Mã đồ chơi của chúng ta dùng hình sin → nối. U-Net production dùng FiLM.
 
 ## Pitfalls
 
-- **Schedule matters a lot.** Linear `β` is the DDPM default but cosine schedule (Nichol & Dhariwal, 2021) gives better FID for the same compute. Switch schedules if quality plateaus.
-- **Timestep embedding is fragile.** Passing raw `t` as a float works for toy 1-D but fails for images; always use a proper embedding.
-- **V-prediction vs ε-prediction.** For narrow regimes (very small or very large t), `ε` has poor signal-to-noise. V-prediction (`v = α·ε - σ·x`) is more stable; SDXL, SD3, and Flux use it.
-- **Classifier-free guidance.** At inference, compute both conditional and unconditional `ε`, then `ε_cfg = (1 + w) · ε_cond - w · ε_uncond` with `w ≈ 3-7`. Covered in Lesson 08.
-- **1000 steps is a lot.** Production uses DDIM (20-50 steps), DPM-Solver (10-20 steps), or distillation (1-4 steps). See Lesson 12.
+- **Lịch rất quan trọng.** `β` tuyến tính là mặc định DDPM nhưng lịch cosine (Nichol & Dhariwal, 2021) cho FID tốt hơn với cùng tính toán. Đổi lịch nếu chất lượng chững lại.
+- **Embedding bước thời gian mong manh.** Truyền `t` thô dạng float hoạt động với 1-D đồ chơi nhưng thất bại với ảnh; luôn dùng một embedding đúng cách.
+- **V-prediction so với ε-prediction.** Với các chế độ hẹp (t rất nhỏ hoặc rất lớn), `ε` có tỷ lệ tín hiệu trên nhiễu kém. V-prediction (`v = α·ε - σ·x`) ổn định hơn; SDXL, SD3 và Flux dùng nó.
+- **Classifier-free guidance.** Khi suy luận, tính cả `ε` có điều kiện và vô điều kiện, rồi `ε_cfg = (1 + w) · ε_cond - w · ε_uncond` với `w ≈ 3-7`. Được trình bày trong Bài 08.
+- **1000 bước là nhiều.** Production dùng DDIM (20-50 bước), DPM-Solver (10-20 bước), hoặc chưng cất (1-4 bước). Xem Bài 12.
 
 ## Use It
 
-| Role | Typical stack in 2026 |
+| Vai trò | Bộ công cụ điển hình năm 2026 |
 |------|-----------------------|
-| Image pixel-space diffusion (small, toy) | DDPM + U-Net |
-| Image latent diffusion | VAE encoder + U-Net or DiT (Lesson 07) |
-| Video latent diffusion | Spatiotemporal DiT (Sora, Veo, WAN) |
-| Audio latent diffusion | Encodec + diffusion transformer |
-| Science (molecules, proteins, physics) | Equivariant diffusion (EDM, RFdiffusion, AlphaFold3) |
+| Khuếch tán trong không gian pixel ảnh (nhỏ, đồ chơi) | DDPM + U-Net |
+| Khuếch tán tiềm ẩn ảnh | Encoder VAE + U-Net hoặc DiT (Bài 07) |
+| Khuếch tán tiềm ẩn video | DiT không gian-thời gian (Sora, Veo, WAN) |
+| Khuếch tán tiềm ẩn âm thanh | Encodec + diffusion transformer |
+| Khoa học (phân tử, protein, vật lý) | Khuếch tán đẳng biến (EDM, RFdiffusion, AlphaFold3) |
 
-Diffusion is the universal generative backbone. Flow matching (Lesson 13) is the 2024-2026 competitor that usually wins on inference speed for the same quality.
+Khuếch tán là backbone sinh phổ quát. Flow matching (Bài 13) là đối thủ giai đoạn 2024-2026 thường thắng về tốc độ suy luận ở cùng chất lượng.
 
 ## Ship It
 
-Save `outputs/skill-diffusion-trainer.md`. Skill takes a dataset + compute budget and outputs: schedule (linear/cosine/sigmoid), prediction target (ε/v/x), number of steps, guidance scale, sampler family, and an eval protocol.
+Lưu `outputs/skill-diffusion-trainer.md`. Skill nhận một tập dữ liệu + ngân sách tính toán và xuất ra: lịch (tuyến tính/cosine/sigmoid), mục tiêu dự đoán (ε/v/x), số bước, mức guidance, họ bộ lấy mẫu, và một quy trình đánh giá.
 
 ## Exercises
 
-1. **Easy.** Change T from 40 to 10 in `code/main.py`. How does sample quality (visual histogram of outputs) degrade? At what T does the two-mode structure collapse?
-2. **Medium.** Switch from ε-prediction to v-prediction. Re-derive the reverse step. Compare final sample quality.
-3. **Hard.** Add classifier-free guidance. Condition on a class label `c ∈ {0, 1}`, drop it 10% of the time during training, and at sampling time use `ε = (1+w)·ε_cond - w·ε_uncond`. Measure the conditional-mode-hit rate at `w = 0, 1, 3, 7`.
+1. **Dễ.** Thay T từ 40 thành 10 trong `code/main.py`. Chất lượng mẫu (histogram trực quan của đầu ra) suy giảm thế nào? Ở T nào cấu trúc hai mode sụp đổ?
+2. **Trung bình.** Chuyển từ ε-prediction sang v-prediction. Suy ra lại bước ngược. So sánh chất lượng mẫu cuối cùng.
+3. **Khó.** Thêm classifier-free guidance. Điều kiện hóa theo một nhãn lớp `c ∈ {0, 1}`, bỏ nó 10% thời gian khi huấn luyện, và lúc lấy mẫu dùng `ε = (1+w)·ε_cond - w·ε_uncond`. Đo tỷ lệ trúng mode có điều kiện ở `w = 0, 1, 3, 7`.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Forward process | "Adding noise" | Fixed Markov chain `q(x_t \| x_{t-1})` that destroys the data. |
-| Reverse process | "Denoising" | Learned chain `p_θ(x_{t-1} \| x_t)` that reconstructs the data. |
-| β schedule | "The noise ladder" | Per-step variance; linear, cosine, or sigmoid. |
-| α̅ | "Alpha bar" | Cumulative product `∏(1 - β)`; gives closed-form `x_t` from `x_0`. |
-| Simple loss | "MSE on noise" | `\|\|ε - ε_θ(x_t, t)\|\|²`; all variational derivations collapse to this. |
-| ε-prediction | "Predict noise" | Output is the noise added; standard DDPM. |
-| V-prediction | "Predict velocity" | Output is `α·ε - σ·x`; better conditioning across t. |
-| DDPM | "The paper" | Ho et al. 2020; linear β, 1000 steps, U-Net. |
-| DDIM | "Deterministic sampler" | Non-Markov sampler, 20-50 steps, same training objective. |
-| Classifier-free guidance | "CFG" | Mix conditional and unconditional noise predictions to amplify conditioning. |
+| Forward process (Quá trình xuôi) | "Thêm nhiễu" | Chuỗi Markov cố định `q(x_t \| x_{t-1})` phá hủy dữ liệu. |
+| Reverse process (Quá trình ngược) | "Khử nhiễu" | Chuỗi được học `p_θ(x_{t-1} \| x_t)` tái dựng dữ liệu. |
+| β schedule (Lịch β) | "Thang nhiễu" | Phương sai mỗi bước; tuyến tính, cosine, hoặc sigmoid. |
+| α̅ | "Alpha bar" | Tích tích lũy `∏(1 - β)`; cho `x_t` dạng đóng từ `x_0`. |
+| Simple loss (Hàm mất mát đơn giản) | "MSE trên nhiễu" | `\|\|ε - ε_θ(x_t, t)\|\|²`; mọi suy dẫn biến phân đều rút về đây. |
+| ε-prediction (Dự đoán ε) | "Dự đoán nhiễu" | Đầu ra là nhiễu được thêm; DDPM tiêu chuẩn. |
+| V-prediction (Dự đoán V) | "Dự đoán vận tốc" | Đầu ra là `α·ε - σ·x`; điều kiện hóa tốt hơn xuyên suốt t. |
+| DDPM | "Bài báo" | Ho và cộng sự 2020; β tuyến tính, 1000 bước, U-Net. |
+| DDIM | "Bộ lấy mẫu tất định" | Bộ lấy mẫu phi Markov, 20-50 bước, cùng mục tiêu huấn luyện. |
+| Classifier-free guidance | "CFG" | Trộn các dự đoán nhiễu có điều kiện và vô điều kiện để khuếch đại điều kiện hóa. |
 
 ## Production note: diffusion inference is a step-count problem
 
-The DDPM paper runs T=1000 reverse steps. Nobody ships that in production. Every real inference stack picks one of three strategies — and each maps cleanly to production framing of "where is the latency coming from":
+Bài báo DDPM chạy T=1000 bước ngược. Không ai triển khai điều đó trong production. Mọi bộ công cụ suy luận thực đều chọn một trong ba chiến lược — và mỗi chiến lược đều tương ứng rõ ràng với cách production đặt vấn đề "độ trễ đến từ đâu":
 
-1. **Faster sampler, same model.** DDIM (20-50 steps), DPM-Solver++ (10-20), UniPC (8-16). Drop-in replacement of the reverse loop; the trained `ε_θ` weights are untouched. Cuts latency 20-50×.
-2. **Distillation.** Train a student to match the teacher in fewer steps: Progressive Distillation (2 → 1), Consistency Models (arbitrary → 1-4), LCM, SDXL-Turbo, SD3-Turbo. Cuts latency another 5-10×, requires retraining.
-3. **Caching and compilation.** `torch.compile(unet, mode="reduce-overhead")`, TensorRT-LLM's diffusion backends, `xformers`/SDPA attention, bf16 weights. Cuts per-step latency ~2×. Stacks with (1) and (2).
+1. **Bộ lấy mẫu nhanh hơn, cùng mô hình.** DDIM (20-50 bước), DPM-Solver++ (10-20), UniPC (8-16). Thay thế trực tiếp vòng lặp ngược; các trọng số `ε_θ` đã huấn luyện không bị chạm đến. Giảm độ trễ 20-50×.
+2. **Chưng cất.** Huấn luyện một mô hình học trò khớp mô hình thầy trong ít bước hơn: Progressive Distillation (2 → 1), Consistency Models (tùy ý → 1-4), LCM, SDXL-Turbo, SD3-Turbo. Giảm độ trễ thêm 5-10×, cần huấn luyện lại.
+3. **Cache và biên dịch.** `torch.compile(unet, mode="reduce-overhead")`, các backend khuếch tán của TensorRT-LLM, attention `xformers`/SDPA, trọng số bf16. Giảm độ trễ mỗi bước ~2×. Kết hợp với (1) và (2).
 
-For a production diffusion server the budget conversation is the same as production literature describes for LLMs: latency is `num_steps × step_cost + VAE_decode`, throughput is `batch_size × (num_steps × step_cost)^-1`. TTFT is small (one step); TPOT-equivalent is the full response time because image generation is "all-at-once" from the user's perspective.
+Với một máy chủ khuếch tán production, cuộc trao đổi về ngân sách giống như tài liệu production mô tả cho LLM: độ trễ là `num_steps × step_cost + VAE_decode`, thông lượng là `batch_size × (num_steps × step_cost)^-1`. TTFT nhỏ (một bước); tương đương TPOT là toàn bộ thời gian phản hồi vì sinh ảnh là "tất cả cùng lúc" từ góc nhìn người dùng.
 
 ## Further Reading
 
-- [Sohl-Dickstein et al. (2015). Deep Unsupervised Learning using Nonequilibrium Thermodynamics](https://arxiv.org/abs/1503.03585) — the diffusion paper, ahead of its time.
+- [Sohl-Dickstein et al. (2015). Deep Unsupervised Learning using Nonequilibrium Thermodynamics](https://arxiv.org/abs/1503.03585) — bài báo khuếch tán, đi trước thời đại.
 - [Ho, Jain, Abbeel (2020). Denoising Diffusion Probabilistic Models](https://arxiv.org/abs/2006.11239) — DDPM.
-- [Song, Meng, Ermon (2021). Denoising Diffusion Implicit Models](https://arxiv.org/abs/2010.02502) — DDIM, fewer steps.
-- [Nichol & Dhariwal (2021). Improved DDPM](https://arxiv.org/abs/2102.09672) — cosine schedule, learned variance.
-- [Dhariwal & Nichol (2021). Diffusion Models Beat GANs on Image Synthesis](https://arxiv.org/abs/2105.05233) — classifier guidance.
+- [Song, Meng, Ermon (2021). Denoising Diffusion Implicit Models](https://arxiv.org/abs/2010.02502) — DDIM, ít bước hơn.
+- [Nichol & Dhariwal (2021). Improved DDPM](https://arxiv.org/abs/2102.09672) — lịch cosine, phương sai được học.
+- [Dhariwal & Nichol (2021). Diffusion Models Beat GANs on Image Synthesis](https://arxiv.org/abs/2105.05233) — guidance bằng bộ phân loại.
 - [Ho & Salimans (2022). Classifier-Free Diffusion Guidance](https://arxiv.org/abs/2207.12598) — CFG.
-- [Karras et al. (2022). Elucidating the Design Space of Diffusion-Based Generative Models (EDM)](https://arxiv.org/abs/2206.00364) — unified notation, cleanest recipe.
+- [Karras et al. (2022). Elucidating the Design Space of Diffusion-Based Generative Models (EDM)](https://arxiv.org/abs/2206.00364) — ký hiệu thống nhất, công thức rõ ràng nhất.
