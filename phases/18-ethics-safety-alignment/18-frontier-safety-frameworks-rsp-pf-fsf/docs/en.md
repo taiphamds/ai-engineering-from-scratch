@@ -1,6 +1,6 @@
 # Frontier Safety Frameworks — RSP, PF, FSF
 
-> Three major-lab frameworks define the 2026 industry governance of frontier capability. Anthropic Responsible Scaling Policy v3.0 (February 2026) introduces tiered AI Safety Levels (ASL-1 through ASL-5+), modeled on biosafety levels, with ASL-3 activated May 2025 for CBRN-relevant models. OpenAI Preparedness Framework v2 (April 2025) defines five criteria for tracked capabilities and separates Capabilities Reports from Safeguards Reports. DeepMind Frontier Safety Framework v3.0 (September 2025) introduces Critical Capability Levels including a new Harmful Manipulation CCL. All three now include competitor-adjustment clauses allowing deferral if peer labs ship without comparable safeguards. Cross-lab alignment remains structural, not terminological: "Capability Thresholds," "High Capability thresholds," and "Critical Capability Levels" denote analogous constructs.
+> Ba khung của phòng thí nghiệm lớn xác định quản trị ngành năm 2026 đối với năng lực tiên tiến hàng đầu. Responsible Scaling Policy v3.0 của Anthropic (tháng 2 năm 2026) đưa ra AI Safety Levels phân tầng (ASL-1 đến ASL-5+), mô phỏng cấp an toàn sinh học, với ASL-3 kích hoạt tháng 5 năm 2025 cho mô hình liên quan CBRN. Preparedness Framework v2 của OpenAI (tháng 4 năm 2025) xác định năm tiêu chí cho năng lực theo dõi và tách Báo cáo Năng lực khỏi Báo cáo Biện pháp Bảo vệ. Frontier Safety Framework v3.0 của DeepMind (tháng 9 năm 2025) đưa ra Critical Capability Levels gồm CCL Thao túng Có hại mới. Cả ba giờ gồm điều khoản điều chỉnh theo đối thủ cho phép hoãn nếu phòng thí nghiệm ngang hàng phát hành không có biện pháp bảo vệ tương đương. Sự căn chỉnh xuyên phòng thí nghiệm vẫn mang tính cấu trúc, không phải thuật ngữ: "Ngưỡng Năng lực," "ngưỡng Năng lực Cao" và "Mức Năng lực Tới hạn" biểu thị cấu trúc tương tự.
 
 **Type:** Learn
 **Languages:** none
@@ -9,93 +9,93 @@
 
 ## Learning Objectives
 
-- Describe Anthropic's ASL tier structure and what activated ASL-3.
-- Name the five OpenAI Preparedness Framework v2 criteria for tracked capabilities.
-- Describe DeepMind's Critical Capability Level structure and the Harmful Manipulation CCL.
-- Explain the competitor-adjustment clauses and why they matter for race dynamics.
-- Define a safety case and describe the three-pillar structure (monitoring, illegibility, incapability).
+- Mô tả cấu trúc tầng ASL Anthropic và điều kích hoạt ASL-3.
+- Nêu năm tiêu chí Preparedness Framework v2 OpenAI cho năng lực theo dõi.
+- Mô tả cấu trúc Mức Năng lực Tới hạn DeepMind và CCL Thao túng Có hại.
+- Giải thích điều khoản điều chỉnh theo đối thủ và tại sao quan trọng với động lực chạy đua.
+- Định nghĩa hồ sơ lập luận an toàn và mô tả cấu trúc ba trụ cột (giám sát, tính không dễ hiểu, thiếu năng lực).
 
 ## The Problem
 
-Lessons 7-17 establish that deception is possible, dual-use capability exists, and evaluation has limits. A lab with a frontier-capable model needs an internal governance structure that:
-- Defines thresholds for when new safeguards are required.
-- Defines required evaluations before scaling.
-- Describes what a safety case looks like.
-- Handles the race-dynamic problem (if competitors ship without safeguards, what do you do?).
+Bài 7-17 xác lập lừa dối có thể xảy ra, năng lực lưỡng dụng tồn tại và đánh giá có giới hạn. Phòng thí nghiệm có mô hình năng lực tiên tiến hàng đầu cần cấu trúc quản trị nội bộ:
+- Xác định ngưỡng khi cần biện pháp bảo vệ mới.
+- Xác định đánh giá bắt buộc trước mở rộng.
+- Mô tả hồ sơ lập luận an toàn trông thế nào.
+- Xử lý vấn đề động lực chạy đua (nếu đối thủ phát hành không biện pháp bảo vệ, bạn làm gì?).
 
-The three 2025-2026 frameworks are the state of the art — imperfect, evolving, and aligned enough across labs that the governance question is now whether the frameworks are adequate, not whether they exist.
+Ba khung 2025-2026 là tiên tiến nhất — không hoàn hảo, đang tiến hóa, và đủ thống nhất giữa phòng thí nghiệm để câu hỏi quản trị giờ là khung có đủ không, không phải có tồn tại không.
 
 ## The Concept
 
 ### Anthropic Responsible Scaling Policy v3.0 (February 2026)
 
-ASL structure:
-- ASL-1: not a frontier model (subsumed by weaker-than-frontier baseline).
-- ASL-2: current frontier baseline; deployed with usual safeguards.
-- ASL-3: substantially higher risk of catastrophic misuse; CBRN-relevant capabilities. Activated May 2025.
-- ASL-4: AI R&D-2 crossing threshold; models that can automate entry-level AI research.
-- ASL-5+: advanced AI R&D; models that dramatically accelerate effective scaling.
+Cấu trúc ASL:
+- ASL-1: không phải mô hình tiên tiến hàng đầu (được bao hàm bởi đường cơ sở yếu-hơn-tiên-tiến-hàng-đầu).
+- ASL-2: đường cơ sở tiên tiến hàng đầu hiện tại; triển khai với biện pháp bảo vệ thông thường.
+- ASL-3: rủi ro lạm dụng thảm họa cao hơn đáng kể; năng lực liên quan CBRN. Kích hoạt tháng 5 năm 2025.
+- ASL-4: vượt ngưỡng AI R&D-2; mô hình có thể tự động hóa nghiên cứu AI cấp đầu vào.
+- ASL-5+: R&D AI tiên tiến; mô hình tăng tốc đáng kể mở rộng hiệu dụng.
 
-New in v3.0:
-- Frontier Safety Roadmaps (public in redacted form).
-- Risk Reports (quarterly, some externally reviewed).
-- AI R&D is disaggregated into AI R&D-2 and AI R&D-4.
-- Once AI R&D-4 is crossed, an affirmative safety case is required, identifying misalignment risks from models pursuing misaligned goals.
+Mới trong v3.0:
+- Lộ trình An toàn Tiên tiến hàng đầu (công khai dạng đã lược che).
+- Báo cáo Rủi ro (hằng quý, một số được bên ngoài rà soát).
+- R&D AI tách thành AI R&D-2 và AI R&D-4.
+- Khi vượt AI R&D-4, cần hồ sơ lập luận an toàn khẳng định, xác định rủi ro lệch căn chỉnh từ mô hình theo đuổi mục tiêu lệch căn chỉnh.
 
 ### OpenAI Preparedness Framework v2 (April 15, 2025)
 
-Five criteria for tracked capabilities:
-- **Plausible.** Reasonable threat model exists.
-- **Measurable.** Empirical evaluation possible.
-- **Severe.** Harm is large.
-- **Net-new.** Not a pre-existing risk scaled up.
-- **Instantaneous-or-irremediable.** Harm occurs fast or cannot be undone.
+Năm tiêu chí cho năng lực theo dõi:
+- **Hợp lý.** Tồn tại mô hình đe dọa hợp lý.
+- **Đo được.** Có thể đánh giá thực nghiệm.
+- **Nghiêm trọng.** Thiệt hại lớn.
+- **Hoàn toàn mới.** Không phải rủi ro sẵn có được mở rộng.
+- **Tức thời-hoặc-không thể khắc phục.** Thiệt hại xảy ra nhanh hoặc không thể đảo ngược.
 
-Capabilities that meet all five are tracked. Others are not.
+Năng lực đáp ứng cả năm được theo dõi. Những năng lực khác không được.
 
-Other PF v2 structure:
-- Separate Capabilities Reports (what the model can do) from Safeguards Reports (what controls exist).
-- Safety Advisory Group reviews.
-- Leadership approves; Board's Safety & Security Committee oversees.
-- "Adjustment clause": OpenAI may reduce requirements if another lab ships without comparable safeguards.
+Cấu trúc PF v2 khác:
+- Tách Báo cáo Năng lực (mô hình làm được gì) khỏi Báo cáo Biện pháp Bảo vệ (có kiểm soát gì).
+- Nhóm Tư vấn An toàn rà soát.
+- Lãnh đạo phê duyệt; Ủy ban An toàn & Bảo mật của Hội đồng giám sát.
+- "Điều khoản điều chỉnh": OpenAI có thể giảm yêu cầu nếu phòng thí nghiệm khác phát hành không có biện pháp bảo vệ tương đương.
 
 ### DeepMind Frontier Safety Framework v3.0 (September 2025)
 
-Critical Capability Levels (CCLs) by domain:
-- Bioweapon Uplift
-- Cyber Uplift
-- ML R&D Acceleration
-- Harmful Manipulation (new in v3.0): models that could substantially change beliefs/behavior in high-stakes contexts.
+Mức Năng lực Tới hạn (CCL) theo miền:
+- Mức nâng Vũ khí Sinh học
+- Mức nâng Mạng
+- Tăng tốc R&D ML
+- Thao túng Có hại (mới trong v3.0): mô hình có thể thay đổi đáng kể niềm tin/hành vi trong ngữ cảnh hệ trọng.
 
-v2.0 (February 2025) added a Deceptive Alignment section and higher security levels for ML R&D CCLs.
+v2.0 (tháng 2 năm 2025) thêm phần Căn chỉnh Mang tính Lừa dối và cấp bảo mật cao hơn cho CCL R&D ML.
 
 ### Cross-lab alignment
 
-- Anthropic "Capability Thresholds."
-- DeepMind "Critical Capability Levels."
-- OpenAI "High Capability thresholds."
+- Anthropic "Ngưỡng Năng lực."
+- DeepMind "Mức Năng lực Tới hạn."
+- OpenAI "ngưỡng Năng lực Cao."
 
-No industry-standard terminology. Structurally aligned: three tiers of frontier capability with published evaluation criteria. All three include competitor-adjustment clauses (2025 onward).
+Không có thuật ngữ tiêu chuẩn ngành. Thống nhất về cấu trúc: ba tầng năng lực tiên tiến hàng đầu với tiêu chí đánh giá công bố. Cả ba gồm điều khoản điều chỉnh theo đối thủ (từ 2025).
 
 ### Safety cases
 
-A safety case is a written argument that a deployment is acceptably safe under worst-case assumptions. The standard structure targets three pillars:
+Hồ sơ lập luận an toàn là lập luận bằng văn bản rằng triển khai an toàn ở mức chấp nhận được dưới giả định trường hợp xấu nhất. Cấu trúc tiêu chuẩn nhắm ba trụ cột:
 
-- **Monitoring.** Can we detect bad behaviour if it occurs?
-- **Illegibility.** Does the model lack the ability to execute a coherent plan to cause harm?
-- **Incapability.** Does the model lack the capability to cause the harm in question?
+- **Giám sát.** Có thể phát hiện hành vi xấu nếu xảy ra không?
+- **Tính không dễ hiểu.** Mô hình có thiếu khả năng thực hiện kế hoạch mạch lạc gây hại không?
+- **Thiếu năng lực.** Mô hình có thiếu năng lực gây thiệt hại đang xét không?
 
-Different safety cases target different pillars. For a ASL-3 CBRN case, incapability (via unlearning) is the primary target. For deceptive alignment, monitoring and illegibility are targets. For cyber uplift, all three are relevant.
+Hồ sơ khác nhắm trụ cột khác. Với hồ sơ CBRN ASL-3, thiếu năng lực (qua quên học) là mục tiêu chính. Với căn chỉnh mang tính lừa dối, giám sát và tính không dễ hiểu là mục tiêu. Với mức nâng mạng, cả ba liên quan.
 
 ### The race-dynamic problem
 
-Competitor-adjustment clauses are controversial. Critics argue they create a race to the bottom: if all three labs will reduce requirements when a competitor defects, the equilibrium shifts toward defection. Defenders argue the alternative (unilateral safeguards) produces worse outcomes if the defecting lab is less safety-conscious.
+Điều khoản điều chỉnh theo đối thủ gây tranh cãi. Người phê bình lập luận chúng tạo cuộc đua xuống đáy: nếu cả ba phòng thí nghiệm giảm yêu cầu khi đối thủ phản bội, cân bằng dịch sang phản bội. Người bảo vệ lập luận phương án khác (biện pháp bảo vệ đơn phương) tạo kết quả tệ hơn nếu phòng thí nghiệm phản bội ít ý thức an toàn hơn.
 
-UK AISI, US CAISI, and EU AI Office (Lesson 24) are the external governance counterparts. The lab frameworks are voluntary; the regulatory frameworks are emerging.
+UK AISI, US CAISI và EU AI Office (Bài 24) là đối tác quản trị bên ngoài. Khung phòng thí nghiệm tự nguyện; khung quy định đang nổi lên.
 
 ### Where this fits in Phase 18
 
-Lessons 17-18 are the measurement-and-governance layer on top of the deception and red-team analyses. Lessons 19-24 cover welfare, bias, privacy, watermarking, and regulatory structure. Lesson 28 maps the research ecosystem (MATS, Redwood, Apollo, METR) that operationalizes the evaluations.
+Bài 17-18 là lớp đo lường-và-quản trị trên phân tích lừa dối và red-team. Bài 19-24 đề cập phúc lợi, thiên lệch, quyền riêng tư, watermark và cấu trúc quy định. Bài 28 lập bản đồ hệ sinh thái nghiên cứu (MATS, Redwood, Apollo, METR) hiện thực hóa đánh giá.
 
 ```figure
 al-asl-ladder
@@ -103,39 +103,39 @@ al-asl-ladder
 
 ## Use It
 
-No code for this lesson. Read the three primary sources: RSP v3.0, PF v2, FSF v3.0. Map each lab's tier structure to the others and identify one threshold each lab defines that the others do not.
+Không có mã cho bài này. Đọc ba nguồn sơ cấp: RSP v3.0, PF v2, FSF v3.0. Ánh xạ cấu trúc tầng mỗi phòng thí nghiệm với các bên khác và xác định một ngưỡng mỗi bên định nghĩa mà các bên khác không có.
 
 ## Ship It
 
-This lesson produces `outputs/skill-framework-diff.md`. Given a safety framework or release note, it compares the framework's threshold definitions, evaluations required, and safety-case structure against RSP v3.0, PF v2, FSF v3.0 and flags cross-lab gaps.
+Bài học này tạo ra `outputs/skill-framework-diff.md`. Với khung an toàn hoặc ghi chú phát hành, so sánh định nghĩa ngưỡng, đánh giá bắt buộc và cấu trúc hồ sơ lập luận an toàn với RSP v3.0, PF v2, FSF v3.0 và đánh dấu khoảng trống xuyên phòng thí nghiệm.
 
 ## Exercises
 
-1. Read RSP v3.0, PF v2, and FSF v3.0. Compile a table of each lab's CBRN threshold, each's AI R&D threshold, and each's required pre-deployment evaluation.
+1. Đọc RSP v3.0, PF v2 và FSF v3.0. Lập bảng ngưỡng CBRN mỗi phòng thí nghiệm, ngưỡng R&D AI mỗi bên và đánh giá trước triển khai bắt buộc mỗi bên.
 
-2. The competitor-adjustment clause is in all three frameworks (2025+). Write one paragraph arguing for it; write one paragraph arguing against. Identify the assumption each position depends on.
+2. Điều khoản điều chỉnh theo đối thủ có trong cả ba khung (2025+). Viết một đoạn ủng hộ; viết một đoạn phản đối. Xác định giả định mỗi lập trường phụ thuộc.
 
-3. Design a safety case for a model crossing Anthropic's AI R&D-4 threshold. Name the evidence each of the three pillars (monitoring, illegibility, incapability) requires.
+3. Thiết kế hồ sơ lập luận an toàn cho mô hình vượt ngưỡng AI R&D-4 Anthropic. Nêu bằng chứng mỗi trụ cột (giám sát, tính không dễ hiểu, thiếu năng lực) cần.
 
-4. DeepMind's FSF v3.0 introduces a Harmful Manipulation CCL. Propose three empirical measurements that would indicate a model has crossed this threshold.
+4. FSF v3.0 DeepMind đưa ra CCL Thao túng Có hại. Đề xuất ba phép đo thực nghiệm chỉ ra mô hình đã vượt ngưỡng.
 
-5. Read METR's "Common Elements of Frontier AI Safety Policies" (2025). Name the three strongest cross-lab convergences and the two largest divergences.
+5. Đọc "Common Elements of Frontier AI Safety Policies" của METR (2025). Nêu ba hội tụ xuyên phòng thí nghiệm mạnh nhất và hai khác biệt lớn nhất.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|-----------------|------------------------|
-| RSP | "Anthropic's framework" | Responsible Scaling Policy; ASL tiers; v3.0 February 2026 |
-| PF | "OpenAI's framework" | Preparedness Framework; five criteria; v2 April 2025 |
-| FSF | "DeepMind's framework" | Frontier Safety Framework; CCLs; v3.0 September 2025 |
-| ASL-3 | "biosafety level 3-analog" | Anthropic tier for CBRN-relevant capabilities; activated May 2025 |
-| CCL | "critical capability level" | DeepMind's threshold construct; per-domain |
-| Safety case | "the formal argument" | Written argument that deployment is acceptably safe under worst-case U |
-| Adjustment clause | "competitor defection allowance" | Framework provision for reducing requirements if competitors ship without comparable safeguards |
+| RSP | "khung Anthropic" | Chính sách Mở rộng Có trách nhiệm; tầng ASL; v3.0 tháng 2 năm 2026 |
+| PF | "khung OpenAI" | Khung Chuẩn bị; năm tiêu chí; v2 tháng 4 năm 2025 |
+| FSF | "khung DeepMind" | Khung An toàn Tiên tiến hàng đầu; CCL; v3.0 tháng 9 năm 2025 |
+| ASL-3 | "tương tự cấp an toàn sinh học 3" | Tầng Anthropic cho năng lực liên quan CBRN; kích hoạt tháng 5 năm 2025 |
+| CCL | "mức năng lực tới hạn" | Cấu trúc ngưỡng DeepMind; theo miền |
+| Safety case (Hồ sơ lập luận an toàn) | "lập luận hình thức" | Lập luận bằng văn bản triển khai an toàn ở mức chấp nhận dưới U trường hợp xấu nhất |
+| Adjustment clause (Điều khoản điều chỉnh) | "cho phép đối thủ phản bội" | Điều khoản khung giảm yêu cầu nếu đối thủ phát hành không có biện pháp bảo vệ tương đương |
 
 ## Further Reading
 
-- [Anthropic — Responsible Scaling Policy v3.0 (February 2026)](https://www.anthropic.com/responsible-scaling-policy) — ASL tiers, roadmaps, AI R&D disaggregation
-- [OpenAI — Updating the Preparedness Framework (April 15, 2025)](https://openai.com/index/updating-our-preparedness-framework/) — five criteria, adjustment clause
-- [DeepMind — Strengthening our Frontier Safety Framework (September 2025)](https://deepmind.google/blog/strengthening-our-frontier-safety-framework/) — CCL v3.0, Harmful Manipulation
-- [METR — Common Elements of Frontier AI Safety Policies (2025)](https://metr.org/blog/2025-03-26-common-elements-of-frontier-ai-safety-policies/) — cross-lab comparison
+- [Anthropic — Responsible Scaling Policy v3.0 (February 2026)](https://www.anthropic.com/responsible-scaling-policy) — tầng ASL, lộ trình, tách R&D AI
+- [OpenAI — Updating the Preparedness Framework (April 15, 2025)](https://openai.com/index/updating-our-preparedness-framework/) — năm tiêu chí, điều khoản điều chỉnh
+- [DeepMind — Strengthening our Frontier Safety Framework (September 2025)](https://deepmind.google/blog/strengthening-our-frontier-safety-framework/) — CCL v3.0, Thao túng Có hại
+- [METR — Common Elements of Frontier AI Safety Policies (2025)](https://metr.org/blog/2025-03-26-common-elements-of-frontier-ai-safety-policies/) — so sánh xuyên phòng thí nghiệm
