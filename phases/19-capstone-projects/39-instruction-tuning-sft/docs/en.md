@@ -1,6 +1,6 @@
 # Capstone Lesson 39: Instruction Tuning by Supervised Fine-Tuning
 
-> A pretrained base model can extend a sequence but cannot follow an instruction. Supervised fine-tuning is the smallest change that fixes this: feed the model paired examples of an instruction and a desired response, and train the body to predict the response tokens. The trick is that you only want the loss to count the response, not the instruction. This lesson builds an Alpaca-style SFT loop with a custom collate function that masks instruction tokens with `ignore_index=-100`, trains on 200 instruction-response pairs, and evaluates on a held-out split using exact-match.
+> Một mô hình cơ sở tiền huấn luyện có thể kéo dài một chuỗi nhưng không thể làm theo một chỉ dẫn. Tinh chỉnh có giám sát là thay đổi nhỏ nhất sửa điều này: đưa cho mô hình các ví dụ ghép cặp một chỉ dẫn và một phản hồi mong muốn, và huấn luyện thân dự đoán các token phản hồi. Mẹo là bạn chỉ muốn mất mát tính phản hồi, không tính chỉ dẫn. Bài này xây dựng một vòng lặp SFT kiểu Alpaca với một hàm collate tùy chỉnh che các token chỉ dẫn bằng `ignore_index=-100`, huấn luyện trên 200 cặp chỉ dẫn-phản hồi, và đánh giá trên một phần chia được giữ riêng bằng khớp chính xác.
 
 **Type:** Build
 **Languages:** Python (torch, numpy)
@@ -9,25 +9,25 @@
 
 ## Learning Objectives
 
-- Format paired instruction-response data into a single causal sequence with explicit boundary tokens.
-- Build a collate function that masks instruction tokens so cross-entropy only counts response tokens.
-- Train a tiny transformer body under the SFT objective and watch the eval metric move.
-- Implement greedy and temperature-sampled generation that respects the response-start boundary.
-- Compute held-out exact-match on generated completions.
+- Định dạng dữ liệu chỉ dẫn-phản hồi ghép cặp thành một chuỗi nhân quả duy nhất với các token ranh giới rõ ràng.
+- Xây dựng một hàm collate che các token chỉ dẫn để entropy chéo chỉ tính các token phản hồi.
+- Huấn luyện một thân transformer tí hon theo mục tiêu SFT và xem chỉ số đánh giá thay đổi.
+- Triển khai sinh tham lam và lấy mẫu theo nhiệt độ tôn trọng ranh giới bắt đầu phản hồi.
+- Tính khớp chính xác trên phần giữ riêng đối với các phần hoàn thành được sinh.
 
 ## The Problem
 
-A base model trained on next-token prediction has no idea what an instruction is. Show it the string `"What is the capital of France?"` and it will continue the question or invent a new sentence. The model has the language but not the format contract.
+Một mô hình cơ sở được huấn luyện trên dự đoán token tiếp theo không biết chỉ dẫn là gì. Cho nó thấy chuỗi `"What is the capital of France?"` và nó sẽ tiếp tục câu hỏi hoặc tự tạo một câu mới. Mô hình có ngôn ngữ nhưng không có hợp đồng định dạng.
 
-The SFT contract is a string template. Every training example becomes a single sequence with three regions:
+Hợp đồng SFT là một mẫu chuỗi. Mỗi ví dụ huấn luyện trở thành một chuỗi duy nhất với ba vùng:
 
 ```text
 <INST> What is the capital of France? <RESP> The capital of France is Paris.
 ```
 
-The boundary tokens are special tokens reserved at training time. The model learns that everything after `<RESP>` is the response and the response is what gets graded. The base model's next-token objective still applies; it is just trained on a corpus where every example has this shape.
+Các token ranh giới là các token đặc biệt được dành riêng lúc huấn luyện. Mô hình học rằng mọi thứ sau `<RESP>` là phản hồi và phản hồi là thứ được chấm điểm. Mục tiêu token tiếp theo của mô hình cơ sở vẫn áp dụng; nó chỉ được huấn luyện trên một corpus mà mọi ví dụ có hình thức này.
 
-But there is a catch. If you feed the entire sequence to a vanilla cross-entropy loss, you are training the model to also predict the instruction tokens. The instruction is given. You want zero gradient on those positions. The fix is the mask.
+Nhưng có một điểm mắc. Nếu bạn đưa toàn bộ chuỗi vào một hàm mất mát entropy chéo thông thường, bạn đang huấn luyện mô hình cũng dự đoán các token chỉ dẫn. Chỉ dẫn đã được cung cấp. Bạn muốn gradient không trên những vị trí đó. Cách sửa là mặt nạ.
 
 ## The Concept
 
@@ -41,41 +41,41 @@ flowchart LR
   CE --> Step[backward + optimiser step]
 ```
 
-`ignore_index` is a feature of `torch.nn.functional.cross_entropy`. Any target position equal to `ignore_index` contributes zero loss and zero gradient. The convention in PyTorch is `-100`. The collate function builds two tensors per example: `input_ids` (the full sequence) and `labels` (a copy of `input_ids` with the instruction positions overwritten by `-100`).
+`ignore_index` là một tính năng của `torch.nn.functional.cross_entropy`. Bất kỳ vị trí đích nào bằng `ignore_index` đóng góp mất mát không và gradient không. Quy ước trong PyTorch là `-100`. Hàm collate xây dựng hai tensor mỗi ví dụ: `input_ids` (toàn bộ chuỗi) và `labels` (một bản sao của `input_ids` với các vị trí chỉ dẫn được ghi đè bằng `-100`).
 
-The model sees the whole sequence during the forward pass; attention can attend to the instruction. The loss only counts response tokens. This is exactly what you want: condition on the instruction, predict the response.
+Mô hình thấy toàn bộ chuỗi trong lượt tiến; attention có thể chú ý đến chỉ dẫn. Mất mát chỉ tính các token phản hồi. Đây chính xác là điều bạn muốn: điều kiện hóa trên chỉ dẫn, dự đoán phản hồi.
 
 ## The Data
 
-Two hundred instruction-response pairs are generated deterministically in `main.py`. They cover six task types:
+Hai trăm cặp chỉ dẫn-phản hồi được tạo tất định trong `main.py`. Chúng bao phủ sáu loại tác vụ:
 
-- factual single-shot (capital of X)
-- arithmetic
-- list extraction
-- one-sentence summary
-- code (print, sort)
-- definition
+- sự kiện một lượt (thủ đô của X)
+- số học
+- trích xuất danh sách
+- tóm tắt một câu
+- mã (print, sort)
+- định nghĩa
 
-Each task has a templated instruction and a deterministic response. This is intentionally simple. Exact-match is brittle, and the lesson uses a fixture where the right answer is one specific string. Real SFT datasets need fuzzy metrics; the principle is identical.
+Mỗi tác vụ có một chỉ dẫn theo mẫu và một phản hồi tất định. Điều này cố ý đơn giản. Khớp chính xác mong manh, và bài học dùng một fixture nơi đáp án đúng là một chuỗi cụ thể. Các tập dữ liệu SFT thực cần các chỉ số mờ; nguyên tắc giống hệt.
 
-Splits are 160 train, 40 test. The test set covers all six task types so per-category exact-match can be reported.
+Các phần chia là 160 huấn luyện, 40 kiểm thử. Tập kiểm thử bao phủ cả sáu loại tác vụ để có thể báo cáo khớp chính xác theo hạng mục.
 
 ## Tokenisation and Padding
 
-The tokeniser is byte-level with three reserved specials:
+Tokenizer ở mức byte với ba token đặc biệt được dành riêng:
 
-- `INST_ID = 256`: marks the start of the instruction region.
-- `RESP_ID = 257`: marks the boundary between instruction and response.
-- `PAD_ID = 258`: padding for variable-length batches.
+- `INST_ID = 256`: đánh dấu đầu vùng chỉ dẫn.
+- `RESP_ID = 257`: đánh dấu ranh giới giữa chỉ dẫn và phản hồi.
+- `PAD_ID = 258`: đệm cho các lô có độ dài biến đổi.
 
-The sequence is `[INST] inst_bytes [RESP] resp_bytes [PAD]*`. The collate function:
+Chuỗi là `[INST] inst_bytes [RESP] resp_bytes [PAD]*`. Hàm collate:
 
-1. Tokenises each example.
-2. Pads every example in the batch to the longest sequence in the batch.
-3. Builds `labels` = `input_ids` shifted by one (causal LM target), with:
-   - The instruction region replaced by `-100`.
-   - The padding region replaced by `-100`.
-   - The `RESP_ID` boundary position itself replaced by `-100` (you do not train the model to predict the boundary token; it predicts what follows).
+1. Phân tách token từng ví dụ.
+2. Đệm mọi ví dụ trong lô đến chuỗi dài nhất trong lô.
+3. Xây dựng `labels` = `input_ids` dịch một vị trí (đích LM nhân quả), với:
+   - Vùng chỉ dẫn được thay bằng `-100`.
+   - Vùng đệm được thay bằng `-100`.
+   - Chính vị trí ranh giới `RESP_ID` được thay bằng `-100` (bạn không huấn luyện mô hình dự đoán token ranh giới; nó dự đoán thứ theo sau).
 
 ```mermaid
 flowchart TD
@@ -86,7 +86,7 @@ flowchart TD
   Mask --> Out[(input_ids, labels)]
 ```
 
-The shift is the standard causal trick: position `i` of `input_ids` predicts position `i+1`, so `labels[i] = input_ids[i+1]` (with the final position dropped from the input and the first dropped from the target). The mask is applied after the shift to land on the right positions.
+Phép dịch là thủ thuật nhân quả tiêu chuẩn: vị trí `i` của `input_ids` dự đoán vị trí `i+1`, nên `labels[i] = input_ids[i+1]` (với vị trí cuối được bỏ khỏi đầu vào và vị trí đầu được bỏ khỏi đích). Mặt nạ được áp dụng sau phép dịch để vào đúng vị trí.
 
 ## Training
 
@@ -100,24 +100,24 @@ flowchart LR
   Opt --> Body[(updated body)]
 ```
 
-The loop is the standard PyTorch SFT loop. Adam, learning rate around 3e-4 to 1e-3, ten to twenty epochs on this fixture, no scheduler. The model is small enough (hidden 96, 2 blocks, max length 64) to train to convergence on CPU inside two minutes.
+Vòng lặp là vòng lặp SFT PyTorch tiêu chuẩn. Adam, tốc độ học quanh 3e-4 đến 1e-3, mười đến hai mươi epoch trên fixture này, không có bộ lập lịch. Mô hình đủ nhỏ (ẩn 96, 2 khối, độ dài tối đa 64) để huấn luyện đến hội tụ trên CPU trong hai phút.
 
-Every fifth epoch the loop runs a tiny eval pass on the held-out set and prints exact-match. Watching exact-match go from 0.0 at epoch one to something like 0.85 at epoch fifteen is the lesson's payoff: you can see the model learning the format and the answers at the same time.
+Mỗi epoch thứ năm vòng lặp chạy một lượt đánh giá tí hon trên tập được giữ riêng và in khớp chính xác. Xem khớp chính xác đi từ 0.0 ở epoch một đến mức như 0.85 ở epoch mười lăm là thành quả của bài học: bạn có thể thấy mô hình học định dạng và các đáp án cùng lúc.
 
 ## Generation
 
-At eval time the model gets the instruction prefix `[INST] inst_bytes [RESP]` and generates tokens until either:
+Tại thời điểm đánh giá mô hình nhận tiền tố chỉ dẫn `[INST] inst_bytes [RESP]` và sinh token cho đến khi:
 
-- the sequence reaches `max_len`, or
-- the model emits a special stop heuristic: two consecutive sentence-ending bytes (`.`, `!`, `?`).
+- chuỗi đạt `max_len`, hoặc
+- mô hình phát ra một heuristic dừng đặc biệt: hai byte kết thúc câu liên tiếp (`.`, `!`, `?`).
 
-The lesson ships greedy decoding plus an optional temperature sampler. Exact-match uses greedy because temperature would make the metric stochastic. Real systems often sample, then judge fuzzily; that pipeline is lesson 41.
+Bài học cung cấp giải mã tham lam cùng một bộ lấy mẫu nhiệt độ tùy chọn. Khớp chính xác sử dụng tham lam vì nhiệt độ sẽ khiến chỉ số mang tính ngẫu nhiên. Các hệ thống thực thường lấy mẫu, rồi chấm mờ; pipeline đó là bài 41.
 
 ## Exact-Match Evaluation
 
-Exact-match is the strictest text metric. The predicted response string is normalised (lowercase, strip whitespace, collapse double spaces) and compared to the reference response, normalised the same way. The metric is either 1 or 0 per example. The aggregate is the mean.
+Khớp chính xác là chỉ số văn bản nghiêm ngặt nhất. Chuỗi phản hồi dự đoán được chuẩn hóa (chữ thường, bỏ khoảng trắng, gộp khoảng trắng kép) và so sánh với phản hồi tham chiếu, được chuẩn hóa cùng cách. Chỉ số hoặc là 1 hoặc 0 mỗi ví dụ. Tổng hợp là trung bình.
 
-Real SFT pipelines complement exact-match with token-level F1 (lesson 41) and a judge model. Exact-match remains useful because it is unambiguous; if it says 0.7, exactly 70 percent of test instructions produced the gold response character for character.
+Các pipeline SFT thực bổ sung khớp chính xác bằng F1 ở mức token (bài 41) và một mô hình chấm. Khớp chính xác vẫn hữu ích vì nó không mơ hồ; nếu nó nói 0.7, chính xác 70 phần trăm chỉ dẫn kiểm thử tạo ra phản hồi chuẩn đúng từng ký tự.
 
 ```figure
 cc-sft-loss-mask
@@ -125,27 +125,27 @@ cc-sft-loss-mask
 
 ## What you will build
 
-The implementation is one `main.py` plus tests.
+Triển khai là một `main.py` cùng các kiểm thử.
 
-1. `InstructionTokenizer`: byte-level encoder with reserved specials. Encodes either an instruction prefix or a full pair.
-2. `make_dataset`: generates 200 pairs across six task types with a fixed seed.
-3. `SFTDataset`: returns `(input_ids, labels)` per example, already mask-prepared.
-4. `sft_collate`: dynamic padding, builds the batch tensor, sets `-100` on instruction and pad positions.
-5. `TinyGPT`: transformer body plus tied or untied LM head.
-6. `train_sft`: the SFT loop, with per-epoch eval hooks.
-7. `generate`: causal decode from a prefix, greedy or sampled, with the stop heuristic.
-8. `exact_match`: normalised string comparison, returns float in `[0, 1]`.
-9. `run_demo`: builds the data, trains for twenty epochs, evaluates, prints a per-category breakdown, exits zero on success.
+1. `InstructionTokenizer`: bộ mã hóa ở mức byte với các token đặc biệt được dành riêng. Mã hóa một tiền tố chỉ dẫn hoặc một cặp đầy đủ.
+2. `make_dataset`: tạo 200 cặp trên sáu loại tác vụ với một seed cố định.
+3. `SFTDataset`: trả về `(input_ids, labels)` mỗi ví dụ, đã chuẩn bị mặt nạ.
+4. `sft_collate`: đệm động, xây dựng tensor lô, đặt `-100` trên các vị trí chỉ dẫn và đệm.
+5. `TinyGPT`: thân transformer cùng đầu LM được buộc hoặc không buộc.
+6. `train_sft`: vòng lặp SFT, với các hook đánh giá theo epoch.
+7. `generate`: giải mã nhân quả từ một tiền tố, tham lam hoặc lấy mẫu, với heuristic dừng.
+8. `exact_match`: so sánh chuỗi được chuẩn hóa, trả về float trong `[0, 1]`.
+9. `run_demo`: xây dựng dữ liệu, huấn luyện trong hai mươi epoch, đánh giá, in phân tích theo hạng mục, thoát với mã không khi thành công.
 
 ## Why the mask matters
 
-Without the mask, the loss treats instruction tokens as targets. The model learns to predict the instruction. This is a different objective and produces a worse model in two ways. First, model capacity is wasted reconstructing inputs the user always provides. Second, the response loss is smaller in the gradient sum because instruction tokens outnumber response tokens in most batches; the optimiser's effective learning rate on the part you care about is lower than you intended. The mask is not a polish; it is the objective.
+Không có mặt nạ, mất mát coi các token chỉ dẫn là đích. Mô hình học dự đoán chỉ dẫn. Đây là một mục tiêu khác và tạo một mô hình tệ hơn theo hai cách. Thứ nhất, năng lực mô hình bị lãng phí tái tạo các đầu vào người dùng luôn cung cấp. Thứ hai, mất mát phản hồi nhỏ hơn trong tổng gradient vì các token chỉ dẫn nhiều hơn các token phản hồi trong hầu hết các lô; tốc độ học hiệu dụng của bộ tối ưu trên phần bạn quan tâm thấp hơn bạn dự định. Mặt nạ không phải một sự trau chuốt; nó là mục tiêu.
 
 ## Stretch goals
 
-- Add a learning-rate warmup followed by cosine decay. SFT is more sensitive to LR than pretraining.
-- Add per-token loss logging and plot the loss curve over training. Notice that early epochs are dominated by template tokens (`<RESP>`, common prefixes) and later epochs are dominated by the actual answer tokens.
-- Extend the eval to BLEU-1 or chrF. Exact-match underestimates models that produce a paraphrase with the same answer.
-- Add a chat template with multi-turn formatting and train on a fixture that includes follow-ups.
+- Thêm khởi động tốc độ học theo sau bởi suy giảm cosine. SFT nhạy với LR hơn tiền huấn luyện.
+- Thêm ghi nhật ký mất mát theo token và vẽ đường cong mất mát qua huấn luyện. Chú ý các epoch đầu bị chi phối bởi các token mẫu (`<RESP>`, các tiền tố phổ biến) và các epoch sau bị chi phối bởi các token đáp án thực.
+- Mở rộng đánh giá sang BLEU-1 hoặc chrF. Khớp chính xác đánh giá thấp các mô hình tạo ra một cách diễn đạt lại với cùng đáp án.
+- Thêm một mẫu trò chuyện với định dạng nhiều lượt và huấn luyện trên một fixture bao gồm các trao đổi tiếp.
 
-The implementation gives you the format contract, the mask, and the loop. The objective change from base model to instruction follower is one collate function.
+Triển khai cho bạn hợp đồng định dạng, mặt nạ, và vòng lặp. Thay đổi mục tiêu từ mô hình cơ sở sang mô hình làm theo chỉ dẫn là một hàm collate.
