@@ -9,103 +9,103 @@ tags: [embeddings, vectors, similarity, search, chunking, quantization]
 
 # Embedding Patterns
 
-Every embedding workflow follows this contract:
+Mọi quy trình embedding tuân theo hợp đồng này:
 
 ```
 text -> embed(text) -> vector (float array)
 similarity(vector_a, vector_b) -> score (float)
 ```
 
-The embedding model and similarity metric are the only two decisions that matter. Everything else is plumbing.
+Mô hình embedding và thước đo độ tương đồng là hai quyết định duy nhất quan trọng. Mọi thứ khác là phần kết nối.
 
 ## When to use embeddings
 
-- Semantic search across documents (find meaning, not keywords)
-- Clustering similar items (support tickets, product reviews, bug reports)
-- Classification by nearest neighbors (label new items by similarity to labeled examples)
-- Recommendation systems (find items similar to what the user liked)
-- Deduplication (find near-duplicate content using similarity threshold)
+- Tìm kiếm ngữ nghĩa trên các tài liệu (tìm ý nghĩa, không phải từ khóa)
+- Phân cụm các mục tương tự (phiếu hỗ trợ, đánh giá sản phẩm, báo cáo lỗi)
+- Phân loại bằng láng giềng gần nhất (gán nhãn mục mới theo độ tương đồng với ví dụ đã gán nhãn)
+- Hệ thống khuyến nghị (tìm các mục tương tự những gì người dùng thích)
+- Loại trùng lặp (tìm nội dung gần trùng lặp bằng ngưỡng độ tương đồng)
 
 ## When NOT to use embeddings
 
-- Exact keyword matching (use full-text search)
-- Structured queries (use SQL, filters)
-- Small datasets where manual labeling is faster (<100 items)
-- Tasks where explainability matters more than accuracy (embeddings are opaque)
+- Khớp từ khóa chính xác (dùng tìm kiếm toàn văn)
+- Truy vấn có cấu trúc (dùng SQL, bộ lọc)
+- Bộ dữ liệu nhỏ mà gán nhãn thủ công nhanh hơn (<100 mục)
+- Tác vụ mà khả năng giải thích quan trọng hơn độ chính xác (embedding không minh bạch)
 
 ## Model selection
 
-Pick based on your constraints:
+Chọn dựa trên các ràng buộc của bạn:
 
-- **Need an API, best value**: OpenAI text-embedding-3-small (1536d, $0.02/1M tokens)
-- **Need maximum accuracy**: Voyage-3 (1024d, $0.06/1M tokens, highest MTEB)
-- **Need local/private**: BGE-M3 (1024d, free, multilingual, GPU recommended)
-- **Need fast local prototyping**: all-MiniLM-L6-v2 (384d, free, runs on CPU)
-- **Need multilingual**: Cohere embed-v3 (1024d) or BGE-M3 (both strong multilingual)
+- **Cần API, giá trị tốt nhất**: OpenAI text-embedding-3-small (1536d, $0.02/1M token)
+- **Cần độ chính xác tối đa**: Voyage-3 (1024d, $0.06/1M token, MTEB cao nhất)
+- **Cần cục bộ/riêng tư**: BGE-M3 (1024d, miễn phí, đa ngôn ngữ, khuyến nghị GPU)
+- **Cần tạo mẫu cục bộ nhanh**: all-MiniLM-L6-v2 (384d, miễn phí, chạy trên CPU)
+- **Cần đa ngôn ngữ**: Cohere embed-v3 (1024d) hoặc BGE-M3 (cả hai mạnh về đa ngôn ngữ)
 
-Rule: never mix embedding models between indexing and querying. Vectors from different models live in incompatible spaces.
+Quy tắc: không bao giờ trộn mô hình embedding giữa lập chỉ mục và truy vấn. Vector từ các mô hình khác nhau nằm trong các không gian không tương thích.
 
 ## Chunking rules
 
-1. Target 256-512 tokens per chunk with 50-token overlap
-2. Never split mid-sentence if you can avoid it
-3. Include metadata (source file, section title, position) with every chunk
-4. For structured docs (Markdown, HTML), split at heading boundaries first
-5. Test chunk quality by searching for known answers and checking retrieval
+1. Nhắm đến 256-512 token mỗi chunk với chồng lấp 50 token
+2. Không bao giờ chia giữa câu nếu bạn có thể tránh
+3. Bao gồm metadata (file nguồn, tiêu đề phần, vị trí) với mọi chunk
+4. Với tài liệu có cấu trúc (Markdown, HTML), chia tại ranh giới tiêu đề trước
+5. Kiểm thử chất lượng chunk bằng cách tìm các câu trả lời đã biết và kiểm tra truy xuất
 
 ## Similarity metric selection
 
-- **Cosine similarity**: default choice, handles variable-length text, normalized
-- **Dot product**: use when vectors are already unit-normalized (OpenAI models are), slightly faster
-- **Euclidean distance**: use for clustering, when absolute position matters
+- **Cosine similarity**: lựa chọn mặc định, xử lý văn bản độ dài thay đổi, được chuẩn hóa
+- **Tích vô hướng**: dùng khi vector đã được chuẩn hóa đơn vị (các mô hình OpenAI đã như vậy), nhanh hơn chút
+- **Khoảng cách Euclid**: dùng cho phân cụm, khi vị trí tuyệt đối quan trọng
 
-All three give the same ranking when vectors are normalized. The choice only matters for non-normalized vectors.
+Cả ba cho cùng thứ hạng khi vector được chuẩn hóa. Lựa chọn chỉ quan trọng cho vector không được chuẩn hóa.
 
 ## Storage optimization
 
-Three levels of compression, stackable:
+Ba mức nén, có thể xếp chồng:
 
-1. **Matryoshka truncation**: reduce dimensions (1536 -> 256 = 6x savings, 3-5% accuracy loss)
-2. **Float16 quantization**: halve storage per dimension (2x savings, <1% accuracy loss)
-3. **Binary quantization**: 1 bit per dimension (32x savings, 5-10% accuracy loss, use with rescoring)
+1. **Cắt ngắn Matryoshka**: giảm số chiều (1536 -> 256 = tiết kiệm 6x, mất độ chính xác 3-5%)
+2. **Lượng tử hóa Float16**: giảm một nửa lưu trữ mỗi chiều (tiết kiệm 2x, mất độ chính xác <1%)
+3. **Lượng tử hóa nhị phân**: 1 bit mỗi chiều (tiết kiệm 32x, mất độ chính xác 5-10%, dùng với chấm điểm lại)
 
-Production pattern: binary search over full corpus, rescore top-1000 with float32 vectors.
+Mẫu sản xuất: tìm kiếm nhị phân trên toàn ngữ liệu, chấm điểm lại top-1000 bằng vector float32.
 
 ## Retrieve-then-rerank
 
-Two-stage pipeline for best accuracy:
+Pipeline hai giai đoạn cho độ chính xác tốt nhất:
 
-1. Bi-encoder retrieves top-100 candidates (fast, uses pre-computed embeddings)
-2. Cross-encoder reranks to top-10 (slow, processes each query-doc pair)
+1. Bi-encoder truy xuất top-100 ứng viên (nhanh, dùng embedding tính trước)
+2. Cross-encoder xếp hạng lại thành top-10 (chậm, xử lý mỗi cặp truy vấn-tài liệu)
 
-This beats single-stage retrieval by 10-15% on precision metrics. Use when accuracy matters more than latency.
+Điều này vượt truy xuất một giai đoạn 10-15% trên các thước đo precision. Dùng khi độ chính xác quan trọng hơn độ trễ.
 
 ## Common mistakes
 
-- Using different embedding models for indexing and querying
-- Embedding entire documents instead of chunks (embedding becomes average of everything)
-- Not normalizing vectors before cosine similarity (most models pre-normalize, but verify)
-- Ignoring chunk overlap (sentences split at boundaries lose context)
-- Storing only vectors without the original text (you need both for retrieval)
-- Not re-embedding when the model changes (old vectors are incompatible)
-- Choosing dimensions based on accuracy alone (storage and latency scale linearly with dimensions)
+- Dùng các mô hình embedding khác nhau cho lập chỉ mục và truy vấn
+- Nhúng toàn bộ tài liệu thay vì chunk (embedding trở thành trung bình của mọi thứ)
+- Không chuẩn hóa vector trước cosine similarity (hầu hết mô hình chuẩn hóa trước, nhưng hãy xác minh)
+- Bỏ qua chồng lấp chunk (câu bị chia tại ranh giới mất ngữ cảnh)
+- Chỉ lưu vector mà không có văn bản gốc (bạn cần cả hai để truy xuất)
+- Không nhúng lại khi mô hình thay đổi (vector cũ không tương thích)
+- Chọn số chiều chỉ theo độ chính xác (lưu trữ và độ trễ tăng tuyến tính theo số chiều)
 
 ## Debugging embeddings
 
-If search results are poor:
+Nếu kết quả tìm kiếm kém:
 
-1. Verify the query embedding is non-zero (empty or whitespace input produces zero vectors)
-2. Check a known-relevant document's similarity score manually
-3. Try rephrasing the query to match document vocabulary
-4. Inspect chunk boundaries to ensure relevant content is not split across chunks
-5. Compare top-k results across metrics (cosine, dot, euclidean) to spot normalization issues
-6. Test with a trivially matching query (copy a sentence from a document) to confirm the pipeline works
+1. Xác minh embedding truy vấn khác không (đầu vào rỗng hoặc khoảng trắng tạo vector không)
+2. Kiểm tra thủ công điểm tương đồng của một tài liệu đã biết là liên quan
+3. Thử diễn đạt lại truy vấn để khớp từ vựng tài liệu
+4. Kiểm tra ranh giới chunk để bảo đảm nội dung liên quan không bị chia qua các chunk
+5. So sánh kết quả top-k giữa các thước đo (cosin, tích vô hướng, Euclid) để phát hiện vấn đề chuẩn hóa
+6. Kiểm thử với một truy vấn khớp hiển nhiên (sao chép một câu từ tài liệu) để xác nhận pipeline hoạt động
 
 ## Production parameters
 
-- Chunk size: 256-512 tokens
-- Chunk overlap: 50 tokens (10-20% of chunk size)
-- Top-k retrieval: 5-10 for direct use, 50-100 for reranking
-- Similarity threshold: 0.7+ for cosine (below this, results are usually irrelevant)
-- Batch embedding: process 100-500 texts per API call for throughput
-- Index rebuild: re-embed when the model changes or documents update significantly
+- Kích thước chunk: 256-512 token
+- Chồng lấp chunk: 50 token (10-20% kích thước chunk)
+- Truy xuất top-k: 5-10 cho dùng trực tiếp, 50-100 cho xếp hạng lại
+- Ngưỡng độ tương đồng: 0.7+ cho cosin (dưới mức này, kết quả thường không liên quan)
+- Nhúng theo batch: xử lý 100-500 văn bản mỗi lệnh gọi API để có thông lượng
+- Xây dựng lại chỉ mục: nhúng lại khi mô hình thay đổi hoặc tài liệu cập nhật đáng kể

@@ -1,63 +1,63 @@
 # Embeddings & Vector Representations
 
-> Text is discrete. Math is continuous. Every time you ask an LLM to find "similar" documents, compare meanings, or search beyond keywords, you're relying on a bridge between these two worlds. That bridge is an embedding. If you don't understand embeddings, you don't understand modern AI. You just use it.
+> Văn bản là rời rạc. Toán học là liên tục. Mỗi khi bạn yêu cầu một LLM tìm tài liệu "tương tự", so sánh ý nghĩa hoặc tìm kiếm vượt ngoài từ khóa, bạn đang dựa vào một cầu nối giữa hai thế giới này. Cầu nối đó là một embedding. Nếu bạn không hiểu embedding, bạn không hiểu AI hiện đại. Bạn chỉ dùng nó.
 
 **Type:** Build
 **Languages:** Python
 **Prerequisites:** Phase 11, Lesson 01 (Prompt Engineering)
 **Time:** ~75 minutes
-**Related:** Phase 5 · 22 (Embedding Models Deep Dive) covers dense vs sparse vs multi-vector, Matryoshka truncation, and per-axis model selection. This lesson focuses on the production pipeline (vector DBs, HNSW, similarity math). Read Phase 5 · 22 before picking a model.
+**Liên quan:** Giai đoạn 5 · 22 (Embedding Models Deep Dive) trình bày dense so với sparse so với multi-vector, cắt ngắn Matryoshka và lựa chọn mô hình theo từng trục. Bài học này tập trung vào pipeline sản xuất (cơ sở dữ liệu vector, HNSW, toán học độ tương đồng). Đọc Giai đoạn 5 · 22 trước khi chọn mô hình.
 
 ## Learning Objectives
 
-- Generate text embeddings using API providers and open-source models, and compute cosine similarity between them
-- Explain why embeddings solve the vocabulary mismatch problem that keyword search cannot handle
-- Build a semantic search index that retrieves documents by meaning rather than exact keyword match
-- Evaluate embedding quality using retrieval benchmarks (precision@k, recall) and choose the right embedding model for your task
+- Tạo embedding văn bản bằng các nhà cung cấp API và mô hình mã nguồn mở, đồng thời tính cosine similarity giữa chúng
+- Giải thích tại sao embedding giải quyết vấn đề không khớp từ vựng mà tìm kiếm từ khóa không xử lý được
+- Xây dựng một chỉ mục tìm kiếm ngữ nghĩa truy xuất tài liệu theo ý nghĩa thay vì khớp từ khóa chính xác
+- Đánh giá chất lượng embedding bằng các benchmark truy xuất (precision@k, recall) và chọn mô hình embedding phù hợp cho tác vụ của bạn
 
 ## The Problem
 
-You have 10,000 support tickets. A customer writes "my payment didn't go through." You need to find similar past tickets. Keyword search finds tickets containing "payment" and "didn't go through." It misses "transaction failed," "charge was declined," and "billing error." These tickets describe the exact same problem with completely different words.
+Bạn có 10,000 phiếu hỗ trợ. Một khách hàng viết "thanh toán của tôi không thực hiện được." Bạn cần tìm các phiếu tương tự trước đây. Tìm kiếm từ khóa tìm các phiếu chứa "thanh toán" và "không thực hiện được." Nó bỏ lỡ "giao dịch thất bại", "khoản thanh toán bị từ chối" và "lỗi lập hóa đơn." Các phiếu này mô tả đúng cùng một vấn đề bằng những từ hoàn toàn khác nhau.
 
-This is the vocabulary mismatch problem. Human language has dozens of ways to say the same thing. Keyword search treats each word as an independent symbol with no meaning. It cannot know that "declined" and "didn't go through" refer to the same concept.
+Đây là vấn đề không khớp từ vựng. Ngôn ngữ con người có hàng chục cách nói cùng một điều. Tìm kiếm từ khóa xem mỗi từ là một ký hiệu độc lập không có ý nghĩa. Nó không thể biết rằng "bị từ chối" và "không thực hiện được" chỉ cùng một khái niệm.
 
-You need a representation of text where meaning, not spelling, determines similarity. You need a way to place "my payment didn't go through" and "transaction was declined" close together in some mathematical space, while pushing "my payment arrived on time" far away despite sharing the word "payment."
+Bạn cần một biểu diễn văn bản mà ý nghĩa, không phải cách viết, quyết định độ tương đồng. Bạn cần một cách đặt "thanh toán của tôi không thực hiện được" và "giao dịch bị từ chối" gần nhau trong một không gian toán học nào đó, trong khi đẩy "thanh toán của tôi đến đúng hạn" ra xa dù cùng có từ "thanh toán."
 
-That representation is an embedding.
+Biểu diễn đó là một embedding.
 
 ## The Concept
 
 ### What Is an Embedding?
 
-An embedding is a dense vector of floating-point numbers that represents the meaning of text. The word "dense" matters -- every dimension carries information, unlike sparse representations (bag-of-words, TF-IDF) where most dimensions are zero.
+Một embedding là một vector dày đặc các số thực dấu phẩy động biểu diễn ý nghĩa của văn bản. Từ "dày đặc" quan trọng -- mỗi chiều mang thông tin, không như các biểu diễn thưa (bag-of-words, TF-IDF) nơi phần lớn các chiều bằng không.
 
-"The cat sat on the mat" becomes something like `[0.023, -0.041, 0.087, ..., 0.012]` -- a list of 768 to 3072 numbers depending on the model. These numbers encode meaning. You never inspect them directly. You compare them.
+"Con mèo ngồi trên tấm thảm" trở thành một thứ như `[0.023, -0.041, 0.087, ..., 0.012]` -- danh sách từ 768 đến 3072 số tùy mô hình. Các số này mã hóa ý nghĩa. Bạn không bao giờ kiểm tra chúng trực tiếp. Bạn so sánh chúng.
 
 ### The Word2Vec Breakthrough
 
-In 2013, Tomas Mikolov and colleagues at Google published Word2Vec. The core insight: train a neural network to predict a word from its neighbors (or neighbors from a word), and the hidden layer weights become meaningful vector representations.
+Năm 2013, Tomas Mikolov và các đồng nghiệp tại Google công bố Word2Vec. Nhận thức cốt lõi: huấn luyện một mạng nơ-ron dự đoán một từ từ các từ lân cận (hoặc các từ lân cận từ một từ), và trọng số lớp ẩn trở thành các biểu diễn vector có ý nghĩa.
 
-The famous result:
+Kết quả nổi tiếng:
 
 ```
 king - man + woman = queen
 ```
 
-Vector arithmetic on word embeddings captures semantic relationships. The direction from "man" to "woman" is roughly the same as the direction from "king" to "queen." This was the moment the field realized that geometry could encode meaning.
+Số học vector trên word embedding nắm bắt các quan hệ ngữ nghĩa. Hướng từ "đàn ông" đến "phụ nữ" gần giống hướng từ "vua" đến "nữ hoàng." Đây là thời điểm lĩnh vực nhận ra hình học có thể mã hóa ý nghĩa.
 
-Word2Vec produced 300-dimensional vectors. Each word got one vector regardless of context. "Bank" in "river bank" and "bank account" had the same embedding. This limitation drove the next decade of research.
+Word2Vec tạo các vector 300 chiều. Mỗi từ nhận một vector bất kể ngữ cảnh. "Bank" trong "river bank" và "bank account" có cùng embedding. Giới hạn này thúc đẩy thập kỷ nghiên cứu tiếp theo.
 
 ### From Words to Sentences
 
-Word embeddings represent single tokens. Production systems need to embed entire sentences, paragraphs, or documents. Four approaches emerged:
+Word embedding biểu diễn các token đơn. Hệ thống sản xuất cần nhúng toàn bộ câu, đoạn văn hoặc tài liệu. Bốn cách tiếp cận xuất hiện:
 
-**Averaging**: take the mean of all word vectors in the sentence. Cheap, lossy, surprisingly decent for short text. Loses word order entirely -- "dog bites man" and "man bites dog" get identical embeddings.
+**Lấy trung bình**: lấy trung bình mọi vector từ trong câu. Rẻ, mất thông tin, khá tốt đến ngạc nhiên với văn bản ngắn. Mất hoàn toàn thứ tự từ -- "chó cắn người" và "người cắn chó" nhận các embedding giống hệt nhau.
 
-**CLS token**: transformer models (BERT, 2018) output a special [CLS] token embedding that represents the entire input. Better than averaging but the [CLS] token was trained for next-sentence prediction, not similarity.
+**Token CLS**: các mô hình transformer (BERT, 2018) xuất một embedding token [CLS] đặc biệt biểu diễn toàn bộ đầu vào. Tốt hơn lấy trung bình nhưng token [CLS] được huấn luyện cho dự đoán câu tiếp theo, không phải độ tương đồng.
 
-**Contrastive learning**: train the model explicitly to push similar pairs together and dissimilar pairs apart. Sentence-BERT (Reimers & Gurevych, 2019) used this approach and became the foundation for modern embedding models. Given "How do I reset my password?" and "I need to change my password," the model learns these should have nearly identical vectors.
+**Học tương phản**: huấn luyện mô hình rõ ràng để đẩy các cặp tương tự lại gần và các cặp khác nhau ra xa. Sentence-BERT (Reimers & Gurevych, 2019) dùng cách này và trở thành nền tảng cho các mô hình embedding hiện đại. Với "Làm thế nào để tôi đặt lại mật khẩu?" và "Tôi cần đổi mật khẩu", mô hình học rằng chúng phải có các vector gần như giống hệt nhau.
 
-**Instruction-tuned embeddings**: the latest approach. Models like E5 and GTE accept a task prefix ("search_query:", "search_document:") that tells the model what kind of embedding to produce. This lets one model serve multiple tasks.
+**Embedding được tinh chỉnh chỉ dẫn**: cách tiếp cận mới nhất. Các mô hình như E5 và GTE nhận một tiền tố tác vụ ("search_query:", "search_document:") cho mô hình biết loại embedding cần tạo. Điều này cho phép một mô hình phục vụ nhiều tác vụ.
 
 ```mermaid
 graph LR
@@ -79,64 +79,64 @@ graph LR
 
 ### Modern Embedding Models
 
-The market has settled into a handful of production-grade options (MTEB scores as of early 2026, MTEB v2):
+Thị trường đã ổn định vào một số ít lựa chọn cấp sản xuất (điểm MTEB tính đến đầu năm 2026, MTEB v2):
 
-| Model | Provider | Dimensions | MTEB | Context | Cost / 1M tokens |
+| Mô hình | Nhà cung cấp | Số chiều | MTEB | Ngữ cảnh | Chi phí / 1M token |
 |-------|----------|-----------|------|---------|------------------|
-| Gemini Embedding 2 | Google | 3072 (Matryoshka) | 67.7 (retrieval) | 8192 | $0.15 |
+| Gemini Embedding 2 | Google | 3072 (Matryoshka) | 67.7 (truy xuất) | 8192 | $0.15 |
 | embed-v4 | Cohere | 1024 (Matryoshka) | 65.2 | 128K | $0.12 |
 | voyage-4 | Voyage AI | 1024/2048 (Matryoshka) | 66.8 | 32K | $0.12 |
 | text-embedding-3-large | OpenAI | 3072 (Matryoshka) | 64.6 | 8192 | $0.13 |
 | text-embedding-3-small | OpenAI | 1536 (Matryoshka) | 62.3 | 8192 | $0.02 |
-| BGE-M3 | BAAI | 1024 (dense+sparse+ColBERT) | 63.0 multilingual | 8192 | Open-weight |
-| Qwen3-Embedding | Alibaba | 4096 (Matryoshka) | 66.9 | 32K | Open-weight |
-| Nomic-embed-v2 | Nomic | 768 (Matryoshka) | 63.1 | 8192 | Open-weight |
+| BGE-M3 | BAAI | 1024 (dense+sparse+ColBERT) | 63.0 đa ngôn ngữ | 8192 | Trọng số mở |
+| Qwen3-Embedding | Alibaba | 4096 (Matryoshka) | 66.9 | 32K | Trọng số mở |
+| Nomic-embed-v2 | Nomic | 768 (Matryoshka) | 63.1 | 8192 | Trọng số mở |
 
-MTEB (Massive Text Embedding Benchmark) v2 covers 100+ tasks across retrieval, classification, clustering, reranking, and summarization. Higher is better. By 2026, open-weight models (Qwen3-Embedding, BGE-M3) match or beat closed hosted models on most axes. Gemini Embedding 2 leads pure retrieval; Voyage/Cohere lead specific domains (finance, law, code). Always benchmark on your own queries before committing.
+MTEB (Massive Text Embedding Benchmark) v2 bao quát 100+ tác vụ trên truy xuất, phân loại, phân cụm, xếp hạng lại và tóm tắt. Cao hơn là tốt hơn. Đến năm 2026, các mô hình trọng số mở (Qwen3-Embedding, BGE-M3) ngang hoặc vượt các mô hình đóng được lưu trữ trên hầu hết các trục. Gemini Embedding 2 dẫn đầu truy xuất thuần; Voyage/Cohere dẫn đầu các miền cụ thể (tài chính, luật, mã). Luôn benchmark trên truy vấn của chính bạn trước khi chốt lựa chọn.
 
 ### Similarity Metrics
 
-Given two embedding vectors, three ways to measure how similar they are:
+Với hai vector embedding, ba cách đo chúng tương tự đến mức nào:
 
-**Cosine similarity**: the cosine of the angle between two vectors. Ranges from -1 (opposite) to 1 (identical direction). Ignores magnitude -- a 10-word sentence and a 500-word document can score 1.0 if they point the same direction. This is the default for 90% of use cases.
+**Cosine similarity**: cosin của góc giữa hai vector. Từ -1 (đối nhau) đến 1 (cùng hướng). Bỏ qua độ lớn -- một câu 10 từ và một tài liệu 500 từ có thể đạt 1.0 nếu cùng hướng. Đây là mặc định cho 90% trường hợp sử dụng.
 
 ```
 cosine_sim(a, b) = dot(a, b) / (||a|| * ||b||)
 ```
 
-**Dot product**: the raw inner product of two vectors. Identical to cosine similarity when vectors are normalized (unit length). Faster to compute. OpenAI's embeddings are normalized, so dot product and cosine give the same ranking.
+**Tích vô hướng**: tích trong thô của hai vector. Giống cosine similarity khi các vector được chuẩn hóa (độ dài đơn vị). Tính nhanh hơn. Embedding của OpenAI được chuẩn hóa, nên tích vô hướng và cosin cho cùng thứ hạng.
 
 ```
 dot(a, b) = sum(a_i * b_i)
 ```
 
-**Euclidean (L2) distance**: straight-line distance in the vector space. Smaller = more similar. Sensitive to magnitude differences. Use when the absolute position in space matters, not just the direction.
+**Khoảng cách Euclid (L2)**: khoảng cách đường thẳng trong không gian vector. Nhỏ hơn = tương tự hơn. Nhạy với khác biệt độ lớn. Dùng khi vị trí tuyệt đối trong không gian quan trọng, không chỉ hướng.
 
 ```
 L2(a, b) = sqrt(sum((a_i - b_i)^2))
 ```
 
-When to use which:
+Khi nào dùng loại nào:
 
-| Metric | Use when | Avoid when |
+| Thước đo | Dùng khi | Tránh khi |
 |--------|----------|------------|
-| Cosine similarity | Comparing texts of different lengths; most retrieval tasks | Magnitude carries information |
-| Dot product | Embeddings are already normalized; maximum speed | Vectors have varying magnitudes |
-| Euclidean distance | Clustering; spatial nearest-neighbor problems | Comparing documents of wildly different lengths |
+| Cosine similarity | So sánh văn bản khác độ dài; hầu hết tác vụ truy xuất | Độ lớn mang thông tin |
+| Tích vô hướng | Embedding đã được chuẩn hóa; tốc độ tối đa | Vector có độ lớn khác nhau |
+| Khoảng cách Euclid | Phân cụm; bài toán láng giềng gần nhất trong không gian | So sánh tài liệu có độ dài rất khác nhau |
 
 ### Vector Databases and HNSW
 
-A brute-force similarity search compares the query against every stored vector. At 1 million vectors with 1536 dimensions, that is 1.5 billion multiply-add operations per query. Too slow.
+Tìm kiếm độ tương đồng vét cạn so sánh truy vấn với mọi vector đã lưu. Với 1 triệu vector có 1536 chiều, đó là 1.5 tỷ phép nhân-cộng mỗi truy vấn. Quá chậm.
 
-Vector databases solve this with Approximate Nearest Neighbor (ANN) algorithms. The dominant algorithm is HNSW (Hierarchical Navigable Small World):
+Cơ sở dữ liệu vector giải quyết điều này bằng các thuật toán Approximate Nearest Neighbor (ANN). Thuật toán thống trị là HNSW (Hierarchical Navigable Small World):
 
-1. Build a multi-layer graph of vectors
-2. Top layers are sparse -- long-range connections between distant clusters
-3. Bottom layers are dense -- fine-grained connections between nearby vectors
-4. Search starts at the top layer, greedily descending to refine
-5. Returns approximate top-k results in O(log n) time instead of O(n)
+1. Xây dựng một đồ thị nhiều lớp các vector
+2. Các lớp trên thưa -- kết nối phạm vi dài giữa các cụm xa nhau
+3. Các lớp dưới dày đặc -- kết nối chi tiết giữa các vector gần nhau
+4. Tìm kiếm bắt đầu ở lớp trên, đi xuống tham lam để tinh chỉnh
+5. Trả về kết quả top-k xấp xỉ trong thời gian O(log n) thay vì O(n)
 
-HNSW trades a small accuracy loss (typically 95-99% recall) for massive speed gains. At 10 million vectors, brute force takes seconds. HNSW takes milliseconds.
+HNSW đánh đổi mất mát độ chính xác nhỏ (thường recall 95-99%) lấy mức tăng tốc lớn. Với 10 triệu vector, vét cạn mất vài giây. HNSW mất vài mili giây.
 
 ```mermaid
 graph TD
@@ -149,45 +149,45 @@ graph TD
     L0 -->|"nearest neighbors"| R["Top-k results"]
 ```
 
-Production options:
+Các lựa chọn sản xuất:
 
-| Database | Type | Best for | Max scale |
+| Cơ sở dữ liệu | Loại | Tốt nhất cho | Quy mô tối đa |
 |----------|------|----------|-----------|
-| Pinecone | Managed SaaS | Zero-ops production | Billions |
-| Weaviate | Open source | Self-hosted, hybrid search | 100M+ |
-| Qdrant | Open source | High performance, filtering | 100M+ |
-| ChromaDB | Embedded | Prototyping, local dev | 1M |
-| pgvector | Postgres extension | Already using Postgres | 10M |
-| FAISS | Library | In-process, research | 1B+ |
+| Pinecone | SaaS được quản lý | Sản xuất không cần vận hành | Hàng tỷ |
+| Weaviate | Mã nguồn mở | Tự lưu trữ, tìm kiếm lai | 100M+ |
+| Qdrant | Mã nguồn mở | Hiệu năng cao, lọc | 100M+ |
+| ChromaDB | Nhúng | Tạo mẫu, phát triển cục bộ | 1M |
+| pgvector | Phần mở rộng Postgres | Đã dùng Postgres | 10M |
+| FAISS | Thư viện | Trong tiến trình, nghiên cứu | 1B+ |
 
 ### Chunking Strategies
 
-Documents are too long to embed as single vectors. A 50-page PDF covers dozens of topics -- its embedding becomes an average of everything, similar to nothing specific. You split documents into chunks and embed each one.
+Tài liệu quá dài để nhúng thành các vector đơn. Một PDF 50 trang bao quát hàng chục chủ đề -- embedding của nó trở thành trung bình của mọi thứ, không tương tự thứ gì cụ thể. Bạn chia tài liệu thành các chunk và nhúng từng chunk.
 
-**Fixed-size chunking**: split every N tokens with M-token overlap. Simple and predictable. Works well when documents have no clear structure. A 512-token chunk with 50-token overlap: chunk 1 is tokens 0-511, chunk 2 is tokens 462-973.
+**Chia chunk kích thước cố định**: chia mỗi N token với phần chồng lấp M token. Đơn giản và có thể dự đoán. Hoạt động tốt khi tài liệu không có cấu trúc rõ ràng. Một chunk 512 token với chồng lấp 50 token: chunk 1 là token 0-511, chunk 2 là token 462-973.
 
-**Sentence-based chunking**: split at sentence boundaries, grouping sentences until reaching the token limit. Each chunk is at least one complete sentence. Better than fixed-size because you never cut a thought in half.
+**Chia chunk theo câu**: chia tại ranh giới câu, nhóm các câu đến khi đạt giới hạn token. Mỗi chunk ít nhất là một câu hoàn chỉnh. Tốt hơn kích thước cố định vì bạn không bao giờ cắt đôi một ý.
 
-**Recursive chunking**: try splitting at the largest boundary first (section headers). If still too large, try paragraph boundaries. Then sentence boundaries. Then character limits. This is LangChain's `RecursiveCharacterTextSplitter` and it works well for mixed-format corpora.
+**Chia chunk đệ quy**: thử chia ở ranh giới lớn nhất trước (tiêu đề phần). Nếu vẫn quá lớn, thử ranh giới đoạn văn. Rồi ranh giới câu. Rồi giới hạn ký tự. Đây là `RecursiveCharacterTextSplitter` của LangChain và nó hoạt động tốt cho ngữ liệu định dạng hỗn hợp.
 
-**Semantic chunking**: embed each sentence, then group consecutive sentences whose embeddings are similar. When the embedding similarity drops below a threshold, start a new chunk. Expensive (requires embedding every sentence individually) but produces the most coherent chunks.
+**Chia chunk ngữ nghĩa**: nhúng từng câu, rồi nhóm các câu liên tiếp có embedding tương tự. Khi độ tương đồng embedding giảm dưới một ngưỡng, bắt đầu chunk mới. Tốn kém (cần nhúng riêng từng câu) nhưng tạo các chunk mạch lạc nhất.
 
-| Strategy | Complexity | Quality | Best for |
+| Chiến lược | Độ phức tạp | Chất lượng | Tốt nhất cho |
 |----------|-----------|---------|----------|
-| Fixed-size | Low | Decent | Unstructured text, logs |
-| Sentence-based | Low | Good | Articles, emails |
-| Recursive | Medium | Good | Markdown, HTML, mixed docs |
-| Semantic | High | Best | Critical retrieval quality |
+| Kích thước cố định | Thấp | Khá | Văn bản không có cấu trúc, log |
+| Theo câu | Thấp | Tốt | Bài viết, email |
+| Đệ quy | Trung bình | Tốt | Markdown, HTML, tài liệu hỗn hợp |
+| Ngữ nghĩa | Cao | Tốt nhất | Chất lượng truy xuất then chốt |
 
-The sweet spot for most systems: 256-512 token chunks with 50-token overlap.
+Điểm tối ưu cho hầu hết hệ thống: chunk 256-512 token với chồng lấp 50 token.
 
 ### Bi-Encoders vs Cross-Encoders
 
-A bi-encoder embeds the query and documents independently, then compares vectors. Fast -- you embed the query once and compare against pre-computed document embeddings. This is what you use for retrieval.
+Một bi-encoder nhúng truy vấn và tài liệu độc lập, rồi so sánh vector. Nhanh -- bạn nhúng truy vấn một lần và so sánh với các embedding tài liệu đã tính trước. Đây là thứ bạn dùng cho truy xuất.
 
-A cross-encoder takes the query and a document as a single input and outputs a relevance score. Slow -- it processes each query-document pair through the full model. But far more accurate because it can attend across query and document tokens simultaneously.
+Một cross-encoder nhận truy vấn và tài liệu thành một đầu vào duy nhất rồi xuất điểm liên quan. Chậm -- nó xử lý mỗi cặp truy vấn-tài liệu qua toàn bộ mô hình. Nhưng chính xác hơn nhiều vì có thể attend đồng thời trên các token truy vấn và tài liệu.
 
-The production pattern: bi-encoder retrieves top-100 candidates, cross-encoder reranks them to top-10. This is the retrieve-then-rerank pipeline.
+Mẫu sản xuất: bi-encoder truy xuất top-100 ứng viên, cross-encoder xếp hạng lại chúng thành top-10. Đây là pipeline truy xuất rồi xếp hạng lại.
 
 ```mermaid
 graph LR
@@ -197,23 +197,23 @@ graph LR
     CE --> R["Top 10 results"]
 ```
 
-Reranking models: Cohere Rerank 3.5 ($2 per 1000 queries), BGE-reranker-v2 (free, open source), Jina Reranker v2 (free, open source).
+Các mô hình xếp hạng lại: Cohere Rerank 3.5 ($2 mỗi 1000 truy vấn), BGE-reranker-v2 (miễn phí, mã nguồn mở), Jina Reranker v2 (miễn phí, mã nguồn mở).
 
 ### Matryoshka Embeddings
 
-Traditional embeddings are all-or-nothing. A 1536-dimensional vector uses 1536 floats. You cannot truncate to 256 dimensions without retraining.
+Embedding truyền thống là tất cả hoặc không gì cả. Một vector 1536 chiều dùng 1536 số thực dấu phẩy động. Bạn không thể cắt ngắn xuống 256 chiều mà không huấn luyện lại.
 
-Matryoshka Representation Learning (Kusupati et al., 2022) fixes this. The model is trained so that the first N dimensions capture the most important information, like a Russian nesting doll. Truncating a 1536-d Matryoshka embedding to 256 dimensions loses some accuracy but remains functional.
+Matryoshka Representation Learning (Kusupati và cộng sự, 2022) khắc phục điều này. Mô hình được huấn luyện sao cho N chiều đầu nắm bắt thông tin quan trọng nhất, như một búp bê Nga lồng nhau. Cắt ngắn một embedding Matryoshka 1536 chiều xuống 256 chiều mất một ít độ chính xác nhưng vẫn hoạt động.
 
-OpenAI's text-embedding-3-small and text-embedding-3-large support Matryoshka truncation via the `dimensions` parameter. Requesting 256 dimensions instead of 1536 cuts storage by 6x with roughly 3-5% accuracy loss on MTEB benchmarks.
+text-embedding-3-small và text-embedding-3-large của OpenAI hỗ trợ cắt ngắn Matryoshka qua tham số `dimensions`. Yêu cầu 256 chiều thay vì 1536 giảm lưu trữ 6x với mất mát độ chính xác khoảng 3-5% trên các benchmark MTEB.
 
 ### Binary Quantization
 
-A 1536-dimensional embedding stored as float32 uses 6,144 bytes. Multiply by 10 million documents: 61 GB just for vectors.
+Một embedding 1536 chiều lưu dưới dạng float32 dùng 6,144 byte. Nhân với 10 triệu tài liệu: 61 GB chỉ cho vector.
 
-Binary quantization converts each float to a single bit: positive values become 1, negative values become 0. Storage drops from 6,144 bytes to 192 bytes -- a 32x reduction. Similarity is computed using Hamming distance (count differing bits), which CPUs can do in a single instruction.
+Lượng tử hóa nhị phân chuyển mỗi số thực dấu phẩy động thành một bit: giá trị dương thành 1, giá trị âm thành 0. Lưu trữ giảm từ 6,144 byte xuống 192 byte -- giảm 32x. Độ tương đồng được tính bằng khoảng cách Hamming (đếm các bit khác nhau), mà CPU có thể làm trong một lệnh duy nhất.
 
-The accuracy hit is around 5-10% on retrieval recall. The common pattern: binary quantization for the first-pass search over millions of vectors, then rescore the top-1000 with full-precision vectors. This gets you 95%+ of full-precision accuracy at 32x less memory.
+Mức giảm độ chính xác khoảng 5-10% trên recall truy xuất. Mẫu phổ biến: lượng tử hóa nhị phân cho lượt tìm kiếm đầu trên hàng triệu vector, rồi chấm điểm lại top-1000 bằng vector độ chính xác đầy đủ. Điều này mang lại 95%+ độ chính xác đầy đủ với bộ nhớ ít hơn 32x.
 
 ```figure
 cosine-similarity
@@ -221,7 +221,7 @@ cosine-similarity
 
 ## Build It
 
-We build a semantic search engine from scratch. No vector database. No external embedding API. Pure Python with numpy for the math.
+Chúng ta xây dựng một bộ máy tìm kiếm ngữ nghĩa từ đầu. Không cơ sở dữ liệu vector. Không API embedding bên ngoài. Python thuần với numpy cho phần toán.
 
 ### Step 1: Text Chunking
 
@@ -259,7 +259,7 @@ def chunk_by_sentences(text, max_chunk_tokens=200):
 
 ### Step 2: Building Embeddings from Scratch
 
-We implement a simple dense embedding using TF-IDF with L2 normalization. This is not a neural embedding, but it follows the same contract: text in, fixed-size vector out, similar texts produce similar vectors.
+Chúng ta triển khai một embedding dày đặc đơn giản bằng TF-IDF với chuẩn hóa L2. Đây không phải embedding nơ-ron, nhưng tuân cùng hợp đồng: văn bản vào, vector kích thước cố định ra, văn bản tương tự tạo vector tương tự.
 
 ```python
 import math
@@ -416,7 +416,7 @@ def compare_metrics(engine, query, top_k=3):
 
 ## Use It
 
-With a production embedding API, the architecture stays identical. Only the embedder changes:
+Với một API embedding sản xuất, kiến trúc giữ nguyên. Chỉ bộ nhúng thay đổi:
 
 ```python
 from openai import OpenAI
@@ -431,16 +431,16 @@ def openai_embed(texts, model="text-embedding-3-small", dimensions=None):
     return [item.embedding for item in response.data]
 ```
 
-Matryoshka truncation with OpenAI -- same model, fewer dimensions, lower storage:
+Cắt ngắn Matryoshka với OpenAI -- cùng mô hình, ít chiều hơn, lưu trữ thấp hơn:
 
 ```python
 full = openai_embed(["semantic search query"], dimensions=1536)
 compact = openai_embed(["semantic search query"], dimensions=256)
 ```
 
-The 256-d vector uses 6x less storage. For 10 million documents, that is 10 GB vs 61 GB. The accuracy loss is roughly 3-5% on standard benchmarks.
+Vector 256 chiều dùng lưu trữ ít hơn 6x. Với 10 triệu tài liệu, đó là 10 GB so với 61 GB. Mất mát độ chính xác khoảng 3-5% trên các benchmark tiêu chuẩn.
 
-For reranking with Cohere:
+Để xếp hạng lại với Cohere:
 
 ```python
 import cohere
@@ -455,7 +455,7 @@ results = co.rerank(
 )
 ```
 
-For local embeddings with no API dependency:
+Để nhúng cục bộ không phụ thuộc API:
 
 ```python
 from sentence_transformers import SentenceTransformer
@@ -464,50 +464,50 @@ model = SentenceTransformer("BAAI/bge-small-en-v1.5")
 embeddings = model.encode(["semantic search query", "another document"])
 ```
 
-The VectorIndex class from our build works with any of these. Swap the embedding function, keep the search logic.
+Lớp VectorIndex từ phần xây dựng của chúng ta hoạt động với bất kỳ lựa chọn nào trong số này. Thay hàm embedding, giữ logic tìm kiếm.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-embedding-advisor.md` -- a prompt for choosing embedding models and strategies for specific use cases
-- `outputs/skill-embedding-patterns.md` -- a skill that teaches agents how to use embeddings effectively in production
+Bài học này tạo ra:
+- `outputs/prompt-embedding-advisor.md` -- một prompt để chọn mô hình và chiến lược embedding cho các trường hợp sử dụng cụ thể
+- `outputs/skill-embedding-patterns.md` -- một skill dạy tác tử cách dùng embedding hiệu quả trong sản xuất
 
 ## Exercises
 
-1. **Metric comparison**: run the same 5 queries against the sample documents using cosine similarity, dot product, and euclidean distance. Record the top-3 results for each. For which queries do the metrics disagree? Why?
+1. **So sánh thước đo**: chạy cùng 5 truy vấn trên các tài liệu mẫu bằng cosine similarity, tích vô hướng và khoảng cách Euclid. Ghi kết quả top-3 cho mỗi loại. Với những truy vấn nào các thước đo bất đồng? Tại sao?
 
-2. **Chunk size experiment**: index the sample documents with chunk sizes of 50, 100, 200, and 500 words. For each, run 5 queries and record the top-1 similarity score. Plot the relationship between chunk size and retrieval quality. Find the point where larger chunks start hurting.
+2. **Thí nghiệm kích thước chunk**: lập chỉ mục các tài liệu mẫu với kích thước chunk 50, 100, 200 và 500 từ. Với mỗi loại, chạy 5 truy vấn và ghi điểm tương đồng top-1. Vẽ quan hệ giữa kích thước chunk và chất lượng truy xuất. Tìm điểm mà các chunk lớn hơn bắt đầu gây hại.
 
-3. **Matryoshka simulation**: build a SimpleEmbedder that produces 500-d vectors. Truncate to 50, 100, 200, and 500 dimensions. Measure how retrieval recall degrades at each truncation. This simulates Matryoshka behavior without needing the real training trick.
+3. **Mô phỏng Matryoshka**: xây dựng một SimpleEmbedder tạo các vector 500 chiều. Cắt ngắn xuống 50, 100, 200 và 500 chiều. Đo mức suy giảm recall truy xuất ở mỗi lần cắt ngắn. Điều này mô phỏng hành vi Matryoshka mà không cần thủ thuật huấn luyện thực tế.
 
-4. **Binary quantization**: take the embeddings from the search engine, convert them to binary (1 if positive, 0 if negative), and implement Hamming distance search. Compare the top-10 results against full-precision cosine similarity. Measure the overlap percentage.
+4. **Lượng tử hóa nhị phân**: lấy các embedding từ bộ máy tìm kiếm, chuyển chúng sang nhị phân (1 nếu dương, 0 nếu âm), và triển khai tìm kiếm khoảng cách Hamming. So sánh kết quả top-10 với cosine similarity độ chính xác đầy đủ. Đo phần trăm chồng lấp.
 
-5. **Sentence-based chunking**: replace fixed-size chunking with `chunk_by_sentences`. Run the same queries and compare retrieval scores. Does respecting sentence boundaries improve the results?
+5. **Chia chunk theo câu**: thay chia chunk kích thước cố định bằng `chunk_by_sentences`. Chạy cùng truy vấn và so sánh điểm truy xuất. Tôn trọng ranh giới câu có cải thiện kết quả không?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Embedding | "Text to numbers" | A dense vector where geometric proximity encodes semantic similarity |
-| Word2Vec | "The OG embedding" | 2013 model that learned word vectors by predicting context words; proved vector arithmetic encodes meaning |
-| Cosine similarity | "How similar are two vectors" | Cosine of the angle between vectors; 1 = identical direction, 0 = orthogonal, -1 = opposite |
-| HNSW | "Fast vector search" | Hierarchical Navigable Small World graph -- multi-layer structure enabling O(log n) approximate nearest neighbor search |
-| Bi-encoder | "Embed separately, compare fast" | Encodes query and document independently into vectors; enables pre-computation and fast retrieval |
-| Cross-encoder | "Slow but accurate reranker" | Processes query-document pair jointly through the full model; higher accuracy, no pre-computation |
-| Matryoshka embeddings | "Truncatable vectors" | Embeddings trained so the first N dimensions capture the most important information, enabling variable-size storage |
-| Binary quantization | "1-bit embeddings" | Converting float vectors to binary (sign bit only) for 32x storage reduction with Hamming distance search |
-| Chunking | "Split docs for embedding" | Breaking documents into 256-512 token segments so each can be independently embedded and retrieved |
-| Vector database | "Search engine for embeddings" | Data store optimized for storing vectors and performing approximate nearest neighbor search at scale |
-| Contrastive learning | "Train by comparison" | Training approach that pushes similar pair embeddings together and dissimilar pair embeddings apart |
-| MTEB | "The embedding benchmark" | Massive Text Embedding Benchmark -- 56 datasets across 8 tasks; standard for comparing embedding models |
+| Embedding (Biểu diễn nhúng) | "Văn bản thành số" | Một vector dày đặc trong đó khoảng cách gần về hình học mã hóa tương đồng ngữ nghĩa |
+| Word2Vec | "Embedding đời đầu" | Mô hình năm 2013 học vector từ bằng cách dự đoán từ ngữ cảnh; chứng minh số học vector mã hóa ý nghĩa |
+| Cosine similarity (Độ tương đồng cosin) | "Hai vector tương tự đến mức nào" | Cosin của góc giữa các vector; 1 = cùng hướng, 0 = trực giao, -1 = đối nhau |
+| HNSW | "Tìm kiếm vector nhanh" | Đồ thị Hierarchical Navigable Small World -- cấu trúc nhiều lớp cho phép tìm kiếm láng giềng gần nhất xấp xỉ O(log n) |
+| Bi-encoder (Bộ mã hóa đôi) | "Nhúng riêng, so sánh nhanh" | Mã hóa truy vấn và tài liệu độc lập thành vector; cho phép tính trước và truy xuất nhanh |
+| Cross-encoder (Bộ mã hóa chéo) | "Bộ xếp hạng lại chậm nhưng chính xác" | Xử lý đồng thời cặp truy vấn-tài liệu qua toàn bộ mô hình; độ chính xác cao hơn, không tính trước |
+| Matryoshka embeddings (Embedding Matryoshka) | "Vector có thể cắt ngắn" | Embedding được huấn luyện sao cho N chiều đầu nắm bắt thông tin quan trọng nhất, cho phép lưu trữ kích thước thay đổi |
+| Binary quantization (Lượng tử hóa nhị phân) | "Embedding 1 bit" | Chuyển vector số thực dấu phẩy động sang nhị phân (chỉ bit dấu) để giảm lưu trữ 32x với tìm kiếm khoảng cách Hamming |
+| Chunking (Chia đoạn) | "Chia tài liệu để nhúng" | Chia tài liệu thành các đoạn 256-512 token để mỗi đoạn có thể được nhúng và truy xuất độc lập |
+| Vector database (Cơ sở dữ liệu vector) | "Bộ máy tìm kiếm cho embedding" | Kho dữ liệu tối ưu cho lưu vector và thực hiện tìm kiếm láng giềng gần nhất xấp xỉ ở quy mô lớn |
+| Contrastive learning (Học tương phản) | "Huấn luyện bằng so sánh" | Cách huấn luyện đẩy embedding của các cặp tương tự lại gần và embedding của các cặp khác nhau ra xa |
+| MTEB | "Benchmark embedding" | Massive Text Embedding Benchmark -- 56 bộ dữ liệu trên 8 tác vụ; tiêu chuẩn để so sánh các mô hình embedding |
 
 ## Further Reading
 
-- Mikolov et al., "Efficient Estimation of Word Representations in Vector Space" (2013) -- the Word2Vec paper that started the embedding revolution with the king-queen analogy
-- Reimers & Gurevych, "Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks" (2019) -- how to train bi-encoders for sentence-level similarity, foundation of modern embedding models
-- Kusupati et al., "Matryoshka Representation Learning" (2022) -- the technique behind variable-dimension embeddings that OpenAI adopted for text-embedding-3
-- Malkov & Yashunin, "Efficient and Robust Approximate Nearest Neighbor using Hierarchical Navigable Small World Graphs" (2018) -- the HNSW paper, the algorithm behind most production vector search
-- OpenAI Embeddings Guide (platform.openai.com/docs/guides/embeddings) -- practical reference for text-embedding-3 models including Matryoshka dimension reduction
-- MTEB Leaderboard (huggingface.co/spaces/mteb/leaderboard) -- live benchmark comparing all embedding models across tasks and languages
-- [Muennighoff et al., "MTEB: Massive Text Embedding Benchmark" (EACL 2023)](https://arxiv.org/abs/2210.07316) -- the benchmark defining 8 task categories (classification, clustering, pair classification, reranking, retrieval, STS, summarization, bitext mining) that the leaderboard reports; read before trusting any single MTEB score.
-- [Sentence Transformers documentation](https://www.sbert.net/) -- canonical reference for bi-encoder vs cross-encoder, pooling strategies, and the ingest-split-embed-store RAG pipeline this lesson implements.
+- Mikolov và cộng sự, "Efficient Estimation of Word Representations in Vector Space" (2013) -- bài báo Word2Vec khởi đầu cuộc cách mạng embedding với phép tương tự vua-nữ hoàng
+- Reimers & Gurevych, "Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks" (2019) -- cách huấn luyện bi-encoder cho độ tương đồng cấp câu, nền tảng của các mô hình embedding hiện đại
+- Kusupati và cộng sự, "Matryoshka Representation Learning" (2022) -- kỹ thuật đằng sau embedding số chiều thay đổi mà OpenAI áp dụng cho text-embedding-3
+- Malkov & Yashunin, "Efficient and Robust Approximate Nearest Neighbor using Hierarchical Navigable Small World Graphs" (2018) -- bài báo HNSW, thuật toán đằng sau phần lớn tìm kiếm vector sản xuất
+- OpenAI Embeddings Guide (platform.openai.com/docs/guides/embeddings) -- tài liệu tham chiếu thực hành cho các mô hình text-embedding-3 gồm giảm chiều Matryoshka
+- MTEB Leaderboard (huggingface.co/spaces/mteb/leaderboard) -- benchmark trực tiếp so sánh mọi mô hình embedding trên các tác vụ và ngôn ngữ
+- [Muennighoff et al., "MTEB: Massive Text Embedding Benchmark" (EACL 2023)](https://arxiv.org/abs/2210.07316) -- benchmark định nghĩa 8 loại tác vụ (phân loại, phân cụm, phân loại cặp, xếp hạng lại, truy xuất, STS, tóm tắt, khai thác văn bản song ngữ) mà bảng xếp hạng báo cáo; đọc trước khi tin bất kỳ điểm MTEB đơn lẻ nào.
+- [Sentence Transformers documentation](https://www.sbert.net/) -- tài liệu tham chiếu chuẩn cho bi-encoder so với cross-encoder, chiến lược pooling và pipeline RAG nạp-chia-nhúng-lưu mà bài học này triển khai.
