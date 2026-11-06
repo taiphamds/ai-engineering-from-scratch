@@ -16,7 +16,7 @@ related: [coding/top-k-then-sample]
 updated: 2026-11-03
 ---
 
-A decode loop keeps keys and values in a preallocated cache and attends one query over the stored prefix. Generation always stops one token short of the configured context length, and the first tokens of a long prompt attend to extra zero rows. The cache code is:
+Một vòng lặp decode giữ các key và value trong một cache được cấp phát trước và cho một query attend trên tiền tố đã lưu. Việc sinh luôn dừng sớm một token so với độ dài ngữ cảnh được cấu hình, và các token đầu tiên của một prompt dài attend vào các hàng toàn số không bị dư ra. Mã cache là:
 
 ```python
 class KVCache:
@@ -38,25 +38,25 @@ class KVCache:
         return self.k
 ```
 
-Explain the two symptoms from the code and fix them.
+Giải thích hai triệu chứng từ mã và sửa chúng.
 
 ## Short answer
 
-The capacity test rejects an append that ends exactly at the capacity, so the last slot is never used and generation stops one token early. The counter is also updated before the test, so a refused append leaves the length wrong. The accessor returns the whole buffer rather than the filled prefix, so attention sees the empty zero rows. Check that the length plus the new steps does not exceed the capacity before touching the counter, and return views of the first `n` rows.
+Phép kiểm tra dung lượng từ chối một lần thêm kết thúc đúng tại dung lượng, vì vậy vị trí cuối cùng không bao giờ được dùng và việc sinh dừng sớm một token. Bộ đếm cũng được cập nhật trước phép kiểm tra, vì vậy một lần thêm bị từ chối để lại độ dài sai. Hàm truy cập trả về toàn bộ buffer thay vì tiền tố đã điền, vì vậy attention thấy các hàng trống toàn số không. Kiểm tra rằng độ dài cộng số bước mới không vượt quá dung lượng trước khi đụng đến bộ đếm, và trả về các view của `n` hàng đầu tiên.
 
 ## Full answer
 
 ### Defect one: the boundary
 
-An append that fills the cache to its capacity is valid. The test must refuse only when the new length would exceed the capacity. With the strict comparison the last row is dead, and a generation loop that sizes the cache from the context length stops one token short.
+Một lần thêm điền cache đến đúng dung lượng là hợp lệ. Phép kiểm tra chỉ được từ chối khi độ dài mới sẽ vượt quá dung lượng. Với phép so sánh nghiêm ngặt hàng cuối cùng bị bỏ không, và một vòng lặp sinh định kích thước cache từ độ dài ngữ cảnh dừng thiếu một token.
 
 ### Defect two: the counter
 
-Adding to the length before the check means a failed append leaves the cache claiming steps it never stored. The next call then writes past the real data or refuses a valid append. The rule from the practice is that a refused append changes nothing.
+Cộng vào độ dài trước phép kiểm tra có nghĩa là một lần thêm thất bại khiến cache tuyên bố có những bước mà nó chưa từng lưu. Lời gọi tiếp theo khi đó ghi vượt dữ liệu thực hoặc từ chối một lần thêm hợp lệ. Quy tắc từ bài thực hành là một lần thêm bị từ chối không thay đổi gì.
 
 ### Defect three: the view
 
-`keys()` returns every row of the buffer, filled or not. The query then attends over zero rows that carry weight after the softmax, which dilutes the output for short prefixes. Return the first `n` rows only.
+`keys()` trả về mọi hàng của buffer, đã điền hay chưa. Query khi đó attend trên các hàng toàn số không vốn mang trọng số sau softmax, làm loãng đầu ra đối với các tiền tố ngắn. Chỉ trả về `n` hàng đầu tiên.
 
 ### The corrected class
 
@@ -79,24 +79,24 @@ Adding to the length before the check means a failed append leaves the cache cla
         return self.v[:self.n]
 ```
 
-The copy into the buffer also protects the cache from later changes to the caller's arrays.
+Việc sao chép vào buffer cũng bảo vệ cache khỏi các thay đổi về sau đối với các mảng của bên gọi.
 
 ### How this meets the generation loop
 
-The assembly lesson's generator keeps the active window inside the context length by dropping the oldest tokens when the prompt plus the generated tokens would exceed it. A cache with a fixed capacity needs the same rule one level down: either refuse the append and let the loop slide the window, or evict the oldest rows. The practice pins the refusing version so the boundary is explicit.
+Bộ sinh của bài học lắp ráp giữ cửa sổ hoạt động bên trong độ dài ngữ cảnh bằng cách bỏ các token cũ nhất khi prompt cộng các token đã sinh sẽ vượt quá nó. Một cache có dung lượng cố định cần cùng quy tắc ở một cấp thấp hơn: hoặc từ chối lần thêm và để vòng lặp trượt cửa sổ, hoặc loại bỏ các hàng cũ nhất. Bài thực hành cố định phiên bản từ chối để ranh giới rõ ràng.
 
 ## Follow-ups
 
-- **Level 3:** What does the decode step do with the stored keys? Expected: it scores one query against every stored key, divides by the square root of the key size, takes a softmax and weights the stored values.
-- **Level 3:** A second bug writes every append at row zero. What is the symptom? Expected: new steps overwrite old ones, so attention only ever sees the latest append and the model loses its context.
-- **Level 4:** Where does a paged cache change this design? Expected: the capacity becomes a pool of fixed-size blocks shared by requests, so an append that needs a new block can wait or preempt instead of failing the request.
+- **Level 3:** Bước decode làm gì với các key đã lưu? Expected: nó chấm điểm một query với mọi key đã lưu, chia cho căn bậc hai của kích thước key, lấy softmax và tính trọng số các value đã lưu.
+- **Level 3:** Một lỗi thứ hai ghi mọi lần thêm tại hàng không. Triệu chứng là gì? Expected: các bước mới ghi đè các bước cũ, vì vậy attention chỉ bao giờ thấy lần thêm mới nhất và mô hình mất ngữ cảnh của nó.
+- **Level 4:** Một cache phân trang thay đổi thiết kế này ở đâu? Expected: dung lượng trở thành một pool các block kích thước cố định được các request dùng chung, vì vậy một lần thêm cần một block mới có thể chờ hoặc giành quyền thay vì làm request thất bại.
 
 ## Wrong answers
 
-- "Use greater-or-equal so the cache never overflows." It also rejects the exact fill and wastes the last slot.
-- "Return the full buffer; the zero rows have no effect." Zero keys still get softmax weight and pull the output toward the zero values.
-- "Update the count first so the slice indices are simpler." A refused append then corrupts the length.
+- "Dùng lớn hơn hoặc bằng để cache không bao giờ tràn." Nó cũng từ chối việc điền vừa đúng và lãng phí vị trí cuối cùng.
+- "Trả về toàn bộ buffer; các hàng toàn số không không có tác dụng." Các key bằng không vẫn nhận trọng số softmax và kéo đầu ra về các value bằng không.
+- "Cập nhật số đếm trước để các chỉ số lát cắt đơn giản hơn." Một lần thêm bị từ chối khi đó làm hỏng độ dài.
 
 ## Taught in
 
-The [GPT assembly lesson](../../../phases/19-capstone-projects/35-gpt-model-assembly/) bounds generation to the context length with a sliding window, and the [KV cache practice](../../../practice/kv-cache-append/) pins the capacity rule and the filled-prefix views.
+[Bài học lắp ráp GPT](../../../phases/19-capstone-projects/35-gpt-model-assembly/) giới hạn việc sinh trong độ dài ngữ cảnh bằng một cửa sổ trượt, và [bài thực hành KV cache](../../../practice/kv-cache-append/) cố định quy tắc dung lượng và các view tiền tố đã điền.

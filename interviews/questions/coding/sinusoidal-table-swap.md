@@ -16,11 +16,11 @@ related: [coding/top-k-then-sample]
 updated: 2026-11-03
 ---
 
-The reference small GPT configuration uses a learned position embedding of shape 1024 by 768. Replace it with a sinusoidal table computed at construction time, add it to a batch of token embeddings, and tell me by how much the parameter count changes and why the model still forwards.
+Cấu hình GPT nhỏ tham chiếu dùng một position embedding được học có hình dạng 1024 nhân 768. Thay nó bằng một bảng hình sin được tính tại thời điểm khởi tạo, cộng nó vào một batch token embedding, và cho tôi biết số lượng tham số thay đổi bao nhiêu và tại sao mô hình vẫn truyền tiến được.
 
 ## Short answer
 
-Build a table with one row per position and one column per feature, where column `2i` holds the sine and column `2i + 1` holds the cosine of the position divided by the base raised to `2i` over the model width. Register it as a buffer, slice the first `T` rows at each forward and add them to the token embeddings without changing the caller's array. The table has the same shape as the learned one, so the forward pass is unchanged, and the count drops by 786,432 parameters because the table is no longer learned.
+Xây dựng một bảng có một hàng cho mỗi vị trí và một cột cho mỗi đặc trưng, trong đó cột `2i` giữ sine và cột `2i + 1` giữ cosine của vị trí chia cho cơ số lũy thừa `2i` trên chiều rộng mô hình. Đăng ký nó làm một buffer, cắt lấy `T` hàng đầu ở mỗi lượt truyền tiến và cộng chúng vào các token embedding mà không thay đổi mảng của bên gọi. Bảng có cùng hình dạng với bảng được học, vì vậy lượt truyền tiến không thay đổi, và số lượng giảm 786,432 tham số vì bảng không còn được học.
 
 ## Full answer
 
@@ -48,34 +48,34 @@ class SinusoidalPositions(nn.Module):
         return x + self.pe[: x.shape[1]]
 ```
 
-The exponent is `2i` over the width, so the frequencies fall from one down to one over the base across the columns. The columns alternate between sine and cosine; putting all sines in the first half and all cosines in the second is a different layout and does not match the reference. Positions start at zero. An odd width has no pair for its last column, so that column stays zero. The table is built once with numpy and stored as a torch buffer, so it moves to the device of the model and the add sees two tensors on the same device.
+Số mũ là `2i` trên chiều rộng, vì vậy các tần số giảm từ một xuống một trên cơ số dọc theo các cột. Các cột xen kẽ giữa sine và cosine; đặt tất cả sine ở nửa đầu và tất cả cosine ở nửa sau là một bố trí khác và không khớp với bản tham chiếu. Các vị trí bắt đầu từ không. Một chiều rộng lẻ không có cặp cho cột cuối cùng của nó, vì vậy cột đó giữ giá trị không. Bảng được xây dựng một lần bằng numpy và được lưu làm một torch buffer, vì vậy nó di chuyển đến thiết bị của mô hình và phép cộng thấy hai tensor trên cùng thiết bị.
 
 ### Why the forward pass is unchanged
 
-The assembly adds a position vector to each token vector before the first block. Nothing downstream knows whether that vector came from a learned table or a fixed one. The shape contract is the same, so the blocks, the final LayerNorm and the tied head run unchanged.
+Phần lắp ráp cộng một vector vị trí vào mỗi vector token trước block đầu tiên. Không có gì phía sau biết vector đó đến từ một bảng được học hay một bảng cố định. Hợp đồng hình dạng như nhau, vì vậy các block, LayerNorm cuối cùng và head buộc chung chạy không thay đổi.
 
 ### The parameter count
 
-The learned table holds 1024 rows of 768 values each. Removing it from the parameter list drops the unique parameter count by 786,432. The parameter counter must count unique tensors, so that the tied language model head is not counted twice, and it must not count buffers.
+Bảng được học giữ 1024 hàng mỗi hàng 768 giá trị. Loại nó khỏi danh sách tham số giảm số tham số duy nhất đi 786,432. Bộ đếm tham số phải đếm các tensor duy nhất, để head mô hình ngôn ngữ buộc chung không bị đếm hai lần, và nó không được đếm các buffer.
 
 ### Two mistakes to avoid
 
-- Adding the table in place with `+=` changes the caller's embeddings, which the training loop still holds.
-- Dividing the exponent by the width of the even part instead of the full width gives an odd width the frequencies of a narrower model.
+- Cộng bảng tại chỗ bằng `+=` thay đổi các embedding của bên gọi, mà vòng lặp huấn luyện vẫn giữ.
+- Chia số mũ cho chiều rộng của phần chẵn thay vì toàn bộ chiều rộng cho một chiều rộng lẻ các tần số của một mô hình hẹp hơn.
 
 ## Follow-ups
 
-- **Level 2:** Why interleave sine and cosine rather than put them in two halves? Expected: a checkpoint trained with the interleaved layout expects each pair of neighbor columns to form one rotation, and the two layouts are not interchangeable.
-- **Level 2:** What does the base control? Expected: the lowest frequency, and so the longest position range before the slowest columns repeat.
-- **Level 3:** Which position scheme does the assembly lesson say turns this model into the next model family? Expected: a rotary scheme applied inside attention replaces the additive table and leaves the block and the head unchanged.
-- **Level 3:** A fixed table has no parameters; what does the model lose? Expected: the ability to learn position features from data, in exchange for a table that extends to any length at construction.
+- **Level 2:** Tại sao xen kẽ sine và cosine thay vì đặt chúng vào hai nửa? Expected: một checkpoint được huấn luyện với bố trí xen kẽ mong đợi mỗi cặp cột kề nhau tạo thành một phép quay, và hai bố trí không thể thay thế cho nhau.
+- **Level 2:** Cơ số kiểm soát điều gì? Expected: tần số thấp nhất, và do đó khoảng vị trí dài nhất trước khi các cột chậm nhất lặp lại.
+- **Level 3:** Bài học lắp ráp nói sơ đồ vị trí nào biến mô hình này thành họ mô hình tiếp theo? Expected: một sơ đồ rotary được áp dụng bên trong attention thay thế bảng cộng và giữ block cùng head không thay đổi.
+- **Level 3:** Một bảng cố định không có tham số; mô hình mất điều gì? Expected: khả năng học các đặc trưng vị trí từ dữ liệu, đổi lại một bảng mở rộng đến bất kỳ độ dài nào khi khởi tạo.
 
 ## Wrong answers
 
-- "Register the table as a parameter so the optimizer can refine it." Then it is a learned table again and the count does not drop.
-- "Start positions at one so the first row is not all zeros and ones." The reference starts at zero; row zero is the code of position zero.
-- "Use the same exponent for sine and cosine columns but a different base." Both columns of a pair share one angle; only the function differs.
+- "Đăng ký bảng làm một tham số để bộ tối ưu hóa có thể tinh chỉnh nó." Khi đó nó lại là một bảng được học và số lượng không giảm.
+- "Bắt đầu các vị trí từ một để hàng đầu tiên không toàn số không và số một." Bản tham chiếu bắt đầu từ không; hàng không là mã của vị trí không.
+- "Dùng cùng số mũ cho các cột sine và cosine nhưng một cơ số khác." Cả hai cột của một cặp dùng chung một góc; chỉ hàm là khác.
 
 ## Taught in
 
-The [GPT assembly lesson](../../../phases/19-capstone-projects/35-gpt-model-assembly/) sets this swap as an exercise and gives the parameter delta, and the [sinusoidal encoding practice](../../../practice/sinusoidal-positional-encoding/) checks the interleaved layout.
+[Bài học lắp ráp GPT](../../../phases/19-capstone-projects/35-gpt-model-assembly/) đặt việc thay đổi này làm một bài tập và đưa ra chênh lệch tham số, và [bài thực hành mã hóa hình sin](../../../practice/sinusoidal-positional-encoding/) kiểm tra bố trí xen kẽ.

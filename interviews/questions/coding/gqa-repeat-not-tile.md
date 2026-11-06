@@ -16,23 +16,23 @@ related: [coding/gqa-checkpoint-pooling, coding/split-heads-reshape]
 updated: 2026-11-03
 ---
 
-A GQA implementation repeats the key and value heads up to the query head count with this line, where `kv` has shape batch, groups, tokens, head size:
+Một cách triển khai GQA lặp các key và value head lên đến số lượng query head bằng dòng này, trong đó `kv` có hình dạng batch, nhóm, token, kích thước head:
 
 ```python
 kv_full = np.tile(kv, (1, n_heads // n_kv_heads, 1, 1))
 ```
 
-The shapes match and the outputs are wrong for every configuration with more than one group. Explain which query head ends up with which group, and write the correct expansion.
+Các hình dạng khớp và các đầu ra sai với mọi cấu hình có nhiều hơn một nhóm. Giải thích query head nào cuối cùng nhận nhóm nào, và viết phép mở rộng đúng.
 
 ## Short answer
 
-Tiling repeats the whole block of groups, so query head `h` reads group `h` modulo the number of groups. The convention is that consecutive query heads share a group: head `h` reads group `h` floor-divided by the repeat factor. Repeat each group in place along the head axis instead of tiling the block.
+Tiling lặp lại toàn bộ khối nhóm, vì vậy query head `h` đọc nhóm `h` modulo số nhóm. Quy ước là các query head liên tiếp dùng chung một nhóm: head `h` đọc nhóm `h` chia lấy phần nguyên cho hệ số lặp. Lặp từng nhóm tại chỗ dọc theo trục head thay vì tile khối.
 
 ## Full answer
 
 ### The two layouts
 
-With four query heads and two groups the repeat factor is two. The correct expansion gives the sequence of groups `0, 0, 1, 1`: the first two query heads share group zero and the next two share group one. Tiling gives `0, 1, 0, 1`, so heads one and two swap partners. Every head still has a key and value tensor of the right shape, which is why no shape check fails, but half the heads attend with the wrong keys.
+Với bốn query head và hai nhóm hệ số lặp là hai. Phép mở rộng đúng cho chuỗi nhóm `0, 0, 1, 1`: hai query head đầu dùng chung nhóm không và hai head tiếp theo dùng chung nhóm một. Tiling cho `0, 1, 0, 1`, vì vậy các head một và hai đổi đối tác. Mỗi head vẫn có một tensor key và value đúng hình dạng, là lý do không phép kiểm tra hình dạng nào thất bại, nhưng một nửa các head attend với các key sai.
 
 ### The fix
 
@@ -45,28 +45,28 @@ def repeat_kv(kv, n_heads):
     return np.repeat(kv, r, axis=1)
 ```
 
-`np.repeat` along the group axis copies each group `r` times next to itself, which produces the floor-division mapping. The divisibility check belongs here, because a non-integer repeat factor silently truncates and drops heads.
+`np.repeat` dọc theo trục nhóm sao chép mỗi nhóm `r` lần ngay bên cạnh chính nó, tạo ra ánh xạ chia lấy phần nguyên. Phép kiểm tra tính chia hết thuộc về đây, vì một hệ số lặp không nguyên âm thầm bị cắt cụt và làm mất các head.
 
 ### Why the mapping is a convention and not a choice
 
-The projection weights of a trained checkpoint were learned under one mapping. The multi-head lesson describes the lineage: multi-head attention with one group per head, multi-query attention with a single shared group, and the grouped form in between with the first `r` heads on group zero. A model converted from multi-head weights by pooling consecutive heads only works if attention reads the groups in the same consecutive order.
+Các trọng số chiếu của một checkpoint đã huấn luyện được học theo một ánh xạ. Bài học multi-head mô tả dòng dõi: multi-head attention với một nhóm cho mỗi head, multi-query attention với một nhóm dùng chung duy nhất, và dạng grouped ở giữa với `r` head đầu tiên trên nhóm không. Một mô hình được chuyển từ các trọng số multi-head bằng cách gộp các head liên tiếp chỉ hoạt động nếu attention đọc các nhóm theo cùng thứ tự liên tiếp.
 
 ### Why it exists
 
-Only `G` key and value heads live in the cache instead of `H`, so the cache shrinks by the factor `H / G` while quality stays close to standard multi-head attention. The lesson's example is a large open model that pairs 64 query heads against only 8 shared groups.
+Chỉ `G` key và value head nằm trong cache thay vì `H`, vì vậy cache co lại theo hệ số `H / G` trong khi chất lượng vẫn gần với multi-head attention tiêu chuẩn. Ví dụ của bài học là một mô hình mở lớn ghép 64 query head với chỉ 8 nhóm dùng chung.
 
 ## Follow-ups
 
-- **Level 3:** With one group, what does the function compute? Expected: multi-query attention; every query head shares the single key and value head.
-- **Level 3:** Where does the scale factor come from after the repeat? Expected: the square root of the head size, the same as in multi-head attention; dividing by the square root of the full width is a separate common bug.
-- **Level 4:** How does a framework avoid materializing the repeated copies? Expected: it broadcasts the group axis inside the attention kernel, or the attention call accepts fewer key and value heads directly, so memory holds only the groups.
+- **Level 3:** Với một nhóm, hàm tính điều gì? Expected: multi-query attention; mọi query head dùng chung key và value head duy nhất.
+- **Level 3:** Hệ số tỷ lệ đến từ đâu sau phép lặp? Expected: căn bậc hai của kích thước head, giống như trong multi-head attention; chia cho căn bậc hai của toàn bộ chiều rộng là một lỗi phổ biến riêng biệt.
+- **Level 4:** Một framework tránh tạo thực các bản sao lặp lại như thế nào? Expected: nó broadcast trục nhóm bên trong attention kernel, hoặc lời gọi attention chấp nhận trực tiếp ít key và value head hơn, để bộ nhớ chỉ giữ các nhóm.
 
 ## Wrong answers
 
-- "Tile and repeat give the same result when the shapes match." They give different head-to-group assignments; only one matches the trained weights.
-- "Average the groups and use one key tensor for all heads." That turns the model into multi-query attention with weights it was not trained for.
-- "The mapping does not matter because attention is permutation invariant." Attention is invariant over keys within a head, not over which key head a query head reads.
+- "Tile và repeat cho cùng kết quả khi các hình dạng khớp." Chúng cho các cách gán head vào nhóm khác nhau; chỉ một cách khớp với các trọng số đã huấn luyện.
+- "Lấy trung bình các nhóm và dùng một tensor key cho mọi head." Điều đó biến mô hình thành multi-query attention với các trọng số mà nó không được huấn luyện cho.
+- "Ánh xạ không quan trọng vì attention bất biến với hoán vị." Attention bất biến trên các key bên trong một head, không phải trên việc một query head đọc key head nào.
 
 ## Taught in
 
-The [multi-head attention lesson](../../../phases/07-transformers-deep-dive/03-multi-head-attention/) gives the grouped-query variant and its repeat, and the [grouped-query practice](../../../practice/grouped-query-attention/) checks the head-to-group mapping.
+[Bài học multi-head attention](../../../phases/07-transformers-deep-dive/03-multi-head-attention/) đưa ra biến thể grouped-query và phép lặp của nó, và [bài thực hành grouped-query](../../../practice/grouped-query-attention/) kiểm tra ánh xạ head vào nhóm.

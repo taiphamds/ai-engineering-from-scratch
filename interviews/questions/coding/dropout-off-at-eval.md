@@ -16,7 +16,7 @@ related: [coding/loss-shift-flatten]
 updated: 2026-11-03
 ---
 
-Two evaluation runs on the same checkpoint and the same fixed validation batches report different losses. The dropout layer is:
+Hai lần đánh giá trên cùng checkpoint và cùng các batch validation cố định báo cáo các loss khác nhau. Lớp dropout là:
 
 ```python
 def dropout_forward(x, p, rng, training):
@@ -26,18 +26,18 @@ def dropout_forward(x, p, rng, training):
     return x * (1 - p), mask
 ```
 
-Find every problem with the inference path and explain what the evaluation function expects.
+Tìm mọi vấn đề trong đường suy luận và giải thích hàm đánh giá mong đợi điều gì.
 
 ## Short answer
 
-Inverted dropout scales the kept units during training so that inference is the identity, but this inference path multiplies the input by one minus p, which belongs to the non-inverted form and shrinks every activation. It also draws from the generator in inference mode, which changes every later random number in the run, such as the next training mask and the next probe sample. Inference must return the input unchanged and must not touch the generator.
+Inverted dropout điều chỉnh tỷ lệ các đơn vị được giữ lại trong quá trình huấn luyện để suy luận là phép đồng nhất, nhưng đường suy luận này nhân đầu vào với một trừ p, vốn thuộc dạng không đảo ngược và làm co mọi activation. Nó cũng lấy số từ bộ sinh trong chế độ suy luận, làm thay đổi mọi số ngẫu nhiên về sau trong lần chạy, chẳng hạn mask huấn luyện tiếp theo và mẫu thăm dò tiếp theo. Suy luận phải trả về đầu vào không thay đổi và không được đụng đến bộ sinh.
 
 ## Full answer
 
 ### The two bugs
 
-1. Scaling at inference. With inverted dropout the division by one minus p happens in training, so the expected activation already matches the no-dropout value. Scaling again at inference halves the signal at a rate of one half and damages every layer that follows.
-2. Drawing at inference. The mask is sampled before the branch. Evaluation consumes random numbers, so the generation sample after the probe, and any later training step, sees a different stream than a run without the probe.
+1. Điều chỉnh tỷ lệ lúc suy luận. Với inverted dropout phép chia cho một trừ p xảy ra trong huấn luyện, vì vậy activation kỳ vọng đã khớp với giá trị không có dropout. Điều chỉnh tỷ lệ một lần nữa lúc suy luận làm tín hiệu giảm một nửa với tỷ lệ một phần hai và gây hại cho mọi lớp theo sau.
+2. Lấy số lúc suy luận. Mask được lấy mẫu trước nhánh. Đánh giá tiêu thụ các số ngẫu nhiên, vì vậy mẫu sinh sau lần thăm dò, và bất kỳ bước huấn luyện nào về sau, thấy một luồng khác với một lần chạy không có thăm dò.
 
 ### The fix
 
@@ -49,24 +49,24 @@ def dropout_forward(x, p, rng, training):
     return x * mask / (1 - p), mask
 ```
 
-At inference the layer returns a copy of the input and a mask that is true everywhere, and it does not draw. Keep an entry when the random number is at or above p, so the complement rule is right, and divide the kept entries by one minus p. The backward pass multiplies the incoming gradient by the same mask and divides by the same factor.
+Lúc suy luận lớp trả về một bản sao của đầu vào và một mask có giá trị true ở mọi nơi, và nó không lấy số. Giữ một phần tử khi số ngẫu nhiên bằng hoặc lớn hơn p, để quy tắc phần bù đúng, và chia các phần tử được giữ lại cho một trừ p. Lượt truyền ngược nhân gradient đi vào với cùng mask và chia cho cùng hệ số.
 
 ### What evaluation expects
 
-The training loop's evaluation function runs a fixed number of validation batches with no gradient and no dropout, and the number must be reproducible across runs given the same seed and split. Any randomness inside the model during that pass breaks the comparison between two runs, because the difference measures the random stream rather than the model. The assembly lesson's model has an embedding dropout of 0.1, so this layer sits in the path of every evaluation.
+Hàm đánh giá của vòng lặp huấn luyện chạy một số lượng cố định các batch validation không có gradient và không có dropout, và con số phải tái lập được giữa các lần chạy với cùng seed và phần chia. Bất kỳ tính ngẫu nhiên nào bên trong mô hình trong lượt đó đều phá vỡ phép so sánh giữa hai lần chạy, vì sự khác biệt đo luồng ngẫu nhiên thay vì mô hình. Mô hình của bài học lắp ráp có embedding dropout là 0.1, vì vậy lớp này nằm trên đường đi của mọi lần đánh giá.
 
 ## Follow-ups
 
-- **Level 2:** Why divide by one minus p during training at all? Expected: so the expected value of each activation is the same with and without the mask, which makes inference the identity.
-- **Level 2:** Why must the backward pass use the same mask? Expected: the gradient must flow only through the units that were kept, with the same scale, otherwise the gradient does not match the forward computation.
-- **Level 3:** The evaluation is reproducible but still differs from a run that skipped the probe. What else draws? Expected: the sampled generation at the probe step consumes draws from the shared generator; give the probe its own generator.
+- **Level 2:** Tại sao lại chia cho một trừ p trong huấn luyện? Expected: để giá trị kỳ vọng của mỗi activation là như nhau khi có và không có mask, khiến suy luận trở thành phép đồng nhất.
+- **Level 2:** Tại sao lượt truyền ngược phải dùng cùng mask? Expected: gradient chỉ được chảy qua các đơn vị đã được giữ lại, với cùng tỷ lệ, nếu không gradient không khớp với phép tính truyền tiến.
+- **Level 3:** Đánh giá có thể tái lập nhưng vẫn khác với một lần chạy bỏ qua thăm dò. Còn gì khác lấy số? Expected: việc sinh có lấy mẫu ở bước thăm dò tiêu thụ các lần lấy số từ bộ sinh dùng chung; cấp cho thăm dò bộ sinh riêng của nó.
 
 ## Wrong answers
 
-- "Scale down at inference as the original dropout paper did." That form skips the scaling in training; mixing the two forms shrinks the activations.
-- "Re-seed the generator before every evaluation." It hides the extra draws but still changes the training stream afterwards; the inference path should not draw at all.
-- "Keep an entry when the random number is below p." That keeps a fraction p and drops the rest, the complement of the intended mask.
+- "Giảm tỷ lệ lúc suy luận như bài báo dropout ban đầu đã làm." Dạng đó bỏ qua việc điều chỉnh tỷ lệ trong huấn luyện; trộn hai dạng làm co các activation.
+- "Đặt lại seed cho bộ sinh trước mỗi lần đánh giá." Nó che giấu các lần lấy số thừa nhưng vẫn thay đổi luồng huấn luyện sau đó; đường suy luận hoàn toàn không nên lấy số.
+- "Giữ một phần tử khi số ngẫu nhiên dưới p." Điều đó giữ một tỷ lệ p và bỏ phần còn lại, là phần bù của mask dự định.
 
 ## Taught in
 
-The [training loop lesson](../../../phases/19-capstone-projects/36-training-loop-eval/) requires that evaluation skip gradients and dropout, the [GPT assembly lesson](../../../phases/19-capstone-projects/35-gpt-model-assembly/) places the embedding dropout, and the [inverted dropout practice](../../../practice/inverted-dropout/) checks the identity at inference.
+[Bài học vòng lặp huấn luyện](../../../phases/19-capstone-projects/36-training-loop-eval/) yêu cầu đánh giá bỏ qua gradient và dropout, [bài học lắp ráp GPT](../../../phases/19-capstone-projects/35-gpt-model-assembly/) đặt embedding dropout, và [bài thực hành inverted dropout](../../../practice/inverted-dropout/) kiểm tra phép đồng nhất lúc suy luận.

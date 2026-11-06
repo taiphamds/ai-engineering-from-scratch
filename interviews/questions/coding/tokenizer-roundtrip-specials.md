@@ -16,59 +16,59 @@ related: [coding/bpe-train-loop, coding/bpe-merge-no-overlap]
 updated: 2026-11-03
 ---
 
-Design and implement a tokenizer for a small language model: train it on a corpus, encode fresh text, decode ids back, and reserve two special tokens for document boundaries and padding. State the guarantees the test suite must pin, and explain how the special tokens survive both training and inference without ever being merged.
+Thiết kế và triển khai một tokenizer cho một mô hình ngôn ngữ nhỏ: huấn luyện nó trên một corpus, mã hóa văn bản mới, giải mã các id trở lại, và dành riêng hai token đặc biệt cho ranh giới tài liệu và padding. Nêu các bảo đảm mà bộ kiểm thử phải cố định, và giải thích các token đặc biệt sống sót qua cả huấn luyện và suy luận mà không bao giờ bị gộp như thế nào.
 
 ## Short answer
 
-The base symbols are the 256 raw bytes, so every input has an encoding before any merge and decoding always terminates in bytes. Training runs on pre-tokenized chunks that never contain the special strings, so no merge can produce or consume a special id. At inference a matcher splits the text on the special strings first, maps each one to its reserved id, and runs the merge table on the text between them in training order. The suite pins the round trip on unseen text, on text with multi-byte characters, and on text that contains a literal special string with the flag off.
+Các ký hiệu cơ sở là 256 byte thô, vì vậy mọi đầu vào đều có một cách mã hóa trước bất kỳ phép gộp nào và giải mã luôn kết thúc ở các byte. Huấn luyện chạy trên các đoạn đã tiền tokenize không bao giờ chứa các chuỗi đặc biệt, vì vậy không phép gộp nào có thể tạo ra hoặc tiêu thụ một id đặc biệt. Lúc suy luận một bộ khớp tách văn bản theo các chuỗi đặc biệt trước, ánh xạ mỗi chuỗi sang id dành riêng của nó, và chạy bảng gộp trên văn bản giữa chúng theo thứ tự huấn luyện. Bộ kiểm thử cố định phép khứ hồi trên văn bản chưa thấy, trên văn bản có các ký tự nhiều byte, và trên văn bản chứa một chuỗi đặc biệt theo nghĩa đen khi cờ tắt.
 
 ## Full answer
 
 ### The pipeline
 
-1. Normalize the text to one Unicode form so that the same visible word gets the same bytes.
-2. Split on the special strings when the caller allows them, and map each match to its reserved id.
-3. Pre-tokenize the remaining text into chunks at whitespace and punctuation boundaries.
-4. Apply the merge table to each chunk's bytes in training order, with non-overlapping left-to-right replacement.
-5. Concatenate the ids.
+1. Chuẩn hóa văn bản về một dạng Unicode để cùng một từ nhìn thấy được nhận cùng các byte.
+2. Tách theo các chuỗi đặc biệt khi bên gọi cho phép chúng, và ánh xạ mỗi lần khớp sang id dành riêng của nó.
+3. Tiền tokenize văn bản còn lại thành các đoạn tại các ranh giới khoảng trắng và dấu câu.
+4. Áp dụng bảng gộp cho các byte của mỗi đoạn theo thứ tự huấn luyện, với phép thay thế từ trái sang phải không chồng lấn.
+5. Nối các id.
 
-Decoding reverses steps two to five: expand each id to its bytes, where a merged id expands to the bytes of its two parents and a reserved special id expands to the UTF-8 bytes of its string, and decode the byte string. Normalization is not reversible. A decomposed accent comes back as the composed character, so the round trip is exact only for text that is already in the normalized form.
+Giải mã đảo ngược các bước hai đến năm: mở rộng mỗi id thành các byte của nó, trong đó một id đã gộp mở rộng thành các byte của hai cha của nó và một id đặc biệt dành riêng mở rộng thành các byte UTF-8 của chuỗi của nó, và giải mã chuỗi byte. Chuẩn hóa không thể đảo ngược. Một dấu thanh ở dạng phân rã trở lại thành ký tự ở dạng tổ hợp, vì vậy phép khứ hồi chỉ chính xác đối với văn bản vốn đã ở dạng chuẩn hóa.
 
 ### Why pre-tokenization
 
-Without the split, merges cross word boundaries and the vocabulary fills with common phrases that do not generalize. The split keeps merges inside a word. The chunk boundaries also stop a merge from spanning the end of one word and the start of the next at inference, which is how training and inference stay consistent.
+Không có việc tách, các phép gộp vượt qua ranh giới từ và từ vựng đầy lên với các cụm phổ biến không khái quát hóa được. Việc tách giữ các phép gộp bên trong một từ. Các ranh giới đoạn cũng ngăn một phép gộp trải từ cuối một từ đến đầu từ tiếp theo lúc suy luận, là cách huấn luyện và suy luận giữ được tính nhất quán.
 
 ### Special tokens
 
-The ids after the byte block are reserved by hand. The training loop never sees the special strings, because the corpus is split and the strings are removed before pair counting, so no merge target can be a special id and no merge can include one. At inference the encoder takes a flag. With the flag off, the characters of a special string are ordinary bytes and tokenize as such. With the flag on, the exact string maps to its reserved id and is not subject to any merge. The matcher tries longer special strings first so that one string that contains another is matched whole.
+Các id sau khối byte được dành riêng bằng tay. Vòng lặp huấn luyện không bao giờ thấy các chuỗi đặc biệt, vì corpus được tách và các chuỗi được loại bỏ trước khi đếm cặp, vì vậy không mục tiêu gộp nào có thể là một id đặc biệt và không phép gộp nào có thể chứa một id như vậy. Lúc suy luận bộ mã hóa nhận một cờ. Khi cờ tắt, các ký tự của một chuỗi đặc biệt là các byte thông thường và được tokenize như vậy. Khi cờ bật, chuỗi chính xác ánh xạ sang id dành riêng của nó và không chịu bất kỳ phép gộp nào. Bộ khớp thử các chuỗi đặc biệt dài hơn trước để một chuỗi chứa một chuỗi khác được khớp toàn bộ.
 
 ### The guarantees to pin
 
-| Guarantee | Test |
+| Bảo đảm | Kiểm thử |
 |---|---|
-| Round trip on unseen text | encode then decode returns the exact bytes of the normalized input |
-| Multi-byte characters | a sentence with a four-byte emoji round-trips |
-| Literal special string, flag off | the string decodes back as text, not as a boundary |
-| Special string, flag on | exactly one id, the reserved one, appears |
-| Merge order | the same merge list gives the same ids on repeated encodes |
-| Reserved range | no merge in the table has a special id as a parent or a child |
+| Khứ hồi trên văn bản chưa thấy | mã hóa rồi giải mã trả về chính xác các byte của đầu vào đã chuẩn hóa |
+| Các ký tự nhiều byte | một câu có một emoji bốn byte thực hiện khứ hồi được |
+| Chuỗi đặc biệt theo nghĩa đen, cờ tắt | chuỗi giải mã trở lại thành văn bản, không phải thành một ranh giới |
+| Chuỗi đặc biệt, cờ bật | chính xác một id, id dành riêng, xuất hiện |
+| Thứ tự gộp | cùng danh sách gộp cho cùng các id trong các lần mã hóa lặp lại |
+| Phạm vi dành riêng | không phép gộp nào trong bảng có một id đặc biệt làm cha hoặc con |
 
 ### The compression curve
 
-The number of ids for a held-out sentence falls as the merge budget grows. Training with a target vocabulary of 300 and then of 600 ids on the lesson corpus shows the drop directly; that curve is the measurement that justifies the vocabulary size.
+Số id cho một câu giữ lại giảm khi ngân sách gộp tăng. Huấn luyện với một từ vựng mục tiêu 300 rồi 600 id trên corpus của bài học cho thấy trực tiếp mức giảm; đường cong đó là phép đo biện minh cho kích thước từ vựng.
 
 ## Follow-ups
 
-- **Level 3:** Why are the first 256 ids reserved for bytes rather than for the characters of the corpus? Expected: any input, including text in scripts the corpus never had, can then be encoded without an unknown token.
-- **Level 4:** Where do chat template markers fit in this design? Expected: they are special tokens like the boundary token, matched exactly before the merges, with fixed ids that the model was trained on; a wrong template puts the input outside the training distribution.
-- **Level 4:** How do you protect a deployed model from a tokenizer that drifts? Expected: hash the merge table and the special-token map, and check the hash in the pipeline before training and before serving; a different table decodes different ids.
+- **Level 3:** Tại sao 256 id đầu tiên được dành cho các byte thay vì cho các ký tự của corpus? Expected: bất kỳ đầu vào nào, gồm cả văn bản trong các hệ chữ mà corpus chưa từng có, khi đó đều có thể được mã hóa mà không có token không biết.
+- **Level 4:** Các marker chat template nằm ở đâu trong thiết kế này? Expected: chúng là các token đặc biệt như token ranh giới, được khớp chính xác trước các phép gộp, với các id cố định mà mô hình đã được huấn luyện trên; một template sai đặt đầu vào ra ngoài phân phối huấn luyện.
+- **Level 4:** Bạn bảo vệ một mô hình đã triển khai khỏi một tokenizer thay đổi dần như thế nào? Expected: băm bảng gộp và ánh xạ token đặc biệt, và kiểm tra hash trong pipeline trước huấn luyện và trước phục vụ; một bảng khác giải mã các id khác.
 
 ## Wrong answers
 
-- "Add the special tokens to the corpus so the model learns them." Then they can be merged with neighbors and stop being single ids.
-- "Match special strings after the merges." The merges have already split the string into byte pieces, so the matcher never sees it.
-- "Decode by looking up a string per id in a dictionary." Ids are bytes, and a multi-byte character can be split across ids; concatenate bytes first, then decode.
+- "Thêm các token đặc biệt vào corpus để mô hình học chúng." Khi đó chúng có thể bị gộp với các phần tử lân cận và không còn là các id đơn lẻ.
+- "Khớp các chuỗi đặc biệt sau các phép gộp." Các phép gộp đã tách chuỗi thành các mảnh byte, vì vậy bộ khớp không bao giờ thấy nó.
+- "Giải mã bằng cách tra cứu một chuỗi cho mỗi id trong một dictionary." Các id là các byte, và một ký tự nhiều byte có thể bị tách qua các id; nối các byte trước, rồi giải mã.
 
 ## Taught in
 
-The [BPE from scratch lesson](../../../phases/19-capstone-projects/30-bpe-tokenizer-from-scratch/) gives the byte floor, the reserved specials and the round-trip tests, the [production tokenizer lesson](../../../phases/10-llms-from-scratch/02-building-a-tokenizer/) adds normalization, pre-tokenization and exact matching of special strings, and the [BPE practice](../../../practice/bpe-merge-step/) is the merge step inside it.
+[Bài học BPE từ đầu](../../../phases/19-capstone-projects/30-bpe-tokenizer-from-scratch/) đưa ra mức nền byte, các token đặc biệt dành riêng và các kiểm thử khứ hồi, [bài học tokenizer production](../../../phases/10-llms-from-scratch/02-building-a-tokenizer/) thêm chuẩn hóa, tiền tokenize và khớp chính xác các chuỗi đặc biệt, và [bài thực hành BPE](../../../practice/bpe-merge-step/) là bước gộp bên trong nó.

@@ -16,7 +16,7 @@ related: [coding/split-heads-reshape, coding/gqa-repeat-not-tile]
 updated: 2026-11-03
 ---
 
-A multi-head attention forward passes the split and merge tests but fails the end-to-end test against a reference, and a trained checkpoint loaded into it generates nonsense:
+Một lượt truyền tiến multi-head attention vượt qua các kiểm thử tách và gộp nhưng thất bại trong kiểm thử đầu cuối so với một bản tham chiếu, và một checkpoint đã huấn luyện được nạp vào nó sinh ra thứ vô nghĩa:
 
 ```python
 def multi_head_attention(x, w_q, w_k, w_v, w_o, n_heads):
@@ -27,21 +27,21 @@ def multi_head_attention(x, w_q, w_k, w_v, w_o, n_heads):
     return merge_heads(weights @ V), weights
 ```
 
-Find both defects and explain what each one does to the model.
+Tìm cả hai khiếm khuyết và giải thích mỗi khiếm khuyết làm gì với mô hình.
 
 ## Short answer
 
-The softmax normalizes over the query axis instead of the key axis, so each column sums to one and a query's weights no longer form a distribution over the keys. The output projection is also missing: the merged heads are returned without the multiplication by `w_o`, which is the only place where heads exchange information. Normalize over the last axis and multiply the merged result by the output matrix.
+Softmax chuẩn hóa trên trục query thay vì trục key, vì vậy tổng của mỗi cột bằng một và các trọng số của một query không còn tạo thành một phân phối trên các key. Phép chiếu đầu ra cũng bị thiếu: các head đã gộp được trả về mà không nhân với `w_o`, là nơi duy nhất các head trao đổi thông tin. Chuẩn hóa trên trục cuối cùng và nhân kết quả đã gộp với ma trận đầu ra.
 
 ## Full answer
 
 ### Defect one: the softmax axis
 
-Scores have shape batch, heads, queries, keys. Each query row must become a distribution over the keys, so the softmax runs over the last axis. Over the second-to-last axis each key column sums to one across queries instead, and the weighted sum of values no longer means "what this token attends to".
+Các điểm số có hình dạng batch, head, query, key. Mỗi hàng query phải trở thành một phân phối trên các key, vì vậy softmax chạy trên trục cuối cùng. Trên trục áp chót thay vào đó tổng của mỗi cột key bằng một trên các query, và tổng có trọng số của các value không còn mang nghĩa "token này attend vào cái gì".
 
 ### Defect two: the output projection
 
-Each head computes attention in its own subspace and the heads never interact during the attention computation itself. The concatenation followed by the output matrix is where the heads mix. Without it, the model's output is a stack of independent per-head results, the next layer sees a different function than the one the weights were trained for, and a loaded checkpoint produces noise.
+Mỗi head tính attention trong không gian con riêng của nó và các head không bao giờ tương tác trong chính phép tính attention. Phép nối theo sau bởi ma trận đầu ra là nơi các head trộn với nhau. Không có nó, đầu ra của mô hình là một chồng các kết quả độc lập theo từng head, lớp tiếp theo thấy một hàm khác với hàm mà các trọng số đã được huấn luyện cho, và một checkpoint được nạp tạo ra nhiễu.
 
 ### The corrected function
 
@@ -58,24 +58,24 @@ def multi_head_attention(x, w_q, w_k, w_v, w_o, n_heads):
 
 ### Why the reshape tests passed
 
-Both defects live after the split and before the merge, or after the merge. The reshape helpers are correct, and the shapes of the final output match the reference because `w_o` is square. Only a value comparison against a reference, or a real checkpoint, exposes them.
+Cả hai khiếm khuyết nằm sau phép tách và trước phép gộp, hoặc sau phép gộp. Các hàm trợ giúp reshape đúng, và hình dạng của đầu ra cuối cùng khớp với bản tham chiếu vì `w_o` vuông. Chỉ một phép so sánh giá trị với một bản tham chiếu, hoặc một checkpoint thực, mới phát hiện chúng.
 
 ### Why the scale is still right
 
-The division uses the head size, not the full width. That part of the submission is correct; dividing by the square root of the full width is a third common error that the practice also tests.
+Phép chia dùng kích thước head, không phải toàn bộ chiều rộng. Phần đó của bài nộp là đúng; chia cho căn bậc hai của toàn bộ chiều rộng là một lỗi phổ biến thứ ba mà bài thực hành cũng kiểm tra.
 
 ## Follow-ups
 
-- **Level 3:** Why does the output projection have shape full width by full width? Expected: it maps the concatenation of all heads, which has the full width, back to the model width, and it is the one matrix that reads from every head.
-- **Level 3:** Which test would you add to catch the missing projection early? Expected: a case where `w_o` is not the identity, so the projected and unprojected outputs differ.
-- **Level 4:** A probing study finds one head attends to the previous token. Where in this code does that head's result reach the residual stream? Expected: only through its block of columns in the concatenation and the rows of `w_o` that read it; `w_o` decides how much of that head the next layer sees.
+- **Level 3:** Tại sao phép chiếu đầu ra có hình dạng toàn bộ chiều rộng nhân toàn bộ chiều rộng? Expected: nó ánh xạ phép nối của mọi head, có toàn bộ chiều rộng, trở lại chiều rộng mô hình, và nó là ma trận duy nhất đọc từ mọi head.
+- **Level 3:** Bạn sẽ thêm kiểm thử nào để phát hiện sớm việc thiếu phép chiếu? Expected: một trường hợp mà `w_o` không phải ma trận đơn vị, để các đầu ra đã chiếu và chưa chiếu khác nhau.
+- **Level 4:** Một nghiên cứu thăm dò phát hiện một head attend vào token trước. Trong mã này kết quả của head đó đi đến luồng residual ở đâu? Expected: chỉ qua khối cột của nó trong phép nối và các hàng của `w_o` đọc nó; `w_o` quyết định lớp tiếp theo thấy bao nhiêu từ head đó.
 
 ## Wrong answers
 
-- "The softmax axis does not matter because the scores are symmetric." Scores are query by key and not symmetric; the two normalizations differ for every real input.
-- "Skip the output projection to save parameters; the merge already recombines the heads." The merge only concatenates; without the projection the heads never interact.
-- "Use the identity for the output projection when a checkpoint lacks one." A trained checkpoint always has one; a missing tensor means the name map is wrong.
+- "Trục softmax không quan trọng vì các điểm số đối xứng." Các điểm số là query theo key và không đối xứng; hai phép chuẩn hóa khác nhau đối với mọi đầu vào thực.
+- "Bỏ phép chiếu đầu ra để tiết kiệm tham số; phép gộp đã kết hợp lại các head." Phép gộp chỉ nối; không có phép chiếu các head không bao giờ tương tác.
+- "Dùng ma trận đơn vị cho phép chiếu đầu ra khi một checkpoint thiếu nó." Một checkpoint đã huấn luyện luôn có nó; một tensor bị thiếu có nghĩa là ánh xạ tên bị sai.
 
 ## Taught in
 
-The [multi-head attention lesson](../../../phases/07-transformers-deep-dive/03-multi-head-attention/) explains that heads only mix through the output projection, and the [split and merge practice](../../../practice/multi-head-split-merge/) checks the softmax axis and the projection.
+[Bài học multi-head attention](../../../phases/07-transformers-deep-dive/03-multi-head-attention/) giải thích rằng các head chỉ trộn qua phép chiếu đầu ra, và [bài thực hành tách và gộp](../../../practice/multi-head-split-merge/) kiểm tra trục softmax và phép chiếu.

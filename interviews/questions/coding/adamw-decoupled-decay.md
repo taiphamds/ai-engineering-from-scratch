@@ -16,7 +16,7 @@ related: [coding/decay-split-param-groups, coding/lr-peak-sweep]
 updated: 2026-11-03
 ---
 
-A hand-written optimizer step is labeled AdamW. Review it:
+Một bước của bộ tối ưu hóa viết tay được gắn nhãn AdamW. Hãy rà soát nó:
 
 ```python
 def adam_step(params, grad, m, v, t, lr, beta1, beta2, eps, weight_decay):
@@ -28,11 +28,11 @@ def adam_step(params, grad, m, v, t, lr, beta1, beta2, eps, weight_decay):
     return params - lr * m_hat / (np.sqrt(v_hat) + eps), m, v
 ```
 
-Is this AdamW? What changes, and why does it matter for a language model?
+Đây có phải AdamW không? Điều gì thay đổi, và tại sao nó quan trọng đối với một mô hình ngôn ngữ?
 
 ## Short answer
 
-No, this is Adam with an L2 penalty folded into the gradient. AdamW applies the decay directly to the parameters, scaled by the learning rate, outside the adaptive step. When the penalty goes through the gradient it is divided by the second-moment estimate, so parameters with large gradients get almost no decay and the regularization becomes uneven across the model.
+Không, đây là Adam với một thành phần phạt L2 được gộp vào gradient. AdamW áp dụng decay trực tiếp lên các tham số, được nhân theo learning rate, bên ngoài bước thích nghi. Khi thành phần phạt đi qua gradient nó bị chia cho ước lượng moment bậc hai, vì vậy các tham số có gradient lớn gần như không nhận decay và regularization trở nên không đồng đều trên toàn mô hình.
 
 ## Full answer
 
@@ -48,34 +48,34 @@ def adam_step(params, grad, m, v, t, lr, beta1, beta2, eps, weight_decay):
     return new, m, v
 ```
 
-The decay term is added to the update, not to the gradient. It never passes through the moment estimates.
+Thành phần decay được cộng vào lượng cập nhật, không phải vào gradient. Nó không bao giờ đi qua các ước lượng moment.
 
 ### What the difference changes
 
-Adam normalizes every coordinate by its running gradient magnitude. A penalty that enters as part of the gradient is normalized too, so a weight with a large, noisy gradient is barely decayed while a weight with a tiny gradient is decayed hard. Decoupled decay shrinks every weight by the same fraction per step, which is what the regularizer was meant to do. Language model recipes use the decoupled form, and the loop in the training lesson builds its parameter groups around it.
+Adam chuẩn hóa mỗi tọa độ theo độ lớn gradient được cập nhật liên tục của nó. Một thành phần phạt đi vào như một phần của gradient cũng được chuẩn hóa, vì vậy một trọng số có gradient lớn, nhiễu gần như không bị decay trong khi một trọng số có gradient rất nhỏ bị decay mạnh. Decay tách rời thu nhỏ mọi trọng số theo cùng một tỷ lệ mỗi bước, đúng như mục đích của bộ regularization. Các công thức huấn luyện mô hình ngôn ngữ dùng dạng tách rời, và vòng lặp trong bài học huấn luyện xây dựng các nhóm tham số quanh nó.
 
 ### Three more details the practice pins
 
-- The step counter starts at one. With `t = 0` the bias correction divides by zero, and with `t + 1` the first step acts as the second.
-- Epsilon sits outside the square root. Inside it, tiny gradients give a much smaller step than intended.
-- The function returns new state arrays. Updating `m` and `v` in place changes the caller's state and breaks checkpoint resume.
+- Bộ đếm bước bắt đầu từ một. Với `t = 0` hiệu chỉnh độ chệch chia cho không, và với `t + 1` bước đầu tiên hoạt động như bước thứ hai.
+- Epsilon nằm bên ngoài căn bậc hai. Bên trong nó, các gradient rất nhỏ tạo ra một bước nhỏ hơn nhiều so với dự định.
+- Hàm trả về các mảng trạng thái mới. Cập nhật `m` và `v` tại chỗ thay đổi trạng thái của bên gọi và làm hỏng việc tiếp tục từ checkpoint.
 
 ### Where the decay should not go
 
-Even with the correct form, the decay belongs on matrix-shaped weights only. Normalization scales and biases get no decay, which is the subject of the parameter group split.
+Ngay cả với dạng đúng, decay chỉ thuộc về các trọng số có dạng ma trận. Các hệ số tỷ lệ chuẩn hóa và bias không nhận decay, là chủ đề của việc chia nhóm tham số.
 
 ## Follow-ups
 
-- **Level 2:** What does the bias correction fix in the first steps? Expected: the moment estimates start at zero and are biased low early; dividing by `1 - beta**t` rescales them.
-- **Level 2:** Why return new arrays instead of updating in place? Expected: a pure function keeps the caller's state intact, so a step can be retried or compared and a checkpoint stays consistent.
-- **Level 3:** How does the learning rate schedule interact with decoupled decay? Expected: the decay is multiplied by the current learning rate, so warmup and cosine decay also scale the regularization over training.
+- **Level 2:** Hiệu chỉnh độ chệch sửa điều gì trong những bước đầu? Expected: các ước lượng moment bắt đầu từ không và bị lệch thấp lúc đầu; chia cho `1 - beta**t` điều chỉnh lại tỷ lệ của chúng.
+- **Level 2:** Tại sao trả về các mảng mới thay vì cập nhật tại chỗ? Expected: một hàm thuần giữ nguyên trạng thái của bên gọi, vì vậy một bước có thể được thử lại hoặc so sánh và một checkpoint giữ được tính nhất quán.
+- **Level 3:** Lịch learning rate tương tác với decay tách rời như thế nào? Expected: decay được nhân với learning rate hiện tại, vì vậy warmup và cosine decay cũng điều chỉnh tỷ lệ regularization trong quá trình huấn luyện.
 
 ## Wrong answers
 
-- "L2 and weight decay are the same thing." They coincide for plain gradient descent, not for an adaptive optimizer that normalizes the gradient.
-- "Put epsilon inside the square root for stability." It changes the step size for small gradients; the reference form adds it after the root.
-- "Start the step counter at zero like an index." The bias correction then divides by zero on the first step.
+- "L2 và weight decay là cùng một thứ." Chúng trùng nhau đối với gradient descent thông thường, không phải đối với một bộ tối ưu hóa thích nghi chuẩn hóa gradient.
+- "Đặt epsilon bên trong căn bậc hai để ổn định." Nó thay đổi kích thước bước đối với các gradient nhỏ; dạng tham chiếu cộng nó sau căn.
+- "Bắt đầu bộ đếm bước từ không như một chỉ số." Hiệu chỉnh độ chệch khi đó chia cho không ở bước đầu tiên.
 
 ## Taught in
 
-The [training loop lesson](../../../phases/19-capstone-projects/36-training-loop-eval/) configures AdamW with its decay split, the [cosine schedule lesson](../../../phases/19-capstone-projects/44-cosine-lr-warmup/) pairs it with warmup and decay, and the [Adam practice](../../../practice/adam-step/) checks the decoupled form.
+[Bài học vòng lặp huấn luyện](../../../phases/19-capstone-projects/36-training-loop-eval/) cấu hình AdamW với việc chia decay của nó, [bài học lịch cosine](../../../phases/19-capstone-projects/44-cosine-lr-warmup/) ghép nó với warmup và decay, và [bài thực hành Adam](../../../practice/adam-step/) kiểm tra dạng tách rời.

@@ -16,17 +16,17 @@ related: [coding/adamw-decoupled-decay, coding/rmsnorm-vs-layernorm]
 updated: 2026-11-03
 ---
 
-A training run looks healthy for the first few thousand steps, then the loss starts to climb and samples degrade. The optimizer is built with one parameter group:
+Một lần huấn luyện có vẻ ổn trong vài nghìn bước đầu tiên, rồi loss bắt đầu tăng và các mẫu suy giảm. Bộ tối ưu hóa được xây dựng với một nhóm tham số:
 
 ```python
 optimizer = AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 ```
 
-Write the function that builds the parameter groups correctly and explain which tensors must be excluded from decay and why.
+Viết hàm xây dựng các nhóm tham số đúng cách và giải thích những tensor nào phải được loại khỏi decay và tại sao.
 
 ## Short answer
 
-Decay belongs on matrix-shaped tensors, which are the linear weights and the embedding tables, and not on normalization scales or biases. A decayed LayerNorm scale drifts toward zero over thousands of steps until normalization stops working, which matches the late failure. Split the parameters by shape into a decay group and a no-decay group and pass both to the optimizer.
+Decay thuộc về các tensor có dạng ma trận, là các trọng số tuyến tính và các bảng embedding, và không thuộc về các hệ số tỷ lệ chuẩn hóa hoặc bias. Một hệ số tỷ lệ LayerNorm bị decay trôi dần về không qua hàng nghìn bước cho đến khi chuẩn hóa ngừng hoạt động, khớp với sự cố muộn. Chia các tham số theo hình dạng thành một nhóm có decay và một nhóm không decay rồi truyền cả hai vào bộ tối ưu hóa.
 
 ## Full answer
 
@@ -45,32 +45,32 @@ def build_param_groups(model, weight_decay):
     ]
 ```
 
-A two-dimensional or larger tensor is a weight matrix or an embedding table. A one-dimensional tensor is a scale or a shift, which includes LayerNorm parameters and every bias. The rule by dimension is simple and matches the standard recipe.
+Một tensor hai chiều hoặc lớn hơn là một ma trận trọng số hoặc một bảng embedding. Một tensor một chiều là một hệ số tỷ lệ hoặc một độ dịch, bao gồm các tham số LayerNorm và mọi bias. Quy tắc theo số chiều đơn giản và khớp với công thức chuẩn.
 
 ### Why decay on a scale is harmful
 
-Weight decay pulls every decayed parameter toward zero on every step. A linear weight has gradient pressure in many directions and the pull acts as regularization. A LayerNorm scale has one job, to set the magnitude of the normalized activations, and a steady pull toward zero shrinks the residual stream of every block until the signal is too small for the layers that follow. The effect accumulates slowly, which is why the run looks fine at first.
+Weight decay kéo mọi tham số có decay về không ở mỗi bước. Một trọng số tuyến tính có lực gradient theo nhiều hướng và lực kéo đóng vai trò regularization. Một hệ số tỷ lệ LayerNorm có một nhiệm vụ, đặt độ lớn của các activation đã chuẩn hóa, và một lực kéo đều đặn về không làm co luồng residual của mọi block cho đến khi tín hiệu quá nhỏ đối với các lớp theo sau. Hiệu ứng tích lũy chậm, là lý do lần chạy trông ổn lúc đầu.
 
 ### Why decay on a bias is waste
 
-Decaying a bias is mathematically harmless but spends update cycles on a parameter that regularization does not need to control. The split excludes it along with the scales.
+Decay một bias vô hại về mặt toán học nhưng tiêu tốn các chu kỳ cập nhật trên một tham số mà regularization không cần kiểm soát. Việc chia loại nó ra cùng với các hệ số tỷ lệ.
 
 ### How to test the split
 
-A unit test can walk the named parameters and assert that each scale and bias landed in the no-decay group and each linear and embedding weight landed in the decay group. The loop lesson lists exactly this test as its first exercise.
+Một kiểm thử đơn vị có thể duyệt các tham số được đặt tên và khẳng định rằng mỗi hệ số tỷ lệ và bias đã vào nhóm không decay và mỗi trọng số tuyến tính và embedding đã vào nhóm có decay. Bài học vòng lặp liệt kê chính kiểm thử này làm bài tập đầu tiên.
 
 ## Follow-ups
 
-- **Level 3:** The language model head is tied to the token embedding. Which group is it in, and how many times? Expected: once, in the decay group, because it is the same tensor as the embedding table.
-- **Level 3:** A model uses RMSNorm instead of LayerNorm. Does the rule change? Expected: no; the RMSNorm weight is one-dimensional and stays out of the decay group.
-- **Level 4:** Why does the problem appear late rather than at the start of training? Expected: the decay shrinks the scale by a small fraction per step, so the damage compounds over thousands of steps before the activations become too small.
+- **Level 3:** Head mô hình ngôn ngữ được buộc chung với token embedding. Nó thuộc nhóm nào, và bao nhiêu lần? Expected: một lần, trong nhóm có decay, vì nó là cùng tensor với bảng embedding.
+- **Level 3:** Một mô hình dùng RMSNorm thay vì LayerNorm. Quy tắc có thay đổi không? Expected: không; trọng số RMSNorm là một chiều và nằm ngoài nhóm có decay.
+- **Level 4:** Tại sao vấn đề xuất hiện muộn thay vì ở đầu quá trình huấn luyện? Expected: decay thu nhỏ hệ số tỷ lệ theo một tỷ lệ nhỏ mỗi bước, vì vậy thiệt hại tích lũy qua hàng nghìn bước trước khi các activation trở nên quá nhỏ.
 
 ## Wrong answers
 
-- "Weight decay applies to all weights by definition." The standard recipe excludes normalization and bias tensors; applying it everywhere breaks normalization over time.
-- "Decide by parameter name, excluding anything called bias." Names vary across implementations; the dimension rule is robust.
-- "Lower the weight decay until the run is stable." A smaller value slows the drift but keeps the pull on the scales.
+- "Weight decay áp dụng cho mọi trọng số theo định nghĩa." Công thức chuẩn loại trừ các tensor chuẩn hóa và bias; áp dụng nó ở mọi nơi làm hỏng chuẩn hóa theo thời gian.
+- "Quyết định theo tên tham số, loại trừ bất cứ thứ gì được gọi là bias." Tên khác nhau giữa các cách triển khai; quy tắc số chiều vững chắc.
+- "Giảm weight decay cho đến khi lần chạy ổn định." Một giá trị nhỏ hơn làm chậm sự trôi dần nhưng vẫn giữ lực kéo lên các hệ số tỷ lệ.
 
 ## Taught in
 
-The [training loop lesson](../../../phases/19-capstone-projects/36-training-loop-eval/) defines the two-group AdamW split and the test for it, and the [Adam practice](../../../practice/adam-step/) implements the decoupled decay the groups feed into.
+[Bài học vòng lặp huấn luyện](../../../phases/19-capstone-projects/36-training-loop-eval/) định nghĩa việc chia AdamW thành hai nhóm và kiểm thử cho nó, và [bài thực hành Adam](../../../practice/adam-step/) triển khai decay tách rời mà các nhóm đưa vào.

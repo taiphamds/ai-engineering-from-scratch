@@ -16,17 +16,17 @@ related: [coding/adamw-decoupled-decay]
 updated: 2026-11-03
 ---
 
-Before a long training run you are asked to pick the peak learning rate for a warmup and cosine schedule. Write the sweep that trains a small seeded model at each candidate rate, decides which runs diverged, picks the best stable rate and reports the smallest rate that diverged. State what "diverged" means in code.
+Trước một lần huấn luyện dài bạn được yêu cầu chọn learning rate đỉnh cho một lịch warmup và cosine. Viết phép quét huấn luyện một mô hình nhỏ được đặt seed ở mỗi rate ứng viên, quyết định những lần chạy nào đã phân kỳ, chọn rate ổn định tốt nhất và báo cáo rate nhỏ nhất đã phân kỳ. Nêu "phân kỳ" có nghĩa là gì trong mã.
 
 ## Short answer
 
-Run the same seeded training loop once per candidate rate and record the final loss and the loss history. A run diverged when its final loss is not finite or when the loss grew over the run, not only when it became NaN. The best rate is the lowest final loss among the stable runs, with the smaller rate on a tie, and the smallest diverging rate is reported as the ceiling, because it bounds how high the peak can go.
+Chạy cùng một vòng lặp huấn luyện được đặt seed một lần cho mỗi rate ứng viên và ghi lại loss cuối cùng cùng lịch sử loss. Một lần chạy đã phân kỳ khi loss cuối cùng của nó không hữu hạn hoặc khi loss tăng trong lần chạy, không chỉ khi nó trở thành NaN. Rate tốt nhất là loss cuối cùng thấp nhất trong số các lần chạy ổn định, với rate nhỏ hơn khi bằng nhau, và rate phân kỳ nhỏ nhất được báo cáo làm trần, vì nó giới hạn đỉnh có thể cao đến mức nào.
 
 ## Full answer
 
 ### Why the peak first
 
-The schedule lesson's advice is to sweep the peak before anything else, because the peak is the most sensitive knob and its optimum scales weakly with model size. A sweep on a small model is a strong prior for the large run. The warmup fraction and the floor matter less and come after.
+Lời khuyên của bài học lịch là quét đỉnh trước bất cứ thứ gì khác, vì đỉnh là núm nhạy nhất và giá trị tối ưu của nó thay đổi yếu theo kích thước mô hình. Một phép quét trên một mô hình nhỏ là một tiên nghiệm mạnh cho lần chạy lớn. Tỷ lệ warmup và mức sàn ít quan trọng hơn và đến sau.
 
 ### The sweep
 
@@ -54,28 +54,28 @@ def smallest_diverging_lr(results):
     return min(div) if div else None
 ```
 
-Every run uses the same seed so that the only difference between runs is the rate. The results are keyed by rate, and the divergence filter runs before any argmin, because a NaN final loss compares as neither larger nor smaller and would otherwise be selected. When every run diverged, `best_lr` returns `None` and the grid must move lower.
+Mọi lần chạy dùng cùng seed để khác biệt duy nhất giữa các lần chạy là rate. Các kết quả được khóa theo rate, và bộ lọc phân kỳ chạy trước bất kỳ argmin nào, vì một loss cuối cùng NaN được so sánh là không lớn hơn cũng không nhỏ hơn và nếu không sẽ được chọn. Khi mọi lần chạy đều phân kỳ, `best_lr` trả về `None` và lưới phải dịch xuống thấp hơn.
 
 ### What diverged means
 
-A loss that ends finite but above where it started is a divergence too. A run can climb for the whole sweep and still return a number. Testing only for non-finite values marks that run stable and the sweep then recommends a rate that will blow up the long run after warmup ends.
+Một loss kết thúc hữu hạn nhưng cao hơn nơi nó bắt đầu cũng là một sự phân kỳ. Một lần chạy có thể tăng trong toàn bộ phép quét và vẫn trả về một con số. Chỉ kiểm tra các giá trị không hữu hạn đánh dấu lần chạy đó là ổn định và phép quét khi đó khuyến nghị một rate sẽ làm lần chạy dài bùng nổ sau khi warmup kết thúc.
 
 ### Reading the result
 
-The schedule reaches the peak at the end of warmup and decays toward the floor. A peak just below the smallest diverging rate is aggressive; a peak with a margin below it survives the noisy gradient norms of the first steps. Log the gradient norm next to the rate on the chosen run: a well-tuned warmup shows the norm rising with the rate and settling, and a too-high peak shows a norm that stays high after warmup.
+Lịch đạt đỉnh ở cuối warmup và giảm dần về mức sàn. Một đỉnh ngay dưới rate phân kỳ nhỏ nhất là táo bạo; một đỉnh có khoảng cách an toàn dưới nó sống sót qua các chuẩn gradient nhiễu của những bước đầu tiên. Ghi log chuẩn gradient cạnh rate trên lần chạy được chọn: một warmup được điều chỉnh tốt cho thấy chuẩn tăng theo rate rồi ổn định, và một đỉnh quá cao cho thấy một chuẩn vẫn cao sau warmup.
 
 ## Follow-ups
 
-- **Level 3:** Two rates give the same final loss. Which one do you pick? Expected: the smaller one; it has more margin to the divergence ceiling.
-- **Level 3:** Why does the practice compare the first diverging rate with two over the top curvature of the loss? Expected: for a quadratic loss, gradient descent is stable only below that bound, so the measured ceiling should land near it and a mismatch points at a bug in the sweep.
-- **Level 4:** Warmup is set as an absolute count of steps. Why does the sweep on a short run then mislead the long one? Expected: the same count is a much smaller fraction of a long run, so the long run sits at the peak almost at once; set warmup as a fraction of total steps.
+- **Level 3:** Hai rate cho cùng loss cuối cùng. Bạn chọn rate nào? Expected: rate nhỏ hơn; nó có khoảng cách an toàn lớn hơn với trần phân kỳ.
+- **Level 3:** Tại sao bài thực hành so sánh rate phân kỳ đầu tiên với hai chia cho độ cong lớn nhất của loss? Expected: đối với một loss bậc hai, gradient descent chỉ ổn định dưới giới hạn đó, vì vậy trần đo được phải nằm gần nó và sự không khớp chỉ ra một lỗi trong phép quét.
+- **Level 4:** Warmup được đặt là một số bước tuyệt đối. Tại sao phép quét trên một lần chạy ngắn khi đó làm lần chạy dài hiểu sai? Expected: cùng số bước đó là một tỷ lệ nhỏ hơn nhiều của một lần chạy dài, vì vậy lần chạy dài nằm ở đỉnh gần như ngay lập tức; đặt warmup là một tỷ lệ của tổng số bước.
 
 ## Wrong answers
 
-- "Pick the rate with the lowest loss across all runs." A NaN or a climbing run must be filtered first, otherwise the argmin can return a diverged rate.
-- "A run diverged only if the loss is NaN or infinite." A finite loss that grew over the run is a divergence the long run will also show.
-- "Sweep the warmup length first since it protects the start." The peak is the most sensitive knob; the warmup fraction is tuned after it.
+- "Chọn rate có loss thấp nhất trên tất cả các lần chạy." Một NaN hoặc một lần chạy đang tăng phải được lọc trước, nếu không argmin có thể trả về một rate đã phân kỳ.
+- "Một lần chạy chỉ phân kỳ nếu loss là NaN hoặc vô cực." Một loss hữu hạn tăng trong lần chạy là một sự phân kỳ mà lần chạy dài cũng sẽ thể hiện.
+- "Quét độ dài warmup trước vì nó bảo vệ phần đầu." Đỉnh là núm nhạy nhất; tỷ lệ warmup được điều chỉnh sau nó.
 
 ## Taught in
 
-The [cosine schedule lesson](../../../phases/19-capstone-projects/44-cosine-lr-warmup/) says to sweep the peak first and to record the gradient norm beside the rate, and the [learning rate sweep lab](../../../practice/lab-learning-rate-sweep/) implements the sweep with its divergence rule.
+[Bài học lịch cosine](../../../phases/19-capstone-projects/44-cosine-lr-warmup/) nói quét đỉnh trước và ghi lại chuẩn gradient bên cạnh rate, và [bài lab quét learning rate](../../../practice/lab-learning-rate-sweep/) triển khai phép quét với quy tắc phân kỳ của nó.

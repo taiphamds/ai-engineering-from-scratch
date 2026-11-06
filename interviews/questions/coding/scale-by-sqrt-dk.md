@@ -16,7 +16,7 @@ related: [coding/softmax-shift-max, coding/causal-mask-off-by-one]
 updated: 2026-11-03
 ---
 
-Here is an attention function from a take-home submission:
+Đây là một hàm attention từ một bài nộp làm ở nhà:
 
 ```python
 def attention(Q, K, V):
@@ -24,11 +24,11 @@ def attention(Q, K, V):
     return softmax(scores) @ V
 ```
 
-The tests for shape pass and the tests for the attention weights fail. Find the bug and explain what the correct factor protects against.
+Các kiểm thử hình dạng đạt và các kiểm thử trọng số attention thất bại. Tìm lỗi và giải thích hệ số đúng bảo vệ trước điều gì.
 
 ## Short answer
 
-The scores are divided by the key dimension instead of its square root. Dot products of random vectors grow with the dimension, so without the square root the softmax input is either too large, which saturates it and kills the gradient, or too small, which flattens every row toward uniform. The correct line divides by the square root of the last dimension of the keys.
+Các điểm số bị chia cho số chiều key thay vì căn bậc hai của nó. Các tích vô hướng của các vector ngẫu nhiên tăng theo số chiều, vì vậy không có căn bậc hai đầu vào softmax hoặc quá lớn, làm nó bão hòa và triệt tiêu gradient, hoặc quá nhỏ, làm phẳng mỗi hàng về gần đồng đều. Dòng đúng chia cho căn bậc hai của chiều cuối cùng của các key.
 
 ## Full answer
 
@@ -43,29 +43,29 @@ def attention(Q, K, V):
 
 ### Why the square root
 
-When the entries of a query and a key have unit variance, their dot product has a variance equal to the dimension. Its typical size is therefore the square root of the dimension. Dividing by that size brings the scores back to unit scale, where the softmax has useful gradients. Dividing by the dimension itself over-corrects and makes every row close to uniform, so the output is almost the mean of the values regardless of the query.
+Khi các phần tử của một query và một key có phương sai đơn vị, tích vô hướng của chúng có phương sai bằng số chiều. Kích thước điển hình của nó vì vậy là căn bậc hai của số chiều. Chia cho kích thước đó đưa các điểm số trở lại thang đơn vị, nơi softmax có các gradient hữu ích. Chia cho chính số chiều hiệu chỉnh quá mức và làm mỗi hàng gần đồng đều, vì vậy đầu ra gần như là trung bình của các value bất kể query.
 
 ### Two neighbors of this bug
 
-- No scale at all: at a head size of 64 the raw scores reach the tens and the softmax saturates to one hot rows.
-- `K.T` on a batched tensor: `.T` reverses every axis, so a shape of batch by tokens by features becomes features by tokens by batch. With distinct sizes the matmul raises a shape error, and when the sizes happen to line up it mixes batches without an error. Swap only the last two axes.
+- Hoàn toàn không có điều chỉnh tỷ lệ: ở kích thước head 64 các điểm số thô lên đến hàng chục và softmax bão hòa thành các hàng one hot.
+- `K.T` trên một tensor có batch: `.T` đảo ngược mọi trục, vì vậy một hình dạng batch nhân token nhân đặc trưng trở thành đặc trưng nhân token nhân batch. Với các kích thước khác nhau matmul phát sinh lỗi hình dạng, và khi các kích thước tình cờ khớp nó trộn các batch mà không báo lỗi. Chỉ hoán đổi hai trục cuối cùng.
 
 ### How the practice checks it
 
-The practice task compares the weights, not only the output shape. A wrong scale changes every weight, so a reference weight matrix catches it at once.
+Nhiệm vụ thực hành so sánh các trọng số, không chỉ hình dạng đầu ra. Một hệ số tỷ lệ sai thay đổi mọi trọng số, vì vậy một ma trận trọng số tham chiếu phát hiện nó ngay lập tức.
 
 ## Follow-ups
 
-- **Level 1:** What is the shape of the scores for one sequence? Expected: tokens by tokens, one row per query over all keys.
-- **Level 2:** Why do shape tests pass with the wrong factor? Expected: scaling does not change shapes; only the values move.
-- **Level 2:** How do you transpose the keys for a batched input? Expected: swap the last two axes only, for example with `swapaxes(-1, -2)`.
+- **Level 1:** Hình dạng của các điểm số cho một chuỗi là gì? Expected: token nhân token, một hàng cho mỗi query trên tất cả các key.
+- **Level 2:** Tại sao các kiểm thử hình dạng đạt với hệ số sai? Expected: điều chỉnh tỷ lệ không thay đổi hình dạng; chỉ các giá trị thay đổi.
+- **Level 2:** Bạn chuyển vị các key cho một đầu vào có batch như thế nào? Expected: chỉ hoán đổi hai trục cuối cùng, ví dụ bằng `swapaxes(-1, -2)`.
 
 ## Wrong answers
 
-- "Any constant works, the model learns around it." The learned projections can compensate in training, but the practice checks a fixed reference, and in a trained model the wrong factor changes every head.
-- "Divide by the sequence length." The growth comes from the feature dimension, not from the number of tokens.
-- "Scaling is only for numerical overflow." The max shift inside softmax handles overflow; the scale keeps the softmax out of its saturated and flat regions.
+- "Bất kỳ hằng số nào cũng được, mô hình học để thích nghi với nó." Các phép chiếu được học có thể bù trong huấn luyện, nhưng bài thực hành kiểm tra một bản tham chiếu cố định, và trong một mô hình đã huấn luyện hệ số sai thay đổi mọi head.
+- "Chia cho độ dài chuỗi." Sự tăng trưởng đến từ số chiều đặc trưng, không phải từ số lượng token.
+- "Điều chỉnh tỷ lệ chỉ dành cho tràn số." Phép dịch theo giá trị lớn nhất bên trong softmax xử lý tràn; hệ số tỷ lệ giữ softmax tránh các vùng bão hòa và phẳng của nó.
 
 ## Taught in
 
-The [self-attention lesson](../../../phases/07-transformers-deep-dive/02-self-attention-from-scratch/) explains the square-root scale factor, and the [attention practice](../../../practice/scaled-dot-product-attention/) checks the weights against a reference.
+[Bài học self-attention](../../../phases/07-transformers-deep-dive/02-self-attention-from-scratch/) giải thích hệ số tỷ lệ căn bậc hai, và [bài thực hành attention](../../../practice/scaled-dot-product-attention/) kiểm tra các trọng số với một bản tham chiếu.

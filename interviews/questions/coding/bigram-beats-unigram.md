@@ -16,11 +16,11 @@ related: [coding/loss-shift-flatten, coding/lr-peak-sweep]
 updated: 2026-11-03
 ---
 
-Write a training loop for a table of next-character logits: one row per context character, one column per next character. Train it with gradient descent on a text, under a fixed step budget and a seeded generator, until its held-out NLL is lower than a model that ignores the context. Tell me what the held-out check must look like for the comparison to mean anything.
+Viết một vòng lặp huấn luyện cho một bảng logits của ký tự tiếp theo: một hàng cho mỗi ký tự ngữ cảnh, một cột cho mỗi ký tự tiếp theo. Huấn luyện nó bằng gradient descent trên một văn bản, trong một ngân sách bước cố định và với một bộ sinh được đặt seed, cho đến khi NLL trên tập giữ lại của nó thấp hơn một mô hình bỏ qua ngữ cảnh. Hãy cho tôi biết phép kiểm tra trên tập giữ lại phải như thế nào để phép so sánh có ý nghĩa.
 
 ## Short answer
 
-Build the pairs so that the current character is the context and the following character is the target, compute the log-softmax over each row, and descend the mean of the negative target log-probabilities over the training pairs within the step budget. The held-out check scores a fixed split that training never saw, with the same loss definition for the bigram and the unigram baseline, and the model only passes when its held-out value is lower than the baseline's. Reproducibility comes from drawing the initial table from the generator that the caller passes, not from a global one.
+Xây dựng các cặp sao cho ký tự hiện tại là ngữ cảnh và ký tự theo sau là mục tiêu, tính log-softmax trên mỗi hàng, và thực hiện gradient descent trên trung bình của các log xác suất mục tiêu âm trên các cặp huấn luyện trong ngân sách bước. Phép kiểm tra trên tập giữ lại chấm điểm một phần chia cố định mà huấn luyện chưa từng thấy, với cùng định nghĩa loss cho bigram và baseline unigram, và mô hình chỉ đạt khi giá trị trên tập giữ lại của nó thấp hơn của baseline. Khả năng tái lập đến từ việc lấy bảng ban đầu từ bộ sinh mà bên gọi truyền vào, không phải từ một bộ sinh toàn cục.
 
 ## Full answer
 
@@ -45,32 +45,32 @@ def next_log_probs(W, context):
     return log_softmax(W[context])
 ```
 
-The pair direction is the whole model: context first, target second. Reversing them trains a model that predicts the previous character, and counting each next character as its own context trains nothing about what follows what.
+Hướng của cặp là toàn bộ mô hình: ngữ cảnh trước, mục tiêu sau. Đảo ngược chúng huấn luyện một mô hình dự đoán ký tự trước đó, và tính mỗi ký tự tiếp theo là ngữ cảnh của chính nó không huấn luyện được gì về cái gì đi sau cái gì.
 
 ### The gradient sign
 
-The update subtracts the gradient. Adding it climbs the loss, which is visible on the first evaluation, and is the first mutant the practice checks.
+Lượng cập nhật trừ gradient. Cộng nó làm loss tăng, điều này thấy được ở lần đánh giá đầu tiên, và là biến thể lỗi đầu tiên mà bài thực hành kiểm tra.
 
 ### The held-out check
 
-The loop lesson's rule is that evaluation runs on a fixed held-out slice with no gradient, and the number must be comparable across runs. For this task that means three things. The split is fixed before training and never touched by the loop. The unigram baseline, which assigns each character its frequency in the training text regardless of context, is scored on the same held-out characters with the same loss definition. The bigram passes only when its held-out value is strictly lower. A model that wins on the training text and not on the held-out text has memorized the training text.
+Quy tắc của bài học vòng lặp là đánh giá chạy trên một lát cắt giữ lại cố định không có gradient, và con số phải so sánh được giữa các lần chạy. Đối với nhiệm vụ này điều đó có nghĩa là ba việc. Phần chia được cố định trước khi huấn luyện và vòng lặp không bao giờ đụng đến. Baseline unigram, gán cho mỗi ký tự tần suất của nó trong văn bản huấn luyện bất kể ngữ cảnh, được chấm điểm trên cùng các ký tự giữ lại với cùng định nghĩa loss. Bigram chỉ đạt khi giá trị trên tập giữ lại của nó thấp hơn nghiêm ngặt. Một mô hình thắng trên văn bản huấn luyện và không thắng trên văn bản giữ lại đã ghi nhớ văn bản huấn luyện.
 
 ### The budget
 
-A step budget is part of the contract. A loop that runs more steps than the budget may reach the target but fails the task, and in a real run it is the difference between a planned job and an overrun.
+Ngân sách bước là một phần của hợp đồng. Một vòng lặp chạy nhiều bước hơn ngân sách có thể đạt mục tiêu nhưng không đạt nhiệm vụ, và trong một lần chạy thực tế đó là sự khác biệt giữa một công việc được lên kế hoạch và một lần vượt ngân sách.
 
 ## Follow-ups
 
-- **Level 3:** Why return log-probabilities and not raw logits from the scoring function? Expected: the loss needs a normalized distribution per row; raw logits are not comparable across contexts.
-- **Level 3:** The model beats the baseline on training text and loses on held-out text. What happened? Expected: it memorized the training pairs; a held-out split exists to catch exactly that.
-- **Level 4:** How does this toy loop map onto the full training loop in the lesson? Expected: the pair construction is the shift-by-one, the row lookup is the forward, the held-out check is the fixed evaluation, and the budget is the step count of the schedule.
+- **Level 3:** Tại sao trả về log xác suất chứ không phải logits thô từ hàm chấm điểm? Expected: loss cần một phân phối được chuẩn hóa cho mỗi hàng; logits thô không so sánh được giữa các ngữ cảnh.
+- **Level 3:** Mô hình thắng baseline trên văn bản huấn luyện và thua trên văn bản giữ lại. Điều gì đã xảy ra? Expected: nó đã ghi nhớ các cặp huấn luyện; một phần chia giữ lại tồn tại để phát hiện chính điều đó.
+- **Level 4:** Vòng lặp đồ chơi này ánh xạ vào vòng lặp huấn luyện đầy đủ trong bài học như thế nào? Expected: việc xây dựng cặp là phép dịch đi một, việc tra cứu hàng là lượt truyền tiến, phép kiểm tra trên tập giữ lại là đánh giá cố định, và ngân sách là số bước của lịch.
 
 ## Wrong answers
 
-- "Evaluate on the training text to save time." The comparison then measures memorization and the baseline comparison means nothing.
-- "Draw the initial table from the global random state." Two runs with one seed then differ, and the test for reproducibility fails.
-- "Train until the loss stops improving." The budget is part of the contract and an open-ended loop hides a slow or stuck run.
+- "Đánh giá trên văn bản huấn luyện để tiết kiệm thời gian." Phép so sánh khi đó đo sự ghi nhớ và việc so sánh với baseline không có ý nghĩa.
+- "Lấy bảng ban đầu từ trạng thái ngẫu nhiên toàn cục." Hai lần chạy với một seed khi đó khác nhau, và kiểm thử khả năng tái lập thất bại.
+- "Huấn luyện cho đến khi loss ngừng cải thiện." Ngân sách là một phần của hợp đồng và một vòng lặp không có điểm kết thúc xác định che giấu một lần chạy chậm hoặc bị kẹt.
 
 ## Taught in
 
-The [training loop lesson](../../../phases/19-capstone-projects/36-training-loop-eval/) sets the rules for held-out evaluation and loss alignment, and the [character bigram practice](../../../practice/train-char-bigram/) trains the smallest model under a step budget.
+[Bài học vòng lặp huấn luyện](../../../phases/19-capstone-projects/36-training-loop-eval/) đặt ra các quy tắc cho đánh giá trên tập giữ lại và căn chỉnh loss, và [bài thực hành bigram ký tự](../../../practice/train-char-bigram/) huấn luyện mô hình nhỏ nhất trong một ngân sách bước.

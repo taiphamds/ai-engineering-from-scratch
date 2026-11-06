@@ -16,11 +16,11 @@ related: [coding/top-k-then-sample, coding/top-p-crossing-token]
 updated: 2026-11-03
 ---
 
-Write the one line that applies a sampling temperature to a vector of logits, then tell me what happens to the distribution as the temperature goes toward zero, equals one, and goes above one.
+Viết một dòng áp dụng temperature lấy mẫu cho một vector logits, rồi cho tôi biết điều gì xảy ra với phân phối khi temperature tiến về không, bằng một, và vượt quá một.
 
 ## Short answer
 
-Divide the logits by the temperature before the softmax. Near zero the division stretches the gaps between logits, so the largest one takes almost all the mass and sampling becomes greedy. At one the model's own distribution is used, and above one the gaps shrink, the distribution flattens, and rare tokens are drawn more often.
+Chia logits cho temperature trước softmax. Gần không phép chia kéo giãn các khoảng cách giữa các logit, vì vậy logit lớn nhất chiếm gần như toàn bộ khối lượng và việc lấy mẫu trở thành greedy. Ở một phân phối riêng của mô hình được dùng, và trên một các khoảng cách co lại, phân phối phẳng ra, và các token hiếm được lấy thường xuyên hơn.
 
 ## Full answer
 
@@ -30,36 +30,36 @@ Divide the logits by the temperature before the softmax. Near zero the division 
 probs = softmax(logits / temperature)
 ```
 
-The order matters in a full sampler: the generation loop reads the final position's logits, divides by the temperature, applies any top-k or top-p filter, takes the softmax, and draws one token.
+Thứ tự quan trọng trong một bộ lấy mẫu đầy đủ: vòng lặp sinh đọc logits của vị trí cuối cùng, chia cho temperature, áp dụng bất kỳ bộ lọc top-k hoặc top-p nào, lấy softmax, và lấy một token.
 
 ### Three regimes
 
-| Temperature | Effect on the gaps between logits | Behavior |
+| Temperature | Tác động lên các khoảng cách giữa các logit | Hành vi |
 |---|---|---|
-| Toward zero | Gaps grow without bound | Argmax; the same token every time |
-| Equal to one | Unchanged | The model's natural distribution |
-| Above one | Gaps shrink | Flatter distribution, more surprise, more errors |
+| Tiến về không | Các khoảng cách tăng không giới hạn | Argmax; cùng một token mỗi lần |
+| Bằng một | Không thay đổi | Phân phối tự nhiên của mô hình |
+| Trên một | Các khoảng cách co lại | Phân phối phẳng hơn, nhiều bất ngờ hơn, nhiều lỗi hơn |
 
 ### Why division and not multiplication
 
-Multiplying the logits by the temperature does the opposite of what people expect: a higher value sharpens the distribution. The practice lab has a mutant that makes this mistake, and the sign of the effect is the first thing its tests check.
+Nhân logits với temperature làm điều ngược lại với điều mọi người mong đợi: một giá trị cao hơn làm phân phối sắc hơn. Bài lab thực hành có một biến thể lỗi mắc sai lầm này, và dấu của tác động là điều đầu tiên các kiểm thử của nó kiểm tra.
 
 ### Reading the effect
 
-Two measurements show what a temperature did: the probability of the top token, and the entropy of the distribution. As the temperature rises the top probability falls and the entropy rises. A sweep over temperatures on fixed logits makes both curves visible without a model in the loop.
+Hai phép đo cho thấy một temperature đã làm gì: xác suất của token đứng đầu, và entropy của phân phối. Khi temperature tăng xác suất đứng đầu giảm và entropy tăng. Một phép quét qua các temperature trên logits cố định làm cả hai đường cong hiện rõ mà không có mô hình trong vòng lặp.
 
 ## Follow-ups
 
-- **Level 1:** Why does temperature zero need a special case in code? Expected: division by zero; implement it as argmax rather than dividing.
-- **Level 2:** A product wants deterministic output. Is temperature zero enough? Expected: it removes sampling randomness, but ties and numeric differences across batches can still change the argmax.
-- **Level 2:** How does temperature interact with a top-p cutoff? Expected: the cutoff must run on the temperature-scaled probabilities, otherwise it cuts the distribution at temperature one and the setting does less than expected.
+- **Level 1:** Tại sao temperature bằng không cần một trường hợp đặc biệt trong mã? Expected: chia cho không; triển khai nó thành argmax thay vì chia.
+- **Level 2:** Một sản phẩm muốn đầu ra có tính xác định. Temperature bằng không có đủ không? Expected: nó loại bỏ tính ngẫu nhiên của việc lấy mẫu, nhưng các trường hợp bằng nhau và khác biệt số học giữa các batch vẫn có thể thay đổi argmax.
+- **Level 2:** Temperature tương tác với một ngưỡng cắt top-p như thế nào? Expected: ngưỡng cắt phải chạy trên các xác suất đã điều chỉnh theo temperature, nếu không nó cắt phân phối ở temperature bằng một và thiết lập có ít tác dụng hơn mong đợi.
 
 ## Wrong answers
 
-- "Temperature scales the probabilities after the softmax." Scaling probabilities and renormalizing changes nothing; the division happens on the logits.
-- "A higher temperature makes the model smarter." It only flattens the distribution, which trades repetition for more mistakes.
-- "Temperature one means no sampling." It means sampling from the unchanged distribution; greedy is temperature zero or argmax.
+- "Temperature điều chỉnh tỷ lệ các xác suất sau softmax." Điều chỉnh tỷ lệ các xác suất rồi chuẩn hóa lại không thay đổi gì; phép chia diễn ra trên logits.
+- "Một temperature cao hơn làm mô hình thông minh hơn." Nó chỉ làm phẳng phân phối, đánh đổi sự lặp lại để có nhiều sai sót hơn.
+- "Temperature bằng một nghĩa là không lấy mẫu." Nó có nghĩa là lấy mẫu từ phân phối không thay đổi; greedy là temperature bằng không hoặc argmax.
 
 ## Taught in
 
-The [GPT assembly lesson](../../../phases/19-capstone-projects/35-gpt-model-assembly/) describes the three temperature regimes in its generation loop, and the [temperature lab](../../../practice/lab-sampling-temperature/) sweeps them on fixed logits.
+[Bài học lắp ráp GPT](../../../phases/19-capstone-projects/35-gpt-model-assembly/) mô tả ba chế độ temperature trong vòng lặp sinh của nó, và [bài lab temperature](../../../practice/lab-sampling-temperature/) quét chúng trên logits cố định.

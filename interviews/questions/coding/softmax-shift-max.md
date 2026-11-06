@@ -16,7 +16,7 @@ related: [coding/loss-shift-flatten, coding/scale-by-sqrt-dk]
 updated: 2026-11-03
 ---
 
-A candidate writes this softmax for a batch of logits and the tests pass on small inputs but return NaN on a real attention row:
+Một ứng viên viết softmax này cho một batch logits và các kiểm thử đạt trên các đầu vào nhỏ nhưng trả về NaN trên một hàng attention thực:
 
 ```python
 def softmax(x):
@@ -24,17 +24,17 @@ def softmax(x):
     return e / e.sum(axis=-1, keepdims=True)
 ```
 
-What is wrong, how do you fix it, and why does the fix not change the result?
+Điều gì sai, bạn sửa nó như thế nào, và tại sao cách sửa không thay đổi kết quả?
 
 ## Short answer
 
-A large logit overflows the exponential to infinity, and infinity divided by infinity is NaN. Subtract the maximum of each row before the exponential. The softmax of a row is unchanged when the same constant is subtracted from every entry, because the constant cancels between the numerator and the denominator.
+Một logit lớn làm hàm mũ tràn thành vô cực, và vô cực chia cho vô cực là NaN. Trừ giá trị lớn nhất của mỗi hàng trước hàm mũ. Softmax của một hàng không thay đổi khi cùng một hằng số được trừ khỏi mọi phần tử, vì hằng số triệt tiêu giữa tử số và mẫu số.
 
 ## Full answer
 
 ### The failure
 
-Attention scores and language model logits can reach values in the tens or hundreds. The exponential of such a value does not fit in a float, so the row becomes infinite and the division gives NaN. Small test inputs never show it.
+Các điểm số attention và logits của mô hình ngôn ngữ có thể đạt các giá trị hàng chục hoặc hàng trăm. Hàm mũ của một giá trị như vậy không vừa trong một float, vì vậy hàng trở thành vô cực và phép chia cho NaN. Các đầu vào kiểm thử nhỏ không bao giờ cho thấy nó.
 
 ### The fix
 
@@ -45,29 +45,29 @@ def softmax(x):
     return e / e.sum(axis=-1, keepdims=True)
 ```
 
-After the shift the largest entry of each row is zero, so the largest exponential is one and nothing overflows. Entries far below the maximum underflow to zero, which is the correct limit.
+Sau phép dịch phần tử lớn nhất của mỗi hàng bằng không, vì vậy hàm mũ lớn nhất bằng một và không có gì tràn. Các phần tử thấp hơn nhiều so với giá trị lớn nhất bị hụt số về không, là giới hạn đúng.
 
 ### Why the result is the same
 
-Softmax of a row divides each exponential by the sum of all exponentials in that row. Subtracting a constant multiplies every exponential by the same factor, and that factor cancels in the ratio. The shift must be per row, over the last axis. A single maximum taken across the entire batch changes nothing about correctness but lets one hot row push every other row into underflow.
+Softmax của một hàng chia mỗi hàm mũ cho tổng của mọi hàm mũ trong hàng đó. Trừ một hằng số nhân mọi hàm mũ với cùng một hệ số, và hệ số đó triệt tiêu trong tỷ số. Phép dịch phải theo từng hàng, trên trục cuối cùng. Một giá trị lớn nhất duy nhất lấy trên toàn bộ batch không thay đổi gì về tính đúng đắn nhưng để một hàng nóng đẩy mọi hàng khác vào hụt số.
 
 ### Two more details that bite
 
-- Keep the dimension with `keepdims=True` so the subtraction broadcasts along the row and not along the batch.
-- Do not subtract in place when the caller still needs the logits.
+- Giữ chiều bằng `keepdims=True` để phép trừ broadcast dọc theo hàng chứ không phải dọc theo batch.
+- Không trừ tại chỗ khi bên gọi vẫn cần logits.
 
 ## Follow-ups
 
-- **Level 1:** Where does this same shift appear inside attention? Expected: in the softmax over the scaled scores, which is why the attention lesson writes the shifted version first.
-- **Level 2:** Why is a global maximum over the whole batch a bug? Expected: one row with a very large logit shifts every other row far below zero, so those rows underflow to all zeros and divide by zero.
-- **Level 2:** The practice task also asks for the gradient of the mean cross-entropy. What is it? Expected: the softmax minus the one-hot target, divided by the batch size.
+- **Level 1:** Cùng phép dịch này xuất hiện ở đâu bên trong attention? Expected: trong softmax trên các điểm số đã điều chỉnh tỷ lệ, là lý do bài học attention viết phiên bản đã dịch trước.
+- **Level 2:** Tại sao một giá trị lớn nhất toàn cục trên toàn bộ batch là một lỗi? Expected: một hàng có một logit rất lớn dịch mọi hàng khác xuống thấp hơn không rất nhiều, vì vậy các hàng đó hụt số về toàn số không và chia cho không.
+- **Level 2:** Nhiệm vụ thực hành cũng yêu cầu gradient của cross-entropy trung bình. Nó là gì? Expected: softmax trừ mục tiêu one-hot, chia cho kích thước batch.
 
 ## Wrong answers
 
-- "Clip the logits to a safe range." Clipping changes the distribution; the shift does not.
-- "Use float64 and the problem goes away." It moves the threshold, and attention scores still overflow in long rows.
-- "Subtract the mean instead of the maximum." The mean does not bound the largest entry, so a row can still overflow.
+- "Cắt các logits về một phạm vi an toàn." Việc cắt thay đổi phân phối; phép dịch thì không.
+- "Dùng float64 và vấn đề biến mất." Nó dịch chuyển ngưỡng, và các điểm số attention vẫn tràn trong các hàng dài.
+- "Trừ trung bình thay vì giá trị lớn nhất." Trung bình không chặn phần tử lớn nhất, vì vậy một hàng vẫn có thể tràn.
 
 ## Taught in
 
-The [self-attention lesson](../../../phases/07-transformers-deep-dive/02-self-attention-from-scratch/) builds the shifted softmax as its first step, and the [softmax and cross-entropy practice](../../../practice/softmax-cross-entropy/) checks it with large logits.
+[Bài học self-attention](../../../phases/07-transformers-deep-dive/02-self-attention-from-scratch/) xây dựng softmax đã dịch làm bước đầu tiên, và [bài thực hành softmax và cross-entropy](../../../practice/softmax-cross-entropy/) kiểm tra nó với các logits lớn.
