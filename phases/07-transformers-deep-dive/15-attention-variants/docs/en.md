@@ -1,6 +1,6 @@
 # Attention Variants — Sliding Window, Sparse, Differential
 
-> Full attention is a circle. Every token sees every token, and memory pays the price. Four variants bend the shape of the circle and recover half the cost.
+> Attention đầy đủ là một vòng tròn. Mọi token thấy mọi token, và bộ nhớ trả giá. Bốn biến thể uốn hình dạng vòng tròn và lấy lại một nửa chi phí.
 
 **Type:** Build
 **Languages:** Python
@@ -9,21 +9,21 @@
 
 ## The Problem
 
-Full attention costs `O(N²)` memory and `O(N²)` compute in sequence length. For a 128K-context Llama 3 70B that is 16 billion attention entries per layer, times 80 layers. Flash Attention (Lesson 12) hides the `O(N²)` activation memory but does not change the arithmetic cost — every token still attends to every other token.
+Attention đầy đủ tốn bộ nhớ `O(N²)` và tính toán `O(N²)` theo độ dài chuỗi. Với một Llama 3 70B ngữ cảnh 128K đó là 16 tỷ phần tử attention mỗi tầng, nhân 80 tầng. Flash Attention (Bài 12) che bộ nhớ kích hoạt `O(N²)` nhưng không thay đổi chi phí số học — mọi token vẫn chú ý đến mọi token khác.
 
-Three classes of variants change the topology of the attention matrix itself:
+Ba lớp biến thể thay đổi chính cấu trúc liên kết của ma trận attention:
 
-1. **Sliding window attention (SWA).** Each token attends to a fixed window of neighbors, not the full prefix. Memory and compute drop to `O(N · W)` where `W` is the window. Gemma 2/3, Mistral 7B's first layers, Phi-3-Long.
-2. **Sparse / block attention.** Only selected pairs `(i, j)` get scored; the rest are forced to zero weight. Longformer, BigBird, OpenAI sparse transformer.
-3. **Differential attention.** Compute two attention maps with separate Q/K projections, subtract one from the other. Kills the "attention sink" that bleeds weight into the first few tokens. Microsoft's DIFF Transformer (2024).
+1. **Attention cửa sổ trượt (SWA).** Mỗi token chú ý đến một cửa sổ lân cận cố định, không phải toàn tiền tố. Bộ nhớ và tính toán giảm xuống `O(N · W)` trong đó `W` là cửa sổ. Gemma 2/3, các tầng đầu của Mistral 7B, Phi-3-Long.
+2. **Attention thưa / khối.** Chỉ các cặp `(i, j)` được chọn được chấm điểm; phần còn lại bị ép trọng số bằng không. Longformer, BigBird, sparse transformer của OpenAI.
+3. **Attention vi sai.** Tính hai bản đồ attention với các phép chiếu Q/K riêng, trừ bản đồ này khỏi bản đồ kia. Loại "attention sink" làm trọng số chảy vào vài token đầu. DIFF Transformer của Microsoft (2024).
 
-These coexist. A 2026 frontier model often mixes them: most layers are SWA-1024, every fifth is global full attention, and a handful are differential heads that clean up retrieval. Gemma 3's 5:1 SWA-to-global ratio is the current textbook default.
+Chúng cùng tồn tại. Một mô hình tiên phong năm 2026 thường trộn chúng: hầu hết các tầng là SWA-1024, mỗi tầng thứ năm là attention đầy đủ toàn cục, và một số ít là các head vi sai làm sạch truy xuất. Tỷ lệ SWA-trên-toàn-cục 5:1 của Gemma 3 là mặc định giáo trình hiện tại.
 
 ## The Concept
 
 ### Sliding Window Attention (SWA)
 
-Each query at position `i` attends only to positions in `[i - W, i]` (causal SWA) or `[i - W/2, i + W/2]` (bidirectional). Tokens outside the window get `-inf` in the score matrix.
+Mỗi query ở vị trí `i` chỉ chú ý đến các vị trí trong `[i - W, i]` (SWA nhân quả) hoặc `[i - W/2, i + W/2]` (hai chiều). Các token ngoài cửa sổ nhận `-inf` trong ma trận điểm.
 
 ```
 full causal:           sliding window (W=4):
@@ -39,27 +39,27 @@ positions 0-7          positions 0-7, W=4
 7 | x x x x x x x x  7 |          x x x x
 ```
 
-For `N = 8192` and `W = 1024`, the score matrix has 1024 × 8192 non-zero rows in expectation — an 8× reduction.
+Với `N = 8192` và `W = 1024`, ma trận điểm có 1024 × 8192 hàng khác không theo kỳ vọng — giảm 8×.
 
-**KV cache shrinks with SWA.** Only the last `W` tokens of K and V need to be kept per layer. For a Gemma-3-ish config (1024 window, 128K context), KV cache drops 128×.
+**KV cache thu nhỏ với SWA.** Chỉ cần giữ `W` token K và V cuối mỗi tầng. Với một cấu hình kiểu Gemma-3 (cửa sổ 1024, ngữ cảnh 128K), KV cache giảm 128×.
 
-**Quality cost.** SWA-only transformers struggle with long-range retrieval. The fix: interleave SWA layers with full-attention layers. Gemma 3 uses 5:1 SWA:global. Mistral 7B used a causal-SWA stack where information "flows forward" through overlapping windows — each layer extends effective receptive field by `W`, and after `L` layers the model can attend `L × W` tokens back.
+**Chi phí chất lượng.** Các transformer chỉ SWA chật vật với truy xuất xa. Cách sửa: xen kẽ các tầng SWA với các tầng attention đầy đủ. Gemma 3 dùng SWA:toàn cục 5:1. Mistral 7B dùng một chồng SWA nhân quả nơi thông tin "chảy về phía trước" qua các cửa sổ chồng lấn — mỗi tầng mở rộng trường tiếp nhận hiệu dụng thêm `W`, và sau `L` tầng mô hình có thể chú ý lùi `L × W` token.
 
 ### Sparse / Block Attention
 
-Pick an `N × N` sparsity pattern ahead of time. Three canonical shapes:
+Chọn trước một mẫu thưa `N × N`. Ba hình dạng kinh điển:
 
-- **Local + strided (OpenAI sparse transformer).** Attend to the last `W` tokens plus every `stride`-th token before that. Captures both local and long-range at `O(N · sqrt(N))` compute.
-- **Longformer / BigBird.** Local window + a small set of global tokens (e.g. `[CLS]`) that attend to everyone and are attended by everyone + random-sparse links. Empirical 2× context at matched quality.
-- **Native Sparse Attention (DeepSeek, 2025).** Learn which blocks of `(Q, K)` matter; skip the zero blocks at kernel level. FlashAttention-compatible.
+- **Cục bộ + có bước nhảy (sparse transformer của OpenAI).** Chú ý đến `W` token cuối cộng mỗi token thứ `stride` trước đó. Nắm bắt cả cục bộ và xa ở tính toán `O(N · sqrt(N))`.
+- **Longformer / BigBird.** Cửa sổ cục bộ + một tập nhỏ các token toàn cục (ví dụ `[CLS]`) chú ý đến mọi token và được mọi token chú ý + các liên kết thưa ngẫu nhiên. Thực nghiệm đạt ngữ cảnh 2× ở chất lượng tương ứng.
+- **Native Sparse Attention (DeepSeek, 2025).** Học những khối `(Q, K)` nào quan trọng; bỏ các khối không ở cấp kernel. Tương thích FlashAttention.
 
-Sparse attention is a kernel-engineering story. The math is simple (mask the score matrix); the win comes from never loading the zero entries into SRAM. FlashAttention-3 and the 2026 FlexAttention API make custom sparse patterns first-class in PyTorch.
+Attention thưa là một câu chuyện kỹ thuật kernel. Phần toán đơn giản (che ma trận điểm); lợi ích đến từ không bao giờ tải các phần tử không vào SRAM. FlashAttention-3 và API FlexAttention năm 2026 biến các mẫu thưa tùy chỉnh thành thành phần chính thức trong PyTorch.
 
 ### Differential Attention (DIFF Transformer, 2024)
 
-Regular attention has an "attention sink" problem: softmax forces every row to sum to 1, so tokens that don't want to attend to anything in particular dump weight on the first token (or the first few). This steals capacity that should have gone to real content.
+Attention thường có một vấn đề "attention sink": softmax buộc mọi hàng có tổng bằng 1, nên các token không muốn chú ý đến bất kỳ thứ gì cụ thể đổ trọng số lên token đầu (hoặc vài token đầu). Điều này lấy mất năng lực đáng lẽ dành cho nội dung thực.
 
-Differential attention fixes this by computing **two** attention maps and subtracting:
+Attention vi sai sửa điều này bằng cách tính **hai** bản đồ attention và trừ:
 
 ```
 A1 = softmax(Q1 K1^T / √d)
@@ -67,20 +67,20 @@ A2 = softmax(Q2 K2^T / √d)
 DiffAttn = (A1 - λ · A2) V
 ```
 
-where `λ` is a learned scalar (typically 0.5–0.8). A1 captures real content weights; A2 captures the sink. Subtraction cancels the sink, reallocates weight to relevant tokens.
+trong đó `λ` là một vô hướng được học (thường 0.5–0.8). A1 nắm bắt các trọng số nội dung thực; A2 nắm bắt sink. Phép trừ triệt tiêu sink, phân bổ lại trọng số cho các token liên quan.
 
-Reported results (Microsoft 2024): 5–10% lower perplexity, 1.5–2× longer effective context at same trained length, sharper needle-in-haystack retrieval.
+Các kết quả báo cáo (Microsoft 2024): perplexity thấp hơn 5–10%, ngữ cảnh hiệu dụng dài hơn 1.5–2× ở cùng độ dài huấn luyện, truy xuất kim-trong-đống-cỏ sắc hơn.
 
 ### Variant Comparison
 
-| Variant | Compute | KV cache | Quality vs full | Production use |
+| Biến thể | Tính toán | KV cache | Chất lượng so với đầy đủ | Sử dụng production |
 |---------|---------|----------|-----------------|----------------|
-| Full attention | O(N²) | O(N) per layer | baseline | every model's default layer |
-| SWA (window 1024) | O(N·W) | O(W) per layer | -0.1 ppl, good with global layers | Gemma 2/3, Phi-3-Long |
-| Local + strided sparse | O(N·√N) | mixed | similar to SWA | OpenAI sparse transformer, Longformer |
-| BigBird (local + global + random) | O(N) approx | mixed | matches full at 2× context | early long-context BERT |
-| Native Sparse (DeepSeek-V3.2) | O(N · active fraction) | O(N) | within 0.05 ppl | DeepSeek-V3.2, 2025 |
-| Differential | O(2·N²) | O(2N) | -5 to -10% ppl | DIFF Transformer, early 2026 models |
+| Attention đầy đủ | O(N²) | O(N) mỗi tầng | baseline | tầng mặc định của mọi mô hình |
+| SWA (cửa sổ 1024) | O(N·W) | O(W) mỗi tầng | -0.1 ppl, tốt với các tầng toàn cục | Gemma 2/3, Phi-3-Long |
+| Thưa cục bộ + có bước nhảy | O(N·√N) | hỗn hợp | tương tự SWA | sparse transformer của OpenAI, Longformer |
+| BigBird (cục bộ + toàn cục + ngẫu nhiên) | O(N) xấp xỉ | hỗn hợp | ngang đầy đủ tại ngữ cảnh 2× | BERT ngữ cảnh dài ban đầu |
+| Native Sparse (DeepSeek-V3.2) | O(N · active fraction) | O(N) | trong 0.05 ppl | DeepSeek-V3.2, 2025 |
+| Vi sai | O(2·N²) | O(2N) | -5 đến -10% ppl | DIFF Transformer, các mô hình đầu năm 2026 |
 
 ```figure
 gqa-kv-sharing
@@ -88,7 +88,7 @@ gqa-kv-sharing
 
 ## Build It
 
-See `code/main.py`. We implement a causal mask comparator that shows full, SWA, local+strided, and differential attention side by side on a toy sequence.
+Xem `code/main.py`. Chúng ta triển khai một bộ so sánh mặt nạ nhân quả hiển thị attention đầy đủ, SWA, cục bộ+có bước nhảy và vi sai cạnh nhau trên một chuỗi đồ chơi.
 
 ### Step 1: full causal mask (baseline)
 
@@ -97,7 +97,7 @@ def causal_mask(n):
     return [[0.0 if j <= i else float("-inf") for j in range(n)] for i in range(n)]
 ```
 
-Baseline from Lesson 07. Lower triangular; zero weight above the diagonal.
+Baseline từ Bài 07. Tam giác dưới; trọng số bằng không phía trên đường chéo.
 
 ### Step 2: sliding window causal mask
 
@@ -111,7 +111,7 @@ def swa_mask(n, window):
     return M
 ```
 
-One parameter — `window`. For `window >= n`, you recover full causal attention. For `window = 1`, each token attends only to itself.
+Một tham số — `window`. Với `window >= n`, bạn khôi phục attention nhân quả đầy đủ. Với `window = 1`, mỗi token chỉ chú ý chính nó.
 
 ### Step 3: local + strided sparse mask
 
@@ -127,7 +127,7 @@ def strided_mask(n, window, stride):
     return M
 ```
 
-Dense local window plus every `stride`-th token back to the start of the sequence. Receptive field grows in log steps with additional layers.
+Cửa sổ cục bộ đặc cộng mỗi token thứ `stride` lùi đến đầu chuỗi. Trường tiếp nhận tăng theo các bước log với các tầng bổ sung.
 
 ### Step 4: differential attention
 
@@ -138,15 +138,15 @@ def diff_attention(Q1, K1, Q2, K2, V, lam):
     return (A1 - lam * A2) @ V
 ```
 
-Two attention passes, subtract with a learned mixing coefficient. In the code we compare the attention-sink heatmap of single vs differential and watch the sink collapse.
+Hai lượt attention, trừ với một hệ số trộn được học. Trong mã chúng ta so sánh bản đồ nhiệt attention-sink của đơn so với vi sai và quan sát sink sụp đổ.
 
 ### Step 5: KV cache sizes
 
-Print the cache size per layer at `N = 131072` for each variant. SWA and sparse variants drop by 10–100×. Differential doubles. Pay your memory bill consciously.
+In kích thước cache mỗi tầng tại `N = 131072` cho mỗi biến thể. SWA và các biến thể thưa giảm 10–100×. Vi sai tăng gấp đôi. Trả hóa đơn bộ nhớ một cách có ý thức.
 
 ## Use It
 
-2026 production patterns:
+Các mẫu production năm 2026:
 
 ```python
 from transformers import AutoModelForCausalLM
@@ -155,7 +155,7 @@ model = AutoModelForCausalLM.from_pretrained("google/gemma-3-27b-it")
 # print(model.config.sliding_window, model.config.layer_types)
 ```
 
-FlexAttention in PyTorch 2.5+ accepts a mask function:
+FlexAttention trong PyTorch 2.5+ nhận một hàm mặt nạ:
 
 ```python
 from torch.nn.attention.flex_attention import flex_attention, create_block_mask
@@ -167,46 +167,46 @@ mask = create_block_mask(swa_pattern, B=batch, H=heads, Q_LEN=n, KV_LEN=n)
 out = flex_attention(q, k, v, block_mask=mask)
 ```
 
-This compiles to a custom Triton kernel. Within 10% of FlashAttention-3 speed for common patterns, and the mask function is a Python callable.
+Điều này biên dịch thành một kernel Triton tùy chỉnh. Trong 10% tốc độ FlashAttention-3 cho các mẫu phổ biến, và hàm mặt nạ là một callable Python.
 
-**When to pick each:**
+**Khi nào chọn từng loại:**
 
-- **Pure full attention** — every layer up to ~16K context, or when retrieval quality is paramount.
-- **SWA + global mix** — long context (>32K), training and inference memory-bound. The 2026 default above 32K.
-- **Sparse block attention** — custom kernel, custom pattern. Reserved for specialized workloads (retrieval, audio).
-- **Differential attention** — any workload where attention-sink contamination hurts (long-context RAG, needle-in-haystack).
+- **Attention đầy đủ thuần** — mọi tầng đến ngữ cảnh ~16K, hoặc khi chất lượng truy xuất tối quan trọng.
+- **Hỗn hợp SWA + toàn cục** — ngữ cảnh dài (>32K), huấn luyện và suy luận bị giới hạn bộ nhớ. Mặc định năm 2026 trên 32K.
+- **Attention khối thưa** — kernel tùy chỉnh, mẫu tùy chỉnh. Dành cho các khối lượng công việc chuyên biệt (truy xuất, âm thanh).
+- **Attention vi sai** — bất kỳ khối lượng công việc nào mà ô nhiễm attention-sink gây hại (RAG ngữ cảnh dài, kim-trong-đống-cỏ).
 
 ## Ship It
 
-See `outputs/skill-attention-variant-picker.md`. The skill picks an attention topology for a new model given target context length, retrieval demands, and training/inference compute profile.
+Xem `outputs/skill-attention-variant-picker.md`. Skill chọn một cấu trúc liên kết attention cho một mô hình mới với độ dài ngữ cảnh đích, các nhu cầu truy xuất và hồ sơ tính toán huấn luyện/suy luận.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. Verify SWA at `window=4` zeroes everything outside the last 4 tokens per row. Verify `window=n` reproduces full causal attention bit-identically.
-2. **Medium.** Implement causal SWA with `window=1024` on top of the Lesson 07 capstone. Train for 1,000 steps on tinyshakespeare. How much does val loss regress vs full attention? How much does peak memory drop?
-3. **Hard.** Implement a Gemma-3-style 5:1 layer mix (5 SWA, 1 global) in the capstone model. Compare loss, memory, and generation quality against pure-SWA and pure-global baselines at matched parameters.
-4. **Hard.** Implement differential attention with a learned `λ` per head. Train on a synthetic retrieval task (one needle, 2,000 distractors). Measure retrieval accuracy vs a single-attention baseline at matched parameters.
+1. **Dễ.** Chạy `code/main.py`. Xác minh SWA tại `window=4` đặt không mọi thứ ngoài 4 token cuối mỗi hàng. Xác minh `window=n` tái hiện attention nhân quả đầy đủ giống từng bit.
+2. **Trung bình.** Triển khai SWA nhân quả với `window=1024` trên capstone Bài 07. Huấn luyện 1,000 bước trên tinyshakespeare. Val loss suy giảm bao nhiêu so với attention đầy đủ? Bộ nhớ đỉnh giảm bao nhiêu?
+3. **Khó.** Triển khai một hỗn hợp tầng 5:1 kiểu Gemma-3 (5 SWA, 1 toàn cục) trong mô hình capstone. So sánh loss, bộ nhớ và chất lượng sinh với các baseline chỉ SWA và chỉ toàn cục ở số tham số tương ứng.
+4. **Khó.** Triển khai attention vi sai với một `λ` được học mỗi head. Huấn luyện trên một tác vụ truy xuất tổng hợp (một kim, 2,000 yếu tố gây nhiễu). Đo accuracy truy xuất so với một baseline attention đơn ở số tham số tương ứng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Sliding window attention (SWA) | "Local attention" | Each query attends to its last `W` tokens; KV cache shrinks to `O(W)`. |
-| Effective receptive field | "How far back the model sees" | In an `L`-layer SWA stack with window `W`, up to `L × W` tokens. |
-| Longformer / BigBird | "Local + global + random" | Sparse patterns with a few always-attending global tokens; early long-context approach. |
-| Native Sparse Attention | "DeepSeek's kernel trick" | Learn block-level sparsity; skip zero blocks at the kernel level while keeping quality. |
-| Differential attention | "Two maps, one subtracts" | DIFF Transformer: subtract a learned `λ` times a second attention map from the first to cancel attention sinks. |
-| Attention sink | "Weight bleeds to token 0" | Softmax normalization forces rows to sum to 1; uninformative queries dump weight on position 0. |
-| FlexAttention | "Mask-as-Python" | PyTorch 2.5+ API that compiles arbitrary mask functions into FlashAttention-shape kernels. |
-| Layer type mix | "5:1 SWA-to-global" | Interleave sparse and full attention layers in a stack to keep quality at lower memory. |
+| Sliding window attention (SWA) (Attention cửa sổ trượt) | "Attention cục bộ" | Mỗi query chú ý đến `W` token cuối; KV cache thu nhỏ về `O(W)`. |
+| Effective receptive field (Trường tiếp nhận hiệu dụng) | "Mô hình thấy lùi bao xa" | Trong một chồng SWA `L` tầng với cửa sổ `W`, đến `L × W` token. |
+| Longformer / BigBird | "Cục bộ + toàn cục + ngẫu nhiên" | Các mẫu thưa với một vài token toàn cục luôn chú ý; cách tiếp cận ngữ cảnh dài ban đầu. |
+| Native Sparse Attention | "Thủ thuật kernel của DeepSeek" | Học tính thưa cấp khối; bỏ các khối không ở cấp kernel trong khi giữ chất lượng. |
+| Differential attention (Attention vi sai) | "Hai bản đồ, một bản trừ" | DIFF Transformer: trừ một bản đồ attention thứ hai nhân với `λ` được học khỏi bản đầu để triệt tiêu các attention sink. |
+| Attention sink | "Trọng số chảy sang token 0" | Chuẩn hóa softmax buộc các hàng có tổng bằng 1; các query không thông tin đổ trọng số lên vị trí 0. |
+| FlexAttention | "Mặt nạ dưới dạng Python" | API PyTorch 2.5+ biên dịch các hàm mặt nạ tùy ý thành các kernel dạng FlashAttention. |
+| Layer type mix (Hỗn hợp loại tầng) | "SWA-trên-toàn-cục 5:1" | Xen kẽ các tầng attention thưa và đầy đủ trong một chồng để giữ chất lượng với bộ nhớ thấp hơn. |
 
 ## Further Reading
 
-- [Beltagy, Peters, Cohan (2020). Longformer: The Long-Document Transformer](https://arxiv.org/abs/2004.05150) — the canonical sliding-window + global-token paper.
-- [Zaheer et al. (2020). Big Bird: Transformers for Longer Sequences](https://arxiv.org/abs/2007.14062) — local + global + random.
-- [Child et al. (2019). Generating Long Sequences with Sparse Transformers](https://arxiv.org/abs/1904.10509) — OpenAI's local+strided pattern.
-- [Gemma Team (2024). Gemma 2: Improving Open Language Models at a Practical Size](https://arxiv.org/abs/2408.00118) — the 1:1 SWA:global mix.
-- [Gemma Team (2025). Gemma 3 technical report](https://arxiv.org/abs/2503.19786) — the 5:1 mix with window=1024 that's now the textbook default.
-- [Ye et al. (2024). Differential Transformer](https://arxiv.org/abs/2410.05258) — DIFF Transformer paper.
-- [Yuan et al. (2025). Native Sparse Attention](https://arxiv.org/abs/2502.11089) — DeepSeek-V3.2's learned-sparsity attention.
-- [PyTorch — FlexAttention blog and docs](https://pytorch.org/blog/flexattention/) — API reference for the mask-as-callable pattern in Use It.
+- [Beltagy, Peters, Cohan (2020). Longformer: The Long-Document Transformer](https://arxiv.org/abs/2004.05150) — bài báo cửa sổ trượt + token toàn cục kinh điển.
+- [Zaheer et al. (2020). Big Bird: Transformers for Longer Sequences](https://arxiv.org/abs/2007.14062) — cục bộ + toàn cục + ngẫu nhiên.
+- [Child et al. (2019). Generating Long Sequences with Sparse Transformers](https://arxiv.org/abs/1904.10509) — mẫu cục bộ+có bước nhảy của OpenAI.
+- [Gemma Team (2024). Gemma 2: Improving Open Language Models at a Practical Size](https://arxiv.org/abs/2408.00118) — hỗn hợp SWA:toàn cục 1:1.
+- [Gemma Team (2025). Gemma 3 technical report](https://arxiv.org/abs/2503.19786) — hỗn hợp 5:1 với window=1024 hiện là mặc định giáo trình.
+- [Ye et al. (2024). Differential Transformer](https://arxiv.org/abs/2410.05258) — bài báo DIFF Transformer.
+- [Yuan et al. (2025). Native Sparse Attention](https://arxiv.org/abs/2502.11089) — attention tính thưa được học của DeepSeek-V3.2.
+- [PyTorch — FlexAttention blog and docs](https://pytorch.org/blog/flexattention/) — tham chiếu API cho mẫu mặt nạ dưới dạng callable trong Use It.
