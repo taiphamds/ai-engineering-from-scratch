@@ -1,6 +1,6 @@
 # Parallel / Swarm / Networked Architectures
 
-> Contrast with supervisor: no central decider. Agents read a shared event bus, pick up work asynchronously, write results back. LangGraph explicitly supports "Swarm Architecture" for decentralized, dynamic environments. Matrix (arXiv:2511.21686) represents both control and data flow as serialized messages passed through distributed queues to eliminate the orchestrator bottleneck. The tradeoff is explicit: determinism and traceability for scalability. Swarm fits tasks with many independent sub-problems; it does not fit tasks that need a single coherent plan.
+> Đối chiếu với bộ giám sát: không có bên quyết định trung tâm. Các agent đọc một bus sự kiện dùng chung, nhận công việc bất đồng bộ, ghi kết quả trở lại. LangGraph hỗ trợ tường minh “Kiến trúc bầy đàn” cho các môi trường phi tập trung, động. Matrix (arXiv:2511.21686) biểu diễn cả luồng điều khiển và dữ liệu dưới dạng các thông điệp được tuần tự hóa truyền qua các hàng đợi phân tán để loại bỏ nút thắt bộ điều phối. Đánh đổi là tường minh: tính xác định và khả năng truy vết để lấy khả năng mở rộng. Bầy đàn phù hợp với các tác vụ có nhiều bài toán con độc lập; nó không phù hợp với các tác vụ cần một kế hoạch mạch lạc duy nhất.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib, `threading`, `queue`)
@@ -9,9 +9,9 @@
 
 ## Problem
 
-Supervisor scales to a few workers. What about hundreds? The supervisor itself becomes the bottleneck: every decision about who does what funnels through one agent. One slow plan step stalls the whole system.
+Bộ giám sát mở rộng tới một vài worker. Còn hàng trăm thì sao? Bản thân bộ giám sát trở thành nút thắt: mọi quyết định ai làm gì dồn qua một agent. Một bước lập kế hoạch chậm làm đình trệ toàn hệ thống.
 
-Swarm architectures flip the design. Instead of a central planner dispatching work, workers pick work off a shared queue. The "coordination" is baked into the event bus semantics. No orchestrator; the system scales until the queue does.
+Các kiến trúc bầy đàn lật thiết kế. Thay vì một bộ lập kế hoạch trung tâm phân công công việc, các worker nhận công việc từ một hàng đợi dùng chung. Sự “phối hợp” được tích hợp vào ngữ nghĩa bus sự kiện. Không có bộ điều phối; hệ thống mở rộng cho đến khi hàng đợi chạm giới hạn.
 
 ## Concept
 
@@ -31,42 +31,42 @@ Swarm architectures flip the design. Instead of a central planner dispatching wo
             results pool
 ```
 
-No orchestrator. Each worker repeats: pull a task, process, write result (and optionally enqueue follow-ups).
+Không có bộ điều phối. Mỗi worker lặp lại: kéo một tác vụ, xử lý, ghi kết quả (và tùy chọn đưa các tác vụ tiếp nối vào hàng đợi).
 
 ### When swarm fits
 
-- **Many independent tasks.** Scraping, transforming, classifying. Tasks do not depend on each other.
-- **Variable-duration work.** If some tasks take 100ms and others take 10s, a swarm balances load automatically — fast workers pull next jobs. A supervisor has to anticipate duration.
-- **Throughput over determinism.** You care about total completion time, not strict ordering.
+- **Nhiều tác vụ độc lập.** Thu thập dữ liệu, biến đổi, phân loại. Các tác vụ không phụ thuộc nhau.
+- **Công việc có thời lượng biến thiên.** Nếu một số tác vụ mất 100ms và những tác vụ khác mất 10s, một bầy đàn cân bằng tải tự động — các worker nhanh kéo công việc tiếp theo. Một bộ giám sát phải dự đoán thời lượng.
+- **Thông lượng hơn tính xác định.** Bạn quan tâm tổng thời gian hoàn thành, không phải thứ tự nghiêm ngặt.
 
 ### When swarm fails
 
-- **Ordered workflows.** If step 3 needs step 2's output, a swarm risks step 3 firing before step 2 is done.
-- **Global-plan tasks.** Complex research questions benefit from a planner. A swarm of researchers produces independent facts, not a coherent report.
-- **Debugging.** With no central log and asynchronous work, reproducing a bug is expensive.
+- **Các quy trình có thứ tự.** Nếu bước 3 cần đầu ra bước 2, một bầy đàn có nguy cơ bước 3 kích hoạt trước khi bước 2 xong.
+- **Các tác vụ kế hoạch toàn cục.** Các câu hỏi nghiên cứu phức tạp hưởng lợi từ một bộ lập kế hoạch. Một bầy nhà nghiên cứu tạo ra các sự kiện độc lập, không phải một báo cáo mạch lạc.
+- **Gỡ lỗi.** Không có một nhật ký trung tâm và với công việc bất đồng bộ, tái tạo một lỗi tốn kém.
 
 ### Matrix (arXiv:2511.21686)
 
-Matrix is the 2025 paper that takes swarm to its natural conclusion: both control flow and data flow are serialized messages on distributed queues. No central coordinator. Fault tolerance comes from message durability. Scalability is the message broker's problem, not the system's.
+Matrix là bài báo năm 2025 đưa bầy đàn tới kết luận tự nhiên: cả luồng điều khiển và luồng dữ liệu là các thông điệp được tuần tự hóa trên các hàng đợi phân tán. Không có bộ phối hợp trung tâm. Khả năng chịu lỗi đến từ tính bền vững thông điệp. Khả năng mở rộng là vấn đề của broker thông điệp, không phải của hệ thống.
 
-Contribution: a programming model where multi-agent coordination is "what message topic does this agent subscribe to?" rather than "which agent does the supervisor pick next?" This makes the system look like a pub/sub event mesh.
+Đóng góp: một mô hình lập trình nơi phối hợp đa agent là “agent này đăng ký chủ đề thông điệp nào?” thay vì “bộ giám sát chọn agent nào tiếp theo?” Điều này làm hệ thống trông như một lưới sự kiện pub/sub.
 
 ### Swarm in graph frameworks
 
-LangGraph 2025 docs explicitly describe "Swarm Architecture" as one of the multi-agent patterns: agents are nodes, but edges form a directed graph with cycles and any node can be activated from the pool. A worker picks from available work by condition, not by supervisor assignment.
+Tài liệu LangGraph năm 2025 mô tả tường minh “Kiến trúc bầy đàn” như một trong các mẫu đa agent: các agent là các node, nhưng các cạnh tạo thành một đồ thị có hướng có chu trình và bất kỳ node nào cũng có thể được kích hoạt từ bể. Một worker chọn từ công việc có sẵn theo điều kiện, không phải theo phân công của bộ giám sát.
 
 ### Failure mode: starvation and hot-spotting
 
-If all workers pull the fastest-available task, long-running tasks never get picked until they are the only ones left. Classic queue starvation.
+Nếu mọi worker kéo tác vụ có sẵn nhanh nhất, các tác vụ chạy dài không bao giờ được chọn cho đến khi chúng là những tác vụ duy nhất còn lại. Đói hàng đợi kinh điển.
 
-Mitigations:
-- Priority queues with explicit aging (increase priority with wait time).
-- Worker specialization: some workers only take "long" tasks.
-- Back-pressure: limit how many fast tasks enter the queue.
+Các biện pháp giảm thiểu:
+- Các hàng đợi ưu tiên với lão hóa tường minh (tăng ưu tiên theo thời gian chờ).
+- Chuyên biệt hóa worker: một số worker chỉ nhận các tác vụ “dài”.
+- Áp lực ngược: giới hạn bao nhiêu tác vụ nhanh đi vào hàng đợi.
 
 ### The content-based routing link
 
-Swarm pairs naturally with content-based routing (Lesson 22). Instead of a generic queue, have one queue per message type. Specialist workers subscribe only to their type. This is the basis for message-bus architectures that scale to thousands of agents.
+Bầy đàn ghép tự nhiên với định tuyến dựa trên nội dung (Bài 22). Thay vì một hàng đợi chung, có một hàng đợi cho mỗi loại thông điệp. Các worker chuyên gia chỉ đăng ký loại của chúng. Đây là cơ sở cho các kiến trúc bus thông điệp mở rộng tới hàng nghìn agent.
 
 ```figure
 sw-work-stealing
@@ -74,60 +74,60 @@ sw-work-stealing
 
 ## Build It
 
-`code/main.py` implements a swarm of 4 worker threads pulling from a shared `queue.Queue`. Tasks have variable durations (some fast, some slow). The demo contrasts:
+`code/main.py` triển khai một bầy 4 luồng worker kéo từ một `queue.Queue` dùng chung. Các tác vụ có thời lượng biến thiên (một số nhanh, một số chậm). Demo đối chiếu:
 
-- **Sequential baseline:** one worker processes all tasks serially.
-- **Fixed assignment:** each task pre-assigned to a specific worker (supervisor-style).
-- **Swarm:** workers pull from a shared queue.
+- **Đường cơ sở tuần tự:** một worker xử lý mọi tác vụ nối tiếp.
+- **Phân công cố định:** mỗi tác vụ được giao trước cho một worker cụ thể (kiểu bộ giám sát).
+- **Bầy đàn:** các worker kéo từ một hàng đợi dùng chung.
 
-Swarm balances load automatically; fixed assignment leaves fast workers idle when their assigned task is slow.
+Bầy đàn cân bằng tải tự động; phân công cố định để các worker nhanh nhàn rỗi khi tác vụ được giao của chúng chậm.
 
-Run:
+Chạy:
 
 ```
 python3 code/main.py
 ```
 
-Output shows per-worker task counts (swarm distributes unevenly but optimally) and wall-clock times.
+Đầu ra cho thấy số tác vụ theo từng worker (bầy đàn phân phối không đều nhưng tối ưu) và thời gian thực trôi qua.
 
 ## Use It
 
-`outputs/skill-swarm-fit.md` evaluates whether a task should use swarm vs supervisor. Inputs: task independence, duration variance, ordering requirements, debuggability needs.
+`outputs/skill-swarm-fit.md` đánh giá liệu một tác vụ nên sử dụng bầy đàn hay bộ giám sát. Đầu vào: tính độc lập tác vụ, phương sai thời lượng, các yêu cầu thứ tự, các nhu cầu khả năng gỡ lỗi.
 
 ## Ship It
 
-Checklist:
+Danh sách kiểm tra:
 
-- **Priority queue with aging.** Prevent long-task starvation.
-- **Worker idempotency.** A task may be pulled more than once if a worker crashes mid-run. Workers must be idempotent.
-- **Durable queue.** Use Kafka, Redis Streams, or a database-backed queue for production. `queue.Queue` is in-memory only.
-- **Observability per task.** Every task has a trace ID; every worker logs start/end with it.
-- **Back-pressure.** If the queue grows faster than workers drain it, slow the producer.
+- **Hàng đợi ưu tiên có lão hóa.** Ngăn đói tác vụ dài.
+- **Tính lũy đẳng worker.** Một tác vụ có thể bị kéo nhiều hơn một lần nếu một worker gặp sự cố giữa lần chạy. Các worker phải lũy đẳng.
+- **Hàng đợi bền vững.** Sử dụng Kafka, Redis Streams, hoặc một hàng đợi được cơ sở dữ liệu hỗ trợ cho sản xuất. `queue.Queue` chỉ nằm trong bộ nhớ.
+- **Khả năng quan sát theo từng tác vụ.** Mọi tác vụ có một ID truy vết; mọi worker ghi nhật ký bắt đầu/kết thúc với nó.
+- **Áp lực ngược.** Nếu hàng đợi tăng nhanh hơn các worker xử lý nó, làm chậm bên sản xuất.
 
 ## Exercises
 
-1. Run `code/main.py`. How much faster is swarm than sequential on the variable-duration workload? How much faster than fixed assignment?
-2. Add a priority queue variant (use `queue.PriorityQueue`). Assign priority by task "importance" field. Observe whether low-priority tasks ever starve under continuous load.
-3. Implement a hot-spot detector: log when any worker processes 3× more tasks than the slowest worker. What does that indicate about task-duration distribution?
-4. Read the Matrix paper (arXiv:2511.21686) abstract and Section 3. Identify one specific tradeoff Matrix accepts (scalability gain) and one it gives up (traceability, determinism).
-5. Convert the swarm demo to use a `queue.Queue` of (task_type, payload) tuples, with workers subscribing only to specific types. What routing rules make sense when tasks are heterogeneous?
+1. Chạy `code/main.py`. Bầy đàn nhanh hơn tuần tự bao nhiêu trên khối lượng công việc có thời lượng biến thiên? Nhanh hơn phân công cố định bao nhiêu?
+2. Thêm một biến thể hàng đợi ưu tiên (sử dụng `queue.PriorityQueue`). Gán ưu tiên theo trường “mức quan trọng” của tác vụ. Quan sát liệu các tác vụ ưu tiên thấp có bao giờ bị đói dưới tải liên tục hay không.
+3. Triển khai một bộ phát hiện điểm nóng: ghi nhật ký khi bất kỳ worker nào xử lý nhiều tác vụ hơn 3× so với worker chậm nhất. Điều đó chỉ ra gì về phân phối thời lượng tác vụ?
+4. Đọc tóm tắt và Phần 3 bài báo Matrix (arXiv:2511.21686). Xác định một đánh đổi cụ thể Matrix chấp nhận (tăng khả năng mở rộng) và một thứ nó từ bỏ (khả năng truy vết, tính xác định).
+5. Chuyển demo bầy đàn sang sử dụng một `queue.Queue` gồm các tuple (task_type, payload), với các worker chỉ đăng ký các loại cụ thể. Các quy tắc định tuyến nào hợp lý khi các tác vụ không đồng nhất?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Swarm architecture | "Decentralized agents" | Workers pull from shared queue; no central orchestrator. |
-| Event bus | "Agents subscribe to topics" | Message broker that routes tasks to workers by type or content. |
-| Starvation | "Task never runs" | Low-priority task never gets picked because higher-priority work arrives continuously. |
-| Hot-spotting | "One worker drowns" | Load imbalance where one worker gets most tasks. |
-| Back-pressure | "Slow down the producer" | Mechanism that signals upstream to stop producing when the queue fills up. |
-| Idempotent worker | "Safe to re-run" | A task processed twice produces the same result. Required because workers may crash mid-run. |
-| Durable queue | "Survives crashes" | Queue backed by disk or replicated storage; tasks are not lost when a worker crashes. |
-| Matrix framework | "Full message-passing swarm" | Both data and control flow are serialized messages on distributed queues. |
+| Swarm architecture (Kiến trúc bầy đàn) | “Các agent phi tập trung” | Các worker kéo từ hàng đợi dùng chung; không có bộ điều phối trung tâm. |
+| Event bus (Bus sự kiện) | “Các agent đăng ký các chủ đề” | Broker thông điệp định tuyến các tác vụ tới các worker theo loại hoặc nội dung. |
+| Starvation (Đói) | “Tác vụ không bao giờ chạy” | Tác vụ ưu tiên thấp không bao giờ được chọn vì công việc ưu tiên cao hơn đến liên tục. |
+| Hot-spotting (Tập trung điểm nóng) | “Một worker chìm” | Mất cân bằng tải nơi một worker nhận hầu hết tác vụ. |
+| Back-pressure (Áp lực ngược) | “Làm chậm bên sản xuất” | Cơ chế báo hiệu thượng nguồn ngừng sản xuất khi hàng đợi đầy. |
+| Idempotent worker (Worker lũy đẳng) | “An toàn để chạy lại” | Một tác vụ được xử lý hai lần tạo cùng kết quả. Bắt buộc vì các worker có thể gặp sự cố giữa lần chạy. |
+| Durable queue (Hàng đợi bền vững) | “Tồn tại qua sự cố” | Hàng đợi được đĩa hoặc lưu trữ nhân bản hỗ trợ; các tác vụ không mất khi một worker gặp sự cố. |
+| Matrix framework (Framework Matrix) | “Bầy đàn truyền thông điệp hoàn toàn” | Cả luồng dữ liệu và điều khiển là các thông điệp được tuần tự hóa trên các hàng đợi phân tán. |
 
 ## Further Reading
 
-- [LangGraph workflows and agents — Swarm Architecture](https://docs.langchain.com/oss/python/langgraph/workflows-agents) — explicit swarm support
-- [Matrix — A Decentralized Framework for Multi-Agent Systems](https://arxiv.org/abs/2511.21686) — full message-passing swarm
-- [Anthropic engineering — why supervisor not swarm in Research](https://www.anthropic.com/engineering/multi-agent-research-system) — why a specific production system explicitly chose supervisor over swarm
-- [AutoGen v0.4 actor-model docs](https://microsoft.github.io/autogen/stable/) — the event-driven actor rewrite, closer to swarm than v0.2's GroupChat
+- [LangGraph workflows and agents — Swarm Architecture](https://docs.langchain.com/oss/python/langgraph/workflows-agents) — hỗ trợ bầy đàn tường minh
+- [Matrix — A Decentralized Framework for Multi-Agent Systems](https://arxiv.org/abs/2511.21686) — bầy đàn truyền thông điệp hoàn toàn
+- [Anthropic engineering — why supervisor not swarm in Research](https://www.anthropic.com/engineering/multi-agent-research-system) — vì sao một hệ thống sản xuất cụ thể chọn tường minh bộ giám sát thay cho bầy đàn
+- [AutoGen v0.4 actor-model docs](https://microsoft.github.io/autogen/stable/) — bản viết lại actor hướng sự kiện, gần bầy đàn hơn GroupChat của v0.2
