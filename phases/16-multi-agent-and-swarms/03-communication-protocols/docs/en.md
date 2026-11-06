@@ -1,6 +1,6 @@
 # Communication Protocols
 
-> Agents that can't speak the same language aren't a team. They're strangers shouting into the void.
+> Các agent không thể nói cùng ngôn ngữ không phải là một nhóm. Chúng là những người lạ hét vào khoảng không.
 
 **Type:** Build
 **Languages:** TypeScript
@@ -9,33 +9,33 @@
 
 ## Learning Objectives
 
-- Implement MCP tool discovery and invocation so agents can use tools exposed by external servers
-- Build an A2A agent card and task endpoint that allows one agent to delegate work to another over HTTP
-- Compare MCP (tool access), A2A (agent-to-agent), ACP (enterprise audit), and ANP (decentralized trust) and explain which protocol solves which problem
-- Wire multiple protocols together in a single system where agents discover tools via MCP and delegate tasks via A2A
+- Triển khai khám phá và gọi công cụ MCP để các agent có thể sử dụng các công cụ được máy chủ bên ngoài cung cấp
+- Xây dựng một agent card và endpoint tác vụ A2A cho phép một agent giao việc cho agent khác qua HTTP
+- So sánh MCP (truy cập công cụ), A2A (agent với agent), ACP (kiểm toán doanh nghiệp), và ANP (sự tin cậy phi tập trung) và giải thích giao thức nào giải quyết vấn đề nào
+- Kết nối nhiều giao thức với nhau trong một hệ thống duy nhất nơi các agent khám phá công cụ qua MCP và giao tác vụ qua A2A
 
 ## The Problem
 
-You split your system into multiple agents. A researcher, a coder, a reviewer. They're great at their individual jobs. But now you need them to actually talk to each other.
+Bạn chia hệ thống của mình thành nhiều agent. Một nhà nghiên cứu, một người viết mã, một người xem xét. Chúng rất giỏi công việc riêng. Nhưng bây giờ bạn cần chúng thực sự nói chuyện với nhau.
 
-Your first attempt is obvious: pass strings around. The researcher returns a blob of text, the coder parses it however it can. It works until the coder misinterprets a research summary, or two agents deadlock waiting for each other, or you need agents built by different teams to collaborate. Suddenly "just pass strings" falls apart.
+Nỗ lực đầu tiên của bạn là hiển nhiên: truyền các chuỗi qua lại. Nhà nghiên cứu trả về một khối văn bản, người viết mã phân tích nó theo bất kỳ cách nào có thể. Nó hoạt động cho đến khi người viết mã diễn giải sai một tóm tắt nghiên cứu, hoặc hai agent bế tắc khi chờ nhau, hoặc bạn cần các agent do các nhóm khác nhau xây dựng cộng tác. Đột nhiên “chỉ cần truyền chuỗi” sụp đổ.
 
-This is the communication protocol problem. Without a shared contract for how agents exchange information, multi-agent systems are fragile, unauditable, and impossible to scale beyond a handful of agents you personally wrote.
+Đây là vấn đề giao thức giao tiếp. Không có một hợp đồng dùng chung cho cách các agent trao đổi thông tin, các hệ thống đa agent mong manh, không thể kiểm toán, và không thể mở rộng vượt quá một ít agent do chính bạn viết.
 
-The AI ecosystem has responded with four protocols, each solving a different slice of the problem:
+Hệ sinh thái AI đã phản hồi bằng bốn giao thức, mỗi giao thức giải quyết một lát cắt khác nhau của vấn đề:
 
-- **MCP** for tool access
-- **A2A** for agent-to-agent collaboration
-- **ACP** for enterprise auditability
-- **ANP** for decentralized identity and trust
+- **MCP** cho truy cập công cụ
+- **A2A** cho cộng tác giữa các agent
+- **ACP** cho khả năng kiểm toán doanh nghiệp
+- **ANP** cho danh tính và sự tin cậy phi tập trung
 
-This lesson goes deep. You will read real wire formats from each spec, build working implementations, and connect all four into a unified system.
+Bài này đi sâu. Bạn sẽ đọc các định dạng truyền tải thực từ mỗi đặc tả, xây dựng các triển khai hoạt động, và kết nối cả bốn vào một hệ thống thống nhất.
 
 ## The Concept
 
 ### The Protocol Landscape
 
-Think of these four protocols as layers, each addressing a different question:
+Hãy nghĩ về bốn giao thức này như các lớp, mỗi lớp giải quyết một câu hỏi khác nhau:
 
 ```mermaid
 flowchart TD
@@ -50,11 +50,11 @@ flowchart TD
   style MCP fill:#d1fae5,stroke:#059669
 ```
 
-They're not competitors. They solve different problems at different levels.
+Chúng không phải là đối thủ. Chúng giải quyết các vấn đề khác nhau ở các cấp khác nhau.
 
 ### MCP (Recap)
 
-MCP is covered in depth in Phase 13. Quick recap: MCP standardizes how an LLM connects to external tools and data sources. It's a **client-server** protocol where the agent (client) discovers and calls tools exposed by a server.
+MCP được trình bày sâu trong Giai đoạn 13. Nhắc lại nhanh: MCP tiêu chuẩn hóa cách một LLM kết nối với các công cụ và nguồn dữ liệu bên ngoài. Nó là một giao thức **khách-chủ** nơi agent (máy khách) khám phá và gọi các công cụ được một máy chủ cung cấp.
 
 ```mermaid
 sequenceDiagram
@@ -67,15 +67,15 @@ sequenceDiagram
     MCP1-->>Agent: result
 ```
 
-MCP is **agent-to-tool** communication. It doesn't help agents talk to each other.
+MCP là giao tiếp **agent với công cụ**. Nó không giúp các agent nói chuyện với nhau.
 
 ### A2A (Agent2Agent Protocol)
 
-**Created by:** Google (now under Linux Foundation as `lf.a2a.v1`)
-**Spec version:** 1.0.1
-**Problem:** How do autonomous agents collaborate, negotiate, and delegate tasks to each other?
+**Được tạo bởi:** Google (hiện thuộc Linux Foundation với tên `lf.a2a.v1`)
+**Phiên bản đặc tả:** 1.0.1
+**Vấn đề:** Các agent tự chủ cộng tác, đàm phán, và giao tác vụ cho nhau như thế nào?
 
-A2A is the protocol for **peer-to-peer agent collaboration**. Where MCP connects an agent to tools, A2A connects an agent to other agents. Each agent publishes an **Agent Card** at a well-known URL, and other agents discover, negotiate with, and delegate tasks to it.
+A2A là giao thức cho **cộng tác agent ngang hàng**. Trong khi MCP kết nối một agent với công cụ, A2A kết nối một agent với các agent khác. Mỗi agent công bố một **Agent Card** tại một URL được quy ước, và các agent khác khám phá, đàm phán với, và giao tác vụ cho nó.
 
 #### How A2A Works
 
@@ -103,7 +103,7 @@ sequenceDiagram
 
 #### The Real Agent Card
 
-This is what an A2A Agent Card actually looks like in the wild. Served at `GET /.well-known/agent-card.json`:
+Đây là hình dạng thực tế của một Agent Card A2A ngoài thực tế. Được phục vụ tại `GET /.well-known/agent-card.json`:
 
 ```json
 {
@@ -161,14 +161,14 @@ This is what an A2A Agent Card actually looks like in the wild. Served at `GET /
 }
 ```
 
-Key things to notice:
-- **Skills** are what an agent can do. Each has an ID, tags, and supported input/output MIME types. This is how a client agent decides whether this remote agent can handle its request.
-- **supportedInterfaces** lists multiple protocol bindings. A single agent can speak JSON-RPC, REST, and gRPC simultaneously.
-- **Security** is built into the card: `securitySchemes` names each scheme and `securityRequirements` says which ones apply. The client knows what auth it needs before making a single request.
+Những điều then chốt cần chú ý:
+- **Các kỹ năng** là những gì một agent có thể làm. Mỗi kỹ năng có một ID, các thẻ, và các kiểu MIME đầu vào/đầu ra được hỗ trợ. Đây là cách một agent máy khách quyết định liệu agent từ xa này có thể xử lý yêu cầu của nó hay không.
+- **supportedInterfaces** liệt kê nhiều liên kết giao thức. Một agent đơn lẻ có thể nói JSON-RPC, REST, và gRPC đồng thời.
+- **Bảo mật** được tích hợp vào card: `securitySchemes` nêu tên mỗi cơ chế và `securityRequirements` nói những cơ chế nào áp dụng. Máy khách biết nó cần xác thực gì trước khi thực hiện một yêu cầu đơn lẻ.
 
 #### Task Lifecycle
 
-Tasks are the core unit of work in A2A. They move through defined states (the diagram drops the `TASK_STATE_` prefix that every state carries on the wire):
+Các tác vụ là đơn vị công việc cốt lõi trong A2A. Chúng di chuyển qua các trạng thái đã định (sơ đồ bỏ tiền tố `TASK_STATE_` mà mọi trạng thái mang trên đường truyền):
 
 ```mermaid
 stateDiagram-v2
@@ -193,26 +193,26 @@ stateDiagram-v2
     end note
 ```
 
-All 8 states (the spec also defines `UNSPECIFIED` as a sentinel, omitted here):
+Tất cả 8 trạng thái (đặc tả cũng định nghĩa `UNSPECIFIED` như một sentinel, được bỏ qua ở đây):
 
-| State | Terminal? | Meaning |
+| Trạng thái | Kết thúc? | Ý nghĩa |
 |---|---|---|
-| `TASK_STATE_SUBMITTED` | No | Acknowledged, not yet processing |
-| `TASK_STATE_WORKING` | No | Actively being processed |
-| `TASK_STATE_INPUT_REQUIRED` | No | Agent needs more info from client |
-| `TASK_STATE_AUTH_REQUIRED` | No | Authentication needed |
-| `TASK_STATE_COMPLETED` | Yes | Finished successfully |
-| `TASK_STATE_FAILED` | Yes | Finished with error |
-| `TASK_STATE_CANCELED` | Yes | Canceled before completion |
-| `TASK_STATE_REJECTED` | Yes | Agent declined the task |
+| `TASK_STATE_SUBMITTED` | Không | Đã xác nhận, chưa xử lý |
+| `TASK_STATE_WORKING` | Không | Đang được xử lý tích cực |
+| `TASK_STATE_INPUT_REQUIRED` | Không | Agent cần thêm thông tin từ máy khách |
+| `TASK_STATE_AUTH_REQUIRED` | Không | Cần xác thực |
+| `TASK_STATE_COMPLETED` | Có | Hoàn thành thành công |
+| `TASK_STATE_FAILED` | Có | Hoàn thành với lỗi |
+| `TASK_STATE_CANCELED` | Có | Đã hủy trước khi hoàn thành |
+| `TASK_STATE_REJECTED` | Có | Agent từ chối tác vụ |
 
-Once a task reaches a terminal state, it's immutable. No further messages. Follow-ups create a new task within the same `contextId`.
+Một khi tác vụ đạt một trạng thái kết thúc, nó bất biến. Không có thông điệp tiếp theo. Các yêu cầu tiếp nối tạo một tác vụ mới trong cùng `contextId`.
 
 #### Wire Format
 
-A2A uses JSON-RPC 2.0. Here's what a real message exchange looks like:
+A2A sử dụng JSON-RPC 2.0. Đây là hình dạng của một trao đổi thông điệp thực:
 
-**Client sends a message:**
+**Máy khách gửi một thông điệp:**
 ```json
 {
   "jsonrpc": "2.0",
@@ -232,7 +232,7 @@ A2A uses JSON-RPC 2.0. Here's what a real message exchange looks like:
 }
 ```
 
-**Agent responds with a task:**
+**Agent phản hồi với một tác vụ:**
 ```json
 {
   "jsonrpc": "2.0",
@@ -266,7 +266,7 @@ A2A uses JSON-RPC 2.0. Here's what a real message exchange looks like:
 }
 ```
 
-**Streaming via SSE:**
+**Truyền luồng qua SSE:**
 ```text
 POST /message:stream HTTP/1.1
 Content-Type: application/a2a+json
@@ -283,12 +283,12 @@ data: {"statusUpdate":{"taskId":"task-123","contextId":"ctx-123","status":{"stat
 
 ### ACP (Agent Communication Protocol)
 
-**Created by:** IBM / BeeAI
-**Spec version:** 0.2.0 (OpenAPI 3.1.1)
-**Status:** Merging into A2A under the Linux Foundation
-**Problem:** How do agents communicate with full auditability, session continuity, and trajectory tracking?
+**Được tạo bởi:** IBM / BeeAI
+**Phiên bản đặc tả:** 0.2.0 (OpenAPI 3.1.1)
+**Trạng thái:** Đang hợp nhất vào A2A dưới Linux Foundation
+**Vấn đề:** Các agent giao tiếp với khả năng kiểm toán đầy đủ, tính liên tục phiên, và theo dõi quỹ đạo như thế nào?
 
-ACP is the **enterprise protocol**. Unlike what many summaries claim, ACP does **not** use JSON-LD. It's a straightforward REST/JSON API defined via OpenAPI. What makes it special is **TrajectoryMetadata**: every agent response can carry a detailed log of the reasoning steps and tool calls that produced it.
+ACP là **giao thức doanh nghiệp**. Khác với những gì nhiều bản tóm tắt tuyên bố, ACP **không** sử dụng JSON-LD. Nó là một API REST/JSON trực tiếp được định nghĩa qua OpenAPI. Điều làm nó đặc biệt là **TrajectoryMetadata**: mỗi phản hồi agent có thể mang một nhật ký chi tiết các bước suy luận và lệnh gọi công cụ tạo ra nó.
 
 ```mermaid
 sequenceDiagram
@@ -305,7 +305,7 @@ sequenceDiagram
 
 #### Agent Discovery in ACP
 
-ACP defines four discovery methods:
+ACP định nghĩa bốn phương pháp khám phá:
 
 ```mermaid
 graph LR
@@ -320,7 +320,7 @@ graph LR
     style E fill:#f3e8ff,stroke:#7c3aed
 ```
 
-The **AgentManifest** is simpler than A2A's Agent Card:
+**AgentManifest** đơn giản hơn Agent Card của A2A:
 
 ```json
 {
@@ -346,13 +346,13 @@ The **AgentManifest** is simpler than A2A's Agent Card:
 
 #### Run Lifecycle
 
-ACP uses "Runs" instead of "Tasks". A Run is an agent execution with three modes:
+ACP sử dụng “Run” thay cho “Task”. Một Run là một lần thực thi agent với ba chế độ:
 
-| Mode | Behavior |
+| Chế độ | Hành vi |
 |---|---|
-| `sync` | Blocking. Response contains the complete result. |
-| `async` | Returns 202 immediately. Poll `GET /runs/{id}` for status. |
-| `stream` | SSE stream. Events fire as the agent works. |
+| `sync` | Chặn. Phản hồi chứa kết quả hoàn chỉnh. |
+| `async` | Trả về 202 ngay lập tức. Thăm dò `GET /runs/{id}` để lấy trạng thái. |
+| `stream` | Luồng SSE. Các sự kiện kích hoạt khi agent làm việc. |
 
 ```mermaid
 stateDiagram-v2
@@ -372,7 +372,7 @@ stateDiagram-v2
 
 #### TrajectoryMetadata (The Audit Trail)
 
-This is ACP's key differentiator. Every message part can include metadata showing exactly what the agent did:
+Đây là điểm khác biệt then chốt của ACP. Mỗi phần thông điệp có thể bao gồm siêu dữ liệu cho thấy chính xác agent đã làm gì:
 
 ```json
 {
@@ -393,9 +393,9 @@ This is ACP's key differentiator. Every message part can include metadata showin
 }
 ```
 
-For regulated industries this is gold. Every answer comes with a provable chain of reasoning: which tools were called, what inputs were used, what outputs were received. No black box.
+Đối với các ngành được quản lý, đây là vàng. Mỗi câu trả lời đi kèm một chuỗi suy luận có thể chứng minh: các công cụ nào được gọi, các đầu vào nào được dùng, các đầu ra nào được nhận. Không có hộp đen.
 
-ACP also supports **CitationMetadata** for source attribution:
+ACP cũng hỗ trợ **CitationMetadata** cho ghi nguồn:
 
 ```json
 {
@@ -409,13 +409,13 @@ ACP also supports **CitationMetadata** for source attribution:
 
 ### ANP (Agent Network Protocol)
 
-**Created by:** Open-source community (founded by GaoWei Chang)
+**Được tạo bởi:** Cộng đồng mã nguồn mở (do GaoWei Chang thành lập)
 **Repo:** [github.com/agent-network-protocol/AgentNetworkProtocol](https://github.com/agent-network-protocol/AgentNetworkProtocol)
-**Problem:** How do agents from different organizations trust each other without a central authority?
+**Vấn đề:** Các agent từ các tổ chức khác nhau tin cậy nhau như thế nào mà không có một thẩm quyền trung tâm?
 
-ANP is the **decentralized identity protocol**. It builds trust using W3C Decentralized Identifiers (DIDs) and end-to-end encryption. Unlike A2A where you discover agents through known endpoints, ANP lets agents prove their identity cryptographically.
+ANP là **giao thức danh tính phi tập trung**. Nó xây dựng sự tin cậy bằng W3C Decentralized Identifiers (DID) và mã hóa đầu cuối. Khác với A2A nơi bạn khám phá các agent qua các endpoint đã biết, ANP cho phép các agent chứng minh danh tính bằng mật mã.
 
-ANP has three layers:
+ANP có ba lớp:
 
 ```mermaid
 graph TB
@@ -443,7 +443,7 @@ graph TB
 
 #### DID Documents (Real Structure)
 
-ANP uses a custom DID method called `did:wba` (Web-Based Agent). The DID `did:wba:example.com:user:alice` resolves to `https://example.com/user/alice/did.json`:
+ANP sử dụng một phương thức DID tùy chỉnh gọi là `did:wba` (Agent dựa trên web). DID `did:wba:example.com:user:alice` phân giải thành `https://example.com/user/alice/did.json`:
 
 ```json
 {
@@ -491,15 +491,15 @@ ANP uses a custom DID method called `did:wba` (Web-Based Agent). The DID `did:wb
 }
 ```
 
-Key things to notice:
-- **Key separation** is enforced. Signing keys (secp256k1) are separate from encryption keys (X25519).
-- **`humanAuthorization`** is unique to ANP. These keys require explicit human approval (biometric, password, HSM) before use. High-risk operations like fund transfers go through this path.
-- **`keyAgreement`** keys are used for HPKE end-to-end encryption (RFC 9180).
-- The **service** section links to the Agent Description document.
+Những điều then chốt cần chú ý:
+- **Tách biệt khóa** được thực thi. Các khóa ký (secp256k1) tách biệt với các khóa mã hóa (X25519).
+- **`humanAuthorization`** là độc nhất ở ANP. Các khóa này yêu cầu phê duyệt tường minh của con người (sinh trắc học, mật khẩu, HSM) trước khi sử dụng. Các thao tác rủi ro cao như chuyển tiền đi qua đường này.
+- Các khóa **`keyAgreement`** được sử dụng cho mã hóa đầu cuối HPKE (RFC 9180).
+- Phần **service** liên kết tới tài liệu Agent Description.
 
 #### How Trust Works in ANP
 
-ANP does **not** use a web-of-trust or endorsement graph. Trust is bilateral and verified per-interaction:
+ANP **không** sử dụng một mạng lưới tin cậy hoặc đồ thị chứng thực. Sự tin cậy là song phương và được xác minh theo từng tương tác:
 
 ```mermaid
 sequenceDiagram
@@ -516,16 +516,16 @@ sequenceDiagram
     Note over A,B: Trust = TLS domain verification<br/>+ DID signature verification<br/>+ Principle of least trust
 ```
 
-Trust comes from three sources:
-1. **Domain-level TLS** verifies the DID document host
-2. **DID cryptographic signatures** verify the agent's identity
-3. **Principle of least trust** grants only minimum permissions
+Sự tin cậy đến từ ba nguồn:
+1. **TLS cấp miền** xác minh máy chủ tài liệu DID
+2. **Các chữ ký mật mã DID** xác minh danh tính của agent
+3. **Nguyên tắc tin cậy tối thiểu** chỉ cấp các quyền tối thiểu
 
-There's no gossip-based trust propagation or PageRank scoring. You verify each agent directly through its DID.
+Không có lan truyền tin cậy dựa trên lời đồn hoặc chấm điểm PageRank. Bạn xác minh từng agent trực tiếp qua DID của nó.
 
 #### Meta-Protocol Negotiation
 
-This is ANP's most novel feature. When two agents from different ecosystems meet, they don't need pre-agreed data formats. They negotiate in natural language:
+Đây là tính năng mới lạ nhất của ANP. Khi hai agent từ các hệ sinh thái khác nhau gặp nhau, chúng không cần các định dạng dữ liệu được thỏa thuận trước. Chúng đàm phán bằng ngôn ngữ tự nhiên:
 
 ```json
 {
@@ -548,29 +548,29 @@ sequenceDiagram
     Note over A,B: Agents dynamically generate code<br/>to handle the agreed format.<br/>Max 10 rounds, then timeout.
 ```
 
-The agents go back and forth (max 10 rounds) until they agree on a format, then dynamically generate code to handle it. Status values: `negotiating`, `rejected`, `accepted`, `timeout`.
+Các agent trao đổi qua lại (tối đa 10 vòng) cho đến khi đồng ý về một định dạng, rồi sinh mã động để xử lý nó. Các giá trị trạng thái: `negotiating`, `rejected`, `accepted`, `timeout`.
 
-This means two agents that have never seen each other before can figure out how to communicate without anyone pre-defining a shared schema.
+Điều này có nghĩa là hai agent chưa từng thấy nhau trước đó có thể tìm ra cách giao tiếp mà không cần ai định nghĩa trước một lược đồ dùng chung.
 
 ### Comparison (Corrected)
 
 | | MCP | A2A | ACP | ANP |
 |---|---|---|---|---|
-| **Created by** | Anthropic | Google / Linux Foundation | IBM / BeeAI | Community |
-| **Spec format** | JSON-RPC | JSON-RPC / REST / gRPC | OpenAPI 3.1 (REST) | JSON-RPC |
-| **Primary use** | Agent to Tool | Agent to Agent | Agent to Agent | Agent to Agent |
-| **Discovery** | Tool listing | `/.well-known/agent-card.json` | `GET /agents`, `/.well-known/agent.yml` | `/.well-known/agent-descriptions`, DID service endpoints |
-| **Identity** | Implicit (local) | Security schemes (OAuth, mTLS) | Server-level | W3C DID (`did:wba`) with E2EE |
-| **Audit trail** | N/A | Basic (task history) | TrajectoryMetadata (tool calls, reasoning) | Not formally specified |
-| **State machine** | N/A | 9 task states | 7 run states | N/A |
-| **Streaming** | N/A | SSE | SSE | Transport-agnostic |
-| **Unique feature** | Tool schemas | Agent Cards + Skills | Trajectory audit trail | Meta-protocol negotiation |
-| **Best for** | Tools & data | Dynamic collaboration | Regulated industries | Cross-org trust |
-| **Status** | Stable | Stable (v1.0) | Merging into A2A | Active development |
+| **Được tạo bởi** | Anthropic | Google / Linux Foundation | IBM / BeeAI | Cộng đồng |
+| **Định dạng đặc tả** | JSON-RPC | JSON-RPC / REST / gRPC | OpenAPI 3.1 (REST) | JSON-RPC |
+| **Sử dụng chính** | Agent với công cụ | Agent với agent | Agent với agent | Agent với agent |
+| **Khám phá** | Liệt kê công cụ | `/.well-known/agent-card.json` | `GET /agents`, `/.well-known/agent.yml` | `/.well-known/agent-descriptions`, các endpoint dịch vụ DID |
+| **Danh tính** | Ngầm định (cục bộ) | Các cơ chế bảo mật (OAuth, mTLS) | Cấp máy chủ | W3C DID (`did:wba`) với E2EE |
+| **Dấu vết kiểm toán** | Không áp dụng | Cơ bản (lịch sử tác vụ) | TrajectoryMetadata (lệnh gọi công cụ, suy luận) | Không được đặc tả hình thức |
+| **Máy trạng thái** | Không áp dụng | 9 trạng thái tác vụ | 7 trạng thái lần chạy | Không áp dụng |
+| **Truyền luồng** | Không áp dụng | SSE | SSE | Không phụ thuộc lớp truyền tải |
+| **Tính năng độc đáo** | Các lược đồ công cụ | Agent Card + các kỹ năng | Dấu vết kiểm toán quỹ đạo | Đàm phán siêu giao thức |
+| **Tốt nhất cho** | Công cụ & dữ liệu | Cộng tác động | Các ngành được quản lý | Tin cậy xuyên tổ chức |
+| **Trạng thái** | Ổn định | Ổn định (v1.0) | Đang hợp nhất vào A2A | Đang phát triển tích cực |
 
 ### How They Work Together
 
-These protocols are not mutually exclusive. A realistic enterprise system uses multiple:
+Các giao thức này không loại trừ lẫn nhau. Một hệ thống doanh nghiệp thực tế sử dụng nhiều giao thức:
 
 ```mermaid
 graph TB
@@ -594,10 +594,10 @@ graph TB
     style AUDIT fill:#fef3c7,stroke:#d97706
 ```
 
-- **MCP** connects each agent to its tools
-- **A2A** handles collaboration between agents (internal and external)
-- **ACP** wraps responses in trajectory metadata for auditability
-- **ANP** provides identity verification for agents you don't control
+- **MCP** kết nối mỗi agent với các công cụ của nó
+- **A2A** xử lý cộng tác giữa các agent (nội bộ và bên ngoài)
+- **ACP** bọc các phản hồi trong siêu dữ liệu quỹ đạo cho khả năng kiểm toán
+- **ANP** cung cấp xác minh danh tính cho các agent bạn không kiểm soát
 
 ```figure
 swarm-message-bus
@@ -607,7 +607,7 @@ swarm-message-bus
 
 ### Step 1: Core Message Types
 
-Every multi-agent system starts with a message format. We define types that map to what the real protocols use:
+Mọi hệ thống đa agent bắt đầu bằng một định dạng thông điệp. Chúng ta định nghĩa các kiểu ánh xạ tới những gì các giao thức thực sử dụng:
 
 ```typescript
 import crypto from "node:crypto";
@@ -655,11 +655,11 @@ function textMessage(role: MessageRole, text: string): AgentMessage {
 }
 ```
 
-Notice: `MessagePart` is multimodal (text, structured data, files) just like the real A2A and ACP specs. As in A2A 1.0, the field that is present (`text`, `data`, or `url`) says what the part is; there is no `kind` tag. `TrajectoryEntry` captures the reasoning chain, matching ACP's TrajectoryMetadata.
+Chú ý: `MessagePart` là đa phương thức (văn bản, dữ liệu có cấu trúc, file) giống như các đặc tả A2A và ACP thực. Như trong A2A 1.0, trường hiện diện (`text`, `data`, hoặc `url`) nói phần đó là gì; không có thẻ `kind`. `TrajectoryEntry` ghi lại chuỗi suy luận, khớp với TrajectoryMetadata của ACP.
 
 ### Step 2: A2A Agent Card and Registry
 
-Build agent discovery that matches the real A2A spec:
+Xây dựng khám phá agent khớp với đặc tả A2A thực:
 
 ```typescript
 type Skill = {
@@ -722,11 +722,11 @@ class AgentRegistry {
 }
 ```
 
-This is substantially richer than a simple name-to-capability map. You can discover agents by skill tags, by input MIME types, or by name, just like the real A2A spec supports.
+Điều này phong phú hơn đáng kể so với một ánh xạ tên-năng lực đơn giản. Bạn có thể khám phá các agent theo thẻ kỹ năng, theo kiểu MIME đầu vào, hoặc theo tên, giống như đặc tả A2A thực hỗ trợ.
 
 ### Step 3: A2A Task Lifecycle
 
-Build the full task state machine:
+Xây dựng máy trạng thái tác vụ đầy đủ:
 
 ```typescript
 type TaskState =
@@ -903,11 +903,11 @@ class TaskManager {
 }
 ```
 
-This implements the real A2A task lifecycle: `TASK_STATE_SUBMITTED`, `TASK_STATE_WORKING`, `TASK_STATE_INPUT_REQUIRED`, then a terminal state. Handlers are async generators that yield `statusUpdate` and `artifactUpdate` events, the same wrappers the SSE stream carries.
+Điều này triển khai vòng đời tác vụ A2A thực: `TASK_STATE_SUBMITTED`, `TASK_STATE_WORKING`, `TASK_STATE_INPUT_REQUIRED`, rồi một trạng thái kết thúc. Các bộ xử lý là các generator bất đồng bộ nhường ra các sự kiện `statusUpdate` và `artifactUpdate`, cùng các lớp bọc mà luồng SSE mang.
 
 ### Step 4: ACP-Style Audit Trail
 
-Wrap communication with trajectory tracking:
+Bọc giao tiếp với theo dõi quỹ đạo:
 
 ```typescript
 type AuditEntry = {
@@ -1006,11 +1006,11 @@ class AuditableRunner {
 }
 ```
 
-Every agent execution produces a full audit entry: what went in, what came out, and the complete trajectory of tool calls and reasoning steps in between. You can query by agent, by session, or by individual run.
+Mọi lần thực thi agent tạo ra một mục kiểm toán đầy đủ: những gì đi vào, những gì đi ra, và quỹ đạo hoàn chỉnh của các lệnh gọi công cụ và bước suy luận ở giữa. Bạn có thể truy vấn theo agent, theo phiên, hoặc theo từng lần chạy riêng lẻ.
 
 ### Step 5: ANP-Style Identity Verification
 
-Build DID-based identity and verification:
+Xây dựng danh tính và xác minh dựa trên DID:
 
 ```typescript
 type VerificationMethod = {
@@ -1129,11 +1129,11 @@ function signPayload(identity: AgentIdentity, payload: string): string {
 }
 ```
 
-This mirrors the real ANP identity model: agents have DID documents with separate authentication, key agreement, and human authorization keys. The `IdentityRegistry` simulates DID resolution (in production this would be HTTP fetches to the agent's domain).
+Điều này phản ánh mô hình danh tính ANP thực: các agent có các tài liệu DID với các khóa xác thực, thỏa thuận khóa, và ủy quyền con người riêng biệt. `IdentityRegistry` mô phỏng phân giải DID (trong sản xuất đây sẽ là các lần lấy HTTP tới miền của agent).
 
 ### Step 6: Protocol Gateway
 
-Connect all four protocols into a unified system:
+Kết nối cả bốn giao thức vào một hệ thống thống nhất:
 
 ```mermaid
 graph LR
@@ -1218,11 +1218,11 @@ class ProtocolGateway {
 }
 ```
 
-The gateway does four things in one call:
-1. **ANP**: Verifies the caller's identity via DID signature
-2. **A2A**: Discovers the target agent and checks capabilities
-3. **ACP**: Wraps the execution in an audit trail with trajectory
-4. **A2A**: Creates a task with full lifecycle tracking
+Gateway làm bốn việc trong một lệnh gọi:
+1. **ANP**: Xác minh danh tính bên gọi qua chữ ký DID
+2. **A2A**: Khám phá agent đích và kiểm tra các năng lực
+3. **ACP**: Bọc việc thực thi trong một dấu vết kiểm toán có quỹ đạo
+4. **A2A**: Tạo một tác vụ với theo dõi vòng đời đầy đủ
 
 ### Step 7: Wire It All Together
 
@@ -1446,29 +1446,29 @@ protocolDemo().catch((err) => {
 
 ## What Goes Wrong
 
-Protocols solve the happy path. Here's what breaks in production:
+Các giao thức giải quyết luồng thuận lợi. Đây là những gì hỏng trong sản xuất:
 
-**Schema drift.** Agent A publishes an Agent Card advertising `application/json` output. But the JSON schema changes between versions. Agent B parses the old format and gets garbage. Fix: version your skills and output schemas. The A2A spec supports `version` on Agent Cards for this reason.
+**Trôi lược đồ.** Agent A công bố một Agent Card quảng bá đầu ra `application/json`. Nhưng lược đồ JSON thay đổi giữa các phiên bản. Agent B phân tích cú pháp định dạng cũ và nhận rác. Cách sửa: đặt phiên bản cho các kỹ năng và lược đồ đầu ra. Đặc tả A2A hỗ trợ `version` trên Agent Card vì lý do này.
 
-**State machine violations.** An agent handler yields a `TASK_STATE_COMPLETED` status update, then tries to yield more artifacts. The task is immutable. Your code silently drops the updates or throws. Fix: check terminal state before yielding. The `TaskManager` above enforces this with the `break` after terminal states.
+**Vi phạm máy trạng thái.** Một bộ xử lý agent nhường ra một cập nhật trạng thái `TASK_STATE_COMPLETED`, rồi cố nhường ra thêm các hiện vật. Tác vụ là bất biến. Mã của bạn âm thầm bỏ các cập nhật hoặc ném lỗi. Cách sửa: kiểm tra trạng thái kết thúc trước khi nhường ra. `TaskManager` ở trên thực thi điều này với `break` sau các trạng thái kết thúc.
 
-**Trust resolution failures.** Agent A tries to verify Agent B's DID, but Agent B's domain is down. The DID document can't be fetched. Do you fail open (accept unverified agents) or fail closed (reject everything)? ANP recommends fail closed with the principle of least trust.
+**Lỗi phân giải tin cậy.** Agent A cố xác minh DID của Agent B, nhưng miền của Agent B bị ngừng hoạt động. Không thể lấy tài liệu DID. Bạn thất bại mở (chấp nhận các agent chưa xác minh) hay thất bại đóng (từ chối mọi thứ)? ANP khuyến nghị thất bại đóng với nguyên tắc tin cậy tối thiểu.
 
-**Trajectory bloat.** ACP trajectory logging is powerful but expensive. A complex agent that makes 200 tool calls per run produces massive audit entries. Fix: log trajectory at configurable verbosity levels. Record tool names and IO for compliance, skip reasoning steps for non-regulated workloads.
+**Phình quỹ đạo.** Ghi nhật ký quỹ đạo ACP mạnh nhưng tốn kém. Một agent phức tạp thực hiện 200 lệnh gọi công cụ mỗi lần chạy tạo ra các mục kiểm toán khổng lồ. Cách sửa: ghi nhật ký quỹ đạo ở các mức chi tiết có thể cấu hình. Ghi lại tên công cụ và IO cho tuân thủ, bỏ các bước suy luận cho các khối lượng công việc không được quản lý.
 
-**Discovery thundering herd.** 50 agents all query `GET /agents` simultaneously on startup. Fix: cache Agent Cards with TTL, stagger discovery intervals, or use push-based registration instead of polling.
+**Đám đông khám phá dồn dập.** 50 agent đều truy vấn `GET /agents` đồng thời khi khởi động. Cách sửa: lưu đệm Agent Card với TTL, so le các khoảng khám phá, hoặc sử dụng đăng ký dựa trên đẩy thay vì thăm dò.
 
 ## Use It
 
 ### Real Implementations
 
-**A2A** is the most mature. Google's [official spec](https://github.com/google/A2A) is open-source under the Linux Foundation. SDKs for Python and TypeScript. If your agents need dynamic discovery and collaboration, start here.
+**A2A** trưởng thành nhất. [Đặc tả chính thức](https://github.com/google/A2A) của Google là mã nguồn mở dưới Linux Foundation. Các SDK cho Python và TypeScript. Nếu các agent của bạn cần khám phá và cộng tác động, bắt đầu ở đây.
 
-**ACP** is merging into A2A. IBM's [BeeAI project](https://github.com/i-am-bee/acp) created ACP as a REST-first alternative, but the trajectory metadata concept is being absorbed into the A2A ecosystem. Use ACP patterns (trajectory logging, run lifecycle) even if you use A2A as the transport.
+**ACP** đang hợp nhất vào A2A. [Dự án BeeAI](https://github.com/i-am-bee/acp) của IBM tạo ACP như một lựa chọn thay thế ưu tiên REST, nhưng khái niệm siêu dữ liệu quỹ đạo đang được hấp thụ vào hệ sinh thái A2A. Sử dụng các mẫu ACP (ghi nhật ký quỹ đạo, vòng đời lần chạy) ngay cả khi bạn sử dụng A2A làm lớp truyền tải.
 
-**ANP** is the most experimental. The [community repo](https://github.com/agent-network-protocol/AgentNetworkProtocol) has a Python SDK (AgentConnect). The meta-protocol negotiation concept is genuinely novel. Worth watching for cross-organizational agent deployments.
+**ANP** mang tính thử nghiệm nhất. [Repo cộng đồng](https://github.com/agent-network-protocol/AgentNetworkProtocol) có một SDK Python (AgentConnect). Khái niệm đàm phán siêu giao thức thực sự mới. Đáng theo dõi cho các triển khai agent xuyên tổ chức.
 
-**MCP** is already covered in Phase 13. If you want agents to use tools, MCP is the standard.
+**MCP** đã được trình bày trong Giai đoạn 13. Nếu bạn muốn các agent sử dụng công cụ, MCP là tiêu chuẩn.
 
 ### Picking the Right Protocol
 
@@ -1495,42 +1495,42 @@ graph TD
 
 ## Ship It
 
-This lesson produces:
-- `code/main.ts` -- complete implementation of all four protocol patterns
-- `outputs/prompt-protocol-selector.md` -- a prompt that helps you choose protocols for your system
+Bài này tạo ra:
+- `code/main.ts` -- triển khai hoàn chỉnh của cả bốn mẫu giao thức
+- `outputs/prompt-protocol-selector.md` -- một prompt giúp bạn chọn các giao thức cho hệ thống
 
 ## Exercises
 
-1. **Multi-hop task delegation.** Extend the `TaskManager` so an agent handler can delegate subtasks to other agents. The researcher receives a task, delegates "search" and "summarize" subtasks to two specialist agents, waits for both to complete, then merges the results into its own artifacts.
+1. **Giao tác vụ nhiều chặng.** Mở rộng `TaskManager` để một bộ xử lý agent có thể giao các tác vụ con cho các agent khác. Nhà nghiên cứu nhận một tác vụ, giao các tác vụ con “tìm kiếm” và “tóm tắt” cho hai agent chuyên gia, chờ cả hai hoàn thành, rồi hợp nhất kết quả vào các hiện vật của chính nó.
 
-2. **Streaming audit trail.** Modify the `AuditableRunner` to support streaming mode. Instead of waiting for the full result, yield `AuditEntry` updates in real-time as trajectory entries are added. Use an async generator that produces audit snapshots.
+2. **Dấu vết kiểm toán truyền luồng.** Sửa `AuditableRunner` để hỗ trợ chế độ truyền luồng. Thay vì chờ kết quả đầy đủ, nhường ra các cập nhật `AuditEntry` theo thời gian thực khi các mục quỹ đạo được thêm vào. Sử dụng một generator bất đồng bộ tạo ra các snapshot kiểm toán.
 
-3. **DID rotation.** Add key rotation to the `IdentityRegistry`. An agent should be able to publish a new DID document with updated keys while maintaining a `previousDid` reference. Verifiers should accept signatures from both the current and previous key during a grace period.
+3. **Luân chuyển DID.** Thêm luân chuyển khóa vào `IdentityRegistry`. Một agent nên có thể công bố một tài liệu DID mới với các khóa được cập nhật trong khi duy trì một tham chiếu `previousDid`. Các bộ xác minh nên chấp nhận chữ ký từ cả khóa hiện tại và trước đó trong một thời gian ân hạn.
 
-4. **Protocol negotiation.** Implement ANP's meta-protocol concept. Two agents exchange `protocolNegotiation` messages with candidate formats (e.g., "I can speak JSON-RPC" vs "I prefer REST"). After max 3 rounds, they agree on a format or timeout. The agreed format determines which `TaskManager` or `AuditableRunner` they use.
+4. **Đàm phán giao thức.** Triển khai khái niệm siêu giao thức của ANP. Hai agent trao đổi các thông điệp `protocolNegotiation` với các định dạng ứng viên (ví dụ: “Tôi có thể nói JSON-RPC” so với “Tôi thích REST”). Sau tối đa 3 vòng, chúng đồng ý một định dạng hoặc hết thời gian chờ. Định dạng đã thống nhất quyết định `TaskManager` hoặc `AuditableRunner` nào chúng sử dụng.
 
-5. **Rate-limited discovery.** Add a `RateLimitedRegistry` wrapper that caches Agent Card lookups with a configurable TTL and limits discovery queries per agent per second. Simulate a thundering herd of 100 agents discovering each other on startup and measure the difference.
+5. **Khám phá có giới hạn tốc độ.** Thêm một lớp bọc `RateLimitedRegistry` lưu đệm các lần tra cứu Agent Card với một TTL có thể cấu hình và giới hạn các truy vấn khám phá cho mỗi agent mỗi giây. Mô phỏng một đám đông dồn dập gồm 100 agent khám phá nhau khi khởi động và đo sự khác biệt.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| MCP | "The protocol for AI tools" | A client-server protocol for agents to discover and use tools. Agent-to-tool, not agent-to-agent. |
-| A2A | "Google's agent protocol" | A peer-to-peer protocol for agent collaboration under the Linux Foundation. Discovery via Agent Cards, 9-state task lifecycle, streaming via SSE. Supports JSON-RPC, REST, and gRPC bindings. |
-| ACP | "Enterprise agent messaging" | IBM/BeeAI's REST API for agent runs with TrajectoryMetadata: every response carries the full chain of reasoning and tool calls. Merging into A2A. |
-| ANP | "Decentralized agent identity" | A community protocol using `did:wba` (DID) for cryptographic identity, HPKE for E2EE, and AI-powered meta-protocol negotiation for agents that have never seen each other. |
-| Agent Card | "An agent's business card" | A JSON document at `/.well-known/agent-card.json` describing skills, supported MIME types, security schemes, and protocol bindings. |
-| DID | "Decentralized ID" | W3C standard for cryptographically verifiable identities hosted on the agent's own domain. ANP uses `did:wba` method. |
-| TrajectoryMetadata | "The audit receipt" | ACP's mechanism for attaching reasoning steps, tool calls, and their inputs/outputs to every agent response. |
-| Meta-protocol | "Agents negotiating how to talk" | ANP's approach where agents use natural language to dynamically agree on data formats, then generate code to handle them. |
-| Task | "A unit of work" | A2A's stateful object tracking work from submission through completion. Immutable once terminal. |
+| MCP | “Giao thức cho công cụ AI” | Một giao thức khách-chủ cho các agent khám phá và sử dụng công cụ. Agent với công cụ, không phải agent với agent. |
+| A2A | “Giao thức agent của Google” | Một giao thức ngang hàng cho cộng tác agent dưới Linux Foundation. Khám phá qua Agent Card, vòng đời tác vụ 9 trạng thái, truyền luồng qua SSE. Hỗ trợ các liên kết JSON-RPC, REST, và gRPC. |
+| ACP | “Nhắn tin agent doanh nghiệp” | API REST của IBM/BeeAI cho các lần chạy agent với TrajectoryMetadata: mỗi phản hồi mang chuỗi suy luận và lệnh gọi công cụ đầy đủ. Đang hợp nhất vào A2A. |
+| ANP | “Danh tính agent phi tập trung” | Một giao thức cộng đồng sử dụng `did:wba` (DID) cho danh tính mật mã, HPKE cho E2EE, và đàm phán siêu giao thức được AI hỗ trợ cho các agent chưa từng thấy nhau. |
+| Agent Card (Thẻ agent) | “Danh thiếp của agent” | Một tài liệu JSON tại `/.well-known/agent-card.json` mô tả các kỹ năng, các kiểu MIME được hỗ trợ, các cơ chế bảo mật, và các liên kết giao thức. |
+| DID | “ID phi tập trung” | Tiêu chuẩn W3C cho các danh tính có thể xác minh bằng mật mã được lưu trên miền riêng của agent. ANP sử dụng phương thức `did:wba`. |
+| TrajectoryMetadata | “Biên nhận kiểm toán” | Cơ chế của ACP để gắn các bước suy luận, lệnh gọi công cụ, và đầu vào/đầu ra của chúng vào mọi phản hồi agent. |
+| Meta-protocol (Siêu giao thức) | “Các agent đàm phán cách nói chuyện” | Cách tiếp cận của ANP nơi các agent sử dụng ngôn ngữ tự nhiên để thống nhất động các định dạng dữ liệu, rồi sinh mã để xử lý chúng. |
+| Task (Tác vụ) | “Một đơn vị công việc” | Đối tượng có trạng thái của A2A theo dõi công việc từ gửi đến hoàn thành. Bất biến một khi kết thúc. |
 
 ## Further Reading
 
-- [Google A2A specification](https://github.com/google/A2A) -- official spec and SDKs (v1.0.1, Linux Foundation)
-- [IBM/BeeAI ACP specification](https://github.com/i-am-bee/acp) -- OpenAPI 3.1 spec for agent runs and trajectory metadata
-- [Agent Network Protocol](https://github.com/agent-network-protocol/AgentNetworkProtocol) -- DID-based identity, E2EE, meta-protocol negotiation
-- [Model Context Protocol docs](https://modelcontextprotocol.io/) -- Anthropic's MCP specification (covered in Phase 13)
-- [W3C Decentralized Identifiers](https://www.w3.org/TR/did-core/) -- the identity standard underpinning ANP
-- [RFC 9180 (HPKE)](https://www.rfc-editor.org/rfc/rfc9180) -- the encryption scheme ANP uses for E2EE
-- [FIPA Agent Communication Language](http://www.fipa.org/specs/fipa00061/SC00061G.html) -- the academic precursor to modern agent protocols
+- [Google A2A specification](https://github.com/google/A2A) -- đặc tả chính thức và các SDK (v1.0.1, Linux Foundation)
+- [IBM/BeeAI ACP specification](https://github.com/i-am-bee/acp) -- đặc tả OpenAPI 3.1 cho các lần chạy agent và siêu dữ liệu quỹ đạo
+- [Agent Network Protocol](https://github.com/agent-network-protocol/AgentNetworkProtocol) -- danh tính dựa trên DID, E2EE, đàm phán siêu giao thức
+- [Model Context Protocol docs](https://modelcontextprotocol.io/) -- đặc tả MCP của Anthropic (được trình bày trong Giai đoạn 13)
+- [W3C Decentralized Identifiers](https://www.w3.org/TR/did-core/) -- tiêu chuẩn danh tính làm nền tảng cho ANP
+- [RFC 9180 (HPKE)](https://www.rfc-editor.org/rfc/rfc9180) -- cơ chế mã hóa ANP sử dụng cho E2EE
+- [FIPA Agent Communication Language](http://www.fipa.org/specs/fipa00061/SC00061G.html) -- tiền thân học thuật của các giao thức agent hiện đại
