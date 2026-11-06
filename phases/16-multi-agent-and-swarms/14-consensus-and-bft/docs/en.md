@@ -1,6 +1,6 @@
 # Consensus and Byzantine Fault Tolerance for Agents
 
-> Classical distributed-systems BFT meets stochastic LLMs. In 2025-2026 three research directions emerged: **CP-WBFT** (arXiv:2511.10400) weighs each vote by a confidence probe; **DecentLLMs** (arXiv:2507.14928) goes leaderless with parallel worker proposals and geometric-median aggregation; **WBFT** (arXiv:2505.05103) combines weighted voting with Hierarchical Structure Clustering to split Core and Edge nodes. The honest empirical result from "Can AI Agents Agree?" (arXiv:2603.01213) is that even scalar agreement is fragile today — a single deceptive agent can compromise a Mixture-of-Agents. BFT is necessary but not sufficient. This lesson builds a minimal BFT protocol, injects three agent-specific attacks (byzantine lie, sycophantic conformity, correlated-error monoculture), and measures how each consensus variant copes.
+> BFT của hệ thống phân tán cổ điển gặp các LLM ngẫu nhiên. Trong giai đoạn 2025-2026 ba hướng nghiên cứu xuất hiện: **CP-WBFT** (arXiv:2511.10400) đặt trọng số mỗi phiếu theo một phép dò độ tự tin; **DecentLLMs** (arXiv:2507.14928) bỏ lãnh đạo với các đề xuất worker song song và tổng hợp trung vị hình học; **WBFT** (arXiv:2505.05103) kết hợp bỏ phiếu có trọng số với Phân cụm cấu trúc phân cấp để chia các node Lõi và Biên. Kết quả thực nghiệm thẳng thắn từ “Can AI Agents Agree?” (arXiv:2603.01213) là ngay cả đồng ý về đại lượng vô hướng cũng mong manh hiện nay — một agent lừa dối đơn lẻ có thể làm tổn hại một Mixture-of-Agents. BFT là cần thiết nhưng không đủ. Bài này xây dựng một giao thức BFT tối thiểu, chèn ba cuộc tấn công riêng cho agent (lời nói dối Byzantine, thuận theo xu nịnh, đơn văn hóa lỗi tương quan), và đo cách mỗi biến thể đồng thuận ứng phó.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,55 +9,55 @@
 
 ## Problem
 
-You have N LLM agents each producing an answer. They disagree. Majority vote picks the wrong one because two agents are correlated (same base model, same training data, same failure modes). A third agent happens to be wrong in a novel way — so the majority is a false majority.
+Bạn có N agent LLM, mỗi agent tạo ra một câu trả lời. Chúng bất đồng. Bỏ phiếu đa số chọn câu trả lời sai vì hai agent tương quan (cùng mô hình cơ sở, cùng dữ liệu huấn luyện, cùng các chế độ lỗi). Một agent thứ ba tình cờ sai theo một cách mới — nên đa số là một đa số giả.
 
-Now add a deceptive agent: it lies on purpose. Or a sycophantic agent: it agrees with whoever spoke last. In classical BFT, the assumption is that Byzantine nodes are a fraction `f < n/3` and behave arbitrarily. The 2026 reality is that LLM nodes are stochastic even when honest, correlated across models, and influenced by each other's outputs. You cannot treat them as independent Bernoulli voters.
+Bây giờ thêm một agent lừa dối: nó nói dối có chủ đích. Hoặc một agent xu nịnh: nó đồng ý với bên nói cuối cùng. Trong BFT cổ điển, giả định là các node Byzantine là một tỷ lệ `f < n/3` và hành xử tùy ý. Thực tế năm 2026 là các node LLM ngẫu nhiên ngay cả khi trung thực, tương quan xuyên mô hình, và bị ảnh hưởng bởi các đầu ra của nhau. Bạn không thể coi chúng là các bên bỏ phiếu Bernoulli độc lập.
 
-Classical BFT (PBFT, 1999) is not wrong — it is incomplete. It handles arbitrary bit-flipping. It does not handle "three honest agents share a hallucination because they share training data." This lesson builds from PBFT's foundation and layers on three 2025-2026 adaptations.
+BFT cổ điển (PBFT, 1999) không sai — nó không đầy đủ. Nó xử lý đảo bit tùy ý. Nó không xử lý “ba agent trung thực chia sẻ một ảo giác vì chúng chia sẻ dữ liệu huấn luyện.” Bài này xây dựng từ nền tảng PBFT và xếp lên ba điều chỉnh giai đoạn 2025-2026.
 
 ## Concept
 
 ### What classical BFT gives you
 
-Practical Byzantine Fault Tolerance (Castro & Liskov, OSDI 1999) tolerates `f < n/3` Byzantine nodes. The protocol has three phases (pre-prepare, prepare, commit) and two primitives (signed messages, quorum certificates). Agreement on a single value among `n >= 3f + 1` honest-or-malicious nodes.
+Khả năng chịu lỗi Byzantine thực tế (Castro & Liskov, OSDI 1999) chịu được `f < n/3` node Byzantine. Giao thức có ba giai đoạn (tiền chuẩn bị, chuẩn bị, cam kết) và hai nguyên thủy (các thông điệp có chữ ký, các chứng chỉ quorum). Thỏa thuận về một giá trị đơn lẻ giữa `n >= 3f + 1` node trung thực hoặc độc hại.
 
-The guarantees are strong but assume:
+Các bảo đảm mạnh nhưng giả định:
 
-1. **Independent faults.** Byzantines do not coordinate.
-2. **Honest nodes are truly honest.** Correctness of honest outputs is a non-issue; the protocol only aligns disagreement.
-3. **The question has a ground-truth answer.** Consensus on a wrong fact is still consensus.
+1. **Các lỗi độc lập.** Các node Byzantine không phối hợp.
+2. **Các node trung thực thực sự trung thực.** Tính đúng đắn của các đầu ra trung thực không phải là vấn đề; giao thức chỉ căn chỉnh bất đồng.
+3. **Câu hỏi có một câu trả lời chuẩn tham chiếu.** Đồng thuận về một sự kiện sai vẫn là đồng thuận.
 
-LLM agents violate all three. Two agents running the same base model share faults. An "honest" LLM still hallucinates. And on ambiguous questions, the "truth" is what the agents decide — there is no external oracle.
+Các agent LLM vi phạm cả ba. Hai agent chạy cùng mô hình cơ sở chia sẻ lỗi. Một LLM “trung thực” vẫn ảo giác. Và trên các câu hỏi mơ hồ, “sự thật” là những gì các agent quyết định — không có oracle bên ngoài.
 
 ### The three LLM-specific attacks
 
-**Byzantine lie.** One agent outputs a deliberately wrong answer. Classical BFT handles this if `f < n/3`.
+**Lời nói dối Byzantine.** Một agent xuất một câu trả lời cố ý sai. BFT cổ điển xử lý điều này nếu `f < n/3`.
 
-**Sycophantic conformity.** One agent reads others' answers before voting and aligns with whoever spoke last. Not malicious, but correlates with the loudest voice. Classical BFT does not prevent this because the agent passes every signature check.
+**Thuận theo xu nịnh.** Một agent đọc các câu trả lời khác trước khi bỏ phiếu và thuận theo bên nói cuối cùng. Không độc hại, nhưng tương quan với tiếng nói to nhất. BFT cổ điển không ngăn điều này vì agent vượt qua mọi kiểm tra chữ ký.
 
-**Correlated-error monoculture.** Three agents share a base model. They hallucinate the same wrong answer. The majority is wrong. Classical BFT does not help because all three "honestly" agree.
+**Đơn văn hóa lỗi tương quan.** Ba agent chia sẻ một mô hình cơ sở. Chúng ảo giác cùng câu trả lời sai. Đa số sai. BFT cổ điển không giúp vì cả ba đồng ý “trung thực.”
 
 ### The 2025-2026 responses
 
-**CP-WBFT** (arXiv:2511.10400) — Confidence-Probed Weighted BFT. Each voter attaches a confidence probe to its answer (a self-reported probability, or a separate calibration model's prediction). Vote weights scale with confidence. Reported +85.71% BFT improvement on complete graphs. Mitigation for: sycophantic conformity (conforming agents tend to have low confidence on their volunteered position).
+**CP-WBFT** (arXiv:2511.10400) — BFT có trọng số được dò độ tự tin. Mỗi bên bỏ phiếu gắn một phép dò độ tự tin vào câu trả lời (một xác suất tự báo cáo, hoặc dự đoán của một mô hình hiệu chuẩn riêng). Trọng số phiếu tăng theo độ tự tin. Báo cáo cải thiện BFT +85.71% trên các đồ thị đầy đủ. Giảm thiểu cho: thuận theo xu nịnh (các agent thuận theo có xu hướng có độ tự tin thấp về quan điểm chúng tự đưa ra).
 
-**DecentLLMs** (arXiv:2507.14928) — Leaderless. Worker agents propose in parallel, evaluator agents score proposals, final answer is the geometric median of scored positions. Robust when `f < n/2`. Mitigation for: Byzantine lie and correlated errors (geometric median is robust to outliers and pulls toward the dense cluster, not the model-biased average).
+**DecentLLMs** (arXiv:2507.14928) — Không lãnh đạo. Các agent worker đề xuất song song, các agent đánh giá chấm điểm các đề xuất, câu trả lời cuối cùng là trung vị hình học của các vị trí đã chấm điểm. Vững chắc khi `f < n/2`. Giảm thiểu cho: lời nói dối Byzantine và các lỗi tương quan (trung vị hình học vững chắc trước các ngoại lệ và kéo về cụm dày đặc, không phải trung bình lệch theo mô hình).
 
-**WBFT** (arXiv:2505.05103) — Weighted BFT with Hierarchical Structure Clustering. Vote weights are assigned by response quality plus a trust score learned from history. Cluster agents into Core and Edge; Core agents must achieve consensus first, Edge agents follow. Mitigation for: scalability (Core consensus is small and fast) and partially for monoculture (Core can be chosen for diversity).
+**WBFT** (arXiv:2505.05103) — BFT có trọng số với Phân cụm cấu trúc phân cấp. Trọng số phiếu được gán theo chất lượng phản hồi cộng với một điểm tin cậy học từ lịch sử. Phân cụm các agent thành Lõi và Biên; các agent Lõi phải đạt đồng thuận trước, các agent Biên theo sau. Giảm thiểu cho: khả năng mở rộng (đồng thuận Lõi nhỏ và nhanh) và một phần cho đơn văn hóa (Lõi có thể được chọn vì đa dạng).
 
 ### Empirical: "Can AI Agents Agree?" (arXiv:2603.01213)
 
-The paper measures scalar agreement (LLM agents agreeing on a single numeric value) across multiple frontier models. The finding is uncomfortable:
+Bài báo đo đồng ý về đại lượng vô hướng (các agent LLM đồng ý về một giá trị số đơn lẻ) trên nhiều mô hình tiên tiến nhất. Phát hiện không dễ chịu:
 
-- Even with no adversaries, LLM agents disagree on scalar questions at rates above 30% on many benchmarks.
-- A single agent that adopts a deceptive persona can pull the Mixture-of-Agents consensus 40+ percentage points off the honest baseline.
-- Disagreement rates correlate with model diversity — heterogeneous ensembles disagree more than homogeneous ones (good: uncorrelated errors) but also drift more slowly (bad: longer time-to-agreement).
+- Ngay cả không có đối thủ, các agent LLM bất đồng về các câu hỏi vô hướng ở tỷ lệ trên 30% trên nhiều benchmark.
+- Một agent đơn lẻ nhận một nhân cách lừa dối có thể kéo đồng thuận Mixture-of-Agents lệch 40+ điểm phần trăm khỏi đường cơ sở trung thực.
+- Các tỷ lệ bất đồng tương quan với đa dạng mô hình — các tập hợp không đồng nhất bất đồng nhiều hơn các tập hợp đồng nhất (tốt: các lỗi không tương quan) nhưng cũng trôi chậm hơn (xấu: thời gian tới thỏa thuận dài hơn).
 
-The takeaway: BFT gives you machinery to align outputs, but it does not tell you whether the aligned output is right. Combine with verification (Phase 16 · 08 role specialization), diversity (Phase 16 · 15 debate variants), and evaluator agents (Phase 16 · 24 benchmarks).
+Điều rút ra: BFT cho bạn cơ chế để căn chỉnh các đầu ra, nhưng nó không cho biết liệu đầu ra đã căn chỉnh có đúng hay không. Kết hợp với xác minh (Giai đoạn 16 · 08 chuyên biệt hóa vai trò), đa dạng (Giai đoạn 16 · 15 các biến thể tranh luận), và các agent đánh giá (Giai đoạn 16 · 24 benchmark).
 
 ### The core protocol, stripped down
 
-A minimal BFT round for LLM agents:
+Một vòng BFT tối thiểu cho các agent LLM:
 
 ```
 1. task arrives; each agent i produces answer a_i
@@ -71,17 +71,17 @@ A minimal BFT round for LLM agents:
 7. minority clusters logged with provenance for post-hoc audit
 ```
 
-The semantic clustering step is the LLM-specific twist. Two answers "the study reports 4.2%" and "4.2% improvement" are the same cluster. A naive string-equality check would miss this. In production, use a cheap embedding model or explicit canonicalization.
+Bước phân cụm ngữ nghĩa là nét riêng của LLM. Hai câu trả lời “nghiên cứu báo cáo 4.2%” và “cải thiện 4.2%” thuộc cùng cụm. Một kiểm tra bằng nhau chuỗi ngây thơ sẽ bỏ sót điều này. Trong sản xuất, sử dụng một mô hình embedding rẻ hoặc chuẩn hóa tường minh.
 
 ### Threshold tuning
 
-The `threshold` parameter decides when to accept and when to retry. Too low: you accept weak majorities. Too high: you never accept anything. Empirical range: 0.5-0.67 for `n=5-7` agents, higher for smaller `n`. Below a threshold, escalate to a human or to a different agent ensemble.
+Tham số `threshold` quyết định khi nào chấp nhận và khi nào thử lại. Quá thấp: bạn chấp nhận các đa số yếu. Quá cao: bạn không bao giờ chấp nhận bất cứ thứ gì. Khoảng thực nghiệm: 0.5-0.67 cho `n=5-7` agent, cao hơn cho `n` nhỏ hơn. Dưới một ngưỡng, chuyển cấp tới một người hoặc tới một tập hợp agent khác.
 
 ### Where consensus does not help
 
-- **Ambiguous questions.** If the question has no ground truth, consensus is an opinion. Call it that.
-- **Compound questions.** "Write code and explain it" — two answers. Vote on each independently.
-- **Adversarial multi-round.** If agents can observe prior rounds and mimic (Du 2023 debate), they start agreeing with each other regardless of truth. Bound the rounds (2-3 typically).
+- **Các câu hỏi mơ hồ.** Nếu câu hỏi không có chuẩn tham chiếu, đồng thuận là một ý kiến. Hãy gọi nó như vậy.
+- **Các câu hỏi ghép.** “Viết mã và giải thích nó” — hai câu trả lời. Bỏ phiếu cho mỗi câu độc lập.
+- **Đối kháng nhiều vòng.** Nếu các agent có thể quan sát các vòng trước và bắt chước (tranh luận Du 2023), chúng bắt đầu đồng ý với nhau bất kể sự thật. Giới hạn các vòng (thường 2-3).
 
 ```figure
 swarm-consensus-wave
@@ -89,67 +89,67 @@ swarm-consensus-wave
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `AgentVoter` — a scripted policy with (answer, confidence).
-- `MajorityVote` — classical plurality.
-- `CPWBFT` — confidence-weighted voting with semantic clustering.
-- `DecentLLMs` — geometric-median aggregation on scored proposals.
-- `Scenario` — runs each aggregator under three attack patterns.
+- `AgentVoter` — một chính sách được viết kịch bản với (câu trả lời, độ tự tin).
+- `MajorityVote` — bỏ phiếu theo số phiếu cao nhất cổ điển.
+- `CPWBFT` — bỏ phiếu có trọng số độ tự tin với phân cụm ngữ nghĩa.
+- `DecentLLMs` — tổng hợp trung vị hình học trên các đề xuất đã chấm điểm.
+- `Scenario` — chạy mỗi bộ tổng hợp dưới ba mẫu tấn công.
 
-Attack patterns implemented:
+Các mẫu tấn công được triển khai:
 
-1. `byzantine`: one agent lies with high confidence.
-2. `sycophancy`: one agent copies the first answer it sees, with matching confidence.
-3. `monoculture`: three agents share a wrong answer (correlated error) with moderate confidence.
+1. `byzantine`: một agent nói dối với độ tự tin cao.
+2. `sycophancy`: một agent sao chép câu trả lời đầu tiên nó thấy, với độ tự tin khớp.
+3. `monoculture`: ba agent chia sẻ một câu trả lời sai (lỗi tương quan) với độ tự tin vừa phải.
 
-Run:
+Chạy:
 
 ```
 python3 code/main.py
 ```
 
-Expected output: a table of (attack, aggregator) -> final answer, with the correct answer highlighted. Plurality fails the monoculture case. CPWBFT's confidence weighting mitigates sycophancy. DecentLLMs' geometric-median pulls toward the honest cluster when monoculture is less than half the population.
+Đầu ra kỳ vọng: một bảng (tấn công, bộ tổng hợp) -> câu trả lời cuối cùng, với câu trả lời đúng được làm nổi bật. Bỏ phiếu theo số phiếu cao nhất thất bại trong trường hợp đơn văn hóa. Trọng số độ tự tin của CPWBFT giảm thiểu xu nịnh. Trung vị hình học của DecentLLMs kéo về cụm trung thực khi đơn văn hóa ít hơn nửa quần thể.
 
 ## Use It
 
-`outputs/skill-consensus-designer.md` designs a consensus protocol for a multi-agent ensemble: clustering method, weighting, threshold, and the escalation policy for sub-threshold rounds.
+`outputs/skill-consensus-designer.md` thiết kế một giao thức đồng thuận cho một tập hợp đa agent: phương pháp phân cụm, trọng số, ngưỡng, và chính sách chuyển cấp cho các vòng dưới ngưỡng.
 
 ## Ship It
 
-Before shipping any consensus mechanism:
+Trước khi đưa bất kỳ cơ chế đồng thuận nào ra sử dụng:
 
-- **Attack-test with at least the three patterns** above. Your protocol should fail predictably, not silently.
-- **Log every minority cluster** with provenance. Minority clusters are your early-warning system for correlated errors.
-- **Enforce bounded rounds.** No "keep debating until agreement" — that rewards sycophancy.
-- **Separate agreement from correctness.** Consensus output goes to a verifier; verifier is independent of the ensemble.
-- **Monitor the agreement rate.** A sharp rise means conformity bias; a sharp fall means model drift.
+- **Kiểm thử tấn công với ít nhất ba mẫu** ở trên. Giao thức của bạn nên thất bại có thể dự đoán, không âm thầm.
+- **Ghi nhật ký mọi cụm thiểu số** kèm nguồn gốc. Các cụm thiểu số là hệ thống cảnh báo sớm của bạn cho các lỗi tương quan.
+- **Thực thi các vòng bị giới hạn.** Không “tiếp tục tranh luận cho đến khi đồng ý” — điều đó thưởng xu nịnh.
+- **Tách đồng ý khỏi tính đúng đắn.** Đầu ra đồng thuận đi tới một bộ xác minh; bộ xác minh độc lập với tập hợp.
+- **Giám sát tỷ lệ đồng ý.** Một mức tăng mạnh có nghĩa là thiên lệch thuận theo; một mức giảm mạnh có nghĩa là trôi mô hình.
 
 ## Exercises
 
-1. Run `code/main.py`. Confirm plurality fails the monoculture attack but CPWBFT partially mitigates it when the monoculture confidence is below 0.7.
-2. Add a fourth attack pattern: **silent abstention** — one agent refuses to answer ("I don't know"). How should each aggregator treat abstentions? Implement your choice.
-3. Swap the semantic clustering from string canonicalization to embedding-similarity (use any open-source embedding model). What happens to the sycophancy attack?
-4. Read CP-WBFT (arXiv:2511.10400). Implement the confidence-probe calibration step (a separate calibration model checks each agent's self-reported confidence). Measure the accuracy gain on the monoculture scenario.
-5. Read "Can AI Agents Agree?" (arXiv:2603.01213). Reproduce a simplified scalar-agreement experiment: three agents, one scalar question, the deceptive-persona prompt. Does CPWBFT or DecentLLMs catch it?
+1. Chạy `code/main.py`. Xác nhận bỏ phiếu theo số phiếu cao nhất thất bại trước cuộc tấn công đơn văn hóa nhưng CPWBFT giảm thiểu một phần khi độ tự tin đơn văn hóa dưới 0.7.
+2. Thêm một mẫu tấn công thứ tư: **bỏ phiếu trắng âm thầm** — một agent từ chối trả lời (“Tôi không biết”). Mỗi bộ tổng hợp nên xử lý các phiếu trắng như thế nào? Triển khai lựa chọn của bạn.
+3. Đổi phân cụm ngữ nghĩa từ chuẩn hóa chuỗi sang tương đồng embedding (sử dụng bất kỳ mô hình embedding mã nguồn mở nào). Điều gì xảy ra với cuộc tấn công xu nịnh?
+4. Đọc CP-WBFT (arXiv:2511.10400). Triển khai bước hiệu chuẩn phép dò độ tự tin (một mô hình hiệu chuẩn riêng kiểm tra độ tự tin tự báo cáo của mỗi agent). Đo mức tăng độ chính xác trên kịch bản đơn văn hóa.
+5. Đọc “Can AI Agents Agree?” (arXiv:2603.01213). Tái tạo một thí nghiệm đồng ý vô hướng đơn giản hóa: ba agent, một câu hỏi vô hướng, prompt nhân cách lừa dối. CPWBFT hay DecentLLMs có bắt nó không?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| BFT | "Byzantine fault tolerance" | Castro-Liskov 1999 protocol for consensus with `f < n/3` arbitrary faults. |
-| Byzantine | "Any bad behavior" | A node that can lie, drop messages, fail silently — anything but crash safely. |
-| Confidence probe | "How sure are you?" | Self-reported or calibrator-predicted probability attached to a vote. |
-| Semantic clustering | "Same answer, different words" | Grouping equivalent answers before counting votes. |
-| Geometric median | "Robust center" | The point minimizing sum of distances to sample points. Robust to outliers, unlike the mean. |
-| Monoculture | "Same model, same failures" | Correlated errors when agents share training data or base model. |
-| Sycophantic conformity | "Agreeing with the loud voice" | An agent's vote biases toward whoever spoke first/loudest. |
-| Core/Edge | "Hierarchical BFT" | WBFT split: small Core consensus first, Edge nodes follow. Bounds latency. |
+| BFT | “Khả năng chịu lỗi Byzantine” | Giao thức Castro-Liskov 1999 cho đồng thuận với `f < n/3` lỗi tùy ý. |
+| Byzantine | “Bất kỳ hành vi xấu nào” | Một node có thể nói dối, bỏ thông điệp, thất bại âm thầm — bất cứ điều gì ngoại trừ gặp sự cố an toàn. |
+| Confidence probe (Phép dò độ tự tin) | “Bạn chắc đến đâu?” | Xác suất tự báo cáo hoặc do bộ hiệu chuẩn dự đoán gắn vào một phiếu. |
+| Semantic clustering (Phân cụm ngữ nghĩa) | “Cùng câu trả lời, khác từ” | Nhóm các câu trả lời tương đương trước khi đếm phiếu. |
+| Geometric median (Trung vị hình học) | “Tâm vững chắc” | Điểm tối thiểu hóa tổng khoảng cách tới các điểm mẫu. Vững chắc trước các ngoại lệ, khác với trung bình. |
+| Monoculture (Đơn văn hóa) | “Cùng mô hình, cùng thất bại” | Các lỗi tương quan khi các agent chia sẻ dữ liệu huấn luyện hoặc mô hình cơ sở. |
+| Sycophantic conformity (Thuận theo xu nịnh) | “Đồng ý với tiếng nói to” | Phiếu của một agent lệch về bên nói đầu tiên/to nhất. |
+| Core/Edge (Lõi/Biên) | “BFT phân cấp” | Phân chia WBFT: đồng thuận Lõi nhỏ trước, các node Biên theo sau. Giới hạn độ trễ. |
 
 ## Further Reading
 
-- [Castro & Liskov — Practical Byzantine Fault Tolerance (OSDI 1999)](https://pmg.csail.mit.edu/papers/osdi99.pdf) — the foundation
-- [CP-WBFT — Confidence-Probe Weighted BFT](https://arxiv.org/abs/2511.10400) — vote weighting by confidence
-- [DecentLLMs — leaderless multi-agent consensus](https://arxiv.org/abs/2507.14928) — geometric-median aggregation
-- [WBFT — Weighted BFT with Hierarchical Structure Clustering](https://arxiv.org/abs/2505.05103) — Core/Edge split for bounded latency
-- [Can AI Agents Agree?](https://arxiv.org/abs/2603.01213) — scalar-agreement fragility and deceptive-persona attack
+- [Castro & Liskov — Practical Byzantine Fault Tolerance (OSDI 1999)](https://pmg.csail.mit.edu/papers/osdi99.pdf) — nền tảng
+- [CP-WBFT — Confidence-Probe Weighted BFT](https://arxiv.org/abs/2511.10400) — đặt trọng số phiếu theo độ tự tin
+- [DecentLLMs — leaderless multi-agent consensus](https://arxiv.org/abs/2507.14928) — tổng hợp trung vị hình học
+- [WBFT — Weighted BFT with Hierarchical Structure Clustering](https://arxiv.org/abs/2505.05103) — phân chia Lõi/Biên cho độ trễ bị giới hạn
+- [Can AI Agents Agree?](https://arxiv.org/abs/2603.01213) — tính mong manh của đồng ý vô hướng và cuộc tấn công nhân cách lừa dối
