@@ -7,35 +7,35 @@ lesson: 18
 tags: [agno, mastra, langgraph, runtime, selection]
 ---
 
-Given a stack, latency budget, required primitives, and operational shape, pick a runtime.
+Với một stack, ngân sách độ trễ, các thành phần nguyên thủy bắt buộc và hình thái vận hành, chọn một runtime.
 
-Decision:
+Quyết định:
 
-1. Python + FastAPI + thousands of short-lived agents per second -> **Agno**.
-2. TypeScript + Next.js/Vercel + unified multi-provider -> **Mastra**.
-3. Durable state, explicit graph, resume-on-failure -> **LangGraph** (Lesson 13).
-4. Claude-first product, wants the Claude Code harness shape -> **Claude Agent SDK** (Lesson 17).
-5. OpenAI-first product, wants handoffs + guardrails + tracing -> **OpenAI Agents SDK** (Lesson 16).
-6. Multi-agent team, actor-model concurrency, fault isolation -> **AutoGen v0.4** / **Microsoft Agent Framework** (Lesson 14).
-7. Role-based collaboration or event-driven deterministic workflows -> **CrewAI** Crew or Flow (Lesson 15).
-8. None of the above -> direct API calls + the stdlib loop from Lesson 01.
+1. Python + FastAPI + hàng nghìn agent sống ngắn mỗi giây -> **Agno**.
+2. TypeScript + Next.js/Vercel + nhiều nhà cung cấp thống nhất -> **Mastra**.
+3. Trạng thái bền vững, đồ thị tường minh, tiếp tục khi thất bại -> **LangGraph** (Bài 13).
+4. Sản phẩm ưu tiên Claude, muốn hình dạng harness Claude Code -> **Claude Agent SDK** (Bài 17).
+5. Sản phẩm ưu tiên OpenAI, muốn các bàn giao + chốt bảo vệ + truy vết -> **OpenAI Agents SDK** (Bài 16).
+6. Nhóm nhiều agent, tính đồng thời mô hình actor, cô lập lỗi -> **AutoGen v0.4** / **Microsoft Agent Framework** (Bài 14).
+7. Hợp tác dựa trên vai trò hoặc các workflow mang tính xác định hướng sự kiện -> **CrewAI** Crew hoặc Flow (Bài 15).
+8. Không điều nào ở trên -> các lời gọi API trực tiếp + vòng lặp dùng thư viện chuẩn từ Bài 01.
 
-Produce:
+Tạo:
 
-- A short decision document: stack, latency target, primitives needed, observed trade-offs.
-- A minimal scaffold in the chosen runtime.
-- A migration plan if another runtime is in use today.
+- Một tài liệu quyết định ngắn: stack, mục tiêu độ trễ, các thành phần nguyên thủy cần thiết, các đánh đổi được quan sát.
+- Một khung tối thiểu trong runtime được chọn.
+- Một kế hoạch di chuyển nếu một runtime khác đang được sử dụng hôm nay.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Picking Agno or Mastra purely on "performance" when the workload is one slow call per request. Performance is rarely the bottleneck.
-- Picking a TypeScript runtime in a Python monorepo without a rationale. Mixed-language agent code is an operational tax.
-- Picking LangGraph for stateless short tasks. The checkpointer adds overhead that a simple workflow (Lesson 12) avoids.
+- Chọn Agno hoặc Mastra thuần túy theo "hiệu năng" khi khối lượng công việc là một lời gọi chậm cho mỗi yêu cầu. Hiệu năng hiếm khi là nút thắt.
+- Chọn một runtime TypeScript trong một monorepo Python mà không có lý do. Mã agent nhiều ngôn ngữ là một khoản chi phí vận hành.
+- Chọn LangGraph cho các tác vụ ngắn không trạng thái. Bộ tạo checkpoint thêm chi phí phụ mà một workflow đơn giản (Bài 12) tránh được.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the user wants "all five runtimes, to compare," refuse. Benchmark on your workload; framework vendor benchmarks are directional.
-- If the user wants to self-host Mastra's `ee/` features, refuse and point to the license terms.
-- If the product needs long-running async work (hours-to-days), refuse self-hosted and route to Claude Managed Agents or a queue-based architecture (Lesson 29).
+- Nếu người dùng muốn "cả năm runtime, để so sánh," từ chối. Benchmark trên khối lượng công việc của bạn; các benchmark nhà cung cấp framework mang tính định hướng.
+- Nếu người dùng muốn tự host các tính năng `ee/` của Mastra, từ chối và chỉ đến các điều khoản giấy phép.
+- Nếu sản phẩm cần công việc bất đồng bộ chạy lâu (hàng giờ đến hàng ngày), từ chối tự host và định tuyến đến Claude Managed Agents hoặc một kiến trúc dựa trên hàng đợi (Bài 29).
 
-Output: decision doc + scaffold + README. End with "what to read next" pointing to Lesson 24 (observability) and Lesson 29 (production runtimes) for the operational layer above the framework.
+Đầu ra: tài liệu quyết định + khung + README. Kết thúc bằng "đọc gì tiếp theo" chỉ đến Bài 24 (khả năng quan sát) và Bài 29 (các runtime sản xuất) cho lớp vận hành bên trên framework.
