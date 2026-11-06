@@ -1,6 +1,6 @@
 # JSON-RPC 2.0 Over Newline-Delimited Stdio
 
-> The transport between a model client and a tool server is JSON-RPC over stdio. Hand-rolling it once teaches you what every framing layer is paying for.
+> Cơ chế truyền tải giữa một máy khách mô hình và một máy chủ công cụ là JSON-RPC trên stdio. Viết thủ công nó một lần dạy bạn điều mà mọi lớp đóng khung đang trả giá cho.
 
 **Type:** Build
 **Languages:** Python
@@ -8,11 +8,11 @@
 **Time:** ~90 minutes
 
 ## Learning Objectives
-- Speak JSON-RPC 2.0 framed as newline-delimited JSON over stdin and stdout.
-- Map the five standard error codes (-32700, -32600, -32601, -32602, -32603) and surface them with the right semantics.
-- Distinguish requests, responses, notifications, and batches without inventing new envelope keys.
-- Handle one parse error per line without poisoning the rest of the stream.
-- Build a self-terminating demo using io.BytesIO so the lesson runs without spawning a child process.
+- Nói JSON-RPC 2.0 được đóng khung dưới dạng JSON phân cách bằng dòng mới trên stdin và stdout.
+- Ánh xạ năm mã lỗi tiêu chuẩn (-32700, -32600, -32601, -32602, -32603) và đưa chúng ra với ngữ nghĩa đúng.
+- Phân biệt yêu cầu, phản hồi, thông báo, và lô mà không tự tạo các khóa phong bì mới.
+- Xử lý một lỗi phân tích cú pháp trên mỗi dòng mà không làm hỏng phần còn lại của luồng.
+- Xây dựng một demo tự kết thúc sử dụng io.BytesIO để bài học chạy mà không tạo một tiến trình con.
 
 ```figure
 cf-jsonrpc-frames
@@ -20,13 +20,13 @@ cf-jsonrpc-frames
 
 ## Why JSON-RPC stays the lingua franca
 
-A coding agent in 2026 talks to maybe twelve tool servers in a single session. Each server is a separate process or a remote endpoint. The wire format has been the same since 2013. JSON-RPC 2.0 is two-page spec. It survives because the alternatives (gRPC, HTTP per call, custom binary) all impose a tradeoff JSON-RPC does not: they pick either streaming or batching or transport-coupling. JSON-RPC is symmetric across stdio, sockets, websockets, and HTTP, and a client can drive a server it has never seen if both honor the spec.
+Một agent lập trình năm 2026 nói chuyện với có lẽ mười hai máy chủ công cụ trong một phiên duy nhất. Mỗi máy chủ là một tiến trình riêng hoặc một endpoint từ xa. Định dạng truyền tin vẫn như vậy từ năm 2013. JSON-RPC 2.0 là đặc tả hai trang. Nó tồn tại vì các lựa chọn thay thế (gRPC, HTTP mỗi lệnh gọi, binary tùy chỉnh) đều áp đặt một đánh đổi mà JSON-RPC không có: chúng chọn truyền luồng hoặc chia lô hoặc gắn kết với cơ chế truyền tải. JSON-RPC đối xứng trên stdio, socket, websocket, và HTTP, và một máy khách có thể điều khiển một máy chủ nó chưa từng thấy nếu cả hai tuân thủ đặc tả.
 
-This lesson builds the stdio variant. Newline-delimited JSON. Each request is one line. Each response is one line. The transport boundary is `\n`.
+Bài này xây dựng biến thể stdio. JSON phân cách bằng dòng mới. Mỗi yêu cầu là một dòng. Mỗi phản hồi là một dòng. Ranh giới truyền tải là `\n`.
 
 ## The wire shape
 
-Four envelope shapes exist. Two are spoken by the client. Two are spoken by the server.
+Có bốn hình thức phong bì. Hai được nói bởi máy khách. Hai được nói bởi máy chủ.
 
 ```mermaid
 sequenceDiagram
@@ -40,9 +40,9 @@ sequenceDiagram
     Server-->>Client: error {jsonrpc:"2.0", id:7 or null, error:{code, message, data?}}
 ```
 
-A notification has no `id`. The server must not respond to it. If a server returns a response to a notification, the client has no way to attach it to a call site. That single rule keeps the framing math simple.
+Một thông báo không có `id`. Máy chủ không được phản hồi nó. Nếu một máy chủ trả về một phản hồi cho một thông báo, máy khách không có cách nào gắn nó với một vị trí gọi. Quy tắc duy nhất đó giữ phép tính đóng khung đơn giản.
 
-A batch is a JSON array of requests or notifications. The server replies with an array of responses, in any order, one per non-notification entry. If every entry in the batch is a notification, the server sends nothing back.
+Một lô là một mảng JSON các yêu cầu hoặc thông báo. Máy chủ trả lời bằng một mảng phản hồi, theo thứ tự bất kỳ, một cho mỗi mục không phải thông báo. Nếu mọi mục trong lô đều là thông báo, máy chủ không gửi lại gì.
 
 ## The five error codes
 
@@ -54,19 +54,19 @@ A batch is a JSON array of requests or notifications. The server replies with an
 -32603  Internal error
 ```
 
-The codes between -32000 and -32099 are reserved for server-defined errors. Everything else is application-defined. The lesson sticks to the five. If your handler raises, the transport wraps it as -32603 with the exception class name in `data.exception`.
+Các mã giữa -32000 và -32099 được dành cho các lỗi do máy chủ định nghĩa. Mọi thứ khác do ứng dụng định nghĩa. Bài học bám vào năm mã. Nếu handler của bạn phát sinh lỗi, cơ chế truyền tải bọc nó thành -32603 với tên lớp ngoại lệ trong `data.exception`.
 
-A parse error has a special rule. The `id` in the response is `null`, because the request never parsed enough to extract an id.
+Một lỗi phân tích cú pháp có một quy tắc đặc biệt. `id` trong phản hồi là `null`, vì yêu cầu chưa bao giờ được phân tích đủ để trích xuất một id.
 
 ## Newline framing and the BytesIO demo
 
-The transport reads one line at a time. A line is bytes up to and including `\n`. If a line cannot be parsed, the transport writes a -32700 response with `id: null` and continues. The stream is not poisoned. The next line gets parsed fresh.
+Cơ chế truyền tải đọc từng dòng một. Một dòng là các byte đến và bao gồm `\n`. Nếu một dòng không thể được phân tích cú pháp, cơ chế truyền tải ghi một phản hồi -32700 với `id: null` và tiếp tục. Luồng không bị làm hỏng. Dòng tiếp theo được phân tích mới.
 
-For the lesson we wrap an `io.BytesIO` pair as stdin and stdout. The server reads requests until EOF, writes responses for each, and returns. The client reads the responses back. No process spawn. No timeouts. The transport behavior is identical to a real subprocess pipe because Python's `io` interface presents the same `.readline()` and `.write()` contract.
+Trong bài học chúng ta bọc một cặp `io.BytesIO` làm stdin và stdout. Máy chủ đọc yêu cầu cho đến EOF, ghi các phản hồi cho từng yêu cầu, và trả về. Không tạo tiến trình. Không timeout. Hành vi truyền tải giống hệt một pipe tiến trình con thực vì giao diện `io` của Python cung cấp cùng hợp đồng `.readline()` và `.write()`.
 
 ## Method dispatch
 
-The transport does not know which methods exist. It hands off to a callable `handler(method, params)` that the harness supplies. The handler returns a result or raises. Three exception classes surface specific codes.
+Cơ chế truyền tải không biết những phương thức nào tồn tại. Nó bàn giao cho một đối tượng có thể gọi `handler(method, params)` mà harness cung cấp. Handler trả về một kết quả hoặc phát sinh lỗi. Ba lớp ngoại lệ đưa ra các mã cụ thể.
 
 ```text
 MethodNotFound -> -32601
@@ -74,7 +74,7 @@ InvalidParams  -> -32602
 Anything else  -> -32603 with exception name in data
 ```
 
-The transport never sees a tool registry. The registry sits behind the handler. This is the layering we want. The transport speaks JSON-RPC. The registry speaks tool shapes. The dispatcher (lesson twenty-three) stitches them together.
+Cơ chế truyền tải không bao giờ thấy một registry công cụ. Registry nằm sau handler. Đây là cách phân lớp chúng ta muốn. Cơ chế truyền tải nói JSON-RPC. Registry nói hình thức công cụ. Dispatcher (bài hai mươi ba) khâu chúng lại.
 
 ## Stream behavior on errors
 
@@ -87,20 +87,20 @@ client writes              server reads             server writes
 {...missing method...}     invalid envelope         {id:X, error: -32600}
 ```
 
-A broken JSON line does not stop the loop. A missing `method` field does not stop the loop. A handler exception does not stop the loop. The transport keeps reading until EOF.
+Một dòng JSON hỏng không dừng vòng lặp. Một trường `method` thiếu không dừng vòng lặp. Một ngoại lệ handler không dừng vòng lặp. Cơ chế truyền tải tiếp tục đọc cho đến EOF.
 
 ## Notifications and asymmetric flows
 
-A notification is fire-and-forget. The harness uses notifications for progress events, cancellation signals, and log lines. Notifications are how a long-running tool can stream status updates without round-tripping for each one.
+Một thông báo là gửi rồi quên. Harness sử dụng thông báo cho các sự kiện tiến độ, tín hiệu hủy, và dòng nhật ký. Thông báo là cách một công cụ chạy lâu có thể truyền luồng cập nhật trạng thái mà không khứ hồi cho từng cập nhật.
 
-The lesson implements one outbound notification helper, `write_notification`. The server uses it to emit progress while a request is in flight. The demo shows the pattern: a request comes in, the handler emits two progress notifications, then writes the final response.
+Bài học triển khai một hàm hỗ trợ thông báo đi ra, `write_notification`. Máy chủ sử dụng nó để phát ra tiến độ trong khi một yêu cầu đang được xử lý. Demo thể hiện mẫu: một yêu cầu đi vào, handler phát ra hai thông báo tiến độ, rồi ghi phản hồi cuối cùng.
 
 ## How to read the code
 
-`code/main.py` defines `StdioTransport`, the parse helper (`parse_request`), the three write helpers (`write_response`, `write_error`, `write_notification`), and the dispatch loop `serve`. The error code constants live at module scope.
+`code/main.py` định nghĩa `StdioTransport`, hàm hỗ trợ phân tích cú pháp (`parse_request`), ba hàm hỗ trợ ghi (`write_response`, `write_error`, `write_notification`), và vòng lặp điều phối `serve`. Các hằng số mã lỗi nằm ở phạm vi module.
 
-`code/tests/test_transport.py` covers the five error codes, notifications (no response written), batches (array in, array out, notifications skipped), broken JSON (parse error then continue), and the asymmetric flow where a handler writes a notification mid-call.
+`code/tests/test_transport.py` bao phủ năm mã lỗi, thông báo (không ghi phản hồi), lô (mảng vào, mảng ra, bỏ qua thông báo), JSON hỏng (lỗi phân tích cú pháp rồi tiếp tục), và luồng bất đối xứng nơi một handler ghi một thông báo giữa lệnh gọi.
 
 ## Going further
 
-This transport is enough for the lessons that follow. Production transports add three things. A correlation id field that survives forwarding (your `id` is already this, but in a mesh you need an outer trace id too). A cancellation channel (a notification like `$/cancelRequest` with the id of the in-flight call). And a content-type negotiation handshake so the same socket can speak JSON-RPC and Streamable HTTP. None of those change the wire. They add metadata.
+Cơ chế truyền tải này đủ cho các bài tiếp theo. Các cơ chế truyền tải sản xuất thêm ba thứ. Một trường id tương quan tồn tại qua chuyển tiếp (`id` của bạn đã là thứ này, nhưng trong một mạng lưới bạn cũng cần một trace id bên ngoài). Một kênh hủy (một thông báo như `$/cancelRequest` với id của lệnh gọi đang xử lý). Và một bắt tay thương lượng kiểu nội dung để cùng một socket có thể nói JSON-RPC và Streamable HTTP. Không thứ nào trong số đó thay đổi định dạng truyền tin. Chúng thêm siêu dữ liệu.
