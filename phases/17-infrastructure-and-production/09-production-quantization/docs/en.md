@@ -1,6 +1,6 @@
 # Production Quantization — AWQ, GPTQ, GGUF K-quants, FP8, MXFP4/NVFP4
 
-> Quantization format is not a universal choice — it is a function of hardware, serving engine, and workload. GGUF Q4_K_M or Q5_K_M owns CPU and edge, delivered through llama.cpp and Ollama. GPTQ wins inside vLLM when you need multi-LoRA on the same base. AWQ with Marlin-AWQ kernels delivers ~741 tok/s on a 7B class model with the best Pass@1 at INT4 — the 2026 default for datacenter production. FP8 stays the middle ground on Hopper, Ada, and Blackwell — near-lossless and widely supported. NVFP4 and MXFP4 (Blackwell microscaling) are aggressive and require per-block validation. Two traps bite teams: calibration dataset must match deployment domain, and KV cache is separate from weight quantization — the AWQ lesson "my model is 4 GB now" forgets the 10-30 GB KV cache at production batch sizes.
+> Định dạng lượng tử hóa không phải một lựa chọn phổ quát — nó là một hàm của phần cứng, engine phục vụ, và khối lượng công việc. GGUF Q4_K_M hoặc Q5_K_M làm chủ CPU và biên, được cung cấp qua llama.cpp và Ollama. GPTQ thắng trong vLLM khi bạn cần nhiều LoRA trên cùng mô hình cơ sở. AWQ với các kernel Marlin-AWQ cung cấp ~741 tok/s trên một mô hình loại 7B với Pass@1 tốt nhất ở INT4 — mặc định năm 2026 cho sản xuất trung tâm dữ liệu. FP8 vẫn là trung điểm trên Hopper, Ada, và Blackwell — gần không mất mát và được hỗ trợ rộng. NVFP4 và MXFP4 (microscaling Blackwell) quyết liệt và yêu cầu xác thực theo từng block. Hai bẫy gây hại cho các nhóm: tập dữ liệu hiệu chuẩn phải khớp lĩnh vực triển khai, và bộ nhớ đệm KV tách khỏi lượng tử hóa trọng số — bài học AWQ “mô hình của tôi giờ là 4 GB” quên bộ nhớ đệm KV 10-30 GB ở các kích thước lô sản xuất.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy memory and throughput comparison across formats)
@@ -9,92 +9,92 @@
 
 ## Learning Objectives
 
-- Name the six production quantization formats and their sweet spots in 2026.
-- Pick a format given hardware (CPU vs GPU, Hopper vs Blackwell), engine (vLLM, TRT-LLM, llama.cpp), and workload (routine chat, reasoning, multi-LoRA).
-- Compute the weight memory saved and the KV cache left untouched for a chosen format.
-- Name the calibration-dataset pitfall that degrades quantized models on domain traffic.
+- Nêu sáu định dạng lượng tử hóa sản xuất và các điểm phù hợp của chúng năm 2026.
+- Chọn một định dạng theo phần cứng (CPU so với GPU, Hopper so với Blackwell), engine (vLLM, TRT-LLM, llama.cpp), và khối lượng công việc (trò chuyện thường lệ, suy luận, nhiều LoRA).
+- Tính bộ nhớ trọng số được tiết kiệm và bộ nhớ đệm KV không bị đụng tới cho một định dạng đã chọn.
+- Nêu cạm bẫy tập dữ liệu hiệu chuẩn làm suy giảm các mô hình lượng tử hóa trên lưu lượng lĩnh vực.
 
 ## The Problem
 
-Quantization reduces memory and HBM bandwidth, which is exactly what decode needs. An FP16 70B model is 140 GB of weights. Quantize weights to INT4 (AWQ or GPTQ) and the model is 35 GB — fits in one H100 with room for KV cache, which matters because at 128 concurrent sequences with 2k context, KV cache alone is 20-30 GB.
+Lượng tử hóa giảm bộ nhớ và băng thông HBM, chính xác là những gì decode cần. Một mô hình FP16 70B có 140 GB trọng số. Lượng tử hóa trọng số xuống INT4 (AWQ hoặc GPTQ) và mô hình là 35 GB — vừa trong một H100 với chỗ cho bộ nhớ đệm KV, quan trọng vì ở 128 chuỗi đồng thời với ngữ cảnh 2k, riêng bộ nhớ đệm KV là 20-30 GB.
 
-But quantization is not free. Aggressive quantization degrades quality, especially on reasoning-heavy tasks. Different formats work with different engines. Different hardware supports different precisions natively. The 2026 format zoo is real and you cannot copy someone else's choice — you have to pick based on your stack.
+Nhưng lượng tử hóa không miễn phí. Lượng tử hóa quyết liệt làm suy giảm chất lượng, đặc biệt trên các tác vụ nhiều suy luận. Các định dạng khác nhau hoạt động với các engine khác nhau. Phần cứng khác nhau hỗ trợ gốc các độ chính xác khác nhau. Vườn thú định dạng năm 2026 là có thật và bạn không thể sao chép lựa chọn của người khác — bạn phải chọn dựa trên ngăn xếp của mình.
 
 ## The Concept
 
 ### The six formats
 
-| Format | Bits | Sweet spot | Engines |
+| Định dạng | Bit | Điểm phù hợp | Engine |
 |--------|------|-----------|---------|
-| GGUF Q4_K_M / Q5_K_M | 4-5 | CPU, edge, laptops | llama.cpp, Ollama |
-| GPTQ | 4-8 | Multi-LoRA on vLLM | vLLM, TGI |
-| AWQ | 4 | Datacenter GPU production | vLLM (Marlin-AWQ), TGI |
-| FP8 | 8 | Hopper/Ada/Blackwell datacenter | vLLM, TRT-LLM, SGLang |
-| MXFP4 | 4 | Blackwell multi-user | TRT-LLM |
-| NVFP4 | 4 | Blackwell multi-user | TRT-LLM |
+| GGUF Q4_K_M / Q5_K_M | 4-5 | CPU, biên, laptop | llama.cpp, Ollama |
+| GPTQ | 4-8 | Nhiều LoRA trên vLLM | vLLM, TGI |
+| AWQ | 4 | Sản xuất GPU trung tâm dữ liệu | vLLM (Marlin-AWQ), TGI |
+| FP8 | 8 | Trung tâm dữ liệu Hopper/Ada/Blackwell | vLLM, TRT-LLM, SGLang |
+| MXFP4 | 4 | Blackwell nhiều người dùng | TRT-LLM |
+| NVFP4 | 4 | Blackwell nhiều người dùng | TRT-LLM |
 
 ### GGUF — the CPU/edge default
 
-GGUF is a file format, not a quantization scheme per se — it bundles K-quant variants (Q2_K, Q3_K_M, Q4_K_M, Q5_K_M, Q6_K, Q8_0) in one container. Q4_K_M and Q5_K_M are the production defaults — near-BF16 quality at 4-5 bits. Best choice for CPU or edge serving because llama.cpp is by far the fastest CPU inference engine.
+GGUF là một định dạng file, tự nó không phải một sơ đồ lượng tử hóa — nó gói các biến thể K-quant (Q2_K, Q3_K_M, Q4_K_M, Q5_K_M, Q6_K, Q8_0) trong một container. Q4_K_M và Q5_K_M là các mặc định sản xuất — chất lượng gần BF16 ở 4-5 bit. Lựa chọn tốt nhất cho phục vụ CPU hoặc biên vì llama.cpp vượt xa là engine suy luận CPU nhanh nhất.
 
-Throughput penalty in vLLM: ~93 tok/s on 7B — the format is not optimized for GPU kernels. Use GGUF when the deployment target is CPU/edge. Not otherwise.
+Phạt thông lượng trong vLLM: ~93 tok/s trên 7B — định dạng không được tối ưu cho các kernel GPU. Sử dụng GGUF khi đích triển khai là CPU/biên. Không phải trường hợp khác.
 
 ### GPTQ — multi-LoRA in vLLM
 
-GPTQ is a post-training quantization algorithm with a calibration pass. Marlin kernels make it fast on GPU (2.6x speedup vs non-Marlin GPTQ). ~712 tok/s on 7B.
+GPTQ là một thuật toán lượng tử hóa sau huấn luyện với một lượt hiệu chuẩn. Các kernel Marlin làm nó nhanh trên GPU (tăng tốc 2.6x so với GPTQ không Marlin). ~712 tok/s trên 7B.
 
-The unique win: GPTQ-Int4 supports LoRA adapters in vLLM. If you are serving a base model plus 10-50 fine-tuned variants (each as a LoRA), GPTQ is your path. NVFP4 does not support LoRA yet as of early 2026.
+Lợi thế độc nhất: GPTQ-Int4 hỗ trợ các adapter LoRA trong vLLM. Nếu bạn phục vụ một mô hình cơ sở cộng 10-50 biến thể tinh chỉnh (mỗi biến thể như một LoRA), GPTQ là đường đi của bạn. NVFP4 chưa hỗ trợ LoRA tính đến đầu năm 2026.
 
 ### AWQ — the datacenter GPU default
 
-Activation-aware Weight Quantization. Protects the ~1% most-salient weights during quantization. Marlin-AWQ kernels: 10.9x speedup vs naive. ~741 tok/s on 7B, best Pass@1 among INT4 formats.
+Lượng tử hóa trọng số nhận biết kích hoạt. Bảo vệ ~1% trọng số nổi bật nhất trong lượng tử hóa. Các kernel Marlin-AWQ: tăng tốc 10.9x so với ngây thơ. ~741 tok/s trên 7B, Pass@1 tốt nhất trong các định dạng INT4.
 
-Pick AWQ for new GPU serving unless you need multi-LoRA (GPTQ) or aggressive Blackwell FP4 (NVFP4).
+Chọn AWQ cho phục vụ GPU mới trừ khi bạn cần nhiều LoRA (GPTQ) hoặc FP4 Blackwell quyết liệt (NVFP4).
 
 ### FP8 — the reliable middle
 
-8-bit floating point. Near-lossless. Widely supported. Hopper Tensor Cores accelerate FP8 natively. Blackwell inherits. FP8 is the safe 2026 default when quality is non-negotiable (reasoning, medical, code-gen). Memory savings are half of INT4 but quality risk is far lower.
+Dấu phẩy động 8 bit. Gần không mất mát. Được hỗ trợ rộng. Các Tensor Core Hopper tăng tốc FP8 gốc. Blackwell kế thừa. FP8 là mặc định an toàn năm 2026 khi chất lượng không thể thương lượng (suy luận, y khoa, sinh mã). Tiết kiệm bộ nhớ bằng nửa INT4 nhưng rủi ro chất lượng thấp hơn nhiều.
 
 ### MXFP4 / NVFP4 — Blackwell aggressive
 
-Microscaling FP4. Each block of weights has its own scale factor. Aggressive but hardware-accelerated on Blackwell Tensor Cores. Halve the bytes per token versus FP8 — the economic win in Phase 17 · 07.
+FP4 microscaling. Mỗi block trọng số có hệ số thang đo riêng. Quyết liệt nhưng được tăng tốc phần cứng trên các Tensor Core Blackwell. Giảm nửa số byte mỗi token so với FP8 — lợi ích kinh tế trong Giai đoạn 17 · 07.
 
-Caveats:
-- No LoRA support yet (early 2026).
-- Quality drop visible on reasoning-heavy workloads.
-- Validate on your eval set per model.
+Các lưu ý:
+- Chưa có hỗ trợ LoRA (đầu năm 2026).
+- Mức giảm chất lượng nhìn thấy trên các khối lượng công việc nhiều suy luận.
+- Xác thực trên tập đánh giá của bạn theo từng mô hình.
 
 ### The calibration trap
 
-AWQ and GPTQ require a calibration dataset — typically C4 or WikiText. For domain models (code, medical, legal), calibrating on generic web text lets the algorithm make wrong decisions about which weights to protect. Pass@1 on HumanEval can drop several points.
+AWQ và GPTQ yêu cầu một tập dữ liệu hiệu chuẩn — thường là C4 hoặc WikiText. Với các mô hình lĩnh vực (mã, y khoa, pháp lý), hiệu chuẩn trên văn bản web tổng quát để thuật toán đưa ra các quyết định sai về những trọng số nào cần bảo vệ. Pass@1 trên HumanEval có thể giảm vài điểm.
 
-The fix: calibrate on in-domain data. Hundreds of domain samples is usually enough. Test on the eval set before shipping.
+Cách sửa: hiệu chuẩn trên dữ liệu trong lĩnh vực. Hàng trăm mẫu lĩnh vực thường đủ. Kiểm thử trên tập đánh giá trước khi đưa ra sử dụng.
 
 ### The KV cache trap
 
-AWQ shrinks weights to 4 bits. KV cache is separate and stays at FP16/FP8. For a 70B model with AWQ:
+AWQ thu trọng số xuống 4 bit. Bộ nhớ đệm KV tách biệt và giữ ở FP16/FP8. Với một mô hình 70B có AWQ:
 
-- Weights: ~35 GB (INT4 from 140 GB).
-- KV cache at 128 concurrent × 2k context: ~20 GB.
-- Activations: ~5 GB.
-- Total: ~60 GB — fits on H100 80GB.
+- Trọng số: ~35 GB (INT4 từ 140 GB).
+- Bộ nhớ đệm KV ở 128 đồng thời × ngữ cảnh 2k: ~20 GB.
+- Các kích hoạt: ~5 GB.
+- Tổng: ~60 GB — vừa trên H100 80GB.
 
-Naively "I quantized my model to 4 GB" forgets the other 30-50 GB. Budget HBM holistically.
+Ngây thơ “Tôi lượng tử hóa mô hình xuống 4 GB” quên 30-50 GB khác. Dự trù HBM toàn diện.
 
-Separately, KV cache quantization (FP8 KV or INT8 KV) is a different choice with its own tradeoffs — it affects attention accuracy directly and is not a free win.
+Riêng biệt, lượng tử hóa bộ nhớ đệm KV (KV FP8 hoặc KV INT8) là một lựa chọn khác với các đánh đổi riêng — nó ảnh hưởng trực tiếp độ chính xác attention và không phải lợi ích miễn phí.
 
 ### AWQ INT4 is hazardous for reasoning
 
-Chain-of-thought, math, code-gen with long context — these suffer visibly from aggressive quantization. AWQ INT4 loses ~3-5 points on MATH. For reasoning-heavy workloads, ship FP8 or BF16; accept the memory cost.
+Chuỗi suy nghĩ, toán, sinh mã với ngữ cảnh dài — chúng chịu ảnh hưởng thấy rõ từ lượng tử hóa quyết liệt. AWQ INT4 mất ~3-5 điểm trên MATH. Với các khối lượng công việc nhiều suy luận, đưa FP8 hoặc BF16 ra sử dụng; chấp nhận chi phí bộ nhớ.
 
 ### 2026 picking guide
 
-- CPU/edge serve: GGUF Q4_K_M. Done.
-- GPU serve, routine chat, no LoRA: AWQ.
-- GPU serve, multi-LoRA: GPTQ with Marlin.
-- Reasoning workload: FP8.
-- Blackwell datacenter, validated quality: NVFP4 + FP8 KV.
-- Ambiguous: run a 1,000-sample eval on each candidate format.
+- Phục vụ CPU/biên: GGUF Q4_K_M. Xong.
+- Phục vụ GPU, trò chuyện thường lệ, không LoRA: AWQ.
+- Phục vụ GPU, nhiều LoRA: GPTQ với Marlin.
+- Khối lượng công việc suy luận: FP8.
+- Trung tâm dữ liệu Blackwell, chất lượng được xác thực: NVFP4 + KV FP8.
+- Mơ hồ: chạy một đánh giá 1,000 mẫu trên mỗi định dạng ứng viên.
 
 ```figure
 gpu-memory-breakdown
@@ -102,39 +102,39 @@ gpu-memory-breakdown
 
 ## Use It
 
-`code/main.py` computes memory footprint (weights + KV + activations) and relative throughput across the six formats for a range of model sizes. Shows where KV cache dominates, where weight compression pays, and where FP8 is the safe pick.
+`code/main.py` tính dung lượng bộ nhớ chiếm dụng (trọng số + KV + các kích hoạt) và thông lượng tương đối trên sáu định dạng cho một dải kích thước mô hình. Cho thấy nơi bộ nhớ đệm KV chi phối, nơi nén trọng số có lợi, và nơi FP8 là lựa chọn an toàn.
 
 ## Ship It
 
-This lesson produces `outputs/skill-quantization-picker.md`. Given hardware, model size, workload type, and quality tolerance, picks a format and produces a calibration/validation plan.
+Bài này tạo ra `outputs/skill-quantization-picker.md`. Với phần cứng, kích thước mô hình, loại khối lượng công việc, và dung sai chất lượng, chọn một định dạng và tạo một kế hoạch hiệu chuẩn/xác thực.
 
 ## Exercises
 
-1. Run `code/main.py`. For a 70B model at 128 concurrent with 2k context, compute the total HBM for each format. Which format lets you fit on one H100 80GB?
-2. You have a 7B coding model. Pick a format and justify. If you were wrong about quality tolerance, what is the recovery path?
-3. Compute the calibration-dataset size needed to calibrate AWQ for a medical domain model. Why is more data not always better?
-4. Read the Marlin-AWQ kernel paper or release notes. Explain in three sentences why AWQ hits 741 tok/s on 7B while raw GPTQ hits ~712.
-5. When does it make sense to combine AWQ weights with FP8 KV cache vs keeping KV at BF16?
+1. Chạy `code/main.py`. Với một mô hình 70B ở 128 đồng thời với ngữ cảnh 2k, tính tổng HBM cho mỗi định dạng. Định dạng nào cho bạn vừa trên một H100 80GB?
+2. Bạn có một mô hình lập trình 7B. Chọn một định dạng và giải thích. Nếu bạn sai về dung sai chất lượng, đường phục hồi là gì?
+3. Tính kích thước tập dữ liệu hiệu chuẩn cần để hiệu chuẩn AWQ cho một mô hình lĩnh vực y khoa. Vì sao nhiều dữ liệu hơn không phải lúc nào cũng tốt hơn?
+4. Đọc bài báo kernel Marlin-AWQ hoặc các ghi chú phát hành. Giải thích trong ba câu vì sao AWQ đạt 741 tok/s trên 7B trong khi GPTQ thô đạt ~712.
+5. Khi nào hợp lý để kết hợp các trọng số AWQ với bộ nhớ đệm KV FP8 so với giữ KV ở BF16?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| GGUF | "llama.cpp format" | File format bundling K-quant variants; CPU/edge default |
-| Q4_K_M | "Q4 K M" | 4-bit K-quant medium; the production GGUF default |
-| GPTQ | "gee pee tee q" | Post-train INT4 with calibration; supports LoRA in vLLM |
-| AWQ | "a w q" | Activation-aware INT4; Marlin kernels; best Pass@1 at INT4 |
-| Marlin kernels | "fast INT4 kernels" | Custom CUDA kernels for INT4 on Hopper; 10x speedup |
-| FP8 | "eight-bit float" | Safe precision default on Hopper/Ada/Blackwell |
-| MXFP4 / NVFP4 | "microscaling four" | Blackwell 4-bit FP with per-block scale factors |
-| Calibration dataset | "cal data" | Input text used to pick quantization parameters; must match domain |
-| KV cache quantization | "KV INT8" | Separate choice from weights; affects attention accuracy |
+| GGUF | “định dạng llama.cpp” | Định dạng file gói các biến thể K-quant; mặc định CPU/biên |
+| Q4_K_M | “Q4 K M” | K-quant 4 bit mức vừa; mặc định GGUF sản xuất |
+| GPTQ | “gee pee tee q” | INT4 sau huấn luyện với hiệu chuẩn; hỗ trợ LoRA trong vLLM |
+| AWQ | “a w q” | INT4 nhận biết kích hoạt; các kernel Marlin; Pass@1 tốt nhất ở INT4 |
+| Marlin kernels (Các kernel Marlin) | “các kernel INT4 nhanh” | Các kernel CUDA tùy chỉnh cho INT4 trên Hopper; tăng tốc 10x |
+| FP8 | “dấu phẩy động tám bit” | Mặc định độ chính xác an toàn trên Hopper/Ada/Blackwell |
+| MXFP4 / NVFP4 | “microscaling bốn” | FP 4 bit Blackwell với các hệ số thang đo theo từng block |
+| Calibration dataset (Tập dữ liệu hiệu chuẩn) | “dữ liệu hiệu chuẩn” | Văn bản đầu vào dùng để chọn các tham số lượng tử hóa; phải khớp lĩnh vực |
+| KV cache quantization (Lượng tử hóa bộ nhớ đệm KV) | “KV INT8” | Lựa chọn tách khỏi trọng số; ảnh hưởng độ chính xác attention |
 
 ## Further Reading
 
-- [VRLA Tech — LLM Quantization 2026](https://vrlatech.com/llm-quantization-explained-int4-int8-fp8-awq-and-gptq-in-2026/) — comparative benchmarks.
-- [Jarvis Labs — vLLM Quantization Complete Guide](https://jarvislabs.ai/blog/vllm-quantization-complete-guide-benchmarks) — throughput numbers by format.
-- [PremAI — GGUF vs AWQ vs GPTQ vs bitsandbytes 2026](https://blog.premai.io/llm-quantization-guide-gguf-vs-awq-vs-gptq-vs-bitsandbytes-compared-2026/) — format-by-format picking.
-- [vLLM docs — Quantization](https://docs.vllm.ai/en/latest/features/quantization/index.html) — supported formats and flags.
-- [AWQ paper (arXiv:2306.00978)](https://arxiv.org/abs/2306.00978) — original AWQ formulation.
-- [GPTQ paper (arXiv:2210.17323)](https://arxiv.org/abs/2210.17323) — original GPTQ formulation.
+- [VRLA Tech — LLM Quantization 2026](https://vrlatech.com/llm-quantization-explained-int4-int8-fp8-awq-and-gptq-in-2026/) — các benchmark so sánh.
+- [Jarvis Labs — vLLM Quantization Complete Guide](https://jarvislabs.ai/blog/vllm-quantization-complete-guide-benchmarks) — các con số thông lượng theo định dạng.
+- [PremAI — GGUF vs AWQ vs GPTQ vs bitsandbytes 2026](https://blog.premai.io/llm-quantization-guide-gguf-vs-awq-vs-gptq-vs-bitsandbytes-compared-2026/) — lựa chọn theo từng định dạng.
+- [vLLM docs — Quantization](https://docs.vllm.ai/en/latest/features/quantization/index.html) — các định dạng và cờ được hỗ trợ.
+- [AWQ paper (arXiv:2306.00978)](https://arxiv.org/abs/2306.00978) — công thức AWQ gốc.
+- [GPTQ paper (arXiv:2210.17323)](https://arxiv.org/abs/2210.17323) — công thức GPTQ gốc.

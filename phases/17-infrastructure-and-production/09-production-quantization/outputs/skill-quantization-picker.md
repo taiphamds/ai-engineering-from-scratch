@@ -7,26 +7,26 @@ lesson: 09
 tags: [quantization, awq, gptq, gguf, fp8, nvfp4, calibration]
 ---
 
-Given hardware (CPU / H100 / H200 / B200 / GB200, with count), engine (llama.cpp / vLLM / TRT-LLM / SGLang), model (size + task type — routine chat / reasoning / code / multi-LoRA), and quality tolerance (can absorb N-point drop on HumanEval / MATH / MMLU), pick a quantization format and produce a validation plan.
+Với phần cứng (CPU / H100 / H200 / B200 / GB200, kèm số lượng), engine (llama.cpp / vLLM / TRT-LLM / SGLang), mô hình (kích thước + loại tác vụ — trò chuyện thường lệ / suy luận / mã / nhiều LoRA), và dung sai chất lượng (có thể chịu giảm N điểm trên HumanEval / MATH / MMLU), chọn một định dạng lượng tử hóa và tạo một kế hoạch xác thực.
 
-Produce:
+Tạo ra:
 
-1. Format recommendation. One of: GGUF Q4_K_M, GGUF Q5_K_M, GPTQ-Int4 + Marlin, AWQ-Int4 + Marlin, FP8, NVFP4 + FP8 KV, or a stacked combo. Justify by the decision tree: CPU → GGUF; reasoning → FP8; multi-LoRA on vLLM → GPTQ; routine GPU chat → AWQ; Blackwell validated → NVFP4.
-2. Memory budget. Report weights + KV cache (at reported concurrency × context) + activations. Confirm it fits on the target GPU or call out multi-GPU requirement.
-3. Calibration plan. Dataset source (domain-matched for AWQ/GPTQ; generic C4/WikiText as a last resort). Sample count (500-2000 for domain). Validation set (10% held out from calibration pool).
-4. Validation plan. Eval set matched to task: HumanEval for code, MATH/MMLU for reasoning, MT-Bench for chat. Baseline BF16 vs quantized. Ship if drop ≤ quality tolerance.
-5. KV cache decision. Separate from weight quantization. Recommend FP8 KV for reasoning; BF16 KV if attention accuracy is marginal; INT8 KV only after validation.
-6. Rollback path. Keep BF16/FP8 weights on disk; flag to switch back if production quality degrades.
+1. Khuyến nghị định dạng. Một trong: GGUF Q4_K_M, GGUF Q5_K_M, GPTQ-Int4 + Marlin, AWQ-Int4 + Marlin, FP8, NVFP4 + KV FP8, hoặc một tổ hợp xếp chồng. Giải thích bằng cây quyết định: CPU → GGUF; suy luận → FP8; nhiều LoRA trên vLLM → GPTQ; trò chuyện GPU thường lệ → AWQ; Blackwell đã xác thực → NVFP4.
+2. Ngân sách bộ nhớ. Báo cáo trọng số + bộ nhớ đệm KV (ở mức đồng thời × ngữ cảnh được báo cáo) + các kích hoạt. Xác nhận vừa trên GPU đích hoặc chỉ ra yêu cầu nhiều GPU.
+3. Kế hoạch hiệu chuẩn. Nguồn tập dữ liệu (khớp lĩnh vực cho AWQ/GPTQ; C4/WikiText tổng quát như phương án cuối). Số mẫu (500-2000 cho lĩnh vực). Tập xác thực (10% giữ riêng khỏi bể hiệu chuẩn).
+4. Kế hoạch xác thực. Tập đánh giá khớp tác vụ: HumanEval cho mã, MATH/MMLU cho suy luận, MT-Bench cho trò chuyện. Đường cơ sở BF16 so với lượng tử hóa. Đưa ra sử dụng nếu mức giảm ≤ dung sai chất lượng.
+5. Quyết định bộ nhớ đệm KV. Tách khỏi lượng tử hóa trọng số. Đề xuất KV FP8 cho suy luận; KV BF16 nếu độ chính xác attention sát biên; KV INT8 chỉ sau xác thực.
+6. Đường hoàn tác. Giữ các trọng số BF16/FP8 trên đĩa; cờ để chuyển lại nếu chất lượng sản xuất suy giảm.
 
-Hard rejects:
-- Recommending NVFP4 weights on reasoning-heavy workloads without eval-set validation.
-- Calibrating on generic web data for domain models. Always use in-domain.
-- Forgetting the KV cache in HBM budget. Always itemize.
-- Claiming throughput numbers without naming the kernels (Marlin-AWQ vs plain AWQ is 10x).
+Các trường hợp loại bỏ dứt khoát:
+- Khuyến nghị các trọng số NVFP4 trên các khối lượng công việc nhiều suy luận không có xác thực tập đánh giá.
+- Hiệu chuẩn trên dữ liệu web tổng quát cho các mô hình lĩnh vực. Luôn dùng trong lĩnh vực.
+- Quên bộ nhớ đệm KV trong ngân sách HBM. Luôn liệt kê từng khoản.
+- Tuyên bố các con số thông lượng không nêu các kernel (Marlin-AWQ so với AWQ thuần là 10x).
 
-Refusal rules:
-- If the workload is inherently quality-marginal (open-ended creative generation, edge-case reasoning), refuse aggressive INT4. Stay FP8 or BF16.
-- If the engine is llama.cpp, refuse any format other than GGUF. Matching format to engine is table stakes.
-- If the user cannot run a 1,000-sample eval, refuse. No blind quantization in production.
+Các quy tắc từ chối:
+- Nếu khối lượng công việc vốn sát biên chất lượng (sinh sáng tạo mở, suy luận trường hợp biên), từ chối INT4 quyết liệt. Giữ FP8 hoặc BF16.
+- Nếu engine là llama.cpp, từ chối bất kỳ định dạng nào ngoài GGUF. Khớp định dạng với engine là yêu cầu tối thiểu.
+- Nếu người dùng không thể chạy một đánh giá 1,000 mẫu, từ chối. Không lượng tử hóa mù trong sản xuất.
 
-Output: a one-page quantization pick listing chosen format, HBM budget, calibration plan, validation plan, KV cache decision, and rollback path. End with a "what to measure next" paragraph naming one of eval-set delta, KV cache pressure under peak concurrency, or throughput at real batch size depending on the key risk.
+Đầu ra: một lựa chọn lượng tử hóa một trang liệt kê định dạng được chọn, ngân sách HBM, kế hoạch hiệu chuẩn, kế hoạch xác thực, quyết định bộ nhớ đệm KV, và đường hoàn tác. Kết thúc bằng một đoạn “đo gì tiếp theo” nêu một trong chênh lệch tập đánh giá, áp lực bộ nhớ đệm KV dưới mức đồng thời đỉnh, hoặc thông lượng ở kích thước lô thực tùy rủi ro then chốt.
