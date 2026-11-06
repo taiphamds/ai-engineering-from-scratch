@@ -1,6 +1,6 @@
 # StyleGAN
 
-> Most generators stir `z` into every layer at the same time. StyleGAN split it apart: first map `z` to an intermediate `w`, then *inject* `w` at every resolution level through AdaIN. That single change untangled the latent space and made photorealistic faces a solved problem for seven years running.
+> Hầu hết các bộ sinh trộn `z` vào mọi lớp cùng lúc. StyleGAN tách nó ra: trước tiên ánh xạ `z` sang một `w` trung gian, rồi *đưa* `w` vào ở mọi mức độ phân giải qua AdaIN. Một thay đổi đó đã gỡ rối không gian latent và biến khuôn mặt chân thực như ảnh chụp thành một bài toán đã được giải trong bảy năm liên tiếp.
 
 **Type:** Build
 **Languages:** Python
@@ -9,19 +9,19 @@
 
 ## The Problem
 
-A DCGAN maps `z` to an image through a stack of transposed convolutions. The problem: `z` controls everything — pose, lighting, identity, background — entangled together. Move along one axis of `z`, all four change. You cannot ask the model "same person, different pose" because the representation does not factor that way.
+Một DCGAN ánh xạ `z` sang một ảnh qua một chồng tích chập chuyển vị. Vấn đề: `z` điều khiển mọi thứ — tư thế, ánh sáng, danh tính, nền — đan xen với nhau. Di chuyển dọc một trục của `z`, cả bốn đều thay đổi. Bạn không thể yêu cầu mô hình "cùng một người, tư thế khác" vì biểu diễn không phân tách theo cách đó.
 
-Karras et al. (2019, NVIDIA) proposed: stop feeding `z` directly into conv layers. Feed a constant `4×4×512` tensor as the network input. Learn an 8-layer MLP that maps `z ∈ Z → w ∈ W`. Inject `w` at every resolution via *adaptive instance normalization* (AdaIN): normalize each conv feature map, then scale and shift by affine projections of `w`. Add per-layer noise for stochastic detail (skin pores, hair strands).
+Karras và cộng sự (2019, NVIDIA) đề xuất: ngừng đưa `z` trực tiếp vào các lớp conv. Đưa một tensor hằng `4×4×512` làm đầu vào mạng. Học một MLP 8 lớp ánh xạ `z ∈ Z → w ∈ W`. Đưa `w` vào ở mọi độ phân giải qua *chuẩn hóa instance thích nghi* (AdaIN): chuẩn hóa từng bản đồ đặc trưng conv, rồi co giãn và dịch chuyển bằng các phép chiếu affine của `w`. Thêm nhiễu theo lớp cho chi tiết ngẫu nhiên (lỗ chân lông, sợi tóc).
 
-The result: `W` has roughly orthogonal axes for "high-level style" (pose, identity) vs "fine style" (lighting, color). You can swap styles between two images by using image A's `w` for the low-resolution levels and image B's `w` for the high. This unlocked editing, cross-domain stylization, and the entire "StyleGAN-inversion" line of research.
+Kết quả: `W` có các trục gần trực giao cho "phong cách cấp cao" (tư thế, danh tính) so với "phong cách tinh" (ánh sáng, màu sắc). Bạn có thể hoán đổi phong cách giữa hai ảnh bằng cách dùng `w` của ảnh A cho các mức độ phân giải thấp và `w` của ảnh B cho các mức cao. Điều này mở ra chỉnh sửa, cách điệu xuyên miền và toàn bộ nhánh nghiên cứu "StyleGAN-inversion".
 
 ## The Concept
 
 ![StyleGAN: mapping network + AdaIN + per-layer noise](../assets/stylegan.svg)
 
-**Mapping network.** `f: Z → W`, an 8-layer MLP. `Z = N(0, I)^512`. `W` is not forced to be Gaussian — it learns a data-adapted shape.
+**Mạng ánh xạ.** `f: Z → W`, một MLP 8 lớp. `Z = N(0, I)^512`. `W` không bị buộc là Gaussian — nó học một hình dạng thích nghi với dữ liệu.
 
-**Synthesis network.** Starts from a learned constant `4×4×512`. Each resolution block: `upsample → conv → AdaIN(w_i) → noise → conv → AdaIN(w_i) → noise`. Resolutions double: 4, 8, 16, 32, 64, 128, 256, 512, 1024.
+**Mạng tổng hợp.** Bắt đầu từ một hằng số được học `4×4×512`. Mỗi khối độ phân giải: `upsample → conv → AdaIN(w_i) → noise → conv → AdaIN(w_i) → noise`. Độ phân giải tăng gấp đôi: 4, 8, 16, 32, 64, 128, 256, 512, 1024.
 
 **AdaIN.**
 
@@ -29,23 +29,23 @@ The result: `W` has roughly orthogonal axes for "high-level style" (pose, identi
 AdaIN(x, y) = y_scale · (x - mean(x)) / std(x) + y_bias
 ```
 
-where `y_scale` and `y_bias` come from affine projections of `w`. Normalize per feature map, then restyle. "Style" here is the first- and second-order statistics of the feature map.
+trong đó `y_scale` và `y_bias` đến từ các phép chiếu affine của `w`. Chuẩn hóa theo từng bản đồ đặc trưng, rồi tạo lại phong cách. "Phong cách" ở đây là các thống kê bậc nhất và bậc hai của bản đồ đặc trưng.
 
-**Per-layer noise.** Single-channel Gaussian noise added to each feature map, scaled by a learned per-channel factor. Controls stochastic detail without affecting global structure.
+**Nhiễu theo lớp.** Nhiễu Gaussian một kênh được thêm vào mỗi bản đồ đặc trưng, được co giãn bởi một hệ số theo kênh được học. Điều khiển chi tiết ngẫu nhiên mà không ảnh hưởng cấu trúc toàn cục.
 
-**Truncation trick.** At inference, sample `z`, compute `w = mapping(z)`, then `w' = ŵ + ψ·(w - ŵ)` where `ŵ` is the mean `w` over many samples. `ψ < 1` trades diversity for quality. Almost every StyleGAN demo uses `ψ ≈ 0.7`.
+**Thủ thuật truncation.** Khi suy luận, lấy mẫu `z`, tính `w = mapping(z)`, rồi `w' = ŵ + ψ·(w - ŵ)` trong đó `ŵ` là trung bình `w` trên nhiều mẫu. `ψ < 1` đánh đổi đa dạng lấy chất lượng. Gần như mọi bản demo StyleGAN đều dùng `ψ ≈ 0.7`.
 
 ## StyleGAN 1 → 2 → 3
 
-| Version | Year | Innovation |
+| Phiên bản | Năm | Đổi mới |
 |---------|------|------------|
-| StyleGAN | 2019 | Mapping network + AdaIN + noise + progressive growing. |
-| StyleGAN2 | 2020 | Weight demodulation replaces AdaIN (fixes droplet artifacts); skip/residual architecture; path-length regularization. |
-| StyleGAN3 | 2021 | Alias-free convolution + equivariant kernels; eliminates texture sticking to pixel grid. |
-| StyleGAN-XL | 2022 | Class-conditional, 1024², ImageNet. |
-| R3GAN | 2024 | Rebrands with stronger reg; closes gap to diffusion on FFHQ-1024 with 20x fewer params. |
+| StyleGAN | 2019 | Mạng ánh xạ + AdaIN + nhiễu + phát triển lũy tiến. |
+| StyleGAN2 | 2020 | Giải điều biến trọng số thay AdaIN (khắc phục lỗi giả giọt nước); kiến trúc skip/residual; regularization độ dài đường đi. |
+| StyleGAN3 | 2021 | Tích chập không alias + kernel đẳng biến; loại bỏ kết cấu bám vào lưới pixel. |
+| StyleGAN-XL | 2022 | Có điều kiện theo lớp, 1024², ImageNet. |
+| R3GAN | 2024 | Đổi thương hiệu với regularization mạnh hơn; thu hẹp khoảng cách với khuếch tán trên FFHQ-1024 với ít tham số hơn 20x. |
 
-In 2026 StyleGAN3 remains the default for (a) narrow-domain photorealism at high FPS, (b) few-shot domain adaptation (train on a new dataset with 100 images, freeze mapping), (c) inversion-based editing (find the `w` that reconstructs a real photo, then edit that `w`). For open-domain text-to-image, it is not the tool — diffusion is.
+Vào năm 2026 StyleGAN3 vẫn là mặc định cho (a) độ chân thực như ảnh chụp trong miền hẹp ở FPS cao, (b) thích nghi miền few-shot (huấn luyện trên một tập dữ liệu mới có 100 ảnh, đóng băng mạng ánh xạ), (c) chỉnh sửa dựa trên nghịch đảo (tìm `w` tái dựng một ảnh chụp thật, rồi chỉnh sửa `w` đó). Cho văn bản thành ảnh miền mở, nó không phải công cụ phù hợp — khuếch tán mới là.
 
 ```figure
 gx-stylegan-mapping
@@ -53,7 +53,7 @@ gx-stylegan-mapping
 
 ## Build It
 
-`code/main.py` implements a toy "style-GAN lite" in 1-D: a mapping MLP, a synthesis function that takes a learned constant vector and modulates it with `w`-derived scale/bias, and per-layer noise. It shows that injecting `w` via affine-modulation matches or beats concatenating `z` into the generator's input.
+`code/main.py` triển khai một "style-GAN lite" đồ chơi trong 1-D: một MLP ánh xạ, một hàm tổng hợp nhận một vector hằng được học và điều biến nó bằng scale/bias suy ra từ `w`, và nhiễu theo lớp. Nó cho thấy đưa `w` vào qua điều biến affine ngang bằng hoặc vượt việc nối `z` vào đầu vào bộ sinh.
 
 ### Step 1: mapping network
 
@@ -75,7 +75,7 @@ def adain(x, w_scale, w_bias):
     return [w_scale * xi + w_bias for xi in x_norm]
 ```
 
-Per-feature-map scale and bias come from `w` via linear projection.
+Scale và bias theo từng bản đồ đặc trưng đến từ `w` qua phép chiếu tuyến tính.
 
 ### Step 3: per-layer noise
 
@@ -84,65 +84,65 @@ def add_noise(x, sigma, rng):
     return [xi + sigma * rng.gauss(0, 1) for xi in x]
 ```
 
-Sigma per-channel is learnable.
+Sigma theo kênh có thể học được.
 
 ## Pitfalls
 
-- **Droplet artifacts.** StyleGAN 1 produced a blobby droplet in the feature maps because AdaIN zeroed out mean. StyleGAN 2's weight demodulation fixes it by scaling the convolution weights instead.
-- **Texture sticking.** StyleGAN 1 and 2 textures followed pixel coordinates, not object coordinates (visible when interpolating). StyleGAN 3's alias-free convolutions fix this with windowed sinc filters.
-- **Mode coverage.** Truncation `ψ < 0.7` looks clean but samples from a narrow cone; use `ψ = 1.0` if you need diversity.
-- **Inversion is lossy.** Inverting a real photo into `W` is usually done through optimization or an encoder (e4e, ReStyle, HyperStyle). Results drift over many iterations.
+- **Lỗi giả giọt nước.** StyleGAN 1 tạo ra một giọt nước dạng đốm trong các bản đồ đặc trưng vì AdaIN đưa trung bình về không. Giải điều biến trọng số của StyleGAN 2 khắc phục bằng cách co giãn trọng số tích chập thay thế.
+- **Kết cấu bám dính.** Kết cấu StyleGAN 1 và 2 đi theo tọa độ pixel, không phải tọa độ vật thể (nhìn thấy khi nội suy). Các tích chập không alias của StyleGAN 3 khắc phục điều này bằng bộ lọc sinc có cửa sổ.
+- **Độ bao phủ mode.** Truncation `ψ < 0.7` trông sạch nhưng lấy mẫu từ một hình nón hẹp; dùng `ψ = 1.0` nếu bạn cần đa dạng.
+- **Nghịch đảo có mất mát.** Nghịch đảo một ảnh chụp thật vào `W` thường được làm qua tối ưu hóa hoặc một encoder (e4e, ReStyle, HyperStyle). Kết quả trôi qua nhiều lần lặp.
 
 ## Use It
 
-| Use case | Approach |
+| Trường hợp sử dụng | Cách tiếp cận |
 |----------|----------|
-| Photoreal human faces (anime, product, narrow) | StyleGAN3 FFHQ / custom fine-tune |
-| Face editing from a photo | e4e inversion + StyleSpace / InterFaceGAN directions |
-| Face swap / reenactment | StyleGAN + encoder + blending |
-| Avatar pipelines | StyleGAN3 w/ ADA for low-data fine-tune |
-| Domain adaptation from a few images | Freeze mapping network, fine-tune synthesis |
-| Multi-modal or text-conditioned generation | Don't — use diffusion |
+| Khuôn mặt người chân thực như ảnh chụp (anime, sản phẩm, hẹp) | StyleGAN3 FFHQ / tinh chỉnh tùy chỉnh |
+| Chỉnh sửa khuôn mặt từ một ảnh chụp | Nghịch đảo e4e + các hướng StyleSpace / InterFaceGAN |
+| Hoán đổi khuôn mặt / tái diễn | StyleGAN + encoder + hòa trộn |
+| Các pipeline avatar | StyleGAN3 với ADA cho tinh chỉnh ít dữ liệu |
+| Thích nghi miền từ một vài ảnh | Đóng băng mạng ánh xạ, tinh chỉnh mạng tổng hợp |
+| Sinh đa phương thức hoặc có điều kiện bằng văn bản | Đừng — dùng khuếch tán |
 
-For product-grade demos where the answer is "photo of a person's face", StyleGAN beats diffusion on inference cost (single forward pass, <10ms on a 4090) and sharpness for the same quality bar.
+Với các bản demo cấp sản phẩm mà câu trả lời là "ảnh chụp khuôn mặt một người", StyleGAN đánh bại khuếch tán về chi phí suy luận (một lượt truyền xuôi, <10ms trên một 4090) và độ sắc nét ở cùng mức chất lượng.
 
 ## Ship It
 
-Save `outputs/skill-stylegan-inversion.md`. Skill takes a real photo and outputs: inversion method (e4e / ReStyle / HyperStyle), expected latent loss, editing budget (how far in `W` you can move before artifacts), and a list of known-good editing directions (age, expression, pose).
+Lưu `outputs/skill-stylegan-inversion.md`. Skill nhận một ảnh chụp thật và xuất ra: phương pháp nghịch đảo (e4e / ReStyle / HyperStyle), mất mát latent dự kiến, ngân sách chỉnh sửa (bạn có thể di chuyển xa bao nhiêu trong `W` trước khi có lỗi giả), và một danh sách các hướng chỉnh sửa đã biết là tốt (tuổi, biểu cảm, tư thế).
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py` with `adain_on=True` and `adain_on=False`. Compare the spread of outputs for a fixed latent vs perturbed latent.
-2. **Medium.** Implement mixing regularization: for a training batch, compute `w_a`, `w_b`, and apply `w_a` for the first half of synthesis and `w_b` for the second half. Does the decoder learn disentangled styles?
-3. **Hard.** Take a pretrained StyleGAN3 FFHQ model (ffhq-1024.pkl). Find the `w` direction that controls "smile" by training an SVM on labelled samples; report how far you can push before identity drifts.
+1. **Dễ.** Chạy `code/main.py` với `adain_on=True` và `adain_on=False`. So sánh độ phân tán của đầu ra cho một latent cố định so với latent bị nhiễu.
+2. **Trung bình.** Triển khai mixing regularization: với một batch huấn luyện, tính `w_a`, `w_b`, và áp dụng `w_a` cho nửa đầu của quá trình tổng hợp và `w_b` cho nửa sau. Decoder có học các phong cách tách biệt không?
+3. **Khó.** Lấy một mô hình StyleGAN3 FFHQ được huấn luyện trước (ffhq-1024.pkl). Tìm hướng `w` điều khiển "nụ cười" bằng cách huấn luyện một SVM trên các mẫu có nhãn; báo cáo bạn có thể đẩy xa đến đâu trước khi danh tính trôi.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Mapping network | "The MLP" | `f: Z → W`, 8 layers, decouples latent geometry from data statistics. |
-| W space | "The style space" | Output of the mapping network; roughly disentangled. |
-| AdaIN | "Adaptive instance norm" | Normalize feature map, then scale + shift by `w`-projection. |
-| Truncation trick | "Psi" | `w = mean + ψ·(w - mean)`, ψ<1 trades diversity for quality. |
-| Path-length regularization | "PL reg" | Penalizes large changes in image per unit change in `w`; makes `W` smoother. |
-| Weight demodulation | "The StyleGAN2 fix" | Normalize conv weights instead of activations; kills droplet artifacts. |
-| Alias-free | "StyleGAN3's trick" | Windowed sinc filters; eliminates texture sticking to the pixel grid. |
-| Inversion | "Find w for a real image" | Optimize or encode `x → w` so `G(w) ≈ x`. |
+| Mapping network (Mạng ánh xạ) | "MLP" | `f: Z → W`, 8 lớp, tách hình học latent khỏi thống kê dữ liệu. |
+| W space (Không gian W) | "Không gian phong cách" | Đầu ra của mạng ánh xạ; gần như tách biệt. |
+| AdaIN | "Chuẩn hóa instance thích nghi" | Chuẩn hóa bản đồ đặc trưng, rồi co giãn + dịch chuyển bằng phép chiếu `w`. |
+| Truncation trick (Thủ thuật truncation) | "Psi" | `w = mean + ψ·(w - mean)`, ψ<1 đánh đổi đa dạng lấy chất lượng. |
+| Path-length regularization (Regularization độ dài đường đi) | "PL reg" | Phạt các thay đổi lớn trong ảnh trên mỗi đơn vị thay đổi trong `w`; làm `W` trơn hơn. |
+| Weight demodulation (Giải điều biến trọng số) | "Cách khắc phục của StyleGAN2" | Chuẩn hóa trọng số conv thay vì activation; loại bỏ lỗi giả giọt nước. |
+| Alias-free (Không alias) | "Thủ thuật của StyleGAN3" | Các bộ lọc sinc có cửa sổ; loại bỏ kết cấu bám vào lưới pixel. |
+| Inversion (Nghịch đảo) | "Tìm w cho một ảnh thật" | Tối ưu hoặc mã hóa `x → w` sao cho `G(w) ≈ x`. |
 
 ## Production note: why StyleGAN still ships in 2026
 
-StyleGAN3 on a 4090 generates a 1024² FFHQ face in under 10 ms — `num_steps = 1`, no VAE decode, no cross-attention pass. In production terms this is the floor latency for any image generator. A 50-step SDXL + VAE-decode pipeline at the same resolution is ~3 seconds. That is a **300× gap**, and for narrow-domain products (avatar services, ID document pipelines, stock face generation) it wins on TCO.
+StyleGAN3 trên một 4090 sinh một khuôn mặt FFHQ 1024² trong dưới 10 ms — `num_steps = 1`, không giải mã VAE, không có lượt cross-attention. Theo ngôn ngữ production, đây là mức độ trễ tối thiểu cho bất kỳ bộ sinh ảnh nào. Một pipeline SDXL 50 bước + giải mã VAE ở cùng độ phân giải mất ~3 giây. Đó là một **khoảng cách 300×**, và với các sản phẩm miền hẹp (dịch vụ avatar, pipeline giấy tờ định danh, sinh khuôn mặt stock) nó thắng về TCO.
 
-Two operational consequences:
+Hai hệ quả vận hành:
 
-- **No scheduler, no batcher.** Static batch at the target occupancy is optimal. Continuous batching (essential for LLMs and diffusion) provides zero benefit because every request takes the same FLOPs.
-- **Truncation `ψ` is the safety knob.** `ψ < 0.7` samples from a narrow cone of the mapping network's range. This is the only lever the serving layer has over sample variance. Lower `ψ` at peak load, raise it for premium users.
+- **Không bộ lập lịch, không bộ gom batch.** Batch tĩnh ở mức chiếm dụng mục tiêu là tối ưu. Continuous batching (thiết yếu cho LLM và khuếch tán) không mang lại lợi ích vì mọi yêu cầu có cùng FLOPs.
+- **Truncation `ψ` là nút điều chỉnh an toàn.** `ψ < 0.7` lấy mẫu từ một hình nón hẹp của miền giá trị mạng ánh xạ. Đây là đòn bẩy duy nhất lớp phục vụ có đối với phương sai mẫu. Giảm `ψ` ở tải đỉnh, tăng nó cho người dùng cao cấp.
 
 ## Further Reading
 
 - [Karras et al. (2019). A Style-Based Generator Architecture for GANs](https://arxiv.org/abs/1812.04948) — StyleGAN.
 - [Karras et al. (2020). Analyzing and Improving the Image Quality of StyleGAN](https://arxiv.org/abs/1912.04958) — StyleGAN2.
 - [Karras et al. (2021). Alias-Free Generative Adversarial Networks](https://arxiv.org/abs/2106.12423) — StyleGAN3.
-- [Tov et al. (2021). Designing an Encoder for StyleGAN Image Manipulation](https://arxiv.org/abs/2102.02766) — e4e inversion.
+- [Tov et al. (2021). Designing an Encoder for StyleGAN Image Manipulation](https://arxiv.org/abs/2102.02766) — nghịch đảo e4e.
 - [Sauer et al. (2022). StyleGAN-XL: Scaling StyleGAN to Large Diverse Datasets](https://arxiv.org/abs/2202.00273) — StyleGAN-XL.
-- [Huang et al. (2024). R3GAN: The GAN is dead; long live the GAN!](https://arxiv.org/abs/2501.05441) — modern minimal GAN recipe.
+- [Huang et al. (2024). R3GAN: The GAN is dead; long live the GAN!](https://arxiv.org/abs/2501.05441) — công thức GAN tối giản hiện đại.

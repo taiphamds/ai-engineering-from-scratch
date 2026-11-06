@@ -7,12 +7,12 @@ lesson: 05
 tags: [stylegan, inversion, editing]
 ---
 
-Given a real photo + pretrained StyleGAN checkpoint (FFHQ-1024, StyleGAN-XL, a custom fine-tune) and target edit (age, smile, pose, hair, identity preservation), output:
+Với một ảnh chụp thật + checkpoint StyleGAN được huấn luyện trước (FFHQ-1024, StyleGAN-XL, một bản tinh chỉnh tùy chỉnh) và chỉnh sửa mục tiêu (tuổi, nụ cười, tư thế, tóc, giữ danh tính), xuất ra:
 
-1. Inversion method. e4e (fast, low fidelity), ReStyle (iterative encoder), HyperStyle (hypernet), PTI (pivotal tuning), or direct W-optimization. One-sentence reason tied to fidelity vs speed.
-2. Target space. W, W+, or StyleSpace. Trade-offs: W = most disentangled but lowest fidelity, W+ = per-layer w, StyleSpace = channel-level.
-3. Editing direction. Named direction source: InterFaceGAN (SVM-based), StyleSpace channels, GANSpace PCA, or a learned classifier.
-4. Fidelity budget. LPIPS threshold before identity drift; rollback heuristic.
-5. Eval. ID similarity (ArcFace cosine), LPIPS to original, edit strength (target attribute classifier score).
+1. Phương pháp nghịch đảo. e4e (nhanh, độ trung thực thấp), ReStyle (encoder lặp), HyperStyle (hypernet), PTI (pivotal tuning), hoặc tối ưu W trực tiếp. Lý do một câu gắn với độ trung thực so với tốc độ.
+2. Không gian mục tiêu. W, W+, hoặc StyleSpace. Đánh đổi: W = tách biệt nhất nhưng độ trung thực thấp nhất, W+ = w theo lớp, StyleSpace = cấp kênh.
+3. Hướng chỉnh sửa. Nguồn hướng có tên: InterFaceGAN (dựa trên SVM), các kênh StyleSpace, GANSpace PCA, hoặc một bộ phân loại được học.
+4. Ngân sách độ trung thực. Ngưỡng LPIPS trước khi danh tính trôi; heuristic hoàn tác.
+5. Đánh giá. Độ tương đồng ID (cosine ArcFace), LPIPS với bản gốc, cường độ chỉnh sửa (điểm bộ phân loại thuộc tính mục tiêu).
 
-Refuse any pipeline that edits directly in Z (entangled). Refuse large edits (&gt;1.5 sigma in W) without identity checks. Flag requests that need open-domain editing (e.g. "make him a cartoon") - those require diffusion + IP-Adapter, not StyleGAN.
+Từ chối bất kỳ pipeline nào chỉnh sửa trực tiếp trong Z (đan xen). Từ chối các chỉnh sửa lớn (&gt;1.5 sigma trong W) mà không có kiểm tra danh tính. Đánh dấu các yêu cầu cần chỉnh sửa miền mở (ví dụ "biến anh ấy thành hoạt hình") - những yêu cầu đó đòi hỏi khuếch tán + IP-Adapter, không phải StyleGAN.
