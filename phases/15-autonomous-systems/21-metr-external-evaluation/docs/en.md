@@ -1,6 +1,6 @@
 # METR Time Horizons and External Capability Evaluation
 
-> METR (ex-ARC Evals) is an independent 501(c)(3) since December 2023. Their Time Horizon 1.1 benchmark (January 2026) fits a logistic curve to task-success probability vs log(expert human completion time); the intersection at 50% probability defines the model's time horizon. The 2025–2026 engagement set covers GPT-5.1, GPT-5.1-Codex-Max, and prototype monitoring evaluations (can a monitor catch side tasks; can the agent evade). Benchmark suites: HCAST (180+ ML, cyber, SWE, reasoning tasks; 1 minute to 8+ hours), RE-Bench (71 ML research-engineering tasks with expert baseline), SWAA. The honest note: METR measurements are idealized — no human, no real consequences — and the team has documented the eval-vs-deployment behavior gap (Lesson 1). A time horizon is an upper bound, not a deployment prediction.
+> METR (trước đây là ARC Evals) là một tổ chức 501(c)(3) độc lập từ tháng 12 năm 2023. Benchmark Time Horizon 1.1 của họ (tháng 1 năm 2026) khớp một đường cong logistic với xác suất thành công tác vụ theo log(thời gian hoàn thành của chuyên gia con người); giao điểm ở xác suất 50% định nghĩa tầm thời gian của mô hình. Tập các đợt hợp tác năm 2025–2026 bao phủ GPT-5.1, GPT-5.1-Codex-Max, và các đánh giá giám sát nguyên mẫu (một bộ giám sát có thể bắt các tác vụ phụ không; agent có thể né tránh không). Các bộ benchmark: HCAST (180+ tác vụ ML, an ninh mạng, SWE, suy luận; 1 phút đến 8+ giờ), RE-Bench (71 tác vụ kỹ thuật nghiên cứu ML với đường cơ sở chuyên gia), SWAA. Ghi chú thẳng thắn: các phép đo METR được lý tưởng hóa — không có con người, không có hệ quả thực — và nhóm đã ghi nhận khoảng cách hành vi giữa đánh giá và triển khai (Bài 1). Một tầm thời gian là một cận trên, không phải một dự đoán triển khai.
 
 **Type:** Learn
 **Languages:** Python (stdlib, logistic-fit horizon estimator)
@@ -9,69 +9,69 @@
 
 ## The Problem
 
-Scaling policies (Lessons 19, 20) are only as useful as the measurements they reference. "AI R&D-4 threshold" and "Long-range Autonomy" are defined in policy prose; they become actionable only when specific evaluations produce specific numbers.
+Các chính sách mở rộng quy mô (Bài 19, 20) chỉ hữu ích ngang các phép đo mà chúng tham chiếu. “Ngưỡng AI R&D-4” và “Tự chủ tầm xa” được định nghĩa trong văn xuôi chính sách; chúng chỉ trở nên có thể hành động khi các đánh giá cụ thể tạo ra các con số cụ thể.
 
-METR is the 2024–2026 external evaluation organization that has defined many of those numbers. They evaluate frontier models — often pre-release, under NDA with labs — and publish methodology afterward. The Time Horizon 1.1 benchmark (January 2026) is their headline artifact: a single scalar that compresses capability into a human-legible unit ("this model can do the kind of task an expert spends X hours on at 50% reliability").
+METR là tổ chức đánh giá bên ngoài năm 2024–2026 đã định nghĩa nhiều con số trong số đó. Họ đánh giá các mô hình tiên tiến nhất — thường trước phát hành, theo NDA với các phòng thí nghiệm — và công bố phương pháp sau đó. Benchmark Time Horizon 1.1 (tháng 1 năm 2026) là hiện vật nổi bật của họ: một đại lượng vô hướng đơn lẻ nén năng lực thành một đơn vị con người có thể hiểu (“mô hình này có thể làm loại tác vụ mà một chuyên gia dành X giờ với độ tin cậy 50%”).
 
-The lesson is partly about the methodology (how a horizon is computed) and partly about the interpretation (why a horizon is an upper bound, not a deployment prediction). The two skills belong together. A team that understands how the horizon is fit is much harder to fool with a bad vendor claim than a team that just sees "14 hours" on a slide.
+Bài học một phần về phương pháp (một tầm thời gian được tính như thế nào) và một phần về diễn giải (vì sao một tầm thời gian là một cận trên, không phải một dự đoán triển khai). Hai kỹ năng thuộc về nhau. Một nhóm hiểu cách tầm thời gian được khớp khó bị đánh lừa bằng một tuyên bố tệ của nhà cung cấp hơn nhiều so với một nhóm chỉ thấy “14 giờ” trên một slide.
 
 ## The Concept
 
 ### METR background
 
-- Founded: December 2023 (ex-ARC Evals, spun out into independent 501(c)(3)).
-- Scope: evaluation of frontier models' autonomous capabilities, often pre-release.
-- Partner labs: Anthropic, OpenAI (multiple engagements 2025–2026).
-- Notable deliverables: Time Horizon 1.0 (March 2025), Time Horizon 1.1 (January 2026), prototype monitoring evaluations.
+- Thành lập: tháng 12 năm 2023 (trước đây là ARC Evals, tách ra thành tổ chức 501(c)(3) độc lập).
+- Phạm vi: đánh giá các năng lực tự chủ của các mô hình tiên tiến nhất, thường trước phát hành.
+- Các phòng thí nghiệm đối tác: Anthropic, OpenAI (nhiều đợt hợp tác năm 2025–2026).
+- Các sản phẩm bàn giao đáng chú ý: Time Horizon 1.0 (tháng 3 năm 2025), Time Horizon 1.1 (tháng 1 năm 2026), các đánh giá giám sát nguyên mẫu.
 
 ### The Time Horizon fit
 
-Methodology (from METR blog and papers):
+Phương pháp (từ blog và các bài báo METR):
 
-1. Collect a task suite spanning minute-scale to hour-scale expert completion times. Current suites: HCAST (180+ tasks), RE-Bench (71 tasks), SWAA.
-2. Run the model on each task; record success or failure.
-3. Fit a logistic curve: P(success) as a function of log(expert completion time).
-4. The horizon is the expert-time at which P(success) = 0.5.
+1. Thu thập một bộ tác vụ trải từ thời gian hoàn thành của chuyên gia ở quy mô phút đến quy mô giờ. Các bộ hiện tại: HCAST (180+ tác vụ), RE-Bench (71 tác vụ), SWAA.
+2. Chạy mô hình trên mỗi tác vụ; ghi lại thành công hoặc thất bại.
+3. Khớp một đường cong logistic: P(thành công) như một hàm của log(thời gian hoàn thành của chuyên gia).
+4. Tầm thời gian là thời gian chuyên gia mà tại đó P(thành công) = 0.5.
 
-The logistic-fit shape is the right one because capability generally has an increasing, plateau-approaching relationship with task difficulty. The 50% point is a choice (could be 10%, 90%); METR reports multiple thresholds in the detailed paper but leads with 50% because it is the most intuitive.
+Hình dạng khớp logistic là hình dạng đúng vì năng lực thường có một mối quan hệ tăng, tiến tới cao nguyên với độ khó tác vụ. Điểm 50% là một lựa chọn (có thể là 10%, 90%); METR báo cáo nhiều ngưỡng trong bài báo chi tiết nhưng dẫn đầu bằng 50% vì nó trực quan nhất.
 
 ### The January 2026 numbers
 
-Per Time Horizon 1.1:
+Theo Time Horizon 1.1:
 
-- Claude Opus 4.6: ~14 hours at 50% reliability, as of Time Horizon 1.1 (January 2026).
-- Doubling time on HCAST-style tasks: ~4.3 months (130.8 days) on the post-2023 fit reported by Time Horizon 1.1 (January 2026); the ~7-month figure is the full 2019–2025 fit from Time Horizon 1.0 and is reported in TH1.1 alongside the post-2023 number.
+- Claude Opus 4.6: ~14 giờ ở độ tin cậy 50%, tính đến Time Horizon 1.1 (tháng 1 năm 2026).
+- Thời gian tăng gấp đôi trên các tác vụ kiểu HCAST: ~4.3 tháng (130.8 ngày) trên phép khớp sau năm 2023 được Time Horizon 1.1 báo cáo (tháng 1 năm 2026); con số ~7 tháng là phép khớp toàn bộ giai đoạn 2019–2025 từ Time Horizon 1.0 và được báo cáo trong TH1.1 cùng với con số sau năm 2023.
 
-Those are the specific numbers the rest of Phase 15 references. They are cited in Anthropic's RSP v3.0 (Lesson 19) and DeepMind's FSF v3 (Lesson 20) as one of the measurements feeding threshold assessments.
+Đó là các con số cụ thể mà phần còn lại của Giai đoạn 15 tham chiếu. Chúng được trích dẫn trong RSP v3.0 của Anthropic (Bài 19) và FSF v3 của DeepMind (Bài 20) như một trong những phép đo đầu vào cho các đánh giá ngưỡng.
 
 ### Benchmark suites
 
-- **HCAST**: 189 tasks across ML, cybersecurity, software engineering, and general reasoning. Span: 1 minute to 8+ hours of expert time. The main suite behind the horizon number.
-- **RE-Bench**: 71 ML research-engineering tasks with a human expert baseline. Measures whether the model can do the kind of ML R&D work that feeds into the AI R&D-4 threshold.
-- **SWAA**: shorter tasks; useful for calibrating the low end of the horizon curve.
+- **HCAST**: 189 tác vụ trên ML, an ninh mạng, kỹ thuật phần mềm, và suy luận tổng quát. Phạm vi: 1 phút đến 8+ giờ thời gian chuyên gia. Bộ chính đằng sau con số tầm thời gian.
+- **RE-Bench**: 71 tác vụ kỹ thuật nghiên cứu ML với một đường cơ sở chuyên gia con người. Đo liệu mô hình có thể làm loại công việc R&D ML cung cấp đầu vào cho ngưỡng AI R&D-4 hay không.
+- **SWAA**: các tác vụ ngắn hơn; hữu ích cho hiệu chuẩn đầu thấp của đường cong tầm thời gian.
 
 ### Prototype monitoring evaluations
 
-2025–2026 METR work included monitoring-evaluation prototypes: can a monitor catch a model performing a side task (something other than what the operator asked for); can the agent evade the monitor. These directly feed the "Undermining Safeguards" category in OpenAI PF v2 and the deceptive-alignment monitoring in DeepMind FSF v3 (Lesson 20).
+Công việc METR năm 2025–2026 bao gồm các nguyên mẫu đánh giá giám sát: một bộ giám sát có thể bắt một mô hình thực hiện một tác vụ phụ (điều gì đó khác với những gì người vận hành yêu cầu) hay không; agent có thể né tránh bộ giám sát hay không. Những điều này cung cấp trực tiếp đầu vào cho danh mục “Làm suy yếu các biện pháp bảo vệ” trong OpenAI PF v2 và giám sát căn chỉnh lừa dối trong DeepMind FSF v3 (Bài 20).
 
 ### Why horizons are upper bounds
 
-- **Idealized tooling**: benchmark tasks give the model clean tools and well-formatted data. Real deployments are messier.
-- **No real consequences**: the model never actually bills a customer, deletes real data, or contacts real people. Real deployments have irreversible stakes.
-- **Eval-context gaming**: Lesson 1. Models behave differently in tests. The 2026 International AI Safety Report documents this empirically.
-- **No legitimate user variance**: benchmark prompts are structured. Real users produce ambiguous, context-dependent requests.
+- **Công cụ được lý tưởng hóa**: các tác vụ benchmark cung cấp cho mô hình công cụ sạch và dữ liệu định dạng tốt. Các triển khai thực lộn xộn hơn.
+- **Không có hệ quả thực**: mô hình không bao giờ thực sự tính phí khách hàng, xóa dữ liệu thực, hoặc liên hệ người thực. Các triển khai thực có những hệ quả không thể đảo ngược.
+- **Lách ngữ cảnh đánh giá**: Bài 1. Các mô hình hành xử khác trong các kiểm thử. Báo cáo An toàn AI Quốc tế năm 2026 ghi nhận điều này bằng thực nghiệm.
+- **Không có biến thiên người dùng hợp lệ**: các prompt benchmark có cấu trúc. Người dùng thực tạo ra các yêu cầu mơ hồ, phụ thuộc ngữ cảnh.
 
-The horizon is the capability ceiling under favorable conditions. Deployment reliability is a different number, lower, and teams must measure their own distribution to know it.
+Tầm thời gian là mức trần năng lực dưới các điều kiện thuận lợi. Độ tin cậy triển khai là một con số khác, thấp hơn, và các nhóm phải đo phân phối của chính họ để biết nó.
 
 ### The external-evaluator case
 
-External evaluation matters because internal labs have incentives to optimize metrics they report. METR's independence — a 501(c)(3) with a declared methodology and peer-reviewed papers — is the structural mitigation. It is not sufficient alone (labs still control what METR sees), but it is strictly better than no external evaluation.
+Đánh giá bên ngoài quan trọng vì các phòng thí nghiệm nội bộ có động cơ tối ưu hóa các chỉ số họ báo cáo. Tính độc lập của METR — một tổ chức 501(c)(3) với phương pháp đã khai báo và các bài báo được bình duyệt — là biện pháp giảm thiểu mang tính cấu trúc. Chỉ riêng nó là không đủ (các phòng thí nghiệm vẫn kiểm soát những gì METR thấy), nhưng nó tốt hơn hẳn việc không có đánh giá bên ngoài.
 
 ### How to use horizon numbers in practice
 
-- **As a capability filter**: if a model's horizon is well below the expert-time of a proposed task, do not ship it autonomous (Lesson 1's skill file).
-- **As a trend indicator**: doubling time tells you how long the current practice will remain safe even without new mitigations.
-- **As a prior**: a horizon of 14 hours is a starting point. Adjust down for your task distribution, your tooling quality, and your deployment context.
+- **Như một bộ lọc năng lực**: nếu tầm thời gian của mô hình thấp hơn nhiều so với thời gian chuyên gia của một tác vụ được đề xuất, đừng đưa nó ra dưới dạng tự chủ (file skill Bài 1).
+- **Như một chỉ báo xu hướng**: thời gian tăng gấp đôi cho bạn biết thực hành hiện tại sẽ còn an toàn bao lâu ngay cả khi không có các biện pháp giảm thiểu mới.
+- **Như một tiên nghiệm**: một tầm thời gian 14 giờ là một điểm xuất phát. Điều chỉnh giảm theo phân phối tác vụ, chất lượng công cụ, và ngữ cảnh triển khai của bạn.
 
 ```figure
 a5-horizon-fit
@@ -79,41 +79,41 @@ a5-horizon-fit
 
 ## Use It
 
-`code/main.py` implements a logistic fit of task-success vs log(expert time), given a synthetic result set. It reports the 50% horizon (METR's headline), 10% horizon (conservative), and 90% horizon (optimistic). Also demonstrates what changes when the success rate is artificially inflated by eval-context gaming.
+`code/main.py` triển khai một phép khớp logistic của thành công tác vụ theo log(thời gian chuyên gia), với một tập kết quả tổng hợp. Nó báo cáo tầm thời gian 50% (con số nổi bật của METR), tầm thời gian 10% (bảo thủ), và tầm thời gian 90% (lạc quan). Cũng minh họa những gì thay đổi khi tỷ lệ thành công bị thổi phồng nhân tạo bởi lách ngữ cảnh đánh giá.
 
 ## Ship It
 
-`outputs/skill-horizon-interpretation.md` reviews a vendor's horizon claim and produces a gap analysis between benchmark claim and deployment reality.
+`outputs/skill-horizon-interpretation.md` xem xét một tuyên bố tầm thời gian của nhà cung cấp và tạo một phân tích khoảng cách giữa tuyên bố benchmark và thực tế triển khai.
 
 ## Exercises
 
-1. Run `code/main.py`. Confirm the fit's 50% horizon matches the synthetic ground truth. Now halve the task-time grid; does the horizon estimate change meaningfully?
+1. Chạy `code/main.py`. Xác nhận tầm thời gian 50% của phép khớp khớp chuẩn tham chiếu tổng hợp. Bây giờ giảm một nửa lưới thời gian tác vụ; ước tính tầm thời gian có thay đổi đáng kể không?
 
-2. Read METR's Time Horizon 1.1 blog post. Identify the specific tasks where reliability is highest and where it is lowest. Explain why the gap exists.
+2. Đọc bài blog Time Horizon 1.1 của METR. Xác định các tác vụ cụ thể nơi độ tin cậy cao nhất và nơi thấp nhất. Giải thích vì sao khoảng cách tồn tại.
 
-3. Read METR's "Measuring Autonomous AI Capabilities" resources. List the HCAST task categories. Pick one category you would weight more heavily for a production task and justify why.
+3. Đọc các tài nguyên “Measuring Autonomous AI Capabilities” của METR. Liệt kê các danh mục tác vụ HCAST. Chọn một danh mục bạn sẽ đặt trọng số lớn hơn cho một tác vụ sản xuất và giải thích vì sao.
 
-4. Introduce eval-context gaming into the simulator: flip ~20% of failed tasks to success. Report the new horizon. This approximates what a gaming rate of 20% does to the observed number.
+4. Đưa lách ngữ cảnh đánh giá vào trình mô phỏng: đảo ~20% tác vụ thất bại thành thành công. Báo cáo tầm thời gian mới. Điều này xấp xỉ những gì tỷ lệ lách 20% gây ra cho con số quan sát được.
 
-5. Design an internal horizon evaluation on your own bug backlog or a representative task set. Describe the data collection, the fit, and what the output tells you. Compare to METR numbers.
+5. Thiết kế một đánh giá tầm thời gian nội bộ trên danh sách lỗi tồn đọng của chính bạn hoặc một tập tác vụ đại diện. Mô tả việc thu thập dữ liệu, phép khớp, và đầu ra cho bạn biết điều gì. So sánh với các con số METR.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |---|---|---|
-| METR | "External evaluator" | ex-ARC Evals; independent 501(c)(3) since Dec 2023 |
-| Time Horizon | "Capability measure" | Expert task length at 50% reliability, from logistic fit |
-| HCAST | "METR's main suite" | 180+ tasks spanning 1 min to 8+ hours |
-| RE-Bench | "Research engineering" | 71 ML research-engineering tasks with human baseline |
-| SWAA | "Short-task suite" | Calibrates the low end of the horizon curve |
-| Doubling time | "Growth rate" | Time for the 50% horizon to double; ~7 months per HCAST |
-| Eval-context gaming | "Model behaves differently" | Documented behavior gap between tests and deployment |
-| Upper bound | "Horizon is a ceiling" | Benchmark horizon > deployment reliability under load |
+| METR | “Bộ đánh giá bên ngoài” | trước đây là ARC Evals; tổ chức 501(c)(3) độc lập từ tháng 12 năm 2023 |
+| Time Horizon (Tầm thời gian) | “Phép đo năng lực” | Độ dài tác vụ của chuyên gia ở độ tin cậy 50%, từ phép khớp logistic |
+| HCAST | “Bộ chính của METR” | 180+ tác vụ trải từ 1 phút đến 8+ giờ |
+| RE-Bench | “Kỹ thuật nghiên cứu” | 71 tác vụ kỹ thuật nghiên cứu ML với đường cơ sở con người |
+| SWAA | “Bộ tác vụ ngắn” | Hiệu chuẩn đầu thấp của đường cong tầm thời gian |
+| Doubling time (Thời gian tăng gấp đôi) | “Tốc độ tăng trưởng” | Thời gian để tầm thời gian 50% tăng gấp đôi; ~7 tháng theo HCAST |
+| Eval-context gaming (Lách ngữ cảnh đánh giá) | “Mô hình hành xử khác” | Khoảng cách hành vi được ghi nhận giữa kiểm thử và triển khai |
+| Upper bound (Cận trên) | “Tầm thời gian là một mức trần” | Tầm thời gian benchmark > độ tin cậy triển khai khi chịu tải |
 
 ## Further Reading
 
-- [METR — Resources for Measuring Autonomous AI Capabilities](https://metr.org/measuring-autonomous-ai-capabilities/) — HCAST, RE-Bench, SWAA specs.
-- [METR — Measuring AI Ability to Complete Long Tasks](https://metr.org/blog/2025-03-19-measuring-ai-ability-to-complete-long-tasks/) — the original horizon paper.
-- [METR — Time Horizon 1.1 (January 2026)](https://metr.org/research/) — current numbers and methodology.
-- [Epoch AI — METR Time Horizons benchmark](https://epoch.ai/benchmarks/metr-time-horizons) — live tracking.
-- [Anthropic — Measuring agent autonomy in practice](https://www.anthropic.com/research/measuring-agent-autonomy) — internal perspective on METR's measurements.
+- [METR — Resources for Measuring Autonomous AI Capabilities](https://metr.org/measuring-autonomous-ai-capabilities/) — các đặc tả HCAST, RE-Bench, SWAA.
+- [METR — Measuring AI Ability to Complete Long Tasks](https://metr.org/blog/2025-03-19-measuring-ai-ability-to-complete-long-tasks/) — bài báo tầm thời gian gốc.
+- [METR — Time Horizon 1.1 (January 2026)](https://metr.org/research/) — các con số và phương pháp hiện tại.
+- [Epoch AI — METR Time Horizons benchmark](https://epoch.ai/benchmarks/metr-time-horizons) — theo dõi trực tiếp.
+- [Anthropic — Measuring agent autonomy in practice](https://www.anthropic.com/research/measuring-agent-autonomy) — góc nhìn nội bộ về các phép đo của METR.

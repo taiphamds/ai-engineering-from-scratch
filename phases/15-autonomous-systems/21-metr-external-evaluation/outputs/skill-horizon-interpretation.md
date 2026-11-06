@@ -7,34 +7,34 @@ lesson: 21
 tags: [metr, time-horizon, hcast, re-bench, eval-vs-deploy, external-evaluation]
 ---
 
-Given a vendor's published time-horizon claim (e.g., "our model completes 14-hour tasks at 50% reliability"), produce a gap analysis that quantifies the deployment-reality delta and flags any methodological weaknesses.
+Với một tuyên bố tầm thời gian được công bố của nhà cung cấp (ví dụ: “mô hình của chúng tôi hoàn thành các tác vụ 14 giờ ở độ tin cậy 50%”), tạo một phân tích khoảng cách định lượng chênh lệch với thực tế triển khai và đánh dấu bất kỳ điểm yếu phương pháp nào.
 
-Produce:
+Tạo ra:
 
-1. **Methodology audit.** Identify the task suite (HCAST, RE-Bench, SWAA, or proprietary). Confirm the logistic fit is disclosed (slope, sample size, confidence interval). A horizon without methodology disclosure is a marketing claim.
-2. **Task distribution fit.** Map the vendor's benchmark task distribution onto the user's production task distribution. If they diverge materially (vendor measures SWE tasks, production is customer-support flows), the number does not transfer.
-3. **Eval-context gap.** Apply a 10–40% gap between benchmark horizon and deployment reality. Cite the Anthropic 2024 alignment-faking study and the 2026 International AI Safety Report on eval-context gaming. The actual gap depends on the eval protocol; gaming is higher on unstructured tasks.
-4. **Tooling gap.** Benchmark tooling is clean and well-instrumented. Production tooling is messier. Estimate an additional 5–30% reliability discount.
-5. **Human-in-the-loop assumption.** Benchmarks assume no HITL. Production agents with HITL run at higher reliability but lower autonomy. Adjust the horizon interpretation accordingly.
+1. **Kiểm toán phương pháp.** Xác định bộ tác vụ (HCAST, RE-Bench, SWAA, hoặc độc quyền). Xác nhận phép khớp logistic được tiết lộ (độ dốc, cỡ mẫu, khoảng tin cậy). Một tầm thời gian không có tiết lộ phương pháp là một tuyên bố tiếp thị.
+2. **Độ phù hợp phân phối tác vụ.** Ánh xạ phân phối tác vụ benchmark của nhà cung cấp lên phân phối tác vụ sản xuất của người dùng. Nếu chúng khác biệt đáng kể (nhà cung cấp đo các tác vụ SWE, sản xuất là các luồng hỗ trợ khách hàng), con số không chuyển giao được.
+3. **Khoảng cách ngữ cảnh đánh giá.** Áp dụng một khoảng cách 10–40% giữa tầm thời gian benchmark và thực tế triển khai. Trích dẫn nghiên cứu giả vờ căn chỉnh năm 2024 của Anthropic và Báo cáo An toàn AI Quốc tế năm 2026 về lách ngữ cảnh đánh giá. Khoảng cách thực tế phụ thuộc vào giao thức đánh giá; việc lách cao hơn trên các tác vụ không có cấu trúc.
+4. **Khoảng cách công cụ.** Công cụ benchmark sạch và được gắn đo lường tốt. Công cụ sản xuất lộn xộn hơn. Ước tính một mức giảm độ tin cậy bổ sung 5–30%.
+5. **Giả định con người trong vòng lặp.** Các benchmark giả định không có HITL. Các agent sản xuất có HITL chạy ở độ tin cậy cao hơn nhưng tính tự chủ thấp hơn. Điều chỉnh diễn giải tầm thời gian tương ứng.
 
-Hard rejects:
-- Horizon claims with no source methodology or sample size.
-- Claims that a benchmark horizon predicts deployment reliability.
-- Vendors citing a 2025-or-earlier horizon number as current (the doubling time is ~7 months; 2025 numbers are stale within a year).
-- Treating a 50% horizon as "will work most of the time" — 50% reliability is a coin flip.
+Các trường hợp loại bỏ dứt khoát:
+- Các tuyên bố tầm thời gian không có phương pháp nguồn hoặc cỡ mẫu.
+- Các tuyên bố rằng một tầm thời gian benchmark dự đoán độ tin cậy triển khai.
+- Các nhà cung cấp viện dẫn một con số tầm thời gian năm 2025 hoặc sớm hơn là hiện tại (thời gian tăng gấp đôi là ~7 tháng; các con số năm 2025 lỗi thời trong vòng một năm).
+- Coi một tầm thời gian 50% là “sẽ hoạt động phần lớn thời gian” — độ tin cậy 50% là tung đồng xu.
 
-Refusal rules:
-- If the vendor does not disclose methodology, refuse and require the source paper or blog post.
-- If the benchmark distribution does not overlap the production distribution, refuse and require internal evaluation.
-- If the vendor cites horizons without a gaming audit on their specific eval pipeline, refuse to quote the number as a reliability prediction.
+Các quy tắc từ chối:
+- Nếu nhà cung cấp không tiết lộ phương pháp, hãy từ chối và yêu cầu bài báo hoặc bài blog nguồn.
+- Nếu phân phối benchmark không chồng lấp với phân phối sản xuất, hãy từ chối và yêu cầu đánh giá nội bộ.
+- Nếu nhà cung cấp viện dẫn các tầm thời gian mà không có kiểm toán việc lách trên pipeline đánh giá cụ thể của họ, hãy từ chối trích con số như một dự đoán độ tin cậy.
 
-Output format:
+Định dạng đầu ra:
 
-Return a horizon-interpretation memo with:
-- **Source methodology** (suite, fit method, sample size, CI)
-- **Distribution overlap** (benchmark vs production; % mapping)
-- **Eval-context gap estimate** (low / med / high with rationale)
-- **Tooling gap estimate** (low / med / high)
-- **HITL assumption** (benchmark-style autonomous vs production HITL)
-- **Deploy-adjusted horizon** (horizon after gap and tooling discounts)
-- **Readiness verdict** (production / staging / research-only)
+Trả về một bản ghi nhớ diễn giải tầm thời gian với:
+- **Phương pháp nguồn** (bộ, phương pháp khớp, cỡ mẫu, CI)
+- **Chồng lấp phân phối** (benchmark so với sản xuất; % ánh xạ)
+- **Ước tính khoảng cách ngữ cảnh đánh giá** (thấp / trung bình / cao với lý do)
+- **Ước tính khoảng cách công cụ** (thấp / trung bình / cao)
+- **Giả định HITL** (tự chủ kiểu benchmark so với HITL sản xuất)
+- **Tầm thời gian điều chỉnh theo triển khai** (tầm thời gian sau các mức giảm khoảng cách và công cụ)
+- **Kết luận mức sẵn sàng** (sản xuất / staging / chỉ nghiên cứu)
