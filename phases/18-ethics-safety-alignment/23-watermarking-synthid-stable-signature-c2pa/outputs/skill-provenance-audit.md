@@ -7,23 +7,23 @@ lesson: 23
 tags: [watermarking, synthid, stable-signature, c2pa, provenance]
 ---
 
-Given a content deployment with a provenance claim, audit the provenance chain.
+Với triển khai nội dung có khẳng định nguồn gốc, kiểm tra chuỗi nguồn gốc.
 
-Produce:
+Tạo:
 
-1. Watermark inventory. List every modality (text, image, audio, video) and the watermark applied in each. No watermark = no detection path.
-2. Watermark robustness. For each watermark, name the adversarial class it survives (compression, cropping, paraphrase, fine-tune). Flag limitations per Kirchenbauer 2023 Section 6 (paraphrase) and "Stable Signature is Unstable" 2024 (fine-tune).
-3. C2PA coverage. Is C2PA metadata attached? Is the signing chain from a trusted identity? Metadata can be stripped; presence is not sufficient.
-4. Cross-modal detector. Is there a unified detector across modalities (SynthID 2025) or modality-specific only?
-5. Regulatory alignment. Does the deployment meet EU AI Act Article 50 transparency obligations (effective August 2026)? Does it comply with the Transparency Code (final version June 2026)?
+1. Kiểm kê watermark. Liệt kê mọi phương thức (văn bản, ảnh, âm thanh, video) và watermark áp dụng mỗi loại. Không watermark = không đường phát hiện.
+2. Độ vững watermark. Với mỗi watermark, nêu lớp đối kháng nó sống sót (nén, cắt ảnh, diễn đạt lại, tinh chỉnh). Đánh dấu hạn chế theo Phần 6 Kirchenbauer 2023 (diễn đạt lại) và "Stable Signature is Unstable" 2024 (tinh chỉnh).
+3. Bao phủ C2PA. Có đính metadata C2PA không? Chuỗi ký có từ danh tính đáng tin không? Metadata có thể bị gỡ; hiện diện không đủ.
+4. Bộ phát hiện xuyên phương thức. Có bộ phát hiện hợp nhất xuyên phương thức (SynthID 2025) hay chỉ riêng theo phương thức?
+5. Phù hợp quy định. Triển khai có đáp ứng nghĩa vụ minh bạch Điều 50 EU AI Act (hiệu lực tháng 8 năm 2026) không? Có tuân Bộ quy tắc Minh bạch (phiên bản cuối tháng 6 năm 2026) không?
 
-Hard rejects:
-- Any "watermark" claim without a named mechanism and detector.
-- Any "authenticity" claim based only on absence of watermark (model-not-watermarked ≠ authentic).
-- Any image provenance claim without an assessment of the Fernandez 2024 removal attack.
+Các trường hợp loại bỏ dứt khoát:
+- Mọi khẳng định "watermark" không nêu cơ chế và bộ phát hiện.
+- Mọi khẳng định "xác thực" chỉ dựa vào vắng watermark (mô hình không có watermark ≠ xác thực).
+- Mọi khẳng định nguồn gốc ảnh không có đánh giá tấn công loại bỏ Fernandez 2024.
 
-Refusal rules:
-- If the user asks "will this detect all AI content," refuse the binary claim; watermarking is model-specific.
-- If the user asks for a universal provenance solution, refuse and point to the watermark + C2PA layered approach.
+Quy tắc từ chối:
+- Nếu người dùng hỏi "điều này phát hiện mọi nội dung AI không," từ chối khẳng định nhị phân; watermark riêng theo mô hình.
+- Nếu người dùng hỏi giải pháp nguồn gốc phổ quát, từ chối và trỏ cách tiếp cận phân lớp watermark + C2PA.
 
-Output: a one-page audit filling the five sections, flagging robustness gaps per modality, and naming the single highest-value additional control. Cite SynthID (Google DeepMind), Stable Signature (Fernandez et al. 2023), and C2PA once each.
+Đầu ra: bản kiểm tra một trang điền năm phần, đánh dấu khoảng trống độ vững theo phương thức và nêu kiểm soát bổ sung duy nhất giá trị cao nhất. Trích dẫn SynthID (Google DeepMind), Stable Signature (Fernandez và cộng sự 2023) và C2PA, mỗi tài liệu một lần.

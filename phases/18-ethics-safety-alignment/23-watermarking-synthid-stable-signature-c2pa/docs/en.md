@@ -1,6 +1,6 @@
 # Watermarking — SynthID, Stable Signature, C2PA
 
-> Three technologies structure 2026 AI-generated-content provenance. SynthID (Google DeepMind) — image watermarking launched August 2023, text+video May 2024 (Gemini + Veo), text open-sourced October 2024 via Responsible GenAI Toolkit, unified multi-media detector November 2025 alongside Gemini 3 Pro. Text watermarking adjusts next-token sampling probabilities imperceptibly; image/video watermarks survive compression, cropping, filters, frame-rate changes. Stable Signature (Fernandez et al., ICCV 2023, arXiv:2303.15435) — fine-tunes the latent diffusion decoder so every output contains a fixed message; cropped (10% of content) generated images detected >90% at FPR<1e-6. Follow-up "Stable Signature is Unstable" (arXiv:2405.07145, May 2024) — fine-tuning removes the watermark while preserving quality. C2PA — cryptographically signed, tamper-evident metadata standard (C2PA 2.2 Explainer 2025). Watermarking and C2PA are complementary: metadata can be stripped but carries richer provenance; watermarks persist through transcoding but carry less information.
+> Ba công nghệ cấu trúc nguồn gốc nội dung do AI tạo năm 2026. SynthID (Google DeepMind) — watermark ảnh ra mắt tháng 8 năm 2023, văn bản+video tháng 5 năm 2024 (Gemini + Veo), văn bản mở nguồn tháng 10 năm 2024 qua Responsible GenAI Toolkit, bộ phát hiện đa phương tiện hợp nhất tháng 11 năm 2025 cùng Gemini 3 Pro. Watermark văn bản điều chỉnh xác suất lấy mẫu token tiếp theo không thể cảm nhận; watermark ảnh/video sống sót qua nén, cắt ảnh, bộ lọc, đổi tốc độ khung hình. Stable Signature (Fernandez và cộng sự, ICCV 2023, arXiv:2303.15435) — tinh chỉnh decoder khuếch tán tiềm ẩn để mọi đầu ra chứa thông điệp cố định; ảnh sinh bị cắt (10% nội dung) được phát hiện >90% ở FPR<1e-6. Công trình tiếp nối "Stable Signature is Unstable" (arXiv:2405.07145, tháng 5 năm 2024) — tinh chỉnh loại watermark trong khi giữ chất lượng. C2PA — tiêu chuẩn metadata ký mật mã, thể hiện dấu hiệu can thiệp (C2PA 2.2 Explainer 2025). Watermark và C2PA bổ sung nhau: metadata có thể bị gỡ nhưng mang nguồn gốc phong phú hơn; watermark tồn tại qua chuyển mã nhưng mang ít thông tin hơn.
 
 **Type:** Build
 **Languages:** Python (stdlib, token-watermark embed + detect)
@@ -9,69 +9,69 @@
 
 ## Learning Objectives
 
-- Describe token-level watermarking (SynthID-text style) and the mechanism by which it is detectable.
-- Describe Stable Signature and the 2024 removal attack that broke it.
-- State C2PA's role and why it is complementary to watermarking.
-- Describe the key limitations: model-specific signal, robustness under paraphrase, and meaning-preserving attacks (arXiv:2508.20228).
+- Mô tả watermark cấp token (kiểu SynthID-text) và cơ chế khiến nó phát hiện được.
+- Mô tả Stable Signature và tấn công loại bỏ 2024 phá vỡ nó.
+- Nêu vai trò C2PA và tại sao bổ sung watermark.
+- Mô tả hạn chế chính: tín hiệu riêng theo mô hình, độ vững dưới diễn đạt lại và tấn công giữ nghĩa (arXiv:2508.20228).
 
 ## The Problem
 
-2023-2024 saw deepfakes and AI-generated content enter political and consumer contexts at scale. Watermarking is the proposed technical provenance signal: mark generations at creation time, detect them later. 2025 evidence: no watermark is unconditionally robust, but layered with C2PA metadata the combination provides a usable provenance story.
+Năm 2023-2024 chứng kiến deepfake và nội dung AI tạo vào ngữ cảnh chính trị và tiêu dùng ở quy mô lớn. Watermark là tín hiệu nguồn gốc kỹ thuật được đề xuất: đánh dấu khi tạo, phát hiện sau. Bằng chứng 2025: không watermark nào vững vô điều kiện, nhưng phân lớp cùng metadata C2PA cung cấp câu chuyện nguồn gốc dùng được.
 
 ## The Concept
 
 ### Text watermarking (SynthID-text style)
 
-The Kirchenbauer et al. 2023 mechanism, productionized by Google:
+Cơ chế Kirchenbauer và cộng sự 2023, được Google đưa vào sản xuất:
 
-1. At each decoding step, hash the previous K tokens to produce a pseudorandom partition of the vocabulary into "green" and "red" sets.
-2. Bias sampling toward the green set by adding δ to green logits.
-3. The generation contains more green tokens than chance would produce.
+1. Ở mỗi bước decode, hash K token trước để tạo phân hoạch giả ngẫu nhiên từ vựng thành tập "xanh" và "đỏ".
+2. Thiên lấy mẫu về tập xanh bằng thêm δ vào logit xanh.
+3. Phần sinh chứa nhiều token xanh hơn ngẫu nhiên tạo ra.
 
-Detection: rehash each prefix, count green tokens in the generation, compute a z-score. The z-score is >0 for watermarked text, ~0 for human text.
+Phát hiện: hash lại mỗi tiền tố, đếm token xanh trong phần sinh, tính z-score. Z-score >0 với văn bản có watermark, ~0 với văn bản con người.
 
-Properties:
-- Imperceptible to readers (δ is small enough that quality loss is minor).
-- Detectable with access to the vocabulary partition function.
-- Not robust to paraphrase — rewriting the text destroys the signal.
+Thuộc tính:
+- Người đọc không cảm nhận được (δ đủ nhỏ để mất chất lượng nhỏ).
+- Phát hiện được với quyền truy cập hàm phân hoạch từ vựng.
+- Không vững trước diễn đạt lại — viết lại văn bản phá tín hiệu.
 
-SynthID-text is open-sourced October 2024 via Google's Responsible GenAI Toolkit.
+SynthID-text mở nguồn tháng 10 năm 2024 qua Responsible GenAI Toolkit của Google.
 
 ### Stable Signature (image)
 
-Fernandez et al. ICCV 2023. Fine-tune the latent diffusion decoder so every generated image contains a fixed binary message embedded in the latent representation. Detection is decoded from the latent with a neural decoder. Cropped (to 10% of content) images detected >90% at FPR<1e-6.
+Fernandez và cộng sự ICCV 2023. Tinh chỉnh decoder khuếch tán tiềm ẩn để mọi ảnh sinh chứa thông điệp nhị phân cố định nhúng trong biểu diễn tiềm ẩn. Phát hiện được giải mã từ tiềm ẩn bằng decoder nơ-ron. Ảnh bị cắt (còn 10% nội dung) được phát hiện >90% ở FPR<1e-6.
 
-May 2024 "Stable Signature is Unstable" (arXiv:2405.07145): fine-tuning the decoder removes the watermark while preserving image quality. Adversarial post-generation fine-tuning is cheap; the watermark's adversarial robustness is limited.
+Tháng 5 năm 2024 "Stable Signature is Unstable" (arXiv:2405.07145): tinh chỉnh decoder loại watermark trong khi giữ chất lượng ảnh. Tinh chỉnh đối kháng sau sinh rẻ; độ vững đối kháng watermark hạn chế.
 
 ### SynthID unified detector (November 2025)
 
-Alongside Gemini 3 Pro: a multi-media detector that reads SynthID signals from text, image, audio, and video in one API. Unifies the Google provenance stack.
+Cùng Gemini 3 Pro: bộ phát hiện đa phương tiện đọc tín hiệu SynthID từ văn bản, ảnh, âm thanh và video trong một API. Hợp nhất ngăn xếp nguồn gốc Google.
 
 ### C2PA
 
-Coalition for Content Provenance and Authenticity. Cryptographically signed tamper-evident metadata standard. C2PA 2.2 Explainer (2025). A C2PA manifest records provenance claims (who created, when, what transformations) signed by the creator's key.
+Liên minh về Nguồn gốc và Tính xác thực Nội dung. Tiêu chuẩn metadata ký mật mã thể hiện dấu hiệu can thiệp. C2PA 2.2 Explainer (2025). Manifest C2PA ghi khẳng định nguồn gốc (ai tạo, khi nào, biến đổi gì) được ký bằng khóa người tạo.
 
-Complementary to watermarking:
-- Metadata can be stripped; watermarks cannot (easily).
-- Metadata is rich (full provenance chain); watermarks carry bits.
-- C2PA depends on platform adoption; watermarks embed automatically.
+Bổ sung watermark:
+- Metadata có thể bị gỡ; watermark không thể (dễ dàng).
+- Metadata phong phú (toàn chuỗi nguồn gốc); watermark mang bit.
+- C2PA phụ thuộc nền tảng áp dụng; watermark tự nhúng.
 
-Google integrates both in Search, Ads, and "About this image."
+Google tích hợp cả hai trong Search, Ads và "Giới thiệu về hình ảnh này."
 
 ### Limitations
 
-- **Model-specific.** SynthID watermarks generations from SynthID-enabled models. A generation from a model without SynthID is not watermarked, so "no SynthID signal" is not proof of authenticity.
-- **Paraphrase.** Text watermarks do not survive meaning-preserving paraphrase.
-- **Transformation attacks.** arXiv:2508.20228 (2025) shows meaning-preserving attacks that destroy both text watermarks and many image watermarks.
-- **Fine-tune removal.** Per "Stable Signature is Unstable," post-generation fine-tuning removes embedded watermarks.
+- **Riêng theo mô hình.** SynthID đánh watermark phần sinh từ mô hình bật SynthID. Phần sinh từ mô hình không SynthID không có watermark, nên "không có tín hiệu SynthID" không là bằng chứng xác thực.
+- **Diễn đạt lại.** Watermark văn bản không sống sót qua diễn đạt lại giữ nghĩa.
+- **Tấn công biến đổi.** arXiv:2508.20228 (2025) cho thấy tấn công giữ nghĩa phá cả watermark văn bản lẫn nhiều watermark ảnh.
+- **Loại bỏ qua tinh chỉnh.** Theo "Stable Signature is Unstable," tinh chỉnh sau sinh loại watermark nhúng.
 
 ### EU AI Act Article 50
 
-Transparency Code for AI-generated content labeling (first draft December 2025, second draft March 2026, expected final June 2026 per the [European Commission status page](https://digital-strategy.ec.europa.eu/en/policies/code-practice-ai-generated-content)). The Code remains in draft as of April 2026 and the timeline is subject to change. The regulatory layer that requires the technical layer. Deepfakes must be labeled.
+Bộ quy tắc Minh bạch cho gắn nhãn nội dung AI tạo (dự thảo đầu tháng 12 năm 2025, dự thảo hai tháng 3 năm 2026, dự kiến cuối cùng tháng 6 năm 2026 theo [trang trạng thái Ủy ban châu Âu](https://digital-strategy.ec.europa.eu/en/policies/code-practice-ai-generated-content)). Bộ quy tắc vẫn là dự thảo tính đến tháng 4 năm 2026 và dòng thời gian có thể thay đổi. Lớp quy định yêu cầu lớp kỹ thuật. Deepfake phải được gắn nhãn.
 
 ### Where this fits in Phase 18
 
-Lessons 22-23 are about what the model emits (private data, provenance signal). Lesson 27 covers training-data governance. Lesson 24 is the regulatory framework that requires these technical measures.
+Bài 22-23 nói về điều mô hình xuất (dữ liệu riêng tư, tín hiệu nguồn gốc). Bài 27 đề cập quản trị dữ liệu huấn luyện. Bài 24 là khung quy định yêu cầu các biện pháp kỹ thuật này.
 
 ```figure
 an-watermark-greenlist
@@ -79,40 +79,40 @@ an-watermark-greenlist
 
 ## Use It
 
-`code/main.py` builds a toy text watermark. Tokens are integers 0..N-1; watermarked sampling biases toward the hash-defined green set. A detector computes the green-token z-score. You can observe detection at 1000-token generations, watch paraphrase destroy the signal, and measure the false-positive rate on human text.
+`code/main.py` xây watermark văn bản đơn giản. Token là số nguyên 0..N-1; lấy mẫu có watermark thiên về tập xanh do hash xác định. Bộ phát hiện tính z-score token xanh. Bạn có thể quan sát phát hiện ở phần sinh 1000 token, xem diễn đạt lại phá tín hiệu và đo tỷ lệ dương tính giả trên văn bản con người.
 
 ## Ship It
 
-This lesson produces `outputs/skill-provenance-audit.md`. Given a content deployment with a provenance claim, it audits: the watermark mechanism (if any), the C2PA signing chain (if any), the adversarial robustness of each, and the per-modality coverage.
+Bài học này tạo ra `outputs/skill-provenance-audit.md`. Với triển khai nội dung có khẳng định nguồn gốc, kiểm tra: cơ chế watermark (nếu có), chuỗi ký C2PA (nếu có), độ vững đối kháng mỗi loại và bao phủ theo phương thức.
 
 ## Exercises
 
-1. Run `code/main.py`. Report z-scores for watermarked 1000-token generation vs human-authored text. Identify the false-positive rate at the 95% confidence threshold.
+1. Chạy `code/main.py`. Báo cáo z-score cho phần sinh 1000 token có watermark so với văn bản người viết. Xác định tỷ lệ dương tính giả ở ngưỡng tin cậy 95%.
 
-2. Implement a paraphrase attack that replaces 30% of tokens with synonyms. Re-measure the z-score.
+2. Triển khai tấn công diễn đạt lại thay 30% token bằng từ đồng nghĩa. Đo lại z-score.
 
-3. Read Kirchenbauer et al. 2023 Section 6 on robustness. Why do text watermarks fail under paraphrase but image watermarks survive cropping?
+3. Đọc Phần 6 Kirchenbauer và cộng sự 2023 về độ vững. Tại sao watermark văn bản thất bại dưới diễn đạt lại nhưng watermark ảnh sống sót qua cắt ảnh?
 
-4. Design a deployment that uses SynthID-text + C2PA metadata. Describe the provenance chain a consumer sees. Identify one failure mode of each component.
+4. Thiết kế triển khai dùng SynthID-text + metadata C2PA. Mô tả chuỗi nguồn gốc người tiêu dùng thấy. Xác định một chế độ lỗi mỗi thành phần.
 
-5. The 2024 "Stable Signature is Unstable" result shows fine-tuning removes the image watermark. Design a deployment control that limits this attack — for example, require signed releases of fine-tuned checkpoints.
+5. Kết quả "Stable Signature is Unstable" 2024 cho thấy tinh chỉnh loại watermark ảnh. Thiết kế kiểm soát triển khai hạn chế tấn công này — ví dụ, yêu cầu bản phát hành checkpoint tinh chỉnh được ký.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|-----------------|------------------------|
-| SynthID | "Google's watermark" | Cross-modal provenance signal; text, image, audio, video |
-| Token watermark | "Kirchenbauer-style" | Biased-sampling text watermark detectable via green-token z-score |
-| Stable Signature | "image watermark" | Fine-tuned-decoder watermark; ICCV 2023 |
-| C2PA | "the metadata standard" | Cryptographically signed tamper-evident provenance metadata |
-| Paraphrase robustness | "does rewording break it" | Text watermark property; currently limited |
-| Fine-tune removal | "adversarial unwatermark" | Attack that removes image watermark via decoder fine-tuning |
-| Cross-modal detector | "unified SynthID" | November 2025 unified API across modalities |
+| SynthID | "watermark Google" | Tín hiệu nguồn gốc xuyên phương thức; văn bản, ảnh, âm thanh, video |
+| Token watermark (Watermark token) | "kiểu Kirchenbauer" | Watermark văn bản lấy mẫu thiên lệch phát hiện qua z-score token xanh |
+| Stable Signature | "watermark ảnh" | Watermark decoder tinh chỉnh; ICCV 2023 |
+| C2PA | "tiêu chuẩn metadata" | Metadata nguồn gốc ký mật mã thể hiện dấu hiệu can thiệp |
+| Paraphrase robustness (Độ vững trước diễn đạt lại) | "đổi cách viết có phá nó không" | Thuộc tính watermark văn bản; hiện hạn chế |
+| Fine-tune removal (Loại bỏ qua tinh chỉnh) | "gỡ watermark đối kháng" | Tấn công loại watermark ảnh qua tinh chỉnh decoder |
+| Cross-modal detector (Bộ phát hiện xuyên phương thức) | "SynthID hợp nhất" | API hợp nhất tháng 11 năm 2025 xuyên phương thức |
 
 ## Further Reading
 
-- [Kirchenbauer et al. — A Watermark for Large Language Models (ICML 2023, arXiv:2301.10226)](https://arxiv.org/abs/2301.10226) — the token-watermark mechanism
-- [Fernandez et al. — Stable Signature (ICCV 2023, arXiv:2303.15435)](https://arxiv.org/abs/2303.15435) — image watermark paper
-- ["Stable Signature is Unstable" (arXiv:2405.07145)](https://arxiv.org/abs/2405.07145) — the removal attack
-- [Google DeepMind — SynthID](https://deepmind.google/models/synthid/) — the cross-modal watermark
-- [C2PA 2.2 Explainer (2025)](https://c2pa.org/specifications/specifications/2.2/explainer/Explainer.html) — metadata standard
+- [Kirchenbauer et al. — A Watermark for Large Language Models (ICML 2023, arXiv:2301.10226)](https://arxiv.org/abs/2301.10226) — cơ chế watermark token
+- [Fernandez et al. — Stable Signature (ICCV 2023, arXiv:2303.15435)](https://arxiv.org/abs/2303.15435) — bài báo watermark ảnh
+- ["Stable Signature is Unstable" (arXiv:2405.07145)](https://arxiv.org/abs/2405.07145) — tấn công loại bỏ
+- [Google DeepMind — SynthID](https://deepmind.google/models/synthid/) — watermark xuyên phương thức
+- [C2PA 2.2 Explainer (2025)](https://c2pa.org/specifications/specifications/2.2/explainer/Explainer.html) — tiêu chuẩn metadata
