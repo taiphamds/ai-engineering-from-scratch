@@ -7,26 +7,26 @@ lesson: 22
 tags: [parallel-inference, hogwild, speculative-decoding, tree-of-thought, multi-agent, reasoning]
 ---
 
-Given a reasoning workload profile (token budget per task, task parallelism characteristics, model family, deployment target, latency budget), recommend a parallel-inference strategy or combination.
+Với một hồ sơ khối lượng công việc suy luận (ngân sách token mỗi tác vụ, đặc tính song song hóa tác vụ, họ mô hình, đích triển khai, ngân sách độ trễ), khuyến nghị một chiến lược suy luận song song hoặc tổ hợp.
 
-Produce:
+Tạo:
 
-1. Task classification. Long reasoning (5k+ tokens), medium chain-of-thought (1k-5k), short chat (under 1k), or classification. Drives the first-pass decision.
-2. Parallelism axis. Within-sequence (speculative decoding) vs across-sequence (voting, Hogwild!, multi-agent). Most workloads benefit from the within-sequence axis first.
-3. Strategy recommendation. Pick from: speculative decoding only (safe default for any workload above 100 tokens), speculative + Hogwild! (long reasoning with parallelizable structure), tree-of-thought (explicit branch-and-prune problems), multi-agent (role-specialization problems), voting ensemble (high-stakes classification).
-4. Parameter settings. For speculative decoding: draft family (EAGLE-3 default) and `N` (Phase 10 · 15 skill). For Hogwild!: worker count N (2 to 4, rarely more), coordination prompt template, single-node deployment confirmation.
-5. Combined speedup estimate. If combining speculative decoding with Hogwild!, report the multiplicative speedup (typical range: 3x spec * 1.5-2x Hogwild! = 4.5-6x).
+1. Phân loại tác vụ. Suy luận dài (5k+ token), chain-of-thought trung bình (1k-5k), chat ngắn (dưới 1k) hoặc phân loại. Chi phối quyết định ban đầu.
+2. Trục song song hóa. Trong chuỗi (speculative decoding) so với giữa các chuỗi (bỏ phiếu, Hogwild!, đa tác tử). Hầu hết khối lượng công việc hưởng lợi từ trục trong chuỗi trước.
+3. Khuyến nghị chiến lược. Chọn từ: chỉ speculative decoding (mặc định an toàn cho mọi khối lượng công việc trên 100 token), speculative + Hogwild! (suy luận dài với cấu trúc có thể song song hóa), tree-of-thought (các bài toán phân nhánh và cắt tỉa rõ ràng), đa tác tử (các bài toán chuyên môn hóa vai trò), tổ hợp bỏ phiếu (phân loại hệ trọng).
+4. Thiết lập tham số. Với speculative decoding: họ bản dự thảo (mặc định EAGLE-3) và `N` (skill Giai đoạn 10 · 15). Với Hogwild!: số worker N (2 đến 4, hiếm khi nhiều hơn), mẫu prompt phối hợp, xác nhận triển khai một node.
+5. Ước lượng mức tăng tốc kết hợp. Nếu kết hợp speculative decoding với Hogwild!, báo cáo mức tăng tốc nhân (phạm vi điển hình: spec 3x * Hogwild! 1.5-2x = 4.5-6x).
 
-Hard rejects:
-- Hogwild! for any workload under 2000 tokens. Coordination overhead dominates.
-- Hogwild! on non-reasoning models (no emergent coordination).
-- Multi-agent framework for problems that do not have a natural role decomposition.
-- Tree-of-thought without explicit branch-and-prune logic (the strategy reduces to linear CoT otherwise).
-- Running Hogwild! across nodes (cross-node cache synchronization is too slow).
+Các trường hợp loại bỏ dứt khoát:
+- Hogwild! cho bất kỳ khối lượng công việc nào dưới 2000 token. Chi phí phối hợp chiếm ưu thế.
+- Hogwild! trên các mô hình không suy luận (không có sự phối hợp tự phát).
+- Framework đa tác tử cho các bài toán không có sự phân chia vai trò tự nhiên.
+- Tree-of-thought không có logic phân nhánh và cắt tỉa rõ ràng (nếu không chiến lược rút về CoT tuyến tính).
+- Chạy Hogwild! giữa các node (đồng bộ hóa cache giữa các node quá chậm).
 
-Refusal rules:
-- If the workload is experimental research, recommend Hogwild! as an experiment rather than a production bet. The speedups are task-dependent and real-world deployment is rare as of April 2026.
-- If the user asks for guaranteed speedup, refuse and explain that only speculative decoding has the strong-guarantee property (output distribution preserved). Hogwild! is empirical.
-- If the user has limited VRAM, refuse Hogwild! N>2 — each worker needs its own activation memory even though the cache is shared.
+Quy tắc từ chối:
+- Nếu khối lượng công việc là nghiên cứu thử nghiệm, khuyến nghị Hogwild! như một thử nghiệm thay vì đặt cược sản xuất. Mức tăng tốc phụ thuộc tác vụ và việc triển khai thực tế còn hiếm tính đến tháng 4 năm 2026.
+- Nếu người dùng yêu cầu mức tăng tốc được bảo đảm, từ chối và giải thích rằng chỉ speculative decoding có thuộc tính bảo đảm mạnh (phân phối đầu ra được bảo toàn). Hogwild! mang tính thực nghiệm.
+- Nếu người dùng có VRAM hạn chế, từ chối Hogwild! N>2 — mỗi worker cần bộ nhớ activation riêng dù cache được chia sẻ.
 
-Output: a one-page recommendation listing task classification, parallelism axis, strategy, parameters, and combined speedup estimate. End with a "rollback trigger" paragraph naming the specific latency or accuracy metric that would justify reverting to speculative decoding alone if Hogwild! does not pay off in the first 100 production requests.
+Đầu ra: một khuyến nghị dài một trang liệt kê phân loại tác vụ, trục song song hóa, chiến lược, tham số và ước lượng mức tăng tốc kết hợp. Kết thúc bằng đoạn "điều kiện kích hoạt hoàn tác" nêu chỉ số độ trễ hoặc độ chính xác cụ thể sẽ biện minh cho việc quay về chỉ speculative decoding nếu Hogwild! không mang lại lợi ích trong 100 yêu cầu sản xuất đầu tiên.
