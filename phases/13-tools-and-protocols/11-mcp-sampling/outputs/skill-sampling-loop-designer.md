@@ -7,36 +7,36 @@ lesson: 11
 tags: [mcp, mrtr, sampling, stateless, migration]
 ---
 
-Design model-assisted behavior for an MCP server targeting protocol revision `2026-07-28`.
+Thiết kế hành vi có mô hình hỗ trợ cho máy chủ MCP nhắm bản sửa đổi giao thức `2026-07-28`.
 
-Start with one decision: can the server integrate directly with a model provider? Sampling is deprecated for new designs. Prefer direct integration unless using the client's model and credentials is an explicit product requirement.
+Bắt đầu bằng một quyết định: máy chủ có thể tích hợp trực tiếp với nhà cung cấp mô hình không? Sampling ngừng được khuyến nghị cho thiết kế mới. Ưu tiên tích hợp trực tiếp trừ khi dùng mô hình và thông tin xác thực của client là yêu cầu sản phẩm tường minh.
 
-Produce:
+Tạo ra:
 
-1. Architecture decision. Choose direct inference or compatibility Sampling and state why.
-2. Discovery contract. Show `server/discover` with exact `supportedVersions`, advertised capabilities, `ttlMs`, and `cacheScope`. If tools are advertised, include mandatory deterministic `tools/list` descriptors with valid object `inputSchema`, `resultType: "complete"`, server identity metadata, and cache hints.
-3. Request envelope. Include protocol version and client capabilities in `_meta` on every request. Use `-32602` for a missing or non-string version, `-32022` with exact `supported` and `requested` data for an unsupported version, and `-32021` with a `requiredCapabilities` object when Sampling is absent. Treat client identity metadata as informational only. Never emit a JSON-RPC response for an id-less notification; an accepted HTTP notification receives `202` with no body.
-4. Round table. For each MRTR round, name the `inputRequests` key, embedded request method, expected response schema, validation, and budget.
-5. Retry contract. Require the original method and arguments, a fresh JSON-RPC id, current-round `inputResponses`, and byte-exact `requestState`.
-6. State protection. Bind HMAC or authenticated encryption to the authenticated principal, method, argument digest, phase, and short expiry.
-7. Safety policy. Define approval, maximum rounds, token and byte limits, response validation, logging, and refusal behavior.
-8. Removal plan. If Sampling remains, name the condition and date for replacing it with direct integration.
+1. Quyết định kiến trúc. Chọn suy luận trực tiếp hoặc Sampling tương thích và nêu tại sao.
+2. Hợp đồng khám phá. Cho thấy `server/discover` với `supportedVersions` chính xác, khả năng công bố, `ttlMs` và `cacheScope`. Nếu công bố công cụ, gồm bộ mô tả `tools/list` bắt buộc tất định với `inputSchema` đối tượng hợp lệ, `resultType: "complete"`, siêu dữ liệu danh tính máy chủ và gợi ý bộ đệm.
+3. Vỏ yêu cầu. Gồm phiên bản giao thức và khả năng client trong `_meta` trên mọi yêu cầu. Dùng `-32602` cho phiên bản thiếu hoặc không chuỗi, `-32022` với dữ liệu `supported` và `requested` chính xác cho phiên bản không hỗ trợ và `-32021` với đối tượng `requiredCapabilities` khi không có Sampling. Chỉ coi siêu dữ liệu danh tính client là thông tin. Không bao giờ phát phản hồi JSON-RPC cho thông báo không id; thông báo HTTP được chấp nhận nhận `202` không phần thân.
+4. Bảng vòng. Với mỗi vòng MRTR, nêu khóa `inputRequests`, phương thức yêu cầu nhúng, lược đồ phản hồi kỳ vọng, xác thực và ngân sách.
+5. Hợp đồng thử lại. Yêu cầu phương thức và đối số gốc, id JSON-RPC mới, `inputResponses` vòng hiện tại và `requestState` chính xác từng byte.
+6. Bảo vệ trạng thái. Gắn HMAC hoặc mã hóa có xác thực với chủ thể đã xác thực, phương thức, bản băm đối số, giai đoạn và thời hạn ngắn.
+7. Chính sách an toàn. Định nghĩa phê duyệt, vòng tối đa, giới hạn token và byte, xác thực phản hồi, ghi nhật ký và hành vi từ chối.
+8. Kế hoạch loại bỏ. Nếu còn Sampling, nêu điều kiện và ngày thay bằng tích hợp trực tiếp.
 
-Hard rejects:
+Các trường hợp bác bỏ tuyệt đối:
 
-- A new design that adopts deprecated Sampling without a documented requirement.
-- A 2026-07-28 server that sends `sampling/createMessage` as a live server-to-client request.
-- Any use of `initialize`, `notifications/initialized`, `Mcp-Session-Id`, or hidden protocol-session state.
-- Unsigned `requestState` that affects authorization, resource access, or business logic.
-- A retry that reuses the original JSON-RPC id or changes the original arguments.
-- A client model loop without capability checks, approval policy, validation, and a hard round limit.
-- `includeContext: "allServers"` or implicit cross-server context.
+- Thiết kế mới tiếp nhận Sampling ngừng được khuyến nghị không có yêu cầu được ghi lại.
+- Máy chủ 2026-07-28 gửi `sampling/createMessage` như yêu cầu trực tiếp máy chủ-sang-client.
+- Mọi sử dụng `initialize`, `notifications/initialized`, `Mcp-Session-Id` hoặc trạng thái phiên giao thức ẩn.
+- `requestState` không có chữ ký ảnh hưởng cấp quyền, truy cập tài nguyên hoặc logic nghiệp vụ.
+- Lần thử lại dùng lại id JSON-RPC gốc hoặc đổi đối số gốc.
+- Vòng lặp mô hình client không có kiểm tra khả năng, chính sách phê duyệt, xác thực và giới hạn vòng cứng.
+- `includeContext: "allServers"` hoặc ngữ cảnh chéo máy chủ ngầm.
 
-Refusal rules:
+Quy tắc từ chối:
 
-- Refuse covert model calls or any design that hides the server's intent from the user.
-- Refuse model output as proof of identity, authorization, or user consent.
-- Refuse a multi-round design when one deterministic tool call is sufficient.
-- Refuse to call client and server metadata an authenticated identity.
+- Từ chối lời gọi mô hình bí mật hoặc mọi thiết kế giấu ý định máy chủ với người dùng.
+- Từ chối đầu ra mô hình làm bằng chứng danh tính, cấp quyền hoặc đồng ý người dùng.
+- Từ chối thiết kế nhiều vòng khi một lời gọi công cụ tất định đủ.
+- Từ chối gọi siêu dữ liệu client và máy chủ là danh tính đã xác thực.
 
-Output a one-page architecture with the decision, wire flow, round table, signed state contents, safety budget, failure cases, and migration plan. End with a verdict: `direct inference`, `temporary MRTR compatibility`, or `no model required`.
+Xuất kiến trúc một trang với quyết định, luồng đường truyền, bảng vòng, nội dung trạng thái có chữ ký, ngân sách an toàn, ca thất bại và kế hoạch chuyển đổi. Kết thúc bằng kết luận: `direct inference`, `temporary MRTR compatibility` hoặc `no model required`.
