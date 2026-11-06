@@ -1,77 +1,77 @@
 # Advanced RAG (Chunking, Reranking, Hybrid Search)
 
-> Basic RAG retrieves the top-k most similar chunks. That works for simple questions. It falls apart for multi-hop reasoning, ambiguous queries, and large corpora. Advanced RAG is the difference between a demo that works on 10 documents and a system that works on 10 million.
+> RAG cơ bản truy xuất top-k chunk tương tự nhất. Điều đó hoạt động cho câu hỏi đơn giản. Nó sụp đổ với suy luận nhiều bước nối, truy vấn mơ hồ và ngữ liệu lớn. RAG nâng cao là khác biệt giữa một demo hoạt động trên 10 tài liệu và một hệ thống hoạt động trên 10 triệu.
 
 **Type:** Build
 **Languages:** Python
 **Prerequisites:** Phase 11, Lesson 06 (RAG)
 **Time:** ~90 minutes
-**Related:** Phase 5 · 23 (Chunking Strategies for RAG) covers all six chunking algorithms — recursive, semantic, sentence, parent-document, late chunking, contextual retrieval — with Vectara/Anthropic benchmarks. This lesson builds on top: hybrid search, reranking, query transformation.
+**Liên quan:** Giai đoạn 5 · 23 (Chunking Strategies for RAG) trình bày cả sáu thuật toán chia chunk — đệ quy, ngữ nghĩa, câu, tài liệu cha, late chunking, truy xuất theo ngữ cảnh — với benchmark Vectara/Anthropic. Bài học này xây tiếp bên trên: tìm kiếm lai, xếp hạng lại, biến đổi truy vấn.
 
 ## Learning Objectives
 
-- Implement advanced chunking strategies (semantic, recursive, parent-child) that preserve document structure and context
-- Build a hybrid search pipeline combining BM25 keyword matching with semantic vector search and a cross-encoder reranker
-- Apply query transformation techniques (HyDE, multi-query, step-back) to improve retrieval on ambiguous or complex questions
-- Diagnose and fix common RAG failures: wrong chunk retrieved, answer not in context, multi-hop reasoning breakdown
+- Triển khai các chiến lược chia chunk nâng cao (ngữ nghĩa, đệ quy, cha-con) giữ cấu trúc tài liệu và ngữ cảnh
+- Xây dựng pipeline tìm kiếm lai kết hợp khớp từ khóa BM25 với tìm kiếm vector ngữ nghĩa và bộ xếp hạng lại cross-encoder
+- Áp dụng các kỹ thuật biến đổi truy vấn (HyDE, đa truy vấn, lùi bước) để cải thiện truy xuất trên câu hỏi mơ hồ hoặc phức tạp
+- Chẩn đoán và sửa các thất bại RAG phổ biến: truy xuất sai chunk, câu trả lời không trong ngữ cảnh, suy luận nhiều bước nối bị đổ vỡ
 
 ## The Problem
 
-You built a basic RAG pipeline in Lesson 06. It works for straightforward questions on a small corpus. Now try these:
+Bạn đã xây một pipeline RAG cơ bản trong Bài 06. Nó hoạt động với câu hỏi đơn giản trên ngữ liệu nhỏ. Giờ thử những câu này:
 
-**Ambiguous query**: "What was revenue last quarter?" Semantic search returns chunks about revenue strategy, revenue projections, and the CFO's thoughts on revenue growth. All semantically similar to the word "revenue." None containing the actual number. The correct chunk says "$47.2M in Q3 2025" but uses the word "earnings" instead of "revenue." The embedding model thinks "revenue strategy" is closer to the query than "Q3 earnings were $47.2M."
+**Truy vấn mơ hồ**: "Doanh thu quý trước là bao nhiêu?" Tìm kiếm ngữ nghĩa trả về chunk về chiến lược doanh thu, dự báo doanh thu và suy nghĩ của CFO về tăng trưởng doanh thu. Tất cả tương tự về ngữ nghĩa với từ "doanh thu." Không chunk nào chứa con số thực tế. Chunk đúng nói "$47.2M trong Q3 2025" nhưng dùng từ "thu nhập" thay vì "doanh thu." Mô hình embedding nghĩ "chiến lược doanh thu" gần truy vấn hơn "Thu nhập Q3 là $47.2M."
 
-**Multi-hop question**: "Which team had the highest customer satisfaction score improvement?" This requires finding the satisfaction scores for each team, comparing them, and identifying the maximum. No single chunk contains the answer. The information is scattered across team reports.
+**Câu hỏi nhiều bước nối**: "Nhóm nào có mức cải thiện điểm hài lòng khách hàng cao nhất?" Điều này cần tìm điểm hài lòng cho mỗi nhóm, so sánh chúng và xác định giá trị lớn nhất. Không một chunk đơn lẻ nào chứa câu trả lời. Thông tin phân tán trên các báo cáo nhóm.
 
-**Large corpus problem**: You have 2 million chunks. The correct answer is in chunk #1,847,293. Your top-5 retrieval pulls chunks #14, #89,201, #1,200,000, #44, and #901,333. Close in embedding space, but none containing the answer. At this scale, approximate nearest neighbor search introduces enough error that relevant results get pushed out of the top-k.
+**Vấn đề ngữ liệu lớn**: Bạn có 2 triệu chunk. Câu trả lời đúng ở chunk #1,847,293. Truy xuất top-5 kéo về các chunk #14, #89,201, #1,200,000, #44 và #901,333. Gần trong không gian embedding, nhưng không chunk nào chứa câu trả lời. Ở quy mô này, tìm kiếm láng giềng gần nhất xấp xỉ đưa vào đủ sai số để kết quả liên quan bị đẩy khỏi top-k.
 
-Basic RAG fails because vector similarity is not the same as relevance. A chunk can be semantically similar to a query without being useful for answering it. Advanced RAG addresses this with four techniques: hybrid search (add keyword matching), reranking (score candidates more carefully), query transformation (fix the query before searching), and better chunking (retrieve at the right granularity).
+RAG cơ bản thất bại vì tương đồng vector không giống mức liên quan. Một chunk có thể tương tự về ngữ nghĩa với truy vấn mà không hữu ích để trả lời nó. RAG nâng cao xử lý điều này bằng bốn kỹ thuật: tìm kiếm lai (thêm khớp từ khóa), xếp hạng lại (chấm ứng viên cẩn thận hơn), biến đổi truy vấn (sửa truy vấn trước tìm kiếm) và chia chunk tốt hơn (truy xuất ở mức hạt phù hợp).
 
 ## The Concept
 
 ### Hybrid Search: Semantic + Keyword
 
-Semantic search (vector similarity) is good at understanding meaning. "How do I cancel my subscription?" matches "Steps to terminate your plan" even though they share no words. But it misses exact matches. "Error code E-4021" might not match a chunk containing "E-4021" if the embedding model treats it as noise.
+Tìm kiếm ngữ nghĩa (tương đồng vector) giỏi hiểu ý nghĩa. "Làm thế nào để tôi hủy đăng ký?" khớp "Các bước chấm dứt gói của bạn" dù không có từ chung. Nhưng nó bỏ lỡ khớp chính xác. "Mã lỗi E-4021" có thể không khớp chunk chứa "E-4021" nếu mô hình embedding xem nó là nhiễu.
 
-Keyword search (BM25) is the opposite. It excels at exact matches. "E-4021" matches perfectly. But "cancel my subscription" returns zero results if the document says "terminate your plan."
+Tìm kiếm từ khóa (BM25) thì ngược lại. Nó xuất sắc ở khớp chính xác. "E-4021" khớp hoàn hảo. Nhưng "hủy đăng ký của tôi" trả về không kết quả nếu tài liệu nói "chấm dứt gói của bạn."
 
-Hybrid search runs both, then merges the results.
+Tìm kiếm lai chạy cả hai, rồi gộp kết quả.
 
-**BM25** (Best Matching 25) is the standard keyword search algorithm. It has been the backbone of search engines since the 1990s. The formula:
+**BM25** (Best Matching 25) là thuật toán tìm kiếm từ khóa tiêu chuẩn. Nó là xương sống của các bộ máy tìm kiếm từ thập niên 1990. Công thức:
 
 ```
 BM25(q, d) = sum over terms t in q:
     IDF(t) * (tf(t,d) * (k1 + 1)) / (tf(t,d) + k1 * (1 - b + b * |d| / avgdl))
 ```
 
-Where tf(t,d) is the term frequency of t in document d, IDF(t) is the inverse document frequency, |d| is the document length, avgdl is the average document length, k1 controls term frequency saturation (default 1.2), and b controls length normalization (default 0.75).
+Trong đó tf(t,d) là tần suất từ t trong tài liệu d, IDF(t) là nghịch đảo tần suất tài liệu, |d| là độ dài tài liệu, avgdl là độ dài tài liệu trung bình, k1 kiểm soát bão hòa tần suất từ (mặc định 1.2) và b kiểm soát chuẩn hóa độ dài (mặc định 0.75).
 
-In plain terms: BM25 scores documents higher when they contain query terms (especially rare ones), but with diminishing returns for repeated terms. A document with the word "revenue" 50 times is not 50x more relevant than one with it once.
+Nói đơn giản: BM25 chấm tài liệu cao hơn khi chúng chứa từ truy vấn (đặc biệt từ hiếm), nhưng lợi ích giảm dần cho từ lặp lại. Một tài liệu có từ "doanh thu" 50 lần không liên quan hơn 50x so với tài liệu có từ đó một lần.
 
 ### Reciprocal Rank Fusion (RRF)
 
-You have two ranked lists: one from vector search, one from BM25. How do you combine them? Reciprocal Rank Fusion is the standard approach.
+Bạn có hai danh sách được xếp hạng: một từ tìm kiếm vector, một từ BM25. Kết hợp chúng thế nào? Reciprocal Rank Fusion là cách tiếp cận tiêu chuẩn.
 
 ```
 RRF_score(d) = sum over rankings R:
     1 / (k + rank_R(d))
 ```
 
-Where k is a constant (typically 60) that prevents the top-ranked result from dominating.
+Trong đó k là hằng số (thường 60) ngăn kết quả đứng đầu thống trị.
 
-A document ranked #1 in vector search and #5 in BM25 gets: 1/(60+1) + 1/(60+5) = 0.0164 + 0.0154 = 0.0318
+Một tài liệu xếp #1 trong tìm kiếm vector và #5 trong BM25 nhận: 1/(60+1) + 1/(60+5) = 0.0164 + 0.0154 = 0.0318
 
-A document ranked #3 in vector search and #2 in BM25 gets: 1/(60+3) + 1/(60+2) = 0.0159 + 0.0161 = 0.0320
+Một tài liệu xếp #3 trong tìm kiếm vector và #2 trong BM25 nhận: 1/(60+3) + 1/(60+2) = 0.0159 + 0.0161 = 0.0320
 
-RRF naturally balances the two signals. A document that ranks highly in both lists gets the best score. A document that ranks #1 in one list but is absent from the other gets a moderate score. This is robust because it uses ranks, not raw scores, so differences in score distributions between the two systems do not matter.
+RRF cân bằng tự nhiên hai tín hiệu. Một tài liệu xếp cao trong cả hai danh sách nhận điểm tốt nhất. Một tài liệu xếp #1 trong một danh sách nhưng vắng ở danh sách kia nhận điểm trung bình. Điều này vững chắc vì dùng thứ hạng, không phải điểm thô, nên khác biệt phân phối điểm giữa hai hệ thống không quan trọng.
 
 ### Reranking
 
-Retrieval (whether vector, keyword, or hybrid) is fast but imprecise. It uses bi-encoders: the query and each document are embedded independently, then compared. The embeddings are computed once and cached. This scales to millions of documents.
+Truy xuất (dù vector, từ khóa hay lai) nhanh nhưng thiếu chính xác. Nó dùng bi-encoder: truy vấn và mỗi tài liệu được nhúng độc lập, rồi so sánh. Embedding được tính một lần và cache. Điều này mở rộng đến hàng triệu tài liệu.
 
-Reranking uses cross-encoders: the query and a candidate document are fed together into a model that outputs a relevance score. The model sees both texts simultaneously and can capture fine-grained interactions between them. A cross-encoder can understand that "What were Q3 earnings?" is highly relevant to a chunk containing "$47.2M in Q3" even if a bi-encoder missed the connection.
+Xếp hạng lại dùng cross-encoder: truy vấn và một tài liệu ứng viên được đưa cùng nhau vào mô hình xuất điểm liên quan. Mô hình thấy cả hai văn bản đồng thời và có thể nắm tương tác chi tiết giữa chúng. Một cross-encoder có thể hiểu "Thu nhập Q3 là bao nhiêu?" rất liên quan đến chunk chứa "$47.2M trong Q3" ngay cả khi bi-encoder bỏ lỡ liên hệ.
 
-The trade-off: cross-encoders are 100-1000x slower than bi-encoders because they process the query-document pair jointly. You cannot pre-compute cross-encoder scores for a million documents. The solution: retrieve a larger candidate set (top-50 from hybrid search), then rerank with a cross-encoder to get the final top-5.
+Sự đánh đổi: cross-encoder chậm hơn bi-encoder 100-1000x vì xử lý cặp truy vấn-tài liệu đồng thời. Bạn không thể tính trước điểm cross-encoder cho một triệu tài liệu. Giải pháp: truy xuất tập ứng viên lớn hơn (top-50 từ tìm kiếm lai), rồi xếp hạng lại bằng cross-encoder để lấy top-5 cuối.
 
 ```mermaid
 graph LR
@@ -83,26 +83,26 @@ graph LR
     P --> LLM["Generate answer"]
 ```
 
-Common reranking models (2026 lineup):
-- Cohere Rerank 3.5: managed API, multilingual, best recall gain on mixed corpora
-- Voyage rerank-2.5: managed API, lowest latency of the hosted options
-- Jina-Reranker-v2 Multilingual: open-weight, 100+ languages
-- bge-reranker-v2-m3: open-weight, strong baseline
-- cross-encoder/ms-marco-MiniLM-L-6-v2: open-weight, runs on CPU for prototyping
-- ColBERTv2 / Jina-ColBERT-v2: late-interaction multi-vector rerankers — O(tokens) not O(docs) at scoring time
+Các mô hình xếp hạng lại phổ biến (danh sách năm 2026):
+- Cohere Rerank 3.5: API được quản lý, đa ngôn ngữ, mức tăng recall tốt nhất trên ngữ liệu hỗn hợp
+- Voyage rerank-2.5: API được quản lý, độ trễ thấp nhất trong các lựa chọn được lưu trữ
+- Jina-Reranker-v2 Multilingual: trọng số mở, 100+ ngôn ngữ
+- bge-reranker-v2-m3: trọng số mở, baseline mạnh
+- cross-encoder/ms-marco-MiniLM-L-6-v2: trọng số mở, chạy trên CPU để tạo mẫu
+- ColBERTv2 / Jina-ColBERT-v2: bộ xếp hạng lại đa vector tương tác muộn — O(tokens) không phải O(docs) ở thời điểm chấm điểm
 
 ### Query Transformation
 
-Sometimes the problem is not retrieval but the query itself. "What was that thing about the new policy change?" is a terrible search query. It contains no specific terms. The embedding is vague. No retrieval system can find the right documents from this.
+Đôi khi vấn đề không phải truy xuất mà là chính truy vấn. "Cái chuyện về thay đổi chính sách mới đó là gì?" là một truy vấn tìm kiếm tệ. Nó không chứa từ cụ thể. Embedding mơ hồ. Không hệ thống truy xuất nào có thể tìm đúng tài liệu từ đó.
 
-**Query rewriting**: rephrase the user's query into a better search query. An LLM can do this:
+**Viết lại truy vấn**: diễn đạt lại truy vấn người dùng thành truy vấn tìm kiếm tốt hơn. Một LLM có thể làm điều này:
 
 ```
 User: "What was that thing about the new policy change?"
 Rewritten: "Recent policy changes and updates"
 ```
 
-**HyDE (Hypothetical Document Embeddings)**: instead of searching with the query, generate a hypothetical answer, embed that, and search for similar real documents.
+**HyDE (Hypothetical Document Embeddings)**: thay vì tìm bằng truy vấn, sinh một câu trả lời giả định, nhúng nó và tìm tài liệu thực tương tự.
 
 ```
 Query: "What is the refund policy for enterprise?"
@@ -111,15 +111,15 @@ within 60 days of purchase. Refunds are pro-rated based on the remaining
 subscription period and processed within 5-7 business days."
 ```
 
-Embed the hypothetical answer and search for real documents similar to it. The intuition: the hypothetical answer lives closer in embedding space to the real answer than the original question does. Questions and answers have different linguistic structures. By generating a hypothetical answer, you bridge the gap between "question space" and "answer space" in the embedding.
+Nhúng câu trả lời giả định và tìm tài liệu thực tương tự nó. Trực giác: câu trả lời giả định nằm gần câu trả lời thực trong không gian embedding hơn câu hỏi gốc. Câu hỏi và câu trả lời có cấu trúc ngôn ngữ khác nhau. Bằng cách sinh câu trả lời giả định, bạn nối khoảng cách giữa "không gian câu hỏi" và "không gian câu trả lời" trong embedding.
 
-HyDE adds one LLM call before retrieval. This increases latency by 500-2000ms. Worth it when retrieval quality is poor on raw queries.
+HyDE thêm một lệnh gọi LLM trước truy xuất. Điều này tăng độ trễ 500-2000ms. Đáng dùng khi chất lượng truy xuất kém trên truy vấn thô.
 
 ### Parent-Child Chunking
 
-Standard chunking forces a trade-off: small chunks for precise retrieval, large chunks for sufficient context. Parent-child chunking eliminates this trade-off.
+Chia chunk tiêu chuẩn buộc một đánh đổi: chunk nhỏ cho truy xuất chính xác, chunk lớn cho đủ ngữ cảnh. Chia chunk cha-con loại bỏ đánh đổi này.
 
-Index small chunks (128 tokens) for retrieval. When a small chunk is retrieved, return its parent chunk (512 tokens) for the prompt. The small chunk matches the query precisely. The parent chunk provides enough context for the LLM to generate a good answer.
+Lập chỉ mục chunk nhỏ (128 token) cho truy xuất. Khi một chunk nhỏ được truy xuất, trả về chunk cha (512 token) cho prompt. Chunk nhỏ khớp truy vấn chính xác. Chunk cha cung cấp đủ ngữ cảnh để LLM sinh câu trả lời tốt.
 
 ```mermaid
 graph TD
@@ -138,27 +138,27 @@ graph TD
     C2 -.->|"return parent"| P
 ```
 
-The query "enterprise refund?" matches child chunk C2 precisely. But the prompt receives the full parent chunk P, which includes the surrounding context about processing time and submission process.
+Truy vấn "hoàn tiền doanh nghiệp?" khớp chính xác chunk con C2. Nhưng prompt nhận toàn bộ chunk cha P, gồm ngữ cảnh xung quanh về thời gian xử lý và quy trình gửi.
 
 ### Metadata Filtering
 
-Before running vector search, filter the corpus by metadata: date, source, category, author, language. This reduces the search space and prevents irrelevant results.
+Trước khi chạy tìm kiếm vector, lọc ngữ liệu theo metadata: ngày, nguồn, loại, tác giả, ngôn ngữ. Điều này giảm không gian tìm kiếm và ngăn kết quả không liên quan.
 
-"What changed in the security policy last month?" should only search documents from the last 30 days in the security category. Without metadata filtering, you search the entire corpus and might retrieve a 2-year-old security document that happens to be semantically similar.
+"Điều gì thay đổi trong chính sách bảo mật tháng trước?" chỉ nên tìm tài liệu từ 30 ngày qua trong loại bảo mật. Không lọc metadata, bạn tìm toàn ngữ liệu và có thể truy xuất một tài liệu bảo mật 2 năm tuổi tình cờ tương tự về ngữ nghĩa.
 
-Production RAG systems store metadata alongside each chunk: source document, creation date, category, author, version. Vector databases support pre-filtering by metadata before similarity search, which is critical for performance at scale.
+Hệ thống RAG sản xuất lưu metadata cùng mỗi chunk: tài liệu nguồn, ngày tạo, loại, tác giả, phiên bản. Cơ sở dữ liệu vector hỗ trợ lọc trước theo metadata trước tìm kiếm độ tương đồng, điều then chốt cho hiệu năng ở quy mô lớn.
 
 ### Evaluation
 
-You built a RAG system. How do you know if it works? Three metrics:
+Bạn đã xây hệ thống RAG. Làm sao biết nó hoạt động? Ba thước đo:
 
-**Retrieval relevance (Recall@k)**: for a set of test questions with known relevant documents, what percentage of relevant documents appear in the top-k results? If the answer to a question is in chunk #47, does chunk #47 appear in the top-5?
+**Mức liên quan truy xuất (Recall@k)**: với tập câu hỏi kiểm thử có tài liệu liên quan đã biết, bao nhiêu phần trăm tài liệu liên quan xuất hiện trong kết quả top-k? Nếu câu trả lời ở chunk #47, chunk #47 có xuất hiện trong top-5 không?
 
-**Faithfulness**: is the generated answer grounded in the retrieved documents? If the retrieved chunks say "60-day refund window" and the model says "90-day refund window," that is a faithfulness failure. The model hallucinated despite having the correct context.
+**Độ trung thực**: câu trả lời được sinh có dựa trên tài liệu truy xuất không? Nếu các chunk truy xuất nói "thời hạn hoàn tiền 60 ngày" và mô hình nói "thời hạn hoàn tiền 90 ngày", đó là thất bại về độ trung thực. Mô hình ảo giác dù có ngữ cảnh đúng.
 
-**Answer correctness**: does the generated answer match the expected answer? This is the end-to-end metric. It combines retrieval quality and generation quality.
+**Tính đúng đắn câu trả lời**: câu trả lời được sinh có khớp câu trả lời kỳ vọng không? Đây là thước đo từ đầu đến cuối. Nó kết hợp chất lượng truy xuất và chất lượng sinh.
 
-A simple faithfulness check: take each claim in the generated answer and verify it appears (in substance) in the retrieved chunks. If the answer contains a fact not in any retrieved chunk, it is likely hallucinated.
+Một kiểm tra độ trung thực đơn giản: lấy từng khẳng định trong câu trả lời được sinh và xác minh nó xuất hiện (về nội dung) trong các chunk truy xuất. Nếu câu trả lời chứa sự kiện không nằm trong bất kỳ chunk truy xuất nào, có khả năng đó là ảo giác.
 
 ```mermaid
 graph TD
@@ -259,7 +259,7 @@ def hybrid_search(query, chunks, vector_embeddings, vocab, idf, bm25_index, top_
 
 ### Step 4: Simple Reranker
 
-In production, you would use a cross-encoder model. Here we build a reranker that scores query-document relevance using word overlap, term importance, and phrase matching.
+Trong sản xuất, bạn sẽ dùng mô hình cross-encoder. Ở đây chúng ta xây bộ xếp hạng lại chấm mức liên quan truy vấn-tài liệu bằng chồng lấp từ, tầm quan trọng từ và khớp cụm từ.
 
 ```python
 def rerank(query, candidates, chunks):
@@ -421,7 +421,7 @@ def evaluate_retrieval_recall(queries_with_relevant, retrieval_fn, k=5):
 
 ## Use It
 
-With a real cross-encoder for reranking:
+Với cross-encoder thực để xếp hạng lại:
 
 ```python
 from sentence_transformers import CrossEncoder
@@ -436,7 +436,7 @@ def rerank_with_cross_encoder(query, candidates, chunks, top_k=5):
     return scored[:top_k]
 ```
 
-With Cohere's managed reranker:
+Với bộ xếp hạng lại được quản lý của Cohere:
 
 ```python
 import cohere
@@ -454,7 +454,7 @@ def rerank_with_cohere(query, candidates, chunks, top_k=5):
     return [(candidates[r.index][0], r.relevance_score) for r in response.results]
 ```
 
-For HyDE with a real LLM:
+Cho HyDE với LLM thực:
 
 ```python
 import anthropic
@@ -473,7 +473,7 @@ def hyde_with_llm(query):
     return response.content[0].text
 ```
 
-For production hybrid search with Weaviate:
+Cho tìm kiếm lai sản xuất với Weaviate:
 
 ```python
 import weaviate
@@ -488,48 +488,48 @@ response = collection.query.hybrid(
 )
 ```
 
-The alpha parameter controls the balance: 0.0 = pure keyword (BM25), 1.0 = pure vector, 0.5 = equal weight. Most production systems use alpha between 0.3 and 0.7.
+Tham số alpha kiểm soát cân bằng: 0.0 = từ khóa thuần (BM25), 1.0 = vector thuần, 0.5 = trọng số bằng nhau. Hầu hết hệ thống sản xuất dùng alpha từ 0.3 đến 0.7.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-advanced-rag-debugger.md` -- a prompt for diagnosing and fixing RAG quality issues
-- `outputs/skill-advanced-rag.md` -- a skill for building production-grade RAG with hybrid search and reranking
+Bài học này tạo ra:
+- `outputs/prompt-advanced-rag-debugger.md` -- một prompt để chẩn đoán và sửa vấn đề chất lượng RAG
+- `outputs/skill-advanced-rag.md` -- một skill xây RAG cấp sản xuất với tìm kiếm lai và xếp hạng lại
 
 ## Exercises
 
-1. Compare BM25 vs vector search vs hybrid search on the sample documents. For each of the 5 test queries, record which approach returns the most relevant chunk in position #1. Hybrid search should win on at least 3 out of 5.
+1. So sánh BM25 với tìm kiếm vector với tìm kiếm lai trên các tài liệu mẫu. Với mỗi trong 5 truy vấn kiểm thử, ghi cách nào trả về chunk liên quan nhất ở vị trí #1. Tìm kiếm lai phải thắng ít nhất 3 trong 5.
 
-2. Implement a metadata filter. Add a "category" field to each document (security, billing, api, product). Before running vector search, filter chunks to only the relevant category. Test with "What encryption is used?" and verify it only searches security-category chunks.
+2. Triển khai một bộ lọc metadata. Thêm trường "category" vào mỗi tài liệu (security, billing, api, product). Trước khi chạy tìm kiếm vector, lọc chunk chỉ còn loại liên quan. Kiểm thử với "Mã hóa nào được dùng?" và xác minh nó chỉ tìm chunk loại bảo mật.
 
-3. Build a full HyDE pipeline using the simple generate function from Lesson 06. Compare retrieval quality (top-3 relevance) between direct query search and HyDE search on all 5 test queries. HyDE should improve results for vague queries.
+3. Xây một pipeline HyDE đầy đủ bằng hàm sinh đơn giản từ Bài 06. So sánh chất lượng truy xuất (mức liên quan top-3) giữa tìm trực tiếp truy vấn và tìm HyDE trên cả 5 truy vấn kiểm thử. HyDE phải cải thiện kết quả cho truy vấn mơ hồ.
 
-4. Implement the parent-child chunking strategy on the sample documents. Use child_size=30 and parent_size=100. Search with child chunks but return parent chunks in the prompt. Compare the generated answers to standard chunking with chunk_size=50.
+4. Triển khai chiến lược chia chunk cha-con trên các tài liệu mẫu. Dùng child_size=30 và parent_size=100. Tìm bằng chunk con nhưng trả chunk cha trong prompt. So sánh câu trả lời được sinh với chia chunk tiêu chuẩn có chunk_size=50.
 
-5. Create an evaluation dataset: 10 questions with known answer chunks. Measure Recall@3, Recall@5, and Recall@10 for (a) vector search only, (b) BM25 only, (c) hybrid search, (d) hybrid + reranking. Plot the results and identify where reranking helps most.
+5. Tạo một bộ dữ liệu đánh giá: 10 câu hỏi có chunk câu trả lời đã biết. Đo Recall@3, Recall@5 và Recall@10 cho (a) chỉ tìm vector, (b) chỉ BM25, (c) tìm kiếm lai, (d) lai + xếp hạng lại. Vẽ kết quả và xác định nơi xếp hạng lại giúp nhiều nhất.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| BM25 | "Keyword search" | A probabilistic ranking algorithm that scores documents by term frequency, inverse document frequency, and document length normalization |
-| Hybrid search | "Best of both worlds" | Running semantic (vector) and keyword (BM25) search in parallel, then merging results with rank fusion |
-| Reciprocal Rank Fusion | "Merge ranked lists" | Combining multiple ranked lists by summing 1/(k + rank) for each document across all lists |
-| Reranking | "Second pass scoring" | Using a more expensive cross-encoder model to re-score a candidate set from initial retrieval |
-| Cross-encoder | "Joint query-document model" | A model that takes a query and document as a single input, producing a relevance score; more accurate than bi-encoders but too slow for full corpus search |
-| Bi-encoder | "Independent embedding model" | A model that embeds queries and documents independently; fast because embeddings are precomputed, but less accurate than cross-encoders |
-| HyDE | "Search with a fake answer" | Generate a hypothetical answer to the query, embed it, and search for real documents similar to it |
-| Parent-child chunking | "Small search, big context" | Index small chunks for precise retrieval but return the larger parent chunk to provide sufficient context |
-| Metadata filtering | "Narrow before searching" | Filtering documents by attributes (date, source, category) before running vector search to reduce the search space |
-| Faithfulness | "Did it stay grounded" | Whether the generated answer is supported by the retrieved documents, as opposed to hallucinated from the model's training data |
+| BM25 | "Tìm kiếm từ khóa" | Thuật toán xếp hạng xác suất chấm tài liệu theo tần suất từ, nghịch đảo tần suất tài liệu và chuẩn hóa độ dài tài liệu |
+| Hybrid search (Tìm kiếm lai) | "Điều tốt nhất của cả hai thế giới" | Chạy tìm kiếm ngữ nghĩa (vector) và từ khóa (BM25) song song, rồi gộp kết quả bằng hợp nhất thứ hạng |
+| Reciprocal Rank Fusion (Hợp nhất thứ hạng nghịch đảo) | "Gộp danh sách được xếp hạng" | Kết hợp nhiều danh sách được xếp hạng bằng cách cộng 1/(k + rank) cho mỗi tài liệu trên mọi danh sách |
+| Reranking (Xếp hạng lại) | "Chấm điểm lượt hai" | Dùng mô hình cross-encoder đắt hơn để chấm lại tập ứng viên từ truy xuất ban đầu |
+| Cross-encoder (Bộ mã hóa chéo) | "Mô hình truy vấn-tài liệu kết hợp" | Mô hình nhận truy vấn và tài liệu làm một đầu vào, tạo điểm liên quan; chính xác hơn bi-encoder nhưng quá chậm cho tìm kiếm toàn ngữ liệu |
+| Bi-encoder (Bộ mã hóa đôi) | "Mô hình embedding độc lập" | Mô hình nhúng truy vấn và tài liệu độc lập; nhanh vì embedding được tính trước, nhưng kém chính xác hơn cross-encoder |
+| HyDE | "Tìm bằng câu trả lời giả" | Sinh câu trả lời giả định cho truy vấn, nhúng nó và tìm tài liệu thực tương tự |
+| Parent-child chunking (Chia chunk cha-con) | "Tìm nhỏ, ngữ cảnh lớn" | Lập chỉ mục chunk nhỏ để truy xuất chính xác nhưng trả chunk cha lớn hơn để cung cấp đủ ngữ cảnh |
+| Metadata filtering (Lọc metadata) | "Thu hẹp trước tìm kiếm" | Lọc tài liệu theo thuộc tính (ngày, nguồn, loại) trước chạy tìm kiếm vector để giảm không gian tìm kiếm |
+| Faithfulness (Độ trung thực) | "Nó có giữ căn cứ không" | Liệu câu trả lời được sinh có được tài liệu truy xuất hỗ trợ, thay vì ảo giác từ dữ liệu huấn luyện của mô hình |
 
 ## Further Reading
 
-- Robertson & Zaragoza, "The Probabilistic Relevance Framework: BM25 and Beyond" (2009) -- the definitive reference for BM25, explaining the probabilistic foundations behind the formula
-- Cormack et al., "Reciprocal Rank Fusion Outperforms Condorcet and Individual Rank Learning Methods" (2009) -- the original RRF paper showing it beats more complex fusion methods
-- Gao et al., "Precise Zero-Shot Dense Retrieval without Relevance Labels" (2022) -- the HyDE paper demonstrating that hypothetical document embeddings improve retrieval without any training data
-- Nogueira & Cho, "Passage Re-ranking with BERT" (2019) -- showed cross-encoder reranking on top of BM25 significantly improves retrieval quality
-- [Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines" (2023)](https://arxiv.org/abs/2310.03714) -- treats prompt construction and weight selection as an optimization problem over retrieval pipelines; read this for "program LLMs" instead of "prompt LLMs."
-- [Edge et al., "From Local to Global: A Graph RAG Approach to Query-Focused Summarization" (Microsoft Research 2024)](https://arxiv.org/abs/2404.16130) -- GraphRAG paper: entity-relation extraction + Leiden community detection for query-focused summarization; the global vs local retrieval distinction.
-- [Asai et al., "Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection" (ICLR 2024)](https://arxiv.org/abs/2310.11511) -- self-evaluating RAG with reflection tokens; the agentic frontier past static retrieve-then-generate.
-- [LangChain Query Construction blog](https://blog.langchain.dev/query-construction/) -- how to translate natural-language queries into structured database queries (Text-to-SQL, Cypher) as a pre-retrieval step.
+- Robertson & Zaragoza, "The Probabilistic Relevance Framework: BM25 and Beyond" (2009) -- tài liệu tham chiếu có tính quyết định về BM25, giải thích nền tảng xác suất đằng sau công thức
+- Cormack và cộng sự, "Reciprocal Rank Fusion Outperforms Condorcet and Individual Rank Learning Methods" (2009) -- bài báo RRF gốc cho thấy nó vượt các phương pháp hợp nhất phức tạp hơn
+- Gao và cộng sự, "Precise Zero-Shot Dense Retrieval without Relevance Labels" (2022) -- bài báo HyDE cho thấy embedding tài liệu giả định cải thiện truy xuất mà không có dữ liệu huấn luyện
+- Nogueira & Cho, "Passage Re-ranking with BERT" (2019) -- cho thấy xếp hạng lại cross-encoder trên BM25 cải thiện đáng kể chất lượng truy xuất
+- [Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines" (2023)](https://arxiv.org/abs/2310.03714) -- xem xây dựng prompt và lựa chọn trọng số là bài toán tối ưu trên pipeline truy xuất; đọc để "lập trình LLM" thay vì "prompt LLM."
+- [Edge et al., "From Local to Global: A Graph RAG Approach to Query-Focused Summarization" (Microsoft Research 2024)](https://arxiv.org/abs/2404.16130) -- bài báo GraphRAG: trích xuất thực thể-quan hệ + phát hiện cộng đồng Leiden để tóm tắt tập trung truy vấn; phân biệt truy xuất toàn cục và cục bộ.
+- [Asai et al., "Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection" (ICLR 2024)](https://arxiv.org/abs/2310.11511) -- RAG tự đánh giá với token phản tư; tuyến đầu tác tử vượt truy xuất rồi sinh tĩnh.
+- [LangChain Query Construction blog](https://blog.langchain.dev/query-construction/) -- cách chuyển truy vấn ngôn ngữ tự nhiên thành truy vấn cơ sở dữ liệu có cấu trúc (Text-to-SQL, Cypher) làm bước trước truy xuất.
