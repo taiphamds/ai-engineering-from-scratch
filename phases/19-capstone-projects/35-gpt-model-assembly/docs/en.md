@@ -1,6 +1,6 @@
 # GPT Model Assembly
 
-> Twelve blocks stacked, a token embedding, a learned position embedding, a final LayerNorm, and a tied language model head. That is the entire 124 million parameter GPT model. This lesson assembles those pieces into a working class, counts the parameters to confirm the model matches the reference 124M shape, and generates text with multinomial sampling, temperature, and top-k.
+> Mười hai khối được xếp chồng, một embedding token, một embedding vị trí được học, một LayerNorm cuối, và một đầu mô hình ngôn ngữ được buộc trọng số. Đó là toàn bộ mô hình GPT 124 triệu tham số. Bài này lắp ráp những phần đó thành một lớp hoạt động, đếm các tham số để xác nhận mô hình khớp hình thức 124M tham chiếu, và sinh văn bản với lấy mẫu đa thức, nhiệt độ, và top-k.
 
 **Type:** Build
 **Languages:** Python
@@ -9,17 +9,17 @@
 
 ## Learning Objectives
 
-- Assemble the transformer block from lesson 34 into a full GPT model: token embedding, position embedding, N blocks, final LayerNorm, language model head.
-- Reproduce the 124 million parameter configuration: vocab 50257, context 1024, embedding 768, twelve heads, twelve layers.
-- Tie the language model head weights to the token embedding and explain why that saves ~38 million parameters at this scale.
-- Generate text from a prompt with multinomial sampling, temperature scaling, and top-k truncation, holding context length with a sliding window.
-- Measure parameter count and forward pass cost against the 124M target.
+- Lắp ráp khối transformer từ bài 34 thành một mô hình GPT đầy đủ: embedding token, embedding vị trí, N khối, LayerNorm cuối, đầu mô hình ngôn ngữ.
+- Tái tạo cấu hình 124 triệu tham số: từ vựng 50257, ngữ cảnh 1024, embedding 768, mười hai đầu, mười hai lớp.
+- Buộc các trọng số đầu mô hình ngôn ngữ với embedding token và giải thích tại sao điều đó tiết kiệm ~38 triệu tham số ở quy mô này.
+- Sinh văn bản từ một prompt với lấy mẫu đa thức, chia tỷ lệ nhiệt độ, và cắt ngắn top-k, giữ độ dài ngữ cảnh bằng một cửa sổ trượt.
+- Đo số tham số và chi phí lượt tiến so với mục tiêu 124M.
 
 ## The Problem
 
-A transformer block does nothing on its own. You need to turn token ids into vectors, mix in positional information, run them through the stack, and project back to vocabulary logits. Forget any one of those four steps and the model either fails to forward, drifts in position information, or cannot speak.
+Một khối transformer không làm gì tự nó. Bạn cần biến các id token thành vector, trộn thông tin vị trí, chạy chúng qua ngăn xếp, và chiếu trở lại các logit từ vựng. Quên bất kỳ bước nào trong bốn bước đó và mô hình hoặc không chạy lượt tiến được, trôi thông tin vị trí, hoặc không thể nói.
 
-The shape of the model also matters. The reference GPT-2 small is 124 million parameters at exactly the configuration above. The numbers are not magic. Vocab 50257 times embedding 768 is the token table. Position 1024 times 768 is the position table. Twelve blocks at roughly 7 million parameters each is 84 million. The final head reuses the token table by weight tying. Sum the pieces and you land on 124 million. Building a model whose parameter count does not match the reference is a sign you wired something wrong.
+Hình thức mô hình cũng quan trọng. GPT-2 small tham chiếu là 124 triệu tham số ở chính xác cấu hình trên. Các con số không phải phép màu. Từ vựng 50257 nhân embedding 768 là bảng token. Vị trí 1024 nhân 768 là bảng vị trí. Mười hai khối với khoảng 7 triệu tham số mỗi khối là 84 triệu. Đầu cuối tái sử dụng bảng token bằng buộc trọng số. Cộng các phần và bạn đạt 124 triệu. Xây dựng một mô hình có số tham số không khớp tham chiếu là một dấu hiệu bạn đã nối sai thứ gì đó.
 
 ## The Concept
 
@@ -40,19 +40,19 @@ flowchart TB
   H --> O[Logits<br/>shape B, T, 50257]
 ```
 
-Token ids become token vectors. Position ids become position vectors. The two are added and sent through the stack. The final LayerNorm is the one piece outside the blocks that survives every modern variant. The LM head reuses the token embedding matrix, which is what weight tying means.
+Các id token trở thành các vector token. Các id vị trí trở thành các vector vị trí. Hai thứ được cộng và gửi qua ngăn xếp. LayerNorm cuối là phần duy nhất ngoài các khối sống sót qua mọi biến thể hiện đại. Đầu LM tái sử dụng ma trận embedding token, đó là ý nghĩa của buộc trọng số.
 
 ### Weight tying
 
-The token embedding has shape `(vocab, d_model)`. The language model head needs to project from `d_model` back to `vocab`. Those are transposes of each other. Tying the two means literally the same parameter tensor, used twice. At vocab 50257 and d_model 768, the matrix is 38 million parameters. Untied, you pay for it twice. Tied, you pay for it once and you also get a slightly cleaner gradient signal because the embedding and head update together.
+Embedding token có hình dạng `(vocab, d_model)`. Đầu mô hình ngôn ngữ cần chiếu từ `d_model` trở lại `vocab`. Chúng là chuyển vị của nhau. Buộc hai thứ nghĩa là đúng cùng một tensor tham số, được dùng hai lần. Ở từ vựng 50257 và d_model 768, ma trận là 38 triệu tham số. Không buộc, bạn trả giá cho nó hai lần. Có buộc, bạn trả giá cho nó một lần và bạn cũng nhận một tín hiệu gradient hơi sạch hơn vì embedding và đầu cập nhật cùng nhau.
 
 ### Position embedding is learned, not sinusoidal
 
-GPT-2 ships a learned position embedding. The position table is one parameter tensor of shape `(1024, 768)`. The model looks up position 0 through T-1 at every forward and adds the lookup to the token embedding. This is the simplest of the position schemes (RoPE, ALiBi, T5 relative bias are the alternatives) and it is what the 124M reference uses.
+GPT-2 cung cấp một embedding vị trí được học. Bảng vị trí là một tensor tham số có hình dạng `(1024, 768)`. Mô hình tra cứu vị trí 0 đến T-1 ở mọi lượt tiến và cộng kết quả tra cứu vào embedding token. Đây là sơ đồ vị trí đơn giản nhất (RoPE, ALiBi, bias tương đối T5 là các lựa chọn thay thế) và là thứ tham chiếu 124M sử dụng.
 
 ### Generation: temperature, top-k, multinomial
 
-Generation is autoregressive. At every step, the model returns logits over the full vocabulary at every position. You take the last position only, divide by temperature, optionally mask all but the top k logits to negative infinity, softmax to get probabilities, and sample one token from the resulting distribution.
+Sinh là tự hồi quy. Ở mọi bước, mô hình trả về các logit trên toàn bộ từ vựng tại mọi vị trí. Bạn chỉ lấy vị trí cuối, chia cho nhiệt độ, tùy chọn che tất cả trừ top k logit thành âm vô cực, softmax để nhận xác suất, và lấy mẫu một token từ phân phối kết quả.
 
 ```mermaid
 flowchart LR
@@ -67,7 +67,7 @@ flowchart LR
   Slide --> M
 ```
 
-Three knobs, three different behaviors. Temperature near zero collapses to greedy. Temperature one matches the model's natural distribution. Top-k one is greedy. Top-k forty filters the long tail. The combinations matter; the next lesson on training uses generation as a qualitative eval signal.
+Ba núm điều chỉnh, ba hành vi khác nhau. Nhiệt độ gần không sụp về tham lam. Nhiệt độ một khớp với phân phối tự nhiên của mô hình. Top-k một là tham lam. Top-k bốn mươi lọc đuôi dài. Các tổ hợp quan trọng; bài tiếp theo về huấn luyện sử dụng sinh như một tín hiệu đánh giá định tính.
 
 ```figure
 cc-gpt-assembly
@@ -75,68 +75,68 @@ cc-gpt-assembly
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `class GPTConfig` dataclass with the 124M defaults: `vocab_size=50257`, `context_length=1024`, `d_model=768`, `num_heads=12`, `num_layers=12`, `mlp_expansion=4`, `dropout=0.1`, `use_bias=True`, `weight_tying=True`.
-- `class GPTModel` with token embedding, position embedding, embedding dropout, twelve `TransformerBlock`s, final LayerNorm, and an `lm_head` that ties to the token embedding when the flag is set.
-- A `count_parameters` helper that returns the unique parameter count (so weight tying is honored in the count).
-- A `generate` function that does temperature, top-k, multinomial, and sliding window context.
-- A demo that builds the model, prints the parameter count next to the reference 124M, and generates a short sequence from a fixed prompt to show the pipeline ends to end.
+- Dataclass `class GPTConfig` với các mặc định 124M: `vocab_size=50257`, `context_length=1024`, `d_model=768`, `num_heads=12`, `num_layers=12`, `mlp_expansion=4`, `dropout=0.1`, `use_bias=True`, `weight_tying=True`.
+- `class GPTModel` với embedding token, embedding vị trí, dropout embedding, mười hai `TransformerBlock`, LayerNorm cuối, và một `lm_head` buộc với embedding token khi cờ được đặt.
+- Một hàm hỗ trợ `count_parameters` trả về số tham số duy nhất (nên buộc trọng số được tôn trọng trong số đếm).
+- Một hàm `generate` làm nhiệt độ, top-k, đa thức, và ngữ cảnh cửa sổ trượt.
+- Một demo xây dựng mô hình, in số tham số cạnh tham chiếu 124M, và sinh một chuỗi ngắn từ một prompt cố định để thể hiện pipeline từ đầu đến cuối.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-Output: parameter count alongside the 124M reference, generated token ids from a random prompt, and a confirmation that the LM head and token embedding share storage when tying is on.
+Đầu ra: số tham số bên cạnh tham chiếu 124M, các id token được sinh từ một prompt ngẫu nhiên, và một xác nhận rằng đầu LM và embedding token dùng chung lưu trữ khi bật buộc.
 
-To keep the demo fast, the script also runs a tiny config (`d_model=64`, `num_layers=2`) end to end and prints the generated token sequence inline. The 124M config is built but only its parameter count and one forward pass are exercised.
+Để giữ demo nhanh, script cũng chạy một cấu hình tí hon (`d_model=64`, `num_layers=2`) từ đầu đến cuối và in chuỗi token được sinh nội tuyến. Cấu hình 124M được xây dựng nhưng chỉ số tham số của nó và một lượt tiến được thực thi.
 
 ## Stack
 
-- `torch` for the tensor math, autograd, and module plumbing.
-- `code/main.py` reimplements the same block pattern from lesson 34 locally.
+- `torch` cho toán tensor, autograd, và hệ thống nối module.
+- `code/main.py` triển khai lại cùng mẫu khối từ bài 34 cục bộ.
 
 ## Production patterns in the wild
 
-Three patterns make the difference between a model that runs and a model that ships.
+Ba mẫu tạo ra khác biệt giữa một mô hình chạy và một mô hình được cung cấp.
 
-**Initialize the residual projections small.** The output projection of attention and the second linear of the MLP both feed directly into a residual add. Initializing those with the same standard deviation as every other linear gives a residual stream that grows with depth and pushes the final LayerNorm into a hot regime. Scale the std by `1 / sqrt(2 * num_layers)` for those two projections; the residual stream stays in a sane range through twelve layers.
+**Khởi tạo các phép chiếu phần dư nhỏ.** Phép chiếu đầu ra của attention và lớp tuyến tính thứ hai của MLP đều cấp trực tiếp vào một phép cộng phần dư. Khởi tạo chúng với cùng độ lệch chuẩn như mọi lớp tuyến tính khác tạo một luồng phần dư tăng theo độ sâu và đẩy LayerNorm cuối vào một chế độ nóng. Chia tỷ lệ std theo `1 / sqrt(2 * num_layers)` cho hai phép chiếu đó; luồng phần dư giữ trong một khoảng hợp lý xuyên suốt mười hai lớp.
 
-**Cache the position id tensor, do not recompute.** `torch.arange(T)` allocates fresh memory at every forward. Allocate once in `__init__` for the maximum context, slice the first T entries per call, and skip the allocator round trip.
+**Lưu đệm tensor id vị trí, đừng tính lại.** `torch.arange(T)` cấp phát bộ nhớ mới ở mọi lượt tiến. Cấp phát một lần trong `__init__` cho ngữ cảnh tối đa, cắt T phần tử đầu theo lệnh gọi, và bỏ qua vòng khứ hồi bộ cấp phát.
 
-**Tie weights at parameter level, not just by copying.** Setting `lm_head.weight = token_embedding.weight` shares the tensor; copying does not. The optimizer needs to update one parameter and the autograd graph needs one accumulation. If you copy, the head drifts away from the embedding and weight tying buys you nothing.
+**Buộc trọng số ở mức tham số, không chỉ bằng sao chép.** Đặt `lm_head.weight = token_embedding.weight` dùng chung tensor; sao chép thì không. Bộ tối ưu cần cập nhật một tham số và đồ thị autograd cần một lần tích lũy. Nếu bạn sao chép, đầu trôi khỏi embedding và buộc trọng số không mang lại gì.
 
 ## Use It
 
-- The model class in this lesson is the same shape as the one the next lesson trains.
-- Replacing the learned position embedding with RoPE gets you the LLaMA family without touching the block or the head.
-- Replacing the GELU with SiLU and the LayerNorm with RMSNorm gets you the rest of the LLaMA family changes.
-- The generation function works with any logits source, not only this model. You can pull logits from a pretrained GPT-2 file in lesson 37 and reuse the same generation loop.
+- Lớp mô hình trong bài này có cùng hình thức với lớp mà bài tiếp theo huấn luyện.
+- Thay embedding vị trí được học bằng RoPE cho bạn họ LLaMA mà không chạm vào khối hoặc đầu.
+- Thay GELU bằng SiLU và LayerNorm bằng RMSNorm cho bạn phần còn lại của các thay đổi họ LLaMA.
+- Hàm sinh hoạt động với bất kỳ nguồn logit nào, không chỉ mô hình này. Bạn có thể lấy các logit từ một file GPT-2 tiền huấn luyện trong bài 37 và tái sử dụng cùng vòng lặp sinh.
 
 ## Exercises
 
-1. Untie the LM head from the token embedding and recount parameters. Verify the delta is 50257 times 768 = 38 million.
-2. Replace the learned position embedding with a sinusoidal table computed at construction time. Confirm the model still forwards and the parameter count drops by 786,432.
-3. Add a `greedy=True` flag to generation that skips sampling and picks argmax. Confirm the sequence is deterministic across runs.
-4. Add a `repetition_penalty` knob that divides the logit of any token in the prompt or generated history by a constant before softmax. Show on a fixed prompt that values above one reduce repeat counts in the output.
-5. Add `top_p` (nucleus) sampling next to `top_k`. Two-line check that the sum of probabilities of the kept tokens exceeds `top_p`.
+1. Gỡ buộc đầu LM khỏi embedding token và đếm lại tham số. Xác minh chênh lệch là 50257 nhân 768 = 38 triệu.
+2. Thay embedding vị trí được học bằng một bảng hình sin được tính khi khởi tạo. Xác nhận mô hình vẫn chạy lượt tiến và số tham số giảm 786,432.
+3. Thêm một cờ `greedy=True` vào sinh bỏ qua lấy mẫu và chọn argmax. Xác nhận chuỗi tất định giữa các lần chạy.
+4. Thêm một núm `repetition_penalty` chia logit của bất kỳ token nào trong prompt hoặc lịch sử được sinh cho một hằng số trước softmax. Cho thấy trên một prompt cố định rằng các giá trị trên một giảm số lần lặp trong đầu ra.
+5. Thêm lấy mẫu `top_p` (hạt nhân) cạnh `top_k`. Kiểm tra hai dòng rằng tổng xác suất của các token được giữ vượt `top_p`.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Weight tying | "Tied embeddings" | The LM head and the token embedding share the same parameter tensor; saves vocab times d_model parameters and matches the GPT-2 reference |
-| Position embedding | "Learned positions" | A separate table of shape (context length, d_model) added to token vectors; learned end to end |
-| Sliding window context | "Context cap" | When the prompt plus generated tokens exceed the context length, drop the oldest tokens so the active window fits |
-| Top-k sampling | "K truncation" | Keep the K logits with the highest values, mask the rest to negative infinity, softmax over the remainder |
-| Temperature | "Sampling temperature" | Divide logits by T before softmax; T less than 1 sharpens, T equal to 1 keeps the natural distribution, T greater than 1 flattens |
+| Weight tying (Buộc trọng số) | "Embedding được buộc" | Đầu LM và embedding token dùng chung tensor tham số; tiết kiệm vocab nhân d_model tham số và khớp tham chiếu GPT-2 |
+| Position embedding (Embedding vị trí) | "Các vị trí được học" | Một bảng riêng có hình dạng (độ dài ngữ cảnh, d_model) được cộng vào các vector token; được học từ đầu đến cuối |
+| Sliding window context (Ngữ cảnh cửa sổ trượt) | "Trần ngữ cảnh" | Khi prompt cộng các token được sinh vượt độ dài ngữ cảnh, bỏ các token cũ nhất để cửa sổ hoạt động vừa |
+| Top-k sampling (Lấy mẫu top-k) | "Cắt ngắn K" | Giữ K logit có giá trị cao nhất, che phần còn lại thành âm vô cực, softmax trên phần còn lại |
+| Temperature (Nhiệt độ) | "Nhiệt độ lấy mẫu" | Chia logit cho T trước softmax; T nhỏ hơn 1 làm sắc, T bằng 1 giữ phân phối tự nhiên, T lớn hơn 1 làm phẳng |
 
 ## Further Reading
 
-- Phase 19 lesson 34 for the block this model stacks.
-- Phase 19 lesson 36 for the training loop that drives this model with cross entropy loss.
-- Phase 19 lesson 37 for loading pretrained GPT-2 weights into this exact architecture.
-- Phase 7 lesson 07 (GPT causal language modeling) for the math of next token prediction.
-- Phase 10 lesson 04 (pre training mini GPT) for the original training procedure on the same architecture.
+- Phase 19 bài 34 cho khối mà mô hình này xếp chồng.
+- Phase 19 bài 36 cho vòng lặp huấn luyện điều khiển mô hình này với hàm mất mát entropy chéo.
+- Phase 19 bài 37 cho nạp các trọng số GPT-2 tiền huấn luyện vào chính xác kiến trúc này.
+- Phase 7 bài 07 (mô hình hóa ngôn ngữ nhân quả GPT) cho toán dự đoán token tiếp theo.
+- Phase 10 bài 04 (tiền huấn luyện mini GPT) cho quy trình huấn luyện gốc trên cùng kiến trúc.
