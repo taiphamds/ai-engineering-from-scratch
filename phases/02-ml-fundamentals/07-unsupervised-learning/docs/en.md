@@ -1,6 +1,6 @@
 # Unsupervised Learning
 
-> No labels, no teacher. The algorithm finds structure on its own.
+> Không nhãn, không thầy. Thuật toán tự tìm cấu trúc.
 
 **Type:** Build
 **Languages:** Python
@@ -9,24 +9,24 @@
 
 ## Learning Objectives
 
-- Implement K-Means, DBSCAN, and Gaussian Mixture Models from scratch and compare their clustering behavior
-- Evaluate cluster quality using the silhouette score and the elbow method to select the optimal K
-- Explain when DBSCAN outperforms K-Means and identify which algorithm handles non-spherical clusters and outliers
-- Build an anomaly detection pipeline using clustering methods to flag points that deviate from normal patterns
+- Triển khai K-Means, DBSCAN và Mô hình Hỗn hợp Gaussian từ đầu và so sánh hành vi phân cụm của chúng
+- Đánh giá chất lượng cụm bằng điểm silhouette và phương pháp khuỷu tay để chọn K tối ưu
+- Giải thích khi nào DBSCAN vượt K-Means và xác định thuật toán nào xử lý các cụm không hình cầu và ngoại lệ
+- Xây dựng một quy trình phát hiện bất thường bằng các phương pháp phân cụm để đánh dấu các điểm lệch khỏi các mẫu bình thường
 
 ## The Problem
 
-Every ML lesson so far has assumed labeled data: "here is an input, here is the correct output." In the real world, labels are expensive. A hospital has millions of patient records but no one has manually tagged each one with a disease category. An e-commerce site has millions of user sessions but no one has hand-labeled customer segments. A security team has network logs but nobody has flagged every anomaly.
+Mọi bài học ML đến nay đều giả định dữ liệu có nhãn: "đây là một đầu vào, đây là đầu ra đúng." Trong thế giới thực, nhãn đắt đỏ. Một bệnh viện có hàng triệu hồ sơ bệnh nhân nhưng chưa ai gắn thủ công mỗi hồ sơ với một loại bệnh. Một trang thương mại điện tử có hàng triệu phiên người dùng nhưng chưa ai gắn nhãn thủ công các phân khúc khách hàng. Một đội bảo mật có nhật ký mạng nhưng chưa ai đánh dấu mọi bất thường.
 
-Unsupervised learning finds patterns without being told what to look for. It groups similar data points, discovers hidden structures, and surfaces anomalies. If supervised learning is learning from a textbook with an answer key, unsupervised learning is staring at raw data until the patterns reveal themselves.
+Học không giám sát tìm các mẫu mà không được chỉ bảo phải tìm gì. Nó nhóm các điểm dữ liệu tương tự, khám phá các cấu trúc ẩn và làm lộ các bất thường. Nếu học có giám sát là học từ một giáo trình có đáp án, học không giám sát là nhìn chằm chằm dữ liệu thô cho đến khi các mẫu tự lộ ra.
 
-The catch: without labels, you cannot directly measure "right" or "wrong." You need different tools to evaluate whether the structure your algorithm found is meaningful.
+Điểm vướng mắc: không có nhãn, bạn không thể đo trực tiếp "đúng" hay "sai." Bạn cần các công cụ khác để đánh giá cấu trúc thuật toán tìm được có ý nghĩa hay không.
 
 ## The Concept
 
 ### Clustering: Grouping Similar Things Together
 
-Clustering assigns each data point to a group (cluster) so that points within the same group are more similar to each other than to points in other groups. The question is always: what does "similar" mean?
+Phân cụm gán mỗi điểm dữ liệu vào một nhóm (cụm) sao cho các điểm trong cùng nhóm tương tự nhau hơn so với các điểm trong các nhóm khác. Câu hỏi luôn là: "tương tự" nghĩa là gì?
 
 ```mermaid
 flowchart LR
@@ -43,84 +43,84 @@ flowchart LR
 
 ### K-Means: The Workhorse
 
-K-Means partitions data into exactly K clusters. Each cluster has a centroid (its center of mass), and every point belongs to the nearest centroid.
+K-Means phân hoạch dữ liệu thành đúng K cụm. Mỗi cụm có một trọng tâm (tâm khối lượng của nó), và mỗi điểm thuộc về trọng tâm gần nhất.
 
-Lloyd's algorithm:
+Thuật toán Lloyd:
 
-1. Pick K random points as initial centroids
-2. Assign each data point to the nearest centroid
-3. Recompute each centroid as the mean of its assigned points
-4. Repeat steps 2-3 until assignments stop changing
+1. Chọn K điểm ngẫu nhiên làm các trọng tâm ban đầu
+2. Gán mỗi điểm dữ liệu cho trọng tâm gần nhất
+3. Tính lại mỗi trọng tâm thành trung bình các điểm được gán
+4. Lặp lại các bước 2-3 cho đến khi các phép gán ngừng thay đổi
 
-The objective function (inertia) measures the total squared distance from each point to its assigned centroid. K-Means minimizes this, but only finds a local minimum. Different initializations can give different results.
+Hàm mục tiêu (inertia) đo tổng khoảng cách bình phương từ mỗi điểm đến trọng tâm được gán. K-Means tối thiểu hóa nó, nhưng chỉ tìm một cực tiểu cục bộ. Các khởi tạo khác nhau có thể cho kết quả khác nhau.
 
 ### Choosing K
 
-Two standard methods:
+Hai phương pháp tiêu chuẩn:
 
-**Elbow method:** Run K-Means for K = 1, 2, 3, ..., n. Plot inertia vs K. Look for the "elbow" where adding more clusters stops reducing inertia significantly.
+**Phương pháp khuỷu tay:** Chạy K-Means cho K = 1, 2, 3, ..., n. Vẽ inertia theo K. Tìm "khuỷu tay" nơi việc thêm cụm ngừng giảm inertia đáng kể.
 
-**Silhouette score:** For each point, measure how similar it is to its own cluster (a) versus the nearest other cluster (b). The silhouette coefficient is (b - a) / max(a, b), ranging from -1 (wrong cluster) to +1 (well-clustered). Average across all points for a global score.
+**Điểm silhouette:** Với mỗi điểm, đo mức độ tương tự với cụm của nó (a) so với cụm khác gần nhất (b). Hệ số silhouette là (b - a) / max(a, b), nằm trong khoảng từ -1 (sai cụm) đến +1 (phân cụm tốt). Lấy trung bình trên mọi điểm để có điểm toàn cục.
 
 ### DBSCAN: Density-Based Clustering
 
-K-Means assumes clusters are spherical and requires you to pick K upfront. DBSCAN makes neither assumption. It finds clusters as dense regions separated by sparse regions.
+K-Means giả định các cụm hình cầu và yêu cầu bạn chọn K trước. DBSCAN không đưa ra giả định nào trong hai giả định này. Nó tìm các cụm dưới dạng các vùng dày đặc được phân tách bởi các vùng thưa.
 
-Two parameters:
-- **eps**: the radius of a neighborhood
-- **min_samples**: the minimum number of points needed to form a dense region
+Hai tham số:
+- **eps**: bán kính của một vùng lân cận
+- **min_samples**: số điểm tối thiểu cần để hình thành một vùng dày đặc
 
-Three types of points:
-- **Core point**: has at least min_samples points within eps distance
-- **Border point**: within eps of a core point but not itself a core point
-- **Noise point**: neither core nor border. These are outliers.
+Ba loại điểm:
+- **Điểm lõi**: có ít nhất min_samples điểm trong khoảng cách eps
+- **Điểm biên**: trong khoảng eps của một điểm lõi nhưng bản thân không phải điểm lõi
+- **Điểm nhiễu**: không lõi cũng không biên. Đây là các ngoại lệ.
 
-DBSCAN connects core points that are within eps of each other into the same cluster. Border points join the cluster of a nearby core point. Noise points belong to no cluster.
+DBSCAN kết nối các điểm lõi trong khoảng eps của nhau vào cùng một cụm. Các điểm biên tham gia cụm của một điểm lõi gần đó. Các điểm nhiễu không thuộc cụm nào.
 
-Strengths: finds clusters of any shape, automatically determines the number of clusters, identifies outliers. Weakness: struggles with clusters of varying densities.
+Điểm mạnh: tìm các cụm có bất kỳ hình dạng nào, tự động xác định số cụm, nhận diện ngoại lệ. Điểm yếu: gặp khó với các cụm có mật độ thay đổi.
 
 ### Hierarchical Clustering
 
-Builds a tree (dendrogram) of nested clusters.
+Xây dựng một cây (dendrogram) các cụm lồng nhau.
 
-Agglomerative (bottom-up):
-1. Start with each point as its own cluster
-2. Merge the two closest clusters
-3. Repeat until only one cluster remains
-4. Cut the dendrogram at the desired level to get K clusters
+Tích tụ (từ dưới lên):
+1. Bắt đầu với mỗi điểm là một cụm riêng
+2. Hợp nhất hai cụm gần nhất
+3. Lặp lại cho đến khi chỉ còn một cụm
+4. Cắt dendrogram tại mức mong muốn để có K cụm
 
-The "closeness" between clusters can be measured as:
-- **Single linkage**: minimum distance between any two points in the two clusters
-- **Complete linkage**: maximum distance between any two points
-- **Average linkage**: average distance between all pairs
-- **Ward's method**: the merge that causes the smallest increase in total within-cluster variance
+"Độ gần" giữa các cụm có thể được đo bằng:
+- **Liên kết đơn**: khoảng cách nhỏ nhất giữa hai điểm bất kỳ trong hai cụm
+- **Liên kết đầy đủ**: khoảng cách lớn nhất giữa hai điểm bất kỳ
+- **Liên kết trung bình**: khoảng cách trung bình giữa mọi cặp
+- **Phương pháp Ward**: phép hợp nhất gây ra mức tăng nhỏ nhất trong tổng phương sai nội cụm
 
 ### Gaussian Mixture Models (GMM)
 
-K-Means gives hard assignments: each point belongs to exactly one cluster. GMM gives soft assignments: each point has a probability of belonging to each cluster.
+K-Means cho các phép gán cứng: mỗi điểm thuộc đúng một cụm. GMM cho các phép gán mềm: mỗi điểm có một xác suất thuộc về mỗi cụm.
 
-GMM assumes the data is generated from a mixture of K Gaussian distributions, each with its own mean and covariance. The Expectation-Maximization (EM) algorithm alternates between:
+GMM giả định dữ liệu được sinh từ một hỗn hợp K phân phối Gaussian, mỗi phân phối có trung bình và hiệp phương sai riêng. Thuật toán Kỳ vọng-Cực đại hóa (EM) luân phiên giữa:
 
-- **E-step**: compute the probability that each point belongs to each Gaussian
-- **M-step**: update the mean, covariance, and mixing weight of each Gaussian to maximize the likelihood of the data
+- **Bước E**: tính xác suất mỗi điểm thuộc về mỗi Gaussian
+- **Bước M**: cập nhật trung bình, hiệp phương sai và trọng số hỗn hợp của mỗi Gaussian để cực đại hóa hợp lý của dữ liệu
 
-GMM can model elliptical clusters (not just spherical like K-Means) and naturally handles overlapping clusters.
+GMM có thể mô hình hóa các cụm ellipse (không chỉ hình cầu như K-Means) và xử lý tự nhiên các cụm chồng lấp.
 
 ### When to Use Which
 
-| Method | Best for | Avoid when |
+| Phương pháp | Tốt nhất cho | Tránh khi |
 |--------|----------|------------|
-| K-Means | Large datasets, spherical clusters, known K | Irregular shapes, outliers present |
-| DBSCAN | Unknown K, arbitrary shapes, outlier detection | Varying densities, very high dimensions |
-| Hierarchical | Small datasets, need dendrogram, unknown K | Large datasets (O(n^2) memory) |
-| GMM | Overlapping clusters, soft assignments needed | Very large datasets, too many dimensions |
+| K-Means | Các tập dữ liệu lớn, cụm hình cầu, biết K | Hình dạng không đều, có ngoại lệ |
+| DBSCAN | Không biết K, hình dạng tùy ý, phát hiện ngoại lệ | Mật độ thay đổi, số chiều rất cao |
+| Phân cấp | Các tập dữ liệu nhỏ, cần dendrogram, không biết K | Các tập dữ liệu lớn (bộ nhớ O(n^2)) |
+| GMM | Các cụm chồng lấp, cần phép gán mềm | Các tập dữ liệu rất lớn, quá nhiều chiều |
 
 ### Anomaly Detection with Clustering
 
-Clustering naturally supports anomaly detection:
-- **K-Means**: points far from any centroid are anomalies
-- **DBSCAN**: noise points are anomalies by definition
-- **GMM**: points with low probability under all Gaussians are anomalies
+Phân cụm hỗ trợ tự nhiên việc phát hiện bất thường:
+- **K-Means**: các điểm xa mọi trọng tâm là các bất thường
+- **DBSCAN**: các điểm nhiễu là các bất thường theo định nghĩa
+- **GMM**: các điểm có xác suất thấp dưới mọi Gaussian là các bất thường
 
 ```figure
 kmeans-step
@@ -456,7 +456,7 @@ if __name__ == "__main__":
 
 ## Use It
 
-With scikit-learn, the same algorithms are one-liners:
+Với scikit-learn, các thuật toán tương tự chỉ là các dòng lệnh đơn:
 
 ```python
 from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
@@ -469,33 +469,33 @@ agg = AgglomerativeClustering(n_clusters=3).fit(data)
 gmm_model = GaussianMixture(n_components=3, random_state=42).fit(data)
 ```
 
-The from-scratch versions show you exactly what these libraries compute. K-Means iterates between assigning and recomputing. DBSCAN grows clusters from dense seeds. GMM alternates between expectation and maximization. The library versions add numerical stability, smarter initialization (K-Means++), and GPU acceleration, but the core logic is the same.
+Các phiên bản từ đầu cho bạn thấy chính xác các thư viện này tính gì. K-Means lặp giữa gán và tính lại. DBSCAN phát triển các cụm từ các hạt giống dày đặc. GMM luân phiên giữa kỳ vọng và cực đại hóa. Các phiên bản thư viện thêm độ ổn định số học, khởi tạo thông minh hơn (K-Means++) và tăng tốc GPU, nhưng logic cốt lõi giống nhau.
 
 ## Ship It
 
-This lesson produces working implementations of K-Means, DBSCAN, and GMM from scratch. The clustering code can be reused as a foundation for more advanced unsupervised methods.
+Bài học này tạo ra các triển khai hoạt động của K-Means, DBSCAN và GMM từ đầu. Mã phân cụm có thể được tái sử dụng làm nền tảng cho các phương pháp không giám sát nâng cao hơn.
 
 ## Exercises
 
-1. Implement K-Means++ initialization: instead of picking random centroids, pick the first randomly and each subsequent centroid with probability proportional to its squared distance from the nearest existing centroid. Compare convergence speed to random initialization.
-2. Add hierarchical agglomerative clustering to the code. Implement Ward's linkage and produce a dendrogram (as a nested list of merges). Cut it at different levels and compare to K-Means results.
-3. Build a simple anomaly detection pipeline: run DBSCAN and GMM on the same data, flag points that both methods agree are outliers (noise in DBSCAN, low probability in GMM). Measure the overlap and discuss when the methods disagree.
+1. Triển khai khởi tạo K-Means++: thay vì chọn các trọng tâm ngẫu nhiên, chọn trọng tâm đầu tiên ngẫu nhiên và mỗi trọng tâm tiếp theo với xác suất tỉ lệ với khoảng cách bình phương đến trọng tâm hiện có gần nhất. So sánh tốc độ hội tụ với khởi tạo ngẫu nhiên.
+2. Thêm phân cụm tích tụ phân cấp vào mã. Triển khai liên kết Ward và tạo một dendrogram (dưới dạng danh sách lồng nhau các phép hợp nhất). Cắt nó ở các mức khác nhau và so sánh với kết quả K-Means.
+3. Xây dựng một quy trình phát hiện bất thường đơn giản: chạy DBSCAN và GMM trên cùng dữ liệu, đánh dấu các điểm mà cả hai phương pháp đồng ý là ngoại lệ (nhiễu trong DBSCAN, xác suất thấp trong GMM). Đo sự chồng lấp và thảo luận khi nào các phương pháp bất đồng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Clustering | "Grouping similar things" | Partitioning data into subsets where within-group similarity exceeds between-group similarity, measured by a specific distance metric |
-| Centroid | "The center of a cluster" | The mean of all points assigned to a cluster; used by K-Means as the cluster representative |
-| Inertia | "How tight the clusters are" | Sum of squared distances from each point to its assigned centroid; lower is tighter |
-| Silhouette score | "How well-separated clusters are" | For each point, (b - a) / max(a, b) where a is mean intra-cluster distance and b is mean nearest-cluster distance |
-| Core point | "A point in a dense region" | A point with at least min_samples neighbors within eps distance, in DBSCAN |
-| EM algorithm | "Soft K-Means" | Expectation-Maximization: iteratively compute membership probabilities (E-step) and update distribution parameters (M-step) |
-| Dendrogram | "A tree of clusters" | A tree diagram showing the order and distance at which clusters were merged in hierarchical clustering |
-| Anomaly | "An outlier" | A data point that does not conform to the expected pattern, identified as noise by DBSCAN or low-probability by GMM |
+| Clustering (Phân cụm) | "Nhóm các thứ tương tự" | Phân hoạch dữ liệu thành các tập con mà độ tương đồng trong nhóm vượt độ tương đồng giữa nhóm, được đo bằng một metric khoảng cách cụ thể |
+| Centroid (Trọng tâm) | "Tâm của một cụm" | Trung bình của tất cả các điểm được gán cho một cụm; được K-Means dùng làm đại diện cụm |
+| Inertia | "Các cụm chặt đến mức nào" | Tổng khoảng cách bình phương từ mỗi điểm đến trọng tâm được gán; thấp hơn là chặt hơn |
+| Silhouette score (Điểm silhouette) | "Các cụm được phân tách tốt đến mức nào" | Với mỗi điểm, (b - a) / max(a, b) trong đó a là khoảng cách nội cụm trung bình và b là khoảng cách cụm gần nhất trung bình |
+| Core point (Điểm lõi) | "Một điểm trong vùng dày đặc" | Một điểm có ít nhất min_samples láng giềng trong khoảng cách eps, trong DBSCAN |
+| EM algorithm (Thuật toán EM) | "K-Means mềm" | Kỳ vọng-Cực đại hóa: lặp lại việc tính các xác suất thuộc cụm (bước E) và cập nhật các tham số phân phối (bước M) |
+| Dendrogram | "Một cây các cụm" | Một sơ đồ cây thể hiện thứ tự và khoảng cách mà tại đó các cụm được hợp nhất trong phân cụm phân cấp |
+| Anomaly (Bất thường) | "Một ngoại lệ" | Một điểm dữ liệu không tuân theo mẫu kỳ vọng, được DBSCAN nhận diện là nhiễu hoặc GMM nhận diện là có xác suất thấp |
 
 ## Further Reading
 
-- [Stanford CS229 - Unsupervised Learning](https://cs229.stanford.edu/notes2022fall/main_notes.pdf) - Andrew Ng's lecture notes on clustering and EM
-- [scikit-learn Clustering Guide](https://scikit-learn.org/stable/modules/clustering.html) - practical comparison of all clustering algorithms with visual examples
-- [DBSCAN original paper (Ester et al., 1996)](https://www.aaai.org/Papers/KDD/1996/KDD96-037.pdf) - the paper that introduced density-based clustering
+- [Stanford CS229 - Unsupervised Learning](https://cs229.stanford.edu/notes2022fall/main_notes.pdf) - bài giảng của Andrew Ng về phân cụm và EM
+- [scikit-learn Clustering Guide](https://scikit-learn.org/stable/modules/clustering.html) - so sánh thực hành mọi thuật toán phân cụm với các ví dụ trực quan
+- [Bài báo DBSCAN gốc (Ester et al., 1996)](https://www.aaai.org/Papers/KDD/1996/KDD96-037.pdf) - bài báo giới thiệu phân cụm dựa trên mật độ
