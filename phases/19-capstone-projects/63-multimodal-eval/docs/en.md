@@ -1,6 +1,6 @@
 # Multimodal Evaluation
 
-> Training is half the loop. The other half is measurement. This lesson builds three evaluation surfaces from primitives: image-caption retrieval reported as R@1, R@5, R@10; visual question answering reported as exact match accuracy; and image captioning reported as BLEU-4. Each metric is a function over the model's outputs and a synthetic eval suite that runs in seconds.
+> Huấn luyện là nửa vòng lặp. Nửa kia là đo lường. Bài này xây dựng ba bề mặt đánh giá từ các thành phần cơ sở: truy xuất ảnh-chú thích được báo cáo như R@1, R@5, R@10; hỏi đáp thị giác được báo cáo như độ chính xác khớp chính xác; và chú thích ảnh được báo cáo như BLEU-4. Mỗi chỉ số là một hàm trên các đầu ra mô hình và một bộ đánh giá tổng hợp chạy trong vài giây.
 
 **Type:** Build
 **Languages:** Python
@@ -9,20 +9,20 @@
 
 ## Learning Objectives
 
-- Compute Recall@K from a similarity matrix between image and caption embeddings.
-- Compute exact-match VQA accuracy from a model that maps (image, question) pairs to a fixed answer vocabulary.
-- Compute BLEU-4 from generated and reference token sequences without any external library.
-- Run all three evals against a synthetic suite built on top of the trained model from lesson 62.
+- Tính Recall@K từ một ma trận tương tự giữa các embedding ảnh và chú thích.
+- Tính độ chính xác VQA khớp chính xác từ một mô hình ánh xạ các cặp (ảnh, câu hỏi) sang một từ vựng đáp án cố định.
+- Tính BLEU-4 từ các chuỗi token được sinh và tham chiếu mà không có bất kỳ thư viện bên ngoài nào.
+- Chạy cả ba đánh giá trên một bộ tổng hợp được xây dựng trên mô hình đã huấn luyện từ bài 62.
 
 ## The Problem
 
-The temptation is to declare a multimodal model finished when the training loss plateaus. Training loss measures fit on the training distribution; it does not measure whether the model can rank pairs in a held-out batch, answer a question, or write a caption a human would accept. Three eval surfaces are standard:
+Cám dỗ là tuyên bố một mô hình đa phương thức hoàn tất khi mất mát huấn luyện bình nguyên. Mất mát huấn luyện đo độ khớp trên phân phối huấn luyện; nó không đo liệu mô hình có thể xếp hạng các cặp trong một lô được giữ riêng, trả lời một câu hỏi, hoặc viết một chú thích mà một người sẽ chấp nhận. Ba bề mặt đánh giá là tiêu chuẩn:
 
-- **Retrieval (R@1, R@5, R@10).** Build the joint embedding for a query caption; rank every image in the eval pool by cosine; report whether the matching image lands in the top 1, top 5, top 10. Symmetric (image-to-text) form runs the same way.
-- **Visual question answering (exact match).** Given (image, question), the model outputs an answer token. Exact match is one-bit per sample: did the predicted answer equal the reference answer? Average over the eval set.
-- **Captioning (BLEU-4).** Generate a caption. Compute the geometric mean of 1-gram through 4-gram precisions against reference captions, with a brevity penalty. Multi-reference is the standard form (one image, several reference captions).
+- **Truy xuất (R@1, R@5, R@10).** Xây dựng embedding chung cho một chú thích truy vấn; xếp hạng mọi ảnh trong tập đánh giá theo cosine; báo cáo liệu ảnh khớp nằm trong top 1, top 5, top 10 không. Dạng đối xứng (ảnh-sang-văn-bản) chạy cùng cách.
+- **Hỏi đáp thị giác (khớp chính xác).** Với (ảnh, câu hỏi) được cung cấp, mô hình xuất một token đáp án. Khớp chính xác là một bit mỗi mẫu: đáp án dự đoán có bằng đáp án tham chiếu không? Lấy trung bình trên tập đánh giá.
+- **Chú thích (BLEU-4).** Sinh một chú thích. Tính trung bình nhân của các precision 1-gram đến 4-gram so với các chú thích tham chiếu, với một hình phạt ngắn. Đa tham chiếu là dạng tiêu chuẩn (một ảnh, nhiều chú thích tham chiếu).
 
-Each metric is a thin function. The lesson builds them all in code so the math is concrete and the surface stays under your control. Real benchmark suites (MS-COCO, VQA v2, GQA, OK-VQA) plug into the same function shapes.
+Mỗi chỉ số là một hàm mỏng. Bài học xây dựng tất cả trong mã để toán cụ thể và bề mặt giữ dưới sự kiểm soát của bạn. Các bộ benchmark thực (MS-COCO, VQA v2, GQA, OK-VQA) cắm vào cùng các hình thức hàm.
 
 ## The Concept
 
@@ -41,11 +41,11 @@ flowchart TB
 
 ### Recall@K from a similarity matrix
 
-Build the `(N, N)` cosine similarity matrix between image and caption embeddings. For each row, sort the columns by descending similarity. Recall@K is the fraction of rows where the diagonal column index lies within the top K positions. Symmetric Recall@K (caption-to-image) is computed on the transposed matrix. Both numbers are reported. For an N=100 eval, R@1 = 0.6 means 60 of the 100 captions retrieved their correct image as the top match.
+Xây dựng ma trận tương tự cosine `(N, N)` giữa các embedding ảnh và chú thích. Với mỗi hàng, sắp các cột theo độ tương tự giảm dần. Recall@K là tỷ lệ hàng mà chỉ số cột đường chéo nằm trong top K vị trí. Recall@K đối xứng (chú thích-sang-ảnh) được tính trên ma trận chuyển vị. Cả hai số được báo cáo. Với một đánh giá N=100, R@1 = 0.6 nghĩa là 60 trong 100 chú thích truy xuất được ảnh đúng của chúng như kết quả khớp cao nhất.
 
 ### VQA exact match
 
-For each (image, question, answer), encode the image, embed the question, fuse via the decoder, and read out the next token. The predicted token id is compared to the reference id; correct if equal. Average over the eval set. Real VQA datasets ship with multiple human-annotated answers per question and use a soft-accuracy formula (1.0 if at least 3 of 10 annotators agree, scaled below); the lesson uses single-answer exact match for clarity.
+Với mỗi (ảnh, câu hỏi, đáp án), mã hóa ảnh, nhúng câu hỏi, hợp nhất qua decoder, và đọc token tiếp theo. Id token dự đoán được so sánh với id tham chiếu; đúng nếu bằng nhau. Lấy trung bình trên tập đánh giá. Các tập dữ liệu VQA thực cung cấp nhiều đáp án do con người chú giải mỗi câu hỏi và dùng một công thức độ chính xác mềm (1.0 nếu ít nhất 3 trong 10 người chú giải đồng ý, giảm tỷ lệ phía dưới); bài học dùng khớp chính xác một đáp án cho rõ ràng.
 
 ### BLEU-4
 
@@ -53,34 +53,34 @@ For each (image, question, answer), encode the image, embed the question, fuse v
 BLEU-4 = BP * exp(mean(log p1, log p2, log p3, log p4))
 ```
 
-Where `p_n` is the modified n-gram precision (clipped count of generated n-grams that appear in any reference, divided by total generated n-grams), and `BP` is the brevity penalty:
+Trong đó `p_n` là precision n-gram sửa đổi (số đếm bị cắt của các n-gram được sinh xuất hiện trong bất kỳ tham chiếu nào, chia cho tổng n-gram được sinh), và `BP` là hình phạt ngắn:
 
 ```text
 BP = 1                if generated length > reference length
    = exp(1 - r/g)     otherwise, where r is reference length and g is generated
 ```
 
-Smoothing is needed for small samples where some `p_n` is zero. The implementation uses Chen and Cherry "method 1" (add 1 to numerator and denominator for any zero count), which is the safest default for low-count regimes.
+Làm mượt cần thiết cho các mẫu nhỏ nơi một số `p_n` bằng không. Triển khai dùng "phương pháp 1" của Chen và Cherry (thêm 1 vào tử và mẫu cho bất kỳ số đếm không nào), là mặc định an toàn nhất cho các chế độ số đếm thấp.
 
 ### Synthetic eval suite
 
-A 50-sample eval suite is built in memory from the same mock corpus pattern used in lesson 62, with a held-out seed. Three lists make up the suite:
+Một bộ đánh giá 50 mẫu được xây dựng trong bộ nhớ từ cùng mẫu corpus giả lập được dùng trong bài 62, với một seed được giữ riêng. Ba danh sách tạo thành bộ:
 
-- `pairs`: 50 (image, caption_ids) pairs for retrieval.
-- `vqa`: 50 (image, question_ids, answer_id) triples.
-- `caps`: 50 (image, [reference_caption_ids, ...]) entries with up to 3 references per image.
+- `pairs`: 50 cặp (image, caption_ids) cho truy xuất.
+- `vqa`: 50 bộ ba (image, question_ids, answer_id).
+- `caps`: 50 mục (image, [reference_caption_ids, ...]) với tối đa 3 tham chiếu mỗi ảnh.
 
-The suite is deterministic from the seed and held out from the training corpus, so the metrics are computed on data the model never saw. Persisting the suite to JSON is left as an exercise (see below).
+Bộ tất định từ seed và được giữ riêng khỏi corpus huấn luyện, nên các chỉ số được tính trên dữ liệu mô hình chưa từng thấy. Lưu bền vững bộ vào JSON được để lại như một bài tập (xem dưới).
 
-| Metric | Range | Random baseline (N=50) |
+| Chỉ số | Khoảng | Đường cơ sở ngẫu nhiên (N=50) |
 |--------|-------|------------------------|
-| R@1 | 0 to 1 | 0.02 (1 / N) |
-| R@5 | 0 to 1 | 0.10 |
-| R@10 | 0 to 1 | 0.20 |
-| VQA EM | 0 to 1 | 1 / vocab |
-| BLEU-4 | 0 to 1 | small but nonzero |
+| R@1 | 0 đến 1 | 0.02 (1 / N) |
+| R@5 | 0 đến 1 | 0.10 |
+| R@10 | 0 đến 1 | 0.20 |
+| VQA EM | 0 đến 1 | 1 / vocab |
+| BLEU-4 | 0 đến 1 | nhỏ nhưng khác không |
 
-For a 50-step training run on synthetic data, the metrics are not expected to be high; they are expected to be above the random baseline, which is what the demo checks.
+Với một lần chạy huấn luyện 50 bước trên dữ liệu tổng hợp, các chỉ số không được kỳ vọng cao; chúng được kỳ vọng trên đường cơ sở ngẫu nhiên, là điều demo kiểm tra.
 
 ```figure
 ch-recall-window
@@ -88,45 +88,45 @@ ch-recall-window
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `recall_at_k(sim_matrix, k)`, returning a float in `[0, 1]` for both directions.
-- `vqa_exact_match(predictions, references)`, returning the mean over `int` equality.
-- `bleu4(generated, references, smoothing=True)`, with multi-reference support.
-- `build_eval_suite(seed, n_samples, vocab_size, max_len)`, returning three deterministic eval lists.
-- `evaluate(model, suite)`, which runs all three metrics and returns a `dict` of numbers.
-- A demo that loads a freshly-initialized multimodal model from lesson 62, evaluates it, then trains it for 50 steps and evaluates again, printing the before/after metrics.
+- `recall_at_k(sim_matrix, k)`, trả về một float trong `[0, 1]` cho cả hai hướng.
+- `vqa_exact_match(predictions, references)`, trả về trung bình trên so bằng `int`.
+- `bleu4(generated, references, smoothing=True)`, với hỗ trợ đa tham chiếu.
+- `build_eval_suite(seed, n_samples, vocab_size, max_len)`, trả về ba danh sách đánh giá tất định.
+- `evaluate(model, suite)`, chạy cả ba chỉ số và trả về một `dict` các số.
+- Một demo nạp một mô hình đa phương thức vừa khởi tạo từ bài 62, đánh giá nó, rồi huấn luyện nó trong 50 bước và đánh giá lại, in các chỉ số trước/sau.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-Output: the before/after metric table shows retrieval improving from near-random toward the model's learned signal, VQA improving above random, and BLEU-4 improving (the synthetic structure is enough for a 4-gram precision lift).
+Đầu ra: bảng chỉ số trước/sau cho thấy truy xuất cải thiện từ gần ngẫu nhiên về phía tín hiệu mô hình đã học, VQA cải thiện trên ngẫu nhiên, và BLEU-4 cải thiện (cấu trúc tổng hợp đủ cho một mức tăng precision 4-gram).
 
 ## Use It
 
-Each metric maps directly onto a production benchmark:
+Mỗi chỉ số ánh xạ trực tiếp lên một benchmark sản xuất:
 
-- **Retrieval.** MS-COCO 5K val, Flickr30K, ImageNet zero-shot are all R@K problems on the same similarity matrix. Replace the synthetic eval with the real files and the function signature is unchanged.
-- **VQA.** VQA v2, GQA, OK-VQA use the same exact-match shape (with soft-acc instead of single-answer EM for VQA v2).
-- **BLEU-4.** MS-COCO captioning, NoCaps, Flickr30K captioning all use BLEU-4 plus CIDEr and METEOR. Adding CIDEr is one more function.
+- **Truy xuất.** MS-COCO 5K val, Flickr30K, ImageNet zero-shot đều là các bài toán R@K trên cùng ma trận tương tự. Thay đánh giá tổng hợp bằng các file thực và chữ ký hàm không đổi.
+- **VQA.** VQA v2, GQA, OK-VQA dùng cùng hình thức khớp chính xác (với độ chính xác mềm thay EM một đáp án cho VQA v2).
+- **BLEU-4.** Chú thích MS-COCO, NoCaps, chú thích Flickr30K đều dùng BLEU-4 cùng CIDEr và METEOR. Thêm CIDEr là thêm một hàm.
 
-For real benchmarks, swap `build_eval_suite` for a real loader and keep the function bodies. The math is benchmark-agnostic.
+Với các benchmark thực, đổi `build_eval_suite` thành một loader thực và giữ các thân hàm. Toán độc lập với benchmark.
 
 ## Tests
 
-`code/test_main.py` covers:
+`code/test_main.py` bao phủ:
 
-- recall@k returns 1.0 on a perfect identity similarity matrix and 0.0 on a flipped one for k < N
-- recall@k respects `k <= N` upper bound
-- bleu4 returns 1.0 when generated equals one of the references exactly
-- bleu4 returns 0.0 on disjoint vocabulary
-- vqa exact match equals the fraction of equal pairs
-- build_eval_suite returns the expected number of pairs, vqa items, and caption entries
+- recall@k trả về 1.0 trên một ma trận tương tự đơn vị hoàn hảo và 0.0 trên một ma trận bị lật với k < N
+- recall@k tôn trọng cận trên `k <= N`
+- bleu4 trả về 1.0 khi chuỗi được sinh bằng chính xác một trong các tham chiếu
+- bleu4 trả về 0.0 trên các từ vựng rời nhau
+- khớp chính xác vqa bằng tỷ lệ các cặp bằng nhau
+- build_eval_suite trả về số cặp, mục vqa, và mục chú thích dự kiến
 
-Run them:
+Chạy chúng:
 
 ```bash
 python3 -m unittest code/test_main.py
@@ -134,29 +134,29 @@ python3 -m unittest code/test_main.py
 
 ## Exercises
 
-1. Add CIDEr to the captioning metrics. CIDEr uses TF-IDF weighting on n-grams, which rewards informative tokens.
+1. Thêm CIDEr vào các chỉ số chú thích. CIDEr dùng trọng số TF-IDF trên n-gram, thưởng cho các token giàu thông tin.
 
-2. Implement soft-accuracy VQA: multiple human answers per question, accuracy is `min(human_count / 3, 1)` if any matches. Replicates VQA v2.
+2. Triển khai VQA độ chính xác mềm: nhiều đáp án con người mỗi câu hỏi, độ chính xác là `min(human_count / 3, 1)` nếu có bất kỳ đáp án nào khớp. Tái tạo VQA v2.
 
-3. Add a NaN-safe variant of `bleu4` that handles empty generated sequences without crashing.
+3. Thêm một biến thể an toàn NaN của `bleu4` xử lý các chuỗi được sinh rỗng mà không sập.
 
-4. Compute mean reciprocal rank (MRR) alongside R@K. MRR is sensitive to where the correct item lands beyond the top K; R@K is sensitive to whether it lands in the top K.
+4. Tính thứ hạng nghịch đảo trung bình (MRR) cạnh R@K. MRR nhạy với vị trí mục đúng nằm ngoài top K; R@K nhạy với việc nó có nằm trong top K không.
 
-5. Run the eval on the model at five checkpoints during training (step 0, 10, 20, 30, 40, 50) and plot the learning curve. Confirm the metric trajectories track the loss trajectory.
+5. Chạy đánh giá trên mô hình ở năm checkpoint trong huấn luyện (bước 0, 10, 20, 30, 40, 50) và vẽ đường cong học. Xác nhận các quỹ đạo chỉ số theo quỹ đạo mất mát.
 
 ## Key Terms
 
-| Term | What it means |
+| Thuật ngữ | Ý nghĩa |
 |------|---------------|
-| R@K | Fraction of queries where the correct match lands in the top K results |
-| Exact match | The simplest VQA scoring: predicted answer equals reference |
-| BLEU-4 | Geometric mean of 1- to 4-gram precisions, with brevity penalty |
-| Multi-reference | A captioning metric accepts several reference captions per image |
-| Held-out | The eval set is sampled from a seed disjoint from the training corpus |
+| R@K | Tỷ lệ truy vấn mà kết quả khớp đúng nằm trong top K kết quả |
+| Exact match (Khớp chính xác) | Chấm VQA đơn giản nhất: đáp án dự đoán bằng tham chiếu |
+| BLEU-4 | Trung bình nhân các precision 1- đến 4-gram, với hình phạt ngắn |
+| Multi-reference (Đa tham chiếu) | Một chỉ số chú thích nhận nhiều chú thích tham chiếu mỗi ảnh |
+| Held-out (Được giữ riêng) | Tập đánh giá được lấy mẫu từ một seed rời với corpus huấn luyện |
 
 ## Further Reading
 
-- VQA v2 paper for the soft-accuracy formula and dataset statistics.
-- CIDEr paper for TF-IDF-weighted n-gram captioning.
-- BLEU original (Papineni et al., 2002) for the smoothing variants.
-- MS-COCO captioning eval scripts for the canonical reference implementation.
+- Bài báo VQA v2 cho công thức độ chính xác mềm và các thống kê tập dữ liệu.
+- Bài báo CIDEr cho chú thích n-gram có trọng số TF-IDF.
+- BLEU gốc (Papineni và cộng sự, 2002) cho các biến thể làm mượt.
+- Các script đánh giá chú thích MS-COCO cho triển khai tham chiếu chuẩn.
