@@ -1,6 +1,6 @@
 # CLIP and Contrastive Vision-Language Pretraining
 
-> OpenAI's CLIP (2021) proved a single idea big enough to power the next five years: align an image encoder and a text encoder in the same vector space using only noisy web image-caption pairs and a contrastive loss. Zero supervised labels. 400M pairs. The resulting embedding space does zero-shot classification, image-text retrieval, and plugs into every 2026 VLM as its vision tower. SigLIP 2 (2025) replaced softmax with sigmoid and scaled past CLIP at lower cost. This lesson walks the math from InfoNCE to sigmoid pairwise loss and builds the training step in stdlib Python.
+> CLIP của OpenAI (2021) chứng minh một ý tưởng đủ lớn để cung cấp sức mạnh cho năm năm tiếp theo: căn chỉnh encoder ảnh và encoder văn bản trong cùng không gian vector chỉ bằng cặp ảnh-chú thích web nhiễu và loss tương phản. Không nhãn có giám sát. 400M cặp. Không gian embedding tạo ra thực hiện phân loại zero-shot, truy xuất ảnh-văn bản và cắm vào mọi VLM năm 2026 làm tháp thị giác. SigLIP 2 (2025) thay softmax bằng sigmoid và mở rộng vượt CLIP với chi phí thấp hơn. Bài học này đi qua toán từ InfoNCE đến loss sigmoid từng cặp và xây bước huấn luyện bằng stdlib Python.
 
 **Type:** Build
 **Languages:** Python (stdlib, InfoNCE + sigmoid loss implementations)
@@ -9,43 +9,43 @@
 
 ## Learning Objectives
 
-- Derive InfoNCE loss from mutual information and implement a numerically-stable vectorized version.
-- Explain why sigmoid pairwise loss (SigLIP) scales to batch 32768+ without the all-gather overhead softmax demands.
-- Run zero-shot ImageNet classification by constructing text templates (`a photo of a {class}`) and taking argmax over cosine similarity.
-- Name the four levers CLIP / SigLIP pretraining gives you: batch size, temperature, prompt template, data quality.
+- Suy ra loss InfoNCE từ thông tin tương hỗ và triển khai phiên bản vector hóa ổn định số học.
+- Giải thích tại sao loss sigmoid từng cặp (SigLIP) mở rộng đến batch 32768+ mà không chi phí all-gather softmax đòi hỏi.
+- Chạy phân loại ImageNet zero-shot bằng xây khuôn mẫu văn bản (`a photo of a {class}`) và lấy argmax trên cosine similarity.
+- Nêu tên bốn đòn bẩy tiền huấn luyện CLIP / SigLIP cho bạn: batch size, temperature, khuôn mẫu prompt, chất lượng dữ liệu.
 
 ## The Problem
 
-Pre-CLIP vision was supervised. Collect labeled datasets (ImageNet: 1.2M images, 1000 classes), train a CNN, ship it. Labels are expensive, labels bias to what labelers can agree on, and labels do not transfer to new tasks without finetuning.
+Thị giác trước CLIP là có giám sát. Thu bộ dữ liệu gán nhãn (ImageNet: 1.2M ảnh, 1000 lớp), huấn luyện CNN, phát hành. Nhãn đắt, nhãn thiên lệch theo điều người gán nhãn đồng ý được và nhãn không chuyển giao sang tác vụ mới mà không finetuning.
 
-The image-caption web has one billion-plus loosely-labeled pairs for free. A picture of a golden retriever with alt text "my dog Max in the park" carries a supervisory signal — the text describes the image. The question: can you turn this into useful training?
+Web ảnh-chú thích có hơn một tỷ cặp gán nhãn lỏng miễn phí. Hình chó golden retriever với văn bản thay thế "chó Max của tôi trong công viên" mang tín hiệu giám sát — văn bản mô tả ảnh. Câu hỏi: có thể biến thành huấn luyện hữu ích không?
 
-CLIP's answer: treat image-caption pairs as a matching task. Given a batch of N images and N captions, learn to match each image to its own caption against N-1 distractors. The supervision is "these two things belong together; these N-1 do not." No class labels. No human annotation. Just a contrastive loss.
+Câu trả lời CLIP: xem cặp ảnh-chú thích là tác vụ khớp. Với batch N ảnh và N chú thích, học khớp mỗi ảnh với chú thích riêng trước N-1 mồi nhiễu. Giám sát là "hai thứ này thuộc về nhau; N-1 thứ này thì không." Không nhãn lớp. Không chú giải con người. Chỉ loss tương phản.
 
-The resulting embedding space does more than CLIP was trained for. ImageNet zero-shot works because "a photo of a cat" embeds near pictures of cats that were never explicitly labeled cats. This is the bet that spawned every 2026 VLM.
+Không gian embedding tạo ra làm nhiều hơn điều CLIP được huấn luyện. ImageNet zero-shot hoạt động vì "ảnh một con mèo" được nhúng gần ảnh mèo chưa bao giờ được gán nhãn mèo rõ ràng. Đây là đặt cược sinh ra mọi VLM năm 2026.
 
 ## The Concept
 
 ### The dual encoder
 
-CLIP has two towers:
+CLIP có hai tháp:
 
-- Image encoder `f`: ViT or ResNet, outputs a D-dim vector per image.
-- Text encoder `g`: small transformer, outputs a D-dim vector per caption.
+- Encoder ảnh `f`: ViT hoặc ResNet, xuất vector D chiều mỗi ảnh.
+- Encoder văn bản `g`: transformer nhỏ, xuất vector D chiều mỗi chú thích.
 
-Both towers normalize their outputs to unit length. Similarity is `cos(f(x), g(y)) = f(x)^T g(y)` since both are unit-norm.
+Cả hai tháp chuẩn hóa đầu ra về độ dài đơn vị. Độ tương đồng là `cos(f(x), g(y)) = f(x)^T g(y)` vì cả hai có chuẩn đơn vị.
 
-For a batch of N (image, caption) pairs, build the similarity matrix `S` of shape `(N, N)`:
+Với batch N cặp (ảnh, chú thích), xây ma trận tương đồng `S` hình dạng `(N, N)`:
 
 ```
 S[i, j] = cos(f(x_i), g(y_j)) / tau
 ```
 
-where `tau` is a learned temperature (CLIP initializes to 0.07; learned in log-space).
+trong đó `tau` là temperature được học (CLIP khởi tạo 0.07; học trong không gian log).
 
 ### InfoNCE loss
 
-CLIP uses a symmetric cross-entropy over rows and columns:
+CLIP dùng cross-entropy đối xứng trên hàng và cột:
 
 ```
 loss_i2t = CE(S, labels=identity)     # each image's positive is its own caption
@@ -53,57 +53,57 @@ loss_t2i = CE(S^T, labels=identity)   # each caption's positive is its own image
 loss = (loss_i2t + loss_t2i) / 2
 ```
 
-This is InfoNCE. The softmax in CE forces each image to match its caption more than every other caption in the batch. The "negatives" are all other batch items. Bigger batches = more negatives = stronger signal. CLIP trained at batch 32k; scale matters.
+Đây là InfoNCE. Softmax trong CE buộc mỗi ảnh khớp chú thích của nó hơn mọi chú thích khác trong batch. Các "âm" là mọi mục khác của batch. Batch lớn hơn = nhiều âm hơn = tín hiệu mạnh hơn. CLIP huấn luyện ở batch 32k; quy mô quan trọng.
 
 ### Temperature
 
-`tau` controls the sharpness of the softmax. Low tau → sharp distribution, hard negative mining effect. High tau → soft, all samples contribute. CLIP learns log(1/tau), clipped to prevent collapse. SigLIP 2 fixes the initial tau and uses a learned bias instead.
+`tau` kiểm soát độ sắc softmax. Tau thấp → phân phối sắc, hiệu ứng khai thác âm khó. Tau cao → mềm, mọi mẫu đóng góp. CLIP học log(1/tau), cắt ngưỡng để ngăn sụp đổ. SigLIP 2 cố định tau ban đầu và dùng bias được học thay thế.
 
 ### Why sigmoid scales better (SigLIP)
 
-Softmax needs the whole similarity matrix in sync. In distributed training you must all-gather every embedding to every replica, then do the softmax. This is quadratic in world size for communication.
+Softmax cần toàn ma trận tương đồng đồng bộ. Trong huấn luyện phân tán phải all-gather mọi embedding đến mọi replica, rồi làm softmax. Giao tiếp này bậc hai theo world size.
 
-SigLIP replaces softmax with element-wise sigmoid: for each pair `(i, j)`, the loss is a binary classification of "are these the matching pair?" positive class labels are the diagonal, everything else is negative. The loss is:
+SigLIP thay softmax bằng sigmoid từng phần tử: với mỗi cặp `(i, j)`, loss là phân loại nhị phân "đây có phải cặp khớp?" nhãn lớp dương ở đường chéo, mọi thứ khác âm. Loss là:
 
 ```
 L = -1/N sum over (i, j) [ y_ij log sigmoid(S[i,j]) + (1-y_ij) log sigmoid(-S[i,j]) ]
 ```
 
-`y_ij = 1` if `i == j`, else 0. Each pair's loss is independent. No all-gather needed. Each GPU computes its local block and sums. SigLIP 2 scales to batch 32k-512k cheaply where CLIP would need proportionally more communication.
+`y_ij = 1` nếu `i == j`, nếu không 0. Loss mỗi cặp độc lập. Không cần all-gather. Mỗi GPU tính khối cục bộ và cộng. SigLIP 2 mở rộng rẻ đến batch 32k-512k nơi CLIP cần giao tiếp nhiều hơn tương ứng.
 
 ### Zero-shot classification
 
-Given N class names, for each class build a text template:
+Với N tên lớp, cho mỗi lớp xây khuôn mẫu văn bản:
 
 ```
 "a photo of a {class}"
 ```
 
-Embed each template with the text encoder. Embed your image with the image encoder. Argmax cosine similarity = predicted class. No training on the target classes.
+Nhúng mỗi khuôn mẫu bằng encoder văn bản. Nhúng ảnh bằng encoder ảnh. Argmax cosine similarity = lớp dự đoán. Không huấn luyện trên lớp đích.
 
-Prompt templates matter. CLIP's original paper used 80 templates per class (plain, artistic, photo, painting, etc.) and averaged the embeddings. +3 ImageNet points. Modern usage typically picks one or two templates.
+Khuôn mẫu prompt quan trọng. Bài báo CLIP gốc dùng 80 khuôn mẫu mỗi lớp (đơn giản, nghệ thuật, ảnh, tranh, v.v.) và lấy trung bình embedding. +3 điểm ImageNet. Cách dùng hiện đại thường chọn một hoặc hai khuôn mẫu.
 
 ### Linear probes and finetuning
 
-Zero-shot is a baseline. A linear probe (train one linear layer on top of frozen CLIP features for your target classes) beats zero-shot on in-domain tasks. Full finetuning beats linear probe on in-domain but can hurt zero-shot transfer. Three regimes with three trade-offs.
+Zero-shot là baseline. Linear probe (huấn luyện một lớp tuyến tính trên đặc trưng CLIP đóng băng cho lớp đích) thắng zero-shot trên tác vụ trong miền. Finetuning toàn phần thắng linear probe trong miền nhưng có thể hại chuyển giao zero-shot. Ba chế độ với ba đánh đổi.
 
 ### SigLIP 2: NaFlex and dense features
 
-SigLIP 2 (2025) adds:
-- NaFlex: single model handles variable aspect ratios and resolutions.
-- Better dense features for segmentation and depth estimation, targeting use as a frozen backbone in VLMs.
-- Multilingual: trained on 100+ languages where CLIP was English-only.
-- 1B param scale where CLIP topped out at 400M.
+SigLIP 2 (2025) thêm:
+- NaFlex: một mô hình xử lý tỷ lệ khung hình và độ phân giải thay đổi.
+- Đặc trưng dày đặc tốt hơn cho phân đoạn và ước lượng độ sâu, nhắm dùng làm backbone đóng băng trong VLM.
+- Đa ngôn ngữ: huấn luyện trên 100+ ngôn ngữ trong khi CLIP chỉ tiếng Anh.
+- Quy mô 1B tham số nơi CLIP đạt đỉnh 400M.
 
-In 2026 open VLMs, SigLIP 2 SO400m/14 is the default vision tower. CLIP remains the default for pure image-text retrieval where the specific LAION-2B training distribution matches your query pattern.
+Trong VLM mở năm 2026, SigLIP 2 SO400m/14 là tháp thị giác mặc định. CLIP vẫn mặc định cho truy xuất ảnh-văn bản thuần nơi phân phối huấn luyện LAION-2B cụ thể khớp mẫu truy vấn của bạn.
 
 ### ALIGN, BASIC, OpenCLIP, EVA-CLIP
 
-ALIGN (Google, 2021): same idea as CLIP, 1.8B pair scale, 90% noisy. Proved noisy data scales. OpenCLIP (LAION): open reproduction of CLIP on LAION-400M / 2B, multiple scales, the go-to open checkpoint. EVA-CLIP: initializes from masked image modeling; strong backbone for VLMs. BASIC: Google's CLIP+ALIGN hybrid. All the same family, different data and tuning.
+ALIGN (Google, 2021): cùng ý tưởng CLIP, quy mô 1.8B cặp, 90% nhiễu. Chứng minh dữ liệu nhiễu mở rộng được. OpenCLIP (LAION): tái tạo mở CLIP trên LAION-400M / 2B, nhiều quy mô, checkpoint mở được ưu tiên. EVA-CLIP: khởi tạo từ mô hình hóa ảnh che; backbone mạnh cho VLM. BASIC: lai CLIP+ALIGN của Google. Cùng họ, khác dữ liệu và tinh chỉnh.
 
 ### The zero-shot ceiling
 
-CLIP-class models cap around 76% ImageNet zero-shot (CLIP-G, OpenCLIP-G). Beyond requires either much larger data (SigLIP 2 gets 80%+) or architecture changes (supervised heads, more parameters). The benchmark is saturating; the real value is the embedding space that downstream VLMs consume.
+Mô hình loại CLIP đạt trần khoảng 76% ImageNet zero-shot (CLIP-G, OpenCLIP-G). Vượt cần dữ liệu lớn hơn nhiều (SigLIP 2 đạt 80%+) hoặc đổi kiến trúc (head có giám sát, nhiều tham số hơn). Benchmark đang bão hòa; giá trị thực là không gian embedding VLM downstream tiêu thụ.
 
 ```figure
 multimodal-fusion
@@ -111,50 +111,50 @@ multimodal-fusion
 
 ## Use It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-1. A toy dual encoder (hash-based image features, text char features) so you can see the InfoNCE shape without numpy.
-2. InfoNCE loss in pure Python (numerical stability via log-sum-exp).
-3. Sigmoid pairwise loss for comparison.
-4. A zero-shot classification routine: compute cosine similarity against a set of text prompts, argmax for prediction.
+1. Encoder đôi minh họa (đặc trưng ảnh theo hash, đặc trưng ký tự văn bản) để thấy hình dạng InfoNCE không cần numpy.
+2. Loss InfoNCE bằng Python thuần (ổn định số qua log-sum-exp).
+3. Loss sigmoid từng cặp để so sánh.
+4. Quy trình phân loại zero-shot: tính cosine similarity so với tập prompt văn bản, argmax để dự đoán.
 
-Run it and watch the loss curve. The absolute numbers are toy; the shape matches what a real CLIP trainer emits.
+Chạy và xem đường cong loss. Số tuyệt đối là minh họa; hình dạng khớp thứ trainer CLIP thực phát.
 
 ## Ship It
 
-This lesson produces `outputs/skill-clip-zero-shot.md`. Given a set of images (via path) and a list of target classes, it builds text prompts with the CLIP template, embeds both sides with a stated checkpoint (e.g., `openai/clip-vit-large-patch14`), and returns top-1 / top-5 predictions with similarity scores. The skill refuses to make claims about classes not in the prompt list.
+Bài học này tạo `outputs/skill-clip-zero-shot.md`. Với tập ảnh (qua đường dẫn) và danh sách lớp đích, nó xây prompt văn bản bằng khuôn mẫu CLIP, nhúng hai phía bằng checkpoint nêu rõ (ví dụ `openai/clip-vit-large-patch14`) và trả dự đoán top-1 / top-5 kèm điểm tương đồng. Skill từ chối khẳng định về lớp không trong danh sách prompt.
 
 ## Exercises
 
-1. Implement InfoNCE for a batch of 4 pairs by hand. Construct the 4x4 similarity matrix, run softmax, pick out the diagonal, compute cross-entropy. Verify your Python implementation against this hand calculation.
+1. Triển khai InfoNCE cho batch 4 cặp bằng tay. Xây ma trận tương đồng 4x4, chạy softmax, lấy đường chéo, tính cross-entropy. Xác minh triển khai Python so với phép tính tay này.
 
-2. SigLIP uses a bias parameter `b` in addition to temperature: `S'[i,j] = S[i,j]/tau + b`. What role does `b` play when the batch has a large class imbalance (many more negatives than positives per row)? Read SigLIP Section 3 (arXiv:2303.15343).
+2. SigLIP dùng tham số bias `b` ngoài temperature: `S'[i,j] = S[i,j]/tau + b`. `b` đóng vai trò gì khi batch mất cân bằng lớp lớn (nhiều âm hơn dương mỗi hàng)? Đọc Mục 3 SigLIP (arXiv:2303.15343).
 
-3. Build a zero-shot classifier for cats vs dogs. Try two prompt templates: `a photo of a {class}` and `a picture of a {class}`. Measure accuracy on 100 test images. Does the ensemble of templates beat single?
+3. Xây bộ phân loại zero-shot mèo so với chó. Thử hai khuôn mẫu prompt: `a photo of a {class}` và `a picture of a {class}`. Đo độ chính xác trên 100 ảnh kiểm thử. Tổ hợp khuôn mẫu có thắng một khuôn mẫu không?
 
-4. Compute the communication cost of softmax InfoNCE vs sigmoid pairwise for a 512-GPU run at batch 32k. Which scales as O(N), which as O(N^2)? Cite SigLIP Section 4.
+4. Tính chi phí giao tiếp softmax InfoNCE so với sigmoid từng cặp cho lượt chạy 512 GPU ở batch 32k. Loại nào tăng O(N), loại nào O(N^2)? Trích Mục 4 SigLIP.
 
-5. Read the OpenCLIP scaling-laws paper (arXiv:2212.07143, Cherti et al.). Reproduce their conclusion for data scaling from the figures: at fixed model size, what is the log-linear relationship between ImageNet zero-shot accuracy and training data size?
+5. Đọc bài báo quy luật mở rộng OpenCLIP (arXiv:2212.07143, Cherti và cộng sự). Tái hiện kết luận mở rộng dữ liệu từ hình: ở kích thước mô hình cố định, quan hệ log-tuyến tính giữa độ chính xác ImageNet zero-shot và kích thước dữ liệu huấn luyện là gì?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| InfoNCE | "Contrastive loss" | Cross-entropy over a batch's similarity matrix; each item's positive is its paired item, negatives are everything else |
-| Sigmoid loss | "SigLIP loss" | Per-pair binary cross-entropy; no softmax, no all-gather, scales cheaply in distributed training |
-| Temperature | "tau" | Scalar that scales logits before softmax/sigmoid; controls sharpness of the distribution |
-| Zero-shot | "no-finetune classification" | Use text prompts to construct class embeddings and classify by cosine similarity; no training on target classes |
-| Prompt template | "a photo of a ..." | Text scaffold around a class name; affects zero-shot accuracy by 1-5 points |
-| Dual encoder | "Two-tower" | One image encoder + one text encoder, outputs in shared D-dim space |
-| Hard negative | "Tough distractor" | A negative similar enough to the positive that the model has to work to separate them |
-| Linear probe | "Frozen + one layer" | Train only a linear classifier on top of frozen features; measures feature quality |
-| NaFlex | "Native flexible resolution" | SigLIP 2 capability to ingest images at any aspect ratio and resolution without resizing |
-| Temperature scaling | "log-parametrized tau" | CLIP parametrizes `log(1/tau)` so gradients behave; clips to prevent collapse to near-zero tau |
+| InfoNCE | "Loss tương phản" | Cross-entropy trên ma trận tương đồng batch; dương của mỗi mục là mục ghép cặp, âm là mọi thứ khác |
+| Sigmoid loss (Loss sigmoid) | "Loss SigLIP" | Binary cross-entropy mỗi cặp; không softmax, không all-gather, mở rộng rẻ trong huấn luyện phân tán |
+| Temperature | "tau" | Vô hướng co giãn logit trước softmax/sigmoid; kiểm soát độ sắc phân phối |
+| Zero-shot (Không ví dụ) | "phân loại không finetune" | Dùng prompt văn bản xây embedding lớp và phân loại theo cosine similarity; không huấn luyện trên lớp đích |
+| Prompt template (Khuôn mẫu prompt) | "ảnh chụp một ..." | Khung văn bản quanh tên lớp; ảnh hưởng độ chính xác zero-shot 1-5 điểm |
+| Dual encoder (Encoder đôi) | "Hai tháp" | Một encoder ảnh + một encoder văn bản, đầu ra trong không gian D chiều dùng chung |
+| Hard negative (Âm khó) | "Mồi nhiễu khó" | Âm đủ tương tự dương để mô hình phải nỗ lực tách chúng |
+| Linear probe (Thăm dò tuyến tính) | "Đóng băng + một lớp" | Chỉ huấn luyện bộ phân loại tuyến tính trên đặc trưng đóng băng; đo chất lượng đặc trưng |
+| NaFlex | "Độ phân giải linh hoạt nguyên bản" | Năng lực SigLIP 2 nhận ảnh mọi tỷ lệ khung hình và độ phân giải không đổi kích thước |
+| Temperature scaling (Co giãn temperature) | "tau tham số hóa log" | CLIP tham số hóa `log(1/tau)` để gradient hoạt động đúng; cắt ngưỡng ngăn sụp về tau gần không |
 
 ## Further Reading
 
-- [Radford et al. — Learning Transferable Visual Models From Natural Language Supervision (arXiv:2103.00020)](https://arxiv.org/abs/2103.00020) — the CLIP paper.
+- [Radford et al. — Learning Transferable Visual Models From Natural Language Supervision (arXiv:2103.00020)](https://arxiv.org/abs/2103.00020) — bài báo CLIP.
 - [Zhai et al. — Sigmoid Loss for Language Image Pre-Training (arXiv:2303.15343)](https://arxiv.org/abs/2303.15343) — SigLIP.
-- [Tschannen et al. — SigLIP 2 (arXiv:2502.14786)](https://arxiv.org/abs/2502.14786) — multilingual + NaFlex.
-- [Jia et al. — ALIGN (arXiv:2102.05918)](https://arxiv.org/abs/2102.05918) — scale with noisy web data.
-- [Cherti et al. — Reproducible scaling laws for contrastive language-image learning (arXiv:2212.07143)](https://arxiv.org/abs/2212.07143) — OpenCLIP scaling laws.
+- [Tschannen et al. — SigLIP 2 (arXiv:2502.14786)](https://arxiv.org/abs/2502.14786) — đa ngôn ngữ + NaFlex.
+- [Jia et al. — ALIGN (arXiv:2102.05918)](https://arxiv.org/abs/2102.05918) — mở rộng bằng dữ liệu web nhiễu.
+- [Cherti et al. — Reproducible scaling laws for contrastive language-image learning (arXiv:2212.07143)](https://arxiv.org/abs/2212.07143) — quy luật mở rộng OpenCLIP.
