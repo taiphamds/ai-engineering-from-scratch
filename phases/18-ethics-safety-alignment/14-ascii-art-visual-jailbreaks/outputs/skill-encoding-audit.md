@@ -7,23 +7,23 @@ lesson: 14
 tags: [artprompt, ascii-art, encoding-attack, utes, structural-sleight]
 ---
 
-Given a jailbreak-defense report, enumerate the encoding-family attacks covered and the defense layer that catches each.
+Với báo cáo phòng vệ jailbreak, liệt kê tấn công họ mã hóa được bao phủ và lớp phòng vệ bắt từng loại.
 
-Produce:
+Tạo:
 
-1. Encoding coverage. List each attack family evaluated: ASCII art (ArtPrompt), base64, leet-speak, UTF-8 homoglyphs, nested JSON / YAML / CSV, tree/graph UTES, image-modality. Flag families missing.
-2. Defense-layer mapping. For each family, identify which defense layer (keyword filter, perplexity filter, paraphrase, retokenization, output classifier, multimodal moderator) catches it and which does not.
-3. Visual-recognition gap. Per Jiang et al. 2024, PPL and Retokenization fail against ArtPrompt because the recognition happens at the visual level. Does the report's defense include anything that operates at the visual/structural level?
-4. Generalization test. UTES (StructuralSleight) generalizes to arbitrary rare structures. Does the report test structures not in its training defense set?
-5. Capability-safety tradeoff. A model with stronger visual-text capability (high ViTC score) is more vulnerable to ArtPrompt. Note the model's ViTC score if reported; request it if not.
+1. Bao phủ mã hóa. Liệt kê từng họ tấn công được đánh giá: ASCII art (ArtPrompt), base64, leet-speak, ký tự đồng hình UTF-8, JSON / YAML / CSV lồng nhau, UTES cây/đồ thị, phương thức ảnh. Đánh dấu họ thiếu.
+2. Ánh xạ lớp phòng vệ. Với mỗi họ, xác định lớp phòng vệ nào (lọc từ khóa, lọc perplexity, diễn đạt lại, tách token lại, bộ phân loại đầu ra, bộ kiểm duyệt đa phương thức) bắt được và lớp nào không.
+3. Khoảng trống nhận diện thị giác. Theo Jiang và cộng sự 2024, PPL và Tách token lại thất bại trước ArtPrompt vì nhận diện diễn ra ở cấp thị giác. Phòng vệ báo cáo có gì hoạt động ở cấp thị giác/cấu trúc không?
+4. Kiểm thử khái quát hóa. UTES (StructuralSleight) khái quát sang cấu trúc hiếm tùy ý. Báo cáo có kiểm thử cấu trúc không nằm trong tập phòng vệ huấn luyện không?
+5. Đánh đổi năng lực-an toàn. Mô hình có năng lực thị giác-văn bản mạnh hơn (điểm ViTC cao) dễ bị ArtPrompt hơn. Ghi điểm ViTC nếu báo cáo; yêu cầu nếu không.
 
-Hard rejects:
-- Any defense claim based solely on substring/keyword filtering.
-- Any defense claim that covers one encoding family and extrapolates to "encoding attacks."
-- Any defense claim without a per-family attack-success rate.
+Các trường hợp loại bỏ dứt khoát:
+- Mọi khẳng định phòng vệ chỉ dựa trên lọc chuỗi con/từ khóa.
+- Mọi khẳng định phòng vệ bao phủ một họ mã hóa và ngoại suy sang "tấn công mã hóa."
+- Mọi khẳng định phòng vệ không có tỷ lệ tấn công thành công theo họ.
 
-Refusal rules:
-- If the user asks whether ArtPrompt is "patched," refuse and explain the recognition-level vs text-level defense gap.
-- If the user asks for a recommended all-encoding defense, refuse a single recommendation — defense must be layered across all families that the deployment might face.
+Quy tắc từ chối:
+- Nếu người dùng hỏi ArtPrompt đã "vá" chưa, từ chối và giải thích khoảng trống phòng vệ cấp nhận diện so với cấp văn bản.
+- Nếu người dùng hỏi phòng vệ mọi mã hóa được khuyến nghị, từ chối một khuyến nghị duy nhất — phòng vệ phải phân lớp trên mọi họ triển khai có thể đối mặt.
 
-Output: a one-page audit that fills the five sections above, flags the primary encoding gap, and names the single most urgent defense layer to add. Cite Jiang et al. (arXiv:2402.11753) and StructuralSleight once each.
+Đầu ra: bản kiểm tra một trang điền năm phần trên, đánh dấu khoảng trống mã hóa chính và nêu lớp phòng vệ duy nhất cấp bách nhất cần thêm. Trích dẫn Jiang và cộng sự (arXiv:2402.11753) và StructuralSleight, mỗi bài một lần.

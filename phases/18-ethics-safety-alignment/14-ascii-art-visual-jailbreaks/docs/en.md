@@ -1,6 +1,6 @@
 # ASCII Art and Visual Jailbreaks
 
-> Jiang, Xu, Niu, Xiang, Ramasubramanian, Li, Poovendran, "ArtPrompt: ASCII Art-based Jailbreak Attacks against Aligned LLMs" (ACL 2024, arXiv:2402.11753). Mask the safety-relevant tokens in a harmful request, replace them with ASCII-art renderings of the same letters, and send the cloaked prompt. GPT-3.5, GPT-4, Gemini, Claude, Llama-2 all fail to robustly recognize ASCII-art tokens. The attack bypasses PPL (perplexity filters), Paraphrase defenses, and Retokenization. Related: the ViTC benchmark measures recognition of non-semantic visual prompts; StructuralSleight generalizes to Uncommon Text-Encoded Structures (trees, graphs, nested JSON) as a family of encoding attacks.
+> Jiang, Xu, Niu, Xiang, Ramasubramanian, Li, Poovendran, "ArtPrompt: ASCII Art-based Jailbreak Attacks against Aligned LLMs" (ACL 2024, arXiv:2402.11753). Che token liên quan an toàn trong yêu cầu có hại, thay bằng hình ASCII-art của cùng chữ cái, và gửi prompt được ngụy trang. GPT-3.5, GPT-4, Gemini, Claude, Llama-2 đều không nhận diện vững token ASCII-art. Tấn công vượt PPL (bộ lọc perplexity), phòng vệ Diễn đạt lại và Tách token lại. Liên quan: phép đo chuẩn ViTC đo nhận diện prompt thị giác phi ngữ nghĩa; StructuralSleight khái quát sang Cấu trúc Mã hóa Văn bản Không phổ biến (cây, đồ thị, JSON lồng nhau) như một họ tấn công mã hóa.
 
 **Type:** Build
 **Languages:** Python (stdlib, ArtPrompt token-masking harness)
@@ -9,50 +9,50 @@
 
 ## Learning Objectives
 
-- Describe the ArtPrompt attack: word-identification step, ASCII-art substitution, final cloaked prompt.
-- Explain why standard defenses (PPL, Paraphrase, Retokenization) fail on ArtPrompt.
-- Define ViTC and describe what it measures.
-- Describe StructuralSleight as a generalization to arbitrary Uncommon Text-Encoded Structures.
+- Mô tả tấn công ArtPrompt: bước nhận diện từ, thay ASCII-art, prompt ngụy trang cuối.
+- Giải thích tại sao phòng vệ tiêu chuẩn (PPL, Diễn đạt lại, Tách token lại) thất bại trước ArtPrompt.
+- Định nghĩa ViTC và mô tả điều nó đo.
+- Mô tả StructuralSleight là khái quát hóa sang Cấu trúc Mã hóa Văn bản Không phổ biến tùy ý.
 
 ## The Problem
 
-Attacks via paraphrase and roleplay (Lesson 12) and via long context (Lesson 13) operate on the text-level pattern. ArtPrompt operates at the recognition level: the model does not parse the forbidden token. It parses an image rendered in characters. The safety filter sees harmless punctuation. The model sees a word.
+Tấn công qua diễn đạt lại và nhập vai (Bài 12) và qua ngữ cảnh dài (Bài 13) hoạt động trên mẫu cấp văn bản. ArtPrompt hoạt động ở cấp nhận diện: mô hình không phân tích token bị cấm. Nó phân tích hình ảnh dựng bằng ký tự. Bộ lọc an toàn thấy dấu câu vô hại. Mô hình thấy một từ.
 
 ## The Concept
 
 ### ArtPrompt, two steps
 
-Step 1. Word Identification. Given a harmful request, the attacker uses an LLM to identify the safety-relevant words (e.g., "bomb" in "how to make a bomb"). 
+Bước 1. Nhận diện Từ. Với yêu cầu có hại, kẻ tấn công dùng LLM xác định từ liên quan an toàn (ví dụ: "bom" trong "cách làm bom").
 
-Step 2. Cloaked Prompt Generation. Replace each identified word with its ASCII-art rendering (a 7x5 or 7x7 block of characters forming the letter shape). The model receives a grid of punctuation and spaces that a sufficiently capable model can recognize as the word; a safety filter sees only the grid.
+Bước 2. Tạo Prompt Ngụy trang. Thay mỗi từ được xác định bằng hình ASCII-art của nó (block ký tự 7x5 hoặc 7x7 tạo hình chữ cái). Mô hình nhận lưới dấu câu và khoảng trắng mà mô hình đủ năng lực nhận ra là từ đó; bộ lọc an toàn chỉ thấy lưới.
 
-Result: GPT-4, Gemini, Claude, Llama-2, GPT-3.5 all fail. Attack success rate above 75% on their benchmark subset.
+Kết quả: GPT-4, Gemini, Claude, Llama-2, GPT-3.5 đều thất bại. Tỷ lệ tấn công thành công trên 75% trên tập con phép đo chuẩn của họ.
 
 ### Why the standard defenses fail
 
-- **PPL (perplexity filter).** ASCII art has high perplexity — but so does all novel input. Threshold choices that block ArtPrompt also block legitimate structured input.
-- **Paraphrase.** Paraphrasing the prompt destroys the ASCII art. In practice, paraphrase LLMs often preserve or reconstruct the art.
-- **Retokenization.** Splitting tokens differently does not change that the model's vision is recognizing letter shapes.
+- **PPL (bộ lọc perplexity).** ASCII art có perplexity cao — nhưng mọi đầu vào mới lạ cũng vậy. Lựa chọn ngưỡng chặn ArtPrompt cũng chặn đầu vào có cấu trúc hợp lệ.
+- **Diễn đạt lại.** Diễn đạt lại prompt phá hủy ASCII art. Thực tế, LLM diễn đạt lại thường giữ hoặc dựng lại hình.
+- **Tách token lại.** Chia token khác không thay đổi việc thị giác mô hình đang nhận diện hình chữ cái.
 
-The underlying issue is that safety filters are token- or semantic-level; ArtPrompt operates at the visual recognition level.
+Vấn đề nền là bộ lọc an toàn ở cấp token hoặc ngữ nghĩa; ArtPrompt hoạt động ở cấp nhận diện thị giác.
 
 ### ViTC benchmark
 
-Recognition of non-semantic visual prompts. Measures the model's ability to read ASCII-art, wingdings, and other non-text-semantic visual content. ArtPrompt's effectiveness correlates with ViTC accuracy: the better the model reads visual text, the better ArtPrompt works on it. This is a capability-safety tradeoff.
+Nhận diện prompt thị giác phi ngữ nghĩa. Đo khả năng mô hình đọc ASCII-art, wingdings và nội dung thị giác phi ngữ nghĩa văn bản khác. Hiệu quả ArtPrompt tương quan độ chính xác ViTC: mô hình đọc văn bản thị giác càng tốt, ArtPrompt càng hiệu quả trên nó. Đây là đánh đổi năng lực-an toàn.
 
 ### StructuralSleight
 
-Generalizes ArtPrompt: Uncommon Text-Encoded Structures (UTES). Trees, graphs, nested JSON, CSV-in-JSON, diff-style code blocks. If a structure is rare in training safety data but parseable by the model, it can hide harmful content.
+Khái quát ArtPrompt: Cấu trúc Mã hóa Văn bản Không phổ biến (UTES). Cây, đồ thị, JSON lồng nhau, CSV-trong-JSON, code block kiểu diff. Nếu cấu trúc hiếm trong dữ liệu an toàn huấn luyện nhưng mô hình phân tích được, nó có thể giấu nội dung có hại.
 
-The defense implication: safety must generalize across the structured representations the model can parse. The set is large and growing.
+Hàm ý phòng vệ: an toàn phải khái quát trên biểu diễn có cấu trúc mà mô hình phân tích được. Tập này lớn và đang tăng.
 
 ### Image-modality analog
 
-Visual LLMs (GPT-5.2, Gemini 3 Pro, Claude Opus 4.5, Grok 4.1) extend the attack surface. ArtPrompt-style attacks with actual images are stronger than ASCII-art analogs because image encoders produce richer signal.
+LLM thị giác (GPT-5.2, Gemini 3 Pro, Claude Opus 4.5, Grok 4.1) mở rộng bề mặt tấn công. Tấn công kiểu ArtPrompt với ảnh thực mạnh hơn dạng ASCII-art tương tự vì bộ mã hóa ảnh tạo tín hiệu phong phú hơn.
 
 ### Where this fits in Phase 18
 
-Lessons 12-14 describe three orthogonal attack vectors: iterative refinement (PAIR), context length (MSJ), and encoding (ArtPrompt/StructuralSleight). Lesson 15 shifts from model-centric attacks to system-boundary attacks (indirect prompt injection). Lesson 16 describes the defensive tooling response.
+Bài 12-14 mô tả ba hướng tấn công trực giao: tinh chỉnh lặp (PAIR), độ dài ngữ cảnh (MSJ) và mã hóa (ArtPrompt/StructuralSleight). Bài 15 chuyển từ tấn công tập trung mô hình sang ranh giới hệ thống (chèn prompt gián tiếp). Bài 16 mô tả phản ứng công cụ phòng vệ.
 
 ```figure
 al-ascii-cloak
@@ -60,39 +60,39 @@ al-ascii-cloak
 
 ## Use It
 
-`code/main.py` builds a toy ArtPrompt. You can cloak specific words in a harmful query with ASCII-art glyphs, verify the cloaked string passes a keyword filter, and (optionally) decode the cloaked string back using a simple recognizer.
+`code/main.py` xây ArtPrompt đơn giản. Bạn có thể ngụy trang từ cụ thể trong truy vấn có hại bằng ký tự hình ASCII-art, xác minh chuỗi ngụy trang vượt bộ lọc từ khóa và (tùy chọn) giải mã chuỗi trở lại bằng bộ nhận diện đơn giản.
 
 ## Ship It
 
-This lesson produces `outputs/skill-encoding-audit.md`. Given a jailbreak-defense report, it enumerates the encoding attack families covered (ASCII art, base64, leet-speak, UTF-8 homoglyph, UTES) and the defense layer that catches each.
+Bài học này tạo ra `outputs/skill-encoding-audit.md`. Với báo cáo phòng vệ jailbreak, liệt kê họ tấn công mã hóa được bao phủ (ASCII art, base64, leet-speak, ký tự đồng hình UTF-8, UTES) và lớp phòng vệ bắt từng loại.
 
 ## Exercises
 
-1. Run `code/main.py`. Verify the cloaked string passes a simple keyword filter. Report the character-level change required.
+1. Chạy `code/main.py`. Xác minh chuỗi ngụy trang vượt bộ lọc từ khóa đơn giản. Báo cáo thay đổi cấp ký tự cần thiết.
 
-2. Implement a second encoding: base64 for the same target word. Compare the filter-bypass rate against ArtPrompt and the recovery difficulty.
+2. Triển khai mã hóa thứ hai: base64 cho cùng từ mục tiêu. So sánh tỷ lệ vượt lọc với ArtPrompt và độ khó khôi phục.
 
-3. Read Jiang et al. 2024 Section 4.3 (five-model results). Propose a reason why Claude's ArtPrompt-resistance is higher than Gemini's on the same benchmark.
+3. Đọc Phần 4.3 Jiang và cộng sự 2024 (kết quả năm mô hình). Đề xuất lý do độ chống ArtPrompt của Claude cao hơn Gemini trên cùng phép đo chuẩn.
 
-4. Design a pre-generation defense that detects ASCII-art-shaped regions in the prompt. Measure the false-positive rate on legitimate code, tables, and mathematical notation.
+4. Thiết kế phòng vệ trước sinh phát hiện vùng hình ASCII-art trong prompt. Đo tỷ lệ dương tính giả trên mã, bảng và ký hiệu toán hợp lệ.
 
-5. StructuralSleight lists 10 encoding structures. Sketch a generalized defense that handles all 10 and estimate the compute cost per defended prompt.
+5. StructuralSleight liệt kê 10 cấu trúc mã hóa. Phác thảo phòng vệ tổng quát xử lý cả 10 và ước tính chi phí tính toán mỗi prompt được phòng vệ.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|-----------------|------------------------|
-| ArtPrompt | "the ASCII-art attack" | Two-step jailbreak that masks safety words with ASCII-art renderings |
-| Cloaking | "hide the word" | Replace a forbidden token with a visual representation the model reads but the filter does not |
-| UTES | "uncommon structure" | Uncommon Text-Encoded Structure — tree, graph, nested JSON, etc. used to smuggle content |
-| ViTC | "visual-text capability" | Benchmark for model's ability to read non-semantic visual encoding |
-| Perplexity filter | "PPL defense" | Reject prompts with high perplexity; fails because legitimate structured input also scores high |
-| Retokenization | "tokenizer shift defense" | Pre-process the prompt with a different tokenizer; fails because recognition is visual |
-| Homoglyph | "lookalike characters" | Unicode characters that look identical to Latin letters; bypass substring checks |
+| ArtPrompt | "tấn công ASCII-art" | Jailbreak hai bước che từ an toàn bằng hình ASCII-art |
+| Cloaking (Ngụy trang) | "giấu từ" | Thay token bị cấm bằng biểu diễn thị giác mô hình đọc được nhưng bộ lọc không đọc được |
+| UTES | "cấu trúc không phổ biến" | Cấu trúc Mã hóa Văn bản Không phổ biến — cây, đồ thị, JSON lồng nhau, v.v. dùng để lén đưa nội dung |
+| ViTC | "năng lực thị giác-văn bản" | Phép đo chuẩn khả năng mô hình đọc mã hóa thị giác phi ngữ nghĩa |
+| Perplexity filter (Bộ lọc perplexity) | "phòng vệ PPL" | Từ chối prompt perplexity cao; thất bại vì đầu vào có cấu trúc hợp lệ cũng được chấm cao |
+| Retokenization (Tách token lại) | "phòng vệ đổi tokenizer" | Tiền xử lý prompt bằng tokenizer khác; thất bại vì nhận diện là thị giác |
+| Homoglyph (Ký tự đồng hình) | "ký tự trông giống nhau" | Ký tự Unicode trông giống hệt chữ Latin; vượt kiểm tra chuỗi con |
 
 ## Further Reading
 
-- [Jiang et al. — ArtPrompt (ACL 2024, arXiv:2402.11753)](https://arxiv.org/abs/2402.11753) — the ASCII-art jailbreak paper
-- [Li et al. — StructuralSleight (arXiv:2406.08754)](https://arxiv.org/abs/2406.08754) — UTES generalization
-- [Chao et al. — PAIR (Lesson 12, arXiv:2310.08419)](https://arxiv.org/abs/2310.08419) — complementary iterative attack
-- [Anil et al. — Many-shot Jailbreaking (Lesson 13)](https://www.anthropic.com/research/many-shot-jailbreaking) — complementary length attack
+- [Jiang et al. — ArtPrompt (ACL 2024, arXiv:2402.11753)](https://arxiv.org/abs/2402.11753) — bài báo jailbreak ASCII-art
+- [Li et al. — StructuralSleight (arXiv:2406.08754)](https://arxiv.org/abs/2406.08754) — khái quát hóa UTES
+- [Chao et al. — PAIR (Lesson 12, arXiv:2310.08419)](https://arxiv.org/abs/2310.08419) — tấn công lặp bổ sung
+- [Anil et al. — Many-shot Jailbreaking (Lesson 13)](https://www.anthropic.com/research/many-shot-jailbreaking) — tấn công độ dài bổ sung
