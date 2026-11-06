@@ -1,6 +1,6 @@
 # Machine Translation
 
-> Translation is the task that paid for NLP research for thirty years and keeps paying now.
+> Dịch là tác vụ đã trả tiền cho nghiên cứu NLP suốt ba mươi năm và hiện vẫn tiếp tục trả.
 
 **Type:** Build
 **Languages:** Python
@@ -9,23 +9,23 @@
 
 ## The Problem
 
-A model reads a sentence in one language and produces a sentence in another. Length varies. Word order varies. Some source words map to multiple target words and vice versa. Idioms refuse one-to-one mapping. "I miss you" in French is "tu me manques" — literally "you are lacking to me." No word-level alignment survives that.
+Một mô hình đọc một câu trong một ngôn ngữ và tạo một câu trong ngôn ngữ khác. Độ dài thay đổi. Thứ tự từ thay đổi. Một số từ nguồn ánh xạ sang nhiều từ đích và ngược lại. Thành ngữ từ chối ánh xạ một-một. "Tôi nhớ bạn" trong tiếng Pháp là "tu me manques" — nghĩa đen là "bạn đang thiếu đối với tôi." Không sự căn chỉnh cấp từ nào sống sót qua điều đó.
 
-Machine translation is the task that forced NLP to invent encoder-decoders, attention, transformers, and eventually the whole LLM paradigm. Every step forward arrived because translation quality was measurable and the gap between human and machine was stubborn.
+Dịch máy là tác vụ buộc NLP phát minh encoder-decoder, attention, transformer và cuối cùng toàn bộ mô thức LLM. Mọi bước tiến xuất hiện vì chất lượng dịch đo được và khoảng cách giữa con người với máy móc rất dai dẳng.
 
-This lesson skips the history lesson and teaches the working pipeline of 2026: pretrained multilingual encoder-decoder (NLLB-200 or mBART), subword tokenization, beam search, BLEU and chrF evaluation, and the handful of failure modes that still ship to production uncaught.
+Bài học này bỏ qua bài học lịch sử và dạy pipeline hoạt động của năm 2026: encoder-decoder đa ngôn ngữ được tiền huấn luyện (NLLB-200 hoặc mBART), tokenization từ con, beam search, đánh giá BLEU và chrF, cùng một số dạng lỗi vẫn lọt vào production mà không bị phát hiện.
 
 ## The Concept
 
 ![MT pipeline: tokenize → encode → decode with attention → detokenize](../assets/mt-pipeline.svg)
 
-Modern MT is a transformer encoder-decoder trained on parallel text. The encoder reads the source in its language's tokenization. The decoder generates the target, one subword at a time, using the encoder's output via cross-attention (lesson 10). Decoding uses beam search to avoid the greedy-decoding trap. The output is detokenized, detruecased, and scored against a reference.
+MT hiện đại là một encoder-decoder transformer được huấn luyện trên văn bản song song. Encoder đọc nguồn theo tokenization của ngôn ngữ đó. Decoder sinh đích, từng từ con một, dùng đầu ra encoder qua cross-attention (bài 10). Giải mã dùng beam search để tránh bẫy giải mã tham lam. Đầu ra được ghép token, hoàn tác chuẩn hóa kiểu chữ và chấm điểm so với một bản tham chiếu.
 
-Three operational choices drive real-world MT quality.
+Ba lựa chọn vận hành chi phối chất lượng MT thực tế.
 
-- **Tokenizer.** SentencePiece BPE trained on a mixed-language corpus. Shared vocabulary across languages is what enables zero-shot pairs in NLLB.
-- **Model size.** NLLB-200 distilled 600M fits on a laptop. NLLB-200 3.3B is the published production default. 54.5B is the research ceiling.
-- **Decoding.** Beam width 4-5 for general content. Length penalty to avoid too-short output. Constrained decoding when you need terminology consistency.
+- **Tokenizer.** SentencePiece BPE được huấn luyện trên một ngữ liệu trộn ngôn ngữ. Từ vựng dùng chung giữa các ngôn ngữ là điều cho phép các cặp zero-shot trong NLLB.
+- **Kích thước mô hình.** NLLB-200 distilled 600M vừa trên máy tính xách tay. NLLB-200 3.3B là mặc định production đã công bố. 54.5B là mức trần nghiên cứu.
+- **Giải mã.** Độ rộng beam 4-5 cho nội dung tổng quát. Phạt độ dài để tránh đầu ra quá ngắn. Giải mã có ràng buộc khi bạn cần tính nhất quán thuật ngữ.
 
 ```figure
 seq2seq-alignment
@@ -59,13 +59,13 @@ print(tok.batch_decode(out, skip_special_tokens=True)[0])
 Les chats courent.
 ```
 
-Three things matter here. `src_lang` tells the tokenizer which script and segmentation to apply. `forced_bos_token_id` tells the decoder which language to generate. Both are NLLB-specific tricks; mBART and M2M-100 use their own conventions and they are not interchangeable.
+Ba điều quan trọng ở đây. `src_lang` cho tokenizer biết cần áp dụng hệ chữ và phân đoạn nào. `forced_bos_token_id` cho decoder biết cần sinh ngôn ngữ nào. Cả hai là các thủ thuật riêng cho NLLB; mBART và M2M-100 dùng các quy ước riêng và chúng không thể hoán đổi.
 
 ### Step 2: BLEU and chrF
 
-BLEU measures n-gram overlap between output and reference. Four reference n-gram sizes (1-4), geometric mean of precisions, brevity penalty for too-short output. The score is in [0, 100]. Commonly used. Frustrating to interpret: 30 BLEU is "usable"; 40 is "good"; 50 is "exceptional"; differences under 1 BLEU are noise.
+BLEU đo phần giao n-gram giữa đầu ra và tham chiếu. Bốn kích thước n-gram tham chiếu (1-4), trung bình nhân của precision, phạt độ ngắn cho đầu ra quá ngắn. Điểm nằm trong [0, 100]. Được dùng phổ biến. Khó diễn giải đến bực bội: 30 BLEU là "dùng được"; 40 là "tốt"; 50 là "xuất sắc"; các khác biệt dưới 1 BLEU là nhiễu.
 
-chrF measures character-level F-score. More sensitive to morphologically rich languages where BLEU undercounts matches. Often reported alongside BLEU.
+chrF đo F-score cấp ký tự. Nhạy hơn với các ngôn ngữ giàu hình thái mà BLEU đếm thiếu các kết quả khớp. Thường được báo cáo cùng BLEU.
 
 ```python
 import sacrebleu
@@ -78,33 +78,33 @@ chrf = sacrebleu.corpus_chrf(hypotheses, references)
 print(f"BLEU: {bleu.score:.1f}  chrF: {chrf.score:.1f}")
 ```
 
-Always use `sacrebleu`. It normalizes tokenization so scores are comparable across papers. Rolling your own BLEU computation is how misleading benchmarks happen.
+Luôn dùng `sacrebleu`. Nó chuẩn hóa tokenization để các điểm so sánh được giữa các bài báo. Tự xây dựng phép tính BLEU là cách các benchmark gây hiểu lầm xuất hiện.
 
 ### The three-tier evaluation hierarchy (2026)
 
-Modern MT evaluation uses three complementary metric families. Ship with at least two.
+Đánh giá MT hiện đại dùng ba họ thước đo bổ sung cho nhau. Phát hành với ít nhất hai.
 
-- **Heuristic** (BLEU, chrF). Fast, reference-based, interpretable, insensitive to paraphrase. Use for legacy comparison and regression detection.
-- **Learned** (COMET, BLEURT, BERTScore). Neural models trained on human judgment; compare semantic similarity of translation to source and reference. COMET has the highest association with MT research since 2023 and is the 2026 production default where quality matters.
-- **LLM-as-judge** (reference-free). Prompt a large model to score translations on fluency, adequacy, tone, cultural appropriateness. GPT-4-as-judge matches human agreement ~80% of the time when the rubric is well designed. Use for open-ended content where no reference exists.
+- **Heuristic** (BLEU, chrF). Nhanh, dựa trên tham chiếu, có thể diễn giải, không nhạy với diễn đạt lại. Dùng cho so sánh với trước đây và phát hiện hồi quy.
+- **Được học** (COMET, BLEURT, BERTScore). Các mô hình nơ-ron được huấn luyện trên phán đoán con người; so sánh độ tương đồng ngữ nghĩa của bản dịch với nguồn và tham chiếu. COMET có mức liên hệ cao nhất với nghiên cứu MT từ năm 2023 và là mặc định production năm 2026 ở nơi chất lượng quan trọng.
+- **LLM-as-judge** (không tham chiếu). Prompt một mô hình lớn chấm điểm các bản dịch theo độ trôi chảy, độ đầy đủ, giọng điệu, tính phù hợp văn hóa. GPT-4-as-judge khớp sự đồng thuận của con người ~80% số lần khi rubric được thiết kế tốt. Dùng cho nội dung mở nơi không có tham chiếu.
 
-Practical 2026 stack: `sacrebleu` for BLEU and chrF, `unbabel-comet` for COMET, and a prompted LLM for the final human-facing signal. Calibrate every metric against 50-100 human-labeled examples before trusting it on production data.
+Ngăn xếp thực dụng năm 2026: `sacrebleu` cho BLEU và chrF, `unbabel-comet` cho COMET và một LLM được prompt cho tín hiệu cuối hướng đến con người. Hiệu chuẩn mọi thước đo theo 50-100 ví dụ được con người gán nhãn trước khi tin nó trên dữ liệu production.
 
-Reference-free metrics (COMET-QE, BLEURT-QE, LLM-as-judge) let you evaluate translations without a reference, which matters for long-tail language pairs where reference translations do not exist.
+Các thước đo không tham chiếu (COMET-QE, BLEURT-QE, LLM-as-judge) cho phép bạn đánh giá các bản dịch không cần tham chiếu, điều quan trọng cho các cặp ngôn ngữ đuôi dài nơi không tồn tại bản dịch tham chiếu.
 
 ### Step 3: what breaks in production
 
-The working pipeline above will translate fluently 80% of the time and silently fail the remaining 20%. Named failure modes:
+Pipeline hoạt động ở trên sẽ dịch trôi chảy 80% số lần và âm thầm thất bại 20% còn lại. Các dạng lỗi được nêu tên:
 
-- **Hallucination.** Model invents content that was not in the source. Common in unfamiliar domain vocabulary. Symptom: output is fluent but claims facts the source did not state. Mitigation: constrained decoding on domain terms, human review on regulated content, monitoring for output much longer than input.
-- **Off-target generation.** Model translates into the wrong language. NLLB is surprisingly prone to this on rare language pairs. Mitigation: verify `forced_bos_token_id` and always decode with a language-ID model check on output.
-- **Terminology drift.** "Sign up" becomes "s'inscrire" in doc 1 and "créer un compte" in doc 2. For UI text and user-facing strings, consistency matters more than raw quality. Mitigation: glossary-constrained decoding or post-edit dictionary.
-- **Formality mismatch.** French "tu" vs "vous", Japanese politeness levels. The model picks whichever form was more common in training. For customer-facing content this is usually wrong. Mitigation: prompt prefix with a formality token if the model supports it, or fine-tune a small model on formal-only corpora.
-- **Length explosion on short input.** Very short input sentences often produce overlong translations because the length penalty falls off a cliff below ~5 source tokens. Mitigation: hard max-length cap proportional to source length.
+- **Ảo giác.** Mô hình bịa nội dung không có trong nguồn. Phổ biến với từ vựng lĩnh vực xa lạ. Triệu chứng: đầu ra trôi chảy nhưng khẳng định các sự kiện nguồn không nêu. Giảm thiểu: giải mã có ràng buộc trên các thuật ngữ lĩnh vực, con người rà soát nội dung chịu quy định, giám sát đầu ra dài hơn nhiều so với đầu vào.
+- **Sinh sai đích.** Mô hình dịch sang sai ngôn ngữ. NLLB dễ mắc điều này đến ngạc nhiên trên các cặp ngôn ngữ hiếm. Giảm thiểu: xác minh `forced_bos_token_id` và luôn giải mã với một kiểm tra mô hình nhận dạng ngôn ngữ trên đầu ra.
+- **Độ trôi thuật ngữ.** "Đăng ký" trở thành "s'inscrire" trong tài liệu 1 và "créer un compte" trong tài liệu 2. Với văn bản UI và các chuỗi hướng đến người dùng, tính nhất quán quan trọng hơn chất lượng thô. Giảm thiểu: giải mã có ràng buộc bằng bảng thuật ngữ hoặc từ điển hậu biên tập.
+- **Không khớp mức trang trọng.** "tu" so với "vous" trong tiếng Pháp, các mức lịch sự tiếng Nhật. Mô hình chọn dạng phổ biến hơn trong huấn luyện. Với nội dung hướng đến khách hàng điều này thường sai. Giảm thiểu: thêm tiền tố prompt bằng một token mức trang trọng nếu mô hình hỗ trợ, hoặc fine-tune một mô hình nhỏ trên các ngữ liệu chỉ trang trọng.
+- **Bùng nổ độ dài trên đầu vào ngắn.** Các câu đầu vào rất ngắn thường tạo các bản dịch quá dài vì phạt độ dài giảm đột ngột dưới ~5 token nguồn. Giảm thiểu: giới hạn độ dài tối đa cứng tỷ lệ với độ dài nguồn.
 
 ### Step 4: fine-tuning for a domain
 
-Pretrained models are generalists. Legal, medical, or game-dialog translation benefits measurably from fine-tuning on domain parallel data. The recipe is not exotic:
+Các mô hình được tiền huấn luyện là mô hình tổng quát. Dịch pháp lý, y tế hoặc hội thoại trò chơi hưởng lợi đo được từ fine-tuning trên dữ liệu song song lĩnh vực. Công thức không lạ lẫm:
 
 ```python
 from transformers import Trainer, TrainingArguments
@@ -133,25 +133,25 @@ args = TrainingArguments(output_dir="out", per_device_train_batch_size=4, num_tr
 Trainer(model=model, args=args, train_dataset=ds).train()
 ```
 
-A few thousand high-quality parallel examples beats a few hundred thousand noisy web-scraped ones. Quality of training data is the single largest production lever.
+Vài nghìn ví dụ song song chất lượng cao thắng vài trăm nghìn ví dụ nhiễu thu thập từ web. Chất lượng dữ liệu huấn luyện là đòn bẩy production lớn nhất.
 
 ## Use It
 
-The 2026 production stack for MT:
+Ngăn xếp production năm 2026 cho MT:
 
-| Use case | Recommended starting point |
+| Trường hợp sử dụng | Điểm khởi đầu được khuyến nghị |
 |---------|---------------------------|
-| Any-to-any, 200 languages | `facebook/nllb-200-distilled-600M` (laptop) or `nllb-200-3.3B` (production) |
-| English-centric, high quality, 50 languages | `facebook/mbart-large-50-many-to-many-mmt` |
-| Short runs, cheap inference, English-French/German/Spanish | Helsinki-NLP / Marian models |
-| Latency-critical browser-side | ONNX-quantized Marian (~50 MB) |
-| Maximum quality, willing to pay | GPT-4 / Claude / Gemini with translation prompts |
+| Bất kỳ sang bất kỳ, 200 ngôn ngữ | `facebook/nllb-200-distilled-600M` (máy tính xách tay) hoặc `nllb-200-3.3B` (production) |
+| Lấy tiếng Anh làm trung tâm, chất lượng cao, 50 ngôn ngữ | `facebook/mbart-large-50-many-to-many-mmt` |
+| Các lượt chạy ngắn, suy luận rẻ, tiếng Anh-Pháp/Đức/Tây Ban Nha | Các mô hình Helsinki-NLP / Marian |
+| Phía trình duyệt đòi hỏi độ trễ nghiêm ngặt | Marian được lượng tử hóa ONNX (~50 MB) |
+| Chất lượng tối đa, sẵn sàng trả phí | GPT-4 / Claude / Gemini với các prompt dịch |
 
-LLMs now outperform specialized MT models on several language pairs as of 2026, particularly on idiomatic content and long context. The tradeoff is per-token cost and latency. Pick an LLM when context length, stylistic consistency, or domain adaptation via prompting matters more than throughput.
+LLM hiện vượt các mô hình MT chuyên biệt trên một số cặp ngôn ngữ tính đến năm 2026, đặc biệt trên nội dung thành ngữ và ngữ cảnh dài. Đánh đổi là chi phí theo token và độ trễ. Chọn một LLM khi độ dài ngữ cảnh, tính nhất quán phong cách hoặc thích nghi lĩnh vực qua prompting quan trọng hơn thông lượng.
 
 ## Ship It
 
-Save as `outputs/skill-mt-evaluator.md`:
+Lưu thành `outputs/skill-mt-evaluator.md`:
 
 ```markdown
 ---
@@ -175,24 +175,24 @@ Refuse to ship a translation without a language-ID check on output. Refuse to ev
 
 ## Exercises
 
-1. **Easy.** Translate a 5-sentence English paragraph to French and back to English using `nllb-200-distilled-600M`. Measure how close the round-trip is to the original. You should see semantic preservation with word-choice drift.
-2. **Medium.** Implement a language-ID check on translation outputs using `fasttext lid.176` or `langdetect`. Integrate into the MT call so off-target generations are caught before returning.
-3. **Hard.** Fine-tune `nllb-200-distilled-600M` on a 5,000-pair domain corpus of your choice. Measure BLEU on a held-out set before and after fine-tuning. Report which kinds of sentences improved and which regressed.
+1. **Dễ.** Dịch một đoạn tiếng Anh 5 câu sang tiếng Pháp rồi trở lại tiếng Anh bằng `nllb-200-distilled-600M`. Đo mức gần của bản dịch đi-về với bản gốc. Bạn sẽ thấy ngữ nghĩa được giữ với sự trôi lựa chọn từ.
+2. **Trung bình.** Triển khai một kiểm tra nhận dạng ngôn ngữ trên các đầu ra dịch bằng `fasttext lid.176` hoặc `langdetect`. Tích hợp vào lời gọi MT để các lần sinh sai đích được phát hiện trước khi trả về.
+3. **Khó.** Fine-tune `nllb-200-distilled-600M` trên một ngữ liệu lĩnh vực 5,000 cặp tùy chọn. Đo BLEU trên một tập được giữ lại trước và sau fine-tuning. Báo cáo những loại câu nào cải thiện và những loại nào suy giảm.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| BLEU | Translation score | N-gram precision with brevity penalty. [0, 100]. |
-| chrF | Character F-score | Character-level F-score. More sensitive for morphologically rich languages. |
-| NMT | Neural MT | Transformer encoder-decoder trained on parallel text. The 2017+ default. |
-| NLLB | No Language Left Behind | Meta's 200-language MT model family. |
-| Constrained decoding | Controlled output | Force specific tokens or n-grams to appear / not appear in the output. |
-| Hallucination | Invented content | Model output that is not supported by the source. |
+| BLEU | Điểm dịch | Precision n-gram với phạt độ ngắn. [0, 100]. |
+| chrF | F-score ký tự | F-score cấp ký tự. Nhạy hơn cho các ngôn ngữ giàu hình thái. |
+| NMT | MT nơ-ron | Encoder-decoder transformer được huấn luyện trên văn bản song song. Mặc định từ 2017+. |
+| NLLB | No Language Left Behind | Họ mô hình MT 200 ngôn ngữ của Meta. |
+| Constrained decoding (Giải mã có ràng buộc) | Đầu ra được kiểm soát | Buộc các token hoặc n-gram cụ thể xuất hiện / không xuất hiện trong đầu ra. |
+| Hallucination (Ảo giác) | Nội dung bịa ra | Đầu ra mô hình không được nguồn hỗ trợ. |
 
 ## Further Reading
 
-- [Costa-jussà et al. (2022). No Language Left Behind: Scaling Human-Centered Machine Translation](https://arxiv.org/abs/2207.04672) — the NLLB paper.
-- [Post (2018). A Call for Clarity in Reporting BLEU Scores](https://aclanthology.org/W18-6319/) — why `sacrebleu` is the only correct way to report BLEU.
-- [Popović (2015). chrF: character n-gram F-score for automatic MT evaluation](https://aclanthology.org/W15-3049/) — the chrF paper.
-- [Hugging Face MT guide](https://huggingface.co/docs/transformers/tasks/translation) — practical fine-tuning walkthrough.
+- [Costa-jussà et al. (2022). No Language Left Behind: Scaling Human-Centered Machine Translation](https://arxiv.org/abs/2207.04672) — bài báo NLLB.
+- [Post (2018). A Call for Clarity in Reporting BLEU Scores](https://aclanthology.org/W18-6319/) — vì sao `sacrebleu` là cách đúng duy nhất để báo cáo BLEU.
+- [Popović (2015). chrF: character n-gram F-score for automatic MT evaluation](https://aclanthology.org/W15-3049/) — bài báo chrF.
+- [Hugging Face MT guide](https://huggingface.co/docs/transformers/tasks/translation) — hướng dẫn fine-tuning thực hành.
