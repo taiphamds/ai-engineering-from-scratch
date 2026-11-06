@@ -7,26 +7,26 @@ lesson: 25
 tags: [security, vault, hashicorp, aws-secrets-manager, pii, presidio, egress, audit-log, zero-trust, ci-cd-supply-chain]
 ---
 
-Given regulatory scope (SOC 2, HIPAA, GDPR), current credential state, and network/egress posture, produce a security plan.
+Với phạm vi quy định (SOC 2, HIPAA, GDPR), hiện trạng thông tin xác thực và định hướng mạng/lưu lượng ra, tạo một kế hoạch bảo mật.
 
-Produce:
+Tạo:
 
-1. Vault migration. Pick vault (HashiCorp, AWS Secrets Manager, Azure Key Vault, GCP Secret Manager). Gateway pattern: apps → gateway → vault at runtime. Deprecate hardcoded env and config-file credentials.
-2. Secret scanning. Enable TruffleHog / GitGuardian / Gitleaks on every commit. Block PR on detection.
-3. Rotation policy. ≤ 90 days. Automated where possible. Dedicated rotation for CI/CD credentials (shorter — 30d recommended).
-4. PII scrubbing. Entity recognition (Presidio + regex). Consistent tokenization (same value → same placeholder) to preserve semantics.
-5. Egress allowlist. Whitelist LLM provider domains, vector DB, vault endpoints. DNS allowlist resolver.
-6. Audit log. Append-only, immutable. Required fields: user, tenant, prompt/response hash, tokens, cost, guardrail trips. Retention per framework (SOC 2 1y / HIPAA 6y).
-7. CI/CD hygiene. OIDC identity federation (no static cloud keys). Scope CI/CD credentials narrowly. Cite the 2026 Vercel supply-chain incident as motivation.
+1. Chuyển sang vault. Chọn vault (HashiCorp, AWS Secrets Manager, Azure Key Vault, GCP Secret Manager). Mẫu gateway: ứng dụng → gateway → vault lúc chạy. Ngừng dùng env ghi cứng và thông tin xác thực trong file cấu hình.
+2. Quét bí mật. Bật TruffleHog / GitGuardian / Gitleaks trên mọi commit. Chặn PR khi phát hiện.
+3. Chính sách luân chuyển. ≤ 90 ngày. Tự động ở nơi có thể. Luân chuyển riêng cho thông tin xác thực CI/CD (ngắn hơn — khuyến nghị 30 ngày).
+4. Làm sạch PII. Nhận dạng thực thể (Presidio + regex). Token hóa nhất quán (cùng giá trị → cùng chỗ giữ chỗ) để giữ ngữ nghĩa.
+5. Danh sách cho phép lưu lượng ra. Cho phép tên miền nhà cung cấp LLM, DB vector, endpoint vault. Trình phân giải danh sách cho phép DNS.
+6. Log kiểm toán. Chỉ nối thêm, bất biến. Trường bắt buộc: người dùng, tenant, hash prompt/phản hồi, token, chi phí, lần kích hoạt chốt bảo vệ. Lưu giữ theo framework (SOC 2 1 năm / HIPAA 6 năm).
+7. Giữ gìn CI/CD. Liên kết danh tính OIDC (không khóa đám mây tĩnh). Giới hạn phạm vi thông tin xác thực CI/CD hẹp. Trích dẫn sự cố chuỗi cung ứng Vercel năm 2026 làm động lực.
 
-Hard rejects:
-- Static keys in config files. Refuse.
-- Storing raw prompts in audit log. Refuse — hash only unless the regulatory framework explicitly requires otherwise.
-- Allowing egress to `*` or "the internet." Refuse — whitelist.
+Các trường hợp loại bỏ dứt khoát:
+- Khóa tĩnh trong file cấu hình. Từ chối.
+- Lưu prompt thô trong log kiểm toán. Từ chối — chỉ hash trừ khi framework quy định yêu cầu tường minh cách khác.
+- Cho phép lưu lượng ra đến `*` hoặc "internet." Từ chối — danh sách cho phép.
 
-Refusal rules:
-- If no vault is acceptable to the customer (air-gapped requirement), refuse normal plan and design a file-based-with-rotation fallback. Explicitly note it is less secure.
-- If PII scrubbing is declined for "latency" reasons, refuse — the latency is typically <20 ms and the regulatory risk dwarfs it.
-- If rotation >90 days is requested for a vault root token, refuse — it becomes a breach vector.
+Quy tắc từ chối:
+- Nếu không vault nào được khách hàng chấp nhận (yêu cầu cách ly mạng), từ chối kế hoạch thông thường và thiết kế dự phòng dựa trên file có luân chuyển. Ghi nhận tường minh rằng nó kém an toàn hơn.
+- Nếu làm sạch PII bị từ chối vì lý do "độ trễ", từ chối — độ trễ thường <20 ms và rủi ro quy định lớn hơn nó rất nhiều.
+- Nếu yêu cầu luân chuyển >90 ngày cho token gốc vault, từ chối — nó trở thành hướng xâm phạm.
 
-Output: a one-page plan with vault, scanning, rotation, scrubbing, egress, audit log, CI/CD posture. End with the single metric: secret-scan hit count per month; target zero.
+Đầu ra: một kế hoạch một trang với vault, quét, luân chuyển, làm sạch, lưu lượng ra, log kiểm toán, định hướng CI/CD. Kết thúc bằng chỉ số duy nhất: số lượt phát hiện quét bí mật mỗi tháng; mục tiêu không.
