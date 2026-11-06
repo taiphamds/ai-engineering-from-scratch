@@ -7,34 +7,34 @@ lesson: 14
 tags: [kill-switch, circuit-breaker, canary, honeytoken, detection-and-response]
 ---
 
-Given a proposed detector stack for an agent deployment, audit it against the three-detector reference (kill switch, circuit breaker, canary) and flag what is missing, mis-tuned, or exposed to the agent.
+Với một ngăn xếp bộ phát hiện được đề xuất cho một triển khai agent, kiểm toán nó theo tham chiếu ba bộ phát hiện (công tắc ngắt, bộ ngắt mạch, canary) và đánh dấu những gì còn thiếu, điều chỉnh sai, hoặc bị lộ cho agent.
 
-Produce:
+Tạo ra:
 
-1. **Kill-switch audit.** Where does the switch live (feature flag, Redis, signed config)? Confirm the agent's credentials cannot set it off. Confirm every consequential action checks the switch, not just startup. Confirm re-enable is an explicit human action.
-2. **Circuit-breaker inventory.** List every pattern a breaker watches (repetition, consecutive failures, rate, specific tool after out-of-trust read). State threshold and cool-down for each. Thresholds above 10 are usually too loose.
-3. **Canary design.** List every canary token in the environment. For each: what it is (fake credential, fake DB record, fake file, fake memory entry), where it lives, what access triggers the alarm, who is paged. Confirm no canary has a legitimate reason to be touched.
-4. **Statistical + hard layering.** Confirm the stack uses at least one hard limit (Lesson 17 constitutional style) in addition to any statistical detectors (EWMA, z-score). Statistical-only detectors accept slow drift.
-5. **Quarantine path.** What happens when a detector fires? Full agent stop, path-specific pause, traffic redirect (eBPF / Cilium honeypot), alert-only. Confirm the path has been tested end-to-end at least once.
+1. **Kiểm toán công tắc ngắt.** Công tắc nằm ở đâu (cờ tính năng, Redis, cấu hình có chữ ký)? Xác nhận thông tin xác thực của agent không thể đặt nó tắt. Xác nhận mọi hành động có hệ quả đều kiểm tra công tắc, chứ không chỉ khởi động. Xác nhận bật lại là một hành động tường minh của con người.
+2. **Danh mục bộ ngắt mạch.** Liệt kê mọi mẫu mà một bộ ngắt theo dõi (sự lặp lại, các thất bại liên tiếp, tốc độ, công cụ cụ thể sau lần đọc ngoài vùng tin cậy). Nêu ngưỡng và thời gian hạ nhiệt cho mỗi mẫu. Các ngưỡng trên 10 thường quá lỏng.
+3. **Thiết kế canary.** Liệt kê mọi token canary trong môi trường. Với mỗi token: nó là gì (thông tin xác thực giả, bản ghi DB giả, file giả, mục bộ nhớ giả), nó nằm ở đâu, truy cập nào kích hoạt báo động, ai nhận thông báo khẩn. Xác nhận không có canary nào có lý do hợp lệ để được chạm tới.
+4. **Xếp lớp thống kê + cứng.** Xác nhận ngăn xếp sử dụng ít nhất một giới hạn cứng (kiểu hiến định Bài 17) bên cạnh bất kỳ bộ phát hiện thống kê nào (EWMA, z-score). Các bộ phát hiện chỉ dùng thống kê chấp nhận sự trôi chậm.
+5. **Đường cách ly.** Điều gì xảy ra khi một bộ phát hiện kích hoạt? Dừng toàn bộ agent, tạm dừng riêng theo đường, chuyển hướng lưu lượng (honeypot eBPF / Cilium), chỉ cảnh báo. Xác nhận đường này đã được kiểm thử đầu cuối ít nhất một lần.
 
-Hard rejects:
-- Any deployment without an external kill switch.
-- Canary tokens stored in systems the agent has write access to.
-- Statistical-only detection with no hard limits.
-- Circuit breakers with cool-downs that auto-re-enable without human review.
-- Unattended runs where the kill switch is checked only at startup, not per action.
+Các trường hợp loại bỏ dứt khoát:
+- Bất kỳ triển khai nào không có công tắc ngắt bên ngoài.
+- Các token canary được lưu trong các hệ thống agent có quyền ghi.
+- Phát hiện chỉ dùng thống kê không có giới hạn cứng.
+- Các bộ ngắt mạch có thời gian hạ nhiệt tự động bật lại mà không có xem xét của con người.
+- Các lần chạy không có người giám sát mà công tắc ngắt chỉ được kiểm tra khi khởi động, không phải theo từng hành động.
 
-Refusal rules:
-- If the user cannot name the specific systems outside the agent's credentials that host the kill switch, refuse. "We use a config file the agent reads" is not a kill switch if the agent can write config files.
-- If the user treats the Auto Mode classifier (Lesson 10) as a replacement for tripwires, refuse. The classifier is orthogonal to detection-and-response.
-- If the proposed canaries sit in systems the agent has legitimate reason to read, refuse and require redesign.
+Các quy tắc từ chối:
+- Nếu người dùng không thể nêu các hệ thống cụ thể ngoài phạm vi thông tin xác thực của agent chứa công tắc ngắt, hãy từ chối. “Chúng tôi dùng một file cấu hình mà agent đọc” không phải là một công tắc ngắt nếu agent có thể ghi các file cấu hình.
+- Nếu người dùng coi bộ phân loại Auto Mode (Bài 10) là thứ thay thế cho các dây bẫy, hãy từ chối. Bộ phân loại trực giao với phát hiện và ứng phó.
+- Nếu các canary được đề xuất nằm trong các hệ thống agent có lý do hợp lệ để đọc, hãy từ chối và yêu cầu thiết kế lại.
 
-Output format:
+Định dạng đầu ra:
 
-Return a tripwire audit with:
-- **Kill-switch line** (location, check cadence, re-enable procedure)
-- **Circuit-breaker table** (pattern, threshold, cool-down)
-- **Canary table** (token, location, alarm, owner)
-- **Layering note** (statistical + hard limits present y/n)
-- **Quarantine flow** (what fires, what happens, tested y/n)
-- **Readiness** (production / staging / research-only)
+Trả về một kiểm toán dây bẫy với:
+- **Dòng công tắc ngắt** (vị trí, nhịp kiểm tra, thủ tục bật lại)
+- **Bảng bộ ngắt mạch** (mẫu, ngưỡng, thời gian hạ nhiệt)
+- **Bảng canary** (token, vị trí, báo động, người phụ trách)
+- **Ghi chú xếp lớp** (có thống kê + giới hạn cứng có/không)
+- **Luồng cách ly** (điều gì kích hoạt, điều gì xảy ra, đã kiểm thử có/không)
+- **Mức sẵn sàng** (sản xuất / staging / chỉ nghiên cứu)

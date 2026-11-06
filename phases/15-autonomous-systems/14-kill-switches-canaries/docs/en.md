@@ -1,6 +1,6 @@
 # Kill Switches, Circuit Breakers, and Canary Tokens
 
-> A kill switch is a boolean held outside the agent's edit surface — a Redis key, a feature flag, a signed config — that disables the agent entirely. A circuit breaker is finer-grained: it trips on a specific pattern (five identical tool calls in a row), pauses the offending path, and escalates to a human. A canary token inherits from classical deception: a fake credential or honeypot record an agent has no legitimate reason to touch, whose access triggers an alert. eBPF-based datapaths (e.g. Cilium) can rewrite a quarantined pod's egress to a forensic honeypot at the kernel layer; published Cilium benchmarks report sub-millisecond P99 datapath latency under load (your propagation budget depends on how a policy update reaches the node, not the datapath itself). Statistical detectors (EWMA, CUSUM) that adapt to a moving baseline will quietly accept drift — layer them with hard constitutional limits that do not bend.
+> Một công tắc ngắt là một giá trị boolean được giữ ngoài bề mặt chỉnh sửa của agent — một khóa Redis, một cờ tính năng, một cấu hình có chữ ký — vô hiệu hóa hoàn toàn agent. Một bộ ngắt mạch có độ hạt mịn hơn: nó kích hoạt trên một mẫu cụ thể (năm lệnh gọi công cụ giống hệt nhau liên tiếp), tạm dừng đường vi phạm, và chuyển lên cho con người. Một token canary kế thừa từ đánh lừa cổ điển: một thông tin xác thực giả hoặc bản ghi honeypot mà agent không có lý do hợp lệ để chạm tới, việc truy cập nó kích hoạt một cảnh báo. Các đường dữ liệu dựa trên eBPF (ví dụ Cilium) có thể viết lại lưu lượng đi ra của một pod bị cách ly tới một honeypot pháp chứng ở lớp kernel; các benchmark Cilium được công bố báo cáo độ trễ đường dữ liệu P99 dưới một mili giây khi chịu tải (ngân sách lan truyền của bạn phụ thuộc vào cách một cập nhật chính sách tới node, không phải bản thân đường dữ liệu). Các bộ phát hiện thống kê (EWMA, CUSUM) thích nghi với một đường cơ sở di động sẽ âm thầm chấp nhận sự trôi — xếp lớp chúng với các giới hạn hiến định cứng không uốn cong.
 
 **Type:** Learn
 **Languages:** Python (stdlib, three-detector simulator: kill switch, circuit breaker, canary)
@@ -9,76 +9,76 @@
 
 ## The Problem
 
-Cost governors (Lesson 13) bound what the agent can spend. They do not bound what the agent can do inside the budget. An agent with a $50 velocity limit can still exfiltrate a secret, publish the wrong post, or delete a resource — the expensive action is often the cheap one in tokens.
+Các bộ điều tiết chi phí (Bài 13) giới hạn những gì agent có thể chi. Chúng không giới hạn những gì agent có thể làm trong ngân sách. Một agent với giới hạn tốc độ $50 vẫn có thể làm rò rỉ một bí mật, xuất bản nhầm bài viết, hoặc xóa một tài nguyên — hành động tốn kém thường là hành động rẻ về token.
 
-This lesson covers the three detectors that sit next to the cost layer:
+Bài này trình bày ba bộ phát hiện nằm cạnh lớp chi phí:
 
-1. **Kill switch**: boolean off-button held outside the agent's reach.
-2. **Circuit breaker**: action-pattern detector that pauses a specific path.
-3. **Canary token**: bait that an agent with no legitimate reason to touch will reveal itself by touching.
+1. **Công tắc ngắt**: nút tắt boolean được giữ ngoài tầm với của agent.
+2. **Bộ ngắt mạch**: bộ phát hiện mẫu hành động tạm dừng một đường cụ thể.
+3. **Token canary**: mồi mà một agent không có lý do hợp lệ để chạm tới sẽ tự bộc lộ bằng việc chạm vào.
 
-All three are pre-LLM engineering. Classical deception, rate-limit breakers, and feature-flag kills predate autonomous agents. What's new is the attack surface: agents read untrusted content (Lesson 11), edit their own memory, and can compose many safe-looking actions into an unsafe one. The detectors named here work because they do not trust the agent's self-report.
+Cả ba đều là kỹ thuật trước LLM. Đánh lừa cổ điển, các bộ ngắt giới hạn tốc độ, và ngắt bằng cờ tính năng có trước các agent tự chủ. Điều mới là bề mặt tấn công: agent đọc nội dung không đáng tin cậy (Bài 11), chỉnh sửa bộ nhớ của chính chúng, và có thể kết hợp nhiều hành động trông an toàn thành một hành động không an toàn. Các bộ phát hiện được nêu ở đây hoạt động vì chúng không tin lời tự báo cáo của agent.
 
 ## The Concept
 
 ### Kill switches
 
-A kill switch is a boolean the agent reads but cannot write. Implementation choices:
+Một công tắc ngắt là một giá trị boolean agent đọc nhưng không thể ghi. Các lựa chọn triển khai:
 
-- **Feature flag in a managed service.** LaunchDarkly, Statsig, Unleash. Updates propagate in seconds.
-- **Redis key the agent polls.** Simple; requires the agent process to check on every turn.
-- **Signed config in object storage.** Agent verifies a signature on boot; rejects unsigned states.
-- **OS-level signal or container-lifecycle kill.** Docker `kill`, Kubernetes `kubectl delete pod`, systemd stop.
+- **Cờ tính năng trong một dịch vụ được quản lý.** LaunchDarkly, Statsig, Unleash. Các cập nhật lan truyền trong vài giây.
+- **Khóa Redis mà agent thăm dò.** Đơn giản; yêu cầu tiến trình agent kiểm tra ở mỗi lượt.
+- **Cấu hình có chữ ký trong kho lưu trữ đối tượng.** Agent xác minh chữ ký khi khởi động; từ chối các trạng thái không có chữ ký.
+- **Tín hiệu cấp hệ điều hành hoặc ngắt vòng đời container.** Docker `kill`, Kubernetes `kubectl delete pod`, dừng systemd.
 
-Properties a correct kill switch has:
+Các thuộc tính một công tắc ngắt đúng có:
 
-- The agent cannot set it to `off`. (Lives in a system the agent's credentials do not write.)
-- It is checked on every consequential action, not just at startup.
-- When it is off, the agent does nothing externally observable, including logging to systems the agent can reach.
-- Re-enabling it is an explicit human action, not an automatic timeout.
+- Agent không thể đặt nó thành `off`. (Nằm trong một hệ thống mà thông tin xác thực của agent không ghi được.)
+- Nó được kiểm tra ở mọi hành động có hệ quả, chứ không chỉ khi khởi động.
+- Khi nó tắt, agent không làm gì có thể quan sát được từ bên ngoài, bao gồm ghi nhật ký tới các hệ thống agent có thể tiếp cận.
+- Bật lại nó là một hành động tường minh của con người, không phải một thời gian chờ tự động.
 
 ### Circuit breakers
 
-A circuit breaker pauses a specific pattern, not the whole agent. Classical shape (from the 2007 Nygard book, still current):
+Một bộ ngắt mạch tạm dừng một mẫu cụ thể, không phải toàn bộ agent. Hình dạng cổ điển (từ cuốn sách Nygard năm 2007, vẫn hiện hành):
 
-- **Closed**: action is allowed.
-- **Open**: action is blocked.
-- **Half-open**: after a cool-down, 1–3 probe attempts are allowed (default 1); success closes the breaker, any remaining failure re-opens it.
+- **Đóng**: hành động được phép.
+- **Mở**: hành động bị chặn.
+- **Nửa mở**: sau một khoảng hạ nhiệt, 1–3 lần thử thăm dò được phép (mặc định 1); thành công đóng bộ ngắt, bất kỳ thất bại còn lại nào mở lại nó.
 
-Agent-relevant triggers:
+Các tác nhân kích hoạt liên quan đến agent:
 
-- Five identical tool calls in a row (repetitive loop).
-- Five consecutive failures on the same tool with different inputs (systemic failure).
-- Rate of tool calls above a threshold (Lesson 13 velocity).
-- Specific tool invoked (e.g., `file.delete`) after an out-of-trust content read (Lesson 11).
+- Năm lệnh gọi công cụ giống hệt nhau liên tiếp (vòng lặp lặp đi lặp lại).
+- Năm thất bại liên tiếp trên cùng công cụ với các đầu vào khác nhau (lỗi có tính hệ thống).
+- Tốc độ gọi công cụ trên một ngưỡng (tốc độ Bài 13).
+- Công cụ cụ thể được gọi (ví dụ: `file.delete`) sau một lần đọc nội dung ngoài vùng tin cậy (Bài 11).
 
 ### Canary tokens
 
-Canary tokens (also called honeytokens) are inputs the agent should never touch. Access is the alarm.
+Token canary (còn gọi là honeytoken) là các đầu vào agent không bao giờ nên chạm tới. Truy cập chính là báo động.
 
-Examples for agents:
+Các ví dụ cho agent:
 
-- A fake `AWS_SECRET_ACCESS_KEY` in the environment with no actual privilege. Exfiltration attempts are instantly attributable.
-- A fake database record flagged with a known sentinel value. Any read or update of this record fires an alert.
-- A fake file in the workspace. Reads or edits of this file are suspicious.
-- A fake memory entry injected at session start. If it appears in a later output, memory has been exfiltrated.
+- Một `AWS_SECRET_ACCESS_KEY` giả trong môi trường không có đặc quyền thực. Các nỗ lực làm rò rỉ có thể được quy nguồn ngay lập tức.
+- Một bản ghi cơ sở dữ liệu giả được đánh dấu bằng một giá trị sentinel đã biết. Bất kỳ lần đọc hoặc cập nhật nào của bản ghi này đều kích hoạt một cảnh báo.
+- Một file giả trong không gian làm việc. Đọc hoặc chỉnh sửa file này là đáng ngờ.
+- Một mục bộ nhớ giả được chèn vào lúc bắt đầu phiên. Nếu nó xuất hiện trong một đầu ra sau đó, bộ nhớ đã bị làm rò rỉ.
 
-Canary design is specific to the workflow. A canary the agent has a legitimate reason to touch is noise.
+Thiết kế canary phụ thuộc vào quy trình cụ thể. Một canary mà agent có lý do hợp lệ để chạm tới là nhiễu.
 
 ### Why layer statistical and hard limits
 
-Statistical detectors (EWMA, CUSUM, z-score on tool-call rates) adapt to a moving baseline. That is a feature for legitimate drift and a bug for adversarial drift. A patient attacker can shift the baseline slowly enough that no alarm fires.
+Các bộ phát hiện thống kê (EWMA, CUSUM, z-score trên tốc độ gọi công cụ) thích nghi với một đường cơ sở di động. Đó là một tính năng đối với sự trôi hợp lệ và một lỗi đối với sự trôi đối kháng. Một kẻ tấn công kiên nhẫn có thể dịch chuyển đường cơ sở đủ chậm để không có báo động nào kích hoạt.
 
-Hard constitutional limits (Lesson 17) do not bend. "Never email `secrets@`" as a constitutional rule is simpler, auditable, and not gameable by slow drift. The layering pattern: statistical detectors catch most noise, hard limits catch the attack that walked past the detector.
+Các giới hạn hiến định cứng (Bài 17) không uốn cong. “Không bao giờ gửi email cho `secrets@`” dưới dạng một quy tắc hiến định đơn giản hơn, có thể kiểm toán, và không thể bị lách bằng sự trôi chậm. Mẫu xếp lớp: các bộ phát hiện thống kê bắt hầu hết nhiễu, các giới hạn cứng bắt cuộc tấn công đã đi qua bộ phát hiện.
 
 ### Quarantine via eBPF datapath redirect
 
-Cilium's eBPF-based network policy can rewrite a quarantined pod's egress to a forensic honeypot at the kernel layer. Cilium's public benchmarks report sub-millisecond P99 datapath latency on TCP_RR; the wall-clock budget for *triggering* a quarantine in your cluster is dominated by how a policy update propagates from your control plane to the node (a few hundred milliseconds is realistic on Kubernetes with the operator pre-loaded; tail latency depends on cluster size and reconcile cadence). This gives you two things: the agent does not exfiltrate anything real, and the agent's behavior inside the honeypot is fully observed. Same pattern, different layer, as the canary token: the agent reveals intent by what it tries to do while contained.
+Chính sách mạng dựa trên eBPF của Cilium có thể viết lại lưu lượng đi ra của một pod bị cách ly tới một honeypot pháp chứng ở lớp kernel. Các benchmark công khai của Cilium báo cáo độ trễ đường dữ liệu P99 dưới một mili giây trên TCP_RR; ngân sách thời gian thực cho việc *kích hoạt* cách ly trong cụm của bạn bị chi phối bởi cách một cập nhật chính sách lan truyền từ control plane tới node (vài trăm mili giây là thực tế trên Kubernetes với operator được nạp sẵn; độ trễ đuôi phụ thuộc vào kích thước cụm và nhịp đối soát). Điều này mang lại cho bạn hai điều: agent không làm rò rỉ bất cứ thứ gì thực, và hành vi của agent bên trong honeypot được quan sát đầy đủ. Cùng mẫu, khác lớp, như token canary: agent bộc lộ ý định qua những gì nó cố làm trong khi bị khoanh vùng.
 
 ### What no detector catches
 
-- **Semantic attacks that compose from allowed primitives.** Every individual action passes every detector; the composition is the problem. This is the Auto Mode composite failure from Lesson 10.
-- **Attacks that include the detector as part of the payload.** If an agent reads a page that says "before you act, disable the canary" and the agent has the capability, the detector is compromised. Canary tokens should be in systems the agent cannot modify.
+- **Các cuộc tấn công ngữ nghĩa kết hợp từ các nguyên thủy được phép.** Mọi hành động riêng lẻ vượt qua mọi bộ phát hiện; sự kết hợp chính là vấn đề. Đây là lỗi kết hợp của Auto Mode từ Bài 10.
+- **Các cuộc tấn công bao gồm bộ phát hiện như một phần của payload.** Nếu một agent đọc một trang nói “trước khi hành động, vô hiệu hóa canary” và agent có khả năng đó, bộ phát hiện bị xâm phạm. Token canary nên nằm trong các hệ thống agent không thể sửa đổi.
 
 ```figure
 circuit-breaker
@@ -86,41 +86,41 @@ circuit-breaker
 
 ## Use It
 
-`code/main.py` simulates a short agent trajectory through three detectors. A kill switch held in an external dict; a circuit breaker that trips on five identical tool calls; a canary file whose read triggers an alert. Feeds in a synthetic trajectory: legitimate actions, repetitive loop, canary probe, and a kill-switch-triggered scenario where the agent's actions are halted.
+`code/main.py` mô phỏng một quỹ đạo agent ngắn qua ba bộ phát hiện. Một công tắc ngắt được giữ trong dict bên ngoài; một bộ ngắt mạch kích hoạt trên năm lệnh gọi công cụ giống hệt nhau; một file canary mà việc đọc nó kích hoạt một cảnh báo. Đưa vào một quỹ đạo tổng hợp: các hành động hợp lệ, vòng lặp lặp đi lặp lại, thăm dò canary, và một kịch bản do công tắc ngắt kích hoạt nơi các hành động của agent bị dừng.
 
 ## Ship It
 
-`outputs/skill-tripwire-design.md` reviews a proposed detector stack for an agent deployment and flags gaps (missing kill switch, missing canary, circuit breaker threshold too loose).
+`outputs/skill-tripwire-design.md` xem xét một ngăn xếp bộ phát hiện được đề xuất cho một triển khai agent và đánh dấu các khoảng trống (thiếu công tắc ngắt, thiếu canary, ngưỡng bộ ngắt mạch quá lỏng).
 
 ## Exercises
 
-1. Run `code/main.py`. Confirm the circuit breaker fires on turn 5 (fifth identical call) and the canary fires on turn 9 (fake-key read).
+1. Chạy `code/main.py`. Xác nhận bộ ngắt mạch kích hoạt ở lượt 5 (lệnh gọi giống hệt thứ năm) và canary kích hoạt ở lượt 9 (đọc khóa giả).
 
-2. Add a statistical detector: EWMA z-score on tool-call rate. Feed in a trajectory that drifts slowly and show the detector never fires. Now add a hard limit (no more than 50 tool calls in 10 minutes) and show the hard limit fires on the same trajectory.
+2. Thêm một bộ phát hiện thống kê: EWMA z-score trên tốc độ gọi công cụ. Đưa vào một quỹ đạo trôi chậm và cho thấy bộ phát hiện không bao giờ kích hoạt. Bây giờ thêm một giới hạn cứng (không quá 50 lệnh gọi công cụ trong 10 phút) và cho thấy giới hạn cứng kích hoạt trên cùng quỹ đạo.
 
-3. Design a canary token set for a browser agent (Lesson 11). List at least three canaries and what each would detect.
+3. Thiết kế một tập token canary cho một agent trình duyệt (Bài 11). Liệt kê ít nhất ba canary và những gì mỗi canary sẽ phát hiện.
 
-4. Read the Cilium network-policy docs. Describe an egress-redirect quarantine flow concretely: which policy selector, which pod, which egress rewrite, which alert. What governs the wall-clock latency from "decide to quarantine" to "first redirected packet"?
+4. Đọc tài liệu chính sách mạng Cilium. Mô tả cụ thể một luồng cách ly chuyển hướng lưu lượng đi ra: bộ chọn chính sách nào, pod nào, phép viết lại lưu lượng đi ra nào, cảnh báo nào. Điều gì chi phối độ trễ thời gian thực từ “quyết định cách ly” đến “gói tin được chuyển hướng đầu tiên”?
 
-5. Define a re-enable procedure for a kill-switched agent. Who can re-enable? What must be documented? What must change about the agent before re-enable?
+5. Định nghĩa một thủ tục bật lại cho một agent đã bị công tắc ngắt dừng. Ai có thể bật lại? Điều gì phải được ghi chép? Điều gì phải thay đổi về agent trước khi bật lại?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |---|---|---|
-| Kill switch | "Off button" | Boolean outside the agent's edit surface; checked on every consequential action |
-| Circuit breaker | "Pattern pause" | Action-specific trip on repetition, failure rate, or rate-limit |
-| Canary token | "Honeytoken" | Bait the agent has no legitimate reason to touch; access fires an alert |
-| Honeypot | "Forensic sandbox" | Redirected traffic / workspace where a quarantined agent is observed |
-| EWMA | "Moving average" | Exponentially weighted; adapts to drift (feature + bug) |
-| CUSUM | "Cumulative sum" | Detects sustained shift from baseline |
-| Hard limit | "Constitutional rule" | Does not adapt; constant regardless of history |
-| Constitutional limit | "Always-true rule" | Tied to Lesson 17's constitution; cannot be edited by the agent |
+| Kill switch (Công tắc ngắt) | “Nút tắt” | Boolean ngoài bề mặt chỉnh sửa của agent; được kiểm tra ở mọi hành động có hệ quả |
+| Circuit breaker (Bộ ngắt mạch) | “Tạm dừng mẫu” | Kích hoạt riêng theo hành động trên sự lặp lại, tỷ lệ thất bại, hoặc giới hạn tốc độ |
+| Canary token (Token canary) | “Honeytoken” | Mồi mà agent không có lý do hợp lệ để chạm tới; truy cập kích hoạt một cảnh báo |
+| Honeypot | “Sandbox pháp chứng” | Lưu lượng / không gian làm việc được chuyển hướng nơi một agent bị cách ly được quan sát |
+| EWMA | “Trung bình động” | Có trọng số hàm mũ; thích nghi với sự trôi (tính năng + lỗi) |
+| CUSUM | “Tổng tích lũy” | Phát hiện sự dịch chuyển kéo dài khỏi đường cơ sở |
+| Hard limit (Giới hạn cứng) | “Quy tắc hiến định” | Không thích nghi; không đổi bất kể lịch sử |
+| Constitutional limit (Giới hạn hiến định) | “Quy tắc luôn đúng” | Gắn với hiến pháp của Bài 17; không thể được agent chỉnh sửa |
 
 ## Further Reading
 
-- [Anthropic — Measuring agent autonomy in practice](https://www.anthropic.com/research/measuring-agent-autonomy) — kill-switch and circuit-breaker framing for autonomous agents.
-- [Microsoft Agent Framework — HITL and oversight](https://learn.microsoft.com/en-us/agent-framework/workflows/human-in-the-loop) — production governance patterns.
-- [OWASP LLM / Agentic Top 10](https://owasp.org/www-project-top-10-for-large-language-model-applications/) — detection-and-response requirements.
-- [Cilium — Network policy and eBPF](https://docs.cilium.io/en/stable/security/network/) — pod-level egress redirect and forensic honeypot patterns.
-- [Anthropic — Claude's Constitution (January 2026)](https://www.anthropic.com/news/claudes-constitution) — hardcoded prohibitions as "constitutional limits".
+- [Anthropic — Measuring agent autonomy in practice](https://www.anthropic.com/research/measuring-agent-autonomy) — cách định hình công tắc ngắt và bộ ngắt mạch cho các agent tự chủ.
+- [Microsoft Agent Framework — HITL and oversight](https://learn.microsoft.com/en-us/agent-framework/workflows/human-in-the-loop) — các mẫu quản trị sản xuất.
+- [OWASP LLM / Agentic Top 10](https://owasp.org/www-project-top-10-for-large-language-model-applications/) — các yêu cầu phát hiện và ứng phó.
+- [Cilium — Network policy and eBPF](https://docs.cilium.io/en/stable/security/network/) — chuyển hướng lưu lượng đi ra ở cấp pod và các mẫu honeypot pháp chứng.
+- [Anthropic — Claude's Constitution (January 2026)](https://www.anthropic.com/news/claudes-constitution) — các điều cấm được mã hóa cứng dưới dạng “các giới hạn hiến định”.
