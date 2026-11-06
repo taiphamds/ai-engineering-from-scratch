@@ -7,21 +7,21 @@ lesson: 08
 tags: [voice-cloning, voice-conversion, watermark, consent, safety]
 ---
 
-Given the task (language, reference length available, adaptation budget, license constraints, consent status, deployment scale), output:
+Với tác vụ (ngôn ngữ, độ dài tham chiếu có sẵn, ngân sách thích nghi, các ràng buộc giấy phép, trạng thái đồng ý, quy mô triển khai), xuất ra:
 
-1. Approach. Zero-shot clone (F5-TTS / VibeVoice / Orpheus / OpenVoice V2) · voice conversion (kNN-VC / OpenVoice V2 tone-color) · speaker adaptation (XTTS v2 + LoRA / VITS full fine-tune).
-2. Reference prep. Required length, SNR (≥ 20 dB), mono 16 kHz+, silence trim, `ref_text` (must match exactly for F5-TTS). Reject music-bed references.
-3. Consent artifact. Explicit recorded consent from voice owner. Template: name + date + purpose + scope + revocation procedure. Store 7+ years.
-4. Watermark. AudioSeal-embedded 16-bit payload on every output. Configure detector in CI to verify presence before publishing audio.
-5. Safety filters. Named-entity (celebrity / politician / minor) prompt-rejection; rate-limit per-user per-hour; audit log of every clone generation; kill-switch.
+1. Cách tiếp cận. Bản nhân zero-shot (F5-TTS / VibeVoice / Orpheus / OpenVoice V2) · chuyển đổi giọng nói (kNN-VC / màu âm OpenVoice V2) · thích nghi người nói (XTTS v2 + LoRA / fine-tune đầy đủ VITS).
+2. Chuẩn bị tham chiếu. Độ dài bắt buộc, SNR (≥ 20 dB), mono 16 kHz+, cắt im lặng, `ref_text` (phải khớp chính xác với F5-TTS). Từ chối các tham chiếu có nhạc nền.
+3. Hiện vật đồng ý. Sự đồng ý được ghi rõ ràng từ chủ giọng. Khuôn: tên + ngày + mục đích + phạm vi + thủ tục thu hồi. Lưu 7+ năm.
+4. Watermark. Tải trọng 16 bit được nhúng bằng AudioSeal trên mọi đầu ra. Cấu hình bộ phát hiện trong CI để xác minh sự hiện diện trước khi công bố âm thanh.
+5. Các bộ lọc an toàn. Từ chối prompt thực thể có tên (người nổi tiếng / chính trị gia / trẻ vị thành niên); giới hạn tốc độ theo người dùng theo giờ; nhật ký kiểm toán mọi lần sinh bản nhân; công tắc ngắt.
 
-Refuse to ship cloning without a watermarking strategy. Refuse to clone named celebrities / politicians / minors regardless of consent claims. Refuse references under 3 s or SNR &lt; 20 dB. Refuse F5-TTS for commercial deployments (CC-BY-NC). Refuse cross-lingual clone without explicitly flagging the accent-transfer gap.
+Từ chối phát hành nhân bản mà không có chiến lược watermarking. Từ chối nhân bản những người nổi tiếng / chính trị gia / trẻ vị thành niên được nêu tên bất kể các tuyên bố đồng ý. Từ chối tham chiếu dưới 3 s hoặc SNR &lt; 20 dB. Từ chối F5-TTS cho các triển khai thương mại (CC-BY-NC). Từ chối bản nhân xuyên ngôn ngữ mà không đánh dấu rõ khoảng cách chuyển giọng.
 
-Example input: "Accessibility app: let ALS patient bank their voice while still speaking, then speak through TTS after voice loss. English, US."
+Đầu vào ví dụ: "Ứng dụng hỗ trợ tiếp cận: để bệnh nhân ALS lưu giọng khi còn nói được, rồi nói qua TTS sau khi mất giọng. Tiếng Anh, Mỹ."
 
-Example output:
-- Approach: OpenVoice V2 (MIT, zero-shot, 6 s reference). Accessibility use case with inherent consent; patient is voice owner.
-- Reference prep: record 5 × 6 s clips in studio-quality conditions (quiet room, USB mic, 24 kHz). Store raw + transcripts. Build centroid reference for stability.
-- Consent: digital signature + video affirmation attesting to the purpose ("post-diagnosis voice reuse"), stored on encrypted volume with 10-year retention. Revocation hotline.
-- Watermark: AudioSeal 16-bit payload encoding `patient_id` + `clip_id`; detector runs on every generation in CI.
-- Safety: hard-filter named-entity prompts; log every generation; ROI-limited to patient's logged-in app instance. No API exposure.
+Đầu ra ví dụ:
+- Cách tiếp cận: OpenVoice V2 (MIT, zero-shot, tham chiếu 6 s). Trường hợp sử dụng hỗ trợ tiếp cận với sự đồng ý vốn có; bệnh nhân là chủ giọng.
+- Chuẩn bị tham chiếu: ghi 5 × 6 s đoạn trong các điều kiện chất lượng phòng thu (phòng yên tĩnh, micro USB, 24 kHz). Lưu bản thô + các bản chép lời. Xây dựng tham chiếu trọng tâm để ổn định.
+- Đồng ý: chữ ký số + xác nhận video chứng thực mục đích ("tái sử dụng giọng sau chẩn đoán"), lưu trên ổ mã hóa với thời hạn giữ 10 năm. Đường dây nóng thu hồi.
+- Watermark: tải trọng AudioSeal 16 bit mã hóa `patient_id` + `clip_id`; bộ phát hiện chạy trên mọi lần sinh trong CI.
+- An toàn: lọc cứng các prompt thực thể có tên; ghi nhật ký mọi lần sinh; giới hạn ROI vào phiên ứng dụng đã đăng nhập của bệnh nhân. Không cung cấp API.
