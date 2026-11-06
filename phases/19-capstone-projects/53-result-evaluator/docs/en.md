@@ -1,6 +1,6 @@
 # Result Evaluator
 
-> The runner produced numbers. The evaluator decides whether those numbers are an improvement, a regression, or noise. Build the verdict path that turns metrics into a one line conclusion.
+> Trình chạy đã tạo các con số. Bộ đánh giá quyết định liệu những con số đó là một cải thiện, một thoái lui, hay nhiễu. Xây dựng đường kết luận biến các chỉ số thành một kết luận một dòng.
 
 **Type:** Build
 **Languages:** Python
@@ -8,17 +8,17 @@
 **Time:** ~90 minutes
 
 ## Learning Objectives
-- Compare a candidate run against a baseline using direction aware improvement and a fixed threshold.
-- Run a paired t test from scratch over per seed metrics and read the resulting p value.
-- Normalise log scaled metrics so a downstream report can blend them with linear metrics.
-- Emit a per hypothesis verdict that the orchestrator can attach to the queue from lesson fifty.
-- Keep every step pure so the same inputs always produce the same verdict.
+- So sánh một lần chạy ứng viên với một đường cơ sở bằng cải thiện có nhận thức hướng và một ngưỡng cố định.
+- Chạy một kiểm định t ghép cặp từ đầu trên các chỉ số theo seed và đọc giá trị p kết quả.
+- Chuẩn hóa các chỉ số thang log để một báo cáo hạ nguồn có thể pha trộn chúng với các chỉ số tuyến tính.
+- Phát ra một kết luận theo giả thuyết mà bộ điều phối có thể gắn vào hàng đợi từ bài năm mươi.
+- Giữ mọi bước thuần túy để cùng đầu vào luôn tạo cùng kết luận.
 
 ## Why a paired test
 
-A single number from the runner does not say whether the change is real. The same configuration with a different seed gives a different perplexity. The change might be noise. The right comparison is paired: the same seeds with the same data, ran once with the candidate and once with the baseline. Each seed contributes a difference. The mean of those differences is the effect. The standard error of those differences is the noise floor.
+Một con số duy nhất từ trình chạy không nói liệu thay đổi có thực không. Cùng cấu hình với một seed khác cho một perplexity khác. Thay đổi có thể là nhiễu. So sánh đúng là ghép cặp: cùng seed với cùng dữ liệu, chạy một lần với ứng viên và một lần với đường cơ sở. Mỗi seed đóng góp một chênh lệch. Trung bình của những chênh lệch đó là hiệu ứng. Sai số chuẩn của những chênh lệch đó là sàn nhiễu.
 
-The lesson implements the test from scratch. There is no `scipy.stats`. The math is small enough to read in one screen.
+Bài học triển khai kiểm định từ đầu. Không có `scipy.stats`. Toán đủ nhỏ để đọc trên một màn hình.
 
 ```text
 diffs    = [a_i - b_i for i in seeds]
@@ -29,11 +29,11 @@ df       = n - 1
 p_value  = two_sided_p(t_stat, df)
 ```
 
-The two sided p value uses a regularised incomplete beta function. The lesson ships a small implementation that uses the Lentz continued fraction. The whole thing is sixty lines of stdlib math.
+Giá trị p hai phía sử dụng một hàm beta không đầy đủ được chính quy hóa. Bài học cung cấp một triển khai nhỏ dùng phân số liên tục Lentz. Toàn bộ là sáu mươi dòng toán stdlib.
 
 ## Direction aware improvement
 
-Some metrics improve when they go up (accuracy, throughput). Others improve when they go down (loss, perplexity, wall time). The evaluator carries a `direction` field on each metric.
+Một số chỉ số cải thiện khi tăng (độ chính xác, thông lượng). Các chỉ số khác cải thiện khi giảm (mất mát, perplexity, thời gian thực). Bộ đánh giá mang một trường `direction` trên mỗi chỉ số.
 
 ```text
 if direction == "higher_is_better":
@@ -42,9 +42,9 @@ elif direction == "lower_is_better":
     improvement = (baseline - candidate) / abs(baseline)
 ```
 
-Improvement is signed. A negative improvement on a higher is better metric means the candidate is worse. The verdict path reads the sign and the magnitude together.
+Cải thiện có dấu. Một cải thiện âm trên một chỉ số càng cao càng tốt nghĩa là ứng viên tệ hơn. Đường kết luận đọc dấu và độ lớn cùng nhau.
 
-A flat threshold (`improvement_threshold=0.02`, two percent) decides whether the change is large enough to call. Below that the verdict is "noise" regardless of the p value; the loop is not interested in changes the user could not measure.
+Một ngưỡng phẳng (`improvement_threshold=0.02`, hai phần trăm) quyết định liệu thay đổi đủ lớn để kết luận không. Dưới đó kết luận là "nhiễu" bất kể giá trị p; vòng lặp không quan tâm các thay đổi người dùng không thể đo.
 
 ```figure
 cg-paired-verdict
@@ -64,13 +64,13 @@ flowchart TD
     O --> Q[attach to hypothesis queue]
 ```
 
-The evaluator runs three independent computations and joins them in the verdict path. Each computation is a pure function with no shared state.
+Bộ đánh giá chạy ba phép tính độc lập và nối chúng trong đường kết luận. Mỗi phép tính là một hàm thuần túy không có trạng thái dùng chung.
 
 ## Log normalisation
 
-Perplexity is exponential in loss. A 0.1 drop in loss is a much larger drop in perplexity. Comparing perplexity directly across two configurations is fine, but blending it with linear metrics in a single report requires normalisation.
+Perplexity là hàm mũ theo mất mát. Một mức giảm 0.1 trong mất mát là một mức giảm lớn hơn nhiều trong perplexity. So sánh perplexity trực tiếp giữa hai cấu hình là ổn, nhưng pha trộn nó với các chỉ số tuyến tính trong một báo cáo duy nhất đòi hỏi chuẩn hóa.
 
-The lesson normalises any metric whose `scale` field is `"log"` by taking the natural log before computing the improvement. The threshold is then applied in log space. A perplexity drop from 32 to 28 is `log(28) - log(32) = -0.133` on a lower is better metric, which is well above the two percent threshold.
+Bài học chuẩn hóa bất kỳ chỉ số nào có trường `scale` là `"log"` bằng cách lấy log tự nhiên trước khi tính cải thiện. Ngưỡng sau đó được áp dụng trong không gian log. Một mức giảm perplexity từ 32 xuống 28 là `log(28) - log(32) = -0.133` trên một chỉ số càng thấp càng tốt, cao hơn nhiều so với ngưỡng hai phần trăm.
 
 ```text
 if scale == "log":
@@ -81,13 +81,13 @@ else:
     b = baseline
 ```
 
-Metrics with `scale="linear"` (default) skip the transform. The same code path handles both.
+Các chỉ số với `scale="linear"` (mặc định) bỏ qua phép biến đổi. Cùng đường mã xử lý cả hai.
 
 ## Per seed paired test
 
-The runner from lesson fifty-two emits one final metrics blob per run. For the paired test the evaluator needs one blob per seed for the candidate and one per seed for the baseline. The orchestrator runs the same experiment under both configurations across a list of seeds and hands the evaluator two lists of `ExperimentResult` records.
+Trình chạy từ bài năm mươi hai phát ra một khối chỉ số cuối mỗi lần chạy. Cho kiểm định ghép cặp bộ đánh giá cần một khối mỗi seed cho ứng viên và một mỗi seed cho đường cơ sở. Bộ điều phối chạy cùng thí nghiệm dưới cả hai cấu hình trên một danh sách seed và đưa cho bộ đánh giá hai danh sách bản ghi `ExperimentResult`.
 
-The evaluator pairs them by seed (the seed lives in `result.metrics["seed"]`) and walks the requested metric. If the seeds do not match across the two lists, the evaluator raises a `PairingError`. The orchestrator should re run.
+Bộ đánh giá ghép chúng theo seed (seed nằm trong `result.metrics["seed"]`) và duyệt chỉ số được yêu cầu. Nếu các seed không khớp giữa hai danh sách, bộ đánh giá phát sinh một `PairingError`. Bộ điều phối nên chạy lại.
 
 ## The Verdict shape
 
@@ -107,7 +107,7 @@ Verdict
   rationale              : str
 ```
 
-The verdict path is a small decision table:
+Đường kết luận là một bảng quyết định nhỏ:
 
 ```text
 1. If any candidate result has terminal != "ok": verdict = "failed"
@@ -117,17 +117,17 @@ The verdict path is a small decision table:
 5. else:                                             verdict = "regressed"
 ```
 
-Rationale is a one line human readable sentence the orchestrator can log against the hypothesis id.
+Lý do là một câu một dòng con người có thể đọc mà bộ điều phối có thể ghi nhật ký theo id giả thuyết.
 
 ## How to read the code
 
-`code/main.py` defines `MetricSpec`, `Verdict`, `Evaluator`, the t statistic and incomplete beta helpers, and a deterministic demo. The t test is implemented in pure stdlib math; numpy is used only to read the metrics list and compute means and variances.
+`code/main.py` định nghĩa `MetricSpec`, `Verdict`, `Evaluator`, các hàm hỗ trợ thống kê t và beta không đầy đủ, và một demo tất định. Kiểm định t được triển khai bằng toán stdlib thuần; numpy chỉ được dùng để đọc danh sách chỉ số và tính trung bình và phương sai.
 
-`code/tests/test_evaluator.py` covers the improved path, the regressed path, the noise path (small improvement), the noise path (low n), the failed terminal path, the log normalised path, the t test against a known reference value, and the pairing error.
+`code/tests/test_evaluator.py` bao phủ đường cải thiện, đường thoái lui, đường nhiễu (cải thiện nhỏ), đường nhiễu (n thấp), đường terminal thất bại, đường chuẩn hóa log, kiểm định t với một giá trị tham chiếu đã biết, và lỗi ghép cặp.
 
 ## Where this slots in
 
-Lesson fifty produced the hypothesis queue. Lesson fifty-one filtered out anything the literature settled. Lesson fifty-two ran the experiment under candidate and baseline configurations across seeds. Lesson fifty-three reads those runs and writes the verdict. The orchestrator stitches the four together:
+Bài năm mươi tạo hàng đợi giả thuyết. Bài năm mươi mốt lọc bất cứ thứ gì tài liệu đã giải quyết. Bài năm mươi hai chạy thí nghiệm dưới các cấu hình ứng viên và đường cơ sở trên các seed. Bài năm mươi ba đọc những lần chạy đó và viết kết luận. Bộ điều phối khâu bốn phần lại:
 
 ```text
 for hypothesis in queue:
@@ -142,4 +142,4 @@ for hypothesis in queue:
     attach(hypothesis, verdict)
 ```
 
-That orchestrator is not in this lesson; the four lessons compose into it without any glue beyond the dataclasses each one defines.
+Bộ điều phối đó không nằm trong bài này; bốn bài kết hợp thành nó mà không có chất kết dính nào ngoài các dataclass mỗi bài định nghĩa.
