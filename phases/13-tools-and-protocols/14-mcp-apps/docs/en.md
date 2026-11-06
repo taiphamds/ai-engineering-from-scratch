@@ -1,6 +1,6 @@
 # MCP Apps on the Stateless Protocol
 
-> An interactive result is still an MCP tool and resource exchange. The 2026-07-28 core makes that exchange self-contained, while the Apps extension adds the sandboxed browser surface.
+> Kết quả tương tác vẫn là trao đổi công cụ và tài nguyên MCP. Lõi 2026-07-28 làm trao đổi đó tự đầy đủ, trong khi phần mở rộng Apps thêm bề mặt trình duyệt trong sandbox.
 
 **Type:** Build
 **Languages:** Python
@@ -9,40 +9,40 @@
 
 ## Learning Objectives
 
-- Advertise MCP Apps through `server/discover` and per-request extension capabilities.
-- Declare a `ui://` resource on a tool before the tool is called.
-- Return complete tool and resource results on the 2026-07-28 stateless wire.
-- Separate the Apps `ui/initialize` bridge message from the removed MCP core handshake.
-- Apply origin validation, sandboxing, CSP, and least-privilege permissions.
+- Công bố MCP Apps qua `server/discover` và khả năng phần mở rộng mỗi yêu cầu.
+- Khai báo tài nguyên `ui://` trên công cụ trước khi công cụ được gọi.
+- Trả kết quả công cụ và tài nguyên đầy đủ trên đường truyền không trạng thái 2026-07-28.
+- Tách thông điệp bridge Apps `ui/initialize` khỏi bắt tay lõi MCP đã bỏ.
+- Áp dụng xác thực origin, sandbox, CSP và quyền tối thiểu.
 
 ## The Problem
 
-A text result can describe a timeline. It cannot give the user a timeline they can filter, inspect, or act on.
+Kết quả văn bản có thể mô tả dòng thời gian. Không thể cho người dùng dòng thời gian họ lọc, kiểm tra hoặc thao tác được.
 
-MCP Apps solves the presentation problem with an optional extension. A tool definition points to a `ui://` resource. The host can fetch and review that resource before the tool runs, render it in a sandboxed iframe, and mediate all app actions through a JSON-RPC bridge.
+MCP Apps giải quyết vấn đề trình bày bằng phần mở rộng tùy chọn. Định nghĩa công cụ trỏ đến tài nguyên `ui://`. Host có thể lấy và xem xét tài nguyên trước khi công cụ chạy, kết xuất trong iframe sandbox và làm trung gian mọi hành động ứng dụng qua bridge JSON-RPC.
 
-The core protocol changed in 2026-07-28. Do not wrap an App in the old connection lifecycle:
+Giao thức lõi đổi trong 2026-07-28. Không bọc App trong vòng đời kết nối cũ:
 
-- There is no core `initialize` request or `notifications/initialized` notification.
-- There is no `Mcp-Session-Id` header.
-- Every request carries protocol version and client capabilities in `params._meta`.
-- A server implements `server/discover` so clients can inspect versions, core capabilities, and extensions.
-- Every successful result has a `resultType` discriminator.
-- Streamable HTTP uses one POST per request. Modern GET and DELETE entrypoints return 405.
+- Không có yêu cầu lõi `initialize` hoặc thông báo `notifications/initialized`.
+- Không có header `Mcp-Session-Id`.
+- Mọi yêu cầu mang phiên bản giao thức và khả năng client trong `params._meta`.
+- Máy chủ triển khai `server/discover` để client kiểm tra phiên bản, khả năng lõi và phần mở rộng.
+- Mọi kết quả thành công có trường phân biệt `resultType`.
+- Streamable HTTP dùng một POST mỗi yêu cầu. Điểm vào GET và DELETE hiện đại trả 405.
 
-The Apps bridge still has a method named `ui/initialize`. It belongs to the iframe postMessage dialect. It does not recreate a core MCP session.
+Bridge Apps vẫn có phương thức tên `ui/initialize`. Nó thuộc phương ngữ postMessage của iframe. Không tái tạo phiên MCP lõi.
 
 ## The Concept
 
 ### Two protocols, one feature
 
-Keep the layers explicit:
+Giữ các tầng tường minh:
 
-1. The MCP core carries `server/discover`, `tools/list`, `tools/call`, `resources/list`, and `resources/read`.
-2. The MCP Apps extension declares the UI and defines the iframe-to-host bridge.
-3. Browser sandbox rules limit what the UI can reach.
+1. Lõi MCP mang `server/discover`, `tools/list`, `tools/call`, `resources/list` và `resources/read`.
+2. Phần mở rộng MCP Apps khai báo UI và định nghĩa bridge iframe-sang-host.
+3. Quy tắc sandbox trình duyệt giới hạn thứ UI tiếp cận được.
 
-The extension identifier is `io.modelcontextprotocol/ui`. Both peers opt in. A client sends extension support inside the capabilities object on each request:
+Định danh phần mở rộng là `io.modelcontextprotocol/ui`. Cả hai peer chọn tham gia. Client gửi hỗ trợ phần mở rộng bên trong đối tượng khả năng trên mỗi yêu cầu:
 
 ```json
 {
@@ -66,11 +66,11 @@ The extension identifier is `io.modelcontextprotocol/ui`. Both peers opt in. A c
 }
 ```
 
-`clientInfo` is recommended for diagnostics. It is self-reported data, not an authorization identity.
+`clientInfo` được khuyến nghị để chẩn đoán. Là dữ liệu tự khai, không phải danh tính cấp quyền.
 
 ### Discover before rendering
 
-The server's discovery result advertises the extension:
+Kết quả khám phá máy chủ công bố phần mở rộng:
 
 ```json
 {
@@ -94,11 +94,11 @@ The server's discovery result advertises the extension:
 }
 ```
 
-The server must support discovery. A client is not forced to call discovery before every action because each action carries its own capabilities.
+Máy chủ phải hỗ trợ khám phá. Client không bị buộc gọi khám phá trước mọi hành động vì mỗi hành động mang khả năng riêng.
 
 ### Declare the UI on the tool definition
 
-The modern Apps contract binds a UI to the tool in `tools/list`:
+Hợp đồng Apps hiện đại gắn UI với công cụ trong `tools/list`:
 
 ```json
 {
@@ -116,13 +116,13 @@ The modern Apps contract binds a UI to the tool in `tools/list`:
 }
 ```
 
-This is deliberately pre-call metadata. The host can preload, cache, and security-review the HTML before a result asks to display it. Older flat metadata keys may be accepted by compatibility code, but new servers should emit the nested `_meta.ui.resourceUri` form.
+Đây cố ý là siêu dữ liệu trước lời gọi. Host có thể nạp trước, lưu đệm và xem xét bảo mật HTML trước khi kết quả yêu cầu hiển thị. Khóa siêu dữ liệu phẳng cũ có thể được mã tương thích chấp nhận, nhưng máy chủ mới nên phát dạng `_meta.ui.resourceUri` lồng.
 
-`tools/list` is cacheable in the current core. Include deterministic ordering, `ttlMs`, and `cacheScope`. Use `private` when the visible tools vary by user or token.
+`tools/list` có thể lưu đệm trong lõi hiện tại. Gồm thứ tự tất định, `ttlMs` và `cacheScope`. Dùng `private` khi công cụ hiển thị thay đổi theo người dùng hoặc token.
 
 ### Return data, then let the host bind the view
 
-The tool call returns ordinary content plus structured data:
+Lời gọi công cụ trả nội dung thường cộng dữ liệu có cấu trúc:
 
 ```json
 {
@@ -139,13 +139,13 @@ The tool call returns ordinary content plus structured data:
 }
 ```
 
-The host already knows which view belongs to the tool. Avoid inventing a new content block just to repeat the URI.
+Host đã biết view nào thuộc công cụ. Tránh bịa khối nội dung mới chỉ để lặp URI.
 
 ### Serve the app as a resource
 
-The server advertises `resources` in discovery, so it also implements the mandatory `resources/list` operation. Its deterministic list entry includes the canonical URI, a stable name, description, and MIME type. The list result includes `resultType`, server identity metadata, `ttlMs`, and `cacheScope`, just like the deterministic tool list.
+Máy chủ công bố `resources` trong khám phá, nên cũng triển khai thao tác `resources/list` bắt buộc. Mục danh sách tất định gồm URI chuẩn, tên ổn định, mô tả và MIME type. Kết quả danh sách gồm `resultType`, siêu dữ liệu danh tính máy chủ, `ttlMs` và `cacheScope`, như danh sách công cụ tất định.
 
-The host sends `resources/read`. On Streamable HTTP, the request has:
+Host gửi `resources/read`. Trên Streamable HTTP, yêu cầu có:
 
 ```text
 POST /mcp
@@ -154,9 +154,9 @@ Mcp-Method: resources/read
 Mcp-Name: ui://notes/timeline.html
 ```
 
-The header values and JSON-RPC body must match. A mismatch is protocol error `-32020`.
+Giá trị header và phần thân JSON-RPC phải khớp. Không khớp là lỗi giao thức `-32020`.
 
-The result contains the HTML resource and cache hints:
+Kết quả chứa tài nguyên HTML và gợi ý bộ đệm:
 
 ```json
 {
@@ -186,69 +186,69 @@ The result contains the HTML resource and cache hints:
 
 ### Cache UI resources as executable content
 
-An App resource is not interchangeable with ordinary prose. Its cache entry can execute bridge code, render tool data, and request host-mediated actions. Key it by canonical `ui://` URI, admitted server identity and version, resource content digest, and authorization context when `cacheScope` is private. Never reuse a private App resource across principals because the HTML or its policy metadata may differ even when the URI is identical.
+Tài nguyên App không thể hoán đổi với văn xuôi thường. Mục bộ đệm có thể thực thi mã bridge, kết xuất dữ liệu công cụ và yêu cầu hành động qua host. Đặt khóa theo URI `ui://` chuẩn, danh tính và phiên bản máy chủ được chấp nhận, bản băm nội dung tài nguyên và ngữ cảnh cấp quyền khi `cacheScope` riêng. Không bao giờ dùng lại tài nguyên App riêng giữa chủ thể vì HTML hoặc siêu dữ liệu chính sách có thể khác dù URI giống.
 
-Invalidate the entry when its `ttlMs` expires, the tool's `_meta.ui.resourceUri` binding changes, the server version or admitted descriptor pin changes, or an acknowledged resource-change subscription names the URI. Refetch and reapply CSP and permission review before remounting. A stale iframe must not keep broader permissions merely because a new resource version has not loaded yet.
+Vô hiệu mục khi `ttlMs` hết hạn, liên kết `_meta.ui.resourceUri` của công cụ đổi, phiên bản máy chủ hoặc bản ghim bộ mô tả được chấp nhận đổi, hoặc đăng ký thay đổi tài nguyên đã xác nhận nêu URI. Lấy lại và áp dụng lại đánh giá CSP và quyền trước gắn lại. Iframe cũ không được giữ quyền rộng hơn chỉ vì phiên bản tài nguyên mới chưa tải.
 
 ### Reject wire ambiguity before feature policy
 
-Validation has a deliberate order. First validate the JSON-RPC shape and require string protocol metadata plus an object client capability map. Next compare routing headers with the body. Only then decide whether the matched protocol version is supported. This order prevents a proxy and server from interpreting different requests.
+Xác thực có thứ tự chủ ý. Trước xác thực hình dạng JSON-RPC và yêu cầu siêu dữ liệu giao thức chuỗi cộng ánh xạ khả năng client đối tượng. Tiếp so header định tuyến với phần thân. Chỉ sau đó quyết định phiên bản giao thức khớp có được hỗ trợ không. Thứ tự ngăn proxy và máy chủ diễn giải yêu cầu khác nhau.
 
-| Condition | HTTP | JSON-RPC error |
+| Điều kiện | HTTP | Lỗi JSON-RPC |
 |-----------|------|----------------|
-| Header and body version, method, or name disagree | 400 | `-32020` |
-| Header and body agree on an unsupported version | 400 | `-32022`, with `data` exactly `{"supported":["2026-07-28"],"requested":"<actual>"}` |
-| `resources/read` lacks the Apps extension capability | 400 | `-32021`, with `data.requiredCapabilities.extensions.io.modelcontextprotocol/ui` |
-| Method is unknown | 404 | `-32601` |
+| Phiên bản, phương thức hoặc tên header và phần thân không đồng ý | 400 | `-32020` |
+| Header và phần thân đồng ý phiên bản không hỗ trợ | 400 | `-32022`, với `data` chính xác `{"supported":["2026-07-28"],"requested":"<actual>"}` |
+| `resources/read` thiếu khả năng phần mở rộng Apps | 400 | `-32021`, với `data.requiredCapabilities.extensions.io.modelcontextprotocol/ui` |
+| Phương thức không biết | 404 | `-32601` |
 
-A JSON-RPC notification has no `id`, so the server never emits a JSON-RPC response for it. An accepted HTTP notification returns 202 with an empty body. An error can change the HTTP status, but it still cannot create a JSON-RPC error body for a notification.
+Thông báo JSON-RPC không có `id`, nên máy chủ không bao giờ phát phản hồi JSON-RPC cho nó. Thông báo HTTP được chấp nhận trả 202 với phần thân rỗng. Lỗi có thể đổi trạng thái HTTP, nhưng vẫn không thể tạo phần thân lỗi JSON-RPC cho thông báo.
 
 ### The sandbox is a boundary, not a trust verdict
 
-A host controls the iframe. The App cannot directly read host cookies, local storage, or page DOM. All privileged work must cross the bridge.
+Host kiểm soát iframe. App không thể trực tiếp đọc cookie, local storage hoặc DOM trang của host. Mọi công việc đặc quyền phải qua bridge.
 
-Use these defaults:
+Dùng mặc định này:
 
-- Leave all CSP domain lists empty, then add only the origins the App needs. Use `connectDomains` for fetch, XHR, and WebSocket; use `resourceDomains` for scripts, styles, images, and fonts.
-- Bundle code and data when practical.
-- Request no camera, microphone, or location permission unless a visible feature needs it.
-- Pin `postMessage` to the exact peer origin and reject events from every other origin.
-- Treat tool arguments, tool results, resource text, and bridge messages as untrusted input.
-- Keep user consent in the host. The iframe cannot approve its own consequential action.
+- Để mọi danh sách miền CSP rỗng, rồi chỉ thêm origin App cần. Dùng `connectDomains` cho fetch, XHR và WebSocket; dùng `resourceDomains` cho script, style, ảnh và phông chữ.
+- Đóng gói mã và dữ liệu khi thực tế cho phép.
+- Không yêu cầu quyền camera, mic hoặc vị trí trừ khi tính năng hiển thị cần.
+- Ghim `postMessage` vào đúng origin peer và từ chối sự kiện từ mọi origin khác.
+- Coi đối số công cụ, kết quả công cụ, văn bản tài nguyên và thông điệp bridge là đầu vào không đáng tin.
+- Giữ đồng ý người dùng trong host. Iframe không thể tự phê duyệt hành động có hệ quả.
 
-Do not copy a fixed `sandbox` attribute from a tutorial into every host. The host must choose flags based on the App's origin model and its own isolation design.
+Không sao chép thuộc tính `sandbox` cố định từ hướng dẫn vào mọi host. Host phải chọn cờ dựa trên mô hình origin App và thiết kế cô lập riêng.
 
-An allowed domain is still an exfiltration path. `connectDomains: ["https://api.example.com"]` means any script that executes inside the App can send permitted data there. Exact origin matching prevents destination confusion, but it does not decide whether the payload is appropriate. Keep connect access empty by default, avoid placing bearer tokens in the iframe, proxy narrow operations through the host when practical, limit response and request sizes, and audit which user action caused each outbound request. Treat `resourceDomains` separately from `connectDomains`; permission to load a font or script should not grant arbitrary data upload.
+Miền được phép vẫn là đường rút dữ liệu. `connectDomains: ["https://api.example.com"]` nghĩa mọi script thực thi trong App có thể gửi dữ liệu được phép đến đó. Khớp origin chính xác ngăn nhầm đích, nhưng không quyết định payload phù hợp hay không. Giữ truy cập connect rỗng mặc định, tránh đặt bearer token trong iframe, proxy thao tác hẹp qua host khi thực tế cho phép, giới hạn kích thước phản hồi và yêu cầu, kiểm toán hành động người dùng nào gây mỗi yêu cầu đi ra. Xử lý `resourceDomains` riêng `connectDomains`; quyền tải phông hoặc script không nên cấp tải dữ liệu lên tùy ý.
 
 ### The Apps bridge has its own lifecycle
 
-The Apps bridge is a JSON-RPC dialect over `postMessage`. It can exchange `ui/initialize` and `ui/*` notifications and can proxy core-looking methods such as `tools/call`.
+Bridge Apps là phương ngữ JSON-RPC trên `postMessage`. Nó có thể trao đổi `ui/initialize` và thông báo `ui/*`, đồng thời proxy phương thức giống lõi như `tools/call`.
 
-The View sends `ui/initialize` with `appInfo` and an `appCapabilities` object. The host returns its capabilities and host context. Only after that response does the View send `ui/notifications/initialized`. The host must wait for this Apps notification before sending messages to the View.
+View gửi `ui/initialize` với `appInfo` và đối tượng `appCapabilities`. Host trả khả năng và ngữ cảnh host. Chỉ sau phản hồi đó View mới gửi `ui/notifications/initialized`. Host phải chờ thông báo Apps này trước gửi thông điệp đến View.
 
-That local handshake creates a bridge between one iframe and one host frame. It does not negotiate the MCP protocol version, create server state, or mint a transport session. Notice the exact prefix: core `notifications/initialized` was removed, while Apps `ui/notifications/initialized` remains. A core request generated by a bridged tool call is a new self-contained request with a new JSON-RPC id and full request metadata.
+Bắt tay cục bộ đó tạo bridge giữa một iframe và một khung host. Nó không thương lượng phiên bản giao thức MCP, tạo trạng thái máy chủ hoặc tạo phiên vận chuyển. Chú ý đúng tiền tố: `notifications/initialized` lõi đã bỏ, trong khi `ui/notifications/initialized` Apps còn. Yêu cầu lõi tạo bởi lời gọi công cụ qua bridge là yêu cầu tự đầy đủ mới với id JSON-RPC mới và siêu dữ liệu yêu cầu đầy đủ.
 
 ### Host context, actions, and revocation
 
-The host remains the authority after bridge initialization. A View can request a tool action, navigation, clipboard use, or another privileged effect only through a capability the host advertised. The host validates the typed request, current user, target, and arguments, applies approval policy, and may refuse it. A button click and a valid bridge message express intent; neither grants authority.
+Host vẫn là bên có thẩm quyền sau khởi tạo bridge. View chỉ có thể yêu cầu hành động công cụ, điều hướng, dùng clipboard hoặc hiệu ứng đặc quyền khác qua khả năng host công bố. Host xác thực yêu cầu có kiểu, người dùng hiện tại, đích và đối số, áp dụng chính sách phê duyệt và có thể từ chối. Nhấp nút và thông điệp bridge hợp lệ biểu đạt ý định; không bên nào cấp thẩm quyền.
 
-Treat theme, size, and accessibility as changing host context rather than one-time render inputs:
+Coi theme, kích thước và trợ năng là ngữ cảnh host thay đổi thay vì đầu vào kết xuất một lần:
 
-- Apply host-provided color and typography tokens, then react when theme or contrast preference changes.
-- Let the View report desired dimensions, but let the host cap and apply iframe size so content cannot escape its layout or create deceptive overlays.
-- Preserve keyboard order, visible focus, accessible names, screen-reader status, sufficient contrast, zoom, and reduced-motion behavior inside the iframe.
-- Re-test focus transfer between host controls and View controls after resize and rerender.
+- Áp dụng token màu và kiểu chữ host cung cấp, rồi phản ứng khi theme hoặc ưu tiên tương phản đổi.
+- Cho View báo kích thước mong muốn, nhưng để host giới hạn và áp dụng kích thước iframe để nội dung không thoát bố cục hoặc tạo lớp phủ lừa đảo.
+- Giữ thứ tự bàn phím, focus hiển thị, tên trợ năng, trạng thái trình đọc màn hình, tương phản đủ, phóng to và hành vi giảm chuyển động trong iframe.
+- Kiểm thử lại chuyển focus giữa điều khiển host và View sau đổi kích thước và kết xuất lại.
 
-Capabilities can be revoked while the App is open because the user changes account, policy changes, a server is quarantined, or the host narrows consent. Check capability and authorization at action time, not only during `ui/initialize`. On revocation, reject pending privileged calls, stop network activity that no longer fits policy, clear sensitive rendered state, and remount or fall back to text when the UI resource itself is no longer admitted. A View must handle refusal as a normal result, not retry until the host gives in.
+Khả năng có thể bị thu hồi khi App mở vì người dùng đổi tài khoản, chính sách đổi, máy chủ bị cách ly hoặc host thu hẹp đồng ý. Kiểm tra khả năng và cấp quyền lúc hành động, không chỉ trong `ui/initialize`. Khi thu hồi, từ chối lời gọi đặc quyền chờ, dừng hoạt động mạng không còn hợp chính sách, xóa trạng thái nhạy cảm đã kết xuất và gắn lại hoặc dự phòng văn bản khi chính tài nguyên UI không còn được chấp nhận. View phải xử lý từ chối như kết quả thường, không thử lại đến khi host nhượng bộ.
 
 ### Fallback is part of the contract
 
-An Apps-aware server can still serve hosts that do not advertise the UI extension:
+Máy chủ nhận biết Apps vẫn có thể phục vụ host không công bố phần mở rộng UI:
 
-- Return the same tool without `_meta.ui` in `tools/list`.
-- Keep a useful text result for `tools/call`.
-- Refuse `resources/read` for the UI with a missing-capability error.
-- Never assume an iframe exists when deciding whether the tool completed.
+- Trả cùng công cụ không `_meta.ui` trong `tools/list`.
+- Giữ kết quả văn bản hữu ích cho `tools/call`.
+- Từ chối `resources/read` cho UI bằng lỗi thiếu khả năng.
+- Không bao giờ giả định iframe tồn tại khi quyết định công cụ xong hay chưa.
 
 ```figure
 t3-ui-sandbox
@@ -256,11 +256,11 @@ t3-ui-sandbox
 
 ## Build It
 
-`code/main.py` builds a small in-process protocol model without an SDK. It validates the current request envelope and Streamable HTTP routing values, advertises Apps through `server/discover`, lists tools and resources, executes the tool, and serves a self-contained HTML resource.
+`code/main.py` xây mô hình giao thức nhỏ trong tiến trình không SDK. Nó xác thực vỏ yêu cầu hiện tại và giá trị định tuyến Streamable HTTP, công bố Apps qua `server/discover`, liệt kê công cụ và tài nguyên, thực thi công cụ và phục vụ tài nguyên HTML tự đầy đủ.
 
-The model receives already parsed bodies and routing headers. It is not a complete HTTP adapter and does not parse `Content-Type` or `Accept`. Use Lesson 09 for the full Streamable HTTP adapter that requires `Content-Type: application/json` and an `Accept` value containing both `application/json` and `text/event-stream`.
+Mô hình nhận phần thân và header định tuyến đã phân tích. Không phải adapter HTTP đầy đủ và không phân tích `Content-Type` hoặc `Accept`. Dùng Bài 09 cho adapter Streamable HTTP đầy đủ yêu cầu `Content-Type: application/json` và giá trị `Accept` chứa cả `application/json` và `text/event-stream`.
 
-Run it:
+Chạy:
 
 ```bash
 cd phases/13-tools-and-protocols/14-mcp-apps
@@ -268,47 +268,47 @@ python3 code/main.py
 python3 -m unittest discover code/tests -v
 ```
 
-Inspect four things in the output:
+Kiểm tra bốn thứ trong đầu ra:
 
-1. Every call is independent.
-2. Every request has `_meta` capabilities.
-3. `resources/list` returns a stable descriptor before any resource read.
-4. Every result has `resultType` and server identity metadata.
-5. No core session identifier appears.
+1. Mọi lời gọi độc lập.
+2. Mọi yêu cầu có khả năng `_meta`.
+3. `resources/list` trả bộ mô tả ổn định trước mọi lần đọc tài nguyên.
+4. Mọi kết quả có `resultType` và siêu dữ liệu danh tính máy chủ.
+5. Không định danh phiên lõi xuất hiện.
 
 ## Use It
 
-Start with `server/discover`. Confirm `io.modelcontextprotocol/ui` appears in the server extension map. Then call `tools/list` twice, once with Apps capability and once without it. The first response declares the resource. The second remains a usable text-only tool.
+Bắt đầu với `server/discover`. Xác nhận `io.modelcontextprotocol/ui` xuất hiện trong ánh xạ phần mở rộng máy chủ. Rồi gọi `tools/list` hai lần, một có khả năng Apps và một không. Phản hồi đầu khai báo tài nguyên. Phản hồi hai vẫn là công cụ chỉ văn bản dùng được.
 
-Read `ui://notes/timeline.html`. Search the HTML for `hostOrigin` and the `event.origin` guard. Those two lines are the minimum visible proof that the bridge does not use a wildcard target.
+Đọc `ui://notes/timeline.html`. Tìm `hostOrigin` và chốt bảo vệ `event.origin` trong HTML. Hai dòng đó là bằng chứng hiển thị tối thiểu bridge không dùng đích ký tự đại diện.
 
 ## Ship It
 
-This lesson ships `outputs/skill-mcp-apps-spec.md`. Use it to review an App contract before writing framework code. It forces the author to state the current core envelope, extension negotiation, fallback, UI resource, cache policy, CSP, permissions, bridge methods, and consent boundary.
+Bài học này cung cấp `outputs/skill-mcp-apps-spec.md`. Dùng để đánh giá hợp đồng App trước viết mã framework. Nó buộc tác giả nêu vỏ lõi hiện tại, thương lượng phần mở rộng, dự phòng, tài nguyên UI, chính sách bộ đệm, CSP, quyền, phương thức bridge và ranh giới đồng ý.
 
 ## Exercises
 
-1. Change the client capability to an empty extension map. Confirm `tools/list` keeps the tool but removes the UI binding.
-2. Send `Mcp-Name: ui://notes/other.html` with a body that reads the timeline. Confirm error `-32020`.
-3. Change the resource to `cacheScope: private`. Describe the user-specific condition that justifies it.
-4. Move the script to `https://static.example.com/app.js`. Add that origin to `resourceDomains` and explain the new supply-chain risk.
-5. Add an `notes_open` tool and route the button click through the host. Keep user approval in the host.
+1. Đổi khả năng client thành ánh xạ phần mở rộng rỗng. Xác nhận `tools/list` giữ công cụ nhưng bỏ liên kết UI.
+2. Gửi `Mcp-Name: ui://notes/other.html` với phần thân đọc dòng thời gian. Xác nhận lỗi `-32020`.
+3. Đổi tài nguyên thành `cacheScope: private`. Mô tả điều kiện riêng người dùng biện minh.
+4. Chuyển script đến `https://static.example.com/app.js`. Thêm origin đó vào `resourceDomains` và giải thích rủi ro chuỗi cung ứng mới.
+5. Thêm công cụ `notes_open` và định tuyến nhấp nút qua host. Giữ phê duyệt người dùng trong host.
 
 ## Key Terms
 
-| Term | Meaning |
+| Thuật ngữ | Ý nghĩa |
 |------|---------|
-| MCP Apps | Optional extension for interactive HTML rendered by an MCP host |
-| `io.modelcontextprotocol/ui` | Extension identifier advertised by both peers |
-| `ui://` | Resource scheme for an App's UI template |
-| `text/html;profile=mcp-app` | MIME type for MCP App HTML |
-| `server/discover` | Current RPC for protocol and capability discovery |
-| `resources/list` | Mandatory resource listing method when the server advertises resources |
-| `resultType` | Required discriminator for modern successful results |
-| `ui/initialize` | First Apps bridge request, separate from removed core initialization |
-| `ui/notifications/initialized` | Apps View readiness notification sent after the host responds |
-| CSP | Browser policy that restricts scripts, styles, images, and network origins |
-| Text fallback | Tool behavior retained for a host without Apps support |
+| MCP Apps | Phần mở rộng tùy chọn cho HTML tương tác được host MCP kết xuất |
+| `io.modelcontextprotocol/ui` | Định danh phần mở rộng cả hai peer công bố |
+| `ui://` | Lược đồ tài nguyên cho mẫu UI của App |
+| `text/html;profile=mcp-app` | MIME type cho HTML MCP App |
+| `server/discover` | RPC hiện tại để khám phá giao thức và khả năng |
+| `resources/list` | Phương thức liệt kê tài nguyên bắt buộc khi máy chủ công bố tài nguyên |
+| `resultType` | Trường phân biệt bắt buộc cho kết quả hiện đại thành công |
+| `ui/initialize` | Yêu cầu bridge Apps đầu tiên, riêng khởi tạo lõi đã bỏ |
+| `ui/notifications/initialized` | Thông báo sẵn sàng Apps View gửi sau host phản hồi |
+| CSP | Chính sách trình duyệt hạn chế script, style, ảnh và origin mạng |
+| Text fallback (Dự phòng văn bản) | Hành vi công cụ giữ cho host không hỗ trợ Apps |
 
 ## Further Reading
 
