@@ -7,26 +7,26 @@ lesson: 14
 tags: [autogen, actor-model, messaging, fault-isolation, dead-letter]
 ---
 
-Given a multi-agent task, produce an actor runtime and the agent actors needed.
+Với một tác vụ nhiều agent, tạo một runtime actor và các actor agent cần thiết.
 
-Produce:
+Tạo:
 
-1. A `Message` type with `sender`, `recipient`, `topic`, `body`, `mid`.
-2. An `Actor` base class with `receive(message, runtime)`. Actor state is private.
-3. A `Runtime` with a shared queue, `send()`, `run_until_idle()`, and a dead-letter queue. Exceptions in handlers go to DLQ; do not propagate.
-4. One topology helper: RoundRobin (fixed rotation), Selector (LLM picks next), or custom broadcast.
-5. Observability hooks per message: emit OTel spans with `gen_ai.agent.name` and `gen_ai.operation.name` per Lesson 23.
+1. Một kiểu `Message` với `sender`, `recipient`, `topic`, `body`, `mid`.
+2. Một lớp cơ sở `Actor` với `receive(message, runtime)`. Trạng thái actor là riêng tư.
+3. Một `Runtime` với một hàng đợi dùng chung, `send()`, `run_until_idle()` và một hàng đợi thông điệp lỗi. Các ngoại lệ trong bộ xử lý đi vào DLQ; không lan truyền.
+4. Một hàm trợ giúp cấu trúc: RoundRobin (vòng xoay cố định), Selector (LLM chọn tiếp theo) hoặc quảng bá tùy chỉnh.
+5. Các hook khả năng quan sát cho từng thông điệp: phát ra các span OTel với `gen_ai.agent.name` và `gen_ai.operation.name` theo Bài 23.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Synchronous message passing that blocks the sender until the recipient returns. That is the v0.2 model; it breaks fault isolation.
-- Shared mutable state across actors. Actors read state via messages or not at all.
-- A runtime that propagates handler exceptions. Failures belong in the DLQ; let other actors keep running.
+- Truyền thông điệp đồng bộ chặn bên gửi cho đến khi bên nhận trả về. Đó là mô hình v0.2; nó phá vỡ cô lập lỗi.
+- Trạng thái có thể thay đổi dùng chung xuyên các actor. Các actor đọc trạng thái qua thông điệp hoặc hoàn toàn không đọc.
+- Một runtime lan truyền các ngoại lệ bộ xử lý. Các lỗi thuộc về DLQ; để các actor khác tiếp tục chạy.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the task has only two actors with a fixed back-and-forth, refuse the actor framing and suggest a prompt chain (Lesson 12). Actors earn cost when there are >=3 actors or async concurrency.
-- If the user wants "synchronous mode" for "easier debugging," refuse. Suggest logging + tracing (Lesson 23) instead.
-- If the domain is strictly request/response with a single specialist, suggest routing (Lesson 12) instead of an actor team.
+- Nếu tác vụ chỉ có hai actor với một sự qua lại cố định, từ chối cách định khung actor và đề xuất một chuỗi prompt (Bài 12). Các actor xứng đáng với chi phí khi có >=3 actor hoặc tính đồng thời bất đồng bộ.
+- Nếu người dùng muốn "chế độ đồng bộ" để "gỡ lỗi dễ hơn," từ chối. Thay vào đó đề xuất ghi log + truy vết (Bài 23).
+- Nếu miền nghiêm ngặt là yêu cầu/phản hồi với một chuyên gia duy nhất, đề xuất định tuyến (Bài 12) thay vì một nhóm actor.
 
-Output: `message.py`, `actor.py`, `runtime.py`, `teams.py`, `README.md` explaining DLQ policy, the topology choice, and how OTel spans are wired. End with "what to read next" pointing to Lesson 25 (multi-agent debate) if actors negotiate, Lesson 23 (OTel) if tracing is required, or Microsoft Agent Framework if you want the forward-looking runtime.
+Đầu ra: `message.py`, `actor.py`, `runtime.py`, `teams.py`, `README.md` giải thích chính sách DLQ, lựa chọn cấu trúc và cách các span OTel được nối. Kết thúc bằng "đọc gì tiếp theo" chỉ đến Bài 25 (tranh luận nhiều agent) nếu các actor thương lượng, Bài 23 (OTel) nếu cần truy vết hoặc Microsoft Agent Framework nếu bạn muốn runtime hướng tới tương lai.

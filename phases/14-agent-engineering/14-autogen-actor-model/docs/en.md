@@ -1,6 +1,6 @@
 # The Actor Model for Agents — Async Messages and Typed Runtimes
 
-> Agents as actors: async message exchange, event-driven handlers, fault isolation, natural concurrency. AutoGen v0.4 (Microsoft Research, Jan 2025) redesigned agent orchestration around this model; the framework is now in maintenance mode, with Microsoft Agent Framework (public preview Oct 2025) as its production successor.
+> Các agent như actor: trao đổi thông điệp bất đồng bộ, các bộ xử lý hướng sự kiện, cô lập lỗi, tính đồng thời tự nhiên. AutoGen v0.4 (Microsoft Research, tháng 1 năm 2025) thiết kế lại điều phối agent quanh mô hình này; framework hiện ở chế độ bảo trì, với Microsoft Agent Framework (bản xem trước công khai tháng 10 năm 2025) là bên kế nhiệm sản xuất của nó.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,58 +9,58 @@
 
 ## Learning Objectives
 
-- Describe the actor model: agents as actors, messages as the only IPC, failure isolation per actor.
-- Name AutoGen v0.4's three API layers — Core, AgentChat, Extensions — and what each is for.
-- Explain why decoupling message delivery from handling gives fault isolation and natural concurrency.
-- Implement a stdlib actor runtime in Python and port a two-agent code-review flow onto it.
+- Mô tả mô hình actor: các agent như actor, các thông điệp là IPC duy nhất, cô lập lỗi cho từng actor.
+- Nêu tên ba lớp API của AutoGen v0.4 — Core, AgentChat, Extensions — và mỗi lớp dùng để làm gì.
+- Giải thích vì sao tách biệt việc chuyển thông điệp khỏi xử lý mang lại cô lập lỗi và tính đồng thời tự nhiên.
+- Triển khai một runtime actor dùng thư viện chuẩn trong Python và chuyển một luồng đánh giá mã hai agent lên nó.
 
 ## The Problem
 
-Most agent frameworks are synchronous: one agent produces, one agent consumes, in a call stack. Failures crash the stack. Concurrency is bolted on. Distribution requires rewriting.
+Hầu hết các framework agent là đồng bộ: một agent tạo, một agent tiêu thụ, trong một ngăn xếp lời gọi. Các lỗi làm sập ngăn xếp. Tính đồng thời được gắn thêm. Phân tán yêu cầu viết lại.
 
-AutoGen v0.4's answer: the actor model. Each agent is an actor with a private inbox. Messages are the only interaction. The runtime decouples delivery from handling. Failures isolate to one actor. Concurrency is native. Distribution is just different transport.
+Câu trả lời của AutoGen v0.4: mô hình actor. Mỗi agent là một actor với một hộp thư đến riêng. Các thông điệp là tương tác duy nhất. Runtime tách biệt chuyển giao khỏi xử lý. Các lỗi được cô lập vào một actor. Tính đồng thời là gốc. Phân tán chỉ là phương thức truyền tải khác.
 
 ## The Concept
 
 ### Actors
 
-An actor has:
+Một actor có:
 
-- A private state (never directly touched from outside).
-- An inbox (message queue).
-- A handler: `receive(message) -> effects` where effects can be "reply," "send to other actor," "spawn new actor," "update state," "stop self."
+- Một trạng thái riêng (không bao giờ được chạm trực tiếp từ bên ngoài).
+- Một hộp thư đến (hàng đợi thông điệp).
+- Một bộ xử lý: `receive(message) -> effects` trong đó các hiệu ứng có thể là "trả lời," "gửi đến actor khác," "tạo actor mới," "cập nhật trạng thái," "tự dừng."
 
-Two actors cannot share memory. They can only send messages.
+Hai actor không thể chia sẻ bộ nhớ. Chúng chỉ có thể gửi thông điệp.
 
 ### Three API layers
 
-AutoGen v0.4 splits its surface into three:
+AutoGen v0.4 chia bề mặt của nó thành ba:
 
-1. **Core.** Low-level actor framework. `AgentRuntime`, `Agent`, `Message`, `Topic`. Async message exchange, event-driven.
-2. **AgentChat.** Task-driven high-level API (replacement for v0.2's ConversableAgent). `AssistantAgent`, `UserProxyAgent`, `RoundRobinGroupChat`, `SelectorGroupChat`.
-3. **Extensions.** Integrations — OpenAI, Anthropic, Azure, tools, memory.
+1. **Core.** Framework actor cấp thấp. `AgentRuntime`, `Agent`, `Message`, `Topic`. Trao đổi thông điệp bất đồng bộ, hướng sự kiện.
+2. **AgentChat.** API cấp cao do tác vụ dẫn dắt (thay thế ConversableAgent của v0.2). `AssistantAgent`, `UserProxyAgent`, `RoundRobinGroupChat`, `SelectorGroupChat`.
+3. **Extensions.** Các tích hợp — OpenAI, Anthropic, Azure, công cụ, bộ nhớ.
 
 ### Why decoupling matters
 
-In the v0.2 model, calling `agent_a.chat(agent_b)` synchronously blocks agent_a until agent_b returns. In v0.4, `send(agent_b, msg)` puts the message in agent_b's inbox and returns. The runtime delivers later. Three consequences:
+Trong mô hình v0.2, gọi `agent_a.chat(agent_b)` đồng bộ chặn agent_a cho đến khi agent_b trả về. Trong v0.4, `send(agent_b, msg)` đặt thông điệp vào hộp thư đến của agent_b và trả về. Runtime chuyển giao sau. Ba hệ quả:
 
-- **Fault isolation.** Agent B crashing does not crash Agent A — the runtime catches the failure in B's handler and decides what to do (log, retry, dead-letter).
-- **Natural concurrency.** Many messages in flight at once; actors process their inbox concurrently.
-- **Distribution-ready.** Inbox + transport is the same abstraction whether the actor is in-process or on another host.
+- **Cô lập lỗi.** Agent B bị sập không làm sập Agent A — runtime bắt lỗi trong bộ xử lý của B và quyết định làm gì (ghi log, thử lại, đưa vào hàng đợi thông điệp lỗi).
+- **Tính đồng thời tự nhiên.** Nhiều thông điệp đang truyền cùng lúc; các actor xử lý hộp thư đến của chúng đồng thời.
+- **Sẵn sàng phân tán.** Hộp thư đến + truyền tải là cùng một trừu tượng dù actor ở trong tiến trình hay trên một host khác.
 
 ### Topologies
 
-- **RoundRobinGroupChat.** Agents take turns in a fixed rotation.
-- **SelectorGroupChat.** A selector agent picks who goes next based on conversation context.
-- **Magentic-One.** Reference multi-agent team for web browsing, code execution, file handling. Built on AgentChat.
+- **RoundRobinGroupChat.** Các agent thay phiên theo một vòng xoay cố định.
+- **SelectorGroupChat.** Một agent lựa chọn chọn ai đi tiếp dựa trên ngữ cảnh hội thoại.
+- **Magentic-One.** Nhóm nhiều agent tham chiếu cho duyệt web, thực thi mã, xử lý file. Được xây dựng trên AgentChat.
 
 ### Observability
 
-OpenTelemetry support is built in. Every message emits a span; tool calls carry `gen_ai.*` attributes per the 2026 OTel GenAI semantic conventions (Lesson 23).
+Hỗ trợ OpenTelemetry được tích hợp sẵn. Mỗi thông điệp phát ra một span; các lời gọi công cụ mang các thuộc tính `gen_ai.*` theo các quy ước ngữ nghĩa OTel GenAI năm 2026 (Bài 23).
 
 ### Status: maintenance mode
 
-Early 2026: AutoGen v0.7.x is stable for research and prototyping. Microsoft has shifted active development to the Microsoft Agent Framework, the production successor (public preview Oct 1 2025; 1.0 GA was targeted for end of Q1 2026). AutoGen patterns port forward cleanly — the actor model is the durable idea.
+Đầu năm 2026: AutoGen v0.7.x ổn định cho nghiên cứu và tạo nguyên mẫu. Microsoft đã chuyển phát triển tích cực sang Microsoft Agent Framework, bên kế nhiệm sản xuất (bản xem trước công khai ngày 1 tháng 10 năm 2025; 1.0 GA được nhắm tới cuối Q1 năm 2026). Các mẫu AutoGen chuyển tiếp gọn gàng — mô hình actor là ý tưởng bền vững.
 
 ```figure
 actor-mailbox
@@ -68,56 +68,56 @@ actor-mailbox
 
 ## Build It
 
-`code/main.py` implements a stdlib actor runtime:
+`code/main.py` triển khai một runtime actor dùng thư viện chuẩn:
 
-- `Message` — typed payload with `sender`, `recipient`, `topic`, `body`.
-- `Actor` — abstract with `receive(message, runtime)`.
-- `Runtime` — event loop with a shared queue, delivery, failure isolation.
-- A two-actor demo: `ReviewerAgent` reviews code, `ChecklistAgent` runs a checklist; they exchange messages until consensus.
+- `Message` — payload có kiểu với `sender`, `recipient`, `topic`, `body`.
+- `Actor` — trừu tượng với `receive(message, runtime)`.
+- `Runtime` — vòng lặp sự kiện với một hàng đợi dùng chung, chuyển giao, cô lập lỗi.
+- Một demo hai actor: `ReviewerAgent` đánh giá mã, `ChecklistAgent` chạy một danh sách kiểm tra; chúng trao đổi thông điệp cho đến khi đồng thuận.
 
-Run it:
+Chạy nó:
 
 ```
 python3 code/main.py
 ```
 
-The trace shows message delivery, a simulated failure in one actor that does not crash the other, and convergence on a shared verdict.
+Trace cho thấy việc chuyển giao thông điệp, một lỗi mô phỏng trong một actor không làm sập actor kia, và sự hội tụ vào một phán quyết dùng chung.
 
 ## Use It
 
-- **AutoGen v0.4/v0.7** (maintenance) — stable for research, prototyping, multi-agent patterns.
-- **Microsoft Agent Framework** — the production successor (public preview Oct 2025); same actor-model ideas in a refreshed API.
-- **LangGraph swarm topology** (Lesson 13) — similar pattern via shared-tool handoffs.
-- **Custom actor runtime** — when you need specific transport (NATS, RabbitMQ, gRPC).
+- **AutoGen v0.4/v0.7** (bảo trì) — ổn định cho nghiên cứu, tạo nguyên mẫu, các mẫu nhiều agent.
+- **Microsoft Agent Framework** — bên kế nhiệm sản xuất (bản xem trước công khai tháng 10 năm 2025); cùng các ý tưởng mô hình actor trong một API được làm mới.
+- **Cấu trúc bầy đàn LangGraph** (Bài 13) — mẫu tương tự qua các bàn giao bằng công cụ dùng chung.
+- **Runtime actor tùy chỉnh** — khi bạn cần phương thức truyền tải cụ thể (NATS, RabbitMQ, gRPC).
 
 ## Ship It
 
-`outputs/skill-actor-runtime.md` generates a minimal actor runtime plus a team template (RoundRobin or Selector) for a given multi-agent task.
+`outputs/skill-actor-runtime.md` tạo một runtime actor tối thiểu cộng một mẫu nhóm (RoundRobin hoặc Selector) cho một tác vụ nhiều agent cho trước.
 
 ## Exercises
 
-1. Add a dead-letter queue: when a handler raises, park the failing message for human inspection. How often does DLQ get hit in your toy?
-2. Implement `SelectorGroupChat`: a selector actor picks who processes the next message based on conversation state.
-3. Add distributed transport: swap the in-process queue for a JSON-over-HTTP server so actors can run in separate processes.
-4. Wire an OTel span per message (or a no-op stand-in). Emit `gen_ai.agent.name`, `gen_ai.operation.name` per Lesson 23.
-5. Read AutoGen v0.4's architecture post. Port your toy to the real `autogen_core` API. What did you skip that matters in production?
+1. Thêm một hàng đợi thông điệp lỗi: khi một bộ xử lý phát sinh ngoại lệ, giữ thông điệp thất bại để con người kiểm tra. DLQ được chạm tới thường xuyên thế nào trong bản mô phỏng của bạn?
+2. Triển khai `SelectorGroupChat`: một actor lựa chọn chọn ai xử lý thông điệp tiếp theo dựa trên trạng thái hội thoại.
+3. Thêm truyền tải phân tán: thay hàng đợi trong tiến trình bằng một máy chủ JSON-over-HTTP để các actor có thể chạy trong các tiến trình riêng.
+4. Nối một span OTel cho mỗi thông điệp (hoặc một bản thay thế không làm gì). Phát ra `gen_ai.agent.name`, `gen_ai.operation.name` theo Bài 23.
+5. Đọc bài đăng kiến trúc AutoGen v0.4. Chuyển bản mô phỏng của bạn sang API `autogen_core` thực. Bạn đã bỏ qua điều gì quan trọng trong sản xuất?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |------|----------------|------------------------|
-| Actor | "Agent" | Private state + inbox + handler; no shared memory |
-| Message | "Event" | Typed payload; the only way actors interact |
-| Inbox | "Mailbox" | Per-actor queue of pending messages |
-| Runtime | "Agent host" | Event loop that routes messages and isolates failures |
-| Topic | "Channel" | Named publish-subscribe route between actors |
-| Fault isolation | "Let it crash" | One actor failing does not crash others |
-| RoundRobinGroupChat | "Fixed-rotation team" | Agents take turns in order |
-| SelectorGroupChat | "Context-routed team" | Selector picks who goes next |
-| Magentic-One | "Reference team" | Multi-agent squad for web + code + files |
+| Actor | "Agent" | Trạng thái riêng + hộp thư đến + bộ xử lý; không có bộ nhớ dùng chung |
+| Message (Thông điệp) | "Sự kiện" | Payload có kiểu; cách duy nhất các actor tương tác |
+| Inbox (Hộp thư đến) | "Hộp thư" | Hàng đợi các thông điệp đang chờ cho từng actor |
+| Runtime (Môi trường thực thi) | "Host agent" | Vòng lặp sự kiện định tuyến thông điệp và cô lập các lỗi |
+| Topic (Chủ đề) | "Kênh" | Tuyến xuất bản-đăng ký có tên giữa các actor |
+| Fault isolation (Cô lập lỗi) | "Cứ để nó sập" | Một actor thất bại không làm sập các actor khác |
+| RoundRobinGroupChat | "Nhóm xoay vòng cố định" | Các agent thay phiên theo thứ tự |
+| SelectorGroupChat | "Nhóm định tuyến theo ngữ cảnh" | Bộ lựa chọn chọn ai đi tiếp |
+| Magentic-One | "Nhóm tham chiếu" | Đội nhiều agent cho web + mã + file |
 
 ## Further Reading
 
-- [AutoGen v0.4, Microsoft Research](https://www.microsoft.com/en-us/research/articles/autogen-v0-4-reimagining-the-foundation-of-agentic-ai-for-scale-extensibility-and-robustness/) — the redesign post
-- [LangGraph overview](https://docs.langchain.com/oss/python/langgraph/overview) — graph-shaped alternative
-- [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) — spans AutoGen emits by default
+- [AutoGen v0.4, Microsoft Research](https://www.microsoft.com/en-us/research/articles/autogen-v0-4-reimagining-the-foundation-of-agentic-ai-for-scale-extensibility-and-robustness/) — bài đăng thiết kế lại
+- [LangGraph overview](https://docs.langchain.com/oss/python/langgraph/overview) — lựa chọn có dạng đồ thị
+- [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) — các span AutoGen phát ra mặc định
