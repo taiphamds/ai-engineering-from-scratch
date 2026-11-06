@@ -7,34 +7,34 @@ lesson: 19
 tags: [multi-agent, swarm-optimization, PSO, ACO, prompt-optimization, routing]
 ---
 
-Given an LLM or agent optimization problem, choose the right optimizer.
+Với một bài toán tối ưu hóa LLM hoặc agent, chọn bộ tối ưu phù hợp.
 
-Produce:
+Tạo ra:
 
-1. **Problem fingerprint.** Search space (continuous numeric, prompt string, model weights, routing graph), fitness signal (automatic test, LLM judge, human rater, business KPI), time-to-value (minutes, hours, days).
-2. **Optimizer choice.** PSO, ACO, genetic algorithm, DPO/RL, manual tuning. Each has a default use case:
-   - continuous numeric on a bounded space → PSO
-   - routing or path selection → ACO
-   - discrete symbolic / programs → genetic algorithms
-   - differentiable reward → DPO/RL
-   - low-dimensional, fast eval → grid/random search
-3. **Population sizing.** 10-30 for PSO/GA, pheromone matrix size for ACO. Budget calculation: N × T × cost-per-eval. Do not run swarms that cost more than the value they produce.
-4. **Fitness + quality gate.** What function scores a candidate? For ACO routing, what quality threshold triggers pheromone deposit?
-5. **Convergence monitoring.** Log g_best or pheromone stability per iteration. Alert on divergence (catastrophic drift) and on premature convergence (local optimum).
-6. **Decay / exploration tuning.** PSO inertia and cognitive/social weights; ACO pheromone decay rate and deposit amount. Trade-off: low decay → stuck on early winner; high decay → no memory.
-7. **Reset conditions.** When the eval distribution shifts or the deployment pattern changes, reset g_best or zero pheromones temporarily. Stale memories are worse than no memories.
+1. **Dấu vân tay vấn đề.** Không gian tìm kiếm (số liên tục, chuỗi prompt, trọng số mô hình, đồ thị định tuyến), tín hiệu độ thích nghi (kiểm thử tự động, giám khảo LLM, người chấm, KPI kinh doanh), thời gian tới giá trị (phút, giờ, ngày).
+2. **Lựa chọn bộ tối ưu.** PSO, ACO, thuật toán di truyền, DPO/RL, điều chỉnh tay. Mỗi loại có một trường hợp sử dụng mặc định:
+   - số liên tục trên một không gian bị giới hạn → PSO
+   - định tuyến hoặc chọn đường đi → ACO
+   - ký hiệu rời rạc / chương trình → các thuật toán di truyền
+   - phần thưởng khả vi → DPO/RL
+   - số chiều thấp, đánh giá nhanh → tìm kiếm lưới/ngẫu nhiên
+3. **Định kích thước quần thể.** 10-30 cho PSO/GA, kích thước ma trận pheromone cho ACO. Tính ngân sách: N × T × chi phí mỗi đánh giá. Đừng chạy các bầy tốn hơn giá trị chúng tạo ra.
+4. **Độ thích nghi + cổng chất lượng.** Hàm nào chấm một ứng viên? Với định tuyến ACO, ngưỡng chất lượng nào kích hoạt lắng đọng pheromone?
+5. **Giám sát hội tụ.** Ghi nhật ký g_best hoặc độ ổn định pheromone mỗi lần lặp. Cảnh báo khi phân kỳ (trôi thảm họa) và khi hội tụ sớm (tối ưu cục bộ).
+6. **Điều chỉnh suy giảm / khám phá.** Quán tính và các trọng số nhận thức/xã hội PSO; tốc độ suy giảm và lượng lắng đọng pheromone ACO. Đánh đổi: suy giảm thấp → kẹt ở bên thắng sớm; suy giảm cao → không có bộ nhớ.
+7. **Các điều kiện đặt lại.** Khi phân phối đánh giá dịch chuyển hoặc mẫu triển khai thay đổi, tạm thời đặt lại g_best hoặc đưa pheromone về không. Các ký ức lỗi thời tệ hơn không có ký ức.
 
-Hard rejects:
+Các trường hợp loại bỏ dứt khoát:
 
-- Swarm optimizers on tasks where fitness needs human review. Cost-per-iteration dwarfs budget.
-- Population sizes > 50 without a clear budget justification. Diminishing returns dominate.
-- Pheromone routing without a quality gate. Fast-but-wrong agents lock in.
-- PSO on discrete search spaces that do not have a natural continuous embedding. Use GA or simulated annealing instead.
+- Các bộ tối ưu bầy đàn trên các tác vụ mà độ thích nghi cần xem xét của con người. Chi phí mỗi lần lặp lớn hơn ngân sách rất nhiều.
+- Các kích thước quần thể > 50 không có lý giải ngân sách rõ ràng. Lợi ích giảm dần chi phối.
+- Định tuyến pheromone không có một cổng chất lượng. Các agent nhanh nhưng sai bị khóa vào.
+- PSO trên các không gian tìm kiếm rời rạc không có một embedding liên tục tự nhiên. Thay vào đó sử dụng GA hoặc mô phỏng tôi luyện.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the user is trying to optimize something with no clear fitness function, recommend defining fitness first. Swarm optimizers cannot help without an evaluator.
-- If the user's budget is under $100, recommend manual tuning + caching rather than swarms.
-- If the distribution shifts daily, recommend online learning or bandits, not swarm optimizers.
+- Nếu người dùng đang cố tối ưu điều gì không có một hàm độ thích nghi rõ ràng, đề xuất định nghĩa độ thích nghi trước. Các bộ tối ưu bầy đàn không thể giúp nếu không có một bộ đánh giá.
+- Nếu ngân sách người dùng dưới $100, đề xuất điều chỉnh tay + bộ nhớ đệm thay vì các bầy.
+- Nếu phân phối dịch chuyển hằng ngày, đề xuất học trực tuyến hoặc bandit, không phải các bộ tối ưu bầy đàn.
 
-Output: a one-page brief. Start with a one-sentence recommendation ("Use ACO with quality-gated pheromone deposits on a 3-agent × 4-task-type routing problem. Decay 0.05, threshold 0.6, 200 warmup tasks."), then the seven sections above. End with a budget estimate and a 1-week rollout plan.
+Đầu ra: một bản tóm lược một trang. Bắt đầu với một khuyến nghị một câu (“Sử dụng ACO với các lắng đọng pheromone có cổng chất lượng trên một bài toán định tuyến 3 agent × 4 loại tác vụ. Suy giảm 0.05, ngưỡng 0.6, 200 tác vụ khởi động.”), rồi bảy phần ở trên. Kết thúc bằng một ước tính ngân sách và một kế hoạch triển khai 1 tuần.
