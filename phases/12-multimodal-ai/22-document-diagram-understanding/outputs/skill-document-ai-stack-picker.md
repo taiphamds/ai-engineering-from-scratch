@@ -7,25 +7,25 @@ lesson: 22
 tags: [document-ai, ocr, donut, nougat, paligemma, vlm-native]
 ---
 
-Given a document-AI project (domain: invoices / scientific papers / forms / mixed; scale: pages per day; quality bar; regulatory needs), pick a stack and produce a reference config.
+Với dự án AI tài liệu (miền: hóa đơn / bài báo khoa học / biểu mẫu / hỗn hợp; quy mô: trang mỗi ngày; ngưỡng chất lượng; nhu cầu quy định), chọn ngăn xếp và tạo cấu hình tham khảo.
 
-Produce:
+Tạo ra:
 
-1. Stack pick. Era 1 (OCR pipeline + LayoutLMv3), Era 2 (Donut / Nougat OCR-free), Era 3 (VLM-native), or hybrid.
-2. Per-page cost estimate. Token count and latency at the chosen stack.
-3. Accuracy expectation. DocVQA + ChartQA + domain-specific benchmarks.
-4. Handwriting strategy. VLM-native for cost-insensitive; dedicated TrOCR + routing for scale.
-5. Math / LaTeX output. Nougat for scientific papers; VLM for other.
-6. Regulatory fallback. Hybrid with cross-check audit log.
+1. Lựa chọn ngăn xếp. Kỷ nguyên 1 (pipeline OCR + LayoutLMv3), Kỷ nguyên 2 (Donut / Nougat không OCR), Kỷ nguyên 3 (VLM nguyên bản), hoặc lai.
+2. Ước tính chi phí mỗi trang. Số token và độ trễ ở ngăn xếp đã chọn.
+3. Kỳ vọng độ chính xác. DocVQA + ChartQA + benchmark riêng cho miền.
+4. Chiến lược chữ viết tay. VLM nguyên bản khi không nhạy chi phí; TrOCR chuyên dụng + định tuyến cho quy mô lớn.
+5. Đầu ra toán / LaTeX. Nougat cho bài báo khoa học; VLM cho phần khác.
+6. Dự phòng quy định. Lai với nhật ký kiểm toán kiểm tra chéo.
 
-Hard rejects:
-- Proposing VLM-native for >1M pages/day without cost analysis. Token cost at 2576px per page is significant.
-- Recommending single-model solutions for regulated workflows without audit paths.
-- Claiming Nougat handles scanned invoices. It does not — it is scientific-paper specialist.
+Các trường hợp bác bỏ tuyệt đối:
+- Đề xuất VLM nguyên bản cho >1M trang/ngày mà không phân tích chi phí. Chi phí token ở 2576px mỗi trang là đáng kể.
+- Khuyến nghị giải pháp một mô hình cho quy trình chịu quản lý mà không có đường kiểm toán.
+- Khẳng định Nougat xử lý hóa đơn quét. Không phải vậy — nó chuyên bài báo khoa học.
 
-Refusal rules:
-- If scale is >10M pages/day, refuse Era 3 and recommend Era 1 with Era 3 as sampling validator.
-- If domain is handwritten-heavy, refuse OCR pipeline and recommend VLM-native + handwriting specialist (TrOCR).
-- If LaTeX fidelity is required for equations, require Nougat in the loop.
+Quy tắc từ chối:
+- Nếu quy mô >10M trang/ngày, từ chối Kỷ nguyên 3 và khuyến nghị Kỷ nguyên 1 với Kỷ nguyên 3 làm bộ xác thực lấy mẫu.
+- Nếu miền có nhiều chữ viết tay, từ chối pipeline OCR và khuyến nghị VLM nguyên bản + mô hình chuyên chữ viết tay (TrOCR).
+- Nếu cần độ trung thực LaTeX cho phương trình, yêu cầu Nougat trong vòng lặp.
 
-Output: one-page plan with stack, cost, accuracy, handwriting, math, regulatory. End with arXiv 2308.13418 (Nougat), 2204.08387 (LayoutLMv3), 2111.15664 (Donut).
+Đầu ra: kế hoạch một trang với ngăn xếp, chi phí, độ chính xác, chữ viết tay, toán, quy định. Kết thúc bằng arXiv 2308.13418 (Nougat), 2204.08387 (LayoutLMv3), 2111.15664 (Donut).
