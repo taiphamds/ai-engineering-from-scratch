@@ -1,6 +1,6 @@
 # Whisper — Architecture & Fine-Tuning
 
-> Whisper is a 30-second-window transformer encoder-decoder, trained on 680k hours of multilingual weakly-supervised audio-text pairs. One architecture, multiple tasks, robust across 99 languages. The 2026 reference ASR.
+> Whisper là một encoder-decoder transformer cửa sổ 30 giây, được huấn luyện trên 680k giờ cặp âm thanh-văn bản đa ngôn ngữ có giám sát yếu. Một kiến trúc, nhiều tác vụ, vững chắc trên 99 ngôn ngữ. ASR tham chiếu năm 2026.
 
 **Type:** Build
 **Languages:** Python
@@ -9,66 +9,66 @@
 
 ## The Problem
 
-Whisper, released by OpenAI in September 2022, was the first ASR model to ship as a commodity: paste audio, get text, 99 languages, robust to noise, runs on a laptop. By 2024 OpenAI had shipped Large-v3 and Turbo variants; by 2026, Whisper is the default baseline for everything from podcast transcription to voice assistants to YouTube subtitles.
+Whisper, được OpenAI phát hành tháng 9 năm 2022, là mô hình ASR đầu tiên được phát hành như một hàng hóa phổ thông: dán âm thanh, nhận văn bản, 99 ngôn ngữ, vững trước nhiễu, chạy trên máy tính xách tay. Đến năm 2024 OpenAI đã phát hành các biến thể Large-v3 và Turbo; đến năm 2026, Whisper là baseline mặc định cho mọi thứ từ chép lời podcast đến trợ lý giọng nói đến phụ đề YouTube.
 
-But Whisper is not a pipeline you can treat as a black box forever. Domain shift kills it — technical jargon, speaker accents, proper nouns, short clips, silence. You need to know:
+Nhưng Whisper không phải một pipeline bạn có thể mãi coi là hộp đen. Dịch chuyển lĩnh vực giết nó — biệt ngữ kỹ thuật, giọng người nói, danh từ riêng, các đoạn ngắn, sự im lặng. Bạn cần biết:
 
-1. What it actually is inside.
-2. How to give it chunked, streaming, or long-form audio correctly.
-3. When to fine-tune and how.
+1. Bên trong nó thực sự là gì.
+2. Cách cung cấp đúng âm thanh chia khối, luồng hoặc dạng dài cho nó.
+3. Khi nào fine-tune và bằng cách nào.
 
 ## The Concept
 
 ![Whisper encoder-decoder, tasks, chunked inference, fine-tune](../assets/whisper.svg)
 
-**Architecture.** Standard transformer encoder-decoder.
+**Kiến trúc.** Encoder-decoder transformer tiêu chuẩn.
 
-- Input: 30-second log-mel spectrogram, 80 mels, 10 ms hop → 3000 frames. Clips shorter are zero-padded, clips longer are chunked.
-- Encoder: conv-downsample (stride 2) + `N` transformer blocks. For Large-v3: 32 layers, 1280-dim, 20 heads.
-- Decoder: `N` transformer blocks with causal self-attn + cross-attn to encoder output. Same size as encoder.
-- Output: BPE tokens over a 51,865-token vocab.
+- Đầu vào: phổ đồ log-mel 30 giây, 80 mel, bước nhảy 10 ms → 3000 khung. Các đoạn ngắn hơn được đệm không, các đoạn dài hơn được chia khối.
+- Encoder: tích chập giảm mẫu (stride 2) + `N` khối transformer. Với Large-v3: 32 tầng, 1280 chiều, 20 head.
+- Decoder: `N` khối transformer với self-attn nhân quả + cross-attn đến đầu ra encoder. Cùng kích thước encoder.
+- Đầu ra: các token BPE trên một từ vựng 51,865 token.
 
-Large-v3 has 1.55B params. Turbo uses a 4-layer decoder (from 32), cutting latency 8× with a <1% WER hit.
+Large-v3 có 1.55B tham số. Turbo dùng một decoder 4 tầng (từ 32), giảm độ trễ 8× với tổn thất WER <1%.
 
-**The prompt format.** Whisper is a multitask model steered by special tokens in the decoder prompt:
+**Định dạng prompt.** Whisper là một mô hình đa tác vụ được điều khiển bằng các token đặc biệt trong prompt decoder:
 
 ```
 <|startoftranscript|><|en|><|transcribe|><|notimestamps|> Hello world.<|endoftext|>
 ```
 
-- `<|en|>` — language tag; forces translation-vs-transcription behavior.
-- `<|transcribe|>` or `<|translate|>` — translate English output from any-language input, or verbatim.
-- `<|notimestamps|>` — skip word-level timestamps (faster).
+- `<|en|>` — nhãn ngôn ngữ; ép hành vi dịch-so-với-chép lời.
+- `<|transcribe|>` hoặc `<|translate|>` — dịch đầu ra tiếng Anh từ đầu vào bất kỳ ngôn ngữ nào, hoặc nguyên văn.
+- `<|notimestamps|>` — bỏ qua dấu thời gian cấp từ (nhanh hơn).
 
-The prompt is what lets one model do many tasks. Change `<|en|>` to `<|fr|>` and it transcribes French.
+Prompt là thứ cho phép một mô hình làm nhiều tác vụ. Đổi `<|en|>` thành `<|fr|>` và nó chép lời tiếng Pháp.
 
-**30-second window.** Everything is pinned to 30 seconds. Longer clips need chunking; shorter clips are padded. Windows are not streamed natively — this is why WhisperX, Whisper-Streaming, and faster-whisper exist.
+**Cửa sổ 30 giây.** Mọi thứ được gắn với 30 giây. Các đoạn dài hơn cần chia khối; các đoạn ngắn hơn được đệm. Các cửa sổ không được truyền luồng nguyên bản — đây là lý do WhisperX, Whisper-Streaming và faster-whisper tồn tại.
 
-**Log-mel normalization.** `(log_mel - mean) / std` where the stats come from Whisper's own training corpus. You *must* use Whisper's preprocessing (`whisper.audio.log_mel_spectrogram`), not `librosa.feature.melspectrogram`.
+**Chuẩn hóa log-mel.** `(log_mel - mean) / std` trong đó các thống kê đến từ ngữ liệu huấn luyện riêng của Whisper. Bạn *phải* dùng tiền xử lý của Whisper (`whisper.audio.log_mel_spectrogram`), không phải `librosa.feature.melspectrogram`.
 
 ### Variants in 2026
 
-| Variant | Params | Latency (A100) | WER (LibriSpeech-clean) |
+| Biến thể | Tham số | Độ trễ (A100) | WER (LibriSpeech-clean) |
 |---------|--------|----------------|------------------------|
-| Tiny | 39M | 1× realtime | 5.4% |
+| Tiny | 39M | 1× thời gian thực | 5.4% |
 | Base | 74M | 1× | 4.1% |
 | Small | 244M | 1× | 3.0% |
 | Medium | 769M | 1× | 2.7% |
 | Large-v3 | 1.55B | 2× | 1.8% |
 | Large-v3-turbo | 809M | 8× | 1.58% |
-| Whisper-Streaming (2024) | 1.55B | streaming | 2.0% |
+| Whisper-Streaming (2024) | 1.55B | truyền luồng | 2.0% |
 
 ### Fine-tuning
 
-Canonical workflow in 2026:
+Quy trình kinh điển năm 2026:
 
-1. Collect 10–100 hours of target-domain audio with aligned transcripts.
-2. Run `transformers.Seq2SeqTrainer` with `generate_with_loss` callback.
-3. Parameter-efficient: LoRA on `q_proj`, `k_proj`, `v_proj` of attention layers reduces GPU memory 4× with <0.3 WER cost.
-4. Freeze the encoder if you have <10 hours. Only tune the decoder.
-5. Use Whisper's own tokenizer and prompt format; never swap tokenizers.
+1. Thu thập 10–100 giờ âm thanh lĩnh vực đích có các bản chép lời được căn chỉnh.
+2. Chạy `transformers.Seq2SeqTrainer` với callback `generate_with_loss`.
+3. Hiệu quả tham số: LoRA trên `q_proj`, `k_proj`, `v_proj` của các tầng attention giảm bộ nhớ GPU 4× với chi phí <0.3 WER.
+4. Đóng băng encoder nếu bạn có <10 giờ. Chỉ tinh chỉnh decoder.
+5. Dùng tokenizer và định dạng prompt riêng của Whisper; không bao giờ hoán đổi tokenizer.
 
-Community results: fine-tuning Medium on 20 hours of medical dictation drops WER from 12% to 4.5% on medical vocabulary. Fine-tuning Turbo on 4 hours of Icelandic drops WER from 18% to 6%.
+Các kết quả cộng đồng: fine-tuning Medium trên 20 giờ đọc chính tả y tế hạ WER từ 12% xuống 4.5% trên từ vựng y tế. Fine-tuning Turbo trên 4 giờ tiếng Iceland hạ WER từ 18% xuống 6%.
 
 ```figure
 sp-asr-attention
@@ -93,7 +93,7 @@ for seg in result["segments"]:
     print(f"[{seg['start']:.2f}–{seg['end']:.2f}] {seg['text']}")
 ```
 
-Key defaults you should always override: `temperature=0.0` (sampling defaults to 0.0 → 0.2 → 0.4 … fallback chain), `condition_on_previous_text=False` (prevents the cascading hallucination problem), and `no_speech_threshold=0.6` (silence detection).
+Các mặc định then chốt bạn nên luôn ghi đè: `temperature=0.0` (lấy mẫu mặc định theo chuỗi dự phòng 0.0 → 0.2 → 0.4 …), `condition_on_previous_text=False` (ngăn vấn đề ảo giác dây chuyền) và `no_speech_threshold=0.6` (phát hiện im lặng).
 
 ### Step 2: chunked long-form
 
@@ -104,7 +104,7 @@ model = whisperx.load_model("large-v3-turbo", device="cuda", compute_type="float
 segments = model.transcribe("1hour.mp3", batch_size=16, chunk_size=30)
 ```
 
-WhisperX adds (1) Silero VAD gating, (2) word-level alignment via wav2vec 2.0, (3) diarization via `pyannote.audio`. The 2026 workhorse for production transcription.
+WhisperX thêm (1) chặn Silero VAD, (2) căn chỉnh cấp từ qua wav2vec 2.0, (3) phân đoạn người nói qua `pyannote.audio`. Thành phần chủ lực năm 2026 cho chép lời production.
 
 ### Step 3: fine-tune with LoRA
 
@@ -121,7 +121,7 @@ model = get_peft_model(model, lora)
 # model.print_trainable_parameters()  -> ~3M trainable / 809M total
 ```
 
-Then standard Trainer loop. Checkpoint every 1000 steps. Evaluate with WER on held-out.
+Rồi vòng lặp Trainer tiêu chuẩn. Lưu checkpoint mỗi 1000 bước. Đánh giá bằng WER trên tập được giữ lại.
 
 ### Step 4: inspect what each layer learns
 
@@ -136,56 +136,56 @@ with torch.inference_mode():
 # out.cross_attentions: layer × head × step × src_len
 ```
 
-Visualize with a heatmap — you will see diagonal alignment as decoder steps scan through encoder frames. That diagonal is Whisper's notion of word timestamps.
+Trực quan hóa bằng một bản đồ nhiệt — bạn sẽ thấy căn chỉnh chéo khi các bước decoder quét qua các khung encoder. Đường chéo đó là quan niệm của Whisper về dấu thời gian từ.
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Situation | Pick |
+| Tình huống | Chọn |
 |-----------|------|
-| General English, offline | Large-v3-turbo via `whisperx` |
-| Mobile / edge | Whisper-Tiny quantized (int8) or Moonshine |
-| Multilingual long-form | Large-v3 via `whisperx` + diarization |
-| Low-resource language | Fine-tune Medium or Turbo with LoRA |
-| Streaming (2 s latency) | Whisper-Streaming or Parakeet-TDT |
-| Word-level timestamps | WhisperX (forced alignment via wav2vec 2.0) |
+| Tiếng Anh tổng quát, ngoại tuyến | Large-v3-turbo qua `whisperx` |
+| Di động / biên | Whisper-Tiny được lượng tử hóa (int8) hoặc Moonshine |
+| Dạng dài đa ngôn ngữ | Large-v3 qua `whisperx` + phân đoạn người nói |
+| Ngôn ngữ ít tài nguyên | Fine-tune Medium hoặc Turbo với LoRA |
+| Truyền luồng (độ trễ 2 s) | Whisper-Streaming hoặc Parakeet-TDT |
+| Dấu thời gian cấp từ | WhisperX (căn chỉnh bắt buộc qua wav2vec 2.0) |
 
-`faster-whisper` (CTranslate2 backend) is the fastest CPU+GPU inference runtime in 2026 — 4× faster than vanilla with identical output.
+`faster-whisper` (backend CTranslate2) là runtime suy luận CPU+GPU nhanh nhất năm 2026 — nhanh hơn bản nguyên gốc 4× với đầu ra giống hệt.
 
 ## Pitfalls that still ship in 2026
 
-- **Hallucinated text on silence.** Whisper trained on captions includes "Thanks for watching!", "Subscribe!", song lyrics. Always VAD-gate before calling.
-- **`condition_on_previous_text` cascade.** One hallucination pollutes subsequent windows. Set `False` unless you need fluency across chunks.
-- **Short-clip padding.** A 2-second clip padded to 30 seconds can hallucinate in the trailing silence. Use `pad=False` or VAD-gate.
-- **Wrong mel stats.** Using librosa's mels instead of Whisper's produces near-random output. Use `whisper.audio.log_mel_spectrogram`.
+- **Văn bản bị ảo giác trên sự im lặng.** Whisper được huấn luyện trên chú thích bao gồm "Cảm ơn đã xem!", "Đăng ký!", lời bài hát. Luôn chặn VAD trước khi gọi.
+- **Dây chuyền `condition_on_previous_text`.** Một ảo giác làm ô nhiễm các cửa sổ tiếp theo. Đặt `False` trừ khi bạn cần độ trôi chảy xuyên các khối.
+- **Đệm đoạn ngắn.** Một đoạn 2 giây được đệm thành 30 giây có thể ảo giác trong phần im lặng cuối. Dùng `pad=False` hoặc chặn VAD.
+- **Thống kê mel sai.** Dùng mel của librosa thay cho của Whisper tạo đầu ra gần ngẫu nhiên. Dùng `whisper.audio.log_mel_spectrogram`.
 
 ## Ship It
 
-Save as `outputs/skill-whisper-tuner.md`. Design a Whisper fine-tune or inference pipeline for a given domain.
+Lưu thành `outputs/skill-whisper-tuner.md`. Thiết kế một pipeline fine-tune hoặc suy luận Whisper cho một lĩnh vực nhất định.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. It tokenizes a Whisper-style prompt, computes decoded shape budgets, and prints the chunk schedule for a 10-minute clip.
-2. **Medium.** Install `faster-whisper`, transcribe a 10-minute podcast, compare WER against a human transcript. Try `language="auto"` vs forced `language="en"`.
-3. **Hard.** Using HF `datasets`, pick a language Whisper struggles with (e.g., Urdu), fine-tune Medium with LoRA for 2 epochs on 2 hours, and report WER delta.
+1. **Dễ.** Chạy `code/main.py`. Nó tokenize một prompt kiểu Whisper, tính các ngân sách hình dạng được giải mã và in lịch chia khối cho một đoạn 10 phút.
+2. **Trung bình.** Cài `faster-whisper`, chép lời một podcast 10 phút, so sánh WER với bản chép lời của con người. Thử `language="auto"` so với ép `language="en"`.
+3. **Khó.** Dùng `datasets` của HF, chọn một ngôn ngữ Whisper chật vật (ví dụ, Urdu), fine-tune Medium với LoRA trong 2 epoch trên 2 giờ và báo cáo chênh lệch WER.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| 30-sec window | Whisper's limit | Hard input cap; chunk longer audio. |
-| SOT | Start-of-transcript | `<\|startoftranscript\|>` kicks off the decoder prompt. |
-| Timestamps token | Temporal alignment | Every 0.02 s offset is a special token in the 51k vocab. |
-| Turbo | The fast variant | 4-decoder layers, 8× faster, <1% WER regression. |
-| WhisperX | The long-form wrapper | VAD + Whisper + wav2vec alignment + diarization. |
-| LoRA fine-tune | Efficient tuning | Add low-rank adapters to attention; train ~0.3% of params. |
-| Hallucination | The silent failure | Whisper produces fluent English from noise/silence. |
+| 30-sec window (Cửa sổ 30 giây) | Giới hạn của Whisper | Giới hạn đầu vào cứng; chia khối âm thanh dài hơn. |
+| SOT | Bắt đầu bản chép lời | `<\|startoftranscript\|>` mở đầu prompt decoder. |
+| Timestamps token (Token dấu thời gian) | Căn chỉnh thời gian | Mỗi độ lệch 0.02 s là một token đặc biệt trong từ vựng 51k. |
+| Turbo | Biến thể nhanh | 4 tầng decoder, nhanh hơn 8×, suy giảm WER <1%. |
+| WhisperX | Lớp bọc dạng dài | VAD + Whisper + căn chỉnh wav2vec + phân đoạn người nói. |
+| LoRA fine-tune | Tinh chỉnh hiệu quả | Thêm các adapter hạng thấp vào attention; huấn luyện ~0.3% tham số. |
+| Hallucination (Ảo giác) | Thất bại âm thầm | Whisper tạo tiếng Anh trôi chảy từ nhiễu/sự im lặng. |
 
 ## Further Reading
 
-- [Radford et al. (2022). Whisper paper](https://arxiv.org/abs/2212.04356) — the original architecture and training recipe.
-- [OpenAI (2024). Whisper Large-v3-turbo release](https://github.com/openai/whisper/discussions/2363) — 4-layer decoder, 8× speedup.
-- [Bain et al. (2023). WhisperX](https://arxiv.org/abs/2303.00747) — long-form, word-aligned, diarized.
-- [Systran — faster-whisper repo](https://github.com/SYSTRAN/faster-whisper) — CTranslate2-backed, 4× faster.
-- [HuggingFace — Whisper fine-tune tutorial](https://huggingface.co/blog/fine-tune-whisper) — canonical LoRA / full-FT walkthrough.
+- [Radford et al. (2022). Whisper paper](https://arxiv.org/abs/2212.04356) — kiến trúc và công thức huấn luyện gốc.
+- [OpenAI (2024). Whisper Large-v3-turbo release](https://github.com/openai/whisper/discussions/2363) — decoder 4 tầng, tăng tốc 8×.
+- [Bain et al. (2023). WhisperX](https://arxiv.org/abs/2303.00747) — dạng dài, được căn chỉnh từ, được phân đoạn người nói.
+- [Systran — faster-whisper repo](https://github.com/SYSTRAN/faster-whisper) — dựa trên CTranslate2, nhanh hơn 4×.
+- [HuggingFace — Whisper fine-tune tutorial](https://huggingface.co/blog/fine-tune-whisper) — hướng dẫn LoRA / full-FT kinh điển.
