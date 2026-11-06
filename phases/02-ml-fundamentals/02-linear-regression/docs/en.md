@@ -1,6 +1,6 @@
 # Linear Regression
 
-> Linear regression draws the best straight line through your data. It is the "hello world" of machine learning.
+> Hồi quy tuyến tính vẽ đường thẳng tốt nhất qua dữ liệu của bạn. Nó là "hello world" của học máy.
 
 **Type:** Build
 **Languages:** Python
@@ -9,57 +9,57 @@
 
 ## Learning Objectives
 
-- Derive the gradient descent update rules for mean squared error and implement linear regression from scratch
-- Compare gradient descent and the normal equation in terms of computational complexity and when to use each
-- Build a multiple linear regression model with feature standardization and interpret the learned weights
-- Explain how Ridge regression (L2 regularization) prevents overfitting by penalizing large weights
+- Suy ra các quy tắc cập nhật gradient descent cho sai số bình phương trung bình và triển khai hồi quy tuyến tính từ đầu
+- So sánh gradient descent và phương trình chuẩn về độ phức tạp tính toán và khi nào sử dụng mỗi loại
+- Xây dựng một mô hình hồi quy tuyến tính đa biến với chuẩn hóa đặc trưng và diễn giải các trọng số đã học
+- Giải thích cách hồi quy Ridge (L2 regularization) ngăn khớp quá mức bằng cách phạt các trọng số lớn
 
 ## The Problem
 
-You have data: house sizes and their sale prices. You want to predict the price of a new house given its size. You could eyeball it on a scatter plot, but you need a formula. You need a line that best fits the data so you can plug in any size and get a price prediction.
+Bạn có dữ liệu: diện tích nhà và giá bán của chúng. Bạn muốn dự đoán giá một căn nhà mới khi biết diện tích. Bạn có thể ước lượng bằng mắt trên một biểu đồ phân tán, nhưng bạn cần một công thức. Bạn cần một đường khớp dữ liệu tốt nhất để có thể đưa vào bất kỳ diện tích nào và nhận một dự đoán giá.
 
-Linear regression gives you that line. More importantly, it introduces the entire ML training loop: define a model, define a cost function, optimize the parameters. Every ML algorithm follows this same pattern. Master it here with the simplest case, and you will recognize it everywhere.
+Hồi quy tuyến tính cho bạn đường đó. Quan trọng hơn, nó giới thiệu toàn bộ vòng lặp huấn luyện ML: định nghĩa một mô hình, định nghĩa một hàm chi phí, tối ưu hóa các tham số. Mọi thuật toán ML tuân theo cùng mẫu này. Thành thạo nó ở đây với trường hợp đơn giản nhất, và bạn sẽ nhận ra nó ở khắp nơi.
 
-This is not just for simple problems. Linear regression is used in production systems for demand forecasting, A/B test analysis, financial modeling, and as a baseline for every regression task.
+Điều này không chỉ dành cho các bài toán đơn giản. Hồi quy tuyến tính được sử dụng trong các hệ thống sản xuất để dự báo nhu cầu, phân tích kiểm thử A/B, mô hình hóa tài chính và làm mốc cơ sở cho mọi tác vụ hồi quy.
 
 ## The Concept
 
 ### The Model
 
-Linear regression assumes a linear relationship between input (x) and output (y):
+Hồi quy tuyến tính giả định một quan hệ tuyến tính giữa đầu vào (x) và đầu ra (y):
 
 ```
 y = wx + b
 ```
 
-- `w` (weight/slope): how much y changes when x increases by 1
-- `b` (bias/intercept): the value of y when x = 0
+- `w` (trọng số/độ dốc): y thay đổi bao nhiêu khi x tăng 1
+- `b` (bias/tung độ gốc): giá trị của y khi x = 0
 
-For multiple inputs (features), this extends to:
+Với nhiều đầu vào (đặc trưng), điều này mở rộng thành:
 
 ```
 y = w1*x1 + w2*x2 + ... + wn*xn + b
 ```
 
-Or in vector form: `y = w^T * x + b`
+Hoặc ở dạng vector: `y = w^T * x + b`
 
-The goal: find the values of w and b that make the predicted y as close as possible to the actual y across all training examples.
+Mục tiêu: tìm các giá trị w và b làm y dự đoán gần y thực nhất có thể trên tất cả các ví dụ huấn luyện.
 
 ### The Cost Function (Mean Squared Error)
 
-How do you measure "as close as possible"? You need a single number that captures how wrong your predictions are. The most common choice is Mean Squared Error (MSE):
+Bạn đo "gần nhất có thể" bằng cách nào? Bạn cần một con số duy nhất nắm bắt mức độ sai của các dự đoán. Lựa chọn phổ biến nhất là Sai số Bình phương Trung bình (MSE):
 
 ```
 MSE = (1/n) * sum((y_predicted - y_actual)^2)
 ```
 
-Why squared? Two reasons. First, it penalizes large errors more than small errors (an error of 10 is 100x worse than an error of 1, not 10x). Second, the squared function is smooth and differentiable everywhere, which makes optimization straightforward.
+Tại sao bình phương? Hai lý do. Thứ nhất, nó phạt sai số lớn hơn sai số nhỏ (sai số 10 tệ hơn sai số 1 đến 100 lần, không phải 10 lần). Thứ hai, hàm bình phương trơn và khả vi ở mọi nơi, làm việc tối ưu hóa đơn giản.
 
-The cost function creates a surface. For a single weight w and bias b, the MSE surface looks like a bowl (a convex paraboloid). The bottom of the bowl is where MSE is minimized. Training means finding that bottom.
+Hàm chi phí tạo ra một bề mặt. Với một trọng số w và bias b duy nhất, bề mặt MSE trông như một cái bát (một paraboloid lồi). Đáy bát là nơi MSE được tối thiểu hóa. Huấn luyện nghĩa là tìm đáy đó.
 
 ### Gradient Descent
 
-Gradient descent finds the bottom of the bowl by taking steps downhill.
+Gradient descent tìm đáy bát bằng cách bước xuống dốc.
 
 ```mermaid
 flowchart TD
@@ -72,80 +72,80 @@ flowchart TD
     F -->|Yes| G[Done: optimal w and b found]
 ```
 
-The gradients tell you two things: which direction to move each parameter, and how much to move.
+Gradient cho bạn biết hai điều: di chuyển mỗi tham số theo hướng nào và di chuyển bao nhiêu.
 
-For MSE with y_hat = wx + b:
+Với MSE khi y_hat = wx + b:
 
 ```
 dMSE/dw = (2/n) * sum((y_hat - y) * x)
 dMSE/db = (2/n) * sum(y_hat - y)
 ```
 
-The update rule:
+Quy tắc cập nhật:
 
 ```
 w = w - learning_rate * dMSE/dw
 b = b - learning_rate * dMSE/db
 ```
 
-The learning rate controls step size. Too large: you overshoot the minimum and diverge. Too small: training takes forever. Typical starting values: 0.01, 0.001, or 0.0001.
+Tốc độ học điều khiển kích thước bước. Quá lớn: bạn vượt qua cực tiểu và phân kỳ. Quá nhỏ: huấn luyện kéo dài mãi. Các giá trị bắt đầu điển hình: 0.01, 0.001 hoặc 0.0001.
 
 ### The Normal Equation (Closed-Form Solution)
 
-For linear regression specifically, there is a direct formula that gives the optimal weights without any iteration:
+Riêng với hồi quy tuyến tính, có một công thức trực tiếp cho các trọng số tối ưu mà không cần lần lặp nào:
 
 ```
 w = (X^T * X)^(-1) * X^T * y
 ```
 
-This inverts a matrix to solve for w in one step. It works perfectly for small datasets. For large datasets (millions of rows or thousands of features), gradient descent is preferred because matrix inversion is O(n^3) in the number of features.
+Công thức này nghịch đảo một ma trận để giải w trong một bước. Nó hoạt động hoàn hảo với các tập dữ liệu nhỏ. Với các tập dữ liệu lớn (hàng triệu hàng hoặc hàng nghìn đặc trưng), gradient descent được ưu tiên vì nghịch đảo ma trận có độ phức tạp O(n^3) theo số đặc trưng.
 
 ### Multiple Linear Regression
 
-With multiple features, the model becomes:
+Với nhiều đặc trưng, mô hình trở thành:
 
 ```
 y = w1*x1 + w2*x2 + ... + wn*xn + b
 ```
 
-Everything works the same: MSE is the cost function, gradient descent updates all weights simultaneously. The only difference is that you are fitting a hyperplane instead of a line.
+Mọi thứ hoạt động giống nhau: MSE là hàm chi phí, gradient descent cập nhật tất cả trọng số đồng thời. Khác biệt duy nhất là bạn đang khớp một siêu phẳng thay vì một đường thẳng.
 
-Feature scaling matters here. If one feature ranges from 0 to 1 and another ranges from 0 to 1,000,000, gradient descent will struggle because the cost surface becomes elongated. Standardize features (subtract mean, divide by standard deviation) before training.
+Co giãn đặc trưng quan trọng ở đây. Nếu một đặc trưng nằm trong khoảng 0 đến 1 và đặc trưng khác từ 0 đến 1,000,000, gradient descent sẽ gặp khó vì bề mặt chi phí trở nên kéo dài. Chuẩn hóa các đặc trưng (trừ trung bình, chia độ lệch chuẩn) trước huấn luyện.
 
 ### Polynomial Regression
 
-What if the relationship is not linear? You can still use linear regression by creating polynomial features:
+Nếu quan hệ không tuyến tính thì sao? Bạn vẫn có thể sử dụng hồi quy tuyến tính bằng cách tạo các đặc trưng đa thức:
 
 ```
 y = w1*x + w2*x^2 + w3*x^3 + b
 ```
 
-This is still "linear" regression because the model is linear in the weights (w1, w2, w3). You are just using nonlinear features of x.
+Đây vẫn là hồi quy "tuyến tính" vì mô hình tuyến tính theo các trọng số (w1, w2, w3). Bạn chỉ đang sử dụng các đặc trưng phi tuyến của x.
 
-Higher-degree polynomials can fit more complex curves but risk overfitting. A degree-10 polynomial will pass through every point in a 10-point dataset but predict poorly on new data.
+Các đa thức bậc cao hơn có thể khớp các đường cong phức tạp hơn nhưng có nguy cơ khớp quá mức. Một đa thức bậc 10 sẽ đi qua mọi điểm trong tập dữ liệu 10 điểm nhưng dự đoán kém trên dữ liệu mới.
 
 ### R-Squared Score
 
-MSE tells you how wrong you are, but the number depends on the scale of y. R-squared (R^2) gives a scale-independent measure:
+MSE cho bạn biết sai đến mức nào, nhưng con số phụ thuộc vào thang đo của y. R-bình phương (R^2) cho một thước đo độc lập với thang đo:
 
 ```
 R^2 = 1 - (sum of squared residuals) / (sum of squared deviations from mean)
     = 1 - SS_res / SS_tot
 ```
 
-- R^2 = 1.0: perfect predictions
-- R^2 = 0.0: the model is no better than predicting the mean every time
-- R^2 < 0.0: the model is worse than predicting the mean
+- R^2 = 1.0: các dự đoán hoàn hảo
+- R^2 = 0.0: mô hình không tốt hơn việc dự đoán trung bình mỗi lần
+- R^2 < 0.0: mô hình tệ hơn việc dự đoán trung bình
 
 ### Regularization Preview (Ridge Regression)
 
-When you have many features, the model can overfit by assigning large weights. Ridge regression (L2 regularization) adds a penalty:
+Khi có nhiều đặc trưng, mô hình có thể khớp quá mức bằng cách gán các trọng số lớn. Hồi quy Ridge (L2 regularization) thêm một hình phạt:
 
 ```
 Cost = MSE + lambda * sum(w_i^2)
 ```
 
-The penalty term discourages large weights. The hyperparameter lambda controls the tradeoff: higher lambda means smaller weights and more regularization. This is covered in depth in a later lesson. For now, know that it exists and why it helps.
+Số hạng phạt hạn chế các trọng số lớn. Siêu tham số lambda điều khiển sự đánh đổi: lambda cao hơn nghĩa là trọng số nhỏ hơn và nhiều regularization hơn. Điều này được trình bày sâu trong một bài học sau. Hiện tại, hãy biết nó tồn tại và tại sao nó giúp ích.
 
 ```figure
 linear-regression-fit
@@ -466,7 +466,7 @@ print("Ridge weights are smaller (shrunk toward zero) due to the L2 penalty.")
 
 ## Use It
 
-Now the same thing with scikit-learn, which is what you will actually use in production.
+Bây giờ là cùng điều đó với scikit-learn, thứ bạn thực sự sẽ sử dụng trong sản xuất.
 
 ```python
 from sklearn.linear_model import LinearRegression as SklearnLR
@@ -510,39 +510,39 @@ print(f"Ridge R-squared: {r2_score(y_test, ridge.predict(X_test_scaled)):.4f}")
 print(f"Ridge coefficient: {ridge.coef_[0]:.4f}")
 ```
 
-Your from-scratch implementation and scikit-learn produce the same results. The difference: scikit-learn handles edge cases, numerical stability, and performance optimizations. Use the library for production. Use the from-scratch version to understand what is happening.
+Triển khai từ đầu của bạn và scikit-learn tạo ra cùng kết quả. Khác biệt: scikit-learn xử lý các trường hợp biên, độ ổn định số học và các tối ưu hóa hiệu năng. Sử dụng thư viện cho sản xuất. Sử dụng phiên bản từ đầu để hiểu điều gì đang diễn ra.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/skill-regression.md` - a skill for choosing the right regression approach based on the problem
+Bài học này tạo ra:
+- `outputs/skill-regression.md` - một skill để chọn cách tiếp cận hồi quy phù hợp dựa trên bài toán
 
 ## Exercises
 
-1. Implement batch gradient descent, stochastic gradient descent (SGD), and mini-batch gradient descent. Compare convergence speed on the same dataset. Which converges fastest? Which has the smoothest cost curve?
-2. Generate data from a cubic function (y = ax^3 + bx^2 + cx + d + noise). Fit polynomials of degree 1, 3, and 10. Compare training R^2 and test R^2. At what degree does overfitting become obvious?
-3. Implement Lasso regression (L1 regularization: penalty = alpha * sum(|w_i|)). Train on the multi-feature housing data. Compare which weights go to zero vs Ridge. Why does L1 produce sparse solutions while L2 does not?
+1. Triển khai batch gradient descent, gradient descent ngẫu nhiên (SGD) và mini-batch gradient descent. So sánh tốc độ hội tụ trên cùng tập dữ liệu. Loại nào hội tụ nhanh nhất? Loại nào có đường cong chi phí mượt nhất?
+2. Tạo dữ liệu từ một hàm bậc ba (y = ax^3 + bx^2 + cx + d + noise). Khớp các đa thức bậc 1, 3 và 10. So sánh R^2 huấn luyện và R^2 kiểm tra. Ở bậc nào khớp quá mức trở nên rõ ràng?
+3. Triển khai hồi quy Lasso (L1 regularization: penalty = alpha * sum(|w_i|)). Huấn luyện trên dữ liệu nhà ở nhiều đặc trưng. So sánh các trọng số nào về không so với Ridge. Tại sao L1 tạo các nghiệm thưa trong khi L2 thì không?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Linear regression | "Draw a line through data" | Find weight w and bias b that minimize the sum of squared differences between wx+b and actual y values |
-| Cost function | "How bad the model is" | A function that maps model parameters to a single number measuring prediction error, which optimization minimizes |
-| Mean squared error | "Average of squared errors" | (1/n) * sum of (predicted - actual)^2, penalizing large errors disproportionately |
-| Gradient descent | "Walk downhill" | Iteratively adjust parameters in the direction that reduces the cost function, using partial derivatives |
-| Learning rate | "Step size" | A scalar that controls how much parameters change per gradient descent step |
-| Normal equation | "Solve it directly" | The closed-form solution w = (X^T X)^-1 X^T y that gives optimal weights without iteration |
-| R-squared | "How good the fit is" | The fraction of variance in y explained by the model, ranging from negative infinity to 1.0 |
-| Feature scaling | "Make features comparable" | Transforming features to similar ranges (e.g., zero mean, unit variance) so gradient descent converges faster |
-| Regularization | "Penalize complexity" | Adding a term to the cost function that shrinks weights, preventing overfitting |
-| Ridge regression | "L2 regularization" | Linear regression with a penalty of lambda * sum(w_i^2) added to MSE |
-| Polynomial regression | "Fitting curves with linear math" | Linear regression on polynomial features (x, x^2, x^3, ...), still linear in the weights |
-| Overfitting | "Memorizing training data" | Using a model so complex that it fits noise in training data and fails on new data |
+| Linear regression (Hồi quy tuyến tính) | "Vẽ một đường qua dữ liệu" | Tìm trọng số w và bias b tối thiểu hóa tổng bình phương chênh lệch giữa wx+b và các giá trị y thực |
+| Cost function (Hàm chi phí) | "Mô hình tệ đến mức nào" | Một hàm ánh xạ các tham số mô hình thành một con số duy nhất đo sai số dự đoán, mà quá trình tối ưu hóa tối thiểu hóa |
+| Mean squared error (Sai số bình phương trung bình) | "Trung bình các sai số bình phương" | (1/n) * tổng của (predicted - actual)^2, phạt các sai số lớn một cách không cân xứng |
+| Gradient descent | "Đi xuống dốc" | Lặp lại việc điều chỉnh các tham số theo hướng làm giảm hàm chi phí, sử dụng các đạo hàm riêng |
+| Learning rate (Tốc độ học) | "Kích thước bước" | Một số vô hướng điều khiển mức thay đổi tham số trong mỗi bước gradient descent |
+| Normal equation (Phương trình chuẩn) | "Giải trực tiếp" | Nghiệm dạng đóng w = (X^T X)^-1 X^T y cho các trọng số tối ưu mà không lặp |
+| R-squared (R-bình phương) | "Mức khớp tốt đến đâu" | Phần phương sai trong y được mô hình giải thích, nằm trong khoảng từ âm vô cực đến 1.0 |
+| Feature scaling (Co giãn đặc trưng) | "Làm các đặc trưng có thể so sánh" | Biến đổi các đặc trưng về các khoảng tương tự (ví dụ, trung bình bằng không, phương sai đơn vị) để gradient descent hội tụ nhanh hơn |
+| Regularization | "Phạt độ phức tạp" | Thêm một số hạng vào hàm chi phí để thu nhỏ trọng số, ngăn khớp quá mức |
+| Ridge regression (Hồi quy Ridge) | "L2 regularization" | Hồi quy tuyến tính với hình phạt lambda * sum(w_i^2) được thêm vào MSE |
+| Polynomial regression (Hồi quy đa thức) | "Khớp các đường cong bằng toán tuyến tính" | Hồi quy tuyến tính trên các đặc trưng đa thức (x, x^2, x^3, ...), vẫn tuyến tính theo trọng số |
+| Overfitting (Khớp quá mức) | "Ghi nhớ dữ liệu huấn luyện" | Sử dụng một mô hình phức tạp đến mức nó khớp nhiễu trong dữ liệu huấn luyện và thất bại trên dữ liệu mới |
 
 ## Further Reading
 
-- [An Introduction to Statistical Learning (ISLR)](https://www.statlearning.com/) -- free PDF, chapters 3 and 6 cover linear regression and regularization with practical R examples
-- [The Elements of Statistical Learning (ESL)](https://hastie.su.domains/ElemStatLearn/) -- free PDF, the more mathematical companion to ISLR with deeper treatment of ridge and lasso
-- [Stanford CS229 Lecture Notes on Linear Regression](https://cs229.stanford.edu/main_notes.pdf) -- Andrew Ng's notes deriving the normal equation and gradient descent from first principles
-- [scikit-learn LinearRegression documentation](https://scikit-learn.org/stable/modules/linear_model.html) -- practical reference for LinearRegression, Ridge, Lasso, and ElasticNet with code examples
+- [An Introduction to Statistical Learning (ISLR)](https://www.statlearning.com/) -- PDF miễn phí, các chương 3 và 6 trình bày hồi quy tuyến tính và regularization với các ví dụ R thực hành
+- [The Elements of Statistical Learning (ESL)](https://hastie.su.domains/ElemStatLearn/) -- PDF miễn phí, tài liệu đồng hành thiên về toán hơn của ISLR với trình bày sâu hơn về ridge và lasso
+- [Stanford CS229 Lecture Notes on Linear Regression](https://cs229.stanford.edu/main_notes.pdf) -- bài giảng của Andrew Ng suy ra phương trình chuẩn và gradient descent từ các nguyên lý đầu tiên
+- [Tài liệu scikit-learn LinearRegression](https://scikit-learn.org/stable/modules/linear_model.html) -- tài liệu tham khảo thực hành cho LinearRegression, Ridge, Lasso và ElasticNet với các ví dụ mã
