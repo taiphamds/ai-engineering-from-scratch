@@ -1,6 +1,6 @@
 # Choose Prototype, Pilot, or Production Deliberately
 
-> These are different learning environments, not levels of polish. Choose the stage that answers the current unknown with the least unnecessary consequence.
+> Đây là các môi trường học khác nhau, không phải các mức độ trau chuốt. Chọn giai đoạn trả lời điều chưa biết hiện tại với ít hệ quả không cần thiết nhất.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,57 +9,57 @@
 
 ## Learning Objectives
 
-- Choose a build stage from the unknown, audience, data, consequence, and readiness.
-- Define stage-specific controls and exit criteria.
-- Prevent prototypes from quietly becoming production systems.
-- Delay real authority until evidence and operations justify it.
+- Chọn một giai đoạn xây dựng từ điều chưa biết, đối tượng, dữ liệu, hệ quả và sự sẵn sàng.
+- Định nghĩa các biện pháp kiểm soát và tiêu chí kết thúc dành riêng cho giai đoạn.
+- Ngăn các nguyên mẫu âm thầm trở thành các hệ thống sản xuất.
+- Trì hoãn thẩm quyền thực cho đến khi bằng chứng và vận hành biện minh cho nó.
 
 ## Three Different Questions
 
-| Stage | Primary question |
+| Giai đoạn | Câu hỏi chính |
 |---|---|
-| Prototype | Can this mechanism produce the evidence at all? |
-| Pilot | Does it work safely with a bounded real audience and real conditions? |
-| Production | Can we own it continuously at the promised reliability and risk level? |
+| Nguyên mẫu | Cơ chế này có thể tạo bằng chứng chút nào không? |
+| Thí điểm | Nó có hoạt động an toàn với một đối tượng thực có giới hạn và các điều kiện thực không? |
+| Sản xuất | Chúng ta có thể sở hữu nó liên tục ở mức độ tin cậy và rủi ro đã hứa không? |
 
-A prototype can be technically complete and still be disposable. A pilot can use production data while remaining limited in audience and authority. Production begins when the organization accepts ongoing responsibility.
+Một nguyên mẫu có thể hoàn chỉnh về kỹ thuật và vẫn có thể bỏ đi. Một thí điểm có thể sử dụng dữ liệu sản xuất trong khi vẫn giới hạn về đối tượng và thẩm quyền. Sản xuất bắt đầu khi tổ chức chấp nhận trách nhiệm liên tục.
 
 ## Prototype
 
-Use a prototype when the unknown does not require real users or real data. Keep it:
+Sử dụng một nguyên mẫu khi điều chưa biết không yêu cầu người dùng thực hoặc dữ liệu thực. Giữ nó:
 
-- discardable;
-- isolated;
-- narrow in behavior;
-- explicit about the learning question;
-- free of false operational guarantees.
+- có thể loại bỏ;
+- cô lập;
+- hẹp về hành vi;
+- tường minh về câu hỏi học hỏi;
+- không có các bảo đảm vận hành giả.
 
-Do not optimize architecture before the mechanism earns another stage.
+Đừng tối ưu hóa kiến trúc trước khi cơ chế xứng đáng với một giai đoạn nữa.
 
 ## Pilot
 
-Use a pilot when the unknown requires real behavior, realistic data, or a real workflow, but consequence or readiness is not yet compatible with broad release.
+Sử dụng một thí điểm khi điều chưa biết yêu cầu hành vi thực, dữ liệu thực tế hoặc một workflow thực, nhưng hệ quả hoặc sự sẵn sàng chưa tương thích với phát hành rộng.
 
-A pilot needs:
+Một thí điểm cần:
 
-- a named audience;
-- a human owner;
-- bounded duration and authority;
-- audit and rollback;
-- outcome and guardrail thresholds;
-- exit criteria for expand, revise, or stop.
+- một đối tượng được nêu tên;
+- một con người chịu trách nhiệm;
+- thời lượng và thẩm quyền có giới hạn;
+- kiểm toán và khôi phục;
+- các ngưỡng kết quả và chốt bảo vệ;
+- các tiêu chí kết thúc để mở rộng, chỉnh sửa hoặc dừng.
 
 ## Production
 
-Production needs more than deployment:
+Sản xuất cần nhiều hơn triển khai:
 
-- service level objective;
-- on-call and incident ownership;
-- security and privacy review;
-- cost and capacity controls;
-- rollback and recovery;
-- continuous monitoring;
-- a retirement path.
+- mục tiêu mức dịch vụ;
+- trực và quyền sở hữu sự cố;
+- đánh giá bảo mật và riêng tư;
+- các biện pháp kiểm soát chi phí và dung lượng;
+- khôi phục và phục hồi;
+- giám sát liên tục;
+- một đường loại bỏ.
 
 ```mermaid
 flowchart LR
@@ -72,34 +72,34 @@ flowchart LR
 
 ## Stage Drift
 
-Prototype code becomes dangerous when it acquires users, data, or authority without acquiring ownership. Mark prototype and pilot boundaries in configuration, access control, telemetry, and documentation. A warning banner is not enough.
+Mã nguyên mẫu trở nên nguy hiểm khi nó có được người dùng, dữ liệu hoặc thẩm quyền mà không có được quyền sở hữu. Đánh dấu các ranh giới nguyên mẫu và thí điểm trong cấu hình, kiểm soát truy cập, telemetry và tài liệu. Một banner cảnh báo là chưa đủ.
 
-The stage should be observable from the system itself.
+Giai đoạn nên có thể quan sát từ chính hệ thống.
 
 ## Build It
 
-The lab chooses a stage from the decision context, returns required controls, and writes `outputs/stage-decisions.json`.
+Bài thực hành chọn một giai đoạn từ ngữ cảnh quyết định, trả về các biện pháp kiểm soát bắt buộc và ghi `outputs/stage-decisions.json`.
 
 ```bash
 python3 code/main.py
 python3 -m unittest discover code/tests -v
 ```
 
-Change the pilot example to low consequence with operational readiness. Explain what additional evidence would justify production.
+Thay ví dụ thí điểm thành hệ quả thấp với sự sẵn sàng vận hành. Giải thích bằng chứng bổ sung nào sẽ biện minh cho sản xuất.
 
 ## Exercises
 
-1. Classify three current projects by learning stage, not deployment status.
-2. Write pilot exit criteria that include a stop decision.
-3. Add a technical control that prevents a prototype from reaching production data.
-4. Identify the first operational responsibility that makes the build production.
-5. Design a rollback receipt for the bounded pilot.
+1. Phân loại ba dự án hiện tại theo giai đoạn học hỏi, không phải trạng thái triển khai.
+2. Viết các tiêu chí kết thúc thí điểm bao gồm một quyết định dừng.
+3. Thêm một biện pháp kiểm soát kỹ thuật ngăn một nguyên mẫu tiếp cận dữ liệu sản xuất.
+4. Nhận diện trách nhiệm vận hành đầu tiên làm bản xây dựng trở thành sản xuất.
+5. Thiết kế một bằng chứng khôi phục cho thí điểm có giới hạn.
 
 ## Further Reading
 
-- [Barry Boehm, A Spiral Model of Software Development and Enhancement](https://dl.acm.org/doi/10.1145/12944.12948), for matching each iteration’s commitment to resolved risk.
-- [Fagerholm et al., Building Blocks for Continuous Experimentation](https://doi.org/10.1145/2601248.2601276), for the organizational and technical conditions required to run experiments continuously.
+- [Barry Boehm, A Spiral Model of Software Development and Enhancement](https://dl.acm.org/doi/10.1145/12944.12948), để khớp cam kết của mỗi lần lặp với rủi ro đã được giải quyết.
+- [Fagerholm et al., Building Blocks for Continuous Experimentation](https://doi.org/10.1145/2601248.2601276), cho các điều kiện tổ chức và kỹ thuật bắt buộc để chạy các thí nghiệm liên tục.
 
 ## What You Keep
 
-Keep `outputs/stage-decisions.json`. It records why each stage is justified and which controls must exist before the next one.
+Giữ `outputs/stage-decisions.json`. Nó ghi lại vì sao mỗi giai đoạn được biện minh và những biện pháp kiểm soát nào phải tồn tại trước giai đoạn tiếp theo.
