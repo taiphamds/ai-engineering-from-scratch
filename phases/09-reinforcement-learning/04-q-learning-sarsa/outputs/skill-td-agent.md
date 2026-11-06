@@ -7,12 +7,12 @@ lesson: 4
 tags: [rl, td-learning, q-learning, sarsa]
 ---
 
-Given a tabular or small-feature environment, output:
+Với một môi trường dạng bảng hoặc ít đặc trưng, xuất ra:
 
-1. Algorithm. Q-learning / SARSA / Expected SARSA / n-step variant. One-sentence reason tied to on-policy vs off-policy and variance.
-2. Hyperparameters. α, γ, ε, decay schedule.
-3. Initialization. Q_0 value (optimistic vs zero) and justification.
-4. Convergence diagnostic. Target learning curve, `|Q - Q*|` check if DP is possible.
-5. Deployment caveat. How will exploration behave at inference? Is SARSA's conservatism needed?
+1. Thuật toán. Q-learning / SARSA / Expected SARSA / biến thể n bước. Lý do một câu gắn với on-policy so với off-policy và phương sai.
+2. Siêu tham số. α, γ, ε, lịch giảm dần.
+3. Khởi tạo. Giá trị Q_0 (lạc quan so với không) và biện minh.
+4. Chẩn đoán hội tụ. Đường cong học mục tiêu, kiểm tra `|Q - Q*|` nếu DP khả thi.
+5. Lưu ý triển khai. Khám phá sẽ hành xử thế nào khi suy luận? Có cần tính bảo thủ của SARSA không?
 
-Refuse to apply tabular TD to state spaces > 10⁶. Refuse to ship a Q-learning agent without a max-bias caveat. Flag any agent trained with ε held at 1.0 throughout (no exploitation phase).
+Từ chối áp dụng TD dạng bảng cho các không gian trạng thái > 10⁶. Từ chối triển khai một agent Q-learning mà không có lưu ý về độ chệch max. Đánh dấu bất kỳ agent nào được huấn luyện với ε giữ ở 1.0 suốt quá trình (không có giai đoạn khai thác).
