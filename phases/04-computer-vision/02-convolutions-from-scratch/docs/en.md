@@ -1,6 +1,6 @@
 # Convolutions from Scratch
 
-> A convolution is a tiny dense layer you slide across an image, sharing the same weights at every location.
+> Một phép tích chập là một lớp kết nối đầy đủ nhỏ mà bạn trượt trên hình ảnh, chia sẻ cùng các trọng số tại mọi vị trí.
 
 **Type:** Build
 **Languages:** Python
@@ -9,24 +9,24 @@
 
 ## Learning Objectives
 
-- Implement 2D convolution from scratch using only NumPy, including the nested-loop version and a vectorised `im2col` version
-- Compute output spatial size for any combination of input size, kernel size, padding, and stride, and justify the `(H - K + 2P) / S + 1` formula
-- Hand-design kernels (edge, blur, sharpen, Sobel) and explain why each one produces the pattern of activations it does
-- Stack convolutions into a feature extractor and connect the depth-of-the-stack to the size of the receptive field
+- Triển khai tích chập 2D từ đầu chỉ bằng NumPy, bao gồm phiên bản vòng lặp lồng nhau và phiên bản `im2col` được vector hóa
+- Tính kích thước không gian đầu ra cho bất kỳ tổ hợp kích thước đầu vào, kích thước kernel, padding và stride nào, và giải thích công thức `(H - K + 2P) / S + 1`
+- Thiết kế thủ công các kernel (cạnh, làm mờ, làm sắc nét, Sobel) và giải thích tại sao mỗi kernel tạo ra mẫu kích hoạt của nó
+- Xếp chồng các phép tích chập thành một bộ trích xuất đặc trưng và liên hệ độ sâu của chồng lớp với kích thước trường tiếp nhận
 
 ## The Problem
 
-A fully connected layer on a 224x224 RGB image would need 224 * 224 * 3 = 150,528 input weights per neuron. A single hidden layer with 1,000 units is already 150 million parameters — before you have learnt anything useful. Worse, that layer has no notion that a dog in the top-left and a dog in the bottom-right are the same pattern. It treats every pixel position as independent, which is exactly wrong for images: translating a cat by three pixels should not force the network to relearn the concept.
+Một lớp kết nối đầy đủ trên một hình ảnh RGB 224x224 sẽ cần 224 * 224 * 3 = 150,528 trọng số đầu vào mỗi nơ-ron. Một lớp ẩn duy nhất có 1,000 đơn vị đã là 150 triệu tham số — trước khi bạn học được bất cứ điều gì hữu ích. Tệ hơn, lớp đó không có khái niệm rằng một con chó ở góc trên trái và một con chó ở góc dưới phải là cùng một mẫu. Nó coi mỗi vị trí pixel là độc lập, điều hoàn toàn sai với hình ảnh: tịnh tiến một con mèo ba pixel không nên buộc mạng học lại khái niệm đó.
 
-The two properties an image model needs are **translation equivariance** (the output shifts when the input shifts) and **parameter sharing** (the same feature detector runs everywhere). Dense layers give you neither. Convolution gives you both for free.
+Hai thuộc tính một mô hình hình ảnh cần là **đẳng biến tịnh tiến** (đầu ra dịch chuyển khi đầu vào dịch chuyển) và **chia sẻ tham số** (cùng bộ phát hiện đặc trưng chạy mọi nơi). Các lớp kết nối đầy đủ không cho bạn thuộc tính nào. Tích chập cho bạn cả hai miễn phí.
 
-Convolution was not invented for deep learning. It is the same operation that powers JPEG compression, Gaussian blur in Photoshop, edge detection in industrial vision, and every audio filter ever shipped. The reason CNNs dominated ImageNet from 2012 to 2020 is that convolution is the correct prior for data where nearby values are related and the same pattern can appear anywhere.
+Tích chập không được phát minh cho học sâu. Nó là cùng phép toán vận hành nén JPEG, làm mờ Gaussian trong Photoshop, phát hiện cạnh trong thị giác công nghiệp và mọi bộ lọc âm thanh từng được phát hành. Lý do CNN thống trị ImageNet từ 2012 đến 2020 là tích chập là tiên nghiệm đúng cho dữ liệu mà các giá trị gần nhau có liên quan và cùng một mẫu có thể xuất hiện ở bất kỳ đâu.
 
 ## The Concept
 
 ### One kernel, sliding
 
-A 2D convolution takes a small weight matrix called the kernel (or filter), slides it across the input, and at each location computes the sum of element-wise products. That sum becomes one output pixel.
+Một tích chập 2D nhận một ma trận trọng số nhỏ gọi là kernel (hoặc bộ lọc), trượt nó trên đầu vào và tại mỗi vị trí tính tổng các tích theo từng phần tử. Tổng đó trở thành một pixel đầu ra.
 
 ```mermaid
 flowchart LR
@@ -48,7 +48,7 @@ flowchart LR
     style OUT fill:#dcfce7,stroke:#16a34a
 ```
 
-A concrete 3x3 example on a 5x5 input (no padding, stride 1):
+Một ví dụ 3x3 cụ thể trên đầu vào 5x5 (không padding, stride 1):
 
 ```
 Input X (5 x 5):                Kernel W (3 x 3):
@@ -68,31 +68,31 @@ The kernel slides across every valid 3 x 3 window. Output Y is 3 x 3:
  ... and so on
 ```
 
-That one formula — **shared weights, locality, sliding window** — is the entire idea. Everything else is bookkeeping.
+Một công thức đó — **các trọng số dùng chung, tính cục bộ, cửa sổ trượt** — là toàn bộ ý tưởng. Mọi thứ khác là công việc ghi sổ.
 
 ### Output size formula
 
-Given input spatial size `H`, kernel size `K`, padding `P`, stride `S`:
+Cho kích thước không gian đầu vào `H`, kích thước kernel `K`, padding `P`, stride `S`:
 
 ```
 H_out = floor( (H - K + 2P) / S ) + 1
 ```
 
-Memorise this. You will compute it dozens of times per architecture.
+Ghi nhớ điều này. Bạn sẽ tính nó hàng chục lần mỗi kiến trúc.
 
-| Scenario | H | K | P | S | H_out |
+| Kịch bản | H | K | P | S | H_out |
 |----------|---|---|---|---|-------|
-| Valid conv, no padding | 32 | 3 | 0 | 1 | 30 |
-| Same conv (preserves size) | 32 | 3 | 1 | 1 | 32 |
-| Downsample by 2 | 32 | 3 | 1 | 2 | 16 |
+| Tích chập valid, không padding | 32 | 3 | 0 | 1 | 30 |
+| Tích chập same (giữ kích thước) | 32 | 3 | 1 | 1 | 32 |
+| Giảm mẫu 2 lần | 32 | 3 | 1 | 2 | 16 |
 | Pool 2x2 | 32 | 2 | 0 | 2 | 16 |
-| Large receptive field | 32 | 7 | 3 | 2 | 16 |
+| Trường tiếp nhận lớn | 32 | 7 | 3 | 2 | 16 |
 
-"Same padding" means pick P so that H_out == H when S == 1. For odd K, that is P = (K - 1) / 2. That is why 3x3 kernels dominate — they are the smallest odd kernel that still has a centre.
+"Same padding" nghĩa là chọn P sao cho H_out == H khi S == 1. Với K lẻ, đó là P = (K - 1) / 2. Đó là lý do các kernel 3x3 chiếm ưu thế — chúng là kernel lẻ nhỏ nhất vẫn có tâm.
 
 ### Padding
 
-Without padding, every convolution shrinks the feature map. Stack 20 of them and your 224x224 image becomes 184x184, which wastes compute on the border and complicates residual connections that need matching shapes.
+Không có padding, mỗi phép tích chập làm co bản đồ đặc trưng. Xếp chồng 20 phép và hình ảnh 224x224 của bạn trở thành 184x184, làm lãng phí tính toán trên biên và làm phức tạp các kết nối phần dư cần hình dạng khớp nhau.
 
 ```
 Zero padding (P = 1) on a 5 x 5 input:
@@ -106,11 +106,11 @@ Zero padding (P = 1) on a 5 x 5 input:
   0  0  0  0  0  0  0
 ```
 
-Modes you meet in practice: `zero` (most common), `reflect` (mirror the edge, avoids hard borders in generative models), `replicate` (copy the edge), `circular` (wrap around, used in toroidal problems).
+Các chế độ bạn gặp trong thực tế: `zero` (phổ biến nhất), `reflect` (phản chiếu cạnh, tránh các biên cứng trong mô hình tạo sinh), `replicate` (sao chép cạnh), `circular` (quấn vòng, dùng trong các bài toán hình xuyến).
 
 ### Stride
 
-Stride is the step size of the slide. `stride=1` is the default. `stride=2` halves the spatial dimensions and is the classic way to downsample inside a CNN without a separate pooling layer — every modern architecture (ResNet, ConvNeXt, MobileNet) uses strided convs in place of max-pool somewhere.
+Stride là kích thước bước trượt. `stride=1` là mặc định. `stride=2` giảm một nửa các chiều không gian và là cách cổ điển để giảm mẫu trong một CNN mà không có lớp pooling riêng — mọi kiến trúc hiện đại (ResNet, ConvNeXt, MobileNet) đều sử dụng các tích chập có stride thay cho max-pool ở đâu đó.
 
 ```
 Stride 1 on a 5 x 5 input, 3 x 3 kernel:
@@ -131,7 +131,7 @@ Stride 2 on the same input:
 
 ### Multiple input channels
 
-Real images have three channels. A 3x3 convolution on an RGB input is actually a 3x3x3 volume: one 3x3 slice per input channel. At each spatial position, you multiply and sum across all three slices and add a bias.
+Hình ảnh thật có ba kênh. Một tích chập 3x3 trên đầu vào RGB thực sự là một khối 3x3x3: một lát 3x3 mỗi kênh đầu vào. Tại mỗi vị trí không gian, bạn nhân và cộng trên cả ba lát rồi thêm một bias.
 
 ```
 Input:   (C_in,  H,  W)        3 x 5 x 5
@@ -146,11 +146,11 @@ Output:  (C_out, H', W')       64 x 3 x 3
 Parameter count: C_out * C_in * K * K + C_out   (the + C_out is biases)
 ```
 
-That last line is the one you will calculate when planning a model. A 64-channel 3x3 conv on a 3-channel input has `64 * 3 * 3 * 3 + 64 = 1,792` parameters. Cheap.
+Dòng cuối đó là dòng bạn sẽ tính khi lên kế hoạch một mô hình. Một tích chập 3x3 có 64 kênh trên đầu vào 3 kênh có `64 * 3 * 3 * 3 + 64 = 1,792` tham số. Rẻ.
 
 ### The im2col trick
 
-Nested loops are easy to read but slow. GPUs want big matrix multiplies. The trick: flatten every receptive-field window of the input into one column of a big matrix, flatten the kernel into a row, and the whole convolution becomes a single matmul.
+Các vòng lặp lồng nhau dễ đọc nhưng chậm. GPU muốn các phép nhân ma trận lớn. Thủ thuật: làm phẳng mỗi cửa sổ trường tiếp nhận của đầu vào thành một cột của một ma trận lớn, làm phẳng kernel thành một hàng và toàn bộ tích chập trở thành một phép nhân ma trận duy nhất.
 
 ```mermaid
 flowchart LR
@@ -166,11 +166,11 @@ flowchart LR
     style OUT fill:#dcfce7,stroke:#16a34a
 ```
 
-Every production conv implementation is some variant of this plus cache-tiling tricks (direct conv, Winograd, FFT conv for large kernels). Understand im2col and you understand the core.
+Mọi bản triển khai tích chập production đều là một biến thể của điều này cộng các thủ thuật chia ô cache (tích chập trực tiếp, Winograd, tích chập FFT cho kernel lớn). Hiểu im2col và bạn hiểu cốt lõi.
 
 ### Receptive field
 
-A single 3x3 conv looks at 9 input pixels. Stack two 3x3 convs and a neuron in the second layer looks at 5x5 input pixels. Three 3x3 convs give 7x7. In general:
+Một tích chập 3x3 đơn lẻ nhìn 9 pixel đầu vào. Xếp chồng hai tích chập 3x3 và một nơ-ron ở lớp thứ hai nhìn 5x5 pixel đầu vào. Ba tích chập 3x3 cho 7x7. Tổng quát:
 
 ```
 RF after L stacked K x K convs (stride 1) = 1 + L * (K - 1)
@@ -178,7 +178,7 @@ RF after L stacked K x K convs (stride 1) = 1 + L * (K - 1)
 With strides:   RF grows multiplicatively with stride along each layer.
 ```
 
-The entire reason "3x3 all the way down" works (VGG, ResNet, ConvNeXt) is that two 3x3 convs see the same input area as one 5x5 conv but with fewer parameters and an extra non-linearity in between.
+Toàn bộ lý do "3x3 từ trên xuống dưới" hoạt động (VGG, ResNet, ConvNeXt) là hai tích chập 3x3 nhìn cùng diện tích đầu vào như một tích chập 5x5 nhưng với ít tham số hơn và thêm một tính phi tuyến ở giữa.
 
 ```figure
 convolution-kernel
@@ -188,7 +188,7 @@ convolution-kernel
 
 ### Step 1: Pad an array
 
-Start with the smallest primitive: a function that pads with zeros around an H x W array.
+Bắt đầu với thành phần nguyên thủy nhỏ nhất: một hàm đệm các số không quanh một mảng H x W.
 
 ```python
 import numpy as np
@@ -207,11 +207,11 @@ print()
 print(pad2d(x, 1))
 ```
 
-The trailing-axes trick `x.shape[:-2]` means the same function works on `(H, W)`, `(C, H, W)`, or `(N, C, H, W)` without modification.
+Thủ thuật các trục cuối `x.shape[:-2]` nghĩa là cùng hàm hoạt động trên `(H, W)`, `(C, H, W)` hoặc `(N, C, H, W)` mà không sửa đổi.
 
 ### Step 2: 2D convolution with nested loops
 
-The reference implementation — slow, but unambiguous. This is what `torch.nn.functional.conv2d` does in principle.
+Bản triển khai tham chiếu — chậm, nhưng rõ ràng. Về nguyên tắc đây là điều `torch.nn.functional.conv2d` làm.
 
 ```python
 def conv2d_naive(x, w, b=None, stride=1, padding=0):
@@ -236,11 +236,11 @@ def conv2d_naive(x, w, b=None, stride=1, padding=0):
     return out
 ```
 
-Four nested loops (output channel, row, column, plus the implicit sum over C_in, kh, kw). This is the ground truth you will check every faster implementation against.
+Bốn vòng lặp lồng nhau (kênh đầu ra, hàng, cột, cộng tổng ngầm trên C_in, kh, kw). Đây là chuẩn đúng bạn sẽ đối chiếu mọi bản triển khai nhanh hơn.
 
 ### Step 3: Verify with a hand-designed kernel
 
-Build a vertical Sobel kernel, apply it to a synthetic step image, and watch the vertical edge light up.
+Xây một kernel Sobel dọc, áp dụng lên một hình ảnh bước tổng hợp và quan sát cạnh dọc sáng lên.
 
 ```python
 def synthetic_step_image():
@@ -259,11 +259,11 @@ y = conv2d_naive(x, sobel_x, padding=1)
 print(y[0].round(1))
 ```
 
-Expect large positive values on column 7 (left-to-right brightness increase) and zeros everywhere else. That single print is your sanity check that the math is right.
+Kỳ vọng các giá trị dương lớn trên cột 7 (độ sáng tăng từ trái sang phải) và các số không ở mọi nơi khác. Một lần in đó là phép kiểm tra tính hợp lý rằng toán học đúng.
 
 ### Step 4: im2col
 
-Convert every kernel-sized window in the input into a column of a matrix. For `C_in=3, K=3`, each column is 27 numbers.
+Chuyển mỗi cửa sổ kích thước kernel trong đầu vào thành một cột của một ma trận. Với `C_in=3, K=3`, mỗi cột là 27 số.
 
 ```python
 def im2col(x, kh, kw, stride=1, padding=0):
@@ -284,11 +284,11 @@ def im2col(x, kh, kw, stride=1, padding=0):
     return cols, h_out, w_out
 ```
 
-It is still a Python loop, but now the heavy lifting will be a single vectorised matmul.
+Nó vẫn là một vòng lặp Python, nhưng giờ phần nặng sẽ là một phép nhân ma trận được vector hóa duy nhất.
 
 ### Step 5: Fast conv via im2col + matmul
 
-Replace the quadruple loop with one matrix multiplication.
+Thay vòng lặp bốn tầng bằng một phép nhân ma trận.
 
 ```python
 def conv2d_im2col(x, w, b=None, stride=1, padding=0):
@@ -301,7 +301,7 @@ def conv2d_im2col(x, w, b=None, stride=1, padding=0):
     return out.reshape(c_out, h_out, w_out)
 ```
 
-Correctness check: run both implementations and compare.
+Kiểm tra tính đúng: chạy cả hai bản triển khai và so sánh.
 
 ```python
 rng = np.random.default_rng(0)
@@ -315,11 +315,11 @@ y_im2col = conv2d_im2col(x, w, b, padding=1)
 print(f"max abs diff: {np.max(np.abs(y_naive - y_im2col)):.2e}")
 ```
 
-`max abs diff` should be around `1e-5` — the difference is floating-point accumulation order, not a bug.
+`max abs diff` nên khoảng `1e-5` — khác biệt là thứ tự tích lũy dấu phẩy động, không phải lỗi.
 
 ### Step 6: A bank of hand-designed kernels
 
-Five filters that show what a single conv layer can express before any training.
+Năm bộ lọc cho thấy một lớp tích chập đơn lẻ có thể biểu diễn gì trước bất kỳ huấn luyện nào.
 
 ```python
 KERNELS = {
@@ -336,11 +336,11 @@ def apply_kernel(img2d, kernel):
     return conv2d_im2col(x, w, padding=1)[0]
 ```
 
-Applied to any grayscale image, blur softens, sharpen crisps up edges, Sobel-x lights up vertical edges, Sobel-y lights up horizontal edges. These are exactly the patterns that the *first* trained conv layer in AlexNet and VGG ended up learning — because a good image model needs edge and blob detectors no matter what task comes later.
+Áp dụng cho bất kỳ hình ảnh thang xám nào, làm mờ làm dịu, làm sắc nét làm các cạnh rõ hơn, Sobel-x làm các cạnh dọc sáng lên, Sobel-y làm các cạnh ngang sáng lên. Đây chính xác là các mẫu mà lớp tích chập được huấn luyện *đầu tiên* trong AlexNet và VGG rốt cuộc đã học — vì một mô hình hình ảnh tốt cần các bộ phát hiện cạnh và đốm bất kể tác vụ phía sau là gì.
 
 ## Use It
 
-PyTorch's `nn.Conv2d` wraps the same operation with autograd, CUDA kernels, and cuDNN optimisation. Shape semantics are identical.
+`nn.Conv2d` của PyTorch bao bọc cùng phép toán với autograd, các kernel CUDA và tối ưu hóa cuDNN. Ngữ nghĩa hình dạng giống hệt.
 
 ```python
 import torch
@@ -358,37 +358,37 @@ print(f"\ninput  shape: {tuple(x.shape)}")
 print(f"output shape: {tuple(y.shape)}")
 ```
 
-Swap `padding=1` for `padding=0` and the output drops to 222x222. Swap `stride=1` for `stride=2` and it drops to 112x112. Same formula you memorised above.
+Đổi `padding=1` thành `padding=0` và đầu ra giảm xuống 222x222. Đổi `stride=1` thành `stride=2` và nó giảm xuống 112x112. Cùng công thức bạn đã ghi nhớ ở trên.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-cnn-architect.md` — a prompt that, given input size, parameter budget, and target receptive field, designs a stack of `Conv2d` layers with the right K/S/P at every step.
-- `outputs/skill-conv-shape-calculator.md` — a skill that walks a network spec layer by layer and returns the output shape, receptive field, and parameter count for every block.
+- `outputs/prompt-cnn-architect.md` — một prompt, với kích thước đầu vào, ngân sách tham số và trường tiếp nhận mục tiêu, thiết kế một chồng các lớp `Conv2d` với K/S/P đúng ở mỗi bước.
+- `outputs/skill-conv-shape-calculator.md` — một skill đi qua đặc tả mạng từng lớp và trả về hình dạng đầu ra, trường tiếp nhận và số tham số cho mỗi khối.
 
 ## Exercises
 
-1. **(Easy)** Given a 128x128 grayscale input and a stack of `[Conv3x3(s=1,p=1), Conv3x3(s=2,p=1), Conv3x3(s=1,p=1), Conv3x3(s=2,p=1)]`, compute the output spatial size and the receptive field at each layer by hand. Verify with a PyTorch `nn.Sequential` of dummy convs.
-2. **(Medium)** Extend `conv2d_naive` and `conv2d_im2col` to accept a `groups` argument. Show that `groups=C_in=C_out` reproduces a depthwise convolution and that its parameter count is `C * K * K` instead of `C * C * K * K`.
-3. **(Hard)** Implement the backward pass of `conv2d_im2col` by hand: given the gradient of the output, compute the gradient of `x` and `w`. Verify against `torch.autograd.grad` on the same inputs and weights. The trick: the gradient of im2col is `col2im`, and it has to accumulate overlapping windows.
+1. **(Dễ)** Với đầu vào thang xám 128x128 và một chồng `[Conv3x3(s=1,p=1), Conv3x3(s=2,p=1), Conv3x3(s=1,p=1), Conv3x3(s=2,p=1)]`, tính thủ công kích thước không gian đầu ra và trường tiếp nhận tại mỗi lớp. Xác minh bằng một `nn.Sequential` PyTorch với các tích chập giả.
+2. **(Vừa)** Mở rộng `conv2d_naive` và `conv2d_im2col` để nhận một đối số `groups`. Cho thấy `groups=C_in=C_out` tái tạo một tích chập depthwise và số tham số của nó là `C * K * K` thay vì `C * C * K * K`.
+3. **(Khó)** Triển khai lượt truyền ngược của `conv2d_im2col` bằng tay: với gradient của đầu ra cho trước, tính gradient của `x` và `w`. Xác minh với `torch.autograd.grad` trên cùng các đầu vào và trọng số. Thủ thuật: gradient của im2col là `col2im`, và nó phải tích lũy các cửa sổ chồng lấn.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Convolution | "Sliding a filter" | A learnable dot product applied at every spatial location with shared weights; mathematically a cross-correlation, but everyone calls it convolution |
-| Kernel / filter | "The feature detector" | A small weight tensor of shape (C_in, K, K) whose dot product with a window of input produces one output pixel |
-| Stride | "How far you jump" | The step size between consecutive kernel placements; stride 2 halves each spatial dimension |
-| Padding | "Zeros on the edges" | Extra values added around the input so the kernel can centre on border pixels; `same` padding keeps output size equal to input size |
-| Receptive field | "How much the neuron sees" | The patch of original input that a given output activation depends on, growing with depth and stride |
-| im2col | "The GEMM trick" | Rearranging every receptive window into columns so convolution becomes one big matrix multiply — the core of every fast conv kernel |
-| Depthwise conv | "One kernel per channel" | A conv with `groups == C_in`, computing each output channel from only its matching input channel; the backbone of MobileNet and ConvNeXt |
-| Translation equivariance | "Shift in, shift out" | Property that shifting the input by k pixels shifts the output by k pixels; comes for free with shared weights |
+| Convolution (Tích chập) | "Trượt một bộ lọc" | Một tích vô hướng có thể học được áp dụng tại mọi vị trí không gian với các trọng số dùng chung; về toán học là tương quan chéo, nhưng mọi người gọi là tích chập |
+| Kernel / filter | "Bộ phát hiện đặc trưng" | Một tensor trọng số nhỏ có hình dạng (C_in, K, K) mà tích vô hướng với một cửa sổ đầu vào tạo ra một pixel đầu ra |
+| Stride | "Bạn nhảy bao xa" | Kích thước bước giữa các lần đặt kernel liên tiếp; stride 2 giảm một nửa mỗi chiều không gian |
+| Padding | "Các số không trên các cạnh" | Các giá trị bổ sung quanh đầu vào để kernel có thể đặt tâm lên các pixel biên; padding `same` giữ kích thước đầu ra bằng kích thước đầu vào |
+| Receptive field (Trường tiếp nhận) | "Nơ-ron nhìn được bao nhiêu" | Vùng đầu vào gốc mà một kích hoạt đầu ra nhất định phụ thuộc vào, tăng theo độ sâu và stride |
+| im2col | "Thủ thuật GEMM" | Sắp xếp lại mỗi cửa sổ tiếp nhận thành các cột để tích chập trở thành một phép nhân ma trận lớn — cốt lõi của mọi kernel tích chập nhanh |
+| Depthwise conv | "Một kernel mỗi kênh" | Một tích chập có `groups == C_in`, tính mỗi kênh đầu ra chỉ từ kênh đầu vào tương ứng; xương sống của MobileNet và ConvNeXt |
+| Translation equivariance (Đẳng biến tịnh tiến) | "Dịch vào, dịch ra" | Thuộc tính mà dịch đầu vào k pixel làm đầu ra dịch k pixel; có sẵn miễn phí với các trọng số dùng chung |
 
 ## Further Reading
 
-- [A guide to convolution arithmetic for deep learning (Dumoulin & Visin, 2016)](https://arxiv.org/abs/1603.07285) — the definitive diagrams of padding/stride/dilation that every course quietly copies
-- [CS231n: Convolutional Neural Networks for Visual Recognition](https://cs231n.github.io/convolutional-networks/) — the canonical lecture notes, including the original im2col explanation
-- [The Annotated ConvNet (fast.ai)](https://nbviewer.org/github/fastai/fastbook/blob/master/13_convolutions.ipynb) — a notebook that walks from manual convolution to a trained digit classifier
-- [Receptive Field Arithmetic for CNNs (Dang Ha The Hien)](https://distill.pub/2019/computing-receptive-fields/) — the paper-quality interactive explainer of receptive field calculations
+- [A guide to convolution arithmetic for deep learning (Dumoulin & Visin, 2016)](https://arxiv.org/abs/1603.07285) — các sơ đồ padding/stride/dilation có tính chuẩn mực mà mọi khóa học âm thầm sao chép
+- [CS231n: Convolutional Neural Networks for Visual Recognition](https://cs231n.github.io/convolutional-networks/) — các ghi chú bài giảng chuẩn, bao gồm lời giải thích im2col gốc
+- [The Annotated ConvNet (fast.ai)](https://nbviewer.org/github/fastai/fastbook/blob/master/13_convolutions.ipynb) — một notebook đi từ tích chập thủ công tới một bộ phân loại chữ số đã huấn luyện
+- [Receptive Field Arithmetic for CNNs (Dang Ha The Hien)](https://distill.pub/2019/computing-receptive-fields/) — phần giải thích tương tác đạt chất lượng bài báo về tính trường tiếp nhận

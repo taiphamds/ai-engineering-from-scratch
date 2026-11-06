@@ -9,19 +9,19 @@ tags: [computer-vision, cnn, architecture, debugging]
 
 # Conv Shape Calculator
 
-A deterministic helper for planning or debugging a CNN. Given an input shape and a list of layer specs, trace shapes, receptive fields, and parameter counts without running the model.
+Một công cụ hỗ trợ tất định để lên kế hoạch hoặc gỡ lỗi một CNN. Với một hình dạng đầu vào và một danh sách đặc tả lớp, theo dõi các hình dạng, trường tiếp nhận và số tham số mà không chạy mô hình.
 
 ## When to use
 
-- Designing a new CNN and you want to verify every downsample lands on a clean size.
-- Reading a paper and translating its architecture table into code.
-- A pretrained backbone crashes with a shape mismatch at the classifier head and you need to know which layer changed the spatial size.
-- Comparing two backbones on parameter efficiency before training either.
+- Thiết kế một CNN mới và bạn muốn xác minh mọi lần giảm mẫu đều đạt một kích thước gọn.
+- Đọc một bài báo và chuyển bảng kiến trúc của nó thành mã.
+- Một backbone được tiền huấn luyện sập do không khớp hình dạng tại đầu phân loại và bạn cần biết lớp nào đã thay đổi kích thước không gian.
+- So sánh hai backbone về hiệu quả tham số trước khi huấn luyện bất kỳ cái nào.
 
 ## Inputs
 
 - `input_shape`: `(C, H, W)`.
-- `layers`: ordered list of layer dicts. Each supports:
+- `layers`: danh sách có thứ tự các dict lớp. Mỗi dict hỗ trợ:
   - `{type: "conv", c_out, k, s, p, groups=1, bias=true}`
   - `{type: "pool", mode: "max"|"avg", k, s, p=0}`
   - `{type: "adaptive_pool", out_h, out_w}`
@@ -30,27 +30,27 @@ A deterministic helper for planning or debugging a CNN. Given an input shape and
 
 ## Steps
 
-1. **Initialise trace** with `(C, H, W)`, receptive field `1`, effective stride `1`, cumulative params `0`.
+1. **Khởi tạo bản theo dõi** với `(C, H, W)`, trường tiếp nhận `1`, stride hiệu dụng `1`, tham số cộng dồn `0`.
 
-2. **For each layer**, update in this order:
-   - Compute `C_out` (conv/linear), or carry `C_in` through (pool).
-   - Compute spatial output using `(H + 2P - K) / S + 1` for conv and pool, `out_h/out_w` for adaptive pool, `(1, 1)` for flatten output shape `(C * H * W, 1, 1)` before the linear, and scalar `1x1` for linear.
-   - Update receptive field and effective stride:
+2. **Với mỗi lớp**, cập nhật theo thứ tự này:
+   - Tính `C_out` (conv/linear), hoặc giữ `C_in` xuyên qua (pool).
+   - Tính đầu ra không gian bằng `(H + 2P - K) / S + 1` cho conv và pool, `out_h/out_w` cho adaptive pool, `(1, 1)` cho hình dạng đầu ra flatten `(C * H * W, 1, 1)` trước linear, và số vô hướng `1x1` cho linear.
+   - Cập nhật trường tiếp nhận và stride hiệu dụng:
      - Conv/pool: `RF_new = RF_old + (K - 1) * effective_stride`, `effective_stride *= S`.
-     - Adaptive pool: treat as a pool with effective `S = H_in / out_h` (round down). `RF_new = RF_old + (H_in - 1) * effective_stride_old`; `effective_stride *= S`. Note that adaptive pool's RF equals the full previous spatial extent.
-     - Flatten / linear: RF and effective stride are no longer meaningful; freeze them to the values before the flatten and omit from subsequent rows.
-   - Compute params:
+     - Adaptive pool: coi như một pool có `S = H_in / out_h` hiệu dụng (làm tròn xuống). `RF_new = RF_old + (H_in - 1) * effective_stride_old`; `effective_stride *= S`. Lưu ý RF của adaptive pool bằng toàn bộ phạm vi không gian trước đó.
+     - Flatten / linear: RF và stride hiệu dụng không còn ý nghĩa; đóng băng chúng ở các giá trị trước flatten và bỏ khỏi các hàng tiếp theo.
+   - Tính các tham số:
      - Conv: `C_out * (C_in / groups) * K * K + (C_out if bias else 0)`.
      - Linear: `out_features * in_features + (out_features if bias else 0)`.
-     - Pool and flatten: 0.
+     - Pool và flatten: 0.
 
-3. **Detect problems** and flag them:
-   - Non-integer output size (misaligned stride/padding).
-   - `H_out <= 0` before the end of the stack.
-   - Receptive field exceeding input size (possible wasted compute after that point).
-   - Sudden 10x jumps in per-layer params that suggest the wrong channel plan.
+3. **Phát hiện các vấn đề** và đánh dấu:
+   - Kích thước đầu ra không nguyên (stride/padding không căn chỉnh).
+   - `H_out <= 0` trước cuối chồng lớp.
+   - Trường tiếp nhận vượt kích thước đầu vào (có thể lãng phí tính toán sau điểm đó).
+   - Số tham số mỗi lớp đột ngột tăng 10 lần gợi ý kế hoạch kênh sai.
 
-4. **Report** as a single table:
+4. **Báo cáo** dưới dạng một bảng duy nhất:
 
 ```
 idx  layer                C_in  C_out  K  S  P  H_out  W_out  RF    params     cum_params
@@ -60,12 +60,12 @@ idx  layer                C_in  C_out  K  S  P  H_out  W_out  RF    params     c
 ...
 ```
 
-5. **Summary line**: final `(C, H, W)`, final receptive field, total params, warnings.
+5. **Dòng tóm tắt**: `(C, H, W)` cuối, trường tiếp nhận cuối, tổng số tham số, các cảnh báo.
 
 ## Rules
 
-- Always return integers for spatial sizes. If the formula produces a non-integer, flag as an error and do not silently floor.
-- When `groups > 1`, verify `C_in % groups == 0` and `C_out % groups == 0`; otherwise error.
-- For depthwise conv (`groups == C_in`), label it in the `layer` column so the reader sees why params are low.
-- If the user provides BatchNorm or activation layers, ignore them for shape purposes but carry params forward (`2 * C` per BatchNorm).
-- Never guess defaults for missing fields. Require `k`, `s`, `p` on every conv and pool.
+- Luôn trả về số nguyên cho kích thước không gian. Nếu công thức tạo ra số không nguyên, đánh dấu là lỗi và không âm thầm làm tròn xuống.
+- Khi `groups > 1`, xác minh `C_in % groups == 0` và `C_out % groups == 0`; nếu không báo lỗi.
+- Với tích chập depthwise (`groups == C_in`), ghi nhãn nó trong cột `layer` để người đọc thấy tại sao ít tham số.
+- Nếu người dùng cung cấp các lớp BatchNorm hoặc kích hoạt, bỏ qua chúng về hình dạng nhưng cộng tiếp tham số (`2 * C` mỗi BatchNorm).
+- Không bao giờ đoán mặc định cho các trường thiếu. Yêu cầu `k`, `s`, `p` trên mọi conv và pool.
