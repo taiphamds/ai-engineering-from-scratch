@@ -1,6 +1,6 @@
 # Tree of Thoughts and LATS: Deliberate Search
 
-> A single chain-of-thought trajectory has no room to backtrack. ToT (Yao et al., 2023) turns reasoning into a tree with self-evaluation on each node. LATS (Zhou et al., 2024) unifies ToT with ReAct and Reflexion under Monte Carlo Tree Search. Game of 24 goes from 4% (CoT) to 74% (ToT); LATS hits 92.7% pass@1 on HumanEval.
+> Một quỹ đạo chain-of-thought đơn lẻ không có chỗ để quay lui. ToT (Yao và cộng sự, 2023) biến suy luận thành một cây với tự đánh giá ở mỗi nút. LATS (Zhou và cộng sự, 2024) hợp nhất ToT với ReAct và Reflexion dưới Monte Carlo Tree Search. Game of 24 đi từ 4% (CoT) lên 74% (ToT); LATS đạt pass@1 92.7% trên HumanEval.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,22 +9,22 @@
 
 ## Learning Objectives
 
-- Frame reasoning as search: nodes are "thoughts," edges are "expansions," value is "how promising."
-- Implement a stdlib ToT-style BFS tree search with self-evaluation scoring.
-- Extend to a toy LATS MCTS loop with select / expand / simulate / backpropagate.
-- Decide when search is worth the token multiplier (Game of 24, code generation) and when a single trajectory is enough (simple Q&A).
+- Định khung suy luận như tìm kiếm: các nút là "suy nghĩ," các cạnh là "mở rộng," giá trị là "triển vọng đến đâu."
+- Triển khai một tìm kiếm cây BFS kiểu ToT dùng thư viện chuẩn với chấm điểm tự đánh giá.
+- Mở rộng thành một vòng lặp MCTS LATS mô phỏng với chọn / mở rộng / mô phỏng / lan truyền ngược.
+- Quyết định khi nào tìm kiếm đáng với hệ số nhân token (Game of 24, sinh mã) và khi nào một quỹ đạo đơn là đủ (hỏi đáp đơn giản).
 
 ## The Problem
 
-Chain-of-thought is a linear walk. If the first step is wrong, every subsequent step works on a bad premise. On Game of 24 (use four digits with + − × ÷ to make 24), GPT-4 CoT hits 4% accuracy. The model picks the wrong subexpression early and cannot recover.
+Chain-of-thought là một bước đi tuyến tính. Nếu bước đầu tiên sai, mọi bước tiếp theo hoạt động trên một tiền đề xấu. Trên Game of 24 (sử dụng bốn chữ số với + − × ÷ để tạo ra 24), GPT-4 CoT đạt độ chính xác 4%. Mô hình chọn sai biểu thức con từ sớm và không thể phục hồi.
 
-What reasoning needs is the ability to propose multiple candidates, evaluate them, pick the promising ones, and backtrack when dead ends appear. That is search. Tree of Thoughts and LATS are the two canonical formulations.
+Điều suy luận cần là khả năng đề xuất nhiều ứng viên, đánh giá chúng, chọn những ứng viên có triển vọng và quay lui khi xuất hiện ngõ cụt. Đó là tìm kiếm. Tree of Thoughts và LATS là hai cách xây dựng kinh điển.
 
 ## The Concept
 
 ### Tree of Thoughts (Yao et al., NeurIPS 2023)
 
-Each node is a coherent intermediate step ("a thought"). Each node can expand to K child thoughts. The LLM self-evaluates each node with a scoring prompt. Search explores the tree — BFS, DFS, or beam.
+Mỗi nút là một bước trung gian mạch lạc ("một suy nghĩ"). Mỗi nút có thể mở rộng thành K suy nghĩ con. LLM tự đánh giá mỗi nút bằng một prompt chấm điểm. Tìm kiếm khám phá cây — BFS, DFS hoặc beam.
 
 ```
                      (root: "find 24 from 4 6 4 1")
@@ -34,48 +34,48 @@ Each node is a coherent intermediate step ("a thought"). Each node can expand to
           ...    ...          ...                finish
 ```
 
-Self-evaluation is the load-bearing piece. The paper shows three variants: `sure / likely / impossible` classification, `1..10` numeric score, and vote among candidates. All three beat CoT substantially on Game of 24 (4% -> 74% with GPT-4).
+Tự đánh giá là phần trụ cột. Bài báo cho thấy ba biến thể: phân loại `sure / likely / impossible`, điểm số `1..10` và bỏ phiếu giữa các ứng viên. Cả ba đều vượt CoT đáng kể trên Game of 24 (4% -> 74% với GPT-4).
 
 ### LATS (Zhou et al., ICML 2024)
 
-LATS unifies ToT, ReAct, and Reflexion under MCTS. The LLM plays three roles:
+LATS hợp nhất ToT, ReAct và Reflexion dưới MCTS. LLM đóng ba vai trò:
 
-- **Policy**: propose candidate next actions (ReAct-style).
-- **Value function**: score a partial trajectory (ToT-style self-eval).
-- **Self-reflector**: on failure, write a natural-language reflection (Reflexion-style) and use it to reseed future rollouts.
+- **Chính sách**: đề xuất các hành động tiếp theo ứng viên (kiểu ReAct).
+- **Hàm giá trị**: chấm điểm một quỹ đạo một phần (tự đánh giá kiểu ToT).
+- **Bộ tự phản tư**: khi thất bại, viết một phản tư bằng ngôn ngữ tự nhiên (kiểu Reflexion) và dùng nó để gieo lại hạt giống cho các rollout tương lai.
 
-Environment feedback (observations) mixes into the value function so the search is informed by real tool results, not just model opinions. Results at paper time: HumanEval pass@1 92.7% with GPT-4 (SOTA), WebShop average 75.9 with GPT-3.5 (approaching gradient-based fine-tuning).
+Phản hồi môi trường (các quan sát) hòa vào hàm giá trị để tìm kiếm được cung cấp thông tin bởi các kết quả công cụ thực, không chỉ ý kiến mô hình. Các kết quả tại thời điểm bài báo: HumanEval pass@1 92.7% với GPT-4 (SOTA), WebShop trung bình 75.9 với GPT-3.5 (tiệm cận tinh chỉnh dựa trên gradient).
 
 ### MCTS, minimally
 
-Four phases per iteration:
+Bốn pha cho mỗi lần lặp:
 
-1. **Select** — walk from root to a leaf using UCT (upper confidence bound for trees).
-2. **Expand** — generate K children via the policy.
-3. **Simulate** — rollout from a child using the policy, score the leaf with the value function (or environment reward).
-4. **Backpropagate** — update visit counts and value estimates up the path.
+1. **Chọn** — đi từ gốc đến một lá bằng UCT (cận trên độ tin cậy cho cây).
+2. **Mở rộng** — tạo K nút con qua chính sách.
+3. **Mô phỏng** — rollout từ một nút con bằng chính sách, chấm điểm lá bằng hàm giá trị (hoặc phần thưởng môi trường).
+4. **Lan truyền ngược** — cập nhật số lượt thăm và các ước lượng giá trị ngược lên đường đi.
 
-UCT formula: `Q(s, a) + c * sqrt(ln N(s) / N(s, a))`. First term is exploitation; second is exploration. Tune `c` per task.
+Công thức UCT: `Q(s, a) + c * sqrt(ln N(s) / N(s, a))`. Số hạng đầu là khai thác; số hạng thứ hai là khám phá. Điều chỉnh `c` cho từng tác vụ.
 
 ### The cost reality
 
-Search explodes tokens. ToT on Game of 24 uses 100–1000x the tokens of CoT. LATS is similar. This is not free; reserve search for:
+Tìm kiếm làm bùng nổ token. ToT trên Game of 24 sử dụng số token gấp 100–1000 lần CoT. LATS tương tự. Điều này không miễn phí; dành tìm kiếm cho:
 
-- Tasks where a single trajectory is demonstrably insufficient (Game of 24, complex code).
-- Tasks where wall-clock is less important than correctness.
-- Tasks with a cheap, reliable value function (unit tests for code, explicit target for math).
+- Các tác vụ mà một quỹ đạo đơn rõ ràng là không đủ (Game of 24, mã phức tạp).
+- Các tác vụ mà thời gian đồng hồ ít quan trọng hơn tính đúng đắn.
+- Các tác vụ có một hàm giá trị rẻ, đáng tin cậy (kiểm thử đơn vị cho mã, mục tiêu tường minh cho toán).
 
-If your task has a single right answer and a noisy evaluator, search often makes things worse — it finds a "good-scoring" wrong answer.
+Nếu tác vụ của bạn có một câu trả lời đúng duy nhất và một bộ đánh giá nhiễu, tìm kiếm thường làm mọi thứ tệ hơn — nó tìm thấy một câu trả lời sai "được điểm tốt."
 
 ### 2026 positioning
 
-Most production agents do not run LATS. They run ReAct with tool-grounded verification (CRITIC, Lesson 05). Search shows up in specialized niches:
+Hầu hết các agent sản xuất không chạy LATS. Chúng chạy ReAct với xác minh dựa trên công cụ (CRITIC, Bài 05). Tìm kiếm xuất hiện trong các ngách chuyên biệt:
 
-- Coding agents that run tests as the value function (HumanEval-style).
-- Deep-research agents that explore multiple query paths.
-- Planning-heavy workflows inside LangGraph subgraphs.
+- Các agent lập trình chạy kiểm thử làm hàm giá trị (kiểu HumanEval).
+- Các agent nghiên cứu sâu khám phá nhiều đường truy vấn.
+- Các workflow nặng về lập kế hoạch bên trong các đồ thị con LangGraph.
 
-AlphaEvolve (Lesson 11) is the 2025 extreme: evolutionary search over code, machine-checkable fitness, frontier gains (first 4x4 matmul improvement in 56 years).
+AlphaEvolve (Bài 11) là cực điểm năm 2025: tìm kiếm tiến hóa trên mã, độ thích nghi có thể kiểm tra bằng máy, các cải tiến tiên phong (cải tiến phép nhân ma trận 4x4 đầu tiên trong 56 năm).
 
 ```figure
 tree-of-thoughts
@@ -83,52 +83,52 @@ tree-of-thoughts
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- A tiny ToT BFS on a stylized "pick arithmetic ops" task.
-- A toy LATS MCTS loop on the same task (Select / Expand / Simulate / Backpropagate) with UCT selection.
-- A value function that composes a symbolic score plus a self-eval score.
+- Một BFS ToT nhỏ trên một tác vụ "chọn các phép toán số học" được cách điệu.
+- Một vòng lặp MCTS LATS mô phỏng trên cùng tác vụ (Chọn / Mở rộng / Mô phỏng / Lan truyền ngược) với lựa chọn UCT.
+- Một hàm giá trị kết hợp một điểm biểu tượng cộng một điểm tự đánh giá.
 
-Run it:
+Chạy nó:
 
 ```
 python3 code/main.py
 ```
 
-The trace shows ToT expanding three candidates per node with BFS, compared to LATS converging on the best rollout via MCTS. Token counts printed for both.
+Trace cho thấy ToT mở rộng ba ứng viên cho mỗi nút bằng BFS, so với LATS hội tụ vào rollout tốt nhất qua MCTS. Số token được in cho cả hai.
 
 ## Use It
 
-LangGraph ships ToT-style exploration as subgraph patterns; the LangChain team's blog on LATS (May 2024) is the reference tutorial. LlamaIndex ships a `TreeOfThoughts` agent. For most 2026 production agents this pattern lives behind an `if task_complexity > threshold: use_search()` gate — see the evaluator-optimizer pattern in Lesson 05.
+LangGraph cung cấp khám phá kiểu ToT dưới dạng các mẫu đồ thị con; blog của nhóm LangChain về LATS (tháng 5 năm 2024) là hướng dẫn tham chiếu. LlamaIndex cung cấp một agent `TreeOfThoughts`. Với hầu hết các agent sản xuất năm 2026, mẫu này nằm sau một cổng `if task_complexity > threshold: use_search()` — xem mẫu bộ đánh giá-bộ tối ưu trong Bài 05.
 
 ## Ship It
 
-`outputs/skill-search-policy.md` selects between linear ReAct, ToT, LATS, and evolutionary search given task shape, budget, and evaluator fidelity.
+`outputs/skill-search-policy.md` lựa chọn giữa ReAct tuyến tính, ToT, LATS và tìm kiếm tiến hóa với hình dạng tác vụ, ngân sách và độ trung thực của bộ đánh giá cho trước.
 
 ## Exercises
 
-1. Run the toy LATS with UCT c=0.1 vs c=2.0. What changes in the trace?
-2. Swap the value function for a noisier scorer (add random jitter). Does MCTS still find the best leaf? What is the minimum signal-to-noise it tolerates?
-3. Implement beam-search ToT (keep top-k at each level) and compare to BFS. Which is better on a tight token budget?
-4. Read LATS Section 5.1. Reproduce the HumanEval trajectory count: how many rollouts does it take to hit the reported pass@1?
-5. Read the LATS paper's discussion on "when LATS helps less." Write a one-paragraph decision rule mapping task shape to search strategy.
+1. Chạy LATS mô phỏng với UCT c=0.1 so với c=2.0. Điều gì thay đổi trong trace?
+2. Thay hàm giá trị bằng một bộ chấm điểm nhiễu hơn (thêm dao động ngẫu nhiên). MCTS còn tìm thấy lá tốt nhất không? Tỷ số tín hiệu trên nhiễu tối thiểu mà nó chịu được là bao nhiêu?
+3. Triển khai ToT tìm kiếm chùm (giữ top-k ở mỗi mức) và so sánh với BFS. Cách nào tốt hơn với ngân sách token eo hẹp?
+4. Đọc Phần 5.1 của LATS. Tái tạo số quỹ đạo HumanEval: cần bao nhiêu rollout để đạt pass@1 được báo cáo?
+5. Đọc phần thảo luận của bài báo LATS về "khi nào LATS giúp ít hơn." Viết một quy tắc quyết định một đoạn ánh xạ hình dạng tác vụ sang chiến lược tìm kiếm.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |------|----------------|------------------------|
-| Tree of Thoughts | "Branching CoT" | Yao et al. — tree of thought nodes with self-evaluation |
-| LATS | "MCTS for LLMs" | Zhou et al. — unifies ToT + ReAct + Reflexion under MCTS |
-| UCT | "Upper confidence bound" | Select formula balancing exploitation (Q) and exploration (ln N / n) |
-| Value function | "How good is this state" | Prompted LLM score or environment reward; feeds backprop |
-| Policy | "Action proposer" | ReAct-style generator; emits candidate next thoughts/actions |
-| Rollout | "Simulated trajectory" | Walk from a node to a leaf using policy, score with value |
-| Backpropagate | "Update ancestors" | Push the leaf's reward up the path, updating visit counts and Q |
-| Search cost | "Token explosion" | 100-1000x CoT on Game of 24; budget before you adopt |
+| Tree of Thoughts (Cây suy nghĩ) | "CoT phân nhánh" | Yao và cộng sự — cây các nút suy nghĩ với tự đánh giá |
+| LATS | "MCTS cho LLM" | Zhou và cộng sự — hợp nhất ToT + ReAct + Reflexion dưới MCTS |
+| UCT | "Cận trên độ tin cậy" | Công thức chọn cân bằng khai thác (Q) và khám phá (ln N / n) |
+| Value function (Hàm giá trị) | "Trạng thái này tốt đến đâu" | Điểm LLM được gợi bằng prompt hoặc phần thưởng môi trường; cung cấp cho lan truyền ngược |
+| Policy (Chính sách) | "Bộ đề xuất hành động" | Bộ tạo kiểu ReAct; phát ra các suy nghĩ/hành động tiếp theo ứng viên |
+| Rollout | "Quỹ đạo mô phỏng" | Đi từ một nút đến một lá bằng chính sách, chấm điểm bằng giá trị |
+| Backpropagate (Lan truyền ngược) | "Cập nhật các tổ tiên" | Đẩy phần thưởng của lá ngược lên đường đi, cập nhật số lượt thăm và Q |
+| Search cost (Chi phí tìm kiếm) | "Bùng nổ token" | Gấp 100-1000 lần CoT trên Game of 24; lập ngân sách trước khi áp dụng |
 
 ## Further Reading
 
-- [Yao et al., Tree of Thoughts (arXiv:2305.10601)](https://arxiv.org/abs/2305.10601) — the canonical paper
-- [Zhou et al., LATS (arXiv:2310.04406)](https://arxiv.org/abs/2310.04406) — MCTS with Reflexion feedback
-- [LangGraph overview](https://docs.langchain.com/oss/python/langgraph/overview) — subgraph patterns for search
-- [AlphaEvolve (arXiv:2506.13131)](https://arxiv.org/abs/2506.13131) — evolutionary search with programmatic evaluators
+- [Yao et al., Tree of Thoughts (arXiv:2305.10601)](https://arxiv.org/abs/2305.10601) — bài báo kinh điển
+- [Zhou et al., LATS (arXiv:2310.04406)](https://arxiv.org/abs/2310.04406) — MCTS với phản hồi Reflexion
+- [LangGraph overview](https://docs.langchain.com/oss/python/langgraph/overview) — các mẫu đồ thị con cho tìm kiếm
+- [AlphaEvolve (arXiv:2506.13131)](https://arxiv.org/abs/2506.13131) — tìm kiếm tiến hóa với các bộ đánh giá bằng chương trình
