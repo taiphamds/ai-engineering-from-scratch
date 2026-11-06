@@ -9,20 +9,20 @@ tags: [diffusion, rectified-flow, DiT, training]
 
 # Rectified Flow Trainer
 
-Produce a clean, minimal training loop that would successfully train a small DiT with rectified flow on any image tensor dataset.
+Tạo một vòng lặp huấn luyện gọn, tối giản có thể huấn luyện thành công một DiT nhỏ bằng rectified flow trên bất kỳ tập dữ liệu tensor hình ảnh nào.
 
 ## When to use
 
-- Reproducing the SD3 / FLUX training objective at small scale.
-- Benchmarking rectified flow vs DDPM on the same data.
-- Building a custom rectified-flow model for a non-standard domain (medical, satellite).
+- Tái tạo mục tiêu huấn luyện SD3 / FLUX ở quy mô nhỏ.
+- Đo hiệu năng rectified flow so với DDPM trên cùng dữ liệu.
+- Xây mô hình rectified-flow tùy chỉnh cho lĩnh vực không tiêu chuẩn (y tế, vệ tinh).
 
 ## Inputs
 
-- `model`: an `nn.Module` taking `(x, t)` and returning a predicted velocity.
-- `dataset`: an iterable of clean images in the model's domain.
-- `optimizer`: AdamW with `lr=1e-4`, `weight_decay=0.01`, `betas=(0.9, 0.99)`.
-- `scheduler`: cosine with warmup, default 1000 warmup steps.
+- `model`: một `nn.Module` nhận `(x, t)` và trả về vận tốc dự đoán.
+- `dataset`: đối tượng có thể lặp chứa hình ảnh sạch trong lĩnh vực mô hình.
+- `optimizer`: AdamW với `lr=1e-4`, `weight_decay=0.01`, `betas=(0.9, 0.99)`.
+- `scheduler`: cosine với warmup, mặc định 1000 bước warmup.
 
 ## Training step
 
@@ -61,11 +61,11 @@ def sample(model, shape, steps=20, device="cpu"):
 
 ## Tips
 
-- Use `torch.rand` uniform `t`; logit-normal or Sd3-style weighted sampling of `t` helps slightly but is not required to get started.
-- EMA of model weights is standard practice; maintain `ema_model` with decay 0.9999.
-- Classifier-free guidance for conditional models: with 10% probability replace the conditioning with an empty/null embedding during training; at inference mix `v_uncond + w * (v_cond - v_uncond)` with `w` around 3-5.
-- For LDM-style training (FLUX, SD3), the whole loop runs in a VAE latent space; the clean `x0` above is actually `VAE.encode(image)`.
-- Typical convergence on a 32x32 toy dataset: 2000-5000 steps. On real latent SD3 training: hundreds of thousands.
+- Sử dụng `torch.rand` cho `t` đều; lấy mẫu `t` có trọng số kiểu Sd3 hoặc logit-normal giúp một chút nhưng không bắt buộc để bắt đầu.
+- EMA các trọng số mô hình là thực hành tiêu chuẩn; duy trì `ema_model` với decay 0.9999.
+- Classifier-free guidance cho mô hình có điều kiện: với xác suất 10% thay điều kiện bằng embedding rỗng/null trong huấn luyện; lúc suy luận trộn `v_uncond + w * (v_cond - v_uncond)` với `w` khoảng 3-5.
+- Với huấn luyện kiểu LDM (FLUX, SD3), toàn bộ vòng lặp chạy trong không gian tiềm ẩn VAE; `x0` sạch trên thực ra là `VAE.encode(image)`.
+- Hội tụ điển hình trên tập dữ liệu đồ chơi 32x32: 2000-5000 bước. Trên huấn luyện SD3 tiềm ẩn thật: hàng trăm nghìn.
 
 ## Report
 
@@ -85,7 +85,7 @@ def sample(model, shape, steps=20, device="cpu"):
 
 ## Rules
 
-- Never train rectified flow with an image-space velocity target on RGB `uint8` data; normalise to zero mean, unit variance first.
-- Always log training loss per timestep-bucket; if early timesteps (near 0) have higher loss than late ones (near 1) the velocity parameterisation is probably miswired.
-- Do not mix rectified-flow velocity target with DDPM noise target in the same training loop; pick one.
-- Use bfloat16 training on Ampere+ GPUs; float16 sometimes produces NaN grads in rectified flow due to the velocity magnitude.
+- Không bao giờ huấn luyện rectified flow với mục tiêu vận tốc không gian ảnh trên dữ liệu RGB `uint8`; chuẩn hóa về trung bình không, phương sai đơn vị trước.
+- Luôn ghi mất mát huấn luyện mỗi nhóm bước thời gian; nếu các bước đầu (gần 0) có mất mát cao hơn bước sau (gần 1), tham số hóa vận tốc có lẽ nối sai.
+- Không trộn mục tiêu vận tốc rectified-flow với mục tiêu nhiễu DDPM trong cùng vòng lặp huấn luyện; chọn một.
+- Sử dụng huấn luyện bfloat16 trên GPU Ampere+; float16 đôi khi tạo gradient NaN trong rectified flow do độ lớn vận tốc.
