@@ -1,6 +1,6 @@
 # MCP Security: Poisoned Metadata, Routing, and MRTR State
 
-> Stateless does not mean trustless. It means every request exposes the evidence a server and gateway need to validate the call independently.
+> Không trạng thái không nghĩa không cần tin cậy. Nghĩa là mỗi yêu cầu đưa ra bằng chứng máy chủ và gateway cần để xác thực lời gọi độc lập.
 
 **Type:** Learn
 **Languages:** Python
@@ -9,39 +9,39 @@
 
 ## Learning Objectives
 
-- Treat tool descriptions, annotations, client information, and server information as untrusted data.
-- Detect metadata poisoning, descriptor changes, and cross-server name collisions.
-- Validate the 2026-07-28 request metadata and Streamable HTTP routing headers.
-- Protect MRTR `requestState` against tampering and bind confirmation to exact arguments.
-- Apply authorization and rate limits to a principal, not a removed protocol session.
+- Coi mô tả công cụ, chú giải, thông tin client và thông tin máy chủ là dữ liệu không đáng tin.
+- Phát hiện đầu độc siêu dữ liệu, thay đổi bộ mô tả và xung đột tên chéo máy chủ.
+- Xác thực siêu dữ liệu yêu cầu 2026-07-28 và header định tuyến Streamable HTTP.
+- Bảo vệ MRTR `requestState` khỏi sửa đổi và gắn xác nhận với đối số chính xác.
+- Áp dụng cấp quyền và giới hạn tốc độ cho chủ thể, không phải phiên giao thức đã bỏ.
 
 ## The Problem
 
-A model reads tool descriptions to decide what to call. A router reads tool names to decide where to send a request. A user reads labels to decide what to approve. One malicious descriptor can target all three.
+Mô hình đọc mô tả công cụ để quyết định gọi gì. Bộ định tuyến đọc tên công cụ để quyết định gửi yêu cầu đâu. Người dùng đọc nhãn để quyết định phê duyệt gì. Một bộ mô tả độc hại có thể nhắm cả ba.
 
-The official MCP security guidance is direct: descriptions and annotations should be treated as untrusted unless they come from a trusted server. Even then, deployment trust can change. A server update, compromised package, registry mistake, or gateway merge can alter what the model sees.
+Hướng dẫn bảo mật MCP chính thức nói thẳng: mô tả và chú giải nên coi là không đáng tin trừ khi đến từ máy chủ đáng tin. Ngay cả vậy, tin cậy triển khai có thể đổi. Cập nhật máy chủ, gói bị xâm phạm, lỗi registry hoặc gộp gateway có thể đổi thứ mô hình thấy.
 
-The current protocol also changes the security boundary. In 2026-07-28 there is no core handshake and no transport session. A security design that keys approval, rate limits, or audit history only by `Mcp-Session-Id` is not a current design.
+Giao thức hiện tại cũng đổi ranh giới bảo mật. Trong 2026-07-28 không có bắt tay lõi và không phiên vận chuyển. Thiết kế bảo mật đặt khóa phê duyệt, giới hạn tốc độ hoặc lịch sử kiểm toán chỉ theo `Mcp-Session-Id` không phải thiết kế hiện tại.
 
 ## The Concept
 
 ### Seven attack surfaces worth checking
 
-Use a concrete list instead of the vague instruction to be careful.
+Dùng danh sách cụ thể thay chỉ dẫn mơ hồ phải cẩn thận.
 
-1. **Metadata poisoning.** A description contains instructions unrelated to the declared tool behavior.
-2. **Descriptor rug pull.** A previously approved name, description, schema, or annotation changes.
-3. **Cross-server shadowing.** Two backends expose the same unqualified tool name and routing chooses one silently.
-4. **Header and body confusion.** `Mcp-Method` or `Mcp-Name` disagrees with the JSON-RPC request.
-5. **Capability escalation.** A peer claims an extension or client feature and the server mistakes that declaration for authorization.
-6. **MRTR state tampering.** A client changes `requestState`, answers a different question, or reuses confirmation with different arguments.
-7. **Supply-chain identity confusion.** A familiar display name is treated as proof of publisher or server identity.
+1. **Đầu độc siêu dữ liệu.** Mô tả chứa chỉ dẫn không liên quan hành vi công cụ khai báo.
+2. **Lật bộ mô tả.** Tên, mô tả, lược đồ hoặc chú giải đã phê duyệt trước thay đổi.
+3. **Che khuất chéo máy chủ.** Hai backend cung cấp cùng tên công cụ không định danh đầy đủ và định tuyến âm thầm chọn một.
+4. **Nhầm lẫn header và phần thân.** `Mcp-Method` hoặc `Mcp-Name` không đồng ý với yêu cầu JSON-RPC.
+5. **Leo thang khả năng.** Peer tuyên bố phần mở rộng hoặc tính năng client và máy chủ nhầm khai báo đó là cấp quyền.
+6. **Sửa đổi trạng thái MRTR.** Client đổi `requestState`, trả lời câu hỏi khác hoặc dùng lại xác nhận với đối số khác.
+7. **Nhầm danh tính chuỗi cung ứng.** Tên hiển thị quen thuộc được coi là bằng chứng danh tính nhà phát hành hoặc máy chủ.
 
-These surfaces overlap. Hash pinning helps with descriptor changes but does not prove that the first descriptor was safe. Static scanning catches obvious phrases but not subtle instructions. Namespacing prevents one collision class but not a malicious namespaced server. Stack the controls.
+Các bề mặt chồng lấn. Ghim hash giúp với thay đổi bộ mô tả nhưng không chứng minh bộ mô tả đầu an toàn. Quét tĩnh bắt cụm từ rõ nhưng không chỉ dẫn tinh vi. Không gian tên ngăn một lớp xung đột nhưng không ngăn máy chủ có không gian tên độc hại. Xếp chồng kiểm soát.
 
 ### The current request envelope is evidence, not identity
 
-Every 2026-07-28 request contains:
+Mọi yêu cầu 2026-07-28 chứa:
 
 ```json
 {
@@ -58,13 +58,13 @@ Every 2026-07-28 request contains:
 }
 ```
 
-Validate the version and capability shape on every request. Use capabilities to choose a compatible response shape. Do not use `clientInfo` as an authenticated principal. It is self-reported.
+Xác thực phiên bản và hình dạng khả năng trên mọi yêu cầu. Dùng khả năng để chọn hình dạng phản hồi tương thích. Không dùng `clientInfo` làm chủ thể đã xác thực. Nó tự khai.
 
-The same warning applies to `io.modelcontextprotocol/serverInfo` in result metadata. It is useful for logs and debugging. It is not a certificate, registry proof, or authorization decision.
+Cùng cảnh báo áp dụng cho `io.modelcontextprotocol/serverInfo` trong siêu dữ liệu kết quả. Hữu ích cho nhật ký và gỡ lỗi. Không phải chứng chỉ, bằng chứng registry hoặc quyết định cấp quyền.
 
 ### Validate routing before policy
 
-For `tools/call`, Streamable HTTP includes:
+Với `tools/call`, Streamable HTTP gồm:
 
 ```text
 MCP-Protocol-Version: 2026-07-28
@@ -72,68 +72,68 @@ Mcp-Method: tools/call
 Mcp-Name: notes.export
 ```
 
-The header method must equal the body method. The header name must equal `params.name`. Reject disagreement with `-32020` before selecting a backend, applying RBAC, or consuming a rate-limit token.
+Phương thức header phải bằng phương thức phần thân. Tên header phải bằng `params.name`. Từ chối bất đồng bằng `-32020` trước chọn backend, áp dụng RBAC hoặc tiêu thụ token giới hạn tốc độ.
 
-This ordering closes a common ambiguity: one component authorizes the body while another routes by the header.
+Thứ tự này khép mơ hồ phổ biến: một thành phần cấp quyền phần thân trong khi bên khác định tuyến theo header.
 
-Wire validation follows one exact sequence. Validate JSON-RPC and metadata types, compare header values with the body, then check whether the matched version is supported. A mismatched header returns HTTP 400 with `-32020`. If header and body agree on an unsupported version, return HTTP 400 with `-32022` and `data` exactly `{"supported":["2026-07-28"],"requested":"<actual>"}`. An unknown method returns HTTP 404 with `-32601`.
+Xác thực đường truyền theo một chuỗi chính xác. Xác thực JSON-RPC và kiểu siêu dữ liệu, so giá trị header với phần thân, rồi kiểm tra phiên bản khớp có hỗ trợ không. Header không khớp trả HTTP 400 với `-32020`. Nếu header và phần thân đồng ý phiên bản không hỗ trợ, trả HTTP 400 với `-32022` và `data` chính xác `{"supported":["2026-07-28"],"requested":"<actual>"}`. Phương thức không biết trả HTTP 404 với `-32601`.
 
-Every error object includes optional `data` when the contract needs structured recovery information. A notification has no `id`, so it never receives a JSON-RPC success or error response. An accepted HTTP notification returns 202 with an empty body.
+Mọi đối tượng lỗi gồm `data` tùy chọn khi hợp đồng cần thông tin phục hồi có cấu trúc. Thông báo không có `id`, nên không bao giờ nhận phản hồi thành công hoặc lỗi JSON-RPC. Thông báo HTTP được chấp nhận trả 202 với phần thân rỗng.
 
 ### Pin the whole descriptor
 
-A description hash alone misses schema and annotation changes. Canonicalize and hash the descriptor fields the user approved:
+Chỉ hash mô tả bỏ lỡ thay đổi lược đồ và chú giải. Chuẩn hóa và hash trường bộ mô tả người dùng phê duyệt:
 
 ```python
 normalized = json.dumps(tool, sort_keys=True, separators=(",", ":"))
 digest = hashlib.sha256(normalized.encode()).hexdigest()
 ```
 
-Store the digest under a qualified key such as `notes.export`, together with publisher evidence and approval time outside this toy example.
+Lưu bản băm dưới khóa định danh đầy đủ như `notes.export`, cùng bằng chứng nhà phát hành và thời điểm phê duyệt ngoài ví dụ đơn giản này.
 
-On every refresh:
+Trên mọi lần làm mới:
 
-- Unknown key: quarantine until review.
-- Same key, different digest: quarantine as a rug pull until re-approved.
-- Duplicate unqualified name: require deterministic namespacing.
-- Scanner hit: block and review the complete descriptor.
+- Khóa không biết: cách ly đến khi xem xét.
+- Cùng khóa, khác bản băm: cách ly như lật bộ mô tả đến khi phê duyệt lại.
+- Tên không định danh đầy đủ trùng: yêu cầu không gian tên tất định.
+- Máy quét phát hiện: chặn và xem xét toàn bộ bộ mô tả.
 
-Hash equality proves stability, not safety. A poisoned descriptor stays poisoned when perfectly pinned.
+Hash bằng nhau chứng minh ổn định, không phải an toàn. Bộ mô tả bị đầu độc vẫn bị đầu độc khi ghim hoàn hảo.
 
 ### Static scanning is a tripwire
 
-Simple patterns can flag role tags, instruction overrides, concealment, secret access, and obscured network destinations. They are cheap enough for install time and CI.
+Mẫu đơn giản có thể đánh dấu thẻ vai trò, ghi đè chỉ dẫn, che giấu, truy cập bí mật và đích mạng bị làm mờ. Chúng đủ rẻ cho lúc cài và CI.
 
-They are not a semantic proof. A safe description can contain a flagged phrase in a legitimate warning. A malicious description can avoid every phrase. Treat scanner output as review evidence, not an automatic innocence score.
+Không phải chứng minh ngữ nghĩa. Mô tả an toàn có thể chứa cụm từ bị đánh dấu trong cảnh báo hợp lệ. Mô tả độc hại có thể tránh mọi cụm từ. Coi đầu ra máy quét là bằng chứng xem xét, không phải điểm vô tội tự động.
 
 ### Namespace before merging
 
-Suppose two servers both expose `search`. Never let discovery order decide which wins.
+Giả sử hai máy chủ đều cung cấp `search`. Không bao giờ để thứ tự khám phá quyết định bên thắng.
 
 ```text
 notes.search
 issues.search
 ```
 
-The qualified name is the public gateway name. Record the backend mapping separately. Stable names make approval, audit, hash pins, and `Mcp-Name` routing refer to the same object.
+Tên định danh đầy đủ là tên gateway công khai. Ghi ánh xạ backend riêng. Tên ổn định làm phê duyệt, kiểm toán, ghim hash và định tuyến `Mcp-Name` tham chiếu cùng đối tượng.
 
 ### Capabilities are compatibility declarations
 
-Per-request `clientCapabilities` tells a server which protocol features the client can process. It does not grant the client access to tools, data, or actions.
+`clientCapabilities` mỗi yêu cầu cho máy chủ biết tính năng giao thức client xử lý được. Không cấp client quyền truy cập công cụ, dữ liệu hoặc hành động.
 
-Authorization still comes from the authenticated principal and resource policy. The sequence is:
+Cấp quyền vẫn đến từ chủ thể đã xác thực và chính sách tài nguyên. Chuỗi là:
 
-1. Authenticate transport credentials.
-2. Validate version, headers, and request shape.
-3. Check capability compatibility.
-4. Authorize principal, tool, resource, and arguments.
-5. Execute or request user input.
+1. Xác thực thông tin xác thực vận chuyển.
+2. Xác thực phiên bản, header và hình dạng yêu cầu.
+3. Kiểm tra tương thích khả năng.
+4. Cấp quyền chủ thể, công cụ, tài nguyên và đối số.
+5. Thực thi hoặc yêu cầu đầu vào người dùng.
 
 ### Protect stateless MRTR confirmation
 
-A consequential tool may need user confirmation. Current MCP uses Multi Round-Trip Requests instead of a server-to-client callback.
+Công cụ có hệ quả có thể cần xác nhận người dùng. MCP hiện tại dùng Yêu cầu nhiều lượt khứ hồi thay callback máy chủ-sang-client.
 
-First response:
+Phản hồi đầu:
 
 ```json
 {
@@ -158,7 +158,7 @@ First response:
 }
 ```
 
-The client obtains input and retries the original method with a new JSON-RPC id:
+Client lấy đầu vào và thử lại phương thức gốc với id JSON-RPC mới:
 
 ```json
 {
@@ -185,53 +185,53 @@ The client obtains input and retries the original method with a new JSON-RPC id:
 }
 ```
 
-Each `inputRequests` value is a complete embedded request with `method` and `params`. Its key must match the corresponding entry in `inputResponses`. A form elicitation uses an object-root `requestedSchema`, and the client must have declared form elicitation capability before the server requests it.
+Mỗi giá trị `inputRequests` là yêu cầu nhúng đầy đủ với `method` và `params`. Khóa phải khớp mục tương ứng trong `inputResponses`. Elicitation biểu mẫu dùng `requestedSchema` gốc đối tượng và client phải khai báo khả năng elicitation biểu mẫu trước khi máy chủ yêu cầu.
 
-The current capability has two valid form declarations. `{"elicitation":{}}` implicitly supports form elicitation, while `{"elicitation":{"form":{}}}` states it explicitly. A URL-only declaration such as `{"elicitation":{"url":{}}}` does not support a form request. The server returns HTTP 400 with `-32021` and `data.requiredCapabilities` equal to `{"elicitation":{"form":{}}}`.
+Khả năng hiện tại có hai khai báo biểu mẫu hợp lệ. `{"elicitation":{}}` ngầm hỗ trợ elicitation biểu mẫu, còn `{"elicitation":{"form":{}}}` nêu tường minh. Khai báo chỉ URL như `{"elicitation":{"url":{}}}` không hỗ trợ yêu cầu biểu mẫu. Máy chủ trả HTTP 400 với `-32021` và `data.requiredCapabilities` bằng `{"elicitation":{"form":{}}}`.
 
-Treat `requestState` as hostile input. Sign or encrypt it, validate it, and bind it to method, tool, exact arguments, purpose, expiry, principal, and a one-time nonce when replay matters. The lesson code uses HMAC and exact argument matching to make the boundary visible.
+Coi `requestState` là đầu vào thù địch. Ký hoặc mã hóa, xác thực và gắn với phương thức, công cụ, đối số chính xác, mục đích, hết hạn, chủ thể và nonce một lần khi phát lại quan trọng. Mã bài dùng HMAC và khớp đối số chính xác để ranh giới rõ.
 
-The nonce ledger must not live inside one gateway object. The runnable model injects a bounded, TTL-pruned replay store that can be shared by multiple gateway instances. Its atomic claim is the execution boundary: only a validated acceptance or explicit terminal decline consumes state. A malformed response or `cancel` executes nothing and remains retryable until expiry. A production fleet needs the same conditional claim in shared durable storage.
+Sổ nonce không được chỉ nằm trong một đối tượng gateway. Mô hình chạy được tiêm kho chống phát lại có giới hạn, dọn theo TTL có thể dùng chung nhiều thực thể gateway. Chiếm nguyên tử là ranh giới thực thi: chỉ chấp nhận đã xác thực hoặc từ chối kết thúc tường minh tiêu thụ trạng thái. Phản hồi sai dạng hoặc `cancel` không thực thi gì và còn thử lại được đến hết hạn. Cụm sản xuất cần cùng chiếm có điều kiện trong lưu trữ bền vững dùng chung.
 
-Do not store hidden confirmation context in a protocol session. Any server instance should be able to validate the retry.
+Không lưu ngữ cảnh xác nhận ẩn trong phiên giao thức. Mọi thực thể máy chủ nên xác thực được lần thử lại.
 
 ### Rule of two for high-risk calls
 
-Classify a call along three axes:
+Phân loại lời gọi theo ba trục:
 
-- It consumes untrusted input.
-- It can access sensitive data.
-- It causes a consequential external action.
+- Nó tiếp nhận đầu vào không đáng tin.
+- Nó có thể truy cập dữ liệu nhạy cảm.
+- Nó gây hành động bên ngoài có hệ quả.
 
-A single automatic step should not combine all three. Split it, reduce privilege, or request explicit user input through MRTR. This is a design heuristic, not a protocol capability.
+Một bước tự động không nên kết hợp cả ba. Tách, giảm đặc quyền hoặc yêu cầu đầu vào người dùng tường minh qua MRTR. Đây là heuristic thiết kế, không phải khả năng giao thức.
 
 ### Reduce authority before execution
 
-Statelessness alone is not safety. It removes hidden protocol history, but a self-contained request can still ask an overpowered handler to leak data or make an irreversible change. Safety comes from reducing authority at each boundary:
+Chỉ không trạng thái không phải an toàn. Nó bỏ lịch sử giao thức ẩn, nhưng yêu cầu tự đầy đủ vẫn có thể yêu cầu trình xử lý quá quyền rò dữ liệu hoặc thay đổi không thể đảo ngược. An toàn đến từ giảm thẩm quyền tại mỗi ranh giới:
 
-1. **Typed verb.** Expose one bounded operation such as `archive_note`, not a generic `run` or `request` tool that can express unrelated powers.
-2. **Validated arguments.** Use a closed schema where practical, reject unknown fields, normalize identifiers once, cap sizes, and validate destination, tenant, and resource ownership before policy evaluation.
-3. **Current authorization.** Bind the authenticated principal to the exact verb, resource, environment, and normalized arguments. Tool annotations and client capabilities do not grant this authority.
-4. **Action-bound approval.** For a consequential call, bind approval to a digest of the typed verb and normalized arguments, plus principal, expiry, and one-time policy. Any changed field requires a new decision.
-5. **First-class refusal.** Model deny, expired approval, user decline, and unsafe destination as ordinary outcomes that execute no side effect. Do not translate refusal into a weaker fallback tool.
-6. **Redacted audit evidence.** Record who asked, which admitted descriptor and policy version were used, what normalized target was authorized, why the decision allowed or refused, and whether execution began. Store digests or redacted values instead of secrets.
+1. **Động từ có kiểu.** Cung cấp một thao tác có giới hạn như `archive_note`, không phải công cụ `run` hoặc `request` tổng quát diễn đạt quyền lực không liên quan.
+2. **Đối số đã xác thực.** Dùng lược đồ đóng khi thực tế cho phép, từ chối trường không biết, chuẩn hóa định danh một lần, giới hạn kích thước và xác thực đích, tenant và sở hữu tài nguyên trước đánh giá chính sách.
+3. **Cấp quyền hiện tại.** Gắn chủ thể đã xác thực với đúng động từ, tài nguyên, môi trường và đối số chuẩn hóa. Chú giải công cụ và khả năng client không cấp thẩm quyền này.
+4. **Phê duyệt gắn hành động.** Với lời gọi có hệ quả, gắn phê duyệt với bản băm động từ có kiểu và đối số chuẩn hóa, cộng chủ thể, hết hạn và chính sách một lần. Mọi trường đổi cần quyết định mới.
+5. **Từ chối hạng nhất.** Mô hình hóa từ chối, phê duyệt hết hạn, người dùng từ chối và đích không an toàn như kết quả thường không thực thi tác dụng phụ. Không chuyển từ chối thành công cụ dự phòng yếu hơn.
+6. **Bằng chứng kiểm toán đã che.** Ghi ai yêu cầu, bộ mô tả được chấp nhận và phiên bản chính sách nào dùng, đích chuẩn hóa nào được cấp quyền, tại sao quyết định cho phép hoặc từ chối và thực thi có bắt đầu không. Lưu bản băm hoặc giá trị đã che thay bí mật.
 
-Each step narrows what the next component may do. The final handler should receive an already validated domain command, not raw model text plus broad credentials. Repeat the entire chain on an MRTR retry, task update, or gateway-forwarded call. An earlier approval does not turn later requests into trusted session traffic.
+Mỗi bước thu hẹp thứ thành phần tiếp được làm. Trình xử lý cuối nên nhận lệnh miền đã xác thực, không phải văn bản mô hình thô cộng thông tin xác thực rộng. Lặp toàn chuỗi trên lần thử lại MRTR, cập nhật tác vụ hoặc lời gọi gateway chuyển tiếp. Phê duyệt trước không biến yêu cầu sau thành lưu lượng phiên đáng tin.
 
 ### Current and legacy interaction paths
 
-Roots, Sampling, and Logging are deprecated for new 2026-07-28 implementations. A gateway may retain older request-channel code only as a version-gated compatibility path.
+Roots, Sampling và Logging ngừng được khuyến nghị cho triển khai 2026-07-28 mới. Gateway chỉ có thể giữ mã kênh yêu cầu cũ làm nhánh tương thích chặn theo phiên bản.
 
-Do not build a new defense around a per-session sampling limiter. Apply quotas to authenticated principal, issuer, resource, tool, and time window. For current interactive work, inspect MRTR input requests and responses.
+Không xây phòng vệ mới quanh bộ giới hạn sampling mỗi phiên. Áp hạn ngạch cho chủ thể đã xác thực, bên phát hành, tài nguyên, công cụ và cửa sổ thời gian. Với công việc tương tác hiện tại, kiểm tra yêu cầu và phản hồi đầu vào MRTR.
 
 ### Stateless transport checks
 
-- Accept modern MCP messages at the single POST endpoint.
-- Return 405 for modern GET and DELETE.
-- Do not mint or depend on `Mcp-Session-Id`.
-- Ignore legacy session and replay headers as authority inputs.
-- Return JSON or request-scoped SSE for that POST.
-- Use `subscriptions/listen` only for opted-in long-lived change notifications.
+- Nhận thông điệp MCP hiện đại tại endpoint POST duy nhất.
+- Trả 405 cho GET và DELETE hiện đại.
+- Không tạo hoặc phụ thuộc `Mcp-Session-Id`.
+- Bỏ qua header phiên và phát lại cũ làm đầu vào thẩm quyền.
+- Trả JSON hoặc SSE phạm vi yêu cầu cho POST đó.
+- Chỉ dùng `subscriptions/listen` cho thông báo thay đổi sống lâu đã chọn nhận.
 
 ```figure
 tp-tool-poisoning
@@ -239,11 +239,11 @@ tp-tool-poisoning
 
 ## Build It
 
-`code/main.py` implements a small in-process security gateway model. It canonicalizes and pins full tool descriptors, reports metadata poisoning and shadowing, validates the modern request envelope and routing values, and performs a two-round confirmed export with signed `requestState` and an injected shared replay store.
+`code/main.py` triển khai mô hình gateway bảo mật nhỏ trong tiến trình. Nó chuẩn hóa và ghim toàn bộ bộ mô tả công cụ, báo đầu độc siêu dữ liệu và che khuất, xác thực vỏ yêu cầu hiện đại và giá trị định tuyến, thực hiện xuất có xác nhận hai vòng với `requestState` có chữ ký và kho chống phát lại dùng chung được tiêm.
 
-The model starts after an HTTP adapter has parsed the JSON body and routing headers. It does not validate `Content-Type` or `Accept`. Connect the same dispatcher to Lesson 09's complete Streamable HTTP adapter, which requires `Content-Type: application/json` and an `Accept` value containing both `application/json` and `text/event-stream`.
+Mô hình bắt đầu sau adapter HTTP đã phân tích phần thân JSON và header định tuyến. Không xác thực `Content-Type` hoặc `Accept`. Nối cùng bộ phân phối với adapter Streamable HTTP đầy đủ Bài 09, yêu cầu `Content-Type: application/json` và giá trị `Accept` chứa cả `application/json` và `text/event-stream`.
 
-Run it:
+Chạy:
 
 ```bash
 cd phases/13-tools-and-protocols/15-mcp-security-tool-poisoning
@@ -251,41 +251,41 @@ python3 code/main.py
 python3 -m unittest discover code/tests -v
 ```
 
-The sample intentionally mutates a descriptor. The scanner and digest comparison produce independent findings. The export then demonstrates the `input_required` response and stateless retry.
+Mẫu cố ý sửa bộ mô tả. Máy quét và so bản băm tạo phát hiện độc lập. Sau đó phần xuất minh họa phản hồi `input_required` và thử lại không trạng thái.
 
 ## Use It
 
-Replace `SAFE_TOOLS` with a normalized snapshot from your own approved servers. Keep credentials and secrets out of the snapshot. Review every new or changed descriptor before updating its digest.
+Thay `SAFE_TOOLS` bằng ảnh chụp chuẩn hóa từ máy chủ đã phê duyệt của bạn. Giữ thông tin xác thực và bí mật ngoài ảnh chụp. Xem xét mọi bộ mô tả mới hoặc đổi trước cập nhật bản băm.
 
-At a gateway, run the same checks during discovery and again before dispatch. A cache can reduce discovery work, but a cached approval must expire or be invalidated when the descriptor changes.
+Tại gateway, chạy cùng kiểm tra trong khám phá và lần nữa trước phân phối. Bộ đệm có thể giảm công việc khám phá, nhưng phê duyệt lưu đệm phải hết hạn hoặc vô hiệu khi bộ mô tả đổi.
 
 ## Ship It
 
-This lesson ships `outputs/skill-mcp-threat-model.md`. It produces a current-protocol threat model across metadata, routing, capability, authorization, MRTR, caching, registry, and compatibility boundaries.
+Bài học này cung cấp `outputs/skill-mcp-threat-model.md`. Nó tạo mô hình đe dọa giao thức hiện tại qua ranh giới siêu dữ liệu, định tuyến, khả năng, cấp quyền, MRTR, lưu đệm, registry và tương thích.
 
 ## Exercises
 
-1. Bind the authenticated principal and current authorization decision to the sealed MRTR state, then reject a retry under a different principal.
-2. Replace the in-memory replay store with a persistent conditional insert and prove two processes cannot both claim one nonce.
-3. Inject a failure after replay claim but before a simulated export. Define and test the transaction or idempotency rule that makes recovery safe.
-4. Change a tool's `inputSchema` without changing its description. Confirm whole-descriptor pinning catches it.
-5. Add a policy that refuses public caching when `tools/list` differs by principal.
-6. Model an older server behind the gateway. Put all handshake and session behavior behind an explicit `2025-11-25` compatibility branch.
+1. Gắn chủ thể đã xác thực và quyết định cấp quyền hiện tại với trạng thái MRTR niêm phong, rồi từ chối thử lại dưới chủ thể khác.
+2. Thay kho chống phát lại trong bộ nhớ bằng chèn có điều kiện bền vững và chứng minh hai tiến trình không thể cùng chiếm một nonce.
+3. Tiêm lỗi sau chiếm chống phát lại nhưng trước xuất mô phỏng. Định nghĩa và kiểm thử quy tắc giao dịch hoặc lũy đẳng làm phục hồi an toàn.
+4. Đổi `inputSchema` công cụ không đổi mô tả. Xác nhận ghim toàn bộ bộ mô tả bắt được.
+5. Thêm chính sách từ chối lưu đệm công khai khi `tools/list` khác theo chủ thể.
+6. Mô hình hóa máy chủ cũ sau gateway. Đặt mọi hành vi bắt tay và phiên sau nhánh tương thích `2025-11-25` tường minh.
 
 ## Key Terms
 
-| Term | Meaning |
+| Thuật ngữ | Ý nghĩa |
 |------|---------|
-| Metadata poisoning | Instructions or deceptive claims embedded in a tool descriptor |
-| Rug pull | Change to a previously approved descriptor |
-| Tool shadowing | Ambiguous routing caused by duplicate unqualified names |
-| Header mismatch | Routing header and JSON-RPC body disagreement, error `-32020` |
-| Hash pin | Digest of the complete approved descriptor |
-| MRTR | Stateless response and retry pattern for server-requested input |
-| `requestState` | Opaque round-trip value that must be treated as untrusted input |
-| Capability declaration | Statement of protocol compatibility, not authorization |
-| Implicit form support | An empty `elicitation` capability object, equivalent to form support |
-| Qualified tool name | Stable gateway name such as `notes.search` |
+| Metadata poisoning (Đầu độc siêu dữ liệu) | Chỉ dẫn hoặc tuyên bố lừa đảo nhúng trong bộ mô tả công cụ |
+| Rug pull (Lật bộ mô tả) | Thay đổi bộ mô tả đã phê duyệt trước |
+| Tool shadowing (Che khuất công cụ) | Định tuyến mơ hồ do tên không định danh đầy đủ trùng |
+| Header mismatch (Header không khớp) | Header định tuyến và phần thân JSON-RPC bất đồng, lỗi `-32020` |
+| Hash pin (Ghim hash) | Bản băm toàn bộ bộ mô tả đã phê duyệt |
+| MRTR | Mẫu phản hồi và thử lại không trạng thái cho đầu vào do máy chủ yêu cầu |
+| `requestState` | Giá trị khứ hồi mờ phải coi là đầu vào không đáng tin |
+| Capability declaration (Khai báo khả năng) | Tuyên bố tương thích giao thức, không phải cấp quyền |
+| Implicit form support (Hỗ trợ biểu mẫu ngầm) | Đối tượng khả năng `elicitation` rỗng, tương đương hỗ trợ biểu mẫu |
+| Qualified tool name (Tên công cụ định danh đầy đủ) | Tên gateway ổn định như `notes.search` |
 
 ## Further Reading
 
