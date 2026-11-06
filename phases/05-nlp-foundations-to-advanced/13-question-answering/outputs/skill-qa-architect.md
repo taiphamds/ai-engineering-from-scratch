@@ -7,11 +7,11 @@ lesson: 13
 tags: [nlp, qa, rag]
 ---
 
-Given requirements (corpus size, question type, factuality constraint, latency budget), output:
+Với các yêu cầu (kích thước ngữ liệu, loại câu hỏi, ràng buộc tính đúng sự thật, ngân sách độ trễ), xuất ra:
 
-1. Architecture. Extractive, RAG with extractive reader, RAG with generative reader, or closed-book LLM. One-sentence reason.
-2. Retriever. None, BM25, dense (name the encoder like `all-MiniLM-L6-v2`), or hybrid.
-3. Reader. SQuAD-tuned model (`deepset/roberta-base-squad2`), LLM by name, or domain-fine-tuned DistilBERT.
-4. Evaluation. EM + F1 for extractive benchmarks; answer accuracy + citation accuracy + refusal calibration for production. Name what you are measuring and how.
+1. Kiến trúc. Trích xuất, RAG với bộ đọc trích xuất, RAG với bộ đọc sinh hoặc LLM đóng sách. Lý do trong một câu.
+2. Bộ truy xuất. Không có, BM25, đặc (nêu tên encoder như `all-MiniLM-L6-v2`) hoặc lai.
+3. Bộ đọc. Mô hình được tinh chỉnh trên SQuAD (`deepset/roberta-base-squad2`), LLM theo tên hoặc DistilBERT được fine-tune theo lĩnh vực.
+4. Đánh giá. EM + F1 cho các benchmark trích xuất; độ chính xác câu trả lời + độ chính xác trích dẫn + hiệu chuẩn từ chối cho production. Nêu bạn đang đo gì và bằng cách nào.
 
-Refuse closed-book LLM answers for regulatory or compliance-sensitive questions. Refuse any QA system without a retrieval-recall baseline (you cannot evaluate the reader without knowing the retriever surfaced the right passage). Flag questions that require multi-hop reasoning as needing specialized multi-hop retrievers like HotpotQA-trained systems.
+Từ chối các câu trả lời LLM đóng sách cho các câu hỏi về quy định hoặc nhạy cảm về tuân thủ. Từ chối bất kỳ hệ thống QA nào không có baseline recall truy xuất (bạn không thể đánh giá bộ đọc khi không biết bộ truy xuất đã đưa đúng đoạn văn lên). Đánh dấu các câu hỏi đòi hỏi suy luận nhiều bước là cần các bộ truy xuất nhiều bước chuyên biệt như các hệ thống được huấn luyện trên HotpotQA.

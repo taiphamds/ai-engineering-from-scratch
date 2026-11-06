@@ -1,6 +1,6 @@
 # Question Answering Systems
 
-> Three systems shaped modern QA. Extractive found spans. Retrieval-augmented grounded them in documents. Generative produced answers. Every modern AI assistant is a mix of the three.
+> Ba hệ thống định hình QA hiện đại. Trích xuất tìm các span. Tăng cường truy xuất đặt chúng trên căn cứ tài liệu. Sinh tạo ra các câu trả lời. Mọi trợ lý AI hiện đại là sự kết hợp của cả ba.
 
 **Type:** Build
 **Languages:** Python
@@ -9,25 +9,25 @@
 
 ## The Problem
 
-A user types "When did the first iPhone launch?" and expects "June 29, 2007." Not "Apple's history is long and varied." Not "2007" sitting in isolation with no sentence. A direct, grounded, correct answer.
+Một người dùng gõ "Chiếc iPhone đầu tiên ra mắt khi nào?" và kỳ vọng "Ngày 29 tháng 6 năm 2007." Không phải "Lịch sử Apple dài và đa dạng." Không phải "2007" nằm riêng lẻ không có câu. Một câu trả lời trực tiếp, có căn cứ, đúng.
 
-Three architectures have dominated QA over the last decade.
+Ba kiến trúc đã thống trị QA trong thập kỷ qua.
 
-- **Extractive QA.** Given a question and a passage that is known to contain the answer, find the start and end indices of the answer span in the passage. SQuAD is the canonical benchmark.
-- **Open-domain QA.** The passage is not given. Retrieve the relevant passage first, then extract or generate an answer. This is the bedrock of every RAG pipeline today.
-- **Generative / Closed-book QA.** A large language model answers from its parametric memory. No retrieval. Fastest at inference, least reliable on facts.
+- **QA trích xuất.** Với một câu hỏi và một đoạn văn được biết là chứa câu trả lời, tìm các chỉ số bắt đầu và kết thúc của span câu trả lời trong đoạn văn. SQuAD là benchmark kinh điển.
+- **QA miền mở.** Đoạn văn không được cho sẵn. Truy xuất đoạn văn liên quan trước, rồi trích xuất hoặc sinh một câu trả lời. Đây là nền tảng của mọi pipeline RAG ngày nay.
+- **QA sinh / Đóng sách.** Một mô hình ngôn ngữ lớn trả lời từ bộ nhớ tham số của nó. Không truy xuất. Nhanh nhất khi suy luận, ít đáng tin cậy nhất về các sự kiện.
 
-The trend in 2026 is hybrid: retrieve the best few passages, then prompt a generative model to answer grounded in those passages. That is RAG, and lesson 14 covers the retrieval half in depth. This lesson builds the QA half.
+Xu hướng năm 2026 là lai: truy xuất vài đoạn văn tốt nhất, rồi prompt một mô hình sinh trả lời dựa trên các đoạn văn đó. Đó là RAG, và bài 14 đề cập sâu nửa truy xuất. Bài học này xây dựng nửa QA.
 
 ## The Concept
 
 ![QA architectures: extractive, retrieval-augmented, generative](../assets/qa.svg)
 
-**Extractive.** Encode question and passage together with a transformer (BERT family). Train two heads that predict start and end token indices of the answer. Loss is cross-entropy over valid positions. Output is a span from the passage. Never hallucinates (by construction), never handles questions the passage cannot answer (by construction).
+**Trích xuất.** Mã hóa câu hỏi và đoạn văn cùng nhau bằng một transformer (họ BERT). Huấn luyện hai head dự đoán các chỉ số token bắt đầu và kết thúc của câu trả lời. Loss là cross-entropy trên các vị trí hợp lệ. Đầu ra là một span từ đoạn văn. Không bao giờ ảo giác (do cách xây dựng), không bao giờ xử lý các câu hỏi mà đoạn văn không thể trả lời (do cách xây dựng).
 
-**Retrieval-augmented (RAG).** Two stages. First, a retriever finds the top-`k` passages from a corpus. Second, a reader (extractive or generative) produces the answer using those passages. The retriever-reader split lets each be trained and evaluated independently. Modern RAG often adds a reranker between them.
+**Tăng cường truy xuất (RAG).** Hai giai đoạn. Thứ nhất, một bộ truy xuất tìm các đoạn văn top-`k` từ một ngữ liệu. Thứ hai, một bộ đọc (trích xuất hoặc sinh) tạo câu trả lời bằng các đoạn văn đó. Sự tách biệt bộ truy xuất-bộ đọc cho phép mỗi bên được huấn luyện và đánh giá độc lập. RAG hiện đại thường thêm một bộ xếp hạng lại giữa chúng.
 
-**Generative.** A decoder-only LLM (GPT, Claude, Llama) answers from learned weights. No retrieval step. Excellent on common knowledge, catastrophic on rare or recent facts. The hallucination rate is inversely correlated with fact frequency in the pretraining data.
+**Sinh.** Một LLM chỉ decoder (GPT, Claude, Llama) trả lời từ các trọng số được học. Không có bước truy xuất. Xuất sắc với kiến thức phổ biến, thảm họa với các sự kiện hiếm hoặc gần đây. Tỷ lệ ảo giác tương quan nghịch với tần suất sự kiện trong dữ liệu tiền huấn luyện.
 
 ```figure
 qa-span
@@ -56,7 +56,7 @@ print(answer)
 {'score': 0.98, 'start': 57, 'end': 70, 'answer': 'June 29, 2007'}
 ```
 
-`deepset/roberta-base-squad2` is trained on SQuAD 2.0, which includes unanswerable questions. By default, the `question-answering` pipeline returns the highest-scoring span even when the model's null score wins — it does *not* automatically return an empty answer. To get explicit "no answer" behavior, pass `handle_impossible_answer=True` to the pipeline call: the pipeline then returns an empty answer only when the null score exceeds every span score. Always check the `score` field either way.
+`deepset/roberta-base-squad2` được huấn luyện trên SQuAD 2.0, bao gồm các câu hỏi không thể trả lời. Mặc định, pipeline `question-answering` trả span có điểm cao nhất ngay cả khi điểm null của mô hình thắng — nó *không* tự động trả một câu trả lời rỗng. Để có hành vi "không có câu trả lời" tường minh, truyền `handle_impossible_answer=True` vào lời gọi pipeline: pipeline sau đó chỉ trả một câu trả lời rỗng khi điểm null vượt mọi điểm span. Dù cách nào cũng luôn kiểm tra trường `score`.
 
 ### Step 2: a retrieval-augmented pipeline (sketch)
 
@@ -91,7 +91,7 @@ def answer(question):
 print(answer("When was the first iPhone released?"))
 ```
 
-Two-stage pipeline. Dense retriever (Sentence-BERT) finds relevant passages by semantic similarity. Extractive reader (RoBERTa-SQuAD) pulls the answer span from the combined top passages. Works on small corpora. For a million-document corpus, use FAISS or a vector database.
+Pipeline hai giai đoạn. Bộ truy xuất đặc (Sentence-BERT) tìm các đoạn văn liên quan bằng độ tương đồng ngữ nghĩa. Bộ đọc trích xuất (RoBERTa-SQuAD) lấy span câu trả lời từ các đoạn văn hàng đầu được kết hợp. Hoạt động trên các ngữ liệu nhỏ. Với một ngữ liệu triệu tài liệu, dùng FAISS hoặc một cơ sở dữ liệu vector.
 
 ### Step 3: generative with RAG
 
@@ -108,49 +108,49 @@ Answer using only the context above. If the context does not contain the answer,
     return llm(prompt)
 ```
 
-The prompt pattern matters. Explicitly telling the model to ground in the context and return "I don't know" when the context is insufficient cuts hallucination rates by 40-60% compared to naive prompting. More elaborate patterns add citations, confidence scores, and structured extraction.
+Mẫu prompt quan trọng. Yêu cầu rõ ràng mô hình dựa trên ngữ cảnh và trả "Tôi không biết" khi ngữ cảnh không đủ cắt giảm tỷ lệ ảo giác 40-60% so với prompting ngây thơ. Các mẫu phức tạp hơn thêm trích dẫn, điểm độ tin cậy và trích xuất có cấu trúc.
 
 ### Step 4: evaluation that reflects the real world
 
-SQuAD uses **Exact Match (EM)** and **token-level F1**. EM is a strict match after normalization (lowercase, strip punctuation, remove articles) — either the prediction matches exactly or it scores 0. F1 is computed over token overlap between prediction and reference and gives partial credit. Both under-credit paraphrases: "June 29, 2007" vs "June 29th, 2007" typically gets 0 EM (the ordinal breaks normalization) but still earns substantial F1 from overlapping tokens.
+SQuAD dùng **Exact Match (EM)** và **F1 cấp token**. EM là khớp nghiêm ngặt sau chuẩn hóa (chữ thường, bỏ dấu câu, bỏ mạo từ) — hoặc dự đoán khớp chính xác hoặc nó được điểm 0. F1 được tính trên phần giao token giữa dự đoán và tham chiếu và cho điểm một phần. Cả hai cho thiếu điểm các cách diễn đạt lại: "June 29, 2007" so với "June 29th, 2007" thường nhận 0 EM (số thứ tự phá chuẩn hóa) nhưng vẫn nhận F1 đáng kể từ các token giao nhau.
 
-For production QA:
+Đối với QA production:
 
-- **Answer accuracy** (LLM-judged or human-judged, since metrics do not capture semantic equivalence).
-- **Citation accuracy.** Does the cited passage actually support the answer? Trivial to check automatically with string match between generated citations and retrieved passages.
-- **Refusal calibration.** When the answer is not in the retrieved passages, does the system correctly say "I don't know"? Measure false confidence rate.
-- **Retrieval recall.** Before evaluating the reader, measure whether the retriever gets the right passage into the top-`k`. A reader cannot fix a missing passage.
+- **Độ chính xác câu trả lời** (do LLM hoặc con người đánh giá, vì các thước đo không nắm bắt sự tương đương ngữ nghĩa).
+- **Độ chính xác trích dẫn.** Đoạn văn được trích dẫn có thực sự hỗ trợ câu trả lời không? Dễ kiểm tra tự động bằng khớp chuỗi giữa các trích dẫn được sinh và các đoạn văn được truy xuất.
+- **Hiệu chuẩn từ chối.** Khi câu trả lời không nằm trong các đoạn văn được truy xuất, hệ thống có nói đúng "Tôi không biết" không? Đo tỷ lệ tự tin sai.
+- **Recall truy xuất.** Trước khi đánh giá bộ đọc, đo liệu bộ truy xuất có đưa đúng đoạn văn vào top-`k` không. Một bộ đọc không thể sửa một đoạn văn bị thiếu.
 
 ### RAGAS: the 2026 production eval framework
 
-`RAGAS` is purpose-built for RAG systems and is the shipping default in 2026. It scores four dimensions without requiring gold references:
+`RAGAS` được xây dựng riêng cho các hệ thống RAG và là mặc định để phát hành năm 2026. Nó chấm bốn chiều mà không yêu cầu các tham chiếu chuẩn:
 
-- **Faithfulness.** Does each claim in the answer come from the retrieved context? Measured by NLI-based entailment. Your primary hallucination metric.
-- **Answer relevance.** Does the answer address the question? Measured by generating hypothetical questions from the answer and comparing to the real question.
-- **Context precision.** Of the retrieved chunks, what fraction were actually relevant? Low precision = noise in prompt.
-- **Context recall.** Did the retrieved set contain all needed information? Low recall = reader cannot succeed.
+- **Độ trung thành.** Mỗi khẳng định trong câu trả lời có đến từ ngữ cảnh được truy xuất không? Được đo bằng quan hệ kéo theo dựa trên NLI. Thước đo ảo giác chính của bạn.
+- **Tính liên quan câu trả lời.** Câu trả lời có giải quyết câu hỏi không? Được đo bằng cách sinh các câu hỏi giả định từ câu trả lời và so sánh với câu hỏi thực.
+- **Precision ngữ cảnh.** Trong các khối được truy xuất, tỷ lệ nào thực sự liên quan? Precision thấp = nhiễu trong prompt.
+- **Recall ngữ cảnh.** Tập được truy xuất có chứa mọi thông tin cần thiết không? Recall thấp = bộ đọc không thể thành công.
 
-Reference-free scoring lets you evaluate on live production traffic without curated gold answers. Layer LLM-as-judge on top for open-ended questions where exact-match metrics are useless.
+Chấm điểm không tham chiếu cho phép bạn đánh giá trên lưu lượng production trực tiếp mà không có các câu trả lời chuẩn được tuyển chọn. Thêm LLM-as-judge phía trên cho các câu hỏi mở mà các thước đo khớp chính xác vô dụng.
 
-`pip install ragas`. Plug your retriever + reader. Get four scalars per query. Alert on regressions.
+`pip install ragas`. Cắm bộ truy xuất + bộ đọc của bạn vào. Nhận bốn vô hướng mỗi truy vấn. Cảnh báo khi có hồi quy.
 
 ## Use It
 
-The 2026 stack.
+Ngăn xếp năm 2026.
 
-| Use case | Recommended |
+| Trường hợp sử dụng | Khuyến nghị |
 |---------|-------------|
-| Given passage, find answer span | `deepset/roberta-base-squad2` |
-| Over a fixed corpus, closed-book not acceptable | RAG: dense retriever + LLM reader |
-| Real-time over a document store | RAG with hybrid (BM25 + dense) retriever + reranker (lesson 14) |
-| Conversational QA (follow-up questions) | LLM with conversation history + RAG on each turn |
-| Highly factual, regulated domains | Extractive over an authoritative corpus; never generative alone |
+| Cho sẵn đoạn văn, tìm span câu trả lời | `deepset/roberta-base-squad2` |
+| Trên một ngữ liệu cố định, đóng sách không được chấp nhận | RAG: bộ truy xuất đặc + bộ đọc LLM |
+| Thời gian thực trên một kho tài liệu | RAG với bộ truy xuất lai (BM25 + đặc) + bộ xếp hạng lại (bài 14) |
+| QA hội thoại (các câu hỏi tiếp nối) | LLM với lịch sử hội thoại + RAG ở mỗi lượt |
+| Các lĩnh vực đòi hỏi tính đúng sự thật cao, chịu quy định | Trích xuất trên một ngữ liệu có thẩm quyền; không bao giờ chỉ sinh |
 
-Extractive QA is unfashionable in 2026 because RAG with LLMs handles more cases. It still ships in contexts where literal quotation is required: legal research, regulatory compliance, audit tools.
+QA trích xuất lỗi thời vào năm 2026 vì RAG với LLM xử lý nhiều trường hợp hơn. Nó vẫn được phát hành trong các bối cảnh yêu cầu trích dẫn nguyên văn: nghiên cứu pháp lý, tuân thủ quy định, công cụ kiểm toán.
 
 ## Ship It
 
-Save as `outputs/skill-qa-architect.md`:
+Lưu thành `outputs/skill-qa-architect.md`:
 
 ```markdown
 ---
@@ -174,24 +174,24 @@ Refuse closed-book LLM answers for regulatory or compliance-sensitive questions.
 
 ## Exercises
 
-1. **Easy.** Set up the SQuAD extractive pipeline above on 10 Wikipedia passages. Hand-craft 10 questions. Measure how often the answer is correct. You should see 7-9 correct if passages and questions are clean.
-2. **Medium.** Add a refusal classifier. When the top retrieval score is below a threshold (say 0.3 cosine), return "I don't know" instead of calling the reader. Tune the threshold on a held-out set.
-3. **Hard.** Build a RAG pipeline over a 10,000-document corpus of your choice. Implement hybrid retrieval (BM25 + dense) with RRF fusion (see lesson 14). Measure answer accuracy with and without the hybrid step. Document which question types benefit most.
+1. **Dễ.** Thiết lập pipeline trích xuất SQuAD ở trên trên 10 đoạn văn Wikipedia. Tạo thủ công 10 câu hỏi. Đo tần suất câu trả lời đúng. Bạn sẽ thấy 7-9 câu đúng nếu các đoạn văn và câu hỏi sạch.
+2. **Trung bình.** Thêm một bộ phân loại từ chối. Khi điểm truy xuất hàng đầu dưới một ngưỡng (chẳng hạn cosine 0.3), trả "Tôi không biết" thay vì gọi bộ đọc. Tinh chỉnh ngưỡng trên một tập được giữ lại.
+3. **Khó.** Xây dựng một pipeline RAG trên một ngữ liệu 10,000 tài liệu tùy chọn. Triển khai truy xuất lai (BM25 + đặc) với kết hợp RRF (xem bài 14). Đo độ chính xác câu trả lời có và không có bước lai. Ghi lại những loại câu hỏi nào hưởng lợi nhất.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Extractive QA | Find the answer span | Predict start and end indices of the answer within a given passage. |
-| Open-domain QA | QA over a corpus | No given passage; must retrieve then answer. |
-| RAG | Retrieve then generate | Retrieval-augmented generation. Retriever + reader pipeline. |
-| SQuAD | Canonical benchmark | Stanford Question Answering Dataset. EM + F1 metrics. |
-| Hallucination | Made-up answer | Reader output not supported by retrieved context. |
-| Refusal calibration | Know when to shut up | System correctly says "I don't know" when unable to answer. |
+| Extractive QA (QA trích xuất) | Tìm span câu trả lời | Dự đoán các chỉ số bắt đầu và kết thúc của câu trả lời trong một đoạn văn cho sẵn. |
+| Open-domain QA (QA miền mở) | QA trên một ngữ liệu | Không có đoạn văn cho sẵn; phải truy xuất rồi trả lời. |
+| RAG | Truy xuất rồi sinh | Sinh tăng cường truy xuất. Pipeline bộ truy xuất + bộ đọc. |
+| SQuAD | Benchmark kinh điển | Stanford Question Answering Dataset. Các thước đo EM + F1. |
+| Hallucination (Ảo giác) | Câu trả lời bịa ra | Đầu ra bộ đọc không được ngữ cảnh truy xuất hỗ trợ. |
+| Refusal calibration (Hiệu chuẩn từ chối) | Biết khi nào im lặng | Hệ thống nói đúng "Tôi không biết" khi không thể trả lời. |
 
 ## Further Reading
 
-- [Rajpurkar et al. (2016). SQuAD: 100,000+ Questions for Machine Comprehension of Text](https://arxiv.org/abs/1606.05250) — the benchmark paper.
-- [Karpukhin et al. (2020). Dense Passage Retrieval for Open-Domain QA](https://arxiv.org/abs/2004.04906) — DPR, the canonical dense retriever for QA.
-- [Lewis et al. (2020). Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401) — the paper that named RAG.
-- [Gao et al. (2023). Retrieval-Augmented Generation for Large Language Models: A Survey](https://arxiv.org/abs/2312.10997) — comprehensive RAG survey.
+- [Rajpurkar et al. (2016). SQuAD: 100,000+ Questions for Machine Comprehension of Text](https://arxiv.org/abs/1606.05250) — bài báo benchmark.
+- [Karpukhin et al. (2020). Dense Passage Retrieval for Open-Domain QA](https://arxiv.org/abs/2004.04906) — DPR, bộ truy xuất đặc kinh điển cho QA.
+- [Lewis et al. (2020). Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401) — bài báo đặt tên RAG.
+- [Gao et al. (2023). Retrieval-Augmented Generation for Large Language Models: A Survey](https://arxiv.org/abs/2312.10997) — khảo sát RAG toàn diện.
