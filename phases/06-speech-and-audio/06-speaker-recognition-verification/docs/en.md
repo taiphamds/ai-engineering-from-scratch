@@ -1,6 +1,6 @@
 # Speaker Recognition & Verification
 
-> ASR asks "what did they say?" Speaker recognition asks "who said it?" The math looks the same — embeddings plus cosine — but every production decision hinges on a single EER number.
+> ASR hỏi "họ đã nói gì?" Nhận dạng người nói hỏi "ai đã nói?" Phần toán trông giống nhau — embedding cộng cosine — nhưng mọi quyết định production xoay quanh một con số EER duy nhất.
 
 **Type:** Build
 **Languages:** Python
@@ -9,45 +9,45 @@
 
 ## The Problem
 
-A user says a passphrase. You want to know: is this the person they claim to be (*verification*, 1:1), or is it the first person in your enrollment bank (*identification*, 1:N)? Or neither — is this an unknown speaker (*open-set*)?
+Một người dùng nói một cụm mật khẩu. Bạn muốn biết: đây có phải người họ tự nhận không (*xác minh*, 1:1), hay có phải người đầu tiên trong kho đăng ký của bạn không (*định danh*, 1:N)? Hoặc không phải cả hai — đây có phải một người nói chưa biết không (*tập mở*)?
 
-Pre-2018: GMM-UBM + i-vectors. Reasonable EER but fragile to channel shift (phone vs laptop) and emotion. 2018–2022: x-vectors (TDNN backbone trained with angular margin). 2022+: ECAPA-TDNN and WavLM-large embeddings. By 2026 the field is dominated by three models and one metric.
+Trước 2018: GMM-UBM + i-vector. EER hợp lý nhưng mong manh trước dịch chuyển kênh (điện thoại so với máy tính xách tay) và cảm xúc. 2018–2022: x-vector (backbone TDNN được huấn luyện với biên góc). 2022+: ECAPA-TDNN và các embedding WavLM-large. Đến năm 2026 lĩnh vực bị chi phối bởi ba mô hình và một thước đo.
 
-The metric is **EER** — Equal Error Rate. Set your decision threshold so False Accept Rate = False Reject Rate. The crossover is EER. Used in every paper, every leaderboard, every procurement call.
+Thước đo là **EER** — Tỷ lệ Lỗi Bằng nhau. Đặt ngưỡng quyết định của bạn sao cho Tỷ lệ Chấp nhận Sai = Tỷ lệ Từ chối Sai. Điểm giao là EER. Được dùng trong mọi bài báo, mọi bảng xếp hạng, mọi cuộc trao đổi mua sắm.
 
 ## The Concept
 
 ![Enrollment + verification pipeline with embedding + cosine + EER](../assets/speaker-verification.svg)
 
-**The pipeline.** Enrollment: record 5–30 seconds of the target speaker; compute a fixed-dimension embedding (192-d for ECAPA-TDNN, 256-d for WavLM-large). Verification: get the test utterance embedding; compute cosine similarity; compare to a threshold.
+**Pipeline.** Đăng ký: ghi 5–30 giây người nói đích; tính một embedding số chiều cố định (192 chiều cho ECAPA-TDNN, 256 chiều cho WavLM-large). Xác minh: lấy embedding phát ngôn kiểm thử; tính cosine similarity; so với một ngưỡng.
 
-**ECAPA-TDNN (2020, still dominant 2026).** Emphasized Channel Attention, Propagation and Aggregation - Time-Delay Neural Network. 1D conv blocks with squeeze-excitation, multi-head attention pooling, followed by a linear layer to 192-d. Trained on VoxCeleb 1+2 (2,700 speakers, 1.1M utterances) with Additive Angular Margin loss (AAM-softmax).
+**ECAPA-TDNN (2020, vẫn chủ đạo năm 2026).** Emphasized Channel Attention, Propagation and Aggregation - Time-Delay Neural Network. Các khối tích chập 1D với squeeze-excitation, pooling multi-head attention, theo sau là một tầng tuyến tính đến 192 chiều. Được huấn luyện trên VoxCeleb 1+2 (2,700 người nói, 1.1M phát ngôn) với Additive Angular Margin loss (AAM-softmax).
 
-**WavLM-SV (2022+).** Fine-tune a pretrained WavLM-large SSL backbone with AAM loss. Higher quality but slower — 300+ MB vs 15 MB.
+**WavLM-SV (2022+).** Fine-tune một backbone SSL WavLM-large được tiền huấn luyện với AAM loss. Chất lượng cao hơn nhưng chậm hơn — 300+ MB so với 15 MB.
 
-**x-vector (baseline).** TDNN + statistics pooling. Classic; still useful on CPU / edge.
+**x-vector (baseline).** TDNN + pooling thống kê. Cổ điển; vẫn hữu ích trên CPU / biên.
 
-**AAM-softmax.** Standard softmax with added margin `m` in the angular space: `cos(θ + m)` for the correct class. Forces inter-class angular separation. Typical `m=0.2`, scale `s=30`.
+**AAM-softmax.** Softmax tiêu chuẩn với biên `m` được thêm trong không gian góc: `cos(θ + m)` cho lớp đúng. Buộc phân tách góc giữa các lớp. Điển hình `m=0.2`, hệ số `s=30`.
 
 ### Scoring
 
-- **Cosine** between enrollment and test embeddings. Threshold-based decision.
-- **PLDA (Probabilistic LDA).** Project embeddings into a latent space where same-speaker vs different-speaker has a closed-form likelihood ratio. Added on top of cosine for +10–20% EER reduction. Standard pre-2020; now used only in closed-set setups.
-- **Score normalization.** `S-norm` or `AS-norm`: normalize each score against a cohort of imposter means and stds. Essential for cross-domain eval.
+- **Cosine** giữa các embedding đăng ký và kiểm thử. Quyết định dựa trên ngưỡng.
+- **PLDA (LDA xác suất).** Chiếu các embedding vào một không gian tiềm ẩn nơi cùng người nói so với khác người nói có một tỷ số likelihood dạng đóng. Được thêm trên cosine để giảm EER thêm 10–20%. Tiêu chuẩn trước 2020; hiện chỉ dùng trong các thiết lập tập đóng.
+- **Chuẩn hóa điểm.** `S-norm` hoặc `AS-norm`: chuẩn hóa mỗi điểm theo một nhóm các trung bình và độ lệch chuẩn của kẻ mạo danh. Thiết yếu cho đánh giá xuyên lĩnh vực.
 
 ### Numbers you should know (2026)
 
-| Model | VoxCeleb1-O EER | Params | Throughput (A100) |
+| Mô hình | VoxCeleb1-O EER | Tham số | Thông lượng (A100) |
 |-------|-----------------|--------|-------------------|
-| x-vector (classic) | 3.10% | 5 M | 400× RT |
+| x-vector (cổ điển) | 3.10% | 5 M | 400× RT |
 | ECAPA-TDNN | 0.87% | 15 M | 200× RT |
 | WavLM-SV large | 0.42% | 316 M | 20× RT |
-| Pyannote 3.1 segmentation + embedding | 0.65% | 6 M | 100× RT |
+| Phân đoạn + embedding Pyannote 3.1 | 0.65% | 6 M | 100× RT |
 | ReDimNet (2024) | 0.39% | 24 M | 100× RT |
 
 ### Diarization
 
-"Who spoke when" in a multi-speaker clip. Pipeline: VAD → segment → embed each segment → cluster (agglomerative or spectral) → smooth boundaries. Modern stack: `pyannote.audio` 3.1, which bundles speaker segmentation + embedding + clustering behind one call. 2026 SOTA DER on AMI is ~15% (down from 23% in 2022).
+"Ai nói khi nào" trong một đoạn nhiều người nói. Pipeline: VAD → phân đoạn → embedding mỗi đoạn → phân cụm (kết tụ hoặc phổ) → làm mượt các ranh giới. Ngăn xếp hiện đại: `pyannote.audio` 3.1, gói phân đoạn người nói + embedding + phân cụm sau một lời gọi. DER SOTA năm 2026 trên AMI là ~15% (giảm từ 23% năm 2022).
 
 ```figure
 sp-eer-crossover
@@ -68,7 +68,7 @@ def embed_mfcc_stats(signal, sr):
     return mean + std  # 26-d
 ```
 
-Not SOTA by a mile — for teaching only. `code/main.py` uses this as a proof-of-concept on synthetic speaker data.
+Cách xa SOTA — chỉ để giảng dạy. `code/main.py` dùng cách này làm bằng chứng khái niệm trên dữ liệu người nói tổng hợp.
 
 ### Step 2: cosine similarity + threshold
 
@@ -97,7 +97,7 @@ def eer(same_scores, diff_scores):
     return (best[0] + best[1]) / 2, best[2]
 ```
 
-Returns (eer, threshold_at_eer). Report both.
+Trả (eer, threshold_at_eer). Báo cáo cả hai.
 
 ### Step 4: production with SpeechBrain
 
@@ -126,51 +126,51 @@ for turn, _, speaker in diarization.itertracks(yield_label=True):
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Situation | Pick |
+| Tình huống | Chọn |
 |-----------|------|
-| Closed-set 1:1 verification, edge | ECAPA-TDNN + cosine threshold |
-| Open-set verification, cloud | WavLM-SV + AS-norm |
-| Diarization (meetings, podcasts) | `pyannote/speaker-diarization-3.1` |
-| Anti-spoofing (replay / deepfake detection) | AASIST or RawNet2 |
-| Tiny embedded (KWS + enrollment) | Titanet-Small (NeMo) |
+| Xác minh 1:1 tập đóng, biên | ECAPA-TDNN + ngưỡng cosine |
+| Xác minh tập mở, đám mây | WavLM-SV + AS-norm |
+| Phân đoạn người nói (cuộc họp, podcast) | `pyannote/speaker-diarization-3.1` |
+| Chống giả mạo (phát hiện phát lại / deepfake) | AASIST hoặc RawNet2 |
+| Nhúng tí hon (KWS + đăng ký) | Titanet-Small (NeMo) |
 
 ## Pitfalls
 
-- **Channel mismatch.** Model trained on VoxCeleb (web video) ≠ phone-call audio. Always evaluate on target channel.
-- **Short utterances.** EER degrades sharply below 3 seconds of test audio.
-- **Enrollment with noise.** One noisy enrollment poisons the anchor. Use ≥3 clean samples and average.
-- **Fixed threshold across conditions.** Always tune the threshold on a held-out dev set from the target domain.
-- **Cosine on non-normalized embeddings.** L2-normalize first; otherwise the magnitude dominates.
+- **Không khớp kênh.** Mô hình được huấn luyện trên VoxCeleb (video web) ≠ âm thanh cuộc gọi điện thoại. Luôn đánh giá trên kênh đích.
+- **Các phát ngôn ngắn.** EER suy giảm mạnh dưới 3 giây âm thanh kiểm thử.
+- **Đăng ký có nhiễu.** Một lần đăng ký nhiễu làm nhiễm độc điểm neo. Dùng ≥3 mẫu sạch và lấy trung bình.
+- **Ngưỡng cố định qua các điều kiện.** Luôn tinh chỉnh ngưỡng trên một tập phát triển được giữ lại từ lĩnh vực đích.
+- **Cosine trên các embedding không chuẩn hóa.** Chuẩn hóa L2 trước; nếu không độ lớn chi phối.
 
 ## Ship It
 
-Save as `outputs/skill-speaker-verifier.md`. Pick model, enrollment protocol, threshold-tuning plan, and fraud safeguards.
+Lưu thành `outputs/skill-speaker-verifier.md`. Chọn mô hình, giao thức đăng ký, kế hoạch tinh chỉnh ngưỡng và các biện pháp bảo vệ gian lận.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. Builds synthetic "speakers" (different tone profiles), enrolls, computes EER on a 100-pair trial list.
-2. **Medium.** Use SpeechBrain ECAPA on 30 VoxCeleb1 utterances (5 speakers × 6 each). Compute EER with cosine vs PLDA.
-3. **Hard.** Build the full enroll → diarize → verify pipeline with `pyannote.audio`. Evaluate DER on AMI dev set.
+1. **Dễ.** Chạy `code/main.py`. Xây dựng các "người nói" tổng hợp (các cấu hình âm khác nhau), đăng ký, tính EER trên một danh sách thử nghiệm 100 cặp.
+2. **Trung bình.** Dùng SpeechBrain ECAPA trên 30 phát ngôn VoxCeleb1 (5 người nói × mỗi người 6). Tính EER với cosine so với PLDA.
+3. **Khó.** Xây dựng pipeline đầy đủ đăng ký → phân đoạn người nói → xác minh bằng `pyannote.audio`. Đánh giá DER trên tập phát triển AMI.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| EER | The headline metric | Threshold where False Accept = False Reject. |
-| Verification | 1:1 | "Is this Alice?" |
-| Identification | 1:N | "Who is speaking?" |
-| Open-set | Unknown possible | Test set can contain unenrolled speakers. |
-| Enrollment | Registering | Computing a speaker's reference embedding. |
-| AAM-softmax | The loss | Softmax with additive angular margin; forces cluster separation. |
-| PLDA | Classic scoring | Probabilistic LDA; likelihood-ratio scoring on top of embeddings. |
-| DER | Diarization metric | Diarization Error Rate — miss + false alarm + confusion. |
+| EER | Thước đo chính | Ngưỡng nơi Chấp nhận Sai = Từ chối Sai. |
+| Verification (Xác minh) | 1:1 | "Đây có phải Alice không?" |
+| Identification (Định danh) | 1:N | "Ai đang nói?" |
+| Open-set (Tập mở) | Có thể chưa biết | Tập kiểm thử có thể chứa các người nói chưa đăng ký. |
+| Enrollment (Đăng ký) | Đăng ký | Tính embedding tham chiếu của một người nói. |
+| AAM-softmax | Loss | Softmax với biên góc cộng; buộc phân tách cụm. |
+| PLDA | Chấm điểm cổ điển | LDA xác suất; chấm tỷ số likelihood trên các embedding. |
+| DER | Thước đo phân đoạn người nói | Tỷ lệ Lỗi Phân đoạn Người nói — bỏ sót + báo động giả + nhầm lẫn. |
 
 ## Further Reading
 
-- [Snyder et al. (2018). X-Vectors: Robust DNN Embeddings for Speaker Recognition](https://www.danielpovey.com/files/2018_icassp_xvectors.pdf) — the classic deep-embedding paper.
-- [Desplanques et al. (2020). ECAPA-TDNN](https://arxiv.org/abs/2005.07143) — dominant architecture 2020–2026.
-- [Chen et al. (2022). WavLM: Large-Scale Self-Supervised Pre-Training for Full Stack Speech Processing](https://arxiv.org/abs/2110.13900) — SSL backbone for SV and diarization.
-- [Bredin et al. (2023). pyannote.audio 3.1](https://github.com/pyannote/pyannote-audio) — production diarization + embedding stack.
-- [VoxCeleb leaderboard (updated 2026)](https://www.robots.ox.ac.uk/~vgg/data/voxceleb/) — current EER standings across models.
+- [Snyder et al. (2018). X-Vectors: Robust DNN Embeddings for Speaker Recognition](https://www.danielpovey.com/files/2018_icassp_xvectors.pdf) — bài báo deep embedding cổ điển.
+- [Desplanques et al. (2020). ECAPA-TDNN](https://arxiv.org/abs/2005.07143) — kiến trúc chủ đạo 2020–2026.
+- [Chen et al. (2022). WavLM: Large-Scale Self-Supervised Pre-Training for Full Stack Speech Processing](https://arxiv.org/abs/2110.13900) — backbone SSL cho SV và phân đoạn người nói.
+- [Bredin et al. (2023). pyannote.audio 3.1](https://github.com/pyannote/pyannote-audio) — ngăn xếp phân đoạn người nói + embedding production.
+- [VoxCeleb leaderboard (updated 2026)](https://www.robots.ox.ac.uk/~vgg/data/voxceleb/) — thứ hạng EER hiện tại giữa các mô hình.
