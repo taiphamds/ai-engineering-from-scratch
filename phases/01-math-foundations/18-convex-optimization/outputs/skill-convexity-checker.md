@@ -9,81 +9,81 @@ tags: [optimization, convexity, solvers]
 
 # Convexity Checker
 
-How to verify whether an optimization problem is convex, and what to do with the answer.
+Cách xác minh một bài toán tối ưu hóa có lồi hay không, và làm gì với câu trả lời.
 
 ## Decision Checklist
 
-1. Is the objective function convex? (Check Hessian positive semi-definiteness or use composition rules.)
-2. Are all inequality constraints of the form g_i(x) <= 0 where each g_i is convex?
-3. Are all equality constraints affine (linear)?
-4. If all three are yes, the problem is convex. Use a convex solver with convergence guarantees.
-5. If any are no, the problem is non-convex. Use SGD/Adam and accept local optima.
+1. Hàm mục tiêu có lồi không? (Kiểm tra tính nửa xác định dương của Hessian hoặc sử dụng các quy tắc hợp thành.)
+2. Tất cả các ràng buộc bất đẳng thức có dạng g_i(x) <= 0 trong đó mỗi g_i lồi không?
+3. Tất cả các ràng buộc đẳng thức có affine (tuyến tính) không?
+4. Nếu cả ba đều có, bài toán lồi. Sử dụng một bộ giải lồi với bảo đảm hội tụ.
+5. Nếu có bất kỳ câu nào không, bài toán không lồi. Sử dụng SGD/Adam và chấp nhận các nghiệm tối ưu cục bộ.
 
 ## How to test convexity of a function
 
-| Test | Applies to | Method |
+| Phép kiểm tra | Áp dụng cho | Phương pháp |
 |---|---|---|
-| Second derivative >= 0 | Scalar functions f(x) | Compute f''(x). If f''(x) >= 0 for all x, convex. |
-| Hessian is PSD | Multivariate functions f(x) | Compute H(x). If all eigenvalues >= 0 everywhere, convex. |
-| Definition test | Any function | Check f(tx + (1-t)y) <= t*f(x) + (1-t)*f(y) for sampled x, y, t. |
-| Composition rules | Composed functions | See composition table below. |
-| Restriction to a line | Multivariate f | f is convex iff g(t) = f(x + tv) is convex in t for all x, v. |
+| Đạo hàm bậc hai >= 0 | Các hàm vô hướng f(x) | Tính f''(x). Nếu f''(x) >= 0 với mọi x, lồi. |
+| Hessian là PSD | Các hàm đa biến f(x) | Tính H(x). Nếu mọi giá trị riêng >= 0 ở mọi nơi, lồi. |
+| Kiểm tra định nghĩa | Bất kỳ hàm nào | Kiểm tra f(tx + (1-t)y) <= t*f(x) + (1-t)*f(y) với các x, y, t được lấy mẫu. |
+| Quy tắc hợp thành | Các hàm hợp | Xem bảng hợp thành bên dưới. |
+| Hạn chế trên một đường thẳng | f đa biến | f lồi khi và chỉ khi g(t) = f(x + tv) lồi theo t với mọi x, v. |
 
 ## Composition rules (preserving convexity)
 
-| Operation | Result |
+| Phép toán | Kết quả |
 |---|---|
-| f + g (both convex) | Convex |
-| c * f (c > 0, f convex) | Convex |
-| max(f, g) (both convex) | Convex |
-| f(Ax + b) where f is convex | Convex |
-| g(f(x)) where g is convex non-decreasing and f is convex | Convex |
-| g(f(x)) where g is convex non-increasing and f is concave | Convex |
-| sum of convex functions | Convex |
-| pointwise supremum of convex functions | Convex |
+| f + g (cả hai lồi) | Lồi |
+| c * f (c > 0, f lồi) | Lồi |
+| max(f, g) (cả hai lồi) | Lồi |
+| f(Ax + b) trong đó f lồi | Lồi |
+| g(f(x)) trong đó g lồi không giảm và f lồi | Lồi |
+| g(f(x)) trong đó g lồi không tăng và f lõm | Lồi |
+| tổng các hàm lồi | Lồi |
+| supremum theo từng điểm của các hàm lồi | Lồi |
 
 ## Common ML objectives: convex or not?
 
-| Objective | Convex? | Reason |
+| Mục tiêu | Lồi? | Lý do |
 |---|---|---|
-| MSE: (1/n) sum(y - Xw)^2 | Yes | Quadratic in w, Hessian = (2/n) X^T X is PSD |
-| Logistic loss: sum(log(1 + exp(-y_i * w^T x_i))) | Yes | Sum of convex functions (log-sum-exp family) |
-| Hinge loss: sum(max(0, 1 - y_i * w^T x_i)) | Yes | Max of convex (linear) functions |
-| L2 regularization: lambda * \|\|w\|\|^2 | Yes | Quadratic, Hessian = 2*lambda*I |
-| L1 regularization: lambda * \|\|w\|\|_1 | Yes | Sum of absolute values (convex but not differentiable) |
-| Ridge regression: MSE + L2 | Yes | Sum of two convex functions |
-| LASSO: MSE + L1 | Yes | Sum of two convex functions |
-| Elastic net: MSE + L1 + L2 | Yes | Sum of convex functions |
-| SVM (primal): hinge + L2 | Yes | Sum of convex functions |
-| Cross-entropy with softmax | Yes (in logits) | Log-sum-exp is convex |
-| Neural network (any loss) | No | Nonlinear activations create non-convex composition |
-| k-means objective | No | Discrete assignment step |
-| Matrix factorization: \|\|X - UV^T\|\|^2 | No | Bilinear in U and V |
-| GAN loss | No | Minimax, non-convex in generator |
-| Contrastive loss (InfoNCE) | No | Log of ratio of exponentials with negative samples |
+| MSE: (1/n) sum(y - Xw)^2 | Có | Bậc hai theo w, Hessian = (2/n) X^T X là PSD |
+| Mất mát logistic: sum(log(1 + exp(-y_i * w^T x_i))) | Có | Tổng các hàm lồi (họ log-sum-exp) |
+| Mất mát hinge: sum(max(0, 1 - y_i * w^T x_i)) | Có | Cực đại của các hàm lồi (tuyến tính) |
+| L2 regularization: lambda * \|\|w\|\|^2 | Có | Bậc hai, Hessian = 2*lambda*I |
+| L1 regularization: lambda * \|\|w\|\|_1 | Có | Tổng các giá trị tuyệt đối (lồi nhưng không khả vi) |
+| Hồi quy ridge: MSE + L2 | Có | Tổng hai hàm lồi |
+| LASSO: MSE + L1 | Có | Tổng hai hàm lồi |
+| Elastic net: MSE + L1 + L2 | Có | Tổng các hàm lồi |
+| SVM (gốc): hinge + L2 | Có | Tổng các hàm lồi |
+| Cross-entropy với softmax | Có (theo logits) | Log-sum-exp lồi |
+| Mạng nơ-ron (bất kỳ mất mát nào) | Không | Các kích hoạt phi tuyến tạo phép hợp thành không lồi |
+| Mục tiêu k-means | Không | Bước gán rời rạc |
+| Phân tích ma trận thành nhân tử: \|\|X - UV^T\|\|^2 | Không | Song tuyến tính theo U và V |
+| Mất mát GAN | Không | Minimax, không lồi theo bộ sinh |
+| Mất mát tương phản (InfoNCE) | Không | Log của tỉ số các hàm mũ với các mẫu âm |
 
 ## Solver selection based on convexity
 
-| Problem type | Solver | Convergence guarantee |
+| Loại bài toán | Bộ giải | Bảo đảm hội tụ |
 |---|---|---|
-| Convex, smooth, unconstrained | Gradient descent | O(1/k) to global minimum |
-| Convex, smooth, unconstrained | L-BFGS | Superlinear to global minimum |
-| Convex, smooth, unconstrained | Newton's method | Quadratic near minimum (if Hessian tractable) |
-| Convex, smooth, constrained | Interior point method | Polynomial time |
-| Convex, non-smooth (L1) | Proximal gradient / ISTA | O(1/k) to global minimum |
-| Convex, non-smooth (L1) | ADMM | Flexible, handles constraints |
-| Convex, quadratic | Conjugate gradient | Exact in n steps |
-| Non-convex, smooth | SGD / Adam | Converges to local minimum |
-| Non-convex, smooth | SGD + restarts | Better local minimum on average |
-| Non-convex, smooth | Overparameterize + SGD | Flat minima, good generalization |
+| Lồi, trơn, không ràng buộc | Gradient descent | O(1/k) đến cực tiểu toàn cục |
+| Lồi, trơn, không ràng buộc | L-BFGS | Siêu tuyến tính đến cực tiểu toàn cục |
+| Lồi, trơn, không ràng buộc | Phương pháp Newton | Bậc hai gần cực tiểu (nếu Hessian tính được) |
+| Lồi, trơn, có ràng buộc | Phương pháp điểm trong | Thời gian đa thức |
+| Lồi, không trơn (L1) | Gradient proximal / ISTA | O(1/k) đến cực tiểu toàn cục |
+| Lồi, không trơn (L1) | ADMM | Linh hoạt, xử lý ràng buộc |
+| Lồi, bậc hai | Gradient liên hợp | Chính xác trong n bước |
+| Không lồi, trơn | SGD / Adam | Hội tụ đến cực tiểu cục bộ |
+| Không lồi, trơn | SGD + khởi động lại | Trung bình cực tiểu cục bộ tốt hơn |
+| Không lồi, trơn | Thừa tham số + SGD | Cực tiểu phẳng, tổng quát hóa tốt |
 
 ## Common mistakes
 
-- Assuming a problem is convex because the loss function is convex. The loss must be convex in the parameters you are optimizing. Cross-entropy is convex in the logits, but the full neural network mapping from inputs to logits is non-convex.
-- Using Newton's method on a non-convex problem. The Hessian may have negative eigenvalues, causing Newton to move toward saddle points or maxima instead of minima.
-- Forgetting that L1 regularization makes the objective non-differentiable at zero. Standard gradient descent does not work well. Use proximal gradient descent or subgradient methods.
-- Squaring the condition number by forming A^T A. If you need to solve a least-squares problem and A is ill-conditioned, use QR or SVD instead of the normal equations.
-- Declaring a problem non-convex without checking. Many ML problems (linear models, SVMs, logistic regression) are convex and benefit from stronger solvers.
+- Giả định một bài toán lồi vì hàm mất mát lồi. Mất mát phải lồi theo các tham số bạn đang tối ưu. Cross-entropy lồi theo logits, nhưng toàn bộ ánh xạ mạng nơ-ron từ đầu vào đến logits không lồi.
+- Sử dụng phương pháp Newton trên một bài toán không lồi. Hessian có thể có các giá trị riêng âm, khiến Newton di chuyển về các điểm yên ngựa hoặc cực đại thay vì cực tiểu.
+- Quên rằng L1 regularization làm mục tiêu không khả vi tại không. Gradient descent tiêu chuẩn không hoạt động tốt. Sử dụng gradient descent proximal hoặc các phương pháp dưới gradient.
+- Bình phương số điều kiện bằng cách tạo A^T A. Nếu bạn cần giải một bài toán bình phương tối thiểu và A có điều kiện kém, sử dụng QR hoặc SVD thay vì các phương trình chuẩn.
+- Tuyên bố một bài toán không lồi mà không kiểm tra. Nhiều bài toán ML (mô hình tuyến tính, SVM, hồi quy logistic) lồi và hưởng lợi từ các bộ giải mạnh hơn.
 
 ## Quick test: is my problem convex?
 

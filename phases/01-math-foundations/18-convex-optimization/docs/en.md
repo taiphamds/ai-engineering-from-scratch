@@ -1,6 +1,6 @@
 # Convex Optimization
 
-> Convex problems have one valley. Neural networks have millions. Knowing the difference matters.
+> Các bài toán lồi có một thung lũng. Mạng nơ-ron có hàng triệu. Biết sự khác biệt là điều quan trọng.
 
 **Type:** Build
 **Language:** Python
@@ -9,89 +9,89 @@
 
 ## Learning Objectives
 
-- Test whether a function is convex using the definition, second derivative, and Hessian criteria
-- Implement Newton's method and compare its quadratic convergence against gradient descent
-- Solve constrained optimization problems using Lagrange multipliers and interpret KKT conditions
-- Explain why neural network loss landscapes are non-convex yet SGD still finds good solutions
+- Kiểm tra một hàm có lồi hay không bằng định nghĩa, đạo hàm bậc hai và các tiêu chí Hessian
+- Triển khai phương pháp Newton và so sánh sự hội tụ bậc hai của nó với gradient descent
+- Giải các bài toán tối ưu hóa có ràng buộc bằng nhân tử Lagrange và diễn giải các điều kiện KKT
+- Giải thích tại sao các địa hình mất mát mạng nơ-ron không lồi nhưng SGD vẫn tìm được nghiệm tốt
 
 ## The Problem
 
-Lesson 08 taught you gradient descent, momentum, and Adam. Those optimizers walk downhill on any surface. But they come with no guarantees. Gradient descent on a non-convex landscape might land in a bad local minimum, get stuck on a saddle point, or oscillate forever. You used it anyway because neural networks are non-convex and there is no alternative.
+Bài học 08 đã dạy bạn gradient descent, momentum và Adam. Các bộ tối ưu hóa đó đi xuống dốc trên bất kỳ bề mặt nào. Nhưng chúng không kèm bảo đảm. Gradient descent trên một địa hình không lồi có thể rơi vào một cực tiểu cục bộ xấu, kẹt ở một điểm yên ngựa hoặc dao động mãi mãi. Bạn vẫn sử dụng nó vì mạng nơ-ron không lồi và không có lựa chọn thay thế.
 
-But many problems in machine learning are convex. Linear regression, logistic regression, SVMs, LASSO, ridge regression. For these, something stronger exists: optimization with mathematical guarantees. A convex problem has exactly one valley. Any algorithm that walks downhill will reach the global minimum. No restarts needed. No learning rate schedules. No prayer.
+Nhưng nhiều bài toán trong học máy là lồi. Hồi quy tuyến tính, hồi quy logistic, SVM, LASSO, hồi quy ridge. Với những bài toán này, có thứ mạnh hơn: tối ưu hóa với các bảo đảm toán học. Một bài toán lồi có đúng một thung lũng. Bất kỳ thuật toán nào đi xuống dốc đều sẽ đạt cực tiểu toàn cục. Không cần khởi động lại. Không có lịch tốc độ học. Không cầu nguyện.
 
-Understanding convexity does three things. First, it tells you when your problem is easy (convex) versus hard (non-convex). Second, it gives you faster tools like Newton's method for convex problems. Third, it explains concepts that appear throughout ML: regularization as a constraint, duality in SVMs, and why deep learning works despite violating every nice property convexity gives you.
+Hiểu tính lồi làm ba điều. Thứ nhất, nó cho bạn biết khi nào bài toán dễ (lồi) so với khó (không lồi). Thứ hai, nó cho bạn các công cụ nhanh hơn như phương pháp Newton cho các bài toán lồi. Thứ ba, nó giải thích các khái niệm xuất hiện khắp ML: regularization như một ràng buộc, tính đối ngẫu trong SVM và tại sao học sâu hoạt động dù vi phạm mọi tính chất tốt đẹp mà tính lồi mang lại.
 
 ## The Concept
 
 ### Convex sets
 
-A set S is convex if for any two points in S, the line segment between them also lies entirely in S.
+Một tập S lồi nếu với bất kỳ hai điểm nào trong S, đoạn thẳng giữa chúng cũng nằm hoàn toàn trong S.
 
-| Convex sets | Not convex |
+| Các tập lồi | Không lồi |
 |---|---|
-| **Rectangle**: any two points inside can be connected by a line segment that stays inside | **Star/crescent shape**: a line between two interior points can pass outside the set |
-| **Triangle**: same property holds for all interior points | **Donut/annulus**: the hole means some line segments leave the set |
-| The line segment between any two points stays within the set | The line segment between some pairs of points exits the set |
+| **Hình chữ nhật**: hai điểm bất kỳ bên trong có thể được nối bằng một đoạn thẳng nằm bên trong | **Hình sao/lưỡi liềm**: một đường giữa hai điểm bên trong có thể đi ra ngoài tập |
+| **Tam giác**: cùng tính chất đúng với mọi điểm bên trong | **Hình bánh vòng/vành khăn**: lỗ có nghĩa là một số đoạn thẳng rời khỏi tập |
+| Đoạn thẳng giữa hai điểm bất kỳ nằm trong tập | Đoạn thẳng giữa một số cặp điểm đi ra khỏi tập |
 
-Formal test: for any points x, y in S and any t in [0, 1], the point tx + (1-t)y is also in S.
+Kiểm tra hình thức: với bất kỳ các điểm x, y trong S và bất kỳ t trong [0, 1], điểm tx + (1-t)y cũng thuộc S.
 
-Examples of convex sets:
-- A line, a plane, all of R^n
-- A ball (circle, sphere, hypersphere)
-- A halfspace: {x : a^T x <= b}
-- The intersection of any number of convex sets
+Ví dụ các tập lồi:
+- Một đường thẳng, một mặt phẳng, toàn bộ R^n
+- Một hình cầu (hình tròn, hình cầu, siêu cầu)
+- Một nửa không gian: {x : a^T x <= b}
+- Giao của bất kỳ số lượng tập lồi nào
 
-Examples of non-convex sets:
-- A donut (annulus)
-- The union of two disjoint circles
-- Any set with a "dent" or "hole"
+Ví dụ các tập không lồi:
+- Một hình bánh vòng (vành khăn)
+- Hợp của hai hình tròn rời nhau
+- Bất kỳ tập nào có một "chỗ lõm" hoặc "lỗ"
 
 ### Convex functions
 
-A function f is convex if its domain is a convex set and for any two points x, y in its domain and any t in [0, 1]:
+Một hàm f lồi nếu miền xác định của nó là một tập lồi và với bất kỳ hai điểm x, y trong miền xác định và bất kỳ t trong [0, 1]:
 
 ```
 f(tx + (1-t)y) <= t*f(x) + (1-t)*f(y)
 ```
 
-Geometrically: the line segment between any two points on the graph lies above or on the graph.
+Về hình học: đoạn thẳng giữa hai điểm bất kỳ trên đồ thị nằm phía trên hoặc trên đồ thị.
 
-| Property | Convex function | Non-convex function |
+| Tính chất | Hàm lồi | Hàm không lồi |
 |---|---|---|
-| **Line segment test** | The line between any two points on the graph lies **above or on** the curve | The line between some points on the graph dips **below** the curve |
-| **Shape** | Single bowl/valley curving upward | Multiple peaks and valleys with mixed curvature |
-| **Local minima** | Every local minimum is the global minimum | Multiple local minima may exist at different heights |
+| **Kiểm tra đoạn thẳng** | Đường giữa hai điểm bất kỳ trên đồ thị nằm **phía trên hoặc trên** đường cong | Đường giữa một số điểm trên đồ thị hạ **xuống dưới** đường cong |
+| **Hình dạng** | Một cái bát/thung lũng cong lên | Nhiều đỉnh và thung lũng với độ cong hỗn hợp |
+| **Các cực tiểu cục bộ** | Mọi cực tiểu cục bộ đều là cực tiểu toàn cục | Nhiều cực tiểu cục bộ có thể tồn tại ở các độ cao khác nhau |
 
-Common convex functions:
-- f(x) = x^2 (parabola)
-- f(x) = |x| (absolute value)
-- f(x) = e^x (exponential)
-- f(x) = max(0, x) (ReLU, though piecewise linear)
-- f(x) = -log(x) for x > 0 (negative log)
-- Any linear function f(x) = a^T x + b (both convex and concave)
+Các hàm lồi phổ biến:
+- f(x) = x^2 (parabol)
+- f(x) = |x| (giá trị tuyệt đối)
+- f(x) = e^x (hàm mũ)
+- f(x) = max(0, x) (ReLU, dù tuyến tính từng khúc)
+- f(x) = -log(x) với x > 0 (âm log)
+- Bất kỳ hàm tuyến tính nào f(x) = a^T x + b (vừa lồi vừa lõm)
 
 ### Testing for convexity
 
-Three practical tests, from easiest to most rigorous.
+Ba phép kiểm tra thực tế, từ dễ nhất đến chặt chẽ nhất.
 
-**Test 1: Second derivative test (1D).** If f''(x) >= 0 for all x, then f is convex.
+**Kiểm tra 1: Kiểm tra đạo hàm bậc hai (1D).** Nếu f''(x) >= 0 với mọi x, thì f lồi.
 
-- f(x) = x^2: f''(x) = 2 >= 0. Convex.
-- f(x) = x^3: f''(x) = 6x. Negative for x < 0. Not convex.
-- f(x) = e^x: f''(x) = e^x > 0. Convex.
+- f(x) = x^2: f''(x) = 2 >= 0. Lồi.
+- f(x) = x^3: f''(x) = 6x. Âm với x < 0. Không lồi.
+- f(x) = e^x: f''(x) = e^x > 0. Lồi.
 
-**Test 2: Hessian test (multivariate).** If the Hessian matrix H(x) is positive semidefinite for all x, then f is convex. The Hessian is the matrix of second partial derivatives.
+**Kiểm tra 2: Kiểm tra Hessian (đa biến).** Nếu ma trận Hessian H(x) nửa xác định dương với mọi x, thì f lồi. Hessian là ma trận các đạo hàm riêng bậc hai.
 
-**Test 3: Definition test.** Check the inequality f(tx + (1-t)y) <= t*f(x) + (1-t)*f(y) directly. Useful for functions where derivatives are hard to compute.
+**Kiểm tra 3: Kiểm tra định nghĩa.** Kiểm tra trực tiếp bất đẳng thức f(tx + (1-t)y) <= t*f(x) + (1-t)*f(y). Hữu ích cho các hàm khó tính đạo hàm.
 
 ### Why convexity matters
 
-The central theorem of convex optimization:
+Định lý trung tâm của tối ưu hóa lồi:
 
-**For a convex function, every local minimum is a global minimum.**
+**Với một hàm lồi, mọi cực tiểu cục bộ đều là một cực tiểu toàn cục.**
 
-This means gradient descent cannot get trapped. Any downhill path leads to the same answer. The algorithm is guaranteed to converge to the optimal solution.
+Điều này có nghĩa là gradient descent không thể bị mắc kẹt. Bất kỳ đường đi xuống dốc nào cũng dẫn đến cùng câu trả lời. Thuật toán được bảo đảm hội tụ đến nghiệm tối ưu.
 
 ```mermaid
 graph LR
@@ -106,36 +106,36 @@ graph LR
     end
 ```
 
-Consequences:
-- No need for random restarts
-- No need for sophisticated learning rate schedules
-- Convergence proofs are possible (rate depends on function properties)
-- The solution is unique (up to flat regions)
+Các hệ quả:
+- Không cần khởi động lại ngẫu nhiên
+- Không cần các lịch tốc độ học tinh vi
+- Có thể chứng minh hội tụ (tốc độ phụ thuộc các tính chất hàm)
+- Nghiệm là duy nhất (ngoại trừ các vùng phẳng)
 
 ### Convex vs non-convex in ML
 
-| Problem | Convex? | Why |
+| Bài toán | Lồi? | Lý do |
 |---------|---------|-----|
-| Linear regression (MSE) | Yes | Loss is quadratic in weights |
-| Logistic regression | Yes | Log-loss is convex in weights |
-| SVM (hinge loss) | Yes | Maximum of linear functions |
-| LASSO (L1 regression) | Yes | Sum of convex functions is convex |
-| Ridge regression (L2) | Yes | Quadratic + quadratic = convex |
-| Neural network (any loss) | No | Nonlinear activations create non-convex landscape |
-| k-means clustering | No | Discrete assignment step |
-| Matrix factorization | No | Product of unknowns |
+| Hồi quy tuyến tính (MSE) | Có | Mất mát bậc hai theo các trọng số |
+| Hồi quy logistic | Có | Mất mát log lồi theo các trọng số |
+| SVM (mất mát hinge) | Có | Cực đại của các hàm tuyến tính |
+| LASSO (hồi quy L1) | Có | Tổng các hàm lồi là lồi |
+| Hồi quy ridge (L2) | Có | Bậc hai + bậc hai = lồi |
+| Mạng nơ-ron (bất kỳ mất mát nào) | Không | Các kích hoạt phi tuyến tạo địa hình không lồi |
+| Phân cụm k-means | Không | Bước gán rời rạc |
+| Phân tích ma trận thành nhân tử | Không | Tích của các ẩn |
 
-Linear models with convex losses are convex. The moment you add hidden layers with nonlinear activations, convexity breaks.
+Các mô hình tuyến tính có hàm mất mát lồi là lồi. Ngay khi bạn thêm các lớp ẩn với kích hoạt phi tuyến, tính lồi bị phá vỡ.
 
 ### The Hessian matrix
 
-The Hessian H of a function f: R^n -> R is the n x n matrix of second partial derivatives.
+Hessian H của một hàm f: R^n -> R là ma trận n x n các đạo hàm riêng bậc hai.
 
 ```
 H[i][j] = d^2 f / (dx_i dx_j)
 ```
 
-For f(x, y) = x^2 + 3xy + y^2:
+Với f(x, y) = x^2 + 3xy + y^2:
 
 ```
 df/dx = 2x + 3y       d^2f/dx^2 = 2      d^2f/dxdy = 3
@@ -145,17 +145,17 @@ H = [ 2  3 ]
     [ 3  2 ]
 ```
 
-The Hessian tells you about curvature:
-- Eigenvalues all positive: the function curves upward in every direction (convex at that point)
-- Eigenvalues all negative: curves downward in every direction (concave, a local max)
-- Mixed signs: saddle point (curves up in some directions, down in others)
-- Zero eigenvalue: flat in that direction (degenerate)
+Hessian cho bạn biết về độ cong:
+- Các giá trị riêng đều dương: hàm cong lên theo mọi hướng (lồi tại điểm đó)
+- Các giá trị riêng đều âm: cong xuống theo mọi hướng (lõm, một cực đại cục bộ)
+- Khác dấu: điểm yên ngựa (cong lên theo một số hướng, xuống theo các hướng khác)
+- Giá trị riêng bằng không: phẳng theo hướng đó (suy biến)
 
-For convexity, the Hessian must be positive semidefinite (all eigenvalues >= 0) everywhere, not just at one point.
+Để có tính lồi, Hessian phải nửa xác định dương (mọi giá trị riêng >= 0) ở mọi nơi, không chỉ tại một điểm.
 
 ### Newton's method
 
-Gradient descent uses first-order information (the gradient). Newton's method uses second-order information (the Hessian). It fits a quadratic approximation at the current point and jumps directly to the minimum of that quadratic.
+Gradient descent sử dụng thông tin bậc nhất (gradient). Phương pháp Newton sử dụng thông tin bậc hai (Hessian). Nó khớp một xấp xỉ bậc hai tại điểm hiện tại và nhảy trực tiếp đến cực tiểu của hàm bậc hai đó.
 
 ```
 Update rule:
@@ -165,7 +165,7 @@ Compare to gradient descent:
   x_new = x - lr * gradient
 ```
 
-Newton's method replaces the scalar learning rate with the inverse Hessian. This automatically adjusts the step size and direction based on local curvature.
+Phương pháp Newton thay tốc độ học vô hướng bằng Hessian nghịch đảo. Điều này tự động điều chỉnh kích thước và hướng bước dựa trên độ cong cục bộ.
 
 ```mermaid
 graph TD
@@ -184,22 +184,22 @@ graph TD
     end
 ```
 
-Advantages:
-- Quadratic convergence near the minimum (error squares each step)
-- No learning rate to tune
-- Scale-invariant (works regardless of how you parameterize the problem)
+Ưu điểm:
+- Hội tụ bậc hai gần cực tiểu (sai số được bình phương mỗi bước)
+- Không có tốc độ học cần điều chỉnh
+- Bất biến theo thang đo (hoạt động bất kể bạn tham số hóa bài toán thế nào)
 
-Disadvantages:
-- Computing the Hessian costs O(n^2) memory and O(n^3) to invert
-- For a neural network with 1 million weights, that is 10^12 entries and 10^18 operations
-- Not practical for deep learning
+Nhược điểm:
+- Tính Hessian tốn O(n^2) bộ nhớ và O(n^3) để nghịch đảo
+- Với một mạng nơ-ron có 1 triệu trọng số, đó là 10^12 phần tử và 10^18 phép toán
+- Không thực tế cho học sâu
 
 ### Constrained optimization
 
-Unconstrained optimization: minimize f(x) over all x.
-Constrained optimization: minimize f(x) subject to constraints.
+Tối ưu hóa không ràng buộc: tối thiểu hóa f(x) trên mọi x.
+Tối ưu hóa có ràng buộc: tối thiểu hóa f(x) với các ràng buộc.
 
-Real problems have constraints. You want to minimize cost but your budget is limited. You want to minimize error but your model complexity is bounded.
+Các bài toán thực có ràng buộc. Bạn muốn tối thiểu hóa chi phí nhưng ngân sách bị giới hạn. Bạn muốn tối thiểu hóa sai số nhưng độ phức tạp mô hình bị chặn.
 
 ```mermaid
 graph LR
@@ -214,24 +214,24 @@ graph LR
 
 ### Lagrange multipliers
 
-The method of Lagrange multipliers converts a constrained problem into an unconstrained one.
+Phương pháp nhân tử Lagrange chuyển một bài toán có ràng buộc thành một bài toán không ràng buộc.
 
-Problem: minimize f(x) subject to g(x) = 0.
+Bài toán: tối thiểu hóa f(x) với g(x) = 0.
 
-Solution: introduce a new variable (the Lagrange multiplier lambda) and solve the unconstrained problem:
+Nghiệm: đưa vào một biến mới (nhân tử Lagrange lambda) và giải bài toán không ràng buộc:
 
 ```
 L(x, lambda) = f(x) + lambda * g(x)
 ```
 
-At the solution, the gradient of L is zero:
+Tại nghiệm, gradient của L bằng không:
 
 ```
 dL/dx = df/dx + lambda * dg/dx = 0
 dL/dlambda = g(x) = 0
 ```
 
-Geometric intuition: at the constrained minimum, the gradient of f must be parallel to the gradient of the constraint g. If they were not parallel, you could move along the constraint surface and reduce f further.
+Trực giác hình học: tại cực tiểu có ràng buộc, gradient của f phải song song với gradient của ràng buộc g. Nếu chúng không song song, bạn có thể di chuyển dọc theo bề mặt ràng buộc và giảm f hơn nữa.
 
 ```mermaid
 graph LR
@@ -240,7 +240,7 @@ graph LR
     S --- C["At the solution, gradient of f is parallel to gradient of g"]
 ```
 
-Example: minimize f(x,y) = x^2 + y^2 subject to x + y = 1.
+Ví dụ: tối thiểu hóa f(x,y) = x^2 + y^2 với x + y = 1.
 
 ```
 L = x^2 + y^2 + lambda(x + y - 1)
@@ -253,15 +253,15 @@ From first two: x = y
 Substituting: 2x = 1, so x = y = 0.5, lambda = -1
 ```
 
-The closest point on the line x + y = 1 to the origin is (0.5, 0.5).
+Điểm trên đường x + y = 1 gần gốc tọa độ nhất là (0.5, 0.5).
 
 ### KKT conditions
 
-The Karush-Kuhn-Tucker conditions extend Lagrange multipliers to inequality constraints.
+Các điều kiện Karush-Kuhn-Tucker mở rộng nhân tử Lagrange sang các ràng buộc bất đẳng thức.
 
-Problem: minimize f(x) subject to g_i(x) <= 0 for i = 1, ..., m.
+Bài toán: tối thiểu hóa f(x) với g_i(x) <= 0 cho i = 1, ..., m.
 
-The KKT conditions (necessary for optimality):
+Các điều kiện KKT (cần để tối ưu):
 
 ```
 1. Stationarity:    df/dx + sum(lambda_i * dg_i/dx) = 0
@@ -270,13 +270,13 @@ The KKT conditions (necessary for optimality):
 4. Complementary slackness:  lambda_i * g_i(x) = 0  for all i
 ```
 
-Complementary slackness is the key insight: either the constraint is active (g_i = 0, the solution sits on the boundary) or the multiplier is zero (the constraint does not matter). A constraint that does not affect the solution has lambda = 0.
+Điều kiện bù trừ là điểm cốt yếu: hoặc ràng buộc hoạt động (g_i = 0, nghiệm nằm trên biên) hoặc nhân tử bằng không (ràng buộc không quan trọng). Một ràng buộc không ảnh hưởng đến nghiệm có lambda = 0.
 
-KKT conditions are central to SVMs. The support vectors are the data points where the constraint is active (lambda > 0). All other data points have lambda = 0 and do not affect the decision boundary.
+Các điều kiện KKT là trung tâm của SVM. Các vector hỗ trợ là các điểm dữ liệu nơi ràng buộc hoạt động (lambda > 0). Mọi điểm dữ liệu khác có lambda = 0 và không ảnh hưởng đến biên quyết định.
 
 ### Regularization as constrained optimization
 
-L1 and L2 regularization are not arbitrary tricks. They are constrained optimization problems in disguise.
+L1 và L2 regularization không phải những thủ thuật tùy ý. Chúng là các bài toán tối ưu hóa có ràng buộc được ngụy trang.
 
 **L2 regularization (Ridge):**
 
@@ -287,7 +287,7 @@ Equivalent unconstrained form:
 minimize  Loss(w) + lambda * ||w||^2
 ```
 
-The constraint ||w||^2 <= t defines a ball (circle in 2D, sphere in 3D). The solution is where the loss contours first touch this ball.
+Ràng buộc ||w||^2 <= t xác định một hình cầu (hình tròn trong 2D, hình cầu trong 3D). Nghiệm là nơi các đường đồng mức mất mát lần đầu chạm hình cầu này.
 
 **L1 regularization (LASSO):**
 
@@ -298,22 +298,22 @@ Equivalent unconstrained form:
 minimize  Loss(w) + lambda * ||w||_1
 ```
 
-The constraint ||w||_1 <= t defines a diamond (rotated square in 2D).
+Ràng buộc ||w||_1 <= t xác định một hình thoi (hình vuông được quay trong 2D).
 
-| Property | L2 constraint (circle) | L1 constraint (diamond) |
+| Tính chất | Ràng buộc L2 (hình tròn) | Ràng buộc L1 (hình thoi) |
 |---|---|---|
-| **Constraint shape** | Circle (sphere in higher dims) | Diamond (rotated square in 2D) |
-| **Where loss contour touches** | Smooth boundary — any point on the circle | Corner — aligned with an axis |
-| **Solution behavior** | Weights are small but nonzero | Some weights are exactly zero (sparse) |
-| **Result** | Weight shrinkage | Feature selection |
+| **Hình dạng ràng buộc** | Hình tròn (hình cầu trong số chiều cao hơn) | Hình thoi (hình vuông được quay trong 2D) |
+| **Nơi đường đồng mức mất mát chạm** | Biên trơn — bất kỳ điểm nào trên đường tròn | Góc — thẳng hàng với một trục |
+| **Hành vi nghiệm** | Các trọng số nhỏ nhưng khác không | Một số trọng số đúng bằng không (thưa) |
+| **Kết quả** | Thu nhỏ trọng số | Lựa chọn đặc trưng |
 
-This explains why L1 produces sparse models (feature selection) while L2 only shrinks weights. The diamond has corners aligned with axes. Loss contours are more likely to touch a corner, setting one or more weights exactly to zero.
+Điều này giải thích tại sao L1 tạo các mô hình thưa (lựa chọn đặc trưng) trong khi L2 chỉ thu nhỏ trọng số. Hình thoi có các góc thẳng hàng với các trục. Các đường đồng mức mất mát có khả năng chạm một góc cao hơn, đặt một hoặc nhiều trọng số về đúng không.
 
 ### Duality
 
-Every constrained optimization problem (the primal) has a companion problem (the dual). For convex problems, the primal and dual have the same optimal value. This is strong duality.
+Mỗi bài toán tối ưu hóa có ràng buộc (bài toán gốc) có một bài toán đi kèm (đối ngẫu). Với các bài toán lồi, bài toán gốc và đối ngẫu có cùng giá trị tối ưu. Đây là đối ngẫu mạnh.
 
-The Lagrangian dual function:
+Hàm đối ngẫu Lagrange:
 
 ```
 Primal: minimize f(x) subject to g(x) <= 0
@@ -322,12 +322,12 @@ Dual function: d(lambda) = min_x L(x, lambda)
 Dual problem: maximize d(lambda) subject to lambda >= 0
 ```
 
-Why duality matters:
-- The dual problem is sometimes easier to solve than the primal
-- SVMs are solved in their dual form, where the problem depends on dot products between data points (enabling the kernel trick)
-- The dual provides a lower bound on the primal optimum, useful for checking solution quality
+Tại sao tính đối ngẫu quan trọng:
+- Bài toán đối ngẫu đôi khi dễ giải hơn bài toán gốc
+- SVM được giải ở dạng đối ngẫu, nơi bài toán phụ thuộc vào các tích vô hướng giữa các điểm dữ liệu (cho phép thủ thuật kernel)
+- Đối ngẫu cung cấp một cận dưới cho giá trị tối ưu của bài toán gốc, hữu ích để kiểm tra chất lượng nghiệm
 
-For SVMs specifically:
+Riêng với SVM:
 
 ```
 Primal: find w, b that maximize the margin 2/||w|| subject to
@@ -342,44 +342,44 @@ Replace x_i^T x_j with K(x_i, x_j) to get the kernel trick.
 
 ### Why deep learning works despite non-convexity
 
-Neural network loss functions are wildly non-convex. By every classical measure, optimizing them should fail. Yet stochastic gradient descent finds good solutions reliably. Several factors explain this.
+Các hàm mất mát mạng nơ-ron cực kỳ không lồi. Theo mọi thước đo cổ điển, tối ưu hóa chúng đáng lẽ phải thất bại. Tuy nhiên gradient descent ngẫu nhiên tìm các nghiệm tốt một cách đáng tin cậy. Một số yếu tố giải thích điều này.
 
-**Most local minima are good enough.** In high-dimensional spaces, random critical points (where the gradient is zero) are overwhelmingly saddle points, not local minima. The few local minima that exist tend to have loss values close to the global minimum. Getting trapped in a terrible local minimum is extremely unlikely when the parameter space has millions of dimensions.
+**Hầu hết các cực tiểu cục bộ đủ tốt.** Trong không gian nhiều chiều, các điểm dừng ngẫu nhiên (nơi gradient bằng không) áp đảo là các điểm yên ngựa, không phải cực tiểu cục bộ. Số ít cực tiểu cục bộ tồn tại có xu hướng có giá trị mất mát gần cực tiểu toàn cục. Mắc kẹt trong một cực tiểu cục bộ tệ là cực kỳ ít khả năng khi không gian tham số có hàng triệu chiều.
 
-**Saddle points, not local minima, are the real obstacle.** In a function with n parameters, a saddle point has a mix of positive and negative curvature directions. For a random critical point in high dimensions, the probability of all n eigenvalues being positive (local minimum) is roughly 2^(-n). Almost all critical points are saddle points. SGD's noise helps escape them.
+**Các điểm yên ngựa, không phải cực tiểu cục bộ, là trở ngại thực sự.** Trong một hàm có n tham số, một điểm yên ngựa có hỗn hợp các hướng độ cong dương và âm. Với một điểm dừng ngẫu nhiên trong không gian nhiều chiều, xác suất tất cả n giá trị riêng dương (cực tiểu cục bộ) xấp xỉ 2^(-n). Gần như mọi điểm dừng đều là điểm yên ngựa. Nhiễu của SGD giúp thoát khỏi chúng.
 
-**Overparameterization smooths the landscape.** Networks with more parameters than training examples have smoother, more connected loss surfaces. Wider networks have fewer bad local minima. This is counterintuitive but empirically consistent.
+**Thừa tham số làm mượt địa hình.** Các mạng có nhiều tham số hơn ví dụ huấn luyện có bề mặt mất mát mượt hơn, liên thông hơn. Các mạng rộng hơn có ít cực tiểu cục bộ xấu hơn. Điều này trái trực giác nhưng nhất quán về thực nghiệm.
 
-**Loss landscape structure:**
+**Cấu trúc địa hình mất mát:**
 
-| Property | Low-dimensional space | High-dimensional space |
+| Tính chất | Không gian ít chiều | Không gian nhiều chiều |
 |---|---|---|
-| **Landscape** | Many isolated peaks and valleys | Smoothly connected valleys |
-| **Minima** | Many isolated local minima | Few bad local minima; most are near-optimal |
-| **Navigation** | Hard to find global minimum | Many paths lead to good solutions |
-| **Critical points** | Mix of local minima and saddle points | Overwhelmingly saddle points, not local minima |
+| **Địa hình** | Nhiều đỉnh và thung lũng cô lập | Các thung lũng nối với nhau một cách mượt mà |
+| **Các cực tiểu** | Nhiều cực tiểu cục bộ cô lập | Ít cực tiểu cục bộ xấu; hầu hết gần tối ưu |
+| **Di chuyển** | Khó tìm cực tiểu toàn cục | Nhiều đường dẫn đến các nghiệm tốt |
+| **Các điểm dừng** | Hỗn hợp cực tiểu cục bộ và điểm yên ngựa | Áp đảo là điểm yên ngựa, không phải cực tiểu cục bộ |
 
-**Stochastic noise acts as implicit regularization.** Mini-batch SGD adds noise that prevents settling into sharp minima. Sharp minima overfit; flat minima generalize. The noise biases optimization toward flat regions of the loss landscape.
+**Nhiễu ngẫu nhiên đóng vai trò regularization ngầm.** Mini-batch SGD thêm nhiễu ngăn dừng lại trong các cực tiểu nhọn. Các cực tiểu nhọn khớp quá mức; các cực tiểu phẳng tổng quát hóa. Nhiễu làm tối ưu hóa thiên về các vùng phẳng của địa hình mất mát.
 
 ### Second-order methods in practice
 
-Pure Newton's method is impractical for large models. Several approximations make second-order information usable.
+Phương pháp Newton thuần không thực tế cho các mô hình lớn. Một số xấp xỉ làm thông tin bậc hai có thể sử dụng được.
 
-**L-BFGS (Limited-memory BFGS):** Approximates the inverse Hessian using the last m gradient differences. Requires O(mn) memory instead of O(n^2). Works well for problems with up to ~10,000 parameters. Used in classical ML (logistic regression, CRFs) but not deep learning.
+**L-BFGS (BFGS bộ nhớ giới hạn):** Xấp xỉ Hessian nghịch đảo bằng m hiệu gradient gần nhất. Đòi hỏi O(mn) bộ nhớ thay vì O(n^2). Hoạt động tốt cho các bài toán có đến ~10,000 tham số. Được sử dụng trong ML cổ điển (hồi quy logistic, CRF) nhưng không trong học sâu.
 
-**Natural gradient:** Uses the Fisher information matrix (expected Hessian of the log-likelihood) instead of the standard Hessian. This accounts for the geometry of probability distributions. K-FAC (Kronecker-Factored Approximate Curvature) approximates the Fisher matrix as a Kronecker product, making it practical for neural networks.
+**Gradient tự nhiên:** Sử dụng ma trận thông tin Fisher (Hessian kỳ vọng của log-hợp lý) thay vì Hessian tiêu chuẩn. Điều này xét đến hình học của các phân phối xác suất. K-FAC (Độ cong Xấp xỉ Phân tích theo Kronecker) xấp xỉ ma trận Fisher thành một tích Kronecker, làm nó thực tế cho các mạng nơ-ron.
 
-**Hessian-free optimization:** Uses conjugate gradient to solve Hx = g without ever forming H. Only requires Hessian-vector products, which can be computed in O(n) time via automatic differentiation.
+**Tối ưu hóa không Hessian:** Sử dụng gradient liên hợp để giải Hx = g mà không bao giờ tạo H. Chỉ đòi hỏi các tích Hessian-vector, có thể được tính trong thời gian O(n) bằng vi phân tự động.
 
-**Diagonal approximations:** Adam's second moment is a diagonal approximation of the Hessian's diagonal. AdaHessian extends this by using actual Hessian diagonal elements via Hutchinson's estimator.
+**Các xấp xỉ đường chéo:** Moment bậc hai của Adam là một xấp xỉ đường chéo của đường chéo Hessian. AdaHessian mở rộng điều này bằng cách sử dụng các phần tử đường chéo Hessian thực thông qua bộ ước lượng Hutchinson.
 
-| Method | Memory | Per-step cost | When to use |
+| Phương pháp | Bộ nhớ | Chi phí mỗi bước | Khi nào sử dụng |
 |--------|--------|--------------|-------------|
-| Gradient descent | O(n) | O(n) | Baseline, large models |
-| Newton's method | O(n^2) | O(n^3) | Small convex problems |
-| L-BFGS | O(mn) | O(mn) | Medium convex problems |
-| Adam | O(n) | O(n) | Deep learning default |
-| K-FAC | O(n) | O(n) per layer | Research, large-batch training |
+| Gradient descent | O(n) | O(n) | Mốc cơ sở, các mô hình lớn |
+| Phương pháp Newton | O(n^2) | O(n^3) | Các bài toán lồi nhỏ |
+| L-BFGS | O(mn) | O(mn) | Các bài toán lồi trung bình |
+| Adam | O(n) | O(n) | Mặc định học sâu |
+| K-FAC | O(n) | O(n) mỗi lớp | Nghiên cứu, huấn luyện batch lớn |
 
 ```figure
 convex-vs-nonconvex
@@ -389,7 +389,7 @@ convex-vs-nonconvex
 
 ### Step 1: Convexity checker
 
-Build a function that tests convexity empirically by sampling points and checking the definition.
+Xây dựng một hàm kiểm tra tính lồi bằng thực nghiệm bằng cách lấy mẫu các điểm và kiểm tra định nghĩa.
 
 ```python
 import random
@@ -411,7 +411,7 @@ def check_convexity(f, dim, bounds=(-5, 5), samples=1000):
 
 ### Step 2: Newton's method for 2D
 
-Implement Newton's method using an explicit Hessian. Compare convergence speed against gradient descent.
+Triển khai phương pháp Newton bằng một Hessian tường minh. So sánh tốc độ hội tụ với gradient descent.
 
 ```python
 def newtons_method(f, grad_f, hessian_f, x0, steps=50, tol=1e-12):
@@ -440,7 +440,7 @@ def newtons_method(f, grad_f, hessian_f, x0, steps=50, tol=1e-12):
 
 ### Step 3: Lagrange multiplier solver
 
-Solve constrained optimization using gradient descent on the Lagrangian.
+Giải tối ưu hóa có ràng buộc bằng gradient descent trên hàm Lagrange.
 
 ```python
 def lagrange_solve(f_grad, g_val, g_grad, x0, lr=0.01,
@@ -463,7 +463,7 @@ def lagrange_solve(f_grad, g_val, g_grad, x0, lr=0.01,
 
 ### Step 4: Compare first-order vs second-order
 
-Run gradient descent and Newton's method on the same quadratic function. Count the steps to convergence.
+Chạy gradient descent và phương pháp Newton trên cùng một hàm bậc hai. Đếm số bước đến hội tụ.
 
 ```python
 def quadratic(x):
@@ -476,22 +476,22 @@ def quadratic_hessian(x):
     return [[10, 0], [0, 2]]
 ```
 
-Newton's method will converge in 1 step (it is exact for quadratics). Gradient descent will take hundreds of steps because the eigenvalues of the Hessian differ by a factor of 5, creating an elongated valley.
+Phương pháp Newton sẽ hội tụ trong 1 bước (nó chính xác cho hàm bậc hai). Gradient descent sẽ mất hàng trăm bước vì các giá trị riêng của Hessian khác nhau một hệ số 5, tạo ra một thung lũng kéo dài.
 
 ## Use It
 
-Convexity analysis applies directly when choosing ML models and solvers.
+Phân tích tính lồi áp dụng trực tiếp khi chọn các mô hình ML và bộ giải.
 
-For convex problems (logistic regression, SVMs, LASSO):
-- Use dedicated solvers (liblinear, CVXPY, scipy.optimize.minimize with method='L-BFGS-B')
-- Expect a unique global solution
-- Second-order methods are practical and fast
+Với các bài toán lồi (hồi quy logistic, SVM, LASSO):
+- Sử dụng các bộ giải chuyên dụng (liblinear, CVXPY, scipy.optimize.minimize với method='L-BFGS-B')
+- Kỳ vọng một nghiệm toàn cục duy nhất
+- Các phương pháp bậc hai thực tế và nhanh
 
-For non-convex problems (neural networks):
-- Use first-order methods (SGD, Adam)
-- Accept that the solution depends on initialization and randomness
-- Use overparameterization, noise, and learning rate schedules as implicit regularization
-- Do not waste time searching for the global minimum. A good local minimum is sufficient.
+Với các bài toán không lồi (mạng nơ-ron):
+- Sử dụng các phương pháp bậc nhất (SGD, Adam)
+- Chấp nhận rằng nghiệm phụ thuộc vào khởi tạo và tính ngẫu nhiên
+- Sử dụng thừa tham số, nhiễu và các lịch tốc độ học làm regularization ngầm
+- Không lãng phí thời gian tìm cực tiểu toàn cục. Một cực tiểu cục bộ tốt là đủ.
 
 ```python
 from scipy.optimize import minimize
@@ -504,7 +504,7 @@ result = minimize(
 )
 ```
 
-For SVMs, the dual formulation lets you use the kernel trick:
+Với SVM, dạng đối ngẫu cho phép bạn sử dụng thủ thuật kernel:
 
 ```python
 from sklearn.svm import SVC
@@ -516,40 +516,40 @@ print(f"Support vectors: {svm.n_support_}")
 
 ## Exercises
 
-1. **Convexity gallery.** Test these functions for convexity using the checker: f(x) = x^4, f(x) = sin(x), f(x,y) = x^2 + y^2, f(x,y) = x*y, f(x) = max(x, 0). Explain why each result makes sense.
+1. **Bộ sưu tập tính lồi.** Kiểm tra tính lồi của các hàm này bằng bộ kiểm tra: f(x) = x^4, f(x) = sin(x), f(x,y) = x^2 + y^2, f(x,y) = x*y, f(x) = max(x, 0). Giải thích tại sao mỗi kết quả hợp lý.
 
-2. **Newton vs gradient descent race.** Run both methods on f(x,y) = 50*x^2 + y^2 from the starting point (10, 10). How many steps does each need to reach loss < 1e-10? What happens to gradient descent when the condition number (ratio of largest to smallest Hessian eigenvalue) increases?
+2. **Cuộc đua Newton với gradient descent.** Chạy cả hai phương pháp trên f(x,y) = 50*x^2 + y^2 từ điểm bắt đầu (10, 10). Mỗi phương pháp cần bao nhiêu bước để đạt mất mát < 1e-10? Điều gì xảy ra với gradient descent khi số điều kiện (tỉ số giá trị riêng Hessian lớn nhất với nhỏ nhất) tăng?
 
-3. **Lagrange multiplier geometry.** Minimize f(x,y) = (x-3)^2 + (y-3)^2 subject to x + 2y = 4. Verify the solution by checking that the gradient of f is parallel to the gradient of g at the solution.
+3. **Hình học nhân tử Lagrange.** Tối thiểu hóa f(x,y) = (x-3)^2 + (y-3)^2 với x + 2y = 4. Xác minh nghiệm bằng cách kiểm tra gradient của f song song với gradient của g tại nghiệm.
 
-4. **Regularization constraint.** Implement L1-constrained optimization: minimize (x-3)^2 + (y-2)^2 subject to |x| + |y| <= 1. Show that the solution has one coordinate equal to zero (sparsity from the diamond constraint).
+4. **Ràng buộc regularization.** Triển khai tối ưu hóa ràng buộc L1: tối thiểu hóa (x-3)^2 + (y-2)^2 với |x| + |y| <= 1. Chỉ ra rằng nghiệm có một tọa độ bằng không (tính thưa từ ràng buộc hình thoi).
 
-5. **Hessian eigenvalue analysis.** Compute the Hessian of the Rosenbrock function at (1,1) and at (-1,1). Compute eigenvalues at both points. What do the eigenvalues tell you about the curvature at the minimum versus far from it?
+5. **Phân tích giá trị riêng Hessian.** Tính Hessian của hàm Rosenbrock tại (1,1) và tại (-1,1). Tính các giá trị riêng tại cả hai điểm. Các giá trị riêng cho bạn biết gì về độ cong tại cực tiểu so với xa nó?
 
 ## Key Terms
 
-| Term | What it means |
+| Thuật ngữ | Ý nghĩa |
 |------|---------------|
-| Convex set | A set where the line segment between any two points in the set stays inside the set |
-| Convex function | A function where the line between any two points on its graph lies above or on the graph. Equivalently, Hessian is positive semidefinite everywhere |
-| Local minimum | A point lower than all nearby points. For convex functions, every local minimum is the global minimum |
-| Global minimum | The lowest point of a function over its entire domain |
-| Hessian matrix | The matrix of all second partial derivatives. Encodes curvature information |
-| Positive semidefinite | A matrix whose eigenvalues are all non-negative. The multidimensional analogue of "second derivative >= 0" |
-| Condition number | Ratio of largest to smallest eigenvalue of the Hessian. High condition number means elongated valleys and slow gradient descent |
-| Newton's method | Second-order optimizer that uses the inverse Hessian to determine step direction and size. Quadratic convergence near the minimum |
-| Lagrange multiplier | A variable introduced to convert a constrained optimization problem into an unconstrained one |
-| KKT conditions | Necessary conditions for optimality with inequality constraints. Generalize Lagrange multipliers |
-| Complementary slackness | At the solution, either a constraint is active or its multiplier is zero. Never both nonzero |
-| Duality | Every constrained problem has a companion dual problem. For convex problems, both have the same optimal value |
-| Strong duality | Primal and dual optimal values are equal. Holds for convex problems satisfying Slater's condition |
-| L-BFGS | Approximate second-order method that stores the last m gradient differences instead of the full Hessian |
-| Saddle point | A point where the gradient is zero but it is a minimum in some directions and a maximum in others |
-| Overparameterization | Using more parameters than training examples. Smooths the loss landscape and reduces bad local minima |
+| Convex set (Tập lồi) | Một tập mà đoạn thẳng giữa hai điểm bất kỳ trong tập nằm bên trong tập |
+| Convex function (Hàm lồi) | Một hàm mà đường giữa hai điểm bất kỳ trên đồ thị của nó nằm phía trên hoặc trên đồ thị. Tương đương, Hessian nửa xác định dương ở mọi nơi |
+| Local minimum (Cực tiểu cục bộ) | Một điểm thấp hơn tất cả các điểm gần đó. Với các hàm lồi, mọi cực tiểu cục bộ đều là cực tiểu toàn cục |
+| Global minimum (Cực tiểu toàn cục) | Điểm thấp nhất của một hàm trên toàn bộ miền xác định |
+| Hessian matrix (Ma trận Hessian) | Ma trận của tất cả các đạo hàm riêng bậc hai. Mã hóa thông tin độ cong |
+| Positive semidefinite (Nửa xác định dương) | Một ma trận có tất cả các giá trị riêng không âm. Tương tự nhiều chiều của "đạo hàm bậc hai >= 0" |
+| Condition number (Số điều kiện) | Tỉ số giá trị riêng lớn nhất với nhỏ nhất của Hessian. Số điều kiện cao nghĩa là các thung lũng kéo dài và gradient descent chậm |
+| Newton's method (Phương pháp Newton) | Bộ tối ưu hóa bậc hai sử dụng Hessian nghịch đảo để xác định hướng và kích thước bước. Hội tụ bậc hai gần cực tiểu |
+| Lagrange multiplier (Nhân tử Lagrange) | Một biến được đưa vào để chuyển một bài toán tối ưu hóa có ràng buộc thành một bài toán không ràng buộc |
+| KKT conditions (Điều kiện KKT) | Các điều kiện cần để tối ưu với các ràng buộc bất đẳng thức. Tổng quát hóa nhân tử Lagrange |
+| Complementary slackness (Điều kiện bù trừ) | Tại nghiệm, hoặc một ràng buộc hoạt động hoặc nhân tử của nó bằng không. Không bao giờ cả hai khác không |
+| Duality (Tính đối ngẫu) | Mọi bài toán có ràng buộc có một bài toán đối ngẫu đi kèm. Với các bài toán lồi, cả hai có cùng giá trị tối ưu |
+| Strong duality (Đối ngẫu mạnh) | Giá trị tối ưu của bài toán gốc và đối ngẫu bằng nhau. Đúng cho các bài toán lồi thỏa mãn điều kiện Slater |
+| L-BFGS | Phương pháp bậc hai xấp xỉ lưu m hiệu gradient gần nhất thay vì Hessian đầy đủ |
+| Saddle point (Điểm yên ngựa) | Một điểm mà gradient bằng không nhưng nó là cực tiểu theo một số hướng và cực đại theo các hướng khác |
+| Overparameterization (Thừa tham số) | Sử dụng nhiều tham số hơn các ví dụ huấn luyện. Làm mượt địa hình mất mát và giảm các cực tiểu cục bộ xấu |
 
 ## Further Reading
 
-- [Boyd & Vandenberghe: Convex Optimization](https://web.stanford.edu/~boyd/cvxbook/) - the standard textbook, freely available online
-- [Bottou, Curtis, Nocedal: Optimization Methods for Large-Scale Machine Learning (2018)](https://arxiv.org/abs/1606.04838) - bridges convex optimization theory and deep learning practice
-- [Choromanska et al.: The Loss Surfaces of Multilayer Networks (2015)](https://arxiv.org/abs/1412.0233) - why non-convex neural network landscapes are not as bad as they seem
-- [Nocedal & Wright: Numerical Optimization](https://link.springer.com/book/10.1007/978-0-387-40065-5) - comprehensive reference for Newton's method, L-BFGS, and constrained optimization
+- [Boyd & Vandenberghe: Convex Optimization](https://web.stanford.edu/~boyd/cvxbook/) - giáo trình tiêu chuẩn, có sẵn miễn phí trực tuyến
+- [Bottou, Curtis, Nocedal: Optimization Methods for Large-Scale Machine Learning (2018)](https://arxiv.org/abs/1606.04838) - nối lý thuyết tối ưu hóa lồi với thực hành học sâu
+- [Choromanska et al.: The Loss Surfaces of Multilayer Networks (2015)](https://arxiv.org/abs/1412.0233) - tại sao địa hình mạng nơ-ron không lồi không tệ như vẻ ngoài
+- [Nocedal & Wright: Numerical Optimization](https://link.springer.com/book/10.1007/978-0-387-40065-5) - tài liệu tham khảo toàn diện cho phương pháp Newton, L-BFGS và tối ưu hóa có ràng buộc
