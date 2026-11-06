@@ -1,6 +1,6 @@
 # Spectrograms, Mel Scale & Audio Features
 
-> Neural nets do not consume raw waveforms well. They consume spectrograms. They consume mel spectrograms even better. Every ASR, TTS, and audio classifier in 2026 lives or dies by this single preprocessing choice.
+> Mạng nơ-ron không tiêu thụ tốt các dạng sóng thô. Chúng tiêu thụ phổ đồ. Chúng tiêu thụ phổ đồ mel còn tốt hơn. Mọi ASR, TTS và bộ phân loại âm thanh năm 2026 sống còn nhờ lựa chọn tiền xử lý duy nhất này.
 
 **Type:** Build
 **Languages:** Python
@@ -9,29 +9,29 @@
 
 ## The Problem
 
-Take a 10-second 16 kHz clip. That is 160,000 floats, all in `[-1, 1]`, almost perfectly uncorrelated with the label "dog barking" or "the word cat". The raw waveform has the information but in a form the model cannot easily extract. Two identical phonemes spoken 100 ms apart have completely different raw samples.
+Lấy một đoạn 10 giây 16 kHz. Đó là 160,000 số float, tất cả trong `[-1, 1]`, gần như hoàn toàn không tương quan với nhãn "chó sủa" hoặc "từ cat". Dạng sóng thô có thông tin nhưng ở một dạng mô hình không thể dễ dàng trích xuất. Hai âm vị giống hệt được nói cách nhau 100 ms có các mẫu thô hoàn toàn khác nhau.
 
-A spectrogram fixes this. It collapses the temporal detail where human perception ignores it (microsecond jitter) and preserves the structure where perception attends (which frequencies are energetic, over time windows of ~10–25 ms).
+Một phổ đồ sửa điều này. Nó thu gọn chi tiết thời gian nơi tri giác con người bỏ qua (dao động micro giây) và giữ cấu trúc nơi tri giác chú ý (những tần số nào có năng lượng, trên các cửa sổ thời gian ~10–25 ms).
 
-Mel spectrograms push further. Humans perceive pitch logarithmically: 100 Hz vs 200 Hz sounds "the same distance apart" as 1000 Hz vs 2000 Hz. The mel scale warps the frequency axis to match. A mel-scaled spectrogram is the single most important feature in speech ML from 2010 through 2026.
+Phổ đồ mel tiến xa hơn. Con người cảm nhận cao độ theo logarit: 100 Hz so với 200 Hz nghe "cách nhau cùng khoảng" như 1000 Hz so với 2000 Hz. Thang mel uốn trục tần số để khớp. Một phổ đồ theo thang mel là đặc trưng quan trọng nhất trong ML tiếng nói từ 2010 đến 2026.
 
 ## The Concept
 
 ![Waveform to STFT to mel spectrogram to MFCC ladder](../assets/mel-features.svg)
 
-**STFT (Short-Time Fourier Transform).** Slice the waveform into overlapping frames (typical: 25 ms window, 10 ms hop = 400 samples / 160 samples at 16 kHz). Multiply each frame by a window function (Hann is the default; Hamming slightly different tradeoff). FFT each frame. Stack the magnitude spectra into a matrix of shape `(n_frames, n_freq_bins)`. That is your spectrogram.
+**STFT (Biến đổi Fourier Thời gian Ngắn).** Cắt dạng sóng thành các khung chồng lấn (điển hình: cửa sổ 25 ms, bước nhảy 10 ms = 400 mẫu / 160 mẫu ở 16 kHz). Nhân mỗi khung với một hàm cửa sổ (Hann là mặc định; Hamming có đánh đổi hơi khác). FFT mỗi khung. Xếp các phổ độ lớn thành một ma trận hình dạng `(n_frames, n_freq_bins)`. Đó là phổ đồ của bạn.
 
-**Log-magnitude.** Raw magnitudes span 5-6 orders of magnitude. Take `log(|X| + 1e-6)` or `20 * log10(|X|)` to compress dynamic range. Every production pipeline uses log-magnitude, not raw magnitude.
+**Log độ lớn.** Các độ lớn thô trải trên 5-6 bậc độ lớn. Lấy `log(|X| + 1e-6)` hoặc `20 * log10(|X|)` để nén dải động. Mọi pipeline production dùng log độ lớn, không phải độ lớn thô.
 
-**Mel scale.** Frequency `f` in Hz maps to mel `m` by `m = 2595 * log10(1 + f / 700)`. The mapping is roughly linear below 1 kHz and roughly logarithmic above. 80 mel bins covering 0–8 kHz is the standard ASR input.
+**Thang mel.** Tần số `f` tính bằng Hz ánh xạ sang mel `m` bởi `m = 2595 * log10(1 + f / 700)`. Ánh xạ gần tuyến tính dưới 1 kHz và gần logarit phía trên. 80 bin mel bao phủ 0–8 kHz là đầu vào ASR tiêu chuẩn.
 
-**Mel filterbank.** A set of triangular filters spaced equally on the mel scale. Each filter is a weighted sum of adjacent FFT bins. Multiplying the STFT magnitude by the filterbank matrix gives the mel spectrogram in one matmul.
+**Bộ lọc mel.** Một tập các bộ lọc tam giác cách đều trên thang mel. Mỗi bộ lọc là một tổng có trọng số của các bin FFT liền kề. Nhân độ lớn STFT với ma trận bộ lọc cho phổ đồ mel trong một phép nhân ma trận.
 
-**Log-mel spectrogram.** `log(mel_spec + 1e-10)`. Whisper's input. Parakeet's input. SeamlessM4T's input. The universal 2026 audio frontend.
+**Phổ đồ log-mel.** `log(mel_spec + 1e-10)`. Đầu vào của Whisper. Đầu vào của Parakeet. Đầu vào của SeamlessM4T. Frontend âm thanh phổ dụng năm 2026.
 
-**MFCCs.** Take the log-mel spectrogram, apply a DCT (type II), keep the first 13 coefficients. Decorrelates the features and compresses further. Dominant feature until about 2015 when CNNs/Transformers on raw log-mels caught up. Still used in speaker recognition (x-vectors, ECAPA).
+**MFCC.** Lấy phổ đồ log-mel, áp dụng một DCT (loại II), giữ 13 hệ số đầu. Khử tương quan các đặc trưng và nén thêm. Đặc trưng chủ đạo đến khoảng 2015 khi CNN/Transformer trên log-mel thô bắt kịp. Vẫn được dùng trong nhận dạng người nói (x-vector, ECAPA).
 
-**Resolution trade.** Larger FFT = better frequency resolution but worse time resolution. 25 ms / 10 ms is the audio-ML default; 50 ms / 12.5 ms for music; 5 ms / 2 ms for transient detection (drum hits, plosives).
+**Đánh đổi độ phân giải.** FFT lớn hơn = độ phân giải tần số tốt hơn nhưng độ phân giải thời gian tệ hơn. 25 ms / 10 ms là mặc định ML âm thanh; 50 ms / 12.5 ms cho âm nhạc; 5 ms / 2 ms cho phát hiện quá độ (tiếng trống, âm tắc).
 
 ```figure
 spectrogram-window
@@ -47,7 +47,7 @@ def frame(signal, frame_len, hop):
     return [signal[i * hop : i * hop + frame_len] for i in range(n)]
 ```
 
-A 10-second 16 kHz clip with `frame_len=400, hop=160` yields 998 frames.
+Một đoạn 10 giây 16 kHz với `frame_len=400, hop=160` cho 998 khung.
 
 ### Step 2: Hann window
 
@@ -58,7 +58,7 @@ def hann(N):
     return [0.5 * (1 - math.cos(2 * math.pi * n / (N - 1))) for n in range(N)]
 ```
 
-Multiply element-wise before the FFT. Removes spectral leakage caused by truncating at non-zero endpoints.
+Nhân từng phần tử trước FFT. Loại bỏ rò rỉ phổ do cắt tại các điểm cuối khác không.
 
 ### Step 3: STFT magnitude
 
@@ -69,7 +69,7 @@ def stft_magnitude(signal, frame_len=400, hop=160):
     return [magnitudes(dft([w * s for w, s in zip(win, f)])) for f in frames]
 ```
 
-Production uses `torch.stft` or `librosa.stft` (FFT-backed, vectorized). The loop here is pedagogical; it runs on short clips in `code/main.py`.
+Production dùng `torch.stft` hoặc `librosa.stft` (dựa trên FFT, được vector hóa). Vòng lặp ở đây mang tính sư phạm; nó chạy trên các đoạn ngắn trong `code/main.py`.
 
 ### Step 4: mel filterbank
 
@@ -95,7 +95,7 @@ def mel_filterbank(n_mels, n_fft, sr, fmin=0, fmax=None):
     return fb
 ```
 
-80 mels covering 0–8 kHz with `n_fft=400` gives an `(80, 201)` matrix. Multiply the `(n_frames, 201)` STFT magnitude by the transpose to get `(n_frames, 80)` mel spectrogram.
+80 mel bao phủ 0–8 kHz với `n_fft=400` cho một ma trận `(80, 201)`. Nhân độ lớn STFT `(n_frames, 201)` với chuyển vị để có phổ đồ mel `(n_frames, 80)`.
 
 ### Step 5: log-mel
 
@@ -104,7 +104,7 @@ def log_mel(mel_spec, eps=1e-10):
     return [[math.log(max(v, eps)) for v in frame] for frame in mel_spec]
 ```
 
-Common alternatives: `librosa.power_to_db` (reference-normalized dB), `10 * log10(power + eps)`. Whisper uses a more involved clip + normalize routine (see Whisper's `log_mel_spectrogram`).
+Các phương án phổ biến khác: `librosa.power_to_db` (dB được chuẩn hóa theo tham chiếu), `10 * log10(power + eps)`. Whisper dùng một quy trình chặn + chuẩn hóa phức tạp hơn (xem `log_mel_spectrogram` của Whisper).
 
 ### Step 6: MFCCs
 
@@ -117,58 +117,58 @@ def dct_ii(x, n_coeffs):
     ]
 ```
 
-Apply DCT to each log-mel frame, keep the first 13 coefficients. That is your MFCC matrix. The first coefficient is usually dropped (it encodes overall energy).
+Áp dụng DCT cho mỗi khung log-mel, giữ 13 hệ số đầu. Đó là ma trận MFCC của bạn. Hệ số đầu thường bị bỏ (nó mã hóa năng lượng tổng thể).
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Task | Features |
+| Tác vụ | Đặc trưng |
 |------|----------|
-| ASR (Whisper, Parakeet, SeamlessM4T) | 80 log-mels, 10 ms hop, 25 ms window |
-| TTS acoustic model (VITS, F5-TTS, Kokoro) | 80 mels, 5–12 ms hop for fine temporal control |
-| Audio classification (AST, PANNs, BEATs) | 128 log-mels, 10 ms hop |
-| Speaker embedding (ECAPA-TDNN, WavLM) | 80 log-mels or raw-waveform SSL |
-| Music (MusicGen, Stable Audio 2) | EnCodec discrete tokens (not mels) |
-| Keyword spotting | 40 MFCCs for tiny devices |
+| ASR (Whisper, Parakeet, SeamlessM4T) | 80 log-mel, bước nhảy 10 ms, cửa sổ 25 ms |
+| Mô hình âm học TTS (VITS, F5-TTS, Kokoro) | 80 mel, bước nhảy 5–12 ms để điều khiển thời gian tinh tế |
+| Phân loại âm thanh (AST, PANNs, BEATs) | 128 log-mel, bước nhảy 10 ms |
+| Embedding người nói (ECAPA-TDNN, WavLM) | 80 log-mel hoặc SSL dạng sóng thô |
+| Âm nhạc (MusicGen, Stable Audio 2) | Các token rời rạc EnCodec (không phải mel) |
+| Phát hiện từ khóa | 40 MFCC cho các thiết bị tí hon |
 
-Rule of thumb: **if you are not working on music, start with 80 log-mels.** The burden of proof is on any deviation.
+Quy tắc kinh nghiệm: **nếu bạn không làm việc với âm nhạc, bắt đầu bằng 80 log-mel.** Mọi sai lệch phải chịu trách nhiệm chứng minh.
 
 ## Pitfalls that still ship in 2026
 
-- **Mel count mismatch.** Training with 80 mels, inference with 128 mels. Silent failure. Log the feature shape at both ends.
-- **Sample-rate mismatch upstream.** Mels computed at 22.05 kHz look different from 16 kHz. Fix SR *before* featurization.
-- **dB vs log.** Whisper expects log-mel, not dB-mel. Some HF pipelines autodetect; your custom code will not.
-- **Normalization drift.** Per-utterance normalization during training, global normalization during inference. Production bug that doubles WER.
-- **Leakage from padding.** Zero-padding the end of a clip produces a flat spectrum in the trailing frames. Pad symmetrically or replicate.
+- **Không khớp số mel.** Huấn luyện với 80 mel, suy luận với 128 mel. Thất bại âm thầm. Ghi nhật ký hình dạng đặc trưng ở cả hai đầu.
+- **Không khớp tần số lấy mẫu phía trước.** Mel được tính ở 22.05 kHz trông khác 16 kHz. Sửa SR *trước* trích xuất đặc trưng.
+- **dB so với log.** Whisper kỳ vọng log-mel, không phải dB-mel. Một số pipeline HF tự phát hiện; mã tùy chỉnh của bạn thì không.
+- **Độ trôi chuẩn hóa.** Chuẩn hóa theo phát ngôn khi huấn luyện, chuẩn hóa toàn cục khi suy luận. Lỗi production làm WER tăng gấp đôi.
+- **Rò rỉ từ đệm.** Đệm không vào cuối một đoạn tạo một phổ phẳng trong các khung cuối. Đệm đối xứng hoặc lặp lại.
 
 ## Ship It
 
-Save as `outputs/skill-feature-extractor.md`. The skill picks feature type, mel count, frame/hop, and normalization for a given model target.
+Lưu thành `outputs/skill-feature-extractor.md`. Skill chọn loại đặc trưng, số mel, khung/bước nhảy và chuẩn hóa cho một mô hình đích nhất định.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. It synthesizes a chirp (frequency swept 200 → 4000 Hz) and prints the argmax mel bin per frame. Plot (optional) and confirm it matches the sweep.
-2. **Medium.** Re-run with `n_mels` in `{40, 80, 128}` and `frame_len` in `{200, 400, 800}`. Measure sharp-peak bandwidth across the time axis. Which combo resolves the chirp the best?
-3. **Hard.** Implement `power_to_db` and compare ASR accuracy of a tiny CNN classifier on AudioMNIST using (a) raw log-mel, (b) dB-mel with `ref=max`, (c) MFCC-13 + delta + delta-delta. Report top-1 accuracy.
+1. **Dễ.** Chạy `code/main.py`. Nó tổng hợp một chirp (tần số quét 200 → 4000 Hz) và in bin mel argmax cho mỗi khung. Vẽ (tùy chọn) và xác nhận nó khớp phép quét.
+2. **Trung bình.** Chạy lại với `n_mels` trong `{40, 80, 128}` và `frame_len` trong `{200, 400, 800}`. Đo băng thông đỉnh nhọn dọc trục thời gian. Tổ hợp nào phân giải chirp tốt nhất?
+3. **Khó.** Triển khai `power_to_db` và so sánh accuracy ASR của một bộ phân loại CNN nhỏ trên AudioMNIST bằng (a) log-mel thô, (b) dB-mel với `ref=max`, (c) MFCC-13 + delta + delta-delta. Báo cáo accuracy top-1.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Frame | A slice | 25 ms chunk of waveform fed to one FFT. |
-| Hop | Stride | Samples between consecutive frames; 10 ms is ASR default. |
-| Window | Hann/Hamming thing | Point-wise multiplier that tapers the frame edges to zero. |
-| STFT | Spectrogram generator | Framed + windowed FFT; yields time × frequency matrix. |
-| Mel | Warped frequency | Log-perception scale; `m = 2595·log10(1 + f/700)`. |
-| Filterbank | The matrix | Triangular filters that project STFT onto mel bins. |
-| Log-mel | Whisper's input | `log(mel_spec + eps)`; standardized in 2026. |
-| MFCC | Old-school feature | DCT of log-mel; 13 coeffs, decorrelated. |
+| Frame (Khung) | Một lát cắt | Khối dạng sóng 25 ms được đưa vào một FFT. |
+| Hop (Bước nhảy) | Stride | Số mẫu giữa các khung liên tiếp; 10 ms là mặc định ASR. |
+| Window (Cửa sổ) | Thứ Hann/Hamming | Hệ số nhân theo điểm làm các biên khung giảm dần về không. |
+| STFT | Bộ sinh phổ đồ | FFT được chia khung + áp cửa sổ; cho ma trận thời gian × tần số. |
+| Mel | Tần số bị uốn | Thang tri giác log; `m = 2595·log10(1 + f/700)`. |
+| Filterbank (Bộ lọc) | Ma trận | Các bộ lọc tam giác chiếu STFT lên các bin mel. |
+| Log-mel | Đầu vào của Whisper | `log(mel_spec + eps)`; được tiêu chuẩn hóa năm 2026. |
+| MFCC | Đặc trưng kiểu cũ | DCT của log-mel; 13 hệ số, được khử tương quan. |
 
 ## Further Reading
 
-- [Davis, Mermelstein (1980). Comparison of parametric representations for monosyllabic word recognition](https://ieeexplore.ieee.org/document/1163420) — the MFCC paper.
-- [Stevens, Volkmann, Newman (1937). A Scale for the Measurement of the Psychological Magnitude Pitch](https://pubs.aip.org/asa/jasa/article-abstract/8/3/185/735757/) — the original mel scale.
-- [OpenAI — Whisper source, log_mel_spectrogram](https://github.com/openai/whisper/blob/main/whisper/audio.py) — read the reference implementation.
-- [librosa feature extraction docs](https://librosa.org/doc/latest/api/feature.html) — reference for `mfcc`, `melspectrogram`, and hop/window.
-- [NVIDIA NeMo — audio preprocessing](https://docs.nvidia.com/deeplearning/nemo/user-guide/docs/en/main/asr/asr_all.html#featurizers) — production-scale pipeline for Parakeet + Canary models.
+- [Davis, Mermelstein (1980). Comparison of parametric representations for monosyllabic word recognition](https://ieeexplore.ieee.org/document/1163420) — bài báo MFCC.
+- [Stevens, Volkmann, Newman (1937). A Scale for the Measurement of the Psychological Magnitude Pitch](https://pubs.aip.org/asa/jasa/article-abstract/8/3/185/735757/) — thang mel gốc.
+- [OpenAI — Whisper source, log_mel_spectrogram](https://github.com/openai/whisper/blob/main/whisper/audio.py) — đọc triển khai tham chiếu.
+- [librosa feature extraction docs](https://librosa.org/doc/latest/api/feature.html) — tham chiếu cho `mfcc`, `melspectrogram` và bước nhảy/cửa sổ.
+- [NVIDIA NeMo — audio preprocessing](https://docs.nvidia.com/deeplearning/nemo/user-guide/docs/en/main/asr/asr_all.html#featurizers) — pipeline quy mô production cho các mô hình Parakeet + Canary.

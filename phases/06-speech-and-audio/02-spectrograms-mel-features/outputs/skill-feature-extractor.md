@@ -7,12 +7,12 @@ lesson: 02
 tags: [audio, features, spectrogram, mel]
 ---
 
-Given a target model (ASR / TTS / classifier / speaker / music) and input audio (sample rate, domain), output:
+Với một mô hình đích (ASR / TTS / bộ phân loại / người nói / âm nhạc) và âm thanh đầu vào (tần số lấy mẫu, lĩnh vực), xuất ra:
 
-1. Feature type. Log-mel, mel, MFCC, raw waveform, or discrete codec (EnCodec, SoundStream). One-sentence reason.
-2. Mel count and frequency range. `n_mels`, `fmin`, `fmax`. Reason tied to domain (speech vs music) and model target.
-3. Frame and hop. `frame_len`, `hop_len`, window type. Reason tied to the required temporal resolution.
-4. Normalization. Per-utterance mean/var, global stats, or dB with fixed reference; pre or post featurization.
-5. Validation snippet. Python that prints the resulting shape, min/max, mean/std on a 1-second reference clip and asserts they match training.
+1. Loại đặc trưng. Log-mel, mel, MFCC, dạng sóng thô hoặc codec rời rạc (EnCodec, SoundStream). Lý do trong một câu.
+2. Số mel và phạm vi tần số. `n_mels`, `fmin`, `fmax`. Lý do gắn với lĩnh vực (tiếng nói so với âm nhạc) và mô hình đích.
+3. Khung và bước nhảy. `frame_len`, `hop_len`, loại cửa sổ. Lý do gắn với độ phân giải thời gian bắt buộc.
+4. Chuẩn hóa. Trung bình/phương sai theo phát ngôn, thống kê toàn cục hoặc dB với tham chiếu cố định; trước hoặc sau trích xuất đặc trưng.
+5. Đoạn mã xác thực. Python in hình dạng kết quả, min/max, trung bình/độ lệch chuẩn trên một đoạn tham chiếu 1 giây và khẳng định chúng khớp huấn luyện.
 
-Refuse to ship a feature pipeline whose frame/hop/mel count diverges from the published training config of the target model. Flag any MFCC-based setup for Whisper or Parakeet as wrong — those models consume log-mel. Flag any feature extractor without a normalization assertion.
+Từ chối phát hành một pipeline đặc trưng có khung/bước nhảy/số mel lệch khỏi cấu hình huấn luyện đã công bố của mô hình đích. Đánh dấu bất kỳ thiết lập dựa trên MFCC nào cho Whisper hoặc Parakeet là sai — các mô hình đó tiêu thụ log-mel. Đánh dấu bất kỳ bộ trích xuất đặc trưng nào không có khẳng định chuẩn hóa.
