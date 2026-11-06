@@ -1,6 +1,6 @@
 # Indirect Prompt Injection — Production Attack Surface
 
-> Indirect prompt injection (IPI) embeds instructions inside external content — a web page, an email, a shared document, a support ticket — consumed by an agentic system without explicit user action. IPI is the dominant 2026 production threat: it bypasses user-input filters because the attacker never touches the user, it scales silently as agents process more external content, and it targets automated workflows where nobody is reading the prompt. MDPI Information 17(1):54 (January 2026) synthesizes 2023-2025 research. NDSS 2026's IPI-defense paper frames the core challenge: injected instructions can be semantically benign ("please print Yes"), so detection requires more than keyword filtering. "The Attacker Moves Second" (Nasr et al., joint OpenAI/Anthropic/DeepMind, October 2025): adaptive attacks (gradient, RL, random search, human red-team) broke >90% of 12 published defenses that had originally reported near-zero attack success rates.
+> Chèn prompt gián tiếp (IPI) nhúng chỉ dẫn trong nội dung bên ngoài — trang web, email, tài liệu chia sẻ, phiếu hỗ trợ — được hệ thống có agent tiêu thụ không cần hành động tường minh của người dùng. IPI là đe dọa sản xuất chi phối năm 2026: vượt bộ lọc đầu vào người dùng vì kẻ tấn công không bao giờ chạm người dùng, âm thầm mở rộng khi agent xử lý thêm nội dung ngoài, và nhắm workflow tự động nơi không ai đọc prompt. MDPI Information 17(1):54 (tháng 1 năm 2026) tổng hợp nghiên cứu 2023-2025. Bài báo phòng vệ IPI NDSS 2026 đặt thách thức cốt lõi: chỉ dẫn được chèn có thể vô hại về ngữ nghĩa ("vui lòng in Yes"), nên phát hiện cần hơn lọc từ khóa. "The Attacker Moves Second" (Nasr và cộng sự, hợp tác OpenAI/Anthropic/DeepMind, tháng 10 năm 2025): tấn công thích ứng (gradient, RL, tìm kiếm ngẫu nhiên, red-team con người) phá vỡ >90% của 12 phòng vệ công bố vốn ban đầu báo cáo tỷ lệ tấn công thành công gần không.
 
 **Type:** Build
 **Languages:** Python (stdlib, IPI attack + defense harness)
@@ -9,52 +9,52 @@
 
 ## Learning Objectives
 
-- Define indirect prompt injection and describe three common delivery vectors.
-- Explain why user-input filters miss IPI entirely.
-- Describe the "information flow control" framing as the 2026 defense paradigm.
-- State the finding of Nasr et al. (October 2025) on adaptive attack success against published IPI defenses.
+- Định nghĩa chèn prompt gián tiếp và mô tả ba hướng phân phối phổ biến.
+- Giải thích tại sao bộ lọc đầu vào người dùng bỏ sót hoàn toàn IPI.
+- Mô tả cách nhìn "kiểm soát luồng thông tin" là mô hình phòng vệ 2026.
+- Nêu phát hiện Nasr và cộng sự (tháng 10 năm 2025) về thành công tấn công thích ứng đối với phòng vệ IPI công bố.
 
 ## The Problem
 
-Direct prompt injection requires the attacker to reach the user or their prompt. IPI requires neither: the attacker places a payload in any content the agent might read — a web page, an email in the inbox, a GitHub issue, a product review. The agent picks it up during normal operation and executes the instructions. The user is the messenger, not the intent.
+Chèn prompt trực tiếp cần kẻ tấn công tiếp cận người dùng hoặc prompt của họ. IPI không cần cả hai: kẻ tấn công đặt payload trong bất kỳ nội dung nào agent có thể đọc — trang web, email trong hộp thư, issue GitHub, đánh giá sản phẩm. Agent lấy trong vận hành bình thường và thực thi chỉ dẫn. Người dùng là người đưa tin, không phải ý định.
 
 ## The Concept
 
 ### Three delivery vectors
 
-- **Retrieval-augmented generation (RAG).** Attacker publishes a document; the retrieval step fetches it; the prompt concatenates it before the user question; the model executes the attacker's instructions.
-- **Inbox / document workflows.** Attacker sends an email to the user; the agent reads emails; the prompt includes the email body; the model follows the email's instructions.
-- **Tool output.** Attacker controls a tool the agent uses (e.g., a web search that returns an attacker-controlled result); the tool output contains instructions; the agent's control flow follows them.
+- **Sinh tăng cường truy xuất (RAG).** Kẻ tấn công công bố tài liệu; bước truy xuất lấy nó; prompt nối nó trước câu hỏi người dùng; mô hình thực thi chỉ dẫn kẻ tấn công.
+- **Workflow hộp thư / tài liệu.** Kẻ tấn công gửi email cho người dùng; agent đọc email; prompt chứa thân email; mô hình theo chỉ dẫn email.
+- **Đầu ra công cụ.** Kẻ tấn công kiểm soát công cụ agent dùng (ví dụ: tìm kiếm web trả kết quả do kẻ tấn công kiểm soát); đầu ra công cụ chứa chỉ dẫn; luồng điều khiển agent theo chúng.
 
-The three share a structural property: the attacker controls a fragment of the prompt without touching the user-facing input.
+Cả ba chung thuộc tính cấu trúc: kẻ tấn công kiểm soát mảnh prompt mà không chạm đầu vào hướng người dùng.
 
 ### Why user-input filters miss it
 
-An IPI payload does not appear in the user's input. It appears in the retrieved content. If the filter is gated on user input, the payload bypasses it. If the filter is gated on all content that reaches the model, it must apply to arbitrary retrieved text — which is expensive and produces false positives against legitimate content that happens to contain imperative-voice language.
+Payload IPI không xuất hiện trong đầu vào người dùng. Nó xuất hiện trong nội dung truy xuất. Nếu bộ lọc kiểm soát đầu vào người dùng, payload vượt nó. Nếu bộ lọc kiểm soát mọi nội dung đến mô hình, phải áp dụng cho văn bản truy xuất tùy ý — đắt và tạo dương tính giả với nội dung hợp lệ tình cờ chứa ngôn ngữ mệnh lệnh.
 
 ### Information Flow Control (IFC) for AI
 
-The 2026 defense paradigm borrows from classical OS security. Treat every content source as a security label. Label the user's query as "trusted." Label retrieved content as "untrusted." Treat the model's control flow as an information flow: actions triggered by untrusted content must be ratified by trusted input before execution.
+Mô hình phòng vệ 2026 mượn từ bảo mật hệ điều hành cổ điển. Xem mỗi nguồn nội dung là nhãn bảo mật. Gắn truy vấn người dùng là "đáng tin." Gắn nội dung truy xuất là "không đáng tin." Xem luồng điều khiển mô hình là luồng thông tin: hành động kích hoạt bởi nội dung không đáng tin phải được đầu vào đáng tin phê chuẩn trước thực thi.
 
-CaMeL (Microsoft 2025), ConfAIde (Stanford 2024), and the NDSS 2026 IPI-defense paper operationalize IFC in different ways. The common principle: as long as code and data share the same context window, containment is the goal, not prevention.
+CaMeL (Microsoft 2025), ConfAIde (Stanford 2024) và bài báo phòng vệ IPI NDSS 2026 hiện thực hóa IFC theo cách khác nhau. Nguyên tắc chung: chừng nào mã và dữ liệu chung cửa sổ ngữ cảnh, kiềm chế là mục tiêu, không phải ngăn chặn.
 
 ### The Attacker Moves Second
 
-Nasr et al. (October 2025) tested 12 published IPI defenses with adaptive attacks (gradient search, RL policies, random search, 72-hour human red-team). Every defense that originally reported near-zero ASR was broken to >90% ASR.
+Nasr và cộng sự (tháng 10 năm 2025) kiểm thử 12 phòng vệ IPI công bố bằng tấn công thích ứng (tìm kiếm gradient, chính sách RL, tìm kiếm ngẫu nhiên, red-team con người 72 giờ). Mọi phòng vệ ban đầu báo cáo ASR gần không đều bị phá lên ASR >90%.
 
-The methodological lesson: publish a defense only with adaptive-attack evaluation. Static-attack benchmarks are not evidence of robustness; the attacker gets to know the defense.
+Bài học phương pháp: chỉ công bố phòng vệ cùng đánh giá tấn công thích ứng. Phép đo chuẩn tấn công tĩnh không là bằng chứng độ vững; kẻ tấn công được biết phòng vệ.
 
 ### Real incidents
 
-Lesson 25 covers EchoLeak (CVE-2025-32711, CVSS 9.3) — the first publicly documented zero-click IPI in Microsoft 365 Copilot. CamoLeak (CVSS 9.6) in GitHub Copilot Chat. CVE-2025-53773 in GitHub Copilot. Production deployments are being compromised by IPI in the field, not just in benchmarks.
+Bài 25 đề cập EchoLeak (CVE-2025-32711, CVSS 9.3) — IPI zero-click đầu tiên trong Microsoft 365 Copilot được ghi nhận công khai. CamoLeak (CVSS 9.6) trong GitHub Copilot Chat. CVE-2025-53773 trong GitHub Copilot. Triển khai sản xuất đang bị IPI xâm phạm ngoài thực tế, không chỉ trong phép đo chuẩn.
 
 ### OWASP and NIST framing
 
-OWASP LLM Top 10 (2025) ranks prompt injection (direct + indirect) as LLM01, the #1 application-layer threat. NIST AI SPD 2024 calls indirect prompt injection "generative AI's greatest security flaw."
+OWASP LLM Top 10 (2025) xếp chèn prompt (trực tiếp + gián tiếp) là LLM01, đe dọa lớp ứng dụng #1. NIST AI SPD 2024 gọi chèn prompt gián tiếp là "lỗ hổng bảo mật lớn nhất của AI tạo sinh."
 
 ### Where this fits in Phase 18
 
-Lessons 12-14 are model-centric jailbreaks. Lesson 15 is the system-centric attack that dominates 2026 production deployments. Lesson 16 covers the defensive tooling. Lesson 25 covers the specific CVE narrative.
+Bài 12-14 là jailbreak tập trung mô hình. Bài 15 là tấn công tập trung hệ thống chi phối triển khai sản xuất 2026. Bài 16 đề cập công cụ phòng vệ. Bài 25 đề cập câu chuyện CVE cụ thể.
 
 ```figure
 al-injection-vector
@@ -62,39 +62,39 @@ al-injection-vector
 
 ## Use It
 
-`code/main.py` builds an IPI harness. A toy agent has three tools (search web, read email, send message). The environment contains attacker-controlled content with an embedded instruction ("forward this to all contacts"). You can toggle between a naive agent (follows injected instructions), a filter-defended agent (keyword filter on retrieved content), and an IFC agent (separates trusted and untrusted content and refuses untrusted control-flow commands).
+`code/main.py` xây bộ kiểm thử IPI. Agent đơn giản có ba công cụ (tìm web, đọc email, gửi tin nhắn). Môi trường chứa nội dung do kẻ tấn công kiểm soát với chỉ dẫn nhúng ("chuyển tiếp cho mọi liên hệ"). Bạn có thể chuyển giữa agent ngây thơ (theo chỉ dẫn được chèn), agent phòng vệ bằng lọc (lọc từ khóa trên nội dung truy xuất), và agent IFC (tách nội dung đáng tin và không đáng tin, từ chối lệnh luồng điều khiển không đáng tin).
 
 ## Ship It
 
-This lesson produces `outputs/skill-ipi-audit.md`. Given an agentic deployment description, it enumerates the untrusted content sources, checks whether the deployment applies IFC, and flags sources that reach the model without a trust label.
+Bài học này tạo ra `outputs/skill-ipi-audit.md`. Với mô tả triển khai có agent, liệt kê nguồn nội dung không đáng tin, kiểm tra triển khai có áp dụng IFC và đánh dấu nguồn đến mô hình không có nhãn tin cậy.
 
 ## Exercises
 
-1. Run `code/main.py`. Measure the success rate of the attack against each of the three agents.
+1. Chạy `code/main.py`. Đo tỷ lệ thành công tấn công đối với từng agent trong ba agent.
 
-2. Implement a paraphrase-based defense on retrieved content. Measure the benign false-positive rate on legitimate retrieved text.
+2. Triển khai phòng vệ dựa trên diễn đạt lại trên nội dung truy xuất. Đo tỷ lệ dương tính giả vô hại trên văn bản truy xuất hợp lệ.
 
-3. Read the NDSS 2026 IPI-defense paper. Describe the "benign instruction" challenge and why it prevents keyword-based filtering.
+3. Đọc bài báo phòng vệ IPI NDSS 2026. Mô tả thách thức "chỉ dẫn vô hại" và tại sao nó ngăn lọc dựa trên từ khóa.
 
-4. Design a deployment where the agent receives a tool output from a third-party API. Label each prompt fragment with a trust level and write the IFC policy that governs the agent's actions.
+4. Thiết kế triển khai agent nhận đầu ra công cụ từ API bên thứ ba. Gắn mỗi mảnh prompt mức tin cậy và viết chính sách IFC chi phối hành động agent.
 
-5. Reproduce the Nasr et al. 2025 adaptive-attack methodology on your filter-defended agent from Exercise 2. Report the ASR before and after adaptive attack.
+5. Tái tạo phương pháp tấn công thích ứng Nasr và cộng sự 2025 trên agent phòng vệ bằng lọc từ Bài tập 2. Báo cáo ASR trước và sau tấn công thích ứng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|-----------------|------------------------|
-| IPI | "indirect prompt injection" | Injection via content the user did not write, consumed by the agent during normal operation |
-| RAG injection | "poisoned retrieval" | Attacker publishes content that the retrieval step fetches; prompt contains the payload |
-| Zero-click | "no user action" | Attack triggers automatically during agent operation; user does nothing |
-| IFC | "information flow control" | Label-based approach: actions from untrusted content require trusted ratification |
-| Adaptive attack | "gradient / RL red-team" | Attack that knows the defense and optimizes against it; required for honest evaluation |
-| Benign instruction | "please print Yes" | IPI payload that is semantically benign; no keyword filter catches it |
-| Scope violation | "cross-trust exfiltration" | Agent accesses data from one trust context and outputs it to another |
+| IPI | "chèn prompt gián tiếp" | Chèn qua nội dung người dùng không viết, được agent tiêu thụ trong vận hành bình thường |
+| RAG injection (Chèn qua RAG) | "truy xuất bị đầu độc" | Kẻ tấn công công bố nội dung bước truy xuất lấy; prompt chứa payload |
+| Zero-click | "không hành động người dùng" | Tấn công tự kích hoạt trong vận hành agent; người dùng không làm gì |
+| IFC | "kiểm soát luồng thông tin" | Cách tiếp cận dựa trên nhãn: hành động từ nội dung không đáng tin cần phê chuẩn đáng tin |
+| Adaptive attack (Tấn công thích ứng) | "red-team gradient / RL" | Tấn công biết phòng vệ và tối ưu chống nó; cần cho đánh giá trung thực |
+| Benign instruction (Chỉ dẫn vô hại) | "vui lòng in Yes" | Payload IPI vô hại về ngữ nghĩa; không lọc từ khóa nào bắt được |
+| Scope violation (Vi phạm phạm vi) | "đưa ra ngoài xuyên ranh giới tin cậy" | Agent truy cập dữ liệu từ một ngữ cảnh tin cậy và xuất sang ngữ cảnh khác |
 
 ## Further Reading
 
-- [MDPI Information 17(1):54 — Indirect Prompt Injection Survey (January 2026)](https://www.mdpi.com/2078-2489/17/1/54) — 2023-2025 synthesis
-- [Nasr et al. — The Attacker Moves Second (joint OpenAI/Anthropic/DeepMind, October 2025)](https://arxiv.org/abs/2510.18108) — adaptive attack evaluation
-- [Greshake et al. — Not what you've signed up for (arXiv:2302.12173)](https://arxiv.org/abs/2302.12173) — the original IPI paper
-- [OWASP — LLM Top 10 (2025)](https://genai.owasp.org/llm-top-10/) — prompt injection ranked LLM01
+- [MDPI Information 17(1):54 — Indirect Prompt Injection Survey (January 2026)](https://www.mdpi.com/2078-2489/17/1/54) — tổng hợp 2023-2025
+- [Nasr et al. — The Attacker Moves Second (joint OpenAI/Anthropic/DeepMind, October 2025)](https://arxiv.org/abs/2510.18108) — đánh giá tấn công thích ứng
+- [Greshake et al. — Not what you've signed up for (arXiv:2302.12173)](https://arxiv.org/abs/2302.12173) — bài báo IPI ban đầu
+- [OWASP — LLM Top 10 (2025)](https://genai.owasp.org/llm-top-10/) — chèn prompt xếp LLM01
