@@ -1,6 +1,6 @@
 # KV Cache, Flash Attention & Inference Optimization
 
-> Training is parallel and FLOP-bound. Inference is serial and memory-bound. Different bottleneck, different tricks.
+> Huấn luyện song song và bị giới hạn bởi FLOP. Suy luận nối tiếp và bị giới hạn bởi bộ nhớ. Nút thắt khác, các thủ thuật khác.
 
 **Type:** Build
 **Languages:** Python
@@ -9,16 +9,16 @@
 
 ## The Problem
 
-A naive autoregressive decoder does `O(N²)` work to generate `N` tokens: at each step it recomputes attention over the full prefix. For a 4K-token response that is 16M attention operations, most of them redundant. Every hidden state of a prefix token is deterministic once computed — you only need to run the new token's query against the cached keys and values of everything before.
+Một decoder tự hồi quy ngây thơ làm công việc `O(N²)` để sinh `N` token: ở mỗi bước nó tính lại attention trên toàn tiền tố. Với một phản hồi 4K token đó là 16M phép toán attention, hầu hết dư thừa. Mọi trạng thái ẩn của một token tiền tố đều tất định một khi được tính — bạn chỉ cần chạy query của token mới với các key và value đã lưu đệm của mọi thứ trước đó.
 
-On top of that, attention itself moves a lot of data. Standard attention materializes an N×N score matrix, N×d softmax output, N×d final output — too many reads and writes to HBM. For N≥2K, attention becomes memory-bound before it becomes FLOP-bound. Classic attention kernels underuse modern GPUs by 4–10×.
+Trên hết, bản thân attention di chuyển rất nhiều dữ liệu. Attention tiêu chuẩn hiện thực hóa một ma trận điểm N×N, đầu ra softmax N×d, đầu ra cuối N×d — quá nhiều đọc và ghi vào HBM. Với N≥2K, attention bị giới hạn bởi bộ nhớ trước khi bị giới hạn bởi FLOP. Các kernel attention cổ điển dùng không hết GPU hiện đại 4–10×.
 
-Two optimizations, both from Dao et al., pushed frontier inference from "slow" to "fast":
+Hai tối ưu hóa, cả hai từ Dao và cộng sự, đẩy suy luận tiên phong từ "chậm" sang "nhanh":
 
-1. **KV cache.** Store the K and V vectors of every prefix token. Each new token's attention is one query against the cached keys. Inference reduces from `O(N²)` to `O(N)` per generation step.
-2. **Flash Attention.** Tile the attention computation so the full N×N matrix never hits HBM. All of softmax + matmul happens in SRAM. 2–4× wall-clock speedup on A100; 5–10× on H100 with FP8.
+1. **KV cache.** Lưu các vector K và V của mọi token tiền tố. Attention của mỗi token mới là một query với các key đã lưu đệm. Suy luận giảm từ `O(N²)` xuống `O(N)` mỗi bước sinh.
+2. **Flash Attention.** Chia ô phép tính attention để toàn ma trận N×N không bao giờ chạm HBM. Toàn bộ softmax + nhân ma trận xảy ra trong SRAM. Tăng tốc thời gian thực 2–4× trên A100; 5–10× trên H100 với FP8.
 
-By 2026 both are universal. Every production inference stack (vLLM, TensorRT-LLM, SGLang, llama.cpp) assumes them. Every frontier model ships with Flash Attention enabled.
+Đến năm 2026 cả hai phổ dụng. Mọi ngăn xếp suy luận production (vLLM, TensorRT-LLM, SGLang, llama.cpp) giả định chúng. Mọi mô hình tiên phong được phát hành với Flash Attention bật.
 
 ## The Concept
 
@@ -26,7 +26,7 @@ By 2026 both are universal. Every production inference stack (vLLM, TensorRT-LLM
 
 ### KV cache math
 
-Per decoder layer, per token, per head:
+Theo tầng decoder, theo token, theo head:
 
 ```
 bytes_per_token_per_layer = 2 * d_head * dtype_size
@@ -34,7 +34,7 @@ bytes_per_token_per_layer = 2 * d_head * dtype_size
                           K and V
 ```
 
-For a 7B model with 32 layers, 32 heads, d_head=128, fp16:
+Với một mô hình 7B có 32 tầng, 32 head, d_head=128, fp16:
 
 ```
 per token per layer = 2 * 128 * 2 = 512 bytes
@@ -42,18 +42,18 @@ per token (32 layers) = 16 KB
 per 32K context = 512 MB
 ```
 
-For Llama 3 70B (80 layers, d_head=128, GQA with 8 KV heads):
+Với Llama 3 70B (80 tầng, d_head=128, GQA với 8 head KV):
 
 ```
 per token per layer = 2 * 8 * 128 * 2 = 4096 bytes (4 KB)
 per 32K context = 10.4 GB
 ```
 
-That 10 GB is why Llama 3 70B at 128K context needs most of a 40 GB A100 just for KV cache at batch size 1.
+10 GB đó là lý do Llama 3 70B ở ngữ cảnh 128K cần phần lớn một A100 40 GB chỉ cho KV cache ở kích thước batch 1.
 
-**GQA is the KV-cache win.** MHA with 64 heads would be 32 GB. MLA compresses even further.
+**GQA là lợi ích KV-cache.** MHA với 64 head sẽ là 32 GB. MLA còn nén xa hơn.
 
-Drag the dimensions and watch the cache size move. Push the sequence length or batch up and see how fast it blows past a single GPU:
+Kéo các chiều và quan sát kích thước cache thay đổi. Đẩy độ dài chuỗi hoặc batch lên và thấy nó vượt một GPU nhanh đến đâu:
 
 ```figure
 kv-cache-sizer
@@ -61,7 +61,7 @@ kv-cache-sizer
 
 ### Flash Attention — the tiling trick
 
-Standard attention:
+Attention tiêu chuẩn:
 
 ```
 S = Q @ K^T          (HBM read, N×N, HBM write)
@@ -69,7 +69,7 @@ P = softmax(S)       (HBM read, HBM write)
 O = P @ V            (HBM read, HBM write)
 ```
 
-Three HBM round trips. On H100, HBM bandwidth is 3 TB/s; SRAM is 30 TB/s. Every HBM trip is a factor-of-10 slowdown vs keeping everything on-chip.
+Ba vòng đi-về HBM. Trên H100, băng thông HBM là 3 TB/s; SRAM là 30 TB/s. Mỗi chuyến HBM là một lần chậm đi hệ số 10 so với giữ mọi thứ trên chip.
 
 Flash Attention:
 
@@ -84,39 +84,39 @@ for each block of Q (tile size ~128 × 128):
     write O_tile to HBM
 ```
 
-One HBM trip per tile. Total memory footprint drops from `O(N²)` to `O(N)`. Backward pass recomputes some values from the forward pass instead of storing them — another memory win.
+Một chuyến HBM mỗi ô. Tổng lượng bộ nhớ giảm từ `O(N²)` xuống `O(N)`. Lượt truyền ngược tính lại một số giá trị từ lượt truyền xuôi thay vì lưu chúng — thêm một lợi ích bộ nhớ.
 
-**Numerical trick.** Running softmax maintains `(max, sum)` across tiles so the final normalization is exact. Not an approximation — Flash Attention computes bit-identical output to standard attention (modulo fp16 non-associativity).
+**Thủ thuật số.** Softmax cuốn chiếu duy trì `(max, sum)` qua các ô để chuẩn hóa cuối chính xác. Không phải xấp xỉ — Flash Attention tính đầu ra giống từng bit với attention tiêu chuẩn (ngoại trừ tính không kết hợp của fp16).
 
-**Version evolution:**
+**Tiến hóa phiên bản:**
 
-| Version | Year | Key change | Speedup on reference hardware |
+| Phiên bản | Năm | Thay đổi then chốt | Tăng tốc trên phần cứng tham chiếu |
 |---------|------|-----------|-------------------------------|
-| Flash 1 | 2022 | Tiled SRAM kernel | 2× on A100 |
-| Flash 2 | 2023 | Better parallelism, causal-first ordering | 3× on A100 |
-| Flash 3 | 2024 | Hopper asynchrony, FP8 | 1.5–2× on H100 (~740 TFLOPs FP16) |
-| Flash 4 | 2026 | Blackwell 5-stage pipeline, software exp2 | Inference-first (forward only initially) |
+| Flash 1 | 2022 | Kernel SRAM chia ô | 2× trên A100 |
+| Flash 2 | 2023 | Tính song song tốt hơn, thứ tự ưu tiên nhân quả | 3× trên A100 |
+| Flash 3 | 2024 | Bất đồng bộ Hopper, FP8 | 1.5–2× trên H100 (~740 TFLOPs FP16) |
+| Flash 4 | 2026 | Pipeline Blackwell 5 giai đoạn, exp2 phần mềm | Ưu tiên suy luận (ban đầu chỉ truyền xuôi) |
 
-Flash 4 is forward-pass only at launch. Training still uses Flash 3. GQA and varlen support for Flash 4 is pending (mid-2026).
+Flash 4 chỉ có lượt truyền xuôi khi ra mắt. Huấn luyện vẫn dùng Flash 3. Hỗ trợ GQA và varlen cho Flash 4 đang chờ (giữa năm 2026).
 
 ### Speculative decoding — the other latency win
 
-Cheap model proposes N tokens. Big model verifies all N in parallel. If verification accepts k tokens, you paid 1 big-model forward pass for k generations. Typical k=3–5 on code and prose.
+Mô hình rẻ đề xuất N token. Mô hình lớn xác minh cả N song song. Nếu xác minh chấp nhận k token, bạn trả 1 lượt truyền xuôi mô hình lớn cho k lần sinh. Điển hình k=3–5 trên mã và văn xuôi.
 
-2026 defaults:
-- **EAGLE 2 / Medusa.** Integrated draft heads that share the verifier's hidden states. 2–3× speedup with no quality loss.
-- **Speculative decoding with draft model.** 2–4× speedup on consumer hardware.
-- **Lookahead decoding.** Jacobi iteration; no draft model needed. Niche but free.
+Các mặc định năm 2026:
+- **EAGLE 2 / Medusa.** Các head nháp tích hợp dùng chung các trạng thái ẩn của bộ xác minh. Tăng tốc 2–3× không mất chất lượng.
+- **Giải mã suy đoán với mô hình nháp.** Tăng tốc 2–4× trên phần cứng tiêu dùng.
+- **Lookahead decoding.** Lặp Jacobi; không cần mô hình nháp. Ngách nhưng miễn phí.
 
 ### Continuous batching
 
-Classic batched inference: wait for the slowest sequence to finish, then start a new batch. Wastes GPU when short responses finish early.
+Suy luận theo batch cổ điển: chờ chuỗi chậm nhất hoàn tất, rồi bắt đầu một batch mới. Lãng phí GPU khi các phản hồi ngắn kết thúc sớm.
 
-Continuous batching (first shipped in Orca, now in vLLM, TensorRT-LLM, SGLang): swap new requests into the batch as soon as old ones finish. 5–10× throughput gain for typical chat workloads.
+Batching liên tục (được phát hành đầu tiên trong Orca, giờ trong vLLM, TensorRT-LLM, SGLang): thay các yêu cầu mới vào batch ngay khi các yêu cầu cũ kết thúc. Tăng thông lượng 5–10× cho các khối lượng công việc trò chuyện điển hình.
 
 ### PagedAttention — KV cache as virtual memory
 
-vLLM's headline feature. KV cache is allocated in 16-token blocks; a page table maps logical positions to physical blocks. Lets you share KV across parallel samples (beam search, parallel sampling), hot-swap prefixes for prompt caching, and defragment memory. 4× throughput improvement over naive contiguous allocation.
+Tính năng chủ lực của vLLM. KV cache được cấp phát thành các khối 16 token; một bảng trang ánh xạ các vị trí logic sang các khối vật lý. Cho phép bạn dùng chung KV giữa các mẫu song song (beam search, lấy mẫu song song), hoán đổi nóng các tiền tố để lưu đệm prompt và chống phân mảnh bộ nhớ. Cải thiện thông lượng 4× so với cấp phát liên tục ngây thơ.
 
 ```figure
 flash-attention-memory
@@ -124,11 +124,11 @@ flash-attention-memory
 
 ## Build It
 
-See `code/main.py`. We implement:
+Xem `code/main.py`. Chúng ta triển khai:
 
-1. A naive `O(N²)` incremental decoder.
-2. A `O(N)` KV-cached decoder.
-3. A tiled softmax that simulates Flash Attention's running-max algorithm.
+1. Một decoder tăng dần `O(N²)` ngây thơ.
+2. Một decoder `O(N)` có KV cache.
+3. Một softmax chia ô mô phỏng thuật toán cực đại cuốn chiếu của Flash Attention.
 
 ### Step 1: KV cache
 
@@ -146,7 +146,7 @@ class KVCache:
         return self.K[layer][head], self.V[layer][head]
 ```
 
-Simple: keep growing per-token K, V vectors in per-layer, per-head lists.
+Đơn giản: liên tục mở rộng các vector K, V theo token trong các danh sách theo tầng, theo head.
 
 ### Step 2: tiled softmax
 
@@ -170,11 +170,11 @@ def tiled_softmax_dot(q, K, V, tile=4):
     return [o / s for o in out]
 ```
 
-Bit-identical output to `softmax(qK) V` in one shot, but at any time the working set is a `tile × d_head` block, not the full `N × d_head`.
+Đầu ra giống từng bit với `softmax(qK) V` trong một lần, nhưng tại bất kỳ thời điểm nào tập làm việc là một khối `tile × d_head`, không phải toàn bộ `N × d_head`.
 
 ### Step 3: compare naive vs cached decoding on 100-token generation
 
-Count attention operations. Naive: `O(N²)` = 5050. Cached: `O(N)` = 100. The code prints both.
+Đếm các phép toán attention. Ngây thơ: `O(N²)` = 5050. Có cache: `O(N)` = 100. Mã in cả hai.
 
 ## Use It
 
@@ -200,39 +200,39 @@ vllm serve meta-llama/Llama-3.1-70B-Instruct \
     --kv-cache-dtype fp8
 ```
 
-Prefix caching across requests is a big 2026 win — the same system prompt, few-shot examples, or long context document reuses KV across calls. For agent workloads with repeated tool prompts, prefix caching is routinely 5× throughput gain.
+Lưu đệm tiền tố giữa các yêu cầu là một lợi ích lớn năm 2026 — cùng system prompt, các ví dụ few-shot hoặc tài liệu ngữ cảnh dài tái sử dụng KV qua các lời gọi. Với các khối lượng công việc tác tử có prompt công cụ lặp lại, lưu đệm tiền tố thường tăng thông lượng 5×.
 
 ## Ship It
 
-See `outputs/skill-inference-optimizer.md`. The skill picks attention implementation, KV cache strategy, quantization, and speculative decoding for a new inference deployment.
+Xem `outputs/skill-inference-optimizer.md`. Skill chọn triển khai attention, chiến lược KV cache, lượng tử hóa và giải mã suy đoán cho một triển khai suy luận mới.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. Confirm the naive and cached decoders produce the same output; note the op-count difference.
-2. **Medium.** Implement prefix caching: given a prompt P and several completions, run one forward pass over P to fill the KV cache, then branch per-completion. Measure speedup vs re-encoding P for each.
-3. **Hard.** Implement a toy PagedAttention: KV cache in fixed 16-token blocks with a free-list. When a sequence finishes, return its blocks to the pool. Simulate 1,000 chat completions with varying lengths. Compare memory fragmentation vs contiguous allocation.
+1. **Dễ.** Chạy `code/main.py`. Xác nhận các decoder ngây thơ và có cache tạo cùng đầu ra; ghi nhận khác biệt số phép toán.
+2. **Trung bình.** Triển khai lưu đệm tiền tố: cho một prompt P và vài lượt hoàn thành, chạy một lượt truyền xuôi trên P để điền KV cache, rồi phân nhánh theo lượt hoàn thành. Đo mức tăng tốc so với mã hóa lại P cho mỗi lượt.
+3. **Khó.** Triển khai một PagedAttention đồ chơi: KV cache trong các khối cố định 16 token với một danh sách trống. Khi một chuỗi kết thúc, trả các khối của nó về kho. Mô phỏng 1,000 lượt hoàn thành trò chuyện có các độ dài thay đổi. So sánh phân mảnh bộ nhớ với cấp phát liên tục.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| KV cache | "The trick that makes decoding fast" | Stored K and V from every prefix token; new queries attend to them instead of recomputing. |
-| HBM | "GPU main memory" | High Bandwidth Memory; 80 GB on H100, 192 GB on B200. ~3 TB/s bandwidth. |
-| SRAM | "On-chip memory" | Per-SM fast memory, ~256 KB per SM on H100. ~30 TB/s bandwidth. |
-| Flash Attention | "Tiled attention kernel" | Computes attention without materializing N×N in HBM. |
-| Continuous batching | "No-wait batching" | Swap finished sequences out, new ones in, without draining the batch. |
-| PagedAttention | "vLLM's headline" | KV cache allocated in fixed blocks with a page table; eliminates fragmentation. |
-| Prefix caching | "Reuse long prompts" | Cache KV for a shared prefix across requests; major cost cut for agents. |
-| Speculative decoding | "Draft + verify" | Cheap draft model proposes tokens; big model verifies k in one pass. |
+| KV cache (Bộ nhớ đệm KV) | "Thủ thuật khiến giải mã nhanh" | K và V được lưu từ mọi token tiền tố; các query mới chú ý đến chúng thay vì tính lại. |
+| HBM | "Bộ nhớ chính GPU" | High Bandwidth Memory; 80 GB trên H100, 192 GB trên B200. Băng thông ~3 TB/s. |
+| SRAM | "Bộ nhớ trên chip" | Bộ nhớ nhanh theo SM, ~256 KB mỗi SM trên H100. Băng thông ~30 TB/s. |
+| Flash Attention | "Kernel attention chia ô" | Tính attention mà không hiện thực hóa N×N trong HBM. |
+| Continuous batching (Batching liên tục) | "Batching không chờ" | Thay các chuỗi kết thúc ra, các chuỗi mới vào, không làm cạn batch. |
+| PagedAttention | "Tính năng chủ lực của vLLM" | KV cache được cấp phát trong các khối cố định với một bảng trang; loại phân mảnh. |
+| Prefix caching (Lưu đệm tiền tố) | "Tái sử dụng prompt dài" | Lưu đệm KV cho một tiền tố dùng chung giữa các yêu cầu; giảm chi phí lớn cho tác tử. |
+| Speculative decoding (Giải mã suy đoán) | "Nháp + xác minh" | Mô hình nháp rẻ đề xuất token; mô hình lớn xác minh k trong một lượt. |
 
 ## Further Reading
 
 - [Dao et al. (2022). FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness](https://arxiv.org/abs/2205.14135) — Flash 1.
 - [Dao (2023). FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning](https://arxiv.org/abs/2307.08691) — Flash 2.
 - [Shah et al. (2024). FlashAttention-3: Fast and Accurate Attention with Asynchrony and Low-precision](https://arxiv.org/abs/2407.08608) — Flash 3.
-- [FlashAttention-4 release notes (Dao-AILab, 2026)](https://github.com/Dao-AILab/flash-attention) — Blackwell 5-stage pipeline and the software-exp2 trick; read the repo README for the forward-only launch caveats this lesson mentions.
-- [Kwon et al. (2023). Efficient Memory Management for Large Language Model Serving with PagedAttention](https://arxiv.org/abs/2309.06180) — vLLM paper.
-- [Leviathan et al. (2023). Fast Inference from Transformers via Speculative Decoding](https://arxiv.org/abs/2211.17192) — spec decoding.
-- [Li et al. (2024). EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty](https://arxiv.org/abs/2401.15077) — EAGLE-1/2 paper for the integrated-draft approach the lesson cites.
-- [Cai et al. (2024). Medusa: Simple LLM Inference Acceleration Framework with Multiple Decoding Heads](https://arxiv.org/abs/2401.10774) — the Medusa approach referenced alongside EAGLE.
-- [vLLM docs — PagedAttention](https://docs.vllm.ai/en/latest/design/kernel/paged_attention.html) — the canonical deep dive on the 16-token block and page-table design.
+- [FlashAttention-4 release notes (Dao-AILab, 2026)](https://github.com/Dao-AILab/flash-attention) — pipeline Blackwell 5 giai đoạn và thủ thuật exp2 phần mềm; đọc README của kho để biết các lưu ý ra mắt chỉ truyền xuôi mà bài học này nhắc.
+- [Kwon et al. (2023). Efficient Memory Management for Large Language Model Serving with PagedAttention](https://arxiv.org/abs/2309.06180) — bài báo vLLM.
+- [Leviathan et al. (2023). Fast Inference from Transformers via Speculative Decoding](https://arxiv.org/abs/2211.17192) — giải mã suy đoán.
+- [Li et al. (2024). EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty](https://arxiv.org/abs/2401.15077) — bài báo EAGLE-1/2 cho cách tiếp cận nháp tích hợp mà bài học trích dẫn.
+- [Cai et al. (2024). Medusa: Simple LLM Inference Acceleration Framework with Multiple Decoding Heads](https://arxiv.org/abs/2401.10774) — cách tiếp cận Medusa được tham chiếu cùng EAGLE.
+- [vLLM docs — PagedAttention](https://docs.vllm.ai/en/latest/design/kernel/paged_attention.html) — đi sâu kinh điển về thiết kế khối 16 token và bảng trang.
