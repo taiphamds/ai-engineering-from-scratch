@@ -1,6 +1,6 @@
 # Audio Classification — From k-NN on MFCCs to AST and BEATs
 
-> Everything from "dog barking vs siren" to "which language is this" is audio classification. The features are mels. The architecture moves each decade. The evaluation stays AUC, F1, and per-class recall.
+> Mọi thứ từ "chó sủa so với còi báo động" đến "đây là ngôn ngữ nào" đều là phân loại âm thanh. Các đặc trưng là mel. Kiến trúc thay đổi mỗi thập kỷ. Đánh giá vẫn là AUC, F1 và recall theo lớp.
 
 **Type:** Build
 **Languages:** Python
@@ -9,45 +9,45 @@
 
 ## The Problem
 
-You get a 10-second clip. You want to know: "what is it?" Urban sound (siren, drill, dog), speech command (yes/no/stop), language ID (en/es/ar), speaker emotion (angry/neutral), or environmental sound (indoor/outdoor, babble). All of these are *audio classification*, and in 2026 the baseline architecture is mature: log-mel → CNN or Transformer → softmax.
+Bạn nhận một đoạn 10 giây. Bạn muốn biết: "nó là gì?" Âm thanh đô thị (còi báo động, khoan, chó), lệnh tiếng nói (có/không/dừng), nhận dạng ngôn ngữ (en/es/ar), cảm xúc người nói (giận dữ/trung lập) hoặc âm thanh môi trường (trong nhà/ngoài trời, tiếng nói xôn xao). Tất cả đều là *phân loại âm thanh*, và năm 2026 kiến trúc baseline đã trưởng thành: log-mel → CNN hoặc Transformer → softmax.
 
-The core difficulty is not the network. It is data. Audio datasets have brutal class imbalance, strong domain shift (clean vs noisy), and label noise (who decided "urban babble" vs "restaurant noise"?). The 80% of the problem is curation, augmentation, and evaluation, not swapping CNN for Transformer.
+Khó khăn cốt lõi không phải mạng. Nó là dữ liệu. Các tập dữ liệu âm thanh có mất cân bằng lớp khắc nghiệt, dịch chuyển lĩnh vực mạnh (sạch so với nhiễu) và nhiễu nhãn (ai quyết định "tiếng nói xôn xao đô thị" so với "tiếng ồn nhà hàng"?). 80% bài toán là tuyển chọn, tăng cường và đánh giá, không phải đổi CNN sang Transformer.
 
 ## The Concept
 
 ![Audio classification ladder: k-NN on MFCCs to AST to BEATs](../assets/audio-classification.svg)
 
-**k-NN on MFCCs (the 1990s baseline).** Flatten MFCCs per clip, compute cosine similarity to a labeled bank, return majority vote of the top K. Surprisingly strong on clean, small datasets (Speech Commands, ESC-50). Runs with no GPU.
+**k-NN trên MFCC (baseline những năm 1990).** Làm phẳng MFCC theo đoạn, tính cosine similarity với một kho có nhãn, trả phiếu đa số của top K. Mạnh đến ngạc nhiên trên các tập dữ liệu sạch, nhỏ (Speech Commands, ESC-50). Chạy không GPU.
 
-**2D CNN on log-mels (2015-2019).** Treat the `(T, n_mels)` log-mel as an image. Apply ResNet-18 or VGG-style. Global mean pool the time axis. Softmax over classes. Still the baseline in most 2026 kaggle competitions.
+**CNN 2D trên log-mel (2015-2019).** Coi log-mel `(T, n_mels)` là một ảnh. Áp dụng ResNet-18 hoặc kiểu VGG. Pooling trung bình toàn cục trục thời gian. Softmax trên các lớp. Vẫn là baseline trong hầu hết các cuộc thi kaggle năm 2026.
 
-**Audio Spectrogram Transformer, AST (2021-2024).** Patchify the log-mel (e.g. 16×16 patches), add position embeddings, feed to a ViT. State of the art on AudioSet (mAP 0.485) for supervised learning.
+**Audio Spectrogram Transformer, AST (2021-2024).** Chia log-mel thành patch (ví dụ các patch 16×16), thêm embedding vị trí, đưa vào một ViT. Tiên tiến nhất trên AudioSet (mAP 0.485) cho học có giám sát.
 
-**BEATs and WavLM-base (2024-2026).** Self-supervised pretraining on millions of hours. Fine-tune on your task with 1-10% of the supervised data you would have needed. In 2026 this is the default starting point for non-speech audio. BEATs-iter3 beats AST by 1-2 mAP on AudioSet while using 1/4 the compute.
+**BEATs và WavLM-base (2024-2026).** Tiền huấn luyện tự giám sát trên hàng triệu giờ. Fine-tune trên tác vụ của bạn với 1-10% dữ liệu có giám sát bạn sẽ cần. Năm 2026 đây là điểm khởi đầu mặc định cho âm thanh phi tiếng nói. BEATs-iter3 thắng AST 1-2 mAP trên AudioSet trong khi dùng 1/4 tính toán.
 
-**Whisper-encoder as a frozen backbone (2024).** Take Whisper's encoder, drop the decoder, attach a linear classifier. Near-SOTA on language ID and simple event classification with zero audio augmentation. The "free lunch" baseline.
+**Whisper-encoder làm backbone đóng băng (2024).** Lấy encoder của Whisper, bỏ decoder, gắn một bộ phân loại tuyến tính. Gần SOTA trên nhận dạng ngôn ngữ và phân loại sự kiện đơn giản mà không tăng cường âm thanh. Baseline "bữa trưa miễn phí".
 
 ### Class imbalance is the real challenge
 
-ESC-50: 50 classes, 40 clips each — balanced, easy. UrbanSound8K: 10 classes, imbalanced 10:1. AudioSet: 632 classes with a 100,000:1 long tail. Techniques that work:
+ESC-50: 50 lớp, mỗi lớp 40 đoạn — cân bằng, dễ. UrbanSound8K: 10 lớp, mất cân bằng 10:1. AudioSet: 632 lớp với đuôi dài 100,000:1. Các kỹ thuật hoạt động:
 
-- Balanced sampling during training (not in evaluation).
-- Mixup: linearly interpolate two clips (and their labels) as augmentation.
-- SpecAugment: mask random time and frequency bands. Simple; critical.
+- Lấy mẫu cân bằng khi huấn luyện (không phải khi đánh giá).
+- Mixup: nội suy tuyến tính hai đoạn (và các nhãn của chúng) làm tăng cường.
+- SpecAugment: che các dải thời gian và tần số ngẫu nhiên. Đơn giản; thiết yếu.
 
 ### Evaluation
 
-- Multiclass exclusive (Speech Commands): top-1 accuracy, top-5 accuracy.
-- Multiclass multi-label (AudioSet, UrbanSound-style): mean average precision (mAP).
-- Heavily imbalanced: per-class recall + macro F1.
+- Đa lớp loại trừ (Speech Commands): accuracy top-1, accuracy top-5.
+- Đa lớp đa nhãn (AudioSet, kiểu UrbanSound): mean average precision (mAP).
+- Mất cân bằng nặng: recall theo lớp + macro F1.
 
-2026 numbers you should know:
+Các con số năm 2026 bạn nên biết:
 
-| Benchmark | Baseline | SOTA 2026 | Source |
+| Benchmark | Baseline | SOTA 2026 | Nguồn |
 |-----------|----------|-----------|--------|
-| ESC-50 | 82% (AST) | 97.0% (BEATs-iter3) | BEATs paper (2024) |
-| AudioSet mAP | 0.485 (AST) | 0.548 (BEATs-iter3) | HEAR leaderboard 2026 |
-| Speech Commands v2 | 98% (CNN) | 99.0% (Audio-MAE) | HEAR v2 results |
+| ESC-50 | 82% (AST) | 97.0% (BEATs-iter3) | Bài báo BEATs (2024) |
+| AudioSet mAP | 0.485 (AST) | 0.548 (BEATs-iter3) | Bảng xếp hạng HEAR 2026 |
+| Speech Commands v2 | 98% (CNN) | 99.0% (Audio-MAE) | Các kết quả HEAR v2 |
 
 ```figure
 mfcc-pipeline
@@ -78,7 +78,7 @@ def summarize(mfcc_frames):
     return mean + var
 ```
 
-Simple but strong: mean + variance across time gives a 26-dim fixed embedding for a 13-coef MFCC. Runs instantly. Beat state-of-the-art NN baselines on ESC-50 as recently as 2017.
+Đơn giản nhưng mạnh: trung bình + phương sai theo thời gian cho một embedding cố định 26 chiều cho một MFCC 13 hệ số. Chạy ngay lập tức. Đánh bại các baseline NN tiên tiến nhất trên ESC-50 gần đây tận năm 2017.
 
 ### Step 3: k-NN
 
@@ -97,7 +97,7 @@ def knn_classify(q, bank, labels, k=5):
 
 ### Step 4: upgrade to CNN on log-mels
 
-In PyTorch:
+Trong PyTorch:
 
 ```python
 import torch.nn as nn
@@ -117,7 +117,7 @@ class AudioCNN(nn.Module):
         return self.head(self.body(x).flatten(1))
 ```
 
-3M parameters. Trains in ~10 min on ESC-50 with a single RTX 4090. 80%+ accuracy.
+3M tham số. Huấn luyện trong ~10 phút trên ESC-50 với một RTX 4090 duy nhất. Accuracy 80%+.
 
 ### Step 5: fine-tune a pretrained audio transformer (AST shown)
 
@@ -135,49 +135,49 @@ inputs = ext(audio, sampling_rate=16000, return_tensors="pt")
 logits = model(**inputs).logits
 ```
 
-The example fine-tunes AST from the Hub. BEATs, the 2026 default, is not on the Hugging Face Hub: download a checkpoint from the [BEATs release in microsoft/unilm](https://github.com/microsoft/unilm/tree/master/beats) and load it with that repo's `BEATs` and `BEATsConfig` classes; the fine-tuning loop keeps the same shape.
+Ví dụ fine-tune AST từ Hub. BEATs, mặc định năm 2026, không nằm trên Hugging Face Hub: tải một checkpoint từ [bản phát hành BEATs trong microsoft/unilm](https://github.com/microsoft/unilm/tree/master/beats) và tải bằng các lớp `BEATs` và `BEATsConfig` của kho đó; vòng lặp fine-tuning giữ cùng hình dạng.
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Situation | Start with |
+| Tình huống | Bắt đầu với |
 |-----------|-----------|
-| Tiny dataset (<1000 clips) | k-NN on MFCC means (your baseline) + audio augmentation |
-| Medium dataset (1K–100K) | BEATs or AST fine-tune |
-| Large dataset (>100K) | Train from scratch or fine-tune Whisper-encoder |
-| Real-time, edge | 40-MFCC CNN, quantized to int8 (KWS-style) |
-| Multi-label (AudioSet) | BEATs-iter3 with BCE loss + mixup + SpecAugment |
-| Language ID | MMS-LID, SpeechBrain VoxLingua107 baseline |
+| Tập dữ liệu tí hon (<1000 đoạn) | k-NN trên các trung bình MFCC (baseline của bạn) + tăng cường âm thanh |
+| Tập dữ liệu vừa (1K–100K) | Fine-tune BEATs hoặc AST |
+| Tập dữ liệu lớn (>100K) | Huấn luyện từ đầu hoặc fine-tune Whisper-encoder |
+| Thời gian thực, biên | CNN 40-MFCC, lượng tử hóa thành int8 (kiểu KWS) |
+| Đa nhãn (AudioSet) | BEATs-iter3 với BCE loss + mixup + SpecAugment |
+| Nhận dạng ngôn ngữ | MMS-LID, baseline SpeechBrain VoxLingua107 |
 
-Decision rule: **start with a frozen backbone, not a fresh model**. Fine-tuning a BEATs head gets you 95% of SOTA in hours, not weeks.
+Quy tắc quyết định: **bắt đầu với một backbone đóng băng, không phải mô hình mới**. Fine-tuning một head BEATs cho bạn 95% của SOTA trong hàng giờ, không phải hàng tuần.
 
 ## Ship It
 
-Save as `outputs/skill-classifier-designer.md`. Pick architecture, augmentations, class-balance strategy, and eval metric for a given audio classification task.
+Lưu thành `outputs/skill-classifier-designer.md`. Chọn kiến trúc, các phép tăng cường, chiến lược cân bằng lớp và thước đo đánh giá cho một tác vụ phân loại âm thanh nhất định.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. It trains the k-NN MFCC baseline on a 4-class synthetic dataset (pure tones at different pitches). Report confusion matrix.
-2. **Medium.** Replace `summarize` with [mean, var, skew, kurtosis]. Does 4-moment pooling beat mean+var on the same synthetic dataset?
-3. **Hard.** Using `torchaudio`, train a 2D CNN on ESC-50 fold 1. Report 5-fold cross-validation accuracy. Add SpecAugment (time mask = 20, freq mask = 10) and report the delta.
+1. **Dễ.** Chạy `code/main.py`. Nó huấn luyện baseline k-NN MFCC trên một tập dữ liệu tổng hợp 4 lớp (các âm thuần ở các cao độ khác nhau). Báo cáo ma trận nhầm lẫn.
+2. **Trung bình.** Thay `summarize` bằng [mean, var, skew, kurtosis]. Pooling 4 mômen có thắng trung bình+phương sai trên cùng tập dữ liệu tổng hợp không?
+3. **Khó.** Dùng `torchaudio`, huấn luyện một CNN 2D trên fold 1 của ESC-50. Báo cáo accuracy kiểm định chéo 5 fold. Thêm SpecAugment (mặt nạ thời gian = 20, mặt nạ tần số = 10) và báo cáo chênh lệch.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| AudioSet | The ImageNet of audio | Google's 2M-clip, 632-class weakly-labeled YouTube dataset. |
-| ESC-50 | Small classification benchmark | 50 classes × 40 clips of environmental sounds. |
-| AST | Audio Spectrogram Transformer | ViT on log-mel patches; 2021 SOTA. |
-| BEATs | Self-supervised audio | Microsoft model, iter3 leads AudioSet as of 2026. |
-| Mixup | Pair augmentation | `x = λ·x1 + (1-λ)·x2; y = λ·y1 + (1-λ)·y2`. |
-| SpecAugment | Mask-based augmentation | Zero-out random time and frequency bands of the spectrogram. |
-| mAP | Main multi-label metric | Mean average precision across classes and thresholds. |
+| AudioSet | ImageNet của âm thanh | Tập dữ liệu YouTube 2M đoạn, 632 lớp có nhãn yếu của Google. |
+| ESC-50 | Benchmark phân loại nhỏ | 50 lớp × 40 đoạn âm thanh môi trường. |
+| AST | Audio Spectrogram Transformer | ViT trên các patch log-mel; SOTA 2021. |
+| BEATs | Âm thanh tự giám sát | Mô hình Microsoft, iter3 dẫn đầu AudioSet tính đến năm 2026. |
+| Mixup | Tăng cường cặp | `x = λ·x1 + (1-λ)·x2; y = λ·y1 + (1-λ)·y2`. |
+| SpecAugment | Tăng cường dựa trên mặt nạ | Đặt không các dải thời gian và tần số ngẫu nhiên của phổ đồ. |
+| mAP | Thước đo đa nhãn chính | Mean average precision trên các lớp và các ngưỡng. |
 
 ## Further Reading
 
-- [Gong, Chung, Glass (2021). AST: Audio Spectrogram Transformer](https://arxiv.org/abs/2104.01778) — the architecture of record from 2021–2024.
-- [Chen et al. (2022, rev. 2024). BEATs: Audio Pre-Training with Acoustic Tokenizers](https://arxiv.org/abs/2212.09058) — the 2024+ default.
-- [Park et al. (2019). SpecAugment](https://arxiv.org/abs/1904.08779) — the dominant audio augmentation.
-- [Piczak (2015). ESC-50 dataset](https://github.com/karolpiczak/ESC-50) — 50-class benchmark that lives on.
-- [Gemmeke et al. (2017). AudioSet](https://research.google.com/audioset/) — 632-class YouTube taxonomy; still the gold standard.
+- [Gong, Chung, Glass (2021). AST: Audio Spectrogram Transformer](https://arxiv.org/abs/2104.01778) — kiến trúc chuẩn từ 2021–2024.
+- [Chen et al. (2022, rev. 2024). BEATs: Audio Pre-Training with Acoustic Tokenizers](https://arxiv.org/abs/2212.09058) — mặc định từ 2024+.
+- [Park et al. (2019). SpecAugment](https://arxiv.org/abs/1904.08779) — phép tăng cường âm thanh chủ đạo.
+- [Piczak (2015). ESC-50 dataset](https://github.com/karolpiczak/ESC-50) — benchmark 50 lớp vẫn tồn tại.
+- [Gemmeke et al. (2017). AudioSet](https://research.google.com/audioset/) — hệ phân loại YouTube 632 lớp; vẫn là tiêu chuẩn vàng.
