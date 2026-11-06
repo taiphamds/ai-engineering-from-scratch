@@ -1,6 +1,6 @@
 # Gradient Checkpointing and Activation Recomputation
 
-> Backprop keeps every intermediate activation. At 70B parameters and 128K context that is 3 TB of activations per rank. Checkpointing trades FLOPs for memory: recompute instead of save. The question is which segments to drop, and the answer is not "all of them."
+> Backprop giữ mọi activation trung gian. Ở 70B tham số và ngữ cảnh 128K, đó là 3 TB activation mỗi rank. Checkpointing đánh đổi FLOPs lấy bộ nhớ: tính lại thay vì lưu. Câu hỏi là nên bỏ các đoạn nào, và câu trả lời không phải "tất cả chúng."
 
 **Type:** Build
 **Languages:** Python (with numpy, optional torch)
@@ -9,53 +9,53 @@
 
 ## The Problem
 
-Training a transformer stores, for each layer, the inputs to every op that is differentiated in backward: the attention inputs, the Q/K/V projections, the softmax output, the FFN inputs, the norm outputs, and the residual stream. For a layer with hidden size `d`, sequence length `L`, batch `B`, this is on the order of `12 * B * L * d` floats per layer.
+Huấn luyện một transformer lưu, cho mỗi lớp, đầu vào của mọi phép toán được lấy đạo hàm trong backward: đầu vào attention, các phép chiếu Q/K/V, đầu ra softmax, đầu vào FFN, đầu ra norm và luồng residual. Với một lớp có kích thước ẩn `d`, độ dài chuỗi `L`, batch `B`, con số này vào khoảng `12 * B * L * d` số thực dấu phẩy động mỗi lớp.
 
-For `d=8192, L=8192, B=1`, that's 800 MB/layer in BF16. A 64-layer model is 51 GB of activations — and that's before you multiply by microbatch size, before you add attention-softmax intermediates (`L^2` per head), and before you factor tensor-parallel partial copies.
+Với `d=8192, L=8192, B=1`, đó là 800 MB/lớp ở BF16. Một mô hình 64 lớp có 51 GB activation — và đó là trước khi bạn nhân với kích thước microbatch, trước khi bạn thêm các giá trị trung gian attention-softmax (`L^2` mỗi head), và trước khi bạn tính đến các bản sao một phần tensor-parallel.
 
-The two-sided bill: BF16 weights plus optimizer state might fit in 80GB, but activations push you past. Gradient checkpointing (aka activation recomputation) is the standard fix. Drop most activations; redo the forward during backward to get them back. Cost: extra FLOPs. Benefit: memory drops by the ratio of checkpoint segments to total layers.
+Hóa đơn hai phía: trọng số BF16 cộng trạng thái bộ tối ưu có thể vừa 80GB, nhưng activation đẩy bạn vượt quá. Gradient checkpointing (còn gọi là tính lại activation) là cách khắc phục tiêu chuẩn. Bỏ phần lớn activation; làm lại forward trong backward để lấy chúng lại. Chi phí: thêm FLOPs. Lợi ích: bộ nhớ giảm theo tỷ lệ giữa các đoạn checkpoint và tổng số lớp.
 
-Done naively, checkpointing costs roughly 33% more forward-pass FLOPs per step. Done well — selective checkpointing per the "smart selection" of Korthikanti et al. — you save 5x memory for under 5% FLOP overhead. And with FP8 matmuls, FSDP offload, and expert-parallel MoE this really matters: you can't afford either the memory or the wasted compute.
+Làm một cách đơn giản, checkpointing tốn thêm khoảng 33% FLOPs forward-pass mỗi bước. Làm tốt — checkpointing chọn lọc theo "lựa chọn thông minh" của Korthikanti và cộng sự — bạn tiết kiệm bộ nhớ 5x với chi phí FLOP bổ sung dưới 5%. Và với các matmul FP8, offload FSDP và MoE expert-parallel, điều này thực sự quan trọng: bạn không thể chịu được cả bộ nhớ lẫn tính toán lãng phí.
 
 ## The Concept
 
 ### What Backward Actually Needs
 
-`output = layer(input)`. Backward wants `grad_input` and `grad_params`. To compute them it needs:
+`output = layer(input)`. Backward muốn `grad_input` và `grad_params`. Để tính chúng, nó cần:
 
-- `input` (to compute `grad_params = input.T @ grad_output` for linear layers)
-- some activation derivative intermediates (the derivative of ReLU/GELU/softmax depends on the activation value)
+- `input` (để tính `grad_params = input.T @ grad_output` cho các lớp tuyến tính)
+- một số giá trị trung gian đạo hàm activation (đạo hàm của ReLU/GELU/softmax phụ thuộc vào giá trị activation)
 
-The forward pass stores these automatically in the autograd graph. Every `tensor.retain_grad()` and every op that needs its input retains a reference.
+Forward pass tự động lưu chúng trong đồ thị autograd. Mỗi `tensor.retain_grad()` và mọi phép toán cần đầu vào của nó đều giữ một tham chiếu.
 
 ### Naive Full Checkpointing
 
-Split the network into `N` segments. During forward, store only the *input* to each segment. When backward needs intermediates, rerun the segment's forward pass to materialize them, then differentiate.
+Chia mạng thành `N` đoạn. Trong forward, chỉ lưu *đầu vào* của mỗi đoạn. Khi backward cần các giá trị trung gian, chạy lại forward pass của đoạn để tạo lại chúng, rồi lấy đạo hàm.
 
-Example: 32-layer transformer split into 32 segments of 1 layer each.
+Ví dụ: transformer 32 lớp chia thành 32 đoạn, mỗi đoạn 1 lớp.
 
-- Memory: 32 layer-inputs (small) vs 32 * (activation volume per layer) (huge).
-- Extra compute: 1 extra forward per segment, i.e., ~33% more forward FLOPs total (since backward is 2x forward, full step becomes 1 + 1 + 2 = 4 units instead of 1 + 2 = 3).
+- Bộ nhớ: 32 đầu vào lớp (nhỏ) so với 32 * (dung lượng activation mỗi lớp) (khổng lồ).
+- Tính toán bổ sung: 1 forward bổ sung mỗi đoạn, tức là tổng FLOPs forward nhiều hơn ~33% (vì backward bằng 2x forward, bước đầy đủ trở thành 1 + 1 + 2 = 4 đơn vị thay vì 1 + 2 = 3).
 
-This is the original Chen et al. 2016 recipe: one checkpoint every `sqrt(L)` layers to balance memory and compute. For L=64, that's 8 checkpoints.
+Đây là công thức gốc của Chen và cộng sự năm 2016: một checkpoint mỗi `sqrt(L)` lớp để cân bằng bộ nhớ và tính toán. Với L=64, đó là 8 checkpoint.
 
 ### Selective Checkpointing (Korthikanti 2022)
 
-Not all activations cost the same. The attention softmax output is `B*L*L*heads` and grows *quadratically* with sequence length. The FFN hidden activation is `B*L*4d` and grows linearly. For long sequences the softmax dominates.
+Không phải mọi activation đều có chi phí như nhau. Đầu ra attention softmax là `B*L*L*heads` và tăng *bậc hai* theo độ dài chuỗi. Activation ẩn FFN là `B*L*4d` và tăng tuyến tính. Với các chuỗi dài, softmax chiếm ưu thế.
 
-Selective checkpointing keeps the cheap-to-store activations (linear projections, residuals) and recomputes only the expensive ones (attention). You pay minimal FLOPs to recompute but save the O(L^2) memory.
+Checkpointing chọn lọc giữ các activation có chi phí lưu thấp (các phép chiếu tuyến tính, residual) và chỉ tính lại các activation tốn kém (attention). Bạn trả FLOPs tối thiểu để tính lại nhưng tiết kiệm bộ nhớ O(L^2).
 
-Megatron-Core implements this as "selective" activation recomputation. Used in most 2024+ frontier training runs.
+Megatron-Core triển khai điều này dưới dạng tính lại activation "chọn lọc". Được dùng trong phần lớn lượt huấn luyện tiên tiến nhất từ năm 2024 trở đi.
 
 ### Offload
 
-Alternative to recompute: ship activations to CPU RAM between forward and backward. Requires PCIe bandwidth; beneficial when idle bandwidth exceeds the cost of rematerialization. Mixed strategies are common: checkpoint some layers, offload others.
+Phương án thay thế tính lại: chuyển activation sang RAM CPU giữa forward và backward. Cần băng thông PCIe; có lợi khi băng thông nhàn rỗi vượt chi phí tạo lại. Các chiến lược kết hợp là phổ biến: checkpoint một số lớp, offload các lớp khác.
 
-FSDP2 ships offload as a first-class option. Offload shines when GPU is bottlenecked on memory but CPU-GPU transfer has headroom.
+FSDP2 cung cấp offload như một tùy chọn hạng nhất. Offload nổi trội khi GPU bị nghẽn ở bộ nhớ nhưng truyền CPU-GPU còn dư khả năng.
 
 ### Recompute Cost Model
 
-Per-step FLOPs with naive checkpointing every `k` layers out of `L`:
+FLOPs mỗi bước với checkpointing đơn giản mỗi `k` lớp trong tổng `L`:
 
 ```
 flops_fwd_normal = L * f_layer
@@ -69,7 +69,7 @@ flops_total_ckpt = 4 * L * f_layer
 overhead = 4 / 3 - 1 = 0.33 = 33%
 ```
 
-With selective checkpointing you recompute only the attention kernel, not the whole layer:
+Với checkpointing chọn lọc, bạn chỉ tính lại kernel attention, không phải toàn bộ lớp:
 
 ```
 flops_recompute_selective = L * f_attention ~= L * f_layer * 0.15
@@ -78,35 +78,35 @@ overhead_selective = (3 + 0.15) / 3 - 1 = 0.05 = 5%
 
 ### Memory Savings Model
 
-Activation volume per layer: `A`. For `L` layers, total activation memory: `L * A`.
+Dung lượng activation mỗi lớp: `A`. Với `L` lớp, tổng bộ nhớ activation: `L * A`.
 
-Full checkpoint (segment size 1): store only `L * input_volume` (~`L * 1/10 A` for a standard transformer). Saves ~`9 * L * A * 1/10`.
+Checkpoint đầy đủ (kích thước đoạn 1): chỉ lưu `L * input_volume` (~`L * 1/10 A` với transformer tiêu chuẩn). Tiết kiệm ~`9 * L * A * 1/10`.
 
-Checkpoint every `k` layers: store `L/k * A` plus `k-1` layers' worth within the active segment.
+Checkpoint mỗi `k` lớp: lưu `L/k * A` cộng lượng tương đương `k-1` lớp bên trong đoạn đang hoạt động.
 
-At `k = sqrt(L)`, memory and recompute cost both scale with `sqrt(L)` — the optimal tradeoff for uniform-cost layers.
+Ở `k = sqrt(L)`, bộ nhớ và chi phí tính lại đều tăng theo `sqrt(L)` — đánh đổi tối ưu cho các lớp có chi phí đồng đều.
 
 ### When Not to Checkpoint
 
-- The innermost layers of a pipeline stage already in-flight. They have to finish anyway.
-- The first and last layers if they dominate the stage's compute (rare in transformers).
-- Attention kernels already using FlashAttention — Flash already recomputes the softmax fast, so additional layer-level checkpointing adds little on top.
+- Các lớp trong cùng của một stage pipeline đã đang thực hiện. Dù sao chúng cũng phải hoàn tất.
+- Các lớp đầu và cuối nếu chúng chiếm ưu thế trong tính toán của stage (hiếm trong transformer).
+- Các kernel attention đã dùng FlashAttention — Flash đã tính lại softmax nhanh, nên checkpointing bổ sung ở cấp lớp thêm được ít lợi ích.
 
 ### Implementation Patterns
 
-1. **Function wrapper:** wrap a segment in `torch.utils.checkpoint.checkpoint(fn, input)`. PyTorch stores only `input`, recomputes everything else on backward.
+1. **Wrapper hàm:** bọc một đoạn trong `torch.utils.checkpoint.checkpoint(fn, input)`. PyTorch chỉ lưu `input`, tính lại mọi thứ khác trong backward.
 
-2. **Decorator-based:** label layers as checkpointable; the trainer decides at config time which segments get wrapped.
+2. **Dựa trên decorator:** đánh dấu các lớp là có thể checkpoint; trainer quyết định ở thời điểm cấu hình những đoạn nào được bọc.
 
-3. **Manual explicit recompute:** write the backward pass yourself, calling a custom `recompute_forward` that duplicates the forward with the stored input.
+3. **Tính lại tường minh thủ công:** tự viết backward pass, gọi một `recompute_forward` tùy chỉnh lặp lại forward với đầu vào đã lưu.
 
-All three give the same functional result. Wrappers are the standard idiom.
+Cả ba cho cùng kết quả chức năng. Wrapper là cách dùng tiêu chuẩn.
 
 ### Interaction with TP / PP / FP8
 
-- **Tensor parallel:** checkpoint inputs must be gathered or rescattered on recompute; handle the communication cost.
-- **Pipeline parallel:** typical pattern is to checkpoint each pipeline-stage's forward so reverse-order microbatches can reuse activation memory.
-- **FP8 recompute:** amax histories updated during recompute must match the original forward's, or the FP8 scale drifts. Most frameworks snapshot the scale.
+- **Tensor parallel:** đầu vào checkpoint phải được gather hoặc scatter lại khi tính lại; xử lý chi phí giao tiếp.
+- **Pipeline parallel:** mẫu điển hình là checkpoint forward của mỗi stage pipeline để các microbatch theo thứ tự ngược có thể tái sử dụng bộ nhớ activation.
+- **Tính lại FP8:** lịch sử amax được cập nhật trong tính lại phải khớp với forward gốc, nếu không thì tỷ lệ FP8 bị trôi. Phần lớn framework chụp lại tỷ lệ.
 
 ```figure
 activation-recompute
@@ -260,47 +260,47 @@ def should_recompute(layer_type, activation_bytes, recompute_flops_ratio):
 
 ## Use It
 
-- **torch.utils.checkpoint**: `from torch.utils.checkpoint import checkpoint` — the canonical wrapper in PyTorch. Wraps a function; stores only inputs, recomputes on backward.
-- **Megatron-Core activation recomputation**: supports `selective`, `full`, and `block` modes. Standard in 2024+ frontier training.
-- **FSDP2 offload**: `module.to_empty(device="cpu")` with `offload_policy` in FSDP2 shards activations to CPU instead of recomputing.
-- **DeepSpeed ZeRO-Offload**: CPU offload for optimizer states and activations, complementing checkpointing.
+- **torch.utils.checkpoint**: `from torch.utils.checkpoint import checkpoint` — wrapper chuẩn trong PyTorch. Bọc một hàm; chỉ lưu đầu vào, tính lại trong backward.
+- **Tính lại activation Megatron-Core**: hỗ trợ các chế độ `selective`, `full` và `block`. Tiêu chuẩn trong huấn luyện tiên tiến nhất từ năm 2024 trở đi.
+- **Offload FSDP2**: `module.to_empty(device="cpu")` với `offload_policy` trong FSDP2 phân mảnh activation sang CPU thay vì tính lại.
+- **DeepSpeed ZeRO-Offload**: offload CPU cho trạng thái bộ tối ưu và activation, bổ sung cho checkpointing.
 
 ## Ship It
 
-This lesson produces `outputs/prompt-activation-recompute-policy.md` — a prompt that takes your model config (layers, hidden, seq, batch) and available GPU memory and emits a per-layer recompute policy (none / selective / full / offload).
+Bài học này tạo ra `outputs/prompt-activation-recompute-policy.md` — một prompt nhận cấu hình mô hình của bạn (số lớp, kích thước ẩn, độ dài chuỗi, batch) và bộ nhớ GPU sẵn có rồi xuất chính sách tính lại theo từng lớp (không / chọn lọc / đầy đủ / offload).
 
 ## Exercises
 
-1. Verify correctness. Run `model_forward` + `model_backward` (full activations) vs `model_forward_checkpointed` + `model_backward_checkpointed` (segments). Parameter gradients must be identical to machine precision.
+1. Xác minh tính đúng đắn. Chạy `model_forward` + `model_backward` (activation đầy đủ) so với `model_forward_checkpointed` + `model_backward_checkpointed` (các đoạn). Gradient tham số phải giống hệt đến độ chính xác máy.
 
-2. Sweep segment size `k` from 1 to `L`. Plot FLOP overhead and memory. Find the knee of the curve.
+2. Quét kích thước đoạn `k` từ 1 đến `L`. Vẽ chi phí FLOP bổ sung và bộ nhớ. Tìm điểm gối của đường cong.
 
-3. Implement selective checkpointing: store the attention-module input but not its intermediates. Measure the FLOP overhead vs full-layer checkpointing for a 32-layer model at seq=8192.
+3. Triển khai checkpointing chọn lọc: lưu đầu vào mô-đun attention nhưng không lưu các giá trị trung gian của nó. Đo chi phí FLOP bổ sung so với checkpointing toàn bộ lớp cho mô hình 32 lớp ở seq=8192.
 
-4. Add offload. Save segment inputs to a simulated "CPU buffer" (a separate list). Measure "PCIe bandwidth" as bytes/time and find the breakeven point between offload and recompute.
+4. Thêm offload. Lưu đầu vào đoạn vào một "bộ đệm CPU" mô phỏng (một danh sách riêng). Đo "băng thông PCIe" dưới dạng byte/thời gian và tìm điểm hòa vốn giữa offload và tính lại.
 
-5. Benchmark a real PyTorch transformer with and without `torch.utils.checkpoint`. Measure memory (via `torch.cuda.max_memory_allocated`) and step time.
+5. Benchmark một transformer PyTorch thực với và không có `torch.utils.checkpoint`. Đo bộ nhớ (qua `torch.cuda.max_memory_allocated`) và thời gian bước.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Gradient checkpointing | "Save memory by redoing forward" | Store segment inputs only; recompute intermediates during backward to get gradient-support tensors |
-| Activation recomputation | "Same as checkpointing" | The HPC-flavored name for the same technique |
-| Segment size (k) | "How many layers per checkpoint" | Number of layers whose intermediates are dropped and rematerialized together |
-| Selective checkpointing | "Korthikanti's trick" | Recompute only expensive-to-store activations (attention softmax); keep cheap ones |
-| Full checkpointing | "The naive version" | Recompute every layer's intermediates in every segment |
-| Block checkpointing | "Coarse-grained" | Checkpoint whole transformer blocks; largest granularity |
-| FLOP overhead | "The compute tax" | Extra FLOPs per step = (recompute FLOPs) / (fwd + bwd FLOPs); 33% naive, 5% selective |
-| Activation offload | "Ship to CPU" | Move activations to CPU RAM across forward->backward; alternative to recompute |
-| sqrt-L rule | "The classical optimum" | For uniform-cost layers, optimal checkpoint spacing is sqrt(L) layers |
-| Attention-softmax volume | "The O(L^2) problem" | L^2 * heads * batch floats; dominates activation memory at long contexts |
+| Gradient checkpointing (Checkpointing gradient) | "Tiết kiệm bộ nhớ bằng cách làm lại forward" | Chỉ lưu đầu vào đoạn; tính lại các giá trị trung gian trong backward để lấy các tensor hỗ trợ gradient |
+| Activation recomputation (Tính lại activation) | "Giống checkpointing" | Tên gọi mang phong cách HPC cho cùng kỹ thuật |
+| Segment size (k) (Kích thước đoạn) | "Bao nhiêu lớp mỗi checkpoint" | Số lớp có các giá trị trung gian bị bỏ và được tạo lại cùng nhau |
+| Selective checkpointing (Checkpointing chọn lọc) | "Mẹo của Korthikanti" | Chỉ tính lại các activation tốn kém để lưu (attention softmax); giữ các activation có chi phí thấp |
+| Full checkpointing (Checkpointing đầy đủ) | "Phiên bản đơn giản" | Tính lại các giá trị trung gian của mọi lớp trong mỗi đoạn |
+| Block checkpointing (Checkpointing khối) | "Mức thô" | Checkpoint các khối transformer nguyên vẹn; mức hạt lớn nhất |
+| FLOP overhead (Chi phí FLOP bổ sung) | "Thuế tính toán" | FLOPs bổ sung mỗi bước = (FLOPs tính lại) / (FLOPs fwd + bwd); 33% đơn giản, 5% chọn lọc |
+| Activation offload (Offload activation) | "Chuyển sang CPU" | Chuyển activation sang RAM CPU qua forward->backward; phương án thay thế tính lại |
+| sqrt-L rule (Quy tắc sqrt-L) | "Điểm tối ưu cổ điển" | Với các lớp có chi phí đồng đều, khoảng cách checkpoint tối ưu là sqrt(L) lớp |
+| Attention-softmax volume (Dung lượng attention-softmax) | "Vấn đề O(L^2)" | L^2 * heads * batch số thực dấu phẩy động; chiếm ưu thế trong bộ nhớ activation ở ngữ cảnh dài |
 
 ## Further Reading
 
-- [Chen et al., 2016 -- "Training Deep Nets with Sublinear Memory Cost"](https://arxiv.org/abs/1604.06174) -- the original paper that formalized gradient checkpointing
-- [Korthikanti et al., 2022 -- "Reducing Activation Recomputation in Large Transformer Models"](https://arxiv.org/abs/2205.05198) -- selective activation recomputation and the formal cost analysis
-- [Pudipeddi et al., 2020 -- "Training Large Neural Networks with Constant Memory using a New Execution Algorithm"](https://arxiv.org/abs/2002.05645) -- alternative constant-memory approach via reverse-mode rematerialization
-- [Ren et al., 2021 -- "ZeRO-Offload: Democratizing Billion-Scale Model Training"](https://arxiv.org/abs/2101.06840) -- activation offload at scale
-- [PyTorch torch.utils.checkpoint docs](https://pytorch.org/docs/stable/checkpoint.html) -- the standard API
-- [Megatron Bridge activation recomputation documentation](https://docs.nvidia.com/nemo/megatron-bridge/latest/training/activation-recomputation.html) -- selective, full, and block modes
+- [Chen et al., 2016 -- "Training Deep Nets with Sublinear Memory Cost"](https://arxiv.org/abs/1604.06174) -- bài báo gốc chính thức hóa gradient checkpointing
+- [Korthikanti et al., 2022 -- "Reducing Activation Recomputation in Large Transformer Models"](https://arxiv.org/abs/2205.05198) -- tính lại activation chọn lọc và phân tích chi phí hình thức
+- [Pudipeddi et al., 2020 -- "Training Large Neural Networks with Constant Memory using a New Execution Algorithm"](https://arxiv.org/abs/2002.05645) -- cách tiếp cận bộ nhớ hằng số thay thế qua tạo lại chế độ ngược
+- [Ren et al., 2021 -- "ZeRO-Offload: Democratizing Billion-Scale Model Training"](https://arxiv.org/abs/2101.06840) -- offload activation ở quy mô lớn
+- [PyTorch torch.utils.checkpoint docs](https://pytorch.org/docs/stable/checkpoint.html) -- API tiêu chuẩn
+- [Megatron Bridge activation recomputation documentation](https://docs.nvidia.com/nemo/megatron-bridge/latest/training/activation-recomputation.html) -- các chế độ chọn lọc, đầy đủ và khối

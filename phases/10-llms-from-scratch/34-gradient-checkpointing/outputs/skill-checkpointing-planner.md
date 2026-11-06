@@ -7,21 +7,21 @@ lesson: 34
 tags: [gradient-checkpointing, activation-recomputation, selective-checkpoint, fsdp-offload, training-memory]
 ---
 
-Given the training config (layer count L, hidden size d, sequence length S, microbatch B, dtype bytes per value, attention kernel, tensor-parallel degree TP, pipeline-parallel degree PP, expert-parallel degree EP if MoE) and the per-rank HBM budget after weights and optimizer state, output:
+Với cấu hình huấn luyện (số lớp L, kích thước ẩn d, độ dài chuỗi S, microbatch B, số byte dtype trên mỗi giá trị, kernel attention, bậc tensor-parallel TP, bậc pipeline-parallel PP, bậc expert-parallel EP nếu MoE) và ngân sách HBM mỗi rank sau trọng số và trạng thái bộ tối ưu, xuất:
 
-1. Per-layer policy. For each layer family in the stack (embedding, attention, FFN, MoE expert, norm, output head) pick none, selective, full, or offload. Default to selective for attention when S exceeds 4_096; default to none on residual streams and norms; default to offload on FFN only when the measured PCIe transfer time for that layer's activations is less than its measured recompute time.
-2. Segment size k. If full checkpointing is on, pick k as round(sqrt(L)) for uniform layer cost, smaller k when activation memory dominates the budget. Report extra FLOP percentage as (1/k) of forward FLOPs.
-3. FlashAttention interaction. Confirm whether the attention kernel already recomputes softmax. If yes, selective attention checkpointing buys little; downgrade to none. State the kernel by name (FlashAttention-2/3, xFormers memory-efficient, vanilla).
-4. TP / PP plan. For TP, name the activations that need gather or rescatter on recompute and the per-step communication bytes added. For PP, confirm which pipeline stages get checkpointed end-to-end so reverse microbatches free activation memory before flowing back.
-5. Budget math. Predict activation memory before and after the policy (in MB per rank). Predict FLOP overhead as percent of fwd+bwd. Reject any plan that does not fit in the HBM budget with 10 percent headroom.
+1. Chính sách từng lớp. Với mỗi họ lớp trong ngăn xếp (embedding, attention, FFN, expert MoE, norm, head đầu ra), chọn không, chọn lọc, đầy đủ hoặc offload. Mặc định chọn lọc cho attention khi S vượt 4_096; mặc định không với các luồng residual và norm; mặc định offload trên FFN chỉ khi thời gian truyền PCIe đo được cho activation của lớp đó nhỏ hơn thời gian tính lại đo được của nó.
+2. Kích thước đoạn k. Nếu bật checkpointing đầy đủ, chọn k là round(sqrt(L)) cho chi phí lớp đồng đều, k nhỏ hơn khi bộ nhớ activation chiếm ưu thế trong ngân sách. Báo cáo phần trăm FLOP bổ sung dưới dạng (1/k) của FLOPs forward.
+3. Tương tác FlashAttention. Xác nhận liệu kernel attention đã tính lại softmax chưa. Nếu có, checkpointing attention chọn lọc mang lại ít lợi ích; hạ xuống không. Nêu tên kernel (FlashAttention-2/3, xFormers memory-efficient, vanilla).
+4. Kế hoạch TP / PP. Với TP, nêu tên các activation cần gather hoặc scatter lại khi tính lại và số byte giao tiếp bổ sung mỗi bước. Với PP, xác nhận những stage pipeline nào được checkpoint từ đầu đến cuối để các microbatch ngược giải phóng bộ nhớ activation trước khi đi ngược về.
+5. Phép tính ngân sách. Dự đoán bộ nhớ activation trước và sau chính sách (bằng MB mỗi rank). Dự đoán chi phí FLOP bổ sung dưới dạng phần trăm fwd+bwd. Loại bỏ bất kỳ kế hoạch nào không vừa ngân sách HBM với 10 phần trăm dư.
 
-Refuse full checkpointing every layer when selective on attention alone closes the budget; profile shows the FLOP overhead is many times higher than selective for the same memory savings, and the exact ratio is workload-specific. Refuse offload when the layer's measured activation transfer time on the target PCIe link exceeds its measured recompute time; recompute wins. Refuse "checkpoint everywhere" for FP8 training when the chosen framework does not snapshot amax history; the recompute will drift the scale and silently corrupt gradients.
+Từ chối checkpointing đầy đủ mọi lớp khi chỉ chọn lọc trên attention đã đáp ứng ngân sách; phân tích cho thấy chi phí FLOP bổ sung cao gấp nhiều lần chọn lọc với cùng mức tiết kiệm bộ nhớ, và tỷ lệ chính xác phụ thuộc khối lượng công việc. Từ chối offload khi thời gian truyền activation đo được của lớp trên liên kết PCIe đích vượt thời gian tính lại đo được của nó; tính lại thắng. Từ chối "checkpoint mọi nơi" cho huấn luyện FP8 khi framework đã chọn không chụp lại lịch sử amax; tính lại sẽ làm trôi tỷ lệ và âm thầm làm hỏng gradient.
 
-Example input: "L=64, d=8192, S=8192, B=1, bf16, FlashAttention-3, TP=8, PP=4, HBM budget per rank 32 GB after weights, MoE with 8 experts and EP=8."
+Đầu vào ví dụ: "L=64, d=8192, S=8192, B=1, bf16, FlashAttention-3, TP=8, PP=4, ngân sách HBM mỗi rank 32 GB sau trọng số, MoE với 8 expert và EP=8."
 
-Example output:
-- Per-layer policy: attention selective, FFN none, MoE expert full, embedding none, output head offload.
-- Segment size: full applied on MoE only at k=8; FLOP overhead 12 percent on expert path, 0 elsewhere.
-- FlashAttention interaction: FA-3 already recomputes softmax; selective at the layer wrapper, not inside the kernel.
-- TP / PP plan: TP gather of the attention input on recompute, 0.3 GB per step extra comms; PP stages each checkpoint their full forward; PP stage 3 retains its activations for the final backward.
-- Budget math: activations 38 GB without policy, 11 GB with policy. Total FLOP overhead 7.5 percent fwd+bwd.
+Đầu ra ví dụ:
+- Chính sách từng lớp: attention chọn lọc, FFN không, expert MoE đầy đủ, embedding không, head đầu ra offload.
+- Kích thước đoạn: đầy đủ chỉ áp dụng trên MoE ở k=8; chi phí FLOP bổ sung 12 phần trăm trên đường expert, 0 ở nơi khác.
+- Tương tác FlashAttention: FA-3 đã tính lại softmax; chọn lọc ở wrapper lớp, không phải bên trong kernel.
+- Kế hoạch TP / PP: TP gather đầu vào attention khi tính lại, giao tiếp bổ sung 0.3 GB mỗi bước; mỗi stage PP checkpoint toàn bộ forward của nó; stage PP 3 giữ lại activation cho backward cuối cùng.
+- Phép tính ngân sách: activation 38 GB không có chính sách, 11 GB có chính sách. Tổng chi phí FLOP bổ sung 7.5 phần trăm fwd+bwd.
