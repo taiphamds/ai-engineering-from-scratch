@@ -7,24 +7,24 @@ lesson: 18
 tags: [a2a, agent-card, task-lifecycle, delegation]
 ---
 
-Given an agent's capabilities and intended collaborators, produce its A2A Agent Card and skill definitions.
+Với khả năng agent và cộng tác viên dự định, tạo A2A Agent Card và định nghĩa skill.
 
-Produce:
+Tạo ra:
 
-1. Agent Card. `name`, `description`, `version`, `supportedInterfaces[]` (each with `url`, `protocolBinding`, `protocolVersion`), `capabilities` (streaming, pushNotifications), `defaultInputModes`, `defaultOutputModes`, `securitySchemes` and `securityRequirements`, `skills[]`. Serve it at `/.well-known/agent-card.json`.
-2. Skills list. Each with `id`, `name`, `description`, `tags`, and optional `inputModes` / `outputModes` media types. Use the "Use when X. Do not use for Y." pattern in descriptions.
-3. Task-state plan. For each skill, expected state transitions and the `TASK_STATE_INPUT_REQUIRED` paths.
-4. Signing plan. Whether to sign the card with JWS entries in `signatures` (recommended for externally-callable agents).
-5. Protocol binding. `JSONRPC`, `GRPC`, or `HTTP+JSON`, each declared as a `supportedInterfaces` entry with `protocolVersion` `1.0`. Clients send `A2A-Version: 1.0`. Note backward-compat with v1.0.
+1. Agent Card. `name`, `description`, `version`, `supportedInterfaces[]` (mỗi mục có `url`, `protocolBinding`, `protocolVersion`), `capabilities` (streaming, pushNotifications), `defaultInputModes`, `defaultOutputModes`, `securitySchemes` và `securityRequirements`, `skills[]`. Phục vụ tại `/.well-known/agent-card.json`.
+2. Danh sách skill. Mỗi mục có `id`, `name`, `description`, `tags` và media type `inputModes` / `outputModes` tùy chọn. Dùng mẫu "Dùng khi X. Không dùng cho Y." trong mô tả.
+3. Kế hoạch trạng thái tác vụ. Với mỗi skill, chuyển trạng thái kỳ vọng và nhánh `TASK_STATE_INPUT_REQUIRED`.
+4. Kế hoạch ký. Có ký card bằng mục JWS trong `signatures` không (khuyến nghị cho agent gọi được từ ngoài).
+5. Liên kết giao thức. `JSONRPC`, `GRPC` hoặc `HTTP+JSON`, mỗi cái khai báo như mục `supportedInterfaces` với `protocolVersion` `1.0`. Client gửi `A2A-Version: 1.0`. Ghi tương thích ngược với v1.0.
 
-Hard rejects:
-- Any Agent Card without a stable `supportedInterfaces` URL. Breaks discovery.
-- Any skill without `tags` or without input and output modes (its own or the card defaults). Callers cannot reason about compatibility.
-- Any externally-callable agent without a card-signing plan. Impersonation vector.
+Các trường hợp bác bỏ tuyệt đối:
+- Mọi Agent Card không URL `supportedInterfaces` ổn định. Phá khám phá.
+- Mọi skill không `tags` hoặc không chế độ đầu vào và đầu ra (riêng hoặc mặc định card). Bên gọi không suy luận được tương thích.
+- Mọi agent gọi được từ ngoài không kế hoạch ký card. Vector mạo danh.
 
-Refusal rules:
-- If the agent's use case is a single tool call, refuse to scaffold A2A; recommend MCP.
-- If the agent exposes internals it should not (tool call traces, chain-of-thought), refuse and mandate opacity.
-- If the agent needs A2A for payments (AP2 use case), confirm the AP2 extension version and flag that AP2 is separate from core A2A.
+Quy tắc từ chối:
+- Nếu trường hợp sử dụng agent là một lời gọi công cụ, từ chối dựng khung A2A; khuyến nghị MCP.
+- Nếu agent lộ nội bộ không nên lộ (trace lời gọi công cụ, chuỗi suy nghĩ), từ chối và bắt buộc tính mờ.
+- Nếu agent cần A2A cho thanh toán (trường hợp AP2), xác nhận phiên bản phần mở rộng AP2 và nêu AP2 riêng A2A lõi.
 
-Output: a one-page Agent Card JSON, a skills schema for each operation, state-transition plan, signing and transport choices. End with the minimum v1.0 backward-compat guarantee the agent promises.
+Đầu ra: JSON Agent Card một trang, lược đồ skill cho mỗi thao tác, kế hoạch chuyển trạng thái, lựa chọn ký và vận chuyển. Kết thúc bằng bảo đảm tương thích ngược v1.0 tối thiểu agent hứa.

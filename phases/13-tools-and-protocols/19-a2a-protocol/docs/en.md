@@ -1,6 +1,6 @@
 # A2A — Agent-to-Agent Protocol
 
-> MCP is agent-to-tool. A2A (Agent2Agent) is agent-to-agent — an open protocol for letting opaque agents built on different frameworks collaborate. Released by Google in April 2025, donated to the Linux Foundation in June 2025, reaching v1.0 in April 2026 with 150+ supporters including AWS, Cisco, Microsoft, Salesforce, SAP, and ServiceNow. It absorbed IBM's ACP and added the AP2 payments extension. This lesson walks the Agent Card, Task lifecycle, and the three protocol bindings, using the A2A 1.0.1 wire names.
+> MCP là agent-sang-công-cụ. A2A (Agent2Agent) là agent-sang-agent — giao thức mở cho các agent mờ xây trên framework khác nhau cộng tác. Google phát hành tháng 4 năm 2025, chuyển cho Linux Foundation tháng 6 năm 2025, đạt v1.0 tháng 4 năm 2026 với 150+ bên hỗ trợ gồm AWS, Cisco, Microsoft, Salesforce, SAP và ServiceNow. Nó tiếp nhận ACP của IBM và thêm phần mở rộng thanh toán AP2. Bài này đi qua Agent Card, vòng đời Task và ba liên kết giao thức, dùng tên đường truyền A2A 1.0.1.
 
 **Type:** Build
 **Languages:** Python (stdlib, Agent Card + Task harness)
@@ -9,28 +9,28 @@
 
 ## Learning Objectives
 
-- Distinguish agent-to-tool (MCP) from agent-to-agent (A2A) use cases.
-- Publish an Agent Card at `/.well-known/agent-card.json` with skills and `supportedInterfaces` metadata.
-- Walk the Task lifecycle: `TASK_STATE_SUBMITTED`, `TASK_STATE_WORKING`, `TASK_STATE_INPUT_REQUIRED`, and the terminal states `TASK_STATE_COMPLETED`, `TASK_STATE_FAILED`, `TASK_STATE_CANCELED`, `TASK_STATE_REJECTED`.
-- Use Messages whose Parts each hold one of `text`, `raw`, `url`, or `data`, and Artifacts as outputs.
+- Phân biệt trường hợp sử dụng agent-sang-công-cụ (MCP) với agent-sang-agent (A2A).
+- Công bố Agent Card tại `/.well-known/agent-card.json` với skill và siêu dữ liệu `supportedInterfaces`.
+- Đi qua vòng đời Task: `TASK_STATE_SUBMITTED`, `TASK_STATE_WORKING`, `TASK_STATE_INPUT_REQUIRED` và trạng thái kết thúc `TASK_STATE_COMPLETED`, `TASK_STATE_FAILED`, `TASK_STATE_CANCELED`, `TASK_STATE_REJECTED`.
+- Dùng Message có mỗi Part giữ một trong `text`, `raw`, `url` hoặc `data` và Artifact làm đầu ra.
 
 ## The Problem
 
-A customer-service agent needs to delegate report-writing to a specialized writer agent. Options pre-A2A:
+Agent dịch vụ khách hàng cần ủy nhiệm viết báo cáo cho agent viết chuyên biệt. Lựa chọn trước A2A:
 
-- Custom REST API. Works but every pairing is a one-off.
-- Shared codebase. Requires the two agents to run the same framework.
-- MCP. Doesn't fit: MCP is for calling tools, not for two agents collaborating while preserving each agent's opaque internal reasoning.
+- REST API tùy chỉnh. Hoạt động nhưng mọi cặp là riêng lẻ.
+- Cơ sở mã dùng chung. Yêu cầu hai agent chạy cùng framework.
+- MCP. Không phù hợp: MCP để gọi công cụ, không cho hai agent cộng tác trong khi giữ suy luận nội bộ mờ của mỗi agent.
 
-A2A fills the gap. It models the interaction as one agent sending a Task to another, with a lifecycle, messages, and artifacts. The called agent's internal state stays opaque — the caller sees only task state transitions and eventual outputs.
+A2A lấp khoảng trống. Nó mô hình hóa tương tác thành agent gửi Task đến agent khác, với vòng đời, thông điệp và sản phẩm. Trạng thái nội bộ agent được gọi vẫn mờ — bên gọi chỉ thấy chuyển trạng thái tác vụ và đầu ra cuối.
 
-A2A is the "let agents across frameworks talk to each other" protocol. It does not replace MCP; the two are complementary.
+A2A là giao thức "để agent trên các framework nói chuyện với nhau". Không thay MCP; hai bên bổ sung.
 
 ## The Concept
 
 ### Agent Card
 
-Every A2A-compliant agent publishes a card at `/.well-known/agent-card.json`:
+Mọi agent tuân thủ A2A công bố card tại `/.well-known/agent-card.json`:
 
 ```json
 {
@@ -64,11 +64,11 @@ Every A2A-compliant agent publishes a card at `/.well-known/agent-card.json`:
 }
 ```
 
-Discovery is URL-based: fetch the card, pick the first `supportedInterfaces` entry whose `protocolBinding` your client speaks, and enumerate skills. Input and output modes are media types.
+Khám phá dựa URL: lấy card, chọn mục `supportedInterfaces` đầu có `protocolBinding` client của bạn sử dụng và liệt kê skill. Chế độ đầu vào và đầu ra là media type.
 
 ### Signed Agent Cards
 
-A card can carry a `signatures` array. Each entry is a JWS (RFC 7515) computed over the card's RFC 8785 canonical JSON, with the `signatures` field left out. Consumers canonicalize the card the same way and verify. Prevents impersonation.
+Card có thể mang mảng `signatures`. Mỗi mục là JWS (RFC 7515) tính trên JSON chuẩn RFC 8785 của card, bỏ trường `signatures`. Bên sử dụng chuẩn hóa card cùng cách và xác minh. Ngăn mạo danh.
 
 ### Task lifecycle
 
@@ -82,18 +82,18 @@ TASK_STATE_WORKING
   -> TASK_STATE_WORKING (the client sends a message with the same taskId)
 ```
 
-Clients initiate with `SendMessage`, and the server creates the Task. The called agent transitions through states; clients poll with `GetTask` or stream over SSE with `SendStreamingMessage` and `SubscribeToTask`. A stream carries `statusUpdate` and `artifactUpdate` events and closes when the task reaches a terminal state. There is no `final` flag.
+Client bắt đầu bằng `SendMessage` và máy chủ tạo Task. Agent được gọi chuyển qua trạng thái; client thăm dò bằng `GetTask` hoặc truyền luồng qua SSE bằng `SendStreamingMessage` và `SubscribeToTask`. Luồng mang sự kiện `statusUpdate` và `artifactUpdate`, đóng khi tác vụ đạt trạng thái kết thúc. Không có cờ `final`.
 
 ### Messages and Parts
 
-A message has a `messageId`, a `role` (`ROLE_USER` or `ROLE_AGENT`), and one or more Parts. Each Part holds exactly one content field, and that field name is the type. There is no `kind` field.
+Thông điệp có `messageId`, `role` (`ROLE_USER` hoặc `ROLE_AGENT`) và một hoặc nhiều Part. Mỗi Part giữ đúng một trường nội dung và tên trường đó là kiểu. Không có trường `kind`.
 
-- `text`: plain content.
-- `raw`: file bytes, base64 in JSON, usually with `filename` and `mediaType`.
-- `url`: a link to file content.
-- `data`: structured JSON payload (structured input for the called agent).
+- `text`: nội dung thuần.
+- `raw`: byte file, base64 trong JSON, thường với `filename` và `mediaType`.
+- `url`: liên kết đến nội dung file.
+- `data`: payload JSON có cấu trúc (đầu vào có cấu trúc cho agent được gọi).
 
-Example:
+Ví dụ:
 
 ```json
 {
@@ -109,7 +109,7 @@ Example:
 
 ### Artifacts
 
-Outputs are Artifacts, not raw strings. An Artifact is a named, typed output:
+Đầu ra là Artifact, không chuỗi thô. Artifact là đầu ra có tên, có kiểu:
 
 ```json
 {
@@ -119,15 +119,15 @@ Outputs are Artifacts, not raw strings. An Artifact is a named, typed output:
 }
 ```
 
-Artifacts can be streamed as chunks. Each `artifactUpdate` event carries the artifact plus `append` and `lastChunk`. The caller accumulates.
+Artifact có thể truyền luồng thành phần. Mỗi sự kiện `artifactUpdate` mang artifact cộng `append` và `lastChunk`. Bên gọi tích lũy.
 
 ### Three protocol bindings
 
-1. **JSON-RPC 2.0 over HTTP** (`JSONRPC`). POST for requests, SSE for streaming. Methods are PascalCase: `SendMessage`, `SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`, `SubscribeToTask`, `CreateTaskPushNotificationConfig`, `GetTaskPushNotificationConfig`, `ListTaskPushNotificationConfigs`, `DeleteTaskPushNotificationConfig`, and `GetExtendedAgentCard`.
-2. **gRPC** (`GRPC`). For enterprise environments where gRPC is native. Same method names.
-3. **HTTP+JSON/REST** (`HTTP+JSON`). Resource URLs such as `POST /message:send` and `GET /tasks/{id}`.
+1. **JSON-RPC 2.0 trên HTTP** (`JSONRPC`). POST cho yêu cầu, SSE cho truyền luồng. Phương thức là PascalCase: `SendMessage`, `SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`, `SubscribeToTask`, `CreateTaskPushNotificationConfig`, `GetTaskPushNotificationConfig`, `ListTaskPushNotificationConfigs`, `DeleteTaskPushNotificationConfig` và `GetExtendedAgentCard`.
+2. **gRPC** (`GRPC`). Cho môi trường doanh nghiệp nơi gRPC là nguyên bản. Cùng tên phương thức.
+3. **HTTP+JSON/REST** (`HTTP+JSON`). URL tài nguyên như `POST /message:send` và `GET /tasks/{id}`.
 
-All three bindings carry the same data model. Each `supportedInterfaces` entry names one binding and its `protocolVersion`. Clients send the header `A2A-Version: 1.0` on every request, because a server reads a request without it as version 0.3.
+Cả ba liên kết mang cùng mô hình dữ liệu. Mỗi mục `supportedInterfaces` nêu một liên kết và `protocolVersion`. Client gửi header `A2A-Version: 1.0` trên mọi yêu cầu vì máy chủ đọc yêu cầu thiếu nó là phiên bản 0.3.
 
 ```http
 POST /a2a HTTP/1.1
@@ -151,30 +151,30 @@ A2A-Version: 1.0
 
 ### Opacity preservation
 
-A key design principle: the called agent's internal state is opaque. The caller sees task state and artifacts. The called agent's chain-of-thought, its tool calls, its sub-agent delegation — all invisible. This is different from MCP, where tool calls are transparent.
+Nguyên tắc thiết kế then chốt: trạng thái nội bộ agent được gọi mờ. Bên gọi thấy trạng thái tác vụ và sản phẩm. Chuỗi suy nghĩ, lời gọi công cụ, ủy nhiệm agent phụ của agent được gọi — tất cả vô hình. Khác MCP nơi lời gọi công cụ minh bạch.
 
-Rationale: A2A enables competitors to collaborate without revealing internals. A2A can be "call this customer-service agent" without the caller learning how that agent implements the service.
+Lý do: A2A cho đối thủ cộng tác không tiết lộ nội bộ. A2A có thể là "gọi agent dịch vụ khách hàng này" mà bên gọi không biết agent triển khai dịch vụ thế nào.
 
 ### Timeline
 
-- **2025-04-09.** Google announces A2A.
-- **2025-06-23.** Donated to Linux Foundation.
-- **2025-08.** Absorbs IBM's ACP.
-- **2025-09.** AP2 extension (Agent Payments) ships.
-- **2026-04.** v1.0 released with 150+ supporting organizations.
+- **2025-04-09.** Google công bố A2A.
+- **2025-06-23.** Chuyển cho Linux Foundation.
+- **2025-08.** Tiếp nhận ACP của IBM.
+- **2025-09.** Phần mở rộng AP2 (Thanh toán agent) phát hành.
+- **2026-04.** v1.0 phát hành với 150+ tổ chức hỗ trợ.
 
 ### Relationship to MCP
 
-| Dimension | MCP | A2A |
+| Chiều | MCP | A2A |
 |-----------|-----|-----|
-| Use case | Agent-to-tool | Agent-to-agent |
-| Opacity | Transparent tool calls | Opaque inner reasoning |
-| Typical caller | Agent runtime | Another agent |
-| State | Tool-call result | Task with lifecycle |
-| Authorization | OAuth 2.1 (Phase 13 · 16) | Agent Card `securitySchemes` + `securityRequirements` |
-| Transport | Stdio / Streamable HTTP | JSON-RPC / gRPC / HTTP+JSON |
+| Trường hợp sử dụng | Agent-sang-công-cụ | Agent-sang-agent |
+| Tính mờ | Lời gọi công cụ minh bạch | Suy luận nội bộ mờ |
+| Bên gọi điển hình | Runtime agent | Agent khác |
+| Trạng thái | Kết quả lời gọi công cụ | Task với vòng đời |
+| Cấp quyền | OAuth 2.1 (Giai đoạn 13 · 16) | `securitySchemes` + `securityRequirements` Agent Card |
+| Vận chuyển | Stdio / Streamable HTTP | JSON-RPC / gRPC / HTTP+JSON |
 
-Use MCP when you want to invoke a specific tool. Use A2A when you want to delegate a whole task to another agent. Many production systems use both: an agent uses MCP for its tool layer and A2A for its collaboration layer.
+Dùng MCP khi muốn gọi công cụ cụ thể. Dùng A2A khi muốn ủy nhiệm toàn tác vụ cho agent khác. Nhiều hệ thống sản xuất dùng cả hai: agent dùng MCP cho tầng công cụ và A2A cho tầng cộng tác.
 
 ```figure
 a2a-task-lifecycle
@@ -182,52 +182,52 @@ a2a-task-lifecycle
 
 ## Use It
 
-`code/main.py` implements a minimal A2A harness: the writer agent publishes its card, the research agent sends it a `SendMessage` request with a PDF part and a text instruction, and the task moves through `TASK_STATE_WORKING` → `TASK_STATE_INPUT_REQUIRED` → `TASK_STATE_WORKING` → `TASK_STATE_COMPLETED` before returning a text artifact. All stdlib; uses an in-memory transport to focus on message shapes.
+`code/main.py` triển khai bộ khung A2A tối thiểu: agent viết công bố card, agent nghiên cứu gửi yêu cầu `SendMessage` có phần PDF và chỉ dẫn văn bản, tác vụ đi qua `TASK_STATE_WORKING` → `TASK_STATE_INPUT_REQUIRED` → `TASK_STATE_WORKING` → `TASK_STATE_COMPLETED` trước trả sản phẩm văn bản. Tất cả stdlib; dùng vận chuyển trong bộ nhớ để tập trung hình dạng thông điệp.
 
-What to look at:
+Những gì cần xem:
 
-- Agent Card JSON shape.
-- Server-side task id assignment and state transitions.
-- Parts typed by which content field is present.
-- `TASK_STATE_INPUT_REQUIRED` branch mid-task.
-- Artifact return on completion.
+- Hình dạng JSON Agent Card.
+- Gán id tác vụ phía máy chủ và chuyển trạng thái.
+- Part định kiểu theo trường nội dung có mặt.
+- Nhánh `TASK_STATE_INPUT_REQUIRED` giữa tác vụ.
+- Trả sản phẩm khi hoàn tất.
 
 ## Ship It
 
-This lesson produces `outputs/skill-a2a-agent-spec.md`. Given a new agent that should be callable by other agents, the skill produces the Agent Card JSON, skills schema, and endpoint blueprint.
+Bài này tạo `outputs/skill-a2a-agent-spec.md`. Với agent mới nên được agent khác gọi, skill tạo JSON Agent Card, lược đồ skill và bản thiết kế endpoint.
 
 ## Exercises
 
-1. Run `code/main.py`. Trace the full Task lifecycle, including the `TASK_STATE_INPUT_REQUIRED` pause where the called agent asks for a clarification.
+1. Chạy `code/main.py`. Lần theo toàn vòng đời Task, gồm tạm dừng `TASK_STATE_INPUT_REQUIRED` nơi agent được gọi hỏi làm rõ.
 
-2. Add a signed Agent Card. Put one JWS entry in `signatures` with `alg` set to `HS256`, signing the card's canonical JSON without the `signatures` field. Write a verifier and confirm it fails on a mutated card.
+2. Thêm Agent Card có chữ ký. Đặt một mục JWS trong `signatures` với `alg` là `HS256`, ký JSON chuẩn card không có trường `signatures`. Viết bộ xác minh và xác nhận thất bại trên card bị sửa.
 
-3. Implement task streaming with `SendStreamingMessage`: the writer agent emits the `task`, three `artifactUpdate` chunks, and a `statusUpdate` with `TASK_STATE_COMPLETED`, then closes the stream. The caller accumulates the chunks.
+3. Triển khai truyền luồng tác vụ bằng `SendStreamingMessage`: agent viết phát `task`, ba phần `artifactUpdate` và `statusUpdate` với `TASK_STATE_COMPLETED`, rồi đóng luồng. Bên gọi tích lũy các phần.
 
-4. Design an A2A agent that wraps an MCP server. Map each MCP tool to an A2A skill. Note the trade-offs — what opacity is lost?
+4. Thiết kế agent A2A bọc máy chủ MCP. Ánh xạ mỗi công cụ MCP thành skill A2A. Ghi đánh đổi — tính mờ nào bị mất?
 
-5. Read the A2A v1.0 announcement and identify the one feature that is not yet implemented by any framework as of April 2026. (Hint: it relates to multi-hop task delegation.)
+5. Đọc công bố A2A v1.0 và xác định một tính năng chưa được framework nào triển khai tính đến tháng 4 năm 2026. (Gợi ý: liên quan ủy nhiệm tác vụ nhiều bước.)
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| A2A | "Agent-to-Agent protocol" | Open protocol for opaque agent collaboration |
-| Agent Card | "`/.well-known/agent-card.json`" | Published metadata describing an agent's skills and `supportedInterfaces` |
-| Skill | "A callable unit" | A named operation the agent supports (analog to MCP tool) |
-| Task | "Unit of delegation" | A work item with a lifecycle and final artifact |
-| Message | "Task input" | Carries Parts (`text`, `raw`, `url`, `data`) |
-| Part | "Typed chunk" | Exactly one of `text` / `raw` / `url` / `data`, plus optional `mediaType`; no `kind` field |
-| Artifact | "Task output" | Named, typed output returned on completion |
-| AP2 | "Agent Payments Protocol" | Payments extension built on A2A; card signing is core A2A (`signatures`) |
-| Opacity | "Black-box collaboration" | Called agent's internals are hidden from caller |
-| `TASK_STATE_INPUT_REQUIRED` | "Task pause" | Interrupted state when the agent needs more info |
+| A2A | "Giao thức Agent-sang-Agent" | Giao thức mở cho cộng tác agent mờ |
+| Agent Card (Thẻ agent) | "`/.well-known/agent-card.json`" | Siêu dữ liệu công bố mô tả skill và `supportedInterfaces` của agent |
+| Skill (Kỹ năng) | "Đơn vị gọi được" | Thao tác có tên agent hỗ trợ (tương tự công cụ MCP) |
+| Task (Tác vụ) | "Đơn vị ủy nhiệm" | Mục công việc có vòng đời và sản phẩm cuối |
+| Message (Thông điệp) | "Đầu vào tác vụ" | Mang Part (`text`, `raw`, `url`, `data`) |
+| Part (Phần) | "Phần có kiểu" | Đúng một trong `text` / `raw` / `url` / `data`, cộng `mediaType` tùy chọn; không trường `kind` |
+| Artifact (Sản phẩm) | "Đầu ra tác vụ" | Đầu ra có tên, có kiểu trả khi hoàn tất |
+| AP2 | "Giao thức thanh toán agent" | Phần mở rộng thanh toán xây trên A2A; ký card là A2A lõi (`signatures`) |
+| Opacity (Tính mờ) | "Cộng tác hộp đen" | Nội bộ agent được gọi ẩn với bên gọi |
+| `TASK_STATE_INPUT_REQUIRED` | "Tạm dừng tác vụ" | Trạng thái gián đoạn khi agent cần thêm thông tin |
 
 ## Further Reading
 
-- [a2a-protocol.org](https://a2a-protocol.org/latest/) — canonical A2A specification
-- [a2aproject/A2A — GitHub](https://github.com/a2aproject/A2A) — reference implementations and SDKs
-- [A2A v1.0.1 release](https://github.com/a2aproject/A2A/tree/v1.0.1): the tagged `docs/specification.md` and the normative `specification/a2a.proto` this lesson follows
-- [Linux Foundation — A2A launch press release](https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents) — June 2025 governance transfer
-- [Google Cloud — A2A protocol upgrade](https://cloud.google.com/blog/products/ai-machine-learning/agent2agent-protocol-is-getting-an-upgrade) — roadmap and partner momentum
-- [Google Dev — A2A 1.0 milestone](https://discuss.google.dev/t/the-a2a-1-0-milestone-ensuring-and-testing-backward-compatibility/352258) — v1.0 release notes and backward-compat guidance
+- [a2a-protocol.org](https://a2a-protocol.org/latest/) — đặc tả A2A kinh điển
+- [a2aproject/A2A — GitHub](https://github.com/a2aproject/A2A) — triển khai tham chiếu và SDK
+- [A2A v1.0.1 release](https://github.com/a2aproject/A2A/tree/v1.0.1): `docs/specification.md` gắn thẻ và `specification/a2a.proto` quy phạm bài này theo
+- [Linux Foundation — A2A launch press release](https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents) — chuyển quản trị tháng 6 năm 2025
+- [Google Cloud — A2A protocol upgrade](https://cloud.google.com/blog/products/ai-machine-learning/agent2agent-protocol-is-getting-an-upgrade) — lộ trình và đà đối tác
+- [Google Dev — A2A 1.0 milestone](https://discuss.google.dev/t/the-a2a-1-0-milestone-ensuring-and-testing-backward-compatibility/352258) — ghi chú phát hành v1.0 và hướng dẫn tương thích ngược
