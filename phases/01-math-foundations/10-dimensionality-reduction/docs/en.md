@@ -1,6 +1,6 @@
 # Dimensionality Reduction
 
-> High-dimensional data has structure. You find it by looking from the right angle.
+> Dữ liệu nhiều chiều có cấu trúc. Bạn tìm ra nó bằng cách nhìn từ góc phù hợp.
 
 **Type:** Build
 **Language:** Python
@@ -9,26 +9,26 @@
 
 ## Learning Objectives
 
-- Implement PCA from scratch: center data, compute the covariance matrix, eigendecompose, and project
-- Use explained variance ratio and the elbow method to choose the number of principal components
-- Compare PCA, t-SNE, and UMAP for visualizing MNIST digits in 2D and explain their tradeoffs
-- Apply kernel PCA with an RBF kernel to separate nonlinear data structures that standard PCA cannot handle
+- Triển khai PCA từ đầu: đưa dữ liệu về tâm, tính ma trận hiệp phương sai, phân rã riêng và chiếu
+- Sử dụng tỉ lệ phương sai được giải thích và phương pháp khuỷu tay để chọn số thành phần chính
+- So sánh PCA, t-SNE và UMAP để trực quan hóa các chữ số MNIST trong 2D và giải thích các đánh đổi của chúng
+- Áp dụng kernel PCA với một kernel RBF để tách các cấu trúc dữ liệu phi tuyến mà PCA tiêu chuẩn không thể xử lý
 
 ## The Problem
 
-You have a dataset with 784 features per sample. Maybe it is pixel values of handwritten digits. Maybe it is gene expression levels. Maybe it is user behavior signals. You cannot visualize 784 dimensions. You cannot plot them. You cannot even think about them.
+Bạn có một tập dữ liệu với 784 đặc trưng trên mỗi mẫu. Có thể đó là các giá trị pixel của các chữ số viết tay. Có thể đó là các mức biểu hiện gen. Có thể đó là các tín hiệu hành vi người dùng. Bạn không thể trực quan hóa 784 chiều. Bạn không thể vẽ chúng. Bạn thậm chí không thể nghĩ về chúng.
 
-But most of those 784 features are redundant. The actual information lives on a much smaller surface. A handwritten "7" does not need 784 independent numbers to describe it. It needs a few: the angle of the stroke, the length of the crossbar, how much it leans. The rest is noise.
+Nhưng hầu hết trong số 784 đặc trưng đó là dư thừa. Thông tin thực sự nằm trên một bề mặt nhỏ hơn nhiều. Một chữ "7" viết tay không cần 784 số độc lập để mô tả nó. Nó cần một vài số: góc của nét, độ dài nét ngang, nó nghiêng bao nhiêu. Phần còn lại là nhiễu.
 
-Dimensionality reduction finds that smaller surface. It takes your 784-dimensional data and compresses it to 2, 10, or 50 dimensions while keeping the structure that matters.
+Giảm chiều tìm ra bề mặt nhỏ hơn đó. Nó lấy dữ liệu 784 chiều của bạn và nén xuống 2, 10 hoặc 50 chiều trong khi giữ cấu trúc quan trọng.
 
 ## The Concept
 
 ### The curse of dimensionality
 
-High-dimensional spaces are unintuitive. Three things break as dimensions grow.
+Các không gian nhiều chiều không trực giác. Ba thứ không còn đúng khi số chiều tăng.
 
-**Distance becomes meaningless.** In high dimensions, the distance between any two random points converges to the same value. If every point is roughly the same distance from every other point, nearest-neighbor search stops working.
+**Khoảng cách trở nên vô nghĩa.** Trong không gian nhiều chiều, khoảng cách giữa hai điểm ngẫu nhiên bất kỳ hội tụ về cùng một giá trị. Nếu mỗi điểm gần như cách mọi điểm khác cùng một khoảng, tìm kiếm láng giềng gần nhất ngừng hoạt động.
 
 ```
 Dimension    Avg distance ratio (max/min between random points)
@@ -38,15 +38,15 @@ Dimension    Avg distance ratio (max/min between random points)
 1000         ~1.02
 ```
 
-**Volume concentrates in corners.** A unit hypercube in d dimensions has 2^d corners. In 100 dimensions, nearly all the volume is in the corners, far from the center. Data points spread to the edges and your models starve for data in the interior.
+**Thể tích tập trung ở các góc.** Một siêu lập phương đơn vị trong d chiều có 2^d góc. Trong 100 chiều, gần như toàn bộ thể tích nằm ở các góc, xa tâm. Các điểm dữ liệu trải ra rìa và mô hình của bạn thiếu dữ liệu ở bên trong.
 
-**You need exponentially more data.** To maintain the same density of samples in a space, going from 2D to 20D means you need 10^18 times more data. You never have enough. Reducing dimensions brings the data density back to something workable.
+**Bạn cần nhiều dữ liệu hơn theo hàm mũ.** Để duy trì cùng mật độ mẫu trong một không gian, đi từ 2D đến 20D có nghĩa là bạn cần lượng dữ liệu gấp 10^18 lần. Bạn không bao giờ có đủ. Giảm chiều đưa mật độ dữ liệu trở lại mức có thể xử lý.
 
 ### PCA: find the directions that matter
 
-Principal Component Analysis (PCA) finds the axes along which your data varies the most. It rotates your coordinate system so the first axis captures the most variance, the second captures the next most, and so on.
+Phân tích Thành phần Chính (PCA) tìm các trục mà dọc theo đó dữ liệu của bạn biến thiên nhiều nhất. Nó quay hệ tọa độ để trục đầu tiên nắm bắt nhiều phương sai nhất, trục thứ hai nắm bắt nhiều thứ nhì, và cứ thế.
 
-The algorithm:
+Thuật toán:
 
 ```
 1. Center the data        (subtract the mean from each feature)
@@ -56,20 +56,20 @@ The algorithm:
 5. Project               (keep top k eigenvectors, drop the rest)
 ```
 
-Why eigendecomposition? The covariance matrix is symmetric and positive semi-definite. Its eigenvectors are orthogonal directions in feature space. The eigenvalues tell you how much variance each direction captures. The eigenvector with the largest eigenvalue points along the direction of maximum variance.
+Tại sao phân rã riêng? Ma trận hiệp phương sai đối xứng và nửa xác định dương. Các vector riêng của nó là những hướng trực giao trong không gian đặc trưng. Các giá trị riêng cho bạn biết mỗi hướng nắm bắt bao nhiêu phương sai. Vector riêng có giá trị riêng lớn nhất chỉ theo hướng phương sai lớn nhất.
 
 ```mermaid
 graph LR
     A["Original data (2D)\nData spread in both\nx and y directions"] -->|"PCA rotation"| B["After PCA\nPC1 captures the elongated spread\nPC2 captures the narrow spread\nDrop PC2 and you lose little info"]
 ```
 
-- **Before PCA:** Data cloud is spread diagonally across both x and y axes
-- **After PCA:** Coordinate system is rotated so PC1 aligns with the direction of maximum variance (elongated spread) and PC2 aligns with the direction of minimum variance (narrow spread)
-- **Dimensionality reduction:** Dropping PC2 projects the data onto PC1, losing very little information
+- **Trước PCA:** Đám mây dữ liệu trải theo đường chéo trên cả hai trục x và y
+- **Sau PCA:** Hệ tọa độ được quay để PC1 thẳng hàng với hướng phương sai lớn nhất (độ phân tán kéo dài) và PC2 thẳng hàng với hướng phương sai nhỏ nhất (độ phân tán hẹp)
+- **Giảm chiều:** Bỏ PC2 chiếu dữ liệu lên PC1, mất rất ít thông tin
 
 ### Explained variance ratio
 
-Each principal component captures a fraction of the total variance. The explained variance ratio tells you how much.
+Mỗi thành phần chính nắm bắt một phần của tổng phương sai. Tỉ lệ phương sai được giải thích cho bạn biết bao nhiêu.
 
 ```
 Component    Eigenvalue    Explained ratio    Cumulative
@@ -80,96 +80,96 @@ PC4          0.89          0.089              0.925
 ...
 ```
 
-When the cumulative explained variance reaches 0.95, you know that many components capture 95% of the information. Everything after that is mostly noise.
+Khi phương sai được giải thích tích lũy đạt 0.95, bạn biết số thành phần đó nắm bắt 95% thông tin. Mọi thứ sau đó chủ yếu là nhiễu.
 
 ### Choosing the number of components
 
-Three strategies:
+Ba chiến lược:
 
-1. **Threshold.** Keep enough components to explain 90-95% of the variance.
-2. **Elbow method.** Plot explained variance per component. Look for a sharp drop-off.
-3. **Downstream performance.** Use PCA as preprocessing. Sweep k and measure your model's accuracy. The best k is wherever accuracy plateaus.
+1. **Ngưỡng.** Giữ đủ thành phần để giải thích 90-95% phương sai.
+2. **Phương pháp khuỷu tay.** Vẽ phương sai được giải thích theo từng thành phần. Tìm một chỗ giảm mạnh.
+3. **Hiệu năng tác vụ phía sau.** Sử dụng PCA làm tiền xử lý. Quét k và đo độ chính xác mô hình. k tốt nhất là nơi độ chính xác chững lại.
 
 ### t-SNE: preserve neighborhoods
 
-t-Distributed Stochastic Neighbor Embedding (t-SNE) is designed for visualization. It maps high-dimensional data to 2D (or 3D) while preserving which points are near each other.
+t-Distributed Stochastic Neighbor Embedding (t-SNE) được thiết kế để trực quan hóa. Nó ánh xạ dữ liệu nhiều chiều xuống 2D (hoặc 3D) trong khi bảo toàn những điểm nào gần nhau.
 
-The intuition: in the original space, compute a probability distribution over pairs of points based on their distances. Near points get high probability. Far points get low probability. Then find a 2D arrangement where the same probability distribution holds. Points that were neighbors in 784 dimensions stay neighbors in 2D.
+Trực giác: trong không gian ban đầu, tính một phân phối xác suất trên các cặp điểm dựa trên khoảng cách của chúng. Các điểm gần có xác suất cao. Các điểm xa có xác suất thấp. Sau đó tìm một cách bố trí 2D nơi cùng phân phối xác suất đó được giữ. Các điểm từng là láng giềng trong 784 chiều vẫn là láng giềng trong 2D.
 
-Key properties of t-SNE:
-- Non-linear. It can unfold complex manifolds that PCA cannot.
-- Stochastic. Different runs produce different layouts.
-- Perplexity parameter controls how many neighbors to consider (typical range: 5-50).
-- Distances between clusters in the output are not meaningful. Only the clusters themselves are.
-- Slow on large datasets. O(n^2) by default.
+Các tính chất chính của t-SNE:
+- Phi tuyến. Nó có thể mở ra các đa tạp phức tạp mà PCA không thể.
+- Ngẫu nhiên. Các lần chạy khác nhau tạo ra các cách bố trí khác nhau.
+- Tham số perplexity điều khiển số láng giềng cần xét (phạm vi điển hình: 5-50).
+- Khoảng cách giữa các cụm trong đầu ra không có ý nghĩa. Chỉ bản thân các cụm có ý nghĩa.
+- Chậm trên các tập dữ liệu lớn. O(n^2) theo mặc định.
 
 ### UMAP: faster, better global structure
 
-Uniform Manifold Approximation and Projection (UMAP) works similarly to t-SNE but with two advantages:
-- Faster. It uses approximate nearest-neighbor graphs instead of computing all pairwise distances.
-- Better global structure. The relative positions of clusters in the output tend to be more meaningful than in t-SNE.
+Uniform Manifold Approximation and Projection (UMAP) hoạt động tương tự t-SNE nhưng có hai lợi thế:
+- Nhanh hơn. Nó sử dụng các đồ thị láng giềng gần nhất xấp xỉ thay vì tính tất cả khoảng cách từng cặp.
+- Cấu trúc toàn cục tốt hơn. Các vị trí tương đối của các cụm trong đầu ra có xu hướng có ý nghĩa hơn trong t-SNE.
 
-UMAP builds a weighted graph in high-dimensional space (the "fuzzy topological representation") and then finds a low-dimensional layout that preserves this graph as well as possible.
+UMAP xây dựng một đồ thị có trọng số trong không gian nhiều chiều ("biểu diễn tô pô mờ") rồi tìm một cách bố trí ít chiều bảo toàn đồ thị này tốt nhất có thể.
 
-Key parameters:
-- `n_neighbors`: how many neighbors define local structure (similar to perplexity). Higher values preserve more global structure.
-- `min_dist`: how tightly points pack together in the output. Lower values create denser clusters.
+Các tham số chính:
+- `n_neighbors`: bao nhiêu láng giềng xác định cấu trúc cục bộ (tương tự perplexity). Các giá trị cao hơn bảo toàn nhiều cấu trúc toàn cục hơn.
+- `min_dist`: mức độ các điểm được xếp sát nhau trong đầu ra. Các giá trị thấp hơn tạo ra các cụm dày đặc hơn.
 
 ### When to use which
 
-| Method | Use case | Preserves | Speed |
+| Phương pháp | Trường hợp sử dụng | Bảo toàn | Tốc độ |
 |--------|----------|-----------|-------|
-| PCA | Preprocessing before training | Global variance | Fast (exact), works on millions of samples |
-| PCA | Quick exploratory visualization | Linear structure | Fast |
-| t-SNE | Publication-quality 2D plots | Local neighborhoods | Slow (< 10k samples ideal) |
-| UMAP | 2D visualization at scale | Local + some global structure | Medium (handles millions) |
-| PCA | Feature reduction for models | Variance-ranked features | Fast |
-| t-SNE / UMAP | Understanding cluster structure | Cluster separation | Medium to slow |
+| PCA | Tiền xử lý trước huấn luyện | Phương sai toàn cục | Nhanh (chính xác), hoạt động trên hàng triệu mẫu |
+| PCA | Trực quan hóa khám phá nhanh | Cấu trúc tuyến tính | Nhanh |
+| t-SNE | Đồ thị 2D chất lượng xuất bản | Các vùng lân cận cục bộ | Chậm (< 10k mẫu là lý tưởng) |
+| UMAP | Trực quan hóa 2D ở quy mô lớn | Cấu trúc cục bộ + một phần toàn cục | Trung bình (xử lý hàng triệu) |
+| PCA | Giảm đặc trưng cho mô hình | Các đặc trưng được xếp hạng theo phương sai | Nhanh |
+| t-SNE / UMAP | Hiểu cấu trúc cụm | Sự tách biệt cụm | Trung bình đến chậm |
 
-Rule of thumb: use PCA for preprocessing and data compression. Use t-SNE or UMAP when you need to visualize structure in 2D.
+Quy tắc kinh nghiệm: sử dụng PCA để tiền xử lý và nén dữ liệu. Sử dụng t-SNE hoặc UMAP khi bạn cần trực quan hóa cấu trúc trong 2D.
 
 ### Kernel PCA
 
-Standard PCA finds linear subspaces. It rotates your coordinate system and drops axes. But what if the data lies on a nonlinear manifold? A circle in 2D cannot be separated by any line. Standard PCA will not help.
+PCA tiêu chuẩn tìm các không gian con tuyến tính. Nó quay hệ tọa độ và bỏ các trục. Nhưng nếu dữ liệu nằm trên một đa tạp phi tuyến thì sao? Một đường tròn trong 2D không thể được phân tách bằng bất kỳ đường thẳng nào. PCA tiêu chuẩn sẽ không giúp ích.
 
-Kernel PCA applies PCA in a high-dimensional feature space induced by a kernel function, without explicitly computing the coordinates in that space. This is the kernel trick -- the same idea behind SVMs.
+Kernel PCA áp dụng PCA trong một không gian đặc trưng nhiều chiều được tạo bởi một hàm kernel, mà không tính tường minh tọa độ trong không gian đó. Đây là thủ thuật kernel -- cùng ý tưởng đằng sau SVM.
 
-The algorithm:
-1. Compute the kernel matrix K where K_ij = k(x_i, x_j)
-2. Center the kernel matrix in feature space
-3. Eigendecompose the centered kernel matrix
-4. The top eigenvectors (scaled by 1/sqrt(eigenvalue)) are the projections
+Thuật toán:
+1. Tính ma trận kernel K trong đó K_ij = k(x_i, x_j)
+2. Đưa ma trận kernel về tâm trong không gian đặc trưng
+3. Phân rã riêng ma trận kernel đã đưa về tâm
+4. Các vector riêng đứng đầu (được nhân với 1/sqrt(eigenvalue)) là các hình chiếu
 
-Common kernel functions:
+Các hàm kernel phổ biến:
 
-| Kernel | Formula | Good for |
+| Kernel | Công thức | Phù hợp cho |
 |--------|---------|----------|
-| RBF (Gaussian) | exp(-gamma * \|\|x - y\|\|^2) | Most nonlinear data, smooth manifolds |
-| Polynomial | (x . y + c)^d | Polynomial relationships |
-| Sigmoid | tanh(alpha * x . y + c) | Neural network-like mappings |
+| RBF (Gaussian) | exp(-gamma * \|\|x - y\|\|^2) | Hầu hết dữ liệu phi tuyến, các đa tạp trơn |
+| Đa thức | (x . y + c)^d | Các quan hệ đa thức |
+| Sigmoid | tanh(alpha * x . y + c) | Các ánh xạ giống mạng nơ-ron |
 
-When to use kernel PCA vs standard PCA:
+Khi nào sử dụng kernel PCA so với PCA tiêu chuẩn:
 
-| Criterion | Standard PCA | Kernel PCA |
+| Tiêu chí | PCA tiêu chuẩn | Kernel PCA |
 |-----------|-------------|------------|
-| Data structure | Linear subspace | Nonlinear manifold |
-| Speed | O(min(n^2 d, d^2 n)) | O(n^2 d + n^3) |
-| Interpretability | Components are linear combinations of features | Components lack direct feature interpretation |
-| Scalability | Works on millions of samples | Kernel matrix is n x n, memory-limited |
-| Reconstruction | Direct inverse transform | Requires pre-image approximation |
+| Cấu trúc dữ liệu | Không gian con tuyến tính | Đa tạp phi tuyến |
+| Tốc độ | O(min(n^2 d, d^2 n)) | O(n^2 d + n^3) |
+| Khả năng diễn giải | Các thành phần là tổ hợp tuyến tính của các đặc trưng | Các thành phần thiếu diễn giải trực tiếp theo đặc trưng |
+| Khả năng mở rộng | Hoạt động trên hàng triệu mẫu | Ma trận kernel có kích thước n x n, bị giới hạn bởi bộ nhớ |
+| Tái tạo | Biến đổi ngược trực tiếp | Đòi hỏi xấp xỉ tiền ảnh |
 
-The classic example: concentric circles in 2D. Two rings of points, one inside the other. Standard PCA projects both onto the same line -- useless for classification. Kernel PCA with an RBF kernel maps the inner circle and outer circle to different regions, making them linearly separable.
+Ví dụ kinh điển: các đường tròn đồng tâm trong 2D. Hai vòng điểm, một vòng bên trong vòng kia. PCA tiêu chuẩn chiếu cả hai lên cùng một đường thẳng -- vô ích cho phân loại. Kernel PCA với một kernel RBF ánh xạ đường tròn trong và đường tròn ngoài đến các vùng khác nhau, làm chúng phân tách tuyến tính được.
 
 ### Reconstruction Error
 
-How good is your dimensionality reduction? You compressed 784 dimensions to 50. What did you lose?
+Phép giảm chiều của bạn tốt đến mức nào? Bạn đã nén 784 chiều xuống 50. Bạn đã mất gì?
 
-Measure reconstruction error:
-1. Project data to k dimensions: X_reduced = X @ W_k
-2. Reconstruct: X_hat = X_reduced @ W_k^T
-3. Compute MSE: mean((X - X_hat)^2)
+Đo sai số tái tạo:
+1. Chiếu dữ liệu xuống k chiều: X_reduced = X @ W_k
+2. Tái tạo: X_hat = X_reduced @ W_k^T
+3. Tính MSE: mean((X - X_hat)^2)
 
-For PCA, reconstruction error has a clean relationship to explained variance:
+Với PCA, sai số tái tạo có mối quan hệ rõ ràng với phương sai được giải thích:
 
 ```
 Reconstruction error = sum of eigenvalues NOT included
@@ -177,18 +177,18 @@ Total variance = sum of ALL eigenvalues
 Fraction lost = (sum of dropped eigenvalues) / (sum of all eigenvalues)
 ```
 
-The explained variance ratio for each component is:
+Tỉ lệ phương sai được giải thích cho mỗi thành phần là:
 
 ```
 explained_ratio_k = eigenvalue_k / sum(all eigenvalues)
 ```
 
-Plotting cumulative explained variance against number of components gives you the "elbow" curve. The right number of components is where:
-- The curve flattens out (diminishing returns)
-- Cumulative variance crosses your threshold (usually 0.90 or 0.95)
-- Downstream task performance plateaus
+Vẽ phương sai được giải thích tích lũy theo số thành phần cho bạn đường cong "khuỷu tay". Số thành phần phù hợp là nơi:
+- Đường cong phẳng dần (lợi ích giảm dần)
+- Phương sai tích lũy vượt ngưỡng của bạn (thường là 0.90 hoặc 0.95)
+- Hiệu năng tác vụ phía sau chững lại
 
-Reconstruction error is useful beyond choosing k. You can use it for anomaly detection: samples with high reconstruction error are outliers that do not fit the learned subspace. This is the basis of PCA-based anomaly detection in production systems.
+Sai số tái tạo hữu ích ngoài việc chọn k. Bạn có thể sử dụng nó để phát hiện bất thường: các mẫu có sai số tái tạo cao là các ngoại lệ không khớp với không gian con đã học. Đây là cơ sở của phát hiện bất thường dựa trên PCA trong các hệ thống sản xuất.
 
 ```figure
 pca-axes
@@ -312,7 +312,7 @@ except ImportError:
 
 ## Use It
 
-PCA as preprocessing before a classifier:
+PCA làm tiền xử lý trước một bộ phân loại:
 
 ```python
 from sklearn.decomposition import PCA as SklearnPCA
@@ -338,37 +338,37 @@ for k in [10, 30, 50, 100, 200]:
     print(f"k={k:>3d}  accuracy={acc:.4f}  variance={var_captured:.4f}")
 ```
 
-Performance plateaus well before 784 dimensions. That plateau is your operating point.
+Hiệu năng chững lại từ rất lâu trước 784 chiều. Mức chững đó là điểm vận hành của bạn.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/skill-dimensionality-reduction.md` - a skill for choosing the right dimensionality reduction technique for a given task
+Bài học này tạo ra:
+- `outputs/skill-dimensionality-reduction.md` - một skill để chọn kỹ thuật giảm chiều phù hợp cho một tác vụ nhất định
 
 ## Exercises
 
-1. Modify the PCA class to support `inverse_transform`. Reconstruct MNIST digits from 10, 50, and 200 components. Print the reconstruction error (mean squared difference from the original) for each.
+1. Sửa lớp PCA để hỗ trợ `inverse_transform`. Tái tạo các chữ số MNIST từ 10, 50 và 200 thành phần. In sai số tái tạo (trung bình bình phương chênh lệch so với bản gốc) cho mỗi trường hợp.
 
-2. Run t-SNE on the same MNIST subset with perplexity values of 5, 30, and 100. Describe how the output changes. Why does perplexity affect cluster tightness?
+2. Chạy t-SNE trên cùng tập con MNIST với các giá trị perplexity 5, 30 và 100. Mô tả đầu ra thay đổi như thế nào. Tại sao perplexity ảnh hưởng đến độ chặt của cụm?
 
-3. Take a dataset with 50 features where only 5 are informative (generate one with `sklearn.datasets.make_classification`). Apply PCA and check whether the explained variance curve correctly identifies that the data is effectively 5-dimensional.
+3. Lấy một tập dữ liệu có 50 đặc trưng trong đó chỉ 5 đặc trưng cung cấp thông tin (tạo bằng `sklearn.datasets.make_classification`). Áp dụng PCA và kiểm tra xem đường cong phương sai được giải thích có xác định đúng rằng dữ liệu thực chất có 5 chiều hay không.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Curse of dimensionality | "Too many features" | Distances, volumes, and data density all behave counterintuitively as dimensions grow. Models need exponentially more data to compensate. |
-| PCA | "Reduce dimensions" | Rotate your coordinate system so the axes align with the directions of maximum variance, then drop the low-variance axes. |
-| Principal component | "An important direction" | An eigenvector of the covariance matrix. The direction in feature space along which the data varies most. |
-| Explained variance ratio | "How much info this component has" | The fraction of total variance captured by one principal component. Sum the top k ratios to see how much k components preserve. |
-| Covariance matrix | "How features correlate" | A symmetric matrix where entry (i,j) measures how feature i and feature j move together. Diagonal entries are individual variances. |
-| t-SNE | "That cluster plot" | A nonlinear method that maps high-dimensional data to 2D by preserving pairwise neighborhood probabilities. Good for visualization, not for preprocessing. |
-| UMAP | "Faster t-SNE" | A nonlinear method based on topological data analysis. Preserves both local and some global structure. Scales better than t-SNE. |
-| Perplexity | "A t-SNE knob" | Controls the effective number of neighbors each point considers. Low perplexity focuses on very local structure. High perplexity captures broader patterns. |
-| Manifold | "The surface the data lives on" | A lower-dimensional surface embedded in a higher-dimensional space. A sheet of paper crumpled in 3D is a 2D manifold. |
+| Curse of dimensionality (Lời nguyền số chiều) | "Quá nhiều đặc trưng" | Khoảng cách, thể tích và mật độ dữ liệu đều có hành vi trái trực giác khi số chiều tăng. Mô hình cần nhiều dữ liệu hơn theo hàm mũ để bù lại. |
+| PCA | "Giảm chiều" | Quay hệ tọa độ để các trục thẳng hàng với các hướng phương sai lớn nhất, rồi bỏ các trục có phương sai thấp. |
+| Principal component (Thành phần chính) | "Một hướng quan trọng" | Một vector riêng của ma trận hiệp phương sai. Hướng trong không gian đặc trưng mà dọc theo đó dữ liệu biến thiên nhiều nhất. |
+| Explained variance ratio (Tỉ lệ phương sai được giải thích) | "Thành phần này có bao nhiêu thông tin" | Phần tổng phương sai được một thành phần chính nắm bắt. Cộng k tỉ lệ đứng đầu để xem k thành phần bảo toàn bao nhiêu. |
+| Covariance matrix (Ma trận hiệp phương sai) | "Cách các đặc trưng tương quan" | Một ma trận đối xứng trong đó phần tử (i,j) đo cách đặc trưng i và đặc trưng j cùng biến động. Các phần tử đường chéo là các phương sai riêng lẻ. |
+| t-SNE | "Đồ thị cụm đó" | Một phương pháp phi tuyến ánh xạ dữ liệu nhiều chiều xuống 2D bằng cách bảo toàn các xác suất lân cận từng cặp. Tốt cho trực quan hóa, không cho tiền xử lý. |
+| UMAP | "t-SNE nhanh hơn" | Một phương pháp phi tuyến dựa trên phân tích dữ liệu tô pô. Bảo toàn cả cấu trúc cục bộ và một phần toàn cục. Mở rộng tốt hơn t-SNE. |
+| Perplexity | "Một núm điều chỉnh t-SNE" | Điều khiển số láng giềng hiệu dụng mà mỗi điểm xét đến. Perplexity thấp tập trung vào cấu trúc rất cục bộ. Perplexity cao nắm bắt các mẫu rộng hơn. |
+| Manifold (Đa tạp) | "Bề mặt mà dữ liệu nằm trên" | Một bề mặt ít chiều hơn được nhúng trong một không gian nhiều chiều hơn. Một tờ giấy bị vò trong 3D là một đa tạp 2D. |
 
 ## Further Reading
 
-- [A Tutorial on Principal Component Analysis](https://arxiv.org/abs/1404.1100) (Shlens) - clear derivation of PCA from the ground up
-- [How to Use t-SNE Effectively](https://distill.pub/2016/misread-tsne/) (Wattenberg et al.) - interactive guide to t-SNE pitfalls and parameter choices
-- [UMAP documentation](https://umap-learn.readthedocs.io/) - theory and practical guidance from the UMAP authors
+- [A Tutorial on Principal Component Analysis](https://arxiv.org/abs/1404.1100) (Shlens) - cách suy ra PCA rõ ràng từ nền tảng
+- [How to Use t-SNE Effectively](https://distill.pub/2016/misread-tsne/) (Wattenberg et al.) - hướng dẫn tương tác về các cạm bẫy t-SNE và lựa chọn tham số
+- [Tài liệu UMAP](https://umap-learn.readthedocs.io/) - lý thuyết và hướng dẫn thực hành từ các tác giả UMAP
