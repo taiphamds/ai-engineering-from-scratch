@@ -1,8 +1,8 @@
 # Lesson 12 - Video Understanding Pipeline (TypeScript UI)
 
-TypeScript half of the capstone. The Python side (`code/main.py`) owns the
-multi-vector index and temporal grounding. This project ships the dashboard
-half: a Hono app over the four pipeline stages (chunk, embed, index, qa).
+Nửa TypeScript của bài tổng kết. Phía Python (`code/main.py`) sở hữu
+chỉ mục đa vector và định vị thời gian. Dự án này cung cấp nửa bảng điều khiển
+gồm: một ứng dụng Hono trên bốn giai đoạn pipeline (chunk, embed, index, qa).
 
 ## Layout
 

@@ -1,6 +1,6 @@
 # Capstone 12 — Video Understanding Pipeline (Scene, QA, Search)
 
-> Twelve Labs productized Marengo + Pegasus. VideoDB shipped the CRUD-for-video API. AI2's Molmo 2 published open VLM checkpoints. Gemini long-context handles hours of video natively. TimeLens-100K defined temporal grounding at scale. The 2026 pipeline is settled: scene segmentation, per-scene caption + embedding, transcript alignment, multi-vector index, and a query that answers with (start, end) timestamps plus frame previews. The capstone is ingesting 100 hours, hitting public benchmarks, and measuring hallucination on counting and action questions.
+> Twelve Labs đã sản phẩm hóa Marengo + Pegasus. VideoDB đã phát hành API CRUD cho video. Molmo 2 của AI2 đã công bố các checkpoint VLM mở. Gemini ngữ cảnh dài xử lý hàng giờ video một cách nguyên bản. TimeLens-100K đã định nghĩa định vị thời gian ở quy mô lớn. Pipeline năm 2026 đã ổn định: phân đoạn cảnh, chú thích + embedding theo cảnh, căn chỉnh bản chép lời, chỉ mục đa vector, và một truy vấn trả lời bằng các mốc thời gian (start, end) cùng bản xem trước khung hình. Bài tổng kết là tiếp nhận 100 giờ, đạt các benchmark công khai, và đo ảo giác trên các câu hỏi đếm và hành động.
 
 **Type:** Capstone
 **Languages:** Python (pipeline), TypeScript (UI)
@@ -10,17 +10,17 @@
 
 ## Problem
 
-Long-form video QA is the most bandwidth-hungry multimodal problem at 2026 scale. Gemini 2.5 Pro can read a 2-hour video natively, but ingesting 100 hours of video into a queryable corpus still requires a scene-level index. The production shape combines scene segmentation (TransNetV2 or PySceneDetect), per-scene captioning with a VLM (Gemini 2.5, Qwen3-VL-Max, or Molmo 2), transcript alignment (Whisper-v3-turbo with word timestamps), and a multi-vector index that stores caption, frame embedding, and transcript side by side. The query pipeline answers with (start, end) timestamps plus frame previews.
+Hỏi đáp video dài là vấn đề đa phương thức ngốn băng thông nhất ở quy mô năm 2026. Gemini 2.5 Pro có thể đọc một video 2 giờ một cách nguyên bản, nhưng việc tiếp nhận 100 giờ video vào một corpus có thể truy vấn vẫn đòi hỏi một chỉ mục ở mức cảnh. Hình thức sản xuất kết hợp phân đoạn cảnh (TransNetV2 hoặc PySceneDetect), chú thích theo cảnh bằng một VLM (Gemini 2.5, Qwen3-VL-Max, hoặc Molmo 2), căn chỉnh bản chép lời (Whisper-v3-turbo với mốc thời gian từ), và một chỉ mục đa vector lưu chú thích, embedding khung hình, và bản chép lời cạnh nhau. Pipeline truy vấn trả lời bằng các mốc thời gian (start, end) cùng bản xem trước khung hình.
 
-Benchmarks are public (ActivityNet-QA, NeXT-GQA) plus your own 100-query custom set. Hallucination on counting and action-type questions is the known-hard failure class; the capstone explicitly measures it.
+Các benchmark được công khai (ActivityNet-QA, NeXT-GQA) cùng tập tùy chỉnh 100 truy vấn của riêng bạn. Ảo giác trên các câu hỏi đếm và loại hành động là lớp lỗi được biết là khó; bài tổng kết đo nó một cách rõ ràng.
 
 ## Concept
 
-Three pipelines run in parallel at ingest. **Scene segmentation** cuts the video into scenes. **VLM captioning** generates a caption per scene and a frame embedding from a keyframe. **ASR alignment** produces word-level timestamps. The three streams are joined by (scene_id, time range). Each scene gets three vector types in a multi-vector index (Qdrant): caption embedding, keyframe embedding, transcript embedding.
+Ba pipeline chạy song song khi tiếp nhận. **Phân đoạn cảnh** cắt video thành các cảnh. **Chú thích VLM** tạo một chú thích cho mỗi cảnh và một embedding khung hình từ một khung hình chính. **Căn chỉnh ASR** tạo các mốc thời gian ở mức từ. Ba luồng được nối theo (scene_id, time range). Mỗi cảnh nhận ba loại vector trong một chỉ mục đa vector (Qdrant): embedding chú thích, embedding khung hình chính, embedding bản chép lời.
 
-At query time, the natural-language question fires against all three vectors; results merge with RRF; a temporal-grounding adapter (TimeLens-style) refines the (start, end) window within the top scene. The VLM synthesizer (Gemini 2.5 Pro or Qwen3-VL-Max) takes query + top scenes + cropped frames and answers with cited timestamps and a frame preview.
+Tại thời điểm truy vấn, câu hỏi ngôn ngữ tự nhiên được gửi đến cả ba vector; các kết quả hợp nhất bằng RRF; một adapter định vị thời gian (kiểu TimeLens) tinh chỉnh cửa sổ (start, end) trong cảnh đứng đầu. Bộ tổng hợp VLM (Gemini 2.5 Pro hoặc Qwen3-VL-Max) nhận truy vấn + các cảnh đứng đầu + các khung hình được cắt và trả lời với các mốc thời gian được trích dẫn cùng một bản xem trước khung hình.
 
-The hallucination measurement matters. Counting ("how many people enter the room?") and action-type ("does the chef pour before stirring?") questions are notoriously unreliable. Report accuracy separately from descriptive questions.
+Phép đo ảo giác có ý nghĩa. Các câu hỏi đếm ("có bao nhiêu người đi vào phòng?") và loại hành động ("đầu bếp có đổ trước khi khuấy không?") nổi tiếng là không đáng tin cậy. Báo cáo độ chính xác tách biệt với các câu hỏi mô tả.
 
 ## Architecture
 
@@ -53,14 +53,14 @@ answer + (start, end) timestamps + frame thumbs + citations
 
 ## Stack
 
-- Scene segmentation: TransNetV2 (state-of-the-art 2024-26) or PySceneDetect
-- ASR: Whisper-v3-turbo via faster-whisper with word timestamps
-- VLM captioner + answerer: Gemini 2.5 Pro or Qwen3-VL-Max or Molmo 2
-- Temporal grounding: TimeLens-100K-trained adapter or VideoITG
-- Index: Qdrant with multi-vector support (caption / frame / transcript)
-- UI: Next.js 15 with HTML5 video player and scene thumbnails
-- Eval: ActivityNet-QA, NeXT-GQA, custom 100-question hand-labeled set
-- Hallucination benchmark: counting and action-type subsets with hand labels
+- Phân đoạn cảnh: TransNetV2 (tiên tiến nhất 2024-26) hoặc PySceneDetect
+- ASR: Whisper-v3-turbo qua faster-whisper với mốc thời gian từ
+- Bộ chú thích + trả lời VLM: Gemini 2.5 Pro hoặc Qwen3-VL-Max hoặc Molmo 2
+- Định vị thời gian: adapter được huấn luyện bằng TimeLens-100K hoặc VideoITG
+- Chỉ mục: Qdrant với hỗ trợ đa vector (chú thích / khung hình / bản chép lời)
+- UI: Next.js 15 với trình phát video HTML5 và hình thu nhỏ cảnh
+- Đánh giá: ActivityNet-QA, NeXT-GQA, tập tùy chỉnh 100 câu hỏi gắn nhãn thủ công
+- Benchmark ảo giác: các tập con đếm và loại hành động với nhãn thủ công
 
 ```figure
 cf-scene-index
@@ -68,23 +68,23 @@ cf-scene-index
 
 ## Build It
 
-1. **Ingest walker.** Accept YouTube URLs or local MP4s. Downscale to 720p if needed. Persist `{video_id, file_path}`.
+1. **Trình duyệt tiếp nhận.** Nhận các URL YouTube hoặc MP4 cục bộ. Giảm độ phân giải xuống 720p nếu cần. Lưu bền vững `{video_id, file_path}`.
 
-2. **Scene segmentation.** Run TransNetV2 or PySceneDetect to produce `[{scene_id, start_ms, end_ms, keyframe_path}]`. Target 100 hours: ~6k-8k scenes.
+2. **Phân đoạn cảnh.** Chạy TransNetV2 hoặc PySceneDetect để tạo `[{scene_id, start_ms, end_ms, keyframe_path}]`. Mục tiêu 100 giờ: ~6k-8k cảnh.
 
-3. **ASR pass.** Run Whisper-v3-turbo on audio; export word-level timestamps; split into per-scene transcript slices.
+3. **Lượt ASR.** Chạy Whisper-v3-turbo trên âm thanh; xuất các mốc thời gian ở mức từ; chia thành các phần bản chép lời theo cảnh.
 
-4. **VLM captioning.** Per scene, call Gemini 2.5 Pro (or Qwen3-VL-Max) with the keyframe and a short caption template. Produce caption + frame embedding.
+4. **Chú thích VLM.** Với mỗi cảnh, gọi Gemini 2.5 Pro (hoặc Qwen3-VL-Max) với khung hình chính và một mẫu chú thích ngắn. Tạo chú thích + embedding khung hình.
 
-5. **Multi-vector index.** Qdrant collection with three named vectors. Payload: `{video_id, scene_id, start_ms, end_ms, keyframe_url}`.
+5. **Chỉ mục đa vector.** Collection Qdrant với ba vector có tên. Payload: `{video_id, scene_id, start_ms, end_ms, keyframe_url}`.
 
-6. **Query.** Natural-language question fires three dense queries; merge with reciprocal rank fusion; top-k=5 scenes.
+6. **Truy vấn.** Câu hỏi ngôn ngữ tự nhiên gửi ba truy vấn dense; hợp nhất bằng hợp nhất thứ hạng nghịch đảo; top-k=5 cảnh.
 
-7. **Temporal grounding.** Run TimeLens-style adapter on the top scene to refine the (start, end) window within the scene.
+7. **Định vị thời gian.** Chạy adapter kiểu TimeLens trên cảnh đứng đầu để tinh chỉnh cửa sổ (start, end) trong cảnh.
 
-8. **VLM synth.** Call Gemini 2.5 Pro with query + top-3 scene clips (as images or short clips) + transcripts. Require `(video_id, start_ms, end_ms)` citations.
+8. **Tổng hợp VLM.** Gọi Gemini 2.5 Pro với truy vấn + top-3 đoạn cảnh (dưới dạng ảnh hoặc đoạn phim ngắn) + bản chép lời. Yêu cầu các trích dẫn `(video_id, start_ms, end_ms)`.
 
-9. **Eval.** Run ActivityNet-QA and NeXT-GQA. Build a 100-query custom set. Report overall accuracy + per-class breakdown (counting, action, descriptive).
+9. **Đánh giá.** Chạy ActivityNet-QA và NeXT-GQA. Xây dựng một tập tùy chỉnh 100 truy vấn. Báo cáo độ chính xác tổng thể + phân tích theo lớp (đếm, hành động, mô tả).
 
 ## Use It
 
@@ -103,48 +103,48 @@ citations: [scene 3: 00:12-00:58]
 
 ## Ship It
 
-`outputs/skill-video-qa.md` is the deliverable. Given a YouTube URL or uploaded video, the pipeline indexes scenes and answers questions with timestamped citations.
+`outputs/skill-video-qa.md` là sản phẩm bàn giao. Với một URL YouTube hoặc video tải lên được cung cấp, pipeline lập chỉ mục các cảnh và trả lời câu hỏi với các trích dẫn có mốc thời gian.
 
-| Weight | Criterion | How it is measured |
+| Trọng số | Tiêu chí | Cách đo |
 |:-:|---|---|
-| 25 | Temporal grounding IoU | Intersection-over-union on held-out grounding set |
-| 20 | QA accuracy | NeXT-GQA and custom 100-query |
-| 20 | Ingest throughput | Hours of video per dollar spent |
-| 20 | UI and citation UX | Timestamp links, thumbnail strip, jump-to-frame |
-| 15 | Hallucination rate | Counting and action-type accuracy separately |
+| 25 | IoU định vị thời gian | Giao trên hợp trên tập định vị được giữ riêng |
+| 20 | Độ chính xác hỏi đáp | NeXT-GQA và 100 truy vấn tùy chỉnh |
+| 20 | Thông lượng tiếp nhận | Số giờ video trên mỗi đô la đã chi |
+| 20 | UI và UX trích dẫn | Liên kết mốc thời gian, dải hình thu nhỏ, nhảy đến khung hình |
+| 15 | Tỷ lệ ảo giác | Độ chính xác đếm và loại hành động riêng biệt |
 | **100** | | |
 
 ## Exercises
 
-1. Swap Gemini 2.5 Pro for Qwen3-VL-Max on the captioning pass. Report caption quality delta on a human-rated 50-scene sample.
+1. Thay Gemini 2.5 Pro bằng Qwen3-VL-Max ở lượt chú thích. Báo cáo chênh lệch chất lượng chú thích trên một mẫu 50 cảnh do con người chấm.
 
-2. Reduce per-scene frame embedding to one pooled vector instead of multi-vector. Measure the retrieval regression.
+2. Giảm embedding khung hình theo cảnh xuống một vector gộp thay vì đa vector. Đo sự thoái lui truy xuất.
 
-3. Build a "counting strict" mode: the synthesizer extracts each counted instance with a timestamp and the user clicks to verify. Measure whether user-verification reduces hallucination.
+3. Xây dựng chế độ "đếm nghiêm ngặt": bộ tổng hợp trích xuất mỗi đối tượng được đếm với một mốc thời gian và người dùng nhấp để xác minh. Đo xem việc xác minh của người dùng có giảm ảo giác không.
 
-4. Benchmark ingest cost: hours-of-video-per-dollar across three VLM choices. Pick the sweet spot.
+4. Đo benchmark chi phí tiếp nhận: số giờ video trên mỗi đô la trên ba lựa chọn VLM. Chọn điểm tối ưu.
 
-5. Add speaker-diarized transcript: run pyannote speaker diarization on the audio and embed per-speaker transcripts. Demonstrate "what did Alice say about X?" queries.
+5. Thêm bản chép lời phân biệt người nói: chạy phân biệt người nói pyannote trên âm thanh và nhúng các bản chép lời theo người nói. Minh họa các truy vấn "Alice đã nói gì về X?".
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Scene segmentation | "Shot detection" | Cutting video into scenes at shot boundaries |
-| Multi-vector index | "Caption + frame + transcript" | Qdrant collection with named vectors per representation |
-| Temporal grounding | "When exactly did it happen" | Refining the (start, end) window for a query answer |
-| Frame embedding | "Visual representation" | A vector embedding of a keyframe; used for scene-visual similarity |
-| RRF fusion | "Reciprocal rank fusion" | Merge strategy across multiple ranked lists; a classic hybrid-retrieval trick |
-| Counting hallucination | "Miscount" | Known failure mode of VLMs on "how many X" questions |
-| ActivityNet-QA | "Video-QA benchmark" | Long-form video QA accuracy benchmark |
+| Scene segmentation (Phân đoạn cảnh) | "Phát hiện cảnh quay" | Cắt video thành các cảnh tại ranh giới cảnh quay |
+| Multi-vector index (Chỉ mục đa vector) | "Chú thích + khung hình + bản chép lời" | Collection Qdrant với các vector có tên cho mỗi dạng biểu diễn |
+| Temporal grounding (Định vị thời gian) | "Chính xác nó xảy ra khi nào" | Tinh chỉnh cửa sổ (start, end) cho một câu trả lời truy vấn |
+| Frame embedding (Embedding khung hình) | "Biểu diễn thị giác" | Một embedding vector của một khung hình chính; dùng cho độ tương tự thị giác cảnh |
+| RRF fusion (Hợp nhất RRF) | "Hợp nhất thứ hạng nghịch đảo" | Chiến lược hợp nhất trên nhiều danh sách được xếp hạng; một thủ thuật truy xuất lai kinh điển |
+| Counting hallucination (Ảo giác đếm) | "Đếm sai" | Chế độ lỗi đã biết của VLM trên các câu hỏi "bao nhiêu X" |
+| ActivityNet-QA | "Benchmark hỏi đáp video" | Benchmark độ chính xác hỏi đáp video dài |
 
 ## Further Reading
 
-- [AI2 Molmo 2](https://allenai.org/blog/molmo2) — open VLM checkpoints
-- [TimeLens (CVPR 2026)](https://github.com/TencentARC/TimeLens) — temporal grounding at scale
-- [Gemini Video long-context](https://deepmind.google/technologies/gemini) — the hosted reference
-- [VideoDB](https://videodb.io) — CRUD-for-video API reference
-- [Twelve Labs Marengo + Pegasus](https://www.twelvelabs.io) — commercial reference
-- [TransNetV2](https://github.com/soCzech/TransNetV2) — scene segmentation model
-- [PySceneDetect](https://github.com/Breakthrough/PySceneDetect) — classic open alternative
-- [ActivityNet-QA](https://arxiv.org/abs/1906.02467) — reference eval benchmark
+- [AI2 Molmo 2](https://allenai.org/blog/molmo2) — các checkpoint VLM mở
+- [TimeLens (CVPR 2026)](https://github.com/TencentARC/TimeLens) — định vị thời gian ở quy mô lớn
+- [Gemini Video long-context](https://deepmind.google/technologies/gemini) — tham chiếu được lưu trữ
+- [VideoDB](https://videodb.io) — tham chiếu API CRUD cho video
+- [Twelve Labs Marengo + Pegasus](https://www.twelvelabs.io) — tham chiếu thương mại
+- [TransNetV2](https://github.com/soCzech/TransNetV2) — mô hình phân đoạn cảnh
+- [PySceneDetect](https://github.com/Breakthrough/PySceneDetect) — lựa chọn thay thế mở kinh điển
+- [ActivityNet-QA](https://arxiv.org/abs/1906.02467) — benchmark đánh giá tham chiếu
