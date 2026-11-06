@@ -1,6 +1,6 @@
 # Audio Fundamentals — Waveforms, Sampling, Fourier Transform
 
-> Waveforms are the raw signal. Spectrograms are the representation. Mel features are the ML-friendly form. Every modern ASR and TTS pipeline walks this ladder, and the first rung is understanding sampling and Fourier.
+> Dạng sóng là tín hiệu thô. Phổ đồ là biểu diễn. Các đặc trưng Mel là dạng thân thiện với ML. Mọi pipeline ASR và TTS hiện đại đều đi qua chiếc thang này, và bậc đầu tiên là hiểu lấy mẫu và Fourier.
 
 **Type:** Learn
 **Languages:** Python
@@ -9,42 +9,42 @@
 
 ## The Problem
 
-A microphone produces a pressure-vs-time signal. Your neural net consumes tensors. Between them sits a stack of conventions that, when violated, produce silent bugs: the model trains fine but the WER doubles, or TTS ships a hiss, or a voice cloning system memorizes the microphone instead of the speaker.
+Một micro tạo một tín hiệu áp suất-theo-thời gian. Mạng nơ-ron của bạn tiêu thụ các tensor. Giữa chúng là một chồng quy ước mà khi bị vi phạm sẽ tạo các lỗi âm thầm: mô hình huấn luyện ổn nhưng WER tăng gấp đôi, hoặc TTS phát ra tiếng xì, hoặc một hệ thống nhân bản giọng nói ghi nhớ micro thay vì người nói.
 
-Every bug in speech systems traces back to one of three questions:
+Mọi lỗi trong các hệ thống tiếng nói bắt nguồn từ một trong ba câu hỏi:
 
-1. What sample rate was the data recorded at, and what does the model expect?
-2. Is the signal aliased?
-3. Are you operating on raw samples or on a frequency representation?
+1. Dữ liệu được ghi ở tần số lấy mẫu nào, và mô hình kỳ vọng gì?
+2. Tín hiệu có bị chồng phổ không?
+3. Bạn đang thao tác trên các mẫu thô hay trên một biểu diễn tần số?
 
-Get these right and the rest of Phase 6 is tractable. Get them wrong and even Whisper-Large-v4 produces garbage.
+Làm đúng những điều này và phần còn lại của Phase 6 có thể xử lý được. Làm sai và ngay cả Whisper-Large-v4 cũng tạo rác.
 
 ## The Concept
 
 ![Waveform, sampling, DFT, and frequency bins visualized](../assets/audio-fundamentals.svg)
 
-**Waveform.** A one-dimensional array of floats in `[-1.0, 1.0]`. Indexed by sample number. To convert to seconds, divide by the sample rate: `t = n / sr`. A 10-second clip at 16 kHz is an array of 160,000 floats.
+**Dạng sóng.** Một mảng một chiều các số float trong `[-1.0, 1.0]`. Được đánh chỉ số theo số mẫu. Để chuyển sang giây, chia cho tần số lấy mẫu: `t = n / sr`. Một đoạn 10 giây ở 16 kHz là một mảng 160,000 số float.
 
-**Sampling rate (sr).** How many samples per second. Common rates in 2026:
+**Tần số lấy mẫu (sr).** Bao nhiêu mẫu mỗi giây. Các tần số phổ biến năm 2026:
 
-| Rate | Use |
+| Tần số | Công dụng |
 |------|-----|
-| 8 kHz | Telephony, legacy VOIP. Nyquist at 4 kHz kills consonants. Avoid for ASR. |
-| 16 kHz | ASR standard. Whisper, Parakeet, SeamlessM4T v2 all consume 16 kHz. |
-| 22.05 kHz | TTS vocoder training for older models. |
-| 24 kHz | Modern TTS (Kokoro, F5-TTS, xTTS v2). |
-| 44.1 kHz | CD audio, music. |
-| 48 kHz | Film, pro audio, high-fidelity TTS (VALL-E 2, NaturalSpeech 3). |
+| 8 kHz | Điện thoại, VOIP cũ. Nyquist tại 4 kHz làm mất phụ âm. Tránh dùng cho ASR. |
+| 16 kHz | Tiêu chuẩn ASR. Whisper, Parakeet, SeamlessM4T v2 đều tiêu thụ 16 kHz. |
+| 22.05 kHz | Huấn luyện vocoder TTS cho các mô hình cũ hơn. |
+| 24 kHz | TTS hiện đại (Kokoro, F5-TTS, xTTS v2). |
+| 44.1 kHz | Âm thanh CD, âm nhạc. |
+| 48 kHz | Phim, âm thanh chuyên nghiệp, TTS độ trung thực cao (VALL-E 2, NaturalSpeech 3). |
 
-**Nyquist-Shannon.** A sample rate of `sr` can unambiguously represent frequencies up to `sr/2`. The `sr/2` boundary is the *Nyquist frequency*. Energy above Nyquist gets *aliased* — folded down into lower frequencies — and corrupts the signal. Always low-pass filter before downsampling.
+**Nyquist-Shannon.** Một tần số lấy mẫu `sr` có thể biểu diễn không nhập nhằng các tần số đến `sr/2`. Ranh giới `sr/2` là *tần số Nyquist*. Năng lượng trên Nyquist bị *chồng phổ* — gập xuống các tần số thấp hơn — và làm hỏng tín hiệu. Luôn lọc thông thấp trước khi giảm tần số lấy mẫu.
 
-**Bit depth.** 16-bit PCM (signed int16, range ±32,767) is the universal exchange format. 24-bit for music, 32-bit float for internal DSP. Libraries like `soundfile` read int16 but expose float32 arrays in `[-1, 1]`.
+**Độ sâu bit.** PCM 16 bit (int16 có dấu, phạm vi ±32,767) là định dạng trao đổi phổ dụng. 24 bit cho âm nhạc, float 32 bit cho DSP nội bộ. Các thư viện như `soundfile` đọc int16 nhưng cung cấp các mảng float32 trong `[-1, 1]`.
 
-**Fourier Transform.** Any finite signal is a sum of sinusoids at different frequencies. The Discrete Fourier Transform (DFT) computes, for `N` samples, `N` complex coefficients — one per frequency bin. `bin k` maps to frequency `k · sr / N` Hz. Magnitude is amplitude at that frequency, angle is phase.
+**Biến đổi Fourier.** Bất kỳ tín hiệu hữu hạn nào đều là một tổng các hình sin ở các tần số khác nhau. Biến đổi Fourier Rời rạc (DFT) tính, cho `N` mẫu, `N` hệ số phức — một cho mỗi bin tần số. `bin k` ánh xạ đến tần số `k · sr / N` Hz. Độ lớn là biên độ ở tần số đó, góc là pha.
 
-**FFT.** Fast Fourier Transform: an `O(N log N)` algorithm for the DFT when `N` is a power of 2. Every audio library uses FFT under the hood. A 1024-sample FFT at 16 kHz gives 512 usable frequency bins spanning 0–8 kHz at 15.6 Hz resolution.
+**FFT.** Biến đổi Fourier Nhanh: một thuật toán `O(N log N)` cho DFT khi `N` là lũy thừa của 2. Mọi thư viện âm thanh dùng FFT bên dưới. Một FFT 1024 mẫu ở 16 kHz cho 512 bin tần số dùng được trải từ 0–8 kHz ở độ phân giải 15.6 Hz.
 
-**Framing + window.** We do not FFT an entire clip. We chop it into overlapping *frames* (typically 25 ms with 10 ms hop), multiply each frame by a window function (Hann, Hamming) to kill edge discontinuities, then FFT each frame. This is the Short-Time Fourier Transform (STFT). Lesson 02 picks up from here.
+**Chia khung + cửa sổ.** Chúng ta không FFT toàn bộ một đoạn. Chúng ta cắt nó thành các *khung* chồng lấn (thường 25 ms với bước nhảy 10 ms), nhân mỗi khung với một hàm cửa sổ (Hann, Hamming) để loại các gián đoạn ở biên, rồi FFT mỗi khung. Đây là Biến đổi Fourier Thời gian Ngắn (STFT). Bài 02 tiếp nối từ đây.
 
 ```figure
 mel-scale
@@ -54,7 +54,7 @@ mel-scale
 
 ### Step 1: read a clip and plot the waveform
 
-`code/main.py` uses only the stdlib `wave` module to keep the demo dependency-free. For production you will use `soundfile` or `torchaudio.load` (both return `(waveform, sr)` tuples):
+`code/main.py` chỉ dùng mô-đun `wave` của stdlib để bản minh họa không có phụ thuộc. Cho production bạn sẽ dùng `soundfile` hoặc `torchaudio.load` (cả hai trả các tuple `(waveform, sr)`):
 
 ```python
 import soundfile as sf
@@ -71,7 +71,7 @@ def sine(freq_hz, sr, seconds, amp=0.5):
     return [amp * math.sin(2 * math.pi * freq_hz * i / sr) for i in range(n)]
 ```
 
-A 440 Hz sine (concert A) at 16 kHz for 1 second is 16,000 floats. Write with `wave.open(..., "wb")` using 16-bit PCM encoding.
+Một sóng sin 440 Hz (nốt La hòa nhạc) ở 16 kHz trong 1 giây là 16,000 số float. Ghi bằng `wave.open(..., "wb")` dùng mã hóa PCM 16 bit.
 
 ### Step 3: compute the DFT by hand
 
@@ -86,57 +86,57 @@ def dft(x):
     return out
 ```
 
-`O(N²)` — fine for `N=256` to confirm correctness, useless for real audio. Real code calls `numpy.fft.rfft` or `torch.fft.rfft`.
+`O(N²)` — ổn với `N=256` để xác nhận tính đúng đắn, vô dụng với âm thanh thực. Mã thực gọi `numpy.fft.rfft` hoặc `torch.fft.rfft`.
 
 ### Step 4: find the dominant frequency
 
-Magnitude peak index `k_star` maps to frequency `k_star * sr / N`. Running this on the 440 Hz sine should return a peak at bin `440 * N / sr`.
+Chỉ số đỉnh độ lớn `k_star` ánh xạ đến tần số `k_star * sr / N`. Chạy điều này trên sóng sin 440 Hz phải trả một đỉnh tại bin `440 * N / sr`.
 
 ### Step 5: demonstrate aliasing
 
-Sample a 7 kHz sine at 10 kHz (Nyquist = 5 kHz). The 7 kHz tone is above Nyquist and folds to `10 − 7 = 3 kHz`. The FFT peak appears at 3 kHz. This is the classic aliasing demo and the reason every DAC/ADC ships with a brick-wall low-pass filter.
+Lấy mẫu một sóng sin 7 kHz ở 10 kHz (Nyquist = 5 kHz). Âm 7 kHz nằm trên Nyquist và gập về `10 − 7 = 3 kHz`. Đỉnh FFT xuất hiện tại 3 kHz. Đây là bản minh họa chồng phổ kinh điển và là lý do mọi DAC/ADC đều có một bộ lọc thông thấp vách đứng.
 
 ## Use It
 
-The stack you will actually ship in 2026:
+Ngăn xếp bạn sẽ thực sự phát hành năm 2026:
 
-| Task | Library | Why |
+| Tác vụ | Thư viện | Vì sao |
 |------|---------|-----|
-| Read/write WAV/FLAC/OGG | `soundfile` (libsndfile wrapper) | Fastest, stable, returns float32. |
-| Resample | `torchaudio.transforms.Resample` or `librosa.resample` | Correct anti-aliasing built in. |
-| STFT / Mel | `torchaudio` or `librosa` | GPU-friendly; PyTorch ecosystem. |
-| Real-time streaming | `sounddevice` or `pyaudio` | Cross-platform PortAudio bindings. |
-| Inspect a file | `ffprobe` or `soxi` | CLI, fast, reports sr/channels/codec. |
+| Đọc/ghi WAV/FLAC/OGG | `soundfile` (lớp bọc libsndfile) | Nhanh nhất, ổn định, trả float32. |
+| Lấy mẫu lại | `torchaudio.transforms.Resample` hoặc `librosa.resample` | Tích hợp chống chồng phổ đúng. |
+| STFT / Mel | `torchaudio` hoặc `librosa` | Thân thiện GPU; hệ sinh thái PyTorch. |
+| Truyền luồng thời gian thực | `sounddevice` hoặc `pyaudio` | Các binding PortAudio đa nền tảng. |
+| Kiểm tra một file | `ffprobe` hoặc `soxi` | CLI, nhanh, báo cáo sr/số kênh/codec. |
 
-Decision rule: **match sample rate before you match anything else**. Whisper expects 16 kHz mono float32. Pass it 44.1 kHz stereo and you will get garbage that looks like a model bug.
+Quy tắc quyết định: **khớp tần số lấy mẫu trước khi khớp bất kỳ thứ gì khác**. Whisper kỳ vọng float32 mono 16 kHz. Truyền cho nó stereo 44.1 kHz và bạn sẽ nhận rác trông như lỗi mô hình.
 
 ## Ship It
 
-Save as `outputs/skill-audio-loader.md`. The skill helps you check that audio input matches the expectations of the downstream model and resamples correctly when it does not.
+Lưu thành `outputs/skill-audio-loader.md`. Skill giúp bạn kiểm tra đầu vào âm thanh có khớp các kỳ vọng của mô hình phía sau không và lấy mẫu lại đúng khi không khớp.
 
 ## Exercises
 
-1. **Easy.** Synthesize a 1-second mix of 220 Hz + 440 Hz + 880 Hz at 16 kHz. Run DFT. Confirm three peaks at the expected bins.
-2. **Medium.** Record a 3-second WAV of your voice at 48 kHz. Downsample to 16 kHz using `torchaudio.transforms.Resample` (with anti-aliasing), then to 16 kHz using naive decimation (every third sample). FFT both. Where does the aliasing appear?
-3. **Hard.** Build the STFT from scratch using only `math` and the DFT from Step 3. Frame size 400, hop 160, Hann window. Plot magnitudes with `matplotlib.pyplot.imshow`. This is the spectrogram of Lesson 02.
+1. **Dễ.** Tổng hợp một hỗn hợp 1 giây của 220 Hz + 440 Hz + 880 Hz ở 16 kHz. Chạy DFT. Xác nhận ba đỉnh tại các bin dự kiến.
+2. **Trung bình.** Ghi một WAV giọng nói của bạn dài 3 giây ở 48 kHz. Giảm tần số lấy mẫu xuống 16 kHz bằng `torchaudio.transforms.Resample` (có chống chồng phổ), rồi xuống 16 kHz bằng giảm mẫu ngây thơ (mỗi mẫu thứ ba). FFT cả hai. Chồng phổ xuất hiện ở đâu?
+3. **Khó.** Xây dựng STFT từ đầu chỉ dùng `math` và DFT từ Bước 3. Kích thước khung 400, bước nhảy 160, cửa sổ Hann. Vẽ các độ lớn bằng `matplotlib.pyplot.imshow`. Đây là phổ đồ của Bài 02.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Sample rate | How many samples per second | Frequency in Hz at which the ADC measures the signal. |
-| Nyquist | The max frequency you can represent | `sr/2`; energy above it aliases back down. |
-| Bit depth | Resolution of each sample | `int16` = 65,536 levels; `float32` = 24-bit precision in `[-1, 1]`. |
-| DFT | The Fourier transform for sequences | `N` samples → `N` complex frequency coefficients. |
-| FFT | The fast DFT | `O(N log N)` algorithm requiring `N` = power of 2. |
-| Bin | Frequency column | `k · sr / N` Hz; resolution = `sr / N`. |
-| STFT | Spectrogram under the hood | Framed + windowed FFT over time. |
-| Aliasing | Weird frequency ghosts | Energy above Nyquist mirroring down to lower bins. |
+| Sample rate (Tần số lấy mẫu) | Bao nhiêu mẫu mỗi giây | Tần số tính bằng Hz mà ADC đo tín hiệu. |
+| Nyquist | Tần số tối đa bạn có thể biểu diễn | `sr/2`; năng lượng phía trên nó bị chồng phổ trở xuống. |
+| Bit depth (Độ sâu bit) | Độ phân giải mỗi mẫu | `int16` = 65,536 mức; `float32` = độ chính xác 24 bit trong `[-1, 1]`. |
+| DFT | Biến đổi Fourier cho các chuỗi | `N` mẫu → `N` hệ số tần số phức. |
+| FFT | DFT nhanh | Thuật toán `O(N log N)` yêu cầu `N` = lũy thừa của 2. |
+| Bin | Cột tần số | `k · sr / N` Hz; độ phân giải = `sr / N`. |
+| STFT | Phổ đồ bên dưới | FFT được chia khung + áp cửa sổ theo thời gian. |
+| Aliasing (Chồng phổ) | Các bóng tần số kỳ lạ | Năng lượng trên Nyquist phản chiếu xuống các bin thấp hơn. |
 
 ## Further Reading
 
-- [Shannon (1949). Communication in the Presence of Noise](https://people.math.harvard.edu/~ctm/home/text/others/shannon/entropy/entropy.pdf) — the paper behind the sampling theorem.
-- [Smith — The Scientist and Engineer's Guide to Digital Signal Processing](https://www.dspguide.com/ch8.htm) — free, canonical DSP textbook.
-- [librosa docs — audio primer](https://librosa.org/doc/latest/auto_tutorials/index.html) — practical walkthrough with code.
-- [Heinrich Kuttruff — Room Acoustics (6th ed.)](https://www.taylorfrancis.com/books/mono/10.1201/9781315372150/room-acoustics-heinrich-kuttruff) — reference for why real-world audio is not a clean sinusoid.
-- [Steve Eddins — FFT Interpretation notebook](https://blogs.mathworks.com/steve/2020/03/30/fft-spectrum-and-spectral-densities/) — frequency bin intuition cleared up in 10 minutes.
+- [Shannon (1949). Communication in the Presence of Noise](https://people.math.harvard.edu/~ctm/home/text/others/shannon/entropy/entropy.pdf) — bài báo đằng sau định lý lấy mẫu.
+- [Smith — The Scientist and Engineer's Guide to Digital Signal Processing](https://www.dspguide.com/ch8.htm) — giáo trình DSP miễn phí, kinh điển.
+- [librosa docs — audio primer](https://librosa.org/doc/latest/auto_tutorials/index.html) — hướng dẫn thực hành có mã.
+- [Heinrich Kuttruff — Room Acoustics (6th ed.)](https://www.taylorfrancis.com/books/mono/10.1201/9781315372150/room-acoustics-heinrich-kuttruff) — tham chiếu cho lý do âm thanh thực tế không phải một hình sin sạch.
+- [Steve Eddins — FFT Interpretation notebook](https://blogs.mathworks.com/steve/2020/03/30/fft-spectrum-and-spectral-densities/) — làm rõ trực giác bin tần số trong 10 phút.

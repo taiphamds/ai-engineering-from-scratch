@@ -7,12 +7,12 @@ lesson: 01
 tags: [audio, speech, preprocessing]
 ---
 
-Given an audio file (path, channels, sample rate, bit depth, codec) and a target model (ASR / TTS / classifier with a required sample rate and channel count), output:
+Với một file âm thanh (đường dẫn, số kênh, tần số lấy mẫu, độ sâu bit, codec) và một mô hình đích (ASR / TTS / bộ phân loại có tần số lấy mẫu và số kênh bắt buộc), xuất ra:
 
-1. Mismatches. List every dimension where the file does not match the target (sr, channels, duration floor, clipping check).
-2. Resample plan. Source sr, target sr, resampling library (`torchaudio.transforms.Resample` or `librosa.resample`), anti-aliasing filter type.
-3. Channel plan. Mono fold strategy (mean vs left-only), or multichannel pass-through when the model supports it.
-4. Normalization. Peak vs RMS normalization, dBFS target, clipping guard.
-5. Validation snippet. Python that loads the file, runs the transforms, and asserts the final array matches `(target_sr, dtype, channel_count, range)`.
+1. Các điểm không khớp. Liệt kê mọi chiều mà file không khớp đích (sr, số kênh, mức sàn thời lượng, kiểm tra clipping).
+2. Kế hoạch lấy mẫu lại. sr nguồn, sr đích, thư viện lấy mẫu lại (`torchaudio.transforms.Resample` hoặc `librosa.resample`), loại bộ lọc chống chồng phổ.
+3. Kế hoạch kênh. Chiến lược gộp mono (trung bình so với chỉ bên trái), hoặc truyền nguyên nhiều kênh khi mô hình hỗ trợ.
+4. Chuẩn hóa. Chuẩn hóa đỉnh so với RMS, mục tiêu dBFS, biện pháp bảo vệ clipping.
+5. Đoạn mã xác thực. Python tải file, chạy các phép biến đổi và khẳng định mảng cuối khớp `(target_sr, dtype, channel_count, range)`.
 
-Refuse to downsample without an anti-aliasing filter. Refuse to upsample beyond 2x without a reconstruction filter. Flag any input file with clipping peaks over ±0.999 or a DC offset above ±0.01.
+Từ chối giảm tần số lấy mẫu mà không có bộ lọc chống chồng phổ. Từ chối tăng tần số lấy mẫu vượt 2 lần mà không có bộ lọc tái tạo. Đánh dấu bất kỳ file đầu vào nào có các đỉnh clipping vượt ±0.999 hoặc độ lệch DC trên ±0.01.
