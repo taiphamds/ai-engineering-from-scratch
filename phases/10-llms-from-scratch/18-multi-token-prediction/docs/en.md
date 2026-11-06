@@ -1,6 +1,6 @@
 # Multi-Token Prediction (MTP)
 
-> Every autoregressive LLM from GPT-2 to Llama 3 trains on one loss per position: predict the next token. DeepSeek-V3 added a second loss per position: predict the token after that. The extra 14B of parameters (on a 671B model) got distilled back into the main model through gradient flow, and the trained MTP heads were repurposed at inference as speculative-decoding drafters with 80%+ acceptance. 1.8× generation throughput came for free. This lesson builds the sequential MTP module from the DeepSeek technical report, computes the loss and the shared-head parameter layout, and explains why MTP keeps the causal chain while Gloeckle et al.'s original parallel MTP broke it.
+> Mọi LLM tự hồi quy từ GPT-2 đến Llama 3 đều huấn luyện với một loss cho mỗi vị trí: dự đoán token tiếp theo. DeepSeek-V3 thêm một loss thứ hai cho mỗi vị trí: dự đoán token sau token đó. 14B tham số bổ sung (trên mô hình 671B) được chưng cất trở lại mô hình chính thông qua luồng gradient, và các head MTP đã huấn luyện được tái sử dụng khi suy luận làm bộ dự thảo speculative decoding với tỷ lệ chấp nhận 80%+. Thông lượng sinh 1.8× có được mà không tốn thêm chi phí. Bài học này xây dựng mô-đun MTP tuần tự từ báo cáo kỹ thuật DeepSeek, tính loss và bố trí tham số của head dùng chung, đồng thời giải thích tại sao MTP giữ chuỗi nhân quả trong khi MTP song song ban đầu của Gloeckle và cộng sự phá vỡ nó.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,101 +9,101 @@
 
 ## Learning Objectives
 
-- State the MTP training objective and derive the joint loss across prediction depths.
-- Explain the difference between Gloeckle et al.'s parallel MTP heads (2024) and DeepSeek-V3's sequential MTP modules and why the sequential design preserves the causal chain.
-- Compute the parameter and memory overhead of adding MTP modules to a pre-training run.
-- Implement one MTP module from scratch: the shared embedding, the per-depth transformer block, the projection, and the shared output head.
+- Phát biểu mục tiêu huấn luyện MTP và suy ra loss kết hợp trên các độ sâu dự đoán.
+- Giải thích sự khác biệt giữa các head MTP song song của Gloeckle và cộng sự (2024) và các mô-đun MTP tuần tự của DeepSeek-V3, và tại sao thiết kế tuần tự bảo toàn chuỗi nhân quả.
+- Tính chi phí tham số và bộ nhớ bổ sung khi thêm các mô-đun MTP vào một lượt tiền huấn luyện.
+- Triển khai một mô-đun MTP từ đầu: embedding dùng chung, khối transformer cho từng độ sâu, phép chiếu và head đầu ra dùng chung.
 
 ## The Problem
 
-Next-token prediction is the standard LLM training objective. Every hidden state is supervised to predict exactly one thing: the immediately following token. That is a surprisingly weak signal. Most of the information in a sequence extends beyond one token — structure, coherence, factuality, arithmetic flow. The model has to learn those by accumulating many one-token signals over trillions of tokens.
+Dự đoán token tiếp theo là mục tiêu huấn luyện LLM tiêu chuẩn. Mỗi trạng thái ẩn được giám sát để dự đoán đúng một thứ: token ngay sau nó. Đó là một tín hiệu yếu đến ngạc nhiên. Phần lớn thông tin trong một chuỗi trải rộng ngoài một token — cấu trúc, tính mạch lạc, tính đúng đắn về sự kiện, luồng số học. Mô hình phải học những điều đó bằng cách tích lũy nhiều tín hiệu một token trên hàng nghìn tỷ token.
 
-MTP asks: what if every hidden state were supervised to predict multiple future tokens at once? Gloeckle et al. (Meta, 2024) showed this helps. Their implementation put several independent output heads on top of the backbone, each predicting a different offset. Parallel, simple, but the heads saw the same hidden state without any hierarchical refinement — and the predictions did not chain causally, so they could not be used for speculative decoding.
+MTP đặt câu hỏi: điều gì xảy ra nếu mỗi trạng thái ẩn được giám sát để dự đoán nhiều token tương lai cùng lúc? Gloeckle và cộng sự (Meta, 2024) cho thấy điều này hữu ích. Triển khai của họ đặt một số head đầu ra độc lập trên backbone, mỗi head dự đoán một độ lệch khác nhau. Song song, đơn giản, nhưng các head thấy cùng một trạng thái ẩn mà không có bất kỳ sự tinh chỉnh phân cấp nào — và các dự đoán không nối chuỗi theo quan hệ nhân quả, nên không thể dùng chúng cho speculative decoding.
 
-DeepSeek-V3 (December 2024) re-designed MTP as sequential modules that keep the causal chain at each prediction depth. The model predicts `t+1` from `h_i^(0)`, then predicts `t+2` from a new hidden state `h_i^(1)` that combined `h_i^(0)` with the `E(t+1)` embedding, and so on. Each depth is its own small transformer block. The shared embedding and shared output head keep parameter overhead modest. At DeepSeek-V3's scale, 14B extra parameters across MTP modules on top of 671B main-model weights. That 2% overhead bought denser training signals AND a ready-made speculative-decoding draft at inference.
+DeepSeek-V3 (tháng 12 năm 2024) thiết kế lại MTP thành các mô-đun tuần tự giữ chuỗi nhân quả ở mỗi độ sâu dự đoán. Mô hình dự đoán `t+1` từ `h_i^(0)`, rồi dự đoán `t+2` từ trạng thái ẩn mới `h_i^(1)` kết hợp `h_i^(0)` với embedding `E(t+1)`, và cứ thế. Mỗi độ sâu là một khối transformer nhỏ riêng. Embedding dùng chung và head đầu ra dùng chung giữ chi phí tham số bổ sung ở mức khiêm tốn. Ở quy mô DeepSeek-V3, 14B tham số bổ sung trên các mô-đun MTP ngoài 671B trọng số mô hình chính. Chi phí bổ sung 2% đó mang lại tín hiệu huấn luyện dày đặc hơn VÀ một bản dự thảo speculative decoding có sẵn khi suy luận.
 
-This lesson builds a single MTP module and the D-depth loss from scratch. The math is tidy. The implementation is 150 lines.
+Bài học này xây dựng một mô-đun MTP và loss D độ sâu từ đầu. Phần toán gọn gàng. Phần triển khai dài 150 dòng.
 
 ## The Concept
 
 ### The sequential MTP recipe
 
-DeepSeek-V3 adds `D` MTP modules on top of the main model. Each module `k` (for `k = 1..D`) predicts the token at depth `k` — that is, `t_{i+k}` given a prefix through position `i`.
+DeepSeek-V3 thêm `D` mô-đun MTP trên mô hình chính. Mỗi mô-đun `k` (với `k = 1..D`) dự đoán token ở độ sâu `k` — tức là `t_{i+k}` với tiền tố đến hết vị trí `i`.
 
-Module `k` consists of:
+Mô-đun `k` gồm:
 
-- A transformer block `T_k` with its own attention and MLP.
-- A projection matrix `M_k` that combines the previous-depth hidden state with the embedding of the next-depth ground-truth token.
-- The shared embedding `E` (same as the main model).
-- The shared output head `Out` (same as the main model).
+- Một khối transformer `T_k` với attention và MLP riêng.
+- Một ma trận chiếu `M_k` kết hợp trạng thái ẩn ở độ sâu trước với embedding của token nhãn thực ở độ sâu tiếp theo.
+- Embedding dùng chung `E` (giống mô hình chính).
+- Head đầu ra dùng chung `Out` (giống mô hình chính).
 
-At training, for a prefix through position `i`, the per-depth hidden state is:
+Khi huấn luyện, với một tiền tố đến hết vị trí `i`, trạng thái ẩn ở từng độ sâu là:
 
 ```
 h_i^(0) = main model backbone at position i
 h_i^(k) = T_k( M_k * concat(RMSNorm(h_i^(k-1)), RMSNorm(E(t_{i+k}))) )   for k >= 1
 ```
 
-The per-depth prediction is:
+Dự đoán ở từng độ sâu là:
 
 ```
 logits_{i+k} = Out(h_i^(k-1))   for k = 1..D
 ```
 
-The per-depth loss is cross-entropy against the ground-truth `t_{i+k}`:
+Loss ở từng độ sâu là cross-entropy so với nhãn thực `t_{i+k}`:
 
 ```
 L_k = CE(logits_{i+k}, t_{i+k})
 ```
 
-The joint loss across depths:
+Loss kết hợp trên các độ sâu:
 
 ```
 L_MTP = (lambda / D) * sum_{k=1..D} L_k
 ```
 
-`lambda` is a small weighting factor — DeepSeek-V3 uses 0.3 for the first 10% of training and 0.1 afterward. The total training loss is `L_main + L_MTP`.
+`lambda` là một hệ số trọng số nhỏ — DeepSeek-V3 dùng 0.3 trong 10% đầu quá trình huấn luyện và 0.1 sau đó. Tổng loss huấn luyện là `L_main + L_MTP`.
 
 ### Why sequential, not parallel
 
-Gloeckle's original parallel MTP had D output heads, each directly applied to `h_i^(0)`. Each head predicts `t_{i+k}` from the same backbone hidden state. That trains fine, but the predictions are not conditioned on each other. You cannot use `head_1`'s output to help `head_2` — the heads fire in parallel.
+MTP song song ban đầu của Gloeckle có D head đầu ra, mỗi head được áp dụng trực tiếp lên `h_i^(0)`. Mỗi head dự đoán `t_{i+k}` từ cùng trạng thái ẩn của backbone. Điều đó huấn luyện tốt, nhưng các dự đoán không được điều kiện hóa theo nhau. Bạn không thể dùng đầu ra của `head_1` để hỗ trợ `head_2` — các head hoạt động song song.
 
-DeepSeek-V3's sequential design builds `h_i^(k)` from `h_i^(k-1)` plus the actual next-token embedding `E(t_{i+k})`. That preserves the causal chain: to predict `t_{i+k+1}`, the module at depth `k+1` sees what was at `t_{i+k}`. This is structurally identical to how an autoregressive decoder consumes its own output — making the MTP modules directly usable as speculative-decoding drafters.
+Thiết kế tuần tự của DeepSeek-V3 xây dựng `h_i^(k)` từ `h_i^(k-1)` cộng embedding token tiếp theo thực tế `E(t_{i+k})`. Điều đó bảo toàn chuỗi nhân quả: để dự đoán `t_{i+k+1}`, mô-đun ở độ sâu `k+1` thấy những gì có tại `t_{i+k}`. Về cấu trúc, điều này giống hệt cách một bộ giải mã tự hồi quy tiêu thụ đầu ra của chính nó — khiến các mô-đun MTP có thể được dùng trực tiếp làm bộ dự thảo speculative decoding.
 
-At inference: feed `h_i^(k-1)` and the drafted `t_{i+k}` into module `k+1`, get a prediction for `t_{i+k+1}`. Repeat. That is exactly an EAGLE-style draft, using the trained MTP module as the draft network. DeepSeek-V3 reports 80%+ acceptance on the first MTP module and ~1.8× speedup.
+Khi suy luận: đưa `h_i^(k-1)` và `t_{i+k}` đã dự thảo vào mô-đun `k+1`, nhận dự đoán cho `t_{i+k+1}`. Lặp lại. Đó chính xác là một bản dự thảo kiểu EAGLE, dùng mô-đun MTP đã huấn luyện làm mạng dự thảo. DeepSeek-V3 báo cáo tỷ lệ chấp nhận 80%+ trên mô-đun MTP đầu tiên và tăng tốc ~1.8×.
 
 ### Parameter accounting
 
-For a model with hidden `h` and vocabulary `V`:
+Với một mô hình có kích thước ẩn `h` và từ vựng `V`:
 
-- Main model: billions of parameters, plus one output head of size `V * h`.
-- Shared output head: reuse the main model's head. No extra params.
-- Shared embedding: reuse the main model's embedding. No extra params.
-- Per-MTP module:
-  - Projection `M_k`: `(2h) * h = 2h^2`.
-  - Transformer block `T_k`: attention (`4h^2` for MHA) plus MLP (typically `8h^2` for SwiGLU with ratio 8/3). About `12h^2` per block.
+- Mô hình chính: hàng tỷ tham số, cộng một head đầu ra kích thước `V * h`.
+- Head đầu ra dùng chung: tái sử dụng head của mô hình chính. Không có tham số bổ sung.
+- Embedding dùng chung: tái sử dụng embedding của mô hình chính. Không có tham số bổ sung.
+- Mỗi mô-đun MTP:
+  - Phép chiếu `M_k`: `(2h) * h = 2h^2`.
+  - Khối transformer `T_k`: attention (`4h^2` với MHA) cộng MLP (thường là `8h^2` với SwiGLU có tỷ lệ 8/3). Khoảng `12h^2` mỗi khối.
 
-Total extra per module: `~14h^2`. For DeepSeek-V3's `h = 7168`, D = 1 module: `~14 * 7168^2 = ~720M` parameters on paper. DeepSeek-V3 reports 14B — the difference is mostly expert layers being MoE in the MTP module too.
+Tổng bổ sung cho mỗi mô-đun: `~14h^2`. Với `h = 7168` của DeepSeek-V3, D = 1 mô-đun: `~14 * 7168^2 = ~720M` tham số trên lý thuyết. DeepSeek-V3 báo cáo 14B — sự khác biệt chủ yếu do các lớp expert cũng là MoE trong mô-đun MTP.
 
 ### The speculative-decoding payoff
 
-During pre-training, the MTP modules slow training by about 10% (more forward compute, extra loss). The payoff is two-fold:
+Trong tiền huấn luyện, các mô-đun MTP làm chậm huấn luyện khoảng 10% (thêm tính toán forward, thêm loss). Lợi ích có hai phần:
 
-1. Denser training signal. Each hidden state sees D+1 supervision targets. Measured effect on MMLU, GSM8K, MATH, HumanEval: consistent few-percentage-point improvements in DeepSeek-V3's ablations.
+1. Tín hiệu huấn luyện dày đặc hơn. Mỗi trạng thái ẩn thấy D+1 mục tiêu giám sát. Hiệu quả đo được trên MMLU, GSM8K, MATH, HumanEval: cải thiện nhất quán vài điểm phần trăm trong các thí nghiệm loại bỏ thành phần của DeepSeek-V3.
 
-2. Free speculative decoding draft at inference. The MTP module is already trained to predict the next few tokens. Repurposed as a draft network, it delivers 80%+ acceptance rates. At that level, N=3 or N=5 spec decoding gives 1.8× throughput. The 10% training-time cost pays back the first time you run inference.
+2. Bản dự thảo speculative decoding miễn phí khi suy luận. Mô-đun MTP đã được huấn luyện để dự đoán vài token tiếp theo. Được tái sử dụng làm mạng dự thảo, nó đem lại tỷ lệ chấp nhận 80%+. Ở mức đó, spec decoding với N=3 hoặc N=5 cho thông lượng 1.8×. Chi phí 10% thời gian huấn luyện được hoàn lại ngay lần đầu bạn chạy suy luận.
 
 ### Relation to EAGLE
 
-EAGLE trains a small draft model SEPARATELY after pre-training. MTP bakes the draft into pre-training. The two approaches converge on similar accept rates but via different pipelines:
+EAGLE huấn luyện một mô hình dự thảo nhỏ RIÊNG BIỆT sau tiền huấn luyện. MTP tích hợp bản dự thảo vào tiền huấn luyện. Hai cách tiếp cận hội tụ về tỷ lệ chấp nhận tương tự nhưng qua các quy trình khác nhau:
 
-| Dimension | EAGLE-3 | MTP (DeepSeek-V3) |
+| Khía cạnh | EAGLE-3 | MTP (DeepSeek-V3) |
 |-----------|---------|------------------|
-| When trained | Post-pre-training | During pre-training |
-| Backward-compatible with existing weights | Yes | No (need to re-train) |
-| Draft params | 1-2 transformer layers | 1 transformer block + projection |
-| Acceptance rate | 0.88-0.92 | 0.80+ at depth 1 |
-| Benefit beyond speedup | Speculative decoding only | Denser training signal + speedup |
+| Thời điểm huấn luyện | Sau tiền huấn luyện | Trong tiền huấn luyện |
+| Tương thích ngược với trọng số hiện có | Có | Không (cần huấn luyện lại) |
+| Tham số dự thảo | 1-2 lớp transformer | 1 khối transformer + phép chiếu |
+| Tỷ lệ chấp nhận | 0.88-0.92 | 0.80+ ở độ sâu 1 |
+| Lợi ích ngoài tăng tốc | Chỉ speculative decoding | Tín hiệu huấn luyện dày đặc hơn + tăng tốc |
 
 ```figure
 multi-token-predict
@@ -111,11 +111,11 @@ multi-token-predict
 
 ## Build It
 
-`code/main.py` builds a single MTP module end to end: shared embedding, projection, transformer block, shared output head. It then computes the per-depth cross-entropy loss on a short synthetic sequence and prints the parameter count by component. A toy vocabulary of 32 tokens keeps the numbers readable.
+`code/main.py` xây dựng một mô-đun MTP từ đầu đến cuối: embedding dùng chung, phép chiếu, khối transformer, head đầu ra dùng chung. Sau đó nó tính loss cross-entropy ở từng độ sâu trên một chuỗi tổng hợp ngắn và in số tham số theo thành phần. Một từ vựng minh họa gồm 32 token giữ cho các con số dễ đọc.
 
 ### Step 1: shared embedding table
 
-A single `vocab_size x hidden` table is used by the main model AND by every MTP module at every depth. Not a second copy — literally the same tensor.
+Một bảng `vocab_size x hidden` duy nhất được dùng bởi mô hình chính VÀ bởi mọi mô-đun MTP ở mọi độ sâu. Không phải bản sao thứ hai — đúng cùng một tensor.
 
 ### Step 2: the per-depth combination
 
@@ -127,78 +127,78 @@ def combine(prev_hidden, next_token_embed, M_k):
     return projected
 ```
 
-Real DeepSeek-V3 concatenates the two RMSNormed vectors to `[2h]` and projects with an `h x 2h` matrix. The toy uses vector addition for stdlib brevity.
+DeepSeek-V3 thực tế nối hai vector đã qua RMSNorm thành `[2h]` và chiếu bằng ma trận `h x 2h`. Bản minh họa dùng phép cộng vector để ngắn gọn với stdlib.
 
 ### Step 3: the transformer block at depth k
 
-Self-attention plus MLP. In the toy, a one-layer linear attention block and a SwiGLU MLP keep the structure visible without numpy.
+Self-attention cộng MLP. Trong bản minh họa, một khối linear attention một lớp và một MLP SwiGLU giữ cho cấu trúc dễ thấy mà không cần numpy.
 
 ### Step 4: the shared output head
 
-Reuse the main model's output projection. Logits over the vocabulary.
+Tái sử dụng phép chiếu đầu ra của mô hình chính. Logit trên từ vựng.
 
 ### Step 5: per-depth loss
 
-Cross-entropy of softmax(logits) against the ground-truth token at offset `k`. Aggregate across depths with the `lambda / D` scaling factor.
+Cross-entropy của softmax(logits) so với token nhãn thực ở độ lệch `k`. Tổng hợp trên các độ sâu với hệ số tỷ lệ `lambda / D`.
 
 ### Step 6: parameter accounting
 
-Print the total parameter count, the shared (embedding, head) count, and the per-module extra count. Show the ratio of MTP extra to main-model size.
+In tổng số tham số, số tham số dùng chung (embedding, head) và số tham số bổ sung của từng mô-đun. Hiển thị tỷ lệ phần bổ sung MTP so với kích thước mô hình chính.
 
 ## Use It
 
-MTP is integrated into DeepSeek-V3 (December 2024) and the DeepSeek-R1 series. At inference:
+MTP được tích hợp vào DeepSeek-V3 (tháng 12 năm 2024) và dòng DeepSeek-R1. Khi suy luận:
 
-- DeepSeek's own serving stack consumes MTP modules as speculative decoders out of the box.
-- vLLM and SGLang have integration paths for DeepSeek-V3 MTP as of April 2026.
-- AMD's ROCm SGLang tutorial shows a specific MTP speculative-decoding config with measured 1.8× speedup on the V3 checkpoint.
+- Ngăn xếp phục vụ của chính DeepSeek sử dụng các mô-đun MTP làm bộ giải mã suy đoán ngay từ đầu.
+- vLLM và SGLang có các cách tích hợp cho MTP của DeepSeek-V3 tính đến tháng 4 năm 2026.
+- Hướng dẫn ROCm SGLang của AMD trình bày một cấu hình speculative decoding MTP cụ thể với mức tăng tốc đo được 1.8× trên checkpoint V3.
 
-When to use MTP in a new pre-training run:
+Khi nào dùng MTP trong một lượt tiền huấn luyện mới:
 
-- You control the full pre-training pipeline and want to bank denser training signal.
-- You know you will serve the model at scale and want speculative decoding for free.
-- Your hidden size is at least 4096. At 1B-scale the overhead hurts more than the gain helps.
+- Bạn kiểm soát toàn bộ quy trình tiền huấn luyện và muốn tích lũy tín hiệu huấn luyện dày đặc hơn.
+- Bạn biết mình sẽ phục vụ mô hình ở quy mô lớn và muốn có speculative decoding miễn phí.
+- Kích thước ẩn của bạn ít nhất là 4096. Ở quy mô 1B, chi phí bổ sung gây hại nhiều hơn mức lợi ích giúp ích.
 
-When not to:
+Khi nào không nên:
 
-- Fine-tuning an existing pre-trained dense model. The MTP module is not trained.
-- Research models where you want a clean baseline to compare against. MTP changes the architecture.
+- Fine-tuning một mô hình dense đã tiền huấn luyện hiện có. Mô-đun MTP chưa được huấn luyện.
+- Các mô hình nghiên cứu mà bạn muốn một baseline rõ ràng để so sánh. MTP thay đổi kiến trúc.
 
 ## Ship It
 
-This lesson produces `outputs/skill-mtp-planner.md`. Given a pre-training run specification (model size, data, compute), it returns a plan for integrating MTP: number of depths D, `lambda` schedule, memory overhead, and the inference-time speculative-decoding wiring.
+Bài học này tạo ra `outputs/skill-mtp-planner.md`. Với một đặc tả lượt tiền huấn luyện (kích thước mô hình, dữ liệu, tính toán), nó trả về kế hoạch tích hợp MTP: số độ sâu D, lịch `lambda`, chi phí bộ nhớ bổ sung và cách kết nối speculative decoding khi suy luận.
 
 ## Exercises
 
-1. Run `code/main.py`. Show the per-depth loss decreases monotonically as the synthetic signal strengthens. Modify the synthetic to use a fixed pattern and verify both depth-1 and depth-2 losses converge.
+1. Chạy `code/main.py`. Cho thấy loss ở từng độ sâu giảm đơn điệu khi tín hiệu tổng hợp mạnh lên. Sửa dữ liệu tổng hợp để dùng một mẫu cố định và xác minh loss ở cả độ sâu 1 và độ sâu 2 hội tụ.
 
-2. Compute the parameter overhead for a dense 70B model (hidden 8192, 80 layers) with D=1 MTP module. Compare to the DeepSeek-V3 reported 14B overhead. Explain why DeepSeek's number is higher: the MTP transformer block inherits the same MoE structure, inflating the per-module parameter count.
+2. Tính chi phí tham số bổ sung cho mô hình dense 70B (kích thước ẩn 8192, 80 lớp) với D=1 mô-đun MTP. So sánh với chi phí bổ sung 14B được DeepSeek-V3 báo cáo. Giải thích tại sao con số của DeepSeek cao hơn: khối transformer MTP kế thừa cùng cấu trúc MoE, làm tăng số tham số của mỗi mô-đun.
 
-3. Implement D=2 in the toy: add a second MTP module that takes h^(1) and predicts `t_{i+2}`. Verify the joint loss and the parameter accounting match the DeepSeek paper's equations 19-21.
+3. Triển khai D=2 trong bản minh họa: thêm mô-đun MTP thứ hai nhận h^(1) và dự đoán `t_{i+2}`. Xác minh loss kết hợp và việc tính tham số khớp với các phương trình 19-21 trong bài báo DeepSeek.
 
-4. Switch the toy to parallel MTP (Gloeckle-style): add D output heads on top of the main hidden state, each predicting a different offset. Measure how the losses per depth compare to the sequential version on the same synthetic signal. The sequential version should produce lower depth-k loss for k > 1 because it conditions on the intermediate predictions.
+4. Chuyển bản minh họa sang MTP song song (kiểu Gloeckle): thêm D head đầu ra trên trạng thái ẩn chính, mỗi head dự đoán một độ lệch khác nhau. Đo cách các loss ở từng độ sâu so sánh với phiên bản tuần tự trên cùng tín hiệu tổng hợp. Phiên bản tuần tự phải tạo loss độ sâu k thấp hơn với k > 1 vì nó điều kiện hóa theo các dự đoán trung gian.
 
-5. Use the trained MTP module as an EAGLE-style draft: call module k to propose `t_{i+k}` at inference. Measure the acceptance rate of these draft tokens against the main model's predictions on a held-out sequence. If you hit 50%+ on the toy, you have reproduced the empirical MTP-as-draft property.
+5. Dùng mô-đun MTP đã huấn luyện làm bản dự thảo kiểu EAGLE: gọi mô-đun k để đề xuất `t_{i+k}` khi suy luận. Đo tỷ lệ chấp nhận các token dự thảo này so với dự đoán của mô hình chính trên một chuỗi giữ riêng. Nếu bạn đạt 50%+ trên bản minh họa, bạn đã tái hiện thuộc tính thực nghiệm MTP làm bản dự thảo.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| MTP module | "Extra loss block" | A small transformer block plus projection that predicts a token `k` positions ahead of the main model |
-| Prediction depth | "Which offset" | The integer `k` such that module `k` predicts `t_{i+k}` from prefix through position `i` |
-| Parallel MTP | "Gloeckle-style" | D independent heads on the same backbone hidden state, no conditional chain |
-| Sequential MTP | "DeepSeek-V3 style" | Each module conditions on the previous depth's hidden state plus the next token's embedding; preserves causal chain |
-| Shared output head | "Reuse the main head" | The MTP modules call the main model's LM head, not a separate output projection |
-| Shared embedding | "Reuse the main table" | Same vocabulary embedding table is used everywhere; no duplicate parameters |
-| Projection matrix M_k | "Combine hidden + next-token" | An `h x 2h` linear layer that folds the previous hidden state and the target-token embedding into the next depth's input |
-| Joint loss L_MTP | "Averaged extra losses" | Arithmetic mean of per-depth cross-entropy losses, scaled by `lambda` |
-| Acceptance rate at depth 1 | "How often MTP draft is right" | The rate at which the D=1 MTP module's top-1 prediction equals the main model's top-1 prediction; 80%+ on DeepSeek-V3 |
-| Lambda weighting | "Extra-loss importance" | Per-depth scaling factor; 0.3 at start of training, 0.1 later on DeepSeek-V3 |
+| MTP module (Mô-đun MTP) | "Khối loss bổ sung" | Một khối transformer nhỏ cộng phép chiếu dự đoán một token đi trước mô hình chính `k` vị trí |
+| Prediction depth (Độ sâu dự đoán) | "Độ lệch nào" | Số nguyên `k` sao cho mô-đun `k` dự đoán `t_{i+k}` từ tiền tố đến hết vị trí `i` |
+| Parallel MTP (MTP song song) | "Kiểu Gloeckle" | D head độc lập trên cùng trạng thái ẩn của backbone, không có chuỗi điều kiện |
+| Sequential MTP (MTP tuần tự) | "Kiểu DeepSeek-V3" | Mỗi mô-đun điều kiện hóa theo trạng thái ẩn của độ sâu trước cộng embedding của token tiếp theo; bảo toàn chuỗi nhân quả |
+| Shared output head (Head đầu ra dùng chung) | "Tái sử dụng head chính" | Các mô-đun MTP gọi LM head của mô hình chính, không phải một phép chiếu đầu ra riêng |
+| Shared embedding (Embedding dùng chung) | "Tái sử dụng bảng chính" | Cùng một bảng embedding từ vựng được dùng ở mọi nơi; không có tham số trùng lặp |
+| Projection matrix M_k (Ma trận chiếu M_k) | "Kết hợp trạng thái ẩn + token tiếp theo" | Một lớp tuyến tính `h x 2h` gộp trạng thái ẩn trước và embedding token mục tiêu vào đầu vào của độ sâu tiếp theo |
+| Joint loss L_MTP (Loss kết hợp L_MTP) | "Các loss bổ sung được lấy trung bình" | Trung bình cộng của các loss cross-entropy ở từng độ sâu, được nhân tỷ lệ `lambda` |
+| Acceptance rate at depth 1 (Tỷ lệ chấp nhận ở độ sâu 1) | "Tần suất bản dự thảo MTP đúng" | Tỷ lệ dự đoán top-1 của mô-đun MTP D=1 bằng dự đoán top-1 của mô hình chính; 80%+ trên DeepSeek-V3 |
+| Lambda weighting (Trọng số lambda) | "Mức quan trọng của loss bổ sung" | Hệ số tỷ lệ ở từng độ sâu; 0.3 khi bắt đầu huấn luyện, 0.1 về sau trên DeepSeek-V3 |
 
 ## Further Reading
 
-- [DeepSeek-AI — DeepSeek-V3 Technical Report (arXiv:2412.19437)](https://arxiv.org/abs/2412.19437) — the full sequential MTP description (Section 2.2), including the joint-loss equations and the 1.8× speedup at inference
-- [Gloeckle et al. — Better & Faster Large Language Models via Multi-token Prediction (arXiv:2404.19737)](https://arxiv.org/abs/2404.19737) — the parallel MTP baseline DeepSeek's design improves on
-- [DeepSeek-V3 model card on Hugging Face](https://huggingface.co/deepseek-ai/DeepSeek-V3) — 685B total (671B main + 14B MTP), deployment notes
-- [Leviathan et al. — Fast Inference from Transformers via Speculative Decoding (arXiv:2211.17192)](https://arxiv.org/abs/2211.17192) — the speculative-decoding framework MTP fits into
-- [Li et al. — EAGLE-3 (arXiv:2503.01840)](https://arxiv.org/abs/2503.01840) — EAGLE's 2025 draft architecture, the counterpart MTP competes with
+- [DeepSeek-AI — DeepSeek-V3 Technical Report (arXiv:2412.19437)](https://arxiv.org/abs/2412.19437) — mô tả đầy đủ về MTP tuần tự (Mục 2.2), gồm các phương trình loss kết hợp và mức tăng tốc 1.8× khi suy luận
+- [Gloeckle et al. — Better & Faster Large Language Models via Multi-token Prediction (arXiv:2404.19737)](https://arxiv.org/abs/2404.19737) — baseline MTP song song mà thiết kế của DeepSeek cải thiện
+- [DeepSeek-V3 model card on Hugging Face](https://huggingface.co/deepseek-ai/DeepSeek-V3) — tổng cộng 685B (671B chính + 14B MTP), ghi chú triển khai
+- [Leviathan et al. — Fast Inference from Transformers via Speculative Decoding (arXiv:2211.17192)](https://arxiv.org/abs/2211.17192) — khuôn khổ speculative decoding mà MTP phù hợp vào
+- [Li et al. — EAGLE-3 (arXiv:2503.01840)](https://arxiv.org/abs/2503.01840) — kiến trúc dự thảo năm 2025 của EAGLE, đối tác mà MTP cạnh tranh với
