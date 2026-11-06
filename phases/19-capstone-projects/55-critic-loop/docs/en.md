@@ -1,6 +1,6 @@
 # Critic Loop
 
-> A critic that returns "looks good" the first time is broken. A critic that always returns "needs work" is broken. The interesting critic is the one that converges, and you have to engineer convergence.
+> Một bộ phê bình trả về "trông ổn" lần đầu thì bị hỏng. Một bộ phê bình luôn trả về "cần làm thêm" thì bị hỏng. Bộ phê bình thú vị là bộ hội tụ, và bạn phải thiết kế sự hội tụ.
 
 **Type:** Build
 **Languages:** Python
@@ -9,11 +9,11 @@
 
 ## Learning Objectives
 
-- Score a paper draft across five fixed dimensions: clarity, novelty, evidence, methodology, related-work.
-- Apply each round's critique as a structured revision diff rather than a freeform rewrite.
-- Detect convergence by comparing scores across rounds; stop on plateau, target met, or budget exhausted.
-- Cap rounds with a max-iteration budget so a non-converging critic does not run forever.
-- Emit a per-round trace so the dashboard or the next stage can render the score trajectory.
+- Chấm một bản nháp bài báo trên năm chiều cố định: tính rõ ràng, tính mới, bằng chứng, phương pháp luận, nghiên cứu liên quan.
+- Áp dụng phê bình mỗi vòng như một diff sửa đổi có cấu trúc thay vì một lần viết lại dạng tự do.
+- Phát hiện hội tụ bằng cách so sánh các điểm qua các vòng; dừng khi bình nguyên, đạt mục tiêu, hoặc cạn ngân sách.
+- Giới hạn số vòng bằng một ngân sách số lần lặp tối đa để một bộ phê bình không hội tụ không chạy mãi.
+- Phát ra một trace theo vòng để bảng điều khiển hoặc giai đoạn tiếp theo có thể hiển thị quỹ đạo điểm.
 
 ```figure
 ch-critic-converge
@@ -21,9 +21,9 @@ ch-critic-converge
 
 ## Why five fixed dimensions
 
-A freeform critic is a model that returns a paragraph of suggestions. The next round's revision treats the paragraph as ambient context. Whether the rewrite addresses the criticism is unverifiable because the criticism never had structure.
+Một bộ phê bình dạng tự do là một mô hình trả về một đoạn gợi ý. Sửa đổi của vòng tiếp theo coi đoạn đó như ngữ cảnh xung quanh. Liệu lần viết lại có giải quyết lời phê bình không là không thể xác minh vì lời phê bình chưa từng có cấu trúc.
 
-Five dimensions give the harness a contract.
+Năm chiều cho harness một hợp đồng.
 
 ```mermaid
 flowchart LR
@@ -37,7 +37,7 @@ flowchart LR
     Scores --> Revs[revision suggestions]
 ```
 
-The score is a vector. The harness watches each dimension across rounds. A revision that raises clarity but tanks evidence is a regression on evidence, and the convergence check sees it. A model-only critic cannot offer that guarantee.
+Điểm là một vector. Harness theo dõi từng chiều qua các vòng. Một sửa đổi nâng tính rõ ràng nhưng làm sụt bằng chứng là một thoái lui về bằng chứng, và kiểm tra hội tụ thấy nó. Một bộ phê bình chỉ dùng mô hình không thể cung cấp bảo đảm đó.
 
 ## The Critique shape
 
@@ -50,11 +50,11 @@ flowchart TB
     Critique --> Reason[overall reason str]
 ```
 
-Every suggestion carries the dimension it improves, the section it targets, and an `edit` instruction the reviser can apply. The reviser is also a callable. The lesson ships a deterministic reviser that interprets the edit instruction as an append-to-section operation. A model-driven reviser would interpret the same field as a prompt. The contract does not change.
+Mọi gợi ý mang chiều nó cải thiện, mục nó nhắm tới, và một chỉ dẫn `edit` mà bộ sửa đổi có thể áp dụng. Bộ sửa đổi cũng là một đối tượng có thể gọi. Bài học cung cấp một bộ sửa đổi tất định diễn giải chỉ dẫn edit như một thao tác thêm vào mục. Một bộ sửa đổi do mô hình điều khiển sẽ diễn giải cùng trường như một prompt. Hợp đồng không đổi.
 
 ## Convergence rules, in order
 
-The critic loop terminates when any one of three conditions fires.
+Vòng lặp phê bình kết thúc khi bất kỳ một trong ba điều kiện kích hoạt.
 
 ```mermaid
 flowchart TB
@@ -67,17 +67,17 @@ flowchart TB
     C -- no --> Next[Run round n plus 1]
 ```
 
-The target is the strictest case: every one of the five dimensions (clarity, novelty, evidence, methodology, related_work) must hit `>= target_score` (default `8.0`) before the loop returns success. A high mean with one weak dimension is not enough. Plateau detection compares the current round's mean to the previous round's mean. If the improvement is below `plateau_epsilon` (default `0.1`) for two consecutive rounds, the loop exits with `plateau`. The budget is a hard cap on rounds (default `5`) and exits with `budget`.
+Mục tiêu là trường hợp nghiêm ngặt nhất: mọi chiều trong năm chiều (clarity, novelty, evidence, methodology, related_work) phải chạm `>= target_score` (mặc định `8.0`) trước khi vòng lặp trả về thành công. Một trung bình cao với một chiều yếu là không đủ. Phát hiện bình nguyên so sánh trung bình vòng hiện tại với trung bình vòng trước. Nếu cải thiện dưới `plateau_epsilon` (mặc định `0.1`) trong hai vòng liên tiếp, vòng lặp thoát với `plateau`. Ngân sách là một trần cứng số vòng (mặc định `5`) và thoát với `budget`.
 
-The order matters. Target wins over plateau wins over budget. If round three hits the target on the same iteration that would also trigger a plateau, the result is `target`, not `plateau`.
+Thứ tự quan trọng. Mục tiêu thắng bình nguyên thắng ngân sách. Nếu vòng ba chạm mục tiêu trên cùng lần lặp cũng sẽ kích hoạt một bình nguyên, kết quả là `target`, không phải `plateau`.
 
 ## Why plateau detection runs over two rounds
 
-A one-round plateau is noise. A real critic returns a slightly different score each iteration even on a fixed draft, because deterministic scoring still depends on which suggestions were applied and in what order. Requiring two consecutive plateau rounds filters that noise out. If the harness reports a plateau, the draft has genuinely stopped improving.
+Một bình nguyên một vòng là nhiễu. Một bộ phê bình thực trả về một điểm hơi khác mỗi lần lặp ngay cả trên một bản nháp cố định, vì chấm điểm tất định vẫn phụ thuộc vào những gợi ý nào đã được áp dụng và theo thứ tự nào. Yêu cầu hai vòng bình nguyên liên tiếp lọc nhiễu đó ra. Nếu harness báo cáo một bình nguyên, bản nháp đã thực sự ngừng cải thiện.
 
 ## The deterministic critic in this lesson
 
-The lesson does not call a model. The shipped critic is a callable that scores a draft based on three signals: average section body length (clarity), figure count and citation count (evidence), and an `originality_tag` field on the paper metadata (novelty). The reviser knows how to push each score upward.
+Bài học không gọi một mô hình. Bộ phê bình được cung cấp là một đối tượng có thể gọi chấm một bản nháp dựa trên ba tín hiệu: độ dài thân mục trung bình (tính rõ ràng), số hình và số trích dẫn (bằng chứng), và một trường `originality_tag` trên siêu dữ liệu bài báo (tính mới). Bộ sửa đổi biết cách đẩy mỗi điểm lên.
 
 ```text
 clarity      grows when the average section body length increases
@@ -87,7 +87,7 @@ methodology  grows when a section titled "Method" exists with body
 related-work grows when a section titled "Related Work" exists with body
 ```
 
-The reviser interprets each suggestion as a targeted append. After round one, the harness can observe the score going up. The tests use this property to assert the loop reduces the gap.
+Bộ sửa đổi diễn giải mỗi gợi ý như một lần thêm có mục tiêu. Sau vòng một, harness có thể quan sát điểm tăng lên. Các kiểm thử dùng thuộc tính này để khẳng định vòng lặp giảm khoảng cách.
 
 ## The full loop contract
 
@@ -109,24 +109,24 @@ sequenceDiagram
     end
 ```
 
-The harness owns the round counter, the trace, and the convergence check. The critic owns the score. The reviser owns the diff. None of the three touches the others' state.
+Harness sở hữu bộ đếm vòng, trace, và kiểm tra hội tụ. Bộ phê bình sở hữu điểm. Bộ sửa đổi sở hữu diff. Không thành phần nào trong ba thành phần chạm trạng thái của các thành phần khác.
 
 ## The Trace output
 
-Every round emits one trace event with the round number, the score vector, the suggestion count, and the convergence verdict. The full trace is returned alongside the final draft. A downstream dashboard can render the score-per-round chart. The next lesson, the iteration scheduler, reads the trace to decide whether the branch is worth keeping.
+Mỗi vòng phát ra một sự kiện trace với số vòng, vector điểm, số gợi ý, và kết luận hội tụ. Trace đầy đủ được trả về cạnh bản nháp cuối. Một bảng điều khiển hạ nguồn có thể hiển thị biểu đồ điểm theo vòng. Bài tiếp theo, bộ lập lịch lặp, đọc trace để quyết định liệu nhánh có đáng giữ không.
 
 ## Budgets that protect against bad critics
 
-A critic that produces suggestions that never improve the score will lock the loop into the max-iteration ceiling. The trace makes that visible: five rounds, scores flat, verdict `budget`. The user reads that as a critic bug, not a draft bug. The alternative, surfacing only the final draft, hides the diagnosis. Trace-first design surfaces it.
+Một bộ phê bình tạo các gợi ý không bao giờ cải thiện điểm sẽ khóa vòng lặp vào trần số lần lặp tối đa. Trace làm điều đó hiển lộ: năm vòng, điểm phẳng, kết luận `budget`. Người dùng đọc điều đó như một lỗi bộ phê bình, không phải lỗi bản nháp. Lựa chọn khác, chỉ đưa ra bản nháp cuối, che giấu chẩn đoán. Thiết kế ưu tiên trace đưa nó ra.
 
 ## How to read the code
 
-`code/main.py` defines `Critique`, `Suggestion`, `Critic` protocol, `Reviser` protocol, `CriticLoop`, and a `make_deterministic_critic_pair` factory that returns the deterministic critic and a matching reviser. A minimal `Paper` shape is included so the lesson stands alone.
+`code/main.py` định nghĩa `Critique`, `Suggestion`, giao thức `Critic`, giao thức `Reviser`, `CriticLoop`, và một factory `make_deterministic_critic_pair` trả về bộ phê bình tất định và một bộ sửa đổi tương ứng. Một hình thức `Paper` tối thiểu được đưa vào để bài học độc lập.
 
-`code/tests/test_critic_loop.py` covers: monotone improvement after round one, target convergence on a tuned draft, plateau detection after two flat rounds, budget exhaustion when no suggestion improves, suggestion application by the reviser, and trace shape.
+`code/tests/test_critic_loop.py` bao phủ: cải thiện đơn điệu sau vòng một, hội tụ mục tiêu trên một bản nháp được điều chỉnh, phát hiện bình nguyên sau hai vòng phẳng, cạn ngân sách khi không gợi ý nào cải thiện, áp dụng gợi ý bởi bộ sửa đổi, và hình thức trace.
 
 ## Going further
 
-Two extensions a real implementation will want. First, dimension weights: a paper for a workshop weights novelty higher than methodology; a journal weights the inverse. The convergence check becomes a weighted mean. Second, paired critics: one critic scores, a second critic adjudicates the suggestions before the reviser sees them. Both add value, both compose on the same `Critique` shape.
+Hai phần mở rộng mà một triển khai thực sẽ muốn. Thứ nhất, trọng số chiều: một bài báo cho workshop đặt trọng số tính mới cao hơn phương pháp luận; một tạp chí đặt ngược lại. Kiểm tra hội tụ trở thành một trung bình có trọng số. Thứ hai, các bộ phê bình ghép cặp: một bộ phê bình chấm, một bộ thứ hai phân xử các gợi ý trước khi bộ sửa đổi thấy chúng. Cả hai thêm giá trị, cả hai kết hợp trên cùng hình thức `Critique`.
 
-The bet is the score vector. Once the critique is structured, every other improvement, convergence rule, dashboard, paired critic, drops in without changing the loop.
+Sự đặt cược là vector điểm. Một khi phê bình có cấu trúc, mọi cải thiện khác, quy tắc hội tụ, bảng điều khiển, bộ phê bình ghép cặp, đều cắm vào mà không thay đổi vòng lặp.
