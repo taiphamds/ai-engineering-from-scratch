@@ -1,6 +1,6 @@
 # The Fourier Transform
 
-> Every signal is a sum of sine waves. The Fourier transform tells you which ones.
+> Mọi tín hiệu là một tổng các sóng sin. Biến đổi Fourier cho bạn biết đó là những sóng nào.
 
 **Type:** Build
 **Language:** Python
@@ -9,26 +9,26 @@
 
 ## Learning Objectives
 
-- Implement the DFT from scratch and verify it against the O(N log N) Cooley-Tukey FFT
-- Interpret frequency coefficients: extract amplitude, phase, and power spectrum from a signal
-- Apply the convolution theorem to perform convolution via FFT multiplication
-- Connect Fourier frequency decomposition to transformer positional encodings and CNN convolution layers
+- Triển khai DFT từ đầu và xác minh nó với FFT Cooley-Tukey O(N log N)
+- Diễn giải các hệ số tần số: trích xuất biên độ, pha và phổ công suất từ một tín hiệu
+- Áp dụng định lý tích chập để thực hiện tích chập qua phép nhân FFT
+- Kết nối phân rã tần số Fourier với các mã hóa vị trí transformer và các lớp tích chập CNN
 
 ## The Problem
 
-An audio recording is a sequence of pressure measurements over time. A stock price is a sequence of values over days. An image is a grid of pixel intensities over space. All of these are data in the time domain (or space domain). You see values changing over some index.
+Một bản ghi âm là một chuỗi các số đo áp suất theo thời gian. Một giá cổ phiếu là một chuỗi các giá trị theo ngày. Một hình ảnh là một lưới cường độ pixel theo không gian. Tất cả đều là dữ liệu trong miền thời gian (hoặc miền không gian). Bạn thấy các giá trị thay đổi theo một chỉ số nào đó.
 
-But many patterns are invisible in the time domain. Is this audio signal a pure tone or a chord? Does this stock price have a weekly cycle? Does this image have a repeating texture? These questions are about frequency content, and the time domain hides it.
+Nhưng nhiều mẫu không nhìn thấy được trong miền thời gian. Tín hiệu âm thanh này là một âm thuần hay một hợp âm? Giá cổ phiếu này có chu kỳ hằng tuần không? Hình ảnh này có kết cấu lặp lại không? Những câu hỏi này nói về nội dung tần số, và miền thời gian che giấu nó.
 
-The Fourier transform converts data from the time domain to the frequency domain. It takes a signal and decomposes it into sine waves of different frequencies. Each sine wave has an amplitude (how strong it is) and a phase (where it starts). The Fourier transform tells you both.
+Biến đổi Fourier chuyển dữ liệu từ miền thời gian sang miền tần số. Nó lấy một tín hiệu và phân rã nó thành các sóng sin có tần số khác nhau. Mỗi sóng sin có một biên độ (nó mạnh đến mức nào) và một pha (nó bắt đầu ở đâu). Biến đổi Fourier cho bạn biết cả hai.
 
-This matters for ML because frequency-domain thinking appears everywhere. Convolutional neural networks perform convolution, which is multiplication in the frequency domain. Transformer positional encodings use frequency decomposition to represent position. Audio models (speech recognition, music generation) operate on spectrograms -- frequency representations of sound. Time series models look for periodic patterns. Understanding the Fourier transform gives you the vocabulary to work with all of these.
+Điều này quan trọng đối với ML vì tư duy miền tần số xuất hiện khắp nơi. Các mạng nơ-ron tích chập thực hiện tích chập, là phép nhân trong miền tần số. Các mã hóa vị trí transformer sử dụng phân rã tần số để biểu diễn vị trí. Các mô hình âm thanh (nhận dạng giọng nói, sinh nhạc) hoạt động trên phổ thời gian-tần số -- các biểu diễn tần số của âm thanh. Các mô hình chuỗi thời gian tìm các mẫu tuần hoàn. Hiểu biến đổi Fourier cho bạn từ vựng để làm việc với tất cả những điều này.
 
 ## The Concept
 
 ### The DFT definition
 
-Given N samples x[0], x[1], ..., x[N-1], the Discrete Fourier Transform produces N frequency coefficients X[0], X[1], ..., X[N-1]:
+Cho N mẫu x[0], x[1], ..., x[N-1], Biến đổi Fourier Rời rạc tạo ra N hệ số tần số X[0], X[1], ..., X[N-1]:
 
 ```
 X[k] = sum_{n=0}^{N-1} x[n] * e^(-2*pi*i*k*n/N)
@@ -36,27 +36,27 @@ X[k] = sum_{n=0}^{N-1} x[n] * e^(-2*pi*i*k*n/N)
 for k = 0, 1, ..., N-1
 ```
 
-Each X[k] is a complex number. Its magnitude |X[k]| tells you the amplitude of frequency k. Its phase angle(X[k]) tells you the phase offset of that frequency.
+Mỗi X[k] là một số phức. Độ lớn |X[k]| của nó cho bạn biết biên độ của tần số k. Pha angle(X[k]) của nó cho bạn biết độ lệch pha của tần số đó.
 
-The key insight: `e^(-2*pi*i*k*n/N)` is a rotating phasor at frequency k. The DFT computes the correlation between the signal and each of N equally-spaced frequencies. If the signal contains energy at frequency k, the correlation is large. If not, it is near zero.
+Điểm cốt yếu: `e^(-2*pi*i*k*n/N)` là một phasor quay tại tần số k. DFT tính tương quan giữa tín hiệu và từng tần số trong N tần số cách đều. Nếu tín hiệu chứa năng lượng tại tần số k, tương quan lớn. Nếu không, nó gần không.
 
 ### What each coefficient means
 
-**X[0]: the DC component.** This is the sum of all samples -- proportional to the mean. It represents the constant (zero-frequency) offset of the signal.
+**X[0]: thành phần DC.** Đây là tổng tất cả các mẫu -- tỉ lệ với trung bình. Nó biểu diễn độ lệch không đổi (tần số không) của tín hiệu.
 
 ```
 X[0] = sum_{n=0}^{N-1} x[n] * e^0 = sum of all samples
 ```
 
-**X[k] for 1 <= k <= N/2: positive frequencies.** X[k] represents frequency k cycles per N samples. Higher k means higher frequency (faster oscillation).
+**X[k] với 1 <= k <= N/2: các tần số dương.** X[k] biểu diễn tần số k chu kỳ trên N mẫu. k cao hơn nghĩa là tần số cao hơn (dao động nhanh hơn).
 
-**X[N/2]: the Nyquist frequency.** The highest frequency you can represent with N samples. Above this, you get aliasing -- high frequencies masquerading as low ones.
+**X[N/2]: tần số Nyquist.** Tần số cao nhất bạn có thể biểu diễn bằng N mẫu. Trên mức này, bạn có aliasing -- các tần số cao giả dạng các tần số thấp.
 
-**X[k] for N/2 < k < N: negative frequencies.** For real-valued signals, X[N-k] = conj(X[k]). The negative frequencies are mirror images of the positive ones. This is why the useful information is in the first N/2 + 1 coefficients.
+**X[k] với N/2 < k < N: các tần số âm.** Với tín hiệu có giá trị thực, X[N-k] = conj(X[k]). Các tần số âm là ảnh đối xứng của các tần số dương. Đây là lý do thông tin hữu ích nằm trong N/2 + 1 hệ số đầu.
 
 ### Inverse DFT
 
-The inverse DFT reconstructs the original signal from its frequency coefficients:
+DFT ngược tái tạo tín hiệu gốc từ các hệ số tần số của nó:
 
 ```
 x[n] = (1/N) * sum_{k=0}^{N-1} X[k] * e^(2*pi*i*k*n/N)
@@ -64,21 +64,21 @@ x[n] = (1/N) * sum_{k=0}^{N-1} X[k] * e^(2*pi*i*k*n/N)
 for n = 0, 1, ..., N-1
 ```
 
-The only differences from the forward DFT: the sign in the exponent is positive (not negative), and there is a 1/N normalization factor.
+Các khác biệt duy nhất so với DFT xuôi: dấu trong số mũ là dương (không phải âm), và có một hệ số chuẩn hóa 1/N.
 
-The inverse DFT is perfect reconstruction. No information is lost. You can go from time domain to frequency domain and back without any error. The DFT is a change of basis -- it re-expresses the same information in a different coordinate system.
+DFT ngược là tái tạo hoàn hảo. Không thông tin nào bị mất. Bạn có thể đi từ miền thời gian sang miền tần số và trở lại mà không có sai số nào. DFT là một phép đổi cơ sở -- nó biểu diễn lại cùng thông tin trong một hệ tọa độ khác.
 
 ### The FFT: making it fast
 
-The DFT as defined above is O(N^2): for each of N output coefficients, you sum over N input samples. For N = 1 million, that is 10^12 operations.
+DFT được định nghĩa ở trên có độ phức tạp O(N^2): với mỗi hệ số trong N hệ số đầu ra, bạn lấy tổng trên N mẫu đầu vào. Với N = 1 triệu, đó là 10^12 phép toán.
 
-The Fast Fourier Transform (FFT) computes the same result in O(N log N). For N = 1 million, that is about 20 million operations instead of a trillion. This is what makes frequency analysis practical.
+Biến đổi Fourier Nhanh (FFT) tính cùng kết quả trong O(N log N). Với N = 1 triệu, đó là khoảng 20 triệu phép toán thay vì một nghìn tỷ. Đây là điều làm phân tích tần số khả thi trong thực tế.
 
-The Cooley-Tukey algorithm (the most common FFT) works by divide and conquer:
+Thuật toán Cooley-Tukey (FFT phổ biến nhất) hoạt động bằng chia để trị:
 
-1. Split the signal into even-indexed and odd-indexed samples.
-2. Compute the DFT of each half recursively.
-3. Combine the two half-size DFTs using "twiddle factors" e^(-2*pi*i*k/N).
+1. Chia tín hiệu thành các mẫu có chỉ số chẵn và chỉ số lẻ.
+2. Tính DFT của mỗi nửa bằng đệ quy.
+3. Kết hợp hai DFT có kích thước một nửa bằng các "hệ số twiddle" e^(-2*pi*i*k/N).
 
 ```
 X[k] = E[k] + e^(-2*pi*i*k/N) * O[k]          for k = 0, ..., N/2 - 1
@@ -88,7 +88,7 @@ where E = DFT of even-indexed samples
       O = DFT of odd-indexed samples
 ```
 
-The symmetry means each level of recursion does O(N) work, and there are log2(N) levels. Total: O(N log N).
+Tính đối xứng có nghĩa là mỗi mức đệ quy làm O(N) công việc, và có log2(N) mức. Tổng: O(N log N).
 
 ```mermaid
 graph TD
@@ -106,13 +106,13 @@ graph TD
     end
 ```
 
-The FFT requires the signal length to be a power of 2. In practice, signals are zero-padded to the next power of 2.
+FFT đòi hỏi độ dài tín hiệu là lũy thừa của 2. Trong thực tế, tín hiệu được đệm số không đến lũy thừa tiếp theo của 2.
 
 ### Spectral analysis
 
-The **power spectrum** is |X[k]|^2 -- the squared magnitude of each frequency coefficient. It shows how much energy is at each frequency.
+**Phổ công suất** là |X[k]|^2 -- độ lớn bình phương của mỗi hệ số tần số. Nó cho thấy có bao nhiêu năng lượng tại mỗi tần số.
 
-The **phase spectrum** is angle(X[k]) -- the phase offset of each frequency. For most analysis tasks, you care about the power spectrum and ignore the phase.
+**Phổ pha** là angle(X[k]) -- độ lệch pha của mỗi tần số. Với hầu hết các tác vụ phân tích, bạn quan tâm phổ công suất và bỏ qua pha.
 
 ```
 Power at frequency k:  P[k] = |X[k]|^2 = X[k].real^2 + X[k].imag^2
@@ -121,7 +121,7 @@ Phase at frequency k:  phi[k] = atan2(X[k].imag, X[k].real)
 
 ### Frequency resolution
 
-The frequency resolution of the DFT depends on the number of samples N and the sampling rate fs.
+Độ phân giải tần số của DFT phụ thuộc vào số mẫu N và tốc độ lấy mẫu fs.
 
 ```
 Frequency of bin k:      f_k = k * fs / N
@@ -129,13 +129,13 @@ Frequency resolution:    delta_f = fs / N
 Maximum frequency:       f_max = fs / 2  (Nyquist)
 ```
 
-To resolve two frequencies that are close together, you need more samples. To capture high frequencies, you need a higher sampling rate.
+Để phân biệt hai tần số gần nhau, bạn cần nhiều mẫu hơn. Để nắm bắt các tần số cao, bạn cần tốc độ lấy mẫu cao hơn.
 
 ### The convolution theorem
 
-This is one of the most important results in signal processing and directly relevant to CNNs.
+Đây là một trong những kết quả quan trọng nhất trong xử lý tín hiệu và liên quan trực tiếp đến CNN.
 
-**Convolution in the time domain equals pointwise multiplication in the frequency domain.**
+**Tích chập trong miền thời gian bằng phép nhân theo từng điểm trong miền tần số.**
 
 ```
 x * h = IFFT(FFT(x) . FFT(h))
@@ -143,14 +143,14 @@ x * h = IFFT(FFT(x) . FFT(h))
 where * is convolution and . is element-wise multiplication
 ```
 
-Why this matters:
+Tại sao điều này quan trọng:
 
-- Direct convolution of two signals of length N and M takes O(N*M) operations.
-- FFT-based convolution takes O(N log N): transform both, multiply, transform back.
-- For large kernels, FFT convolution is dramatically faster.
-- This is exactly what happens in convolutional layers with large receptive fields.
+- Tích chập trực tiếp của hai tín hiệu có độ dài N và M cần O(N*M) phép toán.
+- Tích chập dựa trên FFT cần O(N log N): biến đổi cả hai, nhân, biến đổi ngược.
+- Với các kernel lớn, tích chập FFT nhanh hơn đáng kể.
+- Đây chính xác là những gì xảy ra trong các lớp tích chập có trường tiếp nhận lớn.
 
-Note: the DFT computes circular convolution (the signal wraps around). For linear convolution (no wraparound), zero-pad both signals to length N + M - 1 before computing.
+Lưu ý: DFT tính tích chập vòng (tín hiệu quấn vòng). Với tích chập tuyến tính (không quấn vòng), đệm số không cho cả hai tín hiệu đến độ dài N + M - 1 trước khi tính.
 
 ```mermaid
 graph LR
@@ -170,74 +170,74 @@ graph LR
 
 ### Windowing
 
-The DFT assumes the signal is periodic -- it treats the N samples as one period of an infinitely repeating signal. If the signal does not start and end at the same value, this creates a discontinuity at the boundary, which shows up as spurious high-frequency content. This is called spectral leakage.
+DFT giả định tín hiệu tuần hoàn -- nó xem N mẫu là một chu kỳ của một tín hiệu lặp lại vô hạn. Nếu tín hiệu không bắt đầu và kết thúc tại cùng giá trị, điều này tạo một gián đoạn tại biên, xuất hiện dưới dạng nội dung tần số cao giả. Điều này được gọi là rò rỉ phổ.
 
-Windowing reduces leakage by tapering the signal to zero at both ends before computing the DFT.
+Áp dụng cửa sổ giảm rò rỉ bằng cách làm tín hiệu giảm dần về không ở cả hai đầu trước khi tính DFT.
 
-Common windows:
+Các cửa sổ phổ biến:
 
-| Window | Shape | Main lobe width | Side lobe level | Use case |
+| Cửa sổ | Hình dạng | Độ rộng thùy chính | Mức thùy phụ | Trường hợp sử dụng |
 |--------|-------|----------------|-----------------|----------|
-| Rectangular | Flat (no window) | Narrowest | Highest (-13 dB) | When signal is exactly periodic in N samples |
-| Hann | Raised cosine | Moderate | Low (-31 dB) | General purpose spectral analysis |
-| Hamming | Modified cosine | Moderate | Lower (-42 dB) | Audio processing, speech analysis |
-| Blackman | Triple cosine | Wide | Very low (-58 dB) | When side lobe suppression is critical |
+| Chữ nhật | Phẳng (không có cửa sổ) | Hẹp nhất | Cao nhất (-13 dB) | Khi tín hiệu tuần hoàn chính xác trong N mẫu |
+| Hann | Cosine nâng | Vừa phải | Thấp (-31 dB) | Phân tích phổ mục đích chung |
+| Hamming | Cosine sửa đổi | Vừa phải | Thấp hơn (-42 dB) | Xử lý âm thanh, phân tích giọng nói |
+| Blackman | Ba cosine | Rộng | Rất thấp (-58 dB) | Khi việc triệt thùy phụ rất quan trọng |
 
 ```
 Hann window:    w[n] = 0.5 * (1 - cos(2*pi*n / (N-1)))
 Hamming window: w[n] = 0.54 - 0.46 * cos(2*pi*n / (N-1))
 ```
 
-Apply the window by multiplying it element-wise with the signal before the DFT: `X = DFT(x * w)`.
+Áp dụng cửa sổ bằng cách nhân nó theo từng phần tử với tín hiệu trước DFT: `X = DFT(x * w)`.
 
 ### DFT properties
 
-| Property | Time Domain | Frequency Domain |
+| Tính chất | Miền Thời gian | Miền Tần số |
 |----------|-------------|-----------------|
-| Linearity | a*x + b*y | a*X + b*Y |
-| Time shift | x[n - k] | X[f] * e^(-2*pi*i*f*k/N) |
-| Frequency shift | x[n] * e^(2*pi*i*f0*n/N) | X[f - f0] |
-| Convolution | x * h | X * H (pointwise) |
-| Multiplication | x * h (pointwise) | X * H (circular convolution, scaled by 1/N) |
-| Parseval's theorem | sum \|x[n]\|^2 | (1/N) * sum \|X[k]\|^2 |
-| Conjugate symmetry (real input) | x[n] real | X[k] = conj(X[N-k]) |
+| Tính tuyến tính | a*x + b*y | a*X + b*Y |
+| Dịch thời gian | x[n - k] | X[f] * e^(-2*pi*i*f*k/N) |
+| Dịch tần số | x[n] * e^(2*pi*i*f0*n/N) | X[f - f0] |
+| Tích chập | x * h | X * H (theo từng điểm) |
+| Phép nhân | x * h (theo từng điểm) | X * H (tích chập vòng, nhân tỉ lệ 1/N) |
+| Định lý Parseval | sum \|x[n]\|^2 | (1/N) * sum \|X[k]\|^2 |
+| Đối xứng liên hợp (đầu vào thực) | x[n] thực | X[k] = conj(X[N-k]) |
 
-Parseval's theorem says the total energy is the same in both domains. Energy is conserved through the transform.
+Định lý Parseval nói rằng tổng năng lượng giống nhau trong cả hai miền. Năng lượng được bảo toàn qua phép biến đổi.
 
 ### Connection to positional encodings
 
-The original Transformer uses sinusoidal positional encodings:
+Transformer gốc sử dụng các mã hóa vị trí hình sin:
 
 ```
 PE(pos, 2i)   = sin(pos / 10000^(2i/d_model))
 PE(pos, 2i+1) = cos(pos / 10000^(2i/d_model))
 ```
 
-Each dimension pair (2i, 2i+1) oscillates at a different frequency. The frequencies are geometrically spaced from high (dimension 0,1) to low (last dimensions). This gives each position a unique pattern across all frequency bands -- similar to how Fourier coefficients uniquely identify a signal.
+Mỗi cặp chiều (2i, 2i+1) dao động tại một tần số khác nhau. Các tần số cách nhau theo cấp số nhân từ cao (chiều 0,1) đến thấp (các chiều cuối). Điều này cho mỗi vị trí một mẫu duy nhất trên tất cả các dải tần -- tương tự cách các hệ số Fourier nhận diện duy nhất một tín hiệu.
 
-The key properties this provides:
+Các tính chất chính mà điều này cung cấp:
 
-- **Uniqueness:** No two positions have the same encoding.
-- **Bounded values:** sin and cos are always in [-1, 1].
-- **Relative position:** The encoding of position p+k can be expressed as a linear function of the encoding at position p. The model can learn to attend to relative positions.
+- **Tính duy nhất:** Không có hai vị trí có cùng mã hóa.
+- **Giá trị bị chặn:** sin và cos luôn nằm trong [-1, 1].
+- **Vị trí tương đối:** Mã hóa của vị trí p+k có thể được biểu diễn thành một hàm tuyến tính của mã hóa tại vị trí p. Mô hình có thể học cách chú ý đến các vị trí tương đối.
 
 ### Connection to CNNs
 
-A convolution layer applies a learned filter (kernel) to the input by sliding it across the signal or image. Mathematically, this is the convolution operation.
+Một lớp tích chập áp dụng một bộ lọc đã học (kernel) cho đầu vào bằng cách trượt nó qua tín hiệu hoặc hình ảnh. Về toán học, đây là phép tích chập.
 
-By the convolution theorem, this is equivalent to:
-1. FFT the input
-2. FFT the kernel
-3. Multiply in frequency domain
-4. IFFT the result
+Theo định lý tích chập, điều này tương đương với:
+1. FFT đầu vào
+2. FFT kernel
+3. Nhân trong miền tần số
+4. IFFT kết quả
 
-Standard CNN implementations use direct convolution (faster for small 3x3 kernels). But for large kernels or global convolution, FFT-based approaches are significantly faster. Some architectures (like FNet) replace attention entirely with FFT, achieving competitive accuracy with O(N log N) instead of O(N^2) complexity.
+Các triển khai CNN tiêu chuẩn sử dụng tích chập trực tiếp (nhanh hơn cho các kernel nhỏ 3x3). Nhưng với các kernel lớn hoặc tích chập toàn cục, các cách tiếp cận dựa trên FFT nhanh hơn đáng kể. Một số kiến trúc (như FNet) thay hoàn toàn attention bằng FFT, đạt độ chính xác cạnh tranh với độ phức tạp O(N log N) thay vì O(N^2).
 
 ### Spectrograms and the Short-Time Fourier Transform
 
-A single FFT gives you the frequency content of the entire signal, but tells you nothing about when those frequencies occur. A chirp (a signal whose frequency increases over time) and a chord (all frequencies present simultaneously) can have the same magnitude spectrum.
+Một FFT duy nhất cho bạn nội dung tần số của toàn bộ tín hiệu, nhưng không cho bạn biết gì về thời điểm các tần số đó xuất hiện. Một chirp (tín hiệu có tần số tăng theo thời gian) và một hợp âm (mọi tần số xuất hiện đồng thời) có thể có cùng phổ độ lớn.
 
-The Short-Time Fourier Transform (STFT) solves this by computing FFTs on overlapping windows of the signal. The result is a spectrogram: a 2D representation with time on one axis and frequency on the other. The intensity at each point shows the energy at that frequency at that time.
+Biến đổi Fourier Thời gian Ngắn (STFT) giải quyết điều này bằng cách tính FFT trên các cửa sổ chồng lấp của tín hiệu. Kết quả là một phổ thời gian-tần số: một biểu diễn 2D với thời gian trên một trục và tần số trên trục kia. Cường độ tại mỗi điểm cho thấy năng lượng tại tần số đó vào thời điểm đó.
 
 ```
 STFT procedure:
@@ -250,11 +250,11 @@ STFT procedure:
    d. Store the magnitude spectrum as one column of the spectrogram
 ```
 
-Spectrograms are the standard input representation for audio ML models. Speech recognition models (Whisper, DeepSpeech) operate on mel-spectrograms -- spectrograms with frequencies mapped to the mel scale, which better matches human pitch perception.
+Phổ thời gian-tần số là biểu diễn đầu vào tiêu chuẩn cho các mô hình ML âm thanh. Các mô hình nhận dạng giọng nói (Whisper, DeepSpeech) hoạt động trên mel-spectrogram -- các phổ thời gian-tần số có tần số được ánh xạ sang thang mel, khớp tốt hơn với cảm nhận cao độ của con người.
 
 ### Aliasing
 
-If a signal contains frequencies above fs/2 (the Nyquist frequency), sampling at rate fs will create aliased copies. A 90 Hz signal sampled at 100 Hz looks identical to a 10 Hz signal. There is no way to distinguish them from the samples alone.
+Nếu một tín hiệu chứa các tần số trên fs/2 (tần số Nyquist), lấy mẫu ở tốc độ fs sẽ tạo các bản sao bị aliasing. Một tín hiệu 90 Hz được lấy mẫu ở 100 Hz trông giống hệt một tín hiệu 10 Hz. Không có cách phân biệt chúng chỉ từ các mẫu.
 
 ```
 Example:
@@ -267,13 +267,13 @@ Example:
   No amount of math can recover the original 90 Hz.
 ```
 
-This is why analog-to-digital converters include anti-aliasing filters that remove frequencies above Nyquist before sampling. In ML, aliasing appears when downsampling feature maps without proper low-pass filtering -- some architectures address this with anti-aliased pooling layers.
+Đây là lý do các bộ chuyển đổi tương tự-số có các bộ lọc chống aliasing loại các tần số trên Nyquist trước khi lấy mẫu. Trong ML, aliasing xuất hiện khi giảm mẫu các bản đồ đặc trưng mà không có lọc thông thấp phù hợp -- một số kiến trúc xử lý điều này bằng các lớp pooling chống aliasing.
 
 ### Zero-padding does not increase resolution
 
-A common misconception: zero-padding a signal before FFT improves frequency resolution. It does not. Zero-padding interpolates between existing frequency bins, giving you a smoother-looking spectrum. But it cannot reveal frequency detail that was not present in the original samples.
+Một hiểu lầm phổ biến: đệm số không cho một tín hiệu trước FFT cải thiện độ phân giải tần số. Nó không làm vậy. Đệm số không nội suy giữa các ô tần số hiện có, cho bạn một phổ trông mượt hơn. Nhưng nó không thể tiết lộ chi tiết tần số không có trong các mẫu gốc.
 
-True frequency resolution depends only on the observation time T = N / fs. To resolve two frequencies separated by delta_f, you need at least T = 1 / delta_f seconds of data. No amount of zero-padding changes this fundamental limit.
+Độ phân giải tần số thực chỉ phụ thuộc vào thời gian quan sát T = N / fs. Để phân biệt hai tần số cách nhau delta_f, bạn cần ít nhất T = 1 / delta_f giây dữ liệu. Không lượng đệm số không nào thay đổi giới hạn cơ bản này.
 
 ```figure
 fourier-synthesis
@@ -283,7 +283,7 @@ fourier-synthesis
 
 ### Step 1: DFT from scratch
 
-The O(N^2) DFT follows directly from the definition.
+DFT O(N^2) suy ra trực tiếp từ định nghĩa.
 
 ```python
 import math
@@ -307,7 +307,7 @@ def dft(x):
 
 ### Step 2: Inverse DFT
 
-Same structure, positive exponent, divide by N.
+Cùng cấu trúc, số mũ dương, chia cho N.
 
 ```python
 def idft(X):
@@ -325,7 +325,7 @@ def idft(X):
 
 ### Step 3: FFT (Cooley-Tukey)
 
-The recursive FFT requires power-of-2 length. Split into even and odd, recurse, combine with twiddle factors.
+FFT đệ quy đòi hỏi độ dài là lũy thừa của 2. Chia thành chẵn và lẻ, đệ quy, kết hợp bằng các hệ số twiddle.
 
 ```python
 def fft(x):
@@ -374,7 +374,7 @@ def convolve_fft(x, h):
 
 ## Use It
 
-For real work, use numpy's FFT which is backed by highly optimized C libraries.
+Với công việc thực tế, sử dụng FFT của numpy được hỗ trợ bởi các thư viện C được tối ưu hóa cao.
 
 ```python
 import numpy as np
@@ -389,7 +389,7 @@ positive_freqs = freqs[:len(freqs)//2]
 positive_power = power[:len(power)//2]
 ```
 
-For windowing and more advanced spectral analysis:
+Để áp dụng cửa sổ và phân tích phổ nâng cao hơn:
 
 ```python
 from scipy.signal import windows, stft
@@ -399,7 +399,7 @@ windowed = signal * window
 spectrum = np.fft.fft(windowed)
 ```
 
-For convolution:
+Với tích chập:
 
 ```python
 from scipy.signal import fftconvolve
@@ -407,7 +407,7 @@ from scipy.signal import fftconvolve
 result = fftconvolve(signal, kernel, mode='full')
 ```
 
-For spectrograms:
+Với phổ thời gian-tần số:
 
 ```python
 from scipy.signal import stft
@@ -416,50 +416,50 @@ frequencies, times, Zxx = stft(signal, fs=sample_rate, nperseg=256)
 spectrogram = np.abs(Zxx) ** 2
 ```
 
-The spectrogram matrix has shape (n_frequencies, n_time_frames). Each column is the power spectrum at one time window. This is what audio ML models consume as input.
+Ma trận phổ thời gian-tần số có hình dạng (n_frequencies, n_time_frames). Mỗi cột là phổ công suất tại một cửa sổ thời gian. Đây là thứ các mô hình ML âm thanh dùng làm đầu vào.
 
 ## Ship It
 
-Run `code/fourier.py` to generate `outputs/prompt-spectral-analyzer.md`.
+Chạy `code/fourier.py` để tạo `outputs/prompt-spectral-analyzer.md`.
 
 ## Exercises
 
-1. **Pure tone identification.** Create a signal with a single sine wave at an unknown frequency (between 1 and 50 Hz), sampled at 128 Hz for 1 second. Use your DFT to identify the frequency. Verify the answer matches. Now add Gaussian noise with standard deviation 0.5 and repeat. How does noise affect the spectrum?
+1. **Nhận diện âm thuần.** Tạo một tín hiệu với một sóng sin duy nhất tại một tần số chưa biết (giữa 1 và 50 Hz), được lấy mẫu tại 128 Hz trong 1 giây. Sử dụng DFT của bạn để nhận diện tần số. Xác minh câu trả lời khớp. Giờ thêm nhiễu Gaussian với độ lệch chuẩn 0.5 và lặp lại. Nhiễu ảnh hưởng đến phổ như thế nào?
 
-2. **FFT vs DFT verification.** Generate a random signal of length 64. Compute both DFT (O(N^2)) and FFT. Verify that all coefficients match to within 1e-10. Time both functions on signals of length 256, 512, 1024, and 2048. Plot the ratio of DFT time to FFT time.
+2. **Xác minh FFT so với DFT.** Tạo một tín hiệu ngẫu nhiên có độ dài 64. Tính cả DFT (O(N^2)) và FFT. Xác minh tất cả hệ số khớp trong phạm vi 1e-10. Đo thời gian cả hai hàm trên các tín hiệu có độ dài 256, 512, 1024 và 2048. Vẽ tỉ số thời gian DFT với thời gian FFT.
 
-3. **Convolution theorem proof by example.** Create signal x = [1, 2, 3, 4, 0, 0, 0, 0] and filter h = [1, 1, 1, 0, 0, 0, 0, 0]. Compute their circular convolution directly (nested loop). Then compute it via FFT (transform, multiply, inverse transform). Verify the results match. Now do linear convolution by zero-padding appropriately.
+3. **Chứng minh định lý tích chập bằng ví dụ.** Tạo tín hiệu x = [1, 2, 3, 4, 0, 0, 0, 0] và bộ lọc h = [1, 1, 1, 0, 0, 0, 0, 0]. Tính trực tiếp tích chập vòng của chúng (vòng lặp lồng nhau). Sau đó tính qua FFT (biến đổi, nhân, biến đổi ngược). Xác minh các kết quả khớp. Giờ thực hiện tích chập tuyến tính bằng cách đệm số không thích hợp.
 
-4. **Windowing effects.** Create a signal that is the sum of two sine waves at 10 Hz and 12 Hz (very close). Sample at 128 Hz for 1 second. Compute the power spectrum with no window, Hann window, and Hamming window. Which window makes it easiest to distinguish the two peaks? Why?
+4. **Tác động của cửa sổ.** Tạo một tín hiệu là tổng hai sóng sin tại 10 Hz và 12 Hz (rất gần). Lấy mẫu tại 128 Hz trong 1 giây. Tính phổ công suất khi không có cửa sổ, với cửa sổ Hann và cửa sổ Hamming. Cửa sổ nào làm việc phân biệt hai đỉnh dễ nhất? Tại sao?
 
-5. **Positional encoding analysis.** Generate the sinusoidal positional encodings for d_model = 128 and max_pos = 512. For each pair of positions (p1, p2), compute the dot product of their encodings. Show that the dot product depends only on |p1 - p2|, not on the absolute positions. What happens to the dot product as the distance increases?
+5. **Phân tích mã hóa vị trí.** Tạo các mã hóa vị trí hình sin cho d_model = 128 và max_pos = 512. Với mỗi cặp vị trí (p1, p2), tính tích vô hướng của các mã hóa. Chỉ ra rằng tích vô hướng chỉ phụ thuộc vào |p1 - p2|, không phụ thuộc các vị trí tuyệt đối. Điều gì xảy ra với tích vô hướng khi khoảng cách tăng?
 
 ## Key Terms
 
-| Term | What it means |
+| Thuật ngữ | Ý nghĩa |
 |------|---------------|
-| DFT (Discrete Fourier Transform) | Converts N time-domain samples into N frequency-domain coefficients. Each coefficient is the correlation with a complex sinusoid at that frequency |
-| FFT (Fast Fourier Transform) | An O(N log N) algorithm to compute the DFT. The Cooley-Tukey algorithm splits even/odd indices recursively |
-| Inverse DFT | Reconstructs the time-domain signal from frequency coefficients. Same formula as DFT with flipped exponent sign and 1/N scaling |
-| Frequency bin | Each index k in the DFT output represents frequency k*fs/N Hz. The "bin" is the discrete frequency slot |
-| DC component | X[0], the zero-frequency coefficient. Proportional to the signal mean |
-| Nyquist frequency | fs/2, the maximum frequency representable at sampling rate fs. Frequencies above this alias |
-| Power spectrum | \|X[k]\|^2, the squared magnitude of each frequency coefficient. Shows energy distribution across frequencies |
-| Phase spectrum | angle(X[k]), the phase offset of each frequency component. Often ignored in analysis |
-| Spectral leakage | Spurious frequency content caused by treating a non-periodic signal as periodic. Reduced by windowing |
-| Window function | A tapering function (Hann, Hamming, Blackman) applied before DFT to reduce spectral leakage |
-| Twiddle factor | The complex exponential e^(-2*pi*i*k/N) used to combine sub-DFTs in the FFT butterfly computation |
-| Convolution theorem | Convolution in time domain equals pointwise multiplication in frequency domain. Fundamental to signal processing and CNNs |
-| Circular convolution | Convolution where the signal wraps around. This is what the DFT naturally computes |
-| Linear convolution | Standard convolution without wraparound. Achieved by zero-padding before DFT |
-| Parseval's theorem | Total energy is preserved through the Fourier transform. sum \|x[n]\|^2 = (1/N) sum \|X[k]\|^2 |
-| Aliasing | When frequencies above Nyquist appear as lower frequencies due to insufficient sampling rate |
+| DFT (Discrete Fourier Transform) (Biến đổi Fourier Rời rạc) | Chuyển N mẫu miền thời gian thành N hệ số miền tần số. Mỗi hệ số là tương quan với một sóng sin phức tại tần số đó |
+| FFT (Fast Fourier Transform) (Biến đổi Fourier Nhanh) | Một thuật toán O(N log N) để tính DFT. Thuật toán Cooley-Tukey chia các chỉ số chẵn/lẻ bằng đệ quy |
+| Inverse DFT (DFT ngược) | Tái tạo tín hiệu miền thời gian từ các hệ số tần số. Cùng công thức với DFT nhưng đổi dấu số mũ và nhân tỉ lệ 1/N |
+| Frequency bin (Ô tần số) | Mỗi chỉ số k trong đầu ra DFT biểu diễn tần số k*fs/N Hz. "Ô" là vị trí tần số rời rạc |
+| DC component (Thành phần DC) | X[0], hệ số tần số không. Tỉ lệ với trung bình tín hiệu |
+| Nyquist frequency (Tần số Nyquist) | fs/2, tần số lớn nhất có thể biểu diễn tại tốc độ lấy mẫu fs. Các tần số trên mức này bị aliasing |
+| Power spectrum (Phổ công suất) | \|X[k]\|^2, độ lớn bình phương của mỗi hệ số tần số. Cho thấy phân bố năng lượng trên các tần số |
+| Phase spectrum (Phổ pha) | angle(X[k]), độ lệch pha của mỗi thành phần tần số. Thường bị bỏ qua trong phân tích |
+| Spectral leakage (Rò rỉ phổ) | Nội dung tần số giả do xem một tín hiệu không tuần hoàn là tuần hoàn. Được giảm bằng áp dụng cửa sổ |
+| Window function (Hàm cửa sổ) | Một hàm giảm dần (Hann, Hamming, Blackman) được áp dụng trước DFT để giảm rò rỉ phổ |
+| Twiddle factor (Hệ số twiddle) | Hàm mũ phức e^(-2*pi*i*k/N) được sử dụng để kết hợp các DFT con trong phép tính bướm FFT |
+| Convolution theorem (Định lý tích chập) | Tích chập trong miền thời gian bằng phép nhân theo từng điểm trong miền tần số. Nền tảng của xử lý tín hiệu và CNN |
+| Circular convolution (Tích chập vòng) | Tích chập nơi tín hiệu quấn vòng. Đây là những gì DFT tự nhiên tính |
+| Linear convolution (Tích chập tuyến tính) | Tích chập tiêu chuẩn không quấn vòng. Đạt được bằng cách đệm số không trước DFT |
+| Parseval's theorem (Định lý Parseval) | Tổng năng lượng được bảo toàn qua biến đổi Fourier. sum \|x[n]\|^2 = (1/N) sum \|X[k]\|^2 |
+| Aliasing | Khi các tần số trên Nyquist xuất hiện dưới dạng các tần số thấp hơn do tốc độ lấy mẫu không đủ |
 
 ## Further Reading
 
-- [Cooley & Tukey: An Algorithm for the Machine Calculation of Complex Fourier Series (1965)](https://www.ams.org/journals/mcom/1965-19-090/S0025-5718-1965-0178586-1/) - the original FFT paper that changed computing
-- [3Blue1Brown: But what is the Fourier Transform?](https://www.youtube.com/watch?v=spUNpyF58BY) - the best visual introduction to Fourier transforms
-- [Lee-Thorp et al.: FNet: Mixing Tokens with Fourier Transforms (2021)](https://arxiv.org/abs/2105.03824) - replaces self-attention with FFT in transformers
-- [Smith: The Scientist and Engineer's Guide to Digital Signal Processing](http://www.dspguide.com/) - free online textbook covering FFT, windowing, and spectral analysis in depth
-- [Vaswani et al.: Attention Is All You Need (2017)](https://arxiv.org/abs/1706.03762) - sinusoidal positional encodings derived from Fourier frequency decomposition
-- [Radford et al.: Whisper (2022)](https://arxiv.org/abs/2212.04356) - speech recognition using mel-spectrograms as input representation
+- [Cooley & Tukey: An Algorithm for the Machine Calculation of Complex Fourier Series (1965)](https://www.ams.org/journals/mcom/1965-19-090/S0025-5718-1965-0178586-1/) - bài báo FFT gốc đã thay đổi điện toán
+- [3Blue1Brown: But what is the Fourier Transform?](https://www.youtube.com/watch?v=spUNpyF58BY) - phần giới thiệu trực quan hay nhất về biến đổi Fourier
+- [Lee-Thorp et al.: FNet: Mixing Tokens with Fourier Transforms (2021)](https://arxiv.org/abs/2105.03824) - thay self-attention bằng FFT trong transformer
+- [Smith: The Scientist and Engineer's Guide to Digital Signal Processing](http://www.dspguide.com/) - giáo trình trực tuyến miễn phí trình bày sâu về FFT, cửa sổ và phân tích phổ
+- [Vaswani et al.: Attention Is All You Need (2017)](https://arxiv.org/abs/1706.03762) - các mã hóa vị trí hình sin được suy ra từ phân rã tần số Fourier
+- [Radford et al.: Whisper (2022)](https://arxiv.org/abs/2212.04356) - nhận dạng giọng nói sử dụng mel-spectrogram làm biểu diễn đầu vào
