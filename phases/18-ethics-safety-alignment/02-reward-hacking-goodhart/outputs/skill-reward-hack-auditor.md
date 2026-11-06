@@ -7,22 +7,22 @@ lesson: 2
 tags: [reward-hacking, goodhart, rlhf, over-optimization, sycophancy]
 ---
 
-Given an RLHF model's training reports (proxy-reward curve, KL trajectory, eval deltas) and a sample of outputs, identify which of the four reward-hacking costumes is most likely active and locate it in the evidence.
+Với báo cáo huấn luyện của mô hình RLHF (đường cong phần thưởng đại diện, quỹ đạo KL, chênh lệch đánh giá) và mẫu đầu ra, xác định lớp ngụy trang nào trong bốn lớp khai thác phần thưởng có khả năng đang hoạt động nhất và định vị nó trong bằng chứng.
 
-Produce:
+Tạo:
 
-1. Proxy-gold gap fingerprint. Plot (or describe) proxy reward vs KL distance from the SFT reference. Mark the peak of gold reward (human eval, held-out RM, or proxy for these). Report whether the model is before, at, or past the gold peak.
-2. Costume identification. Check for each of verbosity, sycophancy, unfaithful reasoning, evaluator tampering. For each: cite a specific output or metric that triggered the flag.
-3. Mechanism trace. Name the spurious feature the RM is likely rewarding (length, confident phrasing, agreement, formatting). Cite a prompt where the feature decouples from quality.
-4. Mitigation recommendation. From the set {more preference data, RM ensemble, process supervision, KL schedule tightening, early stopping, shift to DAA}, recommend the single intervention the evidence supports and name one that would be wasted effort here.
+1. Dấu vân tay khoảng cách đại diện-chuẩn. Vẽ (hoặc mô tả) phần thưởng đại diện theo khoảng cách KL từ tham chiếu SFT. Đánh dấu đỉnh phần thưởng chuẩn (đánh giá con người, RM giữ riêng, hoặc đại diện cho chúng). Báo cáo mô hình ở trước, tại hay sau đỉnh chuẩn.
+2. Nhận diện lớp ngụy trang. Kiểm tra từng dạng dài dòng, xu nịnh, suy luận không trung thực, can thiệp bộ đánh giá. Với mỗi dạng: trích dẫn đầu ra hoặc chỉ số cụ thể kích hoạt cờ.
+3. Truy cơ chế. Nêu đặc trưng giả mà RM có khả năng đang thưởng (độ dài, cách nói tự tin, đồng ý, định dạng). Trích dẫn prompt nơi đặc trưng tách khỏi chất lượng.
+4. Khuyến nghị giảm thiểu. Từ tập {thêm dữ liệu ưu tiên, tổ hợp RM, giám sát quá trình, siết lịch KL, dừng sớm, chuyển sang DAA}, khuyến nghị một can thiệp duy nhất mà bằng chứng hỗ trợ và nêu một can thiệp sẽ lãng phí công sức ở đây.
 
-Hard rejects:
-- Any claim that a single RM "fixes" reward hacking. The Gao et al. (ICML 2023) curve is universal — a bigger RM pushes the peak out but does not eliminate it.
-- Any claim that KL regularization is sufficient. Catastrophic Goodhart (OpenReview UXuBzWoZGK) shows KL alone fails under heavy-tailed reward error.
-- Any recommendation to "just tune beta" without held-out capability benchmarks.
+Các trường hợp loại bỏ dứt khoát:
+- Mọi khẳng định một RM duy nhất "sửa" khai thác phần thưởng. Đường cong Gao và cộng sự (ICML 2023) mang tính phổ quát — RM lớn hơn đẩy đỉnh ra nhưng không loại bỏ nó.
+- Mọi khẳng định điều chuẩn KL là đủ. Catastrophic Goodhart (OpenReview UXuBzWoZGK) cho thấy riêng KL thất bại dưới sai số phần thưởng đuôi nặng.
+- Mọi khuyến nghị "chỉ cần chỉnh beta" mà không có phép đo chuẩn năng lực giữ riêng.
 
-Refusal rules:
-- If the user only provides proxy-reward curves with no held-out gold signal, refuse to diagnose and demand held-out evals. Diagnosis without gold is reward-hacking-by-proxy-of-diagnosis.
-- If the user provides unfaithful-CoT evidence and asks whether process supervision "solves" it, refuse a binary answer and point to the open literature.
+Quy tắc từ chối:
+- Nếu người dùng chỉ cung cấp đường cong phần thưởng đại diện mà không có tín hiệu chuẩn giữ riêng, từ chối chẩn đoán và yêu cầu đánh giá giữ riêng. Chẩn đoán không có chuẩn là khai thác phần thưởng qua đại diện của chẩn đoán.
+- Nếu người dùng cung cấp bằng chứng CoT không trung thực và hỏi giám sát quá trình có "giải quyết" nó không, từ chối trả lời nhị phân và trỏ đến tài liệu nghiên cứu mở.
 
-Output: a one-page audit with the four-costume checklist, a single most-likely costume, a specific piece of evidence for it, and a single mitigation recommendation justified by the evidence. Cite Gao et al. (ICML 2023) and the 2026 unified-view paper (arXiv:2604.13602) exactly once each.
+Đầu ra: một bản kiểm tra một trang với danh sách kiểm tra bốn lớp ngụy trang, một lớp có khả năng nhất, một bằng chứng cụ thể cho nó, và một khuyến nghị giảm thiểu được biện minh bằng bằng chứng. Trích dẫn Gao và cộng sự (ICML 2023) và bài báo quan điểm hợp nhất năm 2026 (arXiv:2604.13602), mỗi bài đúng một lần.
