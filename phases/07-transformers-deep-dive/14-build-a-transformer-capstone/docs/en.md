@@ -1,6 +1,6 @@
 # Build a Transformer from Scratch — The Capstone
 
-> Thirteen lessons. One model. No shortcuts.
+> Mười ba bài học. Một mô hình. Không lối tắt.
 
 **Type:** Build
 **Languages:** Python
@@ -9,17 +9,17 @@
 
 ## The Problem
 
-You've read every paper. You've implemented attention, multi-head splits, positional encodings, encoder and decoder blocks, BERT and GPT losses, MoE, KV cache. Now make them work together on a real task.
+Bạn đã đọc mọi bài báo. Bạn đã triển khai attention, chia multi-head, các mã hóa vị trí, các khối encoder và decoder, loss BERT và GPT, MoE, KV cache. Giờ khiến chúng hoạt động cùng nhau trên một tác vụ thực.
 
-The capstone: train a small decoder-only transformer end-to-end on a character-level language modeling task. It reads Shakespeare. It generates new Shakespeare. It is small enough to train on a laptop in under 10 minutes. It is correct enough that swapping in a bigger dataset and longer training gets you a real LM.
+Capstone: huấn luyện một transformer chỉ decoder nhỏ đầu cuối trên một tác vụ mô hình hóa ngôn ngữ cấp ký tự. Nó đọc Shakespeare. Nó sinh Shakespeare mới. Nó đủ nhỏ để huấn luyện trên một máy tính xách tay trong dưới 10 phút. Nó đủ đúng để thay bằng một tập dữ liệu lớn hơn và huấn luyện lâu hơn cho bạn một LM thực.
 
-This is the "nanoGPT" of the course. It is not original — Karpathy's 2023 nanoGPT tutorial is the reference implementation every student writes at least once. We lift the shape and retool it around what we've covered.
+Đây là "nanoGPT" của khóa học. Nó không nguyên bản — hướng dẫn nanoGPT năm 2023 của Karpathy là triển khai tham chiếu mọi sinh viên viết ít nhất một lần. Chúng ta lấy hình dạng và làm lại quanh những gì đã đề cập.
 
 ## The Concept
 
 ![Transformer-from-scratch block diagram](../assets/capstone.svg)
 
-The architecture, annotated:
+Kiến trúc, có chú giải:
 
 ```
 input tokens (B, N)
@@ -52,28 +52,28 @@ shift-by-one cross-entropy            ◀── Lesson 07
 
 ### What we ship
 
-- `GPTConfig` — one place to configure all hyperparameters.
-- `MultiHeadAttention` — causal, batched, with optional Flash-style pathway (PyTorch's `scaled_dot_product_attention`).
-- `SwiGLUFFN` — modern FFN.
-- `Block` — pre-norm, residual-wrapped attention + FFN.
-- `GPT` — embeddings, stacked blocks, LM head, generate().
-- Training loop with AdamW, cosine LR, gradient clipping.
-- Char-level tokenizer on Shakespeare text.
+- `GPTConfig` — một nơi để cấu hình mọi siêu tham số.
+- `MultiHeadAttention` — nhân quả, theo batch, với đường kiểu Flash tùy chọn (`scaled_dot_product_attention` của PyTorch).
+- `SwiGLUFFN` — FFN hiện đại.
+- `Block` — pre-norm, attention được bọc residual + FFN.
+- `GPT` — embedding, các khối xếp chồng, head LM, generate().
+- Vòng lặp huấn luyện với AdamW, LR cosine, cắt gradient.
+- Tokenizer cấp ký tự trên văn bản Shakespeare.
 
 ### What we don't ship
 
-- RoPE — implemented conceptually in Lesson 04. Here we use learned positional embeddings for simplicity. The exercises ask you to swap in RoPE.
-- KV cache during generation — each generation step recomputes attention over the full prefix. Slower but simpler. The exercises ask you to add a KV cache.
-- Flash Attention — PyTorch 2.0+ auto-dispatches if the inputs match; we use `F.scaled_dot_product_attention`.
-- MoE — single FFN per block. You saw MoE in Lesson 11.
+- RoPE — được triển khai về khái niệm trong Bài 04. Ở đây chúng ta dùng các embedding vị trí được học cho đơn giản. Các bài tập yêu cầu bạn thay bằng RoPE.
+- KV cache khi sinh — mỗi bước sinh tính lại attention trên toàn tiền tố. Chậm hơn nhưng đơn giản hơn. Các bài tập yêu cầu bạn thêm một KV cache.
+- Flash Attention — PyTorch 2.0+ tự điều phối nếu các đầu vào khớp; chúng ta dùng `F.scaled_dot_product_attention`.
+- MoE — một FFN mỗi khối. Bạn đã thấy MoE trong Bài 11.
 
 ### Target metrics
 
-On a Mac M2 laptop, a 4-layer, 4-head, d_model=128 GPT trained for 2,000 steps on `tinyshakespeare.txt`:
+Trên một máy tính xách tay Mac M2, một GPT 4 tầng, 4 head, d_model=128 được huấn luyện trong 2,000 bước trên `tinyshakespeare.txt`:
 
-- Training loss converges from ~4.2 (random) to ~1.5 in about 6 minutes.
-- Sampled output looks Shakespeare-shaped: archaic words, line breaks, proper names like "ROMEO:" emerge.
-- Val loss (held-out final 10% of text) tracks training loss closely; no overfitting at this size/budget.
+- Loss huấn luyện hội tụ từ ~4.2 (ngẫu nhiên) xuống ~1.5 trong khoảng 6 phút.
+- Đầu ra được lấy mẫu trông có dạng Shakespeare: các từ cổ, xuống dòng, các tên riêng như "ROMEO:" xuất hiện.
+- Val loss (10% cuối văn bản được giữ lại) bám sát loss huấn luyện; không overfit ở kích thước/ngân sách này.
 
 ```figure
 n5-block-stack
@@ -81,13 +81,13 @@ n5-block-stack
 
 ## Build It
 
-This lesson uses PyTorch. Install `torch` (CPU build is fine). See `code/main.py`. The script handles:
+Bài học này dùng PyTorch. Cài `torch` (bản CPU là đủ). Xem `code/main.py`. Script xử lý:
 
-- Downloading `tinyshakespeare.txt` if missing (or reading a local copy).
-- Byte-level char tokenizer.
-- Train/val split at 90/10.
-- Training loop with bf16 autocast on supported hardware.
-- Sampling after training completes.
+- Tải `tinyshakespeare.txt` nếu thiếu (hoặc đọc một bản cục bộ).
+- Tokenizer ký tự cấp byte.
+- Chia huấn luyện/xác thực tại 90/10.
+- Vòng lặp huấn luyện với autocast bf16 trên phần cứng được hỗ trợ.
+- Lấy mẫu sau khi huấn luyện hoàn tất.
 
 ### Step 1: data
 
@@ -100,15 +100,15 @@ encode = lambda s: [stoi[c] for c in s]
 decode = lambda xs: "".join(itos[x] for x in xs)
 ```
 
-65 unique characters. Tiny vocabulary. Fits a 4-byte vocab_size. No BPE, no tokenizer drama.
+65 ký tự duy nhất. Từ vựng tí hon. Vừa một vocab_size 4 byte. Không BPE, không rắc rối tokenizer.
 
 ### Step 2: model
 
-See `code/main.py`. The block is textbook from Lesson 05 — pre-norm, RMSNorm, SwiGLU, causal MHA. Parameter count for 4/4/128: ~800K.
+Xem `code/main.py`. Khối là chuẩn giáo trình từ Bài 05 — pre-norm, RMSNorm, SwiGLU, MHA nhân quả. Số tham số cho 4/4/128: ~800K.
 
 ### Step 3: training loop
 
-Get a random batch of length-256 token windows. Forward. Shift-by-one cross-entropy. Backward. AdamW step. Log. Repeat.
+Lấy một batch ngẫu nhiên các cửa sổ token dài 256. Truyền xuôi. Cross-entropy dịch một vị trí. Truyền ngược. Bước AdamW. Ghi nhật ký. Lặp lại.
 
 ```python
 for step in range(max_steps):
@@ -123,11 +123,11 @@ for step in range(max_steps):
 
 ### Step 4: sample
 
-Given a prompt, repeatedly forward, sample from top-p logits, append, and continue. Stop after 500 tokens.
+Với một prompt, lặp truyền xuôi, lấy mẫu từ các logits top-p, nối thêm và tiếp tục. Dừng sau 500 token.
 
 ### Step 5: read the output
 
-After 2,000 steps:
+Sau 2,000 bước:
 
 ```
 ROMEO:
@@ -136,43 +136,43 @@ The chief that well shame and hath been his friends,
 ...
 ```
 
-Not Shakespeare. But Shakespeare-shaped. A clear win for ~800K parameters and 6 minutes on a laptop.
+Không phải Shakespeare. Nhưng có dạng Shakespeare. Một chiến thắng rõ cho ~800K tham số và 6 phút trên máy tính xách tay.
 
 ## Use It
 
-This capstone is a reference architecture. Three extensions to ship it to something real:
+Capstone này là một kiến trúc tham chiếu. Ba mở rộng để phát hành nó thành thứ thực:
 
-1. **Swap the tokenizer.** Use BPE (e.g. `tiktoken.get_encoding("cl100k_base")`). Vocab size jumps from 65 to ~50,000. Model capacity needs to scale up to compensate.
-2. **Train on a bigger corpus.** Use `OpenWebText` or `fineweb-edu` (HuggingFace). 10B tokens on a single A100 takes ~24 hours for a 125M-param GPT.
-3. **Add RoPE + KV cache + Flash Attention.** The exercises below walk you through each.
+1. **Hoán đổi tokenizer.** Dùng BPE (ví dụ `tiktoken.get_encoding("cl100k_base")`). Kích thước từ vựng nhảy từ 65 lên ~50,000. Năng lực mô hình cần tăng để bù.
+2. **Huấn luyện trên một ngữ liệu lớn hơn.** Dùng `OpenWebText` hoặc `fineweb-edu` (HuggingFace). 10B token trên một A100 duy nhất mất ~24 giờ cho một GPT 125M tham số.
+3. **Thêm RoPE + KV cache + Flash Attention.** Các bài tập dưới đây hướng dẫn bạn qua từng phần.
 
-This ends up as a 125M-parameter GPT that generates fluent English. Not a frontier model. But the same code path — just bigger — is what Karpathy, EleutherAI, and the Allen Institute use to train research checkpoints in 2026.
+Điều này kết thúc thành một GPT 125M tham số sinh tiếng Anh trôi chảy. Không phải một mô hình tiên phong. Nhưng cùng đường mã — chỉ lớn hơn — là thứ Karpathy, EleutherAI và Allen Institute dùng để huấn luyện các checkpoint nghiên cứu năm 2026.
 
 ## Ship It
 
-See `outputs/skill-transformer-review.md`. The skill reviews a transformer-from-scratch implementation for correctness across all 13 prior lessons.
+Xem `outputs/skill-transformer-review.md`. Skill rà soát một triển khai transformer từ đầu về tính đúng đắn trên cả 13 bài trước.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. Verify your trained model's final-step validation loss is under 2.0. Change `max_steps` from 2,000 to 5,000 — does val loss keep improving?
-2. **Medium.** Replace learned positional embeddings with RoPE. Apply the rotation to Q and K inside `MultiHeadAttention`. Train and verify val loss is at least as low.
-3. **Medium.** Implement a KV cache in the sampling loop. Generate 500 tokens with and without cache. Wall-clock should improve by 5–20× on a laptop.
-4. **Hard.** Add a second head to the model that predicts the next-plus-one token (MTP — Multi-Token Prediction from DeepSeek-V3). Train jointly. Does it help?
-5. **Hard.** Replace the single FFN per block with a 4-expert MoE. Router + top-2 routing. See how val loss changes at matched active parameters.
+1. **Dễ.** Chạy `code/main.py`. Xác minh loss xác thực bước cuối của mô hình được huấn luyện dưới 2.0. Đổi `max_steps` từ 2,000 lên 5,000 — val loss có tiếp tục cải thiện không?
+2. **Trung bình.** Thay các embedding vị trí được học bằng RoPE. Áp dụng phép xoay cho Q và K bên trong `MultiHeadAttention`. Huấn luyện và xác minh val loss ít nhất cũng thấp bằng.
+3. **Trung bình.** Triển khai một KV cache trong vòng lặp lấy mẫu. Sinh 500 token có và không cache. Thời gian thực nên cải thiện 5–20× trên máy tính xách tay.
+4. **Khó.** Thêm một head thứ hai vào mô hình dự đoán token tiếp-theo-cộng-một (MTP — Multi-Token Prediction từ DeepSeek-V3). Huấn luyện kết hợp. Nó có giúp không?
+5. **Khó.** Thay FFN đơn mỗi khối bằng một MoE 4 chuyên gia. Bộ định tuyến + định tuyến top-2. Xem val loss thay đổi thế nào ở số tham số hoạt động tương ứng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| nanoGPT | "Karpathy's tutorial repo" | Minimal decoder-only transformer training code, ~300 LOC; the canonical reference. |
-| tinyshakespeare | "The standard toy corpus" | ~1.1 MB of text; every character-LM tutorial since 2015 uses it. |
-| Tied embeddings | "Share input/output matrix" | LM head weight = transpose of token embedding matrix; saves parameters, improves quality. |
-| bf16 autocast | "Training precision trick" | Run forward/back in bf16, keep optimizer state in fp32; standard since 2021. |
-| Gradient clipping | "Stops spikes" | Cap global grad norm at 1.0; prevents training blowups. |
-| Cosine LR schedule | "The 2020+ default" | LR ramps up linearly (warmup) then decays cosine-shaped to 10% of peak. |
-| MFU | "Model FLOP Utilization" | Achieved FLOPs / theoretical peak; 40% dense, 30% MoE is strong in 2026. |
-| Val loss | "Held-out loss" | Cross-entropy on data the model never saw; overfit detector. |
+| nanoGPT | "Kho hướng dẫn của Karpathy" | Mã huấn luyện transformer chỉ decoder tối thiểu, ~300 LOC; tham chiếu kinh điển. |
+| tinyshakespeare | "Ngữ liệu đồ chơi tiêu chuẩn" | ~1.1 MB văn bản; mọi hướng dẫn LM ký tự từ 2015 dùng nó. |
+| Tied embeddings (Embedding buộc chung) | "Dùng chung ma trận đầu vào/đầu ra" | Trọng số head LM = chuyển vị ma trận embedding token; tiết kiệm tham số, cải thiện chất lượng. |
+| bf16 autocast | "Thủ thuật độ chính xác huấn luyện" | Chạy xuôi/ngược bằng bf16, giữ trạng thái bộ tối ưu bằng fp32; tiêu chuẩn từ 2021. |
+| Gradient clipping (Cắt gradient) | "Dừng các đột biến" | Giới hạn norm gradient toàn cục tại 1.0; ngăn huấn luyện bùng nổ. |
+| Cosine LR schedule (Lịch LR cosine) | "Mặc định từ 2020+" | LR tăng tuyến tính (warmup) rồi giảm theo dạng cosine đến 10% đỉnh. |
+| MFU | "Model FLOP Utilization" | FLOP đạt được / đỉnh lý thuyết; 40% đặc, 30% MoE là mạnh năm 2026. |
+| Val loss (Loss xác thực) | "Loss được giữ lại" | Cross-entropy trên dữ liệu mô hình chưa thấy; bộ phát hiện overfit. |
 
 ## Further Reading
 
-- [The Annotated Transformer (Harvard NLP)](https://nlp.seas.harvard.edu/annotated-transformer/) — the classic annotated implementation.
+- [The Annotated Transformer (Harvard NLP)](https://nlp.seas.harvard.edu/annotated-transformer/) — triển khai có chú giải cổ điển.
