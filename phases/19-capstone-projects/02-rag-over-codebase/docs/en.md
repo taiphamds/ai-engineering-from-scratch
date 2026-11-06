@@ -1,6 +1,6 @@
 # Capstone 02 — RAG over Codebase (Cross-Repo Semantic Search)
 
-> Every serious engineering org in 2026 runs an internal code search that understands meaning, not just strings. Sourcegraph Amp, Cursor's codebase answers, Augment's enterprise graph, Aider's repomap, Pinterest's internal MCP — same shape. Ingest many repos, parse with tree-sitter, embed function- and class-level chunks, hybrid-search, re-rank, answer with citations. This capstone asks you to build one that handles 2M lines of code across 10 repos and survives incremental re-indexing on every git push.
+> Mọi tổ chức kỹ thuật nghiêm túc năm 2026 vận hành tìm kiếm mã nội bộ hiểu ý nghĩa, không chỉ chuỗi. Sourcegraph Amp, trả lời codebase Cursor, đồ thị doanh nghiệp Augment, repomap Aider, MCP nội bộ Pinterest — cùng hình dạng. Thu nạp nhiều repo, phân tích bằng tree-sitter, tạo embedding đoạn cấp hàm và lớp, tìm kiếm lai, xếp hạng lại, trả lời có trích dẫn. Bài tổng kết yêu cầu xây hệ thống xử lý 2M dòng mã trên 10 repo và trụ qua tái lập chỉ mục tăng dần trên mỗi git push.
 
 **Type:** Capstone
 **Languages:** Python (ingestion), TypeScript (API + UI)
@@ -10,17 +10,17 @@
 
 ## Problem
 
-By 2026 every frontier coding agent ships with a codebase retrieval layer because context windows alone do not solve cross-repo questions. Claude's 1M-token context helps; it does not eliminate the need for ranked retrieval. Naive cosine search over raw chunks poisons results on generated code, on monorepo duplication, and on the long tail of rarely-imported symbols. The production answer is a hybrid (dense + BM25) search over AST-aware chunks with a re-ranker, backed by a graph of symbol references.
+Đến 2026, mọi agent lập trình tiên tiến hàng đầu có lớp truy xuất codebase vì chỉ cửa sổ ngữ cảnh không giải quyết câu hỏi xuyên repo. Ngữ cảnh 1M token Claude giúp; không loại nhu cầu truy xuất có xếp hạng. Tìm cosine đơn giản trên đoạn thô làm nhiễu kết quả ở mã được sinh, trùng lặp monorepo và đuôi dài ký hiệu hiếm import. Câu trả lời sản xuất là tìm kiếm lai (dense + BM25) trên đoạn nhận biết AST có bộ xếp hạng lại, dựa trên đồ thị tham chiếu ký hiệu.
 
-You learn this by indexing a real fleet — not one tutorial repo — and measuring MRR@10, citation faithfulness, and incremental freshness. The failure modes are infrastructural: a 100k-file monorepo, a push that retouches half the files, a query that needs to cross four repos to answer correctly.
+Bạn học bằng lập chỉ mục tập repo thực — không phải một repo hướng dẫn — và đo MRR@10, tính trung thực trích dẫn, độ mới tăng dần. Chế độ lỗi thuộc hạ tầng: monorepo 100k file, lần push chạm lại nửa số file, truy vấn cần qua bốn repo để trả lời đúng.
 
 ## Concept
 
-An AST-aware ingestion pipeline parses each file with tree-sitter, extracts function and class nodes, and chunks at node boundaries rather than fixed token windows. Each chunk gets three representations: a dense embedding (Voyage-code-3 or nomic-embed-code), sparse BM25 terms, and a short natural-language summary. The summary adds a third retrievable modality — users ask "how is X authorized" and the summary mentions "authz", even if the code only has `check_permission`.
+Pipeline thu nạp nhận biết AST phân tích mỗi file bằng tree-sitter, trích nút hàm và lớp, chia đoạn ở ranh giới nút thay vì cửa sổ token cố định. Mỗi đoạn có ba biểu diễn: embedding dense (Voyage-code-3 hoặc nomic-embed-code), từ BM25 sparse và tóm tắt ngôn ngữ tự nhiên ngắn. Tóm tắt thêm phương thức truy xuất thứ ba — người dùng hỏi "X được phân quyền thế nào" và tóm tắt nhắc "authz", ngay cả khi mã chỉ có `check_permission`.
 
-Retrieval is hybrid. A query fires both dense and BM25 searches, merges top-k, and hands the union to a cross-encoder re-ranker (Cohere rerank-3 or bge-reranker-v2-gemma-2b). The re-ranked list goes to a long-context synthesizer (Claude Sonnet 4.7 with prompt caching, or Llama 3.3 70B self-hosted) with instructions to cite every claim by file and line range. Answers without citations are rejected by a post-filter.
+Truy xuất là lai. Truy vấn kích hoạt cả tìm dense và BM25, hợp nhất top-k rồi chuyển hợp cho bộ xếp hạng lại cross-encoder (Cohere rerank-3 hoặc bge-reranker-v2-gemma-2b). Danh sách xếp lại đến bộ tổng hợp ngữ cảnh dài (Claude Sonnet 4.7 với lưu bộ nhớ đệm prompt, hoặc Llama 3.3 70B tự lưu trữ) kèm chỉ dẫn trích mọi khẳng định bằng file và khoảng dòng. Câu trả lời không trích dẫn bị hậu lọc từ chối.
 
-Incremental freshness is the infrastructure problem. Git push triggers a diff: which files changed, which symbols changed. Only affected chunks re-embed. Affected cross-file symbol edges (imports, method calls) get recomputed. The index stays consistent without reprocessing 2M lines each commit.
+Độ mới tăng dần là vấn đề hạ tầng. Git push kích hoạt diff: file nào đổi, ký hiệu nào đổi. Chỉ đoạn bị ảnh hưởng được tạo embedding lại. Cạnh ký hiệu xuyên file bị ảnh hưởng (import, gọi phương thức) được tính lại. Chỉ mục nhất quán không cần xử lý lại 2M dòng mỗi commit.
 
 ## Architecture
 
@@ -51,16 +51,16 @@ git push --> webhook --> ingest worker (LlamaIndex Workflow)
 
 ## Stack
 
-- Parsing: tree-sitter with 17 language grammars (Python, TS, Rust, Go, Java, C++, etc.)
-- Dense embeddings: Voyage-code-3 (hosted) or nomic-embed-code-v1.5 (self-host), bge-code-v1 fallback
-- Sparse index: Tantivy (Rust) with BM25F, field-weighted on symbol name vs body
-- Vector DB: Qdrant 1.12 with hybrid search, or pgvector + pgvectorscale for teams under 50M vectors
-- Chunk summary model: Claude Haiku 4.5 or Gemini 2.5 Flash, prompt-cached
-- Re-ranker: Cohere rerank-3 or bge-reranker-v2-gemma-2b self-hosted
-- Orchestration: LlamaIndex Workflows for ingestion, LangGraph for query agent
-- Synthesizer: Claude Sonnet 4.7 (1M context) with prompt caching
-- Symbol graph: Neo4j (managed) or kuzu (embedded) for import and call edges
-- Observability: Langfuse spans per retrieval + synthesis step
+- Phân tích: tree-sitter với 17 ngữ pháp ngôn ngữ (Python, TS, Rust, Go, Java, C++, v.v.)
+- Embedding dense: Voyage-code-3 (được lưu trữ) hoặc nomic-embed-code-v1.5 (tự lưu trữ), dự phòng bge-code-v1
+- Chỉ mục sparse: Tantivy (Rust) với BM25F, trọng số trường tên ký hiệu so với thân
+- DB vector: Qdrant 1.12 có tìm kiếm lai, hoặc pgvector + pgvectorscale cho nhóm dưới 50M vector
+- Mô hình tóm tắt đoạn: Claude Haiku 4.5 hoặc Gemini 2.5 Flash, có lưu bộ nhớ đệm prompt
+- Bộ xếp hạng lại: Cohere rerank-3 hoặc bge-reranker-v2-gemma-2b tự lưu trữ
+- Điều phối: LlamaIndex Workflows cho thu nạp, LangGraph cho agent truy vấn
+- Bộ tổng hợp: Claude Sonnet 4.7 (ngữ cảnh 1M) với lưu bộ nhớ đệm prompt
+- Đồ thị ký hiệu: Neo4j (được quản lý) hoặc kuzu (nhúng) cho cạnh import và gọi
+- Khả năng quan sát: span Langfuse mỗi bước truy xuất + tổng hợp
 
 ```figure
 ce-hybrid-retrieval
@@ -68,23 +68,23 @@ ce-hybrid-retrieval
 
 ## Build It
 
-1. **Ingestion walker.** Iterate git history on every push hook. Collect changed files. For each file, parse with tree-sitter, extract function and class nodes with their full source span. Emit chunk records `{repo, path, start_line, end_line, symbol, body}`.
+1. **Bộ duyệt thu nạp.** Duyệt lịch sử git trên mỗi hook push. Thu file thay đổi. Với mỗi file, phân tích bằng tree-sitter, trích nút hàm và lớp cùng toàn khoảng nguồn. Xuất bản ghi đoạn `{repo, path, start_line, end_line, symbol, body}`.
 
-2. **Chunk summarizer.** Batch chunks into Haiku 4.5 calls with prompt caching on the system preamble. Prompt: "Summarize this function in one sentence, naming its public contract and side effects." Store summary alongside the chunk.
+2. **Bộ tóm tắt đoạn.** Gom lô đoạn thành lệnh gọi Haiku 4.5 với lưu bộ nhớ đệm prompt trên phần mở đầu hệ thống. Prompt: "Tóm tắt hàm này trong một câu, nêu hợp đồng công khai và tác dụng phụ." Lưu tóm tắt cùng đoạn.
 
-3. **Embedding pool.** Two parallel queues: dense (Voyage-code-3 batch 128) and summary (same model, but on the summary string). Write vectors to Qdrant with payload `{repo, path, start_line, end_line, symbol, kind}`.
+3. **Bể embedding.** Hai hàng đợi song song: dense (Voyage-code-3 lô 128) và tóm tắt (cùng mô hình nhưng trên chuỗi tóm tắt). Ghi vector vào Qdrant với payload `{repo, path, start_line, end_line, symbol, kind}`.
 
-4. **BM25 index.** Field-weighted Tantivy index: symbol name weight 4, symbol body weight 1, summary weight 2. Enables "find the function named X" queries alongside "find the function that does X".
+4. **Chỉ mục BM25.** Chỉ mục Tantivy trọng số trường: tên ký hiệu trọng số 4, thân ký hiệu trọng số 1, tóm tắt trọng số 2. Cho truy vấn "tìm hàm tên X" cùng "tìm hàm làm X".
 
-5. **Symbol graph.** For each chunk, record edges: imports (this file uses symbol Y from repo Z), calls (this function calls method M on class C), inheritance. Store in kuzu. Used at query time to expand retrieval across repo boundaries.
+5. **Đồ thị ký hiệu.** Với mỗi đoạn, ghi cạnh: import (file này dùng ký hiệu Y từ repo Z), gọi (hàm này gọi phương thức M trên lớp C), kế thừa. Lưu trong kuzu. Dùng lúc truy vấn để mở truy xuất qua ranh giới repo.
 
-6. **Query agent.** LangGraph with three nodes. `retrieve` fires dense + BM25 in parallel, deduplicates by (repo, path, symbol). `rerank` runs the cross-encoder on top-50 and keeps top-10. `synth` calls Claude Sonnet 4.7 with the reranked chunks in context, caches the system prompt, requires file:line citations.
+6. **Agent truy vấn.** LangGraph có ba nút. `retrieve` kích hoạt dense + BM25 song song, khử trùng theo (repo, path, symbol). `rerank` chạy cross-encoder trên top-50, giữ top-10. `synth` gọi Claude Sonnet 4.7 với đoạn xếp lại trong ngữ cảnh, lưu bộ nhớ đệm system prompt, yêu cầu trích dẫn file:line.
 
-7. **Citation enforcement.** Parse the model output; any claim without a `(repo/path:start-end)` anchor gets flagged for re-ask or dropped. Return cited-only answer to the user.
+7. **Thực thi trích dẫn.** Phân tích đầu ra mô hình; mọi khẳng định không có neo `(repo/path:start-end)` bị đánh dấu để hỏi lại hoặc loại. Trả câu trả lời chỉ có trích dẫn cho người dùng.
 
-8. **Incremental re-index.** On each webhook, compute the symbol-level diff. Only re-embed chunks whose text changed. Recompute symbol edges for chunks whose imports changed. Measure: a 50-file push re-indexed in under 60 seconds for a 2M-LOC fleet.
+8. **Tái lập chỉ mục tăng dần.** Mỗi webhook, tính diff cấp ký hiệu. Chỉ tạo embedding lại đoạn thay văn bản. Tính lại cạnh ký hiệu cho đoạn đổi import. Đo: push 50 file được tái lập chỉ mục dưới 60 giây cho tập repo 2M LOC.
 
-9. **Eval.** Label 100 cross-repo questions with gold file:line answers. Measure MRR@10, nDCG@10, citation faithfulness (fraction of claims with verifiable anchors), and p50/p99 latency.
+9. **Đánh giá.** Gắn nhãn 100 câu hỏi xuyên repo bằng câu trả lời file:line chuẩn. Đo MRR@10, nDCG@10, tính trung thực trích dẫn (tỷ phần khẳng định có neo xác minh được) và độ trễ p50/p99.
 
 ## Use It
 
@@ -103,48 +103,48 @@ answer:
 
 ## Ship It
 
-Deliverable skill `outputs/skill-codebase-rag.md`. Given a corpus of repos, it stands up the ingestion pipeline, the hybrid index, and the query agent, and returns a cited answer for any cross-repo question. Rubric:
+Skill bàn giao `outputs/skill-codebase-rag.md`. Với corpus repo, dựng pipeline thu nạp, chỉ mục lai và agent truy vấn, trả câu trả lời có trích dẫn cho mọi câu hỏi xuyên repo. Tiêu chí chấm:
 
-| Weight | Criterion | How it is measured |
+| Trọng số | Tiêu chí | Cách đo |
 |:-:|---|---|
-| 25 | Retrieval quality | MRR@10 and nDCG@10 on a 100-question held-out set |
-| 20 | Citation faithfulness | Fraction of answer claims with verifiable file:line anchors |
-| 20 | Latency and scale | p95 query latency at 10k QPS on the indexed corpus size |
-| 20 | Incremental indexing correctness | Time from git push to searchable on a 50-file commit |
-| 15 | UX and answer formatting | Citation clickability, snippet previews, follow-up affordance |
+| 25 | Chất lượng truy xuất | MRR@10 và nDCG@10 trên tập giữ riêng 100 câu hỏi |
+| 20 | Tính trung thực trích dẫn | Tỷ phần khẳng định câu trả lời có neo file:line xác minh được |
+| 20 | Độ trễ và quy mô | Độ trễ truy vấn p95 ở 10k QPS trên kích thước corpus đã lập chỉ mục |
+| 20 | Tính đúng lập chỉ mục tăng dần | Thời gian từ git push đến tìm kiếm được trên commit 50 file |
+| 15 | UX và định dạng câu trả lời | Khả năng bấm trích dẫn, xem trước đoạn mã, khả năng hỏi tiếp |
 | **100** | | |
 
 ## Exercises
 
-1. Swap Voyage-code-3 for nomic-embed-code self-hosted. Measure the MRR@10 delta. Report whether the gap closes with re-ranking enabled.
+1. Đổi Voyage-code-3 sang nomic-embed-code tự lưu trữ. Đo chênh lệch MRR@10. Báo cáo khoảng cách có khép khi bật xếp hạng lại không.
 
-2. Inject 20% generated code (LLM-produced boilerplate) into the corpus and re-evaluate. Observe retrieval poisoning. Add a "generated" flag to the payload and down-weight those hits.
+2. Đưa 20% mã được sinh (mã khuôn LLM tạo) vào corpus và đánh giá lại. Quan sát đầu độc truy xuất. Thêm cờ "generated" vào payload và giảm trọng số kết quả đó.
 
-3. Benchmark Qdrant hybrid search vs pgvector + pgvectorscale at your corpus size. Report p99 at batch size 1.
+3. Đo chuẩn tìm kiếm lai Qdrant so với pgvector + pgvectorscale ở kích thước corpus của bạn. Báo cáo p99 ở kích thước lô 1.
 
-4. Add a sampling-based drift check: weekly, rerun the 100-question eval. Alert on MRR@10 drop > 5%.
+4. Thêm kiểm tra độ trôi dựa trên lấy mẫu: hằng tuần, chạy lại đánh giá 100 câu hỏi. Cảnh báo khi MRR@10 giảm > 5%.
 
-5. Extend to cross-language symbol resolution: a Python function that calls a Go service over gRPC. Use the symbol graph to link them.
+5. Mở rộng phân giải ký hiệu xuyên ngôn ngữ: hàm Python gọi dịch vụ Go qua gRPC. Dùng đồ thị ký hiệu liên kết chúng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|-----------------|------------------------|
-| AST-aware chunking | "Function-level splits" | Cutting code at tree-sitter node boundaries instead of fixed token windows |
-| Hybrid search | "Dense + sparse" | Run BM25 and vector search in parallel, merge top-k, rerank |
-| Cross-encoder rerank | "Second-stage rank" | Model that scores each (query, candidate) pair together, more accurate than cosine |
-| Prompt caching | "Cached system prompt" | 2026 Claude / OpenAI feature that discounts repeat prefix tokens up to 90% |
-| Symbol graph | "Code graph" | Edges for imports, calls, inheritance across files and repos |
-| Citation faithfulness | "Grounded answer rate" | Fraction of claims a user can verify by clicking the anchor and reading the referenced span |
-| Incremental re-index | "Push-to-search time" | Wall-clock from git push to the changed symbols being queryable |
+| AST-aware chunking (Chia đoạn nhận biết AST) | "Chia cấp hàm" | Cắt mã tại ranh giới nút tree-sitter thay cửa sổ token cố định |
+| Hybrid search (Tìm kiếm lai) | "Dense + sparse" | Chạy BM25 và tìm vector song song, hợp nhất top-k, xếp hạng lại |
+| Cross-encoder rerank (Xếp hạng lại cross-encoder) | "Xếp hạng giai đoạn hai" | Mô hình chấm cùng cặp (truy vấn, ứng viên), chính xác hơn cosine |
+| Prompt caching (Lưu bộ nhớ đệm prompt) | "System prompt lưu bộ nhớ đệm" | Tính năng Claude / OpenAI 2026 giảm giá token tiền tố lặp tới 90% |
+| Symbol graph (Đồ thị ký hiệu) | "Đồ thị mã" | Cạnh import, gọi, kế thừa xuyên file và repo |
+| Citation faithfulness (Tính trung thực trích dẫn) | "Tỷ lệ câu trả lời có căn cứ" | Tỷ phần khẳng định người dùng xác minh bằng bấm neo và đọc khoảng được tham chiếu |
+| Incremental re-index (Tái lập chỉ mục tăng dần) | "Thời gian push-đến-tìm" | Thời gian thực từ git push đến truy vấn được ký hiệu thay đổi |
 
 ## Further Reading
 
-- [Sourcegraph Amp](https://ampcode.com) — production cross-repo code intelligence
-- [Sourcegraph Cody RAG architecture](https://sourcegraph.com/blog/how-cody-understands-your-codebase) — the reference deep-dive for this capstone
-- [Aider repo-map](https://aider.chat/docs/repomap.html) — tree-sitter ranked repo view
-- [Augment Code enterprise graph](https://www.augmentcode.com) — commercial symbol-graph RAG
-- [Qdrant hybrid search docs](https://qdrant.tech/documentation/concepts/hybrid-queries/) — reference implementation
-- [Voyage AI code embeddings](https://docs.voyageai.com/docs/embeddings) — Voyage-code-3 details
-- [Cohere rerank-3](https://docs.cohere.com/reference/rerank) — cross-encoder reference
-- [Pinterest MCP internal search](https://medium.com/pinterest-engineering) — internal-platform reference
+- [Sourcegraph Amp](https://ampcode.com) — hiểu mã xuyên repo trong sản xuất
+- [Sourcegraph Cody RAG architecture](https://sourcegraph.com/blog/how-cody-understands-your-codebase) — phân tích sâu tham chiếu cho bài tổng kết
+- [Aider repo-map](https://aider.chat/docs/repomap.html) — khung nhìn repo xếp hạng bằng tree-sitter
+- [Augment Code enterprise graph](https://www.augmentcode.com) — RAG đồ thị ký hiệu thương mại
+- [Qdrant hybrid search docs](https://qdrant.tech/documentation/concepts/hybrid-queries/) — triển khai tham chiếu
+- [Voyage AI code embeddings](https://docs.voyageai.com/docs/embeddings) — chi tiết Voyage-code-3
+- [Cohere rerank-3](https://docs.cohere.com/reference/rerank) — tham chiếu cross-encoder
+- [Pinterest MCP internal search](https://medium.com/pinterest-engineering) — tham chiếu nền tảng nội bộ

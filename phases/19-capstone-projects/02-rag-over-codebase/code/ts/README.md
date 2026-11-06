@@ -1,8 +1,8 @@
 # Capstone 19/02 — RAG over Codebase (TypeScript)
 
-Multi-file TypeScript code-search API for the hybrid retrieval pipeline
-described in `../docs/en.md`. Offline, deterministic, six-chunk sample corpus,
-node:http behind a hono fetch handler.
+API tìm mã TypeScript nhiều file cho pipeline truy xuất lai
+mô tả trong `../docs/en.md`. Ngoại tuyến, xác định, corpus mẫu sáu đoạn,
+node:http phía sau trình xử lý fetch hono.
 
 ## Layout
 
@@ -30,9 +30,9 @@ npm test                 # node --test runner via tsx
 npm run typecheck        # tsc --noEmit
 ```
 
-The non-interactive `npm start` path asserts that `/healthz` returns 200 and
-that every probe query returns at least one citation. Routes:
+Đường chạy `npm start` không tương tác khẳng định `/healthz` trả 200 và
+mọi truy vấn thăm dò trả ít nhất một trích dẫn. Tuyến:
 
-- `GET /healthz` — returns `{ok, corpus}`.
-- `GET /query?q=...` — runs a hybrid query.
-- `POST /query` — JSON `{q, topK?}`, validated by zod (`topK` capped at 50).
+- `GET /healthz` — trả `{ok, corpus}`.
+- `GET /query?q=...` — chạy truy vấn lai.
+- `POST /query` — JSON `{q, topK?}`, xác thực bằng zod (`topK` giới hạn ở 50).

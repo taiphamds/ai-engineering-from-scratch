@@ -7,40 +7,40 @@ lesson: 02
 tags: [capstone, rag, code-search, tree-sitter, qdrant, bm25, hybrid-retrieval]
 ---
 
-Given 10+ repositories totaling at least 2M lines of code, build an ingestion pipeline, a hybrid index, and a citation-enforced query agent that answers cross-repo questions with verifiable file:line anchors.
+Với 10+ repo tổng ít nhất 2M dòng mã, xây pipeline thu nạp, chỉ mục lai và agent truy vấn bắt buộc trích dẫn trả lời xuyên repo bằng neo file:line xác minh được.
 
-Build plan:
+Kế hoạch xây dựng:
 
-1. Parse every file with tree-sitter. Chunk at function and class node boundaries. Store `{repo, path, start_line, end_line, symbol, body}`.
-2. Summarize every chunk with Claude Haiku 4.5 or Gemini 2.5 Flash using prompt-cached system prompts. Store the one-sentence summary next to the chunk.
-3. Index into three structures: Qdrant (dense, Voyage-code-3 or nomic-embed-code), Tantivy (BM25 with field weights), and kuzu (symbol graph edges for imports, calls, inheritance).
-4. Build a LangGraph query agent with three nodes: retrieve (dense parallel BM25), rerank (Cohere rerank-3 or bge-reranker-v2-gemma-2b), synth (Claude Sonnet 4.7 with prompt caching and file:line citation requirement).
-5. Post-filter: reject any claim without a verifiable `(repo/path:start-end)` anchor; re-ask or drop.
-6. Wire a git push webhook that computes a symbol-level diff and re-embeds only the changed chunks. Target: 50-file commit searchable in under 60s on a 2M-LOC fleet.
-7. Evaluate with a 100-question held-out set. Report MRR@10, nDCG@10, citation faithfulness, and latency percentiles.
-8. Run a weekly drift job that re-executes the eval and alerts on MRR@10 drop > 5%.
+1. Phân tích mọi file bằng tree-sitter. Chia đoạn ở ranh giới nút hàm và lớp. Lưu `{repo, path, start_line, end_line, symbol, body}`.
+2. Tóm tắt mọi đoạn bằng Claude Haiku 4.5 hoặc Gemini 2.5 Flash với system prompt lưu bộ nhớ đệm. Lưu tóm tắt một câu cạnh đoạn.
+3. Lập chỉ mục vào ba cấu trúc: Qdrant (dense, Voyage-code-3 hoặc nomic-embed-code), Tantivy (BM25 với trọng số trường) và kuzu (cạnh đồ thị ký hiệu cho import, gọi, kế thừa).
+4. Xây agent truy vấn LangGraph ba nút: retrieve (dense song song BM25), rerank (Cohere rerank-3 hoặc bge-reranker-v2-gemma-2b), synth (Claude Sonnet 4.7 với lưu bộ nhớ đệm prompt và yêu cầu trích dẫn file:line).
+5. Hậu lọc: từ chối mọi khẳng định không có neo `(repo/path:start-end)` xác minh được; hỏi lại hoặc loại.
+6. Kết nối webhook git push tính diff cấp ký hiệu và chỉ tạo embedding lại đoạn đổi. Mục tiêu: commit 50 file tìm kiếm được dưới 60s trên tập repo 2M LOC.
+7. Đánh giá với tập giữ riêng 100 câu hỏi. Báo cáo MRR@10, nDCG@10, tính trung thực trích dẫn và phân vị độ trễ.
+8. Chạy tác vụ độ trôi hằng tuần thực hiện lại đánh giá và cảnh báo MRR@10 giảm > 5%.
 
-Assessment rubric:
+Tiêu chí đánh giá:
 
-| Weight | Criterion | Measurement |
+| Trọng số | Tiêu chí | Phép đo |
 |:-:|---|---|
-| 25 | Retrieval quality | MRR@10 and nDCG@10 on a 100-question held-out set |
-| 20 | Citation faithfulness | Fraction of answer claims with verifiable file:line anchors |
-| 20 | Latency and scale | p95 query latency at 10k QPS on the indexed corpus size |
-| 20 | Incremental indexing correctness | Time from git push to searchable on a 50-file commit |
-| 15 | UX and answer formatting | Citation clickability, snippet previews, follow-up affordance |
+| 25 | Chất lượng truy xuất | MRR@10 và nDCG@10 trên tập giữ riêng 100 câu hỏi |
+| 20 | Tính trung thực trích dẫn | Tỷ phần khẳng định câu trả lời có neo file:line xác minh được |
+| 20 | Độ trễ và quy mô | Độ trễ truy vấn p95 ở 10k QPS trên kích thước corpus đã lập chỉ mục |
+| 20 | Tính đúng lập chỉ mục tăng dần | Thời gian từ git push đến tìm kiếm được trên commit 50 file |
+| 15 | UX và định dạng câu trả lời | Khả năng bấm trích dẫn, xem trước đoạn mã, khả năng hỏi tiếp |
 
-Hard rejects:
+Các trường hợp loại bỏ dứt khoát:
 
-- Fixed-size token chunking instead of AST-aware chunking. Will poison generated-code-heavy corpora.
-- Cosine-only retrieval without BM25 or rerank. Known to fail on exact-symbol-name queries.
-- Answers without mandatory file:line citations.
-- Full-corpus re-embedding on every git push; must be incremental.
+- Chia đoạn token kích thước cố định thay chia nhận biết AST. Sẽ đầu độc corpus nặng mã được sinh.
+- Truy xuất chỉ cosine không có BM25 hoặc xếp hạng lại. Đã biết thất bại ở truy vấn tên ký hiệu chính xác.
+- Câu trả lời không trích dẫn file:line bắt buộc.
+- Tạo embedding lại toàn corpus mỗi git push; phải tăng dần.
 
-Refusal rules:
+Quy tắc từ chối:
 
-- Refuse to index repos without reading their license. Some forbid embedding in third-party vector stores.
-- Refuse to answer queries that claim to cite files the index never saw; always verify the anchor before returning.
-- Refuse to serve an answer at p95 above 4s; return a partial result with a follow-up handle instead.
+- Từ chối lập chỉ mục repo khi chưa đọc giấy phép. Một số cấm embedding trong kho vector bên thứ ba.
+- Từ chối trả lời truy vấn khẳng định trích file chỉ mục chưa thấy; luôn xác minh neo trước trả.
+- Từ chối phục vụ câu trả lời có p95 trên 4s; thay bằng kết quả một phần với handle hỏi tiếp.
 
-Output: a repo containing the ingestion pipeline, the LangGraph query agent, the 100-question labeled eval set, a Langfuse dashboard link, and a write-up naming the three retrieval failure modes you fixed (generated-code poisoning, long-tail symbol recall, cross-repo symbol resolution) and the exact change that fixed each.
+Đầu ra: repo chứa pipeline thu nạp, agent truy vấn LangGraph, tập đánh giá gắn nhãn 100 câu hỏi, liên kết bảng điều khiển Langfuse và bài viết nêu ba chế độ lỗi truy xuất bạn sửa (đầu độc mã được sinh, thu hồi ký hiệu đuôi dài, phân giải ký hiệu xuyên repo) và thay đổi chính xác sửa từng lỗi.
