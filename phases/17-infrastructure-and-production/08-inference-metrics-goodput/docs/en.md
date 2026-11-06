@@ -1,6 +1,6 @@
 # Inference Metrics — TTFT, TPOT, ITL, Goodput, P99
 
-> Four metrics decide whether an inference deployment is working. TTFT is prefill plus queue plus network. TPOT (equivalently ITL) is the memory-bound decode cost per token. End-to-end latency is TTFT plus TPOT times output length. Throughput is tokens per second aggregated across the fleet. But the one that matters for product is goodput — the fraction of requests that met every SLO simultaneously. High throughput at low goodput means you are processing tokens that never reach users on time. Reference numbers for Llama-3.1-8B-Instruct on TRT-LLM in 2026: mean TTFT 162 ms, mean TPOT 7.33 ms, mean E2E 1,093 ms. Always report P50, P90, P99 — never just mean. And watch the measurement trap: GenAI-Perf excludes TTFT from ITL calculation, LLMPerf includes it; two tools disagree on TPOT for the same run.
+> Bốn chỉ số quyết định liệu một triển khai suy luận có hoạt động không. TTFT là prefill cộng hàng đợi cộng mạng. TPOT (tương đương ITL) là chi phí decode bị giới hạn bởi bộ nhớ theo từng token. Độ trễ đầu cuối là TTFT cộng TPOT nhân độ dài đầu ra. Thông lượng là token mỗi giây được tổng hợp trên toàn đội máy. Nhưng chỉ số quan trọng cho sản phẩm là goodput — tỷ lệ các yêu cầu đáp ứng mọi SLO đồng thời. Thông lượng cao ở goodput thấp nghĩa là bạn đang xử lý các token không bao giờ tới người dùng đúng giờ. Các con số tham chiếu cho Llama-3.1-8B-Instruct trên TRT-LLM năm 2026: TTFT trung bình 162 ms, TPOT trung bình 7.33 ms, E2E trung bình 1,093 ms. Luôn báo cáo P50, P90, P99 — không bao giờ chỉ trung bình. Và chú ý bẫy phép đo: GenAI-Perf loại TTFT khỏi tính ITL, LLMPerf bao gồm nó; hai công cụ bất đồng về TPOT cho cùng lần chạy.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy percentile calculator and goodput reporter)
@@ -9,16 +9,16 @@
 
 ## Learning Objectives
 
-- Define TTFT, TPOT, ITL, E2E, throughput, and goodput precisely and name the component each one measures.
-- Explain why mean is the wrong statistic for LLM serving and how to read P50/P90/P99.
-- Construct an SLO multi-constraint (e.g. TTFT<500 ms AND TPOT<15 ms AND E2E<2 s) and compute goodput against it.
-- Name two benchmark tools that disagree on TPOT for the same run and explain why.
+- Định nghĩa chính xác TTFT, TPOT, ITL, E2E, thông lượng, và goodput và nêu thành phần mỗi chỉ số đo.
+- Giải thích vì sao trung bình là thống kê sai cho phục vụ LLM và cách đọc P50/P90/P99.
+- Xây dựng một đa ràng buộc SLO (ví dụ TTFT<500 ms VÀ TPOT<15 ms VÀ E2E<2 s) và tính goodput theo nó.
+- Nêu hai công cụ benchmark bất đồng về TPOT cho cùng lần chạy và giải thích vì sao.
 
 ## The Problem
 
-"Our throughput is 15,000 tokens per second." So what? If 40% of requests blew past 2 seconds end-to-end, users abandoned the session. Throughput alone does not tell you whether the product works.
+“Thông lượng của chúng tôi là 15,000 token mỗi giây.” Thì sao? Nếu 40% yêu cầu vượt quá 2 giây đầu cuối, người dùng bỏ phiên. Chỉ thông lượng không cho bạn biết liệu sản phẩm có hoạt động không.
 
-Inference has multiple axes of latency and each one fails differently. Prefill is compute-bound and scales with prompt length. Decode is memory-bound and scales with batch size. Queuing delay is an operational problem. Network is a physical-distance problem. You need distinct metrics for each, and you need percentiles, and you need a single composite that says "did the user get what they expected" — that is goodput.
+Suy luận có nhiều trục độ trễ và mỗi trục thất bại khác nhau. Prefill bị giới hạn bởi tính toán và tăng theo độ dài prompt. Decode bị giới hạn bởi bộ nhớ và tăng theo kích thước lô. Độ trễ xếp hàng là một vấn đề vận hành. Mạng là một vấn đề khoảng cách vật lý. Bạn cần các chỉ số riêng cho mỗi trục, và cần các phân vị, và cần một tổng hợp đơn lẻ nói “người dùng có nhận những gì họ kỳ vọng không” — đó là goodput.
 
 ## The Concept
 
@@ -26,79 +26,79 @@ Inference has multiple axes of latency and each one fails differently. Prefill i
 
 `TTFT = queue_time + network_request + prefill_time`
 
-Prefill dominates when prompts are long. On Llama-3.3-70B FP8 on H100, a 32k prompt takes ~800 ms of pure prefill. Queue time is scheduler behavior under load. Network request is wire time including TLS. TTFT is the latency the user sees before anything streams back.
+Prefill chi phối khi các prompt dài. Trên Llama-3.3-70B FP8 trên H100, một prompt 32k mất ~800 ms prefill thuần. Thời gian hàng đợi là hành vi bộ lập lịch dưới tải. Yêu cầu mạng là thời gian đường truyền bao gồm TLS. TTFT là độ trễ người dùng thấy trước khi bất kỳ thứ gì truyền luồng trở lại.
 
 ### TPOT / ITL — inter-token latency
 
-Many names for one quantity. `TPOT` (time per output token), `ITL` (inter-token latency), `decode latency per token` — all the same. It is the time between consecutive streamed tokens after the first.
+Nhiều tên cho một đại lượng. `TPOT` (thời gian mỗi token đầu ra), `ITL` (độ trễ giữa token), `decode latency per token` — tất cả như nhau. Nó là thời gian giữa các token truyền luồng liên tiếp sau token đầu.
 
 `TPOT = (decode_forward_time + scheduler_overhead) / tokens_produced`
 
-On the same Llama-3.3-70B H100 stack with chunked prefill, TPOT mean ~7 ms. Without chunked prefill, during a long prefill on a neighboring sequence, TPOT can spike to 50 ms. Watch P99, not mean.
+Trên cùng ngăn xếp Llama-3.3-70B H100 với prefill chia khối, TPOT trung bình ~7 ms. Không có prefill chia khối, trong một prefill dài trên một chuỗi lân cận, TPOT có thể tăng vọt tới 50 ms. Theo dõi P99, không phải trung bình.
 
 ### E2E latency
 
 `E2E = TTFT + TPOT * output_tokens + network_response`
 
-For long outputs (>500 tokens), E2E is TPOT-dominated. For short outputs with long prompts, E2E is TTFT-dominated. Report output-length-conditioned E2E.
+Với các đầu ra dài (>500 token), E2E bị TPOT chi phối. Với các đầu ra ngắn có prompt dài, E2E bị TTFT chi phối. Báo cáo E2E có điều kiện theo độ dài đầu ra.
 
 ### Throughput
 
 `throughput = total_output_tokens / elapsed_time`
 
-Aggregate metric. Tells you fleet efficiency. Does not tell you individual-request health.
+Chỉ số tổng hợp. Cho bạn biết hiệu quả đội máy. Không cho biết sức khỏe từng yêu cầu.
 
 ### Goodput — the metric you actually care about
 
 `goodput = fraction of requests meeting (TTFT <= a) AND (TPOT <= b) AND (E2E <= c)`
 
-The SLO is a multi-constraint. A request is "good" only if every constraint held. Goodput is the share. High throughput at 60% goodput is failure. Lower throughput at 99% goodput is the target.
+SLO là một đa ràng buộc. Một yêu cầu chỉ “tốt” nếu mọi ràng buộc đều được giữ. Goodput là tỷ lệ đó. Thông lượng cao ở goodput 60% là thất bại. Thông lượng thấp hơn ở goodput 99% là mục tiêu.
 
-In 2026, goodput is the metric used in MLPerf Inference v6.0 submissions and in internal SLA tracking at AI platform providers.
+Năm 2026, goodput là chỉ số được dùng trong các bài nộp MLPerf Inference v6.0 và trong theo dõi SLA nội bộ tại các nhà cung cấp nền tảng AI.
 
 ### Why mean is the wrong statistic
 
-LLM latency distributions are right-skewed. A decode batch with one long-prefill neighbor can ship 500 tokens with TPOT ~7 ms and 20 tokens with TPOT ~60 ms. Mean TPOT is 9 ms. P99 TPOT is 65 ms. Users hit the P99 regularly — that is why they leave.
+Các phân phối độ trễ LLM lệch phải. Một lô decode có một láng giềng prefill dài có thể đưa ra 500 token với TPOT ~7 ms và 20 token với TPOT ~60 ms. TPOT trung bình là 9 ms. P99 TPOT là 65 ms. Người dùng thường xuyên chạm P99 — đó là lý do họ rời đi.
 
-Always report the triple (P50, P90, P99). For user experience, P99 is the one you optimize.
+Luôn báo cáo bộ ba (P50, P90, P99). Với trải nghiệm người dùng, P99 là chỉ số bạn tối ưu.
 
 ### Reference numbers — Llama-3.1-8B-Instruct on TRT-LLM, 2026
 
-- mean TTFT: 162 ms
-- mean TPOT: 7.33 ms
-- mean E2E: 1,093 ms
-- P99 TPOT: varies 10-25 ms depending on chunked-prefill configuration.
+- TTFT trung bình: 162 ms
+- TPOT trung bình: 7.33 ms
+- E2E trung bình: 1,093 ms
+- P99 TPOT: thay đổi 10-25 ms tùy cấu hình prefill chia khối.
 
-These are the published NVIDIA reference points. They change with model size (70B would show 3-5x), hardware (H100 vs B200 ~3x), and load.
+Đây là các điểm tham chiếu NVIDIA được công bố. Chúng thay đổi theo kích thước mô hình (70B sẽ cho thấy 3-5x), phần cứng (H100 so với B200 ~3x), và tải.
 
 ### The measurement trap
 
-Two of the most-used 2026 benchmark tools disagree on TPOT for the same run:
+Hai trong các công cụ benchmark được dùng nhiều nhất năm 2026 bất đồng về TPOT cho cùng lần chạy:
 
-- **NVIDIA GenAI-Perf**: excludes TTFT from the ITL calculation. ITL starts from token 2.
-- **LLMPerf**: includes TTFT. ITL starts from token 1.
+- **NVIDIA GenAI-Perf**: loại TTFT khỏi tính ITL. ITL bắt đầu từ token 2.
+- **LLMPerf**: bao gồm TTFT. ITL bắt đầu từ token 1.
 
-For a request with TTFT 500 ms and 100 output tokens in 700 ms total decode, GenAI-Perf reports `ITL = 700/99 = 7.07 ms`, LLMPerf reports `ITL = 1200/100 = 12.00 ms`. Tool choice changes the number.
+Với một yêu cầu có TTFT 500 ms và 100 token đầu ra trong tổng decode 700 ms, GenAI-Perf báo `ITL = 700/99 = 7.07 ms`, LLMPerf báo `ITL = 1200/100 = 12.00 ms`. Lựa chọn công cụ thay đổi con số.
 
-Always state which tool. Always publish the definition.
+Luôn nêu công cụ nào. Luôn công bố định nghĩa.
 
 ### Constructing an SLO
 
-A reasonable consumer-facing SLO for a 70B chat model in 2026:
+Một SLO hướng người tiêu dùng hợp lý cho một mô hình trò chuyện 70B năm 2026:
 
 - TTFT P99 <= 800 ms.
 - TPOT P99 <= 25 ms.
-- E2E P99 <= 3 s for <300-token outputs.
-- Goodput target >= 99%.
+- E2E P99 <= 3 s cho các đầu ra <300 token.
+- Mục tiêu goodput >= 99%.
 
-Enterprise SLOs tighten TTFT (200-400 ms) and loosen E2E. The point is to write them down, measure all three, and track goodput as a single composite.
+Các SLO doanh nghiệp siết TTFT (200-400 ms) và nới E2E. Mục đích là viết chúng xuống, đo cả ba, và theo dõi goodput như một tổng hợp đơn lẻ.
 
 ### How to measure
 
-- Run real traffic or realistic synthetic (LLMPerf with `--mean-input-tokens 800 --stddev-input-tokens 300 --mean-output-tokens 150`).
-- Target 2x peak concurrency for the benchmark run.
-- Run 30-50 iterations, take percentiles of the combined sample.
-- Publish with tool name, tool version, model, hardware, concurrency, prompt distribution.
+- Chạy lưu lượng thực hoặc tổng hợp thực tế (LLMPerf với `--mean-input-tokens 800 --stddev-input-tokens 300 --mean-output-tokens 150`).
+- Nhắm 2x mức đồng thời đỉnh cho lần chạy benchmark.
+- Chạy 30-50 lần lặp, lấy các phân vị của mẫu kết hợp.
+- Công bố với tên công cụ, phiên bản công cụ, mô hình, phần cứng, mức đồng thời, phân phối prompt.
 
 ```figure
 throughput-latency
@@ -106,39 +106,39 @@ throughput-latency
 
 ## Use It
 
-`code/main.py` is a toy goodput calculator. Generate a synthetic latency distribution, apply an SLO, and compute goodput. Also shows the GenAI-Perf vs LLMPerf TPOT difference on the same trace.
+`code/main.py` là một bộ tính goodput đồ chơi. Sinh một phân phối độ trễ tổng hợp, áp dụng một SLO, và tính goodput. Cũng cho thấy khác biệt TPOT GenAI-Perf so với LLMPerf trên cùng dấu vết.
 
 ## Ship It
 
-This lesson produces `outputs/skill-slo-goodput-gate.md`. Given a workload and SLO, it produces a CI/CD-ready benchmark recipe that gates deploys on goodput rather than throughput.
+Bài này tạo ra `outputs/skill-slo-goodput-gate.md`. Với một khối lượng công việc và SLO, nó tạo một công thức benchmark sẵn sàng CI/CD đặt cổng triển khai theo goodput thay vì thông lượng.
 
 ## Exercises
 
-1. Run `code/main.py`. Generate a distribution with 1% tail spike. How does goodput change when you tighten P99 TPOT from 30 ms to 15 ms?
-2. A vendor quotes "15,000 tok/s on Llama 3.3 70B H100". Name three questions to ask before trusting it.
-3. Why does chunked prefill protect P99 TPOT but not mean TPOT?
-4. Construct a consumer SLO for a voice assistant (first token is heard, not read). Which metric is most user-visible?
-5. Read the LLMPerf README and the GenAI-Perf docs. Identify three other metrics where the tools disagree.
+1. Chạy `code/main.py`. Sinh một phân phối với 1% tăng vọt đuôi. Goodput thay đổi thế nào khi bạn siết P99 TPOT từ 30 ms xuống 15 ms?
+2. Một nhà cung cấp trích “15,000 tok/s trên Llama 3.3 70B H100”. Nêu ba câu hỏi cần hỏi trước khi tin.
+3. Vì sao prefill chia khối bảo vệ P99 TPOT nhưng không bảo vệ TPOT trung bình?
+4. Xây dựng một SLO người tiêu dùng cho một trợ lý giọng nói (token đầu được nghe, không được đọc). Chỉ số nào nhìn thấy rõ nhất với người dùng?
+5. Đọc README LLMPerf và tài liệu GenAI-Perf. Xác định ba chỉ số khác nơi các công cụ bất đồng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| TTFT | "time to first token" | Queue + network + prefill; dominated by prefill at long prompts |
-| TPOT | "time per output token" | Memory-bound decode cost per token after first |
-| ITL | "inter-token latency" | Same as TPOT in most tools (not all — see GenAI-Perf) |
-| E2E | "end to end" | TTFT + TPOT * output_len; response-side network on top |
-| Throughput | "tok/s" | Fleet efficiency; useless without latency percentiles |
-| Goodput | "SLO-met rate" | Fraction of requests meeting every SLO constraint simultaneously |
-| P99 | "tail" | 1-in-100 worst-case latency; the user experience metric |
-| SLO multi-constraint | "the joint" | AND of all three latency bounds; a request fails if any one is violated |
-| GenAI-Perf vs LLMPerf | "the tool trap" | Tools disagree on whether ITL includes TTFT |
+| TTFT | “thời gian tới token đầu tiên” | Hàng đợi + mạng + prefill; bị prefill chi phối ở các prompt dài |
+| TPOT | “thời gian mỗi token đầu ra” | Chi phí decode bị giới hạn bởi bộ nhớ mỗi token sau token đầu |
+| ITL | “độ trễ giữa token” | Giống TPOT trong hầu hết công cụ (không phải tất cả — xem GenAI-Perf) |
+| E2E | “đầu cuối” | TTFT + TPOT * output_len; thêm mạng phía phản hồi |
+| Throughput (Thông lượng) | “tok/s” | Hiệu quả đội máy; vô dụng nếu thiếu các phân vị độ trễ |
+| Goodput | “tỷ lệ đạt SLO” | Tỷ lệ các yêu cầu đáp ứng mọi ràng buộc SLO đồng thời |
+| P99 | “đuôi” | Độ trễ trường hợp xấu 1-trong-100; chỉ số trải nghiệm người dùng |
+| SLO multi-constraint (Đa ràng buộc SLO) | “phần chung” | VÀ của cả ba giới hạn độ trễ; một yêu cầu thất bại nếu bất kỳ giới hạn nào bị vi phạm |
+| GenAI-Perf vs LLMPerf (GenAI-Perf so với LLMPerf) | “bẫy công cụ” | Các công cụ bất đồng về liệu ITL có bao gồm TTFT |
 
 ## Further Reading
 
-- [NVIDIA NIM — LLM Benchmarking Metrics](https://docs.nvidia.com/nim/benchmarking/llm/latest/metrics.html) — canonical definition of TTFT, ITL, TPOT.
-- [Anyscale — LLM Serving Benchmarking Metrics](https://docs.anyscale.com/llm/serving/benchmarking/metrics) — alternative definitions and measurement recipe.
-- [BentoML — LLM Inference Metrics](https://bentoml.com/llm/inference-optimization/llm-inference-metrics) — applied measurement on real deployments.
-- [LLMPerf](https://github.com/ray-project/llmperf) — Ray-based open-source benchmark.
-- [GenAI-Perf](https://github.com/triton-inference-server/perf_analyzer/blob/main/genai-perf/README.md) — NVIDIA's benchmark tool.
-- [MLPerf Inference](https://mlcommons.org/benchmarks/inference-datacenter/) — the industry-accepted goodput-based benchmark.
+- [NVIDIA NIM — LLM Benchmarking Metrics](https://docs.nvidia.com/nim/benchmarking/llm/latest/metrics.html) — định nghĩa chuẩn của TTFT, ITL, TPOT.
+- [Anyscale — LLM Serving Benchmarking Metrics](https://docs.anyscale.com/llm/serving/benchmarking/metrics) — các định nghĩa thay thế và công thức đo.
+- [BentoML — LLM Inference Metrics](https://bentoml.com/llm/inference-optimization/llm-inference-metrics) — phép đo ứng dụng trên các triển khai thực.
+- [LLMPerf](https://github.com/ray-project/llmperf) — benchmark mã nguồn mở dựa trên Ray.
+- [GenAI-Perf](https://github.com/triton-inference-server/perf_analyzer/blob/main/genai-perf/README.md) — công cụ benchmark của NVIDIA.
+- [MLPerf Inference](https://mlcommons.org/benchmarks/inference-datacenter/) — benchmark dựa trên goodput được ngành chấp nhận.
