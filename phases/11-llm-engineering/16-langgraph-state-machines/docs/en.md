@@ -1,6 +1,6 @@
 # Agent State Machines — Graphs, Nodes, Checkpoints
 
-> A ReAct loop written by hand is a `while True`. The same loop written as an explicit graph is something you can checkpoint, interrupt, branch, and time-travel through. The agent hasn't changed. The harness around it has.
+> Vòng lặp ReAct viết tay là một `while True`. Cùng vòng lặp viết thành đồ thị tường minh là thứ bạn có thể checkpoint, ngắt, phân nhánh và du hành thời gian qua. Tác tử chưa thay đổi. Bộ khung quanh nó đã thay đổi.
 
 **Type:** Build
 **Languages:** Python
@@ -9,56 +9,56 @@
 
 ## The Problem
 
-You ship a function-calling agent. It works for three turns, then something goes wrong: the model tries a tool that returns 500, the user changes their mind mid-task, or the agent decides to refund an order without a human signing off. The `while True:` loop has no hooks. You can't pause it, you can't rewind it, and you can't branch off into "what if the model had picked the other tool." The moment you ship this past a demo, the agent becomes a black box that either worked or didn't.
+Bạn phát hành tác tử function-calling. Nó hoạt động ba lượt, rồi có sự cố: mô hình thử công cụ trả 500, người dùng đổi ý giữa tác vụ hoặc tác tử quyết định hoàn tiền đơn hàng mà không có con người ký duyệt. Vòng lặp `while True:` không có hook. Bạn không thể tạm dừng, không thể tua lại, không thể rẽ sang "nếu mô hình chọn công cụ kia thì sao." Ngay khi đưa nó vượt demo, tác tử trở thành hộp đen chỉ có hoạt động hoặc không.
 
-The next step is obvious once you see it. The agent is already a state machine — system prompt plus message history plus pending tool calls plus the next action. Make the state machine explicit: nodes for "the model thinks," "a tool runs," "a human approves," and edges for the conditional transitions between them. Once the graph is explicit, the harness gets four things for free: checkpointing (save state between steps), interrupts (pause for a human), streaming (stream tokens and intermediate events), and time-travel (rewind to a prior state and try a different branch).
+Bước tiếp theo hiển nhiên khi bạn thấy. Tác tử đã là máy trạng thái — system prompt cộng lịch sử thông điệp cộng lệnh gọi công cụ chờ cộng hành động tiếp theo. Làm máy trạng thái tường minh: node cho "mô hình suy nghĩ", "công cụ chạy", "con người phê duyệt" và cạnh cho chuyển tiếp có điều kiện giữa chúng. Khi đồ thị tường minh, bộ khung nhận miễn phí bốn thứ: checkpointing (lưu trạng thái giữa các bước), ngắt (dừng cho con người), streaming (stream token và sự kiện trung gian), du hành thời gian (tua về trạng thái trước và thử nhánh khác).
 
-The reference implementation of this abstraction is LangGraph. It is not an agent framework in the LangChain sense ("here is an AgentExecutor, good luck"). It is a graph runtime with first-class state, first-class persistence, and first-class interrupts. The agent loop is something you draw, not something you hand-write.
+Triển khai tham chiếu của trừu tượng này là LangGraph. Nó không phải framework tác tử theo nghĩa LangChain ("đây là AgentExecutor, chúc may mắn"). Nó là runtime đồ thị với trạng thái, lưu bền và ngắt được hỗ trợ hạng nhất. Vòng lặp tác tử là thứ bạn vẽ, không phải thứ viết tay.
 
 ## The Concept
 
 ![LangGraph StateGraph: nodes, edges, and the checkpointer](../assets/langgraph-stategraph.svg)
 
-A `StateGraph` has three things.
+Một `StateGraph` có ba thứ.
 
-1. **State.** A typed dict (TypedDict or Pydantic model) that flows through the graph. Every node receives the full state and returns a partial update, which LangGraph merges using a *reducer* per field — `operator.add` for lists that should accumulate, overwrite by default.
-2. **Nodes.** Python functions `state -> partial_state`. Each is a discrete step: "call the model," "run tools," "summarize."
-3. **Edges.** Transitions between nodes. Static edges go one place. Conditional edges take a router function `state -> next_node_name` so the graph can branch on model output.
+1. **Trạng thái.** Dict có kiểu (TypedDict hoặc mô hình Pydantic) chảy qua đồ thị. Mỗi node nhận toàn trạng thái và trả cập nhật một phần, mà LangGraph gộp bằng *reducer* mỗi trường — `operator.add` cho danh sách phải tích lũy, mặc định ghi đè.
+2. **Node.** Hàm Python `state -> partial_state`. Mỗi hàm là bước rời rạc: "gọi mô hình", "chạy công cụ", "tóm tắt."
+3. **Cạnh.** Chuyển tiếp giữa các node. Cạnh tĩnh đi một nơi. Cạnh có điều kiện nhận hàm router `state -> next_node_name` để đồ thị phân nhánh theo đầu ra mô hình.
 
-You compile the graph. Compile binds the topology, attaches a checkpointer (optional but essential for production), and returns a runnable. You invoke it with an initial state and a `thread_id`. Every step of execution persists a checkpoint keyed on `(thread_id, checkpoint_id)`.
+Bạn biên dịch đồ thị. Biên dịch gắn cấu trúc liên kết, đính checkpointer (tùy chọn nhưng thiết yếu cho sản xuất) và trả runnable. Bạn gọi với trạng thái đầu và `thread_id`. Mỗi bước thực thi lưu bền checkpoint có khóa `(thread_id, checkpoint_id)`.
 
 ### The four superpowers
 
-**Checkpointing.** Every node transition writes the new state to a store (in-memory for tests, Postgres/Redis/SQLite for prod). Resume by calling the graph again with the same `thread_id`. The graph picks up where it paused.
+**Checkpointing.** Mọi chuyển tiếp node ghi trạng thái mới vào kho (trong bộ nhớ để kiểm thử, Postgres/Redis/SQLite cho sản xuất). Tiếp tục bằng gọi đồ thị lại với cùng `thread_id`. Đồ thị tiếp nối nơi tạm dừng.
 
-**Interrupts.** Mark a node with `interrupt_before=["human_review"]` and execution stops before that node runs. The state persists. Your API responds to the user with "awaiting approval." A later request to the same `thread_id` with `Command(resume=...)` resumes execution.
+**Ngắt.** Đánh dấu node bằng `interrupt_before=["human_review"]` và thực thi dừng trước khi node chạy. Trạng thái lưu bền. API phản hồi người dùng "đang chờ phê duyệt." Yêu cầu sau đến cùng `thread_id` với `Command(resume=...)` tiếp tục thực thi.
 
-**Streaming.** `graph.stream(state, mode="updates")` yields state deltas as they happen. `mode="messages"` streams the LLM tokens inside model nodes. `mode="values"` yields full snapshots. You pick what to surface in your UI.
+**Streaming.** `graph.stream(state, mode="updates")` phát chênh lệch trạng thái khi xảy ra. `mode="messages"` stream token LLM trong node mô hình. `mode="values"` phát snapshot đầy đủ. Bạn chọn thứ hiển thị trên UI.
 
-**Time-travel.** `graph.get_state_history(thread_id)` returns the full checkpoint log. Pass any prior `checkpoint_id` to `graph.invoke` and you fork from that point. Great for debugging ("what if the model had picked tool B instead?") and for regression tests that replay production traces.
+**Du hành thời gian.** `graph.get_state_history(thread_id)` trả toàn log checkpoint. Truyền bất kỳ `checkpoint_id` trước vào `graph.invoke` và bạn rẽ nhánh từ điểm đó. Tuyệt cho gỡ lỗi ("nếu mô hình chọn công cụ B thay thế?") và kiểm thử hồi quy phát lại trace sản xuất.
 
 ### Reducers are the point
 
-Every state field has a reducer. Most defaults are fine — a new value overwrites the old. But message lists need `operator.add` so new messages append instead of replacing. Parallel edges merge their updates through the reducer. If two nodes both update `messages` and you forgot the `Annotated[list, add_messages]`, the second wins silently and you lose half the turn. The reducer is the only subtle thing in the library; get it right and the rest composes.
+Mọi trường trạng thái có reducer. Hầu hết mặc định ổn — giá trị mới ghi đè giá trị cũ. Nhưng danh sách thông điệp cần `operator.add` để thông điệp mới thêm thay vì thay thế. Cạnh song song gộp cập nhật qua reducer. Nếu hai node cùng cập nhật `messages` và bạn quên `Annotated[list, add_messages]`, node thứ hai âm thầm thắng và bạn mất nửa lượt. Reducer là thứ tinh tế duy nhất trong thư viện; làm đúng thì phần còn lại kết hợp được.
 
 ### The ReAct graph in four nodes
 
-A production ReAct agent is four nodes and two edges:
+Tác tử ReAct sản xuất là bốn node và hai cạnh:
 
-1. `agent` — calls the LLM with the current message history. Returns the assistant message (which may contain tool_calls).
-2. `tools` — executes any tool_calls in the last assistant message, appends the tool results as tool messages.
-3. A conditional edge from `agent` that routes to `tools` if the last message has tool_calls, else to `END`.
-4. A static edge from `tools` back to `agent`.
+1. `agent` — gọi LLM với lịch sử thông điệp hiện tại. Trả thông điệp trợ lý (có thể chứa tool_calls).
+2. `tools` — thực thi mọi tool_calls trong thông điệp trợ lý cuối, thêm kết quả công cụ dưới dạng thông điệp công cụ.
+3. Cạnh có điều kiện từ `agent` định tuyến đến `tools` nếu thông điệp cuối có tool_calls, nếu không đến `END`.
+4. Cạnh tĩnh từ `tools` trở về `agent`.
 
-That is it. You get the full ReAct loop (Thought → Action → Observation → Thought → …) with checkpointing, interrupts, and streaming, in roughly 40 lines of code.
+Chỉ vậy thôi. Bạn có vòng lặp ReAct đầy đủ (Suy nghĩ → Hành động → Quan sát → Suy nghĩ → …) với checkpointing, ngắt và streaming trong khoảng 40 dòng mã.
 
 ### StateGraph vs Send (fanout)
 
-`Send(node_name, state)` lets a node dispatch parallel subgraphs. Example: the agent decides to query three retrievers at once. Each `Send` spawns a parallel execution of the target node; their outputs merge through the state reducer. This is how LangGraph expresses the orchestrator-workers pattern without threading primitives.
+`Send(node_name, state)` cho phép node điều phối các đồ thị con song song. Ví dụ: tác tử quyết định truy vấn ba bộ truy xuất cùng lúc. Mỗi `Send` tạo thực thi song song node đích; đầu ra gộp qua reducer trạng thái. Đây là cách LangGraph biểu đạt mẫu bộ điều phối-worker mà không thành phần cơ bản luồng.
 
 ### Subgraphs
 
-A compiled graph can be a node in another graph. The outer graph sees a single node; the inner graph has its own state and its own checkpoints. This is how teams build supervisor-worker agents: the supervisor graph routes user intent to a per-domain worker subgraph.
+Đồ thị đã biên dịch có thể là node trong đồ thị khác. Đồ thị ngoài thấy một node; đồ thị trong có trạng thái riêng và checkpoint riêng. Đây là cách nhóm xây tác tử giám sát-worker: đồ thị giám sát định tuyến ý định người dùng đến đồ thị con worker từng miền.
 
 ```figure
 l5-state-graph-ledger
@@ -99,7 +99,7 @@ graph.add_edge("tools", "agent")
 app = graph.compile(checkpointer=MemorySaver())
 ```
 
-`add_messages` is the reducer that makes the message list accumulate instead of overwrite. Forgetting it is the most common LangGraph bug.
+`add_messages` là reducer khiến danh sách thông điệp tích lũy thay vì ghi đè. Quên nó là lỗi LangGraph phổ biến nhất.
 
 ### Step 2: run with a thread
 
@@ -113,11 +113,11 @@ for event in app.stream(
     print(event)
 ```
 
-Every update is a dict `{node_name: state_delta}`. Your frontend can stream these to the UI so users see "agent is thinking… calling search_web… got result… answering."
+Mỗi cập nhật là dict `{node_name: state_delta}`. Frontend có thể stream chúng đến UI để người dùng thấy "tác tử đang suy nghĩ… gọi search_web… có kết quả… trả lời."
 
 ### Step 3: add a human-in-the-loop interrupt
 
-Mark a node so execution pauses before it runs.
+Đánh dấu node để thực thi dừng trước khi chạy.
 
 ```python
 app = graph.compile(
@@ -134,7 +134,7 @@ app.invoke(Command(resume=True), config)
 app.update_state(config, {"messages": [AIMessage("Blocked by human reviewer.")]})
 ```
 
-The state, the checkpoint, and the thread all persist across the interrupt. Nothing is in memory except during execution.
+Trạng thái, checkpoint và thread đều lưu bền qua ngắt. Không thứ gì ở trong bộ nhớ trừ khi đang thực thi.
 
 ### Step 4: time-travel for debugging
 
@@ -149,7 +149,7 @@ for event in app.stream(None, target, stream_mode="values"):
     pass  # replay from that point forward
 ```
 
-Passing `None` as the input replays from the given checkpoint; passing a value appends it as an update to that checkpoint's state before resuming. This is how you reproduce a bad agent run without re-running the whole conversation.
+Truyền `None` làm đầu vào phát lại từ checkpoint đã cho; truyền giá trị thêm nó làm cập nhật trạng thái checkpoint đó trước khi tiếp tục. Đây là cách tái hiện lượt tác tử kém mà không chạy lại toàn hội thoại.
 
 ### Step 5: swap the checkpointer for production
 
@@ -161,50 +161,50 @@ with PostgresSaver.from_conn_string("postgresql://...") as checkpointer:
     app = graph.compile(checkpointer=checkpointer)
 ```
 
-SQLite, Redis, and Postgres are shipped. `MemorySaver` is for tests. Anything that persists across restarts wants a real store.
+SQLite, Redis và Postgres được cung cấp. `MemorySaver` cho kiểm thử. Mọi thứ lưu bền qua khởi động lại cần kho thực.
 
 ## The Skill
 
-> You build agents as graphs, not as `while True` loops.
+> Bạn xây tác tử thành đồ thị, không phải vòng lặp `while True`.
 
-Before you reach for LangGraph, do a 60-second design:
+Trước khi dùng LangGraph, làm thiết kế 60 giây:
 
-1. **Name the nodes.** Every discrete decision or side-effecting action is a node. "Agent thinks," "tool runs," "reviewer approves," "response streams." If you can't list them, the task is not agent-shaped yet.
-2. **Declare the state.** Minimal TypedDict with a reducer for every list field. Do not stuff everything into `messages`; hoist task-specific fields (a working `plan`, a `budget` counter, a `retrieved_docs` list) to the top level.
-3. **Draw the edges.** Static unless the next step depends on model output. Every conditional edge needs a router function with named branches.
-4. **Choose a checkpointer up front.** `MemorySaver` for tests, Postgres/Redis/SQLite for anything else. Do not ship without one — no checkpointer means no resume, no interrupt, no time-travel.
-5. **Decide interrupts before tools run, not after.** Approvals go on the edge into a side-effecting node so you can cancel before harm; validation goes on the edge out of the model so you can reject bad calls cheaply.
-6. **Stream by default.** `mode="updates"` for the UI, `mode="messages"` for token-level streaming inside model nodes, `mode="values"` for full snapshots during eval.
+1. **Đặt tên node.** Mọi quyết định rời rạc hoặc hành động có tác dụng phụ là node. "Tác tử suy nghĩ", "công cụ chạy", "người xem xét phê duyệt", "phản hồi stream." Nếu không thể liệt kê, tác vụ chưa có hình dạng tác tử.
+2. **Khai báo trạng thái.** TypedDict tối thiểu với reducer cho mọi trường danh sách. Không nhồi mọi thứ vào `messages`; đưa trường riêng tác vụ (`plan` đang làm, bộ đếm `budget`, danh sách `retrieved_docs`) lên cấp cao nhất.
+3. **Vẽ cạnh.** Tĩnh trừ khi bước tiếp theo phụ thuộc đầu ra mô hình. Mọi cạnh có điều kiện cần hàm router với nhánh có tên.
+4. **Chọn checkpointer ngay từ đầu.** `MemorySaver` cho kiểm thử, Postgres/Redis/SQLite cho mọi thứ khác. Không phát hành thiếu nó — không checkpointer nghĩa là không tiếp tục, không ngắt, không du hành thời gian.
+5. **Quyết định ngắt trước khi công cụ chạy, không phải sau.** Phê duyệt nằm trên cạnh vào node có tác dụng phụ để hủy trước tác hại; xác thực nằm trên cạnh ra mô hình để từ chối lệnh gọi kém với chi phí thấp.
+6. **Stream mặc định.** `mode="updates"` cho UI, `mode="messages"` cho streaming cấp token trong node mô hình, `mode="values"` cho snapshot đầy đủ trong đánh giá.
 
-Refuse to ship a LangGraph agent that has no checkpointer. Refuse to ship one that interrupts *after* the side effect. Refuse to ship a `messages` field without `add_messages` as its reducer.
+Từ chối phát hành tác tử LangGraph không checkpointer. Từ chối phát hành tác tử ngắt *sau* tác dụng phụ. Từ chối phát hành trường `messages` không có `add_messages` làm reducer.
 
 ## Exercises
 
-1. **Easy.** Implement the four-node ReAct graph above with a calculator tool and a web-search tool. Verify that `list(app.get_state_history(config))` returns at least four checkpoints for a two-turn conversation.
-2. **Medium.** Add a `planner` node that runs before `agent` and writes a structured `plan: list[str]` into state. Have `agent` mark plan steps as done. Fail the test if `plan` is lost across a checkpoint resume (wrong reducer).
-3. **Hard.** Build a supervisor graph that routes between three subgraphs (`researcher`, `writer`, `reviewer`) using `Send`. Each subgraph has its own state and checkpointer. Add an `interrupt_before=["writer"]` on the outer graph so a human can approve the research brief. Confirm that time-travel from a prior checkpoint re-runs only the forked branch.
+1. **Dễ.** Triển khai đồ thị ReAct bốn node trên với công cụ máy tính và tìm kiếm web. Xác minh `list(app.get_state_history(config))` trả ít nhất bốn checkpoint cho hội thoại hai lượt.
+2. **Trung bình.** Thêm node `planner` chạy trước `agent` và ghi `plan: list[str]` có cấu trúc vào trạng thái. Để `agent` đánh dấu bước kế hoạch đã xong. Cho kiểm thử thất bại nếu `plan` mất qua tiếp tục từ checkpoint (reducer sai).
+3. **Khó.** Xây đồ thị giám sát định tuyến giữa ba đồ thị con (`researcher`, `writer`, `reviewer`) bằng `Send`. Mỗi đồ thị con có trạng thái và checkpointer riêng. Thêm `interrupt_before=["writer"]` trên đồ thị ngoài để con người phê duyệt bản tóm lược nghiên cứu. Xác nhận du hành thời gian từ checkpoint trước chỉ chạy lại nhánh đã rẽ.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| StateGraph | "The LangGraph graph" | The builder object you add nodes and edges to before compile. |
-| Reducer | "How the field merges" | A function `(old, new) -> merged` applied when a node returns an update for that field; default is overwrite, `add_messages` appends. |
-| Thread | "A conversation ID" | A `thread_id` string that scopes all checkpoints for one session. |
-| Checkpoint | "A paused state" | A persisted snapshot of the full graph state after a node transition, keyed on `(thread_id, checkpoint_id)`. |
-| Interrupt | "Pause for a human" | `interrupt_before` / `interrupt_after` stop execution at a node boundary; resume with `Command(resume=...)`. |
-| Time-travel | "Fork from a prior step" | `graph.invoke(None, config_with_old_checkpoint_id)` replays from that checkpoint forward. |
-| Send | "Parallel subgraph dispatch" | A constructor a node can return to spawn N parallel executions of a target node. |
-| Subgraph | "A compiled graph as a node" | A compiled StateGraph used as a node in another graph; preserves its own state scope. |
+| StateGraph | "Đồ thị LangGraph" | Đối tượng builder bạn thêm node và cạnh trước biên dịch. |
+| Reducer (Hàm gộp) | "Cách trường gộp" | Hàm `(old, new) -> merged` áp dụng khi node trả cập nhật cho trường; mặc định ghi đè, `add_messages` thêm vào. |
+| Thread (Luồng) | "ID hội thoại" | Chuỗi `thread_id` đặt phạm vi mọi checkpoint cho một phiên. |
+| Checkpoint (Điểm kiểm tra) | "Trạng thái tạm dừng" | Snapshot lưu bền toàn trạng thái đồ thị sau chuyển tiếp node, có khóa `(thread_id, checkpoint_id)`. |
+| Interrupt (Ngắt) | "Dừng cho con người" | `interrupt_before` / `interrupt_after` dừng thực thi ở ranh giới node; tiếp tục bằng `Command(resume=...)`. |
+| Time-travel (Du hành thời gian) | "Rẽ từ bước trước" | `graph.invoke(None, config_with_old_checkpoint_id)` phát lại từ checkpoint đó về phía trước. |
+| Send | "Điều phối đồ thị con song song" | Hàm tạo mà node có thể trả để tạo N thực thi song song node đích. |
+| Subgraph (Đồ thị con) | "Đồ thị biên dịch làm node" | StateGraph đã biên dịch dùng làm node trong đồ thị khác; giữ phạm vi trạng thái riêng. |
 
 ## Further Reading
 
-- [LangGraph documentation](https://langchain-ai.github.io/langgraph/) — canonical reference for StateGraph, reducers, checkpointers, and interrupts.
-- [LangGraph concepts: state, reducers, checkpointers](https://langchain-ai.github.io/langgraph/concepts/low_level/) — the mental model this lesson uses, straight from the source.
-- [LangGraph Persistence and Checkpoints](https://langchain-ai.github.io/langgraph/concepts/persistence/) — the detail on Postgres/SQLite/Redis stores, checkpoint namespaces, and thread IDs.
-- [LangGraph Human-in-the-loop](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/) — `interrupt_before`, `interrupt_after`, `Command(resume=...)`, and the edit-state pattern.
-- [Yao et al., "ReAct: Synergizing Reasoning and Acting in Language Models" (ICLR 2023)](https://arxiv.org/abs/2210.03629) — the pattern every LangGraph agent implements; read it for the reasoning trace rationale.
-- [Anthropic — Building effective agents (Dec 2024)](https://www.anthropic.com/research/building-effective-agents) — which graph shapes (chain, router, orchestrator-workers, evaluator-optimizer) to prefer and when.
-- Phase 11 · 09 (Function Calling) — the tool-call primitive every LangGraph agent node reuses.
-- Phase 11 · 14 (Model Context Protocol) — external tool discovery that plugs into a LangGraph `ToolNode` via the MCP adapter.
-- Phase 11 · 17 (Agent framework tradeoffs) — when to pick LangGraph over CrewAI, AutoGen, or Agno.
+- [LangGraph documentation](https://langchain-ai.github.io/langgraph/) — tài liệu tham chiếu chuẩn cho StateGraph, reducer, checkpointer và ngắt.
+- [LangGraph concepts: state, reducers, checkpointers](https://langchain-ai.github.io/langgraph/concepts/low_level/) — mô hình tư duy bài học dùng, trực tiếp từ nguồn.
+- [LangGraph Persistence and Checkpoints](https://langchain-ai.github.io/langgraph/concepts/persistence/) — chi tiết kho Postgres/SQLite/Redis, namespace checkpoint và ID thread.
+- [LangGraph Human-in-the-loop](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/) — `interrupt_before`, `interrupt_after`, `Command(resume=...)` và mẫu chỉnh trạng thái.
+- [Yao et al., "ReAct: Synergizing Reasoning and Acting in Language Models" (ICLR 2023)](https://arxiv.org/abs/2210.03629) — mẫu mọi tác tử LangGraph triển khai; đọc để biết lý do vết suy luận.
+- [Anthropic — Building effective agents (Dec 2024)](https://www.anthropic.com/research/building-effective-agents) — hình dạng đồ thị nào (chuỗi, router, bộ điều phối-worker, bộ đánh giá-bộ tối ưu) nên ưu tiên và khi nào.
+- Giai đoạn 11 · 09 (Function Calling) — thành phần cơ bản tool-call mà mọi node tác tử LangGraph tái sử dụng.
+- Giai đoạn 11 · 14 (Model Context Protocol) — khám phá công cụ ngoài cắm vào `ToolNode` LangGraph qua adapter MCP.
+- Giai đoạn 11 · 17 (Agent framework tradeoffs) — khi nào chọn LangGraph hơn CrewAI, AutoGen hoặc Agno.

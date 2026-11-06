@@ -7,21 +7,21 @@ lesson: 16
 tags: [langgraph, stategraph, checkpointer, interrupt, time-travel, react-agent, human-in-the-loop]
 ---
 
-Given the agent task (user-facing goal, available tools, expected turn count, side effects with safety blast radius, durability requirements, target latency budget), output:
+Với tác vụ tác tử (mục tiêu cho người dùng, công cụ sẵn có, số lượt kỳ vọng, tác dụng phụ với phạm vi ảnh hưởng an toàn, yêu cầu độ bền, ngân sách độ trễ đích), xuất:
 
-1. Node list. Name every discrete step: the LLM thinker, each tool runner, every human review step, any summarizer or critic, any retriever. Reject the design if any node touches more than one concern; split it.
-2. State schema. TypedDict (or Pydantic) fields with a reducer for every list. Always Annotated[list, add_messages] on the message log. Hoist any task-specific list out of messages (a plan, a budget counter, a retrieved-docs list) so reducers stay correct under parallel updates.
-3. Edge map. Static edges where the next step is deterministic. Conditional edges with a named router function only where the model picks the next step. Reject any graph whose router function depends on a fresh LLM call you have not already made in a prior node.
-4. Interrupt placement. interrupt_before on every node with an irreversible side effect (writes, deletes, payments, external API calls with cost). interrupt_after on the model node when output validation runs in a separate process. Reject interrupt_after on any side-effecting node; by then the side effect has happened.
-5. Checkpointer. MemorySaver for tests only. Pick from PostgresSaver, SQLiteSaver, RedisSaver for any environment that must survive a restart. Confirm thread_id strategy (per-user, per-session, per-conversation) and the checkpoint TTL.
+1. Danh sách node. Đặt tên mọi bước rời rạc: bộ suy nghĩ LLM, mỗi bộ chạy công cụ, mọi bước con người xem xét, mọi bộ tóm tắt hoặc phê bình, mọi bộ truy xuất. Loại thiết kế nếu bất kỳ node nào chạm hơn một mối quan tâm; chia nó.
+2. Schema trạng thái. Trường TypedDict (hoặc Pydantic) với reducer cho mọi danh sách. Luôn Annotated[list, add_messages] trên log thông điệp. Đưa mọi danh sách riêng tác vụ ra khỏi messages (kế hoạch, bộ đếm ngân sách, danh sách tài liệu truy xuất) để reducer giữ đúng khi cập nhật song song.
+3. Bản đồ cạnh. Cạnh tĩnh nơi bước tiếp theo tất định. Cạnh có điều kiện với hàm router có tên chỉ nơi mô hình chọn bước tiếp theo. Loại mọi đồ thị có hàm router phụ thuộc lệnh gọi LLM mới chưa được thực hiện trong node trước.
+4. Vị trí ngắt. interrupt_before trên mọi node có tác dụng phụ không đảo ngược (ghi, xóa, thanh toán, gọi API ngoài có chi phí). interrupt_after trên node mô hình khi xác thực đầu ra chạy trong tiến trình riêng. Loại interrupt_after trên mọi node có tác dụng phụ; đến lúc đó tác dụng phụ đã xảy ra.
+5. Checkpointer. MemorySaver chỉ cho kiểm thử. Chọn PostgresSaver, SQLiteSaver, RedisSaver cho mọi môi trường phải sống qua khởi động lại. Xác nhận chiến lược thread_id (mỗi người dùng, mỗi phiên, mỗi hội thoại) và TTL checkpoint.
 
-Refuse to ship a LangGraph without a checkpointer. No checkpointer means no resume, no time-travel, no human-in-the-loop replay. Refuse to ship a messages field without add_messages; the second write overwrites the first silently and half the conversation disappears. Refuse a graph whose every transition is a conditional edge routed by a planner LLM; that is AutoGen with extra steps and burns tokens per turn.
+Từ chối phát hành LangGraph thiếu checkpointer. Không checkpointer nghĩa là không tiếp tục, không du hành thời gian, không phát lại có con người tham gia. Từ chối phát hành trường messages thiếu add_messages; lần ghi thứ hai âm thầm ghi đè lần đầu và nửa hội thoại biến mất. Từ chối đồ thị có mọi chuyển tiếp là cạnh có điều kiện được LLM lập kế hoạch định tuyến; đó là AutoGen với thêm các bước và đốt token mỗi lượt.
 
-Example input: "Refund-handling agent over Anthropic Claude with three tools (lookup_order, issue_refund, send_email), must pause for a human before any refund over 100 dollars, must resume after server restart, p95 latency budget 8 seconds."
+Đầu vào ví dụ: "Tác tử xử lý hoàn tiền trên Anthropic Claude với ba công cụ (lookup_order, issue_refund, send_email), phải dừng cho con người trước mọi hoàn tiền trên 100 đô la, phải tiếp tục sau máy chủ khởi động lại, ngân sách độ trễ p95 8 giây."
 
-Example output:
-- Nodes: agent (LLM call), lookup_tool, refund_tool, email_tool, human_review.
-- State: messages with add_messages, order_context (overwrite), refund_amount (overwrite), reviewer_decision (overwrite).
-- Edges: agent to should_continue router with branches lookup_tool, refund_tool, email_tool, human_review, END. Tool nodes go back to agent.
-- Interrupts: interrupt_before on refund_tool when refund_amount > 100. No interrupt on lookup_tool or email_tool.
-- Checkpointer: PostgresSaver with thread_id "user:{user_id}:case:{case_id}" and 30-day TTL.
+Đầu ra ví dụ:
+- Node: agent (lệnh gọi LLM), lookup_tool, refund_tool, email_tool, human_review.
+- Trạng thái: messages với add_messages, order_context (ghi đè), refund_amount (ghi đè), reviewer_decision (ghi đè).
+- Cạnh: agent đến router should_continue với nhánh lookup_tool, refund_tool, email_tool, human_review, END. Node công cụ trở về agent.
+- Ngắt: interrupt_before trên refund_tool khi refund_amount > 100. Không ngắt trên lookup_tool hoặc email_tool.
+- Checkpointer: PostgresSaver với thread_id "user:{user_id}:case:{case_id}" và TTL 30 ngày.
