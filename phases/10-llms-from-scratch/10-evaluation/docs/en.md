@@ -1,6 +1,6 @@
 # Evaluation: Benchmarks, Evals, LM Harness
 
-> Goodhart's Law: when a measure becomes a target, it ceases to be a good measure. Every frontier lab games benchmarks. MMLU scores go up while models still can't reliably count the number of R's in "strawberry." The only eval that matters is YOUR eval -- on YOUR task, with YOUR data.
+> Định luật Goodhart: khi một thước đo thành mục tiêu, nó ngừng là thước đo tốt. Mọi phòng thí nghiệm hàng đầu thao túng benchmark. Điểm MMLU tăng trong khi mô hình vẫn không thể đếm đáng tin cậy số chữ R trong "strawberry." Đánh giá duy nhất quan trọng là đánh giá CỦA BẠN -- trên tác vụ CỦA BẠN, với dữ liệu CỦA BẠN.
 
 **Type:** Build
 **Languages:** Python
@@ -9,32 +9,32 @@
 
 ## Learning Objectives
 
-- Build a custom evaluation harness that runs multiple-choice and open-ended benchmarks against a language model
-- Explain why standard benchmarks (MMLU, HumanEval) saturate and fail to differentiate frontier models
-- Implement task-specific evals with proper metrics: exact match, F1, BLEU, and LLM-as-judge scoring
-- Design a custom evaluation suite targeting your specific use case rather than relying solely on public leaderboards
+- Xây một bộ khung đánh giá tùy chỉnh chạy benchmark trắc nghiệm và mở với mô hình ngôn ngữ
+- Giải thích vì sao benchmark tiêu chuẩn (MMLU, HumanEval) bão hòa và không phân biệt được mô hình hàng đầu
+- Triển khai đánh giá riêng tác vụ với thước đo đúng: khớp chính xác, F1, BLEU và chấm LLM-as-judge
+- Thiết kế một bộ đánh giá tùy chỉnh nhắm trường hợp sử dụng cụ thể thay vì chỉ dựa bảng xếp hạng công khai
 
 ## The Problem
 
-MMLU was published in 2020 with 15,908 questions across 57 subjects. Within three years, frontier models saturated it. GPT-4 scored 86.4%. Claude 3 Opus scored 86.8%. Llama 3 405B scored 88.6%. The leaderboard compressed into a 3-point range where differences are statistical noise, not real capability gaps.
+MMLU được công bố năm 2020 với 15,908 câu hỏi trên 57 môn. Trong ba năm, mô hình hàng đầu làm nó bão hòa. GPT-4 đạt 86.4%. Claude 3 Opus đạt 86.8%. Llama 3 405B đạt 88.6%. Bảng xếp hạng nén vào phạm vi 3 điểm mà khác biệt là nhiễu thống kê, không phải khoảng cách năng lực thực.
 
-Meanwhile, those same models fail at tasks that a 10-year-old handles without thinking. Claude 3.5 Sonnet, scoring 88.7% on MMLU, initially could not count the letters in "strawberry" -- a task that requires zero world knowledge and zero reasoning, just character-level iteration. HumanEval tests code generation with 164 problems. Models score 90%+ on it while still producing code that crashes on edge cases any junior developer would catch.
+Trong khi đó, chính các mô hình ấy thất bại ở tác vụ một đứa trẻ 10 tuổi xử lý không cần nghĩ. Claude 3.5 Sonnet, đạt 88.7% MMLU, ban đầu không thể đếm chữ trong "strawberry" -- tác vụ không cần kiến thức thế giới và không suy luận, chỉ lặp cấp ký tự. HumanEval kiểm thử sinh mã với 164 bài. Mô hình đạt 90%+ trên đó trong khi vẫn tạo mã sập ở trường hợp biên mà lập trình viên mới nào cũng bắt được.
 
-The gap between benchmark performance and real-world reliability is the central problem of LLM evaluation. Benchmarks tell you how a model performs on the benchmark. They tell you almost nothing about how that model will perform on your specific task, with your specific data, under your specific failure modes. If you are building a customer support bot, MMLU is irrelevant. If you are building a code assistant, HumanEval only covers function-level generation -- it says nothing about debugging, refactoring, or explaining code across files.
+Khoảng cách giữa hiệu năng benchmark và độ tin cậy thực tế là vấn đề trung tâm của đánh giá LLM. Benchmark cho biết mô hình làm trên benchmark thế nào. Chúng gần như không cho biết mô hình sẽ làm trên tác vụ cụ thể, dữ liệu cụ thể, dưới kiểu thất bại cụ thể của bạn thế nào. Nếu xây bot hỗ trợ khách hàng, MMLU không liên quan. Nếu xây trợ lý mã, HumanEval chỉ bao phủ sinh cấp hàm -- nó không nói gì về gỡ lỗi, tái cấu trúc hay giải thích mã xuyên file.
 
-You need custom evals. Not because benchmarks are useless -- they are useful for rough model selection -- but because the final evaluation must match your deployment conditions exactly.
+Bạn cần đánh giá tùy chỉnh. Không phải vì benchmark vô dụng -- chúng hữu ích cho chọn mô hình sơ bộ -- mà vì đánh giá cuối phải khớp chính xác điều kiện triển khai.
 
 ## The Concept
 
 ### The Eval Landscape
 
-There are three categories of evaluation, each with different cost and signal quality.
+Có ba loại đánh giá, mỗi loại có chi phí và chất lượng tín hiệu khác nhau.
 
-**Benchmarks** are standardized test suites. MMLU, HumanEval, SWE-bench, MATH, ARC, HellaSwag. You run a model against the benchmark and get a score. The advantage: everyone uses the same test, so you can compare models. The disadvantage: models and training data increasingly contaminate these benchmarks. Labs train on data that includes benchmark questions. Scores go up. Capability may not.
+**Benchmark** là bộ kiểm thử chuẩn hóa. MMLU, HumanEval, SWE-bench, MATH, ARC, HellaSwag. Bạn chạy mô hình với benchmark và nhận điểm. Ưu điểm: mọi người dùng cùng bài kiểm thử nên so được mô hình. Nhược điểm: mô hình và dữ liệu huấn luyện ngày càng làm nhiễm các benchmark này. Phòng thí nghiệm huấn luyện trên dữ liệu có câu hỏi benchmark. Điểm tăng. Năng lực có thể không.
 
-**Custom evals** are test suites you build for your specific use case. You define the inputs, the expected outputs, and the scoring function. A legal document summarizer gets evaluated on legal documents. A SQL generator gets evaluated on your database schema. These are expensive to create but they are the only evaluation that predicts production performance.
+**Đánh giá tùy chỉnh** là bộ kiểm thử bạn xây cho trường hợp sử dụng cụ thể. Bạn định nghĩa đầu vào, đầu ra kỳ vọng và hàm chấm điểm. Bộ tóm tắt tài liệu pháp lý được đánh giá trên tài liệu pháp lý. Bộ sinh SQL được đánh giá trên schema cơ sở dữ liệu của bạn. Chúng tốn kém để tạo nhưng là đánh giá duy nhất dự đoán hiệu năng production.
 
-**Human evals** use paid annotators to judge model outputs on criteria like helpfulness, correctness, fluency, and safety. The gold standard for open-ended tasks where automated scoring fails. Chatbot Arena has collected over 2 million human preference votes across 100+ models. The downside: cost ($0.10-$2.00 per judgment) and speed (hours to days).
+**Đánh giá con người** dùng người chú giải được trả tiền để phán xét đầu ra mô hình theo tiêu chí như hữu ích, đúng đắn, trôi chảy và an toàn. Tiêu chuẩn vàng cho tác vụ mở nơi chấm tự động thất bại. Chatbot Arena đã thu hơn 2 triệu phiếu sở thích con người trên 100+ mô hình. Nhược điểm: chi phí ($0.10-$2.00 mỗi phán xét) và tốc độ (giờ đến ngày).
 
 ```mermaid
 graph TD
@@ -55,39 +55,39 @@ graph TD
 
 ### Why Benchmarks Break
 
-Three mechanisms cause benchmark scores to stop reflecting real capability.
+Ba cơ chế khiến điểm benchmark ngừng phản ánh năng lực thực.
 
-**Data contamination.** Training corpora scrape the internet. Benchmark questions live on the internet. Models see the answers during training. This is not cheating in the traditional sense -- labs do not intentionally include benchmark data. But web-scale scraping makes it nearly impossible to exclude.
+**Nhiễm dữ liệu.** Corpus huấn luyện thu thập internet. Câu hỏi benchmark nằm trên internet. Mô hình thấy đáp án khi huấn luyện. Đây không phải gian lận theo nghĩa truyền thống -- phòng thí nghiệm không cố ý đưa dữ liệu benchmark vào. Nhưng thu thập quy mô web khiến loại trừ gần như bất khả thi.
 
-**Teaching to the test.** Labs optimize training mixtures for benchmark performance. If 5% of the training mix is MMLU-style multiple choice, the model learns the format and the answer distribution. MMLU is 4-way multiple choice. Models learn that the answer distribution is approximately uniform across A/B/C/D, which helps even when the model does not know the answer.
+**Dạy để thi.** Phòng thí nghiệm tối ưu hỗn hợp huấn luyện cho hiệu năng benchmark. Nếu 5% hỗn hợp huấn luyện là trắc nghiệm kiểu MMLU, mô hình học định dạng và phân phối đáp án. MMLU là trắc nghiệm 4 lựa chọn. Mô hình học phân phối đáp án gần đều trên A/B/C/D, điều giúp ngay cả khi mô hình không biết đáp án.
 
-**Saturation.** When every frontier model scores 85-90% on a benchmark, the benchmark stops discriminating. The remaining 10-15% of questions may be ambiguous, mislabeled, or require obscure domain knowledge. Improving from 87% to 89% on MMLU may mean the model memorized two more obscure questions, not that it got smarter.
+**Bão hòa.** Khi mọi mô hình hàng đầu đạt 85-90% trên benchmark, benchmark ngừng phân biệt. 10-15% câu còn lại có thể mơ hồ, gán nhãn sai hoặc cần kiến thức miền ít biết. Cải thiện từ 87% lên 89% MMLU có thể nghĩa là mô hình ghi nhớ thêm hai câu ít biết, không phải thông minh hơn.
 
 ### Perplexity: A Quick Health Check
 
-Perplexity measures how surprised a model is by a sequence of tokens. Formally, it is the exponentiated average negative log-likelihood:
+Perplexity đo mức mô hình ngạc nhiên trước chuỗi token. Hình thức, nó là hàm mũ của log-likelihood âm trung bình:
 
 ```
 PPL = exp(-1/N * sum(log P(token_i | context)))
 ```
 
-A perplexity of 10 means the model is, on average, as uncertain as choosing uniformly among 10 options at each token position. Lower is better. GPT-2 gets a perplexity of ~30 on WikiText-103. GPT-3 gets ~20. Llama 3 8B gets ~7.
+Perplexity 10 nghĩa là mô hình trung bình bất định như chọn đều giữa 10 phương án ở mỗi vị trí token. Thấp hơn tốt hơn. GPT-2 có perplexity ~30 trên WikiText-103. GPT-3 có ~20. Llama 3 8B có ~7.
 
-Perplexity is useful for comparing models on the same test set, but it has blind spots. A model can have low perplexity by being good at predicting common patterns while being terrible at rare but important patterns. It also says nothing about instruction following, reasoning, or factual accuracy. Use it as a sanity check, not a final verdict.
+Perplexity hữu ích để so mô hình trên cùng tập kiểm thử, nhưng có điểm mù. Mô hình có thể có perplexity thấp nhờ giỏi dự đoán mẫu phổ biến trong khi tệ ở mẫu hiếm nhưng quan trọng. Nó cũng không nói gì về tuân theo chỉ dẫn, suy luận hay chính xác sự thật. Dùng như kiểm tra hợp lý, không phải phán quyết cuối.
 
 ### LLM-as-Judge
 
-Use a strong model to evaluate a weaker model's output. The idea is simple: ask GPT-4o or Claude Sonnet to rate a response on a 1-5 scale for correctness, helpfulness, and safety. This costs about $0.01 per judgment with GPT-4o-mini and correlates surprisingly well with human judgments -- around 80% agreement on most tasks.
+Dùng mô hình mạnh đánh giá đầu ra mô hình yếu hơn. Ý tưởng đơn giản: yêu cầu GPT-4o hoặc Claude Sonnet đánh giá phản hồi theo thang 1-5 về đúng đắn, hữu ích và an toàn. Chi phí khoảng $0.01 mỗi phán xét với GPT-4o-mini và tương quan tốt đáng ngạc nhiên với phán xét con người -- khoảng 80% đồng thuận trên hầu hết tác vụ.
 
-The scoring prompt matters more than the model. A vague prompt ("Rate this response") produces noisy scores. A structured prompt with a rubric ("Score 5 if the answer is factually correct and cites a source, 4 if correct but unsourced, 3 if partially correct...") produces consistent, reproducible scores.
+Prompt chấm điểm quan trọng hơn mô hình. Prompt mơ hồ ("Đánh giá phản hồi này") tạo điểm nhiều nhiễu. Prompt có cấu trúc với rubric ("Chấm 5 nếu đáp án đúng sự thật và dẫn nguồn, 4 nếu đúng nhưng không nguồn, 3 nếu đúng một phần...") tạo điểm nhất quán, tái lập được.
 
-Failure modes: judge models exhibit position bias (prefer the first response in pairwise comparisons), verbosity bias (prefer longer responses), and self-preference (GPT-4 rates GPT-4 outputs higher than equivalent Claude outputs). Mitigations: randomize order, normalize for length, use a different judge than the model being evaluated.
+Kiểu thất bại: mô hình giám khảo có thiên lệch vị trí (ưa phản hồi đầu trong so cặp), thiên lệch dài dòng (ưa phản hồi dài hơn), và tự ưu ái (GPT-4 chấm đầu ra GPT-4 cao hơn đầu ra Claude tương đương). Giảm nhẹ: ngẫu nhiên hóa thứ tự, chuẩn hóa độ dài, dùng giám khảo khác mô hình được đánh giá.
 
 ### ELO Ratings from Pairwise Comparisons
 
-Chatbot Arena's approach. Show two responses to the same prompt from different models. A human (or LLM judge) picks the better one. From thousands of these comparisons, compute an ELO rating for each model -- the same system used in chess.
+Cách của Chatbot Arena. Cho xem hai phản hồi cùng prompt từ các mô hình khác. Con người (hoặc giám khảo LLM) chọn cái tốt hơn. Từ hàng nghìn so sánh này, tính xếp hạng ELO cho mỗi mô hình -- cùng hệ thống dùng trong cờ vua.
 
-ELO advantages: relative ranking is more reliable than absolute scoring, handles ties gracefully, and converges with fewer comparisons than scoring every output independently. As of early 2026, Chatbot Arena ranks show GPT-4o, Claude 3.5 Sonnet, and Gemini 1.5 Pro within 20 ELO points of each other at the top.
+Ưu điểm ELO: xếp hạng tương đối đáng tin hơn chấm điểm tuyệt đối, xử lý hòa tốt, và hội tụ với ít so sánh hơn chấm mỗi đầu ra độc lập. Tính đến đầu năm 2026, xếp hạng Chatbot Arena cho thấy GPT-4o, Claude 3.5 Sonnet và Gemini 1.5 Pro trong 20 điểm ELO của nhau ở đầu.
 
 ```mermaid
 graph LR
@@ -108,32 +108,32 @@ graph LR
 
 ### Eval Frameworks
 
-**lm-evaluation-harness** (EleutherAI): the standard open-source eval framework. Supports 200+ benchmarks. Run any Hugging Face model against MMLU, HellaSwag, ARC, etc. with one command. Used by the Open LLM Leaderboard.
+**lm-evaluation-harness** (EleutherAI): framework đánh giá mã nguồn mở tiêu chuẩn. Hỗ trợ 200+ benchmark. Chạy bất kỳ mô hình Hugging Face nào với MMLU, HellaSwag, ARC, v.v. bằng một lệnh. Được Open LLM Leaderboard dùng.
 
-**RAGAS**: evaluation framework specifically for RAG pipelines. Measures faithfulness (does the answer match the retrieved context?), relevance (is the retrieved context relevant to the question?), and answer correctness.
+**RAGAS**: framework đánh giá riêng pipeline RAG. Đo tính trung thành (đáp án có khớp ngữ cảnh truy xuất không?), liên quan (ngữ cảnh truy xuất có liên quan câu hỏi không?), và tính đúng đắn đáp án.
 
-**promptfoo**: config-driven eval for prompt engineering. Define test cases in YAML, run against multiple models, get a pass/fail report. Useful for regression testing prompts -- make sure a prompt change does not break existing test cases.
+**promptfoo**: đánh giá theo cấu hình cho kỹ thuật prompt. Định nghĩa ca kiểm thử trong YAML, chạy với nhiều mô hình, nhận báo cáo đạt/không đạt. Hữu ích cho kiểm thử hồi quy prompt -- bảo đảm thay đổi prompt không phá ca kiểm thử hiện có.
 
 ### Building Custom Evals
 
-The only eval that matters for production. The process:
+Đánh giá duy nhất quan trọng cho production. Quy trình:
 
-1. **Define the task.** What exactly should the model do? Be precise. "Answer questions" is too vague. "Given a customer complaint email, extract the product name, issue category, and sentiment" is a task you can evaluate.
+1. **Định nghĩa tác vụ.** Mô hình chính xác nên làm gì? Hãy chính xác. "Trả lời câu hỏi" quá mơ hồ. "Với một email khiếu nại khách hàng, trích tên sản phẩm, loại vấn đề và cảm xúc" là tác vụ bạn có thể đánh giá.
 
-2. **Create test cases.** Minimum 50 for a prototype eval, 200+ for production. Each test case is an (input, expected_output) pair. Include edge cases: empty inputs, adversarial inputs, ambiguous inputs, inputs in other languages.
+2. **Tạo ca kiểm thử.** Tối thiểu 50 cho đánh giá nguyên mẫu, 200+ cho production. Mỗi ca là một cặp (input, expected_output). Bao gồm trường hợp biên: đầu vào rỗng, đối kháng, mơ hồ, ngôn ngữ khác.
 
-3. **Define scoring.** Exact match for structured outputs. BLEU/ROUGE for text similarity. LLM-as-judge for open-ended quality. F1 for extraction tasks. Combine multiple metrics with weights.
+3. **Định nghĩa chấm điểm.** Khớp chính xác cho đầu ra có cấu trúc. BLEU/ROUGE cho tương đồng văn bản. LLM-as-judge cho chất lượng mở. F1 cho tác vụ trích xuất. Kết hợp nhiều thước đo có trọng số.
 
-4. **Automate.** Every eval runs with one command. No manual steps. Store results in a format that enables comparison over time.
+4. **Tự động hóa.** Mỗi đánh giá chạy bằng một lệnh. Không bước thủ công. Lưu kết quả ở định dạng cho phép so sánh theo thời gian.
 
-5. **Track over time.** An eval score is meaningless in isolation. You need the trendline. Did the score improve after the last prompt change? Did it regress after switching models? Version your eval alongside your prompts.
+5. **Theo dõi theo thời gian.** Điểm đánh giá vô nghĩa khi đứng riêng. Bạn cần đường xu hướng. Điểm có cải thiện sau thay đổi prompt cuối không? Có giảm sau đổi mô hình không? Quản lý phiên bản đánh giá cùng prompt.
 
-| Eval Type | Cost per judgment | Agreement with humans | Best for |
+| Loại đánh giá | Chi phí mỗi phán xét | Đồng thuận với con người | Tốt nhất cho |
 |-----------|------------------|----------------------|----------|
-| Exact match | ~$0 | 100% (when applicable) | Structured output, classification |
-| BLEU/ROUGE | ~$0 | ~60% | Translation, summarization |
-| LLM-as-judge | ~$0.01 | ~80% | Open-ended generation |
-| Human eval | $0.10-$2.00 | N/A (is the ground truth) | Ambiguous, high-stakes tasks |
+| Khớp chính xác | ~$0 | 100% (khi áp dụng được) | Đầu ra có cấu trúc, phân loại |
+| BLEU/ROUGE | ~$0 | ~60% | Dịch, tóm tắt |
+| LLM-as-judge | ~$0.01 | ~80% | Sinh mở |
+| Đánh giá con người | $0.10-$2.00 | N/A (là ground truth) | Tác vụ mơ hồ, rủi ro cao |
 
 ```figure
 perplexity-loss
@@ -143,7 +143,7 @@ perplexity-loss
 
 ### Step 1: A Minimal Eval Framework
 
-Define the core abstractions. An eval case has an input, an expected output, and an optional metadata dict. A scorer takes a prediction and a reference and returns a score between 0 and 1.
+Định nghĩa các trừu tượng cốt lõi. Một ca đánh giá có đầu vào, đầu ra kỳ vọng và dict metadata tùy chọn. Bộ chấm nhận dự đoán và tham chiếu, trả điểm từ 0 đến 1.
 
 ```python
 import json
@@ -179,7 +179,7 @@ class EvalSuite:
 
 ### Step 2: Scoring Functions
 
-Build exact match, token F1, and a simulated LLM-as-judge scorer.
+Xây khớp chính xác, token F1 và một bộ chấm LLM-as-judge mô phỏng.
 
 ```python
 def exact_match(prediction, expected):
@@ -209,7 +209,7 @@ def llm_judge_simulated(prediction, expected):
 
 ### Step 3: ELO Rating System
 
-Implement pairwise comparisons with ELO updates. This is exactly the system Chatbot Arena uses to rank models.
+Triển khai so sánh theo cặp với cập nhật ELO. Đây chính xác là hệ thống Chatbot Arena dùng để xếp hạng mô hình.
 
 ```python
 class ELOTracker:
@@ -256,7 +256,7 @@ class ELOTracker:
 
 ### Step 4: Perplexity Calculation
 
-Compute perplexity using token probabilities. In practice you would get these from the model's logits. Here we simulate with a probability distribution.
+Tính perplexity bằng xác suất token. Trong thực tế bạn lấy chúng từ logits mô hình. Ở đây chúng ta mô phỏng bằng một phân phối xác suất.
 
 ```python
 import numpy as np
@@ -284,7 +284,7 @@ def token_log_probs_simulated(text, model_quality=0.8):
 
 ### Step 5: Aggregate Results
 
-Compute summary statistics across an eval run: mean, median, pass rate at a threshold, and per-metric breakdowns.
+Tính thống kê tóm tắt trên một lần đánh giá: trung bình, trung vị, tỷ lệ đạt ở một ngưỡng và phân tích theo từng thước đo.
 
 ```python
 def summarize_results(results, threshold=0.8):
@@ -323,7 +323,7 @@ def print_summary(summary, suite_name="Eval"):
 
 ### Step 6: Run the Full Pipeline
 
-Wire everything together. Define a task, create test cases, simulate two models, run evals, compute ELO from pairwise comparisons, and print the leaderboard.
+Nối mọi thứ lại. Định nghĩa tác vụ, tạo ca kiểm thử, mô phỏng hai mô hình, chạy đánh giá, tính ELO từ so cặp và in bảng xếp hạng.
 
 ```python
 def demo_model_good(prompt):
@@ -371,11 +371,11 @@ print_summary(summarize_results(results_good), "Model A (concise)")
 print_summary(summarize_results(results_bad), "Model B (verbose)")
 ```
 
-The "good" model gives exact answers. The "bad" model gives verbose paraphrases. Exact match punishes the verbose model severely. Token F1 and LLM-as-judge are more forgiving. This illustrates why metric choice matters: the same model looks great or terrible depending on how you score it.
+Mô hình "tốt" cho đáp án chính xác. Mô hình "xấu" cho diễn đạt lại dài dòng. Khớp chính xác phạt mô hình dài dòng nặng. Token F1 và LLM-as-judge dễ tính hơn. Điều này minh họa vì sao chọn thước đo quan trọng: cùng mô hình trông tuyệt vời hoặc tệ tùy cách chấm.
 
 ### Step 7: ELO Tournament
 
-Run pairwise comparisons between models across multiple rounds.
+Chạy so sánh theo cặp giữa mô hình qua nhiều vòng.
 
 ```python
 elo = ELOTracker(k=32)
@@ -403,7 +403,7 @@ for name, rating in elo.leaderboard():
 
 ### Step 8: Perplexity Comparison
 
-Compare perplexity across "models" of different quality levels.
+So perplexity giữa các "mô hình" có mức chất lượng khác nhau.
 
 ```python
 test_text = "The quick brown fox jumps over the lazy dog in the garden"
@@ -418,7 +418,7 @@ for quality, label in [(0.9, "Strong model"), (0.7, "Medium model"), (0.4, "Weak
 
 ### lm-evaluation-harness (EleutherAI)
 
-The standard tool for running benchmarks on any model.
+Công cụ tiêu chuẩn để chạy benchmark trên bất kỳ mô hình nào.
 
 ```python
 # pip install lm-eval
@@ -438,7 +438,7 @@ The standard tool for running benchmarks on any model.
 
 ### promptfoo
 
-Config-driven eval for prompt engineering. Define tests in YAML and run against multiple providers.
+Đánh giá theo cấu hình cho kỹ thuật prompt. Định nghĩa kiểm thử trong YAML và chạy với nhiều nhà cung cấp.
 
 ```yaml
 # promptfoo.yaml
@@ -476,44 +476,44 @@ tests:
 # print(result)
 ```
 
-RAGAS measures what generic evals miss: whether the model's answer is grounded in the retrieved context, not just whether the answer is "correct" in the abstract.
+RAGAS đo những gì đánh giá chung bỏ sót: liệu đáp án mô hình có căn cứ trong ngữ cảnh truy xuất, không chỉ liệu đáp án "đúng" một cách trừu tượng.
 
 ## Ship It
 
-This lesson produces `outputs/prompt-eval-designer.md` -- a reusable prompt that designs custom eval suites for any task. Give it a task description and it generates test cases, scoring functions, and a pass/fail threshold recommendation.
+Bài học này tạo ra `outputs/prompt-eval-designer.md` -- một prompt tái sử dụng thiết kế bộ đánh giá tùy chỉnh cho bất kỳ tác vụ nào. Cho mô tả tác vụ và nó sinh ca kiểm thử, hàm chấm điểm và đề xuất ngưỡng đạt/không đạt.
 
-It also produces `outputs/skill-llm-evaluation.md` -- a decision framework for choosing the right evaluation strategy based on your task type, budget, and latency requirements.
+Nó cũng tạo ra `outputs/skill-llm-evaluation.md` -- khung quyết định chọn chiến lược đánh giá đúng dựa trên loại tác vụ, ngân sách và yêu cầu độ trễ.
 
 ## Exercises
 
-1. Add a "consistency" scorer that runs the same input through the model 5 times and measures how often the outputs match. Inconsistent answers on deterministic inputs reveal fragile prompts or high temperature settings.
+1. Thêm bộ chấm "nhất quán" chạy cùng đầu vào qua mô hình 5 lần và đo tần suất đầu ra khớp. Đáp án không nhất quán trên đầu vào tất định bộc lộ prompt mong manh hoặc temperature cao.
 
-2. Extend the ELO tracker to support multiple judge functions (exact match, F1, LLM-as-judge) and weight them. Compare how the leaderboard changes when you weight exact match heavily versus F1 heavily.
+2. Mở rộng bộ theo dõi ELO hỗ trợ nhiều hàm giám khảo (khớp chính xác, F1, LLM-as-judge) và đặt trọng số. So cách bảng xếp hạng đổi khi đặt trọng số cao cho khớp chính xác so với F1.
 
-3. Build an eval suite for a specific task: email classification into 5 categories. Create 100 test cases with diverse examples including edge cases (emails that could belong to multiple categories, empty emails, emails in other languages). Measure how different "models" (rule-based, keyword matching, simulated LLM) perform.
+3. Xây bộ đánh giá cho tác vụ cụ thể: phân loại email vào 5 loại. Tạo 100 ca với ví dụ đa dạng gồm trường hợp biên (email có thể thuộc nhiều loại, email rỗng, email ngôn ngữ khác). Đo cách các "mô hình" khác (dựa quy tắc, khớp từ khóa, LLM mô phỏng) hoạt động.
 
-4. Implement contamination detection: given a set of eval questions and a training corpus, check what percentage of eval questions (or close paraphrases) appear in the training data. This is how researchers audit benchmark validity.
+4. Triển khai phát hiện nhiễm: với tập câu hỏi đánh giá và corpus huấn luyện, kiểm tra bao nhiêu phần trăm câu hỏi đánh giá (hoặc diễn đạt lại gần) xuất hiện trong dữ liệu huấn luyện. Đây là cách nhà nghiên cứu kiểm tra tính hợp lệ benchmark.
 
-5. Build a "model diff" tool. Given eval results from two model versions, highlight which specific test cases improved, which regressed, and which stayed the same. This is the eval equivalent of a code diff -- essential for understanding whether a change helped or hurt.
+5. Xây công cụ "diff mô hình". Với kết quả đánh giá từ hai phiên bản mô hình, làm nổi bật ca cụ thể nào cải thiện, giảm và giữ nguyên. Đây là tương đương của diff mã cho đánh giá -- thiết yếu để hiểu thay đổi giúp hay hại.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| MMLU | "The benchmark" | Massive Multitask Language Understanding -- 15,908 multiple choice questions across 57 subjects, saturated above 88% by 2025 |
-| HumanEval | "Code eval" | 164 Python function-completion problems from OpenAI, tests only isolated function generation |
-| SWE-bench | "Real coding eval" | 2,294 GitHub issues from 12 Python repos, measures end-to-end bug fixing including test generation |
-| Perplexity | "How confused the model is" | exp(-avg(log P(token_i given context))) -- lower means the model assigns higher probability to the actual tokens |
-| ELO rating | "Chess ranking for models" | A relative skill rating computed from pairwise win/loss records, used by Chatbot Arena to rank 100+ models |
-| LLM-as-judge | "Using AI to grade AI" | A strong model scores a weaker model's outputs against a rubric, ~80% agreement with human judges at ~$0.01/judgment |
-| Data contamination | "The model saw the test" | Training data includes benchmark questions, inflating scores without improving real capability |
-| Eval suite | "A bunch of tests" | A versioned collection of (input, expected_output, scorer) triples that measure a specific capability |
-| Pass rate | "What percentage it gets right" | Fraction of eval cases scoring above a threshold -- more actionable than mean score because it measures reliability |
-| Chatbot Arena | "Model ranking website" | LMSYS platform with 2M+ human preference votes, producing the most trusted LLM leaderboard via ELO ratings |
+| MMLU | "Benchmark" | Hiểu ngôn ngữ đa tác vụ quy mô lớn -- 15,908 câu trắc nghiệm trên 57 môn, bão hòa trên 88% vào năm 2025 |
+| HumanEval | "Đánh giá mã" | 164 bài hoàn thành hàm Python từ OpenAI, chỉ kiểm thử sinh hàm riêng lẻ |
+| SWE-bench | "Đánh giá lập trình thực" | 2,294 issue GitHub từ 12 repo Python, đo sửa lỗi đầu cuối gồm sinh kiểm thử |
+| Perplexity | "Mô hình bối rối đến đâu" | exp(-avg(log P(token_i given context))) -- thấp hơn nghĩa là mô hình gán xác suất cao hơn cho token thực tế |
+| ELO rating (Xếp hạng ELO) | "Xếp hạng cờ vua cho mô hình" | Xếp hạng kỹ năng tương đối tính từ hồ sơ thắng/thua theo cặp, được Chatbot Arena dùng xếp 100+ mô hình |
+| LLM-as-judge | "Dùng AI chấm AI" | Mô hình mạnh chấm đầu ra mô hình yếu theo rubric, ~80% đồng thuận giám khảo con người ở ~$0.01/phán xét |
+| Data contamination (Nhiễm dữ liệu) | "Mô hình đã thấy bài kiểm thử" | Dữ liệu huấn luyện chứa câu hỏi benchmark, làm tăng điểm mà không cải thiện năng lực thực |
+| Eval suite (Bộ đánh giá) | "Một đống kiểm thử" | Tập bộ ba (input, expected_output, scorer) được quản lý phiên bản đo một năng lực cụ thể |
+| Pass rate (Tỷ lệ đạt) | "Nó làm đúng bao nhiêu phần trăm" | Tỷ lệ ca đánh giá đạt trên ngưỡng -- dễ hành động hơn điểm trung bình vì đo độ tin cậy |
+| Chatbot Arena | "Website xếp hạng mô hình" | Nền tảng LMSYS với 2M+ phiếu sở thích con người, tạo bảng xếp hạng LLM đáng tin nhất qua xếp hạng ELO |
 
 ## Further Reading
 
-- [Hendrycks et al., 2021 -- "Measuring Massive Multitask Language Understanding"](https://arxiv.org/abs/2009.03300) -- the MMLU paper, still the most cited LLM benchmark despite its saturation
-- [Chen et al., 2021 -- "Evaluating Large Language Models Trained on Code"](https://arxiv.org/abs/2107.03374) -- the HumanEval paper from OpenAI, established code generation evaluation methodology
-- [Zheng et al., 2023 -- "Judging LLM-as-a-Judge"](https://arxiv.org/abs/2306.05685) -- systematic analysis of using LLMs to evaluate LLMs, including position bias and verbosity bias findings
-- [Arena (formerly LMSYS Chatbot Arena)](https://arena.ai/leaderboard) -- crowdsourced model comparison platform with 2M+ votes, the most trusted real-world LLM ranking
+- [Hendrycks et al., 2021 -- "Measuring Massive Multitask Language Understanding"](https://arxiv.org/abs/2009.03300) -- bài báo MMLU, vẫn là benchmark LLM được dẫn nhiều nhất dù bão hòa
+- [Chen et al., 2021 -- "Evaluating Large Language Models Trained on Code"](https://arxiv.org/abs/2107.03374) -- bài báo HumanEval từ OpenAI, thiết lập phương pháp đánh giá sinh mã
+- [Zheng et al., 2023 -- "Judging LLM-as-a-Judge"](https://arxiv.org/abs/2306.05685) -- phân tích có hệ thống dùng LLM đánh giá LLM, gồm phát hiện thiên lệch vị trí và dài dòng
+- [Arena (formerly LMSYS Chatbot Arena)](https://arena.ai/leaderboard) -- nền tảng so sánh mô hình cộng đồng với 2M+ phiếu, xếp hạng LLM thực tế đáng tin nhất

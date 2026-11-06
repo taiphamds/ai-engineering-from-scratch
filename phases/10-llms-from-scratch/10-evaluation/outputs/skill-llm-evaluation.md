@@ -9,48 +9,48 @@ tags: [evaluation, evals, benchmarks, llm-as-judge, elo, metrics]
 
 # LLM Evaluation Strategy
 
-When evaluating an LLM system, apply this decision framework to choose the right approach.
+Khi đánh giá một hệ thống LLM, áp dụng khung quyết định này để chọn cách tiếp cận đúng.
 
 ## When to use each eval type
 
-**Benchmarks (MMLU, HumanEval, SWE-bench):** You are doing initial model selection. You need to narrow 10 candidate models to 3. Benchmarks give rough ranking at zero cost. Do not use benchmarks as your final evaluation.
+**Benchmark (MMLU, HumanEval, SWE-bench):** Bạn đang chọn mô hình ban đầu. Bạn cần thu hẹp 10 mô hình ứng viên còn 3. Benchmark cho xếp hạng sơ bộ với chi phí bằng không. Đừng dùng benchmark làm đánh giá cuối.
 
-**Custom evals:** You are building for production. You have a specific task with specific failure modes. Custom evals are the only evaluation that predicts real-world performance. Minimum 50 test cases for prototype, 200+ for production.
+**Đánh giá tùy chỉnh:** Bạn đang xây cho production. Bạn có tác vụ cụ thể với kiểu thất bại cụ thể. Đánh giá tùy chỉnh là đánh giá duy nhất dự đoán hiệu năng thực tế. Tối thiểu 50 ca kiểm thử cho nguyên mẫu, 200+ cho production.
 
-**LLM-as-judge:** Your task is open-ended (summarization, writing, conversation). Exact match and token overlap metrics are too rigid. LLM-as-judge costs ~$0.01 per judgment and agrees with humans ~80% of the time. Always use a rubric, not a vague prompt.
+**LLM-as-judge:** Tác vụ mở (tóm tắt, viết, hội thoại). Thước đo khớp chính xác và chồng lấp token quá cứng. LLM-as-judge tốn ~$0.01 mỗi phán xét và đồng ý con người ~80% trường hợp. Luôn dùng rubric, không prompt mơ hồ.
 
-**Human evals:** The stakes are high and automated metrics disagree. Human eval is the ground truth but costs $0.10-$2.00 per judgment. Reserve for ambiguous cases and periodic calibration of automated metrics.
+**Đánh giá con người:** Rủi ro cao và thước đo tự động bất đồng. Đánh giá con người là ground truth nhưng tốn $0.10-$2.00 mỗi phán xét. Dành cho ca mơ hồ và hiệu chuẩn định kỳ thước đo tự động.
 
-**ELO from pairwise comparisons:** You are comparing multiple models on the same task. Pairwise is more reliable than absolute scoring because humans (and LLM judges) are better at relative judgments.
+**ELO từ so sánh theo cặp:** Bạn đang so nhiều mô hình trên cùng tác vụ. Theo cặp đáng tin hơn chấm tuyệt đối vì con người (và giám khảo LLM) giỏi phán xét tương đối hơn.
 
 ## Scoring function selection
 
-- **Exact match**: classification, entity extraction, structured outputs with known answers
-- **Token F1**: extraction tasks where partial credit matters
-- **ROUGE-L**: summarization, translation
-- **BLEU**: machine translation
-- **LLM-as-judge**: open-ended generation, conversational quality, helpfulness
-- **Execution-based**: code generation (run the code, check if tests pass)
-- **Schema compliance**: structured outputs (does the JSON match the schema?)
+- **Khớp chính xác**: phân loại, trích xuất thực thể, đầu ra có cấu trúc với đáp án đã biết
+- **Token F1**: tác vụ trích xuất mà điểm từng phần quan trọng
+- **ROUGE-L**: tóm tắt, dịch
+- **BLEU**: dịch máy
+- **LLM-as-judge**: sinh mở, chất lượng hội thoại, hữu ích
+- **Dựa trên thực thi**: sinh mã (chạy mã, kiểm tra có vượt kiểm thử không)
+- **Tuân thủ schema**: đầu ra có cấu trúc (JSON có khớp schema không?)
 
 ## Red flags in eval design
 
-- Eval set smaller than 50 cases: results are statistically meaningless
-- No edge cases: you are measuring happy-path performance, which is always higher than real-world
-- Single metric: different metrics tell different stories, use at least two
-- No versioning: you cannot track improvement without versioned eval sets
-- Eval set contamination: never include eval examples in fine-tuning data or few-shot prompts
-- Testing only one model: you need a baseline (even a simple heuristic) for comparison
+- Tập đánh giá dưới 50 ca: kết quả vô nghĩa thống kê
+- Không trường hợp biên: bạn đang đo hiệu năng đường đi thuận lợi, luôn cao hơn thực tế
+- Một thước đo: các thước đo kể câu chuyện khác nhau, dùng ít nhất hai
+- Không quản lý phiên bản: không thể theo dõi cải thiện nếu không có tập đánh giá quản lý phiên bản
+- Nhiễm tập đánh giá: không bao giờ đưa ví dụ đánh giá vào dữ liệu tinh chỉnh hoặc prompt few-shot
+- Chỉ kiểm thử một mô hình: cần baseline (dù heuristic đơn giản) để so sánh
 
 ## Eval pipeline checklist
 
-1. Define the task precisely (not "answer questions" but "classify support tickets into 5 categories")
-2. Create test cases across happy path, edge cases, and known regressions
-3. Select 2-3 scoring functions appropriate for the task type
-4. Set pass/fail thresholds based on production requirements
-5. Automate execution: one command runs the full suite
-6. Version everything: test cases, scoring functions, prompts, model versions
-7. Run on every change: prompt updates, model swaps, code deployments
-8. Track trends: a single score is noise, a trendline is signal
-9. Calibrate against human judgment quarterly
-10. Add regression cases whenever a production failure is discovered
+1. Định nghĩa tác vụ chính xác (không phải "trả lời câu hỏi" mà "phân loại ticket hỗ trợ vào 5 loại")
+2. Tạo ca kiểm thử trên đường đi thuận lợi, trường hợp biên và hồi quy đã biết
+3. Chọn 2-3 hàm chấm điểm phù hợp loại tác vụ
+4. Đặt ngưỡng đạt/không đạt dựa yêu cầu production
+5. Tự động hóa thực thi: một lệnh chạy toàn bộ
+6. Quản lý phiên bản mọi thứ: ca kiểm thử, hàm chấm điểm, prompt, phiên bản mô hình
+7. Chạy trên mọi thay đổi: cập nhật prompt, đổi mô hình, triển khai mã
+8. Theo dõi xu hướng: một điểm đơn lẻ là nhiễu, đường xu hướng là tín hiệu
+9. Hiệu chuẩn với phán xét con người hàng quý
+10. Thêm ca hồi quy mỗi khi phát hiện thất bại production

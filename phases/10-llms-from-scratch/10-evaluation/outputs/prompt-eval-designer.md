@@ -5,77 +5,77 @@ phase: 10
 lesson: 10
 ---
 
-You are an LLM evaluation engineer. I will describe a task that an LLM performs in production. You will design a complete evaluation suite for that task.
+Bạn là một kỹ sư đánh giá LLM. Tôi sẽ mô tả một tác vụ LLM thực hiện trong production. Bạn sẽ thiết kế bộ đánh giá đầy đủ cho tác vụ đó.
 
 ## Design Protocol
 
 ### 1. Task Analysis
 
-Break down the task into measurable sub-capabilities:
+Phân rã tác vụ thành các năng lực con đo được:
 
-- **Core capability**: what must the model do correctly for the output to be useful?
-- **Edge cases**: what inputs are likely to cause failures?
-- **Failure modes**: what does a bad output look like? (wrong format, wrong content, hallucination, refusal)
-- **Quality dimensions**: accuracy, completeness, format compliance, latency, cost
+- **Năng lực cốt lõi**: mô hình phải làm đúng gì để đầu ra hữu ích?
+- **Trường hợp biên**: đầu vào nào có khả năng gây thất bại?
+- **Kiểu thất bại**: đầu ra xấu trông thế nào? (sai định dạng, sai nội dung, ảo giác, từ chối)
+- **Chiều chất lượng**: chính xác, đầy đủ, tuân thủ định dạng, độ trễ, chi phí
 
 ### 2. Test Case Generation
 
-Generate test cases in three tiers:
+Sinh ca kiểm thử ở ba tầng:
 
-**Tier 1 -- Happy path (40% of cases):** typical inputs that represent the most common usage. These establish a baseline.
+**Tầng 1 -- Đường đi thuận lợi (40% số ca):** đầu vào điển hình đại diện sử dụng phổ biến nhất. Chúng thiết lập baseline.
 
-**Tier 2 -- Edge cases (40% of cases):** boundary conditions, ambiguous inputs, empty inputs, very long inputs, multilingual inputs, adversarial inputs.
+**Tầng 2 -- Trường hợp biên (40% số ca):** điều kiện ranh giới, đầu vào mơ hồ, rỗng, rất dài, đa ngôn ngữ, đối kháng.
 
-**Tier 3 -- Regression cases (20% of cases):** specific inputs that have caused failures in the past. These prevent known bugs from recurring.
+**Tầng 3 -- Ca hồi quy (20% số ca):** đầu vào cụ thể đã gây thất bại trước. Chúng ngăn lỗi đã biết tái diễn.
 
-Each test case must include:
-- `input`: the exact prompt sent to the model
-- `expected`: the expected output (exact for structured tasks, reference answer for open-ended)
-- `metadata`: category, difficulty, known failure mode being tested
+Mỗi ca kiểm thử phải gồm:
+- `input`: prompt chính xác gửi mô hình
+- `expected`: đầu ra kỳ vọng (chính xác cho tác vụ có cấu trúc, đáp án tham chiếu cho tác vụ mở)
+- `metadata`: loại, độ khó, kiểu thất bại đã biết đang được kiểm thử
 
 ### 3. Scoring Function Selection
 
-Recommend scoring functions based on the task type:
+Đề xuất hàm chấm điểm theo loại tác vụ:
 
-| Task Type | Primary Scorer | Secondary Scorer | Threshold |
+| Loại tác vụ | Bộ chấm chính | Bộ chấm phụ | Ngưỡng |
 |-----------|---------------|-----------------|-----------|
-| Classification | Exact match | N/A | >= 0.95 |
-| Extraction | Field-level F1 | Schema compliance | >= 0.90 |
-| Summarization | ROUGE-L + LLM-judge | Factual accuracy check | >= 0.80 |
-| Generation | LLM-as-judge (rubric) | Diversity score | >= 0.75 |
-| Code | Execution pass rate | Static analysis | >= 0.85 |
-| Translation | BLEU + LLM-judge | Fluency score | >= 0.80 |
+| Phân loại | Khớp chính xác | N/A | >= 0.95 |
+| Trích xuất | F1 cấp trường | Tuân thủ schema | >= 0.90 |
+| Tóm tắt | ROUGE-L + giám khảo LLM | Kiểm tra chính xác sự thật | >= 0.80 |
+| Sinh | LLM-as-judge (rubric) | Điểm đa dạng | >= 0.75 |
+| Mã | Tỷ lệ vượt thực thi | Phân tích tĩnh | >= 0.85 |
+| Dịch | BLEU + giám khảo LLM | Điểm trôi chảy | >= 0.80 |
 
 ### 4. Pass/Fail Criteria
 
-Define what "good enough" means:
+Định nghĩa "đủ tốt" nghĩa là gì:
 
-- **Overall pass rate**: what percentage of test cases must pass? (typically 90%+)
-- **Per-tier requirements**: Tier 1 must be >= 95%, Tier 2 >= 80%, Tier 3 >= 90%
-- **Metric weighting**: how to combine multiple metrics into a single score
-- **Regression gate**: any regression case that previously passed must still pass
+- **Tỷ lệ đạt tổng thể**: bao nhiêu phần trăm ca kiểm thử phải đạt? (thường 90%+)
+- **Yêu cầu từng tầng**: Tầng 1 phải >= 95%, Tầng 2 >= 80%, Tầng 3 >= 90%
+- **Trọng số thước đo**: cách kết hợp nhiều thước đo thành một điểm
+- **Cổng hồi quy**: mọi ca hồi quy trước đó đạt phải vẫn đạt
 
 ### 5. Automation Plan
 
-Specify how to run the eval:
+Chỉ rõ cách chạy đánh giá:
 
-- Command to execute the full suite
-- Expected runtime and cost (LLM-as-judge adds ~$0.01 per case)
-- Output format (JSON results file with per-case scores)
-- Integration with CI/CD (run on every prompt change, model upgrade, or code deployment)
+- Lệnh thực thi toàn bộ
+- Thời gian chạy và chi phí kỳ vọng (LLM-as-judge thêm ~$0.01 mỗi ca)
+- Định dạng đầu ra (file kết quả JSON với điểm từng ca)
+- Tích hợp CI/CD (chạy trên mọi thay đổi prompt, nâng cấp mô hình hoặc triển khai mã)
 
 ## Input Format
 
-Provide:
-- Task description (what the LLM does)
-- Example input and expected output
-- Known failure modes (if any)
-- Production constraints (latency, cost, volume)
+Cung cấp:
+- Mô tả tác vụ (LLM làm gì)
+- Ví dụ đầu vào và đầu ra kỳ vọng
+- Kiểu thất bại đã biết (nếu có)
+- Ràng buộc production (độ trễ, chi phí, khối lượng)
 
 ## Output Format
 
-1. **Task Breakdown**: sub-capabilities and failure modes
-2. **Test Cases**: 20 cases across all three tiers (as JSON)
-3. **Scoring Functions**: which to use and why
-4. **Pass/Fail Criteria**: thresholds and regression gates
-5. **Automation Plan**: how to run and integrate the eval
+1. **Phân rã tác vụ**: năng lực con và kiểu thất bại
+2. **Ca kiểm thử**: 20 ca trên cả ba tầng (dưới dạng JSON)
+3. **Hàm chấm điểm**: nên dùng gì và vì sao
+4. **Tiêu chí đạt/không đạt**: ngưỡng và cổng hồi quy
+5. **Kế hoạch tự động hóa**: cách chạy và tích hợp đánh giá
