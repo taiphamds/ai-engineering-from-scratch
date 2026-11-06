@@ -7,25 +7,25 @@ lesson: 22
 tags: [load-testing, llmperf, k6, genai-perf, guidellm, llm-locust, ci-gate]
 ---
 
-Given workload (endpoint, SLA for TTFT/TPOT/error), target scale (concurrency, RPS), and CI posture (PR gate or release-only), produce a load test plan.
+Với khối lượng công việc (endpoint, SLA cho TTFT/TPOT/lỗi), quy mô mục tiêu (độ đồng thời, RPS) và định hướng CI (cổng PR hoặc chỉ khi phát hành), tạo một kế hoạch kiểm thử tải.
 
-Produce:
+Tạo:
 
-1. Tool. LLMPerf for baseline runs; k6 + streaming extension for CI gates; GenAI-Perf for NVIDIA-reference runs; guidellm for large synthetic. LLM-Locust only if already on Locust.
-2. Prompt distribution. Mean + stddev input tokens from real traffic (if available) or published distribution (ShareGPT / HumanEval). Forbid loop-with-one-prompt.
-3. Four patterns. Steady, ramp, spike, soak. For each: target RPS, duration, expected failure mode.
-4. CI gate. Specific thresholds: TTFT P95 < X, 5xx < 5%, TPOT < Y. Runtime per PR: 3-5 min.
-5. Metric alignment. Note whether the reporting tool is GenAI-Perf-style (ITL excludes TTFT) or LLMPerf-style (ITL includes TTFT). Pick one and stay consistent.
-6. Output. A script file (k6 JS, LLMPerf CLI) committed to the repo.
+1. Công cụ. LLMPerf cho các lần chạy cơ sở; k6 + phần mở rộng truyền theo luồng cho cổng CI; GenAI-Perf cho các lần chạy tham chiếu NVIDIA; guidellm cho tổng hợp lớn. LLM-Locust chỉ khi đã dùng Locust.
+2. Phân phối prompt. Trung bình + độ lệch chuẩn token đầu vào từ lưu lượng thực (nếu có) hoặc phân phối được công bố (ShareGPT / HumanEval). Cấm vòng lặp một prompt.
+3. Bốn mẫu. Ổn định, tăng dần, đột biến, kéo dài. Với mỗi mẫu: RPS mục tiêu, thời lượng, chế độ lỗi dự kiến.
+4. Cổng CI. Ngưỡng cụ thể: TTFT P95 < X, 5xx < 5%, TPOT < Y. Thời gian chạy mỗi PR: 3-5 phút.
+5. Thống nhất chỉ số. Ghi nhận công cụ báo cáo theo kiểu GenAI-Perf (ITL loại TTFT) hay kiểu LLMPerf (ITL bao gồm TTFT). Chọn một và duy trì nhất quán.
+6. Đầu ra. Một file script (JS k6, CLI LLMPerf) được commit vào repo.
 
-Hard rejects:
-- Load test with uniform prompts. Refuse — the numbers lie.
-- Load test without streaming support. Refuse — LLM endpoints are streaming by default.
-- Comparing numbers across tools without acknowledging metric-definition differences. Refuse.
+Các trường hợp loại bỏ dứt khoát:
+- Kiểm thử tải với prompt đồng nhất. Từ chối — số liệu nói dối.
+- Kiểm thử tải không hỗ trợ truyền theo luồng. Từ chối — endpoint LLM truyền theo luồng theo mặc định.
+- So sánh số liệu giữa các công cụ mà không thừa nhận khác biệt định nghĩa chỉ số. Từ chối.
 
-Refusal rules:
-- If the team intends to run on Locust stock without LLM-Locust extension, refuse — GIL trap.
-- If CI gate budget is < 60s per PR, refuse full soak — propose a quick steady-state plus separate nightly soak.
-- If prompt distribution data is unavailable, require a documented published distribution (ShareGPT) and note the assumption.
+Quy tắc từ chối:
+- Nếu nhóm định chạy Locust nguyên bản không có phần mở rộng LLM-Locust, từ chối — bẫy GIL.
+- Nếu ngân sách cổng CI < 60s mỗi PR, từ chối kiểm thử kéo dài đầy đủ — đề xuất trạng thái ổn định nhanh cộng kiểm thử kéo dài hằng đêm riêng.
+- Nếu không có dữ liệu phân phối prompt, yêu cầu một phân phối được công bố có tài liệu (ShareGPT) và ghi nhận giả định.
 
-Output: a one-page plan with tool, prompt distribution, four patterns with targets, CI gate thresholds, metric alignment. End with the single CI output: PR green only if all thresholds met, 3-run stability.
+Đầu ra: một kế hoạch một trang với công cụ, phân phối prompt, bốn mẫu có mục tiêu, ngưỡng cổng CI, thống nhất chỉ số. Kết thúc bằng đầu ra CI duy nhất: PR chỉ xanh nếu đáp ứng mọi ngưỡng, ổn định 3 lần chạy.

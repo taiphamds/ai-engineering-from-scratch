@@ -1,6 +1,6 @@
 # Load Testing LLM APIs — Why k6 and Locust Lie
 
-> Traditional load testers were not designed for streaming responses, variable output lengths, token-level metrics, or GPU saturation. Two traps bite most teams. The GIL trap: Locust's token-level measurement runs tokenization under the Python GIL, which competes with request generation under heavy concurrency; tokenization backlog then inflates reported inter-token latency — your client is the bottleneck, not the server. The prompt-uniformity trap: identical prompts in a loop test one point on the token distribution; real traffic has variable length and diverse prefix matches. LLMPerf fixes this with `--mean-input-tokens` + `--stddev-input-tokens`. Tool mapping in 2026: LLM-specialized (GenAI-Perf, LLMPerf, LLM-Locust, guidellm) for token-level accuracy; **k6 v2026.1.0** + **k6 Operator 1.0 GA (Sept 2025)** — streaming-aware, Kubernetes-native distributed via TestRun/PrivateLoadZone CRDs, best for CI/CD gates; Vegeta for Go constant-rate saturation; Locust 2.43.3 only with LLM-Locust extension for streaming. Load patterns: steady-state, ramp, spike (autoscaling test), soak (memory leaks).
+> Các công cụ kiểm thử tải truyền thống không được thiết kế cho phản hồi truyền theo luồng, độ dài đầu ra biến thiên, chỉ số cấp token hay bão hòa GPU. Hai bẫy ảnh hưởng hầu hết các nhóm. Bẫy GIL: phép đo cấp token của Locust chạy tokenization dưới GIL Python, cạnh tranh với việc tạo yêu cầu ở độ đồng thời cao; tồn đọng tokenization sau đó làm tăng độ trễ giữa token được báo cáo — client của bạn là nút thắt, không phải máy chủ. Bẫy prompt đồng nhất: các prompt giống hệt trong một vòng lặp kiểm thử một điểm trên phân phối token; lưu lượng thực có độ dài biến thiên và các khớp tiền tố đa dạng. LLMPerf sửa điều này bằng `--mean-input-tokens` + `--stddev-input-tokens`. Ánh xạ công cụ năm 2026: chuyên biệt LLM (GenAI-Perf, LLMPerf, LLM-Locust, guidellm) cho độ chính xác cấp token; **k6 v2026.1.0** + **k6 Operator 1.0 GA (tháng 9 năm 2025)** — nhận biết truyền theo luồng, phân tán nguyên bản Kubernetes qua CRD TestRun/PrivateLoadZone, tốt nhất cho cổng CI/CD; Vegeta cho bão hòa tốc độ không đổi bằng Go; Locust 2.43.3 chỉ với phần mở rộng LLM-Locust cho truyền theo luồng. Mẫu tải: trạng thái ổn định, tăng dần, đột biến (kiểm thử tự mở rộng quy mô), kéo dài (rò rỉ bộ nhớ).
 
 **Type:** Build
 **Languages:** Python (stdlib, toy realistic-prompt generator + latency collector)
@@ -9,78 +9,78 @@
 
 ## Learning Objectives
 
-- Explain the two anti-patterns (GIL trap, prompt-uniformity trap) that make generic load testers lie for LLM APIs.
-- Pick a tool for a given purpose: LLMPerf (benchmark run), k6 + streaming extension (CI gate), guidellm (large-scale synthetic), GenAI-Perf (NVIDIA reference).
-- Design four load patterns (steady, ramp, spike, soak) and name the failure mode each catches.
-- Build a realistic prompt distribution using mean + stddev of input tokens rather than fixed length.
+- Giải thích hai phản mẫu (bẫy GIL, bẫy prompt đồng nhất) làm các công cụ kiểm thử tải tổng quát nói sai với API LLM.
+- Chọn công cụ cho một mục đích: LLMPerf (lần chạy đo chuẩn), k6 + phần mở rộng truyền theo luồng (cổng CI), guidellm (tổng hợp quy mô lớn), GenAI-Perf (tham chiếu NVIDIA).
+- Thiết kế bốn mẫu tải (ổn định, tăng dần, đột biến, kéo dài) và nêu chế độ lỗi mà mỗi mẫu bắt được.
+- Xây một phân phối prompt thực tế bằng trung bình + độ lệch chuẩn token đầu vào thay vì độ dài cố định.
 
 ## The Problem
 
-You k6-tested your LLM endpoint at 500 concurrent users. It held. You shipped. In production at 200 actual users the service fell over — P99 TTFT exploded, GPUs pinned.
+Bạn kiểm thử endpoint LLM bằng k6 ở 500 người dùng đồng thời. Nó trụ được. Bạn triển khai. Trong sản xuất ở 200 người dùng thực, dịch vụ sụp đổ — P99 TTFT bùng nổ, GPU bị ghim ở mức tối đa.
 
-Two things happened. First, k6 sent 500 identical prompts — your request-coalescing and prefix caching made it look like you were handling 500 concurrent decodes when you were actually handling one. Second, k6 doesn't track inter-token latency on streaming responses the way the eye experiences it; it sees one HTTP connection, not 500 tokens arriving at varying intervals.
+Hai việc đã xảy ra. Thứ nhất, k6 gửi 500 prompt giống hệt — việc hợp nhất yêu cầu và lưu bộ nhớ đệm tiền tố của bạn làm có vẻ bạn xử lý 500 lượt decode đồng thời trong khi thực ra chỉ xử lý một. Thứ hai, k6 không theo dõi độ trễ giữa token trên phản hồi truyền theo luồng theo cách mắt cảm nhận; nó thấy một kết nối HTTP, không phải 500 token đến ở các khoảng thời gian khác nhau.
 
-Load testing for LLMs is its own discipline.
+Kiểm thử tải cho LLM là một chuyên môn riêng.
 
 ## The Concept
 
 ### The GIL trap (Locust)
 
-Locust uses Python and runs tokenization client-side under the GIL. Under high concurrency the tokenizer queues behind request generation. Reported inter-token latency includes client-side tokenization backlog. You think the server is slow; it's the test harness.
+Locust dùng Python và chạy tokenization phía client dưới GIL. Ở độ đồng thời cao, tokenizer xếp hàng sau việc tạo yêu cầu. Độ trễ giữa token được báo cáo bao gồm tồn đọng tokenization phía client. Bạn nghĩ máy chủ chậm; đó là bộ kiểm thử.
 
-Fix: LLM-Locust extension moves tokenization to separate processes, or use a compiled-language harness (k6, LLMPerf using tokenizers.rs).
+Giải pháp: phần mở rộng LLM-Locust chuyển tokenization sang tiến trình riêng, hoặc dùng bộ kiểm thử bằng ngôn ngữ biên dịch (k6, LLMPerf dùng tokenizers.rs).
 
 ### The prompt-uniformity trap
 
-All known load testers let you configure one prompt. In a loop test of 10,000 iterations the exact same prompt sends each time. Server sees the same prefix every time — prefix cache hits approach 100%, throughput looks great.
+Mọi công cụ kiểm thử tải đã biết đều cho phép bạn cấu hình một prompt. Trong kiểm thử vòng lặp 10,000 lượt, cùng một prompt được gửi mỗi lần. Máy chủ thấy cùng tiền tố mỗi lần — lượt trúng bộ nhớ đệm tiền tố tiến gần 100%, thông lượng trông tuyệt vời.
 
-Fix: sample from a prompt distribution. LLMPerf uses `--mean-input-tokens 500 --stddev-input-tokens 150` — diverse lengths, diverse content.
+Giải pháp: lấy mẫu từ một phân phối prompt. LLMPerf dùng `--mean-input-tokens 500 --stddev-input-tokens 150` — độ dài đa dạng, nội dung đa dạng.
 
 ### Four load patterns
 
-1. **Steady-state** — constant RPS for 30-60 min. Catches: baseline performance regressions.
-2. **Ramp** — linearly increase RPS from 0 to target over 15 min. Catches: capacity breakpoint, warm-up anomalies.
-3. **Spike** — sudden 3-10x RPS for 2 min then back. Catches: autoscaling latency, queue saturation, cold-start impact.
-4. **Soak** — steady-state for 4-8 hours. Catches: memory leaks, connection-pool drift, observability overflow.
+1. **Trạng thái ổn định** — RPS không đổi trong 30-60 phút. Bắt được: suy giảm hiệu năng cơ sở.
+2. **Tăng dần** — tăng RPS tuyến tính từ 0 đến mục tiêu trong 15 phút. Bắt được: điểm gãy năng lực, bất thường làm nóng.
+3. **Đột biến** — RPS đột ngột 3-10x trong 2 phút rồi trở lại. Bắt được: độ trễ tự mở rộng quy mô, bão hòa hàng đợi, tác động khởi động nguội.
+4. **Kéo dài** — trạng thái ổn định trong 4-8 giờ. Bắt được: rò rỉ bộ nhớ, độ trôi bể kết nối, tràn khả năng quan sát.
 
 ### 2026 tool mapping
 
-**LLMPerf** (Anyscale) — Python but Rust-backed tokenization. Mean/stddev prompts. Streaming-aware. Best default for performance runs.
+**LLMPerf** (Anyscale) — Python nhưng tokenization dựa trên Rust. Prompt theo trung bình/độ lệch chuẩn. Nhận biết truyền theo luồng. Mặc định tốt nhất cho các lần chạy hiệu năng.
 
-**NVIDIA GenAI-Perf** — NVIDIA's reference. Uses Triton client; comprehensive metric coverage. Note its ITL excludes TTFT; LLMPerf's includes it. Two tools produce different TPOT for the same server.
+**NVIDIA GenAI-Perf** — tham chiếu của NVIDIA. Dùng client Triton; bao phủ chỉ số toàn diện. Lưu ý ITL của nó loại TTFT; của LLMPerf bao gồm TTFT. Hai công cụ cho TPOT khác nhau trên cùng máy chủ.
 
-**LLM-Locust** (TrueFoundry) — Locust extension that fixes the GIL trap. Familiar Locust DSL + streaming metrics.
+**LLM-Locust** (TrueFoundry) — phần mở rộng Locust sửa bẫy GIL. DSL Locust quen thuộc + chỉ số truyền theo luồng.
 
-**guidellm** — large-scale synthetic benchmarking.
+**guidellm** — đo chuẩn tổng hợp quy mô lớn.
 
-**k6 v2026.1.0** + **k6 Operator 1.0 GA (Sept 2025)**:
-- k6 itself (Go, compiled, no GIL) added streaming-aware metrics.
-- k6 Operator uses TestRun / PrivateLoadZone CRDs for Kubernetes-native distributed testing.
-- Best for CI/CD gates and SLA testing.
+**k6 v2026.1.0** + **k6 Operator 1.0 GA (tháng 9 năm 2025)**:
+- Chính k6 (Go, biên dịch, không GIL) đã thêm chỉ số nhận biết truyền theo luồng.
+- k6 Operator dùng CRD TestRun / PrivateLoadZone để kiểm thử phân tán nguyên bản Kubernetes.
+- Tốt nhất cho cổng CI/CD và kiểm thử SLA.
 
-**Vegeta** — Go, simpler than k6. Constant-rate HTTP saturation. Not LLM-aware but good for gateway / rate-limit testing.
+**Vegeta** — Go, đơn giản hơn k6. Bão hòa HTTP tốc độ không đổi. Không nhận biết LLM nhưng tốt cho kiểm thử gateway / giới hạn tốc độ.
 
-**Locust 2.43.3 stock** — has the GIL trap for LLM. Only with LLM-Locust extension.
+**Locust 2.43.3 nguyên bản** — có bẫy GIL cho LLM. Chỉ dùng với phần mở rộng LLM-Locust.
 
 ### SLA gate in CI
 
-Run k6 on the PR with:
+Chạy k6 trên PR với:
 
-- 30-50 iterations each at baseline RPS.
-- Gate: P50/P95 TTFT, 5xx < 5%, TPOT under threshold.
-- Break the build on breach.
+- Mỗi lần 30-50 lượt ở RPS cơ sở.
+- Cổng: P50/P95 TTFT, 5xx < 5%, TPOT dưới ngưỡng.
+- Làm bản dựng thất bại khi vi phạm.
 
 ### Realistic prompt distribution
 
-Build from real traffic samples (if you have them) or from published distributions (e.g., ShareGPT prompts for chat, HumanEval for code). Feed the mean + stddev to LLMPerf. Avoid loop-with-one-prompt at all costs.
+Xây từ mẫu lưu lượng thực (nếu bạn có) hoặc từ phân phối được công bố (ví dụ: prompt ShareGPT cho trò chuyện, HumanEval cho mã). Đưa trung bình + độ lệch chuẩn vào LLMPerf. Tránh vòng lặp một prompt bằng mọi giá.
 
 ### Numbers you should remember
 
-- k6 Operator 1.0 GA: September 2025.
-- k6 v2026.1.0: streaming-aware metrics.
-- Typical LLMPerf run: 100-1000 requests at concurrency X.
-- Typical CI gate: 30-50 iterations per PR.
-- Four patterns: steady, ramp, spike, soak.
+- k6 Operator 1.0 GA: tháng 9 năm 2025.
+- k6 v2026.1.0: chỉ số nhận biết truyền theo luồng.
+- Lần chạy LLMPerf điển hình: 100-1000 yêu cầu ở độ đồng thời X.
+- Cổng CI điển hình: 30-50 lượt mỗi PR.
+- Bốn mẫu: ổn định, tăng dần, đột biến, kéo dài.
 
 ```figure
 load-pattern-waves
@@ -88,35 +88,35 @@ load-pattern-waves
 
 ## Use It
 
-`code/main.py` simulates a load test with realistic prompt distribution, measures effective TPOT, and demonstrates the uniform-prompt trap.
+`code/main.py` mô phỏng kiểm thử tải với phân phối prompt thực tế, đo TPOT hiệu dụng và minh họa bẫy prompt đồng nhất.
 
 ## Ship It
 
-This lesson produces `outputs/skill-load-test-plan.md`. Given workload and SLA, picks tool and designs the four load patterns.
+Bài học này tạo ra `outputs/skill-load-test-plan.md`. Với khối lượng công việc và SLA, chọn công cụ và thiết kế bốn mẫu tải.
 
 ## Exercises
 
-1. Run `code/main.py`. Compare uniform vs realistic distribution — where is the gap?
-2. Write the k6 script for a CI gate: TTFT P95 < 800 ms at 100 concurrent, runtime 5 minutes.
-3. Your soak test shows memory growing 50 MB/hour. Name three causes and the instrumentation to pick between them.
-4. Spike test from 10 RPS to 100 RPS. What's the expected recovery time if Karpenter + vLLM production-stack are in place (Phase 17 · 03 + 18)?
-5. GenAI-Perf reports TPOT=6ms; LLMPerf reports TPOT=11ms on the same server. Explain.
+1. Chạy `code/main.py`. So sánh phân phối đồng nhất với thực tế — chênh lệch ở đâu?
+2. Viết script k6 cho một cổng CI: TTFT P95 < 800 ms ở độ đồng thời 100, thời gian chạy 5 phút.
+3. Kiểm thử kéo dài của bạn cho thấy bộ nhớ tăng 50 MB/giờ. Nêu ba nguyên nhân và việc đo đạc để phân biệt chúng.
+4. Kiểm thử đột biến từ 10 RPS lên 100 RPS. Thời gian khôi phục dự kiến là bao nhiêu nếu có Karpenter + production-stack vLLM (Giai đoạn 17 · 03 + 18)?
+5. GenAI-Perf báo cáo TPOT=6ms; LLMPerf báo cáo TPOT=11ms trên cùng máy chủ. Giải thích.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|----------------|------------------------|
-| LLMPerf | "the LLM harness" | Anyscale benchmark tool, streaming-aware |
-| GenAI-Perf | "NVIDIA tool" | NVIDIA reference harness |
-| LLM-Locust | "Locust for LLMs" | Locust extension fixing GIL trap |
-| guidellm | "synthetic benchmark" | Large-scale synthetic tool |
-| k6 Operator | "K8s k6" | CRD-based distributed k6 |
-| GIL trap | "Python client overhead" | Tokenization backlog inflates reported latency |
-| Prompt-uniformity trap | "single-prompt lie" | Loop with same prompt hits cache, inflates throughput |
-| Steady-state | "constant load" | Flat RPS for N minutes |
-| Ramp | "linear up" | 0 to target over duration |
-| Spike | "burst test" | Sudden multiplier then revert |
-| Soak | "long test" | Hours for leak detection |
+| LLMPerf | "bộ kiểm thử LLM" | Công cụ đo chuẩn Anyscale, nhận biết truyền theo luồng |
+| GenAI-Perf | "công cụ NVIDIA" | Bộ kiểm thử tham chiếu NVIDIA |
+| LLM-Locust | "Locust cho LLM" | Phần mở rộng Locust sửa bẫy GIL |
+| guidellm | "đo chuẩn tổng hợp" | Công cụ tổng hợp quy mô lớn |
+| k6 Operator | "k6 K8s" | k6 phân tán dựa trên CRD |
+| GIL trap (Bẫy GIL) | "chi phí phụ client Python" | Tồn đọng tokenization làm tăng độ trễ được báo cáo |
+| Prompt-uniformity trap (Bẫy prompt đồng nhất) | "lời nói dối một prompt" | Vòng lặp cùng prompt trúng bộ nhớ đệm, làm tăng thông lượng |
+| Steady-state (Trạng thái ổn định) | "tải không đổi" | RPS phẳng trong N phút |
+| Ramp (Tăng dần) | "tăng tuyến tính" | Từ 0 đến mục tiêu trong một khoảng thời gian |
+| Spike (Đột biến) | "kiểm thử bùng phát" | Đột ngột nhân lên rồi hoàn nguyên |
+| Soak (Kéo dài) | "kiểm thử dài" | Nhiều giờ để phát hiện rò rỉ |
 
 ## Further Reading
 
