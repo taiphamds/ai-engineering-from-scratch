@@ -7,12 +7,12 @@ lesson: 9
 tags: [rl, rlhf, alignment, llm]
 ---
 
-Given a base LM, a target behavior (alignment / reasoning / refusal / agent), and a preference or verifier budget, output:
+Với một LM cơ sở, một hành vi mục tiêu (căn chỉnh / suy luận / từ chối / agent), và một ngân sách sở thích hoặc bộ xác minh, xuất ra:
 
-1. Stage. SFT? RM? DPO? GRPO? With justification.
-2. Preference or verifier source. Humans, AI feedback, rule-based, unit-test-pass, or reward distillation.
-3. KL strategy. Fixed β, adaptive β, or DPO (implicit KL).
-4. Diagnostics. Mean KL, reward stability, over-optimization guard (holdout human eval).
-5. Safety gate. Red-team set, refusal rate, safety RM separate from helpfulness RM.
+1. Giai đoạn. SFT? RM? DPO? GRPO? Với biện minh.
+2. Nguồn sở thích hoặc bộ xác minh. Con người, phản hồi AI, dựa trên quy tắc, vượt kiểm thử đơn vị, hoặc chưng cất phần thưởng.
+3. Chiến lược KL. β cố định, β thích nghi, hoặc DPO (KL ngầm).
+4. Chẩn đoán. KL trung bình, ổn định phần thưởng, bảo vệ tối ưu quá mức (đánh giá con người giữ lại).
+5. Cổng an toàn. Tập red-team, tỷ lệ từ chối, RM an toàn tách khỏi RM hữu ích.
 
-Refuse to ship RLHF-PPO without a KL monitor. Refuse to use an RM smaller than the target policy. Refuse length-only rewards. Flag any pipeline that does not hold back a blind human-eval set as lacking over-optimization protection.
+Từ chối triển khai RLHF-PPO mà không có theo dõi KL. Từ chối dùng một RM nhỏ hơn chính sách mục tiêu. Từ chối phần thưởng chỉ theo độ dài. Đánh dấu bất kỳ pipeline nào không giữ lại một tập đánh giá con người mù là thiếu bảo vệ tối ưu quá mức.

@@ -1,6 +1,6 @@
 # Reward Modeling & RLHF
 
-> Humans cannot write a reward function for "good assistant response," but they can compare two responses and pick the better one. Fit a reward model to those comparisons, then RL the language model against it. Christiano 2017. InstructGPT 2022. The recipe that turned GPT-3 into ChatGPT. In 2026 it is mostly being replaced by DPO — but the mental model stays.
+> Con người không thể viết một hàm phần thưởng cho "phản hồi trợ lý tốt," nhưng họ có thể so sánh hai phản hồi và chọn cái tốt hơn. Khớp một mô hình phần thưởng với các so sánh đó, rồi huấn luyện RL mô hình ngôn ngữ theo nó. Christiano 2017. InstructGPT 2022. Công thức đã biến GPT-3 thành ChatGPT. Vào năm 2026 nó phần lớn đang được DPO thay thế — nhưng mô hình tư duy vẫn còn.
 
 **Type:** Build
 **Languages:** Python
@@ -9,50 +9,50 @@
 
 ## The Problem
 
-You trained a language model on the next-token-prediction objective. It writes grammatical English. It also lies, rambles, and refuses to refuse. You cannot fix this with more pretraining — web text is the problem, not the cure.
+Bạn đã huấn luyện một mô hình ngôn ngữ trên mục tiêu dự đoán token tiếp theo. Nó viết tiếng Anh đúng ngữ pháp. Nó cũng nói dối, lan man và từ chối việc từ chối. Bạn không thể sửa điều này bằng thêm huấn luyện trước — văn bản web là vấn đề, không phải phương thuốc.
 
-You want a *scalar reward* that says "response A is better than response B for instruction X." Writing that reward function by hand is impossible. "Helpfulness" is not a closed-form expression over tokens. But humans can compare two outputs and mark a preference. That is cheap to collect at scale.
+Bạn muốn một *phần thưởng vô hướng* nói rằng "phản hồi A tốt hơn phản hồi B cho chỉ dẫn X." Viết tay hàm phần thưởng đó là không thể. "Tính hữu ích" không phải một biểu thức dạng đóng trên token. Nhưng con người có thể so sánh hai đầu ra và đánh dấu một sở thích. Điều đó thu thập rẻ ở quy mô lớn.
 
-RLHF (Christiano et al. 2017; Ouyang et al. 2022) converts preferences into a reward model, then optimizes the LM via PPO against that reward. In three steps: SFT → RM → PPO. It is the recipe that shipped ChatGPT, Claude, Gemini, and every other aligned-LLM in 2023–2025.
+RLHF (Christiano và cộng sự 2017; Ouyang và cộng sự 2022) chuyển sở thích thành một mô hình phần thưởng, rồi tối ưu LM bằng PPO theo phần thưởng đó. Trong ba bước: SFT → RM → PPO. Đó là công thức đã đưa ChatGPT, Claude, Gemini và mọi LLM được căn chỉnh khác đến người dùng trong 2023–2025.
 
-In 2026 the PPO step is mostly replaced by DPO (Phase 10 · 08) because it is cheaper and nearly as good for alignment tuning. But the *reward model* piece still underlies every Best-of-N sampler, every RL-from-verifiable-rewards pipeline, and every reasoning model using a process reward model. Understand RLHF and you understand the entire alignment stack.
+Vào năm 2026 bước PPO phần lớn được thay bằng DPO (Giai đoạn 10 · 08) vì nó rẻ hơn và gần tốt bằng cho tinh chỉnh căn chỉnh. Nhưng phần *mô hình phần thưởng* vẫn làm nền tảng cho mọi bộ lấy mẫu Best-of-N, mọi pipeline RL từ phần thưởng có thể xác minh, và mọi mô hình suy luận dùng mô hình phần thưởng quá trình. Hiểu RLHF và bạn hiểu toàn bộ bộ công cụ căn chỉnh.
 
 ## The Concept
 
 ![Three-stage RLHF: SFT, RM training on pairwise prefs, PPO with KL penalty](../assets/rlhf.svg)
 
-**Stage 1: Supervised Fine-Tuning (SFT).** Start from a pretrained base model. Fine-tune on human-written demonstrations of the target behavior (instruction-following responses, helpful replies, etc.). Result: a model `π_SFT` that is *biased toward good behavior* but still has an unbounded action space.
+**Giai đoạn 1: Tinh chỉnh có giám sát (SFT).** Bắt đầu từ một mô hình cơ sở được huấn luyện trước. Tinh chỉnh trên các minh họa hành vi mục tiêu do con người viết (phản hồi tuân theo chỉ dẫn, trả lời hữu ích, v.v.). Kết quả: một mô hình `π_SFT` *thiên về hành vi tốt* nhưng vẫn có một không gian hành động không bị chặn.
 
-**Stage 2: Reward Model training.**
+**Giai đoạn 2: Huấn luyện mô hình phần thưởng.**
 
-- Collect pairs of responses `(y_+, y_-)` to prompts `x`, labeled by humans as "y_+ is preferred over y_-."
-- Train a reward model `R_φ(x, y)` to assign higher scores to `y_+`.
-- Loss: the **Bradley-Terry pairwise logistic**:
+- Thu thập các cặp phản hồi `(y_+, y_-)` cho các prompt `x`, được con người gán nhãn là "y_+ được ưa thích hơn y_-."
+- Huấn luyện một mô hình phần thưởng `R_φ(x, y)` để gán điểm cao hơn cho `y_+`.
+- Hàm mất mát: **logistic theo cặp Bradley-Terry**:
 
   `L(φ) = -E[ log σ(R_φ(x, y_+) - R_φ(x, y_-)) ]`
 
-  σ is the sigmoid. The difference in reward implies a log-odds of preference. BT has been the standard since 1952 (Bradley-Terry) and is the dominant choice in modern RLHF.
+  σ là sigmoid. Hiệu phần thưởng ngụ ý một log-odds của sở thích. BT là tiêu chuẩn từ năm 1952 (Bradley-Terry) và là lựa chọn chi phối trong RLHF hiện đại.
 
-- `R_φ` is usually initialized from the SFT model with a scalar head on top. Same transformer backbone; a single linear layer outputs the reward.
+- `R_φ` thường được khởi tạo từ mô hình SFT với một head vô hướng ở trên. Cùng backbone transformer; một lớp tuyến tính duy nhất xuất ra phần thưởng.
 
-**Stage 3: PPO against the RM with KL penalty.**
+**Giai đoạn 3: PPO theo RM với phạt KL.**
 
-- Initialize the trainable policy `π_θ` from `π_SFT`. Keep a frozen *reference* `π_ref = π_SFT`.
-- Reward at the end of a response `y`:
+- Khởi tạo chính sách có thể huấn luyện `π_θ` từ `π_SFT`. Giữ một *tham chiếu* đóng băng `π_ref = π_SFT`.
+- Phần thưởng ở cuối một phản hồi `y`:
 
   `r_total(x, y) = R_φ(x, y) - β · KL(π_θ(·|x) || π_ref(·|x))`
 
-  The KL penalty prevents `π_θ` from drifting arbitrarily from `π_SFT` — it is a *regularizer*, not a hard trust region. `β` typically `0.01`-`0.05`.
-- Run PPO (Lesson 08) with this reward. Advantages are computed on the token-level trajectory, but the RM scores only the full response.
+  Khoản phạt KL ngăn `π_θ` trôi tùy ý khỏi `π_SFT` — nó là một *bộ regularization*, không phải một miền tin cậy cứng. `β` thường là `0.01`-`0.05`.
+- Chạy PPO (Bài 08) với phần thưởng này. Lợi thế được tính trên quỹ đạo cấp token, nhưng RM chỉ chấm điểm toàn bộ phản hồi.
 
-**Why the KL?** Without it, PPO will happily find reward-hacking strategies — the RM was only trained on in-distribution completions. An out-of-distribution response might score higher than any human-written one. The KL keeps `π_θ` near the manifold where the RM was trained. It is the single most important knob in RLHF.
+**Vì sao KL?** Không có nó, PPO sẽ vui vẻ tìm các chiến lược reward-hacking — RM chỉ được huấn luyện trên các phần hoàn thành trong phân phối. Một phản hồi ngoài phân phối có thể đạt điểm cao hơn bất kỳ phản hồi nào do con người viết. KL giữ `π_θ` gần đa tạp nơi RM đã được huấn luyện. Nó là nút điều chỉnh quan trọng nhất trong RLHF.
 
-**2026 status:**
+**Tình trạng năm 2026:**
 
-- **DPO** (Rafailov 2023): closed-form algebra collapses Stage 2+3 into a single supervised loss over preference data. No RM, no PPO. Same quality on alignment benchmarks for a fraction of the compute. Covered in Phase 10 · 08.
-- **GRPO** (DeepSeek 2024–2025): PPO with a group-relative baseline instead of a critic, reward from a *verifier* (code runs / math answer matches) instead of a human-trained RM. Dominant for reasoning models. Covered in Phase 9 · 12.
-- **Process reward models (PRMs):** score partial solutions (each reasoning step), used in both RLHF and GRPO variants for reasoning.
-- **Constitutional AI / RLAIF:** use an aligned LLM to generate preferences instead of humans. Scales the preference budget.
+- **DPO** (Rafailov 2023): đại số dạng đóng gộp Giai đoạn 2+3 thành một hàm mất mát có giám sát duy nhất trên dữ liệu sở thích. Không RM, không PPO. Cùng chất lượng trên các benchmark căn chỉnh với một phần nhỏ tính toán. Được trình bày trong Giai đoạn 10 · 08.
+- **GRPO** (DeepSeek 2024–2025): PPO với một baseline tương đối theo nhóm thay cho critic, phần thưởng từ một *bộ xác minh* (mã chạy / đáp án toán khớp) thay cho một RM được con người huấn luyện. Chi phối các mô hình suy luận. Được trình bày trong Giai đoạn 9 · 12.
+- **Mô hình phần thưởng quá trình (PRM):** chấm điểm các lời giải một phần (mỗi bước suy luận), được dùng trong cả các biến thể RLHF và GRPO cho suy luận.
+- **Constitutional AI / RLAIF:** dùng một LLM được căn chỉnh để sinh sở thích thay cho con người. Mở rộng quy mô ngân sách sở thích.
 
 ```figure
 reward-model
@@ -60,7 +60,7 @@ reward-model
 
 ## Build It
 
-This lesson uses tiny synthetic "prompts" and "responses" represented as strings. The RM is a linear scorer over a bag-of-tokens representation. No real LLM — the *shape* of the pipeline matters, not the scale. See `code/main.py`.
+Bài học này dùng các "prompt" và "phản hồi" tổng hợp nhỏ được biểu diễn thành chuỗi. RM là một bộ chấm điểm tuyến tính trên một biểu diễn túi token. Không LLM thực — *cấu trúc* của pipeline quan trọng, không phải quy mô. Xem `code/main.py`.
 
 ### Step 1: synthetic preference data
 
@@ -76,11 +76,11 @@ def make_pair(rng):
     return (x, y_good, y_bad)
 ```
 
-In real RLHF this is replaced by human labelers. The shape — `(prompt, preferred_response, rejected_response)` — is identical.
+Trong RLHF thực, điều này được thay bằng người gán nhãn. Cấu trúc — `(prompt, preferred_response, rejected_response)` — giống hệt.
 
 ### Step 2: Bradley-Terry reward model
 
-Linear score: `R(x, y) = w · bag(y)`. Train to minimize the BT pairwise log-loss:
+Điểm tuyến tính: `R(x, y) = w · bag(y)`. Huấn luyện để tối thiểu hóa hàm mất mát log theo cặp BT:
 
 ```python
 def rm_train_step(w, x, y_pos, y_neg, lr):
@@ -93,11 +93,11 @@ def rm_train_step(w, x, y_pos, y_neg, lr):
         w[tok] -= lr * (1 - p) * cnt
 ```
 
-After a few hundred updates, `w` assigns positive weights to good-word tokens and negative to bad.
+Sau vài trăm cập nhật, `w` gán trọng số dương cho các token từ tốt và âm cho các token từ xấu.
 
 ### Step 3: PPO-like policy on top of RM
 
-Our toy policy produces a single token from a vocabulary. We score the token under the RM, compute `log π_θ(token | prompt)`, add a KL-to-reference penalty, and apply the clipped PPO surrogate.
+Chính sách đồ chơi của chúng ta tạo ra một token duy nhất từ một từ vựng. Chúng ta chấm điểm token theo RM, tính `log π_θ(token | prompt)`, thêm một khoản phạt KL đến tham chiếu, và áp dụng mục tiêu thay thế PPO được cắt.
 
 ```python
 def rlhf_step(theta, ref, w, prompt, rng, eps=0.2, beta=0.1, lr=0.05):
@@ -113,11 +113,11 @@ def rlhf_step(theta, ref, w, prompt, rng, eps=0.2, beta=0.1, lr=0.05):
 
 ### Step 4: monitor the KL
 
-Track mean `KL(π_θ || π_ref)` every update. If it creeps past `~5-10` the policy has drifted far from `π_SFT` — lower `β` is rising or reward hacking is starting. This is the top diagnostic in real RLHF.
+Theo dõi trung bình `KL(π_θ || π_ref)` mỗi cập nhật. Nếu nó nhích qua `~5-10` thì chính sách đã trôi xa `π_SFT` — `β` thấp hơn đang tăng hoặc reward hacking đang bắt đầu. Đây là chẩn đoán hàng đầu trong RLHF thực.
 
 ### Step 5: the production recipe with TRL
 
-Once you understand the toy pipeline, here is the same loop as a real library user writes it. Hugging Face's [TRL](https://huggingface.co/docs/trl) is the reference implementation — `RewardTrainer` for Stage 2 and `PPOTrainer` (with a KL-to-reference built in) for Stage 3.
+Khi bạn hiểu pipeline đồ chơi, đây là cùng vòng lặp như một người dùng thư viện thực viết. [TRL](https://huggingface.co/docs/trl) của Hugging Face là triển khai tham chiếu — `RewardTrainer` cho Giai đoạn 2 và `PPOTrainer` (với KL đến tham chiếu tích hợp sẵn) cho Giai đoạn 3.
 
 ```python
 # Stage 2: reward model from pairwise preferences
@@ -159,35 +159,35 @@ for batch in dataloader:
     # stats includes: mean_kl, clip_frac, value_loss — the three PPO diagnostics
 ```
 
-Three things the library does for you. `adap_kl_ctrl=True` implements the adaptive-β schedule: if observed KL exceeds `target_kl`, β doubles; if below half, β halves. The reference model is frozen by convention — you must not accidentally share parameters with `policy`. And the value head lives on the same backbone as the policy (`AutoModelForCausalLMWithValueHead` attaches a scalar MLP head), which is why TRL reports `policy/kl` and `value/loss` separately.
+Ba điều thư viện làm cho bạn. `adap_kl_ctrl=True` triển khai lịch β thích nghi: nếu KL quan sát được vượt `target_kl`, β tăng gấp đôi; nếu dưới một nửa, β giảm một nửa. Mô hình tham chiếu được đóng băng theo quy ước — bạn không được vô tình chia sẻ tham số với `policy`. Và head giá trị nằm trên cùng backbone với chính sách (`AutoModelForCausalLMWithValueHead` gắn một head MLP vô hướng), đó là lý do TRL báo cáo `policy/kl` và `value/loss` riêng.
 
 ## Pitfalls
 
-- **Over-optimization / reward hacking.** The RM is imperfect; `π_θ` finds adversarial completions that score high but are bad. Symptoms: reward climbs indefinitely while human eval score plateaus or drops. Fix: stop early, raise `β`, broaden RM training data.
-- **Length hacking.** RMs trained on helpful responses often implicitly reward length. The policy learns to pad responses. Remediation: length-normalized reward, or RLAIF with a length-aware RM.
-- **Too-small RM.** The RM needs to be at least as large as the policy. A tiny RM cannot faithfully score the policy's outputs.
-- **KL tuning.** Too low β → drift and reward hacking. Too high β → policy barely changes. The standard trick is an *adaptive* β that targets a fixed KL per step.
-- **Preference-data noise.** ~30% of human labels are noisy or ambiguous. Calibrate by training the RM on agreement-filtered data or use a temperature on BT.
-- **Off-policy problems.** PPO data is slightly off-policy after the first epoch. Monitor clip fraction as in Lesson 08.
+- **Tối ưu quá mức / reward hacking.** RM không hoàn hảo; `π_θ` tìm các phần hoàn thành đối kháng đạt điểm cao nhưng xấu. Triệu chứng: phần thưởng tăng vô hạn trong khi điểm đánh giá con người chững lại hoặc giảm. Cách khắc phục: dừng sớm, tăng `β`, mở rộng dữ liệu huấn luyện RM.
+- **Thao túng độ dài.** Các RM được huấn luyện trên phản hồi hữu ích thường ngầm thưởng độ dài. Chính sách học kéo dài phản hồi. Khắc phục: phần thưởng chuẩn hóa theo độ dài, hoặc RLAIF với một RM nhận biết độ dài.
+- **RM quá nhỏ.** RM cần ít nhất lớn bằng chính sách. Một RM nhỏ không thể chấm điểm trung thực các đầu ra của chính sách.
+- **Điều chỉnh KL.** β quá thấp → trôi và reward hacking. β quá cao → chính sách hầu như không đổi. Thủ thuật tiêu chuẩn là một β *thích nghi* nhắm một KL cố định mỗi bước.
+- **Nhiễu dữ liệu sở thích.** ~30% nhãn con người nhiều nhiễu hoặc mơ hồ. Hiệu chuẩn bằng cách huấn luyện RM trên dữ liệu được lọc theo đồng thuận hoặc dùng một temperature trên BT.
+- **Vấn đề off-policy.** Dữ liệu PPO hơi off-policy sau epoch đầu. Theo dõi tỷ lệ cắt như trong Bài 08.
 
 ## Use It
 
-RLHF in 2026 is layered:
+RLHF năm 2026 được phân lớp:
 
-| Layer | Target | Method |
+| Lớp | Mục tiêu | Phương pháp |
 |-------|--------|--------|
-| Instruction following, helpfulness, harmlessness | Alignment | DPO (Phase 10 · 08) preferred over RLHF-PPO. |
-| Reasoning correctness (math, code) | Capability | GRPO with verifier reward (Phase 9 · 12). |
-| Long-horizon multi-step tasks | Agentic | PPO / GRPO with process reward models over steps. |
-| Safety / refusal behavior | Safety | RLHF-PPO with separate safety RM, or Constitutional AI. |
-| Best-of-N at inference | Fast alignment | Use RM at decode time; no policy training needed. |
-| Reward distillation | Inference compute | Train a small "reward head" on top of a frozen LM. |
+| Tuân theo chỉ dẫn, hữu ích, vô hại | Căn chỉnh | DPO (Giai đoạn 10 · 08) được ưu tiên hơn RLHF-PPO. |
+| Tính đúng đắn suy luận (toán, mã) | Năng lực | GRPO với phần thưởng bộ xác minh (Giai đoạn 9 · 12). |
+| Tác vụ nhiều bước chân trời dài | Có tính agent | PPO / GRPO với mô hình phần thưởng quá trình trên các bước. |
+| An toàn / hành vi từ chối | An toàn | RLHF-PPO với RM an toàn riêng, hoặc Constitutional AI. |
+| Best-of-N khi suy luận | Căn chỉnh nhanh | Dùng RM lúc giải mã; không cần huấn luyện chính sách. |
+| Chưng cất phần thưởng | Tính toán suy luận | Huấn luyện một "head phần thưởng" nhỏ trên một LM đóng băng. |
 
-RLHF was *the* method in 2022–2024. In 2026, production alignment pipelines are DPO-first, PPO-only for the RM-intensive or safety-critical steps.
+RLHF là *phương pháp* trong 2022–2024. Vào năm 2026, các pipeline căn chỉnh production ưu tiên DPO, chỉ dùng PPO cho các bước cần nhiều RM hoặc quan trọng về an toàn.
 
 ## Ship It
 
-Save as `outputs/skill-rlhf-architect.md`:
+Lưu thành `outputs/skill-rlhf-architect.md`:
 
 ```markdown
 ---
@@ -212,32 +212,32 @@ Refuse to ship RLHF-PPO without a KL monitor. Refuse to use an RM smaller than t
 
 ## Exercises
 
-1. **Easy.** Train the Bradley-Terry reward model in `code/main.py` on 500 synthetic preference pairs. Measure pairwise accuracy on a held-out 100 pairs. Should exceed 90%.
-2. **Medium.** Run the toy PPO-RLHF loop with `β ∈ {0.0, 0.1, 1.0}`. For each, plot RM score vs KL-to-reference over updates. Which runs reward-hack?
-3. **Hard.** Implement DPO (closed-form preference-likelihood loss) on the same preference data and compare to the RLHF-PPO pipeline in compute used and final RM score achieved.
+1. **Dễ.** Huấn luyện mô hình phần thưởng Bradley-Terry trong `code/main.py` trên 500 cặp sở thích tổng hợp. Đo độ chính xác theo cặp trên 100 cặp giữ lại. Nên vượt 90%.
+2. **Trung bình.** Chạy vòng lặp PPO-RLHF đồ chơi với `β ∈ {0.0, 0.1, 1.0}`. Với mỗi trường hợp, vẽ điểm RM theo KL đến tham chiếu qua các cập nhật. Những lần chạy nào reward-hack?
+3. **Khó.** Triển khai DPO (hàm mất mát likelihood sở thích dạng đóng) trên cùng dữ liệu sở thích và so sánh với pipeline RLHF-PPO về tính toán đã dùng và điểm RM cuối cùng đạt được.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| RLHF | "Alignment RL" | Three-stage SFT + RM + PPO pipeline (Christiano 2017, Ouyang 2022). |
-| Reward Model (RM) | "The scoring net" | Learned scalar function fit to pairwise preferences via Bradley-Terry. |
-| Bradley-Terry | "Pairwise logistic loss" | `P(y_+ ≻ y_-) = σ(R(y_+) - R(y_-))`; the standard RM objective. |
-| KL penalty | "Stay near the reference" | `β · KL(π_θ \|\| π_ref)` in the reward; the anti-reward-hacking regularizer. |
-| Reward hacking | "Goodhart's law" | Policy exploits RM flaws; symptoms: reward up, human eval flat. |
-| RLAIF | "AI-labeled preferences" | RLHF where labels come from another LM instead of humans. |
-| PRM | "Process Reward Model" | Scores partial reasoning steps; used in reasoning pipelines. |
-| Constitutional AI | "Anthropic's method" | AI-generated preferences guided by explicit rules. |
+| RLHF | "RL căn chỉnh" | Pipeline ba giai đoạn SFT + RM + PPO (Christiano 2017, Ouyang 2022). |
+| Reward Model (RM) (Mô hình phần thưởng) | "Mạng chấm điểm" | Hàm vô hướng được học khớp với các sở thích theo cặp qua Bradley-Terry. |
+| Bradley-Terry | "Hàm mất mát logistic theo cặp" | `P(y_+ ≻ y_-) = σ(R(y_+) - R(y_-))`; mục tiêu RM tiêu chuẩn. |
+| KL penalty (Phạt KL) | "Ở gần tham chiếu" | `β · KL(π_θ \|\| π_ref)` trong phần thưởng; bộ regularization chống reward-hacking. |
+| Reward hacking (Thao túng phần thưởng) | "Định luật Goodhart" | Chính sách khai thác khuyết điểm RM; triệu chứng: phần thưởng tăng, đánh giá con người đi ngang. |
+| RLAIF | "Sở thích do AI gán nhãn" | RLHF trong đó nhãn đến từ một LM khác thay vì con người. |
+| PRM | "Mô hình phần thưởng quá trình" | Chấm điểm các bước suy luận một phần; dùng trong các pipeline suy luận. |
+| Constitutional AI | "Phương pháp của Anthropic" | Sở thích do AI sinh được hướng dẫn bằng các quy tắc tường minh. |
 
 ## Further Reading
 
-- [Christiano et al. (2017). Deep Reinforcement Learning from Human Preferences](https://arxiv.org/abs/1706.03741) — the paper that started RLHF.
-- [Ouyang et al. (2022). InstructGPT — Training language models to follow instructions with human feedback](https://arxiv.org/abs/2203.02155) — the recipe behind ChatGPT.
-- [Stiennon et al. (2020). Learning to summarize with human feedback](https://arxiv.org/abs/2009.01325) — earlier RLHF for summarization.
-- [Rafailov et al. (2023). Direct Preference Optimization](https://arxiv.org/abs/2305.18290) — DPO; the post-RLHF default in 2026.
-- [Bai et al. (2022). Constitutional AI: Harmlessness from AI Feedback](https://arxiv.org/abs/2212.08073) — RLAIF and self-critique loop.
-- [Anthropic RLHF paper (Bai et al. 2022). Training a Helpful and Harmless Assistant](https://arxiv.org/abs/2204.05862) — the HH paper.
-- [Hugging Face TRL library](https://huggingface.co/docs/trl) — production `RewardTrainer` and `PPOTrainer`. Read the trainer source for the adaptive-KL and value-head details.
-- [Hugging Face — Illustrating Reinforcement Learning from Human Feedback](https://huggingface.co/blog/rlhf) by Lambert, Castricato, von Werra, Havrilla — the canonical walk-through of the three-stage pipeline with diagrams.
-- [von Werra et al. (2020). TRL: Transformer Reinforcement Learning](https://github.com/huggingface/trl) — the library; `examples/` has end-to-end RLHF scripts for Llama, Mistral, and Qwen.
-- [Sutton & Barto (2018). Ch. 17.4 — Designing Reward Signals](http://incompleteideas.net/book/RLbook2020.pdf) — the reward-hypothesis view; essential prerequisite for thinking about reward hacking.
+- [Christiano et al. (2017). Deep Reinforcement Learning from Human Preferences](https://arxiv.org/abs/1706.03741) — bài báo khởi đầu RLHF.
+- [Ouyang et al. (2022). InstructGPT — Training language models to follow instructions with human feedback](https://arxiv.org/abs/2203.02155) — công thức đằng sau ChatGPT.
+- [Stiennon et al. (2020). Learning to summarize with human feedback](https://arxiv.org/abs/2009.01325) — RLHF trước đó cho tóm tắt.
+- [Rafailov et al. (2023). Direct Preference Optimization](https://arxiv.org/abs/2305.18290) — DPO; mặc định sau RLHF vào năm 2026.
+- [Bai et al. (2022). Constitutional AI: Harmlessness from AI Feedback](https://arxiv.org/abs/2212.08073) — RLAIF và vòng lặp tự phê bình.
+- [Anthropic RLHF paper (Bai et al. 2022). Training a Helpful and Harmless Assistant](https://arxiv.org/abs/2204.05862) — bài báo HH.
+- [Hugging Face TRL library](https://huggingface.co/docs/trl) — `RewardTrainer` và `PPOTrainer` production. Đọc nguồn trainer để biết chi tiết KL thích nghi và head giá trị.
+- [Hugging Face — Illustrating Reinforcement Learning from Human Feedback](https://huggingface.co/blog/rlhf) của Lambert, Castricato, von Werra, Havrilla — hướng dẫn chuẩn về pipeline ba giai đoạn với sơ đồ.
+- [von Werra et al. (2020). TRL: Transformer Reinforcement Learning](https://github.com/huggingface/trl) — thư viện; `examples/` có các script RLHF đầu cuối cho Llama, Mistral và Qwen.
+- [Sutton & Barto (2018). Ch. 17.4 — Designing Reward Signals](http://incompleteideas.net/book/RLbook2020.pdf) — góc nhìn giả thuyết phần thưởng; điều kiện tiên quyết thiết yếu để nghĩ về reward hacking.
