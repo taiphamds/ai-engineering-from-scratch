@@ -1,6 +1,6 @@
 # Jupyter Notebooks
 
-> Notebooks are the lab bench of AI engineering. You prototype here, then move what works into production.
+> Notebook là bàn thí nghiệm của kỹ thuật AI. Bạn tạo mẫu thử ở đây, rồi đưa những gì hoạt động vào môi trường sản xuất.
 
 **Type:** Build
 **Languages:** Python
@@ -9,20 +9,20 @@
 
 ## Learning Objectives
 
-- Install and launch JupyterLab, Jupyter Notebook, or VS Code with the Jupyter extension
-- Use magic commands (`%timeit`, `%%time`, `%matplotlib inline`) to benchmark and visualize inline
-- Distinguish when to use notebooks vs scripts and apply the "explore in notebooks, ship in scripts" workflow
-- Identify and avoid common notebook traps: out-of-order execution, hidden state, and memory leaks
+- Cài đặt và khởi chạy JupyterLab, Jupyter Notebook hoặc VS Code với phần mở rộng Jupyter
+- Dùng các lệnh magic (`%timeit`, `%%time`, `%matplotlib inline`) để đo hiệu năng và trực quan hóa ngay trong notebook
+- Phân biệt khi nào dùng notebook hay script và áp dụng quy trình "khám phá trong notebook, phát hành bằng script"
+- Nhận diện và tránh các bẫy notebook thường gặp: thực thi sai thứ tự, trạng thái ẩn và rò rỉ bộ nhớ
 
 ## The Problem
 
-Every AI paper, tutorial, and Kaggle competition uses Jupyter notebooks. They let you run code in pieces, see outputs inline, mix code with explanations, and iterate fast. If you try to learn AI without notebooks, you're doing math homework without scratch paper.
+Mọi bài báo AI, hướng dẫn và cuộc thi Kaggle đều sử dụng notebook Jupyter. Chúng cho phép bạn chạy mã theo từng phần, xem đầu ra ngay tại chỗ, kết hợp mã với giải thích và lặp lại nhanh chóng. Nếu bạn cố học AI mà không có notebook, bạn đang làm bài tập toán mà không có giấy nháp.
 
-But notebooks have real traps. People use them for everything, including things they're terrible at. Knowing when to use a notebook and when to use a script will save you from debugging nightmares later.
+Nhưng notebook có những cái bẫy thực sự. Mọi người dùng chúng cho mọi thứ, kể cả những việc mà chúng làm rất tệ. Biết khi nào dùng notebook và khi nào dùng script sẽ giúp bạn tránh những cơn ác mộng gỡ lỗi về sau.
 
 ## The Concept
 
-A notebook is a list of cells. Each cell is either code or text.
+Notebook là một danh sách các ô. Mỗi ô là mã hoặc văn bản.
 
 ```mermaid
 graph TD
@@ -30,7 +30,7 @@ graph TD
     B --> C["**Code Cell** ► Run\nplt.plot(losses)\n---\nOutput: inline plot"]
 ```
 
-The kernel is a Python process running in the background. When you run a cell, it sends the code to the kernel, which executes it and sends back the result. All cells share the same kernel, so variables persist between cells.
+Kernel là một tiến trình Python chạy nền. Khi bạn chạy một ô, nó gửi mã đến kernel, kernel thực thi và gửi lại kết quả. Tất cả các ô dùng chung một kernel, nên các biến vẫn tồn tại giữa các ô.
 
 ```mermaid
 graph LR
@@ -40,7 +40,7 @@ graph LR
     B --> E[Dies when you restart it]
 ```
 
-That "whatever order you click" part is both the superpower and the foot-gun.
+Phần "bất kỳ thứ tự nào bạn nhấp" đó vừa là siêu năng lực vừa là một cái bẫy tự gây hại.
 
 ```figure
 s0-cell-order
@@ -50,7 +50,7 @@ s0-cell-order
 
 ### Step 1: Pick your interface
 
-Three options, one format:
+Ba lựa chọn, một định dạng:
 
 | Interface | Install | Best for |
 |-----------|---------|----------|
@@ -58,7 +58,7 @@ Three options, one format:
 | Jupyter Notebook | `pip install notebook` then `jupyter notebook` | Simple, lightweight, one notebook at a time |
 | VS Code | Install "Jupyter" extension | Already in your editor, git integration, debugging |
 
-All three read and write the same `.ipynb` file. Pick whatever you like. JupyterLab is the most common in AI work.
+Cả ba đều đọc và ghi cùng tệp `.ipynb`. Hãy chọn bất cứ thứ gì bạn thích. JupyterLab phổ biến nhất trong công việc AI.
 
 ```bash
 pip install jupyterlab
@@ -67,9 +67,9 @@ jupyter lab
 
 ### Step 2: Keyboard shortcuts that matter
 
-You operate in two modes. Press `Escape` for command mode (blue bar on the left), `Enter` for edit mode (green bar).
+Bạn thao tác ở hai chế độ. Nhấn `Escape` để vào chế độ lệnh (thanh màu xanh dương bên trái), `Enter` để vào chế độ chỉnh sửa (thanh màu xanh lá).
 
-**Command mode (most used):**
+**Chế độ lệnh (dùng nhiều nhất):**
 
 | Key | Action |
 |-----|--------|
@@ -82,7 +82,7 @@ You operate in two modes. Press `Escape` for command mode (blue bar on the left)
 | `Z` | Undo cell operation |
 | `Ctrl+Shift+H` | Show all shortcuts |
 
-**Edit mode:**
+**Chế độ chỉnh sửa:**
 
 | Key | Action |
 |-----|--------|
@@ -90,11 +90,11 @@ You operate in two modes. Press `Escape` for command mode (blue bar on the left)
 | `Shift+Tab` | Show function signature |
 | `Ctrl+/` | Toggle comment |
 
-`Shift+Enter` is the one you'll use a thousand times a day. Learn it first.
+`Shift+Enter` là phím tắt bạn sẽ dùng một nghìn lần mỗi ngày. Hãy học nó trước.
 
 ### Step 3: Cell types
 
-**Code cells** run Python and show the output:
+**Ô mã** chạy Python và hiển thị đầu ra:
 
 ```python
 import numpy as np
@@ -102,48 +102,48 @@ data = np.random.randn(1000)
 data.mean(), data.std()
 ```
 
-Output: `(0.0032, 0.9987)`
+Đầu ra: `(0.0032, 0.9987)`
 
-**Markdown cells** render formatted text. Use them to document what you're doing and why. Supports headers, bold, italic, LaTeX math (`$E = mc^2$`), tables, and images.
+**Ô Markdown** hiển thị văn bản đã định dạng. Dùng chúng để ghi lại bạn đang làm gì và vì sao. Hỗ trợ tiêu đề, chữ đậm, chữ nghiêng, toán LaTeX (`$E = mc^2$`), bảng và hình ảnh.
 
 ### Step 4: Magic commands
 
-These aren't Python. They're Jupyter-specific commands that start with `%` (line magic) or `%%` (cell magic).
+Đây không phải Python. Chúng là các lệnh riêng của Jupyter bắt đầu bằng `%` (magic dòng) hoặc `%%` (magic ô).
 
-**Time your code:**
+**Đo thời gian mã của bạn:**
 
 ```python
 %timeit np.random.randn(10000)
 ```
 
-Output: `45.2 us +/- 1.3 us per loop`
+Đầu ra: `45.2 us +/- 1.3 us per loop`
 
 ```python
 %%time
 model.fit(X_train, y_train, epochs=10)
 ```
 
-Output: `Wall time: 2.34 s`
+Đầu ra: `Wall time: 2.34 s`
 
-`%timeit` runs the code many times and averages. `%%time` runs it once. Use `%timeit` for microbenchmarks, `%%time` for training runs.
+`%timeit` chạy mã nhiều lần và lấy trung bình. `%%time` chạy một lần. Dùng `%timeit` cho microbenchmark, `%%time` cho các lượt huấn luyện.
 
-**Enable inline plots:**
+**Bật biểu đồ ngay trong notebook:**
 
 ```python
 %matplotlib inline
 ```
 
-Every `plt.plot()` or `plt.show()` now renders directly in the notebook.
+Mỗi `plt.plot()` hoặc `plt.show()` giờ được hiển thị trực tiếp trong notebook.
 
-**Install packages without leaving the notebook:**
+**Cài đặt gói mà không rời notebook:**
 
 ```python
 !pip install scikit-learn
 ```
 
-The `!` prefix runs any shell command.
+Tiền tố `!` chạy bất kỳ lệnh shell nào.
 
-**Check environment variables:**
+**Kiểm tra biến môi trường:**
 
 ```python
 %env CUDA_VISIBLE_DEVICES
@@ -151,7 +151,7 @@ The `!` prefix runs any shell command.
 
 ### Step 5: Display rich output inline
 
-Notebooks auto-display the last expression in a cell. But you can control it:
+Notebook tự động hiển thị biểu thức cuối cùng trong một ô. Nhưng bạn có thể điều khiển điều đó:
 
 ```python
 import pandas as pd
@@ -164,7 +164,7 @@ df = pd.DataFrame({
 df
 ```
 
-This renders a formatted HTML table, not a text dump. Same with plots:
+Điều này hiển thị một bảng HTML đã định dạng, không phải một khối văn bản xuất thô. Biểu đồ cũng vậy:
 
 ```python
 import matplotlib.pyplot as plt
@@ -175,9 +175,9 @@ plt.title("Inline Plot")
 plt.show()
 ```
 
-The plot appears right below the cell. This is why notebooks dominate AI work. You see the data, the plot, and the code together.
+Biểu đồ xuất hiện ngay bên dưới ô. Đây là lý do notebook chiếm ưu thế trong công việc AI. Bạn thấy dữ liệu, biểu đồ và mã cùng nhau.
 
-For images:
+Đối với hình ảnh:
 
 ```python
 from IPython.display import Image, display
@@ -186,18 +186,18 @@ display(Image(filename="architecture.png"))
 
 ### Step 6: Google Colab
 
-Colab is a free Jupyter notebook in the cloud. It gives you a GPU, pre-installed libraries, and Google Drive integration. No setup required.
+Colab là một notebook Jupyter miễn phí trên đám mây. Nó cung cấp GPU, thư viện được cài sẵn và tích hợp Google Drive. Không cần thiết lập.
 
-1. Go to [colab.research.google.com](https://colab.research.google.com)
-2. Upload any `.ipynb` file from this course
-3. Runtime > Change runtime type > T4 GPU (free)
+1. Truy cập [colab.research.google.com](https://colab.research.google.com)
+2. Tải lên bất kỳ tệp `.ipynb` nào từ khóa học này
+3. Runtime > Change runtime type > T4 GPU (miễn phí)
 
-Colab differences from local Jupyter:
-- Files don't persist between sessions (save to Drive or download)
-- Pre-installed: numpy, pandas, matplotlib, torch, tensorflow, sklearn
-- `from google.colab import files` to upload/download files
-- `from google.colab import drive; drive.mount('/content/drive')` for persistent storage
-- Sessions time out after 90 minutes of inactivity (free tier)
+Những điểm khác nhau giữa Colab và Jupyter cục bộ:
+- Tệp không được giữ lại giữa các phiên (lưu vào Drive hoặc tải xuống)
+- Được cài sẵn: numpy, pandas, matplotlib, torch, tensorflow, sklearn
+- `from google.colab import files` để tải tệp lên/xuống
+- `from google.colab import drive; drive.mount('/content/drive')` để lưu trữ bền vững
+- Các phiên hết thời gian sau 90 phút không hoạt động (gói miễn phí)
 
 ## Use It
 
@@ -212,44 +212,44 @@ Colab differences from local Jupyter:
 | Quick experiments | Production code |
 | Course exercises | Packages and libraries |
 
-The rule: **explore in notebooks, ship in scripts**.
+Quy tắc: **khám phá trong notebook, phát hành bằng script**.
 
-A common workflow in AI:
-1. Explore data in a notebook
-2. Prototype your model in the notebook
-3. Once it works, move the code to `.py` files
-4. Import those `.py` files back into the notebook for further experiments
+Một quy trình phổ biến trong AI:
+1. Khám phá dữ liệu trong một notebook
+2. Tạo mẫu thử cho mô hình trong notebook
+3. Khi nó hoạt động, chuyển mã sang các tệp `.py`
+4. Import những tệp `.py` đó trở lại notebook để thử nghiệm thêm
 
 ### Common traps
 
-**Out-of-order execution.** You run cell 5, then cell 2, then cell 7. The notebook works on your machine but breaks when someone runs it top to bottom. Fix: Kernel > Restart & Run All before sharing.
+**Thực thi sai thứ tự.** Bạn chạy ô 5, rồi ô 2, rồi ô 7. Notebook hoạt động trên máy của bạn nhưng bị hỏng khi người khác chạy từ trên xuống dưới. Cách khắc phục: Kernel > Restart & Run All trước khi chia sẻ.
 
-**Hidden state.** You delete a cell but the variable it created is still in memory. The notebook looks clean but depends on a ghost cell. Fix: Restart the kernel regularly.
+**Trạng thái ẩn.** Bạn xóa một ô nhưng biến mà nó tạo ra vẫn ở trong bộ nhớ. Notebook trông gọn gàng nhưng phụ thuộc vào một ô ma. Cách khắc phục: Khởi động lại kernel thường xuyên.
 
-**Memory leaks.** Loading a 4GB dataset, training a model, loading another dataset. Nothing gets freed. Fix: `del variable_name` and `gc.collect()`, or restart the kernel.
+**Rò rỉ bộ nhớ.** Tải một tập dữ liệu 4GB, huấn luyện mô hình, tải một tập dữ liệu khác. Không có gì được giải phóng. Cách khắc phục: `del variable_name` và `gc.collect()`, hoặc khởi động lại kernel.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-notebook-helper.md` for debugging notebook issues
+Bài học này tạo ra:
+- `outputs/prompt-notebook-helper.md` để gỡ lỗi các vấn đề notebook
 
 ## Exercises
 
-1. Open JupyterLab, create a notebook, and use `%timeit` to compare list comprehension vs numpy for creating an array of 100,000 random numbers
-2. Create a notebook with both markdown and code cells that loads a CSV, displays a dataframe, and plots a chart. Then run Kernel > Restart & Run All to verify it works top to bottom
-3. Take the code from `code/notebook_tips.py`, paste it into a Colab notebook, and run it with a free GPU
+1. Mở JupyterLab, tạo một notebook và dùng `%timeit` để so sánh list comprehension với numpy khi tạo một mảng 100,000 số ngẫu nhiên
+2. Tạo một notebook có cả ô markdown lẫn ô mã để tải một CSV, hiển thị dataframe và vẽ biểu đồ. Sau đó chạy Kernel > Restart & Run All để xác minh nó hoạt động từ trên xuống dưới
+3. Lấy mã từ `code/notebook_tips.py`, dán vào notebook Colab và chạy bằng GPU miễn phí
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Kernel | "The thing running my code" | A separate Python process that executes cells and keeps variables in memory |
-| Cell | "A code block" | An independently runnable unit in a notebook, either code or markdown |
-| Magic command | "Jupyter tricks" | Special commands prefixed with `%` or `%%` that control the notebook environment |
-| `.ipynb` | "Notebook file" | A JSON file containing cells, outputs, and metadata. Stands for IPython Notebook |
+| Kernel | "Thứ chạy mã của tôi" | Một tiến trình Python riêng biệt thực thi các ô và giữ các biến trong bộ nhớ |
+| Cell (Ô) | "Một khối mã" | Một đơn vị có thể chạy độc lập trong notebook, là mã hoặc markdown |
+| Magic command (Lệnh magic) | "Các thủ thuật Jupyter" | Các lệnh đặc biệt có tiền tố `%` hoặc `%%` điều khiển môi trường notebook |
+| `.ipynb` | "Tệp notebook" | Một tệp JSON chứa các ô, đầu ra và siêu dữ liệu. Là viết tắt của IPython Notebook |
 
 ## Further Reading
 
-- [JupyterLab Docs](https://jupyterlab.readthedocs.io/) for the full feature set
-- [Google Colab FAQ](https://research.google.com/colaboratory/faq.html) for Colab-specific limits and features
-- [28 Jupyter Notebook Tips](https://www.dataquest.io/blog/jupyter-notebook-tips-tricks-shortcuts/) for power-user shortcuts
+- [JupyterLab Docs](https://jupyterlab.readthedocs.io/) để xem bộ tính năng đầy đủ
+- [Google Colab FAQ](https://research.google.com/colaboratory/faq.html) để xem các giới hạn và tính năng riêng của Colab
+- [28 Jupyter Notebook Tips](https://www.dataquest.io/blog/jupyter-notebook-tips-tricks-shortcuts/) để xem các phím tắt dành cho người dùng thành thạo
