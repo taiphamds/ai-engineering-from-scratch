@@ -1,6 +1,6 @@
 # Prefix-Cache Serving — RadixAttention and KV Reuse
 
-> Treat the KV cache as a first-class, reusable resource stored in a radix tree, and scheduling changes with it: instead of FCFS (first-come, first-served) as vLLM schedules, a cache-aware scheduler prioritizes requests with longer shared prefixes — effectively a depth-first radix traversal so hot branches stay resident in HBM. SGLang is the engine that built serving around this idea. On Llama 3.1 8B with ShareGPT-like 1K prompts, SGLang hits ~16,200 tok/s to vLLM's ~12,500, a ~29% edge. On prefix-heavy RAG workloads the advantage reaches 6.4x. On voice-cloning-shaped workloads cache hit rate cleared 86%. Deployed on 400,000+ GPUs in 2026 across xAI, LinkedIn, Cursor, Oracle, GCP, Azure, AWS. The gotcha is that the 6.4x number evaporates when prefix ordering is inconsistent — ordering is the engineer's lever.
+> Coi bộ nhớ đệm KV như một tài nguyên hạng nhất, có thể tái sử dụng được lưu trong một cây radix, và lập lịch thay đổi cùng nó: thay vì FCFS (đến trước, phục vụ trước) như vLLM lập lịch, một bộ lập lịch nhận biết bộ nhớ đệm ưu tiên các yêu cầu có các tiền tố dùng chung dài hơn — thực chất là một duyệt radix ưu tiên chiều sâu để các nhánh nóng ở lại HBM. SGLang là engine xây dựng phục vụ quanh ý tưởng này. Trên Llama 3.1 8B với các prompt 1K giống ShareGPT, SGLang đạt ~16,200 tok/s so với ~12,500 của vLLM, lợi thế ~29%. Trên các khối lượng công việc RAG nhiều tiền tố, lợi thế đạt 6.4x. Trên các khối lượng công việc dạng nhân bản giọng nói, tỷ lệ trúng bộ nhớ đệm vượt 86%. Được triển khai trên 400,000+ GPU năm 2026 tại xAI, LinkedIn, Cursor, Oracle, GCP, Azure, AWS. Điểm vướng là con số 6.4x bốc hơi khi thứ tự tiền tố không nhất quán — thứ tự là đòn bẩy của kỹ sư.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy radix-tree cache + cache-aware scheduler)
@@ -9,26 +9,26 @@
 
 ## Learning Objectives
 
-- Diagram RadixAttention: how prefixes are stored in a radix tree and how KV blocks are shared across sequences rooted at the same branch.
-- Explain cache-aware scheduling and why FCFS is wrong for prefix-heavy traffic.
-- Compute expected speedup for a workload given prefix-cache hit rate and prompt length distribution.
-- Name the prompt-ordering discipline that makes the 6.4x number real vs a lost upside.
+- Vẽ sơ đồ RadixAttention: cách các tiền tố được lưu trong một cây radix và cách các block KV được dùng chung giữa các chuỗi bắt nguồn ở cùng nhánh.
+- Giải thích lập lịch nhận biết bộ nhớ đệm và vì sao FCFS sai cho lưu lượng nhiều tiền tố.
+- Tính mức tăng tốc kỳ vọng cho một khối lượng công việc theo tỷ lệ trúng bộ nhớ đệm tiền tố và phân phối độ dài prompt.
+- Nêu kỷ luật thứ tự prompt khiến con số 6.4x thành thật thay vì một lợi ích bị mất.
 
 ## The Problem
 
-Classic serving treats each request's prompt as opaque. Even when 5,000 RAG requests all start with the same 2,000-token system prompt plus same retrieval preamble, vLLM prefills that 2,000-token prefix 5,000 times. The GPU does the same work over and over.
+Phục vụ cổ điển coi prompt của mỗi yêu cầu là không trong suốt. Ngay cả khi 5,000 yêu cầu RAG đều bắt đầu với cùng prompt hệ thống 2,000 token cộng cùng phần mở đầu truy xuất, vLLM prefill tiền tố 2,000 token đó 5,000 lần. GPU làm cùng công việc hết lần này tới lần khác.
 
-The observation: prompts in agentic and RAG workloads share long prefixes almost always. System prompt, tool schemas, few-shot examples, retrieval headers, conversation history — all repeat across requests. If you stored the KV cache for that prefix once and reused it, you would not prefill it again.
+Quan sát: các prompt trong các khối lượng công việc agentic và RAG gần như luôn chia sẻ các tiền tố dài. Prompt hệ thống, các lược đồ công cụ, các ví dụ few-shot, các header truy xuất, lịch sử hội thoại — tất cả lặp lại giữa các yêu cầu. Nếu bạn lưu bộ nhớ đệm KV cho tiền tố đó một lần và tái sử dụng, bạn sẽ không prefill nó lần nữa.
 
-RadixAttention does exactly this. Tokens are indexed in a radix tree; each node owns KV blocks for the token sequence on its path from root. A new request walks the tree: any node whose token matches re-uses that node's KV blocks. Prefill cost becomes proportional to the "new" suffix, not the full prompt.
+RadixAttention làm chính xác điều này. Các token được lập chỉ mục trong một cây radix; mỗi node sở hữu các block KV cho chuỗi token trên đường từ gốc của nó. Một yêu cầu mới đi qua cây: bất kỳ node nào có token khớp tái sử dụng các block KV của node đó. Chi phí prefill trở thành tỷ lệ với hậu tố “mới”, không phải toàn prompt.
 
-The challenge is scheduling. If two requests share a 2,000-token prefix and a third shares only 200 tokens of the same prefix, you want to serve the two long-shared requests together so the long prefix stays in HBM. FCFS does the opposite — it serves whoever arrived first, potentially evicting the hot branch before the next long-prefix request hits.
+Thách thức là lập lịch. Nếu hai yêu cầu chia sẻ một tiền tố 2,000 token và yêu cầu thứ ba chỉ chia sẻ 200 token của cùng tiền tố, bạn muốn phục vụ hai yêu cầu chia sẻ dài cùng nhau để tiền tố dài ở lại HBM. FCFS làm ngược lại — nó phục vụ bên đến trước, có khả năng trục xuất nhánh nóng trước khi yêu cầu tiền tố dài tiếp theo tới.
 
 ## The Concept
 
 ### The radix tree as a KV index
 
-A radix tree (compact trie) stores token sequences. Each node owns a token range and the KV blocks computed for that range. Children extend the sequence one or more tokens.
+Một cây radix (trie nén) lưu các chuỗi token. Mỗi node sở hữu một dải token và các block KV được tính cho dải đó. Các node con mở rộng chuỗi thêm một hoặc nhiều token.
 
 ```
 root
@@ -39,52 +39,52 @@ root
       |- "Context: <doc B>..."        (520 tokens, 33 blocks)
 ```
 
-A new request comes in with system prompt + "Context: <doc A>" + "Question: Carol". The scheduler walks: system prefix matches (124 blocks reused), doc-A branch matches (31 blocks reused), then allocates fresh blocks only for "Question: Carol" (4 blocks). Prefill cost: 4 blocks of new tokens. Without the tree: 160 blocks. ~40x savings on prefill.
+Một yêu cầu mới đi vào với prompt hệ thống + "Context: <doc A>" + "Question: Carol". Bộ lập lịch duyệt: tiền tố hệ thống khớp (124 block được tái sử dụng), nhánh doc-A khớp (31 block được tái sử dụng), rồi chỉ cấp phát các block mới cho "Question: Carol" (4 block). Chi phí prefill: 4 block token mới. Không có cây: 160 block. Tiết kiệm ~40x trên prefill.
 
 ### Cache-aware scheduling
 
-Radix-tree-backed reuse is pointless if the cache churns. Two key policies:
+Tái sử dụng dựa trên cây radix vô nghĩa nếu bộ nhớ đệm xáo trộn liên tục. Hai chính sách then chốt:
 
-1. **Depth-first dispatch**. When picking the next request from the queue, prefer requests rooted at the same branch as the current running set. This keeps the hot branch pinned.
-2. **LRU at branch level, not block level**. Evict whole branches (starting from shortest-used leaves) rather than individual blocks, so cache shape matches radix shape.
+1. **Phân công ưu tiên chiều sâu**. Khi chọn yêu cầu tiếp theo từ hàng đợi, ưu tiên các yêu cầu bắt nguồn ở cùng nhánh với tập đang chạy hiện tại. Điều này giữ nhánh nóng được ghim.
+2. **LRU ở cấp nhánh, không phải cấp block**. Trục xuất toàn bộ các nhánh (bắt đầu từ các lá được dùng ngắn nhất) thay vì các block riêng lẻ, để hình dạng bộ nhớ đệm khớp hình dạng radix.
 
-FCFS violates both. A request sharing 2,000 tokens sits behind a request sharing 50, then the 2,000-token branch gets evicted to admit the 50-token one.
+FCFS vi phạm cả hai. Một yêu cầu chia sẻ 2,000 token nằm sau một yêu cầu chia sẻ 50, rồi nhánh 2,000 token bị trục xuất để nhận yêu cầu 50 token.
 
 ### Benchmark numbers you should memorize
 
-- Llama 3.1 8B, H100, ShareGPT 1K prompts: SGLang ~16,200 tok/s vs vLLM ~12,500 (~29% edge).
-- Prefix-heavy RAG (same system + same doc, varying question): up to 6.4x on SGLang.
-- Voice cloning workloads: 86.4% prefix-cache hit rate.
-- Production hit rates across SGLang customers: 50-99% depending on prompt discipline.
-- Deployed on 400,000+ GPUs in 2026.
+- Llama 3.1 8B, H100, các prompt ShareGPT 1K: SGLang ~16,200 tok/s so với vLLM ~12,500 (lợi thế ~29%).
+- RAG nhiều tiền tố (cùng hệ thống + cùng tài liệu, câu hỏi thay đổi): tới 6.4x trên SGLang.
+- Các khối lượng công việc nhân bản giọng nói: tỷ lệ trúng bộ nhớ đệm tiền tố 86.4%.
+- Các tỷ lệ trúng sản xuất trên các khách hàng SGLang: 50-99% tùy kỷ luật prompt.
+- Được triển khai trên 400,000+ GPU năm 2026.
 
 ### The ordering gotcha
 
-The 6.4x number relies on consistent prompt-template ordering. If your client constructs prompts as `[system, tools, context, history, question]` in some requests and `[system, context, tools, history, question]` in others, the tree cannot find the shared prefix. What looks like a shared prefix to a human is two distinct sequences to the radix tree.
+Con số 6.4x dựa vào thứ tự mẫu prompt nhất quán. Nếu máy khách xây các prompt như `[system, tools, context, history, question]` trong một số yêu cầu và `[system, context, tools, history, question]` trong các yêu cầu khác, cây không thể tìm tiền tố dùng chung. Những gì trông như một tiền tố dùng chung với con người là hai chuỗi riêng biệt với cây radix.
 
-Engineer's lever: your prompt template is a cache key. Fix the order. Put everything immutable (system, tools, schemas) first. Put retrieval context next. Put user question last. Do not interleave dynamic content into the prefix.
+Đòn bẩy của kỹ sư: mẫu prompt của bạn là một khóa bộ nhớ đệm. Cố định thứ tự. Đặt mọi thứ bất biến (hệ thống, công cụ, lược đồ) trước. Đặt ngữ cảnh truy xuất tiếp theo. Đặt câu hỏi người dùng cuối cùng. Đừng xen nội dung động vào tiền tố.
 
-Real case from the research: moving dynamic content out of the cacheable prefix took one deployment from 7% to 74% cache hit rate in one change.
+Trường hợp thực từ nghiên cứu: chuyển nội dung động ra khỏi tiền tố có thể lưu đệm đưa một triển khai từ tỷ lệ trúng bộ nhớ đệm 7% lên 74% trong một thay đổi.
 
 ### Where RadixAttention wins and loses
 
-Wins:
-- RAG (same retrieval preamble, varying question).
-- Agents (same tool schemas, varying query).
-- Chat with long system prompt.
-- Voice / vision workloads with repeated preambles.
+Thắng:
+- RAG (cùng phần mở đầu truy xuất, câu hỏi thay đổi).
+- Các agent (cùng các lược đồ công cụ, truy vấn thay đổi).
+- Trò chuyện với prompt hệ thống dài.
+- Các khối lượng công việc giọng nói / thị giác với các phần mở đầu lặp lại.
 
-Loses (returns to vLLM-level throughput):
-- Single-shot generation with unique prompts (code completion, open-ended chat without system prompt).
-- Dynamic prompts where every request interleaves unique content into the prefix.
+Thua (trở về thông lượng mức vLLM):
+- Sinh một lần với các prompt độc nhất (hoàn thành mã, trò chuyện mở không có prompt hệ thống).
+- Các prompt động nơi mọi yêu cầu xen nội dung độc nhất vào tiền tố.
 
 ### Why this is a scheduler problem, not just a kernel problem
 
-You can implement KV reuse as a kernel trick. SGLang's insight is that reuse only pays if the scheduler keeps the hot branch resident. A naive "reuse if available" policy will churn the cache under mixed load. The radix-tree-indexed scheduler is what turns the kernel trick into a 29% production edge.
+Bạn có thể triển khai tái sử dụng KV như một mẹo kernel. Nhận thức của SGLang là tái sử dụng chỉ có lợi nếu bộ lập lịch giữ nhánh nóng thường trú. Một chính sách “tái sử dụng nếu có” ngây thơ sẽ xáo trộn bộ nhớ đệm dưới tải hỗn hợp. Bộ lập lịch được lập chỉ mục cây radix là thứ biến mẹo kernel thành lợi thế sản xuất 29%.
 
 ### Interplay with vLLM
 
-The two systems are not strict competitors. In 2026 vLLM added prefix caching (`--enable-prefix-caching`) and a cache-aware router (vLLM Router in Rust). The gap closed but did not fully disappear — SGLang's whole stack is radix-first; vLLM grafted it on. For workloads dominated by prefix reuse, SGLang remains the default. For general-purpose serving without strong prefix patterns, vLLM remains equal or better.
+Hai hệ thống không phải các đối thủ tuyệt đối. Năm 2026 vLLM thêm lưu đệm tiền tố (`--enable-prefix-caching`) và một bộ định tuyến nhận biết bộ nhớ đệm (vLLM Router bằng Rust). Khoảng cách thu hẹp nhưng không biến mất hoàn toàn — toàn ngăn xếp SGLang ưu tiên radix; vLLM ghép nó vào. Với các khối lượng công việc bị tái sử dụng tiền tố chi phối, SGLang vẫn là mặc định. Với phục vụ đa dụng không có các mẫu tiền tố mạnh, vLLM vẫn ngang hoặc tốt hơn.
 
 ```figure
 roofline
@@ -92,37 +92,37 @@ roofline
 
 ## Use It
 
-`code/main.py` implements a toy radix-tree KV cache plus a scheduler with two policies: FCFS and cache-aware. Runs the same workload through both, reports prefix-cache hit rate and throughput delta. Then runs a "scrambled ordering" workload to show the 6.4x collapse.
+`code/main.py` triển khai một bộ nhớ đệm KV cây radix đồ chơi cộng một bộ lập lịch với hai chính sách: FCFS và nhận biết bộ nhớ đệm. Chạy cùng khối lượng công việc qua cả hai, báo cáo tỷ lệ trúng bộ nhớ đệm tiền tố và chênh lệch thông lượng. Rồi chạy một khối lượng công việc “thứ tự xáo trộn” để cho thấy sự sụp đổ 6.4x.
 
 ## Ship It
 
-This lesson produces `outputs/skill-radix-scheduler-advisor.md`. Given a workload description (prompt-template shape, retrieval pattern, number of concurrent tenants), it produces a prompt-ordering prescription and a go/no-go for SGLang adoption.
+Bài này tạo ra `outputs/skill-radix-scheduler-advisor.md`. Với một mô tả khối lượng công việc (hình dạng mẫu prompt, mẫu truy xuất, số tenant đồng thời), nó tạo một chỉ dẫn thứ tự prompt và quyết định làm/không làm cho áp dụng SGLang.
 
 ## Exercises
 
-1. Run `code/main.py`. Compare FCFS and cache-aware on the same workload. Where does the delta come from — prefill savings, decode savings, or queue delay?
-2. Modify the workload so prompts randomly permute `[system, tools, context]`. Re-run. What happens to hit rate? Why?
-3. Compute the HBM cost of keeping a 2,000-token system prompt resident as one radix branch on Llama 3.1 8B. Compare to the cost of a 16-sequence batch without prefix reuse.
-4. Read the SGLang RadixAttention paper. Explain in three sentences why tree-shaped LRU eviction beats block-shaped LRU under prefix-heavy load.
-5. A customer reports only 8% cache hit rate. Name three likely causes and the diagnostic you would run for each.
+1. Chạy `code/main.py`. So sánh FCFS và nhận biết bộ nhớ đệm trên cùng khối lượng công việc. Chênh lệch đến từ đâu — tiết kiệm prefill, tiết kiệm decode, hay độ trễ hàng đợi?
+2. Sửa khối lượng công việc để các prompt hoán vị ngẫu nhiên `[system, tools, context]`. Chạy lại. Điều gì xảy ra với tỷ lệ trúng? Vì sao?
+3. Tính chi phí HBM của việc giữ một prompt hệ thống 2,000 token thường trú như một nhánh radix trên Llama 3.1 8B. So sánh với chi phí của một lô 16 chuỗi không có tái sử dụng tiền tố.
+4. Đọc bài báo SGLang RadixAttention. Giải thích trong ba câu vì sao trục xuất LRU dạng cây vượt LRU dạng block dưới tải nhiều tiền tố.
+5. Một khách hàng báo tỷ lệ trúng bộ nhớ đệm chỉ 8%. Nêu ba nguyên nhân có khả năng và chẩn đoán bạn sẽ chạy cho mỗi nguyên nhân.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| RadixAttention | "the SGLang thing" | KV cache indexed as a radix tree so shared prefixes reuse blocks |
-| Radix tree | "compact trie" | Tree where each node owns a token range and its KV blocks |
-| Cache-aware scheduler | "hot-branch-first" | Scheduler that prefers requests sharing the resident branch |
-| Prefix-cache hit rate | "how much of your prompt was free" | Fraction of prompt tokens served from reused KV blocks |
-| FCFS | "first-come first-served" | Default scheduling that breaks prefix locality |
-| Branch-level LRU | "evict the leaf" | Eviction policy matched to radix shape |
-| Prompt template ordering | "the cache key" | The prompt's component order determines what the tree can share |
-| System prompt pinning | "resident prefix" | Keep the immutable system portion pinned to avoid eviction thrash |
+| RadixAttention | “thứ SGLang” | Bộ nhớ đệm KV được lập chỉ mục như một cây radix để các tiền tố dùng chung tái sử dụng các block |
+| Radix tree (Cây radix) | “trie nén” | Cây nơi mỗi node sở hữu một dải token và các block KV của nó |
+| Cache-aware scheduler (Bộ lập lịch nhận biết bộ nhớ đệm) | “nhánh nóng trước” | Bộ lập lịch ưu tiên các yêu cầu chia sẻ nhánh thường trú |
+| Prefix-cache hit rate (Tỷ lệ trúng bộ nhớ đệm tiền tố) | “bao nhiêu prompt của bạn miễn phí” | Tỷ lệ token prompt được phục vụ từ các block KV tái sử dụng |
+| FCFS | “đến trước phục vụ trước” | Lập lịch mặc định phá tính cục bộ tiền tố |
+| Branch-level LRU (LRU cấp nhánh) | “trục xuất lá” | Chính sách trục xuất khớp hình dạng radix |
+| Prompt template ordering (Thứ tự mẫu prompt) | “khóa bộ nhớ đệm” | Thứ tự thành phần của prompt quyết định cây có thể chia sẻ gì |
+| System prompt pinning (Ghim prompt hệ thống) | “tiền tố thường trú” | Giữ phần hệ thống bất biến được ghim để tránh xáo trộn trục xuất |
 
 ## Further Reading
 
-- [SGLang GitHub](https://github.com/sgl-project/sglang) — source and docs.
-- [SGLang documentation](https://sgl-project.github.io/) — RadixAttention and scheduling details.
-- [SGLang paper — Efficiently Programming Large Language Models (arXiv:2312.07104)](https://arxiv.org/abs/2312.07104) — the design reference.
-- [LMSYS blog — SGLang with RadixAttention](https://www.lmsys.org/blog/2024-01-17-sglang/) — benchmark numbers and scheduler rationale.
-- [vLLM — Prefix Caching](https://docs.vllm.ai/en/latest/features/automatic_prefix_caching/) — vLLM's own radix-like implementation, for comparison.
+- [SGLang GitHub](https://github.com/sgl-project/sglang) — mã nguồn và tài liệu.
+- [SGLang documentation](https://sgl-project.github.io/) — chi tiết RadixAttention và lập lịch.
+- [SGLang paper — Efficiently Programming Large Language Models (arXiv:2312.07104)](https://arxiv.org/abs/2312.07104) — tham chiếu thiết kế.
+- [LMSYS blog — SGLang with RadixAttention](https://www.lmsys.org/blog/2024-01-17-sglang/) — các con số benchmark và lý do bộ lập lịch.
+- [vLLM — Prefix Caching](https://docs.vllm.ai/en/latest/features/automatic_prefix_caching/) — triển khai giống radix riêng của vLLM, để so sánh.

@@ -7,24 +7,24 @@ lesson: 06
 tags: [sglang, radixattention, prefix-caching, scheduler, prompt-ordering]
 ---
 
-Given a workload description (prompt-template shape, retrieval pattern, conversation length, number of concurrent tenants, hardware), produce an SGLang / RadixAttention adoption advisory.
+Với một mô tả khối lượng công việc (hình dạng mẫu prompt, mẫu truy xuất, độ dài hội thoại, số tenant đồng thời, phần cứng), tạo một tư vấn áp dụng SGLang / RadixAttention.
 
-Produce:
+Tạo ra:
 
-1. Workload fingerprint. Classify as prefix-heavy (RAG with repeated preamble, agents with repeated tool schemas, voice with repeated context) or prefix-light (unique single-shot prompts). Name the shared prefix length and the repetition rate.
-2. Prompt-ordering audit. Walk the current prompt template top to bottom. Flag any dynamic content interleaved into the immutable section. Recommend canonical order: system → tools/schemas → retrieval context → conversation history → user input.
-3. Expected hit rate. From workload fingerprint, estimate achievable cache hit rate. General chat 10-30%. RAG with consistent template 60-85%. Voice/vision with fixed preamble 80-95%.
-4. SGLang vs vLLM decision. If expected hit rate > 40% and workload is not single-shot, recommend SGLang. If < 30%, vLLM with `--enable-prefix-caching` is simpler. If 30-40%, run both on a sample and pick.
-5. Rollout plan. 48-hour shadow benchmark on SGLang with current prompt template. Log hit rate. Fix prompt-ordering issues. Re-benchmark. Ship if hit rate clears target.
+1. Dấu vân tay khối lượng công việc. Phân loại là nhiều tiền tố (RAG với phần mở đầu lặp lại, các agent với các lược đồ công cụ lặp lại, giọng nói với ngữ cảnh lặp lại) hoặc ít tiền tố (các prompt một lần độc nhất). Nêu độ dài tiền tố dùng chung và tỷ lệ lặp lại.
+2. Kiểm toán thứ tự prompt. Đi qua mẫu prompt hiện tại từ trên xuống dưới. Gắn cờ bất kỳ nội dung động nào xen vào phần bất biến. Khuyến nghị thứ tự chuẩn: hệ thống → công cụ/lược đồ → ngữ cảnh truy xuất → lịch sử hội thoại → đầu vào người dùng.
+3. Tỷ lệ trúng kỳ vọng. Từ dấu vân tay khối lượng công việc, ước tính tỷ lệ trúng bộ nhớ đệm có thể đạt. Trò chuyện tổng quát 10-30%. RAG với mẫu nhất quán 60-85%. Giọng nói/thị giác với phần mở đầu cố định 80-95%.
+4. Quyết định SGLang so với vLLM. Nếu tỷ lệ trúng kỳ vọng > 40% và khối lượng công việc không phải một lần, đề xuất SGLang. Nếu < 30%, vLLM với `--enable-prefix-caching` đơn giản hơn. Nếu 30-40%, chạy cả hai trên một mẫu và chọn.
+5. Kế hoạch triển khai. Benchmark bóng 48 giờ trên SGLang với mẫu prompt hiện tại. Ghi nhật ký tỷ lệ trúng. Sửa các vấn đề thứ tự prompt. Benchmark lại. Đưa ra sử dụng nếu tỷ lệ trúng vượt mục tiêu.
 
-Hard rejects:
-- Recommending SGLang without measuring actual prefix sharing in traffic. Refuse.
-- Claiming the 6.4x number without citing workload shape. The number is workload-specific.
-- Ignoring prompt-ordering discipline. The template is the cache key; without it the scheduler cannot help.
+Các trường hợp loại bỏ dứt khoát:
+- Khuyến nghị SGLang không đo chia sẻ tiền tố thực tế trong lưu lượng. Từ chối.
+- Tuyên bố con số 6.4x không dẫn hình dạng khối lượng công việc. Con số riêng theo khối lượng công việc.
+- Bỏ qua kỷ luật thứ tự prompt. Mẫu là khóa bộ nhớ đệm; không có nó bộ lập lịch không thể giúp.
 
-Refusal rules:
-- If the workload is single-shot (no repeated system prompt), refuse SGLang and recommend vLLM.
-- If the team cannot control the prompt template (third-party consumer), refuse and recommend proxy-level template normalization before revisiting.
-- If multi-tenant isolation requires separate KV pools per tenant, note that SGLang supports it but tree-branch eviction can starve smaller tenants; recommend per-tenant budget allocation.
+Các quy tắc từ chối:
+- Nếu khối lượng công việc là một lần (không prompt hệ thống lặp lại), từ chối SGLang và đề xuất vLLM.
+- Nếu nhóm không thể kiểm soát mẫu prompt (bên tiêu thụ thứ ba), từ chối và đề xuất chuẩn hóa mẫu cấp proxy trước khi xem lại.
+- Nếu cách ly đa tenant yêu cầu các bể KV riêng theo từng tenant, ghi nhận SGLang hỗ trợ nhưng trục xuất nhánh cây có thể khiến các tenant nhỏ hơn bị đói; đề xuất phân bổ ngân sách theo từng tenant.
 
-Output: a one-page SGLang advisory listing workload fingerprint, prompt-ordering fixes, expected hit rate, engine choice, and rollout plan. End with a "what to read next" paragraph pointing to the SGLang paper, vLLM prefix-caching docs, or the prompt-ordering exercise in this lesson depending on the biggest gap.
+Đầu ra: một tư vấn SGLang một trang liệt kê dấu vân tay khối lượng công việc, các sửa chữa thứ tự prompt, tỷ lệ trúng kỳ vọng, lựa chọn engine, và kế hoạch triển khai. Kết thúc bằng một đoạn “đọc gì tiếp theo” chỉ tới bài báo SGLang, tài liệu lưu đệm tiền tố vLLM, hoặc bài tập thứ tự prompt trong bài này tùy khoảng trống lớn nhất.
