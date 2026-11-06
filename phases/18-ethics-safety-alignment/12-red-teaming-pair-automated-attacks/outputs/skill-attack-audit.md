@@ -7,23 +7,23 @@ lesson: 12
 tags: [red-teaming, jailbreak, pair, harmbench, jailbreakbench, asr]
 ---
 
-Given a red-team evaluation report, audit whether the evaluation is comparable to published baselines and whether it supports its conclusions.
+Với báo cáo đánh giá red-team, kiểm tra đánh giá có so sánh được với đường cơ sở công bố và có hỗ trợ kết luận không.
 
-Produce:
+Tạo:
 
-1. Attack coverage. List every attack run: PAIR, GCG, AutoDAN, TAP, PAP, manual. Flag any attack class missing. A report that runs only one attack family cannot claim robustness.
-2. Budget per attack. Report the query budget per prompt for each attack. PAIR success claims at 20 queries are not comparable to GCG success claims at 500 steps.
-3. Judge identity. Which judge LLM was used (GPT-4-turbo, Llama Guard, StrongREJECT, internal classifier)? Judge calibration drives ASR variance.
-4. Behaviour set. JailbreakBench (100 behaviours, 10 categories), HarmBench (510 behaviours, 7 categories), internal, or other? State whether the set is public and reproducible.
-5. Transfer check. If the red team optimized against one model, were transfer ASRs reported against other models? A one-model ASR is an upper bound on model-family robustness, not a lower bound.
+1. Bao phủ tấn công. Liệt kê mọi tấn công chạy: PAIR, GCG, AutoDAN, TAP, PAP, thủ công. Đánh dấu mọi lớp tấn công thiếu. Báo cáo chỉ chạy một họ tấn công không thể khẳng định độ vững.
+2. Ngân sách mỗi tấn công. Báo cáo ngân sách truy vấn mỗi prompt cho từng tấn công. Khẳng định PAIR thành công ở 20 truy vấn không so sánh được với GCG thành công ở 500 bước.
+3. Danh tính giám khảo. LLM giám khảo nào được dùng (GPT-4-turbo, Llama Guard, StrongREJECT, bộ phân loại nội bộ)? Hiệu chuẩn giám khảo chi phối phương sai ASR.
+4. Tập hành vi. JailbreakBench (100 hành vi, 10 nhóm), HarmBench (510 hành vi, 7 nhóm), nội bộ hay khác? Nêu tập có công khai và tái lập được không.
+5. Kiểm tra chuyển giao. Nếu red team tối ưu đối với một mô hình, ASR chuyển giao có được báo cáo đối với mô hình khác không? ASR một mô hình là cận trên độ vững họ mô hình, không phải cận dưới.
 
-Hard rejects:
-- Any "our model is robust" claim based on a single attack family.
-- Any ASR reported without a query budget.
-- Any ASR using a judge different from the published benchmark without calibration against the benchmark judge.
+Các trường hợp loại bỏ dứt khoát:
+- Mọi khẳng định "mô hình chúng tôi vững" dựa trên một họ tấn công.
+- Mọi ASR báo cáo không có ngân sách truy vấn.
+- Mọi ASR dùng giám khảo khác phép đo chuẩn công bố mà không hiệu chuẩn đối với giám khảo phép đo chuẩn.
 
-Refusal rules:
-- If the user asks "is our model jailbreak-proof," refuse the binary answer and point to the multi-attack, multi-judge, transfer-check structure above.
-- If the user asks for a recommended attack toolkit, refuse a single recommendation and point to the 2024 empirical variance across HarmBench.
+Quy tắc từ chối:
+- Nếu người dùng hỏi "mô hình chúng tôi miễn nhiễm jailbreak không," từ chối trả lời nhị phân và trỏ cấu trúc đa tấn công, đa giám khảo, kiểm tra chuyển giao trên.
+- Nếu người dùng hỏi bộ công cụ tấn công khuyến nghị, từ chối một khuyến nghị duy nhất và trỏ phương sai thực nghiệm 2024 trên HarmBench.
 
-Output: a one-page audit that fills the five sections above, flags missing attack classes, and estimates whether the ASR is under- or over-stated relative to reproducible benchmarks. Cite Chao et al. (arXiv:2310.08419) and the relevant benchmark paper once each.
+Đầu ra: bản kiểm tra một trang điền năm phần trên, đánh dấu lớp tấn công thiếu và ước tính ASR bị đánh giá thấp hay cao so với phép đo chuẩn tái lập được. Trích dẫn Chao và cộng sự (arXiv:2310.08419) và bài báo phép đo chuẩn liên quan, mỗi bài một lần.
