@@ -7,21 +7,21 @@ lesson: 15
 tags: [moshi, hibiki, full-duplex, voice-agent, streaming]
 ---
 
-Given the workload (latency target, tool-calling needs, language coverage, hardware budget, cloud vs edge), output:
+Với khối lượng công việc (mục tiêu độ trễ, nhu cầu gọi công cụ, độ bao phủ ngôn ngữ, ngân sách phần cứng, đám mây so với biên), xuất ra:
 
-1. Architecture. Full-duplex (Moshi / GPT-4o Realtime / Gemini Live) vs pipeline (LiveKit + STT + LLM + TTS, Lesson 12). One-sentence reason.
-2. Model. Moshi · Hibiki · Hibiki-Zero · Sesame CSM · GPT-4o Realtime · Gemini 2.5 Live · traditional pipeline. Reason.
-3. Scale. Per-session GPU cost (Moshi holds a slot), max concurrent sessions, cold-start impact.
-4. Tool-calling path. If needed — hybrid pipeline (duplex + external LLM for tool calls) or pure pipeline. Explain trade-off.
-5. Language coverage. Full-duplex models have narrow language support; pipelines inherit LLM's multilingual capability.
+1. Kiến trúc. Song công toàn phần (Moshi / GPT-4o Realtime / Gemini Live) so với pipeline (LiveKit + STT + LLM + TTS, Bài 12). Lý do trong một câu.
+2. Mô hình. Moshi · Hibiki · Hibiki-Zero · Sesame CSM · GPT-4o Realtime · Gemini 2.5 Live · pipeline truyền thống. Lý do.
+3. Quy mô. Chi phí GPU theo phiên (Moshi giữ một slot), số phiên đồng thời tối đa, tác động khởi động lạnh.
+4. Đường gọi công cụ. Nếu cần — pipeline lai (song công + LLM bên ngoài cho các lời gọi công cụ) hoặc pipeline thuần. Giải thích đánh đổi.
+5. Độ bao phủ ngôn ngữ. Các mô hình song công toàn phần có hỗ trợ ngôn ngữ hẹp; các pipeline kế thừa khả năng đa ngôn ngữ của LLM.
 
-Refuse full-duplex-only architecture for enterprise agents that need tool-calling / retrieval — Moshi is a dialogue model, not an agent framework. Refuse pipeline-only for sub-250 ms conversational agents — the stages add up. Refuse Moshi for &gt; 4 concurrent sessions on one GPU — hits contention.
+Từ chối kiến trúc chỉ song công toàn phần cho các tác tử doanh nghiệp cần gọi công cụ / truy xuất — Moshi là mô hình hội thoại, không phải framework tác tử. Từ chối chỉ pipeline cho các tác tử hội thoại dưới 250 ms — các giai đoạn cộng dồn. Từ chối Moshi cho &gt; 4 phiên đồng thời trên một GPU — gặp tranh chấp.
 
-Example input: "Voice companion for language learning — conversational fluency practice. English + French. &lt; 250 ms responsiveness. 10k daily actives."
+Đầu vào ví dụ: "Bạn đồng hành giọng nói để học ngôn ngữ — luyện độ lưu loát hội thoại. Tiếng Anh + Pháp. Độ phản hồi &lt; 250 ms. 10k người dùng hoạt động hằng ngày."
 
-Example output:
-- Architecture: full-duplex (Moshi). Sub-250 ms latency requirement + conversational fluency fit Moshi's strengths.
-- Model: Moshi. EN + FR both well-supported. CC-BY 4.0 license.
-- Scale: one L4 GPU per 4-6 concurrent sessions → ~1500 GPUs at peak for 10k DAU at 10% concurrency. Plan for on-device light mode using Kyutai Pocket TTS + local Whisper for the quiet path.
-- Tool calling: minimal — "reveal grammar hint" and "translate this phrase" can be routed via a tiny LLM sidecar; most of the interaction is open-ended dialogue where Moshi shines.
-- Language coverage: EN + FR (native); ES / DE / JP via Hibiki-Zero adaptation (1000 h of audio required per new language).
+Đầu ra ví dụ:
+- Kiến trúc: song công toàn phần (Moshi). Yêu cầu độ trễ dưới 250 ms + độ lưu loát hội thoại phù hợp các thế mạnh của Moshi.
+- Mô hình: Moshi. EN + FR đều được hỗ trợ tốt. Giấy phép CC-BY 4.0.
+- Quy mô: một GPU L4 cho mỗi 4-6 phiên đồng thời → ~1500 GPU ở đỉnh cho 10k DAU với 10% đồng thời. Lập kế hoạch cho chế độ nhẹ trên thiết bị dùng Kyutai Pocket TTS + Whisper cục bộ cho đường yên lặng.
+- Gọi công cụ: tối thiểu — "hiện gợi ý ngữ pháp" và "dịch cụm từ này" có thể được định tuyến qua một LLM sidecar tí hon; hầu hết tương tác là hội thoại mở nơi Moshi tỏa sáng.
+- Độ bao phủ ngôn ngữ: EN + FR (nguyên bản); ES / DE / JP qua thích nghi Hibiki-Zero (yêu cầu 1000 h âm thanh cho mỗi ngôn ngữ mới).
