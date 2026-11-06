@@ -7,25 +7,25 @@ lesson: 20
 tags: [rollout, canary, shadow, progressive-delivery, feature-flags, argo-rollouts, flagger, kserve]
 ---
 
-Given a candidate change (new model, new prompt template, new router policy), baseline production metrics, and risk tolerance, produce a rollout runbook.
+Với một thay đổi ứng viên (mô hình mới, mẫu prompt mới, chính sách bộ định tuyến mới), chỉ số sản xuất cơ sở và mức chấp nhận rủi ro, tạo một cẩm nang triển khai.
 
-Produce:
+Tạo:
 
-1. Shadow plan. Duration (24-72 hours). Metrics logged: outputs, token counts, latency, refusal, error. Alert on: >20% cost shift, >30% output length shift, any schema violation.
-2. Canary progression. Stages (1% → 10% → 25% → 50% → 75% → 100%). Duration per stage (30m-24h based on traffic volume; ensure each stage has enough data for statistical confidence).
-3. Five gates. Specify the exact thresholds for latency P99, cost/request, error/refusal, output-length P99, thumbs-down rate. Set above noise floor (expect 15% irreducible variance).
-4. Tooling. Name the rollout controller (Argo Rollouts, Flagger, KServe) and the feature flag system for instant rollback.
-5. Rollback path. Document the three actions: flip flag → revert pinned digest → verify. Target time: under 60 seconds end to end.
-6. Skip A/B? Justify. Improved-variant changes skip A/B; distinctly different changes (new behavior, new cost curve) require A/B.
+1. Kế hoạch bóng. Thời lượng (24-72 giờ). Chỉ số được ghi log: đầu ra, số lượng token, độ trễ, từ chối, lỗi. Cảnh báo khi: dịch chuyển chi phí >20%, dịch chuyển độ dài đầu ra >30%, bất kỳ vi phạm schema nào.
+2. Tiến trình canary. Các giai đoạn (1% → 10% → 25% → 50% → 75% → 100%). Thời lượng mỗi giai đoạn (30 phút-24 giờ theo lượng lưu lượng; bảo đảm mỗi giai đoạn đủ dữ liệu cho độ tin cậy thống kê).
+3. Năm cổng. Chỉ định ngưỡng chính xác cho P99 độ trễ, chi phí/yêu cầu, lỗi/từ chối, P99 độ dài đầu ra, tỷ lệ không tán thành. Đặt trên sàn nhiễu (dự kiến biến thiên không thể loại bỏ 15%).
+4. Công cụ. Nêu bộ điều khiển triển khai (Argo Rollouts, Flagger, KServe) và hệ thống cờ tính năng để hoàn tác tức thì.
+5. Đường hoàn tác. Ghi lại ba hành động: đổi cờ → hoàn nguyên digest được ghim → xác minh. Thời gian mục tiêu: dưới 60 giây đầu cuối.
+6. Bỏ qua A/B? Giải thích. Thay đổi biến thể cải tiến bỏ qua A/B; thay đổi khác biệt rõ rệt (hành vi mới, đường cong chi phí mới) yêu cầu A/B.
 
-Hard rejects:
-- Skipping shadow mode. Refuse — cost spikes and length regressions slip past offline eval.
-- Gates tighter than 15% variance. Refuse — false alarms will halt legitimate rollouts.
-- Rollback that requires redeploy. Refuse — it is not a rollback, it is a damage report.
+Các trường hợp loại bỏ dứt khoát:
+- Bỏ qua chế độ bóng. Từ chối — đột biến chi phí và suy giảm độ dài lọt qua đánh giá ngoại tuyến.
+- Cổng chặt hơn biến thiên 15%. Từ chối — báo động giả sẽ dừng các đợt triển khai hợp lệ.
+- Hoàn tác yêu cầu triển khai lại. Từ chối — đó không phải hoàn tác, đó là báo cáo thiệt hại.
 
-Refusal rules:
-- If the change is safety-critical (e.g., PII handling change), require explicit additional gate: zero PII leakage in shadow sample before starting canary.
-- If traffic volume is <100 req/hour, require extended canary stages — otherwise gate noise overwhelms signal.
-- If the team cannot provide baseline metrics for the five canary gates, refuse the rollout — baseline is prerequisite.
+Quy tắc từ chối:
+- Nếu thay đổi quan trọng về an toàn (ví dụ: thay đổi xử lý PII), yêu cầu cổng bổ sung tường minh: không rò rỉ PII trong mẫu bóng trước khi bắt đầu canary.
+- Nếu lượng lưu lượng <100 yêu cầu/giờ, yêu cầu kéo dài các giai đoạn canary — nếu không nhiễu cổng lấn át tín hiệu.
+- Nếu nhóm không cung cấp được chỉ số cơ sở cho năm cổng canary, từ chối triển khai — đường cơ sở là điều kiện tiên quyết.
 
-Output: a one-page runbook with shadow, canary, gates, tooling, rollback, A/B posture. End with a rollback drill requirement: rehearse rollback once before first real deploy.
+Đầu ra: một cẩm nang một trang với bóng, canary, cổng, công cụ, hoàn tác, định hướng A/B. Kết thúc bằng yêu cầu diễn tập hoàn tác: diễn tập hoàn tác một lần trước lần triển khai thực đầu tiên.

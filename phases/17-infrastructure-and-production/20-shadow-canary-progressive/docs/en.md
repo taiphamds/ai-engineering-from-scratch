@@ -1,6 +1,6 @@
 # Shadow Traffic, Canary Rollout, and Progressive Deployment for LLMs
 
-> LLM rollouts combine the hardest parts of software deployment: no unit tests, diffuse failure modes, delayed signals. The sequence is (1) shadow mode — duplicate prod requests to candidate model, log, compare with zero user impact; catches obvious distribution issues but is not a quality guarantee; (2) canary rollout — progressive traffic shift 10% → 25% → 50% → 75% → 100% with gates at each step; track latency percentiles, cost/request, error/refusal rate, output length distribution, user-feedback rate; (3) A/B testing for distinct alternatives after stability confirmed. Non-determinism is irreducible — up to 15% accuracy variation across runs with identical inputs due to GPU FP non-associativity plus batch-size variance. Cost is a variable, not constant — a 20% better model can be 3x more expensive per call. Rollback speed is decisive: if rollback requires redeploy, you are too slow. Policy lives in config/flags; model lives in registry with pinned digests; rollback = flip policy + revert threshold + pin old model in seconds.
+> Triển khai LLM kết hợp những phần khó nhất của triển khai phần mềm: không có kiểm thử đơn vị, chế độ lỗi phân tán, tín hiệu đến muộn. Trình tự là (1) chế độ bóng — nhân đôi yêu cầu sản xuất sang mô hình ứng viên, ghi log, so sánh mà không tác động người dùng; bắt được vấn đề phân phối rõ ràng nhưng không phải bảo đảm chất lượng; (2) triển khai canary — chuyển lưu lượng tăng dần 10% → 25% → 50% → 75% → 100% với các cổng ở mỗi bước; theo dõi phân vị độ trễ, chi phí/yêu cầu, tỷ lệ lỗi/từ chối, phân phối độ dài đầu ra, tỷ lệ phản hồi người dùng; (3) thử nghiệm A/B cho các phương án khác biệt sau khi xác nhận ổn định. Tính không xác định không thể loại bỏ — biến thiên độ chính xác tới 15% giữa các lần chạy với đầu vào giống hệt do tính không kết hợp của FP GPU cộng biến thiên kích thước lô. Chi phí là biến số, không phải hằng số — mô hình tốt hơn 20% có thể đắt hơn 3x mỗi lệnh gọi. Tốc độ hoàn tác mang tính quyết định: nếu hoàn tác yêu cầu triển khai lại, bạn quá chậm. Chính sách nằm trong cấu hình/cờ; mô hình nằm trong registry với digest được ghim; hoàn tác = đổi chính sách + hoàn nguyên ngưỡng + ghim mô hình cũ trong vài giây.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy canary-progression simulator)
@@ -9,87 +9,87 @@
 
 ## Learning Objectives
 
-- Distinguish shadow mode (zero-impact compare), canary (live traffic progressive), and A/B (stability-confirmed comparison).
-- Enumerate five LLM-specific canary metrics (latency, cost/request, error/refusal, output-length distribution, user feedback).
-- Explain why LLM non-determinism (up to 15%) changes what "stable" means in a rollout.
-- Design a rollback path that takes seconds (policy flip) not hours (redeploy).
+- Phân biệt chế độ bóng (so sánh không tác động), canary (lưu lượng trực tiếp tăng dần) và A/B (so sánh sau khi xác nhận ổn định).
+- Liệt kê năm chỉ số canary riêng cho LLM (độ trễ, chi phí/yêu cầu, lỗi/từ chối, phân phối độ dài đầu ra, phản hồi người dùng).
+- Giải thích tại sao tính không xác định của LLM (tới 15%) thay đổi ý nghĩa của "ổn định" trong một đợt triển khai.
+- Thiết kế đường hoàn tác mất vài giây (đổi chính sách) chứ không phải vài giờ (triển khai lại).
 
 ## The Problem
 
-You ship a new model. Offline evals show 3% accuracy gain. You flip it on in production. Within 24 hours, cost is up 40%, user thumbs-down is up 8%, three customer tickets report "weird answers." You roll back. Redeploy takes 3 hours. Your weekend is ruined.
+Bạn triển khai mô hình mới. Đánh giá ngoại tuyến cho thấy độ chính xác tăng 3%. Bạn bật nó trong sản xuất. Trong vòng 24 giờ, chi phí tăng 40%, phản hồi không tán thành của người dùng tăng 8%, ba phiếu hỗ trợ khách hàng báo "câu trả lời kỳ lạ." Bạn hoàn tác. Triển khai lại mất 3 giờ. Cuối tuần của bạn bị phá hỏng.
 
-Every piece of that was avoidable. Shadow mode would have caught the 40% cost spike before any user saw it. Canary would have stopped at 10% when thumbs-down moved. Policy-flag rollback would have taken 30 seconds. The discipline is what fills in the gap between "offline evals look good" and "real users are happy."
+Mọi phần của việc đó đều có thể tránh. Chế độ bóng đã có thể bắt đột biến chi phí 40% trước khi bất kỳ người dùng nào thấy nó. Canary đã có thể dừng ở 10% khi phản hồi không tán thành thay đổi. Hoàn tác bằng cờ chính sách đã có thể mất 30 giây. Kỷ luật là thứ lấp khoảng trống giữa "đánh giá ngoại tuyến trông tốt" và "người dùng thực hài lòng."
 
 ## The Concept
 
 ### Shadow mode
 
-Candidate receives the same requests as production; outputs are logged, not returned to users. Zero user impact. Log:
+Ứng viên nhận cùng yêu cầu như sản xuất; đầu ra được ghi log, không trả cho người dùng. Không tác động người dùng. Ghi log:
 
-- Output content (diff against production).
-- Token counts (cost delta).
-- Latency.
-- Refusal and error.
+- Nội dung đầu ra (so sánh khác biệt với sản xuất).
+- Số lượng token (chênh lệch chi phí).
+- Độ trễ.
+- Từ chối và lỗi.
 
-Catches: cost blow-ups, length regressions, obvious refusal changes, hard errors. Does NOT catch: quality delta users would perceive. Shadow is a smoke test, not a quality test.
+Bắt được: chi phí bùng nổ, suy giảm độ dài, thay đổi từ chối rõ ràng, lỗi cứng. KHÔNG bắt được: chênh lệch chất lượng người dùng sẽ cảm nhận. Chạy bóng là kiểm thử khói, không phải kiểm thử chất lượng.
 
 ### Canary rollout
 
-Progressive traffic shift with gates. Typical progression: 1% → 10% → 25% → 50% → 75% → 100%. Gate on 5 metrics at each step:
+Chuyển lưu lượng tăng dần có các cổng. Tiến trình điển hình: 1% → 10% → 25% → 50% → 75% → 100%. Kiểm soát trên 5 chỉ số ở mỗi bước:
 
-1. **Latency percentiles** — P50, P95, P99. Breach: canary has P99 > 1.5x baseline.
-2. **Cost per request** — blended $. Breach: >20% above baseline.
-3. **Error / refusal rate** — 5xx plus explicit refusals. Breach: 2x baseline.
-4. **Output length distribution** — mean + P99. Breach: distributional shift.
-5. **User-feedback rate** — thumbs-down / ticket filings. Breach: 1.5x baseline.
+1. **Phân vị độ trễ** — P50, P95, P99. Vi phạm: canary có P99 > 1.5x đường cơ sở.
+2. **Chi phí mỗi yêu cầu** — $ pha trộn. Vi phạm: cao hơn đường cơ sở >20%.
+3. **Tỷ lệ lỗi / từ chối** — 5xx cộng các từ chối tường minh. Vi phạm: 2x đường cơ sở.
+4. **Phân phối độ dài đầu ra** — trung bình + P99. Vi phạm: dịch chuyển phân phối.
+5. **Tỷ lệ phản hồi người dùng** — không tán thành / gửi phiếu hỗ trợ. Vi phạm: 1.5x đường cơ sở.
 
 ### Non-determinism is the new variance
 
-Identical inputs produce non-identical outputs. Reasons:
+Đầu vào giống hệt tạo đầu ra không giống hệt. Lý do:
 
-- GPU FP non-associativity (floating-point reduction order varies by batch).
-- Batch-size variance (same prompt in a batch of 128 vs batch of 16).
-- Sampling (temperature > 0).
+- Tính không kết hợp của FP GPU (thứ tự rút gọn dấu phẩy động thay đổi theo lô).
+- Biến thiên kích thước lô (cùng prompt trong lô 128 so với lô 16).
+- Lấy mẫu (temperature > 0).
 
-Measured: up to 15% accuracy variation run-to-run on identical eval sets. "Stable" in a rollout means metrics are within expected variance, not identical to baseline. Set gates above the noise floor.
+Đo được: biến thiên độ chính xác tới 15% giữa các lần chạy trên các bộ đánh giá giống hệt. "Ổn định" trong một đợt triển khai nghĩa là chỉ số nằm trong biến thiên dự kiến, không phải giống hệt đường cơ sở. Đặt cổng trên sàn nhiễu.
 
 ### Cost is a variable
 
-A 20% better model can be 3x more expensive per call. Cost/request is one of the five gates. Shipping a "better" model that breaks unit economics is a rollback case.
+Một mô hình tốt hơn 20% có thể đắt hơn 3x mỗi lệnh gọi. Chi phí/yêu cầu là một trong năm cổng. Triển khai một mô hình "tốt hơn" làm phá vỡ tính kinh tế đơn vị là trường hợp cần hoàn tác.
 
 ### Rollback is the weapon
 
-- Policy flag (feature flag system): flip percentage in config; takes seconds.
-- Model pinning (registry digest): pinned model does not auto-upgrade.
-- Rollback = revert flag + set pinned digest to previous. Seconds, not hours.
+- Cờ chính sách (hệ thống cờ tính năng): đổi phần trăm trong cấu hình; mất vài giây.
+- Ghim mô hình (digest registry): mô hình được ghim không tự nâng cấp.
+- Hoàn tác = hoàn nguyên cờ + đặt digest được ghim về trước đó. Vài giây, không phải vài giờ.
 
-If your stack requires redeploy to rollback, fix that before rolling.
+Nếu ngăn xếp của bạn yêu cầu triển khai lại để hoàn tác, sửa điều đó trước khi triển khai.
 
 ### Tooling
 
-**Argo Rollouts** / **Flagger** — Kubernetes progressive delivery controllers. Integrate with Istio/Linkerd weighted routing.
+**Argo Rollouts** / **Flagger** — các bộ điều khiển phân phối tăng dần Kubernetes. Tích hợp với định tuyến có trọng số Istio/Linkerd.
 
-**Istio weighted routing** — service-mesh-level traffic split.
+**Định tuyến có trọng số Istio** — chia lưu lượng cấp service mesh.
 
-**KServe / Seldon Core** — model serving with built-in canary.
+**KServe / Seldon Core** — phục vụ mô hình với canary tích hợp sẵn.
 
-**Feature flags** — LaunchDarkly, Flagsmith, Unleash. Policy-level flip, no redeploy.
+**Cờ tính năng** — LaunchDarkly, Flagsmith, Unleash. Đổi ở cấp chính sách, không triển khai lại.
 
 ### Metrics cadence
 
-Canary gates check every 5-15 minutes depending on traffic volume. 1% traffic with 10 req/min gives 50-150 data points per window — enough for latency but noisy for user feedback. 10% gives ~10x more. Progressions should pause long enough to accumulate enough samples at each step.
+Các cổng canary kiểm tra mỗi 5-15 phút tùy lượng lưu lượng. Lưu lượng 1% với 10 yêu cầu/phút cho 50-150 điểm dữ liệu mỗi cửa sổ — đủ cho độ trễ nhưng nhiễu với phản hồi người dùng. 10% cho nhiều hơn ~10x. Các bước tiến nên dừng đủ lâu để tích lũy đủ mẫu ở mỗi bước.
 
 ### The A/B step is optional
 
-If the new model is distinctly different (different behavior, different cost curve, different tone), A/B test it at 50% after canary passes. If it's just an improved version, skip to 100% when canary gates pass.
+Nếu mô hình mới khác biệt rõ rệt (hành vi khác, đường cong chi phí khác, giọng điệu khác), thử nghiệm A/B nó ở 50% sau khi canary vượt qua. Nếu chỉ là phiên bản cải tiến, chuyển thẳng lên 100% khi vượt các cổng canary.
 
 ### Numbers you should remember
 
-- Canary progression: 1% → 10% → 25% → 50% → 75% → 100%.
-- Non-determinism ceiling: up to 15% run-to-run variance on identical inputs.
-- Five canary metrics: latency, cost, error/refusal, output length, user feedback.
-- Cost gate: >20% above baseline is a breach.
-- Rollback: seconds, not hours.
+- Tiến trình canary: 1% → 10% → 25% → 50% → 75% → 100%.
+- Trần tính không xác định: biến thiên giữa các lần chạy tới 15% trên đầu vào giống hệt.
+- Năm chỉ số canary: độ trễ, chi phí, lỗi/từ chối, độ dài đầu ra, phản hồi người dùng.
+- Cổng chi phí: cao hơn đường cơ sở >20% là vi phạm.
+- Hoàn tác: vài giây, không phải vài giờ.
 
 ```figure
 i4-canary-ramp
@@ -97,33 +97,33 @@ i4-canary-ramp
 
 ## Use It
 
-`code/main.py` simulates a canary rollout with injected regressions. Reports which stage the rollout halts at and which gate triggered.
+`code/main.py` mô phỏng một đợt triển khai canary với các suy giảm được chèn vào. Báo cáo đợt triển khai dừng ở giai đoạn nào và cổng nào đã kích hoạt.
 
 ## Ship It
 
-This lesson produces `outputs/skill-rollout-runbook.md`. Given candidate model, baseline, and risk tolerance, designs shadow→canary→100% plan.
+Bài học này tạo ra `outputs/skill-rollout-runbook.md`. Với mô hình ứng viên, đường cơ sở và mức chấp nhận rủi ro, thiết kế kế hoạch bóng→canary→100%.
 
 ## Exercises
 
-1. Run `code/main.py`. Inject a 25% cost regression. At which stage does the canary halt?
-2. Your new model has 3% accuracy gain offline but cost/request is +18%. Is it a ship? Depends on the policy — write both paths.
-3. Design a rollback that takes under 60 seconds end-to-end. List the required infrastructure.
-4. Non-determinism shows ±7% on your eval. Set canary gates so you don't false-alarm. What multipliers do you use?
-5. Shadow mode catches a 40% cost spike before canary. Write the alert rule that fires in shadow.
+1. Chạy `code/main.py`. Chèn suy giảm chi phí 25%. Canary dừng ở giai đoạn nào?
+2. Mô hình mới của bạn tăng độ chính xác 3% ngoại tuyến nhưng chi phí/yêu cầu là +18%. Có triển khai không? Tùy chính sách — viết cả hai đường.
+3. Thiết kế hoàn tác mất dưới 60 giây đầu cuối. Liệt kê hạ tầng cần thiết.
+4. Tính không xác định cho thấy ±7% trên đánh giá của bạn. Đặt cổng canary để bạn không báo động giả. Bạn dùng các hệ số nào?
+5. Chế độ bóng bắt được đột biến chi phí 40% trước canary. Viết quy tắc cảnh báo kích hoạt trong chế độ bóng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|----------------|------------------------|
-| Shadow mode | "duplicate to new" | Zero-impact send-to-candidate for logging |
-| Canary | "progressive traffic" | Gradual user-exposed rollout with gates |
-| Gates | "rollout checks" | Metric thresholds that block progression |
-| Non-determinism | "LLM variance" | Irreducible run-to-run differences |
-| Policy flag | "flag flip rollback" | Config-level rollback, seconds not hours |
-| Model pin | "registry digest" | Immutable reference to a model version |
-| Argo Rollouts | "K8s progressive" | Kubernetes-native canary/rollback controller |
-| KServe | "inference K8s" | Model serving with canary primitives |
-| Istio weighted | "mesh split" | Service-mesh traffic splitter |
+| Shadow mode (Chế độ bóng) | "nhân đôi sang mới" | Gửi đến ứng viên để ghi log mà không tác động |
+| Canary | "lưu lượng tăng dần" | Triển khai dần tiếp xúc người dùng với các cổng |
+| Gates (Cổng) | "kiểm tra triển khai" | Ngưỡng chỉ số chặn việc tiến bước |
+| Non-determinism (Tính không xác định) | "biến thiên LLM" | Khác biệt giữa các lần chạy không thể loại bỏ |
+| Policy flag (Cờ chính sách) | "hoàn tác bằng đổi cờ" | Hoàn tác cấp cấu hình, vài giây không phải vài giờ |
+| Model pin (Ghim mô hình) | "digest registry" | Tham chiếu bất biến đến một phiên bản mô hình |
+| Argo Rollouts | "K8s tăng dần" | Bộ điều khiển canary/hoàn tác nguyên bản Kubernetes |
+| KServe | "K8s suy luận" | Phục vụ mô hình với các thành phần canary cơ bản |
+| Istio weighted (Istio có trọng số) | "chia mesh" | Bộ chia lưu lượng service mesh |
 
 ## Further Reading
 
