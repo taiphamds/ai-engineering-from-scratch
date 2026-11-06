@@ -1,6 +1,6 @@
 # Vision Transformers (ViT)
 
-> Cut the image into patches, treat each patch as a word, run a standard transformer. Don't look back.
+> Cắt hình ảnh thành các patch, coi mỗi patch là một từ, chạy một transformer tiêu chuẩn. Đừng nhìn lại.
 
 **Type:** Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Implement patch embedding, learned positional embedding, class token, and transformer encoder blocks from scratch to build a minimal ViT
-- Explain why ViT was thought to need massive pretraining data until DeiT and MAE proved otherwise
-- Compare ViT, Swin, and ConvNeXt on their architectural priors (none, local window attention, conv backbone)
-- Fine-tune a pretrained ViT on a small dataset using `timm` and the standard linear-probe / fine-tune recipe
+- Triển khai patch embedding, embedding vị trí được học, token lớp và các khối encoder transformer từ đầu để xây một ViT tối giản
+- Giải thích tại sao ViT được cho là cần dữ liệu tiền huấn luyện khổng lồ cho tới khi DeiT và MAE chứng minh ngược lại
+- So sánh ViT, Swin và ConvNeXt về các tiên nghiệm kiến trúc (không có, attention cửa sổ cục bộ, backbone tích chập)
+- Tinh chỉnh một ViT được tiền huấn luyện trên tập dữ liệu nhỏ bằng `timm` và công thức linear-probe / tinh chỉnh tiêu chuẩn
 
 ## The Problem
 
-For a decade, convolution was synonymous with computer vision. CNNs had strong inductive biases — locality, translation equivariance — that nobody thought you could replace. Then Dosovitskiy et al. (2020) showed that a plain transformer applied to flattened image patches, with no convolutional machinery at all, could match or beat the best CNNs at scale.
+Trong một thập kỷ, tích chập đồng nghĩa với thị giác máy tính. CNN có các thiên kiến quy nạp mạnh — tính cục bộ, đẳng biến tịnh tiến — mà không ai nghĩ có thể thay thế. Rồi Dosovitskiy và cộng sự (2020) cho thấy một transformer thông thường áp dụng lên các patch hình ảnh làm phẳng, hoàn toàn không có bộ máy tích chập, có thể ngang hoặc vượt các CNN tốt nhất ở quy mô lớn.
 
-The catch was "at scale." ViT on ImageNet-1k lost to ResNet. ViT pretrained on ImageNet-21k or JFT-300M then fine-tuned on ImageNet-1k beat it. The conclusion was that transformers lacked useful priors but could learn them from enough data. Subsequent work (DeiT, MAE, DINO) showed that with the right training recipes — strong augmentation, self-supervised pretraining, distillation — ViTs train fine on small data too.
+Điểm vướng là "ở quy mô lớn." ViT trên ImageNet-1k thua ResNet. ViT được tiền huấn luyện trên ImageNet-21k hoặc JFT-300M rồi tinh chỉnh trên ImageNet-1k thắng nó. Kết luận là transformer thiếu các tiên nghiệm hữu ích nhưng có thể học từ đủ dữ liệu. Các công trình sau (DeiT, MAE, DINO) cho thấy với công thức huấn luyện đúng — tăng cường mạnh, tiền huấn luyện tự giám sát, chưng cất — ViT cũng huấn luyện ổn trên dữ liệu nhỏ.
 
-By 2026, pure CNNs are still competitive on edge devices (ConvNeXt is the strongest), but transformers dominate everything else: segmentation (Mask2Former, SegFormer), detection (DETR, RT-DETR), multimodal (CLIP, SigLIP), video (VideoMAE, VJEPA). The ViT block structure is the one to know.
+Đến năm 2026, CNN thuần vẫn cạnh tranh trên các thiết bị biên (ConvNeXt mạnh nhất), nhưng transformer thống trị mọi thứ khác: phân đoạn (Mask2Former, SegFormer), phát hiện (DETR, RT-DETR), đa phương thức (CLIP, SigLIP), video (VideoMAE, VJEPA). Cấu trúc khối ViT là điều cần biết.
 
 ## The Concept
 
@@ -41,11 +41,11 @@ flowchart LR
     style HEAD fill:#dcfce7,stroke:#16a34a
 ```
 
-Seven steps. Patches -> tokens -> attention -> classifier. Every variant (DeiT, Swin, ConvNeXt, MAE pretraining) changes one or two of the seven and leaves the rest alone.
+Bảy bước. Patch -> token -> attention -> bộ phân loại. Mọi biến thể (DeiT, Swin, ConvNeXt, tiền huấn luyện MAE) thay đổi một hoặc hai trong bảy bước và giữ phần còn lại.
 
 ### Patch embedding
 
-The first conv is the secret. Kernel size 16, stride 16, so a 224x224 image becomes a 14x14 grid of 16x16 patches, each projected to a 768-dim embedding. That single conv both patchifies and linearly projects.
+Tích chập đầu là bí mật. Kích thước kernel 16, stride 16, nên hình ảnh 224x224 trở thành lưới 14x14 các patch 16x16, mỗi patch được chiếu tới embedding 768 chiều. Một tích chập đó vừa chia patch vừa chiếu tuyến tính.
 
 ```
 Input:  (3, 224, 224)
@@ -54,31 +54,31 @@ Output: (768, 14, 14)
 Flatten spatial: (196, 768)
 ```
 
-196 patches = 196 tokens. Each token's feature dimension is 768 (ViT-B), 1024 (ViT-L), or 1280 (ViT-H).
+196 patch = 196 token. Chiều đặc trưng mỗi token là 768 (ViT-B), 1024 (ViT-L) hoặc 1280 (ViT-H).
 
 ### Class token
 
-A single learned vector prepended to the sequence:
+Một vector được học duy nhất thêm vào đầu chuỗi:
 
 ```
 tokens = [CLS; patch_1; patch_2; ...; patch_196]   shape (197, 768)
 ```
 
-After N transformer blocks, the `[CLS]` output is the global image representation. Classification head reads only this one vector.
+Sau N khối transformer, đầu ra `[CLS]` là biểu diễn hình ảnh toàn cục. Đầu phân loại chỉ đọc vector này.
 
 ### Positional embedding
 
-Transformers have no built-in notion of spatial position. Add a learned vector to every token:
+Transformer không có khái niệm vị trí không gian tích hợp. Thêm một vector được học vào mọi token:
 
 ```
 tokens = tokens + learned_pos_embedding   (also shape (197, 768))
 ```
 
-The embedding is a parameter of the model; gradient-based training adapts it to 2D image structure. Sinusoidal 2D alternatives exist but are rarely used in practice.
+Embedding là một tham số mô hình; huấn luyện dựa trên gradient điều chỉnh nó theo cấu trúc hình ảnh 2D. Các lựa chọn hình sin 2D tồn tại nhưng hiếm khi được dùng trong thực tế.
 
 ### Transformer encoder block
 
-Standard. Multi-head self-attention, MLP, residual connections, pre-LayerNorm.
+Tiêu chuẩn. Self-attention nhiều đầu, MLP, các kết nối phần dư, pre-LayerNorm.
 
 ```
 x = x + MSA(LN(x))
@@ -87,43 +87,43 @@ x = x + MLP(LN(x))
 MLP is two-layer with GELU: Linear(d -> 4d) -> GELU -> Linear(4d -> d)
 ```
 
-ViT-B/16 stacks 12 of these blocks, each with 12 attention heads, totalling 86M parameters.
+ViT-B/16 xếp chồng 12 khối này, mỗi khối có 12 đầu attention, tổng 86M tham số.
 
 ### Why pre-LN
 
-Early transformers used post-LN (`x = LN(x + sublayer(x))`) and struggled to train past 6-8 layers without warmup. Pre-LN (`x = x + sublayer(LN(x))`) trains deeper networks stably without warmup. Every ViT and every modern LLM uses pre-LN.
+Các transformer đầu dùng post-LN (`x = LN(x + sublayer(x))`) và khó huấn luyện vượt 6-8 lớp mà không warmup. Pre-LN (`x = x + sublayer(LN(x))`) huấn luyện các mạng sâu hơn ổn định mà không warmup. Mọi ViT và mọi LLM hiện đại sử dụng pre-LN.
 
 ### Patch size trade-off
 
-- 16x16 patches -> 196 tokens, standard.
-- 32x32 patches -> 49 tokens, faster but lower resolution.
-- 8x8 patches -> 784 tokens, finer but O(n^2) attention cost scales badly.
+- Patch 16x16 -> 196 token, tiêu chuẩn.
+- Patch 32x32 -> 49 token, nhanh hơn nhưng độ phân giải thấp hơn.
+- Patch 8x8 -> 784 token, mịn hơn nhưng chi phí attention O(n^2) mở rộng kém.
 
-Bigger patches = fewer tokens = faster but less spatial detail. SwinV2 uses 4x4 patches in hierarchical windows.
+Patch lớn hơn = ít token hơn = nhanh hơn nhưng ít chi tiết không gian hơn. SwinV2 sử dụng patch 4x4 trong các cửa sổ phân cấp.
 
 ### DeiT's recipe for training ViT on ImageNet-1k
 
-The original ViT needed JFT-300M to beat CNNs. DeiT (Touvron et al., 2020) trained ViT-B to 81.8% top-1 on ImageNet-1k alone with four changes:
+ViT gốc cần JFT-300M để vượt CNN. DeiT (Touvron et al., 2020) huấn luyện ViT-B tới 81.8% top-1 chỉ trên ImageNet-1k với bốn thay đổi:
 
-1. Heavy augmentation: RandAugment, Mixup, CutMix, Random Erasing.
-2. Stochastic depth (drop entire blocks at random during training).
-3. Repeated augmentation (same image sampled 3 times per batch).
-4. Distillation from a CNN teacher (optional, lifts accuracy further).
+1. Tăng cường mạnh: RandAugment, Mixup, CutMix, Random Erasing.
+2. Độ sâu ngẫu nhiên (bỏ ngẫu nhiên toàn bộ các khối trong huấn luyện).
+3. Tăng cường lặp (cùng hình ảnh được lấy mẫu 3 lần mỗi batch).
+4. Chưng cất từ một CNN giáo viên (tùy chọn, nâng accuracy thêm).
 
-Every modern ViT training recipe descends from DeiT.
+Mọi công thức huấn luyện ViT hiện đại đều bắt nguồn từ DeiT.
 
 ### Swin vs ConvNeXt
 
-- **Swin** (Liu et al., 2021) — window-based attention. Each block attends within a local window; alternating blocks shift the window to mix information across windows. Brings back a CNN-like locality prior while keeping the attention operator.
-- **ConvNeXt** (Liu et al., 2022) — redesigned CNN that matches Swin's architecture choices (depthwise convs, LayerNorm, GELU, inverted bottleneck). Showed that the gap is not "attention vs convolution" but "modern training recipe + architecture."
+- **Swin** (Liu et al., 2021) — attention dựa trên cửa sổ. Mỗi khối attention trong một cửa sổ cục bộ; các khối xen kẽ dịch cửa sổ để trộn thông tin giữa cửa sổ. Đưa lại tiên nghiệm cục bộ kiểu CNN trong khi giữ toán tử attention.
+- **ConvNeXt** (Liu et al., 2022) — CNN thiết kế lại khớp các lựa chọn kiến trúc Swin (tích chập depthwise, LayerNorm, GELU, bottleneck đảo ngược). Cho thấy khoảng cách không phải "attention so với tích chập" mà là "công thức huấn luyện hiện đại + kiến trúc."
 
-In 2026, ConvNeXt-V2 and Swin-V2 are both production-grade; the right choice depends on your inference stack (ConvNeXt compiles better for edge) and pretraining corpus.
+Năm 2026, ConvNeXt-V2 và Swin-V2 đều đạt cấp production; lựa chọn đúng phụ thuộc bộ công cụ suy luận của bạn (ConvNeXt biên dịch tốt hơn cho biên) và ngữ liệu tiền huấn luyện.
 
 ### MAE pretraining
 
-Masked Autoencoder (He et al., 2022): mask 75% of patches at random, train the encoder to process only the visible 25%, train a small decoder to reconstruct the masked patches from the encoder's output. After pretraining, discard the decoder and fine-tune the encoder.
+Masked Autoencoder (He et al., 2022): che ngẫu nhiên 75% patch, huấn luyện encoder chỉ xử lý 25% nhìn thấy, huấn luyện một decoder nhỏ tái tạo các patch che từ đầu ra encoder. Sau tiền huấn luyện, bỏ decoder và tinh chỉnh encoder.
 
-MAE makes ViT trainable on ImageNet-1k alone, hits SOTA, and is the current default self-supervised recipe.
+MAE khiến ViT huấn luyện được chỉ trên ImageNet-1k, đạt SOTA và là công thức tự giám sát mặc định hiện tại.
 
 ```figure
 batchnorm-inference
@@ -150,11 +150,11 @@ class PatchEmbedding(nn.Module):
         return x.flatten(2).transpose(1, 2)
 ```
 
-One conv, one flatten, one transpose. That is the entire image-to-tokens step.
+Một tích chập, một phép làm phẳng, một chuyển vị. Đó là toàn bộ bước hình ảnh-sang-token.
 
 ### Step 2: Transformer block
 
-Pre-LN, multi-head self-attention, MLP with GELU, residual connections.
+Pre-LN, self-attention nhiều đầu, MLP với GELU, các kết nối phần dư.
 
 ```python
 class Block(nn.Module):
@@ -178,7 +178,7 @@ class Block(nn.Module):
         return x
 ```
 
-`nn.MultiheadAttention` handles the splitting into heads, the scaled dot-product, and the output projection. `batch_first=True` so shapes are `(N, seq, dim)`.
+`nn.MultiheadAttention` xử lý tách thành các đầu, tích vô hướng được co giãn và phép chiếu đầu ra. `batch_first=True` để các hình dạng là `(N, seq, dim)`.
 
 ### Step 3: The ViT
 
@@ -215,7 +215,7 @@ print(f"output: {vit(x).shape}")
 print(f"params: {sum(p.numel() for p in vit.parameters()):,}")
 ```
 
-About 2.8M parameters — a tiny ViT tractable on CPU. Real ViT-B is 86M; same class definition with `dim=768, depth=12, num_heads=12`.
+Khoảng 2.8M tham số — một ViT rất nhỏ xử lý được trên CPU. ViT-B thật là 86M; cùng định nghĩa lớp với `dim=768, depth=12, num_heads=12`.
 
 ### Step 4: Sanity check — single image inference
 
@@ -225,11 +225,11 @@ print(f"logits: {logits}")
 print(f"probs:  {logits.softmax(-1)}")
 ```
 
-Should run without error. Probabilities sum to 1.
+Nên chạy không lỗi. Các xác suất cộng thành 1.
 
 ## Use It
 
-`timm` ships every ViT variant with ImageNet pretrained weights. One line:
+`timm` cung cấp mọi biến thể ViT với trọng số được tiền huấn luyện ImageNet. Một dòng:
 
 ```python
 import timm
@@ -237,39 +237,39 @@ import timm
 model = timm.create_model("vit_base_patch16_224", pretrained=True, num_classes=10)
 ```
 
-`timm` is the production default for vision transformers in 2026. Supports ViT, DeiT, Swin, Swin-V2, ConvNeXt, ConvNeXt-V2, MaxViT, MViT, EfficientFormer, and dozens of others under the same API.
+`timm` là mặc định production cho vision transformer năm 2026. Hỗ trợ ViT, DeiT, Swin, Swin-V2, ConvNeXt, ConvNeXt-V2, MaxViT, MViT, EfficientFormer và hàng chục loại khác dưới cùng API.
 
-For multi-modal work (image + text), `transformers` ships CLIP, SigLIP, BLIP-2, LLaVA. The image encoder in all of those is a ViT variant.
+Cho công việc đa phương thức (hình ảnh + văn bản), `transformers` cung cấp CLIP, SigLIP, BLIP-2, LLaVA. Encoder hình ảnh trong tất cả chúng là một biến thể ViT.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-vit-vs-cnn-picker.md` — a prompt that picks between a ViT, a ConvNeXt, or a Swin based on dataset size, compute, and inference stack.
-- `outputs/skill-vit-patch-and-pos-embed-inspector.md` — a skill that verifies a ViT's patch embedding and positional embedding shapes match the model's expected sequence length, catching the most common porting bugs.
+- `outputs/prompt-vit-vs-cnn-picker.md` — một prompt chọn giữa ViT, ConvNeXt hoặc Swin dựa trên kích thước tập dữ liệu, tính toán và bộ công cụ suy luận.
+- `outputs/skill-vit-patch-and-pos-embed-inspector.md` — một skill xác minh hình dạng patch embedding và embedding vị trí của ViT khớp độ dài chuỗi mô hình kỳ vọng, phát hiện các lỗi chuyển đổi thường gặp nhất.
 
 ## Exercises
 
-1. **(Easy)** Print the shapes of every intermediate tensor for a forward pass through the tiny ViT above. Confirm: input `(N, 3, 64, 64)` -> patches `(N, 16, 192)` -> with CLS `(N, 17, 192)` -> classifier input `(N, 192)` -> output `(N, num_classes)`.
-2. **(Medium)** Fine-tune a pretrained `timm` ViT-S/16 on the synthetic-CIFAR dataset from Lesson 4. Compare against ResNet-18 fine-tuning on the same data. Report training time and final accuracy.
-3. **(Hard)** Implement MAE pretraining for the tiny ViT: mask 75% of patches, train the encoder + a small decoder to reconstruct the masked patches. Evaluate linear-probe accuracy on the synthetic data before and after pretraining.
+1. **(Dễ)** In hình dạng mọi tensor trung gian cho một lượt truyền xuôi qua ViT nhỏ trên. Xác nhận: đầu vào `(N, 3, 64, 64)` -> patch `(N, 16, 192)` -> với CLS `(N, 17, 192)` -> đầu vào bộ phân loại `(N, 192)` -> đầu ra `(N, num_classes)`.
+2. **(Vừa)** Tinh chỉnh một ViT-S/16 `timm` được tiền huấn luyện trên tập dữ liệu CIFAR tổng hợp từ Bài 4. So sánh với tinh chỉnh ResNet-18 trên cùng dữ liệu. Báo cáo thời gian huấn luyện và accuracy cuối.
+3. **(Khó)** Triển khai tiền huấn luyện MAE cho ViT nhỏ: che 75% patch, huấn luyện encoder + một decoder nhỏ để tái tạo các patch che. Đánh giá accuracy linear-probe trên dữ liệu tổng hợp trước và sau tiền huấn luyện.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Patch embedding | "The first conv" | A conv with kernel size = stride = patch size; turns the image into a grid of token embeddings |
-| Class token | "[CLS]" | A learned vector prepended to the token sequence; its final output is the global image representation |
-| Positional embedding | "Learned pos" | A learned vector added to every token so the transformer knows where each patch came from |
-| Pre-LN | "LayerNorm before sublayer" | The stable transformer variant: `x + sublayer(LN(x))` instead of `LN(x + sublayer(x))` |
-| Multi-head attention | "Parallel attention" | Standard transformer attention split into num_heads independent subspaces, concatenated afterwards |
-| ViT-B/16 | "Base, patch 16" | The canonical size: dim=768, depth=12, heads=12, patch_size=16, image=224; ~86M params |
-| DeiT | "Data-efficient ViT" | ViT trained on ImageNet-1k alone with strong augmentation; proved large pretraining datasets are not strictly required |
-| MAE | "Masked autoencoder" | Self-supervised pretraining: mask 75% of patches, reconstruct; the dominant ViT pretraining recipe |
+| Patch embedding | "Tích chập đầu" | Một tích chập có kích thước kernel = stride = kích thước patch; biến hình ảnh thành lưới embedding token |
+| Class token (Token lớp) | "[CLS]" | Một vector được học thêm vào đầu chuỗi token; đầu ra cuối của nó là biểu diễn hình ảnh toàn cục |
+| Positional embedding (Embedding vị trí) | "Vị trí được học" | Một vector được học cộng vào mọi token để transformer biết mỗi patch đến từ đâu |
+| Pre-LN | "LayerNorm trước lớp con" | Biến thể transformer ổn định: `x + sublayer(LN(x))` thay vì `LN(x + sublayer(x))` |
+| Multi-head attention (Attention nhiều đầu) | "Attention song song" | Attention transformer tiêu chuẩn chia thành num_heads không gian con độc lập, sau đó nối lại |
+| ViT-B/16 | "Base, patch 16" | Kích thước chuẩn: dim=768, depth=12, heads=12, patch_size=16, image=224; ~86M tham số |
+| DeiT | "ViT hiệu quả dữ liệu" | ViT huấn luyện chỉ trên ImageNet-1k với tăng cường mạnh; chứng minh các tập dữ liệu tiền huấn luyện lớn không bắt buộc tuyệt đối |
+| MAE | "Autoencoder có mặt nạ" | Tiền huấn luyện tự giám sát: che 75% patch, tái tạo; công thức tiền huấn luyện ViT chiếm ưu thế |
 
 ## Further Reading
 
-- [An Image is Worth 16x16 Words (Dosovitskiy et al., 2020)](https://arxiv.org/abs/2010.11929) — the ViT paper
-- [DeiT: Data-efficient Image Transformers (Touvron et al., 2020)](https://arxiv.org/abs/2012.12877) — how to train ViT on ImageNet-1k alone
-- [Masked Autoencoders are Scalable Vision Learners (He et al., 2022)](https://arxiv.org/abs/2111.06377) — MAE pretraining
-- [timm documentation](https://huggingface.co/docs/timm) — the reference for every vision transformer you will use in production
+- [An Image is Worth 16x16 Words (Dosovitskiy et al., 2020)](https://arxiv.org/abs/2010.11929) — bài báo ViT
+- [DeiT: Data-efficient Image Transformers (Touvron et al., 2020)](https://arxiv.org/abs/2012.12877) — cách huấn luyện ViT chỉ trên ImageNet-1k
+- [Masked Autoencoders are Scalable Vision Learners (He et al., 2022)](https://arxiv.org/abs/2111.06377) — tiền huấn luyện MAE
+- [timm documentation](https://huggingface.co/docs/timm) — tài liệu tham khảo cho mọi vision transformer bạn sẽ sử dụng trong production

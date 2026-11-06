@@ -9,28 +9,28 @@ tags: [vision-transformer, debugging, pytorch]
 
 # ViT Patch and Positional Embedding Inspector
 
-The most common ViT porting bug: loading a checkpoint pretrained at 224x224 into a model configured for 384x384 (or vice versa). The positional embedding has the wrong sequence length and the model silently produces garbage.
+Lỗi chuyển đổi ViT thường gặp nhất: tải một checkpoint được tiền huấn luyện ở 224x224 vào mô hình cấu hình cho 384x384 (hoặc ngược lại). Embedding vị trí có độ dài chuỗi sai và mô hình âm thầm tạo rác.
 
 ## When to use
 
-- Fine-tuning a pretrained ViT at a non-default resolution.
-- Auditing why a weight port between ViT-B/16 and ViT-B/32 fails; the inspector will flag the patch-size mismatch so the caller knows to swap architectures rather than force a port.
-- Debugging a ViT that loads without error but trains poorly.
+- Tinh chỉnh một ViT được tiền huấn luyện tại độ phân giải không mặc định.
+- Kiểm tra tại sao chuyển trọng số giữa ViT-B/16 và ViT-B/32 thất bại; bộ kiểm tra đánh dấu kích thước patch không khớp để bên gọi biết đổi kiến trúc thay vì ép chuyển.
+- Gỡ lỗi một ViT tải không lỗi nhưng huấn luyện kém.
 
 ## Inputs
 
-- `model`: an instantiated ViT `nn.Module`.
-- `expected_image_size`: H x W the model will see in production.
-- `patch_size`: expected patch size.
+- `model`: một `nn.Module` ViT đã khởi tạo.
+- `expected_image_size`: H x W mô hình sẽ thấy trong production.
+- `patch_size`: kích thước patch kỳ vọng.
 
 ## Steps
 
-1. Locate the patch embedding conv inside the model. Report its `kernel_size`, `stride`, `in_channels`, `out_channels`.
-2. Compute the expected number of patches. For a square image: `(image_size / patch_size)^2`. For a rectangle: `(H / patch_size) * (W / patch_size)`. Require `H % patch_size == 0` and `W % patch_size == 0`; otherwise flag and refuse.
-3. Locate the learned positional embedding. Report its shape `(1, N, dim)`.
-4. Compare `N` against `num_patches + 1` (with CLS) or `num_patches` (without CLS). Mismatch means the checkpoint was pretrained at a different resolution or patch size.
-5. Check that `out_channels` of the patch conv equals `dim` of the positional embedding.
-6. If the model is supposed to interpolate positional embeddings for new resolutions, verify the interpolation utility exists (most `timm` ViTs do this automatically via `resize_pos_embed`).
+1. Định vị tích chập patch embedding trong mô hình. Báo cáo `kernel_size`, `stride`, `in_channels`, `out_channels` của nó.
+2. Tính số patch kỳ vọng. Với hình vuông: `(image_size / patch_size)^2`. Với hình chữ nhật: `(H / patch_size) * (W / patch_size)`. Yêu cầu `H % patch_size == 0` và `W % patch_size == 0`; nếu không đánh dấu và từ chối.
+3. Định vị embedding vị trí được học. Báo cáo hình dạng `(1, N, dim)`.
+4. So sánh `N` với `num_patches + 1` (có CLS) hoặc `num_patches` (không CLS). Không khớp nghĩa là checkpoint được tiền huấn luyện tại độ phân giải hoặc kích thước patch khác.
+5. Kiểm tra `out_channels` của tích chập patch bằng `dim` của embedding vị trí.
+6. Nếu mô hình được cho là nội suy các embedding vị trí cho các độ phân giải mới, xác minh tiện ích nội suy tồn tại (hầu hết ViT `timm` tự động làm qua `resize_pos_embed`).
 
 ## Report
 
@@ -52,6 +52,6 @@ The most common ViT porting bug: loading a checkpoint pretrained at 224x224 into
 
 ## Rules
 
-- Never silently interpolate without warning; surface the action so the user knows the pretrained positional structure may have shifted.
-- If patch_size mismatches, refuse to recommend interpolation — swap to the correct architecture.
-- Do not try to fix the model in place; report and suggest.
+- Không bao giờ âm thầm nội suy mà không cảnh báo; làm rõ hành động để người dùng biết cấu trúc vị trí được tiền huấn luyện có thể đã dịch chuyển.
+- Nếu patch_size không khớp, từ chối khuyến nghị nội suy — đổi sang kiến trúc đúng.
+- Không cố sửa mô hình tại chỗ; báo cáo và đề xuất.
