@@ -1,6 +1,6 @@
 # The Multi-Agent Primitive Model
 
-> Four primitives, nothing more — the agent, the handoff, the shared state, the orchestrator — span a four-dimensional design space, and the major multi-agent frameworks shipping in 2026 (AutoGen, LangGraph, CrewAI, OpenAI Agents SDK, Microsoft Agent Framework) are points in it. This lesson builds them from zero, runs a toy system on all four, then maps every major framework onto the same axes so you can read any new release in one paragraph.
+> Bốn nguyên thủy, không hơn — agent, bàn giao, trạng thái dùng chung, bộ điều phối — trải thành một không gian thiết kế bốn chiều, và các framework đa agent lớn được phát hành trong năm 2026 (AutoGen, LangGraph, CrewAI, OpenAI Agents SDK, Microsoft Agent Framework) là các điểm trong đó. Bài này xây dựng chúng từ số không, chạy một hệ thống đồ chơi trên cả bốn, rồi ánh xạ mọi framework lớn lên cùng các trục để bạn có thể đọc bất kỳ bản phát hành mới nào trong một đoạn.
 
 **Type:** Learn
 **Languages:** Python (stdlib)
@@ -9,51 +9,51 @@
 
 ## Problem
 
-Every six months a new multi-agent framework ships. AutoGen in 2023. CrewAI in 2024. LangGraph and OpenAI Swarm in 2024. Google ADK in April 2025. Microsoft Agent Framework RC in February 2026. Each press release claims to be "the right abstraction."
+Cứ sáu tháng một framework đa agent mới được phát hành. AutoGen năm 2023. CrewAI năm 2024. LangGraph và OpenAI Swarm năm 2024. Google ADK tháng 4 năm 2025. Microsoft Agent Framework RC tháng 2 năm 2026. Mỗi thông cáo báo chí tuyên bố là “sự trừu tượng hóa đúng.”
 
-If you try to learn them one at a time you will burn out. The APIs look different. The docs disagree about what an "agent" is. One framework calls its shared memory a "blackboard," another calls it a "message pool," a third calls it a "StateGraph." You start suspecting the field is just churning.
+Nếu bạn cố học từng framework một bạn sẽ kiệt sức. Các API trông khác nhau. Các tài liệu bất đồng về “agent” là gì. Một framework gọi bộ nhớ dùng chung là “bảng đen”, một framework khác gọi là “bể thông điệp”, framework thứ ba gọi là “StateGraph.” Bạn bắt đầu nghi ngờ lĩnh vực chỉ đang xáo trộn.
 
-It is not. Underneath the marketing, the four primitives are stable. Learn them once, read every new framework in one paragraph.
+Không phải vậy. Bên dưới tiếp thị, bốn nguyên thủy ổn định. Học chúng một lần, đọc mọi framework mới trong một đoạn.
 
 ## Concept
 
 ### The four primitives
 
-1. **Agent** — a system prompt plus a tool list. Stateless; every run starts from its system prompt and the current message history.
-2. **Handoff** — a structured transfer of control from one agent to another. Mechanically, a tool call that returns a new agent or a graph edge that follows a condition.
-3. **Shared state** — any data structure that more than one agent can read (sometimes write). Message pool, blackboard, key-value store, vector memory.
-4. **Orchestrator** — whoever decides who speaks next. Options: an explicit graph (deterministic), an LLM speaker-selector (soft), the last speaker's handoff call (OpenAI Swarm), or a scheduler over a queue (swarm architecture).
+1. **Agent** — một prompt hệ thống cộng với một danh sách công cụ. Không trạng thái; mỗi lần chạy bắt đầu từ prompt hệ thống và lịch sử thông điệp hiện tại.
+2. **Bàn giao** — một lần chuyển quyền điều khiển có cấu trúc từ agent này sang agent khác. Về cơ học, một lệnh gọi công cụ trả về một agent mới hoặc một cạnh đồ thị đi theo một điều kiện.
+3. **Trạng thái dùng chung** — bất kỳ cấu trúc dữ liệu nào mà nhiều hơn một agent có thể đọc (đôi khi ghi). Bể thông điệp, bảng đen, kho khóa-giá trị, bộ nhớ vector.
+4. **Bộ điều phối** — bên quyết định ai nói tiếp theo. Các lựa chọn: một đồ thị tường minh (xác định), một bộ chọn người nói LLM (mềm), lệnh gọi bàn giao của người nói cuối cùng (OpenAI Swarm), hoặc một bộ lập lịch trên một hàng đợi (kiến trúc bầy đàn).
 
-That is the entire design space. Every framework picks defaults for each axis; the rest is surface syntax.
+Đó là toàn bộ không gian thiết kế. Mỗi framework chọn các mặc định cho mỗi trục; phần còn lại là cú pháp bề mặt.
 
 ### How every 2026 framework maps to it
 
-| Framework | Agent | Handoff | Shared state | Orchestrator |
+| Framework | Agent | Bàn giao | Trạng thái dùng chung | Bộ điều phối |
 |-----------|-------|---------|--------------|--------------|
-| OpenAI Swarm / Agents SDK | `Agent(instructions, tools)` | tool returns Agent | caller's problem | the LLM's next handoff call |
-| AutoGen v0.4 / AG2 | `ConversableAgent` | speaker-selector on GroupChat | message pool | selector function (LLM or round-robin) |
-| CrewAI | `Agent(role, goal, backstory)` | `Process.Sequential / Hierarchical` | Task outputs chained | manager LLM or static order |
-| LangGraph | node function | graph edge + condition | `StateGraph` reducer | the graph, deterministic |
-| Microsoft Agent Framework | agent + orchestration patterns | pattern-specific | thread / context | pattern-specific |
-| Google ADK | agent + A2A card | A2A task | A2A artifacts | host decides |
+| OpenAI Swarm / Agents SDK | `Agent(instructions, tools)` | công cụ trả về Agent | vấn đề của bên gọi | lệnh gọi bàn giao tiếp theo của LLM |
+| AutoGen v0.4 / AG2 | `ConversableAgent` | bộ chọn người nói trên GroupChat | bể thông điệp | hàm chọn (LLM hoặc luân phiên) |
+| CrewAI | `Agent(role, goal, backstory)` | `Process.Sequential / Hierarchical` | Các đầu ra Task được nối chuỗi | LLM quản lý hoặc thứ tự tĩnh |
+| LangGraph | hàm node | cạnh đồ thị + điều kiện | reducer `StateGraph` | đồ thị, xác định |
+| Microsoft Agent Framework | agent + các mẫu điều phối | riêng theo mẫu | luồng / ngữ cảnh | riêng theo mẫu |
+| Google ADK | agent + card A2A | tác vụ A2A | các hiện vật A2A | máy chủ quyết định |
 
-Surface differences look huge. Underneath: same four knobs.
+Các khác biệt bề mặt trông khổng lồ. Bên dưới: cùng bốn núm điều chỉnh.
 
 ### Why this matters
 
-Once you see the primitives, framework comparison becomes a short checklist:
+Một khi bạn thấy các nguyên thủy, so sánh framework trở thành một danh sách kiểm tra ngắn:
 
-- Does the orchestrator trust the LLM to route (Swarm) or does it pin routing in code (LangGraph)?
-- Is shared state full-history (GroupChat) or projected (StateGraph reducer)?
-- Can agents modify each other's prompts (CrewAI manager) or only hand off (Swarm)?
+- Bộ điều phối tin LLM để định tuyến (Swarm) hay ghim định tuyến trong mã (LangGraph)?
+- Trạng thái dùng chung là toàn bộ lịch sử (GroupChat) hay được chiếu (reducer StateGraph)?
+- Các agent có thể sửa prompt của nhau (bộ quản lý CrewAI) hay chỉ bàn giao (Swarm)?
 
-Those three questions answer 80% of which framework fits a given problem. You stop shopping for "the best multi-agent framework" and start designing for the axis you actually care about.
+Ba câu hỏi đó trả lời 80% việc framework nào phù hợp với một vấn đề nhất định. Bạn ngừng tìm mua “framework đa agent tốt nhất” và bắt đầu thiết kế cho trục bạn thực sự quan tâm.
 
 ### The stateless insight
 
-Every primitive except shared state is stateless. Agent is a function of (prompt, tools). Handoff is a function call. Orchestrator is a scheduler. **The only stateful thing in the system is shared state.** That is where all the interesting bugs live: memory poisoning (Lesson 15), message ordering, versioning, write contention.
+Mọi nguyên thủy ngoại trừ trạng thái dùng chung đều không trạng thái. Agent là một hàm của (prompt, công cụ). Bàn giao là một lệnh gọi hàm. Bộ điều phối là một bộ lập lịch. **Thứ duy nhất có trạng thái trong hệ thống là trạng thái dùng chung.** Đó là nơi mọi lỗi thú vị nằm: đầu độc bộ nhớ (Bài 15), thứ tự thông điệp, quản lý phiên bản, tranh chấp ghi.
 
-Frameworks that hide shared state (Swarm) push the problem to the caller. Frameworks that centralize it (LangGraph checkpoint, AutoGen pool) make it inspectable but shift coordination cost onto the shared-state implementation.
+Các framework ẩn trạng thái dùng chung (Swarm) đẩy vấn đề sang bên gọi. Các framework tập trung hóa nó (checkpoint LangGraph, bể AutoGen) làm nó có thể kiểm tra nhưng chuyển chi phí phối hợp lên triển khai trạng thái dùng chung.
 
 ### Anatomy of a single primitive
 
@@ -63,7 +63,7 @@ Frameworks that hide shared state (Swarm) push the problem to the caller. Framew
 Agent = (system_prompt, tools, model, optional_name)
 ```
 
-No memory. No state. Two agents with the same system prompt and tools are interchangeable. Everything that looks like per-agent state is actually in shared state or the handoff protocol.
+Không bộ nhớ. Không trạng thái. Hai agent có cùng prompt hệ thống và công cụ có thể thay thế cho nhau. Mọi thứ trông như trạng thái theo từng agent thực ra nằm trong trạng thái dùng chung hoặc giao thức bàn giao.
 
 #### Handoff
 
@@ -71,11 +71,11 @@ No memory. No state. Two agents with the same system prompt and tools are interc
 Handoff = (from_agent, to_agent, reason, payload)
 ```
 
-Three implementations dominate:
+Ba triển khai chiếm ưu thế:
 
-- **Function return** — the tool returns the next agent. This is the OpenAI Swarm pattern. Agents carry routing in their tool schemas.
-- **Graph edge** — LangGraph. Edges are declarative. The LLM produces a value; a condition selects the next node.
-- **Speaker selection** — AutoGen GroupChat. A selector function (sometimes itself an LLM call) reads the pool and picks who speaks next.
+- **Giá trị trả về của hàm** — công cụ trả về agent tiếp theo. Đây là mẫu OpenAI Swarm. Các agent mang định tuyến trong lược đồ công cụ.
+- **Cạnh đồ thị** — LangGraph. Các cạnh mang tính khai báo. LLM tạo ra một giá trị; một điều kiện chọn node tiếp theo.
+- **Lựa chọn người nói** — AutoGen GroupChat. Một hàm chọn (đôi khi tự nó là một lệnh gọi LLM) đọc bể và chọn ai nói tiếp theo.
 
 #### Shared state
 
@@ -83,9 +83,9 @@ Three implementations dominate:
 SharedState = { messages: [], artifacts: {}, context: {} }
 ```
 
-At minimum, a list of messages. Often more: structured artifacts (CrewAI Task outputs), typed context (LangGraph reducers), external memory (MCP, vector DB).
+Tối thiểu, một danh sách thông điệp. Thường nhiều hơn: các hiện vật có cấu trúc (đầu ra Task CrewAI), ngữ cảnh có kiểu (các reducer LangGraph), bộ nhớ bên ngoài (MCP, DB vector).
 
-Two topologies: **full pool** (every agent sees every message) and **projected** (agents see a role-scoped view). Full pools are simple and scale badly. Projected pools scale but require upfront schema design.
+Hai cấu trúc liên kết: **bể đầy đủ** (mọi agent thấy mọi thông điệp) và **được chiếu** (các agent thấy một góc nhìn giới hạn theo vai trò). Các bể đầy đủ đơn giản và mở rộng kém. Các bể được chiếu mở rộng nhưng yêu cầu thiết kế lược đồ từ trước.
 
 #### Orchestrator
 
@@ -93,23 +93,23 @@ Two topologies: **full pool** (every agent sees every message) and **projected**
 Orchestrator = ({state, last_speaker}) -> next_agent
 ```
 
-Four flavors:
+Bốn biến thể:
 
-- **Static** — the graph is fixed at build time (LangGraph deterministic, CrewAI Sequential).
-- **LLM-selected** — an LLM reads the pool and picks the next speaker (AutoGen, CrewAI Hierarchical).
-- **Handoff-driven** — the current agent decides by calling a handoff tool (Swarm).
-- **Queue-driven** — workers pull from a shared queue; no explicit next-speaker (swarm architectures, Matrix).
+- **Tĩnh** — đồ thị được cố định tại thời điểm xây dựng (LangGraph xác định, CrewAI Sequential).
+- **LLM lựa chọn** — một LLM đọc bể và chọn người nói tiếp theo (AutoGen, CrewAI Hierarchical).
+- **Bàn giao điều khiển** — agent hiện tại quyết định bằng cách gọi một công cụ bàn giao (Swarm).
+- **Hàng đợi điều khiển** — các worker kéo từ một hàng đợi dùng chung; không có người nói tiếp theo tường minh (các kiến trúc bầy đàn, Matrix).
 
 ### What changes between frameworks
 
-Once the primitives are fixed, the remaining design decisions are:
+Một khi các nguyên thủy được cố định, các quyết định thiết kế còn lại là:
 
-- **Memory strategy** — ephemeral vs durable checkpointing (LangGraph checkpointer).
-- **Safety boundary** — who can approve a handoff (human-in-the-loop).
-- **Cost accounting** — per-agent token budgets.
-- **Observability** — tracing handoffs, persisting state for replay.
+- **Chiến lược bộ nhớ** — tạm thời so với tạo checkpoint bền vững (bộ tạo checkpoint LangGraph).
+- **Ranh giới an toàn** — ai có thể phê duyệt một bàn giao (con người trong vòng lặp).
+- **Hạch toán chi phí** — ngân sách token theo từng agent.
+- **Khả năng quan sát** — truy vết các bàn giao, lưu bền vững trạng thái để phát lại.
 
-All implementable on top of the primitives. None of them are new primitives.
+Tất cả có thể triển khai trên các nguyên thủy. Không cái nào là nguyên thủy mới.
 
 ```figure
 a5-primitive-radar
@@ -117,60 +117,60 @@ a5-primitive-radar
 
 ## Build It
 
-`code/main.py` implements the four primitives in ~150 lines of stdlib Python. No real LLM — each agent is a scripted policy so the focus stays on the coordination structure.
+`code/main.py` triển khai bốn nguyên thủy trong ~150 dòng thư viện chuẩn Python. Không có LLM thực — mỗi agent là một chính sách được viết kịch bản để sự tập trung ở lại cấu trúc phối hợp.
 
-The file exports:
+File xuất:
 
-- `Agent` — a dataclass of name, system prompt, tools, policy function.
-- `Handoff` — a function that returns a new agent.
-- `SharedState` — a thread-safe message pool.
-- `Orchestrator` — three variants: `StaticOrchestrator`, `HandoffOrchestrator`, `LLMSelectorOrchestrator` (simulated).
+- `Agent` — một dataclass gồm tên, prompt hệ thống, công cụ, hàm chính sách.
+- `Handoff` — một hàm trả về một agent mới.
+- `SharedState` — một bể thông điệp an toàn luồng.
+- `Orchestrator` — ba biến thể: `StaticOrchestrator`, `HandoffOrchestrator`, `LLMSelectorOrchestrator` (mô phỏng).
 
-The demo runs the same three-agent pipeline (research → write → review) through all three orchestrator types and prints the message pool at the end. You can see that the outputs differ only in *who picks next*; the agents and shared state are identical across runs.
+Demo chạy cùng pipeline ba agent (nghiên cứu → viết → xem xét) qua cả ba loại bộ điều phối và in bể thông điệp khi kết thúc. Bạn có thể thấy các đầu ra chỉ khác nhau ở *ai chọn tiếp theo*; các agent và trạng thái dùng chung giống hệt qua các lần chạy.
 
-Run it:
+Chạy nó:
 
 ```
 python3 code/main.py
 ```
 
-Expected output: three orchestrator runs, one per pattern. Each prints the final message pool. The handoff-driven run reaches fewer agents if the researcher decides it is done early — that is the LLM-routing tradeoff in miniature.
+Đầu ra kỳ vọng: ba lần chạy bộ điều phối, một lần cho mỗi mẫu. Mỗi lần in bể thông điệp cuối cùng. Lần chạy do bàn giao điều khiển tới ít agent hơn nếu nhà nghiên cứu quyết định nó xong sớm — đó là đánh đổi định tuyến LLM ở dạng thu nhỏ.
 
 ## Use It
 
-`outputs/skill-primitive-mapper.md` is a skill that reads any multi-agent codebase or framework doc and returns the four-primitive mapping. Run it on a new framework release to get a one-paragraph understanding before reading docs in depth.
+`outputs/skill-primitive-mapper.md` là một skill đọc bất kỳ cơ sở mã đa agent hoặc tài liệu framework nào và trả về ánh xạ bốn nguyên thủy. Chạy nó trên một bản phát hành framework mới để có hiểu biết một đoạn trước khi đọc sâu tài liệu.
 
 ## Ship It
 
-Before adopting a new framework, write the primitive mapping for it. If you cannot, the docs are incomplete or the framework is inventing a fifth primitive (rare — check for a shared-state flavor you have not seen).
+Trước khi áp dụng một framework mới, viết ánh xạ nguyên thủy cho nó. Nếu bạn không thể, tài liệu không đầy đủ hoặc framework đang phát minh một nguyên thủy thứ năm (hiếm — kiểm tra một biến thể trạng thái dùng chung bạn chưa thấy).
 
-Pin the mapping in your architecture doc. When a new team member joins, send them the mapping before the API docs. When framework versions change, diff the mapping, not the changelog.
+Ghim ánh xạ trong tài liệu kiến trúc. Khi một thành viên nhóm mới tham gia, gửi họ ánh xạ trước tài liệu API. Khi các phiên bản framework thay đổi, so sánh khác biệt ánh xạ, không phải nhật ký thay đổi.
 
 ## Exercises
 
-1. Run `code/main.py` three times with different agent policies. Observe how the orchestrator choice changes which agents run.
-2. Implement a fourth orchestrator type: a queue-driven one where agents poll shared state for work. What deadlock can happen, and how do you detect it?
-3. Take the LangGraph quickstart (https://docs.langchain.com/oss/python/langgraph/workflows-agents) and rewrite it as the four primitives. Which of LangGraph's abstractions map 1:1 and which are convenience wrappers?
-4. Read the OpenAI Swarm cookbook (https://developers.openai.com/cookbook/examples/orchestrating_agents). Identify which of the four primitives Swarm makes most ergonomic, and which one it pushes to the caller.
-5. Find one framework in this table that hides shared state entirely. Explain what breaks when agents need to coordinate across handoffs without re-reading history.
+1. Chạy `code/main.py` ba lần với các chính sách agent khác nhau. Quan sát cách lựa chọn bộ điều phối thay đổi những agent nào chạy.
+2. Triển khai một loại bộ điều phối thứ tư: một loại do hàng đợi điều khiển nơi các agent thăm dò trạng thái dùng chung để lấy công việc. Bế tắc nào có thể xảy ra, và bạn phát hiện nó như thế nào?
+3. Lấy hướng dẫn bắt đầu nhanh LangGraph (https://docs.langchain.com/oss/python/langgraph/workflows-agents) và viết lại nó như bốn nguyên thủy. Những trừu tượng hóa nào của LangGraph ánh xạ 1:1 và những cái nào là lớp bọc tiện lợi?
+4. Đọc cookbook OpenAI Swarm (https://developers.openai.com/cookbook/examples/orchestrating_agents). Xác định nguyên thủy nào trong bốn nguyên thủy Swarm làm thuận tiện nhất, và nguyên thủy nào nó đẩy sang bên gọi.
+5. Tìm một framework trong bảng này ẩn hoàn toàn trạng thái dùng chung. Giải thích những gì hỏng khi các agent cần phối hợp qua các bàn giao mà không đọc lại lịch sử.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Agent | "An LLM with tools" | A `(system_prompt, tools, model)` triple. Stateless. |
-| Handoff | "Transfer of control" | A structured call that names the next agent and optional payload. Three implementations: function return, graph edge, speaker selection. |
-| Shared state | "Memory" / "context" | The only stateful part of a multi-agent system. Message pool or blackboard. |
-| Orchestrator | "Coordinator" | Whoever decides who runs next. Static graph, LLM selector, handoff-driven, or queue-driven. |
-| Primitive | "Abstraction" | One of the four axes every framework parameterizes. Not a framework feature. |
-| Message pool | "Shared chat history" | Full-history shared state. Easy to reason about, scales badly. |
-| Projected state | "Scoped view" | Role-specific view into shared state. Scales, requires schema design. |
-| Speaker selection | "Who talks next" | Orchestrator pattern where a function (often an LLM) picks the next agent from a group. |
+| Agent | “Một LLM có công cụ” | Một bộ ba `(system_prompt, tools, model)`. Không trạng thái. |
+| Handoff (Bàn giao) | “Chuyển quyền điều khiển” | Một lệnh gọi có cấu trúc nêu tên agent tiếp theo và payload tùy chọn. Ba triển khai: giá trị trả về của hàm, cạnh đồ thị, lựa chọn người nói. |
+| Shared state (Trạng thái dùng chung) | “Bộ nhớ” / “ngữ cảnh” | Phần có trạng thái duy nhất của một hệ thống đa agent. Bể thông điệp hoặc bảng đen. |
+| Orchestrator (Bộ điều phối) | “Bộ phối hợp” | Bên quyết định ai chạy tiếp theo. Đồ thị tĩnh, bộ chọn LLM, do bàn giao điều khiển, hoặc do hàng đợi điều khiển. |
+| Primitive (Nguyên thủy) | “Trừu tượng hóa” | Một trong bốn trục mà mọi framework tham số hóa. Không phải một tính năng framework. |
+| Message pool (Bể thông điệp) | “Lịch sử trò chuyện dùng chung” | Trạng thái dùng chung toàn bộ lịch sử. Dễ suy luận, mở rộng kém. |
+| Projected state (Trạng thái được chiếu) | “Góc nhìn có phạm vi giới hạn” | Góc nhìn riêng theo vai trò vào trạng thái dùng chung. Mở rộng, yêu cầu thiết kế lược đồ. |
+| Speaker selection (Lựa chọn người nói) | “Ai nói tiếp theo” | Mẫu bộ điều phối nơi một hàm (thường là một LLM) chọn agent tiếp theo từ một nhóm. |
 
 ## Further Reading
 
-- [OpenAI cookbook: Orchestrating Agents — Routines and Handoffs](https://developers.openai.com/cookbook/examples/orchestrating_agents) — the clearest articulation of handoff-driven orchestration
-- [AutoGen stable docs](https://microsoft.github.io/autogen/stable/) — GroupChat + speaker selection is the reference for LLM-selected orchestration
-- [LangGraph workflows and agents](https://docs.langchain.com/oss/python/langgraph/workflows-agents) — graph-edge orchestration and reducer-based shared state
-- [CrewAI introduction](https://docs.crewai.com/en/introduction) — role-goal-backstory agents, Sequential / Hierarchical processes
-- [AG2 (community AutoGen continuation)](https://github.com/ag2ai/ag2) — the live AutoGen v0.2 line after Microsoft moved v0.4 into maintenance
+- [OpenAI cookbook: Orchestrating Agents — Routines and Handoffs](https://developers.openai.com/cookbook/examples/orchestrating_agents) — diễn đạt rõ ràng nhất về điều phối do bàn giao điều khiển
+- [AutoGen stable docs](https://microsoft.github.io/autogen/stable/) — GroupChat + lựa chọn người nói là tham chiếu cho điều phối do LLM lựa chọn
+- [LangGraph workflows and agents](https://docs.langchain.com/oss/python/langgraph/workflows-agents) — điều phối cạnh đồ thị và trạng thái dùng chung dựa trên reducer
+- [CrewAI introduction](https://docs.crewai.com/en/introduction) — các agent vai trò-mục tiêu-câu chuyện nền, các quy trình Sequential / Hierarchical
+- [AG2 (community AutoGen continuation)](https://github.com/ag2ai/ag2) — dòng AutoGen v0.2 đang hoạt động sau khi Microsoft chuyển v0.4 sang bảo trì

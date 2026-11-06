@@ -7,26 +7,26 @@ lesson: 04
 tags: [multi-agent, primitives, framework-comparison, architecture]
 ---
 
-Given a multi-agent framework (or a codebase that uses one), produce the four-primitive mapping so the reader can understand the framework in one paragraph.
+Với một framework đa agent (hoặc một cơ sở mã sử dụng nó), tạo ánh xạ bốn nguyên thủy để người đọc có thể hiểu framework trong một đoạn.
 
-Produce:
+Tạo ra:
 
-1. **Agent definition.** How is an agent constructed? What parameters? What state does it carry? Name the exact class or factory.
-2. **Handoff mechanism.** Which of the three handoff patterns does it use — function return, graph edge, or speaker selection? If a hybrid, which is primary? Show the minimum code that triggers one handoff.
-3. **Shared state model.** Full message pool or projected view? In-memory or durable (checkpointed)? Is it thread-safe for concurrent writers? Who reconciles conflicts?
-4. **Orchestrator type.** Static, LLM-selected, handoff-driven, or queue-driven? If LLM-selected, which model by default? If static, is the graph cyclic or DAG?
-5. **Cross-axis tradeoffs.** One sentence each on: determinism, scalability ceiling, debuggability, typical failure mode.
+1. **Định nghĩa agent.** Một agent được xây dựng như thế nào? Những tham số nào? Nó mang trạng thái gì? Nêu lớp hoặc factory chính xác.
+2. **Cơ chế bàn giao.** Nó sử dụng mẫu bàn giao nào trong ba mẫu — giá trị trả về của hàm, cạnh đồ thị, hoặc lựa chọn người nói? Nếu lai, mẫu nào là chính? Cho thấy mã tối thiểu kích hoạt một bàn giao.
+3. **Mô hình trạng thái dùng chung.** Bể thông điệp đầy đủ hay góc nhìn được chiếu? Trong bộ nhớ hay bền vững (có checkpoint)? Nó có an toàn luồng cho các bên ghi đồng thời không? Ai hòa giải các xung đột?
+4. **Loại bộ điều phối.** Tĩnh, do LLM lựa chọn, do bàn giao điều khiển, hoặc do hàng đợi điều khiển? Nếu do LLM lựa chọn, mô hình nào theo mặc định? Nếu tĩnh, đồ thị có chu trình hay DAG?
+5. **Các đánh đổi xuyên trục.** Mỗi ý một câu về: tính xác định, mức trần khả năng mở rộng, khả năng gỡ lỗi, chế độ lỗi điển hình.
 
-Hard rejects:
+Các trường hợp loại bỏ dứt khoát:
 
-- Any mapping that claims an abstraction is "new" without showing it does not collapse to one of the four primitives. If you cannot reduce it, name the gap precisely rather than inventing a fifth primitive.
-- Framework comparisons that only cite marketing docs. Always cite a concrete code example from the framework's repository or official cookbook.
-- Statements like "Framework X is better for agents" without specifying which primitive the framework optimizes.
+- Bất kỳ ánh xạ nào tuyên bố một trừu tượng hóa là “mới” mà không cho thấy nó không quy về một trong bốn nguyên thủy. Nếu bạn không thể quy giản nó, nêu khoảng trống chính xác thay vì phát minh một nguyên thủy thứ năm.
+- Các so sánh framework chỉ trích dẫn tài liệu tiếp thị. Luôn trích dẫn một ví dụ mã cụ thể từ kho mã hoặc cookbook chính thức của framework.
+- Các tuyên bố như “Framework X tốt hơn cho agent” mà không chỉ rõ framework tối ưu nguyên thủy nào.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the framework is closed-source and the public docs do not expose the agent-handoff-state-orchestrator surface, state that mapping is not possible without internals.
-- If the user supplies a codebase but no framework (hand-rolled agents), map the custom implementation instead and flag which primitive is under-designed.
-- If the framework is older than 2024 (original AutoGen v0.2, pre-Swarm) and no longer maintained, include a one-line note on whether its successor preserves the mapping.
+- Nếu framework đóng nguồn và các tài liệu công khai không bộc lộ bề mặt agent-bàn giao-trạng thái-bộ điều phối, nêu rằng ánh xạ không thể thực hiện nếu không có nội bộ.
+- Nếu người dùng cung cấp một cơ sở mã nhưng không có framework (các agent tự viết), thay vào đó ánh xạ triển khai tùy chỉnh và đánh dấu nguyên thủy nào được thiết kế chưa đủ.
+- Nếu framework cũ hơn năm 2024 (AutoGen v0.2 gốc, trước Swarm) và không còn được bảo trì, bao gồm một ghi chú một dòng về liệu phiên bản kế nhiệm có bảo toàn ánh xạ hay không.
 
-Output: a one-page framework brief. Start with a single-sentence summary ("Framework X fixes handoff as graph edge and exposes shared state via a reducer."), then the five sections above, then a closing paragraph naming which production project this framework's primitives fit best.
+Đầu ra: một bản tóm lược framework một trang. Bắt đầu với một tóm tắt một câu (“Framework X cố định bàn giao là cạnh đồ thị và cung cấp trạng thái dùng chung qua một reducer.”), rồi năm phần ở trên, rồi một đoạn kết nêu dự án sản xuất nào mà các nguyên thủy của framework này phù hợp nhất.
