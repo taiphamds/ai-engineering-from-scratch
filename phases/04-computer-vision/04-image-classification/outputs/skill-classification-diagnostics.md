@@ -9,43 +9,43 @@ tags: [computer-vision, classification, evaluation, debugging]
 
 # Classification Diagnostics
 
-A reading lens for confusion matrices. Aggregate accuracy tells you a classifier works. The confusion matrix tells you *what it does not know yet*.
+Một lăng kính đọc ma trận nhầm lẫn. Accuracy tổng hợp cho bạn biết một bộ phân loại hoạt động. Ma trận nhầm lẫn cho bạn biết *nó chưa biết gì*.
 
 ## When to use
 
-- First look at a trained classifier's validation performance.
-- Between training runs to decide what to change next.
-- Before shipping a model: verifying that no critical class is failing silently.
-- Debugging a production regression where overall accuracy dropped one point and you need to know why.
+- Cái nhìn đầu tiên về hiệu suất validation của một bộ phân loại đã huấn luyện.
+- Giữa các lần huấn luyện để quyết định thay đổi gì tiếp theo.
+- Trước khi phát hành một mô hình: xác minh không lớp quan trọng nào đang âm thầm thất bại.
+- Gỡ lỗi một sự suy giảm production khi accuracy tổng thể giảm một điểm và bạn cần biết tại sao.
 
 ## Inputs
 
-- `cm`: CxC confusion matrix (rows = true, cols = predicted).
-- `labels`: list of C class names, in the same order.
-- Optional `class_priors`: per-class training frequency (defaults to the row sums of `cm`).
+- `cm`: ma trận nhầm lẫn CxC (hàng = thật, cột = dự đoán).
+- `labels`: danh sách C tên lớp, theo cùng thứ tự.
+- `class_priors` tùy chọn: tần suất huấn luyện từng lớp (mặc định là các tổng hàng của `cm`).
 
 ## Steps
 
-1. **Compute per-class metrics.** Treat any division by zero as the metric being undefined for that class, and report it as `n/a`; never substitute silently with 0.
-   - precision_i = cm[i,i] / sum(cm[:, i])   (undefined when the class was never predicted)
-   - recall_i    = cm[i,i] / sum(cm[i, :])   (undefined when the class has no ground-truth samples)
-   - f1_i        = 2 * p * r / (p + r)        (undefined when either component is undefined)
+1. **Tính các thước đo từng lớp.** Coi mọi phép chia cho không là thước đo không xác định cho lớp đó và báo cáo là `n/a`; không bao giờ âm thầm thay bằng 0.
+   - precision_i = cm[i,i] / sum(cm[:, i])   (không xác định khi lớp chưa bao giờ được dự đoán)
+   - recall_i    = cm[i,i] / sum(cm[i, :])   (không xác định khi lớp không có các mẫu sự thật nền)
+   - f1_i        = 2 * p * r / (p + r)        (không xác định khi một trong hai thành phần không xác định)
 
-2. **Rank up to three worst classes** by F1. If the confusion matrix has fewer than three classes, rank however many exist. Exclude classes with all metrics undefined.
+2. **Xếp hạng tối đa ba lớp tệ nhất** theo F1. Nếu ma trận nhầm lẫn có ít hơn ba lớp, xếp hạng số lớp hiện có. Loại trừ các lớp có mọi thước đo không xác định.
 
-3. **Find the top off-diagonal cell per row** — the one class that most commonly steals from this class. Report as `true -> predicted`.
+3. **Tìm ô ngoài đường chéo lớn nhất mỗi hàng** — lớp thường lấy mất mẫu từ lớp này nhất. Báo cáo là `true -> predicted`.
 
-4. **Classify the failure mode** for each worst class. Use these quantitative thresholds so the label is reproducible:
-   - `ambiguity` — bidirectional confusion with another class: both `cm[i,j] / sum(cm[i, :]) >= 0.15` and `cm[j,i] / sum(cm[j, :]) >= 0.15`.
-   - `imbalance` — the class has `< 0.5x` the training count of its top confuser.
-   - `label_noise` — `|precision_i - recall_i| >= 0.2` and the class is not on the imbalance / ambiguity paths.
-   - `systematic` — no single confuser exceeds 0.2 share of this class's errors; errors spread across three or more other classes.
+4. **Phân loại kiểu thất bại** cho mỗi lớp tệ nhất. Sử dụng các ngưỡng định lượng này để nhãn có thể tái lập:
+   - `ambiguity` — nhầm lẫn hai chiều với lớp khác: cả `cm[i,j] / sum(cm[i, :]) >= 0.15` và `cm[j,i] / sum(cm[j, :]) >= 0.15`.
+   - `imbalance` — lớp có số lượng huấn luyện `< 0.5x` so với lớp gây nhầm lẫn hàng đầu của nó.
+   - `label_noise` — `|precision_i - recall_i| >= 0.2` và lớp không nằm trên các nhánh mất cân bằng / mơ hồ.
+   - `systematic` — không lớp gây nhầm lẫn đơn lẻ nào vượt tỷ phần 0.2 trong các lỗi của lớp này; các lỗi trải ra ba lớp khác trở lên.
 
-5. **Recommend the single most impactful next action**:
-   - `ambiguity` -> collect or synthesise discriminative examples, add targeted augmentation that preserves the distinguishing feature.
-   - `imbalance` -> oversample the minority class or apply class-weighted loss.
-   - `label_noise` -> audit a stratified sample of the class; fix mislabels before any other change.
-   - `systematic` -> increase data for the class or fine-tune with a higher weight on this class's loss.
+5. **Khuyến nghị một hành động tiếp theo có tác động lớn nhất**:
+   - `ambiguity` -> thu thập hoặc tổng hợp các ví dụ phân biệt, thêm tăng cường có mục tiêu giữ nguyên đặc trưng phân biệt.
+   - `imbalance` -> lấy mẫu tăng cường lớp thiểu số hoặc áp dụng mất mát có trọng số lớp.
+   - `label_noise` -> kiểm tra một mẫu phân tầng của lớp; sửa nhãn sai trước mọi thay đổi khác.
+   - `systematic` -> tăng dữ liệu cho lớp hoặc tinh chỉnh với trọng số cao hơn trên mất mát của lớp này.
 
 ## Report
 
@@ -69,7 +69,7 @@ A reading lens for confusion matrices. Aggregate accuracy tells you a classifier
 
 ## Rules
 
-- Return at most three classes. More hides the signal.
-- Name the dominant confuser for each worst class; never summarise as "confuses with many".
-- Ground every recommendation in the confusion matrix evidence. No generic "add more data" without specifying which class.
-- When precision and recall disagree by more than 0.2, always flag label noise as a candidate — real classes usually have aligned P and R after training.
+- Trả về tối đa ba lớp. Nhiều hơn che giấu tín hiệu.
+- Nêu tên lớp gây nhầm lẫn chủ đạo cho mỗi lớp tệ nhất; không bao giờ tóm tắt là "nhầm với nhiều lớp".
+- Dựa mọi khuyến nghị vào bằng chứng ma trận nhầm lẫn. Không nói chung chung "thêm dữ liệu" mà không chỉ định lớp nào.
+- Khi precision và recall chênh nhau hơn 0.2, luôn đánh dấu nhiễu nhãn là một khả năng — các lớp thật thường có P và R đồng đều sau huấn luyện.
