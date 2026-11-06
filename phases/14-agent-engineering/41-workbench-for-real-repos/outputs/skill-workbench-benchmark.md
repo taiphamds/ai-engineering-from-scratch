@@ -7,30 +7,30 @@ lesson: 41
 tags: [benchmark, before-after, evaluation, workbench, sample-app]
 ---
 
-Given a repo, an agent product, and a small sample app, produce a portable evaluation harness that compares prompt-only against workbench-guided pipelines.
+Với một repo, một sản phẩm agent và một ứng dụng mẫu nhỏ, tạo một bộ đánh giá có tính di động so sánh các pipeline chỉ có prompt với được workbench hướng dẫn.
 
-Produce:
+Tạo:
 
-1. `eval/sample_app/` — a minimum-viable sample app drawn from the project's domain.
-2. `eval/run_prompt_only.py` and `eval/run_workbench.py` that each take a task description and return a `TaskOutcome`.
-3. `eval/report.py` that runs both pipelines and writes `before-after-report.md` plus `comparison.json`.
-4. CI workflow that fails when workbench outcomes regress on a fixed task suite.
-5. `docs/benchmark.md` explaining the five outcomes and what counts as a regression.
+1. `eval/sample_app/` — một ứng dụng mẫu khả dụng tối thiểu lấy từ miền của dự án.
+2. `eval/run_prompt_only.py` và `eval/run_workbench.py` mà mỗi cái nhận một mô tả tác vụ và trả về một `TaskOutcome`.
+3. `eval/report.py` chạy cả hai pipeline và ghi `before-after-report.md` cộng `comparison.json`.
+4. Workflow CI thất bại khi các kết quả workbench hồi quy trên một bộ tác vụ cố định.
+5. `docs/benchmark.md` giải thích năm kết quả và điều gì được tính là một hồi quy.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- A benchmark with only one pipeline. Comparison is the whole point.
-- Outcomes phrased as percentages without a denominator. Always report `n / m`.
-- A sample app the agent product was trained on. Use a domain-tuned fixture.
-- Reports that hide false negatives. Tasks where prompt-only was faster must be enumerated.
+- Một benchmark chỉ có một pipeline. So sánh là toàn bộ mục đích.
+- Các kết quả được diễn đạt như các tỷ lệ phần trăm không có mẫu số. Luôn báo cáo `n / m`.
+- Một ứng dụng mẫu mà sản phẩm agent đã được huấn luyện trên đó. Sử dụng một mẫu được điều chỉnh theo miền.
+- Các báo cáo che giấu các âm tính giả. Các tác vụ mà chỉ có prompt nhanh hơn phải được liệt kê.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the project has no acceptance command, refuse to ship the benchmark. There is nothing to measure.
-- If the workbench pipeline takes more than 3x the prompt-only pipeline on the median task, surface that finding; the workbench needs simplification, not the model.
-- If the harness cannot run offline, refuse to wire it into CI. Network flakiness will corrupt the comparison.
+- Nếu dự án không có lệnh nghiệm thu, từ chối cung cấp benchmark. Không có gì để đo.
+- Nếu pipeline workbench mất hơn 3 lần pipeline chỉ có prompt trên tác vụ trung vị, hiển thị phát hiện đó; workbench cần đơn giản hóa, không phải mô hình.
+- Nếu bộ kiểm thử không thể chạy ngoại tuyến, từ chối nối nó vào CI. Sự chập chờn mạng sẽ làm hỏng so sánh.
 
-Output structure:
+Cấu trúc đầu ra:
 
 ```
 <repo>/
@@ -46,8 +46,8 @@ Output structure:
 └── .github/workflows/benchmark.yml
 ```
 
-End with "what to read next" pointing to:
+Kết thúc bằng "đọc gì tiếp theo" chỉ đến:
 
-- Lesson 42 for the capstone pack that bundles every surface used by the workbench pipeline.
-- Lesson 19 (SWE-bench, GAIA, AgentBench) for the macro benchmarks this complements.
-- Lesson 30 (Eval-Driven Agent Development) for ongoing eval loops once the benchmark is wired.
+- Bài 42 cho bộ capstone đóng gói mọi bề mặt được pipeline workbench sử dụng.
+- Bài 19 (SWE-bench, GAIA, AgentBench) cho các benchmark vĩ mô mà điều này bổ sung.
+- Bài 30 (Phát triển agent dựa trên đánh giá) cho các vòng lặp đánh giá liên tục khi benchmark được nối.
