@@ -1,28 +1,28 @@
 # Mission - Scope Contracts and Task Boundaries
 
 ## Goal
-Write a per-task `scope_contract.json` and a glob-aware checker that compares the agent's diff against the contract and flags any forbidden or off-scope writes.
+Viết một `scope_contract.json` cho từng tác vụ và một bộ kiểm tra nhận biết glob so sánh diff của agent với hợp đồng và gắn cờ bất kỳ lần ghi bị cấm hoặc ngoài phạm vi nào.
 
 ## Inputs
-- A task description with allowed globs, forbidden globs, acceptance commands, rollback paragraph, approvals required
-- Two demo runs: one that stays in scope, one that creeps
+- Một mô tả tác vụ với các glob được phép, glob bị cấm, lệnh nghiệm thu, đoạn khôi phục, các phê duyệt bắt buộc
+- Hai lần chạy demo: một lần ở trong phạm vi, một lần mở rộng dần
 
 ## Deliverables
-- `scope_contract.json` schema validator (subset of JSON Schema, glob arrays)
-- A diff parser that produces a `RunSummary` from touched files plus commands run
+- Bộ xác thực schema `scope_contract.json` (tập con JSON Schema, các mảng glob)
+- Một bộ phân tích diff tạo một `RunSummary` từ các file đã chạm cộng các lệnh đã chạy
 - `scope_check(contract, run) -> (violations, in_scope, off_scope)`
-- `scope_report.json` saved next to the script
+- `scope_report.json` được lưu cạnh script
 
 ## Acceptance
-- `python3 code/main.py` exits zero
-- The in-scope run reports zero violations
-- The creeping run reports the exact off-scope files and the reason for each
+- `python3 code/main.py` thoát với mã không
+- Lần chạy trong phạm vi báo cáo không có vi phạm
+- Lần chạy mở rộng dần báo cáo chính xác các file ngoài phạm vi và lý do cho mỗi file
 
 ## Out of scope
-- Time budgets, network egress allowlists. The lesson ships file globs; the exercise prompts extend it.
-- Wiring into a runtime interrupt. The lesson exits at the report.
+- Các ngân sách thời gian, danh sách cho phép lưu lượng mạng ra. Bài học cung cấp các glob file; các đề bài tập mở rộng nó.
+- Nối vào một ngắt runtime. Bài học kết thúc ở báo cáo.
 
 ## References
-- `docs/en.md` - full lesson
-- `code/main.py` - reference implementation
-- `outputs/skill-scope-contract.md` - extracted skill
+- `docs/en.md` - bài học đầy đủ
+- `code/main.py` - triển khai tham chiếu
+- `outputs/skill-scope-contract.md` - skill được trích xuất

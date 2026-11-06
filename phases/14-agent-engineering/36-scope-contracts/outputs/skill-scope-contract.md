@@ -7,29 +7,29 @@ lesson: 36
 tags: [scope, contract, globs, diff-check, ci]
 ---
 
-Given a task description and a repo layout, produce a scope contract and a diff-aware checker.
+Với một mô tả tác vụ và một bố cục repo, tạo một hợp đồng phạm vi và một bộ kiểm tra nhận biết diff.
 
-Produce:
+Tạo:
 
-1. `scope_contract.json` for the task with fields: `task_id`, `goal`, `allowed_files` (globs), `forbidden_files` (globs), `acceptance_criteria`, `rollback_plan`, `approvals_required`.
-2. `tools/scope_check.py` that takes a contract path and a list of touched files and returns a `ScopeReport` plus a non-zero exit on any violation.
-3. CI step (`.github/workflows/scope-check.yml` or equivalent) that runs the checker against the merge diff.
-4. `outputs/scope/closed/<task_id>.json` archival convention so contracts ship with the change history.
+1. `scope_contract.json` cho tác vụ với các trường: `task_id`, `goal`, `allowed_files` (các glob), `forbidden_files` (các glob), `acceptance_criteria`, `rollback_plan`, `approvals_required`.
+2. `tools/scope_check.py` nhận một đường dẫn hợp đồng và một danh sách các file đã chạm và trả về một `ScopeReport` cộng thoát khác không trên bất kỳ vi phạm nào.
+3. Bước CI (`.github/workflows/scope-check.yml` hoặc tương đương) chạy bộ kiểm tra đối với diff hợp nhất.
+4. Quy ước lưu trữ `outputs/scope/closed/<task_id>.json` để các hợp đồng được cung cấp cùng lịch sử thay đổi.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- A contract without `forbidden_files`. Negative space is part of the contract.
-- A contract that lists raw paths instead of globs for code directories. Refactors invalidate raw paths overnight.
-- A `rollback_plan` field that is empty or "see runbook." Spell it out.
-- Approvals listed as "case by case." Approval boundaries must be enumerable.
+- Một hợp đồng không có `forbidden_files`. Không gian âm là một phần hợp đồng.
+- Một hợp đồng liệt kê các đường dẫn thô thay vì các glob cho các thư mục mã. Các lần tái cấu trúc làm mất hiệu lực các đường dẫn thô qua đêm.
+- Một trường `rollback_plan` rỗng hoặc "xem sổ tay vận hành." Nêu rõ nó.
+- Các phê duyệt được liệt kê là "từng trường hợp." Các ranh giới phê duyệt phải có thể liệt kê.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the task description does not constrain a region of the repo, refuse to author `allowed_files` from the description alone. Ask for the directory the task lives in.
-- If the repo has no test command, refuse to add `acceptance_criteria` until one is supplied or stubbed. A contract that cannot be verified is a wish.
-- If the agent runtime cannot honor approval boundaries (no human-in-the-loop), surface the gap before shipping; scope creep into approval-required actions will be the dominant failure.
+- Nếu mô tả tác vụ không giới hạn một vùng repo, từ chối soạn `allowed_files` chỉ từ mô tả. Hỏi thư mục mà tác vụ nằm trong.
+- Nếu repo không có lệnh kiểm thử, từ chối thêm `acceptance_criteria` cho đến khi một lệnh được cung cấp hoặc tạo stub. Một hợp đồng không thể xác minh là một mong muốn.
+- Nếu runtime agent không thể tôn trọng các ranh giới phê duyệt (không có con người tham gia), hiển thị khoảng trống trước khi phát hành; mở rộng phạm vi vào các hành động yêu cầu phê duyệt sẽ là thất bại chiếm ưu thế.
 
-Output structure:
+Cấu trúc đầu ra:
 
 ```
 <repo>/
@@ -43,8 +43,8 @@ Output structure:
         └── scope-check.yml
 ```
 
-End with "what to read next" pointing to:
+Kết thúc bằng "đọc gì tiếp theo" chỉ đến:
 
-- Lesson 37 for runtime feedback that links commands run back to the contract.
-- Lesson 38 for the verification gate that consumes the scope report.
-- Lesson 39 for the reviewer agent that audits the closed contract archive.
+- Bài 37 cho phản hồi runtime liên kết các lệnh đã chạy trở lại hợp đồng.
+- Bài 38 cho cổng xác minh tiêu thụ báo cáo phạm vi.
+- Bài 39 cho agent đánh giá kiểm toán kho lưu trữ hợp đồng đã đóng.
