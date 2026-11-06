@@ -1,6 +1,6 @@
 # Statistics for Machine Learning
 
-> Statistics is how you know if your model actually works or just got lucky.
+> Thống kê là cách bạn biết mô hình thực sự hoạt động hay chỉ gặp may.
 
 **Type:** Build
 **Language:** Python
@@ -9,28 +9,28 @@
 
 ## Learning Objectives
 
-- Compute descriptive statistics, Pearson/Spearman correlation, and covariance matrices from scratch
-- Perform hypothesis tests (t-test, chi-squared) and interpret p-values and confidence intervals correctly
-- Use bootstrap resampling to construct confidence intervals for any metric without distributional assumptions
-- Distinguish statistical significance from practical significance using effect size measures
+- Tính thống kê mô tả, tương quan Pearson/Spearman và các ma trận hiệp phương sai từ đầu
+- Thực hiện kiểm định giả thuyết (t-test, chi bình phương) và diễn giải đúng p-value cùng khoảng tin cậy
+- Sử dụng lấy mẫu lại bootstrap để xây dựng khoảng tin cậy cho bất kỳ chỉ số nào mà không cần giả định phân phối
+- Phân biệt ý nghĩa thống kê với ý nghĩa thực tiễn bằng các thước đo kích thước hiệu ứng
 
 ## The Problem
 
-You trained two models. Model A scores 0.87 on your test set. Model B scores 0.89. You deploy Model B. Three weeks later, production metrics are worse than before. What happened?
+Bạn đã huấn luyện hai mô hình. Mô hình A đạt 0.87 trên tập kiểm tra của bạn. Mô hình B đạt 0.89. Bạn triển khai Mô hình B. Ba tuần sau, các chỉ số sản xuất tệ hơn trước. Chuyện gì đã xảy ra?
 
-Model B did not actually outperform Model A. The 0.02 difference was noise. Your test set was too small, or the variance too high, or both. You shipped randomness dressed up as improvement.
+Mô hình B thực sự không vượt Mô hình A. Chênh lệch 0.02 là nhiễu. Tập kiểm tra của bạn quá nhỏ, hoặc phương sai quá cao, hoặc cả hai. Bạn đã đưa tính ngẫu nhiên khoác áo cải thiện vào sử dụng.
 
-This happens constantly. Kaggle leaderboard shakeups. Papers that fail to reproduce. A/B tests that declare winners based on a few hundred samples. The root cause is always the same: someone skipped the statistics.
+Điều này xảy ra liên tục. Những xáo trộn bảng xếp hạng Kaggle. Các bài báo không tái lập được. Các kiểm thử A/B tuyên bố bên thắng dựa trên vài trăm mẫu. Nguyên nhân gốc rễ luôn giống nhau: ai đó đã bỏ qua thống kê.
 
-Statistics gives you the tools to distinguish signal from noise. It tells you when a difference is real, how confident you should be, and how much data you need before you can trust a result. Every ML pipeline, every model comparison, every experiment needs statistics. Without it, you are guessing.
+Thống kê cho bạn các công cụ để phân biệt tín hiệu với nhiễu. Nó cho bạn biết khi nào một khác biệt là thật, bạn nên tự tin đến mức nào và cần bao nhiêu dữ liệu trước khi có thể tin một kết quả. Mọi quy trình ML, mọi so sánh mô hình, mọi thí nghiệm đều cần thống kê. Không có nó, bạn đang đoán.
 
 ## The Concept
 
 ### Descriptive Statistics: Summarizing Your Data
 
-Before you model anything, you need to know what your data looks like. Descriptive statistics compress a dataset into a few numbers that capture its shape.
+Trước khi mô hình hóa bất cứ thứ gì, bạn cần biết dữ liệu trông như thế nào. Thống kê mô tả nén một tập dữ liệu thành vài con số nắm bắt hình dạng của nó.
 
-**Measures of central tendency** answer "where is the middle?"
+**Các thước đo xu hướng trung tâm** trả lời "giữa nằm ở đâu?"
 
 ```
 Mean:   sum of all values / count
@@ -44,9 +44,9 @@ Mode:   most frequent value
         Useful for categorical data. For continuous data, rarely informative.
 ```
 
-The mean is the balance point. The median is the halfway mark. When they diverge, your distribution is skewed. Income distributions have mean >> median (right skew from billionaires). Loss distributions during training often have mean << median (left skew from easy samples).
+Trung bình là điểm cân bằng. Trung vị là mốc giữa. Khi chúng lệch nhau, phân phối của bạn bị lệch. Các phân phối thu nhập có trung bình >> trung vị (lệch phải do các tỷ phú). Các phân phối mất mát trong huấn luyện thường có trung bình << trung vị (lệch trái do các mẫu dễ).
 
-**Measures of spread** answer "how dispersed is the data?"
+**Các thước đo độ phân tán** trả lời "dữ liệu phân tán đến mức nào?"
 
 ```
 Variance:   average squared deviation from the mean
@@ -64,7 +64,7 @@ IQR:        Q3 - Q1 (interquartile range)
             Robust to outliers. Used for box plots and outlier detection.
 ```
 
-**Percentiles** divide sorted data into 100 equal parts. The 25th percentile (Q1) means 25% of values fall below this point. The 50th percentile is the median. The 75th percentile is Q3.
+**Các phân vị phần trăm** chia dữ liệu đã sắp xếp thành 100 phần bằng nhau. Phân vị phần trăm thứ 25 (Q1) có nghĩa là 25% giá trị nằm dưới điểm này. Phân vị phần trăm thứ 50 là trung vị. Phân vị phần trăm thứ 75 là Q3.
 
 ```
 For latency monitoring:
@@ -73,22 +73,22 @@ For latency monitoring:
   P99 = 99th percentile       (tail latency, often 10x the median)
 ```
 
-In ML, you care about percentiles for inference latency, prediction confidence distributions, and understanding error distributions. A model with low average error but terrible P99 error might be useless for safety-critical applications.
+Trong ML, bạn quan tâm đến các phân vị phần trăm cho độ trễ suy luận, phân phối độ tự tin dự đoán và việc hiểu các phân phối sai số. Một mô hình có sai số trung bình thấp nhưng sai số P99 tệ có thể vô ích cho các ứng dụng thiết yếu về an toàn.
 
-**Sample vs population statistics.** When computing variance from a sample, divide by (n-1) instead of n. This is Bessel's correction. It compensates for the fact that your sample mean is not the true population mean. With n in the denominator, you systematically underestimate the true variance. With (n-1), the estimate is unbiased.
+**Thống kê mẫu so với tổng thể.** Khi tính phương sai từ một mẫu, chia cho (n-1) thay vì n. Đây là hiệu chỉnh Bessel. Nó bù cho việc trung bình mẫu không phải trung bình tổng thể thực. Với n ở mẫu số, bạn đánh giá thấp phương sai thực một cách có hệ thống. Với (n-1), ước lượng không chệch.
 
 ```
 Population variance: sigma^2 = (1/N) * sum((x_i - mu)^2)
 Sample variance:     s^2     = (1/(n-1)) * sum((x_i - x_bar)^2)
 ```
 
-In practice: if n is large (thousands of samples), the difference is negligible. If n is small (dozens of samples), it matters.
+Trong thực tế: nếu n lớn (hàng nghìn mẫu), sự khác biệt không đáng kể. Nếu n nhỏ (hàng chục mẫu), nó quan trọng.
 
 ### Correlation: How Variables Move Together
 
-Correlation measures the strength and direction of a linear relationship between two variables.
+Tương quan đo độ mạnh và hướng của một quan hệ tuyến tính giữa hai biến.
 
-**Pearson correlation coefficient** measures linear association:
+**Hệ số tương quan Pearson** đo sự liên hệ tuyến tính:
 
 ```
 r = sum((x_i - x_bar)(y_i - y_bar)) / (n * s_x * s_y)
@@ -100,9 +100,9 @@ r =  0:  no linear relationship (but there might be a nonlinear one!)
 Range: [-1, 1]
 ```
 
-Pearson assumes the relationship is linear and both variables are roughly normally distributed. It is sensitive to outliers. A single extreme point can drag r from 0.1 to 0.9.
+Pearson giả định quan hệ tuyến tính và cả hai biến xấp xỉ phân phối chuẩn. Nó nhạy với ngoại lệ. Một điểm cực đoan duy nhất có thể kéo r từ 0.1 đến 0.9.
 
-**Spearman rank correlation** measures monotonic association:
+**Tương quan hạng Spearman** đo sự liên hệ đơn điệu:
 
 ```
 1. Replace each value with its rank (1, 2, 3, ...)
@@ -112,7 +112,7 @@ Spearman catches any monotonic relationship, not just linear.
 If y = x^3, Pearson gives r < 1 but Spearman gives rho = 1.
 ```
 
-**When to use each:**
+**Khi nào sử dụng từng loại:**
 
 ```
 Pearson:    Both variables are continuous and roughly normal.
@@ -125,11 +125,11 @@ Spearman:   Ordinal data (rankings, ratings).
             Outliers are present.
 ```
 
-**The golden rule:** correlation does not imply causation. Ice cream sales and drowning deaths are correlated because both increase in summer. Your model's accuracy and the number of parameters are correlated, but adding parameters does not automatically improve accuracy (see: overfitting).
+**Quy tắc vàng:** tương quan không hàm ý nhân quả. Doanh số kem và số người chết đuối tương quan vì cả hai đều tăng vào mùa hè. Độ chính xác mô hình và số tham số tương quan, nhưng thêm tham số không tự động cải thiện độ chính xác (xem: khớp quá mức).
 
 ### Covariance Matrix
 
-The covariance between two variables measures how they vary together:
+Hiệp phương sai giữa hai biến đo cách chúng cùng biến thiên:
 
 ```
 Cov(X, Y) = (1/n) * sum((x_i - x_bar)(y_i - y_bar))
@@ -139,7 +139,7 @@ Cov(X, Y) < 0:  when X increases, Y tends to decrease
 Cov(X, Y) = 0:  no linear co-movement
 ```
 
-For d features, the covariance matrix C is a d x d matrix where C[i][j] = Cov(feature_i, feature_j). The diagonal entries C[i][i] are the variances of each feature.
+Với d đặc trưng, ma trận hiệp phương sai C là một ma trận d x d trong đó C[i][j] = Cov(feature_i, feature_j). Các phần tử đường chéo C[i][i] là phương sai của mỗi đặc trưng.
 
 ```
 C = | Var(x1)      Cov(x1,x2)  Cov(x1,x3) |
@@ -153,15 +153,15 @@ Properties:
   - Off-diagonal = covariances
 ```
 
-**Connection to PCA.** PCA eigendecomposes the covariance matrix. The eigenvectors are the principal components (directions of maximum variance). The eigenvalues tell you how much variance each component captures. This is exactly what Lesson 10 covered, but now you see why the covariance matrix is the right thing to decompose: it encodes all pairwise linear relationships in your data.
+**Mối liên hệ với PCA.** PCA phân rã riêng ma trận hiệp phương sai. Các vector riêng là các thành phần chính (hướng phương sai lớn nhất). Các giá trị riêng cho bạn biết mỗi thành phần nắm bắt bao nhiêu phương sai. Đây chính xác là những gì Bài học 10 đã đề cập, nhưng giờ bạn thấy tại sao ma trận hiệp phương sai là thứ phù hợp để phân rã: nó mã hóa mọi quan hệ tuyến tính từng cặp trong dữ liệu.
 
-**Connection to correlation.** The correlation matrix is the covariance matrix of standardized variables (each divided by its standard deviation). Correlation normalizes covariance so all values fall in [-1, 1].
+**Mối liên hệ với tương quan.** Ma trận tương quan là ma trận hiệp phương sai của các biến đã chuẩn hóa (mỗi biến chia cho độ lệch chuẩn của nó). Tương quan chuẩn hóa hiệp phương sai để mọi giá trị nằm trong [-1, 1].
 
 ### Hypothesis Testing
 
-Hypothesis testing is a framework for making decisions under uncertainty. You start with a claim, collect data, and determine if the data is consistent with the claim.
+Kiểm định giả thuyết là một khuôn khổ ra quyết định dưới sự không chắc chắn. Bạn bắt đầu với một khẳng định, thu thập dữ liệu và xác định xem dữ liệu có nhất quán với khẳng định hay không.
 
-**The setup:**
+**Thiết lập:**
 
 ```
 Null hypothesis (H0):        the default assumption, usually "no effect"
@@ -172,7 +172,7 @@ Example:
   H1: Model B has higher accuracy than Model A
 ```
 
-**The p-value** is the probability of seeing data as extreme as what you observed, assuming H0 is true. It is NOT the probability that H0 is true. This is the single most common misunderstanding in statistics.
+**p-value** là xác suất thấy dữ liệu cực đoan ít nhất như những gì bạn đã quan sát, giả định H0 đúng. Nó KHÔNG phải xác suất H0 đúng. Đây là hiểu lầm phổ biến nhất trong thống kê.
 
 ```
 p-value = P(data this extreme | H0 is true)
@@ -184,7 +184,7 @@ If p-value >= alpha:
     This does NOT mean H0 is true.
 ```
 
-**Confidence intervals** give a range of plausible values for a parameter:
+**Khoảng tin cậy** cho một khoảng các giá trị hợp lý cho một tham số:
 
 ```
 95% confidence interval for the mean:
@@ -197,13 +197,13 @@ computed intervals would contain the true mean. It does NOT mean there
 is a 95% probability the true mean is in this specific interval.
 ```
 
-The width of the confidence interval tells you about precision. Wide intervals mean high uncertainty. Narrow intervals mean your estimate is precise (but not necessarily accurate, if your data is biased).
+Độ rộng khoảng tin cậy cho bạn biết về độ chụm. Các khoảng rộng nghĩa là sự không chắc chắn cao. Các khoảng hẹp nghĩa là ước lượng có độ chụm cao (nhưng không nhất thiết đúng, nếu dữ liệu bị chệch).
 
 ### The t-test
 
-The t-test compares means. There are several flavors.
+t-test so sánh các trung bình. Có một số dạng.
 
-**One-sample t-test:** is the population mean different from a hypothesized value?
+**t-test một mẫu:** trung bình tổng thể có khác một giá trị giả thuyết không?
 
 ```
 t = (x_bar - mu_0) / (s / sqrt(n))
@@ -211,7 +211,7 @@ t = (x_bar - mu_0) / (s / sqrt(n))
 degrees of freedom = n - 1
 ```
 
-**Two-sample t-test (independent):** are two group means different?
+**t-test hai mẫu (độc lập):** trung bình hai nhóm có khác nhau không?
 
 ```
 t = (x_bar_1 - x_bar_2) / sqrt(s1^2/n1 + s2^2/n2)
@@ -220,18 +220,18 @@ This is Welch's t-test, which does not assume equal variances.
 Always use Welch's unless you have a specific reason for equal variances.
 ```
 
-**Paired t-test:** when measurements come in pairs (same model evaluated on same data splits):
+**t-test ghép cặp:** khi các số đo theo cặp (cùng mô hình được đánh giá trên cùng các phần chia dữ liệu):
 
 ```
 Compute d_i = x_i - y_i for each pair
 Then run a one-sample t-test on the d_i values against mu_0 = 0
 ```
 
-In ML, the paired t-test is common: you run both models on the same 10 cross-validation folds and compare their scores pairwise.
+Trong ML, t-test ghép cặp phổ biến: bạn chạy cả hai mô hình trên cùng 10 fold xác thực chéo và so sánh điểm số của chúng theo cặp.
 
 ### Chi-squared Test
 
-The chi-squared test checks if observed frequencies match expected frequencies. Useful for categorical data.
+Kiểm định chi bình phương kiểm tra xem các tần suất quan sát có khớp tần suất kỳ vọng hay không. Hữu ích cho dữ liệu phân loại.
 
 ```
 chi^2 = sum((observed - expected)^2 / expected)
@@ -250,7 +250,7 @@ The difference is significant.
 
 ### A/B Testing for ML Models
 
-A/B testing in ML is not the same as web A/B testing. Model comparison has specific challenges:
+Kiểm thử A/B trong ML không giống kiểm thử A/B trên web. So sánh mô hình có các thách thức cụ thể:
 
 ```
 1. Same test set:    Both models must be evaluated on identical data.
@@ -266,7 +266,7 @@ A/B testing in ML is not the same as web A/B testing. Model comparison has speci
                      your comparison is biased. Hold out a final test set.
 ```
 
-**The procedure:**
+**Quy trình:**
 
 ```
 1. Define your metric and significance level (alpha = 0.05)
@@ -281,7 +281,7 @@ A/B testing in ML is not the same as web A/B testing. Model comparison has speci
 
 ### Statistical Significance vs Practical Significance
 
-A result can be statistically significant but practically meaningless. With enough data, even a trivial difference becomes statistically significant.
+Một kết quả có thể có ý nghĩa thống kê nhưng vô nghĩa về mặt thực tiễn. Với đủ dữ liệu, ngay cả một khác biệt rất nhỏ cũng trở nên có ý nghĩa thống kê.
 
 ```
 Example:
@@ -295,7 +295,7 @@ Practically significant? A 0.03% improvement is not worth the
 engineering cost of deploying a new model.
 ```
 
-**Effect size** quantifies how big the difference is, independent of sample size:
+**Kích thước hiệu ứng** định lượng độ lớn của khác biệt, độc lập với kích thước mẫu:
 
 ```
 Cohen's d = (mean_1 - mean_2) / pooled_std
@@ -305,11 +305,11 @@ d = 0.5:  medium effect
 d = 0.8:  large effect
 ```
 
-Always report both the p-value and the effect size. The p-value tells you if the difference is real. The effect size tells you if it matters.
+Luôn báo cáo cả p-value lẫn kích thước hiệu ứng. p-value cho bạn biết khác biệt có thật không. Kích thước hiệu ứng cho bạn biết nó có quan trọng không.
 
 ### Multiple Comparison Problem
 
-When you test many hypotheses, some will be "significant" by chance. If you test 20 things at alpha = 0.05, you expect 1 false positive even when nothing is real.
+Khi bạn kiểm định nhiều giả thuyết, một số sẽ "có ý nghĩa" do ngẫu nhiên. Nếu kiểm định 20 thứ tại alpha = 0.05, bạn kỳ vọng 1 dương tính giả ngay cả khi không có gì là thật.
 
 ```
 P(at least one false positive) = 1 - (1 - alpha)^m
@@ -320,7 +320,7 @@ P(false positive) = 1 - 0.95^20 = 0.64
 You have a 64% chance of at least one false positive.
 ```
 
-**Bonferroni correction:** divide alpha by the number of tests.
+**Hiệu chỉnh Bonferroni:** chia alpha cho số kiểm định.
 
 ```
 Adjusted alpha = alpha / m = 0.05 / 20 = 0.0025
@@ -329,13 +329,13 @@ Only reject H0 if p-value < 0.0025.
 Conservative but simple. Works when tests are independent.
 ```
 
-In ML, this matters when you compare a model across multiple metrics, test many hyperparameter configurations, or evaluate on multiple datasets.
+Trong ML, điều này quan trọng khi bạn so sánh một mô hình trên nhiều chỉ số, kiểm tra nhiều cấu hình siêu tham số hoặc đánh giá trên nhiều tập dữ liệu.
 
 ### Bootstrap Methods
 
-Bootstrapping estimates the sampling distribution of a statistic by resampling your data with replacement. No assumptions about the underlying distribution required.
+Bootstrapping ước lượng phân phối lấy mẫu của một thống kê bằng cách lấy mẫu lại dữ liệu có hoàn lại. Không cần giả định về phân phối nền tảng.
 
-**The algorithm:**
+**Thuật toán:**
 
 ```
 1. You have n data points
@@ -347,14 +347,14 @@ Bootstrapping estimates the sampling distribution of a statistic by resampling y
    sampling distribution
 ```
 
-**Bootstrap confidence interval (percentile method):**
+**Khoảng tin cậy bootstrap (phương pháp phân vị phần trăm):**
 
 ```
 Sort the B bootstrap statistics
 95% CI = [2.5th percentile, 97.5th percentile]
 ```
 
-**Why bootstrap matters for ML:**
+**Tại sao bootstrap quan trọng đối với ML:**
 
 ```
 - Test set accuracy is a point estimate. Bootstrap gives you
@@ -366,7 +366,7 @@ Sort the B bootstrap statistics
 - No closed-form formula needed.
 ```
 
-**Bootstrap for model comparison:**
+**Bootstrap để so sánh mô hình:**
 
 ```
 1. You have predictions from Model A and Model B on the same test set
@@ -379,11 +379,11 @@ Sort the B bootstrap statistics
 4. If the CI does not contain 0, the difference is significant
 ```
 
-This is more robust than the paired t-test because it makes no distributional assumptions.
+Cách này bền vững hơn t-test ghép cặp vì nó không đưa ra giả định phân phối.
 
 ### Parametric vs Non-parametric Tests
 
-**Parametric tests** assume a specific distribution (usually normal):
+**Các kiểm định tham số** giả định một phân phối cụ thể (thường là chuẩn):
 
 ```
 t-test:         assumes normally distributed data (or large n by CLT)
@@ -391,7 +391,7 @@ ANOVA:          assumes normality and equal variances
 Pearson r:      assumes bivariate normality
 ```
 
-**Non-parametric tests** make no distributional assumptions:
+**Các kiểm định phi tham số** không đưa ra giả định phân phối:
 
 ```
 Mann-Whitney U:     compares two groups (replaces independent t-test)
@@ -400,7 +400,7 @@ Spearman rho:       correlation on ranks (replaces Pearson)
 Kruskal-Wallis:     compares multiple groups (replaces ANOVA)
 ```
 
-**When to use non-parametric:**
+**Khi nào sử dụng phi tham số:**
 
 ```
 - Small sample size (n < 30) and data is clearly non-normal
@@ -409,7 +409,7 @@ Kruskal-Wallis:     compares multiple groups (replaces ANOVA)
 - Skewed distributions
 ```
 
-**When to use parametric:**
+**Khi nào sử dụng tham số:**
 
 ```
 - Large sample size (CLT makes the test statistic approximately normal)
@@ -417,11 +417,11 @@ Kruskal-Wallis:     compares multiple groups (replaces ANOVA)
 - More statistical power (better at detecting real differences)
 ```
 
-In ML experiments, you typically have small n (5 or 10 cross-validation folds), so non-parametric tests like Wilcoxon signed-rank are often more appropriate than t-tests.
+Trong các thí nghiệm ML, bạn thường có n nhỏ (5 hoặc 10 fold xác thực chéo), nên các kiểm định phi tham số như Wilcoxon signed-rank thường thích hợp hơn t-test.
 
 ### Central Limit Theorem: Practical Implications
 
-The CLT says the distribution of sample means approaches a normal distribution as n grows, regardless of the underlying population distribution.
+CLT nói rằng phân phối của các trung bình mẫu tiến đến một phân phối chuẩn khi n tăng, bất kể phân phối tổng thể nền tảng.
 
 ```
 If X_1, X_2, ..., X_n are iid with mean mu and variance sigma^2:
@@ -432,7 +432,7 @@ Works for n >= 30 in most cases.
 For highly skewed distributions, you might need n >= 100.
 ```
 
-**Why this matters for ML:**
+**Tại sao điều này quan trọng đối với ML:**
 
 ```
 1. Justifies confidence intervals and t-tests on aggregated metrics
@@ -444,7 +444,7 @@ For highly skewed distributions, you might need n >= 100.
    more stable output than any single model
 ```
 
-**What CLT does NOT do:**
+**Những gì CLT KHÔNG làm:**
 
 ```
 - Does NOT make your data normal. It makes the MEAN of samples normal.
@@ -455,38 +455,38 @@ For highly skewed distributions, you might need n >= 100.
 
 ### Common Statistical Mistakes in ML Papers
 
-1. **Testing on the training set.** Guarantees overfitting. Always hold out data the model never sees during training.
+1. **Kiểm tra trên tập huấn luyện.** Bảo đảm khớp quá mức. Luôn giữ lại dữ liệu mô hình không bao giờ thấy trong huấn luyện.
 
-2. **No confidence intervals.** Reporting a single accuracy number without uncertainty makes results unreproducible and unverifiable.
+2. **Không có khoảng tin cậy.** Báo cáo một con số độ chính xác đơn lẻ không kèm sự không chắc chắn khiến kết quả không thể tái lập và xác minh.
 
-3. **Ignoring multiple comparisons.** Testing 50 configurations and reporting the best one without correction inflates false positive rates.
+3. **Bỏ qua nhiều phép so sánh.** Kiểm tra 50 cấu hình và báo cáo cấu hình tốt nhất mà không hiệu chỉnh làm tăng tỉ lệ dương tính giả.
 
-4. **Confusing statistical and practical significance.** A p-value of 0.001 on a 0.01% accuracy improvement is not meaningful.
+4. **Nhầm lẫn ý nghĩa thống kê và thực tiễn.** Một p-value 0.001 trên mức cải thiện độ chính xác 0.01% không có ý nghĩa.
 
-5. **Using accuracy on imbalanced data.** 99% accuracy on a dataset with 99% negative class means the model learned nothing. Use precision, recall, F1, or AUC.
+5. **Sử dụng accuracy trên dữ liệu mất cân bằng.** Accuracy 99% trên một tập dữ liệu có 99% lớp âm nghĩa là mô hình không học được gì. Sử dụng precision, recall, F1 hoặc AUC.
 
-6. **Cherry-picking metrics.** Reporting only the metric where your model wins. Honest evaluation reports all relevant metrics.
+6. **Chọn lọc chỉ số.** Chỉ báo cáo chỉ số mà mô hình của bạn thắng. Đánh giá trung thực báo cáo mọi chỉ số liên quan.
 
-7. **Leaking information across train/test splits.** Normalizing before splitting, or using future data to predict the past.
+7. **Rò rỉ thông tin giữa các phần chia huấn luyện/kiểm tra.** Chuẩn hóa trước khi chia, hoặc sử dụng dữ liệu tương lai để dự đoán quá khứ.
 
-8. **Small test sets with no variance estimates.** Evaluating on 100 samples and claiming 2% improvement is noise, not signal.
+8. **Tập kiểm tra nhỏ không có ước lượng phương sai.** Đánh giá trên 100 mẫu và tuyên bố cải thiện 2% là nhiễu, không phải tín hiệu.
 
-9. **Assuming independence when data is not independent.** Medical images from the same patient, multiple sentences from the same document. Observations within a group are correlated.
+9. **Giả định độc lập khi dữ liệu không độc lập.** Các hình ảnh y khoa từ cùng một bệnh nhân, nhiều câu từ cùng một tài liệu. Các quan sát trong một nhóm tương quan.
 
-10. **P-hacking.** Trying different tests, subsets, or exclusion criteria until you get p < 0.05. The result is an artifact of the search.
+10. **P-hacking.** Thử các kiểm định, tập con hoặc tiêu chí loại trừ khác nhau cho đến khi có p < 0.05. Kết quả là sản phẩm của quá trình tìm kiếm.
 
 ## Building It
 
-You will implement:
+Bạn sẽ triển khai:
 
-1. **Descriptive statistics from scratch** (mean, median, mode, standard deviation, percentiles, IQR)
-2. **Correlation functions** (Pearson and Spearman, with the covariance matrix)
-3. **Hypothesis tests** (one-sample t-test, two-sample t-test, chi-squared test)
-4. **Bootstrap confidence intervals** (for any statistic, no assumptions needed)
-5. **A/B test simulator** (generate data, test, check for Type I and Type II errors)
-6. **Statistical vs practical significance demo** (showing that large n makes everything "significant")
+1. **Thống kê mô tả từ đầu** (trung bình, trung vị, mốt, độ lệch chuẩn, các phân vị phần trăm, IQR)
+2. **Các hàm tương quan** (Pearson và Spearman, với ma trận hiệp phương sai)
+3. **Các kiểm định giả thuyết** (t-test một mẫu, t-test hai mẫu, kiểm định chi bình phương)
+4. **Các khoảng tin cậy bootstrap** (cho bất kỳ thống kê nào, không cần giả định)
+5. **Bộ mô phỏng kiểm thử A/B** (tạo dữ liệu, kiểm định, kiểm tra sai lầm Loại I và Loại II)
+6. **Demo ý nghĩa thống kê so với thực tiễn** (cho thấy n lớn làm mọi thứ "có ý nghĩa")
 
-All from scratch, using only `math` and `random`. No numpy, no scipy.
+Tất cả từ đầu, chỉ sử dụng `math` và `random`. Không numpy, không scipy.
 
 ```figure
 f3-bootstrap-resample
@@ -494,27 +494,27 @@ f3-bootstrap-resample
 
 ## Key Terms
 
-| Term | Definition |
+| Thuật ngữ | Định nghĩa |
 |---|---|
-| Mean | Sum of values divided by count. Sensitive to outliers. |
-| Median | Middle value of sorted data. Robust to outliers. |
-| Standard deviation | Square root of variance. Measures spread in original units. |
-| Percentile | Value below which a given percentage of data falls. |
-| IQR | Interquartile range. Q3 minus Q1. The spread of the middle 50%. |
-| Pearson correlation | Measures linear association between two variables. Range [-1, 1]. |
-| Spearman correlation | Measures monotonic association using ranks. |
-| Covariance matrix | Matrix of pairwise covariances between all features. |
-| Null hypothesis | Default assumption of no effect or no difference. |
-| p-value | Probability of data this extreme given the null hypothesis is true. |
-| Confidence interval | Range of plausible values for a parameter at a given confidence level. |
-| t-test | Tests whether means differ significantly. Uses the t-distribution. |
-| Chi-squared test | Tests whether observed frequencies differ from expected frequencies. |
-| Effect size | Magnitude of a difference, independent of sample size. Cohen's d is common. |
-| Bonferroni correction | Divides significance threshold by number of tests to control false positives. |
-| Bootstrap | Resampling with replacement to estimate sampling distributions. |
-| Type I error | False positive. Rejecting H0 when it is true. |
-| Type II error | False negative. Failing to reject H0 when it is false. |
-| Statistical power | Probability of correctly rejecting a false H0. Power = 1 minus Type II error rate. |
-| Central limit theorem | Sample means converge to a normal distribution as sample size grows. |
-| Parametric test | Assumes a specific distribution for the data (usually normal). |
-| Non-parametric test | Makes no distributional assumptions. Works on ranks or signs. |
+| Mean (Trung bình) | Tổng các giá trị chia số lượng. Nhạy với ngoại lệ. |
+| Median (Trung vị) | Giá trị ở giữa của dữ liệu đã sắp xếp. Bền vững với ngoại lệ. |
+| Standard deviation (Độ lệch chuẩn) | Căn bậc hai của phương sai. Đo độ phân tán theo đơn vị gốc. |
+| Percentile (Phân vị phần trăm) | Giá trị mà dưới đó có một tỉ lệ phần trăm dữ liệu nhất định. |
+| IQR | Khoảng tứ phân vị. Q3 trừ Q1. Độ phân tán của 50% ở giữa. |
+| Pearson correlation (Tương quan Pearson) | Đo sự liên hệ tuyến tính giữa hai biến. Phạm vi [-1, 1]. |
+| Spearman correlation (Tương quan Spearman) | Đo sự liên hệ đơn điệu bằng thứ hạng. |
+| Covariance matrix (Ma trận hiệp phương sai) | Ma trận hiệp phương sai từng cặp giữa tất cả đặc trưng. |
+| Null hypothesis (Giả thuyết không) | Giả định mặc định không có hiệu ứng hoặc không có khác biệt. |
+| p-value | Xác suất của dữ liệu cực đoan như vậy với giả định giả thuyết không là đúng. |
+| Confidence interval (Khoảng tin cậy) | Khoảng các giá trị hợp lý cho một tham số ở một mức tin cậy nhất định. |
+| t-test | Kiểm định xem các trung bình có khác nhau đáng kể không. Sử dụng phân phối t. |
+| Chi-squared test (Kiểm định chi bình phương) | Kiểm định xem các tần suất quan sát có khác tần suất kỳ vọng không. |
+| Effect size (Kích thước hiệu ứng) | Độ lớn của một khác biệt, độc lập với kích thước mẫu. Cohen's d phổ biến. |
+| Bonferroni correction (Hiệu chỉnh Bonferroni) | Chia ngưỡng ý nghĩa cho số kiểm định để kiểm soát dương tính giả. |
+| Bootstrap | Lấy mẫu lại có hoàn lại để ước lượng các phân phối lấy mẫu. |
+| Type I error (Sai lầm Loại I) | Dương tính giả. Bác bỏ H0 khi nó đúng. |
+| Type II error (Sai lầm Loại II) | Âm tính giả. Không bác bỏ H0 khi nó sai. |
+| Statistical power (Lực kiểm định) | Xác suất bác bỏ đúng một H0 sai. Lực kiểm định = 1 trừ tỉ lệ sai lầm Loại II. |
+| Central limit theorem (Định lý giới hạn trung tâm) | Các trung bình mẫu hội tụ về một phân phối chuẩn khi kích thước mẫu tăng. |
+| Parametric test (Kiểm định tham số) | Giả định một phân phối cụ thể cho dữ liệu (thường là chuẩn). |
+| Non-parametric test (Kiểm định phi tham số) | Không đưa ra giả định phân phối. Hoạt động trên thứ hạng hoặc dấu. |
