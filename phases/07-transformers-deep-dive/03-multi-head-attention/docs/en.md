@@ -1,6 +1,6 @@
 # Multi-Head Attention
 
-> One attention head learns one relation at a time. Eight heads learn eight. Heads are free. Take more of them.
+> Một head attention học một quan hệ mỗi lần. Tám head học tám quan hệ. Các head là miễn phí. Lấy nhiều hơn.
 
 **Type:** Build
 **Languages:** Python
@@ -9,34 +9,34 @@
 
 ## The Problem
 
-A single self-attention head computes one attention matrix. That matrix captures one kind of relationship — usually the one that minimizes loss on whatever the training signal is. If your data has subject-verb agreement, co-reference, long-range discourse, and syntactic chunking all tangled together, a single head smears them into a single soft-max distribution and loses half the signal.
+Một head self-attention duy nhất tính một ma trận attention. Ma trận đó nắm bắt một loại quan hệ — thường là loại giảm thiểu loss trên bất kỳ tín hiệu huấn luyện nào. Nếu dữ liệu của bạn có hòa hợp chủ ngữ-động từ, đồng tham chiếu, diễn ngôn xa và chia cụm cú pháp đan vào nhau, một head duy nhất trộn chúng thành một phân phối soft-max duy nhất và mất nửa tín hiệu.
 
-The fix from the 2017 Vaswani paper: run several attention functions in parallel, each with its own Q, K, V projections, and concatenate the outputs. Each head operates in a smaller subspace of dimension `d_model / n_heads`. Total parameters stay the same. Expressive power goes up.
+Cách sửa từ bài báo Vaswani năm 2017: chạy vài hàm attention song song, mỗi hàm có các phép chiếu Q, K, V riêng, rồi nối các đầu ra. Mỗi head hoạt động trong một không gian con nhỏ hơn có số chiều `d_model / n_heads`. Tổng tham số giữ nguyên. Sức biểu đạt tăng.
 
-Multi-head attention is the default every transformer in 2026 ships with. The only argument is about *how many* heads and whether keys and values share projections (Grouped-Query Attention, Multi-Query Attention, Multi-head Latent Attention).
+Multi-head attention là mặc định mọi transformer năm 2026 được phát hành cùng. Tranh luận duy nhất là về *bao nhiêu* head và liệu key và value có dùng chung các phép chiếu không (Grouped-Query Attention, Multi-Query Attention, Multi-head Latent Attention).
 
 ## The Concept
 
 ![Multi-head attention splits, attends, concatenates](../assets/multi-head-attention.svg)
 
-**Split.** Take `X` of shape `(N, d_model)`. Project to Q, K, V each of shape `(N, d_model)`. Reshape to `(N, n_heads, d_head)` where `d_head = d_model / n_heads`. Transpose to `(n_heads, N, d_head)`.
+**Chia.** Lấy `X` có hình dạng `(N, d_model)`. Chiếu thành Q, K, V mỗi ma trận có hình dạng `(N, d_model)`. Đổi hình dạng thành `(N, n_heads, d_head)` trong đó `d_head = d_model / n_heads`. Chuyển vị thành `(n_heads, N, d_head)`.
 
-**Attend in parallel.** Run scaled dot-product attention inside each head. Each head produces `(N, d_head)`. The heads operate on different subspaces of the embedding and never talk during the attention computation itself.
+**Attention song song.** Chạy scaled dot-product attention bên trong mỗi head. Mỗi head tạo `(N, d_head)`. Các head hoạt động trên các không gian con khác nhau của embedding và không bao giờ trao đổi trong chính phép tính attention.
 
-**Concatenate and project.** Stack heads back to `(N, d_model)` and multiply by a learned output matrix `W_o` of shape `(d_model, d_model)`. `W_o` is where heads get to mix.
+**Nối và chiếu.** Xếp các head trở lại `(N, d_model)` và nhân với một ma trận đầu ra được học `W_o` có hình dạng `(d_model, d_model)`. `W_o` là nơi các head được trộn.
 
-**Why it works.** Each head can specialize without competing with the others for representational budget. Probing studies from 2019–2024 show distinct head roles: positional heads, head that attends to the previous token, copy heads, named-entity heads, induction heads (which underlie in-context learning).
+**Vì sao nó hoạt động.** Mỗi head có thể chuyên biệt mà không cạnh tranh với các head khác về ngân sách biểu diễn. Các nghiên cứu thăm dò từ 2019–2024 cho thấy các vai trò head riêng biệt: head vị trí, head chú ý token trước, head sao chép, head thực thể có tên, head quy nạp (nền tảng của học trong ngữ cảnh).
 
-**The 2026 lineage of variations:**
+**Dòng biến thể năm 2026:**
 
-| Variant | Q heads | K/V heads | Used by |
+| Biến thể | Head Q | Head K/V | Được dùng bởi |
 |---------|---------|-----------|---------|
 | Multi-head (MHA) | N | N | GPT-2, BERT, T5 |
 | Multi-query (MQA) | N | 1 | PaLM, Falcon |
-| Grouped-query (GQA) | N | G (e.g. N/8) | Llama 2 70B, Llama 3+, Qwen 2+, Mistral |
-| Multi-head latent (MLA) | N | compressed to low-rank | DeepSeek-V2, V3 |
+| Grouped-query (GQA) | N | G (ví dụ N/8) | Llama 2 70B, Llama 3+, Qwen 2+, Mistral |
+| Multi-head latent (MLA) | N | nén xuống hạng thấp | DeepSeek-V2, V3 |
 
-GQA is the modern default because it cuts KV-cache memory by a factor of `N/G` while keeping nearly full quality. MLA goes further by compressing K/V into a latent space, then projecting back at compute time — costs FLOPs, saves a lot more memory.
+GQA là mặc định hiện đại vì nó giảm bộ nhớ KV-cache theo hệ số `N/G` trong khi giữ chất lượng gần đầy đủ. MLA đi xa hơn bằng cách nén K/V vào một không gian tiềm ẩn, rồi chiếu trở lại khi tính toán — tốn FLOP, tiết kiệm nhiều bộ nhớ hơn.
 
 ```figure
 multihead-split
@@ -46,7 +46,7 @@ multihead-split
 
 ### Step 1: split heads from the single-head attention we already have
 
-Take the `SelfAttention` from Lesson 02 and wrap it with a split/concat pair. See `code/main.py` for a numpy implementation; the logic is:
+Lấy `SelfAttention` từ Bài 02 và bọc bằng một cặp chia/nối. Xem `code/main.py` để có một triển khai numpy; logic là:
 
 ```python
 def split_heads(X, n_heads):
@@ -59,11 +59,11 @@ def combine_heads(H):
     return H.transpose(1, 0, 2).reshape(n, h * d_head)
 ```
 
-One reshape and one transpose. No loop. This is exactly what PyTorch does under `nn.MultiheadAttention`.
+Một phép đổi hình dạng và một phép chuyển vị. Không vòng lặp. Đây chính xác là điều PyTorch làm bên dưới `nn.MultiheadAttention`.
 
 ### Step 2: run scaled-dot-product attention per head
 
-Each head gets its own slice of Q, K, V. Attention becomes a batched matmul:
+Mỗi head nhận lát cắt Q, K, V riêng. Attention trở thành một phép nhân ma trận theo batch:
 
 ```python
 def mha_forward(X, W_q, W_k, W_v, W_o, n_heads):
@@ -80,11 +80,11 @@ def mha_forward(X, W_q, W_k, W_v, W_o, n_heads):
     return concat @ W_o, weights
 ```
 
-On real hardware `Qh @ Kh.transpose(...)` is one `bmm`. The GPU sees a single batched matmul of shape `(heads, N, d_head) × (heads, d_head, N) -> (heads, N, N)`. Adding heads is free.
+Trên phần cứng thực `Qh @ Kh.transpose(...)` là một `bmm`. GPU thấy một phép nhân ma trận theo batch duy nhất có hình dạng `(heads, N, d_head) × (heads, d_head, N) -> (heads, N, N)`. Thêm head là miễn phí.
 
 ### Step 3: Grouped-Query Attention variant
 
-Only the key and value projections change. Q gets `n_heads` groups; K and V get `n_kv_heads < n_heads` groups and are repeated to match:
+Chỉ các phép chiếu key và value thay đổi. Q có `n_heads` nhóm; K và V có `n_kv_heads < n_heads` nhóm và được lặp lại để khớp:
 
 ```python
 def gqa_project(X, W, n_kv_heads, n_heads):
@@ -93,15 +93,15 @@ def gqa_project(X, W, n_kv_heads, n_heads):
     return np.repeat(kv, repeat, axis=0)      # (n_heads, n, d_head)
 ```
 
-At inference this saves memory because only `n_kv_heads` copies live in the KV cache, not `n_heads`. Llama 3 70B uses 64 query heads with 8 KV heads — an 8× cache shrink.
+Khi suy luận điều này tiết kiệm bộ nhớ vì chỉ `n_kv_heads` bản sao nằm trong KV cache, không phải `n_heads`. Llama 3 70B dùng 64 head query với 8 head KV — thu nhỏ cache 8×.
 
 ### Step 4: probe what each head learned
 
-Run MHA on a short sentence with 4 heads. For each head, print the `(N, N)` attention matrix. You'll see different heads pick out different structure even with random initialization — that's partly signal, partly rotational symmetry in the subspaces.
+Chạy MHA trên một câu ngắn với 4 head. Với mỗi head, in ma trận attention `(N, N)`. Bạn sẽ thấy các head khác nhau chọn ra cấu trúc khác nhau ngay cả với khởi tạo ngẫu nhiên — đó một phần là tín hiệu, một phần là đối xứng xoay trong các không gian con.
 
 ## Use It
 
-In PyTorch, the one-line version:
+Trong PyTorch, phiên bản một dòng:
 
 ```python
 import torch.nn as nn
@@ -109,7 +109,7 @@ import torch.nn as nn
 mha = nn.MultiheadAttention(embed_dim=512, num_heads=8, batch_first=True)
 ```
 
-GQA as of PyTorch 2.5+:
+GQA từ PyTorch 2.5+:
 
 ```python
 from torch.nn.functional import scaled_dot_product_attention
@@ -120,44 +120,44 @@ from torch.nn.functional import scaled_dot_product_attention
 out = scaled_dot_product_attention(q, k, v, is_causal=True, enable_gqa=True)
 ```
 
-**How many heads?** Rules of thumb from production models in 2026:
+**Bao nhiêu head?** Các quy tắc kinh nghiệm từ các mô hình production năm 2026:
 
-| Model size | d_model | n_heads | d_head |
+| Kích thước mô hình | d_model | n_heads | d_head |
 |------------|---------|---------|--------|
-| Small (~125M) | 768 | 12 | 64 |
-| Base (~350M) | 1024 | 16 | 64 |
-| Large (~1B) | 2048 | 16 | 128 |
-| Frontier (~70B) | 8192 | 64 | 128 |
+| Nhỏ (~125M) | 768 | 12 | 64 |
+| Cơ sở (~350M) | 1024 | 16 | 64 |
+| Lớn (~1B) | 2048 | 16 | 128 |
+| Tiên phong (~70B) | 8192 | 64 | 128 |
 
-`d_head` almost always lands at 64 or 128. It is the unit of how much one head can "see." Drop below 32 and heads start fighting the scaling factor `sqrt(d_head)`; go above 256 and you lose the "many small specialists" benefit.
+`d_head` gần như luôn là 64 hoặc 128. Nó là đơn vị đo một head có thể "thấy" bao nhiêu. Xuống dưới 32 và các head bắt đầu chống lại hệ số chia tỷ lệ `sqrt(d_head)`; lên trên 256 và bạn mất lợi ích "nhiều chuyên gia nhỏ".
 
 ## Ship It
 
-See `outputs/skill-mha-configurator.md`. The skill recommends head count, kv-head count, and projection strategy for a new transformer given parameter budget, sequence length, and deployment target.
+Xem `outputs/skill-mha-configurator.md`. Skill khuyến nghị số head, số head kv và chiến lược chiếu cho một transformer mới với ngân sách tham số, độ dài chuỗi và đích triển khai.
 
 ## Exercises
 
-1. **Easy.** Take the MHA from `code/main.py` and change `n_heads` from 1 to 16 with `d_model=64` fixed. Plot the loss of a tiny one-layer model on a synthetic copy task. Do more heads help, plateau, or hurt?
-2. **Medium.** Implement MQA (one KV head shared across all query heads). Measure how much parameter count drops vs full MHA. Compute how much the KV-cache size shrinks at inference for N=2048.
-3. **Hard.** Implement a tiny version of Multi-head Latent Attention: compress K,V to a rank-`r` latent, store the latent in the KV cache, decompress at attention time. At what `r` does cache memory cross below 1/8 of full MHA while quality stays within 1 bit of validation ppl?
+1. **Dễ.** Lấy MHA từ `code/main.py` và đổi `n_heads` từ 1 đến 16 với `d_model=64` cố định. Vẽ loss của một mô hình một tầng tí hon trên một tác vụ sao chép tổng hợp. Nhiều head hơn có giúp, chững lại hay gây hại?
+2. **Trung bình.** Triển khai MQA (một head KV dùng chung trên mọi head query). Đo số tham số giảm bao nhiêu so với MHA đầy đủ. Tính kích thước KV-cache thu nhỏ bao nhiêu khi suy luận với N=2048.
+3. **Khó.** Triển khai một phiên bản nhỏ của Multi-head Latent Attention: nén K,V thành một biến tiềm ẩn hạng `r`, lưu biến tiềm ẩn trong KV cache, giải nén khi attention. Ở `r` nào bộ nhớ cache xuống dưới 1/8 MHA đầy đủ trong khi chất lượng giữ trong 1 bit ppl xác thực?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Head | "A single attention circuit" | One Q/K/V projection of dimension `d_head = d_model / n_heads` with its own attention matrix. |
-| d_head | "Head dimension" | Per-head hidden width; almost always 64 or 128 in production. |
-| Split / combine | "Reshape tricks" | `(N, d_model) ↔ (n_heads, N, d_head)` reshape+transpose around attention. |
-| W_o | "Output projection" | `(d_model, d_model)` matrix applied after concatenating heads; where heads mix. |
-| MQA | "One KV head" | Multi-Query Attention: single shared K/V projection. Smallest KV cache, some quality loss. |
-| GQA | "The default since Llama 2" | Grouped-Query Attention with `n_kv_heads < n_heads`; repeats to match Q. |
-| MLA | "DeepSeek's trick" | Multi-head Latent Attention: K,V compressed to low-rank latent, decompressed at attend time. |
-| Induction head | "The circuit behind in-context learning" | A pair of heads that detect previous occurrences and copy what followed them. |
+| Head | "Một mạch attention duy nhất" | Một phép chiếu Q/K/V có số chiều `d_head = d_model / n_heads` với ma trận attention riêng. |
+| d_head | "Số chiều head" | Độ rộng ẩn theo head; gần như luôn 64 hoặc 128 trong production. |
+| Split / combine (Chia / kết hợp) | "Các thủ thuật đổi hình dạng" | Đổi hình dạng+chuyển vị `(N, d_model) ↔ (n_heads, N, d_head)` quanh attention. |
+| W_o | "Phép chiếu đầu ra" | Ma trận `(d_model, d_model)` áp dụng sau khi nối các head; nơi các head trộn. |
+| MQA | "Một head KV" | Multi-Query Attention: một phép chiếu K/V dùng chung duy nhất. KV cache nhỏ nhất, mất một phần chất lượng. |
+| GQA | "Mặc định từ Llama 2" | Grouped-Query Attention với `n_kv_heads < n_heads`; lặp lại để khớp Q. |
+| MLA | "Thủ thuật của DeepSeek" | Multi-head Latent Attention: K,V được nén thành biến tiềm ẩn hạng thấp, giải nén khi attention. |
+| Induction head (Head quy nạp) | "Mạch phía sau học trong ngữ cảnh" | Một cặp head phát hiện các lần xuất hiện trước và sao chép thứ theo sau chúng. |
 
 ## Further Reading
 
-- [Vaswani et al. (2017). Attention Is All You Need §3.2.2](https://arxiv.org/abs/1706.03762) — the original multi-head spec.
-- [Shazeer (2019). Fast Transformer Decoding: One Write-Head is All You Need](https://arxiv.org/abs/1911.02150) — the MQA paper.
-- [Ainslie et al. (2023). GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints](https://arxiv.org/abs/2305.13245) — how to convert MHA to GQA after training.
-- [DeepSeek-AI (2024). DeepSeek-V2 Technical Report](https://arxiv.org/abs/2405.04434) — MLA and why it beats MHA/GQA on cache memory.
-- [Olsson et al. (2022). In-context Learning and Induction Heads](https://transformer-circuits.pub/2022/in-context-learning-and-induction-heads/index.html) — mechanistic look at what heads actually do.
+- [Vaswani et al. (2017). Attention Is All You Need §3.2.2](https://arxiv.org/abs/1706.03762) — đặc tả multi-head gốc.
+- [Shazeer (2019). Fast Transformer Decoding: One Write-Head is All You Need](https://arxiv.org/abs/1911.02150) — bài báo MQA.
+- [Ainslie et al. (2023). GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints](https://arxiv.org/abs/2305.13245) — cách chuyển MHA thành GQA sau huấn luyện.
+- [DeepSeek-AI (2024). DeepSeek-V2 Technical Report](https://arxiv.org/abs/2405.04434) — MLA và vì sao nó thắng MHA/GQA về bộ nhớ cache.
+- [Olsson et al. (2022). In-context Learning and Induction Heads](https://transformer-circuits.pub/2022/in-context-learning-and-induction-heads/index.html) — cái nhìn cơ chế về điều các head thực sự làm.
