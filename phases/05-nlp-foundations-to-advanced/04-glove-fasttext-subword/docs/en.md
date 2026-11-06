@@ -1,6 +1,6 @@
 # GloVe, FastText, and Subword Embeddings
 
-> Word2Vec trained one embedding per word. GloVe factorized the co-occurrence matrix. FastText embedded the pieces. BPE bridged to transformers.
+> Word2Vec huấn luyện một embedding cho mỗi từ. GloVe phân rã ma trận đồng xuất hiện. FastText embedding các mảnh. BPE nối sang transformer.
 
 **Type:** Build
 **Languages:** Python
@@ -9,23 +9,23 @@
 
 ## The Problem
 
-Word2Vec left two open questions.
+Word2Vec để lại hai câu hỏi mở.
 
-First, there was a parallel line of research that factorized the co-occurrence matrix directly (LSA, HAL) rather than doing online skip-gram updates. Was Word2Vec's iterative approach fundamentally better, or was the difference an artifact of how the two methods handled counts? **GloVe** answered that: matrix factorization with a thoughtfully chosen loss matches or beats Word2Vec, and costs less to train.
+Thứ nhất, có một hướng nghiên cứu song song phân rã trực tiếp ma trận đồng xuất hiện (LSA, HAL) thay vì thực hiện các cập nhật skip-gram trực tuyến. Cách tiếp cận lặp của Word2Vec có tốt hơn về cơ bản, hay sự khác biệt là sản phẩm của cách hai phương pháp xử lý các số đếm? **GloVe** trả lời điều đó: phân rã ma trận với một loss được chọn kỹ khớp hoặc thắng Word2Vec và tốn ít chi phí huấn luyện hơn.
 
-Second, neither method had a story for words it had never seen. `Zoomer-approved`, `dogecoin`, any proper noun coined last week, every inflected form of a rare root. **FastText** fixed this by embedding character n-grams: a word is the sum of its parts, including morphemes, so even out-of-vocabulary words get a sensible vector.
+Thứ hai, cả hai phương pháp đều không có cách xử lý các từ chúng chưa từng thấy. `Zoomer-approved`, `dogecoin`, bất kỳ danh từ riêng nào được đặt tuần trước, mọi dạng biến tố của một gốc hiếm. **FastText** sửa điều này bằng cách embedding các n-gram ký tự: một từ là tổng các phần của nó, bao gồm các hình vị, nên ngay cả các từ ngoài từ vựng cũng có một vector hợp lý.
 
-Third, once transformers arrived, the question shifted again. Word-level vocabularies cap out around a million entries; real language is more open than that. **Byte-pair encoding (BPE)** and its relatives solved this by learning a vocabulary of frequent subword units that covers everything. Every modern tokenizer for every modern LLM is a subword tokenizer.
+Thứ ba, khi transformer xuất hiện, câu hỏi lại thay đổi. Từ vựng cấp từ đạt trần khoảng một triệu mục; ngôn ngữ thực mở hơn thế. **Mã hóa cặp byte (BPE)** và các phương pháp liên quan giải quyết điều này bằng cách học một từ vựng các đơn vị từ con thường gặp bao phủ mọi thứ. Mọi tokenizer hiện đại cho mọi LLM hiện đại đều là tokenizer từ con.
 
-This lesson walks all three, then explains which to reach for when.
+Bài học này đi qua cả ba, rồi giải thích nên chọn phương pháp nào vào lúc nào.
 
 ## The Concept
 
-**GloVe (Global Vectors).** Build the word-word co-occurrence matrix `X` where `X[i][j]` is how often word `j` appears in the context of word `i`. Train vectors such that `v_i · v_j + b_i + b_j ≈ log(X[i][j])`. Weight the loss so frequent pairs do not dominate. Done.
+**GloVe (Global Vectors).** Xây dựng ma trận đồng xuất hiện từ-từ `X` trong đó `X[i][j]` là tần suất từ `j` xuất hiện trong ngữ cảnh của từ `i`. Huấn luyện các vector sao cho `v_i · v_j + b_i + b_j ≈ log(X[i][j])`. Gán trọng số loss để các cặp thường gặp không chi phối. Xong.
 
-**FastText.** A word is the sum of its character n-grams plus the word itself. `where` becomes `<wh, whe, her, ere, re>, <where>`. The word vector is the sum of those component vectors. Train as Word2Vec. Benefit: unseen words (`whereupon`) compose from known n-grams.
+**FastText.** Một từ là tổng các n-gram ký tự của nó cộng chính từ đó. `where` trở thành `<wh, whe, her, ere, re>, <where>`. Vector từ là tổng của các vector thành phần đó. Huấn luyện như Word2Vec. Lợi ích: các từ chưa thấy (`whereupon`) được kết hợp từ các n-gram đã biết.
 
-**BPE (Byte-Pair Encoding).** Start with a vocabulary of individual bytes (or characters). Count every adjacent pair in the corpus. Merge the most frequent pair into a new token. Repeat for `k` iterations. Result: a vocabulary of `k + 256` tokens where frequent sequences (`ing`, `tion`, `the`) are single tokens and rare words are broken into familiar pieces. Every sentence tokenizes into something.
+**BPE (Byte-Pair Encoding).** Bắt đầu với một từ vựng các byte riêng lẻ (hoặc ký tự). Đếm mọi cặp liền kề trong ngữ liệu. Gộp cặp thường gặp nhất thành một token mới. Lặp lại `k` lần. Kết quả: một từ vựng `k + 256` token trong đó các chuỗi thường gặp (`ing`, `tion`, `the`) là các token đơn và các từ hiếm được chia thành các mảnh quen thuộc. Mọi câu đều tokenize được thành thứ gì đó.
 
 ```figure
 n5-subword-merge
@@ -81,7 +81,7 @@ def glove_train(vocab, pair_counts, dim=16, epochs=100, lr=0.05, x_max=100, alph
     return W + W_tilde
 ```
 
-Two moving pieces worth naming. The weighting function `f(x) = (x/x_max)^alpha` downweights very frequent pairs (like `(the, and)`) so they do not dominate the loss. The final embedding is the sum of `W` (center) and `W_tilde` (context) tables. Summing both is a published trick that tends to outperform using just one.
+Hai thành phần cần nêu tên. Hàm gán trọng số `f(x) = (x/x_max)^alpha` giảm trọng số các cặp rất thường gặp (như `(the, and)`) để chúng không chi phối loss. Embedding cuối là tổng của các bảng `W` (trung tâm) và `W_tilde` (ngữ cảnh). Cộng cả hai là một thủ thuật đã công bố có xu hướng vượt việc chỉ dùng một.
 
 ### FastText: subword-aware embeddings
 
@@ -100,7 +100,7 @@ def char_ngrams(word, n_min=3, n_max=6):
 {'<where>', '<wh', 'whe', 'her', 'ere', 're>', '<whe', 'wher', 'here', 'ere>', '<wher', 'where', 'here>'}
 ```
 
-Each word is represented by its set of n-grams (typically 3 to 6 characters). The word embedding is the sum of its n-gram embeddings. For skip-gram training, plug this in where Word2Vec used a single vector.
+Mỗi từ được biểu diễn bằng tập n-gram của nó (thường từ 3 đến 6 ký tự). Embedding từ là tổng các embedding n-gram của nó. Đối với huấn luyện skip-gram, thay nó vào nơi Word2Vec dùng một vector duy nhất.
 
 ```python
 def fasttext_vector(word, ngram_table):
@@ -111,7 +111,7 @@ def fasttext_vector(word, ngram_table):
     return np.sum(vecs, axis=0)
 ```
 
-For an unseen word, you still get a vector as long as some of its n-grams are known. `whereupon` shares `<wh`, `her`, `ere`, and `<where` with `where`, so the two land near each other.
+Với một từ chưa thấy, bạn vẫn có một vector miễn là một số n-gram của nó đã được biết. `whereupon` có chung `<wh`, `her`, `ere` và `<where` với `where`, nên hai từ nằm gần nhau.
 
 ### BPE: learned subword vocabulary
 
@@ -172,13 +172,13 @@ def apply_bpe(word, merges):
 ['low', 'est</w>']
 ```
 
-First iteration merges the most common adjacent pair. After enough iterations, frequent substrings (`low`, `est`, `tion`) become single tokens and rare words break cleanly.
+Lần lặp đầu gộp cặp liền kề thường gặp nhất. Sau đủ lần lặp, các chuỗi con thường gặp (`low`, `est`, `tion`) trở thành token đơn và các từ hiếm được chia gọn gàng.
 
-The real GPT / BERT / T5 tokenizers learn 30k-100k merges. Result: any text tokenizes into a bounded-length sequence of known IDs, no OOV ever.
+Các tokenizer GPT / BERT / T5 thực học 30k-100k phép gộp. Kết quả: bất kỳ văn bản nào đều tokenize thành một chuỗi có độ dài bị chặn gồm các ID đã biết, không bao giờ có OOV.
 
 ## Use It
 
-In practice, you rarely train any of these yourself. You load pre-trained checkpoints.
+Trong thực tế, bạn hiếm khi tự huấn luyện bất kỳ phương pháp nào trong số này. Bạn tải các checkpoint được tiền huấn luyện.
 
 ```python
 import fasttext.util
@@ -188,7 +188,7 @@ print(ft.get_word_vector("whereupon").shape)
 print(ft.get_word_vector("zoomerapproved").shape)
 ```
 
-For BPE-style subword tokenization in the transformer era:
+Cho tokenization từ con kiểu BPE trong kỷ nguyên transformer:
 
 ```python
 from transformers import AutoTokenizer
@@ -201,21 +201,21 @@ print(tok.tokenize("unbelievably tokenized"))
 ['un', 'bel', 'iev', 'ably', 'Ġtoken', 'ized']
 ```
 
-The `Ġ` prefix marks word boundaries (a GPT-2 convention). Every modern tokenizer is a BPE variant, WordPiece (BERT), or SentencePiece (T5, LLaMA).
+Tiền tố `Ġ` đánh dấu ranh giới từ (một quy ước của GPT-2). Mọi tokenizer hiện đại là một biến thể BPE, WordPiece (BERT) hoặc SentencePiece (T5, LLaMA).
 
 ### When to pick which
 
-| Situation | Pick |
+| Tình huống | Chọn |
 |-----------|------|
-| Pretrained general-purpose word vectors, no OOV tolerance needed | GloVe 300d |
-| Pretrained general-purpose word vectors, must handle misspellings / neologisms / morphologically rich languages | FastText |
-| Anything going into a transformer (training or inference) | Whatever tokenizer the model shipped with. Never swap. |
-| Training your own language model from scratch | Train a BPE or SentencePiece tokenizer on your corpus first |
-| Production text classification with a linear model | Still TF-IDF. Lesson 02. |
+| Các vector từ đa dụng được tiền huấn luyện, không cần khả năng chịu OOV | GloVe 300d |
+| Các vector từ đa dụng được tiền huấn luyện, phải xử lý lỗi chính tả / từ mới / các ngôn ngữ giàu hình thái | FastText |
+| Bất kỳ thứ gì đi vào một transformer (huấn luyện hoặc suy luận) | Bất kỳ tokenizer nào đi kèm mô hình. Không bao giờ hoán đổi. |
+| Huấn luyện mô hình ngôn ngữ của riêng bạn từ đầu | Huấn luyện một tokenizer BPE hoặc SentencePiece trên ngữ liệu của bạn trước |
+| Phân loại văn bản production với một mô hình tuyến tính | Vẫn là TF-IDF. Bài 02. |
 
 ## Ship It
 
-Save as `outputs/skill-embeddings-picker.md`:
+Lưu thành `outputs/skill-embeddings-picker.md`:
 
 ```markdown
 ---
@@ -239,23 +239,23 @@ Refuse to recommend training a custom tokenizer when the user is fine-tuning a p
 
 ## Exercises
 
-1. **Easy.** Run `char_ngrams("playing")` and `char_ngrams("played")`. Compute the Jaccard overlap of the two n-gram sets. You should see substantial shared pieces (`pla`, `lay`, `play`), which is why FastText transfers well across morphological variants.
-2. **Medium.** Extend `learn_bpe` to track vocabulary growth. Plot tokens-per-corpus-character as a function of number of merges. You should see rapid compression at first, asymptoting near ~2-3 chars per token.
-3. **Hard.** Train a 1k-merge BPE on Shakespeare's complete works. Compare tokenization of common words vs. rare proper nouns. Measure average tokens per word before and after. Write up what surprised you.
+1. **Dễ.** Chạy `char_ngrams("playing")` và `char_ngrams("played")`. Tính phần giao Jaccard của hai tập n-gram. Bạn sẽ thấy các mảnh chung đáng kể (`pla`, `lay`, `play`), đó là lý do FastText chuyển giao tốt giữa các biến thể hình thái.
+2. **Trung bình.** Mở rộng `learn_bpe` để theo dõi sự tăng trưởng từ vựng. Vẽ số token trên mỗi ký tự ngữ liệu theo số lượng phép gộp. Bạn sẽ thấy sự nén nhanh lúc đầu, tiệm cận gần ~2-3 ký tự mỗi token.
+3. **Khó.** Huấn luyện một BPE 1k phép gộp trên toàn bộ tác phẩm của Shakespeare. So sánh tokenization của các từ thường gặp với các danh từ riêng hiếm. Đo số token trung bình mỗi từ trước và sau. Viết lại điều khiến bạn ngạc nhiên.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Co-occurrence matrix | Word-word frequency table | `X[i][j]` = how often word `j` appears in a window around word `i`. |
-| Subword | Piece of a word | A character n-gram (FastText) or learned token (BPE/WordPiece/SentencePiece). |
-| BPE | Byte-pair encoding | Iterative merging of most-frequent adjacent pairs until vocabulary hits target size. |
-| OOV | Out of vocabulary | Word the model has never seen. Word2Vec/GloVe fail. FastText and BPE handle it. |
-| Byte-level BPE | BPE on raw bytes | GPT-2's scheme. Vocabulary starts with 256 bytes, so nothing is ever OOV. |
+| Co-occurrence matrix (Ma trận đồng xuất hiện) | Bảng tần suất từ-từ | `X[i][j]` = tần suất từ `j` xuất hiện trong một cửa sổ quanh từ `i`. |
+| Subword (Từ con) | Mảnh của một từ | Một n-gram ký tự (FastText) hoặc token được học (BPE/WordPiece/SentencePiece). |
+| BPE | Mã hóa cặp byte | Lặp việc gộp các cặp liền kề thường gặp nhất cho đến khi từ vựng đạt kích thước mục tiêu. |
+| OOV | Ngoài từ vựng | Từ mô hình chưa từng thấy. Word2Vec/GloVe thất bại. FastText và BPE xử lý được. |
+| Byte-level BPE (BPE cấp byte) | BPE trên các byte thô | Hệ của GPT-2. Từ vựng bắt đầu với 256 byte, nên không có gì là OOV. |
 
 ## Further Reading
 
-- [Pennington, Socher, Manning (2014). GloVe: Global Vectors for Word Representation](https://nlp.stanford.edu/pubs/glove.pdf) — the GloVe paper, seven pages, still the best derivation of the loss.
+- [Pennington, Socher, Manning (2014). GloVe: Global Vectors for Word Representation](https://nlp.stanford.edu/pubs/glove.pdf) — bài báo GloVe, bảy trang, vẫn là suy dẫn loss tốt nhất.
 - [Bojanowski et al. (2017). Enriching Word Vectors with Subword Information](https://arxiv.org/abs/1607.04606) — FastText.
-- [Sennrich, Haddow, Birch (2016). Neural Machine Translation of Rare Words with Subword Units](https://arxiv.org/abs/1508.07909) — the paper that introduced BPE to modern NLP.
-- [Hugging Face tokenizer summary](https://huggingface.co/docs/transformers/tokenizer_summary) — how BPE, WordPiece, and SentencePiece actually differ in practice.
+- [Sennrich, Haddow, Birch (2016). Neural Machine Translation of Rare Words with Subword Units](https://arxiv.org/abs/1508.07909) — bài báo đưa BPE vào NLP hiện đại.
+- [Hugging Face tokenizer summary](https://huggingface.co/docs/transformers/tokenizer_summary) — cách BPE, WordPiece và SentencePiece thực sự khác nhau trong thực tế.
