@@ -9,17 +9,17 @@ tags: [safety, rules, constitutional]
 
 # Constitutional Rules Engine
 
-A constitution is a YAML file. Each rule has `name`, `severity` (low | medium | high), `applies_when` (predicate), `must` (predicate), `explanation`, and optional `fix`.
+Một hiến pháp là một file YAML. Mỗi quy tắc có `name`, `severity` (low | medium | high), `applies_when` (vị từ), `must` (vị từ), `explanation`, và `fix` tùy chọn.
 
 ## Predicates
 
-Atomic:
+Nguyên tử:
 
 - `contains_regex` / `not_contains_regex`
 - `starts_with_regex` / `ends_with_regex`
 - `max_words` / `min_words`
 
-Compositional:
+Tổ hợp:
 
 - `all_of: [...predicates]`
 - `any_of: [...predicates]`
@@ -33,8 +33,8 @@ Compositional:
 
 ## Engine output
 
-`Engine.evaluate(text) -> EngineReport` returns one `RuleResult` per rule with `status` in `pass`, `violation`, `not_applicable`. `report.violations()` filters to violations and `report.max_severity()` returns the worst severity present.
+`Engine.evaluate(text) -> EngineReport` trả về một `RuleResult` theo quy tắc với `status` trong `pass`, `violation`, `not_applicable`. `report.violations()` lọc ra các vi phạm và `report.max_severity()` trả về mức nghiêm trọng tệ nhất hiện diện.
 
 ## Artifact
 
-`outputs/rules_report.json` carries draft, revised, and structured diff per case.
+`outputs/rules_report.json` mang bản nháp, bản sửa đổi, và diff có cấu trúc theo trường hợp.

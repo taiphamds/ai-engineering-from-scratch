@@ -1,6 +1,6 @@
 # Capstone 86 — Constitutional Rules Engine
 
-> A rule is a name, a predicate, and an explanation. Anything missing one of those three is a vibe, not a rule.
+> Một quy tắc là một tên, một vị từ, và một giải thích. Bất cứ thứ gì thiếu một trong ba thứ đó là một cảm giác, không phải một quy tắc.
 
 **Type:** Build
 **Languages:** Python, YAML
@@ -9,11 +9,11 @@
 
 ## Problem
 
-Classifiers cover the recognizable failures. Rules engines cover the contractual ones. A team writing a coding assistant wants a constraint like "every response that contains code must end in either a runnable block or a stated assumption." A team running a customer support bot wants "every refusal must offer a next step." These constraints are not natural classifier targets. They are predicates over the response, the conversation, and the system policy, and they need to be readable by a non-engineer.
+Các bộ phân loại bao phủ các thất bại có thể nhận ra. Các bộ máy quy tắc bao phủ các thất bại hợp đồng. Một nhóm viết một trợ lý lập trình muốn một ràng buộc như "mọi phản hồi chứa mã phải kết thúc bằng một khối có thể chạy hoặc một giả định được nêu." Một nhóm vận hành một bot hỗ trợ khách hàng muốn "mọi từ chối phải cung cấp một bước tiếp theo." Những ràng buộc này không phải các đích bộ phân loại tự nhiên. Chúng là các vị từ trên phản hồi, hội thoại, và chính sách hệ thống, và chúng cần có thể đọc bởi một người không phải kỹ sư.
 
-The honest representation is a declarative file. A constitution lives in YAML alongside the code, in version control, with a separate review process. Each rule has a `name`, a `predicate`, a `severity`, and an `explanation` template. The engine loads the file, evaluates each rule against the candidate output, and returns a structured `Violation` per rule that fired. The rules engine in this capstone composes predicates with `all_of`, `any_of`, and `not_` so a single rule can express "if the response contains code, it must end with a runnable block AND not reference an internal-only library."
+Biểu diễn trung thực là một file khai báo. Một hiến pháp nằm trong YAML cạnh mã, trong kiểm soát phiên bản, với một quy trình rà soát riêng. Mỗi quy tắc có một `name`, một `predicate`, một `severity`, và một mẫu `explanation`. Bộ máy nạp file, đánh giá mỗi quy tắc với đầu ra ứng viên, và trả về một `Violation` có cấu trúc theo quy tắc đã kích hoạt. Bộ máy quy tắc trong bài tổng kết này kết hợp các vị từ bằng `all_of`, `any_of`, và `not_` để một quy tắc duy nhất có thể biểu đạt "nếu phản hồi chứa mã, nó phải kết thúc bằng một khối có thể chạy VÀ không tham chiếu một thư viện chỉ nội bộ."
 
-The other half of the lesson is revision. A rule engine that only blocks is half-built. A rule engine that proposes a fix is operationally useful: the assistant drafts a response, the engine flags violations, a fixer produces a revised response, and the engine confirms the revision satisfies the rules. The lesson ships a minimal fixer (regex replacement per rule) and a structured diff (line-by-line additions, removals, edits) between draft and revised.
+Nửa còn lại của bài học là sửa đổi. Một bộ máy quy tắc chỉ chặn là mới xây một nửa. Một bộ máy quy tắc đề xuất một bản sửa hữu ích về vận hành: trợ lý nháp một phản hồi, bộ máy gắn cờ các vi phạm, một bộ sửa tạo một phản hồi sửa đổi, và bộ máy xác nhận sửa đổi thỏa mãn các quy tắc. Bài học cung cấp một bộ sửa tối thiểu (thay thế regex theo quy tắc) và một diff có cấu trúc (thêm, bỏ, sửa từng dòng) giữa bản nháp và bản sửa đổi.
 
 ## Concept
 
@@ -27,7 +27,7 @@ flowchart LR
   D -.->|diff| R
 ```
 
-A rule has the shape
+Một quy tắc có hình thức
 
 ```yaml
 - name: end-with-runnable-or-assumption
@@ -43,13 +43,13 @@ A rule has the shape
     append_if_missing: "\n\nAssumption: example inputs are valid."
 ```
 
-Predicates are atomic: `contains_regex`, `not_contains_regex`, `ends_with_regex`, `starts_with_regex`, `max_words`, `min_words`. Compositions are `all_of`, `any_of`, `not_`. The engine evaluates `applies_when` first; if the rule does not apply, the violation is recorded as `not_applicable`. Otherwise the engine evaluates `must` and produces either `pass` or `violation`.
+Các vị từ nguyên tử: `contains_regex`, `not_contains_regex`, `ends_with_regex`, `starts_with_regex`, `max_words`, `min_words`. Các tổ hợp là `all_of`, `any_of`, `not_`. Bộ máy đánh giá `applies_when` trước; nếu quy tắc không áp dụng, vi phạm được ghi như `not_applicable`. Nếu không bộ máy đánh giá `must` và tạo `pass` hoặc `violation`.
 
-Severities are `low`, `medium`, `high`, mirroring lesson 85. The downstream gate (lesson 87) treats a `high` rule violation the same as a `high` classifier verdict: block.
+Các mức nghiêm trọng là `low`, `medium`, `high`, phản chiếu bài 85. Cổng hạ nguồn (bài 87) coi một vi phạm quy tắc `high` giống một kết luận bộ phân loại `high`: chặn.
 
-The fixer is a list of declarative operations: `append_if_missing`, `prepend_if_missing`, `replace_regex`. Each operation maps a rule by name to a transform. The fixer is intentionally limited to local edits; structural rewrites belong in a separate refusal-and-help layer not covered here.
+Bộ sửa là một danh sách các thao tác khai báo: `append_if_missing`, `prepend_if_missing`, `replace_regex`. Mỗi thao tác ánh xạ một quy tắc theo tên sang một phép biến đổi. Bộ sửa cố ý giới hạn ở các chỉnh sửa cục bộ; các lần viết lại cấu trúc thuộc về một lớp từ chối-và-trợ-giúp riêng không được bao phủ ở đây.
 
-The diff is computed against the original and the revised. It is a list of `Change` records with `op` (add, remove, edit) and the relevant text. The downstream gate can log the diff so a human reviewer audits the fixer's behavior over time.
+Diff được tính giữa bản gốc và bản sửa đổi. Nó là một danh sách bản ghi `Change` với `op` (add, remove, edit) và văn bản liên quan. Cổng hạ nguồn có thể ghi nhật ký diff để một người rà soát kiểm toán hành vi bộ sửa theo thời gian.
 
 ```figure
 cd-constitution-loop
@@ -57,41 +57,41 @@ cd-constitution-loop
 
 ## Build It
 
-`code/rules.yml` holds the constitution. The loader in `code/main.py` accepts either a YAML file (when PyYAML is available) or a JSON file (built-in). The lesson ships a `rules.yml` that the lesson tests parse by both code paths. `code/main.py` defines the `Engine` and `Fixer` classes and a `diff` function. Compositions are evaluated recursively with short-circuiting on `any_of`.
+`code/rules.yml` giữ hiến pháp. Loader trong `code/main.py` nhận một file YAML (khi có PyYAML) hoặc một file JSON (tích hợp). Bài học cung cấp một `rules.yml` mà các kiểm thử bài học phân tích bằng cả hai đường mã. `code/main.py` định nghĩa các lớp `Engine` và `Fixer` và một hàm `diff`. Các tổ hợp được đánh giá đệ quy với đoản mạch trên `any_of`.
 
-The constitution as shipped:
+Hiến pháp được cung cấp:
 
-- `no-empty-refusal` (medium) - a refusal must include either a suggestion or a redirect
-- `end-with-runnable-or-assumption` (medium) - code responses must close cleanly
-- `no-pii-in-examples` (high) - example data must not contain emails or phone shapes
-- `cite-when-asserting-fact` (low) - lines beginning with "According to" must contain a parenthetical citation
-- `no-internal-library-leak` (high) - the words `internal-only` and `policybot-internal` must not appear in the output
-- `bounded-length` (low) - responses must not exceed 800 words
+- `no-empty-refusal` (medium) - một từ chối phải bao gồm một gợi ý hoặc một chuyển hướng
+- `end-with-runnable-or-assumption` (medium) - các phản hồi mã phải đóng gọn gàng
+- `no-pii-in-examples` (high) - dữ liệu ví dụ không được chứa email hoặc hình thức điện thoại
+- `cite-when-asserting-fact` (low) - các dòng bắt đầu bằng "According to" phải chứa một trích dẫn trong ngoặc
+- `no-internal-library-leak` (high) - các từ `internal-only` và `policybot-internal` không được xuất hiện trong đầu ra
+- `bounded-length` (low) - các phản hồi không được vượt 800 từ
 
 ## Use It
 
-`python3 main.py`. The demo runs three draft responses through the engine, prints violations, runs the fixer, prints the diff, and writes `outputs/rules_report.json`. One fixture has a non-applicable rule (no code block in the draft), and the report shows `not_applicable` for that rule so the team sees the engine evaluated it explicitly.
+`python3 main.py`. Demo chạy ba phản hồi nháp qua bộ máy, in các vi phạm, chạy bộ sửa, in diff, và ghi `outputs/rules_report.json`. Một fixture có một quy tắc không áp dụng (không khối mã trong bản nháp), và báo cáo hiển thị `not_applicable` cho quy tắc đó để nhóm thấy bộ máy đã đánh giá nó rõ ràng.
 
 ## Ship It
 
-`outputs/skill-constitutional-rules-engine.md` documents the rule grammar and the fixer operations.
+`outputs/skill-constitutional-rules-engine.md` lập tài liệu ngữ pháp quy tắc và các thao tác bộ sửa.
 
 ## Exercises
 
-1. Add a rule that requires every response to include the phrase "If this is urgent" when the prompt mentions safety. Use composition.
-2. Replace the regex fixer with a templating fixer that takes named slots. Demonstrate one rule rewritten under the new design.
-3. Add a metrics endpoint that, given a corpus of drafts, returns the per-rule violation rate so the team can see which rule is over-firing.
+1. Thêm một quy tắc yêu cầu mọi phản hồi bao gồm cụm "If this is urgent" khi prompt nhắc đến an toàn. Dùng tổ hợp.
+2. Thay bộ sửa regex bằng một bộ sửa theo mẫu nhận các vị trí có tên. Minh họa một quy tắc được viết lại dưới thiết kế mới.
+3. Thêm một endpoint chỉ số mà, với một corpus bản nháp được cung cấp, trả về tỷ lệ vi phạm theo quy tắc để nhóm có thể thấy quy tắc nào kích hoạt quá mức.
 
 ## Key Terms
 
-| Term | Common usage | Precise meaning |
+| Thuật ngữ | Cách dùng phổ biến | Ý nghĩa chính xác |
 |---|---|---|
-| constitution | a vague policy doc | a YAML file of rules with predicates, severities, and explanations |
-| predicate | a check | a callable from text to bool, atomic or composed via all_of/any_of/not_ |
-| violation | a failure | a structured record with rule name, severity, explanation, and matched span |
-| fixer | a model fine-tune | a deterministic per-rule transform mapping draft to revised |
-| diff | a string compare | a structured list of add, remove, edit operations between draft and revised |
+| constitution (hiến pháp) | một tài liệu chính sách mơ hồ | một file YAML các quy tắc với vị từ, mức nghiêm trọng, và giải thích |
+| predicate (vị từ) | một kiểm tra | một đối tượng có thể gọi từ văn bản sang bool, nguyên tử hoặc được kết hợp qua all_of/any_of/not_ |
+| violation (vi phạm) | một thất bại | một bản ghi có cấu trúc với tên quy tắc, mức nghiêm trọng, giải thích, và khoảng khớp |
+| fixer (bộ sửa) | một tinh chỉnh mô hình | một phép biến đổi tất định theo quy tắc ánh xạ bản nháp sang bản sửa đổi |
+| diff | một so sánh chuỗi | một danh sách có cấu trúc các thao tác thêm, bỏ, sửa giữa bản nháp và bản sửa đổi |
 
 ## Further Reading
 
-Lesson 87 composes this engine with the input-side detector and the output-side classifier into a single safety gate.
+Bài 87 kết hợp bộ máy này với bộ phát hiện phía đầu vào và bộ phân loại phía đầu ra thành một cổng an toàn duy nhất.
