@@ -7,36 +7,36 @@ lesson: 10
 tags: [mcp, resources, prompts, subscriptions, caching]
 ---
 
-Review a proposed MCP server from the consumer's point of view.
+Đánh giá máy chủ MCP được đề xuất từ góc nhìn bên sử dụng.
 
-Produce:
+Tạo ra:
 
-1. A `server/discover` result advertising revision `2026-07-28` and the exact resource and prompt capabilities.
-2. A table with `name`, `chooser`, `primitive`, and `reason`.
-3. Stable resource URI schemes and any bounded resource templates.
-4. Prompt names, descriptions, and required or optional arguments.
-5. A deterministic ordering rule for every list method.
-6. A cache policy with `ttlMs` and `cacheScope` for each cacheable result.
-7. A `subscriptions/listen` filter for resources or list changes that need updates.
-8. One invalid-resource example that returns JSON-RPC `-32602`, plus an unsupported-revision example that returns `-32022` with `supported` and `requested`.
+1. Kết quả `server/discover` công bố bản sửa đổi `2026-07-28` và khả năng tài nguyên, prompt chính xác.
+2. Bảng có `name`, `chooser`, `primitive` và `reason`.
+3. Lược đồ URI tài nguyên ổn định và mọi mẫu tài nguyên có giới hạn.
+4. Tên prompt, mô tả và đối số bắt buộc hoặc tùy chọn.
+5. Quy tắc thứ tự tất định cho mọi phương thức danh sách.
+6. Chính sách bộ đệm với `ttlMs` và `cacheScope` cho mỗi kết quả có thể lưu đệm.
+7. Bộ lọc `subscriptions/listen` cho tài nguyên hoặc thay đổi danh sách cần cập nhật.
+8. Một ví dụ tài nguyên không hợp lệ trả JSON-RPC `-32602`, cộng ví dụ bản sửa đổi không hỗ trợ trả `-32022` với `supported` và `requested`.
 
-Use these decision rules:
+Dùng các quy tắc quyết định này:
 
-- A model-selected operation is a tool.
-- Host-readable URI-addressed content is a resource.
-- A user-selected message workflow is a prompt.
-- An update stream is client-opened through `subscriptions/listen`.
-- The listen request ID becomes `io.modelcontextprotocol/subscriptionId`.
-- The acknowledgment must precede all events on that subscription.
-- A notification never bypasses authorization for a later read.
-- `server/discover` is mandatory even when a client chooses to call another method first.
+- Thao tác do mô hình chọn là công cụ.
+- Nội dung định địa chỉ URI mà host đọc được là tài nguyên.
+- Quy trình thông điệp do người dùng chọn là prompt.
+- Luồng cập nhật được client mở qua `subscriptions/listen`.
+- ID yêu cầu listen thành `io.modelcontextprotocol/subscriptionId`.
+- Xác nhận phải đứng trước mọi sự kiện trên đăng ký đó.
+- Thông báo không bao giờ bỏ qua cấp quyền cho lần đọc sau.
+- `server/discover` bắt buộc ngay cả khi client chọn gọi phương thức khác trước.
 
-Reject a design when:
+Từ chối thiết kế khi:
 
-- A list varies because of connection history.
-- A private result is placed in a public cache.
-- A resource URI is accepted without parsing, authorization, and boundary checks.
-- The design uses `resources/subscribe` or treats a subscription as a protocol session.
-- A prompt is allowed to override trusted host instructions.
+- Danh sách thay đổi do lịch sử kết nối.
+- Kết quả riêng được đặt trong bộ đệm công khai.
+- URI tài nguyên được chấp nhận không qua phân tích, cấp quyền và kiểm tra ranh giới.
+- Thiết kế dùng `resources/subscribe` hoặc coi đăng ký là phiên giao thức.
+- Prompt được phép ghi đè chỉ dẫn host đáng tin cậy.
 
-Return a one-page contract review. End with the highest-risk primitive, cache, or subscription mistake and the smallest correction.
+Trả đánh giá hợp đồng một trang. Kết thúc bằng lỗi thành phần cơ bản, bộ đệm hoặc đăng ký rủi ro cao nhất và sửa đổi nhỏ nhất.
