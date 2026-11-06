@@ -1,27 +1,27 @@
 # Mission - Verification Gates
 
 ## Goal
-Implement `verify(task_id, artifacts)` as a pure deterministic function over scope report, rule report, feedback log, and diff, emitting one `verification_report.json` per task close-out.
+Triển khai `verify(task_id, artifacts)` như một hàm thuần mang tính xác định trên báo cáo phạm vi, báo cáo quy tắc, log phản hồi và diff, phát ra một `verification_report.json` cho mỗi lần đóng tác vụ.
 
 ## Inputs
-- Stub loaders for `scope_report.json`, `rule_report.json`, `feedback_record.jsonl`, and the diff
-- The check table: acceptance ran, acceptance exited zero, scope clean, no `null` exits, all block-severity rules pass
+- Các bộ tải stub cho `scope_report.json`, `rule_report.json`, `feedback_record.jsonl` và diff
+- Bảng kiểm tra: nghiệm thu đã chạy, nghiệm thu thoát với mã không, phạm vi sạch, không mã thoát `null`, mọi quy tắc mức độ block đều đạt
 
 ## Deliverables
-- A pure `verify(task_id, artifacts) -> VerdictReport`
-- A printer that shows per-check results and the final pass/fail
-- Three demo scenarios written to disk: clean pass, scope creep, missing acceptance
+- Một `verify(task_id, artifacts) -> VerdictReport` thuần
+- Một bộ in cho thấy các kết quả cho từng kiểm tra và đạt/không đạt cuối cùng
+- Ba kịch bản demo được ghi vào đĩa: đạt sạch, mở rộng phạm vi, thiếu nghiệm thu
 
 ## Acceptance
-- `python3 code/main.py` exits zero
-- The clean-pass scenario reports `passed: true`; the other two report `passed: false`
-- Each scenario writes a separate `verification_report.json` under `outputs/verification/`
+- `python3 code/main.py` thoát với mã không
+- Kịch bản đạt sạch báo cáo `passed: true`; hai kịch bản còn lại báo cáo `passed: false`
+- Mỗi kịch bản ghi một `verification_report.json` riêng dưới `outputs/verification/`
 
 ## Out of scope
-- LLM-as-judge logic. The gate stays deterministic; qualitative judgment belongs to the reviewer in lesson 39.
-- Signed override audit logs. The exercise prompts extend the gate that way.
+- Logic LLM làm giám khảo. Cổng giữ tính xác định; phán đoán định tính thuộc về bên đánh giá trong bài 39.
+- Các log kiểm toán override có chữ ký. Các đề bài tập mở rộng cổng theo cách đó.
 
 ## References
-- `docs/en.md` - full lesson
-- `code/main.py` - reference implementation
-- `outputs/skill-verification-gate.md` - extracted skill
+- `docs/en.md` - bài học đầy đủ
+- `code/main.py` - triển khai tham chiếu
+- `outputs/skill-verification-gate.md` - skill được trích xuất

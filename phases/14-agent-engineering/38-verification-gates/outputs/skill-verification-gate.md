@@ -7,31 +7,31 @@ lesson: 38
 tags: [verification, gate, deterministic, ci, override-log]
 ---
 
-Given a project's acceptance criteria and existing workbench artifacts, produce the verification gate and override audit log.
+Với các tiêu chí nghiệm thu của một dự án và các sản phẩm workbench hiện có, tạo cổng xác minh và log kiểm toán override.
 
-Produce:
+Tạo:
 
-1. `tools/verify_agent.py` exposing `verify(task_id, artifacts) -> VerdictReport`. Pure function, deterministic, no LLM calls.
-2. `outputs/verification/<task_id>.json` as the single source of truth verdict.
-3. `tools/override.py` that appends signed override entries to `outputs/verification/overrides.jsonl` (must include reason, user id, timestamp, finding code).
-4. CI workflow that fails on `passed: false` and surfaces the report inline.
-5. `docs/verification.md` listing every check, its severity, its source artifact, and the override policy.
+1. `tools/verify_agent.py` cung cấp `verify(task_id, artifacts) -> VerdictReport`. Hàm thuần, mang tính xác định, không lời gọi LLM.
+2. `outputs/verification/<task_id>.json` làm phán quyết nguồn sự thật duy nhất.
+3. `tools/override.py` thêm các mục override có chữ ký vào `outputs/verification/overrides.jsonl` (phải bao gồm lý do, id người dùng, dấu thời gian, mã phát hiện).
+4. Workflow CI thất bại trên `passed: false` và hiển thị báo cáo nội tuyến.
+5. `docs/verification.md` liệt kê mọi kiểm tra, mức độ nghiêm trọng của nó, sản phẩm nguồn của nó và chính sách override.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- A check that calls an LLM. The gate is deterministic plumbing; LLM judgment belongs to the reviewer.
-- An override path the agent can take without a signed entry. Overrides are human-only.
-- A verification report that omits the artifact paths it consumed. Reports must be auditable.
-- Block-severity findings the workflow can silently downgrade. Severity is fixed at write time, not at read time.
+- Một kiểm tra gọi một LLM. Cổng là phần kết nối mang tính xác định; phán đoán LLM thuộc về bên đánh giá.
+- Một đường override mà agent có thể đi mà không có một mục có chữ ký. Các override chỉ dành cho con người.
+- Một báo cáo xác minh bỏ qua các đường dẫn sản phẩm mà nó đã tiêu thụ. Các báo cáo phải có thể kiểm toán.
+- Các phát hiện mức độ block mà workflow có thể âm thầm hạ cấp. Mức độ nghiêm trọng được cố định tại thời điểm ghi, không phải tại thời điểm đọc.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the project has no acceptance command, refuse to ship the gate until one exists. A gate that proves nothing is theater.
-- If the rule report does not exist, refuse to skip the rule check; fail closed.
-- If the feedback log does not exist, refuse to skip the acceptance check; missing logs are themselves a block.
-- If override entries are not version-controlled, refuse to wire the override path; off-the-record overrides defeat the gate.
+- Nếu dự án không có lệnh nghiệm thu, từ chối cung cấp cổng cho đến khi có một lệnh. Một cổng không chứng minh gì là diễn kịch.
+- Nếu báo cáo quy tắc không tồn tại, từ chối bỏ qua kiểm tra quy tắc; thất bại theo hướng đóng.
+- Nếu log phản hồi không tồn tại, từ chối bỏ qua kiểm tra nghiệm thu; các log bị thiếu tự chúng là một block.
+- Nếu các mục override không được quản lý phiên bản, từ chối nối đường override; các override ngoài hồ sơ đánh bại cổng.
 
-Output structure:
+Cấu trúc đầu ra:
 
 ```
 <repo>/
@@ -45,8 +45,8 @@ Output structure:
 └── .github/workflows/verify.yml
 ```
 
-End with "what to read next" pointing to:
+Kết thúc bằng "đọc gì tiếp theo" chỉ đến:
 
-- Lesson 39 for the reviewer agent that picks up after a green verdict.
-- Lesson 40 for the handoff generator that includes the verdict in the packet.
-- Lesson 41 for running the gate against a real-style sample app.
+- Bài 39 cho agent đánh giá tiếp nối sau một phán quyết xanh.
+- Bài 40 cho bộ tạo bàn giao đưa phán quyết vào gói.
+- Bài 41 để chạy cổng đối với một ứng dụng mẫu kiểu thực.
