@@ -1,6 +1,6 @@
 # POS Tagging and Syntactic Parsing
 
-> Grammar was unfashionable for a while. Then every LLM pipeline needed to validate structured extraction, and it came back.
+> Ngữ pháp từng lỗi thời trong một thời gian. Rồi mọi pipeline LLM cần xác thực trích xuất có cấu trúc, và nó quay trở lại.
 
 **Type:** Build
 **Languages:** Python
@@ -9,28 +9,28 @@
 
 ## The Problem
 
-Lesson 01 promised that lemmatization needs a part-of-speech tag. Without knowing `running` is a verb, a lemmatizer cannot reduce it to `run`. Without knowing `better` is an adjective, it cannot reduce to `good`.
+Bài 01 hứa rằng lemmatization cần một nhãn từ loại. Không biết `running` là một động từ, một lemmatizer không thể đưa nó về `run`. Không biết `better` là một tính từ, nó không thể đưa về `good`.
 
-That promise hid a whole subfield. Part-of-speech tagging assigns grammatical categories. Syntactic parsing recovers the sentence's tree structure: which word modifies which, which verb governs which arguments. Classical NLP spent twenty years refining both. Then deep learning collapsed them into a token-classification task on top of a pretrained transformer, and the research community moved on.
+Lời hứa đó ẩn một phân ngành đầy đủ. Gán nhãn từ loại gán các loại ngữ pháp. Phân tích cú pháp khôi phục cấu trúc cây của câu: từ nào bổ nghĩa cho từ nào, động từ nào chi phối những tham tố nào. NLP cổ điển dành hai mươi năm tinh chỉnh cả hai. Rồi deep learning gộp chúng thành một tác vụ phân loại token trên một transformer được tiền huấn luyện, và cộng đồng nghiên cứu chuyển đi.
 
-Not the applied community. Every structured-extraction pipeline still uses POS and dependency trees under the hood. LLM-generated JSON gets validated against grammatical constraints. Question-answering systems decompose queries using dependency parses. Machine translation quality evaluators check alignment of parse trees.
+Cộng đồng ứng dụng thì không. Mọi pipeline trích xuất có cấu trúc vẫn dùng POS và cây phụ thuộc bên dưới. JSON do LLM sinh được xác thực theo các ràng buộc ngữ pháp. Các hệ thống hỏi đáp phân rã truy vấn bằng các phân tích phụ thuộc. Các bộ đánh giá chất lượng dịch máy kiểm tra sự căn chỉnh của các cây phân tích.
 
-Worth knowing. This lesson introduces the tagsets, the baselines, and the point where you stop implementing from scratch and call spaCy.
+Đáng để biết. Bài học này giới thiệu các tập nhãn, các baseline và điểm mà bạn ngừng triển khai từ đầu để gọi spaCy.
 
 ## The Concept
 
-**POS tagging** labels each token with a grammatical category. The **Penn Treebank (PTB)** tagset is the English default. 36 tags with distinctions the casual reader finds fussy: `NN` singular noun, `NNS` plural noun, `NNP` proper noun singular, `VBD` verb past tense, `VBZ` verb 3rd person singular present, and so on. The **Universal Dependencies (UD)** tagset is coarser (17 tags) and language-agnostic; it became the default for cross-lingual work.
+**Gán nhãn POS** gán cho mỗi token một loại ngữ pháp. Tập nhãn **Penn Treebank (PTB)** là mặc định tiếng Anh. 36 nhãn với các phân biệt mà người đọc thông thường thấy cầu kỳ: `NN` danh từ số ít, `NNS` danh từ số nhiều, `NNP` danh từ riêng số ít, `VBD` động từ thì quá khứ, `VBZ` động từ ngôi thứ 3 số ít hiện tại, vân vân. Tập nhãn **Universal Dependencies (UD)** thô hơn (17 nhãn) và không phụ thuộc ngôn ngữ; nó trở thành mặc định cho công việc xuyên ngôn ngữ.
 
 ```
 The/DET cats/NOUN were/AUX running/VERB at/ADP 3pm/NOUN ./PUNCT
 ```
 
-**Syntactic parsing** produces a tree. Two major styles:
+**Phân tích cú pháp** tạo ra một cây. Hai kiểu chính:
 
-- **Constituency parsing.** Noun phrases, verb phrases, prepositional phrases nest inside each other. Output is a tree of non-terminal categories (NP, VP, PP) with words as leaves.
-- **Dependency parsing.** Each word has a single head word it depends on, labeled with a grammatical relation. Output is a tree where every edge is a (head, dependent, relation) triple.
+- **Phân tích thành tố.** Các cụm danh từ, cụm động từ, cụm giới từ lồng vào nhau. Đầu ra là một cây các loại không kết thúc (NP, VP, PP) với các từ làm lá.
+- **Phân tích phụ thuộc.** Mỗi từ có một từ trung tâm duy nhất mà nó phụ thuộc, được gán nhãn bằng một quan hệ ngữ pháp. Đầu ra là một cây mà mọi cạnh là một bộ ba (trung tâm, phụ thuộc, quan hệ).
 
-Dependency parsing won in the 2010s because it generalizes cleanly across languages, especially free-word-order ones.
+Phân tích phụ thuộc thắng trong những năm 2010 vì nó khái quát gọn gàng giữa các ngôn ngữ, đặc biệt những ngôn ngữ có thứ tự từ tự do.
 
 ```
 running is ROOT
@@ -52,7 +52,7 @@ dependency-arcs
 
 ### Step 1: most-frequent-tag baseline
 
-The dumbest POS tagger that works. For each word, predict the tag it had most often in training.
+Bộ gán nhãn POS ngớ ngẩn nhất nhưng hoạt động được. Với mỗi từ, dự đoán nhãn nó có thường xuyên nhất trong huấn luyện.
 
 ```python
 from collections import Counter, defaultdict
@@ -74,17 +74,17 @@ def predict_mft(tokens, word_best, default_tag):
     return [word_best.get(t.lower(), default_tag) for t in tokens]
 ```
 
-On the Brown corpus, this baseline hits ~85% accuracy. Not good, but the floor below which no serious model should fall.
+Trên ngữ liệu Brown, baseline này đạt accuracy ~85%. Không tốt, nhưng là mức sàn mà không mô hình nghiêm túc nào nên thấp hơn.
 
 ### Step 2: bigram HMM tagger
 
-Model the joint probability of the sequence:
+Mô hình hóa xác suất đồng thời của chuỗi:
 
 ```
 P(tags, words) = prod P(tag_i | tag_{i-1}) * P(word_i | tag_i)
 ```
 
-Two tables: transition probabilities (tag given previous tag), emission probabilities (word given tag). Estimate both from counts with Laplace smoothing. Decode with Viterbi (dynamic programming over the tag lattice).
+Hai bảng: các xác suất chuyển tiếp (nhãn khi biết nhãn trước), các xác suất phát xạ (từ khi biết nhãn). Ước lượng cả hai từ các số đếm với làm trơn Laplace. Giải mã bằng Viterbi (quy hoạch động trên lưới nhãn).
 
 ```python
 import math
@@ -150,22 +150,22 @@ def viterbi(tokens, transitions, emissions, tags, vocab, alpha=0.01):
     return [tags_list[j] for j in reversed(path)]
 ```
 
-Bigram HMM on Brown hits ~93% accuracy. The jump from 85% to 93% is mostly transition probabilities — the model learns `DET NOUN` is common and `NOUN DET` is rare.
+HMM bigram trên Brown đạt accuracy ~93%. Bước nhảy từ 85% lên 93% chủ yếu là các xác suất chuyển tiếp — mô hình học rằng `DET NOUN` phổ biến và `NOUN DET` hiếm.
 
 ### Step 3: why modern taggers beat this
 
-Transition + emission probabilities are local. They cannot capture that `saw` is a noun in "I bought a saw" but a verb in "I saw the movie." A CRF with arbitrary features (suffix, word shape, word before and after, word itself) hits ~97%. A BiLSTM-CRF or transformer hits ~98%+.
+Các xác suất chuyển tiếp + phát xạ có tính cục bộ. Chúng không thể nắm bắt rằng `saw` là danh từ trong "Tôi đã mua một cái cưa" nhưng là động từ trong "Tôi đã xem bộ phim." Một CRF với các đặc trưng tùy ý (hậu tố, hình dạng từ, từ trước và sau, bản thân từ) đạt ~97%. Một BiLSTM-CRF hoặc transformer đạt ~98%+.
 
-The ceiling on this task is set by annotator disagreement. Human annotators agree about 97% of the time on Penn Treebank. Models past 98% are probably overfitting the test set.
+Mức trần của tác vụ này do sự bất đồng giữa người chú giải quyết định. Những người chú giải đồng ý khoảng 97% số lần trên Penn Treebank. Các mô hình vượt 98% có lẽ đang overfit tập kiểm thử.
 
 ### Step 4: dependency parsing sketch
 
-Full dependency parsing from scratch is out of scope; the canonical textbook treatment is in Jurafsky and Martin. Two classical families to know:
+Phân tích phụ thuộc đầy đủ từ đầu nằm ngoài phạm vi; cách trình bày giáo trình kinh điển nằm trong Jurafsky và Martin. Hai họ cổ điển cần biết:
 
-- **Transition-based** parsers (arc-eager, arc-standard) act like a shift-reduce parser: they read tokens, shift them onto a stack, and apply reduce actions that create arcs. Greedy decoding is fast. Classic implementation is MaltParser. Modern neural version: Chen and Manning's transition-based parser.
-- **Graph-based** parsers (Eisner's algorithm, Dozat-Manning biaffine) score every possible head-dependent edge and pick the maximum spanning tree. Slower but more accurate.
+- Các bộ phân tích **dựa trên chuyển tiếp** (arc-eager, arc-standard) hoạt động như một bộ phân tích shift-reduce: chúng đọc token, đẩy chúng lên một ngăn xếp và áp dụng các hành động reduce tạo các cung. Giải mã tham lam nhanh. Triển khai kinh điển là MaltParser. Phiên bản nơ-ron hiện đại: bộ phân tích dựa trên chuyển tiếp của Chen và Manning.
+- Các bộ phân tích **dựa trên đồ thị** (thuật toán Eisner, biaffine Dozat-Manning) chấm điểm mọi cạnh trung tâm-phụ thuộc có thể và chọn cây khung cực đại. Chậm hơn nhưng chính xác hơn.
 
-For most applied work, call spaCy:
+Đối với hầu hết công việc ứng dụng, gọi spaCy:
 
 ```python
 import spacy
@@ -186,29 +186,29 @@ at         tag=IN    pos=ADP    dep=prep       head=running
 .          tag=.     pos=PUNCT  dep=punct      head=running
 ```
 
-Read the `dep` column bottom to top and the sentence's grammatical structure falls out.
+Đọc cột `dep` từ dưới lên và cấu trúc ngữ pháp của câu tự xuất hiện.
 
 ## Use It
 
-Every production NLP library ships POS and dependency parsers as part of a standard pipeline.
+Mọi thư viện NLP production cung cấp các bộ gán nhãn POS và phân tích phụ thuộc như một phần của pipeline tiêu chuẩn.
 
-- **spaCy** (`en_core_web_sm` / `md` / `lg` / `trf`). Fast, accurate, integrated with tokenization + NER + lemmatization. `token.tag_` (Penn), `token.pos_` (UD), `token.dep_` (dependency relation).
-- **Stanford NLP (stanza)**. Stanford's successor to CoreNLP. State-of-the-art on 60+ languages.
-- **trankit**. Transformer-based, good UD accuracy.
-- **NLTK**. `pos_tag`. Usable, slow, older. Fine for teaching.
+- **spaCy** (`en_core_web_sm` / `md` / `lg` / `trf`). Nhanh, chính xác, tích hợp với tokenization + NER + lemmatization. `token.tag_` (Penn), `token.pos_` (UD), `token.dep_` (quan hệ phụ thuộc).
+- **Stanford NLP (stanza)**. Sự kế thừa CoreNLP của Stanford. Tiên tiến nhất trên 60+ ngôn ngữ.
+- **trankit**. Dựa trên transformer, accuracy UD tốt.
+- **NLTK**. `pos_tag`. Dùng được, chậm, cũ hơn. Phù hợp để giảng dạy.
 
 ### Where this still matters in 2026
 
-- **Lemmatization.** Lesson 01 needs POS to lemmatize correctly. Always.
-- **Structured extraction from LLM outputs.** Validate that a generated sentence respects grammatical constraints (e.g., subject-verb agreement, required modifiers).
-- **Aspect-based sentiment.** Dependency parses tell you which adjective modifies which noun.
-- **Query understanding.** "movies directed by Wes Anderson starring Bill Murray" decomposes into structured constraints via the parse.
-- **Cross-lingual transfer.** UD tags and dependency relations are language-agnostic, enabling zero-shot structured analysis of new languages.
-- **Low-compute pipelines.** If you cannot ship a transformer, POS + dependency parse + gazetteer gets you surprisingly far.
+- **Lemmatization.** Bài 01 cần POS để đưa về dạng từ điển đúng. Luôn luôn.
+- **Trích xuất có cấu trúc từ các đầu ra LLM.** Xác thực rằng một câu được sinh tôn trọng các ràng buộc ngữ pháp (ví dụ, hòa hợp chủ ngữ-động từ, các thành phần bổ nghĩa bắt buộc).
+- **Cảm xúc theo khía cạnh.** Các phân tích phụ thuộc cho bạn biết tính từ nào bổ nghĩa danh từ nào.
+- **Hiểu truy vấn.** "các phim do Wes Anderson đạo diễn có Bill Murray đóng" phân rã thành các ràng buộc có cấu trúc qua phân tích.
+- **Chuyển giao xuyên ngôn ngữ.** Các nhãn UD và quan hệ phụ thuộc không phụ thuộc ngôn ngữ, cho phép phân tích có cấu trúc zero-shot các ngôn ngữ mới.
+- **Các pipeline ít tính toán.** Nếu bạn không thể phát hành một transformer, POS + phân tích phụ thuộc + từ điển thực thể đưa bạn đi xa một cách đáng ngạc nhiên.
 
 ## Ship It
 
-Save as `outputs/skill-grammar-pipeline.md`:
+Lưu thành `outputs/skill-grammar-pipeline.md`:
 
 ```markdown
 ---
@@ -232,23 +232,23 @@ Refuse to recommend rolling your own parser. Building parsers from scratch is a 
 
 ## Exercises
 
-1. **Easy.** Using the most-frequent-tag baseline on a small tagged corpus (e.g., NLTK's Brown subset), measure accuracy on held-out sentences. Verify the ~85% result.
-2. **Medium.** Train the bigram HMM above and report per-tag precision/recall. Which tags does the HMM confuse most?
-3. **Hard.** Use spaCy's dependency parse to extract subject-verb-object triples from a 1000-sentence sample. Evaluate on 50 manually labeled triples. Document where extraction fails (often passives, coordinations, and elided subjects).
+1. **Dễ.** Dùng baseline nhãn thường gặp nhất trên một ngữ liệu gán nhãn nhỏ (ví dụ, tập con Brown của NLTK), đo accuracy trên các câu được giữ lại. Xác minh kết quả ~85%.
+2. **Trung bình.** Huấn luyện HMM bigram ở trên và báo cáo precision/recall theo nhãn. HMM nhầm những nhãn nào nhiều nhất?
+3. **Khó.** Dùng phân tích phụ thuộc của spaCy để trích xuất các bộ ba chủ ngữ-động từ-tân ngữ từ một mẫu 1000 câu. Đánh giá trên 50 bộ ba được gán nhãn thủ công. Ghi lại nơi việc trích xuất thất bại (thường là bị động, kết hợp đẳng lập và chủ ngữ bị lược).
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| POS tag | Word's type | Grammatical category. PTB has 36; UD has 17. |
-| Penn Treebank | Standard tagset | English-specific. Fine-grained verb tenses and noun number. |
-| Universal Dependencies | Multilingual tagset | Coarser than PTB; language-neutral; defaults for cross-lingual work. |
-| Dependency parse | Sentence tree | Each word has one head, each edge has a grammatical relation. |
-| Viterbi | Dynamic programming | Finds the highest-probability tag sequence given emissions and transitions. |
+| POS tag (Nhãn từ loại) | Loại của từ | Loại ngữ pháp. PTB có 36; UD có 17. |
+| Penn Treebank | Tập nhãn tiêu chuẩn | Riêng cho tiếng Anh. Các thì động từ và số danh từ chi tiết. |
+| Universal Dependencies | Tập nhãn đa ngôn ngữ | Thô hơn PTB; trung lập ngôn ngữ; các mặc định cho công việc xuyên ngôn ngữ. |
+| Dependency parse (Phân tích phụ thuộc) | Cây câu | Mỗi từ có một trung tâm, mỗi cạnh có một quan hệ ngữ pháp. |
+| Viterbi | Quy hoạch động | Tìm chuỗi nhãn có xác suất cao nhất khi biết các phát xạ và chuyển tiếp. |
 
 ## Further Reading
 
-- [Jurafsky and Martin — Speech and Language Processing, chapters 8 and 18](https://web.stanford.edu/~jurafsky/slp3/) — the canonical textbook treatment of POS and parsing.
-- [Universal Dependencies project](https://universaldependencies.org/) — the cross-lingual tagset and treebank collection used by every multilingual parser.
-- [spaCy linguistic features guide](https://spacy.io/usage/linguistic-features) — practical reference for every attribute exposed on `Token`.
-- [Chen and Manning (2014). A Fast and Accurate Dependency Parser using Neural Networks](https://nlp.stanford.edu/pubs/emnlp2014-depparser.pdf) — the paper that brought neural parsers into the mainstream.
+- [Jurafsky and Martin — Speech and Language Processing, chapters 8 and 18](https://web.stanford.edu/~jurafsky/slp3/) — cách trình bày giáo trình kinh điển về POS và phân tích cú pháp.
+- [Universal Dependencies project](https://universaldependencies.org/) — tập nhãn xuyên ngôn ngữ và bộ sưu tập treebank được mọi bộ phân tích đa ngôn ngữ sử dụng.
+- [spaCy linguistic features guide](https://spacy.io/usage/linguistic-features) — tham chiếu thực hành cho mọi thuộc tính được cung cấp trên `Token`.
+- [Chen and Manning (2014). A Fast and Accurate Dependency Parser using Neural Networks](https://nlp.stanford.edu/pubs/emnlp2014-depparser.pdf) — bài báo đưa các bộ phân tích nơ-ron vào dòng chính.

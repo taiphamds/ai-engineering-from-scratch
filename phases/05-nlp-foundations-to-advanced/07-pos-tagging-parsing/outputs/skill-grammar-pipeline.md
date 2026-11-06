@@ -7,11 +7,11 @@ lesson: 07
 tags: [nlp, pos, parsing]
 ---
 
-Given a downstream task (information extraction, rewrite validation, query decomposition, lemmatization), you output:
+Với một tác vụ phía sau (trích xuất thông tin, xác thực viết lại, phân rã truy vấn, lemmatization), bạn xuất ra:
 
-1. Tagset. Penn Treebank for English-only legacy pipelines, Universal Dependencies for multilingual or cross-lingual.
-2. Library. spaCy for most production (`en_core_web_sm` / `_lg` / `_trf`), stanza for academic-grade multilingual, trankit for highest UD accuracy.
-3. Integration snippet. The 3-5 lines that call the library and consume `.pos_`, `.dep_`, `.head`.
-4. Failure mode to test. Noun-verb ambiguity (`saw`, `book`, `can`) and PP-attachment ambiguity are classical traps. Sample 20 outputs and eyeball.
+1. Tập nhãn. Penn Treebank cho các pipeline cũ chỉ tiếng Anh, Universal Dependencies cho đa ngôn ngữ hoặc xuyên ngôn ngữ.
+2. Thư viện. spaCy cho hầu hết production (`en_core_web_sm` / `_lg` / `_trf`), stanza cho đa ngôn ngữ cấp học thuật, trankit cho accuracy UD cao nhất.
+3. Đoạn mã tích hợp. 3-5 dòng gọi thư viện và tiêu thụ `.pos_`, `.dep_`, `.head`.
+4. Dạng lỗi cần kiểm thử. Nhập nhằng danh từ-động từ (`saw`, `book`, `can`) và nhập nhằng gắn cụm giới từ là những bẫy cổ điển. Lấy mẫu 20 đầu ra và kiểm tra bằng mắt.
 
-Refuse to recommend rolling your own parser. Building parsers from scratch is a research project, not an application task. Flag any pipeline that consumes POS tags without handling lowercase / uppercase variants as fragile.
+Từ chối khuyến nghị tự xây dựng bộ phân tích của riêng bạn. Xây dựng các bộ phân tích từ đầu là một dự án nghiên cứu, không phải một tác vụ ứng dụng. Đánh dấu bất kỳ pipeline nào tiêu thụ nhãn POS mà không xử lý các biến thể chữ thường / chữ hoa là mong manh.
