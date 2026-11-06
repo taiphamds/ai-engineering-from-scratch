@@ -5,30 +5,30 @@ phase: 1
 lesson: 12
 ---
 
-I have a tensor shape error in my deep learning code. Help me fix it.
+Tôi gặp lỗi hình dạng tensor trong mã học sâu của mình. Hãy giúp tôi sửa nó.
 
-**Error message:** [paste the error here]
+**Thông báo lỗi:** [dán lỗi vào đây]
 
-**My tensor shapes:**
-- [name]: [shape]
-- [name]: [shape]
+**Các hình dạng tensor của tôi:**
+- [tên]: [hình dạng]
+- [tên]: [hình dạng]
 
-**The operation I'm trying to do:** [describe it]
+**Phép toán tôi đang cố thực hiện:** [mô tả nó]
 
 ---
 
-When debugging, follow this exact process:
+Khi gỡ lỗi, hãy làm theo chính xác quy trình này:
 
-**Step 1: Identify the operation type.**
-What operation produced the error? Map it to one of these:
-- Matrix multiply / Linear layer (inner dimensions must match)
-- Broadcasting (align from right, each dim must be equal or 1)
-- Concatenation (all dims match except the cat dimension)
-- Convolution (expects specific rank and channel position)
-- Reshape (total elements must be preserved)
+**Bước 1: Xác định loại phép toán.**
+Phép toán nào tạo ra lỗi? Ánh xạ nó đến một trong các loại sau:
+- Nhân ma trận / Lớp Linear (các chiều bên trong phải khớp)
+- Broadcasting (căn chỉnh từ phải, mỗi chiều phải bằng nhau hoặc là 1)
+- Ghép nối (tất cả các chiều khớp trừ chiều cat)
+- Tích chập (yêu cầu hạng và vị trí kênh cụ thể)
+- Reshape (tổng số phần tử phải được bảo toàn)
 
-**Step 2: Write out the shape contract.**
-For the identified operation, write the expected shapes explicitly:
+**Bước 2: Viết ra hợp đồng hình dạng.**
+Với phép toán đã xác định, viết tường minh các hình dạng kỳ vọng:
 ```
 matmul(A, B): A is (..., m, k), B is (..., k, n) -> (..., m, n)
 broadcast(A, B): align right, each pair must be (equal) or (one is 1)
@@ -37,36 +37,36 @@ Linear(in_f, out_f): input last dim must equal in_f
 Conv2d(in_c, out_c, k): input must be (B, in_c, H, W)
 ```
 
-**Step 3: Find the mismatch.**
-Compare actual shapes against the contract. Identify the exact dimension that violates the rule.
+**Bước 3: Tìm sự không khớp.**
+So sánh các hình dạng thực tế với hợp đồng. Xác định chính xác chiều vi phạm quy tắc.
 
-**Step 4: Choose the minimal fix.**
-Pick from this table:
+**Bước 4: Chọn cách sửa tối thiểu.**
+Chọn từ bảng này:
 
-| Symptom | Fix |
+| Triệu chứng | Cách sửa |
 |---|---|
-| Missing batch dimension | `.unsqueeze(0)` |
-| Missing channel dimension | `.unsqueeze(1)` |
-| Extra size-1 dimension | `.squeeze(dim)` |
-| Inner dims wrong for matmul | `.transpose(-1, -2)` or check weight shape |
-| Need NCHW from NHWC | `.permute(0, 3, 1, 2)` |
-| Need NHWC from NCHW | `.permute(0, 2, 3, 1)` |
-| Flatten spatial dims for linear | `.flatten(1)` or `.reshape(B, -1)` |
-| Split heads: (B,T,D) to (B,H,T,D/H) | `.reshape(B, T, H, D//H).transpose(1, 2)` |
-| Merge heads: (B,H,T,D/H) to (B,T,D) | `.transpose(1, 2).reshape(B, T, H*(D//H))` |
-| Non-contiguous tensor with .view() | `.contiguous().view(...)` or use `.reshape(...)` |
+| Thiếu chiều batch | `.unsqueeze(0)` |
+| Thiếu chiều kênh | `.unsqueeze(1)` |
+| Thừa chiều kích thước 1 | `.squeeze(dim)` |
+| Các chiều bên trong sai cho matmul | `.transpose(-1, -2)` hoặc kiểm tra hình dạng trọng số |
+| Cần NCHW từ NHWC | `.permute(0, 3, 1, 2)` |
+| Cần NHWC từ NCHW | `.permute(0, 2, 3, 1)` |
+| Làm phẳng các chiều không gian cho linear | `.flatten(1)` hoặc `.reshape(B, -1)` |
+| Tách head: (B,T,D) thành (B,H,T,D/H) | `.reshape(B, T, H, D//H).transpose(1, 2)` |
+| Gộp head: (B,H,T,D/H) thành (B,T,D) | `.transpose(1, 2).reshape(B, T, H*(D//H))` |
+| Tensor không liên tục với .view() | `.contiguous().view(...)` hoặc sử dụng `.reshape(...)` |
 
-**Step 5: Verify the fix.**
-Show the resulting shapes at each step. Confirm total elements are preserved across any reshape. Confirm the operation's shape contract is now satisfied.
+**Bước 5: Xác minh cách sửa.**
+Trình bày các hình dạng kết quả tại mỗi bước. Xác nhận tổng số phần tử được bảo toàn qua bất kỳ reshape nào. Xác nhận hợp đồng hình dạng của phép toán giờ được thỏa mãn.
 
-**Step 6: Check for silent bugs.**
-Even if shapes match, verify:
-- Broadcasting is happening along the intended axis (not accidentally)
-- Reduction is summing over the right dimension
-- The batch dimension (dim 0) survives through the entire forward pass
-- Transpose + reshape is used (not just reshape) when dimension ordering matters
+**Bước 6: Kiểm tra lỗi âm thầm.**
+Ngay cả khi hình dạng khớp, hãy xác minh:
+- Broadcasting đang diễn ra dọc theo trục dự định (không phải vô tình)
+- Phép rút gọn đang lấy tổng theo đúng chiều
+- Chiều batch (chiều 0) tồn tại qua toàn bộ lượt truyền xuôi
+- Transpose + reshape được sử dụng (không chỉ reshape) khi thứ tự chiều có ý nghĩa
 
-Format your response as:
+Định dạng câu trả lời của bạn như sau:
 ```
 OPERATION: [what operation failed]
 EXPECTED: [shape contract]

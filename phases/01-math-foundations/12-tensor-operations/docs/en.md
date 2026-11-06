@@ -1,6 +1,6 @@
 # Tensor Operations
 
-> Tensors are the common language between data and deep learning. Every image, every sentence, every gradient flows through them.
+> Tensor là ngôn ngữ chung giữa dữ liệu và học sâu. Mọi hình ảnh, mọi câu, mọi gradient đều truyền qua chúng.
 
 **Type:** Build
 **Language:** Python
@@ -9,24 +9,24 @@
 
 ## Learning Objectives
 
-- Implement a tensor class with shape, strides, reshape, transpose, and element-wise operations from scratch
-- Apply broadcasting rules to operate on tensors of different shapes without copying data
-- Write einsum expressions for dot products, matrix multiplications, outer products, and batched operations
-- Trace the exact tensor shapes through every step of multi-head attention
+- Triển khai một lớp tensor với hình dạng, stride, reshape, transpose và các phép toán theo từng phần tử từ đầu
+- Áp dụng các quy tắc broadcasting để thao tác trên các tensor có hình dạng khác nhau mà không sao chép dữ liệu
+- Viết các biểu thức einsum cho tích vô hướng, nhân ma trận, tích ngoài và các phép toán theo batch
+- Theo dõi các hình dạng tensor chính xác qua mọi bước của multi-head attention
 
 ## The Problem
 
-You build a transformer. The forward pass looks clean. You run it and get: `RuntimeError: mat1 and mat2 shapes cannot be multiplied (32x768 and 512x768)`. You stare at the shapes. You try a transpose. Now it says `Expected 4D input (got 3D input)`. You add an unsqueeze. Something else breaks.
+Bạn xây dựng một transformer. Lượt truyền xuôi trông gọn. Bạn chạy nó và nhận được: `RuntimeError: mat1 and mat2 shapes cannot be multiplied (32x768 and 512x768)`. Bạn nhìn chằm chằm vào các hình dạng. Bạn thử một phép chuyển vị. Giờ nó nói `Expected 4D input (got 3D input)`. Bạn thêm một unsqueeze. Thứ khác lại hỏng.
 
-Shape errors are the most common bug in deep learning code. They are not hard conceptually -- each operation has a shape contract -- but they multiply fast. A transformer has dozens of reshapes, transposes, and broadcasts chained together. One wrong axis and the error cascades. Worse, some shape mistakes do not throw errors at all. They silently produce garbage by broadcasting along the wrong dimension or summing over the wrong axis.
+Lỗi hình dạng là lỗi phổ biến nhất trong mã học sâu. Về khái niệm chúng không khó -- mỗi phép toán có một hợp đồng hình dạng -- nhưng chúng gia tăng nhanh chóng. Một transformer có hàng chục phép reshape, transpose và broadcast nối tiếp nhau. Một trục sai và lỗi lan truyền dây chuyền. Tệ hơn, một số lỗi hình dạng hoàn toàn không gây báo lỗi. Chúng âm thầm tạo ra dữ liệu rác bằng cách broadcast theo sai chiều hoặc lấy tổng trên sai trục.
 
-Matrices handle pairwise relationships between two sets of things. Real data does not fit into two dimensions. A batch of 32 RGB images at 224x224 is a 4D tensor: `(32, 3, 224, 224)`. Self-attention with 12 heads is also 4D: `(batch, heads, seq_len, head_dim)`. You need a data structure that generalizes to any number of dimensions, with operations that compose cleanly across all of them. That structure is the tensor. Master its operations and shape errors become trivially debuggable.
+Ma trận xử lý các mối quan hệ từng cặp giữa hai tập đối tượng. Dữ liệu thực không vừa trong hai chiều. Một batch gồm 32 hình ảnh RGB ở 224x224 là một tensor 4D: `(32, 3, 224, 224)`. Self-attention với 12 head cũng là 4D: `(batch, heads, seq_len, head_dim)`. Bạn cần một cấu trúc dữ liệu tổng quát hóa đến bất kỳ số chiều nào, với các phép toán hợp thành gọn gàng trên tất cả chúng. Cấu trúc đó là tensor. Thành thạo các phép toán của nó và lỗi hình dạng trở nên dễ gỡ lỗi.
 
 ## The Concept
 
 ### What a tensor is
 
-A tensor is a multi-dimensional array of numbers with a uniform data type. The number of dimensions is the **rank** (or **order**). Each dimension is an **axis**. The **shape** is a tuple listing the size along each axis.
+Một tensor là một mảng số nhiều chiều với một kiểu dữ liệu thống nhất. Số chiều là **hạng** (hoặc **bậc**). Mỗi chiều là một **trục**. **Hình dạng** là một tuple liệt kê kích thước dọc theo từng trục.
 
 ```mermaid
 graph LR
@@ -36,11 +36,11 @@ graph LR
     T3 --> T4["4D Tensor<br/>rank 4<br/>shape: (B,C,H,W)"]
 ```
 
-Total elements = product of all sizes. A shape `(2, 3, 4)` holds `2 * 3 * 4 = 24` elements.
+Tổng số phần tử = tích tất cả các kích thước. Một hình dạng `(2, 3, 4)` chứa `2 * 3 * 4 = 24` phần tử.
 
 ### Tensor shapes in deep learning
 
-Different data types map to specific tensor shapes by convention.
+Các loại dữ liệu khác nhau ánh xạ đến các hình dạng tensor cụ thể theo quy ước.
 
 ```mermaid
 graph TD
@@ -58,11 +58,11 @@ graph TD
     end
 ```
 
-PyTorch uses NCHW (channels-first). TensorFlow defaults to NHWC (channels-last). Mismatched layouts cause silent slowdowns or errors.
+PyTorch sử dụng NCHW (kênh trước). TensorFlow mặc định dùng NHWC (kênh sau). Các bố trí không khớp gây chậm âm thầm hoặc lỗi.
 
 ### How memory layout works
 
-A 2D array in memory is a 1D sequence of bytes. **Strides** tell you how many elements to skip to move one step along each axis.
+Một mảng 2D trong bộ nhớ là một chuỗi byte 1D. **Stride** cho bạn biết cần bỏ qua bao nhiêu phần tử để di chuyển một bước dọc theo mỗi trục.
 
 ```mermaid
 graph LR
@@ -74,11 +74,11 @@ graph LR
     end
 ```
 
-Transpose does not move data. It swaps the strides, making the tensor **non-contiguous** -- the elements for a row are no longer adjacent in memory.
+Transpose không di chuyển dữ liệu. Nó hoán đổi các stride, làm tensor **không liên tục** -- các phần tử của một hàng không còn liền kề trong bộ nhớ.
 
 ### Broadcasting rules
 
-Broadcasting lets you operate on tensors of different shapes without copying data. Align shapes from the right. Two dimensions are compatible when they are equal or one is 1. Fewer dimensions get padded with 1s on the left.
+Broadcasting cho phép bạn thao tác trên các tensor có hình dạng khác nhau mà không sao chép dữ liệu. Căn chỉnh các hình dạng từ bên phải. Hai chiều tương thích khi chúng bằng nhau hoặc một chiều là 1. Hình dạng ít chiều hơn được đệm bằng các số 1 ở bên trái.
 
 ```
 Tensor A:     (8, 1, 6, 1)
@@ -89,7 +89,7 @@ Result:       (8, 7, 6, 5)
 
 ### Einsum: the universal tensor operation
 
-Einstein summation labels each axis with a letter. Axes in the input but not the output get summed. Axes in both are kept.
+Phép tổng Einstein gắn nhãn mỗi trục bằng một chữ cái. Các trục trong đầu vào nhưng không trong đầu ra được lấy tổng. Các trục ở cả hai được giữ lại.
 
 ```mermaid
 graph LR
@@ -99,7 +99,7 @@ graph LR
     end
 ```
 
-Key patterns: `i,i->` (dot product), `i,j->ij` (outer product), `ii->` (trace), `ij->ji` (transpose), `bij,bjk->bik` (batch matmul), `bhtd,bhsd->bhts` (attention scores).
+Các mẫu chính: `i,i->` (tích vô hướng), `i,j->ij` (tích ngoài), `ii->` (vết), `ij->ji` (chuyển vị), `bij,bjk->bik` (nhân ma trận theo batch), `bhtd,bhsd->bhts` (điểm attention).
 
 ```figure
 tensor-broadcast
@@ -107,11 +107,11 @@ tensor-broadcast
 
 ## Build It
 
-The code lives in `code/tensors.py`. Each step references the implementation there.
+Mã nằm trong `code/tensors.py`. Mỗi bước tham chiếu đến triển khai ở đó.
 
 ### Step 1: Tensor storage and strides
 
-A tensor stores a flat list of numbers plus shape metadata. Strides tell the indexing logic how to map multi-dimensional indices to flat positions.
+Một tensor lưu một danh sách số phẳng cùng siêu dữ liệu hình dạng. Stride cho logic lập chỉ mục biết cách ánh xạ các chỉ số nhiều chiều thành các vị trí phẳng.
 
 ```python
 class Tensor:
@@ -145,11 +145,11 @@ class Tensor:
         return tuple(strides)
 ```
 
-For shape `(3, 4)`, strides are `(4, 1)` -- skip 4 elements to advance one row, skip 1 element to advance one column.
+Với hình dạng `(3, 4)`, stride là `(4, 1)` -- bỏ qua 4 phần tử để tiến một hàng, bỏ qua 1 phần tử để tiến một cột.
 
 ### Step 2: Reshape, squeeze, unsqueeze
 
-Reshape changes the shape without changing element order. The total number of elements must stay the same. Use `-1` for one dimension to infer its size.
+Reshape thay đổi hình dạng mà không thay đổi thứ tự phần tử. Tổng số phần tử phải giữ nguyên. Sử dụng `-1` cho một chiều để suy ra kích thước của nó.
 
 ```python
 t = Tensor(list(range(12)), shape=(2, 6))
@@ -157,7 +157,7 @@ r = t.reshape((3, 4))
 r = t.reshape((-1, 3))
 ```
 
-Squeeze removes axes of size 1. Unsqueeze inserts one. Unsqueezing is critical for broadcasting -- a bias vector `(D,)` added to a batch `(B, T, D)` needs unsqueezing to `(1, 1, D)`.
+Squeeze loại bỏ các trục có kích thước 1. Unsqueeze chèn một trục. Unsqueeze rất quan trọng cho broadcasting -- một vector bias `(D,)` được cộng vào một batch `(B, T, D)` cần được unsqueeze thành `(1, 1, D)`.
 
 ```python
 t = Tensor(list(range(6)), shape=(1, 3, 1, 2))
@@ -168,7 +168,7 @@ u = v.unsqueeze(0)
 
 ### Step 3: Transpose and permute
 
-Transpose swaps two axes. Permute reorders all axes. This is how you convert between NCHW and NHWC.
+Transpose hoán đổi hai trục. Permute sắp xếp lại tất cả các trục. Đây là cách bạn chuyển đổi giữa NCHW và NHWC.
 
 ```python
 mat = Tensor(list(range(6)), shape=(2, 3))
@@ -178,11 +178,11 @@ t4d = Tensor(list(range(24)), shape=(1, 2, 3, 4))
 perm = t4d.permute((0, 2, 3, 1))
 ```
 
-After transpose or permute, the tensor is non-contiguous in memory. In PyTorch, `view` fails on non-contiguous tensors -- use `reshape` or call `.contiguous()` first.
+Sau transpose hoặc permute, tensor không liên tục trong bộ nhớ. Trong PyTorch, `view` thất bại trên các tensor không liên tục -- sử dụng `reshape` hoặc gọi `.contiguous()` trước.
 
 ### Step 4: Element-wise operations and reductions
 
-Element-wise ops (add, multiply, subtract) apply independently to each element and preserve shape. Reductions (sum, mean, max) collapse one or more axes.
+Các phép toán theo từng phần tử (cộng, nhân, trừ) áp dụng độc lập cho từng phần tử và bảo toàn hình dạng. Các phép rút gọn (sum, mean, max) thu gọn một hoặc nhiều trục.
 
 ```python
 a = Tensor([[1, 2], [3, 4]])
@@ -192,11 +192,11 @@ d = a * 2
 s = a.sum(axis=0)
 ```
 
-Global average pooling in a CNN: `(B, C, H, W).mean(axis=[2, 3])` produces `(B, C)`. Sequence mean pooling in NLP: `(B, T, D).mean(axis=1)` produces `(B, D)`.
+Global average pooling trong một CNN: `(B, C, H, W).mean(axis=[2, 3])` tạo ra `(B, C)`. Mean pooling chuỗi trong NLP: `(B, T, D).mean(axis=1)` tạo ra `(B, D)`.
 
 ### Step 5: Broadcasting with NumPy
 
-The `demo_broadcasting_numpy()` function in `tensors.py` shows the core patterns.
+Hàm `demo_broadcasting_numpy()` trong `tensors.py` cho thấy các mẫu cốt lõi.
 
 ```python
 activations = np.random.randn(4, 3)
@@ -212,11 +212,11 @@ b = np.array([10, 20, 30, 40]).reshape(1, -1)
 outer = a * b
 ```
 
-Pairwise distance via broadcasting: reshape `(M, 2)` to `(M, 1, 2)` and `(N, 2)` to `(1, N, 2)`, subtract, square, sum along last axis, take square root. Result: `(M, N)`.
+Khoảng cách từng cặp bằng broadcasting: reshape `(M, 2)` thành `(M, 1, 2)` và `(N, 2)` thành `(1, N, 2)`, trừ, bình phương, lấy tổng theo trục cuối, lấy căn bậc hai. Kết quả: `(M, N)`.
 
 ### Step 6: Einsum operations
 
-The `demo_einsum()` and `demo_einsum_gallery()` functions walk through every common pattern.
+Các hàm `demo_einsum()` và `demo_einsum_gallery()` lần lượt trình bày mọi mẫu phổ biến.
 
 ```python
 a = np.array([1.0, 2.0, 3.0])
@@ -232,11 +232,11 @@ batch_B = np.random.randn(4, 5, 2)
 batch_mm = np.einsum("bij,bjk->bik", batch_A, batch_B)
 ```
 
-The computational cost of a contraction is the product of all index sizes (kept and summed). For `bij,bjk->bik` with B=32, I=128, J=64, K=128: `32 * 128 * 64 * 128 = 33,554,432` multiply-adds.
+Chi phí tính toán của một phép co là tích tất cả kích thước chỉ số (được giữ và được lấy tổng). Với `bij,bjk->bik` khi B=32, I=128, J=64, K=128: `32 * 128 * 64 * 128 = 33,554,432` phép nhân-cộng.
 
 ### Step 7: Attention mechanism via einsum
 
-The `demo_attention_einsum()` function implements multi-head attention end to end.
+Hàm `demo_attention_einsum()` triển khai multi-head attention từ đầu đến cuối.
 
 ```python
 B, H, T, D = 2, 4, 8, 16
@@ -256,19 +256,19 @@ concat = attn_output.transpose(0, 2, 1, 3).reshape(B, T, E)
 output = np.einsum("bte,ek->btk", concat, W_o)
 ```
 
-Every step is a tensor operation: projection (matmul via einsum), head splitting (reshape + transpose), attention scores (batch matmul via einsum), weighted sum (batch matmul via einsum), head merging (transpose + reshape), output projection (matmul via einsum).
+Mỗi bước là một phép toán tensor: phép chiếu (matmul qua einsum), tách head (reshape + transpose), điểm attention (batch matmul qua einsum), tổng có trọng số (batch matmul qua einsum), gộp head (transpose + reshape), phép chiếu đầu ra (matmul qua einsum).
 
 ## Use It
 
 ### Scratch vs NumPy
 
-| Operation | Scratch (Tensor class) | NumPy |
+| Phép toán | Từ đầu (lớp Tensor) | NumPy |
 |---|---|---|
-| Create | `Tensor([[1,2],[3,4]])` | `np.array([[1,2],[3,4]])` |
+| Tạo | `Tensor([[1,2],[3,4]])` | `np.array([[1,2],[3,4]])` |
 | Reshape | `t.reshape((3,4))` | `a.reshape(3,4)` |
-| Transpose | `t.transpose(0,1)` | `a.T` or `a.transpose(0,1)` |
+| Transpose | `t.transpose(0,1)` | `a.T` hoặc `a.transpose(0,1)` |
 | Squeeze | `t.squeeze(0)` | `np.squeeze(a, 0)` |
-| Sum | `t.sum(axis=0)` | `a.sum(axis=0)` |
+| Tổng | `t.sum(axis=0)` | `a.sum(axis=0)` |
 | Einsum | N/A | `np.einsum("ij,jk->ik", a, b)` |
 
 ### Scratch vs PyTorch
@@ -289,56 +289,56 @@ t.transpose(0, 1).contiguous()
 torch.einsum("ik,kj->ij", A, B)
 ```
 
-PyTorch adds autograd, GPU support, and optimized BLAS kernels. The shape semantics are identical. If you understand the scratch version, PyTorch shape errors become readable.
+PyTorch bổ sung autograd, hỗ trợ GPU và các kernel BLAS được tối ưu hóa. Ngữ nghĩa hình dạng giống hệt nhau. Nếu hiểu phiên bản từ đầu, lỗi hình dạng PyTorch trở nên dễ đọc.
 
 ### Every neural network layer as a tensor operation
 
-| Operation | Tensor Form | Einsum |
+| Phép toán | Dạng Tensor | Einsum |
 |---|---|---|
-| Linear layer | `Y = X @ W.T + b` | `"bd,od->bo"` + bias |
+| Lớp tuyến tính | `Y = X @ W.T + b` | `"bd,od->bo"` + bias |
 | Attention QKV | `Q = X @ W_q` | `"btd,dh->bth"` |
-| Attention scores | `Q @ K.T / sqrt(d)` | `"bhtd,bhsd->bhts"` |
-| Attention output | `softmax(scores) @ V` | `"bhts,bhsd->bhtd"` |
-| Batch norm | `(X - mu) / sigma * gamma` | element-wise + broadcast |
-| Softmax | `exp(x) / sum(exp(x))` | element-wise + reduction |
+| Điểm attention | `Q @ K.T / sqrt(d)` | `"bhtd,bhsd->bhts"` |
+| Đầu ra attention | `softmax(scores) @ V` | `"bhts,bhsd->bhtd"` |
+| Batch norm | `(X - mu) / sigma * gamma` | theo từng phần tử + broadcast |
+| Softmax | `exp(x) / sum(exp(x))` | theo từng phần tử + rút gọn |
 
 ## Ship It
 
-This lesson produces two reusable prompts:
+Bài học này tạo ra hai prompt có thể tái sử dụng:
 
-1. **`outputs/prompt-tensor-shapes.md`** -- A systematic prompt for debugging tensor shape mismatches. Includes decision tables for every common operation (matmul, broadcast, cat, Linear, Conv2d, BatchNorm, softmax) and a fix lookup table.
+1. **`outputs/prompt-tensor-shapes.md`** -- Một prompt có hệ thống để gỡ lỗi hình dạng tensor không khớp. Bao gồm các bảng quyết định cho mọi phép toán phổ biến (matmul, broadcast, cat, Linear, Conv2d, BatchNorm, softmax) và một bảng tra cách khắc phục.
 
-2. **`outputs/prompt-tensor-debugger.md`** -- A step-by-step debugging prompt you paste into any AI assistant when a shape error is blocking you. Feed it the error message and your tensor shapes, get back the exact fix.
+2. **`outputs/prompt-tensor-debugger.md`** -- Một prompt gỡ lỗi từng bước mà bạn dán vào bất kỳ trợ lý AI nào khi lỗi hình dạng đang cản trở bạn. Đưa vào thông báo lỗi và các hình dạng tensor của bạn, nhận lại cách khắc phục chính xác.
 
 ## Exercises
 
-1. **Easy -- Reshape round-trip.** Take a tensor of shape `(2, 3, 4)`. Reshape it to `(6, 4)`, then to `(24,)`, then back to `(2, 3, 4)`. Verify element order is preserved at each step by printing the flat data.
+1. **Dễ -- Reshape khứ hồi.** Lấy một tensor có hình dạng `(2, 3, 4)`. Reshape nó thành `(6, 4)`, rồi thành `(24,)`, rồi trở lại `(2, 3, 4)`. Xác minh thứ tự phần tử được bảo toàn tại mỗi bước bằng cách in dữ liệu phẳng.
 
-2. **Medium -- Implement broadcasting.** Extend the `Tensor` class with a `broadcast_to(shape)` method that expands dimensions of size 1 to match a target shape. Then modify `_elementwise_op` to automatically broadcast before operating. Test with shapes `(3, 1)` and `(1, 4)` producing `(3, 4)`.
+2. **Trung bình -- Triển khai broadcasting.** Mở rộng lớp `Tensor` với một phương thức `broadcast_to(shape)` mở rộng các chiều có kích thước 1 để khớp với một hình dạng mục tiêu. Sau đó sửa `_elementwise_op` để tự động broadcast trước khi thao tác. Kiểm tra với các hình dạng `(3, 1)` và `(1, 4)` tạo ra `(3, 4)`.
 
-3. **Hard -- Build einsum from scratch.** Implement a basic `einsum(subscripts, *tensors)` function that handles at least: dot product (`i,i->`), matrix multiply (`ij,jk->ik`), outer product (`i,j->ij`), and transpose (`ij->ji`). Parse the subscript string, identify contracted indices, and loop over all index combinations. Compare your results against `np.einsum`.
+3. **Khó -- Xây dựng einsum từ đầu.** Triển khai một hàm `einsum(subscripts, *tensors)` cơ bản xử lý ít nhất: tích vô hướng (`i,i->`), nhân ma trận (`ij,jk->ik`), tích ngoài (`i,j->ij`) và chuyển vị (`ij->ji`). Phân tích chuỗi chỉ số, xác định các chỉ số được co và lặp qua tất cả tổ hợp chỉ số. So sánh kết quả với `np.einsum`.
 
-4. **Hard -- Attention shape tracker.** Write a function that takes `batch_size`, `seq_len`, `embed_dim`, and `num_heads` as inputs and prints the exact shape at every step of multi-head attention: input, Q/K/V projection, head split, attention scores, softmax weights, weighted sum, head merge, output projection. Verify against the `demo_attention_einsum()` output.
+4. **Khó -- Bộ theo dõi hình dạng attention.** Viết một hàm nhận `batch_size`, `seq_len`, `embed_dim` và `num_heads` làm đầu vào và in hình dạng chính xác tại mọi bước của multi-head attention: đầu vào, phép chiếu Q/K/V, tách head, điểm attention, trọng số softmax, tổng có trọng số, gộp head, phép chiếu đầu ra. Xác minh với đầu ra `demo_attention_einsum()`.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |---|---|---|
-| Tensor | "A matrix but more dimensions" | A multi-dimensional array with uniform type and defined shape, strides, and operations |
-| Rank | "The number of dimensions" | The number of axes. A matrix has rank 2, not rank equal to its matrix rank |
-| Shape | "The size of the tensor" | A tuple listing the size along each axis. `(2, 3)` means 2 rows, 3 columns |
-| Stride | "How memory is laid out" | The number of elements to skip to advance one position along each axis |
-| Broadcasting | "It just works when shapes differ" | A strict set of rules: align from right, dimensions must be equal or one must be 1 |
-| Contiguous | "The tensor is normal" | Elements stored sequentially in memory with no gaps or reordering from the logical layout |
-| Einsum | "A fancy way to write matmul" | A general notation that expresses any tensor contraction, outer product, trace, or transpose in one line |
-| View | "Same as reshape" | A tensor sharing the same memory buffer but with different shape/stride metadata. Fails on non-contiguous data |
-| Contraction | "Summing over an index" | The general operation where a shared index between tensors is multiplied and summed, producing a lower-rank result |
-| NCHW / NHWC | "PyTorch vs TensorFlow format" | Memory layout conventions for image tensors. NCHW puts channels before spatial dims, NHWC puts them after |
+| Tensor | "Một ma trận nhưng nhiều chiều hơn" | Một mảng nhiều chiều với kiểu thống nhất và hình dạng, stride cùng các phép toán được xác định |
+| Rank (Hạng) | "Số chiều" | Số trục. Một ma trận có hạng 2, không phải hạng bằng hạng ma trận của nó |
+| Shape (Hình dạng) | "Kích thước của tensor" | Một tuple liệt kê kích thước dọc theo từng trục. `(2, 3)` nghĩa là 2 hàng, 3 cột |
+| Stride | "Cách bộ nhớ được bố trí" | Số phần tử cần bỏ qua để tiến một vị trí dọc theo từng trục |
+| Broadcasting | "Nó cứ hoạt động khi hình dạng khác nhau" | Một tập quy tắc nghiêm ngặt: căn chỉnh từ phải, các chiều phải bằng nhau hoặc một chiều phải là 1 |
+| Contiguous (Liên tục) | "Tensor bình thường" | Các phần tử được lưu tuần tự trong bộ nhớ không có khoảng trống hoặc sắp xếp lại so với bố trí logic |
+| Einsum | "Một cách cầu kỳ để viết matmul" | Một ký hiệu tổng quát biểu đạt bất kỳ phép co tensor, tích ngoài, vết hoặc chuyển vị nào trong một dòng |
+| View | "Giống reshape" | Một tensor dùng chung bộ đệm bộ nhớ nhưng có siêu dữ liệu hình dạng/stride khác. Thất bại trên dữ liệu không liên tục |
+| Contraction (Phép co) | "Lấy tổng theo một chỉ số" | Phép toán tổng quát trong đó một chỉ số chung giữa các tensor được nhân và lấy tổng, tạo ra một kết quả có hạng thấp hơn |
+| NCHW / NHWC | "Định dạng PyTorch so với TensorFlow" | Các quy ước bố trí bộ nhớ cho tensor hình ảnh. NCHW đặt kênh trước các chiều không gian, NHWC đặt chúng sau |
 
 ## Further Reading
 
-- [NumPy Broadcasting](https://numpy.org/doc/stable/user/basics.broadcasting.html) -- The canonical rules with visual examples
-- [PyTorch Tensor Views](https://pytorch.org/docs/stable/tensor_view.html) -- When views work and when they copy
-- [einops](https://github.com/arogozhnikov/einops) -- A library that makes tensor reshaping readable and safe
-- [The Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/) -- Visualizes the tensor shapes flowing through attention
-- [Einstein Summation in NumPy](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html) -- Full einsum documentation with examples
+- [NumPy Broadcasting](https://numpy.org/doc/stable/user/basics.broadcasting.html) -- Các quy tắc chuẩn cùng ví dụ trực quan
+- [PyTorch Tensor Views](https://pytorch.org/docs/stable/tensor_view.html) -- Khi nào view hoạt động và khi nào chúng sao chép
+- [einops](https://github.com/arogozhnikov/einops) -- Một thư viện làm việc thay đổi hình dạng tensor dễ đọc và an toàn
+- [The Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/) -- Trực quan hóa các hình dạng tensor truyền qua attention
+- [Einstein Summation in NumPy](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html) -- Tài liệu einsum đầy đủ cùng ví dụ
