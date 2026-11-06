@@ -1,6 +1,6 @@
 # LLM Evaluation — RAGAS, DeepEval, G-Eval
 
-> Exact-match and F1 miss semantic equivalence. Human review does not scale. LLM-as-judge is the production answer — with enough calibration to trust the number.
+> Khớp chính xác và F1 bỏ sót sự tương đương ngữ nghĩa. Rà soát của con người không mở rộng được. LLM-as-judge là câu trả lời production — với đủ hiệu chuẩn để tin con số.
 
 **Type:** Build
 **Languages:** Python
@@ -9,46 +9,46 @@
 
 ## The Problem
 
-Your RAG system answers: "June 29th, 2007."
-The gold reference is: "June 29, 2007."
-Exact Match scores 0. F1 scores ~75%. A human would score 100%.
+Hệ thống RAG của bạn trả lời: "June 29th, 2007."
+Tham chiếu chuẩn là: "June 29, 2007."
+Exact Match chấm 0. F1 chấm ~75%. Một người sẽ chấm 100%.
 
-Now multiply by 10,000 test cases. Multiply again by every change to the retriever, chunking, prompt, or model. You need an evaluator that understands meaning, runs cheaply at scale, does not lie about regressions, and surfaces the right failure modes.
+Giờ nhân với 10,000 trường hợp kiểm thử. Nhân lần nữa với mọi thay đổi bộ truy xuất, chia khối, prompt hoặc mô hình. Bạn cần một bộ đánh giá hiểu ý nghĩa, chạy rẻ ở quy mô lớn, không nói dối về các hồi quy và đưa đúng các dạng lỗi lên.
 
-2026 has three frameworks that own this problem.
+Năm 2026 có ba framework nắm bài toán này.
 
-- **RAGAS.** Retrieval-Augmented Generation ASsessment. Four RAG metrics (faithfulness, answer-relevance, context-precision, context-recall) with NLI + LLM-judge backends. Research-backed, lightweight.
-- **DeepEval.** Pytest for LLMs. G-Eval, task-completion, hallucination, bias metrics. CI/CD-native.
-- **G-Eval.** A method (and a DeepEval metric): LLM-as-judge with chain-of-thought, custom criteria, 0-1 score.
+- **RAGAS.** Retrieval-Augmented Generation ASsessment. Bốn thước đo RAG (độ trung thành, tính liên quan câu trả lời, precision ngữ cảnh, recall ngữ cảnh) với các backend NLI + LLM đánh giá. Có nghiên cứu hỗ trợ, nhẹ.
+- **DeepEval.** Pytest cho LLM. Các thước đo G-Eval, hoàn thành tác vụ, ảo giác, thiên lệch. Tích hợp tự nhiên với CI/CD.
+- **G-Eval.** Một phương pháp (và một thước đo DeepEval): LLM-as-judge với chain-of-thought, các tiêu chí tùy chỉnh, điểm 0-1.
 
-All three lean on LLM-as-judge. This lesson builds intuition for the method and the trust layer around it.
+Cả ba dựa vào LLM-as-judge. Bài học này xây dựng trực giác cho phương pháp và tầng tin cậy xung quanh nó.
 
 ## The Concept
 
 ![Four evaluation dimensions, LLM-as-judge architecture](../assets/llm-evaluation.svg)
 
-**LLM-as-judge.** Replace a static metric with an LLM that scores outputs given a rubric. Given `(query, context, answer)`, prompt a judge LLM: "Score 0-1 on faithfulness." Return the score.
+**LLM-as-judge.** Thay một thước đo tĩnh bằng một LLM chấm các đầu ra theo một rubric. Với `(query, context, answer)`, prompt một LLM đánh giá: "Chấm 0-1 về độ trung thành." Trả điểm.
 
-Why it works: LLMs approximate human judgment at a tiny fraction of the cost. GPT-4o-mini at ~$0.003 per scored case enables 1000-sample regression eval runs for under $5.
+Vì sao nó hoạt động: LLM xấp xỉ phán đoán con người với một phần rất nhỏ chi phí. GPT-4o-mini ở mức ~$0.003 mỗi trường hợp được chấm cho phép các lượt đánh giá hồi quy 1000 mẫu với dưới $5.
 
-Why it fails silently:
+Vì sao nó âm thầm thất bại:
 
-1. **Judge bias.** Judges prefer longer answers, answers from their own model family, answers that match the prompt style.
-2. **JSON parsing failures.** Bad JSON → NaN score → silently excluded from the aggregate. RAGAS users know this pain. Gate with try/except + explicit failure mode.
-3. **Drift over model versions.** Upgrading the judge changes every metric. Freeze judge model + version.
+1. **Thiên lệch giám khảo.** Các giám khảo thích các câu trả lời dài hơn, các câu trả lời từ họ mô hình của chính chúng, các câu trả lời khớp phong cách prompt.
+2. **Các lỗi phân tích JSON.** JSON tệ → điểm NaN → âm thầm bị loại khỏi tổng hợp. Những người dùng RAGAS biết nỗi đau này. Chặn bằng try/except + dạng lỗi tường minh.
+3. **Độ trôi qua các phiên bản mô hình.** Nâng cấp giám khảo thay đổi mọi thước đo. Cố định mô hình giám khảo + phiên bản.
 
-**The RAG four.**
+**Bốn thước đo RAG.**
 
-| Metric | Question | Backend |
+| Thước đo | Câu hỏi | Backend |
 |--------|----------|---------|
-| Faithfulness | Does each claim in the answer come from the retrieved context? | NLI-based entailment |
-| Answer relevance | Does the answer address the question? | Generate hypothetical questions from answer; compare to real question |
-| Context precision | Of retrieved chunks, what fraction were relevant? | LLM-judge |
-| Context recall | Did retrieval return everything needed? | LLM-judge against gold answer |
+| Độ trung thành | Mỗi khẳng định trong câu trả lời có đến từ ngữ cảnh truy xuất không? | Kéo theo dựa trên NLI |
+| Tính liên quan câu trả lời | Câu trả lời có giải quyết câu hỏi không? | Sinh các câu hỏi giả định từ câu trả lời; so sánh với câu hỏi thực |
+| Precision ngữ cảnh | Trong các khối truy xuất, tỷ lệ nào liên quan? | LLM đánh giá |
+| Recall ngữ cảnh | Truy xuất có trả mọi thứ cần thiết không? | LLM đánh giá so với câu trả lời chuẩn |
 
-**G-Eval.** Define a custom criterion: "Did the answer cite the correct source?" The framework auto-expands into chain-of-thought evaluation steps, then scores 0-1. Good for domain-specific quality dimensions RAGAS does not cover.
+**G-Eval.** Định nghĩa một tiêu chí tùy chỉnh: "Câu trả lời có trích dẫn đúng nguồn không?" Framework tự mở rộng thành các bước đánh giá chain-of-thought, rồi chấm 0-1. Tốt cho các chiều chất lượng riêng lĩnh vực mà RAGAS không bao phủ.
 
-**Calibration.** Never trust the raw judge score until you have a correlation against human labels. Run 100 hand-labeled examples. Plot judge vs human. Compute Spearman rho. If rho < 0.7, your judge rubric needs work.
+**Hiệu chuẩn.** Không bao giờ tin điểm giám khảo thô cho đến khi bạn có một tương quan với các nhãn con người. Chạy 100 ví dụ gán nhãn bằng tay. Vẽ giám khảo so với con người. Tính Spearman rho. Nếu rho < 0.7, rubric giám khảo của bạn cần được cải thiện.
 
 ```figure
 n5-judge-gauge
@@ -91,7 +91,7 @@ def faithfulness(answer: str, context: str, llm: LLM) -> float:
     return supported / len(claims)
 ```
 
-Decompose the answer into atomic claims. NLI-check each claim against the retrieved context. Faithfulness = fraction supported.
+Phân rã câu trả lời thành các khẳng định nguyên tử. Kiểm tra NLI mỗi khẳng định theo ngữ cảnh truy xuất. Độ trung thành = tỷ lệ được hỗ trợ.
 
 ### Step 2: answer relevance
 
@@ -113,7 +113,7 @@ def answer_relevance(question: str, answer: str, encoder, llm: LLM, n: int = 3) 
     return sum(sims) / len(sims)
 ```
 
-If the answer implies different questions than the one asked, relevance drops.
+Nếu câu trả lời hàm ý các câu hỏi khác với câu được hỏi, tính liên quan giảm.
 
 ### Step 3: G-Eval custom metric
 
@@ -141,7 +141,7 @@ metric.measure(test)
 print(metric.score, metric.reason)
 ```
 
-The evaluation steps are the rubric. Explicit steps are more stable than implicit "score 0-1" prompts.
+Các bước đánh giá là rubric. Các bước tường minh ổn định hơn các prompt ngầm "chấm 0-1".
 
 ### Step 4: CI gate
 
@@ -161,39 +161,39 @@ def test_rag_system():
         assert rel.score >= 0.7, f"relevancy regression on {case.id}"
 ```
 
-Ship as a pytest file. Run on every PR. Block merges on regressions.
+Phát hành dưới dạng một file pytest. Chạy trên mỗi PR. Chặn merge khi có hồi quy.
 
 ### Step 5: toy eval from scratch
 
-See `code/main.py`. Stdlib-only approximations of faithfulness (overlap of answer claims with context) and relevance (overlap of answer tokens with question tokens). Not production. Shows the shape.
+Xem `code/main.py`. Các xấp xỉ chỉ stdlib của độ trung thành (phần giao các khẳng định câu trả lời với ngữ cảnh) và tính liên quan (phần giao token câu trả lời với token câu hỏi). Không phải production. Cho thấy hình dạng.
 
 ## Pitfalls
 
-- **No calibration.** A judge with 0.3 correlation to human labels is noise. Require a calibration run before shipping.
-- **Self-evaluation.** Using the same LLM to generate and judge inflates scores by 10-20%. Use a different model family for the judge.
-- **Positional bias in pairwise judging.** Judges prefer the first option presented. Always randomize order and run both.
-- **Raw aggregate hides failures.** Mean score 0.85 often hides 5% catastrophic failures. Always inspect the bottom quantile.
-- **Golden dataset rot.** Unversioned eval sets that drift over time break longitudinal comparison. Tag the dataset with every change.
-- **LLM cost.** At scale, judge calls dominate cost. Use the cheapest model that meets calibration threshold. GPT-4o-mini, Claude Haiku, Mistral-small.
+- **Không hiệu chuẩn.** Một giám khảo có tương quan 0.3 với các nhãn con người là nhiễu. Yêu cầu một lượt hiệu chuẩn trước khi phát hành.
+- **Tự đánh giá.** Dùng cùng LLM để sinh và đánh giá thổi phồng điểm 10-20%. Dùng một họ mô hình khác cho giám khảo.
+- **Thiên lệch vị trí trong đánh giá từng cặp.** Các giám khảo thích lựa chọn được trình bày đầu tiên. Luôn ngẫu nhiên hóa thứ tự và chạy cả hai.
+- **Tổng hợp thô che giấu lỗi.** Điểm trung bình 0.85 thường che giấu 5% lỗi thảm họa. Luôn kiểm tra phân vị thấp nhất.
+- **Mục nát tập dữ liệu chuẩn.** Các tập đánh giá không được quản lý phiên bản trôi theo thời gian phá so sánh theo thời gian. Gắn thẻ tập dữ liệu với mỗi thay đổi.
+- **Chi phí LLM.** Ở quy mô lớn, các lời gọi giám khảo chi phối chi phí. Dùng mô hình rẻ nhất đáp ứng ngưỡng hiệu chuẩn. GPT-4o-mini, Claude Haiku, Mistral-small.
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Use case | Framework |
+| Trường hợp sử dụng | Framework |
 |---------|-----------|
-| RAG quality monitoring | RAGAS (4 metrics) |
-| CI/CD regression gates | DeepEval + pytest |
-| Custom domain criteria | G-Eval within DeepEval |
-| Online live-traffic monitoring | RAGAS with reference-free mode |
-| Human-in-the-loop spot checks | LangSmith or Phoenix with annotation UI |
-| Red-teaming / safety eval | Promptfoo + DeepEval |
+| Giám sát chất lượng RAG | RAGAS (4 thước đo) |
+| Các cổng hồi quy CI/CD | DeepEval + pytest |
+| Các tiêu chí lĩnh vực tùy chỉnh | G-Eval trong DeepEval |
+| Giám sát trực tuyến lưu lượng trực tiếp | RAGAS với chế độ không tham chiếu |
+| Kiểm tra ngẫu nhiên có con người trong vòng lặp | LangSmith hoặc Phoenix với UI chú giải |
+| Red-teaming / đánh giá an toàn | Promptfoo + DeepEval |
 
-Typical stack: RAGAS for monitoring, DeepEval for CI, G-Eval for novel dimensions. Run all three; they disagree usefully.
+Ngăn xếp điển hình: RAGAS để giám sát, DeepEval cho CI, G-Eval cho các chiều mới. Chạy cả ba; chúng bất đồng một cách hữu ích.
 
 ## Ship It
 
-Save as `outputs/skill-eval-architect.md`:
+Lưu thành `outputs/skill-eval-architect.md`:
 
 ```markdown
 ---
@@ -218,26 +218,26 @@ Refuse to rely on a judge untested against ≥50 human-labeled examples. Refuse 
 
 ## Exercises
 
-1. **Easy.** Use RAGAS on 10 RAG examples with known hallucinations. Verify the faithfulness metric catches each one.
-2. **Medium.** Hand-label 50 QA answers 0-1 for correctness. Score with G-Eval. Measure Spearman rho between judge and human.
-3. **Hard.** Build a pytest CI gate with DeepEval. Intentionally regress the retriever. Verify the gate fails. Add bottom-quantile alerting via threshold check on the lowest 10%.
+1. **Dễ.** Dùng RAGAS trên 10 ví dụ RAG có ảo giác đã biết. Xác minh thước đo độ trung thành bắt được từng ví dụ.
+2. **Trung bình.** Gán nhãn thủ công 50 câu trả lời QA 0-1 về tính đúng đắn. Chấm bằng G-Eval. Đo Spearman rho giữa giám khảo và con người.
+3. **Khó.** Xây dựng một cổng CI pytest với DeepEval. Cố ý làm bộ truy xuất suy giảm. Xác minh cổng không đạt. Thêm cảnh báo phân vị thấp nhất qua kiểm tra ngưỡng trên 10% thấp nhất.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| LLM-as-judge | Scoring with an LLM | Prompt a judge model to score outputs 0-1 given a rubric. |
-| RAGAS | The RAG metric library | Open-source eval framework with 4 reference-free RAG metrics. |
-| Faithfulness | Is the answer grounded? | Fraction of answer claims entailed by retrieved context. |
-| Context precision | Were retrieved chunks relevant? | Fraction of top-K chunks that actually mattered. |
-| Context recall | Did retrieval find everything? | Fraction of gold-answer claims supported by retrieved chunks. |
-| G-Eval | Custom LLM judge | Rubric + chain-of-thought eval steps + 0-1 score. |
-| Calibration | Trust but verify | Spearman correlation between judge score and human score. |
+| LLM-as-judge (LLM làm giám khảo) | Chấm điểm bằng một LLM | Prompt một mô hình giám khảo chấm các đầu ra 0-1 theo một rubric. |
+| RAGAS | Thư viện thước đo RAG | Framework đánh giá mã nguồn mở với 4 thước đo RAG không tham chiếu. |
+| Faithfulness (Độ trung thành) | Câu trả lời có căn cứ không? | Tỷ lệ các khẳng định câu trả lời được ngữ cảnh truy xuất kéo theo. |
+| Context precision (Precision ngữ cảnh) | Các khối truy xuất có liên quan không? | Tỷ lệ các khối top-K thực sự quan trọng. |
+| Context recall (Recall ngữ cảnh) | Truy xuất có tìm mọi thứ không? | Tỷ lệ các khẳng định câu trả lời chuẩn được các khối truy xuất hỗ trợ. |
+| G-Eval | Giám khảo LLM tùy chỉnh | Rubric + các bước đánh giá chain-of-thought + điểm 0-1. |
+| Calibration (Hiệu chuẩn) | Tin nhưng xác minh | Tương quan Spearman giữa điểm giám khảo và điểm con người. |
 
 ## Further Reading
 
-- [Es et al. (2023). RAGAS: Automated Evaluation of Retrieval Augmented Generation](https://arxiv.org/abs/2309.15217) — the RAGAS paper.
-- [Liu et al. (2023). G-Eval: NLG Evaluation using GPT-4 with Better Human Alignment](https://arxiv.org/abs/2303.16634) — the G-Eval paper.
-- [DeepEval docs](https://deepeval.com/docs/metrics-introduction) — open production stack.
-- [Zheng et al. (2023). Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena](https://arxiv.org/abs/2306.05685) — biases, calibration, limits.
-- [MLflow GenAI Scorer](https://mlflow.org/blog/third-party-scorers) — unifying framework that integrates RAGAS, DeepEval, Phoenix.
+- [Es et al. (2023). RAGAS: Automated Evaluation of Retrieval Augmented Generation](https://arxiv.org/abs/2309.15217) — bài báo RAGAS.
+- [Liu et al. (2023). G-Eval: NLG Evaluation using GPT-4 with Better Human Alignment](https://arxiv.org/abs/2303.16634) — bài báo G-Eval.
+- [DeepEval docs](https://deepeval.com/docs/metrics-introduction) — ngăn xếp production mở.
+- [Zheng et al. (2023). Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena](https://arxiv.org/abs/2306.05685) — các thiên lệch, hiệu chuẩn, giới hạn.
+- [MLflow GenAI Scorer](https://mlflow.org/blog/third-party-scorers) — framework thống nhất tích hợp RAGAS, DeepEval, Phoenix.
