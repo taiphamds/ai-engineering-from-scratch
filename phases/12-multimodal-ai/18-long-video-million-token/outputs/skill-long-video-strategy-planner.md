@@ -7,25 +7,25 @@ lesson: 18
 tags: [long-video, gemini, ring-attention, videoagent, retrieval]
 ---
 
-Given a video duration, query complexity (single event vs holistic summary), and open vs closed constraints, pick a long-video strategy and emit a config.
+Với thời lượng video, độ phức tạp truy vấn (một sự kiện so với tóm tắt tổng thể) và ràng buộc mở so với đóng, chọn chiến lược video dài và đưa ra cấu hình.
 
-Produce:
+Tạo ra:
 
-1. Strategy pick. Brute-context, ring-attention (LongVILA), token-compression (Video-XL), or agentic-retrieval (VideoAgent).
-2. Token budget. Duration * FPS * per-frame-tokens. Warn if > LLM context.
-3. Expected recall. Needle-in-a-haystack recall at video-length percentiles. Cite Gemini 1.5 reports when relevant.
-4. Latency. Prefill time for brute-context; retrieval + VLM for agentic.
-5. Engineering path. Code snippet scaffold for the chosen strategy.
-6. Fallback plan. Hybrid: brute-context global summary + agentic local detail.
+1. Lựa chọn chiến lược. Ngữ cảnh trực tiếp, ring attention (LongVILA), nén token (Video-XL), hoặc truy xuất bằng agent (VideoAgent).
+2. Ngân sách token. Thời lượng * FPS * token mỗi khung hình. Cảnh báo nếu > ngữ cảnh LLM.
+3. Độ thu hồi kỳ vọng. Độ thu hồi kim trong đống cỏ khô tại các phân vị độ dài video. Dẫn báo cáo Gemini 1.5 khi phù hợp.
+4. Độ trễ. Thời gian nạp trước cho ngữ cảnh trực tiếp; truy xuất + VLM cho agent.
+5. Hướng kỹ thuật. Khung đoạn mã cho chiến lược đã chọn.
+6. Kế hoạch dự phòng. Lai: tóm tắt toàn cục bằng ngữ cảnh trực tiếp + chi tiết cục bộ bằng agent.
 
-Hard rejects:
-- Proposing brute-context for a 2-hour video on an open 72B model. Context does not fit.
-- Claiming agentic retrieval always wins. For holistic-summary questions it loses to brute context.
-- Recommending token compression without flagging the recall tax.
+Các trường hợp bác bỏ tuyệt đối:
+- Đề xuất ngữ cảnh trực tiếp cho video 2 giờ trên mô hình mở 72B. Không vừa ngữ cảnh.
+- Khẳng định truy xuất bằng agent luôn thắng. Với câu hỏi tóm tắt tổng thể, nó thua ngữ cảnh trực tiếp.
+- Khuyến nghị nén token mà không nêu sự suy giảm độ thu hồi.
 
-Refusal rules:
-- If target is a 90-minute video at frontier recall (>95%), refuse open-only options and recommend Gemini 2.5 Pro.
-- If user cannot afford tool-calling loops, refuse agentic-retrieval and propose compressed brute-context.
-- If user needs real-time (stream-as-it-plays), refuse retrieval (too slow) and recommend streaming Qwen2.5-VL.
+Quy tắc từ chối:
+- Nếu mục tiêu là video 90 phút với độ thu hồi tiên tiến nhất (>95%), từ chối lựa chọn chỉ mở và khuyến nghị Gemini 2.5 Pro.
+- Nếu người dùng không đủ khả năng chạy vòng lặp gọi công cụ, từ chối truy xuất bằng agent và đề xuất ngữ cảnh trực tiếp được nén.
+- Nếu người dùng cần thời gian thực (truyền luồng khi phát), từ chối truy xuất (quá chậm) và khuyến nghị Qwen2.5-VL truyền luồng.
 
-Output: one-page plan with strategy, budget, recall, latency, engineering path, and fallback. End with arXiv 2403.05530 (Gemini 1.5) and 2403.10517 (VideoAgent) for comparison.
+Đầu ra: kế hoạch một trang với chiến lược, ngân sách, độ thu hồi, độ trễ, hướng kỹ thuật và dự phòng. Kết thúc bằng arXiv 2403.05530 (Gemini 1.5) và 2403.10517 (VideoAgent) để so sánh.
