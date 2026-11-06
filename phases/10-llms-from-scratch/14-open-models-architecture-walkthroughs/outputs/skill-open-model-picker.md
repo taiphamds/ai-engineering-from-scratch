@@ -7,21 +7,21 @@ lesson: 14
 tags: [open-models, llama, deepseek, mixtral, qwen, gemma, moe, gqa, mla, quantization]
 ---
 
-Given a deployment target (GPU type, VRAM per GPU, number of GPUs, target context length, target p50/p99 latency, peak concurrent requests) and a task profile (chat, code, reasoning, long-context retrieval, tool use), recommend an open model plus serving stack with explicit reasoning about each of the six architectural knobs from Lesson 14.
+Với đích triển khai (loại GPU, VRAM mỗi GPU, số GPU, ngữ cảnh mục tiêu, độ trễ p50/p99 mục tiêu, yêu cầu đồng thời đỉnh) và đặc điểm tác vụ (chat, mã, suy luận, truy xuất ngữ cảnh dài, dùng công cụ), đề xuất mô hình mở cộng bộ phục vụ với lý giải tường minh về mỗi nút trong sáu nút kiến trúc từ Bài 14.
 
-Produce:
+Tạo:
 
-1. Model shortlist. Three candidates, each with total params, active params (MoE-aware), architecture flags (norm / activation / position / attention / MoE / context), and the single reason it made the shortlist.
-2. Memory budget check. For the top candidate: weight memory at BF16 and at the chosen quantization; KV cache at target context for the target batch size; activation headroom. Halt the recommendation if weights + KV cache + activations exceed available VRAM.
-3. Quantization choice. GPTQ-4bit, AWQ-4bit, FP8, or BF16. Justify against accuracy sensitivity of the task (code / math / reasoning tasks take a bigger hit from aggressive quantization than chat or retrieval).
-4. Inference stack. vLLM, TensorRT-LLM, SGLang, or llama.cpp. Justify against: continuous batching need, speculative decoding support, quantization format compatibility, and single-node vs multi-node topology.
-5. Throughput sanity check. Prefill tokens/sec and decode tokens/sec estimates based on GPU memory bandwidth (decode) and TFLOPs (prefill). Reject the recommendation if decode throughput is below the target's concurrent-user floor.
-6. Fallback. Second choice if the top candidate exceeds VRAM or throughput budget. Always name one.
+1. Danh sách mô hình rút gọn. Ba ứng viên, mỗi cái có tổng tham số, tham số hoạt động (nhận biết MoE), cờ kiến trúc (norm / kích hoạt / vị trí / attention / MoE / ngữ cảnh), và một lý do lọt danh sách.
+2. Kiểm tra ngân sách bộ nhớ. Với ứng viên đầu: bộ nhớ trọng số ở BF16 và lượng tử hóa đã chọn; KV cache ở ngữ cảnh mục tiêu cho batch mục tiêu; dư địa activation. Dừng đề xuất nếu trọng số + KV cache + activation vượt VRAM sẵn có.
+3. Chọn lượng tử hóa. GPTQ-4bit, AWQ-4bit, FP8 hoặc BF16. Biện minh theo độ nhạy chính xác tác vụ (mã / toán / suy luận chịu tác động lượng tử hóa mạnh lớn hơn chat hoặc truy xuất).
+4. Bộ suy luận. vLLM, TensorRT-LLM, SGLang hoặc llama.cpp. Biện minh theo: nhu cầu continuous batching, hỗ trợ speculative decoding, tương thích định dạng lượng tử hóa và cấu trúc một node so với nhiều node.
+5. Kiểm tra hợp lý thông lượng. Ước lượng token/giây prefill và decode dựa băng thông bộ nhớ GPU (decode) và TFLOPs (prefill). Từ chối đề xuất nếu thông lượng decode dưới mức tối thiểu người dùng đồng thời của đích.
+6. Dự phòng. Lựa chọn thứ hai nếu ứng viên đầu vượt ngân sách VRAM hoặc thông lượng. Luôn nêu một.
 
-Hard rejects:
-- Dense models above 30B on a single 24GB consumer GPU without offloading or aggressive quantization.
-- MoE models on a serving stack without expert-parallel support.
-- Long-context (128k+) on architectures without GQA or MLA (KV cache explodes).
-- Any recommendation that does not name the specific model revision (e.g., "Llama 3 8B Instruct v3.1", not "Llama 3").
+Từ chối dứt khoát:
+- Mô hình dense trên 30B trên một GPU phổ thông 24GB mà không offload hoặc lượng tử hóa mạnh.
+- Mô hình MoE trên bộ phục vụ không hỗ trợ song song expert.
+- Ngữ cảnh dài (128k+) trên kiến trúc không GQA hoặc MLA (KV cache bùng nổ).
+- Bất kỳ đề xuất nào không nêu bản sửa đổi mô hình cụ thể (ví dụ "Llama 3 8B Instruct v3.1", không phải "Llama 3").
 
-Output: a one-page recommendation listing model, quantization, stack, with numbered evidence for each decision. End with a "worth reconsidering if..." paragraph naming the specific capability or deployment parameter that would flip the choice.
+Đầu ra: đề xuất một trang liệt kê mô hình, lượng tử hóa, bộ công cụ, với bằng chứng đánh số cho mỗi quyết định. Kết thúc bằng đoạn "đáng xem xét lại nếu..." nêu năng lực hoặc tham số triển khai cụ thể sẽ đổi lựa chọn.
