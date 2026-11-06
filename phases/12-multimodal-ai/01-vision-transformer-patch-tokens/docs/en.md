@@ -1,6 +1,6 @@
 # Vision Transformers and the Patch-Token Primitive
 
-> Before anything multimodal, an image has to become a sequence of tokens a transformer can eat. The 2020 ViT paper answered this with 16x16 pixel patches, a linear projection, and a position embedding. Five years later every 2026 frontier model (Claude Opus 4.7 at 2576px native, Gemini 3.1 Pro, Qwen3.5-Omni) still begins this way — the encoder changed from ViT to DINOv2 to SigLIP 2, register tokens were added, the positional scheme became 2D-RoPE, but the primitive held. This lesson reads the patch-token pipeline end to end and builds it in stdlib Python so the rest of Phase 12 has a concrete mental model for "visual tokens."
+> Trước mọi thứ đa phương thức, một ảnh phải trở thành chuỗi token mà transformer có thể ăn. Bài báo ViT năm 2020 trả lời bằng patch 16x16 pixel, một phép chiếu tuyến tính và một embedding vị trí. Năm năm sau, mọi mô hình tiên tiến nhất năm 2026 (Claude Opus 4.7 ở 2576px nguyên bản, Gemini 3.1 Pro, Qwen3.5-Omni) vẫn bắt đầu như vậy — encoder đổi từ ViT sang DINOv2 rồi SigLIP 2, token thanh ghi được thêm vào, cơ chế vị trí thành 2D-RoPE, nhưng thành phần cơ bản vẫn giữ. Bài học này đọc pipeline patch-token từ đầu đến cuối và xây bằng stdlib Python để phần còn lại của Giai đoạn 12 có mô hình tư duy cụ thể về "token thị giác."
 
 **Type:** Learn
 **Languages:** Python (stdlib, patch tokenizer + geometry calculator)
@@ -9,73 +9,73 @@
 
 ## Learning Objectives
 
-- Convert an HxWx3 image into a sequence of patch tokens with correct positional encoding.
-- Compute sequence length, parameter count, and FLOPs for a ViT of a given (patch size, resolution, hidden dim, depth).
-- Name the three upgrades that took ViT from 2020 research to 2026 production: self-supervised pretraining (DINO / MAE), register tokens, and native-resolution packing.
-- Pick between CLS pooling, mean pooling, and register tokens for a downstream task.
+- Chuyển ảnh HxWx3 thành chuỗi token patch với mã hóa vị trí đúng.
+- Tính độ dài chuỗi, số tham số và FLOPs cho ViT có (kích thước patch, độ phân giải, chiều ẩn, độ sâu) cho trước.
+- Nêu tên ba nâng cấp đưa ViT từ nghiên cứu năm 2020 đến sản xuất năm 2026: tiền huấn luyện tự giám sát (DINO / MAE), token thanh ghi và đóng gói độ phân giải nguyên bản.
+- Chọn giữa pooling CLS, pooling trung bình và token thanh ghi cho tác vụ downstream.
 
 ## The Problem
 
-Transformers operate on sequences of vectors. Text is already a sequence (bytes or tokens). An image is a 2D grid of pixels with three color channels — not a sequence. If you flatten every pixel, a 224x224 RGB image becomes 150,528 tokens, and self-attention at that length is a non-starter (quadratic in sequence length).
+Transformer hoạt động trên chuỗi vector. Văn bản đã là chuỗi (byte hoặc token). Ảnh là lưới pixel 2D với ba kênh màu — không phải chuỗi. Nếu làm phẳng mọi pixel, ảnh RGB 224x224 trở thành 150,528 token, và self-attention ở độ dài đó không khả thi (bậc hai theo độ dài chuỗi).
 
-Pre-2020 approaches bolted a CNN feature extractor onto the front: ResNet produces a 7x7 feature map of 2048-dim vectors, feed those 49 tokens to a transformer. This works but inherits the CNN's biases (translation equivariance, local receptive fields) and loses the transformer's appetite for scale.
+Các cách trước năm 2020 gắn bộ trích xuất đặc trưng CNN vào phía trước: ResNet tạo bản đồ đặc trưng 7x7 các vector 2048 chiều, đưa 49 token đó cho transformer. Điều này hoạt động nhưng kế thừa thiên lệch CNN (đẳng biến tịnh tiến, trường tiếp nhận cục bộ) và mất sự ham thích quy mô của transformer.
 
-Dosovitskiy et al. (2020) asked the blunt question: what if we skip the CNN? Split the image into fixed-size patches (say 16x16 pixels), linearly project each patch into a vector, add a positional embedding, and feed the sequence to a vanilla transformer. At the time this was heresy — vision without convolutions. With enough data (JFT-300M, then LAION) it beat ResNet on ImageNet and kept improving.
+Dosovitskiy và cộng sự (2020) hỏi thẳng: nếu bỏ CNN thì sao? Chia ảnh thành patch kích thước cố định (chẳng hạn 16x16 pixel), chiếu tuyến tính mỗi patch thành vector, thêm embedding vị trí và đưa chuỗi vào transformer nguyên bản. Lúc đó đây là dị giáo — thị giác không tích chập. Với đủ dữ liệu (JFT-300M, rồi LAION), nó vượt ResNet trên ImageNet và tiếp tục cải thiện.
 
-By 2026 the ViT primitive is the unquestioned foundation. Every open-weights VLM's vision tower is some descendant (DINOv2, SigLIP 2, CLIP, EVA, InternViT). The question is no longer "should we use patches?" but "what patch size, what resolution schedule, what pretraining objective, what positional encoding."
+Đến năm 2026, thành phần cơ bản ViT là nền tảng không bị nghi ngờ. Tháp thị giác của mọi VLM trọng số mở là một hậu duệ nào đó (DINOv2, SigLIP 2, CLIP, EVA, InternViT). Câu hỏi không còn là "có nên dùng patch?" mà là "kích thước patch nào, lịch độ phân giải nào, mục tiêu tiền huấn luyện nào, mã hóa vị trí nào."
 
 ## The Concept
 
 ### Patches as tokens
 
-Given an image `x` of shape `(H, W, 3)` and a patch size `P`, you carve the image into a grid of `(H/P) x (W/P)` non-overlapping patches. Each patch is a `P x P x 3` cube of pixels. Flatten each cube to a `3 P^2` vector. Apply a shared linear projection `W_E` of shape `(3 P^2, D)` to map each patch into the model's hidden dimension `D`.
+Với ảnh `x` hình dạng `(H, W, 3)` và kích thước patch `P`, bạn chia ảnh thành lưới `(H/P) x (W/P)` patch không chồng lấp. Mỗi patch là khối pixel `P x P x 3`. Làm phẳng mỗi khối thành vector `3 P^2`. Áp dụng phép chiếu tuyến tính dùng chung `W_E` hình dạng `(3 P^2, D)` để ánh xạ mỗi patch vào chiều ẩn `D` của mô hình.
 
-For the ViT-B/16 canonical config:
-- Resolution 224, patch size 16 → grid 14x14 → 196 patch tokens.
-- Each patch is `16 x 16 x 3 = 768` pixel values, projected to `D = 768`.
-- Add a learnable `[CLS]` token → sequence length 197.
+Với cấu hình chuẩn ViT-B/16:
+- Độ phân giải 224, kích thước patch 16 → lưới 14x14 → 196 token patch.
+- Mỗi patch có `16 x 16 x 3 = 768` giá trị pixel, được chiếu đến `D = 768`.
+- Thêm token `[CLS]` có thể học → độ dài chuỗi 197.
 
-The patch projection is mathematically identical to a 2D convolution with kernel size `P`, stride `P`, and `D` output channels. That is how production code actually implements it — `nn.Conv2d(3, D, kernel_size=P, stride=P)`. The "linear projection" framing is conceptual; the kernel framing is efficient.
+Phép chiếu patch giống hệt về toán học với tích chập 2D có kích thước kernel `P`, stride `P` và `D` kênh đầu ra. Đó là cách mã sản xuất thực sự triển khai — `nn.Conv2d(3, D, kernel_size=P, stride=P)`. Cách nhìn "phép chiếu tuyến tính" mang tính khái niệm; cách nhìn kernel hiệu quả.
 
 ### Positional embeddings
 
-Patches have no inherent order — the transformer sees them as a bag. Early ViTs added a learnable 1D positional embedding (one 768-dim vector per position, 197 of them). Works, but ties the model to the training resolution: at inference you have to interpolate the position table if you change the grid.
+Patch không có thứ tự vốn có — transformer thấy chúng như một túi. ViT ban đầu thêm embedding vị trí 1D có thể học (một vector 768 chiều mỗi vị trí, 197 vector). Hoạt động, nhưng buộc mô hình vào độ phân giải huấn luyện: khi suy luận bạn phải nội suy bảng vị trí nếu đổi lưới.
 
-Modern vision backbones use 2D-RoPE (Qwen2-VL's M-RoPE, SigLIP 2's default) or factorized 2D positions. 2D-RoPE rotates the query and key vectors based on the patch's (row, column) index, so the model infers relative 2D position from the rotation angle. No position table. The model handles arbitrary grid sizes at inference.
+Backbone thị giác hiện đại dùng 2D-RoPE (M-RoPE của Qwen2-VL, mặc định SigLIP 2) hoặc vị trí 2D phân tách. 2D-RoPE quay vector query và key theo chỉ số (hàng, cột) của patch, để mô hình suy ra vị trí 2D tương đối từ góc quay. Không bảng vị trí. Mô hình xử lý kích thước lưới tùy ý khi suy luận.
 
 ### CLS token, pooled output, and register tokens
 
-What is the image-level representation? Three choices coexist:
+Biểu diễn cấp ảnh là gì? Ba lựa chọn cùng tồn tại:
 
-1. `[CLS]` token. Prepend a learnable vector to the patch sequence. After all transformer blocks, the CLS token's hidden state is the image representation. Inherited from BERT. Used by original ViT, CLIP.
-2. Mean pool. Average the patch tokens' output hidden states. Used by SigLIP, DINOv2, most modern VLMs.
-3. Register tokens. Darcet et al. (2023) observed that ViTs trained without an explicit sink token develop high-norm "artifact" patches that hijack self-attention. Adding 4–16 learnable register tokens absorbs this load and improves dense-prediction quality (segmentation, depth). DINOv2 and SigLIP 2 both ship with registers.
+1. Token `[CLS]`. Thêm vector có thể học vào đầu chuỗi patch. Sau mọi khối transformer, trạng thái ẩn của token CLS là biểu diễn ảnh. Kế thừa từ BERT. Được ViT gốc, CLIP dùng.
+2. Pooling trung bình. Lấy trung bình trạng thái ẩn đầu ra của token patch. Được SigLIP, DINOv2, hầu hết VLM hiện đại dùng.
+3. Token thanh ghi. Darcet và cộng sự (2023) quan sát ViT huấn luyện không có sink token rõ ràng phát triển patch "artifact" có chuẩn cao chiếm đoạt self-attention. Thêm 4–16 token thanh ghi có thể học hấp thụ tải này và cải thiện chất lượng dự đoán dày đặc (phân đoạn, độ sâu). DINOv2 và SigLIP 2 đều cung cấp thanh ghi.
 
-The choice matters for downstream tasks. CLS is fine for classification. For VLMs that feed patch tokens into an LLM, you skip pooling entirely — every patch becomes an LLM input token. Registers get discarded before handoff (they are scaffolding, not content).
+Lựa chọn quan trọng cho tác vụ downstream. CLS phù hợp để phân loại. Với VLM đưa token patch vào LLM, bạn bỏ hoàn toàn pooling — mỗi patch thành token đầu vào LLM. Thanh ghi bị bỏ trước bàn giao (chúng là giàn giáo, không phải nội dung).
 
 ### Pretraining: supervised, contrastive, masked, self-distilled
 
-The 2020 ViT was pretrained with supervised classification on JFT-300M. Quickly supplanted by:
+ViT năm 2020 được tiền huấn luyện bằng phân loại có giám sát trên JFT-300M. Nhanh chóng bị thay bởi:
 
-- CLIP (2021): contrastive image-text on 400M pairs. Lesson 12.02.
-- MAE (2021, He et al.): mask 75% of patches, reconstruct pixels. Self-supervised, works on pure images.
-- DINO (2021) / DINOv2 (2023): self-distillation with student-teacher, no labels, no captions. The 2023 DINOv2 ViT-g/14 is the strongest purely-visual backbone and the default for "dense features" use cases.
-- SigLIP / SigLIP 2 (2023, 2025): CLIP with a sigmoid loss and NaFlex for native aspect ratio. The dominant vision tower in 2026 open VLMs (Qwen, Idefics2, LLaVA-OneVision).
+- CLIP (2021): tương phản ảnh-văn bản trên 400M cặp. Bài 12.02.
+- MAE (2021, He và cộng sự): che 75% patch, tái dựng pixel. Tự giám sát, hoạt động trên ảnh thuần.
+- DINO (2021) / DINOv2 (2023): tự chưng cất với học sinh-giáo viên, không nhãn, không chú thích. DINOv2 ViT-g/14 năm 2023 là backbone thuần thị giác mạnh nhất và mặc định cho trường hợp sử dụng "đặc trưng dày đặc."
+- SigLIP / SigLIP 2 (2023, 2025): CLIP với loss sigmoid và NaFlex cho tỷ lệ khung hình nguyên bản. Tháp thị giác thống trị trong VLM mở năm 2026 (Qwen, Idefics2, LLaVA-OneVision).
 
-Your choice of pretraining determines what the backbone is good for: CLIP/SigLIP for semantic matching with text, DINOv2 for dense visual features, MAE as a starting point for downstream finetuning.
+Lựa chọn tiền huấn luyện quyết định backbone giỏi việc gì: CLIP/SigLIP cho khớp ngữ nghĩa với văn bản, DINOv2 cho đặc trưng thị giác dày đặc, MAE làm điểm khởi đầu cho finetuning downstream.
 
 ### Scaling laws
 
-ViT scaling (Zhai et al. 2022) established that a ViT's quality obeys predictable laws in model size, data size, and compute. At fixed compute:
-- Bigger model + more data → better quality.
-- Patch size is a lever on sequence length vs fidelity. Patch 14 (typical for DINOv2/SigLIP SO400m) gives more tokens per image than patch 16; better for OCR and dense tasks, worse for speed.
-- Resolution is the other big lever. Going from 224 to 384 to 512 almost always helps, at quadratic cost in FLOPs.
+Mở rộng ViT (Zhai và cộng sự 2022) xác lập chất lượng ViT tuân các quy luật có thể dự đoán theo kích thước mô hình, kích thước dữ liệu và tính toán. Ở tính toán cố định:
+- Mô hình lớn hơn + nhiều dữ liệu hơn → chất lượng tốt hơn.
+- Kích thước patch là đòn bẩy giữa độ dài chuỗi và độ trung thực. Patch 14 (điển hình cho DINOv2/SigLIP SO400m) cho nhiều token mỗi ảnh hơn patch 16; tốt hơn cho OCR và tác vụ dày đặc, kém hơn về tốc độ.
+- Độ phân giải là đòn bẩy lớn còn lại. Từ 224 lên 384 rồi 512 gần như luôn hữu ích, với chi phí FLOPs bậc hai.
 
-ViT-g/14 (1B params, patch 14, resolution 224 → 256 tokens) and SigLIP SO400m/14 (400M params, patch 14) are the two workhorse encoders for 2026 open VLMs.
+ViT-g/14 (1B tham số, patch 14, độ phân giải 224 → 256 token) và SigLIP SO400m/14 (400M tham số, patch 14) là hai encoder chủ lực cho VLM mở năm 2026.
 
 ### Parameter count for a ViT
 
-The full calculation lives in `code/main.py`. For ViT-B/16 at 224:
+Phép tính đầy đủ nằm trong `code/main.py`. Với ViT-B/16 ở 224:
 
 ```
 patch_embed = 3 * 16 * 16 * 768 + 768  =  591k
@@ -87,18 +87,18 @@ final LN    = 1.5k
 total       ≈ 86M
 ```
 
-Ball-park every ViT this way before you load the checkpoint. The backbone size sets your VRAM floor in any downstream VLM.
+Ước lượng sơ bộ mọi ViT như vậy trước khi nạp checkpoint. Kích thước backbone đặt sàn VRAM trong mọi VLM downstream.
 
 ### 2026 production config
 
-The encoder most open VLMs ship with in 2026 is SigLIP 2 SO400m/14 at native resolution (NaFlex). It has:
-- 400M parameters.
-- Patch size 14, default resolution 384 → 729 patch tokens per image.
-- Mean pool for image-level tasks; all 729 patches flow into the LLM for VQA.
-- 4 register tokens, discarded before LLM handoff.
-- 2D-RoPE with image-level scaling for native aspect ratio.
+Encoder hầu hết VLM mở cung cấp năm 2026 là SigLIP 2 SO400m/14 ở độ phân giải nguyên bản (NaFlex). Nó có:
+- 400M tham số.
+- Kích thước patch 14, độ phân giải mặc định 384 → 729 token patch mỗi ảnh.
+- Pooling trung bình cho tác vụ cấp ảnh; cả 729 patch chảy vào LLM cho VQA.
+- 4 token thanh ghi, bỏ trước bàn giao LLM.
+- 2D-RoPE với co giãn cấp ảnh cho tỷ lệ khung hình nguyên bản.
 
-Every decision in that config traces back to a paper you can read.
+Mọi quyết định trong cấu hình đó truy về một bài báo bạn có thể đọc.
 
 ```figure
 image-patch-tokens
@@ -106,52 +106,52 @@ image-patch-tokens
 
 ## Use It
 
-`code/main.py` is a patch tokenizer and geometry calculator. It takes (image H, W, patch P, hidden D, depth L) and reports:
+`code/main.py` là bộ token hóa patch và bộ tính hình học. Nó nhận (H, W ảnh, P patch, D ẩn, L độ sâu) và báo:
 
-- Grid shape and sequence length after patching.
-- Token sequence for a synthetic 8x8 pixel toy image (walk through the flatten + project path).
-- Parameter count broken down by patch embed, position embed, transformer blocks, and head.
-- FLOPs per forward pass at the target resolution.
-- A comparison table across ViT-B/16 @ 224, ViT-L/14 @ 336, DINOv2 ViT-g/14 @ 224, SigLIP SO400m/14 @ 384.
+- Hình dạng lưới và độ dài chuỗi sau chia patch.
+- Chuỗi token cho ảnh minh họa tổng hợp 8x8 pixel (đi qua đường làm phẳng + chiếu).
+- Số tham số chia theo embedding patch, embedding vị trí, khối transformer và head.
+- FLOPs mỗi forward pass ở độ phân giải đích.
+- Bảng so sánh giữa ViT-B/16 @ 224, ViT-L/14 @ 336, DINOv2 ViT-g/14 @ 224, SigLIP SO400m/14 @ 384.
 
-Run it. Match the parameter counts to the published numbers. Play with patch size and resolution to feel the token-count cost.
+Chạy nó. Khớp số tham số với số đã công bố. Thử kích thước patch và độ phân giải để cảm nhận chi phí số token.
 
 ## Ship It
 
-This lesson produces `outputs/skill-patch-geometry-reader.md`. Given a ViT config (patch size, resolution, hidden dim, depth), it produces a token-count, parameter-count, and VRAM estimate with justifications. Use this skill whenever you pick a vision backbone for a VLM — it prevents "the tokens exploded and my LLM context filled up" surprises.
+Bài học này tạo `outputs/skill-patch-geometry-reader.md`. Với cấu hình ViT (kích thước patch, độ phân giải, chiều ẩn, độ sâu), nó tạo ước lượng số token, số tham số và VRAM kèm lý giải. Dùng skill này mỗi khi chọn backbone thị giác cho VLM — nó ngăn bất ngờ "token bùng nổ và ngữ cảnh LLM của tôi đầy."
 
 ## Exercises
 
-1. Compute the patch-token sequence length for Qwen2.5-VL at native 1280x720 input with patch size 14. How does that compare to a CLS-only representation?
+1. Tính độ dài chuỗi token patch cho Qwen2.5-VL với đầu vào nguyên bản 1280x720 và kích thước patch 14. So với biểu diễn chỉ CLS thế nào?
 
-2. A 1080p frame (1920x1080) at patch 14 produces how many tokens? At 30 FPS over a 5-minute video, how many total visual tokens? Which cost saves you most: pooling, frame sampling, or token merging?
+2. Khung 1080p (1920x1080) ở patch 14 tạo bao nhiêu token? Ở 30 FPS trong video 5 phút, tổng bao nhiêu token thị giác? Chi phí nào tiết kiệm nhiều nhất: pooling, lấy mẫu khung hay gộp token?
 
-3. Implement mean pooling over patch tokens in pure Python. Verify that mean-pool over 196 tokens of a DINOv2 output matches what the model's `forward` returns when you ask for a pooled embedding.
+3. Triển khai pooling trung bình trên token patch bằng Python thuần. Xác minh pooling trung bình trên 196 token đầu ra DINOv2 khớp những gì `forward` của mô hình trả khi bạn yêu cầu embedding được pooling.
 
-4. Read Section 3 of "Vision Transformers Need Registers" (arXiv:2309.16588). Describe in two sentences what artifact the registers absorb and why it matters for downstream dense prediction.
+4. Đọc Mục 3 của "Vision Transformers Need Registers" (arXiv:2309.16588). Mô tả trong hai câu artifact mà thanh ghi hấp thụ và tại sao quan trọng với dự đoán dày đặc downstream.
 
-5. Modify `code/main.py` to support patch-n'-pack: given a list of images of different resolutions, produce a single packed sequence and the block-diagonal attention mask. Verify against Lesson 12.06 when you reach it.
+5. Sửa `code/main.py` để hỗ trợ patch-n'-pack: với danh sách ảnh khác độ phân giải, tạo chuỗi đóng gói duy nhất và attention mask chéo khối. Xác minh với Bài 12.06 khi đến bài đó.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Patch | "16x16 pixel square" | A fixed-size non-overlapping region of the input image; becomes one token |
-| Patch embedding | "Linear projection" | A shared learned matrix (or Conv2d with stride=P) mapping flattened patch pixels to D-dim vectors |
-| CLS token | "Class token" | Prepended learnable vector whose final hidden state represents the whole image; optional in 2026 |
-| Register token | "Sink token" | Extra learnable tokens that absorb the high-norm attention artifacts ViTs develop during pretraining |
-| Position embedding | "Positional info" | Per-position vector or rotation making the sequence-order-aware; 2D-RoPE is the modern default |
-| Grid | "Patch grid" | The (H/P) x (W/P) 2D array of patches for a given resolution and patch size |
-| NaFlex | "Native flexible resolution" | SigLIP 2 feature: single model serves multiple aspect ratios and resolutions without retraining |
-| Backbone | "Vision tower" | The pretrained image encoder whose patch-token outputs feed the LLM in a VLM |
-| Pooling | "Image-level summary" | Strategy to turn patch tokens into one vector: CLS, mean, attention pool, or register-based |
-| Patch 14 vs 16 | "Finer vs coarser grid" | Patch 14 produces more tokens per image, better fidelity for OCR, slower; patch 16 is the classic default |
+| Patch (Mảnh ảnh) | "Hình vuông 16x16 pixel" | Vùng không chồng lấp kích thước cố định của ảnh đầu vào; trở thành một token |
+| Patch embedding (Embedding patch) | "Phép chiếu tuyến tính" | Ma trận được học dùng chung (hoặc Conv2d với stride=P) ánh xạ pixel patch đã làm phẳng sang vector D chiều |
+| CLS token (Token CLS) | "Token lớp" | Vector có thể học thêm đầu chuỗi, trạng thái ẩn cuối biểu diễn toàn ảnh; tùy chọn năm 2026 |
+| Register token (Token thanh ghi) | "Sink token" | Token có thể học bổ sung hấp thụ artifact attention chuẩn cao mà ViT phát triển trong tiền huấn luyện |
+| Position embedding (Embedding vị trí) | "Thông tin vị trí" | Vector hoặc phép quay theo vị trí giúp nhận biết thứ tự chuỗi; 2D-RoPE là mặc định hiện đại |
+| Grid (Lưới) | "Lưới patch" | Mảng patch 2D (H/P) x (W/P) cho độ phân giải và kích thước patch cho trước |
+| NaFlex | "Độ phân giải linh hoạt nguyên bản" | Tính năng SigLIP 2: một mô hình phục vụ nhiều tỷ lệ khung hình và độ phân giải không huấn luyện lại |
+| Backbone (Mạng xương sống) | "Tháp thị giác" | Encoder ảnh đã tiền huấn luyện có đầu ra token patch cung cấp cho LLM trong VLM |
+| Pooling (Gộp) | "Tóm tắt cấp ảnh" | Chiến lược biến token patch thành một vector: CLS, trung bình, attention pool hoặc dựa trên thanh ghi |
+| Patch 14 vs 16 (Patch 14 so với 16) | "Lưới mịn hơn so với thô hơn" | Patch 14 tạo nhiều token mỗi ảnh hơn, độ trung thực OCR tốt hơn, chậm hơn; patch 16 là mặc định cổ điển |
 
 ## Further Reading
 
-- [Dosovitskiy et al. — An Image is Worth 16x16 Words (arXiv:2010.11929)](https://arxiv.org/abs/2010.11929) — original ViT.
-- [He et al. — Masked Autoencoders Are Scalable Vision Learners (arXiv:2111.06377)](https://arxiv.org/abs/2111.06377) — MAE, self-supervised pretraining.
-- [Oquab et al. — DINOv2 (arXiv:2304.07193)](https://arxiv.org/abs/2304.07193) — self-distillation at scale, no labels.
-- [Darcet et al. — Vision Transformers Need Registers (arXiv:2309.16588)](https://arxiv.org/abs/2309.16588) — register tokens and artifact analysis.
-- [Tschannen et al. — SigLIP 2 (arXiv:2502.14786)](https://arxiv.org/abs/2502.14786) — the 2026 default vision tower.
-- [Zhai et al. — Scaling Vision Transformers (arXiv:2106.04560)](https://arxiv.org/abs/2106.04560) — empirical scaling laws.
+- [Dosovitskiy et al. — An Image is Worth 16x16 Words (arXiv:2010.11929)](https://arxiv.org/abs/2010.11929) — ViT gốc.
+- [He et al. — Masked Autoencoders Are Scalable Vision Learners (arXiv:2111.06377)](https://arxiv.org/abs/2111.06377) — MAE, tiền huấn luyện tự giám sát.
+- [Oquab et al. — DINOv2 (arXiv:2304.07193)](https://arxiv.org/abs/2304.07193) — tự chưng cất ở quy mô lớn, không nhãn.
+- [Darcet et al. — Vision Transformers Need Registers (arXiv:2309.16588)](https://arxiv.org/abs/2309.16588) — token thanh ghi và phân tích artifact.
+- [Tschannen et al. — SigLIP 2 (arXiv:2502.14786)](https://arxiv.org/abs/2502.14786) — tháp thị giác mặc định năm 2026.
+- [Zhai et al. — Scaling Vision Transformers (arXiv:2106.04560)](https://arxiv.org/abs/2106.04560) — quy luật mở rộng thực nghiệm.
