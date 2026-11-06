@@ -1,6 +1,6 @@
 # ML Pipelines
 
-> A model is not a product. A pipeline is. The pipeline is everything from raw data to deployed prediction, and every step must be reproducible.
+> Một mô hình không phải là một sản phẩm. Một pipeline thì có. Pipeline là mọi thứ từ dữ liệu thô đến dự đoán đã triển khai, và mọi bước phải có thể tái lập.
 
 **Type:** Build
 **Language:** Python
@@ -9,24 +9,24 @@
 
 ## Learning Objectives
 
-- Build an ML pipeline from scratch that chains imputation, scaling, encoding, and model training into a single reproducible object
-- Identify data leakage scenarios and explain how pipelines prevent them by fitting transformers only on training data
-- Construct a ColumnTransformer that applies different preprocessing to numeric and categorical features
-- Implement pipeline serialization and demonstrate that the same fitted pipeline produces identical results in training and production
+- Xây dựng một pipeline ML từ đầu nối điền khuyết, co giãn, mã hóa và huấn luyện mô hình thành một đối tượng duy nhất có thể tái lập
+- Xác định các tình huống rò rỉ dữ liệu và giải thích cách pipeline ngăn chúng bằng cách chỉ khớp các bộ biến đổi trên dữ liệu huấn luyện
+- Xây dựng một ColumnTransformer áp dụng các tiền xử lý khác nhau cho các đặc trưng số và phân loại
+- Triển khai tuần tự hóa pipeline và minh họa cùng pipeline đã khớp tạo các kết quả giống hệt trong huấn luyện và sản xuất
 
 ## The Problem
 
-You have a notebook that loads data, fills missing values with the median, scales features, trains a model, and prints accuracy. It works. You ship it.
+Bạn có một notebook tải dữ liệu, điền các giá trị thiếu bằng trung vị, co giãn đặc trưng, huấn luyện một mô hình và in độ chính xác. Nó hoạt động. Bạn đưa vào sử dụng.
 
-A month later, someone retrains the model and gets different results. The median was computed on the full dataset including test data (data leakage). The scaling parameters were not saved, so inference uses different statistics. The feature engineering code was copy-pasted between training and serving, and the copies diverged. A categorical column gained a new value in production that the encoder has never seen.
+Một tháng sau, ai đó huấn luyện lại mô hình và nhận các kết quả khác. Trung vị được tính trên toàn bộ tập dữ liệu bao gồm dữ liệu kiểm tra (rò rỉ dữ liệu). Các tham số co giãn không được lưu, nên suy luận sử dụng các thống kê khác. Mã kỹ thuật đặc trưng được sao chép-dán giữa huấn luyện và phục vụ, và các bản sao lệch nhau. Một cột phân loại có thêm một giá trị mới trong sản xuất mà bộ mã hóa chưa bao giờ thấy.
 
-These are not hypothetical. They are the most common reasons ML systems fail in production. Pipelines solve all of them by packaging every transformation step into a single, ordered, reproducible object.
+Đây không phải giả định. Chúng là các lý do phổ biến nhất khiến hệ thống ML thất bại trong sản xuất. Pipeline giải quyết tất cả bằng cách đóng gói mọi bước biến đổi vào một đối tượng duy nhất, có thứ tự, có thể tái lập.
 
 ## The Concept
 
 ### What a Pipeline Is
 
-A pipeline is an ordered sequence of data transformations followed by a model. Each step takes the output of the previous step as input. The entire pipeline is fitted once on training data. At inference time, the same fitted pipeline transforms new data and produces predictions.
+Một pipeline là một chuỗi có thứ tự các phép biến đổi dữ liệu theo sau bởi một mô hình. Mỗi bước nhận đầu ra bước trước làm đầu vào. Toàn bộ pipeline được khớp một lần trên dữ liệu huấn luyện. Tại thời điểm suy luận, cùng pipeline đã khớp biến đổi dữ liệu mới và tạo các dự đoán.
 
 ```mermaid
 flowchart LR
@@ -37,17 +37,17 @@ flowchart LR
     E --> F[Prediction]
 ```
 
-The pipeline guarantees:
-- Transformations are fitted only on training data (no leakage)
-- The same transformations are applied at inference time
-- The entire object can be serialized and deployed as one artifact
-- Cross-validation applies the pipeline per fold, preventing subtle leakage
+Pipeline bảo đảm:
+- Các phép biến đổi chỉ được khớp trên dữ liệu huấn luyện (không rò rỉ)
+- Cùng các phép biến đổi được áp dụng tại thời điểm suy luận
+- Toàn bộ đối tượng có thể được tuần tự hóa và triển khai thành một sản phẩm duy nhất
+- Xác thực chéo áp dụng pipeline theo từng fold, ngăn rò rỉ tinh vi
 
 ### Data Leakage: The Silent Killer
 
-Data leakage happens when information from the test set or future data contaminates training. Pipelines prevent the most common forms.
+Rò rỉ dữ liệu xảy ra khi thông tin từ tập kiểm tra hoặc dữ liệu tương lai làm nhiễm huấn luyện. Pipeline ngăn các dạng phổ biến nhất.
 
-**Leaky (wrong):**
+**Rò rỉ (sai):**
 ```python
 X = df.drop("target", axis=1)
 y = df["target"]
@@ -59,9 +59,9 @@ X_train, X_test = X_scaled[:800], X_scaled[800:]
 y_train, y_test = y[:800], y[800:]
 ```
 
-The scaler saw test data. The mean and standard deviation include test samples. This inflates accuracy estimates.
+Bộ co giãn đã thấy dữ liệu kiểm tra. Trung bình và độ lệch chuẩn bao gồm các mẫu kiểm tra. Điều này làm tăng các ước lượng độ chính xác.
 
-**Correct:**
+**Đúng:**
 ```python
 X_train, X_test = X[:800], X[800:]
 
@@ -70,11 +70,11 @@ X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 ```
 
-With a pipeline, you do not need to think about this. The pipeline handles it automatically.
+Với một pipeline, bạn không cần nghĩ về điều này. Pipeline tự động xử lý nó.
 
 ### sklearn Pipeline
 
-sklearn's `Pipeline` chains transformers and an estimator. It exposes `.fit()`, `.predict()`, and `.score()` that apply all steps in order.
+`Pipeline` của sklearn nối các bộ biến đổi và một bộ ước lượng. Nó cung cấp `.fit()`, `.predict()` và `.score()` áp dụng tất cả các bước theo thứ tự.
 
 ```python
 from sklearn.pipeline import Pipeline
@@ -90,19 +90,19 @@ pipe.fit(X_train, y_train)
 predictions = pipe.predict(X_test)
 ```
 
-When you call `pipe.fit(X_train, y_train)`:
-1. Scaler calls `fit_transform` on X_train
-2. Model calls `fit` on the scaled X_train
+Khi bạn gọi `pipe.fit(X_train, y_train)`:
+1. Bộ co giãn gọi `fit_transform` trên X_train
+2. Mô hình gọi `fit` trên X_train đã co giãn
 
-When you call `pipe.predict(X_test)`:
-1. Scaler calls `transform` (not fit_transform) on X_test
-2. Model calls `predict` on the scaled X_test
+Khi bạn gọi `pipe.predict(X_test)`:
+1. Bộ co giãn gọi `transform` (không phải fit_transform) trên X_test
+2. Mô hình gọi `predict` trên X_test đã co giãn
 
-The scaler never sees test data during fitting. This is the whole point.
+Bộ co giãn không bao giờ thấy dữ liệu kiểm tra khi khớp. Đó là toàn bộ mục đích.
 
 ### ColumnTransformer: Different Pipelines for Different Columns
 
-Real datasets have numeric and categorical columns that need different preprocessing. `ColumnTransformer` handles this.
+Các tập dữ liệu thực có các cột số và phân loại cần tiền xử lý khác nhau. `ColumnTransformer` xử lý điều này.
 
 ```python
 from sklearn.compose import ColumnTransformer
@@ -130,13 +130,13 @@ full_pipeline = Pipeline([
 ])
 ```
 
-The `handle_unknown="ignore"` in OneHotEncoder is critical for production. When a new category appears (a city the model has never seen), it produces a zero vector instead of crashing.
+`handle_unknown="ignore"` trong OneHotEncoder rất quan trọng cho sản xuất. Khi một loại mới xuất hiện (một thành phố mô hình chưa bao giờ thấy), nó tạo một vector không thay vì gây sập.
 
 ### Experiment Tracking
 
-A pipeline makes training reproducible, but you also need to track what happened across experiments: which hyperparameters were used, which dataset version, what the metrics were, which code was running.
+Một pipeline làm huấn luyện có thể tái lập, nhưng bạn cũng cần theo dõi những gì xảy ra qua các thí nghiệm: các siêu tham số nào được dùng, phiên bản tập dữ liệu nào, các chỉ số là gì, mã nào đang chạy.
 
-**MLflow** is the most common open-source solution:
+**MLflow** là giải pháp nguồn mở phổ biến nhất:
 
 ```python
 import mlflow
@@ -153,9 +153,9 @@ with mlflow.start_run():
     mlflow.sklearn.log_model(pipe, "model")
 ```
 
-Every run is recorded with parameters, metrics, artifacts, and the full model. You can compare runs, reproduce any experiment, and deploy any model version.
+Mỗi lần chạy được ghi lại với các tham số, chỉ số, sản phẩm và toàn bộ mô hình. Bạn có thể so sánh các lần chạy, tái lập bất kỳ thí nghiệm nào và triển khai bất kỳ phiên bản mô hình nào.
 
-**Weights & Biases (wandb)** provides the same functionality with a hosted dashboard:
+**Weights & Biases (wandb)** cung cấp cùng chức năng với một bảng điều khiển được lưu trữ:
 
 ```python
 import wandb
@@ -171,17 +171,17 @@ wandb.log({"accuracy": accuracy})
 
 ### Model Versioning
 
-After experiment tracking, you need to manage model versions. Which model is in production? Which is staging? Which was last week's?
+Sau theo dõi thí nghiệm, bạn cần quản lý các phiên bản mô hình. Mô hình nào đang trong sản xuất? Mô hình nào đang thử nghiệm? Mô hình nào là của tuần trước?
 
-MLflow's Model Registry provides:
-- **Version tracking:** Every saved model gets a version number
-- **Stage transitions:** "Staging", "Production", "Archived"
-- **Approval workflow:** Models must be explicitly promoted to production
-- **Rollback:** Switch back to a previous version instantly
+Model Registry của MLflow cung cấp:
+- **Theo dõi phiên bản:** Mỗi mô hình được lưu nhận một số phiên bản
+- **Chuyển giai đoạn:** "Staging", "Production", "Archived"
+- **Quy trình phê duyệt:** Các mô hình phải được đưa rõ ràng lên sản xuất
+- **Hoàn tác:** Chuyển lại một phiên bản trước ngay lập tức
 
 ### Data Versioning with DVC
 
-Code is versioned with git. Data should be versioned too, but git cannot handle large files. DVC (Data Version Control) solves this.
+Mã được quản lý phiên bản bằng git. Dữ liệu cũng nên được quản lý phiên bản, nhưng git không thể xử lý các tệp lớn. DVC (Quản lý Phiên bản Dữ liệu) giải quyết điều này.
 
 ```
 dvc init
@@ -191,18 +191,18 @@ git commit -m "Track training data"
 dvc push
 ```
 
-DVC stores the actual data in remote storage (S3, GCS, Azure) and keeps a small `.dvc` file in git that records the hash. When you checkout a git commit, `dvc checkout` restores the exact data that was used.
+DVC lưu dữ liệu thực trong lưu trữ từ xa (S3, GCS, Azure) và giữ một tệp `.dvc` nhỏ trong git ghi lại mã băm. Khi bạn checkout một commit git, `dvc checkout` khôi phục chính xác dữ liệu đã được sử dụng.
 
-This means every git commit pins both the code and the data. Full reproducibility.
+Điều này có nghĩa là mỗi commit git ghim cả mã lẫn dữ liệu. Khả năng tái lập đầy đủ.
 
 ### Reproducible Experiments
 
-A reproducible experiment requires four things:
+Một thí nghiệm có thể tái lập cần bốn thứ:
 
-1. **Fixed random seeds:** Set seeds for numpy, random, and the framework (torch, sklearn)
-2. **Pinned dependencies:** requirements.txt or poetry.lock with exact versions
-3. **Versioned data:** DVC or similar
-4. **Config files:** All hyperparameters in a config, not hardcoded
+1. **Các seed ngẫu nhiên cố định:** Đặt seed cho numpy, random và framework (torch, sklearn)
+2. **Các phần phụ thuộc được ghim:** requirements.txt hoặc poetry.lock với các phiên bản chính xác
+3. **Dữ liệu có quản lý phiên bản:** DVC hoặc tương tự
+4. **Các tệp cấu hình:** Tất cả siêu tham số trong một cấu hình, không mã hóa cứng
 
 ```python
 import numpy as np
@@ -236,27 +236,27 @@ flowchart TD
     style H fill:#dfd,stroke:#333
 ```
 
-The typical progression:
+Tiến trình điển hình:
 
-1. **Notebook exploration:** Quick experiments, visualizations, feature ideas
-2. **Extract functions:** Move preprocessing, feature engineering, evaluation into modules
-3. **Build Pipeline:** Chain transformations into a sklearn Pipeline or custom class
-4. **Config management:** Move all hyperparameters into a YAML/JSON config
-5. **Experiment tracking:** Add MLflow or wandb logging
-6. **Data validation:** Check schema, distributions, and missing value patterns before training
-7. **Tests:** Unit tests for transformers, integration tests for the full pipeline
-8. **Deployment:** Serialize the pipeline, wrap in an API (FastAPI, Flask), containerize
+1. **Khám phá bằng notebook:** Các thí nghiệm nhanh, trực quan hóa, ý tưởng đặc trưng
+2. **Trích xuất hàm:** Chuyển tiền xử lý, kỹ thuật đặc trưng, đánh giá vào các mô-đun
+3. **Xây dựng Pipeline:** Nối các phép biến đổi thành một Pipeline sklearn hoặc lớp tùy chỉnh
+4. **Quản lý cấu hình:** Chuyển mọi siêu tham số vào một cấu hình YAML/JSON
+5. **Theo dõi thí nghiệm:** Thêm ghi nhật ký MLflow hoặc wandb
+6. **Xác thực dữ liệu:** Kiểm tra schema, các phân phối và các mẫu giá trị thiếu trước huấn luyện
+7. **Kiểm thử:** Kiểm thử đơn vị cho các bộ biến đổi, kiểm thử tích hợp cho toàn pipeline
+8. **Triển khai:** Tuần tự hóa pipeline, bọc trong một API (FastAPI, Flask), đóng gói container
 
 ### Common Pipeline Mistakes
 
-| Mistake | Why it is bad | Fix |
+| Sai lầm | Tại sao nó tệ | Cách sửa |
 |---------|-------------|-----|
-| Fitting on full data before splitting | Data leakage | Use Pipeline with cross_val_score |
-| Feature engineering outside pipeline | Different transforms at train vs serve | Put all transforms in the Pipeline |
-| Not handling unknown categories | Production crash on new values | OneHotEncoder(handle_unknown="ignore") |
-| Hardcoded column names | Breaks when schema changes | Use column name lists from config |
-| No data validation | Silently wrong predictions on bad data | Add schema checks before prediction |
-| Training/serving skew | Model sees different features in prod | One Pipeline object for both |
+| Khớp trên toàn bộ dữ liệu trước khi chia | Rò rỉ dữ liệu | Sử dụng Pipeline với cross_val_score |
+| Kỹ thuật đặc trưng ngoài pipeline | Các phép biến đổi khác nhau giữa huấn luyện và phục vụ | Đặt mọi phép biến đổi trong Pipeline |
+| Không xử lý các loại chưa biết | Sập trong sản xuất khi có giá trị mới | OneHotEncoder(handle_unknown="ignore") |
+| Tên cột mã hóa cứng | Hỏng khi schema thay đổi | Sử dụng các danh sách tên cột từ cấu hình |
+| Không xác thực dữ liệu | Các dự đoán âm thầm sai trên dữ liệu xấu | Thêm các kiểm tra schema trước dự đoán |
+| Lệch huấn luyện/phục vụ | Mô hình thấy các đặc trưng khác trong sản xuất | Một đối tượng Pipeline cho cả hai |
 
 ```figure
 f3-pipeline-flow
@@ -264,7 +264,7 @@ f3-pipeline-flow
 
 ## Build It
 
-The code in `code/pipeline.py` builds a complete ML pipeline from scratch:
+Mã trong `code/pipeline.py` xây dựng một pipeline ML hoàn chỉnh từ đầu:
 
 ### Step 1: Custom Transformer
 
@@ -312,48 +312,48 @@ class PipelineFromScratch:
 
 ### Step 3: Cross-Validation with Pipeline
 
-The code demonstrates how cross-validation with a pipeline prevents data leakage: the scaler is fit separately on each fold's training data.
+Mã minh họa cách xác thực chéo với một pipeline ngăn rò rỉ dữ liệu: bộ co giãn được khớp riêng trên dữ liệu huấn luyện của mỗi fold.
 
 ### Step 4: Full Production Pipeline with sklearn
 
-A complete pipeline with `ColumnTransformer`, multiple preprocessing paths, and a model, trained with proper cross-validation and experiment logging.
+Một pipeline hoàn chỉnh với `ColumnTransformer`, nhiều nhánh tiền xử lý và một mô hình, được huấn luyện với xác thực chéo đúng cách và ghi nhật ký thí nghiệm.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-ml-pipeline.md` -- a skill for building and debugging ML pipelines
-- `code/pipeline.py` -- a complete pipeline from scratch through sklearn
+Bài học này tạo ra:
+- `outputs/prompt-ml-pipeline.md` -- một skill để xây dựng và gỡ lỗi các pipeline ML
+- `code/pipeline.py` -- một pipeline hoàn chỉnh từ đầu đến sklearn
 
 ## Exercises
 
-1. Build a pipeline that handles a dataset with 3 numeric columns and 2 categorical columns. Use `ColumnTransformer` to apply median imputation + scaling to numerics and most-frequent imputation + one-hot encoding to categoricals. Train with 5-fold cross-validation.
+1. Xây dựng một pipeline xử lý một tập dữ liệu có 3 cột số và 2 cột phân loại. Sử dụng `ColumnTransformer` để áp dụng điền khuyết trung vị + co giãn cho các biến số và điền khuyết giá trị phổ biến nhất + mã hóa one-hot cho các biến phân loại. Huấn luyện với xác thực chéo 5-fold.
 
-2. Deliberately introduce data leakage: fit the scaler on the full dataset before splitting. Compare the cross-validation score (leaky) to the pipeline cross-validation score (clean). How large is the difference?
+2. Cố ý đưa vào rò rỉ dữ liệu: khớp bộ co giãn trên toàn bộ tập dữ liệu trước khi chia. So sánh điểm xác thực chéo (rò rỉ) với điểm xác thực chéo pipeline (sạch). Khác biệt lớn đến mức nào?
 
-3. Serialize your pipeline with `joblib.dump`. Load it in a separate script and run predictions. Verify the predictions are identical.
+3. Tuần tự hóa pipeline bằng `joblib.dump`. Tải nó trong một tập lệnh riêng và chạy dự đoán. Xác minh các dự đoán giống hệt nhau.
 
-4. Add a custom transformer to the pipeline that creates polynomial features (degree 2) for the two most important numeric columns. Where should it go in the pipeline?
+4. Thêm một bộ biến đổi tùy chỉnh vào pipeline tạo các đặc trưng đa thức (bậc 2) cho hai cột số quan trọng nhất. Nó nên nằm ở đâu trong pipeline?
 
-5. Set up MLflow tracking for the pipeline. Run 5 experiments with different hyperparameters. Use the MLflow UI (`mlflow ui`) to compare runs and pick the best model.
+5. Thiết lập theo dõi MLflow cho pipeline. Chạy 5 thí nghiệm với các siêu tham số khác nhau. Sử dụng giao diện MLflow (`mlflow ui`) để so sánh các lần chạy và chọn mô hình tốt nhất.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Pipeline | "Chain of transforms + model" | An ordered sequence of fitted transformers and a model, applied as one unit to prevent leakage |
-| Data leakage | "Test info leaked into training" | Using information from outside the training set to build the model, inflating performance estimates |
-| ColumnTransformer | "Different preprocessing per column" | Applies different pipelines to different subsets of columns, combining results |
-| Experiment tracking | "Logging your runs" | Recording parameters, metrics, artifacts, and code versions for every training run |
-| MLflow | "Track and deploy models" | Open-source platform for experiment tracking, model registry, and deployment |
-| DVC | "Git for data" | Version control system for large data files, storing hashes in git and data in remote storage |
-| Model registry | "Model version catalog" | A system that tracks model versions with stage labels (staging, production, archived) |
-| Training/serving skew | "It worked in the notebook" | Differences between how data is processed during training versus inference, causing silent errors |
-| Reproducibility | "Same code, same result" | The ability to get identical results from the same code, data, and configuration |
+| Pipeline | "Chuỗi phép biến đổi + mô hình" | Một chuỗi có thứ tự các bộ biến đổi đã khớp và một mô hình, được áp dụng như một đơn vị để ngăn rò rỉ |
+| Data leakage (Rò rỉ dữ liệu) | "Thông tin kiểm tra rò vào huấn luyện" | Sử dụng thông tin từ bên ngoài tập huấn luyện để xây dựng mô hình, làm tăng các ước lượng hiệu năng |
+| ColumnTransformer | "Tiền xử lý khác nhau cho từng cột" | Áp dụng các pipeline khác nhau cho các tập con cột khác nhau, kết hợp kết quả |
+| Experiment tracking (Theo dõi thí nghiệm) | "Ghi nhật ký các lần chạy" | Ghi lại các tham số, chỉ số, sản phẩm và phiên bản mã cho mỗi lần huấn luyện |
+| MLflow | "Theo dõi và triển khai mô hình" | Nền tảng nguồn mở cho theo dõi thí nghiệm, đăng ký mô hình và triển khai |
+| DVC | "Git cho dữ liệu" | Hệ thống quản lý phiên bản cho các tệp dữ liệu lớn, lưu mã băm trong git và dữ liệu trong lưu trữ từ xa |
+| Model registry (Sổ đăng ký mô hình) | "Danh mục phiên bản mô hình" | Một hệ thống theo dõi các phiên bản mô hình với các nhãn giai đoạn (thử nghiệm, sản xuất, lưu trữ) |
+| Training/serving skew (Lệch huấn luyện/phục vụ) | "Nó hoạt động trong notebook" | Các khác biệt giữa cách dữ liệu được xử lý trong huấn luyện và suy luận, gây sai số âm thầm |
+| Reproducibility (Khả năng tái lập) | "Cùng mã, cùng kết quả" | Khả năng có kết quả giống hệt từ cùng mã, dữ liệu và cấu hình |
 
 ## Further Reading
 
-- [scikit-learn Pipeline docs](https://scikit-learn.org/stable/modules/compose.html) -- the official pipeline reference
-- [MLflow documentation](https://mlflow.org/docs/latest/index.html) -- experiment tracking and model registry
-- [DVC documentation](https://dvc.org/doc) -- data versioning
-- [Sculley et al., Hidden Technical Debt in Machine Learning Systems (2015)](https://papers.nips.cc/paper/2015/hash/86df7dcfd896fcaf2674f757a2463eba-Abstract.html) -- the seminal paper on ML systems complexity
-- [Google ML Best Practices: Rules of ML](https://developers.google.com/machine-learning/guides/rules-of-ml) -- practical production ML advice
+- [Tài liệu scikit-learn Pipeline](https://scikit-learn.org/stable/modules/compose.html) -- tài liệu tham khảo pipeline chính thức
+- [Tài liệu MLflow](https://mlflow.org/docs/latest/index.html) -- theo dõi thí nghiệm và sổ đăng ký mô hình
+- [Tài liệu DVC](https://dvc.org/doc) -- quản lý phiên bản dữ liệu
+- [Sculley et al., Hidden Technical Debt in Machine Learning Systems (2015)](https://papers.nips.cc/paper/2015/hash/86df7dcfd896fcaf2674f757a2463eba-Abstract.html) -- bài báo nền tảng về độ phức tạp hệ thống ML
+- [Google ML Best Practices: Rules of ML](https://developers.google.com/machine-learning/guides/rules-of-ml) -- lời khuyên ML sản xuất thực tế
