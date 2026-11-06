@@ -1,6 +1,6 @@
 # Linux for AI
 
-> Most AI runs on Linux. You need to know enough to not be stuck.
+> Hầu hết AI chạy trên Linux. Bạn cần biết đủ để không bị mắc kẹt.
 
 **Type:** Learn
 **Languages:** --
@@ -9,20 +9,20 @@
 
 ## Learning Objectives
 
-- Navigate the Linux file system and perform essential file operations from the command line
-- Manage file permissions with `chmod` and `chown` to resolve "Permission denied" errors
-- Install system packages with `apt` and set up a fresh GPU box for AI work
-- Identify macOS-to-Linux differences that commonly trip up developers working on remote machines
+- Điều hướng hệ thống tệp Linux và thực hiện các thao tác tệp thiết yếu từ dòng lệnh
+- Quản lý quyền tệp bằng `chmod` và `chown` để xử lý các lỗi "Permission denied"
+- Cài các gói hệ thống bằng `apt` và thiết lập một máy GPU mới cho công việc AI
+- Nhận diện những khác biệt từ macOS sang Linux thường làm khó các nhà phát triển làm việc trên máy từ xa
 
 ## The Problem
 
-You develop on macOS or Windows. But the moment you SSH into a cloud GPU box, rent a Lambda instance, or spin up an EC2 machine, you land in Ubuntu. The terminal is your only interface. There is no Finder, no Explorer, no GUI. If you can't navigate the file system, install packages, and manage processes from the command line, you're stuck paying for idle GPU hours while googling "how to unzip a file in Linux."
+Bạn phát triển trên macOS hoặc Windows. Nhưng ngay khi SSH vào một máy GPU đám mây, thuê một instance Lambda hoặc khởi chạy máy EC2, bạn đến với Ubuntu. Terminal là giao diện duy nhất của bạn. Không có Finder, không có Explorer, không có GUI. Nếu bạn không thể điều hướng hệ thống tệp, cài gói và quản lý tiến trình từ dòng lệnh, bạn sẽ mắc kẹt trả tiền cho những giờ GPU nhàn rỗi trong khi tìm Google "cách giải nén một tệp trong Linux."
 
-This is a survival guide. It covers exactly what you need to operate on a remote Linux machine for AI work. Nothing more.
+Đây là hướng dẫn sinh tồn. Nó bao gồm đúng những gì bạn cần để thao tác trên một máy Linux từ xa cho công việc AI. Không hơn.
 
 ## File System Layout
 
-Linux organizes everything under a single root `/`. There is no `C:\` or `/Volumes`. The directories you'll actually touch:
+Linux tổ chức mọi thứ dưới một thư mục gốc duy nhất `/`. Không có `C:\` hoặc `/Volumes`. Những thư mục bạn sẽ thực sự chạm đến:
 
 ```mermaid
 graph TD
@@ -35,11 +35,11 @@ graph TD
     root --> proc["proc/ and /sys/<br/>Virtual files — kernel and hardware info"]
 ```
 
-Your home directory is `~` or `/home/your-username`. Almost everything you do happens here.
+Thư mục nhà của bạn là `~` hoặc `/home/your-username`. Hầu hết mọi việc bạn làm diễn ra ở đây.
 
 ## Essential Commands
 
-These are the 15 commands that cover 95% of what you'll do on a remote GPU box.
+Đây là 15 lệnh bao phủ 95% những gì bạn sẽ làm trên máy GPU từ xa.
 
 ### Moving Around
 
@@ -68,7 +68,7 @@ rm file.txt                 # Delete a file (no trash, it's gone)
 rm -rf my-dir/              # Delete a directory and everything inside
 ```
 
-`rm -rf` is permanent. There is no undo. Double-check the path before hitting enter.
+`rm -rf` là vĩnh viễn. Không có hoàn tác. Kiểm tra kỹ đường dẫn trước khi nhấn enter.
 
 ### Reading Files
 
@@ -93,7 +93,7 @@ find . -name "*.ckpt" -size +1G     # Find checkpoint files larger than 1GB
 
 ## Permissions
 
-Every file in Linux has an owner and permission bits. You'll run into this when scripts won't execute or you can't write to a directory.
+Mọi tệp trong Linux đều có chủ sở hữu và các bit quyền. Bạn sẽ gặp điều này khi script không thực thi hoặc bạn không thể ghi vào thư mục.
 
 ```bash
 ls -l train.py
@@ -103,7 +103,7 @@ ls -l train.py
 #        ^^        everyone else: read only
 ```
 
-Common fixes:
+Các cách khắc phục thường gặp:
 
 ```bash
 chmod +x train.sh           # Make a script executable
@@ -113,11 +113,11 @@ chmod 644 config.yaml       # Owner: read+write, others: read only
 chown user:group file.txt   # Change who owns a file (needs sudo)
 ```
 
-When something says "Permission denied," it's almost always a permissions issue. `chmod +x` or `sudo` will fix most cases.
+Khi có thông báo "Permission denied," đó gần như luôn là vấn đề quyền hạn. `chmod +x` hoặc `sudo` sẽ khắc phục hầu hết trường hợp.
 
 ## Package Management (apt)
 
-Ubuntu uses `apt`. This is how you install system-level software.
+Ubuntu dùng `apt`. Đây là cách bạn cài phần mềm cấp hệ thống.
 
 ```bash
 sudo apt update             # Refresh the package list (always do this first)
@@ -129,7 +129,7 @@ apt list --installed        # What's installed?
 sudo apt remove htop        # Uninstall
 ```
 
-Common packages you'll install on a fresh GPU box:
+Các gói thường cài trên máy GPU mới:
 
 ```bash
 sudo apt update && sudo apt install -y \
@@ -145,7 +145,7 @@ sudo apt update && sudo apt install -y \
 
 ## Users and sudo
 
-You're usually logged in as a regular user. Some operations need root (admin) access.
+Bạn thường đăng nhập với tư cách người dùng thông thường. Một số thao tác cần quyền root (quản trị viên).
 
 ```bash
 whoami                      # What user am I?
@@ -153,11 +153,11 @@ sudo command                # Run a single command as root
 sudo su                     # Become root (exit to go back, use sparingly)
 ```
 
-On cloud GPU instances, you're typically the only user and already have sudo access. Don't run everything as root. Use sudo only when needed.
+Trên các instance GPU đám mây, bạn thường là người dùng duy nhất và đã có quyền sudo. Đừng chạy mọi thứ với quyền root. Chỉ dùng sudo khi cần.
 
 ## Processes and systemd
 
-When your training hangs, or you need to check what's running:
+Khi quá trình huấn luyện bị treo, hoặc bạn cần kiểm tra những gì đang chạy:
 
 ```bash
 htop                        # Interactive process viewer (q to quit)
@@ -167,7 +167,7 @@ kill -9 12345               # Force kill (use when graceful doesn't work)
 nvidia-smi                  # GPU processes and memory usage
 ```
 
-systemd manages services (background daemons). You'll use it if you run inference servers:
+systemd quản lý các dịch vụ (daemon chạy nền). Bạn sẽ dùng nó nếu chạy các máy chủ suy luận:
 
 ```bash
 sudo systemctl start nginx          # Start a service
@@ -179,7 +179,7 @@ sudo systemctl enable nginx         # Start automatically on boot
 
 ## Disk Space
 
-GPU boxes often have limited disk space. Models and datasets fill it fast.
+Máy GPU thường có dung lượng đĩa giới hạn. Mô hình và tập dữ liệu lấp đầy đĩa nhanh chóng.
 
 ```bash
 df -h                       # Disk usage for all mounted drives
@@ -193,7 +193,7 @@ du -sh /data/checkpoints/   # Check how big your checkpoints are
 du -h --max-depth=1 / 2>/dev/null | sort -hr | head -20
 ```
 
-Common space savers:
+Các cách tiết kiệm dung lượng thường gặp:
 
 ```bash
 # Clear pip cache
@@ -208,7 +208,7 @@ rm -rf checkpoints/epoch_01/ checkpoints/epoch_02/
 
 ## Networking
 
-You'll download models, transfer files, and hit APIs from the command line.
+Bạn sẽ tải mô hình, truyền tệp và gọi API từ dòng lệnh.
 
 ```bash
 # Download files
@@ -226,11 +226,11 @@ rsync -avz --progress ./data/ user@remote:/data/
 rsync -avz --progress user@remote:/results/ ./results/
 ```
 
-Use `rsync` over `scp` for anything large. It only transfers changed bytes and handles interrupted connections.
+Dùng `rsync` thay cho `scp` với bất cứ thứ gì lớn. Nó chỉ truyền các byte đã thay đổi và xử lý kết nối bị gián đoạn.
 
 ## tmux: Keep Sessions Alive
 
-When you SSH into a remote box, closing your laptop kills your training run. tmux prevents this.
+Khi bạn SSH vào máy từ xa, đóng laptop sẽ kết thúc lượt huấn luyện. tmux ngăn điều này.
 
 ```bash
 tmux new -s train           # Start a new session named "train"
@@ -246,11 +246,11 @@ tmux attach -t train        # Reattach to session
 # Ctrl+B, then arrow keys   # Switch between panes
 ```
 
-Always run long training jobs inside tmux. Always.
+Luôn chạy các tác vụ huấn luyện dài bên trong tmux. Luôn luôn.
 
 ## WSL2 for Windows Users
 
-If you're on Windows, WSL2 gives you a real Linux environment without dual-booting.
+Nếu bạn dùng Windows, WSL2 cung cấp một môi trường Linux thực sự mà không cần khởi động kép.
 
 ```bash
 # In PowerShell (admin)
@@ -260,13 +260,13 @@ wsl --install -d Ubuntu-24.04
 sudo apt update && sudo apt upgrade -y
 ```
 
-WSL2 runs a real Linux kernel. Everything in this lesson works inside it. Your Windows files are at `/mnt/c/Users/YourName/` from inside WSL.
+WSL2 chạy một nhân Linux thực sự. Mọi thứ trong bài học này hoạt động bên trong nó. Từ bên trong WSL, các tệp Windows của bạn ở `/mnt/c/Users/YourName/`.
 
-GPU passthrough works with NVIDIA drivers installed on the Windows side. Install the Windows NVIDIA driver (not the Linux one), and CUDA will be available inside WSL2.
+Chuyển tiếp GPU hoạt động với trình điều khiển NVIDIA được cài phía Windows. Cài trình điều khiển NVIDIA cho Windows (không phải bản Linux), và CUDA sẽ có sẵn bên trong WSL2.
 
 ## Gotchas: macOS to Linux
 
-Things that will trip you up if you're coming from macOS:
+Những điều sẽ làm bạn vướng mắc nếu chuyển từ macOS sang:
 
 | macOS | Linux | Notes |
 |-------|-------|-------|
@@ -300,8 +300,8 @@ s0-process-fork
 
 ## Exercises
 
-1. SSH into any Linux machine (or open WSL2) and navigate to your home directory. Create a project folder, create three empty files inside it with `touch`, then list them with `ls -la`.
-2. Install `htop` with apt, run it, and identify which process is using the most memory.
-3. Start a tmux session, run `sleep 300` inside it, detach, list sessions, and reattach.
-4. Use `df -h` to check available disk space, then use `du -sh ~/.cache/*` to find what's taking up space in your cache.
-5. Transfer a file from your local machine to a remote one using `scp`, then do the same transfer with `rsync` and compare the experience.
+1. SSH vào bất kỳ máy Linux nào (hoặc mở WSL2) và đi đến thư mục nhà. Tạo thư mục dự án, tạo ba tệp trống bên trong bằng `touch`, rồi liệt kê bằng `ls -la`.
+2. Cài `htop` bằng apt, chạy nó và xác định tiến trình nào đang dùng nhiều bộ nhớ nhất.
+3. Bắt đầu một phiên tmux, chạy `sleep 300` bên trong, tách phiên, liệt kê các phiên và gắn lại.
+4. Dùng `df -h` để kiểm tra dung lượng đĩa còn trống, rồi dùng `du -sh ~/.cache/*` để tìm thứ đang chiếm dung lượng trong bộ nhớ đệm.
+5. Truyền một tệp từ máy cục bộ sang máy từ xa bằng `scp`, rồi truyền tương tự bằng `rsync` và so sánh trải nghiệm.
