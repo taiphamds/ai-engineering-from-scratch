@@ -1,6 +1,6 @@
 # Speculative Decoding — Draft, Verify, Repeat
 
-> Autoregressive decoding is serial. Each token waits for the previous one. Speculative decoding breaks the chain: a cheap model drafts N tokens, the expensive model verifies all N in one forward pass. When the draft is right you paid one big forward for N generations.
+> Giải mã tự hồi quy là nối tiếp. Mỗi token chờ token trước. Giải mã suy đoán phá chuỗi: một mô hình rẻ nháp N token, mô hình đắt xác minh cả N trong một lượt truyền xuôi. Khi nháp đúng bạn trả một lượt truyền xuôi lớn cho N lần sinh.
 
 **Type:** Build
 **Languages:** Python
@@ -9,52 +9,52 @@
 
 ## The Problem
 
-A 70B LLM sampling one token takes ~30 ms on an H100. A 3B draft model takes ~3 ms. If we let the 3B draft 5 tokens ahead, then run the 70B *once* to verify all 5, the total is `5×3 + 30 = 45 ms` for up to 5 accepted tokens — versus `5×30 = 150 ms` for straight-line generation. That is the full speculative-decoding pitch: trade a small amount of extra GPU memory (draft model) for 2–4× lower decode latency.
+Một LLM 70B lấy mẫu một token mất ~30 ms trên H100. Một mô hình nháp 3B mất ~3 ms. Nếu chúng ta để 3B nháp trước 5 token, rồi chạy 70B *một lần* để xác minh cả 5, tổng là `5×3 + 30 = 45 ms` cho tối đa 5 token được chấp nhận — so với `5×30 = 150 ms` cho sinh thẳng. Đó là toàn bộ lời chào giải mã suy đoán: đổi một lượng nhỏ bộ nhớ GPU bổ sung (mô hình nháp) lấy độ trễ giải mã thấp hơn 2–4×.
 
-The trick has to preserve the distribution. Speculative sampling, introduced by Leviathan et al. (2023) and by Chen et al. concurrently, guarantees that the output sequence is **identically distributed** to what the big model would have produced on its own. No quality tradeoff. Just faster.
+Thủ thuật phải giữ phân phối. Lấy mẫu suy đoán, được Leviathan và cộng sự (2023) và Chen và cộng sự giới thiệu đồng thời, bảo đảm chuỗi đầu ra **có phân phối giống hệt** điều mô hình lớn sẽ tự tạo ra. Không đánh đổi chất lượng. Chỉ nhanh hơn.
 
-Four families of draft-verifier pairs dominate 2026 inference:
+Bốn họ cặp nháp-xác minh thống trị suy luận năm 2026:
 
-1. **Vanilla speculative (Leviathan 2023).** Separate draft model (e.g., Llama 3 1B) + verifier (e.g., Llama 3 70B).
-2. **Medusa (Cai 2024).** Multiple decoding heads on the verifier predict positions `t+1..t+k` in parallel. No separate draft model.
-3. **EAGLE family (Li 2024, 2025).** Lightweight draft that reuses the verifier's hidden states; closer acceptance rate than vanilla; 3–4× typical.
-4. **Lookahead decoding (Fu 2024).** Jacobi iteration; no draft model required at all. Self-speculation. Niche but dependency-free.
+1. **Suy đoán nguyên bản (Leviathan 2023).** Mô hình nháp riêng (ví dụ Llama 3 1B) + bộ xác minh (ví dụ Llama 3 70B).
+2. **Medusa (Cai 2024).** Nhiều head giải mã trên bộ xác minh dự đoán các vị trí `t+1..t+k` song song. Không mô hình nháp riêng.
+3. **Họ EAGLE (Li 2024, 2025).** Nháp nhẹ tái sử dụng các trạng thái ẩn của bộ xác minh; tỷ lệ chấp nhận gần hơn so với nguyên bản; điển hình 3–4×.
+4. **Lookahead decoding (Fu 2024).** Lặp Jacobi; hoàn toàn không cần mô hình nháp. Tự suy đoán. Ngách nhưng không phụ thuộc.
 
-Every production inference stack in 2026 ships speculative decoding by default. vLLM, TensorRT-LLM, SGLang, and llama.cpp all support at least vanilla + EAGLE-2.
+Mọi ngăn xếp suy luận production năm 2026 cung cấp giải mã suy đoán mặc định. vLLM, TensorRT-LLM, SGLang và llama.cpp đều hỗ trợ ít nhất nguyên bản + EAGLE-2.
 
 ## The Concept
 
 ### The core algorithm
 
-Given a verifier `M_q` and a cheaper draft `M_p`:
+Cho một bộ xác minh `M_q` và một nháp rẻ hơn `M_p`:
 
-1. Let `x_1..x_k` be the prefix already decoded.
-2. **Draft**: use `M_p` to autoregressively propose `d_{k+1}, d_{k+2}, ..., d_{k+N}` with draft probabilities `p_1..p_N`.
-3. **Verify in parallel**: run `M_q` once on `x_1..x_k, d_{k+1}, ..., d_{k+N}`, getting verifier probabilities `q_1..q_{N+1}` for positions `k+1..k+N+1`.
-4. **Accept/reject each draft token left to right**: for each `i`, accept with probability `min(1, q_i(d_i) / p_i(d_i))`.
-5. On first rejection at position `j`: sample `t_j` from the "residual" distribution `(q_j - p_j)_+` normalized. All drafts after `j` are discarded.
-6. On accepting all `N`: sample one extra token `t_{N+1}` from `q_{N+1}` (the free bonus token).
+1. Để `x_1..x_k` là tiền tố đã được giải mã.
+2. **Nháp**: dùng `M_p` để đề xuất tự hồi quy `d_{k+1}, d_{k+2}, ..., d_{k+N}` với các xác suất nháp `p_1..p_N`.
+3. **Xác minh song song**: chạy `M_q` một lần trên `x_1..x_k, d_{k+1}, ..., d_{k+N}`, nhận các xác suất bộ xác minh `q_1..q_{N+1}` cho các vị trí `k+1..k+N+1`.
+4. **Chấp nhận/từ chối mỗi token nháp từ trái sang phải**: với mỗi `i`, chấp nhận với xác suất `min(1, q_i(d_i) / p_i(d_i))`.
+5. Tại lần từ chối đầu ở vị trí `j`: lấy mẫu `t_j` từ phân phối "phần dư" `(q_j - p_j)_+` được chuẩn hóa. Tất cả các nháp sau `j` bị loại.
+6. Khi chấp nhận cả `N`: lấy mẫu thêm một token `t_{N+1}` từ `q_{N+1}` (token thưởng miễn phí).
 
-The residual distribution trick is the mathematical insight that keeps the output distributed exactly as if `M_q` had sampled from scratch.
+Thủ thuật phân phối phần dư là nhận thức toán học giữ đầu ra có phân phối chính xác như thể `M_q` đã lấy mẫu từ đầu.
 
 ### What determines speedup
 
-Let `α` = expected acceptance rate per draft token. Let `c` = draft-to-verifier cost ratio. Per step:
+Đặt `α` = tỷ lệ chấp nhận kỳ vọng mỗi token nháp. Đặt `c` = tỷ lệ chi phí nháp-trên-xác minh. Theo bước:
 
-- Naive generation makes 1 big-model call per token.
-- Speculative makes 1 big-model call per `(1 - α^{N+1}) / (1 - α) ≈ 1/(1-α)` tokens when `α` is high.
+- Sinh ngây thơ thực hiện 1 lời gọi mô hình lớn mỗi token.
+- Suy đoán thực hiện 1 lời gọi mô hình lớn mỗi `(1 - α^{N+1}) / (1 - α) ≈ 1/(1-α)` token khi `α` cao.
 
-Typical rule of thumb at `α = 0.75` and `N = 5`: 3× fewer big-model calls. Draft cost is 5× cheap. Total wall-clock drops ~2.5×.
+Quy tắc kinh nghiệm điển hình tại `α = 0.75` và `N = 5`: ít lời gọi mô hình lớn hơn 3×. Chi phí nháp là 5× rẻ. Tổng thời gian thực giảm ~2.5×.
 
-**α depends on:**
+**α phụ thuộc vào:**
 
-- How well the draft approximates the verifier. Same family / same training data boosts α significantly.
-- Decoding strategy. Greedy draft against greedy verifier: high α. Temperature sampling: harder to match; acceptance drops.
-- Task type. Code and structured output accept more (predictable); free-form creative writing accepts less.
+- Nháp xấp xỉ bộ xác minh tốt đến đâu. Cùng họ / cùng dữ liệu huấn luyện tăng α đáng kể.
+- Chiến lược giải mã. Nháp tham lam với bộ xác minh tham lam: α cao. Lấy mẫu temperature: khó khớp hơn; chấp nhận giảm.
+- Loại tác vụ. Mã và đầu ra có cấu trúc chấp nhận nhiều hơn (dự đoán được); viết sáng tạo tự do chấp nhận ít hơn.
 
 ### Medusa — drafts without a draft model
 
-Medusa replaces the draft model with extra output heads on the verifier. At position `t`:
+Medusa thay mô hình nháp bằng các head đầu ra bổ sung trên bộ xác minh. Tại vị trí `t`:
 
 ```
 shared trunk → hidden h_t
@@ -64,21 +64,21 @@ shared trunk → hidden h_t
     ├── head_3: predict token at t+4
 ```
 
-Each head outputs its own logits. At inference you sample from each head to get a candidate sequence, then verify with one forward pass using a tree-attention scheme that considers all candidate continuations at once.
+Mỗi head xuất logits riêng. Khi suy luận bạn lấy mẫu từ mỗi head để có một chuỗi ứng viên, rồi xác minh bằng một lượt truyền xuôi dùng một hệ tree-attention xem xét mọi tiếp nối ứng viên cùng lúc.
 
-Pros: no second model. Cons: adds trainable parameters; needs a supervised fine-tuning stage (~1B tokens); acceptance rate is a bit lower than vanilla speculative with a good draft.
+Ưu điểm: không mô hình thứ hai. Nhược điểm: thêm các tham số có thể học; cần một giai đoạn fine-tuning có giám sát (~1B token); tỷ lệ chấp nhận thấp hơn một chút so với suy đoán nguyên bản có một nháp tốt.
 
 ### EAGLE — better draft by reusing hidden states
 
-EAGLE-1/2/3 (Li et al., 2024–2025) makes the draft model a tiny transformer (typically 1 layer) that ingests the verifier's last-layer hidden states. Because the draft sees the verifier's feature representation, its predictions correlate strongly with the verifier's output distribution. Acceptance rates climb from ~0.6 (vanilla) to 0.85+.
+EAGLE-1/2/3 (Li và cộng sự, 2024–2025) biến mô hình nháp thành một transformer tí hon (thường 1 tầng) nhận các trạng thái ẩn tầng cuối của bộ xác minh. Vì nháp thấy biểu diễn đặc trưng của bộ xác minh, các dự đoán của nó tương quan mạnh với phân phối đầu ra của bộ xác minh. Các tỷ lệ chấp nhận tăng từ ~0.6 (nguyên bản) lên 0.85+.
 
-EAGLE-3 (2025) added tree search over candidate continuations. vLLM and SGLang ship EAGLE-2/3 as the default spec pathway for Llama 3/4 and Qwen 3.
+EAGLE-3 (2025) thêm tìm kiếm cây trên các tiếp nối ứng viên. vLLM và SGLang cung cấp EAGLE-2/3 làm đường suy đoán mặc định cho Llama 3/4 và Qwen 3.
 
 ### The KV cache dance
 
-Verification feeds `N` draft tokens into the verifier in one forward pass. This extends the verifier's KV cache by `N` entries. If some drafts are rejected, you must roll the cache back to the accepted prefix length.
+Xác minh đưa `N` token nháp vào bộ xác minh trong một lượt truyền xuôi. Điều này mở rộng KV cache của bộ xác minh thêm `N` mục. Nếu một số nháp bị từ chối, bạn phải hoàn tác cache về độ dài tiền tố được chấp nhận.
 
-Production implementations (vLLM's `--speculative-config`, TensorRT-LLM's LookaheadDecoder) handle this with scratch KV buffers. Write first, commit on acceptance. It's not conceptually hard, but it is fiddly.
+Các triển khai production (`--speculative-config` của vLLM, LookaheadDecoder của TensorRT-LLM) xử lý việc này bằng các bộ đệm KV tạm. Ghi trước, chốt khi chấp nhận. Nó không khó về khái niệm, nhưng lắt nhắt.
 
 ```figure
 draft-verify-tokens
@@ -86,11 +86,11 @@ draft-verify-tokens
 
 ## Build It
 
-See `code/main.py`. We implement the core speculative-sampling algorithm (rejection step + residual distribution) with:
+Xem `code/main.py`. Chúng ta triển khai thuật toán lấy mẫu suy đoán cốt lõi (bước từ chối + phân phối phần dư) với:
 
-- A "big model" that is a deterministic-softmax over a hand-coded distribution (so we can verify acceptance math analytically).
-- A "draft model" that is a perturbation of the big model.
-- An acceptance / rejection loop that produces the same marginal distribution as direct sampling.
+- Một "mô hình lớn" là một softmax tất định trên một phân phối được mã hóa bằng tay (để chúng ta có thể xác minh toán chấp nhận bằng giải tích).
+- Một "mô hình nháp" là một nhiễu loạn của mô hình lớn.
+- Một vòng lặp chấp nhận / từ chối tạo cùng phân phối biên như lấy mẫu trực tiếp.
 
 ### Step 1: the rejection step
 
@@ -100,7 +100,7 @@ def accept_or_reject(q_prob, p_prob, draft_token, u):
     return u < min(1.0, ratio)
 ```
 
-`u` is a uniform random number. `q_prob` is the verifier's probability for the drafted token. `p_prob` is the draft model's probability. The Leviathan theorem is that this Bernoulli decision, followed by sampling from the residual on rejection, preserves the verifier's distribution exactly.
+`u` là một số ngẫu nhiên đều. `q_prob` là xác suất của bộ xác minh cho token được nháp. `p_prob` là xác suất của mô hình nháp. Định lý Leviathan là quyết định Bernoulli này, theo sau bởi lấy mẫu từ phần dư khi từ chối, giữ chính xác phân phối của bộ xác minh.
 
 ### Step 2: residual distribution
 
@@ -111,7 +111,7 @@ def residual_dist(q, p):
     return [r / s for r in raw]
 ```
 
-Subtract `p` from `q` element-wise, clamp negative values to zero, renormalize. Sample from this on any rejection.
+Trừ `p` khỏi `q` theo phần tử, chặn các giá trị âm về không, chuẩn hóa lại. Lấy mẫu từ đây ở bất kỳ lần từ chối nào.
 
 ### Step 3: one speculative step
 
@@ -143,15 +143,15 @@ def spec_step(prefix, q_model, p_model, N, rng):
     return prefix
 ```
 
-Five accepted → one bonus → six tokens produced in one verifier pass.
+Năm được chấp nhận → một thưởng → sáu token được tạo trong một lượt bộ xác minh.
 
 ### Step 4: measure acceptance rate
 
-Run 10,000 speculative steps at varying draft-quality levels. Plot acceptance rate vs. KL divergence between draft and verifier distributions. You should see a clean monotone relationship.
+Chạy 10,000 bước suy đoán tại các mức chất lượng nháp khác nhau. Vẽ tỷ lệ chấp nhận theo độ phân kỳ KL giữa các phân phối nháp và bộ xác minh. Bạn sẽ thấy một quan hệ đơn điệu rõ.
 
 ### Step 5: verify distribution equivalence
 
-Empirically: the histogram of tokens produced by the speculative loop should match the histogram produced by sampling directly from the verifier. This is the Leviathan theorem in practice. A chi-square test confirms within sampling error.
+Thực nghiệm: histogram các token do vòng lặp suy đoán tạo nên khớp histogram được tạo bằng lấy mẫu trực tiếp từ bộ xác minh. Đây là định lý Leviathan trong thực tế. Một kiểm định chi-square xác nhận trong sai số lấy mẫu.
 
 ## Use It
 
@@ -167,57 +167,57 @@ vllm serve meta-llama/Llama-3.1-70B-Instruct \
     --speculative-config '{"method": "draft_model", "model": "meta-llama/Llama-3.2-1B-Instruct", "num_speculative_tokens": 5}'
 ```
 
-TensorRT-LLM has the fastest Medusa path as of mid-2026. `faster-whisper` wraps speculative decoding for Whisper-large with a small draft.
+TensorRT-LLM có đường Medusa nhanh nhất tính đến giữa năm 2026. `faster-whisper` bọc giải mã suy đoán cho Whisper-large với một nháp nhỏ.
 
-**Picking a draft:**
+**Chọn một nháp:**
 
-| Strategy | When to pick | Speedup |
+| Chiến lược | Khi nào chọn | Tăng tốc |
 |----------|--------------|---------|
-| Vanilla draft (1B/3B Llama family) | Fast prototype, no training | 1.8–2.3× |
-| Medusa heads | You can fine-tune the verifier | 2–3× |
-| EAGLE-2 / 3 | Production, max speed | 3–4× |
-| Lookahead | No draft, no training, no extra params | 1.3–1.6× |
+| Nháp nguyên bản (họ Llama 1B/3B) | Nguyên mẫu nhanh, không huấn luyện | 1.8–2.3× |
+| Các head Medusa | Bạn có thể fine-tune bộ xác minh | 2–3× |
+| EAGLE-2 / 3 | Production, tốc độ tối đa | 3–4× |
+| Lookahead | Không nháp, không huấn luyện, không tham số bổ sung | 1.3–1.6× |
 
-**When NOT to spec-decode:**
+**Khi nào KHÔNG giải mã suy đoán:**
 
-- Single-sequence generation of 1–5 tokens. Overhead dominates.
-- Wildly creative / high-temperature sampling (α drops).
-- Memory-constrained deployments (draft model adds VRAM).
+- Sinh một chuỗi duy nhất 1–5 token. Chi phí phụ chi phối.
+- Lấy mẫu cực kỳ sáng tạo / temperature cao (α giảm).
+- Các triển khai hạn chế bộ nhớ (mô hình nháp thêm VRAM).
 
 ## Ship It
 
-See `outputs/skill-spec-decode-picker.md`. The skill picks a speculative decoding strategy (vanilla / Medusa / EAGLE / lookahead) and tuning parameters (N, draft temperature) for a new inference workload.
+Xem `outputs/skill-spec-decode-picker.md`. Skill chọn một chiến lược giải mã suy đoán (nguyên bản / Medusa / EAGLE / lookahead) và các tham số tinh chỉnh (N, temperature nháp) cho một khối lượng công việc suy luận mới.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. Confirm the speculative token distribution matches the verifier's direct-sample distribution on 50,000 tokens within chi-square p > 0.05.
-2. **Medium.** Plot speedup (tokens per big-model forward) as a function of `N` for `α = 0.5, 0.7, 0.85`. Identify the optimal `N` for each α. (Hint: expected tokens per verify call = `(1 - α^{N+1}) / (1 - α)`.)
-3. **Hard.** Implement a tiny Medusa: take the capstone GPT from Lesson 14, add 3 extra LM heads that predict positions t+2, t+3, t+4. Train on tinyshakespeare with a joint multi-head loss. Compare acceptance rates vs a vanilla draft made by truncating the same model.
-4. **Hard.** Implement rollback: start with a 10-token prefix KV cache, feed 5 draft tokens, simulate a rejection at position 3. Verify your cache reads correctly match "prefix + first 2 accepted drafts" at the next iteration.
+1. **Dễ.** Chạy `code/main.py`. Xác nhận phân phối token suy đoán khớp phân phối lấy mẫu trực tiếp của bộ xác minh trên 50,000 token trong chi-square p > 0.05.
+2. **Trung bình.** Vẽ mức tăng tốc (token mỗi lượt truyền xuôi mô hình lớn) theo `N` với `α = 0.5, 0.7, 0.85`. Xác định `N` tối ưu cho mỗi α. (Gợi ý: số token kỳ vọng mỗi lời gọi xác minh = `(1 - α^{N+1}) / (1 - α)`.)
+3. **Khó.** Triển khai một Medusa tí hon: lấy GPT capstone từ Bài 14, thêm 3 head LM bổ sung dự đoán các vị trí t+2, t+3, t+4. Huấn luyện trên tinyshakespeare với một multi-head loss kết hợp. So sánh các tỷ lệ chấp nhận với một nháp nguyên bản được tạo bằng cắt ngắn cùng mô hình.
+4. **Khó.** Triển khai hoàn tác: bắt đầu với KV cache tiền tố 10 token, đưa 5 token nháp, mô phỏng một lần từ chối tại vị trí 3. Xác minh các lần đọc cache khớp đúng "tiền tố + 2 nháp đầu được chấp nhận" ở lần lặp tiếp theo.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Draft model | "The cheap one" | A smaller model that proposes candidate tokens; usually 10–50× cheaper than the verifier. |
-| Verifier | "The big one" | The target model whose distribution we preserve; runs once per speculative step. |
-| Acceptance rate (α) | "How often the draft is right" | Per-token probability that the verifier accepts the draft. 0.7–0.9 typical. |
-| Residual distribution | "The rejection fallback" | `(q - p)_+` normalized; sampling from this on rejection preserves the verifier's distribution. |
-| Bonus token | "The free one" | When all N drafts accepted, sample one more from the verifier's next-step distribution. |
-| Medusa | "Draft-less speculative" | Multiple LM heads on the verifier predict positions t+1..t+k in parallel. |
-| EAGLE | "Hidden-state draft" | Tiny transformer draft conditioned on the verifier's last-layer hidden states. |
-| Lookahead decoding | "Jacobi iteration" | Self-speculation using a fixed-point iteration; no draft model. |
-| Tree attention | "Verify many candidates at once" | Branching verification that considers several draft continuations simultaneously. |
-| KV rollback | "Undo rejected drafts" | Scratch KV buffer; commit on acceptance, discard on reject. |
+| Draft model (Mô hình nháp) | "Mô hình rẻ" | Một mô hình nhỏ hơn đề xuất các token ứng viên; thường rẻ hơn bộ xác minh 10–50×. |
+| Verifier (Bộ xác minh) | "Mô hình lớn" | Mô hình đích mà chúng ta giữ phân phối; chạy một lần mỗi bước suy đoán. |
+| Acceptance rate (α) (Tỷ lệ chấp nhận) | "Nháp đúng thường xuyên bao nhiêu" | Xác suất theo token mà bộ xác minh chấp nhận nháp. Thường 0.7–0.9. |
+| Residual distribution (Phân phối phần dư) | "Dự phòng khi từ chối" | `(q - p)_+` được chuẩn hóa; lấy mẫu từ đây khi từ chối giữ phân phối bộ xác minh. |
+| Bonus token (Token thưởng) | "Token miễn phí" | Khi cả N nháp được chấp nhận, lấy mẫu thêm một từ phân phối bước tiếp của bộ xác minh. |
+| Medusa | "Suy đoán không nháp" | Nhiều head LM trên bộ xác minh dự đoán các vị trí t+1..t+k song song. |
+| EAGLE | "Nháp trạng thái ẩn" | Nháp transformer tí hon được điều kiện hóa theo các trạng thái ẩn tầng cuối của bộ xác minh. |
+| Lookahead decoding | "Lặp Jacobi" | Tự suy đoán bằng một phép lặp điểm bất động; không mô hình nháp. |
+| Tree attention (Attention cây) | "Xác minh nhiều ứng viên cùng lúc" | Xác minh phân nhánh xem xét vài tiếp nối nháp đồng thời. |
+| KV rollback (Hoàn tác KV) | "Hoàn tác các nháp bị từ chối" | Bộ đệm KV tạm; chốt khi chấp nhận, loại khi từ chối. |
 
 ## Further Reading
 
-- [Leviathan, Kalman, Matias (2023). Fast Inference from Transformers via Speculative Decoding](https://arxiv.org/abs/2211.17192) — the core algorithm and the equivalence theorem.
-- [Chen et al. (2023). Accelerating Large Language Model Decoding with Speculative Sampling](https://arxiv.org/abs/2302.01318) — concurrent introduction; clean Bernoulli-rejection proof.
-- [Cai et al. (2024). Medusa: Simple LLM Inference Acceleration Framework with Multiple Decoding Heads](https://arxiv.org/abs/2401.10774) — Medusa paper; tree-attention verification.
-- [Li et al. (2024). EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty](https://arxiv.org/abs/2401.15077) — EAGLE-1; hidden-state-conditioned draft.
-- [Li et al. (2024). EAGLE-2: Faster Inference of Language Models with Dynamic Draft Trees](https://arxiv.org/abs/2406.16858) — EAGLE-2; dynamic tree depth.
+- [Leviathan, Kalman, Matias (2023). Fast Inference from Transformers via Speculative Decoding](https://arxiv.org/abs/2211.17192) — thuật toán cốt lõi và định lý tương đương.
+- [Chen et al. (2023). Accelerating Large Language Model Decoding with Speculative Sampling](https://arxiv.org/abs/2302.01318) — giới thiệu đồng thời; chứng minh từ chối Bernoulli rõ ràng.
+- [Cai et al. (2024). Medusa: Simple LLM Inference Acceleration Framework with Multiple Decoding Heads](https://arxiv.org/abs/2401.10774) — bài báo Medusa; xác minh tree-attention.
+- [Li et al. (2024). EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty](https://arxiv.org/abs/2401.15077) — EAGLE-1; nháp được điều kiện hóa theo trạng thái ẩn.
+- [Li et al. (2024). EAGLE-2: Faster Inference of Language Models with Dynamic Draft Trees](https://arxiv.org/abs/2406.16858) — EAGLE-2; độ sâu cây động.
 - [Li et al. (2025). EAGLE-3: Scaling up Inference Acceleration of Large Language Models via Training-Time Test](https://arxiv.org/abs/2503.01840) — EAGLE-3.
-- [Fu et al. (2024). Break the Sequential Dependency of LLM Inference Using Lookahead Decoding](https://arxiv.org/abs/2402.02057) — lookahead, no-draft approach.
-- [vLLM docs — Speculative Decoding](https://docs.vllm.ai/en/latest/features/spec_decode.html) — canonical production reference with all four strategies wired up.
-- [SafeAILab / EAGLE reference implementation](https://github.com/SafeAILab/EAGLE) — the reference code for EAGLE-1/2/3.
+- [Fu et al. (2024). Break the Sequential Dependency of LLM Inference Using Lookahead Decoding](https://arxiv.org/abs/2402.02057) — lookahead, cách tiếp cận không nháp.
+- [vLLM docs — Speculative Decoding](https://docs.vllm.ai/en/latest/features/spec_decode.html) — tham chiếu production kinh điển với cả bốn chiến lược được nối.
+- [SafeAILab / EAGLE reference implementation](https://github.com/SafeAILab/EAGLE) — mã tham chiếu cho EAGLE-1/2/3.

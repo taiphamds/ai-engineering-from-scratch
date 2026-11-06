@@ -9,47 +9,47 @@ tags: [inference, decoding, latency, speculative, optimization]
 
 # Speculative Decoding Picker
 
-Help an engineer choose between vanilla speculative, Medusa, EAGLE, or lookahead decoding, and tune `N` (draft length) for a specific workload.
+Giúp một kỹ sư chọn giữa giải mã suy đoán nguyên bản, Medusa, EAGLE hoặc lookahead và tinh chỉnh `N` (độ dài nháp) cho một khối lượng công việc cụ thể.
 
 ## Inputs to gather
 
-1. **Verifier model** — which LLM produces final output. Size matters (draft cost must be < verifier cost for speedup).
-2. **Workload type** — code, chat, structured output, summarization. Determines acceptance rate.
-3. **Sampling strategy** — greedy, low-T, high-T, beam. High-T sampling degrades acceptance.
-4. **Hardware target** — memory budget determines if you can fit a separate draft model.
-5. **Engineering budget** — Medusa and EAGLE need fine-tuning; vanilla and lookahead don't.
-6. **Latency target** — interactive chat (<500ms TTFT, <50ms per token) vs batch (throughput-first).
+1. **Mô hình xác minh** — LLM nào tạo đầu ra cuối. Kích thước quan trọng (chi phí nháp phải < chi phí bộ xác minh để tăng tốc).
+2. **Loại khối lượng công việc** — mã, trò chuyện, đầu ra có cấu trúc, tóm tắt. Quyết định tỷ lệ chấp nhận.
+3. **Chiến lược lấy mẫu** — tham lam, T thấp, T cao, beam. Lấy mẫu T cao làm giảm chấp nhận.
+4. **Phần cứng đích** — ngân sách bộ nhớ quyết định bạn có thể chứa một mô hình nháp riêng không.
+5. **Ngân sách kỹ thuật** — Medusa và EAGLE cần fine-tuning; nguyên bản và lookahead không cần.
+6. **Mục tiêu độ trễ** — trò chuyện tương tác (<500ms TTFT, <50ms mỗi token) so với batch (ưu tiên thông lượng).
 
 ## Decision rules
 
-- **Quick start, no training**: vanilla draft with a same-family 1B–3B model. 2× typical.
-- **You can fine-tune**: EAGLE-2 or EAGLE-3 using the verifier's hidden states. 3–4× typical.
-- **You can fine-tune but can't run two models**: Medusa (extra heads on verifier). 2–3×.
-- **No training budget, no draft model available**: lookahead decoding. 1.3–1.6×.
-- **Batch-heavy serving**: continuous batching matters more; speculative gains diminish as batch grows because the verifier is already saturated.
-- **High temperature or stochastic sampling**: acceptance drops sharply. Consider lower N (2–3) or disabling.
-- **Structured output (JSON, code)**: acceptance is high. Push N to 7+ for max speedup.
+- **Bắt đầu nhanh, không huấn luyện**: nháp nguyên bản với một mô hình cùng họ 1B–3B. Thường 2×.
+- **Bạn có thể fine-tune**: EAGLE-2 hoặc EAGLE-3 dùng các trạng thái ẩn của bộ xác minh. Thường 3–4×.
+- **Bạn có thể fine-tune nhưng không thể chạy hai mô hình**: Medusa (các head bổ sung trên bộ xác minh). 2–3×.
+- **Không ngân sách huấn luyện, không có mô hình nháp**: lookahead decoding. 1.3–1.6×.
+- **Phục vụ nặng batch**: batching liên tục quan trọng hơn; lợi ích suy đoán giảm khi batch tăng vì bộ xác minh đã bão hòa.
+- **Temperature cao hoặc lấy mẫu ngẫu nhiên**: chấp nhận giảm mạnh. Cân nhắc N thấp hơn (2–3) hoặc tắt.
+- **Đầu ra có cấu trúc (JSON, mã)**: chấp nhận cao. Đẩy N lên 7+ để tăng tốc tối đa.
 
 ## Tuning
 
-- **N (draft length)**: start at 5. Measure acceptance. If α > 0.9, push to 7. If α < 0.6, drop to 3.
-- **Draft temperature**: match the verifier's temperature. Mismatched draft sampling loses α.
-- **Tree depth (EAGLE-2 / Medusa)**: 3–5 branches; wider trees help only at α > 0.8.
-- **Draft model size**: smallest that hits α > 0.7. A 1B draft for a 70B verifier is typical; don't go below the verifier's tokenizer / embedding compatibility.
+- **N (độ dài nháp)**: bắt đầu tại 5. Đo chấp nhận. Nếu α > 0.9, đẩy lên 7. Nếu α < 0.6, giảm xuống 3.
+- **Temperature nháp**: khớp temperature của bộ xác minh. Lấy mẫu nháp không khớp làm mất α.
+- **Độ sâu cây (EAGLE-2 / Medusa)**: 3–5 nhánh; các cây rộng hơn chỉ giúp tại α > 0.8.
+- **Kích thước mô hình nháp**: nhỏ nhất đạt α > 0.7. Một nháp 1B cho bộ xác minh 70B là điển hình; đừng xuống dưới khả năng tương thích tokenizer / embedding của bộ xác minh.
 
 ## Always flag
 
-- Check that draft and verifier share the tokenizer. Different BPE splits break speculative guarantees.
-- Spec decoding interacts with continuous batching in vLLM: per-request speedup drops when the batch is already saturated.
-- EAGLE's hidden-state input requires verifier internals; not always exposed through HF APIs. Prefer vLLM or SGLang runtimes.
-- Medusa heads need a supervised fine-tune on the verifier's own outputs. Data-gathering step is often the dominant cost.
+- Kiểm tra nháp và bộ xác minh dùng chung tokenizer. Các cách chia BPE khác nhau phá các bảo đảm suy đoán.
+- Giải mã suy đoán tương tác với batching liên tục trong vLLM: mức tăng tốc theo yêu cầu giảm khi batch đã bão hòa.
+- Đầu vào trạng thái ẩn của EAGLE yêu cầu nội bộ bộ xác minh; không phải luôn được cung cấp qua các API HF. Ưu tiên runtime vLLM hoặc SGLang.
+- Các head Medusa cần một fine-tune có giám sát trên các đầu ra của chính bộ xác minh. Bước thu thập dữ liệu thường là chi phí chi phối.
 
 ## Output format
 
-Return:
+Trả về:
 
-1. **Recommendation** — one strategy name and tuning parameters (e.g. "EAGLE-2, N=5, tree_depth=4").
-2. **Expected speedup** — with explicit α assumption.
-3. **Compatibility checks** — tokenizer match, runtime support, KV cache rollback support.
-4. **Fallback plan** — if the primary strategy underperforms, what to try next.
-5. **Measurement plan** — how to validate acceptance rate and speedup on a representative sample.
+1. **Khuyến nghị** — một tên chiến lược và các tham số tinh chỉnh (ví dụ "EAGLE-2, N=5, tree_depth=4").
+2. **Mức tăng tốc dự kiến** — với giả định α rõ ràng.
+3. **Các kiểm tra tương thích** — khớp tokenizer, hỗ trợ runtime, hỗ trợ hoàn tác KV cache.
+4. **Kế hoạch dự phòng** — nếu chiến lược chính hoạt động dưới mức, thử gì tiếp theo.
+5. **Kế hoạch đo lường** — cách xác thực tỷ lệ chấp nhận và mức tăng tốc trên một mẫu đại diện.
