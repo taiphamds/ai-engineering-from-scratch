@@ -1,6 +1,6 @@
 # 3D Vision — Point Clouds & NeRFs
 
-> 3D vision comes in two flavours. Point clouds are the sensor's raw output. NeRFs are the learned volumetric field. Both answer "what is where in space."
+> Thị giác 3D có hai dạng. Đám mây điểm là đầu ra thô của cảm biến. NeRF là trường thể tích được học. Cả hai trả lời "cái gì ở đâu trong không gian."
 
 **Type:** Learn + Build
 **Languages:** Python
@@ -9,24 +9,24 @@
 
 ## Learning Objectives
 
-- Distinguish explicit (point cloud, mesh, voxel) and implicit (signed distance field, NeRF) 3D representations and when each is used
-- Understand PointNet's symmetric-function trick that makes a neural network permutation-invariant over an unordered set of points
-- Trace a NeRF forward pass: ray casting, volumetric rendering, positional encoding, MLP density+colour head
-- Use `nerfstudio` or `instant-ngp` for pretrained 3D reconstruction from a small set of posed images
+- Phân biệt các biểu diễn 3D tường minh (đám mây điểm, lưới, voxel) và ngầm định (trường khoảng cách có dấu, NeRF) và khi nào mỗi loại được dùng
+- Hiểu thủ thuật hàm đối xứng của PointNet khiến mạng nơ-ron bất biến hoán vị trên một tập điểm không có thứ tự
+- Theo dõi một lượt truyền xuôi NeRF: phát tia, kết xuất thể tích, mã hóa vị trí, đầu mật độ+màu MLP
+- Sử dụng `nerfstudio` hoặc `instant-ngp` để tái tạo 3D được tiền huấn luyện từ một tập nhỏ hình ảnh có tư thế
 
 ## The Problem
 
-A camera produces a 2D image. A LIDAR produces a set of 3D points with no ordering. A structure-from-motion pipeline produces a sparse cloud of 3D keypoints. A NeRF reconstructs an entire 3D scene from a handful of posed images. All of these are "vision" but none of them look like the dense tensor a CNN wants.
+Một máy ảnh tạo một hình ảnh 2D. Một LIDAR tạo một tập điểm 3D không có thứ tự. Một pipeline cấu trúc-từ-chuyển-động tạo một đám mây thưa các điểm đặc trưng 3D. Một NeRF tái tạo toàn bộ một cảnh 3D từ một số ít hình ảnh có tư thế. Tất cả đều là "thị giác" nhưng không thứ nào giống tensor dày đặc mà một CNN muốn.
 
-3D vision matters because almost every high-value robot task runs in 3D: grasping, obstacle avoidance, navigation, AR occlusion, 3D content capture. A vision engineer who only understands 2D images is locked out of the fastest-growing slice of the field (AR/VR content, robotics, autonomous driving stacks, NeRF-based 3D reconstruction for real-estate or construction).
+Thị giác 3D quan trọng vì gần như mọi tác vụ robot giá trị cao chạy trong 3D: nắm bắt, tránh chướng ngại, điều hướng, che khuất AR, thu nhận nội dung 3D. Một kỹ sư thị giác chỉ hiểu hình ảnh 2D bị đứng ngoài phần tăng trưởng nhanh nhất của lĩnh vực (nội dung AR/VR, robot, các bộ công cụ lái xe tự hành, tái tạo 3D dựa trên NeRF cho bất động sản hoặc xây dựng).
 
-The two representations dominate for different reasons. Point clouds are what sensors give you for free. NeRFs and their successors (3D Gaussian splatting, neural SDFs) are what you get when you ask a neural network to learn a scene.
+Hai biểu diễn chiếm ưu thế vì các lý do khác nhau. Đám mây điểm là thứ cảm biến cho bạn miễn phí. NeRF và các kế nhiệm (3D Gaussian splatting, SDF nơ-ron) là thứ bạn có khi yêu cầu một mạng nơ-ron học một cảnh.
 
 ## The Concept
 
 ### Point clouds
 
-A point cloud is an unordered set of N points in R^3, optionally each with features (colour, intensity, normal).
+Một đám mây điểm là một tập không thứ tự gồm N điểm trong R^3, tùy chọn mỗi điểm có các đặc trưng (màu, cường độ, pháp tuyến).
 
 ```
 cloud = [
@@ -37,18 +37,18 @@ cloud = [
 ]
 ```
 
-No grid, no connectivity. Two properties make this hard for neural networks:
+Không lưới, không kết nối. Hai thuộc tính khiến điều này khó cho mạng nơ-ron:
 
-- **Permutation invariance** — the output must not depend on point order.
-- **Variable N** — a single model must handle clouds of different sizes.
+- **Bất biến hoán vị** — đầu ra không được phụ thuộc thứ tự điểm.
+- **N thay đổi** — một mô hình duy nhất phải xử lý các đám mây kích thước khác nhau.
 
-PointNet (Qi et al., 2017) solved both with one idea: apply a shared MLP to every point, then aggregate with a symmetric function (max pool). The result is a fixed-size vector that does not depend on order.
+PointNet (Qi et al., 2017) giải cả hai bằng một ý tưởng: áp dụng một MLP dùng chung cho mọi điểm, rồi tổng hợp bằng một hàm đối xứng (max pool). Kết quả là một vector kích thước cố định không phụ thuộc thứ tự.
 
 ```
 f(P) = max_{p in P} MLP(p)
 ```
 
-This is the entire core of PointNet. Deeper variants (PointNet++, Point Transformer) add hierarchical sampling and local aggregation but the symmetric-function trick is unchanged.
+Đây là toàn bộ cốt lõi PointNet. Các biến thể sâu hơn (PointNet++, Point Transformer) thêm lấy mẫu phân cấp và tổng hợp cục bộ nhưng thủ thuật hàm đối xứng không đổi.
 
 ### The PointNet architecture
 
@@ -66,11 +66,11 @@ flowchart LR
     style CLS fill:#dcfce7,stroke:#16a34a
 ```
 
-"Shared MLP" means the same MLP runs on every point independently. Implemented as a 1x1 conv over the point dimension for efficiency.
+"MLP dùng chung" nghĩa là cùng MLP chạy độc lập trên mọi điểm. Được triển khai như tích chập 1x1 trên chiều điểm để hiệu quả.
 
 ### Neural Radiance Fields (NeRFs)
 
-NeRFs (Mildenhall et al., 2020) took the question "can we reconstruct a 3D scene from N photos?" and answered with a neural network that is the scene. The network maps `(x, y, z, viewing_direction)` to `(density, colour)`. Rendering a new view is a ray-casting loop over this network.
+NeRF (Mildenhall et al., 2020) lấy câu hỏi "chúng ta có thể tái tạo một cảnh 3D từ N ảnh không?" và trả lời bằng một mạng nơ-ron chính là cảnh. Mạng ánh xạ `(x, y, z, viewing_direction)` tới `(density, colour)`. Kết xuất góc nhìn mới là một vòng lặp phát tia trên mạng này.
 
 ```
 NeRF MLP:  (x, y, z, theta, phi) -> (sigma, r, g, b)
@@ -83,17 +83,17 @@ To render a pixel (u, v) of a new view:
   5. The sum is the rendered pixel colour
 ```
 
-A loss compares the rendered pixel to the ground-truth pixel in the training photos. Backprop through the rendering step updates the MLP. No 3D ground truth, no explicit geometry — the scene is stored in the MLP weights.
+Một mất mát so sánh pixel được kết xuất với pixel sự thật nền trong các ảnh huấn luyện. Lan truyền ngược qua bước kết xuất cập nhật MLP. Không sự thật nền 3D, không hình học tường minh — cảnh được lưu trong các trọng số MLP.
 
 ### Positional encoding in NeRF
 
-A vanilla MLP on `(x, y, z)` cannot represent high-frequency details because MLPs are spectrally biased toward low frequencies. NeRF fixes this by encoding each coordinate into a Fourier feature vector before the MLP:
+Một MLP nguyên bản trên `(x, y, z)` không thể biểu diễn các chi tiết tần số cao vì MLP có thiên kiến phổ về các tần số thấp. NeRF khắc phục bằng cách mã hóa mỗi tọa độ thành một vector đặc trưng Fourier trước MLP:
 
 ```
 gamma(p) = (sin(2^0 pi p), cos(2^0 pi p), sin(2^1 pi p), cos(2^1 pi p), ...)
 ```
 
-Up to L=10 frequency levels. This is the same trick transformers use for positions, and it appears again in diffusion time conditioning (Lesson 10). Without it, NeRFs look blurry.
+Tới L=10 mức tần số. Đây là cùng thủ thuật transformer sử dụng cho vị trí, và nó lại xuất hiện trong điều kiện hóa thời gian khuếch tán (Bài 10). Không có nó, NeRF trông mờ.
 
 ### Volumetric rendering
 
@@ -104,25 +104,25 @@ T_i  = exp(- sum_{j<i} sigma_j * delta_j)
 delta_i = t_{i+1} - t_i
 ```
 
-`T_i` is transmittance — how much light survives to point i. `(1 - exp(-sigma_i * delta_i))` is the opacity at point i. `c_i` is the colour. The final pixel is a weighted sum along the ray.
+`T_i` là độ truyền qua — lượng ánh sáng sống sót tới điểm i. `(1 - exp(-sigma_i * delta_i))` là độ đục tại điểm i. `c_i` là màu. Pixel cuối là một tổng có trọng số dọc tia.
 
 ### What replaced NeRFs
 
-Pure NeRFs are slow to train (hours) and slow to render (seconds per image). The lineage since:
+NeRF thuần huấn luyện chậm (hàng giờ) và kết xuất chậm (vài giây mỗi hình ảnh). Dòng phát triển sau đó:
 
-- **Instant-NGP** (2022) — hash-grid encoding replaces the MLP's position input; trains in seconds.
-- **Mip-NeRF 360** — handles unbounded scenes and anti-aliasing.
-- **3D Gaussian Splatting** (2023) — replaces the volumetric field with millions of 3D Gaussians; trains in minutes, renders in real time. The current production default.
+- **Instant-NGP** (2022) — mã hóa hash-grid thay đầu vào vị trí của MLP; huấn luyện trong vài giây.
+- **Mip-NeRF 360** — xử lý các cảnh không bị chặn và khử răng cưa.
+- **3D Gaussian Splatting** (2023) — thay trường thể tích bằng hàng triệu Gaussian 3D; huấn luyện trong vài phút, kết xuất thời gian thực. Mặc định production hiện tại.
 
-Almost every real NeRF product in 2026 is actually 3D Gaussian splatting. The mental model is still NeRF.
+Gần như mọi sản phẩm NeRF thực tế năm 2026 thực ra là 3D Gaussian splatting. Mô hình tư duy vẫn là NeRF.
 
 ### Datasets and benchmarks
 
-- **ShapeNet** — classification and segmentation of 3D CAD models as point clouds.
-- **ScanNet** — real indoor scans for segmentation.
-- **KITTI** — outdoor LIDAR point clouds for autonomous driving.
-- **NeRF Synthetic** / **Blended MVS** — posed-image datasets for view synthesis.
-- **Mip-NeRF 360** dataset — unbounded real scenes.
+- **ShapeNet** — phân loại và phân đoạn các mô hình CAD 3D dưới dạng đám mây điểm.
+- **ScanNet** — các bản quét trong nhà thật để phân đoạn.
+- **KITTI** — các đám mây điểm LIDAR ngoài trời cho lái xe tự hành.
+- **NeRF Synthetic** / **Blended MVS** — các tập dữ liệu hình ảnh có tư thế cho tổng hợp góc nhìn.
+- Tập dữ liệu **Mip-NeRF 360** — các cảnh thật không bị chặn.
 
 ```figure
 nerf-rays
@@ -168,7 +168,7 @@ print(f"output: {net(pts).shape}")
 print(f"params: {sum(p.numel() for p in net.parameters()):,}")
 ```
 
-About 1.6M parameters. Runs on 1,024 points per cloud.
+Khoảng 1.6M tham số. Chạy trên 1,024 điểm mỗi đám mây.
 
 ### Step 2: Positional encoding
 
@@ -188,7 +188,7 @@ print(f"input:  {x.shape}")
 print(f"encoded: {y.shape}     # (5, 60)")
 ```
 
-Multiplying by `2^l * pi` gives progressively higher frequencies.
+Nhân với `2^l * pi` cho các tần số cao dần.
 
 ### Step 3: Tiny NeRF MLP
 
@@ -227,7 +227,7 @@ s, c = nerf(x, d)
 print(f"sigma: {s.shape}   rgb: {c.shape}")
 ```
 
-Tiny compared to the original NeRF (which has 2 MLP trunks of depth 8). Enough to demonstrate the architecture.
+Rất nhỏ so với NeRF gốc (có 2 thân MLP độ sâu 8). Đủ minh họa kiến trúc.
 
 ### Step 4: Volumetric rendering along a ray
 
@@ -256,47 +256,47 @@ print(f"rendered colour: {rendered.tolist()}")
 print(f"depth:           {depth.item():.2f}")
 ```
 
-One ray, 64 samples, composite to a single RGB pixel and a depth.
+Một tia, 64 mẫu, tổng hợp thành một pixel RGB duy nhất và một độ sâu.
 
 ## Use It
 
-For real work:
+Cho công việc thực tế:
 
-- `nerfstudio` (Tancik et al.) — the current reference library for NeRF / Instant-NGP / Gaussian Splatting. Command-line plus a web viewer.
-- `pytorch3d` (Meta) — differentiable rendering, point-cloud utilities, mesh ops.
-- `open3d` — point cloud processing, registration, visualisation.
+- `nerfstudio` (Tancik et al.) — thư viện tham chiếu hiện tại cho NeRF / Instant-NGP / Gaussian Splatting. Dòng lệnh cộng trình xem web.
+- `pytorch3d` (Meta) — kết xuất khả vi, các tiện ích đám mây điểm, các phép toán lưới.
+- `open3d` — xử lý đám mây điểm, đăng ký, trực quan hóa.
 
-For deployment, 3D Gaussian splatting has largely replaced pure NeRFs because it renders 100x faster. The reconstruction quality is comparable.
+Cho triển khai, 3D Gaussian splatting phần lớn thay NeRF thuần vì kết xuất nhanh hơn 100 lần. Chất lượng tái tạo tương đương.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-3d-task-router.md` — a prompt that routes to the right 3D representation (point cloud, mesh, voxel, NeRF, Gaussian splat) based on task and input data.
-- `outputs/skill-point-cloud-loader.md` — a skill that writes a PyTorch `Dataset` for .ply / .pcd / .xyz files with correct normalisation, centring, and point sampling.
+- `outputs/prompt-3d-task-router.md` — một prompt định tuyến tới biểu diễn 3D phù hợp (đám mây điểm, lưới, voxel, NeRF, Gaussian splat) dựa trên tác vụ và dữ liệu đầu vào.
+- `outputs/skill-point-cloud-loader.md` — một skill viết `Dataset` PyTorch cho các file .ply / .pcd / .xyz với chuẩn hóa, đặt tâm và lấy mẫu điểm đúng.
 
 ## Exercises
 
-1. **(Easy)** Show that PointNet is permutation-invariant: run the same cloud through twice, once with points shuffled. Verify outputs are identical up to floating-point noise.
-2. **(Medium)** Implement a minimal ray-generation function that, given camera intrinsics and pose, produces ray origins and directions for every pixel of an H x W image.
-3. **(Hard)** Train a TinyNeRF on a synthetic dataset of rendered views of a coloured cube (generated via differentiable rendering or a simple ray tracer). Report rendering loss at epoch 1, 10, and 100. At what epoch does the model produce recognisable views?
+1. **(Dễ)** Cho thấy PointNet bất biến hoán vị: chạy cùng đám mây qua hai lần, một lần các điểm được xáo trộn. Xác minh đầu ra giống hệt trong phạm vi nhiễu dấu phẩy động.
+2. **(Vừa)** Triển khai một hàm sinh tia tối giản, với nội tại và tư thế máy ảnh cho trước, tạo các gốc và hướng tia cho mọi pixel của hình ảnh H x W.
+3. **(Khó)** Huấn luyện TinyNeRF trên một tập dữ liệu tổng hợp các góc nhìn kết xuất của một khối lập phương có màu (sinh qua kết xuất khả vi hoặc bộ truy tia đơn giản). Báo cáo mất mát kết xuất tại epoch 1, 10 và 100. Ở epoch nào mô hình tạo các góc nhìn có thể nhận ra?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Point cloud | "3D points from LIDAR" | Unordered set of (x, y, z) + optional features per point |
-| PointNet | "First neural net on point clouds" | Shared MLP per point + symmetric (max) pool; permutation-invariant by construction |
-| NeRF | "MLP that is the scene" | Network mapping (x, y, z, dir) to (density, colour); rendered by ray casting |
-| Positional encoding | "Fourier features" | Encode each coordinate into sin/cos at multiple frequencies to overcome MLP low-frequency bias |
-| Volumetric rendering | "Ray integration" | Composite samples along a ray into a single pixel using transmittance and alpha |
-| Instant-NGP | "Hash-grid NeRF" | Replaces NeRF's coordinate MLP with a multi-resolution hash grid; 100-1000x faster |
-| 3D Gaussian splatting | "Millions of Gaussians" | Scene = collection of 3D Gaussians; renders in real time, trains in minutes |
-| SDF | "Signed distance field" | Function returning signed distance to the nearest surface; another implicit representation |
+| Point cloud (Đám mây điểm) | "Các điểm 3D từ LIDAR" | Tập không thứ tự (x, y, z) + các đặc trưng tùy chọn mỗi điểm |
+| PointNet | "Mạng nơ-ron đầu tiên trên đám mây điểm" | MLP dùng chung mỗi điểm + pool đối xứng (max); bất biến hoán vị theo cấu trúc |
+| NeRF | "MLP chính là cảnh" | Mạng ánh xạ (x, y, z, dir) tới (mật độ, màu); được kết xuất bằng phát tia |
+| Positional encoding (Mã hóa vị trí) | "Các đặc trưng Fourier" | Mã hóa mỗi tọa độ thành sin/cos ở nhiều tần số để vượt thiên kiến tần số thấp của MLP |
+| Volumetric rendering (Kết xuất thể tích) | "Tích phân tia" | Tổng hợp các mẫu dọc tia thành một pixel bằng độ truyền qua và alpha |
+| Instant-NGP | "NeRF hash-grid" | Thay MLP tọa độ NeRF bằng một lưới băm đa độ phân giải; nhanh hơn 100-1000 lần |
+| 3D Gaussian splatting | "Hàng triệu Gaussian" | Cảnh = tập hợp các Gaussian 3D; kết xuất thời gian thực, huấn luyện trong vài phút |
+| SDF | "Trường khoảng cách có dấu" | Hàm trả về khoảng cách có dấu tới bề mặt gần nhất; một biểu diễn ngầm định khác |
 
 ## Further Reading
 
-- [PointNet (Qi et al., 2017)](https://arxiv.org/abs/1612.00593) — the permutation-invariant classifier
-- [NeRF (Mildenhall et al., 2020)](https://arxiv.org/abs/2003.08934) — the paper that made 3D reconstruction from photos a neural-net problem
-- [Instant-NGP (Müller et al., 2022)](https://arxiv.org/abs/2201.05989) — hash grids, 1000x speedup
-- [3D Gaussian Splatting (Kerbl et al., 2023)](https://arxiv.org/abs/2308.04079) — the architecture that replaced NeRFs in production
+- [PointNet (Qi et al., 2017)](https://arxiv.org/abs/1612.00593) — bộ phân loại bất biến hoán vị
+- [NeRF (Mildenhall et al., 2020)](https://arxiv.org/abs/2003.08934) — bài báo biến tái tạo 3D từ ảnh thành bài toán mạng nơ-ron
+- [Instant-NGP (Müller et al., 2022)](https://arxiv.org/abs/2201.05989) — các lưới băm, tăng tốc 1000 lần
+- [3D Gaussian Splatting (Kerbl et al., 2023)](https://arxiv.org/abs/2308.04079) — kiến trúc thay NeRF trong production

@@ -9,29 +9,29 @@ tags: [3d-vision, point-cloud, data-loading, pytorch]
 
 # Point Cloud Loader
 
-Turn a folder of 3D scan files into a ready-to-train PyTorch `Dataset`.
+Biến một thư mục file quét 3D thành một `Dataset` PyTorch sẵn sàng huấn luyện.
 
 ## When to use
 
-- Starting a new point-cloud classification / segmentation project.
-- Switching between `.ply`, `.pcd`, and `.xyz` formats.
-- Debugging a model that trains without error but converges poorly; often the data loader normalisation is wrong.
+- Bắt đầu một dự án phân loại / phân đoạn đám mây điểm mới.
+- Chuyển giữa các định dạng `.ply`, `.pcd` và `.xyz`.
+- Gỡ lỗi một mô hình huấn luyện không lỗi nhưng hội tụ kém; thường chuẩn hóa bộ tải dữ liệu sai.
 
 ## Inputs
 
-- `data_root`: folder of point-cloud files and an optional CSV with labels.
+- `data_root`: thư mục các file đám mây điểm và CSV nhãn tùy chọn.
 - `file_format`: ply | pcd | xyz | npy.
-- `num_points`: fixed sampling size, typically 1024 or 2048.
+- `num_points`: kích thước lấy mẫu cố định, thường 1024 hoặc 2048.
 - `augmentation`: none | rotate | jitter | mixup.
 
 ## Normalisation policy
 
-Every production point-cloud pipeline applies in order:
+Mọi pipeline đám mây điểm production áp dụng theo thứ tự:
 
-1. **Centre** the cloud: subtract the centroid.
-2. **Scale** to unit sphere: divide by the max distance from centre.
-3. **Sample** `num_points` points. If the cloud has more, use **farthest point sampling** (FPS) for faithful shape representation or random sampling for speed. If fewer, repeat points.
-4. **Shuffle** point order (order should not matter for the model anyway, but shuffling breaks accidental order dependencies).
+1. **Đặt tâm** đám mây: trừ trọng tâm.
+2. **Co giãn** về hình cầu đơn vị: chia cho khoảng cách lớn nhất từ tâm.
+3. **Lấy mẫu** `num_points` điểm. Nếu đám mây có nhiều hơn, sử dụng **lấy mẫu điểm xa nhất** (FPS) để biểu diễn hình dạng trung thành hoặc lấy mẫu ngẫu nhiên để nhanh. Nếu ít hơn, lặp các điểm.
+4. **Xáo trộn** thứ tự điểm (thứ tự dù sao cũng không nên quan trọng với mô hình, nhưng xáo trộn phá vỡ các phụ thuộc thứ tự vô tình).
 
 ## Output template
 
@@ -116,7 +116,7 @@ class PointCloudDataset(Dataset):
 
 ## Rules
 
-- Always centre before scaling; swapping the order changes the meaning of "unit sphere".
-- Prefer FPS over random sampling for shape tasks; random is fine for segmentation where every point matters anyway.
-- Never augment during evaluation; only during training.
-- If point cloud files include colour or normals as extra channels, extend the Dataset to return a `(3 + C, num_points)` tensor, not just xyz.
+- Luôn đặt tâm trước co giãn; đổi thứ tự làm thay đổi ý nghĩa "hình cầu đơn vị".
+- Ưu tiên FPS hơn lấy mẫu ngẫu nhiên cho các tác vụ hình dạng; ngẫu nhiên ổn cho phân đoạn nơi mọi điểm đều quan trọng.
+- Không bao giờ tăng cường trong đánh giá; chỉ trong huấn luyện.
+- Nếu các file đám mây điểm bao gồm màu hoặc pháp tuyến làm các kênh bổ sung, mở rộng Dataset để trả về tensor `(3 + C, num_points)`, không chỉ xyz.
