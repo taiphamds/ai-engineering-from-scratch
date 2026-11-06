@@ -1,6 +1,6 @@
 # Dev Environment
 
-> Your tools shape your thinking. Set them up once, set them up right.
+> Công cụ của bạn định hình tư duy của bạn. Hãy thiết lập chúng một lần, thiết lập cho đúng.
 
 **Type:** Build
 **Languages:** Python, Node.js, Rust
@@ -9,20 +9,20 @@
 
 ## Learning Objectives
 
-- Set up Python 3.11+, Node.js 20+, and Rust toolchains from scratch
-- Configure virtual environments and package managers for reproducible builds
-- Verify GPU access with CUDA/MPS and run a test tensor operation
-- Understand the four-layer stack: system, packages, runtimes, AI libraries
+- Thiết lập các bộ công cụ Python 3.11+, Node.js 20+ và Rust từ đầu
+- Cấu hình môi trường ảo và trình quản lý gói để có các bản dựng có thể tái lập
+- Xác minh quyền truy cập GPU bằng CUDA/MPS và chạy thử một phép toán tensor
+- Hiểu ngăn xếp bốn lớp: hệ thống, gói, môi trường chạy, thư viện AI
 
 ## The Problem
 
-You're about to learn AI engineering across 500+ lessons using Python, TypeScript, Rust, and Julia. If your environment is broken, every single lesson becomes a fight against tooling instead of learning.
+Bạn sắp học kỹ thuật AI qua 500+ bài học sử dụng Python, TypeScript, Rust và Julia. Nếu môi trường của bạn bị hỏng, mỗi bài học đều trở thành một cuộc chiến với công cụ thay vì việc học.
 
-Most people skip environment setup. Then they spend hours debugging import errors, version conflicts, and missing CUDA drivers. We're going to do this once, properly.
+Hầu hết mọi người bỏ qua việc thiết lập môi trường. Sau đó họ dành hàng giờ để gỡ lỗi import, xung đột phiên bản và thiếu trình điều khiển CUDA. Chúng ta sẽ làm việc này một lần, đúng cách.
 
 ## The Concept
 
-An AI engineering environment has four layers:
+Một môi trường kỹ thuật AI có bốn lớp:
 
 ```mermaid
 graph TD
@@ -31,7 +31,7 @@ graph TD
     C --> D["1. System Foundation\nOS, shell, git, editor, GPU drivers"]
 ```
 
-We install bottom-up. Each layer depends on the one below it.
+Chúng ta cài đặt từ dưới lên. Mỗi lớp phụ thuộc vào lớp bên dưới nó.
 
 ```figure
 s0-env-stack
@@ -41,7 +41,7 @@ s0-env-stack
 
 ### Step 1: System Foundation
 
-Check your system and install the basics.
+Kiểm tra hệ thống của bạn và cài đặt những thành phần cơ bản.
 
 ```bash
 # macOS
@@ -57,7 +57,7 @@ wsl --install -d Ubuntu-24.04
 
 ### Step 2: Python with uv
 
-We use `uv` — it's 10-100x faster than pip and handles virtual environments automatically.
+Chúng ta dùng `uv` — nó nhanh hơn pip 10-100 lần và tự động xử lý các môi trường ảo.
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -70,7 +70,7 @@ source .venv/bin/activate  # or .venv\Scripts\activate on Windows
 uv pip install numpy matplotlib jupyter
 ```
 
-Verify:
+Xác minh:
 
 ```python
 import sys
@@ -84,7 +84,7 @@ print(f"Vector: {a}, dot product with itself: {np.dot(a, a)}")
 
 ### Step 3: Node.js with pnpm
 
-For TypeScript lessons (agents, MCP servers, web apps).
+Dành cho các bài học TypeScript (agent, máy chủ MCP, ứng dụng web).
 
 ```bash
 curl -fsSL https://fnm.vercel.app/install | bash
@@ -96,9 +96,9 @@ npm install -g pnpm
 node -e "console.log('Node', process.version)"
 ```
 
-The fnm installer checks for `unzip` first and exits with `Not installing fnm due to missing dependencies.` when it is absent: on Linux it unpacks a zip archive, on macOS it installs through Homebrew. macOS ships `unzip`; Ubuntu, Debian, and WSL2 get it from the Step 1 apt line (`sudo apt install -y unzip` if you skipped that step).
+Trình cài đặt fnm kiểm tra `unzip` trước và thoát với thông báo `Not installing fnm due to missing dependencies.` khi thiếu nó: trên Linux, trình cài đặt giải nén một tệp zip; trên macOS, nó cài đặt thông qua Homebrew. macOS có sẵn `unzip`; Ubuntu, Debian và WSL2 nhận nó từ dòng lệnh apt ở Bước 1 (`sudo apt install -y unzip` nếu bạn đã bỏ qua bước đó).
 
-**macOS / Apple Silicon (M1/M2/M3/M4):** If the installer stops with `Error: Cannot install under Rosetta 2 in ARM default prefix (/opt/homebrew)`, your terminal is running under Rosetta 2 (`arch` prints `i386`) while Homebrew is a native arm64 build. Install fnm forcing arm64, wire it into your shell, then rerun the commands above from `fnm install 22`:
+**macOS / Apple Silicon (M1/M2/M3/M4):** Nếu trình cài đặt dừng với `Error: Cannot install under Rosetta 2 in ARM default prefix (/opt/homebrew)`, terminal của bạn đang chạy dưới Rosetta 2 (`arch` in ra `i386`) trong khi Homebrew là bản dựng arm64 gốc. Cài đặt fnm bằng cách buộc dùng arm64, tích hợp nó vào shell của bạn, rồi chạy lại các lệnh bên trên từ `fnm install 22`:
 
 ```bash
 arch -arm64 brew install fnm
@@ -108,7 +108,7 @@ source ~/.zshrc
 
 ### Step 4: Rust
 
-For performance-critical lessons (inference, systems).
+Dành cho các bài học mà hiệu năng đóng vai trò then chốt (suy luận, hệ thống).
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -119,7 +119,7 @@ cargo --version
 
 ### Step 5: Julia (Optional)
 
-For math-heavy lessons where Julia shines.
+Dành cho các bài học nặng về toán, nơi Julia tỏa sáng.
 
 ```bash
 curl -fsSL https://install.julialang.org | sh
@@ -138,13 +138,13 @@ nvidia-smi
 uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 ```
 
-**macOS / Apple Silicon (M1/M2/M3/M4):** There is no CUDA on a Mac — that's expected, not a failure. Do **not** pass `--index-url .../cuXXX` (those wheels are Linux/Windows only, so the install fails). Install the plain build, which includes Apple's MPS (Metal) GPU backend:
+**macOS / Apple Silicon (M1/M2/M3/M4):** Mac không có CUDA — điều đó là bình thường, không phải lỗi. **Không** truyền `--index-url .../cuXXX` (các gói wheel đó chỉ dành cho Linux/Windows, nên việc cài đặt sẽ thất bại). Cài bản dựng thông thường, có chứa backend GPU MPS (Metal) của Apple:
 
 ```bash
 uv pip install torch torchvision torchaudio
 ```
 
-Verify (works on any platform):
+Xác minh (hoạt động trên mọi nền tảng):
 
 ```python
 import torch
@@ -154,22 +154,22 @@ if torch.cuda.is_available():
     print(f"GPU: {torch.cuda.get_device_name(0)}")
 ```
 
-No GPU? No problem. Most lessons work on CPU. For training-heavy lessons, use Google Colab or cloud GPUs.
+Không có GPU? Không sao. Hầu hết bài học hoạt động trên CPU. Với các bài học nặng về huấn luyện, hãy dùng Google Colab hoặc GPU đám mây.
 
 ### Step 7: Verify the route you want to start
 
-Run every command in this lesson from the repository root, the directory that
-contains `README.md` and `phases/`. The preflight checks only what you need to
-start the selected route. It skips later tools by default so a new learner sees
-one clear answer instead of a wall of warnings.
+Chạy mọi lệnh trong bài học này từ thư mục gốc của kho mã, thư mục
+chứa `README.md` và `phases/`. Kiểm tra sơ bộ chỉ kiểm tra những gì bạn cần để
+bắt đầu lộ trình đã chọn. Theo mặc định, nó bỏ qua các công cụ dùng về sau để người mới học nhận được
+một câu trả lời rõ ràng thay vì một bức tường cảnh báo.
 
-Start the full beginner sequence:
+Bắt đầu toàn bộ chuỗi bài dành cho người mới:
 
 ```bash
 python3 phases/00-setup-and-tooling/01-dev-environment/code/verify.py --route beginner
 ```
 
-Or check only the route you want:
+Hoặc chỉ kiểm tra lộ trình bạn muốn:
 
 ```bash
 python3 phases/00-setup-and-tooling/01-dev-environment/code/verify.py --route ml-foundations
@@ -180,16 +180,16 @@ python3 phases/00-setup-and-tooling/01-dev-environment/code/verify.py --route ag
 python3 phases/00-setup-and-tooling/01-dev-environment/code/verify.py --route certification
 ```
 
-Add `--show-later` when you want the same preflight to inspect optional tools
-and dependencies used by later lessons. A missing later tool never blocks the
-selected route.
+Thêm `--show-later` khi bạn muốn cùng phép kiểm tra sơ bộ đó xem xét các công cụ tùy chọn
+và những phần phụ thuộc được các bài học về sau sử dụng. Một công cụ dùng về sau bị thiếu không bao giờ chặn
+lộ trình đã chọn.
 
-Each failed required check includes the detected path or import error and an
-exact corrective command. The Agent Skills and certification routes also show
-manual host checks because a Python script cannot prove that an AI host has
-discovered a skill or that your chosen skill scope is writable.
+Mỗi kiểm tra bắt buộc bị lỗi đều kèm đường dẫn được phát hiện hoặc lỗi import và một
+lệnh khắc phục chính xác. Các lộ trình Agent Skills và chứng nhận cũng hiển thị
+những kiểm tra thủ công trên host vì một script Python không thể chứng minh rằng một AI host đã
+phát hiện một skill hoặc phạm vi skill bạn chọn có thể ghi được.
 
-When the beginner preflight passes, it prints the exact first runnable lesson:
+Khi kiểm tra sơ bộ dành cho người mới đạt, nó in ra chính xác bài học đầu tiên có thể chạy:
 
 ```text
 Ready to start Beginner course.
@@ -198,9 +198,9 @@ Next: python3 phases/01-math-foundations/01-linear-algebra-intuition/code/vector
 
 ## Use It
 
-Your environment is ready to start the route you checked. Install later tools
-when a lesson asks for them instead of blocking your first lesson on the whole
-stack. Here is what you will use across the curriculum:
+Môi trường của bạn đã sẵn sàng để bắt đầu lộ trình bạn vừa kiểm tra. Cài các công cụ dùng về sau
+khi bài học yêu cầu chúng thay vì để toàn bộ ngăn xếp cản trở bài học đầu tiên
+của bạn. Đây là những gì bạn sẽ sử dụng xuyên suốt chương trình:
 
 | Language | Used In | Package Manager |
 |----------|---------|-----------------|
@@ -211,12 +211,12 @@ stack. Here is what you will use across the curriculum:
 
 ## Ship It
 
-This lesson produces a verification script that anyone can run to check their setup.
+Bài học này tạo ra một script xác minh mà bất kỳ ai cũng có thể chạy để kiểm tra thiết lập của mình.
 
-See `outputs/prompt-env-check.md` for a prompt that helps AI assistants diagnose environment issues.
+Xem `outputs/prompt-env-check.md` để có một prompt giúp trợ lý AI chẩn đoán các vấn đề về môi trường.
 
 ## Exercises
 
-1. Run the verification script and fix any failures
-2. Create a Python virtual environment for this course and install PyTorch
-3. Write a "hello world" in all four languages and run each one
+1. Chạy script xác minh và khắc phục mọi lỗi
+2. Tạo một môi trường ảo Python cho khóa học này và cài đặt PyTorch
+3. Viết một chương trình "hello world" bằng cả bốn ngôn ngữ và chạy từng chương trình
