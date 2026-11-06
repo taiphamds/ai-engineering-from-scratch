@@ -7,32 +7,32 @@ lesson: 20
 tags: [multi-agent, MARL, MADDPG, QMIX, MAPPO, CTDE]
 ---
 
-Given a multi-agent task description, pick the MARL algorithm.
+Với một mô tả tác vụ đa agent, chọn thuật toán MARL.
 
-Produce:
+Tạo ra:
 
-1. **Task taxonomy.** Fully cooperative (shared reward), fully competitive (zero-sum), mixed, general-sum. Number of agents. Homogeneous vs heterogeneous.
-2. **Observability.** Full (every agent sees global state), partial (each sees own observation only), or communication-enabled.
-3. **Action space.** Discrete (Atari-like, SMAC) or continuous (particle world, MuJoCo). Affects algorithm choice.
-4. **Reward structure.** Dense (per-step shaped) vs sparse (terminal only). Dense makes MAPPO practical; sparse needs credit assignment help (QMIX's value decomposition).
-5. **Algorithm recommendation.** Start with MAPPO as baseline per Yu et al. 2022. Switch to:
-   - QMIX when cooperative + homogeneous + strong sparse-reward credit assignment needed
-   - MADDPG when mixed (cooperative + competitive) + continuous actions
-   - Extensions (QTRAN, QPLEX, FACMAC) when monotonicity constraint is too restrictive
-6. **Training infrastructure.** Do you have: enough interaction data, compute budget, reward shaping expertise, stability budget (5-10 seeds per experiment)? If not, recommend prompt-level policies for LLM agents.
-7. **Deployment contract.** CTDE: at deploy time each agent only sees local observation. Write the contract explicitly so runtime code respects it.
+1. **Hệ phân loại tác vụ.** Hoàn toàn hợp tác (phần thưởng dùng chung), hoàn toàn cạnh tranh (tổng bằng không), hỗn hợp, tổng bất kỳ. Số agent. Đồng nhất so với không đồng nhất.
+2. **Khả năng quan sát.** Đầy đủ (mọi agent thấy trạng thái toàn cục), một phần (mỗi agent chỉ thấy quan sát riêng), hoặc cho phép giao tiếp.
+3. **Không gian hành động.** Rời rạc (giống Atari, SMAC) hoặc liên tục (thế giới hạt, MuJoCo). Ảnh hưởng lựa chọn thuật toán.
+4. **Cấu trúc phần thưởng.** Dày đặc (được định hình theo từng bước) so với thưa (chỉ kết thúc). Dày đặc làm MAPPO thực tế; thưa cần trợ giúp gán công trạng (phân rã giá trị của QMIX).
+5. **Khuyến nghị thuật toán.** Bắt đầu với MAPPO làm đường cơ sở theo Yu và cộng sự năm 2022. Chuyển sang:
+   - QMIX khi hợp tác + đồng nhất + cần gán công trạng phần thưởng thưa mạnh
+   - MADDPG khi hỗn hợp (hợp tác + cạnh tranh) + các hành động liên tục
+   - Các mở rộng (QTRAN, QPLEX, FACMAC) khi ràng buộc đơn điệu quá hạn chế
+6. **Cơ sở hạ tầng huấn luyện.** Bạn có: đủ dữ liệu tương tác, ngân sách tính toán, chuyên môn định hình phần thưởng, ngân sách ổn định (5-10 seed mỗi thí nghiệm) không? Nếu không, đề xuất các chính sách cấp prompt cho các agent LLM.
+7. **Hợp đồng triển khai.** CTDE: tại thời điểm triển khai mỗi agent chỉ thấy quan sát cục bộ. Viết hợp đồng tường minh để mã thời gian chạy tôn trọng nó.
 
-Hard rejects:
+Các trường hợp loại bỏ dứt khoát:
 
-- Picking a non-MAPPO baseline for a first run. MAPPO is the 2026 baseline; start there.
-- Using QMIX for mixed cooperative-competitive tasks. Value decomposition assumes monotone aggregation.
-- Recommending MARL training for LLM-agent systems that lack interaction data or reward signal. Prompt-level policies will outperform until the data is there.
-- Training without logging per-agent observations and actions. Debugging is impossible.
+- Chọn một đường cơ sở không phải MAPPO cho lần chạy đầu. MAPPO là đường cơ sở năm 2026; bắt đầu ở đó.
+- Sử dụng QMIX cho các tác vụ hợp tác-cạnh tranh hỗn hợp. Phân rã giá trị giả định tổng hợp đơn điệu.
+- Khuyến nghị huấn luyện MARL cho các hệ thống agent LLM thiếu dữ liệu tương tác hoặc tín hiệu phần thưởng. Các chính sách cấp prompt sẽ vượt cho đến khi có dữ liệu.
+- Huấn luyện không ghi nhật ký các quan sát và hành động theo từng agent. Gỡ lỗi là không thể.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the task has fewer than ~1000 episodes of interaction data, recommend prompt-level policies or supervised fine-tuning.
-- If the task is non-Markovian (requires memory) but the recommendation does not include recurrent critics, flag the gap.
-- If the task is general-sum competitive (multiple equilibria), MARL alone does not pick one; recommend mechanism design or equilibrium selection.
+- Nếu tác vụ có ít hơn ~1000 episode dữ liệu tương tác, đề xuất các chính sách cấp prompt hoặc tinh chỉnh có giám sát.
+- Nếu tác vụ không Markov (yêu cầu bộ nhớ) nhưng khuyến nghị không bao gồm các critic hồi tiếp, gắn cờ khoảng trống.
+- Nếu tác vụ cạnh tranh tổng bất kỳ (nhiều cân bằng), chỉ MARL không chọn một cân bằng; đề xuất thiết kế cơ chế hoặc lựa chọn cân bằng.
 
-Output: a one-page brief. Start with a one-sentence recommendation ("MAPPO baseline with centralized value function; per-agent discrete actor; CTDE at deploy; 5 seeds per experiment."), then the seven sections above. End with a training-to-deployment pipeline: data collection, training, evaluation, rollout.
+Đầu ra: một bản tóm lược một trang. Bắt đầu với một khuyến nghị một câu (“Đường cơ sở MAPPO với hàm giá trị tập trung; actor rời rạc theo từng agent; CTDE khi triển khai; 5 seed mỗi thí nghiệm.”), rồi bảy phần ở trên. Kết thúc bằng một pipeline từ huấn luyện tới triển khai: thu thập dữ liệu, huấn luyện, đánh giá, triển khai.
