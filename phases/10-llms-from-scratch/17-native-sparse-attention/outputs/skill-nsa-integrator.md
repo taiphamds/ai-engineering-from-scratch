@@ -7,24 +7,24 @@ lesson: 17
 tags: [nsa, sparse-attention, long-context, pre-training, kernel-aligned, deepseek]
 ---
 
-Given a long-context pre-training run specification (target context, base architecture, training tokens available, GPU topology, deployment target), produce an NSA integration plan.
+Với đặc tả lần huấn luyện trước ngữ cảnh dài (ngữ cảnh mục tiêu, kiến trúc cơ sở, token huấn luyện sẵn có, cấu trúc GPU, đích triển khai), tạo kế hoạch tích hợp NSA.
 
-Produce:
+Tạo:
 
-1. Compression block size `l`. Pick 32, 64, or 128. Justify against target context: `l = 32` for 16k-32k, `l = 64` for 64k-128k, `l = 128` for 256k-plus. Larger `l` means fewer compressed keys but coarser routing signal.
-2. Top-k selection count. Pick between 8 and 32. The paper's default is 16. Justify against the target task mix: reasoning-heavy tasks (math, code) benefit from higher `k` because selection precision matters more. Retrieval-heavy tasks work at lower `k`.
-3. Sliding window `W`. Pick 256, 512, or 1024. Default 512. Shorter for heavily structured content (code) where local context is enough; longer for prose.
-4. Gate MLP. Specify width and initialization. Default: linear layer from `hidden` to 3, with `sigmoid` or `softplus` activation. Warn if gate weights collapse to favor one branch — this indicates `l`, `k`, or `W` is mistuned.
-5. Kernel choice. Confirm Triton or CUDA kernel availability for the target accelerator. Reject fallback to dense attention at inference (the whole point of NSA is to save decode compute). If only forward kernels exist and not backward, refuse pre-training and recommend continued training on existing dense checkpoints.
+1. Kích thước khối nén `l`. Chọn 32, 64 hoặc 128. Biện minh theo ngữ cảnh mục tiêu: `l = 32` cho 16k-32k, `l = 64` cho 64k-128k, `l = 128` cho 256k trở lên. `l` lớn hơn nghĩa là ít key nén hơn nhưng tín hiệu định tuyến thô hơn.
+2. Số chọn top-k. Chọn giữa 8 và 32. Mặc định bài báo là 16. Biện minh theo hỗn hợp tác vụ mục tiêu: tác vụ nhiều suy luận (toán, mã) có lợi từ `k` cao vì chính xác lựa chọn quan trọng hơn. Tác vụ nhiều truy xuất hoạt động với `k` thấp hơn.
+3. Cửa sổ trượt `W`. Chọn 256, 512 hoặc 1024. Mặc định 512. Ngắn hơn cho nội dung cấu trúc mạnh (mã) nơi ngữ cảnh cục bộ đủ; dài hơn cho văn xuôi.
+4. MLP cổng. Chỉ rõ độ rộng và khởi tạo. Mặc định: lớp tuyến tính từ `hidden` đến 3, với kích hoạt `sigmoid` hoặc `softplus`. Cảnh báo nếu trọng số cổng sụp ưu ái một nhánh — cho thấy `l`, `k` hoặc `W` điều chỉnh sai.
+5. Chọn kernel. Xác nhận kernel Triton hoặc CUDA sẵn có cho bộ tăng tốc mục tiêu. Từ chối quay về attention dense lúc suy luận (toàn điểm chính NSA là tiết kiệm tính toán decode). Nếu chỉ có kernel xuôi không ngược, từ chối huấn luyện trước và đề xuất tiếp tục huấn luyện trên checkpoint dense hiện có.
 
-Hard rejects:
-- NSA on a model pre-trained with dense attention without continued pre-training. Cannot be bolted on at inference.
-- Target context under 16k. The three-branch overhead dominates.
-- Inference-only deployments on stacks without NSA kernel support. Recommend MLA or sliding-window attention instead.
+Từ chối dứt khoát:
+- NSA trên mô hình huấn luyện trước attention dense mà không tiếp tục huấn luyện trước. Không thể gắn thêm lúc suy luận.
+- Ngữ cảnh mục tiêu dưới 16k. Chi phí ba nhánh chi phối.
+- Triển khai chỉ suy luận trên bộ công cụ không hỗ trợ kernel NSA. Đề xuất MLA hoặc attention cửa sổ trượt thay thế.
 
-Refusal rules:
-- If long-context evaluation data (RULER, LongBench, needle-in-haystack) is not available, refuse and request calibration data first.
-- If the training-data context distribution is dominated by short sequences, refuse and recommend data reweighting before integrating NSA.
-- If the accelerator is older than A100, refuse — NSA's kernel advantages assume H100/H200/MI300 memory hierarchies.
+Quy tắc từ chối:
+- Nếu không có dữ liệu đánh giá ngữ cảnh dài (RULER, LongBench, needle-in-haystack), từ chối và yêu cầu dữ liệu hiệu chuẩn trước.
+- Nếu phân phối ngữ cảnh dữ liệu huấn luyện bị chuỗi ngắn chi phối, từ chối và đề xuất đặt lại trọng số dữ liệu trước tích hợp NSA.
+- Nếu bộ tăng tốc cũ hơn A100, từ chối — ưu điểm kernel NSA giả định phân cấp bộ nhớ H100/H200/MI300.
 
-Output: a one-page integration plan listing `l`, `k`, `W`, gate config, kernel path, and expected compute savings at target context. End with a "success criterion" paragraph: the specific RULER or LongBench number (percentage points vs a matched dense-attention baseline) that justifies keeping NSA. Include a rollback trigger — the metric threshold below which the architecture should be reverted to MLA or dense GQA.
+Đầu ra: kế hoạch tích hợp một trang liệt kê `l`, `k`, `W`, cấu hình cổng, đường kernel và tiết kiệm tính toán kỳ vọng ở ngữ cảnh mục tiêu. Kết thúc bằng đoạn "tiêu chí thành công": con số RULER hoặc LongBench cụ thể (điểm phần trăm so baseline attention dense khớp) biện minh giữ NSA. Gồm điều kiện hoàn tác — ngưỡng thước đo mà dưới đó kiến trúc nên quay về MLA hoặc GQA dense.

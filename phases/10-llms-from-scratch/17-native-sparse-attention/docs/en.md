@@ -1,6 +1,6 @@
 # Native Sparse Attention (DeepSeek NSA)
 
-> At 64k tokens, attention eats 70-80% of decode latency. Every open-model lab has a plan to fix it. DeepSeek's NSA (ACL 2025 best paper) is the one that stuck: three parallel attention branches — compressed coarse-grained tokens, selectively retained fine-grained tokens, and sliding windows for local context — combined through a learned gate. It is hardware-aligned (kernel-friendly), natively trainable (works in pre-training, not bolted on at inference), and on 64k decodes it runs faster than FlashAttention while matching or beating full attention quality. This lesson builds the three branches end-to-end and shows why the sparsity is end-to-end differentiable.
+> Ở 64k token, attention chiếm 70-80% độ trễ decode. Mọi phòng thí nghiệm mô hình mở có kế hoạch sửa. NSA của DeepSeek (bài xuất sắc nhất ACL 2025) là cách trụ lại: ba nhánh attention song song — token thô được nén, token tinh được giữ chọn lọc, và cửa sổ trượt cho ngữ cảnh cục bộ — kết hợp qua cổng được học. Nó phù hợp phần cứng (thân thiện kernel), huấn luyện được nguyên bản (hoạt động trong huấn luyện trước, không gắn thêm lúc suy luận), và ở decode 64k chạy nhanh hơn FlashAttention trong khi ngang hoặc vượt chất lượng attention đầy đủ. Bài này xây ba nhánh đầu cuối và cho thấy vì sao tính thưa khả vi đầu cuối.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,78 +9,78 @@
 
 ## Learning Objectives
 
-- State the three NSA attention branches and what each one captures.
-- Explain why NSA is "natively trainable" where prior sparse-attention methods were inference-only.
-- Compute the attention compute savings of NSA versus full attention at 64k context as a function of compression block size and selection top-k.
-- Implement the three-branch combination in stdlib Python on a short synthetic sequence and verify the gating weights behave.
+- Nêu ba nhánh attention NSA và mỗi nhánh nắm bắt gì.
+- Giải thích vì sao NSA "huấn luyện được nguyên bản" trong khi phương pháp attention thưa trước chỉ suy luận.
+- Tính tiết kiệm tính toán attention NSA so với đầy đủ ở ngữ cảnh 64k theo kích thước khối nén và top-k chọn.
+- Triển khai kết hợp ba nhánh bằng Python stdlib trên chuỗi tổng hợp ngắn và xác minh trọng số cổng hoạt động.
 
 ## The Problem
 
-Full attention at sequence length N costs `O(N^2)` time and `O(N)` KV cache per layer. At 64k tokens, the compute and memory bandwidth numbers are catastrophic. Measured theoretical estimate from the NSA paper: attention accounts for 70-80% of total decode latency at 64k. Everything downstream — TTFT, tokens/sec, cost per million tokens — is dominated by attention cost.
+Attention đầy đủ ở chuỗi dài N tốn thời gian `O(N^2)` và KV cache `O(N)` mỗi lớp. Ở 64k token, con số tính toán và băng thông bộ nhớ thảm khốc. Ước tính lý thuyết được đo từ bài NSA: attention chiếm 70-80% tổng độ trễ decode ở 64k. Mọi thứ phía sau — TTFT, token/giây, chi phí mỗi triệu token — bị chi phí attention chi phối.
 
-Sparse attention is the obvious answer. Prior attempts fall into two buckets. Fixed-pattern sparsity (sliding-window, strided, block-local) throws information away and fails on long-range recall tasks. Inference-time sparsity (KV cache pruning, H2O, StreamingLLM) is applied to a model pre-trained on dense attention and recovers only a fraction of the potential speedup because the model was never asked to route information through the sparse pattern.
+Attention thưa là câu trả lời hiển nhiên. Các nỗ lực trước thuộc hai nhóm. Thưa mẫu cố định (cửa sổ trượt, bước nhảy, cục bộ theo khối) bỏ thông tin và thất bại ở nhớ lại tầm xa. Thưa lúc suy luận (cắt tỉa KV cache, H2O, StreamingLLM) áp dụng cho mô hình huấn luyện trước trên attention dense và chỉ thu một phần tăng tốc tiềm năng vì mô hình chưa từng được yêu cầu định tuyến thông tin qua mẫu thưa.
 
-Native Sparse Attention (Yuan et al., DeepSeek + PKU + UW, ACL 2025 best paper, arXiv:2502.11089) does both: a sparsity pattern the model learns during pre-training, implemented as a kernel-aligned algorithm that actually delivers the compute savings at inference. Two years from now, NSA or a direct descendant is the default attention on every frontier long-context model.
+Native Sparse Attention (Yuan và cộng sự, DeepSeek + PKU + UW, bài xuất sắc nhất ACL 2025, arXiv:2502.11089) làm cả hai: mẫu thưa mô hình học khi huấn luyện trước, triển khai bằng thuật toán phù hợp kernel thực sự đem tiết kiệm tính toán khi suy luận. Hai năm nữa, NSA hoặc hậu duệ trực tiếp là attention mặc định trên mọi mô hình ngữ cảnh dài hàng đầu.
 
 ## The Concept
 
 ### Three parallel branches
 
-For each query, NSA runs attention three times, against three different views of the KV cache:
+Với mỗi query, NSA chạy attention ba lần, với ba góc nhìn KV cache khác nhau:
 
-1. **Compressed branch.** Tokens are grouped into blocks of size `l` (typically 32 or 64). Each block is compressed into a single summary token via a small learned MLP. The query attends over these compressed tokens, getting a coarse-grained view of the whole sequence.
+1. **Nhánh nén.** Token được nhóm thành khối kích thước `l` (thường 32 hoặc 64). Mỗi khối nén thành một token tóm tắt qua MLP nhỏ được học. Query chú ý trên token nén, có góc nhìn thô toàn chuỗi.
 
-2. **Selected branch.** Using attention scores from the compressed branch, the top-k blocks most relevant to the current query are identified. Fine-grained (uncompressed) tokens from those blocks are read and the query attends over all of them. Think of compressed-branch attention as the routing signal for the selection.
+2. **Nhánh chọn lọc.** Dùng điểm attention từ nhánh nén, xác định top-k khối liên quan nhất với query hiện tại. Token tinh (chưa nén) từ các khối đó được đọc và query chú ý tất cả. Nghĩ attention nhánh nén là tín hiệu định tuyến cho lựa chọn.
 
-3. **Sliding-window branch.** The query attends to the most recent `W` tokens (typically 512) for local context. This branch captures the structure-heavy short-range patterns (syntax, local coreference) that the other two might miss.
+3. **Nhánh cửa sổ trượt.** Query chú ý `W` token gần nhất (thường 512) cho ngữ cảnh cục bộ. Nhánh này nắm mẫu tầm ngắn giàu cấu trúc (cú pháp, đồng tham chiếu cục bộ) mà hai nhánh kia có thể bỏ sót.
 
-The three branch outputs are combined via a learned per-position gate:
+Ba đầu ra nhánh kết hợp qua cổng theo vị trí được học:
 
 ```
 out = g_cmp * out_cmp + g_sel * out_sel + g_win * out_win
 ```
 
-`g_cmp, g_sel, g_win` are gate weights from a small MLP on the query. They do not have to sum to 1 — they can weight branches independently.
+`g_cmp, g_sel, g_win` là trọng số cổng từ MLP nhỏ trên query. Chúng không cần tổng bằng 1 — có thể đặt trọng số các nhánh độc lập.
 
 ### Why this is "natively trainable"
 
-The selection step (top-k blocks) is discrete. Discrete operations break gradient flow. Prior sparse-attention work either skipped backprop through selection (limiting training) or used continuous relaxations that did not give real sparsity at inference.
+Bước chọn (khối top-k) rời rạc. Phép rời rạc phá luồng gradient. Công trình attention thưa trước hoặc bỏ truyền ngược qua chọn (hạn chế huấn luyện) hoặc dùng nới lỏng liên tục không cho tính thưa thực khi suy luận.
 
-NSA sidesteps this: the compressed-branch attention IS a differentiable coarse-grained attention on the whole sequence. The top-k operation just reuses the top attention scores from the compressed branch to pick which fine-grained blocks to load. Gradients flow through the compressed-branch scores (which influence both the compressed output AND the selection logic), and the selected blocks' contribution to the final output is also differentiable. The non-differentiable `top_k` operation is a no-op on the forward computational graph — it only controls which blocks get loaded from memory.
+NSA né điều này: attention nhánh nén CHÍNH LÀ attention thô khả vi trên toàn chuỗi. Phép top-k chỉ dùng lại điểm attention cao nhất từ nhánh nén để chọn khối tinh cần tải. Gradient truyền qua điểm nhánh nén (ảnh hưởng cả đầu ra nén VÀ logic chọn), và đóng góp của khối được chọn vào đầu ra cuối cũng khả vi. Phép `top_k` không khả vi là no-op trên đồ thị tính toán xuôi — nó chỉ điều khiển khối nào được tải từ bộ nhớ.
 
-This is why NSA can be used in pre-training end to end. The model learns to route information through the three branches jointly, producing a sparse pattern that at inference actually delivers the promised speedup.
+Đây là lý do NSA dùng được trong huấn luyện trước đầu cuối. Mô hình học định tuyến thông tin chung qua ba nhánh, tạo mẫu thưa thực sự mang tăng tốc hứa hẹn khi suy luận.
 
 ### Hardware-aligned kernel
 
-NSA's kernel is designed for modern GPU memory hierarchies. The kernel loads queries by GQA groups (outer loop), fetches the corresponding sparse KV blocks per group (inner loop), and runs attention on SRAM. Because each query group sees the same selected blocks (selection is per-query-group, not per-query-head), the KV loads are amortized across the group. Arithmetic intensity stays high.
+Kernel NSA thiết kế cho phân cấp bộ nhớ GPU hiện đại. Kernel tải query theo nhóm GQA (vòng ngoài), lấy khối KV thưa tương ứng mỗi nhóm (vòng trong), và chạy attention trên SRAM. Vì mỗi nhóm query thấy cùng khối được chọn (chọn theo nhóm query, không theo head query), tải KV được phân bổ trên nhóm. Cường độ số học giữ cao.
 
-The paper reports Triton kernels running 9x faster than FlashAttention on 64k decodes, with the speedup ratio growing with sequence length. Forward and backward kernels are both provided.
+Bài báo báo kernel Triton chạy nhanh hơn FlashAttention 9x trên decode 64k, với tỷ lệ tăng tốc tăng theo độ dài chuỗi. Cả kernel truyền xuôi và ngược được cung cấp.
 
 ### The compute budget
 
-Let `N` be sequence length, `l` the compression block size, `k` the top-k selection count, `w` the sliding window, `b` the selected block size (typically equals `l`).
+Gọi `N` là độ dài chuỗi, `l` kích thước khối nén, `k` số chọn top-k, `w` cửa sổ trượt, `b` kích thước khối chọn (thường bằng `l`).
 
-- Compressed branch: `O(N/l)` keys per query, so `O(N * N / l)` total.
-- Selected branch: `O(k * b)` keys per query, so `O(N * k * b)`.
-- Sliding branch: `O(w)` keys per query, so `O(N * w)`.
+- Nhánh nén: `O(N/l)` key mỗi query, nên tổng `O(N * N / l)`.
+- Nhánh chọn lọc: `O(k * b)` key mỗi query, nên `O(N * k * b)`.
+- Nhánh trượt: `O(w)` key mỗi query, nên `O(N * w)`.
 
-Total: `O(N * (N/l + k*b + w))`.
+Tổng: `O(N * (N/l + k*b + w))`.
 
-With `N = 64k, l = 64, k = 16, b = 64, w = 512`: per-query cost is `1000 + 1024 + 512 = 2536 keys`. Full attention is `64000 keys`. 25x compute reduction.
+Với `N = 64k, l = 64, k = 16, b = 64, w = 512`: chi phí mỗi query là `1000 + 1024 + 512 = 2536 keys`. Attention đầy đủ là `64000 keys`. Giảm tính toán 25x.
 
-With `N = 128k, l = 64, k = 16, b = 64, w = 512`: per-query cost is `2000 + 1024 + 512 = 3536 keys`. Full attention is `128000 keys`. 36x reduction. The benefit grows with sequence length, which is the whole point.
+Với `N = 128k, l = 64, k = 16, b = 64, w = 512`: chi phí mỗi query là `2000 + 1024 + 512 = 3536 keys`. Attention đầy đủ là `128000 keys`. Giảm 36x. Lợi ích tăng theo độ dài chuỗi, chính là toàn bộ điểm chính.
 
 ### How does it compare
 
-| Method | Differentiable | Real inference speedup | Long-range recall |
+| Phương pháp | Khả vi | Tăng tốc suy luận thực | Nhớ lại tầm xa |
 |--------|---------------|----------------------|-------------------|
-| Sliding window only | yes | yes | fails |
-| Strided / block-sparse | yes | yes | partial |
-| KV pruning (H2O, StreamingLLM) | N/A (inference-time) | yes | partial |
-| MoBA (Moonshot) | partial | yes | good |
-| NSA | yes (natively) | yes (9x at 64k) | matches full attention |
+| Chỉ cửa sổ trượt | có | có | thất bại |
+| Bước nhảy / thưa theo khối | có | có | một phần |
+| Cắt tỉa KV (H2O, StreamingLLM) | N/A (lúc suy luận) | có | một phần |
+| MoBA (Moonshot) | một phần | có | tốt |
+| NSA | có (nguyên bản) | có (9x ở 64k) | ngang attention đầy đủ |
 
-MoBA (Moonshot, arXiv:2502.13189) was concurrently published and takes a similar three-is-better-than-one approach, applying the MoE principle to attention blocks. NSA and MoBA are the two architectures to know for 2026 long-context pre-training.
+MoBA (Moonshot, arXiv:2502.13189) công bố đồng thời và dùng cách ba-tốt-hơn-một tương tự, áp dụng nguyên tắc MoE cho khối attention. NSA và MoBA là hai kiến trúc cần biết cho huấn luyện trước ngữ cảnh dài năm 2026.
 
 ```figure
 sliding-window-attention
@@ -88,13 +88,13 @@ sliding-window-attention
 
 ## Build It
 
-`code/main.py` implements the three branches on a short synthetic sequence and shows:
+`code/main.py` triển khai ba nhánh trên chuỗi tổng hợp ngắn và cho thấy:
 
-- The compression MLP (a simple mean-pool baseline is used for pedagogical clarity; the real NSA uses a learned MLP).
-- The top-k block selection driven by compressed-branch scores.
-- The sliding-window attention on the last `w` tokens.
-- The gated combination.
-- A compute-count printout comparing to full attention.
+- MLP nén (baseline mean-pool đơn giản dùng cho rõ sư phạm; NSA thực dùng MLP được học).
+- Chọn khối top-k do điểm nhánh nén điều khiển.
+- Attention cửa sổ trượt trên `w` token cuối.
+- Kết hợp có cổng.
+- Bản in số tính toán so với attention đầy đủ.
 
 ### Step 1: compress tokens into blocks
 
@@ -113,80 +113,80 @@ def compress(K, l):
 
 ### Step 2: compressed-branch attention
 
-Run softmax attention of the query against the compressed keys. The compressed-branch scores double as the signal for top-k selection.
+Chạy attention softmax của query với key nén. Điểm nhánh nén đồng thời làm tín hiệu chọn top-k.
 
 ### Step 3: top-k block selection
 
-Pick the indices of the `k` highest-scoring compressed blocks. Load the original uncompressed tokens from those blocks and run attention on them.
+Chọn chỉ số `k` khối nén có điểm cao nhất. Tải token gốc chưa nén từ các khối đó và chạy attention trên chúng.
 
 ### Step 4: sliding-window attention
 
-Take the last `w` tokens and run standard attention against them.
+Lấy `w` token cuối và chạy attention tiêu chuẩn với chúng.
 
 ### Step 5: gate + combine
 
-A small MLP on the query produces three gate weights. The final output is a weighted sum of the three branch outputs.
+MLP nhỏ trên query tạo ba trọng số cổng. Đầu ra cuối là tổng có trọng số ba đầu ra nhánh.
 
 ### Step 6: compute counting
 
-Print the number of keys attended per query for each branch and the total. Compare to `N` (full attention). On a 1024-token synthetic with `l = 32, k = 4, w = 128`, NSA sees `32 + 128 + 128 = 288` keys per query versus 1024 for full attention — 3.5x fewer.
+In số key được chú ý mỗi query cho từng nhánh và tổng. So với `N` (attention đầy đủ). Trên chuỗi tổng hợp 1024 token với `l = 32, k = 4, w = 128`, NSA thấy `32 + 128 + 128 = 288` key mỗi query so với 1024 đầy đủ — ít hơn 3.5x.
 
 ## Use It
 
-NSA is shipping in DeepSeek's own long-context pre-training pipeline. Integration status in public inference stacks as of April 2026:
+NSA đang được cung cấp trong pipeline huấn luyện trước ngữ cảnh dài riêng DeepSeek. Tình trạng tích hợp trong bộ suy luận công khai tính đến tháng 4 năm 2026:
 
-- **DeepSeek internal**: native, published weights use NSA or its successor DSA (Deepseek Sparse Attention).
-- **vLLM**: experimental NSA support in development for DeepSeek-V3.x weights.
-- **SGLang**: NSA benchmarks published; production path follows vLLM.
-- **llama.cpp / CPU**: not supported; overhead of the kernel decomposition is not worth it at CPU throughput.
+- **Nội bộ DeepSeek**: nguyên bản, trọng số công bố dùng NSA hoặc kế nhiệm DSA (Deepseek Sparse Attention).
+- **vLLM**: hỗ trợ NSA thử nghiệm đang phát triển cho trọng số DeepSeek-V3.x.
+- **SGLang**: benchmark NSA đã công bố; đường production theo vLLM.
+- **llama.cpp / CPU**: không hỗ trợ; chi phí phân rã kernel không đáng ở thông lượng CPU.
 
-When to reach for NSA:
+Khi nào dùng NSA:
 
-- Pre-training or continued-training run targeting 64k-plus context with a serious compute budget.
-- Inference of DeepSeek's own long-context checkpoints. The weights are NSA-native.
+- Lần huấn luyện trước hoặc tiếp tục huấn luyện nhắm ngữ cảnh 64k trở lên với ngân sách tính toán nghiêm túc.
+- Suy luận checkpoint ngữ cảnh dài riêng DeepSeek. Trọng số nguyên bản NSA.
 
-When not to:
+Khi nào không:
 
-- Serving an existing dense-attention pre-trained model. You cannot retrofit NSA without continued training.
-- Context under 16k. The three-branch overhead dominates the savings.
-- Batch-1 interactive chat. Latency-sensitive decode benefits, but only at long contexts.
+- Phục vụ mô hình hiện có huấn luyện trước bằng attention dense. Không thể lắp NSA nếu không tiếp tục huấn luyện.
+- Ngữ cảnh dưới 16k. Chi phí ba nhánh chi phối tiết kiệm.
+- Chat tương tác batch-1. Decode nhạy độ trễ có lợi, nhưng chỉ ở ngữ cảnh dài.
 
 ## Ship It
 
-This lesson produces `outputs/skill-nsa-integrator.md`. Given a long-context pre-training run specification, it produces an NSA integration plan: compression block size, top-k, sliding window, gate MLP width, kernel choice, and the specific long-context evals that would justify the architecture change.
+Bài này tạo ra `outputs/skill-nsa-integrator.md`. Với đặc tả lần huấn luyện trước ngữ cảnh dài, nó tạo kế hoạch tích hợp NSA: kích thước khối nén, top-k, cửa sổ trượt, độ rộng MLP cổng, chọn kernel và đánh giá ngữ cảnh dài cụ thể biện minh thay kiến trúc.
 
 ## Exercises
 
-1. Run `code/main.py` on a 1024-token synthetic. Sweep `(l, k, w)` across three presets and print compute counts. Identify the preset that achieves the lowest key-count per query while keeping 95% recall against full attention on a needle-in-haystack test.
+1. Chạy `code/main.py` trên chuỗi tổng hợp 1024 token. Quét `(l, k, w)` qua ba thiết lập sẵn và in số tính toán. Xác định thiết lập có số key mỗi query thấp nhất trong khi giữ 95% recall so attention đầy đủ trên kiểm thử needle-in-haystack.
 
-2. Replace the mean-pool compressor with a tiny learned MLP (2-layer, hidden 32). Train it on a synthetic task where the signal is the average of a block. Measure the perplexity gap against the mean-pool baseline on held-out data.
+2. Thay bộ nén mean-pool bằng MLP nhỏ được học (2 lớp, hidden 32). Huấn luyện trên tác vụ tổng hợp mà tín hiệu là trung bình một khối. Đo khoảng cách perplexity so baseline mean-pool trên dữ liệu giữ lại.
 
-3. Implement the gate MLP. It takes the query as input and outputs three scalars. Show that the gate behaves sensibly: near-uniform weighting on random queries, heavy weight on the selected branch when the query hits a far-back block.
+3. Triển khai MLP cổng. Nó nhận query và xuất ba vô hướng. Cho thấy cổng hành xử hợp lý: trọng số gần đều trên query ngẫu nhiên, trọng số lớn cho nhánh chọn lọc khi query trúng khối xa phía trước.
 
-4. Compute the KV cache memory budget for an NSA-enabled 70B model at 128k context. KV heads are 8, head dim 128, BF16. Compare to full attention and to MLA (Phase 10 · 14 showed MLA's numbers). Identify the sequence length where NSA's fine-grained branch KV cache equals full attention.
+4. Tính ngân sách bộ nhớ KV cache cho mô hình 70B bật NSA ở ngữ cảnh 128k. Head KV là 8, số chiều head 128, BF16. So attention đầy đủ và MLA (Giai đoạn 10 · 14 đã cho con số MLA). Xác định độ dài chuỗi nơi KV cache nhánh tinh NSA bằng attention đầy đủ.
 
-5. Read Section 4 of the NSA paper (arXiv:2502.11089) and explain in three sentences why the compressed branch's attention scores are reused for top-k selection rather than computing a separate routing score. Tie the answer to gradient flow.
+5. Đọc Mục 4 bài NSA (arXiv:2502.11089) và giải thích trong ba câu vì sao điểm attention nhánh nén dùng lại để chọn top-k thay vì tính điểm định tuyến riêng. Gắn câu trả lời với luồng gradient.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Compressed branch | "Coarse view" | Attention over block-averaged keys that provides global context in O(N/l) keys per query |
-| Selected branch | "Top-k blocks" | Fine-grained attention over the `k` blocks with highest compressed-branch scores |
-| Sliding window | "Local context" | Attention over the last `W` tokens for short-range patterns |
-| Native trainability | "Pre-train with the sparsity on" | The sparsity pattern is learned during pre-training, not bolted on at inference |
-| Compression block size l | "Group size for coarse view" | How many tokens get merged into one summary; 32-64 typical |
-| Top-k | "Blocks to keep" | Number of compressed blocks whose uncompressed tokens get read; 16 typical |
-| Sliding window W | "Local attention radius" | Typically 512; shorter hurts local coherence, longer wastes compute |
-| Branch gate | "How to mix the three" | Per-position MLP output that weights the three branches' contributions |
-| Hardware alignment | "Kernel-friendly sparsity" | Sparse pattern chosen so that the actual GPU kernel achieves the theoretical speedup |
-| DSA | "NSA's successor" | Deepseek Sparse Attention, the architecture that followed NSA in DeepSeek's lineage |
+| Compressed branch (Nhánh nén) | "Góc nhìn thô" | Attention trên key trung bình khối cho ngữ cảnh toàn cục với O(N/l) key mỗi query |
+| Selected branch (Nhánh chọn lọc) | "Khối top-k" | Attention tinh trên `k` khối có điểm nhánh nén cao nhất |
+| Sliding window (Cửa sổ trượt) | "Ngữ cảnh cục bộ" | Attention trên `W` token cuối cho mẫu tầm ngắn |
+| Native trainability (Khả năng huấn luyện nguyên bản) | "Huấn luyện trước khi bật tính thưa" | Mẫu thưa được học khi huấn luyện trước, không gắn thêm lúc suy luận |
+| Compression block size l (Kích thước khối nén l) | "Kích thước nhóm cho góc nhìn thô" | Bao nhiêu token gộp thành một tóm tắt; thường 32-64 |
+| Top-k | "Khối cần giữ" | Số khối nén có token chưa nén được đọc; thường 16 |
+| Sliding window W (Cửa sổ trượt W) | "Bán kính attention cục bộ" | Thường 512; ngắn hơn hại mạch lạc cục bộ, dài hơn lãng phí tính toán |
+| Branch gate (Cổng nhánh) | "Cách trộn ba nhánh" | Đầu ra MLP theo vị trí đặt trọng số đóng góp ba nhánh |
+| Hardware alignment (Phù hợp phần cứng) | "Tính thưa thân thiện kernel" | Mẫu thưa chọn để kernel GPU thực đạt tăng tốc lý thuyết |
+| DSA | "Kế nhiệm NSA" | Deepseek Sparse Attention, kiến trúc theo sau NSA trong dòng DeepSeek |
 
 ## Further Reading
 
-- [Yuan et al. — Native Sparse Attention: Hardware-Aligned and Natively Trainable Sparse Attention (arXiv:2502.11089, ACL 2025 Best Paper)](https://arxiv.org/abs/2502.11089) — the paper
-- [DeepSeek-V3 Technical Report (arXiv:2412.19437)](https://arxiv.org/abs/2412.19437) — the architecture family NSA targets
-- [Moonshot AI — MoBA: Mixture of Block Attention for Long-Context LLMs (arXiv:2502.13189)](https://arxiv.org/abs/2502.13189) — concurrent work, MoE-style attention over blocks
-- [Beltagy et al. — Longformer: The Long-Document Transformer (arXiv:2004.05150)](https://arxiv.org/abs/2004.05150) — sliding-window origins
-- [Xiao et al. — StreamingLLM: Efficient Streaming Language Models with Attention Sinks (arXiv:2309.17453)](https://arxiv.org/abs/2309.17453) — inference-time sparsity baseline NSA improves on
-- [Dao et al. — FlashAttention-2 (arXiv:2307.08691)](https://arxiv.org/abs/2307.08691) — the full-attention baseline NSA kernels beat at 64k
+- [Yuan et al. — Native Sparse Attention: Hardware-Aligned and Natively Trainable Sparse Attention (arXiv:2502.11089, ACL 2025 Best Paper)](https://arxiv.org/abs/2502.11089) — bài báo
+- [DeepSeek-V3 Technical Report (arXiv:2412.19437)](https://arxiv.org/abs/2412.19437) — họ kiến trúc NSA nhắm đến
+- [Moonshot AI — MoBA: Mixture of Block Attention for Long-Context LLMs (arXiv:2502.13189)](https://arxiv.org/abs/2502.13189) — công trình đồng thời, attention kiểu MoE trên khối
+- [Beltagy et al. — Longformer: The Long-Document Transformer (arXiv:2004.05150)](https://arxiv.org/abs/2004.05150) — nguồn gốc cửa sổ trượt
+- [Xiao et al. — StreamingLLM: Efficient Streaming Language Models with Attention Sinks (arXiv:2309.17453)](https://arxiv.org/abs/2309.17453) — baseline thưa lúc suy luận NSA cải thiện
+- [Dao et al. — FlashAttention-2 (arXiv:2307.08691)](https://arxiv.org/abs/2307.08691) — baseline attention đầy đủ kernel NSA vượt ở 64k
