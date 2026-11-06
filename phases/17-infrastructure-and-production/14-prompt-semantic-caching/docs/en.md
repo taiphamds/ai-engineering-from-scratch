@@ -1,8 +1,8 @@
 # Prompt Caching and Semantic Caching Economics
 
-> **Pricing snapshot dated 2026-04.** Numeric claims below reflect vendor rate cards captured at this lesson's publication; verify against the linked docs before quoting them downstream.
+> **Ảnh chụp mức giá vào 2026-04.** Các khẳng định số liệu bên dưới phản ánh bảng giá nhà cung cấp được ghi nhận lúc xuất bản bài học này; xác minh với tài liệu được liên kết trước khi trích dẫn chúng về sau.
 
-> Caching happens at two layers. L2 (provider-level) prompt/prefix caching reuses attention KV for repeated prefixes — Anthropic's prompt-caching docs advertise up to 90% cost reduction and 85% latency reduction on long prompts; for Claude 3.5 Sonnet cache reads are $0.30/M vs $3.00/M fresh with a 5-minute TTL and a 2x write premium for the 1-hour TTL option (docs.anthropic.com, 2026-04). OpenAI prompt caching applies automatically for prompts ≥1024 tokens and prices cached input at roughly a 90% discount vs fresh (platform.openai.com, 2026-04); the exact per-model cached rate depends on the live rate card. L1 (app-level) semantic caching skips the LLM entirely on embedding similarity hits. Vendor "95% accuracy" refers to match correctness, not hit rate — reported production hit rates range from 10% (open-ended chat) up to 70% (structured FAQ); neither provider publishes an official baseline, so treat these as community telemetry rather than guarantees. The production pitfalls: parallelization kills caching (N parallel requests issued before the first cache write can inflate spend several-fold), and dynamic content inside the prefix prevents cache hits entirely. ProjectDiscovery reported moving from 7% to 74% hit rate (2025-11) by moving dynamic text out of the cacheable prefix.
+> Lưu bộ nhớ đệm diễn ra ở hai lớp. Lưu bộ nhớ đệm prompt/tiền tố L2 (cấp nhà cung cấp) tái sử dụng KV attention cho tiền tố lặp lại — tài liệu lưu bộ nhớ đệm prompt của Anthropic quảng cáo giảm chi phí tới 90% và giảm độ trễ 85% trên prompt dài; với Claude 3.5 Sonnet, đọc bộ nhớ đệm là $0.30/M so với $3.00/M đầu vào mới với TTL 5 phút và mức phụ phí ghi 2x cho tùy chọn TTL 1 giờ (docs.anthropic.com, 2026-04). Lưu bộ nhớ đệm prompt OpenAI tự động áp dụng cho prompt ≥1024 token và định giá đầu vào được lưu bộ nhớ đệm giảm khoảng 90% so với đầu vào mới (platform.openai.com, 2026-04); giá bộ nhớ đệm chính xác cho từng mô hình phụ thuộc bảng giá hiện hành. Lưu bộ nhớ đệm ngữ nghĩa L1 (cấp ứng dụng) bỏ qua hoàn toàn LLM khi trúng theo độ tương đồng embedding. "Độ chính xác 95%" của nhà cung cấp nói đến tính đúng đắn của việc khớp, không phải tỷ lệ trúng — tỷ lệ trúng trong sản xuất được báo cáo trải từ 10% (trò chuyện mở) đến 70% (FAQ có cấu trúc); không nhà cung cấp nào công bố đường cơ sở chính thức, nên xem đây là dữ liệu đo từ xa cộng đồng thay vì bảo đảm. Những cạm bẫy sản xuất: song song hóa phá hỏng lưu bộ nhớ đệm (N yêu cầu song song được gửi trước lần ghi bộ nhớ đệm đầu tiên có thể làm chi tiêu phình ra nhiều lần), và nội dung động trong tiền tố ngăn hoàn toàn việc trúng bộ nhớ đệm. ProjectDiscovery báo cáo chuyển từ tỷ lệ trúng 7% lên 74% (2025-11) bằng cách chuyển văn bản động ra khỏi tiền tố có thể lưu bộ nhớ đệm.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy two-layer cache simulator)
@@ -11,64 +11,64 @@
 
 ## Learning Objectives
 
-- Distinguish L2 prompt/prefix caching (KV reuse at provider) from L1 semantic caching (LLM bypass on similar prompts).
-- Explain Anthropic's `cache_control` explicit marking and the two TTL options (5-min vs 1-hour) with their price multipliers.
-- Compute expected monthly savings given hit rate, prompt/response mix, and token prices.
-- Name the parallelization anti-pattern that inflates bills by 5-10x and the dynamic-content anti-pattern that collapses hit rate.
+- Phân biệt lưu bộ nhớ đệm prompt/tiền tố L2 (tái sử dụng KV tại nhà cung cấp) với lưu bộ nhớ đệm ngữ nghĩa L1 (bỏ qua LLM khi prompt tương tự).
+- Giải thích việc đánh dấu tường minh `cache_control` của Anthropic và hai tùy chọn TTL (5 phút so với 1 giờ) cùng các hệ số giá của chúng.
+- Tính mức tiết kiệm hằng tháng dự kiến với tỷ lệ trúng, tỷ lệ pha trộn prompt/phản hồi và giá token.
+- Nêu phản mẫu song song hóa làm hóa đơn phình ra 5-10x và phản mẫu nội dung động làm sụp đổ tỷ lệ trúng.
 
 ## The Problem
 
-You add prompt caching to your RAG service. The bill stays flat. You measure the hit rate; it is 7%. Your prompts look static but they are not — the system prompt includes the current date formatted to the minute, a request ID, and a randomized example reorder for diversity. Every request writes a new cache entry, reads zero.
+Bạn thêm lưu bộ nhớ đệm prompt vào dịch vụ RAG của mình. Hóa đơn không đổi. Bạn đo tỷ lệ trúng; nó là 7%. Prompt của bạn trông tĩnh nhưng không phải — system prompt chứa ngày hiện tại được định dạng đến phút, một ID yêu cầu và việc sắp xếp lại ví dụ ngẫu nhiên để đa dạng. Mọi yêu cầu ghi một mục bộ nhớ đệm mới, đọc không mục nào.
 
-Separately, your agent runs ten parallel tool calls per user question. All ten arrive at the provider before the first cache write completes. Ten writes, zero reads. Your bill is 5-10x what "with caching" was supposed to cost.
+Riêng biệt, agent của bạn chạy mười lệnh gọi công cụ song song cho mỗi câu hỏi người dùng. Cả mười đến nhà cung cấp trước khi lần ghi bộ nhớ đệm đầu tiên hoàn tất. Mười lần ghi, không lần đọc. Hóa đơn của bạn bằng 5-10x chi phí lẽ ra phải có "với lưu bộ nhớ đệm".
 
-Caching is a protocol, not a flag. Two layers, two different failure modes.
+Lưu bộ nhớ đệm là một giao thức, không phải một cờ. Hai lớp, hai chế độ lỗi khác nhau.
 
 ## The Concept
 
 ### L2 — provider prompt/prefix caching
 
-Provider stores the attention KV for a cacheable prefix and reuses it on the next request that matches the prefix. You pay a write cost once, reads nearly free.
+Nhà cung cấp lưu KV attention cho một tiền tố có thể lưu bộ nhớ đệm và tái sử dụng nó ở yêu cầu tiếp theo khớp tiền tố. Bạn trả chi phí ghi một lần, đọc gần như miễn phí.
 
-**Anthropic (Claude 3.5 / 3.7 / 4 series)**: explicit `cache_control` marker in the request. You tag which blocks are cacheable. TTL: 5-minute (write costs 1.25x base) or 1-hour (write costs 2x base). Cache reads: $0.30/M on Claude 3.5 Sonnet vs $3.00/M fresh — 10x cheaper (docs.anthropic.com, as of 2026-04). Rates differ per model (Opus/Haiku published separately); always cross-check the live pricing page.
+**Anthropic (dòng Claude 3.5 / 3.7 / 4)**: dấu `cache_control` tường minh trong yêu cầu. Bạn gắn thẻ các block nào có thể lưu bộ nhớ đệm. TTL: 5 phút (ghi tốn 1.25x cơ sở) hoặc 1 giờ (ghi tốn 2x cơ sở). Đọc bộ nhớ đệm: $0.30/M trên Claude 3.5 Sonnet so với $3.00/M đầu vào mới — rẻ hơn 10x (docs.anthropic.com, tính đến 2026-04). Giá khác nhau theo mô hình (Opus/Haiku được công bố riêng); luôn đối chiếu trang giá hiện hành.
 
-**OpenAI**: automatic caching for prompts ≥1024 tokens (platform.openai.com, 2026-04). No explicit flag. Cached input is roughly 10x cheaper than fresh on current gpt-4o/gpt-5 rate cards. Neither docs nor release notes publish an official hit-rate baseline; community reports cluster around 30–60% with careful prompt design. Monitor `usage.cached_tokens` to measure your own.
+**OpenAI**: tự động lưu bộ nhớ đệm cho prompt ≥1024 token (platform.openai.com, 2026-04). Không có cờ tường minh. Đầu vào được lưu bộ nhớ đệm rẻ hơn khoảng 10x so với đầu vào mới trên bảng giá gpt-4o/gpt-5 hiện tại. Cả tài liệu lẫn ghi chú phát hành đều không công bố đường cơ sở tỷ lệ trúng chính thức; báo cáo cộng đồng tập trung quanh 30–60% với thiết kế prompt cẩn thận. Theo dõi `usage.cached_tokens` để tự đo.
 
-**Google (Gemini)**: context caching via explicit API; 1M-token context means caching pays even more.
+**Google (Gemini)**: lưu bộ nhớ đệm ngữ cảnh qua API tường minh; ngữ cảnh 1M token nghĩa là lưu bộ nhớ đệm mang lại lợi ích còn lớn hơn.
 
-**Self-hosted (vLLM, SGLang)**: Phase 17 · 06 covers RadixAttention — same pattern at your own compute.
+**Tự lưu trữ (vLLM, SGLang)**: Giai đoạn 17 · 06 đề cập RadixAttention — cùng mẫu trên tài nguyên tính toán của chính bạn.
 
 ### L1 — app-level semantic caching
 
-Before calling the LLM at all, hash the prompt, embed it, and look for a similar cached request (cosine similarity above threshold, typically 0.95+). On hit, return the cached response. On miss, call LLM and cache the result.
+Trước khi gọi LLM, hash prompt, tạo embedding cho nó và tìm yêu cầu tương tự đã được lưu bộ nhớ đệm (độ tương đồng cosine trên ngưỡng, thường là 0.95+). Khi trúng, trả về phản hồi được lưu bộ nhớ đệm. Khi trượt, gọi LLM và lưu kết quả vào bộ nhớ đệm.
 
-Open-source: Redis Vector Similarity, GPTCache, Qdrant. Commercial: Portkey Cache, Helicone Cache.
+Mã nguồn mở: Redis Vector Similarity, GPTCache, Qdrant. Thương mại: Portkey Cache, Helicone Cache.
 
-Vendor accuracy claims refer to how often the returned cached response was semantically appropriate — not how often you hit. Production hit rates:
+Các khẳng định độ chính xác của nhà cung cấp nói đến tần suất phản hồi từ bộ nhớ đệm được trả về phù hợp về ngữ nghĩa — không phải tần suất bạn trúng. Tỷ lệ trúng trong sản xuất:
 
-- Open-ended chat: 10-15%.
-- Structured FAQ / support: 40-70%.
-- Code questions: 20-30% (small variants kill hits).
-- Voice agents repeating prompts: 50-80% (voice normalization fixed set).
+- Trò chuyện mở: 10-15%.
+- FAQ có cấu trúc / hỗ trợ: 40-70%.
+- Câu hỏi mã: 20-30% (các biến thể nhỏ phá hỏng lượt trúng).
+- Agent giọng nói lặp lại prompt: 50-80% (tập cố định chuẩn hóa giọng nói).
 
 ### The parallelization anti-pattern
 
-Your agent makes 10 tool calls in parallel. All 10 have the same 4K-token system prompt. Anthropic cache writes are per-request; the first cache-write completes around 300 ms after the provider sees the prompt. Requests 2-10 arrive in the same millisecond window and each sees cache miss. You pay 10 write premiums, 0 read discounts.
+Agent của bạn thực hiện 10 lệnh gọi công cụ song song. Cả 10 có cùng system prompt 4K token. Ghi bộ nhớ đệm Anthropic theo từng yêu cầu; lần ghi bộ nhớ đệm đầu tiên hoàn tất khoảng 300 ms sau khi nhà cung cấp thấy prompt. Yêu cầu 2-10 đến trong cùng cửa sổ mili giây và mỗi yêu cầu đều thấy trượt bộ nhớ đệm. Bạn trả 10 phụ phí ghi, 0 giảm giá đọc.
 
-Fix: batch with sequential-first — make request 1 alone, then fire 2-10 once 1's cache has populated. Adds 300 ms to the first tool call; saves 5-10x the bill.
+Giải pháp: gom lô với tuần tự trước — thực hiện riêng yêu cầu 1, rồi gửi 2-10 khi bộ nhớ đệm của 1 đã được điền. Thêm 300 ms vào lệnh gọi công cụ đầu tiên; tiết kiệm hóa đơn 5-10x.
 
 ### The dynamic content anti-pattern
 
-Your system prompt looks like:
+System prompt của bạn trông như:
 
 ```
 You are a helpful assistant. The current time is 14:32:17.
 User ID: abc123. Today is Tuesday...
 ```
 
-Every request is unique. Every request writes. Zero hits.
+Mọi yêu cầu đều độc nhất. Mọi yêu cầu đều ghi. Không lượt trúng.
 
-Fix: move everything truly static to the cacheable prefix; append dynamic content after the cache boundary:
+Giải pháp: chuyển mọi thứ thực sự tĩnh vào tiền tố có thể lưu bộ nhớ đệm; nối nội dung động sau ranh giới bộ nhớ đệm:
 
 ```
 [cacheable]
@@ -78,22 +78,22 @@ You are a helpful assistant. [rules, examples, instructions]
 Current time: 14:32:17. User: abc123.
 ```
 
-ProjectDiscovery moved from 7% to 74% cache hit rate this way and published the anatomy.
+ProjectDiscovery chuyển từ tỷ lệ trúng bộ nhớ đệm 7% lên 74% theo cách này và công bố phân tích cấu tạo.
 
 ### Stack batch + cache for overnight workloads
 
-Batch APIs (Phase 17 · 15) give 50% discount at 24-hour turnaround. Cached input on top gets you ~10x on top of that. Overnight classification, labeling, and report generation workloads can drop to ~10% of synchronous-uncached cost by stacking.
+API xử lý theo lô (Giai đoạn 17 · 15) giảm giá 50% với thời gian hoàn thành 24 giờ. Đầu vào được lưu bộ nhớ đệm chồng lên mang lại ~10x thêm trên đó. Khối lượng công việc phân loại qua đêm, gắn nhãn và tạo báo cáo có thể giảm xuống ~10% chi phí đồng bộ không lưu bộ nhớ đệm bằng cách kết hợp.
 
 ### Numbers you should remember
 
-Pricing points are captured 2026-04 from the linked vendor docs and drift every few months — re-check before relying on them.
+Các mức giá được ghi nhận vào 2026-04 từ tài liệu nhà cung cấp được liên kết và thay đổi mỗi vài tháng — kiểm tra lại trước khi dựa vào chúng.
 
-- Anthropic cached read: $0.30/M on Claude 3.5 Sonnet, roughly 10x cheaper than fresh input (docs.anthropic.com).
-- Anthropic cache write premium: 1.25x (5-min TTL) or 2x (1-hour TTL).
-- OpenAI auto-cache: applies to prompts ≥1024 tokens; cached input priced at roughly 10% of fresh input on current rate cards (platform.openai.com).
-- Semantic cache hit rate (community-reported): ~10% open chat; up to ~70% structured FAQ. Not a vendor-documented baseline.
-- ProjectDiscovery: 7% → 74% hit rate by moving dynamic out of prefix (project blog, 2025-11).
-- Parallelization anti-pattern: typical reports of 5–10x bill inflation when N parallel requests miss the first cache write.
+- Đọc bộ nhớ đệm Anthropic: $0.30/M trên Claude 3.5 Sonnet, rẻ hơn khoảng 10x so với đầu vào mới (docs.anthropic.com).
+- Phụ phí ghi bộ nhớ đệm Anthropic: 1.25x (TTL 5 phút) hoặc 2x (TTL 1 giờ).
+- Tự động lưu bộ nhớ đệm OpenAI: áp dụng cho prompt ≥1024 token; đầu vào được lưu bộ nhớ đệm có giá khoảng 10% đầu vào mới trên bảng giá hiện tại (platform.openai.com).
+- Tỷ lệ trúng bộ nhớ đệm ngữ nghĩa (cộng đồng báo cáo): ~10% trò chuyện mở; tới ~70% FAQ có cấu trúc. Không phải đường cơ sở được nhà cung cấp ghi trong tài liệu.
+- ProjectDiscovery: tỷ lệ trúng 7% → 74% bằng cách chuyển nội dung động ra khỏi tiền tố (blog dự án, 2025-11).
+- Phản mẫu song song hóa: báo cáo điển hình về hóa đơn phình ra 5–10x khi N yêu cầu song song bỏ lỡ lần ghi bộ nhớ đệm đầu tiên.
 
 ```figure
 semantic-cache-hit
@@ -101,38 +101,38 @@ semantic-cache-hit
 
 ## Use It
 
-`code/main.py` simulates L1 + L2 caching on mixed workloads. Reports hit rates, bill, and shows the parallelization penalty.
+`code/main.py` mô phỏng lưu bộ nhớ đệm L1 + L2 trên khối lượng công việc hỗn hợp. Báo cáo tỷ lệ trúng, hóa đơn và cho thấy chi phí song song hóa phát sinh.
 
 ## Ship It
 
-This lesson produces `outputs/skill-cache-auditor.md`. Given prompt template and traffic, audits cacheability and recommends restructure.
+Bài học này tạo ra `outputs/skill-cache-auditor.md`. Với mẫu prompt và lưu lượng, kiểm tra khả năng lưu bộ nhớ đệm và khuyến nghị tái cấu trúc.
 
 ## Exercises
 
-1. Run `code/main.py`. Toggle the parallelization flag. How much does the bill change?
-2. Your system prompt has a date. Move it out. Show before/after hit rate math.
-3. Calculate break-even for 1-hour TTL (2x write) vs 5-minute TTL (1.25x write) given your request arrival rate.
-4. Semantic cache at 0.95 threshold hits 20%. At 0.85 it hits 50% but you see incorrect cached responses. Pick the right threshold and justify.
-5. You batch 10 parallel sub-queries per user question. Rewrite for cache-friendliness without adding end-to-end latency.
+1. Chạy `code/main.py`. Bật/tắt cờ song song hóa. Hóa đơn thay đổi bao nhiêu?
+2. System prompt của bạn có ngày. Chuyển nó ra ngoài. Trình bày phép tính tỷ lệ trúng trước/sau.
+3. Tính điểm hòa vốn cho TTL 1 giờ (ghi 2x) so với TTL 5 phút (ghi 1.25x) với tốc độ yêu cầu đến của bạn.
+4. Bộ nhớ đệm ngữ nghĩa ở ngưỡng 0.95 trúng 20%. Ở 0.85 nó trúng 50% nhưng bạn thấy phản hồi từ bộ nhớ đệm không đúng. Chọn ngưỡng phù hợp và giải thích.
+5. Bạn gom lô 10 truy vấn con song song cho mỗi câu hỏi người dùng. Viết lại để thuận lợi cho bộ nhớ đệm mà không thêm độ trễ đầu cuối.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|----------------|------------------------|
-| L2 prompt cache | "prefix cache" | Provider stores KV for repeated prefix |
-| `cache_control` | "Anthropic cache marker" | Explicit attribute marking cacheable blocks |
-| Cache write premium | "write tax" | Extra cost for first miss-to-cache (1.25x or 2x) |
-| L1 semantic cache | "embedding cache" | App-level hash-and-embed before calling LLM |
-| GPTCache | "LLM caching lib" | Popular OSS L1 cache library |
-| Cache hit rate | "hits / total" | Fraction of requests served from cache |
-| Parallelization anti-pattern | "the N-write trap" | N parallel requests miss cache N times |
-| Dynamic content trap | "the time-in-prompt trap" | Dynamic bytes in prefix kill hit rate |
-| RadixAttention | "intra-replica cache" | SGLang's prefix-cache implementation |
+| L2 prompt cache (Bộ nhớ đệm prompt L2) | "bộ nhớ đệm tiền tố" | Nhà cung cấp lưu KV cho tiền tố lặp lại |
+| `cache_control` | "dấu bộ nhớ đệm Anthropic" | Thuộc tính tường minh đánh dấu block có thể lưu bộ nhớ đệm |
+| Cache write premium (Phụ phí ghi bộ nhớ đệm) | "thuế ghi" | Chi phí thêm cho lần trượt đầu tiên dẫn đến lưu bộ nhớ đệm (1.25x hoặc 2x) |
+| L1 semantic cache (Bộ nhớ đệm ngữ nghĩa L1) | "bộ nhớ đệm embedding" | Hash và tạo embedding ở cấp ứng dụng trước khi gọi LLM |
+| GPTCache | "thư viện lưu bộ nhớ đệm LLM" | Thư viện bộ nhớ đệm L1 OSS phổ biến |
+| Cache hit rate (Tỷ lệ trúng bộ nhớ đệm) | "lượt trúng / tổng" | Tỷ phần yêu cầu được phục vụ từ bộ nhớ đệm |
+| Parallelization anti-pattern (Phản mẫu song song hóa) | "bẫy N lần ghi" | N yêu cầu song song trượt bộ nhớ đệm N lần |
+| Dynamic content trap (Bẫy nội dung động) | "bẫy thời gian trong prompt" | Các byte động trong tiền tố phá hỏng tỷ lệ trúng |
+| RadixAttention | "bộ nhớ đệm trong bản sao" | Cách triển khai bộ nhớ đệm tiền tố của SGLang |
 
 ## Further Reading
 
-- [Anthropic Prompt Caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) — official `cache_control` semantics and TTLs.
-- [OpenAI Prompt Caching](https://platform.openai.com/docs/guides/prompt-caching) — automatic caching behavior and eligibility.
+- [Anthropic Prompt Caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) — ngữ nghĩa `cache_control` chính thức và các TTL.
+- [OpenAI Prompt Caching](https://platform.openai.com/docs/guides/prompt-caching) — hành vi lưu bộ nhớ đệm tự động và điều kiện đủ.
 - [TianPan — Semantic Caching for LLMs Production](https://tianpan.co/blog/2026-04-10-semantic-caching-llm-production)
 - [ProjectDiscovery — Cut LLM Costs 59% With Prompt Caching](https://projectdiscovery.io/blog/how-we-cut-llm-cost-with-prompt-caching)
 - [DigitalOcean / Anthropic — Prompt Caching](https://www.digitalocean.com/blog/prompt-caching-with-digital-ocean)

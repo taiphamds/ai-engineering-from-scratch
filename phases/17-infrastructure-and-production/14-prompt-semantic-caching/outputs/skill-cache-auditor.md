@@ -7,25 +7,25 @@ lesson: 14
 tags: [caching, prompt-cache, semantic-cache, anthropic, openai, parallelization, ttl]
 ---
 
-Given a prompt template, traffic pattern (arrival rate, parallel factor), and provider (Anthropic, OpenAI, Gemini, self-hosted vLLM), produce a cache audit.
+Với một mẫu prompt, mẫu lưu lượng (tốc độ đến, hệ số song song) và nhà cung cấp (Anthropic, OpenAI, Gemini, vLLM tự lưu trữ), tạo một bản kiểm tra bộ nhớ đệm.
 
-Produce:
+Tạo:
 
-1. Prefix structure. Split the template into static (cacheable) and dynamic (non-cacheable) sections. Flag any dynamic content currently in the prefix and propose the rewrite.
-2. TTL choice. Anthropic 5-min (1.25x write) vs 1-hour (2x write). Pick based on arrival rate — 1-hour wins when the prefix is reused within the hour consistently.
-3. Parallelization audit. Count parallel requests with shared prefix. If N > 2 and parallel, require serialize-first-then-fanout pattern. Quantify the expected bill reduction.
-4. Semantic cache choice. Decide if L1 is worth it. Open-ended chat: maybe not (low hit). Structured FAQ / support: yes. Set cosine threshold, start 0.95; tune downward only with response-quality evals.
-5. Expected savings. Compute monthly $ delta vs no-cache baseline given current traffic and projected hit rates.
-6. Observable. One dashboard metric that catches regressions: L2 cache hit rate over last rolling hour; alert if drops >20%.
+1. Cấu trúc tiền tố. Chia mẫu thành các phần tĩnh (có thể lưu bộ nhớ đệm) và động (không thể lưu bộ nhớ đệm). Đánh dấu mọi nội dung động hiện có trong tiền tố và đề xuất bản viết lại.
+2. Chọn TTL. Anthropic 5 phút (ghi 1.25x) so với 1 giờ (ghi 2x). Chọn theo tốc độ đến — 1 giờ thắng khi tiền tố được tái sử dụng đều đặn trong giờ đó.
+3. Kiểm tra song song hóa. Đếm các yêu cầu song song có tiền tố chung. Nếu N > 2 và song song, yêu cầu mẫu tuần tự trước rồi mới phân nhánh. Định lượng mức giảm hóa đơn dự kiến.
+4. Chọn bộ nhớ đệm ngữ nghĩa. Quyết định L1 có đáng hay không. Trò chuyện mở: có thể không (ít trúng). FAQ có cấu trúc / hỗ trợ: có. Đặt ngưỡng cosine, bắt đầu 0.95; chỉ điều chỉnh giảm với các đánh giá chất lượng phản hồi.
+5. Tiết kiệm dự kiến. Tính chênh lệch $ hằng tháng so với đường cơ sở không có bộ nhớ đệm với lưu lượng hiện tại và tỷ lệ trúng dự kiến.
+6. Đại lượng quan sát. Một chỉ số bảng điều khiển bắt được suy giảm: tỷ lệ trúng bộ nhớ đệm L2 trong giờ trượt gần nhất; cảnh báo nếu giảm >20%.
 
-Hard rejects:
-- Claiming "50% savings" without computing expected hit rate and write premium. Refuse — calculate per-layer.
-- Leaving dynamic content in prefix when a simple rewrite moves it out. Refuse to sign off.
-- Firing parallel requests with shared prefix without serialize-first pattern. Refuse — state the 5-10x bill inflation.
+Các trường hợp loại bỏ dứt khoát:
+- Khẳng định "tiết kiệm 50%" mà không tính tỷ lệ trúng dự kiến và phụ phí ghi. Từ chối — tính theo từng lớp.
+- Để nội dung động trong tiền tố khi một bản viết lại đơn giản chuyển nó ra ngoài. Từ chối phê duyệt.
+- Gửi các yêu cầu song song có tiền tố chung mà không có mẫu tuần tự trước. Từ chối — nêu mức phình hóa đơn 5-10x.
 
-Refusal rules:
-- If the prompt is >80% dynamic content by token, refuse to promise cache savings. Recommend semantic caching at best.
-- If semantic cache threshold is dropped below 0.85 without response-quality eval, refuse — hallucination cache risk.
-- If the provider does not support explicit cache_control (non-Anthropic, non-Gemini-v1) and auto-caching only, note that hit rate is opportunistic, not guaranteed.
+Quy tắc từ chối:
+- Nếu prompt có >80% nội dung động theo token, từ chối hứa hẹn tiết kiệm bộ nhớ đệm. Tốt nhất chỉ khuyến nghị lưu bộ nhớ đệm ngữ nghĩa.
+- Nếu ngưỡng bộ nhớ đệm ngữ nghĩa bị hạ dưới 0.85 mà không đánh giá chất lượng phản hồi, từ chối — rủi ro lưu ảo giác vào bộ nhớ đệm.
+- Nếu nhà cung cấp không hỗ trợ cache_control tường minh (không phải Anthropic, không phải Gemini-v1) và chỉ tự động lưu bộ nhớ đệm, ghi nhận rằng tỷ lệ trúng là tận dụng cơ hội, không được bảo đảm.
 
-Output: a one-page audit listing prefix rewrite, TTL, parallelization pattern, L1 threshold, expected savings, observable. End with a quarterly review recommendation: re-audit prompts after any template change.
+Đầu ra: một bản kiểm tra một trang liệt kê bản viết lại tiền tố, TTL, mẫu song song hóa, ngưỡng L1, tiết kiệm dự kiến, đại lượng quan sát. Kết thúc bằng khuyến nghị rà soát hằng quý: kiểm tra lại prompt sau mọi thay đổi mẫu.
