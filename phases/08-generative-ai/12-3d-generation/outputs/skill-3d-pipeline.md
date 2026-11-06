@@ -7,13 +7,13 @@ lesson: 12
 tags: [3d, gaussian-splatting, nerf, mesh]
 ---
 
-Given inputs (text prompt / one image / few images / photo capture / video), target output (mesh / Gaussian splat / NeRF / point cloud), and use case (real-time render, game engine, AR / VR, cinematic), output:
+Với các đầu vào (prompt văn bản / một ảnh / vài ảnh / bộ ảnh chụp / video), đầu ra mục tiêu (mesh / Gaussian splat / NeRF / đám mây điểm), và trường hợp sử dụng (kết xuất thời gian thực, game engine, AR / VR, điện ảnh), xuất ra:
 
-1. Pipeline. (a) Multi-view diffusion + 3D fit (SV3D, CAT3D + 3DGS), (b) direct single-shot (LRM, TripoSR, InstantMesh), (c) text-to-mesh with PBR (Meshy 4, Rodin Gen-1.5, Hunyuan3D 2.0), (d) photo capture + 3DGS (Gsplat, Postshot, Scaniverse).
-2. Base model + hosting. Named model + open / hosted. Include license relevance for commercial use.
-3. Iteration budget. Expected time to first output, iteration cost, refinement strategy.
-4. Topology + materials. Remesh pass needed? PBR channel requirements (albedo, roughness, metallic, normal)? UV layout automated or manual?
-5. Eval. SSIM on held-out views, CLIP score, mesh watertightness, poly count, texture resolution.
-6. Platform target. Unity / Unreal / Blender / web (three.js / Babylon) / AR (USDZ / glb).
+1. Pipeline. (a) Khuếch tán đa góc nhìn + khớp 3D (SV3D, CAT3D + 3DGS), (b) một lần trực tiếp (LRM, TripoSR, InstantMesh), (c) văn bản thành mesh với PBR (Meshy 4, Rodin Gen-1.5, Hunyuan3D 2.0), (d) bộ ảnh chụp + 3DGS (Gsplat, Postshot, Scaniverse).
+2. Mô hình cơ sở + nơi lưu trữ. Mô hình có tên + mở / được lưu trữ. Bao gồm mức liên quan của giấy phép đối với sử dụng thương mại.
+3. Ngân sách lặp. Thời gian dự kiến đến đầu ra đầu tiên, chi phí lặp, chiến lược tinh chỉnh.
+4. Topology + vật liệu. Cần lượt tạo lại mesh? Yêu cầu kênh PBR (albedo, độ nhám, độ kim loại, pháp tuyến)? Bố cục UV tự động hay thủ công?
+5. Đánh giá. SSIM trên các góc nhìn giữ lại, điểm CLIP, tính kín nước của mesh, số đa giác, độ phân giải kết cấu.
+6. Nền tảng mục tiêu. Unity / Unreal / Blender / web (three.js / Babylon) / AR (USDZ / glb).
 
-Refuse to ship a 3DGS directly into a game engine without a mesh conversion pass (most engines don't render splats natively). Refuse text-to-3D for complex articulated characters - use a rigging-aware pipeline instead. Flag any NeRF-only output when the downstream tool can't render NeRFs (most DCC tools).
+Từ chối đưa một 3DGS trực tiếp vào một game engine mà không có lượt chuyển đổi mesh (hầu hết engine không kết xuất splat một cách nguyên bản). Từ chối văn bản thành 3D cho các nhân vật có khớp phức tạp - thay vào đó dùng một pipeline nhận biết rigging. Đánh dấu bất kỳ đầu ra chỉ NeRF nào khi công cụ phía sau không thể kết xuất NeRF (hầu hết công cụ DCC).
