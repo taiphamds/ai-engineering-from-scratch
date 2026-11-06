@@ -1,6 +1,6 @@
 # From CLIP to BLIP-2 — Q-Former as Modality Bridge
 
-> CLIP aligns image and text but cannot generate captions, answer questions, or hold a conversation. BLIP-2 (Salesforce, 2023) solved that with a small trainable bridge: 32 learnable query vectors attend over a frozen ViT's features via cross-attention, then slot directly into a frozen LLM's input stream. 188M parameters of bridge connected an 11B LLM to a ViT-g/14. Every adapter-based VLM through 2026 — MiniGPT-4, InstructBLIP, LLaVA's cousins — is a descendant. This lesson reads the Q-Former's architecture, explains its two-stage training, and builds a toy version that feeds visual tokens into a frozen text decoder.
+> CLIP căn chỉnh ảnh và văn bản nhưng không thể sinh chú thích, trả lời câu hỏi hay hội thoại. BLIP-2 (Salesforce, 2023) giải bằng cầu nối nhỏ có thể huấn luyện: 32 vector query có thể học attend trên đặc trưng ViT đóng băng qua cross-attention, rồi đặt trực tiếp vào luồng đầu vào LLM đóng băng. 188M tham số cầu nối kết nối LLM 11B với ViT-g/14. Mọi VLM dựa trên adapter đến năm 2026 — MiniGPT-4, InstructBLIP, họ hàng LLaVA — đều là hậu duệ. Bài học này đọc kiến trúc Q-Former, giải thích huấn luyện hai giai đoạn và xây phiên bản minh họa đưa token thị giác vào decoder văn bản đóng băng.
 
 **Type:** Build
 **Languages:** Python (stdlib, cross-attention + learnable-query demo)
@@ -9,83 +9,83 @@
 
 ## Learning Objectives
 
-- Explain why a trainable bottleneck between a frozen vision encoder and frozen LLM beats end-to-end finetuning in cost and stability.
-- Implement a cross-attention block where a fixed set of learnable queries attend to external image features.
-- Walk through BLIP-2's two-stage pretraining: representation (ITC + ITM + ITG) then generative (LM loss with frozen decoder).
-- Compare Q-Former to the simpler MLP projector used in LLaVA and argue when each choice wins.
+- Giải thích tại sao nút thắt có thể huấn luyện giữa encoder thị giác đóng băng và LLM đóng băng thắng finetuning từ đầu đến cuối về chi phí và ổn định.
+- Triển khai khối cross-attention nơi tập query có thể học cố định attend đến đặc trưng ảnh bên ngoài.
+- Đi qua tiền huấn luyện hai giai đoạn BLIP-2: biểu diễn (ITC + ITM + ITG) rồi sinh (LM loss với decoder đóng băng).
+- So Q-Former với projector MLP đơn giản hơn dùng trong LLaVA và lập luận khi nào mỗi lựa chọn thắng.
 
 ## The Problem
 
-You have a frozen ViT that produces 256 patch tokens of dim 1408 per image. You have a frozen 7B LLM that expects token embeddings of dim 4096. The obvious bridge — a linear layer from 1408 to 4096 — works, but feeding all 256 patch tokens into the LLM's context costs 256 extra tokens per image. Over a batch of 32 images that is 8192 tokens consumed by the visual modality alone.
+Bạn có ViT đóng băng tạo 256 token patch chiều 1408 mỗi ảnh. Bạn có LLM 7B đóng băng kỳ vọng embedding token chiều 4096. Cầu nối hiển nhiên — lớp tuyến tính từ 1408 đến 4096 — hoạt động, nhưng đưa cả 256 token patch vào ngữ cảnh LLM tốn thêm 256 token mỗi ảnh. Trên batch 32 ảnh, đó là 8192 token chỉ phương thức thị giác tiêu thụ.
 
-The BLIP-2 question: can you compress the 256-token image representation into far fewer tokens (say 32) while preserving enough information for the LLM to caption, answer questions, and reason about the image? And can you train this bridge without touching the frozen backbones, keeping the training cost at just the bridge's parameters?
+Câu hỏi BLIP-2: có thể nén biểu diễn ảnh 256 token thành ít token hơn nhiều (chẳng hạn 32) mà giữ đủ thông tin cho LLM chú thích, trả lời câu hỏi và suy luận về ảnh? Và có thể huấn luyện cầu nối mà không chạm backbone đóng băng, giữ chi phí huấn luyện chỉ ở tham số cầu nối?
 
-The answer: a Q-Former. 32 learnable "query" vectors that cross-attend to the ViT's patch tokens, producing a 32-token visual summary that the LLM consumes. 188M parameters total. Trained with contrastive, matching, and generative objectives before ever touching the LLM.
+Câu trả lời: Q-Former. 32 vector "query" có thể học cross-attend đến token patch ViT, tạo tóm tắt thị giác 32 token mà LLM tiêu thụ. Tổng 188M tham số. Huấn luyện với mục tiêu tương phản, khớp và sinh trước khi chạm đến LLM.
 
 ## The Concept
 
 ### Learnable queries
 
-The Q-Former's core trick: instead of letting the LLM's text tokens attend to image patches, introduce a new set of 32 learnable query vectors `Q` and let *them* attend to image patches. The queries are parameters of the model — they are learned during training and the same 32 queries are used for every image.
+Thủ thuật cốt lõi Q-Former: thay vì để token văn bản LLM attend đến patch ảnh, đưa vào tập mới gồm 32 vector query có thể học `Q` và để *chúng* attend đến patch ảnh. Query là tham số mô hình — học trong huấn luyện và cùng 32 query được dùng cho mọi ảnh.
 
-After cross-attention, each query holds a compressed summary of the image — "describe the main object", "describe the background", "count the objects", etc. The queries do not literally specialize on semantic labels; they learn whatever encoding makes downstream losses drop.
+Sau cross-attention, mỗi query giữ bản tóm tắt ảnh được nén — "mô tả đối tượng chính", "mô tả nền", "đếm đối tượng", v.v. Query không thực sự chuyên biệt vào nhãn ngữ nghĩa; chúng học mọi mã hóa khiến loss downstream giảm.
 
 ### Architecture
 
-The Q-Former is a small transformer (12 layers, ~100M params) with two paths:
+Q-Former là transformer nhỏ (12 lớp, ~100M tham số) với hai đường:
 
-1. Query path: 32 query vectors flow through self-attention (among themselves), then cross-attention over the frozen ViT's patch tokens, then FFN.
-2. Text path: a BERT-like text encoder shares the self-attention and FFN weights with the query path. Cross-attention is disabled for the text path.
+1. Đường query: 32 vector query chảy qua self-attention (giữa chúng), rồi cross-attention trên token patch ViT đóng băng, rồi FFN.
+2. Đường văn bản: encoder văn bản kiểu BERT chia sẻ trọng số self-attention và FFN với đường query. Cross-attention bị tắt cho đường văn bản.
 
-At training time both paths run. The queries and text interact through shared self-attention, which means the queries can condition on text for tasks that need it (ITM, ITG). At inference time for VLM handoff, only the queries flow through, yielding 32 visual tokens.
+Khi huấn luyện cả hai đường chạy. Query và văn bản tương tác qua self-attention dùng chung, nghĩa là query có thể điều kiện hóa theo văn bản cho tác vụ cần (ITM, ITG). Khi suy luận để bàn giao VLM, chỉ query chảy qua, cho 32 token thị giác.
 
 ### Two-stage training
 
-BLIP-2 pretrains in two stages:
+BLIP-2 tiền huấn luyện hai giai đoạn:
 
-Stage 1: representation learning (no LLM). Three losses:
-- ITC (image-text contrastive): CLIP-style contrastive between pooled query tokens and text CLS token.
-- ITM (image-text matching): binary classifier — is this image-text pair a match? Hard-negative-mined.
-- ITG (image-grounded text generation): causal LM head on text, conditioned on the queries. Forces queries to encode text-generatable content.
+Giai đoạn 1: học biểu diễn (không LLM). Ba loss:
+- ITC (tương phản ảnh-văn bản): tương phản kiểu CLIP giữa token query được pooling và token CLS văn bản.
+- ITM (khớp ảnh-văn bản): bộ phân loại nhị phân — cặp ảnh-văn bản này có khớp không? Được khai thác âm khó.
+- ITG (sinh văn bản dựa trên ảnh): head LM nhân quả trên văn bản, điều kiện hóa theo query. Buộc query mã hóa nội dung sinh được thành văn bản.
 
-Only the Q-Former trains. The ViT is frozen. No LLM involved.
+Chỉ Q-Former huấn luyện. ViT đóng băng. Không LLM tham gia.
 
-Stage 2: generative learning. Attach a frozen LLM (OPT-2.7B or Flan-T5-XL, etc.). Project the 32 query outputs to the LLM's embedding dim via a small linear layer. Prepend them to the text prompt. Train only the linear projection and the Q-Former on LM loss over the concatenated prompt + image + caption sequence.
+Giai đoạn 2: học tạo sinh. Gắn LLM đóng băng (OPT-2.7B hoặc Flan-T5-XL, v.v.). Chiếu 32 đầu ra query đến chiều embedding LLM qua lớp tuyến tính nhỏ. Thêm chúng vào trước prompt văn bản. Chỉ huấn luyện phép chiếu tuyến tính và Q-Former bằng LM loss trên chuỗi prompt + ảnh + chú thích nối lại.
 
-After stage 2, the Q-Former + projection is the full visual adapter. At inference: image → ViT → Q-Former → linear proj → prepended to text → frozen LLM emits output.
+Sau giai đoạn 2, Q-Former + phép chiếu là toàn adapter thị giác. Khi suy luận: ảnh → ViT → Q-Former → phép chiếu tuyến tính → thêm đầu văn bản → LLM đóng băng phát đầu ra.
 
 ### Parameter economics
 
-BLIP-2 with ViT-g/14 (1.1B, frozen) + OPT-6.7B (6.7B, frozen) + Q-Former (188M, trained) = 8B total, 188M trained. The Q-Former alone is ~2.4% of the full stack's parameters. Training cost reflects this: days on a handful of A100s vs weeks for end-to-end.
+BLIP-2 với ViT-g/14 (1.1B, đóng băng) + OPT-6.7B (6.7B, đóng băng) + Q-Former (188M, huấn luyện) = tổng 8B, 188M huấn luyện. Riêng Q-Former ~2.4% tham số toàn ngăn xếp. Chi phí huấn luyện phản ánh: vài ngày trên một ít A100 so với nhiều tuần cho từ đầu đến cuối.
 
-Quality: BLIP-2 matches or beats Flamingo-80B on zero-shot VQA while being 50x smaller. The bridge works.
+Chất lượng: BLIP-2 ngang hoặc vượt Flamingo-80B trên VQA zero-shot trong khi nhỏ hơn 50x. Cầu nối hoạt động.
 
 ### InstructBLIP and the instruction-aware Q-Former
 
-InstructBLIP (2023) extends the Q-Former with an extra input: the instruction text itself. At cross-attention time, the queries now have access to both the image patches and the instruction. The queries can specialize per-instruction ("count the cars", "describe the mood") rather than learning a single fixed summary. Benchmark gains on held-out tasks.
+InstructBLIP (2023) mở rộng Q-Former với đầu vào thêm: chính văn bản chỉ dẫn. Tại cross-attention, query giờ truy cập cả patch ảnh và chỉ dẫn. Query có thể chuyên biệt mỗi chỉ dẫn ("đếm xe", "mô tả tâm trạng") thay vì học một tóm tắt cố định duy nhất. Cải thiện benchmark trên tác vụ giữ riêng.
 
 ### MiniGPT-4 and the projector-only approach
 
-MiniGPT-4 kept the Q-Former but trained only the output linear projection while freezing everything else. Cheap, but cost is quality — the queries were BLIP-2's, not yours. Good for rapid iteration, not the best architecture.
+MiniGPT-4 giữ Q-Former nhưng chỉ huấn luyện phép chiếu tuyến tính đầu ra trong khi đóng băng mọi thứ khác. Rẻ, nhưng chi phí là chất lượng — query là của BLIP-2, không phải của bạn. Tốt cho lặp nhanh, không phải kiến trúc tốt nhất.
 
 ### Why LLaVA went simpler
 
-LLaVA (2023, Lesson 12.05) replaced the Q-Former with a plain 2-layer MLP that projects every ViT patch token into LLM space — 576 tokens per image for a 24x24 grid, all fed to the LLM. Worse compression but lets the LLM attend over raw patches. At the time this was controversial; by late 2023 it was dominant because visual instruction data (LLaVA-Instruct-150k) proved that the MLP could be trained to preserve enough signal. The tradeoff: LLaVA's context fills faster, but it scales naturally to multi-image and video.
+LLaVA (2023, Bài 12.05) thay Q-Former bằng MLP 2 lớp đơn giản chiếu mọi token patch ViT vào không gian LLM — 576 token mỗi ảnh cho lưới 24x24, tất cả đưa vào LLM. Nén kém hơn nhưng cho LLM attend trên patch thô. Lúc đó gây tranh cãi; đến cuối năm 2023 nó thống trị vì dữ liệu chỉ dẫn thị giác (LLaVA-Instruct-150k) chứng minh MLP huấn luyện được để giữ đủ tín hiệu. Đánh đổi: ngữ cảnh LLaVA đầy nhanh hơn, nhưng mở rộng tự nhiên sang nhiều ảnh và video.
 
-By 2026 the field split: Q-Former survives where token budget matters (long video, many images); MLP projector dominates where raw quality per token is the priority.
+Đến năm 2026 lĩnh vực chia đôi: Q-Former tồn tại nơi ngân sách token quan trọng (video dài, nhiều ảnh); projector MLP thống trị nơi chất lượng thô mỗi token là ưu tiên.
 
 ### Gated cross-attention: Flamingo, the ancestor
 
-Flamingo (Lesson 12.04) predated BLIP-2 and used the same cross-attention idea but at every frozen LLM layer, not as a single bridge. BLIP-2 showed you can compress to the input layer only and still work. Gemini and Idefics combine both: interleaved input tokens plus optional gated cross-attention for in-context few-shot.
+Flamingo (Bài 12.04) có trước BLIP-2 và dùng cùng ý tưởng cross-attention nhưng ở mọi lớp LLM đóng băng, không phải một cầu nối duy nhất. BLIP-2 cho thấy có thể nén chỉ đến lớp đầu vào mà vẫn hoạt động. Gemini và Idefics kết hợp cả hai: token đầu vào xen kẽ cộng cross-attention có cổng tùy chọn cho few-shot trong ngữ cảnh.
 
 ### The 2026 descendants
 
-- Q-Former: BLIP-2, InstructBLIP, MiniGPT-4, and most video-language models for token budget reasons.
-- Perceiver resampler: Flamingo's variant (Lesson 12.04); Idefics family, Eagle, OmniMAE.
-- MLP projector: LLaVA, LLaVA-NeXT, LLaVA-OneVision, Cambrian-1.
+- Q-Former: BLIP-2, InstructBLIP, MiniGPT-4 và hầu hết mô hình video-ngôn ngữ vì ngân sách token.
+- Perceiver resampler: biến thể Flamingo (Bài 12.04); họ Idefics, Eagle, OmniMAE.
+- Projector MLP: LLaVA, LLaVA-NeXT, LLaVA-OneVision, Cambrian-1.
 - Attention pool: VILA, PaliGemma.
 
-All four are valid. The deciding question is whether you are constrained on token budget or on quality-per-token.
+Cả bốn hợp lệ. Câu hỏi quyết định là bạn bị ràng buộc ngân sách token hay chất lượng mỗi token.
 
 ```figure
 modality-projection
@@ -93,52 +93,52 @@ modality-projection
 
 ## Use It
 
-`code/main.py` builds a stdlib Q-Former-style cross-attention:
+`code/main.py` xây cross-attention kiểu Q-Former bằng stdlib:
 
-1. Simulate 256 image patch tokens (dim 128).
-2. Instantiate 32 learnable queries (dim 128).
-3. Run scaled-dot-product cross-attention (Q from queries, K/V from patches).
-4. Project to LLM-dim (512) via a linear layer.
-5. Output the 32 LLM-ready visual tokens.
+1. Mô phỏng 256 token patch ảnh (chiều 128).
+2. Khởi tạo 32 query có thể học (chiều 128).
+3. Chạy cross-attention tích vô hướng có tỷ lệ (Q từ query, K/V từ patch).
+4. Chiếu đến chiều LLM (512) qua lớp tuyến tính.
+5. Xuất 32 token thị giác sẵn cho LLM.
 
-All math in pure Python (nested loops over vectors). Toy but correct shape. The attention-weight matrix is printed so you can see which patches each query pulled from.
+Mọi phép toán bằng Python thuần (vòng lặp lồng trên vector). Minh họa nhưng đúng hình dạng. Ma trận trọng số attention được in để thấy mỗi query lấy từ patch nào.
 
 ## Ship It
 
-This lesson produces `outputs/skill-modality-bridge-picker.md`. Given a target VLM configuration (vision encoder token count, LLM context budget, deployment constraints, quality target), it recommends Q-Former vs MLP vs Perceiver resampler with a short justification and a parameter-count estimate for each bridge.
+Bài học này tạo `outputs/skill-modality-bridge-picker.md`. Với cấu hình VLM đích (số token encoder thị giác, ngân sách ngữ cảnh LLM, ràng buộc triển khai, mục tiêu chất lượng), nó khuyến nghị Q-Former so với MLP so với Perceiver resampler kèm lý giải ngắn và ước lượng số tham số cho mỗi cầu nối.
 
 ## Exercises
 
-1. Implement the cross-attention block in PyTorch. Verify that with 32 queries and 256 keys/values, the attention-weight matrix is 32 x 256 and each row sums to 1 after softmax.
+1. Triển khai khối cross-attention bằng PyTorch. Xác minh với 32 query và 256 key/value, ma trận trọng số attention là 32 x 256 và mỗi hàng tổng 1 sau softmax.
 
-2. In BLIP-2 stage 1 the Q-Former runs three losses simultaneously: ITC, ITM, ITG. Write the forward signature for each in pseudo-code. Which one requires the text encoder path to be active?
+2. Trong giai đoạn 1 BLIP-2, Q-Former chạy ba loss đồng thời: ITC, ITM, ITG. Viết chữ ký forward mỗi loại bằng mã giả. Loại nào cần đường encoder văn bản hoạt động?
 
-3. Compare parameter counts: Q-Former (12 layers, 768 hidden) vs a 2-layer MLP projector (1408 → 4096, two layers). At what LLM scale does the 188M Q-Former cost pay back in training efficiency?
+3. So số tham số: Q-Former (12 lớp, 768 ẩn) so với projector MLP 2 lớp (1408 → 4096, hai lớp). Ở quy mô LLM nào chi phí Q-Former 188M hoàn vốn về hiệu quả huấn luyện?
 
-4. Read Section 3.2 of the BLIP-2 paper (arXiv:2301.12597) on how the Q-Former is initialized. Explain why initializing from BERT-base (not random) accelerates convergence.
+4. Đọc Mục 3.2 bài báo BLIP-2 (arXiv:2301.12597) về khởi tạo Q-Former. Giải thích tại sao khởi tạo từ BERT-base (không ngẫu nhiên) tăng tốc hội tụ.
 
-5. For a 10-minute video at 1 FPS sampled to 60 frames, compute the per-frame token cost at (Q-Former → 32 tokens/frame) vs (MLP projector → 576 tokens/frame). Which fits into a 128k-token LLM context window?
+5. Với video 10 phút ở 1 FPS được lấy mẫu thành 60 khung, tính chi phí token mỗi khung ở (Q-Former → 32 token/khung) so với (projector MLP → 576 token/khung). Loại nào vừa cửa sổ ngữ cảnh LLM 128k token?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Q-Former | "Querying transformer" | Small transformer with 32 learnable query vectors that cross-attend to frozen ViT features |
-| Learnable queries | "Soft prompt for vision" | A fixed set of parameters that serve as the query side of cross-attention; learned per model, shared across all inputs |
-| Cross-attention | "Q from here, K/V from there" | Attention where query, key, and value come from different sources; how the queries pull from ViT patches |
-| ITC | "Image-text contrastive" | CLIP-style loss applied to Q-Former pooled queries vs text CLS |
-| ITM | "Image-text matching" | Binary classifier on hard-negative-mined pairs; forces the queries to discriminate fine-grained mismatches |
-| ITG | "Image-grounded text generation" | Causal LM loss where text is generated conditioned on queries; forces queries to encode text-decodable content |
-| Two-stage pretraining | "Representation then generative" | Stage 1 trains Q-Former alone (ITC/ITM/ITG); Stage 2 attaches frozen LLM and trains only the projection + Q-Former |
-| Frozen backbone | "Do not finetune" | The vision encoder and LLM weights are fixed; only the bridge trains |
-| Projection head | "Linear to LLM dim" | Final linear layer mapping Q-Former output to the LLM's embedding dimension |
-| Perceiver resampler | "Flamingo's version" | Similar learnable-query cross-attention, used by Flamingo at every layer rather than as a single bridge |
+| Q-Former | "Transformer truy vấn" | Transformer nhỏ với 32 vector query có thể học cross-attend đến đặc trưng ViT đóng băng |
+| Learnable queries (Query có thể học) | "Soft prompt cho thị giác" | Tập tham số cố định phục vụ phía query của cross-attention; học theo mô hình, chia sẻ mọi đầu vào |
+| Cross-attention (Attention chéo) | "Q từ đây, K/V từ đó" | Attention có query, key và value đến từ nguồn khác nhau; cách query lấy từ patch ViT |
+| ITC | "Tương phản ảnh-văn bản" | Loss kiểu CLIP áp dụng cho query được pooling của Q-Former so với CLS văn bản |
+| ITM | "Khớp ảnh-văn bản" | Bộ phân loại nhị phân trên cặp khai thác âm khó; buộc query phân biệt không khớp chi tiết |
+| ITG | "Sinh văn bản dựa trên ảnh" | Loss LM nhân quả nơi văn bản được sinh điều kiện hóa theo query; buộc query mã hóa nội dung giải mã được thành văn bản |
+| Two-stage pretraining (Tiền huấn luyện hai giai đoạn) | "Biểu diễn rồi sinh" | Giai đoạn 1 chỉ huấn luyện Q-Former (ITC/ITM/ITG); Giai đoạn 2 gắn LLM đóng băng và chỉ huấn luyện phép chiếu + Q-Former |
+| Frozen backbone (Backbone đóng băng) | "Không finetune" | Trọng số encoder thị giác và LLM cố định; chỉ cầu nối huấn luyện |
+| Projection head (Head chiếu) | "Tuyến tính đến chiều LLM" | Lớp tuyến tính cuối ánh xạ đầu ra Q-Former sang chiều embedding LLM |
+| Perceiver resampler | "Phiên bản Flamingo" | Cross-attention query có thể học tương tự, được Flamingo dùng ở mọi lớp thay vì một cầu nối duy nhất |
 
 ## Further Reading
 
-- [Li et al. — BLIP-2 (arXiv:2301.12597)](https://arxiv.org/abs/2301.12597) — the core paper.
-- [Li et al. — BLIP (arXiv:2201.12086)](https://arxiv.org/abs/2201.12086) — the predecessor with the ITC/ITM/ITG trio.
-- [Li et al. — ALBEF (arXiv:2107.07651)](https://arxiv.org/abs/2107.07651) — "align before fuse" — the conceptual ancestor of stage 1 training.
-- [Dai et al. — InstructBLIP (arXiv:2305.06500)](https://arxiv.org/abs/2305.06500) — instruction-aware Q-Former.
-- [Zhu et al. — MiniGPT-4 (arXiv:2304.10592)](https://arxiv.org/abs/2304.10592) — projector-only approach.
-- [Jaegle et al. — Perceiver IO (arXiv:2107.14795)](https://arxiv.org/abs/2107.14795) — general architecture for learnable-query cross-attention.
+- [Li et al. — BLIP-2 (arXiv:2301.12597)](https://arxiv.org/abs/2301.12597) — bài báo cốt lõi.
+- [Li et al. — BLIP (arXiv:2201.12086)](https://arxiv.org/abs/2201.12086) — tiền thân với bộ ba ITC/ITM/ITG.
+- [Li et al. — ALBEF (arXiv:2107.07651)](https://arxiv.org/abs/2107.07651) — "căn chỉnh trước hợp nhất" — tổ tiên khái niệm của huấn luyện giai đoạn 1.
+- [Dai et al. — InstructBLIP (arXiv:2305.06500)](https://arxiv.org/abs/2305.06500) — Q-Former nhận biết chỉ dẫn.
+- [Zhu et al. — MiniGPT-4 (arXiv:2304.10592)](https://arxiv.org/abs/2304.10592) — cách tiếp cận chỉ projector.
+- [Jaegle et al. — Perceiver IO (arXiv:2107.14795)](https://arxiv.org/abs/2107.14795) — kiến trúc tổng quát cho cross-attention query có thể học.

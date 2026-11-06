@@ -7,24 +7,24 @@ lesson: 03
 tags: [blip2, qformer, vlm, modality-bridge, architecture]
 ---
 
-Given a vision encoder's token count per image, the LLM's context budget, the target number of images per prompt, and the training compute budget, recommend which modality bridge to use and justify with parameter counts and token economics.
+Với số token mỗi ảnh của encoder thị giác, ngân sách ngữ cảnh LLM, số ảnh đích mỗi prompt và ngân sách tính toán huấn luyện, khuyến nghị cầu nối phương thức cần dùng và lý giải bằng số tham số và kinh tế token.
 
-Produce:
+Tạo:
 
-1. Token budget audit. Report raw tokens per image from the vision encoder, tokens per image after each bridge option, and the fraction of LLM context consumed at declared image-per-prompt counts.
-2. Bridge comparison. For each of Q-Former (32 tokens, ~188M params), MLP projector (all patches, ~20M params), and Perceiver resampler (K learnable queries via N-layer cross-attention, variable), give parameters, quality proxies, and training cost ballpark.
-3. Recommendation. Single best choice for the stated constraints, with one-line justification. Flag when the constraints are contradictory (high quality + tight token budget + low training compute).
-4. Two-stage training trace. If Q-Former is picked, outline ITC + ITM + ITG losses for stage 1 and LM loss for stage 2. Name a representative dataset for each (COCO, LAION, Visual Genome).
-5. Ablation checklist. Five experiments the caller should run before locking the bridge (query count, two-stage vs single-stage, projector depth, freeze schedule, finetune subset).
+1. Kiểm toán ngân sách token. Báo token thô mỗi ảnh từ encoder thị giác, token mỗi ảnh sau mỗi lựa chọn cầu nối và tỷ phần ngữ cảnh LLM tiêu thụ ở số ảnh mỗi prompt đã khai báo.
+2. So cầu nối. Với mỗi Q-Former (32 token, ~188M tham số), projector MLP (mọi patch, ~20M tham số) và Perceiver resampler (K query có thể học qua cross-attention N lớp, thay đổi), đưa tham số, đại diện chất lượng và ước lượng sơ bộ chi phí huấn luyện.
+3. Khuyến nghị. Một lựa chọn tốt nhất cho ràng buộc đã nêu, với lý giải một dòng. Đánh dấu khi ràng buộc mâu thuẫn (chất lượng cao + ngân sách token chặt + tính toán huấn luyện thấp).
+4. Theo dấu huấn luyện hai giai đoạn. Nếu chọn Q-Former, phác loss ITC + ITM + ITG cho giai đoạn 1 và LM loss cho giai đoạn 2. Nêu bộ dữ liệu đại diện cho mỗi loại (COCO, LAION, Visual Genome).
+5. Danh sách thí nghiệm loại bỏ thành phần. Năm thí nghiệm người gọi nên chạy trước khi chốt cầu nối (số query, hai giai đoạn so với một, độ sâu projector, lịch đóng băng, tập con finetune).
 
-Hard rejects:
-- Any recommendation that ignores the token budget. "Use MLP" with 576 tokens per image fails at 10 images in a 4k context.
-- Claiming Q-Former strictly dominates MLP. At single-image high-quality tasks with unlimited context, MLP wins.
-- Treating Perceiver resampler as equivalent to Q-Former. Flamingo applies it at every LLM layer; BLIP-2 applies it once.
+Các trường hợp loại bỏ dứt khoát:
+- Mọi khuyến nghị bỏ qua ngân sách token. "Dùng MLP" với 576 token mỗi ảnh thất bại ở 10 ảnh trong ngữ cảnh 4k.
+- Tuyên bố Q-Former tuyệt đối vượt MLP. Ở tác vụ một ảnh chất lượng cao với ngữ cảnh không giới hạn, MLP thắng.
+- Xem Perceiver resampler tương đương Q-Former. Flamingo áp dụng ở mọi lớp LLM; BLIP-2 áp dụng một lần.
 
-Refusal rules:
-- If the caller asks for a bridge that can handle video without specifying how many frames and at what frame rate, refuse — video bridges differ from single-image bridges by specification, not just scale.
-- If the LLM in scope is trained from scratch with the vision tower (early-fusion, Chameleon-style), refuse — Lesson 12.11 covers that case separately.
-- If no training compute is stated, refuse and ask whether the caller can afford stage 2 of BLIP-2 (~a few hundred A100-hours) or only projector-only training.
+Quy tắc từ chối:
+- Nếu người gọi yêu cầu cầu nối xử lý video mà không chỉ rõ bao nhiêu khung và tốc độ khung nào, từ chối — cầu nối video khác cầu nối một ảnh theo đặc tả, không chỉ quy mô.
+- Nếu LLM trong phạm vi được huấn luyện từ đầu cùng tháp thị giác (hợp nhất sớm, kiểu Chameleon), từ chối — Bài 12.11 trình bày riêng trường hợp đó.
+- Nếu không nêu tính toán huấn luyện, từ chối và hỏi người gọi đủ chi phí giai đoạn 2 BLIP-2 (~vài trăm A100-giờ) hay chỉ huấn luyện projector.
 
-Output: a one-page bridge recommendation with token math, parameter counts, recommended architecture, training outline, and ablation checklist. End with a "what to read next" paragraph pointing to Lesson 12.04 (Flamingo) for cross-attention-everywhere, Lesson 12.05 (LLaVA) for MLP-only, or Lesson 12.07 (ablations) for the data-vs-architecture tradeoff.
+Đầu ra: khuyến nghị cầu nối một trang với phép tính token, số tham số, kiến trúc khuyến nghị, phác thảo huấn luyện và danh sách thí nghiệm loại bỏ thành phần. Kết thúc bằng đoạn "đọc gì tiếp" chỉ đến Bài 12.04 (Flamingo) cho cross-attention mọi nơi, Bài 12.05 (LLaVA) cho chỉ MLP hoặc Bài 12.07 (loại bỏ thành phần) cho đánh đổi dữ liệu-kiến trúc.
