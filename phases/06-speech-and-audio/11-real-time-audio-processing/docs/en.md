@@ -1,6 +1,6 @@
 # Real-Time Audio Processing
 
-> Batch pipelines process a file. Real-time pipelines process the next 20 milliseconds before the next 20 arrive. Every conversational AI, broadcast studio, and telephony bot lives and dies by this latency budget.
+> Các pipeline batch xử lý một file. Các pipeline thời gian thực xử lý 20 mili giây tiếp theo trước khi 20 mili giây kế tiếp đến. Mọi AI hội thoại, phòng thu phát sóng và bot điện thoại sống còn nhờ ngân sách độ trễ này.
 
 **Type:** Build
 **Languages:** Python
@@ -9,44 +9,44 @@
 
 ## The Problem
 
-You want a voice assistant that feels alive. Human conversational turn-taking latency is ~230 ms (silence-to-response). Anything above 500 ms feels robotic; above 1500 ms feels broken. The budget for a full **hear → understand → respond → speak** loop in 2026 is:
+Bạn muốn một trợ lý giọng nói có cảm giác sống động. Độ trễ chuyển lượt hội thoại con người là ~230 ms (từ im lặng đến phản hồi). Bất kỳ mức nào trên 500 ms có cảm giác máy móc; trên 1500 ms có cảm giác hỏng. Ngân sách cho một vòng lặp đầy đủ **nghe → hiểu → phản hồi → nói** năm 2026 là:
 
-| Stage | Budget |
+| Giai đoạn | Ngân sách |
 |-------|--------|
-| Mic → buffer | 20 ms |
+| Micro → bộ đệm | 20 ms |
 | VAD | 10 ms |
-| ASR (streaming) | 150 ms |
-| LLM (first token) | 100 ms |
-| TTS (first chunk) | 100 ms |
-| Render → speaker | 20 ms |
-| **Total** | **~400 ms** |
+| ASR (truyền luồng) | 150 ms |
+| LLM (token đầu) | 100 ms |
+| TTS (khối đầu) | 100 ms |
+| Kết xuất → loa | 20 ms |
+| **Tổng** | **~400 ms** |
 
-Moshi (Kyutai, 2024) clocked 200 ms full-duplex. GPT-4o-realtime (2024) clocks ~320 ms. Cascaded pipelines in 2022 shipped at 2500 ms. The 10× improvement came from three techniques: (1) streaming everywhere, (2) asynchronous pipelining with partial results, (3) interruptible generation.
+Moshi (Kyutai, 2024) đạt 200 ms song công toàn phần. GPT-4o-realtime (2024) đạt ~320 ms. Các pipeline nối tầng năm 2022 được phát hành ở 2500 ms. Cải thiện 10× đến từ ba kỹ thuật: (1) truyền luồng ở mọi nơi, (2) pipeline bất đồng bộ với các kết quả từng phần, (3) sinh có thể ngắt.
 
 ## The Concept
 
 ![Streaming audio pipeline with ring buffer, VAD gate, interruption](../assets/real-time.svg)
 
-**Frame / chunk / window.** Real-time audio flows as fixed-size blocks. Common choice: 20 ms (320 samples at 16 kHz). Everything downstream must keep up with this cadence.
+**Khung / khối / cửa sổ.** Âm thanh thời gian thực chảy dưới dạng các khối kích thước cố định. Lựa chọn phổ biến: 20 ms (320 mẫu ở 16 kHz). Mọi thứ phía sau phải theo kịp nhịp này.
 
-**Ring buffer.** Fixed-size circular buffer. Producer thread writes new frames, consumer thread reads. Prevents allocations in the hot path. Size ≈ maximum-latency × sample-rate; a 2-second 16 kHz ring = 32,000 samples.
+**Bộ đệm vòng.** Bộ đệm tròn kích thước cố định. Luồng sản xuất ghi các khung mới, luồng tiêu thụ đọc. Ngăn cấp phát trong đường xử lý nóng. Kích thước ≈ độ trễ tối đa × tần số lấy mẫu; một vòng 2 giây 16 kHz = 32,000 mẫu.
 
-**VAD (Voice Activity Detection).** Gates downstream work when nobody is speaking. Silero VAD 4.0 (2024) runs <1 ms per 30 ms frame on CPU. `webrtcvad` is the older alternative.
+**VAD (Phát hiện Hoạt động Giọng nói).** Chặn công việc phía sau khi không ai nói. Silero VAD 4.0 (2024) chạy <1 ms mỗi khung 30 ms trên CPU. `webrtcvad` là phương án cũ hơn.
 
-**Streaming ASR.** Models that emit partial transcripts as audio arrives. Parakeet-CTC-0.6B in streaming mode (NeMo, 2024) does 2–5% WER at 320 ms latency. Whisper-Streaming (Macháček et al., 2023) chunks Whisper for near-streaming at ~2 s latency.
+**ASR luồng.** Các mô hình phát các bản chép lời từng phần khi âm thanh đến. Parakeet-CTC-0.6B ở chế độ luồng (NeMo, 2024) đạt WER 2–5% ở độ trễ 320 ms. Whisper-Streaming (Macháček và cộng sự, 2023) chia khối Whisper để gần truyền luồng ở độ trễ ~2 s.
 
-**Interruption.** When the user speaks while the assistant is talking, you must (a) detect the barge-in, (b) stop the TTS, (c) discard the remaining LLM output. All within 100 ms, or the user perceives deaf assistant.
+**Ngắt lời.** Khi người dùng nói trong lúc trợ lý đang nói, bạn phải (a) phát hiện việc chen lời, (b) dừng TTS, (c) loại bỏ đầu ra LLM còn lại. Tất cả trong 100 ms, nếu không người dùng cảm nhận trợ lý điếc.
 
-**WebRTC Opus transport.** 20 ms frames, 48 kHz, adaptive bitrate 8–128 kbps. Standard for browser and mobile. LiveKit, Daily.co, Pion are the 2026 stacks for building voice apps.
+**Truyền tải WebRTC Opus.** Các khung 20 ms, 48 kHz, bitrate thích nghi 8–128 kbps. Tiêu chuẩn cho trình duyệt và di động. LiveKit, Daily.co, Pion là các ngăn xếp năm 2026 để xây dựng ứng dụng giọng nói.
 
-**Jitter buffer.** Network packets arrive out of order / late. The jitter buffer reorders and smooths; too small → audible gaps, too large → latency. 60–80 ms typical.
+**Bộ đệm jitter.** Các gói mạng đến sai thứ tự / muộn. Bộ đệm jitter sắp xếp lại và làm mượt; quá nhỏ → các khoảng trống nghe được, quá lớn → độ trễ. Điển hình 60–80 ms.
 
 ### Common gotchas
 
-- **Thread contention.** Python's GIL + heavy models can starve the audio thread. Use a C-callback audio library (sounddevice, PortAudio) and keep Python off the hot path.
-- **Sample-rate conversion latency.** Resampling inside the pipeline adds 5–20 ms. Either resample upfront or use a zero-latency resampler (PolyPhase, `soxr_hq`).
-- **TTS priming.** Even fast TTS like Kokoro has a 100–200 ms warm-up on first request. Cache model + warm it with a dummy run before the first real turn.
-- **Echo cancellation.** Without AEC, TTS output re-enters the mic and triggers ASR on the bot's own voice. WebRTC AEC3 is the open-source default.
+- **Tranh chấp luồng.** GIL của Python + các mô hình nặng có thể làm luồng âm thanh bị đói. Dùng một thư viện âm thanh callback C (sounddevice, PortAudio) và giữ Python khỏi đường xử lý nóng.
+- **Độ trễ chuyển đổi tần số lấy mẫu.** Lấy mẫu lại bên trong pipeline thêm 5–20 ms. Hoặc lấy mẫu lại từ đầu hoặc dùng một bộ lấy mẫu lại không độ trễ (PolyPhase, `soxr_hq`).
+- **Mồi TTS.** Ngay cả TTS nhanh như Kokoro có khởi động 100–200 ms ở yêu cầu đầu. Lưu đệm mô hình + làm nóng bằng một lượt chạy giả trước lượt thực đầu tiên.
+- **Khử tiếng vọng.** Không có AEC, đầu ra TTS đi lại vào micro và kích hoạt ASR trên giọng của chính bot. WebRTC AEC3 là mặc định mã nguồn mở.
 
 ```figure
 nyquist-aliasing
@@ -70,7 +70,7 @@ class RingBuffer:
         return len(self.buf)
 ```
 
-Capacity determines max buffering latency. 32,000 samples at 16 kHz = 2 s.
+Dung lượng quyết định độ trễ đệm tối đa. 32,000 mẫu ở 16 kHz = 2 s.
 
 ### Step 2: VAD gate
 
@@ -79,7 +79,7 @@ def simple_energy_vad(frame, threshold=0.01):
     return sum(x * x for x in frame) / len(frame) > threshold ** 2
 ```
 
-Replace with Silero VAD in production:
+Thay bằng Silero VAD trong production:
 
 ```python
 import torch
@@ -119,56 +119,56 @@ class Dialog:
             speaker.write(tts_chunk)
 ```
 
-Hinges on async I/O and cancellable TTS streaming. WebRTC peerconnection.stop() on the audio track is the canonical way.
+Dựa vào I/O bất đồng bộ và truyền luồng TTS có thể hủy. WebRTC peerconnection.stop() trên track âm thanh là cách kinh điển.
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Layer | Pick |
+| Tầng | Chọn |
 |-------|------|
-| Transport | LiveKit (WebRTC) or Pion (Go) |
+| Truyền tải | LiveKit (WebRTC) hoặc Pion (Go) |
 | VAD | Silero VAD 4.0 |
-| Streaming ASR | Parakeet-CTC-0.6B or Whisper-Streaming |
-| LLM first-token | Groq, Cerebras, vLLM-streaming |
-| Streaming TTS | Kokoro or ElevenLabs Turbo v2.5 |
-| Echo cancel | WebRTC AEC3 |
-| End-to-end native | OpenAI Realtime API or Moshi |
+| ASR luồng | Parakeet-CTC-0.6B hoặc Whisper-Streaming |
+| Token đầu LLM | Groq, Cerebras, vLLM-streaming |
+| TTS luồng | Kokoro hoặc ElevenLabs Turbo v2.5 |
+| Khử tiếng vọng | WebRTC AEC3 |
+| Nguyên bản đầu cuối | OpenAI Realtime API hoặc Moshi |
 
 ## Pitfalls
 
-- **Buffering 500 ms to be safe.** The buffer *is* your latency floor. Shrink it.
-- **Not pinning threads.** Audio callback on a priority-lower-than-UI thread = glitches under load.
-- **TTS chunks too small.** Sub-200 ms chunks make vocoder artifacts audible. 320 ms chunks are the sweet spot.
-- **No jitter buffer.** Real networks are jittery; without smoothing you get pops.
-- **Single-shot error handling.** Audio pipelines must be crash-proof. One exception kills the session.
+- **Đệm 500 ms để an toàn.** Bộ đệm *là* mức sàn độ trễ của bạn. Thu nhỏ nó.
+- **Không ghim các luồng.** Callback âm thanh trên một luồng ưu tiên thấp hơn UI = trục trặc khi có tải.
+- **Các khối TTS quá nhỏ.** Các khối dưới 200 ms làm các tạo tác vocoder nghe được. Các khối 320 ms là điểm cân bằng tốt.
+- **Không bộ đệm jitter.** Các mạng thực có jitter; không làm mượt bạn nhận các tiếng bụp.
+- **Xử lý lỗi một lần.** Các pipeline âm thanh phải chống sập. Một ngoại lệ giết phiên.
 
 ## Ship It
 
-Save as `outputs/skill-realtime-designer.md`. Design a real-time audio pipeline with concrete latency budgets per stage.
+Lưu thành `outputs/skill-realtime-designer.md`. Thiết kế một pipeline âm thanh thời gian thực với các ngân sách độ trễ cụ thể theo giai đoạn.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. Simulates a ring buffer + energy VAD; prints stage latencies for a fake 10-second stream.
-2. **Medium.** Using `sounddevice`, build a passthrough loop that processes your mic in 20 ms frames and prints VAD state at each frame.
-3. **Hard.** Build a full duplex echo test with `aiortc`: browser → WebRTC → Python → WebRTC → browser. Measure glass-to-glass latency with a 1 kHz pulse.
+1. **Dễ.** Chạy `code/main.py`. Mô phỏng một bộ đệm vòng + VAD năng lượng; in các độ trễ giai đoạn cho một luồng giả 10 giây.
+2. **Trung bình.** Dùng `sounddevice`, xây dựng một vòng lặp truyền qua xử lý micro của bạn theo các khung 20 ms và in trạng thái VAD tại mỗi khung.
+3. **Khó.** Xây dựng một kiểm thử tiếng vọng song công toàn phần bằng `aiortc`: trình duyệt → WebRTC → Python → WebRTC → trình duyệt. Đo độ trễ đầu cuối bằng một xung 1 kHz.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Ring buffer | The circular queue | Fixed-size, lock-free (or SPSC-locked) FIFO for audio frames. |
-| VAD | Silence gate | Model or heuristic marking speech vs non-speech. |
-| Streaming ASR | Real-time STT | Emits partial text as audio arrives; bounded lookahead. |
-| Jitter buffer | Network smoother | Queue reordering out-of-order packets; 60–80 ms typical. |
-| AEC | Echo cancellation | Subtracts speaker-to-mic feedback path. |
-| Barge-in | User interrupt | System detects user speech mid-TTS; must cancel playback. |
-| Full duplex | Simultaneous both ways | User and bot can talk at the same time; Moshi is full duplex. |
+| Ring buffer (Bộ đệm vòng) | Hàng đợi tròn | FIFO kích thước cố định, không khóa (hoặc khóa SPSC) cho các khung âm thanh. |
+| VAD | Cổng im lặng | Mô hình hoặc heuristic đánh dấu tiếng nói so với phi tiếng nói. |
+| Streaming ASR (ASR luồng) | STT thời gian thực | Phát văn bản từng phần khi âm thanh đến; nhìn trước bị chặn. |
+| Jitter buffer (Bộ đệm jitter) | Bộ làm mượt mạng | Hàng đợi sắp xếp lại các gói sai thứ tự; điển hình 60–80 ms. |
+| AEC | Khử tiếng vọng | Trừ đường phản hồi từ loa đến micro. |
+| Barge-in (Chen lời) | Người dùng ngắt | Hệ thống phát hiện tiếng nói người dùng giữa TTS; phải hủy phát lại. |
+| Full duplex (Song công toàn phần) | Đồng thời cả hai hướng | Người dùng và bot có thể nói cùng lúc; Moshi là song công toàn phần. |
 
 ## Further Reading
 
-- [Macháček et al. (2023). Whisper-Streaming](https://arxiv.org/abs/2307.14743) — chunked near-streaming Whisper.
-- [Kyutai (2024). Moshi](https://kyutai.org/Moshi.pdf) — full-duplex 200 ms latency.
-- [LiveKit Agents framework (2024)](https://docs.livekit.io/agents/) — production audio agent orchestration.
-- [Silero VAD repo](https://github.com/snakers4/silero-vad) — sub-1 ms VAD, Apache 2.0.
-- [WebRTC AEC3 paper](https://webrtc.googlesource.com/src/+/main/modules/audio_processing/aec3/) — echo cancellation under open source.
+- [Macháček et al. (2023). Whisper-Streaming](https://arxiv.org/abs/2307.14743) — Whisper gần truyền luồng chia khối.
+- [Kyutai (2024). Moshi](https://kyutai.org/Moshi.pdf) — độ trễ song công toàn phần 200 ms.
+- [LiveKit Agents framework (2024)](https://docs.livekit.io/agents/) — điều phối tác tử âm thanh production.
+- [Silero VAD repo](https://github.com/snakers4/silero-vad) — VAD dưới 1 ms, Apache 2.0.
+- [WebRTC AEC3 paper](https://webrtc.googlesource.com/src/+/main/modules/audio_processing/aec3/) — khử tiếng vọng dưới mã nguồn mở.
