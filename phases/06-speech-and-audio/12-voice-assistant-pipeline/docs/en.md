@@ -1,6 +1,6 @@
 # Build a Voice Assistant Pipeline — The Phase 6 Capstone
 
-> Everything from lessons 01-11, stitched together. Build a voice assistant that listens, reasons, and talks back. In 2026 that is a solved engineering problem, not a research problem — but the integration details decide whether it ships.
+> Mọi thứ từ bài 01-11, được ghép lại. Xây dựng một trợ lý giọng nói lắng nghe, suy luận và nói đáp lại. Năm 2026 đó là một bài toán kỹ thuật đã giải quyết, không phải bài toán nghiên cứu — nhưng các chi tiết tích hợp quyết định nó có được phát hành không.
 
 **Type:** Build
 **Languages:** Python
@@ -9,17 +9,17 @@
 
 ## The Problem
 
-Build an end-to-end assistant:
+Xây dựng một trợ lý đầu cuối:
 
-1. Captures mic input (16 kHz mono).
-2. Detects start/end of user speech.
-3. Transcribes streaming.
-4. Passes transcript to an LLM that can call tools (timer, weather, calendar).
-5. Streams LLM text to a TTS.
-6. Plays audio back to the user.
-7. Stops if the user interrupts mid-response.
+1. Thu đầu vào micro (mono 16 kHz).
+2. Phát hiện bắt đầu/kết thúc tiếng nói người dùng.
+3. Chép lời theo luồng.
+4. Truyền bản chép lời cho một LLM có thể gọi công cụ (hẹn giờ, thời tiết, lịch).
+5. Truyền luồng văn bản LLM đến một TTS.
+6. Phát âm thanh lại cho người dùng.
+7. Dừng nếu người dùng ngắt giữa phản hồi.
 
-Latency target: first TTS audio byte within 800 ms of the user finishing their utterance on a laptop CPU. Quality target: no missed words, no hallucinated subtitles on silence, no voice cloning leakage, no prompt injection success.
+Mục tiêu độ trễ: byte âm thanh TTS đầu tiên trong 800 ms sau khi người dùng kết thúc phát ngôn trên CPU máy tính xách tay. Mục tiêu chất lượng: không bỏ sót từ, không phụ đề bị ảo giác trên sự im lặng, không rò rỉ nhân bản giọng nói, không prompt injection thành công.
 
 ## The Concept
 
@@ -27,29 +27,29 @@ Latency target: first TTS audio byte within 800 ms of the user finishing their u
 
 ### The seven components
 
-1. **Audio capture.** Mic → 16 kHz mono → 20 ms chunks. Usually `sounddevice` in Python or native AudioUnit/ALSA/WASAPI in production.
-2. **VAD (Lesson 11).** Silero VAD @ threshold 0.5, min speech 250 ms, silence hang-over 500 ms. Signals "start" and "end."
-3. **Streaming STT (Lesson 4-5).** Whisper-streaming, Parakeet-TDT, or Deepgram Nova-3 (API). Partial + final transcripts.
-4. **LLM with tool calling.** GPT-4o / Claude 3.5 / Gemini 2.5 Flash. JSON schema for tools. Stream tokens.
-5. **Streaming TTS (Lesson 7).** Kokoro-82M (fastest open) or Cartesia Sonic (commercial). Start TTS after 20 LLM tokens.
-6. **Playback.** Speaker out; opus-encode for low-bandwidth networks.
-7. **Interruption handler.** If VAD fires during TTS playback, stop playback, cancel LLM, restart STT.
+1. **Thu âm thanh.** Micro → mono 16 kHz → các khối 20 ms. Thường là `sounddevice` trong Python hoặc AudioUnit/ALSA/WASAPI nguyên bản trong production.
+2. **VAD (Bài 11).** Silero VAD @ ngưỡng 0.5, tiếng nói tối thiểu 250 ms, thời gian duy trì sau im lặng 500 ms. Báo "bắt đầu" và "kết thúc."
+3. **STT luồng (Bài 4-5).** Whisper-streaming, Parakeet-TDT hoặc Deepgram Nova-3 (API). Các bản chép lời từng phần + cuối cùng.
+4. **LLM có gọi công cụ.** GPT-4o / Claude 3.5 / Gemini 2.5 Flash. JSON schema cho các công cụ. Truyền luồng token.
+5. **TTS luồng (Bài 7).** Kokoro-82M (mở nhanh nhất) hoặc Cartesia Sonic (thương mại). Bắt đầu TTS sau 20 token LLM.
+6. **Phát lại.** Xuất loa; mã hóa opus cho các mạng băng thông thấp.
+7. **Bộ xử lý ngắt.** Nếu VAD kích hoạt trong lúc phát TTS, dừng phát, hủy LLM, khởi động lại STT.
 
 ### The three failure modes you will hit
 
-1. **First-word clip.** VAD starts a beat too late. User's "hey" is missing. Start threshold at 0.3, not 0.5.
-2. **Mid-response interrupt confusion.** LLM keeps generating after user interrupts; assistant talks over user. Wire VAD → cancel-LLM.
-3. **Silence hallucination.** Whisper outputs "Thanks for watching" on the silent warm-up frames. Always VAD-gate.
+1. **Cắt từ đầu.** VAD bắt đầu muộn một nhịp. "này" của người dùng bị thiếu. Bắt đầu ngưỡng tại 0.3, không phải 0.5.
+2. **Nhầm lẫn ngắt giữa phản hồi.** LLM tiếp tục sinh sau khi người dùng ngắt; trợ lý nói lấn người dùng. Nối VAD → hủy LLM.
+3. **Ảo giác im lặng.** Whisper xuất "Cảm ơn đã xem" trên các khung khởi động im lặng. Luôn chặn VAD.
 
 ### 2026 production reference stacks
 
-| Stack | Latency | License | Notes |
+| Ngăn xếp | Độ trễ | Giấy phép | Ghi chú |
 |-------|---------|---------|-------|
-| LiveKit + Deepgram + GPT-4o + Cartesia | 350-500 ms | commercial API | Industry default 2026 |
-| Pipecat + Whisper-streaming + GPT-4o + Kokoro | 500-800 ms | mostly open | DIY-friendly |
-| Moshi (full-duplex) | 200-300 ms | CC-BY 4.0 | Single-model; different architecture, lesson 15 |
-| Vapi / Retell (managed) | 300-500 ms | commercial | Fastest to launch; limited customization |
-| Whisper.cpp + llama.cpp + Kokoro-ONNX | offline | open | Privacy / edge |
+| LiveKit + Deepgram + GPT-4o + Cartesia | 350-500 ms | API thương mại | Mặc định ngành năm 2026 |
+| Pipecat + Whisper-streaming + GPT-4o + Kokoro | 500-800 ms | phần lớn mở | Thân thiện tự làm |
+| Moshi (song công toàn phần) | 200-300 ms | CC-BY 4.0 | Một mô hình; kiến trúc khác, bài 15 |
+| Vapi / Retell (được quản lý) | 300-500 ms | thương mại | Ra mắt nhanh nhất; tùy chỉnh hạn chế |
+| Whisper.cpp + llama.cpp + Kokoro-ONNX | ngoại tuyến | mở | Riêng tư / biên |
 
 ```figure
 v4-voice-latency
@@ -133,49 +133,49 @@ while True:
 
 ## Use It
 
-See `code/main.py` for a runnable simulation that wires all seven components with stub models, so you can see the pipeline shape even without hardware. For a real implementation, swap stubs with:
+Xem `code/main.py` để có một mô phỏng chạy được nối cả bảy thành phần với các mô hình stub, để bạn thấy hình dạng pipeline ngay cả khi không có phần cứng. Với một triển khai thực, thay các stub bằng:
 
 - `silero-vad` (`pip install silero-vad`)
-- `deepgram-sdk` or `openai-whisper`
-- `openai` (`gpt-4o`) or `anthropic`
-- `kokoro` or `cartesia`
-- `sounddevice` for I/O
+- `deepgram-sdk` hoặc `openai-whisper`
+- `openai` (`gpt-4o`) hoặc `anthropic`
+- `kokoro` hoặc `cartesia`
+- `sounddevice` cho I/O
 
 ## Pitfalls
 
-- **Logging PII forever.** Full-turn audio is PII in most jurisdictions. 30-day retention, encrypted at rest.
-- **No barge-in.** Users will interrupt. Your assistant must stop talking.
-- **TTS that blocks.** Synchronous TTS blocks the event loop. Use async or a separate thread.
-- **No tool-call error handling.** Tools fail. LLM must get back the error + retry once, then gracefully degrade.
-- **Overzealous hallucination filters.** Over-filter and the assistant repeats "I can't help with that." Under-filter and it says anything. Calibrate on a held-out set.
-- **No wake-word option.** Always-listening is a privacy liability. Add a wake-word gate (Porcupine or openWakeWord).
+- **Ghi nhật ký PII mãi mãi.** Âm thanh toàn lượt là PII trong hầu hết khu vực pháp lý. Giữ 30 ngày, mã hóa khi lưu trữ.
+- **Không chen lời.** Người dùng sẽ ngắt. Trợ lý của bạn phải ngừng nói.
+- **TTS chặn.** TTS đồng bộ chặn vòng lặp sự kiện. Dùng bất đồng bộ hoặc một luồng riêng.
+- **Không xử lý lỗi gọi công cụ.** Công cụ thất bại. LLM phải nhận lại lỗi + thử lại một lần, rồi suy giảm êm.
+- **Các bộ lọc ảo giác quá mức.** Lọc quá mức và trợ lý lặp "Tôi không thể giúp việc đó." Lọc thiếu và nó nói bất kỳ thứ gì. Hiệu chuẩn trên một tập được giữ lại.
+- **Không tùy chọn từ đánh thức.** Luôn lắng nghe là một gánh nặng riêng tư. Thêm một cổng từ đánh thức (Porcupine hoặc openWakeWord).
 
 ## Ship It
 
-Save as `outputs/skill-voice-assistant-architect.md`. Given budget + scale + language + compliance constraints, produce a full stack spec.
+Lưu thành `outputs/skill-voice-assistant-architect.md`. Với ngân sách + quy mô + ngôn ngữ + các ràng buộc tuân thủ, tạo một đặc tả ngăn xếp đầy đủ.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. It simulates one full turn end-to-end with stub modules and prints per-stage latency.
-2. **Medium.** Replace the STT stub with a real Whisper model on a pre-recorded `.wav`. Measure WER and end-to-end latency.
-3. **Hard.** Add tool calling: implement `get_weather` (any API) and `set_timer`. Route the LLM through the tools and verify that when the user says "set a 5 minute timer" the right function fires and the spoken reply confirms it.
+1. **Dễ.** Chạy `code/main.py`. Nó mô phỏng một lượt đầy đủ đầu cuối với các mô-đun stub và in độ trễ theo giai đoạn.
+2. **Trung bình.** Thay stub STT bằng một mô hình Whisper thực trên một `.wav` ghi sẵn. Đo WER và độ trễ đầu cuối.
+3. **Khó.** Thêm gọi công cụ: triển khai `get_weather` (bất kỳ API nào) và `set_timer`. Định tuyến LLM qua các công cụ và xác minh khi người dùng nói "đặt hẹn giờ 5 phút" thì đúng hàm kích hoạt và lời đáp được nói xác nhận điều đó.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Turn | A user + assistant round-trip | One VAD-bounded user speech + one LLM-TTS response. |
-| Barge-in | Interruption | User speaks while assistant talks; assistant stops. |
-| Wake word | "Hey assistant" | Short keyword detector; Porcupine, Snowboy, openWakeWord. |
-| End-pointing | Turn ending | VAD + min-silence decision that user has finished. |
-| Pre-roll | Pre-speech buffer | Keep 200-400 ms of audio before VAD fires to avoid first-word clip. |
-| Tool call | Function invocation | LLM emits JSON; runtime dispatches; result feeds back in-loop. |
+| Turn (Lượt) | Một vòng người dùng + trợ lý | Một tiếng nói người dùng giới hạn bằng VAD + một phản hồi LLM-TTS. |
+| Barge-in (Chen lời) | Ngắt lời | Người dùng nói trong lúc trợ lý nói; trợ lý dừng. |
+| Wake word (Từ đánh thức) | "Này trợ lý" | Bộ phát hiện từ khóa ngắn; Porcupine, Snowboy, openWakeWord. |
+| End-pointing (Xác định điểm kết thúc) | Kết thúc lượt | VAD + quyết định im lặng tối thiểu rằng người dùng đã xong. |
+| Pre-roll (Đệm trước) | Bộ đệm trước tiếng nói | Giữ 200-400 ms âm thanh trước khi VAD kích hoạt để tránh cắt từ đầu. |
+| Tool call (Lời gọi công cụ) | Gọi hàm | LLM phát JSON; runtime điều phối; kết quả đưa trở lại trong vòng lặp. |
 
 ## Further Reading
 
-- [LiveKit — voice agent quickstart](https://docs.livekit.io/agents/) — production-grade reference.
-- [Pipecat — voice agent examples](https://github.com/pipecat-ai/pipecat) — DIY-friendly framework.
-- [OpenAI Realtime API](https://platform.openai.com/docs/guides/realtime) — the managed voice-native path.
-- [Kyutai Moshi](https://github.com/kyutai-labs/moshi) — full-duplex reference (Lesson 15).
-- [Porcupine wake-word](https://picovoice.ai/products/porcupine/) — wake-word gating.
-- [Anthropic — tool use guide](https://docs.anthropic.com/en/docs/build-with-claude/tool-use) — LLM function calling.
+- [LiveKit — voice agent quickstart](https://docs.livekit.io/agents/) — tham chiếu cấp production.
+- [Pipecat — voice agent examples](https://github.com/pipecat-ai/pipecat) — framework thân thiện tự làm.
+- [OpenAI Realtime API](https://platform.openai.com/docs/guides/realtime) — con đường giọng nói nguyên bản được quản lý.
+- [Kyutai Moshi](https://github.com/kyutai-labs/moshi) — tham chiếu song công toàn phần (Bài 15).
+- [Porcupine wake-word](https://picovoice.ai/products/porcupine/) — chặn bằng từ đánh thức.
+- [Anthropic — tool use guide](https://docs.anthropic.com/en/docs/build-with-claude/tool-use) — gọi hàm LLM.

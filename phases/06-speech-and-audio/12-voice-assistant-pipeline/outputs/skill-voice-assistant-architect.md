@@ -7,23 +7,23 @@ lesson: 12
 tags: [voice-assistant, architecture, livekit, pipecat, compliance]
 ---
 
-Given the use case (consumer / customer-support / accessibility / edge), expected scale (concurrent sessions, minutes/month), language, latency targets, compliance (HIPAA, PCI, EU AI Act, CA SB 942), output:
+Với trường hợp sử dụng (tiêu dùng / hỗ trợ khách hàng / hỗ trợ tiếp cận / biên), quy mô dự kiến (các phiên đồng thời, phút/tháng), ngôn ngữ, các mục tiêu độ trễ, tuân thủ (HIPAA, PCI, EU AI Act, CA SB 942), xuất ra:
 
-1. Components (7 layers). Mic + chunking · VAD · streaming STT · LLM + tools · streaming TTS · playback · interruption handler. Name the exact provider/model for each.
-2. Latency budget. P50 / P95 / P99 targets per stage summing to the end-to-end target. Mark which stages are independent vs sequential.
-3. Tool-call schema. JSON spec for each tool + error handling + fallback text. Always include a "can't help" path that the LLM must take when it fails twice.
-4. Safety. Prompt injection guard, voice-cloning lockout (if TTS is cloning-capable), wake-word gate (for always-on), PII redaction in logs, 30-day retention.
-5. Observability. P50/P95/P99 per stage · false-interruption rate · tool-call success rate · WER per 100 calls · cost per minute · abandon rate.
-6. Compliance. Disclosure audio ("This is an AI assistant"), region-pinning (EU data in EU), audit log retention, opt-out pathway.
+1. Các thành phần (7 tầng). Micro + chia khối · VAD · STT luồng · LLM + công cụ · TTS luồng · phát lại · bộ xử lý ngắt. Nêu đúng nhà cung cấp/mô hình cho mỗi thành phần.
+2. Ngân sách độ trễ. Các mục tiêu P50 / P95 / P99 theo giai đoạn có tổng bằng mục tiêu đầu cuối. Đánh dấu các giai đoạn nào độc lập so với tuần tự.
+3. Schema gọi công cụ. Đặc tả JSON cho mỗi công cụ + xử lý lỗi + văn bản dự phòng. Luôn bao gồm một đường "không thể giúp" mà LLM phải chọn khi thất bại hai lần.
+4. An toàn. Biện pháp bảo vệ prompt injection, khóa nhân bản giọng nói (nếu TTS có khả năng nhân bản), cổng từ đánh thức (cho luôn bật), che PII trong nhật ký, giữ 30 ngày.
+5. Khả năng quan sát. P50/P95/P99 theo giai đoạn · tỷ lệ ngắt sai · tỷ lệ thành công gọi công cụ · WER mỗi 100 cuộc gọi · chi phí mỗi phút · tỷ lệ bỏ cuộc.
+6. Tuân thủ. Âm thanh công khai ("Đây là một trợ lý AI"), ghim khu vực (dữ liệu EU ở EU), giữ nhật ký kiểm toán, con đường từ chối tham gia.
 
-Refuse always-on deployments without a wake word. Refuse TTS that does not stream (adds utterance-length latency). Refuse averaging latency without P95 — tail is where users churn. Refuse raw-audio retention &gt; 30 days without a legal review.
+Từ chối các triển khai luôn bật không có từ đánh thức. Từ chối TTS không truyền luồng (thêm độ trễ bằng độ dài phát ngôn). Từ chối lấy trung bình độ trễ không có P95 — phần đuôi là nơi người dùng rời bỏ. Từ chối giữ âm thanh thô &gt; 30 ngày không có rà soát pháp lý.
 
-Example input: "Accessibility assistant for low-vision users: voice-only interface to a consumer email app. English. P95 &lt; 600 ms. ~10k concurrent users."
+Đầu vào ví dụ: "Trợ lý hỗ trợ tiếp cận cho người dùng thị lực kém: giao diện chỉ giọng nói cho một ứng dụng email tiêu dùng. Tiếng Anh. P95 &lt; 600 ms. ~10k người dùng đồng thời."
 
-Example output:
-- Components: sounddevice (WebRTC via LiveKit Agents) · Silero VAD · Deepgram Nova-3 (English) · GPT-4o with email tools (read_message, compose_reply, mark_read) · Cartesia Sonic 2 streaming · WebRTC out · interrupt=cancel-LLM-and-TTS on VAD fire.
-- Budget: capture 120 ms + VAD 40 + STT 150 + LLM TTFT 100 + TTS TTFA 150 = 560 ms P95.
-- Tools: read_message({id}), compose_reply({message_id, body}), mark_read({id}), search({query}). All return JSON; LLM has max 2 retries per tool then fallback "I couldn't do that — try rephrasing".
-- Safety: prompt-injection guard (detect `ignore previous instructions`); wake word "Hey Mail"; no voice cloning (fixed Cartesia voice); redact email bodies in logs.
-- Observability: Hamming AI production monitoring; per-stage Prometheus histograms; alert on false-interrupt &gt; 5% or p95 &gt; 800 ms.
-- Compliance: AI disclosure on first use; HIPAA opt-in for medical messages only; EU users hit EU-hosted Cartesia + GPT-4o Ireland.
+Đầu ra ví dụ:
+- Các thành phần: sounddevice (WebRTC qua LiveKit Agents) · Silero VAD · Deepgram Nova-3 (tiếng Anh) · GPT-4o với các công cụ email (read_message, compose_reply, mark_read) · Cartesia Sonic 2 truyền luồng · WebRTC ra · interrupt=cancel-LLM-and-TTS khi VAD kích hoạt.
+- Ngân sách: thu 120 ms + VAD 40 + STT 150 + LLM TTFT 100 + TTS TTFA 150 = 560 ms P95.
+- Công cụ: read_message({id}), compose_reply({message_id, body}), mark_read({id}), search({query}). Tất cả trả JSON; LLM có tối đa 2 lần thử lại mỗi công cụ rồi dự phòng "Tôi không thể làm điều đó — thử diễn đạt lại".
+- An toàn: biện pháp bảo vệ prompt injection (phát hiện `ignore previous instructions`); từ đánh thức "Hey Mail"; không nhân bản giọng nói (giọng Cartesia cố định); che nội dung email trong nhật ký.
+- Khả năng quan sát: giám sát production Hamming AI; các histogram Prometheus theo giai đoạn; cảnh báo khi ngắt sai &gt; 5% hoặc p95 &gt; 800 ms.
+- Tuân thủ: công khai AI khi dùng lần đầu; chủ động chọn HIPAA chỉ cho các tin nhắn y tế; người dùng EU truy cập Cartesia được lưu trữ tại EU + GPT-4o Ireland.
