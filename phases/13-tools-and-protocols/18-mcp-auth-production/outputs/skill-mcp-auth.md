@@ -7,64 +7,64 @@ lesson: 18
 tags: [mcp, oauth, cimd, dcr, jwks, rfc8414, rfc7591, rfc8707, rfc7636, rfc9728, rfc9207]
 ---
 
-Given an MCP server config and an IdP capability set, emit the auth surface and refusal rules that constitute a production MCP authorization layer.
+Với cấu hình máy chủ MCP và tập khả năng IdP, phát bề mặt xác thực và quy tắc từ chối cấu thành tầng cấp quyền MCP sản xuất.
 
-Inputs:
+Đầu vào:
 
-- `mcp_resource_url` — canonical resource URL (most-specific identifier; keep a path only when it distinguishes co-hosted servers), used as `aud` and as the protected-resource metadata `resource` value.
-- `idp_metadata_url` — the IdP's `/.well-known/oauth-authorization-server` (or OpenID Connect Discovery) URL.
-- `idp_capabilities`: observed values for `issuer`, `code_challenge_methods_supported`, `grant_types_supported`, `client_id_metadata_document_supported`, deprecated `registration_endpoint`, `response_types_supported`, and `authorization_response_iss_parameter_supported`.
-- `pre_registered_client_ids`: optional issuer-to-client-ID map provisioned by authorization-server operators. Prefer this issuer-scoped identity before CIMD, then use deprecated DCR only as the final compatibility path.
-- `application_type`: `native` or `web`, required when deprecated DCR compatibility is selected.
-- `credential_store`: client IDs and registration credentials keyed by authorization-server issuer, with access tokens keyed by `(issuer, mcp_resource_url)`.
-- `tools`: the MCP tool list with the scope each requires.
+- `mcp_resource_url` — URL tài nguyên chuẩn (định danh cụ thể nhất; chỉ giữ đường dẫn khi phân biệt máy chủ cùng host), dùng làm `aud` và giá trị `resource` siêu dữ liệu tài nguyên được bảo vệ.
+- `idp_metadata_url` — URL `/.well-known/oauth-authorization-server` (hoặc OpenID Connect Discovery) của IdP.
+- `idp_capabilities`: giá trị quan sát cho `issuer`, `code_challenge_methods_supported`, `grant_types_supported`, `client_id_metadata_document_supported`, `registration_endpoint` ngừng khuyến nghị, `response_types_supported` và `authorization_response_iss_parameter_supported`.
+- `pre_registered_client_ids`: ánh xạ bên phát hành-sang-ID-client tùy chọn do người vận hành máy chủ cấp quyền cấp. Ưu tiên danh tính phạm vi bên phát hành này trước CIMD, rồi chỉ dùng DCR ngừng khuyến nghị làm nhánh tương thích cuối.
+- `application_type`: `native` hoặc `web`, bắt buộc khi chọn tương thích DCR ngừng khuyến nghị.
+- `credential_store`: ID client và thông tin xác thực đăng ký khóa theo bên phát hành máy chủ cấp quyền, với token truy cập khóa theo `(issuer, mcp_resource_url)`.
+- `tools`: danh sách công cụ MCP với phạm vi mỗi công cụ cần.
 
-Produce:
+Tạo ra:
 
-1. **Refusal gate.** Refuse to wire and stop if any hard condition fails:
-   - `S256` is missing from `code_challenge_methods_supported` (PKCE has no degraded mode).
-   - `authorization_code` is missing from `grant_types_supported`.
-   - `response_types_supported` is anything other than exactly `["code"]`.
-   - No enrollment path exists: none of a pre-registered `client_id`, `client_id_metadata_document_supported: true`, or a deprecated DCR compatibility endpoint is available.
-   - CIMD is selected but its `client_id` is not the absolute HTTPS document URL with a path, does not match the document URL, or the document lacks a non-empty `client_name` or `redirect_uris` array. `application_type` is optional for CIMD.
-   - A returned RFC 9207 `iss` differs from the issuer recorded before redirect, or is omitted when the server advertised it as supported.
-   - Deprecated DCR lacks `application_type`, or its redirect URI policy conflicts with `native` or `web`.
+1. **Cổng từ chối.** Từ chối kết nối và dừng nếu bất kỳ điều kiện cứng nào thất bại:
+   - Thiếu `S256` trong `code_challenge_methods_supported` (PKCE không chế độ suy giảm).
+   - Thiếu `authorization_code` trong `grant_types_supported`.
+   - `response_types_supported` là bất cứ thứ gì ngoài chính xác `["code"]`.
+   - Không nhánh ghi danh tồn tại: không có `client_id` đăng ký trước, `client_id_metadata_document_supported: true` hoặc endpoint tương thích DCR ngừng khuyến nghị nào sẵn.
+   - CIMD được chọn nhưng `client_id` không là URL tài liệu HTTPS tuyệt đối có đường dẫn, không khớp URL tài liệu hoặc tài liệu thiếu `client_name` không rỗng hay mảng `redirect_uris`. `application_type` tùy chọn cho CIMD.
+   - RFC 9207 `iss` trả về khác bên phát hành ghi trước chuyển hướng hoặc bị bỏ khi máy chủ công bố hỗ trợ.
+   - DCR ngừng khuyến nghị thiếu `application_type`, hoặc chính sách URI chuyển hướng xung đột `native` hoặc `web`.
 
-2. **Protected-resource metadata document** (RFC 9728) for the MCP server. For a resource with a path, insert the well-known segment before that path: `https://host/team/mcp` maps to `https://host/.well-known/oauth-protected-resource/team/mcp`. Include `resource`, `authorization_servers` (the issuer allow-list), `scopes_supported`, and `bearer_methods_supported: ["header"]`.
+2. **Tài liệu siêu dữ liệu tài nguyên được bảo vệ** (RFC 9728) cho máy chủ MCP. Với tài nguyên có đường dẫn, chèn đoạn well-known trước đường dẫn: `https://host/team/mcp` ánh xạ thành `https://host/.well-known/oauth-protected-resource/team/mcp`. Gồm `resource`, `authorization_servers` (danh sách cho phép bên phát hành), `scopes_supported` và `bearer_methods_supported: ["header"]`.
 
-3. **HTTP endpoints.**
-   - `GET /.well-known/oauth-protected-resource` — returns the document from (2).
-   - `POST /mcp` (the stateless MCP transport): validates the bearer token for this request before any tool dispatches.
-   - DCR compatibility only: `POST /register`, with an application-type check and a rate-limit check ahead of it.
+3. **Endpoint HTTP.**
+   - `GET /.well-known/oauth-protected-resource` — trả tài liệu từ (2).
+   - `POST /mcp` (vận chuyển MCP không trạng thái): xác thực bearer token cho yêu cầu này trước mọi công cụ được phân phối.
+   - Chỉ tương thích DCR: `POST /register`, với kiểm tra loại ứng dụng và giới hạn tốc độ phía trước.
 
-4. **Background job + routines.**
-   - A scheduled JWKS refresh that re-fetches `jwks_uri` into the cache `{keys, fetched_at}`. Idempotent; never mints keys. The AS rotates; the resource server only refreshes. Default `0 */6 * * *`; tighten to `*/15 * * * *` for high-rotation IdPs.
-   - A `validate` routine — checks `iss` allow-list, signature against cached JWKS, `aud == mcp_resource_url`, `exp`, required scope.
-   - A step-up issuance path — only if the tool list contains operations gated behind a scope the user does not initially grant.
+4. **Công việc nền + thủ tục.**
+   - Làm mới JWKS theo lịch lấy lại `jwks_uri` vào bộ đệm `{keys, fetched_at}`. Lũy đẳng; không bao giờ tạo khóa. AS xoay; máy chủ tài nguyên chỉ làm mới. Mặc định `0 */6 * * *`; thắt thành `*/15 * * * *` cho IdP xoay cao.
+   - Thủ tục `validate` — kiểm tra danh sách cho phép `iss`, chữ ký theo JWKS lưu đệm, `aud == mcp_resource_url`, `exp`, phạm vi bắt buộc.
+   - Nhánh cấp nâng quyền — chỉ nếu danh sách công cụ chứa thao tác chặn sau phạm vi người dùng ban đầu không cấp.
 
-5. **Cache plan.** One entry per accepted issuer keyed by `issuer`, holding `{keys, fetched_at}`. Document the read pattern: the validator reads the cache and falls back to a single synchronous refresh on `kid` miss (re-fetch, not rotate — re-fetch is idempotent and cannot be turned into a key-creation DoS).
+5. **Kế hoạch bộ đệm.** Một mục mỗi bên phát hành chấp nhận khóa theo `issuer`, giữ `{keys, fetched_at}`. Ghi mẫu đọc: bộ xác thực đọc bộ đệm và dự phòng một lần làm mới đồng bộ khi trượt `kid` (lấy lại, không xoay — lấy lại lũy đẳng và không biến được thành DoS tạo khóa).
 
-6. **Scope mapping.** Map every tool to the scope it requires. Output a table:
-   `| tool | required_scope | rationale |`. Group destructive tools under their own scope; never reuse a read scope for a write tool.
+6. **Ánh xạ phạm vi.** Ánh xạ mọi công cụ đến phạm vi cần. Xuất bảng:
+   `| tool | required_scope | rationale |`. Nhóm công cụ phá hủy dưới phạm vi riêng; không bao giờ dùng lại phạm vi đọc cho công cụ ghi.
 
-7. **Refusal rules at runtime** (the validator must encode these):
-   - Reject when `aud != mcp_resource_url` → 401 `Bearer error="invalid_token", error_description="audience mismatch", resource_metadata="<prm_url>"`.
-   - Reject when `iss not in authorization_servers`.
-   - Reject when `kid` not in cached JWKS after a single re-fetch fall-back.
-   - Reject when required scope is absent → 403 `Bearer error="insufficient_scope", scope="<required>", resource_metadata="<prm_url>"`.
-   - Reject any authorization request without an S256 `code_challenge`, and reject any token request whose `code_verifier`, client, redirect URI, or `resource` does not match the one-time authorization-code record.
-   - Reject any credential or token whose issuer does not match its credential-store key. Issuer change requires new enrollment.
+7. **Quy tắc từ chối lúc chạy** (bộ xác thực phải mã hóa):
+   - Từ chối khi `aud != mcp_resource_url` → 401 `Bearer error="invalid_token", error_description="audience mismatch", resource_metadata="<prm_url>"`.
+   - Từ chối khi `iss not in authorization_servers`.
+   - Từ chối khi `kid` không trong JWKS lưu đệm sau một lần dự phòng lấy lại.
+   - Từ chối khi thiếu phạm vi bắt buộc → 403 `Bearer error="insufficient_scope", scope="<required>", resource_metadata="<prm_url>"`.
+   - Từ chối mọi yêu cầu cấp quyền không có S256 `code_challenge` và mọi yêu cầu token có `code_verifier`, client, URI chuyển hướng hoặc `resource` không khớp bản ghi mã cấp quyền một lần.
+   - Từ chối mọi thông tin xác thực hoặc token có bên phát hành không khớp khóa kho thông tin xác thực. Bên phát hành đổi cần ghi danh mới.
 
-Hard rejects (never wire any of these — refuse the request and document why):
+Các trường hợp bác bỏ tuyệt đối (không bao giờ kết nối bất kỳ thứ nào — từ chối yêu cầu và ghi lý do):
 
-- Storing `client_secret` in plaintext. Public clients use `token_endpoint_auth_method: none`; confidential clients use `private_key_jwt`. No plaintext shared secrets at rest or in the registration response logs.
-- Skipping the `aud` check on the validator. Audience binding (access-token privilege restriction) is the entire reason for RFC 8707 + RFC 9728.
-- Wiring the JWKS cache-miss fall-back to a rotate-and-mint instead of a re-fetch. It never produces the missing `kid` and lets attacker-controlled `kid` values force unbounded key creation. The fall-back must be the idempotent refresh.
-- Allowing PKCE-less authorization code requests. OAuth 2.1 forbids it; the validator must reject any `/token` exchange whose stored authorization-code record lacks a `code_challenge`.
-- Caching JWKS without a refresh job. Either the scheduled refresh ships, or the auth surface does not deploy.
-- Trusting the `iss` claim without an allow-list. Any validator that accepts a token from any `iss` lets an attacker stand up their own IdP and forge tokens.
-- Forwarding the inbound MCP token to an upstream API (token passthrough). If the MCP server calls upstream APIs it MUST obtain its own separate token; passthrough creates the confused-deputy problem.
-- Storing `registration_access_token` in plaintext. Hash-at-rest; require cleartext on every update.
-- Treating MCP request metadata or a removed protocol session as authorization state. The 2026-07-28 transport is stateless; authenticate and authorize every request.
+- Lưu `client_secret` văn bản thuần. Client công khai dùng `token_endpoint_auth_method: none`; client bí mật dùng `private_key_jwt`. Không bí mật dùng chung văn bản thuần khi lưu hoặc trong nhật ký phản hồi đăng ký.
+- Bỏ kiểm tra `aud` trên bộ xác thực. Gắn đối tượng nhận (hạn chế đặc quyền token truy cập) là toàn bộ lý do cho RFC 8707 + RFC 9728.
+- Nối dự phòng trượt bộ đệm JWKS vào xoay-và-tạo thay lấy lại. Không bao giờ tạo `kid` thiếu và cho giá trị `kid` do kẻ tấn công kiểm soát ép tạo khóa vô hạn. Dự phòng phải làm mới lũy đẳng.
+- Cho yêu cầu mã cấp quyền không PKCE. OAuth 2.1 cấm; bộ xác thực phải từ chối mọi trao đổi `/token` có bản ghi mã cấp quyền lưu thiếu `code_challenge`.
+- Lưu đệm JWKS không công việc làm mới. Hoặc cung cấp làm mới theo lịch, hoặc bề mặt xác thực không triển khai.
+- Tin claim `iss` không danh sách cho phép. Bộ xác thực nhận token từ mọi `iss` cho kẻ tấn công dựng IdP riêng và giả token.
+- Chuyển token MCP đến sang API phía trước (token passthrough). Nếu máy chủ MCP gọi API phía trước nó PHẢI lấy token riêng; chuyển xuyên tạo vấn đề confused deputy.
+- Lưu `registration_access_token` văn bản thuần. Hash khi lưu; yêu cầu văn bản rõ trên mọi cập nhật.
+- Coi siêu dữ liệu yêu cầu MCP hoặc phiên giao thức đã bỏ là trạng thái cấp quyền. Vận chuyển 2026-07-28 không trạng thái; xác thực và cấp quyền mọi yêu cầu.
 
-Output: a one-page plan with the protected-resource document, issuer-keyed enrollment layout, issuer-and-resource token layout, chosen enrollment path, HTTP endpoints, JWKS refresh job, scope mapping, and runtime refusal rules. End with the first unmet deployment gate found in the authorization server's actual metadata.
+Đầu ra: kế hoạch một trang với tài liệu tài nguyên được bảo vệ, bố cục ghi danh khóa theo bên phát hành, bố cục token bên phát hành-và-tài nguyên, nhánh ghi danh chọn, endpoint HTTP, công việc làm mới JWKS, ánh xạ phạm vi và quy tắc từ chối runtime. Kết thúc bằng cổng triển khai chưa đạt đầu tiên tìm trong siêu dữ liệu thực của máy chủ cấp quyền.
