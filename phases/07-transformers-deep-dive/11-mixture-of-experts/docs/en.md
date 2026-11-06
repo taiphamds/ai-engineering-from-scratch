@@ -1,6 +1,6 @@
 # Mixture of Experts (MoE)
 
-> A dense 70B transformer activates every parameter for every token. A 671B MoE activates only 37B per token and beats it on every benchmark. Sparsity is the most important scaling idea of the decade.
+> Một transformer đặc 70B kích hoạt mọi tham số cho mọi token. Một MoE 671B chỉ kích hoạt 37B mỗi token và thắng nó trên mọi benchmark. Tính thưa là ý tưởng mở rộng quy mô quan trọng nhất của thập kỷ.
 
 **Type:** Build
 **Languages:** Python
@@ -9,11 +9,11 @@
 
 ## The Problem
 
-A dense transformer's FLOPs at inference equal its parameter count (times 2 for forward pass). Scale up a dense model and every token pays the full bill. By 2024 the frontier was hitting a compute wall: to be meaningfully smarter, you needed exponentially more FLOPs per token.
+FLOP của một transformer đặc khi suy luận bằng số tham số của nó (nhân 2 cho lượt truyền xuôi). Mở rộng một mô hình đặc và mỗi token trả toàn bộ hóa đơn. Đến năm 2024 tuyến đầu đang chạm một bức tường tính toán: để thông minh hơn đáng kể, bạn cần nhiều FLOP hơn theo cấp số nhân mỗi token.
 
-Mixture of Experts breaks this link. Replace each FFN with `E` independent experts + a router that picks `k` experts per token. Total parameters = `E × FFN_size`. Active parameters per token = `k × FFN_size`. Typical 2026 configuration: `E=256`, `k=8`. Storage scales with `E`, compute scales with `k`.
+Mixture of Experts phá liên kết này. Thay mỗi FFN bằng `E` chuyên gia độc lập + một bộ định tuyến chọn `k` chuyên gia mỗi token. Tổng tham số = `E × FFN_size`. Tham số hoạt động mỗi token = `k × FFN_size`. Cấu hình điển hình năm 2026: `E=256`, `k=8`. Lưu trữ tăng theo `E`, tính toán tăng theo `k`.
 
-The 2026 frontier is almost entirely MoE: DeepSeek-V3 (671B total / 37B active), Mixtral 8×22B, Qwen2.5-MoE, Llama 4, Kimi K2, gpt-oss. On Artificial Analysis's independent leaderboard, the top 10 open-source models are all MoE.
+Tuyến đầu năm 2026 gần như hoàn toàn là MoE: DeepSeek-V3 (671B tổng / 37B hoạt động), Mixtral 8×22B, Qwen2.5-MoE, Llama 4, Kimi K2, gpt-oss. Trên bảng xếp hạng độc lập của Artificial Analysis, top 10 mô hình mã nguồn mở đều là MoE.
 
 ## The Concept
 
@@ -21,14 +21,14 @@ The 2026 frontier is almost entirely MoE: DeepSeek-V3 (671B total / 37B active),
 
 ### The FFN swap
 
-Dense transformer block:
+Khối transformer đặc:
 
 ```
 h = x + attn(norm(x))
 h = h + FFN(norm(h))
 ```
 
-MoE block:
+Khối MoE:
 
 ```
 h = x + attn(norm(x))
@@ -39,44 +39,44 @@ h = h + sum_{e in top_k}(
     )
 ```
 
-Every expert is an independent FFN (typically SwiGLU). The router is a single linear layer. Each token picks its own `k` experts and gets a gated mixture of their outputs.
+Mỗi chuyên gia là một FFN độc lập (thường là SwiGLU). Bộ định tuyến là một tầng tuyến tính duy nhất. Mỗi token chọn `k` chuyên gia riêng và nhận một hỗn hợp có cổng của các đầu ra của chúng.
 
 ### The load-balancing problem
 
-If the router puts 90% of tokens through expert 3, the other experts starve. Three fixes have been tried:
+Nếu bộ định tuyến đưa 90% token qua chuyên gia 3, các chuyên gia khác bị đói. Ba cách sửa đã được thử:
 
-1. **Auxiliary load-balancing loss** (Switch Transformer, Mixtral). Add a penalty proportional to the variance in expert usage. Works, but adds a hyperparameter and a second gradient signal.
-2. **Expert capacity + token dropping** (early Switch). Each expert processes at most `C × N/E` tokens; overflow tokens skip the layer. Hurts quality.
-3. **Auxiliary-loss-free balancing** (DeepSeek-V3). Add a learned per-expert bias that shifts the router's top-k selection. Bias is updated outside the training loss. No penalty on the main objective. 2024's big unlock.
+1. **Loss phụ cân bằng tải** (Switch Transformer, Mixtral). Thêm một phạt tỷ lệ với phương sai sử dụng chuyên gia. Hoạt động, nhưng thêm một siêu tham số và một tín hiệu gradient thứ hai.
+2. **Dung lượng chuyên gia + bỏ token** (Switch ban đầu). Mỗi chuyên gia xử lý tối đa `C × N/E` token; các token tràn bỏ qua tầng. Gây hại chất lượng.
+3. **Cân bằng không loss phụ** (DeepSeek-V3). Thêm một bias được học theo chuyên gia dịch lựa chọn top-k của bộ định tuyến. Bias được cập nhật ngoài loss huấn luyện. Không phạt lên mục tiêu chính. Bước mở khóa lớn năm 2024.
 
-DeepSeek-V3's approach: after each training step, for every expert, check if its usage is above or below the target. Nudge the bias by `±γ`. Selection uses `scores + bias`. Expert probabilities used for gating are the raw `scores` unchanged. Decouples routing from expression.
+Cách tiếp cận của DeepSeek-V3: sau mỗi bước huấn luyện, với mỗi chuyên gia, kiểm tra mức sử dụng trên hay dưới mục tiêu. Điều chỉnh nhẹ bias bằng `±γ`. Lựa chọn dùng `scores + bias`. Các xác suất chuyên gia dùng cho gating là `scores` thô không đổi. Tách định tuyến khỏi biểu đạt.
 
 ### Shared experts
 
-DeepSeek-V2/V3 also split experts into *shared* and *routed*. Every token passes through all shared experts. Routed experts are picked via top-k. Shared experts capture common knowledge; routed experts specialize. V3 runs 1 shared expert plus top-8 of 256 routed.
+DeepSeek-V2/V3 cũng chia các chuyên gia thành *dùng chung* và *được định tuyến*. Mọi token đi qua tất cả các chuyên gia dùng chung. Các chuyên gia được định tuyến được chọn qua top-k. Các chuyên gia dùng chung nắm bắt kiến thức chung; các chuyên gia được định tuyến chuyên biệt hóa. V3 chạy 1 chuyên gia dùng chung cộng top-8 trong 256 chuyên gia được định tuyến.
 
 ### Fine-grained experts
 
-Classic MoE (GShard, Switch): each expert is as wide as a full FFN. `E` is small (8–64), `k` is small (1–2).
+MoE cổ điển (GShard, Switch): mỗi chuyên gia rộng bằng một FFN đầy đủ. `E` nhỏ (8–64), `k` nhỏ (1–2).
 
-Modern fine-grained MoE (DeepSeek-V3, Qwen-MoE): each expert is narrower (1/8 FFN size). `E` is large (256+), `k` is larger (8+). Same total parameters, but combinations scale much faster. `C(256, 8) = 400 trillion` possible "experts" per token. Quality goes up, latency stays flat.
+MoE chi tiết hiện đại (DeepSeek-V3, Qwen-MoE): mỗi chuyên gia hẹp hơn (1/8 kích thước FFN). `E` lớn (256+), `k` lớn hơn (8+). Cùng tổng tham số, nhưng các tổ hợp tăng nhanh hơn nhiều. `C(256, 8) = 400 trillion` "chuyên gia" có thể có mỗi token. Chất lượng tăng, độ trễ giữ phẳng.
 
 ### The cost profile
 
-Per token, per layer:
+Theo token, theo tầng:
 
-| Config | Active params / token | Total params |
+| Cấu hình | Tham số hoạt động / token | Tổng tham số |
 |--------|-----------------------|--------------|
 | Mixtral 8×22B | ~39B | 141B |
-| Llama 3 70B (dense) | 70B | 70B |
+| Llama 3 70B (đặc) | 70B | 70B |
 | DeepSeek-V3 | 37B | 671B |
 | Kimi K2 (MoE) | ~32B | 1T |
 
-DeepSeek-V3 beats Llama 3 70B (dense) on almost every benchmark while doing **fewer active FLOPs per token**. More parameters = more knowledge. More active FLOPs = more compute per token. MoE decouples them.
+DeepSeek-V3 thắng Llama 3 70B (đặc) trên gần như mọi benchmark trong khi thực hiện **ít FLOP hoạt động hơn mỗi token**. Nhiều tham số hơn = nhiều kiến thức hơn. Nhiều FLOP hoạt động hơn = nhiều tính toán hơn mỗi token. MoE tách chúng.
 
 ### The catch: memory
 
-All experts live on GPU regardless of which ones fire. A 671B model needs ~1.3 TB of VRAM for fp16 weights. Frontier MoE deployment requires expert parallelism — shard experts across GPUs, route tokens across the network. Latency is dominated by the all-to-all communication, not the matmul.
+Mọi chuyên gia nằm trên GPU bất kể chuyên gia nào kích hoạt. Một mô hình 671B cần ~1.3 TB VRAM cho các trọng số fp16. Triển khai MoE tiên phong đòi hỏi tính song song chuyên gia — phân mảnh các chuyên gia trên GPU, định tuyến token qua mạng. Độ trễ bị chi phối bởi giao tiếp all-to-all, không phải phép nhân ma trận.
 
 ```figure
 expert-routing
@@ -84,12 +84,12 @@ expert-routing
 
 ## Build It
 
-See `code/main.py`. A compact MoE layer in pure stdlib with:
+Xem `code/main.py`. Một tầng MoE gọn chỉ dùng stdlib với:
 
-- `n_experts=8` SwiGLU-ish experts (one linear each, for illustration)
-- top-k=2 routing
-- softmax-normalized gating weights
-- auxiliary-loss-free balancing via per-expert bias
+- `n_experts=8` chuyên gia kiểu SwiGLU (mỗi chuyên gia một tầng tuyến tính, để minh họa)
+- định tuyến top-k=2
+- các trọng số gating được chuẩn hóa softmax
+- cân bằng không loss phụ qua bias theo chuyên gia
 
 ### Step 1: the router
 
@@ -107,66 +107,66 @@ def route(hidden, W_router, top_k, bias):
     return top_idx, gates
 ```
 
-Bias affects selection, not gate weight. That is the DeepSeek-V3 trick — bias corrects load imbalance without steering the model's predictions.
+Bias ảnh hưởng lựa chọn, không phải trọng số cổng. Đó là thủ thuật DeepSeek-V3 — bias sửa mất cân bằng tải mà không điều khiển các dự đoán của mô hình.
 
 ### Step 2: run 100 tokens through the router
 
-Track which experts fire how often. Without the bias, usage is skewed. With a bias update loop (`-γ` for over-used experts, `+γ` for under-used), usage converges to a uniform distribution over a few iterations.
+Theo dõi những chuyên gia nào kích hoạt thường xuyên bao nhiêu. Không có bias, mức sử dụng lệch. Với một vòng lặp cập nhật bias (`-γ` cho các chuyên gia bị dùng quá mức, `+γ` cho các chuyên gia dùng thiếu), mức sử dụng hội tụ về một phân phối đều sau vài lần lặp.
 
 ### Step 3: param count comparison
 
-Print the "dense equivalent" of an MoE config. DeepSeek-V3-shaped: 256 routed + 1 shared, 8 active, d_model=7168. The total parameter count is eye-watering. The active count is a seventh of a dense Llama 3 70B.
+In "tương đương đặc" của một cấu hình MoE. Dạng DeepSeek-V3: 256 được định tuyến + 1 dùng chung, 8 hoạt động, d_model=7168. Tổng số tham số choáng ngợp. Số hoạt động là một phần bảy của một Llama 3 70B đặc.
 
 ## Use It
 
-HuggingFace loading:
+Tải bằng HuggingFace:
 
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
 model = AutoModelForCausalLM.from_pretrained("mistralai/Mixtral-8x22B-v0.1")
 ```
 
-2026 production inference: vLLM supports MoE routing natively. SGLang has the fastest expert-parallel path. Both automatically handle top-k selection and expert parallelism.
+Suy luận production năm 2026: vLLM hỗ trợ định tuyến MoE nguyên bản. SGLang có đường song song chuyên gia nhanh nhất. Cả hai tự động xử lý lựa chọn top-k và tính song song chuyên gia.
 
-**When to pick MoE:**
-- You want frontier quality at lower inference cost per token.
-- You have the VRAM / expert-parallel infrastructure.
-- Your workload is token-heavy (chat, code) not context-heavy (long docs).
+**Khi nào chọn MoE:**
+- Bạn muốn chất lượng tiên phong với chi phí suy luận mỗi token thấp hơn.
+- Bạn có VRAM / hạ tầng song song chuyên gia.
+- Khối lượng công việc của bạn nặng token (trò chuyện, mã) không nặng ngữ cảnh (tài liệu dài).
 
-**When NOT to pick MoE:**
-- Edge deployment — you pay full storage for any active FLOP.
-- Latency-critical single-user serving — expert routing adds overhead.
-- Small models (<7B) — MoE's quality advantage only appears above a compute threshold (~6B active params).
+**Khi nào KHÔNG chọn MoE:**
+- Triển khai biên — bạn trả toàn bộ lưu trữ cho bất kỳ FLOP hoạt động nào.
+- Phục vụ một người dùng đòi hỏi độ trễ nghiêm ngặt — định tuyến chuyên gia thêm chi phí phụ.
+- Các mô hình nhỏ (<7B) — lợi thế chất lượng của MoE chỉ xuất hiện trên một ngưỡng tính toán (~6B tham số hoạt động).
 
 ## Ship It
 
-See `outputs/skill-moe-configurator.md`. The skill picks E, k, and shared-expert layout for a new MoE given parameter budget, training tokens, and deployment target.
+Xem `outputs/skill-moe-configurator.md`. Skill chọn E, k và bố cục chuyên gia dùng chung cho một MoE mới với ngân sách tham số, token huấn luyện và đích triển khai.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. Watch how the auxiliary-loss-free bias update evens out expert usage over 50 iterations.
-2. **Medium.** Replace the learned router with a hash-based router (deterministic, no learning). Compare quality and balance. Why is the learned router better?
-3. **Hard.** Implement GRPO-style "rollout-matched routing" (DeepSeek-V3.2 trick): log which experts fire during inference, force the same routing during gradient computation. Measure the effect on a toy policy-gradient setup.
+1. **Dễ.** Chạy `code/main.py`. Quan sát cách cập nhật bias không loss phụ làm đều mức sử dụng chuyên gia qua 50 lần lặp.
+2. **Trung bình.** Thay bộ định tuyến được học bằng một bộ định tuyến dựa trên hash (tất định, không học). So sánh chất lượng và cân bằng. Vì sao bộ định tuyến được học tốt hơn?
+3. **Khó.** Triển khai "định tuyến khớp rollout" kiểu GRPO (thủ thuật DeepSeek-V3.2): ghi nhật ký những chuyên gia nào kích hoạt khi suy luận, ép cùng định tuyến khi tính gradient. Đo tác động trên một thiết lập policy-gradient đồ chơi.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Expert | "One FFN among many" | An independent feed-forward network; parameters dedicated to a sparse slice of the FFN computation. |
-| Router | "The gate" | A tiny linear layer that scores each token against each expert; top-k selection. |
-| Top-k routing | "k active experts per token" | Each token's FFN computation goes through exactly k experts, weighted by gate. |
-| Auxiliary loss | "Load-balance penalty" | Extra loss term that penalizes skewed expert usage. |
-| Auxiliary-loss-free | "DeepSeek-V3's trick" | Balance via per-expert bias on the router's selection only; no extra gradient. |
-| Shared expert | "Always on" | Extra expert through which every token passes; captures common knowledge. |
-| Expert parallelism | "Shard by expert" | Distribute different experts to different GPUs; route tokens across the network. |
-| Sparsity | "Active params < total params" | The ratio `k × expert_size / (E × expert_size)`; 37/671 ≈ 5.5% for DeepSeek-V3. |
+| Expert (Chuyên gia) | "Một FFN trong nhiều FFN" | Một mạng truyền xuôi độc lập; các tham số dành riêng cho một lát thưa của phép tính FFN. |
+| Router (Bộ định tuyến) | "Cổng" | Một tầng tuyến tính tí hon chấm mỗi token với mỗi chuyên gia; lựa chọn top-k. |
+| Top-k routing (Định tuyến top-k) | "k chuyên gia hoạt động mỗi token" | Phép tính FFN của mỗi token đi qua đúng k chuyên gia, được gán trọng số bởi cổng. |
+| Auxiliary loss (Loss phụ) | "Phạt cân bằng tải" | Số hạng loss bổ sung phạt mức sử dụng chuyên gia lệch. |
+| Auxiliary-loss-free (Không loss phụ) | "Thủ thuật của DeepSeek-V3" | Cân bằng qua bias theo chuyên gia chỉ trên lựa chọn của bộ định tuyến; không gradient bổ sung. |
+| Shared expert (Chuyên gia dùng chung) | "Luôn bật" | Chuyên gia bổ sung mà mọi token đi qua; nắm bắt kiến thức chung. |
+| Expert parallelism (Tính song song chuyên gia) | "Phân mảnh theo chuyên gia" | Phân phối các chuyên gia khác nhau đến các GPU khác nhau; định tuyến token qua mạng. |
+| Sparsity (Tính thưa) | "Tham số hoạt động < tổng tham số" | Tỷ lệ `k × expert_size / (E × expert_size)`; 37/671 ≈ 5.5% cho DeepSeek-V3. |
 
 ## Further Reading
 
-- [Shazeer et al. (2017). Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer](https://arxiv.org/abs/1701.06538) — the idea.
-- [Fedus, Zoph, Shazeer (2022). Switch Transformer: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity](https://arxiv.org/abs/2101.03961) — Switch, the classic MoE.
+- [Shazeer et al. (2017). Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer](https://arxiv.org/abs/1701.06538) — ý tưởng.
+- [Fedus, Zoph, Shazeer (2022). Switch Transformer: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity](https://arxiv.org/abs/2101.03961) — Switch, MoE cổ điển.
 - [Jiang et al. (2024). Mixtral of Experts](https://arxiv.org/abs/2401.04088) — Mixtral 8×7B.
-- [DeepSeek-AI (2024). DeepSeek-V3 Technical Report](https://arxiv.org/abs/2412.19437) — MLA + auxiliary-loss-free MoE + MTP.
-- [Wang et al. (2024). Auxiliary-Loss-Free Load Balancing Strategy for Mixture-of-Experts](https://arxiv.org/abs/2408.15664) — the bias-based balancing paper.
-- [Dai et al. (2024). DeepSeekMoE: Towards Ultimate Expert Specialization in Mixture-of-Experts Language Models](https://arxiv.org/abs/2401.06066) — the fine-grained + shared-expert split this lesson's router uses.
-- [Kim et al. (2022). DeepSpeed-MoE: Advancing Mixture-of-Experts Inference and Training](https://arxiv.org/abs/2201.05596) — original shared-expert paper.
+- [DeepSeek-AI (2024). DeepSeek-V3 Technical Report](https://arxiv.org/abs/2412.19437) — MLA + MoE không loss phụ + MTP.
+- [Wang et al. (2024). Auxiliary-Loss-Free Load Balancing Strategy for Mixture-of-Experts](https://arxiv.org/abs/2408.15664) — bài báo cân bằng dựa trên bias.
+- [Dai et al. (2024). DeepSeekMoE: Towards Ultimate Expert Specialization in Mixture-of-Experts Language Models](https://arxiv.org/abs/2401.06066) — sự tách chi tiết + chuyên gia dùng chung mà bộ định tuyến bài học này sử dụng.
+- [Kim et al. (2022). DeepSpeed-MoE: Advancing Mixture-of-Experts Inference and Training](https://arxiv.org/abs/2201.05596) — bài báo chuyên gia dùng chung gốc.
