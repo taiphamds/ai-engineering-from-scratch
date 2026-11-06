@@ -7,24 +7,24 @@ lesson: 19
 tags: [otel, observability, gen-ai, tracing]
 ---
 
-Given an agent codebase (LLM calls, tool dispatch, MCP client, sub-agents), produce an OTel GenAI instrumentation plan.
+Với cơ sở mã agent (lời gọi LLM, phân phối công cụ, client MCP, agent phụ), tạo kế hoạch gắn đo OTel GenAI.
 
-Produce:
+Tạo ra:
 
-1. Span hierarchy. Root `agent.invoke_agent` (INTERNAL) and children: `llm.chat` (CLIENT), `tool.execute` (INTERNAL), `mcp.call` (CLIENT), `subagent.invoke` (INTERNAL).
-2. Attribute checklist per span. `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.response.model`, `gen_ai.usage.*`, `gen_ai.tool.name`, `gen_ai.agent.name`.
-3. Propagation rule. Inject W3C traceparent on every remote call; for MCP stdio use `_meta.traceparent` as an interim field.
-4. Content capture policy. Off by default; document which env var enables; name PII risks.
-5. Exporter choice. Jaeger / Tempo / Langfuse / Phoenix / Datadog / Honeycomb; OTLP as the wire.
+1. Phân cấp span. Gốc `agent.invoke_agent` (INTERNAL) và con: `llm.chat` (CLIENT), `tool.execute` (INTERNAL), `mcp.call` (CLIENT), `subagent.invoke` (INTERNAL).
+2. Danh sách thuộc tính mỗi span. `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.response.model`, `gen_ai.usage.*`, `gen_ai.tool.name`, `gen_ai.agent.name`.
+3. Quy tắc lan truyền. Chèn traceparent W3C trên mọi lời gọi từ xa; với MCP stdio dùng `_meta.traceparent` làm trường tạm.
+4. Chính sách thu nội dung. Tắt mặc định; ghi biến môi trường nào bật; nêu rủi ro PII.
+5. Chọn exporter. Jaeger / Tempo / Langfuse / Phoenix / Datadog / Honeycomb; OTLP làm đường truyền.
 
-Hard rejects:
-- Any plan missing trace propagation across MCP or sub-agent boundaries.
-- Any plan with content capture on by default. Leaks prompts and PII.
-- Any plan that emits arbitrary custom attributes without the `gen_ai.` or explicit vendor prefix.
+Các trường hợp bác bỏ tuyệt đối:
+- Mọi kế hoạch thiếu lan truyền trace qua ranh giới MCP hoặc agent phụ.
+- Mọi kế hoạch bật thu nội dung mặc định. Rò prompt và PII.
+- Mọi kế hoạch phát thuộc tính tùy chỉnh tùy ý không tiền tố `gen_ai.` hoặc nhà cung cấp tường minh.
 
-Refusal rules:
-- If the codebase uses a framework with built-in OTel auto-instrumentation (Pydantic AI, LangGraph, AgentOps), recommend the framework hook first.
-- If the exporter backend is on-prem and the team has no SRE support, recommend a managed backend.
-- If the user asks to capture content for debugging prod, refuse without a typed consent policy and PII redaction pipeline.
+Quy tắc từ chối:
+- Nếu cơ sở mã dùng framework có tự gắn đo OTel tích hợp (Pydantic AI, LangGraph, AgentOps), khuyến nghị hook framework trước.
+- Nếu backend exporter tại chỗ và nhóm không hỗ trợ SRE, khuyến nghị backend được quản lý.
+- Nếu người dùng yêu cầu thu nội dung để gỡ lỗi sản xuất, từ chối khi không có chính sách đồng ý có kiểu và pipeline che PII.
 
-Output: a one-page plan with span hierarchy, attribute checklist per span, propagation rule, content capture policy, and exporter choice. End with the top metric to alert on (typically p95 `gen_ai.client.operation.duration`).
+Đầu ra: kế hoạch một trang với phân cấp span, danh sách thuộc tính mỗi span, quy tắc lan truyền, chính sách thu nội dung và chọn exporter. Kết thúc bằng chỉ số đầu cần cảnh báo (thường p95 `gen_ai.client.operation.duration`).
