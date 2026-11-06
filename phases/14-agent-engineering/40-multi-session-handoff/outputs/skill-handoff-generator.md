@@ -7,30 +7,30 @@ lesson: 40
 tags: [handoff, generator, session-end, packet, next-action]
 ---
 
-Given a workbench (state, verdict, review, feedback log, diff), produce a session-end handoff generator wired into the agent runtime.
+Với một workbench (trạng thái, phán quyết, đánh giá, log phản hồi, diff), tạo một bộ tạo bàn giao cuối phiên được nối vào runtime agent.
 
-Produce:
+Tạo:
 
-1. `tools/generate_handoff.py` exposing `generate_handoff(snapshot) -> (markdown, payload)`.
-2. `outputs/handoff/<session_id>/handoff.md` and `handoff.json`.
-3. `handoff.schema.json` covering the seven required fields and the feedback tail format.
-4. Session-end hook script that runs the generator and refuses to close the session if any field is missing.
-5. `docs/handoff.md` listing the seven fields, their sources, and the trimming policy.
+1. `tools/generate_handoff.py` cung cấp `generate_handoff(snapshot) -> (markdown, payload)`.
+2. `outputs/handoff/<session_id>/handoff.md` và `handoff.json`.
+3. `handoff.schema.json` bao phủ bảy trường bắt buộc và định dạng đuôi phản hồi.
+4. Script hook cuối phiên chạy bộ tạo và từ chối đóng phiên nếu bất kỳ trường nào bị thiếu.
+5. `docs/handoff.md` liệt kê bảy trường, các nguồn của chúng và chính sách cắt gọn.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- A handoff without a `next_action`. Status reports masquerading as handoffs poison the next session.
-- A generator that hand-writes the summary. The agent's job is to leave the workbench in a generatable state.
-- A markdown packet that diverges from the JSON. JSON is the source; markdown is a render of JSON.
-- A feedback tail longer than 30 entries. The full log is in version control; the packet must stay small.
+- Một bàn giao không có một `next_action`. Các báo cáo trạng thái giả dạng bàn giao đầu độc phiên tiếp theo.
+- Một bộ tạo viết tay bản tóm tắt. Công việc của agent là để workbench trong một trạng thái có thể tạo được.
+- Một gói markdown khác JSON. JSON là nguồn; markdown là một bản dựng JSON.
+- Một đuôi phản hồi dài hơn 30 mục. Toàn bộ log nằm trong quản lý phiên bản; gói phải giữ nhỏ.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the verification report is missing, refuse to generate the packet. A handoff without a verdict is a wish.
-- If the review report is missing and a human reviewer was expected, refuse and require the review pass first.
-- If the diff summary is empty but the session ran longer than 5 minutes, surface the anomaly before generating; suspect a wedged session rather than a real no-op.
+- Nếu báo cáo xác minh bị thiếu, từ chối tạo gói. Một bàn giao không có phán quyết là một mong muốn.
+- Nếu báo cáo đánh giá bị thiếu và một bên đánh giá con người được mong đợi, từ chối và yêu cầu lượt đánh giá trước.
+- Nếu bản tóm tắt diff rỗng nhưng phiên chạy lâu hơn 5 phút, hiển thị sự bất thường trước khi tạo; nghi ngờ một phiên bị kẹt thay vì một lần không làm gì thực.
 
-Output structure:
+Cấu trúc đầu ra:
 
 ```
 <repo>/
@@ -42,8 +42,8 @@ Output structure:
 └── docs/handoff.md
 ```
 
-End with "what to read next" pointing to:
+Kết thúc bằng "đọc gì tiếp theo" chỉ đến:
 
-- Lesson 41 for end-to-end exercise on a real-style sample app.
-- Lesson 42 for packaging the generator into the capstone workbench pack.
-- Lesson 29 (Production Runtimes) for wiring session-end into queue, event, and cron triggers.
+- Bài 41 cho bài tập từ đầu đến cuối trên một ứng dụng mẫu kiểu thực.
+- Bài 42 để đóng gói bộ tạo vào bộ workbench capstone.
+- Bài 29 (Các runtime sản xuất) để nối kết thúc phiên vào các kích hoạt hàng đợi, sự kiện và cron.
