@@ -1,6 +1,6 @@
 # Inpainting, Outpainting & Image Editing
 
-> Text-to-image makes new things. Inpainting fixes old ones. In production, 70% of billable image work is editing — swap a background, remove a logo, extend the canvas, regenerate a hand. Inpainting is where diffusion earns its keep.
+> Văn bản thành ảnh tạo ra những thứ mới. Inpainting sửa những thứ cũ. Trong production, 70% công việc ảnh có thể tính phí là chỉnh sửa — đổi nền, xóa logo, mở rộng khung vẽ, sinh lại một bàn tay. Inpainting là nơi khuếch tán chứng tỏ giá trị.
 
 **Type:** Build
 **Languages:** Python
@@ -9,15 +9,15 @@
 
 ## The Problem
 
-A client sends a perfect product photo with a distracting sign in the background. You want to erase the sign and leave everything else pixel-identical. You cannot run text-to-image from scratch — the result will have a different color, different lighting, different product angle. You want to regenerate *only* the masked region, and you want the regeneration to respect the surrounding context.
+Một khách hàng gửi một ảnh sản phẩm hoàn hảo với một biển hiệu gây mất tập trung ở nền. Bạn muốn xóa biển hiệu và giữ mọi thứ khác giống hệt từng pixel. Bạn không thể chạy văn bản thành ảnh từ đầu — kết quả sẽ có màu khác, ánh sáng khác, góc sản phẩm khác. Bạn muốn sinh lại *chỉ* vùng được che, và bạn muốn việc sinh lại tôn trọng ngữ cảnh xung quanh.
 
-That is inpainting. Variants:
+Đó là inpainting. Các biến thể:
 
-- **Inpainting.** Regenerate inside a mask, keep outside pixels.
-- **Outpainting.** Regenerate outside a mask (or beyond the canvas), keep inside.
-- **Image editing.** Regenerate the whole image but keep semantic or structural fidelity to the original (SDEdit, InstructPix2Pix).
+- **Inpainting.** Sinh lại bên trong một mặt nạ, giữ các pixel bên ngoài.
+- **Outpainting.** Sinh lại bên ngoài một mặt nạ (hoặc vượt ra ngoài khung vẽ), giữ bên trong.
+- **Chỉnh sửa ảnh.** Sinh lại toàn bộ ảnh nhưng giữ độ trung thành ngữ nghĩa hoặc cấu trúc với bản gốc (SDEdit, InstructPix2Pix).
 
-Every diffusion pipeline in 2026 ships an inpainting mode. Flux.1-Fill, Stable Diffusion Inpaint, SDXL-Inpaint, DALL-E 3 Edit. They work on the same principle.
+Mọi pipeline khuếch tán năm 2026 đều cung cấp một chế độ inpainting. Flux.1-Fill, Stable Diffusion Inpaint, SDXL-Inpaint, DALL-E 3 Edit. Chúng hoạt động theo cùng nguyên tắc.
 
 ## The Concept
 
@@ -25,35 +25,35 @@ Every diffusion pipeline in 2026 ships an inpainting mode. Flux.1-Fill, Stable D
 
 ### The naive approach (and why it's wrong)
 
-Run standard text-to-image with a mask. At each sampling step, replace the unmasked region of the noisy latent with the forward-diffused clean image. It works... badly. Boundary artifacts bleed through because the model has no information about what is in the masked region.
+Chạy văn bản thành ảnh tiêu chuẩn với một mặt nạ. Ở mỗi bước lấy mẫu, thay vùng không được che của latent có nhiễu bằng ảnh sạch được khuếch tán xuôi. Nó hoạt động... tệ. Các lỗi giả ở biên lọt qua vì mô hình không có thông tin về những gì ở trong vùng được che.
 
 ### The proper inpainting model
 
-Train a modified U-Net that takes 9 input channels instead of 4:
+Huấn luyện một U-Net sửa đổi nhận 9 kênh đầu vào thay vì 4:
 
 ```
 input = concat([ noisy_latent (4ch), encoded_image (4ch), mask (1ch) ], dim=channel)
 ```
 
-The extra channels are a copy of the VAE-encoded source image plus a single-channel mask. At training time, you randomly mask regions of the image and train the model to denoise only the masked region while the unmasked region is given as a clean conditioning signal. At inference, the model can "see" what surrounds the masked region and produces coherent completions.
+Các kênh bổ sung là một bản sao của ảnh nguồn được mã hóa bằng VAE cộng với một mặt nạ một kênh. Khi huấn luyện, bạn che ngẫu nhiên các vùng của ảnh và huấn luyện mô hình chỉ khử nhiễu vùng được che trong khi vùng không được che được cho làm tín hiệu điều kiện hóa sạch. Khi suy luận, mô hình có thể "thấy" những gì bao quanh vùng được che và tạo ra các phần điền hoàn chỉnh nhất quán.
 
-SD-Inpaint, SDXL-Inpaint, Flux-Fill all use this 9-channel (or analog) input. Diffusers `StableDiffusionInpaintPipeline`, `FluxFillPipeline`.
+SD-Inpaint, SDXL-Inpaint, Flux-Fill đều dùng đầu vào 9 kênh (hoặc tương tự) này. Diffusers `StableDiffusionInpaintPipeline`, `FluxFillPipeline`.
 
 ### SDEdit (Meng et al., 2022) — free editing
 
-Add noise to the source image up to some intermediate `t`, then run the reverse chain from `t` down to 0 with a new prompt. No retraining. The choice of starting `t` trades fidelity for creative freedom:
+Thêm nhiễu vào ảnh nguồn đến một `t` trung gian nào đó, rồi chạy chuỗi ngược từ `t` xuống 0 với một prompt mới. Không huấn luyện lại. Lựa chọn `t` bắt đầu đánh đổi độ trung thực lấy tự do sáng tạo:
 
-- `t/T = 0.3` → nearly identical to source, small stylistic changes
-- `t/T = 0.6` → moderate edits, preserves coarse structure
-- `t/T = 0.9` → generated from near-noise, minimal source preservation
+- `t/T = 0.3` → gần giống hệt nguồn, thay đổi nhỏ về phong cách
+- `t/T = 0.6` → chỉnh sửa vừa phải, giữ cấu trúc thô
+- `t/T = 0.9` → sinh từ gần nhiễu, giữ nguồn tối thiểu
 
 ### InstructPix2Pix (Brooks et al., 2023)
 
-Fine-tune a diffusion model on `(input_image, instruction, output_image)` triples. At inference, condition on both the input image and a text instruction ("make it sunset", "add a dragon"). Two CFG scales: image scale and text scale.
+Tinh chỉnh một mô hình khuếch tán trên các bộ ba `(input_image, instruction, output_image)`. Khi suy luận, điều kiện hóa theo cả ảnh đầu vào và một chỉ dẫn văn bản ("biến thành hoàng hôn", "thêm một con rồng"). Hai mức CFG: mức ảnh và mức văn bản.
 
 ### RePaint (Lugmayr et al., 2022)
 
-Keep a standard unconditional diffusion model. At each reverse step, resample — jump back to a noisier state occasionally and regenerate. Avoids boundary artifacts. Used when you don't have a trained inpainting model.
+Giữ một mô hình khuếch tán vô điều kiện tiêu chuẩn. Ở mỗi bước ngược, lấy mẫu lại — thỉnh thoảng nhảy trở lại một trạng thái nhiều nhiễu hơn và sinh lại. Tránh các lỗi giả ở biên. Dùng khi bạn không có một mô hình inpainting đã huấn luyện.
 
 ```figure
 inpaint-mask-reinject
@@ -61,7 +61,7 @@ inpaint-mask-reinject
 
 ## Build It
 
-`code/main.py` implements a toy 1-D inpainting scheme on 5-dimensional data. We train a DDPM on 5-D mixture data where each sample is 5 floats from one of two clusters. At inference, we "mask" 2 of the 5 dimensions, inject the noisy-forward version of the unmasked three at each step, and regenerate only the masked dimensions.
+`code/main.py` triển khai một cách inpainting 1-D đồ chơi trên dữ liệu 5 chiều. Chúng ta huấn luyện một DDPM trên dữ liệu hỗn hợp 5-D trong đó mỗi mẫu là 5 số float từ một trong hai cụm. Khi suy luận, chúng ta "che" 2 trong 5 chiều, đưa phiên bản xuôi có nhiễu của ba chiều không được che vào ở mỗi bước, và chỉ sinh lại các chiều được che.
 
 ### Step 1: 5-D DDPM data
 
@@ -74,7 +74,7 @@ def sample_data(rng):
 
 ### Step 2: train denoiser over all 5 dims
 
-Standard DDPM. Net outputs 5-D noise prediction for 5-D noisy input.
+DDPM tiêu chuẩn. Mạng xuất ra dự đoán nhiễu 5-D cho đầu vào có nhiễu 5-D.
 
 ### Step 3: at inference, mask-aware reverse
 
@@ -88,73 +88,73 @@ def inpaint_step(x_t, mask, clean_image, alpha_bars, t, rng):
     # ...then run the normal reverse step on x_t
 ```
 
-This is the naive approach and it works on toy 1-D data. Real image inpainting uses the 9-channel input because texture coherence matters more.
+Đây là cách tiếp cận đơn giản và nó hoạt động trên dữ liệu 1-D đồ chơi. Inpainting ảnh thực dùng đầu vào 9 kênh vì tính nhất quán kết cấu quan trọng hơn.
 
 ### Step 4: outpainting
 
-Outpainting is inpainting with the mask inverted: mask the new (previously non-existent) canvas, fill the rest with the original. Identical training objective.
+Outpainting là inpainting với mặt nạ đảo ngược: che phần khung vẽ mới (trước đó chưa tồn tại), điền phần còn lại bằng bản gốc. Mục tiêu huấn luyện giống hệt.
 
 ## Pitfalls
 
-- **Seams.** The naive approach leaves visible boundaries because gradient info doesn't flow across the mask. Fix: dilate the mask by 8-16 pixels, or use a proper inpainting model.
-- **Mask leakage.** If the conditioning image's unmasked region is low-quality or noisy, it pollutes the generation inside the mask. Denoise or blur slightly.
-- **CFG interacts with mask size.** High CFG on a small mask = saturated patch. Reduce CFG for small edits.
-- **SDEdit fidelity cliff.** Going from `t/T = 0.5` to `t/T = 0.6` can lose the subject's identity. Sweep and checkpoint.
-- **Prompt mismatch.** The prompt should describe the *whole* image, not just the new content. "A cat sitting on a chair" not "a cat".
+- **Đường nối.** Cách tiếp cận đơn giản để lại các ranh giới nhìn thấy vì thông tin gradient không truyền qua mặt nạ. Cách khắc phục: giãn mặt nạ thêm 8-16 pixel, hoặc dùng một mô hình inpainting đúng nghĩa.
+- **Rò rỉ mặt nạ.** Nếu vùng không được che của ảnh điều kiện hóa có chất lượng thấp hoặc nhiều nhiễu, nó làm ô nhiễm phần sinh bên trong mặt nạ. Khử nhiễu hoặc làm mờ nhẹ.
+- **CFG tương tác với kích thước mặt nạ.** CFG cao trên một mặt nạ nhỏ = patch bão hòa. Giảm CFG cho các chỉnh sửa nhỏ.
+- **Vách độ trung thực SDEdit.** Đi từ `t/T = 0.5` đến `t/T = 0.6` có thể làm mất danh tính chủ thể. Quét và lưu checkpoint.
+- **Prompt không khớp.** Prompt nên mô tả *toàn bộ* ảnh, không chỉ nội dung mới. "Một con mèo ngồi trên một chiếc ghế" chứ không phải "một con mèo".
 
 ## Use It
 
-| Task | Pipeline |
+| Tác vụ | Pipeline |
 |------|----------|
-| Remove object, small mask | SD-Inpaint or Flux-Fill, standard prompt |
-| Replace sky | SD-Inpaint + "blue sky at sunset" |
-| Extend canvas | SDXL outpaint mode (8px feather) or Flux-Fill with outpaint mask |
-| Regenerate hand / face | SD-Inpaint with prompt re-describing the subject + ControlNet-Openpose |
-| Change style of one region | SDEdit at `t/T=0.5` on masked region |
-| "Make it sunset" | InstructPix2Pix or Flux-Kontext |
-| Background replacement | SAM mask → SD-Inpaint |
-| Ultra-high-fidelity | Flux-Fill or GPT-Image (hosted) for hardest cases |
+| Xóa vật thể, mặt nạ nhỏ | SD-Inpaint hoặc Flux-Fill, prompt tiêu chuẩn |
+| Thay bầu trời | SD-Inpaint + "bầu trời xanh lúc hoàng hôn" |
+| Mở rộng khung vẽ | Chế độ outpaint SDXL (làm mềm biên 8px) hoặc Flux-Fill với mặt nạ outpaint |
+| Sinh lại bàn tay / khuôn mặt | SD-Inpaint với prompt mô tả lại chủ thể + ControlNet-Openpose |
+| Thay phong cách một vùng | SDEdit ở `t/T=0.5` trên vùng được che |
+| "Biến thành hoàng hôn" | InstructPix2Pix hoặc Flux-Kontext |
+| Thay nền | Mặt nạ SAM → SD-Inpaint |
+| Độ trung thực cực cao | Flux-Fill hoặc GPT-Image (được lưu trữ) cho các trường hợp khó nhất |
 
-SAM (Meta's Segment Anything, 2023) + diffusion inpaint is the 2026 background-removal pipeline. SAM 2 (2024) works on video.
+SAM (Segment Anything của Meta, 2023) + inpaint khuếch tán là pipeline xóa nền năm 2026. SAM 2 (2024) hoạt động trên video.
 
 ## Ship It
 
-Save `outputs/skill-editing-pipeline.md`. Skill takes an original image + edit description + optional mask (or SAM prompt) and outputs: mask-generation approach, base model, CFG scales (image + text), SDEdit-t or inpainting mode, and QA checklist.
+Lưu `outputs/skill-editing-pipeline.md`. Skill nhận một ảnh gốc + mô tả chỉnh sửa + mặt nạ tùy chọn (hoặc prompt SAM) và xuất ra: cách tạo mặt nạ, mô hình cơ sở, các mức CFG (ảnh + văn bản), SDEdit-t hoặc chế độ inpainting, và danh sách kiểm tra QA.
 
 ## Exercises
 
-1. **Easy.** In `code/main.py`, vary the fraction of dimensions masked from 0.2 to 0.8. At what fraction does the inpaint quality (residual in masked dims) equal unconditional generation?
-2. **Medium.** Implement RePaint: at every 10th reverse step, jump back 5 steps (add noise) and re-denoise. Measure whether it reduces boundary residual at the mask edge.
-3. **Hard.** Use Hugging Face diffusers to compare: SD 1.5 Inpaint + ControlNet-Openpose vs Flux.1-Fill on 20 face-regeneration tasks. Score pose adherence and identity preservation separately.
+1. **Dễ.** Trong `code/main.py`, thay đổi tỷ lệ các chiều được che từ 0.2 đến 0.8. Ở tỷ lệ nào chất lượng inpaint (phần dư ở các chiều được che) bằng sinh vô điều kiện?
+2. **Trung bình.** Triển khai RePaint: ở mỗi bước ngược thứ 10, nhảy lại 5 bước (thêm nhiễu) và khử nhiễu lại. Đo xem nó có giảm phần dư biên ở cạnh mặt nạ không.
+3. **Khó.** Dùng Hugging Face diffusers để so sánh: SD 1.5 Inpaint + ControlNet-Openpose so với Flux.1-Fill trên 20 tác vụ sinh lại khuôn mặt. Chấm điểm bám sát tư thế và giữ danh tính riêng biệt.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Inpainting | "Fill the hole" | Regenerate inside a mask; keep outside pixels. |
-| Outpainting | "Extend the canvas" | Regenerate outside the canvas; keep inside. |
-| 9-channel U-Net | "Proper inpainting model" | U-Net with `noisy \| encoded-source \| mask` as input. |
-| SDEdit | "Img2img with noise level" | Noise to time `t`, denoise with new prompt. |
-| InstructPix2Pix | "Text-only edits" | Fine-tuned diffusion on (image, instruction, output) triples. |
-| RePaint | "No retraining" | Re-noise periodically during reverse to reduce seams. |
-| SAM | "Segment Anything" | Mask generator by clicks or boxes; pairs with inpaint. |
-| Flux-Kontext | "Edit with context" | Flux variant that accepts a reference image + instruction for edits. |
+| Inpainting | "Điền lỗ trống" | Sinh lại bên trong một mặt nạ; giữ các pixel bên ngoài. |
+| Outpainting | "Mở rộng khung vẽ" | Sinh lại bên ngoài khung vẽ; giữ bên trong. |
+| 9-channel U-Net (U-Net 9 kênh) | "Mô hình inpainting đúng nghĩa" | U-Net với `noisy \| encoded-source \| mask` làm đầu vào. |
+| SDEdit | "Img2img với mức nhiễu" | Thêm nhiễu đến thời điểm `t`, khử nhiễu với prompt mới. |
+| InstructPix2Pix | "Chỉnh sửa chỉ bằng văn bản" | Khuếch tán được tinh chỉnh trên các bộ ba (ảnh, chỉ dẫn, đầu ra). |
+| RePaint | "Không huấn luyện lại" | Thêm nhiễu lại định kỳ trong quá trình ngược để giảm đường nối. |
+| SAM | "Segment Anything" | Bộ sinh mặt nạ qua nhấp chuột hoặc hộp; kết hợp với inpaint. |
+| Flux-Kontext | "Chỉnh sửa với ngữ cảnh" | Biến thể Flux nhận một ảnh tham chiếu + chỉ dẫn để chỉnh sửa. |
 
 ## Production note: edit pipelines are latency-sensitive
 
-Users editing an image expect sub-5-second round trips. A 30-step SDXL-Inpaint at 1024² is 3-4 s on an L4, plus SAM mask generation (~200 ms) and VAE encode/decode (~500 ms combined). In production framing, this is TTFT-bound rather than throughput-bound — batch 1, low concurrency, minimize every stage:
+Người dùng chỉnh sửa một ảnh mong đợi các vòng phản hồi dưới 5 giây. Một SDXL-Inpaint 30 bước ở 1024² mất 3-4 s trên một L4, cộng tạo mặt nạ SAM (~200 ms) và mã hóa/giải mã VAE (tổng ~500 ms). Theo cách đặt vấn đề production, điều này bị giới hạn bởi TTFT thay vì thông lượng — batch 1, mức đồng thời thấp, tối thiểu hóa mọi giai đoạn:
 
-- **SAM-H is the slow one.** SAM-H at 1024² is ~200 ms; SAM-ViT-B is ~40 ms with minor quality loss. SAM 2 (video) adds temporal overhead; do not use it for single-image edits.
-- **Skip the encode when possible.** `pipe.image_processor.preprocess(img)` encodes to latents. If you have the latents from the previous generation (typical in iterative-edit UIs), pass them directly via `latents=...` to skip one VAE encode.
-- **Mask dilation matters for throughput too.** A small mask means most of the U-Net forward pass is wasted (the unmasked pixels are clamped anyway). `diffusers`' `StableDiffusionInpaintPipeline` runs the full U-Net regardless; only the 9-channel proper-inpaint variants exploit masked compute.
-- **Flux-Kontext is the 2025 answer.** Single forward pass over `(source_image, instruction)` — no separate mask, no SDEdit noise sweep. On an H100 it ships an edit in ~1.5 s. The architectural lesson: collapse the stages.
+- **SAM-H là cái chậm.** SAM-H ở 1024² mất ~200 ms; SAM-ViT-B mất ~40 ms với mất mát chất lượng nhỏ. SAM 2 (video) thêm chi phí thời gian; đừng dùng nó cho chỉnh sửa một ảnh.
+- **Bỏ mã hóa khi có thể.** `pipe.image_processor.preprocess(img)` mã hóa thành latent. Nếu bạn có các latent từ lần sinh trước (điển hình trong các UI chỉnh sửa lặp), truyền chúng trực tiếp qua `latents=...` để bỏ một lần mã hóa VAE.
+- **Giãn mặt nạ cũng quan trọng cho thông lượng.** Một mặt nạ nhỏ nghĩa là hầu hết lượt truyền xuôi U-Net bị lãng phí (các pixel không được che dù sao cũng bị cố định). Trong `diffusers`, `StableDiffusionInpaintPipeline` chạy toàn bộ U-Net bất kể thế nào; chỉ các biến thể inpaint đúng nghĩa 9 kênh tận dụng tính toán được che.
+- **Flux-Kontext là câu trả lời năm 2025.** Một lượt truyền xuôi duy nhất trên `(source_image, instruction)` — không mặt nạ riêng, không quét nhiễu SDEdit. Trên một H100 nó đưa ra một chỉnh sửa trong ~1.5 s. Bài học kiến trúc: gộp các giai đoạn.
 
 ## Further Reading
 
-- [Lugmayr et al. (2022). RePaint: Inpainting using Denoising Diffusion Probabilistic Models](https://arxiv.org/abs/2201.09865) — training-free inpainting.
+- [Lugmayr et al. (2022). RePaint: Inpainting using Denoising Diffusion Probabilistic Models](https://arxiv.org/abs/2201.09865) — inpainting không cần huấn luyện.
 - [Meng et al. (2022). SDEdit: Guided Image Synthesis and Editing with Stochastic Differential Equations](https://arxiv.org/abs/2108.01073) — SDEdit.
-- [Brooks, Holynski, Efros (2023). InstructPix2Pix](https://arxiv.org/abs/2211.09800) — text-instruction editing.
-- [Kirillov et al. (2023). Segment Anything](https://arxiv.org/abs/2304.02643) — SAM, the mask source.
-- [Ravi et al. (2024). SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714) — video SAM.
-- [Hertz et al. (2022). Prompt-to-Prompt Image Editing with Cross-Attention Control](https://arxiv.org/abs/2208.01626) — attention-level editing.
-- [Black Forest Labs (2024). Flux.1-Fill and Flux.1-Kontext](https://blackforestlabs.ai/flux-1-tools/) — 2024 tooling.
+- [Brooks, Holynski, Efros (2023). InstructPix2Pix](https://arxiv.org/abs/2211.09800) — chỉnh sửa bằng chỉ dẫn văn bản.
+- [Kirillov et al. (2023). Segment Anything](https://arxiv.org/abs/2304.02643) — SAM, nguồn mặt nạ.
+- [Ravi et al. (2024). SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714) — SAM video.
+- [Hertz et al. (2022). Prompt-to-Prompt Image Editing with Cross-Attention Control](https://arxiv.org/abs/2208.01626) — chỉnh sửa ở cấp attention.
+- [Black Forest Labs (2024). Flux.1-Fill and Flux.1-Kontext](https://blackforestlabs.ai/flux-1-tools/) — bộ công cụ năm 2024.

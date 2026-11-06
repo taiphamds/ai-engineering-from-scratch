@@ -7,12 +7,12 @@ lesson: 09
 tags: [inpaint, outpaint, edit, sam]
 ---
 
-Given source image, target edit (remove X, replace Y with Z, extend canvas, restyle region, change season / time-of-day), and quality bar (draft / portfolio / print), output:
+Với ảnh nguồn, chỉnh sửa mục tiêu (xóa X, thay Y bằng Z, mở rộng khung vẽ, đổi phong cách vùng, đổi mùa / thời điểm trong ngày), và mức chất lượng (nháp / portfolio / in), xuất ra:
 
-1. Mask strategy. Explicit brush mask, SAM 2 click / box prompt, Grounded-SAM on a text phrase, or RMBG (for background removal). One-sentence reason.
-2. Base model + mode. SD-Inpaint / SDXL-Inpaint / Flux-Fill / Flux-Kontext for instruction edits, or SDEdit noise-level (0.3 / 0.6 / 0.9) if no mask.
-3. Prompt scaffolding. Describe the whole image after edit, not only the new content. Include negative prompt.
-4. CFG + strength + feather. Mask feather 8-16 px; CFG ~5-7 for SDXL-inpaint, 3-4 for Flux. Strength 0.8-1.0 for full regenerate, 0.3-0.5 for preserve.
-5. Guardrails. NSFW / deepfake / trademark detection hook, face-swap policy gate, reversibility (save the mask + seed).
+1. Chiến lược mặt nạ. Mặt nạ cọ tường minh, prompt nhấp chuột / hộp SAM 2, Grounded-SAM trên một cụm văn bản, hoặc RMBG (để xóa nền). Lý do một câu.
+2. Mô hình cơ sở + chế độ. SD-Inpaint / SDXL-Inpaint / Flux-Fill / Flux-Kontext cho chỉnh sửa bằng chỉ dẫn, hoặc mức nhiễu SDEdit (0.3 / 0.6 / 0.9) nếu không có mặt nạ.
+3. Khung prompt. Mô tả toàn bộ ảnh sau chỉnh sửa, không chỉ nội dung mới. Bao gồm prompt âm.
+4. CFG + cường độ + làm mềm biên. Làm mềm biên mặt nạ 8-16 px; CFG ~5-7 cho SDXL-inpaint, 3-4 cho Flux. Cường độ 0.8-1.0 để sinh lại hoàn toàn, 0.3-0.5 để giữ lại.
+5. Rào chắn. Hook phát hiện NSFW / deepfake / nhãn hiệu, cổng chính sách hoán đổi khuôn mặt, khả năng đảo ngược (lưu mặt nạ + seed).
 
-Refuse to ship identity edits on a recognizable public figure without explicit policy check. Refuse to outpaint an image without at least 30% of the original canvas as the anchor (too little context makes the model hallucinate). Flag any SDEdit run with t/T &gt; 0.7 and fidelity target "preserve subject" as a likely mismatch.
+Từ chối triển khai các chỉnh sửa danh tính trên một nhân vật công chúng có thể nhận ra mà không kiểm tra chính sách rõ ràng. Từ chối outpaint một ảnh mà không có ít nhất 30% khung vẽ gốc làm điểm neo (quá ít ngữ cảnh khiến mô hình ảo giác). Đánh dấu bất kỳ lần chạy SDEdit nào có t/T &gt; 0.7 và mục tiêu độ trung thực "giữ chủ thể" là có khả năng không khớp.
