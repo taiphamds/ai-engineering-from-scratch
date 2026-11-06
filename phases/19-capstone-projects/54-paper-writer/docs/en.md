@@ -1,6 +1,6 @@
 # Paper Writer
 
-> A LaTeX skeleton is a contract between the researcher and the typesetter. If the contract is broken the document does not compile, and the failure is loud. Build the skeleton first, then fill it.
+> Một bộ khung LaTeX là một hợp đồng giữa nhà nghiên cứu và người sắp chữ. Nếu hợp đồng bị phá tài liệu không biên dịch, và thất bại rõ ràng. Xây dựng bộ khung trước, rồi điền nó.
 
 **Type:** Build
 **Languages:** Python
@@ -9,11 +9,11 @@
 
 ## Learning Objectives
 
-- Treat a research paper as a structured artifact with a known section graph, not a freeform document.
-- Generate a LaTeX skeleton that declares its abstract, sections, figure slots, and bibliography keys before any prose is written.
-- Inject figures from experiment outputs (paths and captions) into the skeleton through a deterministic slot mechanism.
-- Wire a mocked prose generator that fills each section from a structured outline so the harness is testable without a model.
-- Emit a single `paper.tex` plus a `references.bib` plus a manifest that lists every figure referenced and every citation used.
+- Coi một bài báo nghiên cứu như một hiện vật có cấu trúc với một đồ thị mục đã biết, không phải một tài liệu dạng tự do.
+- Tạo một bộ khung LaTeX khai báo tóm tắt, các mục, các vị trí hình, và các khóa thư mục tài liệu trước khi bất kỳ văn xuôi nào được viết.
+- Chèn các hình từ đầu ra thí nghiệm (đường dẫn và chú thích) vào bộ khung qua một cơ chế vị trí tất định.
+- Nối một bộ sinh văn xuôi giả lập điền từng mục từ một dàn ý có cấu trúc để harness có thể kiểm thử mà không có mô hình.
+- Phát ra một `paper.tex` duy nhất cùng một `references.bib` cùng một bản kê khai liệt kê mọi hình được tham chiếu và mọi trích dẫn được dùng.
 
 ```figure
 ch-paper-skeleton
@@ -21,11 +21,11 @@ ch-paper-skeleton
 
 ## Why a skeleton first
 
-A draft that starts as prose accumulates structural debt. The introduction grows three paragraphs that should be in related work. A figure gets referenced before it is defined. The bibliography ends up with three keys for the same paper. By the time the author notices, the rewriting cost is higher than the writing cost.
+Một bản nháp bắt đầu bằng văn xuôi tích lũy nợ cấu trúc. Phần giới thiệu mọc thêm ba đoạn lẽ ra nên nằm trong nghiên cứu liên quan. Một hình được tham chiếu trước khi nó được định nghĩa. Thư mục tài liệu kết thúc với ba khóa cho cùng một bài báo. Đến khi tác giả nhận ra, chi phí viết lại cao hơn chi phí viết.
 
-A skeleton inverts that. The structure is declared up front as data. Sections are slots with names and order. Figures are slots with ids and captions. Bibliography keys are declared at the top with the entries they point at. Prose is generated into those slots one at a time. The harness can validate, before any prose is written, that every figure has a slot, every citation has an entry, and every section appears in the table of contents.
+Một bộ khung đảo ngược điều đó. Cấu trúc được khai báo từ trước như dữ liệu. Các mục là các vị trí với tên và thứ tự. Các hình là các vị trí với id và chú thích. Các khóa thư mục tài liệu được khai báo ở đầu với các mục chúng trỏ tới. Văn xuôi được sinh vào những vị trí đó từng vị trí một. Harness có thể xác thực, trước khi bất kỳ văn xuôi nào được viết, rằng mọi hình có một vị trí, mọi trích dẫn có một mục, và mọi mục xuất hiện trong mục lục.
 
-This is the same discipline that earlier lessons applied to plans, tool calls, and traces. The structure is the contract.
+Đây là cùng kỷ luật mà các bài trước áp dụng cho các kế hoạch, lệnh gọi công cụ, và trace. Cấu trúc là hợp đồng.
 
 ## The Paper shape
 
@@ -43,17 +43,17 @@ flowchart TB
     Bib --> Entry1[BibEntry: key, fields]
 ```
 
-Every field is plain Python data. The renderer is a pure function from `Paper` to a LaTeX string. The harness can introspect the paper before rendering: count sections, list missing figure files, check that every `\cite{key}` has a matching `BibEntry`.
+Mọi trường là dữ liệu Python thông thường. Bộ kết xuất là một hàm thuần túy từ `Paper` sang một chuỗi LaTeX. Harness có thể nội quan bài báo trước khi kết xuất: đếm các mục, liệt kê các file hình thiếu, kiểm tra rằng mọi `\cite{key}` có một `BibEntry` tương ứng.
 
 ## The render contract
 
-The renderer guarantees three properties. First, every figure slot in the skeleton emits a `\begin{figure}` block with a stable label of the form `fig:<id>`. Second, every section emits a `\section{}` with a stable label of the form `sec:<id>` so cross-references work. Third, the bibliography emits a `\bibliography` block whose `references.bib` contains exactly the entries declared on the paper, no more and no fewer.
+Bộ kết xuất bảo đảm ba thuộc tính. Thứ nhất, mọi vị trí hình trong bộ khung phát ra một khối `\begin{figure}` với một nhãn ổn định dạng `fig:<id>`. Thứ hai, mọi mục phát ra một `\section{}` với một nhãn ổn định dạng `sec:<id>` để các tham chiếu chéo hoạt động. Thứ ba, thư mục tài liệu phát ra một khối `\bibliography` mà `references.bib` của nó chứa chính xác các mục được khai báo trên bài báo, không nhiều hơn và không ít hơn.
 
-Violating any of these is a render error, not a warning. The skeleton is the contract; a render that silently drops a figure is a contract break.
+Vi phạm bất kỳ điều nào trong số này là một lỗi kết xuất, không phải một cảnh báo. Bộ khung là hợp đồng; một lần kết xuất âm thầm bỏ một hình là một sự phá vỡ hợp đồng.
 
 ## Figure injection from experiments
 
-The earlier lessons in this track produced experiment outputs as JSON manifests. Each manifest carries a list of artifacts with paths and short captions. The paper writer reads that manifest and produces `Figure` records.
+Các bài trước trong track này tạo các đầu ra thí nghiệm dưới dạng các bản kê khai JSON. Mỗi bản kê khai mang một danh sách hiện vật với các đường dẫn và chú thích ngắn. Bộ viết bài báo đọc bản kê khai đó và tạo các bản ghi `Figure`.
 
 ```mermaid
 flowchart LR
@@ -64,17 +64,17 @@ flowchart LR
     Render --> Out[paper.tex]
 ```
 
-The injection is deterministic. Figure ids are derived from the experiment name plus a monotonic counter. Captions come from the manifest. Paths are normalised relative to the paper's output directory so the LaTeX compiles even when the experiment outputs sit elsewhere on disk.
+Việc chèn là tất định. Các id hình được suy ra từ tên thí nghiệm cộng một bộ đếm đơn điệu. Các chú thích đến từ bản kê khai. Các đường dẫn được chuẩn hóa tương đối với thư mục đầu ra của bài báo để LaTeX biên dịch ngay cả khi các đầu ra thí nghiệm nằm nơi khác trên đĩa.
 
 ## The mocked prose generator
 
-The lesson does not call a model. A `MockProseGenerator` reads an outline shape and emits prose deterministically. The outline shape is one short string per section. The generator expands that string into two short paragraphs with the section title woven in. The generated prose name-drops figures and citations exactly when the outline declares them.
+Bài học không gọi một mô hình. Một `MockProseGenerator` đọc một hình thức dàn ý và phát ra văn xuôi tất định. Hình thức dàn ý là một chuỗi ngắn mỗi mục. Bộ sinh mở rộng chuỗi đó thành hai đoạn ngắn với tiêu đề mục được đan vào. Văn xuôi được sinh nhắc tên các hình và trích dẫn chính xác khi dàn ý khai báo chúng.
 
-This is enough to test every behaviour of the writer. A real implementation would swap the generator for a model call. The harness around it does not change. That is the value of declaring the prose generator as a callable: the test substitutes a deterministic one, production substitutes a model one, the rest of the pipeline is identical.
+Điều này đủ để kiểm thử mọi hành vi của bộ viết. Một triển khai thực sẽ đổi bộ sinh thành một lệnh gọi mô hình. Harness quanh nó không đổi. Đó là giá trị của khai báo bộ sinh văn xuôi như một đối tượng có thể gọi: kiểm thử thay bằng một đối tượng tất định, sản xuất thay bằng một đối tượng mô hình, phần còn lại của pipeline giống hệt.
 
 ## The manifest output
 
-The writer emits three files into the output directory.
+Bộ viết phát ra ba file vào thư mục đầu ra.
 
 ```mermaid
 flowchart TB
@@ -86,27 +86,27 @@ flowchart TB
     Man --> S[sections rendered]
 ```
 
-The manifest is what a downstream evaluator or critic loop reads. It does not parse LaTeX; it reads the manifest. The next lesson, the critic loop, takes this manifest as input and produces a feedback list. That is why the manifest is part of the contract and the LaTeX is not.
+Bản kê khai là thứ một bộ đánh giá hạ nguồn hoặc vòng lặp phê bình đọc. Nó không phân tích LaTeX; nó đọc bản kê khai. Bài tiếp theo, vòng lặp phê bình, nhận bản kê khai này làm đầu vào và tạo một danh sách phản hồi. Đó là lý do bản kê khai là một phần của hợp đồng và LaTeX thì không.
 
 ## Validation gates
 
-The writer runs four gates before writing any file.
+Bộ viết chạy bốn cổng trước khi ghi bất kỳ file nào.
 
-1. Every figure id is unique within the paper.
-2. Every section's `cites` field references a bibliography key that is declared on the paper.
-3. The abstract is non-empty.
-4. The title is non-empty.
+1. Mọi id hình là duy nhất trong bài báo.
+2. Trường `cites` của mọi mục tham chiếu một khóa thư mục tài liệu được khai báo trên bài báo.
+3. Tóm tắt không rỗng.
+4. Tiêu đề không rỗng.
 
-A failed gate raises `PaperValidationError` with a precise reason. The harness surfaces the reason as the failure mode. There is no partial write: either all three files are emitted, or none.
+Một cổng thất bại phát sinh `PaperValidationError` với một lý do chính xác. Harness đưa ra lý do như chế độ lỗi. Không có ghi một phần: hoặc cả ba file được phát ra, hoặc không file nào.
 
 ## How to read the code
 
-`code/main.py` defines `Paper`, `Section`, `Figure`, `BibEntry`, `PaperValidationError`, `MockProseGenerator`, `PaperWriter`, and a `render_latex` function. The `write` method takes an output directory and emits `paper.tex`, `references.bib`, and `manifest.json`. The `read_experiment_manifest` helper converts a list of experiment manifests into `Figure` records.
+`code/main.py` định nghĩa `Paper`, `Section`, `Figure`, `BibEntry`, `PaperValidationError`, `MockProseGenerator`, `PaperWriter`, và một hàm `render_latex`. Phương thức `write` nhận một thư mục đầu ra và phát ra `paper.tex`, `references.bib`, và `manifest.json`. Hàm hỗ trợ `read_experiment_manifest` chuyển một danh sách bản kê khai thí nghiệm thành các bản ghi `Figure`.
 
-`code/tests/test_paper_writer.py` covers: skeleton render with no sections, full render with two sections and two figures, missing-citation gate, duplicate-figure-id gate, manifest content, and the LaTeX-string contract (every section emits a `\section{}`, every figure emits a `\begin{figure}`).
+`code/tests/test_paper_writer.py` bao phủ: kết xuất bộ khung không có mục, kết xuất đầy đủ với hai mục và hai hình, cổng thiếu trích dẫn, cổng id hình trùng, nội dung bản kê khai, và hợp đồng chuỗi LaTeX (mọi mục phát ra một `\section{}`, mọi hình phát ra một `\begin{figure}`).
 
 ## Going further
 
-Two extensions a real implementation will want. First, multi-format render: the same `Paper` shape compiles to Markdown for blog posts and HTML for previews. The renderer becomes a strategy on `Paper`. Second, citation enrichment: the writer fetches BibTeX entries from a citation key, given a local cache of DOIs. Both add value, both can be added without touching the skeleton contract.
+Hai phần mở rộng mà một triển khai thực sẽ muốn. Thứ nhất, kết xuất nhiều định dạng: cùng hình thức `Paper` biên dịch thành Markdown cho các bài blog và HTML cho bản xem trước. Bộ kết xuất trở thành một chiến lược trên `Paper`. Thứ hai, làm giàu trích dẫn: bộ viết lấy các mục BibTeX từ một khóa trích dẫn, với một bộ nhớ đệm DOI cục bộ được cung cấp. Cả hai thêm giá trị, cả hai có thể được thêm mà không chạm hợp đồng bộ khung.
 
-The skeleton is the bet. Sections, figures, and citations declared as data, prose generated into slots, manifest emitted alongside the LaTeX. Every other improvement composes on top.
+Bộ khung là sự đặt cược. Các mục, hình, và trích dẫn được khai báo như dữ liệu, văn xuôi được sinh vào các vị trí, bản kê khai được phát ra cạnh LaTeX. Mọi cải thiện khác kết hợp lên trên.
