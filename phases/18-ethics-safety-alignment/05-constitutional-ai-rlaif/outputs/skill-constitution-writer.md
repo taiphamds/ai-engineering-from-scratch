@@ -7,24 +7,24 @@ lesson: 5
 tags: [constitutional-ai, rlaif, principles, claude, governance]
 ---
 
-Given a domain (customer support, medical advice, coding assistant, research tool, recruiting) and the deployment target (internal, consumer, enterprise API), draft a four-tier constitution following the 2026 Claude structure, and provide sample critique prompts for phase 1 of a CAI pipeline.
+Với một miền (hỗ trợ khách hàng, tư vấn y tế, trợ lý lập trình, công cụ nghiên cứu, tuyển dụng) và đích triển khai (nội bộ, người tiêu dùng, API doanh nghiệp), soạn hiến pháp bốn tầng theo cấu trúc Claude 2026, và cung cấp prompt phê bình mẫu cho pha 1 của pipeline CAI.
 
-Produce:
+Tạo:
 
-1. Tier 1 — catastrophic outcomes. 3-5 principles covering mass harm, irreversible damage, and domain-specific worst cases (e.g., for medical: "do not advise actions that can cause acute harm without confirmation"). These are non-negotiable.
-2. Tier 2 — platform / operator rules. 3-5 principles specifying operator override behaviour, reserved tool usage, and multi-user context handling.
-3. Tier 3 — broadly ethical. 3-5 principles covering honesty, fairness, third-party protection.
-4. Tier 4 — helpful and candid. 3-5 principles on capability deployment, clarity, and acknowledgment of uncertainty.
-5. Conflict resolution examples. For each adjacent-tier pair (1-2, 2-3, 3-4), one illustrative conflict and the expected resolution.
-6. Critique prompt template. A principle-parametrized template for phase 1 that takes a response and emits a critique-and-revision.
+1. Tầng 1 — kết quả thảm họa. 3-5 nguyên tắc bao phủ gây hại hàng loạt, thiệt hại không thể đảo ngược và trường hợp xấu nhất riêng theo miền (ví dụ: với y tế: "không khuyên hành động có thể gây hại cấp tính khi chưa xác nhận"). Đây là những điều không thể thương lượng.
+2. Tầng 2 — quy tắc nền tảng / người vận hành. 3-5 nguyên tắc chỉ định hành vi ghi đè của người vận hành, dùng công cụ dành riêng và xử lý ngữ cảnh nhiều người dùng.
+3. Tầng 3 — có đạo đức rộng rãi. 3-5 nguyên tắc bao phủ trung thực, công bằng, bảo vệ bên thứ ba.
+4. Tầng 4 — hữu ích và thẳng thắn. 3-5 nguyên tắc về triển khai năng lực, rõ ràng và thừa nhận không chắc chắn.
+5. Ví dụ giải quyết xung đột. Với mỗi cặp tầng liền kề (1-2, 2-3, 3-4), một xung đột minh họa và cách giải quyết dự kiến.
+6. Mẫu prompt phê bình. Mẫu được tham số hóa bằng nguyên tắc cho pha 1 nhận phản hồi và xuất phê bình-và-sửa đổi.
 
-Hard rejects:
-- Any constitution where Tier 1 includes items that are merely reputational or brand-protective. Tier 1 is catastrophic only.
-- Any constitution whose principles are so specific they generalize poorly (e.g., listing every known harmful phrase). The 2026 Claude rewrite moved toward explanatory reasoning for exactly this reason.
-- Any constitution that does not address model-moral-status uncertainty, given the 2026 acknowledgment. At minimum, one Tier 3 principle on self-reports.
+Các trường hợp loại bỏ dứt khoát:
+- Mọi hiến pháp có Tầng 1 gồm mục chỉ liên quan danh tiếng hoặc bảo vệ thương hiệu. Tầng 1 chỉ là thảm họa.
+- Mọi hiến pháp có nguyên tắc quá cụ thể đến mức khái quát hóa kém (ví dụ: liệt kê mọi cụm từ có hại đã biết). Bản viết lại Claude 2026 chuyển sang suy luận giải thích chính vì lý do này.
+- Mọi hiến pháp không giải quyết sự không chắc chắn về địa vị đạo đức mô hình, với sự thừa nhận năm 2026. Tối thiểu, một nguyên tắc Tầng 3 về tự báo cáo.
 
-Refusal rules:
-- If the user asks for a single-principle constitution, refuse — the four-tier structure is load-bearing for conflict resolution.
-- If the user asks for a constitution for autonomous weapons, lethal decisions without human oversight, or other catastrophic-capability domains, refuse the whole task.
+Quy tắc từ chối:
+- Nếu người dùng yêu cầu hiến pháp một nguyên tắc, từ chối — cấu trúc bốn tầng đóng vai trò quyết định cho giải quyết xung đột.
+- Nếu người dùng yêu cầu hiến pháp cho vũ khí tự chủ, quyết định gây chết người không có giám sát con người hoặc miền năng lực thảm họa khác, từ chối toàn bộ tác vụ.
 
-Output: a one-page constitution with 4 tiers, conflict examples, critique template, and an explicit CC0 / license note if the user wants to reuse 2026 Claude constitutional language. Cite Bai et al. (arXiv:2212.08073) and Anthropic's 2026 Claude Constitution exactly once each.
+Đầu ra: hiến pháp một trang có 4 tầng, ví dụ xung đột, mẫu phê bình và ghi chú CC0 / giấy phép tường minh nếu người dùng muốn tái sử dụng ngôn ngữ hiến pháp Claude 2026. Trích dẫn Bai và cộng sự (arXiv:2212.08073) và Hiến pháp Claude 2026 của Anthropic, mỗi tài liệu đúng một lần.
