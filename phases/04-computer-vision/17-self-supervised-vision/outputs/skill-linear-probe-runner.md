@@ -9,30 +9,30 @@ tags: [self-supervised, evaluation, linear-probe, pytorch]
 
 # Linear Probe Runner
 
-Evaluate a frozen encoder's features by training a single linear classifier on top. The standard evaluation for every self-supervised paper.
+Đánh giá các đặc trưng encoder đóng băng bằng cách huấn luyện một bộ phân loại tuyến tính duy nhất trên đó. Đánh giá tiêu chuẩn cho mọi bài báo tự giám sát.
 
 ## When to use
 
-- Comparing self-supervised checkpoints.
-- Tracking feature quality over pretraining epochs.
-- Deciding whether a pretrained encoder is good enough for a downstream task without fine-tuning.
+- So sánh các checkpoint tự giám sát.
+- Theo dõi chất lượng đặc trưng qua các epoch tiền huấn luyện.
+- Quyết định liệu một encoder được tiền huấn luyện có đủ tốt cho tác vụ phía sau mà không tinh chỉnh.
 
 ## Inputs
 
-- `encoder`: frozen `nn.Module` returning a fixed-dim feature per image.
-- `feature_dim`: dimensionality of the encoder output.
-- `train_dataset`: labelled dataset (image, class_id).
-- `val_dataset`: held-out set.
-- `num_classes`: task classes.
-- `epochs`: typically 100 for ImageNet-scale, 50 for smaller datasets.
+- `encoder`: `nn.Module` đóng băng trả về một đặc trưng chiều cố định mỗi hình ảnh.
+- `feature_dim`: số chiều đầu ra encoder.
+- `train_dataset`: tập dữ liệu gán nhãn (image, class_id).
+- `val_dataset`: tập được giữ lại.
+- `num_classes`: các lớp tác vụ.
+- `epochs`: thường 100 cho quy mô ImageNet, 50 cho các tập dữ liệu nhỏ hơn.
 
 ## Steps
 
-1. Set encoder to eval mode and `requires_grad=False` on every parameter.
-2. Feature-extract both train and val sets once. Store as numpy arrays or a memory-mapped file.
-3. Train a `nn.Linear(feature_dim, num_classes)` on the cached features with SGD + cosine schedule.
-4. Standard hyperparameters: `lr=0.1`, `momentum=0.9`, `weight_decay=0`, `batch_size=1024`. Linear probe is surprisingly sensitive to `lr` — sweep if accuracy is poor.
-5. Report top-1 accuracy on val at the end of training.
+1. Đặt encoder ở chế độ eval và `requires_grad=False` trên mọi tham số.
+2. Trích xuất đặc trưng cả tập huấn luyện và validation một lần. Lưu thành mảng numpy hoặc file ánh xạ bộ nhớ.
+3. Huấn luyện một `nn.Linear(feature_dim, num_classes)` trên các đặc trưng lưu đệm với SGD + lịch cosine.
+4. Các siêu tham số tiêu chuẩn: `lr=0.1`, `momentum=0.9`, `weight_decay=0`, `batch_size=1024`. Linear probe nhạy với `lr` đáng ngạc nhiên — quét nếu accuracy kém.
+5. Báo cáo accuracy top-1 trên validation ở cuối huấn luyện.
 
 ## Output template
 
@@ -98,7 +98,7 @@ def linear_probe(encoder, feature_dim, train_loader, val_loader,
 
 ## Rules
 
-- Never update encoder weights during linear probe; that would be a fine-tune, not a probe.
-- Precompute features once; retraining the encoder on every epoch wastes 100x compute.
-- Use SGD with cosine schedule and no weight decay; Adam sometimes underperforms here.
-- Sweep learning rates at least once per encoder family; the optimum varies across SSL methods.
+- Không bao giờ cập nhật các trọng số encoder trong linear probe; đó sẽ là tinh chỉnh, không phải probe.
+- Tính trước các đặc trưng một lần; huấn luyện lại encoder mỗi epoch lãng phí tính toán 100 lần.
+- Sử dụng SGD với lịch cosine và không weight decay; Adam đôi khi hoạt động kém ở đây.
+- Quét tốc độ học ít nhất một lần mỗi họ encoder; tối ưu thay đổi giữa các phương pháp SSL.

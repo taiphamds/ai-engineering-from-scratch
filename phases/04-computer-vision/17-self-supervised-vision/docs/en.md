@@ -1,6 +1,6 @@
 # Self-Supervised Vision — SimCLR, DINO, MAE
 
-> Labels are the bottleneck of supervised vision. Self-supervised pretraining removes them: learn visual features from 100M unlabelled images, fine-tune on 10k labelled ones.
+> Nhãn là nút thắt của thị giác có giám sát. Tiền huấn luyện tự giám sát loại bỏ chúng: học các đặc trưng thị giác từ 100M hình ảnh không nhãn, tinh chỉnh trên 10k hình ảnh có nhãn.
 
 **Type:** Learn + Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Trace the three major self-supervised families — contrastive (SimCLR), teacher-student (DINO), masked reconstruction (MAE) — and state what each one optimises
-- Implement an InfoNCE loss from scratch and explain why a batch of 512 works but a batch of 32 fails
-- Explain why MAE's 75% masking ratio is not arbitrary and how it differs from BERT's 15% for text
-- Use DINOv2 or MAE ImageNet checkpoints for linear probing and zero-shot retrieval
+- Theo dõi ba họ tự giám sát lớn — tương phản (SimCLR), giáo viên-học sinh (DINO), tái tạo có mặt nạ (MAE) — và nêu mỗi họ tối ưu gì
+- Triển khai mất mát InfoNCE từ đầu và giải thích tại sao batch 512 hoạt động nhưng batch 32 thất bại
+- Giải thích tại sao tỷ lệ che 75% của MAE không tùy ý và khác 15% của BERT cho văn bản thế nào
+- Sử dụng các checkpoint ImageNet DINOv2 hoặc MAE cho linear probing và truy xuất zero-shot
 
 ## The Problem
 
-Supervised ImageNet has 1.3M labelled images, which cost an estimated $10M to annotate. Medical and industrial datasets are smaller and even more expensive to label. Every vision team asks: can we pretrain on cheap unlabelled data — YouTube frames, web crawls, webcam footage, satellite sweeps — and then fine-tune on a small labelled set?
+ImageNet có giám sát có 1.3M hình ảnh gán nhãn, tốn ước tính $10M để chú thích. Các tập dữ liệu y tế và công nghiệp nhỏ hơn và còn tốn kém hơn để gán nhãn. Mọi nhóm thị giác hỏi: chúng ta có thể tiền huấn luyện trên dữ liệu không nhãn rẻ — các khung hình YouTube, thu thập web, cảnh webcam, các lượt quét vệ tinh — rồi tinh chỉnh trên một tập gán nhãn nhỏ không?
 
-Self-supervised learning is the answer. A modern self-supervised ViT trained on LAION or JFT reaches or beats supervised ImageNet accuracy when fine-tuned. It also transfers better to downstream tasks (detection, segmentation, depth) than supervised pretraining. DINOv2 (Meta, 2023) and MAE (Meta, 2022) are the current production defaults for transferable vision features.
+Học tự giám sát là câu trả lời. Một ViT tự giám sát hiện đại huấn luyện trên LAION hoặc JFT đạt hoặc vượt accuracy ImageNet có giám sát khi tinh chỉnh. Nó cũng chuyển giao tốt hơn tới các tác vụ phía sau (phát hiện, phân đoạn, độ sâu) so với tiền huấn luyện có giám sát. DINOv2 (Meta, 2023) và MAE (Meta, 2022) là các mặc định production hiện tại cho các đặc trưng thị giác có thể chuyển giao.
 
-The conceptual shift is that the pretext task — the thing the model is trained to do — does not have to be the downstream task. What matters is that it forces the model to learn useful features. Predict the colour of grayscale images, rotate images and ask the model to classify the rotation, mask patches and reconstruct them — all have worked. The three approaches that scale are contrastive learning, teacher-student distillation, and masked reconstruction.
+Thay đổi khái niệm là tác vụ tiền đề — thứ mô hình được huấn luyện để làm — không cần là tác vụ phía sau. Điều quan trọng là nó buộc mô hình học các đặc trưng hữu ích. Dự đoán màu hình ảnh thang xám, xoay hình ảnh và yêu cầu mô hình phân loại góc xoay, che patch và tái tạo — tất cả đã hoạt động. Ba cách tiếp cận mở rộng được là học tương phản, chưng cất giáo viên-học sinh và tái tạo có mặt nạ.
 
 ## The Concept
 
@@ -39,7 +39,7 @@ flowchart LR
 
 ### Contrastive learning (SimCLR)
 
-Take one image, apply two random augmentations, get two views. Feed both through the same encoder plus a projection head. Minimise a loss that says "these two embeddings should be close" and "this embedding should be far from every other image's embeddings in the batch."
+Lấy một hình ảnh, áp dụng hai tăng cường ngẫu nhiên, có hai góc nhìn. Đưa cả hai qua cùng encoder cộng một đầu chiếu. Tối thiểu hóa mất mát nói "hai embedding này nên gần" và "embedding này nên xa các embedding của mọi hình ảnh khác trong batch."
 
 ```
 Loss for positive pair (z_i, z_j) among 2N views per batch:
@@ -50,11 +50,11 @@ sim = cosine similarity
 tau = temperature (0.1 standard)
 ```
 
-This is the InfoNCE loss. It requires many negatives per positive, so batch size matters — SimCLR needs 512-8192. MoCo introduced a momentum queue of past batches to decouple negative count from batch size.
+Đây là mất mát InfoNCE. Nó cần nhiều mẫu âm mỗi mẫu dương, nên kích thước batch quan trọng — SimCLR cần 512-8192. MoCo giới thiệu hàng đợi momentum của các batch quá khứ để tách số mẫu âm khỏi kích thước batch.
 
 ### Teacher-student (DINO)
 
-Two networks with the same architecture: student and teacher. The teacher is an exponential moving average (EMA) of the student's weights. Both see augmented views of the image. The student's output is trained to match the teacher's — no explicit negatives.
+Hai mạng cùng kiến trúc: học sinh và giáo viên. Giáo viên là trung bình trượt hàm mũ (EMA) của các trọng số học sinh. Cả hai thấy các góc nhìn tăng cường của hình ảnh. Đầu ra học sinh được huấn luyện để khớp giáo viên — không mẫu âm tường minh.
 
 ```
 loss = CE( student_output(view_1),  teacher_output(view_2) )
@@ -63,13 +63,13 @@ loss = CE( student_output(view_1),  teacher_output(view_2) )
 teacher_weights = m * teacher_weights + (1 - m) * student_weights   (m ≈ 0.996)
 ```
 
-Why it does not collapse to "predict a constant": the teacher's output is centred (subtract per-dimension mean) and sharpened (divide by small temperature). Centering prevents one dimension from dominating; sharpening prevents output collapse to uniform.
+Tại sao nó không sụp về "dự đoán một hằng số": đầu ra giáo viên được đặt tâm (trừ trung bình từng chiều) và làm sắc (chia nhiệt độ nhỏ). Đặt tâm ngăn một chiều chi phối; làm sắc ngăn đầu ra sụp thành phân phối đều.
 
-DINO is what DINOv2 scales up, on 142M curated images. The resulting features are the current SOTA for zero-shot visual retrieval and dense prediction.
+DINO là thứ DINOv2 mở rộng, trên 142M hình ảnh được tuyển chọn. Các đặc trưng kết quả là SOTA hiện tại cho truy xuất thị giác zero-shot và dự đoán dày đặc.
 
 ### Masked reconstruction (MAE)
 
-Mask 75% of patches of a ViT input. Pass only the visible 25% through the encoder. A small decoder receives the encoder's output plus mask tokens at masked positions, and is trained to reconstruct the pixels of the masked patches.
+Che 75% patch của một đầu vào ViT. Chỉ truyền 25% nhìn thấy qua encoder. Một decoder nhỏ nhận đầu ra encoder cộng các token mặt nạ tại các vị trí che và được huấn luyện tái tạo các pixel của các patch che.
 
 ```
 Encoder:  visible 25% of patches -> features
@@ -77,33 +77,33 @@ Decoder:  features + mask tokens at masked positions -> reconstructed pixels
 Loss:     MSE between reconstructed and original pixels on masked patches only
 ```
 
-Key design choices that make MAE work:
+Các lựa chọn thiết kế chính khiến MAE hoạt động:
 
-- **75% mask ratio** — high. Forces the encoder to learn semantic features; reconstructing 25% would be near-trivial (neighbouring pixels are so correlated that a CNN could nail it).
-- **Asymmetric encoder/decoder** — the big ViT encoder only sees visible patches; a small decoder (8-layer, 512-dim) handles reconstruction. 3x faster pretraining than naive BEiT.
-- **Pixel-space reconstruction target** — simpler than BEiT's tokenised target and works better on ViT.
+- **Tỷ lệ che 75%** — cao. Buộc encoder học các đặc trưng ngữ nghĩa; tái tạo 25% sẽ gần như tầm thường (các pixel lân cận tương quan tới mức một CNN có thể làm rất tốt).
+- **Encoder/decoder bất đối xứng** — encoder ViT lớn chỉ thấy các patch nhìn thấy; decoder nhỏ (8 lớp, 512 chiều) xử lý tái tạo. Tiền huấn luyện nhanh hơn BEiT đơn giản 3 lần.
+- **Mục tiêu tái tạo không gian pixel** — đơn giản hơn mục tiêu token hóa của BEiT và hoạt động tốt hơn trên ViT.
 
-After pretraining, discard the decoder. The encoder is the feature extractor.
+Sau tiền huấn luyện, bỏ decoder. Encoder là bộ trích xuất đặc trưng.
 
 ### Why 75% and not 15%
 
-BERT masks 15% of tokens. MAE masks 75%. The difference is information density.
+BERT che 15% token. MAE che 75%. Khác biệt là mật độ thông tin.
 
-- Natural language has high entropy per token. Predicting 15% of tokens is still hard because each masked position has many plausible completions.
-- Image patches have low entropy — an unmasked neighbourhood often determines the masked patch's pixels almost exactly. To make prediction require semantic understanding, you have to mask aggressively.
+- Ngôn ngữ tự nhiên có entropy cao mỗi token. Dự đoán 15% token vẫn khó vì mỗi vị trí che có nhiều phần điền hợp lý.
+- Các patch hình ảnh có entropy thấp — một vùng lân cận không che thường xác định các pixel patch che gần như chính xác. Để dự đoán đòi hỏi hiểu ngữ nghĩa, bạn phải che mạnh.
 
-75% is high enough that simple spatial extrapolation cannot solve the task; the encoder must represent the image content.
+75% đủ cao để ngoại suy không gian đơn giản không thể giải tác vụ; encoder phải biểu diễn nội dung hình ảnh.
 
 ### Linear-probe evaluation
 
-After self-supervised pretraining, the standard evaluation is a **linear probe**: freeze the encoder, train a single linear classifier on top on ImageNet labels. Reports top-1 accuracy.
+Sau tiền huấn luyện tự giám sát, đánh giá tiêu chuẩn là một **linear probe**: đóng băng encoder, huấn luyện một bộ phân loại tuyến tính duy nhất trên đó với nhãn ImageNet. Báo cáo accuracy top-1.
 
 - SimCLR ResNet-50: ~71% (2020)
 - DINO ViT-S/16: ~77% (2021)
 - MAE ViT-L/16: ~76% (2022)
 - DINOv2 ViT-g/14: ~86% (2023)
 
-Linear probe is a pure measure of feature quality; fine-tuning typically adds 2-5 points but also mixes in the effect of head retraining.
+Linear probe là thước đo thuần chất lượng đặc trưng; tinh chỉnh thường thêm 2-5 điểm nhưng cũng trộn tác động của huấn luyện lại đầu.
 
 ```figure
 data-augmentation
@@ -141,7 +141,7 @@ class TwoViewDataset(torch.utils.data.Dataset):
         return v1, v2
 ```
 
-Each __getitem__ returns two augmented views of the same image; labels are not needed.
+Mỗi __getitem__ trả về hai góc nhìn tăng cường của cùng hình ảnh; không cần nhãn.
 
 ### Step 2: InfoNCE loss
 
@@ -163,7 +163,7 @@ def info_nce(z1, z2, tau=0.1):
     return F.cross_entropy(sim, targets)
 ```
 
-L2-normalise embeddings before calling. `tau=0.1` is the SimCLR default; lower makes the loss sharper and requires more negatives.
+Chuẩn hóa L2 các embedding trước khi gọi. `tau=0.1` là mặc định SimCLR; thấp hơn làm mất mát sắc hơn và cần nhiều mẫu âm hơn.
 
 ### Step 3: Sanity check InfoNCE
 
@@ -177,7 +177,7 @@ print(f"InfoNCE with identical pairs:  {loss_same:.3f}")
 print(f"InfoNCE with random pairs:     {loss_random:.3f}")
 ```
 
-Identical pairs should give a low loss (close to 0 for a large batch and cold temperature). Random pairs should give log(2N-1) = ~log(31) = ~3.4 with a 16-pair batch.
+Các cặp giống hệt nên cho mất mát thấp (gần 0 với batch lớn và nhiệt độ lạnh). Các cặp ngẫu nhiên nên cho log(2N-1) = ~log(31) = ~3.4 với batch 16 cặp.
 
 ### Step 4: MAE-style masking
 
@@ -197,11 +197,11 @@ print(f"visible: {len(visible)} / {num_patches}")
 print(f"masked:  {len(masked)} / {num_patches}")
 ```
 
-Simple, fast, and deterministic for a given seed. Real MAE implementations batch this and keep per-sample masks.
+Đơn giản, nhanh và tất định với seed cho trước. Các bản triển khai MAE thật chia batch và giữ các mặt nạ theo mẫu.
 
 ## Use It
 
-DINOv2 is the production standard in 2026:
+DINOv2 là tiêu chuẩn production năm 2026:
 
 ```python
 import torch
@@ -218,39 +218,39 @@ with torch.no_grad():
     embedding = outputs.last_hidden_state[:, 0]  # CLS token
 ```
 
-The resulting 768-dim embedding is the backbone of modern image retrieval, dense correspondence, and zero-shot transfer pipelines. Fine-tuning on a downstream task rarely needs more than a linear head.
+Embedding 768 chiều kết quả là xương sống của các pipeline truy xuất hình ảnh, tương ứng dày đặc và chuyển giao zero-shot hiện đại. Tinh chỉnh trên tác vụ phía sau hiếm khi cần hơn một đầu tuyến tính.
 
-For image-text embeddings, SigLIP or OpenCLIP is the equivalent; for MAE-style fine-tuning, the `timm` repo ships every MAE checkpoint.
+Với embedding hình ảnh-văn bản, SigLIP hoặc OpenCLIP là tương đương; cho tinh chỉnh kiểu MAE, kho `timm` cung cấp mọi checkpoint MAE.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-ssl-pretraining-picker.md` — a prompt that picks SimCLR / MAE / DINOv2 given dataset size, compute, and downstream task.
-- `outputs/skill-linear-probe-runner.md` — a skill that writes the linear-probe evaluation for any frozen encoder + labelled dataset.
+- `outputs/prompt-ssl-pretraining-picker.md` — một prompt chọn SimCLR / MAE / DINOv2 với kích thước tập dữ liệu, tính toán và tác vụ phía sau cho trước.
+- `outputs/skill-linear-probe-runner.md` — một skill viết đánh giá linear-probe cho bất kỳ encoder đóng băng + tập dữ liệu gán nhãn nào.
 
 ## Exercises
 
-1. **(Easy)** Verify that InfoNCE loss drops when you decrease temperature for well-aligned embeddings and rises when you decrease temperature for random embeddings. Produce a plot `tau in [0.05, 0.1, 0.2, 0.5]` vs loss.
-2. **(Medium)** Implement a DINO-style centre buffer. Show that without the centring, the student collapses to a constant vector within a few epochs.
-3. **(Hard)** Train MAE on CIFAR-100 using the TinyUNet from Lesson 10 as the backbone. Report linear-probe accuracy at 10, 50, and 200 epochs. Show that a MAE-pretrained linear probe beats a from-scratch supervised linear probe on the same 1,000-image subset.
+1. **(Dễ)** Xác minh mất mát InfoNCE giảm khi bạn giảm nhiệt độ cho các embedding căn chỉnh tốt và tăng khi giảm nhiệt độ cho các embedding ngẫu nhiên. Tạo đồ thị `tau in [0.05, 0.1, 0.2, 0.5]` theo mất mát.
+2. **(Vừa)** Triển khai một bộ đệm tâm kiểu DINO. Cho thấy không đặt tâm, học sinh sụp về vector hằng trong vài epoch.
+3. **(Khó)** Huấn luyện MAE trên CIFAR-100 bằng TinyUNet từ Bài 10 làm backbone. Báo cáo accuracy linear-probe ở 10, 50 và 200 epoch. Cho thấy linear probe được tiền huấn luyện MAE vượt linear probe có giám sát từ đầu trên cùng tập con 1,000 hình ảnh.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Self-supervised | "Label-free" | A pretext task that produces useful representations from unlabelled data |
-| Pretext task | "The fake task" | The objective used during SSL (reconstruct patches, match views); discarded after pretraining |
-| Linear probe | "Frozen encoder + linear head" | Standard SSL evaluation: train only a linear classifier on top of frozen features |
-| InfoNCE | "Contrastive loss" | softmax over cosine similarities; positive pair is the target class, all others are negatives |
-| EMA teacher | "Moving-average teacher" | Teacher whose weights are an exponential moving average of the student's; used by BYOL, MoCo, DINO |
-| Mask ratio | "% of patches hidden" | Fraction of patches masked during MAE; 75% for vision, 15% for text |
-| Representation collapse | "Constant output" | SSL failure where the encoder outputs a constant vector for all inputs; prevented by centring, sharpening, or negatives |
-| DINOv2 | "Production SSL backbone" | Meta's 2023 self-supervised ViT; strongest general-purpose image features in 2026 |
+| Self-supervised (Tự giám sát) | "Không nhãn" | Một tác vụ tiền đề tạo ra các biểu diễn hữu ích từ dữ liệu không nhãn |
+| Pretext task (Tác vụ tiền đề) | "Tác vụ giả" | Mục tiêu dùng trong SSL (tái tạo patch, khớp góc nhìn); bỏ sau tiền huấn luyện |
+| Linear probe | "Encoder đóng băng + đầu tuyến tính" | Đánh giá SSL tiêu chuẩn: chỉ huấn luyện một bộ phân loại tuyến tính trên các đặc trưng đóng băng |
+| InfoNCE | "Mất mát tương phản" | softmax trên các độ tương đồng cosine; cặp dương là lớp mục tiêu, mọi cặp khác là âm |
+| EMA teacher (Giáo viên EMA) | "Giáo viên trung bình trượt" | Giáo viên có các trọng số là trung bình trượt hàm mũ của học sinh; được dùng bởi BYOL, MoCo, DINO |
+| Mask ratio (Tỷ lệ che) | "% patch bị ẩn" | Tỷ lệ patch bị che trong MAE; 75% cho thị giác, 15% cho văn bản |
+| Representation collapse (Sụp đổ biểu diễn) | "Đầu ra hằng" | Thất bại SSL nơi encoder xuất một vector hằng cho mọi đầu vào; được ngăn bằng đặt tâm, làm sắc hoặc mẫu âm |
+| DINOv2 | "Backbone SSL production" | ViT tự giám sát năm 2023 của Meta; các đặc trưng hình ảnh đa dụng mạnh nhất năm 2026 |
 
 ## Further Reading
 
-- [SimCLR (Chen et al., 2020)](https://arxiv.org/abs/2002.05709) — contrastive learning reference
-- [DINO (Caron et al., 2021)](https://arxiv.org/abs/2104.14294) — teacher-student with momentum, centring, sharpening
-- [MAE (He et al., 2022)](https://arxiv.org/abs/2111.06377) — masked autoencoder pretraining for ViT
-- [DINOv2 (Oquab et al., 2023)](https://arxiv.org/abs/2304.07193) — scaling self-supervised ViT to production features
+- [SimCLR (Chen et al., 2020)](https://arxiv.org/abs/2002.05709) — tài liệu tham khảo học tương phản
+- [DINO (Caron et al., 2021)](https://arxiv.org/abs/2104.14294) — giáo viên-học sinh với momentum, đặt tâm, làm sắc
+- [MAE (He et al., 2022)](https://arxiv.org/abs/2111.06377) — tiền huấn luyện autoencoder có mặt nạ cho ViT
+- [DINOv2 (Oquab et al., 2023)](https://arxiv.org/abs/2304.07193) — mở rộng ViT tự giám sát tới các đặc trưng production
