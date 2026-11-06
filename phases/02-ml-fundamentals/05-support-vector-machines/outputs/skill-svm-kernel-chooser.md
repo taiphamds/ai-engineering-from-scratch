@@ -9,30 +9,30 @@ tags: [svm, kernel, classification, hyperparameter-tuning]
 
 # SVM Kernel Selection Guide
 
-SVMs are defined by two choices: the kernel (which determines the shape of the decision boundary) and the regularization parameters (which control the tradeoff between margin width and classification errors). Getting these right is the difference between a useless model and a strong one.
+SVM được xác định bởi hai lựa chọn: kernel (quyết định hình dạng của biên quyết định) và các tham số regularization (điều khiển sự đánh đổi giữa độ rộng lề và các lỗi phân loại). Chọn đúng chúng là sự khác biệt giữa một mô hình vô ích và một mô hình mạnh.
 
 ## Decision Checklist
 
-1. Is the data linearly separable (or close to it)?
-   - Yes: use linear kernel. It is faster and more interpretable.
-   - No: go to step 2.
+1. Dữ liệu có phân tách tuyến tính được không (hoặc gần như vậy)?
+   - Có: sử dụng kernel tuyến tính. Nó nhanh hơn và có thể diễn giải hơn.
+   - Không: đến bước 2.
 
-2. How many features vs samples?
-   - Features >> samples (e.g., text with TF-IDF): use linear kernel. High-dimensional data is often linearly separable. RBF adds complexity for no gain.
-   - Samples >> features (e.g., tabular data with 10-50 features): RBF kernel is the default choice.
+2. Bao nhiêu đặc trưng so với mẫu?
+   - Đặc trưng >> mẫu (ví dụ, văn bản với TF-IDF): sử dụng kernel tuyến tính. Dữ liệu nhiều chiều thường phân tách tuyến tính được. RBF thêm độ phức tạp mà không có lợi ích.
+   - Mẫu >> đặc trưng (ví dụ, dữ liệu dạng bảng có 10-50 đặc trưng): kernel RBF là lựa chọn mặc định.
 
-3. Is the decision boundary expected to be smooth?
-   - Smooth, continuous boundary: RBF kernel
-   - Polynomial-shaped boundary: polynomial kernel (start with degree 2 or 3)
-   - Domain knowledge suggests specific interaction terms: polynomial kernel with matching degree
+3. Biên quyết định có được kỳ vọng là trơn không?
+   - Biên trơn, liên tục: kernel RBF
+   - Biên có dạng đa thức: kernel đa thức (bắt đầu với bậc 2 hoặc 3)
+   - Kiến thức chuyên môn gợi ý các số hạng tương tác cụ thể: kernel đa thức với bậc tương ứng
 
-4. How large is the dataset?
-   - Under 10,000 samples: any kernel works, RBF is the safe default
-   - 10,000 to 100,000: linear kernel or LinearSVC (primal formulation, O(n) per epoch)
-   - Over 100,000: do not use kernel SVM. Switch to linear SVM, gradient boosting, or neural networks.
+4. Tập dữ liệu lớn đến mức nào?
+   - Dưới 10,000 mẫu: bất kỳ kernel nào cũng hoạt động, RBF là mặc định an toàn
+   - 10,000 đến 100,000: kernel tuyến tính hoặc LinearSVC (dạng bài toán gốc, O(n) mỗi epoch)
+   - Trên 100,000: không sử dụng SVM kernel. Chuyển sang SVM tuyến tính, gradient boosting hoặc mạng nơ-ron.
 
-5. Did you scale the features?
-   - SVMs require feature scaling. Always standardize (zero mean, unit variance) before fitting. Unscaled features distort the margin geometry.
+5. Bạn đã co giãn các đặc trưng chưa?
+   - SVM đòi hỏi co giãn đặc trưng. Luôn chuẩn hóa (trung bình không, phương sai đơn vị) trước khi khớp. Các đặc trưng chưa co giãn làm méo hình học lề.
 
 ## Kernel selection flowchart
 
@@ -47,64 +47,64 @@ Features > 1000 or features >> samples?
             No  --> Linear kernel (kernel SVMs are O(n^2) to O(n^3))
 ```
 
-If RBF does not work well, try polynomial degree 2-3. If that fails, the problem may not be suited to SVMs.
+Nếu RBF không hoạt động tốt, thử đa thức bậc 2-3. Nếu cách đó thất bại, bài toán có thể không phù hợp với SVM.
 
 ## Tuning C (regularization)
 
-C controls the penalty for misclassifications. It is inversely related to regularization strength.
+C điều khiển hình phạt cho các phân loại sai. Nó có quan hệ nghịch với cường độ regularization.
 
-| C value | Effect | When to use |
+| Giá trị C | Tác động | Khi nào sử dụng |
 |---------|--------|-------------|
-| 0.001 - 0.01 | Wide margin, many violations allowed | Noisy data, want generalization |
-| 0.1 - 1.0 | Balanced | Good starting range |
-| 10 - 1000 | Narrow margin, few violations | Clean data, need high accuracy |
+| 0.001 - 0.01 | Lề rộng, cho phép nhiều vi phạm | Dữ liệu nhiễu, muốn tổng quát hóa |
+| 0.1 - 1.0 | Cân bằng | Khoảng bắt đầu tốt |
+| 10 - 1000 | Lề hẹp, ít vi phạm | Dữ liệu sạch, cần độ chính xác cao |
 
-Tuning strategy:
-- Start with C=1.0
-- Search on a log scale: [0.001, 0.01, 0.1, 1, 10, 100, 1000]
-- Use cross-validation to pick the best value
-- If best C is at the edge of your range, extend the range in that direction
+Chiến lược điều chỉnh:
+- Bắt đầu với C=1.0
+- Tìm kiếm trên thang log: [0.001, 0.01, 0.1, 1, 10, 100, 1000]
+- Sử dụng xác thực chéo để chọn giá trị tốt nhất
+- Nếu C tốt nhất ở rìa khoảng của bạn, mở rộng khoảng theo hướng đó
 
 ## Tuning gamma (RBF kernel)
 
-Gamma controls how far the influence of a single training point reaches. It defines the width of the Gaussian.
+Gamma điều khiển ảnh hưởng của một điểm huấn luyện duy nhất vươn xa đến đâu. Nó xác định độ rộng của Gaussian.
 
-| gamma value | Effect | When to use |
+| Giá trị gamma | Tác động | Khi nào sử dụng |
 |-------------|--------|-------------|
-| Small (0.001) | Each point influences a large area. Smooth, simple boundary | Underfitting or few features |
-| Medium (auto: 1/n_features) | sklearn default. Reasonable starting point | General use |
-| Large (10+) | Each point influences only nearby points. Complex, wiggly boundary | Risk of overfitting |
+| Nhỏ (0.001) | Mỗi điểm ảnh hưởng một vùng lớn. Biên trơn, đơn giản | Khớp chưa đủ hoặc ít đặc trưng |
+| Trung bình (auto: 1/n_features) | Mặc định sklearn. Điểm bắt đầu hợp lý | Sử dụng chung |
+| Lớn (10+) | Mỗi điểm chỉ ảnh hưởng các điểm gần đó. Biên phức tạp, ngoằn ngoèo | Nguy cơ khớp quá mức |
 
-Tuning strategy:
-- Start with gamma="scale" (1 / (n_features * X.var()), the sklearn default)
-- Search on a log scale: [0.001, 0.01, 0.1, 1, 10]
-- Low gamma + high C tends to overfit
-- High gamma + low C tends to underfit
+Chiến lược điều chỉnh:
+- Bắt đầu với gamma="scale" (1 / (n_features * X.var()), mặc định sklearn)
+- Tìm kiếm trên thang log: [0.001, 0.01, 0.1, 1, 10]
+- Gamma thấp + C cao có xu hướng khớp quá mức
+- Gamma cao + C thấp có xu hướng khớp chưa đủ
 
 ## Joint C and gamma tuning
 
-C and gamma interact. Always tune them together, not independently.
+C và gamma tương tác. Luôn điều chỉnh chúng cùng nhau, không độc lập.
 
-Recommended approach:
-1. Coarse grid search: C in [0.01, 0.1, 1, 10, 100], gamma in [0.001, 0.01, 0.1, 1, 10] (25 combos)
-2. Find the best region
-3. Fine grid search around the best region (e.g., C in [5, 10, 20, 50], gamma in [0.05, 0.1, 0.2])
-4. Use 5-fold cross-validation throughout
+Cách tiếp cận được đề xuất:
+1. Tìm kiếm lưới thô: C trong [0.01, 0.1, 1, 10, 100], gamma trong [0.001, 0.01, 0.1, 1, 10] (25 tổ hợp)
+2. Tìm vùng tốt nhất
+3. Tìm kiếm lưới tinh quanh vùng tốt nhất (ví dụ, C trong [5, 10, 20, 50], gamma trong [0.05, 0.1, 0.2])
+4. Sử dụng xác thực chéo 5-fold xuyên suốt
 
 ## Common mistakes
 
-- Using RBF kernel on high-dimensional sparse data (linear is better and 100x faster)
-- Forgetting to scale features (the single most common SVM mistake)
-- Setting C too high on noisy data (memorizes noise instead of learning the boundary)
-- Using kernel SVM on datasets over 50k samples (training time is prohibitive)
-- Not tuning C and gamma together (they compensate for each other)
-- Defaulting to polynomial degree 5+ (overfits aggressively, try 2 or 3 first)
+- Sử dụng kernel RBF trên dữ liệu thưa nhiều chiều (tuyến tính tốt hơn và nhanh hơn 100 lần)
+- Quên co giãn đặc trưng (lỗi SVM phổ biến nhất)
+- Đặt C quá cao trên dữ liệu nhiễu (ghi nhớ nhiễu thay vì học biên)
+- Sử dụng SVM kernel trên các tập dữ liệu trên 50k mẫu (thời gian huấn luyện quá lớn)
+- Không điều chỉnh C và gamma cùng nhau (chúng bù cho nhau)
+- Mặc định đa thức bậc 5+ (khớp quá mức mạnh, thử 2 hoặc 3 trước)
 
 ## Quick reference
 
-| Kernel | When to use | Key parameters | Training complexity |
+| Kernel | Khi nào sử dụng | Các tham số chính | Độ phức tạp huấn luyện |
 |--------|------------|----------------|-------------------|
-| Linear | Text/TF-IDF, many features, large data | C only | O(n) per epoch |
-| RBF | General-purpose, under 10k samples | C, gamma | O(n^2) to O(n^3) |
-| Polynomial | Known polynomial relationships | C, degree, coef0 | O(n^2) to O(n^3) |
-| Sigmoid | Rarely useful (equivalent to two-layer neural net) | C, gamma, coef0 | O(n^2) to O(n^3) |
+| Tuyến tính | Văn bản/TF-IDF, nhiều đặc trưng, dữ liệu lớn | Chỉ C | O(n) mỗi epoch |
+| RBF | Mục đích chung, dưới 10k mẫu | C, gamma | O(n^2) đến O(n^3) |
+| Đa thức | Các quan hệ đa thức đã biết | C, degree, coef0 | O(n^2) đến O(n^3) |
+| Sigmoid | Hiếm khi hữu ích (tương đương mạng nơ-ron hai lớp) | C, gamma, coef0 | O(n^2) đến O(n^3) |

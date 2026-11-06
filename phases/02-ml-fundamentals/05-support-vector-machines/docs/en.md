@@ -1,6 +1,6 @@
 # Support Vector Machines
 
-> Find the widest street between two classes. That is the entire idea.
+> Tìm con đường rộng nhất giữa hai lớp. Đó là toàn bộ ý tưởng.
 
 **Type:** Build
 **Language:** Python
@@ -9,34 +9,34 @@
 
 ## Learning Objectives
 
-- Implement a linear SVM from scratch using hinge loss and gradient descent on the primal formulation
-- Explain the maximum margin principle and identify support vectors from a trained model
-- Compare linear, polynomial, and RBF kernels and explain how the kernel trick avoids explicit high-dimensional mapping
-- Evaluate the tradeoff controlled by the C parameter between margin width and classification errors
+- Triển khai một SVM tuyến tính từ đầu bằng mất mát hinge và gradient descent trên dạng bài toán gốc
+- Giải thích nguyên lý lề cực đại và xác định các vector hỗ trợ từ một mô hình đã huấn luyện
+- So sánh các kernel tuyến tính, đa thức và RBF và giải thích cách thủ thuật kernel tránh ánh xạ tường minh vào không gian nhiều chiều
+- Đánh giá sự đánh đổi được tham số C điều khiển giữa độ rộng lề và các lỗi phân loại
 
 ## The Problem
 
-You have two classes of data points and need to draw a line (or hyperplane) separating them. Infinitely many lines could work. Which one should you pick?
+Bạn có hai lớp điểm dữ liệu và cần vẽ một đường (hoặc siêu phẳng) phân tách chúng. Vô số đường có thể hoạt động. Bạn nên chọn đường nào?
 
-The one with the biggest margin. The margin is the distance between the decision boundary and the nearest data points on each side. A wider margin means the classifier is more confident and generalizes better to unseen data.
+Đường có lề lớn nhất. Lề là khoảng cách giữa biên quyết định và các điểm dữ liệu gần nhất ở mỗi phía. Lề rộng hơn nghĩa là bộ phân loại tự tin hơn và tổng quát hóa tốt hơn trên dữ liệu chưa từng thấy.
 
-This intuition leads to Support Vector Machines, one of the most mathematically elegant algorithms in ML. SVMs were the dominant classification method before deep learning and remain the best choice for small datasets, high-dimensional data, and problems where you need a principled, well-understood model with theoretical guarantees.
+Trực giác này dẫn đến Máy Vector Hỗ trợ, một trong những thuật toán thanh nhã nhất về mặt toán học trong ML. SVM là phương pháp phân loại chiếm ưu thế trước học sâu và vẫn là lựa chọn tốt nhất cho các tập dữ liệu nhỏ, dữ liệu nhiều chiều và các bài toán nơi bạn cần một mô hình có nguyên tắc, được hiểu rõ với các bảo đảm lý thuyết.
 
-SVMs connect directly to Phase 1: the optimization is convex (Lesson 18), the margin is measured with norms (Lesson 14), and the kernel trick exploits dot products to handle nonlinear boundaries without ever computing in the high-dimensional space.
+SVM kết nối trực tiếp với Giai đoạn 1: tối ưu hóa là lồi (Bài học 18), lề được đo bằng chuẩn (Bài học 14), và thủ thuật kernel khai thác các tích vô hướng để xử lý biên phi tuyến mà không bao giờ tính toán trong không gian nhiều chiều.
 
 ## The Concept
 
 ### The maximum margin classifier
 
-Given linearly separable data with labels y_i in {-1, +1} and feature vectors x_i, we want a hyperplane w^T x + b = 0 that separates the classes.
+Cho dữ liệu phân tách tuyến tính được với các nhãn y_i trong {-1, +1} và các vector đặc trưng x_i, chúng ta muốn một siêu phẳng w^T x + b = 0 phân tách các lớp.
 
-The distance from a point x_i to the hyperplane is:
+Khoảng cách từ một điểm x_i đến siêu phẳng là:
 
 ```
 distance = |w^T x_i + b| / ||w||
 ```
 
-For a correctly classified point: y_i * (w^T x_i + b) > 0. The margin is twice the distance from the hyperplane to the nearest point on either side.
+Với một điểm được phân loại đúng: y_i * (w^T x_i + b) > 0. Lề gấp đôi khoảng cách từ siêu phẳng đến điểm gần nhất ở một trong hai phía.
 
 ```mermaid
 graph LR
@@ -49,21 +49,21 @@ graph LR
     B --- F["Decision boundary"]
 ```
 
-The optimization problem:
+Bài toán tối ưu hóa:
 
 ```
 maximize    2 / ||w||     (the margin width)
 subject to  y_i * (w^T x_i + b) >= 1  for all i
 ```
 
-Equivalently (minimizing ||w||^2 is easier to optimize):
+Tương đương (tối thiểu hóa ||w||^2 dễ tối ưu hóa hơn):
 
 ```
 minimize    (1/2) ||w||^2
 subject to  y_i * (w^T x_i + b) >= 1  for all i
 ```
 
-This is a convex quadratic program. It has a unique global solution. The data points that sit exactly on the margin boundaries (where y_i * (w^T x_i + b) = 1) are the support vectors. They are the only points that determine the decision boundary. Move or remove any non-support-vector point, and the boundary does not change.
+Đây là một bài toán quy hoạch bậc hai lồi. Nó có một nghiệm toàn cục duy nhất. Các điểm dữ liệu nằm chính xác trên các biên lề (nơi y_i * (w^T x_i + b) = 1) là các vector hỗ trợ. Chúng là những điểm duy nhất quyết định biên quyết định. Di chuyển hoặc loại bất kỳ điểm không phải vector hỗ trợ nào, và biên không thay đổi.
 
 ### Support vectors: the critical few
 
@@ -77,13 +77,13 @@ graph TD
     O2["Other - points<br>(do not affect boundary)"] -.-> SV2
 ```
 
-Most training points are irrelevant. Only the support vectors matter. This is why SVMs are memory-efficient at prediction time: you only need to store the support vectors, not the entire training set.
+Hầu hết các điểm huấn luyện không liên quan. Chỉ các vector hỗ trợ quan trọng. Đây là lý do SVM tiết kiệm bộ nhớ tại thời điểm dự đoán: bạn chỉ cần lưu các vector hỗ trợ, không phải toàn bộ tập huấn luyện.
 
-The number of support vectors also gives a bound on generalization error. Fewer support vectors relative to the dataset size means better generalization.
+Số vector hỗ trợ cũng cho một cận sai số tổng quát hóa. Ít vector hỗ trợ hơn so với kích thước tập dữ liệu nghĩa là tổng quát hóa tốt hơn.
 
 ### Soft margin: handling noise with the C parameter
 
-Real data is rarely perfectly separable. Some points may be on the wrong side of the boundary, or inside the margin. The soft margin formulation allows violations by introducing slack variables.
+Dữ liệu thực hiếm khi phân tách hoàn hảo được. Một số điểm có thể ở sai phía biên hoặc bên trong lề. Dạng lề mềm cho phép vi phạm bằng cách đưa vào các biến nới lỏng.
 
 ```
 minimize    (1/2) ||w||^2 + C * sum(xi_i)
@@ -91,24 +91,24 @@ subject to  y_i * (w^T x_i + b) >= 1 - xi_i
             xi_i >= 0  for all i
 ```
 
-The slack variable xi_i measures how much point i violates the margin. C controls the trade-off:
+Biến nới lỏng xi_i đo mức độ điểm i vi phạm lề. C điều khiển sự đánh đổi:
 
-| C value | Behavior |
+| Giá trị C | Hành vi |
 |---------|----------|
-| Large C | Penalizes violations heavily. Narrow margin, fewer misclassifications. Overfits |
-| Small C | Allows more violations. Wide margin, more misclassifications. Underfits |
+| C lớn | Phạt nặng các vi phạm. Lề hẹp, ít phân loại sai hơn. Khớp quá mức |
+| C nhỏ | Cho phép nhiều vi phạm hơn. Lề rộng, nhiều phân loại sai hơn. Khớp chưa đủ |
 
-C is the regularization strength, inverted. Large C = less regularization. Small C = more regularization.
+C là nghịch đảo cường độ regularization. C lớn = ít regularization hơn. C nhỏ = nhiều regularization hơn.
 
 ### Hinge loss: the SVM loss function
 
-The soft margin SVM can be rewritten as an unconstrained optimization:
+SVM lề mềm có thể được viết lại thành một tối ưu hóa không ràng buộc:
 
 ```
 minimize    (1/2) ||w||^2 + C * sum(max(0, 1 - y_i * (w^T x_i + b)))
 ```
 
-The term max(0, 1 - y_i * f(x_i)) is the hinge loss. It is zero when the point is correctly classified and beyond the margin. It is linear when the point is inside the margin or misclassified.
+Số hạng max(0, 1 - y_i * f(x_i)) là mất mát hinge. Nó bằng không khi điểm được phân loại đúng và vượt ra ngoài lề. Nó tuyến tính khi điểm nằm trong lề hoặc bị phân loại sai.
 
 ```
 Hinge loss for a single point:
@@ -128,18 +128,18 @@ Zero loss when y*f(x) >= 1 (correctly classified, outside margin).
 Linear penalty when y*f(x) < 1.
 ```
 
-Compare with logistic loss (logistic regression):
+So sánh với mất mát logistic (hồi quy logistic):
 
 ```
 Hinge:     max(0, 1 - y*f(x))          Hard cutoff at margin
 Logistic:  log(1 + exp(-y*f(x)))        Smooth, never exactly zero
 ```
 
-Hinge loss produces sparse solutions (only support vectors have nonzero contribution). Logistic loss uses all data points. This makes SVMs more memory-efficient at prediction time.
+Mất mát hinge tạo ra các nghiệm thưa (chỉ các vector hỗ trợ có đóng góp khác không). Mất mát logistic sử dụng tất cả điểm dữ liệu. Điều này làm SVM tiết kiệm bộ nhớ hơn tại thời điểm dự đoán.
 
 ### Training a linear SVM with gradient descent
 
-You can train a linear SVM using gradient descent on the hinge loss plus L2 regularization, without solving the constrained QP:
+Bạn có thể huấn luyện một SVM tuyến tính bằng gradient descent trên mất mát hinge cộng L2 regularization, mà không giải bài toán QP có ràng buộc:
 
 ```
 L(w, b) = (lambda/2) * ||w||^2 + (1/n) * sum(max(0, 1 - y_i * (w^T x_i + b)))
@@ -153,11 +153,11 @@ Gradient with respect to b:
   If y_i * (w^T x_i + b) < 1:   dL/db = -y_i
 ```
 
-This is called the primal formulation. It runs in O(n * d) per epoch, where n is the number of samples and d is the number of features. For large, sparse, high-dimensional data (text classification), this is fast.
+Đây được gọi là dạng bài toán gốc. Nó chạy trong O(n * d) mỗi epoch, trong đó n là số mẫu và d là số đặc trưng. Với dữ liệu lớn, thưa, nhiều chiều (phân loại văn bản), cách này nhanh.
 
 ### The dual formulation and the kernel trick
 
-The Lagrangian dual of the SVM problem (from Phase 1 Lesson 18, KKT conditions) is:
+Đối ngẫu Lagrange của bài toán SVM (từ Giai đoạn 1 Bài học 18, các điều kiện KKT) là:
 
 ```
 maximize    sum(alpha_i) - (1/2) * sum_ij(alpha_i * alpha_j * y_i * y_j * (x_i . x_j))
@@ -165,7 +165,7 @@ subject to  0 <= alpha_i <= C
             sum(alpha_i * y_i) = 0
 ```
 
-The dual only involves dot products x_i . x_j between data points. This is the key insight. Replace every dot product with a kernel function K(x_i, x_j) and the SVM can learn nonlinear boundaries without ever computing the transformation explicitly.
+Đối ngẫu chỉ liên quan đến các tích vô hướng x_i . x_j giữa các điểm dữ liệu. Đây là điểm cốt yếu. Thay mỗi tích vô hướng bằng một hàm kernel K(x_i, x_j) và SVM có thể học các biên phi tuyến mà không bao giờ tính tường minh phép biến đổi.
 
 ```
 Linear kernel:      K(x, z) = x . z
@@ -173,7 +173,7 @@ Polynomial kernel:  K(x, z) = (x . z + c)^d
 RBF (Gaussian):     K(x, z) = exp(-gamma * ||x - z||^2)
 ```
 
-The RBF kernel maps data into an infinite-dimensional space. Points that are close in input space have kernel value near 1. Points that are far apart have kernel value near 0. It can learn any smooth decision boundary.
+Kernel RBF ánh xạ dữ liệu vào một không gian vô hạn chiều. Các điểm gần nhau trong không gian đầu vào có giá trị kernel gần 1. Các điểm xa nhau có giá trị kernel gần 0. Nó có thể học bất kỳ biên quyết định trơn nào.
 
 ```mermaid
 graph LR
@@ -186,11 +186,11 @@ graph LR
     A -->|"Kernel trick<br>K(x,z) = phi(x).phi(z)"| B
 ```
 
-The kernel trick computes the dot product in the high-dimensional space without ever going there. For the polynomial kernel of degree d in D dimensions, the explicit feature space has O(D^d) dimensions. But K(x, z) is computed in O(D) time.
+Thủ thuật kernel tính tích vô hướng trong không gian nhiều chiều mà không bao giờ đến đó. Với kernel đa thức bậc d trong D chiều, không gian đặc trưng tường minh có O(D^d) chiều. Nhưng K(x, z) được tính trong thời gian O(D).
 
 ### SVM for regression (SVR)
 
-Support Vector Regression fits a tube of width epsilon around the data. Points inside the tube have zero loss. Points outside the tube are penalized linearly.
+Hồi quy Vector Hỗ trợ khớp một ống có độ rộng epsilon quanh dữ liệu. Các điểm trong ống có mất mát bằng không. Các điểm ngoài ống bị phạt tuyến tính.
 
 ```
 minimize    (1/2) ||w||^2 + C * sum(xi_i + xi_i*)
@@ -199,27 +199,27 @@ subject to  y_i - (w^T x_i + b) <= epsilon + xi_i
             xi_i, xi_i* >= 0
 ```
 
-The epsilon parameter controls the tube width. Wider tube = fewer support vectors = smoother fit. Narrower tube = more support vectors = tighter fit.
+Tham số epsilon điều khiển độ rộng ống. Ống rộng hơn = ít vector hỗ trợ hơn = phép khớp mượt hơn. Ống hẹp hơn = nhiều vector hỗ trợ hơn = phép khớp sát hơn.
 
 ### Why SVMs lost to deep learning (and when they still win)
 
-SVMs dominated ML from the late 1990s through the early 2010s. Deep learning surpassed them for several reasons:
+SVM chi phối ML từ cuối thập niên 1990 đến đầu thập niên 2010. Học sâu vượt qua chúng vì một số lý do:
 
-| Factor | SVMs | Deep learning |
+| Yếu tố | SVM | Học sâu |
 |--------|------|---------------|
-| Feature engineering | Requires it | Learns features |
-| Scalability | O(n^2) to O(n^3) for kernel | O(n) per epoch with SGD |
-| Image/text/audio | Needs handcrafted features | Learns from raw data |
-| Large datasets (>100k) | Slow | Scales well |
-| GPU acceleration | Limited benefit | Massive speedup |
+| Kỹ thuật đặc trưng | Đòi hỏi | Học đặc trưng |
+| Khả năng mở rộng | O(n^2) đến O(n^3) cho kernel | O(n) mỗi epoch với SGD |
+| Hình ảnh/văn bản/âm thanh | Cần các đặc trưng thiết kế thủ công | Học từ dữ liệu thô |
+| Các tập dữ liệu lớn (>100k) | Chậm | Mở rộng tốt |
+| Tăng tốc GPU | Lợi ích hạn chế | Tăng tốc rất lớn |
 
-SVMs still win in these situations:
-- Small datasets (hundreds to low thousands of samples)
-- High-dimensional sparse data (text with TF-IDF features)
-- When you need mathematical guarantees (margin bounds)
-- When training time must be minimal (linear SVM is very fast)
-- Binary classification with clear margin structure
-- Anomaly detection (one-class SVM)
+SVM vẫn thắng trong các tình huống này:
+- Các tập dữ liệu nhỏ (hàng trăm đến vài nghìn mẫu)
+- Dữ liệu thưa nhiều chiều (văn bản với các đặc trưng TF-IDF)
+- Khi bạn cần các bảo đảm toán học (các cận lề)
+- Khi thời gian huấn luyện phải tối thiểu (SVM tuyến tính rất nhanh)
+- Phân loại nhị phân với cấu trúc lề rõ ràng
+- Phát hiện bất thường (SVM một lớp)
 
 ```figure
 svm-margin
@@ -229,7 +229,7 @@ svm-margin
 
 ### Step 1: Hinge loss and gradient
 
-The foundation. Compute hinge loss for a batch and its gradient.
+Nền tảng. Tính mất mát hinge cho một batch và gradient của nó.
 
 ```python
 def hinge_loss(X, y, w, b):
@@ -243,7 +243,7 @@ def hinge_loss(X, y, w, b):
 
 ### Step 2: Linear SVM via gradient descent
 
-Train by minimizing regularized hinge loss. No QP solver needed.
+Huấn luyện bằng cách tối thiểu hóa mất mát hinge có regularization. Không cần bộ giải QP.
 
 ```python
 class LinearSVM:
@@ -276,7 +276,7 @@ class LinearSVM:
 
 ### Step 3: Kernel functions
 
-Implement linear, polynomial, and RBF kernels.
+Triển khai các kernel tuyến tính, đa thức và RBF.
 
 ```python
 def linear_kernel(x, z):
@@ -292,7 +292,7 @@ def rbf_kernel(x, z, gamma=0.5):
 
 ### Step 4: Margin and support vector identification
 
-After training, identify which points are support vectors and compute the margin width.
+Sau huấn luyện, xác định các điểm nào là vector hỗ trợ và tính độ rộng lề.
 
 ```python
 def find_support_vectors(X, y, w, b, tol=1e-3):
@@ -304,11 +304,11 @@ def find_support_vectors(X, y, w, b, tol=1e-3):
     return support_vectors
 ```
 
-See `code/svm.py` for the complete implementation with all demos.
+Xem `code/svm.py` để có triển khai đầy đủ với tất cả demo.
 
 ## Use It
 
-With scikit-learn:
+Với scikit-learn:
 
 ```python
 from sklearn.svm import SVC, LinearSVC, SVR
@@ -324,9 +324,9 @@ print(f"Accuracy: {clf.score(X_test, y_test):.4f}")
 print(f"Support vectors: {clf['svm'].n_support_}")
 ```
 
-Important: always scale your features before training an SVM. SVMs are sensitive to feature magnitudes because the margin depends on ||w||, and unscaled features distort the geometry.
+Quan trọng: luôn co giãn các đặc trưng trước khi huấn luyện một SVM. SVM nhạy với độ lớn đặc trưng vì lề phụ thuộc vào ||w||, và các đặc trưng chưa co giãn làm méo hình học.
 
-For large datasets, use `LinearSVC` (primal formulation, O(n) per epoch) instead of `SVC` (dual formulation, O(n^2) to O(n^3)):
+Với các tập dữ liệu lớn, sử dụng `LinearSVC` (dạng bài toán gốc, O(n) mỗi epoch) thay vì `SVC` (dạng đối ngẫu, O(n^2) đến O(n^3)):
 
 ```python
 from sklearn.svm import LinearSVC
@@ -339,38 +339,38 @@ clf = Pipeline([
 
 ## Exercises
 
-1. Generate a 2D linearly separable dataset. Train your LinearSVM and identify the support vectors. Verify that the support vectors are the points closest to the decision boundary.
+1. Tạo một tập dữ liệu 2D phân tách tuyến tính được. Huấn luyện LinearSVM của bạn và xác định các vector hỗ trợ. Xác minh các vector hỗ trợ là các điểm gần biên quyết định nhất.
 
-2. Vary C from 0.001 to 1000 on a noisy dataset. Plot the decision boundary for each C value. Observe the transition from wide margin (underfitting) to narrow margin (overfitting).
+2. Thay đổi C từ 0.001 đến 1000 trên một tập dữ liệu nhiễu. Vẽ biên quyết định cho mỗi giá trị C. Quan sát sự chuyển tiếp từ lề rộng (khớp chưa đủ) sang lề hẹp (khớp quá mức).
 
-3. Create a dataset where class boundaries are circular (not linear). Show that a linear SVM fails. Compute the RBF kernel matrix and show that the classes become separable in the kernel-induced feature space.
+3. Tạo một tập dữ liệu mà các biên lớp là các đường tròn (không tuyến tính). Chỉ ra rằng một SVM tuyến tính thất bại. Tính ma trận kernel RBF và chỉ ra rằng các lớp trở nên phân tách được trong không gian đặc trưng do kernel tạo ra.
 
-4. Compare hinge loss vs logistic loss on the same dataset. Train a linear SVM and logistic regression. Count how many training points contribute to each model's decision boundary (support vectors vs all points).
+4. So sánh mất mát hinge với mất mát logistic trên cùng tập dữ liệu. Huấn luyện một SVM tuyến tính và hồi quy logistic. Đếm số điểm huấn luyện đóng góp vào biên quyết định của mỗi mô hình (vector hỗ trợ so với mọi điểm).
 
-5. Implement SVR (epsilon-insensitive loss). Fit it to y = sin(x) + noise. Plot the epsilon tube around the predictions and highlight the support vectors (points outside the tube).
+5. Triển khai SVR (mất mát không nhạy epsilon). Khớp nó với y = sin(x) + noise. Vẽ ống epsilon quanh các dự đoán và làm nổi bật các vector hỗ trợ (các điểm ngoài ống).
 
 ## Key Terms
 
-| Term | What it actually means |
+| Thuật ngữ | Ý nghĩa thực sự |
 |------|----------------------|
-| Support vectors | The training points closest to the decision boundary. The only points that determine the hyperplane |
-| Margin | The distance between the decision boundary and the nearest support vectors. SVMs maximize this |
-| Hinge loss | max(0, 1 - y*f(x)). Zero when correctly classified and outside the margin. Linear penalty otherwise |
-| C parameter | Trade-off between margin width and classification errors. Large C = narrow margin, small C = wide margin |
-| Soft margin | SVM formulation that allows margin violations via slack variables. Handles non-separable data |
-| Kernel trick | Computing dot products in a high-dimensional feature space without explicitly mapping to that space |
-| Linear kernel | K(x, z) = x . z. Equivalent to standard dot product. For linearly separable data |
-| RBF kernel | K(x, z) = exp(-gamma * \|\|x-z\|\|^2). Maps to infinite dimensions. Learns any smooth boundary |
-| Polynomial kernel | K(x, z) = (x . z + c)^d. Maps to a feature space of polynomial combinations |
-| Dual formulation | Reformulation of the SVM problem that depends only on dot products between data points. Enables kernels |
-| SVR | Support Vector Regression. Fits an epsilon-tube around the data. Points inside the tube have zero loss |
-| Slack variables | xi_i: measures how much a point violates the margin. Zero for correctly classified points outside margin |
-| Maximum margin | The principle of choosing the hyperplane that maximizes the distance to the nearest points of each class |
+| Support vectors (Vector hỗ trợ) | Các điểm huấn luyện gần biên quyết định nhất. Những điểm duy nhất quyết định siêu phẳng |
+| Margin (Lề) | Khoảng cách giữa biên quyết định và các vector hỗ trợ gần nhất. SVM cực đại hóa điều này |
+| Hinge loss (Mất mát hinge) | max(0, 1 - y*f(x)). Bằng không khi phân loại đúng và ngoài lề. Hình phạt tuyến tính trong trường hợp khác |
+| C parameter (Tham số C) | Đánh đổi giữa độ rộng lề và các lỗi phân loại. C lớn = lề hẹp, C nhỏ = lề rộng |
+| Soft margin (Lề mềm) | Dạng SVM cho phép vi phạm lề thông qua các biến nới lỏng. Xử lý dữ liệu không phân tách được |
+| Kernel trick (Thủ thuật kernel) | Tính tích vô hướng trong một không gian đặc trưng nhiều chiều mà không ánh xạ tường minh vào không gian đó |
+| Linear kernel (Kernel tuyến tính) | K(x, z) = x . z. Tương đương tích vô hướng tiêu chuẩn. Cho dữ liệu phân tách tuyến tính được |
+| RBF kernel (Kernel RBF) | K(x, z) = exp(-gamma * \|\|x-z\|\|^2). Ánh xạ vào vô hạn chiều. Học bất kỳ biên trơn nào |
+| Polynomial kernel (Kernel đa thức) | K(x, z) = (x . z + c)^d. Ánh xạ vào một không gian đặc trưng gồm các tổ hợp đa thức |
+| Dual formulation (Dạng đối ngẫu) | Viết lại bài toán SVM chỉ phụ thuộc vào các tích vô hướng giữa các điểm dữ liệu. Cho phép sử dụng kernel |
+| SVR | Hồi quy Vector Hỗ trợ. Khớp một ống epsilon quanh dữ liệu. Các điểm trong ống có mất mát bằng không |
+| Slack variables (Biến nới lỏng) | xi_i: đo mức độ một điểm vi phạm lề. Bằng không với các điểm được phân loại đúng ngoài lề |
+| Maximum margin (Lề cực đại) | Nguyên lý chọn siêu phẳng cực đại hóa khoảng cách đến các điểm gần nhất của mỗi lớp |
 
 ## Further Reading
 
-- [Vapnik: The Nature of Statistical Learning Theory (1995)](https://link.springer.com/book/10.1007/978-1-4757-3264-1) - the foundational text on SVMs and statistical learning
-- [Cortes & Vapnik: Support-vector networks (1995)](https://link.springer.com/article/10.1007/BF00994018) - the original SVM paper
-- [Platt: Sequential Minimal Optimization (1998)](https://www.microsoft.com/en-us/research/publication/sequential-minimal-optimization-a-fast-algorithm-for-training-support-vector-machines/) - the SMO algorithm that made SVM training practical
-- [scikit-learn SVM documentation](https://scikit-learn.org/stable/modules/svm.html) - practical guide with implementation details
-- [LIBSVM: A Library for Support Vector Machines](https://www.csie.ntu.edu.tw/~cjlin/libsvm/) - the C++ library behind most SVM implementations
+- [Vapnik: The Nature of Statistical Learning Theory (1995)](https://link.springer.com/book/10.1007/978-1-4757-3264-1) - tài liệu nền tảng về SVM và học thống kê
+- [Cortes & Vapnik: Support-vector networks (1995)](https://link.springer.com/article/10.1007/BF00994018) - bài báo SVM gốc
+- [Platt: Sequential Minimal Optimization (1998)](https://www.microsoft.com/en-us/research/publication/sequential-minimal-optimization-a-fast-algorithm-for-training-support-vector-machines/) - thuật toán SMO làm huấn luyện SVM khả thi trong thực tế
+- [Tài liệu scikit-learn SVM](https://scikit-learn.org/stable/modules/svm.html) - hướng dẫn thực hành với các chi tiết triển khai
+- [LIBSVM: A Library for Support Vector Machines](https://www.csie.ntu.edu.tw/~cjlin/libsvm/) - thư viện C++ đằng sau hầu hết các triển khai SVM
