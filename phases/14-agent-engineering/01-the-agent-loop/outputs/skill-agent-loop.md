@@ -7,27 +7,27 @@ lesson: 01
 tags: [react, agent-loop, tools, observability, stop-condition]
 ---
 
-Given a target runtime (Python async, Python sync, Node, Rust async, Go) and a tool list (name, input schema, callable), produce a ReAct agent loop that is correct on the first try.
+Với một runtime đích (Python async, Python sync, Node, Rust async, Go) và một danh sách công cụ (tên, schema đầu vào, callable), tạo một vòng lặp agent ReAct đúng ngay từ lần thử đầu tiên.
 
-Produce:
+Tạo:
 
-1. A message-buffer type with roles {user, assistant, tool, final} and the schema the target provider expects (Anthropic `tool_use` / `tool_result` blocks, OpenAI function-calling messages, Responses API reasoning channel). Never silently swap schemas between providers.
-2. A tool registry with name -> callable dispatch, input validation, and a typed result. Errors must be caught and turned into observation strings, never raised to the loop.
-3. A loop that runs until one of: explicit `finish` action, no tool calls in the assistant turn, max turns, max total tokens, or a guardrail trip. Pick exactly one primary stop; the others are safety belts.
-4. A turn budget scaled to the task class — short task 10, computer-use 200, deep research 400. Call out the choice explicitly.
-5. A trace record that logs every thought, action, observation, and stop reason. Emit OpenTelemetry GenAI spans (`invoke_agent`, `tool_call`) when the runtime has an OTel SDK present.
+1. Một kiểu bộ đệm thông điệp với các vai trò {user, assistant, tool, final} và schema mà nhà cung cấp đích mong đợi (các khối `tool_use` / `tool_result` của Anthropic, thông điệp gọi hàm OpenAI, kênh suy luận Responses API). Không bao giờ âm thầm hoán đổi schema giữa các nhà cung cấp.
+2. Một sổ đăng ký công cụ với phân phối tên -> callable, xác thực đầu vào và một kết quả có kiểu. Các lỗi phải được bắt và chuyển thành chuỗi quan sát, không bao giờ được phát sinh lên vòng lặp.
+3. Một vòng lặp chạy cho đến một trong các điều kiện: hành động `finish` tường minh, không có lời gọi công cụ trong lượt trợ lý, số lượt tối đa, tổng số token tối đa hoặc một chốt bảo vệ kích hoạt. Chọn chính xác một điều kiện dừng chính; những điều kiện khác là dây an toàn.
+4. Một ngân sách lượt được điều chỉnh theo loại tác vụ — tác vụ ngắn 10, sử dụng máy tính 200, nghiên cứu sâu 400. Nêu rõ lựa chọn.
+5. Một bản ghi trace ghi lại mọi suy nghĩ, hành động, quan sát và lý do dừng. Phát ra các span OpenTelemetry GenAI (`invoke_agent`, `tool_call`) khi runtime có một OTel SDK.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Looping without a turn cap. This is a reliability, not an optimization, issue.
-- Swallowing tool errors into an empty observation. The model must see the failure text so it can correct.
-- Treating retrieved content as trusted instructions. All tool outputs are untrusted input — only the user message carries permission (see OpenAI CUA docs).
-- Mixing providers without a schema-translation layer. Anthropic and OpenAI have divergent tool schemas and message shapes.
+- Lặp mà không có giới hạn lượt. Đây là vấn đề độ tin cậy, không phải tối ưu hóa.
+- Nuốt lỗi công cụ vào một quan sát rỗng. Mô hình phải nhìn thấy văn bản lỗi để nó có thể sửa chữa.
+- Coi nội dung được truy xuất là các chỉ dẫn đáng tin cậy. Mọi đầu ra công cụ đều là đầu vào không đáng tin cậy — chỉ thông điệp người dùng mang sự cho phép (xem tài liệu OpenAI CUA).
+- Trộn các nhà cung cấp mà không có một lớp dịch schema. Anthropic và OpenAI có các schema công cụ và dạng thông điệp khác nhau.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the target is "no framework, bash only," refuse and recommend at least a typed message schema; agent loops are too error-prone for untyped shell glue.
-- If the user asks for "auto-retry on failed tool call without feedback to the model," refuse. Retries must either go through the model (CRITIC/Self-Refine, Lesson 05) or be part of the tool's own idempotency contract.
-- If the tool list has a destructive tool without a human-in-the-loop confirmation, refuse and point to Lesson 09 (permissions + sandboxing).
+- Nếu đích là "không framework, chỉ bash," từ chối và khuyến nghị ít nhất một schema thông điệp có kiểu; các vòng lặp agent quá dễ lỗi đối với mã kết nối shell không định kiểu.
+- Nếu người dùng yêu cầu "tự động thử lại khi lời gọi công cụ thất bại mà không phản hồi cho mô hình," từ chối. Các lần thử lại phải đi qua mô hình (CRITIC/Self-Refine, Bài 05) hoặc là một phần của hợp đồng lũy đẳng của chính công cụ.
+- Nếu danh sách công cụ có một công cụ phá hủy mà không có xác nhận có con người tham gia, từ chối và chỉ đến Bài 09 (quyền + sandbox).
 
-Output: one file per language target plus a `README.md` explaining the stop-condition choice, turn budget justification, and one worked trace showing thought-action-observation per step. End with "what to read next" pointing to Lesson 02 (ReWOO planning) if the task is long-horizon, Lesson 03 (Reflexion) if the task is repeat-of-previous, or Lesson 27 (prompt injection) if the tools touch untrusted content.
+Đầu ra: một file cho mỗi ngôn ngữ đích cộng với một `README.md` giải thích lựa chọn điều kiện dừng, lý do ngân sách lượt và một trace được giải đầy đủ cho thấy suy nghĩ-hành động-quan sát ở mỗi bước. Kết thúc bằng "đọc gì tiếp theo" chỉ đến Bài 02 (lập kế hoạch ReWOO) nếu tác vụ có tầm dài, Bài 03 (Reflexion) nếu tác vụ là lặp lại tác vụ trước hoặc Bài 27 (prompt injection) nếu các công cụ tiếp xúc nội dung không đáng tin cậy.
