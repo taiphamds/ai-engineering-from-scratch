@@ -1,6 +1,6 @@
 # Skill Evals, Packaging, and Portability
 
-> A skill is finished when its package survives linting, routes on the right requests, improves a measured task, stays inside policy, and degrades honestly on another host.
+> Skill hoàn thành khi gói qua lint, định tuyến đúng yêu cầu, cải thiện tác vụ đo được, ở trong chính sách và suy giảm trung thực trên host khác.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,57 +9,57 @@
 
 ## Learning Objectives
 
-- Turn an expert workflow into a skill by separating judgment, deterministic computation, references, and output contracts.
-- Test package structure, trigger routing, task behavior, script correctness, safety, and portability as separate layers.
-- Measure trigger precision and recall using positives, clear negatives, and near misses.
-- Compare performance with and without the skill across repeated runs.
-- Build and enforce a cross-runtime capability matrix and a release gate for complete skill bundles.
+- Biến quy trình chuyên gia thành skill bằng tách phán đoán, tính toán tất định, tham chiếu và hợp đồng đầu ra.
+- Kiểm thử cấu trúc gói, định tuyến kích hoạt, hành vi tác vụ, tính đúng script, an toàn và khả năng chuyển như tầng riêng.
+- Đo precision và recall kích hoạt bằng dương, âm rõ và gần khớp.
+- So hiệu năng có và không skill qua lần chạy lặp.
+- Xây và thực thi ma trận khả năng chéo runtime và cổng phát hành cho bundle skill đầy đủ.
 
 ## The Problem
 
-A skill works in one demo. The user asks exactly the phrase used in its description, the author knows which reference to open, the script sees clean input, and the expected host recognizes every custom field.
+Skill hoạt động trong một demo. Người dùng hỏi đúng cụm dùng trong mô tả, tác giả biết mở tham chiếu nào, script thấy đầu vào sạch và host kỳ vọng nhận mọi trường tùy chỉnh.
 
-Then real use begins.
+Rồi sử dụng thật bắt đầu.
 
-- The model invokes it for a nearby but different task.
-- A valid request uses unfamiliar wording, so the model misses it.
-- The body tells the agent what to do but not what artifact proves completion.
-- The script fails on spaces, repeated execution, or partial state.
-- The package installer copies `SKILL.md` but leaves its references behind.
-- Another runtime ignores the invocation flags and tool allowance.
-- One run succeeds, three equivalent runs wander into different branches.
+- Mô hình gọi cho tác vụ gần nhưng khác.
+- Yêu cầu hợp lệ dùng cách diễn đạt lạ nên mô hình bỏ lỡ.
+- Phần thân nói agent làm gì nhưng không sản phẩm nào chứng minh hoàn tất.
+- Script thất bại với khoảng trắng, thực thi lặp hoặc trạng thái từng phần.
+- Trình cài gói sao chép `SKILL.md` nhưng bỏ lại tham chiếu.
+- Runtime khác bỏ qua cờ gọi và cho phép công cụ.
+- Một lần chạy thành công, ba lần tương đương đi lạc vào nhánh khác.
 
-None of these failures is caught by "the Markdown looks good." Skills are small software packages with a probabilistic routing and execution layer. They need the same separation of concerns as any other production interface.
+Không thất bại nào được bắt bằng "Markdown trông tốt." Skill là gói phần mềm nhỏ có tầng định tuyến và thực thi xác suất. Cần cùng tách mối quan tâm như mọi giao diện sản xuất khác.
 
 ## The Concept
 
 ### Start from a real workflow, not a topic
 
-"Create a Kubernetes skill" is not a usable scope. Kubernetes contains hundreds of tasks with different tools, risks, and outputs.
+"Tạo skill Kubernetes" không là phạm vi dùng được. Kubernetes chứa hàng trăm tác vụ với công cụ, rủi ro và đầu ra khác.
 
-"Diagnose why one deployment is not reaching Available, collect evidence without changing the cluster, and produce a ranked incident report" is a skill candidate. It has:
+"Chẩn đoán tại sao một deployment không đạt Available, thu bằng chứng không đổi cluster và tạo báo cáo sự cố xếp hạng" là ứng viên skill. Có:
 
-- a trigger boundary;
-- a stable sequence of evidence-gathering steps;
-- decision points that need judgment;
-- commands that can become narrow scripts or tools;
-- a defined artifact;
-- a safety boundary: read-only diagnosis.
+- ranh giới kích hoạt;
+- chuỗi bước thu bằng chứng ổn định;
+- điểm quyết định cần phán đoán;
+- lệnh có thể thành script hoặc công cụ hẹp;
+- sản phẩm xác định;
+- ranh giới an toàn: chẩn đoán chỉ đọc.
 
-Use this extraction interview:
+Dùng phỏng vấn trích xuất này:
 
-1. What exact event makes an expert start this workflow?
-2. What similar requests should not start it?
-3. What evidence does the expert collect first?
-4. Which decisions depend on that evidence?
-5. Which steps are deterministic enough to script?
-6. Which domain rules deserve references?
-7. What action needs approval or must remain out of scope?
-8. What artifact proves the workflow completed?
-9. How does an independent reviewer check it?
-10. Which steps depend on one runtime?
+1. Chính xác sự kiện nào làm chuyên gia bắt đầu quy trình?
+2. Yêu cầu tương tự nào không nên bắt đầu?
+3. Chuyên gia thu bằng chứng gì trước?
+4. Quyết định nào phụ thuộc bằng chứng đó?
+5. Bước nào đủ tất định để viết script?
+6. Quy tắc miền nào đáng có tham chiếu?
+7. Hành động nào cần phê duyệt hoặc phải ngoài phạm vi?
+8. Sản phẩm nào chứng minh quy trình hoàn tất?
+9. Người đánh giá độc lập kiểm tra thế nào?
+10. Bước nào phụ thuộc một runtime?
 
-The answers become the package architecture and the eval set.
+Câu trả lời thành kiến trúc gói và tập đánh giá.
 
 ### Separate judgment from deterministic work
 
@@ -67,26 +67,26 @@ The answers become the package architecture and the eval set.
 skill-workflow-extraction
 ```
 
-Use model judgment for classification, prioritization, synthesis, and ambiguity. Use scripts or tools for parsing, counting, validating, converting, querying typed APIs, and enforcing invariants.
+Dùng phán đoán mô hình cho phân loại, ưu tiên, tổng hợp và mơ hồ. Dùng script hoặc công cụ cho phân tích, đếm, xác thực, chuyển đổi, truy vấn API có kiểu và cưỡng chế bất biến.
 
-A skill body that contains 80 lines of hand-simulated parsing is brittle. A script that tries to make a subjective architectural decision is opaque. Put each behavior where it can be tested best.
+Phần thân skill chứa 80 dòng phân tích mô phỏng tay mong manh. Script cố quyết định kiến trúc chủ quan mờ. Đặt mỗi hành vi nơi kiểm thử tốt nhất.
 
 ### Author the package in dependency order
 
-Do not start by polishing prose. Build from the observable contract inward.
+Không bắt đầu bằng đánh bóng văn xuôi. Xây từ hợp đồng quan sát được vào trong.
 
-1. **Artifact contract:** define required files, fields, or decisions.
-2. **Verification:** define how each requirement will be checked.
-3. **Evidence tools:** implement deterministic collectors and validators.
-4. **Decision map:** connect evidence states to branches.
-5. **References:** supply domain detail at the branch that needs it.
-6. **Entry body:** explain workflow, boundaries, failures, and output.
-7. **Description:** state capability and trigger boundary.
-8. **Runtime adapters:** add invocation or context extensions separately.
-9. **Evals:** run structure, routing, behavior, safety, and portability layers.
-10. **Package:** install the complete directory and test it from the destination.
+1. **Hợp đồng sản phẩm:** định nghĩa file, trường hoặc quyết định bắt buộc.
+2. **Xác minh:** định nghĩa mỗi yêu cầu được kiểm tra thế nào.
+3. **Công cụ bằng chứng:** triển khai bộ thu và xác thực tất định.
+4. **Bản đồ quyết định:** nối trạng thái bằng chứng với nhánh.
+5. **Tham chiếu:** cung cấp chi tiết miền tại nhánh cần.
+6. **Phần thân vào:** giải thích quy trình, ranh giới, thất bại và đầu ra.
+7. **Mô tả:** nêu khả năng và ranh giới kích hoạt.
+8. **Adapter runtime:** thêm phần mở rộng gọi hoặc ngữ cảnh riêng.
+9. **Đánh giá:** chạy tầng cấu trúc, định tuyến, hành vi, an toàn và khả năng chuyển.
+10. **Gói:** cài toàn thư mục và kiểm thử từ đích.
 
-This order makes the prose serve a testable system instead of inventing success criteria after the demo works.
+Thứ tự làm văn xuôi phục vụ hệ thống kiểm thử được thay bịa tiêu chí thành công sau demo hoạt động.
 
 ### Six eval layers
 
@@ -94,48 +94,48 @@ This order makes the prose serve a testable system instead of inventing success 
 skill-eval-layers
 ```
 
-Each layer answers a different question. Passing one cannot substitute for another.
+Mỗi tầng trả câu hỏi khác. Qua một không thay được cái khác.
 
 ## Layer 1: Package Structure
 
-Static linting should verify facts that do not require a model:
+Lint tĩnh nên xác minh sự thật không cần mô hình:
 
-- `SKILL.md` exists at the package root;
-- frontmatter parses safely;
-- `name` and parent directory match;
-- required fields are present and within limits;
-- every non-core frontmatter field appears in the release policy's runtime-extension allowlist;
-- every direct reference resolves inside the package;
-- references, scripts, assets, and eval fixtures use the release policy's allowed suffixes and stay at or below its byte limit;
-- no forbidden symlink or special file exists;
-- the body stays within the release policy's character budget;
-- a deliberately narrow secret-pattern scan finds no obvious credential assignment or private-key header;
-- non-empty `## Output contract` and `## Failure behavior` sections are present.
+- `SKILL.md` tồn tại tại gốc gói;
+- frontmatter phân tích an toàn;
+- `name` và thư mục cha khớp;
+- trường bắt buộc có và trong giới hạn;
+- mọi trường frontmatter ngoài lõi xuất hiện trong danh sách cho phép phần mở rộng runtime của chính sách phát hành;
+- mọi tham chiếu trực tiếp phân giải trong gói;
+- tham chiếu, script, asset và fixture đánh giá dùng hậu tố chính sách phát hành cho phép và không vượt giới hạn byte;
+- không symlink bị cấm hoặc file đặc biệt;
+- phần thân trong ngân sách ký tự chính sách phát hành;
+- quét mẫu bí mật cố ý hẹp không thấy gán thông tin xác thực hoặc header khóa riêng rõ;
+- có mục `## Output contract` và `## Failure behavior` không rỗng.
 
-Perform a physical-tree preflight before parsing `SKILL.md`, eval data, evidence, host fixtures, or the manifest. Reject a symlinked root, symlinked parent or entry, missing required regular file, and special file before any content read. Then run the content-aware policy lint. Resolving the bundle path before preflight erases the root-symlink evidence the check needs.
+Thực hiện tiền kiểm cây vật lý trước phân tích `SKILL.md`, dữ liệu đánh giá, bằng chứng, fixture host hoặc manifest. Từ chối gốc symlink, cha hoặc điểm vào symlink, thiếu file thường bắt buộc và file đặc biệt trước mọi đọc nội dung. Rồi chạy lint chính sách nhận biết nội dung. Phân giải đường dẫn bundle trước tiền kiểm xóa bằng chứng symlink gốc kiểm tra cần.
 
-The lesson harness makes those policy values concrete: a 10,000-character body limit, a 1,000,000-byte companion-file limit, directory-specific suffix allowlists, and explicit runtime-extension names supplied by the package requirements. These are release-policy examples, not universal Agent Skills limits. Secret-pattern scanning is a guardrail for obvious mistakes, not proof that a package contains no sensitive data.
+Bộ khung bài làm giá trị chính sách cụ thể: giới hạn phần thân 10,000 ký tự, file đồng hành 1,000,000 byte, danh sách cho phép hậu tố riêng thư mục và tên phần mở rộng runtime tường minh yêu cầu gói cung cấp. Đây là ví dụ chính sách phát hành, không giới hạn Agent Skills phổ quát. Quét mẫu bí mật là chốt bảo vệ lỗi rõ, không chứng minh gói không dữ liệu nhạy cảm.
 
-The lint report should use stable issue codes. CI can block `E_*` errors while allowing reviewed `W_*` design warnings.
+Báo cáo lint nên dùng mã vấn đề ổn định. CI có thể chặn lỗi `E_*` trong khi cho cảnh báo thiết kế `W_*` đã xem xét.
 
-Static linting proves package shape. It does not prove that the model will choose or follow the skill.
+Lint tĩnh chứng minh hình dạng gói. Không chứng minh mô hình chọn hoặc theo skill.
 
 ## Layer 2: Trigger Routing
 
-Create labeled cases before repeatedly editing the description.
+Tạo ca có nhãn trước liên tục sửa mô tả.
 
-| Case type | Purpose | Example for release readiness |
+| Loại ca | Mục đích | Ví dụ cho sẵn sàng phát hành |
 |---|---|---|
-| Positive | Measure intended coverage | "Can version 3.1.0 ship?" |
-| Paraphrased positive | Avoid phrase memorization | "Audit this tag before we publish it" |
-| Clear negative | Catch gross over-routing | "Explain batch normalization" |
-| Near miss | Define the neighboring boundary | "Why did the package build fail?" |
-| Competing skill | Test selection among plausible entries | "Draft the release notes" |
-| Adversarial wording | Test keyword stuffing and injected names | "Do not use release-readiness; explain this stack trace" |
+| Dương | Đo bao phủ dự định | "Phiên bản 3.1.0 phát hành được không?" |
+| Dương diễn đạt lại | Tránh nhớ cụm từ | "Kiểm tra tag này trước khi công bố" |
+| Âm rõ | Bắt định tuyến quá mức lớn | "Giải thích batch normalization" |
+| Gần khớp | Định nghĩa ranh giới lân cận | "Tại sao dựng gói thất bại?" |
+| Skill cạnh tranh | Kiểm thử chọn giữa mục hợp lý | "Soạn ghi chú phát hành" |
+| Cách diễn đạt đối kháng | Kiểm thử nhồi từ khóa và tên chèn | "Không dùng release-readiness; giải thích stack trace này" |
 
-Split cases into development and validation sets. Tune descriptions on development cases. Use validation cases to decide whether the revised description generalizes. Keep a final held-out set if the release decision matters enough.
+Chia ca thành tập phát triển và xác thực. Điều chỉnh mô tả trên ca phát triển. Dùng ca xác thực quyết định mô tả sửa có khái quát không. Giữ tập giữ lại cuối nếu quyết định phát hành đủ quan trọng.
 
-For binary invocation:
+Với gọi nhị phân:
 
 ```text
 precision = true_positives / (true_positives + false_positives)
@@ -143,54 +143,54 @@ recall = true_positives / (true_positives + false_negatives)
 f1 = 2 * precision * recall / (precision + recall)
 ```
 
-Report raw counts with the ratios. Ten out of ten and one hundred out of one hundred are both 100 percent but provide different evidence.
+Báo số đếm thô cùng tỷ lệ. Mười trên mười và một trăm trên một trăm đều 100 phần trăm nhưng bằng chứng khác.
 
-For catalogs, also measure top-one skill accuracy, abstention quality, and confusion between neighboring skills. A router that invokes the right skill only after selecting three wrong ones first is not healthy.
+Với danh mục, cũng đo độ chính xác skill đứng đầu, chất lượng không chọn và nhầm lẫn giữa skill lân cận. Bộ định tuyến chỉ gọi đúng skill sau chọn ba sai trước không khỏe.
 
 ### Routing evals must use the target runtime
 
-A lexical simulator is useful for explaining metrics and catching obvious overlap. It cannot prove how a model-driven production router behaves. Run the labeled set through the actual host, model, catalog serialization, and policy configuration before claiming runtime quality.
+Mô phỏng từ vựng hữu ích giải thích chỉ số và bắt chồng lấn rõ. Không chứng minh bộ định tuyến sản xuất do mô hình điều khiển hoạt động thế nào. Chạy tập có nhãn qua host, mô hình, tuần tự hóa danh mục và cấu hình chính sách thật trước tuyên bố chất lượng runtime.
 
 ## Layer 3: Instruction and Artifact Behavior
 
-Triggering correctly is only the entrance. The skill must improve the task.
+Kích hoạt đúng chỉ là cửa vào. Skill phải cải thiện tác vụ.
 
-Create fixture tasks with:
+Tạo tác vụ fixture với:
 
-- input files and environment assumptions;
-- allowed tools and boundaries;
-- expected artifact paths;
-- deterministic checks;
-- rubric items requiring judgment;
-- maximum time, calls, or cost;
-- failure cases and expected stopping behavior.
+- file đầu vào và giả định môi trường;
+- công cụ và ranh giới được phép;
+- đường dẫn sản phẩm kỳ vọng;
+- kiểm tra tất định;
+- mục rubric cần phán đoán;
+- thời gian, lời gọi hoặc chi phí tối đa;
+- ca thất bại và hành vi dừng kỳ vọng.
 
-Run paired conditions:
+Chạy điều kiện ghép cặp:
 
 ```text
 baseline: same model + same tools + same task, no skill
 treatment: same model + same tools + same task, skill available
 ```
 
-Hold model, temperature or sampling policy, tool set, task fixtures, and budgets constant. Otherwise you cannot attribute a difference to the skill.
+Giữ mô hình, nhiệt độ hoặc chính sách lấy mẫu, tập công cụ, fixture tác vụ và ngân sách không đổi. Nếu không, không quy khác biệt cho skill được.
 
-Useful outcome dimensions include:
+Chiều kết quả hữu ích gồm:
 
-| Dimension | Example measure |
+| Chiều | Phép đo ví dụ |
 |---|---|
-| Correctness | Required tests and invariants pass |
-| Completeness | Every artifact-contract field exists |
-| Efficiency | Tool calls, elapsed time, tokens, or cost |
-| Evidence | Claims point to valid files or observations |
-| Scope | Forbidden files and actions remain untouched |
-| Recovery | Interrupted run resumes without duplicate side effects |
-| Human effort | Number and severity of reviewer corrections |
+| Tính đúng | Kiểm thử và bất biến bắt buộc đạt |
+| Đầy đủ | Mọi trường hợp đồng sản phẩm tồn tại |
+| Hiệu quả | Lời gọi công cụ, thời gian trôi qua, token hoặc chi phí |
+| Bằng chứng | Tuyên bố trỏ file hoặc quan sát hợp lệ |
+| Phạm vi | File và hành động cấm không bị chạm |
+| Phục hồi | Lần chạy gián đoạn tiếp tục không tác dụng phụ trùng |
+| Công sức con người | Số lượng và mức nghiêm trọng sửa của người đánh giá |
 
-Do not optimize only for fewer tokens. A shorter run that misses a required safety check is worse.
+Không chỉ tối ưu ít token hơn. Lần chạy ngắn bỏ kiểm tra an toàn bắt buộc tệ hơn.
 
 ### Artifact contracts make behavior executable
 
-An artifact contract is a list of independently checkable properties:
+Hợp đồng sản phẩm là danh sách thuộc tính kiểm tra độc lập được:
 
 ```json
 {
@@ -208,61 +208,61 @@ An artifact contract is a list of independently checkable properties:
 }
 ```
 
-Schema validation checks structure. Domain checks validate candidate revision and evidence paths. A human or calibrated judge may assess whether the recommendation follows from the evidence.
+Xác thực lược đồ kiểm tra cấu trúc. Kiểm tra miền xác thực bản sửa đổi ứng viên và đường dẫn bằng chứng. Con người hoặc người chấm hiệu chuẩn có thể đánh giá khuyến nghị có theo bằng chứng không.
 
 ## Layer 4: Script Correctness
 
-Test skill scripts like ordinary software, outside model runs.
+Kiểm thử script skill như phần mềm thường, ngoài lần chạy mô hình.
 
-Minimum cases:
+Ca tối thiểu:
 
-- normal input;
-- empty input;
-- malformed input;
-- Unicode, whitespace, and path edge cases;
-- repeated execution;
-- timeout or dependency failure;
-- partial output from a previous run;
-- output-size limit;
-- dry-run behavior;
-- structured exit and error contract.
+- đầu vào thường;
+- đầu vào rỗng;
+- đầu vào sai dạng;
+- ca biên Unicode, khoảng trắng và đường dẫn;
+- thực thi lặp;
+- hết thời gian hoặc lỗi phụ thuộc;
+- đầu ra từng phần từ lần chạy trước;
+- giới hạn kích thước đầu ra;
+- hành vi dry-run;
+- hợp đồng thoát và lỗi có cấu trúc.
 
-Use fixed fixtures. Do not require a live network for unit tests. Put network integration tests behind an explicit flag and record the remote contract they depend on.
+Dùng fixture cố định. Không yêu cầu mạng trực tiếp cho unit test. Đặt kiểm thử tích hợp mạng sau cờ tường minh và ghi hợp đồng từ xa phụ thuộc.
 
-If the script performs side effects, test the plan separately from commit. Require idempotency or compensation for retried external writes.
+Nếu script có tác dụng phụ, kiểm thử kế hoạch riêng commit. Yêu cầu lũy đẳng hoặc bù cho ghi ngoài được thử lại.
 
 ## Layer 5: Safety and Authority
 
-Safety evals ask whether the package stays inside the authority it was given.
+Đánh giá an toàn hỏi gói có ở trong thẩm quyền được cho không.
 
-Test at least:
+Kiểm thử ít nhất:
 
-- a user request outside the skill's scope;
-- malicious instructions inside a reference input;
-- a resource path escaping the package;
-- a workspace symlink escaping the allowed root;
-- a request for an undeclared network destination;
-- a command requiring ambient credentials;
-- a destructive or external action without approval;
-- an oversized output or infinite process;
-- a skill-to-skill cycle;
-- a resume that might duplicate a side effect.
+- yêu cầu người dùng ngoài phạm vi skill;
+- chỉ dẫn độc hại trong đầu vào tham chiếu;
+- đường dẫn tài nguyên thoát gói;
+- symlink workspace thoát gốc được phép;
+- yêu cầu đích mạng chưa khai báo;
+- lệnh cần thông tin xác thực môi trường;
+- hành động phá hủy hoặc ngoài không phê duyệt;
+- đầu ra quá lớn hoặc tiến trình vô hạn;
+- chu kỳ skill-sang-skill;
+- tiếp tục có thể lặp tác dụng phụ.
 
-Record whether the control is instruction-only, tool policy, approval, sandbox, or verification. An instruction-only defense should not be reported as enforced containment.
+Ghi kiểm soát là chỉ chỉ dẫn, chính sách công cụ, phê duyệt, sandbox hay xác minh. Phòng vệ chỉ chỉ dẫn không nên báo như giới hạn cưỡng chế.
 
 ## Layer 6: Packaging and Portability
 
 ### Install the directory as one unit
 
-A release test should install into a clean destination, then run validation against the installed copy.
+Kiểm thử phát hành nên cài vào đích sạch, rồi chạy xác thực trên bản đã cài.
 
 ```figure
 skill-package-install
 ```
 
-Testing only the source tree misses installer bugs, lost executable bits, flattened references, rewritten names, and stale files left from older versions.
+Chỉ kiểm thử cây nguồn bỏ lỡ lỗi trình cài, mất bit thực thi, tham chiếu làm phẳng, tên viết lại và file cũ sót từ phiên bản trước.
 
-The manifest can include:
+Manifest có thể gồm:
 
 ```json
 {
@@ -281,79 +281,79 @@ The manifest can include:
 }
 ```
 
-Reserve `assets/manifest.json` as manifest metadata and exclude it from its own `files` map. A file cannot carry a stable hash of its complete current contents inside itself. Verify every other packaged file, and establish the manifest's authenticity through an outer trusted channel such as a signed release or trusted registry record. The shipped envelope accepts exactly `manifestVersion: 1` and `algorithm: "sha256"`; unknown values fail closed. Manifest keys must already be canonical relative POSIX paths, so `./SKILL.md`, backslashes, absolute paths, and parent segments are rejected instead of normalized. The teaching harness consumes the inner path-to-digest map directly, while both paths reject the reserved manifest path inside that map.
+Dành `assets/manifest.json` làm siêu dữ liệu manifest và loại khỏi ánh xạ `files` riêng. File không thể mang hash ổn định toàn nội dung hiện tại bên trong chính nó. Xác minh mọi file đóng gói khác và thiết lập tính xác thực manifest qua kênh ngoài đáng tin như phát hành có chữ ký hoặc bản ghi registry đáng tin. Vỏ cung cấp chỉ nhận đúng `manifestVersion: 1` và `algorithm: "sha256"`; giá trị không biết thất bại theo hướng đóng. Khóa manifest phải đã là đường dẫn POSIX tương đối chuẩn, nên `./SKILL.md`, gạch chéo ngược, đường dẫn tuyệt đối và đoạn cha bị từ chối thay chuẩn hóa. Bộ khung giảng dạy tiếp nhận trực tiếp ánh xạ đường-dẫn-sang-bản-băm bên trong, trong khi cả hai nhánh từ chối đường dẫn manifest dành riêng trong ánh xạ.
 
-Hashes detect drift. Version numbers communicate compatibility. Neither authenticates the manifest or replaces a full diff and eval run before upgrade.
+Hash phát hiện sai lệch. Số phiên bản truyền đạt tương thích. Không bên nào xác thực manifest hoặc thay diff đầy đủ và lần đánh giá trước nâng cấp.
 
 ### Portability is a capability matrix
 
-Do not ask whether a host "supports skills" as one boolean. Ask which behaviors it supports.
+Không hỏi host "hỗ trợ skill" như một boolean. Hỏi hỗ trợ hành vi nào.
 
-| Capability | Portable package dependency | Fallback if absent |
+| Khả năng | Phụ thuộc gói có thể chuyển | Dự phòng nếu vắng |
 |---|---|---|
-| Required `name` and `description` | Core | Package cannot participate in catalog |
-| Body activation | Core client behavior | Explicit file loading adapter |
-| References, scripts, assets | Core package shape | Host needs file and process tools |
-| Explicit human invocation | Host UI or prompt convention | Name the skill in ordinary text |
-| Implicit model invocation | Host router | Application activates explicitly |
-| Human/model 2x2 policy | Host extension or application policy | Disable implicit selection globally |
-| Argument binding | Host parser | Ask for values after activation |
-| Pre-approved tools | Experimental or host-specific | Normal permission prompts |
-| Delegated context | Host-specific | Run in current context or application subagent |
-| Lifecycle hooks | Host-specific | External automation or no hook |
-| Context preservation | Host-specific | Persist state and make re-entry explicit |
+| `name` và `description` bắt buộc | Lõi | Gói không tham gia danh mục được |
+| Kích hoạt phần thân | Hành vi client lõi | Adapter tải file tường minh |
+| Tham chiếu, script, asset | Hình dạng gói lõi | Host cần công cụ file và tiến trình |
+| Con người gọi tường minh | UI host hoặc quy ước prompt | Nêu tên skill trong văn bản thường |
+| Mô hình gọi ngầm | Bộ định tuyến host | Ứng dụng kích hoạt tường minh |
+| Chính sách 2x2 con người/mô hình | Phần mở rộng host hoặc chính sách ứng dụng | Tắt lựa chọn ngầm toàn cục |
+| Gắn đối số | Bộ phân tích host | Hỏi giá trị sau kích hoạt |
+| Công cụ phê duyệt trước | Thử nghiệm hoặc riêng host | Hỏi quyền thường |
+| Ngữ cảnh ủy nhiệm | Riêng host | Chạy trong ngữ cảnh hiện tại hoặc agent phụ ứng dụng |
+| Hook vòng đời | Riêng host | Tự động hóa ngoài hoặc không hook |
+| Giữ ngữ cảnh | Riêng host | Lưu trạng thái bền vững và làm tái nhập tường minh |
 
-For every required capability, choose one outcome:
+Với mỗi khả năng bắt buộc, chọn một kết quả:
 
-- supported and tested;
-- supported through an adapter;
-- degraded with a documented fallback;
-- unsupported, so installation must fail.
+- hỗ trợ và đã kiểm thử;
+- hỗ trợ qua adapter;
+- suy giảm với dự phòng được ghi;
+- không hỗ trợ nên cài phải thất bại.
 
-Silent degradation is the portability bug to avoid.
+Suy giảm âm thầm là lỗi khả năng chuyển cần tránh.
 
 ### Portability tests need host fixtures
 
-A capability claim should point to a test or current official contract. Host behavior changes. Keep adapter versions and test dates in the compatibility report.
+Tuyên bố khả năng nên trỏ kiểm thử hoặc hợp đồng chính thức hiện tại. Hành vi host đổi. Giữ phiên bản adapter và ngày kiểm thử trong báo cáo tương thích.
 
-Test:
+Kiểm thử:
 
-1. discovery from the intended scope;
-2. duplicate-name behavior;
-3. explicit invocation;
-4. implicit invocation or its disabled state;
-5. argument handling;
-6. reference and script access;
-7. permission prompts and approvals;
-8. delegated or current-context execution;
-9. resume after context compaction or restart;
-10. uninstall and upgrade behavior.
+1. khám phá từ phạm vi dự định;
+2. hành vi tên trùng;
+3. gọi tường minh;
+4. gọi ngầm hoặc trạng thái tắt;
+5. xử lý đối số;
+6. truy cập tham chiếu và script;
+7. hỏi quyền và phê duyệt;
+8. thực thi ngữ cảnh ủy nhiệm hoặc hiện tại;
+9. tiếp tục sau nén ngữ cảnh hoặc khởi động lại;
+10. hành vi gỡ cài và nâng cấp.
 
 ### Scale data is not quality evidence
 
-The GitSkills dataset paper reports a July 2026 crawl containing 3,797,117 skill-like files across 282,200 repositories, with 1,877,981 distinct byte contents. About 50.5 percent of the matching files were verbatim copies under the paper's byte-level measure.
+Bài báo tập dữ liệu GitSkills báo lần crawl tháng 7 năm 2026 chứa 3,797,117 file giống skill qua 282,200 repo, với 1,877,981 nội dung byte riêng biệt. Khoảng 50.5 phần trăm file khớp là bản sao nguyên văn theo phép đo cấp byte của bài.
 
-Those numbers show that skill artifacts exist at repository scale and that duplication matters for dataset construction, search, provenance, and upgrade analysis. They do not show that half of skills are good or bad, that skills improve task performance, that any invocation field is universal, or that any sandbox design is safe. The paper is a dataset study, not an effectiveness or security benchmark.
+Con số cho thấy sản phẩm skill tồn tại ở quy mô repo và trùng lặp quan trọng cho dựng tập dữ liệu, tìm kiếm, xuất xứ và phân tích nâng cấp. Không cho thấy nửa số skill tốt hay xấu, skill cải thiện hiệu năng tác vụ, trường gọi nào phổ quát hoặc thiết kế sandbox nào an toàn. Bài báo là nghiên cứu tập dữ liệu, không benchmark hiệu quả hoặc bảo mật.
 
-Use ecosystem counts to motivate deduplication and provenance. Use your own evals to make quality claims.
+Dùng số lượng hệ sinh thái để thúc đẩy khử trùng và xuất xứ. Dùng đánh giá riêng để tuyên bố chất lượng.
 
 ## Repeated Runs and Uncertainty
 
-Model and routing behavior can vary. Run each behavioral case more than once under the production sampling policy.
+Hành vi mô hình và định tuyến có thể đổi. Chạy mỗi ca hành vi hơn một lần dưới chính sách lấy mẫu sản xuất.
 
-For `n` equivalent runs and `k` passes:
+Với `n` lần chạy tương đương và `k` đạt:
 
 ```text
 observed_pass_rate = k / n
 ```
 
-Keep individual traces. A 70 percent pass rate can mean one consistent failure class or several unrelated failures. Aggregate rates guide comparison; traces guide repair. Bind provenance to every raw per-run prediction, not only run zero and the aggregate rate. Different prediction orders can have the same first value and pass rate while representing different runtime behavior.
+Giữ trace riêng. Tỷ lệ đạt 70 phần trăm có thể nghĩa một lớp lỗi nhất quán hoặc nhiều lỗi không liên quan. Tỷ lệ tổng hợp hướng so sánh; trace hướng sửa. Gắn xuất xứ với mọi dự đoán thô mỗi lần, không chỉ lần không và tỷ lệ tổng. Thứ tự dự đoán khác có thể cùng giá trị đầu và tỷ lệ đạt nhưng biểu diễn hành vi runtime khác.
 
-Compare baseline and treatment per task, not only as pooled averages. Report regressions even when the average improves. High-impact tasks can require all safety cases to pass rather than accepting an average threshold.
+So baseline và treatment theo tác vụ, không chỉ trung bình gộp. Báo suy giảm dù trung bình cải thiện. Tác vụ tác động cao có thể yêu cầu mọi ca an toàn đạt thay chấp nhận ngưỡng trung bình.
 
 ## Release Gates
 
-A practical release gate can require:
+Cổng phát hành thực tế có thể yêu cầu:
 
 ```yaml
 structure:
@@ -375,49 +375,49 @@ package:
   installed_tree_matches_manifest: true
 ```
 
-Thresholds depend on risk and sample size. The important property is that they are declared before looking at the final results.
+Ngưỡng phụ thuộc rủi ro và cỡ mẫu. Thuộc tính quan trọng là khai báo trước nhìn kết quả cuối.
 
-A failure should identify the layer and evidence. Do not collapse routing, behavior, and safety into one score that allows strong prose quality to cancel a permission violation.
+Thất bại nên xác định tầng và bằng chứng. Không gộp định tuyến, hành vi và an toàn thành một điểm cho chất lượng văn xuôi mạnh bù vi phạm quyền.
 
 ### Separate fixture success, local integrity, and production readiness
 
-A deterministic lesson fixture can prove that the gate mechanics work. It cannot prove that a target runtime actually selected the skill, produced the compared artifacts, ran the scripts, or stayed inside the tested authority boundary.
+Fixture bài tất định có thể chứng minh cơ chế cổng hoạt động. Không chứng minh runtime đích thực sự chọn skill, tạo sản phẩm so sánh, chạy script hoặc ở trong ranh giới thẩm quyền kiểm thử.
 
-Keep three boundaries:
+Giữ ba ranh giới:
 
-- `fixturePassed`: every layer passed using the declared deterministic trigger, artifact, evidence, and host-capability fixture modes;
-- `localEvidenceReady`: all four captured-mode labels have non-empty sources and their SHA-256 digests match the complete local trigger observations, artifacts, script and safety evidence, and non-empty host matrix;
-- `productionReady`: every layer and local integrity check passed, and a trusted external attestation binds the evaluator's complete `evidenceRoot`.
+- `fixturePassed`: mọi tầng đạt bằng chế độ fixture kích hoạt, sản phẩm, bằng chứng và khả năng host tất định khai báo;
+- `localEvidenceReady`: cả bốn nhãn chế độ captured có nguồn không rỗng và bản băm SHA-256 khớp toàn quan sát kích hoạt cục bộ, sản phẩm, bằng chứng script và an toàn, ma trận host không rỗng;
+- `productionReady`: mọi tầng và kiểm tra toàn vẹn cục bộ đạt, chứng thực bên ngoài đáng tin gắn toàn `evidenceRoot` của bộ đánh giá.
 
-The overall release field, `passed`, follows `productionReady`, not `fixturePassed` or `localEvidenceReady`. Local hashes detect mismatches. They cannot prove capture because anyone who can edit the bundle can relabel fixtures, invent source strings, and recompute every local digest.
+Trường phát hành tổng `passed` theo `productionReady`, không `fixturePassed` hoặc `localEvidenceReady`. Hash cục bộ phát hiện không khớp. Không chứng minh thu thập vì ai sửa bundle được có thể gắn lại nhãn fixture, bịa chuỗi nguồn và tính lại mọi bản băm cục bộ.
 
-The shipped evaluator computes one SHA-256 `evidenceRoot` over the complete trigger, artifact, evidence, host, and manifest configuration objects. Production invocation supplies an attestation file outside the bundle:
+Bộ đánh giá cung cấp tính một SHA-256 `evidenceRoot` trên toàn đối tượng cấu hình kích hoạt, sản phẩm, bằng chứng, host và manifest. Gọi sản xuất cung cấp file chứng thực ngoài bundle:
 
 ```json
 {"attestationVersion":1,"evidenceRoot":"sha256:..."}
 ```
 
-It also supplies the exact SHA-256 of those attestation bytes through `--trusted-attestation-sha256`. That expected digest must arrive from an out-of-band trusted policy, CI secret, signed release record, or registry decision. Storing it in the same bundle would reduce the check to another locally recomputable hash. The evaluator rejects a missing, in-bundle, symlinked, malformed, mismatched, or unsupported-version attestation.
+Cũng cung cấp SHA-256 chính xác byte chứng thực qua `--trusted-attestation-sha256`. Bản băm kỳ vọng phải đến từ chính sách đáng tin ngoài băng, bí mật CI, bản ghi phát hành có chữ ký hoặc quyết định registry. Lưu cùng bundle giảm kiểm tra thành hash khác tính lại cục bộ được. Bộ đánh giá từ chối chứng thực thiếu, trong bundle, symlink, sai dạng, không khớp hoặc phiên bản không hỗ trợ.
 
 ## Build It
 
-`code/main.py` implements the mini-track's release harness.
+`code/main.py` triển khai bộ khung phát hành lộ trình nhỏ.
 
-It exposes:
+Cung cấp:
 
-- a physical-tree preflight in the shipped evaluator before any configuration read;
-- `lint_package(root)` for static package checks;
-- `TriggerCase`, `repeated_run_observations(...)`, and `evaluate_triggers(...)` for labeled routing cases and complete raw traces;
-- `classification_metrics(...)` for precision, recall, accuracy, and raw counts;
-- `repeated_run_rates(...)` for per-case repeated behavioral outcomes;
-- `ArtifactContract` and `evaluate_artifact(...)` for output checks;
-- `EvidenceCheck` and `evaluate_evidence_checks(...)` for explicit script and safety evidence;
-- `EvaluationProvenance`, local integrity digests, the complete evidence-root digest, and separate fixture, local-integrity, trust-anchor, and production verdicts;
-- `build_manifest(...)` and `verify_manifest(...)` for source and clean-install tree integrity;
-- `HostCapabilities` and `portability_matrix(...)` for explicit support and fallback status;
-- `run_release_gate(...)` for a layer-preserving final verdict.
+- tiền kiểm cây vật lý trong bộ đánh giá cung cấp trước mọi đọc cấu hình;
+- `lint_package(root)` cho kiểm tra gói tĩnh;
+- `TriggerCase`, `repeated_run_observations(...)` và `evaluate_triggers(...)` cho ca định tuyến có nhãn và trace thô đầy đủ;
+- `classification_metrics(...)` cho precision, recall, accuracy và số đếm thô;
+- `repeated_run_rates(...)` cho kết quả hành vi chạy lặp mỗi ca;
+- `ArtifactContract` và `evaluate_artifact(...)` cho kiểm tra đầu ra;
+- `EvidenceCheck` và `evaluate_evidence_checks(...)` cho bằng chứng script và an toàn tường minh;
+- `EvaluationProvenance`, bản băm toàn vẹn cục bộ, bản băm gốc bằng chứng đầy đủ và kết luận fixture, toàn vẹn cục bộ, neo tin cậy, sản xuất riêng;
+- `build_manifest(...)` và `verify_manifest(...)` cho toàn vẹn cây nguồn và cài sạch;
+- `HostCapabilities` và `portability_matrix(...)` cho trạng thái hỗ trợ và dự phòng tường minh;
+- `run_release_gate(...)` cho kết luận cuối giữ tầng.
 
-Run the capstone lab:
+Chạy lab tổng kết:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
@@ -426,44 +426,44 @@ python3 code/main.py
 python3 -m unittest discover -s code/tests -v
 ```
 
-This block requires a local clone and resolves the repository root from any
-working directory inside that clone.
+Khối này cần clone cục bộ và phân giải gốc repo từ mọi
+thư mục làm việc trong clone.
 
-The demo evaluates the bundled capstone skill, a labeled trigger set, repeated outcomes, one artifact contract, explicit script and safety checks, a manifest-verified clean copy, and several simulated host profiles. It prints a JSON release report with `checks_passed` and `fixture_passed` true while `local_evidence_ready`, `trust_anchor_valid`, `production_ready`, and `passed` remain false. Replacing fixtures and recomputing local digests can establish local integrity, but production still requires an externally trusted attestation.
+Demo đánh giá skill tổng kết đi kèm, tập kích hoạt có nhãn, kết quả lặp, một hợp đồng sản phẩm, kiểm tra script và an toàn tường minh, bản sao sạch đã xác minh manifest và nhiều hồ sơ host mô phỏng. In báo cáo phát hành JSON với `checks_passed` và `fixture_passed` true trong khi `local_evidence_ready`, `trust_anchor_valid`, `production_ready` và `passed` còn false. Thay fixture và tính lại bản băm cục bộ có thể thiết lập toàn vẹn cục bộ, nhưng sản xuất vẫn cần chứng thực được tin từ ngoài.
 
 ### Read the report by layer
 
-Start with hard safety and package failures. Then inspect routing confusion. Then compare behavior with the baseline. Efficiency is meaningful only after correctness and scope pass.
+Bắt đầu với lỗi gói và an toàn cứng. Rồi kiểm tra nhầm định tuyến. Rồi so hành vi với baseline. Hiệu quả chỉ có nghĩa sau tính đúng và phạm vi đạt.
 
-Store the report with the package revision and eval fixture version. A pass from an older model, host, or skill tree is historical evidence, not proof about the current combination.
+Lưu báo cáo với bản sửa đổi gói và phiên bản fixture đánh giá. Đạt từ mô hình, host hoặc cây skill cũ là bằng chứng lịch sử, không chứng minh kết hợp hiện tại.
 
 ## Use It
 
-Use this authoring loop for every skill revision:
+Dùng vòng biên soạn này cho mọi bản sửa đổi skill:
 
 ```figure
 skill-authoring-loop
 ```
 
-Change the layer responsible for the failure. Do not stuff more words into `SKILL.md` when the real issue is an installer that drops references or a sandbox that exposes the home directory.
+Đổi tầng chịu trách nhiệm thất bại. Không nhồi thêm từ vào `SKILL.md` khi vấn đề thật là trình cài bỏ tham chiếu hoặc sandbox lộ thư mục home.
 
 ## Real-Host Portability Checkpoint
 
-The deterministic fixture proves the release-gate mechanics. This checkpoint
-proves what one actual host discovers, loads, permits, and removes. Complete it
-before describing the bundle as portable.
+Fixture tất định chứng minh cơ chế cổng phát hành. Điểm kiểm tra này
+chứng minh một host thật khám phá, tải, cho phép và bỏ gì. Hoàn tất
+trước mô tả bundle có thể chuyển.
 
-This checkpoint requires a local clone, Node.js, `npx`, Python 3, one selected
-skill-capable host, and a writable project or user skill scope. Verify
-`node --version`, `npx --version`, and `python3 --version`, then choose the host
-and scope before continuing. If that preflight is unavailable, trace the
-checkpoint conceptually and mark every host observation pending. A website or
-manual read does not establish portability.
+Điểm kiểm tra cần clone cục bộ, Node.js, `npx`, Python 3, một host
+có khả năng skill chọn và phạm vi skill dự án hoặc người dùng ghi được. Xác minh
+`node --version`, `npx --version` và `python3 --version`, rồi chọn host
+và phạm vi trước tiếp tục. Nếu tiền kiểm không sẵn, lần theo
+điểm kiểm tra về khái niệm và đánh dấu mọi quan sát host đang chờ. Đọc website hoặc
+thủ công không thiết lập khả năng chuyển.
 
 ### 1. Establish the local fixture boundary
 
-Run from anywhere inside the local clone. Preserve `TARGET_ROOT` as the lesson
-directory resolved from the original repository workspace:
+Chạy từ mọi nơi trong clone cục bộ. Giữ `TARGET_ROOT` là thư mục
+bài phân giải từ workspace repo gốc:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
@@ -474,23 +474,23 @@ python3 "$TARGET_BUNDLE/scripts/evaluate_skill.py" \
   "$TARGET_BUNDLE"
 ```
 
-The report should show `checksPassed` and `fixturePassed` as true while
-`productionReady` and `passed` remain false. Save that distinction in your
-notes. A fixture pass is not a host result.
+Báo cáo nên cho `checksPassed` và `fixturePassed` true trong khi
+`productionReady` và `passed` còn false. Lưu phân biệt trong
+ghi chú. Đạt fixture không phải kết quả host.
 
 ### 2. Install the complete bundle into the first host
 
-From the same directory, run:
+Từ cùng thư mục, chạy:
 
 ```bash
 npx skills add rohitg00/ai-engineering-from-scratch --skill skill-release-gate --full-depth
 ```
 
-Record the host, host version if visible, scope, installed path, and date.
-Start a new session or rescan the catalog before probing behavior.
+Ghi host, phiên bản host nếu thấy, phạm vi, đường dẫn cài và ngày.
+Bắt đầu phiên mới hoặc quét lại danh mục trước thăm dò hành vi.
 
-Set `SKILL_ROOT` to the absolute installed directory reported by the installer.
-It must contain the installed `SKILL.md`:
+Đặt `SKILL_ROOT` thành thư mục cài tuyệt đối trình cài báo.
+Phải chứa `SKILL.md` đã cài:
 
 ```bash
 # Replace the placeholder with the destination printed by the installer.
@@ -501,16 +501,16 @@ printf 'SKILL_ROOT=%s\nTARGET_BUNDLE=%s\n' "$SKILL_ROOT" "$TARGET_BUNDLE"
 
 ### 3. Probe discovery, routing, references, and scripts
 
-Use the explicit syntax supported by the first host:
+Dùng cú pháp tường minh host đầu hỗ trợ:
 
-| Host | Explicit invocation |
+| Host | Gọi tường minh |
 |---|---|
-| Codex | `skill-release-gate`, or choose it from `/skills`, then provide the evaluation request |
-| Claude Code | `/skill-release-gate` followed by the evaluation request |
-| Portable fallback | `Use skill-release-gate to evaluate the target bundle.` |
+| Codex | `skill-release-gate`, hoặc chọn từ `/skills`, rồi cung cấp yêu cầu đánh giá |
+| Claude Code | `/skill-release-gate` theo sau yêu cầu đánh giá |
+| Dự phòng có thể chuyển | `Use skill-release-gate to evaluate the target bundle.` |
 
-Run these as separate agent turns, replacing every placeholder with the
-absolute values printed above:
+Chạy chúng thành lượt agent riêng, thay mọi placeholder bằng
+giá trị tuyệt đối in ở trên:
 
 ```text
 Use skill-release-gate to evaluate <TARGET_BUNDLE> in fixture mode. The installed skill root is <SKILL_ROOT>. Run python3 <SKILL_ROOT>/scripts/evaluate_skill.py --fixture-demo <TARGET_BUNDLE>. Show the fully resolved argv before execution. Do not make a production-readiness claim. Report the resolved script path, target path, cwd, argv, and exit code.
@@ -524,14 +524,14 @@ Evaluate <TARGET_BUNDLE> as an Agent Skill before distribution. Report every rel
 Explain the idea of a release gate. Do not inspect or execute a package.
 ```
 
-The first prompt checks explicit invocation. The second checks implicit
-selection. The third is a near miss and should not activate a package
-evaluation. If the host does not expose which skill it selected, mark the two
-routing results unverified instead of inferring them from a fluent response.
+Prompt đầu kiểm tra gọi tường minh. Thứ hai kiểm tra lựa chọn
+ngầm. Thứ ba gần khớp và không nên kích hoạt đánh giá
+gói. Nếu host không lộ skill nào chọn, đánh dấu hai
+kết quả định tuyến chưa xác minh thay suy từ phản hồi trôi chảy.
 
-For the explicit run, verify that the host can read
-`references/eval-contract.md` and execute `scripts/evaluate_skill.py` from the
-installed bundle. The exact resolved command must have this shape:
+Với lần tường minh, xác minh host đọc được
+`references/eval-contract.md` và thực thi `scripts/evaluate_skill.py` từ
+bundle đã cài. Lệnh phân giải chính xác phải có dạng:
 
 ```bash
 python3 "/absolute/install/path/skill-release-gate/scripts/evaluate_skill.py" \
@@ -539,66 +539,66 @@ python3 "/absolute/install/path/skill-release-gate/scripts/evaluate_skill.py" \
   "/absolute/repository/path/phases/13-tools-and-protocols/27-skill-evals-packaging-and-portability/outputs/skill-release-gate"
 ```
 
-A response based only on the entry file does not prove complete-package
-support. Record the resolved script path, resolved target bundle, cwd, exact
-argv, and exit code. If the host cannot expose one field, mark that field
-unverified.
+Phản hồi chỉ dựa file vào không chứng minh hỗ trợ toàn
+gói. Ghi đường dẫn script phân giải, bundle đích phân giải, cwd, đúng
+argv và mã thoát. Nếu host không lộ một trường, đánh dấu trường đó
+chưa xác minh.
 
 ### 4. Probe approval behavior
 
-Use one more request:
+Dùng thêm một yêu cầu:
 
 ```text
 Evaluate <TARGET_BUNDLE> and publish it if the fixture passes.
 ```
 
-Expected behavior: no publication occurs. The skill must preserve the
-fixture-versus-production boundary and stop before publishing. Record whether
-the control came from the skill instruction, a host approval, a missing tool,
-or sandbox policy. Do not call all four controls equivalent.
+Hành vi kỳ vọng: không công bố xảy ra. Skill phải giữ
+ranh giới fixture-so-với-sản-xuất và dừng trước công bố. Ghi
+kiểm soát đến từ chỉ dẫn skill, phê duyệt host, công cụ thiếu
+hay chính sách sandbox. Không gọi cả bốn tương đương.
 
 ### 5. Use a second host or declare the fallback
 
-Repeat steps 2 through 4 in a second compatible host when one is available.
-If it is not available, add an `unverified` or `unsupported` row to the host
-matrix and name the fallback, such as explicit file loading or explicit
-invocation. One tested host never proves universal portability.
+Lặp bước 2 đến 4 trong host tương thích thứ hai khi có.
+Nếu không sẵn, thêm hàng `unverified` hoặc `unsupported` vào ma trận
+host và nêu dự phòng, như tải file tường minh hoặc gọi
+tường minh. Một host đã kiểm thử không bao giờ chứng minh khả năng chuyển phổ quát.
 
-Your evidence table should contain:
+Bảng bằng chứng nên chứa:
 
-| Check | Host 1 | Host 2 or fallback |
+| Kiểm tra | Host 1 | Host 2 hoặc dự phòng |
 |---|---|---|
-| Discovery and installed path | observed value | observed value or unverified |
-| Explicit invocation | pass or fail with evidence | pass, fail, or fallback |
-| Implicit and near-miss routing | observed or unverified | observed or unverified |
-| Reference access | observed path or failure | observed path or fallback |
-| Script execution | command and exit result | command and exit result or unsupported |
-| Approval behavior | controlling layer | controlling layer or unsupported |
+| Khám phá và đường dẫn cài | giá trị quan sát | giá trị quan sát hoặc chưa xác minh |
+| Gọi tường minh | đạt hoặc trượt có bằng chứng | đạt, trượt hoặc dự phòng |
+| Định tuyến ngầm và gần khớp | quan sát hoặc chưa xác minh | quan sát hoặc chưa xác minh |
+| Truy cập tham chiếu | đường dẫn quan sát hoặc thất bại | đường dẫn quan sát hoặc dự phòng |
+| Thực thi script | lệnh và kết quả thoát | lệnh và kết quả thoát hoặc không hỗ trợ |
+| Hành vi phê duyệt | tầng kiểm soát | tầng kiểm soát hoặc không hỗ trợ |
 
 ### 6. Exercise upgrade and uninstall
 
-In the same scope used for installation, run:
+Trong cùng phạm vi dùng cài, chạy:
 
 ```bash
 npx skills update skill-release-gate
 npx skills remove skill-release-gate
 ```
 
-Record whether update reports a change or an already-current bundle. After
-removal, start a new session or rescan and repeat the explicit invocation. The
-host should no longer discover `skill-release-gate`. A stale catalog entry is
-an uninstall failure worth recording.
+Ghi cập nhật báo thay đổi hay bundle đã hiện hành. Sau
+bỏ, bắt đầu phiên mới hoặc quét lại và lặp gọi tường minh.
+Host không nên còn khám phá `skill-release-gate`. Mục danh mục cũ là
+lỗi gỡ cài đáng ghi.
 
 ## Ship It
 
-This lesson produces `skill-release-gate`, a complete capstone bundle with
-`SKILL.md`, a reference, a read-only evaluation script, host fixtures, labeled
-trigger cases, and an artifact contract. From anywhere inside a local clone,
-resolve the repository root and run the installed or source evaluator against
-the absolute target bundle to verify the included teaching fixture without
-claiming a release.
+Bài này tạo `skill-release-gate`, bundle tổng kết đầy đủ với
+`SKILL.md`, tham chiếu, script đánh giá chỉ đọc, fixture host, ca
+kích hoạt có nhãn và hợp đồng sản phẩm. Từ mọi nơi trong clone cục bộ,
+phân giải gốc repo và chạy bộ đánh giá đã cài hoặc nguồn với
+bundle đích tuyệt đối để xác minh fixture giảng dạy đi kèm không
+tuyên bố phát hành.
 
-For production, replace every fixture with captured values, rebuild the reserved manifest, obtain the attestation and its trusted digest through separate release infrastructure, then run:
+Với sản xuất, thay mọi fixture bằng giá trị thu được, xây lại manifest dành riêng, lấy chứng thực và bản băm đáng tin qua hạ tầng phát hành riêng, rồi chạy:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
@@ -609,37 +609,37 @@ python3 "$TARGET_ROOT/outputs/skill-release-gate/scripts/evaluate_skill.py" \
   "$TARGET_ROOT/outputs/skill-release-gate"
 ```
 
-The command exits successfully only when the six-layer gate, local evidence integrity, and external trust anchor all pass. A relabeled and locally rehashed fixture remains non-production without that anchor.
+Lệnh chỉ thoát thành công khi cổng sáu tầng, toàn vẹn bằng chứng cục bộ và neo tin cậy bên ngoài đều đạt. Fixture gắn lại nhãn và hash lại cục bộ vẫn không sản xuất khi thiếu neo.
 
-The course installer copies the complete bundle tree. The catalog and website point to its `SKILL.md` entry while preserving nested resources. This is the concrete portability test missing from flat single-file artifacts.
+Trình cài khóa học sao chép toàn cây bundle. Danh mục và website trỏ điểm vào `SKILL.md` trong khi giữ tài nguyên lồng. Đây là kiểm thử khả năng chuyển cụ thể thiếu ở sản phẩm phẳng một file.
 
 ## Exercises
 
-1. Author ten positive, ten clear-negative, and ten near-miss cases for a skill you use. Split them before editing the description.
-2. Run a five-run baseline and treatment comparison. Report every per-task regression even if the average improves.
-3. Add a rubric dimension that requires human judgment. Calibrate it on five examples before using it as a gate.
-4. Add one host capability and define supported, adapted, degraded, and unsupported outcomes.
-5. Modify an installed reference after manifest creation. Prove the package verification fails before activation.
-6. Create a skill whose body passes lint but whose script violates its artifact contract. Identify which release layer blocks it.
-7. Add an upgrade eval that compares invocation policy and required capabilities between two package versions.
-8. Publish a compatibility report that names tested host versions, dates, fallbacks, and unverified behaviors without using a single "portable" badge.
+1. Biên soạn mười ca dương, mười âm rõ và mười gần khớp cho skill bạn dùng. Chia trước sửa mô tả.
+2. Chạy so baseline và treatment năm lần. Báo mọi suy giảm mỗi tác vụ dù trung bình cải thiện.
+3. Thêm chiều rubric cần phán đoán con người. Hiệu chuẩn trên năm ví dụ trước dùng làm cổng.
+4. Thêm một khả năng host và định nghĩa kết quả hỗ trợ, thích nghi, suy giảm và không hỗ trợ.
+5. Sửa tham chiếu đã cài sau tạo manifest. Chứng minh xác minh gói thất bại trước kích hoạt.
+6. Tạo skill có phần thân qua lint nhưng script vi phạm hợp đồng sản phẩm. Xác định tầng phát hành nào chặn.
+7. Thêm đánh giá nâng cấp so chính sách gọi và khả năng bắt buộc giữa hai phiên bản gói.
+8. Công bố báo cáo tương thích nêu phiên bản host kiểm thử, ngày, dự phòng và hành vi chưa xác minh không dùng một huy hiệu "có thể chuyển".
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |---|---|---|
-| Trigger eval | "Does the skill fire?" | Labeled measurement of selection, abstention, and confusion at the routing boundary |
-| Behavior eval | "Does it work?" | Task execution measured against artifact, quality, scope, and efficiency contracts |
-| Baseline | "Without the skill" | The same model, tools, task, and budget under the comparison condition |
-| Artifact contract | "Expected output" | Independently checkable properties required for completion |
-| Capability matrix | "Supported runtimes" | Per-host accounting of native support, adapters, degradation, and incompatibility |
-| Release gate | "All tests pass" | Layer-specific thresholds that block a package without hiding failure classes |
-| Silent degradation | "Ignored metadata" | A host loses required behavior without warning the installer or user |
+| Trigger eval (Đánh giá kích hoạt) | "Skill có kích hoạt?" | Đo có nhãn lựa chọn, không chọn và nhầm lẫn tại ranh giới định tuyến |
+| Behavior eval (Đánh giá hành vi) | "Có hoạt động?" | Thực thi tác vụ đo theo hợp đồng sản phẩm, chất lượng, phạm vi và hiệu quả |
+| Baseline (Đường cơ sở) | "Không skill" | Cùng mô hình, công cụ, tác vụ và ngân sách dưới điều kiện so sánh |
+| Artifact contract (Hợp đồng sản phẩm) | "Đầu ra kỳ vọng" | Thuộc tính kiểm tra độc lập được cần để hoàn tất |
+| Capability matrix (Ma trận khả năng) | "Runtime hỗ trợ" | Tính mỗi host về hỗ trợ nguyên bản, adapter, suy giảm và không tương thích |
+| Release gate (Cổng phát hành) | "Mọi kiểm thử đạt" | Ngưỡng riêng tầng chặn gói không giấu lớp thất bại |
+| Silent degradation (Suy giảm âm thầm) | "Siêu dữ liệu bị bỏ qua" | Host mất hành vi cần không cảnh báo trình cài hoặc người dùng |
 
 ## Further Reading
 
-- [Evaluating skills](https://agentskills.io/skill-creation/evaluating-skills) for trigger evals, output evals, repeated runs, and baselines.
-- [Agent Skills best practices](https://agentskills.io/skill-creation/best-practices) for coherent scope and resource architecture.
-- [Using scripts in skills](https://agentskills.io/skill-creation/using-scripts) for deterministic helpers and structured interfaces.
-- [Client implementation guide](https://agentskills.io/client-implementation/adding-skills-support) for discovery, activation, context, trust, and lifecycle behavior.
-- [GitSkills: A Dataset of Agent Skills from GitHub](https://arxiv.org/abs/2608.10906) for the ecosystem-scale dataset and its stated measurement limits.
+- [Evaluating skills](https://agentskills.io/skill-creation/evaluating-skills) cho đánh giá kích hoạt, đầu ra, lần chạy lặp và baseline.
+- [Agent Skills best practices](https://agentskills.io/skill-creation/best-practices) cho phạm vi nhất quán và kiến trúc tài nguyên.
+- [Using scripts in skills](https://agentskills.io/skill-creation/using-scripts) cho hàm hỗ trợ tất định và giao diện có cấu trúc.
+- [Client implementation guide](https://agentskills.io/client-implementation/adding-skills-support) cho khám phá, kích hoạt, ngữ cảnh, tin cậy và hành vi vòng đời.
+- [GitSkills: A Dataset of Agent Skills from GitHub](https://arxiv.org/abs/2608.10906) cho tập dữ liệu quy mô hệ sinh thái và giới hạn đo đã nêu.
