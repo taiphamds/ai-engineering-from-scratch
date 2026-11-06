@@ -1,6 +1,6 @@
 # Docker for AI
 
-> Containers make "works on my machine" a thing of the past.
+> Container biến "hoạt động trên máy của tôi" thành chuyện của quá khứ.
 
 **Type:** Build
 **Languages:** Docker
@@ -9,20 +9,20 @@
 
 ## Learning Objectives
 
-- Build a GPU-enabled Docker image with CUDA, PyTorch, and AI libraries from a Dockerfile
-- Mount host directories as volumes to persist models, datasets, and code across container rebuilds
-- Configure the NVIDIA Container Toolkit to expose GPUs inside containers
-- Orchestrate multi-service AI applications (inference server + vector database) using Docker Compose
+- Dựng một image Docker hỗ trợ GPU với CUDA, PyTorch và thư viện AI từ một Dockerfile
+- Gắn các thư mục của máy host thành volume để giữ lại mô hình, tập dữ liệu và mã qua các lần dựng lại container
+- Cấu hình NVIDIA Container Toolkit để cung cấp GPU bên trong container
+- Điều phối các ứng dụng AI nhiều dịch vụ (máy chủ suy luận + cơ sở dữ liệu vector) bằng Docker Compose
 
 ## The Problem
 
-You trained a model on your laptop with PyTorch 2.3, CUDA 12.4, and Python 3.12. Your colleague has PyTorch 2.1, CUDA 11.8, and Python 3.10. Your model crashes on their machine. Your Dockerfile works on both.
+Bạn đã huấn luyện một mô hình trên laptop bằng PyTorch 2.3, CUDA 12.4 và Python 3.12. Đồng nghiệp của bạn có PyTorch 2.1, CUDA 11.8 và Python 3.10. Mô hình của bạn bị lỗi trên máy của họ. Dockerfile của bạn hoạt động trên cả hai.
 
-AI projects are dependency nightmares. A typical stack includes Python, PyTorch, CUDA drivers, cuDNN, system-level C libraries, and specialized packages like flash-attn that need exact compiler versions. Docker packages all of this into a single image that runs identically everywhere.
+Các dự án AI là cơn ác mộng phụ thuộc. Một ngăn xếp điển hình gồm Python, PyTorch, trình điều khiển CUDA, cuDNN, thư viện C cấp hệ thống và các gói chuyên biệt như flash-attn cần phiên bản trình biên dịch chính xác. Docker đóng gói tất cả vào một image duy nhất chạy giống hệt nhau ở mọi nơi.
 
 ## The Concept
 
-Docker wraps your code, runtime, libraries, and system tools into an isolated unit called a container. Think of it as a lightweight virtual machine, except it shares the host OS kernel instead of running its own, so it starts in seconds instead of minutes.
+Docker gói mã, môi trường chạy, thư viện và công cụ hệ thống của bạn vào một đơn vị biệt lập gọi là container. Hãy coi nó như một máy ảo nhẹ, ngoại trừ việc nó dùng chung nhân hệ điều hành của máy host thay vì chạy nhân riêng, nên khởi động trong vài giây thay vì vài phút.
 
 ```mermaid
 graph TD
@@ -41,11 +41,11 @@ graph TD
 
 ### Why AI projects need Docker more than most
 
-1. **GPU drivers are fragile.** CUDA 12.4 code does not run on CUDA 11.8. Docker isolates the CUDA toolkit inside the container while sharing the host GPU driver through the NVIDIA Container Toolkit.
+1. **Trình điều khiển GPU rất dễ trục trặc.** Mã CUDA 12.4 không chạy trên CUDA 11.8. Docker biệt lập bộ công cụ CUDA bên trong container trong khi dùng chung trình điều khiển GPU của máy host thông qua NVIDIA Container Toolkit.
 
-2. **Model weights are large.** A 7B parameter model is 14 GB in fp16. You do not want to re-download it every time you rebuild. Docker volumes let you mount a models directory from the host.
+2. **Trọng số mô hình có dung lượng lớn.** Một mô hình 7B tham số có dung lượng 14 GB ở fp16. Bạn không muốn tải lại nó mỗi khi dựng lại. Volume Docker cho phép bạn gắn một thư mục mô hình từ máy host.
 
-3. **Multi-service architectures are common.** A real AI application is not just a Python script. It is an inference server, a vector database for RAG, maybe a web frontend. Docker Compose orchestrates all of these with one command.
+3. **Kiến trúc nhiều dịch vụ rất phổ biến.** Một ứng dụng AI thực sự không chỉ là một script Python. Nó là một máy chủ suy luận, một cơ sở dữ liệu vector cho RAG, có thể có cả giao diện web. Docker Compose điều phối tất cả bằng một lệnh.
 
 ### Key vocabulary
 
@@ -92,7 +92,7 @@ sudo usermod -aG docker $USER
 # Log out and back in for group change to take effect
 ```
 
-Verify:
+Xác minh:
 
 ```bash
 docker --version
@@ -101,7 +101,7 @@ docker run hello-world
 
 ### Step 2: Install NVIDIA Container Toolkit (Linux with NVIDIA GPU)
 
-This lets Docker containers access your GPU. macOS and Windows (WSL2) users can skip this; Docker Desktop handles GPU passthrough differently on those platforms.
+Điều này cho phép container Docker truy cập GPU của bạn. Người dùng macOS và Windows (WSL2) có thể bỏ qua bước này; Docker Desktop xử lý việc chuyển tiếp GPU khác nhau trên những nền tảng đó.
 
 ```bash
 distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
@@ -116,17 +116,17 @@ sudo nvidia-ctk runtime configure --runtime=docker
 sudo systemctl restart docker
 ```
 
-Test GPU access inside a container:
+Kiểm tra quyền truy cập GPU bên trong một container:
 
 ```bash
 docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
 ```
 
-If you see your GPU info, the toolkit is working.
+Nếu bạn thấy thông tin GPU, bộ công cụ đang hoạt động.
 
 ### Step 3: Understand base images
 
-Choosing the right base image saves hours of debugging.
+Chọn đúng image nền giúp tiết kiệm hàng giờ gỡ lỗi.
 
 ```
 nvidia/cuda:12.4.1-devel-ubuntu22.04
@@ -152,7 +152,7 @@ python:3.12-slim
 
 ### Step 4: Write a Dockerfile for AI development
 
-Here is the Dockerfile in `code/Dockerfile`. Walk through it:
+Đây là Dockerfile trong `code/Dockerfile`. Hãy xem qua nó:
 
 ```dockerfile
 FROM --platform=linux/amd64 nvidia/cuda:12.4.1-devel-ubuntu22.04
@@ -208,17 +208,17 @@ EXPOSE 8888
 CMD ["python"]
 ```
 
-Build it:
+Dựng image:
 
 ```bash
 docker build -t ai-dev -f phases/00-setup-and-tooling/07-docker-for-ai/code/Dockerfile .
 ```
 
-This takes a while the first time (downloading CUDA base image + PyTorch). Subsequent builds use cached layers.
+Lần đầu việc này mất một lúc (tải image nền CUDA + PyTorch). Các lần dựng tiếp theo dùng các lớp đã được lưu vào bộ nhớ đệm.
 
-**macOS / Apple Silicon (M1/M2/M3/M4):** The `--platform=linux/amd64` on the `FROM` line is what makes this build succeed on a Mac. The CUDA base image also ships an arm64 variant and Docker Desktop picks it automatically on Apple Silicon, but PyTorch publishes its `cu124` wheels for x86_64 only, so the `pip install torch==2.6.0+cu124` layer fails with `No matching distribution found for torch==2.6.0+cu124`. Pinning the platform pulls the x86_64 image and runs it under emulation: the build is slower and the container has no GPU (there is no CUDA on a Mac either way). Drop `--gpus all` from the `docker run` commands below on a Mac. For GPU work on Apple Silicon, run the lessons natively with the MPS build from Lesson 01 and keep this image for x86_64 Linux hosts with an NVIDIA GPU.
+**macOS / Apple Silicon (M1/M2/M3/M4):** `--platform=linux/amd64` trên dòng `FROM` là điều giúp bản dựng này thành công trên Mac. Image nền CUDA cũng có một biến thể arm64 và Docker Desktop tự động chọn nó trên Apple Silicon, nhưng PyTorch chỉ phát hành các gói wheel `cu124` cho x86_64, nên lớp `pip install torch==2.6.0+cu124` thất bại với `No matching distribution found for torch==2.6.0+cu124`. Cố định nền tảng sẽ kéo image x86_64 và chạy nó dưới giả lập: quá trình dựng chậm hơn và container không có GPU (dù theo cách nào thì Mac cũng không có CUDA). Bỏ `--gpus all` khỏi các lệnh `docker run` bên dưới trên Mac. Để làm việc với GPU trên Apple Silicon, chạy các bài học trực tiếp với bản dựng MPS từ Bài học 01 và giữ image này cho các máy host Linux x86_64 có GPU NVIDIA.
 
-Run it:
+Chạy image:
 
 ```bash
 docker run --rm -it --gpus all \
@@ -227,7 +227,7 @@ docker run --rm -it --gpus all \
     ai-dev python -c "import torch; print(f'PyTorch {torch.__version__}, CUDA: {torch.cuda.is_available()}')"
 ```
 
-Run Jupyter inside the container:
+Chạy Jupyter bên trong container:
 
 ```bash
 docker run --rm -it --gpus all \
@@ -239,7 +239,7 @@ docker run --rm -it --gpus all \
 
 ### Step 5: Volume mounts for data and models
 
-Volume mounts are critical for AI work. Without them, your 14 GB model downloads vanish when the container stops.
+Việc gắn volume rất quan trọng cho công việc AI. Nếu không có chúng, các tệp mô hình 14 GB bạn tải xuống sẽ biến mất khi container dừng.
 
 ```bash
 # Mount your code
@@ -252,7 +252,7 @@ Volume mounts are critical for AI work. Without them, your 14 GB model downloads
 -v ~/datasets:/data
 ```
 
-Inside your training script, load from the mounted path:
+Bên trong script huấn luyện, tải từ đường dẫn đã gắn:
 
 ```python
 from transformers import AutoModel
@@ -260,13 +260,13 @@ from transformers import AutoModel
 model = AutoModel.from_pretrained("/models/llama-7b")
 ```
 
-The model lives on your host filesystem. Rebuild the container as often as you want without re-downloading.
+Mô hình nằm trên hệ thống tệp của máy host. Dựng lại container bao nhiêu lần tùy ý mà không cần tải lại.
 
 ### Step 6: Docker Compose for multi-service AI apps
 
-A real RAG application needs an inference server and a vector database. Docker Compose runs both with one command.
+Một ứng dụng RAG thực sự cần máy chủ suy luận và cơ sở dữ liệu vector. Docker Compose chạy cả hai bằng một lệnh.
 
-See `code/docker-compose.yml`:
+Xem `code/docker-compose.yml`:
 
 ```yaml
 services:
@@ -303,16 +303,16 @@ volumes:
   qdrant_data:
 ```
 
-Start everything:
+Khởi động mọi thứ:
 
 ```bash
 cd phases/00-setup-and-tooling/07-docker-for-ai/code
 docker compose up -d
 ```
 
-Now your AI dev container can reach the vector database at `http://qdrant:6333` by service name. Docker Compose creates a shared network automatically.
+Giờ container phát triển AI của bạn có thể truy cập cơ sở dữ liệu vector tại `http://qdrant:6333` bằng tên dịch vụ. Docker Compose tự động tạo một mạng dùng chung.
 
-Test the connection from inside the AI container:
+Kiểm tra kết nối từ bên trong container AI:
 
 ```python
 from qdrant_client import QdrantClient
@@ -321,13 +321,13 @@ client = QdrantClient(host="qdrant", port=6333)
 print(client.get_collections())
 ```
 
-Stop everything:
+Dừng mọi thứ:
 
 ```bash
 docker compose down
 ```
 
-Add `-v` to also delete the qdrant volume:
+Thêm `-v` để xóa cả volume qdrant:
 
 ```bash
 docker compose down -v
@@ -357,30 +357,30 @@ docker logs -f <container_id>
 
 ## Use It
 
-You now have a reproducible AI development environment. For the rest of this course:
+Giờ bạn có một môi trường phát triển AI có thể tái lập. Đối với phần còn lại của khóa học này:
 
-- Use `docker compose up` to start your dev environment and vector database together
-- Mount your code, models, and data as volumes so nothing is lost between rebuilds
-- When a lesson requires a new Python package, add it to the Dockerfile and rebuild
-- Share your Dockerfile with teammates. They get the exact same environment.
+- Dùng `docker compose up` để khởi động môi trường phát triển và cơ sở dữ liệu vector cùng nhau
+- Gắn mã, mô hình và dữ liệu thành các volume để không mất gì giữa những lần dựng lại
+- Khi bài học yêu cầu một gói Python mới, thêm nó vào Dockerfile và dựng lại
+- Chia sẻ Dockerfile với đồng đội. Họ nhận được môi trường giống hệt.
 
 ### No GPU?
 
-Remove the `--gpus all` flag and the NVIDIA deploy block. The container still works for CPU-based lessons. PyTorch detects the absence of CUDA and falls back to CPU automatically.
+Bỏ cờ `--gpus all` và khối deploy NVIDIA. Container vẫn hoạt động cho các bài học dựa trên CPU. PyTorch phát hiện việc không có CUDA và tự động chuyển sang CPU.
 
 ## Exercises
 
-1. Build the Dockerfile and run `python -c "import torch; print(torch.__version__)"` inside the container
-2. Start the docker-compose stack and verify Qdrant is accessible from the AI container at `http://qdrant:6333/collections`
-3. Add `flask` to the Dockerfile, rebuild, and run a simple API server on port 5000. Map the port with `-p 5000:5000`
-4. Measure the image size with `docker images`. Try switching the base image from `devel` to `runtime` and compare sizes
+1. Dựng Dockerfile và chạy `python -c "import torch; print(torch.__version__)"` bên trong container
+2. Khởi động ngăn xếp docker-compose và xác minh có thể truy cập Qdrant từ container AI tại `http://qdrant:6333/collections`
+3. Thêm `flask` vào Dockerfile, dựng lại và chạy một máy chủ API đơn giản trên cổng 5000. Ánh xạ cổng bằng `-p 5000:5000`
+4. Đo kích thước image bằng `docker images`. Thử đổi image nền từ `devel` sang `runtime` và so sánh kích thước
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Container | "Lightweight VM" | An isolated process using the host kernel, with its own filesystem and network |
-| Image layer | "Cached step" | Each Dockerfile instruction creates a layer. Unchanged layers are cached, so rebuilds are fast. |
-| NVIDIA Container Toolkit | "GPU in Docker" | A runtime hook that exposes host GPUs to containers via `--gpus` flag |
-| Volume mount | "Shared folder" | A directory on the host mapped into the container. Changes persist after the container stops. |
-| Base image | "Starting point" | The `FROM` image your Dockerfile builds on top of. Determines what is pre-installed. |
+| Container | "Máy ảo nhẹ" | Một tiến trình biệt lập sử dụng kernel của máy chủ, với hệ thống tệp và mạng riêng |
+| Image layer (Lớp image) | "Bước được lưu đệm" | Mỗi chỉ thị Dockerfile tạo ra một lớp. Các lớp không thay đổi được lưu đệm, nên việc dựng lại diễn ra nhanh. |
+| NVIDIA Container Toolkit | "GPU trong Docker" | Một hook lúc chạy cho phép các container truy cập GPU của máy chủ thông qua cờ `--gpus` |
+| Volume mount (Gắn volume) | "Thư mục chia sẻ" | Một thư mục trên máy chủ được ánh xạ vào container. Các thay đổi vẫn tồn tại sau khi container dừng. |
+| Base image (Image cơ sở) | "Điểm bắt đầu" | Image `FROM` mà Dockerfile của bạn dựng dựa trên đó. Quyết định những gì được cài đặt sẵn. |
