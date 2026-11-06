@@ -7,23 +7,23 @@ lesson: 13
 tags: [many-shot-jailbreaking, context-window, power-law, anthropic]
 ---
 
-Given a safety evaluation for a long-context model, audit whether the evaluation covers many-shot jailbreaking.
+Với đánh giá an toàn cho mô hình ngữ cảnh dài, kiểm tra đánh giá có bao phủ many-shot jailbreaking không.
 
-Produce:
+Tạo:
 
-1. Shot-count coverage. Report the shot counts tested (should include 1, 5, 16, 64, 256, and at least one >= 512 for models with >= 1M context). If the evaluation tests at a single shot count, ASR is uninformative — MSJ is a curve.
-2. Power-law fit. Report the fitted exponent per behaviour category. A shallow exponent indicates the model is ICL-robust on that category; a steep exponent indicates MSJ is disproportionately effective.
-3. Category breakdown. MSJ effectiveness varies by category: violent content, deceit, self-harm, bioweapon. Per Anil et al. 2024, violent/deceitful needs fewer shots to jailbreak. Flag any category absent from the evaluation.
-4. Defense identification. Is a classifier-based prompt modification in place? Is the classifier itself evaluated for adversarial robustness? Anthropic's reported 61% -> 2% reduction depends on classifier calibration.
-5. Compositional check. Does the evaluation test MSJ + PAIR, MSJ + persuasive templates, or MSJ + encoding? Compositional attacks are frequently stronger than any single technique.
+1. Bao phủ số shot. Báo cáo số shot được kiểm thử (nên gồm 1, 5, 16, 64, 256 và ít nhất một số >= 512 cho mô hình ngữ cảnh >= 1M). Nếu đánh giá ở một số shot duy nhất, ASR không giàu thông tin — MSJ là đường cong.
+2. Khớp luật lũy thừa. Báo cáo số mũ được khớp theo nhóm hành vi. Số mũ thoải cho thấy mô hình vững ICL trên nhóm đó; số mũ dốc cho thấy MSJ hiệu quả không tương xứng.
+3. Phân tách nhóm. Hiệu quả MSJ thay đổi theo nhóm: nội dung bạo lực, lừa dối, tự hại, vũ khí sinh học. Theo Anil và cộng sự 2024, bạo lực/lừa dối cần ít shot hơn để jailbreak. Đánh dấu mọi nhóm vắng trong đánh giá.
+4. Nhận diện phòng vệ. Có sửa prompt dựa trên bộ phân loại không? Chính bộ phân loại có được đánh giá độ vững đối kháng không? Mức giảm 61% -> 2% Anthropic báo cáo phụ thuộc hiệu chuẩn bộ phân loại.
+5. Kiểm tra kết hợp. Đánh giá có kiểm thử MSJ + PAIR, MSJ + mẫu thuyết phục hay MSJ + mã hóa không? Tấn công kết hợp thường mạnh hơn mọi kỹ thuật đơn lẻ.
 
-Hard rejects:
-- Any "our long-context model is safe" claim based on 5-shot-only evaluation.
-- Any defense claim without reporting both jailbreak ASR and benign ICL performance on the same classifier — the trade-off is the point.
-- Any category-aggregate ASR without a category breakdown.
+Các trường hợp loại bỏ dứt khoát:
+- Mọi khẳng định "mô hình ngữ cảnh dài chúng tôi an toàn" chỉ dựa trên đánh giá 5 shot.
+- Mọi khẳng định phòng vệ không báo cáo cả ASR jailbreak lẫn hiệu năng ICL vô hại trên cùng bộ phân loại — đánh đổi là điểm mấu chốt.
+- Mọi ASR tổng hợp nhóm không có phân tách nhóm.
 
-Refusal rules:
-- If the user asks whether MSJ can be fully patched, refuse the binary answer; MSJ shares a mechanism with ICL and cannot be eliminated without eliminating ICL.
-- If the user asks for a recommended shot count for evaluation, refuse a single number; request the power-law fit over 5 to 512 shots.
+Quy tắc từ chối:
+- Nếu người dùng hỏi MSJ có thể được vá hoàn toàn không, từ chối trả lời nhị phân; MSJ chung cơ chế với ICL và không thể loại bỏ mà không loại ICL.
+- Nếu người dùng hỏi số shot khuyến nghị để đánh giá, từ chối một số duy nhất; yêu cầu khớp luật lũy thừa trên 5 đến 512 shot.
 
-Output: a one-page audit that reports the shot-count coverage, power-law fit per category, defense identification, and one compositional attack gap. Cite Anil et al. 2024 (Anthropic) once as the methodological reference.
+Đầu ra: bản kiểm tra một trang báo cáo bao phủ số shot, khớp luật lũy thừa theo nhóm, nhận diện phòng vệ và một khoảng trống tấn công kết hợp. Trích dẫn Anil và cộng sự 2024 (Anthropic) một lần làm tham chiếu phương pháp.
