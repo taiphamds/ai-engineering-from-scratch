@@ -7,40 +7,40 @@ lesson: 01
 tags: [capstone, coding-agent, claude-code, swe-bench, mcp, hooks, sandbox]
 ---
 
-Given a target repository and a natural-language task, build a harness that plans, executes in a sandbox, and opens a pull request. Match or beat the mini-swe-agent baseline on a 30-task SWE-bench Pro subset while staying under a $5-per-task budget.
+Với repo mục tiêu và tác vụ ngôn ngữ tự nhiên, xây harness lập kế hoạch, thực thi trong sandbox và mở pull request. Đạt ngang hoặc vượt đường cơ sở mini-swe-agent trên tập con SWE-bench Pro 30 tác vụ trong khi giữ dưới ngân sách $5-mỗi-tác-vụ.
 
-Build plan:
+Kế hoạch xây dựng:
 
-1. Stand up a Bun + Ink TUI harness with a plan pane, a tool-call stream, and a live token/dollar budget.
-2. Define six tools (read_file, edit_file, ripgrep, tree_sitter_symbols, run_shell, git) over Model Context Protocol StreamableHTTP. Every call returns at most 4k tokens.
-3. Run every tool call inside an E2B or Daytona sandbox on a fresh `git worktree add` branch. Never touch the host filesystem.
-4. Wire all eight 2026 hook events: SessionStart, SessionEnd, PreToolUse, PostToolUse, UserPromptSubmit, Notification, Stop, PreCompact. Ship at least four user-authored hooks (destructive-command guard, token accounting, OTel span emitter, trace bundle writer).
-5. Enforce three budgets: 50 turns, 200k tokens, $5 dollars. PreCompact fires at 150k and summarizes older turns.
-6. Emit OpenTelemetry spans with GenAI semantic conventions to a self-hosted Langfuse.
-7. On success, push the branch and open a PR with the plan and trace bundle in the body.
-8. Evaluate against mini-swe-agent on a 30-issue SWE-bench Pro Python subset and record pass@1, turns, tokens, and dollars per task.
+1. Dựng harness TUI Bun + Ink với ô kế hoạch, luồng gọi công cụ và ngân sách token/đô la trực tiếp.
+2. Định nghĩa sáu công cụ (read_file, edit_file, ripgrep, tree_sitter_symbols, run_shell, git) qua Model Context Protocol StreamableHTTP. Mọi lệnh gọi trả tối đa 4k token.
+3. Chạy mọi lệnh gọi công cụ trong sandbox E2B hoặc Daytona trên nhánh `git worktree add` mới. Không bao giờ chạm hệ thống file máy chủ.
+4. Kết nối đủ tám sự kiện hook 2026: SessionStart, SessionEnd, PreToolUse, PostToolUse, UserPromptSubmit, Notification, Stop, PreCompact. Bàn giao ít nhất bốn hook người dùng viết (chốt lệnh phá hủy, tính token, bộ phát span OTel, bộ ghi gói dấu vết).
+5. Thực thi ba ngân sách: 50 lượt, 200k token, $5 đô la. PreCompact kích hoạt ở 150k và tóm tắt lượt cũ.
+6. Phát span OpenTelemetry với quy ước ngữ nghĩa GenAI đến Langfuse tự lưu trữ.
+7. Khi thành công, đẩy nhánh và mở PR với kế hoạch và gói dấu vết trong nội dung.
+8. Đánh giá so với mini-swe-agent trên tập con SWE-bench Pro Python 30 issue và ghi pass@1, lượt, token, đô la mỗi tác vụ.
 
-Assessment rubric:
+Tiêu chí đánh giá:
 
-| Weight | Criterion | Measurement |
+| Trọng số | Tiêu chí | Phép đo |
 |:-:|---|---|
-| 25 | SWE-bench Pro pass@1 | Matched 30-task subset vs mini-swe-agent baseline |
-| 20 | Architecture clarity | Plan/act/observe separation, hook surface, tool schema readability |
-| 20 | Safety | Sandbox escape red-team + destructive-command guard audit |
-| 20 | Observability | 100% of tool calls spanned, token accounting per turn |
-| 15 | Developer UX | Cold-start under 2s, crash recovery, Ctrl-C cancel semantics |
+| 25 | SWE-bench Pro pass@1 | Tập con 30 tác vụ đối sánh so với đường cơ sở mini-swe-agent |
+| 20 | Rõ ràng kiến trúc | Tách lập kế hoạch/hành động/quan sát, bề mặt hook, tính dễ đọc schema công cụ |
+| 20 | An toàn | Red-team thoát sandbox + kiểm tra chốt lệnh phá hủy |
+| 20 | Khả năng quan sát | 100% lệnh gọi công cụ có span, tính token mỗi lượt |
+| 15 | UX nhà phát triển | Khởi động nguội dưới 2s, khôi phục sau sập, ngữ nghĩa hủy Ctrl-C |
 
-Hard rejects:
+Các trường hợp loại bỏ dứt khoát:
 
-- Harness that shells out to git on the host filesystem instead of inside the sandbox.
-- Any agent that can write outside the worktree or curl external URLs without an explicit allowlist hook.
-- Eval numbers reported without a matched baseline run on the same 30 issues.
-- "Pass rate" claims that depend on `git reset --hard` between retries; SWE-bench Pro is pass@1.
+- Harness gọi git qua shell trên hệ thống file máy chủ thay vì trong sandbox.
+- Mọi agent có thể ghi ngoài worktree hoặc curl URL ngoài không có hook danh sách cho phép tường minh.
+- Số đánh giá báo cáo không có lần chạy đường cơ sở đối sánh trên cùng 30 issue.
+- Khẳng định "tỷ lệ vượt" phụ thuộc `git reset --hard` giữa thử lại; SWE-bench Pro là pass@1.
 
-Refusal rules:
+Quy tắc từ chối:
 
-- Refuse to push directly to main under any configuration. PR branches only.
-- Refuse to disable the destructive-command guard. It is a hard requirement of the rubric.
-- Refuse to run without a budget ceiling. Open-ended runs contaminate the eval comparison.
+- Từ chối đẩy trực tiếp lên main dưới mọi cấu hình. Chỉ nhánh PR.
+- Từ chối tắt chốt lệnh phá hủy. Đây là yêu cầu cứng của tiêu chí chấm.
+- Từ chối chạy không có trần ngân sách. Lần chạy mở làm nhiễu so sánh đánh giá.
 
-Output: a repo containing the harness, a fixed 30-task SWE-bench Pro eval harness with matched mini-swe-agent baseline run, an OpenTelemetry trace archive for at least 5 full runs, and a write-up naming which tasks the harness solves that the baseline does not and vice versa. End with a section on the top three failure modes you observed and the hook change that fixed each.
+Đầu ra: repo chứa harness, bộ kiểm thử đánh giá SWE-bench Pro cố định 30 tác vụ với lần chạy đường cơ sở mini-swe-agent đối sánh, kho dấu vết OpenTelemetry cho ít nhất 5 lần chạy đầy đủ và bài viết nêu tác vụ harness giải được mà đường cơ sở không giải được và ngược lại. Kết thúc bằng phần về ba chế độ lỗi hàng đầu bạn quan sát và thay đổi hook sửa từng lỗi.

@@ -1,7 +1,7 @@
 # Capstone 19/01 — Terminal-Native Coding Agent (TypeScript)
 
-Multi-file TypeScript harness for the plan/act/observe loop described in
-`../docs/en.md`. Offline, deterministic, zero network calls.
+Harness TypeScript nhiều file cho vòng lặp lập kế hoạch/hành động/quan sát mô tả trong
+`../docs/en.md`. Ngoại tuyến, xác định, không có lệnh gọi mạng.
 
 ## Layout
 
@@ -31,6 +31,6 @@ npm test                 # node --test runner via tsx
 npm run typecheck        # tsc --noEmit
 ```
 
-The non-interactive `npm start` path asserts that the eval reports `passed=3
-failed=0` and that the scripted run converges to an all-done plan. Any drift
-fails the run.
+Đường chạy `npm start` không tương tác khẳng định đánh giá báo cáo `passed=3
+failed=0` và lần chạy theo kịch bản hội tụ về kế hoạch hoàn tất mọi mục. Mọi sai lệch
+làm lần chạy thất bại.
