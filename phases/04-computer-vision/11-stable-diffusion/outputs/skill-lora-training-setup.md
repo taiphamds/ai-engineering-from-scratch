@@ -9,57 +9,57 @@ tags: [computer-vision, stable-diffusion, lora, fine-tuning]
 
 # LoRA Training Setup
 
-Turn a description of the fine-tune intent into a concrete training config that is ready to pass to `diffusers` or `kohya_ss`.
+Biến một mô tả ý định tinh chỉnh thành cấu hình huấn luyện cụ thể sẵn sàng truyền cho `diffusers` hoặc `kohya_ss`.
 
 ## When to use
 
-- Training a LoRA for a subject (person, object, character), a style (artist, brand), or a concept (pose, lighting).
-- Extending an existing LoRA with more data.
-- Debugging a LoRA run whose output underfits or overfits the training images.
+- Huấn luyện một LoRA cho một chủ thể (người, vật, nhân vật), một phong cách (họa sĩ, thương hiệu) hoặc một khái niệm (tư thế, ánh sáng).
+- Mở rộng một LoRA hiện có với thêm dữ liệu.
+- Gỡ lỗi một lần chạy LoRA có đầu ra khớp thiếu hoặc quá khớp các hình ảnh huấn luyện.
 
 ## Inputs
 
 - `purpose`: subject | style | concept
-- `num_images`: how many training images are available
+- `num_images`: có bao nhiêu hình ảnh huấn luyện
 - `base_model`: SD 1.5 | SDXL | SD3 | FLUX
 - `gpu_vram_gb`: 8 | 12 | 16 | 24 | 48+
 - `caption_source`: manual | BLIP2-generated | dataset-native
 
 ## Rank picker
 
-| Purpose | Rank | Alpha |
+| Mục đích | Hạng | Alpha |
 |---------|------|-------|
-| Subject | 8-16 | rank |
-| Style | 16-32 | rank * 2 |
-| Concept | 32-64 | rank |
+| Chủ thể | 8-16 | rank |
+| Phong cách | 16-32 | rank * 2 |
+| Khái niệm | 32-64 | rank |
 
-Higher rank = more capacity, more overfitting risk on small datasets. Alpha scales the LoRA's effect strength; `alpha == rank` is the safe default. Styles are the documented exception: `alpha == rank * 2` gives a stronger style push at the cost of more risk of baking the style too hard — use only when subject fidelity is not the goal.
+Hạng cao hơn = năng lực lớn hơn, nguy cơ quá khớp cao hơn trên các tập dữ liệu nhỏ. Alpha co giãn độ mạnh hiệu ứng LoRA; `alpha == rank` là mặc định an toàn. Phong cách là ngoại lệ được ghi nhận: `alpha == rank * 2` đẩy phong cách mạnh hơn với chi phí tăng nguy cơ gắn phong cách quá cứng — chỉ sử dụng khi độ trung thực chủ thể không phải mục tiêu.
 
 ## Training step target
 
-- `subject` with 5-20 images: 500-1500 steps.
-- `style` with 30-100 images: 1500-4000 steps.
-- `concept` with 100+ images: 4000-10000 steps.
+- `subject` với 5-20 hình ảnh: 500-1500 bước.
+- `style` với 30-100 hình ảnh: 1500-4000 bước.
+- `concept` với 100+ hình ảnh: 4000-10000 bước.
 
-Overshoot at your peril — a LoRA that has memorised its training images cannot generalise.
+Vượt quá thì tự chịu rủi ro — một LoRA đã ghi nhớ các hình ảnh huấn luyện không thể khái quát hóa.
 
 ## Learning rate
 
-- Text encoder LoRA: `1e-4` for SD 1.5, `5e-5` for SDXL.
-- U-Net LoRA: `1e-4` for SD 1.5, `1e-4` for SDXL.
-- FLUX / SD3: `5e-5` for the transformer, text encoders usually frozen.
-- Halve the LR when `num_images < 15` (subject) or when training for more than 3000 steps; tiny datasets and long runs both benefit from a gentler update.
+- LoRA encoder văn bản: `1e-4` cho SD 1.5, `5e-5` cho SDXL.
+- LoRA U-Net: `1e-4` cho SD 1.5, `1e-4` cho SDXL.
+- FLUX / SD3: `5e-5` cho transformer, các encoder văn bản thường đóng băng.
+- Giảm một nửa LR khi `num_images < 15` (chủ thể) hoặc khi huấn luyện hơn 3000 bước; các tập dữ liệu rất nhỏ và các lần chạy dài đều hưởng lợi từ cập nhật nhẹ hơn.
 
 ## Scheduler
 
-- `cosine_with_warmup` (default): warmup over the first 5-10% of steps, then cosine decay. Use when `steps >= 1000`; the decay tail gives sharper final samples.
-- `constant`: use only for very short runs (`steps < 500`) or when resuming a previous LoRA where you want to preserve the current learned features without re-annealing.
+- `cosine_with_warmup` (mặc định): warmup trong 5-10% số bước đầu, rồi suy giảm cosine. Sử dụng khi `steps >= 1000`; đuôi suy giảm cho các mẫu cuối sắc hơn.
+- `constant`: chỉ dùng cho các lần chạy rất ngắn (`steps < 500`) hoặc khi tiếp tục một LoRA trước đó mà bạn muốn giữ các đặc trưng đã học hiện tại mà không ủ lại.
 
 ## Caption format
 
-- Subject: prepend a unique trigger token ("myperson") to every caption. Keep trigger token rare so it does not overwrite existing concepts. Avoid real words and common names.
-- Style: append a unique style tag at the end of every caption ("...in mystyle style"). Treat the tag itself as a rare trigger token — `mystyle`, not `impressionism`, which already maps to a real concept.
-- Concept: describe the concept in every caption; no trigger token. The concept itself (e.g. "low-angle shot") is the anchor.
+- Chủ thể: thêm đầu một token kích hoạt duy nhất ("myperson") vào mọi chú thích. Giữ token kích hoạt hiếm để nó không ghi đè các khái niệm hiện có. Tránh các từ thật và tên phổ biến.
+- Phong cách: thêm một thẻ phong cách duy nhất ở cuối mọi chú thích ("...in mystyle style"). Coi chính thẻ đó như một token kích hoạt hiếm — `mystyle`, không phải `impressionism`, vốn đã ánh xạ tới một khái niệm thật.
+- Khái niệm: mô tả khái niệm trong mọi chú thích; không token kích hoạt. Bản thân khái niệm (ví dụ "góc chụp thấp") là điểm neo.
 
 ## Output config
 
@@ -115,8 +115,8 @@ validation:
 
 ## Rules
 
-- Never recommend `rank > 64`; above that the LoRA becomes a mini fine-tune and loses its "adapter" nature.
-- For `num_images < 5`, warn strongly — identity LoRAs on 1-3 images overfit every time.
-- For `gpu_vram_gb < 12`, require AdamW8bit and gradient checkpointing.
-- If `base_model == FLUX` and `gpu_vram_gb < 24`, route to the `schnell` variant and note that training is slower.
-- Never skip validation prompts; a LoRA without sample grids is impossible to evaluate.
+- Không bao giờ khuyến nghị `rank > 64`; trên mức đó LoRA trở thành một lần tinh chỉnh nhỏ và mất bản chất "adapter".
+- Với `num_images < 5`, cảnh báo mạnh — các LoRA danh tính trên 1-3 hình ảnh luôn quá khớp.
+- Với `gpu_vram_gb < 12`, yêu cầu AdamW8bit và gradient checkpointing.
+- Nếu `base_model == FLUX` và `gpu_vram_gb < 24`, chuyển tới biến thể `schnell` và ghi chú huấn luyện chậm hơn.
+- Không bao giờ bỏ qua các prompt validation; một LoRA không có lưới mẫu không thể đánh giá.

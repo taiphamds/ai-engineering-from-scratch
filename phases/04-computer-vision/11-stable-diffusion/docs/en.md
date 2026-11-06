@@ -1,6 +1,6 @@
 # Stable Diffusion — Architecture & Fine-Tuning
 
-> Stable Diffusion is a DDPM that runs in the latent space of a pretrained VAE, conditioned on text via cross-attention, sampled with a fast deterministic ODE solver, and steered by classifier-free guidance.
+> Stable Diffusion là một DDPM chạy trong không gian tiềm ẩn của một VAE được tiền huấn luyện, được điều kiện hóa bằng văn bản qua cross-attention, lấy mẫu bằng một bộ giải ODE tất định nhanh và được điều hướng bằng classifier-free guidance.
 
 **Type:** Learn + Use
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Trace the five pieces of a Stable Diffusion pipeline: VAE, text encoder, U-Net, scheduler, safety checker — and what each of them actually does
-- Explain latent diffusion and why training in a 4x64x64 latent space (instead of a 3x512x512 image) reduces compute by 48x without quality loss
-- Use `diffusers` to generate images, run image-to-image, inpainting, and ControlNet-guided generation
-- Fine-tune Stable Diffusion with LoRA on a small custom dataset and load the LoRA adapter at inference
+- Theo dõi năm phần của một pipeline Stable Diffusion: VAE, encoder văn bản, U-Net, bộ lập lịch, bộ kiểm tra an toàn — và mỗi phần thực sự làm gì
+- Giải thích khuếch tán tiềm ẩn và tại sao huấn luyện trong không gian tiềm ẩn 4x64x64 (thay vì hình ảnh 3x512x512) giảm tính toán 48 lần mà không mất chất lượng
+- Sử dụng `diffusers` để sinh hình ảnh, chạy ảnh-sang-ảnh, điền ảnh và sinh được ControlNet hướng dẫn
+- Tinh chỉnh Stable Diffusion bằng LoRA trên một tập dữ liệu tùy chỉnh nhỏ và tải adapter LoRA lúc suy luận
 
 ## The Problem
 
-Training a DDPM directly on 512x512 RGB images is expensive. Every training step backprops through a U-Net that sees 3x512x512 = 786,432 input values, and sampling takes 50+ forward passes through that same U-Net. At the quality level of Stable Diffusion 1.5 (released 2022), pixel-space diffusion would need roughly 256 GPU-months of training and 10-30 seconds per image on a consumer GPU.
+Huấn luyện một DDPM trực tiếp trên hình ảnh RGB 512x512 tốn kém. Mỗi bước huấn luyện lan truyền ngược qua một U-Net thấy 3x512x512 = 786,432 giá trị đầu vào, và lấy mẫu cần 50+ lượt truyền xuôi qua cùng U-Net. Ở mức chất lượng của Stable Diffusion 1.5 (phát hành 2022), khuếch tán không gian pixel sẽ cần khoảng 256 GPU-tháng huấn luyện và 10-30 giây mỗi hình ảnh trên một GPU tiêu dùng.
 
-The trick that made open-weight text-to-image practical was **latent diffusion** (Rombach et al., CVPR 2022). Train a VAE that maps a 3x512x512 image to a 4x64x64 latent tensor and back, then do the diffusion in that latent space. Compute drops by `(3*512*512)/(4*64*64) = 48x`. Sampling drops from tens of seconds to under two seconds on the same GPU.
+Thủ thuật khiến văn bản-sang-ảnh trọng số mở thực tiễn là **khuếch tán tiềm ẩn** (Rombach et al., CVPR 2022). Huấn luyện một VAE ánh xạ hình ảnh 3x512x512 thành tensor tiềm ẩn 4x64x64 rồi ngược lại, sau đó thực hiện khuếch tán trong không gian tiềm ẩn đó. Tính toán giảm theo `(3*512*512)/(4*64*64) = 48x`. Lấy mẫu giảm từ hàng chục giây xuống dưới hai giây trên cùng GPU.
 
-Almost every modern image-generation model — SDXL, SD3, FLUX, HunyuanDiT, Wan-Video — is a latent diffusion model with variations on the autoencoder, the denoiser (U-Net or DiT), and the text conditioning. Learn Stable Diffusion and you have learnt the template.
+Gần như mọi mô hình sinh hình ảnh hiện đại — SDXL, SD3, FLUX, HunyuanDiT, Wan-Video — đều là một mô hình khuếch tán tiềm ẩn với các biến thể autoencoder, bộ khử nhiễu (U-Net hoặc DiT) và điều kiện hóa văn bản. Học Stable Diffusion và bạn đã học khuôn mẫu.
 
 ## The Concept
 
@@ -45,46 +45,46 @@ flowchart LR
     style IMG fill:#dcfce7,stroke:#16a34a
 ```
 
-- **VAE** — frozen autoencoder. Encoder turns image into latents (used for img2img and training). Decoder turns latents back into an image.
-- **Text encoder** — CLIP text encoder (SD 1.x/2.x), CLIP-L + CLIP-G (SDXL), or T5-XXL (SD3/FLUX). Produces a sequence of token embeddings.
-- **U-Net** — the denoiser. Has cross-attention layers that attend from latents to the text embedding at every resolution level.
-- **Scheduler** — the sampling algorithm (DDIM, Euler, DPM-Solver++). Picks sigmas, blends predicted noise back into the latent.
-- **Safety checker** — optional NSFW / illegal-content filter on the output image.
+- **VAE** — autoencoder đóng băng. Encoder biến hình ảnh thành các biểu diễn tiềm ẩn (dùng cho img2img và huấn luyện). Decoder biến các biểu diễn tiềm ẩn trở lại thành hình ảnh.
+- **Encoder văn bản** — encoder văn bản CLIP (SD 1.x/2.x), CLIP-L + CLIP-G (SDXL) hoặc T5-XXL (SD3/FLUX). Tạo một chuỗi embedding token.
+- **U-Net** — bộ khử nhiễu. Có các lớp cross-attention chú ý từ các biểu diễn tiềm ẩn tới embedding văn bản ở mọi mức độ phân giải.
+- **Bộ lập lịch** — thuật toán lấy mẫu (DDIM, Euler, DPM-Solver++). Chọn các sigma, trộn nhiễu dự đoán trở lại biểu diễn tiềm ẩn.
+- **Bộ kiểm tra an toàn** — bộ lọc NSFW / nội dung bất hợp pháp tùy chọn trên hình ảnh đầu ra.
 
 ### Classifier-free guidance (CFG)
 
-Plain text conditioning learns `epsilon_theta(x_t, t, c)` for every prompt `c`. CFG trains the same network with `c` dropped 10% of the time (replaced by an empty embedding), giving a single model that predicts both the conditional and the unconditional noise. At inference:
+Điều kiện hóa văn bản thông thường học `epsilon_theta(x_t, t, c)` cho mọi prompt `c`. CFG huấn luyện cùng mạng với `c` bị bỏ 10% thời gian (thay bằng embedding rỗng), tạo một mô hình duy nhất dự đoán cả nhiễu có điều kiện và không điều kiện. Khi suy luận:
 
 ```
 eps = eps_uncond + w * (eps_cond - eps_uncond)
 ```
 
-`w` is the guidance scale. `w=0` is unconditional, `w=1` is plain conditional, `w>1` pushes the output toward being "more conditioned on the prompt" at the cost of diversity. SD default is `w=7.5`.
+`w` là thang hướng dẫn. `w=0` là không điều kiện, `w=1` là có điều kiện thông thường, `w>1` đẩy đầu ra về phía "được điều kiện hóa theo prompt nhiều hơn" với chi phí đa dạng. Mặc định SD là `w=7.5`.
 
-CFG is the reason text-to-image works at production quality. Without it, prompts bias the output weakly; with it, prompts dominate.
+CFG là lý do văn bản-sang-ảnh hoạt động ở chất lượng production. Không có nó, các prompt thiên lệch đầu ra yếu; có nó, các prompt chi phối.
 
 ### Latent space geometry
 
-The VAE's 4-channel latent is not just a compressed image. It is a manifold where arithmetic roughly corresponds to semantic edits (prompt engineering + interpolation both live here), and where the diffusion U-Net has been trained to spend its entire modelling budget. Decoding a random 4x64x64 latent does not produce a random-looking image — it produces garbage, because only a specific submanifold of latents decodes to valid images.
+Biểu diễn tiềm ẩn 4 kênh của VAE không chỉ là hình ảnh nén. Nó là một đa tạp nơi số học gần tương ứng với các chỉnh sửa ngữ nghĩa (kỹ thuật prompt + nội suy đều nằm ở đây), và nơi U-Net khuếch tán được huấn luyện để dành toàn bộ ngân sách mô hình hóa. Giải mã một biểu diễn tiềm ẩn 4x64x64 ngẫu nhiên không tạo hình ảnh trông ngẫu nhiên — nó tạo rác, vì chỉ một đa tạp con cụ thể của các biểu diễn tiềm ẩn giải mã thành các hình ảnh hợp lệ.
 
-Two consequences:
+Hai hệ quả:
 
-1. **Img2img** = encode image to latent, add partial noise, run the denoiser, decode. Image structure survives because encoding is near-invertible; content changes based on the prompt.
-2. **Inpainting** = same as img2img but the denoiser only updates masked regions; unmasked regions are kept at the encoded latent.
+1. **Img2img** = mã hóa hình ảnh thành biểu diễn tiềm ẩn, thêm một phần nhiễu, chạy bộ khử nhiễu, giải mã. Cấu trúc hình ảnh sống sót vì mã hóa gần khả nghịch; nội dung thay đổi dựa trên prompt.
+2. **Inpainting** = giống img2img nhưng bộ khử nhiễu chỉ cập nhật các vùng có mặt nạ; các vùng không có mặt nạ được giữ ở biểu diễn tiềm ẩn đã mã hóa.
 
 ### The U-Net architecture
 
-The SD U-Net is a big version of the TinyUNet from Lesson 10 with three additions:
+U-Net SD là một phiên bản lớn của TinyUNet từ Bài 10 với ba bổ sung:
 
-- **Transformer blocks** at every spatial resolution, containing self-attention + cross-attention to the text embedding.
-- **Time embedding** via MLP on sinusoidal encoding.
-- **Skip connections** between encoder and decoder at matching resolutions.
+- **Các khối transformer** ở mọi độ phân giải không gian, chứa self-attention + cross-attention tới embedding văn bản.
+- **Embedding thời gian** qua MLP trên mã hóa hình sin.
+- **Các kết nối tắt** giữa encoder và decoder tại các độ phân giải khớp nhau.
 
-Total parameters in SD 1.5: ~860M. SDXL: ~2.6B. FLUX: ~12B. The jump in params is mostly in attention layers.
+Tổng tham số trong SD 1.5: ~860M. SDXL: ~2.6B. FLUX: ~12B. Bước nhảy tham số phần lớn nằm trong các lớp attention.
 
 ### LoRA fine-tuning
 
-Full fine-tuning of Stable Diffusion needs 20+ GB of VRAM and updates 860M parameters. LoRA (Low-Rank Adaptation) keeps the base model frozen and injects small rank-decomposition matrices into the attention layers. A LoRA adapter for SD is typically 10-50 MB, trains in 10-60 minutes on a single consumer GPU, and loads at inference time as a drop-in modification.
+Tinh chỉnh đầy đủ Stable Diffusion cần 20+ GB VRAM và cập nhật 860M tham số. LoRA (Low-Rank Adaptation) giữ mô hình cơ sở đóng băng và đưa các ma trận phân rã hạng nhỏ vào các lớp attention. Một adapter LoRA cho SD thường 10-50 MB, huấn luyện trong 10-60 phút trên một GPU tiêu dùng duy nhất và tải lúc suy luận như một sửa đổi cắm vào trực tiếp.
 
 ```
 Original: W_q : (d_in, d_out)   frozen
@@ -93,16 +93,16 @@ LoRA:     W_q + alpha * (A @ B)   where A : (d_in, r), B : (r, d_out)
 r is typically 4-32.
 ```
 
-LoRA is how almost every community fine-tune is distributed. CivitAI and Hugging Face host millions of them.
+LoRA là cách gần như mọi bản tinh chỉnh cộng đồng được phân phối. CivitAI và Hugging Face lưu trữ hàng triệu bản.
 
 ### Schedulers you will see
 
-- **DDIM** — deterministic, ~50 steps, simple.
-- **Euler ancestral** — stochastic, 30-50 steps, slightly more creative samples.
-- **DPM-Solver++ 2M Karras** — deterministic, 20-30 steps, production default.
-- **LCM / TCD / Turbo** — consistency models and distilled variants; 1-4 steps at the cost of some quality.
+- **DDIM** — tất định, ~50 bước, đơn giản.
+- **Euler ancestral** — ngẫu nhiên, 30-50 bước, các mẫu sáng tạo hơn một chút.
+- **DPM-Solver++ 2M Karras** — tất định, 20-30 bước, mặc định production.
+- **LCM / TCD / Turbo** — các mô hình nhất quán và các biến thể chưng cất; 1-4 bước với chi phí một phần chất lượng.
 
-Swapping schedulers is a one-line change in `diffusers` and sometimes fixes sample issues without any retraining.
+Đổi các bộ lập lịch là thay đổi một dòng trong `diffusers` và đôi khi sửa các vấn đề mẫu mà không huấn luyện lại.
 
 ```figure
 cv3-latent-compression
@@ -110,7 +110,7 @@ cv3-latent-compression
 
 ## Build It
 
-This lesson uses `diffusers` end-to-end rather than rebuilding Stable Diffusion from scratch. The pieces you would need to rebuild (VAE, text encoder, U-Net, scheduler) are topics of their own lessons; here the goal is fluency with the production API.
+Bài này sử dụng `diffusers` đầu-cuối thay vì xây lại Stable Diffusion từ đầu. Các phần bạn cần xây lại (VAE, encoder văn bản, U-Net, bộ lập lịch) là chủ đề của các bài riêng; ở đây mục tiêu là thành thạo API production.
 
 ### Step 1: Text-to-image
 
@@ -132,7 +132,7 @@ image = pipe(
 image.save("dog.png")
 ```
 
-`float16` halves VRAM with no visible quality loss. `num_inference_steps=25` with the default DPM-Solver++ matches `num_inference_steps=50` with DDIM.
+`float16` giảm một nửa VRAM mà không mất chất lượng thấy được. `num_inference_steps=25` với DPM-Solver++ mặc định khớp `num_inference_steps=50` với DDIM.
 
 ### Step 2: Swap the scheduler
 
@@ -143,7 +143,7 @@ pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
 pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
 ```
 
-Scheduler state is decoupled from U-Net weights. You can train on DDPM and sample with any scheduler.
+Trạng thái bộ lập lịch tách rời khỏi các trọng số U-Net. Bạn có thể huấn luyện trên DDPM và lấy mẫu với bất kỳ bộ lập lịch nào.
 
 ### Step 3: Image-to-image
 
@@ -165,7 +165,7 @@ out = img2img(
 ).images[0]
 ```
 
-`strength` is how much noise to add before denoising (0.0 = unchanged, 1.0 = full regeneration). 0.5-0.7 is the standard range for style transfer.
+`strength` là lượng nhiễu thêm trước khử nhiễu (0.0 = không đổi, 1.0 = tái sinh hoàn toàn). 0.5-0.7 là phạm vi tiêu chuẩn cho chuyển phong cách.
 
 ### Step 4: Inpainting
 
@@ -188,7 +188,7 @@ out = inpaint(
 ).images[0]
 ```
 
-White pixels in the mask are the area to regenerate. Black pixels are preserved.
+Các pixel trắng trong mặt nạ là vùng tái sinh. Các pixel đen được giữ nguyên.
 
 ### Step 5: LoRA loading
 
@@ -202,11 +202,11 @@ pipe.fuse_lora(lora_scale=0.8)
 image = pipe(prompt="a village square, StdGBRedmAF, Studio Ghibli").images[0]
 ```
 
-The trigger phrase from the model card (`StdGBRedmAF, Studio Ghibli`) switches the style on. `lora_scale` controls strength; 0.0 = no effect, 1.0 = full effect. `fuse_lora` bakes the adapter into the weights in place for speed, but prevents swapping. Call `pipe.unfuse_lora()` before loading a different adapter.
+Cụm từ kích hoạt từ model card (`StdGBRedmAF, Studio Ghibli`) bật phong cách. `lora_scale` kiểm soát độ mạnh; 0.0 = không hiệu ứng, 1.0 = hiệu ứng đầy đủ. `fuse_lora` gộp adapter vào trọng số tại chỗ để tăng tốc nhưng ngăn hoán đổi. Gọi `pipe.unfuse_lora()` trước khi tải một adapter khác.
 
 ### Step 6: LoRA training (sketch)
 
-Real LoRA training lives in `peft` or `diffusers.training`. The outline:
+Huấn luyện LoRA thật nằm trong `peft` hoặc `diffusers.training`. Phác thảo:
 
 ```python
 # Pseudocode
@@ -227,48 +227,48 @@ for step, batch in enumerate(dataloader):
     optimizer.step()
 ```
 
-Only the LoRA matrices receive gradient; the base U-Net, VAE, and text encoder are frozen. With a batch size of 1 and gradient checkpointing this fits in 8 GB of VRAM.
+Chỉ các ma trận LoRA nhận gradient; U-Net cơ sở, VAE và encoder văn bản đóng băng. Với kích thước batch 1 và gradient checkpointing, cấu hình này vừa 8 GB VRAM.
 
 ## Use It
 
-In production, the decisions you actually make:
+Trong production, các quyết định bạn thực sự đưa ra:
 
-- **Model family**: SD 1.5 for open-source community fine-tunes, SDXL for higher fidelity, SD3 / FLUX for state of the art and strict licensing requirements.
-- **Scheduler**: DPM-Solver++ 2M Karras for 20-30 steps, LCM-LoRA when latency is under 1s.
-- **Precision**: `float16` on 4080/4090, `bfloat16` on A100 and newer, `int8` (via `bitsandbytes` or `compel`) when VRAM is tight.
-- **Conditioning**: plain text works; for stronger control, add ControlNet (canny, depth, pose) on top of the base pipeline.
+- **Họ mô hình**: SD 1.5 cho các bản tinh chỉnh cộng đồng nguồn mở, SDXL cho độ trung thực cao hơn, SD3 / FLUX cho mức tiên tiến nhất và các yêu cầu giấy phép nghiêm ngặt.
+- **Bộ lập lịch**: DPM-Solver++ 2M Karras cho 20-30 bước, LCM-LoRA khi độ trễ dưới 1s.
+- **Độ chính xác**: `float16` trên 4080/4090, `bfloat16` trên A100 trở lên, `int8` (qua `bitsandbytes` hoặc `compel`) khi VRAM eo hẹp.
+- **Điều kiện hóa**: văn bản thuần hoạt động; để kiểm soát mạnh hơn, thêm ControlNet (canny, độ sâu, tư thế) trên pipeline cơ sở.
 
-For batch generation, `AUTO1111` / `ComfyUI` are the community tools; for production APIs, `diffusers` + `accelerate` or `optimum-nvidia` with TensorRT compilation.
+Cho sinh theo batch, `AUTO1111` / `ComfyUI` là các công cụ cộng đồng; cho API production, `diffusers` + `accelerate` hoặc `optimum-nvidia` với biên dịch TensorRT.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-sd-pipeline-planner.md` — a prompt that picks SD 1.5 / SDXL / SD3 / FLUX plus scheduler and precision given a latency budget, fidelity target, and licensing constraint.
-- `outputs/skill-lora-training-setup.md` — a skill that writes a full LoRA training config for a custom dataset including captions, rank, batch size, and learning rate.
+- `outputs/prompt-sd-pipeline-planner.md` — một prompt chọn SD 1.5 / SDXL / SD3 / FLUX cộng bộ lập lịch và độ chính xác với ngân sách độ trễ, mục tiêu độ trung thực và ràng buộc giấy phép cho trước.
+- `outputs/skill-lora-training-setup.md` — một skill viết cấu hình huấn luyện LoRA đầy đủ cho tập dữ liệu tùy chỉnh gồm chú thích, hạng, kích thước batch và tốc độ học.
 
 ## Exercises
 
-1. **(Easy)** Generate the same prompt with `guidance_scale` in `[1, 3, 5, 7.5, 10, 15]`. Describe how the image changes. At what guidance value do artefacts appear?
-2. **(Medium)** Take any real photograph, run it through `StableDiffusionImg2ImgPipeline` at `strength` in `[0.2, 0.4, 0.6, 0.8, 1.0]`. Which strength preserves composition while changing style? Why does 1.0 ignore the input entirely?
-3. **(Hard)** Train a LoRA on 10-20 images of a single subject (a pet, a logo, a character) and generate novel scenes with that subject in them. Report the LoRA rank and training steps that produced the best identity preservation without overfitting to the input images.
+1. **(Dễ)** Sinh cùng prompt với `guidance_scale` trong `[1, 3, 5, 7.5, 10, 15]`. Mô tả hình ảnh thay đổi thế nào. Ở giá trị hướng dẫn nào các giả ảnh xuất hiện?
+2. **(Vừa)** Lấy bất kỳ ảnh chụp thật nào, chạy qua `StableDiffusionImg2ImgPipeline` ở `strength` trong `[0.2, 0.4, 0.6, 0.8, 1.0]`. Độ mạnh nào giữ bố cục trong khi đổi phong cách? Tại sao 1.0 bỏ qua đầu vào hoàn toàn?
+3. **(Khó)** Huấn luyện một LoRA trên 10-20 hình ảnh của một chủ thể duy nhất (thú cưng, logo, nhân vật) và sinh các cảnh mới có chủ thể đó. Báo cáo hạng LoRA và số bước huấn luyện cho khả năng giữ danh tính tốt nhất mà không quá khớp các hình ảnh đầu vào.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Latent diffusion | "Diffuse in latents" | Run the entire DDPM in the VAE latent space (4x64x64) instead of pixel space (3x512x512); 48x compute saving |
-| VAE scale factor | "0.18215" | Constant that rescales the VAE's raw latent to roughly unit variance; hardcoded in every SD pipeline |
-| Classifier-free guidance | "CFG" | Mix conditional and unconditional noise predictions; the single most impactful inference knob |
-| Scheduler | "Sampler" | The algorithm that turns noise + model predictions into a denoised latent trajectory |
-| LoRA | "Low-rank adapter" | Small rank-decomposition matrices that fine-tune attention layers without touching base weights |
-| Cross-attention | "Text-image attention" | Attention from latent tokens to text tokens; injects prompt information at every U-Net level |
-| ControlNet | "Structure conditioning" | A separately-trained adapter that steers SD with an extra input (canny, depth, pose, segmentation) |
-| DPM-Solver++ | "The default scheduler" | Second-order deterministic ODE solver; best quality at low step counts (20-30) in 2026 |
+| Latent diffusion (Khuếch tán tiềm ẩn) | "Khuếch tán trong các biểu diễn tiềm ẩn" | Chạy toàn bộ DDPM trong không gian tiềm ẩn VAE (4x64x64) thay không gian pixel (3x512x512); tiết kiệm tính toán 48 lần |
+| VAE scale factor (Hệ số co giãn VAE) | "0.18215" | Hằng số co giãn lại biểu diễn tiềm ẩn thô VAE về phương sai gần đơn vị; được mã hóa cứng trong mọi pipeline SD |
+| Classifier-free guidance | "CFG" | Trộn các dự đoán nhiễu có điều kiện và không điều kiện; núm suy luận có tác động lớn nhất |
+| Scheduler (Bộ lập lịch) | "Sampler" | Thuật toán biến nhiễu + các dự đoán mô hình thành một quỹ đạo tiềm ẩn đã khử nhiễu |
+| LoRA | "Adapter hạng thấp" | Các ma trận phân rã hạng nhỏ tinh chỉnh các lớp attention mà không chạm các trọng số cơ sở |
+| Cross-attention | "Attention văn bản-hình ảnh" | Attention từ token tiềm ẩn tới token văn bản; đưa thông tin prompt vào mọi mức U-Net |
+| ControlNet | "Điều kiện hóa cấu trúc" | Một adapter được huấn luyện riêng điều hướng SD bằng một đầu vào bổ sung (canny, độ sâu, tư thế, phân đoạn) |
+| DPM-Solver++ | "Bộ lập lịch mặc định" | Bộ giải ODE tất định bậc hai; chất lượng tốt nhất ở số bước thấp (20-30) năm 2026 |
 
 ## Further Reading
 
-- [High-Resolution Image Synthesis with Latent Diffusion (Rombach et al., 2022)](https://arxiv.org/abs/2112.10752) — the Stable Diffusion paper; includes every ablation that justifies the design
-- [Classifier-Free Diffusion Guidance (Ho & Salimans, 2022)](https://arxiv.org/abs/2207.12598) — the CFG paper
-- [LoRA: Low-Rank Adaptation of Large Language Models (Hu et al., 2021)](https://arxiv.org/abs/2106.09685) — LoRA was NLP-first; it transferred to SD with almost no changes
-- [diffusers documentation](https://huggingface.co/docs/diffusers) — the reference for every SD / SDXL / SD3 / FLUX pipeline
+- [High-Resolution Image Synthesis with Latent Diffusion (Rombach et al., 2022)](https://arxiv.org/abs/2112.10752) — bài báo Stable Diffusion; bao gồm mọi thí nghiệm loại bỏ thành phần lý giải thiết kế
+- [Classifier-Free Diffusion Guidance (Ho & Salimans, 2022)](https://arxiv.org/abs/2207.12598) — bài báo CFG
+- [LoRA: Low-Rank Adaptation of Large Language Models (Hu et al., 2021)](https://arxiv.org/abs/2106.09685) — LoRA ban đầu cho NLP; nó chuyển sang SD gần như không thay đổi
+- [diffusers documentation](https://huggingface.co/docs/diffusers) — tài liệu tham khảo cho mọi pipeline SD / SDXL / SD3 / FLUX
