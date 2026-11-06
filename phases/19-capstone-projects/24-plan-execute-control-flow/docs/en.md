@@ -1,6 +1,6 @@
 # Plan-Execute Control Flow
 
-> A plan that cannot survive a failure is a script. A script that can replan is an agent. Build the replanner first.
+> Một kế hoạch không thể sống sót qua một thất bại là một script. Một script có thể lập lại kế hoạch là một agent. Xây dựng bộ lập lại kế hoạch trước.
 
 **Type:** Build
 **Languages:** Python
@@ -8,11 +8,11 @@
 **Time:** ~90 minutes
 
 ## Learning Objectives
-- Represent a plan as an ordered list of typed steps so the executor can reason about progress and outcome.
-- Execute steps sequentially with a controlled failure handoff back to the planner.
-- Replan from the current cursor with the prior error in the context so the next plan is informed.
-- Emit a plan diff on each revision so a downstream tracer or UI can show why the plan changed.
-- Enforce two budgets: a hard step ceiling and a hard replan ceiling.
+- Biểu diễn một kế hoạch dưới dạng một danh sách có thứ tự các bước có kiểu để bộ thực thi có thể suy luận về tiến độ và kết quả.
+- Thực thi các bước tuần tự với một bước bàn giao lỗi có kiểm soát trở lại bộ lập kế hoạch.
+- Lập lại kế hoạch từ con trỏ hiện tại với lỗi trước đó trong ngữ cảnh để kế hoạch tiếp theo có thông tin.
+- Phát ra một diff kế hoạch trên mỗi bản sửa đổi để một bộ theo dõi hoặc UI hạ nguồn có thể hiển thị tại sao kế hoạch thay đổi.
+- Thực thi hai ngân sách: một trần bước cứng và một trần lập lại kế hoạch cứng.
 
 ```figure
 cg-plan-replan
@@ -20,9 +20,9 @@ cg-plan-replan
 
 ## Plan and execute, not chain-of-thought
 
-A chain-of-thought agent emits tokens and lets the loop guess where the tool call ends. A plan-and-execute agent emits a structured plan first, then executes each step deterministically. The plan is data the harness can introspect. The execution is the harness running that data through a dispatcher.
+Một agent chuỗi suy nghĩ phát ra token và để vòng lặp đoán nơi lệnh gọi công cụ kết thúc. Một agent lập kế hoạch và thực thi phát ra một kế hoạch có cấu trúc trước, rồi thực thi từng bước một cách tất định. Kế hoạch là dữ liệu mà harness có thể nội quan. Việc thực thi là harness chạy dữ liệu đó qua một dispatcher.
 
-Two pieces. A planner that produces a plan. An executor that runs the plan. The interesting work is what happens when the executor hits a failure. Three options:
+Hai phần. Một bộ lập kế hoạch tạo ra một kế hoạch. Một bộ thực thi chạy kế hoạch. Công việc thú vị là điều xảy ra khi bộ thực thi gặp một thất bại. Ba lựa chọn:
 
 ```text
 1. Abort         (return failed, surface the error)
@@ -30,7 +30,7 @@ Two pieces. A planner that produces a plan. An executor that runs the plan. The 
 3. Replan        (hand the error to the planner, get a new plan from the cursor)
 ```
 
-Replan is the one that turns a script into an agent.
+Lập lại kế hoạch là lựa chọn biến một script thành một agent.
 
 ## The Step shape
 
@@ -44,7 +44,7 @@ Step
   error           : str | None
 ```
 
-`expected_outcome` is a short sentence the planner emits alongside the step. It is not enforced by the executor. It is for two things: the replanner reads it when revising the plan; the event stream emits it so a tracer can show "this step was supposed to do X."
+`expected_outcome` là một câu ngắn mà bộ lập kế hoạch phát ra bên cạnh bước. Nó không được bộ thực thi thực thi. Nó dành cho hai thứ: bộ lập lại kế hoạch đọc nó khi sửa đổi kế hoạch; luồng sự kiện phát ra nó để một bộ theo dõi có thể hiển thị "bước này được kỳ vọng làm X."
 
 ## The planner shape
 
@@ -53,13 +53,13 @@ def planner(goal: str, history: list[Step], last_error: str | None) -> list[Step
     ...
 ```
 
-A pure function. `goal` is the user goal. `history` is the steps already executed (with results and errors filled in). `last_error` is None on the first call and the most recent failure message on every subsequent call. The planner returns the next plan starting from the cursor.
+Một hàm thuần túy. `goal` là mục tiêu người dùng. `history` là các bước đã được thực thi (với kết quả và lỗi được điền vào). `last_error` là None ở lệnh gọi đầu tiên và thông điệp thất bại gần nhất ở mọi lệnh gọi tiếp theo. Bộ lập kế hoạch trả về kế hoạch tiếp theo bắt đầu từ con trỏ.
 
-The planner does not know about the executor. It does not know about retries. It does not know about timeouts. It produces a plan. That is all.
+Bộ lập kế hoạch không biết về bộ thực thi. Nó không biết về thử lại. Nó không biết về timeout. Nó tạo ra một kế hoạch. Chỉ vậy thôi.
 
 ## The executor
 
-The executor is a small state machine. Each step runs through the dispatcher. The outcome is one of three things: success, failure-replannable, failure-fatal. Replannable failures hand back to the planner. Fatal failures (budget exceeded, replan ceiling hit) return a `FAILED` session result.
+Bộ thực thi là một máy trạng thái nhỏ. Mỗi bước chạy qua dispatcher. Kết quả là một trong ba thứ: thành công, thất bại-có thể lập lại kế hoạch, thất bại-chí mạng. Các thất bại có thể lập lại kế hoạch bàn giao lại cho bộ lập kế hoạch. Các thất bại chí mạng (vượt ngân sách, chạm trần lập lại kế hoạch) trả về một kết quả phiên `FAILED`.
 
 ```mermaid
 stateDiagram-v2
@@ -76,7 +76,7 @@ stateDiagram-v2
 
 ## Plan diffs on revision
 
-When the planner returns a new plan after a failure, the executor emits a `plan.diff` event with three fields.
+Khi bộ lập kế hoạch trả về một kế hoạch mới sau một thất bại, bộ thực thi phát ra một sự kiện `plan.diff` với ba trường.
 
 ```text
 removed: list of step ids that were in the old plan and are not in the new
@@ -84,17 +84,17 @@ added  : list of step ids in the new plan that were not in the old
 revised: list of step ids whose tool_name or args changed
 ```
 
-A tracer or UI can render this as a strikethrough on the removed steps and a highlight on the added ones. The point is not the diff format. The point is that revision is a visible event, not a silent rewrite.
+Một bộ theo dõi hoặc UI có thể hiển thị điều này dưới dạng gạch ngang trên các bước bị bỏ và tô sáng trên các bước được thêm. Điểm chính không phải định dạng diff. Điểm chính là sửa đổi là một sự kiện có thể thấy, không phải một lần viết lại âm thầm.
 
 ## Two budgets, both hard
 
-`max_steps` caps total step executions across the whole session, including replans. Default is twelve. A linear five-step plan that replans twice and adds three steps each time hits sixteen executions and would exceed the budget. The executor will refuse the replan and return FAILED.
+`max_steps` giới hạn tổng số lần thực thi bước trên toàn bộ phiên, bao gồm các lần lập lại kế hoạch. Mặc định là mười hai. Một kế hoạch tuyến tính năm bước lập lại kế hoạch hai lần và thêm ba bước mỗi lần chạm mười sáu lần thực thi và sẽ vượt ngân sách. Bộ thực thi sẽ từ chối lần lập lại kế hoạch và trả về FAILED.
 
-`max_replans` caps the number of times the planner is called after the first plan. Default is five. This is the more important limit. A planner that returns the same broken plan five times in a row would otherwise loop until the step budget catches it. Capping replans makes the failure faster and the reason clearer.
+`max_replans` giới hạn số lần bộ lập kế hoạch được gọi sau kế hoạch đầu tiên. Mặc định là năm. Đây là giới hạn quan trọng hơn. Một bộ lập kế hoạch trả về cùng một kế hoạch hỏng năm lần liên tiếp nếu không sẽ lặp cho đến khi ngân sách bước bắt được nó. Giới hạn lập lại kế hoạch khiến thất bại nhanh hơn và lý do rõ ràng hơn.
 
 ## The deterministic planner in this lesson
 
-We do not call a model in this lesson. The lesson ships a deterministic planner that picks a plan based on `last_error`.
+Chúng ta không gọi một mô hình trong bài này. Bài học cung cấp một bộ lập kế hoạch tất định chọn một kế hoạch dựa trên `last_error`.
 
 ```text
 last_error is None    -> emit a four-step plan
@@ -103,7 +103,7 @@ last_error matches Y  -> emit a two-step plan that gives up gracefully
 otherwise             -> return [] (signals nothing to replan)
 ```
 
-This is enough to test the executor's behavior on every transition path: success, replan-once, replan-twice, replan-exhaustion, and step-budget exhaustion.
+Như vậy đủ để kiểm thử hành vi của bộ thực thi trên mọi đường chuyển tiếp: thành công, lập lại kế hoạch một lần, lập lại kế hoạch hai lần, cạn lập lại kế hoạch, và cạn ngân sách bước.
 
 ## Result shape
 
@@ -116,16 +116,16 @@ SessionResult
   events      : list[Event]
 ```
 
-The harness loop from lesson twenty can read this directly. The dispatcher from lesson twenty-three is what executes each step. The registry from lesson twenty-one validates each step's args. The transport from lesson twenty-two would surface this whole flow over JSON-RPC to a model client.
+Vòng lặp harness từ bài hai mươi có thể đọc trực tiếp điều này. Dispatcher từ bài hai mươi ba là thứ thực thi từng bước. Registry từ bài hai mươi mốt xác thực các đối số của từng bước. Cơ chế truyền tải từ bài hai mươi hai sẽ cung cấp toàn bộ luồng này trên JSON-RPC cho một máy khách mô hình.
 
 ## How to read the code
 
-`code/main.py` defines `PlanExecuteAgent`, `Step`, `PlanDiff`, `SessionResult`, and the deterministic planner. The executor is a single `run(goal)` method that returns a `SessionResult`. The plan diff is computed by comparing step ids and `(tool_name, args)` tuples.
+`code/main.py` định nghĩa `PlanExecuteAgent`, `Step`, `PlanDiff`, `SessionResult`, và bộ lập kế hoạch tất định. Bộ thực thi là một phương thức `run(goal)` duy nhất trả về một `SessionResult`. Diff kế hoạch được tính bằng cách so sánh các id bước và các tuple `(tool_name, args)`.
 
-`code/tests/test_agent.py` covers a linear success, a mid-plan failure that replans once, replan exhaustion that returns `failed:replan_budget`, step-budget exhaustion, and the plan-diff event format.
+`code/tests/test_agent.py` bao phủ một thành công tuyến tính, một thất bại giữa kế hoạch lập lại kế hoạch một lần, cạn lập lại kế hoạch trả về `failed:replan_budget`, cạn ngân sách bước, và định dạng sự kiện diff kế hoạch.
 
 ## Going further
 
-Two extensions you will want once you wire this to a real model. First, partial-plan caching: when a plan succeeds for the first three of six steps and then fails, you do not want to re-run the first three. The executor already keeps history; the planner just needs to read it. Second, parallel branches: the current executor is strictly sequential. A planner that emits an independent branch (`gather_step` instead of `next_step`) can run two tool calls concurrently through the dispatcher.
+Hai phần mở rộng bạn sẽ muốn khi kết nối thứ này với một mô hình thực. Thứ nhất, lưu đệm kế hoạch một phần: khi một kế hoạch thành công ở ba bước đầu trong sáu bước rồi thất bại, bạn không muốn chạy lại ba bước đầu. Bộ thực thi đã giữ lịch sử; bộ lập kế hoạch chỉ cần đọc nó. Thứ hai, các nhánh song song: bộ thực thi hiện tại hoàn toàn tuần tự. Một bộ lập kế hoạch phát ra một nhánh độc lập (`gather_step` thay vì `next_step`) có thể chạy hai lệnh gọi công cụ đồng thời qua dispatcher.
 
-Both add real complexity. Both are easier to add once the linear executor is pinned. That is what this lesson does.
+Cả hai thêm độ phức tạp thực sự. Cả hai dễ thêm hơn khi bộ thực thi tuyến tính đã được ghim. Đó là điều bài này làm.
