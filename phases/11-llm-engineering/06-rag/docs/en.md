@@ -1,33 +1,33 @@
 # RAG (Retrieval-Augmented Generation)
 
-> Your LLM knows everything up to its training cutoff. It knows nothing about your company's docs, your codebase, or last week's meeting notes. RAG solves this by retrieving relevant documents and stuffing them into the prompt. It's the most deployed pattern in production AI. If you build one thing from this course, build a RAG pipeline.
+> LLM của bạn biết mọi thứ đến thời điểm chốt dữ liệu huấn luyện. Nó không biết gì về tài liệu công ty, cơ sở mã hay ghi chú cuộc họp tuần trước của bạn. RAG giải quyết điều này bằng cách truy xuất tài liệu liên quan và nhồi chúng vào prompt. Đây là mẫu được triển khai nhiều nhất trong AI sản xuất. Nếu bạn xây một thứ từ khóa học này, hãy xây một pipeline RAG.
 
 **Type:** Build
 **Languages:** Python
 **Prerequisites:** Phase 10 (LLMs from Scratch), Phase 11 Lessons 01-05
 **Time:** ~90 minutes
-**Related:** Phase 5 · 23 (Chunking Strategies for RAG) for the six chunking algorithms and when each wins. Phase 5 · 22 (Embedding Models Deep Dive) for picking the embedder. Phase 11 · 07 (Advanced RAG) for hybrid search, reranking, and query transformation.
+**Liên quan:** Giai đoạn 5 · 23 (Chunking Strategies for RAG) về sáu thuật toán chia chunk và khi nào mỗi thuật toán thắng. Giai đoạn 5 · 22 (Embedding Models Deep Dive) về chọn bộ nhúng. Giai đoạn 11 · 07 (Advanced RAG) về tìm kiếm lai, xếp hạng lại và biến đổi truy vấn.
 
 ## Learning Objectives
 
-- Build a complete RAG pipeline: document loading, chunking, embedding, vector storage, retrieval, and generation
-- Implement semantic search using a vector database (ChromaDB, FAISS, or Pinecone) with proper indexing
-- Explain why RAG is preferred over fine-tuning for knowledge-grounded applications (cost, freshness, attribution)
-- Evaluate RAG quality using retrieval metrics (precision, recall) and generation metrics (faithfulness, relevance)
+- Xây dựng một pipeline RAG hoàn chỉnh: nạp tài liệu, chia chunk, embedding, lưu trữ vector, truy xuất và sinh
+- Triển khai tìm kiếm ngữ nghĩa bằng cơ sở dữ liệu vector (ChromaDB, FAISS hoặc Pinecone) với lập chỉ mục thích hợp
+- Giải thích tại sao RAG được ưu tiên hơn fine-tuning cho các ứng dụng dựa trên kiến thức (chi phí, độ mới, quy nguồn)
+- Đánh giá chất lượng RAG bằng các thước đo truy xuất (precision, recall) và thước đo sinh (độ trung thực, độ liên quan)
 
 ## The Problem
 
-You build a chatbot for your company. A customer asks "What's the refund policy for enterprise plans?" The LLM responds with a generic answer about typical SaaS refund policies. The actual policy, buried in a 200-page internal wiki, says enterprise customers get a 60-day window with pro-rated refunds. The LLM has never seen this document. It cannot know what it was not trained on.
+Bạn xây một chatbot cho công ty. Một khách hàng hỏi "Chính sách hoàn tiền cho gói doanh nghiệp là gì?" LLM phản hồi bằng câu trả lời chung về chính sách hoàn tiền SaaS điển hình. Chính sách thực tế, chôn trong wiki nội bộ 200 trang, nói khách hàng doanh nghiệp có thời hạn 60 ngày với hoàn tiền theo tỷ lệ. LLM chưa bao giờ thấy tài liệu này. Nó không thể biết điều chưa được huấn luyện.
 
-Fine-tuning is one solution. Take the LLM, train it on your internal docs, and deploy the updated model. This works but has serious problems. Fine-tuning costs thousands of dollars in compute. The model becomes stale the moment a document changes. You have no way to know which source the model drew from. And if the company acquires another product line next month, you fine-tune again.
+Fine-tuning là một giải pháp. Lấy LLM, huấn luyện trên tài liệu nội bộ và triển khai mô hình cập nhật. Điều này có tác dụng nhưng có vấn đề nghiêm trọng. Fine-tuning tốn hàng nghìn đô la tính toán. Mô hình lỗi thời ngay khi một tài liệu thay đổi. Bạn không có cách biết mô hình lấy từ nguồn nào. Và nếu công ty mua thêm một dòng sản phẩm vào tháng sau, bạn lại fine-tune.
 
-RAG is the other solution. Leave the model untouched. When a question comes in, search your document store for relevant passages, paste them into the prompt before the question, and let the model answer using those passages as context. The document store can be updated in minutes. You can see exactly which documents were retrieved. The model itself never changes. This is why RAG is the dominant pattern in production: it's cheaper, fresher, more auditable, and works with any LLM.
+RAG là giải pháp còn lại. Giữ mô hình nguyên vẹn. Khi một câu hỏi đến, tìm các đoạn liên quan trong kho tài liệu, dán chúng vào prompt trước câu hỏi và để mô hình trả lời bằng các đoạn đó làm ngữ cảnh. Kho tài liệu có thể được cập nhật trong vài phút. Bạn có thể thấy chính xác tài liệu nào đã được truy xuất. Bản thân mô hình không bao giờ thay đổi. Đây là lý do RAG là mẫu thống trị trong sản xuất: nó rẻ hơn, mới hơn, dễ kiểm toán hơn và hoạt động với bất kỳ LLM nào.
 
 ## The Concept
 
 ### The RAG Pattern
 
-The entire pattern fits in four steps:
+Toàn bộ mẫu vừa trong bốn bước:
 
 ```mermaid
 graph LR
@@ -53,97 +53,97 @@ graph LR
     end
 ```
 
-Query -> Retrieve -> Augment prompt -> Generate. Every RAG system follows this pattern. The differences between production RAG systems are in the details of each step: how you chunk, how you embed, how you search, and how you construct the prompt.
+Truy vấn -> Truy xuất -> Bổ sung prompt -> Sinh. Mọi hệ thống RAG tuân mẫu này. Khác biệt giữa các hệ thống RAG sản xuất nằm ở chi tiết từng bước: cách chia chunk, cách nhúng, cách tìm kiếm và cách xây dựng prompt.
 
 ### Why RAG Beats Fine-Tuning
 
-| Concern | Fine-tuning | RAG |
+| Mối quan tâm | Fine-tuning | RAG |
 |---------|------------|-----|
-| Cost | $1,000-$100,000+ per training run | $0.01-$0.10 per query (embedding + LLM) |
-| Freshness | Stale until retrained | Updated in minutes by re-indexing docs |
-| Auditability | Cannot trace answer to source | Can show exact retrieved passages |
-| Hallucination | Still hallucinates freely | Grounded in retrieved documents |
-| Data privacy | Training data baked into weights | Documents stay in your vector store |
+| Chi phí | $1,000-$100,000+ mỗi lượt huấn luyện | $0.01-$0.10 mỗi truy vấn (embedding + LLM) |
+| Độ mới | Lỗi thời đến khi huấn luyện lại | Cập nhật trong vài phút bằng lập chỉ mục lại tài liệu |
+| Khả năng kiểm toán | Không thể truy câu trả lời về nguồn | Có thể hiển thị chính xác các đoạn được truy xuất |
+| Ảo giác | Vẫn ảo giác tự do | Dựa trên tài liệu được truy xuất |
+| Quyền riêng tư dữ liệu | Dữ liệu huấn luyện được tích hợp vào trọng số | Tài liệu ở lại kho vector của bạn |
 
-Fine-tuning changes the model's weights permanently. RAG changes the model's context temporarily. For most applications, temporary context is what you want.
+Fine-tuning thay đổi trọng số mô hình vĩnh viễn. RAG thay đổi ngữ cảnh mô hình tạm thời. Với hầu hết ứng dụng, ngữ cảnh tạm thời là thứ bạn muốn.
 
-The one case where fine-tuning wins: when you need the model to adopt a specific style, tone, or reasoning pattern that cannot be achieved through prompting alone. For factual knowledge retrieval, RAG wins every time.
+Trường hợp duy nhất fine-tuning thắng: khi bạn cần mô hình tiếp nhận một phong cách, giọng điệu hoặc mẫu suy luận cụ thể không thể đạt được chỉ bằng prompting. Với truy xuất kiến thức sự kiện, RAG thắng mọi lần.
 
 ### Embedding Models
 
-An embedding model converts text into a dense vector. Similar texts produce vectors that are close together in this high-dimensional space. "How do I reset my password?" and "I need to change my password" produce nearly identical vectors despite sharing few words. "The cat sat on the mat" produces a very different vector.
+Một mô hình embedding chuyển văn bản thành vector dày đặc. Văn bản tương tự tạo vector gần nhau trong không gian nhiều chiều này. "Làm thế nào để tôi đặt lại mật khẩu?" và "Tôi cần đổi mật khẩu" tạo các vector gần như giống hệt dù có ít từ chung. "Con mèo ngồi trên tấm thảm" tạo một vector rất khác.
 
-Common embedding models (2026 lineup — see Phase 5 · 22 for full analysis):
+Các mô hình embedding phổ biến (danh sách năm 2026 — xem Giai đoạn 5 · 22 để có phân tích đầy đủ):
 
-| Model | Dimensions | Provider | Notes |
+| Mô hình | Số chiều | Nhà cung cấp | Ghi chú |
 |-------|-----------|----------|-------|
-| text-embedding-3-small | 1536 (Matryoshka) | OpenAI | Best price/performance for most use cases |
-| text-embedding-3-large | 3072 (Matryoshka) | OpenAI | Higher accuracy, truncatable to 256/512/1024 |
-| Gemini Embedding 2 | 3072 (Matryoshka) | Google | Top MTEB retrieval; 8K context |
-| voyage-4 | 1024/2048 (Matryoshka) | Voyage AI | Domain variants (code, finance, law) |
-| Cohere embed-v4 | 1024 (Matryoshka) | Cohere | Strong multilingual, 128K context |
-| BGE-M3 | 1024 (dense + sparse + ColBERT) | BAAI (open-weight) | Three views from one model |
-| Qwen3-Embedding | 4096 (Matryoshka) | Alibaba (open-weight) | Top open-weight retrieval score |
-| all-MiniLM-L6-v2 | 384 | Open-weight (Sentence Transformers) | Prototyping baseline |
+| text-embedding-3-small | 1536 (Matryoshka) | OpenAI | Giá/hiệu năng tốt nhất cho hầu hết trường hợp sử dụng |
+| text-embedding-3-large | 3072 (Matryoshka) | OpenAI | Độ chính xác cao hơn, có thể cắt ngắn xuống 256/512/1024 |
+| Gemini Embedding 2 | 3072 (Matryoshka) | Google | Truy xuất MTEB hàng đầu; ngữ cảnh 8K |
+| voyage-4 | 1024/2048 (Matryoshka) | Voyage AI | Biến thể miền (mã, tài chính, luật) |
+| Cohere embed-v4 | 1024 (Matryoshka) | Cohere | Đa ngôn ngữ mạnh, ngữ cảnh 128K |
+| BGE-M3 | 1024 (dense + sparse + ColBERT) | BAAI (trọng số mở) | Ba góc nhìn từ một mô hình |
+| Qwen3-Embedding | 4096 (Matryoshka) | Alibaba (trọng số mở) | Điểm truy xuất trọng số mở hàng đầu |
+| all-MiniLM-L6-v2 | 384 | Trọng số mở (Sentence Transformers) | Baseline tạo mẫu |
 
-For this lesson, we build our own simple embedding using TF-IDF. Not because TF-IDF is what production systems use, but because it makes the concept concrete: text goes in, a vector comes out, similar texts produce similar vectors.
+Với bài học này, chúng ta xây embedding đơn giản riêng bằng TF-IDF. Không phải vì TF-IDF là thứ hệ thống sản xuất dùng, mà vì nó làm khái niệm trở nên cụ thể: văn bản đi vào, vector đi ra, văn bản tương tự tạo vector tương tự.
 
 ### Vector Similarity
 
-Given two vectors, how do you measure similarity? Three options:
+Với hai vector, bạn đo độ tương đồng thế nào? Ba lựa chọn:
 
-**Cosine similarity**: the cosine of the angle between two vectors. Ranges from -1 (opposite) to 1 (identical). Ignores magnitude, only cares about direction. This is the default for RAG.
+**Cosine similarity**: cosin của góc giữa hai vector. Từ -1 (đối nhau) đến 1 (giống hệt). Bỏ qua độ lớn, chỉ quan tâm hướng. Đây là mặc định cho RAG.
 
 ```
 cosine_sim(a, b) = dot(a, b) / (||a|| * ||b||)
 ```
 
-**Dot product**: the raw inner product. Larger vectors get higher scores. Useful when magnitude carries information (longer documents might be more relevant).
+**Tích vô hướng**: tích trong thô. Vector lớn hơn nhận điểm cao hơn. Hữu ích khi độ lớn mang thông tin (tài liệu dài hơn có thể liên quan hơn).
 
 ```
 dot(a, b) = sum(a_i * b_i)
 ```
 
-**L2 (Euclidean) distance**: straight-line distance in the vector space. Smaller distance = more similar. Sensitive to magnitude differences.
+**Khoảng cách L2 (Euclid)**: khoảng cách đường thẳng trong không gian vector. Khoảng cách nhỏ hơn = tương tự hơn. Nhạy với khác biệt độ lớn.
 
 ```
 L2(a, b) = sqrt(sum((a_i - b_i)^2))
 ```
 
-Cosine similarity is the standard. It handles documents of different lengths gracefully because it normalizes by magnitude. When someone says "vector search," they almost always mean cosine similarity.
+Cosine similarity là tiêu chuẩn. Nó xử lý tốt tài liệu độ dài khác nhau vì chuẩn hóa theo độ lớn. Khi ai đó nói "tìm kiếm vector", họ gần như luôn muốn nói cosine similarity.
 
 ### Chunking Strategies
 
-Documents are too long to embed as single vectors. A 50-page PDF might produce a terrible embedding because it contains dozens of topics. Instead, you split documents into chunks and embed each chunk separately.
+Tài liệu quá dài để nhúng thành vector đơn. Một PDF 50 trang có thể tạo embedding tệ vì chứa hàng chục chủ đề. Thay vào đó, bạn chia tài liệu thành chunk và nhúng riêng từng chunk.
 
-**Fixed-size chunking**: split every N tokens. Simple and predictable. A 512-token chunk with 50-token overlap means chunk 1 is tokens 0-511, chunk 2 is tokens 462-973, and so on. The overlap ensures you do not split a sentence at an unlucky boundary.
+**Chia chunk kích thước cố định**: chia mỗi N token. Đơn giản và có thể dự đoán. Chunk 512 token với chồng lấp 50 token nghĩa là chunk 1 là token 0-511, chunk 2 là token 462-973 và cứ thế. Chồng lấp bảo đảm bạn không chia một câu tại ranh giới không may.
 
-**Semantic chunking**: split at natural boundaries. Paragraphs, sections, or markdown headers. Each chunk is a coherent unit of meaning. More complex to implement but produces better retrieval.
+**Chia chunk ngữ nghĩa**: chia tại ranh giới tự nhiên. Đoạn văn, phần hoặc tiêu đề markdown. Mỗi chunk là một đơn vị ý nghĩa mạch lạc. Triển khai phức tạp hơn nhưng tạo truy xuất tốt hơn.
 
-**Recursive chunking**: try to split at the largest boundary first (section headers). If a section is still too large, split at paragraph boundaries. If a paragraph is still too large, split at sentence boundaries. This is the LangChain RecursiveCharacterTextSplitter approach and it works well in practice.
+**Chia chunk đệ quy**: thử chia tại ranh giới lớn nhất trước (tiêu đề phần). Nếu một phần vẫn quá lớn, chia tại ranh giới đoạn văn. Nếu một đoạn văn vẫn quá lớn, chia tại ranh giới câu. Đây là cách tiếp cận RecursiveCharacterTextSplitter của LangChain và hoạt động tốt trong thực tế.
 
-Chunk size matters more than people think:
+Kích thước chunk quan trọng hơn mọi người nghĩ:
 
-- Too small (64-128 tokens): each chunk lacks context. "It increased 15% last quarter" means nothing without knowing what "it" refers to.
-- Too large (2048+ tokens): each chunk covers multiple topics, diluting relevance. When you search for revenue data, you get a chunk that's 10% about revenue and 90% about headcount.
-- Sweet spot (256-512 tokens): enough context to be self-contained, focused enough to be relevant.
+- Quá nhỏ (64-128 token): mỗi chunk thiếu ngữ cảnh. "Nó tăng 15% quý trước" không có nghĩa gì nếu không biết "nó" chỉ gì.
+- Quá lớn (2048+ token): mỗi chunk bao quát nhiều chủ đề, làm loãng mức liên quan. Khi tìm dữ liệu doanh thu, bạn nhận một chunk có 10% về doanh thu và 90% về số nhân sự.
+- Điểm tối ưu (256-512 token): đủ ngữ cảnh để tự chứa ý nghĩa, đủ tập trung để liên quan.
 
-Most production RAG systems use 256-512 token chunks with 50-token overlap. Anthropic's RAG guidelines recommend this range.
+Hầu hết hệ thống RAG sản xuất dùng chunk 256-512 token với chồng lấp 50 token. Hướng dẫn RAG của Anthropic khuyến nghị phạm vi này.
 
 ### Vector Databases
 
-Once you have embeddings, you need somewhere to store and search them. Options:
+Khi đã có embedding, bạn cần nơi để lưu và tìm kiếm chúng. Các lựa chọn:
 
-| Database | Type | Best for |
+| Cơ sở dữ liệu | Loại | Tốt nhất cho |
 |----------|------|----------|
-| FAISS | Library (in-process) | Prototyping, small to medium datasets |
-| Chroma | Lightweight DB | Local development, small deployments |
-| Pinecone | Managed service | Production without ops overhead |
-| Weaviate | Open source DB | Self-hosted production |
-| pgvector | Postgres extension | Already using Postgres |
-| Qdrant | Open source DB | High-performance self-hosted |
+| FAISS | Thư viện (trong tiến trình) | Tạo mẫu, bộ dữ liệu nhỏ đến trung bình |
+| Chroma | Cơ sở dữ liệu nhẹ | Phát triển cục bộ, triển khai nhỏ |
+| Pinecone | Dịch vụ được quản lý | Sản xuất không có chi phí vận hành bổ sung |
+| Weaviate | Cơ sở dữ liệu mã nguồn mở | Sản xuất tự lưu trữ |
+| pgvector | Phần mở rộng Postgres | Đã dùng Postgres |
+| Qdrant | Cơ sở dữ liệu mã nguồn mở | Tự lưu trữ hiệu năng cao |
 
-For this lesson, we build a simple in-memory vector store. It stores vectors in a list and does brute-force cosine similarity search. This is equivalent to FAISS with a flat index. It scales to maybe 100,000 vectors before getting slow. Production systems use approximate nearest neighbor (ANN) algorithms like HNSW to search millions of vectors in milliseconds.
+Với bài học này, chúng ta xây một kho vector đơn giản trong bộ nhớ. Nó lưu vector trong danh sách và tìm kiếm cosine similarity vét cạn. Điều này tương đương FAISS với chỉ mục phẳng. Nó mở rộng đến có lẽ 100,000 vector trước khi chậm. Hệ thống sản xuất dùng các thuật toán láng giềng gần nhất xấp xỉ (ANN) như HNSW để tìm hàng triệu vector trong mili giây.
 
 ### The Full Pipeline
 
@@ -165,19 +165,19 @@ graph TD
     S -.->|"same vector space"| VS
 ```
 
-The indexing phase runs once per document (or when documents update). The querying phase runs on every user request. In production, indexing might process millions of documents over hours. Querying must respond in under a second.
+Giai đoạn lập chỉ mục chạy một lần mỗi tài liệu (hoặc khi tài liệu cập nhật). Giai đoạn truy vấn chạy trên mỗi yêu cầu người dùng. Trong sản xuất, lập chỉ mục có thể xử lý hàng triệu tài liệu trong nhiều giờ. Truy vấn phải phản hồi dưới một giây.
 
 ### Real Numbers
 
-Most production RAG systems use these parameters:
+Hầu hết hệ thống RAG sản xuất dùng các tham số này:
 
-- **k = 5 to 10** retrieved chunks per query
-- **Chunk size = 256 to 512 tokens** with 50-token overlap
-- **Context budget**: 2,500-5,000 tokens of retrieved content per query
-- **Total prompt**: ~8,000-16,000 tokens (system prompt + retrieved chunks + conversation history + user query)
-- **Embedding dimension**: 384-3072 depending on model
-- **Indexing throughput**: 100-1,000 documents per second with API embeddings
-- **Query latency**: 50-200ms for retrieval, 500-3000ms for generation
+- **k = 5 đến 10** chunk truy xuất mỗi truy vấn
+- **Kích thước chunk = 256 đến 512 token** với chồng lấp 50 token
+- **Ngân sách ngữ cảnh**: 2,500-5,000 token nội dung truy xuất mỗi truy vấn
+- **Tổng prompt**: ~8,000-16,000 token (system prompt + chunk truy xuất + lịch sử hội thoại + truy vấn người dùng)
+- **Chiều embedding**: 384-3072 tùy mô hình
+- **Thông lượng lập chỉ mục**: 100-1,000 tài liệu mỗi giây với embedding API
+- **Độ trễ truy vấn**: 50-200ms cho truy xuất, 500-3000ms cho sinh
 
 ```figure
 rag-chunking
@@ -202,7 +202,7 @@ def chunk_text(text, chunk_size=200, overlap=50):
 
 ### Step 2: TF-IDF Embeddings
 
-We build a simple embedding function. TF-IDF (Term Frequency-Inverse Document Frequency) is not a neural embedding, but it converts text to vectors in a way that captures word importance. Frequent words in a document get higher TF. Rare words across the corpus get higher IDF. The product gives a vector where important, distinctive words have high values.
+Chúng ta xây một hàm embedding đơn giản. TF-IDF (Term Frequency-Inverse Document Frequency) không phải embedding nơ-ron, nhưng chuyển văn bản thành vector theo cách nắm bắt tầm quan trọng của từ. Từ thường gặp trong một tài liệu có TF cao hơn. Từ hiếm trên toàn ngữ liệu có IDF cao hơn. Tích cho một vector mà các từ quan trọng, đặc trưng có giá trị cao.
 
 ```python
 import math
@@ -255,7 +255,7 @@ def search(query_embedding, stored_embeddings, top_k=5):
 
 ### Step 4: Prompt Construction
 
-This is where the "augmented" in RAG happens. Take the retrieved chunks, format them into a prompt, and ask the LLM to answer based on the provided context.
+Đây là nơi phần "tăng cường" trong RAG xảy ra. Lấy các chunk truy xuất, định dạng chúng thành prompt và yêu cầu LLM trả lời dựa trên ngữ cảnh được cung cấp.
 
 ```python
 def build_rag_prompt(query, retrieved_chunks):
@@ -308,7 +308,7 @@ class RAGPipeline:
 
 ### Step 6: Generation (simulated)
 
-In production, this is where you call the LLM API. For this lesson, we simulate generation by extracting the most relevant sentence from the retrieved context.
+Trong sản xuất, đây là nơi bạn gọi API LLM. Với bài học này, chúng ta mô phỏng sinh bằng cách trích xuất câu liên quan nhất từ ngữ cảnh truy xuất.
 
 ```python
 def simple_generate(prompt, retrieved_chunks):
@@ -330,7 +330,7 @@ def simple_generate(prompt, retrieved_chunks):
 
 ## Use It
 
-With a real embedding model and LLM, the code barely changes:
+Với một mô hình embedding và LLM thực, mã hầu như không thay đổi:
 
 ```python
 from openai import OpenAI
@@ -353,7 +353,7 @@ def generate(prompt):
     return response.choices[0].message.content
 ```
 
-Or with Anthropic:
+Hoặc với Anthropic:
 
 ```python
 import anthropic
@@ -369,9 +369,9 @@ def generate(prompt):
     return response.content[0].text
 ```
 
-The pipeline is the same. Swap the embedding function. Swap the generation function. The retrieval logic, chunking, prompt construction -- all identical regardless of which models you use.
+Pipeline giống nhau. Thay hàm embedding. Thay hàm sinh. Logic truy xuất, chia chunk, xây dựng prompt -- tất cả giống hệt bất kể mô hình bạn dùng.
 
-For vector storage at scale, replace the brute-force search with a proper vector database:
+Để lưu vector ở quy mô lớn, thay tìm kiếm vét cạn bằng một cơ sở dữ liệu vector thích hợp:
 
 ```python
 import chromadb
@@ -390,47 +390,47 @@ results = collection.query(
 )
 ```
 
-Chroma handles the embedding internally (it uses all-MiniLM-L6-v2 by default) and stores the vectors in a local database. Same pattern, different plumbing.
+Chroma xử lý embedding nội bộ (mặc định dùng all-MiniLM-L6-v2) và lưu vector trong cơ sở dữ liệu cục bộ. Cùng mẫu, phần kết nối khác.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-rag-architect.md` -- a prompt for designing RAG systems for specific use cases
-- `outputs/skill-rag-pipeline.md` -- a skill that teaches agents how to build and debug RAG pipelines
+Bài học này tạo ra:
+- `outputs/prompt-rag-architect.md` -- một prompt để thiết kế hệ thống RAG cho các trường hợp sử dụng cụ thể
+- `outputs/skill-rag-pipeline.md` -- một skill dạy tác tử cách xây dựng và gỡ lỗi pipeline RAG
 
 ## Exercises
 
-1. Replace the TF-IDF embeddings with a simple bag-of-words approach (binary: 1 if word present, 0 if not). Compare retrieval quality on the sample documents. TF-IDF should outperform because it weights rare words higher.
+1. Thay embedding TF-IDF bằng cách tiếp cận bag-of-words đơn giản (nhị phân: 1 nếu từ có mặt, 0 nếu không). So sánh chất lượng truy xuất trên các tài liệu mẫu. TF-IDF phải vượt trội hơn vì gán trọng số cao hơn cho từ hiếm.
 
-2. Experiment with chunk sizes: try 50, 100, 200, and 500 words on the same document set. For each size, run the same 5 queries and count how many return a relevant chunk in the top-3. Find the sweet spot where retrieval quality peaks.
+2. Thử nghiệm kích thước chunk: thử 50, 100, 200 và 500 từ trên cùng tập tài liệu. Với mỗi kích thước, chạy cùng 5 truy vấn và đếm bao nhiêu truy vấn trả về chunk liên quan trong top-3. Tìm điểm tối ưu nơi chất lượng truy xuất đạt đỉnh.
 
-3. Add metadata to each chunk (source document name, chunk position). Modify the prompt template to include source attribution so the LLM cites its sources.
+3. Thêm metadata vào mỗi chunk (tên tài liệu nguồn, vị trí chunk). Sửa khuôn mẫu prompt để bao gồm quy nguồn nhằm để LLM trích dẫn nguồn.
 
-4. Implement a simple evaluation: given 10 question-answer pairs, run each question through the RAG pipeline, and measure what percentage of retrieved chunks contain the answer. This is retrieval recall at k.
+4. Triển khai một đánh giá đơn giản: với 10 cặp câu hỏi-câu trả lời, chạy mỗi câu hỏi qua pipeline RAG và đo phần trăm chunk truy xuất chứa câu trả lời. Đây là recall truy xuất tại k.
 
-5. Build a conversation-aware RAG pipeline: maintain a history of the last 3 exchanges and include them in the prompt alongside the retrieved chunks. Test with follow-up questions like "What about enterprise?" after asking about pricing.
+5. Xây dựng một pipeline RAG nhận biết hội thoại: duy trì lịch sử 3 lần trao đổi cuối và đưa chúng vào prompt cùng các chunk truy xuất. Kiểm thử với câu hỏi tiếp nối như "Còn doanh nghiệp thì sao?" sau khi hỏi về giá.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| RAG | "AI that reads your docs" | Retrieve relevant documents, paste them into the prompt, and generate an answer grounded in those documents |
-| Embedding | "Convert text to numbers" | A dense vector representation of text where similar meanings produce similar vectors |
-| Vector database | "Search engine for AI" | A data store optimized for storing vectors and finding the nearest neighbors by similarity |
-| Chunking | "Split docs into pieces" | Breaking documents into smaller segments (typically 256-512 tokens) so each can be embedded and retrieved independently |
-| Cosine similarity | "How similar are two vectors" | The cosine of the angle between two vectors; 1 = identical direction, 0 = orthogonal, -1 = opposite |
-| Top-k retrieval | "Get the k best matches" | Return the k most similar chunks to the query from the vector store |
-| Context window | "How much text the LLM can see" | The maximum number of tokens the LLM can process in a single request; retrieved chunks must fit within this |
-| Augmented generation | "Answer using given context" | Generating a response using retrieved documents as context rather than relying solely on trained knowledge |
-| TF-IDF | "Word importance scoring" | Term Frequency times Inverse Document Frequency; weights words by how distinctive they are within a corpus |
-| Indexing | "Preparing docs for search" | The offline process of chunking, embedding, and storing documents so they can be searched at query time |
+| RAG | "AI đọc tài liệu của bạn" | Truy xuất tài liệu liên quan, dán vào prompt và sinh câu trả lời dựa trên các tài liệu đó |
+| Embedding (Biểu diễn nhúng) | "Chuyển văn bản thành số" | Một biểu diễn vector dày đặc của văn bản trong đó ý nghĩa tương tự tạo vector tương tự |
+| Vector database (Cơ sở dữ liệu vector) | "Bộ máy tìm kiếm cho AI" | Kho dữ liệu tối ưu để lưu vector và tìm láng giềng gần nhất theo độ tương đồng |
+| Chunking (Chia đoạn) | "Chia tài liệu thành các phần" | Chia tài liệu thành các đoạn nhỏ hơn (thường 256-512 token) để mỗi đoạn có thể được nhúng và truy xuất độc lập |
+| Cosine similarity (Độ tương đồng cosin) | "Hai vector tương tự đến mức nào" | Cosin của góc giữa hai vector; 1 = cùng hướng, 0 = trực giao, -1 = đối nhau |
+| Top-k retrieval (Truy xuất top-k) | "Lấy k kết quả khớp tốt nhất" | Trả về k chunk tương tự truy vấn nhất từ kho vector |
+| Context window (Cửa sổ ngữ cảnh) | "LLM có thể thấy bao nhiêu văn bản" | Số token tối đa LLM có thể xử lý trong một yêu cầu duy nhất; chunk truy xuất phải vừa trong đó |
+| Augmented generation (Sinh tăng cường) | "Trả lời bằng ngữ cảnh đã cho" | Sinh phản hồi bằng tài liệu truy xuất làm ngữ cảnh thay vì chỉ dựa vào kiến thức đã huấn luyện |
+| TF-IDF | "Chấm điểm tầm quan trọng từ" | Term Frequency nhân Inverse Document Frequency; gán trọng số từ theo độ đặc trưng trong một ngữ liệu |
+| Indexing (Lập chỉ mục) | "Chuẩn bị tài liệu cho tìm kiếm" | Quá trình ngoại tuyến chia chunk, nhúng và lưu tài liệu để có thể tìm ở thời điểm truy vấn |
 
 ## Further Reading
 
-- Lewis et al., "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks" (2020) -- the original RAG paper from Facebook AI Research that formalized the retrieve-then-generate pattern
-- Anthropic's RAG documentation (docs.anthropic.com) -- practical guidelines for chunk sizes, prompt construction, and evaluation
-- Pinecone Learning Center, "What is RAG?" -- clear visual explanations of the RAG pipeline with production considerations
-- Sentence-BERT: Reimers & Gurevych (2019) -- the paper behind the all-MiniLM embedding models, showing how to train bi-encoders for semantic similarity
-- [Karpukhin et al., "Dense Passage Retrieval for Open-Domain Question Answering" (EMNLP 2020)](https://arxiv.org/abs/2004.04906) -- the DPR paper that proved dense bi-encoder retrieval beats BM25 on open-domain QA and set the pattern for modern RAG retrievers.
-- [LlamaIndex High-Level Concepts](https://docs.llamaindex.ai/en/stable/getting_started/concepts.html) -- the main concepts to know when building RAG pipelines: data loaders, node parsers, indices, retrievers, response synthesizers.
-- [LangChain RAG tutorial](https://python.langchain.com/docs/tutorials/rag/) -- the opposite-flavor orchestrator; chain-of-runnables view of the same retrieve-then-generate pattern.
+- Lewis và cộng sự, "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks" (2020) -- bài báo RAG gốc từ Facebook AI Research hình thức hóa mẫu truy xuất rồi sinh
+- Anthropic's RAG documentation (docs.anthropic.com) -- hướng dẫn thực hành cho kích thước chunk, xây dựng prompt và đánh giá
+- Pinecone Learning Center, "What is RAG?" -- giải thích trực quan rõ ràng về pipeline RAG với các cân nhắc sản xuất
+- Sentence-BERT: Reimers & Gurevych (2019) -- bài báo đằng sau các mô hình embedding all-MiniLM, cho thấy cách huấn luyện bi-encoder cho tương đồng ngữ nghĩa
+- [Karpukhin et al., "Dense Passage Retrieval for Open-Domain Question Answering" (EMNLP 2020)](https://arxiv.org/abs/2004.04906) -- bài báo DPR chứng minh truy xuất bi-encoder dense vượt BM25 trên hỏi đáp miền mở và thiết lập mẫu cho các bộ truy xuất RAG hiện đại.
+- [LlamaIndex High-Level Concepts](https://docs.llamaindex.ai/en/stable/getting_started/concepts.html) -- các khái niệm chính cần biết khi xây pipeline RAG: bộ nạp dữ liệu, bộ phân tích node, chỉ mục, bộ truy xuất, bộ tổng hợp phản hồi.
+- [LangChain RAG tutorial](https://python.langchain.com/docs/tutorials/rag/) -- bộ điều phối theo phong cách đối lập; góc nhìn chuỗi runnable của cùng mẫu truy xuất rồi sinh.
