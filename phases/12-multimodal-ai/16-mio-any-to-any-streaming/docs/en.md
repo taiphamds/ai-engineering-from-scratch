@@ -1,6 +1,6 @@
 # MIO and Any-to-Any Streaming Multimodal Models
 
-> GPT-4o ships a product most open models cannot replicate: an agent that hears voice, sees video, and speaks back in real time. The open-ecosystem answer by late 2024 was MIO (Wang et al., September 2024). MIO tokenizes text, image, speech, and music, trains one causal transformer over the interleaved sequences, and generates any modality to any modality. AnyGPT (Zhan et al., February 2024) was the proof of concept; MIO is the scale-up; Unified-IO 2 (Allen AI, December 2023) is the cousin with vision + action grounding. This lesson reads the any-to-any pattern — four tokenizers, one transformer, streaming-friendly decode.
+> GPT-4o cung cấp một sản phẩm mà phần lớn mô hình mở không thể tái hiện: một agent nghe giọng nói, nhìn video và nói lại theo thời gian thực. Câu trả lời của hệ sinh thái mở vào cuối năm 2024 là MIO (Wang và cộng sự, tháng 9 năm 2024). MIO token hóa văn bản, ảnh, lời nói và âm nhạc, huấn luyện một transformer nhân quả trên các chuỗi xen kẽ và tạo sinh từ bất kỳ phương thức nào sang bất kỳ phương thức nào. AnyGPT (Zhan và cộng sự, tháng 2 năm 2024) là minh chứng khái niệm; MIO là phiên bản mở rộng quy mô; Unified-IO 2 (Allen AI, tháng 12 năm 2023) là họ hàng với thị giác + neo hành động. Bài học này đọc mẫu any-to-any — bốn tokenizer, một transformer, giải mã thuận lợi cho truyền luồng.
 
 **Type:** Learn
 **Languages:** Python (stdlib, four-modality token allocator + streaming decode loop)
@@ -9,34 +9,34 @@
 
 ## Learning Objectives
 
-- Design a shared vocabulary that hosts text, image, speech, and music tokens without collisions.
-- Compare SEED-Tokenizer (images) and SpeechTokenizer residual-VQ (speech) on compression + reconstruction trade-offs.
-- Explain the four-stage curriculum that builds up any-to-any generation.
-- Name the three open any-to-any recipes and their main trade-offs: MIO, AnyGPT, Unified-IO 2.
+- Thiết kế bộ từ vựng dùng chung chứa token văn bản, ảnh, lời nói và âm nhạc mà không xung đột.
+- So sánh SEED-Tokenizer (ảnh) và residual-VQ của SpeechTokenizer (lời nói) về đánh đổi nén + tái tạo.
+- Giải thích chương trình bốn giai đoạn xây dựng dần khả năng tạo sinh any-to-any.
+- Nêu tên ba công thức any-to-any mở và các đánh đổi chính: MIO, AnyGPT, Unified-IO 2.
 
 ## The Problem
 
-A unified multimodal model is easy to claim and hard to build at scale. Most "any-to-any" systems until 2024 were pipelined: vision model → text representation → speech model → audio. Each hop loses information, adds latency, and complicates training. GPT-4o's demo video showed a single-model alternative with subsecond response; open systems trailed by months.
+Một mô hình đa phương thức thống nhất dễ tuyên bố và khó xây dựng ở quy mô lớn. Phần lớn hệ thống "any-to-any" cho đến năm 2024 là pipeline: mô hình thị giác → biểu diễn văn bản → mô hình lời nói → âm thanh. Mỗi bước chuyển làm mất thông tin, thêm độ trễ và làm phức tạp huấn luyện. Video trình diễn GPT-4o cho thấy phương án một mô hình với phản hồi dưới một giây; các hệ thống mở chậm sau nhiều tháng.
 
-The engineering challenges:
+Các thách thức kỹ thuật:
 
-- Tokenizers must exist for every modality, compress losslessly-enough for reconstruction, and produce tokens at rates the transformer can consume.
-- A single vocabulary must allocate space for text (32k+), image (16k+), speech (4k+), music (8k+). Forty-thousand-plus entries minimum.
-- Training data must cover every input-output pair (text→image, image→speech, speech→image, etc.) or the model must compose.
-- Inference must stream output tokens fast enough for conversational latency (<500ms time-to-first-audio-byte).
+- Tokenizer phải tồn tại cho mọi phương thức, nén đủ ít mất mát để tái tạo và tạo token ở tốc độ transformer có thể tiếp nhận.
+- Một bộ từ vựng duy nhất phải phân bổ không gian cho văn bản (32k+), ảnh (16k+), lời nói (4k+), âm nhạc (8k+). Tối thiểu hơn bốn mươi nghìn mục.
+- Dữ liệu huấn luyện phải bao phủ mọi cặp đầu vào-đầu ra (văn bản→ảnh, ảnh→lời nói, lời nói→ảnh, v.v.) hoặc mô hình phải kết hợp.
+- Suy luận phải truyền luồng token đầu ra đủ nhanh cho độ trễ hội thoại (<500ms đến byte âm thanh đầu tiên).
 
 ## The Concept
 
 ### Four tokenizers for four modalities
 
-MIO's tokenizer stack:
+Ngăn xếp tokenizer của MIO:
 
-- Text: standard BPE, vocab ~32000.
-- Image: SEED-Tokenizer (2023) — quantized VAE with discrete codebook, 4096 entries, 32x32 tokens per image.
-- Speech: SpeechTokenizer residual-VQ (2023) — encodes 16kHz waveform into 8 hierarchical codebooks; first level is coarse content, later levels add prosody and speaker identity.
-- Music: similar residual-VQ (Meta's MusicGen / Encodec family), 4-8 codebooks.
+- Văn bản: BPE tiêu chuẩn, bộ từ vựng ~32000.
+- Ảnh: SEED-Tokenizer (2023) — VAE lượng tử hóa với codebook rời rạc, 4096 mục, 32x32 token trên mỗi ảnh.
+- Lời nói: residual-VQ của SpeechTokenizer (2023) — mã hóa dạng sóng 16kHz thành 8 codebook phân cấp; cấp đầu tiên là nội dung thô, các cấp sau thêm ngữ điệu và danh tính người nói.
+- Âm nhạc: residual-VQ tương tự (họ MusicGen / Encodec của Meta), 4-8 codebook.
 
-Each modality produces integer tokens. The tokens get disjoint ID ranges in the shared vocabulary:
+Mỗi phương thức tạo token số nguyên. Các token nhận các dải ID không giao nhau trong bộ từ vựng dùng chung:
 
 ```
 text:   0..31999
@@ -46,70 +46,70 @@ music:  40192..48383  (8192 music tokens)
 sep:    48384..48390  (<image>, <speech>, <music>, </...>, etc.)
 ```
 
-Total: ~48k vocabulary. The input embedding and output projection span all of it.
+Tổng cộng: bộ từ vựng ~48k. Embedding đầu vào và phép chiếu đầu ra bao phủ toàn bộ nó.
 
 ### Streaming decode
 
-Speech generation uses residual-VQ. The transformer predicts the base (layer 0) speech tokens; a parallel-decoded residual quantizer predicts the subsequent layers. Each layer 0 token is roughly 50ms of audio at 16kHz.
+Tạo lời nói sử dụng residual-VQ. Transformer dự đoán các token lời nói cơ sở (lớp 0); một bộ lượng tử hóa phần dư được giải mã song song dự đoán các lớp tiếp theo. Mỗi token lớp 0 tương đương khoảng 50ms âm thanh ở 16kHz.
 
-The streaming pattern:
+Mẫu truyền luồng:
 
-1. User speaks into mic; real-time audio tokenizer emits speech tokens every 50ms.
-2. MIO consumes tokens as they arrive (prompt prefill + incremental forward).
-3. Output tokens stream out as generated; a parallel speech decoder converts them to audio samples with ~50-150ms latency.
-4. Time-to-first-audio-byte: ~300-500ms in MIO paper, approaching GPT-4o's ~250ms.
+1. Người dùng nói vào mic; tokenizer âm thanh thời gian thực phát token lời nói mỗi 50ms.
+2. MIO tiếp nhận token khi chúng đến (nạp trước prompt + truyền xuôi tăng dần).
+3. Token đầu ra được truyền luồng khi tạo ra; một bộ giải mã lời nói song song chuyển chúng thành mẫu âm thanh với độ trễ ~50-150ms.
+4. Thời gian đến byte âm thanh đầu tiên: ~300-500ms trong bài báo MIO, tiến gần ~250ms của GPT-4o.
 
-Mini-Omni (arXiv:2408.16725), GLM-4-Voice (arXiv:2412.02612), and Moshi (arXiv:2410.00037) are complementary streaming speech-LLM designs. Moshi in particular achieves 160ms round-trip on a single GPU.
+Mini-Omni (arXiv:2408.16725), GLM-4-Voice (arXiv:2412.02612) và Moshi (arXiv:2410.00037) là các thiết kế LLM lời nói truyền luồng bổ trợ. Riêng Moshi đạt thời gian khứ hồi 160ms trên một GPU.
 
 ### Four-stage curriculum
 
-MIO's training curriculum:
+Chương trình huấn luyện của MIO:
 
-1. Stage 1 — alignment. Large-scale modality-pair corpora: text-image, text-speech, text-music. Each pair uses its own token vocabulary segment. Trains the shared vocabulary.
-2. Stage 2 — interleaved. Multi-modality interleaved documents (blogs with images + video, podcasts with transcripts, etc.). Trains cross-modality context.
-3. Stage 3 — speech-enhanced. Extra audio data to lift speech quality without losing text capability.
-4. Stage 4 — SFT. Instruction tuning across modalities: VQA, captioning, narration, speech-to-speech dialogue.
+1. Giai đoạn 1 — căn chỉnh. Các tập ngữ liệu cặp phương thức quy mô lớn: văn bản-ảnh, văn bản-lời nói, văn bản-âm nhạc. Mỗi cặp dùng phân đoạn từ vựng token riêng. Huấn luyện bộ từ vựng dùng chung.
+2. Giai đoạn 2 — xen kẽ. Tài liệu xen kẽ nhiều phương thức (blog có ảnh + video, podcast có bản chép lời, v.v.). Huấn luyện ngữ cảnh chéo phương thức.
+3. Giai đoạn 3 — tăng cường lời nói. Dữ liệu âm thanh bổ sung để nâng chất lượng lời nói mà không mất khả năng văn bản.
+4. Giai đoạn 4 — SFT. Tinh chỉnh chỉ dẫn trên các phương thức: VQA, tạo chú thích, tường thuật, đối thoại lời nói sang lời nói.
 
-Missing a stage degrades specific capabilities: skip stage 2 and the model loses cross-modality context; skip stage 3 and speech is poor.
+Thiếu một giai đoạn làm suy giảm các khả năng cụ thể: bỏ giai đoạn 2 thì mô hình mất ngữ cảnh chéo phương thức; bỏ giai đoạn 3 thì lời nói kém.
 
 ### Chain-of-visual-thought
 
-MIO introduces chain-of-visual-thought: the model emits intermediate image tokens as a reasoning step. For "is the cat climbing a tree?" the model:
+MIO giới thiệu chuỗi suy nghĩ thị giác: mô hình phát token ảnh trung gian như một bước suy luận. Với "con mèo có đang trèo cây không?", mô hình:
 
-1. Emits `<image>` tokens rendering the scene (from the input image or a sketch).
-2. Emits text analyzing the sketch.
-3. Emits the final answer.
+1. Phát token `<image>` kết xuất cảnh (từ ảnh đầu vào hoặc một bản phác họa).
+2. Phát văn bản phân tích bản phác họa.
+3. Phát câu trả lời cuối cùng.
 
-The rendered intermediate image serves as a scratchpad. Benchmarks improve on spatial-reasoning tasks. The idea mirrors chain-of-thought for text reasoning.
+Ảnh trung gian được kết xuất đóng vai trò trang nháp. Benchmark cải thiện trên các tác vụ suy luận không gian. Ý tưởng phản chiếu chuỗi suy nghĩ cho suy luận văn bản.
 
 ### Competitors in any-to-any
 
-- AnyGPT (arXiv:2402.12226): 4 modalities (text, image, speech, music), similar design.
-- Unified-IO 2 (arXiv:2312.17172): adds vision action outputs, depth, normals. More task diversity, smaller scale.
-- NExT-GPT (arXiv:2309.05519): LLM + modality-specific diffusion decoders. Not a single-model approach.
-- CoDi (arXiv:2305.11846): composable diffusion; any-to-any via shared latent.
+- AnyGPT (arXiv:2402.12226): 4 phương thức (văn bản, ảnh, lời nói, âm nhạc), thiết kế tương tự.
+- Unified-IO 2 (arXiv:2312.17172): thêm đầu ra hành động thị giác, độ sâu, pháp tuyến. Tác vụ đa dạng hơn, quy mô nhỏ hơn.
+- NExT-GPT (arXiv:2309.05519): LLM + bộ giải mã khuếch tán riêng cho từng phương thức. Không phải cách tiếp cận một mô hình.
+- CoDi (arXiv:2305.11846): khuếch tán có thể kết hợp; any-to-any qua biến tiềm ẩn dùng chung.
 
-MIO is the closest to pure-token any-to-any. AnyGPT is its conceptual ancestor.
+MIO gần nhất với any-to-any thuần token. AnyGPT là tổ tiên khái niệm của nó.
 
 ### Latency budget
 
-For a conversational product, every component's latency matters:
+Với sản phẩm hội thoại, độ trễ của mọi thành phần đều quan trọng:
 
-- Mic to audio tokens: ~50ms.
-- Prefill (audio tokens + history): ~100ms on an 8B model.
-- First output token: ~50ms.
-- Parallel residual-VQ + speech decoder: ~100-150ms.
+- Mic đến token âm thanh: ~50ms.
+- Nạp trước (token âm thanh + lịch sử): ~100ms trên mô hình 8B.
+- Token đầu ra đầu tiên: ~50ms.
+- Residual-VQ song song + bộ giải mã lời nói: ~100-150ms.
 
-Total time-to-first-audio-byte: ~300ms minimum. GPT-4o claims ~250ms. Moshi claims 160ms. MIO/AnyGPT are in the 400-600ms range per public benchmarks.
+Tổng thời gian đến byte âm thanh đầu tiên: tối thiểu ~300ms. GPT-4o tuyên bố ~250ms. Moshi tuyên bố 160ms. MIO/AnyGPT nằm trong khoảng 400-600ms theo các benchmark công khai.
 
 ### Why any-to-any stays hard
 
-Even in 2026, open any-to-any models trail closed ones on two axes:
+Ngay cả năm 2026, các mô hình any-to-any mở vẫn kém các mô hình đóng trên hai trục:
 
-- Speech quality. The residual-VQ tokenizer is lossy; conversational speech sounds robotic compared to ElevenLabs-class voices.
-- Cross-modality reasoning. Asking the model "sing about what you see" still fails more often than pure-vision tasks.
+- Chất lượng lời nói. Tokenizer residual-VQ có mất mát; lời nói hội thoại nghe như robot so với giọng nói hạng ElevenLabs.
+- Suy luận chéo phương thức. Yêu cầu mô hình "hát về những gì bạn nhìn thấy" vẫn thất bại thường xuyên hơn các tác vụ thuần thị giác.
 
-These are open research problems. Qwen3-Omni (Lesson 12.20) is the most advanced open attempt in 2025.
+Đây là các vấn đề nghiên cứu còn mở. Qwen3-Omni (Bài học 12.20) là thử nghiệm mở tiên tiến nhất năm 2025.
 
 ```figure
 any-to-any-stream
@@ -119,37 +119,37 @@ any-to-any-stream
 
 `code/main.py`:
 
-- Defines the four-modality vocabulary allocation and prints it.
-- Routes a list of multimodal inputs (text, image, audio-clip, music) through the tokenizer router.
-- Simulates streaming decode for a text-to-speech response with latency counting.
-- Computes the expected time-to-first-audio-byte given encoder, prefill, and decoder latencies.
+- Định nghĩa phân bổ bộ từ vựng bốn phương thức và in nó.
+- Định tuyến một danh sách đầu vào đa phương thức (văn bản, ảnh, đoạn âm thanh, âm nhạc) qua bộ định tuyến tokenizer.
+- Mô phỏng giải mã truyền luồng cho phản hồi văn bản thành lời nói với việc đếm độ trễ.
+- Tính thời gian kỳ vọng đến byte âm thanh đầu tiên với độ trễ bộ mã hóa, nạp trước và bộ giải mã đã cho.
 
 ## Ship It
 
-This lesson produces `outputs/skill-any-to-any-pipeline-auditor.md`. Given a conversational product spec (modalities in, modalities out, latency target), it audits the MIO-family design choices and computes the latency budget.
+Bài học này tạo ra `outputs/skill-any-to-any-pipeline-auditor.md`. Với một đặc tả sản phẩm hội thoại (các phương thức vào, các phương thức ra, mục tiêu độ trễ), nó kiểm tra các lựa chọn thiết kế họ MIO và tính ngân sách độ trễ.
 
 ## Exercises
 
-1. Your product accepts speech input and returns speech output. What's the end-to-end latency budget target? List the components that spend time.
+1. Sản phẩm của bạn nhận đầu vào lời nói và trả đầu ra lời nói. Mục tiêu ngân sách độ trễ đầu cuối là gì? Liệt kê các thành phần tiêu tốn thời gian.
 
-2. SpeechTokenizer residual-VQ uses 8 codebooks. Propose why parallel-decoding the residual levels is necessary (vs sequential) and what latency savings it brings.
+2. Residual-VQ của SpeechTokenizer dùng 8 codebook. Đề xuất lý do việc giải mã song song các cấp phần dư là cần thiết (so với tuần tự) và mức tiết kiệm độ trễ nó mang lại.
 
-3. Your vocabulary has 32k text + 4k image + 4k speech. Add 8k music and ~10 separators. What is the embedding-matrix parameter cost at hidden dim 4096?
+3. Bộ từ vựng của bạn có 32k văn bản + 4k ảnh + 4k lời nói. Thêm 8k âm nhạc và ~10 dấu phân cách. Chi phí tham số ma trận embedding ở chiều ẩn 4096 là bao nhiêu?
 
-4. Chain-of-visual-thought emits an intermediate image. What kinds of questions benefit? What kinds are hurt by the extra tokens?
+4. Chuỗi suy nghĩ thị giác phát ra một ảnh trung gian. Những loại câu hỏi nào được lợi? Những loại nào bị ảnh hưởng xấu bởi token bổ sung?
 
-5. Read Moshi (arXiv:2410.00037). Describe its "inner monologue" technique and compare to MIO's chain-of-visual-thought.
+5. Đọc Moshi (arXiv:2410.00037). Mô tả kỹ thuật "độc thoại nội tâm" của nó và so sánh với chuỗi suy nghĩ thị giác của MIO.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Any-to-any | "Multimodal in/out" | A single model that accepts and emits text, image, speech, and music in any direction |
-| Residual-VQ | "Speech tokenizer stack" | Multi-codebook tokenization where each layer adds information; base layer is content, later layers are prosody |
-| SEED-Tokenizer | "Image codes" | Discrete image tokenizer with 4096-entry codebook used by MIO |
-| Chain-of-visual-thought | "Visual scratchpad" | The model generates an intermediate image as a reasoning step before its final answer |
-| Time-to-first-audio-byte | "TTFAB" | Latency from user voice to first audio output; <500ms for conversational feel |
-| Four-stage curriculum | "Training recipe" | Alignment -> interleaved -> speech-enhanced -> SFT, in that order |
+| Any-to-any (Bất kỳ phương thức nào sang bất kỳ phương thức nào) | "Đa phương thức vào/ra" | Một mô hình duy nhất nhận và phát văn bản, ảnh, lời nói và âm nhạc theo bất kỳ hướng nào |
+| Residual-VQ | "Ngăn xếp tokenizer lời nói" | Token hóa nhiều codebook trong đó mỗi lớp thêm thông tin; lớp cơ sở là nội dung, các lớp sau là ngữ điệu |
+| SEED-Tokenizer | "Mã ảnh" | Tokenizer ảnh rời rạc có codebook 4096 mục được MIO sử dụng |
+| Chain-of-visual-thought (Chuỗi suy nghĩ thị giác) | "Trang nháp thị giác" | Mô hình tạo một ảnh trung gian như bước suy luận trước câu trả lời cuối cùng |
+| Time-to-first-audio-byte (Thời gian đến byte âm thanh đầu tiên) | "TTFAB" | Độ trễ từ giọng nói người dùng đến đầu ra âm thanh đầu tiên; <500ms để có cảm giác hội thoại |
+| Four-stage curriculum (Chương trình bốn giai đoạn) | "Công thức huấn luyện" | Căn chỉnh -> xen kẽ -> tăng cường lời nói -> SFT, theo thứ tự đó |
 
 ## Further Reading
 
