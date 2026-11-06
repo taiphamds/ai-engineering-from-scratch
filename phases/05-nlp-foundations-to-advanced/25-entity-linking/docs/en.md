@@ -1,6 +1,6 @@
 # Entity Linking & Disambiguation
 
-> NER found "Paris." Entity linking decides: Paris, France? Paris Hilton? Paris, Texas? Paris (the Trojan prince)? Without linking, your knowledge graph stays ambiguous.
+> NER tìm thấy "Paris." Liên kết thực thể quyết định: Paris, Pháp? Paris Hilton? Paris, Texas? Paris (hoàng tử thành Troia)? Không liên kết, đồ thị tri thức của bạn vẫn mơ hồ.
 
 **Type:** Build
 **Languages:** Python
@@ -9,41 +9,41 @@
 
 ## The Problem
 
-A sentence reads: "Jordan beat the press." Your NER tags "Jordan" as PERSON. Good. But *which* Jordan?
+Một câu viết: "Jordan đánh bại báo chí." NER của bạn gán nhãn "Jordan" là PERSON. Tốt. Nhưng Jordan *nào*?
 
-- Michael Jordan (basketball)?
-- Michael B. Jordan (actor)?
-- Michael I. Jordan (Berkeley ML professor — yes, this confusion is real in ML papers)?
-- Jordan (the country)?
-- Jordan (Hebrew first name)?
+- Michael Jordan (bóng rổ)?
+- Michael B. Jordan (diễn viên)?
+- Michael I. Jordan (giáo sư ML Berkeley — đúng, sự nhầm lẫn này là có thật trong các bài báo ML)?
+- Jordan (quốc gia)?
+- Jordan (tên riêng tiếng Hebrew)?
 
-Entity linking (EL) resolves each mention to a unique entry in a knowledge base: Wikidata, Wikipedia, DBpedia, or your domain KB. Two subtasks:
+Liên kết thực thể (EL) phân giải mỗi lần nhắc về một mục duy nhất trong một cơ sở tri thức: Wikidata, Wikipedia, DBpedia hoặc KB lĩnh vực của bạn. Hai tác vụ con:
 
-1. **Candidate generation.** Given "Jordan," which KB entries are plausible?
-2. **Disambiguation.** Given the context, which candidate is the right one?
+1. **Sinh ứng viên.** Với "Jordan", những mục KB nào hợp lý?
+2. **Phân giải nhập nhằng.** Với ngữ cảnh, ứng viên nào là đúng?
 
-Both steps are learnable. Both are benchmarked. The combined pipeline has been stable for a decade — what changes is the quality of the disambiguator.
+Cả hai bước đều có thể học. Cả hai đều được benchmark. Pipeline kết hợp đã ổn định suốt một thập kỷ — thứ thay đổi là chất lượng của bộ phân giải nhập nhằng.
 
 ## The Concept
 
 ![Entity linking pipeline: mention → candidates → disambiguated entity](../assets/entity-linking.svg)
 
-**Candidate generation.** Given the mention surface form ("Jordan"), look up candidates in an alias index. Wikipedia alias dictionaries cover most named entities: "JFK" → John F. Kennedy, Jacqueline Kennedy, JFK airport, JFK (movie). Typical index returns 10-30 candidates per mention.
+**Sinh ứng viên.** Với dạng bề mặt lần nhắc ("Jordan"), tra cứu các ứng viên trong một chỉ mục bí danh. Các từ điển bí danh Wikipedia bao phủ hầu hết các thực thể có tên: "JFK" → John F. Kennedy, Jacqueline Kennedy, sân bay JFK, JFK (phim). Chỉ mục điển hình trả 10-30 ứng viên cho mỗi lần nhắc.
 
-**Disambiguation: three approaches.**
+**Phân giải nhập nhằng: ba cách tiếp cận.**
 
-1. **Prior + context (Milne & Witten, 2008).** `P(entity | mention) × context-similarity(entity, text)`. Works well, fast, no training.
-2. **Embedding-based (ESS / REL / Blink).** Encode mention + context. Encode each candidate's description. Pick max cosine. The 2020-2024 default.
-3. **Generative (GENRE, 2021; LLM-based, 2023+).** Decode the entity's canonical name token-by-token. Constrained to a trie of valid entity names so output is guaranteed to be a valid KB id.
+1. **Tiên nghiệm + ngữ cảnh (Milne & Witten, 2008).** `P(entity | mention) × context-similarity(entity, text)`. Hoạt động tốt, nhanh, không huấn luyện.
+2. **Dựa trên embedding (ESS / REL / Blink).** Mã hóa lần nhắc + ngữ cảnh. Mã hóa mô tả mỗi ứng viên. Chọn cosine lớn nhất. Mặc định 2020-2024.
+3. **Sinh (GENRE, 2021; dựa trên LLM, 2023+).** Giải mã tên chuẩn của thực thể từng token. Bị ràng buộc vào một trie các tên thực thể hợp lệ để đầu ra được bảo đảm là một id KB hợp lệ.
 
-**End-to-end vs pipeline.** Modern models (ELQ, BLINK, ExtEnD, GENRE) run NER + candidate generation + disambiguation in one pass. Pipeline systems still dominate in production because you can swap components.
+**Đầu cuối so với pipeline.** Các mô hình hiện đại (ELQ, BLINK, ExtEnD, GENRE) chạy NER + sinh ứng viên + phân giải nhập nhằng trong một lượt. Các hệ thống pipeline vẫn thống trị production vì bạn có thể hoán đổi các thành phần.
 
 ### The two measurements
 
-- **Mention recall (candidate gen).** Fraction of gold mentions where the correct KB entry appears in the candidate list. Floor for the whole pipeline.
-- **Disambiguation accuracy / F1.** Given correct candidates, how often the top-1 is right.
+- **Recall lần nhắc (sinh ứng viên).** Tỷ lệ các lần nhắc chuẩn mà mục KB đúng xuất hiện trong danh sách ứng viên. Mức sàn cho toàn bộ pipeline.
+- **Accuracy / F1 phân giải nhập nhằng.** Với các ứng viên đúng, top-1 đúng bao nhiêu lần.
 
-Always report both. A system with 99% disambiguation on 80% candidate recall is an 80% pipeline.
+Luôn báo cáo cả hai. Một hệ thống có phân giải nhập nhằng 99% trên recall ứng viên 80% là một pipeline 80%.
 
 ```figure
 gx-entity-linking
@@ -61,7 +61,7 @@ alias_to_entities = {
 }
 ```
 
-Wikipedia alias data: ~18M (alias, entity) pairs. Download from Wikidata dumps. Store as inverted index.
+Dữ liệu bí danh Wikipedia: ~18M cặp (bí danh, thực thể). Tải từ các bản dump Wikidata. Lưu dưới dạng chỉ mục đảo.
 
 ### Step 2: context-based disambiguation
 
@@ -81,7 +81,7 @@ def disambiguate(mention, context, alias_index, entity_desc):
     return best, best_score
 ```
 
-The Jaccard overlap is a toy. Replace with cosine similarity on embeddings (see `code/main.py` step-2 for the transformer version).
+Phần giao Jaccard là một ví dụ đồ chơi. Thay bằng cosine similarity trên các embedding (xem bước 2 trong `code/main.py` cho phiên bản transformer).
 
 ### Step 3: embedding-based (BLINK-style)
 
@@ -98,11 +98,11 @@ def embed_entity(entity_id, description):
     return encoder.encode([f"{entity_id}: {description}"], normalize_embeddings=True)[0]
 ```
 
-At index time, embed every KB entity once. At query time, embed the mention + context once, dot-product against the candidate pool, pick max.
+Khi lập chỉ mục, embedding mỗi thực thể KB một lần. Khi truy vấn, embedding lần nhắc + ngữ cảnh một lần, tính tích vô hướng với tập ứng viên, chọn lớn nhất.
 
 ### Step 4: generative entity linking (concept)
 
-GENRE decodes the entity's Wikipedia title character-by-character. Constrained decoding (see lesson 20) ensures only valid titles can be output. Tight integration with a KB-backed trie. The modern descendant is REL-GEN and LLM-prompted EL with structured output.
+GENRE giải mã tiêu đề Wikipedia của thực thể từng ký tự. Giải mã có ràng buộc (xem bài 20) bảo đảm chỉ các tiêu đề hợp lệ có thể được xuất. Tích hợp chặt với một trie dựa trên KB. Hậu duệ hiện đại là REL-GEN và EL được prompt bằng LLM với đầu ra có cấu trúc.
 
 ```python
 prompt = f"""Text: {text}
@@ -111,38 +111,38 @@ List the best Wikipedia title for this mention.
 Respond with JSON: {{"title": "..."}}"""
 ```
 
-Combined with a whitelist (Outlines `choice`), this is the simplest EL pipeline to ship in 2026.
+Kết hợp với một danh sách cho phép (`choice` của Outlines), đây là pipeline EL đơn giản nhất để phát hành năm 2026.
 
 ### Step 5: evaluate on AIDA-CoNLL
 
-AIDA-CoNLL is the standard EL benchmark: 1,393 Reuters articles, 34k mentions, Wikipedia entities. Report in-KB accuracy (`P@1`) and out-of-KB NIL-detection rate.
+AIDA-CoNLL là benchmark EL tiêu chuẩn: 1,393 bài báo Reuters, 34k lần nhắc, các thực thể Wikipedia. Báo cáo accuracy trong KB (`P@1`) và tỷ lệ phát hiện NIL ngoài KB.
 
 ## Pitfalls
 
-- **NIL handling.** Some mentions are not in the KB (emerging entities, obscure people). Systems must predict NIL instead of guessing the wrong entity. Measured separately.
-- **Mention boundary errors.** Upstream NER misses partial spans ("Bank of America" tagged as just "Bank"). EL recall drops.
-- **Popularity bias.** Trained systems over-predict frequent entities. A mention of "Michael I. Jordan" on an ML paper often links to basketball Jordan.
-- **Cross-lingual EL.** Mapping mentions in Chinese text to English Wikipedia entities. Requires a multilingual encoder or a translation step.
-- **KB staleness.** New companies, events, people are not in last year's Wikipedia dump. Production pipelines need a refresh loop.
+- **Xử lý NIL.** Một số lần nhắc không nằm trong KB (các thực thể mới nổi, những người ít được biết). Các hệ thống phải dự đoán NIL thay vì đoán sai thực thể. Được đo riêng.
+- **Lỗi ranh giới lần nhắc.** NER phía trước bỏ sót các span bộ phận ("Bank of America" được gán nhãn chỉ là "Bank"). Recall EL giảm.
+- **Thiên lệch độ phổ biến.** Các hệ thống được huấn luyện dự đoán quá nhiều các thực thể thường gặp. Một lần nhắc "Michael I. Jordan" trong một bài báo ML thường liên kết đến Jordan bóng rổ.
+- **EL xuyên ngôn ngữ.** Ánh xạ các lần nhắc trong văn bản tiếng Trung sang các thực thể Wikipedia tiếng Anh. Yêu cầu một encoder đa ngôn ngữ hoặc một bước dịch.
+- **KB cũ.** Các công ty, sự kiện, con người mới không nằm trong bản dump Wikipedia năm trước. Các pipeline production cần một vòng lặp làm mới.
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Situation | Pick |
+| Tình huống | Chọn |
 |-----------|------|
-| General-purpose English + Wikipedia | BLINK or REL |
-| Cross-lingual, KB = Wikipedia | mGENRE |
-| LLM-friendly, few mentions/day | Prompt Claude/GPT-4 with candidate list + constrained JSON |
-| Domain-specific KB (medical, legal) | Custom BERT with KB-aware retrieval + fine-tune on domain AIDA-style set |
-| Extremely low-latency | Exact-match prior only (Milne-Witten baseline) |
-| Research SOTA | GENRE / ExtEnD / generative LLM-EL |
+| Tiếng Anh đa dụng + Wikipedia | BLINK hoặc REL |
+| Xuyên ngôn ngữ, KB = Wikipedia | mGENRE |
+| Thân thiện LLM, ít lần nhắc/ngày | Prompt Claude/GPT-4 với danh sách ứng viên + JSON có ràng buộc |
+| KB riêng lĩnh vực (y tế, pháp lý) | BERT tùy chỉnh với truy xuất nhận biết KB + fine-tune trên tập kiểu AIDA lĩnh vực |
+| Độ trễ cực thấp | Chỉ tiên nghiệm khớp chính xác (baseline Milne-Witten) |
+| SOTA nghiên cứu | GENRE / ExtEnD / LLM-EL sinh |
 
-Production pattern that ships in 2026: NER → coref → EL on each mention → collapse clusters to one canonical entity per cluster. Output: one KB id per entity in the document, not one per mention.
+Mẫu production được phát hành năm 2026: NER → coref → EL trên mỗi lần nhắc → thu gọn các cụm thành một thực thể chuẩn mỗi cụm. Đầu ra: một id KB cho mỗi thực thể trong tài liệu, không phải một cho mỗi lần nhắc.
 
 ## Ship It
 
-Save as `outputs/skill-entity-linker.md`:
+Lưu thành `outputs/skill-entity-linker.md`:
 
 ```markdown
 ---
@@ -167,26 +167,26 @@ Refuse any EL pipeline without a mention-recall baseline (you cannot evaluate a 
 
 ## Exercises
 
-1. **Easy.** Implement the prior+context disambiguator in `code/main.py` on 10 ambiguous mentions (Paris, Jordan, Apple). Hand-label the correct entity. Measure accuracy.
-2. **Medium.** Encode 50 ambiguous mentions with a sentence transformer. Embed each candidate's description. Compare embedding-based disambiguation to Jaccard context overlap.
-3. **Hard.** Build a 1k-entity domain KB (e.g. employees + products in your company). Implement NER + EL end-to-end. Measure precision and recall on 100 held-out sentences.
+1. **Dễ.** Triển khai bộ phân giải nhập nhằng tiên nghiệm+ngữ cảnh trong `code/main.py` trên 10 lần nhắc mơ hồ (Paris, Jordan, Apple). Gán nhãn thực thể đúng bằng tay. Đo accuracy.
+2. **Trung bình.** Mã hóa 50 lần nhắc mơ hồ bằng một sentence transformer. Embedding mô tả của mỗi ứng viên. So sánh phân giải nhập nhằng dựa trên embedding với phần giao ngữ cảnh Jaccard.
+3. **Khó.** Xây dựng một KB lĩnh vực 1k thực thể (ví dụ nhân viên + sản phẩm trong công ty bạn). Triển khai NER + EL đầu cuối. Đo precision và recall trên 100 câu được giữ lại.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Entity linking (EL) | Link to Wikipedia | Map a mention to a unique KB entry. |
-| Candidate generation | Who could it be? | Return a shortlist of plausible KB entries for a mention. |
-| Disambiguation | Pick the right one | Score candidates using context, pick the winner. |
-| Alias index | The lookup table | Map from surface form → candidate entities. |
-| NIL | Not in KB | Explicit prediction that no KB entry matches. |
-| KB | Knowledge base | Wikidata, Wikipedia, DBpedia, or your domain KB. |
-| AIDA-CoNLL | The benchmark | 1,393 Reuters articles with gold entity links. |
+| Entity linking (EL) (Liên kết thực thể) | Liên kết đến Wikipedia | Ánh xạ một lần nhắc sang một mục KB duy nhất. |
+| Candidate generation (Sinh ứng viên) | Đó có thể là ai? | Trả một danh sách ngắn các mục KB hợp lý cho một lần nhắc. |
+| Disambiguation (Phân giải nhập nhằng) | Chọn đúng | Chấm điểm các ứng viên bằng ngữ cảnh, chọn bên thắng. |
+| Alias index (Chỉ mục bí danh) | Bảng tra cứu | Ánh xạ từ dạng bề mặt → các thực thể ứng viên. |
+| NIL | Không trong KB | Dự đoán tường minh rằng không mục KB nào khớp. |
+| KB | Cơ sở tri thức | Wikidata, Wikipedia, DBpedia hoặc KB lĩnh vực của bạn. |
+| AIDA-CoNLL | Benchmark | 1,393 bài báo Reuters với các liên kết thực thể chuẩn. |
 
 ## Further Reading
 
-- [Milne, Witten (2008). Learning to Link with Wikipedia](https://researchcommons.waikato.ac.nz/entities/publication/b9a0b520-abc5-47c5-a86a-da6c579893ab) — the foundational prior+context approach.
-- [Wu et al. (2020). Zero-shot Entity Linking with Dense Entity Retrieval (BLINK)](https://arxiv.org/abs/1911.03814) — the embedding-based workhorse.
-- [De Cao et al. (2021). Autoregressive Entity Retrieval (GENRE)](https://arxiv.org/abs/2010.00904) — generative EL with constrained decoding.
-- [Hoffart et al. (2011). Robust Disambiguation of Named Entities in Text (AIDA)](https://www.aclweb.org/anthology/D11-1072.pdf) — the benchmark paper.
-- [REL: An Entity Linker Standing on the Shoulders of Giants (2020)](https://arxiv.org/abs/2006.01969) — the open production stack.
+- [Milne, Witten (2008). Learning to Link with Wikipedia](https://researchcommons.waikato.ac.nz/entities/publication/b9a0b520-abc5-47c5-a86a-da6c579893ab) — cách tiếp cận tiên nghiệm+ngữ cảnh nền tảng.
+- [Wu et al. (2020). Zero-shot Entity Linking with Dense Entity Retrieval (BLINK)](https://arxiv.org/abs/1911.03814) — thành phần chủ lực dựa trên embedding.
+- [De Cao et al. (2021). Autoregressive Entity Retrieval (GENRE)](https://arxiv.org/abs/2010.00904) — EL sinh với giải mã có ràng buộc.
+- [Hoffart et al. (2011). Robust Disambiguation of Named Entities in Text (AIDA)](https://www.aclweb.org/anthology/D11-1072.pdf) — bài báo benchmark.
+- [REL: An Entity Linker Standing on the Shoulders of Giants (2020)](https://arxiv.org/abs/2006.01969) — ngăn xếp production mở.
