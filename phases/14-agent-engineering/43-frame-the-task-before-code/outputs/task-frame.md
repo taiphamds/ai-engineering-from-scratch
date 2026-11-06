@@ -1,10 +1,10 @@
 # Task Frame: Prevent duplicate email addresses during signup
 
-Status: READY
+Trạng thái: READY
 
 ## Repository facts
-- Account writes use AccountStore (`app/accounts.py:18`)
-- Duplicate errors use status 409 (`tests/test_accounts.py:44`)
+- Các lần ghi tài khoản sử dụng AccountStore (`app/accounts.py:18`)
+- Các lỗi trùng sử dụng trạng thái 409 (`tests/test_accounts.py:44`)
 
 ## Allowed paths
 - `app/accounts.py`
@@ -18,4 +18,4 @@ Status: READY
 - `python3 -m unittest tests.test_accounts`
 
 ## Unknowns
-- Whether email comparison is case-insensitive
+- Liệu so sánh email có không phân biệt chữ hoa chữ thường hay không

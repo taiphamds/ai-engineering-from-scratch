@@ -1,6 +1,6 @@
 # Frame the Task Before the Agent Writes Code
 
-> A coding agent can implement a clear task quickly. It can also implement an unclear task quickly. The speed is the same. The cost is not.
+> Một agent lập trình có thể triển khai một tác vụ rõ ràng nhanh chóng. Nó cũng có thể triển khai một tác vụ không rõ ràng nhanh chóng. Tốc độ giống nhau. Chi phí thì không.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,33 +9,33 @@
 
 ## Learning Objectives
 
-- Turn a request into a bounded task frame before editing.
-- Separate repository facts from assumptions and open questions.
-- Define allowed paths, forbidden paths, and acceptance evidence.
-- Decide when reconnaissance is sufficient to begin work.
+- Biến một yêu cầu thành một khung tác vụ có giới hạn trước khi chỉnh sửa.
+- Tách các sự thật trong kho mã khỏi các giả định và câu hỏi mở.
+- Định nghĩa các đường dẫn được phép, đường dẫn bị cấm và bằng chứng nghiệm thu.
+- Quyết định khi nào việc khảo sát đã đủ để bắt đầu công việc.
 
 ## The Expensive Failure
 
-“Add duplicate email protection” sounds specific. It is not. Does uniqueness belong in the API, domain service, or database? Is comparison case-sensitive? Which error shape is already public? Is a migration allowed? Which test proves the behavior?
+“Thêm bảo vệ chống email trùng” nghe cụ thể. Nó không cụ thể. Tính duy nhất thuộc về API, dịch vụ miền hay cơ sở dữ liệu? So sánh có phân biệt chữ hoa chữ thường không? Dạng lỗi nào đã công khai? Có được phép di chuyển không? Kiểm thử nào chứng minh hành vi?
 
-A capable agent will fill those gaps with plausible choices. That is the dangerous case because the implementation can be clean, tested, and still incompatible with the system.
+Một agent có năng lực sẽ lấp các khoảng trống đó bằng những lựa chọn có vẻ hợp lý. Đó là trường hợp nguy hiểm vì triển khai có thể sạch, được kiểm thử và vẫn không tương thích với hệ thống.
 
-The first unit of coding-agent work is therefore not an edit. It is a task frame backed by repository evidence.
+Do đó, đơn vị đầu tiên của công việc agent lập trình không phải một chỉnh sửa. Đó là một khung tác vụ được hỗ trợ bởi bằng chứng kho mã.
 
 ## The Task Frame
 
-A useful frame has six fields:
+Một khung hữu ích có sáu trường:
 
-| Field | Question |
+| Trường | Câu hỏi |
 |---|---|
-| Goal | What observable behavior must change? |
-| Repository facts | What did you verify in code, tests, config, or history? |
-| Allowed paths | Where may the change land? |
-| Forbidden paths | What must remain untouched? |
-| Acceptance evidence | Which commands or observations prove the goal? |
-| Unknowns | Which decisions still need evidence or human judgment? |
+| Mục tiêu | Hành vi có thể quan sát nào phải thay đổi? |
+| Các sự thật trong kho mã | Bạn đã xác minh điều gì trong mã, kiểm thử, cấu hình hoặc lịch sử? |
+| Các đường dẫn được phép | Thay đổi có thể nằm ở đâu? |
+| Các đường dẫn bị cấm | Điều gì phải giữ nguyên không bị chạm? |
+| Bằng chứng nghiệm thu | Những lệnh hoặc quan sát nào chứng minh mục tiêu? |
+| Các điều chưa biết | Những quyết định nào vẫn cần bằng chứng hoặc phán đoán của con người? |
 
-Facts need receipts. “The API uses 409 for duplicates” is not a fact until you can point to the existing test or handler. A file path and line is enough. A command result is better when behavior matters.
+Các sự thật cần bằng chứng. “API sử dụng 409 cho các trường hợp trùng” không phải một sự thật cho đến khi bạn có thể chỉ đến kiểm thử hoặc bộ xử lý hiện có. Một đường dẫn file và dòng là đủ. Một kết quả lệnh tốt hơn khi hành vi quan trọng.
 
 ```mermaid
 flowchart LR
@@ -49,81 +49,81 @@ flowchart LR
 
 ## Reconnaissance Is a Search for Constraints
 
-Do not read the entire repository. Search for the surfaces that constrain the change:
+Đừng đọc toàn bộ kho mã. Tìm kiếm các bề mặt ràng buộc thay đổi:
 
-1. The current behavior and its caller.
-2. The closest existing test.
-3. The public contract or serialized shape.
-4. The project instructions that govern the path.
-5. The build and verification commands.
-6. Similar completed changes that reveal local patterns.
+1. Hành vi hiện tại và bên gọi của nó.
+2. Kiểm thử hiện có gần nhất.
+3. Hợp đồng công khai hoặc dạng được tuần tự hóa.
+4. Các chỉ dẫn dự án chi phối đường dẫn.
+5. Các lệnh xây dựng và xác minh.
+6. Các thay đổi tương tự đã hoàn tất cho thấy các mẫu cục bộ.
 
-Stop when every planned decision is either supported by evidence, explicitly delegated, or listed as an unknown. More reading after that point is often avoidance.
+Dừng khi mọi quyết định được lên kế hoạch đều được hỗ trợ bởi bằng chứng, được ủy nhiệm rõ ràng hoặc được liệt kê là một điều chưa biết. Đọc thêm sau thời điểm đó thường là né tránh.
 
 ## Unknowns Are Not Failures
 
-An unknown is a controlled gap. An assumption is an uncontrolled answer to that gap.
+Một điều chưa biết là một khoảng trống được kiểm soát. Một giả định là một câu trả lời không được kiểm soát cho khoảng trống đó.
 
-Classify each unknown:
+Phân loại mỗi điều chưa biết:
 
-- **Discoverable:** the repository or running system can answer it.
-- **Decidable:** the task contract gives the agent authority to choose.
-- **Human:** the choice changes product behavior, cost, risk, or public compatibility.
-- **Deferred:** the choice is outside this slice and belongs in non-goals.
+- **Có thể khám phá:** kho mã hoặc hệ thống đang chạy có thể trả lời nó.
+- **Có thể quyết định:** hợp đồng tác vụ cho agent thẩm quyền lựa chọn.
+- **Con người:** lựa chọn thay đổi hành vi sản phẩm, chi phí, rủi ro hoặc khả năng tương thích công khai.
+- **Hoãn lại:** lựa chọn nằm ngoài phần này và thuộc về các mục tiêu loại trừ.
 
-The agent should continue through discoverable and delegated unknowns. It should pause at human unknowns before the choice is buried in code.
+Agent nên tiếp tục qua các điều chưa biết có thể khám phá và được ủy nhiệm. Nó nên tạm dừng ở các điều chưa biết thuộc con người trước khi lựa chọn bị chôn trong mã.
 
 ## Acceptance Before Implementation
 
-Write the proof before the patch. The proof can be:
+Viết bằng chứng trước bản vá. Bằng chứng có thể là:
 
-- a focused unit or integration test command;
-- a browser journey with a named viewport and expected state;
-- a wire request and exact response contract;
-- a performance measurement with a threshold;
-- a scope check that confirms no unrelated file changed.
+- một lệnh kiểm thử đơn vị hoặc tích hợp tập trung;
+- một hành trình trình duyệt với một viewport có tên và trạng thái được mong đợi;
+- một yêu cầu trên đường truyền và hợp đồng phản hồi chính xác;
+- một phép đo hiệu năng với một ngưỡng;
+- một kiểm tra phạm vi xác nhận không file không liên quan nào thay đổi.
 
-“Tests pass” is not a proof plan. Name the authoritative test and the claim it supports.
+“Các kiểm thử đạt” không phải một kế hoạch chứng minh. Nêu tên kiểm thử có thẩm quyền và khẳng định nó hỗ trợ.
 
 ## Build It
 
-The lab creates a `TaskFrame`, validates its boundaries and evidence, and writes `outputs/task-frame.md`.
+Bài thực hành tạo một `TaskFrame`, xác thực các ranh giới và bằng chứng của nó và ghi `outputs/task-frame.md`.
 
-Run from this lesson directory:
+Chạy từ thư mục bài học này:
 
 ```bash
 python3 code/main.py
 python3 -m unittest discover code/tests -v
 ```
 
-Break the example in four ways: remove the goal, remove a fact receipt, overlap an allowed and forbidden path, and remove the acceptance command. The validator should refuse each frame for a different reason.
+Phá ví dụ theo bốn cách: loại bỏ mục tiêu, loại bỏ một bằng chứng sự thật, làm một đường dẫn được phép và bị cấm chồng lấp và loại bỏ lệnh nghiệm thu. Bộ xác thực nên từ chối mỗi khung vì một lý do khác nhau.
 
 ## Use It in a Real Repository
 
-Before asking an agent to edit:
+Trước khi yêu cầu một agent chỉnh sửa:
 
-1. Write the goal as a behavior, not a file change.
-2. Record two or three facts with exact evidence.
-3. Name the smallest allowed path set.
-4. Name negative space explicitly.
-5. Write the command or observation that closes the task.
-6. List the decisions you have not earned yet.
+1. Viết mục tiêu như một hành vi, không phải một thay đổi file.
+2. Ghi lại hai hoặc ba sự thật với bằng chứng chính xác.
+3. Nêu tên tập đường dẫn được phép nhỏ nhất.
+4. Nêu không gian âm một cách tường minh.
+5. Viết lệnh hoặc quan sát đóng tác vụ.
+6. Liệt kê các quyết định mà bạn chưa có đủ cơ sở.
 
-The frame should fit on one screen. If it cannot, the task may contain multiple independently verifiable changes.
+Khung nên vừa một màn hình. Nếu không thể, tác vụ có thể chứa nhiều thay đổi có thể xác minh độc lập.
 
 ## Exercises
 
-1. Frame a real bug from one of your repositories without proposing a solution.
-2. Find one claim in the frame that is actually an assumption. Replace it with evidence.
-3. Add a human unknown whose answer would change the public contract.
-4. Split one broad allowed path into the smallest safe set.
-5. Add a scope receipt to the acceptance evidence.
+1. Định khung một lỗi thực từ một trong các kho mã của bạn mà không đề xuất một lời giải.
+2. Tìm một khẳng định trong khung thực ra là một giả định. Thay nó bằng bằng chứng.
+3. Thêm một điều chưa biết thuộc con người mà câu trả lời sẽ thay đổi hợp đồng công khai.
+4. Tách một đường dẫn được phép rộng thành tập an toàn nhỏ nhất.
+5. Thêm một bằng chứng phạm vi vào bằng chứng nghiệm thu.
 
 ## Further Reading
 
-- [Nuseibeh and Easterbrook, Requirements Engineering: A Roadmap](https://www.cs.toronto.edu/~sme/papers/2000/ICSE2000.pdf), for anchoring implementation to real-world goals and evolving constraints.
-- [Yang et al., SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering](https://arxiv.org/abs/2405.15793), for evidence that the interface around a coding agent changes its effectiveness.
+- [Nuseibeh and Easterbrook, Requirements Engineering: A Roadmap](https://www.cs.toronto.edu/~sme/papers/2000/ICSE2000.pdf), để neo triển khai vào các mục tiêu thực tế và các ràng buộc đang tiến hóa.
+- [Yang et al., SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering](https://arxiv.org/abs/2405.15793), cho bằng chứng rằng giao diện quanh một agent lập trình thay đổi hiệu quả của nó.
 
 ## What You Keep
 
-Keep `outputs/task-frame.md`. It is the input to the next lesson, where the frame becomes an evidence-backed execution plan.
+Giữ `outputs/task-frame.md`. Nó là đầu vào cho bài tiếp theo, nơi khung trở thành một kế hoạch thực thi được hỗ trợ bởi bằng chứng.
