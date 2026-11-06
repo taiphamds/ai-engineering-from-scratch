@@ -9,41 +9,41 @@ tags: [keypoint, pose, subpixel, inference]
 
 # Heatmap to Coords
 
-Turn raw keypoint heatmaps into sub-pixel precise coordinates. The cheapest accuracy upgrade in every pose pipeline.
+Biến các bản đồ nhiệt điểm đặc trưng thô thành tọa độ chính xác dưới pixel. Nâng cấp accuracy rẻ nhất trong mọi pipeline tư thế.
 
 ## When to use
 
-- Deploying a heatmap-based keypoint model.
-- Benchmarking pose metrics — OKS is extremely sensitive to sub-pixel accuracy.
-- Porting pose code from one framework to another.
+- Triển khai một mô hình điểm đặc trưng dựa trên bản đồ nhiệt.
+- Đo các thước đo tư thế — OKS cực kỳ nhạy với độ chính xác dưới pixel.
+- Chuyển mã tư thế từ framework này sang framework khác.
 
 ## Inputs
 
-- `heatmaps`: `(N, K, H, W)` tensor, per-keypoint heatmaps from the model.
-- `confidence_threshold`: discard keypoints whose peak is below this value.
+- `heatmaps`: tensor `(N, K, H, W)`, các bản đồ nhiệt từng điểm từ mô hình.
+- `confidence_threshold`: loại các điểm có đỉnh dưới giá trị này.
 
 ## Steps
 
-1. **Argmax** each heatmap to find the integer peak location.
-2. **First-difference offset** — estimate sub-pixel offset from neighbouring pixels. The `0.25` coefficient is a heuristic calibrated for Gaussian heatmaps with `sigma >= 1`; for principled sub-pixel recovery, use a full quadratic fit (DARK) or a Gaussian fit.
+1. **Argmax** mỗi bản đồ nhiệt để tìm vị trí đỉnh nguyên.
+2. **Độ lệch sai phân bậc nhất** — ước lượng độ lệch dưới pixel từ các pixel lân cận. Hệ số `0.25` là quy tắc kinh nghiệm hiệu chuẩn cho bản đồ nhiệt Gaussian có `sigma >= 1`; để khôi phục dưới pixel có cơ sở, dùng khớp bậc hai đầy đủ (DARK) hoặc khớp Gaussian.
 
 ```
 dx = 0.25 * sign(heatmap[y, x+1] - heatmap[y, x-1])
 dy = 0.25 * sign(heatmap[y+1, x] - heatmap[y-1, x])
 ```
 
-For the DARK / quadratic variant, approximate using a local quadratic:
+Với biến thể DARK / bậc hai, xấp xỉ bằng một hàm bậc hai cục bộ:
 
 ```
 dx = -0.5 * (heatmap[y, x+1] - heatmap[y, x-1])
         / (heatmap[y, x+1] - 2 * heatmap[y, x] + heatmap[y, x-1] + eps)
 ```
 
-The quadratic fit is more accurate on peaked heatmaps; the sign-based offset is the safer default when heatmaps are noisy.
+Khớp bậc hai chính xác hơn trên bản đồ nhiệt có đỉnh rõ; độ lệch dựa trên dấu là mặc định an toàn hơn khi bản đồ nhiệt nhiễu.
 
-3. **Add offset** to the integer peak.
-4. **Confidence** — return the peak value per keypoint; clients use it to mask low-confidence predictions.
-5. **Boundary case** — when the peak lands on the first or last pixel along an axis, one of the neighbours is clamped; the offset collapses to zero, which is the safest fallback.
+3. **Cộng độ lệch** vào đỉnh nguyên.
+4. **Độ tin cậy** — trả giá trị đỉnh mỗi điểm; các máy khách dùng để che các dự đoán tin cậy thấp.
+5. **Trường hợp biên** — khi đỉnh ở pixel đầu hoặc cuối dọc một trục, một láng giềng được chặn; độ lệch sụp về không, là dự phòng an toàn nhất.
 
 ## Output template
 
@@ -100,7 +100,7 @@ def heatmap_to_coords_subpixel(heatmaps, threshold=0.2):
 
 ## Rules
 
-- Always clamp neighbour indices to valid range; off-edge keypoints have zero-difference offset but no crash.
-- Return confidence alongside coordinates so clients can mask low-confidence points.
-- Sub-pixel refinement only helps when the heatmap is smooth around the peak — check that training used a Gaussian target with sigma >= 1.
-- For very small heatmap resolutions (< 48x48), consider upsampling the heatmap to full image size before extracting coordinates; the sub-pixel offset scales with the stride.
+- Luôn chặn chỉ số láng giềng về phạm vi hợp lệ; các điểm ngoài cạnh có độ lệch sai phân bằng không nhưng không sập.
+- Trả độ tin cậy cùng tọa độ để máy khách có thể che các điểm tin cậy thấp.
+- Tinh chỉnh dưới pixel chỉ giúp khi bản đồ nhiệt trơn quanh đỉnh — kiểm tra huấn luyện dùng mục tiêu Gaussian có sigma >= 1.
+- Với độ phân giải bản đồ nhiệt rất nhỏ (< 48x48), cân nhắc tăng mẫu lên kích thước ảnh đầy đủ trước khi trích tọa độ; độ lệch dưới pixel co giãn theo stride.

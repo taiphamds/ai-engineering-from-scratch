@@ -1,6 +1,6 @@
 # Keypoint Detection & Pose Estimation
 
-> A pose is a set of ordered keypoints. A keypoint detector is a heatmap regressor. Everything else is bookkeeping.
+> Một tư thế là một tập điểm đặc trưng có thứ tự. Một bộ phát hiện điểm đặc trưng là một bộ hồi quy bản đồ nhiệt. Mọi thứ khác là công việc ghi sổ.
 
 **Type:** Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Distinguish top-down and bottom-up pose estimation and state when each is used
-- Regress heatmaps for K keypoints with a Gaussian-per-keypoint target and extract keypoint coordinates at inference
-- Explain Part Affinity Fields (PAFs) and how bottom-up pipelines associate keypoints into instances
-- Use MediaPipe Pose or MMPose for production keypoint estimation and understand their output format
+- Phân biệt ước lượng tư thế từ trên xuống và từ dưới lên, và nêu khi nào mỗi cách được dùng
+- Hồi quy các bản đồ nhiệt cho K điểm đặc trưng với mục tiêu Gaussian mỗi điểm và trích xuất tọa độ điểm khi suy luận
+- Giải thích Part Affinity Fields (PAF) và cách các pipeline từ dưới lên liên kết điểm đặc trưng thành thực thể
+- Sử dụng MediaPipe Pose hoặc MMPose để ước lượng điểm đặc trưng production và hiểu định dạng đầu ra
 
 ## The Problem
 
-Keypoint tasks hide under many names: human pose (17 body joints), face landmarks (68 or 478 points), hand (21 points), animal pose, robotic object pose, medical anatomy landmarks. Every one of them shares the same structure: detect K discrete points on an object and output their (x, y) coordinates.
+Các tác vụ điểm đặc trưng ẩn dưới nhiều tên: tư thế người (17 khớp cơ thể), mốc khuôn mặt (68 hoặc 478 điểm), bàn tay (21 điểm), tư thế động vật, tư thế đối tượng robot, mốc giải phẫu y tế. Mọi tác vụ có cùng cấu trúc: phát hiện K điểm rời rạc trên một đối tượng và xuất tọa độ (x, y).
 
-Pose estimation is the foundation of motion capture, fitness apps, sports analytics, gesture control, animation, AR try-on, and robotic grasping. The 2D case is mature; 3D pose (estimating joint positions in world coordinates from a single camera) is the current research frontier.
+Ước lượng tư thế là nền tảng của ghi chuyển động, ứng dụng thể hình, phân tích thể thao, điều khiển cử chỉ, hoạt hình, thử đồ AR và nắm bắt robot. Trường hợp 2D đã trưởng thành; tư thế 3D (ước lượng vị trí khớp trong tọa độ thế giới từ một máy ảnh) là biên nghiên cứu hiện tại.
 
-The engineering question is scale. A single-image, single-person pose is a 20ms problem. Multi-person pose in a crowd at 30 fps is a different problem with different architectures.
+Câu hỏi kỹ thuật là quy mô. Tư thế một ảnh, một người là bài toán 20ms. Tư thế nhiều người trong đám đông ở 30 fps là bài toán khác với kiến trúc khác.
 
 ## The Concept
 
@@ -41,30 +41,30 @@ flowchart LR
     style BU fill:#fef3c7,stroke:#d97706
 ```
 
-- **Top-down** — detect people first, then run a per-person keypoint model on each crop. Highest accuracy; scales linearly with number of people.
-- **Bottom-up** — one forward pass predicts all keypoints plus an association field; group them. Constant time regardless of crowd size.
+- **Từ trên xuống** — phát hiện người trước, rồi chạy mô hình điểm đặc trưng từng người trên mỗi vùng cắt. Accuracy cao nhất; tăng tuyến tính với số người.
+- **Từ dưới lên** — một lượt truyền xuôi dự đoán mọi điểm đặc trưng cộng trường liên kết; nhóm chúng. Thời gian hằng bất kể kích thước đám đông.
 
-Top-down (HRNet, ViTPose) is the accuracy leader; bottom-up (OpenPose, HigherHRNet) is the throughput leader for crowded scenes.
+Từ trên xuống (HRNet, ViTPose) dẫn đầu accuracy; từ dưới lên (OpenPose, HigherHRNet) dẫn đầu thông lượng cho cảnh đông người.
 
 ### Heatmap regression
 
-Instead of regressing `(x, y)` directly, predict an `H x W` heatmap per keypoint with a Gaussian blob centred at the true location.
+Thay vì hồi quy `(x, y)` trực tiếp, dự đoán một bản đồ nhiệt `H x W` mỗi điểm với đốm Gaussian đặt tâm tại vị trí thật.
 
 ```
 target[k, y, x] = exp(-((x - cx_k)^2 + (y - cy_k)^2) / (2 sigma^2))
 ```
 
-At inference, the argmax of each heatmap is the predicted keypoint location.
+Khi suy luận, argmax của mỗi bản đồ nhiệt là vị trí điểm đặc trưng dự đoán.
 
-Why heatmaps work better than direct regression: the network's spatial structure (conv feature map) aligns naturally with spatial output. Gaussian targets also regularise — a small localisation error produces a small loss, not zero.
+Tại sao bản đồ nhiệt hoạt động tốt hơn hồi quy trực tiếp: cấu trúc không gian mạng (bản đồ đặc trưng tích chập) tự nhiên khớp đầu ra không gian. Các mục tiêu Gaussian cũng chính quy hóa — sai số định vị nhỏ tạo mất mát nhỏ, không phải không.
 
 ### Sub-pixel localisation
 
-Argmax gives integer coordinates. For sub-pixel precision, refine by fitting a parabola to the argmax and its neighbours, or use the well-known offset `(dx, dy) = 0.25 * (heatmap[y, x+1] - heatmap[y, x-1], ...)` direction.
+Argmax cho tọa độ nguyên. Để có độ chính xác dưới pixel, tinh chỉnh bằng cách khớp một parabol với argmax và các láng giềng, hoặc dùng hướng độ lệch quen thuộc `(dx, dy) = 0.25 * (heatmap[y, x+1] - heatmap[y, x-1], ...)`.
 
 ### Part Affinity Fields (PAFs)
 
-OpenPose's trick for bottom-up association. For each pair of connected keypoints (e.g. left shoulder to left elbow), predict a 2-channel field that encodes the unit vector pointing from one to the other. To associate a shoulder with its elbow, integrate the PAF along the line connecting candidate pairs; the pair with the highest integral is matched.
+Thủ thuật OpenPose cho liên kết từ dưới lên. Với mỗi cặp điểm được nối (ví dụ vai trái tới khuỷu trái), dự đoán một trường 2 kênh mã hóa vector đơn vị chỉ từ điểm này tới điểm kia. Để liên kết vai với khuỷu của nó, tích phân PAF dọc đường nối các cặp ứng viên; cặp có tích phân cao nhất được ghép.
 
 ```
 For each connection (limb):
@@ -73,19 +73,19 @@ For each connection (limb):
   Higher integral = stronger match
 ```
 
-Elegant and scales to arbitrary crowd sizes without per-person crops.
+Thanh nhã và mở rộng tới kích thước đám đông tùy ý mà không cần vùng cắt từng người.
 
 ### COCO keypoints
 
-The standard body-pose dataset: 17 keypoints per person, PCK (Percentage of Correct Keypoints) and OKS (Object Keypoint Similarity) as metrics. OKS is the keypoint analogue of IoU and is what COCO mAP@OKS reports.
+Tập dữ liệu tư thế cơ thể tiêu chuẩn: 17 điểm mỗi người, PCK (Phần trăm Điểm đặc trưng Đúng) và OKS (Độ tương đồng Điểm đặc trưng Đối tượng) làm thước đo. OKS là tương đương IoU cho điểm đặc trưng và là thứ COCO mAP@OKS báo cáo.
 
 ### 2D vs 3D
 
-- **2D pose** — image coordinates; solved at production quality (MediaPipe, HRNet, ViTPose).
-- **3D pose** — world / camera coordinates; still active research. Common approaches:
-  - Lift 2D predictions to 3D with a small MLP (VideoPose3D).
-  - Direct 3D regression from image (PyMAF, MHFormer).
-  - Multi-view setups (CMU Panoptic) for ground truth.
+- **Tư thế 2D** — tọa độ hình ảnh; đã giải ở chất lượng production (MediaPipe, HRNet, ViTPose).
+- **Tư thế 3D** — tọa độ thế giới / máy ảnh; vẫn nghiên cứu tích cực. Các cách phổ biến:
+  - Nâng dự đoán 2D lên 3D bằng một MLP nhỏ (VideoPose3D).
+  - Hồi quy 3D trực tiếp từ hình ảnh (PyMAF, MHFormer).
+  - Các thiết lập nhiều góc nhìn (CMU Panoptic) cho sự thật nền.
 
 ```figure
 cv3-pose-heatmap
@@ -107,11 +107,11 @@ hm = gaussian_heatmap(64, 32, 32, sigma=2.0)
 print(f"peak: {hm.max():.3f} at ({hm.argmax() % 64}, {hm.argmax() // 64})")
 ```
 
-Per-keypoint heatmaps stacked along a channel axis give the full target tensor.
+Các bản đồ nhiệt từng điểm xếp dọc trục kênh cho tensor mục tiêu đầy đủ.
 
 ### Step 2: Tiny keypoint head
 
-A U-Net-style model that outputs K heatmap channels.
+Một mô hình kiểu U-Net xuất K kênh bản đồ nhiệt.
 
 ```python
 import torch.nn as nn
@@ -134,7 +134,7 @@ class TinyKeypointNet(nn.Module):
         return self.up2(u1)
 ```
 
-Input `(N, 3, H, W)`, output `(N, K, H, W)`. Loss is per-pixel MSE against Gaussian targets.
+Đầu vào `(N, 3, H, W)`, đầu ra `(N, K, H, W)`. Mất mát là MSE từng pixel so với mục tiêu Gaussian.
 
 ### Step 3: Inference — extract keypoint coordinates
 
@@ -155,11 +155,11 @@ coords = heatmap_to_coords(torch.randn(2, 4, 32, 32))
 print(f"coords: {coords.shape}")  # (2, 4, 2)
 ```
 
-One line at inference. For sub-pixel refinement, interpolate around the argmax.
+Một dòng lúc suy luận. Để tinh chỉnh dưới pixel, nội suy quanh argmax.
 
 ### Step 4: Synthetic keypoint dataset
 
-Simple: draw four points on a white canvas and learn to predict them.
+Đơn giản: vẽ bốn điểm trên nền trắng và học dự đoán chúng.
 
 ```python
 def make_synthetic_sample(size=64):
@@ -172,7 +172,7 @@ def make_synthetic_sample(size=64):
     return img, hms, kps
 ```
 
-Easy enough for a tiny model to learn in a minute.
+Đủ dễ để một mô hình rất nhỏ học trong một phút.
 
 ### Step 5: Training
 
@@ -193,40 +193,40 @@ for step in range(200):
 
 ## Use It
 
-- **MediaPipe Pose** — Google's production pose estimator; ships WebGL + mobile runtimes with sub-10ms latency.
-- **MMPose** (OpenMMLab) — comprehensive research codebase; every SOTA architecture with pretrained weights.
-- **YOLOv8-pose** — fastest real-time multi-person pose with a single forward pass.
-- **transformers HumanDPT / PoseAnything** — newer vision-language approaches for open-vocabulary pose (any object, any keypoint set).
+- **MediaPipe Pose** — bộ ước lượng tư thế production của Google; cung cấp runtime WebGL + di động với độ trễ dưới 10ms.
+- **MMPose** (OpenMMLab) — cơ sở mã nghiên cứu toàn diện; mọi kiến trúc SOTA với trọng số được tiền huấn luyện.
+- **YOLOv8-pose** — tư thế nhiều người thời gian thực nhanh nhất với một lượt truyền xuôi duy nhất.
+- **transformers HumanDPT / PoseAnything** — các cách tiếp cận thị giác-ngôn ngữ mới hơn cho tư thế từ vựng mở (mọi đối tượng, mọi tập điểm).
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-pose-stack-picker.md` — a prompt that picks MediaPipe / YOLOv8-pose / HRNet / ViTPose given latency, crowd size, and 2D vs 3D need.
-- `outputs/skill-heatmap-to-coords.md` — a skill that writes the sub-pixel heatmap-to-coordinate routine used by every production pose model.
+- `outputs/prompt-pose-stack-picker.md` — một prompt chọn MediaPipe / YOLOv8-pose / HRNet / ViTPose với độ trễ, kích thước đám đông và nhu cầu 2D so với 3D cho trước.
+- `outputs/skill-heatmap-to-coords.md` — một skill viết quy trình bản đồ nhiệt-sang-tọa độ dưới pixel dùng bởi mọi mô hình tư thế production.
 
 ## Exercises
 
-1. **(Easy)** Train the tiny keypoint model on the synthetic 4-point dataset. Report mean L2 error between predicted and true keypoints after 200 steps.
-2. **(Medium)** Add sub-pixel refinement: given the argmax position, fit a 1D parabola along x and y from the neighbouring pixels. Report the accuracy gain vs integer argmax.
-3. **(Hard)** Build a 2-person synthetic dataset where each image shows two instances of the 4-keypoint pattern. Train a bottom-up pipeline with PAFs that predict which keypoint belongs to which instance, and evaluate OKS.
+1. **(Dễ)** Huấn luyện mô hình điểm nhỏ trên tập dữ liệu tổng hợp 4 điểm. Báo cáo sai số L2 trung bình giữa các điểm dự đoán và thật sau 200 bước.
+2. **(Vừa)** Thêm tinh chỉnh dưới pixel: với vị trí argmax cho trước, khớp một parabol 1D dọc x và y từ các pixel lân cận. Báo cáo mức tăng accuracy so với argmax nguyên.
+3. **(Khó)** Xây tập dữ liệu tổng hợp 2 người, mỗi ảnh có hai thực thể của mẫu 4 điểm. Huấn luyện pipeline từ dưới lên với các PAF dự đoán điểm nào thuộc thực thể nào, và đánh giá OKS.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Keypoint | "A landmark" | A specific ordered point on an object (joint, corner, feature) |
-| Pose | "The skeleton" | An ordered set of keypoints belonging to one instance |
-| Top-down | "Detect then pose" | Two-stage pipeline: person detector + per-crop keypoint model; highest accuracy |
-| Bottom-up | "Pose first, group later" | Single-pass all-keypoint prediction + grouping; constant time in crowd size |
-| Heatmap | "Gaussian target" | H x W tensor per keypoint with peak at the true location; the preferred regression target |
-| PAF | "Part Affinity Field" | 2-channel unit vector field encoding limb directions; used to group keypoints into instances |
-| OKS | "Keypoint IoU" | Object Keypoint Similarity; the COCO metric for pose |
-| HRNet | "High-Resolution Net" | The dominant top-down keypoint architecture; preserves high-res features throughout |
+| Keypoint (Điểm đặc trưng) | "Một mốc" | Một điểm có thứ tự cụ thể trên một đối tượng (khớp, góc, đặc trưng) |
+| Pose (Tư thế) | "Bộ xương" | Một tập điểm đặc trưng có thứ tự thuộc một thực thể |
+| Top-down (Từ trên xuống) | "Phát hiện rồi tư thế" | Pipeline hai giai đoạn: bộ phát hiện người + mô hình điểm từng vùng cắt; accuracy cao nhất |
+| Bottom-up (Từ dưới lên) | "Tư thế trước, nhóm sau" | Dự đoán mọi điểm một lượt + nhóm; thời gian hằng theo kích thước đám đông |
+| Heatmap (Bản đồ nhiệt) | "Mục tiêu Gaussian" | Tensor H x W mỗi điểm với đỉnh tại vị trí thật; mục tiêu hồi quy được ưu tiên |
+| PAF | "Part Affinity Field" | Trường vector đơn vị 2 kênh mã hóa hướng chi; dùng nhóm điểm thành thực thể |
+| OKS | "IoU điểm đặc trưng" | Object Keypoint Similarity; thước đo COCO cho tư thế |
+| HRNet | "High-Resolution Net" | Kiến trúc điểm đặc trưng từ trên xuống chiếm ưu thế; giữ đặc trưng độ phân giải cao xuyên suốt |
 
 ## Further Reading
 
-- [OpenPose (Cao et al., 2017)](https://arxiv.org/abs/1812.08008) — bottom-up with PAFs; still the best writeup of the approach
-- [HRNet (Sun et al., 2019)](https://arxiv.org/abs/1902.09212) — the top-down reference architecture
-- [ViTPose (Xu et al., 2022)](https://arxiv.org/abs/2204.12484) — plain ViT as a pose backbone; current SOTA on many benchmarks
-- [MediaPipe Pose](https://developers.google.com/mediapipe/solutions/vision/pose_landmarker) — production real-time pose; the fastest deployed stack in 2026
+- [OpenPose (Cao et al., 2017)](https://arxiv.org/abs/1812.08008) — từ dưới lên với PAF; vẫn là trình bày tốt nhất về cách tiếp cận
+- [HRNet (Sun et al., 2019)](https://arxiv.org/abs/1902.09212) — kiến trúc tham chiếu từ trên xuống
+- [ViTPose (Xu et al., 2022)](https://arxiv.org/abs/2204.12484) — ViT thông thường làm backbone tư thế; SOTA hiện tại trên nhiều benchmark
+- [MediaPipe Pose](https://developers.google.com/mediapipe/solutions/vision/pose_landmarker) — tư thế thời gian thực production; bộ công cụ triển khai nhanh nhất năm 2026
