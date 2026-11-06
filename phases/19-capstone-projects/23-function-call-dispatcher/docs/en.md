@@ -1,6 +1,6 @@
 # Function Call Dispatcher
 
-> The dispatcher is where the harness pays for every promise the schema made. Timeouts, retries, dedupe, error mapping. All on one seam.
+> Dispatcher là nơi harness trả giá cho mọi lời hứa mà lược đồ đã đưa ra. Timeout, thử lại, loại trùng, ánh xạ lỗi. Tất cả trên một chỗ nối.
 
 **Type:** Build
 **Languages:** Python
@@ -8,11 +8,11 @@
 **Time:** ~90 minutes
 
 ## Learning Objectives
-- Wrap a tool handler in a per-call timeout that returns a typed error instead of hanging the loop.
-- Apply exponential backoff retry with jitter and a maximum attempt count.
-- Deduplicate retries on an idempotency key so a retry that races with a slow original does not run twice.
-- Map handler exceptions and transport faults onto a single error envelope the harness loop already understands.
-- Bound parallel dispatch with a concurrency limit so a fan-out of forty tool calls does not exhaust the event loop.
+- Bọc một handler công cụ trong một timeout theo lệnh gọi trả về một lỗi có kiểu thay vì treo vòng lặp.
+- Áp dụng thử lại với thời gian chờ lùi theo hàm mũ có jitter và số lần thử tối đa.
+- Loại trùng các lần thử lại theo một khóa lũy đẳng để một lần thử lại chạy đua với bản gốc chậm không chạy hai lần.
+- Ánh xạ các ngoại lệ handler và lỗi truyền tải vào một phong bì lỗi duy nhất mà vòng lặp harness đã hiểu.
+- Giới hạn điều phối song song bằng một giới hạn đồng thời để việc phân nhánh bốn mươi lệnh gọi công cụ không làm cạn vòng lặp sự kiện.
 
 ```figure
 cf-dispatch-retry
@@ -20,7 +20,7 @@ cf-dispatch-retry
 
 ## Where the dispatcher sits
 
-Between the harness loop (lesson twenty) and the tool registry (lesson twenty-one). The transport (lesson twenty-two) feeds the loop. The loop hands a tool call to the dispatcher. The dispatcher calls the registry, runs the handler, and returns either a result or a JSON-RPC-shaped error envelope.
+Giữa vòng lặp harness (bài hai mươi) và registry công cụ (bài hai mươi mốt). Cơ chế truyền tải (bài hai mươi hai) cấp dữ liệu cho vòng lặp. Vòng lặp đưa một lệnh gọi công cụ cho dispatcher. Dispatcher gọi registry, chạy handler, và trả về một kết quả hoặc một phong bì lỗi có hình thức JSON-RPC.
 
 ```mermaid
 flowchart TD
@@ -38,17 +38,17 @@ flowchart TD
     disp -->|Ok result or DispatchError| loop
 ```
 
-The dispatcher is the only layer that knows about timers, retries, and idempotency. The loop does not. The registry does not. The handler does not. That isolation is the point.
+Dispatcher là lớp duy nhất biết về bộ hẹn giờ, thử lại, và tính lũy đẳng. Vòng lặp không biết. Registry không biết. Handler không biết. Sự cô lập đó là điểm chính.
 
 ## Timeouts
 
-Each tool has a default timeout. The registry record carries `timeout_ms`. The dispatcher overrides it from a per-call override when the harness passes one. We use `asyncio.wait_for`. On timeout, the handler task is cancelled and the dispatcher returns `DispatchError(kind="timeout")`.
+Mỗi công cụ có một timeout mặc định. Bản ghi registry mang `timeout_ms`. Dispatcher ghi đè nó từ một giá trị ghi đè theo lệnh gọi khi harness truyền vào. Chúng ta dùng `asyncio.wait_for`. Khi timeout, tác vụ handler bị hủy và dispatcher trả về `DispatchError(kind="timeout")`.
 
-A timeout is not a retryable error by default for non-idempotent tools. A `db.write` that timed out may or may not have committed. Retrying duplicates the write. The dispatcher honors the `idempotent` flag from the registry record. Idempotent tools retry. Non-idempotent tools do not.
+Một timeout mặc định không phải một lỗi có thể thử lại đối với các công cụ không lũy đẳng. Một `db.write` bị timeout có thể đã hoặc chưa commit. Thử lại làm trùng lần ghi. Dispatcher tuân thủ cờ `idempotent` từ bản ghi registry. Các công cụ lũy đẳng thử lại. Các công cụ không lũy đẳng không thử lại.
 
 ## Retries with exponential backoff
 
-The retry policy is three attempts maximum. Backoff is exponential with jitter.
+Chính sách thử lại là tối đa ba lần thử. Thời gian chờ lùi theo hàm mũ với jitter.
 
 ```text
 attempt 1  -> delay 0
@@ -56,21 +56,21 @@ attempt 2  -> delay 0.1s * (1 + random[0..0.5])
 attempt 3  -> delay 0.4s * (1 + random[0..0.5])
 ```
 
-Only `timeout` and `transient` errors retry. A `schema` error, a `not_found`, or an `internal` error does not retry. Schema errors are deterministic. Retrying does not change the outcome and burns the budget.
+Chỉ các lỗi `timeout` và `transient` thử lại. Một lỗi `schema`, một `not_found`, hoặc một lỗi `internal` không thử lại. Các lỗi lược đồ là tất định. Thử lại không thay đổi kết quả và đốt ngân sách.
 
-The retry loop respects the budget from the harness. If the caller's budget has zero remaining tool calls, the dispatcher fails fast on the first attempt and returns `kind="budget_exceeded"`.
+Vòng lặp thử lại tôn trọng ngân sách từ harness. Nếu ngân sách của bên gọi không còn lệnh gọi công cụ nào, dispatcher thất bại nhanh ở lần thử đầu tiên và trả về `kind="budget_exceeded"`.
 
 ## Idempotency key dedupe
 
-A retry that fires while the original is still in flight is a real production bug. The first call hangs at four point nine seconds (just under the timeout). The retry fires at five seconds. Now two requests race against the same backend. If the tool is `payments.charge`, you charged twice.
+Một lần thử lại kích hoạt trong khi bản gốc vẫn đang được xử lý là một lỗi sản xuất thực sự. Lệnh gọi đầu tiên treo ở bốn phẩy chín giây (ngay dưới timeout). Lần thử lại kích hoạt ở năm giây. Giờ hai yêu cầu chạy đua với cùng backend. Nếu công cụ là `payments.charge`, bạn đã tính phí hai lần.
 
-The dispatcher accepts an optional `idempotency_key`. If the same key is in flight when a call arrives, the dispatcher waits on the in-flight future and returns its result. The cache holds keys for sixty seconds after completion to absorb late retries.
+Dispatcher chấp nhận một `idempotency_key` tùy chọn. Nếu cùng khóa đang được xử lý khi một lệnh gọi đến, dispatcher đợi future đang xử lý và trả về kết quả của nó. Bộ nhớ đệm giữ các khóa trong sáu mươi giây sau khi hoàn tất để hấp thụ các lần thử lại muộn.
 
-The key is the caller's responsibility. The harness derives it from the planner: `f"{step_id}:{tool_name}:{hash(args)}"`. The dispatcher does not invent keys, because deriving a key from arguments alone makes two semantically-different calls look the same.
+Khóa là trách nhiệm của bên gọi. Harness suy ra nó từ bộ lập kế hoạch: `f"{step_id}:{tool_name}:{hash(args)}"`. Dispatcher không tự tạo khóa, vì suy ra một khóa chỉ từ các đối số khiến hai lệnh gọi khác nhau về ngữ nghĩa trông giống nhau.
 
 ## Error envelope
 
-A failed dispatch returns a single shape.
+Một lần điều phối thất bại trả về một hình thức duy nhất.
 
 ```text
 DispatchError
@@ -80,13 +80,13 @@ DispatchError
   jsonrpc_code: int   (one of -32601, -32602, -32603)
 ```
 
-The harness loop maps `kind` to the next state. `schema` and `not_found` go to `on_error` and trigger a replan. `timeout` and `transient` go to `on_error` and may or may not replan depending on attempts. `budget_exceeded` triggers `on_budget_exceeded`.
+Vòng lặp harness ánh xạ `kind` sang trạng thái tiếp theo. `schema` và `not_found` đi đến `on_error` và kích hoạt lập lại kế hoạch. `timeout` và `transient` đi đến `on_error` và có thể có hoặc không lập lại kế hoạch tùy theo số lần thử. `budget_exceeded` kích hoạt `on_budget_exceeded`.
 
 ## Concurrency limit on fan-out
 
-`gather(*calls)` runs all coroutines simultaneously. With forty tool calls, that is forty open sockets or forty subprocess pipes. Most backends do not like forty parallel connections from one client.
+`gather(*calls)` chạy tất cả coroutine đồng thời. Với bốn mươi lệnh gọi công cụ, đó là bốn mươi socket mở hoặc bốn mươi pipe tiến trình con. Hầu hết backend không thích bốn mươi kết nối song song từ một máy khách.
 
-The dispatcher wraps `gather` in a semaphore. Default concurrency limit is eight. Each call acquires the semaphore before dispatching and releases on completion. The caller sees `gather`-shaped output but the actual scheduling is bounded.
+Dispatcher bọc `gather` trong một semaphore. Giới hạn đồng thời mặc định là tám. Mỗi lệnh gọi lấy semaphore trước khi điều phối và nhả khi hoàn tất. Bên gọi thấy đầu ra có hình thức `gather` nhưng việc lập lịch thực tế có giới hạn.
 
 ## Flow for one call
 
@@ -126,14 +126,14 @@ flowchart TD
 
 ## How to read the code
 
-`code/main.py` defines `Dispatcher`, `DispatchError`, and `TransientError`. The dispatcher takes a registry on construction. The async `dispatch(name, args, ...)` is the only entry point. Per-attempt timeouts are applied inline inside `_run_with_retries` using `asyncio.wait_for`. `gather_bounded(calls)` runs many dispatches with the concurrency limit.
+`code/main.py` định nghĩa `Dispatcher`, `DispatchError`, và `TransientError`. Dispatcher nhận một registry khi khởi tạo. `dispatch(name, args, ...)` bất đồng bộ là điểm vào duy nhất. Các timeout theo lần thử được áp dụng nội tuyến bên trong `_run_with_retries` sử dụng `asyncio.wait_for`. `gather_bounded(calls)` chạy nhiều lần điều phối với giới hạn đồng thời.
 
-`code/tests/test_dispatcher.py` covers timeout firing, retry on transient, no-retry on schema error, idempotency dedupe (two concurrent calls with the same key collapse to one handler invocation), and concurrency limiting (the semaphore in action).
+`code/tests/test_dispatcher.py` bao phủ kích hoạt timeout, thử lại khi tạm thời, không thử lại khi lỗi lược đồ, loại trùng lũy đẳng (hai lệnh gọi đồng thời với cùng khóa gộp thành một lần gọi handler), và giới hạn đồng thời (semaphore đang hoạt động).
 
-The tests use `asyncio.sleep(0)` and deterministic `Counter`-based handlers, so they finish in milliseconds and do not depend on wall-clock timing.
+Các kiểm thử sử dụng `asyncio.sleep(0)` và các handler tất định dựa trên `Counter`, nên chúng hoàn tất trong mili giây và không phụ thuộc vào thời gian thực.
 
 ## Going further
 
-Two extensions production dispatchers add. First, structured logging at every transition (which the loop's event stream already gives you, but the dispatcher should also emit `dispatch.attempt` and `dispatch.retry` events). Second, circuit breakers: after N failures in a window, a tool gets a cool-down period where dispatches return immediately with `kind="circuit_open"` instead of attempting the handler. Both fit on top of this dispatcher without changing the contract.
+Hai phần mở rộng mà các dispatcher sản xuất thêm. Thứ nhất, ghi nhật ký có cấu trúc tại mọi chuyển tiếp (điều mà luồng sự kiện của vòng lặp đã cho bạn, nhưng dispatcher cũng nên phát ra các sự kiện `dispatch.attempt` và `dispatch.retry`). Thứ hai, bộ ngắt mạch: sau N lỗi trong một cửa sổ, một công cụ nhận một khoảng nghỉ mà các lần điều phối trả về ngay với `kind="circuit_open"` thay vì thử handler. Cả hai phù hợp trên dispatcher này mà không thay đổi hợp đồng.
 
-Lesson twenty-four glues the dispatcher to a plan-and-execute agent so you see all four pieces in motion.
+Bài hai mươi bốn gắn dispatcher với một agent lập kế hoạch và thực thi để bạn thấy cả bốn phần chuyển động.
