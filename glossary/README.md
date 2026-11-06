@@ -1,11 +1,11 @@
 # Glossary
 
-Two resources to cut through the noise:
+Hai tài nguyên giúp gạt bỏ nhiễu:
 
-- **[terms.md](terms.md)** - 60+ AI terms explained. What people say vs what it actually means.
-- **[myths.md](myths.md)** - 20 common AI misconceptions busted with what's actually going on.
+- **[terms.md](terms.md)** - 60+ thuật ngữ AI được giải thích. Mọi người nói gì so với ý nghĩa thực sự của chúng.
+- **[myths.md](myths.md)** - 20 quan niệm sai lầm phổ biến về AI được bác bỏ, cùng với những gì thực sự đang diễn ra.
 
-Each term entry follows the pattern:
-- **What people say** - the common (often wrong) understanding
-- **What it actually means** - the real definition
-- **Why it's called that** - origin of the name (when interesting)
+Mỗi mục thuật ngữ tuân theo mẫu:
+- **Mọi người thường nói** - cách hiểu phổ biến (thường là sai)
+- **Ý nghĩa thực tế** - định nghĩa thực sự
+- **Vì sao có tên gọi này** - nguồn gốc tên gọi (khi thú vị)

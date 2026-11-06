@@ -1,167 +1,167 @@
 # AI Myths Busted
 
-Common misconceptions about AI, ML, and deep learning. Each one explained with what's actually going on.
+Những quan niệm sai lầm phổ biến về AI, ML và học sâu. Mỗi quan niệm được giải thích cùng với những gì thực sự đang diễn ra.
 
 ---
 
 ## "AI understands language"
 
-**Reality:** LLMs predict the next token based on statistical patterns in training data. They have no understanding, no beliefs, no world model (that we can prove). They're very good at pattern matching across billions of examples. The output looks like understanding because the patterns are rich enough to cover most situations.
+**Thực tế:** LLM dự đoán token tiếp theo dựa trên các mẫu thống kê trong dữ liệu huấn luyện. Chúng không có sự hiểu biết, niềm tin hay mô hình thế giới nào (mà chúng ta có thể chứng minh). Chúng rất giỏi khớp mẫu trên hàng tỷ ví dụ. Đầu ra trông giống như sự hiểu biết vì các mẫu đủ phong phú để bao quát hầu hết tình huống.
 
-**Why it matters:** If you treat an LLM as a reasoning engine, you'll be surprised when it confidently says wrong things. If you treat it as a pattern matcher, you'll design better systems around it.
+**Vì sao điều này quan trọng:** Nếu bạn xem LLM là một cỗ máy suy luận, bạn sẽ ngạc nhiên khi nó tự tin nói sai. Nếu xem nó là một bộ khớp mẫu, bạn sẽ thiết kế được các hệ thống tốt hơn xung quanh nó.
 
 ---
 
 ## "More parameters = smarter model"
 
-**Reality:** A 7B parameter model trained on high-quality data with good techniques can outperform a 70B model trained on garbage. Chinchilla showed that most models were over-parameterized and under-trained. The quality and quantity of training data matters as much as model size. Phi-2 (2.7B) beat models 10x its size on many benchmarks.
+**Thực tế:** Một mô hình 7B tham số được huấn luyện trên dữ liệu chất lượng cao bằng các kỹ thuật tốt có thể vượt trội hơn một mô hình 70B được huấn luyện trên dữ liệu rác. Chinchilla cho thấy hầu hết mô hình có quá nhiều tham số và chưa được huấn luyện đủ. Chất lượng và số lượng dữ liệu huấn luyện quan trọng ngang với kích thước mô hình. Phi-2 (2.7B) vượt qua các mô hình lớn hơn nó 10 lần trên nhiều benchmark.
 
-**Why it matters:** Don't default to the biggest model. Match model size to your task and budget.
+**Vì sao điều này quan trọng:** Đừng mặc định chọn mô hình lớn nhất. Hãy chọn kích thước mô hình phù hợp với tác vụ và ngân sách của bạn.
 
 ---
 
 ## "Neural networks are black boxes"
 
-**Reality:** We have tools to understand what neural networks learn. Attention visualization shows what tokens the model focuses on. Probing classifiers reveal what information is stored in hidden representations. Mechanistic interpretability is finding actual circuits (induction heads, feature detectors). It's not complete transparency, but it's not a black box either.
+**Thực tế:** Chúng ta có các công cụ để hiểu mạng nơ-ron học được gì. Trực quan hóa attention cho thấy mô hình tập trung vào những token nào. Các bộ phân loại thăm dò cho biết thông tin nào được lưu trong các biểu diễn ẩn. Khả năng diễn giải cơ chế đang tìm ra các mạch thực sự (induction head, bộ phát hiện đặc trưng). Điều này chưa minh bạch hoàn toàn, nhưng mạng nơ-ron cũng không phải hộp đen.
 
-**Why it matters:** You can debug neural networks. Gradient analysis, activation visualization, and attention maps are real tools covered in this course.
+**Vì sao điều này quan trọng:** Bạn có thể gỡ lỗi mạng nơ-ron. Phân tích gradient, trực quan hóa activation và bản đồ attention là những công cụ thực tế được đề cập trong khóa học này.
 
 ---
 
 ## "AI will replace programmers"
 
-**Reality:** AI changed programming, it didn't replace it. AI writes boilerplate. Humans design systems, make architectural decisions, review correctness, and handle the cases AI gets wrong. The role shifted from "write every line" to "review, direct, and architect." The best engineers use AI as a tool, not fear it as a replacement.
+**Thực tế:** AI đã thay đổi việc lập trình, chứ không thay thế nó. AI viết mã khuôn mẫu. Con người thiết kế hệ thống, đưa ra quyết định kiến trúc, rà soát tính đúng đắn và xử lý những trường hợp AI làm sai. Vai trò đã chuyển từ "viết từng dòng" sang "rà soát, định hướng và thiết kế kiến trúc". Những kỹ sư giỏi nhất dùng AI như một công cụ, chứ không sợ nó sẽ thay thế mình.
 
-**Why it matters:** You're learning AI engineering, which is programming + AI. Both skills together are more valuable than either alone.
+**Vì sao điều này quan trọng:** Bạn đang học kỹ thuật AI, tức là lập trình + AI. Kết hợp cả hai kỹ năng có giá trị hơn từng kỹ năng riêng lẻ.
 
 ---
 
 ## "You need a PhD in math to do AI"
 
-**Reality:** You need high school math plus the specific topics in Phase 1 of this course. Linear algebra, calculus, probability, and optimization. You don't need proofs. You need intuition for what operations do and why they matter. If you can multiply matrices and take derivatives, you can build neural networks.
+**Thực tế:** Bạn cần kiến thức toán trung học cùng với các chủ đề cụ thể trong Giai đoạn 1 của khóa học này. Đại số tuyến tính, giải tích, xác suất và tối ưu hóa. Bạn không cần các chứng minh. Bạn cần trực giác về việc các phép toán thực hiện điều gì và vì sao chúng quan trọng. Nếu bạn có thể nhân ma trận và tính đạo hàm, bạn có thể xây dựng mạng nơ-ron.
 
-**Why it matters:** Phase 1 exists to give you exactly the math you need, nothing more.
+**Vì sao điều này quan trọng:** Giai đoạn 1 tồn tại để cung cấp cho bạn chính xác phần toán bạn cần, không hơn.
 
 ---
 
 ## "GPT stands for General Purpose Technology"
 
-**Reality:** GPT stands for Generative Pre-trained Transformer. Generative = it produces text. Pre-trained = trained once on a large corpus before being adapted. Transformer = the architecture from the 2017 "Attention Is All You Need" paper.
+**Thực tế:** GPT là viết tắt của Generative Pre-trained Transformer. Generative = tạo ra văn bản. Pre-trained = được huấn luyện một lần trên một kho ngữ liệu lớn trước khi được điều chỉnh. Transformer = kiến trúc trong bài báo "Attention Is All You Need" năm 2017.
 
 ---
 
 ## "Temperature makes the AI more creative"
 
-**Reality:** Temperature scales the logits before softmax. Higher temperature = flatter probability distribution = more random token selection. Lower temperature = sharper distribution = more deterministic. It's not creativity, it's randomness. A high-temperature model doesn't think harder, it just considers less likely tokens.
+**Thực tế:** Temperature điều chỉnh tỷ lệ các logits trước softmax. Temperature cao hơn = phân phối xác suất phẳng hơn = chọn token ngẫu nhiên hơn. Temperature thấp hơn = phân phối sắc hơn = mang tính xác định hơn. Đây không phải sự sáng tạo, mà là tính ngẫu nhiên. Mô hình có temperature cao không suy nghĩ kỹ hơn; nó chỉ cân nhắc các token ít có khả năng hơn.
 
-**Why it matters:** When your output is too repetitive, raise temperature. When it's too chaotic, lower it. It's a randomness knob, nothing more.
+**Vì sao điều này quan trọng:** Khi đầu ra quá lặp lại, hãy tăng temperature. Khi đầu ra quá hỗn loạn, hãy giảm nó. Đây chỉ là một nút điều chỉnh tính ngẫu nhiên, không hơn.
 
 ---
 
 ## "Fine-tuning teaches the model new knowledge"
 
-**Reality:** Fine-tuning adjusts how the model uses existing knowledge, not what it knows. If information wasn't in the pre-training data, fine-tuning won't reliably add it. Fine-tuning is better for changing behavior (style, format, tone, task-specific patterns) than for adding facts. For new knowledge, use RAG.
+**Thực tế:** Fine-tuning điều chỉnh cách mô hình sử dụng kiến thức hiện có, chứ không điều chỉnh những gì nó biết. Nếu thông tin không có trong dữ liệu tiền huấn luyện, fine-tuning sẽ không bổ sung thông tin đó một cách đáng tin cậy. Fine-tuning phù hợp hơn để thay đổi hành vi (phong cách, định dạng, giọng điệu, các mẫu đặc thù của tác vụ) thay vì bổ sung sự kiện. Để có kiến thức mới, hãy dùng RAG.
 
-**Why it matters:** If you need the model to know about your company's internal docs, use RAG. If you need it to respond in a specific format, fine-tune.
+**Vì sao điều này quan trọng:** Nếu bạn cần mô hình biết về tài liệu nội bộ của công ty, hãy dùng RAG. Nếu bạn cần mô hình phản hồi theo một định dạng cụ thể, hãy fine-tune.
 
 ---
 
 ## "Bigger context window = better"
 
-**Reality:** Models degrade on long contexts. The "lost in the middle" problem means models pay more attention to the beginning and end of long prompts and less to the middle. A 200K context window doesn't mean the model uses all 200K tokens equally well. Also, longer contexts cost more and are slower.
+**Thực tế:** Hiệu suất của mô hình suy giảm khi ngữ cảnh dài. Vấn đề "lạc ở giữa" có nghĩa là mô hình chú ý nhiều hơn đến phần đầu và cuối của prompt dài, và ít chú ý hơn đến phần giữa. Cửa sổ ngữ cảnh 200K không có nghĩa mô hình sử dụng tốt như nhau toàn bộ 200K token. Ngoài ra, ngữ cảnh dài hơn tốn kém hơn và chậm hơn.
 
-**Why it matters:** Don't dump everything into the context. Be selective. RAG with targeted retrieval beats stuffing the full document in.
+**Vì sao điều này quan trọng:** Đừng nhồi mọi thứ vào ngữ cảnh. Hãy chọn lọc. RAG với truy xuất có mục tiêu hiệu quả hơn việc nhét toàn bộ tài liệu vào.
 
 ---
 
 ## "AI agents are autonomous"
 
-**Reality:** Current AI agents run in a loop: think, act, observe, repeat. They follow the pattern the harness defines. They don't have goals, plans, or self-awareness. They're reactive systems that use LLMs to decide what tool to call next. The "autonomy" comes from the loop, not from the AI.
+**Thực tế:** Các AI agent hiện nay chạy trong một vòng lặp: suy nghĩ, hành động, quan sát, lặp lại. Chúng tuân theo mẫu mà harness định nghĩa. Chúng không có mục tiêu, kế hoạch hay tự nhận thức. Chúng là các hệ thống phản ứng, dùng LLM để quyết định gọi công cụ nào tiếp theo. Tính "tự chủ" đến từ vòng lặp, chứ không phải từ AI.
 
-**Why it matters:** When building agents, you're building the loop, the tools, and the guardrails. The LLM is just the decision-making component inside your system.
+**Vì sao điều này quan trọng:** Khi xây dựng agent, bạn đang xây vòng lặp, các công cụ và các rào chắn. LLM chỉ là thành phần ra quyết định bên trong hệ thống của bạn.
 
 ---
 
 ## "Transformers understand order because of positional encoding"
 
-**Reality:** Transformers have no inherent sense of order. Self-attention treats input as a set, not a sequence. Positional encoding is a hack to inject order information by adding position-dependent vectors to the input. Different methods (sinusoidal, learned, RoPE, ALiBi) handle this differently. None of them truly give the model sequential understanding the way RNNs had it.
+**Thực tế:** Transformer không có cảm nhận vốn có về thứ tự. Self-attention xem đầu vào như một tập hợp, chứ không phải một chuỗi. Positional encoding là một thủ thuật để đưa thông tin thứ tự vào bằng cách cộng các vector phụ thuộc vào vị trí vào đầu vào. Các phương pháp khác nhau (sinusoidal, learned, RoPE, ALiBi) xử lý việc này theo những cách khác nhau. Không phương pháp nào thực sự mang lại cho mô hình khả năng hiểu tuần tự như RNN từng có.
 
-**Why it matters:** This is why positional encoding research is still active. It's a solved-enough problem for most uses, but it's fundamentally a workaround.
+**Vì sao điều này quan trọng:** Đây là lý do nghiên cứu về positional encoding vẫn đang diễn ra. Đây là vấn đề đã được giải quyết đủ tốt cho hầu hết mục đích sử dụng, nhưng về căn bản vẫn là một giải pháp chắp vá.
 
 ---
 
 ## "Pre-training is just reading the internet"
 
-**Reality:** Pre-training is next-token prediction on a massive corpus. The model learns to predict what comes next given what came before. Through this simple objective, it learns grammar, facts, reasoning patterns, code structure, and more. But it also learns internet nonsense, biases, and incorrect information. The data curation, filtering, and deduplication matter enormously.
+**Thực tế:** Tiền huấn luyện là dự đoán token tiếp theo trên một kho ngữ liệu khổng lồ. Mô hình học dự đoán điều gì sẽ đến tiếp theo dựa trên những gì đã xuất hiện trước đó. Qua mục tiêu đơn giản này, nó học ngữ pháp, sự kiện, mẫu suy luận, cấu trúc mã và nhiều thứ khác. Nhưng nó cũng học những điều vô nghĩa trên internet, định kiến và thông tin không chính xác. Việc tuyển chọn, lọc và loại bỏ trùng lặp dữ liệu có ý nghĩa vô cùng lớn.
 
-**Why it matters:** Garbage in, garbage out. The quality of pre-training data is one of the biggest differentiators between models.
+**Vì sao điều này quan trọng:** Đầu vào rác thì đầu ra rác. Chất lượng dữ liệu tiền huấn luyện là một trong những yếu tố tạo khác biệt lớn nhất giữa các mô hình.
 
 ---
 
 ## "RLHF aligns AI with human values"
 
-**Reality:** RLHF aligns AI with the preferences of the specific humans who provided feedback. Those humans disagree with each other, have biases, and can't cover every situation. RLHF makes the model helpful and harmless in the ways the raters defined, not aligned with some universal human value system.
+**Thực tế:** RLHF điều chỉnh AI theo sở thích của những người cụ thể đã cung cấp phản hồi. Những người đó bất đồng với nhau, có thiên kiến và không thể bao quát mọi tình huống. RLHF khiến mô hình hữu ích và vô hại theo cách mà người đánh giá đã xác định, chứ không điều chỉnh mô hình theo một hệ giá trị phổ quát của con người.
 
-**Why it matters:** RLHF is a training technique, not a solution to alignment. It's one tool in a larger toolkit.
+**Vì sao điều này quan trọng:** RLHF là một kỹ thuật huấn luyện, không phải giải pháp cho vấn đề alignment. Đây là một công cụ trong bộ công cụ lớn hơn.
 
 ---
 
 ## "Embeddings capture meaning"
 
-**Reality:** Embeddings capture statistical co-occurrence patterns. Words that appear in similar contexts get similar vectors. This correlates with meaning well enough to be useful, but it's not semantic understanding. "King - Man + Woman = Queen" works because of distributional patterns, not because the model understands monarchy or gender.
+**Thực tế:** Embedding nắm bắt các mẫu đồng xuất hiện mang tính thống kê. Những từ xuất hiện trong các ngữ cảnh tương tự sẽ có vector tương tự. Điều này tương quan với ý nghĩa đủ tốt để hữu ích, nhưng không phải là sự hiểu biết ngữ nghĩa. "King - Man + Woman = Queen" có hiệu quả nhờ các mẫu phân bố, chứ không phải vì mô hình hiểu chế độ quân chủ hay giới tính.
 
-**Why it matters:** Embeddings are powerful for similarity search, clustering, and retrieval. But don't over-interpret what "similar" means.
+**Vì sao điều này quan trọng:** Embedding rất mạnh trong tìm kiếm tương đồng, phân cụm và truy xuất. Nhưng đừng diễn giải quá mức ý nghĩa của từ "tương tự".
 
 ---
 
 ## "Zero-shot means no training"
 
-**Reality:** Zero-shot means no task-specific examples at inference time. The model was still trained on billions of tokens. It just hasn't seen examples of this specific task format. It generalizes from pre-training patterns. Few-shot means giving a few examples in the prompt. Neither means the model learned without training.
+**Thực tế:** Zero-shot nghĩa là không có ví dụ đặc thù cho tác vụ tại thời điểm suy luận. Mô hình vẫn được huấn luyện trên hàng tỷ token. Chỉ là nó chưa thấy ví dụ về định dạng cụ thể của tác vụ này. Nó khái quát hóa từ các mẫu tiền huấn luyện. Few-shot nghĩa là đưa một vài ví dụ vào prompt. Cả hai đều không có nghĩa là mô hình học mà không qua huấn luyện.
 
 ---
 
 ## "AI models learn like humans"
 
-**Reality:** Humans learn from few examples, generalize across domains, and update beliefs continuously. Neural networks need millions of examples, generalize within their training distribution, and have fixed weights after training. The learning analogy is loose at best. Backpropagation is nothing like how biological neurons learn.
+**Thực tế:** Con người học từ một vài ví dụ, khái quát hóa giữa các lĩnh vực và liên tục cập nhật niềm tin. Mạng nơ-ron cần hàng triệu ví dụ, khái quát hóa trong phạm vi phân phối huấn luyện và có trọng số cố định sau khi huấn luyện. Phép so sánh về việc học cùng lắm cũng chỉ là một phép so sánh lỏng lẻo. Backpropagation chẳng giống gì cách nơ-ron sinh học học.
 
-**Why it matters:** Don't anthropomorphize models. It leads to wrong expectations about what they can and can't do.
+**Vì sao điều này quan trọng:** Đừng nhân cách hóa mô hình. Điều đó dẫn đến kỳ vọng sai lầm về những gì chúng có thể và không thể làm.
 
 ---
 
 ## "Scaling laws mean bigger is always better"
 
-**Reality:** Scaling laws describe predictable relationships between compute, data, and model size. They show diminishing returns: doubling parameters doesn't double performance. They also assume you scale data proportionally. Many practical improvements come from better architectures, training techniques, and data quality, not just scale.
+**Thực tế:** Quy luật scaling mô tả mối quan hệ có thể dự đoán giữa lượng tính toán, dữ liệu và kích thước mô hình. Chúng cho thấy lợi ích giảm dần: tăng gấp đôi số tham số không làm hiệu suất tăng gấp đôi. Chúng cũng giả định dữ liệu được mở rộng theo tỷ lệ tương ứng. Nhiều cải tiến thực tiễn đến từ kiến trúc tốt hơn, kỹ thuật huấn luyện và chất lượng dữ liệu, chứ không chỉ từ quy mô.
 
-**Why it matters:** A 7B model with good engineering can solve your problem. Don't reach for 70B by default.
+**Vì sao điều này quan trọng:** Một mô hình 7B với kỹ thuật tốt có thể giải quyết vấn đề của bạn. Đừng mặc định chọn 70B.
 
 ---
 
 ## "Open source AI is the same as open weights"
 
-**Reality:** Most "open source" models are open weights. You get the model files but not the training data, training code, or data pipeline. True open source (like OLMo) releases everything: data, code, intermediate checkpoints, evaluation. Open weights is useful but not the same commitment as open source.
+**Thực tế:** Hầu hết mô hình "mã nguồn mở" thực chất là mô hình có trọng số mở. Bạn nhận được các tệp mô hình nhưng không có dữ liệu huấn luyện, mã huấn luyện hay quy trình dữ liệu. Mã nguồn mở thực sự (như OLMo) công bố mọi thứ: dữ liệu, mã, checkpoint trung gian và đánh giá. Trọng số mở hữu ích, nhưng không phải là cùng một cam kết như mã nguồn mở.
 
-**Why it matters:** Know what you're getting. Open weights let you run and fine-tune. True open source lets you reproduce and understand.
+**Vì sao điều này quan trọng:** Hãy biết mình nhận được những gì. Trọng số mở cho phép bạn chạy và fine-tune. Mã nguồn mở thực sự cho phép bạn tái tạo và hiểu mô hình.
 
 ---
 
 ## "Prompt engineering is not real engineering"
 
-**Reality:** Prompt engineering is system design. You're designing the interface between human intent and model behavior. Good prompt engineering requires understanding tokenization, attention patterns, context window limits, and output parsing. It's closer to API design than to "talking nicely to the AI."
+**Thực tế:** Kỹ thuật prompt là thiết kế hệ thống. Bạn đang thiết kế giao diện giữa ý định của con người và hành vi của mô hình. Kỹ thuật prompt tốt đòi hỏi hiểu về tokenization, các mẫu attention, giới hạn cửa sổ ngữ cảnh và phân tích đầu ra. Nó gần với thiết kế API hơn là "nói chuyện tử tế với AI".
 
-**Why it matters:** This course teaches prompt engineering as a real engineering discipline in Phase 11.
+**Vì sao điều này quan trọng:** Khóa học này dạy kỹ thuật prompt như một lĩnh vực kỹ thuật thực thụ trong Giai đoạn 11.
 
 ---
 
 ## "CNNs are outdated, everything is transformers now"
 
-**Reality:** Vision Transformers (ViT) beat CNNs on many benchmarks, but CNNs are still used extensively. They're faster for inference, work well on mobile/edge, need less data, and have useful inductive biases (translation invariance, local patterns). Many production vision systems still use CNNs. The best architectures often combine both.
+**Thực tế:** Vision Transformer (ViT) vượt qua CNN trên nhiều benchmark, nhưng CNN vẫn được sử dụng rộng rãi. Chúng suy luận nhanh hơn, hoạt động tốt trên thiết bị di động/edge, cần ít dữ liệu hơn và có các thiên hướng quy nạp hữu ích (bất biến tịnh tiến, mẫu cục bộ). Nhiều hệ thống thị giác trong môi trường sản xuất vẫn dùng CNN. Các kiến trúc tốt nhất thường kết hợp cả hai.
 
-**Why it matters:** Learn both (Phases 4 and 7). Use what works for your constraints.
+**Vì sao điều này quan trọng:** Hãy học cả hai (Giai đoạn 4 và 7). Dùng phương pháp phù hợp với các ràng buộc của bạn.
 
 ---
 
 ## "You need massive compute to train useful models"
 
-**Reality:** You need massive compute to pre-train foundation models. But fine-tuning, LoRA, and transfer learning let you adapt models on a single GPU. Many useful AI applications don't require training at all, just good prompting and RAG. The "compute barrier" is for building foundation models, not for using them.
+**Thực tế:** Bạn cần lượng tính toán khổng lồ để tiền huấn luyện các mô hình nền tảng. Nhưng fine-tuning, LoRA và học chuyển giao cho phép bạn điều chỉnh mô hình trên một GPU duy nhất. Nhiều ứng dụng AI hữu ích hoàn toàn không cần huấn luyện, chỉ cần prompt tốt và RAG. "Rào cản tính toán" áp dụng cho việc xây dựng mô hình nền tảng, chứ không phải sử dụng chúng.
 
-**Why it matters:** You can build real AI applications with a laptop. This course proves it.
+**Vì sao điều này quan trọng:** Bạn có thể xây dựng ứng dụng AI thực tế bằng một chiếc laptop. Khóa học này chứng minh điều đó.
