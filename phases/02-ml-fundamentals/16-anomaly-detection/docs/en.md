@@ -1,6 +1,6 @@
 # Anomaly Detection
 
-> Normal is easy to define. Abnormal is whatever doesn't fit.
+> Bình thường thì dễ định nghĩa. Bất thường là bất cứ điều gì không phù hợp.
 
 **Type:** Build
 **Language:** Python
@@ -9,32 +9,32 @@
 
 ## Learning Objectives
 
-- Implement Z-score, IQR, and Isolation Forest anomaly detection methods from scratch
-- Distinguish between point, contextual, and collective anomalies and select the appropriate detection method for each
-- Explain why anomaly detection is framed as modeling normal data rather than classifying anomalies
-- Compare unsupervised anomaly detection with supervised classification and evaluate the tradeoff between novel anomaly coverage and precision
+- Triển khai các phương pháp phát hiện bất thường Z-score, IQR và Isolation Forest từ đầu
+- Phân biệt các bất thường điểm, theo ngữ cảnh và tập thể, và chọn phương pháp phát hiện thích hợp cho từng loại
+- Giải thích tại sao phát hiện bất thường được đặt thành bài toán mô hình hóa dữ liệu bình thường thay vì phân loại các bất thường
+- So sánh phát hiện bất thường không giám sát với phân loại có giám sát và đánh giá sự đánh đổi giữa khả năng bao phủ các bất thường mới và precision
 
 ## The Problem
 
-A credit card is used in New York at 2pm, then in Tokyo at 2:05pm. A factory sensor reads 150 degrees when the normal range is 80-120. A server sends 50,000 requests per second when the daily average is 200.
+Một thẻ tín dụng được sử dụng tại New York lúc 2 giờ chiều, sau đó tại Tokyo lúc 2:05 chiều. Một cảm biến nhà máy ghi nhận 150 độ khi phạm vi bình thường là 80-120. Một máy chủ gửi 50,000 yêu cầu mỗi giây khi mức trung bình hằng ngày là 200.
 
-These are anomalies. Finding them matters. Fraud costs billions. Equipment failures cost downtime. Network intrusions cost data.
+Đây là các bất thường. Việc tìm ra chúng có ý nghĩa quan trọng. Gian lận gây thiệt hại hàng tỷ. Hỏng hóc thiết bị gây tổn thất thời gian ngừng hoạt động. Xâm nhập mạng gây tổn thất dữ liệu.
 
-The challenge: you rarely have labeled examples of anomalies. Fraud makes up 0.1% of transactions. Equipment failures happen a few times per year. You cannot train a standard classifier because there is almost nothing in the "anomaly" class to learn from. Even if you have some labels, the anomalies you have seen are not the only types you will encounter. Tomorrow's fraud scheme looks different from today's.
+Thách thức: bạn hiếm khi có các ví dụ bất thường được gán nhãn. Gian lận chiếm 0.1% giao dịch. Hỏng hóc thiết bị xảy ra vài lần mỗi năm. Bạn không thể huấn luyện một bộ phân loại tiêu chuẩn vì gần như không có gì trong lớp "bất thường" để học. Ngay cả khi bạn có một số nhãn, những bất thường bạn đã thấy cũng không phải là những loại duy nhất bạn sẽ gặp. Mưu đồ gian lận ngày mai trông khác với hôm nay.
 
-Anomaly detection flips the problem. Instead of learning what is abnormal, learn what is normal. Anything that deviates from normal is suspicious. This works without labels, adapts to new types of anomalies, and scales to massive datasets.
+Phát hiện bất thường đảo ngược bài toán. Thay vì học điều gì là bất thường, hãy học điều gì là bình thường. Bất cứ điều gì lệch khỏi bình thường đều đáng ngờ. Cách này hoạt động mà không cần nhãn, thích ứng với các loại bất thường mới và mở rộng tới những tập dữ liệu khổng lồ.
 
 ## The Concept
 
 ### Types of Anomalies
 
-Not all anomalies are the same:
+Không phải mọi bất thường đều giống nhau:
 
-- **Point anomalies.** A single data point that is unusual regardless of context. A temperature reading of 500 degrees. A transaction of $50,000 from an account that normally spends $50.
-- **Contextual anomalies.** A data point that is unusual given its context. A temperature of 90 degrees is normal in summer, anomalous in winter. Same value, different context.
-- **Collective anomalies.** A sequence of data points that is unusual as a group, even though each individual point might be normal. Five login failures is normal. Fifty in a row is a brute-force attack.
+- **Bất thường điểm.** Một điểm dữ liệu đơn lẻ khác thường bất kể ngữ cảnh. Một số đo nhiệt độ 500 độ. Một giao dịch $50,000 từ một tài khoản thường chi tiêu $50.
+- **Bất thường theo ngữ cảnh.** Một điểm dữ liệu khác thường xét trong ngữ cảnh của nó. Nhiệt độ 90 độ là bình thường vào mùa hè, bất thường vào mùa đông. Cùng giá trị, khác ngữ cảnh.
+- **Bất thường tập thể.** Một chuỗi điểm dữ liệu khác thường khi xét cả nhóm, dù từng điểm riêng lẻ có thể bình thường. Năm lần đăng nhập thất bại là bình thường. Năm mươi lần liên tiếp là một cuộc tấn công brute-force.
 
-Most methods detect point anomalies. Contextual anomalies need time or location features. Collective anomalies need sequence-aware methods.
+Hầu hết các phương pháp phát hiện bất thường điểm. Bất thường theo ngữ cảnh cần các đặc trưng thời gian hoặc vị trí. Bất thường tập thể cần các phương pháp có xét đến chuỗi.
 
 ```mermaid
 flowchart TD
@@ -53,55 +53,55 @@ flowchart TD
 
 ### The Unsupervised Framing
 
-In standard classification, you have labels for both classes. In anomaly detection, you typically have one of three situations:
+Trong phân loại tiêu chuẩn, bạn có nhãn cho cả hai lớp. Trong phát hiện bất thường, bạn thường gặp một trong ba tình huống:
 
-1. **Fully unsupervised.** No labels at all. You fit the detector on all data and hope anomalies are rare enough not to corrupt the "normal" model.
-2. **Semi-supervised.** You have a clean dataset of normal data only. You fit on this clean set and score everything else. This is the strongest setup when possible.
-3. **Weakly supervised.** You have a few labeled anomalies. Use them for evaluation, not training. Train unsupervised, then measure precision/recall on the labeled subset.
+1. **Hoàn toàn không giám sát.** Không có nhãn nào. Bạn khớp bộ phát hiện trên toàn bộ dữ liệu và hy vọng các bất thường đủ hiếm để không làm sai lệch mô hình "bình thường".
+2. **Bán giám sát.** Bạn có một tập dữ liệu sạch chỉ gồm dữ liệu bình thường. Bạn khớp trên tập sạch này và chấm điểm mọi thứ khác. Đây là cách thiết lập mạnh nhất khi có thể thực hiện.
+3. **Giám sát yếu.** Bạn có một vài bất thường được gán nhãn. Sử dụng chúng để đánh giá, không phải huấn luyện. Huấn luyện không giám sát, rồi đo precision/recall trên tập con được gán nhãn.
 
-The key insight: anomaly detection is fundamentally different from classification. You are modeling the distribution of normal data, not the decision boundary between two classes.
+Nhận định then chốt: phát hiện bất thường khác về cơ bản so với phân loại. Bạn đang mô hình hóa phân phối của dữ liệu bình thường, không phải ranh giới quyết định giữa hai lớp.
 
 ### Supervised vs Unsupervised: The Tradeoff
 
-If you do have labeled anomalies, should you use them for training (supervised classification) or for evaluation only (unsupervised detection)?
+Nếu bạn có các bất thường được gán nhãn, bạn nên sử dụng chúng để huấn luyện (phân loại có giám sát) hay chỉ để đánh giá (phát hiện không giám sát)?
 
-**Supervised (treat as classification):**
-- Catches the exact types of anomalies you have seen before
-- Higher precision on known anomaly types
-- Misses novel anomaly types entirely
-- Requires retraining when new anomaly types emerge
-- Needs enough anomaly examples (often too few)
+**Có giám sát (coi là phân loại):**
+- Phát hiện đúng những loại bất thường bạn đã thấy trước đây
+- Precision cao hơn đối với các loại bất thường đã biết
+- Hoàn toàn bỏ sót các loại bất thường mới
+- Cần huấn luyện lại khi xuất hiện các loại bất thường mới
+- Cần đủ ví dụ bất thường (thường có quá ít)
 
-**Unsupervised (model normal, flag deviations):**
-- Catches any deviation from normal, including novel types
-- Does not require labeled anomalies
-- Higher false positive rate (not everything unusual is bad)
-- More robust to distribution shift
+**Không giám sát (mô hình hóa bình thường, đánh dấu các sai lệch):**
+- Phát hiện mọi sai lệch khỏi bình thường, bao gồm các loại mới
+- Không cần các bất thường được gán nhãn
+- Tỷ lệ dương tính giả cao hơn (không phải mọi điều khác thường đều xấu)
+- Vững hơn trước sự dịch chuyển phân phối
 
-In practice, the best systems combine both: unsupervised detection for broad coverage, supervised models for known high-priority anomaly types, and human review for ambiguous cases.
+Trong thực tế, các hệ thống tốt nhất kết hợp cả hai: phát hiện không giám sát để bao phủ rộng, các mô hình có giám sát cho những loại bất thường đã biết có mức ưu tiên cao và con người xem xét các trường hợp mơ hồ.
 
 ### Z-Score Method
 
-The simplest approach. Compute the mean and standard deviation of each feature. Flag any point more than k standard deviations from the mean.
+Cách tiếp cận đơn giản nhất. Tính trung bình và độ lệch chuẩn của từng đặc trưng. Đánh dấu bất kỳ điểm nào cách trung bình hơn k độ lệch chuẩn.
 
 ```text
 z_score = (x - mean) / std
 anomaly if |z_score| > threshold
 ```
 
-The default threshold is 3.0 (99.7% of normal data falls within 3 standard deviations for a Gaussian distribution).
+Ngưỡng mặc định là 3.0 (99.7% dữ liệu bình thường nằm trong phạm vi 3 độ lệch chuẩn đối với phân phối Gaussian).
 
-**Strengths:** Simple. Fast. Interpretable ("this value is 4.5 standard deviations from normal").
+**Điểm mạnh:** Đơn giản. Nhanh. Có thể diễn giải ("giá trị này cách mức bình thường 4.5 độ lệch chuẩn").
 
-**Weaknesses:** Assumes data is normally distributed. Sensitive to outliers in the training data (the outliers shift the mean and inflate the std, making them harder to detect). Fails on multimodal distributions.
+**Điểm yếu:** Giả định dữ liệu có phân phối chuẩn. Nhạy với các ngoại lệ trong dữ liệu huấn luyện (các ngoại lệ làm dịch chuyển trung bình và tăng độ lệch chuẩn, khiến chúng khó bị phát hiện hơn). Thất bại trên các phân phối đa đỉnh.
 
-**When it works well:** Single-feature monitoring where data is roughly bell-shaped. Server response times, manufacturing tolerances, sensor readings with stable baselines.
+**Khi hoạt động tốt:** Giám sát một đặc trưng khi dữ liệu có dạng gần hình chuông. Thời gian phản hồi của máy chủ, dung sai sản xuất, số đo cảm biến có đường cơ sở ổn định.
 
-**When it fails:** Multi-cluster data (two office locations with different baseline temperatures), skewed data (transaction amounts where $1000 is rare but not anomalous), data with outliers in the training set.
+**Khi thất bại:** Dữ liệu nhiều cụm (hai địa điểm văn phòng có nhiệt độ cơ sở khác nhau), dữ liệu lệch (giá trị giao dịch mà $1000 là hiếm nhưng không bất thường), dữ liệu có ngoại lệ trong tập huấn luyện.
 
 ### IQR Method
 
-More robust than Z-score. Uses the interquartile range instead of mean and standard deviation.
+Vững hơn Z-score. Sử dụng khoảng tứ phân vị thay cho trung bình và độ lệch chuẩn.
 
 ```
 Q1 = 25th percentile
@@ -112,17 +112,17 @@ upper_bound = Q3 + factor * IQR
 anomaly if x < lower_bound or x > upper_bound
 ```
 
-The default factor is 1.5.
+Hệ số mặc định là 1.5.
 
-**Strengths:** Robust to outliers (percentiles are not affected by extreme values). Works on skewed distributions. No normality assumption.
+**Điểm mạnh:** Vững trước các ngoại lệ (các phân vị không bị ảnh hưởng bởi giá trị cực đoan). Hoạt động trên các phân phối lệch. Không có giả định về tính chuẩn.
 
-**Weaknesses:** Univariate only (applies per feature independently). Cannot detect anomalies that are unusual only when features are considered together (a point might be normal in each feature individually but anomalous in the joint space).
+**Điểm yếu:** Chỉ đơn biến (áp dụng độc lập cho từng đặc trưng). Không thể phát hiện các bất thường chỉ khác thường khi xét các đặc trưng cùng nhau (một điểm có thể bình thường ở từng đặc trưng riêng lẻ nhưng bất thường trong không gian kết hợp).
 
-**Practical note:** The 1.5 factor in IQR corresponds to the whiskers in a box plot. Points outside the whiskers are potential outliers. Using 3.0 instead of 1.5 makes the detector more conservative (fewer flags, fewer false positives). The right factor depends on your tolerance for false alarms.
+**Lưu ý thực tế:** Hệ số 1.5 trong IQR tương ứng với các râu trong biểu đồ hộp. Các điểm ngoài râu là những ngoại lệ tiềm năng. Sử dụng 3.0 thay vì 1.5 khiến bộ phát hiện thận trọng hơn (ít điểm được đánh dấu hơn, ít dương tính giả hơn). Hệ số phù hợp phụ thuộc vào mức chấp nhận báo động giả của bạn.
 
 ### Isolation Forest
 
-The key insight: anomalies are few and different. In a random partitioning of the data, anomalies are easier to isolate -- they need fewer random splits to be separated from the rest.
+Nhận định then chốt: các bất thường ít và khác biệt. Trong một phép phân hoạch ngẫu nhiên dữ liệu, các bất thường dễ cô lập hơn -- chúng cần ít phép chia ngẫu nhiên hơn để tách khỏi phần còn lại.
 
 ```mermaid
 flowchart TD
@@ -138,68 +138,68 @@ flowchart TD
     style F fill:#dfd,stroke:#333
 ```
 
-**How it works:**
-1. Build many random trees (an isolation forest)
-2. At each node, pick a random feature and a random split value between the feature's min and max
-3. Keep splitting until every point is isolated (in its own leaf)
-4. Anomalies have shorter average path lengths across all trees
+**Cách hoạt động:**
+1. Xây dựng nhiều cây ngẫu nhiên (một rừng cô lập)
+2. Tại mỗi nút, chọn một đặc trưng ngẫu nhiên và một giá trị chia ngẫu nhiên giữa giá trị nhỏ nhất và lớn nhất của đặc trưng
+3. Tiếp tục chia cho tới khi mọi điểm được cô lập (trong lá riêng của nó)
+4. Các bất thường có độ dài đường đi trung bình ngắn hơn trên tất cả các cây
 
-**Why it works:** Normal points live in dense regions. Many random splits are needed to isolate one from its neighbors. Anomalies live in sparse regions. One or two random splits are enough to isolate them.
+**Tại sao hoạt động:** Các điểm bình thường nằm trong những vùng dày đặc. Cần nhiều phép chia ngẫu nhiên để cô lập một điểm khỏi các láng giềng. Các bất thường nằm trong những vùng thưa. Một hoặc hai phép chia ngẫu nhiên là đủ để cô lập chúng.
 
-The anomaly score is based on the average path length across all trees, normalized by the expected path length of a random binary search tree:
+Điểm bất thường dựa trên độ dài đường đi trung bình trên tất cả các cây, được chuẩn hóa bằng độ dài đường đi kỳ vọng của một cây tìm kiếm nhị phân ngẫu nhiên:
 
 ```
 score(x) = 2^(-average_path_length(x) / c(n))
 ```
 
-Where `c(n)` is the expected path length for n samples. Score near 1 means anomaly. Score near 0.5 means normal. Score near 0 means very normal (deep in dense clusters).
+Trong đó `c(n)` là độ dài đường đi kỳ vọng cho n mẫu. Điểm gần 1 nghĩa là bất thường. Điểm gần 0.5 nghĩa là bình thường. Điểm gần 0 nghĩa là rất bình thường (nằm sâu trong các cụm dày đặc).
 
-**Strengths:** No distribution assumptions. Works in high dimensions. Scales well (sublinear in sample size because each tree uses a subsample). Handles mixed feature types.
+**Điểm mạnh:** Không có giả định về phân phối. Hoạt động trong không gian nhiều chiều. Mở rộng tốt (dưới tuyến tính theo kích thước mẫu vì mỗi cây sử dụng một mẫu con). Xử lý các loại đặc trưng hỗn hợp.
 
-**Weaknesses:** Struggles with anomalies in dense regions (masking effect). Random splitting is less effective when many features are irrelevant.
+**Điểm yếu:** Gặp khó khăn với các bất thường trong vùng dày đặc (hiệu ứng che khuất). Chia ngẫu nhiên kém hiệu quả hơn khi nhiều đặc trưng không liên quan.
 
-**Key hyperparameters:**
-- `n_estimators`: Number of trees. 100 is usually enough. More trees give more stable scores but slower computation.
-- `max_samples`: Number of samples per tree. 256 is the default in the original paper. Smaller values make individual trees less accurate but increase diversity. The subsampling is what makes Isolation Forest fast -- each tree sees a small fraction of the data.
-- `contamination`: Expected fraction of anomalies. Used only for setting the threshold. Does not affect the scores themselves.
+**Các siêu tham số chính:**
+- `n_estimators`: Số cây. 100 thường là đủ. Nhiều cây hơn cho điểm ổn định hơn nhưng tính toán chậm hơn.
+- `max_samples`: Số mẫu trên mỗi cây. 256 là mặc định trong bài báo gốc. Các giá trị nhỏ hơn khiến từng cây kém chính xác hơn nhưng tăng tính đa dạng. Lấy mẫu con là điều khiến Isolation Forest nhanh -- mỗi cây chỉ thấy một phần nhỏ dữ liệu.
+- `contamination`: Tỷ lệ bất thường kỳ vọng. Chỉ được sử dụng để đặt ngưỡng. Không ảnh hưởng đến bản thân các điểm số.
 
 ### Local Outlier Factor (LOF)
 
-LOF compares the local density around a point to the density around its neighbors. A point in a sparse region surrounded by dense regions is anomalous.
+LOF so sánh mật độ cục bộ quanh một điểm với mật độ quanh các láng giềng của nó. Một điểm trong vùng thưa được bao quanh bởi các vùng dày đặc là bất thường.
 
-**How it works:**
-1. For each point, find its k nearest neighbors
-2. Compute the local reachability density (how dense is the neighborhood)
-3. Compare each point's density to its neighbors' densities
-4. If a point has much lower density than its neighbors, it is an outlier
+**Cách hoạt động:**
+1. Với mỗi điểm, tìm k láng giềng gần nhất của nó
+2. Tính mật độ khả đạt cục bộ (vùng lân cận dày đặc đến mức nào)
+3. So sánh mật độ của từng điểm với mật độ của các láng giềng
+4. Nếu một điểm có mật độ thấp hơn nhiều so với các láng giềng, nó là một ngoại lệ
 
-**LOF score:**
-- LOF close to 1.0 means similar density as neighbors (normal)
-- LOF greater than 1.0 means lower density than neighbors (potentially anomalous)
-- LOF much greater than 1.0 (e.g., 2.0+) means significantly lower density (likely anomaly)
+**Điểm LOF:**
+- LOF gần 1.0 nghĩa là mật độ tương tự các láng giềng (bình thường)
+- LOF lớn hơn 1.0 nghĩa là mật độ thấp hơn các láng giềng (có khả năng bất thường)
+- LOF lớn hơn 1.0 nhiều (ví dụ: 2.0+) nghĩa là mật độ thấp hơn đáng kể (có khả năng cao là bất thường)
 
-The "local" part is critical. Consider a dataset with two clusters: a dense cluster of 1000 points and a sparse cluster of 50 points. A point on the edge of the sparse cluster is not globally unusual -- it has 50 neighbors. But it is locally unusual if its immediate neighbors are denser than it is. LOF captures this nuance that global methods miss.
+Phần "cục bộ" rất quan trọng. Xét một tập dữ liệu có hai cụm: một cụm dày đặc gồm 1000 điểm và một cụm thưa gồm 50 điểm. Một điểm ở rìa cụm thưa không khác thường trên toàn cục -- nó có 50 láng giềng. Nhưng nó khác thường cục bộ nếu các láng giềng ngay cạnh nó dày đặc hơn nó. LOF nắm bắt được sắc thái này mà các phương pháp toàn cục bỏ sót.
 
-**Strengths:** Detects local anomalies (points that are unusual in their neighborhood, even if they are not globally unusual). Works on clusters of different densities.
+**Điểm mạnh:** Phát hiện các bất thường cục bộ (những điểm khác thường trong vùng lân cận, ngay cả khi chúng không khác thường trên toàn cục). Hoạt động trên các cụm có mật độ khác nhau.
 
-**Weaknesses:** Slow on large datasets (O(n^2) for naive implementation). Sensitive to the choice of k. Does not work well in very high dimensions (curse of dimensionality affects distance calculations).
+**Điểm yếu:** Chậm trên các tập dữ liệu lớn (O(n^2) với cách triển khai đơn giản). Nhạy với lựa chọn k. Không hoạt động tốt trong không gian rất nhiều chiều (lời nguyền số chiều ảnh hưởng đến các phép tính khoảng cách).
 
 ### Comparison
 
-| Method | Assumptions | Speed | Handles High Dims | Detects Local Anomalies |
+| Phương pháp | Giả định | Tốc độ | Xử lý số chiều cao | Phát hiện bất thường cục bộ |
 |--------|------------|-------|-------------------|------------------------|
-| Z-score | Normal distribution | Very fast | Yes (per feature) | No |
-| IQR | None (per feature) | Very fast | Yes (per feature) | No |
-| Isolation Forest | None | Fast | Yes | Partially |
-| LOF | Distance is meaningful | Slow | Poorly | Yes |
+| Z-score | Phân phối chuẩn | Rất nhanh | Có (theo từng đặc trưng) | Không |
+| IQR | Không có (theo từng đặc trưng) | Rất nhanh | Có (theo từng đặc trưng) | Không |
+| Isolation Forest | Không có | Nhanh | Có | Một phần |
+| LOF | Khoảng cách có ý nghĩa | Chậm | Kém | Có |
 
 ### Evaluation Challenges
 
-Evaluating anomaly detectors is harder than evaluating classifiers:
+Đánh giá các bộ phát hiện bất thường khó hơn đánh giá các bộ phân loại:
 
-- **Extreme class imbalance.** With 0.1% anomalies, predicting "normal" for everything gives 99.9% accuracy. Accuracy is useless.
-- **AUROC is misleading.** With heavy imbalance, AUROC can look good even when the model misses most anomalies at practical thresholds.
-- **Better metrics:** Precision@k (of the top k flagged items, how many are real anomalies), AUPRC (area under precision-recall curve), and recall at a fixed false positive rate.
+- **Mất cân bằng lớp cực độ.** Với 0.1% bất thường, dự đoán "bình thường" cho mọi thứ cho accuracy 99.9%. Accuracy vô dụng.
+- **AUROC gây hiểu lầm.** Với mức mất cân bằng lớn, AUROC có thể trông tốt ngay cả khi mô hình bỏ sót hầu hết các bất thường ở các ngưỡng thực tế.
+- **Các thước đo tốt hơn:** Precision@k (trong k mục được đánh dấu cao nhất, bao nhiêu mục là bất thường thật), AUPRC (diện tích dưới đường cong precision-recall) và recall tại một tỷ lệ dương tính giả cố định.
 
 ```mermaid
 flowchart LR
@@ -215,17 +215,17 @@ flowchart LR
 
 ### Anomaly Detection Pipeline
 
-In practice, anomaly detection follows this workflow:
+Trong thực tế, phát hiện bất thường tuân theo quy trình này:
 
-1. **Collect baseline data.** Ideally, a period where you know there are no (or very few) anomalies.
-2. **Feature engineering.** Raw features plus derived features (rolling statistics, time features, ratios).
-3. **Train the detector.** Fit on the baseline data. The model learns what "normal" looks like.
-4. **Score new data.** Each new observation gets an anomaly score.
-5. **Threshold selection.** Choose the score cutoff. This is a business decision: higher threshold means fewer false alarms but more missed anomalies.
-6. **Alert and investigate.** Flagged points go to human review or automated response.
-7. **Feedback collection.** Record whether flagged items were true anomalies or false alarms. Use this data to evaluate the detector and tune the threshold over time.
+1. **Thu thập dữ liệu cơ sở.** Lý tưởng là một khoảng thời gian mà bạn biết không có (hoặc có rất ít) bất thường.
+2. **Kỹ thuật đặc trưng.** Các đặc trưng thô cộng với các đặc trưng dẫn xuất (thống kê trượt, đặc trưng thời gian, tỷ số).
+3. **Huấn luyện bộ phát hiện.** Khớp trên dữ liệu cơ sở. Mô hình học "bình thường" trông như thế nào.
+4. **Chấm điểm dữ liệu mới.** Mỗi quan sát mới nhận một điểm bất thường.
+5. **Lựa chọn ngưỡng.** Chọn mức cắt điểm số. Đây là quyết định kinh doanh: ngưỡng cao hơn nghĩa là ít báo động giả hơn nhưng bỏ sót nhiều bất thường hơn.
+6. **Cảnh báo và điều tra.** Các điểm được đánh dấu được chuyển cho con người xem xét hoặc phản hồi tự động.
+7. **Thu thập phản hồi.** Ghi lại các mục được đánh dấu là bất thường thật hay báo động giả. Sử dụng dữ liệu này để đánh giá bộ phát hiện và điều chỉnh ngưỡng theo thời gian.
 
-The pipeline is never "done." Data distributions shift, new anomaly types emerge, and thresholds need adjustment. Treat anomaly detection as a living system, not a one-time model.
+Pipeline không bao giờ "xong". Các phân phối dữ liệu dịch chuyển, các loại bất thường mới xuất hiện và các ngưỡng cần điều chỉnh. Hãy coi phát hiện bất thường là một hệ thống sống, không phải một mô hình làm một lần.
 
 ```figure
 f3-anomaly-fence
@@ -233,7 +233,7 @@ f3-anomaly-fence
 
 ## Build It
 
-The code in `code/anomaly_detection.py` implements Z-score, IQR, and Isolation Forest from scratch.
+Mã trong `code/anomaly_detection.py` triển khai Z-score, IQR và Isolation Forest từ đầu.
 
 ### Z-Score Detector
 
@@ -246,7 +246,7 @@ def zscore_detect(X, threshold=3.0):
     return z.max(axis=1) > threshold
 ```
 
-Simple and vectorized. Flags a point if any feature exceeds the threshold.
+Đơn giản và được vector hóa. Đánh dấu một điểm nếu bất kỳ đặc trưng nào vượt ngưỡng.
 
 ### IQR Detector
 
@@ -264,7 +264,7 @@ def iqr_detect(X, factor=1.5):
 
 ### Isolation Forest from Scratch
 
-The from-scratch implementation builds isolation trees that randomly partition the feature space:
+Bản triển khai từ đầu xây dựng các cây cô lập phân hoạch ngẫu nhiên không gian đặc trưng:
 
 ```python
 class IsolationTree:
@@ -292,9 +292,9 @@ class IsolationTree:
         return self
 ```
 
-The path length to isolate a point determines its anomaly score. Shorter paths mean more anomalous.
+Độ dài đường đi để cô lập một điểm quyết định điểm bất thường của nó. Đường đi ngắn hơn nghĩa là bất thường hơn.
 
-The `IsolationForest` class wraps multiple trees:
+Lớp `IsolationForest` bao bọc nhiều cây:
 
 ```python
 class IsolationForest:
@@ -317,21 +317,21 @@ class IsolationForest:
         return scores
 ```
 
-The normalization factor `c(n)` is the expected path length of an unsuccessful search in a binary search tree with n elements. It equals `2 * H(n-1) - 2*(n-1)/n` where `H` is the harmonic number. This normalization ensures scores are comparable across datasets of different sizes.
+Hệ số chuẩn hóa `c(n)` là độ dài đường đi kỳ vọng của một phép tìm kiếm không thành công trong một cây tìm kiếm nhị phân có n phần tử. Nó bằng `2 * H(n-1) - 2*(n-1)/n` trong đó `H` là số điều hòa. Phép chuẩn hóa này bảo đảm các điểm số có thể so sánh được giữa những tập dữ liệu có kích thước khác nhau.
 
 ### Demo Scenarios
 
-The code generates multiple test scenarios:
+Mã tạo ra nhiều kịch bản kiểm thử:
 
-1. **Single cluster with outliers.** A 2D Gaussian cluster with anomalies injected far from the center. All methods should work here.
-2. **Multimodal data.** Three clusters of different sizes and densities. Points between clusters are anomalous. Z-score struggles because the per-feature ranges are wide.
-3. **High-dimensional data.** 50 features, but anomalies differ in only 5 of them. Tests whether methods can find anomalies in a subset of features.
+1. **Một cụm với các ngoại lệ.** Một cụm Gaussian 2D với các bất thường được chèn xa tâm. Tất cả các phương pháp đều nên hoạt động ở đây.
+2. **Dữ liệu đa đỉnh.** Ba cụm có kích thước và mật độ khác nhau. Các điểm giữa các cụm là bất thường. Z-score gặp khó khăn vì phạm vi của từng đặc trưng rộng.
+3. **Dữ liệu nhiều chiều.** 50 đặc trưng, nhưng các bất thường chỉ khác ở 5 trong số đó. Kiểm tra xem các phương pháp có thể tìm được bất thường trong một tập con đặc trưng hay không.
 
-Each demo compares all methods using precision, recall, F1, and Precision@k.
+Mỗi bản minh họa so sánh tất cả các phương pháp bằng precision, recall, F1 và Precision@k.
 
 ## Use It
 
-With sklearn (using library implementations, not from-scratch):
+Với sklearn (sử dụng các bản triển khai thư viện, không phải từ đầu):
 
 ```python
 from sklearn.ensemble import IsolationForest
@@ -346,24 +346,24 @@ lof.fit(X_train)
 predictions = lof.predict(X_test)
 ```
 
-Note `contamination` sets the expected fraction of anomalies. Setting it correctly matters -- too low misses anomalies, too high creates false alarms.
+Lưu ý `contamination` đặt tỷ lệ bất thường kỳ vọng. Đặt đúng giá trị này rất quan trọng -- quá thấp sẽ bỏ sót bất thường, quá cao sẽ tạo báo động giả.
 
-The code in `anomaly_detection.py` compares from-scratch implementations against sklearn on the same data.
+Mã trong `anomaly_detection.py` so sánh các bản triển khai từ đầu với sklearn trên cùng dữ liệu.
 
 ### sklearn Contamination Parameter
 
-The `contamination` parameter in sklearn determines the threshold for converting continuous anomaly scores into binary predictions. It does not change the underlying scores.
+Tham số `contamination` trong sklearn quyết định ngưỡng để chuyển các điểm bất thường liên tục thành dự đoán nhị phân. Nó không thay đổi các điểm số bên dưới.
 
 ```python
 iso_5 = IsolationForest(contamination=0.05)
 iso_10 = IsolationForest(contamination=0.10)
 ```
 
-Both produce the same anomaly scores. But `iso_5` flags the top 5% while `iso_10` flags the top 10%. If you do not know the true anomaly rate (you usually do not), set contamination to "auto" and work with the raw scores directly. Set your own threshold based on the cost tradeoff between false positives and false negatives.
+Cả hai tạo ra cùng các điểm bất thường. Nhưng `iso_5` đánh dấu 5% cao nhất trong khi `iso_10` đánh dấu 10% cao nhất. Nếu bạn không biết tỷ lệ bất thường thật (thường là không biết), hãy đặt contamination thành "auto" và làm việc trực tiếp với các điểm thô. Đặt ngưỡng riêng dựa trên sự đánh đổi chi phí giữa dương tính giả và âm tính giả.
 
 ### One-Class SVM
 
-Another unsupervised anomaly detector worth knowing. One-Class SVM fits a boundary around normal data in a high-dimensional feature space (using the kernel trick).
+Một bộ phát hiện bất thường không giám sát khác đáng biết. One-Class SVM khớp một ranh giới quanh dữ liệu bình thường trong không gian đặc trưng nhiều chiều (sử dụng kernel trick).
 
 ```python
 from sklearn.svm import OneClassSVM
@@ -373,91 +373,91 @@ oc_svm.fit(X_train)
 predictions = oc_svm.predict(X_test)
 ```
 
-The `nu` parameter approximates the fraction of anomalies. One-Class SVM works well on small to medium datasets but does not scale to very large data (the kernel matrix grows quadratically).
+Tham số `nu` xấp xỉ tỷ lệ bất thường. One-Class SVM hoạt động tốt trên các tập dữ liệu nhỏ đến vừa nhưng không mở rộng tới dữ liệu rất lớn (ma trận kernel tăng theo bậc hai).
 
 ### Autoencoder Approach (Preview)
 
-Autoencoders are neural networks that learn to compress and reconstruct data. Train on normal data. At test time, anomalies have high reconstruction error because the network learned to reconstruct normal patterns only.
+Autoencoder là các mạng nơ-ron học cách nén và tái tạo dữ liệu. Huấn luyện trên dữ liệu bình thường. Khi kiểm thử, các bất thường có sai số tái tạo cao vì mạng chỉ học cách tái tạo các mẫu bình thường.
 
-This is covered in Phase 3 (Deep Learning), but the principle is the same: model what is normal, flag what deviates.
+Nội dung này được đề cập trong Giai đoạn 3 (Học sâu), nhưng nguyên tắc vẫn giống nhau: mô hình hóa điều bình thường, đánh dấu điều lệch khỏi nó.
 
 ### Ensemble Anomaly Detection
 
-Just as ensemble methods improve classification (Lesson 11), combining multiple anomaly detectors improves detection. The simplest approach:
+Cũng như các phương pháp ensemble cải thiện phân loại (Bài 11), kết hợp nhiều bộ phát hiện bất thường cải thiện khả năng phát hiện. Cách tiếp cận đơn giản nhất:
 
-1. Run multiple detectors (Z-score, IQR, Isolation Forest, LOF)
-2. Normalize each detector's scores to [0, 1]
-3. Average the normalized scores
-4. Flag points above the threshold on the average score
+1. Chạy nhiều bộ phát hiện (Z-score, IQR, Isolation Forest, LOF)
+2. Chuẩn hóa điểm của mỗi bộ phát hiện về [0, 1]
+3. Lấy trung bình các điểm đã chuẩn hóa
+4. Đánh dấu các điểm vượt ngưỡng theo điểm trung bình
 
-This reduces false positives because different methods have different failure modes. A point flagged by all four methods is almost certainly anomalous. A point flagged by only one might be a quirk of that method.
+Điều này giảm dương tính giả vì các phương pháp khác nhau có những kiểu thất bại khác nhau. Một điểm được cả bốn phương pháp đánh dấu gần như chắc chắn là bất thường. Một điểm chỉ được một phương pháp đánh dấu có thể là một đặc tính riêng của phương pháp đó.
 
-More sophisticated ensembles weight each detector by its estimated reliability (measured on a validation set with known anomalies, if available).
+Các ensemble tinh vi hơn gán trọng số cho mỗi bộ phát hiện theo độ tin cậy ước tính của nó (đo trên một tập validation có các bất thường đã biết, nếu có).
 
 ### Production Considerations
 
-1. **Threshold drift.** As data distribution shifts, a fixed threshold becomes outdated. Monitor the distribution of anomaly scores and adjust periodically.
-2. **Alert fatigue.** Too many false alarms and operators stop paying attention. Start with a high threshold (fewer, more reliable alerts) and lower it as trust builds.
-3. **Ensemble approach.** In production, combine multiple detectors. Flag a point only if multiple methods agree it is anomalous. This reduces false positives significantly.
-4. **Feature engineering.** Raw features are rarely enough. Add rolling statistics, ratios, time-since-last-event, and domain-specific features. A good feature set matters more than the choice of detector.
-5. **Feedback loop.** When operators investigate flagged items and confirm or dismiss them, feed this back into the system. Accumulate labeled data over time to evaluate and improve the detector.
+1. **Độ trôi ngưỡng.** Khi phân phối dữ liệu dịch chuyển, một ngưỡng cố định trở nên lỗi thời. Giám sát phân phối điểm bất thường và điều chỉnh định kỳ.
+2. **Mệt mỏi vì cảnh báo.** Quá nhiều báo động giả và người vận hành ngừng chú ý. Bắt đầu với ngưỡng cao (ít cảnh báo hơn, đáng tin cậy hơn) và hạ xuống khi niềm tin được xây dựng.
+3. **Cách tiếp cận ensemble.** Trong production, kết hợp nhiều bộ phát hiện. Chỉ đánh dấu một điểm nếu nhiều phương pháp đồng ý rằng nó bất thường. Điều này giảm đáng kể dương tính giả.
+4. **Kỹ thuật đặc trưng.** Các đặc trưng thô hiếm khi đủ. Thêm thống kê trượt, tỷ số, thời gian kể từ sự kiện gần nhất và các đặc trưng theo lĩnh vực. Một tập đặc trưng tốt quan trọng hơn lựa chọn bộ phát hiện.
+5. **Vòng phản hồi.** Khi người vận hành điều tra các mục được đánh dấu và xác nhận hoặc bác bỏ chúng, đưa phản hồi này vào hệ thống. Tích lũy dữ liệu được gán nhãn theo thời gian để đánh giá và cải thiện bộ phát hiện.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/skill-anomaly-detector.md` -- a decision skill for choosing the right detector
-- `code/anomaly_detection.py` -- Z-score, IQR, and Isolation Forest from scratch, with sklearn comparison
+Bài học này tạo ra:
+- `outputs/skill-anomaly-detector.md` -- một skill quyết định để chọn bộ phát hiện phù hợp
+- `code/anomaly_detection.py` -- Z-score, IQR và Isolation Forest từ đầu, có so sánh với sklearn
 
 ### Choosing a Threshold
 
-The anomaly score is continuous. You need a threshold to make binary decisions. This is a business decision, not a technical one.
+Điểm bất thường là liên tục. Bạn cần một ngưỡng để đưa ra quyết định nhị phân. Đây là quyết định kinh doanh, không phải quyết định kỹ thuật.
 
-Consider two scenarios:
-- **Fraud detection.** Missing fraud is expensive (chargebacks, customer trust). False alarms cost a human analyst 5 minutes to investigate. Set the threshold low to catch more fraud, accept more false alarms.
-- **Equipment maintenance.** A false alarm means an unnecessary shutdown costing $50,000. A missed failure means a $500,000 repair. Set the threshold to balance these costs.
+Xét hai kịch bản:
+- **Phát hiện gian lận.** Bỏ sót gian lận rất tốn kém (bồi hoàn, niềm tin khách hàng). Báo động giả khiến một chuyên viên phân tích mất 5 phút điều tra. Đặt ngưỡng thấp để phát hiện nhiều gian lận hơn, chấp nhận nhiều báo động giả hơn.
+- **Bảo trì thiết bị.** Một báo động giả đồng nghĩa với việc ngừng hoạt động không cần thiết gây tốn $50,000. Một hỏng hóc bị bỏ sót đồng nghĩa với khoản sửa chữa $500,000. Đặt ngưỡng để cân bằng các chi phí này.
 
-In both cases, the optimal threshold depends on the cost ratio between false positives and false negatives. Plot precision and recall at different thresholds, overlay the cost function, and pick the minimum-cost point.
+Trong cả hai trường hợp, ngưỡng tối ưu phụ thuộc vào tỷ lệ chi phí giữa dương tính giả và âm tính giả. Vẽ precision và recall ở các ngưỡng khác nhau, chồng hàm chi phí lên và chọn điểm có chi phí thấp nhất.
 
 ### Scaling to Production
 
-For real-time anomaly detection in production:
+Đối với phát hiện bất thường thời gian thực trong production:
 
-1. **Batch training, online scoring.** Train the model periodically (daily, weekly) on recent normal data. Score each new observation as it arrives.
-2. **Feature computation must match.** If you trained with rolling statistics over 30 days, you need 30 days of history to compute features for a new observation. Buffer the required history.
-3. **Score distribution monitoring.** Track the distribution of anomaly scores over time. If the median score drifts upward, either the data is changing or the model is stale.
-4. **Explainability.** When you flag an anomaly, say why. Z-score: "Feature X is 4.2 standard deviations above normal." Isolation Forest: "This point was isolated in 3.1 splits on average (normal points take 8.5)."
+1. **Huấn luyện theo lô, chấm điểm trực tuyến.** Huấn luyện mô hình định kỳ (hằng ngày, hằng tuần) trên dữ liệu bình thường gần đây. Chấm điểm từng quan sát mới khi nó đến.
+2. **Phép tính đặc trưng phải khớp.** Nếu bạn huấn luyện với thống kê trượt trong 30 ngày, bạn cần 30 ngày lịch sử để tính các đặc trưng cho một quan sát mới. Lưu đệm lịch sử cần thiết.
+3. **Giám sát phân phối điểm.** Theo dõi phân phối các điểm bất thường theo thời gian. Nếu điểm trung vị trôi lên trên, hoặc dữ liệu đang thay đổi hoặc mô hình đã lỗi thời.
+4. **Khả năng giải thích.** Khi bạn đánh dấu một bất thường, hãy nói lý do. Z-score: "Đặc trưng X cao hơn mức bình thường 4.2 độ lệch chuẩn." Isolation Forest: "Điểm này được cô lập sau trung bình 3.1 phép chia (các điểm bình thường cần 8.5)."
 
 ## Exercises
 
-1. **Threshold tuning.** Run the Z-score detector with thresholds from 1.0 to 5.0 in steps of 0.5. Plot precision and recall at each threshold. Where is the sweet spot for your data?
+1. **Điều chỉnh ngưỡng.** Chạy bộ phát hiện Z-score với các ngưỡng từ 1.0 đến 5.0 theo bước 0.5. Vẽ precision và recall ở mỗi ngưỡng. Điểm phù hợp nhất cho dữ liệu của bạn nằm ở đâu?
 
-2. **Multivariate anomalies.** Create 2D data where each feature individually looks normal, but the combination is anomalous (e.g., points far from the main cluster diagonal). Show that Z-score per feature misses these but Isolation Forest catches them.
+2. **Bất thường đa biến.** Tạo dữ liệu 2D mà từng đặc trưng riêng lẻ trông bình thường, nhưng tổ hợp lại bất thường (ví dụ: các điểm xa đường chéo của cụm chính). Cho thấy Z-score theo từng đặc trưng bỏ sót chúng nhưng Isolation Forest phát hiện được chúng.
 
-3. **LOF from scratch.** Implement Local Outlier Factor using k-nearest neighbors. Compare against sklearn's LocalOutlierFactor on the same data. Use k=10 and k=50 -- how does the choice of k affect results?
+3. **LOF từ đầu.** Triển khai Local Outlier Factor sử dụng k láng giềng gần nhất. So sánh với LocalOutlierFactor của sklearn trên cùng dữ liệu. Sử dụng k=10 và k=50 -- lựa chọn k ảnh hưởng đến kết quả như thế nào?
 
-4. **Streaming anomaly detection.** Modify the Z-score detector to work in a streaming setting: update the running mean and variance as new points arrive (Welford's online algorithm). Compare to batch Z-score on the same data.
+4. **Phát hiện bất thường trên luồng.** Sửa bộ phát hiện Z-score để hoạt động trong bối cảnh dữ liệu luồng: cập nhật trung bình và phương sai tích lũy khi các điểm mới đến (thuật toán trực tuyến của Welford). So sánh với Z-score theo lô trên cùng dữ liệu.
 
-5. **Real-world evaluation.** Take a dataset with known anomalies (credit card fraud from Kaggle, for example). Evaluate all four methods using precision@100, precision@500, and AUPRC. Which method works best? Why?
+5. **Đánh giá thực tế.** Lấy một tập dữ liệu có các bất thường đã biết (ví dụ: gian lận thẻ tín dụng từ Kaggle). Đánh giá cả bốn phương pháp bằng precision@100, precision@500 và AUPRC. Phương pháp nào hoạt động tốt nhất? Tại sao?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Anomaly | "Outlier, unusual point" | A data point that deviates significantly from the expected pattern of normal data |
-| Point anomaly | "A single weird value" | An individual observation that is unusual regardless of context |
-| Contextual anomaly | "Normal value, wrong context" | An observation that is unusual given its context (time, location, etc.) but might be normal in another context |
-| Isolation Forest | "Random splits to find outliers" | An ensemble of random trees that isolates anomalies with fewer splits than normal points |
-| Local Outlier Factor | "Compare density to neighbors" | A method that flags points whose local density is much lower than their neighbors' density |
-| Z-score | "Standard deviations from mean" | (x - mean) / std, measuring how far a point is from the center in units of standard deviation |
-| IQR | "Interquartile range" | Q3 - Q1, measuring the spread of the middle 50% of data, used for robust outlier detection |
-| Contamination | "Expected fraction of anomalies" | A hyperparameter telling the detector what proportion of the data it should flag as anomalous |
-| Precision@k | "Of the top k flags, how many are real" | Precision computed on only the k most suspicious points, useful for imbalanced anomaly detection |
-| AUPRC | "Area under precision-recall curve" | A metric that summarizes precision-recall performance across all thresholds, better than AUROC for imbalanced data |
+| Anomaly (Bất thường) | "Ngoại lệ, điểm khác thường" | Một điểm dữ liệu lệch đáng kể khỏi mẫu kỳ vọng của dữ liệu bình thường |
+| Point anomaly (Bất thường điểm) | "Một giá trị kỳ lạ đơn lẻ" | Một quan sát riêng lẻ khác thường bất kể ngữ cảnh |
+| Contextual anomaly (Bất thường theo ngữ cảnh) | "Giá trị bình thường, ngữ cảnh sai" | Một quan sát khác thường xét trong ngữ cảnh của nó (thời gian, vị trí, v.v.) nhưng có thể bình thường trong ngữ cảnh khác |
+| Isolation Forest | "Chia ngẫu nhiên để tìm ngoại lệ" | Một ensemble các cây ngẫu nhiên cô lập bất thường bằng ít phép chia hơn các điểm bình thường |
+| Local Outlier Factor | "So sánh mật độ với các láng giềng" | Một phương pháp đánh dấu các điểm có mật độ cục bộ thấp hơn nhiều so với mật độ của các láng giềng |
+| Z-score | "Số độ lệch chuẩn so với trung bình" | (x - mean) / std, đo khoảng cách của một điểm tới tâm theo đơn vị độ lệch chuẩn |
+| IQR | "Khoảng tứ phân vị" | Q3 - Q1, đo độ phân tán của 50% dữ liệu ở giữa, được sử dụng để phát hiện ngoại lệ một cách vững chắc |
+| Contamination (Mức nhiễm) | "Tỷ lệ bất thường kỳ vọng" | Một siêu tham số cho bộ phát hiện biết tỷ lệ dữ liệu mà nó nên đánh dấu là bất thường |
+| Precision@k | "Trong k điểm được đánh dấu cao nhất, bao nhiêu là thật" | Precision chỉ được tính trên k điểm đáng ngờ nhất, hữu ích cho phát hiện bất thường mất cân bằng |
+| AUPRC | "Diện tích dưới đường cong precision-recall" | Một thước đo tóm tắt hiệu suất precision-recall trên tất cả các ngưỡng, tốt hơn AUROC đối với dữ liệu mất cân bằng |
 
 ## Further Reading
 
-- [Liu et al., Isolation Forest (2008)](https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf) -- the original Isolation Forest paper
-- [Breunig et al., LOF: Identifying Density-Based Local Outliers (2000)](https://dl.acm.org/doi/10.1145/342009.335388) -- the original LOF paper
-- [scikit-learn Outlier Detection docs](https://scikit-learn.org/stable/modules/outlier_detection.html) -- overview of all sklearn anomaly detectors
-- [Chandola et al., Anomaly Detection: A Survey (2009)](https://dl.acm.org/doi/10.1145/1541880.1541882) -- comprehensive survey of anomaly detection methods
-- [Goldstein and Uchida, A Comparative Evaluation of Unsupervised Anomaly Detection Algorithms (2016)](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0152173) -- empirical comparison of 10 methods on real datasets
+- [Liu et al., Isolation Forest (2008)](https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf) -- bài báo Isolation Forest gốc
+- [Breunig et al., LOF: Identifying Density-Based Local Outliers (2000)](https://dl.acm.org/doi/10.1145/342009.335388) -- bài báo LOF gốc
+- [scikit-learn Outlier Detection docs](https://scikit-learn.org/stable/modules/outlier_detection.html) -- tổng quan về tất cả các bộ phát hiện bất thường của sklearn
+- [Chandola et al., Anomaly Detection: A Survey (2009)](https://dl.acm.org/doi/10.1145/1541880.1541882) -- khảo sát toàn diện về các phương pháp phát hiện bất thường
+- [Goldstein and Uchida, A Comparative Evaluation of Unsupervised Anomaly Detection Algorithms (2016)](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0152173) -- so sánh thực nghiệm 10 phương pháp trên các tập dữ liệu thực
