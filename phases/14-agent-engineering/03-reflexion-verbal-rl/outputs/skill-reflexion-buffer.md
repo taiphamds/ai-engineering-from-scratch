@@ -7,27 +7,27 @@ lesson: 03
 tags: [reflexion, episodic-memory, self-healing, verbal-rl, sleep-time]
 ---
 
-Given a task class (repeating kind of agent run — e.g. "refactor a function," "close a support ticket"), maintain an episodic-memory buffer of reflections. Each reflection records a failure mode and the corrective insight in natural language. The buffer is prepended to the next trial of the same task class.
+Với một loại tác vụ (kiểu lần chạy agent lặp lại — ví dụ "tái cấu trúc một hàm," "đóng một phiếu hỗ trợ"), duy trì một bộ đệm bộ nhớ tình tiết gồm các phản tư. Mỗi phản tư ghi lại một chế độ lỗi và nhận thức sửa chữa bằng ngôn ngữ tự nhiên. Bộ đệm được thêm vào đầu lần thử tiếp theo của cùng loại tác vụ.
 
-Produce:
+Tạo:
 
-1. Reflection capture. After a trial ends with an evaluator score below threshold, emit a one-line reflection in the shape "I failed to do X because Y; next time, Z." Discard reflections on external failures (network, upstream 500s) unless they are reproducible.
-2. TTL and dedup. Reflections expire after N trials by default (10 suggested). Exact duplicates collapse. Near-duplicates (>0.9 cosine on a small embedding model, or shared substring >= 80%) keep only the most recent.
-3. Scope policy. Three scopes: task-class (per task name), user (across tasks for same user), agent (across all users). Default is task-class. Escalate to user scope only if the reflection refers to user-specific preferences; never escalate to agent scope automatically.
-4. Compaction. When the buffer exceeds the budget, run sleep-time compaction: cluster near-duplicates, summarize, merge. Compaction runs off the hot path — do not delay the primary agent's response.
-5. Prompt integration. Emit a single block titled "What I learned from prior trials" with a bulleted list. Cap at 6 items in the prompt; overflow goes to a separate summary item ("... and 4 older reflections about timeouts").
+1. Ghi lại phản tư. Sau khi một lần thử kết thúc với điểm bộ đánh giá dưới ngưỡng, phát ra một phản tư một dòng có dạng "Tôi đã thất bại khi làm X vì Y; lần sau, Z." Loại bỏ các phản tư về lỗi bên ngoài (mạng, lỗi 500 thượng nguồn) trừ khi chúng có thể tái tạo.
+2. TTL và loại trùng. Các phản tư mặc định hết hạn sau N lần thử (đề xuất 10). Các bản trùng chính xác được gộp. Các bản gần trùng (>0.9 cosine trên một mô hình embedding nhỏ, hoặc chuỗi con chung >= 80%) chỉ giữ bản mới nhất.
+3. Chính sách phạm vi. Ba phạm vi: loại tác vụ (theo tên tác vụ), người dùng (xuyên các tác vụ cho cùng người dùng), agent (xuyên mọi người dùng). Mặc định là loại tác vụ. Chỉ nâng lên phạm vi người dùng nếu phản tư đề cập các sở thích riêng của người dùng; không bao giờ tự động nâng lên phạm vi agent.
+4. Cô đọng. Khi bộ đệm vượt ngân sách, chạy cô đọng lúc ngủ: phân cụm các bản gần trùng, tóm tắt, hợp nhất. Cô đọng chạy ngoài đường xử lý chính — đừng trì hoãn phản hồi của agent chính.
+5. Tích hợp prompt. Phát ra một khối duy nhất có tiêu đề "Những gì tôi học được từ các lần thử trước" với một danh sách dấu đầu dòng. Giới hạn ở 6 mục trong prompt; phần tràn đi vào một mục tóm tắt riêng ("... và 4 phản tư cũ hơn về hết thời gian chờ").
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Writing reflections as "be more careful next time." That is not actionable. Re-run the reflector with a prompt that forces a concrete next-time instruction.
-- Expiring reflections based on wall-clock time rather than trial count. TTL should be trial-scoped, not time-scoped, for offline-replayable runs.
-- Storing reflections that reference secrets (API keys, tokens, PII). Reject with a specific "contains secret"-class error before committing to the buffer.
+- Viết các phản tư dưới dạng "lần sau cẩn thận hơn." Điều đó không thể hành động được. Chạy lại bộ phản tư với một prompt buộc đưa ra chỉ dẫn cụ thể cho lần sau.
+- Cho các phản tư hết hạn dựa trên thời gian đồng hồ thay vì số lần thử. TTL nên có phạm vi lần thử, không phải phạm vi thời gian, cho các lần chạy có thể phát lại ngoại tuyến.
+- Lưu các phản tư tham chiếu bí mật (khóa API, token, PII). Từ chối với một lỗi cụ thể thuộc lớp "chứa bí mật" trước khi ghi vào bộ đệm.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If no evaluator is attached, refuse and recommend Lesson 05 (Self-Refine/CRITIC) — reflection requires a signal, not a gut feeling.
-- If the task class is one-shot (never recurs), refuse; episodic memory does nothing for a task that never repeats.
+- Nếu không có bộ đánh giá được gắn vào, từ chối và khuyến nghị Bài 05 (Self-Refine/CRITIC) — phản tư yêu cầu một tín hiệu, không phải một cảm giác.
+- Nếu loại tác vụ chỉ diễn ra một lần (không bao giờ tái diễn), từ chối; bộ nhớ tình tiết không làm gì cho một tác vụ không bao giờ lặp lại.
 
-Output: a structured buffer file (JSON with reflection objects: trial id, task class, scope, text, created_at, ttl_remaining), a prompt block for the next trial, and a "stale reflections" report listing entries that will expire soon.
+Đầu ra: một file bộ đệm có cấu trúc (JSON với các đối tượng phản tư: id lần thử, loại tác vụ, phạm vi, văn bản, created_at, ttl_remaining), một khối prompt cho lần thử tiếp theo và một báo cáo "các phản tư cũ" liệt kê các mục sắp hết hạn.
 
-End with a "what to read next" note pointing to Lesson 06 (context compression) if the buffer keeps hitting its cap, or Lesson 08 (Letta sleep-time compute) to move compaction off the hot path.
+Kết thúc bằng một ghi chú "đọc gì tiếp theo" chỉ đến Bài 06 (nén ngữ cảnh) nếu bộ đệm liên tục chạm giới hạn, hoặc Bài 08 (tính toán lúc ngủ của Letta) để chuyển việc cô đọng ra ngoài đường xử lý chính.
