@@ -1,6 +1,6 @@
 # Agent Observability: Langfuse, Phoenix, Opik
 
-> Three open-source agent observability platforms dominate 2026. Langfuse (MIT) — 6M+ installs/month, tracing + prompt management + evals + session replay. Arize Phoenix (Elastic 2.0) — deep agent-specific evals, RAG relevancy, OpenInference auto-instrumentation. Comet Opik (Apache 2.0) — automated prompt optimization, guardrails, LLM-judge hallucination detection.
+> Ba nền tảng khả năng quan sát agent mã nguồn mở thống trị năm 2026. Langfuse (MIT) — 6M+ lượt cài/tháng, truy vết + quản lý prompt + đánh giá + phát lại phiên. Arize Phoenix (Elastic 2.0) — các đánh giá sâu dành riêng cho agent, tính liên quan RAG, tự động đo lường OpenInference. Comet Opik (Apache 2.0) — tối ưu hóa prompt tự động, các chốt bảo vệ, phát hiện ảo giác bằng giám khảo LLM.
 
 **Type:** Learn
 **Languages:** Python (stdlib)
@@ -9,59 +9,59 @@
 
 ## Learning Objectives
 
-- Name the three top open-source agent observability platforms and their licenses.
-- Distinguish what each one is strongest at: Langfuse (prompt mgmt + sessions), Phoenix (RAG + auto-instrumentation), Opik (optimization + guardrails).
-- Explain why 89% of organizations report having agent observability in place by 2026.
-- Implement a stdlib trace-to-dashboard pipeline with LLM-judge evaluation.
+- Nêu tên ba nền tảng khả năng quan sát agent mã nguồn mở hàng đầu và các giấy phép của chúng.
+- Phân biệt điều mỗi nền tảng mạnh nhất: Langfuse (quản lý prompt + phiên), Phoenix (RAG + tự động đo lường), Opik (tối ưu hóa + các chốt bảo vệ).
+- Giải thích vì sao 89% tổ chức báo cáo đã có khả năng quan sát agent vào năm 2026.
+- Triển khai một pipeline từ trace đến dashboard dùng thư viện chuẩn với đánh giá bằng giám khảo LLM.
 
 ## The Problem
 
-OTel GenAI (Lesson 23) gives you the schema. You still need the platform that ingests spans, runs evaluations, stores prompt versions, and surfaces regressions. The three contenders each emphasize different parts of the lifecycle.
+OTel GenAI (Bài 23) cho bạn schema. Bạn vẫn cần nền tảng nạp các span, chạy các đánh giá, lưu các phiên bản prompt và phơi bày các hồi quy. Ba đối thủ mỗi bên nhấn mạnh các phần khác nhau của vòng đời.
 
 ## The Concept
 
 ### Langfuse (MIT)
 
-- 6M+ SDK installs/month, 19k+ GitHub stars.
-- Features: tracing, prompt management with versioning + playground, evaluations (LLM-as-judge, user feedback, custom), session replays.
-- June 2025: formerly commercial modules (LLM-as-a-judge, annotation queues, prompt experiments, Playground) open-sourced under MIT.
-- Strongest for: end-to-end observability with tight prompt-management loop.
+- 6M+ lượt cài SDK/tháng, 19k+ sao GitHub.
+- Các tính năng: truy vết, quản lý prompt với đánh phiên bản + playground, các đánh giá (LLM làm giám khảo, phản hồi người dùng, tùy chỉnh), phát lại phiên.
+- Tháng 6 năm 2025: các mô-đun trước đây thương mại (LLM làm giám khảo, các hàng đợi chú thích, các thí nghiệm prompt, Playground) được mở mã nguồn theo MIT.
+- Mạnh nhất cho: khả năng quan sát từ đầu đến cuối với vòng lặp quản lý prompt chặt chẽ.
 
 ### Arize Phoenix (Elastic License 2.0)
 
-- Deeper agent-specific evaluation: trace clustering, anomaly detection, retrieval relevancy for RAG.
-- Native OpenInference auto-instrumentation.
-- Pairs with managed Arize AX for production.
-- No prompt versioning — positioned as a drift/behavioral-regression tool alongside broader platforms.
-- Strongest for: RAG relevancy, behavioral drift, anomaly detection.
+- Đánh giá sâu hơn dành riêng cho agent: phân cụm trace, phát hiện bất thường, tính liên quan truy xuất cho RAG.
+- Tự động đo lường OpenInference gốc.
+- Kết hợp với Arize AX được quản lý cho sản xuất.
+- Không đánh phiên bản prompt — được định vị như một công cụ trôi dạt/hồi quy hành vi bên cạnh các nền tảng rộng hơn.
+- Mạnh nhất cho: tính liên quan RAG, trôi dạt hành vi, phát hiện bất thường.
 
 ### Comet Opik (Apache 2.0)
 
-- Automated prompt optimization through A/B experiments.
-- Guardrails (PII redaction, topical constraints).
-- LLM-judge hallucination detection.
-- Benchmark from Comet's own measurement: Opik logs + evals in 23.44s vs Langfuse 327.15s (~14x gap) — take vendor benchmarks as directional.
-- Strongest for: optimization loop, automated experimentation, guardrail enforcement.
+- Tối ưu hóa prompt tự động qua các thí nghiệm A/B.
+- Các chốt bảo vệ (che PII, các ràng buộc chủ đề).
+- Phát hiện ảo giác bằng giám khảo LLM.
+- Benchmark từ phép đo riêng của Comet: Opik ghi log + đánh giá trong 23.44 giây so với Langfuse 327.15 giây (khoảng cách ~14 lần) — coi các benchmark nhà cung cấp là định hướng.
+- Mạnh nhất cho: vòng lặp tối ưu hóa, thử nghiệm tự động, thực thi chốt bảo vệ.
 
 ### Industry data
 
-Per Maxim (2026 field analysis): 89% of organizations have agent observability in place; quality issues are the top production barrier (32% of respondents cite them).
+Theo Maxim (phân tích thực địa năm 2026): 89% tổ chức đã có khả năng quan sát agent; các vấn đề chất lượng là rào cản sản xuất hàng đầu (32% người trả lời nêu chúng).
 
 ### Picking one
 
-| Need | Pick |
+| Nhu cầu | Chọn |
 |------|------|
-| All-in-one with prompt management | Langfuse |
-| Deep RAG evaluation + drift | Phoenix |
-| Automated optimization + guardrails | Opik |
-| Open licensing, no ELv2 | Langfuse (MIT) or Opik (Apache 2.0) |
-| Datadog / New Relic integration | Any — they all export OTel |
+| Tất cả trong một với quản lý prompt | Langfuse |
+| Đánh giá RAG sâu + trôi dạt | Phoenix |
+| Tối ưu hóa tự động + các chốt bảo vệ | Opik |
+| Giấy phép mở, không ELv2 | Langfuse (MIT) hoặc Opik (Apache 2.0) |
+| Tích hợp Datadog / New Relic | Bất kỳ — tất cả đều xuất OTel |
 
 ### Where this pattern goes wrong
 
-- **No eval strategy.** Tracing without evaluation is just expensive logging.
-- **Self-rolled LLM-judge without grounding.** CRITIC pattern (Lesson 05) applies — judges need external tools for factual verification.
-- **Prompt versions not tied to traces.** When prod regresses, you cannot bisect to the prompt that caused it.
+- **Không có chiến lược đánh giá.** Truy vết không đánh giá chỉ là ghi log đắt tiền.
+- **Giám khảo LLM tự xây không có cơ sở.** Mẫu CRITIC (Bài 05) áp dụng — các giám khảo cần các công cụ bên ngoài để xác minh sự thật.
+- **Các phiên bản prompt không được gắn với trace.** Khi sản xuất hồi quy, bạn không thể tìm bằng chia đôi đến prompt đã gây ra nó.
 
 ```figure
 wb-trace-ingest
@@ -69,55 +69,55 @@ wb-trace-ingest
 
 ## Build It
 
-`code/main.py` implements a stdlib trace collector + LLM-judge evaluator:
+`code/main.py` triển khai một bộ thu thập trace + bộ đánh giá giám khảo LLM dùng thư viện chuẩn:
 
-- Ingest GenAI-shaped spans.
-- Group by session, tag failed runs (guardrail trips, low-confidence evals).
-- A scripted LLM-judge that scores agent responses on a rubric.
-- A dashboard-like summary: failure rate, top failure reasons, eval score distribution.
+- Nạp các span có dạng GenAI.
+- Nhóm theo phiên, gắn thẻ các lần chạy thất bại (các lần chốt bảo vệ kích hoạt, các đánh giá độ tin cậy thấp).
+- Một giám khảo LLM được viết kịch bản chấm điểm các phản hồi agent theo một bảng tiêu chí.
+- Một bản tóm tắt giống dashboard: tỷ lệ lỗi, các lý do lỗi hàng đầu, phân phối điểm đánh giá.
 
-Run it:
+Chạy nó:
 
 ```
 python3 code/main.py
 ```
 
-Output: per-session eval scores and failure categorization matching what Langfuse/Phoenix/Opik would show.
+Đầu ra: các điểm đánh giá cho từng phiên và phân loại lỗi khớp những gì Langfuse/Phoenix/Opik sẽ hiển thị.
 
 ## Use It
 
-- **Langfuse** self-hosted or cloud; wire via OTel or their SDK.
-- **Arize Phoenix** self-hosted; auto-instrument OpenInference.
-- **Comet Opik** self-hosted or cloud; automated optimization loop.
-- **Datadog LLM Observability** for mixed ops+ML teams that already run Datadog.
+- **Langfuse** tự host hoặc đám mây; nối qua OTel hoặc SDK của họ.
+- **Arize Phoenix** tự host; tự động đo lường OpenInference.
+- **Comet Opik** tự host hoặc đám mây; vòng lặp tối ưu hóa tự động.
+- **Datadog LLM Observability** cho các nhóm vận hành+ML hỗn hợp đã chạy Datadog.
 
 ## Ship It
 
-`outputs/skill-obs-platform-wiring.md` picks a platform and wires traces + evals + prompt versions into an existing agent.
+`outputs/skill-obs-platform-wiring.md` chọn một nền tảng và nối các trace + đánh giá + phiên bản prompt vào một agent hiện có.
 
 ## Exercises
 
-1. Export a week of OTel traces to Langfuse cloud (free tier). Which sessions failed? Why?
-2. Write an LLM-judge rubric for your domain (factual correctness, tone, scope adherence). Test on 50 traces.
-3. Compare Langfuse prompt versioning against Phoenix's trace clustering. Which tells you what broke faster?
-4. Read Opik's guardrail docs. Wire a PII redaction guardrail to one of your agent runs.
-5. Benchmark the three on your corpus. Ignore vendor-published numbers; measure your own.
+1. Xuất một tuần trace OTel đến đám mây Langfuse (gói miễn phí). Những phiên nào thất bại? Vì sao?
+2. Viết một bảng tiêu chí giám khảo LLM cho miền của bạn (tính đúng đắn thực tế, giọng điệu, tuân thủ phạm vi). Kiểm thử trên 50 trace.
+3. So sánh đánh phiên bản prompt Langfuse với phân cụm trace của Phoenix. Cách nào cho bạn biết điều gì hỏng nhanh hơn?
+4. Đọc tài liệu chốt bảo vệ của Opik. Nối một chốt bảo vệ che PII vào một trong các lần chạy agent của bạn.
+5. Benchmark cả ba trên kho ngữ liệu của bạn. Bỏ qua các con số do nhà cung cấp công bố; đo của riêng bạn.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |------|----------------|------------------------|
-| Tracing | "Spans collector" | Ingest OTel / SDK spans; index by session |
-| Prompt management | "Prompt CMS" | Versioned prompts tied to traces |
-| LLM-as-judge | "Automated eval" | Separate LLM scores agent output against a rubric |
-| Session replay | "Trace playback" | Step through past runs for debugging |
-| RAG relevancy | "Retrieval quality" | Does the retrieved context match the query |
-| Trace clustering | "Behavioral grouping" | Cluster similar runs for drift detection |
-| Guardrail enforcement | "Policy at log time" | PII/toxicity/scope checks on logged content |
+| Tracing (Truy vết) | "Bộ thu thập span" | Nạp các span OTel / SDK; lập chỉ mục theo phiên |
+| Prompt management (Quản lý prompt) | "CMS prompt" | Các prompt có phiên bản được gắn với trace |
+| LLM-as-judge (LLM làm giám khảo) | "Đánh giá tự động" | LLM riêng chấm điểm đầu ra agent theo một bảng tiêu chí |
+| Session replay (Phát lại phiên) | "Phát lại trace" | Đi từng bước qua các lần chạy trước để gỡ lỗi |
+| RAG relevancy (Tính liên quan RAG) | "Chất lượng truy xuất" | Ngữ cảnh được truy xuất có khớp truy vấn không |
+| Trace clustering (Phân cụm trace) | "Nhóm hành vi" | Phân cụm các lần chạy tương tự để phát hiện trôi dạt |
+| Guardrail enforcement (Thực thi chốt bảo vệ) | "Chính sách tại thời điểm ghi log" | Các kiểm tra PII/độc hại/phạm vi trên nội dung được ghi log |
 
 ## Further Reading
 
-- [Langfuse docs](https://langfuse.com/) — tracing, evals, prompt mgmt
-- [Arize Phoenix docs](https://docs.arize.com/phoenix) — auto-instrumentation, drift
-- [Comet Opik](https://www.comet.com/site/products/opik/) — optimization + guardrails
-- [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) — the schema all three consume
+- [Langfuse docs](https://langfuse.com/) — truy vết, đánh giá, quản lý prompt
+- [Arize Phoenix docs](https://docs.arize.com/phoenix) — tự động đo lường, trôi dạt
+- [Comet Opik](https://www.comet.com/site/products/opik/) — tối ưu hóa + các chốt bảo vệ
+- [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) — schema mà cả ba tiêu thụ
