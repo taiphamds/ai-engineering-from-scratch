@@ -1,6 +1,6 @@
 # End-to-End RAG System
 
-> Six lessons of components. One pipeline. One eval loop. One self-terminating demo. This is the system you ship.
+> Sáu bài về các thành phần. Một pipeline. Một vòng lặp đánh giá. Một demo tự kết thúc. Đây là hệ thống bạn cung cấp.
 
 **Type:** Build
 **Languages:** Python
@@ -8,16 +8,16 @@
 **Time:** ~90 minutes
 
 ## Learning Objectives
-- Compose the chunker, hybrid retriever, query rewriter, cross-encoder reranker, and answer generator into a single end-to-end pipeline.
-- Implement an answer generator that cites its claims by chunk anchor, with refuse-on-low-confidence fallback.
-- Run the lesson 68 eval against the assembled pipeline and prove the staged build wins on every metric over the same components in isolation.
-- Build a self-terminating CLI demo that ingests a fixture corpus, runs a fixed query set, and exits zero with a summary report.
+- Kết hợp bộ chia đoạn, bộ truy xuất lai, bộ viết lại truy vấn, bộ xếp hạng lại cross-encoder, và bộ sinh đáp án thành một pipeline đầu cuối duy nhất.
+- Triển khai một bộ sinh đáp án trích dẫn các khẳng định theo neo đoạn, với phương án dự phòng từ chối khi độ tin cậy thấp.
+- Chạy đánh giá bài 68 với pipeline được lắp ráp và chứng minh bản dựng chia giai đoạn thắng trên mọi chỉ số so với cùng các thành phần riêng lẻ.
+- Xây dựng một demo CLI tự kết thúc tiếp nhận một corpus fixture, chạy một tập truy vấn cố định, và thoát với mã không cùng một báo cáo tóm tắt.
 
 ## The Problem
 
-Six components in isolation prove nothing. The chunker can win on recall@5 against the corpus and lose on the system's recall@5 because the retriever cannot rank what the chunker emits. The reranker can lift MRR on a synthetic candidate pool and fail on real bi-encoder candidates because the bi-encoder's recall at the rerank budget is too low. The query rewriter can promote the gold doc on a single query and break on the next because the LLM mock returns a degenerate hypothetical.
+Sáu thành phần riêng lẻ không chứng minh gì. Bộ chia đoạn có thể thắng về recall@5 với corpus và thua về recall@5 của hệ thống vì bộ truy xuất không thể xếp hạng thứ bộ chia đoạn phát ra. Bộ xếp hạng lại có thể tăng MRR trên một tập ứng viên tổng hợp và thất bại trên các ứng viên bi-encoder thực vì recall của bi-encoder ở ngân sách xếp hạng lại quá thấp. Bộ viết lại truy vấn có thể nâng tài liệu chuẩn trên một truy vấn và hỏng trên truy vấn tiếp theo vì LLM giả lập trả về một giả định suy biến.
 
-The integration test is the whole pipeline run end to end against the same fixture qrels, with the same metric, with one orchestrator file that wires everything together. That is what this lesson builds. If the metrics on the integrated pipeline beat the metrics on each stage's isolated demo, you have proven the system.
+Kiểm thử tích hợp là toàn pipeline chạy từ đầu đến cuối với cùng qrels fixture, với cùng chỉ số, với một file điều phối nối mọi thứ với nhau. Đó là điều bài này xây dựng. Nếu các chỉ số trên pipeline tích hợp vượt các chỉ số trên demo riêng lẻ của mỗi giai đoạn, bạn đã chứng minh hệ thống.
 
 ## The Concept
 
@@ -38,28 +38,28 @@ flowchart LR
 
 ### Wiring choices
 
-The pipeline is a small graph. Each stage is a function with a clear signature.
+Pipeline là một đồ thị nhỏ. Mỗi giai đoạn là một hàm với một chữ ký rõ ràng.
 
-| Stage | Input | Output |
+| Giai đoạn | Đầu vào | Đầu ra |
 |-------|-------|--------|
-| Chunker | Document text | List of Chunk records |
-| Retriever | Query string | Top-N Chunk records |
-| Rewriter (optional) | Query string | List of rewrites + hypothetical |
-| Reranker | Query, candidates | Top-K Chunk records with cross scores |
-| Generator | Query, top-K Chunk records | Answer string with citations |
+| Bộ chia đoạn | Văn bản tài liệu | Danh sách bản ghi Chunk |
+| Bộ truy xuất | Chuỗi truy vấn | Các bản ghi Chunk top-N |
+| Bộ viết lại (tùy chọn) | Chuỗi truy vấn | Danh sách bản viết lại + giả định |
+| Bộ xếp hạng lại | Truy vấn, ứng viên | Các bản ghi Chunk top-K với điểm chéo |
+| Bộ sinh | Truy vấn, các bản ghi Chunk top-K | Chuỗi đáp án với trích dẫn |
 
-The composition is straightforward when each signature is stable. The lesson's `Pipeline` class holds the five stages and a `query` method that runs them in order. Every stage is swappable: pass a different chunker, retriever, rewriter, reranker, or generator and the pipeline still runs.
+Kết hợp thẳng thắn khi mỗi chữ ký ổn định. Lớp `Pipeline` của bài học giữ năm giai đoạn và một phương thức `query` chạy chúng theo thứ tự. Mọi giai đoạn có thể thay thế: truyền một bộ chia đoạn, bộ truy xuất, bộ viết lại, bộ xếp hạng lại, hoặc bộ sinh khác và pipeline vẫn chạy.
 
 ### Answer generator with citations
 
-The generator is the last stage and the easiest to break. The lesson ships a deterministic mock generator that:
+Bộ sinh là giai đoạn cuối và dễ phá nhất. Bài học cung cấp một bộ sinh giả lập tất định:
 
-1. Takes the top-K reranked chunks.
-2. Selects up to two chunks whose text contains the highest content-token overlap with the query.
-3. Emits an answer that is a concatenation of one-sentence-from-each-selected-chunk, with each sentence followed by a `[doc_id:chunk_index]` anchor.
-4. If no chunk has overlap above a refuse threshold, emits "I do not know" with no citation.
+1. Lấy các đoạn top-K đã xếp hạng lại.
+2. Chọn tối đa hai đoạn có văn bản chứa mức chồng lấn token nội dung cao nhất với truy vấn.
+3. Phát ra một đáp án là phần nối của một-câu-từ-mỗi-đoạn-được-chọn, với mỗi câu theo sau bởi một neo `[doc_id:chunk_index]`.
+4. Nếu không đoạn nào có mức chồng lấn trên một ngưỡng từ chối, phát ra "Tôi không biết" không có trích dẫn.
 
-In production you swap the mock for a real LLM call with the prompt template:
+Trong sản xuất bạn đổi giả lập thành một lệnh gọi LLM thực với mẫu prompt:
 
 ```
 You are answering a question using only the snippets below.
@@ -74,13 +74,13 @@ Snippets:
 Answer:
 ```
 
-The refuse-on-low-confidence path is the whole reason the cross-encoder rank-1 score is logged. If it sits below the corpus threshold, the generator refuses. This is the safety valve against hallucinated answers.
+Đường từ chối khi độ tin cậy thấp là toàn bộ lý do điểm hạng 1 cross-encoder được ghi nhật ký. Nếu nó nằm dưới ngưỡng corpus, bộ sinh từ chối. Đây là van an toàn chống các đáp án ảo giác.
 
 ### The self-terminating demo
 
-The demo runs everything end to end. It prints a per-stage breakdown of one query, runs the eval over the four fixture qrels, prints a metrics table, and exits with status zero if all the lesson 68 metrics meet the thresholds set in the demo. If any metric is below threshold, the demo exits with a non-zero status and a message naming the failing metric.
+Demo chạy mọi thứ từ đầu đến cuối. Nó in một phân tích theo giai đoạn của một truy vấn, chạy đánh giá trên bốn qrels fixture, in một bảng chỉ số, và thoát với trạng thái không nếu mọi chỉ số bài 68 đạt các ngưỡng đặt trong demo. Nếu bất kỳ chỉ số nào dưới ngưỡng, demo thoát với một trạng thái khác không và một thông điệp nêu tên chỉ số thất bại.
 
-This is the shape a CI smoke test takes. The pipeline runs offline, fast, deterministic. The thresholds are deliberately tight on the fixture so a regression in any of the six lessons fails the demo.
+Đây là hình thức một kiểm thử smoke CI có. Pipeline chạy ngoại tuyến, nhanh, tất định. Các ngưỡng cố ý chặt trên fixture để một thoái lui trong bất kỳ bài nào trong sáu bài làm demo thất bại.
 
 ```figure
 rag-pipeline-flow
@@ -88,72 +88,72 @@ rag-pipeline-flow
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `Chunk` - the record carried through all stages (extends lesson 64's shape with a chunk_index and source doc_id).
-- `Chunker` - selects a strategy from lesson 64 (default recursive split).
-- `HybridIndex` - bundles BM25 + dense + RRF from lesson 65.
-- `Rewriter` (optional) - picks one of HyDE, multi-query, decomposition from lesson 67 by query length and presence of conjunctions.
-- `Reranker` - the trained cross-encoder from lesson 66, with a smaller fixture training set so it converges in seconds.
-- `Generator` - the deterministic mock generator with citations and refuse-on-low-confidence.
-- `Pipeline` - composes the five stages with a `query(question)` method that returns `Result(answer, top_k, latency_ms_per_stage)`.
-- `run_demo()` - ingests the corpus, runs three fixture queries, runs the eval, prints results, sets exit code by threshold.
+- `Chunk` - bản ghi được mang qua mọi giai đoạn (mở rộng hình thức bài 64 với một chunk_index và doc_id nguồn).
+- `Chunker` - chọn một chiến lược từ bài 64 (mặc định chia đệ quy).
+- `HybridIndex` - gói BM25 + dense + RRF từ bài 65.
+- `Rewriter` (tùy chọn) - chọn một trong HyDE, đa truy vấn, phân rã từ bài 67 theo độ dài truy vấn và sự có mặt của liên từ.
+- `Reranker` - cross-encoder đã huấn luyện từ bài 66, với một tập huấn luyện fixture nhỏ hơn để nó hội tụ trong vài giây.
+- `Generator` - bộ sinh giả lập tất định với các trích dẫn và từ chối khi độ tin cậy thấp.
+- `Pipeline` - kết hợp năm giai đoạn với một phương thức `query(question)` trả về `Result(answer, top_k, latency_ms_per_stage)`.
+- `run_demo()` - tiếp nhận corpus, chạy ba truy vấn fixture, chạy đánh giá, in các kết quả, đặt mã thoát theo ngưỡng.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-The output is one printed query trace, the full eval table, and a final pass/fail status. Returns exit code 0 on the fixture.
+Đầu ra là một trace truy vấn được in, bảng đánh giá đầy đủ, và một trạng thái đạt/trượt cuối. Trả về mã thoát 0 trên fixture.
 
 ## Failure modes the demo will hide
 
-**Chunker boundary drift.** If you swap the chunker strategy between the eval qrels labeling pass and the demo, the gold doc ids no longer line up. Lock the chunker strategy in the qrels file. The demo includes a header that names the chunker.
+**Độ trôi ranh giới bộ chia đoạn.** Nếu bạn đổi chiến lược bộ chia đoạn giữa lượt gắn nhãn qrels đánh giá và demo, các id tài liệu chuẩn không còn khớp. Khóa chiến lược bộ chia đoạn trong file qrels. Demo bao gồm một header đặt tên bộ chia đoạn.
 
-**Reranker training set leaks into the eval.** The 14 training triples in lesson 66 include queries that resemble the eval queries. In production, hold out the eval queries strictly. The demo's eval queries are deliberately disjoint from the rerank training set.
+**Tập huấn luyện bộ xếp hạng lại rò vào đánh giá.** 14 bộ ba huấn luyện trong bài 66 bao gồm các truy vấn giống các truy vấn đánh giá. Trong sản xuất, giữ riêng các truy vấn đánh giá nghiêm ngặt. Các truy vấn đánh giá của demo cố ý rời với tập huấn luyện xếp hạng lại.
 
-**Mock generator hides hallucination risk.** The mock cannot hallucinate because it only emits text from the retrieved chunks. The lesson notes this and points the production swap-in path to a real model.
+**Bộ sinh giả lập che rủi ro ảo giác.** Giả lập không thể ảo giác vì nó chỉ phát văn bản từ các đoạn truy xuất. Bài học ghi nhận điều này và trỏ đường thay thế sản xuất tới một mô hình thực.
 
-**No streaming.** The pipeline returns the full answer at the end of every stage. A production system would stream the generator's output. Streaming is out of scope; the answer-grade metrics work on the final string either way.
+**Không truyền luồng.** Pipeline trả về đáp án đầy đủ ở cuối mọi giai đoạn. Một hệ thống sản xuất sẽ truyền luồng đầu ra bộ sinh. Truyền luồng nằm ngoài phạm vi; các chỉ số chấm đáp án hoạt động trên chuỗi cuối trong cả hai trường hợp.
 
-**Latency is offline.** The mock LLM calls are constant time. Real LLM calls dominate. Plan a latency budget in the request scope; the lesson's per-stage timing only measures CPU work.
+**Độ trễ ngoại tuyến.** Các lệnh gọi LLM giả lập có thời gian hằng. Các lệnh gọi LLM thực chiếm ưu thế. Lên kế hoạch một ngân sách độ trễ trong phạm vi yêu cầu; thời gian theo giai đoạn của bài học chỉ đo công việc CPU.
 
 ## Use It
 
-Production patterns:
+Các mẫu sản xuất:
 
-- Ship the pipeline file under one orchestrator with explicit stage interfaces. Avoid spreading the wiring across the repo.
-- Run the eval before every merge that touches a stage. If the eval drops, the merge does not land.
-- Persist the metric trace per CI run so you can attribute regressions to a stage swap.
-- Add a smoke set of 20 queries (subset of the regression set) that runs in under 30 seconds; the full regression set runs nightly.
+- Cung cấp file pipeline dưới một bộ điều phối với các giao diện giai đoạn rõ ràng. Tránh trải hệ thống nối khắp repo.
+- Chạy đánh giá trước mọi lần hợp nhất chạm một giai đoạn. Nếu đánh giá giảm, hợp nhất không được đưa vào.
+- Lưu bền vững trace chỉ số theo lần chạy CI để bạn có thể quy các lỗi thoái lui về một lần đổi giai đoạn.
+- Thêm một tập smoke 20 truy vấn (tập con của tập hồi quy) chạy trong dưới 30 giây; tập hồi quy đầy đủ chạy hàng đêm.
 
 ## Ship It
 
-The pipeline file in this lesson is the shape the rest of Phase 19's Track F lessons assume. Subsequent lessons would add ingestion automation, incremental re-index, telemetry, and a serving layer on top. The retrieval, rerank, rewrite, and eval halves are complete here.
+File pipeline trong bài này là hình thức mà phần còn lại của các bài Track F Phase 19 giả định. Các bài tiếp theo sẽ thêm tự động hóa tiếp nhận, lập chỉ mục lại tăng dần, dữ liệu đo từ xa, và một lớp phục vụ lên trên. Các nửa truy xuất, xếp hạng lại, viết lại, và đánh giá hoàn chỉnh ở đây.
 
 ## Exercises
 
-1. Add a per-query strategy selector inside the rewriter: heuristics from lesson 67 (length, conjunctions, jargon ratio) pick HyDE, multi-query, or decomposition.
-2. Add a real LLM call for the generator behind an env flag. Default to the mock. Measure the latency delta.
-3. Extend the demo to take a `--corpus path` flag that loads a real corpus. Re-run the eval and the threshold check.
-4. Add a `--strategy` flag to the chunker. Measure each strategy's contribution to end-to-end recall.
-5. Add a streaming generator interface and feed it into the eval. Confirm that faithfulness is computed on the final string and not on the streamed prefix.
+1. Thêm một bộ chọn chiến lược theo truy vấn bên trong bộ viết lại: các heuristic từ bài 67 (độ dài, liên từ, tỷ lệ biệt ngữ) chọn HyDE, đa truy vấn, hoặc phân rã.
+2. Thêm một lệnh gọi LLM thực cho bộ sinh sau một cờ môi trường. Mặc định giả lập. Đo chênh lệch độ trễ.
+3. Mở rộng demo để nhận một cờ `--corpus path` nạp một corpus thực. Chạy lại đánh giá và kiểm tra ngưỡng.
+4. Thêm một cờ `--strategy` vào bộ chia đoạn. Đo đóng góp của mỗi chiến lược vào recall đầu cuối.
+5. Thêm một giao diện bộ sinh truyền luồng và cấp nó vào đánh giá. Xác nhận tính trung thực được tính trên chuỗi cuối và không trên tiền tố được truyền luồng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Pipeline | "RAG pipeline" | The composed stages from ingestion to cited answer |
-| Citation anchor | "Source link" | The (doc_id, chunk_index) reference attached to each claim |
-| Refuse-on-low-confidence | "I do not know" | Generator returns no answer when the reranker top-1 score sits below threshold |
-| Smoke set | "CI eval" | The minimal qrels subset that runs in every PR check |
-| Stage interface | "Function signature" | The stable input and output type of each pipeline stage |
+| Pipeline | "Pipeline RAG" | Các giai đoạn được kết hợp từ tiếp nhận đến đáp án có trích dẫn |
+| Citation anchor (Neo trích dẫn) | "Liên kết nguồn" | Tham chiếu (doc_id, chunk_index) được gắn vào mỗi khẳng định |
+| Refuse-on-low-confidence (Từ chối khi độ tin cậy thấp) | "Tôi không biết" | Bộ sinh không trả về đáp án khi điểm top-1 bộ xếp hạng lại nằm dưới ngưỡng |
+| Smoke set (Tập smoke) | "Đánh giá CI" | Tập con qrels tối thiểu chạy trong mọi kiểm tra PR |
+| Stage interface (Giao diện giai đoạn) | "Chữ ký hàm" | Kiểu đầu vào và đầu ra ổn định của mỗi giai đoạn pipeline |
 
 ## Further Reading
 
 - [Anthropic, Building search and retrieval](https://www.anthropic.com/news/contextual-retrieval)
-- [Pinterest, MCP internal search](https://medium.com/pinterest-engineering) - reference production architecture
+- [Pinterest, MCP internal search](https://medium.com/pinterest-engineering) - kiến trúc sản xuất tham chiếu
 - [Ragas: Automated Evaluation of RAG Pipelines](https://docs.ragas.io)
-- Phase 11 lesson 06 - RAG fundamentals
-- Phase 19 lessons 64-68 - the components composed here
+- Phase 11 bài 06 - các nền tảng RAG
+- Phase 19 các bài 64-68 - các thành phần được kết hợp ở đây
