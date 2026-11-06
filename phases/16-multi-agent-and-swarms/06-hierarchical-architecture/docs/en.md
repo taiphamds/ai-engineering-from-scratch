@@ -1,6 +1,6 @@
 # Hierarchical Architecture and Its Failure Mode
 
-> Hierarchical is supervisor nested. Manager agents over sub-managers over workers. CrewAI `Process.hierarchical` is the textbook version: a `manager_llm` dynamically delegates tasks and validates outputs. The LangGraph equivalent is `create_supervisor(create_supervisor(...))`. It is the natural pattern when the task is a real org chart. It is also the pattern most likely to collapse into managerial looping — manager agents assign work poorly, misinterpret sub-outputs, or fail to reach consensus. Sequential often beats it.
+> Phân cấp là bộ giám sát lồng nhau. Các agent quản lý trên các quản lý con trên các worker. `Process.hierarchical` của CrewAI là phiên bản sách giáo khoa: một `manager_llm` giao tác vụ động và xác thực đầu ra. Dạng tương đương LangGraph là `create_supervisor(create_supervisor(...))`. Nó là mẫu tự nhiên khi tác vụ là một sơ đồ tổ chức thực. Nó cũng là mẫu có khả năng cao nhất sụp thành vòng lặp quản lý — các agent quản lý giao việc kém, diễn giải sai các đầu ra con, hoặc không đạt đồng thuận. Tuần tự thường vượt nó.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,9 +9,9 @@
 
 ## Problem
 
-Once the supervisor pattern clicks, the natural next step is "what if the workers are themselves supervisors?" Teams have sub-teams; companies have departments of departments. Hierarchical architectures mirror that.
+Một khi mẫu bộ giám sát trở nên rõ ràng, bước tiếp theo tự nhiên là “nếu bản thân các worker là các bộ giám sát thì sao?” Các nhóm có nhóm con; các công ty có phòng ban của các phòng ban. Các kiến trúc phân cấp phản ánh điều đó.
 
-The issue: LLM managers are not the same as human managers. A human manager has stable priors about what their reports know. An LLM manager re-reasons the org every turn from whatever is in its context. Tiny drift in that context, and the whole tree misallocates work.
+Vấn đề: các quản lý LLM không giống các quản lý con người. Một quản lý con người có các tiên nghiệm ổn định về những gì cấp dưới của họ biết. Một quản lý LLM suy luận lại tổ chức ở mỗi lượt từ bất cứ thứ gì nằm trong ngữ cảnh. Sự trôi nhỏ trong ngữ cảnh đó, và toàn bộ cây phân bổ sai công việc.
 
 ## Concept
 
@@ -31,41 +31,41 @@ The issue: LLM managers are not the same as human managers. A human manager has 
        W1  W2  W3         W4  W5
 ```
 
-Every internal node plans, delegates, and synthesizes. Only leaves do work.
+Mọi node nội bộ lập kế hoạch, giao việc, và tổng hợp. Chỉ các lá làm công việc.
 
 ### Where it shines
 
-- **Clear org mapping.** If the real task is departmental ("legal review the doc, finance review the doc, engineering review the doc, then summarize for exec"), the hierarchy is explicit.
-- **Local summarization.** Each sub-manager synthesizes its team's output before the top manager sees it. Top manager sees three sub-manager summaries, not fifteen worker outputs.
+- **Ánh xạ tổ chức rõ ràng.** Nếu tác vụ thực là theo phòng ban (“pháp lý xem xét tài liệu, tài chính xem xét tài liệu, kỹ thuật xem xét tài liệu, rồi tóm tắt cho giám đốc”), hệ thống phân cấp là tường minh.
+- **Tóm tắt cục bộ.** Mỗi quản lý con tổng hợp đầu ra nhóm trước khi quản lý cao nhất thấy nó. Quản lý cao nhất thấy ba tóm tắt quản lý con, không phải mười lăm đầu ra worker.
 
 ### Where it breaks
 
-Three failure modes the 2026 post-mortems keep finding:
+Ba chế độ lỗi mà các phân tích hậu sự cố năm 2026 liên tục tìm thấy:
 
-1. **Task assignment error.** The manager reads the goal, hallucinates a decomposition, and delegates to the wrong sub-manager. Because the sub-manager obediently works on what it was given, the error only surfaces at the top synthesis — one level removed from where a human could have caught it.
-2. **Output misinterpretation.** Sub-manager returns "unable to verify claim X." Top manager summarizes as "claim X not confirmed." Meaning drifts at every level.
-3. **Consensus loops.** Two sub-managers disagree; top manager asks them to reconcile; they re-delegate down; workers re-run; sub-managers return slightly different answers; loop. CrewAI's `Process.hierarchical` guards against this with step limits, but the limit itself is now a hyperparameter.
+1. **Lỗi giao tác vụ.** Quản lý đọc mục tiêu, ảo giác một phân rã, và giao cho sai quản lý con. Vì quản lý con ngoan ngoãn làm việc trên những gì được giao, lỗi chỉ lộ ra tại tổng hợp cao nhất — cách một cấp so với nơi một người có thể đã bắt được nó.
+2. **Diễn giải sai đầu ra.** Quản lý con trả về “không thể xác minh tuyên bố X.” Quản lý cao nhất tóm tắt thành “tuyên bố X chưa được xác nhận.” Ý nghĩa trôi ở mỗi cấp.
+3. **Các vòng lặp đồng thuận.** Hai quản lý con bất đồng; quản lý cao nhất yêu cầu họ hòa giải; họ giao lại xuống dưới; các worker chạy lại; các quản lý con trả về các câu trả lời hơi khác; lặp. `Process.hierarchical` của CrewAI bảo vệ chống điều này bằng các giới hạn bước, nhưng bản thân giới hạn giờ là một siêu tham số.
 
 ### The deciding question
 
-Sequential (linear pipeline) vs hierarchical: does your task actually have independent sub-teams, or is it one linear flow pretending to be a tree? If the latter, use sequential. If the former, use hierarchical but budget explicit reconciliation rules.
+Tuần tự (pipeline tuyến tính) so với phân cấp: tác vụ của bạn thực sự có các nhóm con độc lập, hay nó là một luồng tuyến tính giả làm cây? Nếu là trường hợp sau, dùng tuần tự. Nếu là trường hợp trước, dùng phân cấp nhưng dự trù các quy tắc hòa giải tường minh.
 
 ### Role-framework implementation
 
-CrewAI's `Process.hierarchical` wires a manager LLM over specialist crews. The manager:
+`Process.hierarchical` của CrewAI kết nối một LLM quản lý trên các nhóm chuyên gia. Quản lý:
 
-- receives the top-level task,
-- assigns subtasks to crews,
-- evaluates crew outputs,
-- decides whether to accept, re-delegate, or iterate.
+- nhận tác vụ cấp cao nhất,
+- giao các tác vụ con cho các nhóm,
+- đánh giá các đầu ra nhóm,
+- quyết định chấp nhận, giao lại, hay lặp.
 
-Documentation: https://docs.crewai.com/en/introduction (look for "Hierarchical Process" under Core Concepts).
+Tài liệu: https://docs.crewai.com/en/introduction (tìm “Hierarchical Process” trong Core Concepts).
 
 ### Graph-framework implementation
 
-LangGraph uses nested `create_supervisor` calls. The inner supervisor has its own graph; the outer supervisor treats the inner graph as an opaque node. This is cleaner than CrewAI for debugging (you can step through each graph separately) but harder to express dynamic reshaping of the tree.
+LangGraph sử dụng các lệnh gọi `create_supervisor` lồng nhau. Bộ giám sát bên trong có đồ thị riêng; bộ giám sát bên ngoài coi đồ thị bên trong như một node không trong suốt. Điều này sạch hơn CrewAI cho gỡ lỗi (bạn có thể đi từng bước qua mỗi đồ thị riêng biệt) nhưng khó thể hiện việc định hình lại cây động hơn.
 
-Reference: https://reference.langchain.com/python/langgraph-supervisor.
+Tham chiếu: https://reference.langchain.com/python/langgraph-supervisor.
 
 ```figure
 swarm-hierarchy-token
@@ -73,58 +73,58 @@ swarm-hierarchy-token
 
 ## Build It
 
-`code/main.py` runs a 3-level hierarchy:
+`code/main.py` chạy một hệ thống phân cấp 3 cấp:
 
-- top manager: splits a task into "engineering" and "legal" branches,
-- engineering sub-manager: splits into "frontend" and "backend" workers,
-- legal sub-manager: one worker.
+- quản lý cao nhất: chia một tác vụ thành các nhánh “kỹ thuật” và “pháp lý”,
+- quản lý con kỹ thuật: chia thành các worker “frontend” và “backend”,
+- quản lý con pháp lý: một worker.
 
-Demo contrasts happy path (everyone agrees) against a **perturbed path** where the top manager's decomposition mislabels "legal" as "finance" and watches the error cascade — the sub-manager obediently does finance work, the top synthesizer reports finance findings, the original legal question goes unanswered.
+Demo đối chiếu luồng thuận lợi (mọi bên đồng ý) với một **luồng bị nhiễu** nơi phân rã của quản lý cao nhất gắn nhầm nhãn “pháp lý” thành “tài chính” và quan sát lỗi lan truyền — quản lý con ngoan ngoãn làm công việc tài chính, bộ tổng hợp cao nhất báo cáo các phát hiện tài chính, câu hỏi pháp lý gốc không được trả lời.
 
-Run:
+Chạy:
 
 ```
 python3 code/main.py
 ```
 
-Output shows both paths with a clear side-by-side of "what was asked" vs "what was delivered."
+Đầu ra cho thấy cả hai luồng với một đối chiếu đặt cạnh nhau rõ ràng của “những gì được yêu cầu” so với “những gì được bàn giao.”
 
 ## Use It
 
-`outputs/skill-hierarchy-fitness.md` evaluates whether a given task should use hierarchical, sequential, or flat supervisor. Inputs: task description, org structure, reconciliation budget. Output: pattern recommendation with the specific failure modes to guard against.
+`outputs/skill-hierarchy-fitness.md` đánh giá liệu một tác vụ nhất định nên sử dụng phân cấp, tuần tự, hay bộ giám sát phẳng. Đầu vào: mô tả tác vụ, cấu trúc tổ chức, ngân sách hòa giải. Đầu ra: khuyến nghị mẫu với các chế độ lỗi cụ thể cần phòng ngừa.
 
 ## Ship It
 
-If you ship hierarchical:
+Nếu bạn đưa phân cấp ra sử dụng:
 
-- **Cap tree depth at 2.** Three levels already hides most errors from observability.
-- **Explicit reconciliation budget.** Set max rounds before the top manager must commit. Usually 2.
-- **Provenance on every synthesis.** Each node's summary must cite which leaf outputs produced it.
-- **Alert on decomposition drift.** Log the manager's decomposition per step; diff against the user query. If the decomposition no longer covers the query, fire an alert.
+- **Giới hạn độ sâu cây ở 2.** Ba cấp đã che giấu hầu hết lỗi khỏi khả năng quan sát.
+- **Ngân sách hòa giải tường minh.** Đặt số vòng tối đa trước khi quản lý cao nhất phải cam kết. Thường là 2.
+- **Nguồn gốc trên mọi tổng hợp.** Tóm tắt của mỗi node phải dẫn những đầu ra lá nào đã tạo ra nó.
+- **Cảnh báo khi phân rã trôi.** Ghi nhật ký phân rã của quản lý theo từng bước; so sánh khác biệt với truy vấn người dùng. Nếu phân rã không còn bao phủ truy vấn, kích hoạt một cảnh báo.
 
 ## Exercises
 
-1. Run `code/main.py` and compare happy vs perturbed. How many levels of manager hand-off does it take before the top output fully diverges from the user's question?
-2. Add a third level (top → sub → sub-sub → worker). Measure how often the perturbed path corrects itself vs fully diverges as depth grows.
-3. Implement a "canary" worker at each sub-manager that is always asked the original user question unchanged. Use the canary answer to detect decomposition drift. How should the manager react when the canary disagrees with the synthesized answer?
-4. Read CrewAI's `Process.hierarchical` docs. Identify one concrete guardrail CrewAI applies (step limit, manager_llm constraint) and describe what failure mode it targets.
-5. Compare nested LangGraph supervisors to CrewAI hierarchical. Which makes reconciliation loops cheaper to detect?
+1. Chạy `code/main.py` và so sánh thuận lợi với bị nhiễu. Cần bao nhiêu cấp bàn giao quản lý trước khi đầu ra cao nhất hoàn toàn lệch khỏi câu hỏi người dùng?
+2. Thêm một cấp thứ ba (cao nhất → con → con-con → worker). Đo tần suất luồng bị nhiễu tự sửa so với phân kỳ hoàn toàn khi độ sâu tăng.
+3. Triển khai một worker “canary” ở mỗi quản lý con luôn được hỏi nguyên câu hỏi gốc của người dùng. Sử dụng câu trả lời canary để phát hiện trôi phân rã. Quản lý nên phản ứng thế nào khi canary bất đồng với câu trả lời được tổng hợp?
+4. Đọc tài liệu `Process.hierarchical` của CrewAI. Xác định một rào chắn cụ thể CrewAI áp dụng (giới hạn bước, ràng buộc manager_llm) và mô tả nó nhắm tới chế độ lỗi nào.
+5. So sánh các bộ giám sát LangGraph lồng nhau với phân cấp CrewAI. Cách nào làm các vòng lặp hòa giải ít tốn kém hơn để phát hiện?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Hierarchical | "Org chart pattern" | Supervisors over supervisors; only leaves do work. |
-| Manager LLM | "The boss" | The LLM that decomposes, assigns, and validates at an internal node. |
-| Decomposition drift | "The boss lost the plot" | Top manager's split no longer covers the original question. |
-| Reconciliation loop | "Endless meetings" | Sub-managers disagree; top re-delegates; workers re-run; loop until budget exhausted. |
-| Depth-2 ceiling | "Don't go deeper than 2 levels" | Empirical guardrail: 3+ levels collapses observability. |
-| Canary question | "Ground truth at every level" | A worker that is always asked the original query unchanged, to detect drift. |
-| Provenance chain | "Who said what" | Trace from each synthesis back to the leaf outputs that produced it. |
+| Hierarchical (Phân cấp) | “Mẫu sơ đồ tổ chức” | Các bộ giám sát trên các bộ giám sát; chỉ các lá làm công việc. |
+| Manager LLM (LLM quản lý) | “Sếp” | LLM phân rã, giao việc, và xác thực tại một node nội bộ. |
+| Decomposition drift (Trôi phân rã) | “Sếp mất mạch” | Phép chia của quản lý cao nhất không còn bao phủ câu hỏi gốc. |
+| Reconciliation loop (Vòng lặp hòa giải) | “Các cuộc họp bất tận” | Các quản lý con bất đồng; cấp trên giao lại; các worker chạy lại; lặp cho đến khi hết ngân sách. |
+| Depth-2 ceiling (Mức trần độ sâu 2) | “Đừng đi sâu hơn 2 cấp” | Rào chắn thực nghiệm: 3+ cấp làm sụp đổ khả năng quan sát. |
+| Canary question (Câu hỏi canary) | “Chuẩn tham chiếu ở mỗi cấp” | Một worker luôn được hỏi nguyên truy vấn gốc, để phát hiện sự trôi. |
+| Provenance chain (Chuỗi nguồn gốc) | “Ai nói gì” | Dấu vết từ mỗi tổng hợp trở lại các đầu ra lá tạo ra nó. |
 
 ## Further Reading
 
-- [CrewAI introduction — Process.hierarchical](https://docs.crewai.com/en/introduction) — textbook hierarchical with a manager LLM
-- [LangGraph supervisor reference](https://reference.langchain.com/python/langgraph-supervisor) — nested supervisor via `create_supervisor`
-- [Anthropic engineering — Research system](https://www.anthropic.com/engineering/multi-agent-research-system) — why Anthropic deliberately chose flat supervisor over hierarchical
-- [Cemri et al. — Why Do Multi-Agent LLM Systems Fail?](https://arxiv.org/abs/2503.13657) — MAST taxonomy; section on coordination failures documents decomposition drift
+- [CrewAI introduction — Process.hierarchical](https://docs.crewai.com/en/introduction) — phân cấp sách giáo khoa với một LLM quản lý
+- [LangGraph supervisor reference](https://reference.langchain.com/python/langgraph-supervisor) — bộ giám sát lồng nhau qua `create_supervisor`
+- [Anthropic engineering — Research system](https://www.anthropic.com/engineering/multi-agent-research-system) — vì sao Anthropic chủ ý chọn bộ giám sát phẳng thay vì phân cấp
+- [Cemri et al. — Why Do Multi-Agent LLM Systems Fail?](https://arxiv.org/abs/2503.13657) — hệ phân loại MAST; phần về các lỗi phối hợp ghi nhận trôi phân rã

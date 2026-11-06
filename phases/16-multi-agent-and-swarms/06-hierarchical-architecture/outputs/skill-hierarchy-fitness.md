@@ -7,27 +7,27 @@ lesson: 06
 tags: [multi-agent, hierarchy, crewai, langgraph, decomposition-drift]
 ---
 
-Given a task description and an optional org structure, recommend the coordination pattern (flat supervisor, hierarchical, sequential) and list the specific failure modes to guard against.
+Với một mô tả tác vụ và một cấu trúc tổ chức tùy chọn, đề xuất mẫu phối hợp (bộ giám sát phẳng, phân cấp, tuần tự) và liệt kê các chế độ lỗi cụ thể cần phòng ngừa.
 
-Produce:
+Tạo ra:
 
-1. **Task shape analysis.** Is the task one linear flow, fan-out with independent branches, or nested teams with their own sub-teams? Justify.
-2. **Pattern verdict.** Sequential, flat supervisor, or hierarchical. If hierarchical, specify the depth (2 levels strongly preferred; 3 only with strong audit need).
-3. **Decomposition plan.** The exact split the top manager should make. For each branch, name the sub-manager and the bounded scope.
-4. **Reconciliation budget.** Number of rounds allowed before the top manager must commit. Default 2.
-5. **Guardrails.** Three minimum guardrails: canary worker per level, provenance chain on every synthesis, alert on decomposition drift.
-6. **Failure-mode checklist.** Which of {task-assignment error, output misinterpretation, consensus loop} is most likely given the task shape? Describe one concrete symptom and one mitigation per mode.
+1. **Phân tích hình dạng tác vụ.** Tác vụ là một luồng tuyến tính, fan-out với các nhánh độc lập, hay các nhóm lồng nhau có các nhóm con riêng? Giải thích.
+2. **Kết luận mẫu.** Tuần tự, bộ giám sát phẳng, hoặc phân cấp. Nếu phân cấp, chỉ định độ sâu (rất ưu tiên 2 cấp; 3 chỉ với nhu cầu kiểm toán mạnh).
+3. **Kế hoạch phân rã.** Phép chia chính xác mà quản lý cao nhất nên thực hiện. Với mỗi nhánh, nêu quản lý con và phạm vi được giới hạn.
+4. **Ngân sách hòa giải.** Số vòng được phép trước khi quản lý cao nhất phải cam kết. Mặc định 2.
+5. **Các rào chắn.** Ba rào chắn tối thiểu: worker canary theo từng cấp, chuỗi nguồn gốc trên mọi tổng hợp, cảnh báo khi phân rã trôi.
+6. **Danh sách kiểm tra chế độ lỗi.** Chế độ nào trong {lỗi giao tác vụ, diễn giải sai đầu ra, vòng lặp đồng thuận} có khả năng nhất với hình dạng tác vụ? Mô tả một triệu chứng cụ thể và một biện pháp giảm thiểu cho mỗi chế độ.
 
-Hard rejects:
+Các trường hợp loại bỏ dứt khoát:
 
-- Any recommendation that proposes depth > 2 without naming a concrete audit or org requirement that demands it.
-- Hierarchical for single-linear-flow tasks. Those should be sequential pipelines.
-- Designs without an explicit reconciliation budget.
+- Bất kỳ khuyến nghị nào đề xuất độ sâu > 2 mà không nêu một yêu cầu kiểm toán hoặc tổ chức cụ thể đòi hỏi nó.
+- Phân cấp cho các tác vụ một luồng tuyến tính. Chúng nên là các pipeline tuần tự.
+- Các thiết kế không có một ngân sách hòa giải tường minh.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the task is simple enough to fit one agent (under ~10 tool calls), refuse hierarchy and recommend single-agent.
-- If the task has no natural team boundaries (every sub-step depends on every other), refuse and recommend a group chat pattern instead.
-- If the user wants hierarchical for "realism" (because the human org is deep), flag that human hierarchy does not map to LLM hierarchy and recommend flatter.
+- Nếu tác vụ đủ đơn giản để vừa một agent (dưới ~10 lệnh gọi công cụ), từ chối phân cấp và đề xuất một agent đơn lẻ.
+- Nếu tác vụ không có các ranh giới nhóm tự nhiên (mọi bước con phụ thuộc mọi bước khác), từ chối và thay vào đó đề xuất một mẫu trò chuyện nhóm.
+- Nếu người dùng muốn phân cấp vì “tính thực tế” (vì tổ chức con người sâu), đánh dấu rằng phân cấp con người không ánh xạ sang phân cấp LLM và đề xuất phẳng hơn.
 
-Output: one-page brief. Open with the pattern verdict, close with the three biggest risks and their guardrails.
+Đầu ra: bản tóm lược một trang. Mở đầu bằng kết luận mẫu, kết thúc bằng ba rủi ro lớn nhất và các rào chắn của chúng.
