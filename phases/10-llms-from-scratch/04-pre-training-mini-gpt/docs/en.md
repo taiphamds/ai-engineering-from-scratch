@@ -1,6 +1,6 @@
 # Pre-Training a Mini GPT (124M Parameters)
 
-> GPT-2 Small has 124 million parameters. That's 12 transformer layers, 12 attention heads, and 768-dimensional embeddings. You can train it from scratch on a single GPU in a few hours. Most people never do this. They use pre-trained checkpoints. But if you don't train one yourself, you don't actually understand what's happening inside the model you're building products on.
+> GPT-2 Small có 124 triệu tham số. Đó là 12 lớp transformer, 12 head attention và embedding 768 chiều. Bạn có thể huấn luyện nó từ đầu trên một GPU trong vài giờ. Hầu hết mọi người không bao giờ làm điều này. Họ dùng checkpoint được huấn luyện trước. Nhưng nếu không tự huấn luyện một mô hình, bạn không thực sự hiểu những gì xảy ra bên trong mô hình mà bạn đang xây sản phẩm trên đó.
 
 **Type:** Build
 **Languages:** Python (with numpy)
@@ -9,41 +9,41 @@
 
 ## Learning Objectives
 
-- Implement the full GPT-2 architecture (124M parameters) from scratch: token embeddings, positional embeddings, transformer blocks, and the language model head
-- Train a GPT model on a text corpus using next-token prediction with cross-entropy loss
-- Implement autoregressive text generation with temperature sampling and top-k/top-p filtering
-- Monitor training loss curves and validate that the model learns coherent language patterns
+- Triển khai toàn bộ kiến trúc GPT-2 (124M tham số) từ đầu: embedding token, embedding vị trí, khối transformer và head mô hình ngôn ngữ
+- Huấn luyện một mô hình GPT trên một corpus văn bản bằng dự đoán token tiếp theo với hàm mất mát cross-entropy
+- Triển khai sinh văn bản tự hồi quy với lấy mẫu temperature và lọc top-k/top-p
+- Theo dõi các đường cong mất mát huấn luyện và xác thực rằng mô hình học các mẫu ngôn ngữ mạch lạc
 
 ## The Problem
 
-You know what a transformer is. You have read the diagrams. You can recite "attention is all you need" and draw boxes labeled "Multi-Head Attention" on a whiteboard.
+Bạn biết transformer là gì. Bạn đã đọc các sơ đồ. Bạn có thể đọc thuộc "attention là tất cả những gì bạn cần" và vẽ các hộp ghi "Multi-Head Attention" trên bảng trắng.
 
-None of that means you understand what happens when a model generates text.
+Không điều nào trong đó nghĩa là bạn hiểu những gì xảy ra khi một mô hình sinh văn bản.
 
-There are 124,438,272 parameters in GPT-2 Small (with weight tying). Every single one of them was set by running a training loop: forward pass, compute loss, backward pass, update weights. Twelve transformer blocks. Twelve attention heads per block. A 768-dimensional embedding space. A vocabulary of 50,257 tokens. Every time the model generates a token, all 124 million parameters participate in a single matrix multiplication chain that takes a sequence of token IDs and produces a probability distribution over the next token.
+Có 124,438,272 tham số trong GPT-2 Small (với buộc trọng số). Mỗi tham số trong số đó được đặt bằng cách chạy một vòng lặp huấn luyện: truyền xuôi, tính mất mát, truyền ngược, cập nhật trọng số. Mười hai khối transformer. Mười hai head attention mỗi khối. Một không gian embedding 768 chiều. Một từ vựng 50,257 token. Mỗi khi mô hình sinh một token, cả 124 triệu tham số tham gia một chuỗi nhân ma trận duy nhất nhận một chuỗi ID token và tạo ra một phân phối xác suất trên token tiếp theo.
 
-If you have never built this yourself, you are working with a black box. You can use the API. You can fine-tune. But when something goes wrong -- when the model hallucinates, when it repeats itself, when it refuses to follow instructions -- you have no mental model for *why*.
+Nếu bạn chưa từng tự xây dựng điều này, bạn đang làm việc với một hộp đen. Bạn có thể dùng API. Bạn có thể tinh chỉnh. Nhưng khi có điều gì sai -- khi mô hình ảo giác, khi nó lặp lại chính nó, khi nó từ chối làm theo chỉ dẫn -- bạn không có mô hình tư duy cho *lý do*.
 
-This lesson builds GPT-2 Small from scratch. Not in PyTorch. In numpy. Every matrix multiplication is visible. Every gradient is computed by your code. You will see exactly how 124 million numbers conspire to predict the next word.
+Bài học này xây GPT-2 Small từ đầu. Không trong PyTorch. Trong numpy. Mỗi phép nhân ma trận đều hiển thị. Mỗi gradient được mã của bạn tính. Bạn sẽ thấy chính xác cách 124 triệu con số phối hợp để dự đoán từ tiếp theo.
 
 ## The Concept
 
 ### The GPT Architecture
 
-GPT is an autoregressive language model. "Autoregressive" means it generates one token at a time, each conditioned on all previous tokens. The architecture is a stack of transformer decoder blocks.
+GPT là một mô hình ngôn ngữ tự hồi quy. "Tự hồi quy" nghĩa là nó sinh từng token một, mỗi token có điều kiện theo tất cả token trước. Kiến trúc là một chồng các khối decoder transformer.
 
-Here is the full computation graph from token IDs to next-token probabilities:
+Đây là toàn bộ đồ thị tính toán từ ID token đến xác suất token tiếp theo:
 
-1. Token IDs come in. Shape: (batch_size, seq_len).
-2. Token embedding lookup. Each ID maps to a 768-dimensional vector. Shape: (batch_size, seq_len, 768).
-3. Position embedding lookup. Each position (0, 1, 2, ...) maps to a 768-dimensional vector. Same shape.
-4. Add token embeddings + position embeddings.
-5. Pass through 12 transformer blocks.
-6. Final layer normalization.
-7. Linear projection to vocabulary size. Shape: (batch_size, seq_len, vocab_size).
-8. Softmax to get probabilities.
+1. ID token đi vào. Hình dạng: (batch_size, seq_len).
+2. Tra cứu embedding token. Mỗi ID ánh xạ sang một vector 768 chiều. Hình dạng: (batch_size, seq_len, 768).
+3. Tra cứu embedding vị trí. Mỗi vị trí (0, 1, 2, ...) ánh xạ sang một vector 768 chiều. Cùng hình dạng.
+4. Cộng embedding token + embedding vị trí.
+5. Truyền qua 12 khối transformer.
+6. Chuẩn hóa lớp cuối.
+7. Chiếu tuyến tính sang kích thước từ vựng. Hình dạng: (batch_size, seq_len, vocab_size).
+8. Softmax để nhận xác suất.
 
-That is the entire model. No convolutions. No recurrence. Just embeddings, attention, feedforward networks, and layer norms stacked 12 times.
+Đó là toàn bộ mô hình. Không tích chập. Không hồi tiếp. Chỉ embedding, attention, mạng feedforward và chuẩn hóa lớp xếp 12 lần.
 
 ```mermaid
 graph TD
@@ -73,25 +73,25 @@ graph TD
 
 ### The Transformer Block
 
-Each of the 12 blocks follows the same pattern. Pre-norm architecture (GPT-2 uses pre-norm, not post-norm like the original transformer):
+Mỗi khối trong 12 khối theo cùng mô thức. Kiến trúc pre-norm (GPT-2 dùng pre-norm, không phải post-norm như transformer gốc):
 
 1. LayerNorm
-2. Multi-Head Self-Attention
-3. Residual connection (add input back)
+2. Self-Attention đa head
+3. Kết nối phần dư (cộng lại đầu vào)
 4. LayerNorm
-5. Feed-Forward Network (MLP)
-6. Residual connection (add input back)
+5. Mạng Feed-Forward (MLP)
+6. Kết nối phần dư (cộng lại đầu vào)
 
-The residual connections are critical. Without them, gradients vanish by the time they reach block 1 during backpropagation. With them, gradients can flow directly from the loss to any layer through the "skip" path. This is why you can stack 12, 32, or even 96 blocks (GPT-4 is rumored to use 120).
+Các kết nối phần dư cực kỳ quan trọng. Không có chúng, gradient triệt tiêu khi đến khối 1 trong lan truyền ngược. Có chúng, gradient có thể truyền trực tiếp từ hàm mất mát đến bất kỳ lớp nào qua đường "tắt". Đây là lý do bạn có thể xếp 12, 32, hoặc thậm chí 96 khối (GPT-4 được đồn dùng 120).
 
 ### Attention: The Core Mechanism
 
-Self-attention lets every token look at every previous token and decide how much to attend to each one. Here is the math.
+Self-attention cho phép mỗi token nhìn mọi token trước và quyết định chú ý đến mỗi token bao nhiêu. Đây là toán học.
 
-For each token position, compute three vectors from the input:
-- **Query (Q)**: "What am I looking for?"
-- **Key (K)**: "What do I contain?"
-- **Value (V)**: "What information do I carry?"
+Với mỗi vị trí token, tính ba vector từ đầu vào:
+- **Query (Q)**: "Tôi đang tìm gì?"
+- **Key (K)**: "Tôi chứa gì?"
+- **Value (V)**: "Tôi mang thông tin gì?"
 
 ```
 Q = input @ W_q    (768 -> 768)
@@ -104,9 +104,9 @@ attention_weights = softmax(attention_scores)
 output = attention_weights @ V
 ```
 
-The causal mask is what makes GPT autoregressive. Position 5 can attend to positions 0-5 but not 6, 7, 8, and so on. This prevents the model from "cheating" by looking at future tokens during training.
+Mặt nạ nhân quả là thứ khiến GPT tự hồi quy. Vị trí 5 có thể chú ý đến các vị trí 0-5 nhưng không phải 6, 7, 8, v.v. Điều này ngăn mô hình "gian lận" bằng cách nhìn các token tương lai trong huấn luyện.
 
-**Multi-head attention** splits the 768-dimensional space into 12 heads of 64 dimensions each. Each head learns a different attention pattern. One head might track syntactic relationships (subject-verb agreement). Another might track semantic similarity (synonyms). Another might track positional proximity (nearby words). The outputs from all 12 heads are concatenated and projected back to 768 dimensions.
+**Attention đa head** chia không gian 768 chiều thành 12 head, mỗi head 64 chiều. Mỗi head học một mẫu attention khác. Một head có thể theo dõi quan hệ cú pháp (hòa hợp chủ ngữ-động từ). Một head khác có thể theo dõi tương đồng ngữ nghĩa (từ đồng nghĩa). Một head khác có thể theo dõi độ gần vị trí (từ gần nhau). Đầu ra từ cả 12 head được nối và chiếu trở lại 768 chiều.
 
 ```mermaid
 graph LR
@@ -141,25 +141,25 @@ graph LR
     style V fill:#1a1a2e,stroke:#0f3460,color:#fff
 ```
 
-The division by sqrt(d_k) -- sqrt(64) = 8 -- is scaling. Without it, the dot products grow large for high-dimensional vectors, pushing softmax into regions where gradients are nearly zero. This was one of the key insights in the original "Attention Is All You Need" paper.
+Phép chia cho sqrt(d_k) -- sqrt(64) = 8 -- là co giãn. Không có nó, tích vô hướng tăng lớn với vector nhiều chiều, đẩy softmax vào các vùng mà gradient gần bằng không. Đây là một trong các nhận thức then chốt trong bài báo "Attention Is All You Need" gốc.
 
 ### KV Cache: Why Inference Is Fast
 
-During training, you process the entire sequence at once. During inference, you generate one token at a time. Without optimization, generating token N requires recomputing attention for all N-1 previous tokens. That is O(N^2) per generated token, or O(N^3) total for a sequence of length N.
+Trong huấn luyện, bạn xử lý toàn bộ chuỗi cùng lúc. Trong suy luận, bạn sinh từng token một. Không tối ưu, sinh token N đòi hỏi tính lại attention cho tất cả N-1 token trước. Đó là O(N^2) mỗi token được sinh, hay tổng O(N^3) cho một chuỗi độ dài N.
 
-KV Cache solves this. After computing K and V for each token, store them. When generating token N+1, you only need to compute Q for the new token and look up the cached K and V from all previous tokens. This reduces per-token cost from O(N) to O(1) for the K and V computation. The attention score calculation is still O(N) because you attend to all previous positions, but you avoid redundant matrix multiplications on the input.
+KV Cache giải quyết điều này. Sau khi tính K và V cho mỗi token, lưu chúng. Khi sinh token N+1, bạn chỉ cần tính Q cho token mới và tra K, V đã cache từ tất cả token trước. Điều này giảm chi phí mỗi token từ O(N) xuống O(1) cho tính toán K và V. Tính điểm attention vẫn là O(N) vì bạn chú ý đến mọi vị trí trước, nhưng tránh các phép nhân ma trận dư thừa trên đầu vào.
 
-For GPT-2 with 12 layers and 12 heads, the KV cache stores 2 (K + V) x 12 layers x 12 heads x 64 dims = 18,432 values per token. For a 1024-token sequence, that is about 75MB in FP32. For Llama 3 405B with 128 layers, the KV cache for a single sequence can exceed 10GB. This is why long-context inference is memory-bound.
+Với GPT-2 có 12 lớp và 12 head, KV cache lưu 2 (K + V) x 12 lớp x 12 head x 64 chiều = 18,432 giá trị mỗi token. Với một chuỗi 1024 token, đó là khoảng 75MB ở FP32. Với Llama 3 405B có 128 lớp, KV cache cho một chuỗi có thể vượt 10GB. Đây là lý do suy luận ngữ cảnh dài bị giới hạn bộ nhớ.
 
 ### Prefill vs Decode: Two Phases of Inference
 
-When you send a prompt to an LLM, inference happens in two distinct phases.
+Khi bạn gửi một prompt đến một LLM, suy luận diễn ra trong hai giai đoạn riêng biệt.
 
-**Prefill** processes your entire prompt in parallel. All tokens are known, so the model can compute attention for all positions simultaneously. This phase is compute-bound -- the GPU is doing matrix multiplications at full throughput. For a 1000-token prompt on an A100, prefill takes roughly 20-50ms.
+**Prefill** xử lý toàn bộ prompt song song. Mọi token đều đã biết, nên mô hình có thể tính attention cho mọi vị trí đồng thời. Giai đoạn này bị giới hạn tính toán -- GPU đang nhân ma trận ở toàn thông lượng. Với prompt 1000 token trên A100, prefill mất khoảng 20-50ms.
 
-**Decode** generates tokens one at a time. Each new token depends on all previous tokens. This phase is memory-bound -- the bottleneck is reading the model weights and KV cache from GPU memory, not the matrix math itself. The GPU's compute cores sit mostly idle waiting for memory reads. For GPT-2, each decode step takes about the same time regardless of how many FLOPs the matmuls require, because memory bandwidth is the constraint.
+**Decode** sinh từng token một. Mỗi token mới phụ thuộc tất cả token trước. Giai đoạn này bị giới hạn bộ nhớ -- nút thắt là đọc trọng số mô hình và KV cache từ bộ nhớ GPU, không phải bản thân toán ma trận. Các lõi tính toán GPU phần lớn nhàn rỗi đợi đọc bộ nhớ. Với GPT-2, mỗi bước decode mất khoảng cùng thời gian bất kể các phép nhân ma trận cần bao nhiêu FLOPs, vì băng thông bộ nhớ là ràng buộc.
 
-This distinction matters for production systems. Prefill throughput scales with GPU compute (more FLOPS = faster prefill). Decode throughput scales with memory bandwidth (faster memory = faster decode). That is why NVIDIA's H100 focused on memory bandwidth improvements over the A100 -- it directly speeds up token generation.
+Phân biệt này quan trọng cho hệ thống production. Thông lượng prefill mở rộng theo tính toán GPU (nhiều FLOPS hơn = prefill nhanh hơn). Thông lượng decode mở rộng theo băng thông bộ nhớ (bộ nhớ nhanh hơn = decode nhanh hơn). Đó là lý do H100 của NVIDIA tập trung cải thiện băng thông bộ nhớ so với A100 -- nó trực tiếp tăng tốc sinh token.
 
 ```mermaid
 graph LR
@@ -194,37 +194,37 @@ graph LR
 
 ### The Training Loop
 
-Training an LLM is next-token prediction. Given tokens [0, 1, 2, ..., N-1], predict tokens [1, 2, 3, ..., N]. The loss function is cross-entropy between the model's predicted probability distribution and the actual next token.
+Huấn luyện một LLM là dự đoán token tiếp theo. Với các token [0, 1, 2, ..., N-1], dự đoán các token [1, 2, 3, ..., N]. Hàm mất mát là cross-entropy giữa phân phối xác suất mô hình dự đoán và token tiếp theo thực tế.
 
-One training step:
+Một bước huấn luyện:
 
-1. **Forward pass**: Run the batch through all 12 blocks. Get logits (pre-softmax scores) for each position.
-2. **Compute loss**: Cross-entropy between logits and target tokens (the input shifted by one position).
-3. **Backward pass**: Compute gradients for all 124M parameters using backpropagation.
-4. **Optimizer step**: Update weights. GPT-2 uses Adam with learning rate warmup and cosine decay.
+1. **Truyền xuôi**: Chạy batch qua cả 12 khối. Nhận logits (điểm trước softmax) cho mỗi vị trí.
+2. **Tính mất mát**: Cross-entropy giữa logits và token mục tiêu (đầu vào dịch một vị trí).
+3. **Truyền ngược**: Tính gradient cho cả 124M tham số bằng lan truyền ngược.
+4. **Bước optimizer**: Cập nhật trọng số. GPT-2 dùng Adam với khởi động tốc độ học và giảm cosine.
 
-The learning rate schedule matters more than you might expect. GPT-2 warms up from 0 to the peak learning rate over the first 2,000 steps, then decays following a cosine curve. Starting with a high learning rate causes the model to diverge. Keeping a constant high rate causes oscillation in later training. The warmup-then-decay pattern is used by every major LLM.
+Lịch tốc độ học quan trọng hơn bạn có thể kỳ vọng. GPT-2 khởi động từ 0 đến tốc độ học đỉnh trong 2,000 bước đầu, rồi giảm theo một đường cong cosine. Bắt đầu với tốc độ học cao khiến mô hình phân kỳ. Giữ tốc độ cao không đổi gây dao động trong huấn luyện về sau. Mô thức khởi động-rồi-giảm được mọi LLM lớn dùng.
 
 ### GPT-2 Small: The Numbers
 
-| Component | Shape | Parameters |
+| Thành phần | Hình dạng | Tham số |
 |-----------|-------|------------|
-| Token embeddings | (50257, 768) | 38,597,376 |
-| Position embeddings | (1024, 768) | 786,432 |
-| Per-block attention (W_q, W_k, W_v, W_out) | 4 x (768, 768) | 2,359,296 |
-| Per-block FFN (up + down) | (768, 3072) + (3072, 768) | 4,718,592 |
-| Per-block LayerNorms (2x) | 2 x 768 x 2 | 3,072 |
-| Final LayerNorm | 768 x 2 | 1,536 |
-| **Total per block** | | **7,080,960** |
-| **Total (12 blocks)** | | **85,054,464 + 39,383,808 = 124,438,272** |
+| Embedding token | (50257, 768) | 38,597,376 |
+| Embedding vị trí | (1024, 768) | 786,432 |
+| Attention mỗi khối (W_q, W_k, W_v, W_out) | 4 x (768, 768) | 2,359,296 |
+| FFN mỗi khối (lên + xuống) | (768, 3072) + (3072, 768) | 4,718,592 |
+| Các LayerNorm mỗi khối (2x) | 2 x 768 x 2 | 3,072 |
+| LayerNorm cuối | 768 x 2 | 1,536 |
+| **Tổng mỗi khối** | | **7,080,960** |
+| **Tổng (12 khối)** | | **85,054,464 + 39,383,808 = 124,438,272** |
 
-The output projection (logits head) shares weights with the token embedding matrix. This is called weight tying -- it reduces the parameter count by 38M and improves performance because it forces the model to use the same representation space for input and output.
+Phép chiếu đầu ra (head logits) chia sẻ trọng số với ma trận embedding token. Điều này gọi là buộc trọng số -- nó giảm số tham số 38M và cải thiện hiệu năng vì buộc mô hình dùng cùng không gian biểu diễn cho đầu vào và đầu ra.
 
 ## Build It
 
 ### Step 1: Embedding Layer
 
-Token embeddings map each of the 50,257 possible tokens to a 768-dimensional vector. Position embeddings add information about where each token sits in the sequence. The two are summed.
+Embedding token ánh xạ mỗi token trong 50,257 token có thể sang một vector 768 chiều. Embedding vị trí thêm thông tin về nơi mỗi token nằm trong chuỗi. Hai thứ được cộng.
 
 ```python
 import numpy as np
@@ -241,11 +241,11 @@ class Embedding:
         return tok_emb + pos_emb
 ```
 
-The 0.02 standard deviation for initialization comes from the GPT-2 paper. Too large and the initial forward passes produce extreme values that destabilize training. Too small and the initial outputs are nearly identical for all inputs, making early gradient signals useless.
+Độ lệch chuẩn 0.02 cho khởi tạo đến từ bài báo GPT-2. Quá lớn và các lượt truyền xuôi ban đầu tạo giá trị cực đoan làm mất ổn định huấn luyện. Quá nhỏ và các đầu ra ban đầu gần giống hệt cho mọi đầu vào, khiến tín hiệu gradient sớm vô dụng.
 
 ### Step 2: Self-Attention with Causal Mask
 
-Single-head attention first. The causal mask sets future positions to negative infinity before softmax, ensuring each position can only attend to itself and earlier positions.
+Attention một head trước. Mặt nạ nhân quả đặt các vị trí tương lai thành âm vô cùng trước softmax, bảo đảm mỗi vị trí chỉ có thể chú ý đến chính nó và các vị trí trước.
 
 ```python
 def attention(Q, K, V, mask=None):
@@ -258,11 +258,11 @@ def attention(Q, K, V, mask=None):
     return weights @ V
 ```
 
-The softmax implementation subtracts the maximum before exponentiating. Without this, exp(large_number) overflows to infinity. This is a numerical stability trick that does not change the output because softmax(x - c) = softmax(x) for any constant c.
+Triển khai softmax trừ giá trị lớn nhất trước khi lấy hàm mũ. Không có điều này, exp(large_number) tràn thành vô cùng. Đây là thủ thuật ổn định số không thay đổi đầu ra vì softmax(x - c) = softmax(x) với bất kỳ hằng số c nào.
 
 ### Step 3: Multi-Head Attention
 
-Split the 768-dimensional input into 12 heads of 64 dimensions each. Each head computes attention independently. Concatenate the results and project back to 768 dimensions.
+Chia đầu vào 768 chiều thành 12 head, mỗi head 64 chiều. Mỗi head tính attention độc lập. Nối kết quả và chiếu trở lại 768 chiều.
 
 ```python
 class MultiHeadAttention:
@@ -291,11 +291,11 @@ class MultiHeadAttention:
         return attn_out @ self.W_out
 ```
 
-The reshape-transpose-reshape dance is the most confusing part of multi-head attention. Here is what happens: the (batch, seq_len, 768) tensor becomes (batch, seq_len, 12, 64), then (batch, 12, seq_len, 64). Now each of the 12 heads has its own (seq_len, 64) matrix to run attention on. After attention, we reverse the process: (batch, 12, seq_len, 64) becomes (batch, seq_len, 12, 64) becomes (batch, seq_len, 768).
+Điệu nhảy reshape-transpose-reshape là phần khó hiểu nhất của attention đa head. Đây là những gì xảy ra: tensor (batch, seq_len, 768) thành (batch, seq_len, 12, 64), rồi (batch, 12, seq_len, 64). Giờ mỗi head trong 12 head có ma trận (seq_len, 64) riêng để chạy attention. Sau attention, chúng ta đảo quá trình: (batch, 12, seq_len, 64) thành (batch, seq_len, 12, 64) thành (batch, seq_len, 768).
 
 ### Step 4: Transformer Block
 
-One complete transformer block: LayerNorm, multi-head attention with residual, LayerNorm, feedforward with residual.
+Một khối transformer hoàn chỉnh: LayerNorm, attention đa head với phần dư, LayerNorm, feedforward với phần dư.
 
 ```python
 class LayerNorm:
@@ -336,11 +336,11 @@ class TransformerBlock:
         return x
 ```
 
-The feedforward network expands the 768-dimensional input to 3,072 dimensions (4x), applies a nonlinearity, then projects back to 768. This expansion-contraction pattern gives the model a "wider" internal representation to work with at each position. GPT-2 uses GELU activation, but we use ReLU here for simplicity -- the difference is minor for understanding the architecture.
+Mạng feedforward mở rộng đầu vào 768 chiều lên 3,072 chiều (4x), áp dụng một phi tuyến, rồi chiếu trở lại 768. Mô thức mở rộng-co lại này cho mô hình một biểu diễn nội bộ "rộng hơn" để làm việc ở mỗi vị trí. GPT-2 dùng kích hoạt GELU, nhưng chúng ta dùng ReLU ở đây cho đơn giản -- khác biệt nhỏ đối với việc hiểu kiến trúc.
 
 ### Step 5: Full GPT Model
 
-Stack 12 transformer blocks. Add the embedding layer at the front and the output projection at the back.
+Xếp 12 khối transformer. Thêm lớp embedding phía trước và phép chiếu đầu ra phía sau.
 
 ```python
 class MiniGPT:
@@ -382,11 +382,11 @@ class MiniGPT:
         return total
 ```
 
-Notice the weight tying: `logits = x @ self.embedding.token_embed.T`. The output projection reuses the token embedding matrix (transposed). This is not just a parameter-saving trick. It means the model uses the same vector space for understanding tokens (embeddings) and predicting them (output).
+Chú ý buộc trọng số: `logits = x @ self.embedding.token_embed.T`. Phép chiếu đầu ra tái sử dụng ma trận embedding token (chuyển vị). Đây không chỉ là thủ thuật tiết kiệm tham số. Nó nghĩa là mô hình dùng cùng không gian vector để hiểu token (embedding) và dự đoán chúng (đầu ra).
 
 ### Step 6: Training Loop
 
-For a real training run on 124M parameters, you would need a GPU and PyTorch. This training loop demonstrates the mechanics on a small model that runs in pure numpy. We use a tiny model (4 layers, 4 heads, 128 dims) to make it tractable.
+Với một lần huấn luyện thực trên 124M tham số, bạn sẽ cần GPU và PyTorch. Vòng lặp huấn luyện này minh họa cơ chế trên một mô hình nhỏ chạy bằng numpy thuần. Chúng ta dùng một mô hình nhỏ (4 lớp, 4 head, 128 chiều) để làm nó tính toán được.
 
 ```python
 def cross_entropy_loss(logits, targets):
@@ -432,13 +432,13 @@ def train_mini_gpt(text, vocab_size=256, embed_dim=128, num_heads=4,
     return model
 ```
 
-The loss starts near ln(vocab_size) -- for a 256-token byte-level vocabulary, that is ln(256) = 5.55. A random model assigns equal probability to every token. As training progresses, the loss drops because the model learns to predict common patterns: "th" after "t", space after a period, and so on.
+Mất mát bắt đầu gần ln(vocab_size) -- với một từ vựng cấp byte 256 token, đó là ln(256) = 5.55. Một mô hình ngẫu nhiên gán xác suất bằng nhau cho mọi token. Khi huấn luyện tiến triển, mất mát giảm vì mô hình học dự đoán các mẫu phổ biến: "th" sau "t", khoảng trắng sau dấu chấm, v.v.
 
-In production, you would use Adam optimizer with gradient accumulation, learning rate warmup, and gradient clipping. The forward-pass-loss-backward-update loop is identical. The optimizer is more sophisticated.
+Trong production, bạn sẽ dùng optimizer Adam với tích lũy gradient, khởi động tốc độ học và cắt gradient. Vòng lặp truyền-xuôi-mất-mát-truyền-ngược-cập-nhật giống hệt. Optimizer tinh vi hơn.
 
 ### Step 7: Text Generation
 
-Generation uses the trained model to predict one token at a time. Each prediction is sampled from the output distribution (or taken greedily as the argmax).
+Sinh dùng mô hình đã huấn luyện để dự đoán từng token một. Mỗi dự đoán được lấy mẫu từ phân phối đầu ra (hoặc chọn tham lam như argmax).
 
 ```python
 def generate(model, prompt_tokens, max_new_tokens=100, temperature=0.8):
@@ -460,9 +460,9 @@ def generate(model, prompt_tokens, max_new_tokens=100, temperature=0.8):
     return tokens
 ```
 
-Temperature controls randomness. Temperature 1.0 uses the raw distribution. Temperature 0.5 sharpens it (more deterministic -- the model picks its top choices more often). Temperature 1.5 flattens it (more random -- low-probability tokens get a bigger chance). Temperature 0.0 is greedy decoding (always pick the highest probability token).
+Temperature điều khiển độ ngẫu nhiên. Temperature 1.0 dùng phân phối thô. Temperature 0.5 làm nó sắc hơn (tất định hơn -- mô hình chọn các lựa chọn hàng đầu thường xuyên hơn). Temperature 1.5 làm phẳng nó (ngẫu nhiên hơn -- token xác suất thấp có cơ hội lớn hơn). Temperature 0.0 là giải mã tham lam (luôn chọn token xác suất cao nhất).
 
-The `tokens[-seq_len:]` window is necessary because the model has a maximum context length (1024 for GPT-2). Once you exceed it, you must drop the oldest tokens. This is the "context window" that everyone talks about.
+Cửa sổ `tokens[-seq_len:]` cần thiết vì mô hình có độ dài ngữ cảnh tối đa (1024 cho GPT-2). Khi vượt nó, bạn phải bỏ các token cũ nhất. Đây là "cửa sổ ngữ cảnh" mà mọi người nói đến.
 
 ```figure
 sampling-decoder
@@ -494,42 +494,42 @@ generated_text = bytes(output_tokens).decode("utf-8", errors="replace")
 print(f"\nGenerated: {generated_text}")
 ```
 
-On a small corpus with a small model, the generated text will be semi-coherent at best. It will learn some byte-level patterns from the training text but cannot generalize the way GPT-2 does with 40GB of training data and the full 124M parameter architecture. The point is not the output quality. The point is that you can trace every step: embedding lookup, attention computation, feedforward transformation, logit projection, softmax, and sampling. Every operation is visible.
+Trên một corpus nhỏ với một mô hình nhỏ, văn bản được sinh tốt nhất cũng chỉ phần nào mạch lạc. Nó sẽ học một số mẫu cấp byte từ văn bản huấn luyện nhưng không thể khái quát như GPT-2 với 40GB dữ liệu huấn luyện và kiến trúc đầy đủ 124M tham số. Điểm chính không phải chất lượng đầu ra. Điểm chính là bạn có thể truy từng bước: tra embedding, tính attention, biến đổi feedforward, chiếu logit, softmax và lấy mẫu. Mỗi phép toán đều hiển thị.
 
 ## Ship It
 
-This lesson produces `outputs/prompt-gpt-architecture-analyzer.md` -- a prompt that analyzes the architecture choices in any GPT-style model. Feed it a model card or technical report and it breaks down the parameter allocation, attention design, and scaling decisions.
+Bài học này tạo ra `outputs/prompt-gpt-architecture-analyzer.md` -- một prompt phân tích các lựa chọn kiến trúc trong bất kỳ mô hình kiểu GPT nào. Đưa cho nó một model card hoặc báo cáo kỹ thuật và nó phân tích phân bổ tham số, thiết kế attention và quyết định mở rộng quy mô.
 
 ## Exercises
 
-1. Modify the model to use 24 layers and 16 heads instead of 12/12. Count the parameters. How does doubling the depth compare to doubling the width (embedding dimension)?
+1. Sửa mô hình dùng 24 lớp và 16 head thay vì 12/12. Đếm tham số. Tăng gấp đôi độ sâu so với tăng gấp đôi độ rộng (số chiều embedding) thế nào?
 
-2. Implement the GELU activation function (GELU(x) = x * 0.5 * (1 + erf(x / sqrt(2)))) and replace the ReLU in the feedforward network. Run training for 500 steps with each activation and compare the final loss.
+2. Triển khai hàm kích hoạt GELU (GELU(x) = x * 0.5 * (1 + erf(x / sqrt(2)))) và thay ReLU trong mạng feedforward. Chạy huấn luyện 500 bước với mỗi kích hoạt và so sánh mất mát cuối.
 
-3. Add a KV cache to the generation function. Store K and V tensors for each layer after the first forward pass, and reuse them for subsequent tokens. Measure the speedup: generate 200 tokens with and without the cache and compare wall-clock time.
+3. Thêm một KV cache vào hàm sinh. Lưu các tensor K và V cho mỗi lớp sau lượt truyền xuôi đầu, và tái sử dụng cho các token sau. Đo tăng tốc: sinh 200 token có và không có cache rồi so sánh thời gian thực.
 
-4. Implement top-k sampling (only consider the k highest-probability tokens) and top-p sampling (nucleus sampling: consider the smallest set of tokens whose cumulative probability exceeds p). Compare the output quality at temperature 0.8 with top-k=50 vs top-p=0.95.
+4. Triển khai lấy mẫu top-k (chỉ xét k token xác suất cao nhất) và lấy mẫu top-p (lấy mẫu nucleus: xét tập token nhỏ nhất có xác suất tích lũy vượt p). So sánh chất lượng đầu ra ở temperature 0.8 với top-k=50 so với top-p=0.95.
 
-5. Build a training loss curve plotter. Train the model for 1000 steps and plot loss vs step. Identify the three phases: rapid initial descent (learning common bytes), slower middle phase (learning byte patterns), and plateau (overfitting on the small corpus). The shape of this curve is the same whether you are training a 128-dim model or GPT-4.
+5. Xây dựng một bộ vẽ đường cong mất mát huấn luyện. Huấn luyện mô hình 1000 bước và vẽ mất mát theo bước. Xác định ba giai đoạn: giảm nhanh ban đầu (học byte phổ biến), giai đoạn giữa chậm hơn (học mẫu byte), và chững lại (overfit trên corpus nhỏ). Hình dạng đường cong này giống nhau dù bạn huấn luyện một mô hình 128 chiều hay GPT-4.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Autoregressive | "It generates one word at a time" | Each output token is conditioned on all previous tokens -- the model predicts P(token_n \| token_0, ..., token_{n-1}) |
-| Causal mask | "It can't see the future" | An upper-triangular matrix of -infinity values that prevents attention to future positions during training |
-| Multi-head attention | "Multiple attention patterns" | Splitting Q, K, V into parallel heads (e.g., 12 heads of 64 dims each for GPT-2) so each head can learn different relationship types |
-| KV Cache | "Caching for speed" | Storing computed Key and Value tensors from previous tokens to avoid redundant computation during autoregressive generation |
-| Prefill | "Processing the prompt" | The first inference phase where all prompt tokens are processed in parallel -- compute-bound on GPU FLOPS |
-| Decode | "Generating tokens" | The second inference phase where tokens are generated one at a time -- memory-bound on GPU bandwidth |
-| Weight tying | "Sharing embeddings" | Using the same matrix for input token embeddings and the output projection head -- saves 38M params in GPT-2 |
-| Residual connection | "Skip connection" | Adding the input directly to the output of a sublayer (x + sublayer(x)) -- enables gradient flow in deep networks |
-| Layer normalization | "Normalizing activations" | Normalizing across the feature dimension to mean 0 and variance 1, with learnable scale and bias parameters |
-| Cross-entropy loss | "How wrong the predictions are" | -log(probability assigned to the correct next token), averaged over all positions -- the standard LLM training objective |
+| Autoregressive (Tự hồi quy) | "Nó sinh từng từ một" | Mỗi token đầu ra có điều kiện theo mọi token trước -- mô hình dự đoán P(token_n \| token_0, ..., token_{n-1}) |
+| Causal mask (Mặt nạ nhân quả) | "Nó không thể thấy tương lai" | Một ma trận tam giác trên gồm các giá trị âm vô cùng ngăn attention đến vị trí tương lai trong huấn luyện |
+| Multi-head attention (Attention đa head) | "Nhiều mẫu attention" | Chia Q, K, V thành các head song song (ví dụ 12 head mỗi head 64 chiều cho GPT-2) để mỗi head học các loại quan hệ khác nhau |
+| KV Cache | "Cache để tăng tốc" | Lưu các tensor Key và Value đã tính từ token trước để tránh tính toán dư thừa khi sinh tự hồi quy |
+| Prefill | "Xử lý prompt" | Giai đoạn suy luận đầu nơi mọi token prompt được xử lý song song -- bị giới hạn tính toán theo FLOPS GPU |
+| Decode (Giải mã) | "Sinh token" | Giai đoạn suy luận thứ hai nơi token được sinh từng cái một -- bị giới hạn bộ nhớ theo băng thông GPU |
+| Weight tying (Buộc trọng số) | "Chia sẻ embedding" | Dùng cùng ma trận cho embedding token đầu vào và head chiếu đầu ra -- tiết kiệm 38M tham số trong GPT-2 |
+| Residual connection (Kết nối phần dư) | "Kết nối tắt" | Cộng đầu vào trực tiếp với đầu ra một lớp con (x + sublayer(x)) -- cho phép gradient truyền trong mạng sâu |
+| Layer normalization (Chuẩn hóa lớp) | "Chuẩn hóa activation" | Chuẩn hóa trên chiều đặc trưng về trung bình 0 và phương sai 1, với các tham số scale và bias có thể học |
+| Cross-entropy loss (Hàm mất mát cross-entropy) | "Dự đoán sai đến đâu" | -log(xác suất gán cho token tiếp theo đúng), lấy trung bình trên mọi vị trí -- mục tiêu huấn luyện LLM tiêu chuẩn |
 
 ## Further Reading
 
-- [Radford et al., 2019 -- "Language Models are Unsupervised Multitask Learners" (GPT-2)](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) -- the GPT-2 paper that introduced the 124M to 1.5B parameter family
-- [Vaswani et al., 2017 -- "Attention Is All You Need"](https://arxiv.org/abs/1706.03762) -- the original transformer paper with scaled dot-product attention and multi-head attention
-- [Llama 3 Technical Report](https://arxiv.org/abs/2407.21783) -- how Meta scaled the GPT architecture to 405B parameters with 16K GPUs
-- [Pope et al., 2022 -- "Efficiently Scaling Transformer Inference"](https://arxiv.org/abs/2211.05102) -- the paper that formalized prefill vs decode and KV cache analysis
+- [Radford et al., 2019 -- "Language Models are Unsupervised Multitask Learners" (GPT-2)](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) -- bài báo GPT-2 giới thiệu họ từ 124M đến 1.5B tham số
+- [Vaswani et al., 2017 -- "Attention Is All You Need"](https://arxiv.org/abs/1706.03762) -- bài báo transformer gốc với attention tích vô hướng có co giãn và attention đa head
+- [Llama 3 Technical Report](https://arxiv.org/abs/2407.21783) -- cách Meta mở rộng kiến trúc GPT lên 405B tham số với 16K GPU
+- [Pope et al., 2022 -- "Efficiently Scaling Transformer Inference"](https://arxiv.org/abs/2211.05102) -- bài báo hình thức hóa prefill so với decode và phân tích KV cache

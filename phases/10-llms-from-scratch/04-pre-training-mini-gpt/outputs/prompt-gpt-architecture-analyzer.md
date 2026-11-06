@@ -9,71 +9,71 @@ tags: [gpt, transformer, architecture, attention, kv-cache, scaling, pre-trainin
 
 # GPT Architecture Analyzer
 
-When evaluating a GPT-style model from a technical report, model card, or training log, use this framework to break down the architecture and identify design tradeoffs.
+Khi đánh giá một mô hình kiểu GPT từ báo cáo kỹ thuật, model card hoặc log huấn luyện, dùng khung này để phân tích kiến trúc và xác định các đánh đổi thiết kế.
 
 ## Analysis Protocol
 
 ### 1. Parameter Allocation Breakdown
 
-Compute the exact parameter count for each component:
+Tính chính xác số tham số cho mỗi thành phần:
 
-- **Token embeddings**: vocab_size x embed_dim
-- **Position embeddings**: max_seq_len x embed_dim
-- **Per-block attention**: 4 x embed_dim x embed_dim (Q, K, V, output projections)
-- **Per-block FFN**: 2 x embed_dim x ff_dim + embed_dim + ff_dim (two linear layers + biases)
-- **Per-block LayerNorm**: 4 x embed_dim (two norms, each with scale + bias)
-- **Final LayerNorm**: 2 x embed_dim
-- **Output head**: vocab_size x embed_dim (or 0 if weight-tied with token embeddings)
+- **Embedding token**: vocab_size x embed_dim
+- **Embedding vị trí**: max_seq_len x embed_dim
+- **Attention mỗi khối**: 4 x embed_dim x embed_dim (các phép chiếu Q, K, V, đầu ra)
+- **FFN mỗi khối**: 2 x embed_dim x ff_dim + embed_dim + ff_dim (hai lớp tuyến tính + bias)
+- **LayerNorm mỗi khối**: 4 x embed_dim (hai chuẩn hóa, mỗi cái có scale + bias)
+- **LayerNorm cuối**: 2 x embed_dim
+- **Head đầu ra**: vocab_size x embed_dim (hoặc 0 nếu buộc trọng số với embedding token)
 
-Flag if any single component exceeds 40% of total parameters. The embedding matrix dominates in small models. Attention and FFN dominate in large models.
+Đánh dấu nếu một thành phần bất kỳ vượt 40% tổng tham số. Ma trận embedding chi phối mô hình nhỏ. Attention và FFN chi phối mô hình lớn.
 
 ### 2. Attention Design Analysis
 
-Evaluate the attention configuration:
+Đánh giá cấu hình attention:
 
-- **Head dimension**: embed_dim / num_heads. Standard is 64 (GPT-2) or 128 (Llama 3). Below 32 limits per-head expressiveness. Above 128 wastes compute with little benefit.
-- **Heads per layer**: More heads = more diverse attention patterns but more memory for KV cache.
-- **Grouped Query Attention (GQA)**: Does the model share K/V heads across multiple Q heads? Llama 3 uses GQA with 8 KV heads for 32 Q heads. This reduces KV cache by 4x.
-- **Context length**: Max position embeddings. RoPE allows extrapolation beyond training length. Absolute position embeddings do not.
+- **Số chiều head**: embed_dim / num_heads. Tiêu chuẩn là 64 (GPT-2) hoặc 128 (Llama 3). Dưới 32 hạn chế sức biểu đạt mỗi head. Trên 128 lãng phí tính toán với ít lợi ích.
+- **Head mỗi lớp**: Nhiều head hơn = các mẫu attention đa dạng hơn nhưng nhiều bộ nhớ KV cache hơn.
+- **Grouped Query Attention (GQA)**: Mô hình có chia sẻ head K/V trên nhiều head Q không? Llama 3 dùng GQA với 8 head KV cho 32 head Q. Điều này giảm KV cache 4x.
+- **Độ dài ngữ cảnh**: Embedding vị trí tối đa. RoPE cho phép ngoại suy vượt độ dài huấn luyện. Embedding vị trí tuyệt đối thì không.
 
 ### 3. Memory Budget
 
-For inference at the model's maximum context length:
+Cho suy luận ở độ dài ngữ cảnh tối đa của mô hình:
 
-- **Weights (FP16)**: total_params x 2 bytes
-- **KV Cache (FP16)**: 2 x num_layers x num_kv_heads x head_dim x max_seq_len x 2 bytes
-- **Activations**: batch_size x seq_len x embed_dim x 2 bytes x num_layers (approximate)
+- **Trọng số (FP16)**: total_params x 2 byte
+- **KV Cache (FP16)**: 2 x num_layers x num_kv_heads x head_dim x max_seq_len x 2 byte
+- **Activation**: batch_size x seq_len x embed_dim x 2 byte x num_layers (xấp xỉ)
 
-Flag if KV cache exceeds weight memory. This happens for long-context models (128K+) and indicates the model is memory-bound during decode.
+Đánh dấu nếu KV cache vượt bộ nhớ trọng số. Điều này xảy ra với mô hình ngữ cảnh dài (128K+) và cho thấy mô hình bị giới hạn bộ nhớ khi decode.
 
 ### 4. Compute Profile
 
-- **Prefill FLOPS per token**: approximately 2 x total_params (one matmul per parameter, forward pass)
-- **Decode FLOPS per token**: same as prefill but on a single token
-- **Prefill bottleneck**: compute-bound (GPU TFLOPS)
-- **Decode bottleneck**: memory-bound (GPU memory bandwidth)
-- **Arithmetic intensity**: FLOPS per byte of memory accessed. Below 100 = memory-bound.
+- **FLOPS prefill mỗi token**: khoảng 2 x total_params (một phép nhân ma trận mỗi tham số, truyền xuôi)
+- **FLOPS decode mỗi token**: như prefill nhưng trên một token
+- **Nút thắt prefill**: bị giới hạn tính toán (TFLOPS GPU)
+- **Nút thắt decode**: bị giới hạn bộ nhớ (băng thông bộ nhớ GPU)
+- **Cường độ số học**: FLOPS mỗi byte bộ nhớ được truy cập. Dưới 100 = bị giới hạn bộ nhớ.
 
 ### 5. Scaling Decisions
 
-Evaluate against known scaling laws:
+Đánh giá theo các quy luật mở rộng đã biết:
 
-- **Chinchilla optimal**: For a given compute budget C, optimal model size N and token count D satisfy N ~ D (roughly equal scaling). A 7B model needs ~140B tokens.
-- **Llama 3 overtrained**: Meta trained Llama 3 8B on 15T tokens (100x Chinchilla optimal). Overtraining small models on more data produces better per-token inference cost.
-- **Width vs depth**: Deeper models (more layers) are generally more sample-efficient than wider models (larger embed_dim) for the same parameter count.
+- **Tối ưu Chinchilla**: Với ngân sách tính toán C cho trước, kích thước mô hình tối ưu N và số token D thỏa N ~ D (mở rộng gần ngang nhau). Một mô hình 7B cần ~140B token.
+- **Llama 3 huấn luyện quá mức**: Meta huấn luyện Llama 3 8B trên 15T token (100x tối ưu Chinchilla). Huấn luyện quá mức mô hình nhỏ trên nhiều dữ liệu hơn tạo chi phí suy luận mỗi token tốt hơn.
+- **Độ rộng so với độ sâu**: Các mô hình sâu hơn (nhiều lớp hơn) thường hiệu quả mẫu hơn các mô hình rộng hơn (embed_dim lớn hơn) với cùng số tham số.
 
 ## Red Flags
 
-- **FFN ratio not 4x**: Standard is ff_dim = 4 x embed_dim. Llama uses 8/3 x embed_dim with SwiGLU. Deviations should be justified.
-- **No weight tying**: The output head should share weights with token embeddings unless vocab_size is very large relative to embed_dim.
-- **No GQA above 13B**: Models above 13B without grouped-query attention will have excessively large KV caches.
-- **No RoPE for long context**: Absolute position embeddings do not extrapolate beyond training length. Models targeting 32K+ context should use rotary embeddings.
-- **Learning rate too high for model size**: Larger models need lower peak learning rates. GPT-2 Small uses 6e-4. Llama 3 405B uses 8e-5.
+- **Tỷ lệ FFN không phải 4x**: Tiêu chuẩn là ff_dim = 4 x embed_dim. Llama dùng 8/3 x embed_dim với SwiGLU. Sai lệch nên được biện minh.
+- **Không buộc trọng số**: Head đầu ra nên chia sẻ trọng số với embedding token trừ khi vocab_size rất lớn so với embed_dim.
+- **Không GQA trên 13B**: Mô hình trên 13B không có grouped-query attention sẽ có KV cache quá lớn.
+- **Không RoPE cho ngữ cảnh dài**: Embedding vị trí tuyệt đối không ngoại suy vượt độ dài huấn luyện. Mô hình nhắm ngữ cảnh 32K+ nên dùng embedding xoay.
+- **Tốc độ học quá cao cho kích thước mô hình**: Mô hình lớn hơn cần tốc độ học đỉnh thấp hơn. GPT-2 Small dùng 6e-4. Llama 3 405B dùng 8e-5.
 
 ## Output Format
 
-1. **Parameter Table**: component-by-component parameter counts with percentages
-2. **Memory Budget**: weights, KV cache, and activation memory at max context length
-3. **Compute Profile**: prefill and decode throughput estimates for A100/H100
-4. **Design Assessment**: what the model gets right and what is non-standard
-5. **Scaling Verdict**: whether the model is appropriately sized for its training data
+1. **Bảng tham số**: số tham số từng thành phần với phần trăm
+2. **Ngân sách bộ nhớ**: trọng số, KV cache và bộ nhớ activation ở độ dài ngữ cảnh tối đa
+3. **Đặc điểm tính toán**: ước lượng thông lượng prefill và decode cho A100/H100
+4. **Đánh giá thiết kế**: mô hình làm đúng gì và điều gì không tiêu chuẩn
+5. **Kết luận mở rộng quy mô**: liệu mô hình có kích thước phù hợp cho dữ liệu huấn luyện không
