@@ -1,6 +1,6 @@
 # Voice Anti-Spoofing & Audio Watermarking — ASVspoof 5, AudioSeal, WaveVerify
 
-> Voice cloning shipped faster than defenses. 2026 production voice systems need two things: a detector (AASIST, RawNet2) that classifies real vs fake speech, and a watermark (AudioSeal) that survives compression and editing. Ship both or do not ship voice cloning.
+> Nhân bản giọng nói được phát hành nhanh hơn các biện pháp phòng vệ. Các hệ thống giọng nói production năm 2026 cần hai thứ: một bộ phát hiện (AASIST, RawNet2) phân loại tiếng nói thực so với giả, và một watermark (AudioSeal) sống sót qua nén và chỉnh sửa. Phát hành cả hai hoặc đừng phát hành nhân bản giọng nói.
 
 **Type:** Build
 **Languages:** Python
@@ -9,13 +9,13 @@
 
 ## The Problem
 
-Three related defenses:
+Ba biện pháp phòng vệ liên quan:
 
-1. **Anti-spoofing / deepfake detection.** Given an audio clip, is it synthetic or real? ASVspoof benchmarks (ASVspoof 2019 → 2021 → 5) are the gold standard.
-2. **Audio watermarking.** Embed an imperceptible signal in generated audio that a detector can extract later. AudioSeal (Meta) and WavMark are the open options.
-3. **Authenticated provenance.** Cryptographic signing of audio files + metadata. C2PA / Content Authenticity Initiative.
+1. **Chống giả mạo / phát hiện deepfake.** Với một đoạn âm thanh, nó là tổng hợp hay thực? Các benchmark ASVspoof (ASVspoof 2019 → 2021 → 5) là tiêu chuẩn vàng.
+2. **Watermarking âm thanh.** Nhúng một tín hiệu không thể nhận biết vào âm thanh được sinh mà một bộ phát hiện có thể trích xuất sau này. AudioSeal (Meta) và WavMark là các lựa chọn mở.
+3. **Nguồn gốc được xác thực.** Ký mật mã các file âm thanh + metadata. C2PA / Content Authenticity Initiative.
 
-Detection handles adversaries who don't cooperate. Watermarking handles compliance — AI-generated audio should be identifiable as such. Both are required in 2026.
+Phát hiện xử lý những kẻ đối kháng không hợp tác. Watermarking xử lý tuân thủ — âm thanh do AI sinh nên được nhận dạng là như vậy. Cả hai là bắt buộc năm 2026.
 
 ## The Concept
 
@@ -23,52 +23,52 @@ Detection handles adversaries who don't cooperate. Watermarking handles complian
 
 ### ASVspoof 5 — the 2024-2025 benchmark
 
-Biggest change from prior editions:
+Thay đổi lớn nhất so với các phiên bản trước:
 
-- **Crowdsourced data** (not studio clean) — realistic conditions.
-- **~2000 speakers** (vs ~100 before).
-- **32 attack algorithms.** TTS + voice conversion + adversarial perturbation.
-- **Two tracks.** Countermeasure (CM) standalone detection; Spoofing-robust ASV (SASV) for biometric systems.
+- **Dữ liệu từ cộng đồng** (không sạch như phòng thu) — các điều kiện thực tế.
+- **~2000 người nói** (so với ~100 trước đây).
+- **32 thuật toán tấn công.** TTS + chuyển đổi giọng nói + nhiễu loạn đối kháng.
+- **Hai track.** Countermeasure (CM) phát hiện độc lập; Spoofing-robust ASV (SASV) cho các hệ thống sinh trắc học.
 
-State-of-the-art on ASVspoof 5: ~7.23% EER. On the older ASVspoof 2019 LA: 0.42% EER. Real-world deployment: expect 5-10% EER on in-the-wild clips.
+Tiên tiến nhất trên ASVspoof 5: EER ~7.23%. Trên ASVspoof 2019 LA cũ hơn: EER 0.42%. Triển khai thực tế: kỳ vọng EER 5-10% trên các đoạn ngoài thực địa.
 
 ### AASIST and RawNet2 — detection model families
 
-**AASIST** (2021, updated through 2026). Graph-attention on spectral features. Current SOTA on ASVspoof 5 countermeasure task.
+**AASIST** (2021, được cập nhật đến 2026). Graph-attention trên các đặc trưng phổ. SOTA hiện tại trên tác vụ countermeasure ASVspoof 5.
 
-**RawNet2.** Convolutional front-end over raw waveform + TDNN backbone. Simpler baseline; still competitive with fine-tuning.
+**RawNet2.** Frontend tích chập trên dạng sóng thô + backbone TDNN. Baseline đơn giản hơn; vẫn cạnh tranh với fine-tuning.
 
-**NeXt-TDNN + SSL features.** 2025 variant: ECAPA-style + WavLM features + focal loss. Achieves the 0.42% EER on ASVspoof 2019 LA.
+**NeXt-TDNN + các đặc trưng SSL.** Biến thể năm 2025: kiểu ECAPA + các đặc trưng WavLM + focal loss. Đạt EER 0.42% trên ASVspoof 2019 LA.
 
 ### AudioSeal — the 2024 watermark default
 
-Meta's **AudioSeal** (Jan 2024, v0.2 Dec 2024). Key design:
+**AudioSeal** của Meta (tháng 1 năm 2024, v0.2 tháng 12 năm 2024). Thiết kế then chốt:
 
-- **Localized.** Detects the watermark per-frame at 16 kHz sample resolution (1/16000 s).
-- **Generator + detector jointly trained.** Generator learns to embed inaudible signal; detector learns to find it through augmentations.
-- **Robust.** Survives MP3 / AAC compression, EQ, speed-shift ±10%, noise mix +10 dB SNR.
-- **Fast.** Detector runs at 485× realtime; 1000× faster than WavMark.
-- **Capacity.** 16-bit payload (can encode model ID, generation timestamp, user ID) embeddable in each utterance.
+- **Định vị cục bộ.** Phát hiện watermark theo khung ở độ phân giải mẫu 16 kHz (1/16000 s).
+- **Bộ sinh + bộ phát hiện được huấn luyện kết hợp.** Bộ sinh học nhúng tín hiệu không nghe được; bộ phát hiện học tìm nó qua các phép tăng cường.
+- **Vững chắc.** Sống sót qua nén MP3 / AAC, EQ, đổi tốc độ ±10%, trộn nhiễu SNR +10 dB.
+- **Nhanh.** Bộ phát hiện chạy ở 485× thời gian thực; nhanh hơn WavMark 1000×.
+- **Dung lượng.** Tải trọng 16 bit (có thể mã hóa ID mô hình, dấu thời gian sinh, ID người dùng) nhúng được trong mỗi phát ngôn.
 
 ### WavMark
 
-The pre-AudioSeal open baseline. Invertible neural network, 32 bits/sec. Problems:
+Baseline mở trước AudioSeal. Mạng nơ-ron khả nghịch, 32 bit/giây. Các vấn đề:
 
-- Synchronization brute-force is slow.
-- Can be removed by Gaussian noise or MP3 compression.
-- Not real-time friendly.
+- Vét cạn đồng bộ hóa chậm.
+- Có thể bị loại bỏ bởi nhiễu Gaussian hoặc nén MP3.
+- Không thân thiện thời gian thực.
 
 ### WaveVerify (July 2025)
 
-Addresses AudioSeal's weaknesses — specifically temporal manipulations (reversal, speed). Uses FiLM-based generator + Mixture-of-Experts detector. Competitive with AudioSeal on standard attacks; handles temporal edits.
+Giải quyết các điểm yếu của AudioSeal — cụ thể là các thao tác thời gian (đảo ngược, tốc độ). Dùng bộ sinh dựa trên FiLM + bộ phát hiện Mixture-of-Experts. Cạnh tranh với AudioSeal trên các tấn công tiêu chuẩn; xử lý các chỉnh sửa thời gian.
 
 ### The gap adversaries exploit
 
-From AudioMarkBench: "under pitch shift, all watermarks show Bit Recovery Accuracy below 0.6, indicating near-complete removal." **Pitch-shift is the universal attack.** No 2026 watermark is fully robust to aggressive pitch modification. This is why you need detection (AASIST) alongside watermarking.
+Từ AudioMarkBench: "dưới dịch cao độ, mọi watermark cho Độ chính xác Khôi phục Bit dưới 0.6, cho thấy sự loại bỏ gần hoàn toàn." **Dịch cao độ là cuộc tấn công phổ dụng.** Không watermark năm 2026 nào hoàn toàn vững trước sửa đổi cao độ mạnh. Đây là lý do bạn cần phát hiện (AASIST) cùng watermarking.
 
 ### C2PA / Content Authenticity Initiative
 
-Not an ML technique — a manifest format. Audio files carry cryptographically signed metadata about creation tool, author, date. Audobox / Seamless use it. Good for provenance; does nothing if a bad actor re-encodes and strips metadata.
+Không phải một kỹ thuật ML — một định dạng manifest. Các file âm thanh mang metadata được ký mật mã về công cụ tạo, tác giả, ngày. Audobox / Seamless dùng nó. Tốt cho nguồn gốc; không làm gì nếu một kẻ xấu tái mã hóa và bỏ metadata.
 
 ```figure
 v4-audio-watermark
@@ -97,7 +97,7 @@ def is_suspicious(audio):
     return rolloff / len(spec) > 0.92
 ```
 
-Synthetic speech often has unusually flat high-frequency energy. Production detectors use AASIST, not this. But the intuition holds.
+Tiếng nói tổng hợp thường có năng lượng tần số cao phẳng bất thường. Các bộ phát hiện production dùng AASIST, không phải cách này. Nhưng trực giác vẫn đúng.
 
 ### Step 2: AudioSeal embed + detect
 
@@ -144,53 +144,53 @@ def safe_tts(text, voice, clone_reference=None):
     return audio_with_wm, manifest
 ```
 
-Every generation ships: (1) watermark, (2) signed manifest, (3) retention-policy-compliant audit log.
+Mỗi lần sinh được phát hành: (1) watermark, (2) manifest được ký, (3) nhật ký kiểm toán tuân thủ chính sách lưu giữ.
 
 ## Use It
 
-| Use case | Defense |
+| Trường hợp sử dụng | Phòng vệ |
 |----------|---------|
-| Shipping TTS / voice cloning | AudioSeal embed on every output (non-negotiable) |
-| Biometric voice unlock | AASIST + ECAPA ensemble; liveness challenge |
-| Call-center fraud detection | AASIST on 20% sample of incoming calls |
-| Podcast authenticity | C2PA signing on upload, AudioSeal if AI-generated |
-| Research / training detectors | ASVspoof 5 train/dev/eval sets |
+| Phát hành TTS / nhân bản giọng nói | Nhúng AudioSeal trên mọi đầu ra (không thể thương lượng) |
+| Mở khóa giọng nói sinh trắc học | Tổ hợp AASIST + ECAPA; thử thách xác nhận sống |
+| Phát hiện gian lận trung tâm cuộc gọi | AASIST trên mẫu 20% các cuộc gọi đến |
+| Tính xác thực podcast | Ký C2PA khi tải lên, AudioSeal nếu do AI sinh |
+| Nghiên cứu / huấn luyện các bộ phát hiện | Các tập huấn luyện/phát triển/đánh giá ASVspoof 5 |
 
 ## Pitfalls
 
-- **Watermark without detector ever running.** Pointless. Ship the detector in your CI.
-- **Detection without calibration.** AASIST trained on ASVspoof LA overfits; real-world accuracy drops. Calibrate on your domain.
-- **Pitch-shift gap.** Aggressive pitch shift removes most watermarks. Have a detection fallback.
-- **Metadata strip-and-rehost.** C2PA is trivially bypassable by re-encoding. Always add cryptographic + perceptual (watermark) defense together.
-- **Liveness as detection.** Ask user to say a random phrase. Prevents replay attacks but not real-time cloning.
+- **Watermark mà không bao giờ chạy bộ phát hiện.** Vô nghĩa. Phát hành bộ phát hiện trong CI của bạn.
+- **Phát hiện không hiệu chuẩn.** AASIST được huấn luyện trên ASVspoof LA overfit; accuracy thực tế giảm. Hiệu chuẩn trên lĩnh vực của bạn.
+- **Khoảng trống dịch cao độ.** Dịch cao độ mạnh loại bỏ hầu hết watermark. Có một phương án dự phòng phát hiện.
+- **Bỏ metadata rồi lưu trữ lại.** C2PA dễ dàng bị vượt qua bằng tái mã hóa. Luôn thêm phòng vệ mật mã + tri giác (watermark) cùng nhau.
+- **Xác nhận sống như phát hiện.** Yêu cầu người dùng nói một cụm từ ngẫu nhiên. Ngăn các tấn công phát lại nhưng không ngăn nhân bản thời gian thực.
 
 ## Ship It
 
-Save as `outputs/skill-spoof-defender.md`. Pick detection model, watermark, provenance manifest, and operational playbook for a voice-gen deployment.
+Lưu thành `outputs/skill-spoof-defender.md`. Chọn mô hình phát hiện, watermark, manifest nguồn gốc và sổ tay vận hành cho một triển khai sinh giọng nói.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. Toy detector + toy watermark embed/detect on synthetic audio.
-2. **Medium.** Install `audioseal`, embed a 16-bit payload in a TTS output, re-decode. Corrupt the audio with noise and measure Bit Recovery Accuracy.
-3. **Hard.** Fine-tune a RawNet2 or AASIST on ASVspoof 2019 LA. Measure EER. Test on a held-out set of F5-TTS-generated clips — see how OOD detection degrades.
+1. **Dễ.** Chạy `code/main.py`. Bộ phát hiện đồ chơi + nhúng/phát hiện watermark đồ chơi trên âm thanh tổng hợp.
+2. **Trung bình.** Cài `audioseal`, nhúng một tải trọng 16 bit vào một đầu ra TTS, giải mã lại. Làm hỏng âm thanh bằng nhiễu và đo Độ chính xác Khôi phục Bit.
+3. **Khó.** Fine-tune một RawNet2 hoặc AASIST trên ASVspoof 2019 LA. Đo EER. Kiểm thử trên một tập được giữ lại các đoạn do F5-TTS sinh — xem phát hiện OOD suy giảm ra sao.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| ASVspoof | The benchmark | Biennial challenge; 2024 = ASVspoof 5. |
-| CM (countermeasure) | Detector | Classifier: real speech vs synthetic / converted. |
-| SASV | Speaker verif + CM | Integrated biometric + spoof detection. |
-| AudioSeal | Meta watermark | Localized, 16-bit payload, 485× faster than WavMark. |
-| Bit Recovery Accuracy | Watermark survival | Fraction of payload bits recovered after attack. |
-| C2PA | Provenance manifest | Cryptographic metadata about creation / authorship. |
-| AASIST | Detector family | Graph-attention-based anti-spoofing SOTA. |
+| ASVspoof | Benchmark | Thử thách hai năm một lần; 2024 = ASVspoof 5. |
+| CM (countermeasure) | Bộ phát hiện | Bộ phân loại: tiếng nói thực so với tổng hợp / chuyển đổi. |
+| SASV | Xác minh người nói + CM | Tích hợp sinh trắc học + phát hiện giả mạo. |
+| AudioSeal | Watermark Meta | Định vị cục bộ, tải trọng 16 bit, nhanh hơn WavMark 485×. |
+| Bit Recovery Accuracy (Độ chính xác Khôi phục Bit) | Watermark sống sót | Tỷ lệ các bit tải trọng được khôi phục sau tấn công. |
+| C2PA | Manifest nguồn gốc | Metadata mật mã về tạo / tác quyền. |
+| AASIST | Họ bộ phát hiện | SOTA chống giả mạo dựa trên graph-attention. |
 
 ## Further Reading
 
-- [Todisco et al. (2024). ASVspoof 5](https://dl.acm.org/doi/10.1016/j.csl.2025.101825) — the current benchmark.
-- [Defossez et al. (2024). AudioSeal](https://arxiv.org/abs/2401.17264) — the watermark default.
-- [Chen et al. (2025). WaveVerify](https://arxiv.org/abs/2507.21150) — MoE detector for temporal attacks.
-- [Jung et al. (2022). AASIST](https://arxiv.org/abs/2110.01200) — the SOTA detection backbone.
-- [AudioMarkBench (2024)](https://proceedings.neurips.cc/paper_files/paper/2024/file/5d9b7775296a641a1913ab6b4425d5e8-Paper-Datasets_and_Benchmarks_Track.pdf) — robustness evaluation.
-- [C2PA specification](https://spec.c2pa.org/specifications/specifications/2.4/index.html) — provenance manifest format.
+- [Todisco et al. (2024). ASVspoof 5](https://dl.acm.org/doi/10.1016/j.csl.2025.101825) — benchmark hiện tại.
+- [Defossez et al. (2024). AudioSeal](https://arxiv.org/abs/2401.17264) — mặc định watermark.
+- [Chen et al. (2025). WaveVerify](https://arxiv.org/abs/2507.21150) — bộ phát hiện MoE cho các tấn công thời gian.
+- [Jung et al. (2022). AASIST](https://arxiv.org/abs/2110.01200) — backbone phát hiện SOTA.
+- [AudioMarkBench (2024)](https://proceedings.neurips.cc/paper_files/paper/2024/file/5d9b7775296a641a1913ab6b4425d5e8-Paper-Datasets_and_Benchmarks_Track.pdf) — đánh giá độ vững.
+- [C2PA specification](https://spec.c2pa.org/specifications/specifications/2.4/index.html) — định dạng manifest nguồn gốc.
