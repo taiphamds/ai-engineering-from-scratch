@@ -1,6 +1,6 @@
 # Loss Functions
 
-> Your network makes a prediction. The ground truth says otherwise. How wrong is it? That number is the loss. Pick the wrong loss function and your model optimizes for the wrong thing entirely.
+> Mạng của bạn đưa ra một dự đoán. Sự thật nền lại nói khác. Nó sai đến mức nào? Con số đó là mất mát. Chọn sai hàm mất mát và mô hình của bạn tối ưu hóa hoàn toàn sai thứ.
 
 **Type:** Build
 **Languages:** Python
@@ -9,74 +9,74 @@
 
 ## Learning Objectives
 
-- Implement MSE, binary cross-entropy, categorical cross-entropy, and contrastive loss (InfoNCE) from scratch with their gradients
-- Explain why MSE fails for classification by demonstrating the "predict 0.5 for everything" failure mode
-- Apply label smoothing to cross-entropy and describe how it prevents overconfident predictions
-- Choose the correct loss function for regression, binary classification, multi-class classification, and embedding learning tasks
+- Triển khai MSE, cross-entropy nhị phân, cross-entropy đa lớp và mất mát tương phản (InfoNCE) từ đầu cùng các gradient của chúng
+- Giải thích tại sao MSE thất bại cho phân loại bằng cách minh họa kiểu thất bại "dự đoán 0.5 cho mọi thứ"
+- Áp dụng làm trơn nhãn cho cross-entropy và mô tả cách nó ngăn các dự đoán quá tự tin
+- Chọn hàm mất mát đúng cho các tác vụ hồi quy, phân loại nhị phân, phân loại đa lớp và học embedding
 
 ## The Problem
 
-A model minimizing MSE on a classification problem will confidently predict 0.5 for everything. It's minimizing loss. It's also useless.
+Một mô hình tối thiểu hóa MSE trên một bài toán phân loại sẽ tự tin dự đoán 0.5 cho mọi thứ. Nó đang tối thiểu hóa mất mát. Nó cũng vô dụng.
 
-The loss function is the only thing your model actually optimizes. Not accuracy. Not F1 score. Not whatever metric you report to your manager. The optimizer takes the gradient of the loss function and adjusts weights to make that number smaller. If the loss function doesn't capture what you care about, the model will find the mathematically cheapest way to satisfy it, and that way is almost never what you wanted.
+Hàm mất mát là thứ duy nhất mô hình của bạn thực sự tối ưu hóa. Không phải accuracy. Không phải điểm F1. Không phải bất kỳ thước đo nào bạn báo cáo cho quản lý. Bộ tối ưu hóa lấy gradient của hàm mất mát và điều chỉnh các trọng số để làm con số đó nhỏ hơn. Nếu hàm mất mát không nắm bắt điều bạn quan tâm, mô hình sẽ tìm cách rẻ nhất về mặt toán học để thỏa mãn nó, và cách đó gần như không bao giờ là điều bạn muốn.
 
-Here is a concrete example. You have a binary classification task. Two classes, 50/50 split. You use MSE as your loss. The model predicts 0.5 for every single input. The average MSE is 0.25, which is the minimum possible without actually learning anything. The model has zero discriminative ability but it has technically minimized your loss function. Switch to cross-entropy and the same model is forced to push predictions toward 0 or 1, because -log(0.5) = 0.693 is a terrible loss, while -log(0.99) = 0.01 rewards confident correct predictions. The choice of loss function is the difference between a model that learns and a model that games the metric.
+Đây là một ví dụ cụ thể. Bạn có một tác vụ phân loại nhị phân. Hai lớp, chia 50/50. Bạn sử dụng MSE làm mất mát. Mô hình dự đoán 0.5 cho từng đầu vào một. MSE trung bình là 0.25, là mức tối thiểu có thể mà không thực sự học bất cứ điều gì. Mô hình có khả năng phân biệt bằng không nhưng về mặt kỹ thuật đã tối thiểu hóa hàm mất mát của bạn. Chuyển sang cross-entropy và cùng mô hình đó bị buộc đẩy các dự đoán về phía 0 hoặc 1, vì -log(0.5) = 0.693 là một mất mát tệ, trong khi -log(0.99) = 0.01 thưởng cho các dự đoán đúng tự tin. Lựa chọn hàm mất mát là khác biệt giữa một mô hình học và một mô hình lách thước đo.
 
-It gets worse. In self-supervised learning, you don't even have labels. Contrastive loss defines the learning signal entirely: what counts as similar, what counts as different, and how hard the model should push them apart. Get contrastive loss wrong and your embeddings collapse to a single point -- every input maps to the same vector. Technically zero loss. Completely worthless.
+Mọi chuyện còn tệ hơn. Trong học tự giám sát, bạn thậm chí không có nhãn. Mất mát tương phản xác định hoàn toàn tín hiệu học: điều gì được coi là tương tự, điều gì được coi là khác biệt và mô hình nên đẩy chúng xa nhau mạnh đến mức nào. Làm sai mất mát tương phản và các embedding của bạn sụp về một điểm duy nhất -- mọi đầu vào ánh xạ thành cùng một vector. Về mặt kỹ thuật, mất mát bằng không. Hoàn toàn vô giá trị.
 
 ## The Concept
 
 ### Mean Squared Error (MSE)
 
-The default for regression. Compute the squared difference between prediction and target, average over all samples.
+Mặc định cho hồi quy. Tính bình phương chênh lệch giữa dự đoán và mục tiêu, lấy trung bình trên tất cả các mẫu.
 
 ```
 MSE = (1/n) * sum((y_pred - y_true)^2)
 ```
 
-Why squaring matters: it penalizes large errors quadratically. An error of 2 costs 4x as much as an error of 1. An error of 10 costs 100x. This makes MSE sensitive to outliers -- a single wildly wrong prediction dominates the loss.
+Tại sao bình phương quan trọng: nó phạt các sai số lớn theo bậc hai. Một sai số 2 tốn gấp 4 lần một sai số 1. Một sai số 10 tốn gấp 100 lần. Điều này khiến MSE nhạy với các ngoại lệ -- một dự đoán sai lệch rất lớn duy nhất chi phối mất mát.
 
-Real numbers: if your model predicts housing prices and is off by $10,000 on most houses but off by $200,000 on one mansion, MSE will aggressively try to fix that one mansion, potentially hurting performance on the other 99 houses.
+Các con số thực tế: nếu mô hình của bạn dự đoán giá nhà và lệch $10,000 ở hầu hết các căn nhà nhưng lệch $200,000 ở một biệt thự, MSE sẽ quyết liệt cố sửa một biệt thự đó, có thể làm hại hiệu suất trên 99 căn nhà khác.
 
-The gradient of MSE with respect to a prediction is:
+Gradient của MSE theo một dự đoán là:
 
 ```
 dMSE/dy_pred = (2/n) * (y_pred - y_true)
 ```
 
-Linear in the error. Bigger errors get bigger gradients. This is a feature for regression (large errors need large corrections) and a bug for classification (you want to penalize confident wrong answers exponentially, not linearly).
+Tuyến tính theo sai số. Các sai số lớn hơn nhận các gradient lớn hơn. Đây là một đặc tính tốt cho hồi quy (các sai số lớn cần các điều chỉnh lớn) và một lỗi cho phân loại (bạn muốn phạt các câu trả lời sai tự tin theo cấp số nhân, không phải tuyến tính).
 
 ### Cross-Entropy Loss
 
-The loss function for classification. Rooted in information theory -- it measures the divergence between the predicted probability distribution and the true distribution.
+Hàm mất mát cho phân loại. Bắt nguồn từ lý thuyết thông tin -- nó đo độ phân kỳ giữa phân phối xác suất dự đoán và phân phối thật.
 
-**Binary Cross-Entropy (BCE):**
+**Cross-Entropy Nhị phân (BCE):**
 
 ```
 BCE = -(y * log(p) + (1 - y) * log(1 - p))
 ```
 
-Where y is the true label (0 or 1) and p is the predicted probability.
+Trong đó y là nhãn thật (0 hoặc 1) và p là xác suất dự đoán.
 
-Why -log(p) works: when the true label is 1 and you predict p = 0.99, the loss is -log(0.99) = 0.01. When you predict p = 0.01, the loss is -log(0.01) = 4.6. That 460x difference is why cross-entropy works. It brutally punishes confident wrong predictions while barely penalizing confident correct ones.
+Tại sao -log(p) hoạt động: khi nhãn thật là 1 và bạn dự đoán p = 0.99, mất mát là -log(0.99) = 0.01. Khi bạn dự đoán p = 0.01, mất mát là -log(0.01) = 4.6. Khác biệt gấp 460 lần đó là lý do cross-entropy hoạt động. Nó trừng phạt nặng các dự đoán sai tự tin trong khi hầu như không phạt các dự đoán đúng tự tin.
 
-The gradient tells the same story:
+Gradient kể cùng câu chuyện:
 
 ```
 dBCE/dp = -(y/p) + (1-y)/(1-p)
 ```
 
-When y = 1 and p is near zero, the gradient is -1/p which approaches negative infinity. The model gets an enormous signal to fix its mistake. When p is near 1, the gradient is tiny. Already correct, nothing to fix.
+Khi y = 1 và p gần không, gradient là -1/p, tiến tới âm vô cực. Mô hình nhận một tín hiệu khổng lồ để sửa sai lầm. Khi p gần 1, gradient rất nhỏ. Đã đúng, không có gì cần sửa.
 
-**Categorical Cross-Entropy:**
+**Cross-Entropy Đa lớp:**
 
-For multi-class classification with one-hot encoded targets.
+Cho phân loại đa lớp với các mục tiêu được mã hóa one-hot.
 
 ```
 CCE = -sum(y_i * log(p_i))
 ```
 
-Only the true class contributes to the loss (because all other y_i are zero). If there are 10 classes and the correct class gets probability 0.1 (random guessing), the loss is -log(0.1) = 2.3. If the correct class gets probability 0.9, the loss is -log(0.9) = 0.105. The model learns to concentrate probability mass on the right answer.
+Chỉ lớp thật đóng góp vào mất mát (vì mọi y_i khác bằng không). Nếu có 10 lớp và lớp đúng nhận xác suất 0.1 (đoán ngẫu nhiên), mất mát là -log(0.1) = 2.3. Nếu lớp đúng nhận xác suất 0.9, mất mát là -log(0.9) = 0.105. Mô hình học cách tập trung khối lượng xác suất vào câu trả lời đúng.
 
 ### Why MSE Fails for Classification
 
@@ -96,60 +96,60 @@ graph TD
     C3 -->|"CE gradient<br/>explodes near<br/>wrong answer"| Fast["Fast correction"]
 ```
 
-MSE gradients flatten when predictions are near 0 or 1 (due to sigmoid saturation). Cross-entropy gradients compensate for this -- the -log cancels the sigmoid's flat regions, giving strong gradients exactly where they are needed most.
+Các gradient MSE phẳng đi khi các dự đoán gần 0 hoặc 1 (do bão hòa sigmoid). Các gradient cross-entropy bù lại điều này -- -log triệt tiêu các vùng phẳng của sigmoid, cho các gradient mạnh đúng nơi cần chúng nhất.
 
 ### Label Smoothing
 
-Standard one-hot labels say "this is 100% class 3 and 0% everything else." That's a strong claim. Label smoothing softens it:
+Các nhãn one-hot tiêu chuẩn nói "đây là 100% lớp 3 và 0% mọi thứ khác." Đó là một khẳng định mạnh. Làm trơn nhãn làm mềm nó:
 
 ```
 smooth_label = (1 - alpha) * one_hot + alpha / num_classes
 ```
 
-With alpha = 0.1 and 10 classes: instead of [0, 0, 1, 0, ...], the target becomes [0.01, 0.01, 0.91, 0.01, ...]. The model targets 0.91 instead of 1.0.
+Với alpha = 0.1 và 10 lớp: thay vì [0, 0, 1, 0, ...], mục tiêu trở thành [0.01, 0.01, 0.91, 0.01, ...]. Mô hình nhắm tới 0.91 thay vì 1.0.
 
-Why this works: a model trying to output exactly 1.0 through a softmax needs to push logits to infinity. This causes overconfidence, hurts generalization, and makes the model brittle to distribution shift. Label smoothing caps the target at 0.9 (with alpha=0.1), keeping logits in a reasonable range. GPT and most modern models use label smoothing or its equivalent.
+Tại sao điều này hoạt động: một mô hình cố xuất ra đúng 1.0 qua softmax cần đẩy các logit tới vô cực. Điều này gây quá tự tin, làm hại khả năng khái quát hóa và khiến mô hình mong manh trước dịch chuyển phân phối. Làm trơn nhãn chặn mục tiêu ở 0.9 (với alpha=0.1), giữ các logit trong phạm vi hợp lý. GPT và hầu hết các mô hình hiện đại sử dụng làm trơn nhãn hoặc tương đương.
 
 ### Contrastive Loss
 
-No labels. No classes. Just pairs of inputs and the question: are these similar or different?
+Không nhãn. Không lớp. Chỉ các cặp đầu vào và câu hỏi: chúng tương tự hay khác nhau?
 
-**SimCLR-style contrastive loss (NT-Xent / InfoNCE):**
+**Mất mát tương phản kiểu SimCLR (NT-Xent / InfoNCE):**
 
-Take one image. Create two augmented views of it (crop, rotate, color jitter). These are the "positive pair" -- they should have similar embeddings. Every other image in the batch forms a "negative pair" -- they should have different embeddings.
+Lấy một hình ảnh. Tạo hai góc nhìn tăng cường của nó (cắt, xoay, làm nhiễu màu). Đây là "cặp dương" -- chúng nên có các embedding tương tự. Mọi hình ảnh khác trong batch tạo thành một "cặp âm" -- chúng nên có các embedding khác nhau.
 
 ```
 L = -log(exp(sim(z_i, z_j) / tau) / sum(exp(sim(z_i, z_k) / tau)))
 ```
 
-Where sim() is cosine similarity, z_i and z_j are the positive pair, the sum is over all negatives, and tau (temperature) controls how sharp the distribution is. Lower temperature = harder negatives = more aggressive separation.
+Trong đó sim() là độ tương đồng cosine, z_i và z_j là cặp dương, tổng chạy trên tất cả các mẫu âm, và tau (nhiệt độ) kiểm soát độ sắc của phân phối. Nhiệt độ thấp hơn = các mẫu âm khó hơn = phân tách quyết liệt hơn.
 
-Real numbers: batch size 256 means 255 negatives per positive pair. Temperature tau = 0.07 (SimCLR default). The loss looks like a softmax over similarities -- it wants the positive pair's similarity to be highest among all 256 options.
+Các con số thực tế: kích thước batch 256 nghĩa là 255 mẫu âm trên mỗi cặp dương. Nhiệt độ tau = 0.07 (mặc định SimCLR). Mất mát trông như một softmax trên các độ tương đồng -- nó muốn độ tương đồng của cặp dương cao nhất trong tất cả 256 lựa chọn.
 
-**Triplet Loss:**
+**Mất mát Bộ ba:**
 
-Takes three inputs: anchor, positive (same class), negative (different class).
+Nhận ba đầu vào: neo, dương (cùng lớp), âm (khác lớp).
 
 ```
 L = max(0, d(anchor, positive) - d(anchor, negative) + margin)
 ```
 
-The margin (typically 0.2-1.0) enforces a minimum gap between positive and negative distances. If the negative is already far enough away, the loss is zero -- no gradient, no update. This makes training efficient but requires careful triplet mining (choosing hard negatives that are close to the anchor).
+Biên (thường là 0.2-1.0) áp đặt một khoảng cách tối thiểu giữa các khoảng cách dương và âm. Nếu mẫu âm đã đủ xa, mất mát bằng không -- không gradient, không cập nhật. Điều này khiến huấn luyện hiệu quả nhưng cần khai thác bộ ba cẩn thận (chọn các mẫu âm khó nằm gần neo).
 
 ### Focal Loss
 
-For imbalanced datasets. Standard cross-entropy treats all correctly classified examples equally. Focal loss down-weights easy examples:
+Cho các tập dữ liệu mất cân bằng. Cross-entropy tiêu chuẩn coi mọi ví dụ được phân loại đúng như nhau. Focal loss giảm trọng số các ví dụ dễ:
 
 ```
 FL = -alpha * (1 - p_t)^gamma * log(p_t)
 ```
 
-Where p_t is the predicted probability of the true class and gamma controls the focusing. With gamma = 0, this is standard cross-entropy. With gamma = 2 (the default):
+Trong đó p_t là xác suất dự đoán của lớp thật và gamma kiểm soát sự tập trung. Với gamma = 0, đây là cross-entropy tiêu chuẩn. Với gamma = 2 (mặc định):
 
-- Easy example (p_t = 0.9): weight = (0.1)^2 = 0.01. Effectively ignored.
-- Hard example (p_t = 0.1): weight = (0.9)^2 = 0.81. Full gradient signal.
+- Ví dụ dễ (p_t = 0.9): trọng số = (0.1)^2 = 0.01. Về thực chất bị bỏ qua.
+- Ví dụ khó (p_t = 0.1): trọng số = (0.9)^2 = 0.81. Tín hiệu gradient đầy đủ.
 
-Focal loss was introduced by Lin et al. for object detection, where 99% of candidate regions are background (easy negatives). Without focal loss, the model drowns in easy background examples and never learns to detect objects. With it, the model focuses its capacity on the hard, ambiguous cases that matter.
+Focal loss được Lin và cộng sự giới thiệu cho phát hiện đối tượng, nơi 99% vùng ứng viên là nền (các mẫu âm dễ). Không có focal loss, mô hình chìm trong các ví dụ nền dễ và không bao giờ học phát hiện đối tượng. Có nó, mô hình tập trung năng lực vào các trường hợp khó, mơ hồ có ý nghĩa.
 
 ### Loss Function Decision Tree
 
@@ -213,7 +213,7 @@ def mse_gradient(predictions, targets):
 
 ### Step 2: Binary Cross-Entropy
 
-The log(0) problem is real. If the model predicts exactly 0 for a positive example, log(0) = negative infinity. Clipping prevents this.
+Vấn đề log(0) là có thật. Nếu mô hình dự đoán đúng 0 cho một ví dụ dương, log(0) = âm vô cực. Cắt ngưỡng ngăn điều này.
 
 ```python
 import math
@@ -236,7 +236,7 @@ def bce_gradient(predictions, targets, eps=1e-15):
 
 ### Step 3: Categorical Cross-Entropy with Softmax
 
-Softmax converts raw logits to probabilities. Then we compute the cross-entropy against one-hot targets.
+Softmax chuyển các logit thô thành xác suất. Sau đó chúng ta tính cross-entropy so với các mục tiêu one-hot.
 
 ```python
 def softmax(logits):
@@ -257,7 +257,7 @@ def cce_gradient(logits, target_index):
     return grads
 ```
 
-The gradient of softmax + cross-entropy simplifies beautifully: it's just (predicted probability - 1) for the true class, and (predicted probability) for all other classes. This elegant simplification is not a coincidence -- it's why softmax and cross-entropy are paired.
+Gradient của softmax + cross-entropy rút gọn rất đẹp: chỉ là (predicted probability - 1) cho lớp thật, và (predicted probability) cho tất cả các lớp khác. Sự rút gọn thanh nhã này không phải trùng hợp -- đó là lý do softmax và cross-entropy được ghép đôi.
 
 ### Step 4: Label Smoothing
 
@@ -300,7 +300,7 @@ def contrastive_loss(anchor, positive, negatives, temperature=0.07):
 
 ### Step 6: MSE vs Cross-Entropy on Classification
 
-Train the same network from lesson 04 (circle dataset) with both loss functions. Watch cross-entropy converge faster.
+Huấn luyện cùng mạng từ bài 04 (tập dữ liệu đường tròn) với cả hai hàm mất mát. Quan sát cross-entropy hội tụ nhanh hơn.
 
 ```python
 import random
@@ -394,7 +394,7 @@ class LossComparisonNetwork:
 
 ## Use It
 
-PyTorch provides all standard loss functions with numerical stability built in:
+PyTorch cung cấp tất cả các hàm mất mát tiêu chuẩn với tính ổn định số được tích hợp:
 
 ```python
 import torch
@@ -413,46 +413,46 @@ ce_loss = F.cross_entropy(logits, labels)
 ce_smooth = F.cross_entropy(logits, labels, label_smoothing=0.1)
 ```
 
-Use `F.cross_entropy` (not `F.nll_loss` plus manual softmax). It combines log-softmax and negative log-likelihood in one numerically stable operation. Applying softmax separately then taking the log is less stable -- you lose precision in the subtraction of large exponentials.
+Sử dụng `F.cross_entropy` (không phải `F.nll_loss` cộng softmax thủ công). Nó kết hợp log-softmax và log-likelihood âm trong một phép toán ổn định về số. Áp dụng softmax riêng rồi lấy log kém ổn định hơn -- bạn mất độ chính xác trong phép trừ các số mũ lớn.
 
-For contrastive learning, most teams use custom implementations or libraries like `lightly` or `pytorch-metric-learning`. The core loop is always the same: compute pairwise similarities, create the softmax over positives and negatives, backpropagate.
+Với học tương phản, hầu hết các nhóm sử dụng các bản triển khai tùy chỉnh hoặc thư viện như `lightly` hay `pytorch-metric-learning`. Vòng lặp cốt lõi luôn giống nhau: tính các độ tương đồng từng cặp, tạo softmax trên các mẫu dương và âm, lan truyền ngược.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-loss-function-selector.md` -- a reusable prompt for choosing the right loss function
-- `outputs/prompt-loss-debugger.md` -- a diagnostic prompt for when your loss curve looks wrong
+Bài học này tạo ra:
+- `outputs/prompt-loss-function-selector.md` -- một prompt tái sử dụng để chọn hàm mất mát phù hợp
+- `outputs/prompt-loss-debugger.md` -- một prompt chẩn đoán khi đường cong mất mát của bạn trông sai
 
 ## Exercises
 
-1. Implement Huber loss (smooth L1 loss), which is MSE for small errors and MAE for large errors. Train a regression network predicting y = sin(x) with MSE vs Huber when 5% of training targets have random noise added (outliers). Compare final test error.
+1. Triển khai mất mát Huber (mất mát L1 trơn), là MSE cho các sai số nhỏ và MAE cho các sai số lớn. Huấn luyện một mạng hồi quy dự đoán y = sin(x) với MSE so với Huber khi 5% mục tiêu huấn luyện được thêm nhiễu ngẫu nhiên (các ngoại lệ). So sánh sai số test cuối cùng.
 
-2. Add focal loss to the binary classification training loop. Create an imbalanced dataset (90% class 0, 10% class 1). Compare standard BCE vs focal loss (gamma=2) on the minority class recall after 200 epochs.
+2. Thêm focal loss vào vòng lặp huấn luyện phân loại nhị phân. Tạo một tập dữ liệu mất cân bằng (90% lớp 0, 10% lớp 1). So sánh BCE tiêu chuẩn với focal loss (gamma=2) theo recall lớp thiểu số sau 200 epoch.
 
-3. Implement triplet loss with semi-hard negative mining. Generate 2D embedding data for 5 classes. For each anchor, find the hardest negative that is still farther than the positive (semi-hard). Compare convergence to random triplet selection.
+3. Triển khai mất mát bộ ba với khai thác mẫu âm bán khó. Sinh dữ liệu embedding 2D cho 5 lớp. Với mỗi neo, tìm mẫu âm khó nhất vẫn xa hơn mẫu dương (bán khó). So sánh hội tụ với lựa chọn bộ ba ngẫu nhiên.
 
-4. Run the MSE vs cross-entropy comparison but track gradient magnitudes at each layer during training. Plot the average gradient norm per epoch. Verify that cross-entropy produces larger gradients in early epochs when the model is most uncertain.
+4. Chạy so sánh MSE với cross-entropy nhưng theo dõi độ lớn gradient tại mỗi lớp trong huấn luyện. Vẽ chuẩn gradient trung bình mỗi epoch. Xác minh cross-entropy tạo ra các gradient lớn hơn ở các epoch đầu khi mô hình bất định nhất.
 
-5. Implement KL divergence loss and verify that minimizing KL(true || predicted) gives the same gradients as cross-entropy when the true distribution is one-hot. Then try soft targets (like knowledge distillation) where the "true" distribution comes from a teacher model's softmax output.
+5. Triển khai mất mát phân kỳ KL và xác minh rằng tối thiểu hóa KL(true || predicted) cho cùng các gradient như cross-entropy khi phân phối thật là one-hot. Sau đó thử các mục tiêu mềm (như chưng cất tri thức) trong đó phân phối "thật" đến từ đầu ra softmax của một mô hình giáo viên.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Loss function | "How wrong the model is" | A differentiable function mapping predictions and targets to a scalar that the optimizer minimizes |
-| MSE | "Average squared error" | Mean of squared differences between predictions and targets; penalizes large errors quadratically |
-| Cross-entropy | "The classification loss" | Measures divergence between predicted probability distribution and true distribution using -log(p) |
-| Binary cross-entropy | "BCE" | Cross-entropy for two classes: -(y*log(p) + (1-y)*log(1-p)) |
-| Label smoothing | "Softening the targets" | Replacing hard 0/1 targets with soft values (e.g., 0.1/0.9) to prevent overconfidence and improve generalization |
-| Contrastive loss | "Pull together, push apart" | A loss that learns representations by making similar pairs close and dissimilar pairs far in embedding space |
-| InfoNCE | "The CLIP/SimCLR loss" | Normalized temperature-scaled cross-entropy over similarity scores; treats contrastive learning as classification |
-| Focal loss | "The imbalanced data fix" | Cross-entropy weighted by (1-p_t)^gamma to down-weight easy examples and focus on hard ones |
-| Triplet loss | "Anchor-positive-negative" | Pushes anchor closer to positive than negative by at least a margin in embedding space |
-| Temperature | "Sharpness knob" | A scalar divisor on logits/similarities that controls how peaked the resulting distribution is; lower = sharper |
+| Loss function (Hàm mất mát) | "Mô hình sai đến mức nào" | Một hàm khả vi ánh xạ các dự đoán và mục tiêu thành một số vô hướng mà bộ tối ưu hóa tối thiểu hóa |
+| MSE | "Sai số bình phương trung bình" | Trung bình của các bình phương chênh lệch giữa các dự đoán và mục tiêu; phạt các sai số lớn theo bậc hai |
+| Cross-entropy | "Mất mát phân loại" | Đo độ phân kỳ giữa phân phối xác suất dự đoán và phân phối thật bằng -log(p) |
+| Binary cross-entropy (Cross-entropy nhị phân) | "BCE" | Cross-entropy cho hai lớp: -(y*log(p) + (1-y)*log(1-p)) |
+| Label smoothing (Làm trơn nhãn) | "Làm mềm các mục tiêu" | Thay các mục tiêu 0/1 cứng bằng các giá trị mềm (ví dụ: 0.1/0.9) để ngăn quá tự tin và cải thiện khái quát hóa |
+| Contrastive loss (Mất mát tương phản) | "Kéo lại gần, đẩy ra xa" | Một mất mát học các biểu diễn bằng cách làm các cặp tương tự gần nhau và các cặp khác biệt xa nhau trong không gian embedding |
+| InfoNCE | "Mất mát CLIP/SimCLR" | Cross-entropy chuẩn hóa được co giãn theo nhiệt độ trên các điểm tương đồng; coi học tương phản là phân loại |
+| Focal loss | "Cách khắc phục dữ liệu mất cân bằng" | Cross-entropy được gán trọng số bằng (1-p_t)^gamma để giảm trọng số các ví dụ dễ và tập trung vào các ví dụ khó |
+| Triplet loss (Mất mát bộ ba) | "Neo-dương-âm" | Đẩy neo gần mẫu dương hơn mẫu âm ít nhất một biên trong không gian embedding |
+| Temperature (Nhiệt độ) | "Núm điều chỉnh độ sắc" | Một số chia vô hướng trên các logit/độ tương đồng kiểm soát độ nhọn của phân phối kết quả; thấp hơn = sắc hơn |
 
 ## Further Reading
 
-- Lin et al., "Focal Loss for Dense Object Detection" (2017) -- introduced focal loss for handling extreme class imbalance in object detection (RetinaNet)
-- Chen et al., "A Simple Framework for Contrastive Learning of Visual Representations" (SimCLR, 2020) -- defined the modern contrastive learning pipeline with NT-Xent loss
-- Szegedy et al., "Rethinking the Inception Architecture" (2016) -- introduced label smoothing as a regularization technique, now standard in most large models
-- Hinton et al., "Distilling the Knowledge in a Neural Network" (2015) -- knowledge distillation using soft targets and KL divergence, foundational for model compression
+- Lin et al., "Focal Loss for Dense Object Detection" (2017) -- giới thiệu focal loss để xử lý mất cân bằng lớp cực độ trong phát hiện đối tượng (RetinaNet)
+- Chen et al., "A Simple Framework for Contrastive Learning of Visual Representations" (SimCLR, 2020) -- xác định pipeline học tương phản hiện đại với mất mát NT-Xent
+- Szegedy et al., "Rethinking the Inception Architecture" (2016) -- giới thiệu làm trơn nhãn như một kỹ thuật chính quy hóa, nay là tiêu chuẩn trong hầu hết các mô hình lớn
+- Hinton et al., "Distilling the Knowledge in a Neural Network" (2015) -- chưng cất tri thức sử dụng các mục tiêu mềm và phân kỳ KL, nền tảng cho nén mô hình
