@@ -1,6 +1,6 @@
 # End-to-End Distributed Training
 
-> Lessons 76 through 80 each built one piece. This is the assembly: a tiny GPT trained across 4 simulated ranks with DDP for gradient sync, ZeRO-1 for optimiser-state sharding, and a sharded checkpoint at the halfway mark. The demo runs 20 steps, self-terminates, prints a loss curve plus a memory profile, and writes a resumable checkpoint.
+> Các bài 76 đến 80 mỗi bài xây một phần. Đây là sự lắp ráp: một GPT tí hon được huấn luyện trên 4 rank mô phỏng với DDP cho đồng bộ gradient, ZeRO-1 cho chia shard trạng thái bộ tối ưu, và một checkpoint chia shard tại mốc giữa chừng. Demo chạy 20 bước, tự kết thúc, in một đường cong mất mát cùng một hồ sơ bộ nhớ, và ghi một checkpoint có thể tiếp tục.
 
 **Type:** Build
 **Languages:** Python
@@ -9,16 +9,16 @@
 
 ## Learning Objectives
 
-- Compose DDP (lesson 77) plus ZeRO-1 (lesson 78) plus sharded checkpoints (lesson 80) into one training loop.
-- Train a 2-layer transformer language model on a small synthetic corpus for 20 steps across 4 simulated ranks.
-- Print a per-step loss table, a per-rank memory profile, and a checkpoint manifest that resumes byte-equal on the same world size.
-- Defend the composition: each piece is independently testable in earlier lessons and this lesson proves they compose.
+- Kết hợp DDP (bài 77) cộng ZeRO-1 (bài 78) cộng các checkpoint chia shard (bài 80) thành một vòng lặp huấn luyện.
+- Huấn luyện một mô hình ngôn ngữ transformer 2 lớp trên một corpus tổng hợp nhỏ trong 20 bước trên 4 rank mô phỏng.
+- In một bảng mất mát theo bước, một hồ sơ bộ nhớ theo rank, và một bản kê khai checkpoint tiếp tục bằng nhau từng byte trên cùng kích thước thế giới.
+- Bảo vệ sự kết hợp: mỗi phần có thể kiểm thử độc lập trong các bài trước và bài này chứng minh chúng kết hợp.
 
 ## The Problem
 
-A capstone is the proof that the pieces fit together. Lesson 76 implemented collectives. Lesson 77 wrapped them into DDP. Lesson 78 sharded optimiser state with reduce_scatter. Lesson 79 analysed pipeline. Lesson 80 saved a sharded checkpoint. Each lesson stood alone with its own test. A real training run uses every primitive at once; if the composition is wrong, the loss diverges, the checkpoint refuses to resume, or the per-rank memory grows when it should shrink.
+Một bài tổng kết là chứng minh các phần vừa với nhau. Bài 76 triển khai các phép tập thể. Bài 77 bọc chúng thành DDP. Bài 78 chia shard trạng thái bộ tối ưu bằng reduce_scatter. Bài 79 phân tích pipeline. Bài 80 lưu một checkpoint chia shard. Mỗi bài đứng độc lập với kiểm thử riêng. Một lần chạy huấn luyện thực dùng mọi thành phần cơ sở cùng lúc; nếu sự kết hợp sai, mất mát phân kỳ, checkpoint từ chối tiếp tục, hoặc bộ nhớ theo rank tăng khi nó nên co.
 
-This lesson runs the end-to-end demo and verifies four invariants: (a) the loss decreases monotonically across the 20 steps within float noise, (b) every rank holds the same parameter norm at every step, (c) the per-rank optimiser memory equals the ZeRO-1 formula 12P/N bytes, and (d) the checkpoint at step 10 reloads byte-equal at restart. The demo self-terminates: 20 steps, single command, exit 0.
+Bài này chạy demo đầu cuối và xác minh bốn bất biến: (a) mất mát giảm đơn điệu qua 20 bước trong nhiễu float, (b) mọi rank giữ cùng chuẩn tham số ở mọi bước, (c) bộ nhớ bộ tối ưu theo rank bằng công thức ZeRO-1 12P/N byte, và (d) checkpoint tại bước 10 nạp lại bằng nhau từng byte khi khởi động lại. Demo tự kết thúc: 20 bước, một lệnh, thoát 0.
 
 ## The Concept
 
@@ -34,26 +34,26 @@ flowchart TB
 
 ### The mini GPT
 
-The model is small on purpose: 2 transformer blocks, embed dim 32, 4 attention heads, vocab 64, sequence length 16, batch 4. A few thousand parameters. Big enough to exercise every wiring decision (multi-head attention runs the standard masked path; LayerNorm has weights to sync; the LM head is a separate linear projection back to the vocab). Small enough that 20 steps on 4 CPU ranks finish in seconds.
+Mô hình nhỏ có chủ ý: 2 khối transformer, chiều embedding 32, 4 đầu attention, từ vựng 64, độ dài chuỗi 16, lô 4. Vài nghìn tham số. Đủ lớn để thực thi mọi quyết định nối (attention đa đầu chạy đường được che tiêu chuẩn; LayerNorm có các trọng số để đồng bộ; đầu LM là một phép chiếu tuyến tính riêng trở lại từ vựng). Đủ nhỏ để 20 bước trên 4 rank CPU hoàn tất trong vài giây.
 
 ### The composition rules
 
-| Lesson piece | What it owns | What it leaves to the loop |
+| Phần bài học | Nó sở hữu gì | Nó để lại gì cho vòng lặp |
 |--------------|--------------|----------------------------|
-| DDP broadcast | Initial parameter sync | One call at construct time |
-| ZeRO-1 step | Gradient sync, master copy update, parameter broadcast | One call per step replacing optimiser.step |
-| Sharded checkpoint | Persist per-rank state, manifest with sha256 | Called on rank 0 with state collected via allgather |
-| Training loop | Forward, backward, loss logging | Calls the three above in order |
+| Broadcast DDP | Đồng bộ tham số ban đầu | Một lệnh gọi khi khởi tạo |
+| Bước ZeRO-1 | Đồng bộ gradient, cập nhật bản sao chính, phát quảng bá tham số | Một lệnh gọi mỗi bước thay optimiser.step |
+| Checkpoint chia shard | Lưu bền vững trạng thái theo rank, bản kê khai với sha256 | Được gọi trên rank 0 với trạng thái được thu qua allgather |
+| Vòng lặp huấn luyện | Lượt tiến, lượt ngược, ghi nhật ký mất mát | Gọi ba thứ trên theo thứ tự |
 
-The loop does not know about reduce_scatter or rendezvous files. The ZeRO and checkpoint modules expose narrow interfaces that the loop composes.
+Vòng lặp không biết về reduce_scatter hoặc các file điểm hẹn. Các module ZeRO và checkpoint cung cấp các giao diện hẹp mà vòng lặp kết hợp.
 
 ### Why a tiny GPT and not just an MLP
 
-The MLP from lesson 77 was sufficient to verify gradient sync. A tiny GPT adds three things: a separate LM head over the vocab (in this lesson, untied for clarity; full GPT typically ties the head to the token embedding), softmax+cross-entropy as the loss (more numerical edge cases than MSE), and an asymmetric forward (embeddings then attention then MLP per layer). Sticking with an MLP for the capstone would hide whether the composition handles LayerNorm or the embedding layer's grad shape correctly.
+MLP từ bài 77 đủ để xác minh đồng bộ gradient. Một GPT tí hon thêm ba thứ: một đầu LM riêng trên từ vựng (trong bài này, không buộc để rõ ràng; GPT đầy đủ thường buộc đầu với embedding token), softmax+entropy chéo làm mất mát (nhiều trường hợp biên số học hơn MSE), và một lượt tiến bất đối xứng (embedding rồi attention rồi MLP mỗi lớp). Bám một MLP cho bài tổng kết sẽ che liệu sự kết hợp xử lý LayerNorm hoặc hình dạng gradient của lớp embedding chính xác không.
 
 ### Self-terminating means exit 0
 
-The loop runs a fixed 20 steps and exits. No `while True`, no human intervention, no resume from external state. A capstone you can leave running unattended and find a complete log when it finishes is a capstone that proves the system is wired correctly. If any piece deadlocks the demo never returns and the test rig catches it.
+Vòng lặp chạy cố định 20 bước và thoát. Không `while True`, không can thiệp con người, không tiếp tục từ trạng thái bên ngoài. Một bài tổng kết bạn có thể để chạy không giám sát và tìm một nhật ký đầy đủ khi nó hoàn tất là một bài tổng kết chứng minh hệ thống được nối đúng. Nếu bất kỳ phần nào deadlock demo không bao giờ trả về và bộ kiểm thử bắt nó.
 
 ```figure
 ci-distributed-assembly
@@ -61,65 +61,65 @@ ci-distributed-assembly
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `MiniGPT`: 2-layer transformer with masked self-attention and a separate LM head.
-- `make_corpus(seed, total_tokens)`: deterministic next-token-prediction data.
-- `_train_worker`: spawned per rank; broadcasts init params, runs the loop, calls ZeRO step, writes the sharded checkpoint at step 10.
-- `verify_resume`: after the main run, reloads the step-10 checkpoint in-process and asserts the saved master shards match the in-memory snapshot byte-for-byte.
-- `main`: orchestrates the whole demo, prints the loss table, the memory profile, and the verification result.
+- `MiniGPT`: transformer 2 lớp với self-attention được che và một đầu LM riêng.
+- `make_corpus(seed, total_tokens)`: dữ liệu dự đoán token tiếp theo tất định.
+- `_train_worker`: được tạo theo rank; phát quảng bá tham số khởi tạo, chạy vòng lặp, gọi bước ZeRO, ghi checkpoint chia shard tại bước 10.
+- `verify_resume`: sau lần chạy chính, nạp lại checkpoint bước 10 trong tiến trình và khẳng định các shard chính được lưu khớp bản chụp trong bộ nhớ từng byte.
+- `main`: điều phối toàn demo, in bảng mất mát, hồ sơ bộ nhớ, và kết quả xác minh.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-Output: a 20-row loss table, a 4-row per-rank memory profile, a checkpoint manifest, and a "RESUME VERIFIED" line on success.
+Đầu ra: một bảng mất mát 20 hàng, một hồ sơ bộ nhớ theo rank 4 hàng, một bản kê khai checkpoint, và một dòng "ĐÃ XÁC MINH TIẾP TỤC" khi thành công.
 
 ## Production patterns in the wild
 
-Three patterns finish the composition for real runs.
+Ba mẫu hoàn tất sự kết hợp cho các lần chạy thực.
 
-**Checkpoint every K minutes, not every K steps.** Step time varies with seq length and microbatch count. A 10-minute checkpoint cadence catches the same compute regardless of model size. The lesson uses step-based for simplicity; production uses wall-clock-based.
+**Checkpoint mỗi K phút, không phải mỗi K bước.** Thời gian bước thay đổi theo độ dài chuỗi và số lô vi mô. Một nhịp checkpoint 10 phút bắt cùng lượng tính toán bất kể kích thước mô hình. Bài học dùng dựa trên bước cho đơn giản; sản xuất dùng dựa trên thời gian thực.
 
-**Detect divergence early.** Production runs add a NaN guard after backward and a loss-spike detector; if loss jumps by more than 2x in one step, roll back to the previous checkpoint instead of letting the optimiser march into a degenerate state. The lesson's loss curve is smooth so the guard is unused but the hook stays.
+**Phát hiện phân kỳ sớm.** Các lần chạy sản xuất thêm một chốt bảo vệ NaN sau lượt ngược và một bộ phát hiện đỉnh mất mát; nếu mất mát nhảy hơn 2x trong một bước, quay lại checkpoint trước thay vì để bộ tối ưu tiến vào một trạng thái suy biến. Đường cong mất mát của bài học mượt nên chốt bảo vệ không được dùng nhưng hook giữ lại.
 
-**Aggregate the memory profile across ranks.** Per-rank memory differs by rank in real runs (rank with the largest pipeline stage holds more activations). Production logs the max across ranks plus the mean; the lesson prints per-rank to show the formula matches.
+**Tổng hợp hồ sơ bộ nhớ trên các rank.** Bộ nhớ theo rank khác nhau theo rank trong các lần chạy thực (rank có giai đoạn pipeline lớn nhất giữ nhiều kích hoạt hơn). Sản xuất ghi nhật ký giá trị tối đa trên các rank cùng trung bình; bài học in theo rank để cho thấy công thức khớp.
 
 ## Use It
 
-Production patterns:
+Các mẫu sản xuất:
 
-- **DeepSpeed.** Combines DDP + ZeRO + pipeline + activation checkpointing under one config. The lesson's composition is the DeepSpeed shape in miniature.
-- **PyTorch FSDP.** The native equivalent. `FullyShardedDataParallel` with `ShardingStrategy.SHARD_GRAD_OP` is ZeRO-2.
-- **NeMo and Megatron-LM.** Add tensor parallel for the very largest models; otherwise the composition is the same shape.
+- **DeepSpeed.** Kết hợp DDP + ZeRO + pipeline + checkpoint kích hoạt dưới một cấu hình. Sự kết hợp của bài học là hình thức DeepSpeed thu nhỏ.
+- **PyTorch FSDP.** Tương đương bản địa. `FullyShardedDataParallel` với `ShardingStrategy.SHARD_GRAD_OP` là ZeRO-2.
+- **NeMo và Megatron-LM.** Thêm song song tensor cho các mô hình lớn nhất; nếu không sự kết hợp có cùng hình thức.
 
 ## Ship It
 
-The full track ends here. The 6 lessons together are the distributed-training subsystem a real team would build before adopting DeepSpeed; the abstraction has been proven against gloo and the failure modes have been exercised. Phase 17 (infrastructure and production) is the place to take this to a real cluster.
+Toàn track kết thúc ở đây. 6 bài cùng nhau là hệ thống con huấn luyện phân tán một nhóm thực sẽ xây trước khi áp dụng DeepSpeed; trừu tượng đã được chứng minh với gloo và các chế độ lỗi đã được thực thi. Phase 17 (hạ tầng và sản xuất) là nơi đưa điều này tới một cụm thực.
 
 ## Exercises
 
-1. Add a tensor-parallel split of the attention head and verify the loss matches the single-rank baseline. Two ranks: half the heads per rank, allreduce of the attention output.
-2. Add gradient accumulation across 4 microbatches and prove the gradient equals the gradient of one big batch.
-3. Add a resume-from-step-10 path that actually continues training to step 20 and produces the same final loss as the original run.
-4. Add a metrics export (loss, grad norm, step time) to JSONL so the run can be visualised after the fact.
-5. Add a NaN guard that rolls back to the previous checkpoint on a loss spike, and force a spike with a one-step LR multiplier to exercise the rollback.
+1. Thêm một phép chia song song tensor của đầu attention và xác minh mất mát khớp đường cơ sở một rank. Hai rank: nửa số đầu mỗi rank, allreduce đầu ra attention.
+2. Thêm tích lũy gradient trên 4 lô vi mô và chứng minh gradient bằng gradient của một lô lớn.
+3. Thêm một đường tiếp tục-từ-bước-10 thực sự tiếp tục huấn luyện đến bước 20 và tạo cùng mất mát cuối như lần chạy gốc.
+4. Thêm một bộ xuất chỉ số (mất mát, chuẩn gradient, thời gian bước) vào JSONL để lần chạy có thể được trực quan hóa sau đó.
+5. Thêm một chốt bảo vệ NaN quay lại checkpoint trước khi mất mát tăng vọt, và buộc một đỉnh bằng một hệ số nhân LR một bước để thực thi khôi phục.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| End-to-end | "Wire it all up" | One run composes every piece, not a unit test per piece |
-| Memory profile | "GB per rank" | Bytes held on each rank for params, grads, optimiser state |
-| Resume contract | "Save and load" | Per-rank state byte-equal after a checkpoint round-trip |
-| Self-terminating | "Bounded run" | Fixed step count, exit 0 on completion, no human in the loop |
+| End-to-end (Đầu cuối) | "Nối tất cả" | Một lần chạy kết hợp mọi phần, không phải một kiểm thử đơn vị mỗi phần |
+| Memory profile (Hồ sơ bộ nhớ) | "GB mỗi rank" | Các byte được giữ trên mỗi rank cho tham số, gradient, trạng thái bộ tối ưu |
+| Resume contract (Hợp đồng tiếp tục) | "Lưu và nạp" | Trạng thái theo rank bằng nhau từng byte sau một lần khứ hồi checkpoint |
+| Self-terminating (Tự kết thúc) | "Lần chạy có giới hạn" | Số bước cố định, thoát 0 khi hoàn tất, không con người trong vòng lặp |
 
 ## Further Reading
 
 - [DeepSpeed end-to-end training tutorial](https://www.deepspeed.ai/getting-started/)
 - [PyTorch FSDP advanced tutorial](https://pytorch.org/tutorials/intermediate/FSDP_advanced_tutorial.html)
 - [Megatron-LM training script reference](https://github.com/NVIDIA/Megatron-LM)
-- Phase 19 Lessons 76-80 - each piece this lesson composes
-- Phase 17 - moving the composition to a real cluster
+- Phase 19 Các bài 76-80 - mỗi phần mà bài này kết hợp
+- Phase 17 - đưa sự kết hợp tới một cụm thực
