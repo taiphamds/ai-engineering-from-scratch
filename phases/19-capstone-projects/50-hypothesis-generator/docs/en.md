@@ -1,6 +1,6 @@
 # Hypothesis Generator
 
-> A research agent that asks the same question twice is wasting tokens. The trick is forcing each draft to land somewhere new.
+> Một agent nghiên cứu hỏi cùng câu hỏi hai lần đang lãng phí token. Mẹo là buộc mỗi bản nháp đến một nơi mới.
 
 **Type:** Build
 **Languages:** Python
@@ -8,19 +8,19 @@
 **Time:** ~90 minutes
 
 ## Learning Objectives
-- Drive a sampler from a seed prompt and turn its outputs into typed hypothesis records.
-- Ramp the sampler temperature on each pass so the next draft drifts further from the last.
-- Filter near duplicates with a small embedding model and a cosine distance threshold.
-- Rank the survivors with a scoring function that blends novelty, specificity, and testability.
-- Hold every step deterministic so the same seed always produces the same queue.
+- Điều khiển một bộ lấy mẫu từ một prompt seed và biến các đầu ra của nó thành các bản ghi giả thuyết có kiểu.
+- Tăng dần nhiệt độ bộ lấy mẫu trên mỗi lượt để bản nháp tiếp theo trôi xa bản trước hơn.
+- Lọc các bản gần trùng bằng một mô hình embedding nhỏ và một ngưỡng khoảng cách cosine.
+- Xếp hạng các bản sống sót bằng một hàm chấm điểm pha trộn tính mới, tính cụ thể, và khả năng kiểm thử.
+- Giữ mọi bước tất định để cùng seed luôn tạo cùng hàng đợi.
 
 ## Why generate, then filter
 
-A planner that asks one model one time gets one hypothesis. That is fine for a worked example. For a research loop it is the wrong shape. The loop wants a ranked queue with depth, so when the first hypothesis fails the runner has the next one ready without paying for another full sampling pass.
+Một bộ lập kế hoạch hỏi một mô hình một lần nhận một giả thuyết. Điều đó ổn cho một ví dụ được giải. Với một vòng lặp nghiên cứu nó là hình thức sai. Vòng lặp muốn một hàng đợi được xếp hạng có chiều sâu, để khi giả thuyết đầu thất bại trình chạy có giả thuyết tiếp theo sẵn mà không trả giá cho một lượt lấy mẫu đầy đủ khác.
 
-Two ideas combine to produce that queue. The first is temperature ramping: each pass through the sampler raises the temperature a notch, so later drafts are encouraged to wander. The second is novelty filtering: after each draft, the generator measures the embedding distance from every prior survivor and rejects anything inside the cluster.
+Hai ý tưởng kết hợp để tạo hàng đợi đó. Thứ nhất là tăng dần nhiệt độ: mỗi lượt qua bộ lấy mẫu tăng nhiệt độ một nấc, nên các bản nháp sau được khuyến khích lang thang. Thứ hai là lọc tính mới: sau mỗi bản nháp, bộ sinh đo khoảng cách embedding với mọi bản sống sót trước và từ chối bất cứ thứ gì trong cụm.
 
-The lesson ships a mock language model that returns scripted token sequences for fixed prompts. The mock is enough to exercise the full path: seed prompt in, temperature ramp applied, candidates parsed, novelty filter run, ranked queue out.
+Bài học cung cấp một mô hình ngôn ngữ giả lập trả về các chuỗi token theo kịch bản cho các prompt cố định. Giả lập đủ để thực thi toàn đường: prompt seed vào, áp dụng tăng nhiệt độ, phân tích các ứng viên, chạy bộ lọc tính mới, hàng đợi được xếp hạng ra.
 
 ## The Hypothesis shape
 
@@ -37,9 +37,9 @@ Hypothesis
   rank_score     : float         (weighted sum used for ordering)
 ```
 
-`variables` and `metric` are not free text. The parser pulls them from a tagged response. The runner in lesson fifty-two reads these fields directly when it builds the experiment config.
+`variables` và `metric` không phải văn bản tự do. Bộ phân tích kéo chúng từ một phản hồi có thẻ. Trình chạy trong bài năm mươi hai đọc trực tiếp các trường này khi nó xây dựng cấu hình thí nghiệm.
 
-`baseline_ref` is optional but recommended. The evaluator in lesson fifty-three needs a baseline to compare against. If the hypothesis omits one, the evaluator falls back to the previous run on the same metric.
+`baseline_ref` tùy chọn nhưng được khuyến nghị. Bộ đánh giá trong bài năm mươi ba cần một đường cơ sở để so sánh. Nếu giả thuyết bỏ nó, bộ đánh giá quay về lần chạy trước trên cùng chỉ số.
 
 ```figure
 cg-novelty-ramp
@@ -61,19 +61,19 @@ flowchart TD
     I --> J[hypothesis queue]
 ```
 
-The loop is straight forward. The interesting part is each box has a hard contract.
+Vòng lặp thẳng thắn. Phần thú vị là mỗi hộp có một hợp đồng cứng.
 
 ## Temperature ramp
 
-Start at `t_min`, end at `t_max`, step `(t_max - t_min) / (n_passes - 1)`. Each pass calls the sampler at the current temperature, producing `n_passes` evenly spaced values from `GeneratorConfig.schedule()`. The mock model honors temperature by switching between a small set of scripted responses keyed on `(prompt, temp_bucket)`. The buckets are open intervals so a small change in temperature picks a different bucket and produces a different draft. In production the sampler would be a real model with `temperature=t` passed through.
+Bắt đầu tại `t_min`, kết thúc tại `t_max`, bước `(t_max - t_min) / (n_passes - 1)`. Mỗi lượt gọi bộ lấy mẫu ở nhiệt độ hiện tại, tạo `n_passes` giá trị cách đều từ `GeneratorConfig.schedule()`. Mô hình giả lập tuân thủ nhiệt độ bằng cách chuyển giữa một tập nhỏ phản hồi theo kịch bản được đặt khóa theo `(prompt, temp_bucket)`. Các nhóm là khoảng mở để một thay đổi nhỏ về nhiệt độ chọn một nhóm khác và tạo một bản nháp khác. Trong sản xuất bộ lấy mẫu sẽ là một mô hình thực với `temperature=t` được truyền qua.
 
-The default schedule is six passes from `0.2` to `1.2`. Six is enough to fill the queue without paying for samples that the novelty filter will reject anyway. Below `0.2` the model parrots the seed back. Above `1.2` the responses tend to drift off topic and fail the parser.
+Lịch mặc định là sáu lượt từ `0.2` đến `1.2`. Sáu là đủ để lấp hàng đợi mà không trả giá cho các mẫu mà bộ lọc tính mới sẽ từ chối dù sao. Dưới `0.2` mô hình nhại lại seed. Trên `1.2` các phản hồi có xu hướng trôi lạc đề và không qua bộ phân tích.
 
 ## Novelty filter
 
-After each draft is parsed, the generator embeds the text and compares against every accepted hypothesis. The embedding is a small hashed bag of word tokens, normalised to unit length. Cosine distance between two unit vectors is `1 - dot(a, b)`. A draft passes if its minimum distance to any prior survivor is above `novelty_threshold`. Default is `0.25`.
+Sau khi mỗi bản nháp được phân tích, bộ sinh nhúng văn bản và so sánh với mọi giả thuyết được chấp nhận. Embedding là một túi token từ được băm nhỏ, được chuẩn hóa về độ dài đơn vị. Khoảng cách cosine giữa hai vector đơn vị là `1 - dot(a, b)`. Một bản nháp đạt nếu khoảng cách nhỏ nhất của nó tới bất kỳ bản sống sót trước nào lớn hơn `novelty_threshold`. Mặc định là `0.25`.
 
-The hashed embedding is not fancy. It is deterministic, has zero dependencies, and is enough to catch the obvious case: two drafts that share most of their nouns. A production deployment would swap in a small sentence model. The interface stays the same.
+Embedding băm không cầu kỳ. Nó tất định, không có phụ thuộc, và đủ để bắt trường hợp rõ ràng: hai bản nháp chia sẻ phần lớn các danh từ. Một triển khai sản xuất sẽ thay bằng một mô hình câu nhỏ. Giao diện giữ nguyên.
 
 ## Rank score
 
@@ -83,9 +83,9 @@ rank_score = w_novelty * novelty_score
            + w_testability * testability_score
 ```
 
-Three sub scores. `novelty_score` is the minimum embedding distance from prior survivors. `specificity_score` is the count of concrete variables in the hypothesis divided by a target count. `testability_score` is one if the hypothesis specifies both a metric and a baseline, half if it only has a metric, zero otherwise.
+Ba điểm con. `novelty_score` là khoảng cách embedding nhỏ nhất từ các bản sống sót trước. `specificity_score` là số biến cụ thể trong giả thuyết chia cho một số đích. `testability_score` là một nếu giả thuyết chỉ định cả một chỉ số và một đường cơ sở, một nửa nếu nó chỉ có một chỉ số, không nếu không.
 
-Default weights are `0.4`, `0.3`, `0.3`. The weights live in the generator config so a downstream lesson can shift them without forking the code.
+Các trọng số mặc định là `0.4`, `0.3`, `0.3`. Các trọng số nằm trong cấu hình bộ sinh để một bài hạ nguồn có thể dịch chúng mà không fork mã.
 
 ## Mock language model
 
@@ -95,22 +95,22 @@ class MockLLM:
         ...
 ```
 
-The sampler is deterministic given a `(prompt, temperature, seed)` triple. The mock keeps a scripted response table keyed on `(prompt_signature, temperature_bucket)`. If the table has no entry for a key, the sampler returns a fallback that fails the parser. The fallback path is exercised by one of the tests.
+Bộ lấy mẫu tất định với một bộ ba `(prompt, temperature, seed)`. Giả lập giữ một bảng phản hồi theo kịch bản được đặt khóa theo `(prompt_signature, temperature_bucket)`. Nếu bảng không có mục cho một khóa, bộ lấy mẫu trả về một phương án dự phòng không qua bộ phân tích. Đường dự phòng được thực thi bởi một trong các kiểm thử.
 
-The seed is mixed into the response so the same `(prompt, temperature)` pair with different seeds produces different drafts. In tests we pin the seed to keep results reproducible. In a real deployment the seed would come from a system clock or a counter.
+Seed được trộn vào phản hồi để cùng cặp `(prompt, temperature)` với các seed khác nhau tạo các bản nháp khác nhau. Trong kiểm thử chúng ta ghim seed để giữ các kết quả có thể tái lập. Trong một triển khai thực seed sẽ đến từ một đồng hồ hệ thống hoặc một bộ đếm.
 
 ## Output queue
 
-The output is a list of `Hypothesis` records sorted by `rank_score` descending. The runner in lesson fifty-two pops the head, runs the experiment, and the evaluator in lesson fifty-three writes a verdict back. If the verdict says the hypothesis was wrong, the runner pops the next one.
+Đầu ra là một danh sách các bản ghi `Hypothesis` được sắp theo `rank_score` giảm dần. Trình chạy trong bài năm mươi hai lấy đầu hàng đợi, chạy thí nghiệm, và bộ đánh giá trong bài năm mươi ba ghi lại một kết luận. Nếu kết luận nói giả thuyết sai, trình chạy lấy bản tiếp theo.
 
-The queue is finite. When it is empty the orchestrator can either widen the seed prompt and run the generator again or stop and report the budget exhausted.
+Hàng đợi hữu hạn. Khi nó rỗng bộ điều phối có thể mở rộng prompt seed và chạy bộ sinh lại hoặc dừng và báo cáo ngân sách cạn.
 
 ## How to read the code
 
-`code/main.py` defines `Hypothesis`, `MockLLM`, `HypothesisGenerator`, and a deterministic demo. The generator exposes a single `run(seed_prompt)` method that returns a sorted queue; the pass count is read from `GeneratorConfig.n_passes` rather than passed as an argument. The embedding is a hashed bag of tokens. The novelty filter is a single function. The rank score is a single function. Nothing depends on `numpy`; the embedding math is pure stdlib so the lesson stays portable.
+`code/main.py` định nghĩa `Hypothesis`, `MockLLM`, `HypothesisGenerator`, và một demo tất định. Bộ sinh cung cấp một phương thức `run(seed_prompt)` duy nhất trả về một hàng đợi được sắp; số lượt được đọc từ `GeneratorConfig.n_passes` thay vì truyền như một đối số. Embedding là một túi token được băm. Bộ lọc tính mới là một hàm duy nhất. Điểm xếp hạng là một hàm duy nhất. Không gì phụ thuộc vào `numpy`; toán embedding là stdlib thuần để bài học giữ tính di động.
 
-`code/tests/test_generator.py` covers the linear path, the duplicate rejection path, the parser failure path, the temperature ramp boundaries, and the rank ordering.
+`code/tests/test_generator.py` bao phủ đường tuyến tính, đường từ chối bản trùng, đường lỗi bộ phân tích, các ranh giới tăng nhiệt độ, và thứ tự xếp hạng.
 
 ## Where this slots in
 
-Lesson fifty produces the queue. Lesson fifty-one takes the head of the queue and runs a literature search to confirm or refute it. Lesson fifty-two takes the same head and runs an actual experiment. Lesson fifty-three reads both outputs and writes a verdict. The four lessons compose into a research loop with no human in it; a human can step in at any boundary.
+Bài năm mươi tạo ra hàng đợi. Bài năm mươi mốt lấy đầu hàng đợi và chạy một tìm kiếm tài liệu để xác nhận hoặc bác bỏ nó. Bài năm mươi hai lấy cùng phần đầu và chạy một thí nghiệm thực. Bài năm mươi ba đọc cả hai đầu ra và viết một kết luận. Bốn bài kết hợp thành một vòng lặp nghiên cứu không có con người trong đó; một người có thể can thiệp tại bất kỳ ranh giới nào.
