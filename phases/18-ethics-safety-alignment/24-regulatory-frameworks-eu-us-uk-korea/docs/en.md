@@ -1,6 +1,6 @@
 # Regulatory Frameworks — EU, US, UK, Korea
 
-> Four primary regulatory regimes define the 2026 AI governance landscape. EU AI Act (in force 1 August 2024) — prohibited practices and AI literacy from 2 February 2025; GPAI obligations from 2 August 2025; full applicability and Article 50 transparency 2 August 2026; legacy GPAI and embedded high-risk systems 2 August 2027; penalties up to 15M EUR or 3% of global turnover. GPAI Code of Practice (10 July 2025): three chapters — Transparency, Copyright, Safety and Security — 12 commitments; enforcement begins August 2026. UK AISI -> AI Security Institute (February 2025): rename signals narrower scope. US AISI -> CAISI (June 2025): Center for AI Standards and Innovation under NIST; shift toward pro-growth posture. Korean AI Framework Act (passed December 2024, effective January 2026): Article 12 establishes AISI under MSIT; mandates local representatives for foreign AI companies, risk assessment, safety measures for high-impact and generative AI.
+> Bốn chế độ quy định chính xác định bức tranh quản trị AI năm 2026. EU AI Act (hiệu lực ngày 1 tháng 8 năm 2024) — thực hành bị cấm và hiểu biết AI từ ngày 2 tháng 2 năm 2025; nghĩa vụ GPAI từ ngày 2 tháng 8 năm 2025; áp dụng đầy đủ và minh bạch Điều 50 ngày 2 tháng 8 năm 2026; GPAI có trước và hệ thống rủi ro cao nhúng ngày 2 tháng 8 năm 2027; phạt tới 15M EUR hoặc 3% doanh thu toàn cầu. GPAI Code of Practice (ngày 10 tháng 7 năm 2025): ba chương — Minh bạch, Bản quyền, An toàn và Bảo mật — 12 cam kết; thực thi bắt đầu tháng 8 năm 2026. UK AISI -> AI Security Institute (tháng 2 năm 2025): đổi tên báo hiệu phạm vi hẹp hơn. US AISI -> CAISI (tháng 6 năm 2025): Trung tâm Tiêu chuẩn và Đổi mới AI thuộc NIST; chuyển sang lập trường ủng hộ tăng trưởng. Luật Khung AI Hàn Quốc (thông qua tháng 12 năm 2024, hiệu lực tháng 1 năm 2026): Điều 12 lập AISI thuộc MSIT; bắt buộc đại diện địa phương cho công ty AI nước ngoài, đánh giá rủi ro, biện pháp an toàn cho AI tác động cao và AI tạo sinh.
 
 **Type:** Learn
 **Languages:** none
@@ -9,79 +9,79 @@
 
 ## Learning Objectives
 
-- Describe the EU AI Act risk tiers (prohibited, high-risk, general-purpose, limited-risk) and the August 2025 / August 2026 / August 2027 timeline.
-- Describe the three chapters of the GPAI Code of Practice and which providers each binds.
-- Describe the 2025 rebrands: UK AISI -> AI Security Institute; US AISI -> CAISI; what each rebrand implies about policy direction.
-- State the core provision of Korea's AI Framework Act.
+- Mô tả tầng rủi ro EU AI Act (bị cấm, rủi ro cao, đa dụng, rủi ro hạn chế) và dòng thời gian tháng 8 năm 2025 / tháng 8 năm 2026 / tháng 8 năm 2027.
+- Mô tả ba chương GPAI Code of Practice và mỗi chương ràng buộc nhà cung cấp nào.
+- Mô tả đổi tên 2025: UK AISI -> AI Security Institute; US AISI -> CAISI; mỗi đổi tên hàm ý gì về hướng chính sách.
+- Nêu điều khoản cốt lõi của Luật Khung AI Hàn Quốc.
 
 ## The Problem
 
-Lab frameworks (Lesson 18) are voluntary. Regulatory frameworks are compulsory. The 2024-2026 period saw the first wave of comprehensive AI regulation enter force. Deployers must map technical controls to regulatory obligations; the mapping differs by jurisdiction.
+Khung phòng thí nghiệm (Bài 18) tự nguyện. Khung quy định bắt buộc. Giai đoạn 2024-2026 chứng kiến làn sóng quy định AI toàn diện đầu tiên có hiệu lực. Bên triển khai phải ánh xạ kiểm soát kỹ thuật sang nghĩa vụ quy định; ánh xạ khác theo khu vực tài phán.
 
 ## The Concept
 
 ### EU AI Act
 
-**In force 1 August 2024.** Risk-tier structure:
+**Hiệu lực ngày 1 tháng 8 năm 2024.** Cấu trúc tầng rủi ro:
 
-- **Prohibited practices** (Article 5). Social scoring, real-time remote biometric identification in public (with law-enforcement exceptions), exploitative manipulation of vulnerable groups. Applied 2 February 2025.
-- **High-risk systems** (Annex III). Employment, education, credit, law enforcement, justice, migration. Require conformity assessment, risk management, logging, transparency.
-- **General-Purpose AI (GPAI) models**. Applied 2 August 2025. All GPAI providers have obligations; systemic-risk GPAI (>1e25 FLOP training compute) have additional obligations.
-- **Limited-risk systems**. Transparency obligations under Article 50 (AI-generated content labelling). Applied 2 August 2026.
+- **Thực hành bị cấm** (Điều 5). Chấm điểm xã hội, định danh sinh trắc học từ xa thời gian thực nơi công cộng (với ngoại lệ thực thi pháp luật), thao túng bóc lột nhóm dễ tổn thương. Áp dụng ngày 2 tháng 2 năm 2025.
+- **Hệ thống rủi ro cao** (Phụ lục III). Việc làm, giáo dục, tín dụng, thực thi pháp luật, tư pháp, di cư. Cần đánh giá sự phù hợp, quản lý rủi ro, ghi log, minh bạch.
+- **Mô hình AI Đa dụng (GPAI)**. Áp dụng ngày 2 tháng 8 năm 2025. Mọi nhà cung cấp GPAI có nghĩa vụ; GPAI rủi ro hệ thống (>1e25 FLOP tính toán huấn luyện) có nghĩa vụ bổ sung.
+- **Hệ thống rủi ro hạn chế**. Nghĩa vụ minh bạch theo Điều 50 (gắn nhãn nội dung AI tạo). Áp dụng ngày 2 tháng 8 năm 2026.
 
-Timeline:
-- 2 Feb 2025: prohibited practices + AI literacy.
-- 2 Aug 2025: GPAI + governance.
-- 2 Aug 2026: full applicability + Article 50 transparency + penalties up to 15M EUR / 3% global turnover.
-- 2 Aug 2027: legacy GPAI + embedded high-risk.
+Dòng thời gian:
+- Ngày 2 tháng 2 năm 2025: thực hành bị cấm + hiểu biết AI.
+- Ngày 2 tháng 8 năm 2025: GPAI + quản trị.
+- Ngày 2 tháng 8 năm 2026: áp dụng đầy đủ + minh bạch Điều 50 + phạt tới 15M EUR / 3% doanh thu toàn cầu.
+- Ngày 2 tháng 8 năm 2027: GPAI có trước + rủi ro cao nhúng.
 
-Commission proposed adjusting the high-risk timeline to 16 months in late 2025.
+Ủy ban đề xuất điều chỉnh dòng thời gian rủi ro cao thành 16 tháng vào cuối 2025.
 
 ### GPAI Code of Practice
 
-Published 10 July 2025. Three chapters:
+Công bố ngày 10 tháng 7 năm 2025. Ba chương:
 
-- **Transparency.** All GPAI providers.
-- **Copyright.** All GPAI providers.
-- **Safety and Security.** Systemic-risk GPAI providers (estimated 5-15 companies).
+- **Minh bạch.** Mọi nhà cung cấp GPAI.
+- **Bản quyền.** Mọi nhà cung cấp GPAI.
+- **An toàn và Bảo mật.** Nhà cung cấp GPAI rủi ro hệ thống (ước tính 5-15 công ty).
 
-12 commitments total. A Signatory Taskforce chaired by the AI Office manages implementation. Enforcement begins 2 August 2026; until then, good-faith compliance is accepted.
+Tổng 12 cam kết. Lực lượng Đặc nhiệm Bên ký kết do AI Office chủ trì quản lý thực hiện. Thực thi bắt đầu ngày 2 tháng 8 năm 2026; đến lúc đó, tuân thủ thiện chí được chấp nhận.
 
 ### Transparency Code for Article 50
 
-First draft 17 December 2025. Second draft March 2026. Final version June 2026. Covers AI-generated content labelling including deepfakes — the regulatory layer that requires Lesson 23's watermarking technology.
+Dự thảo đầu ngày 17 tháng 12 năm 2025. Dự thảo hai tháng 3 năm 2026. Phiên bản cuối tháng 6 năm 2026. Bao phủ gắn nhãn nội dung AI tạo gồm deepfake — lớp quy định yêu cầu công nghệ watermark Bài 23.
 
 ### UK AI Security Institute (February 2025)
 
-Renamed from AI Safety Institute. The rebrand narrows scope: drops algorithmic bias and free-speech framings; focuses on frontier capability security. Open-sourced the Inspect evaluation tool (May 2024). Collaborates with Redwood (Lesson 10) on control safety cases.
+Đổi tên từ AI Safety Institute. Đổi tên thu hẹp phạm vi: bỏ cách nhìn thiên lệch thuật toán và tự do ngôn luận; tập trung bảo mật năng lực tiên tiến hàng đầu. Mở nguồn công cụ đánh giá Inspect (tháng 5 năm 2024). Hợp tác Redwood (Bài 10) về hồ sơ lập luận an toàn kiểm soát.
 
 ### US CAISI (June 2025)
 
-Trump administration transforms NIST's AI Safety Institute into the Center for AI Standards and Innovation. Shift toward "pro-growth AI policies" per VP Vance's Paris AI Action Summit remarks. Reduced emphasis on pre-deployment evaluation; emphasis on standards and innovation support. Domestic counterweight to EU AI Act's regulatory posture.
+Chính quyền Trump chuyển AI Safety Institute của NIST thành Trung tâm Tiêu chuẩn và Đổi mới AI. Chuyển sang "chính sách AI ủng hộ tăng trưởng" theo phát biểu Phó Tổng thống Vance tại Paris AI Action Summit. Giảm nhấn mạnh đánh giá trước triển khai; nhấn mạnh tiêu chuẩn và hỗ trợ đổi mới. Đối trọng trong nước với lập trường quy định của EU AI Act.
 
 ### Korean AI Framework Act
 
-Passed December 2024. Enacted January 2025. Effective January 2026. Consolidates 19 separate AI bills.
+Thông qua tháng 12 năm 2024. Ban hành tháng 1 năm 2025. Hiệu lực tháng 1 năm 2026. Hợp nhất 19 dự luật AI riêng biệt.
 
-Article 12 establishes an AISI under the Ministry of Science and ICT (MSIT). Mandates:
-- Local representatives for foreign AI companies operating in Korea.
-- Risk assessment for "high-impact" AI systems.
-- Safety measures for generative AI and high-impact AI.
+Điều 12 lập AISI thuộc Bộ Khoa học và ICT (MSIT). Bắt buộc:
+- Đại diện địa phương cho công ty AI nước ngoài hoạt động tại Hàn Quốc.
+- Đánh giá rủi ro cho hệ thống AI "tác động cao".
+- Biện pháp an toàn cho AI tạo sinh và AI tác động cao.
 
-First Asian jurisdiction with a comprehensive horizontal AI regulation.
+Khu vực tài phán châu Á đầu tiên có quy định AI theo chiều ngang toàn diện.
 
 ### Cross-jurisdiction dynamics
 
-- EU: strict, risk-tiered, heavy penalties. Benchmark for privacy-adjacent regulation.
-- US: innovation-favouring, decentralized, states (e.g., California AB 2013 — Lesson 27) fill federal gaps.
-- UK: narrow security focus, strong evaluation infrastructure.
-- Korea: MSIT-led, foreign-provider-focused.
+- EU: nghiêm ngặt, phân tầng rủi ro, phạt nặng. Chuẩn tham chiếu cho quy định gần quyền riêng tư.
+- Mỹ: thiên đổi mới, phi tập trung, tiểu bang (ví dụ: California AB 2013 — Bài 27) lấp khoảng trống liên bang.
+- Anh: tập trung bảo mật hẹp, hạ tầng đánh giá mạnh.
+- Hàn Quốc: MSIT dẫn dắt, tập trung nhà cung cấp nước ngoài.
 
-Competing regulatory philosophies. Deployers in multiple jurisdictions have to comply with the strictest, which in 2026 is typically the EU AI Act.
+Triết lý quy định cạnh tranh. Bên triển khai ở nhiều khu vực tài phán phải tuân thủ quy tắc nghiêm nhất, năm 2026 thường là EU AI Act.
 
 ### Where this fits in Phase 18
 
-Lesson 18 is lab-voluntary governance; Lesson 24 is regulatory; Lesson 25 is an emerging class of CVEs for AI systems; Lessons 26-27 cover documentation (cards) and training-data governance.
+Bài 18 là quản trị tự nguyện phòng thí nghiệm; Bài 24 là quy định; Bài 25 là lớp CVE đang nổi cho hệ thống AI; Bài 26-27 đề cập tài liệu hóa (thẻ) và quản trị dữ liệu huấn luyện.
 
 ```figure
 an-eu-act-timeline
@@ -89,39 +89,39 @@ an-eu-act-timeline
 
 ## Use It
 
-No code. Read the EU AI Act primary sources: the regulation text, the GPAI Code of Practice, the UK AISI Inspect framework. Map your deployment to the applicable obligations for each jurisdiction.
+Không có mã. Đọc nguồn sơ cấp EU AI Act: văn bản quy định, GPAI Code of Practice, khung Inspect UK AISI. Ánh xạ triển khai của bạn sang nghĩa vụ áp dụng cho mỗi khu vực tài phán.
 
 ## Ship It
 
-This lesson produces `outputs/skill-regulatory-map.md`. Given a deployment description, it maps the applicable jurisdictions, the tier classifications in each, the per-jurisdiction obligations, and the deadline structure.
+Bài học này tạo ra `outputs/skill-regulatory-map.md`. Với mô tả triển khai, ánh xạ khu vực tài phán áp dụng, phân loại tầng mỗi nơi, nghĩa vụ theo khu vực và cấu trúc thời hạn.
 
 ## Exercises
 
-1. Read the EU AI Act (regulation 2024/1689) and the GPAI Code of Practice (10 July 2025). Identify three obligations that apply to every GPAI provider and three that apply only to systemic-risk GPAI.
+1. Đọc EU AI Act (quy định 2024/1689) và GPAI Code of Practice (ngày 10 tháng 7 năm 2025). Xác định ba nghĩa vụ áp dụng mọi nhà cung cấp GPAI và ba nghĩa vụ chỉ áp dụng GPAI rủi ro hệ thống.
 
-2. A deployment is made by a US company, runs on EU infrastructure, and serves Korean users. Which three jurisdictions' rules apply, and which rule binds on each substantive question?
+2. Triển khai do công ty Mỹ thực hiện, chạy trên hạ tầng EU và phục vụ người dùng Hàn Quốc. Quy tắc của ba khu vực tài phán nào áp dụng, và quy tắc nào ràng buộc trên mỗi câu hỏi nội dung?
 
-3. The UK AI Security Institute's rename narrows scope. Argue for and against the narrower framing. Identify the policy assumption each position depends on.
+3. Đổi tên UK AI Security Institute thu hẹp phạm vi. Lập luận ủng hộ và phản đối cách nhìn hẹp hơn. Xác định giả định chính sách mỗi lập trường phụ thuộc.
 
-4. CAISI's "pro-growth" framing is a departure from the 2022-2024 AI safety institute model. Identify two measurable policy shifts that would follow from this framing.
+4. Cách nhìn "ủng hộ tăng trưởng" của CAISI rời mô hình viện an toàn AI 2022-2024. Xác định hai dịch chuyển chính sách đo được theo cách nhìn này.
 
-5. Korea's AI Framework Act requires local representatives for foreign providers. Describe the operational implications for a Bay Area company serving Korean users.
+5. Luật Khung AI Hàn Quốc cần đại diện địa phương cho nhà cung cấp nước ngoài. Mô tả hàm ý vận hành cho công ty Bay Area phục vụ người dùng Hàn Quốc.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|-----------------|------------------------|
-| EU AI Act | "the regulation" | Risk-tier-based horizontal AI regulation; in force Aug 2024 |
-| GPAI | "general-purpose AI" | Large foundation models; systemic-risk subset has additional obligations |
-| Article 50 | "transparency obligations" | AI-generated content labelling; applies Aug 2026 |
-| UK AISI | "AI Security Institute" | Renamed Feb 2025; narrower frontier-security focus |
-| CAISI | "US center for AI standards" | Renamed Jun 2025 from AI Safety Institute; pro-growth posture |
-| Korean AI Framework Act | "MSIT horizontal regulation" | First Asian comprehensive AI law; effective Jan 2026 |
-| Systemic-risk GPAI | "the 1e25 FLOP threshold" | Additional obligations tier; estimated 5-15 companies bound |
+| EU AI Act | "quy định" | Quy định AI theo chiều ngang dựa trên tầng rủi ro; hiệu lực tháng 8 năm 2024 |
+| GPAI | "AI đa dụng" | Mô hình nền tảng lớn; tập con rủi ro hệ thống có nghĩa vụ bổ sung |
+| Article 50 (Điều 50) | "nghĩa vụ minh bạch" | Gắn nhãn nội dung AI tạo; áp dụng tháng 8 năm 2026 |
+| UK AISI | "Viện Bảo mật AI" | Đổi tên tháng 2 năm 2025; tập trung bảo mật tiên tiến hàng đầu hẹp hơn |
+| CAISI | "trung tâm tiêu chuẩn AI Mỹ" | Đổi tên tháng 6 năm 2025 từ AI Safety Institute; lập trường ủng hộ tăng trưởng |
+| Korean AI Framework Act (Luật Khung AI Hàn Quốc) | "quy định chiều ngang MSIT" | Luật AI toàn diện đầu tiên châu Á; hiệu lực tháng 1 năm 2026 |
+| Systemic-risk GPAI (GPAI rủi ro hệ thống) | "ngưỡng 1e25 FLOP" | Tầng nghĩa vụ bổ sung; ước tính 5-15 công ty bị ràng buộc |
 
 ## Further Reading
 
-- [EU AI Act text (Regulation 2024/1689)](https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai) — the regulation and timeline
-- [GPAI Code of Practice (10 July 2025)](https://digital-strategy.ec.europa.eu/en/library/final-version-general-purpose-ai-code-practice) — three-chapter code
-- [UK AI Security Institute (renamed Feb 2025)](https://www.gov.uk/government/organisations/ai-security-institute) — official page
-- [CSET — South Korea AI Framework Act Analysis (2025)](https://cset.georgetown.edu/publication/south-korea-ai-law-2025/) — Korean framework analysis
+- [EU AI Act text (Regulation 2024/1689)](https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai) — quy định và dòng thời gian
+- [GPAI Code of Practice (10 July 2025)](https://digital-strategy.ec.europa.eu/en/library/final-version-general-purpose-ai-code-practice) — bộ quy tắc ba chương
+- [UK AI Security Institute (renamed Feb 2025)](https://www.gov.uk/government/organisations/ai-security-institute) — trang chính thức
+- [CSET — South Korea AI Framework Act Analysis (2025)](https://cset.georgetown.edu/publication/south-korea-ai-law-2025/) — phân tích khung Hàn Quốc
