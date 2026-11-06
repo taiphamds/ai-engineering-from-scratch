@@ -1,6 +1,6 @@
 # Role Specialization — Planner, Critic, Executor, Verifier
 
-> The most common multi-agent decomposition in 2026: one agent plans, one executes, one critiques or verifies. MetaGPT (arXiv:2308.00352) formalizes this as SOPs encoded into role prompts — Product Manager, Architect, Project Manager, Engineer, QA Engineer — following `Code = SOP(Team)`. ChatDev (arXiv:2307.07924) chains designer, programmer, reviewer, tester through a "chat chain" with "communicative dehallucination" (agents explicitly request missing details). The verifier is load-bearing: Cemri et al. (MAST, arXiv:2503.13657) show every multi-agent failure can be traced to missing or broken verification. PwC reported 7× accuracy gain (10% → 70%) from structured validation loops in CrewAI.
+> Phân rã đa agent phổ biến nhất năm 2026: một agent lập kế hoạch, một agent thực thi, một agent phê bình hoặc xác minh. MetaGPT (arXiv:2308.00352) hình thức hóa điều này thành các SOP được mã hóa vào các prompt vai trò — Quản lý sản phẩm, Kiến trúc sư, Quản lý dự án, Kỹ sư, Kỹ sư QA — theo `Code = SOP(Team)`. ChatDev (arXiv:2307.07924) nối chuỗi nhà thiết kế, lập trình viên, người xem xét, người kiểm thử qua một “chuỗi trò chuyện” với “khử ảo giác bằng giao tiếp” (các agent yêu cầu tường minh các chi tiết còn thiếu). Bộ xác minh đóng vai trò chịu lực: Cemri và cộng sự (MAST, arXiv:2503.13657) cho thấy mọi thất bại đa agent có thể được truy về xác minh thiếu hoặc hỏng. PwC báo cáo mức tăng độ chính xác 7× (10% → 70%) từ các vòng lặp xác thực có cấu trúc trong CrewAI.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,65 +9,65 @@
 
 ## Problem
 
-Generic multi-agent systems produce generic output. Three coders in a group chat write three flavors of the same mediocre code. You can add more agents, add more rounds, and still not cross the quality threshold.
+Các hệ thống đa agent chung chung tạo ra đầu ra chung chung. Ba người viết mã trong một cuộc trò chuyện nhóm viết ba kiểu của cùng mã tầm thường. Bạn có thể thêm các agent, thêm các vòng, và vẫn không vượt ngưỡng chất lượng.
 
-The fix is not more agents — it is *different* agents. Assign distinct roles. Give the critic tools the planner does not have. Give the verifier an objective test suite. Now the system has internal disagreement with grounded correction, not just parallel guessing.
+Cách sửa không phải là nhiều agent hơn — mà là các agent *khác nhau*. Giao các vai trò riêng biệt. Cho bên phê bình những công cụ mà bộ lập kế hoạch không có. Cho bộ xác minh một bộ kiểm thử khách quan. Giờ hệ thống có bất đồng nội bộ với sửa chữa có căn cứ, không chỉ đoán song song.
 
 ## Concept
 
 ### The four canonical roles
 
-**Planner.** Reads the goal, produces a step list or a spec. Tools: knowledge retrieval, docs. Output: structured plan.
+**Bộ lập kế hoạch.** Đọc mục tiêu, tạo một danh sách bước hoặc một đặc tả. Công cụ: truy xuất tri thức, tài liệu. Đầu ra: kế hoạch có cấu trúc.
 
-**Executor.** Reads one plan step at a time, produces the artifact. Tools: the actual work tools (code compiler, shell, API client). Output: the artifact.
+**Bộ thực thi.** Đọc từng bước kế hoạch một, tạo hiện vật. Công cụ: các công cụ công việc thực (trình biên dịch mã, shell, máy khách API). Đầu ra: hiện vật.
 
-**Critic.** Reads the executor's output against the planner's intent. Tools: read-only access to the artifact, static analysis. Output: accept/reject with reasons.
+**Bên phê bình.** Đọc đầu ra bộ thực thi theo ý định của bộ lập kế hoạch. Công cụ: truy cập chỉ đọc tới hiện vật, phân tích tĩnh. Đầu ra: chấp nhận/từ chối kèm lý do.
 
-**Verifier.** Reads the artifact and runs a deterministic check. Tools: test runner, type checker, schema validator. Output: pass/fail with evidence.
+**Bộ xác minh.** Đọc hiện vật và chạy một kiểm tra xác định. Công cụ: trình chạy kiểm thử, bộ kiểm tra kiểu, bộ xác thực lược đồ. Đầu ra: đạt/không đạt kèm bằng chứng.
 
-Critic is subjective, opinionated, often LLM-based. Verifier is objective, deterministic, often code-based. They are not the same role.
+Bên phê bình chủ quan, có quan điểm, thường dựa trên LLM. Bộ xác minh khách quan, xác định, thường dựa trên mã. Chúng không phải cùng vai trò.
 
 ### MetaGPT's SOP pattern
 
-MetaGPT (arXiv:2308.00352) encodes software engineering SOPs as role prompts:
+MetaGPT (arXiv:2308.00352) mã hóa các SOP kỹ thuật phần mềm thành các prompt vai trò:
 
-- **Product Manager** writes the PRD.
-- **Architect** produces the system design.
-- **Project Manager** splits tasks.
-- **Engineer** implements.
-- **QA Engineer** runs tests.
+- **Quản lý sản phẩm** viết PRD.
+- **Kiến trúc sư** tạo thiết kế hệ thống.
+- **Quản lý dự án** chia tác vụ.
+- **Kỹ sư** triển khai.
+- **Kỹ sư QA** chạy kiểm thử.
 
-Each role has a strict input/output schema. The role prompt says what the role *is* and what it *must produce*. The `Code = SOP(Team)` formulation — deterministic SOPs turn a team of LLMs into a predictable pipeline.
+Mỗi vai trò có một lược đồ đầu vào/đầu ra nghiêm ngặt. Prompt vai trò nói vai trò *là gì* và nó *phải tạo ra gì*. Công thức `Code = SOP(Team)` — các SOP xác định biến một nhóm LLM thành một pipeline có thể dự đoán.
 
 ### ChatDev's communicative dehallucination
 
-ChatDev adds a key move: when an executor needs a specific detail that was not in the plan, it explicitly asks the designer before continuing. This prevents the classic LLM failure of plausibly inventing the detail.
+ChatDev thêm một bước then chốt: khi một bộ thực thi cần một chi tiết cụ thể không có trong kế hoạch, nó hỏi tường minh nhà thiết kế trước khi tiếp tục. Điều này ngăn lỗi LLM kinh điển là bịa ra chi tiết một cách có vẻ hợp lý.
 
-Implementation: the role prompt includes "when you need specific information you were not given, ask the relevant role by name before producing output."
+Triển khai: prompt vai trò bao gồm “khi bạn cần thông tin cụ thể bạn chưa được cung cấp, hỏi vai trò liên quan bằng tên trước khi tạo đầu ra.”
 
 ### Why verifier matters most
 
-Cemri et al. (MAST) traced 1642 multi-agent execution failures. 21.3% were verification gaps — the system shipped an answer no one had checked. The remaining 79% often trace back to "there was a check that failed silently or was never run." Verification is the load-bearing role.
+Cemri và cộng sự (MAST) truy vết 1642 thất bại thực thi đa agent. 21.3% là các khoảng trống xác minh — hệ thống đưa ra một câu trả lời không ai kiểm tra. 79% còn lại thường truy về “có một kiểm tra thất bại âm thầm hoặc chưa bao giờ được chạy.” Xác minh là vai trò chịu lực.
 
-PwC reported (CrewAI deployments, 2025) that adding a structured validation loop moved accuracy from 10% to 70%. 7× gain from one role.
+PwC báo cáo (các triển khai CrewAI, 2025) rằng thêm một vòng lặp xác thực có cấu trúc chuyển độ chính xác từ 10% lên 70%. Mức tăng 7× từ một vai trò.
 
 ### Critic vs verifier
 
-- A critic is an LLM reviewing an artifact for quality. Subjective. Can be fooled by plausible prose.
-- A verifier is a deterministic program running on the artifact. Objective. Gives pass/fail with evidence.
+- Một bên phê bình là một LLM xem xét một hiện vật về chất lượng. Chủ quan. Có thể bị đánh lừa bởi văn xuôi có vẻ hợp lý.
+- Một bộ xác minh là một chương trình xác định chạy trên hiện vật. Khách quan. Đưa ra đạt/không đạt kèm bằng chứng.
 
-Use both. Critic catches taste issues the verifier cannot articulate. Verifier catches bugs the critic cannot see because they show up only at runtime.
+Sử dụng cả hai. Bên phê bình bắt các vấn đề thị hiếu mà bộ xác minh không thể diễn đạt. Bộ xác minh bắt các lỗi mà bên phê bình không thể thấy vì chúng chỉ xuất hiện lúc chạy.
 
 ### The anti-pattern
 
-Every role in your system is an LLM and every role's output is "looks good to me." Classic MAST failure mode. Add at least one verifier whose pass/fail is decided by code, not by an LLM.
+Mọi vai trò trong hệ thống của bạn là một LLM và đầu ra của mọi vai trò là “tôi thấy ổn.” Chế độ lỗi MAST kinh điển. Thêm ít nhất một bộ xác minh có đạt/không đạt được quyết định bằng mã, không phải bằng một LLM.
 
 ### Framework mappings
 
-- **CrewAI** — `Agent(role, goal, backstory)` is the textbook specialization surface.
-- **LangGraph** — nodes can have specialized prompts; edges enforce the pipeline.
-- **AutoGen** — role-specific ConversableAgents with one-word names in a GroupChat.
-- **OpenAI Agents SDK** — handoff tools between role-specialized Agents.
+- **CrewAI** — `Agent(role, goal, backstory)` là bề mặt chuyên biệt hóa sách giáo khoa.
+- **LangGraph** — các node có thể có các prompt chuyên biệt; các cạnh thực thi pipeline.
+- **AutoGen** — các ConversableAgent riêng theo vai trò với các tên một từ trong một GroupChat.
+- **OpenAI Agents SDK** — các công cụ bàn giao giữa các Agent chuyên biệt theo vai trò.
 
 ```figure
 swarm-roles
@@ -75,16 +75,16 @@ swarm-roles
 
 ## Build It
 
-`code/main.py` implements a 4-role pipeline building a simple Python function:
+`code/main.py` triển khai một pipeline 4 vai trò xây dựng một hàm Python đơn giản:
 
-- **Planner** produces a spec.
-- **Executor** generates a code string.
-- **Critic** (LLM-simulated) flags obvious issues.
-- **Verifier** runs the generated code in a sandbox (`exec`) against a test case.
+- **Bộ lập kế hoạch** tạo một đặc tả.
+- **Bộ thực thi** sinh một chuỗi mã.
+- **Bên phê bình** (mô phỏng LLM) gắn cờ các vấn đề rõ ràng.
+- **Bộ xác minh** chạy mã được sinh trong một sandbox (`exec`) với một ca kiểm thử.
 
-Demo runs twice: once where the executor produces correct code (critic + verifier both pass), once where the executor produces off-spec code (critic misses the bug because it looks plausible, verifier catches it because the test fails).
+Demo chạy hai lần: một lần bộ thực thi tạo mã đúng (bên phê bình + bộ xác minh đều đạt), một lần bộ thực thi tạo mã lệch đặc tả (bên phê bình bỏ sót lỗi vì nó trông hợp lý, bộ xác minh bắt nó vì kiểm thử thất bại).
 
-Run:
+Chạy:
 
 ```
 python3 code/main.py
@@ -92,42 +92,42 @@ python3 code/main.py
 
 ## Use It
 
-`outputs/skill-role-designer.md` takes a task and produces the role roster (3-5 roles), the input/output schema per role, and the verifier check. Use this before wiring agents into a framework.
+`outputs/skill-role-designer.md` nhận một tác vụ và tạo danh sách vai trò (3-5 vai trò), lược đồ đầu vào/đầu ra theo từng vai trò, và kiểm tra bộ xác minh. Sử dụng nó trước khi kết nối các agent vào một framework.
 
 ## Ship It
 
-Checklist:
+Danh sách kiểm tra:
 
-- **At least one deterministic verifier.** Never all-LLM.
-- **Explicit I/O schema per role.** The planner returns a spec, not prose; the executor reads that schema.
-- **Communicative dehallucination.** Executor must ask the planner when info is missing; never invent it.
-- **Critic/verifier ordering.** Run critic first (cheap, catches design issues), verifier second (slow, catches bugs).
-- **Loop budget.** Max 2 critic-executor revision rounds before escalating to human.
+- **Ít nhất một bộ xác minh xác định.** Không bao giờ toàn LLM.
+- **Lược đồ I/O tường minh theo từng vai trò.** Bộ lập kế hoạch trả về một đặc tả, không phải văn xuôi; bộ thực thi đọc lược đồ đó.
+- **Khử ảo giác bằng giao tiếp.** Bộ thực thi phải hỏi bộ lập kế hoạch khi thiếu thông tin; không bao giờ bịa ra nó.
+- **Thứ tự bên phê bình/bộ xác minh.** Chạy bên phê bình trước (rẻ, bắt các vấn đề thiết kế), bộ xác minh sau (chậm, bắt lỗi).
+- **Ngân sách vòng lặp.** Tối đa 2 vòng sửa đổi bên phê bình-bộ thực thi trước khi chuyển cấp tới con người.
 
 ## Exercises
 
-1. Run `code/main.py` and observe how the verifier catches the bug the critic missed. Add a static-analysis check (count occurrences of `return`) as an additional verifier. What does it catch that the runtime test misses?
-2. Add a 5th role: "requirements analyst" that translates user wish into planner-ready spec. What communicative dehallucination requests should flow up to it?
-3. Read MetaGPT Section 3 ("Agents"). List the input/output schema of each of MetaGPT's 5 roles.
-4. Read ChatDev's chat-chain diagram (arXiv:2307.07924 Figure 3). Identify where communicative dehallucination breaks a loop that would otherwise be infinite.
-5. PwC's 7× accuracy gain came from verification loops. Hypothesize three tasks where adding a verifier would not help — where deterministic checking of correctness is impossible or prohibitively expensive.
+1. Chạy `code/main.py` và quan sát cách bộ xác minh bắt lỗi bên phê bình bỏ sót. Thêm một kiểm tra phân tích tĩnh (đếm số lần xuất hiện của `return`) như một bộ xác minh bổ sung. Nó bắt gì mà kiểm thử lúc chạy bỏ sót?
+2. Thêm một vai trò thứ 5: “nhà phân tích yêu cầu” chuyển mong muốn người dùng thành đặc tả sẵn sàng cho bộ lập kế hoạch. Những yêu cầu khử ảo giác bằng giao tiếp nào nên chảy lên nó?
+3. Đọc Phần 3 MetaGPT (“Agents”). Liệt kê lược đồ đầu vào/đầu ra của mỗi vai trò trong 5 vai trò MetaGPT.
+4. Đọc sơ đồ chuỗi trò chuyện của ChatDev (arXiv:2307.07924 Hình 3). Xác định nơi khử ảo giác bằng giao tiếp phá một vòng lặp vốn sẽ vô hạn.
+5. Mức tăng độ chính xác 7× của PwC đến từ các vòng lặp xác minh. Giả thuyết ba tác vụ mà thêm một bộ xác minh sẽ không giúp — nơi kiểm tra tính đúng đắn xác định là không thể hoặc quá đắt.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Role specialization | "Different agents, different jobs" | Distinct system prompts tuned for planner/executor/critic/verifier roles. |
-| SOP pattern | "Encoded standard operating procedure" | MetaGPT's framing: strict I/O schemas per role turn a team into a pipeline. |
-| Communicative dehallucination | "Ask before inventing" | ChatDev pattern: executor asks planner when a detail is missing rather than making one up. |
-| Critic | "LLM reviewer" | Subjective, opinionated reviewer. Catches taste issues. Can be fooled by plausible prose. |
-| Verifier | "Deterministic check" | Code-based pass/fail. Test runner, type checker, schema validator. Cannot be fooled. |
-| Verification gap | "No one checked" | 21.3% of MAST failures. Answer shipped without a check that would have caught the bug. |
-| Revision loop | "Critic sends it back" | Critic rejection triggers executor re-run with feedback. Needs a budget. |
-| All-LLM anti-pattern | "Looks good to me" | Every role is an LLM, no deterministic check. Classic MAST failure. |
+| Role specialization (Chuyên biệt hóa vai trò) | “Các agent khác nhau, công việc khác nhau” | Các prompt hệ thống riêng biệt được điều chỉnh cho các vai trò lập kế hoạch/thực thi/phê bình/xác minh. |
+| SOP pattern (Mẫu SOP) | “Quy trình vận hành tiêu chuẩn được mã hóa” | Cách định hình của MetaGPT: các lược đồ I/O nghiêm ngặt theo từng vai trò biến một nhóm thành một pipeline. |
+| Communicative dehallucination (Khử ảo giác bằng giao tiếp) | “Hỏi trước khi bịa” | Mẫu ChatDev: bộ thực thi hỏi bộ lập kế hoạch khi thiếu một chi tiết thay vì bịa ra. |
+| Critic (Bên phê bình) | “Người xem xét LLM” | Người xem xét chủ quan, có quan điểm. Bắt các vấn đề thị hiếu. Có thể bị đánh lừa bởi văn xuôi có vẻ hợp lý. |
+| Verifier (Bộ xác minh) | “Kiểm tra xác định” | Đạt/không đạt dựa trên mã. Trình chạy kiểm thử, bộ kiểm tra kiểu, bộ xác thực lược đồ. Không thể bị đánh lừa. |
+| Verification gap (Khoảng trống xác minh) | “Không ai kiểm tra” | 21.3% các thất bại MAST. Câu trả lời được đưa ra không có một kiểm tra lẽ ra đã bắt lỗi. |
+| Revision loop (Vòng lặp sửa đổi) | “Bên phê bình gửi nó lại” | Từ chối của bên phê bình kích hoạt bộ thực thi chạy lại với phản hồi. Cần một ngân sách. |
+| All-LLM anti-pattern (Phản mẫu toàn LLM) | “Tôi thấy ổn” | Mọi vai trò là một LLM, không có kiểm tra xác định. Thất bại MAST kinh điển. |
 
 ## Further Reading
 
-- [Hong et al. — MetaGPT: Meta Programming for Multi-Agent Collaboration](https://arxiv.org/abs/2308.00352) — the SOP-as-role-prompt reference paper
-- [Qian et al. — Communicative Agents for Software Development (ChatDev)](https://arxiv.org/abs/2307.07924) — chat chain + communicative dehallucination
-- [Cemri et al. — Why Do Multi-Agent LLM Systems Fail?](https://arxiv.org/abs/2503.13657) — MAST taxonomy; verification gaps are 21.3% of failures
-- [CrewAI docs — Agent roles](https://docs.crewai.com/en/introduction) — production role specification surface
+- [Hong et al. — MetaGPT: Meta Programming for Multi-Agent Collaboration](https://arxiv.org/abs/2308.00352) — bài báo tham chiếu SOP dưới dạng prompt vai trò
+- [Qian et al. — Communicative Agents for Software Development (ChatDev)](https://arxiv.org/abs/2307.07924) — chuỗi trò chuyện + khử ảo giác bằng giao tiếp
+- [Cemri et al. — Why Do Multi-Agent LLM Systems Fail?](https://arxiv.org/abs/2503.13657) — hệ phân loại MAST; các khoảng trống xác minh là 21.3% thất bại
+- [CrewAI docs — Agent roles](https://docs.crewai.com/en/introduction) — bề mặt đặc tả vai trò sản xuất

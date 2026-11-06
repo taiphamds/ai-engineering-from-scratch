@@ -7,27 +7,27 @@ lesson: 08
 tags: [multi-agent, role-specialization, metagpt, chatdev, verification]
 ---
 
-Given a task, produce a specialized role roster with I/O schemas and a deterministic verifier. Ready to map onto CrewAI, LangGraph, AutoGen, or custom loops.
+Với một tác vụ, tạo một danh sách vai trò chuyên biệt với các lược đồ I/O và một bộ xác minh xác định. Sẵn sàng ánh xạ lên CrewAI, LangGraph, AutoGen, hoặc các vòng lặp tùy chỉnh.
 
-Produce:
+Tạo ra:
 
-1. **Role roster.** 3-5 roles. Name each. At minimum: planner, executor, verifier. Critic optional.
-2. **I/O schema per role.** For each role: what it consumes (from upstream role) and what it produces (schema, not prose). Use dataclass-style notation.
-3. **Verifier specification.** Name the deterministic check: test suite, type checker, schema validator, linter. Describe pass/fail criteria.
-4. **Critic specification (optional).** If included, name what subjective quality it judges. Concrete checklist, not "good code."
-5. **Communicative dehallucination rules.** Name the questions each downstream role is allowed to send upstream when a detail is missing, so they do not invent.
-6. **Revision loop budget.** Max rounds before escalation to human. Default 2.
-7. **Framework mapping.** One-line each: how to express this roster in CrewAI, LangGraph, AutoGen.
+1. **Danh sách vai trò.** 3-5 vai trò. Nêu tên mỗi vai trò. Tối thiểu: bộ lập kế hoạch, bộ thực thi, bộ xác minh. Bên phê bình tùy chọn.
+2. **Lược đồ I/O theo từng vai trò.** Với mỗi vai trò: nó tiêu thụ gì (từ vai trò thượng nguồn) và nó tạo ra gì (lược đồ, không phải văn xuôi). Sử dụng ký pháp kiểu dataclass.
+3. **Đặc tả bộ xác minh.** Nêu kiểm tra xác định: bộ kiểm thử, bộ kiểm tra kiểu, bộ xác thực lược đồ, linter. Mô tả các tiêu chí đạt/không đạt.
+4. **Đặc tả bên phê bình (tùy chọn).** Nếu bao gồm, nêu chất lượng chủ quan nó đánh giá. Danh sách kiểm tra cụ thể, không phải “mã tốt.”
+5. **Các quy tắc khử ảo giác bằng giao tiếp.** Nêu các câu hỏi mỗi vai trò hạ nguồn được phép gửi lên thượng nguồn khi thiếu một chi tiết, để chúng không bịa.
+6. **Ngân sách vòng lặp sửa đổi.** Số vòng tối đa trước khi chuyển cấp tới con người. Mặc định 2.
+7. **Ánh xạ framework.** Mỗi framework một dòng: cách thể hiện danh sách này trong CrewAI, LangGraph, AutoGen.
 
-Hard rejects:
+Các trường hợp loại bỏ dứt khoát:
 
-- Any roster without a deterministic verifier. All-LLM rosters fail the MAST check.
-- Fuzzy I/O ("the executor returns output"). Always state the schema.
-- Critic and verifier conflated. They catch different bugs; both must exist if both are warranted.
+- Bất kỳ danh sách nào không có một bộ xác minh xác định. Các danh sách toàn LLM không vượt qua kiểm tra MAST.
+- I/O mơ hồ (“bộ thực thi trả về đầu ra”). Luôn nêu lược đồ.
+- Bên phê bình và bộ xác minh bị nhập làm một. Chúng bắt các lỗi khác nhau; cả hai phải tồn tại nếu cả hai cần thiết.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the task has no deterministic correctness check (pure generative work, creative writing), refuse and recommend either a human reviewer loop or a multi-agent debate (Lesson 07) instead.
-- If the task is too small for 3+ roles (under 10 minutes of human work), refuse and recommend single-agent.
+- Nếu tác vụ không có kiểm tra tính đúng đắn xác định (công việc thuần sinh, viết sáng tạo), từ chối và thay vào đó đề xuất hoặc một vòng lặp người xem xét con người hoặc một cuộc tranh luận đa agent (Bài 07).
+- Nếu tác vụ quá nhỏ cho 3+ vai trò (dưới 10 phút công việc con người), từ chối và đề xuất một agent đơn lẻ.
 
-Output: a one-page role-design brief. Close with the MAST failure-gap check: confirm at least one deterministic verifier exists.
+Đầu ra: một bản tóm lược thiết kế vai trò một trang. Kết thúc bằng kiểm tra khoảng trống thất bại MAST: xác nhận tồn tại ít nhất một bộ xác minh xác định.
