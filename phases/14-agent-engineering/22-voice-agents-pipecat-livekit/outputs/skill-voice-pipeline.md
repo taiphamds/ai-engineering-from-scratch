@@ -7,27 +7,27 @@ lesson: 22
 tags: [voice, pipecat, livekit, webrtc, latency]
 ---
 
-Given a voice product spec (language, transport, providers), scaffold a frame-based pipeline.
+Với một đặc tả sản phẩm giọng nói (ngôn ngữ, phương thức truyền tải, các nhà cung cấp), tạo khung một pipeline dựa trên frame.
 
-Produce:
+Tạo:
 
-1. `Frame` type with `kind`, `payload`, `direction` (downstream / upstream).
-2. Processors: `VAD`, `STT`, `LLM`, `TTS`, `Transport`. Each with `process(frame)`.
-3. `link()` helper chaining processors forward and backward.
-4. Cancel frame handling: UPSTREAM path from transport to TTS to LLM to STT, dropping pending work at each stage.
-5. Observers: per-stage latency metrics; emit an OTel span per frame crossing a processor (Lesson 23).
-6. Confidence gate on STT: below threshold, emit a "please repeat" text frame instead of transcript.
+1. Kiểu `Frame` với `kind`, `payload`, `direction` (xuôi dòng / ngược dòng).
+2. Các bộ xử lý: `VAD`, `STT`, `LLM`, `TTS`, `Transport`. Mỗi bộ có `process(frame)`.
+3. Hàm trợ giúp `link()` nối chuỗi các bộ xử lý về trước và về sau.
+4. Xử lý frame hủy: đường UPSTREAM từ truyền tải đến TTS đến LLM đến STT, loại bỏ công việc đang chờ ở mỗi giai đoạn.
+5. Các bộ quan sát: các thước đo độ trễ cho từng giai đoạn; phát ra một span OTel cho mỗi frame đi qua một bộ xử lý (Bài 23).
+6. Cổng độ tin cậy trên STT: dưới ngưỡng, phát ra một frame văn bản "vui lòng nhắc lại" thay vì bản chép lời.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Pipeline without UPSTREAM handling. Barge-in is not optional for voice.
-- LLM calls without streaming. First-token latency dominates; must be streamed.
-- Confidence-blind STT. Feeding wrong transcripts to the LLM produces wrong replies.
+- Pipeline không có xử lý UPSTREAM. Ngắt lời không phải tùy chọn đối với giọng nói.
+- Các lời gọi LLM không có streaming. Độ trễ token đầu tiên chiếm ưu thế; phải được truyền dạng luồng.
+- STT không xét độ tin cậy. Đưa các bản chép lời sai cho LLM tạo ra các câu trả lời sai.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If end-to-end latency exceeds 1500ms on a cold run, refuse to ship. Optimize the chain or use a MultimodalAgent (LiveKit direct-audio).
-- If the product is telephony-first and the pipeline has no SIP adapter, refuse. Route through LiveKit SIP or a platform (Vapi/Retell).
-- If the product carries PII audio without encryption in transit, refuse.
+- Nếu độ trễ từ đầu đến cuối vượt quá 1500ms trên một lần chạy nguội, từ chối phát hành. Tối ưu hóa chuỗi hoặc sử dụng một MultimodalAgent (âm thanh trực tiếp LiveKit).
+- Nếu sản phẩm ưu tiên điện thoại và pipeline không có bộ điều hợp SIP, từ chối. Định tuyến qua LiveKit SIP hoặc một nền tảng (Vapi/Retell).
+- Nếu sản phẩm mang âm thanh PII mà không mã hóa khi truyền, từ chối.
 
-Output: `frames.py`, `processors.py`, `pipeline.py`, `observers.py`, `README.md` explaining the latency budget, barge-in design, and transport choice. End with "what to read next" pointing to Lesson 23 (OTel), Lesson 24 (observability backends), or LiveKit docs for WebRTC specifics.
+Đầu ra: `frames.py`, `processors.py`, `pipeline.py`, `observers.py`, `README.md` giải thích ngân sách độ trễ, thiết kế ngắt lời và lựa chọn truyền tải. Kết thúc bằng "đọc gì tiếp theo" chỉ đến Bài 23 (OTel), Bài 24 (các backend khả năng quan sát) hoặc tài liệu LiveKit cho các chi tiết WebRTC.
