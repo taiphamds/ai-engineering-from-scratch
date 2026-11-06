@@ -7,24 +7,24 @@ lesson: 03
 tags: [parallel-tool-calls, streaming, correlation, rate-limits]
 ---
 
-Given a tool registry (list of tools with names, descriptions, and executors), return an annotated copy with `parallel_safe: bool`, `ordering_deps: [tool_name]`, and `rate_limit_group: name` fields added.
+Với sổ đăng ký công cụ (danh sách công cụ có tên, mô tả và bộ thực thi), trả bản sao có chú giải thêm các trường `parallel_safe: bool`, `ordering_deps: [tool_name]` và `rate_limit_group: name`.
 
-Produce:
+Tạo ra:
 
-1. Per-tool classification. For each tool, decide: safe to run in parallel within the same turn (pure reads, different resources); unsafe (mutations, shared resources, external rate limits).
-2. Dependency graph. Identify pairs where one tool's output should feed another's input. Cannot parallelize within a turn. Mark with `ordering_deps`.
-3. Rate-limit grouping. Tools that hit the same downstream API share a group. Host should cap per-group concurrency, not per-tool.
-4. Safety recommendations. For each unsafe tool, state whether to disable parallel for that turn, queue, or shard by resource.
-5. Provider-specific flags. Recommend `parallel_tool_calls=false` on OpenAI or `disable_parallel_tool_use=true` on Anthropic when any unsafe tool is in the set.
+1. Phân loại mỗi công cụ. Với mỗi công cụ, quyết định: an toàn chạy song song trong cùng lượt (đọc thuần, tài nguyên khác nhau); không an toàn (thay đổi, tài nguyên dùng chung, giới hạn tốc độ bên ngoài).
+2. Đồ thị phụ thuộc. Xác định cặp mà đầu ra công cụ này nên đưa vào đầu vào công cụ khác. Không thể song song hóa trong một lượt. Đánh dấu bằng `ordering_deps`.
+3. Nhóm giới hạn tốc độ. Công cụ gọi cùng API phía sau dùng chung nhóm. Host nên giới hạn đồng thời theo nhóm, không theo công cụ.
+4. Khuyến nghị an toàn. Với mỗi công cụ không an toàn, nêu nên tắt song song cho lượt đó, xếp hàng hay phân mảnh theo tài nguyên.
+5. Cờ riêng nhà cung cấp. Khuyến nghị `parallel_tool_calls=false` trên OpenAI hoặc `disable_parallel_tool_use=true` trên Anthropic khi bất kỳ công cụ không an toàn nào trong tập.
 
-Hard rejects:
-- Any registry with no classification after the audit. Default-deny; unknown means unsafe.
-- Any write-path tool on a shared resource marked `parallel_safe: true`. Race conditions.
-- Any tool that hits a rate-limited external API without a `rate_limit_group`.
+Các trường hợp bác bỏ tuyệt đối:
+- Bất kỳ sổ đăng ký nào không có phân loại sau kiểm tra. Mặc định từ chối; không biết nghĩa là không an toàn.
+- Bất kỳ công cụ nhánh ghi nào trên tài nguyên dùng chung được đánh dấu `parallel_safe: true`. Điều kiện tranh chấp.
+- Bất kỳ công cụ nào gọi API bên ngoài giới hạn tốc độ mà không có `rate_limit_group`.
 
-Refusal rules:
-- If asked to mark all tools parallel-safe without inspection, refuse.
-- If the registry includes consequential tools on the same resource (`delete_file` and `write_file` on the same path), refuse to parallelize and direct to Phase 14 · 09 for sandbox-level serialization.
-- If the user argues that their tools never race, refuse and ask for the proof (tests, logs, or a formal argument). Racing happens silently in production.
+Quy tắc từ chối:
+- Nếu được yêu cầu đánh dấu mọi công cụ an toàn song song mà không xem xét, từ chối.
+- Nếu sổ đăng ký gồm công cụ có hệ quả trên cùng tài nguyên (`delete_file` và `write_file` trên cùng đường dẫn), từ chối song song hóa và hướng đến Giai đoạn 14 · 09 để tuần tự hóa cấp sandbox.
+- Nếu người dùng lập luận công cụ của họ không bao giờ tranh chấp, từ chối và yêu cầu bằng chứng (kiểm thử, nhật ký hoặc lập luận hình thức). Tranh chấp xảy ra âm thầm trong sản xuất.
 
-Output: a revised registry as a JSON blob with the three new fields per tool, followed by a short summary naming the highest-risk parallelization choice and the recommended mitigation. End with a suggested `tool_choice` override for the current turn.
+Đầu ra: sổ đăng ký sửa đổi dưới dạng khối JSON với ba trường mới mỗi công cụ, theo sau là tóm tắt ngắn nêu lựa chọn song song hóa rủi ro cao nhất và biện pháp giảm nhẹ khuyến nghị. Kết thúc bằng đề xuất ghi đè `tool_choice` cho lượt hiện tại.

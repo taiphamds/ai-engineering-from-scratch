@@ -1,6 +1,6 @@
 # Parallel Tool Calls and Streaming with Tools
 
-> Three independent weather lookups serialized is three round trips. Run them in parallel and total time collapses to the slowest single call. Every frontier provider now emits multiple tool calls in a single turn. The payoff is real; the plumbing is subtle. This lesson walks both halves: the parallel fan-out and the streamed-argument reassembly, with emphasis on the id-correlation trap.
+> Ba lần tra thời tiết độc lập chạy tuần tự là ba lượt khứ hồi. Chạy song song và tổng thời gian giảm còn lời gọi đơn chậm nhất. Mọi nhà cung cấp tiên tiến nhất hiện phát nhiều lời gọi công cụ trong một lượt. Lợi ích là thật; phần kết nối tinh tế. Bài này đi qua cả hai nửa: phân nhánh song song và ghép lại đối số truyền luồng, nhấn mạnh bẫy liên hệ id.
 
 **Type:** Build
 **Languages:** Python (stdlib, thread pool + streaming harness)
@@ -9,14 +9,14 @@
 
 ## Learning Objectives
 
-- Explain why `parallel_tool_calls: true` exists and when to disable it.
-- Correlate streamed argument chunks to the right tool-call id during parallel fan-out.
-- Reassemble partial `arguments` strings into complete JSON without parsing early.
-- Run a three-city weather benchmark that demonstrates sequential vs parallel latency.
+- Giải thích tại sao `parallel_tool_calls: true` tồn tại và khi nào tắt.
+- Liên hệ các phần đối số truyền luồng với đúng id lời gọi công cụ trong phân nhánh song song.
+- Ghép chuỗi `arguments` từng phần thành JSON đầy đủ mà không phân tích sớm.
+- Chạy benchmark thời tiết ba thành phố minh họa độ trễ tuần tự so với song song.
 
 ## The Problem
 
-Without parallel calls, an agent answering "what is the weather in Bengaluru, Tokyo, and Zurich" does this:
+Không có lời gọi song song, agent trả lời "thời tiết ở Bengaluru, Tokyo và Zurich thế nào" làm như sau:
 
 ```
 user -> LLM
@@ -29,9 +29,9 @@ host -> run executor, reply with result
 LLM -> final text answer
 ```
 
-Three LLM round trips, each of which also pays the executor latency. Roughly 4x the ideal wall-clock time.
+Ba lượt khứ hồi LLM, mỗi lượt cũng chịu độ trễ bộ thực thi. Xấp xỉ 4x thời gian thực lý tưởng.
 
-With parallel calls:
+Với lời gọi song song:
 
 ```
 user -> LLM
@@ -40,47 +40,47 @@ host -> run all three executors concurrently, reply with three results
 LLM -> final text answer
 ```
 
-One LLM round trip. Executor time is the maximum of the three, not the sum. Production benchmarks on OpenAI, Anthropic, and Gemini show 60 to 70 percent wall-clock reduction on fan-out workloads.
+Một lượt khứ hồi LLM. Thời gian bộ thực thi là giá trị tối đa của ba bên, không phải tổng. Benchmark sản xuất trên OpenAI, Anthropic và Gemini cho thấy giảm 60 đến 70 phần trăm thời gian thực trên khối lượng công việc phân nhánh.
 
-The price is correlation complexity. When the three calls complete out of order, your results must carry the matching `tool_call_id` so the model can line them up. When results stream, you must assemble partial argument fragments into complete JSON before executing. Gemini 3 added unique ids in part to solve a real-world issue where two parallel calls to the same tool were indistinguishable.
+Cái giá là độ phức tạp liên hệ. Khi ba lời gọi hoàn tất sai thứ tự, kết quả phải mang `tool_call_id` khớp để mô hình xếp chúng đúng. Khi kết quả truyền luồng, bạn phải ghép mảnh đối số từng phần thành JSON đầy đủ trước khi thực thi. Gemini 3 thêm id duy nhất một phần để giải quyết vấn đề thực tế khi hai lời gọi song song đến cùng công cụ không thể phân biệt.
 
 ## The Concept
 
 ### Enabling parallel
 
-- **OpenAI.** `parallel_tool_calls: true` on by default. Set `false` to force serial.
-- **Anthropic.** Parallel via `disable_parallel_tool_use: false` (default on Claude 3.5 and up). Set `true` for serial.
-- **Gemini.** Always parallel-capable; `tool_config.function_calling_config.mode = "AUTO"` lets the model decide.
+- **OpenAI.** `parallel_tool_calls: true` bật mặc định. Đặt `false` để ép tuần tự.
+- **Anthropic.** Song song qua `disable_parallel_tool_use: false` (mặc định trên Claude 3.5 trở lên). Đặt `true` để tuần tự.
+- **Gemini.** Luôn có khả năng song song; `tool_config.function_calling_config.mode = "AUTO"` để mô hình quyết định.
 
-Disable parallel when tools have ordering dependencies (`create_file` then `write_file`), when one call's output informs another's input, or when the rate limiter cannot handle fan-out.
+Tắt song song khi công cụ có phụ thuộc thứ tự (`create_file` rồi `write_file`), khi đầu ra lời gọi này cung cấp thông tin cho đầu vào lời gọi khác, hoặc khi bộ giới hạn tốc độ không xử lý được phân nhánh.
 
 ### Id correlation
 
-Every call the model emits has an `id`. Every result the host returns must include the same id. Without this, results are ambiguous.
+Mọi lời gọi mô hình phát có `id`. Mọi kết quả host trả phải gồm cùng id. Không có điều này, kết quả mơ hồ.
 
-- **OpenAI.** `tool_call_id` on each tool-role message.
-- **Anthropic.** `tool_use_id` on each `tool_result` block.
-- **Gemini.** `id` on each `functionResponse` (Gemini 3 and up; Gemini 2 matched by name which broke for same-name parallel calls).
+- **OpenAI.** `tool_call_id` trên mỗi thông điệp vai trò tool.
+- **Anthropic.** `tool_use_id` trên mỗi khối `tool_result`.
+- **Gemini.** `id` trên mỗi `functionResponse` (Gemini 3 trở lên; Gemini 2 khớp theo tên, hỏng với lời gọi song song cùng tên).
 
 ### Running calls concurrently
 
-The host runs each call's executor on its own thread, coroutine, or remote worker. The simplest harness uses a thread pool; production uses asyncio with `asyncio.gather` or structured concurrency. Order of completion is unpredictable — the id is the identifier.
+Host chạy bộ thực thi mỗi lời gọi trên luồng, coroutine hoặc worker từ xa riêng. Bộ khung đơn giản nhất dùng nhóm luồng; sản xuất dùng asyncio với `asyncio.gather` hoặc đồng thời có cấu trúc. Thứ tự hoàn tất không đoán được — id là định danh.
 
-One common bug: reply with results in call-list order instead of completion order. This usually works because the model only cares about `tool_call_id`, but if a result is dropped or duplicated, out-of-order submission makes debugging harder. Prefer to reply in completion order with explicit ids.
+Một lỗi phổ biến: trả kết quả theo thứ tự danh sách lời gọi thay vì thứ tự hoàn tất. Điều này thường hoạt động vì mô hình chỉ quan tâm `tool_call_id`, nhưng nếu kết quả bị bỏ hoặc lặp, gửi sai thứ tự khiến gỡ lỗi khó hơn. Ưu tiên trả lời theo thứ tự hoàn tất với id tường minh.
 
 ### Streaming tool calls
 
-When the model streams, `arguments` arrive in pieces. Three separate streams of chunks for three parallel calls interleave on the wire. You need one accumulator per id.
+Khi mô hình truyền luồng, `arguments` đến theo từng mảnh. Ba luồng phần riêng cho ba lời gọi song song xen kẽ trên đường truyền. Bạn cần một bộ tích lũy mỗi id.
 
-Shape by provider:
+Hình dạng theo nhà cung cấp:
 
-- **OpenAI.** Each chunk is `choices[0].delta.tool_calls[i].function.arguments` (partial string). The chunk carries `index` (position in the call list). You accumulate per-index, read `id` when it first appears, and parse JSON when `finish_reason = "tool_calls"`.
-- **Anthropic.** Stream events are `message_start`, then one `content_block_start` per block with type `tool_use` (containing id, name, empty input). `content_block_delta` events carry `input_json_delta` chunks. `content_block_stop` closes each block.
-- **Gemini.** `streamFunctionCallArguments` (Gemini 3 and up) emits chunks with a `functionCallId` so calls interleave cleanly. Before Gemini 3, streaming returned one complete call at a time.
+- **OpenAI.** Mỗi phần là `choices[0].delta.tool_calls[i].function.arguments` (chuỗi từng phần). Phần mang `index` (vị trí trong danh sách lời gọi). Bạn tích lũy theo chỉ số, đọc `id` khi lần đầu xuất hiện và phân tích JSON khi `finish_reason = "tool_calls"`.
+- **Anthropic.** Sự kiện luồng là `message_start`, rồi một `content_block_start` mỗi khối với kiểu `tool_use` (chứa id, tên, đầu vào rỗng). Sự kiện `content_block_delta` mang phần `input_json_delta`. `content_block_stop` đóng mỗi khối.
+- **Gemini.** `streamFunctionCallArguments` (Gemini 3 trở lên) phát các phần có `functionCallId` để lời gọi xen kẽ rõ ràng. Trước Gemini 3, truyền luồng trả một lời gọi đầy đủ mỗi lần.
 
 ### Partial JSON and the parse-early trap
 
-You cannot parse `arguments` until it is complete. Partial JSON such as `{"city": "Beng` is not valid and will raise. The correct gate is the provider's end-of-call signal: OpenAI's `finish_reason = "tool_calls"`, Anthropic's `content_block_stop`, or Gemini's stream-end event. Only then attempt `json.loads`. A more robust approach uses an incremental JSON parser that yields events as structure completes; OpenAI's streaming guide recommends this for UX that shows a live "thinking" indicator. Brace-counting is unreliable as a completeness test (braces inside quoted strings or escaped content cause false positives) and should only be used as an informal debug heuristic.
+Bạn không thể phân tích `arguments` đến khi nó đầy đủ. JSON từng phần như `{"city": "Beng` không hợp lệ và sẽ ném lỗi. Cổng đúng là tín hiệu kết thúc lời gọi của nhà cung cấp: `finish_reason = "tool_calls"` của OpenAI, `content_block_stop` của Anthropic hoặc sự kiện kết thúc luồng của Gemini. Chỉ khi đó mới thử `json.loads`. Cách vững chắc hơn dùng bộ phân tích JSON tăng dần phát sự kiện khi cấu trúc hoàn tất; hướng dẫn truyền luồng OpenAI khuyến nghị điều này cho UX hiển thị chỉ báo "đang suy nghĩ" trực tiếp. Đếm ngoặc nhọn không đáng tin để kiểm tra tính đầy đủ (ngoặc nhọn trong chuỗi có dấu nháy hoặc nội dung escape gây dương tính giả) và chỉ nên dùng làm heuristic gỡ lỗi không chính thức.
 
 ### Out-of-order completion
 
@@ -90,7 +90,7 @@ call_B: slow API, returns second
 call_C: median API, returns third
 ```
 
-The host reply must still cite the ids:
+Phản hồi host vẫn phải dẫn các id:
 
 ```
 [{role: "tool", tool_call_id: "call_A", content: ...},
@@ -98,17 +98,17 @@ The host reply must still cite the ids:
  {role: "tool", tool_call_id: "call_C", content: ...}]
 ```
 
-Order in the reply does not matter for correctness on OpenAI or Anthropic. Gemini accepts any order so long as ids match.
+Thứ tự trong phản hồi không ảnh hưởng tính đúng trên OpenAI hoặc Anthropic. Gemini chấp nhận mọi thứ tự miễn id khớp.
 
 ### Benchmark: sequential vs parallel
 
-The harness in `code/main.py` simulates three executors with 400, 600, and 800 ms latency. Sequential runs it in 1800 ms total. Parallel runs it in max(400, 600, 800) = 800 ms. The difference is constant, not proportional, so the savings grow with tool count.
+Bộ khung trong `code/main.py` mô phỏng ba bộ thực thi có độ trễ 400, 600 và 800 ms. Tuần tự chạy trong tổng 1800 ms. Song song chạy trong max(400, 600, 800) = 800 ms. Chênh lệch là hằng số, không tỷ lệ, nên tiết kiệm tăng theo số công cụ.
 
-Real-world caveat: parallel calls stress downstream APIs. A 10-way fan-out to a rate-limited service will fail. Phase 13 · 17 covers gateway-level backpressure; retry semantics are planned for a future phase.
+Lưu ý thực tế: lời gọi song song gây áp lực lên API phía sau. Phân nhánh 10 chiều đến dịch vụ giới hạn tốc độ sẽ thất bại. Giai đoạn 13 · 17 đề cập backpressure cấp gateway; ngữ nghĩa thử lại được lên kế hoạch cho giai đoạn tương lai.
 
 ### Streaming fan-out wall-clock
 
-If the model itself streams, you can start executing as soon as one call's arguments are complete, rather than waiting for all calls to finalize. This is an optimization OpenAI documents but not all SDKs expose. The harness in this lesson does it: as soon as the simulated stream yields a complete argument object, the host kicks off that call.
+Nếu bản thân mô hình truyền luồng, bạn có thể bắt đầu thực thi ngay khi đối số của một lời gọi đầy đủ, thay vì chờ mọi lời gọi hoàn tất. Đây là tối ưu OpenAI ghi lại nhưng không phải SDK nào cũng cung cấp. Bộ khung bài này làm điều đó: ngay khi luồng mô phỏng cho ra đối tượng đối số đầy đủ, host khởi chạy lời gọi đó.
 
 ```figure
 tp-parallel-fanout
@@ -116,49 +116,49 @@ tp-parallel-fanout
 
 ## Use It
 
-`code/main.py` has two halves. The first runs three simulated weather calls sequentially and in parallel using `concurrent.futures.ThreadPoolExecutor` and prints wall-clock time. The second half replays a fake streaming response — chunks of `arguments` for three parallel calls interleaved on one stream — and reassembles them per-id with `StreamAccumulator`. No LLM, no network, just the reassembly logic.
+`code/main.py` có hai nửa. Nửa đầu chạy ba lời gọi thời tiết mô phỏng tuần tự và song song bằng `concurrent.futures.ThreadPoolExecutor` và in thời gian thực. Nửa sau phát lại phản hồi truyền luồng giả — các phần `arguments` cho ba lời gọi song song xen kẽ trên một luồng — rồi ghép theo id bằng `StreamAccumulator`. Không LLM, không mạng, chỉ logic ghép lại.
 
-What to look at:
+Những gì cần xem:
 
-- The sequential timer hits 1.8 seconds. The parallel timer hits 0.8 seconds on the same fake latencies.
-- The accumulator handles chunks arriving out of order by buffering per-id and parsing only when each call's JSON is complete.
-- The executor kicks off as soon as an id's arguments finalize, not after all streams end.
+- Bộ đếm tuần tự đạt 1.8 giây. Bộ đếm song song đạt 0.8 giây trên cùng độ trễ giả.
+- Bộ tích lũy xử lý các phần đến sai thứ tự bằng đệm theo id và chỉ phân tích khi JSON mỗi lời gọi đầy đủ.
+- Bộ thực thi khởi chạy ngay khi đối số của một id hoàn tất, không sau khi mọi luồng kết thúc.
 
 ## Ship It
 
-This lesson produces `outputs/skill-parallel-call-safety-check.md`. Given a tool registry, the skill audits which tools are safe to parallelize, which have ordering dependencies, and which would overwhelm downstream rate limits — returning a revised registry with per-tool `parallel_safe` flags.
+Bài học này tạo ra `outputs/skill-parallel-call-safety-check.md`. Với sổ đăng ký công cụ, skill kiểm tra công cụ nào an toàn để song song hóa, công cụ nào có phụ thuộc thứ tự và công cụ nào làm quá tải giới hạn tốc độ phía sau — trả sổ đăng ký sửa đổi với cờ `parallel_safe` mỗi công cụ.
 
 ## Exercises
 
-1. Run `code/main.py` and vary the simulated latencies. Confirm that the parallel-to-sequential ratio is approximately `max/sum` (real runs deviate slightly from the ideal because of thread scheduling, serialization, and harness overhead). At what latency distribution does parallel stop mattering?
+1. Chạy `code/main.py` và thay đổi độ trễ mô phỏng. Xác nhận tỷ lệ song song-trên-tuần tự xấp xỉ `max/sum` (lần chạy thật lệch nhẹ so với lý tưởng do lập lịch luồng, tuần tự hóa và chi phí bộ khung). Ở phân phối độ trễ nào song song không còn quan trọng?
 
-2. Extend the accumulator to handle a "call was cancelled mid-stream" case by dropping its buffer and emitting a `cancelled` event. What provider documents this case explicitly? Check Anthropic's `content_block_stop` semantics and OpenAI's `finish_reason: "length"` behavior.
+2. Mở rộng bộ tích lũy để xử lý trường hợp "lời gọi bị hủy giữa luồng" bằng bỏ bộ đệm và phát sự kiện `cancelled`. Nhà cung cấp nào ghi rõ trường hợp này? Kiểm tra ngữ nghĩa `content_block_stop` của Anthropic và hành vi `finish_reason: "length"` của OpenAI.
 
-3. Replace the thread pool with `asyncio.gather`. Benchmark both. You should see small wins on async because of lower context-switch cost, but only if executors do real I/O.
+3. Thay nhóm luồng bằng `asyncio.gather`. Benchmark cả hai. Bạn nên thấy lợi ích nhỏ với async do chi phí chuyển ngữ cảnh thấp hơn, nhưng chỉ khi bộ thực thi làm I/O thật.
 
-4. Pick two tools that should NOT parallelize (e.g. `create_file` then `write_file`). Add an `ordering_dependency` graph to the registry and gate the parallel fan-out on that graph. This is the minimum machinery for dependency-aware scheduling, which a future agent-engineering phase formalizes.
+4. Chọn hai công cụ KHÔNG nên song song hóa (ví dụ `create_file` rồi `write_file`). Thêm đồ thị `ordering_dependency` vào sổ đăng ký và kiểm soát phân nhánh song song theo đồ thị đó. Đây là bộ máy tối thiểu cho lập lịch nhận biết phụ thuộc, được hình thức hóa ở giai đoạn kỹ thuật agent tương lai.
 
-5. Read OpenAI's parallel-function-calling section and Anthropic's `disable_parallel_tool_use` docs. Identify the one real-world tool type where Anthropic recommends disabling parallelism. (Hint: consequential mutations on the same resource.)
+5. Đọc mục gọi hàm song song của OpenAI và tài liệu `disable_parallel_tool_use` của Anthropic. Xác định một loại công cụ thực tế Anthropic khuyến nghị tắt song song. (Gợi ý: thay đổi có hệ quả trên cùng tài nguyên.)
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Parallel tool calls | "Fan-out in one turn" | Model emits multiple tool calls in a single assistant message |
-| `parallel_tool_calls` | "OpenAI's flag" | Enable or disable multi-call emission |
-| `disable_parallel_tool_use` | "Anthropic's inverse" | Opt-out flag; default is parallel enabled |
-| Tool call id | "Correlation handle" | Per-call identifier the result message must echo |
-| Accumulator | "Stream buffer" | Per-id string buffer for partial `arguments` chunks |
-| Out-of-order completion | "Fastest first" | Parallel calls finish in unpredictable order; ids are the glue |
-| Dependency graph | "Ordering constraints" | Tools whose outputs feed into inputs of other tools; cannot parallelize |
-| Parse-early trap | "JSON.parse exploded" | Attempting to parse an incomplete `arguments` string |
-| `streamFunctionCallArguments` | "Gemini 3 feature" | Streamed argument chunks with unique id per call |
-| Completion-order reply | "Don't wait for all" | Reply with results as they arrive, keyed by id |
+| Parallel tool calls (Lời gọi công cụ song song) | "Phân nhánh trong một lượt" | Mô hình phát nhiều lời gọi công cụ trong một thông điệp assistant |
+| `parallel_tool_calls` | "Cờ của OpenAI" | Bật hoặc tắt phát nhiều lời gọi |
+| `disable_parallel_tool_use` | "Nghịch đảo của Anthropic" | Cờ tắt tùy chọn; mặc định bật song song |
+| Tool call id (Id lời gọi công cụ) | "Định danh liên hệ" | Định danh mỗi lời gọi mà thông điệp kết quả phải lặp lại |
+| Accumulator (Bộ tích lũy) | "Bộ đệm luồng" | Bộ đệm chuỗi theo id cho phần `arguments` từng phần |
+| Out-of-order completion (Hoàn tất sai thứ tự) | "Nhanh nhất trước" | Lời gọi song song kết thúc theo thứ tự không đoán được; id là chất kết dính |
+| Dependency graph (Đồ thị phụ thuộc) | "Ràng buộc thứ tự" | Công cụ có đầu ra đưa vào đầu vào công cụ khác; không thể song song hóa |
+| Parse-early trap (Bẫy phân tích sớm) | "JSON.parse phát nổ" | Cố phân tích chuỗi `arguments` chưa đầy đủ |
+| `streamFunctionCallArguments` | "Tính năng Gemini 3" | Phần đối số truyền luồng với id duy nhất mỗi lời gọi |
+| Completion-order reply (Phản hồi theo thứ tự hoàn tất) | "Đừng chờ tất cả" | Trả kết quả khi chúng đến, khóa theo id |
 
 ## Further Reading
 
-- [OpenAI — Parallel function calling](https://platform.openai.com/docs/guides/function-calling#parallel-function-calling) — default behavior and the opt-out flag
-- [Anthropic — Parallel tool use](https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use) — `disable_parallel_tool_use` and result batching
-- [Google — Gemini function calling parallel section](https://ai.google.dev/gemini-api/docs/function-calling) — id-correlated parallel calls from Gemini 3
-- [OpenAI — Streaming responses with tools](https://platform.openai.com/docs/api-reference/responses-streaming) — chunked argument reassembly for OpenAI streams
-- [Anthropic — Streaming messages](https://docs.anthropic.com/en/api/messages-streaming) — `content_block_delta` with `input_json_delta`
+- [OpenAI — Parallel function calling](https://platform.openai.com/docs/guides/function-calling#parallel-function-calling) — hành vi mặc định và cờ tắt tùy chọn
+- [Anthropic — Parallel tool use](https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use) — `disable_parallel_tool_use` và gom kết quả theo lô
+- [Google — Gemini function calling parallel section](https://ai.google.dev/gemini-api/docs/function-calling) — lời gọi song song liên hệ bằng id từ Gemini 3
+- [OpenAI — Streaming responses with tools](https://platform.openai.com/docs/api-reference/responses-streaming) — ghép đối số chia phần cho luồng OpenAI
+- [Anthropic — Streaming messages](https://docs.anthropic.com/en/api/messages-streaming) — `content_block_delta` với `input_json_delta`
