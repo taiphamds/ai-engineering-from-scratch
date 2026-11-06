@@ -1,6 +1,6 @@
 # Policy Gradient — REINFORCE from Scratch
 
-> Stop estimating value. Parameterize the policy directly, compute the gradient of expected return, step uphill. Williams (1992) wrote it in one theorem. It is why PPO, GRPO, and every LLM RL loop exist.
+> Ngừng ước lượng giá trị. Tham số hóa trực tiếp chính sách, tính gradient của lợi tức kỳ vọng, bước lên dốc. Williams (1992) viết nó trong một định lý. Đó là lý do PPO, GRPO và mọi vòng lặp RL cho LLM tồn tại.
 
 **Type:** Build
 **Languages:** Python
@@ -9,48 +9,48 @@
 
 ## The Problem
 
-Q-learning and DQN parameterize the *value* function. You pick actions by `argmax Q`. That is fine for discrete actions and discrete states. It breaks when actions are continuous (which `argmax` over a 10-dimensional torque?) or when you want a stochastic policy (`argmax` is deterministic by construction).
+Q-learning và DQN tham số hóa hàm *giá trị*. Bạn chọn hành động bằng `argmax Q`. Điều đó phù hợp cho hành động rời rạc và trạng thái rời rạc. Nó hỏng khi hành động liên tục (`argmax` nào trên một mô-men xoắn 10 chiều?) hoặc khi bạn muốn một chính sách ngẫu nhiên (`argmax` tất định theo cách xây dựng).
 
-Policy gradients parameterize the *policy* instead. `π_θ(a | s)` is a neural net that outputs a distribution over actions. Sample from it to act. Compute the gradient of expected return with respect to `θ`. Step uphill. No `argmax`. No Bellman recursion. Just gradient ascent on `J(θ) = E_{π_θ}[G]`.
+Gradient chính sách thay vào đó tham số hóa *chính sách*. `π_θ(a | s)` là một mạng nơ-ron xuất ra một phân phối trên các hành động. Lấy mẫu từ nó để hành động. Tính gradient của lợi tức kỳ vọng theo `θ`. Bước lên dốc. Không `argmax`. Không đệ quy Bellman. Chỉ gradient ascent trên `J(θ) = E_{π_θ}[G]`.
 
-The REINFORCE theorem (Williams 1992) tells you this gradient is computable: `∇J(θ) = E_π[ G · ∇_θ log π_θ(a | s) ]`. Run an episode. Compute the return. Multiply by `∇ log π_θ(a | s)` at every step. Average. Gradient-ascent. Done.
+Định lý REINFORCE (Williams 1992) cho bạn biết gradient này tính được: `∇J(θ) = E_π[ G · ∇_θ log π_θ(a | s) ]`. Chạy một episode. Tính lợi tức. Nhân với `∇ log π_θ(a | s)` ở mỗi bước. Lấy trung bình. Gradient-ascent. Xong.
 
-Every LLM-RL algorithm in 2026 — PPO, DPO, GRPO — is a refinement of REINFORCE. Understanding it in your fingers is the prerequisite for the rest of this phase, and for Phase 10 · 07 (RLHF implementation) and Phase 10 · 08 (DPO).
+Mọi thuật toán LLM-RL năm 2026 — PPO, DPO, GRPO — đều là một cải tiến của REINFORCE. Hiểu nó đến mức thuần tay là điều kiện tiên quyết cho phần còn lại của giai đoạn này, và cho Giai đoạn 10 · 07 (triển khai RLHF) và Giai đoạn 10 · 08 (DPO).
 
 ## The Concept
 
 ![Policy gradient: softmax policy, log-π gradient, return-weighted update](../assets/policy-gradient.svg)
 
-**The policy gradient theorem.** For any policy `π_θ` parameterized by `θ`:
+**Định lý gradient chính sách.** Với bất kỳ chính sách `π_θ` nào được tham số hóa bởi `θ`:
 
 `∇J(θ) = E_{τ ~ π_θ}[ Σ_{t=0}^{T} G_t · ∇_θ log π_θ(a_t | s_t) ]`
 
-where `G_t = Σ_{k=t}^{T} γ^{k-t} r_{k+1}` is the discounted return from step `t`. The expectation is over full trajectories `τ` sampled from `π_θ`.
+trong đó `G_t = Σ_{k=t}^{T} γ^{k-t} r_{k+1}` là lợi tức chiết khấu từ bước `t`. Kỳ vọng được lấy trên các quỹ đạo đầy đủ `τ` được lấy mẫu từ `π_θ`.
 
-**The proof is short.** Differentiate `J(θ) = Σ_τ P(τ; θ) G(τ)` under the expectation. Use `∇P(τ; θ) = P(τ; θ) ∇ log P(τ; θ)` (the log-derivative trick). Factor `log P(τ; θ) = Σ log π_θ(a_t | s_t) + environment terms that do not depend on θ`. The environment terms vanish. Two lines of algebra give you the theorem.
+**Chứng minh ngắn.** Lấy đạo hàm `J(θ) = Σ_τ P(τ; θ) G(τ)` dưới kỳ vọng. Dùng `∇P(τ; θ) = P(τ; θ) ∇ log P(τ; θ)` (thủ thuật đạo hàm log). Phân tích `log P(τ; θ) = Σ log π_θ(a_t | s_t) + environment terms that do not depend on θ`. Các hạng tử môi trường biến mất. Hai dòng đại số cho bạn định lý.
 
-**Variance reduction tricks.** Vanilla REINFORCE has murderous variance — returns are noisy, `∇ log π` is noisy, their product is very noisy. Two standard fixes:
+**Các thủ thuật giảm phương sai.** REINFORCE nguyên bản có phương sai khủng khiếp — lợi tức nhiều nhiễu, `∇ log π` nhiều nhiễu, tích của chúng rất nhiều nhiễu. Hai cách khắc phục tiêu chuẩn:
 
-1. **Baseline subtraction.** Replace `G_t` with `G_t - b(s_t)` for any baseline `b(s_t)` that does not depend on `a_t`. Unbiased because `E[b(s_t) · ∇ log π(a_t | s_t)] = 0`. Typical choice: `b(s_t) = V̂(s_t)` learned by a critic → actor-critic (Lesson 07).
-2. **Reward-to-go.** Replace `Σ_t G_t · ∇ log π_θ(a_t | s_t)` with `Σ_t G_t^{from t} · ∇ log π_θ(a_t | s_t)`. Only future returns matter for a given action — past rewards contribute zero-mean noise.
+1. **Trừ baseline.** Thay `G_t` bằng `G_t - b(s_t)` cho bất kỳ baseline `b(s_t)` nào không phụ thuộc `a_t`. Không chệch vì `E[b(s_t) · ∇ log π(a_t | s_t)] = 0`. Lựa chọn điển hình: `b(s_t) = V̂(s_t)` được học bởi một critic → actor-critic (Bài 07).
+2. **Reward-to-go.** Thay `Σ_t G_t · ∇ log π_θ(a_t | s_t)` bằng `Σ_t G_t^{from t} · ∇ log π_θ(a_t | s_t)`. Chỉ các lợi tức tương lai quan trọng với một hành động cho trước — phần thưởng quá khứ đóng góp nhiễu trung bình bằng không.
 
-Combined, you get:
+Kết hợp lại, bạn có:
 
 `∇J ≈ (1/N) Σ_{i=1}^{N} Σ_{t=0}^{T_i} [ G_t^{(i)} - V̂(s_t^{(i)}) ] · ∇_θ log π_θ(a_t^{(i)} | s_t^{(i)})`
 
-which is REINFORCE with a baseline — the direct ancestor of A2C (Lesson 07) and PPO (Lesson 08).
+đó là REINFORCE với một baseline — tổ tiên trực tiếp của A2C (Bài 07) và PPO (Bài 08).
 
-**Softmax policy parameterization.** For discrete actions, the standard choice:
+**Tham số hóa chính sách softmax.** Với hành động rời rạc, lựa chọn tiêu chuẩn:
 
 `π_θ(a | s) = exp(f_θ(s, a)) / Σ_{a'} exp(f_θ(s, a'))`
 
-where `f_θ` is any neural net that outputs a score per action. The gradient has a clean form:
+trong đó `f_θ` là bất kỳ mạng nơ-ron nào xuất ra một điểm cho mỗi hành động. Gradient có một dạng rõ ràng:
 
 `∇_θ log π_θ(a | s) = ∇_θ f_θ(s, a) - Σ_{a'} π_θ(a' | s) ∇_θ f_θ(s, a')`
 
-i.e., score of the taken action minus its expected value under the policy.
+tức là, điểm của hành động đã thực hiện trừ giá trị kỳ vọng của nó theo chính sách.
 
-**Gaussian policy for continuous actions.** `π_θ(a | s) = N(μ_θ(s), σ_θ(s))`. `∇ log N(a; μ, σ)` has a closed form. That is all Phase 9 · 07's SAC needs.
+**Chính sách Gaussian cho hành động liên tục.** `π_θ(a | s) = N(μ_θ(s), σ_θ(s))`. `∇ log N(a; μ, σ)` có một dạng đóng. Đó là tất cả những gì SAC ở Giai đoạn 9 · 07 cần.
 
 ```figure
 policy-gradient-landscape
@@ -71,7 +71,7 @@ def softmax(logits):
     return [e / Z for e in exps]
 ```
 
-Use a linear policy (one weight vector per action) for a tabular env. For Atari, swap in a CNN and keep the softmax head.
+Dùng một chính sách tuyến tính (một vector trọng số mỗi hành động) cho một môi trường dạng bảng. Với Atari, thay vào một CNN và giữ head softmax.
 
 ### Step 2: sampling and log-probability
 
@@ -119,39 +119,39 @@ def reinforce_step(theta, trajectory, gamma, lr, baseline=0.0):
                 theta[i][j] += lr * advantage * grad_log_pi_a[i] * s[j]
 ```
 
-The gradient `∇ log π(a|s) = e_a - π(·|s)` (onehot of `a` minus probabilities) is the heart of softmax policy gradients. Burn it into muscle memory.
+Gradient `∇ log π(a|s) = e_a - π(·|s)` (onehot của `a` trừ các xác suất) là trái tim của gradient chính sách softmax. Khắc nó vào trí nhớ cơ bắp.
 
 ### Step 5: baselines
 
-A running mean of `G` over recent episodes is enough variance reduction to get a 4×4 GridWorld running; it takes ~500 episodes to converge. Upgrade the baseline to a learned `V̂(s)` and you get actor-critic.
+Một trung bình tích lũy của `G` trên các episode gần đây đủ giảm phương sai để một GridWorld 4×4 hoạt động; nó mất ~500 episode để hội tụ. Nâng cấp baseline thành một `V̂(s)` được học và bạn có actor-critic.
 
 ## Pitfalls
 
-- **Exploding gradients.** Returns can be huge. Always normalize `G` to `~N(0, 1)` across the batch before multiplying by `∇ log π`.
-- **Entropy collapse.** The policy converges to a near-deterministic action too early, stops exploring, gets stuck. Fix: add entropy bonus `β · H(π(·|s))` to the objective.
-- **High variance.** Vanilla REINFORCE needs thousands of episodes. A critic baseline (Lesson 07) or TRPO/PPO's trust region (Lesson 08) is the standard fix.
-- **Sample inefficiency.** On-policy means you throw away every transition after one update. Off-policy corrections via importance sampling bring back data, at the cost of variance (PPO's ratio is a clipped IS weight).
-- **Non-stationary gradients.** The same gradient from 100 episodes ago uses old `π`. On-policy methods update every few rollouts for this reason.
-- **Credit assignment.** Without reward-to-go, past rewards contribute noise. Always use reward-to-go.
+- **Bùng nổ gradient.** Lợi tức có thể rất lớn. Luôn chuẩn hóa `G` về `~N(0, 1)` trên batch trước khi nhân với `∇ log π`.
+- **Sụp đổ entropy.** Chính sách hội tụ về một hành động gần tất định quá sớm, ngừng khám phá, bị kẹt. Cách khắc phục: thêm thưởng entropy `β · H(π(·|s))` vào mục tiêu.
+- **Phương sai cao.** REINFORCE nguyên bản cần hàng nghìn episode. Một baseline critic (Bài 07) hoặc miền tin cậy của TRPO/PPO (Bài 08) là cách khắc phục tiêu chuẩn.
+- **Kém hiệu quả mẫu.** On-policy nghĩa là bạn vứt bỏ mọi chuyển tiếp sau một lần cập nhật. Hiệu chỉnh off-policy qua lấy mẫu quan trọng mang dữ liệu trở lại, với cái giá là phương sai (tỷ số của PPO là một trọng số IS được cắt).
+- **Gradient phi dừng.** Cùng gradient từ 100 episode trước dùng `π` cũ. Các phương pháp on-policy cập nhật mỗi vài rollout vì lý do này.
+- **Gán công trạng.** Không có reward-to-go, các phần thưởng quá khứ đóng góp nhiễu. Luôn dùng reward-to-go.
 
 ## Use It
 
-In 2026, REINFORCE is rarely run directly but its gradient formula is everywhere:
+Vào năm 2026, REINFORCE hiếm khi được chạy trực tiếp nhưng công thức gradient của nó ở khắp nơi:
 
-| Use case | Derived method |
+| Trường hợp sử dụng | Phương pháp suy ra |
 |----------|---------------|
-| Continuous control | PPO / SAC with Gaussian policy |
-| LLM RLHF | PPO with KL penalty, running on token-level policy |
-| LLM reasoning (DeepSeek) | GRPO — REINFORCE with group-relative baseline, no critic |
-| Multi-agent | Centralized-critic REINFORCE (MADDPG, COMA) |
-| Discrete action robotics | A2C, A3C, PPO |
-| Preference-only settings | DPO — REINFORCE rewritten as a preference-likelihood loss, no sampling |
+| Điều khiển liên tục | PPO / SAC với chính sách Gaussian |
+| RLHF cho LLM | PPO với phạt KL, chạy trên chính sách cấp token |
+| Suy luận LLM (DeepSeek) | GRPO — REINFORCE với baseline tương đối theo nhóm, không critic |
+| Đa agent | REINFORCE với critic tập trung (MADDPG, COMA) |
+| Robot học hành động rời rạc | A2C, A3C, PPO |
+| Bối cảnh chỉ có sở thích | DPO — REINFORCE được viết lại thành một hàm mất mát likelihood sở thích, không lấy mẫu |
 
-When you read `loss = -advantage * log_prob` in a 2026 training script, that is REINFORCE with a baseline. Entire papers (DPO, GRPO, RLOO) are variance-reduction tricks on top of this one line.
+Khi bạn đọc `loss = -advantage * log_prob` trong một script huấn luyện năm 2026, đó là REINFORCE với một baseline. Toàn bộ các bài báo (DPO, GRPO, RLOO) là các thủ thuật giảm phương sai trên một dòng này.
 
 ## Ship It
 
-Save as `outputs/skill-policy-gradient-trainer.md`:
+Lưu thành `outputs/skill-policy-gradient-trainer.md`:
 
 ```markdown
 ---
@@ -176,27 +176,27 @@ Refuse REINFORCE-no-baseline on horizons > 500 steps. Refuse continuous-action c
 
 ## Exercises
 
-1. **Easy.** Implement REINFORCE on 4×4 GridWorld with a linear softmax policy. Train for 1,000 episodes without a baseline. Plot the learning curve; measure variance (std of returns).
-2. **Medium.** Add a running-mean baseline. Train again. Compare sample efficiency and variance to the vanilla run. By how much does the baseline reduce steps to convergence?
-3. **Hard.** Add an entropy bonus `β · H(π)`. Sweep `β ∈ {0, 0.01, 0.1, 1.0}`. Plot final return and policy entropy. Where is the sweet spot on this task?
+1. **Dễ.** Triển khai REINFORCE trên GridWorld 4×4 với một chính sách softmax tuyến tính. Huấn luyện trong 1,000 episode không có baseline. Vẽ đường cong học; đo phương sai (độ lệch chuẩn của lợi tức).
+2. **Trung bình.** Thêm một baseline trung bình tích lũy. Huấn luyện lại. So sánh hiệu quả mẫu và phương sai với lần chạy nguyên bản. Baseline giảm số bước đến hội tụ bao nhiêu?
+3. **Khó.** Thêm một thưởng entropy `β · H(π)`. Quét `β ∈ {0, 0.01, 0.1, 1.0}`. Vẽ lợi tức cuối cùng và entropy chính sách. Điểm tốt nhất trên tác vụ này ở đâu?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Policy gradient | "Train the policy directly" | `∇J(θ) = E[G · ∇ log π_θ(a\|s)]`; derived from the log-derivative trick. |
-| REINFORCE | "The original PG algorithm" | Williams (1992); Monte Carlo returns multiplied by log-policy gradient. |
-| Log-derivative trick | "Score function estimator" | `∇P(τ;θ) = P(τ;θ) · ∇ log P(τ;θ)`; makes gradients of expectations tractable. |
-| Baseline | "Variance reduction" | Any `b(s)` subtracted from `G`; unbiased because `E[b · ∇ log π] = 0`. |
-| Reward-to-go | "Only future returns count" | `G_t^{from t}` instead of the full `G_0`; correct and lower-variance. |
-| Entropy bonus | "Encourage exploration" | `+β · H(π(·\|s))` term keeps the policy from collapsing. |
-| On-policy | "Train on what you just saw" | Gradient expectation is w.r.t. the current policy — cannot reuse old data directly. |
-| Advantage | "How much better than average" | `A(s, a) = G(s, a) - V(s)`; the signed quantity REINFORCE-with-baseline multiplies. |
+| Policy gradient (Gradient chính sách) | "Huấn luyện trực tiếp chính sách" | `∇J(θ) = E[G · ∇ log π_θ(a\|s)]`; suy ra từ thủ thuật đạo hàm log. |
+| REINFORCE | "Thuật toán PG gốc" | Williams (1992); lợi tức Monte Carlo nhân với gradient log chính sách. |
+| Log-derivative trick (Thủ thuật đạo hàm log) | "Bộ ước lượng hàm score" | `∇P(τ;θ) = P(τ;θ) · ∇ log P(τ;θ)`; làm gradient của kỳ vọng tính toán được. |
+| Baseline (Đường cơ sở) | "Giảm phương sai" | Bất kỳ `b(s)` nào được trừ khỏi `G`; không chệch vì `E[b · ∇ log π] = 0`. |
+| Reward-to-go | "Chỉ lợi tức tương lai được tính" | `G_t^{from t}` thay vì toàn bộ `G_0`; đúng và phương sai thấp hơn. |
+| Entropy bonus (Thưởng entropy) | "Khuyến khích khám phá" | Hạng tử `+β · H(π(·\|s))` giữ chính sách khỏi sụp đổ. |
+| On-policy | "Huấn luyện trên những gì bạn vừa thấy" | Kỳ vọng gradient lấy theo chính sách hiện tại — không thể trực tiếp tái sử dụng dữ liệu cũ. |
+| Advantage (Lợi thế) | "Tốt hơn trung bình bao nhiêu" | `A(s, a) = G(s, a) - V(s)`; đại lượng có dấu mà REINFORCE với baseline nhân vào. |
 
 ## Further Reading
 
-- [Williams (1992). Simple Statistical Gradient-Following Algorithms for Connectionist Reinforcement Learning](https://link.springer.com/article/10.1007/BF00992696) — the original REINFORCE paper.
-- [Sutton et al. (2000). Policy Gradient Methods for Reinforcement Learning with Function Approximation](https://papers.nips.cc/paper_files/paper/1999/hash/464d828b85b0bed98e80ade0a5c43b0f-Abstract.html) — the modern policy-gradient theorem with function approximation.
-- [Sutton & Barto (2018). Ch. 13 — Policy Gradient Methods](http://incompleteideas.net/book/RLbook2020.pdf) — textbook presentation.
-- [OpenAI Spinning Up — VPG / REINFORCE](https://spinningup.openai.com/en/latest/algorithms/vpg.html) — clear pedagogical exposition with PyTorch code.
-- [Peters & Schaal (2008). Reinforcement Learning of Motor Skills with Policy Gradients](https://homes.cs.washington.edu/~todorov/courses/amath579/reading/PolicyGradient.pdf) — variance-reduction and the natural-gradient view that connects REINFORCE to the trust-region family (TRPO, PPO).
+- [Williams (1992). Simple Statistical Gradient-Following Algorithms for Connectionist Reinforcement Learning](https://link.springer.com/article/10.1007/BF00992696) — bài báo REINFORCE gốc.
+- [Sutton et al. (2000). Policy Gradient Methods for Reinforcement Learning with Function Approximation](https://papers.nips.cc/paper_files/paper/1999/hash/464d828b85b0bed98e80ade0a5c43b0f-Abstract.html) — định lý gradient chính sách hiện đại với xấp xỉ hàm.
+- [Sutton & Barto (2018). Ch. 13 — Policy Gradient Methods](http://incompleteideas.net/book/RLbook2020.pdf) — cách trình bày trong giáo trình.
+- [OpenAI Spinning Up — VPG / REINFORCE](https://spinningup.openai.com/en/latest/algorithms/vpg.html) — diễn giải sư phạm rõ ràng với mã PyTorch.
+- [Peters & Schaal (2008). Reinforcement Learning of Motor Skills with Policy Gradients](https://homes.cs.washington.edu/~todorov/courses/amath579/reading/PolicyGradient.pdf) — giảm phương sai và góc nhìn gradient tự nhiên kết nối REINFORCE với họ miền tin cậy (TRPO, PPO).
