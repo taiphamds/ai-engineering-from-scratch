@@ -9,39 +9,39 @@ tags: [computer-vision, video, sampling, debugging]
 
 # Frame Sampler Auditor
 
-Frame sampling is where video pipelines break. Bugs here propagate into every downstream metric.
+Lấy mẫu khung hình là nơi các pipeline video hỏng. Các lỗi ở đây lan tới mọi thước đo phía sau.
 
 ## When to use
 
-- Writing a new video data loader.
-- Reproducing numbers from a paper and training accuracy is lower than reported.
-- Debugging a video model whose eval accuracy is unstable across runs.
+- Viết một bộ tải dữ liệu video mới.
+- Tái tạo các con số từ một bài báo và accuracy huấn luyện thấp hơn báo cáo.
+- Gỡ lỗi một mô hình video có accuracy eval không ổn định giữa các lần chạy.
 
 ## Inputs
 
-- `sampler_code`: Python function that takes (num_frames_total, T) and returns T indices.
-- `T`: target clip length.
-- Optional test cases: `num_frames_total` values to exercise (e.g. `[3, T-1, T, T+1, 30, 300, 3000]`).
+- `sampler_code`: hàm Python nhận (num_frames_total, T) và trả về T chỉ số.
+- `T`: độ dài clip đích.
+- Các trường hợp kiểm thử tùy chọn: các giá trị `num_frames_total` cần thử (ví dụ `[3, T-1, T, T+1, 30, 300, 3000]`).
 
 ## Checks
 
 ### 1. Short clip handling
-Feed `num_frames_total < T`. Every returned index must be in `[0, num_frames_total - 1]`. The standard padding policy is to repeat the last frame for the remaining positions.
+Đưa vào `num_frames_total < T`. Mọi chỉ số trả về phải nằm trong `[0, num_frames_total - 1]`. Chính sách đệm tiêu chuẩn là lặp khung hình cuối cho các vị trí còn lại.
 
 ### 2. Boundary indices
-Feed `num_frames_total == T`. Returned indices should be `[0, 1, ..., T-1]` exactly.
+Đưa vào `num_frames_total == T`. Các chỉ số trả về phải đúng là `[0, 1, ..., T-1]`.
 
 ### 3. Uniform distribution
-Feed `num_frames_total == 10 * T`. Returned indices should be monotonically increasing and roughly evenly spaced.
+Đưa vào `num_frames_total == 10 * T`. Các chỉ số trả về phải tăng đơn điệu và cách nhau gần đều.
 
 ### 4. Dense window bounds
-For dense sampling, feed `num_frames_total == 3 * T`. Returned indices should form a contiguous window, never crossing the end of the clip.
+Với lấy mẫu dày, đưa vào `num_frames_total == 3 * T`. Các chỉ số trả về phải tạo một cửa sổ liên tiếp, không bao giờ vượt cuối clip.
 
 ### 5. Determinism
-Call the sampler twice with the same inputs and (for deterministic samplers) the same RNG. Indices should match.
+Gọi bộ lấy mẫu hai lần với cùng đầu vào và (với bộ lấy mẫu tất định) cùng RNG. Các chỉ số nên khớp.
 
 ### 6. Crop consistency
-If the pipeline also returns a spatial crop per frame, run the sampler twice for the same clip with the same seed and confirm every frame uses the same crop box (same `(x, y, w, h)`). Different crops per frame inside one clip destroys temporal coherence and is a classic silent bug. Acceptable variation: augmentation applied *per clip*, consistent within a clip.
+Nếu pipeline cũng trả về vùng cắt không gian mỗi khung hình, chạy bộ lấy mẫu hai lần cho cùng clip với cùng seed và xác nhận mọi khung hình sử dụng cùng hộp cắt (cùng `(x, y, w, h)`). Các vùng cắt khác nhau mỗi khung hình trong một clip phá hủy tính nhất quán thời gian và là lỗi âm thầm kinh điển. Biến đổi chấp nhận được: tăng cường áp dụng *theo clip*, nhất quán trong clip.
 
 ## Report
 
@@ -74,7 +74,7 @@ If the pipeline also returns a spatial crop per frame, run the sampler twice for
 
 ## Rules
 
-- Never mark a sampler "ok" if short-clip handling returns out-of-range indices.
-- Dense samplers should never return a window that crosses `num_frames_total - 1`.
-- If the sampler is stochastic (dense), test determinism only with an explicit seeded RNG.
-- Suggest, but do not silently fix, the canonical policies: pad with last frame, clamp window to end, round half-open intervals.
+- Không bao giờ đánh dấu bộ lấy mẫu "ok" nếu xử lý clip ngắn trả về các chỉ số ngoài phạm vi.
+- Các bộ lấy mẫu dày không bao giờ nên trả về cửa sổ vượt `num_frames_total - 1`.
+- Nếu bộ lấy mẫu ngẫu nhiên (dày), chỉ kiểm tra tính tất định với RNG được đặt seed tường minh.
+- Đề xuất, nhưng không âm thầm sửa, các chính sách chuẩn: đệm bằng khung hình cuối, chặn cửa sổ tới cuối, làm tròn các khoảng nửa mở.

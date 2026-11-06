@@ -1,6 +1,6 @@
 # Video Understanding — Temporal Modeling
 
-> A video is a sequence of images plus the physics that connects them. Every video model either treats time as an extra axis (3D conv), a sequence to attend over (transformer), or a feature to extract once and pool (2D+pool).
+> Một video là một chuỗi hình ảnh cộng vật lý kết nối chúng. Mọi mô hình video hoặc coi thời gian là trục bổ sung (tích chập 3D), một chuỗi để attention trên đó (transformer), hoặc một đặc trưng để trích xuất một lần rồi pooling (2D+pool).
 
 **Type:** Learn + Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Distinguish the three main video-modelling approaches (2D+pool, 3D conv, spatio-temporal transformer) and predict their cost and accuracy trade-offs
-- Implement frame sampling, temporal pooling, and a 2D+pool baseline classifier in PyTorch
-- Explain why I3D's "inflated" 3D kernels transfer well from ImageNet weights and what a factorised (2+1)D conv does differently
-- Read the standard action-recognition datasets and metrics: Kinetics-400/600, UCF101, Something-Something V2; top-1 accuracy at the clip and video level
+- Phân biệt ba cách tiếp cận mô hình hóa video chính (2D+pool, tích chập 3D, transformer không-thời gian) và dự đoán các đánh đổi chi phí và accuracy
+- Triển khai lấy mẫu khung hình, pooling thời gian và một bộ phân loại cơ sở 2D+pool bằng PyTorch
+- Giải thích tại sao các kernel 3D "thổi phồng" của I3D chuyển giao tốt từ các trọng số ImageNet và tích chập (2+1)D được phân tách làm gì khác
+- Đọc các tập dữ liệu và thước đo nhận dạng hành động tiêu chuẩn: Kinetics-400/600, UCF101, Something-Something V2; accuracy top-1 ở cấp clip và video
 
 ## The Problem
 
-A 30-second video at 30 fps is 900 images. Naively, video classification is image classification run 900 times followed by some kind of aggregation. That works when the action is visible in almost every frame (sports, cooking, exercise videos) and fails badly when the action is defined by motion itself: "pushing something from left to right" looks like two still objects in every single frame.
+Một video 30 giây ở 30 fps là 900 hình ảnh. Theo cách đơn giản, phân loại video là phân loại hình ảnh chạy 900 lần rồi một kiểu tổng hợp nào đó. Cách này hoạt động khi hành động nhìn thấy trong gần như mọi khung hình (thể thao, nấu ăn, video tập luyện) và thất bại nặng khi hành động được xác định bởi chính chuyển động: "đẩy thứ gì đó từ trái sang phải" trông như hai đối tượng tĩnh trong từng khung hình.
 
-The core question for every video architecture is: when does temporal structure get modelled, and how? The answer drives everything else — compute cost, pretraining strategy, whether you can reuse ImageNet weights, what datasets the model trains on.
+Câu hỏi cốt lõi cho mọi kiến trúc video là: cấu trúc thời gian được mô hình hóa khi nào và thế nào? Câu trả lời chi phối mọi thứ khác — chi phí tính toán, chiến lược tiền huấn luyện, liệu bạn có thể tái sử dụng trọng số ImageNet, mô hình huấn luyện trên những tập dữ liệu nào.
 
-This lesson is deliberately shorter than the static-image lessons. The core image machinery is already in place, and video understanding is mostly about the temporal story: sampling, modelling, and aggregating.
+Bài này cố ý ngắn hơn các bài hình ảnh tĩnh. Bộ máy hình ảnh cốt lõi đã có, và hiểu video phần lớn là câu chuyện thời gian: lấy mẫu, mô hình hóa và tổng hợp.
 
 ## The Concept
 
@@ -43,79 +43,79 @@ flowchart LR
 
 ### 2D + pool
 
-Take a 2D CNN (ResNet, EfficientNet, ViT). Run it independently on every sampled frame. Average (or max-pool, or attention-pool) the per-frame embeddings. Feed the pooled vector to a classifier.
+Lấy một CNN 2D (ResNet, EfficientNet, ViT). Chạy độc lập trên mỗi khung hình được lấy mẫu. Lấy trung bình (hoặc max-pool, hoặc attention-pool) các embedding từng khung hình. Đưa vector đã pooling tới một bộ phân loại.
 
-Pros:
-- ImageNet pretraining transfers directly.
-- Simplest to implement.
-- Cheap: T frames * single-image inference cost.
+Ưu điểm:
+- Tiền huấn luyện ImageNet chuyển giao trực tiếp.
+- Dễ triển khai nhất.
+- Rẻ: T khung hình * chi phí suy luận một hình ảnh.
 
-Cons:
-- Cannot model motion. Action = aggregate of appearances.
-- Temporal pooling is order-invariant; "open door" and "close door" look the same.
+Nhược điểm:
+- Không thể mô hình hóa chuyển động. Hành động = tổng hợp các diện mạo.
+- Pooling thời gian bất biến thứ tự; "mở cửa" và "đóng cửa" trông giống nhau.
 
-When to use: appearance-heavy tasks, transfer learning on small video datasets, initial baselines.
+Khi sử dụng: tác vụ nặng về diện mạo, học chuyển giao trên các tập dữ liệu video nhỏ, các đường cơ sở ban đầu.
 
 ### 3D convolutions
 
-Replace 2D (H, W) kernels with 3D (T, H, W) kernels. The network convolves over both space and time. Early family: C3D, I3D, SlowFast.
+Thay các kernel 2D (H, W) bằng kernel 3D (T, H, W). Mạng tích chập trên cả không gian và thời gian. Họ đầu tiên: C3D, I3D, SlowFast.
 
-I3D trick: take a pretrained 2D ImageNet model, "inflate" each 2D kernel by copying it along a new time axis. A 3x3 2D conv becomes a 3x3x3 3D conv. This gives the 3D model strong pretrained weights instead of training from scratch.
+Thủ thuật I3D: lấy một mô hình ImageNet 2D được tiền huấn luyện, "thổi phồng" mỗi kernel 2D bằng cách sao chép dọc một trục thời gian mới. Một tích chập 2D 3x3 trở thành tích chập 3D 3x3x3. Điều này cho mô hình 3D các trọng số tiền huấn luyện mạnh thay vì huấn luyện từ đầu.
 
-Pros:
-- Directly models motion.
-- I3D inflation gives free transfer learning.
+Ưu điểm:
+- Trực tiếp mô hình hóa chuyển động.
+- Thổi phồng I3D cho học chuyển giao miễn phí.
 
-Cons:
-- T/8 more FLOPs than the 2D counterpart (for temporal kernel of 3 stacked 3 times).
-- Temporal kernels are small; long-range motion needs a pyramid or dual-stream approach.
+Nhược điểm:
+- Nhiều FLOP hơn đối ứng 2D T/8 lần (với kernel thời gian 3 xếp chồng 3 lần).
+- Các kernel thời gian nhỏ; chuyển động xa cần cách tiếp cận tháp hoặc hai luồng.
 
-When to use: action recognition where motion is the signal (Something-Something V2, Kinetics with motion-heavy classes).
+Khi sử dụng: nhận dạng hành động nơi chuyển động là tín hiệu (Something-Something V2, Kinetics có các lớp nặng chuyển động).
 
 ### Spatio-temporal transformers
 
-Tokenise the video into a grid of space-time patches and attend across all of them. TimeSformer, ViViT, Video Swin, VideoMAE.
+Token hóa video thành một lưới các vùng không-thời gian và attention trên tất cả. TimeSformer, ViViT, Video Swin, VideoMAE.
 
-Attention patterns that matter:
-- **Joint** — one big attention over (t, h, w). Quadratic in `T*H*W`; expensive.
-- **Divided** — two attentions per block: one over time, one over space. Linear-ish scaling.
-- **Factorised** — time attention alternates with space attention across blocks.
+Các mẫu attention quan trọng:
+- **Chung** — một attention lớn trên (t, h, w). Bậc hai theo `T*H*W`; tốn kém.
+- **Chia tách** — hai attention mỗi khối: một trên thời gian, một trên không gian. Mở rộng gần tuyến tính.
+- **Phân tách** — attention thời gian xen kẽ attention không gian giữa các khối.
 
-Pros:
-- SOTA accuracy on every major benchmark.
-- Transfers from image transformers (ViT) via patch inflation.
-- Supports long-context video via sparse attention.
+Ưu điểm:
+- Accuracy SOTA trên mọi benchmark lớn.
+- Chuyển giao từ transformer hình ảnh (ViT) qua thổi phồng patch.
+- Hỗ trợ video ngữ cảnh dài qua attention thưa.
 
-Cons:
-- Compute-hungry.
-- Requires careful attention pattern choice or runtime balloons.
+Nhược điểm:
+- Ngốn tính toán.
+- Cần chọn mẫu attention cẩn thận nếu không thời gian chạy phình to.
 
-When to use: large datasets, high-fidelity video understanding, multi-modal video+text tasks.
+Khi sử dụng: các tập dữ liệu lớn, hiểu video độ trung thực cao, các tác vụ video+văn bản đa phương thức.
 
 ### Frame sampling
 
-A 10-second clip at 30 fps is 300 frames; feeding all 300 to any model is wasteful. Standard strategies:
+Một clip 10 giây ở 30 fps là 300 khung hình; đưa cả 300 vào bất kỳ mô hình nào là lãng phí. Các chiến lược tiêu chuẩn:
 
-- **Uniform sampling** — pick T frames evenly across the clip. Default for 2D+pool.
-- **Dense sampling** — random contiguous T-frame window. Common for 3D convs because motion requires neighbouring frames.
-- **Multi-clip** — sample multiple T-frame windows from the same video, classify each, average predictions at test time.
+- **Lấy mẫu đều** — chọn T khung hình đều trên clip. Mặc định cho 2D+pool.
+- **Lấy mẫu dày** — cửa sổ T khung hình liên tiếp ngẫu nhiên. Phổ biến cho tích chập 3D vì chuyển động cần các khung hình lân cận.
+- **Nhiều clip** — lấy mẫu nhiều cửa sổ T khung hình từ cùng video, phân loại từng cửa sổ, lấy trung bình dự đoán lúc test.
 
-T is usually 8, 16, 32, or 64. Higher T = more temporal signal at more compute.
+T thường là 8, 16, 32 hoặc 64. T cao hơn = nhiều tín hiệu thời gian hơn với nhiều tính toán hơn.
 
 ### Evaluation
 
-Two levels:
-- **Clip-level accuracy** — model sees one T-frame clip, reports top-k.
-- **Video-level accuracy** — average clip-level predictions across multiple clips per video; higher and more stable.
+Hai cấp:
+- **Accuracy cấp clip** — mô hình thấy một clip T khung hình, báo cáo top-k.
+- **Accuracy cấp video** — lấy trung bình các dự đoán cấp clip trên nhiều clip mỗi video; cao hơn và ổn định hơn.
 
-Always report both. A model that scores 78% clip / 82% video is relying heavily on test-time averaging; one that scores 80% / 81% is more robust per-clip.
+Luôn báo cáo cả hai. Một mô hình đạt 78% clip / 82% video đang dựa nhiều vào lấy trung bình lúc test; mô hình đạt 80% / 81% vững hơn theo từng clip.
 
 ### Datasets you will meet
 
-- **Kinetics-400 / 600 / 700** — the general-purpose action dataset. 400k clips; YouTube URLs (many now dead).
-- **Something-Something V2** — motion-defined actions ("moving X from left to right"). Cannot be solved by 2D+pool.
-- **UCF-101**, **HMDB-51** — older, smaller, still reported.
-- **AVA** — action *localisation* in space and time; harder than classification.
+- **Kinetics-400 / 600 / 700** — tập dữ liệu hành động đa dụng. 400k clip; URL YouTube (nhiều URL giờ đã chết).
+- **Something-Something V2** — các hành động xác định bởi chuyển động ("di chuyển X từ trái sang phải"). Không thể giải bằng 2D+pool.
+- **UCF-101**, **HMDB-51** — cũ hơn, nhỏ hơn, vẫn được báo cáo.
+- **AVA** — *định vị* hành động trong không gian và thời gian; khó hơn phân loại.
 
 ```figure
 v4-video-temporal
@@ -125,7 +125,7 @@ v4-video-temporal
 
 ### Step 1: Frame sampler
 
-Uniform and dense samplers that work on a list of frames (or a video tensor).
+Các bộ lấy mẫu đều và dày hoạt động trên một danh sách khung hình (hoặc tensor video).
 
 ```python
 import numpy as np
@@ -145,11 +145,11 @@ def sample_dense(num_frames_total, T, rng=None):
     return list(range(start, start + T))
 ```
 
-Both return `T` indices that you use to slice the video tensor.
+Cả hai trả về `T` chỉ số bạn dùng để cắt lát tensor video.
 
 ### Step 2: A 2D+pool baseline
 
-Run a 2D ResNet-18 over every frame, average-pool features, classify.
+Chạy một ResNet-18 2D trên mọi khung hình, pooling trung bình các đặc trưng, phân loại.
 
 ```python
 import torch
@@ -178,11 +178,11 @@ print(f"output: {model(x).shape}")
 print(f"params: {sum(p.numel() for p in model.parameters()):,}")
 ```
 
-Eleven million parameters, ImageNet pretrained, runs per-frame, averages, classifies. This baseline is often within 5-10 points of proper 3D models on appearance-heavy tasks — sometimes better, because it reuses a stronger ImageNet backbone.
+Mười một triệu tham số, tiền huấn luyện ImageNet, chạy từng khung hình, lấy trung bình, phân loại. Đường cơ sở này thường trong phạm vi 5-10 điểm của các mô hình 3D đúng nghĩa trên các tác vụ nặng diện mạo — đôi khi tốt hơn, vì nó tái sử dụng một backbone ImageNet mạnh hơn.
 
 ### Step 3: An I3D-style inflated 3D conv
 
-Turn a single 2D conv into a 3D conv by repeating weights along a new time axis.
+Biến một tích chập 2D thành tích chập 3D bằng cách lặp các trọng số dọc một trục thời gian mới.
 
 ```python
 def inflate_2d_to_3d(conv2d, time_kernel=3):
@@ -204,11 +204,11 @@ x = torch.randn(1, 3, 8, 56, 56)
 print(f"3D output shape:  {tuple(conv3d(x).shape)}")
 ```
 
-The division by `time_kernel` keeps the activation magnitudes roughly constant — important for not breaking batch-norm statistics on the first pass.
+Chia cho `time_kernel` giữ các độ lớn kích hoạt gần không đổi — quan trọng để không phá thống kê batch norm ở lượt đầu.
 
 ### Step 4: Factorised (2+1)D conv
 
-Split a 3D conv into a 2D (spatial) and a 1D (temporal) conv. Same receptive field, fewer parameters, better accuracy on some benchmarks.
+Tách một tích chập 3D thành tích chập 2D (không gian) và 1D (thời gian). Cùng trường tiếp nhận, ít tham số hơn, accuracy tốt hơn trên một số benchmark.
 
 ```python
 class Conv2Plus1D(nn.Module):
@@ -231,46 +231,46 @@ x = torch.randn(1, 3, 8, 56, 56)
 print(f"(2+1)D output: {tuple(c(x).shape)}")
 ```
 
-A full R(2+1)D network is the same as a ResNet-18 with every 3x3 conv replaced by `Conv2Plus1D`.
+Một mạng R(2+1)D đầy đủ giống một ResNet-18 với mọi tích chập 3x3 được thay bằng `Conv2Plus1D`.
 
 ## Use It
 
-Two libraries cover production video work:
+Hai thư viện bao quát công việc video production:
 
-- `torchvision.models.video` — R(2+1)D, MViT, Swin3D with pretrained Kinetics weights. Same API as image models.
-- `pytorchvideo` (Meta) — model zoo, data loaders for Kinetics / SSv2 / AVA, standard transforms.
+- `torchvision.models.video` — R(2+1)D, MViT, Swin3D với các trọng số Kinetics được tiền huấn luyện. Cùng API như các mô hình hình ảnh.
+- `pytorchvideo` (Meta) — bộ sưu tập mô hình, các bộ tải dữ liệu Kinetics / SSv2 / AVA, các phép biến đổi tiêu chuẩn.
 
-For Vision-Language video models (video captioning, video QA), use `transformers` (`VideoMAE`, `VideoLLaMA`, `InternVideo`).
+Với các mô hình video Thị giác-Ngôn ngữ (chú thích video, hỏi đáp video), sử dụng `transformers` (`VideoMAE`, `VideoLLaMA`, `InternVideo`).
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-video-architecture-picker.md` — a prompt that picks 2D+pool / I3D / (2+1)D / transformer based on appearance-vs-motion, dataset size, and compute budget.
-- `outputs/skill-frame-sampler-auditor.md` — a skill that inspects a video pipeline's sampler and flags common bugs: off-by-one index, uneven sampling when `num_frames < T`, lack of aspect-preserving crop, etc.
+- `outputs/prompt-video-architecture-picker.md` — một prompt chọn 2D+pool / I3D / (2+1)D / transformer dựa trên diện mạo-so-với-chuyển động, kích thước tập dữ liệu và ngân sách tính toán.
+- `outputs/skill-frame-sampler-auditor.md` — một skill xem xét bộ lấy mẫu pipeline video và đánh dấu các lỗi thường gặp: chỉ số lệch một, lấy mẫu không đều khi `num_frames < T`, thiếu cắt giữ tỷ lệ khung hình, v.v.
 
 ## Exercises
 
-1. **(Easy)** Compute FLOPs (approximate) for FramePool with T=8 vs an I3D-style 3D ResNet with T=8. Justify why 2D+pool is 3-5x cheaper.
-2. **(Medium)** Generate a synthetic video dataset: random balls moving in random directions, labelled by direction of motion ("left-to-right", "right-to-left", "diagonal-up"). Train FramePool on it. Show that it achieves near-chance accuracy, proving appearance alone is insufficient for motion tasks.
-3. **(Hard)** Build an R(2+1)D-18 by replacing every Conv2d in a ResNet-18 with `Conv2Plus1D`. Inflate the first conv's weights from an ImageNet-pretrained ResNet-18. Train on the motion dataset from exercise 2 and beat FramePool.
+1. **(Dễ)** Tính FLOP (xấp xỉ) cho FramePool với T=8 so với một ResNet 3D kiểu I3D với T=8. Giải thích tại sao 2D+pool rẻ hơn 3-5 lần.
+2. **(Vừa)** Sinh một tập dữ liệu video tổng hợp: các quả bóng ngẫu nhiên chuyển động theo các hướng ngẫu nhiên, được gán nhãn theo hướng chuyển động ("trái-sang-phải", "phải-sang-trái", "chéo-lên"). Huấn luyện FramePool trên đó. Cho thấy nó đạt accuracy gần may rủi, chứng minh chỉ diện mạo không đủ cho các tác vụ chuyển động.
+3. **(Khó)** Xây một R(2+1)D-18 bằng cách thay mọi Conv2d trong ResNet-18 bằng `Conv2Plus1D`. Thổi phồng trọng số tích chập đầu từ một ResNet-18 được tiền huấn luyện ImageNet. Huấn luyện trên tập dữ liệu chuyển động từ bài tập 2 và đánh bại FramePool.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| 2D + pool | "Per-frame classifier" | Run a 2D CNN on every sampled frame, average-pool features across time, classify |
-| 3D convolution | "Spatio-temporal kernel" | Kernel that convolves over (T, H, W); can model motion natively |
-| Inflation | "Lift 2D weights to 3D" | Initialise 3D conv weights by repeating a 2D conv's weights along the new time axis, then divide by kernel_T to preserve activation scale |
-| (2+1)D | "Factorised conv" | Split 3D into 2D spatial + 1D temporal; fewer parameters, extra non-linearity between |
-| Divided attention | "Time then space" | Transformer block with two attentions per layer: one over tokens at the same frame, one over tokens at the same position |
-| Clip | "T-frame window" | A sampled subsequence of T frames; the unit a video model consumes |
-| Clip vs video accuracy | "Two eval settings" | Clip = one sample per video, video = average across multiple sampled clips |
-| Kinetics | "The ImageNet of video" | 400-700 action classes, 300k+ YouTube clips, the standard video pretraining corpus |
+| 2D + pool | "Bộ phân loại từng khung hình" | Chạy một CNN 2D trên mọi khung hình lấy mẫu, pooling trung bình các đặc trưng theo thời gian, phân loại |
+| 3D convolution (Tích chập 3D) | "Kernel không-thời gian" | Kernel tích chập trên (T, H, W); có thể mô hình hóa chuyển động trực tiếp |
+| Inflation (Thổi phồng) | "Nâng trọng số 2D lên 3D" | Khởi tạo trọng số tích chập 3D bằng cách lặp trọng số tích chập 2D dọc trục thời gian mới, rồi chia kernel_T để giữ thang kích hoạt |
+| (2+1)D | "Tích chập phân tách" | Tách 3D thành 2D không gian + 1D thời gian; ít tham số hơn, thêm phi tuyến ở giữa |
+| Divided attention (Attention chia tách) | "Thời gian rồi không gian" | Khối transformer có hai attention mỗi lớp: một trên các token cùng khung hình, một trên các token cùng vị trí |
+| Clip (Đoạn video) | "Cửa sổ T khung hình" | Một chuỗi con T khung hình được lấy mẫu; đơn vị một mô hình video tiêu thụ |
+| Clip vs video accuracy (Accuracy clip so với video) | "Hai thiết lập eval" | Clip = một mẫu mỗi video, video = trung bình trên nhiều clip lấy mẫu |
+| Kinetics | "ImageNet của video" | 400-700 lớp hành động, 300k+ clip YouTube, ngữ liệu tiền huấn luyện video tiêu chuẩn |
 
 ## Further Reading
 
-- [I3D: Quo Vadis, Action Recognition (Carreira & Zisserman, 2017)](https://arxiv.org/abs/1705.07750) — introduces inflation and the Kinetics dataset
-- [R(2+1)D: A Closer Look at Spatiotemporal Convolutions (Tran et al., 2018)](https://arxiv.org/abs/1711.11248) — factorised conv, still a strong baseline
-- [TimeSformer: Is Space-Time Attention All You Need? (Bertasius et al., 2021)](https://arxiv.org/abs/2102.05095) — the first strong video transformer
-- [VideoMAE (Tong et al., 2022)](https://arxiv.org/abs/2203.12602) — masked autoencoder pretraining for video; current dominant pretraining recipe
+- [I3D: Quo Vadis, Action Recognition (Carreira & Zisserman, 2017)](https://arxiv.org/abs/1705.07750) — giới thiệu thổi phồng và tập dữ liệu Kinetics
+- [R(2+1)D: A Closer Look at Spatiotemporal Convolutions (Tran et al., 2018)](https://arxiv.org/abs/1711.11248) — tích chập phân tách, vẫn là một đường cơ sở mạnh
+- [TimeSformer: Is Space-Time Attention All You Need? (Bertasius et al., 2021)](https://arxiv.org/abs/2102.05095) — transformer video mạnh đầu tiên
+- [VideoMAE (Tong et al., 2022)](https://arxiv.org/abs/2203.12602) — tiền huấn luyện autoencoder có mặt nạ cho video; công thức tiền huấn luyện chiếm ưu thế hiện tại
