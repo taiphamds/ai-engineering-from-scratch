@@ -1,0 +1,16 @@
+MỞ TRANG HỌC TRÊN MÁY
+
+1. Nhấp đúp Mo-trang-hoc.cmd trong thư mục kho mã.
+2. Giữ cửa sổ lệnh đang mở trong lúc đọc. Trình duyệt sẽ tự mở khi trang sẵn sàng.
+3. Trong Mục lục (Contents), chọn Phase rồi chọn bài học.
+4. Đóng cửa sổ lệnh hoặc nhấn Ctrl+C để dừng.
+
+Địa chỉ mặc định: http://127.0.0.1:8765/site/index.html#contents
+
+Trang dùng giao diện có sẵn của tác giả và đọc bản dịch Markdown trên máy.
+Không sửa các file Markdown và không cần chạy site/build.js.
+Sau khi sửa nội dung hoặc thêm bài, dừng rồi mở lại để cập nhật danh sách.
+Node.js được lấy từ PATH hoặc runtime Codex đã có; trình mở không cài thêm phần mềm.
+Một số thành phần có sẵn của giao diện (thư viện hiển thị, phông chữ, bản dịch nhãn)
+cần kết nối Internet. Câu hỏi quiz trong JSON và các nội dung chưa dịch vẫn giữ tiếng Anh.
+Nếu cổng 8765 đang được dùng, đóng cửa sổ trang học đã mở trước đó rồi thử lại.

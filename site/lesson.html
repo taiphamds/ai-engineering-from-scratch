@@ -3621,7 +3621,12 @@
         }
         var quizPromiseForRequest = lessonQuizPromise;
 
-        var lessonDocument = lang === 'en'
+        var localVietnamese = window.AIFS_LOCAL_READER_LANGUAGE === 'vi' && lang === 'vi';
+        var lessonDocument = localVietnamese
+          ? fetchRepositoryFile(enPath).then(function (response) {
+              return { response: response, lang: 'vi' };
+            })
+          : lang === 'en'
           ? fetchRepositoryFile(enPath).then(function (response) {
               return { response: response, lang: 'en' };
             })

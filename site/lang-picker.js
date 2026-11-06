@@ -23,6 +23,7 @@
   }
   function current() {
     if (isCertificationLesson()) return 'en';
+    if (supported(window.AIFS_LOCAL_READER_LANGUAGE)) return window.AIFS_LOCAL_READER_LANGUAGE;
     var q = new URLSearchParams(location.search).get('lang');
     if (supported(q)) return q;
     var saved = '';

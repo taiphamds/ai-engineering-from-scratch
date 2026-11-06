@@ -249,7 +249,10 @@
     if (resetBtn) {
       resetBtn.addEventListener('click', function () {
         if (!window.AIFSProgress) return;
-        var ok = window.confirm('Clear all your local progress (quiz answers and completed lessons)? This cannot be undone.');
+        var message = 'Clear all your local progress (quiz answers and completed lessons)? This cannot be undone.';
+        var translator = window.AIFSUiI18n;
+        if (translator) message = translator.translateText(message, translator.dictionaryFor(window.AIFS_currentLang ? window.AIFS_currentLang() : 'en'));
+        var ok = window.confirm(message);
         if (!ok) return;
         window.AIFSProgress.reset();
       });
