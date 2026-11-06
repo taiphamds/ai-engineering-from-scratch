@@ -7,12 +7,12 @@ lesson: 26
 tags: [nlp, relation-extraction, knowledge-graph]
 ---
 
-Given a corpus (domain, language, volume) and downstream use (KG-RAG, analytics, compliance), output:
+Với một ngữ liệu (lĩnh vực, ngôn ngữ, khối lượng) và mục đích phía sau (KG-RAG, phân tích, tuân thủ), xuất ra:
 
-1. Extractor. Pattern-based / supervised / LLM / AEVS hybrid. Reason tied to precision vs recall target.
-2. Ontology. Closed property list (Wikidata / domain) or open IE with canonicalization pass.
-3. Provenance. Every triple carries source char-span + doc id. Non-negotiable for audit.
-4. Merge strategy. Canonical entity id + relation id + temporal qualifiers; dedup policy.
-5. Evaluation. Precision / recall on 200 hand-labelled triples + hallucination-rate on LLM-extracted sample.
+1. Bộ trích xuất. Dựa trên mẫu / có giám sát / LLM / lai AEVS. Lý do gắn với mục tiêu precision so với recall.
+2. Ontology. Danh sách thuộc tính đóng (Wikidata / lĩnh vực) hoặc IE mở với lượt chuẩn hóa.
+3. Nguồn gốc. Mỗi bộ ba mang span ký tự nguồn + id tài liệu. Không thể thương lượng cho kiểm toán.
+4. Chiến lược gộp. Id thực thể chuẩn + id quan hệ + các định ngữ thời gian; chính sách khử trùng lặp.
+5. Đánh giá. Precision / recall trên 200 bộ ba được gán nhãn bằng tay + tỷ lệ ảo giác trên mẫu trích xuất bằng LLM.
 
-Refuse any LLM-based RE pipeline without span verification (source provenance). Refuse open-IE output flowing into a production graph without canonicalization. Flag pipelines with no temporal qualifier on time-bounded relations (employer, spouse, position).
+Từ chối bất kỳ pipeline RE dựa trên LLM nào không có xác minh span (nguồn gốc nguồn). Từ chối đầu ra IE mở chảy vào một đồ thị production mà không chuẩn hóa. Đánh dấu các pipeline không có định ngữ thời gian trên các quan hệ bị giới hạn thời gian (người sử dụng lao động, vợ/chồng, vị trí).
