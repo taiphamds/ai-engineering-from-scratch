@@ -1,6 +1,6 @@
 # ZeRO Optimizer State Sharding
 
-> Adam stores two moment estimates per parameter, both in float32. A 7B-parameter model carries 56 GB of optimiser state. ZeRO stage 1 shards that across N ranks; each rank owns 1/N of the optimiser. After the local step the updated parameter shards broadcast back, every rank reconstructs the full model, and the next step begins. The win is a linear memory drop on the largest single allocation in the training stack.
+> Adam lưu hai ước lượng mômen mỗi tham số, cả hai trong float32. Một mô hình 7B tham số mang 56 GB trạng thái bộ tối ưu. ZeRO giai đoạn 1 chia shard nó trên N rank; mỗi rank sở hữu 1/N bộ tối ưu. Sau bước cục bộ các shard tham số được cập nhật phát quảng bá trở lại, mọi rank tái tạo mô hình đầy đủ, và bước tiếp theo bắt đầu. Lợi ích là giảm bộ nhớ tuyến tính trên phần cấp phát đơn lẻ lớn nhất trong ngăn xếp huấn luyện.
 
 **Type:** Build
 **Languages:** Python
@@ -9,16 +9,16 @@
 
 ## Learning Objectives
 
-- Shard optimiser state (first moment, second moment, fp32 master copy) across N ranks so each rank owns 1/N.
-- Use reduce_scatter to deliver each rank only its shard's gradient sum, then allgather to broadcast the updated parameter shards back.
-- Compute the memory savings table for stage 1, stage 2, stage 3 against vanilla DDP.
-- Defend the choice of stage 1 vs stage 2 vs stage 3 on model size and bandwidth budget.
+- Chia shard trạng thái bộ tối ưu (mômen thứ nhất, mômen thứ hai, bản sao chính fp32) trên N rank để mỗi rank sở hữu 1/N.
+- Dùng reduce_scatter để chỉ đưa cho mỗi rank tổng gradient shard của nó, rồi allgather để phát quảng bá các shard tham số được cập nhật trở lại.
+- Tính bảng tiết kiệm bộ nhớ cho giai đoạn 1, giai đoạn 2, giai đoạn 3 so với DDP thông thường.
+- Bảo vệ lựa chọn giai đoạn 1 so với giai đoạn 2 so với giai đoạn 3 theo kích thước mô hình và ngân sách băng thông.
 
 ## The Problem
 
-Vanilla DDP replicates everything: parameters, gradients, and optimiser state are present in full on every rank. For a 7B-parameter model in fp16 that means 14 GB of parameters, 14 GB of gradients, and 28 GB of optimiser state per rank. The optimiser state is the largest term and the easiest to shard because it is only touched during the step, not during forward or backward.
+DDP thông thường sao chép mọi thứ: các tham số, gradient, và trạng thái bộ tối ưu hiện diện đầy đủ trên mọi rank. Với một mô hình 7B tham số trong fp16 điều đó nghĩa là 14 GB tham số, 14 GB gradient, và 28 GB trạng thái bộ tối ưu mỗi rank. Trạng thái bộ tối ưu là số hạng lớn nhất và dễ chia shard nhất vì nó chỉ được chạm trong bước, không phải trong lượt tiến hoặc ngược.
 
-ZeRO stage 1 shards the optimiser state. Each rank holds 1/N of the Adam moments. After backward, instead of allreducing the full gradient and stepping locally, ZeRO reduce_scatters so each rank receives only its shard's summed gradient. The rank applies the optimiser step to its shard of the master parameters. The updated parameter shards then allgather back so every rank has the full model for the next forward. The optimiser memory drops by N. The wire traffic per step is the same as DDP: one reduce_scatter plus one allgather equals one allreduce by bandwidth. Memory wins, throughput holds.
+ZeRO giai đoạn 1 chia shard trạng thái bộ tối ưu. Mỗi rank giữ 1/N các mômen Adam. Sau lượt ngược, thay vì allreduce gradient đầy đủ và thực hiện bước cục bộ, ZeRO reduce_scatter để mỗi rank chỉ nhận gradient được cộng của shard nó. Rank áp dụng bước bộ tối ưu lên shard tham số chính của nó. Các shard tham số được cập nhật sau đó allgather trở lại để mọi rank có mô hình đầy đủ cho lượt tiến tiếp theo. Bộ nhớ bộ tối ưu giảm theo N. Lưu lượng truyền tin mỗi bước giống DDP: một reduce_scatter cộng một allgather bằng một allreduce về băng thông. Bộ nhớ thắng, thông lượng giữ.
 
 ## The Concept
 
@@ -35,33 +35,33 @@ flowchart TD
 
 ### Stages of ZeRO
 
-| Stage | What is sharded | Memory per rank | Comm per step |
+| Giai đoạn | Thứ được chia shard | Bộ nhớ mỗi rank | Giao tiếp mỗi bước |
 |-------|----------------|------------------|---------------|
-| DDP | nothing | params + grads + optim | 1x allreduce |
-| ZeRO-1 | optimiser state | params + grads + optim/N | 1x reduce_scatter + 1x allgather |
+| DDP | không gì | params + grads + optim | 1x allreduce |
+| ZeRO-1 | trạng thái bộ tối ưu | params + grads + optim/N | 1x reduce_scatter + 1x allgather |
 | ZeRO-2 | optim + grads | params + grads/N + optim/N | 1x reduce_scatter + 1x allgather |
-| ZeRO-3 | optim + grads + params | params/N + grads/N + optim/N | 1x allgather per layer + 1x reduce_scatter per layer |
+| ZeRO-3 | optim + grads + params | params/N + grads/N + optim/N | 1x allgather mỗi lớp + 1x reduce_scatter mỗi lớp |
 
-Stage 1 is the cheapest win because optimiser state dominates the budget. Stage 2 needs gradient-shard accumulation logic but the bandwidth is the same. Stage 3 (FSDP) pays per-layer comm for every forward and backward, gaining the parameter-shard memory drop. The lesson implements stage 1 in full.
+Giai đoạn 1 là lợi ích rẻ nhất vì trạng thái bộ tối ưu chi phối ngân sách. Giai đoạn 2 cần logic tích lũy shard gradient nhưng băng thông giống nhau. Giai đoạn 3 (FSDP) trả giao tiếp theo lớp cho mọi lượt tiến và ngược, nhận mức giảm bộ nhớ shard tham số. Bài học triển khai đầy đủ giai đoạn 1.
 
 ### The memory math, real numbers
 
-For a model with P parameters trained with Adam in mixed precision:
+Với một mô hình P tham số được huấn luyện bằng Adam ở độ chính xác hỗn hợp:
 
-| Term | Vanilla | ZeRO-1 | Why |
+| Số hạng | Thông thường | ZeRO-1 | Tại sao |
 |------|---------|--------|-----|
-| fp16 params | 2P bytes | 2P bytes | needed for forward |
-| fp16 grads | 2P bytes | 2P bytes | needed for backward |
-| fp32 master copy | 4P bytes | 4P/N bytes | only the optim uses it |
-| fp32 first moment | 4P bytes | 4P/N bytes | only the optim uses it |
-| fp32 second moment | 4P bytes | 4P/N bytes | only the optim uses it |
-| Total | 16P bytes | 4P + 12P/N bytes |   |
+| tham số fp16 | 2P byte | 2P byte | cần cho lượt tiến |
+| gradient fp16 | 2P byte | 2P byte | cần cho lượt ngược |
+| bản sao chính fp32 | 4P byte | 4P/N byte | chỉ bộ tối ưu dùng nó |
+| mômen thứ nhất fp32 | 4P byte | 4P/N byte | chỉ bộ tối ưu dùng nó |
+| mômen thứ hai fp32 | 4P byte | 4P/N byte | chỉ bộ tối ưu dùng nó |
+| Tổng | 16P byte | 4P + 12P/N byte |   |
 
-At N=8: vanilla 16P, ZeRO-1 5.5P, a 65% drop. At N=64: vanilla 16P, ZeRO-1 4.19P, a 74% drop.
+Tại N=8: thông thường 16P, ZeRO-1 5.5P, giảm 65%. Tại N=64: thông thường 16P, ZeRO-1 4.19P, giảm 74%.
 
 ### Why reduce_scatter beats allreduce-then-shard
 
-Allreduce gives every rank the full summed gradient. If you only need shard r, the (N-1)/N of the gradient that was reduced is wasted on rank r. Reduce_scatter delivers exactly the shard each rank owns; the per-rank bytes are the same as allreduce (since allreduce is reduce_scatter + allgather) but the second half is replaced by the parameter-shard allgather later. Net wire is identical to DDP, memory is divided.
+Allreduce cho mọi rank gradient được cộng đầy đủ. Nếu bạn chỉ cần shard r, (N-1)/N gradient đã được rút gọn bị lãng phí trên rank r. Reduce_scatter đưa chính xác shard mỗi rank sở hữu; các byte theo rank giống allreduce (vì allreduce là reduce_scatter + allgather) nhưng nửa thứ hai được thay bằng allgather shard tham số sau đó. Tổng truyền tin giống hệt DDP, bộ nhớ được chia.
 
 ```figure
 cd-zero-shard
@@ -69,65 +69,65 @@ cd-zero-shard
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `flatten_params(module)` and `unflatten_into(module, flat)` that pack a model's parameters into one contiguous tensor and unpack back. The flat layout is what makes sharding by rank a simple slice.
-- `ZeroOptimizer(model, world_size, rank, lr)` that owns the rank's shard of the master copy and Adam moments.
-- `step()` that runs reduce_scatter on the flat gradient, applies Adam to the rank's shard, and allgathers the updated parameters back.
-- A demo that trains a 3-layer MLP for 20 steps and prints the per-step memory budget alongside a vanilla DDP baseline.
+- `flatten_params(module)` và `unflatten_into(module, flat)` đóng gói các tham số của một mô hình vào một tensor liên tục và tháo gói lại. Bố cục phẳng là thứ khiến chia shard theo rank là một phần cắt đơn giản.
+- `ZeroOptimizer(model, world_size, rank, lr)` sở hữu shard của rank cho bản sao chính và các mômen Adam.
+- `step()` chạy reduce_scatter trên gradient phẳng, áp dụng Adam cho shard của rank, và allgather các tham số được cập nhật trở lại.
+- Một demo huấn luyện một MLP 3 lớp trong 20 bước và in ngân sách bộ nhớ theo bước cạnh một đường cơ sở DDP thông thường.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-Output: per-step loss and the memory table that shows ZeRO-1 holds 1/N of the optimiser state on each rank versus DDP's full copy.
+Đầu ra: mất mát theo bước và bảng bộ nhớ cho thấy ZeRO-1 giữ 1/N trạng thái bộ tối ưu trên mỗi rank so với bản sao đầy đủ của DDP.
 
 ## Production patterns in the wild
 
-Three patterns harden ZeRO enough to ship.
+Ba mẫu gia cố ZeRO đủ để cung cấp.
 
-**Sharded checkpointing matters.** ZeRO-1's optimiser state is split across ranks; the checkpoint has to record which rank owns what. Lesson 80 builds the sharded checkpoint manifest that resumes a ZeRO run on the same world size. Without it the saved state is unreadable at restart.
+**Checkpoint chia shard quan trọng.** Trạng thái bộ tối ưu của ZeRO-1 được chia giữa các rank; checkpoint phải ghi rank nào sở hữu gì. Bài 80 xây dựng bản kê khai checkpoint chia shard tiếp tục một lần chạy ZeRO trên cùng kích thước thế giới. Không có nó trạng thái được lưu không thể đọc khi khởi động lại.
 
-**Mixed precision is the point.** ZeRO is a mixed-precision technique; the fp32 master copy is what is sharded. Running ZeRO without mixed precision pays the memory tax on the fp32 master without the corresponding fp16 forward win. Production runs always pair ZeRO with autocast or bf16 weights.
+**Độ chính xác hỗn hợp là điểm chính.** ZeRO là một kỹ thuật độ chính xác hỗn hợp; bản sao chính fp32 là thứ được chia shard. Chạy ZeRO không có độ chính xác hỗn hợp trả thuế bộ nhớ trên bản chính fp32 mà không có lợi ích lượt tiến fp16 tương ứng. Các lần chạy sản xuất luôn ghép ZeRO với autocast hoặc các trọng số bf16.
 
-**Stage 1 is a near-free win.** The comm is identical to DDP by bandwidth. The memory savings are linear in N. The only cost is the bookkeeping for the optimiser shard. Production stacks default to stage 1 unless the parameter shard memory is also a problem; then stage 2 or 3 trades comm for memory.
+**Giai đoạn 1 là một lợi ích gần miễn phí.** Giao tiếp giống hệt DDP về băng thông. Các tiết kiệm bộ nhớ tuyến tính theo N. Chi phí duy nhất là ghi sổ cho shard bộ tối ưu. Các ngăn xếp sản xuất mặc định giai đoạn 1 trừ khi bộ nhớ shard tham số cũng là vấn đề; khi đó giai đoạn 2 hoặc 3 đánh đổi giao tiếp lấy bộ nhớ.
 
 ## Use It
 
-Production patterns:
+Các mẫu sản xuất:
 
-- **DeepSpeed ZeRO.** The reference implementation. `deepspeed_config.json` selects stage 1/2/3 and partition sizes.
-- **PyTorch FSDP.** The PyTorch-native equivalent. `ShardingStrategy.SHARD_GRAD_OP` is ZeRO-2; `FULL_SHARD` is ZeRO-3.
-- **HuggingFace Accelerate.** Wraps both DeepSpeed and FSDP under a uniform config.
+- **DeepSpeed ZeRO.** Triển khai tham chiếu. `deepspeed_config.json` chọn giai đoạn 1/2/3 và các kích thước phân vùng.
+- **PyTorch FSDP.** Tương đương bản địa PyTorch. `ShardingStrategy.SHARD_GRAD_OP` là ZeRO-2; `FULL_SHARD` là ZeRO-3.
+- **HuggingFace Accelerate.** Bọc cả DeepSpeed và FSDP dưới một cấu hình thống nhất.
 
 ## Ship It
 
-Lesson 79 (pipeline parallel) is the orthogonal sharding axis: instead of sharding optimiser state across the same model, pipeline shards layers across ranks. Lesson 81 composes DDP + ZeRO on the end-to-end demo.
+Bài 79 (song song pipeline) là trục chia shard trực giao: thay vì chia shard trạng thái bộ tối ưu trên cùng mô hình, pipeline chia shard các lớp trên các rank. Bài 81 kết hợp DDP + ZeRO trên demo đầu cuối.
 
 ## Exercises
 
-1. Extend to ZeRO-2 by sharding gradients: each rank only stores the gradient for its shard, achieved by zeroing out the non-shard portion after backward.
-2. Add a memory profiler that prints actual fp32 byte usage on rank 0 versus the formula prediction.
-3. Measure the per-step wall-clock time of vanilla DDP versus ZeRO-1 and decompose into forward, backward, comm.
-4. Implement gradient clipping under ZeRO-1: the L2 norm must be computed across all shards via allreduce of the local norm squared.
-5. Implement a "naive ZeRO" with allreduce instead of reduce_scatter, measure the wire-time difference. Defend the reduce_scatter choice with numbers.
+1. Mở rộng sang ZeRO-2 bằng chia shard gradient: mỗi rank chỉ lưu gradient cho shard của nó, đạt được bằng đặt phần không thuộc shard về không sau lượt ngược.
+2. Thêm một bộ đo bộ nhớ in mức sử dụng byte fp32 thực trên rank 0 so với dự đoán công thức.
+3. Đo thời gian thực theo bước của DDP thông thường so với ZeRO-1 và phân rã thành lượt tiến, lượt ngược, giao tiếp.
+4. Triển khai cắt gradient dưới ZeRO-1: chuẩn L2 phải được tính trên mọi shard qua allreduce bình phương chuẩn cục bộ.
+5. Triển khai một "ZeRO ngây thơ" với allreduce thay vì reduce_scatter, đo khác biệt thời gian truyền tin. Bảo vệ lựa chọn reduce_scatter bằng các con số.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| ZeRO-1 | "Shard the optimiser" | Each rank holds 1/N of fp32 master + Adam moments |
-| ZeRO-2 | "Shard grads too" | Each rank also drops the non-shard gradients after reduce_scatter |
-| ZeRO-3 | "Shard params" | Each rank holds 1/N of fp16 params; allgather per layer in forward |
-| Master copy | "fp32 weights" | The high-precision parameter copy the optimiser updates |
-| Reduce_scatter | "Split the sum" | Deliver each rank only its shard's summed gradient |
+| ZeRO-1 | "Chia shard bộ tối ưu" | Mỗi rank giữ 1/N bản chính fp32 + các mômen Adam |
+| ZeRO-2 | "Chia shard cả gradient" | Mỗi rank cũng bỏ các gradient không thuộc shard sau reduce_scatter |
+| ZeRO-3 | "Chia shard tham số" | Mỗi rank giữ 1/N tham số fp16; allgather theo lớp trong lượt tiến |
+| Master copy (Bản sao chính) | "Các trọng số fp32" | Bản sao tham số độ chính xác cao mà bộ tối ưu cập nhật |
+| Reduce_scatter | "Chia tổng" | Chỉ đưa cho mỗi rank gradient được cộng của shard nó |
 
 ## Further Reading
 
 - [Rajbhandari et al, ZeRO: Memory Optimizations Toward Training Trillion Parameter Models](https://arxiv.org/abs/1910.02054)
 - [DeepSpeed ZeRO documentation](https://www.deepspeed.ai/tutorials/zero/)
 - [PyTorch FSDP documentation](https://pytorch.org/docs/stable/fsdp.html)
-- Phase 19 Lesson 76 - the reduce_scatter and allgather this lesson stands on
-- Phase 19 Lesson 80 - sharded checkpointing the ZeRO state must use
+- Phase 19 Bài 76 - reduce_scatter và allgather mà bài này đứng trên
+- Phase 19 Bài 80 - checkpoint chia shard mà trạng thái ZeRO phải dùng
