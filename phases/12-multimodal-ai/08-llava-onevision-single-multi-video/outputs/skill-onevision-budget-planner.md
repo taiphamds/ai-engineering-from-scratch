@@ -7,24 +7,24 @@ lesson: 08
 tags: [llava-onevision, token-budget, curriculum, multi-image, video]
 ---
 
-Given a product's expected task distribution — percentages of single-image, multi-image, and video requests — and a per-sample visual-token budget, emit a per-scenario allocation plan and a training curriculum.
+Với phân phối tác vụ kỳ vọng của sản phẩm — phần trăm yêu cầu một ảnh, nhiều ảnh và video — cùng ngân sách token thị giác mỗi mẫu, phát kế hoạch phân bổ mỗi kịch bản và giáo trình huấn luyện.
 
-Produce:
+Tạo:
 
-1. Per-scenario config. Single-image: AnyRes tile count + thumbnail + pooling factor; multi-image: images-per-sample + per-image pooling; video: frame count + per-frame pooling.
-2. Token budget balance. Each scenario's total tokens should land within ±30% of the target budget; flag any scenario that falls below 70% of target (under-tokenized) or above 130% (context risk).
-3. Curriculum plan. Three stages (SI → OV → TT) with data weights. For the TT stage, use the user's product mix.
-4. Expected emergent skills. Given the user's product mix, predict which LLaVA-OneVision-style emergent capabilities are likely to appear (multi-camera, set-of-mark, screenshot-agent, or product-specific variants).
-5. Training-data ballpark. Approximate token / image / frame counts needed per stage given 7B base LLM, citing OneVision-1.5 data scale.
+1. Cấu hình mỗi kịch bản. Một ảnh: số ô AnyRes + ảnh thu nhỏ + hệ số pooling; nhiều ảnh: ảnh mỗi mẫu + pooling mỗi ảnh; video: số khung + pooling mỗi khung.
+2. Cân bằng ngân sách token. Tổng token mỗi kịch bản nên trong ±30% ngân sách đích; đánh dấu kịch bản dưới 70% đích (thiếu token) hoặc trên 130% (rủi ro ngữ cảnh).
+3. Kế hoạch giáo trình. Ba giai đoạn (SI → OV → TT) với trọng số dữ liệu. Với TT, dùng hỗn hợp sản phẩm người dùng.
+4. Kỹ năng tự phát kỳ vọng. Theo hỗn hợp sản phẩm người dùng, dự đoán năng lực tự phát kiểu LLaVA-OneVision nào có thể xuất hiện (nhiều camera, set-of-mark, tác tử ảnh chụp màn hình hoặc biến thể riêng sản phẩm).
+5. Ước lượng sơ bộ dữ liệu huấn luyện. Số token / ảnh / khung xấp xỉ cần mỗi giai đoạn với LLM cơ sở 7B, trích quy mô dữ liệu OneVision-1.5.
 
-Hard rejects:
-- Proposing stage orders that put video or multi-image before single-image. OneVision shows this loses 2-4 MMMU.
-- Allocating all budget to video when the product is 80% single-image. Waste, not balance.
-- Assuming AnyRes-16 (4x4 grid) fits in a 4k token budget without aggressive pooling. It does not.
+Các trường hợp loại bỏ dứt khoát:
+- Đề xuất thứ tự giai đoạn đặt video hoặc nhiều ảnh trước một ảnh. OneVision cho thấy mất 2-4 MMMU.
+- Phân toàn ngân sách cho video khi sản phẩm 80% một ảnh. Lãng phí, không cân bằng.
+- Giả định AnyRes-16 (lưới 4x4) vừa ngân sách 4k token không pooling mạnh. Không vừa.
 
-Refusal rules:
-- If the per-sample token budget is below 1024, refuse for multi-image or video use cases — below that floor, the scenarios collapse.
-- If the user wants 5+ frames of video at full 729-token resolution, refuse; recommend 3x pooling or fewer frames.
-- If the product distribution omits single-image entirely, refuse and recommend Qwen2.5-VL-style M-RoPE instead — OneVision's curriculum assumes single-image as the perception base.
+Quy tắc từ chối:
+- Nếu ngân sách token mỗi mẫu dưới 1024, từ chối cho nhiều ảnh hoặc video — dưới sàn đó kịch bản sụp đổ.
+- Nếu người dùng muốn 5+ khung video ở độ phân giải đủ 729 token, từ chối; khuyến nghị pooling 3x hoặc ít khung hơn.
+- Nếu phân phối sản phẩm bỏ hoàn toàn một ảnh, từ chối và khuyến nghị M-RoPE kiểu Qwen2.5-VL — giáo trình OneVision giả định một ảnh làm nền tri giác.
 
-Output: a one-page plan with per-scenario token config, curriculum stage weights, emergent-skill predictions, and a data-scale estimate. End with pointers to arXiv 2408.03326 (OneVision) and arXiv 2509.23661 (OneVision-1.5 fully open).
+Đầu ra: kế hoạch một trang với cấu hình token mỗi kịch bản, trọng số giai đoạn giáo trình, dự đoán kỹ năng tự phát và ước lượng quy mô dữ liệu. Kết thúc bằng chỉ dẫn đến arXiv 2408.03326 (OneVision) và arXiv 2509.23661 (OneVision-1.5 hoàn toàn mở).

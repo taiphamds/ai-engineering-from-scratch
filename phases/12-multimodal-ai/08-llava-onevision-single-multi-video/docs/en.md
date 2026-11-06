@@ -1,6 +1,6 @@
 # LLaVA-OneVision: Single-Image, Multi-Image, Video in One Model
 
-> Before LLaVA-OneVision (Li et al., August 2024) the open-VLM world had separate lineages: LLaVA-1.5 for single images, multi-image models like Mantis and VILA, video models like Video-LLaVA and Video-LLaMA. Each won its benchmark and failed at the others. LLaVA-OneVision argued a single curriculum could train one model to dominate all three scenarios, and that the emergent task-transfer effects (single-image skills exported to video, multi-image reasoning exported to single-image) beat the sum of specialists. The recipe is deceptively simple: a visual-token budget that stays constant across scenarios, plus an explicit curriculum that moves from single-image to OneVision (multi-image) to video. This lesson reads the budget, the curriculum, and the emergent behaviors.
+> Trước LLaVA-OneVision (Li và cộng sự, tháng 8 năm 2024), thế giới VLM mở có dòng riêng: LLaVA-1.5 cho một ảnh, mô hình nhiều ảnh như Mantis và VILA, mô hình video như Video-LLaVA và Video-LLaMA. Mỗi loại thắng benchmark của mình và thất bại ở loại khác. LLaVA-OneVision lập luận một giáo trình có thể huấn luyện một mô hình thống trị cả ba kịch bản, và hiệu ứng chuyển giao tác vụ tự phát (kỹ năng một ảnh xuất sang video, suy luận nhiều ảnh xuất sang một ảnh) vượt tổng các mô hình chuyên biệt. Công thức đơn giản một cách đánh lừa: ngân sách token thị giác giữ hằng giữa kịch bản, cộng giáo trình rõ ràng đi từ một ảnh sang OneVision (nhiều ảnh) rồi video. Bài học này đọc ngân sách, giáo trình và hành vi tự phát.
 
 **Type:** Build
 **Languages:** Python (stdlib, token budget solver + curriculum planner)
@@ -9,78 +9,78 @@
 
 ## Learning Objectives
 
-- Design a visual-token budget that holds constant across single-image, multi-image, and video inputs.
-- Order a training curriculum that transfers skills from single-image to video without catastrophic forgetting.
-- Explain why a single model beats specialists at the same parameter count when curriculum is done right.
-- Name the three emergent capabilities reported by LLaVA-OneVision: multi-camera reasoning, set-of-mark prompting, iPhone-screenshot agent.
+- Thiết kế ngân sách token thị giác giữ hằng giữa đầu vào một ảnh, nhiều ảnh và video.
+- Sắp giáo trình huấn luyện chuyển kỹ năng từ một ảnh sang video không quên thảm khốc.
+- Giải thích tại sao một mô hình thắng các mô hình chuyên biệt cùng số tham số khi giáo trình làm đúng.
+- Nêu tên ba năng lực tự phát LLaVA-OneVision báo cáo: suy luận nhiều camera, prompting set-of-mark, tác tử ảnh chụp màn hình iPhone.
 
 ## The Problem
 
-Image, multi-image, and video each stress a model differently.
+Ảnh, nhiều ảnh và video gây áp lực khác nhau cho mô hình.
 
-Single-image wants high-resolution tokens (AnyRes, ~2880 visual tokens) to catch OCR and fine detail. Budget per sample: one image, 2880 tokens.
+Một ảnh muốn token độ phân giải cao (AnyRes, ~2880 token thị giác) để bắt OCR và chi tiết nhỏ. Ngân sách mỗi mẫu: một ảnh, 2880 token.
 
-Multi-image wants several images at moderate resolution (~576 tokens each) so reasoning across images fits in context. Budget per sample: 4-8 images, 576 each, 2300-4600 tokens.
+Nhiều ảnh muốn vài ảnh ở độ phân giải vừa (~576 token mỗi ảnh) để suy luận giữa ảnh vừa ngữ cảnh. Ngân sách mỗi mẫu: 4-8 ảnh, mỗi ảnh 576, 2300-4600 token.
 
-Video wants many frames at low resolution (~196 tokens per frame after pooling) to capture temporal dynamics. Budget per sample: 8-32 frames, 196 each, 1600-6200 tokens.
+Video muốn nhiều khung ở độ phân giải thấp (~196 token mỗi khung sau pooling) để nắm động lực thời gian. Ngân sách mỗi mẫu: 8-32 khung, mỗi khung 196, 1600-6200 token.
 
-If you train separate models, you pick one budget. If you train one model, you need the budget to scale sensibly across scenarios without blowing context.
+Nếu huấn luyện mô hình riêng, chọn một ngân sách. Nếu huấn luyện một mô hình, cần ngân sách mở rộng hợp lý giữa kịch bản không làm nổ ngữ cảnh.
 
-Pre-OneVision, the default answer was "train one scenario, ignore the others." Video-LLaVA retrofitted video onto an image model with extra training stages. LLaVA-NeXT added multi-image support with tiling. None handled all three cleanly.
+Trước OneVision, câu trả lời mặc định là "huấn luyện một kịch bản, bỏ qua loại khác." Video-LLaVA lắp thêm video vào mô hình ảnh bằng giai đoạn huấn luyện thêm. LLaVA-NeXT thêm nhiều ảnh bằng chia ô. Không loại nào xử lý gọn cả ba.
 
 ## The Concept
 
 ### The OneVision token budget
 
-LLaVA-OneVision picks a unified visual-token budget of approximately 3000-4000 tokens per sample, allocated differently per scenario:
+LLaVA-OneVision chọn ngân sách token thị giác thống nhất khoảng 3000-4000 token mỗi mẫu, phân bổ khác theo kịch bản:
 
-- Single image: AnyRes-9 (3x3 tiles + thumbnail), each tile at 384 with 729 patches, aggressive bilinear pooling 2x2 → 182 per tile. Total: 9 * 182 + 182 = 1820 tokens. Or AnyRes-4 at 729-per-tile = 2916 + 729.
-- Multi-image: each image at moderate resolution (384, no tiling), 729 tokens with no pooling. Budget 6 images → 4374 tokens.
-- Video: 32 frames at 384 resolution with aggressive 3x3 bilinear pool → 81 tokens per frame. Total: 32 * 81 = 2592 tokens.
+- Một ảnh: AnyRes-9 (ô 3x3 + ảnh thu nhỏ), mỗi ô ở 384 với 729 patch, pooling song tuyến tính mạnh 2x2 → 182 mỗi ô. Tổng: 9 * 182 + 182 = 1820 token. Hoặc AnyRes-4 ở 729 mỗi ô = 2916 + 729.
+- Nhiều ảnh: mỗi ảnh độ phân giải vừa (384, không chia ô), 729 token không pooling. Ngân sách 6 ảnh → 4374 token.
+- Video: 32 khung ở độ phân giải 384 với pooling song tuyến tính mạnh 3x3 → 81 token mỗi khung. Tổng: 32 * 81 = 2592 token.
 
-The allocation maintains roughly constant total tokens. The LLM never sees a batch that blows its context. The encoder produces different geometry per scenario, but the LLM consumes the same budget.
+Phân bổ giữ tổng token gần hằng. LLM không bao giờ thấy batch làm nổ ngữ cảnh. Encoder tạo hình học khác mỗi kịch bản, nhưng LLM tiêu thụ cùng ngân sách.
 
 ### The three-stage curriculum
 
-LLaVA-OneVision trains in three stages:
+LLaVA-OneVision huấn luyện ba giai đoạn:
 
-1. Single-image SFT (stage SI). All data is single-image-plus-text. Train on high-resolution AnyRes input. This teaches perception, OCR, and fine-grained understanding. Uses LLaVA-NeXT data plus OneVision-specific single-image data.
-2. OneVision SFT (stage OV). Mix single-image + multi-image + video (uniformly sampled frames). Train on the unified token budget. This teaches the model to handle heterogeneous batch shapes. No weight reset — continues from stage SI.
-3. Task transfer (stage TT). Continue with a target task mix, typically heavier on multi-image or video depending on product. Optional fine-tune for deployment.
+1. SFT một ảnh (giai đoạn SI). Mọi dữ liệu là một ảnh cộng văn bản. Huấn luyện trên đầu vào AnyRes độ phân giải cao. Dạy tri giác, OCR và hiểu chi tiết. Dùng dữ liệu LLaVA-NeXT cộng dữ liệu một ảnh riêng OneVision.
+2. SFT OneVision (giai đoạn OV). Trộn một ảnh + nhiều ảnh + video (khung lấy mẫu đều). Huấn luyện trên ngân sách token thống nhất. Dạy mô hình xử lý hình dạng batch không đồng nhất. Không đặt lại trọng số — tiếp tục từ SI.
+3. Chuyển giao tác vụ (giai đoạn TT). Tiếp tục với hỗn hợp tác vụ đích, thường nặng nhiều ảnh hoặc video hơn theo sản phẩm. Fine-tune tùy chọn để triển khai.
 
-Critical: the curriculum order matters. Training video-first or multi-image-first produces worse image performance than single-image-first, even with the same data. The paper ablates this explicitly.
+Then chốt: thứ tự giáo trình quan trọng. Huấn luyện video trước hoặc nhiều ảnh trước tạo hiệu năng ảnh kém hơn một ảnh trước, dù cùng dữ liệu. Bài báo thử loại bỏ thành phần này rõ ràng.
 
 ### Why curriculum works
 
-Single-image training builds the perceptual base. Patch tokens carry fine-grained visual features; the LLM learns to integrate them with text. Multi-image and video introduce structural challenges (which image is which, what happened first) that are hard to learn without a strong perceptual base.
+Huấn luyện một ảnh xây nền tri giác. Token patch mang đặc trưng thị giác chi tiết; LLM học tích hợp với văn bản. Nhiều ảnh và video đưa thách thức cấu trúc (ảnh nào là ảnh nào, điều gì xảy ra trước) khó học khi chưa có nền tri giác mạnh.
 
-If you train all scenarios from scratch together, the model underfits perception (limited single-image data per batch) and overfits structure (lots of multi-image / video data). Result: a model that follows cross-image reasoning patterns but is visually shallow.
+Nếu huấn luyện mọi kịch bản từ đầu cùng nhau, mô hình thiếu khớp tri giác (dữ liệu một ảnh hạn chế mỗi batch) và quá khớp cấu trúc (nhiều dữ liệu nhiều ảnh / video). Kết quả: mô hình theo mẫu suy luận xuyên ảnh nhưng nông về thị giác.
 
-Curriculum ordering gives you perception strength from stage SI, then compositional/temporal reasoning from stage OV, without losing either.
+Thứ tự giáo trình cho sức mạnh tri giác từ SI, rồi suy luận kết hợp/thời gian từ OV, không mất loại nào.
 
 ### Emergent cross-scenario skills
 
-The LLaVA-OneVision paper reports three emergent capabilities:
+Bài báo LLaVA-OneVision báo ba năng lực tự phát:
 
-1. Multi-camera reasoning. Trained on multi-image + video separately; at inference, asked to reason about a multi-camera driving scene. The model correctly integrates the views despite never seeing that exact format in training.
-2. Set-of-mark prompting. User annotates objects in an image with numbered marks; the model reasons about "what is mark 3 doing relative to mark 7." Trained on neither marks nor annotation; learned from the combination of spatial grounding + multi-image reference.
-3. iPhone-screenshot agent. User provides a screenshot of an iPhone screen and asks to plan the next click. Trained on UI screenshots, video of user workflows, and multi-image before/after pairs. Generalizes to the agent use case.
+1. Suy luận nhiều camera. Huấn luyện riêng trên nhiều ảnh + video; khi suy luận, yêu cầu suy luận về cảnh lái xe nhiều camera. Mô hình tích hợp đúng góc nhìn dù chưa thấy đúng định dạng đó trong huấn luyện.
+2. Prompting set-of-mark. Người dùng chú giải đối tượng trong ảnh bằng dấu đánh số; mô hình suy luận về "dấu 3 đang làm gì so với dấu 7." Không huấn luyện trên dấu hay chú giải; học từ kết hợp grounding không gian + tham chiếu nhiều ảnh.
+3. Tác tử ảnh chụp màn hình iPhone. Người dùng cung cấp ảnh chụp màn hình iPhone và yêu cầu lập kế hoạch nhấp tiếp. Huấn luyện trên ảnh UI, video quy trình người dùng và cặp nhiều ảnh trước/sau. Khái quát sang trường hợp tác tử.
 
-These are not trained tasks; they emerge from the curriculum's compositional structure.
+Đây không phải tác vụ được huấn luyện; chúng xuất hiện từ cấu trúc kết hợp của giáo trình.
 
 ### Visual-token pooling
 
-The token budget requires pooling. OneVision uses bilinear interpolation on the 2D patch grid: 24x24 = 576 patches becomes 12x12 = 144 (2x factor) or 8x8 = 64 (3x factor). Pooling is done in patch-grid space, not token space, to preserve locality.
+Ngân sách token cần pooling. OneVision dùng nội suy song tuyến tính trên lưới patch 2D: 24x24 = 576 patch thành 12x12 = 144 (hệ số 2x) hoặc 8x8 = 64 (hệ số 3x). Pooling trong không gian lưới patch, không không gian token, để giữ tính cục bộ.
 
-The choice of pooling factor per scenario is itself a hyperparameter. Less pooling = more tokens = richer representation. More pooling = fewer tokens = more frames / images fit.
+Lựa chọn hệ số pooling mỗi kịch bản tự nó là siêu tham số. Ít pooling hơn = nhiều token hơn = biểu diễn phong phú hơn. Nhiều pooling hơn = ít token hơn = vừa nhiều khung / ảnh hơn.
 
 ### LLaVA-OneVision-1.5
 
-The 2025 follow-up (LLaVA-OneVision-1.5, arXiv 2509.23661) is "fully open" in training data, model weights, and code. Matches the proprietary gap on some benchmarks and democratizes the recipe. Same curriculum, more data, better base LLM. No architecture change.
+Bản tiếp nối năm 2025 (LLaVA-OneVision-1.5, arXiv 2509.23661) "hoàn toàn mở" về dữ liệu huấn luyện, trọng số mô hình và mã. Sánh ngang khoảng cách độc quyền trên một số benchmark và dân chủ hóa công thức. Cùng giáo trình, nhiều dữ liệu hơn, LLM cơ sở tốt hơn. Không đổi kiến trúc.
 
 ### Contrast with Qwen2.5-VL
 
-Qwen2.5-VL (Lesson 12.09) makes different choices. It uses M-RoPE and dynamic FPS instead of fixed pooling. Its budget scales with input — a 1-minute video uses more tokens than a 5-second video. LLaVA-OneVision fixes the budget and scales the pooling. Both work; they trade configurability for predictability.
+Qwen2.5-VL (Bài 12.09) chọn khác. Dùng M-RoPE và FPS động thay pooling cố định. Ngân sách tăng theo đầu vào — video 1 phút dùng nhiều token hơn video 5 giây. LLaVA-OneVision cố định ngân sách và co giãn pooling. Cả hai hoạt động; đánh đổi khả năng cấu hình lấy tính có thể dự đoán.
 
 ```figure
 l5-onevision-budget
@@ -88,42 +88,42 @@ l5-onevision-budget
 
 ## Use It
 
-`code/main.py` is a curriculum and budget planner for a OneVision-style VLM. Given a token budget per sample and a target scenario mix (say 40% single-image, 30% multi-image, 30% video), it:
+`code/main.py` là bộ lập giáo trình và ngân sách cho VLM kiểu OneVision. Với ngân sách token mỗi mẫu và hỗn hợp kịch bản đích (chẳng hạn 40% một ảnh, 30% nhiều ảnh, 30% video), nó:
 
-- Allocates resolution, pooling factor, and frames per scenario.
-- Checks that every scenario fits within the shared budget.
-- Reports expected token count, LLM FLOPs, and which scenarios are under-tokenized.
-- Prints a stage-by-stage training schedule.
+- Phân bổ độ phân giải, hệ số pooling và khung mỗi kịch bản.
+- Kiểm tra mọi kịch bản vừa ngân sách dùng chung.
+- Báo số token kỳ vọng, FLOPs LLM và kịch bản thiếu token.
+- In lịch huấn luyện từng giai đoạn.
 
-Use it to plan a OneVision fine-tune or to sanity-check a VLM deployment's per-request cost.
+Dùng để lập kế hoạch fine-tune OneVision hoặc kiểm tra hợp lý chi phí mỗi yêu cầu triển khai VLM.
 
 ## Ship It
 
-This lesson produces `outputs/skill-onevision-budget-planner.md`. Given a target task distribution and a per-sample budget, it emits the AnyRes factor, per-frame pooling, video frame count, and curriculum stage weights. Use this whenever you train or fine-tune a unified-scenario VLM.
+Bài học này tạo `outputs/skill-onevision-budget-planner.md`. Với phân phối tác vụ đích và ngân sách mỗi mẫu, nó phát hệ số AnyRes, pooling mỗi khung, số khung video và trọng số giai đoạn giáo trình. Dùng mỗi khi huấn luyện hoặc fine-tune VLM thống nhất kịch bản.
 
 ## Exercises
 
-1. Your product supports 80% single-image, 10% multi-image (2-4 images), 10% video (8-16 frames). Design the token budget. Where would you put the extra budget you save from not doing heavy multi-image?
+1. Sản phẩm hỗ trợ 80% một ảnh, 10% nhiều ảnh (2-4 ảnh), 10% video (8-16 khung). Thiết kế ngân sách token. Bạn đặt ngân sách dư tiết kiệm từ không làm nhiều ảnh nặng vào đâu?
 
-2. Read LLaVA-OneVision Section 4.3 (emergent capabilities). Propose a fourth emergent skill the curriculum would likely unlock but the paper did not report.
+2. Đọc Mục 4.3 LLaVA-OneVision (năng lực tự phát). Đề xuất kỹ năng tự phát thứ tư giáo trình có thể mở khóa nhưng bài báo không báo.
 
-3. Swap the curriculum order — train multi-image first, then single-image, then video. Predict which benchmarks degrade and why.
+3. Đổi thứ tự giáo trình — huấn luyện nhiều ảnh trước, rồi một ảnh, rồi video. Dự đoán benchmark nào suy giảm và tại sao.
 
-4. The paper reports video benchmarks trained on only 8 frames per sample. Does that generalize to 30-second videos at inference? What breaks first — the token budget or the temporal reasoning?
+4. Bài báo báo benchmark video huấn luyện chỉ 8 khung mỗi mẫu. Có khái quát sang video 30 giây khi suy luận không? Thứ gì hỏng trước — ngân sách token hay suy luận thời gian?
 
-5. Bilinear pooling of 24x24 patches to 12x12 is a 4x reduction per dim. Implement the pooling in stdlib Python and verify that the mean over each 2x2 block matches the bilinear output.
+5. Pooling song tuyến tính patch 24x24 xuống 12x12 là giảm 4x mỗi chiều. Triển khai pooling bằng stdlib Python và xác minh trung bình mỗi khối 2x2 khớp đầu ra song tuyến tính.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| OneVision scenario | "Single-image, multi-image, or video" | One of three input shapes the unified VLM handles; the budget stays constant across |
-| Token budget | "How many tokens per sample" | Total visual tokens the LLM sees per training / inference sample, typically 3000-4000 |
-| Curriculum | "Training order" | Stage ordering (single-image → multi-image → video) chosen for emergent transfer |
-| Bilinear pooling | "Token shrink" | Applying bilinear interpolation to the patch grid (2D) to reduce token count while preserving locality |
-| Emergent skill | "Not trained, still works" | Capability that appears at inference without matching training data, due to curriculum composition |
-| AnyRes-k | "k-tile setup" | k sub-tiles of fixed resolution plus one thumbnail, typical k ∈ {4, 9} |
-| Task transfer | "Cross-scenario generalization" | Skills learned on single-image that apply to video (and vice versa) via shared backbone |
+| OneVision scenario (Kịch bản OneVision) | "Một ảnh, nhiều ảnh hoặc video" | Một trong ba hình dạng đầu vào VLM thống nhất xử lý; ngân sách giữ hằng giữa chúng |
+| Token budget (Ngân sách token) | "Bao nhiêu token mỗi mẫu" | Tổng token thị giác LLM thấy mỗi mẫu huấn luyện / suy luận, thường 3000-4000 |
+| Curriculum (Giáo trình) | "Thứ tự huấn luyện" | Thứ tự giai đoạn (một ảnh → nhiều ảnh → video) chọn để có chuyển giao tự phát |
+| Bilinear pooling (Pooling song tuyến tính) | "Thu nhỏ token" | Áp dụng nội suy song tuyến tính lên lưới patch (2D) để giảm token nhưng giữ tính cục bộ |
+| Emergent skill (Kỹ năng tự phát) | "Không huấn luyện, vẫn hoạt động" | Năng lực xuất hiện khi suy luận không có dữ liệu huấn luyện khớp, nhờ kết hợp giáo trình |
+| AnyRes-k | "Thiết lập k ô" | k ô con độ phân giải cố định cộng một ảnh thu nhỏ, k điển hình ∈ {4, 9} |
+| Task transfer (Chuyển giao tác vụ) | "Khái quát xuyên kịch bản" | Kỹ năng học trên một ảnh áp dụng sang video (và ngược lại) qua backbone dùng chung |
 
 ## Further Reading
 
