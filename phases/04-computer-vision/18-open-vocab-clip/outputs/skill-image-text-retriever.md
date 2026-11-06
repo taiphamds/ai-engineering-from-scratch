@@ -9,29 +9,29 @@ tags: [clip, retrieval, faiss, zero-shot]
 
 # Image-Text Retriever
 
-Turn a folder of images into a searchable index using CLIP embeddings.
+Biến một thư mục hình ảnh thành chỉ mục có thể tìm kiếm bằng embedding CLIP.
 
 ## When to use
 
-- Building a zero-shot image search on an internal catalog.
-- Deduplicating near-identical images by embedding distance.
-- Building a quick "find similar" component without a labelled dataset.
+- Xây tìm kiếm hình ảnh zero-shot trên một danh mục nội bộ.
+- Loại trùng các hình ảnh gần giống hệt bằng khoảng cách embedding.
+- Xây nhanh thành phần "tìm tương tự" mà không có tập dữ liệu gán nhãn.
 
 ## Inputs
 
-- `image_folder`: directory of image files.
-- `clip_model`: HuggingFace id like `openai/clip-vit-base-patch32` or `google/siglip-base-patch16-224`.
+- `image_folder`: thư mục các file hình ảnh.
+- `clip_model`: id HuggingFace như `openai/clip-vit-base-patch32` hoặc `google/siglip-base-patch16-224`.
 - `index_type`: flat | IVF | HNSW.
-- `embedding_dim`: inferred from the model.
+- `embedding_dim`: suy ra từ mô hình.
 
 ## Steps
 
-1. Load the CLIP model and preprocessor.
-2. Batch-encode every image in the folder. Save embeddings as (N, D) float32 + filename list.
-3. Build a FAISS index over the embeddings. Use inner-product on L2-normalised vectors for cosine similarity.
-4. Expose two query interfaces:
-   - `search_by_text(text, k)` — embed the text, search.
-   - `search_by_image(image_path, k)` — embed the image, search.
+1. Tải mô hình CLIP và bộ tiền xử lý.
+2. Mã hóa theo batch mọi hình ảnh trong thư mục. Lưu các embedding thành float32 (N, D) + danh sách tên file.
+3. Xây chỉ mục FAISS trên các embedding. Sử dụng tích vô hướng trên các vector chuẩn hóa L2 cho độ tương đồng cosine.
+4. Cung cấp hai giao diện truy vấn:
+   - `search_by_text(text, k)` — embedding văn bản, tìm kiếm.
+   - `search_by_image(image_path, k)` — embedding hình ảnh, tìm kiếm.
 
 ## Output template
 
@@ -113,8 +113,8 @@ class ImageTextRetriever:
 
 ## Rules
 
-- Always L2-normalise embeddings before indexing; FAISS's inner product on normalised vectors equals cosine similarity.
-- For < 100k images, `IndexFlatIP` (exact) is simplest and fastest.
-- For 100k-10M, `IndexIVFFlat` is the standard trade-off.
-- For > 10M, use HNSW or a product-quantised variant.
-- Never rebuild the index on every query; embed once, search many times.
+- Luôn chuẩn hóa L2 các embedding trước lập chỉ mục; tích vô hướng FAISS trên các vector chuẩn hóa bằng độ tương đồng cosine.
+- Với < 100k hình ảnh, `IndexFlatIP` (chính xác) đơn giản và nhanh nhất.
+- Với 100k-10M, `IndexIVFFlat` là đánh đổi tiêu chuẩn.
+- Với > 10M, sử dụng HNSW hoặc biến thể lượng tử hóa tích.
+- Không bao giờ xây lại chỉ mục mỗi truy vấn; embedding một lần, tìm kiếm nhiều lần.

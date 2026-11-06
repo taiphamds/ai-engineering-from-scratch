@@ -1,6 +1,6 @@
 # Open-Vocabulary Vision — CLIP
 
-> Train an image encoder and a text encoder together so that matching (image, caption) pairs land at the same point in a shared space. That is the whole trick.
+> Huấn luyện một encoder hình ảnh và một encoder văn bản cùng nhau để các cặp (hình ảnh, chú thích) khớp nhau tới cùng điểm trong một không gian chung. Đó là toàn bộ thủ thuật.
 
 **Type:** Build + Use
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Explain CLIP's two-tower architecture and contrastive training objective
-- Use a pretrained CLIP (or SigLIP) for zero-shot classification without any task-specific training
-- Implement zero-shot classification from scratch: encode class prompts, compute cosine similarity, take argmax
-- Distinguish CLIP, SigLIP, OpenCLIP, and LLaVA/LLaMA-vision models — what each is for in 2026
+- Giải thích kiến trúc hai tháp và mục tiêu huấn luyện tương phản của CLIP
+- Sử dụng một CLIP (hoặc SigLIP) được tiền huấn luyện để phân loại zero-shot mà không huấn luyện riêng theo tác vụ
+- Triển khai phân loại zero-shot từ đầu: mã hóa các prompt lớp, tính độ tương đồng cosine, lấy argmax
+- Phân biệt CLIP, SigLIP, OpenCLIP và các mô hình LLaVA/LLaMA-vision — mỗi loại dùng cho gì năm 2026
 
 ## The Problem
 
-Traditional classifiers are closed-vocabulary: a 1000-class ImageNet model can only predict 1000 labels. Every new category requires labelled data and a retrained head.
+Các bộ phân loại truyền thống có từ vựng đóng: một mô hình ImageNet 1000 lớp chỉ có thể dự đoán 1000 nhãn. Mọi loại mới cần dữ liệu gán nhãn và đầu được huấn luyện lại.
 
-CLIP (Radford et al., OpenAI 2021) showed that training on 400M (image, caption) pairs scraped from the web produces a model that can classify into any set of categories at inference, described purely in natural language. You give it a new class by writing a sentence.
+CLIP (Radford et al., OpenAI 2021) cho thấy huấn luyện trên 400M cặp (hình ảnh, chú thích) thu thập từ web tạo ra một mô hình có thể phân loại vào bất kỳ tập loại nào khi suy luận, được mô tả hoàn toàn bằng ngôn ngữ tự nhiên. Bạn cho nó một lớp mới bằng cách viết một câu.
 
-That capability — zero-shot transfer — is why every modern vision system starts with a CLIP-family checkpoint. Detection (Grounding DINO, OWL-ViT), segmentation (CLIPSeg, SAM), retrieval, content moderation, VLMs, and text-to-image generation all build on CLIP-style joint embeddings.
+Khả năng đó — chuyển giao zero-shot — là lý do mọi hệ thống thị giác hiện đại bắt đầu với checkpoint họ CLIP. Phát hiện (Grounding DINO, OWL-ViT), phân đoạn (CLIPSeg, SAM), truy xuất, kiểm duyệt nội dung, VLM và sinh văn bản-sang-ảnh đều xây trên các embedding chung kiểu CLIP.
 
 ## The Concept
 
@@ -38,11 +38,11 @@ flowchart LR
     style SIM fill:#dcfce7,stroke:#16a34a
 ```
 
-Both encoders end with a linear projection to the same embedding dimension (512 for CLIP-B/32, 1024 for CLIP-L/14). L2-normalise and compute cosine similarity.
+Cả hai encoder kết thúc bằng một phép chiếu tuyến tính tới cùng số chiều embedding (512 cho CLIP-B/32, 1024 cho CLIP-L/14). Chuẩn hóa L2 và tính độ tương đồng cosine.
 
 ### The objective
 
-Given a batch of N (image, caption) pairs, build an NxN similarity matrix. Train both encoders so the diagonal (matching pairs) has high similarity and off-diagonals (non-matching) have low similarity.
+Với một batch N cặp (hình ảnh, chú thích), xây một ma trận tương đồng NxN. Huấn luyện cả hai encoder để đường chéo (các cặp khớp) có tương đồng cao và ngoài đường chéo (không khớp) có tương đồng thấp.
 
 ```
 sim_matrix = image_embeddings @ text_embeddings.T / tau
@@ -52,41 +52,41 @@ loss_t2i = cross_entropy(sim_matrix.T,     targets=arange(N))
 loss = (loss_i2t + loss_t2i) / 2
 ```
 
-Symmetric because both image-to-text and text-to-image retrieval should work. `tau` (temperature) is typically learned as a scalar parameter, initialised to 0.07.
+Đối xứng vì cả truy xuất hình ảnh-sang-văn bản và văn bản-sang-hình ảnh đều nên hoạt động. `tau` (nhiệt độ) thường được học như một tham số vô hướng, khởi tạo 0.07.
 
 ### SigLIP: a better loss
 
-SigLIP (Zhai et al., 2023) replaced the softmax with per-pair sigmoid:
+SigLIP (Zhai et al., 2023) thay softmax bằng sigmoid từng cặp:
 
 ```
 loss = mean over pairs of log(1 + exp(-y_ij * sim_ij))
 y_ij = +1 if matching, -1 otherwise
 ```
 
-Per-pair loss removes the batch-level normalisation that CLIP requires. SigLIP trains better at small batch sizes and matches or exceeds CLIP at equal data.
+Mất mát từng cặp loại bỏ chuẩn hóa cấp batch mà CLIP cần. SigLIP huấn luyện tốt hơn ở kích thước batch nhỏ và ngang hoặc vượt CLIP với cùng dữ liệu.
 
 ### Zero-shot classification
 
-Given a trained CLIP:
+Với một CLIP đã huấn luyện:
 
-1. For each class, compose a prompt: "a photo of a {class}".
-2. Encode all class prompts with the text encoder -> `T` shape (C, d).
-3. Encode the test image -> `I` shape (1, d).
-4. Similarity = `I @ T.T` shape (1, C).
-5. Argmax -> predicted class.
+1. Với mỗi lớp, soạn một prompt: "một bức ảnh của một {class}".
+2. Mã hóa mọi prompt lớp bằng encoder văn bản -> `T` hình dạng (C, d).
+3. Mã hóa hình ảnh test -> `I` hình dạng (1, d).
+4. Độ tương đồng = `I @ T.T` hình dạng (1, C).
+5. Argmax -> lớp dự đoán.
 
-Prompt engineering matters. OpenAI published 80 prompt templates for ImageNet ("a photo of a {}", "a blurry photo of a {}", "a sketch of a {}", ...). Average the embeddings of all templates per class for an extra 1-3% top-1 accuracy.
+Kỹ thuật prompt quan trọng. OpenAI công bố 80 khuôn prompt cho ImageNet ("một bức ảnh của một {}", "một bức ảnh mờ của một {}", "một bản phác họa của một {}", ...). Lấy trung bình embedding của mọi khuôn mỗi lớp để thêm 1-3% accuracy top-1.
 
 ### Where CLIP-style models are used in 2026
 
-- **Zero-shot classification** — direct use.
-- **Image retrieval** — encode all images once, embed query at inference.
-- **Text-conditioned detection** — Grounding DINO, OWL-ViT wrap a CLIP text tower around a detector.
-- **Text-conditioned segmentation** — CLIPSeg; SAM uses text-prompt inputs via CLIP.
-- **VLMs** — LLaVA, Qwen-VL, InternVL wire a CLIP-family vision encoder into an LLM.
-- **Text-to-image gen** — Stable Diffusion, DALL-E 3 condition on CLIP text embeddings.
+- **Phân loại zero-shot** — sử dụng trực tiếp.
+- **Truy xuất hình ảnh** — mã hóa mọi hình ảnh một lần, embedding truy vấn khi suy luận.
+- **Phát hiện có điều kiện văn bản** — Grounding DINO, OWL-ViT bao bọc một tháp văn bản CLIP quanh bộ phát hiện.
+- **Phân đoạn có điều kiện văn bản** — CLIPSeg; SAM sử dụng đầu vào prompt văn bản qua CLIP.
+- **VLM** — LLaVA, Qwen-VL, InternVL nối một encoder thị giác họ CLIP vào một LLM.
+- **Sinh văn bản-sang-ảnh** — Stable Diffusion, DALL-E 3 điều kiện hóa trên các embedding văn bản CLIP.
 
-Once you have a shared embedding space, every vision+language task becomes a distance computation.
+Một khi có không gian embedding chung, mọi tác vụ thị giác+ngôn ngữ trở thành phép tính khoảng cách.
 
 ```figure
 clip-contrastive
@@ -96,7 +96,7 @@ clip-contrastive
 
 ### Step 1: A tiny two-tower model
 
-Real CLIP is ViT + transformer. For this lesson the towers are small MLPs over pre-extracted features so the training signal is visible on CPU.
+CLIP thật là ViT + transformer. Trong bài này các tháp là MLP nhỏ trên các đặc trưng được trích xuất trước để tín hiệu huấn luyện nhìn thấy trên CPU.
 
 ```python
 import torch
@@ -117,7 +117,7 @@ class TwoTower(nn.Module):
         return i, t, self.logit_scale.exp()
 ```
 
-Two projections, shared-dim output, learned temperature. Same shape as the real CLIP API.
+Hai phép chiếu, đầu ra cùng số chiều, nhiệt độ được học. Cùng hình dạng như API CLIP thật.
 
 ### Step 2: Contrastive loss
 
@@ -131,7 +131,7 @@ def clip_loss(image_emb, text_emb, logit_scale):
     return (l_i + l_t) / 2
 ```
 
-Symmetric. Higher logit_scale = sharper softmax = more confident but risk of instability.
+Đối xứng. logit_scale cao hơn = softmax sắc hơn = tự tin hơn nhưng nguy cơ mất ổn định.
 
 ### Step 3: Zero-shot classifier
 
@@ -149,7 +149,7 @@ def zero_shot_classify(model, image_feats, class_text_feats, class_names):
     return [class_names[p] for p in pred.tolist()]
 ```
 
-One line per step. This is the exact zero-shot procedure used with a production CLIP checkpoint.
+Một dòng mỗi bước. Đây là đúng quy trình zero-shot được dùng với checkpoint CLIP production.
 
 ### Step 4: Sanity check
 
@@ -164,11 +164,11 @@ loss = clip_loss(i, t, scale)
 print(f"batch size: {i.size(0)}   loss: {loss.item():.3f}")
 ```
 
-Loss should be close to `log(N) = log(8) = 2.08` for a randomly initialised model — the symmetric cross-entropy target when no structure is learned yet.
+Mất mát nên gần `log(N) = log(8) = 2.08` cho một mô hình khởi tạo ngẫu nhiên — mục tiêu cross-entropy đối xứng khi chưa học cấu trúc.
 
 ## Use It
 
-OpenCLIP is the community default in 2026:
+OpenCLIP là mặc định cộng đồng năm 2026:
 
 ```python
 import open_clip
@@ -191,37 +191,37 @@ with torch.no_grad():
 print(probs)
 ```
 
-SigLIP is newer, trains better at small scales, and is preferred for new work: `google/siglip-base-patch16-224`. Hugging Face ships both.
+SigLIP mới hơn, huấn luyện tốt hơn ở quy mô nhỏ và được ưu tiên cho công việc mới: `google/siglip-base-patch16-224`. Hugging Face cung cấp cả hai.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-zero-shot-class-picker.md` — a prompt that designs class templates for zero-shot CLIP given a list of classes and a domain.
-- `outputs/skill-image-text-retriever.md` — a skill that builds an image embedding index with any CLIP checkpoint, supports query-by-text and query-by-image.
+- `outputs/prompt-zero-shot-class-picker.md` — một prompt thiết kế các khuôn lớp cho CLIP zero-shot với danh sách lớp và lĩnh vực cho trước.
+- `outputs/skill-image-text-retriever.md` — một skill xây chỉ mục embedding hình ảnh với bất kỳ checkpoint CLIP nào, hỗ trợ truy vấn bằng văn bản và bằng hình ảnh.
 
 ## Exercises
 
-1. **(Easy)** Use a pretrained OpenCLIP ViT-B/32 and do zero-shot classification on CIFAR-10 with the 80-template prompt set. Report top-1 accuracy; it should be around 85-90%.
-2. **(Medium)** Compare single-template ("a photo of a {}") vs 80-template averaged embeddings on the same CIFAR-10 task. Quantify the gap and explain why templates help.
-3. **(Hard)** Build a zero-shot image retrieval index: embed 1,000 images with CLIP, build a FAISS index, query with a natural language description. Report retrieval recall@5 for 20 held-out queries you write by hand.
+1. **(Dễ)** Sử dụng OpenCLIP ViT-B/32 được tiền huấn luyện và phân loại zero-shot trên CIFAR-10 với bộ prompt 80 khuôn. Báo cáo accuracy top-1; nên khoảng 85-90%.
+2. **(Vừa)** So sánh một khuôn ("một bức ảnh của một {}") với embedding trung bình 80 khuôn trên cùng tác vụ CIFAR-10. Định lượng khoảng cách và giải thích tại sao các khuôn giúp ích.
+3. **(Khó)** Xây một chỉ mục truy xuất hình ảnh zero-shot: embedding 1,000 hình ảnh bằng CLIP, xây chỉ mục FAISS, truy vấn bằng mô tả ngôn ngữ tự nhiên. Báo cáo recall@5 truy xuất cho 20 truy vấn được giữ lại bạn tự viết.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Two-tower | "Dual encoder" | Separate image and text encoders ending in a shared-dim projection head |
-| Zero-shot | "No task-specific training" | Classify into classes described only by text at inference; no labels touched |
-| Temperature / logit_scale | "tau" | Learned scalar that scales the similarity matrix before softmax |
-| Prompt template | "A photo of a {}" | Natural-language wrapper around class names; averaging many templates boosts zero-shot accuracy |
-| CLIP | "Image+text model" | The 2021 OpenAI model; vocabulary of the field in 2026 |
-| SigLIP | "Sigmoid CLIP" | Swaps softmax for per-pair sigmoid; trains better at small batches |
-| OpenCLIP | "Open reproduction" | Community-trained CLIP variants on LAION; production default for open-source pipelines |
-| VLM | "Vision-language model" | A CLIP-family encoder plus an LLM, trained to answer questions about images |
+| Two-tower (Hai tháp) | "Encoder kép" | Các encoder hình ảnh và văn bản riêng kết thúc bằng một đầu chiếu cùng số chiều |
+| Zero-shot | "Không huấn luyện riêng tác vụ" | Phân loại vào các lớp chỉ được mô tả bằng văn bản khi suy luận; không chạm nhãn |
+| Temperature / logit_scale (Nhiệt độ / logit_scale) | "tau" | Số vô hướng được học co giãn ma trận tương đồng trước softmax |
+| Prompt template (Khuôn prompt) | "Một bức ảnh của một {}" | Phần bọc ngôn ngữ tự nhiên quanh tên lớp; lấy trung bình nhiều khuôn tăng accuracy zero-shot |
+| CLIP | "Mô hình hình ảnh+văn bản" | Mô hình OpenAI năm 2021; vốn từ vựng của lĩnh vực năm 2026 |
+| SigLIP | "CLIP sigmoid" | Đổi softmax thành sigmoid từng cặp; huấn luyện tốt hơn ở batch nhỏ |
+| OpenCLIP | "Tái tạo mở" | Các biến thể CLIP cộng đồng huấn luyện trên LAION; mặc định production cho các pipeline nguồn mở |
+| VLM | "Mô hình thị giác-ngôn ngữ" | Một encoder họ CLIP cộng LLM, được huấn luyện trả lời câu hỏi về hình ảnh |
 
 ## Further Reading
 
 - [CLIP: Learning Transferable Visual Models from Natural Language Supervision (Radford et al., 2021)](https://arxiv.org/abs/2103.00020)
 - [SigLIP: Sigmoid Loss for Language-Image Pre-Training (Zhai et al., 2023)](https://arxiv.org/abs/2303.15343)
-- [OpenCLIP](https://github.com/mlfoundations/open_clip) — the community codebase
-- [Oquab et al. (2023). DINOv2: Learning Robust Visual Features without Supervision](https://arxiv.org/abs/2304.07193) — the paper, with feature benchmarks against CLIP-style and MAE-style models
+- [OpenCLIP](https://github.com/mlfoundations/open_clip) — cơ sở mã cộng đồng
+- [Oquab et al. (2023). DINOv2: Learning Robust Visual Features without Supervision](https://arxiv.org/abs/2304.07193) — bài báo, với benchmark đặc trưng so với các mô hình kiểu CLIP và MAE
