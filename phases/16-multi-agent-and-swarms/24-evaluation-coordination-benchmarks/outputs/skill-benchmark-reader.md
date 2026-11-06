@@ -7,35 +7,35 @@ lesson: 24
 tags: [multi-agent, benchmarks, evaluation, SWE-bench, MARBLE]
 ---
 
-Given a published or internal claim of multi-agent benchmark performance, grade the claim and surface caveats.
+Với một tuyên bố được công bố hoặc nội bộ về hiệu năng benchmark đa agent, chấm tuyên bố và trình bày các lưu ý.
 
-Produce:
+Tạo ra:
 
-1. **Benchmark + split identification.** Which benchmark (MARBLE, COMMA, MedAgentBoard, AgentArch, SWE-bench Pro, SWE-bench Verified, custom)? Which split (full, held-out, contamination-cleaned)? Unknown splits are disqualifying.
-2. **Contamination status.** Is the benchmark post-training-cutoff for the model under test? If the benchmark predates the training cutoff, flag for contamination risk and discount the claim.
-3. **Baseline quality.** Vs single-LLM, vs random, vs prior multi-agent work. Vs untuned-same-system does not count; it is an ablation, not a baseline.
-4. **Statistical significance.** N trials, confidence interval or standard error, p-value or equivalent. Claims without statistics on N < 50 trials are under-supported.
-5. **Task diversity.** One task, one domain, or many? Single-task claims do not imply generalization.
-6. **Cost disclosure.** Tokens per task, wall-clock per task, dollar cost per task. A 90% solution at 20x cost is a business decision; without cost, the claim is incomplete.
-7. **Letter grade + one-sentence verdict.**
+1. **Nhận diện benchmark + phần chia.** Benchmark nào (MARBLE, COMMA, MedAgentBoard, AgentArch, SWE-bench Pro, SWE-bench Verified, tùy chỉnh)? Phần chia nào (đầy đủ, giữ riêng, làm sạch nhiễm bẩn)? Các phần chia chưa biết làm bị loại.
+2. **Tình trạng nhiễm bẩn.** Benchmark có sau mốc cắt huấn luyện cho mô hình đang kiểm thử không? Nếu benchmark có trước mốc cắt huấn luyện, gắn cờ rủi ro nhiễm bẩn và giảm giá trị tuyên bố.
+3. **Chất lượng đường cơ sở.** So với một LLM đơn lẻ, so với ngẫu nhiên, so với công trình đa agent trước. So với cùng hệ thống chưa điều chỉnh không tính; đó là một thí nghiệm loại bỏ, không phải một đường cơ sở.
+4. **Ý nghĩa thống kê.** N lần thử, khoảng tin cậy hoặc sai số chuẩn, giá trị p hoặc tương đương. Các tuyên bố không có thống kê trên N < 50 lần thử thiếu hỗ trợ.
+5. **Đa dạng tác vụ.** Một tác vụ, một lĩnh vực, hay nhiều? Các tuyên bố một tác vụ không ngụ ý khái quát hóa.
+6. **Tiết lộ chi phí.** Token theo từng tác vụ, thời gian thực theo từng tác vụ, chi phí đô la theo từng tác vụ. Một lời giải 90% ở chi phí 20x là một quyết định kinh doanh; không có chi phí, tuyên bố không đầy đủ.
+7. **Điểm chữ + kết luận một câu.**
 
-   - **A:** All six checks pass; the claim is likely robust.
-   - **B:** One weakness; the claim is plausible with noted caveats.
-   - **C:** Two weaknesses; the claim is suggestive but needs replication.
-   - **D:** Three or more weaknesses; the claim is not evidence.
-   - **F:** Disqualifying issue (contamination on undisclosed split, no statistics, no baseline).
+   - **A:** Cả sáu kiểm tra đạt; tuyên bố có khả năng vững chắc.
+   - **B:** Một điểm yếu; tuyên bố hợp lý với các lưu ý được ghi nhận.
+   - **C:** Hai điểm yếu; tuyên bố mang tính gợi ý nhưng cần tái lập.
+   - **D:** Ba điểm yếu trở lên; tuyên bố không phải bằng chứng.
+   - **F:** Vấn đề làm bị loại (nhiễm bẩn trên phần chia không tiết lộ, không thống kê, không đường cơ sở).
 
-Hard rejects:
+Các trường hợp loại bỏ dứt khoát:
 
-- Claims citing "SWE-bench" without specifying Verified vs Pro. The 40+ point gap makes this ambiguous reporting unacceptable.
-- Claims without baseline comparison. "Our system does X%" is a number, not a result.
-- Claims based on fewer than 20 trials for multi-agent systems. Variance is too high.
-- Cost-unreported claims for multi-agent systems. The coordination tax is material.
+- Các tuyên bố viện dẫn “SWE-bench” mà không chỉ rõ Verified so với Pro. Khoảng cách 40+ điểm khiến báo cáo mơ hồ này không thể chấp nhận.
+- Các tuyên bố không có so sánh đường cơ sở. “Hệ thống của chúng tôi làm X%” là một con số, không phải một kết quả.
+- Các tuyên bố dựa trên ít hơn 20 lần thử cho các hệ thống đa agent. Phương sai quá cao.
+- Các tuyên bố không báo cáo chi phí cho các hệ thống đa agent. Thuế phối hợp đáng kể.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the benchmark is not publicly available and the user has no internal audit trail, grade cannot be assigned. Recommend releasing evaluation artifacts.
-- If the claim is from a paper currently under peer review (arXiv preprint, unsubmitted), downgrade one letter grade as precaution until replication.
-- If the user is the claimant themselves asking for an audit, run the audit straight; flag when the claim is not yet ready for publication.
+- Nếu benchmark không có sẵn công khai và người dùng không có dấu vết kiểm toán nội bộ, không thể gán điểm. Đề xuất phát hành các hiện vật đánh giá.
+- Nếu tuyên bố từ một bài báo hiện đang bình duyệt (bản tiền ấn phẩm arXiv, chưa nộp), hạ một điểm chữ như biện pháp thận trọng cho đến khi tái lập.
+- Nếu người dùng chính là bên tuyên bố yêu cầu kiểm toán, chạy kiểm toán thẳng; gắn cờ khi tuyên bố chưa sẵn sàng công bố.
 
-Output: a one-page grade card. Start with a one-sentence summary ("Grade: C — good benchmark choice, adequate baselines, but no contamination check and no cost disclosure."), then the seven sections above. End with a prioritized list of "what to fix to raise the grade."
+Đầu ra: một thẻ điểm một trang. Bắt đầu với một tóm tắt một câu (“Điểm: C — lựa chọn benchmark tốt, các đường cơ sở đầy đủ, nhưng không kiểm tra nhiễm bẩn và không tiết lộ chi phí.”), rồi bảy phần ở trên. Kết thúc bằng một danh sách theo ưu tiên về “cần sửa gì để nâng điểm.”
