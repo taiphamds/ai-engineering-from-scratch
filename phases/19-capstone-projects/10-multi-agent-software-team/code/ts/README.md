@@ -1,19 +1,19 @@
 # Multi-agent software team (TypeScript skeleton)
 
-Multi-file TypeScript skeleton for the multi-agent software team capstone.
-Planner, coder, and reviewer agents share a workspace and rotate through a
-coordinator. A worktree stub launches child processes via execFile with a
-denylist and a shell-metachar refusal.
+Bộ khung TypeScript nhiều file cho bài tổng kết nhóm phần mềm đa agent.
+Các agent lập kế hoạch, lập trình, và rà soát dùng chung một không gian làm việc và luân phiên qua một
+bộ điều phối. Một stub worktree khởi chạy các tiến trình con qua execFile với một
+danh sách cấm và cơ chế từ chối siêu ký tự shell.
 
 ## Layout
 
-- `src/index.ts` — demo runner.
-- `src/agent.ts` — base `Agent` class plus `PlannerAgent`, `CoderAgent`, `ReviewerAgent`.
-- `src/coordinator.ts` — round-robin loop and rotation tracking.
-- `src/workspace.ts` — shared in-memory filesystem and message log.
-- `src/runtime.ts` — `child_process.execFile` worktree stub with denylist.
-- `src/types.ts` — shared types.
-- `tests/*.test.ts` — `node --test` style tests via `tsx`.
+- `src/index.ts` — trình chạy demo.
+- `src/agent.ts` — lớp `Agent` cơ sở cùng `PlannerAgent`, `CoderAgent`, `ReviewerAgent`.
+- `src/coordinator.ts` — vòng lặp luân phiên và theo dõi luân chuyển.
+- `src/workspace.ts` — hệ thống file trong bộ nhớ dùng chung và nhật ký thông điệp.
+- `src/runtime.ts` — stub worktree `child_process.execFile` với danh sách cấm.
+- `src/types.ts` — các kiểu dùng chung.
+- `tests/*.test.ts` — kiểm thử kiểu `node --test` qua `tsx`.
 
 ## Install
 
@@ -36,5 +36,5 @@ npm test
 
 ## Spec references
 
-- Source lesson: `phases/19-capstone-projects/10-multi-agent-software-team/docs/en.md`
-- [MetaGPT](https://github.com/FoundationAgents/MetaGPT) role-based multi-agent framework.
+- Bài học nguồn: `phases/19-capstone-projects/10-multi-agent-software-team/docs/en.md`
+- [MetaGPT](https://github.com/FoundationAgents/MetaGPT) framework đa agent theo vai trò.
