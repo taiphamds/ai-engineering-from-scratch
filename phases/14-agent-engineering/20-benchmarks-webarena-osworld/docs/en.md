@@ -1,6 +1,6 @@
 # Benchmarks: WebArena and OSWorld
 
-> WebArena tests web-agent capability across four self-hosted apps. OSWorld tests desktop-agent capability across Ubuntu, Windows, macOS. At release (2023–2024) both showed a big gap between best-in-class agents and humans. The gap is narrowing; the failure modes haven't changed.
+> WebArena kiểm thử khả năng agent web xuyên bốn ứng dụng tự host. OSWorld kiểm thử khả năng agent máy tính để bàn xuyên Ubuntu, Windows, macOS. Khi phát hành (2023–2024), cả hai cho thấy một khoảng cách lớn giữa các agent tốt nhất và con người. Khoảng cách đang thu hẹp; các chế độ lỗi chưa thay đổi.
 
 **Type:** Learn
 **Languages:** Python (stdlib)
@@ -9,57 +9,57 @@
 
 ## Learning Objectives
 
-- Describe WebArena's four self-hosted apps and why execution-based evaluation matters.
-- Explain why OSWorld uses real OS screenshots instead of accessibility APIs.
-- Name the two primary OSWorld failure modes: GUI grounding and operational knowledge.
-- Summarize what OSWorld-G and OSWorld-Human add on top of the base benchmark.
+- Mô tả bốn ứng dụng tự host của WebArena và vì sao đánh giá dựa trên thực thi quan trọng.
+- Giải thích vì sao OSWorld sử dụng ảnh chụp màn hình hệ điều hành thực thay vì các API trợ năng.
+- Nêu tên hai chế độ lỗi OSWorld chính: định vị GUI và kiến thức vận hành.
+- Tóm tắt những gì OSWorld-G và OSWorld-Human thêm vào trên benchmark cơ sở.
 
 ## The Problem
 
-Generalist agents can call tools. Can they drive a browser across 20 clicks to complete a shopping checkout? Can they configure a Linux box using only keyboard and mouse? These are the questions WebArena and OSWorld answer.
+Các agent tổng quát có thể gọi công cụ. Chúng có thể điều khiển một trình duyệt qua 20 lần nhấp để hoàn thành thanh toán mua sắm không? Chúng có thể cấu hình một máy Linux chỉ bằng bàn phím và chuột không? Đây là những câu hỏi mà WebArena và OSWorld trả lời.
 
 ## The Concept
 
 ### WebArena (Zhou et al., ICLR 2024)
 
-- 812 long-horizon tasks across four self-hosted web apps: a shopping site, a forum, a GitLab-like dev tool, a business CMS.
-- Plus utilities: map, calculator, scratchpad.
-- Evaluation is execution-based via gym APIs — was the order placed, was the issue closed, was the CMS page updated?
-- At release: best GPT-4 agent hit 14.41% success vs human 78.24%.
+- 812 tác vụ tầm dài xuyên bốn ứng dụng web tự host: một trang mua sắm, một diễn đàn, một công cụ phát triển giống GitLab, một CMS doanh nghiệp.
+- Cộng các tiện ích: bản đồ, máy tính, bảng nháp.
+- Đánh giá dựa trên thực thi qua các API gym — đơn hàng đã được đặt chưa, issue đã được đóng chưa, trang CMS đã được cập nhật chưa?
+- Khi phát hành: agent GPT-4 tốt nhất đạt thành công 14.41% so với con người 78.24%.
 
-The self-hosted framing matters — the benchmark is not flaky because the target apps are pinned and reproducible.
+Cách định khung tự host quan trọng — benchmark không chập chờn vì các ứng dụng đích được ghim và có thể tái tạo.
 
 ### Extensions
 
-- **VisualWebArena** — visually grounded tasks where success depends on interpreting images (screenshots as first-class observations).
-- **TheAgentCompany** (Dec 2024) — adds terminal + coding; more like a real remote-work environment.
+- **VisualWebArena** — các tác vụ dựa trên thị giác nơi thành công phụ thuộc việc diễn giải hình ảnh (ảnh chụp màn hình như các quan sát hạng nhất).
+- **TheAgentCompany** (tháng 12 năm 2024) — thêm terminal + lập trình; giống một môi trường làm việc từ xa thực hơn.
 
 ### OSWorld (Xie et al., NeurIPS 2024)
 
-- 369 real computer tasks across Ubuntu, Windows, macOS.
-- Free-form keyboard and mouse control of real applications.
-- 1920×1080 screenshots as the observation.
-- At release: best model 12.24% vs human 72.36%.
+- 369 tác vụ máy tính thực xuyên Ubuntu, Windows, macOS.
+- Điều khiển bàn phím và chuột tự do đối với các ứng dụng thực.
+- Ảnh chụp màn hình 1920×1080 làm quan sát.
+- Khi phát hành: mô hình tốt nhất 12.24% so với con người 72.36%.
 
 ### Primary failure modes
 
-1. **GUI grounding.** Pixel → element mapping. Models struggle to localize UI elements reliably in 1920×1080.
-2. **Operational knowledge.** Which menu has the setting, which keyboard shortcut, which preference pane. Knowledge tail that humans build over years.
+1. **Định vị GUI.** Ánh xạ pixel → phần tử. Các mô hình gặp khó khăn khi định vị các phần tử UI đáng tin cậy trong 1920×1080.
+2. **Kiến thức vận hành.** Menu nào có thiết lập, phím tắt nào, ngăn tùy chọn nào. Phần đuôi tri thức mà con người xây dựng qua nhiều năm.
 
 ### Follow-ups
 
-- **OSWorld-G** — 564-sample grounding suite + Jedi training set. Decomposes grounding from planning so you can measure them separately.
-- **OSWorld-Human** — manually curated gold action trajectories. Shows top agents use 1.4-2.7x more steps than necessary (the trajectory-efficiency gap).
+- **OSWorld-G** — bộ định vị 564 mẫu + tập huấn luyện Jedi. Tách định vị khỏi lập kế hoạch để bạn có thể đo chúng riêng biệt.
+- **OSWorld-Human** — các quỹ đạo hành động chuẩn được tuyển chọn thủ công. Cho thấy các agent hàng đầu sử dụng số bước gấp 1.4-2.7 lần cần thiết (khoảng cách hiệu quả quỹ đạo).
 
 ### Why this matters
 
-Claude computer use, OpenAI CUA, Gemini 2.5 Computer Use (Lesson 21) all train on workloads shaped by WebArena and OSWorld. The benchmarks are the target; the production models are the shipped answer.
+Claude computer use, OpenAI CUA, Gemini 2.5 Computer Use (Bài 21) đều huấn luyện trên các khối lượng công việc được định hình bởi WebArena và OSWorld. Các benchmark là mục tiêu; các mô hình sản xuất là câu trả lời được phát hành.
 
 ### Where benchmarking goes wrong
 
-- **Screenshot-only evals.** OSWorld is screenshot-driven; evaluating an agent that uses DOM or accessibility APIs on OSWorld misses the grounding challenge.
-- **Ignoring trajectory length.** Scoring only success-rate misses the 1.4-2.7x step inefficiency OSWorld-Human surfaces.
-- **Stale self-hosted apps.** WebArena's apps pin specific versions; update without re-curation breaks comparability.
+- **Các đánh giá chỉ ảnh chụp màn hình.** OSWorld do ảnh chụp màn hình dẫn dắt; đánh giá một agent sử dụng DOM hoặc API trợ năng trên OSWorld bỏ lỡ thách thức định vị.
+- **Bỏ qua độ dài quỹ đạo.** Chỉ chấm điểm tỷ lệ thành công bỏ lỡ sự kém hiệu quả số bước 1.4-2.7 lần mà OSWorld-Human phơi bày.
+- **Các ứng dụng tự host cũ.** Các ứng dụng của WebArena ghim các phiên bản cụ thể; cập nhật mà không tuyển chọn lại phá vỡ tính so sánh.
 
 ```figure
 ae-agent-human-gap
@@ -67,56 +67,56 @@ ae-agent-human-gap
 
 ## Build It
 
-`code/main.py` implements a toy web-agent harness:
+`code/main.py` triển khai một bộ kiểm thử agent web mô phỏng:
 
-- A minimal "shopping app" state machine: list_items, add_to_cart, checkout.
-- Gold trajectories for 3 tasks.
-- A scripted agent that attempts each task.
-- Execution-based evaluator (state check) and trajectory-efficiency metric (steps vs gold).
+- Một máy trạng thái "ứng dụng mua sắm" tối thiểu: list_items, add_to_cart, checkout.
+- Các quỹ đạo chuẩn cho 3 tác vụ.
+- Một agent được viết kịch bản thử từng tác vụ.
+- Bộ đánh giá dựa trên thực thi (kiểm tra trạng thái) và thước đo hiệu quả quỹ đạo (số bước so với chuẩn).
 
-Run it:
+Chạy nó:
 
 ```
 python3 code/main.py
 ```
 
-Output: per-task success rate and trajectory efficiency, mirroring OSWorld-Human's methodology.
+Đầu ra: tỷ lệ thành công và hiệu quả quỹ đạo cho từng tác vụ, phản chiếu phương pháp của OSWorld-Human.
 
 ## Use It
 
-- **WebArena Verified** self-hosted on an internal cluster for continuous evaluation.
-- **OSWorld** in a VM fleet for desktop agents.
-- **Computer-use agents** (Lesson 21) — Claude, OpenAI CUA, Gemini — all trained on workloads like these.
-- **Your own product flows** — capture gold trajectories for your top 20 tasks; run agents against them weekly.
+- **WebArena Verified** tự host trên một cụm nội bộ để đánh giá liên tục.
+- **OSWorld** trong một nhóm VM cho các agent máy tính để bàn.
+- **Các agent sử dụng máy tính** (Bài 21) — Claude, OpenAI CUA, Gemini — tất cả được huấn luyện trên các khối lượng công việc như thế này.
+- **Các luồng sản phẩm riêng của bạn** — ghi lại các quỹ đạo chuẩn cho 20 tác vụ hàng đầu của bạn; chạy các agent đối với chúng hàng tuần.
 
 ## Ship It
 
-`outputs/skill-web-desktop-harness.md` builds a web/desktop agent harness with execution-based eval and trajectory efficiency metric.
+`outputs/skill-web-desktop-harness.md` xây dựng một bộ kiểm thử agent web/máy tính để bàn với đánh giá dựa trên thực thi và thước đo hiệu quả quỹ đạo.
 
 ## Exercises
 
-1. Extend the toy harness with a second app (a forum). Write 3 tasks plus gold trajectories.
-2. Add trajectory-efficiency reporting per task. On your toy, is the agent 1x, 2x, or 3x over gold?
-3. Implement a "distractor" tool — one the gold trajectory never uses. Does the scripted agent get tempted?
-4. Read OSWorld-G. How would you separate grounding failures from planning failures in your own evals?
-5. Read WebArena's apps README. What breaks when you upgrade one of the pinned app versions?
+1. Mở rộng bộ kiểm thử mô phỏng bằng một ứng dụng thứ hai (một diễn đàn). Viết 3 tác vụ cộng các quỹ đạo chuẩn.
+2. Thêm báo cáo hiệu quả quỹ đạo cho từng tác vụ. Trên bản mô phỏng của bạn, agent gấp 1 lần, 2 lần hay 3 lần chuẩn?
+3. Triển khai một công cụ "gây nhiễu" — một công cụ mà quỹ đạo chuẩn không bao giờ sử dụng. Agent được viết kịch bản có bị cám dỗ không?
+4. Đọc OSWorld-G. Bạn sẽ tách các lỗi định vị khỏi các lỗi lập kế hoạch trong các đánh giá riêng như thế nào?
+5. Đọc README các ứng dụng của WebArena. Điều gì hỏng khi bạn nâng cấp một trong các phiên bản ứng dụng được ghim?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |------|----------------|------------------------|
-| WebArena | "Web agent benchmark" | 812 tasks across 4 self-hosted apps; gym-style evaluation |
-| VisualWebArena | "Visual WebArena" | Visually grounded WebArena; screenshots are observations |
-| OSWorld | "Desktop agent benchmark" | 369 tasks on real Ubuntu/Windows/macOS |
-| GUI grounding | "Pixel-to-element mapping" | Model localizing UI elements in 1920x1080 |
-| Operational knowledge | "OS know-how" | Which menu, which shortcut, which preference pane |
-| OSWorld-G | "Grounding suite" | 564 grounding-only samples + training set |
-| OSWorld-Human | "Gold trajectories" | Manual expert action sequences to measure efficiency |
-| Trajectory efficiency | "Steps over gold" | Agent step count divided by human minimum |
+| WebArena | "Benchmark agent web" | 812 tác vụ xuyên 4 ứng dụng tự host; đánh giá kiểu gym |
+| VisualWebArena | "WebArena thị giác" | WebArena dựa trên thị giác; các ảnh chụp màn hình là các quan sát |
+| OSWorld | "Benchmark agent máy tính để bàn" | 369 tác vụ trên Ubuntu/Windows/macOS thực |
+| GUI grounding (Định vị GUI) | "Ánh xạ pixel sang phần tử" | Mô hình định vị các phần tử UI trong 1920x1080 |
+| Operational knowledge (Kiến thức vận hành) | "Bí quyết hệ điều hành" | Menu nào, phím tắt nào, ngăn tùy chọn nào |
+| OSWorld-G | "Bộ định vị" | 564 mẫu chỉ định vị + tập huấn luyện |
+| OSWorld-Human | "Các quỹ đạo chuẩn" | Các chuỗi hành động chuyên gia thủ công để đo hiệu quả |
+| Trajectory efficiency (Hiệu quả quỹ đạo) | "Số bước trên chuẩn" | Số bước agent chia cho số tối thiểu của con người |
 
 ## Further Reading
 
-- [Zhou et al., WebArena (arXiv:2307.13854)](https://arxiv.org/abs/2307.13854) — four-app web benchmark
-- [Xie et al., OSWorld (arXiv:2404.07972)](https://arxiv.org/abs/2404.07972) — cross-OS desktop benchmark
-- [Anthropic, Introducing computer use](https://www.anthropic.com/news/3-5-models-and-computer-use) — Claude's benchmark-shaped capability
-- [OpenAI, Computer-Using Agent](https://openai.com/index/computer-using-agent/) — OSWorld and WebArena numbers
+- [Zhou et al., WebArena (arXiv:2307.13854)](https://arxiv.org/abs/2307.13854) — benchmark web bốn ứng dụng
+- [Xie et al., OSWorld (arXiv:2404.07972)](https://arxiv.org/abs/2404.07972) — benchmark máy tính để bàn xuyên hệ điều hành
+- [Anthropic, Introducing computer use](https://www.anthropic.com/news/3-5-models-and-computer-use) — khả năng của Claude được định hình bởi benchmark
+- [OpenAI, Computer-Using Agent](https://openai.com/index/computer-using-agent/) — các số liệu OSWorld và WebArena

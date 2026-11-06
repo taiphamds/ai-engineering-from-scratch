@@ -7,26 +7,26 @@ lesson: 20
 tags: [webarena, osworld, harness, trajectory-efficiency]
 ---
 
-Given a target app (web or desktop) and a list of tasks with gold trajectories, build an eval harness.
+Với một ứng dụng đích (web hoặc máy tính để bàn) và một danh sách tác vụ với các quỹ đạo chuẩn, xây dựng một bộ đánh giá.
 
-Produce:
+Tạo:
 
-1. Task definitions: `(tid, description, gold_steps, success_predicate, state_reset)`.
-2. Runner: runs the agent, captures every action, records step count + elapsed time + success state.
-3. Trajectory-efficiency metric: `agent_steps / gold_steps`. Report per-task and aggregate.
-4. State reset between tasks — never run one task on state dirtied by another.
-5. Failure-mode classifier: for each failure, tag whether it's a grounding miss (wrong element) or a planning miss (wrong action).
+1. Các định nghĩa tác vụ: `(tid, description, gold_steps, success_predicate, state_reset)`.
+2. Trình chạy: chạy agent, ghi lại mọi hành động, ghi số bước + thời gian đã trôi qua + trạng thái thành công.
+3. Thước đo hiệu quả quỹ đạo: `agent_steps / gold_steps`. Báo cáo cho từng tác vụ và tổng hợp.
+4. Đặt lại trạng thái giữa các tác vụ — không bao giờ chạy một tác vụ trên trạng thái bị một tác vụ khác làm bẩn.
+5. Bộ phân loại chế độ lỗi: với mỗi lỗi, gắn thẻ liệu nó là một lần định vị sai (sai phần tử) hay một lần lập kế hoạch sai (sai hành động).
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- No state reset between tasks. Cross-task contamination invalidates all scores.
-- Success-rate-only reporting. Trajectory efficiency is the 2026 standard.
-- Screenshots-only harness without DOM parity. Some agents use DOM+vision; give both unless specifically constraining the surface.
+- Không đặt lại trạng thái giữa các tác vụ. Nhiễm bẩn xuyên tác vụ làm mất hiệu lực mọi điểm số.
+- Báo cáo chỉ tỷ lệ thành công. Hiệu quả quỹ đạo là tiêu chuẩn năm 2026.
+- Bộ kiểm thử chỉ ảnh chụp màn hình mà không có tính tương đương DOM. Một số agent sử dụng DOM+thị giác; cung cấp cả hai trừ khi giới hạn bề mặt cụ thể.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the tasks have no gold trajectories, refuse. You cannot measure efficiency without them.
-- If the app is not pinned to a specific version, refuse. Drift invalidates cross-run comparisons.
-- If the agent has destructive tools (delete, publish), require a sandbox copy of the app.
+- Nếu các tác vụ không có các quỹ đạo chuẩn, từ chối. Bạn không thể đo hiệu quả mà không có chúng.
+- Nếu ứng dụng không được ghim vào một phiên bản cụ thể, từ chối. Trôi dạt làm mất hiệu lực các so sánh xuyên lần chạy.
+- Nếu agent có các công cụ phá hủy (xóa, xuất bản), yêu cầu một bản sao sandbox của ứng dụng.
 
-Output: `tasks.py`, `runner.py`, `failure_classifier.py`, `report.py`, `README.md` explaining reset policy, gold-trajectory sourcing, and the grounding-vs-planning split. End with "what to read next" pointing to Lesson 21 (computer use models) or Lesson 30 (eval-driven development).
+Đầu ra: `tasks.py`, `runner.py`, `failure_classifier.py`, `report.py`, `README.md` giải thích chính sách đặt lại, nguồn các quỹ đạo chuẩn và sự phân tách định vị với lập kế hoạch. Kết thúc bằng "đọc gì tiếp theo" chỉ đến Bài 21 (các mô hình sử dụng máy tính) hoặc Bài 30 (phát triển dựa trên đánh giá).
