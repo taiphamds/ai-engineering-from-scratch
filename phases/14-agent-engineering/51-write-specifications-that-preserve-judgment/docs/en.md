@@ -1,6 +1,6 @@
 # Write Specifications That Preserve Judgment
 
-> A useful specification fixes invariants and evidence while leaving reversible implementation choices open. It is a decision boundary, not a screenplay.
+> Một đặc tả hữu ích cố định các bất biến và bằng chứng trong khi để mở các lựa chọn triển khai có thể đảo ngược. Đó là một ranh giới quyết định, không phải một kịch bản.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,31 +9,31 @@
 
 ## Learning Objectives
 
-- Separate outcome, invariants, examples, non-goals, and proof.
-- Mark decisions as locked, bounded, or delegated.
-- Preserve agent judgment where choices are cheap and reversible.
-- Require human checkpoints where consequence or public behavior changes.
+- Tách biệt kết quả, các bất biến, ví dụ, mục tiêu loại trừ và chứng minh.
+- Đánh dấu các quyết định là bị khóa, có giới hạn hoặc được ủy nhiệm.
+- Giữ phán đoán agent ở nơi các lựa chọn rẻ và có thể đảo ngược.
+- Yêu cầu các checkpoint con người ở nơi hệ quả hoặc hành vi công khai thay đổi.
 
 ## Two Bad Extremes
 
-An underspecified task asks an agent to guess the system. An overspecified task asks it to transcribe a design that may already be wrong.
+Một tác vụ thiếu đặc tả yêu cầu một agent đoán hệ thống. Một tác vụ quá đặc tả yêu cầu nó chép lại một thiết kế có thể đã sai.
 
-The useful middle is an executable contract:
+Khoảng giữa hữu ích là một hợp đồng thực thi được:
 
-| Surface | Purpose |
+| Bề mặt | Mục đích |
 |---|---|
-| Outcome | The observable result |
-| Invariants | Conditions that must always remain true |
-| Examples | Concrete cases that reveal intent |
-| Non-goals | Adjacent behavior intentionally excluded |
-| Decision policy | Which choices are locked, bounded, or delegated |
-| Proof | Evidence required before completion |
+| Kết quả | Kết quả có thể quan sát |
+| Các bất biến | Các điều kiện phải luôn đúng |
+| Các ví dụ | Các trường hợp cụ thể tiết lộ ý định |
+| Các mục tiêu loại trừ | Hành vi liền kề được loại trừ có chủ ý |
+| Chính sách quyết định | Những lựa chọn nào bị khóa, có giới hạn hoặc được ủy nhiệm |
+| Chứng minh | Bằng chứng bắt buộc trước khi hoàn thành |
 
 ## Three Decision Modes
 
-- **Locked:** the agent must not choose. Use for public compatibility, authority, safety, irreversible cost, or a product commitment.
-- **Bounded:** the agent may choose inside explicit limits. Use for search budgets, retry counts, allowed dependencies, or a known interface family.
-- **Delegated:** the agent owns the choice and must explain it. Use for local structure, names, reversible refactors, and implementation details.
+- **Bị khóa:** agent không được chọn. Sử dụng cho tương thích công khai, thẩm quyền, an toàn, chi phí không thể đảo ngược hoặc một cam kết sản phẩm.
+- **Có giới hạn:** agent có thể chọn trong các giới hạn tường minh. Sử dụng cho các ngân sách tìm kiếm, số lần thử lại, các phụ thuộc được phép hoặc một họ giao diện đã biết.
+- **Được ủy nhiệm:** agent sở hữu lựa chọn và phải giải thích nó. Sử dụng cho cấu trúc cục bộ, tên, các tái cấu trúc có thể đảo ngược và các chi tiết triển khai.
 
 ```mermaid
 flowchart LR
@@ -48,51 +48,51 @@ flowchart LR
 
 ## Specify Behavior Through Examples
 
-Examples compress intent better than adjectives. “Helpful,” “robust,” and “production-ready” are not executable. A small set of normal, edge, failure, and forbidden examples gives both the builder and verifier something concrete.
+Các ví dụ nén ý định tốt hơn các tính từ. “Hữu ích,” “vững chắc” và “sẵn sàng cho sản xuất” không thể thực thi. Một tập nhỏ các ví dụ bình thường, biên, thất bại và bị cấm cho cả bên xây dựng và bộ xác minh thứ gì đó cụ thể.
 
-Examples do not replace invariants. One passing case cannot prove a universal safety rule.
+Các ví dụ không thay thế các bất biến. Một trường hợp đạt không thể chứng minh một quy tắc an toàn phổ quát.
 
 ## Proof Must Match the Claim
 
-- A unit test proves a local function contract.
-- A wire test proves serialization and transport behavior.
-- A browser journey proves an interface path.
-- A replay set proves behavior over representative cases.
-- An audit log proves that authority boundaries held.
+- Một kiểm thử đơn vị chứng minh một hợp đồng hàm cục bộ.
+- Một kiểm thử dữ liệu truyền chứng minh hành vi tuần tự hóa và truyền tải.
+- Một hành trình trình duyệt chứng minh một đường giao diện.
+- Một tập phát lại chứng minh hành vi trên các trường hợp đại diện.
+- Một log kiểm toán chứng minh các ranh giới thẩm quyền được giữ.
 
-Do not accept a lower layer as proof of a higher-layer claim.
+Đừng chấp nhận một lớp thấp hơn làm chứng minh cho một khẳng định lớp cao hơn.
 
 ## Preserve Unknowns Deliberately
 
-A specification can say “the implementation may choose any read-only source that returns within the time budget.” That is not vagueness. It is an intentional delegated decision with a boundary and proof.
+Một đặc tả có thể nói “triển khai có thể chọn bất kỳ nguồn chỉ đọc nào trả về trong ngân sách thời gian.” Đó không phải sự mơ hồ. Đó là một quyết định được ủy nhiệm có chủ ý với một ranh giới và chứng minh.
 
-Specifications should evolve when evidence changes. Preserve the reason behind locked and bounded choices so later teams can revise them without archaeology.
+Các đặc tả nên tiến hóa khi bằng chứng thay đổi. Giữ lý do đằng sau các lựa chọn bị khóa và có giới hạn để các nhóm sau có thể chỉnh sửa chúng mà không phải khảo cổ.
 
 ## Build It
 
-The lab validates every contract surface, checks decision modes, and writes `outputs/executable-specification.json`.
+Bài thực hành xác thực mọi bề mặt hợp đồng, kiểm tra các chế độ quyết định và ghi `outputs/executable-specification.json`.
 
 ```bash
 python3 code/main.py
 python3 -m unittest discover code/tests -v
 ```
 
-Move the production-write decision from locked to delegated. Explain why the schema accepts the value but the product risk does not.
+Chuyển quyết định ghi sản xuất từ bị khóa sang được ủy nhiệm. Giải thích vì sao schema chấp nhận giá trị nhưng rủi ro sản phẩm thì không.
 
 ## Exercises
 
-1. Convert a backlog ticket into the six specification surfaces.
-2. Replace three implementation instructions with one invariant and two examples.
-3. Mark every decision and justify each locked or bounded choice.
-4. Add a proof receipt for every invariant.
-5. Remove a constraint that has no evidence or risk rationale.
+1. Chuyển một phiếu backlog thành sáu bề mặt đặc tả.
+2. Thay ba chỉ dẫn triển khai bằng một bất biến và hai ví dụ.
+3. Đánh dấu mọi quyết định và biện minh mỗi lựa chọn bị khóa hoặc có giới hạn.
+4. Thêm một bằng chứng chứng minh cho mỗi bất biến.
+5. Loại bỏ một ràng buộc không có bằng chứng hoặc lý do rủi ro.
 
 ## Further Reading
 
-- [Nuseibeh and Easterbrook, Requirements Engineering: A Roadmap](https://www.cs.toronto.edu/~sme/papers/2000/ICSE2000.pdf), for the relationship among goals, precise specifications, validation, agreement, and evolution.
-- [Zave and Jackson, Four Dark Corners of Requirements Engineering](https://doi.org/10.1145/237432.237434), for separating environmental assumptions, requirements, and specifications.
-- [Gotel and Finkelstein, An Analysis of the Requirements Traceability Problem](https://doi.org/10.1109/ICRE.1994.292398), for preserving why a requirement exists and where it came from.
+- [Nuseibeh and Easterbrook, Requirements Engineering: A Roadmap](https://www.cs.toronto.edu/~sme/papers/2000/ICSE2000.pdf), cho mối quan hệ giữa các mục tiêu, đặc tả chính xác, xác thực, đồng thuận và tiến hóa.
+- [Zave and Jackson, Four Dark Corners of Requirements Engineering](https://doi.org/10.1145/237432.237434), để tách biệt các giả định môi trường, yêu cầu và đặc tả.
+- [Gotel and Finkelstein, An Analysis of the Requirements Traceability Problem](https://doi.org/10.1109/ICRE.1994.292398), để giữ vì sao một yêu cầu tồn tại và nó đến từ đâu.
 
 ## What You Keep
 
-Keep `outputs/executable-specification.json`. It becomes the contract that coding agents and human reviewers share.
+Giữ `outputs/executable-specification.json`. Nó trở thành hợp đồng mà các agent lập trình và bên đánh giá con người chia sẻ.
