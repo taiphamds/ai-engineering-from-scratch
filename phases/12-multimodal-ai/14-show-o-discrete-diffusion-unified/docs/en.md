@@ -1,6 +1,6 @@
 # Show-o and Discrete-Diffusion Unified Models
 
-> Transfusion mixes continuous and discrete representations. Show-o (Xie et al., August 2024) goes the other way: text tokens use causal next-token prediction, image tokens use masked discrete diffusion in the spirit of MaskGIT. Both sit inside one transformer with a hybrid attention mask. The result unifies VQA, text-to-image, inpainting, and mixed-modality generation on one backbone, one tokenizer per modality, one loss formulation (next-token extended to masked prediction). This lesson walks the Show-o design — why masked discrete diffusion is a parallel, few-step image generator — and contrasts with Transfusion and Emu3.
+> Transfusion kết hợp biểu diễn liên tục và rời rạc. Show-o (Xie và cộng sự, tháng 8 năm 2024) đi theo hướng khác: token văn bản sử dụng dự đoán token tiếp theo nhân quả, token ảnh sử dụng khuếch tán rời rạc có mặt nạ theo tinh thần MaskGIT. Cả hai nằm trong một transformer với mặt nạ attention lai. Kết quả thống nhất VQA, văn bản thành ảnh, điền khuyết ảnh và tạo sinh hỗn hợp phương thức trên một backbone, một tokenizer cho mỗi phương thức, một dạng hàm mất mát (token tiếp theo được mở rộng sang dự đoán có mặt nạ). Bài học này đi qua thiết kế Show-o — tại sao khuếch tán rời rạc có mặt nạ là bộ tạo ảnh song song, ít bước — và đối chiếu với Transfusion và Emu3.
 
 **Type:** Learn
 **Languages:** Python (stdlib, masked-discrete-diffusion sampler)
@@ -9,86 +9,86 @@
 
 ## Learning Objectives
 
-- Explain masked discrete diffusion: the schedule that masks tokens uniformly then asks the transformer to recover them.
-- Compare parallel image decoding (Show-o, MaskGIT) to autoregressive image decoding (Chameleon, Emu3) on speed and quality.
-- Name the three tasks Show-o handles in one checkpoint: T2I, VQA, image inpainting.
-- Pick a masking schedule (cosine, linear, truncated) and reason about its effect on sample quality.
+- Giải thích khuếch tán rời rạc có mặt nạ: lịch che token đồng đều rồi yêu cầu transformer khôi phục chúng.
+- So sánh giải mã ảnh song song (Show-o, MaskGIT) với giải mã ảnh tự hồi quy (Chameleon, Emu3) về tốc độ và chất lượng.
+- Nêu tên ba tác vụ Show-o xử lý trong một checkpoint: T2I, VQA, điền khuyết ảnh.
+- Chọn một lịch che (cosine, tuyến tính, cắt cụt) và suy luận về ảnh hưởng của nó đến chất lượng mẫu.
 
 ## The Problem
 
-Transfusion's two-loss training works but has trickier dynamics — the continuous diffusion loss lives on a different numerical scale from the discrete NTP loss. Balancing loss weights is a hyperparameter search. The architecture is effective but complex.
+Huấn luyện hai hàm mất mát của Transfusion có hiệu quả nhưng có động lực khó xử lý hơn — hàm mất mát khuếch tán liên tục nằm trên thang số khác với hàm mất mát NTP rời rạc. Cân bằng trọng số hàm mất mát là một cuộc tìm kiếm siêu tham số. Kiến trúc hiệu quả nhưng phức tạp.
 
-Show-o's answer: keep both modalities discrete (like Chameleon), but generate images in parallel via masked discrete diffusion instead of sequentially. The training objective becomes a single masked-token-prediction that generalizes next-token-prediction naturally.
+Câu trả lời của Show-o: giữ cả hai phương thức rời rạc (như Chameleon), nhưng tạo ảnh song song qua khuếch tán rời rạc có mặt nạ thay vì tuần tự. Mục tiêu huấn luyện trở thành một phép dự đoán token bị che duy nhất khái quát hóa dự đoán token tiếp theo một cách tự nhiên.
 
 ## The Concept
 
 ### Masked discrete diffusion (MaskGIT)
 
-The original Chang et al. (2022) MaskGIT trick is elegant. Start from a fully-masked image (every token is the special `<MASK>` id). At each step, predict all masked tokens in parallel, then keep the top-K most confident predictions and re-mask the rest. After ~8-16 iterations, all tokens are filled in. The schedule of how many tokens to unmask per step is tuned — cosine schedules work well.
+Thủ thuật MaskGIT gốc của Chang và cộng sự (2022) rất tinh tế. Bắt đầu từ một ảnh bị che hoàn toàn (mọi token đều là id đặc biệt `<MASK>`). Ở mỗi bước, dự đoán song song mọi token bị che, rồi giữ lại top-K dự đoán tự tin nhất và che lại phần còn lại. Sau ~8-16 vòng lặp, mọi token được điền. Lịch số token cần bỏ che mỗi bước được điều chỉnh — lịch cosine hoạt động tốt.
 
-Training is simple: sample a masking ratio uniformly from [0, 1], apply it to the image's VQ tokens, train the transformer to recover the masked ones. Exactly what BERT did for text, scaled to image generation.
+Huấn luyện đơn giản: lấy mẫu đồng đều một tỷ lệ che từ [0, 1], áp dụng nó cho các token VQ của ảnh, huấn luyện transformer để khôi phục những token bị che. Chính xác là điều BERT đã làm cho văn bản, được mở rộng sang tạo ảnh.
 
 ### Show-o: one transformer, hybrid mask
 
-Show-o puts MaskGIT inside a causal-language-model transformer. The attention mask is:
+Show-o đặt MaskGIT bên trong một transformer mô hình ngôn ngữ nhân quả. Mặt nạ attention là:
 
-- Text tokens: causal (standard LLM).
-- Image tokens: full bidirectional within the image block (so the masked tokens can see every other image token during prediction).
-- Text-to-image: text attends to prior images, image attends to prior text.
+- Token văn bản: nhân quả (LLM tiêu chuẩn).
+- Token ảnh: hai chiều đầy đủ trong khối ảnh (để các token bị che có thể nhìn thấy mọi token ảnh khác trong lúc dự đoán).
+- Văn bản thành ảnh: văn bản chú ý đến ảnh trước đó, ảnh chú ý đến văn bản trước đó.
 
-Training alternates between:
-1. Standard NTP on text sequences.
-2. T2I samples: text → image with masked image tokens, masked-token-prediction loss.
-3. VQA samples: image → text with masked text tokens (really just NTP).
+Huấn luyện luân phiên giữa:
+1. NTP tiêu chuẩn trên chuỗi văn bản.
+2. Mẫu T2I: văn bản → ảnh với token ảnh bị che, hàm mất mát dự đoán token bị che.
+3. Mẫu VQA: ảnh → văn bản với token văn bản bị che (thực ra chỉ là NTP).
 
-The unified loss is cross-entropy on `<MASK>` tokens, which covers both text NTP (only the last token is "masked") and image masked-diffusion (random subset is masked).
+Hàm mất mát thống nhất là cross-entropy trên các token `<MASK>`, bao phủ cả NTP văn bản (chỉ token cuối cùng bị "che") và khuếch tán có mặt nạ trên ảnh (một tập con ngẫu nhiên bị che).
 
 ### Parallel sampling
 
-Show-o generates an image in ~16 steps instead of ~1000 (autoregressive per token) or ~20 (diffusion). At each step, predict all masked tokens in parallel; commit the top-K confident; repeat.
+Show-o tạo một ảnh trong ~16 bước thay vì ~1000 (tự hồi quy từng token) hoặc ~20 (khuếch tán). Ở mỗi bước, dự đoán song song mọi token bị che; chốt top-K tự tin; lặp lại.
 
-Compare:
-- Chameleon / Emu3 (autoregressive over tokens): N_tokens forward passes, typically 1024-4096 per image.
-- Transfusion (continuous diffusion): ~20 steps, each a full transformer pass.
-- Show-o (masked discrete diffusion): ~16 steps, each a full transformer pass.
+So sánh:
+- Chameleon / Emu3 (tự hồi quy trên token): N_tokens lượt truyền xuôi, thường là 1024-4096 trên mỗi ảnh.
+- Transfusion (khuếch tán liên tục): ~20 bước, mỗi bước là một lượt transformer đầy đủ.
+- Show-o (khuếch tán rời rạc có mặt nạ): ~16 bước, mỗi bước là một lượt transformer đầy đủ.
 
-Show-o is faster than Chameleon at similar-scale models, roughly matches Transfusion step count with lower per-step cost (discrete vocab logits vs continuous MSE loss).
+Show-o nhanh hơn Chameleon ở các mô hình quy mô tương tự, gần tương đương số bước của Transfusion với chi phí mỗi bước thấp hơn (logit từ vựng rời rạc so với hàm mất mát MSE liên tục).
 
 ### Tasks in one checkpoint
 
-Show-o supports four tasks at inference, selected by prompt format:
+Show-o hỗ trợ bốn tác vụ khi suy luận, được chọn bằng định dạng prompt:
 
-- Text generation: standard autoregressive text output.
-- VQA: image in, text out.
-- T2I: text in, image out via masked discrete diffusion.
-- Inpainting: image with some tokens masked, fill in.
+- Tạo văn bản: đầu ra văn bản tự hồi quy tiêu chuẩn.
+- VQA: ảnh vào, văn bản ra.
+- T2I: văn bản vào, ảnh ra qua khuếch tán rời rạc có mặt nạ.
+- Điền khuyết ảnh: ảnh có một số token bị che, điền vào.
 
-The inpainting capability comes for free from the masked-prediction training. Mask a region of the VQ-token grid, feed the rest plus a text prompt, predict the masked tokens.
+Khả năng điền khuyết ảnh có được miễn phí từ huấn luyện dự đoán có mặt nạ. Che một vùng của lưới token VQ, đưa phần còn lại cùng một prompt văn bản vào, dự đoán các token bị che.
 
 ### Masking schedule
 
-The schedule of how many tokens to unmask per step shapes quality. Show-o recommends cosine:
+Lịch số token cần bỏ che mỗi bước định hình chất lượng. Show-o khuyến nghị cosine:
 
 ```
 mask_ratio(t) = cos(pi * t / (2 * T))   # t = 0..T
 ```
 
-At step 0, all tokens masked (ratio 1.0). At step T, none masked. Cosine concentrates mass on mid-range ratios where prediction is most informative. Linear schedules also work but plateau faster.
+Ở bước 0, mọi token bị che (tỷ lệ 1.0). Ở bước T, không token nào bị che. Cosine tập trung khối lượng vào các tỷ lệ tầm trung nơi dự đoán mang nhiều thông tin nhất. Lịch tuyến tính cũng hoạt động nhưng chững lại nhanh hơn.
 
 ### Show-o2
 
-Show-o2 (2025 follow-up, arXiv 2506.15564) scales Show-o: larger LLM base, better tokenizer, improved mask schedule. Same architectural pattern.
+Show-o2 (phần tiếp nối năm 2025, arXiv 2506.15564) mở rộng Show-o: LLM nền lớn hơn, tokenizer tốt hơn, lịch che cải tiến. Cùng một mẫu kiến trúc.
 
 ### Where Show-o sits
 
-In the 2026 taxonomy:
+Trong hệ phân loại năm 2026:
 
-- Discrete tokens + NTP: Chameleon, Emu3. Simple but slow inference.
-- Discrete tokens + masked diffusion: Show-o, MaskGIT, LlamaGen, Muse. Parallel sampling, still lossy by tokenizer.
-- Continuous + diffusion: Transfusion, MMDiT, DiT. Highest quality, more complex training.
-- Continuous + flow matching in a VLM: JanusFlow, InternVL-U. Newest.
+- Token rời rạc + NTP: Chameleon, Emu3. Đơn giản nhưng suy luận chậm.
+- Token rời rạc + khuếch tán có mặt nạ: Show-o, MaskGIT, LlamaGen, Muse. Lấy mẫu song song, vẫn mất mát do tokenizer.
+- Liên tục + khuếch tán: Transfusion, MMDiT, DiT. Chất lượng cao nhất, huấn luyện phức tạp hơn.
+- Liên tục + flow matching trong một VLM: JanusFlow, InternVL-U. Mới nhất.
 
-Pick by task: Show-o when you want T2I + inpainting + VQA in one open model with reasonable speed; Transfusion when quality is paramount and you can afford the two-loss plumbing.
+Chọn theo tác vụ: Show-o khi bạn muốn T2I + điền khuyết ảnh + VQA trong một mô hình mở với tốc độ hợp lý; Transfusion khi chất lượng là tối quan trọng và bạn đủ khả năng xử lý phần kết nối hai hàm mất mát.
 
 ```figure
 masked-diffusion-unmask
@@ -96,41 +96,41 @@ masked-diffusion-unmask
 
 ## Use It
 
-`code/main.py` simulates Show-o sampling:
+`code/main.py` mô phỏng lấy mẫu Show-o:
 
-- A toy grid of 16 VQ tokens.
-- A mock "transformer" that predicts logits based on a prompt and the currently-unmasked tokens.
-- Parallel masked sampling over 8 steps with cosine schedule.
-- Prints the intermediate states (mask pattern evolution) and the final tokens.
+- Một lưới đơn giản gồm 16 token VQ.
+- Một "transformer" mô phỏng dự đoán logit dựa trên prompt và các token hiện đã được bỏ che.
+- Lấy mẫu có mặt nạ song song qua 8 bước với lịch cosine.
+- In các trạng thái trung gian (sự tiến triển của mẫu mặt nạ) và các token cuối cùng.
 
-Run it, watch the mask dissolve step by step.
+Chạy nó, quan sát mặt nạ tan dần từng bước.
 
 ## Ship It
 
-This lesson produces `outputs/skill-unified-gen-model-picker.md`. Given a product that needs both understanding (VQA, captioning) and generation (T2I, inpainting) with an open-weights constraint, picks between Show-o family, Transfusion/MMDiT family, and Emu3 / Chameleon family with concrete trade-offs.
+Bài học này tạo ra `outputs/skill-unified-gen-model-picker.md`. Với một sản phẩm cần cả hiểu (VQA, tạo chú thích) và tạo sinh (T2I, điền khuyết ảnh) với ràng buộc trọng số mở, chọn giữa họ Show-o, họ Transfusion/MMDiT và họ Emu3 / Chameleon với các đánh đổi cụ thể.
 
 ## Exercises
 
-1. Masked discrete diffusion samples in ~16 steps. Why not 1? What breaks if you unmask everything at step 0?
+1. Khuếch tán rời rạc có mặt nạ lấy mẫu trong ~16 bước. Tại sao không phải 1? Điều gì hỏng nếu bạn bỏ che mọi thứ ở bước 0?
 
-2. Inpainting is free with masked diffusion. Propose a product use case (real or hypothetical) where Show-o's inpainting beats a specialist model.
+2. Điền khuyết ảnh có được miễn phí với khuếch tán có mặt nạ. Đề xuất một trường hợp sử dụng sản phẩm (thực hoặc giả định) trong đó khả năng điền khuyết ảnh của Show-o vượt một mô hình chuyên biệt.
 
-3. Cosine schedule vs linear schedule: trace the number of unmasked tokens per step for T=8. Which is more balanced?
+3. Lịch cosine so với lịch tuyến tính: lần theo số token được bỏ che mỗi bước cho T=8. Lịch nào cân bằng hơn?
 
-4. A 512x512 Show-o image is 1024 tokens. At vocab K=16384, the model emits 1024 * log2(16384) = 14,336 bits (~1.75 KiB) of data. Stable Diffusion outputs 512*512*24 bits = 6,291,456 bits (~768 KiB) of raw pixels. What is the compression ratio and what quality does it buy?
+4. Một ảnh Show-o 512x512 là 1024 token. Ở bộ từ vựng K=16384, mô hình phát ra 1024 * log2(16384) = 14,336 bit (~1.75 KiB) dữ liệu. Stable Diffusion xuất 512*512*24 bit = 6,291,456 bit (~768 KiB) pixel thô. Tỷ lệ nén là bao nhiêu và nó mang lại chất lượng gì?
 
-5. Read LlamaGen (arXiv:2406.06525). How is LlamaGen's class-conditional autoregressive image model different from Show-o's masked approach?
+5. Đọc LlamaGen (arXiv:2406.06525). Mô hình ảnh tự hồi quy có điều kiện theo lớp của LlamaGen khác cách tiếp cận có mặt nạ của Show-o như thế nào?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Masked discrete diffusion | "MaskGIT-style" | Training to predict masked tokens; at inference, iteratively unmask the most-confident predictions |
-| Cosine schedule | "Unmask schedule" | Decay of mask ratio over inference steps; concentrates confidence growth at mid-range |
-| Parallel decoding | "All tokens at once" | Every step predicts the full sequence of masked tokens in one forward pass, then commits top-K |
-| Hybrid attention | "Causal + bidirectional" | Mask that is causal over text tokens and bidirectional within image blocks |
-| Inpainting | "Fill-in generation" | Condition on an image with some tokens masked, predict the missing ones; free from the training objective |
-| Commitment rate | "Top-K per step" | How many tokens are declared "done" per iteration; controls inference vs quality trade-off |
+| Masked discrete diffusion (Khuếch tán rời rạc có mặt nạ) | "Kiểu MaskGIT" | Huấn luyện để dự đoán token bị che; khi suy luận, lặp lại việc bỏ che các dự đoán tự tin nhất |
+| Cosine schedule (Lịch cosine) | "Lịch bỏ che" | Sự suy giảm tỷ lệ che qua các bước suy luận; tập trung sự gia tăng độ tự tin ở tầm trung |
+| Parallel decoding (Giải mã song song) | "Mọi token cùng lúc" | Mỗi bước dự đoán toàn bộ chuỗi token bị che trong một lượt truyền xuôi, rồi chốt top-K |
+| Hybrid attention (Attention lai) | "Nhân quả + hai chiều" | Mặt nạ có tính nhân quả trên token văn bản và hai chiều trong các khối ảnh |
+| Inpainting (Điền khuyết ảnh) | "Tạo sinh điền vào" | Điều kiện hóa trên ảnh có một số token bị che, dự đoán những token còn thiếu; có được miễn phí từ mục tiêu huấn luyện |
+| Commitment rate (Tỷ lệ chốt) | "Top-K mỗi bước" | Có bao nhiêu token được tuyên bố "xong" mỗi vòng lặp; kiểm soát đánh đổi suy luận so với chất lượng |
 
 ## Further Reading
 
