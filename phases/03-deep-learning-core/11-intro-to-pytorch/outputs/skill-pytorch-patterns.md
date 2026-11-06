@@ -50,7 +50,7 @@ for inputs, targets in train_loader:
     scaler.update()
 ```
 
-Use when: training on GPU with float16-capable hardware (V100, A100, H100, RTX 3090+). Expect ~1.5-2x speedup and ~50% memory reduction.
+Sử dụng khi: huấn luyện trên GPU với phần cứng hỗ trợ float16 (V100, A100, H100, RTX 3090+). Kỳ vọng tăng tốc ~1.5-2 lần và giảm bộ nhớ ~50%.
 
 ## Gradient Accumulation
 
@@ -67,7 +67,7 @@ for i, (inputs, targets) in enumerate(train_loader):
         optimizer.zero_grad()
 ```
 
-Use when: effective batch size needs to be larger than GPU memory allows. Dividing loss by accumulation_steps keeps gradient scale consistent.
+Sử dụng khi: kích thước batch hiệu dụng cần lớn hơn bộ nhớ GPU cho phép. Chia mất mát cho accumulation_steps giữ thang đo gradient nhất quán.
 
 ## Save and Load
 
@@ -84,7 +84,7 @@ model.load_state_dict(checkpoint["model_state_dict"])
 optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 ```
 
-Always save optimizer state for resuming training. For inference-only, save just `model.state_dict()`.
+Luôn lưu trạng thái bộ tối ưu hóa để tiếp tục huấn luyện. Với chỉ suy luận, chỉ lưu `model.state_dict()`.
 
 ## Custom Dataset
 
@@ -121,12 +121,12 @@ train_loader = torch.utils.data.DataLoader(
 )
 ```
 
-| Parameter | What it does | When to use |
+| Tham số | Chức năng | Khi nào sử dụng |
 |-----------|-------------|-------------|
-| num_workers=4 | Parallel data loading | Always on multi-core machines |
-| pin_memory=True | Page-locked CPU memory | When training on GPU |
-| drop_last=True | Drop incomplete final batch | When using BatchNorm |
-| persistent_workers=True | Keep workers alive across epochs | When num_workers > 0 |
+| num_workers=4 | Tải dữ liệu song song | Luôn luôn trên các máy nhiều lõi |
+| pin_memory=True | Bộ nhớ CPU được khóa trang | Khi huấn luyện trên GPU |
+| drop_last=True | Bỏ batch cuối không đầy đủ | Khi sử dụng BatchNorm |
+| persistent_workers=True | Giữ các worker sống qua các epoch | Khi num_workers > 0 |
 
 ## Learning Rate Schedules
 
@@ -145,7 +145,7 @@ for epoch in range(num_epochs):
         scheduler.step()
 ```
 
-OneCycleLR: best default for most tasks. Warms up to max_lr, then cosine decays. Call `scheduler.step()` after every batch, not every epoch.
+OneCycleLR: mặc định tốt nhất cho hầu hết các tác vụ. Warmup tới max_lr, rồi suy giảm cosine. Gọi `scheduler.step()` sau mỗi batch, không phải mỗi epoch.
 
 ## Weight Initialization
 
@@ -170,15 +170,15 @@ with torch.inference_mode():
     outputs = model(inputs)
 ```
 
-`torch.inference_mode()` is faster than `torch.no_grad()` because it disables autograd entirely rather than just suppressing gradient computation.
+`torch.inference_mode()` nhanh hơn `torch.no_grad()` vì nó tắt hoàn toàn autograd thay vì chỉ ngăn tính gradient.
 
 ## Common Mistakes Checklist
 
-1. Applying softmax before CrossEntropyLoss (it includes log_softmax internally)
-2. Forgetting to call model.eval() during validation
-3. Forgetting to move tensors to the same device as the model
-4. Not calling optimizer.zero_grad() (gradients accumulate by default)
-5. Using torch.no_grad() during training (disables gradient computation)
-6. Setting num_workers too high (spawns too many processes, thrashes memory)
-7. Not using pin_memory=True when training on GPU
-8. Saving the entire model object instead of state_dict (breaks on refactor)
+1. Áp dụng softmax trước CrossEntropyLoss (nó bao gồm log_softmax bên trong)
+2. Quên gọi model.eval() trong validation
+3. Quên chuyển các tensor tới cùng thiết bị với mô hình
+4. Không gọi optimizer.zero_grad() (các gradient tích lũy theo mặc định)
+5. Sử dụng torch.no_grad() trong huấn luyện (tắt tính gradient)
+6. Đặt num_workers quá cao (tạo quá nhiều tiến trình, gây thrashing bộ nhớ)
+7. Không sử dụng pin_memory=True khi huấn luyện trên GPU
+8. Lưu toàn bộ đối tượng mô hình thay vì state_dict (hỏng khi tái cấu trúc)
