@@ -1,6 +1,6 @@
 # Vision Encoder Patches
 
-> A vision model that reads pixels needs a tokenizer for pixels. Patch embedding is that tokenizer. Cut the image into a grid of squares, flatten each square, project it through one linear layer, then add a 2D position signal so the transformer knows where each square sat in the original image.
+> Một mô hình thị giác đọc pixel cần một tokenizer cho pixel. Embedding patch là tokenizer đó. Cắt ảnh thành một lưới ô vuông, làm phẳng mỗi ô, chiếu nó qua một lớp tuyến tính, rồi thêm một tín hiệu vị trí 2D để transformer biết mỗi ô đã nằm ở đâu trong ảnh gốc.
 
 **Type:** Build
 **Languages:** Python
@@ -9,16 +9,16 @@
 
 ## Learning Objectives
 
-- Tokenize an image into a fixed-length sequence of patch embeddings.
-- Implement a `Conv2d`-based patch projection that matches the math of unfold-then-linear.
-- Build a deterministic 2D sinusoidal position embedding so token order encodes spatial position.
-- Verify patch count, embedding shape, and `Conv2d`/unfold equivalence on a synthetic fixture.
+- Phân tách một ảnh thành một chuỗi embedding patch có độ dài cố định.
+- Triển khai một phép chiếu patch dựa trên `Conv2d` khớp với toán unfold-rồi-tuyến-tính.
+- Xây dựng một embedding vị trí hình sin 2D tất định để thứ tự token mã hóa vị trí không gian.
+- Xác minh số patch, hình dạng embedding, và tương đương `Conv2d`/unfold trên một fixture tổng hợp.
 
 ## The Problem
 
-A transformer eats a sequence of vectors. An image is a 3-channel grid. Reading every pixel as a token explodes the sequence length: a 224x224 RGB image is 150,528 tokens, which a 12-layer transformer cannot afford in attention. Reading the image as one giant flat vector throws away locality, which the attention layer cannot recover from. The job of the encoder front end is to compress the pixel grid into a few hundred tokens that each summarize a square region.
+Một transformer ăn một chuỗi vector. Một ảnh là một lưới 3 kênh. Đọc mỗi pixel như một token làm nổ độ dài chuỗi: một ảnh RGB 224x224 là 150,528 token, điều một transformer 12 lớp không đủ khả năng đáp ứng trong attention. Đọc ảnh như một vector phẳng khổng lồ vứt bỏ tính cục bộ, điều lớp attention không thể phục hồi. Công việc của phần đầu bộ mã hóa là nén lưới pixel thành vài trăm token mà mỗi token tóm tắt một vùng vuông.
 
-Patch embedding solves this with one linear projection. A 224x224 image cut into 16x16 patches produces a 14x14 grid of 196 patches. Each patch is flattened from `(3, 16, 16) = 768` pixel values into one vector, then a linear layer maps it to the model's hidden dimension. The transformer sees 196 tokens of dimension `hidden` (commonly 768) plus a CLS token. That is a sequence the rest of the network can chew on.
+Embedding patch giải quyết điều này bằng một phép chiếu tuyến tính. Một ảnh 224x224 được cắt thành các patch 16x16 tạo một lưới 14x14 gồm 196 patch. Mỗi patch được làm phẳng từ `(3, 16, 16) = 768` giá trị pixel thành một vector, rồi một lớp tuyến tính ánh xạ nó tới chiều ẩn của mô hình. Transformer thấy 196 token có chiều `hidden` (thường 768) cùng một token CLS. Đó là một chuỗi mà phần còn lại của mạng có thể nhai.
 
 ## The Concept
 
@@ -35,31 +35,31 @@ flowchart LR
 
 ### Why patches, not pixels
 
-Attention is quadratic in sequence length. A 196-token sequence costs `196 * 196 = 38,416` attention scores per head per layer; a 150,528-token sequence costs `150,528 * 150,528 = 22.6 billion`. Patches buy a 590,000x reduction in attention compute, and a single 16x16 region carries enough signal for high-level vision tasks. The cost is a loss of fine-grained spatial detail inside one patch, which is why downstream multimodal stacks often run a second high-resolution branch when fine localization matters.
+Attention bậc hai theo độ dài chuỗi. Một chuỗi 196 token tốn `196 * 196 = 38,416` điểm attention mỗi đầu mỗi lớp; một chuỗi 150,528 token tốn `150,528 * 150,528 = 22.6 billion`. Các patch mang lại mức giảm 590,000x tính toán attention, và một vùng 16x16 duy nhất mang đủ tín hiệu cho các tác vụ thị giác cấp cao. Chi phí là mất chi tiết không gian tinh bên trong một patch, đó là lý do các ngăn xếp đa phương thức hạ nguồn thường chạy một nhánh độ phân giải cao thứ hai khi định vị tinh quan trọng.
 
 ### Why a linear projection is enough
 
-Each patch is treated as an independent vector. The projection learns a basis: edge detectors, color filters, simple textures. A single linear layer is small (`768 * 768 = 589,824` parameters for ViT-Base) and trains fast. Deeper convolutional stems exist (the "hybrid" ViT), but a flat linear projection is the standard, and most modern open-weight encoders ship with this exact shape.
+Mỗi patch được coi là một vector độc lập. Phép chiếu học một cơ sở: các bộ phát hiện cạnh, bộ lọc màu, kết cấu đơn giản. Một lớp tuyến tính duy nhất nhỏ (`768 * 768 = 589,824` tham số cho ViT-Base) và huấn luyện nhanh. Các phần đầu tích chập sâu hơn tồn tại (ViT "lai"), nhưng một phép chiếu tuyến tính phẳng là tiêu chuẩn, và hầu hết bộ mã hóa trọng số mở hiện đại cung cấp chính xác hình thức này.
 
 ### The `Conv2d` trick
 
-A `Conv2d(in_channels=3, out_channels=hidden, kernel_size=patch_size, stride=patch_size)` with no padding gives the same numerical result as unfold-then-linear, because each output position dot-products the patch pixels against one filter. The convolution is the patch projection, and most production codebases ship it that way because it is faster on GPU and uses one fewer reshape.
+Một `Conv2d(in_channels=3, out_channels=hidden, kernel_size=patch_size, stride=patch_size)` không đệm cho cùng kết quả số như unfold-rồi-tuyến-tính, vì mỗi vị trí đầu ra tính tích vô hướng các pixel patch với một bộ lọc. Tích chập là phép chiếu patch, và hầu hết cơ sở mã sản xuất cung cấp nó như vậy vì nó nhanh hơn trên GPU và dùng ít hơn một phép đổi hình dạng.
 
 ### Position embeddings
 
-Tokens carry no order out of the projection. The 2D sinusoidal embedding gives each token a fixed signal that encodes its `(row, col)` position. Half the embedding dimension encodes row position with sin/cos at multiple frequencies; the other half encodes column position. The encoding is deterministic so you can swap resolutions without retraining, and it interpolates cleanly to grids the model never saw at training time.
+Các token không mang thứ tự khi ra khỏi phép chiếu. Embedding hình sin 2D cho mỗi token một tín hiệu cố định mã hóa vị trí `(row, col)` của nó. Nửa chiều embedding mã hóa vị trí hàng bằng sin/cos ở nhiều tần số; nửa còn lại mã hóa vị trí cột. Mã hóa tất định để bạn có thể đổi độ phân giải mà không huấn luyện lại, và nó nội suy gọn gàng tới các lưới mô hình chưa từng thấy lúc huấn luyện.
 
-| Component | Shape | Parameters |
+| Thành phần | Hình dạng | Tham số |
 |-----------|-------|------------|
-| Patch projection (`Conv2d`) | `(hidden, 3, patch, patch)` | `3 * P * P * hidden + hidden` |
-| Position embedding (fixed) | `(num_patches, hidden)` | 0 (computed, not learned) |
-| CLS token (learned) | `(1, hidden)` | `hidden` |
+| Phép chiếu patch (`Conv2d`) | `(hidden, 3, patch, patch)` | `3 * P * P * hidden + hidden` |
+| Embedding vị trí (cố định) | `(num_patches, hidden)` | 0 (được tính, không được học) |
+| Token CLS (được học) | `(1, hidden)` | `hidden` |
 
-For ViT-Base/16 at 224 resolution: 590,592 parameters in the projection, 768 in the CLS token, and zero for sinusoidal position. The next lesson (59) stacks a 12-layer transformer on top of this front end.
+Với ViT-Base/16 ở độ phân giải 224: 590,592 tham số trong phép chiếu, 768 trong token CLS, và không cho vị trí hình sin. Bài tiếp theo (59) xếp một transformer 12 lớp lên phần đầu này.
 
 ### Equivalence as a sanity check
 
-The patch step has two spellings: a `Conv2d` projection and an explicit unfold-then-linear. They must produce the same output for the same weights. If they do not, the unfold math is wrong, and the rest of the encoder is built on sand. The tests in this lesson exercise that equivalence.
+Bước patch có hai cách viết: một phép chiếu `Conv2d` và một unfold-rồi-tuyến-tính tường minh. Chúng phải tạo cùng đầu ra cho cùng trọng số. Nếu không, toán unfold sai, và phần còn lại của bộ mã hóa được xây trên cát. Các kiểm thử trong bài này thực thi sự tương đương đó.
 
 ```figure
 ch-patch-tokenizer
@@ -67,37 +67,37 @@ ch-patch-tokenizer
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `PatchEmbed`, an `nn.Module` wrapping `Conv2d` for patch projection.
-- `sinusoidal_2d(grid_h, grid_w, dim)`, a stateless function that builds the 2D position table.
-- `VisionFrontEnd`, which composes patch embedding, CLS prepend, and position addition into one forward pass.
-- A `synthesize_image(seed)` helper that builds a deterministic 224x224x3 fixture from `numpy.random`.
-- A demo that runs one fixture image through the front end and prints the output shape, the CLS token norm, and one row of the position embedding.
+- `PatchEmbed`, một `nn.Module` bọc `Conv2d` cho phép chiếu patch.
+- `sinusoidal_2d(grid_h, grid_w, dim)`, một hàm phi trạng thái xây dựng bảng vị trí 2D.
+- `VisionFrontEnd`, kết hợp embedding patch, thêm CLS vào đầu, và cộng vị trí thành một lượt tiến.
+- Một hàm hỗ trợ `synthesize_image(seed)` xây dựng một fixture 224x224x3 tất định từ `numpy.random`.
+- Một demo chạy một ảnh fixture qua phần đầu và in hình dạng đầu ra, chuẩn token CLS, và một hàng của embedding vị trí.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-Output: the 224x224 fixture is tokenized to a sequence of shape `(1, 197, 768)`. The first token is the CLS; the next 196 are patch tokens. The position embedding norms are uniform within a row, which is the sinusoidal signature.
+Đầu ra: fixture 224x224 được phân tách token thành một chuỗi có hình dạng `(1, 197, 768)`. Token đầu là CLS; 196 token tiếp theo là các token patch. Các chuẩn embedding vị trí đồng đều trong một hàng, là dấu hiệu hình sin.
 
 ## Use It
 
-The same patch front end shows up in every modern vision-language model: CLIP ViT-L/14, SigLIP, DINOv2, the Qwen-VL family, and the InternVL stack all start from a `Conv2d` patch projection plus a position signal. Differences across families live downstream (CLS vs no-CLS pooling, register tokens, varying patch sizes 14 vs 16, dynamic resolution via interpolated positions). The frontend in this lesson is the substrate every one of those models stands on.
+Cùng phần đầu patch xuất hiện trong mọi mô hình thị giác-ngôn ngữ hiện đại: CLIP ViT-L/14, SigLIP, DINOv2, họ Qwen-VL, và ngăn xếp InternVL đều bắt đầu từ một phép chiếu patch `Conv2d` cùng một tín hiệu vị trí. Khác biệt giữa các họ nằm ở hạ nguồn (gộp CLS so với không CLS, token thanh ghi, các kích thước patch khác nhau 14 so với 16, độ phân giải động qua các vị trí nội suy). Phần đầu trong bài này là nền tảng mà mọi mô hình đó đứng trên.
 
 ## Tests
 
-`code/test_main.py` covers:
+`code/test_main.py` bao phủ:
 
-- patch count matches `(image_size / patch_size) ** 2`
-- output shape matches `(batch, num_patches + 1, hidden)`
-- the `Conv2d` projection equals manual unfold-then-linear on a small fixture
-- sinusoidal position table is deterministic across calls
-- CLS token broadcasts across batch dim without leakage
+- số patch khớp `(image_size / patch_size) ** 2`
+- hình dạng đầu ra khớp `(batch, num_patches + 1, hidden)`
+- phép chiếu `Conv2d` bằng unfold-rồi-tuyến-tính thủ công trên một fixture nhỏ
+- bảng vị trí hình sin tất định giữa các lệnh gọi
+- token CLS broadcast dọc chiều lô mà không rò rỉ
 
-Run them:
+Chạy chúng:
 
 ```bash
 python3 -m unittest code/test_main.py
@@ -105,28 +105,28 @@ python3 -m unittest code/test_main.py
 
 ## Exercises
 
-1. Replace the sinusoidal position with a learned `nn.Parameter` and compare the first-epoch loss on a tiny synthetic classification task. Learned positions win at fixed resolution; sinusoidal wins when you change resolution after training.
+1. Thay vị trí hình sin bằng một `nn.Parameter` được học và so sánh mất mát epoch đầu trên một tác vụ phân loại tổng hợp tí hon. Các vị trí được học thắng ở độ phân giải cố định; hình sin thắng khi bạn thay đổi độ phân giải sau huấn luyện.
 
-2. Swap the `Conv2d` for an explicit `nn.Unfold` plus `nn.Linear` and assert the outputs match to within float tolerance. Same math, two ways to spell it.
+2. Đổi `Conv2d` thành một `nn.Unfold` tường minh cùng `nn.Linear` và khẳng định các đầu ra khớp trong dung sai float. Cùng toán, hai cách viết.
 
-3. Add support for non-square patch sizes (e.g. 32x16 for wide-aspect inputs) and verify the position table handles non-square grids.
+3. Thêm hỗ trợ các kích thước patch không vuông (ví dụ 32x16 cho các đầu vào tỷ lệ rộng) và xác minh bảng vị trí xử lý các lưới không vuông.
 
-4. Profile the patch step at batch sizes 1, 8, 64. The patch projection is rarely the bottleneck; the attention layers downstream dominate.
+4. Đo hiệu năng bước patch ở các kích thước lô 1, 8, 64. Phép chiếu patch hiếm khi là nút thắt; các lớp attention hạ nguồn chiếm ưu thế.
 
-5. Train the front end as a frozen feature extractor on a 4-class synthetic shape dataset (circles, squares, triangles, stars). The CLS token output should linearly separate.
+5. Huấn luyện phần đầu như một bộ trích xuất đặc trưng đóng băng trên một tập dữ liệu hình dạng tổng hợp 4 lớp (tròn, vuông, tam giác, ngôi sao). Đầu ra token CLS nên phân tách tuyến tính.
 
 ## Key Terms
 
-| Term | What it means |
+| Thuật ngữ | Ý nghĩa |
 |------|---------------|
-| Patch | A square sub-region of the image, typically 14x14 or 16x16 |
-| Patch embedding | Linear projection of one flattened patch to the hidden dim |
-| Sequence length | Number of tokens after patch tokenization, usually plus CLS |
-| Sinusoidal position | Fixed sin/cos signal that encodes 2D grid coordinates |
-| CLS token | Learned vector prepended to the sequence as the pooling head |
+| Patch (Mảnh ảnh) | Một vùng con vuông của ảnh, thường 14x14 hoặc 16x16 |
+| Patch embedding (Embedding patch) | Phép chiếu tuyến tính của một patch được làm phẳng sang chiều ẩn |
+| Sequence length (Độ dài chuỗi) | Số token sau phân tách patch, thường cộng CLS |
+| Sinusoidal position (Vị trí hình sin) | Tín hiệu sin/cos cố định mã hóa các tọa độ lưới 2D |
+| CLS token (Token CLS) | Vector được học thêm vào đầu chuỗi làm đầu gộp |
 
 ## Further Reading
 
-- An Image is Worth 16x16 Words (ViT, 2021) for the original patch-embed framing.
-- Attention Is All You Need (2017) for the sinusoidal position formula adapted here to 2D.
-- DINOv2 paper for register tokens, an extension you can add as exercise 6.
+- An Image is Worth 16x16 Words (ViT, 2021) cho cách nhìn embedding patch gốc.
+- Attention Is All You Need (2017) cho công thức vị trí hình sin được điều chỉnh ở đây sang 2D.
+- Bài báo DINOv2 cho các token thanh ghi, một phần mở rộng bạn có thể thêm như bài tập 6.
