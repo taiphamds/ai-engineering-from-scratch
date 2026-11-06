@@ -1,6 +1,6 @@
 # Text Generation Before Transformers — N-gram Language Models
 
-> If a word is surprising, the model is bad. Perplexity makes surprise a number. Smoothing keeps it finite.
+> Nếu một từ gây bất ngờ, mô hình tệ. Perplexity biến sự bất ngờ thành một con số. Làm trơn giữ nó hữu hạn.
 
 **Type:** Build
 **Languages:** Python
@@ -9,11 +9,11 @@
 
 ## The Problem
 
-Before transformers, before RNNs, before word embeddings, a language model predicted the next word by counting how often it followed the previous `n-1` words. Count "the cat" → "sat" 47 times, "the cat" → "jumped" 12 times, "the cat" → "refrigerator" 0 times. Normalize to get a probability distribution.
+Trước transformer, trước RNN, trước embedding từ, một mô hình ngôn ngữ dự đoán từ tiếp theo bằng cách đếm tần suất nó theo sau `n-1` từ trước. Đếm "the cat" → "sat" 47 lần, "the cat" → "jumped" 12 lần, "the cat" → "refrigerator" 0 lần. Chuẩn hóa để có một phân phối xác suất.
 
-That is an n-gram language model. It ran every speech recognizer, every spell checker, and every phrase-based machine translation system from 1980 through 2015. It still runs when you need cheap on-device language modeling.
+Đó là một mô hình ngôn ngữ n-gram. Nó chạy mọi bộ nhận dạng tiếng nói, mọi bộ kiểm tra chính tả và mọi hệ thống dịch máy dựa trên cụm từ từ 1980 đến 2015. Nó vẫn chạy khi bạn cần mô hình hóa ngôn ngữ trên thiết bị với chi phí thấp.
 
-The interesting problem is what to do about unseen n-grams. A raw count-based model assigns zero probability to anything it has not seen, which is catastrophic because sentences are long and almost every long sentence contains at least one unseen sequence. Fifty years of smoothing research fixed that. Kneser-Ney smoothing is the result, and modern deep learning inherited its empirical tradition.
+Vấn đề thú vị là phải làm gì với các n-gram chưa thấy. Một mô hình dựa trên số đếm thô gán xác suất bằng không cho bất kỳ thứ gì nó chưa thấy, điều thảm họa vì các câu dài và gần như mọi câu dài chứa ít nhất một chuỗi chưa thấy. Năm mươi năm nghiên cứu làm trơn sửa điều đó. Làm trơn Kneser-Ney là kết quả, và deep learning hiện đại kế thừa truyền thống thực nghiệm của nó.
 
 ## The Concept
 
@@ -21,44 +21,44 @@ The interesting problem is what to do about unseen n-grams. A raw count-based mo
 
 ### The prediction game
 
-Before any of this machinery existed, one experiment defined what a language model is. Cover the next letter of an English sentence. Ask someone to guess it, one guess at a time, until they get it right. Write down the guess count. Repeat for a few hundred letters.
+Trước khi bất kỳ bộ máy nào trong số này tồn tại, một thử nghiệm định nghĩa mô hình ngôn ngữ là gì. Che chữ cái tiếp theo của một câu tiếng Anh. Yêu cầu ai đó đoán nó, mỗi lần một dự đoán, đến khi họ đoán đúng. Ghi lại số lần đoán. Lặp lại cho vài trăm chữ cái.
 
-The guess counts are not trivia. They are a lossless re-encoding of the text: hand the count sequence to a second, identical guesser and they can reconstruct every letter, because at each position they know exactly which guesses come first. A message you can re-encode in fewer symbols carries less information per symbol, so the guess-count statistics put a ceiling on the entropy of English.
+Các số lần đoán không phải chuyện vụn vặt. Chúng là một cách tái mã hóa không mất mát của văn bản: đưa chuỗi số đếm cho một người đoán thứ hai giống hệt và họ có thể dựng lại mọi chữ cái, vì ở mỗi vị trí họ biết chính xác những dự đoán nào đến trước. Một thông điệp bạn có thể tái mã hóa bằng ít ký hiệu hơn mang ít thông tin hơn trên mỗi ký hiệu, nên các thống kê số lần đoán đặt một mức trần cho entropy của tiếng Anh.
 
-Shannon ran this in 1951 and got a number that still governs the field. A 27-symbol alphabet (26 letters plus space) could carry `log2(27) ≈ 4.75` bits per letter. Human guessers with 100 letters of context landed between 0.6 and 1.3 bits per letter. English is roughly three-quarters forced moves. The structure a model must learn was measured before any model could learn it.
+Shannon thực hiện điều này năm 1951 và có một con số vẫn chi phối lĩnh vực. Một bảng chữ cái 27 ký hiệu (26 chữ cái cộng khoảng trắng) có thể mang `log2(27) ≈ 4.75` bit mỗi chữ cái. Những người đoán có ngữ cảnh 100 chữ cái đạt từ 0.6 đến 1.3 bit mỗi chữ cái. Tiếng Anh có khoảng ba phần tư là các nước đi bắt buộc. Cấu trúc một mô hình phải học đã được đo trước khi bất kỳ mô hình nào có thể học nó.
 
-Every language model since is a mechanical player of this game, and every evaluation number in this lesson is the game scored:
+Mọi mô hình ngôn ngữ kể từ đó là một người chơi máy móc của trò chơi này, và mọi con số đánh giá trong bài học này là trò chơi được chấm điểm:
 
-- **Cross-entropy loss** is the average number of bits the model needs per symbol. Training an LM is literally minimizing its score at the guessing game.
-- **Perplexity** is `2^bits` (or `e^nats`): the branching factor still facing the model after its guesswork. Uniform guessing over 27 symbols is perplexity 27; a 1-bit-per-letter player has perplexity 2.
-- **Context length is the player's memory.** A trigram model plays with two tokens of memory. A transformer plays the same game with 100K tokens. The rules never changed; the player got better.
+- **Cross-entropy loss** là số bit trung bình mô hình cần cho mỗi ký hiệu. Huấn luyện một LM theo nghĩa đen là giảm thiểu điểm của nó trong trò chơi đoán.
+- **Perplexity** là `2^bits` (hoặc `e^nats`): hệ số phân nhánh vẫn đối mặt mô hình sau việc đoán của nó. Đoán đều trên 27 ký hiệu là perplexity 27; một người chơi 1 bit mỗi chữ cái có perplexity 2.
+- **Độ dài ngữ cảnh là bộ nhớ của người chơi.** Một mô hình trigram chơi với bộ nhớ hai token. Một transformer chơi cùng trò chơi với 100K token. Các quy tắc không bao giờ đổi; người chơi giỏi hơn.
 
-One unit switch to track: the game scores per letter in bits (`log2`), while the n-gram formulas below score per word token in nats (natural log) — and since perplexity `e^H` in nats equals `2^H` in bits, the two views are the same measurement in different units.
+Một chuyển đổi đơn vị cần theo dõi: trò chơi chấm theo chữ cái bằng bit (`log2`), trong khi các công thức n-gram bên dưới chấm theo token từ bằng nat (log tự nhiên) — và vì perplexity `e^H` bằng nat bằng `2^H` bằng bit, hai cách nhìn là cùng một phép đo theo các đơn vị khác nhau.
 
 ```figure
 prediction-game
 ```
 
-**N-gram probability:** `P(w_i | w_{i-n+1}, ..., w_{i-1})`. Fix `n` (typically 3 for trigrams, 4 for 4-grams). Compute from counts:
+**Xác suất n-gram:** `P(w_i | w_{i-n+1}, ..., w_{i-1})`. Cố định `n` (thường 3 cho trigram, 4 cho 4-gram). Tính từ các số đếm:
 
 ```text
 P(w | context) = count(context, w) / count(context)
 ```
 
-**The zero-count problem.** Any n-gram not seen in training gets probability zero. A 2007 study on the Brown corpus found that even a 4-gram model had 30% of held-out 4-grams unseen in training. You cannot evaluate on any real text without smoothing.
+**Vấn đề số đếm bằng không.** Bất kỳ n-gram nào không thấy trong huấn luyện nhận xác suất bằng không. Một nghiên cứu năm 2007 trên ngữ liệu Brown phát hiện ngay cả mô hình 4-gram có 30% các 4-gram được giữ lại chưa thấy trong huấn luyện. Bạn không thể đánh giá trên bất kỳ văn bản thực nào nếu không làm trơn.
 
-**Smoothing approaches, in order of sophistication:**
+**Các cách tiếp cận làm trơn, theo thứ tự độ tinh vi:**
 
-1. **Laplace (add-one).** Add 1 to every count. Simple, terrible on rare events.
-2. **Good-Turing.** Reallocate probability mass from higher-frequency events to unseen ones based on frequency-of-frequencies.
-3. **Interpolation.** Combine n-gram, (n-1)-gram, etc., estimates with tunable weights.
-4. **Backoff.** If n-gram has count zero, fall back to (n-1)-gram. Katz backoff normalizes this.
-5. **Absolute discounting.** Subtract a fixed discount `D` from all counts, redistribute to unseen.
-6. **Kneser-Ney.** Absolute discounting plus a clever choice for the lower-order model: use *continuation probability* (how many contexts a word appears in) instead of raw frequency.
+1. **Laplace (cộng một).** Cộng 1 vào mọi số đếm. Đơn giản, rất tệ với các sự kiện hiếm.
+2. **Good-Turing.** Phân bổ lại khối lượng xác suất từ các sự kiện tần suất cao hơn sang các sự kiện chưa thấy dựa trên tần suất của các tần suất.
+3. **Nội suy.** Kết hợp các ước lượng n-gram, (n-1)-gram, v.v., với các trọng số có thể tinh chỉnh.
+4. **Backoff.** Nếu n-gram có số đếm bằng không, quay về (n-1)-gram. Katz backoff chuẩn hóa điều này.
+5. **Chiết khấu tuyệt đối.** Trừ một lượng chiết khấu cố định `D` khỏi mọi số đếm, phân phối lại cho các trường hợp chưa thấy.
+6. **Kneser-Ney.** Chiết khấu tuyệt đối cộng một lựa chọn thông minh cho mô hình bậc thấp hơn: dùng *xác suất tiếp diễn* (một từ xuất hiện trong bao nhiêu ngữ cảnh) thay vì tần suất thô.
 
-The Kneser-Ney insight is deep. "San Francisco" is a common bigram. Unigram "Francisco" appears mostly after "San." Naive absolute discounting gives "Francisco" high unigram probability (because the count is high). Kneser-Ney notices that "Francisco" appears in only one context and lowers its continuation probability accordingly. Result: a novel bigram ending in "Francisco" gets the appropriate low probability.
+Nhận thức của Kneser-Ney sâu sắc. "San Francisco" là một bigram phổ biến. Unigram "Francisco" xuất hiện chủ yếu sau "San." Chiết khấu tuyệt đối ngây thơ cho "Francisco" xác suất unigram cao (vì số đếm cao). Kneser-Ney nhận ra "Francisco" chỉ xuất hiện trong một ngữ cảnh và hạ xác suất tiếp diễn tương ứng. Kết quả: một bigram mới kết thúc bằng "Francisco" nhận xác suất thấp thích hợp.
 
-**Evaluation: perplexity.** The exponent of the average negative log-likelihood per word on a held-out test set. Lower is better. A perplexity of 100 means the model is as confused as it would be choosing uniformly among 100 words.
+**Đánh giá: perplexity.** Hàm mũ của negative log-likelihood trung bình mỗi từ trên một tập kiểm thử được giữ lại. Thấp hơn là tốt hơn. Perplexity 100 nghĩa là mô hình bối rối như khi chọn đều giữa 100 từ.
 
 ```text
 perplexity = exp(- (1/N) * Σ log P(w_i | context_i))
@@ -96,7 +96,7 @@ def raw_probability(ngrams, contexts, context, word):
     return ngrams.get(ctx + (word,), 0) / contexts[ctx]
 ```
 
-Input is a list of tokenized sentences. Output is n-gram counts and context counts. `<s>` and `</s>` are sentence boundaries.
+Đầu vào là một danh sách các câu đã tokenize. Đầu ra là các số đếm n-gram và các số đếm ngữ cảnh. `<s>` và `</s>` là các ranh giới câu.
 
 ### Step 2: Laplace smoothing
 
@@ -108,7 +108,7 @@ def laplace_probability(ngrams, contexts, vocab_size, context, word):
     return numerator / denominator
 ```
 
-Add 1 to every count. Smooths but over-allocates mass to unseen events, hurting rare-known events too.
+Cộng 1 vào mọi số đếm. Làm trơn nhưng phân bổ quá nhiều khối lượng cho các sự kiện chưa thấy, cũng gây hại các sự kiện đã biết hiếm.
 
 ### Step 3: Kneser-Ney (bigram, interpolated)
 
@@ -152,7 +152,7 @@ def kneser_ney_bigram_model(corpus_tokens, discount=0.75):
     return prob
 ```
 
-Three moving parts. `continuation_prob` captures "how many different contexts does this word appear in?" (the Kneser-Ney innovation). `lambda_prev` is the mass freed by the discount, used to weight the backoff. The final probability is the discounted main term plus the weighted continuation term.
+Ba thành phần. `continuation_prob` nắm bắt "từ này xuất hiện trong bao nhiêu ngữ cảnh khác nhau?" (đổi mới của Kneser-Ney). `lambda_prev` là khối lượng được giải phóng bởi chiết khấu, được dùng để gán trọng số backoff. Xác suất cuối là số hạng chính được chiết khấu cộng số hạng tiếp diễn được gán trọng số.
 
 ### Step 4: generating text with sampling
 
@@ -178,7 +178,7 @@ def generate(prob_fn, vocab, prefix, max_len=30, seed=0):
     return tokens
 ```
 
-Sampling proportional to probability. Always gives different output per seed. For beam-search-like output, pick the argmax at each step (greedy) and add a small randomness knob (temperature).
+Lấy mẫu tỷ lệ với xác suất. Luôn cho đầu ra khác theo mỗi seed. Để có đầu ra giống beam search, chọn argmax ở mỗi bước (tham lam) và thêm một nút điều chỉnh tính ngẫu nhiên nhỏ (temperature).
 
 ### Step 5: perplexity
 
@@ -198,18 +198,18 @@ def perplexity(prob_fn, sentences):
     return math.exp(-total_log_prob / total_tokens)
 ```
 
-Lower is better. For Brown corpus, a well-tuned 4-gram KN model hits perplexity around 140. A transformer LM hits 15-30 on the same test set. The gap is about 10x. That gap is why the field moved on.
+Thấp hơn là tốt hơn. Với ngữ liệu Brown, một mô hình KN 4-gram được tinh chỉnh tốt đạt perplexity khoảng 140. Một LM transformer đạt 15-30 trên cùng tập kiểm thử. Khoảng cách khoảng 10 lần. Khoảng cách đó là lý do lĩnh vực chuyển đi.
 
 ## Use It
 
-- **Classical NLP teaching.** The clearest exposure to smoothing, MLE, and perplexity you can get.
-- **KenLM.** Production n-gram library. Used as a rescorer in speech and MT systems where low latency matters.
-- **On-device autocomplete.** Trigram models in keyboards. Still.
-- **Baselines.** Always compute an n-gram LM perplexity before declaring your neural LM good. If your transformer does not beat KN by a wide margin, something is wrong.
+- **Giảng dạy NLP cổ điển.** Sự tiếp xúc rõ ràng nhất với làm trơn, MLE và perplexity mà bạn có thể có.
+- **KenLM.** Thư viện n-gram production. Được dùng làm bộ chấm lại trong các hệ thống tiếng nói và MT nơi độ trễ thấp quan trọng.
+- **Tự động hoàn thành trên thiết bị.** Các mô hình trigram trong bàn phím. Vẫn vậy.
+- **Baseline.** Luôn tính perplexity LM n-gram trước khi tuyên bố LM nơ-ron của bạn tốt. Nếu transformer của bạn không thắng KN với cách biệt lớn, có gì đó sai.
 
 ## Ship It
 
-Save as `outputs/prompt-lm-baseline.md`:
+Lưu thành `outputs/prompt-lm-baseline.md`:
 
 ```markdown
 ---
@@ -231,26 +231,26 @@ Refuse to report perplexity computed with different tokenization between systems
 
 ## Exercises
 
-1. **Easy.** Train a trigram LM on a 1,000-sentence Shakespeare corpus. Generate 20 sentences. They will be locally plausible but globally incoherent. This is the canonical demo.
-2. **Medium.** Implement perplexity for your KN model on a held-out Shakespeare split. Compare against Laplace. You should see KN lower perplexity by 30-50%.
-3. **Hard.** Build a trigram spell corrector: given a misspelled word and its context, generate corrections and rank by context probability under the LM. Evaluate on the Birkbeck spelling corpus (public).
+1. **Dễ.** Huấn luyện một LM trigram trên một ngữ liệu Shakespeare 1,000 câu. Sinh 20 câu. Chúng sẽ hợp lý cục bộ nhưng không mạch lạc toàn cục. Đây là bản minh họa kinh điển.
+2. **Trung bình.** Triển khai perplexity cho mô hình KN của bạn trên một phần chia Shakespeare được giữ lại. So sánh với Laplace. Bạn sẽ thấy KN hạ perplexity 30-50%.
+3. **Khó.** Xây dựng một bộ sửa chính tả trigram: với một từ sai chính tả và ngữ cảnh của nó, sinh các bản sửa và xếp hạng theo xác suất ngữ cảnh dưới LM. Đánh giá trên ngữ liệu chính tả Birkbeck (công khai).
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| N-gram | Word sequence | Sequence of `n` consecutive tokens. |
-| Smoothing | Avoiding zeros | Reallocating probability mass so unseen events get non-zero probability. |
-| Perplexity | LM quality metric | `exp(-average log-prob)` on held-out data. Lower is better. |
-| Backoff | Fallback to shorter context | If trigram count is zero, use bigram. Katz backoff formalizes this. |
-| Kneser-Ney | Best smoothing for n-grams | Absolute discounting + continuation probability for the lower-order model. |
-| Continuation probability | KN-specific | `P(w)` weighted by number of contexts `w` appears in, not by raw count. |
-| Entropy of text | Information per symbol | Average bits needed to encode the next symbol given the context. Shannon's 1951 estimate for printed English with up to 100 letters of context: 0.6-1.3 bits/letter, measured before any model existed. |
+| N-gram | Chuỗi từ | Chuỗi `n` token liên tiếp. |
+| Smoothing (Làm trơn) | Tránh các số không | Phân bổ lại khối lượng xác suất để các sự kiện chưa thấy nhận xác suất khác không. |
+| Perplexity | Thước đo chất lượng LM | `exp(-average log-prob)` trên dữ liệu được giữ lại. Thấp hơn là tốt hơn. |
+| Backoff | Quay về ngữ cảnh ngắn hơn | Nếu số đếm trigram bằng không, dùng bigram. Katz backoff hình thức hóa điều này. |
+| Kneser-Ney | Làm trơn tốt nhất cho n-gram | Chiết khấu tuyệt đối + xác suất tiếp diễn cho mô hình bậc thấp hơn. |
+| Continuation probability (Xác suất tiếp diễn) | Riêng cho KN | `P(w)` được gán trọng số theo số ngữ cảnh `w` xuất hiện, không theo số đếm thô. |
+| Entropy of text (Entropy của văn bản) | Thông tin trên mỗi ký hiệu | Số bit trung bình cần để mã hóa ký hiệu tiếp theo khi biết ngữ cảnh. Ước lượng năm 1951 của Shannon cho tiếng Anh in với ngữ cảnh lên đến 100 chữ cái: 0.6-1.3 bit/chữ cái, được đo trước khi bất kỳ mô hình nào tồn tại. |
 
 ## Further Reading
 
-- [Shannon (1951). Prediction and Entropy of Printed English](https://www.princeton.edu/~wbialek/rome/refs/shannon_51.pdf) — the guessing-game experiment that defined the target every language model still optimizes.
-- [Jurafsky and Martin — Speech and Language Processing, Chapter 3 (2026 draft)](https://web.stanford.edu/~jurafsky/slp3/3.pdf) — the canonical treatment of n-gram LMs and smoothing.
-- [Chen and Goodman (1998). An Empirical Study of Smoothing Techniques for Language Modeling](https://dash.harvard.edu/handle/1/25104739) — the paper that settled Kneser-Ney as the best n-gram smoother.
-- [Kneser and Ney (1995). Improved Backing-off for M-gram Language Modeling](https://ieeexplore.ieee.org/document/479394) — the original KN paper.
-- [KenLM](https://kheafield.com/code/kenlm/) — fast production n-gram LM, still used in 2026 for latency-sensitive applications.
+- [Shannon (1951). Prediction and Entropy of Printed English](https://www.princeton.edu/~wbialek/rome/refs/shannon_51.pdf) — thử nghiệm trò chơi đoán định nghĩa mục tiêu mà mọi mô hình ngôn ngữ vẫn tối ưu.
+- [Jurafsky and Martin — Speech and Language Processing, Chapter 3 (2026 draft)](https://web.stanford.edu/~jurafsky/slp3/3.pdf) — cách trình bày kinh điển về các LM n-gram và làm trơn.
+- [Chen and Goodman (1998). An Empirical Study of Smoothing Techniques for Language Modeling](https://dash.harvard.edu/handle/1/25104739) — bài báo xác lập Kneser-Ney là bộ làm trơn n-gram tốt nhất.
+- [Kneser and Ney (1995). Improved Backing-off for M-gram Language Modeling](https://ieeexplore.ieee.org/document/479394) — bài báo KN gốc.
+- [KenLM](https://kheafield.com/code/kenlm/) — LM n-gram production nhanh, vẫn được dùng năm 2026 cho các ứng dụng nhạy độ trễ.

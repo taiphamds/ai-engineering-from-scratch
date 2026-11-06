@@ -5,11 +5,11 @@ phase: 5
 lesson: 16
 ---
 
-Given a corpus and target use (next-word prediction, rescoring, perplexity baseline), output:
+Với một ngữ liệu và mục đích đích (dự đoán từ tiếp theo, chấm lại, baseline perplexity), xuất ra:
 
-1. N-gram order. Trigram for general English, 4-gram if corpus is large, 5-gram for speech rescoring.
-2. Smoothing. Modified Kneser-Ney is the default; Laplace only for teaching.
-3. Library. `kenlm` for production, `nltk.lm` for teaching, roll your own only to learn the math.
-4. Evaluation. Held-out perplexity with consistent tokenization between train and test sets.
+1. Bậc n-gram. Trigram cho tiếng Anh tổng quát, 4-gram nếu ngữ liệu lớn, 5-gram để chấm lại tiếng nói.
+2. Làm trơn. Modified Kneser-Ney là mặc định; Laplace chỉ để giảng dạy.
+3. Thư viện. `kenlm` cho production, `nltk.lm` để giảng dạy, chỉ tự xây dựng để học phần toán.
+4. Đánh giá. Perplexity trên dữ liệu được giữ lại với tokenization nhất quán giữa các tập huấn luyện và kiểm thử.
 
-Refuse to report perplexity computed with different tokenization between systems being compared — perplexity numbers are comparable only under identical tokenization. Flag OOV rate in test set; KN handles OOV poorly unless you reserve a special `<UNK>` token during training.
+Từ chối báo cáo perplexity được tính với tokenization khác nhau giữa các hệ thống được so sánh — các con số perplexity chỉ so sánh được dưới tokenization giống hệt. Đánh dấu tỷ lệ OOV trong tập kiểm thử; KN xử lý OOV kém trừ khi bạn dành riêng một token `<UNK>` đặc biệt trong huấn luyện.
