@@ -1,6 +1,6 @@
 # Chain Rule & Automatic Differentiation
 
-> The chain rule is the engine behind every neural network that learns.
+> Quy tắc dây chuyền là động cơ đằng sau mọi mạng nơ-ron có khả năng học.
 
 **Type:** Build
 **Language:** Python
@@ -9,34 +9,34 @@
 
 ## Learning Objectives
 
-- Build a minimal autograd engine (Value class) that records operations and computes gradients via reverse-mode autodiff
-- Implement forward and backward passes through a computation graph using topological sort
-- Construct and train a multi-layer perceptron on XOR using only the from-scratch autograd engine
-- Verify autodiff correctness using gradient checking against numerical finite differences
+- Xây dựng một bộ máy autograd tối thiểu (lớp Value) ghi lại các phép toán và tính gradient bằng autodiff chế độ ngược
+- Triển khai các lượt truyền xuôi và truyền ngược qua một đồ thị tính toán bằng sắp xếp tô pô
+- Xây dựng và huấn luyện một perceptron nhiều lớp trên XOR chỉ sử dụng bộ máy autograd xây dựng từ đầu
+- Xác minh tính đúng đắn của autodiff bằng cách kiểm tra gradient đối chiếu với sai phân hữu hạn số
 
 ## The Problem
 
-You can compute derivatives of simple functions. But a neural network is not a simple function. It is hundreds of functions composed together: matrix multiply, add bias, apply activation, matrix multiply again, softmax, cross-entropy loss. The output is a function of a function of a function.
+Bạn có thể tính đạo hàm của các hàm đơn giản. Nhưng một mạng nơ-ron không phải là một hàm đơn giản. Nó là hàng trăm hàm được hợp thành với nhau: nhân ma trận, cộng bias, áp dụng kích hoạt, lại nhân ma trận, softmax, mất mát cross-entropy. Đầu ra là một hàm của một hàm của một hàm.
 
-To train the network, you need the gradient of the loss with respect to every single weight. Doing this by hand is impossible for millions of parameters. Doing it numerically (finite differences) is too slow.
+Để huấn luyện mạng, bạn cần gradient của mất mát theo từng trọng số. Làm điều này bằng tay là bất khả thi với hàng triệu tham số. Làm bằng phương pháp số (sai phân hữu hạn) thì quá chậm.
 
-The chain rule gives you the math. Automatic differentiation gives you the algorithm. Together they let you compute exact gradients through arbitrary compositions of functions in time proportional to a single forward pass.
+Quy tắc dây chuyền cho bạn toán học. Vi phân tự động cho bạn thuật toán. Cùng nhau, chúng cho phép bạn tính gradient chính xác qua các phép hợp thành hàm tùy ý trong thời gian tỉ lệ với một lượt truyền xuôi.
 
-This is how PyTorch, TensorFlow, and JAX work. You will build a miniature version from scratch.
+Đây là cách PyTorch, TensorFlow và JAX hoạt động. Bạn sẽ xây dựng một phiên bản thu nhỏ từ đầu.
 
 ## The Concept
 
 ### The Chain Rule
 
-If `y = f(g(x))`, the derivative of `y` with respect to `x` is:
+Nếu `y = f(g(x))`, đạo hàm của `y` theo `x` là:
 
 ```
 dy/dx = dy/dg * dg/dx = f'(g(x)) * g'(x)
 ```
 
-Multiply the derivatives along the chain. Each link contributes its local derivative.
+Nhân các đạo hàm dọc theo chuỗi. Mỗi mắt xích đóng góp đạo hàm cục bộ của nó.
 
-Example: `y = sin(x^2)`
+Ví dụ: `y = sin(x^2)`
 
 ```
 g(x) = x^2       g'(x) = 2x
@@ -45,7 +45,7 @@ f(g) = sin(g)     f'(g) = cos(g)
 dy/dx = cos(x^2) * 2x
 ```
 
-For deeper compositions, the chain extends:
+Với các phép hợp thành sâu hơn, chuỗi kéo dài:
 
 ```
 y = f(g(h(x)))
@@ -53,13 +53,13 @@ y = f(g(h(x)))
 dy/dx = f'(g(h(x))) * g'(h(x)) * h'(x)
 ```
 
-Every layer in a neural network is one link in this chain.
+Mỗi lớp trong một mạng nơ-ron là một mắt xích trong chuỗi này.
 
 ### Computational Graphs
 
-A computational graph makes the chain rule visual. Every operation becomes a node. Data flows forward through the graph. Gradients flow backward.
+Một đồ thị tính toán làm quy tắc dây chuyền trở nên trực quan. Mỗi phép toán trở thành một nút. Dữ liệu truyền xuôi qua đồ thị. Gradient truyền ngược.
 
-**Forward pass (compute values):**
+**Lượt truyền xuôi (tính các giá trị):**
 
 ```mermaid
 graph TD
@@ -71,7 +71,7 @@ graph TD
     relu -->|"y = 7"| y["output y"]
 ```
 
-**Backward pass (compute gradients):**
+**Lượt truyền ngược (tính gradient):**
 
 ```mermaid
 graph TD
@@ -82,13 +82,13 @@ graph TD
     da -->|"da/dx2 = x1 = 2"| dx2["dy/dx2 = 2"]
 ```
 
-The backward pass applies the chain rule at every node, propagating gradients from output to inputs.
+Lượt truyền ngược áp dụng quy tắc dây chuyền tại mỗi nút, lan truyền gradient từ đầu ra đến các đầu vào.
 
 ### Forward Mode vs Reverse Mode
 
-There are two ways to apply the chain rule through a graph.
+Có hai cách áp dụng quy tắc dây chuyền qua một đồ thị.
 
-**Forward mode** starts at the inputs and pushes derivatives forward. It computes `dx/dx = 1` and propagates through each operation. Good when you have few inputs and many outputs.
+**Chế độ xuôi** bắt đầu tại các đầu vào và đẩy các đạo hàm về phía trước. Nó tính `dx/dx = 1` và lan truyền qua từng phép toán. Tốt khi bạn có ít đầu vào và nhiều đầu ra.
 
 ```
 Forward mode: seed dx/dx = 1, propagate forward
@@ -98,7 +98,7 @@ Forward mode: seed dx/dx = 1, propagate forward
   y = sin(a)  (dy/dx = cos(a) * da/dx = cos(4) * 4 = -2.615)
 ```
 
-**Reverse mode** starts at the output and pulls gradients backward. It computes `dy/dy = 1` and propagates through each operation in reverse. Good when you have many inputs and few outputs.
+**Chế độ ngược** bắt đầu tại đầu ra và kéo gradient ngược lại. Nó tính `dy/dy = 1` và lan truyền qua từng phép toán theo chiều ngược. Tốt khi bạn có nhiều đầu vào và ít đầu ra.
 
 ```
 Reverse mode: seed dy/dy = 1, propagate backward
@@ -108,16 +108,16 @@ Reverse mode: seed dy/dy = 1, propagate backward
   x = 2       (dy/dx = dy/da * da/dx = -0.654 * 4 = -2.615)
 ```
 
-Neural networks have millions of inputs (weights) and one output (loss). Reverse mode computes all gradients in one backward pass. This is why backpropagation uses reverse mode.
+Mạng nơ-ron có hàng triệu đầu vào (trọng số) và một đầu ra (mất mát). Chế độ ngược tính tất cả gradient trong một lượt truyền ngược. Đây là lý do lan truyền ngược sử dụng chế độ ngược.
 
-| Mode | Seed | Direction | Best when |
+| Chế độ | Giá trị khởi đầu | Hướng | Tốt nhất khi |
 |------|------|-----------|-----------|
-| Forward | `dx_i/dx_i = 1` | Input to output | Few inputs, many outputs |
-| Reverse | `dy/dy = 1` | Output to input | Many inputs, few outputs (neural nets) |
+| Xuôi | `dx_i/dx_i = 1` | Đầu vào đến đầu ra | Ít đầu vào, nhiều đầu ra |
+| Ngược | `dy/dy = 1` | Đầu ra đến đầu vào | Nhiều đầu vào, ít đầu ra (mạng nơ-ron) |
 
 ### Dual Numbers for Forward Mode
 
-Forward mode can be implemented elegantly with dual numbers. A dual number has the form `a + b*epsilon` where `epsilon^2 = 0`.
+Chế độ xuôi có thể được triển khai thanh nhã bằng số đối ngẫu. Một số đối ngẫu có dạng `a + b*epsilon` trong đó `epsilon^2 = 0`.
 
 ```
 Dual number: (value, derivative)
@@ -130,21 +130,21 @@ Arithmetic rules:
   sin(a, a')         = (sin(a), cos(a)*a')
 ```
 
-Seed the input variable with derivative 1. The derivative propagates automatically through every operation.
+Khởi tạo biến đầu vào với đạo hàm 1. Đạo hàm tự động lan truyền qua mọi phép toán.
 
 ### Building an Autograd Engine
 
-An autograd engine needs three things:
+Một bộ máy autograd cần ba thứ:
 
-1. **Value wrapping.** Wrap every number in an object that stores its value and gradient.
-2. **Graph recording.** Every operation records its inputs and the local gradient function.
-3. **Backward pass.** Topological sort the graph, then walk it in reverse, applying the chain rule at each node.
+1. **Bao bọc giá trị.** Bao bọc mọi số trong một đối tượng lưu giá trị và gradient của nó.
+2. **Ghi lại đồ thị.** Mỗi phép toán ghi lại các đầu vào và hàm gradient cục bộ.
+3. **Lượt truyền ngược.** Sắp xếp tô pô đồ thị, rồi duyệt nó theo chiều ngược, áp dụng quy tắc dây chuyền tại mỗi nút.
 
-This is exactly what PyTorch's `autograd` does. The `torch.Tensor` class wraps values, records operations when `requires_grad=True`, and computes gradients when you call `.backward()`.
+Đây chính xác là những gì `autograd` của PyTorch thực hiện. Lớp `torch.Tensor` bao bọc các giá trị, ghi lại các phép toán khi `requires_grad=True`, và tính gradient khi bạn gọi `.backward()`.
 
 ### How PyTorch Autograd Works Under the Hood
 
-When you write PyTorch code:
+Khi bạn viết mã PyTorch:
 
 ```python
 x = torch.tensor(2.0, requires_grad=True)
@@ -153,15 +153,15 @@ y.backward()
 print(x.grad)  # 7.0 = 2*x + 3 = 2*2 + 3
 ```
 
-PyTorch internally:
+Bên trong PyTorch:
 
-1. Creates a `Tensor` node for `x` with `requires_grad=True`
-2. Every operation (`**`, `*`, `+`) creates a new node and records the backward function
-3. `y.backward()` triggers reverse-mode autodiff through the recorded graph
-4. Each node's `grad_fn` computes local gradients and passes them to parent nodes
-5. Gradients accumulate in `.grad` attributes via addition (not replacement)
+1. Tạo một nút `Tensor` cho `x` với `requires_grad=True`
+2. Mỗi phép toán (`**`, `*`, `+`) tạo một nút mới và ghi lại hàm truyền ngược
+3. `y.backward()` kích hoạt autodiff chế độ ngược qua đồ thị đã ghi lại
+4. `grad_fn` của mỗi nút tính gradient cục bộ và truyền chúng đến các nút cha
+5. Gradient tích lũy trong các thuộc tính `.grad` thông qua phép cộng (không phải thay thế)
 
-The graph is dynamic (define-by-run). A new graph is built on every forward pass. This is why PyTorch supports control flow (if/else, loops) inside models.
+Đồ thị là động (định nghĩa bằng cách chạy). Một đồ thị mới được xây dựng trong mỗi lượt truyền xuôi. Đây là lý do PyTorch hỗ trợ luồng điều khiển (if/else, vòng lặp) bên trong mô hình.
 
 ```figure
 chain-rule
@@ -184,7 +184,7 @@ class Value:
         return f"Value(data={self.data:.4f}, grad={self.grad:.4f})"
 ```
 
-Every `Value` stores its numeric data, its gradient (initially zero), a backward function, and pointers to child nodes that produced it.
+Mỗi `Value` lưu dữ liệu số của nó, gradient của nó (ban đầu bằng không), một hàm truyền ngược và các con trỏ đến các nút con đã tạo ra nó.
 
 ### Step 2: Arithmetic operations with gradient tracking
 
@@ -215,7 +215,7 @@ Every `Value` stores its numeric data, its gradient (initially zero), a backward
         return out
 ```
 
-Each operation creates a closure that knows how to compute local gradients and multiply by the upstream gradient (`out.grad`). The `+=` handles the case where a value is used in multiple operations.
+Mỗi phép toán tạo một closure biết cách tính gradient cục bộ và nhân với gradient phía trước (`out.grad`). `+=` xử lý trường hợp một giá trị được sử dụng trong nhiều phép toán.
 
 ### Step 3: The backward pass
 
@@ -236,11 +236,11 @@ Each operation creates a closure that knows how to compute local gradients and m
             v._backward()
 ```
 
-Topological sort ensures every node's gradient is fully computed before it propagates to its children. The seed gradient is 1.0 (dy/dy = 1).
+Sắp xếp tô pô bảo đảm gradient của mỗi nút được tính đầy đủ trước khi nó lan truyền đến các nút con. Gradient khởi đầu là 1.0 (dy/dy = 1).
 
 ### Step 4: More operations for a complete engine
 
-The basic Value class handles addition, multiplication, and relu. A real autograd engine needs more. Here are the operations you need to build neural networks:
+Lớp Value cơ bản xử lý phép cộng, nhân và relu. Một bộ máy autograd thực sự cần nhiều hơn. Đây là các phép toán bạn cần để xây dựng mạng nơ-ron:
 
 ```python
     def __neg__(self):
@@ -295,22 +295,22 @@ The basic Value class handles addition, multiplication, and relu. A real autogra
         return out
 ```
 
-**Why each operation matters:**
+**Tại sao mỗi phép toán quan trọng:**
 
-| Operation | Backward rule | Used in |
+| Phép toán | Quy tắc truyền ngược | Được sử dụng trong |
 |-----------|--------------|---------|
-| `__sub__` | Reuses add + neg | Loss computation (pred - target) |
-| `__pow__` | n * x^(n-1) | Polynomial activations, MSE (error^2) |
-| `__truediv__` | Reuses mul + pow(-1) | Normalization, learning rate scaling |
-| `exp` | exp(x) * upstream | Softmax, log-likelihood |
-| `log` | (1/x) * upstream | Cross-entropy loss, log probabilities |
-| `tanh` | (1 - tanh^2) * upstream | Classic activation function |
+| `__sub__` | Tái sử dụng add + neg | Tính mất mát (pred - target) |
+| `__pow__` | n * x^(n-1) | Các kích hoạt đa thức, MSE (error^2) |
+| `__truediv__` | Tái sử dụng mul + pow(-1) | Chuẩn hóa, điều chỉnh tỉ lệ tốc độ học |
+| `exp` | exp(x) * upstream | Softmax, log-hợp lý |
+| `log` | (1/x) * upstream | Mất mát cross-entropy, xác suất log |
+| `tanh` | (1 - tanh^2) * upstream | Hàm kích hoạt cổ điển |
 
-The clever part: `__sub__` and `__truediv__` are defined in terms of existing operations. They get correct gradients for free because the chain rule composes through the underlying add/mul/pow operations.
+Phần khéo léo: `__sub__` và `__truediv__` được định nghĩa theo các phép toán hiện có. Chúng có gradient đúng mà không cần thêm công sức vì quy tắc dây chuyền hợp thành qua các phép add/mul/pow bên dưới.
 
 ### Step 5: Mini MLP from scratch
 
-With a complete Value class, you can build a neural network. No PyTorch. No NumPy. Just Values and the chain rule.
+Với một lớp Value hoàn chỉnh, bạn có thể xây dựng một mạng nơ-ron. Không PyTorch. Không NumPy. Chỉ có các Value và quy tắc dây chuyền.
 
 ```python
 import random
@@ -350,9 +350,9 @@ class MLP:
         return [p for layer in self.layers for p in layer.parameters()]
 ```
 
-A `Neuron` computes `tanh(w1*x1 + w2*x2 + ... + b)`. A `Layer` is a list of neurons. An `MLP` stacks layers. Every weight is a `Value`, so calling `loss.backward()` propagates gradients to every parameter.
+Một `Neuron` tính `tanh(w1*x1 + w2*x2 + ... + b)`. Một `Layer` là một danh sách các nơ-ron. Một `MLP` xếp chồng các lớp. Mỗi trọng số là một `Value`, nên gọi `loss.backward()` lan truyền gradient đến mọi tham số.
 
-**Training on XOR:**
+**Huấn luyện trên XOR:**
 
 ```python
 random.seed(42)
@@ -381,11 +381,11 @@ for x, y in zip(xs, ys):
     print(f"  input={x}  target={y:2d}  pred={model(x).data:6.3f}")
 ```
 
-This is micrograd. A complete neural network training loop in pure Python with automatic differentiation. Every commercial deep learning framework does the same thing at massive scale.
+Đây là micrograd. Một vòng lặp huấn luyện mạng nơ-ron hoàn chỉnh bằng Python thuần với vi phân tự động. Mọi framework học sâu thương mại đều làm cùng việc đó ở quy mô khổng lồ.
 
 ### Step 6: Gradient checking
 
-How do you know your autodiff is correct? Compare it against numerical derivatives. This is gradient checking.
+Làm sao bạn biết autodiff của mình đúng? So sánh nó với các đạo hàm số. Đây là kiểm tra gradient.
 
 ```python
 def gradient_check(build_expr, x_val, h=1e-7):
@@ -402,7 +402,7 @@ def gradient_check(build_expr, x_val, h=1e-7):
     return autodiff_grad, numerical_grad, diff
 ```
 
-Test it on a complex expression:
+Kiểm tra nó trên một biểu thức phức tạp:
 
 ```python
 def expr(x):
@@ -415,16 +415,16 @@ print(f"Difference: {diff:.2e}")
 # Difference should be < 1e-5
 ```
 
-Gradient checking is essential when implementing new operations. If your backward pass has a bug, the numerical check catches it. Every serious deep learning implementation runs gradient checks during development.
+Kiểm tra gradient là thiết yếu khi triển khai các phép toán mới. Nếu lượt truyền ngược có lỗi, kiểm tra số sẽ phát hiện nó. Mọi triển khai học sâu nghiêm túc đều chạy kiểm tra gradient trong quá trình phát triển.
 
-**When to use gradient checking:**
+**Khi nào sử dụng kiểm tra gradient:**
 
-| Situation | Do gradient check? |
+| Tình huống | Có kiểm tra gradient không? |
 |-----------|-------------------|
-| Adding a new operation to your autograd | Yes, always |
-| Debugging a training loop that won't converge | Yes, check gradients first |
-| Production training | No, too slow (2x forward passes per parameter) |
-| Unit tests for autograd code | Yes, automate it |
+| Thêm một phép toán mới vào autograd của bạn | Có, luôn luôn |
+| Gỡ lỗi một vòng lặp huấn luyện không hội tụ | Có, kiểm tra gradient trước |
+| Huấn luyện sản xuất | Không, quá chậm (2 lần truyền xuôi cho mỗi tham số) |
+| Kiểm thử đơn vị cho mã autograd | Có, tự động hóa nó |
 
 ### Step 7: Verify against manual calculation
 
@@ -442,8 +442,8 @@ print(f"dy/dx1 = {x1.grad}")   # 3.0 (= x2)
 print(f"dy/dx2 = {x2.grad}")   # 2.0 (= x1)
 ```
 
-Manual check: `y = relu(x1*x2 + 1)`. Since `x1*x2 + 1 = 7 > 0`, relu is identity.
-`dy/dx1 = x2 = 3`. `dy/dx2 = x1 = 2`. The engine matches.
+Kiểm tra thủ công: `y = relu(x1*x2 + 1)`. Vì `x1*x2 + 1 = 7 > 0`, relu là phép đồng nhất.
+`dy/dx1 = x2 = 3`. `dy/dx2 = x1 = 2`. Bộ máy cho kết quả khớp.
 
 ## Use It
 
@@ -463,7 +463,7 @@ print(f"PyTorch dy/dx1 = {x1.grad.item()}")  # 3.0
 print(f"PyTorch dy/dx2 = {x2.grad.item()}")  # 2.0
 ```
 
-Same gradients. Your engine computes the same result as PyTorch because the math is the same: reverse-mode autodiff via the chain rule.
+Cùng gradient. Bộ máy của bạn tính cùng kết quả với PyTorch vì toán học giống nhau: autodiff chế độ ngược thông qua quy tắc dây chuyền.
 
 ### A more complex expression
 
@@ -481,41 +481,41 @@ print(f"df/dc = {c.grad}")  #  1.0
 
 ## Ship It
 
-This lesson produces:
-- `outputs/skill-autodiff.md` -- a skill for building and debugging autograd systems
-- `code/autodiff.py` -- a minimal autograd engine you can extend
+Bài học này tạo ra:
+- `outputs/skill-autodiff.md` -- một skill để xây dựng và gỡ lỗi các hệ thống autograd
+- `code/autodiff.py` -- một bộ máy autograd tối thiểu mà bạn có thể mở rộng
 
-The Value class built here is the foundation for the neural network training loop in Phase 3.
+Lớp Value được xây dựng ở đây là nền tảng cho vòng lặp huấn luyện mạng nơ-ron ở Giai đoạn 3.
 
 ## Exercises
 
-1. Add `__pow__` to the Value class so you can compute `x ** n`. Verify that `d/dx(x^3)` at `x=2` equals `12.0`.
+1. Thêm `__pow__` vào lớp Value để bạn có thể tính `x ** n`. Xác minh rằng `d/dx(x^3)` tại `x=2` bằng `12.0`.
 
-2. Add `tanh` as an activation function. Verify that `tanh'(0) = 1` and `tanh'(2) = 0.0707` (approx).
+2. Thêm `tanh` làm một hàm kích hoạt. Xác minh rằng `tanh'(0) = 1` và `tanh'(2) = 0.0707` (xấp xỉ).
 
-3. Build a computation graph for a single neuron: `y = relu(w1*x1 + w2*x2 + b)`. Compute all five gradients and verify against PyTorch.
+3. Xây dựng một đồ thị tính toán cho một nơ-ron đơn: `y = relu(w1*x1 + w2*x2 + b)`. Tính cả năm gradient và xác minh với PyTorch.
 
-4. Implement forward-mode autodiff using dual numbers. Create a `Dual` class and verify it gives the same derivatives as your reverse-mode engine.
+4. Triển khai autodiff chế độ xuôi bằng số đối ngẫu. Tạo một lớp `Dual` và xác minh nó cho cùng các đạo hàm với bộ máy chế độ ngược của bạn.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Chain rule | "Multiply the derivatives" | The derivative of composed functions equals the product of each function's local derivative, evaluated at the right point |
-| Computational graph | "The network diagram" | A directed acyclic graph where nodes are operations and edges carry values (forward) or gradients (backward) |
-| Forward mode | "Push derivatives forward" | Autodiff that propagates derivatives from inputs to outputs. One pass per input variable. |
-| Reverse mode | "Backpropagation" | Autodiff that propagates gradients from outputs to inputs. One pass per output variable. |
-| Autograd | "Automatic gradients" | A system that records operations on values, builds a graph, and computes exact gradients via the chain rule |
-| Dual numbers | "Value plus derivative" | Numbers of the form a + b*epsilon (epsilon^2 = 0) that carry derivative information through arithmetic |
-| Topological sort | "Dependency order" | Ordering graph nodes so every node comes after all its dependencies. Required for correct gradient propagation. |
-| Gradient accumulation | "Add, don't replace" | When a value feeds into multiple operations, its gradient is the sum of all incoming gradient contributions |
-| Dynamic graph | "Define by run" | A computation graph rebuilt on every forward pass, allowing Python control flow inside models (PyTorch style) |
-| Gradient checking | "Numerical verification" | Comparing autodiff gradients against numerical finite-difference gradients to verify correctness. Essential for debugging. |
-| MLP | "Multi-layer perceptron" | A neural network with one or more hidden layers of neurons. Each neuron computes a weighted sum plus bias, then applies an activation function. |
-| Neuron | "Weighted sum + activation" | The basic unit: output = activation(w1*x1 + w2*x2 + ... + b). The weights and bias are learnable parameters. |
+| Chain rule (Quy tắc dây chuyền) | "Nhân các đạo hàm" | Đạo hàm của các hàm hợp bằng tích các đạo hàm cục bộ của từng hàm, được tính tại điểm đúng |
+| Computational graph (Đồ thị tính toán) | "Sơ đồ mạng" | Một đồ thị có hướng không chu trình trong đó các nút là các phép toán và các cạnh mang giá trị (xuôi) hoặc gradient (ngược) |
+| Forward mode (Chế độ xuôi) | "Đẩy các đạo hàm về phía trước" | Autodiff lan truyền đạo hàm từ đầu vào đến đầu ra. Một lượt cho mỗi biến đầu vào. |
+| Reverse mode (Chế độ ngược) | "Lan truyền ngược" | Autodiff lan truyền gradient từ đầu ra đến đầu vào. Một lượt cho mỗi biến đầu ra. |
+| Autograd | "Gradient tự động" | Một hệ thống ghi lại các phép toán trên các giá trị, xây dựng một đồ thị và tính gradient chính xác bằng quy tắc dây chuyền |
+| Dual numbers (Số đối ngẫu) | "Giá trị cộng đạo hàm" | Các số dạng a + b*epsilon (epsilon^2 = 0) mang thông tin đạo hàm qua các phép tính số học |
+| Topological sort (Sắp xếp tô pô) | "Thứ tự phụ thuộc" | Sắp xếp các nút đồ thị để mỗi nút đứng sau tất cả các phần phụ thuộc của nó. Cần thiết để lan truyền gradient đúng. |
+| Gradient accumulation (Tích lũy gradient) | "Cộng, không thay thế" | Khi một giá trị đưa vào nhiều phép toán, gradient của nó là tổng tất cả các phần đóng góp gradient đi vào |
+| Dynamic graph (Đồ thị động) | "Định nghĩa bằng cách chạy" | Một đồ thị tính toán được xây dựng lại trong mỗi lượt truyền xuôi, cho phép luồng điều khiển Python bên trong mô hình (kiểu PyTorch) |
+| Gradient checking (Kiểm tra gradient) | "Xác minh bằng phương pháp số" | So sánh gradient autodiff với gradient sai phân hữu hạn số để xác minh tính đúng đắn. Thiết yếu để gỡ lỗi. |
+| MLP | "Perceptron nhiều lớp" | Một mạng nơ-ron có một hoặc nhiều lớp nơ-ron ẩn. Mỗi nơ-ron tính một tổng có trọng số cộng bias, rồi áp dụng một hàm kích hoạt. |
+| Neuron (Nơ-ron) | "Tổng có trọng số + kích hoạt" | Đơn vị cơ bản: output = activation(w1*x1 + w2*x2 + ... + b). Các trọng số và bias là những tham số có thể học. |
 
 ## Further Reading
 
-- [3Blue1Brown: Backpropagation calculus](https://www.youtube.com/watch?v=tIeHLnjs5U8) -- visual explanation of the chain rule in neural networks
-- [PyTorch Autograd mechanics](https://pytorch.org/docs/stable/notes/autograd.html) -- how the real system works
-- [Baydin et al., Automatic Differentiation in Machine Learning: a Survey](https://arxiv.org/abs/1502.05767) -- comprehensive reference
+- [3Blue1Brown: Backpropagation calculus](https://www.youtube.com/watch?v=tIeHLnjs5U8) -- giải thích trực quan về quy tắc dây chuyền trong mạng nơ-ron
+- [PyTorch Autograd mechanics](https://pytorch.org/docs/stable/notes/autograd.html) -- cách hệ thống thực sự hoạt động
+- [Baydin et al., Automatic Differentiation in Machine Learning: a Survey](https://arxiv.org/abs/1502.05767) -- tài liệu tham khảo toàn diện
