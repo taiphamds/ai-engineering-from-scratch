@@ -1,9 +1,9 @@
 # Capstone 08 - Production RAG Chatbot (TypeScript)
 
-Chat UI skeleton that streams a citation-anchored response over Server-Sent
-Events. Pairs with the Python pipeline in `../main.py`. Conversation state lives
-in an in-process Map keyed by `sessionId`, so the same session id can drive
-multi-turn dialogues.
+Khung UI trò chuyện truyền phản hồi có neo trích dẫn qua Server-Sent
+Events. Ghép pipeline Python trong `../main.py`. Trạng thái hội thoại nằm
+trong Map nội bộ tiến trình khóa bằng `sessionId`, nên cùng id phiên có thể điều khiển
+đối thoại nhiều lượt.
 
 ## Layout
 
@@ -33,18 +33,18 @@ npm start          # one self-check pass, exits 0
 npm run serve      # interactive HTTP server on 127.0.0.1:<port>
 ```
 
-The interactive server picks a free port when `PORT` is unset, mounts the chat
-HTML client on `/`, and streams via `GET /chat/stream?sessionId=...&q=...`. The
-demo client uses `EventSource` and listens for `session`, `citations`, `token`,
-and `done` events.
+Máy chủ tương tác chọn cổng trống khi `PORT` chưa đặt, gắn client HTML
+trò chuyện trên `/`, truyền qua `GET /chat/stream?sessionId=...&q=...`.
+Client demo dùng `EventSource`, lắng nghe sự kiện `session`, `citations`, `token`,
+và `done`.
 
 ## Tests
 
-`node --test` runner via tsx. Coverage:
+Bộ chạy `node --test` qua tsx. Bao phủ:
 
-- SessionStore: create, lookup, append, list, no-op on missing id.
-- SSE encoder + parser round-trip; retrieval boost by jurisdiction tag;
-  tokenizer fallback + "See also" tail.
-- Server: `/`, `/health`, `/chat/stream` happy path (session + citations +
-  token + done), 400 on missing q, multi-turn session persistence,
-  `/sessions` listing.
+- SessionStore: tạo, tra, nối thêm, liệt kê, không làm gì khi thiếu id.
+- Bộ mã hóa + phân tích SSE khứ hồi; tăng trọng số truy xuất theo thẻ khu vực tài phán;
+  dự phòng tokenizer + phần đuôi "Xem thêm".
+- Máy chủ: đường thành công `/`, `/health`, `/chat/stream` (session + citations +
+  token + done), 400 khi thiếu q, lưu bền phiên nhiều lượt,
+  liệt kê `/sessions`.

@@ -7,41 +7,41 @@ lesson: 08
 tags: [capstone, rag, chatbot, regulated, llama-guard, nemo-guardrails, ragas, langfuse]
 ---
 
-Given a regulated-domain corpus (legal contracts, clinical trial protocols, insurance policies, or similar), deploy a chatbot that answers with verifiable citations, respects role and jurisdiction access policies, and is monitored for drift.
+Với corpus miền chịu quy định (hợp đồng pháp lý, quy trình thử nghiệm lâm sàng, hợp đồng bảo hiểm hoặc tương tự), triển khai chatbot trả lời có trích dẫn xác minh được, tôn trọng chính sách truy cập vai trò và khu vực tài phán, được giám sát độ trôi.
 
-Build plan:
+Kế hoạch xây dựng:
 
-1. Parse the corpus with docling or Unstructured; route visually rich documents through ColPali. Emit chunks with role and jurisdiction labels.
-2. Index dense (Voyage-3 or Nomic-embed-v2) into pgvector + pgvectorscale; sparse BM25 via Tantivy.
-3. Wire LangGraph conversational agent: retrieve (filter by role + jurisdiction, hybrid dense+BM25, reciprocal rank fusion), rerank (bge-reranker-v2-gemma-2b or Voyage rerank-2), synth (Claude Sonnet 4.7 with prompt caching).
-4. Assemble prompts with stable prefixes: system preamble -> policy block -> reranked context -> user query. Target 60-80% prompt-cache hit rate.
-5. Guardrails: Llama Guard 4 on input and output, NeMo Guardrails v0.12 rails for off-domain and policy-forbidden questions, Presidio PII scrub on output, citation enforcement post-filter.
-6. Build a 200-question expert-labeled golden set with (answer, citations). Score on exact-citation match, answer correctness, RAGAS faithfulness.
-7. Build a 50-prompt red team (PAIR, TAP, PII extraction, off-domain, cross-jurisdiction probes).
-8. Arize Phoenix drift dashboard tracking retrieval nDCG and citation faithfulness weekly; alert on 5% drop.
-9. Langfuse cost report: prompt-cache hit rate, tokens per query, $/query by stage.
+1. Phân tích corpus bằng docling hoặc Unstructured; định tuyến tài liệu giàu thị giác qua ColPali. Xuất đoạn có nhãn vai trò và khu vực tài phán.
+2. Lập chỉ mục dense (Voyage-3 hoặc Nomic-embed-v2) vào pgvector + pgvectorscale; BM25 sparse qua Tantivy.
+3. Kết nối agent hội thoại LangGraph: retrieve (lọc vai trò + khu vực tài phán, dense+BM25 lai, reciprocal rank fusion), rerank (bge-reranker-v2-gemma-2b hoặc Voyage rerank-2), synth (Claude Sonnet 4.7 với lưu bộ nhớ đệm prompt).
+4. Ghép prompt có tiền tố ổn định: mở đầu hệ thống -> block chính sách -> ngữ cảnh xếp lại -> truy vấn người dùng. Mục tiêu tỷ lệ trúng bộ nhớ đệm prompt 60-80%.
+5. Chốt bảo vệ: Llama Guard 4 trên đầu vào và ra, rail NeMo Guardrails v0.12 cho câu ngoài miền và chính sách cấm, làm sạch PII Presidio ở đầu ra, hậu lọc bắt buộc trích dẫn.
+6. Xây tập chuẩn 200 câu hỏi chuyên gia gắn nhãn với (câu trả lời, trích dẫn). Chấm khớp trích dẫn chính xác, tính đúng câu trả lời, tính trung thực RAGAS.
+7. Xây red team 50 prompt (PAIR, TAP, trích PII, ngoài miền, thăm dò xuyên khu vực tài phán).
+8. Bảng độ trôi Arize Phoenix theo dõi nDCG truy xuất và tính trung thực trích dẫn hằng tuần; cảnh báo giảm 5%.
+9. Báo cáo chi phí Langfuse: tỷ lệ trúng bộ nhớ đệm prompt, token mỗi truy vấn, $/truy vấn theo giai đoạn.
 
-Assessment rubric:
+Tiêu chí đánh giá:
 
-| Weight | Criterion | Measurement |
+| Trọng số | Tiêu chí | Phép đo |
 |:-:|---|---|
-| 25 | RAGAS faithfulness + answer relevance | Online scores on the 200-question golden set |
-| 20 | Citation correctness | Fraction of answers with verifiable source anchors |
-| 20 | Guardrail coverage | Llama Guard 4 pass rate + jailbreak suite result |
-| 20 | Cost / latency engineering | Prompt-cache hit rate, p95 latency, $/query |
-| 15 | Drift monitoring dashboard | Live Phoenix dashboard with weekly retrieval-quality trend |
+| 25 | Tính trung thực RAGAS + liên quan câu trả lời | Điểm trực tuyến trên tập chuẩn 200 câu hỏi |
+| 20 | Tính đúng trích dẫn | Tỷ phần câu trả lời có neo nguồn xác minh được |
+| 20 | Bao phủ chốt bảo vệ | Tỷ lệ vượt Llama Guard 4 + kết quả bộ jailbreak |
+| 20 | Kỹ thuật chi phí / độ trễ | Tỷ lệ trúng bộ nhớ đệm prompt, độ trễ p95, $/truy vấn |
+| 15 | Bảng điều khiển giám sát độ trôi | Bảng Phoenix trực tiếp có xu hướng chất lượng truy xuất hằng tuần |
 
-Hard rejects:
+Các trường hợp loại bỏ dứt khoát:
 
-- Any chatbot that leaks cross-jurisdiction data. Role+jurisdiction filtering must be enforced before retrieval, not after.
-- Synthesis prompts that break cache prefixes (reordering policy between system and context). Will destroy the cache economics.
-- Guardrail configurations without logged red-team runs.
-- Answers without citations; citations without verifiable anchors.
+- Mọi chatbot rò dữ liệu xuyên khu vực tài phán. Lọc vai trò+khu vực phải thực thi trước truy xuất, không phải sau.
+- Prompt tổng hợp phá tiền tố bộ nhớ đệm (đổi thứ tự chính sách giữa hệ thống và ngữ cảnh). Sẽ phá tính kinh tế bộ nhớ đệm.
+- Cấu hình chốt bảo vệ không có lần chạy red-team ghi log.
+- Câu trả lời không trích dẫn; trích dẫn không neo xác minh được.
 
-Refusal rules:
+Quy tắc từ chối:
 
-- Refuse to deploy in a regulated domain without jurisdiction tags on every chunk.
-- Refuse to train retrieval on expert-labeled golden set questions. Contamination destroys eval credibility.
-- Refuse to claim "compliant" without an explicit SOC2/HIPAA/GDPR applicability matrix in the README.
+- Từ chối triển khai miền chịu quy định không có thẻ khu vực tài phán trên mọi đoạn.
+- Từ chối huấn luyện truy xuất trên câu tập chuẩn chuyên gia gắn nhãn. Nhiễm phá uy tín đánh giá.
+- Từ chối khẳng định "tuân thủ" khi không có ma trận áp dụng SOC2/HIPAA/GDPR tường minh trong README.
 
-Output: a repo containing the ingestion pipeline, the LangGraph conversational agent, the 200-question golden set, the 50-prompt red team, the Phoenix drift dashboard, the Langfuse cost dashboard, and a write-up naming the top three citation-breakage patterns you observed and the retrieval or prompt fix for each.
+Đầu ra: repo chứa pipeline thu nạp, agent hội thoại LangGraph, tập chuẩn 200 câu hỏi, red team 50 prompt, bảng độ trôi Phoenix, bảng chi phí Langfuse và bài viết nêu ba mẫu hỏng trích dẫn hàng đầu bạn quan sát cùng cách sửa truy xuất hoặc prompt cho mỗi mẫu.

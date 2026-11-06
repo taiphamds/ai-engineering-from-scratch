@@ -1,6 +1,6 @@
 # Capstone 08 — Production RAG Chatbot for a Regulated Vertical
 
-> Harvey, Glean, Mendable, and LlamaCloud all run the same production shape in 2026. Ingest with docling or Unstructured and ColPali for visuals. Hybrid search. Re-rank with bge-reranker-v2-gemma. Synthesize with Claude Sonnet 4.7 using prompt caching at 60-80% hit rate. Guard with Llama Guard 4 and NeMo Guardrails. Watch with Langfuse and Phoenix. Grade with RAGAS on a 200-question golden set. Build one in a regulated domain (legal, clinical, insurance), and the capstone is passing the golden set, the red team, and the drift dashboard.
+> Harvey, Glean, Mendable và LlamaCloud đều chạy cùng hình dạng sản xuất năm 2026. Thu nạp bằng docling hoặc Unstructured và ColPali cho thị giác. Tìm kiếm lai. Xếp lại bằng bge-reranker-v2-gemma. Tổng hợp bằng Claude Sonnet 4.7 với lưu bộ nhớ đệm prompt ở tỷ lệ trúng 60-80%. Bảo vệ bằng Llama Guard 4 và NeMo Guardrails. Quan sát bằng Langfuse và Phoenix. Chấm RAGAS trên tập chuẩn 200 câu hỏi. Xây trong miền chịu quy định (pháp lý, lâm sàng, bảo hiểm), và bài tổng kết là vượt tập chuẩn, red team và bảng điều khiển độ trôi.
 
 **Type:** Capstone
 **Languages:** Python (pipeline + API), TypeScript (chat UI)
@@ -10,17 +10,17 @@
 
 ## Problem
 
-Regulated-domain RAG (legal contracts, clinical trial protocols, insurance policies) is the most-shipped production shape of 2026 because the ROI is obvious and the stakes are concrete. Harvey (Allen & Overy) built it for legal. Mendable ships the developer-docs flavor. Glean covers enterprise search. The pattern is: ingest high-fidelity, retrieve hybrid with rerank, synthesize with citation enforcement and prompt caching, guard with multiple safety layers, and monitor drift continuously.
+RAG miền chịu quy định (hợp đồng pháp lý, quy trình thử nghiệm lâm sàng, hợp đồng bảo hiểm) là hình dạng sản xuất được triển khai nhiều nhất 2026 vì ROI rõ và mức hệ trọng cụ thể. Harvey (Allen & Overy) xây cho pháp lý. Mendable cung cấp dạng tài liệu nhà phát triển. Glean bao phủ tìm doanh nghiệp. Mẫu là: thu nạp trung thực cao, truy xuất lai có xếp lại, tổng hợp bắt buộc trích dẫn và lưu bộ nhớ đệm prompt, bảo vệ nhiều lớp an toàn, giám sát độ trôi liên tục.
 
-The hard parts are not the model. They are jurisdiction-aware compliance (HIPAA, GDPR, SOC2), citation-level auditability, cost control (prompt caching buys 60-90% discount when hit rate is high), hallucination detection via RAGAS faithfulness, and drift detection when the source documents get updated without the index catching up. This capstone asks you to ship all of it on a 200-question golden set with a red-team suite alongside.
+Phần khó không là mô hình. Đó là tuân thủ nhận biết khu vực tài phán (HIPAA, GDPR, SOC2), khả năng kiểm toán cấp trích dẫn, kiểm soát chi phí (lưu bộ nhớ đệm prompt giảm giá 60-90% khi tỷ lệ trúng cao), phát hiện ảo giác qua tính trung thực RAGAS và phát hiện độ trôi khi tài liệu nguồn cập nhật nhưng chỉ mục chưa theo kịp. Bài tổng kết yêu cầu triển khai tất cả trên tập chuẩn 200 câu hỏi với bộ red-team đi kèm.
 
 ## Concept
 
-The pipeline has two sides. **Ingestion**: docling or Unstructured parses structured documents; ColPali handles visually rich ones; chunks get summaries, tags, and role-based access labels. Vectors go into pgvector + pgvectorscale (under 50M vectors) or Qdrant Cloud; sparse BM25 runs alongside. **Conversation**: LangGraph handles memory and multi-turn; each query runs hybrid retrieval, reranks with bge-reranker-v2-gemma-2b, synthesizes with Claude Sonnet 4.7 (prompt-cached), passes output through Llama Guard 4 and NeMo Guardrails, and emits a citation-anchored response.
+Pipeline có hai phía. **Thu nạp**: docling hoặc Unstructured phân tích tài liệu có cấu trúc; ColPali xử lý tài liệu giàu thị giác; đoạn có tóm tắt, thẻ và nhãn truy cập dựa vai trò. Vector vào pgvector + pgvectorscale (dưới 50M vector) hoặc Qdrant Cloud; BM25 sparse chạy kèm. **Hội thoại**: LangGraph xử lý bộ nhớ và nhiều lượt; mỗi truy vấn chạy truy xuất lai, xếp lại bằng bge-reranker-v2-gemma-2b, tổng hợp Claude Sonnet 4.7 (lưu bộ nhớ đệm prompt), đưa đầu ra qua Llama Guard 4 và NeMo Guardrails, xuất phản hồi có neo trích dẫn.
 
-The eval stack has four layers. **Golden set** (200 labeled Q/A with citations) for correctness. **Red team** (jailbreaks, PII extraction attempts, off-domain questions) for safety. **RAGAS** for faithfulness / answer relevance / context precision automatically per-turn. **Drift dashboard** (Arize Phoenix) watching retrieval quality and hallucination score weekly.
+Ngăn xếp đánh giá bốn lớp. **Tập chuẩn** (200 Q/A có nhãn và trích dẫn) cho tính đúng. **Red team** (jailbreak, nỗ lực trích PII, câu ngoài miền) cho an toàn. **RAGAS** cho tính trung thực / liên quan câu trả lời / độ chính xác ngữ cảnh tự động mỗi lượt. **Bảng điều khiển độ trôi** (Arize Phoenix) theo dõi chất lượng truy xuất và điểm ảo giác hằng tuần.
 
-Prompt caching is the cost lever. Claude 4.5+ and GPT-5+ support caching system prompts + retrieved context. At 60-80% hit rate, per-query cost drops 3-5x. The pipeline must be designed for stable prefixes (system prompt + reranked context first) to achieve high cache hit rates.
+Lưu bộ nhớ đệm prompt là đòn bẩy chi phí. Claude 4.5+ và GPT-5+ hỗ trợ lưu system prompt + ngữ cảnh truy xuất. Ở tỷ lệ trúng 60-80%, chi phí mỗi truy vấn giảm 3-5x. Pipeline phải thiết kế tiền tố ổn định (system prompt + ngữ cảnh xếp lại trước) để tỷ lệ trúng bộ nhớ đệm cao.
 
 ## Architecture
 
@@ -57,16 +57,16 @@ eval:
 
 ## Stack
 
-- Ingestion: Unstructured.io or docling for structured documents; ColPali for visually-rich PDFs
-- Vector DB: pgvector + pgvectorscale under 50M vectors; Qdrant Cloud otherwise
-- Sparse: Tantivy BM25 with field weights
-- Orchestration: LlamaIndex Workflows (ingestion) + LangGraph (conversation)
-- Re-ranker: bge-reranker-v2-gemma-2b self-hosted or Voyage rerank-2 hosted
-- LLM: Claude Sonnet 4.7 with prompt caching; fallback Llama 3.3 70B self-hosted
-- Eval: RAGAS 0.2 online, DeepEval for hallucination and jailbreak suites
-- Observability: Langfuse self-hosted with annotation queue; Arize Phoenix for drift
-- Guardrails: Llama Guard 4 input/output classifier, NeMo Guardrails v0.12 policy, Presidio PII scrub
-- Compliance: role-based access labels on chunks; jurisdiction tags for GDPR/HIPAA
+- Thu nạp: Unstructured.io hoặc docling cho tài liệu có cấu trúc; ColPali cho PDF giàu thị giác
+- DB vector: pgvector + pgvectorscale dưới 50M vector; nếu không Qdrant Cloud
+- Sparse: BM25 Tantivy có trọng số trường
+- Điều phối: LlamaIndex Workflows (thu nạp) + LangGraph (hội thoại)
+- Bộ xếp lại: bge-reranker-v2-gemma-2b tự lưu trữ hoặc Voyage rerank-2 được lưu trữ
+- LLM: Claude Sonnet 4.7 với lưu bộ nhớ đệm prompt; dự phòng Llama 3.3 70B tự lưu trữ
+- Đánh giá: RAGAS 0.2 trực tuyến, DeepEval cho bộ ảo giác và jailbreak
+- Khả năng quan sát: Langfuse tự lưu trữ với hàng đợi chú giải; Arize Phoenix cho độ trôi
+- Chốt bảo vệ: bộ phân loại đầu vào/đầu ra Llama Guard 4, chính sách NeMo Guardrails v0.12, làm sạch PII Presidio
+- Tuân thủ: nhãn truy cập dựa vai trò trên đoạn; thẻ khu vực tài phán GDPR/HIPAA
 
 ```figure
 canary-rollout
@@ -74,23 +74,23 @@ canary-rollout
 
 ## Build It
 
-1. **Ingestion.** Parse your corpus (1000-10000 documents for a serious build) with Unstructured or docling. For scanned / visual-heavy pages, route through ColPali. Produce chunks with summaries, role-labels, jurisdiction tags.
+1. **Thu nạp.** Phân tích corpus (1000-10000 tài liệu cho bản xây nghiêm túc) bằng Unstructured hoặc docling. Với trang quét / nặng thị giác, định tuyến qua ColPali. Tạo đoạn có tóm tắt, nhãn vai trò, thẻ khu vực tài phán.
 
-2. **Index.** Dense embeddings (Voyage-3 or Nomic-embed-v2) into pgvector + pgvectorscale. BM25 side-index via Tantivy. Role and jurisdiction filters as payload.
+2. **Chỉ mục.** Embedding dense (Voyage-3 hoặc Nomic-embed-v2) vào pgvector + pgvectorscale. Chỉ mục phụ BM25 qua Tantivy. Bộ lọc vai trò và khu vực tài phán làm payload.
 
-3. **Hybrid retrieve.** Filter by role+jurisdiction first; then parallel dense + BM25; merge with reciprocal rank fusion; top-20 to reranker; top-5 to synth.
+3. **Truy xuất lai.** Lọc vai trò+khu vực tài phán trước; rồi dense + BM25 song song; hợp bằng reciprocal rank fusion; top-20 đến bộ xếp lại; top-5 đến tổng hợp.
 
-4. **Synthesize with prompt caching.** System prompt + static policies in cache header; reranked context as cache extension; user question as uncached suffix. Target 60-80% cache hit rate in steady state.
+4. **Tổng hợp với lưu bộ nhớ đệm prompt.** System prompt + chính sách tĩnh trong đầu bộ nhớ đệm; ngữ cảnh xếp lại là phần mở rộng bộ nhớ đệm; câu hỏi người dùng là hậu tố không lưu. Mục tiêu tỷ lệ trúng 60-80% ở trạng thái ổn định.
 
-5. **Guardrails.** Llama Guard 4 on input; NeMo Guardrails rails block off-domain questions or policy-forbidden topics; Presidio scrubs accidental PII in the output; citation enforcement post-filter.
+5. **Chốt bảo vệ.** Llama Guard 4 trên đầu vào; rail NeMo Guardrails chặn câu ngoài miền hoặc chủ đề chính sách cấm; Presidio làm sạch PII vô tình ở đầu ra; hậu lọc bắt buộc trích dẫn.
 
-6. **Golden set.** 200 Q/A pairs labeled by a domain expert with (answer, citations). Score agent on exact-citation match, answer correctness, faithfulness (RAGAS).
+6. **Tập chuẩn.** 200 cặp Q/A do chuyên gia miền gắn nhãn với (câu trả lời, trích dẫn). Chấm agent theo khớp trích dẫn chính xác, tính đúng câu trả lời, tính trung thực (RAGAS).
 
-7. **Red team.** 50 adversarial prompts: jailbreaks (PAIR, TAP), PII exfiltration attempts, off-domain, cross-jurisdiction leaks. Score with pass/fail and severity.
+7. **Red team.** 50 prompt đối kháng: jailbreak (PAIR, TAP), nỗ lực đưa PII ra ngoài, ngoài miền, rò rỉ xuyên khu vực tài phán. Chấm đạt/không đạt và mức nghiêm trọng.
 
-8. **Drift dashboard.** Arize Phoenix tracks retrieval quality (nDCG, citation faithfulness) weekly. Alert on 5% drop.
+8. **Bảng điều khiển độ trôi.** Arize Phoenix theo dõi chất lượng truy xuất (nDCG, tính trung thực trích dẫn) hằng tuần. Cảnh báo giảm 5%.
 
-9. **Cost report.** Langfuse: prompt-caching hit rate, tokens per query, $/query breakdown by stage.
+9. **Báo cáo chi phí.** Langfuse: tỷ lệ trúng lưu bộ nhớ đệm prompt, token mỗi truy vấn, phân tách $/truy vấn theo giai đoạn.
 
 ## Use It
 
@@ -110,49 +110,49 @@ answer:
 
 ## Ship It
 
-`outputs/skill-production-rag.md` describes the deliverable. A regulated-domain chatbot deployed with compliance labels, passed through the rubric, observed with live drift monitoring.
+`outputs/skill-production-rag.md` mô tả sản phẩm bàn giao. Chatbot miền chịu quy định triển khai có nhãn tuân thủ, qua tiêu chí chấm, được quan sát bằng giám sát độ trôi trực tiếp.
 
-| Weight | Criterion | How it is measured |
+| Trọng số | Tiêu chí | Cách đo |
 |:-:|---|---|
-| 25 | RAGAS faithfulness + answer relevance | Online scores on the golden set (200 Q/A) |
-| 20 | Citation correctness | Fraction of answers with verifiable source anchors |
-| 20 | Guardrail coverage | Llama Guard 4 pass rate + jailbreak suite results |
-| 20 | Cost / latency engineering | Prompt-cache hit rate, p95 latency, $/query |
-| 15 | Drift monitoring dashboard | Phoenix live dashboard with weekly retrieval-quality trend |
+| 25 | Tính trung thực RAGAS + liên quan câu trả lời | Điểm trực tuyến trên tập chuẩn (200 Q/A) |
+| 20 | Tính đúng trích dẫn | Tỷ phần câu trả lời có neo nguồn xác minh được |
+| 20 | Bao phủ chốt bảo vệ | Tỷ lệ vượt Llama Guard 4 + kết quả bộ jailbreak |
+| 20 | Kỹ thuật chi phí / độ trễ | Tỷ lệ trúng bộ nhớ đệm prompt, độ trễ p95, $/truy vấn |
+| 15 | Bảng điều khiển giám sát độ trôi | Bảng Phoenix trực tiếp có xu hướng chất lượng truy xuất hằng tuần |
 | **100** | | |
 
 ## Exercises
 
-1. Build a second corpus slice under a different jurisdiction (e.g., HIPAA alongside GDPR). Demonstrate role+jurisdiction filtering preventing cross-leak on a 20-question cross-jurisdiction probe.
+1. Xây lát corpus thứ hai thuộc khu vực tài phán khác (ví dụ: HIPAA cùng GDPR). Chứng minh lọc vai trò+khu vực ngăn rò rỉ chéo trên thăm dò xuyên khu vực 20 câu hỏi.
 
-2. Measure prompt-cache hit rate over a week of production traffic. Identify which queries break the cache prefix. Restructure.
+2. Đo tỷ lệ trúng bộ nhớ đệm prompt qua một tuần lưu lượng sản xuất. Xác định truy vấn phá tiền tố bộ nhớ đệm. Tái cấu trúc.
 
-3. Add multi-turn memory with a 10k-token summary buffer. Measure whether faithfulness drops as the conversation grows.
+3. Thêm bộ nhớ nhiều lượt với bộ đệm tóm tắt 10k token. Đo tính trung thực có giảm khi hội thoại tăng không.
 
-4. Swap Claude Sonnet 4.7 for Llama 3.3 70B self-hosted. Measure $/query and faithfulness delta.
+4. Đổi Claude Sonnet 4.7 sang Llama 3.3 70B tự lưu trữ. Đo $/truy vấn và chênh lệch tính trung thực.
 
-5. Add an "unsure" mode: if top reranked scores are below a threshold, the agent says "I do not have confident citations" instead of answering. Measure false-confidence reduction.
+5. Thêm chế độ "không chắc": nếu điểm xếp lại hàng đầu dưới ngưỡng, agent nói "Tôi không có trích dẫn đủ tin cậy" thay trả lời. Đo giảm tự tin sai.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|-----------------|------------------------|
-| Prompt caching | "Cached system + context" | Claude/OpenAI feature: cached prefix tokens discounted 60-90% on hit |
-| RAGAS | "RAG evaluator" | Automated scoring of faithfulness, answer relevance, context precision |
-| Golden set | "Labeled eval" | 200+ expert-labeled Q/A with citations; the ground truth |
-| Jurisdiction tag | "Compliance label" | GDPR/HIPAA/SOC2 scope attached to chunks; enforced by retrieval filter |
-| Citation faithfulness | "Grounded answer rate" | Fraction of claims backed by retrievable source spans |
-| Drift | "Retrieval quality decay" | Weekly change in nDCG or citation score; alert threshold 5% |
-| Red team | "Adversarial eval" | Pre-release jailbreak, PII extraction, off-domain probes |
+| Prompt caching (Lưu bộ nhớ đệm prompt) | "Hệ thống + ngữ cảnh lưu bộ nhớ đệm" | Tính năng Claude/OpenAI: token tiền tố lưu được giảm giá 60-90% khi trúng |
+| RAGAS | "Bộ đánh giá RAG" | Chấm tự động tính trung thực, liên quan câu trả lời, độ chính xác ngữ cảnh |
+| Golden set (Tập chuẩn) | "Đánh giá có nhãn" | 200+ Q/A chuyên gia gắn nhãn có trích dẫn; sự thật nền |
+| Jurisdiction tag (Thẻ khu vực tài phán) | "Nhãn tuân thủ" | Phạm vi GDPR/HIPAA/SOC2 gắn đoạn; thực thi bằng lọc truy xuất |
+| Citation faithfulness (Tính trung thực trích dẫn) | "Tỷ lệ câu trả lời có căn cứ" | Tỷ phần khẳng định được khoảng nguồn truy xuất được hỗ trợ |
+| Drift (Độ trôi) | "Suy giảm chất lượng truy xuất" | Thay đổi hằng tuần nDCG hoặc điểm trích dẫn; ngưỡng cảnh báo 5% |
+| Red team | "Đánh giá đối kháng" | Thăm dò jailbreak, trích PII, ngoài miền trước phát hành |
 
 ## Further Reading
 
-- [Harvey AI](https://www.harvey.ai) — reference legal production stack
-- [Glean enterprise search](https://www.glean.com) — reference RAG at enterprise scale
-- [Mendable documentation](https://mendable.ai) — developer-docs RAG reference
-- [LlamaCloud Parse + Index](https://docs.cloud.llamaindex.ai/llamaparse/getting_started) — managed ingestion
-- [Anthropic prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) — the cost-lever reference
-- [RAGAS 0.2 documentation](https://docs.ragas.io/) — the canonical RAG eval framework
-- [Arize Phoenix](https://github.com/Arize-ai/phoenix) — reference drift observability
-- [Llama Guard 4](https://www.llama.com/docs/model-cards-and-prompt-formats/llama-guard-4/) — 2026 safety classifier
-- [NeMo Guardrails v0.12](https://docs.nvidia.com/nemo-guardrails/) — policy rail framework
+- [Harvey AI](https://www.harvey.ai) — ngăn xếp sản xuất pháp lý tham chiếu
+- [Glean enterprise search](https://www.glean.com) — RAG quy mô doanh nghiệp tham chiếu
+- [Mendable documentation](https://mendable.ai) — RAG tài liệu nhà phát triển tham chiếu
+- [LlamaCloud Parse + Index](https://docs.cloud.llamaindex.ai/llamaparse/getting_started) — thu nạp được quản lý
+- [Anthropic prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) — tham chiếu đòn bẩy chi phí
+- [RAGAS 0.2 documentation](https://docs.ragas.io/) — framework đánh giá RAG kinh điển
+- [Arize Phoenix](https://github.com/Arize-ai/phoenix) — khả năng quan sát độ trôi tham chiếu
+- [Llama Guard 4](https://www.llama.com/docs/model-cards-and-prompt-formats/llama-guard-4/) — bộ phân loại an toàn 2026
+- [NeMo Guardrails v0.12](https://docs.nvidia.com/nemo-guardrails/) — framework rail chính sách
