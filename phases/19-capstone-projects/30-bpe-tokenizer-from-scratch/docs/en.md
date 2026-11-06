@@ -1,6 +1,6 @@
 # BPE Tokenizer From Scratch
 
-> Bytes in, ids out, ids back to the same bytes. Build the tokenizer that every modern text model still starts from.
+> Byte vào, id ra, id trở lại cùng các byte. Xây dựng tokenizer mà mọi mô hình văn bản hiện đại vẫn bắt đầu từ đó.
 
 **Type:** Build
 **Languages:** Python
@@ -8,11 +8,11 @@
 **Time:** ~90 minutes
 
 ## Learning Objectives
-- Train a Byte-Pair Encoding vocabulary from a raw text corpus by repeatedly merging the most frequent adjacent symbol pair.
-- Implement a deterministic merge table and apply it to fresh text to produce a stream of subword ids.
-- Round-trip arbitrary UTF-8 input to ids and back without information loss.
-- Reserve and protect special tokens (`<|endoftext|>`, `<|pad|>`) so they survive training and decoding.
-- Reason about why a byte-level alphabet is the right floor for a general-purpose tokenizer.
+- Huấn luyện một từ vựng Byte-Pair Encoding từ một corpus văn bản thô bằng cách liên tục hợp nhất cặp ký hiệu liền kề thường gặp nhất.
+- Triển khai một bảng hợp nhất tất định và áp dụng nó vào văn bản mới để tạo một luồng id từ con.
+- Khứ hồi đầu vào UTF-8 tùy ý thành id và trở lại mà không mất thông tin.
+- Dành riêng và bảo vệ các token đặc biệt (`<|endoftext|>`, `<|pad|>`) để chúng tồn tại qua huấn luyện và giải mã.
+- Suy luận về lý do một bảng chữ cái ở mức byte là mức sàn đúng cho một tokenizer đa dụng.
 
 ```figure
 cap-bpe-merge
@@ -20,11 +20,11 @@ cap-bpe-merge
 
 ## The frame
 
-A language model never sees text. It sees integers. The map from a string to a list of integers and back is the tokenizer. Get this layer wrong and every loss curve in the training run is measuring the wrong thing.
+Một mô hình ngôn ngữ không bao giờ thấy văn bản. Nó thấy các số nguyên. Ánh xạ từ một chuỗi sang một danh sách số nguyên và trở lại là tokenizer. Làm sai lớp này và mọi đường cong mất mát trong lần chạy huấn luyện đều đang đo sai thứ.
 
-The dominant family of subword tokenizers for general text models is Byte-Pair Encoding. The idea is small. Start from a known alphabet. Find the adjacent symbol pair that appears most often in the training corpus. Merge it into a new symbol. Repeat until the vocabulary reaches the target size. Encoding new text reuses the same merge list in the same order.
+Họ tokenizer từ con chiếm ưu thế cho các mô hình văn bản tổng quát là Byte-Pair Encoding. Ý tưởng nhỏ. Bắt đầu từ một bảng chữ cái đã biết. Tìm cặp ký hiệu liền kề xuất hiện thường xuyên nhất trong corpus huấn luyện. Hợp nhất nó thành một ký hiệu mới. Lặp lại cho đến khi từ vựng đạt kích thước đích. Mã hóa văn bản mới tái sử dụng cùng danh sách hợp nhất theo cùng thứ tự.
 
-We will build the byte-level variant. The alphabet is the 256 raw bytes, not Unicode code points. That choice is what lets the tokenizer handle any UTF-8 input without falling back to an unknown token.
+Chúng ta sẽ xây dựng biến thể ở mức byte. Bảng chữ cái là 256 byte thô, không phải các điểm mã Unicode. Lựa chọn đó là thứ cho phép tokenizer xử lý bất kỳ đầu vào UTF-8 nào mà không rơi về một token không xác định.
 
 ## The pipeline
 
@@ -42,17 +42,17 @@ flowchart LR
     H --> J[decode ids back to bytes]
 ```
 
-The training side and the inference side share the merge table. That sharing is the contract. If you change the merge order at inference, you decode a different stream of ids.
+Phía huấn luyện và phía suy luận dùng chung bảng hợp nhất. Việc dùng chung đó là hợp đồng. Nếu bạn thay đổi thứ tự hợp nhất khi suy luận, bạn giải mã một luồng id khác.
 
 ## The byte alphabet
 
-The first 256 ids are reserved for the raw bytes 0x00 through 0xFF. That guarantees every input string can be expressed in the vocabulary before any merge happens. After the byte block we reserve a small range for special tokens. The training loop never proposes those ids as merge targets because we keep them out of the pretokenized stream entirely.
+256 id đầu tiên được dành cho các byte thô 0x00 đến 0xFF. Điều đó bảo đảm mọi chuỗi đầu vào có thể được biểu diễn trong từ vựng trước khi bất kỳ hợp nhất nào xảy ra. Sau khối byte chúng ta dành một khoảng nhỏ cho các token đặc biệt. Vòng lặp huấn luyện không bao giờ đề xuất những id đó làm đích hợp nhất vì chúng ta giữ chúng hoàn toàn ngoài luồng được tiền phân tách token.
 
-The pretokenizer splits the corpus on whitespace and punctuation boundaries before training sees it. Without that split the BPE merge step would happily learn merges that cross word boundaries and the vocabulary fills up with whole common phrases. With the split, merges stay inside a word and the result generalizes.
+Bộ tiền phân tách token chia corpus tại các ranh giới khoảng trắng và dấu câu trước khi huấn luyện thấy nó. Không có sự chia đó bước hợp nhất BPE sẽ vui vẻ học các hợp nhất vượt ranh giới từ và từ vựng đầy lên với toàn bộ các cụm từ phổ biến. Với sự chia, các hợp nhất nằm trong một từ và kết quả khái quát hóa.
 
 ## The training loop
 
-For each training step the loop does three things. It walks every word in the corpus and counts how often each adjacent pair of current symbols appears, weighted by how often the word itself appears. It picks the pair with the highest count. It rewrites every occurrence of that pair into a single new symbol whose id is the next free slot in the vocabulary. Then it records the merge.
+Với mỗi bước huấn luyện vòng lặp làm ba việc. Nó duyệt mọi từ trong corpus và đếm tần suất mỗi cặp liền kề của các ký hiệu hiện tại xuất hiện, được đặt trọng số theo tần suất chính từ đó xuất hiện. Nó chọn cặp có số đếm cao nhất. Nó viết lại mọi lần xuất hiện của cặp đó thành một ký hiệu mới duy nhất có id là vị trí trống tiếp theo trong từ vựng. Rồi nó ghi lại phép hợp nhất.
 
 ```mermaid
 sequenceDiagram
@@ -67,37 +67,37 @@ sequenceDiagram
     Corpus->>PairCount: recount for next step
 ```
 
-The cost of each step is linear in the size of the corpus expressed as a list of symbol sequences. For a million words and a target vocabulary of ten thousand ids the loop runs to completion in seconds because the symbol sequences shrink as merges land.
+Chi phí mỗi bước tuyến tính theo kích thước corpus được biểu diễn dưới dạng một danh sách các chuỗi ký hiệu. Với một triệu từ và một từ vựng đích mười nghìn id vòng lặp chạy đến hoàn tất trong vài giây vì các chuỗi ký hiệu co lại khi các hợp nhất được áp dụng.
 
 ## Encoding fresh text
 
-Inference does not call the merge counter. It applies the merge table in the same order it was learned. For a fresh word the encoder starts from the byte split. It scans the current sequence for the lowest-ranked merge (the earliest one that applies). It performs that merge. It scans again. The loop ends when no merge in the table applies to the current sequence.
+Suy luận không gọi bộ đếm hợp nhất. Nó áp dụng bảng hợp nhất theo cùng thứ tự đã học. Với một từ mới bộ mã hóa bắt đầu từ việc chia byte. Nó quét chuỗi hiện tại tìm phép hợp nhất có hạng thấp nhất (phép sớm nhất có thể áp dụng). Nó thực hiện phép hợp nhất đó. Nó quét lại. Vòng lặp kết thúc khi không phép hợp nhất nào trong bảng áp dụng cho chuỗi hiện tại.
 
-The ordering by rank is the property that makes encoding deterministic and matches the training behavior on the same input. A merge that was learned first sits at the top of the table and gets applied first. If two merges could apply at the same position, the lower-rank one wins.
+Thứ tự theo hạng là thuộc tính khiến mã hóa tất định và khớp với hành vi huấn luyện trên cùng đầu vào. Một phép hợp nhất được học trước nằm trên đầu bảng và được áp dụng trước. Nếu hai phép hợp nhất có thể áp dụng tại cùng vị trí, phép có hạng thấp hơn thắng.
 
 ## Special tokens
 
-Special tokens are ids that the byte stream can never produce. We reserve them by hand. Two are enough for this lesson.
+Các token đặc biệt là các id mà luồng byte không bao giờ có thể tạo ra. Chúng ta dành riêng chúng thủ công. Hai là đủ cho bài này.
 
-- `<|endoftext|>` separates documents during pretraining. It tells the model "a new document starts here, do not let the previous one's context leak in."
-- `<|pad|>` fills out short sequences so a batch can be a rectangular tensor. The loss mask hides it during training.
+- `<|endoftext|>` phân tách các tài liệu trong tiền huấn luyện. Nó nói với mô hình "một tài liệu mới bắt đầu ở đây, đừng để ngữ cảnh của tài liệu trước rò vào."
+- `<|pad|>` lấp đầy các chuỗi ngắn để một lô có thể là một tensor hình chữ nhật. Mặt nạ mất mát che nó trong huấn luyện.
 
-The encoder accepts a flag to allow special tokens in the input. With the flag off, the strings `<|endoftext|>` and `<|pad|>` get tokenized as the bytes that spell them out. With the flag on, the literal strings get mapped to their reserved ids and are not subject to any merge.
+Bộ mã hóa nhận một cờ để cho phép các token đặc biệt trong đầu vào. Với cờ tắt, các chuỗi `<|endoftext|>` và `<|pad|>` được phân tách token thành các byte viết ra chúng. Với cờ bật, các chuỗi nguyên văn được ánh xạ tới các id được dành riêng và không chịu bất kỳ phép hợp nhất nào.
 
 ## Round-trip guarantee
 
-Encoding then decoding must return the input bytes exactly. The decoder concatenates the byte expansion of every id in order. Since every id is either a raw byte or the concatenation of two previously known ids, the recursive expansion always terminates in raw bytes. Decoding then returns the UTF-8 string that those bytes spell.
+Mã hóa rồi giải mã phải trả về chính xác các byte đầu vào. Bộ giải mã nối phần khai triển byte của mọi id theo thứ tự. Vì mỗi id hoặc là một byte thô hoặc là phần nối của hai id đã biết trước đó, khai triển đệ quy luôn kết thúc ở các byte thô. Giải mã sau đó trả về chuỗi UTF-8 mà những byte đó viết ra.
 
-The test suite in this lesson checks that property on an unseen sentence, on a sentence with a Unicode emoji, and on a sentence that contains a literal `<|endoftext|>` token.
+Bộ kiểm thử trong bài này kiểm tra thuộc tính đó trên một câu chưa thấy, trên một câu có emoji Unicode, và trên một câu chứa một token `<|endoftext|>` nguyên văn.
 
 ## What this lesson does not do
 
-It does not build a regex-driven pretokenizer in the style of the largest production tokenizers. The pretokenizer here is a small whitespace and punctuation split. It is enough to produce sensible merges on a small training corpus and the contract with the rest of the lesson chain stays the same. The next lesson treats the tokenizer as a black box and builds the sliding-window dataset on top of it.
+Nó không xây dựng một bộ tiền phân tách token điều khiển bằng regex theo kiểu các tokenizer sản xuất lớn nhất. Bộ tiền phân tách token ở đây là một phép chia nhỏ theo khoảng trắng và dấu câu. Nó đủ để tạo ra các hợp nhất hợp lý trên một corpus huấn luyện nhỏ và hợp đồng với phần còn lại của chuỗi bài học vẫn như cũ. Bài tiếp theo coi tokenizer như một hộp đen và xây dựng tập dữ liệu cửa sổ trượt trên nó.
 
-It does not parallelize the pair counter. A loop in Python over a corpus of a few thousand words finishes in well under a second. For larger corpora the obvious move is to count pairs per word in parallel and reduce.
+Nó không song song hóa bộ đếm cặp. Một vòng lặp Python trên một corpus vài nghìn từ hoàn tất trong chưa đến một giây. Với corpus lớn hơn bước đi rõ ràng là đếm các cặp theo từ song song và rút gọn.
 
 ## How to read the code
 
-`main.py` defines four objects. `BPETokenizer` holds the vocabulary, the merge table, and the special-token table. `train` is the training loop. `encode` is the inference path. `decode` is the byte concatenation. The demo at the bottom trains a small tokenizer on a built-in corpus, encodes a held-out sentence, decodes the ids back, and prints both. The tests in `code/tests/test_bpe.py` pin the round-trip property, the special-token reservation, and the merge ordering.
+`main.py` định nghĩa bốn đối tượng. `BPETokenizer` giữ từ vựng, bảng hợp nhất, và bảng token đặc biệt. `train` là vòng lặp huấn luyện. `encode` là đường suy luận. `decode` là phép nối byte. Demo ở cuối huấn luyện một tokenizer nhỏ trên một corpus tích hợp, mã hóa một câu được giữ riêng, giải mã các id trở lại, và in cả hai. Các kiểm thử trong `code/tests/test_bpe.py` ghim thuộc tính khứ hồi, việc dành riêng token đặc biệt, và thứ tự hợp nhất.
 
-Run the demo. Then change the target vocabulary size in the demo from 300 to 600 and watch how the encoded length of the held-out sentence drops. That curve is the BPE compression curve.
+Chạy demo. Sau đó thay kích thước từ vựng đích trong demo từ 300 thành 600 và xem độ dài mã hóa của câu được giữ riêng giảm thế nào. Đường cong đó là đường cong nén BPE.
