@@ -7,25 +7,25 @@ lesson: 17
 tags: [disaggregated-serving, dynamo, llm-d, nixl, kv-transfer, prefill-decode]
 ---
 
-Given workload profile (prompt/output length distribution, model, concurrency), cluster topology (GPUs, fabric, RDMA availability), and current serving cost, produce a disaggregation decision.
+Với hồ sơ khối lượng công việc (phân phối độ dài prompt/đầu ra, mô hình, độ đồng thời), cấu trúc liên kết cụm (GPU, hạ tầng kết nối, tính khả dụng RDMA) và chi phí phục vụ hiện tại, tạo một quyết định tách rời.
 
-Produce:
+Tạo:
 
-1. Disaggregate? Yes / No with numbered justification. Baseline: prompts > 512 AND outputs > 200. Fabric: RDMA available helps; TCP-only pushes break-even longer.
-2. Stack choice. NVIDIA Dynamo (managed orchestrator above vLLM/SGLang/TRT-LLM) or llm-d (Kubernetes-native Services). Match to the operational context.
-3. Prefill:decode ratio. Use Dynamo Planner Profiler readouts, or compute from workload shape (prefill TFLOPS vs decode bytes/sec). Example: 2 prefill : 1 decode for RAG-heavy; 1:2 for output-heavy.
-4. KV transfer plan. Named transport (NIXL over InfiniBand / RDMA / TCP fallback). Compute the per-request transfer tax for your prompt P99.
-5. Router integration. Cache-aware router (Phase 17 · 11) must be in front — disaggregation without prefix matching loses the cache win.
-6. Expected savings. Compute vs colocated baseline; cite the published case (30-40% at same SLA).
+1. Tách rời? Có / Không với giải thích đánh số. Đường cơ sở: prompt > 512 VÀ đầu ra > 200. Hạ tầng kết nối: có RDMA giúp ích; chỉ TCP đẩy điểm hòa vốn ra dài hơn.
+2. Chọn ngăn xếp. NVIDIA Dynamo (bộ điều phối được quản lý trên vLLM/SGLang/TRT-LLM) hoặc llm-d (các Service nguyên bản Kubernetes). Ghép với bối cảnh vận hành.
+3. Tỷ lệ prefill:decode. Dùng số đo Dynamo Planner Profiler, hoặc tính từ dạng khối lượng công việc (TFLOPS prefill so với byte/giây decode). Ví dụ: 2 prefill : 1 decode cho nặng RAG; 1:2 cho nặng đầu ra.
+4. Kế hoạch truyền KV. Phương thức truyền có tên (NIXL qua InfiniBand / RDMA / dự phòng TCP). Tính chi phí truyền mỗi yêu cầu cho P99 prompt của bạn.
+5. Tích hợp bộ định tuyến. Bộ định tuyến nhận biết bộ nhớ đệm (Giai đoạn 17 · 11) phải ở phía trước — tách rời không khớp tiền tố mất lợi ích bộ nhớ đệm.
+6. Tiết kiệm dự kiến. Tính so với đường cơ sở đồng vị trí; trích dẫn trường hợp được công bố (30-40% ở cùng SLA).
 
-Hard rejects:
-- Disaggregating short-prompt workloads (<512 tokens). Refuse — the transfer tax dominates.
-- Deploying without a cache-aware router. Refuse — blind routing negates the KV locality.
-- Ignoring topology (rack packing). Refuse — KV transfer over multi-rack hops costs more than RDMA on the same rack.
+Các trường hợp loại bỏ dứt khoát:
+- Tách rời khối lượng công việc prompt ngắn (<512 token). Từ chối — chi phí truyền chiếm ưu thế.
+- Triển khai không có bộ định tuyến nhận biết bộ nhớ đệm. Từ chối — định tuyến mù triệt tiêu tính cục bộ KV.
+- Bỏ qua cấu trúc liên kết (xếp cùng rack). Từ chối — truyền KV qua nhiều chặng rack tốn hơn RDMA trên cùng rack.
 
-Refusal rules:
-- If the cluster has < 4 GPUs, refuse — not enough pool diversity for disaggregation to pay off.
-- If no RDMA/InfiniBand and no plans, note that TCP raises the break-even to prompts >2K; re-evaluate.
-- If the team cannot operate two GPU pools with per-role scaling, refuse llm-d and require Dynamo as the managed alternative.
+Quy tắc từ chối:
+- Nếu cụm có < 4 GPU, từ chối — không đủ độ đa dạng bể để tách rời mang lại lợi ích.
+- Nếu không có RDMA/InfiniBand và không có kế hoạch, ghi nhận rằng TCP nâng điểm hòa vốn lên prompt >2K; đánh giá lại.
+- Nếu nhóm không thể vận hành hai bể GPU với mở rộng quy mô theo vai trò, từ chối llm-d và yêu cầu Dynamo làm phương án thay thế được quản lý.
 
-Output: a one-page decision with disaggregate Y/N, stack choice, ratio, transport, router, expected savings. End with the single metric to verify: KV transfer P99 latency; gate on exceeding a plan-specified threshold.
+Đầu ra: một quyết định một trang với tách rời Có/Không, chọn ngăn xếp, tỷ lệ, phương thức truyền, bộ định tuyến, tiết kiệm dự kiến. Kết thúc bằng chỉ số duy nhất cần xác minh: độ trễ P99 truyền KV; kiểm soát khi vượt ngưỡng được chỉ định trong kế hoạch.

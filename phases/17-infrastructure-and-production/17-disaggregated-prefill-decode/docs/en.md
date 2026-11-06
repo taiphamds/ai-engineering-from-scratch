@@ -1,6 +1,6 @@
 # Disaggregated Prefill/Decode — NVIDIA Dynamo and llm-d
 
-> Prefill is compute-bound; decode is memory-bound. Running both on the same GPU wastes one resource. Disaggregation splits them onto separate pools and transfers KV cache between them over NIXL (RDMA/InfiniBand or TCP fallback). NVIDIA Dynamo (GTC 2025 announce, 1.0 GA) sits above vLLM/SGLang/TRT-LLM — its Planner Profiler + SLA Planner auto-rate-match prefill:decode ratios to meet SLOs. NVIDIA publishes throughput gains in this ballpark — developer.nvidia.com (2025-06) shows a ~6x improvement for DeepSeek-R1 MoE on GB200 NVL72 + Dynamo in the medium-latency regime, and the Dynamo product page (developer.nvidia.com, undated) advertises up to 50x MoE throughput on GB300 NVL72 + Dynamo vs Hopper. The "30x" figure is a community aggregate across full-stack Blackwell + Dynamo + DeepSeek-R1 reports; we have not found a single primary source stating exactly 30x, so treat it as a directional claim. llm-d (Red Hat + AWS) is Kubernetes-native: prefill / decode / router as independent Services with per-role HPA. llm-d 0.5 adds hierarchical KV offloading, cache-aware LoRA routing, UCCL networking, scale-to-zero. Economics: internal rollup of multiple customer disclosures suggests 30–40% savings on $2M-class inference spend (i.e., $600-800K/year) when switching from colocated serving to disaggregated with Dynamo at constant SLA; the specific $2M→$600-800K figure is an internal composite, not a single published case study — use it as an order-of-magnitude anchor, not a reference citation. Short prompts (<512 tokens, short output) don't justify the transfer cost.
+> Prefill bị giới hạn bởi tính toán; decode bị giới hạn bởi bộ nhớ. Chạy cả hai trên cùng GPU lãng phí một tài nguyên. Tách rời chia chúng sang các bể riêng và chuyển bộ nhớ đệm KV giữa chúng qua NIXL (RDMA/InfiniBand hoặc dự phòng TCP). NVIDIA Dynamo (công bố tại GTC 2025, 1.0 GA) nằm trên vLLM/SGLang/TRT-LLM — Planner Profiler + SLA Planner của nó tự khớp tốc độ tỷ lệ prefill:decode để đáp ứng SLO. NVIDIA công bố mức tăng thông lượng trong khoảng này — developer.nvidia.com (2025-06) cho thấy cải thiện ~6x cho DeepSeek-R1 MoE trên GB200 NVL72 + Dynamo ở chế độ độ trễ trung bình, và trang sản phẩm Dynamo (developer.nvidia.com, không ghi ngày) quảng cáo thông lượng MoE tới 50x trên GB300 NVL72 + Dynamo so với Hopper. Con số "30x" là tổng hợp cộng đồng từ các báo cáo toàn ngăn xếp Blackwell + Dynamo + DeepSeek-R1; chúng tôi chưa tìm thấy một nguồn sơ cấp duy nhất nêu chính xác 30x, vì vậy xem nó như một khẳng định định hướng. llm-d (Red Hat + AWS) nguyên bản Kubernetes: prefill / decode / bộ định tuyến dưới dạng các Service độc lập với HPA theo vai trò. llm-d 0.5 thêm chuyển tải KV phân cấp, định tuyến LoRA nhận biết bộ nhớ đệm, mạng UCCL, giảm quy mô về không. Tính kinh tế: tổng hợp nội bộ từ nhiều công bố của khách hàng gợi ý tiết kiệm 30–40% trên chi tiêu suy luận cỡ $2M (tức $600-800K/năm) khi chuyển từ phục vụ đồng vị trí sang tách rời với Dynamo ở SLA không đổi; con số cụ thể $2M→$600-800K là tổng hợp nội bộ, không phải một nghiên cứu tình huống được công bố duy nhất — dùng nó làm mốc bậc độ lớn, không phải trích dẫn tham khảo. Prompt ngắn (<512 token, đầu ra ngắn) không đáng với chi phí truyền.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy disaggregated-vs-colocated simulator)
@@ -9,28 +9,28 @@
 
 ## Learning Objectives
 
-- Explain why prefill and decode have different optimal GPU allocations and quantify the waste under colocation.
-- Diagram the disaggregated architecture: prefill pool, decode pool, KV transfer via NIXL, router.
-- Name the condition when disaggregation does NOT pay off (short prompts, short outputs).
-- Distinguish NVIDIA Dynamo (stack-above) from llm-d (Kubernetes-native) and match each to an operational context.
+- Giải thích tại sao prefill và decode có phân bổ GPU tối ưu khác nhau và định lượng lãng phí khi đồng vị trí.
+- Vẽ sơ đồ kiến trúc tách rời: bể prefill, bể decode, truyền KV qua NIXL, bộ định tuyến.
+- Nêu điều kiện khi tách rời KHÔNG mang lại lợi ích (prompt ngắn, đầu ra ngắn).
+- Phân biệt NVIDIA Dynamo (ngăn xếp bên trên) với llm-d (nguyên bản Kubernetes) và ghép mỗi bên với một bối cảnh vận hành.
 
 ## The Problem
 
-You run Llama 3.3 70B on 8 H100s. Under mixed workload (long prompts + short outputs), GPUs idle during decode because most of the compute was spent on prefill. Under different workload (short prompts + long outputs), the opposite happens. Colocated prefill + decode means you over-provision both.
+Bạn chạy Llama 3.3 70B trên 8 H100. Dưới khối lượng công việc hỗn hợp (prompt dài + đầu ra ngắn), GPU nhàn rỗi trong decode vì phần lớn tính toán đã dành cho prefill. Dưới khối lượng công việc khác (prompt ngắn + đầu ra dài), điều ngược lại xảy ra. Prefill + decode đồng vị trí nghĩa là bạn cấp phát dư cả hai.
 
-Budget impact: 20-40% of GPU time is wasted on the wrong resource. You are buying H100 compute to run memory-bound decode, or buying H100 HBM bandwidth to run compute-bound prefill. Both are expensive waste.
+Tác động ngân sách: 20-40% thời gian GPU bị lãng phí cho sai tài nguyên. Bạn đang mua tính toán H100 để chạy decode bị giới hạn bởi bộ nhớ, hoặc mua băng thông HBM H100 để chạy prefill bị giới hạn bởi tính toán. Cả hai đều là lãng phí đắt đỏ.
 
-Disaggregation splits prefill and decode onto separate pools sized for each's bottleneck. KV cache transfers from prefill pool to decode pool via high-bandwidth interconnect.
+Tách rời chia prefill và decode sang các bể riêng được định cỡ cho nút thắt của từng bên. Bộ nhớ đệm KV truyền từ bể prefill sang bể decode qua kết nối băng thông cao.
 
 ## The Concept
 
 ### Why the bottlenecks differ
 
-**Prefill** — run the transformer over the full input prompt in one forward. Matrix multiplications dominate; compute-bound. H100 FP8 gives ~2000 TFLOPS of useful throughput. Batch efficiency is good — one forward processes many tokens.
+**Prefill** — chạy transformer trên toàn bộ prompt đầu vào trong một lượt truyền xuôi. Các phép nhân ma trận chiếm ưu thế; bị giới hạn bởi tính toán. H100 FP8 cho thông lượng hữu ích ~2000 TFLOPS. Hiệu quả lô tốt — một lượt truyền xuôi xử lý nhiều token.
 
-**Decode** — generate one token at a time, reading the full weights each iteration. Memory-bandwidth-bound. HBM3 gives ~3 TB/s. Batch efficiency is good only at high concurrency — the weights read amortizes across the batch.
+**Decode** — sinh từng token một, đọc toàn bộ trọng số mỗi vòng lặp. Bị giới hạn bởi băng thông bộ nhớ. HBM3 cho ~3 TB/s. Hiệu quả lô chỉ tốt ở độ đồng thời cao — việc đọc trọng số được phân bổ trên cả lô.
 
-Colocating them: you buy GPUs optimized for both. H100 is good at both but costs the same either way. At scale, you want prefill pool on H100 / compute-heavy; decode pool on H200 / memory-heavy, or with aggressive quantization.
+Đặt chúng đồng vị trí: bạn mua GPU tối ưu cho cả hai. H100 tốt ở cả hai nhưng có cùng chi phí theo cách nào đi nữa. Ở quy mô lớn, bạn muốn bể prefill trên H100 / thiên về tính toán; bể decode trên H200 / thiên về bộ nhớ, hoặc với lượng tử hóa mạnh.
 
 ### The architecture
 
@@ -49,61 +49,61 @@ Colocating them: you buy GPUs optimized for both. H100 is good at both but costs
                                                  Client
 ```
 
-NIXL is NVIDIA's inter-node transport. Uses RDMA/InfiniBand when available, TCP fallback otherwise. Transfer latency is real — typically 20-80 ms for KV cache of a 4K-token prompt on 70B FP8. This is why short prompts don't justify disaggregation: the transfer tax exceeds the savings.
+NIXL là phương thức truyền liên nút của NVIDIA. Dùng RDMA/InfiniBand khi khả dụng, nếu không dự phòng TCP. Độ trễ truyền là có thật — thường 20-80 ms cho bộ nhớ đệm KV của một prompt 4K token trên 70B FP8. Đây là lý do prompt ngắn không đáng tách rời: chi phí truyền vượt mức tiết kiệm.
 
 ### Dynamo vs llm-d
 
-**NVIDIA Dynamo** (GTC 2025 announce, 1.0 GA):
-- Sits above vLLM, SGLang, TRT-LLM as an orchestrator.
-- Planner Profiler measures workload, SLA Planner auto-configures prefill:decode ratios.
-- Rust core, Python extensibility.
-- Throughput gains: NVIDIA reports 6x for DeepSeek-R1 MoE on GB200 NVL72 + Dynamo in the medium-latency regime (developer.nvidia.com, 2025-06); community reports of "up to 30x" on full Blackwell + Dynamo + DeepSeek-R1 stacks lack a single primary source and should be treated as directional.
-- GB300 NVL72 + Dynamo: up to 50x MoE throughput vs Hopper per the Dynamo product page (developer.nvidia.com, undated).
+**NVIDIA Dynamo** (công bố tại GTC 2025, 1.0 GA):
+- Nằm trên vLLM, SGLang, TRT-LLM như một bộ điều phối.
+- Planner Profiler đo khối lượng công việc, SLA Planner tự cấu hình tỷ lệ prefill:decode.
+- Lõi Rust, khả năng mở rộng Python.
+- Tăng thông lượng: NVIDIA báo cáo 6x cho DeepSeek-R1 MoE trên GB200 NVL72 + Dynamo ở chế độ độ trễ trung bình (developer.nvidia.com, 2025-06); báo cáo cộng đồng "tới 30x" trên toàn ngăn xếp Blackwell + Dynamo + DeepSeek-R1 thiếu một nguồn sơ cấp duy nhất và nên được xem là định hướng.
+- GB300 NVL72 + Dynamo: thông lượng MoE tới 50x so với Hopper theo trang sản phẩm Dynamo (developer.nvidia.com, không ghi ngày).
 
-**llm-d** (Red Hat + AWS, Kubernetes-native):
-- Prefill / decode / router as independent Kubernetes Services.
-- Per-role HPA with queue depth (prefill) / KV utilization (decode) signals.
-- `topologyConstraint packDomain: rack` packs prefill+decode cliques on the same rack for high-bandwidth KV transfer.
-- llm-d 0.5 (2026): hierarchical KV offloading, cache-aware LoRA routing, UCCL networking, scale-to-zero.
+**llm-d** (Red Hat + AWS, nguyên bản Kubernetes):
+- Prefill / decode / bộ định tuyến dưới dạng các Service Kubernetes độc lập.
+- HPA theo vai trò với tín hiệu độ sâu hàng đợi (prefill) / mức sử dụng KV (decode).
+- `topologyConstraint packDomain: rack` xếp các nhóm kết nối đầy đủ prefill+decode trên cùng rack để truyền KV băng thông cao.
+- llm-d 0.5 (2026): chuyển tải KV phân cấp, định tuyến LoRA nhận biết bộ nhớ đệm, mạng UCCL, giảm quy mô về không.
 
-Use Dynamo if you want a managed stack-above orchestrator. Use llm-d if you want Kubernetes-native primitives and are committed to the CNCF ecosystem.
+Dùng Dynamo nếu bạn muốn một bộ điều phối ngăn xếp bên trên được quản lý. Dùng llm-d nếu bạn muốn các thành phần cơ bản nguyên bản Kubernetes và cam kết với hệ sinh thái CNCF.
 
 ### Economics
 
-Internal composite (not a single published case study — order-of-magnitude anchor):
+Tổng hợp nội bộ (không phải một nghiên cứu tình huống được công bố duy nhất — mốc bậc độ lớn):
 
-- $2M/year inference spend on colocated serving.
-- Switched to disaggregated with Dynamo.
-- Same request volume, same P99 latency SLA.
-- Reported savings: $600K–$800K/year (30–40% reduction).
-- No new hardware.
+- Chi tiêu suy luận $2M/năm trên phục vụ đồng vị trí.
+- Chuyển sang tách rời với Dynamo.
+- Cùng lượng yêu cầu, cùng SLA độ trễ P99.
+- Tiết kiệm được báo cáo: $600K–$800K/năm (giảm 30–40%).
+- Không phần cứng mới.
 
-We synthesize this figure from multiple customer disclosures rather than a single citable case study; closest published data point is Baseten's 2x faster TTFT / 61% higher throughput with Dynamo KV routing (baseten.co, 2025-10), and VAST + CoreWeave's projection of 60–130% more tokens/$ at 40–60% KV hit rate (vastdata.com, 2025-12). The savings come from right-sizing each pool; prefill-heavy workloads (RAG with 8K+ prefixes) benefit more than balanced ones.
+Chúng tôi tổng hợp con số này từ nhiều công bố của khách hàng thay vì một nghiên cứu tình huống có thể trích dẫn duy nhất; điểm dữ liệu được công bố gần nhất là TTFT nhanh hơn 2x / thông lượng cao hơn 61% của Baseten với định tuyến KV Dynamo (baseten.co, 2025-10), và dự đoán của VAST + CoreWeave về nhiều hơn 60–130% token/$ ở tỷ lệ trúng KV 40–60% (vastdata.com, 2025-12). Tiết kiệm đến từ định cỡ đúng từng bể; khối lượng công việc nặng prefill (RAG với tiền tố 8K+) hưởng lợi nhiều hơn loại cân bằng.
 
 ### When NOT to disaggregate
 
-- Prompts < 512 tokens and outputs < 200 tokens: transfer tax dominates gain.
-- Small cluster (< 4 GPUs): not enough pool diversity.
-- Team cannot operate two GPU pools with per-role scaling: Dynamo helps but not trivially.
-- No RDMA fabric: TCP transfer tax is heavier.
+- Prompt < 512 token và đầu ra < 200 token: chi phí truyền lấn át lợi ích.
+- Cụm nhỏ (< 4 GPU): không đủ độ đa dạng bể.
+- Nhóm không thể vận hành hai bể GPU với mở rộng quy mô theo vai trò: Dynamo giúp nhưng không đơn giản.
+- Không có hạ tầng kết nối RDMA: chi phí truyền TCP nặng hơn.
 
 ### The router integrates with Phase 17 · 11
 
-Disaggregated routers are KV-cache-aware (Phase 17 · 11). A request lands on the decode pool holding its prefix — if no match, it flows prefill → decode. Hit rate and disaggregation compound — the cache-aware router determines whether a new prefill is even needed.
+Các bộ định tuyến tách rời nhận biết bộ nhớ đệm KV (Giai đoạn 17 · 11). Một yêu cầu đến bể decode giữ tiền tố của nó — nếu không khớp, nó đi theo luồng prefill → decode. Tỷ lệ trúng và tách rời cộng hưởng — bộ định tuyến nhận biết bộ nhớ đệm quyết định liệu có cần prefill mới hay không.
 
 ### MoE on Blackwell is where the real numbers are
 
-GB300 NVL72 + Dynamo shows 50x MoE throughput over Hopper baselines. MoE expert routing is compute-heavy on prefill but memory-heavy on decode (expert caches), so disaggregation is a double win. 2026 frontier model serving is MoE-dominant (DeepSeek-V3, future GPT-5 variants).
+GB300 NVL72 + Dynamo cho thấy thông lượng MoE 50x so với đường cơ sở Hopper. Định tuyến chuyên gia MoE nặng tính toán ở prefill nhưng nặng bộ nhớ ở decode (bộ nhớ đệm chuyên gia), nên tách rời là lợi ích kép. Phục vụ mô hình tiên tiến hàng đầu năm 2026 bị MoE chi phối (DeepSeek-V3, các biến thể GPT-5 tương lai).
 
 ### Numbers you should remember
 
-Benchmark numbers drift — NVIDIA and the inference stack post updated results every quarter. Re-check before quoting.
+Số liệu đo chuẩn thay đổi — NVIDIA và ngăn xếp suy luận đăng kết quả cập nhật mỗi quý. Kiểm tra lại trước khi trích dẫn.
 
-- DeepSeek-R1 on GB200 NVL72 + Dynamo: ~6x throughput vs baseline in the medium-latency regime (developer.nvidia.com, 2025-06); community "up to 30x" claims on full Blackwell + Dynamo stacks are directional aggregates without a single primary source.
-- GB300 NVL72 + Dynamo: up to 50x MoE throughput vs Hopper (developer.nvidia.com, undated).
-- Savings anchor (internal composite, not a single case study): $600-800K/year off a $2M annual spend at constant SLA.
-- Disaggregation threshold: prompts >512 tokens + outputs >200 tokens.
-- KV transfer via NIXL: 20-80 ms for 4K-prompt KV on 70B FP8.
+- DeepSeek-R1 trên GB200 NVL72 + Dynamo: thông lượng ~6x so với đường cơ sở ở chế độ độ trễ trung bình (developer.nvidia.com, 2025-06); khẳng định cộng đồng "tới 30x" trên toàn ngăn xếp Blackwell + Dynamo là các tổng hợp định hướng không có một nguồn sơ cấp duy nhất.
+- GB300 NVL72 + Dynamo: thông lượng MoE tới 50x so với Hopper (developer.nvidia.com, không ghi ngày).
+- Mốc tiết kiệm (tổng hợp nội bộ, không phải một nghiên cứu tình huống duy nhất): bớt $600-800K/năm từ chi tiêu hằng năm $2M ở SLA không đổi.
+- Ngưỡng tách rời: prompt >512 token + đầu ra >200 token.
+- Truyền KV qua NIXL: 20-80 ms cho KV của prompt 4K trên 70B FP8.
 
 ```figure
 prefill-decode-split
@@ -111,33 +111,33 @@ prefill-decode-split
 
 ## Use It
 
-`code/main.py` simulates colocated vs disaggregated serving. Reports throughput, cost per request, and the prompt-length crossover.
+`code/main.py` mô phỏng phục vụ đồng vị trí so với tách rời. Báo cáo thông lượng, chi phí mỗi yêu cầu và điểm giao độ dài prompt.
 
 ## Ship It
 
-This lesson produces `outputs/skill-disaggregation-decider.md`. Given workload and cluster, decides whether to disaggregate.
+Bài học này tạo ra `outputs/skill-disaggregation-decider.md`. Với khối lượng công việc và cụm, quyết định có tách rời hay không.
 
 ## Exercises
 
-1. Run `code/main.py`. At what prompt length does disaggregation beat colocation?
-2. Design the prefill pool and decode pool for a RAG service with P99 prefix length 8K, output 300.
-3. Dynamo vs llm-d: pick one for a pure-Kubernetes shop with no Python runtime preference.
-4. Compute KV transfer cost: 4K prefill on 70B FP8 = ~500 MB KV. At RDMA 100 GB/s, transfer = 5 ms. At TCP 10 GB/s = 50 ms. Which matters for your SLA?
-5. MoE expert routing changes KV access patterns. How does disaggregation behave with MoE that activates different experts per token?
+1. Chạy `code/main.py`. Ở độ dài prompt nào tách rời vượt đồng vị trí?
+2. Thiết kế bể prefill và bể decode cho một dịch vụ RAG có độ dài tiền tố P99 8K, đầu ra 300.
+3. Dynamo so với llm-d: chọn một cho một tổ chức thuần Kubernetes không có ưu tiên runtime Python.
+4. Tính chi phí truyền KV: prefill 4K trên 70B FP8 = ~500 MB KV. Ở RDMA 100 GB/s, truyền = 5 ms. Ở TCP 10 GB/s = 50 ms. Điều nào quan trọng với SLA của bạn?
+5. Định tuyến chuyên gia MoE thay đổi mẫu truy cập KV. Tách rời hoạt động ra sao với MoE kích hoạt các chuyên gia khác nhau theo token?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|----------------|------------------------|
-| Disaggregated serving | "split prefill/decode" | Separate GPU pools for each phase |
-| NIXL | "NVIDIA transport" | Dynamo's inter-node KV transfer (RDMA/TCP) |
-| NVIDIA Dynamo | "the orchestrator" | Stack-above coordinator for vLLM/SGLang/TRT-LLM |
-| llm-d | "Kubernetes native" | Red Hat + AWS K8s disaggregated stack |
-| Planner Profiler | "Dynamo auto-config" | Measures workload, configures pool ratios |
-| SLA Planner | "Dynamo policy" | Auto-rate-matches prefill:decode to meet SLOs |
-| `packDomain: rack` | "llm-d topology" | Pack prefill+decode on same rack for fast KV |
-| UCCL | "unified collective" | llm-d 0.5 networking layer for scale-to-zero |
-| MoE expert routing | "expert per token" | DeepSeek-V3 pattern; disaggregation helps |
+| Disaggregated serving (Phục vụ tách rời) | "tách prefill/decode" | Các bể GPU riêng cho từng giai đoạn |
+| NIXL | "truyền tải NVIDIA" | Truyền KV liên nút của Dynamo (RDMA/TCP) |
+| NVIDIA Dynamo | "bộ điều phối" | Bộ điều phối ngăn xếp bên trên cho vLLM/SGLang/TRT-LLM |
+| llm-d | "nguyên bản Kubernetes" | Ngăn xếp tách rời K8s của Red Hat + AWS |
+| Planner Profiler | "tự cấu hình Dynamo" | Đo khối lượng công việc, cấu hình tỷ lệ bể |
+| SLA Planner | "chính sách Dynamo" | Tự khớp tốc độ prefill:decode để đáp ứng SLO |
+| `packDomain: rack` | "cấu trúc liên kết llm-d" | Xếp prefill+decode trên cùng rack cho KV nhanh |
+| UCCL | "collective hợp nhất" | Lớp mạng llm-d 0.5 cho giảm quy mô về không |
+| MoE expert routing (Định tuyến chuyên gia MoE) | "chuyên gia theo token" | Mẫu DeepSeek-V3; tách rời giúp ích |
 
 ## Further Reading
 
