@@ -1,6 +1,6 @@
 # Hybrid Retrieval with BM25 and Dense Embeddings
 
-> Lexical and semantic retrieval fail on opposite query distributions. Hybrid retrieval with reciprocal rank fusion does not interpolate, it votes - and the vote wins on every query class.
+> Truy xuất từ vựng và ngữ nghĩa thất bại trên các phân phối truy vấn đối lập. Truy xuất lai với hợp nhất thứ hạng nghịch đảo không nội suy, nó bỏ phiếu - và phiếu bầu thắng trên mọi lớp truy vấn.
 
 **Type:** Build
 **Languages:** Python
@@ -8,18 +8,18 @@
 **Time:** ~90 minutes
 
 ## Learning Objectives
-- Implement BM25 from scratch from the Robertson and Sparck Jones formulation, with field weighting, document length normalization, and tunable k1 and b.
-- Build a dense retriever on top of a deterministic mock embedding so the loop runs offline.
-- Implement reciprocal rank fusion exactly as Cormack, Clarke, and Buettcher published it in 2009, and explain why it dominates score-weighted interpolation.
-- Tune the RRF k constant and the per-modality weights and read the trade-offs on a small fixture corpus.
+- Triển khai BM25 từ đầu từ công thức Robertson và Sparck Jones, với trọng số trường, chuẩn hóa độ dài tài liệu, và k1 và b có thể điều chỉnh.
+- Xây dựng một bộ truy xuất dense trên một embedding giả lập tất định để vòng lặp chạy ngoại tuyến.
+- Triển khai hợp nhất thứ hạng nghịch đảo chính xác như Cormack, Clarke, và Buettcher công bố năm 2009, và giải thích tại sao nó vượt nội suy theo trọng số điểm.
+- Điều chỉnh hằng số k RRF và các trọng số theo phương thức và đọc các đánh đổi trên một corpus fixture nhỏ.
 
 ## The Problem
 
-Lexical search wins when the query carries a literal identifier the corpus contains verbatim. A query for `AbortMultipartOnFail` returns the right Go function via BM25 in microseconds. The same query, embedded, sits at the boundary of three similarity clusters and a dense retriever ranks the wrong file first.
+Tìm kiếm từ vựng thắng khi truy vấn mang một định danh nguyên văn mà corpus chứa nguyên văn. Một truy vấn cho `AbortMultipartOnFail` trả về hàm Go đúng qua BM25 trong vài micro giây. Cùng truy vấn, được nhúng, nằm ở ranh giới của ba cụm tương tự và một bộ truy xuất dense xếp sai file lên đầu.
 
-Dense search wins when the query is paraphrased away from the corpus's literal tokens. A user asking "how do we handle cancelled uploads" never typed the word abort or multipart. BM25 returns the documentation chunk on "uploading large files" because that page contains the word uploads. Dense retrieval finds the abort function whose summary mentions cancellation.
+Tìm kiếm dense thắng khi truy vấn được diễn đạt lại xa các token nguyên văn của corpus. Một người dùng hỏi "chúng ta xử lý các lần tải lên bị hủy thế nào" chưa bao giờ gõ từ abort hoặc multipart. BM25 trả về đoạn tài liệu về "tải lên các file lớn" vì trang đó chứa từ uploads. Truy xuất dense tìm hàm abort có tóm tắt nhắc đến việc hủy.
 
-The choice between the two is not a static one. The query distribution is the variable. A production RAG system handles both classes from the same endpoint, so retrieval has to handle both at once. That is hybrid retrieval. The merge step is the part that has to be right.
+Lựa chọn giữa hai thứ không tĩnh. Phân phối truy vấn là biến số. Một hệ thống RAG sản xuất xử lý cả hai lớp từ cùng endpoint, nên truy xuất phải xử lý cả hai cùng lúc. Đó là truy xuất lai. Bước hợp nhất là phần phải đúng.
 
 ## The Concept
 
@@ -36,31 +36,31 @@ flowchart LR
 
 ### BM25 in one paragraph
 
-BM25 scores a query-document pair by summing, over query terms, an inverse document frequency factor multiplied by a saturating term-frequency factor that includes a length-normalization correction. Two knobs. `k1` controls term-frequency saturation; the default 1.5 is the published recommendation and you should not move it without a benchmark. `b` controls how much document length matters; the default 0.75 says longer documents are penalized, but not linearly.
+BM25 chấm một cặp truy vấn-tài liệu bằng cách cộng, trên các từ truy vấn, một hệ số nghịch đảo tần suất tài liệu nhân với một hệ số tần suất từ bão hòa bao gồm một hiệu chỉnh chuẩn hóa độ dài. Hai núm. `k1` kiểm soát bão hòa tần suất từ; mặc định 1.5 là khuyến nghị được công bố và bạn không nên đổi nó mà không có một benchmark. `b` kiểm soát độ dài tài liệu quan trọng bao nhiêu; mặc định 0.75 nói các tài liệu dài hơn bị phạt, nhưng không tuyến tính.
 
-The IDF formula uses the smoothed Robertson and Sparck Jones definition, which is `log((N - df + 0.5) / (df + 0.5) + 1)`. The plus-one inside the log keeps the IDF positive when a term appears in more than half the corpus. This matters in small corpora where stopwords are technically rare.
+Công thức IDF dùng định nghĩa Robertson và Sparck Jones được làm mượt, là `log((N - df + 0.5) / (df + 0.5) + 1)`. Cộng một bên trong log giữ IDF dương khi một từ xuất hiện trong hơn nửa corpus. Điều này quan trọng trong các corpus nhỏ nơi các từ dừng về kỹ thuật là hiếm.
 
-Field weighting lets you tell BM25 that a match on the symbol name counts more than a match in the body. Implementation is a multiplier on the term counts during indexing, not at scoring time. That keeps the math identical and avoids a separate score per field.
+Trọng số trường cho phép bạn nói với BM25 rằng một kết quả khớp trên tên ký hiệu tính nhiều hơn một kết quả khớp trong thân. Triển khai là một hệ số nhân trên các số đếm từ khi lập chỉ mục, không phải lúc chấm. Điều đó giữ toán giống hệt và tránh một điểm riêng mỗi trường.
 
 ### Dense retrieval in one paragraph
 
-Embed each chunk into a fixed-dimension vector with an embedding model. At query time, embed the query, cosine-rank every chunk by similarity, and return the top-k. The model is the variable that decides quality. The retrieval algorithm itself is two lines: dot product and sort.
+Nhúng mỗi đoạn vào một vector chiều cố định bằng một mô hình embedding. Lúc truy vấn, nhúng truy vấn, xếp hạng cosine mọi đoạn theo độ tương tự, và trả về top-k. Mô hình là biến quyết định chất lượng. Chính thuật toán truy xuất là hai dòng: tích vô hướng và sắp xếp.
 
-This lesson uses a deterministic hash-based embedding so you can read the fusion math without a network call. The hash sums token-keyed offsets into a 96-dimensional vector and normalizes. The cosine ranks are deterministic across runs, which is what the test suite requires.
+Bài này dùng một embedding dựa trên băm tất định để bạn có thể đọc toán hợp nhất mà không có một lệnh gọi mạng. Băm cộng các độ lệch được đặt khóa theo token vào một vector 96 chiều và chuẩn hóa. Các hạng cosine tất định giữa các lần chạy, là điều bộ kiểm thử yêu cầu.
 
 ### Reciprocal rank fusion, the published formula
 
-Two ranked lists. For each candidate that appears in either list, sum its reciprocal-rank contributions. The 2009 paper used `1 / (k + rank)` with k equal to 60 as the default. Sort by total score. That is the whole algorithm.
+Hai danh sách được xếp hạng. Với mỗi ứng viên xuất hiện trong một trong hai danh sách, cộng các đóng góp thứ hạng nghịch đảo của nó. Bài báo năm 2009 dùng `1 / (k + rank)` với k bằng 60 làm mặc định. Sắp theo tổng điểm. Đó là toàn bộ thuật toán.
 
-The published constant k = 60 is not arbitrary. With k = 60 the rank-1 contribution is 1 / 61 and the rank-10 contribution is 1 / 70. The contribution decays slowly so deep candidates still vote. Smaller k makes the top results dominate. Larger k flattens the contribution curve.
+Hằng số được công bố k = 60 không tùy ý. Với k = 60 đóng góp hạng 1 là 1 / 61 và đóng góp hạng 10 là 1 / 70. Đóng góp suy giảm chậm để các ứng viên sâu vẫn bỏ phiếu. k nhỏ hơn khiến các kết quả đầu chiếm ưu thế. k lớn hơn làm phẳng đường cong đóng góp.
 
-Two tunable knobs in our implementation. The `k` constant. A pair of per-modality weights so you can boost BM25 or dense when you have prior evidence one is better on your corpus. Multiplying the rank contribution by the weight is the simplest principled implementation; it preserves the rank-decay shape and stays scale-free.
+Hai núm có thể điều chỉnh trong triển khai của chúng ta. Hằng số `k`. Một cặp trọng số theo phương thức để bạn có thể tăng BM25 hoặc dense khi có bằng chứng trước rằng một thứ tốt hơn trên corpus của bạn. Nhân đóng góp hạng với trọng số là triển khai có nguyên tắc đơn giản nhất; nó bảo toàn hình thức suy giảm hạng và giữ không phụ thuộc thang đo.
 
 ### Why fusion beats score-weighted interpolation
 
-BM25 scores are unbounded and corpus-dependent. Cosine similarities are bounded in -1 to 1. A linear combination `alpha * bm25 + (1 - alpha) * cosine` requires per-corpus alpha tuning and breaks every time you reindex. The rank-based fusion does not. Two ranks are comparable across modalities. The published RRF baseline beats score-interpolation in every public TREC track since 2010.
+Các điểm BM25 không bị chặn và phụ thuộc corpus. Các độ tương tự cosine bị chặn trong -1 đến 1. Một tổ hợp tuyến tính `alpha * bm25 + (1 - alpha) * cosine` đòi hỏi điều chỉnh alpha theo corpus và hỏng mỗi khi bạn lập chỉ mục lại. Hợp nhất dựa trên hạng thì không. Hai hạng có thể so sánh giữa các phương thức. Đường cơ sở RRF được công bố vượt nội suy điểm trong mọi track TREC công khai từ năm 2010.
 
-This is the same argument you hear about RankFusion vs RRF in Vespa and Weaviate documentation. They came to the same conclusion: stay rank-based unless you have very strong evidence to interpolate scores.
+Đây là cùng lập luận bạn nghe về RankFusion so với RRF trong tài liệu Vespa và Weaviate. Họ đi đến cùng kết luận: giữ dựa trên hạng trừ khi bạn có bằng chứng rất mạnh để nội suy các điểm.
 
 ```figure
 rrf-fusion
@@ -68,80 +68,80 @@ rrf-fusion
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `tokenize(text)` - a fast regex tokenizer.
-- `BM25Index` - field-weighted, with `add` and `search` and tunable k1, b.
-- `mock_embed`, `DenseIndex` - the same deterministic embedding as lesson 64 so chunks are comparable.
-- `rrf(rankings, k, weights)` - the published fusion with multi-modality weights.
-- `HybridRetriever` - combines BM25 and dense.
-- A demo `main()` that loads a small fixture corpus, runs three queries that target each retriever's strength and weakness, and prints the rankings each modality produced plus the fused list.
+- `tokenize(text)` - một tokenizer regex nhanh.
+- `BM25Index` - có trọng số trường, với `add` và `search` và k1, b có thể điều chỉnh.
+- `mock_embed`, `DenseIndex` - cùng embedding tất định như bài 64 để các đoạn có thể so sánh.
+- `rrf(rankings, k, weights)` - phép hợp nhất được công bố với các trọng số đa phương thức.
+- `HybridRetriever` - kết hợp BM25 và dense.
+- Một demo `main()` nạp một corpus fixture nhỏ, chạy ba truy vấn nhắm vào điểm mạnh và điểm yếu của mỗi bộ truy xuất, và in các thứ hạng mỗi phương thức tạo cùng danh sách hợp nhất.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-Read the demo output side by side. The literal identifier query lands at BM25 rank 1, dense rank 4, RRF rank 1. The paraphrased query lands at BM25 rank 6, dense rank 1, RRF rank 1. The ambiguous query lands at BM25 rank 3, dense rank 3, RRF rank 1. The fusion is not a tie-breaker; it is the system that wins on every query class.
+Đọc đầu ra demo cạnh nhau. Truy vấn định danh nguyên văn nằm ở hạng BM25 1, hạng dense 4, hạng RRF 1. Truy vấn diễn đạt lại nằm ở hạng BM25 6, hạng dense 1, hạng RRF 1. Truy vấn mơ hồ nằm ở hạng BM25 3, hạng dense 3, hạng RRF 1. Hợp nhất không phải một bộ phá hòa; nó là hệ thống thắng trên mọi lớp truy vấn.
 
 ## Tuning the knobs
 
-| Knob | Default | Move it up when | Move it down when |
+| Núm | Mặc định | Tăng khi | Giảm khi |
 |------|---------|----------------|------------------|
-| BM25 k1 | 1.5 | Terms repeat in documents and you want frequency to matter more | Documents are short and term repetition is noise |
-| BM25 b | 0.75 | Long documents really do say less per word | Document length is uncorrelated with topic |
-| RRF k | 60 | Deep candidates should keep voting | The top-1 should dominate |
-| BM25 weight | 1.0 | Your corpus contains literal identifiers and queries match them | Your queries are user-paraphrased |
-| Dense weight | 1.0 | Queries are paraphrased | Queries are literal |
+| BM25 k1 | 1.5 | Các từ lặp trong tài liệu và bạn muốn tần suất quan trọng hơn | Các tài liệu ngắn và lặp từ là nhiễu |
+| BM25 b | 0.75 | Các tài liệu dài thực sự nói ít hơn mỗi từ | Độ dài tài liệu không tương quan với chủ đề |
+| RRF k | 60 | Các ứng viên sâu nên tiếp tục bỏ phiếu | Top-1 nên chiếm ưu thế |
+| Trọng số BM25 | 1.0 | Corpus của bạn chứa các định danh nguyên văn và các truy vấn khớp chúng | Các truy vấn của bạn được người dùng diễn đạt lại |
+| Trọng số dense | 1.0 | Các truy vấn được diễn đạt lại | Các truy vấn nguyên văn |
 
-Tune by re-running lesson 68's eval harness on your held-out query set, not by intuition.
+Điều chỉnh bằng cách chạy lại harness đánh giá của bài 68 trên tập truy vấn được giữ riêng của bạn, không phải bằng trực giác.
 
 ## Failure modes the demo will hide
 
-**Out-of-vocabulary tokens.** BM25's IDF is computed from the corpus, so terms only in the query contribute zero. Dense embeddings hallucinate a vector for the same term. On out-of-corpus identifiers the dense modality returns plausible-looking but wrong neighbors. The fusion absorbs this because BM25 returns nothing and the rank contribution drops out, but only if you de-duplicate by document, not by chunk.
+**Các token ngoài từ vựng.** IDF của BM25 được tính từ corpus, nên các từ chỉ trong truy vấn đóng góp không. Các embedding dense ảo giác một vector cho cùng từ. Trên các định danh ngoài corpus phương thức dense trả về các láng giềng trông hợp lý nhưng sai. Hợp nhất hấp thụ điều này vì BM25 không trả về gì và đóng góp hạng biến mất, nhưng chỉ nếu bạn loại trùng theo tài liệu, không phải theo đoạn.
 
-**Stop-token domination.** BM25 against the word "the" produces a uniform ranking over the corpus. Filter stop tokens in the indexer or accept that high-IDF terms dominate naturally.
+**Token dừng chiếm ưu thế.** BM25 với từ "the" tạo một thứ hạng đều trên corpus. Lọc các token dừng trong bộ lập chỉ mục hoặc chấp nhận rằng các từ IDF cao chiếm ưu thế tự nhiên.
 
-**Identical content across modalities.** If your corpus is small enough that the top-1 of BM25 is also the top-1 of dense, RRF gives you the same top-1 with the same neighbors. That is correct behavior, not a failure, but it makes the fusion look invisible. Add an adversarial query pair in your eval to verify the fusion is actually working.
+**Nội dung giống hệt giữa các phương thức.** Nếu corpus của bạn đủ nhỏ để top-1 BM25 cũng là top-1 dense, RRF cho bạn cùng top-1 với cùng các láng giềng. Đó là hành vi đúng, không phải một thất bại, nhưng nó khiến hợp nhất trông vô hình. Thêm một cặp truy vấn đối kháng trong đánh giá để xác minh hợp nhất thực sự hoạt động.
 
 ## Use It
 
-Production patterns:
+Các mẫu sản xuất:
 
-- Index BM25 in process; the bottleneck is the term-frequency dictionary, not the vectors.
-- Index dense vectors in a separate store (in this lesson we use a flat list; in production you would use HNSW).
-- Run both queries in parallel; the fusion is a constant-time merge over the union.
-- Persist the modality of each retrieved hit so a downstream reranker can see which modality voted for it.
+- Lập chỉ mục BM25 trong tiến trình; nút thắt là từ điển tần suất từ, không phải các vector.
+- Lập chỉ mục các vector dense trong một kho riêng (trong bài này chúng ta dùng một danh sách phẳng; trong sản xuất bạn sẽ dùng HNSW).
+- Chạy cả hai truy vấn song song; hợp nhất là một phép hợp nhất thời gian hằng trên hợp.
+- Lưu bền vững phương thức của mỗi kết quả truy xuất để một bộ xếp hạng lại hạ nguồn có thể thấy phương thức nào đã bỏ phiếu cho nó.
 
 ## Ship It
 
-Lesson 66 takes the fused top-k from this lesson and reranks with a cross-encoder. Lesson 68 evaluates the entire pipeline with precision, recall, MRR, and nDCG. The hybrid retriever in this lesson is the first stage of the end-to-end system in lesson 69.
+Bài 66 lấy top-k hợp nhất từ bài này và xếp hạng lại bằng một cross-encoder. Bài 68 đánh giá toàn pipeline bằng precision, recall, MRR, và nDCG. Bộ truy xuất lai trong bài này là giai đoạn đầu của hệ thống đầu cuối trong bài 69.
 
 ## Exercises
 
-1. Replace `mock_embed` with a real model from your provider. Re-run the demo and report how the dense-only ranking changes on the paraphrased query.
-2. Add a third modality: chunk summaries indexed separately and fused as a third ranked list. Measure the gain.
-3. Sweep RRF k across 10, 30, 60, 100, 200. Plot the recall@k curve from lesson 68. Report the value of k where the curve peaks on your corpus.
-4. Implement BM25F properly (per-field length normalization rather than the multiplier trick) and compare on a corpus where symbol matches matter most.
+1. Thay `mock_embed` bằng một mô hình thực từ nhà cung cấp của bạn. Chạy lại demo và báo cáo thứ hạng chỉ dense thay đổi thế nào trên truy vấn diễn đạt lại.
+2. Thêm một phương thức thứ ba: các tóm tắt đoạn được lập chỉ mục riêng và hợp nhất như một danh sách được xếp hạng thứ ba. Đo mức tăng.
+3. Quét k RRF qua 10, 30, 60, 100, 200. Vẽ đường cong recall@k từ bài 68. Báo cáo giá trị k nơi đường cong đạt đỉnh trên corpus của bạn.
+4. Triển khai BM25F đúng cách (chuẩn hóa độ dài theo trường thay vì mẹo hệ số nhân) và so sánh trên một corpus nơi các kết quả khớp ký hiệu quan trọng nhất.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| BM25 | "Lexical search" | Probabilistic ranking with idf x saturating tf x length normalization |
-| RRF | "Rank fusion" | Sum of 1 / (k + rank) across ranked lists; k = 60 default |
-| k1 | "TF saturation" | Controls how fast a repeated term stops adding more score |
-| b | "Length penalty" | 0 means ignore document length, 1 means full normalization |
-| Field weighting | "Symbol boost" | Repeat tokens during indexing to boost matches in that field |
-| Rank-based vs score-based fusion | "Why RRF beats linear" | Ranks are comparable across modalities; scores are not |
+| BM25 | "Tìm kiếm từ vựng" | Xếp hạng xác suất với idf x tf bão hòa x chuẩn hóa độ dài |
+| RRF | "Hợp nhất hạng" | Tổng 1 / (k + rank) trên các danh sách được xếp hạng; mặc định k = 60 |
+| k1 | "Bão hòa TF" | Kiểm soát một từ lặp ngừng thêm điểm nhanh thế nào |
+| b | "Hình phạt độ dài" | 0 nghĩa là bỏ qua độ dài tài liệu, 1 nghĩa là chuẩn hóa đầy đủ |
+| Field weighting (Trọng số trường) | "Tăng ký hiệu" | Lặp các token khi lập chỉ mục để tăng các kết quả khớp trong trường đó |
+| Rank-based vs score-based fusion (Hợp nhất dựa trên hạng so với dựa trên điểm) | "Tại sao RRF vượt tuyến tính" | Các hạng có thể so sánh giữa các phương thức; các điểm thì không |
 
 ## Further Reading
 
 - Cormack, Clarke, Buettcher, "Reciprocal Rank Fusion outperforms Condorcet and individual rank learning methods", SIGIR 2009
-- Robertson, Walker, Beaulieu, Gatford, Payne, "Okapi at TREC-3" (the original BM25 paper)
+- Robertson, Walker, Beaulieu, Gatford, Payne, "Okapi at TREC-3" (bài báo BM25 gốc)
 - [Vespa: Hybrid Retrieval with BM25 and Embeddings](https://docs.vespa.ai/en/tutorials/hybrid-search.html)
 - [Weaviate: Hybrid Search](https://weaviate.io/developers/weaviate/search/hybrid)
-- Phase 11 lesson 06 - RAG fundamentals
-- Phase 19 lesson 64 - chunkers whose output is indexed here
-- Phase 19 lesson 66 - cross-encoder reranker that consumes the fused top-k
+- Phase 11 bài 06 - các nền tảng RAG
+- Phase 19 bài 64 - các bộ chia đoạn có đầu ra được lập chỉ mục ở đây
+- Phase 19 bài 66 - bộ xếp hạng lại cross-encoder tiêu thụ top-k hợp nhất
