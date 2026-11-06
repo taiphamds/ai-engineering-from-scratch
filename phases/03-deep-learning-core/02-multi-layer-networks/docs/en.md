@@ -1,6 +1,6 @@
 # Multi-Layer Networks and Forward Pass
 
-> One neuron draws a line. Stack them, and you can draw anything.
+> Một nơ-ron vẽ một đường thẳng. Xếp chồng chúng và bạn có thể vẽ bất cứ thứ gì.
 
 **Type:** Build
 **Languages:** Python
@@ -9,32 +9,32 @@
 
 ## Learning Objectives
 
-- Build a multi-layer network from scratch with Layer and Network classes that perform a complete forward pass
-- Trace matrix dimensions through each layer of a network and identify shape mismatches
-- Explain how stacking nonlinear activations enables a network to learn curved decision boundaries
-- Solve the XOR problem using a 2-2-1 architecture with hand-tuned sigmoid weights
+- Xây dựng một mạng nhiều lớp từ đầu với các lớp Layer và Network thực hiện một lượt truyền xuôi hoàn chỉnh
+- Theo dõi các kích thước ma trận qua mỗi lớp của một mạng và xác định các trường hợp không khớp hình dạng
+- Giải thích cách xếp chồng các kích hoạt phi tuyến cho phép một mạng học các ranh giới quyết định cong
+- Giải bài toán XOR bằng kiến trúc 2-2-1 với các trọng số sigmoid được điều chỉnh thủ công
 
 ## The Problem
 
-A single neuron is a line drawer. That's it. One straight line through your data. Every real problem in AI -- image recognition, language understanding, playing Go -- requires curves. Stacking neurons into layers is how you get curves.
+Một nơ-ron đơn lẻ là một công cụ vẽ đường thẳng. Chỉ vậy thôi. Một đường thẳng qua dữ liệu của bạn. Mọi bài toán thực sự trong AI -- nhận dạng hình ảnh, hiểu ngôn ngữ, chơi cờ vây -- đều cần các đường cong. Xếp chồng các nơ-ron thành các lớp là cách bạn có được các đường cong.
 
-In 1969, Minsky and Papert proved this limitation was fatal: a single-layer network cannot learn XOR. Not "struggles to learn" -- mathematically cannot. The XOR truth table places [0,1] and [1,0] on one side, [0,0] and [1,1] on the other. No single line separates them.
+Năm 1969, Minsky và Papert chứng minh giới hạn này có tính chí mạng: một mạng một lớp không thể học XOR. Không phải "khó học" -- mà về mặt toán học là không thể. Bảng chân trị XOR đặt [0,1] và [1,0] ở một phía, [0,0] và [1,1] ở phía kia. Không một đường thẳng duy nhất nào phân tách chúng.
 
-This killed neural network funding for over a decade. The fix was obvious in hindsight: stop using one layer. Stack neurons into layers. Let the first layer carve the input space into new features, and let the second layer combine those features into decisions no single line could make.
+Điều này giết chết nguồn tài trợ mạng nơ-ron trong hơn một thập kỷ. Nhìn lại, cách khắc phục rất rõ ràng: ngừng sử dụng một lớp. Xếp chồng các nơ-ron thành các lớp. Để lớp đầu tiên chia cắt không gian đầu vào thành các đặc trưng mới, và để lớp thứ hai kết hợp những đặc trưng đó thành các quyết định mà không đường thẳng đơn lẻ nào có thể đưa ra.
 
-That stack is the multi-layer network. It is the foundation of every deep learning model in production today. The forward pass -- data flowing from input through hidden layers to output -- is the first thing you need to build before anything else works.
+Chồng lớp đó là mạng nhiều lớp. Nó là nền tảng của mọi mô hình học sâu trong production ngày nay. Lượt truyền xuôi -- dữ liệu chảy từ đầu vào qua các lớp ẩn tới đầu ra -- là thứ đầu tiên bạn cần xây dựng trước khi bất kỳ thứ gì khác hoạt động.
 
 ## The Concept
 
 ### Layers: Input, Hidden, Output
 
-A multi-layer network has three types of layers:
+Một mạng nhiều lớp có ba loại lớp:
 
-**Input layer** -- not really a layer. It holds your raw data. Two features means two input nodes. No computation happens here.
+**Lớp đầu vào** -- không thực sự là một lớp. Nó chứa dữ liệu thô của bạn. Hai đặc trưng nghĩa là hai nút đầu vào. Không có tính toán nào xảy ra ở đây.
 
-**Hidden layers** -- where the work happens. Each neuron takes every output from the previous layer, applies weights and a bias, then passes the result through an activation function. "Hidden" because you never see these values directly in the training data.
+**Các lớp ẩn** -- nơi công việc diễn ra. Mỗi nơ-ron nhận mọi đầu ra từ lớp trước, áp dụng các trọng số và một bias, rồi đưa kết quả qua một hàm kích hoạt. "Ẩn" vì bạn không bao giờ thấy trực tiếp các giá trị này trong dữ liệu huấn luyện.
 
-**Output layer** -- the final answer. For binary classification, one neuron with sigmoid. For multi-class, one neuron per class.
+**Lớp đầu ra** -- câu trả lời cuối cùng. Với phân loại nhị phân, một nơ-ron với sigmoid. Với đa lớp, một nơ-ron cho mỗi lớp phân loại.
 
 ```mermaid
 graph LR
@@ -61,29 +61,29 @@ graph LR
     h3 --> y
 ```
 
-This is a 2-3-1 network. Two inputs, three hidden neurons, one output. Every connection carries a weight. Every neuron (except input) carries a bias.
+Đây là một mạng 2-3-1. Hai đầu vào, ba nơ-ron ẩn, một đầu ra. Mỗi kết nối mang một trọng số. Mỗi nơ-ron (trừ đầu vào) mang một bias.
 
-Each layer produces a vector of numbers called a hidden state. For text, hidden states increase dimensionality -- encoding a word as 768 numbers to capture semantic meaning. For images, they reduce dimensionality -- compressing millions of pixels into a manageable representation. The hidden state is where the learning lives.
+Mỗi lớp tạo ra một vector số được gọi là trạng thái ẩn. Với văn bản, các trạng thái ẩn tăng số chiều -- mã hóa một từ thành 768 số để nắm bắt ý nghĩa ngữ nghĩa. Với hình ảnh, chúng giảm số chiều -- nén hàng triệu pixel thành một biểu diễn có thể quản lý. Trạng thái ẩn là nơi việc học tồn tại.
 
 ### Neurons and Activations
 
-Each neuron does three things:
+Mỗi nơ-ron làm ba việc:
 
-1. Multiply every input by its corresponding weight
-2. Sum all the products and add a bias
-3. Pass the sum through an activation function
+1. Nhân mỗi đầu vào với trọng số tương ứng của nó
+2. Cộng tất cả các tích và thêm một bias
+3. Đưa tổng qua một hàm kích hoạt
 
-For now, the activation is sigmoid:
+Hiện tại, kích hoạt là sigmoid:
 
 ```
 sigmoid(z) = 1 / (1 + e^(-z))
 ```
 
-Sigmoid squashes any number into the range (0, 1). Large positive inputs push toward 1. Large negative inputs push toward 0. Zero maps to 0.5. This smooth curve is what makes learning possible -- unlike the perceptron's hard step, sigmoid has a gradient everywhere.
+Sigmoid ép bất kỳ số nào vào khoảng (0, 1). Các đầu vào dương lớn đẩy về phía 1. Các đầu vào âm lớn đẩy về phía 0. Số không ánh xạ thành 0.5. Đường cong trơn này là điều khiến việc học trở nên khả thi -- khác với bước cứng của perceptron, sigmoid có gradient ở mọi nơi.
 
 ### Forward Pass: How Data Flows
 
-The forward pass pushes input data through the network, layer by layer, until it reaches the output. No learning happens during the forward pass. It is pure computation: multiply, add, activate, repeat.
+Lượt truyền xuôi đẩy dữ liệu đầu vào qua mạng, từng lớp một, cho tới khi đến đầu ra. Không có việc học nào diễn ra trong lượt truyền xuôi. Đó là tính toán thuần túy: nhân, cộng, kích hoạt, lặp lại.
 
 ```mermaid
 graph TD
@@ -97,36 +97,36 @@ graph TD
     AO --> Y["Output: y"]
 ```
 
-At each layer, three operations happen in sequence:
+Tại mỗi lớp, ba phép toán xảy ra theo thứ tự:
 
 ```
 z = W * input + b       (linear transformation)
 a = sigmoid(z)           (activation)
 ```
 
-The output of one layer becomes the input to the next. That is the entire forward pass.
+Đầu ra của một lớp trở thành đầu vào của lớp tiếp theo. Đó là toàn bộ lượt truyền xuôi.
 
 ### Matrix Dimensions
 
-Tracking dimensions is the single most important debugging skill in deep learning. Here is the 2-3-1 network:
+Theo dõi kích thước là kỹ năng gỡ lỗi quan trọng nhất trong học sâu. Đây là mạng 2-3-1:
 
-| Step | Operation | Dimensions | Result Shape |
+| Bước | Phép toán | Kích thước | Hình dạng kết quả |
 |------|-----------|------------|-------------|
-| Input | x | -- | (2,) |
-| Hidden linear | W1 * x + b1 | W1: (3, 2), b1: (3,) | (3,) |
-| Hidden activation | sigmoid(z1) | -- | (3,) |
-| Output linear | W2 * h + b2 | W2: (1, 3), b2: (1,) | (1,) |
-| Output activation | sigmoid(z2) | -- | (1,) |
+| Đầu vào | x | -- | (2,) |
+| Tuyến tính lớp ẩn | W1 * x + b1 | W1: (3, 2), b1: (3,) | (3,) |
+| Kích hoạt lớp ẩn | sigmoid(z1) | -- | (3,) |
+| Tuyến tính đầu ra | W2 * h + b2 | W2: (1, 3), b2: (1,) | (1,) |
+| Kích hoạt đầu ra | sigmoid(z2) | -- | (1,) |
 
-The rule: weight matrix W at layer k has shape (neurons_in_layer_k, neurons_in_layer_k_minus_1). Rows match the current layer. Columns match the previous layer. If the shapes do not line up, you have a bug.
+Quy tắc: ma trận trọng số W tại lớp k có hình dạng (neurons_in_layer_k, neurons_in_layer_k_minus_1). Các hàng khớp lớp hiện tại. Các cột khớp lớp trước. Nếu các hình dạng không khớp nhau, bạn có lỗi.
 
 ### Universal Approximation Theorem
 
-In 1989, George Cybenko proved something remarkable: a neural network with a single hidden layer and enough neurons can approximate any continuous function to any desired accuracy.
+Năm 1989, George Cybenko chứng minh một điều đáng chú ý: một mạng nơ-ron với một lớp ẩn duy nhất và đủ nơ-ron có thể xấp xỉ bất kỳ hàm liên tục nào tới bất kỳ độ chính xác mong muốn nào.
 
-This does not mean one hidden layer is always best. It means the architecture is theoretically capable. In practice, deeper networks (more layers, fewer neurons per layer) learn the same functions with far fewer total parameters than shallow-wide networks. That is why deep learning works.
+Điều này không có nghĩa một lớp ẩn luôn tốt nhất. Nó có nghĩa kiến trúc có khả năng về mặt lý thuyết. Trong thực tế, các mạng sâu hơn (nhiều lớp hơn, ít nơ-ron hơn mỗi lớp) học cùng những hàm đó với tổng số tham số ít hơn nhiều so với các mạng nông và rộng. Đó là lý do học sâu hoạt động.
 
-The intuition: each neuron in the hidden layer learns one "bump" or feature. Enough bumps placed in the right locations can approximate any smooth curve. More neurons, more bumps, better approximation.
+Trực giác: mỗi nơ-ron trong lớp ẩn học một "chỗ nhô" hoặc đặc trưng. Đủ chỗ nhô được đặt đúng vị trí có thể xấp xỉ bất kỳ đường cong trơn nào. Nhiều nơ-ron hơn, nhiều chỗ nhô hơn, xấp xỉ tốt hơn.
 
 ```mermaid
 graph LR
@@ -144,7 +144,7 @@ graph LR
 
 ### Composability
 
-Neural networks are composable. You can stack them, chain them, run them in parallel. A Whisper model uses an encoder network to process audio and a separate decoder network to generate text. Modern LLMs are decoder-only. BERT is encoder-only. T5 is encoder-decoder. The architecture choice defines what the model can do.
+Mạng nơ-ron có thể kết hợp được. Bạn có thể xếp chồng chúng, nối chuỗi chúng, chạy chúng song song. Một mô hình Whisper sử dụng một mạng encoder để xử lý âm thanh và một mạng decoder riêng biệt để sinh văn bản. Các LLM hiện đại chỉ có decoder. BERT chỉ có encoder. T5 có encoder-decoder. Lựa chọn kiến trúc xác định mô hình có thể làm gì.
 
 ```figure
 mlp-forward
@@ -152,7 +152,7 @@ mlp-forward
 
 ## Build It
 
-Pure Python. No numpy. Every matrix operation written from scratch.
+Python thuần. Không numpy. Mọi phép toán ma trận đều được viết từ đầu.
 
 ### Step 1: Sigmoid Activation
 
@@ -164,13 +164,13 @@ def sigmoid(x):
     return 1.0 / (1.0 + math.exp(-x))
 ```
 
-The clamp to [-500, 500] prevents overflow. `math.exp(500)` is large but finite. `math.exp(1000)` is infinity.
+Việc chặn về [-500, 500] ngăn tràn số. `math.exp(500)` lớn nhưng hữu hạn. `math.exp(1000)` là vô cực.
 
 ### Step 2: Layer Class
 
-The most important operation in all of deep learning is matrix multiplication. Every layer, every attention head, every forward pass -- it's matmuls all the way down. A linear layer takes an input vector, multiplies it by a weight matrix, and adds a bias vector: y = Wx + b. That single equation is 90% of the compute in a neural network.
+Phép toán quan trọng nhất trong toàn bộ học sâu là nhân ma trận. Mọi lớp, mọi đầu attention, mọi lượt truyền xuôi -- tất cả đều là các phép nhân ma trận từ trên xuống dưới. Một lớp tuyến tính nhận một vector đầu vào, nhân nó với một ma trận trọng số và cộng một vector bias: y = Wx + b. Một phương trình đó chiếm 90% tính toán trong một mạng nơ-ron.
 
-A layer holds a weight matrix and a bias vector. Its forward method takes an input vector and returns the activated output.
+Một lớp chứa một ma trận trọng số và một vector bias. Phương thức forward của nó nhận một vector đầu vào và trả về đầu ra đã kích hoạt.
 
 ```python
 class Layer:
@@ -200,11 +200,11 @@ class Layer:
         return self.last_output
 ```
 
-The weight matrix has shape (n_neurons, n_inputs). Each row is one neuron's weights across all inputs. The forward method loops through neurons, computes the weighted sum plus bias, applies sigmoid, and collects the results.
+Ma trận trọng số có hình dạng (n_neurons, n_inputs). Mỗi hàng là các trọng số của một nơ-ron trên tất cả các đầu vào. Phương thức forward lặp qua các nơ-ron, tính tổng có trọng số cộng bias, áp dụng sigmoid và thu thập các kết quả.
 
 ### Step 3: Network Class
 
-A network is a list of layers. The forward pass chains them: output of layer k feeds into layer k+1.
+Một mạng là một danh sách các lớp. Lượt truyền xuôi nối chúng thành chuỗi: đầu ra của lớp k đưa vào lớp k+1.
 
 ```python
 class Network:
@@ -218,11 +218,11 @@ class Network:
         return current
 ```
 
-That is the entire forward pass. Four lines of logic. Data goes in, flows through every layer, comes out the other side.
+Đó là toàn bộ lượt truyền xuôi. Bốn dòng logic. Dữ liệu đi vào, chảy qua mọi lớp, đi ra ở phía bên kia.
 
 ### Step 4: XOR with Hand-Tuned Weights
 
-In Lesson 01, we solved XOR by combining OR, NAND, and AND perceptrons. Now do the same thing with our Layer and Network classes. The 2-2-1 architecture: two inputs, two hidden neurons, one output.
+Trong Bài 01, chúng ta giải XOR bằng cách kết hợp các perceptron OR, NAND và AND. Giờ làm cùng việc đó với các lớp Layer và Network của chúng ta. Kiến trúc 2-2-1: hai đầu vào, hai nơ-ron ẩn, một đầu ra.
 
 ```python
 hidden = Layer(
@@ -254,11 +254,11 @@ for inputs, expected in xor_data:
     print(f"  {inputs} -> {result[0]:.6f} (rounded: {predicted}, expected: {expected})")
 ```
 
-The large weights (20, -20) make sigmoid act like a step function. The first hidden neuron approximates OR. The second approximates NAND. The output neuron combines them into AND, which is XOR.
+Các trọng số lớn (20, -20) khiến sigmoid hoạt động như một hàm bước. Nơ-ron ẩn đầu tiên xấp xỉ OR. Nơ-ron thứ hai xấp xỉ NAND. Nơ-ron đầu ra kết hợp chúng thành AND, chính là XOR.
 
 ### Step 5: Circle Classification
 
-A harder problem: classify 2D points as inside or outside a circle of radius 0.5 centered at the origin. This requires a curved decision boundary -- impossible for a single perceptron.
+Một bài toán khó hơn: phân loại các điểm 2D là nằm trong hay ngoài một đường tròn bán kính 0.5 có tâm tại gốc tọa độ. Điều này cần một ranh giới quyết định cong -- không thể đối với một perceptron đơn lẻ.
 
 ```python
 import random
@@ -279,7 +279,7 @@ circle_net = Network([
 ])
 ```
 
-With random weights, the network will not classify well. But the forward pass still runs. This is the point -- the forward pass is just computation. Learning the right weights is backpropagation, coming in Lesson 03.
+Với các trọng số ngẫu nhiên, mạng sẽ không phân loại tốt. Nhưng lượt truyền xuôi vẫn chạy. Đây chính là điểm cần hiểu -- lượt truyền xuôi chỉ là tính toán. Học các trọng số đúng là lan truyền ngược, sẽ có trong Bài 03.
 
 ```python
 correct = 0
@@ -292,11 +292,11 @@ for inputs, expected in data:
 print(f"Accuracy with random weights: {correct}/{len(data)} ({100*correct/len(data):.1f}%)")
 ```
 
-Random weights give poor accuracy -- often worse than guessing the majority class. After training (Lesson 03), this same architecture with 8 hidden neurons will draw a curved boundary that separates inside from outside.
+Các trọng số ngẫu nhiên cho accuracy kém -- thường tệ hơn đoán lớp đa số. Sau huấn luyện (Bài 03), cùng kiến trúc này với 8 nơ-ron ẩn sẽ vẽ một ranh giới cong phân tách bên trong với bên ngoài.
 
 ## Use It
 
-PyTorch does everything above in four lines:
+PyTorch làm mọi thứ ở trên trong bốn dòng:
 
 ```python
 import torch
@@ -314,48 +314,48 @@ output = model(x)
 print(output)
 ```
 
-`nn.Linear(2, 8)` is your Layer class: weight matrix of shape (8, 2), bias vector of shape (8,). `nn.Sigmoid()` is your sigmoid function applied element-wise. `nn.Sequential` is your Network class: chain layers in order.
+`nn.Linear(2, 8)` là lớp Layer của bạn: ma trận trọng số có hình dạng (8, 2), vector bias có hình dạng (8,). `nn.Sigmoid()` là hàm sigmoid của bạn được áp dụng theo từng phần tử. `nn.Sequential` là lớp Network của bạn: nối các lớp theo thứ tự.
 
-The difference is speed and scale. PyTorch runs on GPUs, handles batches of millions of samples, and automatically computes gradients for backpropagation. But the forward pass logic is identical to what you just built from scratch.
+Khác biệt là tốc độ và quy mô. PyTorch chạy trên GPU, xử lý các batch hàng triệu mẫu và tự động tính gradient cho lan truyền ngược. Nhưng logic lượt truyền xuôi giống hệt thứ bạn vừa xây dựng từ đầu.
 
 ## Ship It
 
-This lesson produces a reusable prompt for designing network architectures:
+Bài học này tạo ra một prompt tái sử dụng để thiết kế các kiến trúc mạng:
 
 - `outputs/prompt-network-architect.md`
 
-Use it when you need to decide how many layers, how many neurons per layer, and which activation functions to use for a given problem.
+Sử dụng nó khi bạn cần quyết định bao nhiêu lớp, bao nhiêu nơ-ron mỗi lớp và những hàm kích hoạt nào cần sử dụng cho một bài toán nhất định.
 
 ## Exercises
 
-1. Build a 2-4-2-1 network (two hidden layers) and run the forward pass on XOR data with random weights. Print the intermediate hidden layer outputs to see how the representation transforms at each layer.
+1. Xây dựng một mạng 2-4-2-1 (hai lớp ẩn) và chạy lượt truyền xuôi trên dữ liệu XOR với các trọng số ngẫu nhiên. In các đầu ra lớp ẩn trung gian để xem biểu diễn biến đổi như thế nào tại mỗi lớp.
 
-2. Change the hidden layer size in the circle classifier from 8 to 2, then to 32. Run the forward pass with random weights each time. Does the number of hidden neurons change the output range or distribution? Why?
+2. Thay đổi kích thước lớp ẩn trong bộ phân loại đường tròn từ 8 thành 2, rồi thành 32. Chạy lượt truyền xuôi với các trọng số ngẫu nhiên mỗi lần. Số nơ-ron ẩn có thay đổi phạm vi hoặc phân phối đầu ra không? Tại sao?
 
-3. Implement a `count_parameters` method on the Network class that returns the total number of trainable weights and biases. Test it on a 784-256-128-10 network (the classic MNIST architecture). How many parameters does it have?
+3. Triển khai một phương thức `count_parameters` trên lớp Network trả về tổng số trọng số và bias có thể huấn luyện. Kiểm thử nó trên một mạng 784-256-128-10 (kiến trúc MNIST kinh điển). Nó có bao nhiêu tham số?
 
-4. Build a forward pass for a 3-4-4-2 network. Feed it RGB color values (normalized to 0-1) and observe the two outputs. This is the architecture for a simple color classifier with two classes.
+4. Xây dựng một lượt truyền xuôi cho một mạng 3-4-4-2. Đưa vào các giá trị màu RGB (được chuẩn hóa về 0-1) và quan sát hai đầu ra. Đây là kiến trúc cho một bộ phân loại màu đơn giản có hai lớp phân loại.
 
-5. Replace sigmoid with a "leaky step" function: return 0.01 * z if z < 0, else 1.0. Run the forward pass on XOR with the same hand-tuned weights from Step 4. Does it still work? Why is the smooth sigmoid preferred over hard cutoffs?
+5. Thay sigmoid bằng một hàm "bước rò rỉ": trả về 0.01 * z nếu z < 0, nếu không trả về 1.0. Chạy lượt truyền xuôi trên XOR với cùng các trọng số được điều chỉnh thủ công từ Bước 4. Nó còn hoạt động không? Tại sao sigmoid trơn được ưu tiên hơn các mức cắt cứng?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Forward pass | "Running the model" | Pushing input through every layer -- multiply by weights, add bias, activate -- to produce an output |
-| Hidden layer | "The middle part" | Any layer between input and output whose values are not directly observed in the data |
-| Multi-layer network | "A deep neural network" | Layers of neurons stacked sequentially, where each layer's output feeds the next layer's input |
-| Activation function | "The nonlinearity" | A function applied after the linear transformation that introduces curves into the decision boundary |
-| Sigmoid | "The S-curve" | sigma(z) = 1/(1+e^(-z)), squashes any real number to (0,1), smooth and differentiable everywhere |
-| Weight matrix | "The parameters" | A matrix W of shape (current_layer_neurons, previous_layer_neurons) containing learnable connection strengths |
-| Bias vector | "The offset" | A vector added after the matrix multiply that lets neurons activate even when all inputs are zero |
-| Universal approximation | "Neural nets can learn anything" | A single hidden layer with enough neurons can approximate any continuous function -- but "enough" can mean billions |
-| Linear transformation | "The matrix multiply step" | z = W * x + b, the computation before activation, which maps inputs to a new space |
-| Decision boundary | "Where the classifier switches" | The surface in input space where the network output crosses the classification threshold |
+| Forward pass (Lượt truyền xuôi) | "Chạy mô hình" | Đẩy đầu vào qua mọi lớp -- nhân với trọng số, cộng bias, kích hoạt -- để tạo ra một đầu ra |
+| Hidden layer (Lớp ẩn) | "Phần giữa" | Bất kỳ lớp nào giữa đầu vào và đầu ra có các giá trị không được quan sát trực tiếp trong dữ liệu |
+| Multi-layer network (Mạng nhiều lớp) | "Một mạng nơ-ron sâu" | Các lớp nơ-ron xếp chồng tuần tự, trong đó đầu ra mỗi lớp đưa vào đầu vào lớp tiếp theo |
+| Activation function (Hàm kích hoạt) | "Tính phi tuyến" | Một hàm được áp dụng sau phép biến đổi tuyến tính đưa các đường cong vào ranh giới quyết định |
+| Sigmoid | "Đường cong chữ S" | sigma(z) = 1/(1+e^(-z)), ép bất kỳ số thực nào về (0,1), trơn và khả vi ở mọi nơi |
+| Weight matrix (Ma trận trọng số) | "Các tham số" | Một ma trận W có hình dạng (current_layer_neurons, previous_layer_neurons) chứa các độ mạnh kết nối có thể học |
+| Bias vector (Vector bias) | "Độ dịch" | Một vector được cộng sau phép nhân ma trận cho phép các nơ-ron kích hoạt ngay cả khi tất cả các đầu vào bằng không |
+| Universal approximation (Xấp xỉ phổ dụng) | "Mạng nơ-ron có thể học bất cứ thứ gì" | Một lớp ẩn duy nhất có đủ nơ-ron có thể xấp xỉ bất kỳ hàm liên tục nào -- nhưng "đủ" có thể nghĩa là hàng tỷ |
+| Linear transformation (Phép biến đổi tuyến tính) | "Bước nhân ma trận" | z = W * x + b, phép tính trước kích hoạt, ánh xạ các đầu vào sang một không gian mới |
+| Decision boundary (Ranh giới quyết định) | "Nơi bộ phân loại chuyển đổi" | Bề mặt trong không gian đầu vào nơi đầu ra mạng vượt qua ngưỡng phân loại |
 
 ## Further Reading
 
-- Michael Nielsen, "Neural Networks and Deep Learning", Chapter 1-2 (http://neuralnetworksanddeeplearning.com/) -- the clearest free explanation of forward passes and network structure, with interactive visualizations
-- Cybenko, "Approximation by Superpositions of a Sigmoidal Function" (1989) -- the original universal approximation theorem paper, surprisingly readable
-- 3Blue1Brown, "But what is a neural network?" (https://www.youtube.com/watch?v=aircAruvnKk) -- 20-minute visual walkthrough of layers, weights, and forward passes that builds the right mental model
-- Goodfellow, Bengio, Courville, "Deep Learning", Chapter 6 (https://www.deeplearningbook.org/) -- the standard reference for multi-layer networks, free online
+- Michael Nielsen, "Neural Networks and Deep Learning", Chapter 1-2 (http://neuralnetworksanddeeplearning.com/) -- lời giải thích miễn phí rõ ràng nhất về lượt truyền xuôi và cấu trúc mạng, với các hình trực quan tương tác
+- Cybenko, "Approximation by Superpositions of a Sigmoidal Function" (1989) -- bài báo định lý xấp xỉ phổ dụng gốc, dễ đọc một cách đáng ngạc nhiên
+- 3Blue1Brown, "But what is a neural network?" (https://www.youtube.com/watch?v=aircAruvnKk) -- phần trình bày trực quan 20 phút về các lớp, trọng số và lượt truyền xuôi xây dựng mô hình tư duy đúng
+- Goodfellow, Bengio, Courville, "Deep Learning", Chapter 6 (https://www.deeplearningbook.org/) -- tài liệu tham khảo tiêu chuẩn về các mạng nhiều lớp, miễn phí trực tuyến
