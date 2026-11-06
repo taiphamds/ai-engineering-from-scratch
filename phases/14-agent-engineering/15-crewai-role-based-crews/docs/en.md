@@ -1,6 +1,6 @@
 # Role-Based Agent Teams — Roles, Tasks, Processes
 
-> Four primitives: Agent, Task, Crew, Process. Two top-level shapes: Crews (autonomous, role-based collaboration) and Flows (event-driven, deterministic). CrewAI is the 2026 reference implementation, and its docs are blunt: "for any production-ready application, start with a Flow."
+> Bốn thành phần nguyên thủy: Agent, Task, Crew, Process. Hai hình dạng cấp cao: Crews (hợp tác tự chủ, dựa trên vai trò) và Flows (hướng sự kiện, mang tính xác định). CrewAI là triển khai tham chiếu năm 2026, và tài liệu của nó nói thẳng: "với bất kỳ ứng dụng sẵn sàng cho sản xuất nào, hãy bắt đầu với một Flow."
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,59 +9,59 @@
 
 ## Learning Objectives
 
-- Name CrewAI's four primitives (Agent, Task, Crew, Process) and what each owns.
-- Distinguish Sequential, Hierarchical, and the planned Consensus process; pick one per workload.
-- Distinguish Crews (autonomous role-based) from Flows (event-driven deterministic), and explain the docs' production recommendation.
-- Wire tools with the `@tool` decorator and `BaseTool` subclass; reason about structured outputs vs free text.
-- Name the four CrewAI memory types and when each pays off.
-- Implement a stdlib three-agent crew (researcher, writer, editor) that produces a brief.
-- Spot the three CrewAI failure modes: prompt-bloat, manager-LLM tax, brittle handoffs.
+- Nêu tên bốn thành phần nguyên thủy của CrewAI (Agent, Task, Crew, Process) và điều mỗi thành phần sở hữu.
+- Phân biệt các quy trình Sequential, Hierarchical và Consensus được lên kế hoạch; chọn một cho mỗi khối lượng công việc.
+- Phân biệt Crews (tự chủ dựa trên vai trò) với Flows (hướng sự kiện mang tính xác định), và giải thích khuyến nghị sản xuất của tài liệu.
+- Nối các công cụ bằng decorator `@tool` và lớp con `BaseTool`; suy luận về đầu ra có cấu trúc so với văn bản tự do.
+- Nêu tên bốn loại bộ nhớ CrewAI và khi nào mỗi loại mang lại lợi ích.
+- Triển khai một crew ba agent dùng thư viện chuẩn (nhà nghiên cứu, người viết, biên tập viên) tạo một bản thông tin ngắn.
+- Phát hiện ba chế độ lỗi CrewAI: prompt phình to, chi phí LLM quản lý, các bàn giao mong manh.
 
 ## The Problem
 
-Teams adopting multi-agent frameworks hit the same wall. "Autonomous collaboration" sounds great in a demo. Then a customer files a bug and you need deterministic replay. Or finance asks how much an LLM-routed crew costs per run. Or on-call needs to know which agent stalled at 3 AM.
+Các nhóm áp dụng các framework nhiều agent gặp cùng một bức tường. "Hợp tác tự chủ" nghe tuyệt trong một bản demo. Rồi một khách hàng báo một lỗi và bạn cần phát lại mang tính xác định. Hoặc bộ phận tài chính hỏi một crew do LLM định tuyến tốn bao nhiêu cho mỗi lần chạy. Hoặc người trực cần biết agent nào bị đình trệ lúc 3 giờ sáng.
 
-Free-form LLM-routed crews answer none of those cleanly. Pure DAGs answer them all but lose the exploratory shape a brainstorming agent needs.
+Các crew do LLM định tuyến tự do không trả lời rõ ràng điều nào trong số đó. Các DAG thuần trả lời tất cả nhưng mất hình dạng khám phá mà một agent động não cần.
 
-CrewAI's split is honest about the trade. Crews for collaborative, role-based, exploratory work. Flows for event-driven, code-owned, auditable production. Same framework, two shapes, pick per surface.
+Sự phân tách của CrewAI trung thực về đánh đổi. Crews cho công việc hợp tác, dựa trên vai trò, khám phá. Flows cho sản xuất hướng sự kiện, do mã sở hữu, có thể kiểm toán. Cùng framework, hai hình dạng, chọn theo bề mặt.
 
 ## The Concept
 
 ### Four primitives
 
-CrewAI's surface is small. Memorize this and the rest is config.
+Bề mặt của CrewAI nhỏ. Ghi nhớ điều này và phần còn lại là cấu hình.
 
-- **Agent.** `role + goal + backstory + tools + (optional) llm`. The backstory is load-bearing. It shapes tone, judgment, when the agent stops. Tools are functions the agent can call (more below).
-- **Task.** `description + expected_output + agent + (optional) context + (optional) output_pydantic`. A reusable unit of work. `expected_output` is the contract. `context` lists upstream tasks whose outputs are passed in. `output_pydantic` forces a structured shape.
-- **Crew.** Container. Owns the list of `agents`, the list of `tasks`, the `process`, and optional `memory` + `verbose` + `manager_llm` settings.
-- **Process.** Execution strategy. Sequential, Hierarchical, Consensus (planned). Picks the shape of the run.
+- **Agent.** `role + goal + backstory + tools + (optional) llm`. Bối cảnh đóng vai trò trụ cột. Nó định hình giọng điệu, phán đoán, khi nào agent dừng. Các công cụ là các hàm mà agent có thể gọi (thêm ở dưới).
+- **Task.** `description + expected_output + agent + (optional) context + (optional) output_pydantic`. Một đơn vị công việc tái sử dụng. `expected_output` là hợp đồng. `context` liệt kê các tác vụ thượng nguồn có đầu ra được truyền vào. `output_pydantic` buộc một hình dạng có cấu trúc.
+- **Crew.** Vật chứa. Sở hữu danh sách `agents`, danh sách `tasks`, `process` và các thiết lập `memory` + `verbose` + `manager_llm` tùy chọn.
+- **Process.** Chiến lược thực thi. Sequential, Hierarchical, Consensus (được lên kế hoạch). Chọn hình dạng của lần chạy.
 
-Agents do not see each other directly. Tasks reference agents. The Crew sequences tasks. The Process decides who picks the next task. That is the whole mental model.
+Các agent không nhìn thấy nhau trực tiếp. Các task tham chiếu các agent. Crew sắp thứ tự các task. Process quyết định ai chọn task tiếp theo. Đó là toàn bộ mô hình tư duy.
 
-> **Validated against** CrewAI 0.86 (2026-05). Newer versions may rename or merge process types; check the [CrewAI Processes docs](https://docs.crewai.com/concepts/processes) before relying on a specific shape.
+> **Được xác thực đối với** CrewAI 0.86 (2026-05). Các phiên bản mới hơn có thể đổi tên hoặc hợp nhất các loại process; kiểm tra [tài liệu CrewAI Processes](https://docs.crewai.com/concepts/processes) trước khi dựa vào một hình dạng cụ thể.
 
 ### Sequential vs Hierarchical vs Consensus
 
-- **Sequential.** Tasks run in declaration order. Output of task N is available as `context` to task N+1. Lowest cost. Most predictable. Use when the order is fixed.
-- **Hierarchical.** A manager Agent (separate LLM call) routes between specialists. CrewAI spawns the manager either from your `manager_llm` config or a default. The manager picks the next task each round and can refuse or re-route. Use when you have four or more specialists and order genuinely depends on prior output.
-- **Consensus.** Planned, not currently implemented in the public API. The docs reserve the name for a future voting-based process. Do not rely on it today.
+- **Sequential.** Các task chạy theo thứ tự khai báo. Đầu ra của task N khả dụng dưới dạng `context` cho task N+1. Chi phí thấp nhất. Dễ dự đoán nhất. Sử dụng khi thứ tự cố định.
+- **Hierarchical.** Một Agent quản lý (lời gọi LLM riêng) định tuyến giữa các chuyên gia. CrewAI tạo bộ quản lý từ cấu hình `manager_llm` của bạn hoặc một mặc định. Bộ quản lý chọn task tiếp theo mỗi vòng và có thể từ chối hoặc định tuyến lại. Sử dụng khi bạn có bốn chuyên gia trở lên và thứ tự thực sự phụ thuộc đầu ra trước đó.
+- **Consensus.** Được lên kế hoạch, hiện chưa được triển khai trong API công khai. Tài liệu dành riêng tên này cho một process dựa trên bỏ phiếu trong tương lai. Đừng dựa vào nó hôm nay.
 
-Hierarchical adds a per-round LLM call (the manager) on top of every specialist call. Token cost can triple on a five-step run. Pay for it only when you need the routing.
+Hierarchical thêm một lời gọi LLM cho từng vòng (bộ quản lý) bên trên mỗi lời gọi chuyên gia. Chi phí token có thể tăng gấp ba trên một lần chạy năm bước. Chỉ trả chi phí đó khi bạn cần định tuyến.
 
 ### Crews vs Flows
 
-This is the framing the docs lead with in 2026.
+Đây là cách định khung mà tài liệu dẫn đầu trong năm 2026.
 
-- **Crew.** LLM-driven autonomy. The framework picks the shape at runtime. Good for: research, brainstorming, first drafts, anywhere the path is part of the answer. Hard to replay. Hard to test. Cheap to prototype.
-- **Flow.** Event-driven graph you own. `@start` marks the entry. `@listen(topic)` marks a step that fires when another step emits that topic. Each step is plain Python (can call a Crew internally). Good for: production. Observable. Testable. Deterministic.
+- **Crew.** Tính tự chủ do LLM điều khiển. Framework chọn hình dạng khi chạy. Tốt cho: nghiên cứu, động não, bản nháp đầu tiên, bất kỳ nơi nào đường đi là một phần của câu trả lời. Khó phát lại. Khó kiểm thử. Rẻ để tạo nguyên mẫu.
+- **Flow.** Đồ thị hướng sự kiện mà bạn sở hữu. `@start` đánh dấu điểm vào. `@listen(topic)` đánh dấu một bước kích hoạt khi một bước khác phát ra topic đó. Mỗi bước là Python thuần (có thể gọi một Crew bên trong). Tốt cho: sản xuất. Có thể quan sát. Có thể kiểm thử. Mang tính xác định.
 
-The docs' 2026 production recommendation: start with a Flow. Fold Crews in as `Crew.kickoff()` calls from inside Flow steps when autonomy earns its cost. The Flow gives you the audit trail, the Crew gives you the exploration. Compose, do not pick.
+Khuyến nghị sản xuất năm 2026 của tài liệu: bắt đầu với một Flow. Đưa Crews vào dưới dạng các lời gọi `Crew.kickoff()` từ bên trong các bước Flow khi tính tự chủ xứng đáng với chi phí. Flow cho bạn dấu vết kiểm toán, Crew cho bạn khám phá. Kết hợp, đừng chọn.
 
 ### Tool integration
 
-Three ways to give an Agent a tool. Pick the simplest one that fits.
+Ba cách cho một Agent một công cụ. Chọn cách đơn giản nhất phù hợp.
 
-1. **`@tool` decorator.** Pure functions become tools. Signature is the schema; docstring is the description the LLM sees. Best for one-off helpers.
+1. **Decorator `@tool`.** Các hàm thuần trở thành công cụ. Chữ ký là schema; docstring là mô tả mà LLM nhìn thấy. Tốt nhất cho các hàm trợ giúp dùng một lần.
 
    ```python
    from crewai.tools import tool
@@ -72,7 +72,7 @@ Three ways to give an Agent a tool. Pick the simplest one that fits.
        return run_search(query)
    ```
 
-2. **`BaseTool` subclass.** Class-based tool with explicit args schema, async support, retries. Use when the tool has state (a client, a cache) or needs structured args.
+2. **Lớp con `BaseTool`.** Công cụ dựa trên lớp với schema đối số tường minh, hỗ trợ bất đồng bộ, các lần thử lại. Sử dụng khi công cụ có trạng thái (một client, một bộ nhớ đệm) hoặc cần các đối số có cấu trúc.
 
    ```python
    from crewai.tools import BaseTool
@@ -91,47 +91,47 @@ Three ways to give an Agent a tool. Pick the simplest one that fits.
            return self.client.search(query, limit=limit)
    ```
 
-3. **Built-in toolkits.** CrewAI ships first-party adapters: `SerperDevTool`, `FileReadTool`, `DirectoryReadTool`, `CodeInterpreterTool`, `RagTool`, `WebsiteSearchTool`. Wired with one import.
+3. **Các bộ công cụ tích hợp sẵn.** CrewAI cung cấp các bộ điều hợp chính chủ: `SerperDevTool`, `FileReadTool`, `DirectoryReadTool`, `CodeInterpreterTool`, `RagTool`, `WebsiteSearchTool`. Được nối bằng một import.
 
-Structured outputs use Pydantic. Pass `output_pydantic=MyModel` on the Task. CrewAI validates the LLM response against the model and either coerces or retries. Pair this with a tight `expected_output` string. Free-text outputs are fine for drafts; structured outputs are what downstream Flows can consume.
+Các đầu ra có cấu trúc sử dụng Pydantic. Truyền `output_pydantic=MyModel` trên Task. CrewAI xác thực phản hồi LLM đối với mô hình và ép kiểu hoặc thử lại. Kết hợp điều này với một chuỗi `expected_output` chặt chẽ. Các đầu ra văn bản tự do ổn cho các bản nháp; các đầu ra có cấu trúc là thứ mà các Flow hạ nguồn có thể tiêu thụ.
 
 ### Memory hooks
 
-CrewAI ships four memory types out of the box. They compose: a Crew can enable all four at once.
+CrewAI cung cấp sẵn bốn loại bộ nhớ. Chúng kết hợp được: một Crew có thể bật cả bốn cùng lúc.
 
-> **Validated against** CrewAI 0.86 (2026-05). Recent releases route everything through a unified `Memory` system that wraps these four stores. The conceptual model below still holds, but the public class surface may collapse to a single `Memory` entry-point in newer versions; check [CrewAI memory docs](https://docs.crewai.com/concepts/memory) for the current API.
+> **Được xác thực đối với** CrewAI 0.86 (2026-05). Các bản phát hành gần đây định tuyến mọi thứ qua một hệ thống `Memory` thống nhất bọc bốn kho này. Mô hình khái niệm bên dưới vẫn đúng, nhưng bề mặt lớp công khai có thể gộp về một điểm vào `Memory` duy nhất trong các phiên bản mới hơn; kiểm tra [tài liệu bộ nhớ CrewAI](https://docs.crewai.com/concepts/memory) để biết API hiện tại.
 
-- **Short-term.** Conversation buffer within a single run. Wiped at the end.
-- **Long-term.** Persisted across runs. Stored in a vector DB (Chroma by default, swappable). Retrieved by similarity to the current task.
-- **Entity.** Per-entity facts. "Customer X is on the enterprise plan." Keyed by entity, not by similarity. Survives across runs.
-- **Contextual.** Assembly-time retrieval. Pulls relevant memory at the moment the Agent needs it, not preloaded.
+- **Ngắn hạn.** Bộ đệm hội thoại trong một lần chạy duy nhất. Được xóa sạch ở cuối.
+- **Dài hạn.** Được lưu giữ xuyên các lần chạy. Được lưu trong một cơ sở dữ liệu vector (Chroma mặc định, có thể thay thế). Được truy xuất theo độ tương tự với tác vụ hiện tại.
+- **Thực thể.** Các sự thật cho từng thực thể. "Khách hàng X ở gói doanh nghiệp." Được đánh khóa theo thực thể, không phải độ tương tự. Tồn tại xuyên các lần chạy.
+- **Theo ngữ cảnh.** Truy xuất tại thời điểm lắp ráp. Lấy bộ nhớ liên quan vào lúc Agent cần nó, không tải trước.
 
-Enable on the Crew with `memory=True` or per-type config. Backed by an embeddings provider you configure (defaults to OpenAI, swappable to local). Memory is one of the places CrewAI earns its keep against thinner frameworks; pure LangGraph requires you to wire each of these yourself.
+Bật trên Crew với `memory=True` hoặc cấu hình theo từng loại. Được hỗ trợ bởi một nhà cung cấp embedding bạn cấu hình (mặc định là OpenAI, có thể đổi sang cục bộ). Bộ nhớ là một trong những nơi CrewAI chứng tỏ giá trị so với các framework mỏng hơn; LangGraph thuần yêu cầu bạn tự nối từng loại này.
 
 ### When role-based teams fit
 
-- Three to six agents with named roles and a collaborative workflow. Drafting, reviewing, planning, brainstorming.
-- Routing where the LLM's judgment about the next step is part of the value (Hierarchical).
-- Anywhere the team is happier reading `role + goal + backstory` than reading a graph definition.
+- Ba đến sáu agent với các vai trò có tên và một workflow hợp tác. Soạn nháp, đánh giá, lập kế hoạch, động não.
+- Định tuyến nơi phán đoán của LLM về bước tiếp theo là một phần giá trị (Hierarchical).
+- Bất kỳ nơi nào nhóm thích đọc `role + goal + backstory` hơn đọc một định nghĩa đồ thị.
 
 ### When they do not
 
-- Deterministic DAGs with strict ordering. Use LangGraph (Lesson 13). The graph shape is the right abstraction; CrewAI's role framing is friction.
-- Sub-second latency budgets. Hierarchical adds round trips. Even Sequential serializes prompts that include backstories and prior outputs.
-- Single-agent loops. Skip the framework; an agent loop (Lesson 1) plus a tool registry is shorter.
+- Các DAG mang tính xác định với thứ tự nghiêm ngặt. Sử dụng LangGraph (Bài 13). Hình dạng đồ thị là trừu tượng đúng; cách định khung vai trò của CrewAI là ma sát.
+- Các ngân sách độ trễ dưới một giây. Hierarchical thêm các lượt khứ hồi. Ngay cả Sequential cũng tuần tự hóa các prompt bao gồm các bối cảnh và đầu ra trước.
+- Các vòng lặp một agent. Bỏ qua framework; một vòng lặp agent (Bài 1) cộng một sổ đăng ký công cụ ngắn hơn.
 
-Lesson 17 (Agent Framework Tradeoffs) lays this out in a matrix. The short version: CrewAI sits in the "collaborative role-based" corner.
+Bài 17 (Các đánh đổi framework agent) trình bày điều này trong một ma trận. Bản ngắn: CrewAI nằm ở góc "hợp tác dựa trên vai trò."
 
 ### Dependency shape
 
-Independent of LangChain. Python 3.10 to 3.13. Uses `uv`. Star count: see [crewAIInc/crewAI](https://github.com/crewAIInc/crewAI) (snapshot as of 2026-05). AWS Bedrock integration is documented; vendor benchmarks report a substantial speedup vs LangGraph on QA workloads, but the methodology (dataset, hardware, evaluation metric) is not published, so treat framework-vendor numbers as directional only.
+Độc lập với LangChain. Python 3.10 đến 3.13. Sử dụng `uv`. Số sao: xem [crewAIInc/crewAI](https://github.com/crewAIInc/crewAI) (ảnh chụp tại thời điểm 2026-05). Tích hợp AWS Bedrock được tài liệu hóa; các benchmark của nhà cung cấp báo cáo tăng tốc đáng kể so với LangGraph trên các khối lượng công việc QA, nhưng phương pháp (tập dữ liệu, phần cứng, thước đo đánh giá) không được công bố, vì vậy chỉ coi các con số của nhà cung cấp framework là định hướng.
 
 ### Where this pattern goes wrong
 
-- **Prompt-bloat from backstories.** A 2000-word backstory per agent and a five-agent crew burns the context budget before the first tool call. Keep backstories under 200 words. Reuse phrases across agents; do not repeat house style five times.
-- **Manager-LLM token tax.** Hierarchical process adds a manager LLM call before every specialist call. On a five-task crew that is six LLM calls instead of five, and the manager call carries the full task list plus prior outputs. Switch to Sequential unless routing depends on output.
-- **Brittle handoffs.** Task N's `expected_output` is "an outline". Task N+1 reads it as `context` and tries to parse three sections. The LLM produced four. The downstream Agent ad-libs. Fix with `output_pydantic` on Task N so Task N+1 reads a typed object, not free text.
-- **Crew-as-prod.** Free-form Crew shipped to production without a Flow wrapper. Output variability is high; replay is impossible; on-call cannot diff a bad run against a good one. Wrap with a Flow.
+- **Prompt phình to từ các bối cảnh.** Một bối cảnh 2000 từ cho mỗi agent và một crew năm agent đốt ngân sách ngữ cảnh trước lời gọi công cụ đầu tiên. Giữ các bối cảnh dưới 200 từ. Tái sử dụng các cụm từ xuyên các agent; đừng lặp lại phong cách chung năm lần.
+- **Chi phí token LLM quản lý.** Process Hierarchical thêm một lời gọi LLM quản lý trước mỗi lời gọi chuyên gia. Trên một crew năm task, đó là sáu lời gọi LLM thay vì năm, và lời gọi quản lý mang toàn bộ danh sách task cộng các đầu ra trước. Chuyển sang Sequential trừ khi định tuyến phụ thuộc đầu ra.
+- **Các bàn giao mong manh.** `expected_output` của task N là "một dàn ý". Task N+1 đọc nó dưới dạng `context` và cố phân tích ba phần. LLM tạo ra bốn. Agent hạ nguồn ứng biến. Khắc phục với `output_pydantic` trên Task N để Task N+1 đọc một đối tượng có kiểu, không phải văn bản tự do.
+- **Crew làm sản xuất.** Crew tự do được đưa vào sản xuất mà không có một lớp bọc Flow. Độ biến thiên đầu ra cao; phát lại là bất khả thi; người trực không thể diff một lần chạy xấu với một lần tốt. Bọc bằng một Flow.
 
 ```figure
 ae-crew-vs-flow
@@ -139,85 +139,85 @@ ae-crew-vs-flow
 
 ## Build It
 
-`code/main.py` implements stdlib versions of both shapes plus a three-agent crew.
+`code/main.py` triển khai các phiên bản thư viện chuẩn của cả hai hình dạng cộng một crew ba agent.
 
-Shape:
+Hình dạng:
 
-- `Agent`, `Task` dataclasses matching CrewAI's surface.
-- `SequentialCrew.kickoff(inputs)` runs tasks in declaration order, threading outputs as `context`.
-- `HierarchicalCrew.kickoff(topic)` adds a manager Agent picking the next specialist each round, stops at "done".
-- `Flow` with `@start` and `@listen(topic)` decorators, a tiny event loop, and a trace.
-- `tool(name)` decorator mirroring CrewAI's `@tool` shape.
-- `Memory` with `short_term`, `long_term`, `entity` stores; mocked similarity uses numpy.
-- Mock LLM responses are hardcoded strings keyed off role plus input prefix. No network. Deterministic.
+- Các dataclass `Agent`, `Task` khớp bề mặt CrewAI.
+- `SequentialCrew.kickoff(inputs)` chạy các task theo thứ tự khai báo, truyền các đầu ra dưới dạng `context`.
+- `HierarchicalCrew.kickoff(topic)` thêm một Agent quản lý chọn chuyên gia tiếp theo mỗi vòng, dừng ở "xong".
+- `Flow` với các decorator `@start` và `@listen(topic)`, một vòng lặp sự kiện nhỏ và một trace.
+- Decorator `tool(name)` phản chiếu hình dạng `@tool` của CrewAI.
+- `Memory` với các kho `short_term`, `long_term`, `entity`; độ tương tự mô phỏng sử dụng numpy.
+- Các phản hồi LLM mô phỏng là các chuỗi được mã hóa cứng đánh khóa theo vai trò cộng tiền tố đầu vào. Không mạng. Mang tính xác định.
 
-Concrete demo: researcher, writer, editor crew producing a brief on "agent engineering 2026". Researcher pulls (mocked) sources. Writer drafts. Editor tightens. Same crew runs through a Flow to show the deterministic shape.
+Demo cụ thể: crew nhà nghiên cứu, người viết, biên tập viên tạo một bản thông tin ngắn về "kỹ thuật agent 2026". Nhà nghiên cứu lấy các nguồn (mô phỏng). Người viết soạn nháp. Biên tập viên làm gọn. Cùng crew chạy qua một Flow để cho thấy hình dạng mang tính xác định.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-Trace covers: sequential crew threading outputs through `context`, hierarchical crew with manager picks (researcher, writer, editor, then "done"), flow running the same three steps with explicit topics (`researched`, `drafted`, `edited`), tool calls routed through `@tool`, and long-term memory surviving across two kickoffs.
+Trace bao phủ: crew tuần tự truyền các đầu ra qua `context`, crew phân cấp với các lựa chọn của bộ quản lý (nhà nghiên cứu, người viết, biên tập viên, rồi "xong"), flow chạy cùng ba bước với các topic tường minh (`researched`, `drafted`, `edited`), các lời gọi công cụ được định tuyến qua `@tool`, và bộ nhớ dài hạn tồn tại xuyên hai lần khởi chạy.
 
-The Crew trace is fluid; the manager could in principle re-order. The Flow trace is fixed. That choice is the lesson.
+Trace Crew linh hoạt; bộ quản lý về nguyên tắc có thể sắp xếp lại. Trace Flow cố định. Lựa chọn đó là bài học.
 
 ## Use It
 
-- **CrewAI Flow** for production. Even when the Flow is one step that calls `Crew.kickoff()`. The Flow gives the audit boundary.
-- **CrewAI Crew (Sequential)** for clear-ordering collaborative work, especially first drafts and review loops.
-- **CrewAI Crew (Hierarchical)** when routing depends on output and you have four or more specialists.
-- **LangGraph** (Lesson 13) for explicit state machines, durable resume, strict ordering.
-- **AutoGen v0.4** (Lesson 14) for actor-model concurrency and fault isolation.
-- **OpenAI Agents SDK** (Lesson 16) for OpenAI-first products with handoffs and guardrails.
-- **Claude Agent SDK** (Lesson 17) for Claude-first products with subagents and session store.
+- **CrewAI Flow** cho sản xuất. Ngay cả khi Flow là một bước gọi `Crew.kickoff()`. Flow cho ranh giới kiểm toán.
+- **CrewAI Crew (Sequential)** cho công việc hợp tác có thứ tự rõ ràng, đặc biệt là các bản nháp đầu tiên và các vòng lặp đánh giá.
+- **CrewAI Crew (Hierarchical)** khi định tuyến phụ thuộc đầu ra và bạn có bốn chuyên gia trở lên.
+- **LangGraph** (Bài 13) cho các máy trạng thái tường minh, tiếp tục bền vững, thứ tự nghiêm ngặt.
+- **AutoGen v0.4** (Bài 14) cho tính đồng thời theo mô hình actor và cô lập lỗi.
+- **OpenAI Agents SDK** (Bài 16) cho các sản phẩm ưu tiên OpenAI với các bàn giao và chốt bảo vệ.
+- **Claude Agent SDK** (Bài 17) cho các sản phẩm ưu tiên Claude với các agent phụ và kho phiên.
 
 ## Ship It
 
-`outputs/skill-crew-or-flow.md` picks Crew vs Flow for a task and scaffolds the minimal implementation. Hard rejects on Crew-without-backstory, Flow-without-explicit-topics, Hierarchical with under three specialists.
+`outputs/skill-crew-or-flow.md` chọn Crew so với Flow cho một tác vụ và tạo khung triển khai tối thiểu. Từ chối cứng Crew không có bối cảnh, Flow không có các topic tường minh, Hierarchical với dưới ba chuyên gia.
 
 ## Pitfalls
 
-- **Backstory as flavor.** It shapes outputs. Test three variants per agent; variance is real. Pick one, freeze it.
-- **Skipping `expected_output`.** Without a contract per task, downstream tasks pick up whatever the LLM produced. Crew runs; audit fails.
-- **Memory always-on.** Long-term writes every run. Vector DB grows. Retrieval gets noisy. Scope writes to tasks where the fact is persistent.
-- **Manager prompt drift.** Hierarchical's manager prompt is implicit. If routing gets weird, dump it in verbose mode and read.
-- **Tool side effects in Crews.** A Crew can call a tool more times than expected. POST, DELETE, payment belong in a Flow step, never a Crew tool.
+- **Bối cảnh như gia vị.** Nó định hình đầu ra. Kiểm thử ba biến thể cho mỗi agent; sự biến thiên là thực. Chọn một, cố định nó.
+- **Bỏ qua `expected_output`.** Không có hợp đồng cho từng task, các task hạ nguồn nhận bất cứ thứ gì LLM tạo ra. Crew chạy; kiểm toán thất bại.
+- **Bộ nhớ luôn bật.** Ghi dài hạn mỗi lần chạy. Cơ sở dữ liệu vector tăng. Truy xuất trở nên nhiễu. Giới hạn các lần ghi vào các tác vụ mà sự thật có tính lâu dài.
+- **Trôi dạt prompt quản lý.** Prompt quản lý của Hierarchical là ngầm định. Nếu định tuyến trở nên kỳ lạ, xuất nó trong chế độ verbose và đọc.
+- **Các tác dụng phụ công cụ trong Crews.** Một Crew có thể gọi một công cụ nhiều lần hơn mong đợi. POST, DELETE, thanh toán thuộc về một bước Flow, không bao giờ là một công cụ Crew.
 
 ## Exercises
 
-1. Convert the Sequential crew to a Flow. Count the touchpoints where variability drops. Note where readability dropped.
-2. Add entity memory to the crew: facts about a customer persist across kickoffs. Verify retrieval pulls the right entity.
-3. Implement a Hierarchical process where the manager refuses to route to the editor until the writer's output has at least three paragraphs. Trace the retry.
-4. Wire a `BaseTool` subclass for a (mocked) web search. Compare the trace shape vs the `@tool` decorator version.
-5. Add `output_pydantic=Brief` to the editor task, where `Brief` has `title`, `summary`, `sections`. Make the writer task output malformed JSON once; verify CrewAI's retry behavior in the trace.
-6. Read CrewAI's docs intro. Port the toy to the real `crewai` API. Which guarantees did the stdlib version skip?
-7. Wire AgentOps or Langfuse (Lesson 24) to a real run. Which traces did you miss in the stdlib version?
+1. Chuyển crew Sequential thành một Flow. Đếm các điểm tiếp xúc nơi độ biến thiên giảm. Ghi lại nơi tính dễ đọc giảm.
+2. Thêm bộ nhớ thực thể vào crew: các sự thật về một khách hàng lưu giữ xuyên các lần khởi chạy. Xác minh truy xuất lấy đúng thực thể.
+3. Triển khai một process Hierarchical trong đó bộ quản lý từ chối định tuyến đến biên tập viên cho đến khi đầu ra của người viết có ít nhất ba đoạn. Truy vết lần thử lại.
+4. Nối một lớp con `BaseTool` cho một tìm kiếm web (mô phỏng). So sánh hình dạng trace với phiên bản decorator `@tool`.
+5. Thêm `output_pydantic=Brief` vào task biên tập viên, trong đó `Brief` có `title`, `summary`, `sections`. Làm cho task người viết xuất JSON sai định dạng một lần; xác minh hành vi thử lại của CrewAI trong trace.
+6. Đọc phần giới thiệu tài liệu CrewAI. Chuyển bản mô phỏng sang API `crewai` thực. Phiên bản thư viện chuẩn đã bỏ qua những bảo đảm nào?
+7. Nối AgentOps hoặc Langfuse (Bài 24) vào một lần chạy thực. Bạn đã bỏ lỡ những trace nào trong phiên bản thư viện chuẩn?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |------|----------------|------------------------|
-| Agent | "Persona" | Role + goal + backstory + tools |
-| Task | "Unit of work" | Description + expected output + assignee + optional structured output |
-| Crew | "Agent team" | Container for Agents + Tasks + Process |
-| Process | "Execution strategy" | Sequential / Hierarchical / Consensus (planned) |
-| Flow | "Deterministic workflow" | Event-driven, code-owned, testable |
-| Backstory | "Persona prompt" | Tone and judgment shaper for the Agent |
-| `@tool` | "Function tool" | Decorator that turns a function into a tool the Agent can call |
-| `BaseTool` | "Class tool" | Class-based tool with args schema, retries, async support |
-| Entity memory | "Per-entity facts" | Memory scoped to a customer / account / issue |
-| Long-term memory | "Cross-run memory" | Vector-backed memory that survives between kickoffs |
-| Contextual memory | "Just-in-time retrieval" | Memory pulled at the moment the Agent needs it |
-| Manager LLM | "Router agent" | Extra LLM in Hierarchical process that picks the next task |
-| `expected_output` | "Task contract" | String that tells the Agent (and audit) what shape to return |
+| Agent (Tác nhân) | "Nhân cách" | Vai trò + mục tiêu + bối cảnh + công cụ |
+| Task (Tác vụ) | "Đơn vị công việc" | Mô tả + đầu ra được mong đợi + bên được giao + đầu ra có cấu trúc tùy chọn |
+| Crew (Đội) | "Nhóm agent" | Vật chứa cho các Agent + Task + Process |
+| Process (Quy trình) | "Chiến lược thực thi" | Sequential / Hierarchical / Consensus (được lên kế hoạch) |
+| Flow (Luồng) | "Workflow mang tính xác định" | Hướng sự kiện, do mã sở hữu, có thể kiểm thử |
+| Backstory (Bối cảnh) | "Prompt nhân cách" | Bộ định hình giọng điệu và phán đoán cho Agent |
+| `@tool` | "Công cụ hàm" | Decorator biến một hàm thành một công cụ mà Agent có thể gọi |
+| `BaseTool` | "Công cụ lớp" | Công cụ dựa trên lớp với schema đối số, các lần thử lại, hỗ trợ bất đồng bộ |
+| Entity memory (Bộ nhớ thực thể) | "Các sự thật cho từng thực thể" | Bộ nhớ giới hạn phạm vi vào một khách hàng / tài khoản / vấn đề |
+| Long-term memory (Bộ nhớ dài hạn) | "Bộ nhớ xuyên lần chạy" | Bộ nhớ dựa trên vector tồn tại giữa các lần khởi chạy |
+| Contextual memory (Bộ nhớ theo ngữ cảnh) | "Truy xuất đúng lúc" | Bộ nhớ được lấy vào lúc Agent cần nó |
+| Manager LLM (LLM quản lý) | "Agent định tuyến" | LLM bổ sung trong process Hierarchical chọn task tiếp theo |
+| `expected_output` | "Hợp đồng tác vụ" | Chuỗi cho Agent (và kiểm toán) biết cần trả về hình dạng nào |
 
 ## Further Reading
 
-- [CrewAI docs introduction](https://docs.crewai.com/en/introduction): concepts and the recommended production path
-- [CrewAI Flows guide](https://docs.crewai.com/en/concepts/flows): event-driven shape, `@start`, `@listen`
-- [CrewAI tools reference](https://docs.crewai.com/en/concepts/tools): `@tool`, `BaseTool`, built-in toolkits
-- [CrewAI memory](https://docs.crewai.com/en/concepts/memory): short-term, long-term, entity, contextual
-- [Anthropic, Building Effective Agents](https://www.anthropic.com/research/building-effective-agents): when multi-agent helps and when it does not
-- [LangGraph overview](https://docs.langchain.com/oss/python/langgraph/overview): the state-machine alternative
+- [CrewAI docs introduction](https://docs.crewai.com/en/introduction): các khái niệm và đường sản xuất được khuyến nghị
+- [CrewAI Flows guide](https://docs.crewai.com/en/concepts/flows): hình dạng hướng sự kiện, `@start`, `@listen`
+- [CrewAI tools reference](https://docs.crewai.com/en/concepts/tools): `@tool`, `BaseTool`, các bộ công cụ tích hợp sẵn
+- [CrewAI memory](https://docs.crewai.com/en/concepts/memory): ngắn hạn, dài hạn, thực thể, theo ngữ cảnh
+- [Anthropic, Building Effective Agents](https://www.anthropic.com/research/building-effective-agents): khi nào nhiều agent giúp ích và khi nào không
+- [LangGraph overview](https://docs.langchain.com/oss/python/langgraph/overview): lựa chọn máy trạng thái

@@ -7,39 +7,39 @@ lesson: 15
 tags: [crewai, crews, flows, multi-agent, role-based]
 ---
 
-Given a task description, pick Crew (autonomous) or Flow (deterministic), then scaffold.
+Với một mô tả tác vụ, chọn Crew (tự chủ) hoặc Flow (mang tính xác định), rồi tạo khung.
 
-Decision:
+Quyết định:
 
-1. Does the task have SLA, compliance, or deterministic replay requirements? -> Flow.
-2. Is the task exploratory (research, first draft, brainstorm)? -> Crew.
-3. Does the task have 4+ specialists with LLM-picked ordering? -> Hierarchical Crew.
-4. Does the task have <=3 specialists in a fixed order? -> Sequential Crew or Flow — prefer Flow.
+1. Tác vụ có các yêu cầu SLA, tuân thủ hoặc phát lại mang tính xác định không? -> Flow.
+2. Tác vụ có tính khám phá không (nghiên cứu, bản nháp đầu tiên, động não)? -> Crew.
+3. Tác vụ có 4+ chuyên gia với thứ tự do LLM chọn không? -> Hierarchical Crew.
+4. Tác vụ có <=3 chuyên gia theo một thứ tự cố định không? -> Sequential Crew hoặc Flow — ưu tiên Flow.
 
-For Crews, produce:
+Với Crews, tạo:
 
-1. Agent definitions: role, goal, backstory (tight, <=200 words), tools.
-2. Task definitions: description, expected_output, agent.
-3. Crew with the right Process (Sequential | Hierarchical).
-4. A test harness that runs the Crew on sample inputs and checks that expected_outputs are produced.
+1. Các định nghĩa Agent: vai trò, mục tiêu, bối cảnh (chặt chẽ, <=200 từ), công cụ.
+2. Các định nghĩa Task: description, expected_output, agent.
+3. Crew với Process đúng (Sequential | Hierarchical).
+4. Một bộ kiểm thử chạy Crew trên các đầu vào mẫu và kiểm tra rằng các expected_outputs được tạo ra.
 
-For Flows, produce:
+Với Flows, tạo:
 
-1. `@start` entry function.
-2. `@listen(topic)` steps forming a DAG.
-3. Explicit event topics; no magical broadcast.
-4. A replay harness: given a kickoff payload, rerun deterministically.
+1. Hàm điểm vào `@start`.
+2. Các bước `@listen(topic)` tạo thành một DAG.
+3. Các topic sự kiện tường minh; không quảng bá kỳ diệu.
+4. Một bộ phát lại: với một payload khởi chạy cho trước, chạy lại mang tính xác định.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Crews without backstories. Backstories are load-bearing.
-- Flows without explicit topic names. "Implicit chaining" defeats the audit purpose.
-- Hierarchical Crews with 2 specialists. The manager overhead is not earning cost.
+- Các Crew không có bối cảnh. Các bối cảnh là trụ cột.
+- Các Flow không có tên topic tường minh. "Nối chuỗi ngầm định" đánh bại mục đích kiểm toán.
+- Các Hierarchical Crew với 2 chuyên gia. Chi phí phụ bộ quản lý không xứng đáng.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the user asks for a Crew on a prod-only compliance task, refuse and migrate to Flow.
-- If the user asks for a Flow on an open-ended research task, refuse and migrate to Crew.
-- If the backstory exceeds 200 words, refuse and require a trim. Context budget is finite.
+- Nếu người dùng yêu cầu một Crew trên một tác vụ tuân thủ chỉ dành cho sản xuất, từ chối và chuyển sang Flow.
+- Nếu người dùng yêu cầu một Flow trên một tác vụ nghiên cứu mở, từ chối và chuyển sang Crew.
+- Nếu bối cảnh vượt quá 200 từ, từ chối và yêu cầu cắt gọn. Ngân sách ngữ cảnh là hữu hạn.
 
-Output: `agents.py`, `tasks.py`, `crew.py` or `flow.py`, plus `README.md` with the decision rationale. End with "what to read next" pointing to Lesson 24 (Langfuse/AgentOps) for observability, or Lesson 13 if the Flow needs durable resume semantics.
+Đầu ra: `agents.py`, `tasks.py`, `crew.py` hoặc `flow.py`, cộng `README.md` với lý do quyết định. Kết thúc bằng "đọc gì tiếp theo" chỉ đến Bài 24 (Langfuse/AgentOps) cho khả năng quan sát, hoặc Bài 13 nếu Flow cần ngữ nghĩa tiếp tục bền vững.
