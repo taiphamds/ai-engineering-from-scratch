@@ -1,6 +1,6 @@
 # Structured Outputs & Constrained Decoding
 
-> Ask an LLM for JSON. Get JSON most of the time. In production, "most" is the problem. Constrained decoding turns "most" into "always" by editing the logits before sampling.
+> Yêu cầu một LLM xuất JSON. Nhận JSON hầu hết số lần. Trong production, "hầu hết" là vấn đề. Giải mã có ràng buộc biến "hầu hết" thành "luôn luôn" bằng cách chỉnh logits trước khi lấy mẫu.
 
 **Type:** Build
 **Languages:** Python
@@ -9,38 +9,38 @@
 
 ## The Problem
 
-A classifier prompts an LLM: "Return one of {positive, negative, neutral}." The model returns "The sentiment is positive — this review is overwhelmingly favorable because the customer explicitly states that they ...". Your parser crashes. Your classifier's F1 is 0.0.
+Một bộ phân loại prompt một LLM: "Trả về một trong {positive, negative, neutral}." Mô hình trả "Cảm xúc là tích cực — đánh giá này hết sức thuận lợi vì khách hàng nêu rõ rằng họ ...". Bộ phân tích của bạn sập. F1 của bộ phân loại là 0.0.
 
-Free-form generation is not a contract. It is a suggestion. A production system needs a contract.
+Sinh tự do không phải một hợp đồng. Nó là một gợi ý. Một hệ thống production cần một hợp đồng.
 
-Three layers exist in 2026.
+Ba tầng tồn tại vào năm 2026.
 
-1. **Prompting.** Ask nicely. "Return only the JSON object." Works ~80% on frontier models, less on smaller ones.
-2. **Native structured output APIs.** OpenAI `response_format`, Anthropic tool use, Gemini JSON mode. Reliable on supported schemas. Vendor-locked.
-3. **Constrained decoding.** Modify the logits at every generation step so the model *cannot* emit invalid tokens. 100% valid by construction. Works on any local model.
+1. **Prompting.** Yêu cầu lịch sự. "Chỉ trả đối tượng JSON." Hoạt động ~80% trên các mô hình tiên phong, ít hơn trên các mô hình nhỏ hơn.
+2. **Các API đầu ra có cấu trúc gốc.** `response_format` của OpenAI, dùng công cụ của Anthropic, chế độ JSON của Gemini. Đáng tin cậy trên các schema được hỗ trợ. Bị khóa vào nhà cung cấp.
+3. **Giải mã có ràng buộc.** Sửa logits ở mỗi bước sinh để mô hình *không thể* đưa ra các token không hợp lệ. Hợp lệ 100% do cách xây dựng. Hoạt động trên bất kỳ mô hình cục bộ nào.
 
-This lesson builds intuition for all three and names when to reach for which.
+Bài học này xây dựng trực giác cho cả ba và nêu khi nào nên chọn loại nào.
 
 ## The Concept
 
 ![Constrained decoding masking invalid tokens at each step](../assets/constrained-decoding.svg)
 
-**How constrained decoding works.** At each generation step, the LLM produces a logit vector over the full vocabulary (~100k tokens). A *logit processor* sits between the model and the sampler. It computes which tokens are valid given the current position in the target grammar — JSON Schema, regex, context-free grammar — and sets the logits of all invalid tokens to negative infinity. The softmax over the remaining logits puts probability mass only on valid continuations.
+**Cách giải mã có ràng buộc hoạt động.** Ở mỗi bước sinh, LLM tạo một vector logit trên toàn bộ từ vựng (~100k token). Một *bộ xử lý logit* nằm giữa mô hình và bộ lấy mẫu. Nó tính những token nào hợp lệ khi biết vị trí hiện tại trong ngữ pháp đích — JSON Schema, regex, ngữ pháp phi ngữ cảnh — và đặt logits của mọi token không hợp lệ thành âm vô cực. Softmax trên các logits còn lại chỉ đặt khối lượng xác suất lên các phần tiếp nối hợp lệ.
 
-Implementations in 2026:
+Các triển khai năm 2026:
 
-- **Outlines.** Compiles JSON Schema or regex into a finite-state machine. Every token gets an O(1) valid-next-token lookup. FSM-based, so recursive schemas need flattening.
-- **XGrammar / llguidance.** Context-free grammar engines. Handle recursive JSON Schema. Near-zero decoding overhead. OpenAI credited llguidance in their 2025 structured output implementation.
-- **vLLM guided decoding.** Built-in `guided_json`, `guided_regex`, `guided_choice`, `guided_grammar` via Outlines, XGrammar, or lm-format-enforcer backends.
-- **Instructor.** Pydantic-based wrapper over any LLM. Retries on validation failure. Cross-provider, but does not modify logits — it relies on retries + structured-output-aware prompts.
+- **Outlines.** Biên dịch JSON Schema hoặc regex thành một máy trạng thái hữu hạn. Mỗi token có một tra cứu token tiếp theo hợp lệ O(1). Dựa trên FSM, nên các schema đệ quy cần làm phẳng.
+- **XGrammar / llguidance.** Các engine ngữ pháp phi ngữ cảnh. Xử lý JSON Schema đệ quy. Chi phí phụ giải mã gần bằng không. OpenAI ghi nhận llguidance trong triển khai đầu ra có cấu trúc năm 2025 của họ.
+- **Giải mã có hướng dẫn vLLM.** `guided_json`, `guided_regex`, `guided_choice`, `guided_grammar` tích hợp qua các backend Outlines, XGrammar hoặc lm-format-enforcer.
+- **Instructor.** Lớp bọc dựa trên Pydantic trên bất kỳ LLM nào. Thử lại khi xác thực thất bại. Xuyên nhà cung cấp, nhưng không sửa logits — nó dựa vào thử lại + các prompt nhận biết đầu ra có cấu trúc.
 
 ### The counterintuitive result
 
-Constrained decoding is often *faster* than unconstrained generation. Two reasons. First, it shrinks the next-token search space. Second, clever implementations skip token generation entirely for forced tokens (scaffolding like `{"name": "` — every byte is determined).
+Giải mã có ràng buộc thường *nhanh hơn* sinh không ràng buộc. Hai lý do. Thứ nhất, nó thu hẹp không gian tìm kiếm token tiếp theo. Thứ hai, các triển khai thông minh bỏ qua hoàn toàn việc sinh token cho các token bắt buộc (khung như `{"name": "` — mọi byte đều được xác định).
 
 ### The pitfall that costs you
 
-Field order matters. Put `answer` before `reasoning`, and the model commits to an answer before it thinks. JSON is valid. Answer is wrong. No validation catches it.
+Thứ tự trường quan trọng. Đặt `answer` trước `reasoning`, và mô hình chốt một câu trả lời trước khi suy nghĩ. JSON hợp lệ. Câu trả lời sai. Không xác thực nào phát hiện nó.
 
 ```json
 // BAD
@@ -50,7 +50,7 @@ Field order matters. Put `answer` before `reasoning`, and the model commits to a
 {"reasoning": "... therefore ...", "answer": "yes"}
 ```
 
-Schema field order is logic, not formatting.
+Thứ tự trường schema là logic, không phải định dạng.
 
 ```figure
 constrained-decoder
@@ -60,7 +60,7 @@ constrained-decoder
 
 ### Step 1: regex-constrained generation from scratch
 
-See `code/main.py` for a standalone FSM implementation. The core idea in 30 lines:
+Xem `code/main.py` để có một triển khai FSM độc lập. Ý tưởng cốt lõi trong 30 dòng:
 
 ```python
 def mask_logits(logits, valid_token_ids):
@@ -83,7 +83,7 @@ def generate_constrained(model, tokenizer, prompt, fsm):
     return tokenizer.decode(ids)
 ```
 
-The FSM tracks what parts of the grammar we have satisfied so far. `valid_tokens(state, tokenizer)` computes which vocabulary tokens can advance the FSM without leaving an accepting path.
+FSM theo dõi những phần nào của ngữ pháp chúng ta đã thỏa mãn đến nay. `valid_tokens(state, tokenizer)` tính những token từ vựng nào có thể đưa FSM tiến lên mà không rời một đường dẫn chấp nhận.
 
 ### Step 2: Outlines for JSON Schema
 
@@ -107,7 +107,7 @@ print(result)
 # Review(sentiment='positive', confidence=0.93, evidence_span='attentive ... hot')
 ```
 
-Zero validation errors. Ever. The FSM makes invalid output unreachable.
+Không lỗi xác thực. Không bao giờ. FSM khiến đầu ra không hợp lệ không thể đạt tới.
 
 ### Step 3: Instructor for provider-agnostic Pydantic
 
@@ -132,7 +132,7 @@ invoice = client.messages.create(
 )
 ```
 
-Different mechanism. Instructor does not touch logits. It formats the schema into the prompt, parses the output, and retries on validation failure (default 3 times). Works with any provider. Retries add latency and cost. Cross-provider portability is the selling point.
+Cơ chế khác. Instructor không chạm logits. Nó định dạng schema vào prompt, phân tích đầu ra và thử lại khi xác thực thất bại (mặc định 3 lần). Hoạt động với bất kỳ nhà cung cấp nào. Các lần thử lại thêm độ trễ và chi phí. Khả năng di chuyển xuyên nhà cung cấp là điểm bán hàng.
 
 ### Step 4: native vendor APIs
 
@@ -151,32 +151,32 @@ response = client.responses.create(
 print(response.output_parsed)
 ```
 
-Server-side constrained decoding. Reliability parity with Outlines for supported schemas. No local model management. Locks you to the vendor.
+Giải mã có ràng buộc phía máy chủ. Độ tin cậy ngang Outlines cho các schema được hỗ trợ. Không quản lý mô hình cục bộ. Khóa bạn vào nhà cung cấp.
 
 ## Pitfalls
 
-- **Recursive schemas.** Outlines flattens recursion to a fixed depth. Tree-structured outputs (nested comments, AST) need XGrammar or llguidance (CFG-based).
-- **Huge enums.** 10,000-option enum compiles slowly or times out. Switch to a retriever: predict top-k candidates first, constrain to those.
-- **Grammar too strict.** Force `date: "YYYY-MM-DD"` regex and the model cannot output `"unknown"` for missing dates. Model compensates by inventing a date. Allow `null` or a sentinel.
-- **Premature commitment.** See field-order pitfall above. Always put reasoning first.
-- **Vendor JSON mode without schema.** Pure JSON mode only guarantees valid JSON, not valid *for your use case*. Always provide a full schema.
+- **Các schema đệ quy.** Outlines làm phẳng đệ quy đến một độ sâu cố định. Các đầu ra cấu trúc cây (bình luận lồng nhau, AST) cần XGrammar hoặc llguidance (dựa trên CFG).
+- **Các enum khổng lồ.** Enum 10,000 lựa chọn biên dịch chậm hoặc hết thời gian. Chuyển sang một bộ truy xuất: dự đoán các ứng viên top-k trước, ràng buộc vào chúng.
+- **Ngữ pháp quá nghiêm.** Ép regex `date: "YYYY-MM-DD"` và mô hình không thể xuất `"unknown"` cho ngày bị thiếu. Mô hình bù bằng cách bịa một ngày. Cho phép `null` hoặc một giá trị đánh dấu.
+- **Chốt quá sớm.** Xem cạm bẫy thứ tự trường ở trên. Luôn đặt suy luận trước.
+- **Chế độ JSON nhà cung cấp không schema.** Chế độ JSON thuần chỉ bảo đảm JSON hợp lệ, không phải hợp lệ *cho trường hợp sử dụng của bạn*. Luôn cung cấp một schema đầy đủ.
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Situation | Pick |
+| Tình huống | Chọn |
 |-----------|------|
-| OpenAI/Anthropic/Google model, simple schema | Native vendor structured output |
-| Any provider, Pydantic workflow, can tolerate retries | Instructor |
-| Local model, need 100% validity, flat schema | Outlines (FSM) |
-| Local model, recursive schema | XGrammar or llguidance |
-| Self-hosted inference server | vLLM guided decoding |
-| Batch processing with retries acceptable | Instructor + cheapest model |
+| Mô hình OpenAI/Anthropic/Google, schema đơn giản | Đầu ra có cấu trúc gốc của nhà cung cấp |
+| Bất kỳ nhà cung cấp nào, quy trình Pydantic, có thể chấp nhận thử lại | Instructor |
+| Mô hình cục bộ, cần tính hợp lệ 100%, schema phẳng | Outlines (FSM) |
+| Mô hình cục bộ, schema đệ quy | XGrammar hoặc llguidance |
+| Máy chủ suy luận tự lưu trữ | Giải mã có hướng dẫn vLLM |
+| Xử lý batch chấp nhận thử lại | Instructor + mô hình rẻ nhất |
 
 ## Ship It
 
-Save as `outputs/skill-structured-output-picker.md`:
+Lưu thành `outputs/skill-structured-output-picker.md`:
 
 ```markdown
 ---
@@ -200,27 +200,27 @@ Refuse any design that puts `answer` or `decision` before reasoning fields. Refu
 
 ## Exercises
 
-1. **Easy.** Prompt a small open-weights model (e.g., Llama-3.2-3B) without constrained decoding for `Review(sentiment, confidence, evidence_span)`. Measure the fraction that parse as valid JSON on 100 reviews.
-2. **Medium.** Same corpus with Outlines JSON mode. Compare compliance rate, latency, and semantic accuracy.
-3. **Hard.** Implement a regex-constrained decoder from scratch for phone numbers (`\d{3}-\d{3}-\d{4}`). Verify 0 invalid outputs on 1000 samples.
+1. **Dễ.** Prompt một mô hình trọng số mở nhỏ (ví dụ, Llama-3.2-3B) không có giải mã có ràng buộc cho `Review(sentiment, confidence, evidence_span)`. Đo tỷ lệ phân tích được thành JSON hợp lệ trên 100 đánh giá.
+2. **Trung bình.** Cùng ngữ liệu với chế độ JSON Outlines. So sánh tỷ lệ tuân thủ, độ trễ và độ chính xác ngữ nghĩa.
+3. **Khó.** Triển khai một decoder bị ràng buộc bằng regex từ đầu cho số điện thoại (`\d{3}-\d{3}-\d{4}`). Xác minh 0 đầu ra không hợp lệ trên 1000 mẫu.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Constrained decoding | Force valid output | Mask invalid-token logits at every generation step. |
-| Logit processor | The thing that constrains | Function: `(logits, state) -> masked_logits`. |
-| FSM | Finite-state machine | Compiled grammar representation; O(1) valid-next-token lookup. |
-| CFG | Context-free grammar | Grammar that handles recursion; slower but more expressive than FSM. |
-| Schema field order | Does it matter? | Yes — first field commits; always put reasoning before answer. |
-| Guided decoding | vLLM's name for it | Same concept, integrated into the inference server. |
-| JSON mode | OpenAI's early version | Guarantees JSON syntax; does NOT guarantee schema match. |
+| Constrained decoding (Giải mã có ràng buộc) | Ép đầu ra hợp lệ | Che logits token không hợp lệ ở mỗi bước sinh. |
+| Logit processor (Bộ xử lý logit) | Thứ tạo ràng buộc | Hàm: `(logits, state) -> masked_logits`. |
+| FSM | Máy trạng thái hữu hạn | Biểu diễn ngữ pháp đã biên dịch; tra cứu token tiếp theo hợp lệ O(1). |
+| CFG | Ngữ pháp phi ngữ cảnh | Ngữ pháp xử lý đệ quy; chậm hơn nhưng có sức biểu đạt lớn hơn FSM. |
+| Schema field order (Thứ tự trường schema) | Nó có quan trọng không? | Có — trường đầu chốt; luôn đặt suy luận trước câu trả lời. |
+| Guided decoding (Giải mã có hướng dẫn) | Tên vLLM đặt cho nó | Cùng khái niệm, được tích hợp vào máy chủ suy luận. |
+| JSON mode (Chế độ JSON) | Phiên bản đầu của OpenAI | Bảo đảm cú pháp JSON; KHÔNG bảo đảm khớp schema. |
 
 ## Further Reading
 
-- [Willard, Louf (2023). Efficient Guided Generation for LLMs](https://arxiv.org/abs/2307.09702) — the Outlines paper.
-- [XGrammar paper (2024)](https://arxiv.org/abs/2411.15100) — fast CFG-based constrained decoding.
-- [vLLM — Structured Outputs](https://docs.vllm.ai/en/latest/features/structured_outputs.html) — inference server integration.
-- [OpenAI — Structured Outputs guide](https://platform.openai.com/docs/guides/structured-outputs) — API reference + gotchas.
-- [Instructor library](https://python.useinstructor.com/) — Pydantic + retries across providers.
-- [JSONSchemaBench (2025)](https://arxiv.org/abs/2501.10868) — benchmarking 6 constrained decoding frameworks.
+- [Willard, Louf (2023). Efficient Guided Generation for LLMs](https://arxiv.org/abs/2307.09702) — bài báo Outlines.
+- [XGrammar paper (2024)](https://arxiv.org/abs/2411.15100) — giải mã có ràng buộc nhanh dựa trên CFG.
+- [vLLM — Structured Outputs](https://docs.vllm.ai/en/latest/features/structured_outputs.html) — tích hợp máy chủ suy luận.
+- [OpenAI — Structured Outputs guide](https://platform.openai.com/docs/guides/structured-outputs) — tham chiếu API + các cạm bẫy.
+- [Instructor library](https://python.useinstructor.com/) — Pydantic + thử lại xuyên các nhà cung cấp.
+- [JSONSchemaBench (2025)](https://arxiv.org/abs/2501.10868) — benchmark 6 framework giải mã có ràng buộc.

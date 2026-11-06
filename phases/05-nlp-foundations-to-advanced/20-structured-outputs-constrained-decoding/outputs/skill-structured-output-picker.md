@@ -7,11 +7,11 @@ lesson: 20
 tags: [nlp, llm, structured-output]
 ---
 
-Given a use case (provider, latency budget, schema complexity, failure tolerance), output:
+Với một trường hợp sử dụng (nhà cung cấp, ngân sách độ trễ, độ phức tạp schema, khả năng chịu lỗi), xuất ra:
 
-1. Mechanism. Native vendor structured output, Instructor retries, Outlines FSM, or XGrammar CFG. One-sentence reason.
-2. Schema design. Field order (reasoning first, answer last), nullable fields for "unknown", enum vs regex, required fields.
-3. Failure strategy. Max retries, fallback model, graceful `null` handling, out-of-distribution refusal.
-4. Validation plan. Schema compliance rate (target 100%), semantic validity (LLM-judge), field-coverage rate, latency p50/p99.
+1. Cơ chế. Đầu ra có cấu trúc gốc của nhà cung cấp, thử lại Instructor, Outlines FSM hoặc XGrammar CFG. Lý do trong một câu.
+2. Thiết kế schema. Thứ tự trường (suy luận trước, câu trả lời cuối), các trường cho phép null cho "không biết", enum so với regex, các trường bắt buộc.
+3. Chiến lược thất bại. Số lần thử lại tối đa, mô hình dự phòng, xử lý `null` êm, từ chối ngoài phân phối.
+4. Kế hoạch xác thực. Tỷ lệ tuân thủ schema (mục tiêu 100%), tính hợp lệ ngữ nghĩa (LLM đánh giá), tỷ lệ bao phủ trường, độ trễ p50/p99.
 
-Refuse any design that puts `answer` or `decision` before reasoning fields. Refuse to use bare JSON mode without a schema. Flag recursive schemas behind an FSM-only library.
+Từ chối bất kỳ thiết kế nào đặt `answer` hoặc `decision` trước các trường suy luận. Từ chối dùng chế độ JSON trần không schema. Đánh dấu các schema đệ quy đằng sau một thư viện chỉ FSM.
