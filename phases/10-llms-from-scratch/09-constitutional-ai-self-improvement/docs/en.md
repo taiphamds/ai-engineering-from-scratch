@@ -1,6 +1,6 @@
 # Constitutional AI and Self-Improvement
 
-> RLHF needs humans in the loop. Constitutional AI replaces most of them with the model itself. Write a list of principles, have the model critique its own outputs against those principles, and train on the critiques. DeepSeek-R1 pushed this further in 2025: let the model generate millions of reasoning traces, grade them with a rule, and run GRPO on the outcome. Most of the "alignment work" in a 2026 frontier model is the model alignment itself. This lesson builds both loops.
+> RLHF cần con người trong vòng lặp. Constitutional AI thay phần lớn họ bằng chính mô hình. Viết một danh sách nguyên tắc, để mô hình phê bình đầu ra của nó theo các nguyên tắc đó, và huấn luyện trên các phê bình. DeepSeek-R1 đẩy xa hơn vào năm 2025: để mô hình sinh hàng triệu vết suy luận, chấm chúng bằng một quy tắc, và chạy GRPO trên kết quả. Phần lớn "công việc căn chỉnh" trong một mô hình hàng đầu năm 2026 là mô hình tự căn chỉnh. Bài học này xây cả hai vòng lặp.
 
 **Type:** Build
 **Languages:** Python (stdlib + numpy)
@@ -9,30 +9,30 @@
 
 ## Learning Objectives
 
-- Implement the Constitutional AI two-stage loop: self-critique plus self-revision, then preference training on the revised pairs
-- Derive the GRPO objective (DeepSeek-R1's group-relative policy optimization) and contrast it with PPO's value-function baseline
-- Generate verifiable reasoning traces with rule-based outcome rewards and score them without a separate reward model
-- Decide when self-improvement beats human preference data and when it collapses into mode seeking
+- Triển khai vòng lặp hai giai đoạn Constitutional AI: tự phê bình cộng tự sửa, rồi huấn luyện sở thích trên các cặp đã sửa
+- Suy ra mục tiêu GRPO (tối ưu hóa chính sách tương đối theo nhóm của DeepSeek-R1) và đối chiếu với baseline hàm giá trị của PPO
+- Sinh vết suy luận có thể xác minh với phần thưởng kết quả dựa trên quy tắc và chấm chúng không cần mô hình phần thưởng riêng
+- Quyết định khi nào tự cải thiện thắng dữ liệu sở thích con người và khi nào nó sụp đổ thành tìm kiếm mode
 
 ## The Problem
 
-You built RLHF in Lesson 07 and DPO in Lesson 08. Both depend on the same expensive input: human preference pairs. Anthropic's InstructGPT-era pipeline used roughly 33,000 comparisons. Llama 2 Chat used over 1.5 million. Claude 3 used more. This data is slow, expensive, and biased toward whatever the annotators happened to believe on the day they were rating.
+Bạn đã xây RLHF ở Bài 07 và DPO ở Bài 08. Cả hai phụ thuộc cùng đầu vào đắt đỏ: cặp sở thích con người. Pipeline thời InstructGPT của Anthropic dùng khoảng 33,000 so sánh. Llama 2 Chat dùng hơn 1.5 triệu. Claude 3 dùng nhiều hơn. Dữ liệu này chậm, đắt và thiên lệch về bất cứ điều gì người chú giải tình cờ tin vào ngày họ đánh giá.
 
-The 2022 Constitutional AI paper asked a simple question. What if the model generates the preference labels itself? Give it a list of written principles -- the "constitution" -- and have it critique its own responses. The critiques become the training signal.
+Bài báo Constitutional AI năm 2022 hỏi một câu đơn giản. Nếu mô hình tự sinh nhãn sở thích thì sao? Cho nó một danh sách nguyên tắc viết ra -- "hiến pháp" -- và để nó phê bình phản hồi của chính mình. Các phê bình thành tín hiệu huấn luyện.
 
-In 2024, DeepSeek took the idea further. They showed that for any task with a verifiable outcome (math with a known answer, code that either passes tests or fails, a game that either wins or loses), you can skip the critic entirely. Generate many candidate solutions. Grade each one with a deterministic rule. Run a policy-gradient algorithm on the rewards. DeepSeek-R1 was trained this way with almost no human preference data and matched o1-class reasoning performance.
+Năm 2024, DeepSeek đưa ý tưởng xa hơn. Họ cho thấy với bất kỳ tác vụ nào có kết quả có thể xác minh (toán có đáp án đã biết, mã hoặc vượt kiểm thử hoặc thất bại, trò chơi hoặc thắng hoặc thua), bạn có thể bỏ hoàn toàn critic. Sinh nhiều lời giải ứng viên. Chấm từng cái bằng một quy tắc tất định. Chạy thuật toán gradient chính sách trên phần thưởng. DeepSeek-R1 được huấn luyện theo cách này với gần như không dữ liệu sở thích con người và ngang hiệu năng suy luận hạng o1.
 
-These two loops -- Constitutional AI for subjective behavior and rule-based RL for verifiable behavior -- are the dominant alignment recipes of 2026. The human preference budget that used to go into RLHF now pays for a much smaller step: picking the constitution and picking the reward rules.
+Hai vòng lặp này -- Constitutional AI cho hành vi chủ quan và RL dựa trên quy tắc cho hành vi có thể xác minh -- là công thức căn chỉnh chi phối năm 2026. Ngân sách sở thích con người trước kia vào RLHF giờ trả cho bước nhỏ hơn nhiều: chọn hiến pháp và chọn quy tắc phần thưởng.
 
 ## The Concept
 
 ### The Constitutional AI Loop
 
-Bai et al. (2022) structured the pipeline in two stages.
+Bai và cộng sự (2022) cấu trúc pipeline thành hai giai đoạn.
 
-**Stage 1: Supervised Learning from AI Feedback (SL-CAI).** Start with an SFT model that is helpful but possibly harmful. Prompt it with potentially harmful requests. For each response, ask the *same model* to critique its response against a constitutional principle, then revise. Fine-tune on the revised responses. The dataset is (prompt, revised_response) pairs.
+**Giai đoạn 1: Học có giám sát từ phản hồi AI (SL-CAI).** Bắt đầu với mô hình SFT hữu ích nhưng có thể có hại. Prompt nó bằng các yêu cầu có thể có hại. Với mỗi phản hồi, yêu cầu *cùng mô hình* phê bình phản hồi theo một nguyên tắc hiến pháp, rồi sửa. Tinh chỉnh trên phản hồi đã sửa. Tập dữ liệu là cặp (prompt, revised_response).
 
-**Stage 2: Reinforcement Learning from AI Feedback (RLAIF).** Sample pairs of responses. Ask the model which one better follows the constitution. The pairwise preferences train a reward model. Then run PPO or DPO on the model using that reward. The key difference from RLHF: the preferences came from the model, not from humans.
+**Giai đoạn 2: Học tăng cường từ phản hồi AI (RLAIF).** Lấy mẫu cặp phản hồi. Hỏi mô hình cái nào theo hiến pháp tốt hơn. Sở thích theo cặp huấn luyện một mô hình phần thưởng. Rồi chạy PPO hoặc DPO trên mô hình bằng phần thưởng đó. Khác biệt chính với RLHF: sở thích đến từ mô hình, không từ con người.
 
 ```mermaid
 graph TD
@@ -60,81 +60,81 @@ graph TD
     style TRAIN fill:#1a1a2e,stroke:#51cf66,color:#fff
 ```
 
-The constitution is the lever. Anthropic's original had 16 principles (later expanded). A principle reads like "Please choose the response that is least likely to be objectionable to anyone from a wide variety of cultural backgrounds." You pick the principle for each step, sometimes at random, sometimes based on the prompt category.
+Hiến pháp là đòn bẩy. Bản gốc Anthropic có 16 nguyên tắc (sau mở rộng). Một nguyên tắc có dạng "Vui lòng chọn phản hồi ít có khả năng gây phản đối nhất với bất kỳ ai từ nhiều nền văn hóa khác nhau." Bạn chọn nguyên tắc cho mỗi bước, đôi khi ngẫu nhiên, đôi khi dựa trên loại prompt.
 
 ### What the Constitution Actually Does
 
-The constitution moves the alignment contract from *data* to *text*. Changing behavior under RLHF means re-labeling thousands of pairs. Changing behavior under CAI means editing a paragraph. This is the main practical win.
+Hiến pháp chuyển quy ước căn chỉnh từ *dữ liệu* sang *văn bản*. Thay đổi hành vi dưới RLHF nghĩa là gán nhãn lại hàng nghìn cặp. Thay đổi hành vi dưới CAI nghĩa là sửa một đoạn. Đây là thắng lợi thực tiễn chính.
 
-It has a cost. The model's self-judgments are only as good as its starting calibration. If the SFT model has blind spots -- for instance, it cannot recognize manipulative phrasing -- the critique step inherits those blind spots. CAI compresses the alignment loop but cannot amplify signal past the base model's ceiling. This is why every production CAI pipeline still uses some human preference data, typically 5-10% the volume of pure RLHF.
+Nó có cái giá. Tự phán đoán của mô hình chỉ tốt bằng hiệu chuẩn ban đầu. Nếu mô hình SFT có điểm mù -- ví dụ không nhận ra cách diễn đạt thao túng -- bước phê bình kế thừa điểm mù đó. CAI nén vòng lặp căn chỉnh nhưng không thể khuếch đại tín hiệu vượt trần mô hình cơ sở. Đây là lý do mọi pipeline CAI production vẫn dùng một ít dữ liệu sở thích con người, thường 5-10% lượng RLHF thuần.
 
 ### GRPO: Group-Relative Policy Optimization
 
-DeepSeek introduced GRPO in the DeepSeekMath paper (2024) and used it as the backbone of DeepSeek-R1 (2025). GRPO is a variant of PPO that removes the value function.
+DeepSeek giới thiệu GRPO trong bài báo DeepSeekMath (2024) và dùng nó làm backbone của DeepSeek-R1 (2025). GRPO là biến thể PPO loại hàm giá trị.
 
-Recall PPO's objective (from Lesson 07):
+Nhớ lại mục tiêu PPO (từ Bài 07):
 
 ```
 L_PPO = E[min(r(theta) * A, clip(r(theta), 1-eps, 1+eps) * A)]
 ```
 
-where `A` is the advantage, typically estimated with GAE using a learned value network `V(s)`. The value network is a second model the same size as the policy. It doubles memory and introduces its own training loop.
+trong đó `A` là lợi thế, thường ước lượng bằng GAE dùng mạng giá trị được học `V(s)`. Mạng giá trị là mô hình thứ hai cùng kích thước chính sách. Nó tăng gấp đôi bộ nhớ và đưa thêm vòng lặp huấn luyện riêng.
 
-GRPO throws out the value function. For each prompt, it samples a group of G responses (typically G=16 or 64). The reward for each response is computed, then normalized within the group:
+GRPO bỏ hàm giá trị. Với mỗi prompt, nó lấy mẫu một nhóm G phản hồi (thường G=16 hoặc 64). Phần thưởng mỗi phản hồi được tính, rồi chuẩn hóa trong nhóm:
 
 ```
 A_i = (r_i - mean(r_1, ..., r_G)) / std(r_1, ..., r_G)
 ```
 
-The advantage is the z-score of the response's reward relative to its siblings. No value function. The group acts as its own baseline.
+Lợi thế là z-score phần thưởng phản hồi so với các phản hồi cùng nhóm. Không hàm giá trị. Nhóm làm baseline của chính nó.
 
 ```
 L_GRPO = E[min(r(theta) * A_group, clip(r(theta), 1-eps, 1+eps) * A_group)] - beta * KL(pi || pi_ref)
 ```
 
-The KL penalty against the reference model is still there, same as PPO. The clip ratio is still there. What's gone is the separate critic.
+Phạt KL với mô hình tham chiếu vẫn có, như PPO. Tỷ số cắt vẫn có. Thứ biến mất là critic riêng.
 
 ### Why GRPO Matters for Reasoning
 
-For reasoning tasks the reward is often sparse and binary: the final answer is right or wrong. A value function trained on sparse binary rewards is a waste -- it cannot learn useful intermediate estimates because nearly every state has the same expected return until the final step. GRPO's group normalization gives you an immediate relative signal: among 16 attempts on the same math problem, which attempts were above average for this problem?
+Với tác vụ suy luận, phần thưởng thường thưa và nhị phân: đáp án cuối đúng hoặc sai. Hàm giá trị được huấn luyện trên phần thưởng nhị phân thưa là lãng phí -- nó không thể học ước lượng trung gian hữu ích vì gần như mọi trạng thái có cùng lợi tức kỳ vọng đến bước cuối. Chuẩn hóa nhóm của GRPO cho tín hiệu tương đối tức thì: trong 16 lần thử cùng bài toán, lần nào trên trung bình cho bài này?
 
-This is the exact shape of signal you get from rule-based rewards:
+Đây chính xác là dạng tín hiệu bạn nhận từ phần thưởng dựa trên quy tắc:
 
-- **Math**: sympy or a symbolic checker decides if the final answer matches.
-- **Code**: a test suite decides pass/fail.
-- **Formatting**: a regex decides whether the answer is in the required XML tag.
-- **Multi-step proofs**: a proof assistant (Lean, Coq) decides validity.
+- **Toán**: sympy hoặc một bộ kiểm tra ký hiệu quyết định đáp án cuối có khớp không.
+- **Mã**: một bộ kiểm thử quyết định vượt/thất bại.
+- **Định dạng**: một regex quyết định đáp án có trong thẻ XML yêu cầu không.
+- **Chứng minh nhiều bước**: một trợ lý chứng minh (Lean, Coq) quyết định tính hợp lệ.
 
-DeepSeek-R1-Zero was trained with only two rewards: accuracy on math benchmarks and format compliance (answer inside `<answer>` tags). No human preferences. No critic model. The "aha moment" the DeepSeek paper described -- the model spontaneously learning to self-check and backtrack -- emerged from GRPO on sparse rule rewards alone.
+DeepSeek-R1-Zero được huấn luyện chỉ với hai phần thưởng: độ chính xác trên benchmark toán và tuân thủ định dạng (đáp án trong thẻ `<answer>`). Không sở thích con người. Không mô hình critic. "Khoảnh khắc aha" bài báo DeepSeek mô tả -- mô hình tự phát học tự kiểm tra và quay lui -- xuất hiện chỉ từ GRPO trên phần thưởng quy tắc thưa.
 
 ### Process Reward Models vs Outcome Reward Models
 
-You still have a design choice: reward the final answer (Outcome Reward Model, ORM) or reward each intermediate step (Process Reward Model, PRM).
+Bạn vẫn có lựa chọn thiết kế: thưởng đáp án cuối (Mô hình phần thưởng kết quả, ORM) hoặc thưởng mỗi bước trung gian (Mô hình phần thưởng quá trình, PRM).
 
-| Axis | ORM | PRM |
+| Trục | ORM | PRM |
 |------|-----|-----|
-| Signal per trace | 1 number | N numbers (one per step) |
-| Supervision source | Final answer check | Step-level labels or self-judging |
-| Training cost | Cheap | Expensive |
-| Credit assignment | Sparse, noisy | Dense, targeted |
-| Reward hacking risk | Lower | Higher (model optimizes PRM artifacts) |
-| Used by | DeepSeek-R1, R1-Zero | OpenAI o1 (allegedly), Math-Shepherd |
+| Tín hiệu mỗi vết | 1 số | N số (một mỗi bước) |
+| Nguồn giám sát | Kiểm tra đáp án cuối | Nhãn cấp bước hoặc tự phán đoán |
+| Chi phí huấn luyện | Rẻ | Đắt |
+| Gán công trạng | Thưa, nhiều nhiễu | Dày đặc, có mục tiêu |
+| Rủi ro reward hacking | Thấp hơn | Cao hơn (mô hình tối ưu lỗi giả PRM) |
+| Được dùng bởi | DeepSeek-R1, R1-Zero | OpenAI o1 (được cho là), Math-Shepherd |
 
-The 2024-2025 consensus was that ORMs plus GRPO scale better than PRMs. PRMs are more sample-efficient per token but require expensive step-labeled data and tend to collapse into shortcut behaviors (writing steps that look good to the PRM but don't advance the proof). For most teams, ORM + GRPO is the first thing to try.
+Đồng thuận 2024-2025 là ORM cộng GRPO mở rộng tốt hơn PRM. PRM hiệu quả mẫu hơn mỗi token nhưng cần dữ liệu gán nhãn bước đắt đỏ và có xu hướng sụp vào hành vi đường tắt (viết bước trông tốt với PRM nhưng không đẩy chứng minh tiến lên). Với hầu hết nhóm, ORM + GRPO là thứ đầu tiên nên thử.
 
 ### Self-Improvement: The Feedback Multiplier
 
-Once you have the two-loop pattern (critique/revise and group-relative RL with rule rewards), you can chain them.
+Khi có mô thức hai vòng lặp (phê bình/sửa và RL tương đối theo nhóm với phần thưởng quy tắc), bạn có thể nối chúng.
 
-1. Start with an SFT model.
-2. Generate many candidate responses per prompt.
-3. Score them with a rule-based reward (for verifiable tasks) or a constitutional critic (for subjective tasks).
-4. Keep the top candidates as new SFT data or as preference pairs.
-5. Fine-tune. Go to step 2 with the improved model.
+1. Bắt đầu với một mô hình SFT.
+2. Sinh nhiều phản hồi ứng viên mỗi prompt.
+3. Chấm bằng phần thưởng dựa trên quy tắc (cho tác vụ có thể xác minh) hoặc critic hiến pháp (cho tác vụ chủ quan).
+4. Giữ ứng viên hàng đầu làm dữ liệu SFT mới hoặc cặp sở thích.
+5. Tinh chỉnh. Đến bước 2 với mô hình đã cải thiện.
 
-DeepSeek called this "rejection sampling fine-tuning" when applied after R1-Zero. Anthropic called an earlier version of this "constitutional AI distillation." The pattern is: each iteration amplifies the signal already in the model. It does not add new signal. If the model cannot solve problem class X at all, no amount of self-improvement will create that capability.
+DeepSeek gọi đây là "tinh chỉnh lấy mẫu loại bỏ" khi áp dụng sau R1-Zero. Anthropic gọi một phiên bản sớm hơn là "chưng cất constitutional AI." Mô thức là: mỗi lần lặp khuếch đại tín hiệu đã có trong mô hình. Nó không thêm tín hiệu mới. Nếu mô hình hoàn toàn không thể giải lớp bài toán X, không mức tự cải thiện nào sẽ tạo năng lực đó.
 
-The danger is mode collapse. Self-generated data is always a narrower distribution than the training corpus. After 3-5 rounds of self-distillation, models typically lose diversity on creative tasks, become overconfident, and exhibit characteristic "AI voice" (repeated phrasings, formulaic structure). Production pipelines mix self-generated data with a small fraction of fresh human data to keep the distribution honest.
+Nguy hiểm là sụp đổ mode. Dữ liệu tự sinh luôn có phân phối hẹp hơn corpus huấn luyện. Sau 3-5 vòng tự chưng cất, mô hình thường mất đa dạng trên tác vụ sáng tạo, trở nên quá tự tin và thể hiện "giọng AI" đặc trưng (cách diễn đạt lặp, cấu trúc khuôn mẫu). Pipeline production trộn dữ liệu tự sinh với tỷ lệ nhỏ dữ liệu con người mới để giữ phân phối trung thực.
 
 ```mermaid
 graph LR
@@ -154,12 +154,12 @@ graph LR
 
 ### When To Use What
 
-- **Pure CAI**: Subjective behavior (tone, safety, refusal style). You have a well-defined constitution. You don't have clean verifiable outcomes.
-- **GRPO + ORM**: Verifiable tasks (math, code, structured extraction). You can cheaply check correctness. Reward is sparse and binary.
-- **DPO on self-generated pairs**: Hybrid. Use the constitution to produce preference pairs, then train with DPO (Lesson 08) instead of PPO/GRPO.
-- **Full RLHF**: Still appropriate when you need multi-objective tradeoffs that neither a rule nor a short constitution can express.
+- **CAI thuần**: Hành vi chủ quan (giọng điệu, an toàn, phong cách từ chối). Bạn có hiến pháp định nghĩa rõ. Bạn không có kết quả có thể xác minh sạch.
+- **GRPO + ORM**: Tác vụ có thể xác minh (toán, mã, trích xuất có cấu trúc). Bạn có thể kiểm tra tính đúng đắn rẻ. Phần thưởng thưa và nhị phân.
+- **DPO trên cặp tự sinh**: Lai. Dùng hiến pháp tạo cặp sở thích, rồi huấn luyện bằng DPO (Bài 08) thay PPO/GRPO.
+- **RLHF đầy đủ**: Vẫn phù hợp khi cần đánh đổi đa mục tiêu mà quy tắc hay hiến pháp ngắn đều không biểu đạt được.
 
-Most 2026 frontier pipelines run all four. CAI for safety layers. GRPO for the reasoning post-training pass. DPO for the preference polish. Small RLHF passes for residual behaviors that resist the other methods.
+Hầu hết pipeline hàng đầu năm 2026 chạy cả bốn. CAI cho lớp an toàn. GRPO cho lượt hậu huấn luyện suy luận. DPO để trau chuốt sở thích. Các lượt RLHF nhỏ cho hành vi còn lại chống lại các phương pháp khác.
 
 ```figure
 self-critique-loop
@@ -167,11 +167,11 @@ self-critique-loop
 
 ## Build It
 
-The code implements three things in pure Python + numpy. A Constitutional AI self-critique loop. A rule-based reward checker for simple arithmetic. A minimal GRPO trainer that runs on a tiny language model from Lesson 04.
+Mã triển khai ba thứ bằng Python thuần + numpy. Một vòng lặp tự phê bình Constitutional AI. Một bộ kiểm tra phần thưởng dựa trên quy tắc cho số học đơn giản. Một trainer GRPO tối thiểu chạy trên mô hình ngôn ngữ nhỏ từ Bài 04.
 
 ### Step 1: The Constitution
 
-A list of principles. In production, each line would be richer and category-tagged. For the lesson, keep it short.
+Một danh sách nguyên tắc. Trong production, mỗi dòng sẽ phong phú hơn và được gắn loại. Cho bài học, giữ ngắn.
 
 ```python
 CONSTITUTION = [
@@ -184,7 +184,7 @@ CONSTITUTION = [
 
 ### Step 2: Self-Critique and Revise
 
-In a real system the model itself critiques. In the lesson we simulate a critic with a handwritten rubric so the pipeline runs without an LLM call.
+Trong hệ thống thực, chính mô hình phê bình. Trong bài học, chúng ta mô phỏng critic bằng rubric viết tay để pipeline chạy không cần gọi LLM.
 
 ```python
 def critique(response: str, principle: str) -> dict:
@@ -205,11 +205,11 @@ def revise(response: str, critique_result: dict) -> str:
     return response
 ```
 
-The revise function is a stand-in. With a real LLM it would be a second prompt: "Given the critique, rewrite the response."
+Hàm sửa là vật thay thế. Với LLM thực, nó sẽ là prompt thứ hai: "Với phê bình này, viết lại phản hồi."
 
 ### Step 3: Rule-Based Rewards
 
-For verifiable tasks, replace the critic entirely. This checker grades arithmetic answers.
+Với tác vụ có thể xác minh, thay hoàn toàn critic. Bộ kiểm tra này chấm đáp án số học.
 
 ```python
 import re
@@ -228,11 +228,11 @@ def reward_format(response: str) -> float:
     return 1.0 if re.search(r"<answer>.*</answer>", response) else 0.0
 ```
 
-Two deterministic rules. No training data. No human labels. The combined reward is `reward_math + 0.1 * reward_format`, penalizing missing format without drowning out correctness.
+Hai quy tắc tất định. Không dữ liệu huấn luyện. Không nhãn con người. Phần thưởng kết hợp là `reward_math + 0.1 * reward_format`, phạt thiếu định dạng mà không lấn át tính đúng đắn.
 
 ### Step 4: Group-Relative Advantage
 
-Given a list of rewards for a group of responses to the same prompt, compute the z-score:
+Với danh sách phần thưởng cho một nhóm phản hồi cùng prompt, tính z-score:
 
 ```python
 import numpy as np
@@ -244,11 +244,11 @@ def group_relative_advantage(rewards: list[float]) -> np.ndarray:
     return (r - r.mean()) / (r.std() + 1e-8)
 ```
 
-If every sample in the group has the same reward, the advantage is zero and no gradient signal flows. This is a feature. It tells you the prompt is either trivially solved or impossibly hard for the current policy, and the step should skip it.
+Nếu mọi mẫu trong nhóm có cùng phần thưởng, lợi thế bằng không và không tín hiệu gradient truyền. Đây là một tính năng. Nó cho biết prompt hoặc dễ đến hiển nhiên hoặc khó không thể với chính sách hiện tại, và bước đó nên bỏ qua.
 
 ### Step 5: GRPO Update
 
-One step, symbolic gradient. In production this would be a torch autograd pass. Here we show the update rule directly.
+Một bước, gradient ký hiệu. Trong production đây sẽ là một lượt torch autograd. Ở đây chúng ta cho thấy trực tiếp quy tắc cập nhật.
 
 ```python
 def grpo_step(policy_logprobs: np.ndarray, ref_logprobs: np.ndarray,
@@ -267,11 +267,11 @@ def grpo_step(policy_logprobs: np.ndarray, ref_logprobs: np.ndarray,
     }
 ```
 
-This is PPO's clipped surrogate with one change: the advantages came from group-relative z-scores, not from a value function. No V(s) to train. No GAE. The group is the baseline.
+Đây là mục tiêu thay thế được cắt của PPO với một thay đổi: lợi thế đến từ z-score tương đối theo nhóm, không từ hàm giá trị. Không V(s) để huấn luyện. Không GAE. Nhóm là baseline.
 
 ### Step 6: Self-Improvement Round
 
-Tie the pieces together. Sample a group, score each response with the rule, compute advantages, report the metrics you would feed into a real optimizer.
+Nối các phần lại. Lấy mẫu nhóm, chấm mỗi phản hồi bằng quy tắc, tính lợi thế, báo cáo các thước đo bạn sẽ đưa vào optimizer thực.
 
 ```python
 def self_improvement_round(prompts: list[str], policy_sampler, group_size: int = 8) -> dict:
@@ -295,46 +295,46 @@ def self_improvement_round(prompts: list[str], policy_sampler, group_size: int =
 
 ## Use It
 
-Running `code/main.py` runs both loops end to end. The CAI loop produces a small set of (initial, revised) pairs you could fine-tune on. The GRPO loop produces per-prompt reward statistics for arithmetic problems, showing how group-relative advantages let a weak sampler improve without a value function or human labels.
+Chạy `code/main.py` chạy cả hai vòng lặp đầu cuối. Vòng CAI tạo tập nhỏ các cặp (initial, revised) bạn có thể tinh chỉnh trên đó. Vòng GRPO tạo thống kê phần thưởng theo prompt cho bài toán số học, cho thấy lợi thế tương đối theo nhóm cho phép bộ lấy mẫu yếu cải thiện không cần hàm giá trị hay nhãn con người.
 
-The numbers are not the point. In a real run with a trained model the reward mean should climb across rounds, the reward std should stay positive (if it collapses to zero, the policy has mode-collapsed and you should stop), and the KL to the reference should grow slowly. Those three curves -- mean reward up, std stable, KL bounded -- are the production health check for a GRPO or CAI pipeline.
+Các con số không phải điểm chính. Trong lần chạy thực với mô hình đã huấn luyện, trung bình phần thưởng nên tăng qua các vòng, độ lệch chuẩn phần thưởng nên giữ dương (nếu sụp về không, chính sách đã sụp đổ mode và bạn nên dừng), và KL đến tham chiếu nên tăng chậm. Ba đường cong đó -- phần thưởng trung bình tăng, độ lệch chuẩn ổn định, KL bị chặn -- là kiểm tra sức khỏe production cho pipeline GRPO hoặc CAI.
 
 ## Ship It
 
-This lesson produces `outputs/skill-self-improvement-auditor.md`. Feed it a proposed self-improvement pipeline and it enforces the non-negotiable gates: a reward rule that is actually verifiable, a KL budget against the reference, a diversity floor, and a human-data quota. It refuses to approve a loop that claims to be "pure self-improvement" without any external grounding.
+Bài học này tạo ra `outputs/skill-self-improvement-auditor.md`. Đưa cho nó một pipeline tự cải thiện đề xuất và nó thực thi các cổng không thể thương lượng: quy tắc phần thưởng thực sự có thể xác minh, ngân sách KL với tham chiếu, mức đa dạng tối thiểu và hạn ngạch dữ liệu con người. Nó từ chối phê duyệt vòng lặp tự nhận "tự cải thiện thuần túy" mà không có bất kỳ căn cứ bên ngoài nào.
 
 ## Exercises
 
-1. Replace the handwritten critic in Step 2 with an LLM call. Use any local chat model. Measure how often the critique and revision actually improve the response versus leaving it unchanged.
+1. Thay critic viết tay ở Bước 2 bằng lệnh gọi LLM. Dùng bất kỳ mô hình chat cục bộ nào. Đo tần suất phê bình và sửa thực sự cải thiện phản hồi so với để nguyên.
 
-2. Add a third constitutional principle about factuality. Run the pipeline on prompts that require factual claims (capitals, dates) and measure how many revisions remove factual errors versus introduce new ones.
+2. Thêm nguyên tắc hiến pháp thứ ba về tính đúng sự thật. Chạy pipeline trên prompt cần tuyên bố sự thật (thủ đô, ngày tháng) và đo bao nhiêu sửa đổi loại lỗi sự thật so với đưa lỗi mới vào.
 
-3. Implement DPO on the preference pairs produced by CAI stage 2. Take 20 prompts, generate two responses each, have the critic pick a winner per pair, then run the DPO loss from Lesson 08. Compare to the GRPO path on the same data.
+3. Triển khai DPO trên cặp sở thích do giai đoạn CAI 2 tạo. Lấy 20 prompt, sinh hai phản hồi mỗi prompt, để critic chọn bên thắng mỗi cặp, rồi chạy mất mát DPO từ Bài 08. So với đường GRPO trên cùng dữ liệu.
 
-4. Add entropy regularization to the GRPO objective. The term `-alpha * entropy(policy)` with alpha=0.01 encourages diverse sampling. Measure whether it delays mode collapse across 5 rounds of self-improvement.
+4. Thêm regularization entropy vào mục tiêu GRPO. Hạng tử `-alpha * entropy(policy)` với alpha=0.01 khuyến khích lấy mẫu đa dạng. Đo liệu nó trì hoãn sụp đổ mode qua 5 vòng tự cải thiện không.
 
-5. Build a process reward scorer for a two-step arithmetic problem. Given "What is (3+4)*5?", the model must show the intermediate 3+4=7 step. Grade the intermediate step separately from the final answer and compare PRM-weighted GRPO to pure ORM-weighted GRPO over 10 rounds.
+5. Xây bộ chấm phần thưởng quá trình cho bài số học hai bước. Với "(3+4)*5 là bao nhiêu?", mô hình phải thể hiện bước trung gian 3+4=7. Chấm bước trung gian riêng với đáp án cuối và so GRPO trọng số PRM với GRPO trọng số ORM thuần qua 10 vòng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Constitutional AI | "The model aligns itself" | A two-stage pipeline (self-critique + RLAIF) that replaces most human preference labels with model self-judgments against a written constitution |
-| RLAIF | "RLHF without humans" | Reinforcement Learning from AI Feedback -- PPO or DPO on preferences generated by the model itself |
-| GRPO | "PPO without a value function" | Group-Relative Policy Optimization -- sample G responses per prompt, use z-scored group rewards as advantages |
-| ORM | "Reward the answer" | Outcome Reward Model -- a single scalar reward on the final answer only |
-| PRM | "Reward each step" | Process Reward Model -- reward on every intermediate reasoning step, often trained from step-labeled data |
-| Rule-based reward | "Deterministic grader" | A verifier (regex, sympy, test suite) that returns a binary or numeric score without a learned model |
-| Rejection sampling FT | "Keep the winners, retrain" | Sample many responses, filter to the highest-reward ones, add to SFT data, retrain |
-| Mode collapse | "The model stopped being diverse" | Post-training policy concentrates on a narrow region of the response space; measured as falling reward std across a group |
-| KL budget | "How far you can drift" | The total KL divergence from the reference model that the optimizer is allowed to accumulate before training stops |
-| R1 moment | "The model learned to backtrack" | DeepSeek's reported behavior where a policy trained only on outcome rewards spontaneously developed self-checking and backtracking in its chain-of-thought |
+| Constitutional AI | "Mô hình tự căn chỉnh" | Pipeline hai giai đoạn (tự phê bình + RLAIF) thay phần lớn nhãn sở thích con người bằng tự phán đoán của mô hình theo hiến pháp viết ra |
+| RLAIF | "RLHF không con người" | Học tăng cường từ phản hồi AI -- PPO hoặc DPO trên sở thích do chính mô hình sinh |
+| GRPO | "PPO không hàm giá trị" | Tối ưu hóa chính sách tương đối theo nhóm -- lấy mẫu G phản hồi mỗi prompt, dùng phần thưởng nhóm z-score làm lợi thế |
+| ORM | "Thưởng đáp án" | Mô hình phần thưởng kết quả -- một phần thưởng vô hướng duy nhất chỉ trên đáp án cuối |
+| PRM | "Thưởng mỗi bước" | Mô hình phần thưởng quá trình -- thưởng trên mọi bước suy luận trung gian, thường huấn luyện từ dữ liệu gán nhãn bước |
+| Rule-based reward (Phần thưởng dựa trên quy tắc) | "Bộ chấm tất định" | Một bộ xác minh (regex, sympy, bộ kiểm thử) trả điểm nhị phân hoặc số mà không có mô hình được học |
+| Rejection sampling FT (Tinh chỉnh lấy mẫu loại bỏ) | "Giữ bên thắng, huấn luyện lại" | Lấy mẫu nhiều phản hồi, lọc giữ phần thưởng cao nhất, thêm vào dữ liệu SFT, huấn luyện lại |
+| Mode collapse (Sụp đổ mode) | "Mô hình ngừng đa dạng" | Chính sách sau huấn luyện tập trung vào vùng hẹp của không gian phản hồi; đo bằng độ lệch chuẩn phần thưởng giảm trong nhóm |
+| KL budget (Ngân sách KL) | "Bạn có thể trôi xa đến đâu" | Tổng phân kỳ KL khỏi mô hình tham chiếu mà optimizer được phép tích lũy trước khi huấn luyện dừng |
+| R1 moment (Khoảnh khắc R1) | "Mô hình học quay lui" | Hành vi DeepSeek báo cáo mà chính sách chỉ huấn luyện trên phần thưởng kết quả tự phát triển tự kiểm tra và quay lui trong chuỗi suy nghĩ |
 
 ## Further Reading
 
-- [Bai et al., 2022 -- "Constitutional AI: Harmlessness from AI Feedback"](https://arxiv.org/abs/2212.08073) -- Anthropic's original CAI paper with the two-stage SL-CAI + RLAIF pipeline
-- [Shao et al., 2024 -- "DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models"](https://arxiv.org/abs/2402.03300) -- introduces GRPO
-- [DeepSeek-AI, 2025 -- "DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning"](https://arxiv.org/abs/2501.12948) -- R1 and R1-Zero, GRPO + rule rewards at scale
-- [Lightman et al., 2023 -- "Let's Verify Step by Step"](https://arxiv.org/abs/2305.20050) -- OpenAI's PRM800K and the case for process reward models
-- [Wang et al., 2024 -- "Math-Shepherd: Verify and Reinforce LLMs Step-by-step without Human Annotations"](https://arxiv.org/abs/2312.08935) -- auto-labeled PRM via Monte Carlo rollouts
-- [Huang et al., 2024 -- "Large Language Models Cannot Self-Correct Reasoning Yet"](https://arxiv.org/abs/2310.01798) -- the skeptical counterpoint on self-improvement without external grounding
+- [Bai et al., 2022 -- "Constitutional AI: Harmlessness from AI Feedback"](https://arxiv.org/abs/2212.08073) -- bài báo CAI gốc của Anthropic với pipeline hai giai đoạn SL-CAI + RLAIF
+- [Shao et al., 2024 -- "DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models"](https://arxiv.org/abs/2402.03300) -- giới thiệu GRPO
+- [DeepSeek-AI, 2025 -- "DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning"](https://arxiv.org/abs/2501.12948) -- R1 và R1-Zero, GRPO + phần thưởng quy tắc ở quy mô lớn
+- [Lightman et al., 2023 -- "Let's Verify Step by Step"](https://arxiv.org/abs/2305.20050) -- PRM800K của OpenAI và lập luận ủng hộ mô hình phần thưởng quá trình
+- [Wang et al., 2024 -- "Math-Shepherd: Verify and Reinforce LLMs Step-by-step without Human Annotations"](https://arxiv.org/abs/2312.08935) -- PRM tự gán nhãn qua rollout Monte Carlo
+- [Huang et al., 2024 -- "Large Language Models Cannot Self-Correct Reasoning Yet"](https://arxiv.org/abs/2310.01798) -- phản biện hoài nghi về tự cải thiện không có căn cứ bên ngoài
