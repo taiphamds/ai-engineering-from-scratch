@@ -1,6 +1,6 @@
 # Case Studies and the 2026 State of the Art
 
-> Three production-grade references to study end-to-end, each illustrating a different slice of multi-agent engineering. **Anthropic's Research system** (orchestrator-worker, 15x tokens, +90.2% over single-agent Opus 4, rainbow deployments) is the canonical supervisor case. **MetaGPT / ChatDev** (SOP-encoded role specialization for software engineering; ChatDev's "communicative dehallucination"; MacNet extension to >1000 agents via DAGs, arXiv:2406.07155) is the canonical role-decomposition case. **OpenClaw / Moltbook** (originally Clawdbot by Peter Steinberger, November 2025; renamed twice; 247k GitHub stars by March 2026; local ReAct-loop agents; Moltbook as an agent-only social network with ~2.3M agent accounts within days of launch, acquired by Meta 2026-03-10) illustrates what happens at population scale: emergent economic activity, prompt-injection risks, state-level regulation (China restricted OpenClaw on government computers, March 2026). **Framework landscape April 2026:** LangGraph and CrewAI lead production; AG2 is the community AutoGen continuation; Microsoft AutoGen is in maintenance mode (merged into Microsoft Agent Framework, RC Feb 2026); OpenAI Agents SDK is the production Swarm successor; Google ADK (April 2025) is the A2A-native entrant. Every major framework now ships MCP support; most ship A2A. This lesson reads each case end-to-end and distills the common patterns so you can pick the right reference for your next production system.
+> Ba tham chiếu mức sản xuất để nghiên cứu đầu cuối, mỗi tham chiếu minh họa một lát cắt khác nhau của kỹ thuật đa agent. **Hệ thống Research của Anthropic** (bộ điều phối-worker, 15x token, +90.2% so với Opus 4 đơn agent, các triển khai cầu vồng) là trường hợp bộ giám sát chuẩn. **MetaGPT / ChatDev** (chuyên biệt hóa vai trò mã hóa SOP cho kỹ thuật phần mềm; “khử ảo giác bằng giao tiếp” của ChatDev; mở rộng MacNet tới >1000 agent qua các DAG, arXiv:2406.07155) là trường hợp phân rã vai trò chuẩn. **OpenClaw / Moltbook** (ban đầu là Clawdbot của Peter Steinberger, tháng 11 năm 2025; được đổi tên hai lần; 247k sao GitHub đến tháng 3 năm 2026; các agent vòng lặp ReAct cục bộ; Moltbook như một mạng xã hội chỉ agent với ~2.3M tài khoản agent trong vài ngày ra mắt, được Meta mua lại 2026-03-10) minh họa điều gì xảy ra ở quy mô quần thể: hoạt động kinh tế nổi lên, các rủi ro chèn prompt, quy định cấp nhà nước (Trung Quốc hạn chế OpenClaw trên các máy tính chính phủ, tháng 3 năm 2026). **Bối cảnh framework tháng 4 năm 2026:** LangGraph và CrewAI dẫn đầu sản xuất; AG2 là sự tiếp nối AutoGen của cộng đồng; Microsoft AutoGen ở chế độ bảo trì (được hợp nhất vào Microsoft Agent Framework, RC tháng 2 năm 2026); OpenAI Agents SDK là phiên bản kế nhiệm Swarm cho sản xuất; Google ADK (tháng 4 năm 2025) là bên gia nhập thuần A2A. Mọi framework lớn giờ cung cấp hỗ trợ MCP; hầu hết cung cấp A2A. Bài này đọc từng trường hợp đầu cuối và chắt lọc các mẫu chung để bạn có thể chọn tham chiếu phù hợp cho hệ thống sản xuất tiếp theo.
 
 **Type:** Learn (capstone)
 **Languages:** —
@@ -9,115 +9,115 @@
 
 ## Problem
 
-Multi-agent engineering is a young discipline. The production references are few, and each covers a different part of the space. Reading them one at a time is useful; comparing them as a set is more useful. This lesson treats three canonical 2026 case studies as an end-to-end reading list, pins the common patterns, and maps the framework landscape so you can make framework choices from knowledge, not marketing.
+Kỹ thuật đa agent là một ngành trẻ. Các tham chiếu sản xuất ít, và mỗi tham chiếu bao phủ một phần khác nhau của không gian. Đọc từng cái một hữu ích; so sánh chúng như một tập hữu ích hơn. Bài này coi ba nghiên cứu tình huống chuẩn năm 2026 như một danh sách đọc đầu cuối, ghim các mẫu chung, và lập bản đồ bối cảnh framework để bạn có thể lựa chọn framework từ tri thức, không phải tiếp thị.
 
 ## Concept
 
 ### Anthropic Research system
 
-The production supervisor-worker case. Claude Opus 4 plans and synthesizes; Claude Sonnet 4 subagents research in parallel. Published engineering post: https://www.anthropic.com/engineering/multi-agent-research-system.
+Trường hợp bộ giám sát-worker sản xuất. Claude Opus 4 lập kế hoạch và tổng hợp; các agent con Claude Sonnet 4 nghiên cứu song song. Bài viết kỹ thuật được công bố: https://www.anthropic.com/engineering/multi-agent-research-system.
 
-Key measured results:
+Các kết quả đo then chốt:
 
-- **+90.2%** improvement over single-agent Opus 4 on internal research evals.
-- **80% of BrowseComp variance** explained by **token usage alone** — multi-agent wins largely because each subagent gets a fresh context window.
-- **15x tokens per query** vs single-agent.
-- **Rainbow deployment** because agents are long-running and stateful.
+- Cải thiện **+90.2%** so với Opus 4 đơn agent trên các đánh giá nghiên cứu nội bộ.
+- **80% phương sai BrowseComp** được giải thích bằng **chỉ mức sử dụng token** — đa agent thắng phần lớn vì mỗi agent con nhận một cửa sổ ngữ cảnh mới.
+- **15x token mỗi truy vấn** so với một agent đơn lẻ.
+- **Triển khai cầu vồng** vì các agent chạy dài và có trạng thái.
 
-Design lessons codified:
+Các bài học thiết kế được hệ thống hóa:
 
-1. **Scale effort to query complexity.** Simple → 1 agent with 3-10 tool calls. Medium → 3 agents. Complex research → 10+ subagents.
-2. **Broad first, then narrow.** Subagents do wide searches; lead synthesizes; follow-up subagents do targeted deeps.
-3. **Rainbow deploys.** Keep old runtime versions alive until their in-flight agents finish.
-4. **Verification is not optional.** The system was observed to hallucinate without explicit verifier roles.
+1. **Điều chỉnh nỗ lực theo độ phức tạp truy vấn.** Đơn giản → 1 agent với 3-10 lệnh gọi công cụ. Trung bình → 3 agent. Nghiên cứu phức tạp → 10+ agent con.
+2. **Rộng trước, rồi hẹp.** Các agent con tìm kiếm rộng; agent trưởng tổng hợp; các agent con tiếp nối đào sâu có mục tiêu.
+3. **Các triển khai cầu vồng.** Giữ các phiên bản môi trường chạy cũ sống cho đến khi các agent đang diễn ra của chúng kết thúc.
+4. **Xác minh không tùy chọn.** Hệ thống được quan sát thấy ảo giác khi không có các vai trò xác minh tường minh.
 
-This is the reference case for supervisor-worker topology (Phase 16 · 05) at production scale.
+Đây là trường hợp tham chiếu cho cấu trúc liên kết bộ giám sát-worker (Giai đoạn 16 · 05) ở quy mô sản xuất.
 
 ### MetaGPT / ChatDev
 
-The production SOP-role-decomposition case. Cover arXiv:2308.00352 (MetaGPT) and arXiv:2307.07924 (ChatDev).
+Trường hợp phân rã vai trò SOP sản xuất. Bao phủ arXiv:2308.00352 (MetaGPT) và arXiv:2307.07924 (ChatDev).
 
-MetaGPT encodes software-engineering SOPs as role prompts: Product Manager, Architect, Project Manager, Engineer, QA Engineer. The paper's framing: `Code = SOP(Team)`. Each role has a narrow, specialized prompt; inter-role handoffs carry structured artifacts (PRD docs, architecture docs, code).
+MetaGPT mã hóa các SOP kỹ thuật phần mềm thành các prompt vai trò: Quản lý sản phẩm, Kiến trúc sư, Quản lý dự án, Kỹ sư, Kỹ sư QA. Cách định hình của bài báo: `Code = SOP(Team)`. Mỗi vai trò có một prompt hẹp, chuyên biệt; các bàn giao giữa vai trò mang các hiện vật có cấu trúc (tài liệu PRD, tài liệu kiến trúc, mã).
 
-ChatDev's contribution: **communicative dehallucination**. Agents request specifics before answering — a designer agent asks the programmer what language is intended before sketching UI, rather than guessing. The paper reports this reduces hallucination in multi-agent pipelines measurably.
+Đóng góp của ChatDev: **khử ảo giác bằng giao tiếp**. Các agent yêu cầu chi tiết cụ thể trước khi trả lời — một agent thiết kế hỏi lập trình viên ngôn ngữ nào được dự định trước khi phác thảo UI, thay vì đoán. Bài báo báo cáo điều này giảm ảo giác trong các pipeline đa agent một cách đo được.
 
-MacNet (arXiv:2406.07155) extends ChatDev to **>1000 agents via DAGs**. Each DAG node is a role specialization; edges encode handoff contracts. The scale is possible because routing is explicit and offline-computable.
+MacNet (arXiv:2406.07155) mở rộng ChatDev tới **>1000 agent qua các DAG**. Mỗi node DAG là một chuyên biệt hóa vai trò; các cạnh mã hóa các hợp đồng bàn giao. Quy mô khả thi vì định tuyến tường minh và có thể tính ngoại tuyến.
 
-Design lessons:
+Các bài học thiết kế:
 
-1. **Structure matters more than size.** A tight 5-role SOP team beats a 50-agent unstructured group.
-2. **Handoff contracts in writing.** Artifacts passed between roles follow a schema.
-3. **Communicative dehallucination** is a cheap, load-bearing pattern.
-4. **DAGs scale further than chat.** When the flow is knowable, encode it.
+1. **Cấu trúc quan trọng hơn kích thước.** Một nhóm SOP 5 vai trò chặt chẽ vượt một nhóm 50 agent không cấu trúc.
+2. **Các hợp đồng bàn giao bằng văn bản.** Các hiện vật được truyền giữa các vai trò theo một lược đồ.
+3. **Khử ảo giác bằng giao tiếp** là một mẫu rẻ, chịu lực.
+4. **Các DAG mở rộng xa hơn trò chuyện.** Khi luồng có thể biết, mã hóa nó.
 
-This is the reference case for role specialization (Phase 16 · 08) and structured topology (Phase 16 · 15).
+Đây là trường hợp tham chiếu cho chuyên biệt hóa vai trò (Giai đoạn 16 · 08) và cấu trúc liên kết có cấu trúc (Giai đoạn 16 · 15).
 
 ### OpenClaw / Moltbook ecosystem
 
-The production population-scale case. Timeline:
+Trường hợp quy mô quần thể sản xuất. Dòng thời gian:
 
-- **Nov 2025:** Clawdbot (Peter Steinberger's local ReAct-loop coding agent) ships.
-- **Dec 2025 – Mar 2026:** renamed twice (Clawdbot → OpenClaw → continued under OpenClaw).
-- **Feb 2026:** Moltbook launches as an agent-only social network on the same primitives; ~2.3M agent accounts within days.
-- **Mar 2026 (2026-03-10):** Meta acquires Moltbook.
-- **Mar 2026:** China restricts OpenClaw on government computers.
-- **Mar 2026:** OpenClaw crosses 247k GitHub stars.
+- **Tháng 11 năm 2025:** Clawdbot (agent lập trình vòng lặp ReAct cục bộ của Peter Steinberger) được phát hành.
+- **Tháng 12 năm 2025 – tháng 3 năm 2026:** được đổi tên hai lần (Clawdbot → OpenClaw → tiếp tục dưới OpenClaw).
+- **Tháng 2 năm 2026:** Moltbook ra mắt như một mạng xã hội chỉ agent trên cùng các nguyên thủy; ~2.3M tài khoản agent trong vài ngày.
+- **Tháng 3 năm 2026 (2026-03-10):** Meta mua lại Moltbook.
+- **Tháng 3 năm 2026:** Trung Quốc hạn chế OpenClaw trên các máy tính chính phủ.
+- **Tháng 3 năm 2026:** OpenClaw vượt 247k sao GitHub.
 
-This is what multi-agent looks like when you put millions of agents on a shared substrate:
+Đây là hình dạng đa agent khi bạn đặt hàng triệu agent trên một nền tảng dùng chung:
 
-- **Emergent economic activity.** Agents buy, sell, and service each other using token-payments.
-- **Prompt-injection risks at population scale.** One malicious prompt in a viral agent profile propagates to thousands of agent-to-agent interactions in hours.
-- **State-level regulatory response.** Within weeks of launch, regulation reaches the ecosystem.
+- **Hoạt động kinh tế nổi lên.** Các agent mua, bán, và phục vụ nhau bằng các thanh toán token.
+- **Các rủi ro chèn prompt ở quy mô quần thể.** Một prompt độc hại trong một hồ sơ agent lan truyền lan tới hàng nghìn tương tác giữa các agent trong vài giờ.
+- **Phản ứng quy định cấp nhà nước.** Trong vài tuần ra mắt, quy định tới hệ sinh thái.
 
-The design lessons from this case are partly technical, partly governance:
+Các bài học thiết kế từ trường hợp này một phần kỹ thuật, một phần quản trị:
 
-1. **Multi-agent at population scale is a new regime.** Individual-system best practices (verification, role clarity) still apply but are not sufficient.
-2. **Prompt injection is the new XSS.** Treat agent profiles and cross-agent messages as untrusted input by default.
-3. **Regulation is faster than design cycles.** Plan for it.
-4. **Open-source + viral scale compounds.** 247k stars in ~4 months is unusual; design for deploy-burst-load.
+1. **Đa agent ở quy mô quần thể là một chế độ mới.** Các thực hành tốt nhất của hệ thống riêng lẻ (xác minh, rõ vai trò) vẫn áp dụng nhưng không đủ.
+2. **Chèn prompt là XSS mới.** Coi các hồ sơ agent và các thông điệp xuyên agent là đầu vào không đáng tin cậy theo mặc định.
+3. **Quy định nhanh hơn các chu kỳ thiết kế.** Lập kế hoạch cho nó.
+4. **Mã nguồn mở + quy mô lan truyền cộng dồn.** 247k sao trong ~4 tháng là bất thường; thiết kế cho tải bùng phát triển khai.
 
-See [OpenClaw Wikipedia](https://en.wikipedia.org/wiki/OpenClaw) and CNBC / Palo Alto Networks reporting for ecosystem detail. For the technical underpinnings, the Clawdbot / OpenClaw repos expose the local ReAct loop; Moltbook's public posts reveal the social-graph architecture on top.
+Xem [OpenClaw Wikipedia](https://en.wikipedia.org/wiki/OpenClaw) và đưa tin CNBC / Palo Alto Networks để biết chi tiết hệ sinh thái. Với các nền tảng kỹ thuật, các repo Clawdbot / OpenClaw bộc lộ vòng lặp ReAct cục bộ; các bài đăng công khai của Moltbook tiết lộ kiến trúc đồ thị xã hội bên trên.
 
 ### Framework landscape April 2026
 
-| Framework | Status | Best for | Notes |
+| Framework | Trạng thái | Tốt nhất cho | Ghi chú |
 |---|---|---|---|
-| **LangGraph** (LangChain) | Production leader | structured graph + checkpointing + human-in-the-loop | recommended default for production |
-| **CrewAI** | Production leader | role-based crews with Sequential/Hierarchical processes | strong for role decomposition |
-| **AG2** | Community maintained | GroupChat + speaker selection | AutoGen v0.2 continuation |
-| **Microsoft AutoGen** | Maintenance mode (Feb 2026) | — | merged into Microsoft Agent Framework RC |
-| **Microsoft Agent Framework** | RC (Feb 2026) | orchestration patterns + enterprise integration | new entrant; watch |
-| **OpenAI Agents SDK** | Production | Swarm successor | tool-return handoff pattern |
-| **Google ADK** | Production (April 2025) | A2A-native | Google Cloud integration |
-| **Anthropic Claude Agent SDK** | Production | single-agent + Research extension | see the Research system post |
+| **LangGraph** (LangChain) | Dẫn đầu sản xuất | đồ thị có cấu trúc + tạo checkpoint + con người trong vòng lặp | mặc định được khuyến nghị cho sản xuất |
+| **CrewAI** | Dẫn đầu sản xuất | các nhóm dựa trên vai trò với các quy trình Sequential/Hierarchical | mạnh cho phân rã vai trò |
+| **AG2** | Cộng đồng bảo trì | GroupChat + lựa chọn người nói | sự tiếp nối AutoGen v0.2 |
+| **Microsoft AutoGen** | Chế độ bảo trì (tháng 2 năm 2026) | — | được hợp nhất vào Microsoft Agent Framework RC |
+| **Microsoft Agent Framework** | RC (tháng 2 năm 2026) | các mẫu điều phối + tích hợp doanh nghiệp | bên gia nhập mới; theo dõi |
+| **OpenAI Agents SDK** | Sản xuất | phiên bản kế nhiệm Swarm | mẫu bàn giao trả về công cụ |
+| **Google ADK** | Sản xuất (tháng 4 năm 2025) | thuần A2A | tích hợp Google Cloud |
+| **Anthropic Claude Agent SDK** | Sản xuất | một agent đơn lẻ + mở rộng Research | xem bài viết hệ thống Research |
 
-Every major framework now ships **MCP** support; most ship **A2A**. Protocol compatibility is no longer a differentiator.
+Mọi framework lớn giờ cung cấp hỗ trợ **MCP**; hầu hết cung cấp **A2A**. Tương thích giao thức không còn là một điểm khác biệt.
 
 ### The common patterns across all three cases
 
-1. **Orchestrator + workers** (Anthropic explicit supervisor, MetaGPT PM-as-supervisor, OpenClaw individual agents + network effects).
-2. **Structured handoff contracts** (Anthropic subagent task descriptions, MetaGPT PRD/architecture docs, OpenClaw A2A artifacts).
-3. **Verification as first-class role** (Anthropic's verifier, MetaGPT's QA Engineer, OpenClaw's in-network validators).
-4. **Scaling is topology + substrate, not just more agents** (rainbow deploys, MacNet DAGs, population-scale substrates).
-5. **Cost is material and disclosed** (15x tokens, per-role budget in MetaGPT, per-interaction pricing in Moltbook).
-6. **Security posture is explicit** (Anthropic's sandboxing, MetaGPT's role restrictions, OpenClaw's prompt-injection as known attack surface).
+1. **Bộ điều phối + các worker** (bộ giám sát tường minh Anthropic, PM như bộ giám sát của MetaGPT, các agent riêng lẻ OpenClaw + các hiệu ứng mạng).
+2. **Các hợp đồng bàn giao có cấu trúc** (các mô tả tác vụ agent con Anthropic, các tài liệu PRD/kiến trúc MetaGPT, các hiện vật A2A OpenClaw).
+3. **Xác minh như vai trò hạng nhất** (bộ xác minh Anthropic, Kỹ sư QA MetaGPT, các bộ xác thực trong mạng OpenClaw).
+4. **Mở rộng quy mô là cấu trúc liên kết + nền tảng, không chỉ nhiều agent hơn** (các triển khai cầu vồng, các DAG MacNet, các nền tảng quy mô quần thể).
+5. **Chi phí đáng kể và được tiết lộ** (15x token, ngân sách theo từng vai trò trong MetaGPT, định giá theo từng tương tác trong Moltbook).
+6. **Lập trường bảo mật tường minh** (sandbox của Anthropic, các hạn chế vai trò của MetaGPT, chèn prompt của OpenClaw như một bề mặt tấn công đã biết).
 
 ### Choosing a reference for your next project
 
-- **Production research / knowledge task → Anthropic Research.** Fresh-context subagents win.
-- **Engineering / tool-chain workflow → MetaGPT / ChatDev.** Roles + SOPs + handoff contracts.
-- **Network-effect social product → OpenClaw / Moltbook.** Substrate + emergent economy.
-- **Classic enterprise automation → CrewAI or LangGraph** (production leader, stable runtime).
+- **Tác vụ nghiên cứu / tri thức sản xuất → Anthropic Research.** Các agent con ngữ cảnh mới thắng.
+- **Quy trình kỹ thuật / chuỗi công cụ → MetaGPT / ChatDev.** Các vai trò + SOP + hợp đồng bàn giao.
+- **Sản phẩm xã hội hiệu ứng mạng → OpenClaw / Moltbook.** Nền tảng + nền kinh tế nổi lên.
+- **Tự động hóa doanh nghiệp cổ điển → CrewAI hoặc LangGraph** (dẫn đầu sản xuất, môi trường chạy ổn định).
 
 ### The 2026 state-of-the-art summary
 
-Where the field is in April 2026:
+Lĩnh vực ở đâu vào tháng 4 năm 2026:
 
-- **Frameworks are converging.** MCP + A2A support is table stakes. Handoff semantics are the remaining design choice.
-- **Evaluation is hardening.** SWE-bench Pro, MARBLE, STRATUS mitigation benchmarks. Pro is the current contamination-resistant reality check.
-- **Production failure rates are measurable** (Cemri 2025 MAST; 41-86.7% on real MAS). The field is out of the "looks great in demo" era.
-- **Cost is the central engineering constraint.** Token cost per task, wall-clock per interaction, rainbow-deploy overhead. Multi-agent wins on accuracy but loses on cost — and that trade is the business decision.
-- **Regulation is a near-term input, not a background concern.** Jurisdictions are moving faster than individual deploy cycles.
+- **Các framework đang hội tụ.** Hỗ trợ MCP + A2A là yêu cầu tối thiểu. Ngữ nghĩa bàn giao là lựa chọn thiết kế còn lại.
+- **Đánh giá đang chặt chẽ hơn.** SWE-bench Pro, MARBLE, các benchmark giảm thiểu STRATUS. Pro là kiểm tra thực tế chống nhiễm bẩn hiện tại.
+- **Các tỷ lệ thất bại sản xuất đo được** (Cemri 2025 MAST; 41-86.7% trên MAS thực). Lĩnh vực đã ra khỏi thời kỳ “trông tuyệt trong demo”.
+- **Chi phí là ràng buộc kỹ thuật trung tâm.** Chi phí token mỗi tác vụ, thời gian thực mỗi tương tác, chi phí phụ triển khai cầu vồng. Đa agent thắng về độ chính xác nhưng thua về chi phí — và đánh đổi đó là quyết định kinh doanh.
+- **Quy định là một đầu vào gần hạn, không phải một mối quan ngại nền.** Các khu vực tài phán đang di chuyển nhanh hơn các chu kỳ triển khai riêng lẻ.
 
 ```figure
 a5-orchestrator-scale
@@ -125,48 +125,48 @@ a5-orchestrator-scale
 
 ## Use It
 
-`outputs/skill-case-study-mapper.md` is a skill that reads a proposed multi-agent system design and maps it to the closest case study, surfacing the design decisions that case study already tested.
+`outputs/skill-case-study-mapper.md` là một skill đọc một thiết kế hệ thống đa agent được đề xuất và ánh xạ nó tới nghiên cứu tình huống gần nhất, trình bày các quyết định thiết kế mà nghiên cứu tình huống đó đã kiểm thử.
 
 ## Ship It
 
-Starter rules for production multi-agent in 2026:
+Các quy tắc khởi đầu cho đa agent sản xuất năm 2026:
 
-- **Start from a case study, not from scratch.** Pick the closest of Anthropic Research / MetaGPT / OpenClaw and adapt.
-- **Adopt MCP + A2A.** Portability across frameworks is valuable; protocol support is free.
-- **Measure against SWE-bench Pro or your internal Pro-equivalent.** Verified is contaminated.
-- **Pay the verification tax.** An independent verifier costs ~20-30% of your token budget and buys measurable correctness.
-- **Rainbow deploy long-running agents.** Expect multi-hour agent runs to be routine.
-- **Read WMAC 2026 and the MAST follow-ups.** The discipline is moving fast.
+- **Bắt đầu từ một nghiên cứu tình huống, không phải từ đầu.** Chọn gần nhất trong Anthropic Research / MetaGPT / OpenClaw và điều chỉnh.
+- **Áp dụng MCP + A2A.** Tính di động xuyên framework có giá trị; hỗ trợ giao thức miễn phí.
+- **Đo theo SWE-bench Pro hoặc dạng tương đương Pro nội bộ của bạn.** Verified bị nhiễm bẩn.
+- **Trả thuế xác minh.** Một bộ xác minh độc lập tốn ~20-30% ngân sách token của bạn và mua tính đúng đắn đo được.
+- **Triển khai cầu vồng các agent chạy dài.** Kỳ vọng các lần chạy agent nhiều giờ trở thành thường lệ.
+- **Đọc WMAC 2026 và các công trình tiếp nối MAST.** Ngành đang di chuyển nhanh.
 
 ## Exercises
 
-1. Read the Anthropic Research system post end-to-end. Identify three design decisions that would change if you replaced Opus 4 with a smaller model (e.g., Haiku 4).
-2. Read MetaGPT Sections 3-4 (arXiv:2308.00352). Encode one SOP from your own domain (not software) as role prompts. How many roles does the SOP imply?
-3. Read ChatDev (arXiv:2307.07924). Identify the mechanism of "communicative dehallucination." Implement it in one of your existing multi-agent systems.
-4. Read about OpenClaw and Moltbook. Pick one specific failure mode that emerged at population scale that would not appear in a 5-agent system. How would you engineer against it?
-5. Pick your current multi-agent project. Which of the three case studies is the closest reference? Which design decisions from that case study have you NOT yet adopted? Write down one you will adopt this quarter.
+1. Đọc bài viết hệ thống Anthropic Research đầu cuối. Xác định ba quyết định thiết kế sẽ thay đổi nếu bạn thay Opus 4 bằng một mô hình nhỏ hơn (ví dụ: Haiku 4).
+2. Đọc MetaGPT các Phần 3-4 (arXiv:2308.00352). Mã hóa một SOP từ lĩnh vực riêng (không phải phần mềm) thành các prompt vai trò. SOP hàm ý bao nhiêu vai trò?
+3. Đọc ChatDev (arXiv:2307.07924). Xác định cơ chế “khử ảo giác bằng giao tiếp.” Triển khai nó trong một hệ thống đa agent hiện có của bạn.
+4. Đọc về OpenClaw và Moltbook. Chọn một chế độ lỗi cụ thể nổi lên ở quy mô quần thể sẽ không xuất hiện trong một hệ thống 5 agent. Bạn sẽ thiết kế chống nó như thế nào?
+5. Chọn dự án đa agent hiện tại của bạn. Nghiên cứu tình huống nào trong ba nghiên cứu là tham chiếu gần nhất? Các quyết định thiết kế nào từ nghiên cứu đó bạn CHƯA áp dụng? Viết xuống một quyết định bạn sẽ áp dụng quý này.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Anthropic Research | "The supervisor reference" | Claude Opus 4 + Sonnet 4 subagents; 15x tokens; +90.2% over single-agent. |
-| MetaGPT | "SOP as prompts" | Role decomposition for software engineering; `Code = SOP(Team)`. |
-| ChatDev | "Agents as roles" | Designer / programmer / reviewer / tester; communicative dehallucination. |
-| MacNet | "Scale ChatDev via DAG" | arXiv:2406.07155; 1000+ agents via explicit DAG routing. |
-| OpenClaw | "Local ReAct-loop agents" | Steinberger's project; 247k stars by March 2026. |
-| Moltbook | "Agent-only social network" | 2.3M agent accounts; acquired by Meta March 2026. |
-| Rainbow deploy | "Multiple versions concurrent" | Keep old runtime versions alive for in-flight long-running agents. |
-| Communicative dehallucination | "Ask before answering" | Agents request specifics from peers instead of guessing. |
-| WMAC 2026 | "The AAAI workshop" | April 2026 community focal point for multi-agent coordination. |
+| Anthropic Research | “Tham chiếu bộ giám sát” | Claude Opus 4 + các agent con Sonnet 4; 15x token; +90.2% so với một agent đơn lẻ. |
+| MetaGPT | “SOP dưới dạng prompt” | Phân rã vai trò cho kỹ thuật phần mềm; `Code = SOP(Team)`. |
+| ChatDev | “Các agent như các vai trò” | Nhà thiết kế / lập trình viên / người xem xét / người kiểm thử; khử ảo giác bằng giao tiếp. |
+| MacNet | “Mở rộng ChatDev qua DAG” | arXiv:2406.07155; 1000+ agent qua định tuyến DAG tường minh. |
+| OpenClaw | “Các agent vòng lặp ReAct cục bộ” | Dự án của Steinberger; 247k sao đến tháng 3 năm 2026. |
+| Moltbook | “Mạng xã hội chỉ agent” | 2.3M tài khoản agent; được Meta mua lại tháng 3 năm 2026. |
+| Rainbow deploy (Triển khai cầu vồng) | “Nhiều phiên bản đồng thời” | Giữ các phiên bản môi trường chạy cũ sống cho các agent chạy dài đang diễn ra. |
+| Communicative dehallucination (Khử ảo giác bằng giao tiếp) | “Hỏi trước khi trả lời” | Các agent yêu cầu chi tiết cụ thể từ các bên ngang hàng thay vì đoán. |
+| WMAC 2026 | “Workshop AAAI” | Đầu mối cộng đồng tháng 4 năm 2026 cho phối hợp đa agent. |
 
 ## Further Reading
 
-- [Anthropic — How we built our multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system) — the supervisor-worker production reference
-- [MetaGPT — Meta Programming for Multi-Agent Collaborative Framework](https://arxiv.org/abs/2308.00352) — SOP-role decomposition
-- [ChatDev — Communicative Agents for Software Development](https://arxiv.org/abs/2307.07924) — communicative dehallucination
-- [MacNet — scaling role-based agents to 1000+](https://arxiv.org/abs/2406.07155) — DAG-based scale
-- [OpenClaw on Wikipedia](https://en.wikipedia.org/wiki/OpenClaw) — ecosystem overview
+- [Anthropic — How we built our multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system) — tham chiếu sản xuất bộ giám sát-worker
+- [MetaGPT — Meta Programming for Multi-Agent Collaborative Framework](https://arxiv.org/abs/2308.00352) — phân rã vai trò SOP
+- [ChatDev — Communicative Agents for Software Development](https://arxiv.org/abs/2307.07924) — khử ảo giác bằng giao tiếp
+- [MacNet — scaling role-based agents to 1000+](https://arxiv.org/abs/2406.07155) — mở rộng quy mô dựa trên DAG
+- [OpenClaw on Wikipedia](https://en.wikipedia.org/wiki/OpenClaw) — tổng quan hệ sinh thái
 - [WMAC 2026](https://multiagents.org/2026/) — AAAI 2026 Bridge Program Workshop on Multi-Agent Coordination
-- [LangGraph docs](https://docs.langchain.com/oss/python/langgraph/workflows-agents) — production leader
-- [CrewAI docs](https://docs.crewai.com/en/introduction) — role-based framework
+- [LangGraph docs](https://docs.langchain.com/oss/python/langgraph/workflows-agents) — dẫn đầu sản xuất
+- [CrewAI docs](https://docs.crewai.com/en/introduction) — framework dựa trên vai trò
