@@ -16,47 +16,47 @@ related: [cost-capacity/batch-lane-triage]
 updated: 2026-11-03
 ---
 
-Your serverless endpoint scales to zero overnight. The first request in the morning waits minutes while a 70B model loads, and the product wants the first token within two seconds. One engineer wants a replica that never sleeps. Another calls that a GPU burning money all night. Settle it.
+Endpoint serverless của bạn thu về không qua đêm. Request đầu tiên buổi sáng chờ nhiều phút trong khi một mô hình 70B nạp, và bộ phận sản phẩm muốn token đầu tiên trong vòng hai giây. Một kỹ sư muốn một replica không bao giờ ngủ. Người khác gọi đó là một GPU đốt tiền cả đêm. Phân định điều đó.
 
 ## Short answer
 
-Both are right, and the decision is arithmetic per path. A warm replica costs one GPU hour every hour whether anyone calls or not, and it removes a cold start of several minutes for a large model. An interactive path with a tight first-token target on a large model needs the warm replica, while a small model with a cold start of seconds, or a background path that tolerates minutes, scales to zero. Then shrink the cold start itself, so that fewer paths need a warm replica at all.
+Cả hai đều đúng, và quyết định là phép tính theo từng đường. Một replica ấm tốn một giờ GPU mỗi giờ dù có ai gọi hay không, và nó loại bỏ một cold start vài phút cho một mô hình lớn. Một đường tương tác với một mục tiêu token đầu tiên chặt trên một mô hình lớn cần replica ấm, trong khi một mô hình nhỏ với cold start vài giây, hoặc một đường nền chịu được nhiều phút, thu về không. Rồi thu nhỏ chính cold start, để ít đường hơn cần một replica ấm.
 
 ## Full answer
 
 ### What a cold start is made of
 
-The lesson's anatomy for a 70B model on a fresh node: node provision 45 to 60 seconds, image pull 120 to 300 seconds, weights into GPU memory 45 to 120 seconds, engine init 10 to 30 seconds. The sum is 220 to 510 seconds, which is 3 to 8 minutes before one token. The vLLM manual measured one part of that on its own machine: 330 seconds to load 57 GiB of weights.
+Các phần cold start của bài học cho một mô hình 70B trên một node mới: cấp node 45 đến 60 giây, kéo image 120 đến 300 giây, trọng số vào bộ nhớ GPU 45 đến 120 giây, khởi tạo engine 10 đến 30 giây. Tổng là 220 đến 510 giây, tức 3 đến 8 phút trước một token. Tài liệu vLLM đo một phần của điều đó trên máy riêng của nó: 330 giây để nạp 57 GiB trọng số.
 
 ### The warm-pool arithmetic
 
-The lesson calls the arithmetic brutal on small models and kind on large ones. You pay 0.85 to 1.50 dollars an hour to avoid a 30 second start on a small model, and about 4 dollars an hour to avoid a 5 minute start on a large one. Five products with one warm replica each are 3,600 GPU-hours a month, called or not. The lesson's threshold: a warm pool becomes mandatory when the first-token target at P99 is under 60 seconds on a model of 70B or more.
+Bài học gọi phép tính là khắc nghiệt trên các mô hình nhỏ và dễ chịu trên các mô hình lớn. Bạn trả 0.85 đến 1.50 đô la một giờ để tránh một lần khởi động 30 giây trên một mô hình nhỏ, và khoảng 4 đô la một giờ để tránh một lần khởi động 5 phút trên một mô hình lớn. Năm sản phẩm với mỗi sản phẩm một replica ấm là 3,600 giờ GPU một tháng, được gọi hay không. Ngưỡng của bài học: một warm pool trở thành bắt buộc khi mục tiêu token đầu tiên tại P99 dưới 60 giây trên một mô hình 70B hoặc hơn.
 
 ### Tier the paths
 
-| Path | Policy |
+| Đường | Chính sách |
 |---|---|
-| live chat, voice agent | one or two warm replicas |
-| nightly classification, batch | scale to zero, a cold start of minutes is fine |
-| premium tenant | dedicated warm capacity |
+| chat trực tiếp, voice agent | một hoặc hai replica ấm |
+| phân loại hằng đêm, batch | thu về không, một cold start nhiều phút là ổn |
+| tenant cao cấp | năng lực ấm chuyên dụng |
 
 ### Shrink the cold start
 
-Five layers, each removing a phase: a pre-seeded node image removes the image pull, model streaming halves the weight load, a GPU memory snapshot restores the loaded state in a fraction of the time, warm pools hide the rest, and tiered loading keeps weights in host memory. The lesson's table takes a 328 second cold start to about 15 seconds with the layers stacked, a reduction of 22 times. The vLLM manual adds the operational half: keep the weights on local disk, keep the compile cache on a persistent volume, and measure a cold and a warm start for every new image.
+Năm lớp, mỗi lớp loại bỏ một giai đoạn: một node image được chuẩn bị sẵn loại bỏ việc kéo image, model streaming giảm một nửa thời gian nạp trọng số, một snapshot bộ nhớ GPU khôi phục trạng thái đã nạp trong một phần nhỏ thời gian, các warm pool giấu phần còn lại, và nạp phân tầng giữ các trọng số trong bộ nhớ host. Bảng của bài học đưa một cold start 328 giây xuống khoảng 15 giây khi các lớp được kết hợp, giảm 22 lần. Tài liệu vLLM thêm nửa vận hành: giữ trọng số trên đĩa cục bộ, giữ compile cache trên một persistent volume, và đo một lần khởi động lạnh và một lần ấm cho mọi image mới.
 
 ## Follow-ups
 
-- **Level 2:** Which paths get a warm replica first? Expected: the interactive ones with a tight first-token target on a large model, such as live chat or a voice agent.
-- **Level 2:** Whose cold start is cheaper to hide, a small model's or a large one's? Expected: in proportion, the large one's. For a small model you pay a full GPU hour to avoid seconds, and for a large one the same hour avoids minutes.
-- **Level 3:** Name two mitigations that remove whole phases of the cold start. Expected: a pre-seeded node image removes the image pull, and a GPU memory snapshot removes most of the weight load and the init.
-- **Level 3:** What is the break-even request rate for a warm replica? Expected: the rate above which the cost of cold starts, in requests that miss the target, exceeds the hourly price of the idle GPU. The lesson's simulator computes it.
+- **Level 2:** Những đường nào nhận một replica ấm trước? Expected: các đường tương tác có một mục tiêu token đầu tiên chặt trên một mô hình lớn, chẳng hạn chat trực tiếp hoặc một voice agent.
+- **Level 2:** Cold start của bên nào rẻ hơn để giấu, của một mô hình nhỏ hay một mô hình lớn? Expected: theo tỷ lệ, của mô hình lớn. Với một mô hình nhỏ bạn trả một giờ GPU đầy đủ để tránh vài giây, và với một mô hình lớn cùng giờ đó tránh nhiều phút.
+- **Level 3:** Nêu hai biện pháp giảm thiểu loại bỏ cả các giai đoạn của cold start. Expected: một node image được chuẩn bị sẵn loại bỏ việc kéo image, và một snapshot bộ nhớ GPU loại bỏ phần lớn việc nạp trọng số và khởi tạo.
+- **Level 3:** Tốc độ request hòa vốn cho một replica ấm là gì? Expected: rate mà trên đó chi phí của các cold start, tính bằng các request trượt mục tiêu, vượt giá theo giờ của GPU nhàn rỗi. Bộ mô phỏng của bài học tính nó.
 
 ## Wrong answers
 
-- "Keep one warm replica everywhere, it is the simple answer." It is one GPU hour every hour per product. Five products idle all night cost thousands of GPU hours a month.
-- "Scale to zero everywhere and let the first user wait." A first-token wait of minutes on an interactive path is an outage, not a wait.
-- "A bigger GPU loads faster." The load is bound by the storage and the copy path. The fix is where the weights live and whether a snapshot exists.
+- "Giữ một replica ấm ở mọi nơi, đó là câu trả lời đơn giản." Đó là một giờ GPU mỗi giờ cho mỗi sản phẩm. Năm sản phẩm nhàn rỗi cả đêm tốn hàng nghìn giờ GPU một tháng.
+- "Thu về không ở mọi nơi và để người dùng đầu tiên chờ." Một lần chờ token đầu tiên nhiều phút trên một đường tương tác là một lần gián đoạn, không phải một lần chờ.
+- "Một GPU lớn hơn nạp nhanh hơn." Việc nạp bị giới hạn bởi bộ lưu trữ và đường sao chép. Cách sửa là nơi các trọng số nằm và liệu một snapshot có tồn tại không.
 
 ## Taught in
 
-The [cold start lesson](../../../phases/17-infrastructure-and-production/10-cold-start-mitigation/) gives the cost of a warm replica and the five mitigation layers, and the [production section of vLLM 101](../../../manuals/vllm-101/sections/7-2-run-vllm-in-production.md) measures the weight load and keeps the compile cache.
+[Bài học cold start](../../../phases/17-infrastructure-and-production/10-cold-start-mitigation/) đưa ra chi phí một replica ấm và năm lớp giảm thiểu, và [phần production của vLLM 101](../../../manuals/vllm-101/sections/7-2-run-vllm-in-production.md) đo việc nạp trọng số và giữ compile cache.

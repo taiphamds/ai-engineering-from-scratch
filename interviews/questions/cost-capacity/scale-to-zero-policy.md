@@ -16,56 +16,56 @@ related: [cost-capacity/warm-pool-or-cold-start, cost-capacity/cold-start-anatom
 updated: 2026-11-03
 ---
 
-You run three tiers on a serverless GPU platform: paid users on a live chat, trial users on the same chat, and a nightly batch pipeline. Design the warm-pool policy per tier, show the arithmetic behind it, and say what you would measure after a month to revisit it.
+Bạn chạy ba tầng trên một nền tảng GPU serverless: người dùng trả phí trên một cuộc chat trực tiếp, người dùng dùng thử trên cùng cuộc chat, và một pipeline batch hằng đêm. Thiết kế chính sách warm-pool theo từng tầng, cho thấy phép tính đằng sau nó, và nói bạn sẽ đo gì sau một tháng để xem xét lại nó.
 
 ## Short answer
 
-Give the paid chat one or two warm replicas, because its first-token target cannot absorb a cold start of minutes on a large model. Give trial users a smaller margin, or let them ride on the paid pool's spare capacity, and let the batch pipeline scale to zero, because it tolerates a cold start of several minutes. The arithmetic is the hourly GPU price times the idle hours against the requests that would miss the target during a cold start, and after a month you compare the measured utilization, the cold-start count and the missed-target count per tier.
+Cho chat trả phí một hoặc hai replica ấm, vì mục tiêu token đầu tiên của nó không thể hấp thụ một cold start dài nhiều phút trên một mô hình lớn. Cho người dùng dùng thử một khoảng dự phòng nhỏ hơn, hoặc để họ dùng năng lực dư của pool trả phí, và để pipeline batch thu về không, vì nó chịu được một cold start vài phút. Phép tính là giá GPU theo giờ nhân số giờ nhàn rỗi so với các request sẽ trượt mục tiêu trong một cold start, và sau một tháng bạn so sánh mức sử dụng đo được, số cold start và số lần trượt mục tiêu theo tầng.
 
 ## Full answer
 
 ### The arithmetic the lesson gives
 
-A warm replica costs one GPU hour every hour. One replica per product is a full month of GPU hours whether anyone calls, and the lesson's example of five products with one warm replica each comes to 3,600 GPU-hours a month idle. The lesson calls the trade brutal on small models, where you pay 0.85 to 1.50 dollars an hour to avoid a 30 second start, and kind on large ones, where about 4 dollars an hour avoids a 5 minute start. Its threshold for a mandatory warm pool: a first-token target at P99 under 60 seconds on a model of 70B or more.
+Một replica ấm tốn một giờ GPU mỗi giờ. Một replica cho mỗi sản phẩm là cả một tháng giờ GPU dù có ai gọi hay không, và ví dụ của bài học về năm sản phẩm với mỗi sản phẩm một replica ấm thành 3,600 giờ GPU mỗi tháng nhàn rỗi. Bài học gọi sự đánh đổi là khắc nghiệt trên các mô hình nhỏ, nơi bạn trả 0.85 đến 1.50 đô la một giờ để tránh một lần khởi động 30 giây, và dễ chịu trên các mô hình lớn, nơi khoảng 4 đô la một giờ tránh một lần khởi động 5 phút. Ngưỡng của nó cho một warm pool bắt buộc: một mục tiêu token đầu tiên tại P99 dưới 60 giây trên một mô hình 70B hoặc hơn.
 
 ### The policy per tier
 
-| Tier | Policy | Why |
+| Tầng | Chính sách | Tại sao |
 |---|---|---|
-| paid live chat | one to two warm replicas | the lesson's high-value interactive path, where a cold start is an outage |
-| trial chat | zero warm, or overflow into the paid pool at lower priority | the loss is a conversion, which you can measure, against a month of GPU hours |
-| nightly batch | scale to zero | the lesson accepts a cold start of 5 to 10 minutes on background paths |
+| chat trực tiếp trả phí | một đến hai replica ấm | đường tương tác giá trị cao của bài học, nơi một cold start là một lần gián đoạn |
+| chat dùng thử | không replica ấm, hoặc tràn vào pool trả phí ở ưu tiên thấp hơn | tổn thất là một chuyển đổi, mà bạn có thể đo, so với một tháng giờ GPU |
+| batch hằng đêm | thu về không | bài học chấp nhận một cold start 5 đến 10 phút trên các đường nền |
 
-The lesson's exercise asks exactly this split and asks for the math. The paid tier is decided by the SLA. The batch tier is decided by its tolerance. The trial tier is the real decision, and it is an experiment: the conversion loss from a cold start on the first session against the price of an idle GPU.
+Bài tập của bài học yêu cầu đúng cách chia này và yêu cầu phép tính. Tầng trả phí được quyết định bởi SLA. Tầng batch được quyết định bởi khả năng chịu đựng của nó. Tầng dùng thử là quyết định thực sự, và nó là một thử nghiệm: tổn thất chuyển đổi từ một cold start trong phiên đầu tiên so với giá một GPU nhàn rỗi.
 
 ### Make the policy cheaper by shrinking the start
 
-Every mitigation layer moves a tier toward zero. A pre-seeded node image removes the image pull, model streaming halves the weight load, a GPU memory snapshot restores the loaded state in a fraction of the time, and tiered loading keeps weights in host memory. The lesson's table takes a cold start of 328 seconds to about 15 seconds. With a 15 second start, the trial tier can scale to zero with a small loss, and the paid pool can hold one replica instead of two.
+Mỗi lớp giảm thiểu đưa một tầng về gần không. Một node image được chuẩn bị sẵn loại bỏ việc kéo image, model streaming giảm một nửa thời gian nạp trọng số, một snapshot bộ nhớ GPU khôi phục trạng thái đã nạp trong một phần nhỏ thời gian, và nạp phân tầng giữ các trọng số trong bộ nhớ host. Bảng của bài học đưa một cold start 328 giây xuống khoảng 15 giây. Với một lần khởi động 15 giây, tầng dùng thử có thể thu về không với một tổn thất nhỏ, và pool trả phí có thể giữ một replica thay vì hai.
 
 ### Match the billing to the tier
 
-The warm replicas run at high utilization, which is where per-minute billing beats per-token, above about 30 percent sustained utilization in the economics lesson. Trial bursts and the overnight batch sit below that line, so per-token or a batch tier at about half the serverless rate fits them.
+Các replica ấm chạy ở mức sử dụng cao, là nơi tính phí theo phút thắng theo token, trên khoảng 30 phần trăm mức sử dụng duy trì trong bài học kinh tế. Các đợt bùng phát dùng thử và batch qua đêm nằm dưới ranh giới đó, vì vậy theo token hoặc một tầng batch ở khoảng một nửa giá serverless phù hợp với chúng.
 
 ### What to measure after a month
 
-- Utilization per tier, hour by hour.
-- Cold starts per day and their duration.
-- Requests that missed the first-token target, and whether they fell inside a cold start.
-- Trial conversions for sessions that hit a cold start against sessions that did not.
-- The break-even request rate per tier from the lesson's simulator, against the measured rate.
+- Mức sử dụng theo tầng, từng giờ.
+- Cold start mỗi ngày và thời lượng của chúng.
+- Các request trượt mục tiêu token đầu tiên, và liệu chúng có rơi vào một cold start không.
+- Các chuyển đổi dùng thử cho những phiên gặp một cold start so với các phiên không gặp.
+- Tốc độ request hòa vốn theo tầng từ bộ mô phỏng của bài học, so với rate đo được.
 
 ## Follow-ups
 
-- **Level 3:** Why not give trial users the same warm pool as paid users? Expected: a warm replica costs a month of GPU hours whether trial traffic arrives or not. The decision is the conversion loss from a cold start against that cost, and the month of measurement answers it.
-- **Level 4:** How does a 15 second cold start change the policy? Expected: tiers that tolerate seconds scale to zero, so the warm pool shrinks to the paths with targets of a second or two.
-- **Level 4:** Which signal says a warm replica count is too low? Expected: the share of requests that miss the first-token target during scale-outs, together with the cold-start count per day.
+- **Level 3:** Tại sao không cho người dùng dùng thử cùng warm pool với người dùng trả phí? Expected: một replica ấm tốn một tháng giờ GPU dù lưu lượng dùng thử đến hay không. Quyết định là tổn thất chuyển đổi từ một cold start so với chi phí đó, và tháng đo lường trả lời nó.
+- **Level 4:** Một cold start 15 giây thay đổi chính sách như thế nào? Expected: các tầng chịu được vài giây thu về không, vì vậy warm pool co lại chỉ còn các đường có mục tiêu một hoặc hai giây.
+- **Level 4:** Tín hiệu nào cho biết số replica ấm quá thấp? Expected: tỷ lệ request trượt mục tiêu token đầu tiên trong các lần mở rộng, cùng với số cold start mỗi ngày.
 
 ## Wrong answers
 
-- "Warm replicas for every tier, the cost is small." One replica per product is a month of GPU hours each. Five products idle come to thousands of hours.
-- "Scale trial to zero, those users are free." A cold start of minutes on the first trial session is a lost conversion. Measure it before you decide.
-- "Keep the batch pipeline warm so that it finishes earlier." Batch tolerates minutes. A warm GPU for it is paid idle time for the rest of the day.
+- "Replica ấm cho mọi tầng, chi phí nhỏ." Một replica cho mỗi sản phẩm là một tháng giờ GPU mỗi sản phẩm. Năm sản phẩm nhàn rỗi thành hàng nghìn giờ.
+- "Thu dùng thử về không, những người dùng đó miễn phí." Một cold start nhiều phút trong phiên dùng thử đầu tiên là một chuyển đổi bị mất. Đo nó trước khi bạn quyết định.
+- "Giữ pipeline batch ấm để nó kết thúc sớm hơn." Batch chịu được nhiều phút. Một GPU ấm cho nó là thời gian nhàn rỗi được trả tiền trong phần còn lại của ngày.
 
 ## Taught in
 
-The [cold start lesson](../../../phases/17-infrastructure-and-production/10-cold-start-mitigation/) gives the warm-pool arithmetic and the tiered policy exercise, and the [inference platform economics lesson](../../../phases/17-infrastructure-and-production/02-inference-platform-economics/) gives the per-minute against per-token crossover.
+[Bài học cold start](../../../phases/17-infrastructure-and-production/10-cold-start-mitigation/) đưa ra phép tính warm-pool và bài tập chính sách theo tầng, và [bài học kinh tế nền tảng suy luận](../../../phases/17-infrastructure-and-production/02-inference-platform-economics/) đưa ra điểm giao giữa theo phút và theo token.

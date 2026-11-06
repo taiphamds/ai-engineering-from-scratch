@@ -16,52 +16,52 @@ related: [cost-capacity/semantic-threshold, cost-capacity/gateway-latency-budget
 updated: 2026-11-03
 ---
 
-Six months ago a cascading router cut the bill by more than half with no measurable quality loss. Since then the escalation rate has crept from 8 percent to 22 percent, and a sales engineer reports that a competitor's demo now answers better than your product. Diagnose it.
+Sáu tháng trước một router dạng cascade cắt hóa đơn hơn một nửa mà không có tổn thất chất lượng đo được. Kể từ đó tỷ lệ chuyển lên đã tăng dần từ 8 phần trăm lên 22 phần trăm, và một kỹ sư bán hàng báo cáo rằng bản demo của một đối thủ giờ trả lời tốt hơn sản phẩm của bạn. Chẩn đoán nó.
 
 ## Short answer
 
-The traffic drifted and the router did not. Its classifier learned the question mix of six months ago, users now ask longer and harder questions, and the cheap model's first pass fails its own confidence check more often, which is what the rising escalation rate records. Quality fell silently on the requests that were not escalated. Gate every route with online quality metrics, retrain the classifier on current traffic, and treat an escalation rate above about 30 percent as proof that the cheap model is over-routed.
+Lưu lượng đã thay đổi dần và router thì không. Bộ phân loại của nó học cơ cấu câu hỏi của sáu tháng trước, người dùng giờ hỏi các câu dài và khó hơn, và lượt đầu của mô hình rẻ thất bại trong phép kiểm tra độ tin cậy của chính nó thường xuyên hơn, là điều mà tỷ lệ chuyển lên tăng ghi lại. Chất lượng giảm âm thầm trên các request không được chuyển lên. Kiểm soát mọi tuyến bằng các metric chất lượng trực tuyến, huấn luyện lại bộ phân loại trên lưu lượng hiện tại, và coi tỷ lệ chuyển lên trên khoảng 30 phần trăm là bằng chứng rằng mô hình rẻ bị định tuyến quá mức.
 
 ## Full answer
 
 ### The failure mode the lesson warns about
 
-A route sends a large share of traffic to a weaker model. Over months the task distribution shifts: users get more sophisticated and ask longer questions. The router does not notice, because its classifier was trained on the earlier quarter. Quality drops by a few percent on reasoning tasks, nobody complains loudly enough, and the team finds out from a competitor benchmark. The lesson's numbers for the pattern: 40 percent routed cheap, a 3 to 5 percent quality drop, unnoticed for a quarter.
+Một tuyến gửi một tỷ lệ lớn lưu lượng đến một mô hình yếu hơn. Qua nhiều tháng phân phối nhiệm vụ dịch chuyển: người dùng trở nên thành thạo hơn và hỏi các câu dài hơn. Router không nhận ra, vì bộ phân loại của nó được huấn luyện trên quý trước. Chất lượng giảm vài phần trăm trên các nhiệm vụ suy luận, không ai phàn nàn đủ lớn, và nhóm biết được từ một benchmark của đối thủ. Các con số của bài học cho mẫu này: 40 phần trăm được định tuyến rẻ, giảm chất lượng 3 đến 5 phần trăm, không được nhận ra trong một quý.
 
 ### Three causes of a rising escalation rate
 
-1. **Distribution shift.** More long prompts and more multi-step questions. The lesson's length signal says prompts above 4K tokens often need the frontier model, and prompts under 500 tokens usually do not. If the mix moved up, more first passes fail.
-2. **The cheap model changed.** A provider update behind the same alias, or a routine version bump, moves the confidence signal and the refusal behavior.
-3. **Stale thresholds.** The confidence cutoff and the embedding set of known-hard questions were tuned on old traffic.
+1. **Dịch chuyển phân phối.** Nhiều prompt dài hơn và nhiều câu hỏi nhiều bước hơn. Tín hiệu độ dài của bài học nói các prompt trên 4K token thường cần mô hình frontier, và các prompt dưới 500 token thường không cần. Nếu cơ cấu chuyển lên, nhiều lượt đầu thất bại hơn.
+2. **Mô hình rẻ đã thay đổi.** Một cập nhật của nhà cung cấp đằng sau cùng alias, hoặc một lần tăng phiên bản thông thường, dịch chuyển tín hiệu độ tin cậy và hành vi từ chối.
+3. **Các ngưỡng lỗi thời.** Ngưỡng độ tin cậy và tập embedding của các câu hỏi đã biết là khó được điều chỉnh trên lưu lượng cũ.
 
-Each cause has its own fix: retrain the classifier on recent labeled traffic, pin the model version and log the served model on every call, and refresh the hard set and the cutoff on a new eval.
+Mỗi nguyên nhân có cách sửa riêng: huấn luyện lại bộ phân loại trên lưu lượng được gán nhãn gần đây, ghim phiên bản mô hình và ghi log mô hình được phục vụ trên mọi lời gọi, và làm mới tập khó cùng ngưỡng trên một đánh giá mới.
 
 ### Gates on live traffic
 
-The lesson gates routes with live signals, not with the offline set:
+Bài học kiểm soát các tuyến bằng các tín hiệu trực tiếp, không bằng tập offline:
 
-- thumbs up and down per route;
-- an automated judge on a 5 percent held-out sample per route;
-- the escalation rate, where a cascade that kicks up more than 30 percent of requests is over-routing;
-- the refusal rate per route.
+- thích và không thích theo từng tuyến;
+- một bộ chấm tự động trên một mẫu giữ lại 5 phần trăm theo từng tuyến;
+- tỷ lệ chuyển lên, trong đó một cascade chuyển lên hơn 30 phần trăm request là đang định tuyến quá mức;
+- tỷ lệ từ chối theo từng tuyến.
 
 ### What the cascade now costs
 
-The cascade pattern was designed for about 1.2 times the median latency and about 2 times on the escalated share, with roughly 10 percent escalated. At 22 percent escalated, a fifth of the requests pay for two model calls and the slow path, so the saving shrank while the quality fell.
+Mẫu cascade được thiết kế cho độ trễ trung vị khoảng 1.2 lần và khoảng 2 lần trên phần được chuyển lên, với khoảng 10 phần trăm được chuyển lên. Ở mức 22 phần trăm được chuyển lên, một phần năm số request trả cho hai lời gọi mô hình và đường chậm, vì vậy mức tiết kiệm co lại trong khi chất lượng giảm.
 
 ## Follow-ups
 
-- **Level 3:** Why did the offline eval not catch the loss? Expected: the eval set was built from the old distribution. It scores the model on questions that users no longer ask.
-- **Level 3:** Which online metric gives the earliest warning? Expected: the escalation rate per route. It rises as the cheap model fails its own confidence check more often, before the thumbs or a judge sample show the loss.
-- **Level 4:** The provider updated the cheap model behind the same alias. How do you know? Expected: a step change in escalations or judge scores on a date with no deploy on your side. Pin the model version and log the served model on every call.
-- **Level 4:** Where do you set the alarm on the escalation rate? Expected: near the design target, about 10 percent escalated for the cascade pattern, with the lesson's 30 percent as the hard line for over-routing.
+- **Level 3:** Tại sao đánh giá offline không phát hiện tổn thất? Expected: tập đánh giá được xây dựng từ phân phối cũ. Nó chấm mô hình trên các câu hỏi mà người dùng không còn hỏi.
+- **Level 3:** Metric trực tuyến nào cho cảnh báo sớm nhất? Expected: tỷ lệ chuyển lên theo từng tuyến. Nó tăng khi mô hình rẻ thất bại trong phép kiểm tra độ tin cậy của chính nó thường xuyên hơn, trước khi các lượt thích hoặc một mẫu bộ chấm cho thấy tổn thất.
+- **Level 4:** Nhà cung cấp cập nhật mô hình rẻ đằng sau cùng alias. Bạn biết bằng cách nào? Expected: một thay đổi đột ngột trong số lần chuyển lên hoặc điểm bộ chấm vào một ngày không có triển khai ở phía bạn. Ghim phiên bản mô hình và ghi log mô hình được phục vụ trên mọi lời gọi.
+- **Level 4:** Bạn đặt cảnh báo cho tỷ lệ chuyển lên ở đâu? Expected: gần mục tiêu thiết kế, khoảng 10 phần trăm được chuyển lên cho mẫu cascade, với mức 30 phần trăm của bài học làm ranh giới cứng cho việc định tuyến quá mức.
 
 ## Wrong answers
 
-- "The cheap model got worse, swap it." Possible, and the first suspect is the router's stale classifier against drifted traffic.
-- "Quality is fine, the eval score did not move." The eval set comes from the old distribution and cannot see the new questions.
-- "Raise the confidence cutoff so that more goes to the frontier model." That buys quality back at a cost without finding the cause. Retrain the router and gate it online.
+- "Mô hình rẻ trở nên tệ hơn, thay nó." Có thể, và nghi phạm đầu tiên là bộ phân loại lỗi thời của router trước lưu lượng đã thay đổi dần.
+- "Chất lượng ổn, điểm đánh giá không dịch chuyển." Tập đánh giá đến từ phân phối cũ và không thể thấy các câu hỏi mới.
+- "Tăng ngưỡng độ tin cậy để nhiều hơn đi đến mô hình frontier." Điều đó mua lại chất lượng với một chi phí mà không tìm ra nguyên nhân. Huấn luyện lại router và kiểm soát nó trực tuyến.
 
 ## Taught in
 
-The [model routing lesson](../../../phases/17-infrastructure-and-production/16-model-routing/) names cheap-model drift and the online quality gates that catch it.
+[Bài học định tuyến mô hình](../../../phases/17-infrastructure-and-production/16-model-routing/) nêu sự thay đổi dần của mô hình rẻ và các cổng chất lượng trực tuyến phát hiện nó.

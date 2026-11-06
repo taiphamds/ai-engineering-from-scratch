@@ -16,57 +16,57 @@ related: [cost-capacity/hit-rate-gauge-lies, inference-serving/prefix-cache-orde
 updated: 2026-11-03
 ---
 
-You add a second serving replica to double capacity. Throughput rises, but the first-token time of long chat sessions gets worse, and the cache hit rate on both servers falls. Explain the cause, and design the routing so that the second replica stops undoing the cache.
+Bạn thêm một replica phục vụ thứ hai để tăng gấp đôi năng lực. Throughput tăng, nhưng thời gian token đầu tiên của các phiên chat dài trở nên tệ hơn, và hit rate cache trên cả hai máy chủ giảm. Giải thích nguyên nhân, và thiết kế định tuyến để replica thứ hai ngừng phá tác dụng của cache.
 
 ## Short answer
 
-Each replica has its own KV cache, and a router that spreads requests at random or in turn sends turn five of a chat to the replica that never saw turns one to four. That replica prefills the whole history again, which is the prefix miss the cache exists to avoid. Route each conversation back to the replica that holds its prefix with a cache-aware policy that remembers which server saw which text, with a load-balance check in front of it. Then read the hit rate on the servers themselves, because the router's record is a guess.
+Mỗi replica có KV cache riêng, và một router phân tán các request ngẫu nhiên hoặc lần lượt gửi lượt năm của một cuộc chat đến replica chưa từng thấy các lượt một đến bốn. Replica đó prefill lại toàn bộ lịch sử, chính là prefix miss mà cache tồn tại để tránh. Định tuyến mỗi cuộc hội thoại trở lại replica giữ tiền tố của nó bằng một chính sách nhận biết cache ghi nhớ máy chủ nào đã thấy văn bản nào, với một phép kiểm tra cân bằng tải trước nó. Rồi đọc hit rate trên chính các máy chủ, vì bản ghi của router là một phỏng đoán.
 
 ## Full answer
 
 ### The mechanism
 
-A plain Kubernetes Service spreads requests at random. The in-server data parallel controller of SGLang defaults to round robin, which ignores prefixes. Either way, a conversation's turns land on different replicas, and each replica computes the history that the other one already holds. A field report in the SGLang manual measured the damage: with turn-by-turn routing, 23 percent of input tokens were computed again. One request header that pinned each conversation to one GPU raised the cache hit rate from 64.7 to 92.1 percent and halved the median time to first token.
+Một Kubernetes Service thông thường phân tán các request ngẫu nhiên. Bộ điều khiển data parallel bên trong máy chủ của SGLang mặc định dùng round robin, bỏ qua các tiền tố. Dù cách nào, các lượt của một cuộc hội thoại đến các replica khác nhau, và mỗi replica tính lịch sử mà replica còn lại đã giữ. Một báo cáo thực địa trong tài liệu SGLang đo thiệt hại: với định tuyến từng lượt, 23 phần trăm token đầu vào được tính lại. Một request header ghim mỗi cuộc hội thoại vào một GPU nâng hit rate cache từ 64.7 lên 92.1 phần trăm và giảm một nửa trung vị thời gian đến token đầu tiên.
 
 ### How a cache-aware router picks a server
 
-The SGLang gateway keeps one approximate radix tree per model, over the characters of the request text, so it never tokenizes to route. For each request it does three things in order:
+Gateway SGLang giữ một radix tree xấp xỉ cho mỗi mô hình, trên các ký tự của văn bản request, vì vậy nó không bao giờ tokenize để định tuyến. Với mỗi request nó làm ba việc theo thứ tự:
 
-1. It checks balance. When the busiest server's load is more than 64 above the lightest and more than 1.5 times the lightest, the request goes to the least-loaded server.
-2. Otherwise it computes the match rate, the share of the request text that matches the tree. Above 0.3, the request goes to the server with the longest match.
-3. Below 0.3, it goes to the least-loaded server.
+1. Nó kiểm tra cân bằng. Khi tải của máy chủ bận nhất cao hơn máy nhẹ nhất hơn 64 và hơn 1.5 lần máy nhẹ nhất, request đi đến máy chủ có tải thấp nhất.
+2. Nếu không nó tính match rate, tỷ lệ văn bản request khớp với cây. Trên 0.3, request đi đến máy chủ có phần khớp dài nhất.
+3. Dưới 0.3, nó đi đến máy chủ có tải thấp nhất.
 
-Every 120 seconds a background task trims each tree to at most 67,108,864 nodes. The balance check comes first on purpose: a prefix-first policy would pile every long conversation onto one hot server.
+Cứ mỗi 120 giây một tác vụ nền cắt mỗi cây xuống tối đa 67,108,864 nút. Phép kiểm tra cân bằng chủ ý đến trước: một chính sách ưu tiên tiền tố sẽ dồn mọi cuộc hội thoại dài lên một máy chủ nóng.
 
 ### The tree is a guess
 
-The gateway records where it sent text. It never asks a server what it still holds, and a server can evict the prefix later. So a request can arrive at the server the tree names and still prefill. Check the hit rate on the servers themselves, from their counters over a window, and not only the routing decisions.
+Gateway ghi lại nơi nó gửi văn bản. Nó không bao giờ hỏi một máy chủ còn giữ gì, và một máy chủ có thể loại tiền tố sau đó. Vì vậy một request có thể đến máy chủ mà cây nêu và vẫn prefill. Kiểm tra hit rate trên chính các máy chủ, từ các counter của chúng trong một khoảng thời gian, chứ không chỉ các quyết định định tuyến.
 
 ### Pick the policy by traffic
 
-Cache-aware routing for chat and agent traffic, where turns share long prefixes. A power-of-two or round-robin policy for batch traffic with unique prompts, because a match rate under the threshold gives no affinity anyway. Do not put multi-turn traffic behind in-server data parallelism with its round-robin default.
+Định tuyến nhận biết cache cho lưu lượng chat và agent, nơi các lượt dùng chung các tiền tố dài. Một chính sách power-of-two hoặc round-robin cho lưu lượng batch với các prompt riêng biệt, vì một match rate dưới ngưỡng dù sao cũng không tạo ái lực. Không đặt lưu lượng nhiều lượt sau data parallelism bên trong máy chủ với mặc định round-robin của nó.
 
 ### The same idea in the vLLM layers
 
-The vLLM manual lists routers that read the engine's metrics to pick a replica, and one that also reads the KV cache events the engine publishes with `--kv-events-config`, so that a request goes to the replica that holds its prefix. The production stack's router keeps a session on one replica. In the gateway lesson's vocabulary, this is provider routing one level down: the AI gateway routes across providers, and the engine router routes across replicas.
+Tài liệu vLLM liệt kê các router đọc các metric của engine để chọn một replica, và một router cũng đọc các sự kiện KV cache mà engine công bố bằng `--kv-events-config`, để một request đi đến replica giữ tiền tố của nó. Router của production stack giữ một phiên trên một replica. Theo từ vựng của bài học gateway, đây là định tuyến nhà cung cấp ở một cấp thấp hơn: AI gateway định tuyến giữa các nhà cung cấp, và engine router định tuyến giữa các replica.
 
 ### Pin the router with the engine
 
-The SGLang manual records an incident where the same engine build gave 132,140 tokens per second with one router version and 69,767 with the next. Benchmark the router and the engine as one system, and pin both versions.
+Tài liệu SGLang ghi lại một sự cố nơi cùng bản dựng engine cho 132,140 token mỗi giây với một phiên bản router và 69,767 với phiên bản tiếp theo. Benchmark router và engine như một hệ thống, và ghim cả hai phiên bản.
 
 ## Follow-ups
 
-- **Level 3:** Why does the router check load balance before the prefix match? Expected: a prefix-first policy would send every long conversation to one hot server. The imbalance test sends the request to the least-loaded server when the gap is large.
-- **Level 3:** Which traffic should not use the cache-aware policy? Expected: batch traffic with unique prompts. A match rate under the threshold gives no affinity, so a load-based policy does the same work with less state.
-- **Level 4:** One server's hit rate stays low although the gateway routes its conversations there. Why? Expected: the gateway's tree records where it sent text, not what the server still holds. The server evicted the prefix, so the request prefills. Read the server's own counters.
-- **Level 4:** You upgrade the router without touching the engine. What do you measure? Expected: throughput and hit rate of the router and the engine as one system, because a router change alone halved throughput in a reported incident.
+- **Level 3:** Tại sao router kiểm tra cân bằng tải trước phép khớp tiền tố? Expected: một chính sách ưu tiên tiền tố sẽ gửi mọi cuộc hội thoại dài đến một máy chủ nóng. Phép kiểm tra mất cân bằng gửi request đến máy chủ có tải thấp nhất khi khoảng cách lớn.
+- **Level 3:** Lưu lượng nào không nên dùng chính sách nhận biết cache? Expected: lưu lượng batch với các prompt riêng biệt. Một match rate dưới ngưỡng không tạo ái lực, vì vậy một chính sách dựa trên tải làm cùng công việc với ít trạng thái hơn.
+- **Level 4:** Hit rate của một máy chủ giữ thấp dù gateway định tuyến các cuộc hội thoại của nó đến đó. Tại sao? Expected: cây của gateway ghi lại nơi nó gửi văn bản, không phải thứ máy chủ còn giữ. Máy chủ đã loại tiền tố, vì vậy request prefill. Đọc các counter riêng của máy chủ.
+- **Level 4:** Bạn nâng cấp router mà không đụng engine. Bạn đo gì? Expected: throughput và hit rate của router cùng engine như một hệ thống, vì chỉ một thay đổi router đã giảm một nửa throughput trong một sự cố được báo cáo.
 
 ## Wrong answers
 
-- "Add a replica and each server's hit rate stays the same." Each replica has its own cache, and random routing splits every conversation across both.
-- "Hash the user id to a server and be done." It keeps a user on one server and ignores load. The manual's gateway balances first, so a hot user cannot saturate one replica with no relief.
-- "Turn on in-server data parallelism instead of a gateway." Its default method is round robin, which ignores prefixes, which is the problem you are solving.
+- "Thêm một replica và hit rate của mỗi máy chủ giữ nguyên." Mỗi replica có cache riêng, và định tuyến ngẫu nhiên chia mọi cuộc hội thoại qua cả hai.
+- "Hash user id đến một máy chủ rồi xong." Nó giữ một người dùng trên một máy chủ và bỏ qua tải. Gateway của tài liệu cân bằng trước, để một người dùng nóng không thể làm bão hòa một replica mà không được giảm tải.
+- "Bật data parallelism bên trong máy chủ thay vì một gateway." Phương thức mặc định của nó là round robin, bỏ qua các tiền tố, chính là vấn đề bạn đang giải quyết.
 
 ## Taught in
 
-The [model gateway section of SGLang 101](../../../manuals/sglang-101/sections/6-4-sgl-model-gateway.md) explains cache-aware routing and the field report, the [Kubernetes section of vLLM 101](../../../manuals/vllm-101/sections/6-4-run-vllm-on-kubernetes.md) names the routers that read engine metrics and cache events, and the [AI gateways lesson](../../../phases/17-infrastructure-and-production/19-ai-gateways/) places routing among the gateway features.
+[Phần model gateway của SGLang 101](../../../manuals/sglang-101/sections/6-4-sgl-model-gateway.md) giải thích định tuyến nhận biết cache và báo cáo thực địa, [phần Kubernetes của vLLM 101](../../../manuals/vllm-101/sections/6-4-run-vllm-on-kubernetes.md) nêu các router đọc metric engine và sự kiện cache, và [bài học AI gateway](../../../phases/17-infrastructure-and-production/19-ai-gateways/) đặt định tuyến trong số các tính năng gateway.

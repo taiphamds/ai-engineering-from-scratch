@@ -16,42 +16,42 @@ related: [cost-capacity/cache-break-even, cost-capacity/two-cache-layers]
 updated: 2026-11-03
 ---
 
-An agent fans out ten tool calls at once for every user question. All ten share the same long system prompt, and prompt caching is on. The bill is several times what the cache should allow, and the usage fields show cache writes on nearly all calls and almost no cache reads. What is happening?
+Một agent phân nhánh mười lời gọi công cụ cùng lúc cho mỗi câu hỏi người dùng. Cả mười dùng chung cùng system prompt dài, và prompt caching đang bật. Hóa đơn gấp vài lần mức mà cache đáng lẽ cho phép, và các trường usage cho thấy các lần ghi cache trên gần như mọi lời gọi và gần như không có lần đọc cache. Điều gì đang xảy ra?
 
 ## Short answer
 
-All ten requests reach the provider before the first one has finished writing the prefix into the cache. Each one sees a miss, each one pays the write premium, and none of them reads. The fix is sequential-first: send one request alone, let its cache write land, then fan out the other nine. It adds about one write latency to the first tool call and removes the inflation.
+Cả mười request đến nhà cung cấp trước khi request đầu tiên ghi xong tiền tố vào cache. Mỗi request thấy một miss, mỗi request trả khoản phí ghi thêm, và không request nào đọc. Cách sửa là tuần tự trước: gửi một request riêng, để lần ghi cache của nó hoàn tất, rồi phân nhánh chín request còn lại. Nó thêm khoảng một độ trễ ghi vào lời gọi công cụ đầu tiên và loại bỏ sự tăng phồng.
 
 ## Full answer
 
 ### The mechanism
 
-Cache writes happen per request. The lesson puts the first write at about 300 ms after the provider sees the prompt. Requests that arrive inside that window find nothing to read, so each of them writes. Ten writes and zero reads, on every user question that finds the prefix cold. A question that arrives while an earlier write is still inside the cache lifetime reads it, so the trap shows when the questions are further apart than that lifetime. The lesson reports a bill of 5 to 10 times the expected cached cost from this pattern alone.
+Các lần ghi cache xảy ra theo request. Bài học đặt lần ghi đầu tiên ở khoảng 300 ms sau khi nhà cung cấp thấy prompt. Các request đến trong khoảng thời gian đó không tìm thấy gì để đọc, vì vậy mỗi request ghi. Mười lần ghi và không lần đọc, trên mọi câu hỏi người dùng gặp tiền tố lạnh. Một câu hỏi đến khi một lần ghi trước vẫn còn trong thời gian tồn tại cache đọc nó, vì vậy cái bẫy xuất hiện khi các câu hỏi cách nhau xa hơn thời gian tồn tại đó. Bài học báo cáo một hóa đơn bằng 5 đến 10 lần chi phí đã cache dự kiến chỉ từ mẫu này.
 
 ### Read the usage fields
 
-Each response reports the tokens written to the cache and the tokens read from it. In this incident the written count is high on every request and the read count is near zero. That is the signature. A later sequential request with the same prefix does read, which separates this case from a prefix that never matches.
+Mỗi phản hồi báo cáo các token được ghi vào cache và các token được đọc từ nó. Trong sự cố này số đếm ghi cao trên mọi request và số đếm đọc gần không. Đó là dấu hiệu. Một request tuần tự sau đó với cùng tiền tố có đọc, phân biệt trường hợp này với một tiền tố không bao giờ khớp.
 
 ### The fix
 
-Send the first request alone and wait for it to return. Its write has landed by then. Fan out the remaining nine, and each of them reads. The cost is about 300 ms on the first tool call. The lesson's exercise asks for the same fix without adding end-to-end latency: warm the prefix with one call at the start of the session, before the first fan-out, so the first tool call already reads.
+Gửi request đầu tiên riêng và chờ nó trả về. Lần ghi của nó đã hoàn tất vào lúc đó. Phân nhánh chín request còn lại, và mỗi request đọc. Chi phí là khoảng 300 ms trên lời gọi công cụ đầu tiên. Bài tập của bài học yêu cầu cùng cách sửa mà không thêm độ trễ đầu cuối: làm ấm tiền tố bằng một lời gọi lúc bắt đầu phiên, trước lần phân nhánh đầu tiên, để lời gọi công cụ đầu tiên đã đọc.
 
 ### Rule out the other cause
 
-A prefix that carries dynamic text looks the same in the usage fields: writes on every request, no reads ever. The lesson's example has the time to the minute, a user id and a reshuffled example order inside the system prompt. One field report moved the hit rate from 7 to 74 percent by moving that text below the cache boundary. Check the prompt template before you blame the fan-out.
+Một tiền tố mang văn bản động trông giống như vậy trong các trường usage: các lần ghi trên mọi request, không bao giờ có lần đọc. Ví dụ của bài học có thời gian đến phút, một user id và một thứ tự ví dụ bị xáo lại bên trong system prompt. Một báo cáo thực địa chuyển hit rate từ 7 lên 74 phần trăm bằng cách chuyển văn bản đó xuống dưới ranh giới cache. Kiểm tra prompt template trước khi đổ lỗi cho việc phân nhánh.
 
 ## Follow-ups
 
-- **Level 2:** How do you tell the fan-out trap from dynamic text in the prefix? Expected: both show writes and no reads. After the fan-out trap, a later sequential request with the same prefix reads. With dynamic text, nothing ever reads.
-- **Level 3:** How do you fix the fan-out without adding latency for the user? Expected: warm the prefix with one call when the session starts, so the first fan-out already reads.
-- **Level 3:** Does a self-hosted prefix cache have the same trap? Expected: the lesson says the self-hosted caches follow the same prefix pattern at your own compute, so measure the cached tokens on a fan-out before you assume they are shared.
+- **Level 2:** Bạn phân biệt bẫy phân nhánh với văn bản động trong tiền tố như thế nào? Expected: cả hai cho thấy các lần ghi và không có lần đọc. Sau bẫy phân nhánh, một request tuần tự sau đó với cùng tiền tố đọc. Với văn bản động, không có gì từng đọc.
+- **Level 3:** Bạn sửa việc phân nhánh mà không thêm độ trễ cho người dùng như thế nào? Expected: làm ấm tiền tố bằng một lời gọi khi phiên bắt đầu, để lần phân nhánh đầu tiên đã đọc.
+- **Level 3:** Một prefix cache tự lưu trữ có cùng cái bẫy không? Expected: bài học nói các cache tự lưu trữ theo cùng mẫu tiền tố trên tài nguyên tính toán của chính bạn, vì vậy đo các token đã cache trên một lần phân nhánh trước khi giả định chúng được dùng chung.
 
 ## Wrong answers
 
-- "Caching is on, so the provider should deduplicate them." Writes are per request, and the cache can be read only after the first write has landed.
-- "Shorten the system prompt." That lowers every bill a little and leaves ten writes and zero reads in place.
-- "Turn caching off, it costs more." It costs more only because of the arrival pattern. Sequential-first turns ten writes into one write and nine reads.
+- "Caching đang bật, vì vậy nhà cung cấp nên khử trùng lặp chúng." Các lần ghi là theo request, và cache chỉ có thể được đọc sau khi lần ghi đầu tiên đã hoàn tất.
+- "Rút ngắn system prompt." Điều đó giảm mọi hóa đơn một chút và vẫn để nguyên mười lần ghi và không lần đọc.
+- "Tắt caching, nó tốn hơn." Nó chỉ tốn hơn vì mẫu thời điểm đến. Tuần tự trước biến mười lần ghi thành một lần ghi và chín lần đọc.
 
 ## Taught in
 
-The [caching economics lesson](../../../phases/17-infrastructure-and-production/14-prompt-semantic-caching/) names the parallelization anti-pattern and its fix, and the [prompt caching lesson](../../../phases/11-llm-engineering/15-prompt-caching/) shows the usage fields to read.
+[Bài học kinh tế caching](../../../phases/17-infrastructure-and-production/14-prompt-semantic-caching/) nêu phản mẫu song song hóa và cách sửa của nó, và [bài học prompt caching](../../../phases/11-llm-engineering/15-prompt-caching/) cho thấy các trường usage cần đọc.

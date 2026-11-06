@@ -16,51 +16,51 @@ related: [cost-capacity/two-cache-layers, cost-capacity/cache-break-even]
 updated: 2026-11-03
 ---
 
-Your semantic cache serves 20 percent of requests at a similarity threshold of 0.95. A teammate lowered it to 0.85 in staging. The hit rate rose to 50 percent, and a few cached answers did not fit the question asked. Which threshold do you ship, and how do you decide?
+Semantic cache của bạn phục vụ 20 phần trăm request ở một ngưỡng tương đồng 0.95. Một đồng đội hạ nó xuống 0.85 trong staging. Hit rate tăng lên 50 phần trăm, và một vài câu trả lời đã cache không phù hợp với câu hỏi được hỏi. Bạn phát hành ngưỡng nào, và bạn quyết định như thế nào?
 
 ## Short answer
 
-Ship the threshold whose wrong hits you can afford, and measure that instead of guessing. A wrong cached answer is a correctness failure that a user sees, while a miss costs one model call. Keep the strict threshold on the general path, and lower it only where the answers are interchangeable or where a disclaimer is acceptable. A vendor's accuracy figure describes how often a hit was appropriate, not how often your traffic hits, so label pairs from your own traffic at both thresholds.
+Phát hành ngưỡng mà các hit sai của nó bạn có thể chịu được, và đo điều đó thay vì đoán. Một câu trả lời cache sai là một thất bại về tính đúng đắn mà người dùng thấy, trong khi một miss tốn một lời gọi mô hình. Giữ ngưỡng nghiêm ngặt trên đường chung, và chỉ hạ nó nơi các câu trả lời có thể thay thế cho nhau hoặc nơi một tuyên bố lưu ý được chấp nhận. Con số độ chính xác của một nhà cung cấp mô tả tần suất một hit phù hợp, không phải tần suất lưu lượng của bạn hit, vì vậy gán nhãn các cặp từ lưu lượng riêng của bạn ở cả hai ngưỡng.
 
 ## Full answer
 
 ### Two numbers that get confused
 
-The hit rate is the share of requests served from the cache. The accuracy of a hit is whether the stored answer fits the new question. The lesson warns that a vendor's accuracy claim describes match correctness, and that production hit rates are community telemetry that runs from about 10 percent on open chat to about 70 percent on structured support.
+Hit rate là tỷ lệ request được phục vụ từ cache. Độ chính xác của một hit là liệu câu trả lời đã lưu có phù hợp với câu hỏi mới không. Bài học cảnh báo rằng tuyên bố độ chính xác của một nhà cung cấp mô tả tính đúng đắn của phép khớp, và rằng các hit rate production là telemetry cộng đồng trải từ khoảng 10 phần trăm trên chat mở đến khoảng 70 phần trăm trên hỗ trợ có cấu trúc.
 
 ### The cost of each error
 
-A miss costs one model call, which you know to the cent. A wrong hit costs a wrong answer in front of a user, a support ticket and some trust, and only the product can price it. The two thresholds trade one for the other.
+Một miss tốn một lời gọi mô hình, mà bạn biết đến từng xu. Một hit sai tốn một câu trả lời sai trước một người dùng, một ticket hỗ trợ và một ít lòng tin, và chỉ bộ phận sản phẩm có thể định giá nó. Hai ngưỡng đánh đổi thứ này lấy thứ kia.
 
 ### Decide with labeled pairs
 
-Sample pairs of a new question and the cached answer it would receive at each threshold. Label each pair as fitting or not. At 0.85 and at 0.95 you then have a hit rate and a precision of hits. Expected saving is the hit rate times the cost of a call. Expected damage is the wrong-hit rate times the cost of a wrong answer. Ship the threshold where the second number is acceptable to the product owner.
+Lấy mẫu các cặp gồm một câu hỏi mới và câu trả lời cache mà nó sẽ nhận ở mỗi ngưỡng. Gán nhãn mỗi cặp là phù hợp hoặc không. Ở 0.85 và ở 0.95 khi đó bạn có một hit rate và một precision của các hit. Tiết kiệm kỳ vọng là hit rate nhân chi phí một lời gọi. Thiệt hại kỳ vọng là tỷ lệ hit sai nhân chi phí một câu trả lời sai. Phát hành ngưỡng mà tại đó con số thứ hai được người phụ trách sản phẩm chấp nhận.
 
 ### A two-tier scheme
 
-The earlier caching lesson's exercise uses two thresholds: hits at 0.98 return at once, and hits at 0.90 return with a disclaimer that the answer comes from a similar earlier question. Log the tier that served each hit, and compare satisfaction per tier. This keeps the strict path strict and still takes the cheap wins.
+Bài tập của bài học caching trước dùng hai ngưỡng: các hit ở 0.98 trả về ngay, và các hit ở 0.90 trả về với một tuyên bố lưu ý rằng câu trả lời đến từ một câu hỏi tương tự trước đó. Ghi log tầng đã phục vụ mỗi hit, và so sánh mức hài lòng theo tầng. Điều này giữ đường nghiêm ngặt nghiêm ngặt và vẫn lấy các thắng lợi rẻ.
 
 ### Why some workloads cannot go low
 
-Code questions hit about 20 to 30 percent at best, because a small change in a code question changes the correct answer. Near-duplicate text is not near-duplicate intent there. Voice agents on a fixed prompt set reach 50 to 80 percent, because the questions really repeat.
+Các câu hỏi mã nguồn hit khoảng 20 đến 30 phần trăm là tốt nhất, vì một thay đổi nhỏ trong một câu hỏi mã nguồn thay đổi câu trả lời đúng. Văn bản gần trùng lặp không phải ý định gần trùng lặp ở đó. Các voice agent trên một tập prompt cố định đạt 50 đến 80 phần trăm, vì các câu hỏi thực sự lặp lại.
 
 ### The checks around the threshold
 
-Run the exact-match cache first, because a byte-identical repeat needs no embedding. Set a lifetime so that stale answers expire. The embedding cost is small, the lesson quotes a per-million-token price of 0.02 dollars for a small embedding model, so the threshold is the lever, not the embedding bill.
+Chạy exact-match cache trước, vì một lần lặp giống từng byte không cần embedding. Đặt một thời gian tồn tại để các câu trả lời lỗi thời hết hạn. Chi phí embedding nhỏ, bài học nêu một giá trên mỗi triệu token là 0.02 đô la cho một mô hình embedding nhỏ, vì vậy ngưỡng là đòn bẩy, không phải hóa đơn embedding.
 
 ## Follow-ups
 
-- **Level 2:** Why is the accuracy number in a vendor's brochure not your hit rate? Expected: accuracy says how often a returned hit was appropriate. The hit rate says how often there was a hit at all, and it depends on your traffic.
-- **Level 2:** What does a miss cost, and what does a wrong hit cost? Expected: a miss costs one model call. A wrong hit costs a wrong answer in front of a user, which the product has to price.
-- **Level 3:** How do you lower the threshold without lowering the correctness of the strict path? Expected: a two-tier scheme, with strict matches served as they are and medium matches served with a disclaimer, and the tier logged so that satisfaction can be compared.
-- **Level 3:** Why do code questions hit so rarely? Expected: a small variant in a code question changes the correct answer, so similar text is not similar intent.
+- **Level 2:** Tại sao con số độ chính xác trong tài liệu quảng bá của một nhà cung cấp không phải hit rate của bạn? Expected: độ chính xác nói tần suất một hit được trả về phù hợp. Hit rate nói tần suất có một hit, và nó phụ thuộc vào lưu lượng của bạn.
+- **Level 2:** Một miss tốn gì, và một hit sai tốn gì? Expected: một miss tốn một lời gọi mô hình. Một hit sai tốn một câu trả lời sai trước một người dùng, điều mà bộ phận sản phẩm phải định giá.
+- **Level 3:** Bạn hạ ngưỡng mà không hạ tính đúng đắn của đường nghiêm ngặt như thế nào? Expected: một sơ đồ hai tầng, với các lần khớp nghiêm ngặt được phục vụ nguyên trạng và các lần khớp trung bình được phục vụ với một tuyên bố lưu ý, và tầng được ghi log để mức hài lòng có thể được so sánh.
+- **Level 3:** Tại sao các câu hỏi mã nguồn hit hiếm như vậy? Expected: một biến thể nhỏ trong một câu hỏi mã nguồn thay đổi câu trả lời đúng, vì vậy văn bản tương tự không phải ý định tương tự.
 
 ## Wrong answers
 
-- "Lower the threshold, the savings are bigger." A wrong hit is a correctness failure that a user sees. Its cost is not one model call.
-- "Raise the threshold until no hit is ever wrong." The hit rate then approaches the exact-match rate, and the cache stops paying for itself.
-- "Use the vendor's accuracy number as the hit rate." The figure describes match correctness, not how often your traffic hits.
+- "Hạ ngưỡng, mức tiết kiệm lớn hơn." Một hit sai là một thất bại về tính đúng đắn mà người dùng thấy. Chi phí của nó không phải một lời gọi mô hình.
+- "Tăng ngưỡng cho đến khi không hit nào từng sai." Hit rate khi đó tiến gần exact-match rate, và cache ngừng tự bù chi phí.
+- "Dùng con số độ chính xác của nhà cung cấp làm hit rate." Con số mô tả tính đúng đắn của phép khớp, không phải tần suất lưu lượng của bạn hit.
 
 ## Taught in
 
-The [caching economics lesson](../../../phases/17-infrastructure-and-production/14-prompt-semantic-caching/) separates match accuracy from hit rate and poses the threshold decision, and the [caching and cost lesson](../../../phases/11-llm-engineering/11-caching-cost/) builds the two-tier thresholds.
+[Bài học kinh tế caching](../../../phases/17-infrastructure-and-production/14-prompt-semantic-caching/) tách độ chính xác phép khớp khỏi hit rate và đặt ra quyết định ngưỡng, và [bài học caching và chi phí](../../../phases/11-llm-engineering/11-caching-cost/) xây dựng các ngưỡng hai tầng.

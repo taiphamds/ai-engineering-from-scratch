@@ -16,52 +16,52 @@ related: [cost-capacity/gateway-latency-budget, cost-capacity/cache-break-even]
 updated: 2026-11-03
 ---
 
-The CTO wants every product-critical model call to survive a full outage of one provider, with no redeploy and without doubling the bill. Design the setup: where the second provider sits, how a request moves between the two, what has to be identical on both sides, and what the design costs.
+CTO muốn mọi lời gọi mô hình quan trọng với sản phẩm sống sót qua một lần gián đoạn hoàn toàn của một nhà cung cấp, không triển khai lại và không tăng gấp đôi hóa đơn. Thiết kế cấu hình: nhà cung cấp thứ hai nằm ở đâu, một request di chuyển giữa hai bên như thế nào, điều gì phải giống hệt ở cả hai phía, và thiết kế tốn gì.
 
 ## Short answer
 
-Put a gateway in front of the application with one model alias per use case, a priority list of two providers behind each alias, and a fallback rule on server errors and rate limits with a bounded retry budget. Keep the cacheable prefix layout, the tool order and the output schema identical on both providers, so that a failed-over request can hit the second provider's cache once that prefix is cached there, and still parses. The steady-state uplift is small, because the gateway sends traffic to the preferred provider most of the time, and the real price is paid in evals and prompt tests that run twice.
+Đặt một gateway trước ứng dụng với một model alias cho mỗi trường hợp sử dụng, một danh sách ưu tiên hai nhà cung cấp sau mỗi alias, và một quy tắc dự phòng khi lỗi máy chủ và giới hạn tốc độ với một ngân sách retry có giới hạn. Giữ bố trí tiền tố có thể cache, thứ tự công cụ và schema đầu ra giống hệt trên cả hai nhà cung cấp, để một request chuyển sang dự phòng có thể hit cache của nhà cung cấp thứ hai khi tiền tố đó được cache ở đó, và vẫn phân tích cú pháp được. Phần chi phí tăng ở trạng thái ổn định nhỏ, vì gateway gửi lưu lượng đến nhà cung cấp ưu tiên hầu hết thời gian, và giá thực được trả bằng các đánh giá và kiểm thử prompt chạy hai lần.
 
 ## Full answer
 
 ### Why two
 
-The lesson on managed platforms argues that locking into one platform locks you out of most of the frontier, because the strongest model moves between vendors every few months, and that a single platform's regional outage is a product outage. Its policy is a two-provider minimum for any product-critical call. The cost uplift is negligible because the gateway routes to the better option in normal operation, and the availability gain during an outage is decisive.
+Bài học về các nền tảng được quản lý lập luận rằng khóa vào một nền tảng khóa bạn ra khỏi phần lớn frontier, vì mô hình mạnh nhất di chuyển giữa các nhà cung cấp mỗi vài tháng, và rằng một lần gián đoạn khu vực của một nền tảng là một lần gián đoạn sản phẩm. Chính sách của nó là tối thiểu hai nhà cung cấp cho bất kỳ lời gọi nào quan trọng với sản phẩm. Chi phí tăng không đáng kể vì gateway định tuyến đến lựa chọn tốt hơn trong vận hành bình thường, và mức tăng tính sẵn sàng trong một lần gián đoạn mang tính quyết định.
 
 ### The gateway in front
 
-The lesson on the routing layer gives the shape. Everyone speaks one API schema, so the gateway exposes one endpoint and translates behind it. Your code names an alias such as `our_smart_model`, and the gateway maps the alias to a concrete model on a concrete provider. Behind each alias sits a priority list: the primary, then the second provider on a server error or a rate limit, then refuse. Retries count against a budget, so that a failing primary cannot multiply the cost. The gateways lesson adds the rest of what the layer owns: rate limits per tenant, credentials pulled from a vault at runtime, observability and guardrails.
+Bài học về lớp định tuyến đưa ra hình dạng. Mọi người nói một API schema, vì vậy gateway cung cấp một endpoint và dịch ở phía sau nó. Mã của bạn nêu một alias chẳng hạn `our_smart_model`, và gateway ánh xạ alias đến một mô hình cụ thể trên một nhà cung cấp cụ thể. Sau mỗi alias nằm một danh sách ưu tiên: nhà cung cấp chính, rồi nhà cung cấp thứ hai khi có một lỗi máy chủ hoặc một giới hạn tốc độ, rồi từ chối. Các lần retry tính vào một ngân sách, để một nhà cung cấp chính đang lỗi không thể nhân chi phí. Bài học gateway thêm phần còn lại mà lớp phụ trách: giới hạn tốc độ theo tenant, thông tin xác thực lấy từ một vault lúc chạy, khả năng quan sát và guardrail.
 
 ### What the two sides share
 
-1. **The cacheable prefix layout.** The rule for cross-provider fallback in the lesson on prompt caching is to keep the layout identical, so that any hit works on either side. Stable parts first, the user message last.
-2. **The tool serialization order.** A reshuffled tool list breaks the cache on every request.
-3. **The output schema and the parser.** A failover that returns a shape the application cannot parse is still an outage.
-4. **The eval set.** Both providers run the same regression suite on every prompt change, or the fallback path drifts without anyone noticing.
+1. **Bố trí tiền tố có thể cache.** Quy tắc cho dự phòng xuyên nhà cung cấp trong bài học prompt caching là giữ bố trí giống hệt, để bất kỳ hit nào hoạt động ở cả hai phía. Các phần ổn định trước, tin nhắn người dùng cuối.
+2. **Thứ tự tuần tự hóa công cụ.** Một danh sách công cụ bị xáo lại phá cache trên mọi request.
+3. **Schema đầu ra và bộ phân tích cú pháp.** Một lần chuyển dự phòng trả về một hình dạng mà ứng dụng không thể phân tích cú pháp vẫn là một lần gián đoạn.
+4. **Tập đánh giá.** Cả hai nhà cung cấp chạy cùng bộ kiểm thử hồi quy trên mọi thay đổi prompt, nếu không đường dự phòng thay đổi dần mà không ai nhận ra.
 
 ### What it costs
 
-- Two sets of evals and prompt regressions per release.
-- Cold caches on the second provider when the outage begins. The first requests pay the write premium, and the minimum cacheable block has to be met on both sides.
-- The gateway's own latency, from a few milliseconds to tens, depending on its class.
-- A log line per call that names the provider that served it, so that the bill splits and the failover rate is visible.
+- Hai bộ đánh giá và kiểm thử hồi quy prompt mỗi bản phát hành.
+- Các cache lạnh trên nhà cung cấp thứ hai khi gián đoạn bắt đầu. Các request đầu trả khoản phí ghi thêm, và kích thước khối tối thiểu có thể cache phải được đáp ứng ở cả hai phía.
+- Độ trễ riêng của gateway, từ vài mili giây đến hàng chục, tùy nhóm của nó.
+- Một dòng log mỗi lời gọi nêu nhà cung cấp đã phục vụ nó, để hóa đơn được chia và tỷ lệ chuyển dự phòng hiện rõ.
 
 ### Prove it before the outage
 
-Inject rate-limit errors from the primary in staging and watch the traffic move. Measure the time to the first successful response on the second provider, and compare the first-token time and the cache reads during the failover with the steady state.
+Đưa vào các lỗi giới hạn tốc độ từ nhà cung cấp chính trong staging và theo dõi lưu lượng di chuyển. Đo thời gian đến phản hồi thành công đầu tiên trên nhà cung cấp thứ hai, và so sánh thời gian token đầu tiên cùng các lần đọc cache trong khi chuyển dự phòng với trạng thái ổn định.
 
 ## Follow-ups
 
-- **Level 3:** Why does the second provider cost little in steady state? Expected: the gateway sends most traffic to the preferred provider. The second one carries traffic only during failures and drills.
-- **Level 4:** What breaks first on a failover without the identical prefix layout? Expected: the cache on the second provider misses on every request, so the outage hour costs full price and the first-token time jumps.
-- **Level 4:** Which failures trigger the failover, and which do not? Expected: server errors, rate limits and timeouts on the primary. Not a guardrail block or a malformed response, which would fail the same way on the second provider.
+- **Level 3:** Tại sao nhà cung cấp thứ hai tốn ít trong trạng thái ổn định? Expected: gateway gửi hầu hết lưu lượng đến nhà cung cấp ưu tiên. Bên thứ hai chỉ mang lưu lượng trong các sự cố và diễn tập.
+- **Level 4:** Điều gì hỏng trước trên một lần chuyển dự phòng không có bố trí tiền tố giống hệt? Expected: cache trên nhà cung cấp thứ hai miss trên mọi request, vì vậy giờ gián đoạn tốn giá đầy đủ và thời gian token đầu tiên tăng vọt.
+- **Level 4:** Những lỗi nào kích hoạt chuyển dự phòng, và những lỗi nào không? Expected: lỗi máy chủ, giới hạn tốc độ và hết thời gian ở nhà cung cấp chính. Không phải một lần chặn guardrail hoặc một phản hồi sai định dạng, sẽ thất bại theo cùng cách trên nhà cung cấp thứ hai.
 
 ## Wrong answers
 
-- "Two providers double the bill." The second provider carries traffic only during failures. The gateway routes to the preferred one the rest of the time.
-- "Tune a separate prompt per provider." Then every change ships twice and the fallback path drifts. Keep one layout and one eval set for both.
-- "Fail over on any error." A guardrail block or a schema error repeats on the second provider and doubles the cost of a request that should fail fast.
+- "Hai nhà cung cấp tăng gấp đôi hóa đơn." Nhà cung cấp thứ hai chỉ mang lưu lượng trong các sự cố. Gateway định tuyến đến bên ưu tiên trong phần thời gian còn lại.
+- "Điều chỉnh một prompt riêng cho mỗi nhà cung cấp." Khi đó mọi thay đổi được phát hành hai lần và đường dự phòng thay đổi dần. Giữ một bố trí và một tập đánh giá cho cả hai.
+- "Chuyển dự phòng trên bất kỳ lỗi nào." Một lần chặn guardrail hoặc một lỗi schema lặp lại trên nhà cung cấp thứ hai và tăng gấp đôi chi phí của một request nên thất bại nhanh.
 
 ## Taught in
 
-The [managed platforms lesson](../../../phases/17-infrastructure-and-production/01-managed-llm-platforms/) sets the two-provider policy, the [routing layer lesson](../../../phases/13-tools-and-protocols/21-llm-routing-layer/) gives aliases and fallback chains, the [AI gateways lesson](../../../phases/17-infrastructure-and-production/19-ai-gateways/) lists the gateway features, and the [prompt caching lesson](../../../phases/11-llm-engineering/15-prompt-caching/) keeps the cacheable layout identical across providers.
+[Bài học các nền tảng được quản lý](../../../phases/17-infrastructure-and-production/01-managed-llm-platforms/) đặt chính sách hai nhà cung cấp, [bài học lớp định tuyến](../../../phases/13-tools-and-protocols/21-llm-routing-layer/) đưa ra các alias và chuỗi dự phòng, [bài học AI gateway](../../../phases/17-infrastructure-and-production/19-ai-gateways/) liệt kê các tính năng gateway, và [bài học prompt caching](../../../phases/11-llm-engineering/15-prompt-caching/) giữ bố trí có thể cache giống hệt giữa các nhà cung cấp.

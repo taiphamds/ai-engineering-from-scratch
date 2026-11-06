@@ -16,47 +16,47 @@ related: [inference-serving/goodput-sets-the-cap, inference-serving/kv-pool-user
 updated: 2026-11-03
 ---
 
-A teammate raised the memory fraction of a self-hosted server and grew the KV pool by 63 percent. The closed-loop benchmark at 64 concurrent users did not move. They want to revert the change, because the extra memory bought nothing. What do you tell them, and which measurement settles it?
+Một đồng đội tăng tỷ lệ bộ nhớ của một máy chủ tự lưu trữ và tăng KV pool thêm 63 phần trăm. Benchmark vòng kín ở 64 người dùng đồng thời không thay đổi. Họ muốn hoàn tác thay đổi, vì bộ nhớ thêm không mua được gì. Bạn nói gì với họ, và phép đo nào phân định điều đó?
 
 ## Short answer
 
-The benchmark never filled the pool, so the extra memory had nothing to do. At 64 users the running requests held about 11 percent of the pool, and throughput stayed within 2 percent. Under an open-loop overload the same pool mattered: at the smaller fraction the pool was 96 percent full with requests waiting outside it, and the larger pool completed about a third more requests per second. Size the pool from token usage at peak load, bursts included, and read it from the scheduler's decode lines, not from a closed-loop sweep.
+Benchmark chưa bao giờ lấp đầy pool, vì vậy bộ nhớ thêm không có việc gì để làm. Ở 64 người dùng các request đang chạy giữ khoảng 11 phần trăm pool, và throughput giữ trong phạm vi 2 phần trăm. Dưới một tải quá mức vòng mở cùng pool đó có ý nghĩa: ở tỷ lệ nhỏ hơn pool đầy 96 phần trăm với các request chờ bên ngoài nó, và pool lớn hơn hoàn tất thêm khoảng một phần ba số request mỗi giây. Định kích thước pool từ mức sử dụng token tại tải đỉnh, gồm cả các đợt bùng phát, và đọc nó từ các dòng decode của scheduler, không từ một phép quét vòng kín.
 
 ## Full answer
 
 ### What the closed loop showed
 
-The manual ran the same load sweep at a fraction of 0.7 and at 0.82 on one machine, three seeds per point. The BF16 pool grew from 234,600 to 383,065 tokens. At every concurrency the two medians were within 2 percent of each other. The decode line with the highest token usage in the whole larger-pool sweep shows why: 64 running requests held 40,751 tokens, 11 percent of the pool. On the smaller pool the highest usage in the sweep was 18 percent. A pool that is never full has nothing to give.
+Tài liệu chạy cùng phép quét tải ở một tỷ lệ 0.7 và ở 0.82 trên một máy, ba seed mỗi điểm. Pool BF16 tăng từ 234,600 lên 383,065 token. Ở mọi mức đồng thời hai trung vị nằm trong phạm vi 2 phần trăm của nhau. Dòng decode có mức sử dụng token cao nhất trong toàn bộ phép quét pool lớn hơn cho thấy tại sao: 64 request đang chạy giữ 40,751 token, 11 phần trăm pool. Trên pool nhỏ hơn mức sử dụng cao nhất trong phép quét là 18 phần trăm. Một pool không bao giờ đầy không có gì để cho.
 
 ### What the open loop showed
 
-The open-loop sweep offered 16 requests per second, more than the machine serves. At 0.7 the decode line read 374 running requests at a token usage of 0.96, with 101 requests waiting in the queue. At 0.82 all 480 requests of the run fit at once at a usage of 0.75, with none waiting. The run completed 5.19 requests per second against 3.88, which is 34 percent more, and 664 against 497 output tokens per second. The two runs were a day apart, so part of the gap can be the machine. The log lines prove the mechanism, and the size of the gain belongs to that run.
+Phép quét vòng mở đưa vào 16 request mỗi giây, nhiều hơn máy phục vụ. Ở 0.7 dòng decode đọc được 374 request đang chạy tại mức sử dụng token 0.96, với 101 request đang chờ trong hàng đợi. Ở 0.82 tất cả 480 request của lần chạy vừa cùng lúc tại mức sử dụng 0.75, không có request nào chờ. Lần chạy hoàn tất 5.19 request mỗi giây so với 3.88, nhiều hơn 34 phần trăm, và 664 so với 497 token đầu ra mỗi giây. Hai lần chạy cách nhau một ngày, vì vậy một phần khoảng cách có thể là do máy. Các dòng log chứng minh cơ chế, và kích thước mức tăng thuộc về lần chạy đó.
 
 ### Why the closed loop could not see it
 
-In a closed loop each client waits for its answer before it sends the next request. The server never holds more work than it finishes, so the pool never fills. Real users arrive on their own clock. Only an arrival rate above the service rate shows what the pool is worth.
+Trong một vòng kín mỗi client chờ câu trả lời của nó trước khi gửi request tiếp theo. Máy chủ không bao giờ giữ nhiều công việc hơn nó hoàn tất, vì vậy pool không bao giờ đầy. Những người dùng thật đến theo đồng hồ riêng của họ. Chỉ một tốc độ đến trên tốc độ phục vụ cho thấy pool đáng giá gì.
 
 ### The cost of memory nobody uses
 
-On a shared machine, memory in the pool is memory that another program cannot use. The manual's machine ran a memory guard that paused the scheduler when the pool allocation grew by tens of gigabytes in seconds. On a dedicated GPU, trust the automatic value first, and raise the fraction in steps of 0.02 only when the scheduler log shows a full pool and retractions.
+Trên một máy dùng chung, bộ nhớ trong pool là bộ nhớ mà một chương trình khác không thể dùng. Máy của tài liệu chạy một bộ bảo vệ bộ nhớ tạm dừng scheduler khi phần cấp phát pool tăng hàng chục gigabyte trong vài giây. Trên một GPU chuyên dụng, tin giá trị tự động trước, và tăng tỷ lệ theo các bước 0.02 chỉ khi log scheduler cho thấy một pool đầy và các lần rút lại.
 
 ### The measurement that settles it
 
-Read the token usage in the decode lines at peak load, the queue length, and the retraction count. Read `max_total_num_tokens` at startup. If usage never approaches one and nothing waits, the pool is not the limit, and the extra memory belongs to something else.
+Đọc mức sử dụng token trong các dòng decode tại tải đỉnh, độ dài hàng đợi, và số lần rút lại. Đọc `max_total_num_tokens` lúc khởi động. Nếu mức sử dụng không bao giờ tiến gần một và không có gì chờ, pool không phải giới hạn, và bộ nhớ thêm thuộc về thứ khác.
 
 ## Follow-ups
 
-- **Level 3:** Why did the closed-loop sweep never fill the pool? Expected: each client waits for its answer before it sends the next request, so the server never holds more work than it finishes.
-- **Level 3:** Which log lines tell you the pool is the limit? Expected: token usage near one in the decode lines, a queue above zero, and retractions.
-- **Level 4:** On a shared machine, what does an oversized pool cost? Expected: memory that other programs cannot use. The manual's machine had a guard that paused the scheduler when the pool allocation grew by tens of gigabytes in seconds.
-- **Level 4:** The two overload runs were a day apart. How much of the gain do you trust? Expected: the mechanism, from the lines that show one pool full with requests waiting and the other with room. The size of the gain needs a same-day repeat.
+- **Level 3:** Tại sao phép quét vòng kín không bao giờ lấp đầy pool? Expected: mỗi client chờ câu trả lời của nó trước khi gửi request tiếp theo, vì vậy máy chủ không bao giờ giữ nhiều công việc hơn nó hoàn tất.
+- **Level 3:** Các dòng log nào cho bạn biết pool là giới hạn? Expected: mức sử dụng token gần một trong các dòng decode, một hàng đợi trên không, và các lần rút lại.
+- **Level 4:** Trên một máy dùng chung, một pool quá lớn tốn gì? Expected: bộ nhớ mà các chương trình khác không thể dùng. Máy của tài liệu có một bộ bảo vệ tạm dừng scheduler khi phần cấp phát pool tăng hàng chục gigabyte trong vài giây.
+- **Level 4:** Hai lần chạy quá tải cách nhau một ngày. Bạn tin bao nhiêu trong mức tăng? Expected: cơ chế, từ các dòng cho thấy một pool đầy với các request đang chờ và pool còn lại còn chỗ. Kích thước mức tăng cần một lần lặp lại cùng ngày.
 
 ## Wrong answers
 
-- "The pool did not matter, revert it." It did not matter under a load that never filled it. The overload filled it and completed a third more requests per second.
-- "Give the pool as much memory as possible." On a shared machine that memory is taken from other programs, and past the point where the pool fills it buys nothing.
-- "Throughput at 64 users is the capacity number." Capacity shows under an arrival rate above the service rate, which a closed loop cannot produce.
+- "Pool không có ý nghĩa, hoàn tác nó." Nó không có ý nghĩa dưới một tải không bao giờ lấp đầy nó. Tải quá mức lấp đầy nó và hoàn tất thêm một phần ba số request mỗi giây.
+- "Cho pool càng nhiều bộ nhớ càng tốt." Trên một máy dùng chung bộ nhớ đó bị lấy khỏi các chương trình khác, và qua điểm mà pool đầy nó không mua được gì.
+- "Throughput ở 64 người dùng là con số năng lực." Năng lực thể hiện dưới một tốc độ đến trên tốc độ phục vụ, điều mà một vòng kín không thể tạo ra.
 
 ## Taught in
 
-The [memory fraction section of SGLang 101](../../../manuals/sglang-101/sections/3-2-mem-fraction-static-and-startup-sizing.md) measures the same pool in a closed-loop sweep and in an overload that arrives faster than the server serves.
+[Phần tỷ lệ bộ nhớ của SGLang 101](../../../manuals/sglang-101/sections/3-2-mem-fraction-static-and-startup-sizing.md) đo cùng pool trong một phép quét vòng kín và trong một tải quá mức đến nhanh hơn máy chủ phục vụ.

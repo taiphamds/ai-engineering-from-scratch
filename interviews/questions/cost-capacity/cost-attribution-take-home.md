@@ -16,48 +16,48 @@ related: [cost-capacity/cost-per-outcome, cost-capacity/budget-circuit-breaker]
 updated: 2026-11-03
 ---
 
-Take-home. You receive one day of request logs from a multi-tenant assistant. Each record follows the lesson's attribution trace: a trace id, a timestamp, the tenant, the user, the task id and its route, the model, the token counts for each of the four layers in the lesson's trace, whether the input was cached, and whether the task was resolved. You also receive the daily spend of each tenant over the previous weeks, as the baseline for the kill switch. Build a simulator that attributes spend by tenant, task and user, splits the tokens into layers, computes a cost per resolved task per tenant, and enforces a rate limit, a daily spend cap and a kill switch. Inject one abusive tenant and show when each control fires.
+Bài làm ở nhà. Bạn nhận một ngày log request từ một trợ lý đa tenant. Mỗi bản ghi theo trace quy gán của bài học: một trace id, một dấu thời gian, tenant, người dùng, task id và tuyến của nó, mô hình, số đếm token cho mỗi lớp trong bốn lớp của trace trong bài học, đầu vào có được cache không, và nhiệm vụ có được giải quyết không. Bạn cũng nhận chi tiêu hằng ngày của mỗi tenant trong các tuần trước, làm baseline cho kill switch. Xây dựng một bộ mô phỏng quy gán chi tiêu theo tenant, nhiệm vụ và người dùng, chia token thành các lớp, tính chi phí trên mỗi nhiệm vụ được giải quyết theo tenant, và thực thi một giới hạn tốc độ, một giới hạn chi tiêu hằng ngày và một kill switch. Đưa vào một tenant lạm dụng và cho thấy khi nào mỗi biện pháp kiểm soát kích hoạt.
 
 ## Short answer
 
-Price every call from a pricing table, roll the cost up by tenant, by task with its route and by user, and split the tokens into prompt, tool, memory and response so that the report names the layer that drives each tenant's spend. Compute the cost per resolved task from the outcome field, not from the token totals. Implement the ladder from the lesson: a rate limit at 2 to 3 times the expected peak, a daily cap at 1.5 to 3 times the contracted ceiling, and a kill switch on a spend z-score above 4 against the tenant's own baseline. Show the abusive tenant hit the rate limit first, then the cap, then the kill switch when its spend jumps far above its history.
+Định giá mọi lời gọi từ một bảng giá, tổng hợp chi phí theo tenant, theo nhiệm vụ với tuyến của nó và theo người dùng, và chia token thành prompt, công cụ, bộ nhớ và phản hồi để báo cáo nêu lớp thúc đẩy chi tiêu của mỗi tenant. Tính chi phí trên mỗi nhiệm vụ được giải quyết từ trường kết quả, không từ tổng token. Triển khai thang từ bài học: một giới hạn tốc độ ở 2 đến 3 lần đỉnh dự kiến, một giới hạn hằng ngày ở 1.5 đến 3 lần trần hợp đồng, và một kill switch trên z-score chi tiêu trên 4 so với baseline riêng của tenant. Cho thấy tenant lạm dụng chạm giới hạn tốc độ trước, rồi giới hạn chi tiêu, rồi kill switch khi chi tiêu của nó nhảy vọt cao hơn nhiều so với lịch sử.
 
 ## Full answer
 
 ### What a complete submission contains
 
-1. **A cost on every call.** A pricing table with the cached input price, as the earlier caching lesson builds it, and a function that turns tokens into dollars per call.
-2. **Attribution in three dimensions.** Spend by tenant, by task and route, and by user, joined by the trace id as the telemetry joiner pattern does. Nothing is inferred after the fact.
-3. **Four token layers.** Prompt, tool, memory and response per task, as shares. The lesson's typical bands are the sanity check: prompt 40 to 60 percent, tool 20 to 40 percent on agent work, memory and response 10 to 30 percent each.
-4. **The unit metric.** For every tenant and every feature, the spend divided by the resolved tasks, from the resolution field. A task that was not resolved still cost money, and that is the point of the metric.
-5. **The enforcement ladder.** The rate limit answers with a 429 and a retry header. The cap tightens the rate limit and raises an alert. The kill switch pauses the tenant and pages.
-6. **The injected tenant.** A timeline of its spend and of the control that fired at each point, with the z-score plotted against the threshold.
-7. **The first five dashboard views.** The lesson's exercise asks for them. A strong answer: spend per tenant over time, the per-tenant spend divided by resolved tasks, the layer split per task, the top users by spend, and the enforcement events.
+1. **Một chi phí trên mọi lời gọi.** Một bảng giá với giá đầu vào đã cache, như bài học caching trước xây dựng, và một hàm chuyển token thành đô la mỗi lời gọi.
+2. **Quy gán theo ba chiều.** Chi tiêu theo tenant, theo nhiệm vụ và tuyến, và theo người dùng, được nối bằng trace id như mẫu telemetry joiner thực hiện. Không có gì được suy ra sau sự việc.
+3. **Bốn lớp token.** Prompt, công cụ, bộ nhớ và phản hồi theo mỗi nhiệm vụ, dưới dạng tỷ lệ. Các dải điển hình của bài học là phép kiểm tra hợp lý: prompt 40 đến 60 phần trăm, công cụ 20 đến 40 phần trăm trên công việc agent, bộ nhớ và phản hồi mỗi lớp 10 đến 30 phần trăm.
+4. **Metric đơn vị.** Đối với mọi tenant và mọi tính năng, chi tiêu chia cho các nhiệm vụ được giải quyết, từ trường giải quyết. Một nhiệm vụ chưa được giải quyết vẫn tốn tiền, và đó là ý nghĩa của metric.
+5. **Thang thực thi.** Giới hạn tốc độ trả lời bằng một 429 và một retry header. Giới hạn chi tiêu siết giới hạn tốc độ và phát một cảnh báo. Kill switch tạm dừng tenant và gọi trực.
+6. **Tenant được đưa vào.** Một dòng thời gian về chi tiêu của nó và biện pháp kiểm soát đã kích hoạt tại mỗi điểm, với z-score được vẽ so với ngưỡng.
+7. **Năm chế độ xem dashboard đầu tiên.** Bài tập của bài học yêu cầu chúng. Một câu trả lời mạnh: chi tiêu theo tenant theo thời gian, chi tiêu từng tenant chia cho các nhiệm vụ được giải quyết, phân chia lớp theo nhiệm vụ, những người dùng đứng đầu về chi tiêu, và các sự kiện thực thi.
 
 ### What the reviewer looks for
 
-- The attribution is stamped at request creation and joined by trace id, never guessed from the bill.
-- The layers are separate, and the report says which one to fix for each heavy tenant.
-- The unit metric is tied to an outcome.
-- The kill switch is relative to the tenant's own baseline, and the threshold is justified, which is the lesson's first exercise.
-- The order of the controls is explained: friction first, pause last.
+- Việc quy gán được đóng dấu lúc tạo request và được nối bằng trace id, không bao giờ đoán từ hóa đơn.
+- Các lớp tách biệt, và báo cáo nói lớp nào cần sửa cho mỗi tenant sử dụng nặng.
+- Metric đơn vị gắn với một kết quả.
+- Kill switch tương đối so với baseline riêng của tenant, và ngưỡng được biện minh, là bài tập đầu tiên của bài học.
+- Thứ tự các biện pháp kiểm soát được giải thích: trở ngại trước, tạm dừng cuối.
 
 ### What to argue in the write-up
 
-The lesson's third exercise: the largest tenant has a negative margin. Propose three interventions ordered by customer impact, such as caching and routing on their heaviest task first, a quota change second, and a price change at renewal last. Then argue whether retroactive tagging can ever work, which the lesson asks in its last exercise. The honest answer is that it fills a gap for legacy data and always misses cases.
+Bài tập thứ ba của bài học: tenant lớn nhất có biên lợi nhuận âm. Đề xuất ba can thiệp theo thứ tự tác động đến khách hàng, chẳng hạn caching và định tuyến trên nhiệm vụ nặng nhất của họ trước, một thay đổi quota thứ hai, và một thay đổi giá lúc gia hạn cuối cùng. Rồi lập luận liệu gắn thẻ hồi tố có bao giờ hoạt động được không, điều mà bài học hỏi trong bài tập cuối. Câu trả lời trung thực là nó lấp một khoảng trống cho dữ liệu cũ và luôn bỏ sót các trường hợp.
 
 ## Follow-ups
 
-- **Level 3:** Why is the kill switch relative to each tenant's history instead of a fixed amount? Expected: tenants differ by orders of magnitude. A fixed amount pauses a large tenant on a normal day and never fires for a small one.
-- **Level 4:** Your largest tenant is unprofitable in the report. What do you propose? Expected: three interventions ordered by customer impact, such as caching and routing on their heaviest task, then a quota change, then a price change at renewal.
-- **Level 4:** Which five views would you put on the dashboard first? Expected: spend per tenant over time, the per-tenant spend divided by resolved tasks, the layer split per task, the top users by spend, and the enforcement events timeline.
+- **Level 3:** Tại sao kill switch tương đối so với lịch sử của mỗi tenant thay vì một số tiền cố định? Expected: các tenant khác nhau theo các bậc độ lớn. Một số tiền cố định tạm dừng một tenant lớn trong một ngày bình thường và không bao giờ kích hoạt cho một tenant nhỏ.
+- **Level 4:** Tenant lớn nhất của bạn không có lợi nhuận trong báo cáo. Bạn đề xuất gì? Expected: ba can thiệp theo thứ tự tác động đến khách hàng, chẳng hạn caching và định tuyến trên nhiệm vụ nặng nhất của họ, rồi một thay đổi quota, rồi một thay đổi giá lúc gia hạn.
+- **Level 4:** Bạn sẽ đưa năm chế độ xem nào lên dashboard trước? Expected: chi tiêu theo tenant theo thời gian, chi tiêu từng tenant chia cho các nhiệm vụ được giải quyết, phân chia lớp theo nhiệm vụ, những người dùng đứng đầu về chi tiêu, và dòng thời gian các sự kiện thực thi.
 
 ## Wrong answers
 
-- "Attribute the bill by dividing it by seats." That hides the heavy tenants and the heavy features, which is what the exercise is for.
-- "One token bucket for everything." A single bucket cannot say which layer or tenant to fix, and it cannot carry a per-tenant cap.
-- "Fire the kill switch at a fixed dollar amount." Tenants differ by orders of magnitude. A fixed amount is wrong for all but one of them.
+- "Quy gán hóa đơn bằng cách chia nó cho số chỗ ngồi." Điều đó che giấu các tenant sử dụng nặng và các tính năng nặng, chính là điều bài tập nhằm đến.
+- "Một token bucket cho mọi thứ." Một bucket duy nhất không thể nói lớp hoặc tenant nào cần sửa, và nó không thể mang một giới hạn cho từng tenant.
+- "Kích hoạt kill switch ở một số đô la cố định." Các tenant khác nhau theo các bậc độ lớn. Một số tiền cố định sai cho tất cả trừ một trong số họ.
 
 ## Taught in
 
-The [FinOps for LLMs lesson](../../../phases/17-infrastructure-and-production/27-finops-llms/) defines the attribution dimensions, the token layers and the enforcement ladder, and the [caching and cost lesson](../../../phases/11-llm-engineering/11-caching-cost/) supplies the pricing table and the cost tracker.
+[Bài học FinOps cho LLM](../../../phases/17-infrastructure-and-production/27-finops-llms/) định nghĩa các chiều quy gán, các lớp token và thang thực thi, và [bài học caching và chi phí](../../../phases/11-llm-engineering/11-caching-cost/) cung cấp bảng giá và bộ theo dõi chi phí.

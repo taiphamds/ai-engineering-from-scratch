@@ -16,52 +16,52 @@ related: [cost-capacity/warm-pool-or-cold-start, cost-capacity/batch-lane-triage
 updated: 2026-11-03
 ---
 
-Two inference platforms quote you for the same open model. One bills per million tokens. The other rents a dedicated GPU by the minute. Your traffic is steady through the working day and near zero at night. Which pricing wins, and what number decides it?
+Hai nền tảng suy luận báo giá cho bạn cùng một mô hình mở. Một tính phí trên mỗi triệu token. Nền tảng còn lại cho thuê một GPU chuyên dụng theo phút. Lưu lượng của bạn ổn định trong ngày làm việc và gần không vào ban đêm. Cách định giá nào thắng, và con số nào quyết định nó?
 
 ## Short answer
 
-Sustained utilization decides it. Per-token billing charges only for what you use, so it wins when traffic is bursty or low and a dedicated GPU would sit idle. Per-minute billing charges for wall-clock time, so it wins once you keep the GPU busy, and the lesson's rule of thumb puts the crossover near 30 percent sustained utilization. A load that runs only in the daytime sits near that line, so measure your utilization over a full week before you sign.
+Mức sử dụng duy trì quyết định nó. Tính phí theo token chỉ thu cho những gì bạn dùng, vì vậy nó thắng khi lưu lượng bùng phát hoặc thấp và một GPU chuyên dụng sẽ nhàn rỗi. Tính phí theo phút thu cho thời gian thực trôi qua, vì vậy nó thắng khi bạn giữ GPU bận, và quy tắc kinh nghiệm của bài học đặt điểm giao gần 30 phần trăm mức sử dụng duy trì. Một tải chỉ chạy ban ngày nằm gần ranh giới đó, vì vậy đo mức sử dụng của bạn trong cả một tuần trước khi ký.
 
 ## Full answer
 
 ### Two cost functions for one output
 
-Per-token pricing reflects the platform's own utilization curve across all of its customers, and you pay for no idle time. Per-minute or per-second pricing reflects exclusivity: the GPU is yours, and the bill runs whether or not a request arrives. The output, a model response, is the same.
+Định giá theo token phản ánh đường cong mức sử dụng riêng của nền tảng trên tất cả khách hàng của nó, và bạn không trả cho thời gian nhàn rỗi. Định giá theo phút hoặc theo giây phản ánh tính độc quyền: GPU là của bạn, và hóa đơn chạy dù có request đến hay không. Đầu ra, một phản hồi mô hình, là như nhau.
 
 ### The crossover
 
-The economics lesson states the rule: above about 30 percent sustained utilization of a dedicated GPU, per-minute starts to beat per-token. Below it, per-token wins because you are not paying for idle. The lesson on managed platforms shows the same shape for reserved capacity on a hyperscaler: the break-even sits around 40 to 60 percent sustained utilization, savings reach up to 70 percent at high utilization, and the reservation is billed when idle.
+Bài học kinh tế nêu quy tắc: trên khoảng 30 phần trăm mức sử dụng duy trì của một GPU chuyên dụng, theo phút bắt đầu thắng theo token. Dưới mức đó, theo token thắng vì bạn không trả cho nhàn rỗi. Bài học về các nền tảng được quản lý cho thấy cùng dạng cho năng lực đặt trước trên một hyperscaler: điểm hòa vốn nằm quanh 40 đến 60 phần trăm mức sử dụng duy trì, tiết kiệm đạt đến 70 phần trăm ở mức sử dụng cao, và phần đặt trước được tính phí khi nhàn rỗi.
 
 ### Compute it for your own traffic
 
-1. Take the request count per hour of the day for a week, and the tokens per request.
-2. The per-token bill is the token total times the rate.
-3. The per-minute bill is the rented hours times the rate. That is every hour unless you scale to zero at night, which brings a cold start every morning.
-4. Utilization is the busy time divided by the rented time. Compare it with the crossover.
+1. Lấy số request theo giờ trong ngày cho một tuần, và số token mỗi request.
+2. Hóa đơn theo token là tổng token nhân mức giá.
+3. Hóa đơn theo phút là số giờ thuê nhân mức giá. Đó là mọi giờ trừ khi bạn thu về không vào ban đêm, mang lại một cold start mỗi sáng.
+4. Mức sử dụng là thời gian bận chia cho thời gian thuê. So sánh nó với điểm giao.
 
 ### What the price does not show
 
-- Dedicated capacity avoids queueing behind other tenants. The lesson on managed platforms measures a lower first-token median on reserved capacity than on shared on-demand for the same model class.
-- A fine-tuned model can change the per-token price. One platform in the lesson serves a fine-tune at the base model's rate, which is a differentiator. A dedicated GPU serves it at the same hourly price either way.
-- Non-interactive work has a third option: a batch tier at about half the serverless rate.
+- Năng lực chuyên dụng tránh việc xếp hàng sau các tenant khác. Bài học về các nền tảng được quản lý đo một trung vị token đầu tiên thấp hơn trên năng lực đặt trước so với dùng chung theo nhu cầu cho cùng nhóm mô hình.
+- Một mô hình fine-tune có thể thay đổi giá theo token. Một nền tảng trong bài học phục vụ một bản fine-tune ở mức giá của mô hình cơ sở, là một điểm khác biệt. Một GPU chuyên dụng phục vụ nó ở cùng giá theo giờ dù cách nào.
+- Công việc không tương tác có một lựa chọn thứ ba: một tầng batch ở khoảng một nửa giá serverless.
 
 ### A mixed answer
 
-Rent dedicated capacity for the daytime floor, and send the overflow and the overnight batch to per-token or batch pricing. The utilization of the dedicated part then stays high, and the bursts never pay for an idle GPU.
+Thuê năng lực chuyên dụng cho mức nền ban ngày, và gửi phần vượt cùng batch qua đêm sang định giá theo token hoặc batch. Mức sử dụng của phần chuyên dụng khi đó giữ cao, và các đợt bùng phát không bao giờ trả cho một GPU nhàn rỗi.
 
 ## Follow-ups
 
-- **Level 2:** Why does per-token pricing cost more per token than your own GPU time at high utilization? Expected: the platform's margin and its idle time are built into the per-token rate. At high utilization you pay for idle that you do not have.
-- **Level 2:** What changes when you scale the dedicated GPU to zero at night? Expected: you stop paying for the night and buy a cold start every morning, so the first requests of the day pay in latency.
-- **Level 3:** Why is the dedicated option faster at the tail? Expected: shared on-demand capacity competes with every other customer's traffic, and dedicated capacity does not. That is the gap the lesson on managed platforms measures between reserved and on-demand first-token latency.
-- **Level 3:** How does a fine-tuned model change the comparison? Expected: a per-token platform may serve the fine-tune at the base rate or charge a premium for it. A dedicated GPU serves it at the same hourly price either way.
+- **Level 2:** Tại sao định giá theo token tốn hơn trên mỗi token so với thời gian GPU riêng của bạn ở mức sử dụng cao? Expected: biên lợi nhuận và thời gian nhàn rỗi của nền tảng được tính vào giá theo token. Ở mức sử dụng cao bạn trả cho sự nhàn rỗi mà bạn không có.
+- **Level 2:** Điều gì thay đổi khi bạn thu GPU chuyên dụng về không vào ban đêm? Expected: bạn ngừng trả cho ban đêm và mua một cold start mỗi sáng, vì vậy các request đầu ngày trả bằng độ trễ.
+- **Level 3:** Tại sao lựa chọn chuyên dụng nhanh hơn ở đuôi? Expected: năng lực dùng chung theo nhu cầu cạnh tranh với lưu lượng của mọi khách hàng khác, và năng lực chuyên dụng thì không. Đó là khoảng cách mà bài học về các nền tảng được quản lý đo giữa độ trễ token đầu tiên đặt trước và theo nhu cầu.
+- **Level 3:** Một mô hình fine-tune thay đổi phép so sánh như thế nào? Expected: một nền tảng theo token có thể phục vụ bản fine-tune ở giá cơ sở hoặc thu thêm cho nó. Một GPU chuyên dụng phục vụ nó ở cùng giá theo giờ dù cách nào.
 
 ## Wrong answers
 
-- "Per-token is always cheaper because you never pay for idle." Above the utilization crossover, the per-token rate carries the platform's idle and margin, and your own GPU is cheaper.
-- "Dedicated is always cheaper at scale." Only when you keep it busy. A daytime-only load leaves it idle half the time.
-- "Compare the headline prices." The two prices have different units. Only your traffic profile turns them into a bill.
+- "Theo token luôn rẻ hơn vì bạn không bao giờ trả cho nhàn rỗi." Trên điểm giao mức sử dụng, giá theo token mang sự nhàn rỗi và biên lợi nhuận của nền tảng, và GPU riêng của bạn rẻ hơn.
+- "Chuyên dụng luôn rẻ hơn ở quy mô lớn." Chỉ khi bạn giữ nó bận. Một tải chỉ ban ngày để nó nhàn rỗi một nửa thời gian.
+- "So sánh các giá niêm yết nổi bật." Hai giá có các đơn vị khác nhau. Chỉ hồ sơ lưu lượng của bạn biến chúng thành một hóa đơn.
 
 ## Taught in
 
-The [inference platform economics lesson](../../../phases/17-infrastructure-and-production/02-inference-platform-economics/) gives the per-token against per-minute crossover, and the [managed platforms lesson](../../../phases/17-infrastructure-and-production/01-managed-llm-platforms/) gives the break-even for reserved capacity.
+[Bài học kinh tế nền tảng suy luận](../../../phases/17-infrastructure-and-production/02-inference-platform-economics/) đưa ra điểm giao giữa theo token và theo phút, và [bài học các nền tảng được quản lý](../../../phases/17-infrastructure-and-production/01-managed-llm-platforms/) đưa ra điểm hòa vốn cho năng lực đặt trước.

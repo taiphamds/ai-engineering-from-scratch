@@ -16,59 +16,59 @@ related: [cost-capacity/cost-per-outcome]
 updated: 2026-11-03
 ---
 
-Last month a bug in a retry loop spent the whole monthly model budget in two days, and nobody saw it until the invoice. Design the controls that stop the next one, with the thresholds and what each threshold does.
+Tháng trước một lỗi trong một vòng lặp retry tiêu hết ngân sách mô hình cả tháng trong hai ngày, và không ai thấy nó cho đến khi có hóa đơn. Thiết kế các biện pháp kiểm soát ngăn lần tiếp theo, với các ngưỡng và việc mỗi ngưỡng làm.
 
 ## Short answer
 
-Put a cost tracker on every call and a ladder of thresholds on top of it. At 70 percent of the budget alert, at 85 percent throttle so that every request goes to the cheapest model, and at 95 percent stop so that only cached answers are served and new calls are refused. In front of the ladder, add a rate limit and a daily spend cap per tenant, and a kill switch that pauses a tenant whose spend jumps far above its own history.
+Đặt một bộ theo dõi chi phí trên mọi lời gọi và một thang ngưỡng ở trên nó. Ở 70 phần trăm ngân sách cảnh báo, ở 85 phần trăm điều tiết để mọi request đi đến mô hình rẻ nhất, và ở 95 phần trăm dừng để chỉ các câu trả lời đã cache được phục vụ và các lời gọi mới bị từ chối. Trước thang đó, thêm một giới hạn tốc độ và một giới hạn chi tiêu hằng ngày cho mỗi tenant, và một kill switch tạm dừng một tenant có chi tiêu nhảy vọt cao hơn nhiều so với lịch sử của chính nó.
 
 ## Full answer
 
 ### The tracker
 
-Every call logs the timestamp, the model, the input and output tokens, the latency, the computed cost, the user, the cache status and the request category. The running total against the monthly budget is the input of every control below. A check that runs nightly is too slow, because a retry loop spends a day's budget in minutes.
+Mọi lời gọi ghi log dấu thời gian, mô hình, các token đầu vào và đầu ra, độ trễ, chi phí được tính, người dùng, trạng thái cache và loại request. Tổng lũy kế so với ngân sách tháng là đầu vào của mọi biện pháp kiểm soát bên dưới. Một phép kiểm tra chạy hằng đêm quá chậm, vì một vòng lặp retry tiêu ngân sách một ngày trong vài phút.
 
 ### The budget ladder
 
-| Share spent | Action |
+| Tỷ lệ đã chi | Hành động |
 |---|---|
-| 70 percent | send an alert |
-| 85 percent | throttle: route every request to the cheapest model |
-| 95 percent | stop: serve cached responses only, refuse new requests |
+| 70 phần trăm | gửi một cảnh báo |
+| 85 phần trăm | điều tiết: định tuyến mọi request đến mô hình rẻ nhất |
+| 95 phần trăm | dừng: chỉ phục vụ các phản hồi đã cache, từ chối các request mới |
 
-Each step buys time for the next. The alert gives people a chance to act, the throttle keeps the service up at lower quality while the spend slows, and the stop protects the budget when nobody acted.
+Mỗi bước mua thời gian cho bước tiếp theo. Cảnh báo cho mọi người một cơ hội hành động, việc điều tiết giữ dịch vụ hoạt động ở chất lượng thấp hơn trong khi chi tiêu chậm lại, và việc dừng bảo vệ ngân sách khi không ai hành động.
 
 ### The per-tenant ladder
 
-The FinOps lesson gives three controls per tenant for a multi-tenant product:
+Bài học FinOps đưa ra ba biện pháp kiểm soát cho mỗi tenant đối với một sản phẩm đa tenant:
 
-1. A rate limit at 2 to 3 times the expected peak, with a rate-limit status and a retry header. The tenant feels friction and gets no surprise bill.
-2. A daily spend cap at 1.5 to 3 times the contracted ceiling. Crossing it tightens the rate limit and alerts customer success.
-3. A kill switch when the spend z-score against the tenant's own baseline passes 4. It pauses the tenant and pages on-call.
+1. Một giới hạn tốc độ ở mức 2 đến 3 lần đỉnh dự kiến, với một trạng thái giới hạn tốc độ và một retry header. Tenant cảm thấy trở ngại và không nhận hóa đơn bất ngờ.
+2. Một giới hạn chi tiêu hằng ngày ở mức 1.5 đến 3 lần mức trần trong hợp đồng. Vượt qua nó siết giới hạn tốc độ và cảnh báo bộ phận customer success.
+3. Một kill switch khi z-score của chi tiêu so với baseline riêng của tenant vượt 4. Nó tạm dừng tenant và gọi trực.
 
-The z-score matters because tenants differ by orders of magnitude. A fixed amount is noise for a large tenant and a month of budget for a small one.
+Z-score quan trọng vì các tenant khác nhau theo các bậc độ lớn. Một số tiền cố định là nhiễu đối với một tenant lớn và là ngân sách một tháng đối với một tenant nhỏ.
 
 ### Test the ladder
 
-The caching lesson's exercise simulates 1,000 requests against a budget of 1.00 dollars and checks that each threshold fires. Its projection exercise forecasts the month from the trailing 7-day average and alerts when the forecast exceeds the budget by more than 20 percent. Both belong in the test suite, because a circuit breaker that was never tripped on purpose is a hope.
+Bài tập của bài học caching mô phỏng 1,000 request so với một ngân sách 1.00 đô la và kiểm tra rằng mỗi ngưỡng kích hoạt. Bài tập dự báo của nó dự báo tháng từ trung bình 7 ngày gần nhất và cảnh báo khi dự báo vượt ngân sách hơn 20 phần trăm. Cả hai thuộc về bộ kiểm thử, vì một circuit breaker chưa bao giờ được chủ ý kích hoạt là một niềm hy vọng.
 
 ### Where it runs
 
-At the gateway, where every call passes. A control that lives in one application misses the application that has the bug.
+Tại gateway, nơi mọi lời gọi đi qua. Một biện pháp kiểm soát nằm trong một ứng dụng bỏ sót ứng dụng có lỗi.
 
 ## Follow-ups
 
-- **Level 2:** Why three thresholds and not one hard stop? Expected: the alert gives people time, the throttle buys more time at lower quality, and the stop protects the budget. One hard stop surprises users with no warning.
-- **Level 3:** What changes for users during the throttle step? Expected: quality, because every request goes to the cheapest model. The service stays up while the spend slows.
-- **Level 3:** Why is the kill switch relative to the tenant's history? Expected: tenants differ by orders of magnitude. A z-score catches a jump for a small tenant and ignores a normal day for a large one.
-- **Level 4:** The retry bug spent the budget in two days. Which control fires first? Expected: the daily spend cap or the z-score kill switch fires on the first day. The monthly ladder would only have warned at 70 percent.
+- **Level 2:** Tại sao ba ngưỡng chứ không phải một lần dừng cứng? Expected: cảnh báo cho mọi người thời gian, việc điều tiết mua thêm thời gian ở chất lượng thấp hơn, và việc dừng bảo vệ ngân sách. Một lần dừng cứng gây bất ngờ cho người dùng mà không có cảnh báo.
+- **Level 3:** Điều gì thay đổi đối với người dùng trong bước điều tiết? Expected: chất lượng, vì mọi request đi đến mô hình rẻ nhất. Dịch vụ vẫn hoạt động trong khi chi tiêu chậm lại.
+- **Level 3:** Tại sao kill switch tương đối so với lịch sử của tenant? Expected: các tenant khác nhau theo các bậc độ lớn. Một z-score bắt được một bước nhảy đối với một tenant nhỏ và bỏ qua một ngày bình thường đối với một tenant lớn.
+- **Level 4:** Lỗi retry tiêu hết ngân sách trong hai ngày. Biện pháp kiểm soát nào kích hoạt trước? Expected: giới hạn chi tiêu hằng ngày hoặc kill switch z-score kích hoạt trong ngày đầu tiên. Thang hằng tháng sẽ chỉ cảnh báo ở 70 phần trăm.
 
 ## Wrong answers
 
-- "Set a hard limit at the provider and stop there." The provider limit stops every tenant at once with no warning. The ladder degrades first and isolates the tenant.
-- "An alert to the team channel is enough." The incident is a bug at night. The throttle and the stop act without a person.
-- "Check the budget nightly." A retry loop spends a day's budget in minutes. The tracker has to run on every call.
+- "Đặt một giới hạn cứng ở nhà cung cấp rồi dừng ở đó." Giới hạn nhà cung cấp dừng mọi tenant cùng lúc mà không có cảnh báo. Thang giảm cấp trước và cách ly tenant.
+- "Một cảnh báo đến kênh của nhóm là đủ." Sự cố là một lỗi ban đêm. Việc điều tiết và dừng hành động mà không có một người.
+- "Kiểm tra ngân sách hằng đêm." Một vòng lặp retry tiêu ngân sách một ngày trong vài phút. Bộ theo dõi phải chạy trên mọi lời gọi.
 
 ## Taught in
 
-The [caching and cost lesson](../../../phases/11-llm-engineering/11-caching-cost/) sets the three budget thresholds, and the [FinOps lesson](../../../phases/17-infrastructure-and-production/27-finops-llms/) adds the per-tenant enforcement ladder.
+[Bài học caching và chi phí](../../../phases/11-llm-engineering/11-caching-cost/) đặt ba ngưỡng ngân sách, và [bài học FinOps](../../../phases/17-infrastructure-and-production/27-finops-llms/) thêm thang thực thi theo tenant.

@@ -16,43 +16,43 @@ related: [cost-capacity/cache-break-even, cost-capacity/parallel-calls-miss-the-
 updated: 2026-11-03
 ---
 
-A teammate says the service already has caching, because the provider's prompt cache is on. The bill barely moved. Which two kinds of cache exist in a model service, what does each one skip, and why does one of them do nothing for a question that users keep asking?
+Một đồng đội nói dịch vụ đã có caching, vì prompt cache của nhà cung cấp đang bật. Hóa đơn gần như không thay đổi. Hai loại cache nào tồn tại trong một dịch vụ mô hình, mỗi loại bỏ qua điều gì, và tại sao một trong số chúng không làm gì cho một câu hỏi mà người dùng tiếp tục hỏi?
 
 ## Short answer
 
-There are two layers. The provider's prefix cache reuses the attention state of a prompt prefix that an earlier request computed, so the repeated opening tokens get cheaper, but the model still runs. An application-level semantic cache embeds the request and returns a stored answer when a similar question was answered before, so the model call is skipped. The prefix cache cannot serve a repeated question, because the user's part of the prompt still differs token by token and the model still generates the answer.
+Có hai lớp. Prefix cache của nhà cung cấp tái sử dụng trạng thái attention của một tiền tố prompt mà một request trước đã tính, vì vậy các token mở đầu lặp lại rẻ hơn, nhưng mô hình vẫn chạy. Một semantic cache ở cấp ứng dụng embed request và trả về một câu trả lời đã lưu khi một câu hỏi tương tự đã được trả lời trước, vì vậy lời gọi mô hình được bỏ qua. Prefix cache không thể phục vụ một câu hỏi lặp lại, vì phần của người dùng trong prompt vẫn khác từng token và mô hình vẫn sinh câu trả lời.
 
 ## Full answer
 
 ### The provider prefix cache
 
-The provider stores the keys and values of a cacheable prefix. The next request with the same prefix pays a read price instead of a full prefill. The match is prefix only: the first token that differs ends it, so the stable parts of the prompt go first and the user message goes last. The cache lowers the input cost and the time to first token. Output tokens cost the same as before.
+Nhà cung cấp lưu các key và value của một tiền tố có thể cache. Request tiếp theo có cùng tiền tố trả một giá đọc thay vì một lần prefill đầy đủ. Phép khớp chỉ là tiền tố: token đầu tiên khác kết thúc nó, vì vậy các phần ổn định của prompt đi trước và tin nhắn người dùng đi cuối. Cache giảm chi phí đầu vào và thời gian đến token đầu tiên. Các token đầu ra tốn như trước.
 
 ### The semantic cache
 
-Before the call, the application embeds the request and searches for a stored request above a similarity threshold, typically 0.95 or higher. On a hit, it returns the stored answer and no model runs. The hit rate depends on the traffic. The lesson's community numbers put open-ended chat near 10 to 15 percent and structured support near 40 to 70 percent. A simpler exact cache hashes the model, the messages and the temperature, and it serves only deterministic calls.
+Trước lời gọi, ứng dụng embed request và tìm một request đã lưu trên một ngưỡng tương đồng, thường là 0.95 hoặc cao hơn. Khi hit, nó trả về câu trả lời đã lưu và không mô hình nào chạy. Hit rate phụ thuộc vào lưu lượng. Các con số cộng đồng của bài học đặt chat mở gần 10 đến 15 phần trăm và hỗ trợ có cấu trúc gần 40 đến 70 phần trăm. Một exact cache đơn giản hơn hash mô hình, các tin nhắn và temperature, và nó chỉ phục vụ các lời gọi có tính xác định.
 
 ### Why the bill did not move
 
-The prefix cache discounts input tokens on a repeated prefix. If the prefix is short, if something in it changes on every request, or if output tokens dominate the bill, there is little for it to save. Repeated questions are a different kind of reuse, and only the semantic cache addresses them.
+Prefix cache giảm giá các token đầu vào trên một tiền tố lặp lại. Nếu tiền tố ngắn, nếu thứ gì đó trong nó thay đổi trên mỗi request, hoặc nếu các token đầu ra chiếm phần lớn hóa đơn, có ít thứ để nó tiết kiệm. Các câu hỏi lặp lại là một loại tái sử dụng khác, và chỉ semantic cache xử lý chúng.
 
 ### Stack them
 
-Provider caching handles token-identical reuse. Semantic caching handles meaning-identical reuse. The earlier caching lesson combines both, and puts the combined reduction at 50 to 95 percent on a typical application.
+Caching nhà cung cấp xử lý tái sử dụng giống hệt token. Semantic caching xử lý tái sử dụng giống hệt ý nghĩa. Bài học caching trước kết hợp cả hai, và đặt mức giảm kết hợp ở 50 đến 95 phần trăm trên một ứng dụng điển hình.
 
 ## Follow-ups
 
-- **Level 1:** Which cache returns an answer without running the model? Expected: the semantic cache. The prefix cache still runs the model on the uncached tokens and generates the output.
-- **Level 2:** Every user asks a different question under the same system prompt. Which cache helps? Expected: the prefix cache, because the shared prefix is identical and the questions are not.
-- **Level 2:** What decides whether a semantic cache is worth adding? Expected: the hit rate on your own traffic, which ranges from about 10 percent on open chat to about 70 percent on structured support, and the cost of a wrong hit.
-- **Level 3:** Why does the exact cache refuse to serve a call above temperature zero? Expected: the stored answer was one sample. A call that asks for variation would get a replay instead, which changes the behavior the caller asked for.
+- **Level 1:** Cache nào trả về một câu trả lời mà không chạy mô hình? Expected: semantic cache. Prefix cache vẫn chạy mô hình trên các token chưa cache và sinh đầu ra.
+- **Level 2:** Mỗi người dùng hỏi một câu hỏi khác dưới cùng system prompt. Cache nào giúp? Expected: prefix cache, vì tiền tố dùng chung giống hệt và các câu hỏi thì không.
+- **Level 2:** Điều gì quyết định liệu một semantic cache có đáng thêm không? Expected: hit rate trên lưu lượng riêng của bạn, trải từ khoảng 10 phần trăm trên chat mở đến khoảng 70 phần trăm trên hỗ trợ có cấu trúc, và chi phí một hit sai.
+- **Level 3:** Tại sao exact cache từ chối phục vụ một lời gọi trên temperature bằng không? Expected: câu trả lời đã lưu là một mẫu. Một lời gọi yêu cầu sự biến thiên sẽ nhận một lần phát lại thay vào đó, thay đổi hành vi mà bên gọi yêu cầu.
 
 ## Wrong answers
 
-- "The prefix cache returns the same answer for the same question." It reuses the attention state of the prefix. The model still generates every token.
-- "A semantic cache is a prefix cache with fuzzy matching." It sits in your application, keys on embeddings and skips the model. The prefix cache sits at the provider and keys on exact tokens.
-- "One cache is enough." They cover different reuse, identical tokens against identical meaning, and the lesson combines them.
+- "Prefix cache trả về cùng câu trả lời cho cùng câu hỏi." Nó tái sử dụng trạng thái attention của tiền tố. Mô hình vẫn sinh mọi token.
+- "Một semantic cache là một prefix cache với khớp mờ." Nó nằm trong ứng dụng của bạn, dùng embedding làm khóa và bỏ qua mô hình. Prefix cache nằm ở nhà cung cấp và dùng các token chính xác làm khóa.
+- "Một cache là đủ." Chúng bao phủ các kiểu tái sử dụng khác nhau, token giống hệt so với ý nghĩa giống hệt, và bài học kết hợp chúng.
 
 ## Taught in
 
-The [caching economics lesson](../../../phases/17-infrastructure-and-production/14-prompt-semantic-caching/) separates the two layers, and the [caching and cost lesson](../../../phases/11-llm-engineering/11-caching-cost/) builds the exact and semantic caches.
+[Bài học kinh tế caching](../../../phases/17-infrastructure-and-production/14-prompt-semantic-caching/) tách hai lớp, và [bài học caching và chi phí](../../../phases/11-llm-engineering/11-caching-cost/) xây dựng các exact cache và semantic cache.

@@ -16,47 +16,47 @@ related: [cost-capacity/two-cache-layers, cost-capacity/parallel-calls-miss-the-
 updated: 2026-11-03
 ---
 
-Your provider charges a 25 percent premium to write a prefix into its cache, and it bills a cache read at a tenth of the normal input price. The cache lives for five minutes. A one-hour variant costs twice the normal input price to write. How many reads does each variant need to pay off, and what rule do you give the team?
+Nhà cung cấp của bạn thu thêm 25 phần trăm để ghi một tiền tố vào cache của họ, và tính phí một lần đọc cache bằng một phần mười giá đầu vào thông thường. Cache tồn tại trong năm phút. Một biến thể một giờ tốn gấp đôi giá đầu vào thông thường để ghi. Mỗi biến thể cần bao nhiêu lần đọc để có lợi, và bạn đưa ra quy tắc gì cho nhóm?
 
 ## Short answer
 
-With the five-minute cache, one write and one read average 0.675 of the normal cost per request, a saving of about 32 percent, so the cache pays off on the first read. One write and ten reads average 0.205, about 80 percent saved. The one-hour cache charges 2x for the write, so that block needs two reads before it comes out ahead. The rule: cache anything you expect to reuse at least three times inside its lifetime.
+Với cache năm phút, một lần ghi và một lần đọc có chi phí trung bình 0.675 chi phí thông thường mỗi request, tiết kiệm khoảng 32 phần trăm, vì vậy cache có lợi ngay lần đọc đầu tiên. Một lần ghi và mười lần đọc có trung bình 0.205, tiết kiệm khoảng 80 phần trăm. Cache một giờ tính 2x cho lần ghi, vì vậy khối đó cần hai lần đọc trước khi có lợi. Quy tắc: cache bất cứ thứ gì bạn mong đợi tái sử dụng ít nhất ba lần trong thời gian tồn tại của nó.
 
 ## Full answer
 
 ### The arithmetic
 
-A write costs 1.25 times the normal input price, and a read costs 0.1 times it.
+Một lần ghi tốn 1.25 lần giá đầu vào thông thường, và một lần đọc tốn 0.1 lần giá đó.
 
-- One write and one read: the two requests average 0.675 of the normal price. That is 32 percent saved on the first read already.
-- One write and ten reads: the requests average 0.205 of the normal price, about 80 percent saved.
-- The one-hour cache writes at 2 times the normal price. With one read the average sits above the normal price, and with two reads it falls below. The lesson says the one-hour block pays back fast on any batch that reuses the prefix more than five times.
+- Một lần ghi và một lần đọc: hai request có giá trung bình 0.675 giá thông thường. Đó là tiết kiệm 32 phần trăm ngay lần đọc đầu tiên.
+- Một lần ghi và mười lần đọc: các request có giá trung bình 0.205 giá thông thường, tiết kiệm khoảng 80 phần trăm.
+- Cache một giờ ghi ở mức 2 lần giá thông thường. Với một lần đọc trung bình nằm trên giá thông thường, và với hai lần đọc nó xuống dưới. Bài học nói khối một giờ hoàn vốn nhanh trên bất kỳ batch nào tái sử dụng tiền tố hơn năm lần.
 
-Three reuses inside the lifetime clear the break-even on either variant, which is the rule the lesson gives.
+Ba lần tái sử dụng trong thời gian tồn tại vượt điểm hòa vốn trên cả hai biến thể, là quy tắc mà bài học đưa ra.
 
 ### What breaks the arithmetic
 
-- A prefix that differs by one token on every request, because of a timestamp, a request id or a reshuffled tool list. Every request writes and none reads.
-- A block below the minimum cacheable size, which is 1,024 tokens on the provider in the lesson. A smaller block silently does not cache.
-- Requests that arrive in parallel before the first write has landed. Each one pays the write premium, and none reads.
+- Một tiền tố khác đi một token trên mỗi request, vì một dấu thời gian, một request id hoặc một danh sách công cụ bị xáo lại. Mọi request đều ghi và không request nào đọc.
+- Một khối dưới kích thước tối thiểu có thể cache, là 1,024 token ở nhà cung cấp trong bài học. Một khối nhỏ hơn âm thầm không được cache.
+- Các request đến song song trước khi lần ghi đầu tiên hoàn tất. Mỗi request trả khoản phí ghi thêm, và không request nào đọc.
 
 ### Verify it
 
-Read the usage fields on every response: the tokens written to the cache and the tokens read from it. In CI, assert that the second identical request reads more than zero. On the dashboard, split input tokens into cached and uncached, or a traffic drop will look like a cache win.
+Đọc các trường usage trên mọi phản hồi: các token được ghi vào cache và các token được đọc từ nó. Trong CI, khẳng định rằng request giống hệt thứ hai đọc nhiều hơn không. Trên dashboard, chia các token đầu vào thành đã cache và chưa cache, nếu không một đợt giảm lưu lượng sẽ trông như một thắng lợi của cache.
 
 ## Follow-ups
 
-- **Level 2:** Why does the five-minute cache pay off on the first read? Expected: the write premium is a quarter and the read saves nine tenths, so the two together already average below the normal price.
-- **Level 2:** When does the one-hour cache make sense? Expected: a batch job that reuses the prefix across runs more than five minutes apart, more than five times.
-- **Level 3:** Input tokens are down and the bill is flat. What is wrong with the dashboard? Expected: it does not split cached from uncached input, so a drop in traffic looks like a cache win.
-- **Level 3:** Ten parallel requests share a prefix that nobody has cached yet. What happens to the arithmetic? Expected: all ten pay the write premium and none reads, so the cache costs more than no cache. Send one request first, then the rest.
+- **Level 2:** Tại sao cache năm phút có lợi ngay lần đọc đầu tiên? Expected: phí ghi thêm là một phần tư và lần đọc tiết kiệm chín phần mười, vì vậy hai lần cùng nhau đã có trung bình dưới giá thông thường.
+- **Level 2:** Khi nào cache một giờ hợp lý? Expected: một công việc batch tái sử dụng tiền tố qua các lần chạy cách nhau hơn năm phút, hơn năm lần.
+- **Level 3:** Các token đầu vào giảm và hóa đơn không đổi. Dashboard sai ở đâu? Expected: nó không chia đầu vào đã cache khỏi chưa cache, vì vậy một đợt giảm lưu lượng trông như một thắng lợi của cache.
+- **Level 3:** Mười request song song dùng chung một tiền tố mà chưa ai cache. Điều gì xảy ra với phép tính? Expected: cả mười đều trả khoản phí ghi thêm và không request nào đọc, vì vậy cache tốn nhiều hơn không cache. Gửi một request trước, rồi phần còn lại.
 
 ## Wrong answers
 
-- "Caching always saves money." A prefix written once and never read costs 25 percent more than no cache.
-- "Pick the one-hour cache, it lasts longer." It writes at twice the normal input price, so a block read once costs more than without the cache.
-- "Mark the whole prompt as cacheable." The user message changes every time, so the match ends at the first differing token, and a block below the minimum size does not cache at all.
+- "Caching luôn tiết kiệm tiền." Một tiền tố được ghi một lần và không bao giờ được đọc tốn hơn 25 phần trăm so với không cache.
+- "Chọn cache một giờ, nó tồn tại lâu hơn." Nó ghi ở mức gấp đôi giá đầu vào thông thường, vì vậy một khối được đọc một lần tốn hơn khi không có cache.
+- "Đánh dấu toàn bộ prompt là có thể cache." Tin nhắn người dùng thay đổi mỗi lần, vì vậy lần khớp kết thúc ở token khác đầu tiên, và một khối dưới kích thước tối thiểu hoàn toàn không được cache.
 
 ## Taught in
 
-The [prompt caching lesson](../../../phases/11-llm-engineering/15-prompt-caching/) gives the break-even arithmetic and the verification fields, and the [caching economics lesson](../../../phases/17-infrastructure-and-production/14-prompt-semantic-caching/) names the parallel-write trap.
+[Bài học prompt caching](../../../phases/11-llm-engineering/15-prompt-caching/) đưa ra phép tính hòa vốn và các trường xác minh, và [bài học kinh tế caching](../../../phases/17-infrastructure-and-production/14-prompt-semantic-caching/) nêu bẫy ghi song song.

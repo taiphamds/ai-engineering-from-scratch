@@ -16,56 +16,56 @@ related: [cost-capacity/warm-pool-or-cold-start, cost-capacity/autoscale-on-the-
 updated: 2026-11-03
 ---
 
-A pod serving an MoE model on a unified-memory machine took about eight minutes from start to ready. Break that time into its parts, say which parts a restart can skip, and estimate what a warm restart looks like on the same machine.
+Một pod phục vụ một mô hình MoE trên một máy bộ nhớ hợp nhất mất khoảng tám phút từ khởi động đến sẵn sàng. Chia thời gian đó thành các phần của nó, nói những phần nào một lần khởi động lại có thể bỏ qua, và ước tính một lần khởi động lại ấm trông như thế nào trên cùng máy.
 
 ## Short answer
 
-Most of the time was the weight load. The manual's log shows about 330 seconds to copy 57 GiB of weights into memory on that machine, one tensor at a time from a file-backed page. The engine init took 127.54 seconds, and it holds the two CUDA graph captures of 39 and 38 seconds and a compile share of 18.67 seconds. A restart reuses the compile cache and nothing else, so a warm restart on that machine is only a little shorter than the cold one, unless the weights are staged in host memory or a process snapshot exists, which a field report took from a cold start of 695 seconds to 9.6 seconds.
+Phần lớn thời gian là nạp trọng số. Log của tài liệu cho thấy khoảng 330 giây để sao chép 57 GiB trọng số vào bộ nhớ trên máy đó, từng tensor một từ một trang có file hậu thuẫn. Khởi tạo engine mất 127.54 giây, và nó chứa hai lần capture CUDA graph 39 và 38 giây cùng phần biên dịch 18.67 giây. Một lần khởi động lại tái sử dụng compile cache và không gì khác, vì vậy một lần khởi động lại ấm trên máy đó chỉ ngắn hơn một chút so với lần lạnh, trừ khi các trọng số được chuẩn bị sẵn trong bộ nhớ host hoặc một snapshot tiến trình tồn tại, điều mà một báo cáo thực địa đã đưa từ cold start 695 giây xuống 9.6 giây.
 
 ## Full answer
 
 ### The parts, from the startup log
 
-| Phase | Measured | Where it is logged |
+| Giai đoạn | Đo được | Nơi được ghi log |
 |---|---|---|
-| weight load | 56.93 GiB in about 330 seconds | the model loading line |
-| engine init, profile, KV cache, warmup, with both graph captures | 127.54 seconds, of which compilation 18.67 | the init engine line |
-| first graph capture, inside engine init | 39 seconds, 1.17 GiB | the first graph capturing line |
-| second graph capture, inside engine init | 38 seconds, 0.31 GiB | the second graph capturing line |
+| nạp trọng số | 56.93 GiB trong khoảng 330 giây | dòng nạp mô hình |
+| khởi tạo engine, profile, KV cache, warmup, với cả hai lần capture graph | 127.54 giây, trong đó biên dịch 18.67 | dòng khởi tạo engine |
+| lần capture graph đầu tiên, bên trong khởi tạo engine | 39 giây, 1.17 GiB | dòng capture graph đầu tiên |
+| lần capture graph thứ hai, bên trong khởi tạo engine | 38 giây, 0.31 GiB | dòng capture graph thứ hai |
 
-The two captures finish before the init line, so they are part of its 127.54 seconds. Do not add them to it.
+Hai lần capture kết thúc trước dòng khởi tạo, vì vậy chúng là một phần của 127.54 giây đó. Không cộng chúng vào nó.
 
-The server reported ready about eight minutes after it read its arguments. The load alone is more than two thirds of it.
+Máy chủ báo cáo sẵn sàng khoảng tám phút sau khi đọc các đối số của nó. Chỉ riêng việc nạp đã hơn hai phần ba thời gian đó.
 
 ### Why the load is slow on this machine
 
-Each tensor is copied from the memory-mapped weights file into the GPU allocation. On this platform an open issue measured about 1.7 ms per tensor copied from the file view, against about 0.2 ms for a copy that starts in host memory. The release that the manual pins saved about 25 seconds with an indexed lookup of expert names, and the per-tensor copy cost stays. The manual's advice: keep the weights on local NVMe, not on a network mount, and start the server once and keep it running.
+Mỗi tensor được sao chép từ file trọng số ánh xạ bộ nhớ vào phần cấp phát GPU. Trên nền tảng này một issue đang mở đo được khoảng 1.7 ms cho mỗi tensor được sao chép từ view file, so với khoảng 0.2 ms cho một lần sao chép bắt đầu trong bộ nhớ host. Bản phát hành mà tài liệu ghim tiết kiệm khoảng 25 giây với một phép tra cứu có chỉ mục các tên expert, và chi phí sao chép theo từng tensor vẫn còn. Lời khuyên của tài liệu: giữ trọng số trên NVMe cục bộ, không trên một mount mạng, và khởi động máy chủ một lần rồi giữ nó chạy.
 
 ### What a restart skips
 
-The compile cache lives under the engine's cache directory. Keep it on a persistent volume, and a later start reads it, so the compile share shrinks. SGLang points all of its kernel caches into one directory for the same reason, and the manual mounts it on a volume that survives the pod. The graph captures and the weight load repeat on every start. So the honest estimate for a warm restart on this machine is the cold start minus the compile share, which is still several minutes.
+Compile cache nằm dưới thư mục cache của engine. Giữ nó trên một persistent volume, và một lần khởi động sau đọc nó, vì vậy phần biên dịch co lại. SGLang trỏ tất cả kernel cache của nó vào một thư mục vì cùng lý do, và tài liệu mount nó trên một volume tồn tại qua pod. Các lần capture graph và nạp trọng số lặp lại ở mọi lần khởi động. Vì vậy ước tính trung thực cho một lần khởi động lại ấm trên máy này là cold start trừ phần biên dịch, vẫn là vài phút.
 
 ### Getting under a minute
 
-The lesson on cold starts maps each phase to a layer: a pre-seeded image removes the image pull, model streaming roughly halves the weight load, and a GPU memory snapshot restores the loaded state about ten times faster than a reload. The SGLang manual quotes a field report with the same shape on a different engine and eight GPUs: a cold start of 695 seconds with 531 of them in weight loading, 88 seconds with kernel caches kept, and 9.6 seconds with a process checkpoint and the weights staged in host memory. Below a minute means a snapshot or staged weights, not a faster disk.
+Bài học về cold start ánh xạ mỗi giai đoạn sang một lớp: một image được chuẩn bị sẵn loại bỏ việc kéo image, model streaming giảm khoảng một nửa thời gian nạp trọng số, và một snapshot bộ nhớ GPU khôi phục trạng thái đã nạp nhanh hơn khoảng mười lần so với nạp lại. Tài liệu SGLang trích một báo cáo thực địa có cùng dạng trên một engine khác và tám GPU: cold start 695 giây với 531 giây trong số đó dành cho nạp trọng số, 88 giây khi giữ kernel cache, và 9.6 giây với một checkpoint tiến trình và các trọng số được chuẩn bị sẵn trong bộ nhớ host. Dưới một phút có nghĩa là một snapshot hoặc các trọng số được chuẩn bị sẵn, không phải một đĩa nhanh hơn.
 
 ### What the number sets
 
-The Kubernetes example in the vLLM manual gives the startup probe checks at 10 second intervals across a 15 minute window, and tells you to set the window from your own measured cold start. An autoscaler needs a stabilization window at least as long, and the interactive path needs a warm replica, because no scale-out helps inside an eight-minute window.
+Ví dụ Kubernetes trong tài liệu vLLM cho startup probe các lần kiểm tra cách nhau 10 giây trong một khoảng thời gian 15 phút, và bảo bạn đặt khoảng thời gian từ cold start đã đo của chính mình. Một autoscaler cần một khoảng thời gian ổn định ít nhất dài bằng, và đường tương tác cần một replica ấm, vì không lần mở rộng nào giúp được bên trong một khoảng thời gian tám phút.
 
 ## Follow-ups
 
-- **Level 3:** Which phase dominates on this machine, and why? Expected: the weight load at about 330 seconds, because each tensor is copied from a file-backed page, which is slow on this platform.
-- **Level 3:** What does a persistent compile cache save on a restart? Expected: the compile share of the engine init, 18.67 seconds here. The weight load and the graph captures remain.
-- **Level 4:** How do you get the restart under a minute? Expected: a process checkpoint or GPU memory snapshot with the weights staged in host memory, which the field report took to 9.6 seconds. A faster disk alone does not get there.
-- **Level 4:** What does an eight-minute start imply for the probes and the autoscaler? Expected: a startup probe window longer than eight minutes, a stabilization window at least as long, and a warm replica for the interactive path.
+- **Level 3:** Giai đoạn nào chiếm ưu thế trên máy này, và tại sao? Expected: nạp trọng số ở mức khoảng 330 giây, vì mỗi tensor được sao chép từ một trang có file hậu thuẫn, điều này chậm trên nền tảng này.
+- **Level 3:** Một compile cache bền vững tiết kiệm gì trong một lần khởi động lại? Expected: phần biên dịch của khởi tạo engine, 18.67 giây ở đây. Việc nạp trọng số và các lần capture graph vẫn còn.
+- **Level 4:** Bạn đưa lần khởi động lại xuống dưới một phút như thế nào? Expected: một checkpoint tiến trình hoặc snapshot bộ nhớ GPU với các trọng số được chuẩn bị sẵn trong bộ nhớ host, điều mà báo cáo thực địa đưa xuống 9.6 giây. Chỉ một đĩa nhanh hơn không đạt được điều đó.
+- **Level 4:** Một lần khởi động tám phút hàm ý gì cho các probe và autoscaler? Expected: một khoảng thời gian startup probe dài hơn tám phút, một khoảng thời gian ổn định ít nhất dài bằng, và một replica ấm cho đường tương tác.
 
 ## Wrong answers
 
-- "The compile is the slow part, use eager mode." The compile share was 18.67 seconds of an eight-minute start, and eager mode costs decode speed on every request afterwards.
-- "A faster GPU loads faster." The load was bound by the copy path from the file view, not by the GPU.
-- "Restart often to pick up configuration changes." Each restart pays the full load. The manual's advice is to start once and keep the server running.
+- "Biên dịch là phần chậm, dùng eager mode." Phần biên dịch là 18.67 giây của một lần khởi động tám phút, và eager mode đánh đổi tốc độ decode trên mọi request sau đó.
+- "Một GPU nhanh hơn nạp nhanh hơn." Việc nạp bị giới hạn bởi đường sao chép từ view file, không phải bởi GPU.
+- "Khởi động lại thường xuyên để nhận các thay đổi cấu hình." Mỗi lần khởi động lại trả toàn bộ chi phí nạp. Lời khuyên của tài liệu là khởi động một lần và giữ máy chủ chạy.
 
 ## Taught in
 
-The [unified memory section of vLLM 101](../../../manuals/vllm-101/sections/2-3-size-memory-on-a-dgx-spark.md) explains the slow weight load, the [compile section](../../../manuals/vllm-101/sections/4-3-keep-cuda-graphs-and-compile-on.md) reads the capture and compile times, the [production section](../../../manuals/vllm-101/sections/7-2-run-vllm-in-production.md) keeps the compile cache, the [operating section of SGLang 101](../../../manuals/sglang-101/sections/7-1-operating-sglang.md) reports the warm and checkpointed starts, and the [cold start lesson](../../../phases/17-infrastructure-and-production/10-cold-start-mitigation/) maps each phase to a mitigation.
+[Phần bộ nhớ hợp nhất của vLLM 101](../../../manuals/vllm-101/sections/2-3-size-memory-on-a-dgx-spark.md) giải thích việc nạp trọng số chậm, [phần biên dịch](../../../manuals/vllm-101/sections/4-3-keep-cuda-graphs-and-compile-on.md) đọc các thời gian capture và biên dịch, [phần production](../../../manuals/vllm-101/sections/7-2-run-vllm-in-production.md) giữ compile cache, [phần vận hành của SGLang 101](../../../manuals/sglang-101/sections/7-1-operating-sglang.md) báo cáo các lần khởi động ấm và từ checkpoint, và [bài học cold start](../../../phases/17-infrastructure-and-production/10-cold-start-mitigation/) ánh xạ mỗi giai đoạn sang một biện pháp giảm thiểu.

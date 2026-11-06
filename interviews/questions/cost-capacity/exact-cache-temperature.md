@@ -16,7 +16,7 @@ related: [cost-capacity/two-cache-layers]
 updated: 2026-11-03
 ---
 
-Read this exact-match cache from the caching lesson. Why does it refuse every request with a positive temperature, what goes into the key and why, and what would you change before it runs in production?
+Đọc exact-match cache này từ bài học caching. Tại sao nó từ chối mọi request có temperature dương, những gì đi vào khóa và tại sao, và bạn sẽ thay đổi gì trước khi nó chạy trong production?
 
 ```python
 class ExactCache:
@@ -58,43 +58,43 @@ class ExactCache:
 
 ## Short answer
 
-The cache serves deterministic calls only. A positive temperature asks for sampled variation, and a replayed answer would remove that variation without telling the caller, so the cache treats those calls as misses and never stores them. The key is a hash of the model, the full message list and the temperature, serialized with sorted keys so that the same request always produces the same bytes. Before production, the key needs every other field that changes the answer, the eviction needs a least-recently-used policy instead of a full scan for the oldest entry, and the expiry needs a sweep, because an expired entry is only removed when someone reads it.
+Cache chỉ phục vụ các lời gọi có tính xác định. Một temperature dương yêu cầu sự biến thiên do lấy mẫu, và một câu trả lời được phát lại sẽ loại bỏ sự biến thiên đó mà không báo cho bên gọi, vì vậy cache coi các lời gọi đó là miss và không bao giờ lưu chúng. Khóa là một hash của mô hình, toàn bộ danh sách tin nhắn và temperature, được tuần tự hóa với các khóa đã sắp xếp để cùng request luôn tạo ra cùng các byte. Trước production, khóa cần mọi trường khác làm thay đổi câu trả lời, việc loại bỏ cần một chính sách ít được dùng gần đây nhất thay vì một lượt quét đầy đủ tìm mục cũ nhất, và việc hết hạn cần một lượt quét, vì một mục đã hết hạn chỉ bị loại khi ai đó đọc nó.
 
 ## Full answer
 
 ### The temperature guard
 
-Both `get` and `put` return early above zero. The lesson's rule is that exact caching works for deterministic calls: the same model, the same prompt, temperature zero. Serving a stored sample to a caller who asked for variation changes the behavior silently, which is worse than a miss.
+Cả `get` và `put` đều trả về sớm khi trên không. Quy tắc của bài học là exact caching hoạt động cho các lời gọi có tính xác định: cùng mô hình, cùng prompt, temperature bằng không. Phục vụ một mẫu đã lưu cho một bên gọi yêu cầu sự biến thiên thay đổi hành vi âm thầm, điều này tệ hơn một miss.
 
 ### What the key holds, and what it misses
 
-The key covers the model, because the same prompt on another model is another answer, the whole message list, because the system prompt and the context are part of the request, and the temperature. `sort_keys=True` makes the serialization stable, so two callers who build the same dictionary in a different order still hash alike. The key does not cover other fields that change the answer: the sampling parameters beyond temperature, the output limit, the tool definitions and the response format. Add them, or the cache returns an answer produced under different settings.
+Khóa bao phủ mô hình, vì cùng prompt trên một mô hình khác là một câu trả lời khác, toàn bộ danh sách tin nhắn, vì system prompt và ngữ cảnh là một phần của request, và temperature. `sort_keys=True` làm việc tuần tự hóa ổn định, để hai bên gọi xây dựng cùng dictionary theo một thứ tự khác vẫn hash giống nhau. Khóa không bao phủ các trường khác thay đổi câu trả lời: các tham số lấy mẫu ngoài temperature, giới hạn đầu ra, các định nghĩa công cụ và định dạng phản hồi. Thêm chúng, nếu không cache trả về một câu trả lời được tạo dưới các thiết lập khác.
 
 ### Expiry is lazy
 
-The lifetime is checked on read. An entry past its lifetime stays in memory until a read finds it or an eviction drops it. A periodic sweep, or an expiry check during `put`, keeps the memory honest.
+Thời gian tồn tại được kiểm tra khi đọc. Một mục quá thời gian tồn tại vẫn ở trong bộ nhớ cho đến khi một lần đọc tìm thấy nó hoặc một lần loại bỏ bỏ nó. Một lượt quét định kỳ, hoặc một phép kiểm tra hết hạn trong `put`, giữ cho bộ nhớ trung thực.
 
 ### Eviction is a full scan, oldest first
 
-At capacity, `put` scans every entry to find the oldest timestamp. That is linear work on every insert once the cache is full, and it evicts by insertion time, so a popular entry that was inserted early goes first. The lesson's first exercise asks for least-recently-used eviction on the last access time, which the `access_count` field hints at but does not implement.
+Khi đạt dung lượng, `put` quét mọi mục để tìm dấu thời gian cũ nhất. Đó là công việc tuyến tính trên mọi lần chèn khi cache đã đầy, và nó loại bỏ theo thời gian chèn, vì vậy một mục phổ biến được chèn sớm đi trước. Bài tập đầu tiên của bài học yêu cầu loại bỏ ít được dùng gần đây nhất theo thời gian truy cập cuối cùng, điều mà trường `access_count` gợi ý nhưng không triển khai.
 
 ### Prove that it pays
 
-The cache counts hits and misses. The lesson's cost tracker logs a cache status on every call and computes the saved cost from the hits with the pricing table. Wire that in before you argue about the hit rate.
+Cache đếm hit và miss. Bộ theo dõi chi phí của bài học ghi log một trạng thái cache trên mọi lời gọi và tính chi phí tiết kiệm từ các hit với bảng giá. Kết nối điều đó trước khi bạn tranh luận về hit rate.
 
 ## Follow-ups
 
-- **Level 2:** Why serialize with sorted keys? Expected: the order of a dictionary can differ between callers, and a different byte order gives a different hash for the same request.
-- **Level 3:** Which request fields are missing from the key? Expected: anything else that changes the answer, such as the other sampling parameters, the output limit, the tool definitions and the response format.
-- **Level 3:** What does the eviction do at capacity, and what does the exercise ask for instead? Expected: it scans all entries for the oldest timestamp and drops it. The exercise asks for least-recently-used eviction on the last access time.
-- **Level 4:** How would you show that this cache pays for itself? Expected: log the cache status on every call and compute the saved cost from the hits with the pricing table, as the lesson's cost tracker does.
+- **Level 2:** Tại sao tuần tự hóa với các khóa đã sắp xếp? Expected: thứ tự của một dictionary có thể khác giữa các bên gọi, và một thứ tự byte khác cho một hash khác cho cùng request.
+- **Level 3:** Các trường request nào bị thiếu khỏi khóa? Expected: bất cứ thứ gì khác thay đổi câu trả lời, chẳng hạn các tham số lấy mẫu khác, giới hạn đầu ra, các định nghĩa công cụ và định dạng phản hồi.
+- **Level 3:** Việc loại bỏ làm gì khi đạt dung lượng, và bài tập yêu cầu gì thay vào đó? Expected: nó quét tất cả các mục tìm dấu thời gian cũ nhất và bỏ nó. Bài tập yêu cầu loại bỏ ít được dùng gần đây nhất theo thời gian truy cập cuối cùng.
+- **Level 4:** Bạn sẽ cho thấy cache này tự bù chi phí như thế nào? Expected: ghi log trạng thái cache trên mọi lời gọi và tính chi phí tiết kiệm từ các hit với bảng giá, như bộ theo dõi chi phí của bài học thực hiện.
 
 ## Wrong answers
 
-- "The temperature check is pointless, a cached answer is a good answer." A positive temperature means the caller wants variation. A replay removes it without telling anyone.
-- "Hash only the user message." The same question under a different system prompt, model or tool set has a different correct answer.
-- "The lifetime removes expired entries." It only hides them on read. The entry stays in memory until a read or an eviction removes it.
+- "Phép kiểm tra temperature vô nghĩa, một câu trả lời đã cache là một câu trả lời tốt." Một temperature dương nghĩa là bên gọi muốn sự biến thiên. Một lần phát lại loại bỏ nó mà không báo cho ai.
+- "Chỉ hash tin nhắn người dùng." Cùng câu hỏi dưới một system prompt, mô hình hoặc bộ công cụ khác có một câu trả lời đúng khác.
+- "Thời gian tồn tại loại bỏ các mục hết hạn." Nó chỉ giấu chúng khi đọc. Mục vẫn ở trong bộ nhớ cho đến khi một lần đọc hoặc một lần loại bỏ xóa nó.
 
 ## Taught in
 
-The [caching and cost lesson](../../../phases/11-llm-engineering/11-caching-cost/) builds the exact cache, and its first exercise replaces the eviction policy.
+[Bài học caching và chi phí](../../../phases/11-llm-engineering/11-caching-cost/) xây dựng exact cache, và bài tập đầu tiên của nó thay thế chính sách loại bỏ.

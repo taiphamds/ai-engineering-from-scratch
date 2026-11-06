@@ -16,56 +16,56 @@ related: [cost-capacity/batch-lane-triage]
 updated: 2026-11-03
 ---
 
-Finance asks for the cost per million tokens as the key metric for the model service. You push back. What metric do you propose instead, and what must every call record so that you can compute it?
+Bộ phận tài chính yêu cầu chi phí trên mỗi triệu token làm metric chính cho dịch vụ mô hình. Bạn phản đối. Thay vào đó bạn đề xuất metric nào, và mọi lời gọi phải ghi lại gì để bạn có thể tính nó?
 
 ## Short answer
 
-Propose a cost per product outcome: per resolved ticket, per generated article, per successful agent task or per session minute. A price per million tokens is the vendor's unit, and it says nothing about whether the spend produced anything. To compute the outcome metric, stamp every call at creation with the user id, the task id with its route, and the tenant id, split the tokens into prompt, tool, memory and response, and join the cost to the outcome event.
+Đề xuất một chi phí trên mỗi kết quả sản phẩm: trên mỗi ticket được giải quyết, mỗi bài viết được sinh, mỗi nhiệm vụ agent thành công hoặc mỗi phút phiên. Một giá trên mỗi triệu token là đơn vị của nhà cung cấp, và nó không nói gì về việc chi tiêu có tạo ra thứ gì không. Để tính metric kết quả, đóng dấu mọi lời gọi lúc tạo bằng user id, task id với tuyến của nó, và tenant id, chia token thành prompt, công cụ, bộ nhớ và phản hồi, và nối chi phí với sự kiện kết quả.
 
 ## Full answer
 
 ### Why the token price misleads
 
-A cheaper model that needs twice the tokens per task costs more per task. A prompt change that cuts tokens and lowers the resolution rate raises the cost per resolved ticket while the token dashboard goes green. The lesson's rule is to tie cost to a product outcome, because an optimization without that anchor has no direction.
+Một mô hình rẻ hơn cần gấp đôi số token mỗi nhiệm vụ tốn hơn mỗi nhiệm vụ. Một thay đổi prompt cắt token và làm giảm tỷ lệ giải quyết làm tăng chi phí trên mỗi ticket được giải quyết trong khi dashboard token chuyển xanh. Quy tắc của bài học là gắn chi phí với một kết quả sản phẩm, vì một tối ưu hóa không có điểm neo đó không có hướng.
 
 ### Three attribution dimensions
 
-| Dimension | Key | What it answers |
+| Chiều | Khóa | Nó trả lời điều gì |
 |---|---|---|
-| per user | `user_id` | who costs what, for seat pricing and abuse |
-| per task | `task_id` and `route` | which product surface costs what |
-| per tenant | `tenant_id` | which customer is profitable |
+| theo người dùng | `user_id` | ai tốn bao nhiêu, cho định giá theo chỗ ngồi và lạm dụng |
+| theo nhiệm vụ | `task_id` và `route` | bề mặt sản phẩm nào tốn bao nhiêu |
+| theo tenant | `tenant_id` | khách hàng nào có lợi nhuận |
 
-Instrument all three at the call site on day one. A provider line item carries none of them, and retroactive tagging always misses cases.
+Gắn đo lường cả ba tại điểm gọi ngay ngày đầu. Một dòng mục của nhà cung cấp không mang thứ nào trong số đó, và gắn thẻ hồi tố luôn bỏ sót các trường hợp.
 
 ### Four token layers
 
-| Layer | Typical share |
+| Lớp | Tỷ lệ điển hình |
 |---|---|
-| prompt, the system text and the user input | 40 to 60 percent |
-| tool, the results fed back into the context | 20 to 40 percent on agent workloads |
-| memory, the prior turns and retrieved documents | 10 to 30 percent |
-| response, the model output | 10 to 30 percent |
+| prompt, văn bản hệ thống và đầu vào người dùng | 40 đến 60 phần trăm |
+| công cụ, các kết quả được đưa trở lại ngữ cảnh | 20 đến 40 phần trăm trên các workload agent |
+| bộ nhớ, các lượt trước và tài liệu được truy xuất | 10 đến 30 phần trăm |
+| phản hồi, đầu ra mô hình | 10 đến 30 phần trăm |
 
-One bucket hides which layer drives the spend, so you cannot pick the lever.
+Một bucket che giấu lớp nào thúc đẩy chi tiêu, vì vậy bạn không thể chọn đòn bẩy.
 
 ### The record on every call
 
-The trace carries the trace id, the three dimension keys, the four layer counts, the cost, and two flags, one for a cached input and one for a batch call. The most accurate attribution pattern joins these traces to the billing export by trace id, which the lesson calls the telemetry joiner.
+Trace mang trace id, ba khóa chiều, bốn số đếm lớp, chi phí, và hai cờ, một cho đầu vào đã cache và một cho lời gọi batch. Mẫu quy gán chính xác nhất nối các trace này với bản xuất thanh toán bằng trace id, điều mà bài học gọi là telemetry joiner.
 
 ## Follow-ups
 
-- **Level 1:** Why does the token price alone mislead? Expected: it says nothing about tokens per outcome. A cheaper model that needs twice the tokens per task costs more per task.
-- **Level 2:** Why split the tokens into four layers? Expected: one bucket hides whether prompt bloat, tool results, memory or output drives the spend, so you cannot choose the right fix.
-- **Level 2:** Why stamp the call at creation instead of tagging the bill later? Expected: the provider line item has no user, task or tenant on it, and retroactive attribution always misses cases.
-- **Level 3:** Which attribution pattern is the most accurate, and what does it need? Expected: the telemetry joiner, which joins trace ids to billing. It needs the trace id on every call and a billing export with the same key.
+- **Level 1:** Tại sao chỉ giá token gây hiểu lầm? Expected: nó không nói gì về token trên mỗi kết quả. Một mô hình rẻ hơn cần gấp đôi số token mỗi nhiệm vụ tốn hơn mỗi nhiệm vụ.
+- **Level 2:** Tại sao chia token thành bốn lớp? Expected: một bucket che giấu liệu prompt phình to, kết quả công cụ, bộ nhớ hay đầu ra thúc đẩy chi tiêu, vì vậy bạn không thể chọn cách sửa đúng.
+- **Level 2:** Tại sao đóng dấu lời gọi lúc tạo thay vì gắn thẻ hóa đơn sau? Expected: dòng mục của nhà cung cấp không có người dùng, nhiệm vụ hay tenant trên nó, và quy gán hồi tố luôn bỏ sót các trường hợp.
+- **Level 3:** Mẫu quy gán nào chính xác nhất, và nó cần gì? Expected: telemetry joiner, nối các trace id với thanh toán. Nó cần trace id trên mọi lời gọi và một bản xuất thanh toán có cùng khóa.
 
 ## Wrong answers
 
-- "Tokens are what we pay for, so tokens are the metric." They are the vendor's unit. The business pays for outcomes, and a cheaper token can mean a more expensive task.
-- "Tag the cloud bill by team like any other resource." A model call is a transaction, not an asset. The line item has no team on it unless the call stamped one.
-- "Per-tenant cost is enough." Per-task shows which feature to fix and per-user shows abuse. The lesson instruments all three.
+- "Token là thứ chúng ta trả tiền, vì vậy token là metric." Chúng là đơn vị của nhà cung cấp. Doanh nghiệp trả cho kết quả, và một token rẻ hơn có thể có nghĩa là một nhiệm vụ đắt hơn.
+- "Gắn thẻ hóa đơn cloud theo nhóm như mọi tài nguyên khác." Một lời gọi mô hình là một giao dịch, không phải một tài sản. Dòng mục không có nhóm trên nó trừ khi lời gọi đã đóng dấu một nhóm.
+- "Chi phí theo tenant là đủ." Theo nhiệm vụ cho thấy tính năng nào cần sửa và theo người dùng cho thấy lạm dụng. Bài học gắn đo lường cả ba.
 
 ## Taught in
 
-The [FinOps for LLMs lesson](../../../phases/17-infrastructure-and-production/27-finops-llms/) replaces the token price with a cost per outcome and defines the attribution dimensions and layers.
+[Bài học FinOps cho LLM](../../../phases/17-infrastructure-and-production/27-finops-llms/) thay giá token bằng một chi phí trên mỗi kết quả và định nghĩa các chiều và lớp quy gán.

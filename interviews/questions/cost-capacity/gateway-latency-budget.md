@@ -16,53 +16,53 @@ related: [cost-capacity/budget-circuit-breaker]
 updated: 2026-11-03
 ---
 
-Your SLA is a P99 time to first token under 320 ms. The model alone measures 300 ms at P99. You are choosing a gateway to put in front of it. Which classes of gateway fit in the budget, and what do you do when the one you want does not?
+SLA của bạn là thời gian đến token đầu tiên P99 dưới 320 ms. Chỉ riêng mô hình đo được 300 ms tại P99. Bạn đang chọn một gateway để đặt trước nó. Những nhóm gateway nào vừa ngân sách, và bạn làm gì khi nhóm bạn muốn không vừa?
 
 ## Short answer
 
-The gateway has at most 20 ms at the tail. An edge-managed gateway at 1 to 3 ms and a high-performance gateway at 3 to 8 ms fit, a lightweight proxy at 5 to 15 ms fits with little margin, and a control-plane gateway at 20 to 40 ms does not. If you need the features of the slow one, split the roles: keep the fast gateway on the request path, run the heavy features out of band, or buy the budget back from the model with a faster first token.
+Gateway có tối đa 20 ms ở đuôi. Một gateway được quản lý ở edge ở mức 1 đến 3 ms và một gateway hiệu năng cao ở mức 3 đến 8 ms vừa, một proxy nhẹ ở mức 5 đến 15 ms vừa với ít dư địa, và một gateway control-plane ở mức 20 đến 40 ms không vừa. Nếu bạn cần các tính năng của nhóm chậm, tách các vai trò: giữ gateway nhanh trên đường request, chạy các tính năng nặng ngoài luồng, hoặc mua lại ngân sách từ mô hình bằng một token đầu tiên nhanh hơn.
 
 ## Full answer
 
 ### The budget
 
-The target is 320 ms and the model takes 300 ms, so the gateway may add 20 ms, and that is at the tail. A P99 target means the gateway's own P99, not its median, and a gateway that is quick when idle can be slow under load. The sum of the two tails is a screening estimate only. Before you commit to the SLA, measure the end-to-end first-token P99 through the gateway under load.
+Mục tiêu là 320 ms và mô hình mất 300 ms, vì vậy gateway có thể thêm 20 ms, và đó là ở đuôi. Một mục tiêu P99 có nghĩa là P99 riêng của gateway, không phải trung vị của nó, và một gateway nhanh khi nhàn rỗi có thể chậm dưới tải. Tổng của hai đuôi chỉ là một ước tính sàng lọc. Trước khi cam kết SLA, đo P99 token đầu tiên đầu cuối qua gateway dưới tải.
 
 ### The classes
 
-| Class | Overhead in the lesson | Fits |
+| Nhóm | Phần thời gian thêm trong bài học | Vừa |
 |---|---|---|
-| edge-managed, zero-ops | 1 to 3 ms | yes |
-| high-performance, built on a mature API gateway | 3 to 8 ms | yes |
-| lightweight open-source proxy | 5 to 15 ms | with little margin |
-| control plane with guardrails and audit | 20 to 40 ms | no |
+| được quản lý ở edge, không cần vận hành | 1 đến 3 ms | có |
+| hiệu năng cao, xây trên một API gateway trưởng thành | 3 đến 8 ms | có |
+| proxy mã nguồn mở nhẹ | 5 đến 15 ms | với ít dư địa |
+| control plane với guardrail và kiểm toán | 20 đến 40 ms | không |
 
-The lesson's rule of thumb matches: for a P99 under 100 ms, pick the edge or the high-performance class. For a P99 under 500 ms, any class works.
+Quy tắc kinh nghiệm của bài học khớp: đối với một P99 dưới 100 ms, chọn nhóm edge hoặc hiệu năng cao. Đối với một P99 dưới 500 ms, bất kỳ nhóm nào cũng hoạt động.
 
 ### When you want the slow one
 
-The control-plane class brings PII redaction, jailbreak detection and audit trails. Three ways to keep them inside the budget:
+Nhóm control-plane mang đến che thông tin PII, phát hiện jailbreak và dấu vết kiểm toán. Ba cách để giữ chúng trong ngân sách:
 
-1. Split the roles. Put the fast gateway on the request path and run observability and audit off the path. The lesson notes that production deployments combine an observability tool with a scale gateway in exactly this split.
-2. Keep only what must be inline. Redaction has to run before the provider sees the prompt, so it stays on the path. Audit and tracing do not.
-3. Buy back budget from the model. Prefix caching lowers the first-token time, and a faster model tier does too.
+1. Tách các vai trò. Đặt gateway nhanh trên đường request và chạy khả năng quan sát cùng kiểm toán ngoài đường đi. Bài học ghi chú rằng các triển khai production kết hợp một công cụ quan sát với một gateway quy mô theo đúng cách tách này.
+2. Chỉ giữ những gì phải nằm trực tiếp trên đường đi. Việc che thông tin phải chạy trước khi nhà cung cấp thấy prompt, vì vậy nó ở lại trên đường đi. Kiểm toán và tracing thì không.
+3. Mua lại ngân sách từ mô hình. Prefix caching giảm thời gian token đầu tiên, và một tầng mô hình nhanh hơn cũng vậy.
 
 ### Scale decides as well
 
-The lightweight proxy breaks down around 2000 requests per second with an 8 GB footprint in the published benchmark, and the lesson places it below 500 requests per second. If the traffic will grow past that, the high-performance class is the only one that fits both the latency and the scale.
+Proxy nhẹ suy sụp quanh 2000 request mỗi giây với mức chiếm dụng 8 GB trong benchmark được công bố, và bài học đặt nó dưới 500 request mỗi giây. Nếu lưu lượng sẽ tăng qua mức đó, nhóm hiệu năng cao là nhóm duy nhất vừa cả độ trễ và quy mô.
 
 ## Follow-ups
 
-- **Level 2:** Why measure the gateway at P99 and not at its median? Expected: the SLA is a P99, and the gateway's tail adds to the model's tail.
-- **Level 3:** The slow gateway's value is PII redaction. How do you keep it inside the budget? Expected: keep the redaction inline because it must run before the provider sees the prompt, move observability and audit off the path, and then measure whether the remaining overhead fits.
-- **Level 3:** Traffic will triple next year. Which class survives? Expected: the lightweight proxy breaks down around 2000 requests per second, so plan the move to the high-performance class before that.
+- **Level 2:** Tại sao đo gateway tại P99 chứ không tại trung vị của nó? Expected: SLA là một P99, và đuôi của gateway cộng vào đuôi của mô hình.
+- **Level 3:** Giá trị của gateway chậm là che thông tin PII. Bạn giữ nó trong ngân sách như thế nào? Expected: giữ việc che thông tin trực tiếp trên đường đi vì nó phải chạy trước khi nhà cung cấp thấy prompt, chuyển khả năng quan sát và kiểm toán ra ngoài đường đi, rồi đo liệu phần thời gian thêm còn lại có vừa không.
+- **Level 3:** Lưu lượng sẽ gấp ba vào năm tới. Nhóm nào sống sót? Expected: proxy nhẹ suy sụp quanh 2000 request mỗi giây, vì vậy lên kế hoạch chuyển sang nhóm hiệu năng cao trước mức đó.
 
 ## Wrong answers
 
-- "Every gateway adds a few milliseconds, pick on features." The lesson's overheads run from 1 to 40 ms, and 40 ms is twice this budget.
-- "Put the gateway behind the model, not in front." The gateway routes and falls back before the model. Behind the model it protects nothing.
-- "Add the gateway's median to the model's P99." Two tails do not add that way. Measure the gateway's own tail under load.
+- "Mọi gateway đều thêm vài mili giây, chọn theo tính năng." Các phần thời gian thêm của bài học trải từ 1 đến 40 ms, và 40 ms là gấp đôi ngân sách này.
+- "Đặt gateway sau mô hình, không phải trước." Gateway định tuyến và chuyển sang dự phòng trước mô hình. Sau mô hình nó không bảo vệ gì.
+- "Cộng trung vị của gateway vào P99 của mô hình." Hai đuôi không cộng theo cách đó. Đo đuôi riêng của gateway dưới tải.
 
 ## Taught in
 
-The [AI gateways lesson](../../../phases/17-infrastructure-and-production/19-ai-gateways/) gives the latency overhead per gateway class and the scale ceilings.
+[Bài học AI gateway](../../../phases/17-infrastructure-and-production/19-ai-gateways/) đưa ra phần thời gian trễ thêm theo từng nhóm gateway và các trần quy mô.
