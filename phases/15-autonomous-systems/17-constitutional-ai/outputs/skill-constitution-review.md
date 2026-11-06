@@ -7,34 +7,34 @@ lesson: 17
 tags: [constitutional-ai, rule-override, hierarchy, cai, rlaif, hardcoded-prohibition]
 ---
 
-Given a deployment's constitutional layer (system prompt, operator config, declared principles), audit it against the Claude Constitution reference and flag missing hardcoded prohibitions, ambiguous principles, or misordered tiers.
+Với lớp hiến định của một triển khai (prompt hệ thống, cấu hình người vận hành, các nguyên tắc đã khai báo), kiểm toán nó theo tham chiếu Claude Constitution và đánh dấu các điều cấm mã hóa cứng còn thiếu, các nguyên tắc mơ hồ, hoặc các tầng sai thứ tự.
 
-Produce:
+Tạo ra:
 
-1. **Hardcoded prohibition inventory.** List every prohibition that must not bend regardless of operator or user instruction. Minimum floor: bioweapons / CBRN uplift, CSAM, critical infrastructure attack planning, false-identity-when-asked. Additions are deployment-specific (e.g., financial services adds specific fraud prohibitions).
-2. **Soft-coded defaults.** List every behaviour the operator can adjust. For each, state the declared bound. An "adjustable" setting with no bound is a back-door override.
-3. **Tier ordering.** Confirm the resolution order is: safety > ethics > guidelines > helpfulness. If helpfulness ever wins over ethics in the implemented resolver, flag as a deployment break.
-4. **Principle ambiguity flags.** Identify any principle whose text leaves room for materially different interpretations. Ambiguity compounds over training cycles (principle drift).
-5. **Layer completeness.** Confirm runtime-layer controls (Lessons 10, 13, 14) are present in addition to the constitutional layer. Constitution alone is insufficient; runtime alone is insufficient.
+1. **Danh mục điều cấm mã hóa cứng.** Liệt kê mọi điều cấm không được uốn cong bất kể chỉ dẫn của người vận hành hoặc người dùng. Mức sàn tối thiểu: nâng cao năng lực vũ khí sinh học / CBRN, CSAM, lập kế hoạch tấn công cơ sở hạ tầng trọng yếu, danh tính giả khi được hỏi. Các bổ sung phụ thuộc vào triển khai cụ thể (ví dụ: dịch vụ tài chính bổ sung các điều cấm gian lận cụ thể).
+2. **Các mặc định mã hóa mềm.** Liệt kê mọi hành vi người vận hành có thể điều chỉnh. Với mỗi hành vi, nêu giới hạn đã khai báo. Một thiết lập “có thể điều chỉnh” không có giới hạn là một cách ghi đè qua cửa hậu.
+3. **Thứ tự tầng.** Xác nhận thứ tự giải quyết là: an toàn > đạo đức > hướng dẫn > tính hữu ích. Nếu tính hữu ích từng thắng đạo đức trong bộ giải quyết đã triển khai, đánh dấu là một hỏng hóc triển khai.
+4. **Các cờ mơ hồ nguyên tắc.** Xác định bất kỳ nguyên tắc nào có văn bản để ngỏ chỗ cho các diễn giải khác nhau đáng kể. Sự mơ hồ cộng dồn qua các chu kỳ huấn luyện (sự trôi nguyên tắc).
+5. **Tính đầy đủ của lớp.** Xác nhận các kiểm soát lớp môi trường chạy (Bài 10, 13, 14) hiện diện bên cạnh lớp hiến định. Chỉ Constitution là không đủ; chỉ môi trường chạy là không đủ.
 
-Hard rejects:
-- Deployments without any hardcoded prohibition layer.
-- Operator config that claims to override a hardcoded prohibition (even by renaming).
-- Tier orders that place helpfulness above ethics.
-- Principle text so general it cannot be evaluated ("be good").
-- Treating Constitutional AI as a replacement for runtime controls.
+Các trường hợp loại bỏ dứt khoát:
+- Các triển khai không có bất kỳ lớp điều cấm mã hóa cứng nào.
+- Cấu hình người vận hành tuyên bố ghi đè một điều cấm mã hóa cứng (ngay cả bằng cách đổi tên).
+- Các thứ tự tầng đặt tính hữu ích cao hơn đạo đức.
+- Văn bản nguyên tắc chung chung đến mức không thể đánh giá (“hãy tốt”).
+- Coi Constitutional AI là thứ thay thế cho các kiểm soát môi trường chạy.
 
-Refusal rules:
-- If the user names a hardcoded prohibition but cannot point to a runtime-layer backstop for it, flag the deployment as single-layer and refuse production.
-- If the operator config includes an adjustable "safety" setting with no declared bound, refuse.
-- If the user treats the 2023 participatory-constitution findings as actionable in the current deployment, check: the 2026 Constitution did not incorporate them, so "inherits democratically" is a claim the deployment cannot back up.
+Các quy tắc từ chối:
+- Nếu người dùng nêu một điều cấm mã hóa cứng nhưng không thể chỉ ra một chốt chặn lớp môi trường chạy cho nó, đánh dấu triển khai là một lớp và từ chối sản xuất.
+- Nếu cấu hình người vận hành bao gồm một thiết lập “an toàn” có thể điều chỉnh không có giới hạn đã khai báo, hãy từ chối.
+- Nếu người dùng coi các phát hiện hiến pháp có sự tham gia năm 2023 là có thể áp dụng trong triển khai hiện tại, hãy kiểm tra: Constitution năm 2026 không tích hợp chúng, nên “kế thừa một cách dân chủ” là một tuyên bố triển khai không thể chứng minh.
 
-Output format:
+Định dạng đầu ra:
 
-Return a constitutional audit with:
-- **Hardcoded floor** (prohibitions, enforcement layer: weights / inference / both)
-- **Soft-coded defaults** (setting, operator bound, user-visible y/n)
-- **Tier order** (listed; confirmed safety > ethics > guidelines > helpfulness)
-- **Ambiguity flags** (principle, specific ambiguity, proposed tightening)
-- **Layer completeness** (constitutional y/n, runtime controls y/n, both required)
-- **Readiness** (production / staging / research-only)
+Trả về một kiểm toán hiến định với:
+- **Mức sàn mã hóa cứng** (các điều cấm, lớp thực thi: trọng số / suy luận / cả hai)
+- **Các mặc định mã hóa mềm** (thiết lập, giới hạn người vận hành, người dùng nhìn thấy có/không)
+- **Thứ tự tầng** (được liệt kê; xác nhận an toàn > đạo đức > hướng dẫn > tính hữu ích)
+- **Các cờ mơ hồ** (nguyên tắc, sự mơ hồ cụ thể, đề xuất siết chặt)
+- **Tính đầy đủ của lớp** (hiến định có/không, kiểm soát môi trường chạy có/không, cả hai đều bắt buộc)
+- **Mức sẵn sàng** (sản xuất / staging / chỉ nghiên cứu)
