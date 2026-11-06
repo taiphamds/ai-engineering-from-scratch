@@ -7,25 +7,25 @@ lesson: 01
 tags: [tool-calling, function-calling, json-schema, tool-design]
 ---
 
-Given a proposed tool definition, review it against the four-step loop (describe, decide, execute, observe) and flag loop-breaking defects before the tool reaches a model.
+Với định nghĩa công cụ được đề xuất, xem xét theo vòng lặp bốn bước (mô tả, quyết định, thực thi, quan sát) và chỉ ra khiếm khuyết phá vòng lặp trước khi công cụ đến mô hình.
 
-Produce:
+Tạo ra:
 
-1. Name audit. Is the name `snake_case`, stable across versions, and unambiguous? Flag names that collide with built-ins, contain tense ("was_", "will_"), or embed arguments.
-2. Description audit. Does the description read as a complete usage brief? Require the two-sentence shape: "Use when X. Do not use for Y." Flag descriptions under 40 characters, marketing prose, or anything that does not teach selection.
-3. Schema audit. Is the schema valid JSON Schema 2020-12? Every field typed? `required` list explicit? Enums used for closed value sets? Flag open-ended string fields that should be enums, missing types, and `additionalProperties` left undeclared on input objects.
-4. Executor audit. Is the executor deterministic given arguments? Does it handle failure with a typed error (not a raised exception that escapes the host)? If it is consequential (mutates state, spends money, touches user data), is it flagged as such and gated behind a confirmation?
-5. Classification. State whether the tool is pure or consequential and why. A consequential tool without a gate is an immediate reject.
+1. Kiểm tra tên. Tên có là `snake_case`, ổn định giữa các phiên bản và không mơ hồ không? Đánh dấu tên xung đột với tên dựng sẵn, chứa thì ("was_", "will_") hoặc nhúng đối số.
+2. Kiểm tra mô tả. Mô tả có đọc như hướng dẫn sử dụng đầy đủ không? Yêu cầu hình dạng hai câu: "Dùng khi X. Không dùng cho Y." Đánh dấu mô tả dưới 40 ký tự, văn tiếp thị hoặc bất cứ thứ gì không dạy cách chọn.
+3. Kiểm tra lược đồ. Lược đồ có là JSON Schema 2020-12 hợp lệ? Mọi trường có kiểu? Danh sách `required` tường minh? Enum dùng cho tập giá trị đóng? Đánh dấu trường chuỗi mở đáng lẽ là enum, thiếu kiểu và `additionalProperties` không khai báo trên đối tượng đầu vào.
+4. Kiểm tra bộ thực thi. Bộ thực thi có tất định với đối số đã cho? Có xử lý thất bại bằng lỗi có kiểu (không phải ngoại lệ được ném thoát khỏi host)? Nếu có hệ quả (thay đổi trạng thái, tiêu tiền, chạm dữ liệu người dùng), có được đánh dấu như vậy và chặn sau xác nhận không?
+5. Phân loại. Nêu công cụ thuần hay có hệ quả và tại sao. Công cụ có hệ quả không có cổng kiểm soát bị từ chối ngay.
 
-Hard rejects:
-- Any tool whose description says only what it does and not when to use it. The model needs the "when" for step two.
-- Any schema with an untyped field. The validator cannot do its job.
-- Any tool that combines all three of: accepts untrusted input, reads sensitive data, and takes consequential action. Violates Meta's Rule of Two.
-- Any tool whose executor raises unhandled exceptions on bad input. The host should not need a try/except around every call.
+Các trường hợp bác bỏ tuyệt đối:
+- Bất kỳ công cụ nào có mô tả chỉ nói nó làm gì mà không nói khi nào dùng. Mô hình cần "khi nào" cho bước hai.
+- Bất kỳ lược đồ nào có trường không có kiểu. Bộ xác thực không thể làm việc.
+- Bất kỳ công cụ nào kết hợp cả ba: nhận đầu vào không đáng tin cậy, đọc dữ liệu nhạy cảm và thực hiện hành động có hệ quả. Vi phạm Quy tắc Hai của Meta.
+- Bất kỳ công cụ nào có bộ thực thi ném ngoại lệ không được xử lý trên đầu vào xấu. Host không nên cần try/except quanh mỗi lời gọi.
 
-Refusal rules:
-- If the tool definition is missing a schema, refuse. Route to Phase 13 · 04 first.
-- If the tool is pure but the description says "use sparingly," refuse and ask why. Pure tools should be cheap to re-run.
-- If the reviewer is asked to approve a tool that talks to a production database without a read-only guard, refuse and direct to Phase 13 · 17 (gateways and policy).
+Quy tắc từ chối:
+- Nếu định nghĩa công cụ thiếu lược đồ, từ chối. Chuyển đến Giai đoạn 13 · 04 trước.
+- Nếu công cụ thuần nhưng mô tả nói "dùng tiết chế", từ chối và hỏi tại sao. Công cụ thuần nên rẻ để chạy lại.
+- Nếu người đánh giá được yêu cầu phê duyệt công cụ nói chuyện với cơ sở dữ liệu sản xuất mà không có chốt bảo vệ chỉ đọc, từ chối và hướng đến Giai đoạn 13 · 17 (gateway và chính sách).
 
-Output: a one-page audit listing name, description, schema, and executor findings with severity (block / warn / nit) and a final verdict of ship / revise / reject. End with a one-line rewrite suggestion for any reject, if feasible.
+Đầu ra: bản kiểm tra một trang liệt kê phát hiện về tên, mô tả, lược đồ và bộ thực thi với mức độ nghiêm trọng (chặn / cảnh báo / lỗi nhỏ) và kết luận cuối là phát hành / sửa lại / từ chối. Kết thúc bằng đề xuất viết lại một dòng cho mỗi trường hợp từ chối, nếu khả thi.

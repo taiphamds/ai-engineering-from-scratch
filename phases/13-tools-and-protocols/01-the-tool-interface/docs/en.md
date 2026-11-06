@@ -1,6 +1,6 @@
 # The Tool Interface — Why Agents Need Structured I/O
 
-> A language model produces tokens. A program takes actions. The gap between those two is the tool interface: a contract that lets the model request an action and the host execute it. Every 2026 stack — function calling on OpenAI, Anthropic, and Gemini; MCP's `tools/call`; A2A's task parts — is a different encoding of the same four-step loop. This lesson names the loop and shows the minimum machinery to run it.
+> Mô hình ngôn ngữ tạo token. Chương trình thực hiện hành động. Khoảng cách giữa hai thứ đó là giao diện công cụ: một hợp đồng cho phép mô hình yêu cầu hành động và host thực thi nó. Mọi ngăn xếp năm 2026 — function calling trên OpenAI, Anthropic và Gemini; `tools/call` của MCP; các phần tác vụ của A2A — là cách mã hóa khác nhau của cùng vòng lặp bốn bước. Bài học này đặt tên vòng lặp và cho thấy bộ máy tối thiểu để chạy nó.
 
 **Type:** Learn
 **Languages:** Python (stdlib, no LLM)
@@ -9,98 +9,98 @@
 
 ## Learning Objectives
 
-- Explain why an LLM that can only generate text cannot, on its own, take actions against the real world.
-- Draw the four-step tool-call loop (describe → decide → execute → observe) and name who owns each step.
-- Write a tool description as three parts: name, JSON Schema input, and a deterministic executor function.
-- Distinguish pure and side-effecting tools and state why the split matters for safety.
+- Giải thích tại sao LLM chỉ có thể tạo văn bản không thể tự mình thực hiện hành động với thế giới thực.
+- Vẽ vòng lặp gọi công cụ bốn bước (mô tả → quyết định → thực thi → quan sát) và nêu ai phụ trách mỗi bước.
+- Viết mô tả công cụ thành ba phần: tên, đầu vào JSON Schema và hàm thực thi tất định.
+- Phân biệt công cụ thuần và công cụ có tác dụng phụ, nêu tại sao sự phân chia này quan trọng với an toàn.
 
 ## The Problem
 
-An LLM emits a probability distribution over the next token. That is the entire output surface. If you ask a chat model "what is the weather in Bengaluru right now," it can write a plausible sentence, but it cannot dial into a weather API. The sentence might be right by coincidence or three days stale.
+LLM phát ra phân phối xác suất trên token tiếp theo. Đó là toàn bộ bề mặt đầu ra. Nếu bạn hỏi mô hình chat "thời tiết ở Bengaluru lúc này thế nào", nó có thể viết câu có vẻ hợp lý, nhưng không thể kết nối vào API thời tiết. Câu có thể đúng do trùng hợp hoặc cũ ba ngày.
 
-Closing that gap is the purpose of the tool interface. The host program — your agent runtime, Claude Desktop, ChatGPT, Cursor, or a custom script — advertises a list of callable tools to the model. The model, when it decides an action is needed, emits a structured payload naming a tool and its arguments. The host parses that payload, runs the tool for real, and feeds the result back. The loop continues until the model decides no more calls are needed.
+Thu hẹp khoảng cách đó là mục đích của giao diện công cụ. Chương trình host — runtime agent của bạn, Claude Desktop, ChatGPT, Cursor hoặc script tùy chỉnh — công bố danh sách công cụ có thể gọi cho mô hình. Khi quyết định cần hành động, mô hình phát payload có cấu trúc nêu công cụ và đối số. Host phân tích payload đó, thực sự chạy công cụ và đưa kết quả trở lại. Vòng lặp tiếp tục đến khi mô hình quyết định không cần gọi nữa.
 
-The first version of this contract shipped in June 2023 as OpenAI's "functions" parameter. Anthropic followed with `tool_use` blocks in Claude 2.1. Gemini added `functionDeclarations` a few months later. Every provider now exposes the same shape: a JSON-Schema-typed tool list in, a JSON-payload tool call out. The Model Context Protocol (November 2024) generalized the contract so one tool registry serves every model. A2A (April 2026, v1.0) layered the same primitive for agent-to-agent delegation.
+Phiên bản đầu tiên của hợp đồng này được phát hành tháng 6 năm 2023 dưới dạng tham số "functions" của OpenAI. Anthropic theo sau với khối `tool_use` trong Claude 2.1. Gemini thêm `functionDeclarations` vài tháng sau. Mọi nhà cung cấp hiện đưa ra cùng hình dạng: danh sách công cụ định kiểu bằng JSON Schema đi vào, lời gọi công cụ payload JSON đi ra. Model Context Protocol (tháng 11 năm 2024) khái quát hợp đồng để một sổ đăng ký công cụ phục vụ mọi mô hình. A2A (tháng 4 năm 2026, v1.0) xếp lớp cùng thành phần cơ bản cho ủy nhiệm agent-sang-agent.
 
-The four-step loop is the invariant underneath all of these. Everything else in Phase 13 is an elaboration.
+Vòng lặp bốn bước là bất biến bên dưới tất cả những thứ này. Mọi thứ khác trong Giai đoạn 13 là phần triển khai chi tiết.
 
 ## The Concept
 
 ### Step one: describe
 
-The host declares each tool with three fields.
+Host khai báo mỗi công cụ bằng ba trường.
 
-- **Name.** A stable, machine-readable identifier. `get_weather`, not "weather thing".
-- **Description.** A one-paragraph natural-language brief. "Use when the user asks about current conditions for a specific city. Do not use for historical data."
-- **Input schema.** A JSON Schema object (draft 2020-12) describing the tool's arguments.
+- **Tên.** Định danh ổn định, máy đọc được. `get_weather`, không phải "thứ thời tiết".
+- **Mô tả.** Bản hướng dẫn ngôn ngữ tự nhiên một đoạn. "Dùng khi người dùng hỏi về điều kiện hiện tại của một thành phố cụ thể. Không dùng cho dữ liệu lịch sử."
+- **Lược đồ đầu vào.** Đối tượng JSON Schema (bản thảo 2020-12) mô tả đối số công cụ.
 
-The model receives the list. Modern providers serialize these declarations into the system prompt using a provider-specific template, so you as the caller only deal with the structured form.
+Mô hình nhận danh sách. Các nhà cung cấp hiện đại tuần tự hóa những khai báo này vào system prompt bằng mẫu riêng cho nhà cung cấp, nên bạn với tư cách bên gọi chỉ xử lý dạng có cấu trúc.
 
 ### Step two: decide
 
-Given the user's message and the available tools, the model chooses one of three behaviors.
+Với thông điệp người dùng và các công cụ sẵn có, mô hình chọn một trong ba hành vi.
 
-1. **Answer directly** in text. No tool call.
-2. **Call one or more tools.** Emit structured call objects. Under `parallel_tool_calls: true` (default on OpenAI and Gemini, opt-in on Anthropic) the model can emit multiple calls in one turn.
-3. **Refuse.** Strict-mode structured outputs can produce a typed `refusal` block instead of a call.
+1. **Trả lời trực tiếp** bằng văn bản. Không gọi công cụ.
+2. **Gọi một hoặc nhiều công cụ.** Phát đối tượng lời gọi có cấu trúc. Với `parallel_tool_calls: true` (mặc định trên OpenAI và Gemini, bật tùy chọn trên Anthropic), mô hình có thể phát nhiều lời gọi trong một lượt.
+3. **Từ chối.** Đầu ra có cấu trúc ở chế độ nghiêm ngặt có thể tạo khối `refusal` có kiểu thay vì lời gọi.
 
-A tool call payload has three stable fields: a call `id`, a tool `name`, and a JSON `arguments` object. The id exists so the host can correlate the later result with the specific call, which matters when parallel calls come back out of order.
+Payload lời gọi công cụ có ba trường ổn định: `id` lời gọi, `name` công cụ và đối tượng JSON `arguments`. Id tồn tại để host liên hệ kết quả sau đó với lời gọi cụ thể, điều quan trọng khi các lời gọi song song trả về không đúng thứ tự.
 
 ### Step three: execute
 
-The host receives the call, validates arguments against the declared schema, and runs the executor. Invalid arguments mean the model hallucinated a field or used the wrong type — a very common failure mode on weak models. Production hosts do one of three things on invalid arguments: fail fast and surface the error to the model, repair the JSON with a constrained parser, or retry the model with the validation error included in the prompt.
+Host nhận lời gọi, xác thực đối số theo lược đồ đã khai báo và chạy bộ thực thi. Đối số không hợp lệ nghĩa là mô hình bịa ra trường hoặc dùng sai kiểu — dạng lỗi rất phổ biến trên mô hình yếu. Host sản xuất làm một trong ba việc khi đối số không hợp lệ: thất bại sớm và đưa lỗi cho mô hình, sửa JSON bằng bộ phân tích có ràng buộc, hoặc thử lại mô hình với lỗi xác thực được đưa vào prompt.
 
-The executor itself is ordinary code. Python, TypeScript, a shell command, a database query. It produces a result, which is usually a string but can be any JSON value or a structured content block (text, image, or resource reference in MCP). The result must be serializable.
+Bản thân bộ thực thi là mã thông thường. Python, TypeScript, lệnh shell, truy vấn cơ sở dữ liệu. Nó tạo kết quả, thường là chuỗi nhưng có thể là bất kỳ giá trị JSON hoặc khối nội dung có cấu trúc nào (văn bản, ảnh hoặc tham chiếu tài nguyên trong MCP). Kết quả phải tuần tự hóa được.
 
 ### Step four: observe
 
-The host appends the tool result to the conversation (as a `tool` role message with matching `id`) and re-invokes the model. The model now has the tool output in context and can produce a final answer or request more calls. This continues until the model stops emitting calls or the host hits a safety limit on iteration count.
+Host nối kết quả công cụ vào hội thoại (dưới dạng thông điệp vai trò `tool` với `id` khớp) và gọi lại mô hình. Mô hình giờ có đầu ra công cụ trong ngữ cảnh và có thể tạo câu trả lời cuối hoặc yêu cầu gọi thêm. Việc này tiếp tục đến khi mô hình ngừng phát lời gọi hoặc host chạm giới hạn an toàn về số vòng lặp.
 
 ### The trust split
 
-Tools come in two flavors that matter for safety.
+Công cụ có hai loại quan trọng với an toàn.
 
-- **Pure.** Read-only, deterministic, no side effects. `get_weather`, `search_docs`, `get_current_time`. Safe to call speculatively.
-- **Consequential.** Mutates state, spends money, touches user data. `send_email`, `delete_file`, `execute_trade`. Must be gated.
+- **Thuần.** Chỉ đọc, tất định, không tác dụng phụ. `get_weather`, `search_docs`, `get_current_time`. An toàn để gọi suy đoán.
+- **Có hệ quả.** Thay đổi trạng thái, tiêu tiền, chạm đến dữ liệu người dùng. `send_email`, `delete_file`, `execute_trade`. Phải có cổng kiểm soát.
 
-Meta's 2026 "Rule of Two" for agent security says a single turn may combine at most two of: untrusted input, sensitive data, consequential action. The tool interface is where you enforce that rule — by rejecting calls, requiring user confirmation, or escalating scopes. See Phase 13 · 15 for the full security chapter and Phase 14 · 09 for agent-level permission policies.
+"Quy tắc Hai" năm 2026 của Meta cho bảo mật agent nói rằng một lượt chỉ được kết hợp tối đa hai trong số: đầu vào không đáng tin cậy, dữ liệu nhạy cảm, hành động có hệ quả. Giao diện công cụ là nơi bạn thực thi quy tắc đó — bằng cách từ chối lời gọi, yêu cầu người dùng xác nhận hoặc nâng phạm vi quyền. Xem Giai đoạn 13 · 15 để có chương bảo mật đầy đủ và Giai đoạn 14 · 09 để có chính sách quyền cấp agent.
 
 ### Where the loop lives
 
-| Context | Who describes | Who decides | Who executes |
+| Ngữ cảnh | Ai mô tả | Ai quyết định | Ai thực thi |
 |---------|---------------|-------------|--------------|
-| Single-turn function calling (OpenAI/Anthropic/Gemini) | App developer | LLM | App developer |
-| MCP | MCP server | LLM via MCP client | MCP server |
-| A2A | Agent Card publisher | Calling agent | Called agent |
-| Web browser (function-calling agent) | Browser extension / WebMCP | LLM | Browser runtime |
+| Function calling một lượt (OpenAI/Anthropic/Gemini) | Nhà phát triển ứng dụng | LLM | Nhà phát triển ứng dụng |
+| MCP | Máy chủ MCP | LLM qua client MCP | Máy chủ MCP |
+| A2A | Bên công bố Agent Card | Agent gọi | Agent được gọi |
+| Trình duyệt web (agent function calling) | Tiện ích trình duyệt / WebMCP | LLM | Runtime trình duyệt |
 
-Everywhere, the same four steps. The column names change; the structure does not.
+Ở mọi nơi, cùng bốn bước. Tên cột thay đổi; cấu trúc không thay đổi.
 
 ### Why not just prompt the model to emit JSON?
 
-"Ask the model to reply in JSON" was the pre-function-calling pattern. It fails ~5 to 15 percent of the time on frontier models and far more on smaller models. Failure modes include missing braces, trailing commas, hallucinated fields, and wrong types. You then need a JSON repair pass, a retry, or a constrained decoder.
+"Yêu cầu mô hình trả lời bằng JSON" là mẫu trước function calling. Nó thất bại ~5 đến 15 phần trăm số lần trên mô hình tiên tiến nhất và nhiều hơn hẳn trên mô hình nhỏ hơn. Dạng lỗi gồm thiếu dấu ngoặc nhọn, dấu phẩy cuối, trường bịa ra và sai kiểu. Khi đó bạn cần lượt sửa JSON, thử lại hoặc bộ giải mã có ràng buộc.
 
-Native function calling is better for three reasons. First, the provider trains the model end-to-end on the exact call shape, so valid-JSON rate climbs to 98 to 99 percent on strict mode. Second, the call payload sits in its own protocol slot, not inside free-text — so a tool call never leaks into the user-visible reply. Third, providers enforce schema compliance with constrained decoding (OpenAI's strict mode, Anthropic's `tool_use`, Gemini's `responseSchema`). The output is guaranteed to validate.
+Function calling nguyên bản tốt hơn vì ba lý do. Thứ nhất, nhà cung cấp huấn luyện mô hình đầu cuối trên đúng hình dạng lời gọi, nên tỷ lệ JSON hợp lệ tăng lên 98 đến 99 phần trăm ở chế độ nghiêm ngặt. Thứ hai, payload lời gọi nằm trong khe giao thức riêng, không bên trong văn bản tự do — nên lời gọi công cụ không bao giờ lọt vào câu trả lời hiển thị cho người dùng. Thứ ba, nhà cung cấp bắt buộc tuân thủ lược đồ bằng giải mã có ràng buộc (chế độ nghiêm ngặt của OpenAI, `tool_use` của Anthropic, `responseSchema` của Gemini). Đầu ra được bảo đảm xác thực thành công.
 
-Phase 13 · 02 walks the three provider APIs side by side. Phase 13 · 04 goes deep on structured outputs.
+Giai đoạn 13 · 02 đi qua ba API nhà cung cấp cạnh nhau. Giai đoạn 13 · 04 đi sâu về đầu ra có cấu trúc.
 
 ### Circuit breakers
 
-The loop terminates when the model stops emitting calls or the host hits a maximum turn count. Production hosts set this to between 5 and 20 turns. Beyond that, you are almost certainly in a loop the model cannot exit. Claude Code defaults to 20; OpenAI Assistants to 10; Cursor's agent mode to 25.
+Vòng lặp kết thúc khi mô hình ngừng phát lời gọi hoặc host chạm số lượt tối đa. Host sản xuất đặt mức này từ 5 đến 20 lượt. Vượt mức đó, gần như chắc chắn bạn đang trong vòng lặp mà mô hình không thể thoát. Claude Code mặc định 20; OpenAI Assistants 10; chế độ agent của Cursor 25.
 
-The alternative — unbounded loops — shows up every six months as "agent spent $400 in API calls overnight" post-mortems. Do not ship without a bound.
+Phương án còn lại — vòng lặp không giới hạn — xuất hiện mỗi sáu tháng trong các báo cáo hậu kiểm "agent tiêu $400 cho lời gọi API qua một đêm". Không phát hành khi không có giới hạn.
 
-Phase 14 · 12 covers error recovery and self-healing in depth; Phase 17 covers production rate limits.
+Giai đoạn 14 · 12 đề cập sâu phục hồi lỗi và tự chữa lành; Giai đoạn 17 đề cập giới hạn tốc độ trong sản xuất.
 
 ### Where Phase 13 goes from here
 
-- Lessons 02 through 05 polish the provider-level tool-call surface.
-- Lessons 06 through 14 generalize the loop into MCP.
-- Lessons 15 through 18 defend the loop against hostile servers, adversarial users, and unauthenticated remote auth surfaces.
-- Lessons 19 through 22 extend the pattern to agent-to-agent collaboration, observability, routing, and packaging.
-- Lesson 23 ships a complete ecosystem using every primitive.
+- Bài 02 đến 05 hoàn thiện bề mặt gọi công cụ cấp nhà cung cấp.
+- Bài 06 đến 14 khái quát vòng lặp thành MCP.
+- Bài 15 đến 18 bảo vệ vòng lặp trước máy chủ thù địch, người dùng đối kháng và bề mặt xác thực từ xa chưa được xác thực.
+- Bài 19 đến 22 mở rộng mẫu sang cộng tác agent-sang-agent, khả năng quan sát, định tuyến và đóng gói.
+- Bài 23 cung cấp hệ sinh thái hoàn chỉnh sử dụng mọi thành phần cơ bản.
 
-Every remaining lesson is an elaboration of this four-step loop. Hold it in mind as the invariant.
+Mỗi bài còn lại là phần triển khai chi tiết của vòng lặp bốn bước này. Giữ nó trong đầu như bất biến.
 
 ```figure
 tp-tool-loop
@@ -108,49 +108,49 @@ tp-tool-loop
 
 ## Use It
 
-`code/main.py` runs the four-step loop without an LLM. A fake "decider" function simulates the model by pattern-matching on the user message; the executor, schema validator, and observe-step harness are real. Run it to see the full request/response choreography with printable intermediate state, then replace the fake decider with any real provider in a later lesson.
+`code/main.py` chạy vòng lặp bốn bước không có LLM. Hàm "quyết định" giả mô phỏng mô hình bằng khớp mẫu thông điệp người dùng; bộ thực thi, bộ xác thực lược đồ và bộ khung bước quan sát là thật. Chạy nó để thấy toàn bộ cách phối hợp yêu cầu/phản hồi với trạng thái trung gian in được, rồi thay bộ quyết định giả bằng bất kỳ nhà cung cấp thật nào ở bài sau.
 
-What to look at:
+Những gì cần xem:
 
-- The tool registry holds three fields per tool: name, description, schema, and an executor reference.
-- The validator is a minimal JSON Schema subset (types, required, enum, min/max) written in stdlib only. Phase 13 · 04 ships a fuller one.
-- The loop bounds iteration count at five. Production agents need exactly this kind of circuit breaker.
+- Sổ đăng ký công cụ giữ ba trường mỗi công cụ: tên, mô tả, lược đồ và tham chiếu bộ thực thi.
+- Bộ xác thực là tập con JSON Schema tối thiểu (kiểu, required, enum, min/max) chỉ viết bằng stdlib. Giai đoạn 13 · 04 cung cấp bản đầy đủ hơn.
+- Vòng lặp giới hạn số vòng ở năm. Agent sản xuất cần đúng loại bộ ngắt mạch này.
 
 ## Ship It
 
-This lesson produces `outputs/skill-tool-interface-reviewer.md`. Given a draft tool definition (name + description + schema + executor outline), the skill audits it for loop fitness: is the name machine-stable, is the description a complete usage brief, does the schema use JSON Schema 2020-12 correctly, and is the pure-vs-consequential classification explicit.
+Bài học này tạo ra `outputs/skill-tool-interface-reviewer.md`. Với bản nháp định nghĩa công cụ (tên + mô tả + lược đồ + phác thảo bộ thực thi), skill kiểm tra độ phù hợp vòng lặp: tên có ổn định với máy, mô tả có là hướng dẫn sử dụng đầy đủ, lược đồ có dùng đúng JSON Schema 2020-12 và phân loại thuần-so-với-có-hệ-quả có tường minh không.
 
 ## Exercises
 
-1. Add a fourth tool to `code/main.py` called `get_stock_price(ticker)`. Write its description as "Use when the user asks for a current stock price by ticker. Do not use for historical prices or market summaries." Run the harness and confirm the fake decider routes queries mentioning tickers to the new tool.
+1. Thêm công cụ thứ tư vào `code/main.py` tên `get_stock_price(ticker)`. Viết mô tả là "Dùng khi người dùng hỏi giá cổ phiếu hiện tại theo mã. Không dùng cho giá lịch sử hoặc tóm tắt thị trường." Chạy bộ khung và xác nhận bộ quyết định giả định tuyến truy vấn nhắc mã cổ phiếu đến công cụ mới.
 
-2. Break the schema validator. Pass a call whose `arguments` object is missing a required field, and confirm the host rejects it before execution. Then pass a call with an extra unknown field. Decide: should the host reject or ignore? Justify your choice with a safety argument.
+2. Phá bộ xác thực lược đồ. Truyền lời gọi có đối tượng `arguments` thiếu trường bắt buộc và xác nhận host từ chối trước khi thực thi. Sau đó truyền lời gọi có thêm trường không biết. Quyết định: host nên từ chối hay bỏ qua? Biện minh lựa chọn bằng lập luận an toàn.
 
-3. Classify each tool in the harness as pure or consequential. Add a `consequential: true` flag to the registry entries that need it, and change the loop to print a "would confirm with user" line whenever a consequential tool is chosen. This is the shape of the confirmation gate every production host needs.
+3. Phân loại mỗi công cụ trong bộ khung là thuần hoặc có hệ quả. Thêm cờ `consequential: true` vào mục đăng ký cần nó và đổi vòng lặp để in dòng "sẽ xác nhận với người dùng" mỗi khi công cụ có hệ quả được chọn. Đây là hình dạng cổng xác nhận mà mọi host sản xuất cần.
 
-4. Draw the four-step loop on paper with the provider-column table above filled in for your favorite client (Claude Desktop, Cursor, ChatGPT, or a custom stack). Cross-reference with the MCP-specific variant in Phase 13 · 06.
+4. Vẽ vòng lặp bốn bước lên giấy với bảng cột nhà cung cấp phía trên được điền cho client yêu thích của bạn (Claude Desktop, Cursor, ChatGPT hoặc ngăn xếp tùy chỉnh). Tham chiếu chéo với biến thể riêng cho MCP ở Giai đoạn 13 · 06.
 
-5. Read OpenAI's function-calling guide top to bottom. Identify the one field that sits in the request but not in the four-step loop as presented here. Explain what it adds and why it is convenient rather than essential.
+5. Đọc hướng dẫn function calling của OpenAI từ đầu đến cuối. Xác định một trường nằm trong yêu cầu nhưng không trong vòng lặp bốn bước trình bày ở đây. Giải thích nó thêm gì và tại sao nó tiện lợi thay vì thiết yếu.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Tool | "A thing the model can call" | A triple of name + JSON-Schema-typed input + executor function |
-| Function calling | "Native tool use" | Provider-level API support for emitting structured tool calls instead of prose |
-| Tool call | "The model's request to act" | A JSON payload with `id`, `name`, `arguments` emitted by the model |
-| Tool result | "What the tool returned" | The executor's output, wrapped in a `tool` role message with matching id |
-| Parallel tool calls | "Many calls at once" | Multiple call objects in one model turn, independent and orderable by id |
-| Strict mode | "Guaranteed JSON" | Constrained decoding that forces the model's output to validate against the declared schema |
-| Pure tool | "Read-only tool" | No side effects; safe to re-run |
-| Consequential tool | "Action tool" | Mutates external state; requires gate, audit, or user confirmation |
-| Four-step loop | "The tool-call cycle" | describe → decide → execute → observe |
-| Host | "Agent runtime" | The program that holds the tool registry, calls the model, and runs the executor |
+| Tool (Công cụ) | "Thứ mô hình có thể gọi" | Bộ ba tên + đầu vào định kiểu bằng JSON Schema + hàm thực thi |
+| Function calling (Gọi hàm) | "Sử dụng công cụ nguyên bản" | Hỗ trợ API cấp nhà cung cấp để phát lời gọi công cụ có cấu trúc thay vì văn xuôi |
+| Tool call (Lời gọi công cụ) | "Yêu cầu hành động của mô hình" | Payload JSON có `id`, `name`, `arguments` do mô hình phát |
+| Tool result (Kết quả công cụ) | "Công cụ đã trả gì" | Đầu ra bộ thực thi, bọc trong thông điệp vai trò `tool` với id khớp |
+| Parallel tool calls (Lời gọi công cụ song song) | "Nhiều lời gọi cùng lúc" | Nhiều đối tượng lời gọi trong một lượt mô hình, độc lập và sắp thứ tự được theo id |
+| Strict mode (Chế độ nghiêm ngặt) | "JSON được bảo đảm" | Giải mã có ràng buộc buộc đầu ra mô hình xác thực theo lược đồ khai báo |
+| Pure tool (Công cụ thuần) | "Công cụ chỉ đọc" | Không tác dụng phụ; an toàn để chạy lại |
+| Consequential tool (Công cụ có hệ quả) | "Công cụ hành động" | Thay đổi trạng thái bên ngoài; cần cổng kiểm soát, kiểm toán hoặc xác nhận người dùng |
+| Four-step loop (Vòng lặp bốn bước) | "Chu kỳ gọi công cụ" | mô tả → quyết định → thực thi → quan sát |
+| Host | "Runtime agent" | Chương trình giữ sổ đăng ký công cụ, gọi mô hình và chạy bộ thực thi |
 
 ## Further Reading
 
-- [OpenAI — Function calling guide](https://platform.openai.com/docs/guides/function-calling) — canonical reference for OpenAI-style tool declarations and call shapes
-- [Anthropic — Tool use overview](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/overview) — Claude's `tool_use` / `tool_result` block format
-- [Google — Gemini function calling](https://ai.google.dev/gemini-api/docs/function-calling) — `functionDeclarations` and parallel-call semantics in Gemini
-- [Model Context Protocol — Specification 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28) — the current stateless, provider-agnostic generalization of the tool interface
-- [JSON Schema — 2020-12 release notes](https://json-schema.org/draft/2020-12/release-notes) — the schema dialect every modern tool API speaks
+- [OpenAI — Function calling guide](https://platform.openai.com/docs/guides/function-calling) — tham chiếu kinh điển cho khai báo công cụ và hình dạng lời gọi kiểu OpenAI
+- [Anthropic — Tool use overview](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/overview) — định dạng khối `tool_use` / `tool_result` của Claude
+- [Google — Gemini function calling](https://ai.google.dev/gemini-api/docs/function-calling) — `functionDeclarations` và ngữ nghĩa lời gọi song song trong Gemini
+- [Model Context Protocol — Specification 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28) — sự khái quát không trạng thái, không phụ thuộc nhà cung cấp hiện tại của giao diện công cụ
+- [JSON Schema — 2020-12 release notes](https://json-schema.org/draft/2020-12/release-notes) — phương ngữ lược đồ mà mọi API công cụ hiện đại sử dụng
