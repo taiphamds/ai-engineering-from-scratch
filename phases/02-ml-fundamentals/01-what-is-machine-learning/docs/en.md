@@ -1,6 +1,6 @@
 # What Is Machine Learning
 
-> Machine learning is teaching computers to find patterns in data instead of writing rules by hand.
+> Học máy là dạy máy tính tìm các mẫu trong dữ liệu thay vì viết các quy tắc bằng tay.
 
 **Type:** Learn
 **Languages:** Python
@@ -9,24 +9,24 @@
 
 ## Learning Objectives
 
-- Explain the difference between supervised, unsupervised, and reinforcement learning and identify which type applies to a given problem
-- Implement a nearest centroid classifier from scratch and evaluate it against a random baseline
-- Distinguish between classification and regression tasks and select the appropriate loss function for each
-- Evaluate whether a given business problem is suitable for ML or better solved with deterministic rules
+- Giải thích sự khác biệt giữa học có giám sát, không giám sát và tăng cường và xác định loại nào áp dụng cho một bài toán nhất định
+- Triển khai một bộ phân loại trọng tâm gần nhất từ đầu và đánh giá nó so với một mốc cơ sở ngẫu nhiên
+- Phân biệt các tác vụ phân loại và hồi quy và chọn hàm mất mát thích hợp cho mỗi loại
+- Đánh giá liệu một bài toán kinh doanh nhất định phù hợp với ML hay được giải tốt hơn bằng các quy tắc tất định
 
 ## The Problem
 
-You want to build a spam filter. The traditional approach: sit down and write hundreds of rules. "If the email contains 'FREE MONEY', mark it spam. If it has more than 3 exclamation marks, mark it spam." You spend weeks writing rules. Then spammers change their wording. Your rules break. You write more rules. The cycle never ends.
+Bạn muốn xây dựng một bộ lọc thư rác. Cách tiếp cận truyền thống: ngồi xuống và viết hàng trăm quy tắc. "Nếu email chứa 'TIỀN MIỄN PHÍ', đánh dấu là thư rác. Nếu nó có hơn 3 dấu chấm than, đánh dấu là thư rác." Bạn dành nhiều tuần viết quy tắc. Rồi những người gửi thư rác thay đổi cách dùng từ. Các quy tắc của bạn hỏng. Bạn viết thêm quy tắc. Chu kỳ không bao giờ kết thúc.
 
-Machine learning flips this. Instead of writing rules, you give the computer thousands of labeled emails ("spam" or "not spam") and let it figure out the rules on its own. The computer finds patterns you never would have thought of. When spammers change tactics, you retrain on new data instead of rewriting code.
+Học máy đảo ngược điều này. Thay vì viết quy tắc, bạn cho máy tính hàng nghìn email đã gắn nhãn ("thư rác" hoặc "không phải thư rác") và để nó tự tìm ra quy tắc. Máy tính tìm các mẫu mà bạn sẽ không bao giờ nghĩ đến. Khi những người gửi thư rác thay đổi chiến thuật, bạn huấn luyện lại trên dữ liệu mới thay vì viết lại mã.
 
-This shift from "programming rules" to "learning from data" is the core of machine learning. Every recommendation engine, voice assistant, self-driving car, and language model works this way.
+Sự chuyển đổi từ "lập trình quy tắc" sang "học từ dữ liệu" này là cốt lõi của học máy. Mọi bộ máy đề xuất, trợ lý giọng nói, xe tự lái và mô hình ngôn ngữ đều hoạt động theo cách này.
 
 ## The Concept
 
 ### Learning From Data, Not Rules
 
-Traditional programming and machine learning solve problems in opposite directions.
+Lập trình truyền thống và học máy giải quyết bài toán theo các hướng đối nhau.
 
 ```mermaid
 flowchart LR
@@ -45,11 +45,11 @@ flowchart LR
     end
 ```
 
-Traditional programming: you write the rules. The program applies them to data to produce output.
+Lập trình truyền thống: bạn viết các quy tắc. Chương trình áp dụng chúng vào dữ liệu để tạo đầu ra.
 
-Machine learning: you provide data and expected outputs. The algorithm discovers the rules.
+Học máy: bạn cung cấp dữ liệu và các đầu ra kỳ vọng. Thuật toán khám phá các quy tắc.
 
-The "model" that comes out of training IS the rules, encoded as numbers (weights, parameters). It generalizes from examples it has seen to make predictions on data it has never seen.
+"Mô hình" có được từ huấn luyện CHÍNH LÀ các quy tắc, được mã hóa thành các số (trọng số, tham số). Nó tổng quát hóa từ các ví dụ đã thấy để đưa ra dự đoán trên dữ liệu chưa bao giờ thấy.
 
 ### The Three Types of Machine Learning
 
@@ -69,57 +69,57 @@ flowchart TD
     RL --> VL[Value Learning]
 ```
 
-**Supervised Learning**: You have input-output pairs. The model learns to map inputs to outputs.
-- "Here are 10,000 photos labeled cat or dog. Learn to tell them apart."
-- "Here are house features and prices. Learn to predict the price."
+**Học Có Giám sát**: Bạn có các cặp đầu vào-đầu ra. Mô hình học cách ánh xạ đầu vào thành đầu ra.
+- "Đây là 10,000 bức ảnh được gắn nhãn mèo hoặc chó. Hãy học phân biệt chúng."
+- "Đây là các đặc trưng và giá nhà. Hãy học dự đoán giá."
 
-**Unsupervised Learning**: You have inputs only. No labels. The model finds structure on its own.
-- "Here are 10,000 customer purchase histories. Find natural groupings."
-- "Here are 1,000 dimensional data points. Reduce to 2 dimensions while keeping structure."
+**Học Không Giám sát**: Bạn chỉ có đầu vào. Không có nhãn. Mô hình tự tìm cấu trúc.
+- "Đây là 10,000 lịch sử mua hàng của khách hàng. Hãy tìm các nhóm tự nhiên."
+- "Đây là các điểm dữ liệu 1,000 chiều. Hãy giảm xuống 2 chiều trong khi giữ cấu trúc."
 
-**Reinforcement Learning**: An agent takes actions in an environment and receives rewards or penalties. It learns a strategy (policy) to maximize total reward.
-- "Play this game. +1 for winning, -1 for losing. Figure out a strategy."
-- "Control this robot arm. +1 for picking up the object, -0.01 for each second wasted."
+**Học Tăng cường**: Một agent thực hiện hành động trong một môi trường và nhận phần thưởng hoặc hình phạt. Nó học một chiến lược (chính sách) để cực đại hóa tổng phần thưởng.
+- "Chơi trò chơi này. +1 khi thắng, -1 khi thua. Hãy tìm ra một chiến lược."
+- "Điều khiển cánh tay robot này. +1 khi nhặt được vật, -0.01 cho mỗi giây lãng phí."
 
-Most of what you will build in practice uses supervised learning. Unsupervised learning is common for preprocessing and exploration. Reinforcement learning powers game AI, robotics, and RLHF for language models.
+Hầu hết những gì bạn sẽ xây dựng trong thực tế sử dụng học có giám sát. Học không giám sát phổ biến cho tiền xử lý và khám phá. Học tăng cường vận hành AI trò chơi, robot và RLHF cho các mô hình ngôn ngữ.
 
 ### Beyond the Big Three
 
-The three categories above are clean, but real-world ML often blurs the lines.
+Ba nhóm ở trên rõ ràng, nhưng ML thực tế thường làm mờ các ranh giới.
 
-**Semi-supervised learning** uses a small set of labeled data and a large set of unlabeled data. You might have 100 labeled medical images and 100,000 unlabeled ones. Techniques include:
+**Học bán giám sát** sử dụng một tập nhỏ dữ liệu có nhãn và một tập lớn dữ liệu không nhãn. Bạn có thể có 100 hình ảnh y khoa có nhãn và 100,000 hình ảnh không nhãn. Các kỹ thuật bao gồm:
 
-- **Label propagation:** Build a graph connecting similar data points. Labels spread from labeled nodes to unlabeled neighbors through the graph.
-- **Pseudo-labeling:** Train a model on the labeled data, use it to predict labels for unlabeled data, then retrain on everything. The model bootstraps its own training set.
-- **Consistency regularization:** The model should give the same prediction for an input and a slightly perturbed version of that input. This works even without labels.
+- **Lan truyền nhãn:** Xây dựng một đồ thị kết nối các điểm dữ liệu tương tự. Nhãn lan từ các nút có nhãn sang các láng giềng không nhãn qua đồ thị.
+- **Gắn nhãn giả:** Huấn luyện một mô hình trên dữ liệu có nhãn, sử dụng nó để dự đoán nhãn cho dữ liệu không nhãn, rồi huấn luyện lại trên mọi thứ. Mô hình tự xây dựng dần tập huấn luyện của chính nó.
+- **Regularization nhất quán:** Mô hình nên cho cùng dự đoán đối với một đầu vào và một phiên bản bị nhiễu loạn nhẹ của đầu vào đó. Điều này hoạt động ngay cả khi không có nhãn.
 
-**Self-supervised learning** creates supervision from the data itself. No human labels needed at all. The model creates its own prediction task from the structure of the data.
+**Học tự giám sát** tạo ra sự giám sát từ chính dữ liệu. Hoàn toàn không cần nhãn của con người. Mô hình tạo tác vụ dự đoán của riêng nó từ cấu trúc dữ liệu.
 
-- **Masked language modeling (BERT):** Hide 15% of words in a sentence, train the model to predict the missing words. The "labels" come from the original text.
-- **Contrastive learning (SimCLR):** Take an image, create two augmented versions. Train the model to recognize they came from the same image while distinguishing them from augmented versions of other images.
-- **Next-token prediction (GPT):** Predict the next word given all previous words. Every text document becomes a training example.
+- **Mô hình hóa ngôn ngữ có che (BERT):** Che 15% từ trong một câu, huấn luyện mô hình dự đoán các từ bị thiếu. Các "nhãn" đến từ văn bản gốc.
+- **Học tương phản (SimCLR):** Lấy một hình ảnh, tạo hai phiên bản tăng cường. Huấn luyện mô hình nhận ra chúng đến từ cùng hình ảnh trong khi phân biệt chúng với các phiên bản tăng cường của các hình ảnh khác.
+- **Dự đoán token tiếp theo (GPT):** Dự đoán từ tiếp theo khi biết mọi từ trước đó. Mỗi tài liệu văn bản trở thành một ví dụ huấn luyện.
 
-These are not separate categories from the big three. They are strategies that combine supervised and unsupervised ideas. Self-supervised learning is technically supervised (the model predicts something), but the labels are generated automatically, not by humans.
+Đây không phải các nhóm tách biệt với ba nhóm lớn. Chúng là các chiến lược kết hợp ý tưởng có giám sát và không giám sát. Học tự giám sát về mặt kỹ thuật là có giám sát (mô hình dự đoán điều gì đó), nhưng nhãn được tạo tự động, không phải bởi con người.
 
 ### Classification vs Regression
 
-These are the two main supervised learning tasks.
+Đây là hai tác vụ học có giám sát chính.
 
-| Aspect | Classification | Regression |
+| Khía cạnh | Phân loại | Hồi quy |
 |--------|---------------|------------|
-| Output | Discrete categories | Continuous numbers |
-| Example | "Is this email spam?" | "What will the house price be?" |
-| Output space | {cat, dog, bird} | Any real number |
-| Loss function | Cross-entropy, accuracy | Mean squared error, MAE |
-| Decision | Boundaries between classes | A curve that fits the data |
+| Đầu ra | Các loại rời rạc | Các số liên tục |
+| Ví dụ | "Email này có phải thư rác không?" | "Giá nhà sẽ là bao nhiêu?" |
+| Không gian đầu ra | {mèo, chó, chim} | Bất kỳ số thực nào |
+| Hàm mất mát | Cross-entropy, độ chính xác | Sai số bình phương trung bình, MAE |
+| Quyết định | Các ranh giới giữa các lớp | Một đường cong khớp dữ liệu |
 
-Classification answers "which category?" Regression answers "how much?"
+Phân loại trả lời "loại nào?" Hồi quy trả lời "bao nhiêu?"
 
-Some problems can be framed either way. Predicting if a stock goes up or down is classification. Predicting the exact price is regression.
+Một số bài toán có thể được định hình theo cả hai cách. Dự đoán một cổ phiếu tăng hay giảm là phân loại. Dự đoán giá chính xác là hồi quy.
 
 ### The ML Workflow
 
-Every machine learning project follows the same pipeline, regardless of the algorithm.
+Mọi dự án học máy đều tuân theo cùng một quy trình, bất kể thuật toán.
 
 ```mermaid
 flowchart LR
@@ -134,25 +134,25 @@ flowchart LR
     H -->|Performance drops| A
 ```
 
-**Collect Data**: Gather raw data. More data is almost always better, but quality matters more than quantity.
+**Thu thập Dữ liệu**: Thu thập dữ liệu thô. Nhiều dữ liệu hơn gần như luôn tốt hơn, nhưng chất lượng quan trọng hơn số lượng.
 
-**Clean & Explore**: Handle missing values, remove duplicates, visualize distributions, spot anomalies. This step often takes 60-80% of total project time.
+**Làm sạch & Khám phá**: Xử lý giá trị thiếu, loại bỏ trùng lặp, trực quan hóa phân phối, phát hiện bất thường. Bước này thường chiếm 60-80% tổng thời gian dự án.
 
-**Feature Engineering**: Transform raw data into features the model can use. Turn dates into day-of-week. Normalize numerical columns. Encode categorical variables. Good features matter more than fancy algorithms.
+**Kỹ thuật Đặc trưng**: Biến đổi dữ liệu thô thành các đặc trưng mô hình có thể sử dụng. Chuyển ngày tháng thành thứ trong tuần. Chuẩn hóa các cột số. Mã hóa các biến phân loại. Đặc trưng tốt quan trọng hơn các thuật toán cầu kỳ.
 
-**Split Data**: Divide into training, validation, and test sets. The model trains on training data, you tune hyperparameters on validation data, and you report final performance on test data.
+**Chia Dữ liệu**: Chia thành các tập huấn luyện, xác thực và kiểm tra. Mô hình huấn luyện trên dữ liệu huấn luyện, bạn điều chỉnh siêu tham số trên dữ liệu xác thực và báo cáo hiệu năng cuối cùng trên dữ liệu kiểm tra.
 
-**Train Model**: Feed training data into an algorithm. The algorithm adjusts internal parameters to minimize a loss function.
+**Huấn luyện Mô hình**: Đưa dữ liệu huấn luyện vào một thuật toán. Thuật toán điều chỉnh các tham số nội bộ để tối thiểu hóa một hàm mất mát.
 
-**Evaluate**: Measure performance on validation/test data. If performance is not acceptable, go back and try different features, algorithms, or hyperparameters.
+**Đánh giá**: Đo hiệu năng trên dữ liệu xác thực/kiểm tra. Nếu hiệu năng không chấp nhận được, quay lại và thử các đặc trưng, thuật toán hoặc siêu tham số khác.
 
-**Deploy**: Put the model into production where it makes predictions on new data.
+**Triển khai**: Đưa mô hình vào sản xuất nơi nó đưa ra dự đoán trên dữ liệu mới.
 
-**Monitor**: Track performance over time. Data distributions change (data drift), and models degrade. When performance drops, retrain.
+**Giám sát**: Theo dõi hiệu năng theo thời gian. Các phân phối dữ liệu thay đổi (dịch chuyển dữ liệu), và mô hình suy giảm. Khi hiệu năng giảm, huấn luyện lại.
 
 ### Training, Validation, and Test Splits
 
-This is the most important concept beginners get wrong. You must evaluate your model on data it has never seen during training. Otherwise you are measuring memorization, not learning.
+Đây là khái niệm quan trọng nhất mà người mới hiểu sai. Bạn phải đánh giá mô hình trên dữ liệu nó chưa bao giờ thấy khi huấn luyện. Nếu không bạn đang đo sự ghi nhớ, không phải việc học.
 
 ```mermaid
 flowchart LR
@@ -168,15 +168,15 @@ flowchart LR
     VA -->|Final evaluation| TE
 ```
 
-| Split | Purpose | When used | Typical size |
+| Phần chia | Mục đích | Khi nào sử dụng | Kích thước điển hình |
 |-------|---------|-----------|-------------|
-| Training | Model learns from this data | During training | 60-80% |
-| Validation | Tune hyperparameters, compare models | After each training run | 10-20% |
-| Test | Final unbiased performance estimate | Once, at the very end | 10-20% |
+| Huấn luyện | Mô hình học từ dữ liệu này | Trong huấn luyện | 60-80% |
+| Xác thực | Điều chỉnh siêu tham số, so sánh mô hình | Sau mỗi lần huấn luyện | 10-20% |
+| Kiểm tra | Ước lượng hiệu năng cuối cùng không chệch | Một lần, vào cuối cùng | 10-20% |
 
-The test set is sacred. You look at it exactly once. If you keep adjusting your model based on test performance, you are effectively training on the test set and your reported numbers are meaningless.
+Tập kiểm tra là thiêng liêng. Bạn nhìn vào nó đúng một lần. Nếu liên tục điều chỉnh mô hình dựa trên hiệu năng kiểm tra, thực chất bạn đang huấn luyện trên tập kiểm tra và các con số báo cáo trở nên vô nghĩa.
 
-For small datasets, use k-fold cross-validation: split data into k parts, train on k-1 parts, validate on the remaining part, rotate, and average results.
+Với các tập dữ liệu nhỏ, sử dụng xác thực chéo k-fold: chia dữ liệu thành k phần, huấn luyện trên k-1 phần, xác thực trên phần còn lại, luân phiên và lấy trung bình kết quả.
 
 ### Overfitting vs Underfitting
 
@@ -204,73 +204,73 @@ flowchart LR
     GF -->|Too much complexity| OF
 ```
 
-**Underfitting**: The model is too simple to capture the patterns in the data. A straight line trying to fit a curved relationship. Training error is high. Test error is high.
+**Khớp chưa đủ**: Mô hình quá đơn giản để nắm bắt các mẫu trong dữ liệu. Một đường thẳng cố khớp một quan hệ cong. Sai số huấn luyện cao. Sai số kiểm tra cao.
 
-**Overfitting**: The model is too complex and memorizes the training data, including its noise. A wiggly curve that passes through every training point but fails on new data. Training error is low. Test error is high.
+**Khớp quá mức**: Mô hình quá phức tạp và ghi nhớ dữ liệu huấn luyện, bao gồm nhiễu của nó. Một đường cong ngoằn ngoèo đi qua mọi điểm huấn luyện nhưng thất bại trên dữ liệu mới. Sai số huấn luyện thấp. Sai số kiểm tra cao.
 
-**Good fit**: The model captures real patterns without memorizing noise. Training error and test error are both reasonably low.
+**Khớp tốt**: Mô hình nắm bắt các mẫu thực mà không ghi nhớ nhiễu. Sai số huấn luyện và sai số kiểm tra đều thấp một cách hợp lý.
 
-Signs of overfitting:
-- Training accuracy is much higher than validation accuracy
-- The model performs well on training data but poorly on new data
-- Adding more training data improves performance (the model was memorizing, not learning)
+Các dấu hiệu khớp quá mức:
+- Độ chính xác huấn luyện cao hơn nhiều so với độ chính xác xác thực
+- Mô hình hoạt động tốt trên dữ liệu huấn luyện nhưng kém trên dữ liệu mới
+- Thêm dữ liệu huấn luyện cải thiện hiệu năng (mô hình đã ghi nhớ, không phải học)
 
-Fixes for overfitting:
-- Get more training data
-- Reduce model complexity (fewer parameters, simpler architecture)
-- Regularization (add a penalty for large weights)
-- Dropout (randomly zero out neurons during training)
-- Early stopping (stop training when validation error starts increasing)
+Các cách sửa khớp quá mức:
+- Lấy thêm dữ liệu huấn luyện
+- Giảm độ phức tạp mô hình (ít tham số hơn, kiến trúc đơn giản hơn)
+- Regularization (thêm một hình phạt cho trọng số lớn)
+- Dropout (ngẫu nhiên đặt các nơ-ron về không trong huấn luyện)
+- Dừng sớm (dừng huấn luyện khi sai số xác thực bắt đầu tăng)
 
-Fixes for underfitting:
-- Use a more complex model
-- Add more features
-- Reduce regularization
-- Train longer
+Các cách sửa khớp chưa đủ:
+- Sử dụng một mô hình phức tạp hơn
+- Thêm các đặc trưng
+- Giảm regularization
+- Huấn luyện lâu hơn
 
 ### The Bias-Variance Tradeoff
 
-This is the mathematical framework behind overfitting and underfitting.
+Đây là khuôn khổ toán học đằng sau khớp quá mức và khớp chưa đủ.
 
-**Bias**: Error from wrong assumptions in the model. A linear model has high bias when the true relationship is nonlinear. High bias leads to underfitting.
+**Độ chệch**: Sai số từ các giả định sai trong mô hình. Một mô hình tuyến tính có độ chệch cao khi quan hệ thực là phi tuyến. Độ chệch cao dẫn đến khớp chưa đủ.
 
-**Variance**: Error from sensitivity to small fluctuations in the training data. A model with high variance gives very different predictions when trained on different subsets of data. High variance leads to overfitting.
+**Phương sai**: Sai số do nhạy với các dao động nhỏ trong dữ liệu huấn luyện. Một mô hình có phương sai cao cho các dự đoán rất khác nhau khi được huấn luyện trên các tập con dữ liệu khác nhau. Phương sai cao dẫn đến khớp quá mức.
 
-| Model complexity | Bias | Variance | Result |
+| Độ phức tạp mô hình | Độ chệch | Phương sai | Kết quả |
 |-----------------|------|----------|--------|
-| Too low (linear model for curved data) | High | Low | Underfitting |
-| Just right | Medium | Medium | Good generalization |
-| Too high (degree-20 polynomial for 10 points) | Low | High | Overfitting |
+| Quá thấp (mô hình tuyến tính cho dữ liệu cong) | Cao | Thấp | Khớp chưa đủ |
+| Vừa đúng | Trung bình | Trung bình | Tổng quát hóa tốt |
+| Quá cao (đa thức bậc 20 cho 10 điểm) | Thấp | Cao | Khớp quá mức |
 
-Total error = Bias^2 + Variance + Irreducible noise
+Tổng sai số = Độ chệch^2 + Phương sai + Nhiễu không thể giảm
 
-You cannot reduce irreducible noise (it is randomness in the data itself). You want to find the sweet spot where bias^2 + variance is minimized.
+Bạn không thể giảm nhiễu không thể giảm (đó là tính ngẫu nhiên trong chính dữ liệu). Bạn muốn tìm điểm cân bằng nơi độ chệch^2 + phương sai được tối thiểu hóa.
 
 ### No Free Lunch Theorem
 
-There is no single algorithm that works best for every problem. An algorithm that performs well on one class of problems will perform poorly on another. This is why data scientists try multiple algorithms and compare results.
+Không có một thuật toán duy nhất hoạt động tốt nhất cho mọi bài toán. Một thuật toán hoạt động tốt trên một lớp bài toán sẽ hoạt động kém trên một lớp khác. Đây là lý do các nhà khoa học dữ liệu thử nhiều thuật toán và so sánh kết quả.
 
-In practice, the choice depends on:
-- How much data you have
-- How many features there are
-- Whether the relationship is linear or nonlinear
-- Whether you need interpretability
-- How much compute you can afford
+Trong thực tế, lựa chọn phụ thuộc vào:
+- Bạn có bao nhiêu dữ liệu
+- Có bao nhiêu đặc trưng
+- Quan hệ tuyến tính hay phi tuyến
+- Bạn có cần khả năng diễn giải không
+- Bạn có thể dành bao nhiêu tài nguyên tính toán
 
 ### When NOT to Use Machine Learning
 
-ML is powerful but not always the right tool. Before reaching for a model, ask whether you actually need one.
+ML mạnh nhưng không phải lúc nào cũng là công cụ phù hợp. Trước khi tìm đến một mô hình, hãy hỏi liệu bạn thực sự cần nó không.
 
-**Do not use ML when:**
+**Không sử dụng ML khi:**
 
-- **Rules are simple and well-defined.** Tax calculation, sorting algorithms, unit conversions. If you can write the logic in a few if-statements, a model adds complexity for no benefit.
-- **You have no data or very little data.** ML needs examples to learn from. With 10 data points, you cannot train anything meaningful. Collect data first.
-- **The cost of being wrong is catastrophic and you need guaranteed correctness.** Medical dosage calculation, nuclear reactor control, cryptographic verification. ML models are probabilistic. They will sometimes be wrong. If "sometimes wrong" is unacceptable, use deterministic methods.
-- **A lookup table or heuristic solves the problem.** If a simple threshold or table covers 99% of cases, adding ML increases maintenance cost without meaningful improvement.
-- **You cannot explain the decision and explainability is required.** Regulated industries (lending, insurance, criminal justice) sometimes require that every decision be fully explainable. Some ML models are interpretable (linear regression, small decision trees). Most are not.
-- **The problem changes faster than you can retrain.** If the rules change daily and retraining takes a week, the model is always stale.
+- **Các quy tắc đơn giản và được xác định rõ.** Tính thuế, thuật toán sắp xếp, chuyển đổi đơn vị. Nếu bạn có thể viết logic bằng vài câu lệnh if, một mô hình thêm độ phức tạp mà không có lợi ích.
+- **Bạn không có dữ liệu hoặc có rất ít dữ liệu.** ML cần các ví dụ để học. Với 10 điểm dữ liệu, bạn không thể huấn luyện thứ gì có ý nghĩa. Thu thập dữ liệu trước.
+- **Cái giá của việc sai là thảm khốc và bạn cần tính đúng đắn được bảo đảm.** Tính liều thuốc, điều khiển lò phản ứng hạt nhân, xác minh mật mã. Các mô hình ML mang tính xác suất. Đôi khi chúng sẽ sai. Nếu "đôi khi sai" không chấp nhận được, sử dụng các phương pháp tất định.
+- **Một bảng tra hoặc quy tắc kinh nghiệm giải quyết bài toán.** Nếu một ngưỡng hoặc bảng đơn giản bao phủ 99% trường hợp, thêm ML làm tăng chi phí bảo trì mà không cải thiện có ý nghĩa.
+- **Bạn không thể giải thích quyết định và khả năng giải thích là bắt buộc.** Các ngành được quản lý (cho vay, bảo hiểm, tư pháp hình sự) đôi khi yêu cầu mọi quyết định có thể giải thích đầy đủ. Một số mô hình ML có thể diễn giải (hồi quy tuyến tính, cây quyết định nhỏ). Hầu hết thì không.
+- **Bài toán thay đổi nhanh hơn khả năng huấn luyện lại của bạn.** Nếu các quy tắc thay đổi hằng ngày và huấn luyện lại mất một tuần, mô hình luôn lỗi thời.
 
-Use this decision flowchart:
+Sử dụng lưu đồ quyết định này:
 
 ```mermaid
 flowchart TD
@@ -294,11 +294,11 @@ f3-learning-boundary
 
 ## Build It
 
-The code in `code/ml_intro.py` implements a nearest centroid classifier from scratch, the simplest possible ML algorithm. It demonstrates the core idea: learn from data, then predict on new data.
+Mã trong `code/ml_intro.py` triển khai một bộ phân loại trọng tâm gần nhất từ đầu, thuật toán ML đơn giản nhất có thể. Nó minh họa ý tưởng cốt lõi: học từ dữ liệu, rồi dự đoán trên dữ liệu mới.
 
 ### Step 1: Nearest Centroid Classifier from Scratch
 
-The nearest centroid classifier computes the center (mean) of each class in the training data. To predict, it assigns each new point to the class whose center is closest.
+Bộ phân loại trọng tâm gần nhất tính tâm (trung bình) của mỗi lớp trong dữ liệu huấn luyện. Để dự đoán, nó gán mỗi điểm mới cho lớp có tâm gần nhất.
 
 ```python
 class NearestCentroid:
@@ -316,11 +316,11 @@ class NearestCentroid:
         return self.classes[distances.argmin(axis=0)]
 ```
 
-That is the entire algorithm. Fit computes two means. Predict computes distances. No gradient descent, no iteration, no hyperparameters.
+Đó là toàn bộ thuật toán. Fit tính hai trung bình. Predict tính các khoảng cách. Không gradient descent, không lặp, không siêu tham số.
 
 ### Step 2: Train on Synthetic Data
 
-We generate a 2D classification dataset with two classes that overlap slightly. The centroid classifier draws a linear decision boundary between the class centers.
+Chúng ta tạo một tập dữ liệu phân loại 2D có hai lớp hơi chồng lấp. Bộ phân loại trọng tâm vẽ một biên quyết định tuyến tính giữa các tâm lớp.
 
 ```python
 rng = np.random.RandomState(42)
@@ -332,38 +332,38 @@ y = np.array([0] * 100 + [1] * 100)
 
 ### Step 3: Compare Against a Baseline
 
-Every ML model should be compared against a trivial baseline. Here, the baseline predicts a random class. If your ML model does not beat random guessing, something is wrong.
+Mọi mô hình ML nên được so sánh với một mốc cơ sở tầm thường. Ở đây, mốc cơ sở dự đoán một lớp ngẫu nhiên. Nếu mô hình ML không vượt đoán ngẫu nhiên, có gì đó sai.
 
 ```python
 baseline_preds = rng.choice([0, 1], size=len(y_test))
 baseline_acc = np.mean(baseline_preds == y_test)
 ```
 
-The centroid classifier should get around 90%+ accuracy on this clean dataset. Random baseline gets around 50%.
+Bộ phân loại trọng tâm nên đạt độ chính xác khoảng 90%+ trên tập dữ liệu sạch này. Mốc cơ sở ngẫu nhiên đạt khoảng 50%.
 
 ### Why This Matters
 
-The nearest centroid classifier is trivially simple. It has no hyperparameters, no iteration, no gradient descent. Yet it captures the fundamental ML pattern:
+Bộ phân loại trọng tâm gần nhất cực kỳ đơn giản. Nó không có siêu tham số, không lặp, không gradient descent. Tuy nhiên nó nắm bắt mẫu ML cơ bản:
 
-1. **Learn** a representation from training data (the centroids)
-2. **Predict** on new data using that representation (nearest distance)
-3. **Evaluate** against a baseline (random guessing)
+1. **Học** một biểu diễn từ dữ liệu huấn luyện (các trọng tâm)
+2. **Dự đoán** trên dữ liệu mới bằng biểu diễn đó (khoảng cách gần nhất)
+3. **Đánh giá** so với một mốc cơ sở (đoán ngẫu nhiên)
 
-Every ML algorithm, from logistic regression to transformers, follows this same three-step pattern. The representation gets more complex, but the workflow stays the same.
+Mọi thuật toán ML, từ hồi quy logistic đến transformer, đều tuân theo cùng mẫu ba bước này. Biểu diễn trở nên phức tạp hơn, nhưng quy trình giữ nguyên.
 
 ### Step 4: What the Centroid Classifier Cannot Do
 
-The nearest centroid classifier assumes each class forms a single blob. It draws linear decision boundaries. It fails when:
+Bộ phân loại trọng tâm gần nhất giả định mỗi lớp tạo thành một khối duy nhất. Nó vẽ các biên quyết định tuyến tính. Nó thất bại khi:
 
-- Classes have multiple clusters (e.g., the digit "1" can be written in several different ways)
-- The decision boundary is nonlinear (e.g., one class wraps around another)
-- Features have very different scales (distance is dominated by the largest-scale feature)
+- Các lớp có nhiều cụm (ví dụ, chữ số "1" có thể được viết theo một số cách khác nhau)
+- Biên quyết định phi tuyến (ví dụ, một lớp bao quanh lớp khác)
+- Các đặc trưng có thang đo rất khác nhau (khoảng cách bị chi phối bởi đặc trưng có thang đo lớn nhất)
 
-These limitations motivate every other algorithm you will learn. K-nearest neighbors handles multiple clusters. Decision trees handle nonlinear boundaries. Feature scaling fixes the scale problem. Each lesson builds on the limitations of the previous one.
+Các hạn chế này tạo động lực cho mọi thuật toán khác bạn sẽ học. K láng giềng gần nhất xử lý nhiều cụm. Cây quyết định xử lý các biên phi tuyến. Co giãn đặc trưng khắc phục vấn đề thang đo. Mỗi bài học xây dựng trên các hạn chế của bài trước.
 
 ## Use It
 
-sklearn provides `NearestCentroid` and synthetic data generators:
+sklearn cung cấp `NearestCentroid` và các bộ sinh dữ liệu tổng hợp:
 
 ```python
 from sklearn.neighbors import NearestCentroid
@@ -383,33 +383,33 @@ print(f"Accuracy: {clf.score(X_test, y_test):.3f}")
 
 ## Ship It
 
-This lesson produces `outputs/prompt-ml-problem-framer.md` -- a prompt that turns vague business problems into concrete ML tasks. Give it a problem description ("we want to reduce churn" or "predict demand for next quarter") and it identifies the learning type, defines the prediction target, lists candidate features, picks a success metric, establishes a baseline, and flags pitfalls like data leakage or class imbalance. Use it at the start of any ML project to avoid building the wrong thing.
+Bài học này tạo ra `outputs/prompt-ml-problem-framer.md` -- một prompt biến các bài toán kinh doanh mơ hồ thành các tác vụ ML cụ thể. Cho nó một mô tả bài toán ("chúng tôi muốn giảm khách hàng rời bỏ" hoặc "dự đoán nhu cầu cho quý tới") và nó xác định loại học, định nghĩa mục tiêu dự đoán, liệt kê các đặc trưng ứng viên, chọn một chỉ số thành công, thiết lập một mốc cơ sở và nêu các cạm bẫy như rò rỉ dữ liệu hoặc mất cân bằng lớp. Sử dụng nó khi bắt đầu bất kỳ dự án ML nào để tránh xây dựng sai thứ.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Model | "The AI" | A mathematical function with learnable parameters that maps inputs to outputs |
-| Training | "Teaching the AI" | Running an optimization algorithm to adjust model parameters so predictions match known outputs |
-| Feature | "An input column" | A measurable property of the data that the model uses to make predictions |
-| Label | "The answer" | The known output for a training example, used to compute the error signal |
-| Hyperparameter | "A setting you tweak" | A parameter set before training that controls the learning process (learning rate, number of layers) |
-| Loss function | "How wrong the model is" | A function that measures the gap between predicted and actual outputs, which training tries to minimize |
-| Overfitting | "It memorized the test" | The model learned training-specific noise instead of general patterns, so it fails on new data |
-| Underfitting | "It didn't learn anything" | The model is too simple to capture the real patterns in the data |
-| Generalization | "It works on new data" | The model's ability to make accurate predictions on data it was not trained on |
-| Cross-validation | "Testing on different chunks" | Repeatedly splitting data into train/test folds and averaging results, giving a more robust performance estimate |
-| Regularization | "Keeping weights small" | Adding a penalty term to the loss function that discourages overly complex models |
-| Data drift | "The world changed" | The statistical distribution of incoming data shifts over time, degrading model performance |
+| Model (Mô hình) | "AI" | Một hàm toán học có các tham số có thể học ánh xạ đầu vào thành đầu ra |
+| Training (Huấn luyện) | "Dạy AI" | Chạy một thuật toán tối ưu hóa để điều chỉnh các tham số mô hình sao cho dự đoán khớp các đầu ra đã biết |
+| Feature (Đặc trưng) | "Một cột đầu vào" | Một thuộc tính có thể đo của dữ liệu mà mô hình sử dụng để dự đoán |
+| Label (Nhãn) | "Câu trả lời" | Đầu ra đã biết cho một ví dụ huấn luyện, được dùng để tính tín hiệu sai số |
+| Hyperparameter (Siêu tham số) | "Một thiết lập bạn điều chỉnh" | Một tham số được đặt trước huấn luyện điều khiển quá trình học (tốc độ học, số lớp) |
+| Loss function (Hàm mất mát) | "Mô hình sai đến mức nào" | Một hàm đo khoảng cách giữa đầu ra dự đoán và thực tế, mà huấn luyện cố tối thiểu hóa |
+| Overfitting (Khớp quá mức) | "Nó ghi nhớ bài kiểm tra" | Mô hình học nhiễu riêng của huấn luyện thay vì các mẫu tổng quát, nên thất bại trên dữ liệu mới |
+| Underfitting (Khớp chưa đủ) | "Nó không học được gì" | Mô hình quá đơn giản để nắm bắt các mẫu thực trong dữ liệu |
+| Generalization (Tổng quát hóa) | "Nó hoạt động trên dữ liệu mới" | Khả năng của mô hình đưa ra các dự đoán chính xác trên dữ liệu nó không được huấn luyện |
+| Cross-validation (Xác thực chéo) | "Kiểm tra trên các phần khác nhau" | Lặp lại việc chia dữ liệu thành các fold huấn luyện/kiểm tra và lấy trung bình kết quả, cho một ước lượng hiệu năng bền vững hơn |
+| Regularization | "Giữ trọng số nhỏ" | Thêm một số hạng phạt vào hàm mất mát để hạn chế các mô hình quá phức tạp |
+| Data drift (Dịch chuyển dữ liệu) | "Thế giới đã thay đổi" | Phân phối thống kê của dữ liệu đến dịch chuyển theo thời gian, làm suy giảm hiệu năng mô hình |
 
 ## Exercises
 
-1. Take any dataset (e.g., Iris, Titanic). Split it 70/15/15 into train/validation/test. Explain why you should not tune hyperparameters on the test set.
-2. List three real-world problems. For each one, identify whether it is classification, regression, or clustering, and whether it is supervised or unsupervised.
-3. A model gets 99% accuracy on training data but 60% on test data. Diagnose the problem and list three things you would try to fix it.
+1. Lấy bất kỳ tập dữ liệu nào (ví dụ, Iris, Titanic). Chia nó 70/15/15 thành huấn luyện/xác thực/kiểm tra. Giải thích tại sao bạn không nên điều chỉnh siêu tham số trên tập kiểm tra.
+2. Liệt kê ba bài toán thực tế. Với mỗi bài toán, xác định nó là phân loại, hồi quy hay phân cụm, và có giám sát hay không giám sát.
+3. Một mô hình đạt độ chính xác 99% trên dữ liệu huấn luyện nhưng 60% trên dữ liệu kiểm tra. Chẩn đoán vấn đề và liệt kê ba điều bạn sẽ thử để sửa nó.
 
 ## Further Reading
 
-- [An Introduction to Statistical Learning](https://www.statlearning.com/) - free textbook covering all classical ML methods with practical examples
-- [Google's Machine Learning Crash Course](https://developers.google.com/machine-learning/crash-course) - concise visual introduction to ML concepts
-- [Scikit-learn User Guide](https://scikit-learn.org/stable/user_guide.html) - the practical reference for implementing ML in Python
+- [An Introduction to Statistical Learning](https://www.statlearning.com/) - giáo trình miễn phí bao quát mọi phương pháp ML cổ điển với các ví dụ thực hành
+- [Google's Machine Learning Crash Course](https://developers.google.com/machine-learning/crash-course) - phần giới thiệu trực quan ngắn gọn về các khái niệm ML
+- [Scikit-learn User Guide](https://scikit-learn.org/stable/user_guide.html) - tài liệu tham khảo thực hành để triển khai ML bằng Python
