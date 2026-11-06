@@ -7,27 +7,27 @@ lesson: 02
 tags: [rewoo, plan-and-execute, planning, dag, distillation]
 ---
 
-Given a user request and a tool catalog (name, input schema, description), produce a ReWOO plan: a DAG of steps with tool calls and evidence references (`#E1`, `#E2`, ...). Validate the plan before handing it to an executor.
+Với một yêu cầu người dùng và một danh mục công cụ (tên, schema đầu vào, mô tả), tạo một kế hoạch ReWOO: một DAG các bước với các lời gọi công cụ và tham chiếu bằng chứng (`#E1`, `#E2`, ...). Xác thực kế hoạch trước khi bàn giao nó cho một bộ thực thi.
 
-Produce:
+Tạo:
 
-1. A plan DAG. Each node has id (`E1`, `E2`, ...), tool name, argument dict (strings may contain `#E<k>` references), and optional `parallel_group` label.
-2. Validation output. Acyclicity check via topological sort; reference resolution check (every `#E<k>` has a preceding producer); tool existence check (every tool name is in the catalog); arg schema check (each argument matches the tool's input schema).
-3. Parallelism hint. For every topological level, list the nodes that can execute concurrently.
-4. Planner/solver split recommendation. If the plan has fewer than 3 steps, recommend ReAct instead. If the plan has an unbounded loop requirement (replanning on every step), recommend Plan-and-Execute with replanner. If the plan exceeds 30 steps or targets web/mobile, recommend Plan-and-Act with synthetic plan data.
+1. Một DAG kế hoạch. Mỗi nút có id (`E1`, `E2`, ...), tên công cụ, dict đối số (các chuỗi có thể chứa các tham chiếu `#E<k>`) và nhãn `parallel_group` tùy chọn.
+2. Đầu ra xác thực. Kiểm tra tính không chu trình qua sắp xếp tô pô; kiểm tra phân giải tham chiếu (mọi `#E<k>` đều có một bên tạo ra trước đó); kiểm tra sự tồn tại của công cụ (mọi tên công cụ đều nằm trong danh mục); kiểm tra schema đối số (mỗi đối số khớp với schema đầu vào của công cụ).
+3. Gợi ý tính song song. Với mỗi mức tô pô, liệt kê các nút có thể thực thi đồng thời.
+4. Khuyến nghị phân tách bộ lập kế hoạch/bộ giải. Nếu kế hoạch có ít hơn 3 bước, thay vào đó khuyến nghị ReAct. Nếu kế hoạch có một yêu cầu vòng lặp không giới hạn (lập kế hoạch lại ở mỗi bước), khuyến nghị Plan-and-Execute với bộ lập kế hoạch lại. Nếu kế hoạch vượt quá 30 bước hoặc nhắm đến web/di động, khuyến nghị Plan-and-Act với dữ liệu kế hoạch tổng hợp.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Plans with cycles. ReWOO assumes a DAG; cycles are a ReAct or LATS concern.
-- Plans that reference `#E<k>` where `k` does not exist yet in the topological order. Emit the specific edge that fails.
-- Plans that call tools not in the catalog. Do not invent tools to make a plan work.
-- Plans where the argument type for a reference does not match the tool's schema (e.g., `#E1` substitutes a string but the tool expects an int).
+- Các kế hoạch có chu trình. ReWOO giả định một DAG; chu trình là mối quan tâm của ReAct hoặc LATS.
+- Các kế hoạch tham chiếu `#E<k>` khi `k` chưa tồn tại trong thứ tự tô pô. Đưa ra cạnh cụ thể thất bại.
+- Các kế hoạch gọi các công cụ không nằm trong danh mục. Đừng bịa ra công cụ để làm một kế hoạch hoạt động.
+- Các kế hoạch trong đó kiểu đối số cho một tham chiếu không khớp schema của công cụ (ví dụ, `#E1` thay thế một chuỗi nhưng công cụ mong đợi một int).
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the task is open-ended exploration (unknown tools needed, unknown steps), refuse and recommend ReAct or LATS (Lesson 04).
-- If the tool catalog contains destructive tools without a gating approval tool, refuse and point to Lesson 09 (permissions, sandboxing).
+- Nếu tác vụ là thăm dò mở (không biết các công cụ cần thiết, không biết các bước), từ chối và khuyến nghị ReAct hoặc LATS (Bài 04).
+- Nếu danh mục công cụ chứa các công cụ phá hủy mà không có một công cụ phê duyệt làm cổng kiểm soát, từ chối và chỉ đến Bài 09 (quyền, sandbox).
 
-Output: a structured plan (JSON or YAML), a validation report, a parallelism map, and a follow-up action pointing to the executor (ReWOO Worker), a replanner (Plan-and-Execute), or a larger trajectory-sampling loop (Plan-and-Act).
+Đầu ra: một kế hoạch có cấu trúc (JSON hoặc YAML), một báo cáo xác thực, một bản đồ tính song song và một hành động tiếp theo chỉ đến bộ thực thi (ReWOO Worker), một bộ lập kế hoạch lại (Plan-and-Execute) hoặc một vòng lặp lấy mẫu quỹ đạo lớn hơn (Plan-and-Act).
 
-End with a "what to read next" note pointing to Lesson 03 (Reflexion) if the task class has been attempted before, or Lesson 04 (LATS) if the plan would benefit from search.
+Kết thúc bằng một ghi chú "đọc gì tiếp theo" chỉ đến Bài 03 (Reflexion) nếu loại tác vụ đã được thử trước đó, hoặc Bài 04 (LATS) nếu kế hoạch sẽ hưởng lợi từ việc tìm kiếm.
