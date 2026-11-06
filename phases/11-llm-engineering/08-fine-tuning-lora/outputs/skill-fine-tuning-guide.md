@@ -9,7 +9,7 @@ tags: [fine-tuning, lora, qlora, peft, llm-engineering]
 
 # Fine-Tuning Decision Guide
 
-Before fine-tuning, try these in order:
+Trước khi fine-tune, thử những cách này theo thứ tự:
 
 ```
 1. Prompt engineering (minutes, $0)
@@ -19,79 +19,79 @@ Before fine-tuning, try these in order:
 5. Full fine-tuning (weeks, $100-10,000 per run)
 ```
 
-Only move to the next step if the previous one is measurably insufficient.
+Chỉ chuyển bước tiếp theo nếu bước trước thiếu ở mức đo được.
 
 ## When to fine-tune
 
-- Model needs a consistent output style or format that prompting cannot achieve
-- You're distilling a larger model (GPT-4 quality from an 8B model)
-- Latency matters and few-shot examples add too many tokens
-- You need the model to reliably follow a complex reasoning pattern
-- You have 1,000+ high-quality examples of the desired input-output behavior
+- Mô hình cần phong cách hoặc định dạng đầu ra nhất quán mà prompting không đạt được
+- Bạn đang chưng cất mô hình lớn hơn (chất lượng GPT-4 từ mô hình 8B)
+- Độ trễ quan trọng và ví dụ few-shot thêm quá nhiều token
+- Bạn cần mô hình làm theo mẫu suy luận phức tạp một cách đáng tin cậy
+- Bạn có 1,000+ ví dụ chất lượng cao về hành vi đầu vào-đầu ra mong muốn
 
 ## When NOT to fine-tune
 
-- The model already does what you want with the right prompt
-- You need the model to know facts (use RAG instead)
-- You have fewer than 500 training examples (likely to overfit)
-- The task changes frequently (retraining is expensive)
-- You need to audit which data influenced a specific output (fine-tuning is a black box)
+- Mô hình đã làm điều bạn muốn với prompt phù hợp
+- Bạn cần mô hình biết sự kiện (dùng RAG thay thế)
+- Bạn có ít hơn 500 ví dụ huấn luyện (có khả năng quá khớp)
+- Tác vụ thay đổi thường xuyên (huấn luyện lại tốn kém)
+- Bạn cần kiểm toán dữ liệu nào ảnh hưởng đầu ra cụ thể (fine-tuning là hộp đen)
 
 ## Method selection
 
-| GPU VRAM | 7B model | 13B model | 70B model |
+| VRAM GPU | Mô hình 7B | Mô hình 13B | Mô hình 70B |
 |----------|----------|-----------|-----------|
-| 16GB (T4) | QLoRA | Not feasible | Not feasible |
-| 24GB (3090/4090) | QLoRA or LoRA | QLoRA | Not feasible |
-| 40GB (A100) | LoRA or Full | QLoRA or LoRA | QLoRA |
-| 80GB (A100/H100) | Full | LoRA or Full | QLoRA or LoRA |
+| 16GB (T4) | QLoRA | Không khả thi | Không khả thi |
+| 24GB (3090/4090) | QLoRA hoặc LoRA | QLoRA | Không khả thi |
+| 40GB (A100) | LoRA hoặc Toàn phần | QLoRA hoặc LoRA | QLoRA |
+| 80GB (A100/H100) | Toàn phần | LoRA hoặc Toàn phần | QLoRA hoặc LoRA |
 
 ## LoRA configuration checklist
 
-1. Start with r=16, alpha=32 (safe default for most tasks)
-2. Target q_proj and v_proj first (minimum viable LoRA)
-3. Use learning rate 2e-4 for QLoRA, 5e-5 for LoRA fp16
-4. Set lora_dropout=0.05
-5. Train for 1-3 epochs (more risks overfitting)
-6. Evaluate every 100 steps on a held-out set
-7. Save checkpoints and pick the best by eval loss
+1. Bắt đầu với r=16, alpha=32 (mặc định an toàn cho hầu hết tác vụ)
+2. Nhắm q_proj và v_proj trước (LoRA tối thiểu khả dụng)
+3. Dùng tốc độ học 2e-4 cho QLoRA, 5e-5 cho LoRA fp16
+4. Đặt lora_dropout=0.05
+5. Huấn luyện 1-3 epoch (nhiều hơn có nguy cơ quá khớp)
+6. Đánh giá mỗi 100 bước trên tập giữ riêng
+7. Lưu checkpoint và chọn tốt nhất theo loss đánh giá
 
 ## Common mistakes
 
-- Training for too many epochs (overfitting after epoch 2-3 on small datasets)
-- Using the same learning rate as full fine-tuning (LoRA needs higher LR)
-- Forgetting to set the pad token (causes NaN losses with Llama models)
-- Not freezing the base model (defeats the purpose of LoRA)
-- Evaluating only on training data (always hold out 10-20% for eval)
-- Skipping the prompt engineering baseline (fine-tuning a problem that prompting already solves)
+- Huấn luyện quá nhiều epoch (quá khớp sau epoch 2-3 trên bộ dữ liệu nhỏ)
+- Dùng cùng tốc độ học với fine-tuning toàn phần (LoRA cần LR cao hơn)
+- Quên đặt pad token (gây loss NaN với các mô hình Llama)
+- Không đóng băng mô hình cơ sở (làm mất mục đích LoRA)
+- Chỉ đánh giá trên dữ liệu huấn luyện (luôn giữ riêng 10-20% để đánh giá)
+- Bỏ qua baseline prompt engineering (fine-tune một vấn đề prompting đã giải quyết)
 
 ## Quality verification
 
-After training, compare on 200+ held-out examples:
-1. Base model with best prompt (baseline)
-2. Base model with LoRA adapter (your fine-tuned model)
-3. GPT-4 or Claude with same prompt (ceiling)
+Sau huấn luyện, so sánh trên 200+ ví dụ giữ riêng:
+1. Mô hình cơ sở với prompt tốt nhất (baseline)
+2. Mô hình cơ sở với adapter LoRA (mô hình fine-tuned của bạn)
+3. GPT-4 hoặc Claude với cùng prompt (trần)
 
-If the LoRA model does not beat the prompted baseline, your training data or configuration needs work, not more compute.
+Nếu mô hình LoRA không thắng baseline có prompt, dữ liệu huấn luyện hoặc cấu hình cần cải thiện, không phải thêm tính toán.
 
 ## Adapter management
 
-- Keep adapters separate for multi-task serving (swap adapters per request)
-- Merge adapters into base weights for single-task deployment
-- Store adapters on Hugging Face Hub (10-100MB, easy to version and share)
-- Test merged model outputs match unmerged outputs before deploying
-- Use TIES-Merging or DARE to combine multiple adapters into one
+- Giữ riêng adapter để phục vụ đa tác vụ (đổi adapter mỗi yêu cầu)
+- Gộp adapter vào trọng số cơ sở để triển khai một tác vụ
+- Lưu adapter trên Hugging Face Hub (10-100MB, dễ quản lý phiên bản và chia sẻ)
+- Kiểm thử đầu ra mô hình đã gộp khớp đầu ra chưa gộp trước triển khai
+- Dùng TIES-Merging hoặc DARE để kết hợp nhiều adapter thành một
 
 ## Debugging training
 
-If loss does not decrease:
-1. Check learning rate (too low for LoRA, try 2e-4)
-2. Verify LoRA layers are actually receiving gradients
-3. Confirm base model weights are frozen
-4. Check data formatting (tokenizer must match model's expected format)
+Nếu loss không giảm:
+1. Kiểm tra tốc độ học (quá thấp cho LoRA, thử 2e-4)
+2. Xác minh các lớp LoRA thực sự nhận gradient
+3. Xác nhận trọng số mô hình cơ sở đã đóng băng
+4. Kiểm tra định dạng dữ liệu (tokenizer phải khớp định dạng mô hình kỳ vọng)
 
-If loss decreases but eval quality is bad:
-1. Training data quality issue (garbage in, garbage out)
-2. Overfitting (reduce epochs, increase dropout, add more data)
-3. Wrong target modules (add MLP layers for complex tasks)
-4. Rank too low (try r=32 or r=64)
+Nếu loss giảm nhưng chất lượng đánh giá kém:
+1. Vấn đề chất lượng dữ liệu huấn luyện (rác vào, rác ra)
+2. Quá khớp (giảm epoch, tăng dropout, thêm dữ liệu)
+3. Sai mô-đun đích (thêm lớp MLP cho tác vụ phức tạp)
+4. Hạng quá thấp (thử r=32 hoặc r=64)
