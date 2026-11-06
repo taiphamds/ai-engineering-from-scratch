@@ -7,21 +7,21 @@ lesson: 13
 tags: [codec, encodec, dac, snac, mimi, rvq, semantic-tokens]
 ---
 
-Given the task (generative LM, compression, full-duplex dialogue, music editing, fidelity target), output:
+Với tác vụ (LM sinh, nén, hội thoại song công toàn phần, chỉnh sửa nhạc, mục tiêu độ trung thực), xuất ra:
 
-1. Codec. EnCodec-24k · EnCodec-48k · DAC-44.1k · SNAC-24k · Mimi · (fallback: Opus for non-neural compression). One-sentence reason.
-2. Frame rate + codebooks. Bitrate budget, codebook count (usually 4-12), sequence length for target clip duration.
-3. Tokenization scheme. Flat vs hierarchical (SNAC) vs semantic+acoustic (Mimi). How the LM consumes tokens.
-4. Decoder. In-codec decoder · external vocoder (HiFi-GAN) · LM-only (no vocoder, predict codec tokens directly). Explain why.
-5. Training implications. Need to train encoder/decoder? Fine-tune on domain audio (speech-only → domain-specific music)? Frozen off-the-shelf?
+1. Codec. EnCodec-24k · EnCodec-48k · DAC-44.1k · SNAC-24k · Mimi · (dự phòng: Opus cho nén phi nơ-ron). Lý do trong một câu.
+2. Tốc độ khung + codebook. Ngân sách bitrate, số codebook (thường 4-12), độ dài chuỗi cho thời lượng đoạn đích.
+3. Hệ tokenization. Phẳng so với phân cấp (SNAC) so với ngữ nghĩa+âm học (Mimi). Cách LM tiêu thụ token.
+4. Decoder. Decoder trong codec · vocoder bên ngoài (HiFi-GAN) · chỉ LM (không vocoder, dự đoán trực tiếp các token codec). Giải thích vì sao.
+5. Các hệ quả huấn luyện. Cần huấn luyện encoder/decoder? Fine-tune trên âm thanh lĩnh vực (chỉ tiếng nói → âm nhạc riêng lĩnh vực)? Có sẵn đóng băng?
 
-Refuse DAC for AR-LM workloads on tight latency budgets — 86 Hz frame rate × 8 codebooks = 5,504 tokens per 10 s, too long for fast generation. Refuse Mimi for music — it's speech-tuned. Refuse EnCodec for semantic-conditional generation — no semantic codebook, blurry speech from text.
+Từ chối DAC cho các khối lượng công việc AR-LM có ngân sách độ trễ chặt — tốc độ khung 86 Hz × 8 codebook = 5,504 token mỗi 10 s, quá dài để sinh nhanh. Từ chối Mimi cho âm nhạc — nó được tinh chỉnh tiếng nói. Từ chối EnCodec cho sinh có điều kiện ngữ nghĩa — không codebook ngữ nghĩa, tiếng nói mờ từ văn bản.
 
-Example input: "Build an AR LM for text-to-speech TTS. Target TTFA 200 ms. English only."
+Đầu vào ví dụ: "Xây dựng một LM AR cho TTS văn bản thành tiếng nói. Mục tiêu TTFA 200 ms. Chỉ tiếng Anh."
 
-Example output:
-- Codec: Mimi. Semantic+acoustic split enables text → codebook 0 → codebooks 1-7 factorization, which is both fast and supports voice cloning.
-- Frame rate + codebooks: 12.5 Hz · 8 codebooks · 4.4 kbps. 10 s = 1,000 tokens.
-- Tokenization: predict codebook 0 first from text + speaker reference; then predict codebooks 1-7 given codebook 0 + speaker reference (depth-transformer pattern).
-- Decoder: Mimi's built-in decoder, no external vocoder needed.
-- Training: train the text-to-codec LM; freeze Mimi.
+Đầu ra ví dụ:
+- Codec: Mimi. Sự tách ngữ nghĩa+âm học cho phép phân tích nhân tử văn bản → codebook 0 → codebook 1-7, vừa nhanh vừa hỗ trợ nhân bản giọng nói.
+- Tốc độ khung + codebook: 12.5 Hz · 8 codebook · 4.4 kbps. 10 s = 1,000 token.
+- Tokenization: dự đoán codebook 0 trước từ văn bản + tham chiếu người nói; rồi dự đoán codebook 1-7 khi biết codebook 0 + tham chiếu người nói (mẫu depth-transformer).
+- Decoder: decoder tích hợp của Mimi, không cần vocoder bên ngoài.
+- Huấn luyện: huấn luyện LM văn bản-thành-codec; đóng băng Mimi.
