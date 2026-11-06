@@ -1,6 +1,6 @@
 # Self-Hosted Serving Selection — Matching Engine to Hardware and Scale
 
-> Engine selection is a function of hardware, scale, and ecosystem — not a leaderboard read. Four engines dominate self-hosted inference in 2026: llama.cpp, Ollama, vLLM, SGLang, with TGI trailing in maintenance mode. **llama.cpp** is fastest on CPU — widest model support, full control over quantization and threading. **Ollama** is the dev-laptop one-command install, ~15-30% slower than llama.cpp (Go + CGo + HTTP serialization), 3x throughput gap under prod-like load. **TGI entered maintenance mode December 11, 2025** — only bug fixes, ~10% slower raw throughput than vLLM but historically top observability and HF-ecosystem integration. That maintenance status makes it a risky long-term bet — SGLang or vLLM are safer defaults for new projects. **vLLM** is the general-purpose production default — v0.15.1 (February 2026) adds PyTorch 2.10, RTX Blackwell SM120, H200 optimization. **SGLang** is the agentic multi-turn / prefix-heavy specialist — 400,000+ GPUs in production (xAI, LinkedIn, Cursor, Oracle, GCP, Azure, AWS). Hardware constraints: CPU-first → llama.cpp. AMD / non-NVIDIA → vLLM is the strongest-supported path (TRT-LLM is NVIDIA-locked). 2026 pipeline pattern: dev = Ollama, staging = llama.cpp, prod = vLLM or SGLang. The engines take different weight formats — GGUF for the llama.cpp family, HF safetensors for the GPU engines — so a format conversion may sit between stages.
+> Lựa chọn engine là một hàm của phần cứng, quy mô và hệ sinh thái — không phải đọc bảng xếp hạng. Bốn engine chi phối suy luận tự lưu trữ năm 2026: llama.cpp, Ollama, vLLM, SGLang, với TGI theo sau trong chế độ bảo trì. **llama.cpp** nhanh nhất trên CPU — hỗ trợ mô hình rộng nhất, toàn quyền kiểm soát lượng tử hóa và phân luồng. **Ollama** là công cụ cài đặt một lệnh cho laptop phát triển, chậm hơn llama.cpp ~15-30% (Go + CGo + tuần tự hóa HTTP), chênh lệch thông lượng 3x dưới tải giống sản xuất. **TGI chuyển sang chế độ bảo trì ngày 11 tháng 12 năm 2025** — chỉ sửa lỗi, thông lượng thô chậm hơn vLLM ~10% nhưng trước đây dẫn đầu về khả năng quan sát và tích hợp hệ sinh thái HF. Trạng thái bảo trì đó khiến nó là lựa chọn dài hạn rủi ro — SGLang hoặc vLLM là mặc định an toàn hơn cho dự án mới. **vLLM** là mặc định sản xuất đa dụng — v0.15.1 (tháng 2 năm 2026) thêm PyTorch 2.10, RTX Blackwell SM120, tối ưu H200. **SGLang** là chuyên gia cho đa lượt có agent / nặng tiền tố — 400,000+ GPU trong sản xuất (xAI, LinkedIn, Cursor, Oracle, GCP, Azure, AWS). Ràng buộc phần cứng: ưu tiên CPU → llama.cpp. AMD / không phải NVIDIA → vLLM là hướng được hỗ trợ mạnh nhất (TRT-LLM bị khóa chặt vào NVIDIA). Mẫu pipeline năm 2026: phát triển = Ollama, staging = llama.cpp, sản xuất = vLLM hoặc SGLang. Các engine nhận định dạng trọng số khác nhau — GGUF cho họ llama.cpp, HF safetensors cho engine GPU — vì vậy chuyển đổi định dạng có thể nằm giữa các giai đoạn.
 
 **Type:** Learn
 **Languages:** Python (stdlib, engine-decision tree walker)
@@ -9,87 +9,87 @@
 
 ## Learning Objectives
 
-- Pick an engine given hardware (CPU / AMD / NVIDIA Hopper / Blackwell), scale (1 user / 100 / 10,000), and workload (general chat / agent / long-context).
-- Name the 2026 TGI maintenance-mode status (December 11, 2025) and why it biases new projects toward vLLM or SGLang.
-- Describe the dev/staging/prod pipeline, including where a GGUF-to-safetensors format conversion sits between stages.
-- Explain why "CPU-first" points to llama.cpp and "AMD" excludes TRT-LLM.
+- Chọn engine với phần cứng (CPU / AMD / NVIDIA Hopper / Blackwell), quy mô (1 người dùng / 100 / 10,000) và khối lượng công việc (trò chuyện tổng quát / agent / ngữ cảnh dài).
+- Nêu trạng thái chế độ bảo trì TGI năm 2026 (ngày 11 tháng 12 năm 2025) và tại sao nó khiến dự án mới thiên về vLLM hoặc SGLang.
+- Mô tả pipeline phát triển/staging/sản xuất, bao gồm nơi chuyển đổi định dạng GGUF sang safetensors nằm giữa các giai đoạn.
+- Giải thích tại sao "ưu tiên CPU" chỉ đến llama.cpp và "AMD" loại TRT-LLM.
 
 ## The Problem
 
-Your team starts a new self-hosted LLM project. One engineer says Ollama, another says vLLM, a third says "doesn't TGI just work out of the box?" All three are right for different contexts. None is right for all.
+Nhóm của bạn bắt đầu một dự án LLM tự lưu trữ mới. Một kỹ sư nói Ollama, người khác nói vLLM, người thứ ba nói "TGI không phải dùng được ngay sao?" Cả ba đều đúng cho các bối cảnh khác nhau. Không ai đúng cho tất cả.
 
-In 2026 the choice tree matters: hardware first, scale second, workload third. And one specific 2025 event — TGI entering maintenance mode December 11 — changes the default for new projects.
+Năm 2026, cây lựa chọn quan trọng: phần cứng trước, quy mô thứ hai, khối lượng công việc thứ ba. Và một sự kiện cụ thể năm 2025 — TGI chuyển sang chế độ bảo trì ngày 11 tháng 12 — thay đổi mặc định cho dự án mới.
 
 ## The Concept
 
 ### The five engines
 
-| Engine | Best for | Notes |
+| Engine | Tốt nhất cho | Ghi chú |
 |--------|----------|-------|
-| **llama.cpp** | CPU / edge / minimal deps / widest model support | Fastest on CPU, full control |
-| **Ollama** | Dev laptops, single user, one-command install | 15-30% slower than llama.cpp; 3x prod throughput gap |
-| **TGI** | HF ecosystem, regulated industries | **Maintenance mode Dec 11, 2025** |
-| **vLLM** | General-purpose production, 100+ users | Broad production default; v0.15.1 Feb 2026 |
-| **SGLang** | Agentic multi-turn, prefix-heavy workloads | 400,000+ GPUs in production |
+| **llama.cpp** | CPU / biên / phụ thuộc tối thiểu / hỗ trợ mô hình rộng nhất | Nhanh nhất trên CPU, toàn quyền kiểm soát |
+| **Ollama** | Laptop phát triển, một người dùng, cài đặt một lệnh | Chậm hơn llama.cpp 15-30%; chênh lệch thông lượng sản xuất 3x |
+| **TGI** | Hệ sinh thái HF, ngành chịu quản lý theo quy định | **Chế độ bảo trì ngày 11 tháng 12 năm 2025** |
+| **vLLM** | Sản xuất đa dụng, 100+ người dùng | Mặc định sản xuất rộng rãi; v0.15.1 tháng 2 năm 2026 |
+| **SGLang** | Đa lượt có agent, khối lượng công việc nặng tiền tố | 400,000+ GPU trong sản xuất |
 
 ### Hardware-first decision
 
-**CPU-first** → llama.cpp. Ollama works too but is slower. No other engine is competitive on CPU.
+**Ưu tiên CPU** → llama.cpp. Ollama cũng hoạt động nhưng chậm hơn. Không engine nào khác cạnh tranh được trên CPU.
 
-**AMD GPU** → vLLM is the strongest-supported path (AMD ROCm support). SGLang also works. TRT-LLM is NVIDIA-locked, so it's out.
+**GPU AMD** → vLLM là hướng được hỗ trợ mạnh nhất (hỗ trợ AMD ROCm). SGLang cũng hoạt động. TRT-LLM bị khóa chặt vào NVIDIA, nên bị loại.
 
-**NVIDIA Hopper (H100 / H200)** → vLLM or SGLang or TRT-LLM. All three top-tier.
+**NVIDIA Hopper (H100 / H200)** → vLLM hoặc SGLang hoặc TRT-LLM. Cả ba đều hàng đầu.
 
-**NVIDIA Blackwell (B200 / GB200)** → TRT-LLM is the throughput leader (Phase 17 · 07). vLLM and SGLang follow close.
+**NVIDIA Blackwell (B200 / GB200)** → TRT-LLM dẫn đầu thông lượng (Giai đoạn 17 · 07). vLLM và SGLang theo sát.
 
-**Apple Silicon (M-series)** → llama.cpp (Metal). Ollama wraps this.
+**Apple Silicon (dòng M)** → llama.cpp (Metal). Ollama bọc công cụ này.
 
 ### Scale-second decision
 
-**1 user / local dev** → Ollama. One command, first-token in seconds.
+**1 người dùng / phát triển cục bộ** → Ollama. Một lệnh, token đầu tiên trong vài giây.
 
-**10-100 users / small team** → vLLM single-GPU.
+**10-100 người dùng / nhóm nhỏ** → vLLM một GPU.
 
-**100-10k users / production** → vLLM production-stack (Phase 17 · 18) or SGLang.
+**100-10k người dùng / sản xuất** → production-stack vLLM (Giai đoạn 17 · 18) hoặc SGLang.
 
-**10k+ users / enterprise** → vLLM production-stack + disaggregated (Phase 17 · 17) + LMCache (Phase 17 · 18).
+**10k+ người dùng / doanh nghiệp** → production-stack vLLM + tách rời (Giai đoạn 17 · 17) + LMCache (Giai đoạn 17 · 18).
 
 ### Workload-third decision
 
-**General chat / Q&A** → vLLM wins on broad default.
+**Trò chuyện tổng quát / Hỏi đáp** → vLLM thắng ở mặc định rộng rãi.
 
-**Agentic multi-turn (tools, planning, memory)** → SGLang's RadixAttention (Phase 17 · 06) dominates.
+**Đa lượt có agent (công cụ, lập kế hoạch, bộ nhớ)** → RadixAttention của SGLang (Giai đoạn 17 · 06) chiếm ưu thế.
 
-**RAG with heavy prefix reuse** → SGLang.
+**RAG với tái sử dụng tiền tố nhiều** → SGLang.
 
-**Code generation** → vLLM fine; SGLang slightly better on cache.
+**Sinh mã** → vLLM ổn; SGLang tốt hơn một chút về bộ nhớ đệm.
 
-**Long context (128K+)** → vLLM + chunked prefill; SGLang + tiered KV.
+**Ngữ cảnh dài (128K+)** → vLLM + prefill chia đoạn; SGLang + KV theo tầng.
 
 ### The TGI maintenance trap
 
-Hugging Face TGI entered maintenance mode December 11, 2025 — only bug fixes going forward. Historically: top-tier observability, best-in-class HF-ecosystem integration (model cards, safety tools), slightly behind vLLM on raw throughput.
+Hugging Face TGI chuyển sang chế độ bảo trì ngày 11 tháng 12 năm 2025 — từ nay chỉ sửa lỗi. Trước đây: khả năng quan sát hàng đầu, tích hợp hệ sinh thái HF tốt nhất trong nhóm (thẻ mô hình, công cụ an toàn), hơi sau vLLM về thông lượng thô.
 
-For new projects in 2026: default away from TGI. Existing TGI deployments can continue but should migrate eventually. SGLang and vLLM are the safer defaults.
+Cho dự án mới năm 2026: mặc định tránh TGI. Triển khai TGI hiện có có thể tiếp tục nhưng cuối cùng nên chuyển đổi. SGLang và vLLM là các mặc định an toàn hơn.
 
 ### The pipeline pattern
 
-Dev (Ollama) → staging (llama.cpp) → prod (vLLM). The engines take different weight formats — GGUF for the llama.cpp family, HF safetensors for the GPU engines — so a format conversion may sit between stages. Engineers iterate quickly on laptops; staging mirrors production quantization; prod is the serving target.
+Phát triển (Ollama) → staging (llama.cpp) → sản xuất (vLLM). Các engine nhận định dạng trọng số khác nhau — GGUF cho họ llama.cpp, HF safetensors cho engine GPU — vì vậy chuyển đổi định dạng có thể nằm giữa các giai đoạn. Kỹ sư lặp nhanh trên laptop; staging phản ánh lượng tử hóa sản xuất; sản xuất là đích phục vụ.
 
 ### Ollama caveat
 
-Ollama is great for dev. It is not great for shared production: Go HTTP serialization adds overhead, concurrency management is simpler than vLLM, OpenTelemetry support lags. Use Ollama where it shines — one user, one command — and switch to vLLM for shared.
+Ollama tuyệt vời cho phát triển. Nó không tuyệt vời cho sản xuất dùng chung: tuần tự hóa HTTP Go thêm chi phí phụ, quản lý độ đồng thời đơn giản hơn vLLM, hỗ trợ OpenTelemetry tụt sau. Dùng Ollama nơi nó tỏa sáng — một người dùng, một lệnh — và chuyển sang vLLM cho dùng chung.
 
 ### Self-hosted vs managed is a separate decision
 
-Phase 17 · 01 (managed hyperscalers), · 02 (inference platforms) cover managed. This lesson assumes you've already decided to self-host. Reasons to self-host: data residency, custom fine-tune, total cost ownership at scale, domain model not available on hosted.
+Giai đoạn 17 · 01 (hyperscaler được quản lý), · 02 (nền tảng suy luận) đề cập loại được quản lý. Bài học này giả định bạn đã quyết định tự lưu trữ. Lý do tự lưu trữ: lưu trú dữ liệu, tinh chỉnh tùy chỉnh, tổng chi phí sở hữu ở quy mô lớn, mô hình miền không có trên dịch vụ được lưu trữ.
 
 ### Numbers you should remember
 
-- TGI maintenance mode: December 11, 2025.
-- vLLM v0.15.1: February 2026; PyTorch 2.10; Blackwell SM120 support.
-- SGLang production footprint: 400,000+ GPUs.
-- Ollama throughput gap vs llama.cpp: 15-30% slower; 3x under prod load.
+- Chế độ bảo trì TGI: ngày 11 tháng 12 năm 2025.
+- vLLM v0.15.1: tháng 2 năm 2026; PyTorch 2.10; hỗ trợ Blackwell SM120.
+- Quy mô triển khai sản xuất SGLang: 400,000+ GPU.
+- Chênh lệch thông lượng Ollama so với llama.cpp: chậm hơn 15-30%; 3x dưới tải sản xuất.
 
 ```figure
 data-parallel
@@ -97,33 +97,33 @@ data-parallel
 
 ## Use It
 
-`code/main.py` is a decision-tree walker: given hardware + scale + workload, picks an engine and explains why.
+`code/main.py` là bộ duyệt cây quyết định: với phần cứng + quy mô + khối lượng công việc, chọn một engine và giải thích tại sao.
 
 ## Ship It
 
-This lesson produces `outputs/skill-engine-picker.md`. Given constraints, picks an engine and writes the migration plan.
+Bài học này tạo ra `outputs/skill-engine-picker.md`. Với các ràng buộc, chọn một engine và viết kế hoạch chuyển đổi.
 
 ## Exercises
 
-1. Run `code/main.py` with your hardware / scale / workload. Does the output match your intuition?
-2. Your infra is 12 H100s and 8 MI300X AMD. What engine? Why is TRT-LLM off the table?
-3. A team wants to use TGI in 2026 because "it's what we know." Argue the migration case.
-4. Ollama dev to vLLM prod: what changes in quantization, configuration, and observability?
-5. RAG product with P99 prefix length 8K and high reuse across tenants. Pick an engine and stack it with Phase 17 · 11 + 18.
+1. Chạy `code/main.py` với phần cứng / quy mô / khối lượng công việc của bạn. Đầu ra có khớp trực giác của bạn không?
+2. Hạ tầng của bạn là 12 H100 và 8 MI300X AMD. Engine nào? Tại sao TRT-LLM không phải lựa chọn?
+3. Một nhóm muốn dùng TGI năm 2026 vì "đó là thứ chúng tôi biết." Lập luận cho việc chuyển đổi.
+4. Ollama phát triển sang vLLM sản xuất: điều gì thay đổi trong lượng tử hóa, cấu hình và khả năng quan sát?
+5. Sản phẩm RAG có độ dài tiền tố P99 8K và tái sử dụng cao giữa các tenant. Chọn một engine và kết hợp nó với Giai đoạn 17 · 11 + 18.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|----------------|------------------------|
-| llama.cpp | "the CPU one" | Widest model support, fastest on CPU |
-| Ollama | "the laptop one" | One-command install, dev-grade throughput |
-| TGI | "HF's serving" | Maintenance mode since Dec 2025 |
-| vLLM | "the default" | Broad production baseline 2026 |
-| SGLang | "the agentic one" | Prefix-heavy, RadixAttention |
-| TRT-LLM | "NVIDIA-locked" | Blackwell throughput leader, NVIDIA only |
-| GGUF | "llama.cpp format" | Bundled K-quant variants |
-| Production-stack | "vLLM K8s" | Phase 17 · 18 reference deployment |
-| Pipeline pattern | "dev→stage→prod" | Ollama → llama.cpp → vLLM; weight formats differ per engine |
+| llama.cpp | "công cụ CPU" | Hỗ trợ mô hình rộng nhất, nhanh nhất trên CPU |
+| Ollama | "công cụ laptop" | Cài đặt một lệnh, thông lượng cấp phát triển |
+| TGI | "phục vụ của HF" | Chế độ bảo trì từ tháng 12 năm 2025 |
+| vLLM | "mặc định" | Đường cơ sở sản xuất rộng rãi năm 2026 |
+| SGLang | "công cụ có agent" | Nặng tiền tố, RadixAttention |
+| TRT-LLM | "khóa chặt vào NVIDIA" | Dẫn đầu thông lượng Blackwell, chỉ NVIDIA |
+| GGUF | "định dạng llama.cpp" | Các biến thể K-quant được gộp |
+| Production-stack | "K8s vLLM" | Triển khai tham chiếu Giai đoạn 17 · 18 |
+| Pipeline pattern (Mẫu pipeline) | "phát triển→staging→sản xuất" | Ollama → llama.cpp → vLLM; định dạng trọng số khác nhau theo engine |
 
 ## Further Reading
 
@@ -131,5 +131,5 @@ This lesson produces `outputs/skill-engine-picker.md`. Given constraints, picks 
 - [Morph — llama.cpp vs Ollama 2026](https://www.morphllm.com/comparisons/llama-cpp-vs-ollama)
 - [n1n.ai — Comprehensive LLM Inference Engine Comparison](https://explore.n1n.ai/blog/llm-inference-engine-comparison-vllm-tgi-tensorrt-sglang-2026-03-13)
 - [PremAI — 10 Best vLLM Alternatives 2026](https://blog.premai.io/10-best-vllm-alternatives-for-llm-inference-in-production-2026/)
-- [TGI maintenance announcement](https://github.com/huggingface/text-generation-inference) — release notes.
+- [TGI maintenance announcement](https://github.com/huggingface/text-generation-inference) — ghi chú phát hành.
 - [vLLM v0.15.1 release notes](https://github.com/vllm-project/vllm/releases)

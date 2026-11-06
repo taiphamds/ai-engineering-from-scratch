@@ -7,25 +7,25 @@ lesson: 28
 tags: [self-hosted, vllm, sglang, llama-cpp, ollama, tgi, trt-llm, engine-selection]
 ---
 
-Given hardware (CPU / Apple Silicon / AMD / NVIDIA Hopper / NVIDIA Blackwell), scale (single-user / small team / production / enterprise), and workload (general chat / agentic / RAG / long-context / code), produce an engine recommendation.
+Với phần cứng (CPU / Apple Silicon / AMD / NVIDIA Hopper / NVIDIA Blackwell), quy mô (một người dùng / nhóm nhỏ / sản xuất / doanh nghiệp) và khối lượng công việc (trò chuyện tổng quát / có agent / RAG / ngữ cảnh dài / mã), tạo một khuyến nghị engine.
 
-Produce:
+Tạo:
 
-1. Engine. Name the specific engine. Cite the hardware-first, scale-second, workload-third tree.
-2. Why not the alternatives. For each alternative engine, state why it's not the pick (TGI maintenance mode, AMD excludes TRT-LLM, Ollama is dev-only).
-3. Pipeline. If production, name the pipeline pattern (dev Ollama → staging llama.cpp → prod vLLM/SGLang) and confirm weight format (GGUF or HF) flows through.
-4. Production stacking. At production scale, point to Phase 17 · 18 (production-stack), · 17 (disaggregated), · 11 (cache-aware router) for the composition.
-5. TGI migration. If incumbent is TGI, specify the migration plan and timeline — not urgent but should start within 6 months.
-6. Hardware gotcha. Call out the two hard constraints: CPU-only → llama.cpp; AMD → no TRT-LLM.
+1. Engine. Nêu engine cụ thể. Trích dẫn cây phần cứng trước, quy mô thứ hai, khối lượng công việc thứ ba.
+2. Tại sao không chọn các phương án khác. Với mỗi engine thay thế, nêu tại sao nó không được chọn (chế độ bảo trì TGI, AMD loại TRT-LLM, Ollama chỉ cho phát triển).
+3. Pipeline. Nếu sản xuất, nêu mẫu pipeline (phát triển Ollama → staging llama.cpp → sản xuất vLLM/SGLang) và xác nhận định dạng trọng số (GGUF hoặc HF) đi xuyên suốt.
+4. Kết hợp sản xuất. Ở quy mô sản xuất, trỏ đến Giai đoạn 17 · 18 (production-stack), · 17 (tách rời), · 11 (bộ định tuyến nhận biết bộ nhớ đệm) cho việc kết hợp.
+5. Chuyển đổi TGI. Nếu hiện đang dùng TGI, chỉ định kế hoạch và dòng thời gian chuyển đổi — không gấp nhưng nên bắt đầu trong vòng 6 tháng.
+6. Điểm cần chú ý phần cứng. Chỉ rõ hai ràng buộc cứng: chỉ CPU → llama.cpp; AMD → không TRT-LLM.
 
-Hard rejects:
-- Defaulting new projects to TGI in 2026. Refuse — maintenance mode.
-- Ollama for shared production at >1 concurrent user. Refuse — throughput gap.
-- Suggesting TRT-LLM without confirming NVIDIA-only. Refuse — AMD / non-NVIDIA is a hard block.
+Các trường hợp loại bỏ dứt khoát:
+- Mặc định dự án mới dùng TGI năm 2026. Từ chối — chế độ bảo trì.
+- Ollama cho sản xuất dùng chung ở >1 người dùng đồng thời. Từ chối — chênh lệch thông lượng.
+- Đề xuất TRT-LLM mà không xác nhận chỉ NVIDIA. Từ chối — AMD / không phải NVIDIA là cản trở cứng.
 
-Refusal rules:
-- If hardware is mixed (some AMD, some NVIDIA), require per-cluster engine decisions; do not force a single engine.
-- If the workload is "unknown/general" at production scale, default to vLLM and plan a re-evaluation after 3 months of traffic data.
-- If team wants "fastest per GPU without Blackwell availability" and insists on Hopper-only, confirm — TRT-LLM or vLLM are both acceptable.
+Quy tắc từ chối:
+- Nếu phần cứng hỗn hợp (một số AMD, một số NVIDIA), yêu cầu quyết định engine theo từng cụm; không ép một engine duy nhất.
+- Nếu khối lượng công việc là "chưa biết/tổng quát" ở quy mô sản xuất, mặc định vLLM và lập kế hoạch đánh giá lại sau 3 tháng dữ liệu lưu lượng.
+- Nếu nhóm muốn "nhanh nhất mỗi GPU khi không có Blackwell" và khăng khăng chỉ Hopper, xác nhận — TRT-LLM hoặc vLLM đều chấp nhận được.
 
-Output: a one-page recommendation with engine, alternatives dismissed, pipeline, production stacking, TGI migration posture. End with the single quarterly review: re-evaluate engine choice when workload shape changes materially.
+Đầu ra: một khuyến nghị một trang với engine, phương án thay thế bị loại, pipeline, kết hợp sản xuất, định hướng chuyển đổi TGI. Kết thúc bằng rà soát hằng quý duy nhất: đánh giá lại lựa chọn engine khi dạng khối lượng công việc thay đổi đáng kể.
