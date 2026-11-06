@@ -1,6 +1,6 @@
 # Building a Tokenizer from Scratch
 
-> Lesson 01 gave you a toy. This lesson gives you a weapon.
+> Bài 01 cho bạn một món đồ chơi. Bài này cho bạn một vũ khí.
 
 **Type:** Build
 **Languages:** Python
@@ -9,28 +9,28 @@
 
 ## Learning Objectives
 
-- Build a production-grade BPE tokenizer that handles Unicode, whitespace normalization, and special tokens
-- Implement byte-level fallback so the tokenizer can encode any input (including emoji, CJK, and code) without unknown tokens
-- Add pre-tokenization regex patterns that split text at word boundaries before applying BPE merges
-- Train a custom tokenizer on a corpus and evaluate its compression ratio against tiktoken on multilingual text
+- Xây dựng một tokenizer BPE cấp production xử lý Unicode, chuẩn hóa khoảng trắng và token đặc biệt
+- Triển khai phương án dự phòng cấp byte để tokenizer có thể mã hóa bất kỳ đầu vào nào (gồm emoji, CJK và mã) mà không có token không biết
+- Thêm các mẫu regex tiền token hóa tách văn bản ở ranh giới từ trước khi áp dụng các phép gộp BPE
+- Huấn luyện một tokenizer tùy chỉnh trên một corpus và đánh giá tỷ lệ nén của nó so với tiktoken trên văn bản đa ngôn ngữ
 
 ## The Problem
 
-Your BPE tokenizer from Lesson 01 works on English text. Now throw Japanese at it. Or emoji. Or Python code with mixed tabs and spaces.
+Tokenizer BPE của bạn từ Bài 01 hoạt động trên văn bản tiếng Anh. Giờ ném tiếng Nhật vào nó. Hoặc emoji. Hoặc mã Python trộn tab và khoảng trắng.
 
-It breaks.
+Nó hỏng.
 
-Not because BPE is wrong -- because the implementation is incomplete. A production tokenizer handles raw bytes in any encoding, normalizes Unicode before splitting, manages special tokens that never get merged, chains pre-tokenization with subword splitting, and does all of this fast enough to not bottleneck a training pipeline processing 15 trillion tokens.
+Không phải vì BPE sai -- vì triển khai chưa đầy đủ. Một tokenizer production xử lý byte thô trong bất kỳ mã hóa nào, chuẩn hóa Unicode trước khi tách, quản lý các token đặc biệt không bao giờ được gộp, nối tiền token hóa với tách từ con, và làm tất cả đủ nhanh để không gây nghẽn một pipeline huấn luyện xử lý 15 nghìn tỷ token.
 
-GPT-2's tokenizer has 50,257 tokens. Llama 3 has 128,256. GPT-4 has roughly 100,000. These are not toy numbers. The merge tables behind those vocabularies were trained on hundreds of gigabytes of text, and the surrounding machinery -- normalization, pre-tokenization, special token injection, chat template formatting -- is what separates a tokenizer that handles "hello world" from one that handles the entire internet.
+Tokenizer GPT-2 có 50,257 token. Llama 3 có 128,256. GPT-4 có khoảng 100,000. Đây không phải các con số đồ chơi. Các bảng gộp sau các từ vựng đó được huấn luyện trên hàng trăm gigabyte văn bản, và bộ máy xung quanh -- chuẩn hóa, tiền token hóa, chèn token đặc biệt, định dạng chat template -- là thứ phân biệt một tokenizer xử lý "hello world" với một tokenizer xử lý toàn bộ internet.
 
-You are going to build that machinery.
+Bạn sẽ xây dựng bộ máy đó.
 
 ## The Concept
 
 ### The Full Pipeline
 
-A production tokenizer is not one algorithm. It is a pipeline of five stages, each solving a different problem.
+Một tokenizer production không phải một thuật toán. Nó là một pipeline năm giai đoạn, mỗi giai đoạn giải một bài toán khác.
 
 ```mermaid
 graph LR
@@ -48,64 +48,64 @@ graph LR
     style F fill:#1a1a2e,stroke:#e94560,color:#fff
 ```
 
-Each stage has a specific job:
+Mỗi giai đoạn có một công việc cụ thể:
 
-| Stage | What It Does | Why It Matters |
+| Giai đoạn | Nó làm gì | Vì sao quan trọng |
 |-------|-------------|----------------|
-| Normalize | NFKC Unicode, lowercase optional, strip accents optional | "fi" ligature (U+FB01) becomes "fi" (two chars). Without this, same word gets different tokens. |
-| Pre-Tokenize | Split text into chunks before BPE | Prevents BPE from merging across word boundaries. "the cat" should never produce a token "e c". |
-| BPE Merge | Apply learned merge rules to byte sequences | The core compression. Turns raw bytes into subword tokens. |
-| Special Tokens | Inject [BOS], [EOS], [PAD], chat template markers | These tokens have fixed IDs. They never participate in BPE merges. The model needs them for structure. |
-| ID Mapping | Convert token strings to integer IDs | The model sees integers, not strings. |
+| Chuẩn hóa | Unicode NFKC, chữ thường tùy chọn, bỏ dấu tùy chọn | Chữ ghép "fi" (U+FB01) thành "fi" (hai ký tự). Không có điều này, cùng từ nhận các token khác nhau. |
+| Tiền token hóa | Tách văn bản thành các khối trước BPE | Ngăn BPE gộp xuyên ranh giới từ. "the cat" không bao giờ nên tạo một token "e c". |
+| Gộp BPE | Áp dụng các quy tắc gộp đã học lên các chuỗi byte | Phần nén cốt lõi. Biến byte thô thành token từ con. |
+| Token đặc biệt | Chèn [BOS], [EOS], [PAD], các dấu chat template | Các token này có ID cố định. Chúng không bao giờ tham gia các phép gộp BPE. Mô hình cần chúng cho cấu trúc. |
+| Ánh xạ ID | Chuyển chuỗi token thành ID số nguyên | Mô hình thấy số nguyên, không phải chuỗi. |
 
 ### Byte-Level BPE
 
-Lesson 01's tokenizer operated on UTF-8 bytes. That was the right call. But we skipped something important: what happens when those bytes are not valid UTF-8?
+Tokenizer Bài 01 hoạt động trên byte UTF-8. Đó là quyết định đúng. Nhưng chúng ta bỏ qua một điều quan trọng: điều gì xảy ra khi các byte đó không phải UTF-8 hợp lệ?
 
-Byte-level BPE solves this by treating every possible byte value (0-255) as a valid token. Your base vocabulary is exactly 256 entries. Any file -- text, binary, corrupted -- can be tokenized without producing an unknown token.
+BPE cấp byte giải quyết điều này bằng cách coi mọi giá trị byte có thể (0-255) là một token hợp lệ. Từ vựng cơ sở của bạn có đúng 256 mục. Bất kỳ file nào -- văn bản, nhị phân, hỏng -- đều có thể được token hóa mà không tạo ra token không biết.
 
-GPT-2 added a trick: map each byte to a printable Unicode character so the vocabulary stays human-readable. Byte 0x20 (space) becomes the character "G" in their mapping. This is purely cosmetic. The algorithm does not care.
+GPT-2 thêm một thủ thuật: ánh xạ mỗi byte sang một ký tự Unicode in được để từ vựng vẫn đọc được bởi con người. Byte 0x20 (khoảng trắng) trở thành ký tự "G" trong ánh xạ của họ. Điều này thuần túy hình thức. Thuật toán không quan tâm.
 
-The real power: byte-level BPE handles every language on earth. Chinese characters are 3 UTF-8 bytes each. Japanese can be 3-4 bytes. Arabic, Devanagari, emoji -- all just byte sequences. The BPE algorithm finds patterns in these byte sequences exactly the same way it finds patterns in English ASCII bytes.
+Sức mạnh thực sự: BPE cấp byte xử lý mọi ngôn ngữ trên trái đất. Mỗi ký tự tiếng Trung là 3 byte UTF-8. Tiếng Nhật có thể là 3-4 byte. Tiếng Ả Rập, Devanagari, emoji -- tất cả chỉ là các chuỗi byte. Thuật toán BPE tìm các mẫu trong các chuỗi byte này chính xác như cách nó tìm mẫu trong các byte ASCII tiếng Anh.
 
 ### Pre-Tokenization
 
-Before BPE touches your text, you need to split it into chunks. This prevents the merge algorithm from creating tokens that span word boundaries.
+Trước khi BPE chạm vào văn bản, bạn cần tách nó thành các khối. Điều này ngăn thuật toán gộp tạo các token trải qua ranh giới từ.
 
-GPT-2 uses a regex pattern to split text:
+GPT-2 dùng một mẫu regex để tách văn bản:
 
 ```
 '(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+
 ```
 
-This pattern splits on contractions ("don't" becomes "don" + "'t"), words with optional leading spaces, numbers, punctuation, and whitespace. The leading space is kept attached to the word -- so "the cat" becomes [" the", " cat"], not ["the", " ", "cat"].
+Mẫu này tách các dạng rút gọn ("don't" thành "don" + "'t"), từ có khoảng trắng đầu tùy chọn, số, dấu câu và khoảng trắng. Khoảng trắng đầu được giữ gắn với từ -- nên "the cat" trở thành [" the", " cat"], không phải ["the", " ", "cat"].
 
-Llama uses SentencePiece, which skips regex entirely. It treats the raw byte stream as one long sequence and lets the BPE algorithm figure out the boundaries. This is simpler but gives BPE more freedom to create cross-word tokens.
+Llama dùng SentencePiece, bỏ qua regex hoàn toàn. Nó coi luồng byte thô là một chuỗi dài và để thuật toán BPE tìm ra các ranh giới. Điều này đơn giản hơn nhưng cho BPE nhiều tự do hơn để tạo token xuyên từ.
 
-The choice matters. GPT-2's regex prevents the tokenizer from learning that "the" at the end of one word and "the" at the start of the next should merge. SentencePiece allows it, which sometimes produces more efficient compression but less interpretable tokens.
+Lựa chọn này quan trọng. Regex GPT-2 ngăn tokenizer học rằng "the" ở cuối một từ và "the" ở đầu từ tiếp theo nên gộp lại. SentencePiece cho phép, đôi khi tạo nén hiệu quả hơn nhưng token ít dễ diễn giải hơn.
 
 ### Special Tokens
 
-Every production tokenizer reserves token IDs for structural markers:
+Mọi tokenizer production dành riêng ID token cho các dấu cấu trúc:
 
-| Token | Purpose | Used By |
+| Token | Mục đích | Được dùng bởi |
 |-------|---------|---------|
-| `[BOS]` / `<s>` | Beginning of sequence | Llama 3, GPT |
-| `[EOS]` / `</s>` | End of sequence | All models |
-| `[PAD]` | Padding for batch alignment | BERT, T5 |
-| `[UNK]` | Unknown token (byte-level BPE eliminates this) | BERT, WordPiece |
-| `<\|im_start\|>` | Chat message boundary start | ChatGPT, Qwen |
-| `<\|im_end\|>` | Chat message boundary end | ChatGPT, Qwen |
-| `<\|user\|>` | User turn marker | Llama 3 |
-| `<\|assistant\|>` | Assistant turn marker | Llama 3 |
+| `[BOS]` / `<s>` | Đầu chuỗi | Llama 3, GPT |
+| `[EOS]` / `</s>` | Cuối chuỗi | Mọi mô hình |
+| `[PAD]` | Đệm để căn chỉnh batch | BERT, T5 |
+| `[UNK]` | Token không biết (BPE cấp byte loại bỏ điều này) | BERT, WordPiece |
+| `<\|im_start\|>` | Bắt đầu ranh giới tin nhắn chat | ChatGPT, Qwen |
+| `<\|im_end\|>` | Kết thúc ranh giới tin nhắn chat | ChatGPT, Qwen |
+| `<\|user\|>` | Dấu lượt người dùng | Llama 3 |
+| `<\|assistant\|>` | Dấu lượt trợ lý | Llama 3 |
 
-Special tokens are never split by BPE. They are matched exactly before the merge algorithm runs, replaced with their fixed ID, and the surrounding text is tokenized normally.
+Token đặc biệt không bao giờ bị BPE tách. Chúng được khớp chính xác trước khi thuật toán gộp chạy, thay bằng ID cố định, và văn bản xung quanh được token hóa bình thường.
 
 ### Chat Templates
 
-This is where most people get confused and most implementations break.
+Đây là nơi hầu hết mọi người bối rối và hầu hết triển khai hỏng.
 
-When you send messages to a chat model, the API accepts a list of messages:
+Khi bạn gửi tin nhắn đến một mô hình chat, API nhận một danh sách tin nhắn:
 
 ```
 [
@@ -115,7 +115,7 @@ When you send messages to a chat model, the API accepts a list of messages:
 ]
 ```
 
-The model does not see JSON. It sees a flat token sequence. The chat template converts messages into that flat sequence using special tokens. Every model does this differently:
+Mô hình không thấy JSON. Nó thấy một chuỗi token phẳng. Chat template chuyển tin nhắn thành chuỗi phẳng đó bằng token đặc biệt. Mỗi mô hình làm điều này khác nhau:
 
 ```
 Llama 3:
@@ -136,17 +136,17 @@ Hello<|im_end|>
 Hi there!<|im_end|>
 ```
 
-Get the template wrong and the model produces garbage. It was trained on one exact format. Any deviation -- a missing newline, a swapped token, an extra space -- puts the input outside the training distribution.
+Làm sai template và mô hình tạo rác. Nó được huấn luyện trên đúng một định dạng. Bất kỳ sai lệch nào -- thiếu một xuống dòng, đảo một token, thêm một khoảng trắng -- đưa đầu vào ra ngoài phân phối huấn luyện.
 
 ### Speed
 
-Python is too slow for production tokenization.
+Python quá chậm cho token hóa production.
 
-tiktoken (OpenAI) is written in Rust with Python bindings. HuggingFace tokenizers is also Rust. SentencePiece is C++. These achieve 10-100x speedups over pure Python.
+tiktoken (OpenAI) được viết bằng Rust với binding Python. HuggingFace tokenizers cũng là Rust. SentencePiece là C++. Chúng đạt tăng tốc 10-100x so với Python thuần.
 
-For perspective: tokenizing 15 trillion tokens for Llama 3 pre-training at 1 million tokens per second (fast Python) would take 174 days. At 100 million tokens per second (Rust), it takes 1.7 days.
+Để hình dung: token hóa 15 nghìn tỷ token cho huấn luyện trước Llama 3 ở 1 triệu token mỗi giây (Python nhanh) sẽ mất 174 ngày. Ở 100 triệu token mỗi giây (Rust), mất 1.7 ngày.
 
-You are building in Python to understand the algorithm. In production, you would use a compiled implementation and only touch the Python wrapper.
+Bạn đang xây dựng bằng Python để hiểu thuật toán. Trong production, bạn sẽ dùng một triển khai được biên dịch và chỉ chạm vào wrapper Python.
 
 ```figure
 weight-tying
@@ -156,7 +156,7 @@ weight-tying
 
 ### Step 1: Byte-Level Encoding
 
-The foundation. Convert any string into a sequence of bytes, map each byte to a printable character for display, and reverse the process.
+Nền tảng. Chuyển bất kỳ chuỗi nào thành một chuỗi byte, ánh xạ mỗi byte sang một ký tự in được để hiển thị, và đảo ngược quá trình.
 
 ```python
 def bytes_to_tokens(text):
@@ -166,7 +166,7 @@ def tokens_to_text(token_bytes):
     return bytes(token_bytes).decode("utf-8", errors="replace")
 ```
 
-Test on multilingual text to see the byte counts:
+Kiểm thử trên văn bản đa ngôn ngữ để thấy số byte:
 
 ```python
 texts = [
@@ -181,11 +181,11 @@ for label, text in texts:
     print(f"{label}: {len(text)} chars -> {len(b)} bytes -> {b}")
 ```
 
-"hello" is 5 bytes. "你好" is 6 bytes (3 per character). The fire emoji is 4 bytes. The byte-level tokenizer does not care what language it is. Bytes are bytes.
+"hello" là 5 byte. "你好" là 6 byte (3 mỗi ký tự). Emoji ngọn lửa là 4 byte. Tokenizer cấp byte không quan tâm đó là ngôn ngữ nào. Byte là byte.
 
 ### Step 2: Pre-Tokenizer with Regex
 
-Split text into chunks using the GPT-2 regex pattern. Each chunk gets tokenized independently by BPE.
+Tách văn bản thành các khối bằng mẫu regex GPT-2. Mỗi khối được BPE token hóa độc lập.
 
 ```python
 import re
@@ -204,20 +204,20 @@ def pre_tokenize(text):
     return [match.group() for match in GPT2_PATTERN.finditer(text)]
 ```
 
-The `regex` module supports Unicode property escapes (`\p{L}` for letters, `\p{N}` for numbers). The standard library `re` module does not, so we fall back to ASCII character classes. For production multilingual tokenizers, install `regex`.
+Mô-đun `regex` hỗ trợ các escape thuộc tính Unicode (`\p{L}` cho chữ cái, `\p{N}` cho số). Mô-đun thư viện chuẩn `re` không hỗ trợ, nên chúng ta quay về các lớp ký tự ASCII. Với tokenizer đa ngôn ngữ production, cài `regex`.
 
-Try it:
+Thử nó:
 
 ```python
 print(pre_tokenize("Hello, world! Don't stop."))
 # [' Hello', ',', ' world', '!', " Don", "'t", ' stop', '.']
 ```
 
-The leading space stays attached to the word. Contractions split at the apostrophe. Punctuation becomes its own chunk. BPE will never merge tokens across these boundaries.
+Khoảng trắng đầu vẫn gắn với từ. Các dạng rút gọn tách ở dấu nháy đơn. Dấu câu thành khối riêng. BPE sẽ không bao giờ gộp token xuyên các ranh giới này.
 
 ### Step 3: BPE on Byte Sequences
 
-The core algorithm from Lesson 01, but now operating on pre-tokenized chunks independently.
+Thuật toán cốt lõi từ Bài 01, nhưng giờ hoạt động độc lập trên các khối đã tiền token hóa.
 
 ```python
 from collections import Counter
@@ -245,7 +245,7 @@ def apply_merge(byte_seq, pair, new_id):
 
 ### Step 4: Special Token Handling
 
-Special tokens need exact matching and fixed IDs. They bypass BPE entirely.
+Token đặc biệt cần khớp chính xác và ID cố định. Chúng bỏ qua BPE hoàn toàn.
 
 ```python
 class SpecialTokenHandler:
@@ -275,7 +275,7 @@ class SpecialTokenHandler:
 
 ### Step 5: Full Tokenizer Class
 
-Chain everything together: normalize, split on special tokens, pre-tokenize, BPE merge, map to IDs.
+Nối mọi thứ lại: chuẩn hóa, tách theo token đặc biệt, tiền token hóa, gộp BPE, ánh xạ sang ID.
 
 ```python
 import unicodedata
@@ -344,7 +344,7 @@ class ProductionTokenizer:
 
 ### Step 6: Multilingual Test
 
-The real test. Throw English, Chinese, emoji, and code at it.
+Phép thử thực. Ném tiếng Anh, tiếng Trung, emoji và mã vào nó.
 
 ```python
 corpus = (
@@ -379,13 +379,13 @@ for text in test_texts:
     print()
 ```
 
-Chinese characters produce 3 bytes each. The emoji produces 4 bytes. None of these crash the tokenizer. None produce unknown tokens. That is the power of byte-level BPE.
+Mỗi ký tự tiếng Trung tạo 3 byte. Emoji tạo 4 byte. Không thứ nào làm tokenizer sập. Không thứ nào tạo token không biết. Đó là sức mạnh của BPE cấp byte.
 
 ## Use It
 
 ### Comparing Real Tokenizers
 
-Load the actual tokenizers from Llama 3, GPT-4, and Mistral. See how each handles the same multilingual paragraph.
+Tải các tokenizer thực từ Llama 3, GPT-4 và Mistral. Xem mỗi cái xử lý cùng đoạn văn đa ngôn ngữ thế nào.
 
 ```python
 import tiktoken
@@ -411,37 +411,37 @@ for name, tok in [("Llama 3", llama_tok), ("Mistral", mistral_tok)]:
     print(f"{name} ({len(tokens)} tokens): {pieces[:20]}...")
 ```
 
-You will see different token counts for the same text. Llama 3 with 128K vocabulary is more aggressive at merging common patterns. GPT-4 with 100K sits in the middle. Mistral with 32K produces more tokens but has a smaller embedding layer.
+Bạn sẽ thấy số token khác nhau cho cùng văn bản. Llama 3 với từ vựng 128K mạnh hơn trong gộp các mẫu phổ biến. GPT-4 với 100K nằm giữa. Mistral với 32K tạo nhiều token hơn nhưng có lớp embedding nhỏ hơn.
 
-The tradeoff is always the same: larger vocabulary means shorter sequences but more parameters.
+Đánh đổi luôn giống nhau: từ vựng lớn hơn nghĩa là chuỗi ngắn hơn nhưng nhiều tham số hơn.
 
 ## Ship It
 
-This lesson produces a prompt for building and debugging production tokenizers. See `outputs/prompt-tokenizer-builder.md`.
+Bài học này tạo ra một prompt để xây dựng và gỡ lỗi tokenizer production. Xem `outputs/prompt-tokenizer-builder.md`.
 
 ## Exercises
 
-1. **Easy:** Add a `get_token_bytes(id)` method that shows the raw bytes for any token ID. Use it to inspect what your most common merged tokens actually represent.
-2. **Medium:** Implement the Llama-style pre-tokenizer that splits on whitespace and digits but keeps leading spaces. Compare its vocabulary with the GPT-2 regex approach on the same corpus.
-3. **Hard:** Add a chat template method that takes a list of `{"role": ..., "content": ...}` messages and produces the correct token sequence for the Llama 3 chat format. Test it against the HuggingFace implementation.
+1. **Dễ:** Thêm một phương thức `get_token_bytes(id)` hiển thị các byte thô cho bất kỳ ID token nào. Dùng nó để kiểm tra các token gộp phổ biến nhất thực sự biểu diễn gì.
+2. **Trung bình:** Triển khai bộ tiền token hóa kiểu Llama tách theo khoảng trắng và chữ số nhưng giữ khoảng trắng đầu. So sánh từ vựng của nó với cách regex GPT-2 trên cùng corpus.
+3. **Khó:** Thêm một phương thức chat template nhận một danh sách tin nhắn `{"role": ..., "content": ...}` và tạo chuỗi token đúng cho định dạng chat Llama 3. Kiểm thử nó với triển khai HuggingFace.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Byte-level BPE | "Tokenizer that works on bytes" | BPE with a base vocabulary of 256 byte values -- handles any input without unknown tokens |
-| Pre-tokenization | "Splitting before BPE" | Regex or rule-based splitting that prevents BPE from merging across word boundaries |
-| NFKC normalization | "Unicode cleanup" | Canonical decomposition followed by compatibility composition -- "fi" ligature becomes "fi", fullwidth "A" becomes "A" |
-| Chat template | "How messages become tokens" | The exact format for converting a list of role/content messages into a flat token sequence -- model-specific and must match training format |
-| Special tokens | "Control tokens" | Reserved token IDs that bypass BPE -- [BOS], [EOS], [PAD], chat markers -- matched exactly before merge |
-| Fertility | "Tokens per word" | Ratio of output tokens to input words -- 1.3 for English in GPT-4, 2-3 for Korean, higher means wasted context |
-| tiktoken | "OpenAI tokenizer" | Rust BPE implementation with Python bindings -- 10-100x faster than pure Python |
-| Merge table | "The vocabulary" | Ordered list of byte-pair merges learned during training -- this IS the tokenizer's learned knowledge |
+| Byte-level BPE (BPE cấp byte) | "Tokenizer hoạt động trên byte" | BPE với từ vựng cơ sở 256 giá trị byte -- xử lý bất kỳ đầu vào nào mà không có token không biết |
+| Pre-tokenization (Tiền token hóa) | "Tách trước BPE" | Tách dựa trên regex hoặc quy tắc ngăn BPE gộp xuyên ranh giới từ |
+| NFKC normalization (Chuẩn hóa NFKC) | "Dọn Unicode" | Phân rã chuẩn tắc rồi tổ hợp tương thích -- chữ ghép "fi" thành "fi", "A" toàn chiều rộng thành "A" |
+| Chat template (Mẫu chat) | "Cách tin nhắn thành token" | Định dạng chính xác để chuyển một danh sách tin nhắn vai trò/nội dung thành một chuỗi token phẳng -- riêng theo mô hình và phải khớp định dạng huấn luyện |
+| Special tokens (Token đặc biệt) | "Token điều khiển" | ID token dành riêng bỏ qua BPE -- [BOS], [EOS], [PAD], các dấu chat -- khớp chính xác trước gộp |
+| Fertility | "Token mỗi từ" | Tỷ lệ token đầu ra trên từ đầu vào -- 1.3 cho tiếng Anh trong GPT-4, 2-3 cho tiếng Hàn, cao hơn nghĩa là lãng phí ngữ cảnh |
+| tiktoken | "Tokenizer OpenAI" | Triển khai BPE Rust với binding Python -- nhanh hơn Python thuần 10-100x |
+| Merge table (Bảng gộp) | "Từ vựng" | Danh sách có thứ tự các phép gộp cặp byte học trong huấn luyện -- đây CHÍNH LÀ kiến thức được học của tokenizer |
 
 ## Further Reading
 
-- [OpenAI tiktoken source](https://github.com/openai/tiktoken) -- Rust BPE implementation used by GPT-3.5/4
-- [HuggingFace tokenizers](https://github.com/huggingface/tokenizers) -- Rust tokenizer library supporting BPE, WordPiece, Unigram
-- [Llama 3 paper (Meta, 2024)](https://arxiv.org/abs/2407.21783) -- details on 128K vocabulary and tokenizer training
-- [SentencePiece (Kudo & Richardson, 2018)](https://arxiv.org/abs/1808.06226) -- language-agnostic tokenization
-- [GPT-2 tokenizer source](https://github.com/openai/gpt-2/blob/master/src/encoder.py) -- the original byte-to-Unicode mapping
+- [OpenAI tiktoken source](https://github.com/openai/tiktoken) -- triển khai BPE Rust được GPT-3.5/4 dùng
+- [HuggingFace tokenizers](https://github.com/huggingface/tokenizers) -- thư viện tokenizer Rust hỗ trợ BPE, WordPiece, Unigram
+- [Llama 3 paper (Meta, 2024)](https://arxiv.org/abs/2407.21783) -- chi tiết về từ vựng 128K và huấn luyện tokenizer
+- [SentencePiece (Kudo & Richardson, 2018)](https://arxiv.org/abs/1808.06226) -- token hóa độc lập ngôn ngữ
+- [GPT-2 tokenizer source](https://github.com/openai/gpt-2/blob/master/src/encoder.py) -- ánh xạ byte sang Unicode gốc

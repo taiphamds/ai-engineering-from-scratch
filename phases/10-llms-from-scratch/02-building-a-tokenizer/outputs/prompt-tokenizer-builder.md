@@ -9,58 +9,58 @@ tags: [tokenizer, bpe, byte-level, special-tokens, chat-template, multilingual]
 
 # Production Tokenizer Builder
 
-When building or debugging a tokenizer for an LLM project, follow this framework.
+Khi xây dựng hoặc gỡ lỗi một tokenizer cho một dự án LLM, làm theo khung này.
 
 ## Pipeline Checklist
 
-Every production tokenizer needs these five stages. If one is missing, you will hit edge cases in production.
+Mọi tokenizer production cần năm giai đoạn này. Nếu thiếu một, bạn sẽ gặp trường hợp biên trong production.
 
-1. **Normalize** -- Apply NFKC Unicode normalization. This collapses ligatures ("fi" -> "fi"), normalizes fullwidth characters, and standardizes whitespace. Skip this and the same word gets different token IDs depending on how it was typed.
+1. **Chuẩn hóa** -- Áp dụng chuẩn hóa Unicode NFKC. Điều này gộp chữ ghép ("fi" -> "fi"), chuẩn hóa ký tự toàn chiều rộng và chuẩn hóa khoảng trắng. Bỏ qua điều này và cùng từ nhận các ID token khác nhau tùy cách nó được gõ.
 
-2. **Pre-Tokenize** -- Split text into chunks before BPE. Use GPT-2's regex pattern for English-centric models. Use SentencePiece's raw-byte approach for multilingual models. The choice determines whether BPE can merge across word boundaries.
+2. **Tiền token hóa** -- Tách văn bản thành các khối trước BPE. Dùng mẫu regex GPT-2 cho mô hình tập trung tiếng Anh. Dùng cách byte thô của SentencePiece cho mô hình đa ngôn ngữ. Lựa chọn quyết định liệu BPE có thể gộp xuyên ranh giới từ không.
 
-3. **BPE Merge** -- Apply the learned merge table to byte sequences within each chunk. The merge table IS the tokenizer's learned knowledge. Everything else is plumbing.
+3. **Gộp BPE** -- Áp dụng bảng gộp đã học lên các chuỗi byte trong mỗi khối. Bảng gộp CHÍNH LÀ kiến thức được học của tokenizer. Mọi thứ khác là phần kết nối.
 
-4. **Special Token Injection** -- Match special tokens exactly before BPE runs. [BOS], [EOS], [PAD], chat template markers get fixed IDs. They never participate in merges.
+4. **Chèn token đặc biệt** -- Khớp chính xác token đặc biệt trước khi BPE chạy. [BOS], [EOS], [PAD], các dấu chat template nhận ID cố định. Chúng không bao giờ tham gia gộp.
 
-5. **ID Mapping** -- Convert token strings to integers. The model sees integers only.
+5. **Ánh xạ ID** -- Chuyển chuỗi token thành số nguyên. Mô hình chỉ thấy số nguyên.
 
 ## Debugging Tokenizer Issues
 
-**Symptom: model produces garbage on chat input**
-- Check the chat template. Every model has a different format. Llama 3 uses `<|start_header_id|>` markers. ChatGPT uses `<|im_start|>` markers. A wrong template puts input outside the training distribution.
+**Triệu chứng: mô hình tạo rác trên đầu vào chat**
+- Kiểm tra chat template. Mỗi mô hình có định dạng khác. Llama 3 dùng các dấu `<|start_header_id|>`. ChatGPT dùng các dấu `<|im_start|>`. Một template sai đưa đầu vào ra ngoài phân phối huấn luyện.
 
-**Symptom: non-English text uses too many tokens**
-- Check fertility (tokens per word). Above 2.0 means the tokenizer wastes context window on that language. Solutions: retrain with more multilingual data, increase vocabulary size, or use SentencePiece with Unigram.
+**Triệu chứng: văn bản phi tiếng Anh dùng quá nhiều token**
+- Kiểm tra fertility (token mỗi từ). Trên 2.0 nghĩa là tokenizer lãng phí cửa sổ ngữ cảnh cho ngôn ngữ đó. Giải pháp: huấn luyện lại với nhiều dữ liệu đa ngôn ngữ hơn, tăng kích thước từ vựng, hoặc dùng SentencePiece với Unigram.
 
-**Symptom: numbers and arithmetic fail**
-- Check how digits are tokenized. "1234" as one token means the model cannot do digit-level operations. Split digits individually during pre-tokenization.
+**Triệu chứng: số và số học thất bại**
+- Kiểm tra cách các chữ số được token hóa. "1234" là một token nghĩa là mô hình không thể làm phép toán cấp chữ số. Tách từng chữ số riêng trong tiền token hóa.
 
-**Symptom: code tokens are inefficient**
-- Check how indentation is handled. GPT-2's tokenizer wastes tokens on spaces. Codex and StarCoder use special indentation tokens (4 spaces = 1 token).
+**Triệu chứng: token mã kém hiệu quả**
+- Kiểm tra cách xử lý thụt lề. Tokenizer GPT-2 lãng phí token cho khoảng trắng. Codex và StarCoder dùng token thụt lề đặc biệt (4 khoảng trắng = 1 token).
 
 ## Vocabulary Size Decision
 
-- 32K tokens: single-language, small model, limited compute. Embedding layer is 32K * d_model parameters.
-- 50K-64K: multilingual or code-heavy. Good balance for most projects.
-- 100K+ (GPT-4, Llama 3): only with massive training data. Shorter sequences but 100K * d_model embedding parameters.
+- 32K token: đơn ngôn ngữ, mô hình nhỏ, tính toán hạn chế. Lớp embedding là 32K * d_model tham số.
+- 50K-64K: đa ngôn ngữ hoặc nhiều mã. Cân bằng tốt cho hầu hết dự án.
+- 100K+ (GPT-4, Llama 3): chỉ với dữ liệu huấn luyện khổng lồ. Chuỗi ngắn hơn nhưng 100K * d_model tham số embedding.
 
-For a 4096-dimensional model: 32K vocab = 131M embedding params. 128K vocab = 524M embedding params. That is 400M parameters just in the embedding layer.
+Với một mô hình 4096 chiều: từ vựng 32K = 131M tham số embedding. Từ vựng 128K = 524M tham số embedding. Đó là 400M tham số chỉ trong lớp embedding.
 
 ## Speed Requirements
 
-- Training data tokenization: use Rust-backed libraries (tiktoken, HuggingFace tokenizers). Pure Python is 10-100x slower.
-- Inference tokenization: latency matters less (single sequence), but still use compiled implementations.
-- Benchmark: tokenize 1GB of text and measure wall clock time. If it takes more than 60 seconds, switch to a Rust backend.
+- Token hóa dữ liệu huấn luyện: dùng các thư viện dựa trên Rust (tiktoken, HuggingFace tokenizers). Python thuần chậm hơn 10-100x.
+- Token hóa suy luận: độ trễ ít quan trọng hơn (một chuỗi), nhưng vẫn dùng triển khai được biên dịch.
+- Benchmark: token hóa 1GB văn bản và đo thời gian thực. Nếu mất hơn 60 giây, chuyển sang backend Rust.
 
 ## Chat Template Validation
 
-Before deploying any chat model, verify the template:
+Trước khi triển khai bất kỳ mô hình chat nào, xác minh template:
 
-1. Encode a known conversation with the tokenizer
-2. Decode it back to text
-3. Compare character-by-character with the expected format from the model's documentation
-4. Pay attention to: newlines after header tokens, spaces before content, end-of-turn markers
-5. Test edge cases: empty system message, very long user message, multiple assistant turns
+1. Mã hóa một cuộc hội thoại đã biết bằng tokenizer
+2. Giải mã nó trở lại văn bản
+3. So sánh từng ký tự với định dạng kỳ vọng từ tài liệu mô hình
+4. Chú ý: xuống dòng sau token header, khoảng trắng trước nội dung, dấu kết thúc lượt
+5. Kiểm thử trường hợp biên: tin nhắn hệ thống rỗng, tin nhắn người dùng rất dài, nhiều lượt trợ lý
 
-Getting the chat template wrong is the most common source of degraded chat model performance.
+Làm sai chat template là nguồn phổ biến nhất gây suy giảm hiệu năng mô hình chat.
