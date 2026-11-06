@@ -1,6 +1,6 @@
 # Audio Transformers — Whisper Architecture
 
-> Audio is an image of frequency over time. Whisper is a ViT that eats mel spectrograms and speaks back.
+> Âm thanh là một hình ảnh của tần số theo thời gian. Whisper là một ViT ăn phổ đồ mel và nói đáp lại.
 
 **Type:** Learn
 **Languages:** Python
@@ -9,15 +9,15 @@
 
 ## The Problem
 
-Before Whisper (OpenAI, Radford et al. 2022), state-of-the-art automatic speech recognition (ASR) meant wav2vec 2.0 and HuBERT — self-supervised feature extractors plus a fine-tuned head. High quality, expensive data pipelines, domain-brittle. Multilingual speech recognition needed separate models per language family.
+Trước Whisper (OpenAI, Radford và cộng sự 2022), nhận dạng tiếng nói tự động (ASR) tiên tiến nhất nghĩa là wav2vec 2.0 và HuBERT — các bộ trích xuất đặc trưng tự giám sát cộng một head được fine-tune. Chất lượng cao, các pipeline dữ liệu tốn kém, mong manh theo lĩnh vực. Nhận dạng tiếng nói đa ngôn ngữ cần các mô hình riêng cho mỗi họ ngôn ngữ.
 
-Whisper made three bets:
+Whisper đặt ba cược:
 
-1. **Train on everything.** 680,000 hours of weakly-labeled audio scraped from the internet across 97 languages. No clean academic corpus. No phoneme labels.
-2. **Multi-task single model.** One decoder trained jointly on transcription, translation, voice activity detection, language ID, and timestamping via task tokens.
-3. **Standard encoder-decoder transformer.** Encoder consumes log-mel spectrograms. Decoder produces text tokens autoregressively. No vocoder, no CTC, no HMM.
+1. **Huấn luyện trên mọi thứ.** 680,000 giờ âm thanh nhãn yếu được thu thập từ internet trên 97 ngôn ngữ. Không ngữ liệu học thuật sạch. Không nhãn âm vị.
+2. **Một mô hình đa tác vụ.** Một decoder được huấn luyện kết hợp trên chép lời, dịch, phát hiện hoạt động giọng nói, nhận dạng ngôn ngữ và gắn dấu thời gian qua các token tác vụ.
+3. **Transformer encoder-decoder tiêu chuẩn.** Encoder tiêu thụ phổ đồ log-mel. Decoder tạo token văn bản tự hồi quy. Không vocoder, không CTC, không HMM.
 
-The result: Whisper large-v3 is robust across accents, noise, and languages that have zero clean labeled data. It is the default speech front-end for every open-source voice assistant and most commercial ones in 2026.
+Kết quả: Whisper large-v3 vững trước các giọng, nhiễu và các ngôn ngữ không có dữ liệu có nhãn sạch nào. Nó là frontend tiếng nói mặc định cho mọi trợ lý giọng nói mã nguồn mở và hầu hết các trợ lý thương mại năm 2026.
 
 ## The Concept
 
@@ -25,43 +25,43 @@ The result: Whisper large-v3 is robust across accents, noise, and languages that
 
 ### Step 1 — resample + window
 
-Audio at 16 kHz. Clip/pad to 30 seconds. Compute log-mel spectrogram: 80 mel bins, 10 ms stride → ~3,000 frames × 80 features. This is the "input image" that Whisper sees.
+Âm thanh ở 16 kHz. Cắt/đệm đến 30 giây. Tính phổ đồ log-mel: 80 bin mel, stride 10 ms → ~3,000 khung × 80 đặc trưng. Đây là "ảnh đầu vào" Whisper thấy.
 
 ### Step 2 — convolutional stem
 
-Two Conv1D layers with kernel 3 and stride 2 reduce the 3,000 frames to 1,500. Halves sequence length without adding a lot of parameters.
+Hai tầng Conv1D với kernel 3 và stride 2 giảm 3,000 khung xuống 1,500. Giảm nửa độ dài chuỗi mà không thêm nhiều tham số.
 
 ### Step 3 — encoder
 
-A 24-layer (for large) transformer encoder over 1,500 timesteps. Sinusoidal positional encoding, self-attention, GELU FFN. Produces 1,500 × 1,280 hidden states.
+Một encoder transformer 24 tầng (cho large) trên 1,500 bước thời gian. Mã hóa vị trí hình sin, self-attention, FFN GELU. Tạo các trạng thái ẩn 1,500 × 1,280.
 
 ### Step 4 — decoder
 
-A 24-layer transformer decoder. It autoregressively produces tokens from a BPE vocabulary that is a superset of GPT-2's with a few audio-specific special tokens.
+Một decoder transformer 24 tầng. Nó tự hồi quy tạo các token từ một từ vựng BPE là tập bao của từ vựng GPT-2 với một vài token đặc biệt riêng âm thanh.
 
 ### Step 5 — task tokens
 
-The decoder prompt starts with control tokens that tell the model what to do:
+Prompt decoder bắt đầu bằng các token điều khiển cho mô hình biết làm gì:
 
 ```
 <|startoftranscript|>  <|en|>  <|transcribe|>  <|0.00|>
 ```
 
-or
+hoặc
 
 ```
 <|startoftranscript|>  <|fr|>  <|translate|>   <|0.00|>
 ```
 
-The model was trained on this convention. You control task by prefix. The 2026 equivalent of instruction-tuning, but applied to speech.
+Mô hình được huấn luyện trên quy ước này. Bạn điều khiển tác vụ bằng tiền tố. Tương đương tinh chỉnh theo chỉ dẫn năm 2026, nhưng áp dụng cho tiếng nói.
 
 ### Step 6 — output
 
-Beam search (width 5) with a log-prob threshold. Timestamps are predicted every 0.02 seconds of audio when the `<|notimestamps|>` token is absent.
+Beam search (độ rộng 5) với một ngưỡng log xác suất. Các dấu thời gian được dự đoán mỗi 0.02 giây âm thanh khi không có token `<|notimestamps|>`.
 
 ### Whisper sizes
 
-| Model | Params | Layers | d_model | Heads | VRAM (fp16) |
+| Mô hình | Tham số | Tầng | d_model | Head | VRAM (fp16) |
 |-------|--------|--------|---------|-------|-------------|
 | Tiny | 39M | 4 | 384 | 6 | ~1 GB |
 | Base | 74M | 6 | 512 | 8 | ~1 GB |
@@ -69,25 +69,25 @@ Beam search (width 5) with a log-prob threshold. Timestamps are predicted every 
 | Medium | 769M | 24 | 1024 | 16 | ~5 GB |
 | Large | 1550M | 32 | 1280 | 20 | ~10 GB |
 | Large-v3 | 1550M | 32 | 1280 | 20 | ~10 GB |
-| Large-v3-turbo | 809M | 32 | 1280 | 20 | ~6 GB (4-layer decoder) |
+| Large-v3-turbo | 809M | 32 | 1280 | 20 | ~6 GB (decoder 4 tầng) |
 
-Large-v3-turbo (2024) cut the decoder from 32 layers to 4. 8× faster decoding with <1 WER point regression. That decode speed unlock is why Whisper-turbo is the default for real-time voice agents in 2026.
+Large-v3-turbo (2024) cắt decoder từ 32 tầng xuống 4. Giải mã nhanh hơn 8× với suy giảm <1 điểm WER. Việc mở khóa tốc độ giải mã đó là lý do Whisper-turbo là mặc định cho các tác tử giọng nói thời gian thực năm 2026.
 
 ### What Whisper does not do
 
-- No diarization (who is speaking). Pair with pyannote for that.
-- No real-time streaming natively — the 30-second window is fixed. Modern wrappers (`faster-whisper`, `WhisperX`) bolt on streaming via VAD + overlap.
-- No long-form context beyond 30 s without external chunking. Works well in practice because human speech rarely needs long-range context for transcription.
+- Không phân đoạn người nói (ai đang nói). Ghép với pyannote cho việc đó.
+- Không truyền luồng thời gian thực nguyên bản — cửa sổ 30 giây cố định. Các lớp bọc hiện đại (`faster-whisper`, `WhisperX`) gắn thêm truyền luồng qua VAD + chồng lấn.
+- Không ngữ cảnh dạng dài vượt 30 s nếu không chia khối bên ngoài. Hoạt động tốt trong thực tế vì tiếng nói con người hiếm khi cần ngữ cảnh xa để chép lời.
 
 ### 2026 landscape
 
-| Task | Model | Notes |
+| Tác vụ | Mô hình | Ghi chú |
 |------|-------|-------|
-| English ASR | Whisper-turbo, Moonshine | Moonshine is 4× faster on edge |
-| Multilingual ASR | Whisper-large-v3 | 97 languages |
-| Streaming ASR | faster-whisper + VAD | 150 ms latency targets achievable |
-| TTS | Piper, XTTS-v2, Kokoro | Encoder-decoder pattern, but Whisper-shaped |
-| Audio + language | AudioLM, SeamlessM4T | Text tokens + audio tokens in one transformer |
+| ASR tiếng Anh | Whisper-turbo, Moonshine | Moonshine nhanh hơn 4× trên biên |
+| ASR đa ngôn ngữ | Whisper-large-v3 | 97 ngôn ngữ |
+| ASR luồng | faster-whisper + VAD | Có thể đạt các mục tiêu độ trễ 150 ms |
+| TTS | Piper, XTTS-v2, Kokoro | Mẫu encoder-decoder, nhưng có hình dạng Whisper |
+| Âm thanh + ngôn ngữ | AudioLM, SeamlessM4T | Token văn bản + token âm thanh trong một transformer |
 
 ```figure
 n5-mel-decode
@@ -95,15 +95,15 @@ n5-mel-decode
 
 ## Build It
 
-See `code/main.py`. We don't train Whisper — we build the log-mel spectrogram pipeline + task-token prompt formatter. Those are the parts you actually touch in production.
+Xem `code/main.py`. Chúng ta không huấn luyện Whisper — chúng ta xây dựng pipeline phổ đồ log-mel + bộ định dạng prompt token tác vụ. Đó là những phần bạn thực sự chạm trong production.
 
 ### Step 1: synthesize audio
 
-Generate a 1-second sine wave at 440 Hz sampled at 16 kHz. 16,000 samples.
+Sinh một sóng sin 1 giây tại 440 Hz được lấy mẫu ở 16 kHz. 16,000 mẫu.
 
 ### Step 2: log-mel spectrogram (simplified)
 
-Full mel spectrogram needs FFT. We do a simplified framing + per-frame energy version that shows the pipeline without requiring `librosa`:
+Phổ đồ mel đầy đủ cần FFT. Chúng ta làm một phiên bản chia khung + năng lượng theo khung được đơn giản hóa cho thấy pipeline không cần `librosa`:
 
 ```python
 def frame_signal(x, frame_size=400, hop=160):
@@ -113,11 +113,11 @@ def frame_signal(x, frame_size=400, hop=160):
     return frames
 ```
 
-Frame = 25 ms, hop = 10 ms. Matches Whisper's windowing. Per-frame energy stands in for mel bins for pedagogy.
+Khung = 25 ms, bước nhảy = 10 ms. Khớp cách áp cửa sổ của Whisper. Năng lượng theo khung thay cho các bin mel vì mục đích sư phạm.
 
 ### Step 3: pad to 30 s
 
-Whisper always processes 30-second chunks. Pad (or clip) the spectrogram to 3,000 frames.
+Whisper luôn xử lý các khối 30 giây. Đệm (hoặc cắt) phổ đồ đến 3,000 khung.
 
 ### Step 4: build the prompt tokens
 
@@ -129,7 +129,7 @@ def whisper_prompt(lang="en", task="transcribe", timestamps=True):
     return tokens
 ```
 
-That is the whole task-control surface. A 4-token prefix.
+Đó là toàn bộ bề mặt điều khiển tác vụ. Một tiền tố 4 token.
 
 ## Use It
 
@@ -141,7 +141,7 @@ print(result["text"])
 print(result["segments"][0]["start"], result["segments"][0]["end"])
 ```
 
-Faster, OpenAI-compatible:
+Nhanh hơn, tương thích OpenAI:
 
 ```python
 from faster_whisper import WhisperModel
@@ -151,48 +151,48 @@ for s in segments:
     print(f"{s.start:.2f} - {s.end:.2f}: {s.text}")
 ```
 
-**When to pick Whisper in 2026:**
+**Khi nào chọn Whisper năm 2026:**
 
-- Multilingual ASR with one model.
-- Robust transcription of noisy, diverse audio.
-- Research / prototype ASR — fastest starting point.
+- ASR đa ngôn ngữ với một mô hình.
+- Chép lời vững chắc cho âm thanh nhiễu, đa dạng.
+- ASR nghiên cứu / nguyên mẫu — điểm khởi đầu nhanh nhất.
 
-**When to pick something else:**
+**Khi nào chọn thứ khác:**
 
-- Ultra-low latency streaming on edge — Moonshine beats Whisper at matched quality.
-- Real-time conversational AI needing <200 ms — dedicated streaming ASR.
-- Speaker diarization — Whisper does not do this; bolt on pyannote.
+- Truyền luồng độ trễ cực thấp trên biên — Moonshine thắng Whisper ở chất lượng tương ứng.
+- AI hội thoại thời gian thực cần <200 ms — ASR luồng chuyên dụng.
+- Phân đoạn người nói — Whisper không làm việc này; gắn thêm pyannote.
 
 ## Ship It
 
-See `outputs/skill-asr-configurator.md`. The skill picks an ASR model, decoding parameters, and preprocessing pipeline for a new speech application.
+Xem `outputs/skill-asr-configurator.md`. Skill chọn một mô hình ASR, các tham số giải mã và pipeline tiền xử lý cho một ứng dụng tiếng nói mới.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. Confirm the frame count for a 1-second signal at 16 kHz with 10 ms hop is ~100 frames. For 30 seconds: ~3,000 frames.
-2. **Medium.** Build the full log-mel spectrogram using `numpy.fft`. Verify 80 mel bins match `librosa.feature.melspectrogram(n_mels=80)` within numerical error.
-3. **Hard.** Implement streaming inference: chunk audio into 10 s windows with 2 s overlap, run Whisper on each chunk, merge transcripts. Measure word-error rate vs single-pass on a 5-minute podcast sample.
+1. **Dễ.** Chạy `code/main.py`. Xác nhận số khung cho một tín hiệu 1 giây ở 16 kHz với bước nhảy 10 ms là ~100 khung. Với 30 giây: ~3,000 khung.
+2. **Trung bình.** Xây dựng phổ đồ log-mel đầy đủ bằng `numpy.fft`. Xác minh 80 bin mel khớp `librosa.feature.melspectrogram(n_mels=80)` trong sai số số học.
+3. **Khó.** Triển khai suy luận luồng: chia khối âm thanh thành các cửa sổ 10 s có chồng lấn 2 s, chạy Whisper trên mỗi khối, gộp các bản chép lời. Đo tỷ lệ lỗi từ so với một lượt trên một mẫu podcast 5 phút.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Mel spectrogram | "Audio image" | 2D representation: frequency bins on one axis, time frames on the other; log-scaled energy per cell. |
-| Log-mel | "What Whisper sees" | Mel spectrogram passed through log; approximates human perception of loudness. |
-| Frame | "One time slice" | A 25 ms window of samples; overlapping at 10 ms stride. |
-| Task token | "Prompt prefix for speech" | Special tokens like `<\|transcribe\|>` / `<\|translate\|>` in the decoder prompt. |
-| Voice activity detection (VAD) | "Find the speech" | Gate that removes silence before ASR; cuts cost massively. |
-| CTC | "Connectionist Temporal Classification" | Classic ASR loss for alignment-free training; Whisper does NOT use it. |
-| Whisper-turbo | "Small decoder, full encoder" | large-v3 encoder + 4-layer decoder; 8× faster decoding. |
-| Faster-whisper | "The production wrapper" | CTranslate2 reimplementation; int8 quantization; 4× faster than OpenAI's reference. |
+| Mel spectrogram (Phổ đồ Mel) | "Ảnh âm thanh" | Biểu diễn 2D: các bin tần số trên một trục, các khung thời gian trên trục còn lại; năng lượng thang log mỗi ô. |
+| Log-mel | "Điều Whisper thấy" | Phổ đồ mel được truyền qua log; xấp xỉ tri giác độ to của con người. |
+| Frame (Khung) | "Một lát thời gian" | Một cửa sổ mẫu 25 ms; chồng lấn ở stride 10 ms. |
+| Task token (Token tác vụ) | "Tiền tố prompt cho tiếng nói" | Các token đặc biệt như `<\|transcribe\|>` / `<\|translate\|>` trong prompt decoder. |
+| Voice activity detection (VAD) (Phát hiện hoạt động giọng nói) | "Tìm tiếng nói" | Cổng loại im lặng trước ASR; giảm chi phí rất lớn. |
+| CTC | "Connectionist Temporal Classification" | Loss ASR cổ điển cho huấn luyện không căn chỉnh; Whisper KHÔNG dùng nó. |
+| Whisper-turbo | "Decoder nhỏ, encoder đầy đủ" | Encoder large-v3 + decoder 4 tầng; giải mã nhanh hơn 8×. |
+| Faster-whisper | "Lớp bọc production" | Tái triển khai CTranslate2; lượng tử hóa int8; nhanh hơn tham chiếu của OpenAI 4×. |
 
 ## Further Reading
 
-- [Radford et al. (2022). Robust Speech Recognition via Large-Scale Weak Supervision](https://arxiv.org/abs/2212.04356) — Whisper paper.
-- [OpenAI Whisper repo](https://github.com/openai/whisper) — reference code + model weights. Read `whisper/model.py` to see the Conv1D stem + encoder + decoder top-to-bottom in ~400 lines.
-- [OpenAI Whisper — `whisper/decoding.py`](https://github.com/openai/whisper/blob/main/whisper/decoding.py) — the beam-search + task-token logic described in Steps 5–6 is here; 500 lines, fully readable.
-- [Baevski et al. (2020). wav2vec 2.0: A Framework for Self-Supervised Learning of Speech Representations](https://arxiv.org/abs/2006.11477) — precursor; still SOTA features in some settings.
-- [SYSTRAN/faster-whisper](https://github.com/SYSTRAN/faster-whisper) — production wrapper, 4× faster than reference.
-- [Jia et al. (2024). Moonshine: Speech Recognition for Live Transcription and Voice Commands](https://arxiv.org/abs/2410.15608) — 2024 edge-friendly ASR, Whisper-shaped but smaller.
-- [HuggingFace blog — "Fine-Tune Whisper For Multilingual ASR with 🤗 Transformers"](https://huggingface.co/blog/fine-tune-whisper) — canonical fine-tuning recipe including mel spectrogram preprocessor and token-timestamp handling.
-- [HuggingFace `modeling_whisper.py`](https://github.com/huggingface/transformers/blob/main/src/transformers/models/whisper/modeling_whisper.py) — full implementation (encoder, decoder, cross-attention, generation) that mirrors the lesson's architecture diagram.
+- [Radford et al. (2022). Robust Speech Recognition via Large-Scale Weak Supervision](https://arxiv.org/abs/2212.04356) — bài báo Whisper.
+- [OpenAI Whisper repo](https://github.com/openai/whisper) — mã tham chiếu + trọng số mô hình. Đọc `whisper/model.py` để thấy phần đầu Conv1D + encoder + decoder từ trên xuống trong ~400 dòng.
+- [OpenAI Whisper — `whisper/decoding.py`](https://github.com/openai/whisper/blob/main/whisper/decoding.py) — logic beam search + token tác vụ được mô tả ở Bước 5–6 ở đây; 500 dòng, hoàn toàn dễ đọc.
+- [Baevski et al. (2020). wav2vec 2.0: A Framework for Self-Supervised Learning of Speech Representations](https://arxiv.org/abs/2006.11477) — tiền thân; vẫn là các đặc trưng SOTA trong một số thiết lập.
+- [SYSTRAN/faster-whisper](https://github.com/SYSTRAN/faster-whisper) — lớp bọc production, nhanh hơn tham chiếu 4×.
+- [Jia et al. (2024). Moonshine: Speech Recognition for Live Transcription and Voice Commands](https://arxiv.org/abs/2410.15608) — ASR thân thiện biên năm 2024, hình dạng Whisper nhưng nhỏ hơn.
+- [HuggingFace blog — "Fine-Tune Whisper For Multilingual ASR with 🤗 Transformers"](https://huggingface.co/blog/fine-tune-whisper) — công thức fine-tuning kinh điển bao gồm bộ tiền xử lý phổ đồ mel và xử lý token-dấu thời gian.
+- [HuggingFace `modeling_whisper.py`](https://github.com/huggingface/transformers/blob/main/src/transformers/models/whisper/modeling_whisper.py) — triển khai đầy đủ (encoder, decoder, cross-attention, sinh) phản chiếu sơ đồ kiến trúc của bài học.

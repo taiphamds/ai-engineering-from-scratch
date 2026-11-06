@@ -7,12 +7,12 @@ lesson: 10
 tags: [transformers, whisper, asr, speech]
 ---
 
-Given a speech task (transcription / translation / streaming / on-device), language(s), audio characteristics (noise, accent, duration), and latency/quality targets, output:
+Với một tác vụ tiếng nói (chép lời / dịch / truyền luồng / trên thiết bị), ngôn ngữ, các đặc tính âm thanh (nhiễu, giọng, thời lượng) và các mục tiêu độ trễ/chất lượng, xuất ra:
 
-1. Model choice. One of: faster-whisper large-v3-turbo (default production), whisper large-v3 (highest quality, multilingual), whisper medium (mid-tier), Moonshine base (edge), distil-whisper (2× faster English). One-sentence reason.
-2. Quantization. int8_float16 (CPU default), float16 (GPU default), fp32 (research). Flag VRAM impact.
-3. Decoding. Beam width (5 typical, 1 for streaming), temperature fallback schedule, log-prob threshold, no-speech threshold, VAD gate on/off.
-4. Chunking. 30 s fixed window vs streaming chunks (typically 10 s with 2 s overlap) + VAD-based segmentation. Document post-merge strategy for overlaps.
-5. Post-processing. Timestamp alignment (WhisperX forced alignment), punctuation restoration, diarization (pyannote). Flag which are required by the task.
+1. Lựa chọn mô hình. Một trong: faster-whisper large-v3-turbo (mặc định production), whisper large-v3 (chất lượng cao nhất, đa ngôn ngữ), whisper medium (hạng giữa), Moonshine base (biên), distil-whisper (tiếng Anh nhanh hơn 2×). Lý do trong một câu.
+2. Lượng tử hóa. int8_float16 (mặc định CPU), float16 (mặc định GPU), fp32 (nghiên cứu). Đánh dấu tác động VRAM.
+3. Giải mã. Độ rộng beam (thường 5, 1 cho truyền luồng), lịch dự phòng temperature, ngưỡng log xác suất, ngưỡng không tiếng nói, bật/tắt cổng VAD.
+4. Chia khối. Cửa sổ cố định 30 s so với các khối luồng (thường 10 s với chồng lấn 2 s) + phân đoạn dựa trên VAD. Ghi lại chiến lược sau gộp cho các phần chồng lấn.
+5. Hậu xử lý. Căn chỉnh dấu thời gian (căn chỉnh bắt buộc WhisperX), khôi phục dấu câu, phân đoạn người nói (pyannote). Đánh dấu những phần nào được tác vụ yêu cầu.
 
-Refuse to recommend plain OpenAI Whisper (reference implementation) for production — `faster-whisper` is 4× faster with identical outputs. Refuse to ship streaming ASR without VAD unless documented reason. Flag any single-speaker assumption when the input is likely multi-speaker.
+Từ chối khuyến nghị OpenAI Whisper nguyên bản (triển khai tham chiếu) cho production — `faster-whisper` nhanh hơn 4× với đầu ra giống hệt. Từ chối phát hành ASR luồng không có VAD trừ khi có lý do được ghi lại. Đánh dấu bất kỳ giả định một người nói nào khi đầu vào có thể là nhiều người nói.
