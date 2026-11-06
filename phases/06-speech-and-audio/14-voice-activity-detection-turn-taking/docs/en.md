@@ -1,6 +1,6 @@
 # Voice Activity Detection & Turn-Taking — Silero, Cobra, and the Flush Trick
 
-> Every voice agent lives or dies on two decisions: is the user speaking now, and are they done? VAD answers the first. Turn-detection (VAD + silence-hangover + semantic endpoint model) answers the second. Get either wrong and your assistant either cuts users off or never shuts up.
+> Mọi tác tử giọng nói sống còn nhờ hai quyết định: người dùng hiện có đang nói không, và họ đã xong chưa? VAD trả lời câu đầu. Phát hiện lượt (VAD + thời gian duy trì sau im lặng + mô hình điểm kết thúc ngữ nghĩa) trả lời câu thứ hai. Làm sai một trong hai và trợ lý của bạn hoặc cắt lời người dùng hoặc không bao giờ im.
 
 **Type:** Build
 **Languages:** Python
@@ -9,13 +9,13 @@
 
 ## The Problem
 
-Three distinct decisions a voice agent makes on every 20 ms chunk:
+Ba quyết định riêng biệt một tác tử giọng nói đưa ra trên mỗi khối 20 ms:
 
-1. **Is this frame speech?** — VAD. Binary, per-frame.
-2. **Has the user started a new utterance?** — onset detection.
-3. **Has the user finished?** — end-pointing (turn-end).
+1. **Khung này có phải tiếng nói không?** — VAD. Nhị phân, theo khung.
+2. **Người dùng đã bắt đầu một phát ngôn mới chưa?** — phát hiện khởi đầu.
+3. **Người dùng đã xong chưa?** — xác định điểm kết thúc (kết thúc lượt).
 
-The naive answer (energy threshold) fails on any noise — traffic, keyboards, crowd babble. The 2026 answer: Silero VAD (open, deep-learned) + a turn-detection model (semantic endpointing) + a VAD-calibrated silence hangover.
+Câu trả lời ngây thơ (ngưỡng năng lượng) thất bại với bất kỳ nhiễu nào — giao thông, bàn phím, tiếng đám đông xôn xao. Câu trả lời năm 2026: Silero VAD (mở, deep learning) + một mô hình phát hiện lượt (xác định điểm kết thúc ngữ nghĩa) + một thời gian duy trì sau im lặng được hiệu chuẩn VAD.
 
 ## The Concept
 
@@ -23,35 +23,35 @@ The naive answer (energy threshold) fails on any noise — traffic, keyboards, c
 
 ### The three-tier VAD cascade
 
-**Tier 1: energy gate.** Cheapest. Threshold RMS at -40 dBFS. Filters obvious silence but fires on any noise above the threshold.
+**Tầng 1: cổng năng lượng.** Rẻ nhất. Đặt ngưỡng RMS ở -40 dBFS. Lọc sự im lặng rõ ràng nhưng kích hoạt trên bất kỳ nhiễu nào trên ngưỡng.
 
-**Tier 2: Silero VAD** (2020-2026, MIT). 1M parameters. Trained on 6000+ languages. Runs in ~1 ms per 30 ms chunk on a single CPU thread. 87.7% TPR at 5% FPR. The open-source default.
+**Tầng 2: Silero VAD** (2020-2026, MIT). 1M tham số. Được huấn luyện trên 6000+ ngôn ngữ. Chạy trong ~1 ms mỗi khối 30 ms trên một luồng CPU. TPR 87.7% tại FPR 5%. Mặc định mã nguồn mở.
 
-**Tier 3: semantic turn detector.** LiveKit's turn-detection model (2024-2026) or your own small classifier. Distinguishes "pause mid-sentence" from "done talking." Uses linguistic context (intonation + recent words), not just silence.
+**Tầng 3: bộ phát hiện lượt ngữ nghĩa.** Mô hình phát hiện lượt của LiveKit (2024-2026) hoặc bộ phân loại nhỏ của riêng bạn. Phân biệt "ngừng giữa câu" với "nói xong." Dùng ngữ cảnh ngôn ngữ (ngữ điệu + các từ gần đây), không chỉ im lặng.
 
 ### Key parameters and their defaults
 
-- **Threshold.** Silero outputs a probability; classify speech at &gt; 0.5 (default) or &gt; 0.3 (sensitive). Lower threshold = fewer first-word clips, more false positives.
-- **Minimum speech duration.** Reject speech shorter than 250 ms — usually coughs or chair noise.
-- **Silence hangover (end-pointing).** After VAD returns to 0, wait 500-800 ms before declaring end-of-turn. Too short → interrupt user. Too long → feels sluggish.
-- **Pre-roll buffer.** Keep 300-500 ms of audio before VAD fires. Prevents "hey" being clipped.
+- **Ngưỡng.** Silero xuất một xác suất; phân loại tiếng nói tại &gt; 0.5 (mặc định) hoặc &gt; 0.3 (nhạy). Ngưỡng thấp hơn = ít cắt từ đầu hơn, nhiều dương tính giả hơn.
+- **Thời lượng tiếng nói tối thiểu.** Từ chối tiếng nói ngắn hơn 250 ms — thường là ho hoặc tiếng ghế.
+- **Thời gian duy trì sau im lặng (xác định điểm kết thúc).** Sau khi VAD trở về 0, chờ 500-800 ms trước khi tuyên bố kết thúc lượt. Quá ngắn → ngắt người dùng. Quá dài → cảm giác chậm chạp.
+- **Bộ đệm trước.** Giữ 300-500 ms âm thanh trước khi VAD kích hoạt. Ngăn "này" bị cắt.
 
 ### The flush trick (Kyutai 2025)
 
-Streaming STT models have a look-ahead delay (500 ms for Kyutai STT-1B, 2.5 s for STT-2.6B). Normally you'd wait that long after end-of-speech for the transcript. Flush trick: when VAD fires end-of-speech, **send a flush signal to the STT** that forces immediate output. STT processes at ~4× realtime, so the 500 ms buffer finishes in ~125 ms.
+Các mô hình STT luồng có một độ trễ nhìn trước (500 ms cho Kyutai STT-1B, 2.5 s cho STT-2.6B). Thông thường bạn chờ lâu đến vậy sau khi kết thúc tiếng nói để có bản chép lời. Thủ thuật flush: khi VAD báo kết thúc tiếng nói, **gửi một tín hiệu flush đến STT** ép đầu ra ngay lập tức. STT xử lý ở ~4× thời gian thực, nên bộ đệm 500 ms hoàn tất trong ~125 ms.
 
-End-to-end: 125 ms VAD + flush STT = conversational latency.
+Đầu cuối: VAD 125 ms + flush STT = độ trễ hội thoại.
 
 ### 2026 VAD comparison
 
-| VAD | TPR @ 5% FPR | Latency | License |
+| VAD | TPR @ FPR 5% | Độ trễ | Giấy phép |
 |-----|--------------|---------|---------|
 | WebRTC VAD (Google, 2013) | 50.0% | 30 ms | BSD |
 | Silero VAD (2020-2026) | 87.7% | ~1 ms | MIT |
-| Cobra VAD (Picovoice) | 98.9% | ~1 ms | commercial |
-| pyannote segmentation | 95% | ~10 ms | MIT-ish |
+| Cobra VAD (Picovoice) | 98.9% | ~1 ms | thương mại |
+| Phân đoạn pyannote | 95% | ~10 ms | gần MIT |
 
-Silero is the right default. Cobra is the compliance / accuracy upgrade. Energy-only VAD has no place in 2026 production.
+Silero là mặc định đúng. Cobra là nâng cấp tuân thủ / accuracy. VAD chỉ năng lượng không có chỗ trong production năm 2026.
 
 ```figure
 sp-vad-cascade
@@ -122,56 +122,56 @@ def flush_on_end(stt_client, audio_buffer):
     return stt_client.recv_transcript(timeout_ms=150)
 ```
 
-STT (Kyutai, Deepgram, AssemblyAI) must support flush for this to work. Whisper streaming does not — it's block-based and always waits for chunks.
+STT (Kyutai, Deepgram, AssemblyAI) phải hỗ trợ flush để điều này hoạt động. Whisper streaming không hỗ trợ — nó dựa trên khối và luôn chờ các khối.
 
 ## Use It
 
-| Situation | VAD choice |
+| Tình huống | Lựa chọn VAD |
 |-----------|-----------|
-| Open, fast, general | Silero VAD |
-| Commercial call center | Cobra VAD |
-| On-device (phone) | Silero VAD ONNX |
-| Research / diarization | pyannote segmentation |
-| Zero-dependency fallback | WebRTC VAD (legacy) |
-| Need turn-ending quality | Silero + LiveKit turn-detector layered |
+| Mở, nhanh, tổng quát | Silero VAD |
+| Trung tâm cuộc gọi thương mại | Cobra VAD |
+| Trên thiết bị (điện thoại) | Silero VAD ONNX |
+| Nghiên cứu / phân đoạn người nói | Phân đoạn pyannote |
+| Dự phòng không phụ thuộc | WebRTC VAD (cũ) |
+| Cần chất lượng kết thúc lượt | Silero + LiveKit turn-detector xếp tầng |
 
-Rule of thumb: never ship energy-only VAD unless you really have no other option.
+Quy tắc kinh nghiệm: không bao giờ phát hành VAD chỉ năng lượng trừ khi bạn thực sự không có lựa chọn khác.
 
 ## Pitfalls
 
-- **Fixed threshold.** Works in quiet, fails in noisy. Either calibrate on-device or switch to Silero.
-- **Too-short silence hangover.** Agent interrupts mid-sentence. 500-800 ms is the sweet spot for conversational speech.
-- **Too-long hangover.** Feels sluggish. A/B test with target users.
-- **No pre-roll buffer.** First 200-300 ms of user audio lost. Always keep a rolling pre-roll.
-- **Ignoring semantic endpointing.** "Hmm, let me think..." contains long pauses. Users hate being cut off mid-thought. Use LiveKit's turn-detector or similar.
+- **Ngưỡng cố định.** Hoạt động khi yên tĩnh, thất bại khi ồn. Hoặc hiệu chuẩn trên thiết bị hoặc chuyển sang Silero.
+- **Thời gian duy trì sau im lặng quá ngắn.** Tác tử ngắt giữa câu. 500-800 ms là điểm cân bằng tốt cho tiếng nói hội thoại.
+- **Thời gian duy trì quá dài.** Cảm giác chậm chạp. Kiểm thử A/B với người dùng đích.
+- **Không bộ đệm trước.** Mất 200-300 ms đầu của âm thanh người dùng. Luôn giữ một bộ đệm trước cuốn chiếu.
+- **Bỏ qua xác định điểm kết thúc ngữ nghĩa.** "Ừm, để tôi nghĩ..." chứa các khoảng dừng dài. Người dùng ghét bị cắt ngang suy nghĩ. Dùng turn-detector của LiveKit hoặc tương tự.
 
 ## Ship It
 
-Save as `outputs/skill-vad-tuner.md`. Pick VAD model, threshold, hangover, pre-roll, and turn-detection strategy for a workload.
+Lưu thành `outputs/skill-vad-tuner.md`. Chọn mô hình VAD, ngưỡng, thời gian duy trì, đệm trước và chiến lược phát hiện lượt cho một khối lượng công việc.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. It simulates a speech + silence + speech + coughs sequence and tests three VAD tiers.
-2. **Medium.** Install `silero-vad`, process a 5-min recording, tune threshold to minimize both first-word clips and false triggers. Report precision/recall.
-3. **Hard.** Build a mini turn-detector: Silero VAD + a 3-layer MLP on the last 10 words' embeddings (use sentence-transformers). Train on a hand-labeled turn-end dataset. Beat Silero-only by 10% F1.
+1. **Dễ.** Chạy `code/main.py`. Nó mô phỏng một chuỗi tiếng nói + im lặng + tiếng nói + các tiếng ho và kiểm thử ba tầng VAD.
+2. **Trung bình.** Cài `silero-vad`, xử lý một bản ghi 5 phút, tinh chỉnh ngưỡng để giảm thiểu cả cắt từ đầu và kích hoạt sai. Báo cáo precision/recall.
+3. **Khó.** Xây dựng một bộ phát hiện lượt nhỏ: Silero VAD + một MLP 3 tầng trên embedding của 10 từ cuối (dùng sentence-transformers). Huấn luyện trên một tập dữ liệu kết thúc lượt được gán nhãn bằng tay. Thắng chỉ Silero 10% F1.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| VAD | Voice detector | Binary per-frame: is this speech? |
-| Turn detection | End-pointing | VAD + silence-hangover + semantic endpoint. |
-| Silence hangover | Wait-after-speech | Time to wait before declaring turn end; 500-800 ms. |
-| Pre-roll | Pre-speech buffer | Keep 300-500 ms audio before VAD fires. |
-| Flush trick | Kyutai hack | VAD → flush-STT → 125 ms instead of 500 ms delay. |
-| Semantic endpoint | "Did they mean to stop?" | ML classifier that looks at words, not just silence. |
-| TPR @ FPR 5% | ROC point | Standard VAD benchmark; 87.7% for Silero, 50% WebRTC. |
+| VAD | Bộ phát hiện giọng nói | Nhị phân theo khung: đây có phải tiếng nói không? |
+| Turn detection (Phát hiện lượt) | Xác định điểm kết thúc | VAD + thời gian duy trì sau im lặng + điểm kết thúc ngữ nghĩa. |
+| Silence hangover (Thời gian duy trì sau im lặng) | Chờ sau tiếng nói | Thời gian chờ trước khi tuyên bố kết thúc lượt; 500-800 ms. |
+| Pre-roll (Đệm trước) | Bộ đệm trước tiếng nói | Giữ 300-500 ms âm thanh trước khi VAD kích hoạt. |
+| Flush trick (Thủ thuật flush) | Mẹo Kyutai | VAD → flush-STT → độ trễ 125 ms thay vì 500 ms. |
+| Semantic endpoint (Điểm kết thúc ngữ nghĩa) | "Họ có định dừng không?" | Bộ phân loại ML nhìn vào các từ, không chỉ sự im lặng. |
+| TPR @ FPR 5% | Điểm ROC | Benchmark VAD tiêu chuẩn; 87.7% cho Silero, 50% WebRTC. |
 
 ## Further Reading
 
-- [Silero VAD](https://github.com/snakers4/silero-vad) — the reference open VAD.
-- [Picovoice Cobra VAD](https://picovoice.ai/products/voice/voice-activity-detection/) — commercial accuracy leader.
-- [Kyutai — Unmute + flush trick](https://kyutai.org/stt) — the sub-200 ms engineering trick.
-- [LiveKit — turn detection](https://docs.livekit.io/agents/logic/turns/) — semantic endpointing in production.
-- [WebRTC VAD](https://webrtc.googlesource.com/src/) — the legacy baseline.
-- [pyannote segmentation](https://github.com/pyannote/pyannote-audio) — diarization-grade segmentation.
+- [Silero VAD](https://github.com/snakers4/silero-vad) — VAD mở tham chiếu.
+- [Picovoice Cobra VAD](https://picovoice.ai/products/voice/voice-activity-detection/) — dẫn đầu accuracy thương mại.
+- [Kyutai — Unmute + flush trick](https://kyutai.org/stt) — thủ thuật kỹ thuật dưới 200 ms.
+- [LiveKit — turn detection](https://docs.livekit.io/agents/logic/turns/) — xác định điểm kết thúc ngữ nghĩa trong production.
+- [WebRTC VAD](https://webrtc.googlesource.com/src/) — baseline cũ.
+- [pyannote segmentation](https://github.com/pyannote/pyannote-audio) — phân đoạn cấp phân đoạn người nói.

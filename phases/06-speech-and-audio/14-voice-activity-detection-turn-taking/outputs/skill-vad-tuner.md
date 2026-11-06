@@ -7,21 +7,21 @@ lesson: 14
 tags: [vad, silero, cobra, turn-detection, flush-trick]
 ---
 
-Given the workload (consumer / call-center / edge / accessibility; noise profile; language mix; latency), output:
+Với khối lượng công việc (tiêu dùng / trung tâm cuộc gọi / biên / hỗ trợ tiếp cận; cấu hình nhiễu; hỗn hợp ngôn ngữ; độ trễ), xuất ra:
 
-1. VAD. Silero VAD (default) · Cobra (commercial accuracy) · pyannote segmentation (diarization-grade) · WebRTC VAD (legacy / tiny). One-sentence reason.
-2. Parameters. Threshold (0.3-0.5), min speech (200-300 ms), silence hangover (400-800 ms), pre-roll (250-500 ms).
-3. Semantic turn detection. Enabled (LiveKit turn-detector or custom MLP) or not. Reason tied to expected user speech patterns.
-4. Flush trick. Enabled (if STT supports it — Kyutai / Deepgram) or not. Expected latency savings.
-5. Guards. Reject speech shorter than min duration; always keep pre-roll; cap per-user silence-hangover override; fail-open if VAD service is down (treat everything as speech).
+1. VAD. Silero VAD (mặc định) · Cobra (accuracy thương mại) · phân đoạn pyannote (cấp phân đoạn người nói) · WebRTC VAD (cũ / tí hon). Lý do trong một câu.
+2. Các tham số. Ngưỡng (0.3-0.5), tiếng nói tối thiểu (200-300 ms), thời gian duy trì sau im lặng (400-800 ms), đệm trước (250-500 ms).
+3. Phát hiện lượt ngữ nghĩa. Bật (LiveKit turn-detector hoặc MLP tùy chỉnh) hay không. Lý do gắn với các mẫu tiếng nói người dùng dự kiến.
+4. Thủ thuật flush. Bật (nếu STT hỗ trợ — Kyutai / Deepgram) hay không. Mức tiết kiệm độ trễ dự kiến.
+5. Các biện pháp bảo vệ. Từ chối tiếng nói ngắn hơn thời lượng tối thiểu; luôn giữ đệm trước; giới hạn ghi đè thời gian duy trì sau im lặng theo người dùng; mở khi lỗi nếu dịch vụ VAD ngừng (coi mọi thứ là tiếng nói).
 
-Refuse energy-only VAD for production — too noisy. Refuse zero silence-hangover — will interrupt users. Refuse Whisper-based VAD when dedicated Silero is available (slower, less accurate).
+Từ chối VAD chỉ năng lượng cho production — quá nhiễu. Từ chối thời gian duy trì sau im lặng bằng không — sẽ ngắt người dùng. Từ chối VAD dựa trên Whisper khi có Silero chuyên dụng (chậm hơn, kém chính xác hơn).
 
-Example input: "Call-center IVR for airline rebooking. Noisy background (airport). English + Spanish. &lt; 500 ms turn detection."
+Đầu vào ví dụ: "IVR trung tâm cuộc gọi cho đặt lại vé máy bay. Nền ồn (sân bay). Tiếng Anh + Tây Ban Nha. Phát hiện lượt &lt; 500 ms."
 
-Example output:
-- VAD: Cobra (commercial) for the noise-resistance advantage. Fall-back to Silero if cost prohibitive.
-- Parameters: threshold 0.4 (airport noise floor is high); min speech 300 ms; silence hangover 600 ms (users often pause during IVR to read flight numbers); pre-roll 400 ms.
-- Semantic turn: LiveKit turn-detector enabled — mid-sentence pauses common ("I need to change my flight... to tomorrow").
-- Flush trick: enabled on Deepgram streaming. Expected savings: 400 ms → 150 ms turn-end latency.
-- Guards: fail-open if Cobra/Deepgram unreachable; audit log every VAD-fire event for tuning.
+Đầu ra ví dụ:
+- VAD: Cobra (thương mại) vì lợi thế kháng nhiễu. Quay về Silero nếu chi phí quá cao.
+- Các tham số: ngưỡng 0.4 (mức nhiễu nền sân bay cao); tiếng nói tối thiểu 300 ms; thời gian duy trì sau im lặng 600 ms (người dùng thường dừng trong IVR để đọc số chuyến bay); đệm trước 400 ms.
+- Lượt ngữ nghĩa: bật LiveKit turn-detector — các khoảng dừng giữa câu phổ biến ("Tôi cần đổi chuyến bay... sang ngày mai").
+- Thủ thuật flush: bật trên Deepgram streaming. Tiết kiệm dự kiến: độ trễ kết thúc lượt 400 ms → 150 ms.
+- Các biện pháp bảo vệ: mở khi lỗi nếu không truy cập được Cobra/Deepgram; ghi nhật ký kiểm toán mọi sự kiện VAD kích hoạt để tinh chỉnh.
