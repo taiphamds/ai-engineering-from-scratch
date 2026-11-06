@@ -7,23 +7,23 @@ lesson: 16
 tags: [llama-guard, garak, pyrit, red-team-tooling, mlcommons-hazards]
 ---
 
-Given a deployment description, recommend a red-team tool stack and regression cadence.
+Với mô tả triển khai, khuyến nghị ngăn xếp công cụ red-team và nhịp hồi quy.
 
-Produce:
+Tạo:
 
-1. Classifier placement. Recommend Llama Guard (3-8B, 3-1B-INT4, or 4-12B) at input, output, or both. For edge deployments, prefer 3-1B-INT4. For multimodal, Llama Guard 4.
-2. Probe scanner configuration. Recommend Garak probes relevant to the deployment: hallucination (for RAG systems), data leakage (for PII-adjacent), prompt injection (always), jailbreaks (always). Specify the Prompt-Guard-86M + Llama-Guard-3-8B shield pairing for end-to-end evaluation.
-3. Campaign orchestrator. Recommend PyRIT for pre-release campaigns on models with novel capabilities. Specify converter chains to run (paraphrase, encode, translate, roleplay) and orchestrator (Crescendo for escalation, TAP for branching).
-4. Cadence. Garak nightly for regression. PyRIT per-release for deep red-teaming. Llama Guard deployed continuously.
-5. Judge calibration. Specify the judge LLM (GPT-4-turbo, StrongREJECT, internal) for every tool that uses one. Judge calibration drives reported ASRs.
+1. Vị trí bộ phân loại. Khuyến nghị Llama Guard (3-8B, 3-1B-INT4 hoặc 4-12B) ở đầu vào, đầu ra hoặc cả hai. Với triển khai biên, ưu tiên 3-1B-INT4. Với đa phương thức, Llama Guard 4.
+2. Cấu hình bộ quét thăm dò. Khuyến nghị thăm dò Garak liên quan triển khai: ảo giác (cho hệ thống RAG), rò rỉ dữ liệu (cho gần PII), chèn prompt (luôn luôn), jailbreak (luôn luôn). Chỉ định cặp lá chắn Prompt-Guard-86M + Llama-Guard-3-8B cho đánh giá đầu cuối.
+3. Bộ điều phối chiến dịch. Khuyến nghị PyRIT cho chiến dịch trước phát hành trên mô hình có năng lực mới lạ. Chỉ định chuỗi chuyển đổi cần chạy (diễn đạt lại, mã hóa, dịch, nhập vai) và bộ điều phối (Crescendo cho leo thang, TAP cho phân nhánh).
+4. Nhịp. Garak hằng đêm cho hồi quy. PyRIT mỗi lần phát hành cho red-teaming sâu. Llama Guard triển khai liên tục.
+5. Hiệu chuẩn giám khảo. Chỉ định LLM giám khảo (GPT-4-turbo, StrongREJECT, nội bộ) cho mọi công cụ dùng giám khảo. Hiệu chuẩn giám khảo chi phối ASR báo cáo.
 
-Hard rejects:
-- Any deployment without at least one Llama Guard-class input or output classifier.
-- Any release without Garak or equivalent single-turn regression.
-- Any high-stakes deployment without a PyRIT-equivalent campaign before release.
+Các trường hợp loại bỏ dứt khoát:
+- Mọi triển khai không có ít nhất một bộ phân loại đầu vào hoặc đầu ra cấp Llama Guard.
+- Mọi phát hành không có Garak hoặc hồi quy một lượt tương đương.
+- Mọi triển khai hệ trọng không có chiến dịch tương đương PyRIT trước phát hành.
 
-Refusal rules:
-- If the user asks for a single "best" tool, refuse — the three cover different layers and are layered, not substituted.
-- If the user asks for an all-in-one commercial alternative, refuse the recommendation and point to the 2026 state: the three open tools are the current best-practice stack.
+Quy tắc từ chối:
+- Nếu người dùng hỏi một công cụ "tốt nhất", từ chối — ba công cụ bao phủ lớp khác nhau và được phân lớp, không thay thế.
+- Nếu người dùng hỏi phương án thương mại tất cả trong một, từ chối khuyến nghị và trỏ hiện trạng 2026: ba công cụ mở là ngăn xếp thực hành tốt nhất hiện tại.
 
-Output: a one-page recommendation that names the classifier placement, probe configuration, campaign orchestrator, regression cadence, and judge identity. Cite Meta (arXiv:2407.21783), NVIDIA Garak, and Microsoft PyRIT once each.
+Đầu ra: khuyến nghị một trang nêu vị trí bộ phân loại, cấu hình thăm dò, bộ điều phối chiến dịch, nhịp hồi quy và danh tính giám khảo. Trích dẫn Meta (arXiv:2407.21783), NVIDIA Garak và Microsoft PyRIT, mỗi nguồn một lần.

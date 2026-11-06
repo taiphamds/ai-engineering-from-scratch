@@ -1,6 +1,6 @@
 # Red-Team Tooling — Garak, Llama Guard, PyRIT
 
-> Three production tools frame the 2026 red-team stack. Llama Guard (Meta) — a Llama-3.1-8B classifier fine-tuned on 14 MLCommons hazard categories; the 2025 Llama Guard 4 is a 12B natively multimodal classifier pruned from Llama 4 Scout. Garak (NVIDIA) — open-source LLM vulnerability scanner with static, dynamic, and adaptive probes for hallucination, data leakage, prompt injection, toxicity, and jailbreaks. PyRIT (Microsoft) — multi-turn red-team campaigns with Crescendo, TAP, and custom converter chains for deep exploitation. Llama Guard 3 is documented in Meta's "Llama 3 Herd of Models" (arXiv:2407.21783); Llama Guard 3-1B-INT4 in arXiv:2411.17713; Garak's probe architecture in github.com/NVIDIA/garak. These tools are the 2026 production interface between red-team research (Lessons 12-15) and deployment (Lesson 17+).
+> Ba công cụ sản xuất định hình ngăn xếp red-team 2026. Llama Guard (Meta) — bộ phân loại Llama-3.1-8B tinh chỉnh trên 14 nhóm nguy hại MLCommons; Llama Guard 4 năm 2025 là bộ phân loại 12B đa phương thức nguyên bản được cắt tỉa từ Llama 4 Scout. Garak (NVIDIA) — bộ quét lỗ hổng LLM mã nguồn mở với thăm dò tĩnh, động và thích ứng cho ảo giác, rò rỉ dữ liệu, chèn prompt, độc hại và jailbreak. PyRIT (Microsoft) — chiến dịch red-team nhiều lượt với Crescendo, TAP và chuỗi chuyển đổi tùy chỉnh để khai thác sâu. Llama Guard 3 được mô tả trong "Llama 3 Herd of Models" của Meta (arXiv:2407.21783); Llama Guard 3-1B-INT4 trong arXiv:2411.17713; kiến trúc thăm dò Garak trong github.com/NVIDIA/garak. Các công cụ này là giao diện sản xuất 2026 giữa nghiên cứu red-team (Bài 12-15) và triển khai (Bài 17+).
 
 **Type:** Build
 **Languages:** Python (stdlib, tool-architecture simulator and Llama Guard-style classifier mock)
@@ -9,61 +9,61 @@
 
 ## Learning Objectives
 
-- Describe Llama Guard 3/4's position in the safety stack: input classifier, output classifier, or both.
-- Name the 14 MLCommons hazard categories and state one non-obvious one (Code Interpreter Abuse).
-- Describe Garak's probe architecture: probes, detectors, harnesses.
-- Describe PyRIT's multi-turn campaign structure and how it composes with Garak probes.
+- Mô tả vị trí Llama Guard 3/4 trong ngăn xếp an toàn: bộ phân loại đầu vào, đầu ra hay cả hai.
+- Nêu 14 nhóm nguy hại MLCommons và một nhóm không hiển nhiên (Lạm dụng Trình thông dịch Mã).
+- Mô tả kiến trúc thăm dò Garak: thăm dò, bộ phát hiện, bộ kiểm thử.
+- Mô tả cấu trúc chiến dịch nhiều lượt PyRIT và cách kết hợp với thăm dò Garak.
 
 ## The Problem
 
-Lessons 12-15 present the attack surface. Production deployments need repeatable, scalable evaluation. Three tools dominate 2026: Llama Guard (the defense classifier), Garak (the scanner), PyRIT (the campaign orchestrator). Each targets a different layer of the red-team lifecycle.
+Bài 12-15 trình bày bề mặt tấn công. Triển khai sản xuất cần đánh giá lặp lại được, có thể mở rộng. Ba công cụ chi phối 2026: Llama Guard (bộ phân loại phòng vệ), Garak (bộ quét), PyRIT (bộ điều phối chiến dịch). Mỗi công cụ nhắm lớp khác của vòng đời red-team.
 
 ## The Concept
 
 ### Llama Guard (Meta)
 
-Llama Guard 3 is a Llama-3.1-8B model fine-tuned for input/output classification over the MLCommons AILuminate 14 categories:
-- Violent crimes, non-violent crimes, sex-related, CSAM, defamation
-- Specialized advice, privacy, IP, indiscriminate weapons, hate
-- Suicide/self-harm, sexual content, elections, code-interpreter abuse
+Llama Guard 3 là mô hình Llama-3.1-8B tinh chỉnh để phân loại đầu vào/đầu ra trên 14 nhóm MLCommons AILuminate:
+- Tội phạm bạo lực, tội phạm phi bạo lực, liên quan tình dục, CSAM, phỉ báng
+- Tư vấn chuyên môn, quyền riêng tư, IP, vũ khí không phân biệt mục tiêu, thù ghét
+- Tự sát/tự hại, nội dung tình dục, bầu cử, lạm dụng trình thông dịch mã
 
-Supports 8 languages. Usage: place before the LLM (input moderation), after the LLM (output moderation), or both. The two uses generate different training distributions — Llama Guard 3 ships as a single model handling both.
+Hỗ trợ 8 ngôn ngữ. Cách dùng: đặt trước LLM (kiểm duyệt đầu vào), sau LLM (kiểm duyệt đầu ra) hoặc cả hai. Hai cách dùng tạo phân phối huấn luyện khác — Llama Guard 3 được cung cấp là một mô hình xử lý cả hai.
 
-Llama Guard 3-1B-INT4 (arXiv:2411.17713, 440MB, ~30 tokens/s on mobile CPU) is the quantized edge variant.
+Llama Guard 3-1B-INT4 (arXiv:2411.17713, 440MB, ~30 token/s trên CPU di động) là biến thể biên lượng tử hóa.
 
-Llama Guard 4 (April 2025) is 12B, natively multimodal, pruned from Llama 4 Scout. It replaces both the 8B text and 11B vision predecessors with one classifier that ingests text + images.
+Llama Guard 4 (tháng 4 năm 2025) là 12B, đa phương thức nguyên bản, cắt tỉa từ Llama 4 Scout. Nó thay cả tiền nhiệm văn bản 8B và thị giác 11B bằng một bộ phân loại nhận văn bản + ảnh.
 
 ### Garak (NVIDIA)
 
-Open-source vulnerability scanner. Architecture:
-- **Probes.** Attack generators for hallucination, data leakage, prompt injection, toxicity, jailbreaks. Static (fixed prompts), dynamic (generated prompts), adaptive (responds to target output).
-- **Detectors.** Score outputs against expected failure modes — toxic, leaked, jailbroken.
-- **Harnesses.** Manage probe-detector pairs, run campaigns, generate reports.
+Bộ quét lỗ hổng mã nguồn mở. Kiến trúc:
+- **Thăm dò.** Bộ tạo tấn công cho ảo giác, rò rỉ dữ liệu, chèn prompt, độc hại, jailbreak. Tĩnh (prompt cố định), động (prompt được sinh), thích ứng (phản ứng với đầu ra mục tiêu).
+- **Bộ phát hiện.** Chấm đầu ra theo chế độ lỗi kỳ vọng — độc hại, rò rỉ, bị jailbreak.
+- **Bộ kiểm thử.** Quản lý cặp thăm dò-bộ phát hiện, chạy chiến dịch, tạo báo cáo.
 
-TrustyAI integrates Garak with the Llama-Stack shields (Prompt-Guard-86M input classifier, Llama-Guard-3-8B output classifier) for end-to-end shielded-target evaluation. Tier-based scoring (TBSA) replaces binary pass/fail — a model can pass at severity tier 3 and fail at severity tier 5 on the same probe.
+TrustyAI tích hợp Garak với lá chắn Llama-Stack (bộ phân loại đầu vào Prompt-Guard-86M, bộ phân loại đầu ra Llama-Guard-3-8B) để đánh giá mục tiêu có lá chắn đầu cuối. Chấm theo tầng (TBSA) thay đạt/không đạt nhị phân — mô hình có thể đạt ở tầng mức nghiêm trọng 3 và không đạt ở tầng mức nghiêm trọng 5 trên cùng thăm dò.
 
 ### PyRIT (Microsoft)
 
-Python Risk Identification Toolkit. Multi-turn red-team campaigns. Built around:
-- **Converters.** Transform a seed prompt — paraphrase, encode, translate, roleplay.
-- **Orchestrators.** Run the campaign: Crescendo (escalation), TAP (branching), RedTeaming (custom loop).
-- **Scoring.** LLM-as-judge or classifier-as-judge.
+Bộ công cụ Nhận diện Rủi ro Python. Chiến dịch red-team nhiều lượt. Xây quanh:
+- **Bộ chuyển đổi.** Biến đổi prompt hạt giống — diễn đạt lại, mã hóa, dịch, nhập vai.
+- **Bộ điều phối.** Chạy chiến dịch: Crescendo (leo thang), TAP (phân nhánh), RedTeaming (vòng lặp tùy chỉnh).
+- **Chấm điểm.** LLM làm giám khảo hoặc bộ phân loại làm giám khảo.
 
-PyRIT is the heavier cousin of Garak. Garak runs thousands of single-turn probes; PyRIT runs deep multi-turn campaigns designed to break specific failure modes.
+PyRIT là họ hàng nặng hơn của Garak. Garak chạy hàng nghìn thăm dò một lượt; PyRIT chạy chiến dịch nhiều lượt sâu được thiết kế phá chế độ lỗi cụ thể.
 
 ### The stack
 
-Put Llama Guard on both sides of the model. Run Garak nightly for regression. Run PyRIT for pre-release campaigns. This is the 2026 default configuration for most production deployments.
+Đặt Llama Guard ở cả hai phía mô hình. Chạy Garak hằng đêm cho hồi quy. Chạy PyRIT cho chiến dịch trước phát hành. Đây là cấu hình mặc định 2026 cho phần lớn triển khai sản xuất.
 
 ### Evaluation pitfalls
 
-- **Judge identity.** All three tools can use an LLM judge; judge calibration drives reported ASRs (Lesson 12). Specify the judge alongside the tool.
-- **Probe staleness.** Garak probes age as models are patched against them. Adaptive probes (PAIR-shaped) age slower than static probes.
-- **Llama Guard FPR on benign content.** Early Llama Guard versions over-flagged political and LGBTQ+ content; Llama Guard 3/4 calibrations are improved but not calibrated per-deployment.
+- **Danh tính giám khảo.** Cả ba có thể dùng giám khảo LLM; hiệu chuẩn giám khảo chi phối ASR báo cáo (Bài 12). Chỉ định giám khảo cùng công cụ.
+- **Thăm dò lỗi thời.** Thăm dò Garak già đi khi mô hình được vá chống chúng. Thăm dò thích ứng (dạng PAIR) già chậm hơn thăm dò tĩnh.
+- **FPR Llama Guard trên nội dung vô hại.** Phiên bản Llama Guard đầu đánh dấu quá mức nội dung chính trị và LGBTQ+; hiệu chuẩn Llama Guard 3/4 cải thiện nhưng không được hiệu chuẩn theo triển khai.
 
 ### Where this fits in Phase 18
 
-Lessons 12-15 are the attack families. Lesson 16 is the production tooling. Lesson 17 (WMDP) is the evaluation for dual-use capability. Lesson 18 is the frontier safety frameworks that wrap these tools in a policy structure.
+Bài 12-15 là họ tấn công. Bài 16 là công cụ sản xuất. Bài 17 (WMDP) là đánh giá năng lực lưỡng dụng. Bài 18 là khung an toàn tiên tiến hàng đầu bao các công cụ trong cấu trúc chính sách.
 
 ```figure
 al-guard-stack
@@ -71,39 +71,39 @@ al-guard-stack
 
 ## Use It
 
-`code/main.py` builds a toy Llama Guard-style classifier (keyword + semantic features over 14 categories), a toy Garak harness (probe-detector loop), and a PyRIT-style multi-turn converter chain. You can run the three tools against a mock target and observe the different coverage signatures.
+`code/main.py` xây bộ phân loại kiểu Llama Guard đơn giản (từ khóa + đặc trưng ngữ nghĩa trên 14 nhóm), bộ kiểm thử Garak đơn giản (vòng lặp thăm dò-bộ phát hiện), và chuỗi chuyển đổi nhiều lượt kiểu PyRIT. Bạn có thể chạy ba công cụ đối với mục tiêu giả và quan sát dấu hiệu bao phủ khác nhau.
 
 ## Ship It
 
-This lesson produces `outputs/skill-red-team-stack.md`. Given a deployment description, it names which of the three tools are appropriate, what to configure in each, and what regression cadence to run.
+Bài học này tạo ra `outputs/skill-red-team-stack.md`. Với mô tả triển khai, nêu công cụ nào trong ba công cụ phù hợp, cấu hình gì trong mỗi công cụ và chạy nhịp hồi quy nào.
 
 ## Exercises
 
-1. Run `code/main.py`. Compare the Llama-Guard-style classifier's detection rate on single-turn vs multi-turn attacks.
+1. Chạy `code/main.py`. So sánh tỷ lệ phát hiện của bộ phân loại kiểu Llama-Guard trên tấn công một lượt so với nhiều lượt.
 
-2. Implement a new Garak probe: a base64-encoded harmful request. Measure its detection by the Llama-Guard-style classifier.
+2. Triển khai thăm dò Garak mới: yêu cầu có hại mã hóa base64. Đo việc bộ phân loại kiểu Llama-Guard phát hiện nó.
 
-3. Extend the PyRIT-style converter chain with a "translate to French, then paraphrase" converter. Re-measure attack success.
+3. Mở rộng chuỗi chuyển đổi kiểu PyRIT bằng bộ chuyển đổi "dịch sang tiếng Pháp, rồi diễn đạt lại". Đo lại thành công tấn công.
 
-4. Read Llama Guard 3's hazard-category list. Identify two categories where the training data would realistically produce high false-positive rates on legitimate developer content.
+4. Đọc danh sách nhóm nguy hại Llama Guard 3. Xác định hai nhóm dữ liệu huấn luyện thực tế tạo tỷ lệ dương tính giả cao trên nội dung nhà phát triển hợp lệ.
 
-5. Compare Garak and PyRIT's design principles. Argue for a deployment where each is the right tool.
+5. So sánh nguyên tắc thiết kế Garak và PyRIT. Lập luận cho triển khai nơi mỗi công cụ là lựa chọn đúng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|-----------------|------------------------|
-| Llama Guard | "the classifier" | Fine-tuned Llama-3.1-8B/4-12B safety classifier with 14 hazard categories |
-| Garak | "the scanner" | NVIDIA open-source vulnerability scanner; probes, detectors, harnesses |
-| PyRIT | "the campaign tool" | Microsoft multi-turn red-team orchestrator; converters, orchestrators, scoring |
-| Prompt-Guard | "the small classifier" | Meta's 86M prompt-injection classifier, paired with Llama Guard |
-| TBSA | "tier-based scoring" | Garak's tier-based pass/fail replacing binary outcomes |
-| Converter chain | "paraphrase + encode + ..." | PyRIT composition primitive for building multi-step attacks |
-| MLCommons hazard categories | "the 14 taxonomies" | Industry-standard taxonomy Llama Guard targets |
+| Llama Guard | "bộ phân loại" | Bộ phân loại an toàn Llama-3.1-8B/4-12B tinh chỉnh với 14 nhóm nguy hại |
+| Garak | "bộ quét" | Bộ quét lỗ hổng mã nguồn mở NVIDIA; thăm dò, bộ phát hiện, bộ kiểm thử |
+| PyRIT | "công cụ chiến dịch" | Bộ điều phối red-team nhiều lượt Microsoft; bộ chuyển đổi, bộ điều phối, chấm điểm |
+| Prompt-Guard | "bộ phân loại nhỏ" | Bộ phân loại chèn prompt 86M của Meta, ghép với Llama Guard |
+| TBSA | "chấm theo tầng" | Đạt/không đạt theo tầng của Garak thay kết quả nhị phân |
+| Converter chain (Chuỗi chuyển đổi) | "diễn đạt lại + mã hóa + ..." | Thành phần kết hợp cơ bản PyRIT để xây tấn công nhiều bước |
+| MLCommons hazard categories (Nhóm nguy hại MLCommons) | "14 hệ phân loại" | Hệ phân loại tiêu chuẩn ngành Llama Guard nhắm đến |
 
 ## Further Reading
 
-- [Meta — Llama Guard 3 (in Llama 3 Herd paper, arXiv:2407.21783)](https://arxiv.org/abs/2407.21783) — the 8B classifier
-- [Meta — Llama Guard 3-1B-INT4 (arXiv:2411.17713)](https://arxiv.org/abs/2411.17713) — quantized mobile classifier
-- [NVIDIA Garak — GitHub](https://github.com/NVIDIA/garak) — the scanner repo and documentation
-- [Microsoft PyRIT — GitHub](https://github.com/Azure/PyRIT) — the campaign toolkit
+- [Meta — Llama Guard 3 (in Llama 3 Herd paper, arXiv:2407.21783)](https://arxiv.org/abs/2407.21783) — bộ phân loại 8B
+- [Meta — Llama Guard 3-1B-INT4 (arXiv:2411.17713)](https://arxiv.org/abs/2411.17713) — bộ phân loại di động lượng tử hóa
+- [NVIDIA Garak — GitHub](https://github.com/NVIDIA/garak) — repo bộ quét và tài liệu
+- [Microsoft PyRIT — GitHub](https://github.com/Azure/PyRIT) — bộ công cụ chiến dịch
