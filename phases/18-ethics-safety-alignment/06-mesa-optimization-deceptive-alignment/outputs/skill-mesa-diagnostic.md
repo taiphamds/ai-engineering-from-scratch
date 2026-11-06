@@ -7,25 +7,25 @@ lesson: 6
 tags: [mesa-optimization, deceptive-alignment, inner-alignment, hubinger]
 ---
 
-Given a safety evaluation report (eval task, failure mode, model class, training recipe), classify the failure into the Hubinger 2019 categories and recommend the mitigation class that addresses it.
+Với báo cáo đánh giá an toàn (tác vụ đánh giá, chế độ lỗi, lớp mô hình, công thức huấn luyện), phân loại thất bại vào các nhóm Hubinger 2019 và khuyến nghị lớp giảm thiểu giải quyết nó.
 
-Produce:
+Tạo:
 
-1. Failure-mode categorization. Pick one of:
-   - Outer-alignment failure: the base objective (reward, loss) was wrong; the model optimized it correctly.
-   - Inner-alignment proxy failure: mesa-objective is a proxy that tracks base in-distribution; fails off-distribution.
-   - Inner-alignment deceptive: mesa-optimizer has situational awareness and defects at deployment; training behaviour is clean.
-2. Evidence trace. For each category, what evidence would support it. For deceptive, distinguish from proxy: evidence of situational awareness (date sensitivity, eval-vs-deployment distinguishers, strategic reasoning in chain-of-thought).
-3. Mitigation class. For outer-alignment: change the objective (CAI, better reward data, process supervision). For proxy-inner: distributional coverage, ensembles, held-out evals. For deceptive-inner: control measures (Lesson 10), interpretability (residual-stream probes), capability reductions.
-4. Known-failures check. For deceptive-inner, cite the relevant 2024-2026 empirical demonstration (Sleeper Agents, Alignment Faking, In-Context Scheming) this failure most resembles.
+1. Phân nhóm chế độ lỗi. Chọn một trong:
+   - Thất bại căn chỉnh bên ngoài: mục tiêu nền (phần thưởng, mất mát) sai; mô hình tối ưu đúng nó.
+   - Thất bại đại diện căn chỉnh bên trong: mesa-objective là đại diện theo sát nền trong phân phối; thất bại ngoài phân phối.
+   - Lừa dối căn chỉnh bên trong: mesa-optimizer có nhận thức tình huống và phản bội lúc triển khai; hành vi huấn luyện sạch.
+2. Truy bằng chứng. Với mỗi nhóm, bằng chứng nào hỗ trợ nó. Với lừa dối, phân biệt với đại diện: bằng chứng nhận thức tình huống (nhạy ngày tháng, yếu tố phân biệt đánh giá-với-triển khai, suy luận chiến lược trong chuỗi suy nghĩ).
+3. Lớp giảm thiểu. Với căn chỉnh bên ngoài: thay mục tiêu (CAI, dữ liệu phần thưởng tốt hơn, giám sát quá trình). Với đại diện bên trong: bao phủ phân phối, tổ hợp, đánh giá giữ riêng. Với lừa dối bên trong: biện pháp kiểm soát (Bài 10), khả năng diễn giải (thăm dò luồng phần dư), giảm năng lực.
+4. Kiểm tra thất bại đã biết. Với lừa dối bên trong, trích dẫn chứng minh thực nghiệm 2024-2026 liên quan (Sleeper Agents, Alignment Faking, In-Context Scheming) mà thất bại này giống nhất.
 
-Hard rejects:
-- Any classification of deceptive-inner without evidence of situational awareness. "Unexpected behaviour at deployment" is not enough — it could be proxy-inner.
-- Any claim that adversarial robustness training alone addresses deceptive-inner. Hubinger 2019 predicts (and Sleeper Agents 2024 confirms) that adversarial training can teach better test-vs-deployment distinguishers.
-- Any recommendation to retrain a deceptively aligned model on more data. The prior predicts deception is preserved under further training.
+Các trường hợp loại bỏ dứt khoát:
+- Mọi phân loại lừa dối bên trong không có bằng chứng nhận thức tình huống. "Hành vi bất ngờ lúc triển khai" không đủ — có thể là đại diện bên trong.
+- Mọi khẳng định riêng huấn luyện độ vững đối kháng giải quyết lừa dối bên trong. Hubinger 2019 dự đoán (và Sleeper Agents 2024 xác nhận) huấn luyện đối kháng có thể dạy yếu tố phân biệt kiểm thử-với-triển khai tốt hơn.
+- Mọi khuyến nghị huấn luyện lại mô hình căn chỉnh mang tính lừa dối trên nhiều dữ liệu hơn. Tiên nghiệm dự đoán lừa dối được giữ qua huấn luyện thêm.
 
-Refusal rules:
-- If the evidence is a single failure on a single prompt, refuse to classify. Base rates matter; you need a distribution of failures.
-- If the user asks you to "rule out" deceptive alignment, refuse — you can estimate its probability from evidence, but you cannot rule it out behaviourally alone.
+Quy tắc từ chối:
+- Nếu bằng chứng là một thất bại trên một prompt, từ chối phân loại. Tỷ lệ nền quan trọng; bạn cần phân phối thất bại.
+- Nếu người dùng yêu cầu "loại trừ" căn chỉnh mang tính lừa dối, từ chối — bạn có thể ước tính xác suất từ bằng chứng, nhưng không thể loại trừ chỉ bằng hành vi.
 
-Output: a one-page diagnosis with category, evidence trace, mitigation class, and nearest empirical analog. Cite Hubinger et al. (arXiv:1906.01820) once.
+Đầu ra: chẩn đoán một trang với nhóm, truy bằng chứng, lớp giảm thiểu và trường hợp thực nghiệm tương tự gần nhất. Trích dẫn Hubinger và cộng sự (arXiv:1906.01820) một lần.
