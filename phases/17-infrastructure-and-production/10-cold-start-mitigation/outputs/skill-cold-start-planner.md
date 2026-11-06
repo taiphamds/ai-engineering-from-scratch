@@ -7,25 +7,25 @@ lesson: 10
 tags: [cold-start, serverless, bottlerocket, model-streamer, gpu-snapshot, warm-pool, serverlessllm]
 ---
 
-Given model size, SLA (TTFT P99), traffic shape (steady vs bursty), and budget posture, produce a cold-start mitigation plan.
+Với kích thước mô hình, SLA (TTFT P99), dạng lưu lượng (ổn định so với đột biến) và định hướng ngân sách, tạo một kế hoạch giảm thiểu khởi động nguội.
 
-Produce:
+Tạo:
 
-1. Cold-start budget. Break down the raw cold-start path (node provision, image pull, weights to HBM, engine init, first forward). Use 2026 nominal seconds for the stated model size.
-2. Layer selection. Pick the minimum number of layers that brings total below the SLA: pre-seeded image (L1), model streamer (L2), GPU snapshot (L3), warm pool (L4), tiered loading (L5). Justify each layer against the specific phase it attacks.
-3. Warm-pool sizing. State `min_workers` for the primary path. If SLA is TTFT P99 < 60s on a 70B+ model, make warm pool mandatory regardless of cost.
-4. Cost estimate. Monthly GPU cost for the chosen warm-pool and the expected number of cold starts per day.
-5. Tail policy. What happens to the first user on a fresh replica — do they get queued to a warm replica, or do they pay the cold-start tax? Name a specific policy (e.g., "route first request to any warm replica within 10s; fall through to cold").
-6. Failure mode. What happens if a warm replica dies mid-session. Is recovery automatic (live migration), or is it a cold start on the next request?
+1. Ngân sách khởi động nguội. Phân tách đường khởi động nguội thô (cấp phát nút, kéo image, trọng số vào HBM, khởi tạo engine, lượt truyền xuôi đầu tiên). Dùng số giây danh định năm 2026 cho kích thước mô hình đã nêu.
+2. Chọn lớp. Chọn số lớp tối thiểu đưa tổng xuống dưới SLA: image được nạp sẵn (L1), model streamer (L2), ảnh chụp GPU (L3), bể nóng (L4), nạp theo tầng (L5). Giải thích từng lớp theo giai đoạn cụ thể mà nó xử lý.
+3. Định cỡ bể nóng. Nêu `min_workers` cho đường xử lý chính. Nếu SLA là TTFT P99 < 60s trên một mô hình 70B+, bắt buộc có bể nóng bất kể chi phí.
+4. Ước tính chi phí. Chi phí GPU hằng tháng cho bể nóng đã chọn và số lần khởi động nguội dự kiến mỗi ngày.
+5. Chính sách phần đuôi. Điều gì xảy ra với người dùng đầu tiên trên một bản sao mới — họ được xếp hàng vào một bản sao nóng, hay họ trả chi phí khởi động nguội? Nêu một chính sách cụ thể (ví dụ: "định tuyến yêu cầu đầu tiên đến bất kỳ bản sao nóng nào trong vòng 10s; nếu không thì chuyển sang bản sao nguội").
+6. Chế độ lỗi. Điều gì xảy ra nếu một bản sao nóng chết giữa phiên. Việc khôi phục có tự động (di chuyển trực tiếp), hay là khởi động nguội ở yêu cầu tiếp theo?
 
-Hard rejects:
-- Proposing "just add warm pool" without computing the monthly cost.
-- Claiming a mitigation without a specific phase it attacks (e.g., "use Bottlerocket" without saying it eliminates the 180s image pull).
-- Ignoring the per-GPU-topology constraint on GPU snapshots — if the platform migrates SKU, snapshots are invalid.
+Các trường hợp loại bỏ dứt khoát:
+- Đề xuất "chỉ cần thêm bể nóng" mà không tính chi phí hằng tháng.
+- Khẳng định một biện pháp giảm thiểu mà không có giai đoạn cụ thể nó xử lý (ví dụ: "dùng Bottlerocket" mà không nói nó loại bỏ việc kéo image 180s).
+- Bỏ qua ràng buộc theo từng cấu trúc liên kết GPU của ảnh chụp GPU — nếu nền tảng chuyển SKU, ảnh chụp không còn hợp lệ.
 
-Refusal rules:
-- If SLA is TTFT P99 < 5s on a fresh 70B cold start with no warm pool, refuse — mathematically impossible at 2026 infrastructure speeds.
-- If budget forbids warm pool but SLA requires sub-30s cold start, name the platform-specific fix (Modal GPU snapshots, Baseten pre-warming) and refuse to promise the SLA on a different platform without it.
-- If the operator asks for scale-to-zero with bursty traffic and a 70B model, refuse to promise SLA — the math does not work without snapshots or warm pools.
+Quy tắc từ chối:
+- Nếu SLA là TTFT P99 < 5s khi khởi động nguội 70B mới mà không có bể nóng, từ chối — bất khả thi về mặt toán học ở tốc độ hạ tầng năm 2026.
+- Nếu ngân sách cấm bể nóng nhưng SLA yêu cầu khởi động nguội dưới 30s, nêu giải pháp đặc thù nền tảng (ảnh chụp GPU Modal, làm nóng trước Baseten) và từ chối hứa hẹn SLA trên một nền tảng khác không có nó.
+- Nếu người vận hành yêu cầu giảm quy mô về không với lưu lượng đột biến và một mô hình 70B, từ chối hứa hẹn SLA — phép tính không khả thi nếu không có ảnh chụp hoặc bể nóng.
 
-Output: a one-page plan listing phases, layers, `min_workers`, monthly cost, tail policy, failure mode. End with the single metric to alert on: P99 cold-start duration over the last rolling hour.
+Đầu ra: một kế hoạch một trang liệt kê các giai đoạn, các lớp, `min_workers`, chi phí hằng tháng, chính sách phần đuôi, chế độ lỗi. Kết thúc bằng chỉ số duy nhất cần cảnh báo: thời lượng khởi động nguội P99 trong giờ trượt gần nhất.
