@@ -1,6 +1,6 @@
 # Why Multi-Agent?
 
-> One agent hits a wall. The smart move is not a bigger agent - it is more agents.
+> Một agent đụng phải bức tường. Bước đi thông minh không phải là một agent lớn hơn - mà là nhiều agent hơn.
 
 **Type:** Learn
 **Languages:** TypeScript
@@ -9,28 +9,28 @@
 
 ## Learning Objectives
 
-- Identify the single-agent ceiling (context overflow, mixed expertise, sequential bottleneck) and explain when splitting into multiple agents is the right move
-- Compare orchestration patterns (pipeline, parallel fan-out, supervisor, hierarchical) and select the right one for a given task structure
-- Design a multi-agent system with clear role boundaries, shared state, and a communication contract
-- Analyze the tradeoffs of multi-agent complexity (latency, cost, debugging difficulty) versus single-agent simplicity
+- Xác định mức trần của một agent đơn lẻ (tràn ngữ cảnh, chuyên môn hỗn hợp, nút thắt tuần tự) và giải thích khi nào chia thành nhiều agent là bước đi đúng
+- So sánh các mẫu điều phối (pipeline, fan-out song song, bộ giám sát, phân cấp) và chọn mẫu phù hợp cho một cấu trúc tác vụ nhất định
+- Thiết kế một hệ thống đa agent với các ranh giới vai trò rõ ràng, trạng thái dùng chung, và một hợp đồng giao tiếp
+- Phân tích các đánh đổi của độ phức tạp đa agent (độ trễ, chi phí, độ khó gỡ lỗi) so với sự đơn giản của một agent đơn lẻ
 
 ## The Problem
 
-You built a single agent in Phase 14. It works. It can read files, run commands, call APIs, and reason about results. Then you point it at a real codebase: 200 files, three languages, tests that depend on infrastructure, and a requirement to research external APIs before writing code.
+Bạn đã xây dựng một agent đơn lẻ trong Giai đoạn 14. Nó hoạt động. Nó có thể đọc file, chạy lệnh, gọi API, và suy luận về kết quả. Rồi bạn hướng nó tới một cơ sở mã thực: 200 file, ba ngôn ngữ, các kiểm thử phụ thuộc vào cơ sở hạ tầng, và một yêu cầu nghiên cứu các API bên ngoài trước khi viết mã.
 
-The agent chokes. Not because the LLM is dumb, but because the task exceeds what one agent loop can handle. The context window fills up with file contents. The agent forgets what it read 40 tool calls ago. It tries to be a researcher, a coder, and a reviewer all at once, and does all three poorly.
+Agent bị nghẹn. Không phải vì LLM ngu ngốc, mà vì tác vụ vượt quá những gì một vòng lặp agent có thể xử lý. Cửa sổ ngữ cảnh đầy nội dung file. Agent quên những gì nó đọc cách đây 40 lệnh gọi công cụ. Nó cố đồng thời là nhà nghiên cứu, người viết mã, và người xem xét, và làm kém cả ba.
 
-This is the single-agent ceiling. You hit it every time a task requires:
+Đây là mức trần của một agent đơn lẻ. Bạn chạm tới nó mỗi khi một tác vụ yêu cầu:
 
-- **More context than fits in one window** - reading 50 files blows past 200k tokens
-- **Different expertise at different stages** - research requires different prompting than code generation
-- **Work that can happen in parallel** - why read three files sequentially when you can read them simultaneously?
+- **Nhiều ngữ cảnh hơn mức vừa trong một cửa sổ** - đọc 50 file vượt xa 200k token
+- **Chuyên môn khác nhau ở các giai đoạn khác nhau** - nghiên cứu yêu cầu cách prompt khác với sinh mã
+- **Công việc có thể diễn ra song song** - vì sao đọc ba file tuần tự khi bạn có thể đọc chúng đồng thời?
 
 ## The Concept
 
 ### The Single-Agent Ceiling
 
-A single agent is one loop, one context window, one system prompt. Picture it:
+Một agent đơn lẻ là một vòng lặp, một cửa sổ ngữ cảnh, một prompt hệ thống. Hãy hình dung nó:
 
 ```
 ┌─────────────────────────────────────────┐
@@ -56,17 +56,17 @@ A single agent is one loop, one context window, one system prompt. Picture it:
 └─────────────────────────────────────────┘
 ```
 
-Three things break:
+Ba thứ hỏng:
 
-1. **Context saturation** - tool results pile up. By turn 30, the agent has consumed 150k tokens of file contents, command outputs, and prior reasoning. Critical details from turn 5 get lost.
+1. **Bão hòa ngữ cảnh** - các kết quả công cụ chồng chất. Đến lượt 30, agent đã tiêu thụ 150k token nội dung file, đầu ra lệnh, và suy luận trước đó. Các chi tiết quan trọng từ lượt 5 bị mất.
 
-2. **Role confusion** - a system prompt that says "you are a researcher, coder, reviewer, and tester" produces an agent that half-researches, half-codes, and never finishes reviewing.
+2. **Nhầm lẫn vai trò** - một prompt hệ thống nói “bạn là nhà nghiên cứu, người viết mã, người xem xét, và người kiểm thử” tạo ra một agent nghiên cứu nửa vời, viết mã nửa vời, và không bao giờ hoàn thành xem xét.
 
-3. **Sequential bottleneck** - the agent reads file A, then file B, then file C. Three serial LLM calls. Three serial tool executions. No parallelism.
+3. **Nút thắt tuần tự** - agent đọc file A, rồi file B, rồi file C. Ba lệnh gọi LLM nối tiếp. Ba lần thực thi công cụ nối tiếp. Không có tính song song.
 
 ### The Multi-Agent Solution
 
-Split the work. Give each agent one job, one context window, and one system prompt tuned for that job:
+Chia công việc. Cho mỗi agent một công việc, một cửa sổ ngữ cảnh, và một prompt hệ thống được điều chỉnh cho công việc đó:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -93,24 +93,24 @@ Split the work. Give each agent one job, one context window, and one system prom
 └──────────────────────────────────────────────────────────┘
 ```
 
-Each agent has:
-- A focused system prompt ("You are a code reviewer. Your only job is finding bugs.")
-- Its own context window (not polluted by other agents' work)
-- A clear input/output contract (receives research notes, outputs code)
+Mỗi agent có:
+- Một prompt hệ thống tập trung (“Bạn là một người xem xét mã. Công việc duy nhất của bạn là tìm lỗi.”)
+- Cửa sổ ngữ cảnh riêng (không bị ô nhiễm bởi công việc của các agent khác)
+- Một hợp đồng đầu vào/đầu ra rõ ràng (nhận ghi chú nghiên cứu, xuất mã)
 
 ### Real Systems That Do This
 
-**Claude Code subagents** - when Claude Code spawns a subagent with `Task`, it creates a child agent with a scoped task. The parent keeps its context clean. The child does focused work and returns a summary.
+**Các agent con của Claude Code** - khi Claude Code tạo một agent con bằng `Task`, nó tạo một agent con với một tác vụ có phạm vi giới hạn. Agent cha giữ ngữ cảnh của nó sạch. Agent con làm công việc tập trung và trả về một bản tóm tắt.
 
-**Devin** - runs a planner agent, a coder agent, and a browser agent. The planner breaks work into steps. The coder writes code. The browser researches documentation. Each has separate context.
+**Devin** - chạy một agent lập kế hoạch, một agent viết mã, và một agent trình duyệt. Bộ lập kế hoạch chia công việc thành các bước. Người viết mã viết mã. Trình duyệt nghiên cứu tài liệu. Mỗi agent có ngữ cảnh riêng.
 
-**Multi-agent coding teams (SWE-bench)** - top-performing systems on SWE-bench use a researcher that reads the codebase, a planner that designs the fix, and a coder that implements it. Single-agent systems score lower.
+**Các nhóm lập trình đa agent (SWE-bench)** - các hệ thống có hiệu năng hàng đầu trên SWE-bench sử dụng một nhà nghiên cứu đọc cơ sở mã, một bộ lập kế hoạch thiết kế bản sửa lỗi, và một người viết mã triển khai nó. Các hệ thống một agent đơn lẻ đạt điểm thấp hơn.
 
-**ChatGPT Deep Research** - spawns multiple search agents in parallel, each exploring a different angle, then synthesizes results.
+**ChatGPT Deep Research** - tạo nhiều agent tìm kiếm song song, mỗi agent khám phá một góc độ khác nhau, rồi tổng hợp kết quả.
 
 ### The Spectrum
 
-Multi-agent is not binary. It is a spectrum:
+Đa agent không phải là nhị phân. Nó là một phổ:
 
 ```
 SIMPLE ──────────────────────────────────────────── COMPLEX
@@ -132,15 +132,15 @@ SIMPLE ────────────────────────�
                                        roles
 ```
 
-**Single agent** - one loop, one prompt. Good for simple tasks.
+**Agent đơn lẻ** - một vòng lặp, một prompt. Tốt cho các tác vụ đơn giản.
 
-**Subagents** - a parent spawns children for focused subtasks. The parent maintains the plan. Children report back. This is what Claude Code does.
+**Các agent con** - một agent cha tạo các agent con cho các tác vụ con tập trung. Agent cha duy trì kế hoạch. Các agent con báo cáo lại. Đây là những gì Claude Code làm.
 
-**Pipeline** - agents run in sequence. Agent A's output becomes Agent B's input. Good for staged workflows: research -> code -> review -> test.
+**Pipeline** - các agent chạy theo trình tự. Đầu ra của Agent A trở thành đầu vào của Agent B. Tốt cho các quy trình theo giai đoạn: nghiên cứu -> mã -> xem xét -> kiểm thử.
 
-**Team** - agents run in parallel with a shared message bus. Each has a role. An orchestrator coordinates. Good when different skills are needed simultaneously.
+**Nhóm** - các agent chạy song song với một bus thông điệp dùng chung. Mỗi agent có một vai trò. Một bộ điều phối phối hợp. Tốt khi các kỹ năng khác nhau được cần đồng thời.
 
-**Swarm** - many identical or near-identical agents with shared state. No fixed orchestrator. Agents pick up work from a queue. Good for high-throughput parallel tasks.
+**Bầy đàn** - nhiều agent giống hệt hoặc gần giống hệt nhau với trạng thái dùng chung. Không có bộ điều phối cố định. Các agent nhận công việc từ một hàng đợi. Tốt cho các tác vụ song song có thông lượng cao.
 
 ### The Four Multi-Agent Patterns
 
@@ -151,7 +151,7 @@ Input ──▶ Agent A ──▶ Agent B ──▶ Agent C ──▶ Output
           (research)  (code)      (review)
 ```
 
-Each agent transforms the data and passes it forward. Simple to reason about. Failure in one stage blocks the rest.
+Mỗi agent biến đổi dữ liệu và chuyển nó về phía trước. Đơn giản để suy luận. Thất bại ở một giai đoạn chặn phần còn lại.
 
 #### Pattern 2: Fan-out / Fan-in
 
@@ -163,7 +163,7 @@ Input ──▶ Split ├──▶ Agent B ──├──▶ Merge ──▶ Ou
                 └──▶ Agent C ──┘
 ```
 
-Split work across parallel agents, then merge results. Good for tasks that decompose into independent subtasks.
+Chia công việc giữa các agent song song, rồi hợp nhất kết quả. Tốt cho các tác vụ phân rã thành các tác vụ con độc lập.
 
 #### Pattern 3: Orchestrator-Worker
 
@@ -179,7 +179,7 @@ Split work across parallel agents, then merge results. Good for tasks that decom
            └──────────┘   └──────────┘
 ```
 
-A smart orchestrator decides what to do, delegates to workers, and synthesizes results. The orchestrator is itself an agent with tools for spawning workers.
+Một bộ điều phối thông minh quyết định làm gì, giao việc cho các worker, và tổng hợp kết quả. Bản thân bộ điều phối là một agent có các công cụ để tạo worker.
 
 #### Pattern 4: Peer Swarm
 
@@ -199,25 +199,25 @@ A smart orchestrator decides what to do, delegates to workers, and synthesizes r
          └───┘                  └───┘
 ```
 
-No central orchestrator. Agents communicate peer-to-peer. Decisions emerge from interaction. Harder to debug, but scales to many agents.
+Không có bộ điều phối trung tâm. Các agent giao tiếp ngang hàng. Các quyết định nảy sinh từ tương tác. Khó gỡ lỗi hơn, nhưng mở rộng tới nhiều agent.
 
 ### When NOT to Use Multi-Agent
 
-Multi-agent adds complexity. Every message between agents is a potential failure point. Debugging goes from "read one conversation" to "trace messages across five agents."
+Đa agent bổ sung độ phức tạp. Mỗi thông điệp giữa các agent là một điểm lỗi tiềm năng. Gỡ lỗi chuyển từ “đọc một cuộc hội thoại” sang “theo dấu các thông điệp qua năm agent.”
 
-**Stay single-agent when:**
-- The task fits in one context window (under ~100k tokens of working data)
-- You do not need different system prompts for different stages
-- Sequential execution is fast enough
-- The task is simple enough that splitting it adds more overhead than value
+**Giữ một agent đơn lẻ khi:**
+- Tác vụ vừa trong một cửa sổ ngữ cảnh (dưới ~100k token dữ liệu làm việc)
+- Bạn không cần các prompt hệ thống khác nhau cho các giai đoạn khác nhau
+- Thực thi tuần tự đủ nhanh
+- Tác vụ đủ đơn giản để việc chia nó tạo ra nhiều chi phí phụ hơn giá trị
 
-**The complexity cost:**
-- Every agent boundary is a lossy compression step: agent A's full context gets summarized into a message for agent B
-- Coordination logic (who does what, when, in what order) is its own source of bugs
-- Latency increases: N agents means N serial LLM calls minimum, more if they need to talk back and forth
-- Cost multiplies: each agent burns tokens independently
+**Chi phí độ phức tạp:**
+- Mỗi ranh giới agent là một bước nén mất mát: ngữ cảnh đầy đủ của agent A được tóm tắt thành một thông điệp cho agent B
+- Logic phối hợp (ai làm gì, khi nào, theo thứ tự nào) tự nó là một nguồn lỗi
+- Độ trễ tăng: N agent có nghĩa là tối thiểu N lệnh gọi LLM nối tiếp, nhiều hơn nếu chúng cần nói qua lại
+- Chi phí nhân lên: mỗi agent đốt token độc lập
 
-Rule of thumb: if a task takes fewer than 20 tool calls and fits in 100k tokens, keep it single-agent.
+Quy tắc kinh nghiệm: nếu một tác vụ cần ít hơn 20 lệnh gọi công cụ và vừa trong 100k token, giữ nó ở một agent đơn lẻ.
 
 ```figure
 swarm-messages
@@ -227,7 +227,7 @@ swarm-messages
 
 ### Step 1: The Overloaded Single Agent
 
-Here is a single agent trying to do everything. It has one massive system prompt and one context window holding research, code, and reviews:
+Đây là một agent đơn lẻ cố làm mọi thứ. Nó có một prompt hệ thống khổng lồ và một cửa sổ ngữ cảnh chứa nghiên cứu, mã, và các bản xem xét:
 
 ```typescript
 type AgentResult = {
@@ -277,14 +277,14 @@ Do ALL of these in a single conversation.`;
 }
 ```
 
-Problems with this approach:
-- The context window grows with every stage. By the review step, it contains research notes AND code AND prior reasoning.
-- The system prompt is generic. It cannot be tuned for each stage.
-- Nothing runs in parallel.
+Các vấn đề với cách tiếp cận này:
+- Cửa sổ ngữ cảnh tăng với mỗi giai đoạn. Đến bước xem xét, nó chứa ghi chú nghiên cứu VÀ mã VÀ suy luận trước đó.
+- Prompt hệ thống chung chung. Nó không thể được điều chỉnh cho mỗi giai đoạn.
+- Không có gì chạy song song.
 
 ### Step 2: Specialist Agents
 
-Now split it. Each agent gets one job:
+Bây giờ chia nó. Mỗi agent nhận một công việc:
 
 ```typescript
 type SpecialistAgent = {
@@ -324,11 +324,11 @@ const reviewer = createSpecialist(
 );
 ```
 
-Each specialist has a focused prompt. Each gets a clean context window with only the input it needs.
+Mỗi chuyên gia có một prompt tập trung. Mỗi agent nhận một cửa sổ ngữ cảnh sạch chỉ với đầu vào nó cần.
 
 ### Step 3: Coordinate Through Messages
 
-Wire the specialists together with explicit message passing:
+Kết nối các chuyên gia với nhau bằng truyền thông điệp tường minh:
 
 ```typescript
 type AgentMessage = {
@@ -391,7 +391,7 @@ async function multiAgentApproach(task: string): Promise<AgentResult> {
 }
 ```
 
-Each agent receives only the messages addressed to it. No context pollution. The researcher's 50k tokens of documentation reading never enter the reviewer's context.
+Mỗi agent chỉ nhận các thông điệp được gửi tới nó. Không ô nhiễm ngữ cảnh. 50k token đọc tài liệu của nhà nghiên cứu không bao giờ đi vào ngữ cảnh của người xem xét.
 
 ### Step 4: Compare
 
@@ -411,33 +411,33 @@ async function compare() {
 }
 ```
 
-The multi-agent version uses more total tokens (three agents, three separate LLM calls) but each agent's context stays clean. The quality of each stage improves because the system prompt is specialized.
+Phiên bản đa agent sử dụng nhiều token tổng cộng hơn (ba agent, ba lệnh gọi LLM riêng biệt) nhưng ngữ cảnh của mỗi agent vẫn sạch. Chất lượng của mỗi giai đoạn cải thiện vì prompt hệ thống được chuyên biệt hóa.
 
 ## Use It
 
-This lesson produces a reusable prompt for deciding when to go multi-agent. See `outputs/prompt-multi-agent-decision.md`.
+Bài này tạo ra một prompt có thể tái sử dụng để quyết định khi nào chuyển sang đa agent. Xem `outputs/prompt-multi-agent-decision.md`.
 
 ## Exercises
 
-1. Add a fourth specialist: a "tester" agent that receives code from the coder and review feedback from the reviewer, then writes tests
-2. Modify the pipeline so the reviewer can send feedback back to the coder for a revision loop (max 2 rounds)
-3. Convert the sequential pipeline into a fan-out: run the researcher and a "requirements analyzer" agent in parallel, then merge their outputs before passing to the coder
+1. Thêm một chuyên gia thứ tư: một agent “kiểm thử” nhận mã từ người viết mã và phản hồi xem xét từ người xem xét, rồi viết kiểm thử
+2. Sửa pipeline để người xem xét có thể gửi phản hồi trở lại người viết mã cho một vòng lặp sửa đổi (tối đa 2 vòng)
+3. Chuyển pipeline tuần tự thành một fan-out: chạy nhà nghiên cứu và một agent “phân tích yêu cầu” song song, rồi hợp nhất các đầu ra trước khi chuyển tới người viết mã
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Swarm | "A hive mind of AI agents" | A set of peer agents with shared state and no fixed leader. Behavior emerges from local interactions. |
-| Orchestrator | "The boss agent" | An agent whose tools include spawning and managing other agents. It plans and delegates but may not do the actual work. |
-| Coordinator | "The traffic cop" | A non-agent component (often just code, not an LLM) that routes messages between agents based on rules. |
-| Consensus | "The agents agree" | A protocol where multiple agents must reach agreement before proceeding. Used when conflicting outputs need resolution. |
-| Emergent behavior | "The agents figured it out themselves" | System-level patterns that arise from agent interactions but were not explicitly programmed. Can be useful or harmful. |
-| Fan-out / fan-in | "Map-reduce for agents" | Splitting a task across parallel agents (fan-out), then combining their results (fan-in). |
-| Message passing | "Agents talk to each other" | The communication mechanism between agents: structured data sent from one agent to another, replacing shared context windows. |
+| Swarm (Bầy đàn) | “Một trí óc tổ ong của các agent AI” | Một tập agent ngang hàng với trạng thái dùng chung và không có lãnh đạo cố định. Hành vi nảy sinh từ các tương tác cục bộ. |
+| Orchestrator (Bộ điều phối) | “Agent sếp” | Một agent có các công cụ bao gồm tạo và quản lý các agent khác. Nó lập kế hoạch và giao việc nhưng có thể không làm công việc thực tế. |
+| Coordinator (Bộ phối hợp) | “Cảnh sát giao thông” | Một thành phần không phải agent (thường chỉ là mã, không phải LLM) định tuyến các thông điệp giữa các agent dựa trên quy tắc. |
+| Consensus (Đồng thuận) | “Các agent đồng ý” | Một giao thức mà nhiều agent phải đạt thỏa thuận trước khi tiếp tục. Được dùng khi các đầu ra xung đột cần được giải quyết. |
+| Emergent behavior (Hành vi nổi lên) | “Các agent tự tìm ra” | Các mẫu cấp hệ thống nảy sinh từ tương tác agent nhưng không được lập trình tường minh. Có thể hữu ích hoặc có hại. |
+| Fan-out / fan-in | “Map-reduce cho agent” | Chia một tác vụ giữa các agent song song (fan-out), rồi kết hợp các kết quả của chúng (fan-in). |
+| Message passing (Truyền thông điệp) | “Các agent nói chuyện với nhau” | Cơ chế giao tiếp giữa các agent: dữ liệu có cấu trúc được gửi từ agent này sang agent khác, thay thế các cửa sổ ngữ cảnh dùng chung. |
 
 ## Further Reading
 
-- [The Landscape of Emerging AI Agent Architectures](https://arxiv.org/abs/2409.02977) - survey of multi-agent patterns
-- [AutoGen: Enabling Next-Gen LLM Applications](https://arxiv.org/abs/2308.08155) - Microsoft's multi-agent conversation framework
-- [Claude Code subagents documentation](https://docs.anthropic.com/en/docs/claude-code) - how Claude Code delegates with Task
-- [CrewAI documentation](https://docs.crewai.com/) - role-based multi-agent framework
+- [The Landscape of Emerging AI Agent Architectures](https://arxiv.org/abs/2409.02977) - khảo sát các mẫu đa agent
+- [AutoGen: Enabling Next-Gen LLM Applications](https://arxiv.org/abs/2308.08155) - framework hội thoại đa agent của Microsoft
+- [Claude Code subagents documentation](https://docs.anthropic.com/en/docs/claude-code) - cách Claude Code giao việc với Task
+- [CrewAI documentation](https://docs.crewai.com/) - framework đa agent dựa trên vai trò
