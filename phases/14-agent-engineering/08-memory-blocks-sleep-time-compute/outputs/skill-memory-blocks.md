@@ -7,27 +7,27 @@ lesson: 08
 tags: [memory, letta, blocks, sleep-time, consolidation]
 ---
 
-Given a target runtime, a primary model, and a (possibly stronger) sleep-time model, produce a three-tier memory system with explicit block types and async consolidation.
+Với một runtime đích, một mô hình chính và một mô hình lúc ngủ (có thể mạnh hơn), tạo một hệ thống bộ nhớ ba tầng với các kiểu khối tường minh và hợp nhất bất đồng bộ.
 
-Produce:
+Tạo:
 
-1. `Block` type with `label`, `value`, `limit`, `description`, `version`, `history`. Every write bumps version and records the old value. Expose `near_limit(threshold=0.8)`.
-2. A `BlockStore` with at minimum three default blocks: `human` (facts about the user), `persona` (agent self-concept), and `task` (current scope). Allow user-defined blocks.
-3. A `Recall` store — turn log paginated by session. Auto-write every turn. Tail evicts on cap but remains retrievable.
-4. An `Archival` store — at least two backends (vector, KV). Insert returns record id. Invalidate rather than delete on contradiction.
-5. A `PrimaryAgent` that handles turns and only issues raw writes. No summarization on the critical path.
-6. A `SleepTimeAgent` that runs between turns: summarize blocks over threshold, invalidate contradicted archival records, write `learned_context` into shared blocks.
+1. Kiểu `Block` với `label`, `value`, `limit`, `description`, `version`, `history`. Mọi lần ghi tăng phiên bản và ghi lại giá trị cũ. Cung cấp `near_limit(threshold=0.8)`.
+2. Một `BlockStore` với tối thiểu ba khối mặc định: `human` (các sự thật về người dùng), `persona` (quan niệm về bản thân của agent) và `task` (phạm vi hiện tại). Cho phép các khối do người dùng định nghĩa.
+3. Một kho `Recall` — log lượt được phân trang theo phiên. Tự ghi mọi lượt. Phần đuôi bị loại bỏ khi chạm giới hạn nhưng vẫn có thể truy xuất.
+4. Một kho `Archival` — ít nhất hai backend (vector, KV). Chèn trả về id bản ghi. Vô hiệu hóa thay vì xóa khi có mâu thuẫn.
+5. Một `PrimaryAgent` xử lý các lượt và chỉ phát ra các lần ghi thô. Không tóm tắt trên đường tới hạn.
+6. Một `SleepTimeAgent` chạy giữa các lượt: tóm tắt các khối vượt ngưỡng, vô hiệu hóa các bản ghi lưu trữ bị mâu thuẫn, ghi `learned_context` vào các khối dùng chung.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Any memory op that runs synchronously during a user-facing turn except a direct lookup. Summarization, consolidation, invalidation belong to the sleep-time pass.
-- Deleting archival records on contradiction. Invalidate so history remains auditable.
-- Writing to the Persona or Safety block without a review step. These blocks shape behavior globally; silent writes mask bugs.
+- Bất kỳ thao tác bộ nhớ nào chạy đồng bộ trong một lượt đối diện người dùng ngoại trừ tra cứu trực tiếp. Tóm tắt, hợp nhất, vô hiệu hóa thuộc về lượt lúc ngủ.
+- Xóa các bản ghi lưu trữ khi có mâu thuẫn. Vô hiệu hóa để lịch sử vẫn có thể được kiểm toán.
+- Ghi vào khối Persona hoặc Safety mà không có một bước đánh giá. Các khối này định hình hành vi toàn cục; các lần ghi âm thầm che giấu lỗi.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the runtime cannot persist blocks across sessions, refuse to ship a product described as "memory." Downgrade the claim.
-- If the sleep-time agent has no trace output, refuse. Silent consolidation is a debugging dead-zone.
-- If the user asks for "no invalidation, always trust latest write," refuse for any domain where historical claims matter (compliance, medical, legal).
+- Nếu runtime không thể lưu giữ các khối xuyên các phiên, từ chối phát hành một sản phẩm được mô tả là "bộ nhớ." Hạ mức tuyên bố.
+- Nếu agent lúc ngủ không có đầu ra trace, từ chối. Hợp nhất âm thầm là một vùng chết gỡ lỗi.
+- Nếu người dùng yêu cầu "không vô hiệu hóa, luôn tin lần ghi mới nhất," từ chối cho bất kỳ miền nào mà các khẳng định lịch sử quan trọng (tuân thủ, y tế, pháp lý).
 
-Output: one file per component plus a `README.md` that names the default blocks, the sleep-time cadence, and the contradiction resolution policy. End with "what to read next" pointing to Lesson 09 if the agent needs graph reasoning over memory, or Lesson 23 if the product needs OTel spans on memory ops.
+Đầu ra: một file cho mỗi thành phần cộng một `README.md` nêu tên các khối mặc định, nhịp lúc ngủ và chính sách giải quyết mâu thuẫn. Kết thúc bằng "đọc gì tiếp theo" chỉ đến Bài 09 nếu agent cần suy luận đồ thị trên bộ nhớ, hoặc Bài 23 nếu sản phẩm cần các span OTel trên các thao tác bộ nhớ.

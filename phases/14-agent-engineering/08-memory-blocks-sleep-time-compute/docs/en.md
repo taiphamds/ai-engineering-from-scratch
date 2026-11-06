@@ -1,6 +1,6 @@
 # Memory Blocks and Sleep-Time Compute
 
-> Discrete functional memory blocks the model can edit directly, and a sleep-time agent that consolidates memory asynchronously while the primary agent is idle. These two ideas are how you scale memory beyond one conversation.
+> Các khối bộ nhớ chức năng rời rạc mà mô hình có thể chỉnh sửa trực tiếp, và một agent lúc ngủ hợp nhất bộ nhớ bất đồng bộ trong khi agent chính nhàn rỗi. Hai ý tưởng này là cách bạn mở rộng bộ nhớ vượt một hội thoại.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,70 +9,70 @@
 
 ## Learning Objectives
 
-- Name the three memory tiers Letta uses (core, recall, archival) and the role of each.
-- Explain the memory-block pattern: Human block, Persona block, and user-defined blocks as first-class typed objects.
-- Describe what sleep-time compute is, why it sits off the critical path, and why it can run a stronger model than the primary agent.
-- Implement a scripted two-agent loop where a primary agent serves responses and a sleep-time agent consolidates blocks between turns.
+- Nêu tên ba tầng bộ nhớ Letta sử dụng (cốt lõi, hồi tưởng, lưu trữ) và vai trò của từng tầng.
+- Giải thích mẫu khối bộ nhớ: khối Human, khối Persona và các khối do người dùng định nghĩa như các đối tượng có kiểu hạng nhất.
+- Mô tả tính toán lúc ngủ là gì, vì sao nó nằm ngoài đường tới hạn và vì sao nó có thể chạy một mô hình mạnh hơn agent chính.
+- Triển khai một vòng lặp hai agent được viết kịch bản trong đó một agent chính phục vụ các phản hồi và một agent lúc ngủ hợp nhất các khối giữa các lượt.
 
 ## The Problem
 
-MemGPT (Lesson 07) solved the virtual-memory control flow. Three production problems emerged:
+MemGPT (Bài 07) giải quyết luồng điều khiển bộ nhớ ảo. Ba vấn đề sản xuất xuất hiện:
 
-1. **Latency.** Every memory operation sits on the critical path. If the agent has to prune, summarize, or reconcile while the user waits, tail latency blows up.
-2. **Memory rot.** Writes accumulate. Contradicted facts stay. Retrieval drowns in stale content.
-3. **Structure loss.** A flat archival store cannot express "the Human block is always in the prompt; the Persona block is always in the prompt; the Task block swaps per session."
+1. **Độ trễ.** Mọi thao tác bộ nhớ nằm trên đường tới hạn. Nếu agent phải cắt tỉa, tóm tắt hoặc hòa giải trong khi người dùng chờ, độ trễ đuôi tăng vọt.
+2. **Bộ nhớ mục nát.** Các lần ghi tích lũy. Các sự thật bị mâu thuẫn vẫn còn. Truy xuất chìm trong nội dung cũ.
+3. **Mất cấu trúc.** Một kho lưu trữ phẳng không thể biểu đạt "khối Human luôn ở trong prompt; khối Persona luôn ở trong prompt; khối Task thay đổi theo phiên."
 
-Letta (letta.com) is the platform name the original MemGPT project adopted in 2024 — the paper's pattern keeps the MemGPT name — and the 2026 Letta V1 rewrite is a later, separate step. Memory blocks make structure explicit; sleep-time compute moves consolidation off the critical path.
+Letta (letta.com) là tên nền tảng mà dự án MemGPT gốc nhận vào năm 2024 — mẫu của bài báo giữ tên MemGPT — và bản viết lại Letta V1 năm 2026 là một bước riêng, về sau. Các khối bộ nhớ làm cho cấu trúc tường minh; tính toán lúc ngủ chuyển việc hợp nhất ra ngoài đường tới hạn.
 
 ## The Concept
 
 ### Three tiers
 
-| Tier | Scope | Where it lives | Written by |
+| Tầng | Phạm vi | Nơi nó tồn tại | Được ghi bởi |
 |------|-------|----------------|------------|
-| Core | Always visible | Inside the main prompt | Agent tool call + sleep-time rewrites |
-| Recall | Conversation history | Retrievable | Automatic turn logging |
-| Archival | Arbitrary facts | Vector + KV + graph | Agent tool call + sleep-time ingest |
+| Cốt lõi | Luôn hiển thị | Bên trong prompt chính | Lời gọi công cụ agent + các lần viết lại lúc ngủ |
+| Hồi tưởng | Lịch sử hội thoại | Có thể truy xuất | Ghi log lượt tự động |
+| Lưu trữ | Các sự thật tùy ý | Vector + KV + đồ thị | Lời gọi công cụ agent + nạp dữ liệu lúc ngủ |
 
-Core is the MemGPT core. Recall is the conversation buffer with its evicted tail. Archival is the external store. The split cleans up MemGPT's two-tier overloading.
+Cốt lõi là phần cốt lõi của MemGPT. Hồi tưởng là bộ đệm hội thoại với phần đuôi bị loại bỏ của nó. Lưu trữ là kho bên ngoài. Sự phân tách làm rõ việc quá tải hai tầng của MemGPT.
 
 ### Memory blocks
 
-A block is a typed, persistent, editable section of the core tier. The original MemGPT paper defined two:
+Một khối là một phần có kiểu, lưu giữ, có thể chỉnh sửa của tầng cốt lõi. Bài báo MemGPT gốc định nghĩa hai khối:
 
-- **Human block** — facts about the user (name, role, preferences, goals).
-- **Persona block** — the agent's self-concept (identity, tone, constraints).
+- **Khối Human** — các sự thật về người dùng (tên, vai trò, sở thích, mục tiêu).
+- **Khối Persona** — quan niệm về bản thân của agent (danh tính, giọng điệu, các ràng buộc).
 
-Letta generalizes to arbitrary user-defined blocks: a `Task` block for the current goal, a `Project` block for codebase facts, a `Safety` block for hard constraints. Each block has an `id`, `label`, `value`, `limit` (character cap), `description` (so the model knows when to edit it).
+Letta khái quát hóa thành các khối tùy ý do người dùng định nghĩa: một khối `Task` cho mục tiêu hiện tại, một khối `Project` cho các sự thật về cơ sở mã, một khối `Safety` cho các ràng buộc cứng. Mỗi khối có một `id`, `label`, `value`, `limit` (giới hạn ký tự), `description` (để mô hình biết khi nào chỉnh sửa nó).
 
-Blocks are editable via the tool surface:
+Các khối có thể chỉnh sửa qua bề mặt công cụ:
 
 - `block_append(label, text)`
 - `block_replace(label, old, new)`
 - `block_read(label)`
-- `block_summarize(label)` — condense a block that is near its limit.
+- `block_summarize(label)` — cô đọng một khối gần giới hạn của nó.
 
 ### Sleep-time compute
 
-The 2025 Letta addition: run a second agent in background, off the critical path. Sleep-time agents process conversation transcripts and codebase context, write `learned_context` into shared blocks, and consolidate or invalidate archival records.
+Phần bổ sung Letta năm 2025: chạy một agent thứ hai ở nền, ngoài đường tới hạn. Các agent lúc ngủ xử lý các bản ghi hội thoại và ngữ cảnh cơ sở mã, ghi `learned_context` vào các khối dùng chung, và hợp nhất hoặc vô hiệu hóa các bản ghi lưu trữ.
 
-Properties that fall out:
+Các thuộc tính phát sinh:
 
-- **No latency cost.** Primary responses do not wait for memory ops.
-- **Stronger model allowed.** The sleep-time agent can be a more expensive, slower model because it is not latency-constrained.
-- **Natural consolidation window.** Dedup, summarize, invalidate contradicted facts when the user is not waiting.
+- **Không có chi phí độ trễ.** Các phản hồi chính không chờ các thao tác bộ nhớ.
+- **Cho phép mô hình mạnh hơn.** Agent lúc ngủ có thể là một mô hình đắt hơn, chậm hơn vì nó không bị ràng buộc độ trễ.
+- **Cửa sổ hợp nhất tự nhiên.** Loại trùng, tóm tắt, vô hiệu hóa các sự thật bị mâu thuẫn khi người dùng không chờ.
 
-The shape matches how humans work: you do the task, you sleep on it, the long-term memory settles overnight.
+Hình dạng này khớp với cách con người làm việc: bạn làm tác vụ, bạn ngủ để suy ngẫm về nó, bộ nhớ dài hạn ổn định qua đêm.
 
 ### Native reasoning
 
-Letta V1 (`letta_v1_agent`, 2026) deprecates `send_message`/heartbeat and inline `Thought:` tokens in favor of native reasoning. The Responses API (OpenAI) and the Messages API with extended thinking (Anthropic) emit reasoning on a separate channel, passed through turns (encrypted across providers in production). The control loop is still ReAct. The thought trace is structural, not prompt-shaped.
+Letta V1 (`letta_v1_agent`, 2026) ngừng dùng `send_message`/heartbeat và các token `Thought:` nội tuyến để chuyển sang suy luận gốc. Responses API (OpenAI) và Messages API với tư duy mở rộng (Anthropic) phát ra suy luận trên một kênh riêng, được chuyển tiếp qua các lượt (được mã hóa xuyên các nhà cung cấp trong sản xuất). Vòng lặp điều khiển vẫn là ReAct. Trace suy nghĩ mang tính cấu trúc, không có dạng prompt.
 
 ### Where this pattern goes wrong
 
-- **Block bloat.** Infinite `block_append` hits the limit fast. Wire a block summarizer before the write that pushes over the cap.
-- **Silent drift.** Sleep-time agent rewrites a block and the primary agent never notices. Version blocks and surface diffs in the trace.
-- **Poisoned consolidation.** Sleep-time agent processes attacker-reachable content into core. Lesson 27 applies to the sleep-time surface too.
+- **Khối phình to.** `block_append` vô hạn chạm giới hạn nhanh chóng. Nối một bộ tóm tắt khối trước lần ghi đẩy vượt giới hạn.
+- **Trôi dạt âm thầm.** Agent lúc ngủ viết lại một khối và agent chính không bao giờ nhận thấy. Đánh phiên bản các khối và hiển thị các diff trong trace.
+- **Hợp nhất bị đầu độc.** Agent lúc ngủ xử lý nội dung mà kẻ tấn công có thể tiếp cận vào phần cốt lõi. Bài 27 cũng áp dụng cho bề mặt lúc ngủ.
 
 ```figure
 memory-blocks
@@ -80,55 +80,55 @@ memory-blocks
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
 - `Block` — id, label, value, limit, description.
-- `BlockStore` — CRUD + `near_limit(label)` helper.
-- Two scripted agents — `PrimaryAgent` serves a turn, `SleepTimeAgent` consolidates between turns.
-- A trace that shows a three-turn conversation with block writes, plus a sleep-time pass that summarizes a block and invalidates a stale fact.
+- `BlockStore` — CRUD + hàm trợ giúp `near_limit(label)`.
+- Hai agent được viết kịch bản — `PrimaryAgent` phục vụ một lượt, `SleepTimeAgent` hợp nhất giữa các lượt.
+- Một trace cho thấy một hội thoại ba lượt với các lần ghi khối, cộng một lượt lúc ngủ tóm tắt một khối và vô hiệu hóa một sự thật cũ.
 
-Run it:
+Chạy nó:
 
 ```
 python3 code/main.py
 ```
 
-The transcript shows the split: primary turns are fast and produce raw writes; the sleep pass compacts and cleans up.
+Bản ghi cho thấy sự phân tách: các lượt chính nhanh và tạo các lần ghi thô; lượt ngủ cô đọng và dọn dẹp.
 
 ## Use It
 
-- **Letta** (letta.com) for the reference implementation. Self-host or managed cloud.
-- **Claude Agent SDK skills** as block-shaped knowledge — a skill is a named, versioned, retrievable block of instructions the agent loads on demand.
-- **Custom builds** for teams that want control over the storage backend. Use the Letta API contract so you can migrate later.
+- **Letta** (letta.com) cho triển khai tham chiếu. Tự host hoặc đám mây được quản lý.
+- **Các skill Claude Agent SDK** như tri thức có dạng khối — một skill là một khối chỉ dẫn có tên, có phiên bản, có thể truy xuất mà agent tải theo yêu cầu.
+- **Các bản dựng tùy chỉnh** cho các nhóm muốn kiểm soát backend lưu trữ. Sử dụng hợp đồng Letta API để bạn có thể di chuyển sau này.
 
 ## Ship It
 
-`outputs/skill-memory-blocks.md` generates a Letta-shaped block system with sleep-time hooks for any runtime, including safety rules and citation wiring.
+`outputs/skill-memory-blocks.md` tạo một hệ thống khối có dạng Letta với các hook lúc ngủ cho bất kỳ runtime nào, bao gồm các quy tắc an toàn và kết nối trích dẫn.
 
 ## Exercises
 
-1. Add a `block_summarize` tool that replaces the block value with a model-generated summary when `near_limit` returns true. Which trigger threshold minimizes both summarization calls and block overflow?
-2. Implement sleep-time dedup over archival: two records whose text has >90% token overlap collapse to one. Do it only in the sleep pass, never on the critical path.
-3. Version blocks. On every write record the old value and a diff. Expose `block_history(label)` so operators can debug "why did the agent forget X."
-4. Treat sleep-time agents as untrusted writers. When they touch the Persona or Safety block, require a second-agent review before committing.
-5. Port the example to use the Letta API (`letta_v1_agent`). What changes in the block schema, and how does native reasoning alter the trace shape?
+1. Thêm một công cụ `block_summarize` thay thế giá trị khối bằng một bản tóm tắt do mô hình tạo khi `near_limit` trả về true. Ngưỡng kích hoạt nào giảm thiểu cả các lời gọi tóm tắt lẫn tràn khối?
+2. Triển khai loại trùng lúc ngủ trên kho lưu trữ: hai bản ghi có văn bản chồng lấp token >90% gộp thành một. Chỉ làm điều đó trong lượt ngủ, không bao giờ trên đường tới hạn.
+3. Đánh phiên bản các khối. Trên mọi lần ghi, ghi lại giá trị cũ và một diff. Cung cấp `block_history(label)` để người vận hành có thể gỡ lỗi "vì sao agent quên X."
+4. Coi các agent lúc ngủ là những bên ghi không đáng tin cậy. Khi chúng chạm khối Persona hoặc Safety, yêu cầu một đánh giá của agent thứ hai trước khi ghi nhận.
+5. Chuyển ví dụ sang sử dụng Letta API (`letta_v1_agent`). Điều gì thay đổi trong schema khối, và suy luận gốc thay đổi hình dạng trace như thế nào?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |------|----------------|------------------------|
-| Memory block | "Editable prompt section" | Typed, persistent, LLM-editable segment of core memory |
-| Human block | "User memory" | Facts about the user, pinned in core |
-| Persona block | "Agent identity" | Self-concept, tone, constraints, pinned in core |
-| Sleep-time compute | "Async memory work" | Second agent doing consolidation off the critical path |
-| Core / Recall / Archival | "Tiers" | Three-layer memory split: always-visible / conversation / external |
-| Block limit | "Cap" | Character limit per block; forces summarization |
-| Native reasoning | "Thinking channel" | Provider-level reasoning output, not prompt-level `Thought:` |
-| Learned context | "Sleep output" | Facts the sleep-time agent writes into shared blocks |
+| Memory block (Khối bộ nhớ) | "Phần prompt có thể chỉnh sửa" | Đoạn bộ nhớ cốt lõi có kiểu, lưu giữ, có thể chỉnh sửa bởi LLM |
+| Human block (Khối Human) | "Bộ nhớ người dùng" | Các sự thật về người dùng, được ghim trong phần cốt lõi |
+| Persona block (Khối Persona) | "Danh tính agent" | Quan niệm về bản thân, giọng điệu, các ràng buộc, được ghim trong phần cốt lõi |
+| Sleep-time compute (Tính toán lúc ngủ) | "Công việc bộ nhớ bất đồng bộ" | Agent thứ hai thực hiện hợp nhất ngoài đường tới hạn |
+| Core / Recall / Archival (Cốt lõi / Hồi tưởng / Lưu trữ) | "Các tầng" | Sự phân tách bộ nhớ ba lớp: luôn hiển thị / hội thoại / bên ngoài |
+| Block limit (Giới hạn khối) | "Giới hạn" | Giới hạn ký tự cho mỗi khối; buộc tóm tắt |
+| Native reasoning (Suy luận gốc) | "Kênh suy nghĩ" | Đầu ra suy luận ở cấp nhà cung cấp, không phải `Thought:` ở cấp prompt |
+| Learned context (Ngữ cảnh đã học) | "Đầu ra lúc ngủ" | Các sự thật mà agent lúc ngủ ghi vào các khối dùng chung |
 
 ## Further Reading
 
-- [Letta, Memory Blocks blog](https://www.letta.com/blog/memory-blocks) — the block pattern
-- [Letta, Sleep-time Compute blog](https://www.letta.com/blog/sleep-time-compute) — async consolidation
-- [Letta, Rearchitecting the Agent Loop](https://www.letta.com/blog/letta-v1-agent) — native reasoning rewrite
-- [Packer et al., MemGPT (arXiv:2310.08560)](https://arxiv.org/abs/2310.08560) — the origin
+- [Letta, Memory Blocks blog](https://www.letta.com/blog/memory-blocks) — mẫu khối
+- [Letta, Sleep-time Compute blog](https://www.letta.com/blog/sleep-time-compute) — hợp nhất bất đồng bộ
+- [Letta, Rearchitecting the Agent Loop](https://www.letta.com/blog/letta-v1-agent) — bản viết lại suy luận gốc
+- [Packer et al., MemGPT (arXiv:2310.08560)](https://arxiv.org/abs/2310.08560) — nguồn gốc
