@@ -1,6 +1,6 @@
 # Agent Harness Loop Contract
 
-> The harness is the agent. The model is a coprocessor. This lesson freezes the loop contract you can wire any model into.
+> Harness chính là agent. Mô hình là một bộ đồng xử lý. Bài này đóng băng hợp đồng vòng lặp mà bạn có thể kết nối bất kỳ mô hình nào vào.
 
 **Type:** Build
 **Languages:** Python
@@ -8,11 +8,11 @@
 **Time:** ~90 minutes
 
 ## Learning Objectives
-- Specify an agent harness loop as a deterministic state machine with explicit transitions.
-- Implement ten lifecycle hook topics that operators wire policy, telemetry, and guardrails into.
-- Define two pull points where the loop yields control back to the caller and resumes on a fresh input.
-- Enforce per-session budgets (turns, tool calls, wall-clock) without leaking partial state on exceeding.
-- Emit a typed stream of eleven event types so downstream UIs and tracers can subscribe without inspecting the loop directly.
+- Đặc tả một vòng lặp harness agent như một máy trạng thái tất định với các chuyển tiếp rõ ràng.
+- Triển khai mười chủ đề hook vòng đời mà người vận hành kết nối chính sách, dữ liệu đo từ xa, và các chốt bảo vệ vào.
+- Định nghĩa hai điểm kéo nơi vòng lặp nhường quyền điều khiển lại cho bên gọi và tiếp tục với một đầu vào mới.
+- Thực thi ngân sách theo phiên (lượt, lệnh gọi công cụ, thời gian thực) mà không rò rỉ trạng thái một phần khi vượt quá.
+- Phát ra một luồng có kiểu gồm mười một loại sự kiện để các UI và bộ theo dõi hạ nguồn có thể đăng ký mà không kiểm tra trực tiếp vòng lặp.
 
 ```figure
 cf-loop-contract
@@ -20,13 +20,13 @@ cf-loop-contract
 
 ## The frame
 
-A coding agent that runs unattended for forty turns is not a chat loop. It is a state machine whose nodes the operator can intercept and whose edges the operator can audit. Once you write the contract down, swapping models, tools, or policies stops being a refactor. It becomes a registration call.
+Một agent lập trình chạy không giám sát trong bốn mươi lượt không phải một vòng lặp trò chuyện. Nó là một máy trạng thái mà các nút của nó người vận hành có thể chặn và các cạnh của nó người vận hành có thể kiểm toán. Một khi bạn viết ra hợp đồng, việc đổi mô hình, công cụ, hoặc chính sách không còn là tái cấu trúc. Nó trở thành một lệnh gọi đăng ký.
 
-This lesson builds that contract. We name six states, ten hook topics, two pull points, eleven event types, and a budget envelope. Everything else in the harness (tool registry, JSON-RPC transport, dispatcher, planner) plugs into this shape.
+Bài này xây dựng hợp đồng đó. Chúng ta đặt tên sáu trạng thái, mười chủ đề hook, hai điểm kéo, mười một loại sự kiện, và một phong bì ngân sách. Mọi thứ khác trong harness (registry công cụ, truyền tải JSON-RPC, dispatcher, bộ lập kế hoạch) cắm vào hình thức này.
 
 ## The states
 
-The loop has six states. Five are active. One is terminal.
+Vòng lặp có sáu trạng thái. Năm trạng thái hoạt động. Một trạng thái kết thúc.
 
 ```mermaid
 stateDiagram-v2
@@ -43,13 +43,13 @@ stateDiagram-v2
     DONE --> [*]
 ```
 
-`IDLE` is the only legal entry point. `DONE` is the only legal exit. `AWAITING_TOOL` is the only state that yields a pull point. Every other transition is internal.
+`IDLE` là điểm vào hợp lệ duy nhất. `DONE` là lối ra hợp lệ duy nhất. `AWAITING_TOOL` là trạng thái duy nhất nhường ra một điểm kéo. Mọi chuyển tiếp khác đều nội bộ.
 
-The state machine is deterministic. Given the same event log, the harness re-enters the same state. That property is what lets you replay sessions for debugging without re-calling the model.
+Máy trạng thái là tất định. Với cùng nhật ký sự kiện, harness vào lại cùng trạng thái. Thuộc tính đó là thứ cho phép bạn phát lại các phiên để gỡ lỗi mà không gọi lại mô hình.
 
 ## The hook topics
 
-Hooks are the operator's seam into the loop. The harness fires ten topics. Each topic accepts any number of subscribers. Subscribers fire in registration order. A subscriber may mutate the payload, raise to abort the turn, or return a sentinel to skip the next step.
+Các hook là chỗ nối của người vận hành vào vòng lặp. Harness kích hoạt mười chủ đề. Mỗi chủ đề chấp nhận số lượng bên đăng ký bất kỳ. Các bên đăng ký được kích hoạt theo thứ tự đăng ký. Một bên đăng ký có thể biến đổi payload, phát sinh lỗi để hủy lượt, hoặc trả về một giá trị báo hiệu để bỏ qua bước tiếp theo.
 
 ```text
 before_plan         after_plan
@@ -61,52 +61,52 @@ on_budget_exceeded
 on_complete
 ```
 
-The shape mirrors what Claude Code, Cursor, and OpenCode all converged on by mid-2025. The names are functional, not branded. A hook that blocks `rm -rf` lives in `before_tool_call`. A hook that ships an OpenTelemetry span lives in `after_step`. A hook that resumes on a paused session lives in `on_pause`.
+Hình thức phản ánh điều mà Claude Code, Cursor, và OpenCode đều đã hội tụ vào giữa năm 2025. Các tên mang tính chức năng, không mang thương hiệu. Một hook chặn `rm -rf` nằm trong `before_tool_call`. Một hook gửi một span OpenTelemetry nằm trong `after_step`. Một hook tiếp tục trên một phiên bị tạm dừng nằm trong `on_pause`.
 
 ## The pull points
 
-The loop yields control twice. First on `AWAITING_TOOL` when it cannot make progress without a tool result. Second on `on_pause` when the budget is exhausted or a hook explicitly requests human review.
+Vòng lặp nhường quyền điều khiển hai lần. Đầu tiên trên `AWAITING_TOOL` khi nó không thể tiến triển mà không có một kết quả công cụ. Thứ hai trên `on_pause` khi ngân sách cạn hoặc một hook yêu cầu rõ ràng con người rà soát.
 
-A pull point is not an exception. It is a return. The caller inspects the harness state, fetches whatever the harness asked for, and calls `resume(payload)`. The harness picks up where it stopped. This is the same shape as a Python generator. The transport over the pull point is your choice. In a TUI it is keypress. Over MCP it is `tools/call`. Over a queue it is a job poll.
+Một điểm kéo không phải ngoại lệ. Nó là một lần trả về. Bên gọi kiểm tra trạng thái harness, lấy bất cứ thứ gì harness yêu cầu, và gọi `resume(payload)`. Harness tiếp tục từ nơi nó dừng. Đây là cùng hình thức với một generator Python. Cơ chế truyền tải qua điểm kéo do bạn chọn. Trong một TUI nó là phím nhấn. Trên MCP nó là `tools/call`. Trên một hàng đợi nó là thăm dò công việc.
 
 ## The event stream
 
-The loop appends events to a typed stream at specific points in the contract. The stream is append-only and subscribers can replay from any offset. The eleven implemented event types are:
+Vòng lặp thêm các sự kiện vào một luồng có kiểu tại các điểm cụ thể trong hợp đồng. Luồng chỉ được thêm và các bên đăng ký có thể phát lại từ bất kỳ độ lệch nào. Mười một loại sự kiện được triển khai là:
 
-- `session.start` — emitted once when `run(goal)` is called
-- `plan.draft` — emitted when the planner returns a draft plan
-- `plan.commit` — emitted after the draft is committed as the active plan
-- `step.start` — emitted at the start of each executing step
-- `step.end` — emitted at the end of each executing step
-- `tool.call` — emitted when a tool-requiring step yields control to the caller
-- `tool.result` — emitted on resume with a tool result
-- `tool.error` — emitted on resume with an error or when a hook aborts the call
-- `budget.warn` — emitted when a budget limit is reached
-- `session.pause` — emitted when the loop yields on a pause (budget or hook)
-- `session.complete` — emitted once when the loop reaches `DONE`
+- `session.start` — phát ra một lần khi `run(goal)` được gọi
+- `plan.draft` — phát ra khi bộ lập kế hoạch trả về một kế hoạch nháp
+- `plan.commit` — phát ra sau khi bản nháp được chốt làm kế hoạch hoạt động
+- `step.start` — phát ra lúc bắt đầu mỗi bước đang thực thi
+- `step.end` — phát ra lúc kết thúc mỗi bước đang thực thi
+- `tool.call` — phát ra khi một bước cần công cụ nhường quyền điều khiển cho bên gọi
+- `tool.result` — phát ra khi tiếp tục với một kết quả công cụ
+- `tool.error` — phát ra khi tiếp tục với một lỗi hoặc khi một hook hủy lệnh gọi
+- `budget.warn` — phát ra khi chạm một giới hạn ngân sách
+- `session.pause` — phát ra khi vòng lặp nhường tại một lần tạm dừng (ngân sách hoặc hook)
+- `session.complete` — phát ra một lần khi vòng lặp đạt `DONE`
 
-The events do not duplicate hook payloads. Hooks are imperative (mutate, abort). Events are observational (record, ship). Treat them as orthogonal.
+Các sự kiện không sao chép payload hook. Các hook mang tính mệnh lệnh (biến đổi, hủy). Các sự kiện mang tính quan sát (ghi lại, gửi đi). Coi chúng là trực giao.
 
 ## The budget envelope
 
-A session carries three limits. Turn count, tool call count, wall-clock seconds. Each turn increments turns by one. Each tool call increments tool calls by one. Wall-clock is checked on every state transition. When any limit is reached, the loop fires `on_budget_exceeded`, emits `budget.warn`, then transitions to `IDLE` with a budget-exceeded reason on the next pull point.
+Một phiên mang ba giới hạn. Số lượt, số lệnh gọi công cụ, số giây thời gian thực. Mỗi lượt tăng số lượt thêm một. Mỗi lệnh gọi công cụ tăng số lệnh gọi công cụ thêm một. Thời gian thực được kiểm tra trên mọi chuyển tiếp trạng thái. Khi chạm bất kỳ giới hạn nào, vòng lặp kích hoạt `on_budget_exceeded`, phát ra `budget.warn`, rồi chuyển đến `IDLE` với một lý do vượt ngân sách tại điểm kéo tiếp theo.
 
-The budget is not a kill switch. It is a yield. The caller decides whether to extend the budget and resume, or to close the session.
+Ngân sách không phải một công tắc ngắt. Nó là một lần nhường. Bên gọi quyết định có mở rộng ngân sách và tiếp tục, hay đóng phiên.
 
 ## What this lesson does not do
 
-It does not call a model. It does not register real tools. It does not implement a transport. Those are the next four lessons. This lesson nails the contract so the next four can plug into it without rewriting.
+Nó không gọi một mô hình. Nó không đăng ký công cụ thực. Nó không triển khai một cơ chế truyền tải. Đó là bốn bài tiếp theo. Bài này chốt hợp đồng để bốn bài tiếp theo có thể cắm vào nó mà không viết lại.
 
-The deterministic planner in `main.py` is a stand-in. It returns a hardcoded plan of three steps, two of which require a tool result. The point is the loop, not the plan.
+Bộ lập kế hoạch tất định trong `main.py` là một vật thay thế. Nó trả về một kế hoạch được mã hóa cứng gồm ba bước, hai trong số đó yêu cầu một kết quả công cụ. Điểm chính là vòng lặp, không phải kế hoạch.
 
 ## How to read the code
 
-`HarnessLoop` is the main class. It holds state, fires hooks, emits events. `Budget` tracks limits. `Event` is the typed envelope on the stream. `HookRegistry` is the dispatch table. `_transition` is the only function that changes state, so the state machine invariants live in one place.
+`HarnessLoop` là lớp chính. Nó giữ trạng thái, kích hoạt hook, phát ra sự kiện. `Budget` theo dõi giới hạn. `Event` là phong bì có kiểu trên luồng. `HookRegistry` là bảng điều phối. `_transition` là hàm duy nhất thay đổi trạng thái, nên các bất biến máy trạng thái nằm ở một nơi.
 
-Read `main.py` top to bottom. Then read `code/tests/test_loop.py`. The tests pin every transition and every hook firing order.
+Đọc `main.py` từ trên xuống dưới. Sau đó đọc `code/tests/test_loop.py`. Các kiểm thử ghim mọi chuyển tiếp và mọi thứ tự kích hoạt hook.
 
 ## Going further
 
-The hardest part of building a harness in production is not the state machine. It is making the contract enforceable. The contract has to survive a hot reload of the planner. It has to survive a tool that returns malformed JSON. It has to survive a hook that raises in `before_tool_call` two-thirds of the way through a forty-turn session. The tests in this lesson exercise those failure modes. Run them. Break them. Add cases.
+Phần khó nhất của việc xây dựng một harness trong sản xuất không phải máy trạng thái. Nó là làm cho hợp đồng có thể được thực thi. Hợp đồng phải sống sót qua một lần nạp nóng bộ lập kế hoạch. Nó phải sống sót qua một công cụ trả về JSON sai định dạng. Nó phải sống sót qua một hook phát sinh lỗi trong `before_tool_call` ở hai phần ba chặng đường của một phiên bốn mươi lượt. Các kiểm thử trong bài này thực thi những chế độ lỗi đó. Chạy chúng. Phá chúng. Thêm trường hợp.
 
-The next lesson adds the tool registry. After that, the JSON-RPC transport. After that, the dispatcher. By lesson twenty-four, the loop in this file will be running a real plan against real tools with real budgets enforced.
+Bài tiếp theo thêm registry công cụ. Sau đó, cơ chế truyền tải JSON-RPC. Sau đó, dispatcher. Đến bài hai mươi bốn, vòng lặp trong file này sẽ chạy một kế hoạch thực với các công cụ thực và ngân sách thực được thực thi.
