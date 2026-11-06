@@ -1,6 +1,6 @@
 # EAGLE-3 Speculative Decoding in Production
 
-> Speculative decoding pairs a fast draft model with the target model. The draft proposes K tokens; the target verifies in a single forward; accepted tokens are free. In 2026, EAGLE-3 is the production-grade variant — it trains a draft head on the target model's hidden states rather than on raw tokens, pushing acceptance rate alpha into the 0.6-0.8 band on general chat. The right question is not "how fast is the draft" but "what is alpha on my traffic?" If alpha drops below ~0.55, speculative decoding is net negative at high concurrency because every rejected draft costs a second target forward pass. This lesson teaches you to measure alpha first and flip the flag second.
+> Giải mã suy đoán ghép một mô hình nháp nhanh với mô hình đích. Bản nháp đề xuất K token; đích xác minh trong một lượt truyền xuôi; các token được chấp nhận là miễn phí. Năm 2026, EAGLE-3 là biến thể mức sản xuất — nó huấn luyện một đầu nháp trên các trạng thái ẩn của mô hình đích thay vì trên token thô, đẩy tỷ lệ chấp nhận alpha vào dải 0.6-0.8 trên trò chuyện tổng quát. Câu hỏi đúng không phải “bản nháp nhanh đến đâu” mà là “alpha trên lưu lượng của tôi là bao nhiêu?” Nếu alpha giảm dưới ~0.55, giải mã suy đoán âm ròng ở mức đồng thời cao vì mỗi bản nháp bị từ chối tốn một lượt truyền xuôi đích thứ hai. Bài này dạy bạn đo alpha trước và bật cờ sau.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy acceptance-rate simulator)
@@ -9,66 +9,66 @@
 
 ## Learning Objectives
 
-- Name the three generations of speculative decoding and explain what EAGLE-3 changes from EAGLE-2 and from a classic draft model.
-- Define acceptance rate alpha, compute expected speedup from alpha and K (draft length), and identify the break-even alpha for your target concurrency.
-- Explain why speculative decoding is opt-in (not default) in vLLM 2026 and why turning it on without measuring alpha is a production anti-pattern.
-- Write a measurement plan: which benchmark, which prompt distribution, which concurrency point, which metric to gate on.
+- Nêu ba thế hệ giải mã suy đoán và giải thích EAGLE-3 thay đổi gì so với EAGLE-2 và so với một mô hình nháp cổ điển.
+- Định nghĩa tỷ lệ chấp nhận alpha, tính mức tăng tốc kỳ vọng từ alpha và K (độ dài nháp), và xác định alpha hòa vốn cho mức đồng thời mục tiêu.
+- Giải thích vì sao giải mã suy đoán là chủ động bật (không mặc định) trong vLLM năm 2026 và vì sao bật nó không đo alpha là một phản mẫu sản xuất.
+- Viết một kế hoạch đo: benchmark nào, phân phối prompt nào, điểm đồng thời nào, chỉ số nào để đặt cổng kiểm soát.
 
 ## The Problem
 
-Decode is memory-bound. On an H100 running Llama 3.3 70B FP8, each decoded token reads ~140 GB/s of weights and emits one token. The GPU compute is almost idle during decode — the bottleneck is HBM bandwidth, not matmul throughput.
+Decode bị giới hạn bởi bộ nhớ. Trên một H100 chạy Llama 3.3 70B FP8, mỗi token được decode đọc ~140 GB/s trọng số và phát một token. Tính toán GPU gần như nhàn rỗi trong decode — nút thắt là băng thông HBM, không phải thông lượng nhân ma trận.
 
-Speculative decoding exploits the gap. Generate K candidate tokens with a cheap draft model, then ask the target model to verify all K in a single forward pass. Each verified token is effectively free (amortized into a batch-of-K forward the target would have had to do anyway).
+Giải mã suy đoán khai thác khoảng cách. Sinh K token ứng viên với một mô hình nháp rẻ, rồi yêu cầu mô hình đích xác minh cả K trong một lượt truyền xuôi. Mỗi token được xác minh thực chất miễn phí (được phân bổ vào một lượt truyền xuôi lô K mà đích dù sao cũng phải làm).
 
-The classic draft-model approach uses a smaller model of the same family (Llama 3.2 1B drafting for Llama 3.3 70B). It works but acceptance rate is mediocre — the smaller model distribution diverges from the target. EAGLE, then EAGLE-2, then EAGLE-3 train a light draft head directly on the target model's internal states, so the draft's distribution tracks the target much more closely. That is why alpha goes from 0.4 with draft-model to 0.6-0.8 with EAGLE-3.
+Cách tiếp cận mô hình nháp cổ điển sử dụng một mô hình nhỏ hơn cùng họ (Llama 3.2 1B nháp cho Llama 3.3 70B). Nó hoạt động nhưng tỷ lệ chấp nhận tầm thường — phân phối mô hình nhỏ hơn lệch khỏi đích. EAGLE, rồi EAGLE-2, rồi EAGLE-3 huấn luyện một đầu nháp nhẹ trực tiếp trên các trạng thái nội bộ của mô hình đích, nên phân phối nháp bám đích sát hơn nhiều. Đó là lý do alpha đi từ 0.4 với mô hình nháp lên 0.6-0.8 với EAGLE-3.
 
-The catch: EAGLE-3 is opt-in in vLLM 2026. `speculative_config` must be set explicitly. No flag, no acceleration. Teams that flip it on without measuring alpha on their real traffic often see tail latency get worse, not better.
+Điểm vướng: EAGLE-3 phải chủ động bật trong vLLM năm 2026. `speculative_config` phải được đặt tường minh. Không cờ, không tăng tốc. Các nhóm bật nó mà không đo alpha trên lưu lượng thực thường thấy độ trễ đuôi tệ hơn, không tốt hơn.
 
 ## The Concept
 
 ### What speculative decoding actually buys
 
-Without spec decode, per-token cost is one target forward. With spec decode at draft length K and acceptance alpha, expected tokens per target forward is `1 + K * alpha`. The speedup is `(1 + K * alpha) / (1 + epsilon)` where epsilon is draft-plus-verify overhead. For K=5, alpha=0.7: `(1 + 5*0.7) / (1 + 0.1) = 4.5 / 1.1 = 4.1x`. Real-world numbers cluster around 2-3x because alpha is rarely that high on production traffic and epsilon grows at high batch size.
+Không có decode suy đoán, chi phí mỗi token là một lượt truyền xuôi đích. Với decode suy đoán ở độ dài nháp K và chấp nhận alpha, số token kỳ vọng mỗi lượt truyền xuôi đích là `1 + K * alpha`. Mức tăng tốc là `(1 + K * alpha) / (1 + epsilon)` trong đó epsilon là chi phí phụ nháp cộng xác minh. Với K=5, alpha=0.7: `(1 + 5*0.7) / (1 + 0.1) = 4.5 / 1.1 = 4.1x`. Các con số thực tế tập trung quanh 2-3x vì alpha hiếm khi cao như vậy trên lưu lượng sản xuất và epsilon tăng ở kích thước lô cao.
 
 ### Why alpha is the only metric that matters
 
-Rejected tokens do not disappear — they force a second target forward for the first rejected token. On a workload where alpha drops to 0.4, you pay draft overhead plus verification plus re-roll. At high concurrency (say 256 concurrent), the decode batch is already large enough that the memory-bandwidth gap between "target alone" and "target with verify" shrinks. Below alpha 0.55 on most 2026 hardware, spec decode is net negative.
+Các token bị từ chối không biến mất — chúng buộc một lượt truyền xuôi đích thứ hai cho token bị từ chối đầu tiên. Trên một khối lượng công việc nơi alpha giảm tới 0.4, bạn trả chi phí phụ nháp cộng xác minh cộng sinh lại. Ở mức đồng thời cao (chẳng hạn 256 đồng thời), lô decode đã đủ lớn để khoảng cách băng thông bộ nhớ giữa “chỉ đích” và “đích có xác minh” thu hẹp. Dưới alpha 0.55 trên hầu hết phần cứng năm 2026, decode suy đoán âm ròng.
 
-Alpha varies by workload. On ShareGPT-style general chat, EAGLE-3 trained on ShareGPT hits 0.6-0.8. On domain-specific traffic (code, medical, legal) the draft head trained on general data drops to 0.4-0.6. Training a domain-specific draft head recovers alpha — it is a light, quick training job compared to target finetuning.
+Alpha thay đổi theo khối lượng công việc. Trên trò chuyện tổng quát kiểu ShareGPT, EAGLE-3 huấn luyện trên ShareGPT đạt 0.6-0.8. Trên lưu lượng riêng lĩnh vực (mã, y khoa, pháp lý), đầu nháp huấn luyện trên dữ liệu tổng quát giảm tới 0.4-0.6. Huấn luyện một đầu nháp riêng lĩnh vực phục hồi alpha — đó là một công việc huấn luyện nhẹ, nhanh so với tinh chỉnh đích.
 
 ### EAGLE generations at a glance
 
-- **Classic draft model**: small model of same family. Alpha 0.3-0.5. Infrastructure simple — two models loaded, draft runs K forwards per target forward.
-- **EAGLE-1 (2024)**: single draft head trained on target hidden states (last layer). Alpha ~0.5-0.6. Small param overhead on top of target.
-- **EAGLE-2 (2025)**: adaptive draft length and tree-based drafts (verify multiple branches in one target pass). Alpha ~0.6-0.7. More complex draft scheduler.
-- **EAGLE-3 (2025-2026)**: draft head trained on multiple target layers (not just last), better alignment. Alpha ~0.6-0.8 on general chat.
+- **Mô hình nháp cổ điển**: mô hình nhỏ cùng họ. Alpha 0.3-0.5. Cơ sở hạ tầng đơn giản — hai mô hình được tải, nháp chạy K lượt truyền xuôi mỗi lượt truyền xuôi đích.
+- **EAGLE-1 (2024)**: một đầu nháp đơn lẻ huấn luyện trên các trạng thái ẩn đích (lớp cuối). Alpha ~0.5-0.6. Chi phí phụ tham số nhỏ trên đích.
+- **EAGLE-2 (2025)**: độ dài nháp thích nghi và các bản nháp dựa trên cây (xác minh nhiều nhánh trong một lượt đích). Alpha ~0.6-0.7. Bộ lập lịch nháp phức tạp hơn.
+- **EAGLE-3 (2025-2026)**: đầu nháp huấn luyện trên nhiều lớp đích (không chỉ lớp cuối), căn chỉnh tốt hơn. Alpha ~0.6-0.8 trên trò chuyện tổng quát.
 
 ### The 2026 production recipe
 
-1. Ship target model plain. Measure baseline TTFT, ITL, throughput at target concurrency.
-2. Enable EAGLE-3 draft via vLLM `speculative_config`. Re-run the benchmark.
-3. Log acceptance rate alpha. vLLM V1 reports this as `spec_decode_metrics.accepted_tokens_per_request`. Divide by requested draft length to get alpha.
-4. If alpha < 0.55 on production traffic distribution, disable spec decode or train a domain-specific EAGLE-3 draft.
-5. At production concurrency, re-run. Confirm P99 ITL did not get worse.
+1. Đưa mô hình đích thuần ra sử dụng. Đo đường cơ sở TTFT, ITL, thông lượng ở mức đồng thời mục tiêu.
+2. Bật nháp EAGLE-3 qua vLLM `speculative_config`. Chạy lại benchmark.
+3. Ghi nhật ký tỷ lệ chấp nhận alpha. vLLM V1 báo cáo nó như `spec_decode_metrics.accepted_tokens_per_request`. Chia cho độ dài nháp được yêu cầu để có alpha.
+4. Nếu alpha < 0.55 trên phân phối lưu lượng sản xuất, tắt decode suy đoán hoặc huấn luyện một bản nháp EAGLE-3 riêng lĩnh vực.
+5. Ở mức đồng thời sản xuất, chạy lại. Xác nhận P99 ITL không tệ hơn.
 
 ### The production pitfall: P99 tail
 
-Mean ITL drops with spec decode. P99 can get worse if you do not tune. Rejected drafts trigger a two-pass sequence (draft + verify-fail + reroll). Under full batch, those two passes serialize. Watch P99 ITL, not P50.
+ITL trung bình giảm với decode suy đoán. P99 có thể tệ hơn nếu bạn không điều chỉnh. Các bản nháp bị từ chối kích hoạt một chuỗi hai lượt (nháp + xác minh thất bại + sinh lại). Dưới lô đầy, hai lượt đó tuần tự hóa. Theo dõi P99 ITL, không phải P50.
 
 ### Where EAGLE-3 is already deployed
 
-Google deployed speculative decoding in AI Overviews in 2025 (same quality, faster response). vLLM V1 ships `speculative_config` as the documented interface, and its feature matrix marks speculative decoding as compatible with chunked prefill. SGLang supports EAGLE-3 as the recommended draft path for prefix-heavy workloads.
+Google triển khai giải mã suy đoán trong AI Overviews năm 2025 (cùng chất lượng, phản hồi nhanh hơn). vLLM V1 cung cấp `speculative_config` như giao diện được ghi tài liệu, và ma trận tính năng đánh dấu giải mã suy đoán tương thích với prefill chia khối. SGLang hỗ trợ EAGLE-3 như đường nháp được khuyến nghị cho các khối lượng công việc nhiều tiền tố.
 
 ### Break-even math in one line
 
-Expected speedup: `S(alpha, K) = (1 + K*alpha) / (1 + verify_overhead)`. Setting `S = 1` solves for alpha: `alpha_breakeven = verify_overhead / K`. For typical verify_overhead ~0.15 and K=5: `alpha_breakeven = 0.03`. But that is the raw decode math. At high concurrency the verify overhead rises and the decode batch already amortizes memory reads across sequences, so effective alpha_breakeven climbs to ~0.45-0.55 in practice.
+Mức tăng tốc kỳ vọng: `S(alpha, K) = (1 + K*alpha) / (1 + verify_overhead)`. Đặt `S = 1` giải ra alpha: `alpha_breakeven = verify_overhead / K`. Với verify_overhead điển hình ~0.15 và K=5: `alpha_breakeven = 0.03`. Nhưng đó là phép tính decode thô. Ở mức đồng thời cao chi phí phụ xác minh tăng và lô decode đã phân bổ các lần đọc bộ nhớ trên các chuỗi, nên alpha_breakeven hiệu dụng tăng tới ~0.45-0.55 trong thực tế.
 
 ### When not to use speculative decoding
 
-- Batch-1 offline generation where latency does not matter. Use plain target.
-- Very short outputs (under 50 tokens). Draft overhead and verify cost dominate.
-- Specialized domains without a domain-trained draft head. Alpha too low.
-- Assuming every feature pair composes. Check the vLLM compatibility matrix for your version: v0.18.0 marks speculative decoding compatible with chunked prefill.
+- Sinh ngoại tuyến lô 1 nơi độ trễ không quan trọng. Sử dụng đích thuần.
+- Các đầu ra rất ngắn (dưới 50 token). Chi phí phụ nháp và chi phí xác minh chi phối.
+- Các lĩnh vực chuyên biệt không có đầu nháp được huấn luyện theo lĩnh vực. Alpha quá thấp.
+- Giả định mọi cặp tính năng kết hợp được. Kiểm tra ma trận tương thích vLLM cho phiên bản của bạn: v0.18.0 đánh dấu giải mã suy đoán tương thích với prefill chia khối.
 
 ```figure
 mx-speculative-tree
@@ -76,39 +76,39 @@ mx-speculative-tree
 
 ## Use It
 
-`code/main.py` simulates a decode loop with and without speculative decoding across a range of alpha values and draft lengths K. It prints the break-even alpha, measured speedup, and tail behavior. Run it on several (alpha, K) combinations to see exactly where speculative decoding stops paying.
+`code/main.py` mô phỏng một vòng lặp decode có và không có giải mã suy đoán qua một dải các giá trị alpha và độ dài nháp K. Nó in alpha hòa vốn, mức tăng tốc được đo, và hành vi đuôi. Chạy nó trên vài tổ hợp (alpha, K) để thấy chính xác nơi giải mã suy đoán ngừng có lợi.
 
 ## Ship It
 
-This lesson produces `outputs/skill-eagle3-rollout.md`. Given a target model, traffic distribution description, and concurrency target, it produces a staged EAGLE-3 rollout plan — benchmark baseline, enable config, measure alpha, gate on alpha >= 0.55, watch P99 ITL.
+Bài này tạo ra `outputs/skill-eagle3-rollout.md`. Với một mô hình đích, mô tả phân phối lưu lượng, và mục tiêu đồng thời, nó tạo một kế hoạch triển khai EAGLE-3 theo giai đoạn — benchmark đường cơ sở, bật cấu hình, đo alpha, đặt cổng theo alpha >= 0.55, theo dõi P99 ITL.
 
 ## Exercises
 
-1. Run `code/main.py`. At K=5, what alpha do you need for a 2x speedup? For a 3x speedup? How sensitive is that to verify_overhead?
-2. Imagine production traffic splits 70% general chat, 30% code. General chat hits alpha 0.7 with EAGLE-3 trained on ShareGPT; code hits alpha 0.4. What is blended alpha and is spec decode net-positive?
-3. Read the vLLM `speculative_config` documentation. Name the three modes (draft model, EAGLE, N-gram) and check which features each one composes with in your vLLM version.
-4. You see mean ITL drop 25% after enabling EAGLE-3 but P99 ITL went up 15%. Diagnose and propose a mitigation.
-5. Compute the memory cost of the EAGLE-3 draft head for Llama 3.3 70B. How does it compare to running Llama 3.2 1B as a classic draft?
+1. Chạy `code/main.py`. Ở K=5, bạn cần alpha nào cho tăng tốc 2x? Cho tăng tốc 3x? Điều đó nhạy thế nào với verify_overhead?
+2. Hình dung lưu lượng sản xuất chia 70% trò chuyện tổng quát, 30% mã. Trò chuyện tổng quát đạt alpha 0.7 với EAGLE-3 huấn luyện trên ShareGPT; mã đạt alpha 0.4. Alpha pha trộn là bao nhiêu và decode suy đoán có dương ròng không?
+3. Đọc tài liệu vLLM `speculative_config`. Nêu ba chế độ (mô hình nháp, EAGLE, N-gram) và kiểm tra mỗi chế độ kết hợp với các tính năng nào trong phiên bản vLLM của bạn.
+4. Bạn thấy ITL trung bình giảm 25% sau khi bật EAGLE-3 nhưng P99 ITL tăng 15%. Chẩn đoán và đề xuất một biện pháp giảm thiểu.
+5. Tính chi phí bộ nhớ của đầu nháp EAGLE-3 cho Llama 3.3 70B. Nó so với chạy Llama 3.2 1B làm nháp cổ điển như thế nào?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Speculative decoding | "draft plus verify" | Propose K tokens with a cheap model, verify all K in one target forward |
-| Acceptance rate alpha | "spec accept rate" | Fraction of draft tokens accepted by the target; the only metric that matters |
-| Draft length K | "spec k" | How many tokens the draft proposes per target forward; typical 4-8 |
-| Verify overhead epsilon | "spec overhead" | Extra cost to verify-and-reroll vs a plain target forward; grows with batch |
-| EAGLE-3 | "latest EAGLE" | 2025-2026 variant; trains draft head on multiple target layers; alpha 0.6-0.8 on general chat |
-| `speculative_config` | "vLLM spec config" | The explicit opt-in in vLLM V1; no default means no acceleration |
-| N-gram spec decode | "N-gram draft" | GPU-side draft using N-gram lookups in the prompt; chunked-prefill-compatible |
-| Break-even alpha | "no-op alpha" | Alpha at which spec decode gives zero speedup; watch this at production concurrency |
-| Rejected-draft two-pass | "reroll cost" | Two target forwards when drafts reject; drives P99 tail |
+| Speculative decoding (Giải mã suy đoán) | “nháp cộng xác minh” | Đề xuất K token bằng một mô hình rẻ, xác minh cả K trong một lượt truyền xuôi đích |
+| Acceptance rate alpha (Tỷ lệ chấp nhận alpha) | “tỷ lệ chấp nhận suy đoán” | Tỷ lệ token nháp được đích chấp nhận; chỉ số duy nhất quan trọng |
+| Draft length K (Độ dài nháp K) | “k suy đoán” | Nháp đề xuất bao nhiêu token mỗi lượt truyền xuôi đích; điển hình 4-8 |
+| Verify overhead epsilon (Chi phí phụ xác minh epsilon) | “chi phí phụ suy đoán” | Chi phí thêm để xác minh và sinh lại so với một lượt truyền xuôi đích thuần; tăng theo lô |
+| EAGLE-3 | “EAGLE mới nhất” | Biến thể 2025-2026; huấn luyện đầu nháp trên nhiều lớp đích; alpha 0.6-0.8 trên trò chuyện tổng quát |
+| `speculative_config` | “cấu hình suy đoán vLLM” | Chủ động bật tường minh trong vLLM V1; không có mặc định nghĩa là không tăng tốc |
+| N-gram spec decode (Decode suy đoán N-gram) | “nháp N-gram” | Nháp phía GPU sử dụng tra cứu N-gram trong prompt; tương thích prefill chia khối |
+| Break-even alpha (Alpha hòa vốn) | “alpha không tác động” | Alpha mà tại đó decode suy đoán cho mức tăng tốc bằng không; theo dõi ở mức đồng thời sản xuất |
+| Rejected-draft two-pass (Hai lượt nháp bị từ chối) | “chi phí sinh lại” | Hai lượt truyền xuôi đích khi các bản nháp bị từ chối; thúc đẩy đuôi P99 |
 
 ## Further Reading
 
-- [vLLM — Speculative Decoding docs](https://docs.vllm.ai/en/latest/features/spec_decode/) — authoritative source on `speculative_config` and chunked-prefill compatibility in V1.
-- [vLLM Speculative Config API](https://docs.vllm.ai/en/latest/api/vllm/config/speculative/) — the exact field set.
-- [EAGLE paper (arXiv:2401.15077)](https://arxiv.org/abs/2401.15077) — original EAGLE draft-head formulation.
-- [EAGLE-2 paper (arXiv:2406.16858)](https://arxiv.org/abs/2406.16858) — adaptive drafts and trees.
-- [UC Berkeley EECS-2025-224](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2025/EECS-2025-224.html) — efficient LLM system with speculative decoding.
-- [BentoML — Speculative Decoding](https://bentoml.com/llm/inference-optimization/speculative-decoding) — production rollout checklist.
+- [vLLM — Speculative Decoding docs](https://docs.vllm.ai/en/latest/features/spec_decode/) — nguồn có thẩm quyền về `speculative_config` và tương thích prefill chia khối trong V1.
+- [vLLM Speculative Config API](https://docs.vllm.ai/en/latest/api/vllm/config/speculative/) — tập trường chính xác.
+- [EAGLE paper (arXiv:2401.15077)](https://arxiv.org/abs/2401.15077) — công thức đầu nháp EAGLE gốc.
+- [EAGLE-2 paper (arXiv:2406.16858)](https://arxiv.org/abs/2406.16858) — các bản nháp thích nghi và các cây.
+- [UC Berkeley EECS-2025-224](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2025/EECS-2025-224.html) — hệ thống LLM hiệu quả với giải mã suy đoán.
+- [BentoML — Speculative Decoding](https://bentoml.com/llm/inference-optimization/speculative-decoding) — danh sách kiểm tra triển khai sản xuất.

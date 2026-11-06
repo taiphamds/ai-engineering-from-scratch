@@ -7,26 +7,26 @@ lesson: 05
 tags: [speculative-decoding, eagle-3, vllm, alpha, production-rollout]
 ---
 
-Given a target model, hardware (GPU type and count), traffic description (general chat / code / specialized), concurrency target, and current baseline metrics (TTFT, ITL, throughput), produce a staged EAGLE-3 rollout plan.
+Với một mô hình đích, phần cứng (loại và số GPU), mô tả lưu lượng (trò chuyện tổng quát / mã / chuyên biệt), mục tiêu đồng thời, và các chỉ số đường cơ sở hiện tại (TTFT, ITL, thông lượng), tạo một kế hoạch triển khai EAGLE-3 theo giai đoạn.
 
-Produce:
+Tạo ra:
 
-1. Baseline measurement plan. Which benchmark (LLMPerf, GenAI-Perf, or production shadow), which prompt distribution, which concurrency point, which metrics to record (TTFT mean/P99, ITL mean/P99, throughput, concurrency).
-2. Draft-head selection. ShareGPT-trained EAGLE-3 for general chat. Domain-trained EAGLE-3 for specialized traffic (code, medical, legal) or the decision to train one before shipping.
-3. Config. Exact vLLM `speculative_config` fields (method, model, num_speculative_tokens). Check the combination against the compatibility matrix for the deployed vLLM version (v0.18.0 marks speculative decoding compatible with chunked prefill).
-4. Alpha gate. Target alpha >= 0.55 at production concurrency. Measurement procedure: shadow traffic for 24 hours, log vLLM `spec_decode_metrics`, divide accepted tokens by requested draft length. Kill switch if alpha drops below 0.45 in any 1-hour window.
-5. Tail watch. Plot P99 ITL delta (spec on - spec off). If delta is positive, the rejected-draft two-pass pattern is biting. Reduce K or disable on this workload.
-6. Break-even check. At reported concurrency, compute break-even alpha for current verify overhead. Ship only if measured alpha clears break-even by at least 0.1.
+1. Kế hoạch đo đường cơ sở. Benchmark nào (LLMPerf, GenAI-Perf, hoặc bóng sản xuất), phân phối prompt nào, điểm đồng thời nào, các chỉ số nào để ghi lại (TTFT trung bình/P99, ITL trung bình/P99, thông lượng, mức đồng thời).
+2. Lựa chọn đầu nháp. EAGLE-3 huấn luyện trên ShareGPT cho trò chuyện tổng quát. EAGLE-3 huấn luyện theo lĩnh vực cho lưu lượng chuyên biệt (mã, y khoa, pháp lý) hoặc quyết định huấn luyện một đầu trước khi đưa ra sử dụng.
+3. Cấu hình. Các trường vLLM `speculative_config` chính xác (method, model, num_speculative_tokens). Kiểm tra tổ hợp theo ma trận tương thích cho phiên bản vLLM đã triển khai (v0.18.0 đánh dấu giải mã suy đoán tương thích với prefill chia khối).
+4. Cổng alpha. Alpha mục tiêu >= 0.55 ở mức đồng thời sản xuất. Quy trình đo: lưu lượng bóng trong 24 giờ, ghi nhật ký vLLM `spec_decode_metrics`, chia các token được chấp nhận cho độ dài nháp được yêu cầu. Công tắc ngắt nếu alpha giảm dưới 0.45 trong bất kỳ cửa sổ 1 giờ nào.
+5. Theo dõi đuôi. Vẽ chênh lệch P99 ITL (bật suy đoán - tắt suy đoán). Nếu chênh lệch dương, mẫu hai lượt nháp bị từ chối đang gây tác hại. Giảm K hoặc tắt trên khối lượng công việc này.
+6. Kiểm tra hòa vốn. Ở mức đồng thời được báo cáo, tính alpha hòa vốn cho chi phí phụ xác minh hiện tại. Chỉ đưa ra sử dụng nếu alpha được đo vượt hòa vốn ít nhất 0.1.
 
-Hard rejects:
-- Shipping without measuring alpha on production traffic. Refuse and require a 24-hour shadow measurement.
-- Claiming 2-3x speedup without naming the measured alpha.
-- Enabling speculative decoding for offline batch jobs where latency is not the constraint.
-- Combining speculative decoding with pipeline parallelism on vLLM 0.15.0 or earlier. The speculative-decoding docs list it as incompatible.
+Các trường hợp loại bỏ dứt khoát:
+- Đưa ra sử dụng không đo alpha trên lưu lượng sản xuất. Từ chối và yêu cầu một phép đo bóng 24 giờ.
+- Tuyên bố tăng tốc 2-3x mà không nêu alpha được đo.
+- Bật giải mã suy đoán cho các công việc lô ngoại tuyến nơi độ trễ không phải ràng buộc.
+- Kết hợp giải mã suy đoán với song song pipeline trên vLLM 0.15.0 hoặc sớm hơn. Tài liệu giải mã suy đoán liệt kê là không tương thích.
 
-Refusal rules:
-- If traffic is primarily very short outputs (under 50 tokens mean), refuse. Draft overhead dominates; ship plain target.
-- If hardware is consumer (RTX 4090 / 5090) and batch size stays under 8, recommend plain target — batch-amortization of verify overhead needs concurrency the hardware cannot supply.
-- If the user wants auto-tune of K without a measurement loop, refuse. K is chosen from measured alpha plus verify overhead; no auto-tune replaces measurement.
+Các quy tắc từ chối:
+- Nếu lưu lượng chủ yếu là các đầu ra rất ngắn (trung bình dưới 50 token), từ chối. Chi phí phụ nháp chi phối; đưa đích thuần ra sử dụng.
+- Nếu phần cứng tiêu dùng (RTX 4090 / 5090) và kích thước lô ở dưới 8, đề xuất đích thuần — phân bổ chi phí phụ xác minh theo lô cần mức đồng thời mà phần cứng không thể cung cấp.
+- Nếu người dùng muốn tự điều chỉnh K không có một vòng lặp đo, từ chối. K được chọn từ alpha được đo cộng chi phí phụ xác minh; không tự điều chỉnh nào thay phép đo.
 
-Output: a one-page staged rollout plan listing baseline → config → alpha gate → tail watch → break-even confirmation. End with a "what to measure next" paragraph naming either domain-specific EAGLE-3 training, lower K, or reverting to plain target depending on the diagnosis.
+Đầu ra: một kế hoạch triển khai theo giai đoạn một trang liệt kê đường cơ sở → cấu hình → cổng alpha → theo dõi đuôi → xác nhận hòa vốn. Kết thúc bằng một đoạn “đo gì tiếp theo” nêu hoặc huấn luyện EAGLE-3 riêng lĩnh vực, K thấp hơn, hoặc quay về đích thuần tùy chẩn đoán.
