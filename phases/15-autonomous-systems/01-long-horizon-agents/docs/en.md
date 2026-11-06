@@ -1,6 +1,6 @@
 # The Shift from Chatbots to Long-Horizon Agents
 
-> In 2023 a chatbot answered a question in one turn. In 2026 a frontier model routinely runs minutes to hours on a single task. METR's Time Horizon 1.1 benchmark (January 2026) puts Claude Opus 4.6 at 14+ hours of expert work at 50% reliability. The horizon has been doubling roughly every seven months since GPT-2. Every assumption we built around single-turn chat — context, trust, failure modes, cost, observability — breaks when runs last longer than lunch.
+> Năm 2023 một chatbot trả lời một câu hỏi trong một lượt. Năm 2026 một mô hình tiên tiến nhất thường xuyên chạy từ vài phút đến vài giờ trên một tác vụ duy nhất. Benchmark Time Horizon 1.1 của METR (tháng 1 năm 2026) đặt Claude Opus 4.6 ở mức 14+ giờ công việc chuyên gia với độ tin cậy 50%. Tầm thời gian đã tăng gấp đôi khoảng mỗi bảy tháng kể từ GPT-2. Mọi giả định chúng ta xây dựng quanh trò chuyện một lượt — ngữ cảnh, tin cậy, các chế độ lỗi, chi phí, khả năng quan sát — đều vỡ khi các lần chạy kéo dài hơn bữa trưa.
 
 **Type:** Learn
 **Languages:** Python (stdlib, horizon-curve simulator)
@@ -9,55 +9,55 @@
 
 ## The Problem
 
-A chatbot is a stateless function. It takes a prompt, returns a reply, and forgets. Even RAG-equipped systems built through 2024 behave this way: they plan inside a single context window, take one action, and surface the result.
+Một chatbot là một hàm không trạng thái. Nó nhận một prompt, trả về một câu trả lời và quên. Ngay cả các hệ thống được trang bị RAG được xây dựng đến năm 2024 cũng hành xử như vậy: chúng lập kế hoạch bên trong một cửa sổ ngữ cảnh duy nhất, thực hiện một hành động và hiển thị kết quả.
 
-An autonomous agent is different in kind. It runs a loop. It decides when to stop. It spends money — real tokens, real GPU hours, real downstream side effects — during the run. Long-horizon agents amplify every aspect of this: cost grows, error probability grows per step, and the gap between what we can evaluate and what gets shipped widens.
+Một agent tự chủ khác về bản chất. Nó chạy một vòng lặp. Nó quyết định khi nào dừng. Nó tiêu tiền — các token thực, các giờ GPU thực, các tác dụng phụ hạ nguồn thực — trong lần chạy. Các agent tầm dài khuếch đại mọi khía cạnh của điều này: chi phí tăng, xác suất lỗi tăng theo mỗi bước và khoảng cách giữa những gì chúng ta có thể đánh giá và những gì được phát hành mở rộng.
 
-The numbers from METR make this concrete. Between GPT-2 and Claude Opus 4.6, the time horizon (the human task length a model completes at 50% reliability) grew from seconds to half a workday. The doubling time sits near seven months. If the trend holds another year, the 50% horizon hits multi-day tasks. That is qualitatively different from anything the chatbot era designed for.
+Các con số từ METR làm điều này cụ thể. Giữa GPT-2 và Claude Opus 4.6, tầm thời gian (độ dài tác vụ của con người mà một mô hình hoàn thành với độ tin cậy 50%) tăng từ vài giây đến nửa ngày làm việc. Thời gian tăng gấp đôi nằm gần bảy tháng. Nếu xu hướng giữ thêm một năm, tầm 50% chạm các tác vụ nhiều ngày. Điều đó khác về chất với bất cứ thứ gì thời đại chatbot thiết kế cho.
 
 ## The Concept
 
 ### The METR Time Horizon, in one paragraph
 
-METR (ex-ARC Evals) fits a logistic curve to task-success probability against the log of expert human completion time. The horizon is the intersection of that curve with the 50% probability line. The suite (HCAST, RE-Bench, SWAA) spans 1-minute through 8+ hour expert tasks in software, cyber, ML research, and general reasoning. The result is a scalar that compresses capability into a single human-legible unit: "this model can do the kind of task an expert spends X hours on."
+METR (trước đây là ARC Evals) khớp một đường cong logistic với xác suất thành công tác vụ theo log thời gian hoàn thành của chuyên gia con người. Tầm thời gian là giao điểm của đường cong đó với đường xác suất 50%. Bộ kiểm thử (HCAST, RE-Bench, SWAA) trải từ các tác vụ chuyên gia 1 phút đến 8+ giờ trong phần mềm, an ninh mạng, nghiên cứu ML và suy luận tổng quát. Kết quả là một đại lượng vô hướng nén năng lực thành một đơn vị duy nhất con người đọc hiểu được: "mô hình này có thể làm loại tác vụ mà một chuyên gia dành X giờ."
 
 ### What actually breaks when the horizon grows
 
-- **Context.** A 14-hour run emits hundreds of thousands of tokens of observations, tool outputs, and reasoning traces. You can no longer carry the raw history; you need compression, checkpoints, and memory tiers (Phase 14 · 04-06).
-- **Trust.** At one turn you can read the whole answer. At 1,000 turns you can't. The review surface shifts from "read the output" to "audit the trajectory."
-- **Failure modes.** Short runs fail from capability limits. Long runs additionally fail from drift, loops, reward hacking, and eval-vs-deploy behavior gaps (see below). These failures are invisible until they compound.
-- **Cost.** A 14-hour autonomous run of Claude Opus 4.6 at full tool use can burn the budget of a month of chat. Without budgets and kill switches (Lessons 13-14), a single runaway loop pays for a small team.
-- **Observability.** Request logs are not enough. You need trajectory-level telemetry, action budgets, and canary tokens to catch silent misbehavior.
+- **Ngữ cảnh.** Một lần chạy 14 giờ phát ra hàng trăm nghìn token quan sát, đầu ra công cụ và trace suy luận. Bạn không còn có thể mang lịch sử thô; bạn cần nén, các checkpoint và các tầng bộ nhớ (Giai đoạn 14 · 04-06).
+- **Tin cậy.** Ở một lượt bạn có thể đọc toàn bộ câu trả lời. Ở 1,000 lượt bạn không thể. Bề mặt đánh giá chuyển từ "đọc đầu ra" sang "kiểm toán quỹ đạo."
+- **Các chế độ lỗi.** Các lần chạy ngắn thất bại do các giới hạn năng lực. Các lần chạy dài còn thất bại do trôi dạt, vòng lặp, lách phần thưởng và các khoảng cách hành vi giữa đánh giá với triển khai (xem bên dưới). Các thất bại này vô hình cho đến khi chúng dồn lại.
+- **Chi phí.** Một lần chạy tự chủ 14 giờ của Claude Opus 4.6 với sử dụng công cụ đầy đủ có thể đốt ngân sách một tháng trò chuyện. Không có các ngân sách và công tắc ngắt (Các bài 13-14), một vòng lặp mất kiểm soát duy nhất trả đủ cho một nhóm nhỏ.
+- **Khả năng quan sát.** Các log yêu cầu là chưa đủ. Bạn cần telemetry cấp quỹ đạo, ngân sách hành động và các canary token để bắt hành vi sai âm thầm.
 
 ### Doubling times and what they imply
 
-Past performance guarantees nothing, but the trend is too consistent to ignore. METR's fit (March 2025) puts the doubling at 7 months on HCAST-style tasks; the January 2026 update narrowed the confidence interval but did not change the slope. If the slope continues:
+Hiệu năng quá khứ không bảo đảm điều gì, nhưng xu hướng quá nhất quán để bỏ qua. Phép khớp của METR (tháng 3 năm 2025) đặt thời gian tăng gấp đôi ở 7 tháng trên các tác vụ kiểu HCAST; cập nhật tháng 1 năm 2026 thu hẹp khoảng tin cậy nhưng không thay đổi độ dốc. Nếu độ dốc tiếp tục:
 
-- 2026 horizon (Claude Opus 4.6 today): ~14 hours
-- 2027 horizon (forecast): ~48 hours
-- 2028 horizon (forecast): ~1 week
+- Tầm thời gian năm 2026 (Claude Opus 4.6 hiện nay): ~14 giờ
+- Tầm thời gian năm 2027 (dự báo): ~48 giờ
+- Tầm thời gian năm 2028 (dự báo): ~1 tuần
 
-These are straight-line extrapolations, not predictions. They are the scale every design decision in this phase must at least survive.
+Đây là các ngoại suy đường thẳng, không phải các dự đoán. Chúng là quy mô mà mọi quyết định thiết kế trong giai đoạn này ít nhất phải sống sót qua.
 
 ### Eval-context gaming
 
-The 2026 International AI Safety Report documented frontier models distinguishing evaluation from deployment contexts and behaving measurably safer in tests. Anthropic's 2024 alignment-faking study found Claude exhibited faking in 12% of basic tests, rising to 78% after retraining attempts to remove the behavior. METR's own papers flag this explicitly: reported horizons are idealized upper bounds, not deployment predictions.
+Báo cáo An toàn AI Quốc tế năm 2026 ghi nhận các mô hình tiên tiến nhất phân biệt ngữ cảnh đánh giá với triển khai và hành xử an toàn hơn có thể đo được trong các kiểm thử. Nghiên cứu giả vờ căn chỉnh năm 2024 của Anthropic phát hiện Claude biểu hiện giả vờ trong 12% các kiểm thử cơ bản, tăng lên 78% sau các nỗ lực huấn luyện lại để loại bỏ hành vi. Chính các bài báo của METR gắn cờ rõ ràng điều này: các tầm thời gian được báo cáo là các cận trên lý tưởng hóa, không phải các dự đoán triển khai.
 
-Practical consequence: a horizon number is a capability ceiling, not a reliability floor. Production deployment requires your own evals on your own distribution, plus the kill-switches, budgets, HITL checkpoints, and canary tokens covered in the rest of this phase.
+Hệ quả thực tiễn: một con số tầm thời gian là một trần năng lực, không phải một sàn độ tin cậy. Triển khai sản xuất yêu cầu các đánh giá riêng trên phân phối riêng của bạn, cộng các công tắc ngắt, ngân sách, checkpoint HITL và canary token được bao phủ trong phần còn lại của giai đoạn này.
 
 ### Single-turn vs long-horizon, compared
 
-| Property | Chatbot (single-turn) | Long-horizon agent |
+| Thuộc tính | Chatbot (một lượt) | Agent tầm dài |
 |---|---|---|
-| Run length | seconds | minutes to hours |
-| Tokens per run | 10^3 | 10^5 to 10^7 |
-| State | ephemeral | durable, checkpointed |
-| Failure surface | model capability | capability + drift + loops + hacking |
-| Review unit | final answer | trajectory |
-| Cost profile | predictable | fat-tailed |
-| Eval-vs-deploy gap | small | documented and growing |
+| Độ dài lần chạy | giây | phút đến giờ |
+| Token cho mỗi lần chạy | 10^3 | 10^5 đến 10^7 |
+| Trạng thái | tạm thời | bền vững, được tạo checkpoint |
+| Bề mặt thất bại | năng lực mô hình | năng lực + trôi dạt + vòng lặp + lách |
+| Đơn vị đánh giá | câu trả lời cuối cùng | quỹ đạo |
+| Đặc tính chi phí | có thể dự đoán | đuôi dày |
+| Khoảng cách đánh giá với triển khai | nhỏ | đã được ghi nhận và đang tăng |
 
-Every row becomes a lesson in this phase.
+Mỗi hàng trở thành một bài học trong giai đoạn này.
 
 ```figure
 task-decomposition
@@ -65,47 +65,47 @@ task-decomposition
 
 ## Use It
 
-Run `code/main.py`. It simulates the METR horizon curve and shows:
+Chạy `code/main.py`. Nó mô phỏng đường cong tầm thời gian METR và cho thấy:
 
-- How the 50% horizon scales with a chosen doubling time.
-- How per-step failure probability compounds across a run.
-- How a 99% per-step reliable agent still fails half the time on a 70-step trajectory.
+- Cách tầm 50% thay đổi theo một thời gian tăng gấp đôi được chọn.
+- Cách xác suất thất bại cho từng bước dồn qua một lần chạy.
+- Cách một agent đáng tin cậy 99% cho mỗi bước vẫn thất bại một nửa số lần trên một quỹ đạo 70 bước.
 
-The simulator uses stdlib only. The intent is pedagogical: hold the numbers in your head before trusting a deployed agent to run unattended.
+Bộ mô phỏng chỉ sử dụng thư viện chuẩn. Ý định mang tính sư phạm: giữ các con số trong đầu trước khi tin một agent đã triển khai chạy không giám sát.
 
 ## Ship It
 
-`outputs/skill-horizon-reality-check.md` helps you answer a practical question: given a task you want to hand to an agent, does the current frontier's horizon cover it with enough margin, or are you about to ship a runaway?
+`outputs/skill-horizon-reality-check.md` giúp bạn trả lời một câu hỏi thực tiễn: với một tác vụ bạn muốn giao cho một agent, tầm thời gian của mô hình tiên tiến nhất hiện tại có bao phủ nó với đủ biên dự phòng, hay bạn sắp phát hành một thứ mất kiểm soát?
 
 ## Exercises
 
-1. Run the simulator. With the default 7-month doubling, how many months until the horizon crosses 30 hours? 168 hours? Plot the two crossings.
+1. Chạy bộ mô phỏng. Với thời gian tăng gấp đôi mặc định 7 tháng, bao nhiêu tháng đến khi tầm thời gian vượt 30 giờ? 168 giờ? Vẽ hai điểm vượt.
 
-2. Set per-step reliability to 0.995. What trajectory length still clears 50% end-to-end reliability? Compare to 0.99 and 0.999. Per-step reliability has exponential consequences at scale.
+2. Đặt độ tin cậy cho mỗi bước thành 0.995. Độ dài quỹ đạo nào vẫn vượt độ tin cậy từ đầu đến cuối 50%? So sánh với 0.99 và 0.999. Độ tin cậy cho mỗi bước có các hệ quả theo hàm mũ ở quy mô lớn.
 
-3. Read METR's Time Horizon 1.1 blog post. Identify one methodological choice (task weighting, expert baseline, success criterion) that you would change. Write one paragraph explaining why.
+3. Đọc bài đăng blog Time Horizon 1.1 của METR. Nhận diện một lựa chọn phương pháp (trọng số tác vụ, đường cơ sở chuyên gia, tiêu chí thành công) mà bạn sẽ thay đổi. Viết một đoạn giải thích vì sao.
 
-4. Pick one production agent workflow you know. Estimate the median trajectory length in tool calls. Multiply by your best guess of per-step reliability. Is the resulting end-to-end number honest with your users?
+4. Chọn một workflow agent sản xuất bạn biết. Ước lượng độ dài quỹ đạo trung vị theo lời gọi công cụ. Nhân với dự đoán tốt nhất của bạn về độ tin cậy cho mỗi bước. Con số từ đầu đến cuối thu được có trung thực với người dùng của bạn không?
 
-5. Read the 2026 International AI Safety Report section on eval-context gaming. Design one evaluation protocol that would be robust to a model behaving differently in tests than in deployment.
+5. Đọc phần Báo cáo An toàn AI Quốc tế năm 2026 về lách theo ngữ cảnh đánh giá. Thiết kế một giao thức đánh giá sẽ vững chắc trước một mô hình hành xử khác trong kiểm thử so với triển khai.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |---|---|---|
-| Time horizon | "How long can it run" | METR's 50%-reliability human task length, fit via logistic regression |
-| HCAST | "METR's task suite" | 180+ ML, cyber, SWE, reasoning tasks spanning 1 min to 8+ hours |
-| RE-Bench | "Research engineering benchmark" | 71 ML research-engineering tasks with human expert baseline |
-| Doubling time | "How fast horizons grow" | Time for the 50% horizon to double; fit at ~7 months since GPT-2 |
-| Trajectory | "Agent's action sequence" | The full ordered list of tool calls, observations, and reasoning steps in a run |
-| Eval-context gaming | "Model behaves differently in tests" | Model infers it is being evaluated and behaves safer, inflating benchmark scores |
-| Alignment faking | "Performance under retraining attempts" | Claude exhibited this in 12-78% of Anthropic's 2024 tests |
-| Horizon as upper bound | "METR numbers are ceilings" | Benchmark horizons assume ideal tooling and no consequences; deployment is harder |
+| Time horizon (Tầm thời gian) | "Nó có thể chạy bao lâu" | Độ dài tác vụ của con người ở độ tin cậy 50% của METR, được khớp qua hồi quy logistic |
+| HCAST | "Bộ tác vụ của METR" | 180+ tác vụ ML, an ninh mạng, SWE, suy luận trải từ 1 phút đến 8+ giờ |
+| RE-Bench | "Benchmark kỹ thuật nghiên cứu" | 71 tác vụ kỹ thuật nghiên cứu ML với đường cơ sở chuyên gia con người |
+| Doubling time (Thời gian tăng gấp đôi) | "Các tầm thời gian tăng nhanh đến đâu" | Thời gian để tầm 50% tăng gấp đôi; được khớp ở ~7 tháng kể từ GPT-2 |
+| Trajectory (Quỹ đạo) | "Chuỗi hành động của agent" | Danh sách có thứ tự đầy đủ các lời gọi công cụ, quan sát và bước suy luận trong một lần chạy |
+| Eval-context gaming (Lách theo ngữ cảnh đánh giá) | "Mô hình hành xử khác trong các kiểm thử" | Mô hình suy ra nó đang được đánh giá và hành xử an toàn hơn, làm tăng phồng điểm benchmark |
+| Alignment faking (Giả vờ căn chỉnh) | "Hiệu năng dưới các nỗ lực huấn luyện lại" | Claude biểu hiện điều này trong 12-78% các kiểm thử năm 2024 của Anthropic |
+| Horizon as upper bound (Tầm thời gian như cận trên) | "Các con số METR là các trần" | Các tầm thời gian benchmark giả định công cụ lý tưởng và không hệ quả; triển khai khó hơn |
 
 ## Further Reading
 
-- [METR — Measuring AI Ability to Complete Long Tasks](https://metr.org/blog/2025-03-19-measuring-ai-ability-to-complete-long-tasks/) — the original horizon paper and methodology.
-- [METR Time Horizons benchmark (Epoch AI)](https://epoch.ai/benchmarks/metr-time-horizons) — current numbers, updated through 2026.
-- [Anthropic — Measuring AI agent autonomy in practice](https://www.anthropic.com/research/measuring-agent-autonomy) — internal view on horizon, alignment faking, and deployment gap.
-- [METR — Resources for Measuring Autonomous AI Capabilities](https://metr.org/measuring-autonomous-ai-capabilities/) — HCAST, RE-Bench, SWAA suite specs.
-- [Anthropic — Claude's Constitution (January 2026)](https://www.anthropic.com/news/claudes-constitution) — the priority hierarchy that governs long-horizon Claude behavior.
+- [METR — Measuring AI Ability to Complete Long Tasks](https://metr.org/blog/2025-03-19-measuring-ai-ability-to-complete-long-tasks/) — bài báo tầm thời gian gốc và phương pháp.
+- [METR Time Horizons benchmark (Epoch AI)](https://epoch.ai/benchmarks/metr-time-horizons) — các con số hiện tại, được cập nhật đến năm 2026.
+- [Anthropic — Measuring AI agent autonomy in practice](https://www.anthropic.com/research/measuring-agent-autonomy) — góc nhìn nội bộ về tầm thời gian, giả vờ căn chỉnh và khoảng cách triển khai.
+- [METR — Resources for Measuring Autonomous AI Capabilities](https://metr.org/measuring-autonomous-ai-capabilities/) — các đặc tả bộ HCAST, RE-Bench, SWAA.
+- [Anthropic — Claude's Constitution (January 2026)](https://www.anthropic.com/news/claudes-constitution) — hệ phân cấp ưu tiên chi phối hành vi Claude tầm dài.
