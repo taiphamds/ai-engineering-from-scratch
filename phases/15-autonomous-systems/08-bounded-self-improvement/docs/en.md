@@ -1,6 +1,6 @@
 # Bounded Self-Improvement Designs
 
-> Research has converged on four primitives for bounding a self-improvement loop. Formal invariants that must hold across every edit. Alignment anchors that cannot be modified. Multi-objective constraints where every dimension (safety, fairness, robustness) must hold, not just performance. Regression detection that pauses the loop when historical metrics suggest capability loss. None of them is a proof of safety — information-theoretic results (Kolmogorov complexity, Lob's theorem) bound what any system can prove about its own successors. They are mitigations that raise the cost of silent failure.
+> Nghiên cứu đã hội tụ vào bốn thành phần nguyên thủy để giới hạn một vòng lặp tự cải thiện. Các bất biến hình thức phải được giữ qua mọi chỉnh sửa. Các mỏ neo căn chỉnh không thể sửa đổi. Các ràng buộc đa mục tiêu nơi mọi chiều (an toàn, công bằng, tính vững chắc) phải được giữ, không chỉ hiệu năng. Phát hiện hồi quy tạm dừng vòng lặp khi các thước đo lịch sử gợi ý mất năng lực. Không thành phần nào là một chứng minh an toàn — các kết quả lý thuyết thông tin (độ phức tạp Kolmogorov, định lý Lob) giới hạn điều bất kỳ hệ thống nào có thể chứng minh về các hệ thống kế nhiệm riêng. Chúng là các biện pháp giảm thiểu tăng chi phí thất bại âm thầm.
 
 **Type:** Learn
 **Languages:** Python (stdlib, bounded-loop with invariant check)
@@ -9,72 +9,72 @@
 
 ## The Problem
 
-Lesson 7's race simulator showed that small rate differences compound into large gaps. Lesson 4's DGM case study showed that loops can actively game their own evaluators. Both results point to the same engineering question: what constraints can you put on a self-improvement loop such that the constraints cannot be silently weakened by the loop itself?
+Bộ mô phỏng cuộc đua của Bài 7 cho thấy các khác biệt tốc độ nhỏ tích lũy thành các khoảng cách lớn. Nghiên cứu trường hợp DGM của Bài 4 cho thấy các vòng lặp có thể chủ động lách các bộ đánh giá riêng. Cả hai kết quả chỉ đến cùng câu hỏi kỹ thuật: bạn có thể đặt những ràng buộc nào lên một vòng lặp tự cải thiện sao cho các ràng buộc không thể bị chính vòng lặp âm thầm làm yếu?
 
-The ICLR 2026 RSI Workshop summary (openreview.net/pdf?id=OsPQ6zTQXV) identifies four such primitives. Anthropic's RSP v3.0 (Lesson 19) and DeepMind's FSF v3 (Lesson 20) both reference them in capability thresholds. The Meta HyperAgents work and community frameworks like SAHOO (March 2026) implement subsets in production.
+Bản tóm tắt Workshop RSI ICLR 2026 (openreview.net/pdf?id=OsPQ6zTQXV) nhận diện bốn thành phần nguyên thủy như vậy. RSP v3.0 của Anthropic (Bài 19) và FSF v3 của DeepMind (Bài 20) đều tham chiếu chúng trong các ngưỡng năng lực. Công trình Meta HyperAgents và các framework cộng đồng như SAHOO (tháng 3 năm 2026) triển khai các tập con trong sản xuất.
 
-The honest framing: these are mitigations. Information-theoretic results bound what any system can prove about its own successor, and no current design closes the problem formally. A well-bounded loop is safer than an unbounded one, not safe in absolute terms.
+Cách định khung trung thực: đây là các biện pháp giảm thiểu. Các kết quả lý thuyết thông tin giới hạn điều bất kỳ hệ thống nào có thể chứng minh về hệ thống kế nhiệm riêng, và không thiết kế hiện tại nào khép vấn đề về mặt hình thức. Một vòng lặp được giới hạn tốt an toàn hơn một vòng lặp không giới hạn, không phải an toàn theo nghĩa tuyệt đối.
 
 ## The Concept
 
 ### Primitive 1: formal invariants
 
-An invariant is a property that must hold before and after every self-modification. Examples:
+Một bất biến là một thuộc tính phải đúng trước và sau mọi tự sửa đổi. Các ví dụ:
 
-- Output distribution is conditioned on a fixed constitution header (Lesson 17).
-- No tool call goes to an unauthorized endpoint.
-- Memory writes go through a logged, signed path.
-- The evaluator's module hash matches the approved version.
+- Phân phối đầu ra được điều kiện hóa theo một header hiến pháp cố định (Bài 17).
+- Không lời gọi công cụ nào đi đến một endpoint không được cấp quyền.
+- Các lần ghi bộ nhớ đi qua một đường được ghi log, có chữ ký.
+- Hash mô-đun bộ đánh giá khớp phiên bản được phê duyệt.
 
-Invariants are checked by external code the loop cannot edit. If a proposed modification violates an invariant, it is rejected. This catches the DGM-style evaluator-tampering mode (Lesson 4).
+Các bất biến được mã bên ngoài mà vòng lặp không thể chỉnh sửa kiểm tra. Nếu một sửa đổi được đề xuất vi phạm một bất biến, nó bị từ chối. Điều này bắt chế độ can thiệp bộ đánh giá kiểu DGM (Bài 4).
 
-The hard part is choosing invariants that are necessary for safety and computable in reasonable time. Over-specifying stalls progress; under-specifying lets the loop walk past important properties.
+Phần khó là chọn các bất biến cần thiết cho an toàn và có thể tính trong thời gian hợp lý. Đặc tả quá mức làm đình trệ tiến bộ; đặc tả thiếu để vòng lặp đi qua các thuộc tính quan trọng.
 
 ### Primitive 2: alignment anchors
 
-An alignment anchor is an immutable representation of the loop's core objective, pinned outside the loop's edit surface. Examples:
+Một mỏ neo căn chỉnh là một biểu diễn bất biến của mục tiêu cốt lõi vòng lặp, được ghim ngoài bề mặt chỉnh sửa vòng lặp. Các ví dụ:
 
-- A constitutional text (Lesson 17) that is loaded from a read-only location on every invocation.
-- An evaluator in a separate repository with independent access control.
-- A tool-permission manifest signed by a human and re-verified each cycle.
+- Một văn bản hiến pháp (Bài 17) được tải từ một vị trí chỉ đọc trên mỗi lần gọi.
+- Một bộ đánh giá trong một kho mã riêng với kiểm soát truy cập độc lập.
+- Một bảng kê quyền công cụ được một con người ký và xác minh lại mỗi chu kỳ.
 
-The anchor's role is to prevent objective drift. The loop may improve how it pursues the objective, but cannot edit what the objective is.
+Vai trò của mỏ neo là ngăn trôi dạt mục tiêu. Vòng lặp có thể cải thiện cách nó theo đuổi mục tiêu, nhưng không thể chỉnh sửa mục tiêu là gì.
 
-The subtle failure mode: an anchor the loop cannot edit can still be reinterpreted by a loop that drifts in how it reads the anchor. Constitutional AI (Lesson 17) is explicitly reason-based to handle novel situations; that reasoning layer is where interpretation drift lives. Anchors are necessary, not sufficient.
+Chế độ lỗi tinh tế: một mỏ neo mà vòng lặp không thể chỉnh sửa vẫn có thể được một vòng lặp diễn giải lại khi cách nó đọc mỏ neo trôi dạt. Constitutional AI (Bài 17) rõ ràng dựa trên lý do để xử lý các tình huống mới; lớp suy luận đó là nơi trôi dạt diễn giải tồn tại. Các mỏ neo là cần thiết, chưa đủ.
 
 ### Primitive 3: multi-objective constraints
 
-A loop that optimizes a single scalar score will find shortcuts. A loop that must simultaneously satisfy multiple hard constraints has fewer shortcuts available. Typical axes:
+Một vòng lặp tối ưu một điểm vô hướng duy nhất sẽ tìm các lối tắt. Một vòng lặp phải đồng thời thỏa nhiều ràng buộc cứng có ít lối tắt khả dụng hơn. Các trục điển hình:
 
-- Performance (task-level benchmark)
-- Safety (red-team evaluations, refusal rate on known-bad)
-- Fairness (disparate-impact bounds on sensitive subgroups)
-- Robustness (OOD test sets, adversarial input handling)
+- Hiệu năng (benchmark cấp tác vụ)
+- An toàn (các đánh giá red-team, tỷ lệ từ chối trên các trường hợp xấu đã biết)
+- Công bằng (các cận tác động khác biệt trên các nhóm con nhạy cảm)
+- Tính vững chắc (các tập kiểm thử OOD, xử lý đầu vào đối kháng)
 
-A modification is accepted only if every constraint holds. Lesson 13's cost governor stacks this with financial constraints. Lesson 18's Llama Guard plugs in as a safety axis.
+Một sửa đổi chỉ được chấp nhận nếu mọi ràng buộc được giữ. Bộ điều tiết chi phí của Bài 13 xếp chồng điều này với các ràng buộc tài chính. Llama Guard của Bài 18 cắm vào như một trục an toàn.
 
 ### Primitive 4: regression detection
 
-Each cycle's scores are compared against historical distributions. A drop beyond configured tolerance pauses the loop. This catches silent capability loss that would otherwise be absorbed into the running average as the loop "improved past" it.
+Các điểm mỗi chu kỳ được so sánh với các phân phối lịch sử. Một đợt giảm vượt dung sai được cấu hình tạm dừng vòng lặp. Điều này bắt mất năng lực âm thầm nếu không sẽ được hấp thụ vào trung bình chạy khi vòng lặp "cải thiện vượt qua" nó.
 
-A practical implementation: store the last N cycles' per-task scores. Each new cycle computes a per-task delta. If any delta drops below a threshold, the cycle is rejected and a human reviews.
+Một triển khai thực tiễn: lưu các điểm cho từng tác vụ của N chu kỳ cuối. Mỗi chu kỳ mới tính một chênh lệch cho từng tác vụ. Nếu bất kỳ chênh lệch nào giảm dưới một ngưỡng, chu kỳ bị từ chối và một con người đánh giá.
 
 ### Information-theoretic limits
 
-Kolmogorov complexity and Lob's theorem set upper bounds on what a system can prove about itself. Schmidhuber's formal Godel Machine (Lesson 4) aimed for the highest such bound; nobody has completed a non-trivial proof. Lob's result says: if a system provably believes "I will do X if I prove I should do X," it will do X without proving it should, a well-known self-reference failure.
+Độ phức tạp Kolmogorov và định lý Lob đặt các cận trên cho điều một hệ thống có thể chứng minh về chính nó. Godel Machine hình thức của Schmidhuber (Bài 4) nhắm tới cận cao nhất như vậy; chưa ai hoàn thành một chứng minh không tầm thường. Kết quả Lob nói: nếu một hệ thống có thể chứng minh rằng nó tin "tôi sẽ làm X nếu tôi chứng minh tôi nên làm X," nó sẽ làm X mà không chứng minh nó nên làm, một thất bại tự tham chiếu nổi tiếng.
 
-The implication for our primitives: they cannot close the safety problem. They make silent failure more expensive. A malicious or drifted loop that would quietly bypass a missing check must now actively undermine an explicit one, which is a more detectable signature.
+Hệ quả cho các thành phần nguyên thủy của chúng ta: chúng không thể khép vấn đề an toàn. Chúng làm thất bại âm thầm đắt hơn. Một vòng lặp độc hại hoặc trôi dạt lẽ ra âm thầm vượt một kiểm tra bị thiếu giờ phải chủ động phá hoại một kiểm tra tường minh, là một dấu hiệu dễ phát hiện hơn.
 
 ### A worked example
 
-Suppose an agent proposes an edit. The gating stack:
+Giả sử một agent đề xuất một chỉnh sửa. Stack cổng kiểm soát:
 
-1. Invariant checks: module hashes, tool-permission manifest, constitutional header.
-2. Anchor check: objective statement matches approved version (byte-wise or semantically).
-3. Multi-objective evaluation: performance, safety, fairness, robustness axes.
-4. Regression detection: no axis drops more than tolerance.
+1. Các kiểm tra bất biến: hash mô-đun, bảng kê quyền công cụ, header hiến pháp.
+2. Kiểm tra mỏ neo: phát biểu mục tiêu khớp phiên bản được phê duyệt (theo byte hoặc theo ngữ nghĩa).
+3. Đánh giá đa mục tiêu: các trục hiệu năng, an toàn, công bằng, tính vững chắc.
+4. Phát hiện hồi quy: không trục nào giảm hơn dung sai.
 
-All four must pass for the edit to land. Any single failure pauses the loop.
+Cả bốn phải đạt để chỉnh sửa được đưa vào. Bất kỳ thất bại đơn lẻ nào tạm dừng vòng lặp.
 
 ```figure
 bounded-gates
@@ -82,41 +82,41 @@ bounded-gates
 
 ## Use It
 
-`code/main.py` runs a bounded self-improvement loop on the DGM-style toy from Lesson 4, but with the four primitives layered on top. Each primitive can be enabled or disabled individually. The demonstration is that each primitive catches a specific failure class, and that removing any one of them lets that failure class through.
+`code/main.py` chạy một vòng lặp tự cải thiện có giới hạn trên bản mô phỏng kiểu DGM từ Bài 4, nhưng với bốn thành phần nguyên thủy được xếp lớp lên trên. Mỗi thành phần có thể bật hoặc tắt riêng. Minh họa là mỗi thành phần bắt một lớp thất bại cụ thể, và loại bỏ bất kỳ thành phần nào để lớp thất bại đó lọt qua.
 
 ## Ship It
 
-`outputs/skill-bounded-loop-review.md` audits a proposed bounded loop and scores which of the four primitives it actually implements versus claims to.
+`outputs/skill-bounded-loop-review.md` kiểm toán một vòng lặp có giới hạn được đề xuất và chấm điểm thành phần nào trong bốn thành phần nguyên thủy nó thực sự triển khai so với tuyên bố.
 
 ## Exercises
 
-1. Run `code/main.py` with all primitives enabled. Confirm the loop still improves on the primary metric without letting the hack win.
+1. Chạy `code/main.py` với mọi thành phần nguyên thủy được bật. Xác nhận vòng lặp vẫn cải thiện trên thước đo chính mà không để cách lách thắng.
 
-2. Disable regression detection. Construct an input where this leads to silent capability loss being accepted.
+2. Tắt phát hiện hồi quy. Xây một đầu vào nơi điều này dẫn đến việc mất năng lực âm thầm được chấp nhận.
 
-3. Disable the multi-objective constraint. Show the loop converges on the performance axis while a safety axis drops.
+3. Tắt ràng buộc đa mục tiêu. Cho thấy vòng lặp hội tụ trên trục hiệu năng trong khi một trục an toàn giảm.
 
-4. Design an alignment anchor for a coding agent. What text, stored where, checked how?
+4. Thiết kế một mỏ neo căn chỉnh cho một agent lập trình. Văn bản gì, được lưu ở đâu, được kiểm tra thế nào?
 
-5. Read the ICLR 2026 RSI Workshop summary. Pick one of the four primitives and propose a concrete improvement to the current state of the art.
+5. Đọc bản tóm tắt Workshop RSI ICLR 2026. Chọn một trong bốn thành phần nguyên thủy và đề xuất một cải thiện cụ thể cho mức tốt nhất hiện tại.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |---|---|---|
-| Invariant | "Always-true property" | A property checked by external code before and after every edit |
-| Alignment anchor | "Pinned objective" | Immutable core-goal representation outside the loop's edit surface |
-| Multi-objective constraint | "All axes must hold" | Performance, safety, fairness, robustness — all required |
-| Regression detection | "Pause on drop" | Pause the loop when historical metric deltas suggest capability loss |
-| Kolmogorov bound | "Information-theoretic limit" | Limits what a system can prove about its own successor |
-| Lob's theorem | "Self-reference trap" | System can act on "I should" without proving it should |
-| Gate stack | "Layered check" | Multiple primitives combined; any failure rejects the edit |
-| Bounded improvement | "Mitigation, not proof" | Raises silent-failure cost; does not close the safety problem |
+| Invariant (Bất biến) | "Thuộc tính luôn đúng" | Một thuộc tính được mã bên ngoài kiểm tra trước và sau mọi chỉnh sửa |
+| Alignment anchor (Mỏ neo căn chỉnh) | "Mục tiêu được ghim" | Biểu diễn mục tiêu cốt lõi bất biến ngoài bề mặt chỉnh sửa vòng lặp |
+| Multi-objective constraint (Ràng buộc đa mục tiêu) | "Mọi trục phải được giữ" | Hiệu năng, an toàn, công bằng, tính vững chắc — tất cả đều bắt buộc |
+| Regression detection (Phát hiện hồi quy) | "Tạm dừng khi giảm" | Tạm dừng vòng lặp khi các chênh lệch thước đo lịch sử gợi ý mất năng lực |
+| Kolmogorov bound (Cận Kolmogorov) | "Giới hạn lý thuyết thông tin" | Giới hạn điều một hệ thống có thể chứng minh về hệ thống kế nhiệm riêng |
+| Lob's theorem (Định lý Lob) | "Bẫy tự tham chiếu" | Hệ thống có thể hành động theo "tôi nên" mà không chứng minh nó nên |
+| Gate stack (Stack cổng kiểm soát) | "Kiểm tra nhiều lớp" | Nhiều thành phần nguyên thủy kết hợp; bất kỳ thất bại nào từ chối chỉnh sửa |
+| Bounded improvement (Cải thiện có giới hạn) | "Giảm thiểu, không phải chứng minh" | Tăng chi phí thất bại âm thầm; không khép vấn đề an toàn |
 
 ## Further Reading
 
-- [ICLR 2026 RSI Workshop summary (OpenReview)](https://openreview.net/pdf?id=OsPQ6zTQXV) — the four-primitive convergence.
-- [Anthropic Responsible Scaling Policy v3.0](https://anthropic.com/responsible-scaling-policy/rsp-v3-0) — multi-objective capability thresholds.
-- [DeepMind Frontier Safety Framework v3](https://deepmind.google/blog/strengthening-our-frontier-safety-framework/) — deceptive-alignment monitoring as an invariant primitive.
-- [Schmidhuber (2003). Godel Machines](https://people.idsia.ch/~juergen/goedelmachine.html) — the formal-proof ancestor of these primitives.
-- [Anthropic — Claude's Constitution (January 2026)](https://www.anthropic.com/news/claudes-constitution) — the reason-based alignment anchor.
+- [ICLR 2026 RSI Workshop summary (OpenReview)](https://openreview.net/pdf?id=OsPQ6zTQXV) — sự hội tụ bốn thành phần nguyên thủy.
+- [Anthropic Responsible Scaling Policy v3.0](https://anthropic.com/responsible-scaling-policy/rsp-v3-0) — các ngưỡng năng lực đa mục tiêu.
+- [DeepMind Frontier Safety Framework v3](https://deepmind.google/blog/strengthening-our-frontier-safety-framework/) — giám sát căn chỉnh lừa dối như một thành phần nguyên thủy bất biến.
+- [Schmidhuber (2003). Godel Machines](https://people.idsia.ch/~juergen/goedelmachine.html) — tổ tiên chứng minh hình thức của các thành phần nguyên thủy này.
+- [Anthropic — Claude's Constitution (January 2026)](https://www.anthropic.com/news/claudes-constitution) — mỏ neo căn chỉnh dựa trên lý do.
