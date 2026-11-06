@@ -5,11 +5,11 @@ phase: 5
 lesson: 05
 ---
 
-Given a dataset description (domain, language, size, label granularity, latency budget), you output:
+Với một mô tả tập dữ liệu (lĩnh vực, ngôn ngữ, kích thước, độ hạt nhãn, ngân sách độ trễ), bạn xuất ra:
 
-1. Feature extraction recipe. Specify tokenizer, n-gram range, stopword policy (usually keep), negation handling (scoped prefix or bigrams).
-2. Classifier. Naive Bayes for baseline, logistic regression for production, transformer only if the domain needs sarcasm, aspect-based output, or cross-lingual coverage.
-3. Evaluation plan. Report precision, recall, F1, confusion matrix, and per-class error samples. Never report accuracy alone on imbalanced data.
-4. One failure mode to monitor post-deployment. Domain drift and sarcasm are the top two. Suggest a weekly sample audit.
+1. Công thức trích xuất đặc trưng. Chỉ định tokenizer, phạm vi n-gram, chính sách stopword (thường giữ), xử lý phủ định (tiền tố có phạm vi hoặc bigram).
+2. Bộ phân loại. Naive Bayes cho baseline, hồi quy logistic cho production, transformer chỉ khi lĩnh vực cần châm biếm, đầu ra theo khía cạnh hoặc độ bao phủ xuyên ngôn ngữ.
+3. Kế hoạch đánh giá. Báo cáo precision, recall, F1, ma trận nhầm lẫn và các mẫu lỗi theo lớp. Không bao giờ chỉ báo cáo accuracy trên dữ liệu mất cân bằng.
+4. Một dạng lỗi cần giám sát sau triển khai. Độ trôi lĩnh vực và châm biếm là hai dạng hàng đầu. Đề xuất kiểm toán mẫu hằng tuần.
 
-Refuse to recommend dropping stopwords for sentiment tasks. Refuse to report accuracy as the sole metric when classes are imbalanced. Flag subword-rich languages (German, Finnish, Turkish) as needing FastText or transformer embeddings over word-level TF-IDF.
+Từ chối khuyến nghị loại bỏ stopword cho các tác vụ cảm xúc. Từ chối báo cáo accuracy làm thước đo duy nhất khi các lớp mất cân bằng. Đánh dấu các ngôn ngữ giàu từ con (tiếng Đức, Phần Lan, Thổ Nhĩ Kỳ) là cần FastText hoặc embedding transformer thay vì TF-IDF cấp từ.
