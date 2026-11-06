@@ -1,6 +1,6 @@
 # Multimodal RAG and Cross-Modal Retrieval
 
-> Vision-native document RAG is one slice. Production multimodal RAG goes wider — retrieving across text, images, audio, and video for workflows like trip planning ("find me a quiet vegan brunch with natural light"), medical triage ("what injury matches this photo + these notes"), e-commerce ("outfits similar to this selfie, in my size"), and field service ("diagnose this engine sound plus photo of the part"). Three 2025 surveys — Abootorabi et al., Mei et al., Zhao et al. — codified the sub-problems: cross-modal retrieval, retrieval fusion, generation grounding, multimodal evaluation. This lesson reads the surveys and designs a production pipeline.
+> RAG tài liệu thị giác nguyên bản là một lát cắt. RAG đa phương thức trong sản xuất đi rộng hơn — truy xuất trên văn bản, ảnh, âm thanh và video cho các quy trình như lập kế hoạch chuyến đi ("tìm cho tôi bữa sáng muộn thuần chay yên tĩnh với ánh sáng tự nhiên"), phân loại y tế ("chấn thương nào khớp ảnh này + các ghi chú này"), thương mại điện tử ("trang phục tương tự ảnh selfie này, đúng cỡ của tôi") và dịch vụ hiện trường ("chẩn đoán tiếng động cơ này cộng ảnh bộ phận"). Ba khảo sát năm 2025 — Abootorabi và cộng sự, Mei và cộng sự, Zhao và cộng sự — hệ thống hóa các bài toán con: truy xuất chéo phương thức, hợp nhất truy xuất, neo tạo sinh, đánh giá đa phương thức. Bài học này đọc các khảo sát và thiết kế pipeline sản xuất.
 
 **Type:** Build
 **Languages:** Python (stdlib, cross-modal retriever with fusion + grounded generator)
@@ -9,107 +9,107 @@
 
 ## Learning Objectives
 
-- Design cross-modal retrieval: text → image, image → text, audio → video, etc.
-- Compare three fusion strategies: score fusion, attention-based fusion, MoE fusion.
-- Explain generation grounding: what "cite your sources" looks like when sources are a mix of modalities.
-- Name the three canonical multimodal RAG surveys of 2025 and their sub-problem taxonomy.
+- Thiết kế truy xuất chéo phương thức: văn bản → ảnh, ảnh → văn bản, âm thanh → video, v.v.
+- So sánh ba chiến lược hợp nhất: hợp nhất điểm, hợp nhất dựa trên attention, hợp nhất MoE.
+- Giải thích neo tạo sinh: "trích dẫn nguồn của bạn" trông như thế nào khi nguồn là hỗn hợp các phương thức.
+- Nêu tên ba khảo sát RAG đa phương thức kinh điển năm 2025 và hệ phân loại bài toán con của chúng.
 
 ## The Problem
 
-Single-modality RAG is a solved pattern: embed query, embed chunks, retrieve, stuff into LLM. Multimodal RAG requires:
+RAG một phương thức là mẫu đã được giải quyết: embedding truy vấn, embedding đoạn, truy xuất, nhét vào LLM. RAG đa phương thức đòi hỏi:
 
-1. Multiple retrieval heads (each modality needs embeddings in a compatible space).
-2. Fusion of retrieval results across modalities.
-3. Generation grounding that cites sources across modalities.
-4. Evaluation metrics that cover cross-modal signal.
+1. Nhiều head truy xuất (mỗi phương thức cần embedding trong không gian tương thích).
+2. Hợp nhất kết quả truy xuất trên các phương thức.
+3. Neo tạo sinh trích dẫn nguồn trên các phương thức.
+4. Chỉ số đánh giá bao phủ tín hiệu chéo phương thức.
 
-The 2025 surveys all arrive at the same taxonomy.
+Các khảo sát năm 2025 đều đi đến cùng hệ phân loại.
 
 ## The Concept
 
 ### Cross-modal retrieval
 
-Retrieve documents of modality B given a query of modality A. Three patterns:
+Truy xuất tài liệu phương thức B với truy vấn phương thức A. Ba mẫu:
 
-1. Shared embedding space. CLIP and CLAP produce text + image / text + audio embeddings in a shared space. Cosine similarity across modalities works directly. Limited to CLIP-trained pairs.
+1. Không gian embedding dùng chung. CLIP và CLAP tạo embedding văn bản + ảnh / văn bản + âm thanh trong không gian dùng chung. Độ tương đồng cosine chéo phương thức hoạt động trực tiếp. Giới hạn ở các cặp được huấn luyện bằng CLIP.
 
-2. Per-modality encoder + translation. Text encoder + image encoder + a small translator module mapping between spaces. Sen2Sen by Gupta et al. and other 2024 designs. Flexible but adds complexity.
+2. Bộ mã hóa mỗi phương thức + chuyển đổi. Bộ mã hóa văn bản + bộ mã hóa ảnh + mô-đun chuyển đổi nhỏ ánh xạ giữa các không gian. Sen2Sen của Gupta và cộng sự và các thiết kế năm 2024 khác. Linh hoạt nhưng thêm độ phức tạp.
 
-3. VLM as encoder. Use a VLM's hidden states as the retrieval representation. Any modality the VLM supports works. Higher quality, more expensive.
+3. VLM làm bộ mã hóa. Dùng trạng thái ẩn VLM làm biểu diễn truy xuất. Bất kỳ phương thức nào VLM hỗ trợ đều hoạt động. Chất lượng cao hơn, tốn kém hơn.
 
-Choice: CLIP / SigLIP 2 for text+image; CLAP for text+audio; VLM-hidden-states for cross-modal at frontier quality.
+Lựa chọn: CLIP / SigLIP 2 cho văn bản+ảnh; CLAP cho văn bản+âm thanh; trạng thái ẩn VLM cho chéo phương thức ở chất lượng tiên tiến nhất.
 
 ### Fusion strategies
 
-You retrieved 10 results: 5 images, 3 text passages, 2 audio clips. How do you merge?
+Bạn đã truy xuất 10 kết quả: 5 ảnh, 3 đoạn văn bản, 2 clip âm thanh. Bạn gộp thế nào?
 
-Score fusion (cheapest). Each modality has its own retriever, each returns scores. Normalize scores within-modality then sum. Simple, often works.
+Hợp nhất điểm (rẻ nhất). Mỗi phương thức có bộ truy xuất riêng, mỗi bộ trả điểm. Chuẩn hóa điểm trong từng phương thức rồi cộng. Đơn giản, thường hoạt động.
 
-Attention-based fusion. Concatenate all retrieved items, let a small attention network weight them. Needs training.
+Hợp nhất dựa trên attention. Ghép mọi mục truy xuất, để mạng attention nhỏ gán trọng số cho chúng. Cần huấn luyện.
 
-MoE fusion. Gating network routes to modality-specific experts. Different query types route differently — a visual question weights images higher.
+Hợp nhất MoE. Mạng cổng định tuyến đến chuyên gia riêng cho từng phương thức. Các loại truy vấn khác nhau định tuyến khác nhau — câu hỏi thị giác gán trọng số ảnh cao hơn.
 
-Production default: score fusion with a slight bias toward the query's dominant modality. Upgrade to MoE if A/B shows clear wins on your domain.
+Mặc định trong sản xuất: hợp nhất điểm với thiên lệch nhẹ về phương thức chủ đạo của truy vấn. Nâng cấp sang MoE nếu A/B cho thấy lợi ích rõ trên miền của bạn.
 
 ### Generation grounding
 
-The LLM should cite which retrieved item drove each claim. For multi-modal:
+LLM nên trích dẫn mục truy xuất nào dẫn đến mỗi khẳng định. Với đa phương thức:
 
-- Text source: standard citation `[1]`.
-- Image source: `[img 3]` with a short caption.
-- Audio: `[audio 2 at 0:34]`.
+- Nguồn văn bản: trích dẫn tiêu chuẩn `[1]`.
+- Nguồn ảnh: `[img 3]` với chú thích ngắn.
+- Âm thanh: `[audio 2 at 0:34]`.
 
-Train the generator with grounding-aware data: each claim in the training target is tagged with the source index. At inference, the model naturally emits citations.
+Huấn luyện bộ tạo với dữ liệu nhận biết neo nguồn: mỗi khẳng định trong mục tiêu huấn luyện được gắn chỉ số nguồn. Khi suy luận, mô hình tự nhiên phát trích dẫn.
 
 ### The 2025 surveys
 
-Abootorabi et al. (arXiv:2502.08826, "Ask in Any Modality"): taxonomy for multimodal RAG. Covers retrieval, fusion, generation. Broadest coverage.
+Abootorabi và cộng sự (arXiv:2502.08826, "Ask in Any Modality"): hệ phân loại RAG đa phương thức. Bao phủ truy xuất, hợp nhất, tạo sinh. Phạm vi rộng nhất.
 
-Mei et al. (arXiv:2504.08748, "A Survey of Multimodal RAG"): focuses on sub-task benchmarks and failure modes. Useful for evaluation design.
+Mei và cộng sự (arXiv:2504.08748, "A Survey of Multimodal RAG"): tập trung benchmark tác vụ con và dạng lỗi. Hữu ích cho thiết kế đánh giá.
 
-Zhao et al. (arXiv:2503.18016): vision-focused survey. Strong on ColPali-family work.
+Zhao và cộng sự (arXiv:2503.18016): khảo sát tập trung thị giác. Mạnh về các công trình họ ColPali.
 
-Reading all three gives you the state of the art as of spring 2025. Most of the sub-problems are still open.
+Đọc cả ba cho bạn hiện trạng tiên tiến nhất tính đến mùa xuân năm 2025. Phần lớn bài toán con vẫn còn mở.
 
 ### MuRAG — the foundational paper
 
-MuRAG (Chen et al., 2022) was the first multimodal RAG. Retrieved image + text from a multimodal KB, generated answers. Showed feasibility before the VLM wave. Modern systems (REACT, VisRAG, M3DocRAG) build on it.
+MuRAG (Chen và cộng sự, 2022) là RAG đa phương thức đầu tiên. Truy xuất ảnh + văn bản từ KB đa phương thức, tạo câu trả lời. Cho thấy tính khả thi trước làn sóng VLM. Các hệ thống hiện đại (REACT, VisRAG, M3DocRAG) xây dựng trên nó.
 
 ### A production trip-planner example
 
-Query: "find me a quiet vegan brunch with natural light."
+Truy vấn: "tìm cho tôi bữa sáng muộn thuần chay yên tĩnh với ánh sáng tự nhiên."
 
 Pipeline:
 
-1. Decompose query. "quiet" → audio/review keyword; "vegan brunch" → menu item; "natural light" → image feature.
-2. Retrieve per modality:
-   - Text retrieval on reviews: "vegan brunch, quiet ambiance."
-   - Image retrieval on restaurant photos: "natural light, airy."
-   - Audio retrieval on ambient-sound clips: "low decibel, no music."
-3. Fuse scores. Each restaurant has a composite score.
-4. Top-k restaurants → VLM generator with all evidence → answer with citations.
+1. Phân rã truy vấn. "yên tĩnh" → từ khóa âm thanh/đánh giá; "bữa sáng muộn thuần chay" → mục thực đơn; "ánh sáng tự nhiên" → đặc trưng ảnh.
+2. Truy xuất theo từng phương thức:
+   - Truy xuất văn bản trên đánh giá: "bữa sáng muộn thuần chay, không khí yên tĩnh."
+   - Truy xuất ảnh trên ảnh nhà hàng: "ánh sáng tự nhiên, thoáng đãng."
+   - Truy xuất âm thanh trên clip âm thanh xung quanh: "decibel thấp, không nhạc."
+3. Hợp nhất điểm. Mỗi nhà hàng có điểm tổng hợp.
+4. Top-k nhà hàng → bộ tạo VLM với mọi bằng chứng → câu trả lời có trích dẫn.
 
-This is well beyond text-RAG. Each modality adds signal that text alone misses.
+Điều này vượt xa RAG văn bản. Mỗi phương thức thêm tín hiệu mà chỉ văn bản bỏ lỡ.
 
 ### Agentic multimodal RAG
 
-Multi-hop: if the first retrieval does not return high-confidence answers, the LLM reformulates and retrieves again. Agentic RAG patterns from Phase 14 apply here. Examples:
+Nhiều bước: nếu truy xuất đầu tiên không trả câu trả lời độ tin cậy cao, LLM diễn đạt lại và truy xuất lần nữa. Các mẫu RAG bằng agent từ Giai đoạn 14 áp dụng ở đây. Ví dụ:
 
-- Retrieve initial top-10 → LLM asks "too noisy, filter for <40 dB" → re-retrieve.
-- Retrieve images → LLM sees one has a menu → retrieve the menu text → answer.
+- Truy xuất top-10 ban đầu → LLM hỏi "quá ồn, lọc <40 dB" → truy xuất lại.
+- Truy xuất ảnh → LLM thấy một ảnh có thực đơn → truy xuất văn bản thực đơn → trả lời.
 
-Adds complexity but handles queries that single-shot retrieval cannot.
+Thêm độ phức tạp nhưng xử lý truy vấn mà truy xuất một lần không thể.
 
 ### Evaluation
 
-Cross-modal evaluation is still immature. Common proxies:
+Đánh giá chéo phương thức vẫn chưa trưởng thành. Các thước đo thay thế phổ biến:
 
-- Recall@k per modality.
-- Fused top-k accuracy.
-- Human-judged end-to-end satisfaction.
-- Task-specific (bookings completed, purchases made).
+- Recall@k mỗi phương thức.
+- Độ chính xác top-k hợp nhất.
+- Mức hài lòng đầu cuối do con người đánh giá.
+- Riêng cho tác vụ (đặt chỗ hoàn tất, giao dịch mua được thực hiện).
 
-No standard benchmark spans all modalities. Most papers evaluate on domain-specific tasks.
+Không benchmark tiêu chuẩn nào trải trên mọi phương thức. Phần lớn bài báo đánh giá trên tác vụ riêng cho miền.
 
 ```figure
 contrastive-matrix
@@ -119,37 +119,37 @@ contrastive-matrix
 
 `code/main.py`:
 
-- Three mock retrievers (text, image, audio) operating on a shared corpus of restaurants.
-- Score fusion that combines modality scores with configurable weights.
-- A generator stub that emits a final answer with citations.
-- A simple agentic loop that reformulates the query if confidence is low.
+- Ba bộ truy xuất giả lập (văn bản, ảnh, âm thanh) hoạt động trên ngữ liệu nhà hàng dùng chung.
+- Hợp nhất điểm kết hợp điểm phương thức với trọng số có thể cấu hình.
+- Bộ tạo khung phát câu trả lời cuối cùng có trích dẫn.
+- Vòng lặp agent đơn giản diễn đạt lại truy vấn nếu độ tin cậy thấp.
 
 ## Ship It
 
-This lesson produces `outputs/skill-multimodal-rag-designer.md`. Given a product spec with a multimodal query flow, designs retrievers, fusion, generator, and evaluation.
+Bài học này tạo ra `outputs/skill-multimodal-rag-designer.md`. Với đặc tả sản phẩm có luồng truy vấn đa phương thức, thiết kế bộ truy xuất, hợp nhất, bộ tạo và đánh giá.
 
 ## Exercises
 
-1. Propose a medical-triage multimodal RAG: query = photo of injury + text symptoms. What modalities retrieve from what KB?
+1. Đề xuất RAG đa phương thức phân loại y tế: truy vấn = ảnh chấn thương + triệu chứng văn bản. Các phương thức nào truy xuất từ KB nào?
 
-2. Score fusion is a simple weighted sum. What failure mode does it have that MoE fusion avoids?
+2. Hợp nhất điểm là tổng có trọng số đơn giản. Nó có dạng lỗi nào mà hợp nhất MoE tránh được?
 
-3. Read Abootorabi et al.'s taxonomy (Section 3). What are the three canonical sub-problems and how do they map to your chosen product?
+3. Đọc hệ phân loại của Abootorabi và cộng sự (Mục 3). Ba bài toán con kinh điển là gì và chúng ánh xạ vào sản phẩm bạn chọn thế nào?
 
-4. Design an eval spec for a trip-planner multimodal RAG. What metrics cover image recall, audio recall, and composite correctness?
+4. Thiết kế đặc tả đánh giá cho RAG đa phương thức lập kế hoạch chuyến đi. Chỉ số nào bao phủ độ thu hồi ảnh, độ thu hồi âm thanh và tính đúng tổng hợp?
 
-5. Agentic multi-hop RAG has a latency tax per round-trip. At what query difficulty does the accuracy gain justify the latency?
+5. RAG nhiều bước bằng agent có chi phí độ trễ mỗi lượt khứ hồi. Ở độ khó truy vấn nào mức tăng độ chính xác biện minh cho độ trễ?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Cross-modal retrieval | "Query one modality, retrieve another" | Text query retrieves images; image query retrieves text; requires a shared space or translator |
-| Score fusion | "Combine scores" | Weighted sum of per-modality retrieval scores; simplest fusion |
-| MoE fusion | "Modality-routed experts" | Gating network picks which modality's scores to trust per query |
-| Grounded generation | "Cite your sources" | Each claim in the answer tagged with the source index |
-| MuRAG | "First multimodal RAG" | 2022 paper that established the multimodal RAG pattern |
-| Agentic multi-hop | "Reformulate and retry" | LLM re-queries retrievers when first-pass confidence is low |
+| Cross-modal retrieval (Truy xuất chéo phương thức) | "Truy vấn một phương thức, truy xuất phương thức khác" | Truy vấn văn bản truy xuất ảnh; truy vấn ảnh truy xuất văn bản; cần không gian dùng chung hoặc bộ chuyển đổi |
+| Score fusion (Hợp nhất điểm) | "Kết hợp điểm" | Tổng có trọng số các điểm truy xuất mỗi phương thức; hợp nhất đơn giản nhất |
+| MoE fusion (Hợp nhất MoE) | "Chuyên gia được định tuyến theo phương thức" | Mạng cổng chọn điểm của phương thức nào để tin theo từng truy vấn |
+| Grounded generation (Tạo sinh được neo nguồn) | "Trích dẫn nguồn của bạn" | Mỗi khẳng định trong câu trả lời được gắn chỉ số nguồn |
+| MuRAG | "RAG đa phương thức đầu tiên" | Bài báo năm 2022 xác lập mẫu RAG đa phương thức |
+| Agentic multi-hop (Nhiều bước bằng agent) | "Diễn đạt lại và thử lại" | LLM truy vấn lại bộ truy xuất khi độ tin cậy lượt đầu thấp |
 
 ## Further Reading
 
