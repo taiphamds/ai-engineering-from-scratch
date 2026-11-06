@@ -1,6 +1,6 @@
 # Python Environments
 
-> Dependency hell is real. Virtual environments are the cure.
+> Địa ngục phụ thuộc là có thật. Môi trường ảo là phương thuốc.
 
 **Type:** Build
 **Languages:** Shell
@@ -9,23 +9,23 @@
 
 ## Learning Objectives
 
-- Create isolated virtual environments using `uv`, `venv`, or `conda`
-- Write a `pyproject.toml` with optional dependency groups and generate lockfiles for reproducibility
-- Diagnose and fix common pitfalls: global installs, pip/conda mixing, CUDA version mismatches
-- Implement a per-phase environment strategy for projects with conflicting dependencies
+- Tạo các môi trường ảo biệt lập bằng `uv`, `venv` hoặc `conda`
+- Viết một `pyproject.toml` với các nhóm phụ thuộc tùy chọn và tạo tệp khóa để có khả năng tái lập
+- Chẩn đoán và khắc phục các bẫy thường gặp: cài đặt toàn cục, trộn pip/conda, phiên bản CUDA không khớp
+- Triển khai chiến lược môi trường theo từng giai đoạn cho các dự án có phần phụ thuộc xung đột
 
 ## The Problem
 
-You install PyTorch 2.4 for a fine-tuning project. Next week, a different project needs PyTorch 2.1 because its CUDA build is pinned. You upgrade globally, and the first project breaks. You downgrade, and the second one breaks.
+Bạn cài PyTorch 2.4 cho một dự án fine-tuning. Tuần sau, một dự án khác cần PyTorch 2.1 vì bản dựng CUDA của nó đã được cố định. Bạn nâng cấp toàn cục, và dự án đầu tiên bị hỏng. Bạn hạ cấp, và dự án thứ hai bị hỏng.
 
-This is dependency hell. It happens constantly in AI/ML work because:
+Đây là địa ngục phụ thuộc. Nó xảy ra liên tục trong công việc AI/ML vì:
 
-- PyTorch, JAX, and TensorFlow each ship their own CUDA bindings
-- Model libraries pin specific framework versions
-- A global `pip install` overwrites whatever was there before
-- CUDA 11.8 builds don't work with CUDA 12.x drivers (and vice versa)
+- PyTorch, JAX và TensorFlow đều đi kèm các binding CUDA riêng
+- Các thư viện mô hình cố định những phiên bản framework cụ thể
+- Một lệnh `pip install` toàn cục ghi đè bất cứ thứ gì đã có trước đó
+- Các bản dựng CUDA 11.8 không hoạt động với trình điều khiển CUDA 12.x (và ngược lại)
 
-The fix: every project gets its own isolated environment with its own packages.
+Cách khắc phục: mỗi dự án có môi trường biệt lập riêng với các gói riêng.
 
 ## The Concept
 
@@ -53,7 +53,7 @@ s0-env-isolation
 
 ### Option 1: uv venv (Recommended)
 
-`uv` is the fastest Python package manager (10-100x faster than pip). It handles virtual environments, Python versions, and dependency resolution in one tool.
+`uv` là trình quản lý gói Python nhanh nhất (nhanh hơn pip 10-100 lần). Nó xử lý môi trường ảo, phiên bản Python và giải quyết phần phụ thuộc trong một công cụ.
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -65,13 +65,13 @@ uv venv
 source .venv/bin/activate
 ```
 
-Install packages:
+Cài đặt các gói:
 
 ```bash
 uv pip install torch numpy
 ```
 
-Create a project with `pyproject.toml` in one step:
+Tạo một dự án có `pyproject.toml` trong một bước:
 
 ```bash
 uv init my-ai-project
@@ -81,7 +81,7 @@ uv add torch numpy matplotlib
 
 ### Option 2: venv (Built-in)
 
-If you can't install `uv`, Python ships with `venv`:
+Nếu bạn không thể cài `uv`, Python có sẵn `venv`:
 
 ```bash
 python3 -m venv .venv
@@ -91,15 +91,15 @@ source .venv/bin/activate  # Linux/macOS
 pip install torch numpy
 ```
 
-Slower than `uv`, but works everywhere Python is installed.
+Chậm hơn `uv`, nhưng hoạt động ở mọi nơi có cài Python.
 
 ### Option 3: conda (When You Need It)
 
-Conda manages non-Python dependencies like CUDA toolkits, cuDNN, and C libraries. Use it when:
+Conda quản lý các phần phụ thuộc không phải Python như bộ công cụ CUDA, cuDNN và thư viện C. Dùng nó khi:
 
-- You need a specific CUDA toolkit version without installing it system-wide
-- You're on a shared cluster where you can't install system packages
-- A library's install instructions say "use conda"
+- Bạn cần một phiên bản bộ công cụ CUDA cụ thể mà không cài trên toàn hệ thống
+- Bạn đang ở một cụm dùng chung nơi không thể cài các gói hệ thống
+- Hướng dẫn cài đặt của một thư viện nói "dùng conda"
 
 ```bash
 # Install miniconda (not the full Anaconda)
@@ -112,13 +112,13 @@ conda activate myproject
 conda install pytorch torchvision torchaudio pytorch-cuda=12.4 -c pytorch -c nvidia
 ```
 
-One rule: if you use conda for an environment, use conda for all packages in that environment. Mixing `pip install` into a conda env causes dependency conflicts that are painful to debug.
+Một quy tắc: nếu bạn dùng conda cho một môi trường, hãy dùng conda cho mọi gói trong môi trường đó. Trộn `pip install` vào môi trường conda gây ra xung đột phụ thuộc rất khó gỡ lỗi.
 
 ### For This Course: Per-Phase Strategy
 
-You could create one environment for the whole course. Don't. Different phases need different (sometimes conflicting) dependencies.
+Bạn có thể tạo một môi trường cho toàn bộ khóa học. Đừng làm vậy. Các giai đoạn khác nhau cần các phần phụ thuộc khác nhau (đôi khi xung đột).
 
-Strategy:
+Chiến lược:
 
 ```
 ai-engineering-from-scratch/
@@ -134,11 +134,11 @@ ai-engineering-from-scratch/
 │       └── .venv/            <-- API SDKs, no torch needed
 ```
 
-The script in `code/env_setup.sh` creates the base environment for this course.
+Script trong `code/env_setup.sh` tạo môi trường cơ sở cho khóa học này.
 
 ## pyproject.toml Basics
 
-Every Python project should have a `pyproject.toml`. It replaces `setup.py`, `setup.cfg`, and `requirements.txt` in one file.
+Mỗi dự án Python nên có một `pyproject.toml`. Nó thay thế `setup.py`, `setup.cfg` và `requirements.txt` trong một tệp.
 
 ```toml
 [project]
@@ -157,7 +157,7 @@ torch = ["torch>=2.3", "torchvision>=0.18"]
 llm = ["anthropic>=0.39", "openai>=1.50"]
 ```
 
-Then install:
+Sau đó cài đặt:
 
 ```bash
 uv pip install -e ".[torch]"    # base + PyTorch
@@ -167,7 +167,7 @@ uv pip install -e ".[torch,llm]" # everything
 
 ## Lockfiles
 
-A lockfile pins every dependency (including transitive ones) to exact versions. This guarantees reproducibility: anyone who installs from the lockfile gets exactly the same packages.
+Tệp khóa cố định mọi phần phụ thuộc (kể cả các phần phụ thuộc bắc cầu) ở những phiên bản chính xác. Điều này bảo đảm khả năng tái lập: bất kỳ ai cài từ tệp khóa đều nhận đúng cùng các gói.
 
 ```bash
 # uv generates uv.lock automatically when using uv add
@@ -178,7 +178,7 @@ uv pip compile pyproject.toml -o requirements.lock
 uv pip install -r requirements.lock
 ```
 
-Commit your lockfile to git. When someone clones the repo, they install from the lockfile and get identical versions.
+Commit tệp khóa của bạn vào git. Khi ai đó clone kho mã, họ cài từ tệp khóa và nhận các phiên bản giống hệt nhau.
 
 ## Common Mistakes
 
@@ -191,7 +191,7 @@ source .venv/bin/activate
 pip install torch  # GOOD: installs to virtual environment
 ```
 
-Check where your packages go:
+Kiểm tra các gói của bạn được đưa vào đâu:
 
 ```bash
 which python       # should show .venv/bin/python, not /usr/bin/python
@@ -208,7 +208,7 @@ pip install some-other-package   # BAD: can break conda's dependency tracking
 conda install some-other-package # GOOD: let conda manage everything
 ```
 
-If you must use pip inside conda (some packages are pip-only), install all conda packages first, then pip packages last.
+Nếu bạn buộc phải dùng pip bên trong conda (một số gói chỉ có trên pip), hãy cài tất cả gói conda trước, rồi cài các gói pip sau cùng.
 
 ### 3. Forgetting to activate
 
@@ -218,7 +218,7 @@ source .venv/bin/activate
 python train.py           # uses project Python, packages found
 ```
 
-Your shell prompt should show the environment name:
+Dấu nhắc shell của bạn phải hiển thị tên môi trường:
 
 ```
 (.venv) $ python train.py
@@ -230,7 +230,7 @@ Your shell prompt should show the environment name:
 echo ".venv/" >> .gitignore
 ```
 
-Virtual environments are 200MB-2GB. They're local, not portable between machines. Commit `pyproject.toml` and the lockfile instead.
+Môi trường ảo có dung lượng 200MB-2GB. Chúng là cục bộ, không thể chuyển dùng giữa các máy. Thay vào đó, hãy commit `pyproject.toml` và tệp khóa.
 
 ### 5. CUDA version mismatch
 
@@ -244,27 +244,27 @@ python -c "import torch; print(torch.version.cuda)"  # shows PyTorch CUDA versio
 
 ## Use It
 
-Run the setup script to create your course environment:
+Chạy script thiết lập để tạo môi trường khóa học của bạn:
 
 ```bash
 bash phases/00-setup-and-tooling/06-python-environments/code/env_setup.sh
 ```
 
-This creates a `.venv` at the repo root with core dependencies installed and verified.
+Lệnh này tạo một `.venv` ở gốc kho mã với các phần phụ thuộc cốt lõi đã được cài đặt và xác minh.
 
 ## Exercises
 
-1. Run `env_setup.sh` and verify all checks pass
-2. Create a second virtual environment, install a different version of numpy in it, and confirm the two environments are isolated
-3. Write a `pyproject.toml` for a project that needs both PyTorch and the Anthropic SDK
-4. Deliberately install a package globally (without activating a venv), notice where it goes, then uninstall it
+1. Chạy `env_setup.sh` và xác minh mọi kiểm tra đều đạt
+2. Tạo môi trường ảo thứ hai, cài một phiên bản numpy khác vào đó và xác nhận hai môi trường được biệt lập
+3. Viết một `pyproject.toml` cho dự án cần cả PyTorch lẫn SDK Anthropic
+4. Cố ý cài một gói toàn cục (không kích hoạt venv), chú ý nơi nó được đưa vào, rồi gỡ cài đặt
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Virtual environment | "A venv" | An isolated directory containing a Python interpreter and packages, separate from the system Python |
-| Lockfile | "Pinned dependencies" | A file listing every package and its exact version, guaranteeing identical installs across machines |
-| pyproject.toml | "The new setup.py" | The standard Python project configuration file, replacing setup.py/setup.cfg/requirements.txt |
-| Transitive dependency | "A dependency of a dependency" | Package B depends on C; if you install A which depends on B, C is a transitive dependency of A |
-| CUDA mismatch | "My GPU isn't working" | PyTorch was compiled for a different CUDA version than what your GPU driver supports |
+| Virtual environment (Môi trường ảo) | "Một venv" | Một thư mục biệt lập chứa một trình thông dịch Python và các gói, tách biệt với Python hệ thống |
+| Lockfile (Tệp khóa) | "Các phần phụ thuộc được ghim" | Một tệp liệt kê mọi gói và phiên bản chính xác của nó, bảo đảm các bản cài đặt giống hệt nhau trên các máy |
+| pyproject.toml | "setup.py mới" | Tệp cấu hình dự án Python tiêu chuẩn, thay thế setup.py/setup.cfg/requirements.txt |
+| Transitive dependency (Phần phụ thuộc bắc cầu) | "Một phần phụ thuộc của một phần phụ thuộc" | Gói B phụ thuộc vào C; nếu bạn cài đặt A phụ thuộc vào B, C là một phần phụ thuộc bắc cầu của A |
+| CUDA mismatch (CUDA không khớp) | "GPU của tôi không hoạt động" | PyTorch được biên dịch cho một phiên bản CUDA khác với phiên bản mà trình điều khiển GPU của bạn hỗ trợ |
