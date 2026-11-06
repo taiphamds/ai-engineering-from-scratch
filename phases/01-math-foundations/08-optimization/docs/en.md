@@ -1,6 +1,6 @@
 # Optimization
 
-> Training a neural network is nothing more than finding the bottom of a valley.
+> Huấn luyện một mạng nơ-ron không gì khác hơn là tìm đáy của một thung lũng.
 
 **Type:** Build
 **Language:** Python
@@ -9,24 +9,24 @@
 
 ## Learning Objectives
 
-- Implement vanilla gradient descent, SGD with momentum, and Adam from scratch
-- Compare optimizer convergence on the Rosenbrock function and explain why Adam adapts per-weight learning rates
-- Distinguish convex from non-convex loss landscapes and explain the role of saddle points in high dimensions
-- Configure learning rate schedules (step decay, cosine annealing, warmup) for training stability
+- Triển khai gradient descent cơ bản, SGD có momentum và Adam từ đầu
+- So sánh sự hội tụ của các bộ tối ưu hóa trên hàm Rosenbrock và giải thích tại sao Adam điều chỉnh tốc độ học theo từng trọng số
+- Phân biệt các địa hình mất mát lồi và không lồi và giải thích vai trò của các điểm yên ngựa trong không gian nhiều chiều
+- Cấu hình các lịch tốc độ học (giảm theo bước, ủ cosine, warmup) để ổn định huấn luyện
 
 ## The Problem
 
-You have a loss function. It tells you how wrong your model is. You have gradients. They tell you which direction makes the loss worse. Now you need a strategy for walking downhill.
+Bạn có một hàm mất mát. Nó cho bạn biết mô hình sai đến mức nào. Bạn có gradient. Chúng cho bạn biết hướng nào làm mất mát tệ hơn. Giờ bạn cần một chiến lược đi xuống dốc.
 
-The naive approach is simple: move opposite the gradient. Scale the step by some number called the learning rate. Repeat. This is gradient descent, and it works. But "works" has caveats. Too large a learning rate and you overshoot the valley entirely, bouncing between walls. Too small and you crawl toward the answer over thousands of unnecessary steps. Hit a saddle point and you stop moving even though you have not found a minimum.
+Cách tiếp cận ngây thơ rất đơn giản: di chuyển ngược hướng gradient. Nhân tỉ lệ bước với một số gọi là tốc độ học. Lặp lại. Đây là gradient descent, và nó hoạt động. Nhưng "hoạt động" có những điều cần lưu ý. Tốc độ học quá lớn và bạn vượt hẳn qua thung lũng, nảy qua lại giữa các vách. Quá nhỏ và bạn bò về phía câu trả lời qua hàng nghìn bước không cần thiết. Gặp một điểm yên ngựa và bạn ngừng di chuyển dù chưa tìm thấy cực tiểu.
 
-Every optimizer in deep learning is an answer to the same question: how do you get to the bottom of the valley faster and more reliably?
+Mỗi bộ tối ưu hóa trong học sâu là một câu trả lời cho cùng một câu hỏi: làm sao đến đáy thung lũng nhanh hơn và đáng tin cậy hơn?
 
 ## The Concept
 
 ### What optimization means
 
-Optimization is finding the input values that minimize (or maximize) a function. In machine learning, the function is the loss. The inputs are the model's weights. Training is optimization.
+Tối ưu hóa là tìm các giá trị đầu vào tối thiểu hóa (hoặc cực đại hóa) một hàm. Trong học máy, hàm là mất mát. Đầu vào là các trọng số của mô hình. Huấn luyện là tối ưu hóa.
 
 ```
 minimize L(w) where:
@@ -36,13 +36,13 @@ minimize L(w) where:
 
 ### Gradient descent (vanilla)
 
-The simplest optimizer. Compute the gradient of the loss with respect to every weight. Move each weight in the opposite direction of its gradient. Scale the step by the learning rate.
+Bộ tối ưu hóa đơn giản nhất. Tính gradient của mất mát theo mọi trọng số. Di chuyển mỗi trọng số theo hướng ngược với gradient của nó. Nhân tỉ lệ bước với tốc độ học.
 
 ```
 w = w - lr * gradient
 ```
 
-That is the entire algorithm. One line.
+Đó là toàn bộ thuật toán. Một dòng.
 
 ```mermaid
 graph TD
@@ -53,7 +53,7 @@ graph TD
 
 ### Learning rate: the most important hyperparameter
 
-The learning rate controls step size. It determines everything about convergence.
+Tốc độ học điều khiển kích thước bước. Nó quyết định mọi thứ về sự hội tụ.
 
 ```mermaid
 graph LR
@@ -72,34 +72,34 @@ graph LR
     end
 ```
 
-There is no formula for the right learning rate. You find it by experiment. Common starting points: 0.001 for Adam, 0.01 for SGD with momentum.
+Không có công thức cho tốc độ học phù hợp. Bạn tìm nó bằng thực nghiệm. Các điểm bắt đầu phổ biến: 0.001 cho Adam, 0.01 cho SGD có momentum.
 
 ### SGD vs batch vs mini-batch
 
-Vanilla gradient descent computes the gradient over the entire dataset before taking one step. This is called batch gradient descent. It is stable but slow.
+Gradient descent cơ bản tính gradient trên toàn bộ tập dữ liệu trước khi bước một bước. Đây được gọi là batch gradient descent. Nó ổn định nhưng chậm.
 
-Stochastic gradient descent (SGD) computes the gradient on a single random sample and steps immediately. It is noisy but fast.
+Gradient descent ngẫu nhiên (SGD) tính gradient trên một mẫu ngẫu nhiên duy nhất và bước ngay lập tức. Nó nhiều nhiễu nhưng nhanh.
 
-Mini-batch gradient descent splits the difference. Compute the gradient over a small batch (32, 64, 128, 256 samples), then step. This is what everyone actually uses.
+Mini-batch gradient descent dung hòa hai cách. Tính gradient trên một batch nhỏ (32, 64, 128, 256 mẫu), rồi bước. Đây là những gì mọi người thực sự sử dụng.
 
-| Variant | Batch size | Gradient quality | Speed per step | Noise |
+| Biến thể | Kích thước batch | Chất lượng gradient | Tốc độ mỗi bước | Nhiễu |
 |---------|-----------|-----------------|---------------|-------|
-| Batch GD | Entire dataset | Exact | Slow | None |
-| SGD | 1 sample | Very noisy | Fast | High |
-| Mini-batch | 32-256 | Good estimate | Balanced | Moderate |
+| Batch GD | Toàn bộ tập dữ liệu | Chính xác | Chậm | Không có |
+| SGD | 1 mẫu | Rất nhiều nhiễu | Nhanh | Cao |
+| Mini-batch | 32-256 | Ước lượng tốt | Cân bằng | Vừa phải |
 
-The noise in SGD and mini-batch is not a bug. It helps escape shallow local minima and saddle points.
+Nhiễu trong SGD và mini-batch không phải là lỗi. Nó giúp thoát khỏi các cực tiểu cục bộ nông và các điểm yên ngựa.
 
 ### Momentum: the ball rolling downhill
 
-Vanilla gradient descent only looks at the current gradient. If the gradient zigzags (common in narrow valleys), progress is slow. Momentum fixes this by accumulating past gradients into a velocity term.
+Gradient descent cơ bản chỉ nhìn vào gradient hiện tại. Nếu gradient ngoằn ngoèo (phổ biến trong các thung lũng hẹp), tiến triển chậm. Momentum khắc phục điều này bằng cách tích lũy các gradient quá khứ vào một thành phần vận tốc.
 
 ```
 v = beta * v + gradient
 w = w - lr * v
 ```
 
-The analogy: a ball rolling downhill. It does not stop and restart at every bump. It builds speed in consistent directions and dampens oscillations.
+Phép tương tự: một quả bóng lăn xuống dốc. Nó không dừng và khởi động lại tại mỗi chỗ gồ ghề. Nó tăng tốc theo các hướng nhất quán và làm giảm dao động.
 
 ```mermaid
 graph TD
@@ -116,16 +116,16 @@ graph TD
     end
 ```
 
-`beta` (typically 0.9) controls how much history to keep. Higher beta means more momentum, smoother paths, but slower response to direction changes.
+`beta` (thường là 0.9) điều khiển lượng lịch sử cần giữ. Beta cao hơn nghĩa là nhiều momentum hơn, đường đi mượt hơn, nhưng phản ứng chậm hơn với các thay đổi hướng.
 
 ### Adam: adaptive learning rates
 
-Different weights need different learning rates. A weight that rarely gets large gradients should take bigger steps when it finally does. A weight that gets huge gradients constantly should take smaller steps.
+Các trọng số khác nhau cần các tốc độ học khác nhau. Một trọng số hiếm khi nhận gradient lớn nên bước lớn hơn khi cuối cùng nhận được. Một trọng số liên tục nhận gradient rất lớn nên bước nhỏ hơn.
 
-Adam (Adaptive Moment Estimation) tracks two things per weight:
+Adam (Ước lượng Moment Thích nghi) theo dõi hai thứ cho mỗi trọng số:
 
-1. First moment (m): running average of gradients (like momentum)
-2. Second moment (v): running average of squared gradients (gradient magnitude)
+1. Moment bậc nhất (m): trung bình cập nhật liên tục của gradient (giống momentum)
+2. Moment bậc hai (v): trung bình cập nhật liên tục của gradient bình phương (độ lớn gradient)
 
 ```
 m = beta1 * m + (1 - beta1) * gradient
@@ -137,28 +137,28 @@ v_hat = v / (1 - beta2^t)    bias correction
 w = w - lr * m_hat / (sqrt(v_hat) + epsilon)
 ```
 
-The division by `sqrt(v_hat)` is the key insight. Weights with large gradients get divided by a large number (small effective step). Weights with small gradients get divided by a small number (large effective step). Each weight gets its own adaptive learning rate.
+Phép chia cho `sqrt(v_hat)` là điểm cốt yếu. Các trọng số có gradient lớn được chia cho một số lớn (bước hiệu dụng nhỏ). Các trọng số có gradient nhỏ được chia cho một số nhỏ (bước hiệu dụng lớn). Mỗi trọng số có tốc độ học thích nghi riêng.
 
-Default hyperparameters: `lr=0.001, beta1=0.9, beta2=0.999, epsilon=1e-8`. These defaults work well for most problems.
+Các siêu tham số mặc định: `lr=0.001, beta1=0.9, beta2=0.999, epsilon=1e-8`. Những giá trị mặc định này hoạt động tốt cho hầu hết các bài toán.
 
 ### Learning rate schedules
 
-A fixed learning rate is a compromise. Early in training, you want large steps to make fast progress. Late in training, you want small steps to fine-tune near the minimum.
+Một tốc độ học cố định là một sự thỏa hiệp. Đầu quá trình huấn luyện, bạn muốn các bước lớn để tiến triển nhanh. Cuối quá trình huấn luyện, bạn muốn các bước nhỏ để tinh chỉnh gần cực tiểu.
 
-Common schedules:
+Các lịch phổ biến:
 
-| Schedule | Formula | Use case |
+| Lịch | Công thức | Trường hợp sử dụng |
 |----------|---------|----------|
-| Step decay | lr = lr * factor every N epochs | Simple, manual control |
-| Exponential decay | lr = lr_0 * decay^t | Smooth reduction |
-| Cosine annealing | lr = lr_min + 0.5 * (lr_max - lr_min) * (1 + cos(pi * t / T)) | Transformers, modern training |
-| Warmup + decay | Linear ramp up, then decay | Large models, prevents early instability |
+| Giảm theo bước | lr = lr * factor mỗi N epoch | Đơn giản, điều khiển thủ công |
+| Giảm theo hàm mũ | lr = lr_0 * decay^t | Giảm mượt |
+| Ủ cosine | lr = lr_min + 0.5 * (lr_max - lr_min) * (1 + cos(pi * t / T)) | Transformer, huấn luyện hiện đại |
+| Warmup + giảm | Tăng tuyến tính, rồi giảm | Các mô hình lớn, ngăn bất ổn ban đầu |
 
 ### Convex vs non-convex
 
-A convex function has one minimum. Gradient descent always finds it. A quadratic like `f(x) = x^2` is convex.
+Một hàm lồi có một cực tiểu. Gradient descent luôn tìm thấy nó. Một hàm bậc hai như `f(x) = x^2` là lồi.
 
-Neural network loss functions are non-convex. They have many local minima, saddle points, and flat regions.
+Các hàm mất mát mạng nơ-ron không lồi. Chúng có nhiều cực tiểu cục bộ, điểm yên ngựa và vùng phẳng.
 
 ```mermaid
 graph LR
@@ -174,11 +174,11 @@ graph LR
     end
 ```
 
-In practice, local minima in high-dimensional neural networks are rarely a problem. Most local minima have loss values close to the global minimum. Saddle points (flat in some directions, curved in others) are the real obstacle. Momentum and noise from mini-batches help escape them.
+Trong thực tế, các cực tiểu cục bộ trong mạng nơ-ron nhiều chiều hiếm khi là vấn đề. Hầu hết các cực tiểu cục bộ có giá trị mất mát gần cực tiểu toàn cục. Các điểm yên ngựa (phẳng theo một số hướng, cong theo các hướng khác) mới là trở ngại thực sự. Momentum và nhiễu từ mini-batch giúp thoát khỏi chúng.
 
 ### Loss landscape visualization
 
-The loss is a function of all weights. For a model with 1 million weights, the loss landscape lives in 1,000,001-dimensional space. We visualize it by picking two random directions in weight space and plotting the loss along those directions, producing a 2D surface.
+Mất mát là một hàm của tất cả trọng số. Với một mô hình có 1 triệu trọng số, địa hình mất mát nằm trong không gian 1,000,001 chiều. Chúng ta trực quan hóa nó bằng cách chọn hai hướng ngẫu nhiên trong không gian trọng số và vẽ mất mát dọc theo các hướng đó, tạo ra một bề mặt 2D.
 
 ```mermaid
 graph TD
@@ -193,7 +193,7 @@ graph TD
     style GM fill:#66ff66,color:#000
 ```
 
-Sharp minima generalize poorly. Flat minima generalize well. This is one reason SGD with momentum often outperforms Adam on final test accuracy: its noise prevents settling into sharp minima.
+Các cực tiểu nhọn tổng quát hóa kém. Các cực tiểu phẳng tổng quát hóa tốt. Đây là một lý do SGD có momentum thường vượt Adam về độ chính xác kiểm tra cuối cùng: nhiễu của nó ngăn việc dừng lại ở các cực tiểu nhọn.
 
 ```figure
 gradient-descent
@@ -203,7 +203,7 @@ gradient-descent
 
 ### Step 1: Define a test function
 
-The Rosenbrock function is a classic optimization benchmark. Its minimum is at (1, 1) inside a narrow curved valley that is easy to find but hard to follow.
+Hàm Rosenbrock là một chuẩn đánh giá tối ưu hóa kinh điển. Cực tiểu của nó nằm tại (1, 1) bên trong một thung lũng hẹp cong dễ tìm nhưng khó đi theo.
 
 ```
 f(x, y) = (1 - x)^2 + 100 * (y - x^2)^2
@@ -313,11 +313,11 @@ for name, history in [("GD", gd_history), ("SGD+M", sgd_history), ("Adam", adam_
     print(f"{name:6s} -> x={final[0]:.6f}, y={final[1]:.6f}, loss={loss:.8f}")
 ```
 
-Expected output: Adam converges fastest. SGD with momentum follows a smoother path. Vanilla GD makes slow progress along the narrow valley.
+Đầu ra kỳ vọng: Adam hội tụ nhanh nhất. SGD có momentum đi theo một đường mượt hơn. GD cơ bản tiến triển chậm dọc theo thung lũng hẹp.
 
 ## Use It
 
-In practice, use PyTorch or JAX optimizers. They handle parameter groups, weight decay, gradient clipping, and GPU acceleration.
+Trong thực tế, sử dụng các bộ tối ưu hóa PyTorch hoặc JAX. Chúng xử lý các nhóm tham số, suy giảm trọng số, cắt gradient và tăng tốc GPU.
 
 ```python
 import torch
@@ -331,50 +331,50 @@ adamw = torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(adam, T_max=100)
 ```
 
-Rules of thumb:
+Các quy tắc kinh nghiệm:
 
-- Start with Adam (lr=0.001). It works for most problems without tuning.
-- Switch to SGD with momentum (lr=0.01, momentum=0.9) when you need the best final accuracy and can afford more tuning.
-- Use AdamW (Adam with decoupled weight decay) for transformers.
-- Always use a learning rate schedule for training runs longer than a few epochs.
-- If training is unstable, reduce the learning rate. If training is too slow, increase it.
+- Bắt đầu với Adam (lr=0.001). Nó hoạt động cho hầu hết các bài toán mà không cần điều chỉnh.
+- Chuyển sang SGD có momentum (lr=0.01, momentum=0.9) khi bạn cần độ chính xác cuối cùng tốt nhất và có thể dành thêm công sức điều chỉnh.
+- Sử dụng AdamW (Adam với suy giảm trọng số tách biệt) cho transformer.
+- Luôn sử dụng một lịch tốc độ học cho các lần huấn luyện dài hơn vài epoch.
+- Nếu huấn luyện không ổn định, giảm tốc độ học. Nếu huấn luyện quá chậm, tăng nó.
 
 ## Ship It
 
-This lesson produces a prompt for choosing the right optimizer. See `outputs/prompt-optimizer-guide.md`.
+Bài học này tạo ra một prompt để chọn bộ tối ưu hóa phù hợp. Xem `outputs/prompt-optimizer-guide.md`.
 
-The optimizer classes built here reappear in Phase 3 when we train a neural network from scratch.
+Các lớp bộ tối ưu hóa được xây dựng ở đây xuất hiện lại trong Giai đoạn 3 khi chúng ta huấn luyện một mạng nơ-ron từ đầu.
 
 ## Exercises
 
-1. **Learning rate sweep.** Run vanilla gradient descent on the Rosenbrock function with learning rates [0.0001, 0.0005, 0.001, 0.005, 0.01]. Plot or print the final loss after 5000 steps for each. Find the largest learning rate that still converges.
+1. **Quét tốc độ học.** Chạy gradient descent cơ bản trên hàm Rosenbrock với các tốc độ học [0.0001, 0.0005, 0.001, 0.005, 0.01]. Vẽ hoặc in mất mát cuối cùng sau 5000 bước cho mỗi giá trị. Tìm tốc độ học lớn nhất vẫn hội tụ.
 
-2. **Momentum comparison.** Run SGD with momentum values [0.0, 0.5, 0.9, 0.99] on the Rosenbrock function. Track the loss at every step. Which momentum value converges fastest? Which overshoots?
+2. **So sánh momentum.** Chạy SGD với các giá trị momentum [0.0, 0.5, 0.9, 0.99] trên hàm Rosenbrock. Theo dõi mất mát tại mỗi bước. Giá trị momentum nào hội tụ nhanh nhất? Giá trị nào vượt quá?
 
-3. **Saddle point escape.** Define the function `f(x, y) = x^2 - y^2` (a saddle point at the origin). Start at (0.01, 0.01). Compare how vanilla GD, SGD with momentum, and Adam behave. Which escapes the saddle point?
+3. **Thoát điểm yên ngựa.** Định nghĩa hàm `f(x, y) = x^2 - y^2` (một điểm yên ngựa tại gốc tọa độ). Bắt đầu tại (0.01, 0.01). So sánh cách GD cơ bản, SGD có momentum và Adam hoạt động. Bộ nào thoát khỏi điểm yên ngựa?
 
-4. **Implement learning rate decay.** Add an exponential decay schedule to the GradientDescent class: `lr = lr_0 * 0.999^step`. Compare convergence with and without decay on the Rosenbrock function.
+4. **Triển khai giảm tốc độ học.** Thêm một lịch giảm theo hàm mũ vào lớp GradientDescent: `lr = lr_0 * 0.999^step`. So sánh sự hội tụ khi có và không giảm trên hàm Rosenbrock.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Gradient descent | "Go downhill" | Update weights by subtracting the gradient scaled by the learning rate. The most basic optimizer. |
-| Learning rate | "Step size" | A scalar that controls how far each update moves the weights. Too large causes divergence. Too small wastes compute. |
-| Momentum | "Keep rolling" | Accumulate past gradients into a velocity vector. Dampens oscillations and accelerates movement through consistent directions. |
-| SGD | "Random sampling" | Stochastic gradient descent. Compute gradient on a random subset instead of the full dataset. Almost always means mini-batch SGD in practice. |
-| Mini-batch | "A chunk of data" | A small subset of training data (32-256 samples) used to estimate the gradient. Balances speed and gradient accuracy. |
-| Adam | "The default optimizer" | Adaptive Moment Estimation. Tracks per-weight running averages of gradients and squared gradients to give each weight its own learning rate. |
-| Bias correction | "Fix the cold start" | Adam's first and second moments are initialized to zero. Bias correction divides by (1 - beta^t) to compensate during early steps. |
-| Learning rate schedule | "Change lr over time" | A function that adjusts the learning rate during training. Large steps early, small steps late. |
-| Convex function | "One valley" | A function where any local minimum is the global minimum. Gradient descent always finds it. Neural network losses are not convex. |
-| Saddle point | "Flat but not a minimum" | A point where the gradient is zero but it is a minimum in some directions and a maximum in others. Common in high dimensions. |
-| Loss landscape | "The terrain" | The loss function plotted over weight space. Visualized by slicing along two random directions. |
-| Convergence | "Getting there" | The optimizer has reached a point where further steps do not meaningfully reduce the loss. |
+| Gradient descent | "Đi xuống dốc" | Cập nhật trọng số bằng cách trừ gradient được nhân với tốc độ học. Bộ tối ưu hóa cơ bản nhất. |
+| Learning rate (Tốc độ học) | "Kích thước bước" | Một số vô hướng điều khiển mỗi cập nhật di chuyển trọng số bao xa. Quá lớn gây phân kỳ. Quá nhỏ lãng phí tính toán. |
+| Momentum | "Tiếp tục lăn" | Tích lũy các gradient quá khứ vào một vector vận tốc. Làm giảm dao động và tăng tốc chuyển động theo các hướng nhất quán. |
+| SGD | "Lấy mẫu ngẫu nhiên" | Gradient descent ngẫu nhiên. Tính gradient trên một tập con ngẫu nhiên thay vì toàn bộ tập dữ liệu. Trong thực tế hầu như luôn có nghĩa là mini-batch SGD. |
+| Mini-batch | "Một phần dữ liệu" | Một tập con nhỏ của dữ liệu huấn luyện (32-256 mẫu) được sử dụng để ước lượng gradient. Cân bằng tốc độ và độ chính xác gradient. |
+| Adam | "Bộ tối ưu hóa mặc định" | Ước lượng Moment Thích nghi. Theo dõi các trung bình cập nhật liên tục của gradient và gradient bình phương theo từng trọng số để cho mỗi trọng số tốc độ học riêng. |
+| Bias correction (Hiệu chỉnh độ chệch) | "Khắc phục khởi đầu lạnh" | Các moment bậc nhất và bậc hai của Adam được khởi tạo bằng không. Hiệu chỉnh độ chệch chia cho (1 - beta^t) để bù trong các bước đầu. |
+| Learning rate schedule (Lịch tốc độ học) | "Thay đổi lr theo thời gian" | Một hàm điều chỉnh tốc độ học trong quá trình huấn luyện. Bước lớn lúc đầu, bước nhỏ lúc sau. |
+| Convex function (Hàm lồi) | "Một thung lũng" | Một hàm mà bất kỳ cực tiểu cục bộ nào cũng là cực tiểu toàn cục. Gradient descent luôn tìm thấy nó. Mất mát mạng nơ-ron không lồi. |
+| Saddle point (Điểm yên ngựa) | "Phẳng nhưng không phải cực tiểu" | Một điểm có gradient bằng không nhưng là cực tiểu theo một số hướng và cực đại theo các hướng khác. Phổ biến trong không gian nhiều chiều. |
+| Loss landscape (Địa hình mất mát) | "Địa hình" | Hàm mất mát được vẽ trên không gian trọng số. Được trực quan hóa bằng cách cắt theo hai hướng ngẫu nhiên. |
+| Convergence (Hội tụ) | "Đến nơi" | Bộ tối ưu hóa đã đạt đến một điểm mà các bước tiếp theo không làm giảm mất mát đáng kể. |
 
 ## Further Reading
 
-- [Sebastian Ruder: An overview of gradient descent optimization algorithms](https://ruder.io/optimizing-gradient-descent/) - comprehensive survey of all major optimizers
-- [Why Momentum Really Works (Distill)](https://distill.pub/2017/momentum/) - interactive visualization of momentum dynamics
-- [Adam: A Method for Stochastic Optimization (Kingma & Ba, 2014)](https://arxiv.org/abs/1412.6980) - the original Adam paper, readable and short
-- [Visualizing the Loss Landscape of Neural Nets (Li et al., 2018)](https://arxiv.org/abs/1712.09913) - the paper that showed sharp vs flat minima
+- [Sebastian Ruder: An overview of gradient descent optimization algorithms](https://ruder.io/optimizing-gradient-descent/) - khảo sát toàn diện về tất cả các bộ tối ưu hóa chính
+- [Why Momentum Really Works (Distill)](https://distill.pub/2017/momentum/) - trực quan hóa tương tác về động lực momentum
+- [Adam: A Method for Stochastic Optimization (Kingma & Ba, 2014)](https://arxiv.org/abs/1412.6980) - bài báo Adam gốc, dễ đọc và ngắn
+- [Visualizing the Loss Landscape of Neural Nets (Li et al., 2018)](https://arxiv.org/abs/1712.09913) - bài báo cho thấy cực tiểu nhọn so với phẳng
