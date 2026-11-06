@@ -9,67 +9,67 @@ tags: [caching, cost-optimization, rate-limiting, model-routing, budget, llm-ops
 
 # LLM Cost Optimization Patterns
 
-When building an LLM application that needs to control costs, apply this decision framework.
+Khi xây ứng dụng LLM cần kiểm soát chi phí, áp dụng khung quyết định này.
 
 ## When to optimize
 
-**Optimize immediately when:**
-- Monthly LLM spend exceeds $500 or 10% of infrastructure budget
-- Cost per query is above $0.01 for a consumer product
-- Your system prompt is over 1,000 tokens and sent with every request
-- More than 30% of queries are duplicates or near-duplicates
-- You are scaling from 100 to 10,000+ daily users
+**Tối ưu ngay khi:**
+- Chi LLM hằng tháng vượt $500 hoặc 10% ngân sách hạ tầng
+- Chi phí mỗi truy vấn trên $0.01 cho sản phẩm tiêu dùng
+- System prompt trên 1,000 token và được gửi với mọi yêu cầu
+- Hơn 30% truy vấn trùng hoặc gần trùng
+- Bạn đang mở rộng từ 100 đến 10,000+ người dùng hằng ngày
 
-**Do not optimize yet when:**
-- You have fewer than 100 DAU and are still validating product-market fit
-- Monthly spend is under $100 and growing slowly
-- You are still iterating on prompt design (caching locks you into a prompt)
+**Chưa tối ưu khi:**
+- Bạn có dưới 100 DAU và vẫn xác thực độ phù hợp sản phẩm-thị trường
+- Chi hằng tháng dưới $100 và tăng chậm
+- Bạn vẫn đang lặp thiết kế prompt (cache khóa bạn vào một prompt)
 
 ## Caching strategy selection
 
 ### Exact caching
 
-**Use when:** temperature=0, identical prompts repeat, deterministic outputs needed.
+**Dùng khi:** temperature=0, prompt giống hệt lặp lại, cần đầu ra tất định.
 
 ```python
 key = sha256(json.dumps({"model": m, "messages": msgs, "temp": 0}))
 ```
 
-- Implementation: 30 minutes
-- Hit rate: 10-25% for most apps, 40-60% for FAQ bots
-- Latency: <1ms (dict lookup)
-- Risk: stale responses if underlying data changes
+- Triển khai: 30 phút
+- Tỷ lệ hit: 10-25% cho hầu hết ứng dụng, 40-60% cho bot FAQ
+- Độ trễ: <1ms (tra dict)
+- Rủi ro: phản hồi lỗi thời nếu dữ liệu bên dưới thay đổi
 
-**Skip when:** temperature > 0, every query is unique, real-time data needed.
+**Bỏ qua khi:** temperature > 0, mọi truy vấn duy nhất, cần dữ liệu thời gian thực.
 
 ### Semantic caching
 
-**Use when:** users ask the same question in different words, FAQ-heavy products, customer support.
+**Dùng khi:** người dùng hỏi cùng câu bằng từ khác, sản phẩm nhiều FAQ, hỗ trợ khách hàng.
 
-- Implementation: 2-4 hours (embedding + similarity + storage)
-- Hit rate: 15-35% on top of exact cache
-- Latency: 10-50ms (embedding + ANN search)
-- Risk: false positives (returning wrong cached answer for a similar but different question)
+- Triển khai: 2-4 giờ (embedding + tương đồng + lưu trữ)
+- Tỷ lệ hit: thêm 15-35% ngoài cache chính xác
+- Độ trễ: 10-50ms (embedding + tìm ANN)
+- Rủi ro: dương tính giả (trả câu trả lời cache sai cho câu hỏi tương tự nhưng khác)
 
-**Threshold guidelines:**
-- 0.98+: very conservative, almost no false positives, lower hit rate
-- 0.95: good balance for factual Q&A
-- 0.90: aggressive, higher hit rate but risk of wrong answers
-- 0.85: only for low-stakes applications (suggestions, autocomplete)
+**Hướng dẫn ngưỡng:**
+- 0.98+: rất thận trọng, gần như không dương tính giả, tỷ lệ hit thấp hơn
+- 0.95: cân bằng tốt cho hỏi đáp sự kiện
+- 0.90: mạnh, tỷ lệ hit cao hơn nhưng có nguy cơ trả lời sai
+- 0.85: chỉ cho ứng dụng ít hệ trọng (gợi ý, tự động hoàn thành)
 
-**Skip when:** every query has unique context (code generation), responses must reflect latest data, query space is unbounded.
+**Bỏ qua khi:** mỗi truy vấn có ngữ cảnh riêng (sinh mã), phản hồi phải phản ánh dữ liệu mới nhất, không gian truy vấn không giới hạn.
 
 ### Provider prompt caching
 
-**Use when:** system prompt > 1,024 tokens (OpenAI) or model-specific minimum, same prefix sent repeatedly.
+**Dùng khi:** system prompt > 1,024 token (OpenAI) hoặc mức tối thiểu riêng mô hình, cùng tiền tố được gửi lặp.
 
-| Provider | Action | Savings |
+| Nhà cung cấp | Hành động | Tiết kiệm |
 |----------|--------|---------|
-| Anthropic | Add `cache_control: {"type": "ephemeral"}` to system message | 90% on cached prefix (after 25% write premium) |
-| OpenAI | Nothing (automatic) | 50% on cached prefix |
-| Google | Use Context Caching API with explicit TTL | ~75% on cached context |
+| Anthropic | Thêm `cache_control: {"type": "ephemeral"}` vào thông điệp hệ thống | 90% trên tiền tố cache (sau phụ phí ghi 25%) |
+| OpenAI | Không làm gì (tự động) | 50% trên tiền tố cache |
+| Google | Dùng Context Caching API với TTL rõ ràng | ~75% trên ngữ cảnh cache |
 
-**Skip when:** system prompt changes per request, prompt is under minimum length.
+**Bỏ qua khi:** system prompt thay đổi mỗi yêu cầu, prompt dưới độ dài tối thiểu.
 
 ## Model routing rules
 
@@ -81,66 +81,66 @@ medium:  general queries, summaries        -> claude-sonnet ($3/$15)
 complex: "analyze", "compare", "debug"     -> gpt-4o ($2.50/$10)
 ```
 
-- Implementation: 1 hour
-- Accuracy: 70-80%
-- Savings: 40-60% of model costs
+- Triển khai: 1 giờ
+- Độ chính xác: 70-80%
+- Tiết kiệm: 40-60% chi phí mô hình
 
 ### Embedding-based (more accurate)
 
-Embed 50-100 labeled queries per category. Classify new queries by nearest neighbor.
+Nhúng 50-100 truy vấn gán nhãn mỗi loại. Phân loại truy vấn mới bằng láng giềng gần nhất.
 
-- Implementation: 4-8 hours
-- Accuracy: 85-92%
-- Savings: 50-70% of model costs
-- Additional cost: ~$0.02/1M tokens for classification embeddings (negligible)
+- Triển khai: 4-8 giờ
+- Độ chính xác: 85-92%
+- Tiết kiệm: 50-70% chi phí mô hình
+- Chi phí bổ sung: ~$0.02/1M token cho embedding phân loại (không đáng kể)
 
 ### ML-based (production grade)
 
-Train a small classifier (logistic regression or small BERT) on historical query/model pairs.
+Huấn luyện bộ phân loại nhỏ (hồi quy logistic hoặc BERT nhỏ) trên cặp truy vấn/mô hình lịch sử.
 
-- Implementation: 1-2 weeks
-- Accuracy: 90-95%
-- Savings: 60-75% of model costs
-- Requires: labeled training data from production traffic
+- Triển khai: 1-2 tuần
+- Độ chính xác: 90-95%
+- Tiết kiệm: 60-75% chi phí mô hình
+- Cần: dữ liệu huấn luyện gán nhãn từ lưu lượng sản xuất
 
 ## Rate limiting configuration
 
 ### Token bucket parameters by tier
 
-| Tier | Bucket Size | Refill Rate | Max RPM | Daily Cap |
+| Hạng | Kích thước xô | Tốc độ nạp | RPM tối đa | Trần hằng ngày |
 |------|-------------|-------------|---------|-----------|
-| Free | 50K tokens | 500/sec | 10 | 50K |
-| Pro | 500K tokens | 5K/sec | 60 | 500K |
-| Enterprise | 5M tokens | 50K/sec | 300 | 5M |
+| Miễn phí | 50K token | 500/giây | 10 | 50K |
+| Pro | 500K token | 5K/giây | 60 | 500K |
+| Doanh nghiệp | 5M token | 50K/giây | 300 | 5M |
 
 ### Implementation checklist
 
-1. Store buckets in Redis (not in-memory) for multi-instance apps
-2. Use atomic operations (MULTI/EXEC) to prevent race conditions
-3. Return `Retry-After` header with rejection responses
-4. Track rejected requests as a metric (>5% rejection = tier limits too tight)
-5. Implement graceful degradation: reject expensive model requests first, keep cheap model access
+1. Lưu xô trong Redis (không trong bộ nhớ) cho ứng dụng nhiều instance
+2. Dùng thao tác nguyên tử (MULTI/EXEC) để ngăn race condition
+3. Trả header `Retry-After` với phản hồi từ chối
+4. Theo dõi yêu cầu bị từ chối như thước đo (>5% từ chối = giới hạn hạng quá chặt)
+5. Triển khai suy giảm có kiểm soát: từ chối yêu cầu mô hình đắt trước, giữ truy cập mô hình rẻ
 
 ## Budget controls
 
 ### Three-threshold circuit breaker
 
-| Threshold | Action | Reversible |
+| Ngưỡng | Hành động | Có thể đảo ngược |
 |-----------|--------|------------|
-| 70% of monthly budget | Log warning, alert team via Slack/PagerDuty | Yes (auto) |
-| 85% of monthly budget | Route all traffic to cheapest model | Yes (auto, next billing cycle) |
-| 95% of monthly budget | Serve cached responses only, reject new LLM calls | Yes (manual reset or next cycle) |
+| 70% ngân sách tháng | Ghi cảnh báo, báo nhóm qua Slack/PagerDuty | Có (tự động) |
+| 85% ngân sách tháng | Định tuyến mọi lưu lượng sang mô hình rẻ nhất | Có (tự động, kỳ thanh toán tiếp) |
+| 95% ngân sách tháng | Chỉ phục vụ phản hồi cache, từ chối lệnh gọi LLM mới | Có (đặt lại thủ công hoặc kỳ tiếp) |
 
 ### Per-user cost tracking
 
-Track cumulative cost per user. Flag users exceeding 10x the median. Common causes:
-- Legitimate power user (upgrade their tier)
-- Prompt injection loop (bot sending automated requests)
-- Inefficient integration (client retrying on every error)
+Theo dõi chi phí tích lũy mỗi người dùng. Đánh dấu người vượt 10x trung vị. Nguyên nhân phổ biến:
+- Người dùng chuyên sâu hợp lệ (nâng hạng cho họ)
+- Vòng lặp prompt injection (bot gửi yêu cầu tự động)
+- Tích hợp kém hiệu quả (client thử lại trên mọi lỗi)
 
 ## Cost tracking fields
 
-Log every API call with these fields:
+Ghi log mọi lệnh gọi API với các trường này:
 
 ```json
 {
@@ -161,34 +161,34 @@ Log every API call with these fields:
 
 ### Key metrics to dashboard
 
-- **Cost per query** (P50, P95, P99) -- by model, by feature, by user tier
-- **Cache hit rate** -- exact vs semantic, trend over time
-- **Model distribution** -- % of traffic per model, cost per model
-- **Budget burn rate** -- current spend vs projected monthly at current rate
-- **Rejection rate** -- % of requests rate-limited, by tier
+- **Chi phí mỗi truy vấn** (P50, P95, P99) -- theo mô hình, tính năng, hạng người dùng
+- **Tỷ lệ cache hit** -- chính xác so với ngữ nghĩa, xu hướng theo thời gian
+- **Phân phối mô hình** -- % lưu lượng mỗi mô hình, chi phí mỗi mô hình
+- **Tốc độ tiêu ngân sách** -- chi hiện tại so với dự báo tháng ở tốc độ hiện tại
+- **Tỷ lệ từ chối** -- % yêu cầu bị giới hạn tần suất, theo hạng
 
 ## Common mistakes
 
-| Mistake | Why it hurts | Fix |
+| Sai lầm | Tại sao gây hại | Cách sửa |
 |---------|-------------|-----|
-| Caching with temperature > 0 | Non-deterministic outputs, stale cache gives wrong variety | Only cache temp=0 calls, or accept that cached responses lose randomness |
-| Semantic cache threshold too low | Returns wrong answers for superficially similar queries | Start at 0.95, lower only after measuring false positive rate |
-| No cache invalidation | Responses go stale when underlying data changes | Set TTL (1 hour for dynamic data, 24 hours for static), invalidate on data updates |
-| Routing all traffic to cheapest model | Quality drops, users notice | Route by complexity, measure quality per tier, set minimum quality thresholds |
-| No per-user limits | One abusive user burns entire budget | Always implement per-user quotas, even if generous |
-| Ignoring output tokens | Output costs 2-5x more than input per token | Set max_tokens appropriately, use stop sequences, compress outputs |
-| Caching before prompt is stable | Cache fills with responses from old prompts | Only enable caching after prompt is finalized, flush cache on prompt changes |
+| Cache với temperature > 0 | Đầu ra không tất định, cache cũ cho sai độ đa dạng | Chỉ cache lệnh gọi temp=0, hoặc chấp nhận phản hồi cache mất tính ngẫu nhiên |
+| Ngưỡng cache ngữ nghĩa quá thấp | Trả sai cho truy vấn tương tự bề ngoài | Bắt đầu 0.95, chỉ giảm sau khi đo tỷ lệ dương tính giả |
+| Không vô hiệu hóa cache | Phản hồi lỗi thời khi dữ liệu bên dưới đổi | Đặt TTL (1 giờ cho dữ liệu động, 24 giờ cho tĩnh), vô hiệu khi cập nhật dữ liệu |
+| Định tuyến mọi lưu lượng sang mô hình rẻ nhất | Chất lượng giảm, người dùng nhận thấy | Định tuyến theo độ phức tạp, đo chất lượng mỗi hạng, đặt ngưỡng chất lượng tối thiểu |
+| Không giới hạn mỗi người dùng | Một người lạm dụng đốt toàn ngân sách | Luôn triển khai hạn mức mỗi người dùng, dù rộng rãi |
+| Bỏ qua token đầu ra | Đầu ra tốn hơn đầu vào 2-5x mỗi token | Đặt max_tokens thích hợp, dùng stop sequence, nén đầu ra |
+| Cache trước khi prompt ổn định | Cache đầy phản hồi từ prompt cũ | Chỉ bật cache sau khi chốt prompt, xóa cache khi prompt đổi |
 
 ## Pricing reference (as of April 2026)
 
-| Model | Input ($/1M) | Output ($/1M) | Cached Input ($/1M) | Best For |
+| Mô hình | Đầu vào ($/1M) | Đầu ra ($/1M) | Đầu vào cache ($/1M) | Tốt nhất cho |
 |-------|-------------|--------------|--------------------|---------| 
-| gpt-4.1-nano | $0.10 | $0.40 | $0.025 | High-volume simple tasks |
-| gpt-4o-mini | $0.15 | $0.60 | $0.075 | Simple routing, classification |
-| gemini-2.5-flash | $0.15 | $0.60 | $0.0375 | Budget multimodal |
-| claude-haiku-3.5 | $0.80 | $4.00 | $0.08 | Fast mid-tier tasks |
-| o4-mini | $1.10 | $4.40 | $0.275 | Reasoning on a budget |
-| gemini-2.5-pro | $1.25 | $10.00 | $0.3125 | Long context, multimodal |
-| gpt-4o | $2.50 | $10.00 | $1.25 | General purpose, function calling |
-| claude-sonnet-4 | $3.00 | $15.00 | $0.30 | Balanced quality/cost |
-| claude-opus-4 | $15.00 | $75.00 | $1.50 | Maximum quality, complex reasoning |
+| gpt-4.1-nano | $0.10 | $0.40 | $0.025 | Tác vụ đơn giản khối lượng cao |
+| gpt-4o-mini | $0.15 | $0.60 | $0.075 | Định tuyến đơn giản, phân loại |
+| gemini-2.5-flash | $0.15 | $0.60 | $0.0375 | Đa phương thức tiết kiệm |
+| claude-haiku-3.5 | $0.80 | $4.00 | $0.08 | Tác vụ tầm trung nhanh |
+| o4-mini | $1.10 | $4.40 | $0.275 | Suy luận tiết kiệm |
+| gemini-2.5-pro | $1.25 | $10.00 | $0.3125 | Ngữ cảnh dài, đa phương thức |
+| gpt-4o | $2.50 | $10.00 | $1.25 | Đa dụng, function calling |
+| claude-sonnet-4 | $3.00 | $15.00 | $0.30 | Cân bằng chất lượng/chi phí |
+| claude-opus-4 | $15.00 | $75.00 | $1.50 | Chất lượng tối đa, suy luận phức tạp |

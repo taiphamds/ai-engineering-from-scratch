@@ -1,50 +1,50 @@
 # Caching, Rate Limiting & Cost Optimization
 
-> Most AI startups do not die from bad models. They die from bad unit economics. A single GPT-4o call costs fractions of a cent. Ten thousand users making ten calls per day costs $250 in input tokens alone -- before you charge a single dollar. The companies that survive are the ones that treat every API call as a financial transaction, not a function call.
+> Hầu hết startup AI không chết vì mô hình kém. Họ chết vì kinh tế đơn vị kém. Một lệnh gọi GPT-4o tốn một phần của một xu. Mười nghìn người dùng thực hiện mười lệnh gọi mỗi ngày tốn $250 chỉ cho token đầu vào -- trước khi bạn thu một đô la nào. Những công ty sống sót là những công ty xem mỗi lệnh gọi API như giao dịch tài chính, không phải lệnh gọi hàm.
 
 **Type:** Build
 **Languages:** Python
 **Prerequisites:** Phase 11 Lesson 09 (Function Calling)
 **Time:** ~45 minutes
-**Related:** Phase 11 · 15 (Prompt Caching) — this lesson covers application-layer caching (semantic cache, exact hash cache, model routing). Lesson 15 covers provider-layer prompt caching (Anthropic cache_control, OpenAI automatic, Gemini CachedContent). Combine both for 50-95% cost reduction.
+**Liên quan:** Giai đoạn 11 · 15 (Prompt Caching) — bài học này trình bày cache lớp ứng dụng (cache ngữ nghĩa, cache hash chính xác, định tuyến mô hình). Bài 15 trình bày cache prompt lớp nhà cung cấp (cache_control của Anthropic, tự động của OpenAI, CachedContent của Gemini). Kết hợp cả hai để giảm chi phí 50-95%.
 
 ## Learning Objectives
 
-- Implement semantic caching that serves repeated or similar queries from cache instead of making a new API call
-- Calculate per-request costs across providers and implement token-aware rate limiting and budget alerts
-- Build a cost optimization layer with prompt compression, model routing (expensive vs cheap), and response caching
-- Design a tiered caching strategy using exact match, semantic similarity, and prefix caching for different query types
+- Triển khai cache ngữ nghĩa phục vụ truy vấn lặp hoặc tương tự từ cache thay vì gọi API mới
+- Tính chi phí mỗi yêu cầu giữa các nhà cung cấp và triển khai giới hạn tần suất nhận biết token cùng cảnh báo ngân sách
+- Xây lớp tối ưu chi phí với nén prompt, định tuyến mô hình (đắt so với rẻ) và cache phản hồi
+- Thiết kế chiến lược cache phân tầng dùng khớp chính xác, tương đồng ngữ nghĩa và cache tiền tố cho các loại truy vấn khác nhau
 
 ## The Problem
 
-You build a RAG chatbot. It works beautifully. Users love it.
+Bạn xây chatbot RAG. Nó hoạt động tuyệt vời. Người dùng yêu thích.
 
-Then the invoice arrives.
+Rồi hóa đơn đến.
 
-GPT-5 costs $5 per million input tokens and $15 per million output. Claude Opus 4.7 costs $15 input / $75 output. Gemini 3 Pro costs $1.25 input / $5 output. GPT-5-mini is $0.25/$2. Prices below are illustrative; always check the provider's current pricing page.
+GPT-5 tốn $5 mỗi triệu token đầu vào và $15 mỗi triệu đầu ra. Claude Opus 4.7 tốn $15 đầu vào / $75 đầu ra. Gemini 3 Pro tốn $1.25 đầu vào / $5 đầu ra. GPT-5-mini là $0.25/$2. Giá bên dưới là minh họa; luôn kiểm tra trang giá hiện tại của nhà cung cấp.
 
-Here is the math that kills startups:
+Đây là phép tính giết startup:
 
-- 10,000 daily active users
-- 10 queries per user per day
-- 1,000 input tokens per query (system prompt + context + user message)
-- 500 output tokens per response
+- 10,000 người dùng hoạt động hằng ngày
+- 10 truy vấn mỗi người dùng mỗi ngày
+- 1,000 token đầu vào mỗi truy vấn (system prompt + ngữ cảnh + thông điệp người dùng)
+- 500 token đầu ra mỗi phản hồi
 
-**Daily input cost:** 10,000 x 10 x 1,000 / 1,000,000 x $2.50 = **$250/day**
-**Daily output cost:** 10,000 x 10 x 500 / 1,000,000 x $10.00 = **$500/day**
-**Monthly total:** **$22,500/month**
+**Chi phí đầu vào hằng ngày:** 10,000 x 10 x 1,000 / 1,000,000 x $2.50 = **$250/ngày**
+**Chi phí đầu ra hằng ngày:** 10,000 x 10 x 500 / 1,000,000 x $10.00 = **$500/ngày**
+**Tổng hằng tháng:** **$22,500/tháng**
 
-That is just the LLM. Add embeddings, vector database hosting, infrastructure. You are looking at $30,000/month for a chatbot.
+Đó chỉ là LLM. Thêm embedding, lưu trữ cơ sở dữ liệu vector, hạ tầng. Bạn đang nhìn vào $30,000/tháng cho một chatbot.
 
-The brutal part: 40-60% of those queries are near-duplicates. Users ask the same questions in slightly different words. Your system prompt -- identical across every request -- gets billed every single time. Context documents retrieved by RAG repeat across users who ask about the same topic.
+Phần khắc nghiệt: 40-60% truy vấn đó gần trùng lặp. Người dùng hỏi cùng câu hỏi với từ ngữ khác đôi chút. System prompt của bạn -- giống hệt trên mọi yêu cầu -- bị tính tiền mỗi lần. Tài liệu ngữ cảnh do RAG truy xuất lặp lại giữa người dùng hỏi cùng chủ đề.
 
-You are paying full price for redundant computation.
+Bạn đang trả đủ giá cho tính toán dư thừa.
 
 ## The Concept
 
 ### The Cost Anatomy of an LLM Call
 
-Every API call has five cost components.
+Mọi lệnh gọi API có năm thành phần chi phí.
 
 ```mermaid
 graph LR
@@ -58,27 +58,27 @@ graph LR
     F --> G[Output Cost<br/>$10.00/1M tokens]
 ```
 
-System prompts are the silent killer. A 1,500-token system prompt sent with every request costs $3.75 per million requests just for that prefix. At 100K requests per day, that is $375/day -- $11,250/month -- for text that never changes.
+System prompt là sát thủ thầm lặng. System prompt 1,500 token gửi với mọi yêu cầu tốn $3.75 mỗi triệu yêu cầu chỉ cho tiền tố đó. Ở 100K yêu cầu mỗi ngày, đó là $375/ngày -- $11,250/tháng -- cho văn bản không bao giờ thay đổi.
 
 ### Provider Caching: Built-in Discounts
 
-All three major providers offer provider-side prompt caching in 2026, but the mechanics differ. See Phase 11 · 15 for the deep dive.
+Cả ba nhà cung cấp lớn cung cấp cache prompt phía nhà cung cấp năm 2026, nhưng cơ chế khác nhau. Xem Giai đoạn 11 · 15 để tìm hiểu sâu.
 
-| Provider | Mechanism | Discount | Minimum | Cache Duration |
+| Nhà cung cấp | Cơ chế | Giảm giá | Tối thiểu | Thời hạn cache |
 |----------|-----------|----------|---------|----------------|
-| Anthropic | Explicit cache_control markers | 90% on cache hits (pay 25% extra on write) | 1,024 tokens (Sonnet/Opus), 2,048 (Haiku) | 5 min default; 1h extended (2x write premium) |
-| OpenAI | Automatic prefix matching | 50% on cache hits | 1,024 tokens | Best-effort up to 1 hour |
-| Google Gemini | Explicit CachedContent API | ~75% reduction (plus storage) | 4,096 (Flash) / 32,768 (Pro) | User-configurable TTL |
+| Anthropic | Dấu cache_control rõ ràng | 90% trên cache hit (trả thêm 25% khi ghi) | 1,024 token (Sonnet/Opus), 2,048 (Haiku) | Mặc định 5 phút; mở rộng 1h (phụ phí ghi 2x) |
+| OpenAI | Khớp tiền tố tự động | 50% trên cache hit | 1,024 token | Cố gắng tối đa đến 1 giờ |
+| Google Gemini | API CachedContent rõ ràng | Giảm ~75% (cộng lưu trữ) | 4,096 (Flash) / 32,768 (Pro) | TTL do người dùng cấu hình |
 
-**Anthropic's approach** is explicit. You mark sections of your prompt with `cache_control: {"type": "ephemeral"}`. The first request pays a 25% write premium. Subsequent requests with the same prefix get a 90% discount. A 2,000-token system prompt that costs $0.005 normally costs $0.000625 on cache hits. Over 100K requests, that saves $437.50/day.
+**Cách tiếp cận Anthropic** là rõ ràng. Bạn đánh dấu các phần prompt bằng `cache_control: {"type": "ephemeral"}`. Yêu cầu đầu trả phụ phí ghi 25%. Các yêu cầu sau cùng tiền tố được giảm 90%. System prompt 2,000 token thường tốn $0.005 thì tốn $0.000625 trên cache hit. Trên 100K yêu cầu, tiết kiệm $437.50/ngày.
 
-**OpenAI's approach** is automatic. Any prompt prefix that matches a previous request gets a 50% discount. No markers needed. The tradeoff: less discount, less control, but zero implementation effort.
+**Cách tiếp cận OpenAI** là tự động. Bất kỳ tiền tố prompt khớp yêu cầu trước đều được giảm 50%. Không cần dấu. Đánh đổi: giảm ít hơn, kiểm soát ít hơn, nhưng không công sức triển khai.
 
 ### Semantic Caching: Your Custom Layer
 
-Provider caching only works for identical prefixes. Semantic caching handles the harder case: different queries with the same meaning.
+Cache nhà cung cấp chỉ hoạt động với tiền tố giống hệt. Cache ngữ nghĩa xử lý trường hợp khó hơn: truy vấn khác nhau cùng ý nghĩa.
 
-"What is the return policy?" and "How do I return an item?" are different strings but identical intent. A semantic cache embeds both queries, computes cosine similarity, and returns the cached response if similarity exceeds a threshold (typically 0.92-0.95).
+"Chính sách trả hàng là gì?" và "Làm thế nào để tôi trả một món hàng?" là các chuỗi khác nhau nhưng cùng ý định. Cache ngữ nghĩa nhúng cả hai truy vấn, tính cosine similarity và trả phản hồi cache nếu độ tương đồng vượt ngưỡng (thường 0.92-0.95).
 
 ```mermaid
 flowchart TD
@@ -91,36 +91,36 @@ flowchart TD
     D --> G
 ```
 
-The embedding costs are negligible. OpenAI's text-embedding-3-small costs $0.02 per million tokens. Checking the cache costs almost nothing compared to a full LLM call.
+Chi phí embedding không đáng kể. text-embedding-3-small của OpenAI tốn $0.02 mỗi triệu token. Kiểm tra cache gần như không tốn gì so với lệnh gọi LLM đầy đủ.
 
 ### Exact Caching: Hash and Match
 
-For deterministic calls (temperature=0, same model, same prompt), exact caching is simpler and faster. Hash the full prompt, check the cache, return if found.
+Với lệnh gọi tất định (temperature=0, cùng mô hình, cùng prompt), cache chính xác đơn giản và nhanh hơn. Hash toàn prompt, kiểm tra cache, trả về nếu tìm thấy.
 
-This works perfectly for:
-- System prompt + fixed context + identical user queries
-- Function calling with identical tool definitions
-- Batch processing where the same document gets processed multiple times
+Điều này hoạt động hoàn hảo cho:
+- System prompt + ngữ cảnh cố định + truy vấn người dùng giống hệt
+- Function calling với định nghĩa công cụ giống hệt
+- Xử lý batch mà cùng tài liệu được xử lý nhiều lần
 
 ### Rate Limiting: Protecting Your Budget
 
-Rate limiting is not just about fairness. It is about survival.
+Giới hạn tần suất không chỉ về công bằng. Nó là về sống sót.
 
-**Token bucket algorithm:** each user gets a bucket of N tokens that refills at rate R per second. A request consumes tokens from the bucket. If the bucket is empty, the request is rejected. This allows bursts (use the full bucket at once) while enforcing an average rate.
+**Thuật toán token bucket:** mỗi người dùng có xô N token được nạp lại ở tốc độ R mỗi giây. Yêu cầu tiêu thụ token từ xô. Nếu xô rỗng, yêu cầu bị từ chối. Điều này cho phép đột biến (dùng toàn xô cùng lúc) trong khi cưỡng chế tốc độ trung bình.
 
-**Per-user quotas:** set daily/monthly token limits per user tier.
+**Hạn mức mỗi người dùng:** đặt giới hạn token hằng ngày/tháng theo hạng người dùng.
 
-| Tier | Daily Token Limit | Max Requests/min | Model Access |
+| Hạng | Giới hạn token hằng ngày | Yêu cầu tối đa/phút | Truy cập mô hình |
 |------|------------------|------------------|-------------|
-| Free | 50,000 | 10 | GPT-4o-mini only |
+| Miễn phí | 50,000 | 10 | Chỉ GPT-4o-mini |
 | Pro | 500,000 | 60 | GPT-4o, Claude Sonnet |
-| Enterprise | 5,000,000 | 300 | All models |
+| Doanh nghiệp | 5,000,000 | 300 | Mọi mô hình |
 
 ### Model Routing: Right Model for the Right Job
 
-Not every query needs GPT-4o.
+Không phải mọi truy vấn cần GPT-4o.
 
-"What time does the store close?" does not require a $10/M-output model. GPT-4o-mini at $0.60/M output handles it perfectly. Claude Haiku at $1.25/M output handles it. A simple classifier routes cheap queries to cheap models and complex queries to expensive models.
+"Cửa hàng đóng lúc mấy giờ?" không cần mô hình $10/M đầu ra. GPT-4o-mini ở $0.60/M đầu ra xử lý hoàn hảo. Claude Haiku ở $1.25/M đầu ra xử lý được. Bộ phân loại đơn giản định tuyến truy vấn rẻ đến mô hình rẻ và truy vấn phức tạp đến mô hình đắt.
 
 ```mermaid
 flowchart TD
@@ -130,76 +130,76 @@ flowchart TD
     B -->|Complex: reasoning, code| E[GPT-4o / Claude Opus<br/>$2.50/$10.00+]
 ```
 
-A well-tuned router saves 40-70% on model costs alone.
+Router được tinh chỉnh tốt tiết kiệm 40-70% chỉ riêng chi phí mô hình.
 
 ### Cost Tracking: Know Where the Money Goes
 
-You cannot optimize what you do not measure. Log every API call with:
+Bạn không thể tối ưu thứ không đo. Ghi log mọi lệnh gọi API với:
 
-- Timestamp
-- Model name
-- Input tokens
-- Output tokens
-- Latency (ms)
-- Computed cost ($)
-- User ID
+- Dấu thời gian
+- Tên mô hình
+- Token đầu vào
+- Token đầu ra
+- Độ trễ (ms)
+- Chi phí tính được ($)
+- ID người dùng
 - Cache hit/miss
-- Request category
+- Loại yêu cầu
 
-This data reveals which features are expensive, which users are heavy consumers, and where caching has the most impact.
+Dữ liệu này cho thấy tính năng nào đắt, người dùng nào tiêu thụ nhiều và nơi cache tác động lớn nhất.
 
 ### Batching: Bulk Discounts
 
-OpenAI's Batch API processes requests asynchronously at a 50% discount. You submit a batch of up to 50,000 requests, and results come back within 24 hours.
+Batch API của OpenAI xử lý yêu cầu bất đồng bộ với giảm giá 50%. Bạn gửi batch tối đa 50,000 yêu cầu và kết quả trở lại trong 24 giờ.
 
-Use batching for:
-- Nightly document processing
-- Bulk classification
-- Evaluation runs
-- Data enrichment pipelines
+Dùng batching cho:
+- Xử lý tài liệu hằng đêm
+- Phân loại hàng loạt
+- Lượt đánh giá
+- Pipeline làm giàu dữ liệu
 
-Not for: real-time user-facing queries (latency matters).
+Không dùng cho: truy vấn thời gian thực tiếp xúc người dùng (độ trễ quan trọng).
 
 ### Budget Alerts and Circuit Breakers
 
-A circuit breaker stops spending when you hit a limit. Without one, a bug or abuse can burn through your monthly budget in hours.
+Circuit breaker dừng chi tiêu khi chạm giới hạn. Không có nó, lỗi hoặc lạm dụng có thể đốt hết ngân sách tháng trong vài giờ.
 
-Set three thresholds:
-1. **Warning** (70% of budget): send an alert
-2. **Throttle** (85% of budget): switch to cheaper models only
-3. **Stop** (95% of budget): reject new requests, return cached responses only
+Đặt ba ngưỡng:
+1. **Cảnh báo** (70% ngân sách): gửi cảnh báo
+2. **Hạn chế** (85% ngân sách): chuyển sang chỉ mô hình rẻ hơn
+3. **Dừng** (95% ngân sách): từ chối yêu cầu mới, chỉ trả phản hồi cache
 
 ### The Optimization Stack
 
-Apply these techniques in order. Each layer compounds on the previous ones.
+Áp dụng các kỹ thuật này theo thứ tự. Mỗi lớp cộng dồn trên các lớp trước.
 
-| Layer | Technique | Typical Savings | Implementation Effort |
+| Lớp | Kỹ thuật | Tiết kiệm điển hình | Công sức triển khai |
 |-------|-----------|----------------|----------------------|
-| 1 | Provider prompt caching | 30-50% | Low (add cache markers) |
-| 2 | Exact caching | 10-20% | Low (hash + dict) |
-| 3 | Semantic caching | 15-30% | Medium (embeddings + similarity) |
-| 4 | Model routing | 40-70% | Medium (classifier) |
-| 5 | Rate limiting | Budget protection | Low (token bucket) |
-| 6 | Prompt compression | 10-30% | Medium (rewrite prompts) |
-| 7 | Batching | 50% on eligible | Low (batch API) |
+| 1 | Cache prompt nhà cung cấp | 30-50% | Thấp (thêm dấu cache) |
+| 2 | Cache chính xác | 10-20% | Thấp (hash + dict) |
+| 3 | Cache ngữ nghĩa | 15-30% | Trung bình (embedding + tương đồng) |
+| 4 | Định tuyến mô hình | 40-70% | Trung bình (bộ phân loại) |
+| 5 | Giới hạn tần suất | Bảo vệ ngân sách | Thấp (token bucket) |
+| 6 | Nén prompt | 10-30% | Trung bình (viết lại prompt) |
+| 7 | Batching | 50% trên phần đủ điều kiện | Thấp (batch API) |
 
-A RAG app applying layers 1-5 typically reduces costs from $22,500/month to $4,000-6,000/month. That is the difference between burning runway and building a business.
+Ứng dụng RAG áp dụng các lớp 1-5 thường giảm chi phí từ $22,500/tháng xuống $4,000-6,000/tháng. Đó là khác biệt giữa đốt thời gian sống còn và xây doanh nghiệp.
 
 ### Real Savings: Before and After
 
-Here is a real breakdown for a RAG chatbot serving 10,000 DAU.
+Đây là phân tích thực cho chatbot RAG phục vụ 10,000 DAU.
 
-| Metric | Before Optimization | After Optimization | Savings |
+| Thước đo | Trước tối ưu | Sau tối ưu | Tiết kiệm |
 |--------|--------------------|--------------------|---------|
-| Monthly LLM cost | $22,500 | $5,200 | 77% |
-| Avg cost per query | $0.0075 | $0.0017 | 77% |
-| Cache hit rate | 0% | 52% | -- |
-| Queries routed to mini | 0% | 65% | -- |
-| P95 latency | 2,800ms | 900ms (cache hits: 50ms) | 68% |
-| Monthly embedding cost | $0 | $180 | (new cost) |
-| Total monthly cost | $22,500 | $5,380 | 76% |
+| Chi phí LLM hằng tháng | $22,500 | $5,200 | 77% |
+| Chi phí trung bình mỗi truy vấn | $0.0075 | $0.0017 | 77% |
+| Tỷ lệ cache hit | 0% | 52% | -- |
+| Truy vấn định tuyến đến mini | 0% | 65% | -- |
+| Độ trễ P95 | 2,800ms | 900ms (cache hit: 50ms) | 68% |
+| Chi phí embedding hằng tháng | $0 | $180 | (chi phí mới) |
+| Tổng chi phí hằng tháng | $22,500 | $5,380 | 76% |
 
-The embedding cost for semantic caching ($180/month) pays for itself within the first hour of cache hits.
+Chi phí embedding cho cache ngữ nghĩa ($180/tháng) tự hoàn vốn trong giờ cache hit đầu tiên.
 
 ```figure
 semantic-cache
@@ -209,7 +209,7 @@ semantic-cache
 
 ### Step 1: Cost Calculator
 
-Build a token cost calculator that knows current pricing for major models.
+Xây bộ tính chi phí token biết giá hiện tại cho các mô hình lớn.
 
 ```python
 import hashlib
@@ -259,7 +259,7 @@ def calculate_cost(model, input_tokens, output_tokens, cached_input_tokens=0):
 
 ### Step 2: Exact Cache
 
-Hash the full prompt and return cached responses for identical requests.
+Hash toàn prompt và trả phản hồi cache cho yêu cầu giống hệt.
 
 ```python
 class ExactCache:
@@ -314,7 +314,7 @@ class ExactCache:
 
 ### Step 3: Semantic Cache
 
-Embed queries and return cached responses when similarity exceeds a threshold.
+Nhúng truy vấn và trả phản hồi cache khi độ tương đồng vượt ngưỡng.
 
 ```python
 def simple_embed(text):
@@ -388,7 +388,7 @@ class SemanticCache:
 
 ### Step 4: Rate Limiter
 
-Token bucket rate limiter with per-user quotas.
+Bộ giới hạn tần suất token bucket với hạn mức mỗi người dùng.
 
 ```python
 class TokenBucketRateLimiter:
@@ -458,7 +458,7 @@ class TokenBucketRateLimiter:
 
 ### Step 5: Cost Tracker
 
-Log every call and compute running totals.
+Ghi log mọi lệnh gọi và tính tổng lũy kế.
 
 ```python
 class CostTracker:
@@ -540,7 +540,7 @@ class CostTracker:
 
 ### Step 6: Model Router
 
-Route queries to the cheapest model that can handle them.
+Định tuyến truy vấn đến mô hình rẻ nhất có thể xử lý chúng.
 
 ```python
 SIMPLE_KEYWORDS = ["what time", "hours", "address", "phone", "price", "return policy", "hello", "hi", "thanks", "yes", "no"]
@@ -779,7 +779,7 @@ if __name__ == "__main__":
 # print(f"Cache read tokens: {response.usage.cache_read_input_tokens}")
 ```
 
-The first call writes to the cache (25% premium). Every subsequent call with the same system prompt prefix reads from the cache (90% discount). The cache lasts 5 minutes and resets the timer on every hit.
+Lệnh gọi đầu ghi vào cache (phụ phí 25%). Mỗi lệnh gọi sau với cùng tiền tố system prompt đọc từ cache (giảm 90%). Cache tồn tại 5 phút và đặt lại bộ đếm thời gian trên mỗi hit.
 
 ### OpenAI Automatic Caching
 
@@ -801,7 +801,7 @@ The first call writes to the cache (25% premium). Every subsequent call with the
 # print(f"Completion tokens: {response.usage.completion_tokens}")
 ```
 
-OpenAI caches automatically. Any prompt prefix of 1,024+ tokens that matches a recent request gets a 50% discount. No code changes needed -- just check `prompt_tokens_details.cached_tokens` in the response to verify it is working.
+OpenAI cache tự động. Mọi tiền tố prompt 1,024+ token khớp yêu cầu gần đây được giảm 50%. Không cần đổi mã -- chỉ kiểm tra `prompt_tokens_details.cached_tokens` trong phản hồi để xác minh nó hoạt động.
 
 ### OpenAI Batch API
 
@@ -832,7 +832,7 @@ OpenAI caches automatically. Any prompt prefix of 1,024+ tokens that matches a r
 # print(f"Batch ID: {batch.id}, Status: {batch.status}")
 ```
 
-Batch API gives a flat 50% discount on all tokens. Results arrive within 24 hours. Perfect for non-real-time workloads: evaluations, data labeling, bulk summarization.
+Batch API giảm cố định 50% trên mọi token. Kết quả đến trong 24 giờ. Hoàn hảo cho khối lượng công việc không thời gian thực: đánh giá, gán nhãn dữ liệu, tóm tắt hàng loạt.
 
 ### Production Semantic Cache with Redis
 
@@ -863,50 +863,50 @@ Batch API gives a flat 50% discount on all tokens. Results arrive within 24 hour
 #     return None
 ```
 
-In production, replace the linear scan with a vector index (Redis Vector Search, Pinecone, or pgvector). Linear scan works for <1,000 entries. Beyond that, use ANN (approximate nearest neighbor) for O(log n) lookup.
+Trong sản xuất, thay quét tuyến tính bằng chỉ mục vector (Redis Vector Search, Pinecone hoặc pgvector). Quét tuyến tính hoạt động cho <1,000 mục. Vượt mức đó, dùng ANN (láng giềng gần nhất xấp xỉ) để tra cứu O(log n).
 
 ## Ship It
 
-This lesson produces `outputs/prompt-cost-optimizer.md` -- a reusable prompt that analyzes your LLM application and recommends specific cost optimizations with projected savings.
+Bài học này tạo ra `outputs/prompt-cost-optimizer.md` -- một prompt tái sử dụng phân tích ứng dụng LLM và khuyến nghị tối ưu chi phí cụ thể với tiết kiệm dự kiến.
 
-It also produces `outputs/skill-cost-patterns.md` -- a decision framework for choosing the right caching strategy, rate limiting configuration, and model routing rules for your use case.
+Nó cũng tạo ra `outputs/skill-cost-patterns.md` -- khung quyết định chọn chiến lược cache, cấu hình giới hạn tần suất và quy tắc định tuyến mô hình phù hợp cho trường hợp sử dụng.
 
 ## Exercises
 
-1. **Implement LRU eviction for the semantic cache.** Replace the oldest-first eviction with least-recently-used. Track the last access time for each entry and evict the entry with the oldest access time when the cache is full. Compare hit rates between the two strategies over 100 queries.
+1. **Triển khai loại bỏ LRU cho cache ngữ nghĩa.** Thay loại bỏ cũ nhất trước bằng ít được dùng gần đây nhất. Theo dõi thời gian truy cập cuối của mỗi mục và loại mục có thời gian truy cập cũ nhất khi cache đầy. So tỷ lệ hit giữa hai chiến lược trên 100 truy vấn.
 
-2. **Build a cost projection tool.** Given a log of API calls (the CostTracker logs), project the monthly cost based on the trailing 7-day average. Account for weekday/weekend patterns. Trigger an alert if the projected monthly cost exceeds the budget by more than 20%.
+2. **Xây công cụ dự báo chi phí.** Với log lệnh gọi API (log CostTracker), dự báo chi phí tháng theo trung bình 7 ngày gần nhất. Tính mẫu ngày thường/cuối tuần. Kích hoạt cảnh báo nếu chi phí tháng dự báo vượt ngân sách hơn 20%.
 
-3. **Implement tiered semantic caching.** Use two similarity thresholds: 0.98 for high-confidence hits (return immediately) and 0.90 for medium-confidence hits (return with a disclaimer: "Based on a similar previous question..."). Track which tier each hit came from and measure user satisfaction differences.
+3. **Triển khai cache ngữ nghĩa phân tầng.** Dùng hai ngưỡng tương đồng: 0.98 cho hit độ tin cậy cao (trả ngay) và 0.90 cho hit độ tin cậy trung bình (trả với lời lưu ý: "Dựa trên một câu hỏi tương tự trước đây..."). Theo dõi mỗi hit đến từ tầng nào và đo khác biệt mức hài lòng người dùng.
 
-4. **Build a model routing classifier.** Replace the keyword-based classifier with an embedding-based one. Embed 50 labeled queries (simple/medium/complex), then classify new queries by finding the nearest labeled example. Measure classification accuracy against a test set of 20 queries.
+4. **Xây bộ phân loại định tuyến mô hình.** Thay bộ phân loại theo từ khóa bằng bộ theo embedding. Nhúng 50 truy vấn gán nhãn (đơn giản/trung bình/phức tạp), rồi phân loại truy vấn mới bằng tìm ví dụ gán nhãn gần nhất. Đo độ chính xác phân loại so với tập kiểm thử 20 truy vấn.
 
-5. **Implement a circuit breaker with degradation levels.** At 70% budget, log a warning. At 85%, automatically switch all routing to the cheapest model (gpt-4o-mini). At 95%, serve only cached responses and reject new queries. Test by simulating 1,000 requests against a $1.00 budget and verify each threshold triggers correctly.
+5. **Triển khai circuit breaker với các mức suy giảm.** Ở 70% ngân sách, ghi cảnh báo. Ở 85%, tự chuyển mọi định tuyến sang mô hình rẻ nhất (gpt-4o-mini). Ở 95%, chỉ phục vụ phản hồi cache và từ chối truy vấn mới. Kiểm thử bằng mô phỏng 1,000 yêu cầu với ngân sách $1.00 và xác minh mỗi ngưỡng kích hoạt đúng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Prompt caching | "Cache the system prompt" | Provider-level caching where repeated prompt prefixes get a discount (90% Anthropic, 50% OpenAI) -- no code changes for OpenAI, explicit markers for Anthropic |
-| Semantic caching | "Smart caching" | Embedding the query, computing similarity to past queries, and returning the cached response if similarity exceeds a threshold -- catches paraphrases that exact matching misses |
-| Exact caching | "Hash caching" | Hashing the full prompt (model + messages + temperature) and returning the cached response for identical inputs -- only works for temperature=0 deterministic calls |
-| Token bucket | "Rate limiter" | An algorithm where each user has a bucket of N tokens that refills at rate R per second -- allows bursts up to N while enforcing an average rate of R |
-| Model routing | "Cheapskate routing" | Using a classifier to send simple queries to cheap models (GPT-4o-mini, Haiku) and complex queries to expensive models (GPT-4o, Opus) -- saves 40-70% on model costs |
-| Cost tracking | "Metering" | Logging every API call with model, tokens, latency, cost, and user ID so you know exactly where money goes and which features are expensive |
-| Circuit breaker | "Kill switch" | Automatically degrading service (cheaper models, cached-only) or stopping requests entirely when spending approaches the budget limit |
-| Batch API | "Bulk discount" | OpenAI's asynchronous processing at 50% discount -- submit up to 50,000 requests, get results within 24 hours |
-| Prompt compression | "Token diet" | Rewriting system prompts and context to use fewer tokens while preserving meaning -- shorter prompts cost less and often perform better |
-| Cache hit rate | "Cache efficiency" | The percentage of requests served from cache instead of calling the LLM -- 40-60% is typical for production chatbots, saves proportionally on cost |
+| Prompt caching (Cache prompt) | "Cache system prompt" | Cache cấp nhà cung cấp nơi tiền tố prompt lặp được giảm giá (90% Anthropic, 50% OpenAI) -- không đổi mã với OpenAI, dấu rõ ràng với Anthropic |
+| Semantic caching (Cache ngữ nghĩa) | "Cache thông minh" | Nhúng truy vấn, tính tương đồng với truy vấn quá khứ và trả phản hồi cache nếu vượt ngưỡng -- bắt cách diễn đạt lại mà khớp chính xác bỏ lỡ |
+| Exact caching (Cache chính xác) | "Cache hash" | Hash toàn prompt (mô hình + thông điệp + temperature) và trả phản hồi cache cho đầu vào giống hệt -- chỉ hoạt động cho lệnh gọi tất định temperature=0 |
+| Token bucket (Xô token) | "Bộ giới hạn tần suất" | Thuật toán mỗi người dùng có xô N token được nạp ở tốc độ R mỗi giây -- cho phép đột biến đến N trong khi cưỡng chế tốc độ trung bình R |
+| Model routing (Định tuyến mô hình) | "Định tuyến hà tiện" | Dùng bộ phân loại gửi truy vấn đơn giản đến mô hình rẻ (GPT-4o-mini, Haiku) và truy vấn phức tạp đến mô hình đắt (GPT-4o, Opus) -- tiết kiệm 40-70% chi phí mô hình |
+| Cost tracking (Theo dõi chi phí) | "Đo mức dùng" | Ghi log mọi lệnh gọi API với mô hình, token, độ trễ, chi phí và ID người dùng để biết chính xác tiền đi đâu và tính năng nào đắt |
+| Circuit breaker (Bộ ngắt mạch) | "Công tắc ngắt" | Tự giảm dịch vụ (mô hình rẻ hơn, chỉ cache) hoặc dừng yêu cầu hoàn toàn khi chi tiêu gần giới hạn ngân sách |
+| Batch API | "Giảm giá hàng loạt" | Xử lý bất đồng bộ của OpenAI giảm 50% -- gửi tối đa 50,000 yêu cầu, nhận kết quả trong 24 giờ |
+| Prompt compression (Nén prompt) | "Ăn kiêng token" | Viết lại system prompt và ngữ cảnh để dùng ít token hơn nhưng giữ ý nghĩa -- prompt ngắn hơn tốn ít hơn và thường hoạt động tốt hơn |
+| Cache hit rate (Tỷ lệ cache hit) | "Hiệu suất cache" | Phần trăm yêu cầu được phục vụ từ cache thay vì gọi LLM -- 40-60% điển hình cho chatbot sản xuất, tiết kiệm chi phí tương ứng |
 
 ## Further Reading
 
-- [Anthropic Prompt Caching Guide](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) -- the official docs for Anthropic's explicit cache_control markers, pricing, and cache lifetime behavior
-- [OpenAI Prompt Caching](https://platform.openai.com/docs/guides/prompt-caching) -- OpenAI's automatic caching, how to verify cache hits via usage fields, and minimum prefix lengths
-- [OpenAI Batch API](https://platform.openai.com/docs/guides/batch) -- 50% discount for asynchronous processing, JSONL format, 24-hour completion window, and 50K request limits
-- [GPTCache](https://github.com/zilliztech/GPTCache) -- open-source semantic caching library supporting multiple embedding backends, vector stores, and eviction policies
-- [Martian Model Router](https://docs.withmartian.com) -- production model routing that automatically selects the cheapest model capable of handling each query
-- [Not Diamond](https://www.notdiamond.ai) -- ML-based model router that learns from your traffic patterns to optimize cost/quality tradeoffs across providers
-- [Helicone](https://www.helicone.ai) -- LLM observability platform with cost tracking, caching, rate limiting, and budget alerts as a proxy layer
-- [Dean & Barroso, "The Tail at Scale" (CACM 2013)](https://research.google/pubs/the-tail-at-scale/) -- latency, throughput, TTFT/TPOT percentiles, and hedged requests; the cost model behind "pick the cheapest model that still meets P95."
-- [Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention" (SOSP 2023)](https://arxiv.org/abs/2309.06180) -- the vLLM paper; why paged KV-cache + continuous batching beat naive servers 24× on throughput, the infra layer under "caching and cost."
-- [Dao et al., "FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning" (ICLR 2024)](https://arxiv.org/abs/2307.08691) -- kernel-level cost reduction orthogonal to prompt caching; read alongside speculative decoding and GQA for the full cost-curve picture.
+- [Anthropic Prompt Caching Guide](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) -- tài liệu chính thức cho dấu cache_control rõ ràng của Anthropic, giá và hành vi thời hạn cache
+- [OpenAI Prompt Caching](https://platform.openai.com/docs/guides/prompt-caching) -- cache tự động của OpenAI, cách xác minh cache hit qua trường usage và độ dài tiền tố tối thiểu
+- [OpenAI Batch API](https://platform.openai.com/docs/guides/batch) -- giảm 50% cho xử lý bất đồng bộ, định dạng JSONL, thời hạn hoàn thành 24 giờ và giới hạn 50K yêu cầu
+- [GPTCache](https://github.com/zilliztech/GPTCache) -- thư viện cache ngữ nghĩa mã nguồn mở hỗ trợ nhiều backend embedding, kho vector và chính sách loại bỏ
+- [Martian Model Router](https://docs.withmartian.com) -- định tuyến mô hình sản xuất tự chọn mô hình rẻ nhất có khả năng xử lý mỗi truy vấn
+- [Not Diamond](https://www.notdiamond.ai) -- router mô hình dựa trên ML học từ mẫu lưu lượng để tối ưu đánh đổi chi phí/chất lượng giữa các nhà cung cấp
+- [Helicone](https://www.helicone.ai) -- nền tảng khả năng quan sát LLM với theo dõi chi phí, cache, giới hạn tần suất và cảnh báo ngân sách dưới dạng lớp proxy
+- [Dean & Barroso, "The Tail at Scale" (CACM 2013)](https://research.google/pubs/the-tail-at-scale/) -- độ trễ, thông lượng, phân vị TTFT/TPOT và yêu cầu dự phòng; mô hình chi phí đằng sau "chọn mô hình rẻ nhất vẫn đáp ứng P95."
+- [Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention" (SOSP 2023)](https://arxiv.org/abs/2309.06180) -- bài báo vLLM; tại sao KV-cache phân trang + batching liên tục vượt máy chủ đơn giản 24× về thông lượng, lớp hạ tầng bên dưới "cache và chi phí."
+- [Dao et al., "FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning" (ICLR 2024)](https://arxiv.org/abs/2307.08691) -- giảm chi phí cấp kernel trực giao với cache prompt; đọc cùng speculative decoding và GQA để có bức tranh đầy đủ đường cong chi phí.

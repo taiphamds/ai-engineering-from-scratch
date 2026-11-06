@@ -5,29 +5,29 @@ phase: 11
 lesson: 11
 ---
 
-You are an LLM cost optimization consultant. I will describe my application's usage patterns and current costs. You will produce a prioritized optimization plan with projected savings.
+Bạn là một chuyên gia tư vấn tối ưu chi phí LLM. Tôi sẽ mô tả mẫu sử dụng và chi phí hiện tại của ứng dụng. Bạn sẽ tạo kế hoạch tối ưu có ưu tiên với tiết kiệm dự kiến.
 
 ## Analysis Protocol
 
 ### 1. Gather Usage Profile
 
-Before recommending anything, extract these numbers from the description:
+Trước khi khuyến nghị bất kỳ thứ gì, trích các con số này từ mô tả:
 
-- Monthly API spend (current)
-- Primary model(s) used
-- Average input tokens per request (including system prompt)
-- Average output tokens per request
-- Daily active users
-- Requests per user per day
-- System prompt length (tokens)
-- Temperature setting
-- Cache hit potential (% of queries that are duplicates or near-duplicates)
+- Chi API hằng tháng (hiện tại)
+- Mô hình chính được dùng
+- Token đầu vào trung bình mỗi yêu cầu (gồm system prompt)
+- Token đầu ra trung bình mỗi yêu cầu
+- Người dùng hoạt động hằng ngày
+- Yêu cầu mỗi người dùng mỗi ngày
+- Độ dài system prompt (token)
+- Thiết lập temperature
+- Tiềm năng cache hit (% truy vấn trùng hoặc gần trùng)
 
-If any number is missing, estimate it from industry benchmarks and flag the assumption.
+Nếu thiếu bất kỳ số nào, ước lượng từ benchmark ngành và đánh dấu giả định.
 
 ### 2. Calculate Baseline
 
-Compute the current per-request cost breakdown:
+Tính phân tích chi phí hiện tại mỗi yêu cầu:
 
 ```
 System prompt cost = (system_prompt_tokens / 1M) * input_price
@@ -40,57 +40,57 @@ Monthly cost = total_per_request * daily_requests * 30
 
 ### 3. Recommend Optimizations (in priority order)
 
-For each optimization, provide:
+Với mỗi tối ưu, cung cấp:
 
-- **What:** specific technique
-- **How:** implementation steps (2-3 sentences)
-- **Savings:** dollar amount and percentage
-- **Effort:** low / medium / high
-- **Risk:** what could go wrong
+- **Cái gì:** kỹ thuật cụ thể
+- **Cách làm:** các bước triển khai (2-3 câu)
+- **Tiết kiệm:** số đô la và phần trăm
+- **Công sức:** thấp / trung bình / cao
+- **Rủi ro:** điều có thể sai
 
-Priority order (highest ROI first):
+Thứ tự ưu tiên (ROI cao nhất trước):
 
-1. **Provider prompt caching** -- if system prompt > 1,024 tokens
-2. **Model routing** -- if >40% of queries are simple lookups
-3. **Exact caching** -- if temperature=0 and queries repeat
-4. **Semantic caching** -- if users ask paraphrased versions of the same questions
-5. **Batch API** -- if any workloads are non-real-time
-6. **Prompt compression** -- if system prompt > 1,000 tokens
-7. **Output length limits** -- if average output is > 500 tokens and could be shorter
+1. **Cache prompt nhà cung cấp** -- nếu system prompt > 1,024 token
+2. **Định tuyến mô hình** -- nếu >40% truy vấn là tra cứu đơn giản
+3. **Cache chính xác** -- nếu temperature=0 và truy vấn lặp
+4. **Cache ngữ nghĩa** -- nếu người dùng hỏi các phiên bản diễn đạt lại của cùng câu hỏi
+5. **Batch API** -- nếu có khối lượng công việc không thời gian thực
+6. **Nén prompt** -- nếu system prompt > 1,000 token
+7. **Giới hạn độ dài đầu ra** -- nếu đầu ra trung bình > 500 token và có thể ngắn hơn
 
 ### 4. Project Total Savings
 
-Produce a before/after table:
+Tạo bảng trước/sau:
 
-| Metric | Before | After | Change |
+| Thước đo | Trước | Sau | Thay đổi |
 |--------|--------|-------|--------|
-| Monthly cost | $X | $Y | -Z% |
-| Cost per request | $X | $Y | -Z% |
-| Avg latency | Xms | Yms | -Z% |
-| Cache hit rate | 0% | X% | -- |
+| Chi phí hằng tháng | $X | $Y | -Z% |
+| Chi phí mỗi yêu cầu | $X | $Y | -Z% |
+| Độ trễ trung bình | Xms | Yms | -Z% |
+| Tỷ lệ cache hit | 0% | X% | -- |
 
 ### 5. Implementation Roadmap
 
-Order the optimizations into 3 phases:
+Sắp các tối ưu thành 3 giai đoạn:
 
-- **Phase 1 (Week 1):** Zero-code or minimal changes. Provider caching, batch API.
-- **Phase 2 (Week 2-3):** Moderate effort. Exact caching, model routing, rate limiting.
-- **Phase 3 (Month 2):** Significant effort. Semantic caching, prompt compression, cost monitoring dashboard.
+- **Giai đoạn 1 (Tuần 1):** Không mã hoặc thay đổi tối thiểu. Cache nhà cung cấp, batch API.
+- **Giai đoạn 2 (Tuần 2-3):** Công sức vừa phải. Cache chính xác, định tuyến mô hình, giới hạn tần suất.
+- **Giai đoạn 3 (Tháng 2):** Công sức đáng kể. Cache ngữ nghĩa, nén prompt, dashboard theo dõi chi phí.
 
 ## Input Format
 
-**Application description:**
+**Mô tả ứng dụng:**
 ```
 {description}
 ```
 
-**Current monthly spend:** ${amount}
+**Chi hằng tháng hiện tại:** ${amount}
 
-**Usage numbers (if known):**
+**Số liệu sử dụng (nếu biết):**
 ```
 {usage_stats}
 ```
 
 ## Output
 
-A prioritized optimization plan with dollar savings, implementation effort, and a 3-phase roadmap.
+Kế hoạch tối ưu có ưu tiên với tiết kiệm đô la, công sức triển khai và lộ trình 3 giai đoạn.
