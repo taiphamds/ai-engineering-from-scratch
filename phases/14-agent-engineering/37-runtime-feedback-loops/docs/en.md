@@ -1,6 +1,6 @@
 # Runtime Feedback Loops
 
-> Agents that do not see real command output guess. A feedback runner captures stdout, stderr, exit code, and timing into a structured record the next turn can read. Then the agent reacts to facts instead of to its own prediction of facts.
+> Các agent không nhìn thấy đầu ra lệnh thực thì đoán. Một trình chạy phản hồi ghi stdout, stderr, mã thoát và thời gian vào một bản ghi có cấu trúc mà lượt tiếp theo có thể đọc. Khi đó agent phản ứng với các sự thật thay vì với dự đoán của chính nó về các sự thật.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,16 +9,16 @@
 
 ## Learning Objectives
 
-- Distinguish runtime feedback from observability telemetry.
-- Build a feedback runner that wraps shell commands and persists structured records.
-- Truncate large outputs deterministically so the loop stays within token budget.
-- Refuse to advance the loop when feedback is missing.
+- Phân biệt phản hồi runtime với telemetry khả năng quan sát.
+- Xây một trình chạy phản hồi bọc các lệnh shell và lưu giữ các bản ghi có cấu trúc.
+- Cắt ngắn các đầu ra lớn một cách xác định để vòng lặp vẫn trong ngân sách token.
+- Từ chối tiến vòng lặp khi thiếu phản hồi.
 
 ## The Problem
 
-The agent says "running tests now." The next message says "all tests pass." The reality is that no test ran. The agent imagined the output, or it ran the command and never read the result, or it read the result and silently truncated the failure line.
+Agent nói "đang chạy các kiểm thử." Thông điệp tiếp theo nói "mọi kiểm thử đều đạt." Thực tế là không kiểm thử nào chạy. Agent tưởng tượng đầu ra, hoặc nó chạy lệnh và không bao giờ đọc kết quả, hoặc nó đọc kết quả và âm thầm cắt ngắn dòng thất bại.
 
-A feedback runner removes that gap. Every command goes through the runner. Every record carries the command, the captured stdout and stderr, the exit code, the wall-clock duration, and a one-line agent note. The agent reads the record at the next turn. The verification gate reads the records at the end of the task.
+Một trình chạy phản hồi loại bỏ khoảng trống đó. Mỗi lệnh đi qua trình chạy. Mỗi bản ghi mang lệnh, stdout và stderr được ghi lại, mã thoát, thời lượng theo đồng hồ và một ghi chú agent một dòng. Agent đọc bản ghi ở lượt tiếp theo. Cổng xác minh đọc các bản ghi ở cuối tác vụ.
 
 ## The Concept
 
@@ -34,27 +34,27 @@ flowchart LR
 
 ### What goes in a feedback record
 
-| Field | Why it matters |
+| Trường | Vì sao nó quan trọng |
 |-------|----------------|
-| `command` | Exact argv, no shell expansion surprises |
-| `stdout_tail` | Last N lines, deterministic truncation |
-| `stderr_tail` | Last N lines, separate from stdout |
-| `exit_code` | The unambiguous success signal |
-| `duration_ms` | Surfaces slow probes and runaway processes |
-| `started_at` | Timestamp for replay |
-| `agent_note` | One line the agent writes about what it expected |
+| `command` | Argv chính xác, không bất ngờ mở rộng shell |
+| `stdout_tail` | N dòng cuối, cắt ngắn mang tính xác định |
+| `stderr_tail` | N dòng cuối, tách khỏi stdout |
+| `exit_code` | Tín hiệu thành công không mơ hồ |
+| `duration_ms` | Phơi bày các thăm dò chậm và tiến trình chạy mất kiểm soát |
+| `started_at` | Dấu thời gian để phát lại |
+| `agent_note` | Một dòng agent viết về điều nó mong đợi |
 
 ### Truncation is deterministic
 
-A 50 MB log destroys the loop. The runner truncates head and tail with a `...truncated N lines...` marker, deterministic so the same output always produces the same record. No sampling; the parts the agent needs to see (final error, final summary) live at the tail.
+Một log 50 MB phá hủy vòng lặp. Trình chạy cắt ngắn đầu và đuôi với một dấu hiệu `...truncated N lines...`, mang tính xác định để cùng đầu ra luôn tạo cùng bản ghi. Không lấy mẫu; các phần mà agent cần nhìn thấy (lỗi cuối, tóm tắt cuối) nằm ở đuôi.
 
 ### Feedback versus telemetry
 
-Telemetry (Phase 14 · 23, OTel GenAI conventions) is for human operators reviewing runs across time. Feedback is for the next turn of this run. They share fields but they live in different files with different retention.
+Telemetry (Giai đoạn 14 · 23, các quy ước OTel GenAI) dành cho người vận hành đánh giá các lần chạy theo thời gian. Phản hồi dành cho lượt tiếp theo của lần chạy này. Chúng chia sẻ các trường nhưng nằm trong các file khác nhau với lưu giữ khác nhau.
 
 ### Refuse to advance without feedback
 
-If the runner errors before capturing exit, the record carries `exit_code: null` and `error: <reason>`. The agent loop must refuse to claim success on a `null` exit. No exit, no progress.
+Nếu trình chạy lỗi trước khi ghi mã thoát, bản ghi mang `exit_code: null` và `error: <reason>`. Vòng lặp agent phải từ chối tuyên bố thành công trên một mã thoát `null`. Không mã thoát, không tiến triển.
 
 ```figure
 wb-feedback-loop
@@ -62,70 +62,70 @@ wb-feedback-loop
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `run_with_feedback(command, agent_note)` that wraps `subprocess.run`, captures stdout/stderr/exit/duration, truncates deterministically, appends to `feedback_record.jsonl`.
-- A small loader that streams the JSONL into a Python list.
-- A demo that runs three commands (success, failure, slow) and prints the last record per command.
+- `run_with_feedback(command, agent_note)` bọc `subprocess.run`, ghi stdout/stderr/mã thoát/thời lượng, cắt ngắn mang tính xác định, thêm vào `feedback_record.jsonl`.
+- Một bộ tải nhỏ truyền JSONL vào một danh sách Python.
+- Một demo chạy ba lệnh (thành công, thất bại, chậm) và in bản ghi cuối cho mỗi lệnh.
 
-Run it:
+Chạy nó:
 
 ```
 python3 code/main.py
 ```
 
-Output: three feedback records appended to `feedback_record.jsonl`, the last one of each printed inline. Tail the file across re-runs to see the loop accumulate.
+Đầu ra: ba bản ghi phản hồi được thêm vào `feedback_record.jsonl`, bản cuối của mỗi lệnh được in nội tuyến. Theo dõi phần đuôi file xuyên các lần chạy lại để thấy vòng lặp tích lũy.
 
 ## Production patterns in the wild
 
-Three patterns harden the runner enough to ship.
+Ba mẫu củng cố trình chạy đủ để phát hành.
 
-**Redact at write, not at read.** Any record that touches stdout or stderr can leak secrets. The runner ships a redaction pass before the JSONL append: strip lines matching `^Bearer `, `password=`, `api[_-]?key=`, `AKIA[0-9A-Z]{16}` (AWS), `xox[baprs]-` (Slack). Redaction at read time is a foot-gun; the file on disk is what an attacker reaches. Audit the redaction patterns quarterly against the production runtime's observed secret formats.
+**Che dữ liệu khi ghi, không phải khi đọc.** Bất kỳ bản ghi nào chạm stdout hoặc stderr cũng có thể làm rò bí mật. Trình chạy cung cấp một lượt che dữ liệu trước khi thêm JSONL: loại bỏ các dòng khớp `^Bearer `, `password=`, `api[_-]?key=`, `AKIA[0-9A-Z]{16}` (AWS), `xox[baprs]-` (Slack). Che dữ liệu tại thời điểm đọc là một cách tự gây hại; file trên đĩa là thứ kẻ tấn công tiếp cận. Kiểm toán các mẫu che dữ liệu hàng quý đối với các định dạng bí mật được quan sát của runtime sản xuất.
 
-**Rotation policy, not a single file.** Cap `feedback_record.jsonl` at 1 MB per file; on overflow rotate to `.1`, `.2`, drop `.5`. The agent's loop only reads the current file, so the runtime cost is bounded. CI artifact storage gets the full rotated set. Without rotation the file becomes the bottleneck on every loader call.
+**Chính sách xoay vòng, không phải một file duy nhất.** Giới hạn `feedback_record.jsonl` ở 1 MB cho mỗi file; khi tràn xoay sang `.1`, `.2`, bỏ `.5`. Vòng lặp của agent chỉ đọc file hiện tại, nên chi phí runtime có giới hạn. Lưu trữ sản phẩm CI nhận toàn bộ tập xoay vòng. Không có xoay vòng file trở thành nút thắt trên mỗi lời gọi bộ tải.
 
-**Parent-command id for retry chains.** Every record gets `command_id`; retries carry `parent_command_id` pointing at the previous attempt. The reviewer's "failed attempts" list (Phase 14 · 40) and the verification gate's audit both follow the chain. Without this link, retries look like independent successes and the audit hides the failure history.
+**Id lệnh cha cho các chuỗi thử lại.** Mỗi bản ghi nhận `command_id`; các lần thử lại mang `parent_command_id` chỉ đến lần thử trước. Danh sách "các lần thử thất bại" của bên đánh giá (Giai đoạn 14 · 40) và kiểm toán của cổng xác minh đều đi theo chuỗi. Không có liên kết này, các lần thử lại trông như các thành công độc lập và kiểm toán che giấu lịch sử thất bại.
 
 ## Use It
 
-Production patterns:
+Các mẫu sản xuất:
 
-- **Claude Code Bash tool.** The tool already captures stdout, stderr, exit, and duration. The runner in this lesson is the framework-agnostic equivalent for any agent product.
-- **LangGraph nodes.** Wrap any shell node in the runner so the record persists outside graph state.
-- **CI logs.** Pipe the JSONL into your CI artifact store; reviewers can replay any command without rerunning the session.
+- **Công cụ Bash Claude Code.** Công cụ đã ghi stdout, stderr, mã thoát và thời lượng. Trình chạy trong bài này là tương đương không phụ thuộc framework cho bất kỳ sản phẩm agent nào.
+- **Các nút LangGraph.** Bọc bất kỳ nút shell nào trong trình chạy để bản ghi lưu giữ bên ngoài trạng thái đồ thị.
+- **Các log CI.** Dẫn JSONL vào kho sản phẩm CI của bạn; các bên đánh giá có thể phát lại bất kỳ lệnh nào mà không chạy lại phiên.
 
-The runner is a thin wrapper that survives every framework migration because it owns the shape of the record.
+Trình chạy là một lớp bọc mỏng sống sót qua mọi lần di chuyển framework vì nó sở hữu hình dạng bản ghi.
 
 ## Ship It
 
-`outputs/skill-feedback-runner.md` generates a project-specific `run_with_feedback.py` with the right truncation budget, a JSONL writer wired to the workbench, and a loader the agent reads at every turn.
+`outputs/skill-feedback-runner.md` tạo một `run_with_feedback.py` dành riêng cho dự án với ngân sách cắt ngắn đúng, một bộ ghi JSONL được nối với workbench và một bộ tải mà agent đọc ở mỗi lượt.
 
 ## Exercises
 
-1. Add a `cwd` field per record so the same command run from different directories is distinguishable.
-2. Add a `redaction` step that strips lines matching `^Bearer ` or `password=`. Test on a fixture record.
-3. Cap total `feedback_record.jsonl` size at 1 MB by rotating to `.1`, `.2` files. Defend the rotation policy.
-4. Add a `parent_command_id` so retry chains are visible: which command produced the input that the next command consumed.
-5. Pipe the JSONL into a tiny TUI that highlights the latest non-zero exit. Eight key features the TUI must show to be useful in a review.
+1. Thêm một trường `cwd` cho mỗi bản ghi để cùng lệnh chạy từ các thư mục khác nhau có thể phân biệt.
+2. Thêm một bước `redaction` loại bỏ các dòng khớp `^Bearer ` hoặc `password=`. Kiểm thử trên một bản ghi mẫu.
+3. Giới hạn tổng kích thước `feedback_record.jsonl` ở 1 MB bằng cách xoay sang các file `.1`, `.2`. Bảo vệ chính sách xoay vòng.
+4. Thêm một `parent_command_id` để các chuỗi thử lại nhìn thấy được: lệnh nào tạo đầu vào mà lệnh tiếp theo tiêu thụ.
+5. Dẫn JSONL vào một TUI nhỏ làm nổi bật mã thoát khác không mới nhất. Tám tính năng chính mà TUI phải cho thấy để hữu ích trong một lần đánh giá.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |------|----------------|------------------------|
-| Feedback record | "Run log" | Structured JSONL entry with command, output, exit, duration |
-| Tail truncation | "Trim the log" | Deterministic head+tail capture so records fit in token budget |
-| Refuse-on-null | "Block on missing data" | The loop must not advance when `exit_code` is null |
-| Agent note | "Expectation tag" | The one-line prediction the agent writes before reading the result |
-| Telemetry split | "Two log files" | Feedback for the next turn, telemetry for the operator |
+| Feedback record (Bản ghi phản hồi) | "Log lần chạy" | Mục JSONL có cấu trúc với lệnh, đầu ra, mã thoát, thời lượng |
+| Tail truncation (Cắt ngắn đuôi) | "Cắt log" | Ghi đầu+đuôi mang tính xác định để các bản ghi vừa ngân sách token |
+| Refuse-on-null (Từ chối trên null) | "Chặn khi thiếu dữ liệu" | Vòng lặp không được tiến khi `exit_code` là null |
+| Agent note (Ghi chú agent) | "Thẻ kỳ vọng" | Dự đoán một dòng mà agent viết trước khi đọc kết quả |
+| Telemetry split (Phân tách telemetry) | "Hai file log" | Phản hồi cho lượt tiếp theo, telemetry cho người vận hành |
 
 ## Further Reading
 
 - [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
 - [Anthropic, Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)
-- [Guardrails AI x MLflow — deterministic safety, PII, quality validators](https://guardrailsai.com/blog/guardrails-mlflow) — redaction patterns as regression tests
-- [Aport.io, Best AI Agent Guardrails 2026: Pre-Action Authorization Compared](https://aport.io/blog/best-ai-agent-guardrails-2026-pre-action-authorization-compared/) — pre/post-tool capture
-- [Andrii Furmanets, AI Agents in 2026: Practical Architecture for Tools, Memory, Evals, Guardrails](https://andriifurmanets.com/blogs/ai-agents-2026-practical-architecture-tools-memory-evals-guardrails) — observability surfaces
-- Phase 14 · 23 — OTel GenAI conventions for the telemetry side
-- Phase 14 · 24 — agent observability platforms (Langfuse, Phoenix, Opik)
-- Phase 14 · 33 — the rule that demands feedback before declaring done
-- Phase 14 · 38 — the verification gate that reads the JSONL
+- [Guardrails AI x MLflow — deterministic safety, PII, quality validators](https://guardrailsai.com/blog/guardrails-mlflow) — các mẫu che dữ liệu như các kiểm thử hồi quy
+- [Aport.io, Best AI Agent Guardrails 2026: Pre-Action Authorization Compared](https://aport.io/blog/best-ai-agent-guardrails-2026-pre-action-authorization-compared/) — ghi trước/sau công cụ
+- [Andrii Furmanets, AI Agents in 2026: Practical Architecture for Tools, Memory, Evals, Guardrails](https://andriifurmanets.com/blogs/ai-agents-2026-practical-architecture-tools-memory-evals-guardrails) — các bề mặt khả năng quan sát
+- Giai đoạn 14 · 23 — các quy ước OTel GenAI cho phía telemetry
+- Giai đoạn 14 · 24 — các nền tảng khả năng quan sát agent (Langfuse, Phoenix, Opik)
+- Giai đoạn 14 · 33 — quy tắc đòi hỏi phản hồi trước khi tuyên bố hoàn thành
+- Giai đoạn 14 · 38 — cổng xác minh đọc JSONL
