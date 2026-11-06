@@ -1,6 +1,6 @@
 # LLM Observability Stack Selection
 
-> The 2026 observability market splits into two categories. Development platforms (LangSmith, Langfuse, Comet Opik) bundle monitoring with evals, prompt management, session replays. Gateway/instrumentation tools (Helicone, SigNoz, OpenLLMetry, Phoenix) focus on telemetry. Langfuse is MIT-licensed core with strong OSS balance (50K events/month free cloud). Phoenix is OpenTelemetry-native under Elastic License 2.0 — excellent for drift/RAG visualization, not a persistent production backend. Arize AX uses zero-copy Iceberg/Parquet integration claiming 100x cheaper than monolithic observability. LangSmith leads for LangChain/LangGraph, $39/user/mo, self-host in Enterprise only. Helicone is proxy-based with 15-30 min setup, 100K req/mo free, but less depth on agent traces. Common production pattern: Gateway (Helicone/Portkey) + eval platform (Phoenix/TruLens) glued by OpenTelemetry.
+> Thị trường khả năng quan sát năm 2026 chia thành hai nhóm. Các nền tảng phát triển (LangSmith, Langfuse, Comet Opik) gộp giám sát với đánh giá, quản lý prompt, phát lại phiên. Các công cụ gateway/đo đạc (Helicone, SigNoz, OpenLLMetry, Phoenix) tập trung vào dữ liệu đo từ xa. Langfuse có lõi được cấp phép MIT với sự cân bằng OSS mạnh (50K sự kiện/tháng trên đám mây miễn phí). Phoenix nguyên bản OpenTelemetry theo Elastic License 2.0 — xuất sắc cho trực quan hóa độ trôi/RAG, không phải backend sản xuất bền vững. Arize AX dùng tích hợp Iceberg/Parquet không sao chép, khẳng định rẻ hơn 100x so với khả năng quan sát nguyên khối. LangSmith dẫn đầu cho LangChain/LangGraph, $39/người dùng/tháng, chỉ tự lưu trữ ở Enterprise. Helicone dựa trên proxy với thiết lập 15-30 phút, 100K yêu cầu/tháng miễn phí, nhưng ít chiều sâu hơn về dấu vết agent. Mẫu sản xuất phổ biến: Gateway (Helicone/Portkey) + nền tảng đánh giá (Phoenix/TruLens) được kết nối bằng OpenTelemetry.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy trace-sampling simulator)
@@ -9,96 +9,96 @@
 
 ## Learning Objectives
 
-- Distinguish development platforms (bundled: evals + prompts + sessions) from gateway/telemetry tools (traces + metrics only).
-- Map six major tools (Langfuse, LangSmith, Phoenix, Arize AX, Helicone, Opik) to their licensing, pricing, and sweet-spot use cases.
-- Explain the OpenTelemetry-glue pattern that lets you combine a gateway tool with a separate eval platform.
-- Name the 2026 cost differentiator (Arize AX's zero-copy approach vs monolithic ingest) and state the rough 100x multiplier.
+- Phân biệt nền tảng phát triển (gộp: đánh giá + prompt + phiên) với công cụ gateway/đo từ xa (chỉ dấu vết + chỉ số).
+- Ánh xạ sáu công cụ chính (Langfuse, LangSmith, Phoenix, Arize AX, Helicone, Opik) đến giấy phép, giá và trường hợp sử dụng phù hợp nhất của chúng.
+- Giải thích mẫu kết nối OpenTelemetry cho phép bạn kết hợp một công cụ gateway với một nền tảng đánh giá riêng.
+- Nêu yếu tố khác biệt chi phí năm 2026 (cách tiếp cận không sao chép của Arize AX so với thu nạp nguyên khối) và nêu hệ số xấp xỉ 100x.
 
 ## The Problem
 
-You shipped an LLM feature. It works. You have no visibility into prompt failures, tool loops, latency regressions, cost spikes, or prompt-cache hit rate. You Google "LLM observability" and get eight tools all claiming they solve the same problem at three different price points.
+Bạn đã triển khai một tính năng LLM. Nó hoạt động. Bạn không nhìn thấy lỗi prompt, vòng lặp công cụ, suy giảm độ trễ, đột biến chi phí hay tỷ lệ trúng bộ nhớ đệm prompt. Bạn Google "khả năng quan sát LLM" và nhận được tám công cụ đều khẳng định giải quyết cùng một vấn đề ở ba mức giá khác nhau.
 
-They don't solve the same problem. LangSmith answers "why did this LangGraph run fail?" Phoenix answers "is my RAG pipeline drifting?" Helicone answers "which app is burning tokens?" Langfuse answers "can I self-host the whole thing?" Different tools, different audiences.
+Chúng không giải quyết cùng một vấn đề. LangSmith trả lời "tại sao lần chạy LangGraph này thất bại?" Phoenix trả lời "pipeline RAG của tôi có đang trôi không?" Helicone trả lời "ứng dụng nào đang đốt token?" Langfuse trả lời "tôi có thể tự lưu trữ toàn bộ không?" Công cụ khác nhau, đối tượng khác nhau.
 
-Picking involves four axes: stack (LangChain? raw SDK? multi-vendor?), license tolerance (MIT only? Elastic OK? commercial fine?), budget (free tier? $100/mo? $1000/mo?), and self-host (must? nice-to-have? never?).
+Việc lựa chọn liên quan bốn trục: ngăn xếp (LangChain? SDK thuần? nhiều nhà cung cấp?), mức chấp nhận giấy phép (chỉ MIT? Elastic được? thương mại ổn?), ngân sách (gói miễn phí? $100/tháng? $1000/tháng?), và tự lưu trữ (bắt buộc? có thì tốt? không bao giờ?).
 
 ## The Concept
 
 ### Two categories
 
-**Development platforms** bundle observability with evals, prompt management, dataset versioning, session replay. You run experiments, see which prompt worked, dataset-regression a new prompt against old winners. LangSmith, Langfuse, Comet Opik.
+**Nền tảng phát triển** gộp khả năng quan sát với đánh giá, quản lý prompt, quản lý phiên bản tập dữ liệu, phát lại phiên. Bạn chạy thí nghiệm, xem prompt nào hoạt động, kiểm tra hồi quy trên tập dữ liệu cho một prompt mới so với những prompt thắng trước đó. LangSmith, Langfuse, Comet Opik.
 
-**Gateway/telemetry tools** instrument inference calls — prompt, response, tokens, latency, model, cost. Helicone, SigNoz, OpenLLMetry, Phoenix. Minimalist. Can be combined with a separate eval tool via OpenTelemetry.
+**Công cụ gateway/đo từ xa** đo đạc các lệnh gọi suy luận — prompt, phản hồi, token, độ trễ, mô hình, chi phí. Helicone, SigNoz, OpenLLMetry, Phoenix. Tối giản. Có thể kết hợp với một công cụ đánh giá riêng qua OpenTelemetry.
 
 ### Langfuse — OSS balance
 
-- Core Apache / MIT licensed; self-host via Docker.
-- Cloud free tier: 50K events/month. Paid: $29/mo for team.
-- Evals, prompt management, traces, datasets. Reasonable coverage of all four dev-platform features.
-- Sweet spot: you want LangSmith-class features but must self-host or stay on OSS license.
+- Lõi được cấp phép Apache / MIT; tự lưu trữ qua Docker.
+- Gói đám mây miễn phí: 50K sự kiện/tháng. Trả phí: $29/tháng cho nhóm.
+- Đánh giá, quản lý prompt, dấu vết, tập dữ liệu. Bao phủ hợp lý cả bốn tính năng nền tảng phát triển.
+- Trường hợp phù hợp nhất: bạn muốn tính năng tầm LangSmith nhưng phải tự lưu trữ hoặc duy trì giấy phép OSS.
 
 ### Phoenix (Arize) — telemetry-first, OpenTelemetry-native
 
-- Elastic License 2.0; self-host trivial.
-- Excellent at RAG and drift visualization. Embedding-space scatter plots shipped as first-class.
-- Not designed as persistent production backend — primarily development-time observability.
-- Sweet spot: RAG pipeline development, drift debugging, pairs with a separate gateway for production.
+- Elastic License 2.0; tự lưu trữ rất đơn giản.
+- Xuất sắc ở trực quan hóa RAG và độ trôi. Biểu đồ phân tán không gian embedding được cung cấp như tính năng hạng nhất.
+- Không được thiết kế làm backend sản xuất bền vững — chủ yếu là khả năng quan sát trong thời gian phát triển.
+- Trường hợp phù hợp nhất: phát triển pipeline RAG, gỡ lỗi độ trôi, kết hợp với một gateway riêng cho sản xuất.
 
 ### Arize AX — the scale play
 
-- Commercial. Zero-copy data lake integration via Iceberg/Parquet.
-- Claims ~100x cheaper than monolithic observability (Datadog-class) at scale. The math: you store traces in your own Parquet on S3; Arize reads directly.
-- Sweet spot: >10M traces/day, existing data lake, want LLM-specific dashboards without Datadog pricing.
+- Thương mại. Tích hợp hồ dữ liệu không sao chép qua Iceberg/Parquet.
+- Khẳng định rẻ hơn ~100x so với khả năng quan sát nguyên khối (tầm Datadog) ở quy mô lớn. Phép tính: bạn lưu dấu vết trong Parquet riêng trên S3; Arize đọc trực tiếp.
+- Trường hợp phù hợp nhất: >10M dấu vết/ngày, hồ dữ liệu sẵn có, muốn bảng điều khiển riêng cho LLM mà không chịu giá Datadog.
 
 ### LangSmith — LangChain/LangGraph first
 
-- Commercial, $39/user/month. Self-host only on Enterprise.
-- Best-in-class for LangChain and LangGraph stacks. If you are not on either, it is less compelling.
-- Sweet spot: team committed to LangChain, willing to pay.
+- Thương mại, $39/người dùng/tháng. Chỉ tự lưu trữ ở Enterprise.
+- Tốt nhất trong nhóm cho ngăn xếp LangChain và LangGraph. Nếu bạn không dùng một trong hai, nó kém hấp dẫn hơn.
+- Trường hợp phù hợp nhất: nhóm cam kết với LangChain, sẵn sàng trả tiền.
 
 ### Helicone — proxy-based minimum viable
 
-- 15-30 minute setup by swapping your `OPENAI_API_BASE` to Helicone proxy.
-- MIT licensed; 100K req/mo free, paid $20/mo+.
-- Includes failover, caching, rate limits — acts as a gateway too.
-- Less depth on agent / multi-step traces.
-- Sweet spot: quick start, single-stack app, need gateway + observability in one.
+- Thiết lập 15-30 phút bằng cách đổi `OPENAI_API_BASE` của bạn sang proxy Helicone.
+- Được cấp phép MIT; 100K yêu cầu/tháng miễn phí, trả phí $20/tháng+.
+- Bao gồm chuyển đổi dự phòng, lưu bộ nhớ đệm, giới hạn tốc độ — cũng hoạt động như một gateway.
+- Ít chiều sâu hơn về dấu vết agent / nhiều bước.
+- Trường hợp phù hợp nhất: bắt đầu nhanh, ứng dụng một ngăn xếp, cần gateway + khả năng quan sát trong một.
 
 ### Opik (Comet) — OSS dev platform
 
-- Apache 2.0, fully OSS.
-- Similar feature set to Langfuse with Comet heritage.
-- Sweet spot: ML teams already on Comet, want LLM observability in the same pane.
+- Apache 2.0, hoàn toàn OSS.
+- Tập tính năng tương tự Langfuse với di sản Comet.
+- Trường hợp phù hợp nhất: nhóm ML đã dùng Comet, muốn khả năng quan sát LLM trong cùng một khung nhìn.
 
 ### SigNoz — OpenTelemetry-first full APM
 
-- Apache 2.0. Handles general APM plus LLM via OpenTelemetry.
-- Sweet spot: unified observability across services and LLM calls.
+- Apache 2.0. Xử lý APM tổng quát cộng LLM qua OpenTelemetry.
+- Trường hợp phù hợp nhất: khả năng quan sát hợp nhất trên các dịch vụ và lệnh gọi LLM.
 
 ### The glue: OpenTelemetry + GenAI semantic conventions
 
-OpenTelemetry published GenAI semantic conventions in late 2025 (`gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`). Tools that consume OTel can interoperate. The production pattern emerging:
+OpenTelemetry công bố quy ước ngữ nghĩa GenAI vào cuối năm 2025 (`gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`). Các công cụ tiêu thụ OTel có thể tương tác với nhau. Mẫu sản xuất đang hình thành:
 
-1. Emit OTel with GenAI conventions from every LLM call.
-2. Route to gateway (Helicone / Portkey) for day-to-day.
-3. Dual-ship to eval platform (Phoenix / Langfuse) for regressions.
-4. Archive in data lake (Iceberg) for long-term analysis via Arize AX or DuckDB.
+1. Phát OTel với các quy ước GenAI từ mọi lệnh gọi LLM.
+2. Định tuyến đến gateway (Helicone / Portkey) cho công việc hằng ngày.
+3. Gửi đồng thời đến nền tảng đánh giá (Phoenix / Langfuse) để kiểm tra hồi quy.
+4. Lưu trữ trong hồ dữ liệu (Iceberg) để phân tích dài hạn qua Arize AX hoặc DuckDB.
 
 ### The trap: instrumenting at the wrong layer
 
-Instrumenting inside your agent framework (e.g., adding LangSmith traces) couples you to that framework. Instrumenting at the HTTP/OpenAI-SDK layer (via OpenLLMetry or your gateway) is portable.
+Đo đạc bên trong framework agent của bạn (ví dụ: thêm dấu vết LangSmith) gắn bạn với framework đó. Đo đạc ở lớp HTTP/SDK OpenAI (qua OpenLLMetry hoặc gateway của bạn) có tính di động.
 
 ### Sampling — you can't keep everything
 
-At >1M requests/day, full-trace retention costs more than the LLM calls. Sample by rules: 100% errors, 100% high-cost, 5% success. Keep aggregates always; keep raw for the long tail.
+Ở >1M yêu cầu/ngày, lưu giữ toàn bộ dấu vết tốn hơn các lệnh gọi LLM. Lấy mẫu theo quy tắc: 100% lỗi, 100% chi phí cao, 5% thành công. Luôn giữ số liệu tổng hợp; giữ dữ liệu thô cho phần đuôi dài.
 
 ### Numbers you should remember
 
-- Langfuse free cloud: 50K events/month.
-- LangSmith: $39/user/month.
-- Helicone free: 100K req/month.
-- Arize AX claim: ~100x cheaper than monolithic at scale.
-- OpenTelemetry GenAI conventions: 2025 shipping, 2026 widely adopted.
+- Đám mây miễn phí Langfuse: 50K sự kiện/tháng.
+- LangSmith: $39/người dùng/tháng.
+- Helicone miễn phí: 100K yêu cầu/tháng.
+- Khẳng định của Arize AX: rẻ hơn ~100x so với nguyên khối ở quy mô lớn.
+- Quy ước OpenTelemetry GenAI: phát hành năm 2025, được áp dụng rộng rãi năm 2026.
 
 ```figure
 i4-otel-glue
@@ -106,34 +106,34 @@ i4-otel-glue
 
 ## Use It
 
-`code/main.py` simulates a 1M-trace day across retention strategies (100% ingest, sampling, sampling + errors). Reports storage cost and what's lost under each.
+`code/main.py` mô phỏng một ngày có 1M dấu vết trên các chiến lược lưu giữ (thu nạp 100%, lấy mẫu, lấy mẫu + lỗi). Báo cáo chi phí lưu trữ và những gì bị mất dưới từng chiến lược.
 
 ## Ship It
 
-This lesson produces `outputs/skill-observability-stack.md`. Given stack, scale, budget, license posture, picks the tool(s).
+Bài học này tạo ra `outputs/skill-observability-stack.md`. Với ngăn xếp, quy mô, ngân sách, định hướng giấy phép, chọn công cụ.
 
 ## Exercises
 
-1. Your team on LangChain wants OSS self-hosted observability. Pick Langfuse or Opik and justify.
-2. At 5M traces/day with Datadog quotes $150K/month, compute break-even for Arize AX.
-3. Design an OpenTelemetry GenAI attribute set your org's guideline should mandate on every LLM call.
-4. Argue whether Phoenix alone is sufficient for production. When does it not suffice?
-5. Helicone is 20ms proxy overhead. At P99 TTFT 300 ms, is that acceptable? What if SLA is 100 ms?
+1. Nhóm của bạn dùng LangChain muốn khả năng quan sát OSS tự lưu trữ. Chọn Langfuse hoặc Opik và giải thích.
+2. Ở 5M dấu vết/ngày với báo giá Datadog $150K/tháng, tính điểm hòa vốn cho Arize AX.
+3. Thiết kế một tập thuộc tính OpenTelemetry GenAI mà hướng dẫn của tổ chức bạn nên bắt buộc trên mọi lệnh gọi LLM.
+4. Lập luận liệu riêng Phoenix có đủ cho sản xuất không. Khi nào nó không đủ?
+5. Helicone có chi phí độ trễ proxy 20ms. Với P99 TTFT 300 ms, điều đó có chấp nhận được không? Nếu SLA là 100 ms thì sao?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|----------------|------------------------|
-| OpenLLMetry | "OTel for LLMs" | Open-source OpenTelemetry instrumentation for LLMs |
-| GenAI conventions | "OTel attributes" | Standard OTel attribute names for LLM calls |
-| LangSmith | "LangChain observability" | Commercial platform bundled with LangChain ecosystem |
-| Langfuse | "OSS LangSmith" | MIT OSS with similar feature set |
-| Phoenix | "Arize dev tool" | OpenTelemetry-native dev/eval platform |
-| Arize AX | "scale observability" | Commercial zero-copy Iceberg/Parquet observability |
-| Helicone | "proxy observability" | HTTP proxy collecting LLM telemetry + gateway features |
-| Opik | "Comet LLM" | Apache 2.0 OSS dev platform from Comet |
-| Session replay | "trace rerun" | Replay a full agent session with tool calls |
-| Eval | "offline test" | Running candidate model/prompt over labeled dataset |
+| OpenLLMetry | "OTel cho LLM" | Đo đạc OpenTelemetry mã nguồn mở cho LLM |
+| GenAI conventions (Quy ước GenAI) | "thuộc tính OTel" | Tên thuộc tính OTel tiêu chuẩn cho lệnh gọi LLM |
+| LangSmith | "khả năng quan sát LangChain" | Nền tảng thương mại được gộp với hệ sinh thái LangChain |
+| Langfuse | "LangSmith OSS" | OSS MIT với tập tính năng tương tự |
+| Phoenix | "công cụ phát triển Arize" | Nền tảng phát triển/đánh giá nguyên bản OpenTelemetry |
+| Arize AX | "khả năng quan sát quy mô lớn" | Khả năng quan sát Iceberg/Parquet không sao chép thương mại |
+| Helicone | "khả năng quan sát proxy" | Proxy HTTP thu thập dữ liệu đo từ xa LLM + tính năng gateway |
+| Opik | "LLM Comet" | Nền tảng phát triển OSS Apache 2.0 từ Comet |
+| Session replay (Phát lại phiên) | "chạy lại dấu vết" | Phát lại toàn bộ một phiên agent với các lệnh gọi công cụ |
+| Eval (Đánh giá) | "kiểm thử ngoại tuyến" | Chạy mô hình/prompt ứng viên trên tập dữ liệu có nhãn |
 
 ## Further Reading
 
