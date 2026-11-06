@@ -1,6 +1,6 @@
 # Hardware-Specialized Inference Compilation — FP8 and NVFP4 on Blackwell
 
-> Hardware-specialized inference compilation trades portability for throughput, and TensorRT-LLM — NVIDIA-only, tuned for Blackwell — is the clearest example of the trade paying off. On GB200 NVL72 with Dynamo orchestration, SemiAnalysis InferenceX measured $0.012 per million tokens on a 120B model in Q1-Q2 2026, against $0.09/M on H100 + vLLM — a 7x economic gap. The stack is three floating-point regimes compounded: FP8 stays critical for KV cache and attention kernels because it has the dynamic range they need; NVFP4 (4-bit microscaling) handles weights and activations; multi-token prediction (MTP) and disaggregated prefill/decode add another 2-3x on top. Day-0 model support loads FP4 weights directly without post-training conversion. The catch for 2026 engineering teams: TRT-LLM is open-source but NVIDIA-specific — CUDA- and Blackwell-specialized — so adopting it trades portability for throughput. Run the math on your mix of models and hardware before committing.
+> Biên dịch suy luận chuyên biệt phần cứng đánh đổi tính di động lấy thông lượng, và TensorRT-LLM — chỉ NVIDIA, được điều chỉnh cho Blackwell — là ví dụ rõ nhất về đánh đổi có lợi. Trên GB200 NVL72 với điều phối Dynamo, SemiAnalysis InferenceX đo $0.012 mỗi triệu token trên một mô hình 120B trong Q1-Q2 năm 2026, so với $0.09/M trên H100 + vLLM — khoảng cách kinh tế 7x. Ngăn xếp là ba chế độ dấu phẩy động cộng dồn: FP8 vẫn trọng yếu cho bộ nhớ đệm KV và các kernel attention vì nó có dải động chúng cần; NVFP4 (microscaling 4 bit) xử lý trọng số và các kích hoạt; dự đoán nhiều token (MTP) và prefill/decode tách rời thêm 2-3x nữa bên trên. Hỗ trợ mô hình ngày 0 tải trực tiếp các trọng số FP4 không cần chuyển đổi sau huấn luyện. Điểm vướng cho các nhóm kỹ thuật năm 2026: TRT-LLM là mã nguồn mở nhưng riêng NVIDIA — chuyên biệt CUDA và Blackwell — nên áp dụng nó đánh đổi tính di động lấy thông lượng. Tính toán trên hỗn hợp mô hình và phần cứng của bạn trước khi cam kết.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy FP8/NVFP4 memory and cost calculator)
@@ -9,68 +9,68 @@
 
 ## Learning Objectives
 
-- Explain why FP8 stays critical for KV cache and attention even when weights are in NVFP4.
-- Compute the HBM footprint of a frontier model under BF16, FP8, and NVFP4 and reason about where the savings come from.
-- Name the Blackwell-specific features TRT-LLM exploits (day-0 FP4, MTP, disaggregated serving, all-to-all primitives).
-- Decide when TRT-LLM's NVIDIA-lock is worth the 7x cost gap vs vLLM on Hopper.
+- Giải thích vì sao FP8 vẫn trọng yếu cho bộ nhớ đệm KV và attention ngay cả khi các trọng số ở NVFP4.
+- Tính dung lượng HBM chiếm dụng của một mô hình tiên tiến nhất dưới BF16, FP8, và NVFP4 và suy luận về nơi các tiết kiệm đến từ.
+- Nêu các tính năng riêng Blackwell mà TRT-LLM khai thác (FP4 ngày 0, MTP, phục vụ tách rời, các nguyên thủy mọi bên với mọi bên).
+- Quyết định khi nào khóa vào NVIDIA của TRT-LLM xứng đáng với khoảng cách chi phí 7x so với vLLM trên Hopper.
 
 ## The Problem
 
-The frontier of inference economics in 2026 is "how many tokens per dollar". The answer depends on four stacked choices: hardware generation (Hopper H100/H200 vs Blackwell B200/GB200), precision (BF16 → FP8 → NVFP4), serving engine (vLLM vs SGLang vs TRT-LLM), and orchestration (plain vs disaggregated vs Dynamo).
+Tuyến đầu kinh tế suy luận năm 2026 là “bao nhiêu token mỗi đô la”. Câu trả lời phụ thuộc bốn lựa chọn xếp chồng: thế hệ phần cứng (Hopper H100/H200 so với Blackwell B200/GB200), độ chính xác (BF16 → FP8 → NVFP4), engine phục vụ (vLLM so với SGLang so với TRT-LLM), và điều phối (thuần so với tách rời so với Dynamo).
 
-On Hopper with vLLM, a 120B MoE runs at ~$0.09 per million tokens. On Blackwell with TRT-LLM + Dynamo, the same model runs at ~$0.012 — 7x cheaper. Some of that gap is hardware (Blackwell is 11-15x per-GPU LLM throughput vs Hopper). Some is the stack: FP4 weights, MTP draft, disaggregated prefill/decode, and NVLink 5 all-to-all for MoE expert communication.
+Trên Hopper với vLLM, một MoE 120B chạy ở ~$0.09 mỗi triệu token. Trên Blackwell với TRT-LLM + Dynamo, cùng mô hình chạy ở ~$0.012 — rẻ hơn 7x. Một phần khoảng cách là phần cứng (Blackwell có thông lượng LLM theo từng GPU bằng 11-15x so với Hopper). Một phần là ngăn xếp: các trọng số FP4, nháp MTP, prefill/decode tách rời, và NVLink 5 mọi bên với mọi bên cho giao tiếp chuyên gia MoE.
 
-You cannot replicate this outside NVIDIA's stack. That is the tradeoff — portability for economics. Understanding which stack choices give which share of the gap is the point of this lesson.
+Bạn không thể tái tạo điều này ngoài ngăn xếp NVIDIA. Đó là đánh đổi — tính di động lấy kinh tế. Hiểu các lựa chọn ngăn xếp nào cho phần nào của khoảng cách là mục đích bài này.
 
 ## The Concept
 
 ### Why FP8 is still the floor for KV cache
 
-A common mistake in 2026: assuming NVFP4 applies everywhere. It does not. KV cache needs FP8 (8-bit floating point) because it stores attention keys and values that span a wide dynamic range. Quantizing KV to FP4 causes catastrophic accuracy loss — the tail of the distribution drops off and attention scores collapse. FP8's exponent bits give KV cache the range it needs.
+Một sai lầm phổ biến năm 2026: giả định NVFP4 áp dụng mọi nơi. Không phải vậy. Bộ nhớ đệm KV cần FP8 (dấu phẩy động 8 bit) vì nó lưu các khóa và giá trị attention trải một dải động rộng. Lượng tử hóa KV xuống FP4 gây mất độ chính xác thảm họa — đuôi phân phối rơi mất và các điểm attention sụp đổ. Các bit số mũ của FP8 cho bộ nhớ đệm KV dải nó cần.
 
-NVFP4 (2025-2026) applies to weights and activations. Microscaling: each block of weights has its own scale factor so small blocks can span different dynamic ranges without per-tensor scale loss. For activations, FP4 holds up because activations are small-range within a layer.
+NVFP4 (2025-2026) áp dụng cho trọng số và các kích hoạt. Microscaling: mỗi block trọng số có hệ số thang đo riêng để các block nhỏ có thể trải các dải động khác nhau không có mất mát thang đo theo từng tensor. Với các kích hoạt, FP4 giữ được vì các kích hoạt có dải nhỏ trong một lớp.
 
-The typical Blackwell config:
+Cấu hình Blackwell điển hình:
 
-- Weights: NVFP4 (4-bit microscaling).
-- Activations: NVFP4.
-- KV cache: FP8.
-- Attention accumulator: FP32 (softmax stability).
+- Trọng số: NVFP4 (microscaling 4 bit).
+- Các kích hoạt: NVFP4.
+- Bộ nhớ đệm KV: FP8.
+- Bộ tích lũy attention: FP32 (độ ổn định softmax).
 
 ### The Blackwell-specific primitives TRT-LLM uses
 
-- **Day-0 FP4 weights**: model providers ship FP4 weights directly; TRT-LLM loads without post-training conversion. No AWQ / GPTQ step for FP4.
-- **Multi-token prediction (MTP)**: same idea as EAGLE (Phase 17 · 05) but integrated into the TRT-LLM build.
-- **Disaggregated serving**: prefill and decode on separate GPU pools, KV cache transferred over NVLink or InfiniBand. Same idea as Dynamo (Phase 17 · 20).
-- **All-to-all communication primitives**: NVLink 5 cut MoE expert communication latency by 3x vs Hopper. TRT-LLM's MoE kernels are tuned for this.
-- **NVFP4 + MXFP8 microscaling**: hardware-accelerated scale-factor handling on Blackwell Tensor Cores.
+- **Các trọng số FP4 ngày 0**: các nhà cung cấp mô hình phát hành trực tiếp các trọng số FP4; TRT-LLM tải không cần chuyển đổi sau huấn luyện. Không có bước AWQ / GPTQ cho FP4.
+- **Dự đoán nhiều token (MTP)**: cùng ý tưởng như EAGLE (Giai đoạn 17 · 05) nhưng tích hợp vào bản dựng TRT-LLM.
+- **Phục vụ tách rời**: prefill và decode trên các bể GPU riêng, bộ nhớ đệm KV được chuyển qua NVLink hoặc InfiniBand. Cùng ý tưởng như Dynamo (Giai đoạn 17 · 20).
+- **Các nguyên thủy giao tiếp mọi bên với mọi bên**: NVLink 5 cắt độ trễ giao tiếp chuyên gia MoE 3x so với Hopper. Các kernel MoE của TRT-LLM được điều chỉnh cho điều này.
+- **Microscaling NVFP4 + MXFP8**: xử lý hệ số thang đo được tăng tốc phần cứng trên các Tensor Core Blackwell.
 
 ### The numbers you should memorize
 
-- HGX B200 at $0.02/M tokens on GPT-OSS-120B via TRT-LLM.
-- GB200 NVL72 at $0.012/M tokens via Dynamo (orchestrating TRT-LLM).
-- H100 + vLLM ≈ $0.09/M tokens on comparable workload.
-- 2.8x throughput gain in three months of TRT-LLM updates (2026).
-- 11-15x per-GPU LLM throughput, Blackwell vs Hopper.
-- MLPerf Inference v6.0 (April 2026): Blackwell dominates every submitted task.
+- HGX B200 ở $0.02/M token trên GPT-OSS-120B qua TRT-LLM.
+- GB200 NVL72 ở $0.012/M token qua Dynamo (điều phối TRT-LLM).
+- H100 + vLLM ≈ $0.09/M token trên khối lượng công việc tương đương.
+- Mức tăng thông lượng 2.8x trong ba tháng cập nhật TRT-LLM (2026).
+- Thông lượng LLM theo từng GPU 11-15x, Blackwell so với Hopper.
+- MLPerf Inference v6.0 (tháng 4 năm 2026): Blackwell thống trị mọi tác vụ được nộp.
 
 ### What FP4 actually costs in quality
 
-NVFP4 is aggressive. On reasoning-heavy workloads (chain-of-thought, math, code-gen with long context), FP4 weights degrade visibly. Per-block calibration mitigates but does not eliminate. Teams shipping reasoning models often use FP8 weights + FP4 activations as a compromise, or stick to H200 with FP8 throughout.
+NVFP4 quyết liệt. Trên các khối lượng công việc nhiều suy luận (chuỗi suy nghĩ, toán, sinh mã với ngữ cảnh dài), các trọng số FP4 suy giảm thấy rõ. Hiệu chuẩn theo từng block giảm thiểu nhưng không loại bỏ. Các nhóm đưa các mô hình suy luận ra sử dụng thường dùng các trọng số FP8 + các kích hoạt FP4 như thỏa hiệp, hoặc giữ H200 với FP8 xuyên suốt.
 
-The rule: always validate task quality on your eval set before committing to NVFP4 weights.
+Quy tắc: luôn xác thực chất lượng tác vụ trên tập đánh giá của bạn trước khi cam kết các trọng số NVFP4.
 
 ### Why this is an NVIDIA-lock decision
 
-TRT-LLM is C++ + CUDA + closed-source kernels. Models need to be compiled for a specific GPU SKU. No AMD, no Intel, no ARM. If your infra strategy is multi-vendor, TRT-LLM is a non-starter for the TRT-LLM-served tier — you can still serve from vLLM on mixed hardware. If you are NVIDIA-only, the 7x gap pays for the lock.
+TRT-LLM là C++ + CUDA + các kernel đóng nguồn. Các mô hình cần được biên dịch cho một SKU GPU cụ thể. Không AMD, không Intel, không ARM. Nếu chiến lược hạ tầng đa nhà cung cấp, TRT-LLM không khả thi cho tầng do TRT-LLM phục vụ — bạn vẫn có thể phục vụ từ vLLM trên phần cứng hỗn hợp. Nếu chỉ NVIDIA, khoảng cách 7x trả cho khóa chặt.
 
 ### 2026 practical recipe
 
-For a $100M+ annual inference bill, running on Hopper + vLLM leaves 7-10x on the table. Migrate cost-dominant workloads to Blackwell + TRT-LLM + Dynamo. Keep experimentation tier on H100 + vLLM for model iteration speed. Validate quality on each NVFP4-converted model before production.
+Với hóa đơn suy luận hằng năm $100M+, chạy trên Hopper + vLLM bỏ lỡ 7-10x. Di chuyển các khối lượng công việc chi phối chi phí sang Blackwell + TRT-LLM + Dynamo. Giữ tầng thử nghiệm trên H100 + vLLM cho tốc độ lặp mô hình. Xác thực chất lượng trên mỗi mô hình chuyển đổi NVFP4 trước sản xuất.
 
 ### The disaggregation bonus
 
-TRT-LLM's disaggregated serving (separate prefill and decode pools) is covered in depth in Phase 17 · 20. On Blackwell, the multiplier stacks: FP4 weights × MTP speedup × disaggregated placement × cache-aware routing. The 7x number assumes this full stack.
+Phục vụ tách rời của TRT-LLM (các bể prefill và decode riêng) được trình bày sâu trong Giai đoạn 17 · 20. Trên Blackwell, hệ số nhân xếp chồng: các trọng số FP4 × tăng tốc MTP × bố trí tách rời × định tuyến nhận biết bộ nhớ đệm. Con số 7x giả định ngăn xếp đầy đủ này.
 
 ```figure
 pipeline-parallel
@@ -78,37 +78,37 @@ pipeline-parallel
 
 ## Use It
 
-`code/main.py` computes HBM footprint, decode throughput (memory-bound regime), and $/M-tokens for a model across three stacks: H100 + BF16 + vLLM, H100 + FP8 + vLLM, B200 + NVFP4/FP8 + TRT-LLM. Run it to see the compounding effect and the share of the gap each change contributes.
+`code/main.py` tính dung lượng HBM chiếm dụng, thông lượng decode (chế độ bị giới hạn bởi bộ nhớ), và $/M-token cho một mô hình trên ba ngăn xếp: H100 + BF16 + vLLM, H100 + FP8 + vLLM, B200 + NVFP4/FP8 + TRT-LLM. Chạy nó để thấy hiệu ứng cộng dồn và phần khoảng cách mỗi thay đổi đóng góp.
 
 ## Ship It
 
-This lesson produces `outputs/skill-trtllm-blackwell-advisor.md`. Given a workload, model size, and annual token volume, it decides whether the Blackwell + TRT-LLM stack is worth the NVIDIA-lock.
+Bài này tạo ra `outputs/skill-trtllm-blackwell-advisor.md`. Với một khối lượng công việc, kích thước mô hình, và khối lượng token hằng năm, nó quyết định liệu ngăn xếp Blackwell + TRT-LLM có xứng đáng với khóa vào NVIDIA.
 
 ## Exercises
 
-1. Run `code/main.py`. On a 120B MoE with 30% active parameters, compute the memory-bandwidth-limited decode throughput on H100 BF16, H100 FP8, and B200 NVFP4/FP8. Where does the biggest jump come from?
-2. A customer spends $2M/year on H100 + vLLM. What is the break-even number of Blackwell GPUs they need to buy to amortize a migration to TRT-LLM in 12 months, given the 7x economic gap?
-3. You see accuracy drop 3 points on MATH after NVFP4 weight conversion. Name two recovery paths: one quality-first (keep FP8 weights), one cost-first (calibrate with in-domain data).
-4. Read the MLPerf v6.0 inference results. Which task has the smallest Blackwell-over-Hopper gap, and why?
-5. Compute the HBM needed for a 405B model at NVFP4 weights + FP8 KV cache at 128k context. Does it fit on a single GB200 NVL72 node?
+1. Chạy `code/main.py`. Trên một MoE 120B với 30% tham số hoạt động, tính thông lượng decode bị giới hạn băng thông bộ nhớ trên H100 BF16, H100 FP8, và B200 NVFP4/FP8. Bước nhảy lớn nhất đến từ đâu?
+2. Một khách hàng chi $2M/năm trên H100 + vLLM. Số GPU Blackwell hòa vốn họ cần mua để phân bổ chi phí di chuyển sang TRT-LLM trong 12 tháng là bao nhiêu, với khoảng cách kinh tế 7x?
+3. Bạn thấy độ chính xác giảm 3 điểm trên MATH sau chuyển đổi trọng số NVFP4. Nêu hai đường phục hồi: một ưu tiên chất lượng (giữ các trọng số FP8), một ưu tiên chi phí (hiệu chuẩn bằng dữ liệu trong lĩnh vực).
+4. Đọc các kết quả suy luận MLPerf v6.0. Tác vụ nào có khoảng cách Blackwell so với Hopper nhỏ nhất, và vì sao?
+5. Tính HBM cần cho một mô hình 405B ở các trọng số NVFP4 + bộ nhớ đệm KV FP8 ở ngữ cảnh 128k. Nó có vừa trên một node GB200 NVL72 đơn lẻ không?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| FP8 | "eight-bit float" | 8-bit floating point; used for KV cache and attention due to dynamic range |
-| NVFP4 | "four-bit micro" | NVIDIA's 4-bit microscaling FP format; weights and activations on Blackwell |
-| MXFP8 | "MX eight" | Microscaling FP8 variant; hardware-accelerated on Blackwell Tensor Cores |
-| Day-0 FP4 | "ship FP4 weights" | Model providers release weights already in FP4; no post-train conversion step |
-| MTP | "multi-token prediction" | TRT-LLM's integrated speculative-decoding draft (Phase 17 · 05) |
-| Disaggregated serving | "split prefill/decode" | Prefill and decode on separate GPU pools; KV transferred over NVLink/IB |
-| All-to-all | "MoE expert comm" | Communication pattern routing tokens to expert GPUs; NVLink 5 cuts 3x |
-| InferenceX | "SemiAnalysis inference bench" | The 2026 industry-accepted cost-per-token benchmark |
+| FP8 | “dấu phẩy động tám bit” | Dấu phẩy động 8 bit; dùng cho bộ nhớ đệm KV và attention do dải động |
+| NVFP4 | “micro bốn bit” | Định dạng FP microscaling 4 bit của NVIDIA; trọng số và các kích hoạt trên Blackwell |
+| MXFP8 | “MX tám” | Biến thể FP8 microscaling; được tăng tốc phần cứng trên các Tensor Core Blackwell |
+| Day-0 FP4 (FP4 ngày 0) | “phát hành các trọng số FP4” | Các nhà cung cấp mô hình phát hành trọng số đã ở FP4; không bước chuyển đổi sau huấn luyện |
+| MTP | “dự đoán nhiều token” | Nháp giải mã suy đoán tích hợp của TRT-LLM (Giai đoạn 17 · 05) |
+| Disaggregated serving (Phục vụ tách rời) | “tách prefill/decode” | Prefill và decode trên các bể GPU riêng; KV được chuyển qua NVLink/IB |
+| All-to-all (Mọi bên với mọi bên) | “giao tiếp chuyên gia MoE” | Mẫu giao tiếp định tuyến các token tới các GPU chuyên gia; NVLink 5 cắt 3x |
+| InferenceX | “benchmark suy luận SemiAnalysis” | Benchmark chi phí mỗi token được ngành chấp nhận năm 2026 |
 
 ## Further Reading
 
-- [NVIDIA — Blackwell Ultra MLPerf Inference v6.0](https://developer.nvidia.com/blog/nvidia-blackwell-ultra-sets-new-inference-records-in-mlperf-debut/) — April 2026 MLPerf results.
-- [NVIDIA — MoE Inference on Blackwell](https://developer.nvidia.com/blog/delivering-massive-performance-leaps-for-mixture-of-experts-inference-on-nvidia-blackwell/) — NVLink 5 all-to-all and MoE kernels.
-- [TensorRT-LLM Overview](https://nvidia.github.io/TensorRT-LLM/overview.html) — official engine documentation.
-- [NVIDIA — Introducing Dynamo](https://developer.nvidia.com/blog/introducing-nvidia-dynamo-a-low-latency-distributed-inference-framework-for-scaling-reasoning-ai-models/) — disaggregated orchestration above TRT-LLM.
-- [MLPerf Inference](https://mlcommons.org/benchmarks/inference-datacenter/) — the benchmark suite that publishes Blackwell numbers.
+- [NVIDIA — Blackwell Ultra MLPerf Inference v6.0](https://developer.nvidia.com/blog/nvidia-blackwell-ultra-sets-new-inference-records-in-mlperf-debut/) — các kết quả MLPerf tháng 4 năm 2026.
+- [NVIDIA — MoE Inference on Blackwell](https://developer.nvidia.com/blog/delivering-massive-performance-leaps-for-mixture-of-experts-inference-on-nvidia-blackwell/) — NVLink 5 mọi bên với mọi bên và các kernel MoE.
+- [TensorRT-LLM Overview](https://nvidia.github.io/TensorRT-LLM/overview.html) — tài liệu engine chính thức.
+- [NVIDIA — Introducing Dynamo](https://developer.nvidia.com/blog/introducing-nvidia-dynamo-a-low-latency-distributed-inference-framework-for-scaling-reasoning-ai-models/) — điều phối tách rời trên TRT-LLM.
+- [MLPerf Inference](https://mlcommons.org/benchmarks/inference-datacenter/) — bộ benchmark công bố các con số Blackwell.

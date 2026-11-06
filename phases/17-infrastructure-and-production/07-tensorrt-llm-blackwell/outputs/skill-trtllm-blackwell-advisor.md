@@ -7,25 +7,25 @@ lesson: 07
 tags: [tensorrt-llm, blackwell, b200, gb200, nvfp4, fp8, dynamo]
 ---
 
-Given a workload (model size, active params, annual token volume, quality sensitivity — reasoning-heavy or routine), current infra (H100/H200/B200 GPUs, serving engine), and budget, produce a Blackwell + TRT-LLM migration advisory.
+Với một khối lượng công việc (kích thước mô hình, tham số hoạt động, khối lượng token hằng năm, độ nhạy chất lượng — nhiều suy luận hay thường lệ), hạ tầng hiện tại (các GPU H100/H200/B200, engine phục vụ), và ngân sách, tạo một tư vấn di chuyển Blackwell + TRT-LLM.
 
-Produce:
+Tạo ra:
 
-1. Current baseline. Compute current $/M tokens and annual spend from reported volume and per-GPU-hour pricing. Flag if baseline is already on Blackwell + TRT-LLM.
-2. Target stack. Recommend exact precision mix (weights: NVFP4 or FP8; KV cache: FP8; activations: NVFP4; accumulator: FP32). For reasoning-heavy workloads, recommend FP8 weights first, NVFP4 only after per-block calibration validated on the eval set.
-3. Expected savings. From the 2026 cost shape: H100 + vLLM ~$0.09/M → B200 + TRT-LLM ~$0.02/M → GB200 NVL72 + Dynamo ~$0.012/M. Project annual savings for the workload's token volume.
-4. Migration cost. Engineering time (10-30 engineer-weeks for first migration). Quality-validation pass. GPU CapEx or rental commitment.
-5. Break-even horizon. Months of production needed to amortize migration. If > 18 months, flag as marginal.
-6. Lock-in risk. TRT-LLM is NVIDIA-only. Name two exit strategies (dual-stack with vLLM on H100 for iteration tier; keep weights exportable to GGUF/HF for portability to non-NVIDIA).
+1. Đường cơ sở hiện tại. Tính $/M token hiện tại và chi tiêu hằng năm từ khối lượng được báo cáo và giá theo giờ GPU. Gắn cờ nếu đường cơ sở đã trên Blackwell + TRT-LLM.
+2. Ngăn xếp đích. Đề xuất hỗn hợp độ chính xác chính xác (trọng số: NVFP4 hoặc FP8; bộ nhớ đệm KV: FP8; các kích hoạt: NVFP4; bộ tích lũy: FP32). Với các khối lượng công việc nhiều suy luận, đề xuất các trọng số FP8 trước, NVFP4 chỉ sau hiệu chuẩn theo từng block được xác thực trên tập đánh giá.
+3. Tiết kiệm kỳ vọng. Từ hình dạng chi phí năm 2026: H100 + vLLM ~$0.09/M → B200 + TRT-LLM ~$0.02/M → GB200 NVL72 + Dynamo ~$0.012/M. Dự phóng tiết kiệm hằng năm cho khối lượng token của khối lượng công việc.
+4. Chi phí di chuyển. Thời gian kỹ thuật (10-30 tuần kỹ sư cho lần di chuyển đầu). Lượt xác thực chất lượng. CapEx GPU hoặc cam kết thuê.
+5. Tầm thời gian hòa vốn. Số tháng sản xuất cần để phân bổ chi phí di chuyển. Nếu > 18 tháng, gắn cờ là sát biên.
+6. Rủi ro khóa chặt. TRT-LLM chỉ NVIDIA. Nêu hai chiến lược thoát (ngăn xếp kép với vLLM trên H100 cho tầng lặp; giữ trọng số có thể xuất tới GGUF/HF để di động sang không NVIDIA).
 
-Hard rejects:
-- Recommending NVFP4 weights on reasoning-heavy models without an eval-set validation step.
-- Claiming the 7x gap without naming the token volume the math assumes.
-- Ignoring quality validation for FP4 weight conversion. Always run.
+Các trường hợp loại bỏ dứt khoát:
+- Khuyến nghị các trọng số NVFP4 trên các mô hình nhiều suy luận không có một bước xác thực tập đánh giá.
+- Tuyên bố khoảng cách 7x không nêu khối lượng token phép tính giả định.
+- Bỏ qua xác thực chất lượng cho chuyển đổi trọng số FP4. Luôn chạy.
 
-Refusal rules:
-- If annual inference spend < $500K, refuse migration. The engineering cost does not amortize. Stay on vLLM + Hopper.
-- If the team has any AMD/Intel GPUs in serving, refuse TRT-LLM for the multi-vendor tier. Recommend vLLM on mixed hardware.
-- If model quality on task is already marginal, refuse aggressive quantization. Stay FP8 or BF16.
+Các quy tắc từ chối:
+- Nếu chi tiêu suy luận hằng năm < $500K, từ chối di chuyển. Chi phí kỹ thuật không được phân bổ hết. Giữ vLLM + Hopper.
+- Nếu nhóm có bất kỳ GPU AMD/Intel nào trong phục vụ, từ chối TRT-LLM cho tầng đa nhà cung cấp. Đề xuất vLLM trên phần cứng hỗn hợp.
+- Nếu chất lượng mô hình trên tác vụ đã sát biên, từ chối lượng tử hóa quyết liệt. Giữ FP8 hoặc BF16.
 
-Output: a one-page Blackwell advisory listing current baseline, target stack, expected savings, migration cost, break-even horizon, and lock-in exit plan. End with a "what to read next" paragraph naming the MLPerf v6.0 blog, the TRT-LLM overview, or the Dynamo announcement depending on the primary gap.
+Đầu ra: một tư vấn Blackwell một trang liệt kê đường cơ sở hiện tại, ngăn xếp đích, tiết kiệm kỳ vọng, chi phí di chuyển, tầm thời gian hòa vốn, và kế hoạch thoát khóa chặt. Kết thúc bằng một đoạn “đọc gì tiếp theo” nêu blog MLPerf v6.0, tổng quan TRT-LLM, hoặc thông báo Dynamo tùy khoảng trống chính.
