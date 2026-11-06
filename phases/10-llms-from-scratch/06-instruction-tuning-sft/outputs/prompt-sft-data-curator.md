@@ -9,45 +9,45 @@ tags: [sft, instruction-tuning, fine-tuning, data-curation, alignment]
 
 # SFT Data Curator
 
-When designing an instruction-tuning dataset for a specific capability (code generation, math, conversation, safety), use this framework to plan data collection, define quality criteria, and structure the training pipeline.
+Khi thiết kế một tập tinh chỉnh chỉ dẫn cho một năng lực cụ thể (sinh mã, toán, hội thoại, an toàn), dùng khung này để lập kế hoạch thu thập dữ liệu, định nghĩa tiêu chí chất lượng và cấu trúc pipeline huấn luyện.
 
 ## Input Requirements
 
-Provide:
-- **Target capability** (e.g., "Python code generation", "medical Q&A", "multi-turn conversation")
-- **Base model** (e.g., Llama 3 8B, Mistral 7B, Qwen 2.5 72B)
-- **Budget** (annotation hours, API costs for synthetic generation)
-- **Format preference** (Alpaca, ShareGPT, ChatML)
+Cung cấp:
+- **Năng lực mục tiêu** (ví dụ "sinh mã Python", "Hỏi đáp y tế", "hội thoại nhiều lượt")
+- **Mô hình cơ sở** (ví dụ Llama 3 8B, Mistral 7B, Qwen 2.5 72B)
+- **Ngân sách** (giờ chú giải, chi phí API cho sinh tổng hợp)
+- **Ưu tiên định dạng** (Alpaca, ShareGPT, ChatML)
 
 ## Step 1: Dataset Design
 
 ### Size Guidelines
 
-| Quality Level | Examples Needed | Expected Outcome |
+| Mức chất lượng | Số ví dụ cần | Kết quả kỳ vọng |
 |--------------|----------------|------------------|
-| Research prototype | 1,000-5,000 | LIMA-quality: comparable to larger datasets if examples are expert-written |
-| Production v1 | 10,000-50,000 | Stanford Alpaca level: solid instruction following across common tasks |
-| Production v2 | 50,000-200,000 | Vicuna/Llama 2 Chat level: robust multi-turn, domain coverage |
+| Nguyên mẫu nghiên cứu | 1,000-5,000 | Chất lượng LIMA: tương đương tập lớn hơn nếu ví dụ do chuyên gia viết |
+| Production v1 | 10,000-50,000 | Mức Stanford Alpaca: tuân theo chỉ dẫn vững trên các tác vụ phổ biến |
+| Production v2 | 50,000-200,000 | Mức Vicuna/Llama 2 Chat: nhiều lượt vững, bao phủ miền |
 
-Quality always beats quantity. 1,000 expert-written examples (LIMA, May 2023) matched models trained on 50,000+ examples. Prioritize:
+Chất lượng luôn thắng số lượng. 1,000 ví dụ do chuyên gia viết (LIMA, tháng 5 năm 2023) ngang các mô hình được huấn luyện trên 50,000+ ví dụ. Ưu tiên:
 
-1. **Diversity** -- cover the full range of target capabilities
-2. **Accuracy** -- every response must be factually correct
-3. **Clarity** -- responses should be concise and well-structured
-4. **Difficulty gradient** -- include easy, medium, and hard examples
+1. **Đa dạng** -- bao phủ toàn bộ phạm vi năng lực mục tiêu
+2. **Chính xác** -- mọi phản hồi phải đúng sự thật
+3. **Rõ ràng** -- phản hồi nên súc tích và có cấu trúc tốt
+4. **Dải độ khó** -- bao gồm ví dụ dễ, trung bình và khó
 
 ### Diversity Checklist
 
-For a general-purpose assistant:
-- Open-ended questions (20%)
-- Factual Q&A (20%)
-- Creative writing (10%)
-- Code generation (15%)
-- Reasoning and math (15%)
-- Summarization (10%)
-- Instruction following with constraints (10%)
+Với một trợ lý tổng quát:
+- Câu hỏi mở (20%)
+- Hỏi đáp sự thật (20%)
+- Viết sáng tạo (10%)
+- Sinh mã (15%)
+- Suy luận và toán (15%)
+- Tóm tắt (10%)
+- Tuân theo chỉ dẫn có ràng buộc (10%)
 
-Adjust percentages for domain-specific models. A coding assistant might allocate 60% to code generation and 20% to code explanation.
+Điều chỉnh phần trăm cho mô hình riêng miền. Một trợ lý lập trình có thể phân bổ 60% cho sinh mã và 20% cho giải thích mã.
 
 ## Step 2: Data Format
 
@@ -61,7 +61,7 @@ Adjust percentages for domain-specific models. A coding assistant might allocate
 }
 ```
 
-Use when: single-turn tasks, simple instruction-response pairs, rapid prototyping.
+Dùng khi: tác vụ một lượt, cặp chỉ dẫn-phản hồi đơn giản, tạo nguyên mẫu nhanh.
 
 ### ShareGPT Format (multi-turn)
 
@@ -77,7 +77,7 @@ Use when: single-turn tasks, simple instruction-response pairs, rapid prototypin
 }
 ```
 
-Use when: conversational applications, multi-turn context is important.
+Dùng khi: ứng dụng hội thoại, ngữ cảnh nhiều lượt quan trọng.
 
 ### ChatML Format (with special tokens)
 
@@ -90,58 +90,58 @@ How do I reverse a string?<|im_end|>
 Use slicing: s[::-1]<|im_end|>
 ```
 
-Use when: targeting models that use ChatML natively (Qwen, Yi).
+Dùng khi: nhắm các mô hình dùng ChatML nguyên bản (Qwen, Yi).
 
 ## Step 3: Quality Criteria
 
 ### Per-Example Checks
 
-1. **Response relevance**: Does the response actually answer the instruction?
-2. **Factual accuracy**: Are all claims verifiable and correct?
-3. **Completeness**: Does the response fully address the instruction?
-4. **Conciseness**: Could the same information be conveyed in fewer words?
-5. **Format consistency**: Does the response follow the expected style?
+1. **Sự liên quan của phản hồi**: Phản hồi có thực sự trả lời chỉ dẫn không?
+2. **Độ chính xác sự thật**: Mọi tuyên bố có thể xác minh và đúng không?
+3. **Tính đầy đủ**: Phản hồi có giải quyết đầy đủ chỉ dẫn không?
+4. **Tính súc tích**: Cùng thông tin có thể được truyền đạt bằng ít từ hơn không?
+5. **Nhất quán định dạng**: Phản hồi có theo phong cách kỳ vọng không?
 
 ### Red Flags (reject the example)
 
-- Response contradicts itself
-- Response includes harmful content without refusal
-- Response hallucinates facts or citations
-- Instruction is ambiguous and response doesn't clarify
-- Response is a copy of the instruction rephrased
+- Phản hồi tự mâu thuẫn
+- Phản hồi chứa nội dung có hại mà không từ chối
+- Phản hồi ảo giác sự thật hoặc trích dẫn
+- Chỉ dẫn mơ hồ và phản hồi không làm rõ
+- Phản hồi là một bản sao diễn đạt lại chỉ dẫn
 
 ### Dataset-Level Checks
 
-- No more than 5% of examples from any single source/template
-- At least 80% of response tokens are meaningful (not filler)
-- Average response length is 50-200 tokens (avoid very short or very long)
-- System prompt diversity: at least 10 different system prompts represented
+- Không quá 5% ví dụ từ bất kỳ một nguồn/template nào
+- Ít nhất 80% token phản hồi có nghĩa (không phải nội dung lấp chỗ)
+- Độ dài phản hồi trung bình 50-200 token (tránh quá ngắn hoặc quá dài)
+- Đa dạng system prompt: ít nhất 10 system prompt khác nhau được đại diện
 
 ## Step 4: Training Configuration
 
-| Parameter | Recommended Range | Notes |
+| Tham số | Phạm vi đề xuất | Ghi chú |
 |-----------|------------------|-------|
-| Learning rate | 1e-5 to 5e-5 | Lower for larger models (1e-5 for 70B, 5e-5 for 7B) |
-| Epochs | 1-3 | Monitor validation loss, stop at first sign of increase |
-| Batch size | 32-128 | Scale with gradient accumulation if GPU-limited |
-| Warmup | 0-5% of steps | Less critical than pre-training |
-| Weight decay | 0.0-0.1 | Optional for short fine-tuning runs |
-| Loss masking | Response tokens only | Mask instruction and system prompt tokens |
-| Pre-training data mixing | 2-5% | Mix raw text to prevent catastrophic forgetting |
+| Tốc độ học | 1e-5 đến 5e-5 | Thấp hơn cho mô hình lớn hơn (1e-5 cho 70B, 5e-5 cho 7B) |
+| Epoch | 1-3 | Theo dõi mất mát xác thực, dừng ở dấu hiệu tăng đầu tiên |
+| Kích thước batch | 32-128 | Mở rộng bằng tích lũy gradient nếu bị giới hạn GPU |
+| Khởi động | 0-5% số bước | Ít quan trọng hơn huấn luyện trước |
+| Suy giảm trọng số | 0.0-0.1 | Tùy chọn cho các lần tinh chỉnh ngắn |
+| Che mất mát | Chỉ token phản hồi | Che token chỉ dẫn và system prompt |
+| Trộn dữ liệu huấn luyện trước | 2-5% | Trộn văn bản thô để ngăn quên thảm khốc |
 
 ## Step 5: Evaluation Protocol
 
-After training, evaluate on:
+Sau huấn luyện, đánh giá trên:
 
-1. **Instruction following rate**: Percentage of test prompts where the model produces a relevant, complete response
-2. **Forgetting score**: Perplexity on a held-out general text corpus compared to the base model
-3. **Format compliance**: Percentage of responses that follow the expected chat format
-4. **MT-Bench or AlpacaEval**: Standard benchmarks for instruction-tuned models
-5. **Domain-specific eval**: Custom evaluation for your target capability
+1. **Tỷ lệ tuân theo chỉ dẫn**: Phần trăm prompt kiểm thử mà mô hình tạo phản hồi liên quan, đầy đủ
+2. **Điểm quên**: Perplexity trên một corpus văn bản tổng quát giữ lại so với mô hình cơ sở
+3. **Tuân thủ định dạng**: Phần trăm phản hồi theo định dạng chat kỳ vọng
+4. **MT-Bench hoặc AlpacaEval**: Benchmark tiêu chuẩn cho mô hình được tinh chỉnh chỉ dẫn
+5. **Đánh giá riêng miền**: Đánh giá tùy chỉnh cho năng lực mục tiêu
 
 ### Warning Signs
 
-- Validation loss increases after epoch 1: you're overfitting, reduce epochs or increase data
-- Forgetting score increases > 15%: learning rate too high or too many epochs
-- Model reproduces training examples verbatim: severe overfitting, needs more diverse data
-- Model refuses benign instructions: over-trained on safety data, rebalance the dataset
+- Mất mát xác thực tăng sau epoch 1: bạn đang overfit, giảm epoch hoặc tăng dữ liệu
+- Điểm quên tăng > 15%: tốc độ học quá cao hoặc quá nhiều epoch
+- Mô hình tái tạo nguyên văn ví dụ huấn luyện: overfit nghiêm trọng, cần dữ liệu đa dạng hơn
+- Mô hình từ chối chỉ dẫn lành tính: huấn luyện quá nhiều dữ liệu an toàn, cân bằng lại tập dữ liệu
