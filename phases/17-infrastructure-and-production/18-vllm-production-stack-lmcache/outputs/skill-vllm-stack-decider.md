@@ -7,28 +7,28 @@ lesson: 18
 tags: [vllm, production-stack, lmcache, kv-offload, connector-api]
 ---
 
-Given workload (prompt shape, concurrency, prefix reuse pattern), fleet (engines, GPU type), and operational context (Kubernetes-native, multi-tenant, budget), produce a vLLM stack plan.
+Với khối lượng công việc (dạng prompt, độ đồng thời, mẫu tái sử dụng tiền tố), tập máy (engine, loại GPU) và bối cảnh vận hành (nguyên bản Kubernetes, đa tenant, ngân sách), tạo một kế hoạch ngăn xếp vLLM.
 
-Produce:
+Tạo:
 
-1. Stack. Use vLLM production-stack Helm chart (recommended for new deployments) or roll your own. State which operators/CRDs apply.
-2. KV offload. Choose:
-   - None (short prompts, low concurrency — overhead exceeds benefit).
-   - Native vLLM CPU offload (single-engine HBM pressure, simple).
-   - LMCache connector (multi-engine prefix reuse, preemption-heavy, or multi-tenant shared prompts).
-3. HBM utilization monitoring. Set `--gpu-memory-utilization` with headroom; alert at 92%+ sustained as a pre-preemption signal.
-4. Router integration. Cache-aware router (Phase 17 · 11). Confirm KV-event channel configured.
-5. Observability. Prometheus scrape per engine, OTel GenAI attributes (Phase 17 · 13), Grafana dashboard template from production-stack.
-6. Expected impact. Quantify expected throughput gain vs current — reference the 16x H100 benchmark shape (LMCache helps when KV footprint exceeds HBM).
+1. Ngăn xếp. Dùng Helm chart production-stack vLLM (khuyến nghị cho triển khai mới) hoặc tự xây. Nêu operator/CRD nào áp dụng.
+2. Chuyển tải KV. Chọn:
+   - Không có (prompt ngắn, độ đồng thời thấp — chi phí phụ vượt lợi ích).
+   - Chuyển tải CPU vLLM nguyên bản (áp lực HBM một engine, đơn giản).
+   - Connector LMCache (tái sử dụng tiền tố nhiều engine, tạm chiếm nhiều, hoặc prompt dùng chung đa tenant).
+3. Giám sát mức sử dụng HBM. Đặt `--gpu-memory-utilization` có dư địa; cảnh báo ở 92%+ kéo dài làm tín hiệu trước tạm chiếm.
+4. Tích hợp bộ định tuyến. Bộ định tuyến nhận biết bộ nhớ đệm (Giai đoạn 17 · 11). Xác nhận kênh sự kiện KV đã cấu hình.
+5. Khả năng quan sát. Thu thập Prometheus theo engine, thuộc tính OTel GenAI (Giai đoạn 17 · 13), mẫu bảng điều khiển Grafana từ production-stack.
+6. Tác động dự kiến. Định lượng mức tăng thông lượng dự kiến so với hiện tại — tham chiếu dạng phép đo chuẩn 16x H100 (LMCache giúp khi dung lượng KV vượt HBM).
 
-Hard rejects:
-- Deploying LMCache without shared prefixes or preemption. Refuse — overhead, no benefit.
-- Running vLLM without HBM-pressure monitoring. Refuse — first preemption will be a surprise.
-- Hand-rolling production-stack when the Helm chart covers the use case. Refuse — reinvent cost.
+Các trường hợp loại bỏ dứt khoát:
+- Triển khai LMCache không có tiền tố chung hoặc tạm chiếm. Từ chối — chi phí phụ, không lợi ích.
+- Chạy vLLM không giám sát áp lực HBM. Từ chối — lần tạm chiếm đầu tiên sẽ là bất ngờ.
+- Tự xây production-stack khi Helm chart bao phủ trường hợp sử dụng. Từ chối — chi phí phát minh lại.
 
-Refusal rules:
-- If the fleet has <2 engines, refuse LMCache — cross-engine reuse is the point; single-engine use native.
-- If the workload has prompts < 1K tokens and < 100 concurrency, refuse offload of any kind — HBM headroom suffices.
-- If the team doesn't have K8s capability, refuse production-stack — start with a single-engine vLLM + simple proxy.
+Quy tắc từ chối:
+- Nếu tập máy có <2 engine, từ chối LMCache — tái sử dụng xuyên engine là điểm mấu chốt; một engine dùng nguyên bản.
+- Nếu khối lượng công việc có prompt < 1K token và độ đồng thời < 100, từ chối mọi loại chuyển tải — dư địa HBM là đủ.
+- Nếu nhóm không có năng lực K8s, từ chối production-stack — bắt đầu với một engine vLLM + proxy đơn giản.
 
-Output: a one-page plan naming stack, KV offload choice, HBM monitoring, router integration, observability, expected impact. End with the single gate: HBM utilization P99 over last 24h.
+Đầu ra: một kế hoạch một trang nêu ngăn xếp, lựa chọn chuyển tải KV, giám sát HBM, tích hợp bộ định tuyến, khả năng quan sát, tác động dự kiến. Kết thúc bằng cổng duy nhất: mức sử dụng HBM P99 trong 24 giờ qua.
