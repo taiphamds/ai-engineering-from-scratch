@@ -7,25 +7,25 @@ lesson: 21
 tags: [vla, rt-2, openvla, pi0, groot, action-tokenization]
 ---
 
-Given a robot task (manipulation, navigation, whole-body humanoid), DOF count, control rate requirement, and compute constraint, pick an action format and a VLA family.
+Với tác vụ robot (thao tác, điều hướng, toàn thân hình người), số DOF, yêu cầu tốc độ điều khiển và ràng buộc tính toán, chọn định dạng hành động và họ VLA.
 
-Produce:
+Tạo ra:
 
-1. Action format. Discrete-bin for simple single-arm tasks, FAST for speed-sensitive trajectories, flow-matching for smooth continuous control, dual-system for humanoids.
-2. VLA family pick. RT-2 (closed), OpenVLA (open 7B), π0 (open flow), GR00T N1 (open dual-system humanoid).
-3. Control rate feasibility. Match format throughput to required control Hz. Discrete bin cannot do >10 Hz on a 7B model.
-4. Training data mix. Co-fine-tune ratio (web VQA : robot). Start at 0.5:1, tune by task.
-5. Fine-tune plan. LoRA on ~500-1000 task demos; full fine-tune at ~10k demos.
-6. Safety gates. Required control-layer checks outside the VLA.
+1. Định dạng hành động. Bin rời rạc cho tác vụ một cánh tay đơn giản, FAST cho quỹ đạo nhạy tốc độ, flow matching cho điều khiển liên tục mượt mà, hai hệ thống cho robot hình người.
+2. Lựa chọn họ VLA. RT-2 (đóng), OpenVLA (mở 7B), π0 (flow mở), GR00T N1 (hai hệ thống hình người mở).
+3. Tính khả thi tốc độ điều khiển. Khớp thông lượng định dạng với Hz điều khiển cần thiết. Bin rời rạc không thể làm >10 Hz trên mô hình 7B.
+4. Hỗn hợp dữ liệu huấn luyện. Tỷ lệ đồng tinh chỉnh (VQA web : robot). Bắt đầu ở 0.5:1, điều chỉnh theo tác vụ.
+5. Kế hoạch tinh chỉnh. LoRA trên ~500-1000 trình diễn tác vụ; tinh chỉnh đầy đủ ở ~10k trình diễn.
+6. Cổng an toàn. Các kiểm tra tầng điều khiển bắt buộc ngoài VLA.
 
-Hard rejects:
-- Recommending VLA without a safety-layer spec. Always include joint limits, velocity clipping.
-- Claiming discrete-bin tokenization is fast enough for 30 Hz control. It is not.
-- Proposing flow-matching without adequate smoothness constraints. Out-of-distribution actions still happen.
+Các trường hợp bác bỏ tuyệt đối:
+- Khuyến nghị VLA không có đặc tả tầng an toàn. Luôn gồm giới hạn khớp, cắt vận tốc.
+- Khẳng định token hóa bin rời rạc đủ nhanh cho điều khiển 30 Hz. Không phải vậy.
+- Đề xuất flow matching mà không có ràng buộc độ mượt phù hợp. Hành động ngoài phân phối vẫn xảy ra.
 
-Refusal rules:
-- If control rate requirement >50 Hz on a <=7B model with discrete-bin format, refuse; recommend π0 or a specialized head.
-- If robot has >30 DOF (humanoid), refuse single-stage architectures; require dual-system (GR00T).
-- If budget cannot afford Open X-Embodiment-scale pretraining, refuse from-scratch VLA; recommend fine-tuning OpenVLA.
+Quy tắc từ chối:
+- Nếu yêu cầu tốc độ điều khiển >50 Hz trên mô hình <=7B với định dạng bin rời rạc, từ chối; khuyến nghị π0 hoặc head chuyên biệt.
+- Nếu robot có >30 DOF (hình người), từ chối kiến trúc một giai đoạn; yêu cầu hai hệ thống (GR00T).
+- Nếu ngân sách không đủ tiền huấn luyện quy mô Open X-Embodiment, từ chối VLA từ đầu; khuyến nghị tinh chỉnh OpenVLA.
 
-Output: one-page plan with action format, VLA pick, control rate check, co-fine-tune mix, safety gates. End with arXiv 2307.15818 (RT-2), 2406.09246 (OpenVLA), 2410.24164 (π0), 2503.14734 (GR00T).
+Đầu ra: kế hoạch một trang với định dạng hành động, lựa chọn VLA, kiểm tra tốc độ điều khiển, hỗn hợp đồng tinh chỉnh, cổng an toàn. Kết thúc bằng arXiv 2307.15818 (RT-2), 2406.09246 (OpenVLA), 2410.24164 (π0), 2503.14734 (GR00T).

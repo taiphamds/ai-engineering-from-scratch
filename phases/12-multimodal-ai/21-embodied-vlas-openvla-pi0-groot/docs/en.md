@@ -1,6 +1,6 @@
 # Embodied VLAs: RT-2, OpenVLA, π0, GR00T
 
-> The first time a model read a recipe off a website and executed it in a kitchen robot was RT-2 (Google DeepMind, July 2023). RT-2 discretized actions as text tokens, co-fine-tuned a VLM on web data plus robot-action data, and proved that web-scale vision-language knowledge transfers to robotic control. OpenVLA (June 2024) shipped the open 7B reference. Physical Intelligence's π0 series (2024-2025) added flow-matching action experts. NVIDIA's GR00T N1 (March 2025) delivered dual-system (System 1 / System 2) control for humanoid robots at scale. The VLA primitive — vision-language-action, a single model that sees, reads, and acts — is the bridge between this phase's understanding models and the autonomous systems in Phase 15.
+> Lần đầu một mô hình đọc công thức trên website và thực hiện nó trong robot nhà bếp là RT-2 (Google DeepMind, tháng 7 năm 2023). RT-2 rời rạc hóa hành động thành token văn bản, đồng tinh chỉnh VLM trên dữ liệu web cộng dữ liệu hành động robot và chứng minh kiến thức thị giác-ngôn ngữ quy mô web chuyển sang điều khiển robot. OpenVLA (tháng 6 năm 2024) phát hành bản tham khảo mở 7B. Dòng π0 của Physical Intelligence (2024-2025) thêm các chuyên gia hành động flow matching. GR00T N1 của NVIDIA (tháng 3 năm 2025) cung cấp điều khiển hai hệ thống (Hệ thống 1 / Hệ thống 2) cho robot hình người ở quy mô lớn. Thành phần cơ bản VLA — thị giác-ngôn ngữ-hành động, một mô hình duy nhất nhìn, đọc và hành động — là cầu nối giữa các mô hình hiểu của giai đoạn này và hệ thống tự hành ở Giai đoạn 15.
 
 **Type:** Learn
 **Languages:** Python (stdlib, action tokenizer + VLA inference skeleton)
@@ -9,102 +9,102 @@
 
 ## Learning Objectives
 
-- Describe action tokenization: discrete bin encoding (RT-2), FAST efficient action tokens, continuous flow-matching actions (π0).
-- Explain why co-fine-tuning on web + robot data preserves general-knowledge transfer to novel tasks.
-- Compare OpenVLA (open 7B Llama+VLM), π0 (flow-matching), and GR00T N1 (dual-system) on the same robot task.
-- Name the Open X-Embodiment dataset and its role as the RT-X training corpus.
+- Mô tả token hóa hành động: mã hóa bin rời rạc (RT-2), token hành động hiệu quả FAST, hành động flow matching liên tục (π0).
+- Giải thích tại sao đồng tinh chỉnh trên dữ liệu web + robot giữ việc chuyển giao kiến thức tổng quát sang tác vụ mới.
+- So sánh OpenVLA (Llama+VLM mở 7B), π0 (flow matching) và GR00T N1 (hai hệ thống) trên cùng tác vụ robot.
+- Nêu tên tập dữ liệu Open X-Embodiment và vai trò của nó là ngữ liệu huấn luyện RT-X.
 
 ## The Problem
 
-A robot that does chores from natural language instructions has been a research target since the 1970s. The 2020s answer: a vision-language-action (VLA) model. Same VLM architecture used for VQA, but output is actions (joint torques, end-effector poses, discrete commands) instead of text.
+Robot làm việc nhà từ chỉ dẫn ngôn ngữ tự nhiên đã là mục tiêu nghiên cứu từ những năm 1970. Câu trả lời của những năm 2020: mô hình thị giác-ngôn ngữ-hành động (VLA). Cùng kiến trúc VLM dùng cho VQA, nhưng đầu ra là hành động (mô-men khớp, tư thế bộ phận chấp hành cuối, lệnh rời rạc) thay vì văn bản.
 
-Challenges specific to VLAs:
+Thách thức riêng của VLA:
 
-1. Action spaces are continuous (joint angles, forces) and high-dimensional (7-DOF arm + 3-DOF gripper = 10 dims at 30 Hz).
-2. Robot-specific training data is scarce. Open X-Embodiment has ~1M trajectories; web text-image is 5B+.
-3. Control frequency matters. 30 Hz control loop means 33ms budget per action.
-4. Safety. A wrong action damages hardware, humans, or property.
+1. Không gian hành động liên tục (góc khớp, lực) và nhiều chiều (cánh tay 7-DOF + bộ kẹp 3-DOF = 10 chiều ở 30 Hz).
+2. Dữ liệu huấn luyện riêng cho robot khan hiếm. Open X-Embodiment có ~1M quỹ đạo; văn bản-ảnh web là 5B+.
+3. Tần số điều khiển quan trọng. Vòng lặp điều khiển 30 Hz có nghĩa ngân sách 33ms mỗi hành động.
+4. An toàn. Hành động sai làm hỏng phần cứng, gây hại con người hoặc tài sản.
 
 ## The Concept
 
 ### Action tokenization (RT-2)
 
-RT-2's trick: represent each joint target as a quantized text token. Discretize the normalized [-1, 1] range into 256 bins, map each bin to a vocabulary ID. A 10-DOF action becomes 10 tokens at each control step.
+Thủ thuật của RT-2: biểu diễn mỗi mục tiêu khớp bằng token văn bản lượng tử hóa. Rời rạc hóa dải chuẩn hóa [-1, 1] thành 256 bin, ánh xạ mỗi bin sang ID từ vựng. Hành động 10-DOF trở thành 10 token tại mỗi bước điều khiển.
 
-Co-fine-tune a PaLM-X VLM on a mixture:
+Đồng tinh chỉnh VLM PaLM-X trên hỗn hợp:
 
-- Web image-text pairs (captioning, VQA).
-- Robot demonstrations, action as tokens.
+- Cặp ảnh-văn bản web (tạo chú thích, VQA).
+- Trình diễn robot, hành động dưới dạng token.
 
-The model sees "pick up the red cube" (language) → image (vision) → 10-token action sequence (discretized joint targets). Web pretraining preserves general-knowledge transfer: RT-2 can follow "move towards the fast-moving object" even though "fast-moving" isn't in training data.
+Mô hình thấy "nhấc khối lập phương đỏ lên" (ngôn ngữ) → ảnh (thị giác) → chuỗi hành động 10 token (mục tiêu khớp rời rạc hóa). Tiền huấn luyện web giữ việc chuyển giao kiến thức tổng quát: RT-2 có thể làm theo "di chuyển về phía vật chuyển động nhanh" dù "chuyển động nhanh" không nằm trong dữ liệu huấn luyện.
 
-Inference at 3-5 Hz in the RT-2 paper, limited by VLM autoregressive decode.
+Suy luận ở 3-5 Hz trong bài báo RT-2, bị giới hạn bởi giải mã tự hồi quy VLM.
 
 ### OpenVLA — the open 7B reference
 
-OpenVLA (Kim et al., June 2024) is the open-weights RT-2 equivalent. 7B Llama backbone, DINOv2 + SigLIP dual vision encoder, action tokenization over 256 bins.
+OpenVLA (Kim và cộng sự, tháng 6 năm 2024) là tương đương RT-2 trọng số mở. Backbone Llama 7B, bộ mã hóa thị giác kép DINOv2 + SigLIP, token hóa hành động trên 256 bin.
 
-Trained on Open X-Embodiment (970k trajectories across 22 robots). Ships with LoRA fine-tuning support for adapting to new robots.
+Huấn luyện trên Open X-Embodiment (970k quỹ đạo trên 22 robot). Phát hành với hỗ trợ tinh chỉnh LoRA để thích nghi với robot mới.
 
-Inference: 4-5 Hz on an A100 with quantization. Fast enough for slow manipulation, not for high-frequency control.
+Suy luận: 4-5 Hz trên A100 với lượng tử hóa. Đủ nhanh cho thao tác chậm, không cho điều khiển tần số cao.
 
 ### FAST tokenizer — faster action decode
 
-Pertsch et al. (2024) showed that discrete-bin tokenization is inefficient — most actions cluster in a small region of bin-space. FAST (Frequency-domain Action Sequence Tokenizer) compresses action sequences via DCT and quantizes the coefficients.
+Pertsch và cộng sự (2024) cho thấy token hóa bin rời rạc không hiệu quả — phần lớn hành động tập trung trong vùng nhỏ của không gian bin. FAST (Tokenizer chuỗi hành động miền tần số) nén chuỗi hành động qua DCT và lượng tử hóa hệ số.
 
-A 30-step action trajectory becomes ~10 FAST tokens instead of 300 discrete-bin tokens. Inference speeds up 3-5x without quality loss.
+Quỹ đạo hành động 30 bước trở thành ~10 token FAST thay vì 300 token bin rời rạc. Suy luận nhanh hơn 3-5x mà không mất chất lượng.
 
 ### π0 and flow-matching actions
 
-Physical Intelligence's π0 (Black et al., October 2024) replaces discrete action tokens with a flow-matching action expert:
+π0 của Physical Intelligence (Black và cộng sự, tháng 10 năm 2024) thay token hành động rời rạc bằng chuyên gia hành động flow matching:
 
-- A small action transformer reads the VLM's hidden states and outputs a continuous 50-step action sequence via rectified flow.
-- The action head trains with flow-matching loss; VLM pretraining stays unchanged.
-- Inference: full action sequence emitted in ~5 denoising steps, effectively 50 Hz control.
+- Transformer hành động nhỏ đọc trạng thái ẩn VLM và xuất chuỗi hành động 50 bước liên tục qua rectified flow.
+- Head hành động huấn luyện với hàm mất mát flow matching; tiền huấn luyện VLM giữ nguyên.
+- Suy luận: toàn bộ chuỗi hành động được phát trong ~5 bước khử nhiễu, thực chất điều khiển 50 Hz.
 
-π0's claim: beats OpenVLA and Octo on a wide suite of manipulation tasks. The continuous-action formulation preserves smoothness that discretization destroys.
+Tuyên bố của π0: vượt OpenVLA và Octo trên bộ tác vụ thao tác rộng. Công thức hành động liên tục giữ tính mượt mà mà rời rạc hóa phá hủy.
 
-π0.5 and π0-FAST are incremental upgrades. π0-FAST combines FAST tokenization with flow matching.
+π0.5 và π0-FAST là các nâng cấp tăng dần. π0-FAST kết hợp token hóa FAST với flow matching.
 
 ### GR00T N1 — dual-system for humanoids
 
-NVIDIA's GR00T N1 (March 2025) is built for humanoid robots (>30 DOF, full-body):
+GR00T N1 của NVIDIA (tháng 3 năm 2025) được xây cho robot hình người (>30 DOF, toàn thân):
 
-- System 2: a large VLM reading scene + instruction, producing high-level subgoals at ~1 Hz.
-- System 1: a small action-head transformer producing low-level 50-100 Hz joint commands conditioned on the subgoals.
+- Hệ thống 2: VLM lớn đọc cảnh + chỉ dẫn, tạo mục tiêu con cấp cao ở ~1 Hz.
+- Hệ thống 1: transformer head hành động nhỏ tạo lệnh khớp cấp thấp 50-100 Hz được điều kiện hóa trên mục tiêu con.
 
-The split maps to Kahneman's fast-and-slow thinking: System 2 plans, System 1 acts. Benefits: slow VLM-sized planning does not block fast control; System 1 stays small for latency.
+Sự phân chia ánh xạ vào tư duy nhanh-và-chậm của Kahneman: Hệ thống 2 lập kế hoạch, Hệ thống 1 hành động. Lợi ích: lập kế hoạch chậm cỡ VLM không chặn điều khiển nhanh; Hệ thống 1 giữ nhỏ để có độ trễ thấp.
 
-GR00T N1.7 (late 2025) improves data scaling. GR00T fine-tunes with sim-to-real data from Omniverse.
+GR00T N1.7 (cuối năm 2025) cải thiện mở rộng dữ liệu. GR00T tinh chỉnh với dữ liệu mô phỏng-sang-thực từ Omniverse.
 
 ### Open X-Embodiment
 
-The training data. RT-X (October 2023) assembled 22 datasets covering 1M trajectories across 22 robots. Open X-Embodiment is the corpus everyone uses:
+Dữ liệu huấn luyện. RT-X (tháng 10 năm 2023) tập hợp 22 tập dữ liệu bao phủ 1M quỹ đạo trên 22 robot. Open X-Embodiment là ngữ liệu mọi người dùng:
 
 - ALOHA / Bridge V2 / Droid / RT-2 Kitchen / Language Table.
-- Each sample: (robot state, camera views, instruction, action sequence).
-- Training hygiene: unify action space, normalize joint ranges, resize cameras.
+- Mỗi mẫu: (trạng thái robot, các góc nhìn camera, chỉ dẫn, chuỗi hành động).
+- Vệ sinh huấn luyện: thống nhất không gian hành động, chuẩn hóa dải khớp, đổi kích thước camera.
 
-OpenVLA and π0 train on Open X-Embodiment. Domain gap to any specific robot is closed by LoRA fine-tuning on 100-1000 task-specific demos.
+OpenVLA và π0 huấn luyện trên Open X-Embodiment. Khoảng cách miền đến bất kỳ robot cụ thể nào được khép lại bằng tinh chỉnh LoRA trên 100-1000 trình diễn riêng cho tác vụ.
 
 ### Co-fine-tuning vs robot-only
 
-Co-fine-tuning mixes web VQA data with robot trajectories. The ratio matters: too much VQA and the model forgets actions; too much robot data and the model loses general knowledge.
+Đồng tinh chỉnh trộn dữ liệu VQA web với quỹ đạo robot. Tỷ lệ quan trọng: quá nhiều VQA thì mô hình quên hành động; quá nhiều dữ liệu robot thì mô hình mất kiến thức tổng quát.
 
-RT-2's ratio: ~1:1. OpenVLA: ~0.5:1 web-to-robot. π0: similar. The precise ratio is a hyperparameter to tune per dataset size.
+Tỷ lệ của RT-2: ~1:1. OpenVLA: web-so-với-robot ~0.5:1. π0: tương tự. Tỷ lệ chính xác là siêu tham số cần điều chỉnh theo kích thước tập dữ liệu.
 
-Robot-only training produces task-specific models that fail on out-of-distribution instructions. Co-fine-tuning is the difference between "pick up the red cube (in demo)" and "pick up the third largest object from the left (novel phrasing)."
+Huấn luyện chỉ robot tạo mô hình riêng cho tác vụ thất bại trên chỉ dẫn ngoài phân phối. Đồng tinh chỉnh là sự khác biệt giữa "nhấc khối lập phương đỏ lên (trong trình diễn)" và "nhấc vật lớn thứ ba từ bên trái lên (cách diễn đạt mới)."
 
 ### Safety and action limits
 
-Every production VLA ships with:
+Mọi VLA sản xuất được cung cấp với:
 
-- Hard joint limits (can't torque past spec).
-- Velocity limits (soft clipping).
-- Workspace bounds (end-effector cannot leave the table).
-- Human-in-the-loop approval for novel tasks.
+- Giới hạn khớp cứng (không thể tạo mô-men vượt thông số).
+- Giới hạn vận tốc (cắt mềm).
+- Ranh giới không gian làm việc (bộ phận chấp hành cuối không thể rời bàn).
+- Phê duyệt có con người trong vòng lặp cho tác vụ mới.
 
-These sit outside the VLA as control-layer checks. The VLA's output is a suggestion, not a command.
+Chúng nằm ngoài VLA dưới dạng kiểm tra tầng điều khiển. Đầu ra VLA là đề xuất, không phải lệnh.
 
 ```figure
 mm-action-tokens
@@ -114,38 +114,38 @@ mm-action-tokens
 
 `code/main.py`:
 
-- Implements 256-bin action tokenization and de-tokenization.
-- Sketches a FAST tokenizer based on DCT + quantization.
-- Compares token-count per action step across (discrete-bin, FAST, continuous-flow).
-- Prints a lineage summary of RT-2 → OpenVLA → π0 → GR00T.
+- Triển khai token hóa và giải token hóa hành động 256 bin.
+- Phác thảo tokenizer FAST dựa trên DCT + lượng tử hóa.
+- So sánh số token mỗi bước hành động giữa (bin rời rạc, FAST, flow liên tục).
+- In tóm tắt dòng phát triển RT-2 → OpenVLA → π0 → GR00T.
 
 ## Ship It
 
-This lesson produces `outputs/skill-vla-action-format-picker.md`. Given a robot task (manipulation, navigation, humanoid whole-body), picks between discrete-bin + RT-2, FAST + OpenVLA, flow-matching + π0, or dual-system + GR00T.
+Bài học này tạo ra `outputs/skill-vla-action-format-picker.md`. Với tác vụ robot (thao tác, điều hướng, toàn thân hình người), chọn giữa bin rời rạc + RT-2, FAST + OpenVLA, flow matching + π0, hoặc hai hệ thống + GR00T.
 
 ## Exercises
 
-1. A 10-DOF arm at 30 Hz control rate. Discrete-bin tokenization at 256 bins emits how many tokens per second? Can a 7B VLM keep up?
+1. Cánh tay 10-DOF ở tốc độ điều khiển 30 Hz. Token hóa bin rời rạc ở 256 bin phát bao nhiêu token mỗi giây? VLM 7B có thể theo kịp không?
 
-2. FAST tokenization compresses 30-step trajectories to ~10 tokens. What does the user lose if the trajectory has high-frequency motion (e.g., drumming)?
+2. Token hóa FAST nén quỹ đạo 30 bước thành ~10 token. Người dùng mất gì nếu quỹ đạo có chuyển động tần số cao (ví dụ, đánh trống)?
 
-3. π0's flow-matching head denoises in ~5 steps. Compare throughput to OpenVLA's autoregressive decode at 4-5 Hz.
+3. Head flow matching của π0 khử nhiễu trong ~5 bước. So sánh thông lượng với giải mã tự hồi quy OpenVLA ở 4-5 Hz.
 
-4. GR00T's System 1 / System 2 split maps to Kahneman. Propose a different split (System 3?) that might help bipedal walking.
+4. Sự phân chia Hệ thống 1 / Hệ thống 2 của GR00T ánh xạ vào Kahneman. Đề xuất sự phân chia khác (Hệ thống 3?) có thể giúp đi bộ hai chân.
 
-5. Read Open X-Embodiment Section 4 on dataset curation. Name the three curation rules that prevent domain leakage.
+5. Đọc Mục 4 của Open X-Embodiment về tuyển chọn tập dữ liệu. Nêu tên ba quy tắc tuyển chọn ngăn rò rỉ miền.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| VLA | "Vision-language-action" | Model that takes image + instruction and outputs action commands |
-| Action tokenization | "Discrete bins" | Quantize continuous joint targets into 256 bins per dim, each a vocab ID |
-| FAST tokenizer | "Frequency action tokens" | DCT + quantize to compress 30-step trajectories to ~10 tokens |
-| Co-fine-tune | "Mix web + robot" | Train on web VQA data alongside robot demos to preserve general knowledge |
-| Flow-matching action head | "π0 continuous output" | Small transformer that outputs a 50-step action sequence via rectified flow |
-| System 1 / System 2 | "Dual-system control" | Large VLM plans slowly, small action head acts quickly; GR00T pattern |
-| Open X-Embodiment | "RT-X dataset" | 1M-trajectory cross-robot dataset; the training corpus |
+| VLA | "Thị giác-ngôn ngữ-hành động" | Mô hình nhận ảnh + chỉ dẫn và xuất lệnh hành động |
+| Action tokenization (Token hóa hành động) | "Bin rời rạc" | Lượng tử hóa mục tiêu khớp liên tục thành 256 bin mỗi chiều, mỗi bin là ID từ vựng |
+| FAST tokenizer | "Token hành động tần số" | DCT + lượng tử hóa để nén quỹ đạo 30 bước thành ~10 token |
+| Co-fine-tune (Đồng tinh chỉnh) | "Trộn web + robot" | Huấn luyện trên dữ liệu VQA web cùng trình diễn robot để giữ kiến thức tổng quát |
+| Flow-matching action head (Head hành động flow matching) | "Đầu ra liên tục π0" | Transformer nhỏ xuất chuỗi hành động 50 bước qua rectified flow |
+| System 1 / System 2 (Hệ thống 1 / Hệ thống 2) | "Điều khiển hai hệ thống" | VLM lớn lập kế hoạch chậm, head hành động nhỏ hành động nhanh; mẫu GR00T |
+| Open X-Embodiment | "Tập dữ liệu RT-X" | Tập dữ liệu chéo robot 1M quỹ đạo; ngữ liệu huấn luyện |
 
 ## Further Reading
 
