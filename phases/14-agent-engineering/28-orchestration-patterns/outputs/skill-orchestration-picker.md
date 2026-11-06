@@ -7,33 +7,33 @@ lesson: 28
 tags: [orchestration, supervisor, swarm, hierarchical, debate]
 ---
 
-Given a product domain and a task class, pick the minimal topology.
+Với một miền sản phẩm và một loại tác vụ, chọn cấu trúc tối thiểu.
 
-Decision:
+Quyết định:
 
-1. 1 agent + workflow patterns (Lesson 12) suffice? -> don't use topology at all.
-2. 2-4 specialists with distinct responsibilities? -> **supervisor-worker**.
-3. Latency-critical and specialists can cleanly hand off? -> **swarm**.
-4. 10+ specialists, supervisor context budget failing? -> **hierarchical**.
-5. Accuracy matters more than cost, multi-proposer + critique helps? -> **debate** (Lesson 25).
+1. 1 agent + các mẫu workflow (Bài 12) là đủ? -> hoàn toàn không sử dụng cấu trúc.
+2. 2-4 chuyên gia với các trách nhiệm khác biệt? -> **bộ giám sát-worker**.
+3. Độ trễ then chốt và các chuyên gia có thể bàn giao rõ ràng? -> **bầy đàn**.
+4. 10+ chuyên gia, ngân sách ngữ cảnh bộ giám sát thất bại? -> **phân cấp**.
+5. Độ chính xác quan trọng hơn chi phí, nhiều bộ đề xuất + phê bình giúp ích? -> **tranh luận** (Bài 25).
 
-Produce:
+Tạo:
 
-1. The chosen topology scaffold.
-2. Hop counter on swarm; nesting depth limit on hierarchical; round cap on debate.
-3. Observability hooks per handoff or per step (OTel GenAI spans, Lesson 23).
-4. A "why this, not that" README section.
+1. Khung cấu trúc được chọn.
+2. Bộ đếm chặng trên bầy đàn; giới hạn độ sâu lồng nhau trên phân cấp; giới hạn vòng trên tranh luận.
+3. Các hook khả năng quan sát cho mỗi bàn giao hoặc mỗi bước (các span OTel GenAI, Bài 23).
+4. Một phần README "vì sao cách này, không phải cách kia".
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Calling 3 LLM calls in sequence "multi-agent." That's a prompt chain.
-- Swarm without hop counter. Bouncing is a certainty.
-- Hierarchical that bottoms out at 1 specialist per branch. Flatten.
+- Gọi 3 lời gọi LLM theo trình tự là "nhiều agent." Đó là một chuỗi prompt.
+- Bầy đàn không có bộ đếm chặng. Sự bật qua lại là chắc chắn.
+- Phân cấp chạm đáy ở 1 chuyên gia cho mỗi nhánh. Làm phẳng.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the user wants multi-agent for a task that a single ReAct loop handles, refuse and suggest Lesson 01.
-- If the user wants supervisor for a 2-step task, refuse and suggest prompt chaining (Lesson 12).
-- If the domain has compliance / audit requirements, refuse swarm and suggest supervisor or hierarchical.
+- Nếu người dùng muốn nhiều agent cho một tác vụ mà một vòng lặp ReAct đơn xử lý được, từ chối và đề xuất Bài 01.
+- Nếu người dùng muốn giám sát cho một tác vụ 2 bước, từ chối và đề xuất nối chuỗi prompt (Bài 12).
+- Nếu miền có các yêu cầu tuân thủ / kiểm toán, từ chối bầy đàn và đề xuất giám sát hoặc phân cấp.
 
-Output: topology scaffold + README with decision rationale. End with "what to read next" pointing to Lesson 13 (LangGraph) for supervisor implementation, Lesson 16 (OpenAI Agents SDK) for handoffs-as-tools, or Lesson 25 for debate specifics.
+Đầu ra: khung cấu trúc + README với lý do quyết định. Kết thúc bằng "đọc gì tiếp theo" chỉ đến Bài 13 (LangGraph) cho triển khai giám sát, Bài 16 (OpenAI Agents SDK) cho các bàn giao như công cụ hoặc Bài 25 cho các chi tiết tranh luận.
