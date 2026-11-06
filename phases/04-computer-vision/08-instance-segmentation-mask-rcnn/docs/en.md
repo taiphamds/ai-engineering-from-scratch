@@ -1,6 +1,6 @@
 # Instance Segmentation — Mask R-CNN
 
-> Add a tiny mask branch to a Faster R-CNN detector and you have instance segmentation. The hard part is RoIAlign, and it is harder than it looks.
+> Thêm một nhánh mặt nạ nhỏ vào một bộ phát hiện Faster R-CNN và bạn có phân đoạn thực thể. Phần khó là RoIAlign, và nó khó hơn vẻ ngoài.
 
 **Type:** Build + Learn
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Trace the Mask R-CNN architecture end-to-end: backbone, FPN, RPN, RoIAlign, box head, mask head
-- Implement RoIAlign from scratch and explain why RoIPool is no longer used
-- Use the torchvision `maskrcnn_resnet50_fpn_v2` pretrained model for production-quality instance masks and read its output format correctly
-- Fine-tune Mask R-CNN on a small custom dataset by replacing the box and mask heads and keeping the backbone frozen
+- Theo dõi kiến trúc Mask R-CNN đầu-cuối: backbone, FPN, RPN, RoIAlign, đầu hộp, đầu mặt nạ
+- Triển khai RoIAlign từ đầu và giải thích tại sao RoIPool không còn được sử dụng
+- Sử dụng mô hình được tiền huấn luyện `maskrcnn_resnet50_fpn_v2` của torchvision để có các mặt nạ thực thể chất lượng production và đọc đúng định dạng đầu ra
+- Tinh chỉnh Mask R-CNN trên một tập dữ liệu tùy chỉnh nhỏ bằng cách thay các đầu hộp và mặt nạ, và giữ backbone đóng băng
 
 ## The Problem
 
-Semantic segmentation gives you one mask per class. Instance segmentation gives you one mask per object, even when two objects share a class. Counting individuals, tracking across frames, and measuring things (the bounding box of each brick in a wall, each cell in a microscope image) all demand instance segmentation.
+Phân đoạn ngữ nghĩa cho bạn một mặt nạ mỗi lớp. Phân đoạn thực thể cho bạn một mặt nạ mỗi đối tượng, ngay cả khi hai đối tượng cùng lớp. Đếm các cá thể, theo dõi qua các khung hình và đo các vật (hộp bao của mỗi viên gạch trong tường, mỗi tế bào trong ảnh hiển vi) đều cần phân đoạn thực thể.
 
-Mask R-CNN (He et al., 2017) solved this by reframing instance segmentation as detection-plus-a-mask. The design was so clean that for the next five years almost every instance segmentation paper was a Mask R-CNN variant, and the torchvision implementation is still the production default for small to medium datasets.
+Mask R-CNN (He et al., 2017) giải quyết bằng cách đặt lại phân đoạn thực thể thành phát hiện-cộng-một-mặt-nạ. Thiết kế gọn tới mức trong năm năm tiếp theo gần như mọi bài báo phân đoạn thực thể đều là một biến thể Mask R-CNN, và bản triển khai torchvision vẫn là mặc định production cho các tập dữ liệu nhỏ tới vừa.
 
-The hard engineering problem is sampling: how do you crop a fixed-size feature region out of a proposal box whose corners do not align with pixel boundaries? Getting that wrong costs tenths of a mAP point everywhere. RoIAlign is the answer.
+Vấn đề kỹ thuật khó là lấy mẫu: làm thế nào cắt một vùng đặc trưng kích thước cố định từ một hộp đề xuất có các góc không căn chỉnh biên pixel? Làm sai mất vài phần mười điểm mAP ở mọi nơi. RoIAlign là câu trả lời.
 
 ## The Concept
 
@@ -45,17 +45,17 @@ flowchart LR
     style OUT fill:#dcfce7,stroke:#16a34a
 ```
 
-Five pieces to understand:
+Năm phần cần hiểu:
 
-1. **Backbone** — ResNet-50 or ResNet-101 trained on ImageNet. Produces a hierarchy of feature maps at strides 4, 8, 16, 32.
-2. **FPN (Feature Pyramid Network)** — top-down + lateral connections that give every level C channels of semantic-rich features. Detection queries the FPN level matching the object size.
-3. **RPN (Region Proposal Network)** — a small conv head that, at every anchor position, predicts "is there an object here?" and "how do I refine the box?". Produces ~1000 proposals per image.
-4. **RoIAlign** — samples a fixed-size (e.g. 7x7) feature patch from any box on any FPN level. Bilinear sampling, no quantisation.
-5. **Heads** — two-layer box head that refines the box and picks a class, plus a small conv head that outputs a `28x28` binary mask for each proposal.
+1. **Backbone** — ResNet-50 hoặc ResNet-101 được huấn luyện trên ImageNet. Tạo ra một hệ phân cấp bản đồ đặc trưng ở các stride 4, 8, 16, 32.
+2. **FPN (Feature Pyramid Network)** — các kết nối từ trên xuống + bên cho mỗi mức C kênh đặc trưng giàu ngữ nghĩa. Phát hiện truy vấn mức FPN khớp kích thước đối tượng.
+3. **RPN (Region Proposal Network)** — một đầu tích chập nhỏ tại mỗi vị trí anchor dự đoán "có đối tượng ở đây không?" và "tôi tinh chỉnh hộp thế nào?". Tạo ~1000 đề xuất mỗi hình ảnh.
+4. **RoIAlign** — lấy mẫu một vùng đặc trưng kích thước cố định (ví dụ 7x7) từ bất kỳ hộp nào trên bất kỳ mức FPN nào. Lấy mẫu song tuyến tính, không lượng tử hóa.
+5. **Các đầu** — đầu hộp hai lớp tinh chỉnh hộp và chọn một lớp, cộng một đầu tích chập nhỏ xuất một mặt nạ nhị phân `28x28` cho mỗi đề xuất.
 
 ### Why RoIAlign, not RoIPool
 
-The original Fast R-CNN used RoIPool, which splits a proposal box into a grid, takes the maximum feature in each cell, and rounds all coordinates to integers. That rounding misaligns the feature map from the input pixel coordinates by up to a full feature-map pixel — small on a 224x224 image, catastrophic when the feature map is stride 32.
+Fast R-CNN gốc sử dụng RoIPool, chia một hộp đề xuất thành lưới, lấy đặc trưng lớn nhất trong mỗi ô và làm tròn mọi tọa độ thành số nguyên. Việc làm tròn đó làm lệch bản đồ đặc trưng khỏi tọa độ pixel đầu vào tới cả một pixel bản đồ đặc trưng — nhỏ trên ảnh 224x224, thảm họa khi bản đồ đặc trưng có stride 32.
 
 ```
 RoIPool:
@@ -70,36 +70,36 @@ RoIAlign:
   no rounding anywhere
 ```
 
-RoIAlign lifts mask AP by 3-4 points on COCO for free. Every detector that cares about localisation now uses it — YOLOv7 seg, RT-DETR, Mask2Former alike.
+RoIAlign nâng AP mặt nạ 3-4 điểm trên COCO miễn phí. Mọi bộ phát hiện quan tâm định vị giờ đều sử dụng nó — YOLOv7 seg, RT-DETR, Mask2Former đều vậy.
 
 ### The RPN in one paragraph
 
-At every position of a feature map, place K anchor boxes of different sizes and shapes. Predict an objectness score for each anchor and a regression offset to turn the anchor into a better-fitting box. Keep the top ~1,000 boxes by score, apply NMS at IoU 0.7, and hand the survivors to the heads. The RPN is trained with its own mini-loss — the same structure as the YOLO loss from Lesson 6, just with two classes (object / no object).
+Tại mọi vị trí của bản đồ đặc trưng, đặt K hộp anchor có kích thước và hình dạng khác nhau. Dự đoán một điểm objectness cho mỗi anchor và một độ lệch hồi quy để biến anchor thành hộp khớp hơn. Giữ ~1,000 hộp có điểm cao nhất, áp dụng NMS tại IoU 0.7 rồi đưa các hộp còn lại tới các đầu. RPN được huấn luyện với mất mát nhỏ riêng — cùng cấu trúc như mất mát YOLO từ Bài 6, chỉ có hai lớp (đối tượng / không đối tượng).
 
 ### The mask head
 
-For each proposal (after RoIAlign) the mask head is a tiny FCN: four 3x3 convs, a 2x deconv, a final 1x1 conv that produces `num_classes` output channels at `28x28` resolution. Only the channel corresponding to the predicted class is kept; the others are ignored. This decouples mask prediction from classification.
+Với mỗi đề xuất (sau RoIAlign), đầu mặt nạ là một FCN nhỏ: bốn tích chập 3x3, một giải tích chập tăng 2 lần, một tích chập 1x1 cuối tạo `num_classes` kênh đầu ra ở độ phân giải `28x28`. Chỉ kênh tương ứng lớp dự đoán được giữ; các kênh khác bị bỏ qua. Điều này tách rời dự đoán mặt nạ khỏi phân loại.
 
-Upsample the 28x28 mask to the proposal's original pixel size to produce the final binary mask.
+Tăng mẫu mặt nạ 28x28 tới kích thước pixel gốc của đề xuất để tạo mặt nạ nhị phân cuối.
 
 ### Losses
 
-Mask R-CNN has four losses added together:
+Mask R-CNN có bốn mất mát cộng lại:
 
 ```
 L = L_rpn_cls + L_rpn_box + L_box_cls + L_box_reg + L_mask
 ```
 
-- `L_rpn_cls`, `L_rpn_box` — objectness + box regression for the RPN proposals.
-- `L_box_cls` — cross-entropy over (C+1) classes (including background) on the head's classifier.
-- `L_box_reg` — smooth L1 on the head's box refinement.
-- `L_mask` — per-pixel binary cross-entropy on the 28x28 mask output.
+- `L_rpn_cls`, `L_rpn_box` — objectness + hồi quy hộp cho các đề xuất RPN.
+- `L_box_cls` — cross-entropy trên (C+1) lớp (bao gồm nền) ở bộ phân loại của đầu.
+- `L_box_reg` — L1 trơn trên tinh chỉnh hộp của đầu.
+- `L_mask` — cross-entropy nhị phân từng pixel trên đầu ra mặt nạ 28x28.
 
-Each loss has its own default weight; the torchvision implementation exposes them as constructor arguments.
+Mỗi mất mát có trọng số mặc định riêng; bản triển khai torchvision công khai chúng dưới dạng đối số hàm khởi tạo.
 
 ### Output format
 
-`torchvision.models.detection.maskrcnn_resnet50_fpn_v2` returns a list of dicts, one per image:
+`torchvision.models.detection.maskrcnn_resnet50_fpn_v2` trả về một danh sách dict, mỗi hình ảnh một dict:
 
 ```
 {
@@ -110,7 +110,7 @@ Each loss has its own default weight; the torchvision implementation exposes the
 }
 ```
 
-The mask is full image resolution already. The 28x28 head output has been upsampled internally.
+Mặt nạ đã có độ phân giải toàn ảnh. Đầu ra đầu 28x28 đã được tăng mẫu bên trong.
 
 ```figure
 cv3-roialign-sampling
@@ -120,7 +120,7 @@ cv3-roialign-sampling
 
 ### Step 1: RoIAlign from scratch
 
-This is the one component of Mask R-CNN that is simpler to understand as code than as prose.
+Đây là thành phần duy nhất của Mask R-CNN dễ hiểu dưới dạng mã hơn văn xuôi.
 
 ```python
 import torch
@@ -150,7 +150,7 @@ def roi_align_single(feature, box, output_size=7, spatial_scale=1 / 16.0):
     return sampled.squeeze(0)
 ```
 
-Every number is at a bilinearly-sampled position. No rounding, no quantisation, no dropped gradients.
+Mọi số nằm ở một vị trí lấy mẫu song tuyến tính. Không làm tròn, không lượng tử hóa, không bỏ gradient.
 
 ### Step 2: Compare to torchvision's RoIAlign
 
@@ -168,7 +168,7 @@ print(f"shape theirs: {tuple(theirs.shape)}")
 print(f"max|diff|:    {(ours - theirs).abs().max().item():.3e}")
 ```
 
-With `sampling_ratio=1` and `aligned=True`, the two match to within `1e-5`.
+Với `sampling_ratio=1` và `aligned=True`, hai bản khớp trong phạm vi `1e-5`.
 
 ### Step 3: Load a pretrained Mask R-CNN
 
@@ -182,7 +182,7 @@ print(f"params: {sum(p.numel() for p in model.parameters()):,}")
 print(f"classes (including background): {len(model.roi_heads.box_predictor.cls_score.out_features * [0])}")
 ```
 
-46M parameters, 91 classes (COCO). The first class (id 0) is background; everything the model actually detects starts at id 1.
+46M tham số, 91 lớp (COCO). Lớp đầu (id 0) là nền; mọi thứ mô hình thực sự phát hiện bắt đầu ở id 1.
 
 ### Step 4: Run inference
 
@@ -197,7 +197,7 @@ print(f"scores: {tuple(p['scores'].shape)}")
 print(f"masks:  {tuple(p['masks'].shape)}")
 ```
 
-The mask tensor is shape `(N, 1, H, W)`. Threshold at 0.5 to get a binary mask per object:
+Tensor mặt nạ có hình dạng `(N, 1, H, W)`. Đặt ngưỡng tại 0.5 để có mặt nạ nhị phân mỗi đối tượng:
 
 ```python
 binary_masks = (p['masks'] > 0.5).squeeze(1)  # (N, H, W) boolean
@@ -205,7 +205,7 @@ binary_masks = (p['masks'] > 0.5).squeeze(1)  # (N, H, W) boolean
 
 ### Step 5: Swap the heads for a custom class count
 
-The common fine-tuning recipe: reuse the backbone, FPN, and RPN; replace the two classifier heads.
+Công thức tinh chỉnh phổ biến: tái sử dụng backbone, FPN và RPN; thay hai đầu phân loại.
 
 ```python
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
@@ -224,11 +224,11 @@ custom = build_custom_maskrcnn(num_classes=5)
 print(f"custom cls_score.out_features: {custom.roi_heads.box_predictor.cls_score.out_features}")
 ```
 
-`num_classes` must include the background class, so a dataset with 4 object classes uses `num_classes=5`.
+`num_classes` phải bao gồm lớp nền, nên tập dữ liệu có 4 lớp đối tượng sử dụng `num_classes=5`.
 
 ### Step 6: Freeze what does not need training
 
-On small datasets, freeze the backbone and the FPN. Only the RPN objectness + regression and the two heads learn.
+Trên các tập dữ liệu nhỏ, đóng băng backbone và FPN. Chỉ objectness + hồi quy RPN và hai đầu học.
 
 ```python
 def freeze_backbone_and_fpn(model):
@@ -244,11 +244,11 @@ trainable = sum(p.numel() for p in custom.parameters() if p.requires_grad)
 print(f"trainable after freeze: {trainable:,}")
 ```
 
-On 500-image datasets this is the difference between convergence and overfitting.
+Trên các tập dữ liệu 500 hình ảnh đây là khác biệt giữa hội tụ và quá khớp.
 
 ## Use It
 
-The full training loop for Mask R-CNN in torchvision is 40 lines and does not change meaningfully between tasks — swap datasets and go.
+Toàn bộ vòng lặp huấn luyện Mask R-CNN trong torchvision là 40 dòng và không thay đổi đáng kể giữa các tác vụ — đổi tập dữ liệu rồi chạy.
 
 ```python
 def train_step(model, images, targets, optimizer):
@@ -261,39 +261,39 @@ def train_step(model, images, targets, optimizer):
     return {k: v.item() for k, v in loss_dict.items()}
 ```
 
-The `targets` list must have per-image dicts with `boxes`, `labels`, and `masks` (as `(num_instances, H, W)` binary tensors). The model returns a dict of four losses during training and a list of predictions during eval, keyed on `model.training`.
+Danh sách `targets` phải có các dict từng hình ảnh với `boxes`, `labels` và `masks` (dưới dạng các tensor nhị phân `(num_instances, H, W)`). Mô hình trả về một dict bốn mất mát trong huấn luyện và một danh sách dự đoán trong eval, dựa trên `model.training`.
 
-The `pycocotools` evaluator produces mAP@IoU=0.5:0.95 both for boxes and for masks; you need both numbers to know if the box head or the mask head is the bottleneck.
+Bộ đánh giá `pycocotools` tạo mAP@IoU=0.5:0.95 cho cả hộp và mặt nạ; bạn cần cả hai con số để biết đầu hộp hay đầu mặt nạ là nút thắt.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-instance-vs-semantic-router.md` — a prompt that asks three questions and picks instance vs semantic vs panoptic plus the exact model to start with.
-- `outputs/skill-mask-rcnn-head-swapper.md` — a skill that generates the 10 lines of code for swapping heads on any torchvision detection model, given the new `num_classes`.
+- `outputs/prompt-instance-vs-semantic-router.md` — một prompt hỏi ba câu và chọn thực thể, ngữ nghĩa hay toàn cảnh cùng mô hình chính xác để bắt đầu.
+- `outputs/skill-mask-rcnn-head-swapper.md` — một skill sinh 10 dòng mã để đổi đầu trên bất kỳ mô hình phát hiện torchvision nào, với `num_classes` mới cho trước.
 
 ## Exercises
 
-1. **(Easy)** Verify your RoIAlign against `torchvision.ops.roi_align` on 100 random boxes. Report the max absolute difference. Also run RoIPool (pre-2017 behaviour) and show it diverges by ~1-2 feature-map pixels on boxes near the border.
-2. **(Medium)** Fine-tune `maskrcnn_resnet50_fpn_v2` on a 50-image custom dataset (any two classes: balloons, fish, pothole, logos). Freeze the backbone, train for 20 epochs, report mask AP@0.5.
-3. **(Hard)** Replace Mask R-CNN's mask head with one that predicts at 56x56 instead of 28x28. Measure mAP@IoU=0.75 before and after. Explain why the gain (or lack of one) matches the expected boundary-precision / memory trade-off.
+1. **(Dễ)** Xác minh RoIAlign của bạn với `torchvision.ops.roi_align` trên 100 hộp ngẫu nhiên. Báo cáo chênh lệch tuyệt đối tối đa. Cũng chạy RoIPool (hành vi trước 2017) và cho thấy nó lệch ~1-2 pixel bản đồ đặc trưng trên các hộp gần biên.
+2. **(Vừa)** Tinh chỉnh `maskrcnn_resnet50_fpn_v2` trên một tập dữ liệu tùy chỉnh 50 hình ảnh (bất kỳ hai lớp: bóng bay, cá, ổ gà, logo). Đóng băng backbone, huấn luyện 20 epoch, báo cáo AP@0.5 mặt nạ.
+3. **(Khó)** Thay đầu mặt nạ của Mask R-CNN bằng một đầu dự đoán ở 56x56 thay vì 28x28. Đo mAP@IoU=0.75 trước và sau. Giải thích tại sao mức tăng (hoặc không tăng) khớp đánh đổi độ chính xác biên / bộ nhớ kỳ vọng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Mask R-CNN | "Detection plus masks" | Faster R-CNN + a small FCN head that predicts a 28x28 mask per proposal per class |
-| FPN | "Feature pyramid" | Top-down + lateral connections that give every stride level C channels of semantic-rich features |
-| RPN | "Region proposer" | A small conv head that produces ~1000 object/no-object proposals per image |
-| RoIAlign | "No-rounding crop" | Bilinearly samples a fixed-size feature grid from any float-coordinate box |
-| RoIPool | "Pre-2017 crop" | Same purpose as RoIAlign but rounds box coordinates; obsolete |
-| Mask AP | "Instance mAP" | Average precision computed with mask IoU instead of box IoU; the COCO instance segmentation metric |
-| Binary mask head | "Per-class mask" | Predicts one binary mask per class for each proposal; only the predicted class's channel is kept |
-| Background class | "Class 0" | The catch-all "no object" class; indices for real classes start at 1 |
+| Mask R-CNN | "Phát hiện cộng mặt nạ" | Faster R-CNN + một đầu FCN nhỏ dự đoán một mặt nạ 28x28 mỗi đề xuất mỗi lớp |
+| FPN | "Tháp đặc trưng" | Các kết nối từ trên xuống + bên cho mỗi mức stride C kênh đặc trưng giàu ngữ nghĩa |
+| RPN | "Bộ đề xuất vùng" | Một đầu tích chập nhỏ tạo ~1000 đề xuất đối tượng/không đối tượng mỗi hình ảnh |
+| RoIAlign | "Cắt không làm tròn" | Lấy mẫu song tuyến tính một lưới đặc trưng kích thước cố định từ bất kỳ hộp tọa độ float nào |
+| RoIPool | "Cắt trước 2017" | Cùng mục đích như RoIAlign nhưng làm tròn tọa độ hộp; lỗi thời |
+| Mask AP (AP mặt nạ) | "mAP thực thể" | Average precision tính với IoU mặt nạ thay IoU hộp; thước đo phân đoạn thực thể COCO |
+| Binary mask head (Đầu mặt nạ nhị phân) | "Mặt nạ từng lớp" | Dự đoán một mặt nạ nhị phân mỗi lớp cho mỗi đề xuất; chỉ kênh của lớp dự đoán được giữ |
+| Background class (Lớp nền) | "Lớp 0" | Lớp "không đối tượng" bao quát; chỉ số các lớp thật bắt đầu ở 1 |
 
 ## Further Reading
 
-- [Mask R-CNN (He et al., 2017)](https://arxiv.org/abs/1703.06870) — the paper; section 3 on RoIAlign is the critical read
-- [FPN: Feature Pyramid Networks (Lin et al., 2017)](https://arxiv.org/abs/1612.03144) — the FPN paper; every modern detector uses it
-- [torchvision Mask R-CNN tutorial](https://pytorch.org/tutorials/intermediate/torchvision_tutorial.html) — the reference for the fine-tuning loop
-- [Detectron2 model zoo](https://github.com/facebookresearch/detectron2/blob/main/MODEL_ZOO.md) — production implementations with trained weights for nearly every detection and segmentation variant
+- [Mask R-CNN (He et al., 2017)](https://arxiv.org/abs/1703.06870) — bài báo; phần 3 về RoIAlign là phần đọc then chốt
+- [FPN: Feature Pyramid Networks (Lin et al., 2017)](https://arxiv.org/abs/1612.03144) — bài báo FPN; mọi bộ phát hiện hiện đại sử dụng nó
+- [torchvision Mask R-CNN tutorial](https://pytorch.org/tutorials/intermediate/torchvision_tutorial.html) — tài liệu tham khảo cho vòng lặp tinh chỉnh
+- [Detectron2 model zoo](https://github.com/facebookresearch/detectron2/blob/main/MODEL_ZOO.md) — các bản triển khai production với trọng số đã huấn luyện cho gần như mọi biến thể phát hiện và phân đoạn

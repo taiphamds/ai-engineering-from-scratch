@@ -9,34 +9,34 @@ tags: [computer-vision, mask-rcnn, fine-tuning, torchvision]
 
 # Mask R-CNN Head Swapper
 
-Produces the head-swap boilerplate for Mask R-CNN specifically. The template below assumes `model.roi_heads.box_predictor` and `model.roi_heads.mask_predictor`, which exist on `maskrcnn_resnet50_fpn` and `maskrcnn_resnet50_fpn_v2` only. Faster R-CNN has a box predictor but no mask predictor; RetinaNet uses `RetinaNetHead` and has no `roi_heads` at all — both require different skills.
+Tạo mã khuôn đổi đầu riêng cho Mask R-CNN. Khuôn bên dưới giả định `model.roi_heads.box_predictor` và `model.roi_heads.mask_predictor`, chỉ tồn tại trên `maskrcnn_resnet50_fpn` và `maskrcnn_resnet50_fpn_v2`. Faster R-CNN có bộ dự đoán hộp nhưng không có bộ dự đoán mặt nạ; RetinaNet sử dụng `RetinaNetHead` và hoàn toàn không có `roi_heads` — cả hai cần các skill khác.
 
 ## When to use
 
-- Fine-tuning `maskrcnn_resnet50_fpn` or `maskrcnn_resnet50_fpn_v2` on a custom class set.
-- Porting a Mask R-CNN checkpoint trained on COCO to a non-COCO class count.
-- Debugging a Mask R-CNN training run that crashes on `cls_score.out_features` or `mask_predictor` mismatch.
+- Tinh chỉnh `maskrcnn_resnet50_fpn` hoặc `maskrcnn_resnet50_fpn_v2` trên một tập lớp tùy chỉnh.
+- Chuyển một checkpoint Mask R-CNN được huấn luyện trên COCO sang số lớp không phải COCO.
+- Gỡ lỗi một lần huấn luyện Mask R-CNN bị sập do không khớp `cls_score.out_features` hoặc `mask_predictor`.
 
 ## Out of scope
 
-- `fasterrcnn_*` — no mask_predictor. Swap only `box_predictor`; use a separate Faster R-CNN head-swap recipe.
-- `retinanet_*` — no `roi_heads`; classifier + regression heads live under `model.head.classification_head` and `model.head.regression_head`. Use a RetinaNet-specific skill.
-- `keypointrcnn_*` — uses `keypoint_predictor` instead of `mask_predictor`.
+- `fasterrcnn_*` — không mask_predictor. Chỉ đổi `box_predictor`; sử dụng một công thức đổi đầu Faster R-CNN riêng.
+- `retinanet_*` — không `roi_heads`; các đầu phân loại + hồi quy nằm dưới `model.head.classification_head` và `model.head.regression_head`. Sử dụng skill riêng cho RetinaNet.
+- `keypointrcnn_*` — sử dụng `keypoint_predictor` thay vì `mask_predictor`.
 
 ## Inputs
 
-- `model_name`: torchvision detection model constructor, e.g. `maskrcnn_resnet50_fpn_v2`.
-- `num_classes`: including background. A 4-object-class dataset means `num_classes=5`.
-- `freeze`: one of `backbone`, `backbone_fpn`, `none`.
+- `model_name`: hàm khởi tạo mô hình phát hiện torchvision, ví dụ `maskrcnn_resnet50_fpn_v2`.
+- `num_classes`: bao gồm nền. Một tập dữ liệu 4 lớp đối tượng nghĩa là `num_classes=5`.
+- `freeze`: một trong `backbone`, `backbone_fpn`, `none`.
 
 ## Steps
 
-1. Import the model constructor and the two predictor classes (`FastRCNNPredictor`, `MaskRCNNPredictor`).
-2. Load the default-weights pretrained model.
-3. Replace `model.roi_heads.box_predictor` with a new `FastRCNNPredictor(in_features, num_classes)`.
-4. Replace `model.roi_heads.mask_predictor` with a new `MaskRCNNPredictor(in_features_mask, hidden_layer=256, num_classes)`.
-5. Apply the requested freeze policy.
-6. Print a confirmation block listing trainable params per module.
+1. Import hàm khởi tạo mô hình và hai lớp dự đoán (`FastRCNNPredictor`, `MaskRCNNPredictor`).
+2. Tải mô hình được tiền huấn luyện với trọng số mặc định.
+3. Thay `model.roi_heads.box_predictor` bằng một `FastRCNNPredictor(in_features, num_classes)` mới.
+4. Thay `model.roi_heads.mask_predictor` bằng một `MaskRCNNPredictor(in_features_mask, hidden_layer=256, num_classes)` mới.
+5. Áp dụng chính sách đóng băng được yêu cầu.
+6. In một khối xác nhận liệt kê tham số có thể huấn luyện mỗi module.
 
 ## Output code template
 
@@ -57,9 +57,9 @@ def build_model(num_classes={NUM_CLASSES}):
     return model
 ```
 
-Where `{FREEZE_BLOCK}` is:
+Trong đó `{FREEZE_BLOCK}` là:
 
-- `none` -> empty
+- `none` -> rỗng
 - `backbone` ->
   ```python
   for p in model.backbone.parameters():
@@ -85,7 +85,7 @@ Where `{FREEZE_BLOCK}` is:
 
 ## Rules
 
-- Never recommend `num_classes` without the background included; always remind the user.
-- Always use the `_v2` variants of torchvision detection models when available; they have better pretrained weights than the legacy ones.
-- Do not instantiate the model inside this skill — produce the code block and let the user run it.
-- If the user requests `freeze backbone` on a dataset larger than 10,000 images, suggest they consider fine-tuning the backbone too.
+- Không bao giờ khuyến nghị `num_classes` mà không bao gồm nền; luôn nhắc người dùng.
+- Luôn sử dụng các biến thể `_v2` của mô hình phát hiện torchvision khi có; chúng có các trọng số được tiền huấn luyện tốt hơn các bản cũ.
+- Không khởi tạo mô hình bên trong skill này — tạo khối mã và để người dùng chạy.
+- Nếu người dùng yêu cầu `freeze backbone` trên một tập dữ liệu lớn hơn 10,000 hình ảnh, đề nghị họ cân nhắc tinh chỉnh cả backbone.
