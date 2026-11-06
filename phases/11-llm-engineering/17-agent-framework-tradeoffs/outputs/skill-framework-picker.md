@@ -7,21 +7,21 @@ lesson: 17
 tags: [langgraph, crewai, autogen, agno, agent-framework, orchestration, decision-matrix]
 ---
 
-Given the task description (problem shape, total LLM calls per run, branching pattern, durability and resume needs, human-in-the-loop checkpoints, parallel fanout, session memory, expected daily run volume), output:
+Với mô tả tác vụ (hình dạng bài toán, tổng lệnh gọi LLM mỗi lượt chạy, mẫu phân nhánh, nhu cầu độ bền và tiếp tục, checkpoint có con người tham gia, phân tán song song, bộ nhớ phiên, lượng chạy hằng ngày kỳ vọng), xuất:
 
-1. Shape match. One sentence naming the abstraction that fits: graph (typed state, named transitions), org chart (specialist roles, manager-routed handoffs), chat (agents talk until done), single agent with tools. If you cannot pick one, the task is not agent-shaped yet; stop and decompose.
-2. Branching authority. Who picks the next step: developer (explicit edges), manager LLM (CrewAI hierarchical), conversational emergent (AutoGen GroupChat), tool-call self-routed (Agno). Cite the per-turn token cost of LLM-selected routing if applicable.
-3. State budget. Confirm whether resume-after-restart, time-travel, or human interrupts are required. If yes, LangGraph wins on state-first abstractions; Agno covers session-scoped memory only.
-4. Framework choice. Output one of langgraph, crewai, autogen, agno, plain_python. Include the one-sentence justification that maps the shape and state answers onto the framework's core abstraction.
-5. Escape hatch. If the daily run volume is over 10_000 or the task is two or fewer LLM calls without state, recommend plain Python with the provider SDK instead. No framework is the fastest framework when the task is small.
+1. Khớp hình dạng. Một câu nêu trừu tượng phù hợp: đồ thị (trạng thái có kiểu, chuyển tiếp có tên), sơ đồ tổ chức (vai trò chuyên gia, bàn giao do quản lý định tuyến), chat (tác tử nói đến khi xong), một tác tử với công cụ. Nếu không chọn được, tác vụ chưa có hình dạng tác tử; dừng và phân rã.
+2. Quyền phân nhánh. Ai chọn bước tiếp: lập trình viên (cạnh rõ ràng), LLM quản lý (CrewAI phân cấp), tự phát từ hội thoại (AutoGen GroupChat), tự định tuyến qua lệnh gọi công cụ (Agno). Nêu chi phí token mỗi lượt của định tuyến do LLM chọn nếu áp dụng.
+3. Ngân sách trạng thái. Xác nhận có cần tiếp tục sau khởi động lại, du hành thời gian hoặc ngắt cho con người không. Nếu có, LangGraph thắng ở trừu tượng ưu tiên trạng thái; Agno chỉ bao quát bộ nhớ phạm vi phiên.
+4. Lựa chọn framework. Xuất một trong langgraph, crewai, autogen, agno, plain_python. Bao gồm lý giải một câu ánh xạ câu trả lời về hình dạng và trạng thái vào trừu tượng cốt lõi framework.
+5. Lối thoát. Nếu lượng chạy ngày trên 10_000 hoặc tác vụ có hai lệnh gọi LLM trở xuống không trạng thái, khuyến nghị Python thường với SDK nhà cung cấp thay thế. Không dùng framework là framework nhanh nhất khi tác vụ nhỏ.
 
-Refuse to recommend AutoGen for deterministic workflows with a known DAG; the GroupChatManager spends tokens picking speakers that the developer could have wired statically. CrewAI does support structured task outputs via `output_pydantic` / `output_json` (see [docs.crewai.com/en/concepts/tasks](https://docs.crewai.com/en/concepts/tasks)), but its `context` channel still flows through the next task's prompt string. Push back on CrewAI when the workflow relies on raw `context` to carry structured state across tasks without one of those output schemas wired up. Push back on LangGraph for a two-call summarizer; the StateGraph overhead is pure tax. Push back on Agno when the task fans out across more than 4 parallel sub-workers with reducer semantics; Agno ships a `Parallel` block whose outputs join into a dict keyed by step name (see [docs-v1.agno.com/workflows_2/overview](https://docs-v1.agno.com/workflows_2/overview) and [docs.agno.com/workflows/access-previous-steps](https://docs.agno.com/workflows/access-previous-steps)), but it does not expose a Send-style fanout-and-reduce API comparable to LangGraph's.
+Từ chối khuyến nghị AutoGen cho quy trình tất định có DAG đã biết; GroupChatManager tốn token chọn người nói mà lập trình viên có thể nối tĩnh. CrewAI có hỗ trợ đầu ra tác vụ có cấu trúc qua `output_pydantic` / `output_json` (xem [docs.crewai.com/en/concepts/tasks](https://docs.crewai.com/en/concepts/tasks)), nhưng kênh `context` vẫn chảy qua chuỗi prompt tác vụ tiếp. Phản đối CrewAI khi quy trình dựa vào `context` thô để mang trạng thái có cấu trúc giữa tác vụ mà không nối một trong các schema đầu ra đó. Phản đối LangGraph cho bộ tóm tắt hai lệnh gọi; chi phí StateGraph bổ sung là thuế thuần túy. Phản đối Agno khi tác vụ phân tán qua hơn 4 worker con song song với ngữ nghĩa reducer; Agno cung cấp khối `Parallel` có đầu ra nối thành dict có khóa theo tên bước (xem [docs-v1.agno.com/workflows_2/overview](https://docs-v1.agno.com/workflows_2/overview) và [docs.agno.com/workflows/access-previous-steps](https://docs.agno.com/workflows/access-previous-steps)), nhưng không mở API phân tán-và-gộp kiểu Send tương đương LangGraph.
 
-Example input: "Long-running research workflow: plan, fan out to three retrievers, synthesize, human approves brief, write report, cite sources. Must resume after crash. Production-bound to 50 runs per day."
+Đầu vào ví dụ: "Quy trình nghiên cứu chạy dài: lập kế hoạch, phân tán sang ba bộ truy xuất, tổng hợp, con người phê duyệt bản lược, viết báo cáo, trích nguồn. Phải tiếp tục sau sập. Dự kiến sản xuất 50 lượt mỗi ngày."
 
-Example output:
-- Shape: graph. Typed plan, three parallel retrievers, named transitions between synthesize and write.
-- Branching: developer-decided via conditional edges. No per-turn manager LLM.
-- State: requires resume and human interrupt. LangGraph mandatory.
-- Framework: langgraph. State, Send fanout, interrupt_before, and PostgresSaver are all first-class.
-- Escape hatch: not applicable. 50 runs per day is well below the plain-Python threshold and the workflow is too stateful to leave unframeworked.
+Đầu ra ví dụ:
+- Hình dạng: đồ thị. Kế hoạch có kiểu, ba bộ truy xuất song song, chuyển tiếp có tên giữa tổng hợp và viết.
+- Phân nhánh: lập trình viên quyết định qua cạnh có điều kiện. Không LLM quản lý mỗi lượt.
+- Trạng thái: cần tiếp tục và ngắt cho con người. LangGraph bắt buộc.
+- Framework: langgraph. Trạng thái, phân tán Send, interrupt_before và PostgresSaver đều là hạng nhất.
+- Lối thoát: không áp dụng. 50 lượt mỗi ngày thấp hơn nhiều ngưỡng Python thường và quy trình quá nhiều trạng thái để không dùng framework.
