@@ -1,6 +1,6 @@
 # Data Management
 
-> Data is the fuel. How you manage it determines how fast you go.
+> Dữ liệu là nhiên liệu. Cách bạn quản lý nó quyết định bạn đi nhanh đến đâu.
 
 **Type:** Build
 **Language:** Python
@@ -9,14 +9,14 @@
 
 ## Learning Objectives
 
-- Load, stream, and cache datasets using the Hugging Face `datasets` library
-- Convert between CSV, JSON, Parquet, and Arrow formats and explain their tradeoffs
-- Create reproducible train/validation/test splits with fixed random seeds
-- Manage large model and dataset files using `.gitignore`, Git LFS, or DVC
+- Tải, truyền luồng và lưu đệm tập dữ liệu bằng thư viện `datasets` của Hugging Face
+- Chuyển đổi giữa định dạng CSV, JSON, Parquet và Arrow và giải thích các đánh đổi của chúng
+- Tạo các phần chia huấn luyện/kiểm định/kiểm thử có thể tái lập với seed ngẫu nhiên cố định
+- Quản lý các tệp mô hình và tập dữ liệu lớn bằng `.gitignore`, Git LFS hoặc DVC
 
 ## The Problem
 
-Every AI project starts with data. You need to find datasets, download them, convert between formats, split them for training and evaluation, and version them so experiments are reproducible. Doing this manually every time is slow and error-prone. You need a repeatable workflow.
+Mọi dự án AI bắt đầu bằng dữ liệu. Bạn cần tìm tập dữ liệu, tải xuống, chuyển đổi giữa các định dạng, chia chúng để huấn luyện và đánh giá, rồi quản lý phiên bản để các thử nghiệm có thể tái lập. Làm thủ công mỗi lần vừa chậm vừa dễ lỗi. Bạn cần một quy trình có thể lặp lại.
 
 ## The Concept
 
@@ -30,7 +30,7 @@ graph TD
     F --> G["Your Training Pipeline"]
 ```
 
-The Hugging Face `datasets` library is the standard way to load data for AI work. It handles downloading, caching, format conversion, and streaming out of the box.
+Thư viện `datasets` của Hugging Face là cách tiêu chuẩn để tải dữ liệu cho công việc AI. Nó xử lý sẵn việc tải xuống, lưu đệm, chuyển đổi định dạng và truyền luồng.
 
 ```figure
 s0-data-pipeline
@@ -54,11 +54,11 @@ print(dataset)
 print(dataset["train"][0])
 ```
 
-This downloads the IMDB movie review dataset. After the first download, it loads from cache at `~/.cache/huggingface/datasets/`.
+Lệnh này tải xuống tập dữ liệu đánh giá phim IMDB. Sau lần tải đầu tiên, nó tải từ bộ nhớ đệm tại `~/.cache/huggingface/datasets/`.
 
 ### Step 3: Stream large datasets
 
-Some datasets are too large to fit on disk. Streaming loads them row by row without downloading the full thing.
+Một số tập dữ liệu quá lớn để vừa trên đĩa. Truyền luồng tải chúng từng hàng mà không tải xuống toàn bộ.
 
 ```python
 dataset = load_dataset("wikimedia/wikipedia", "20231101.en", split="train", streaming=True)
@@ -69,11 +69,11 @@ for i, example in enumerate(dataset):
         break
 ```
 
-Streaming gives you an `IterableDataset`. You process rows as they arrive. Memory usage stays constant regardless of dataset size.
+Truyền luồng cung cấp một `IterableDataset`. Bạn xử lý các hàng khi chúng đến. Mức dùng bộ nhớ không đổi bất kể kích thước tập dữ liệu.
 
 ### Step 4: Dataset formats
 
-The `datasets` library uses Apache Arrow under the hood. You can convert to other formats depending on what your pipeline needs.
+Thư viện `datasets` sử dụng Apache Arrow bên dưới. Bạn có thể chuyển đổi sang định dạng khác tùy nhu cầu của pipeline.
 
 ```python
 dataset = load_dataset("stanfordnlp/imdb", split="train")
@@ -83,7 +83,7 @@ dataset.to_json("imdb_train.json")
 dataset.to_parquet("imdb_train.parquet")
 ```
 
-Format comparison:
+So sánh định dạng:
 
 | Format | Size | Read Speed | Best For |
 |--------|------|-----------|----------|
@@ -92,17 +92,17 @@ Format comparison:
 | Parquet | Small | Fast | Analytics, columnar queries |
 | Arrow | Small | Fastest | In-memory processing (what `datasets` uses internally) |
 
-For AI work, Parquet is the best storage format. Arrow is what you work with in memory. CSV and JSON are for interchange.
+Đối với công việc AI, Parquet là định dạng lưu trữ tốt nhất. Arrow là thứ bạn làm việc với trong bộ nhớ. CSV và JSON dùng để trao đổi.
 
 ### Step 5: Data splits
 
-Every ML project needs three splits:
+Mọi dự án ML cần ba phần chia:
 
-- **Train**: The model learns from this (typically 80%)
-- **Validation**: You check progress during training (typically 10%)
-- **Test**: Final evaluation after training is done (typically 10%)
+- **Huấn luyện**: Mô hình học từ phần này (thường là 80%)
+- **Kiểm định**: Bạn kiểm tra tiến độ trong quá trình huấn luyện (thường là 10%)
+- **Kiểm thử**: Đánh giá cuối cùng sau khi huấn luyện hoàn tất (thường là 10%)
 
-Some datasets come pre-split. When they don't, split them yourself:
+Một số tập dữ liệu đã được chia sẵn. Nếu không, hãy tự chia:
 
 ```python
 dataset = load_dataset("stanfordnlp/imdb", split="train")
@@ -117,11 +117,11 @@ test_ds = split["test"]
 print(f"Train: {len(train_ds)}, Val: {len(val_ds)}, Test: {len(test_ds)}")
 ```
 
-Always set a seed for reproducibility. The same seed produces the same split every time.
+Luôn đặt seed để có khả năng tái lập. Cùng một seed tạo ra cùng một cách chia mỗi lần.
 
 ### Step 6: Download and cache models
 
-Models are large files. The `huggingface_hub` library handles downloading and caching.
+Mô hình là những tệp lớn. Thư viện `huggingface_hub` xử lý việc tải xuống và lưu đệm.
 
 ```python
 from huggingface_hub import hf_hub_download, snapshot_download
@@ -136,13 +136,13 @@ model_dir = snapshot_download("sentence-transformers/all-MiniLM-L6-v2")
 print(f"Full model at: {model_dir}")
 ```
 
-Models cache to `~/.cache/huggingface/hub/`. Once downloaded, they load instantly on subsequent runs.
+Mô hình được lưu đệm vào `~/.cache/huggingface/hub/`. Khi đã tải xuống, chúng tải ngay lập tức ở các lần chạy sau.
 
 ### Step 7: Handle large files
 
-Model weights and large datasets should not go into git. Three options:
+Trọng số mô hình và tập dữ liệu lớn không nên đưa vào git. Ba lựa chọn:
 
-**Option A: .gitignore (simplest)**
+**Lựa chọn A: .gitignore (đơn giản nhất)**
 
 ```
 *.bin
@@ -154,7 +154,7 @@ data/*.csv
 models/
 ```
 
-**Option B: Git LFS (track large files in git)**
+**Lựa chọn B: Git LFS (theo dõi tệp lớn trong git)**
 
 ```bash
 git lfs install
@@ -163,9 +163,9 @@ git lfs track "*.safetensors"
 git add .gitattributes
 ```
 
-Git LFS stores pointers in your repo and the actual files on a separate server. GitHub gives you 1 GB free.
+Git LFS lưu các con trỏ trong kho mã và các tệp thực sự trên một máy chủ riêng. GitHub cho bạn 1 GB miễn phí.
 
-**Option C: DVC (data version control)**
+**Lựa chọn C: DVC (quản lý phiên bản dữ liệu)**
 
 ```bash
 pip install dvc
@@ -175,7 +175,7 @@ git add data/training_set.parquet.dvc data/.gitignore
 git commit -m "Track training data with DVC"
 ```
 
-DVC creates small `.dvc` files that point to your data. The data itself lives in S3, GCS, or another remote storage backend.
+DVC tạo các tệp `.dvc` nhỏ trỏ đến dữ liệu của bạn. Bản thân dữ liệu nằm trong S3, GCS hoặc một backend lưu trữ từ xa khác.
 
 | Approach | Complexity | Best For |
 |----------|-----------|----------|
@@ -183,13 +183,13 @@ DVC creates small `.dvc` files that point to your data. The data itself lives in
 | Git LFS | Medium | Teams sharing model weights via git |
 | DVC | High | Reproducible experiments, large datasets, teams |
 
-For this course, `.gitignore` is enough. Use DVC when you need to reproduce exact experiments across machines.
+Đối với khóa học này, `.gitignore` là đủ. Dùng DVC khi bạn cần tái lập chính xác các thử nghiệm giữa nhiều máy.
 
 ### Step 8: Storage patterns
 
-**Local storage** works for datasets under ~10 GB. The HF cache handles this automatically.
+**Lưu trữ cục bộ** phù hợp với tập dữ liệu dưới ~10 GB. Bộ nhớ đệm HF tự động xử lý việc này.
 
-**Cloud storage** is for anything larger or shared across machines:
+**Lưu trữ đám mây** dành cho bất cứ thứ gì lớn hơn hoặc được chia sẻ giữa nhiều máy:
 
 ```python
 import os
@@ -200,14 +200,14 @@ local_path = os.path.expanduser("~/.cache/huggingface/datasets/")
 # gcs_path = "gs://my-bucket/datasets/"
 ```
 
-DVC integrates with S3 and GCS directly:
+DVC tích hợp trực tiếp với S3 và GCS:
 
 ```bash
 dvc remote add -d myremote s3://my-bucket/dvc-store
 dvc push
 ```
 
-For this course, local storage is sufficient. Cloud storage becomes relevant when you fine-tune on remote GPU instances.
+Đối với khóa học này, lưu trữ cục bộ là đủ. Lưu trữ đám mây trở nên liên quan khi bạn fine-tune trên các máy GPU từ xa.
 
 ## Datasets Used in This Course
 
@@ -220,39 +220,39 @@ For this course, local storage is sufficient. Cloud storage becomes relevant whe
 | MNIST | Vision basics | 21 MB | Image classification fundamentals |
 | COCO (subset) | Multimodal | Varies | Image-text pairs |
 
-You do not need to download all of these now. Each lesson specifies what it needs.
+Bạn chưa cần tải tất cả những thứ này ngay bây giờ. Mỗi bài học nêu rõ những gì nó cần.
 
 ## Use It
 
-Run the utility script to verify everything works:
+Chạy script tiện ích để xác minh mọi thứ hoạt động:
 
 ```bash
 python code/data_utils.py
 ```
 
-This downloads a small dataset, converts it, splits it, and prints a summary.
+Lệnh này tải xuống một tập dữ liệu nhỏ, chuyển đổi, chia nó và in bản tóm tắt.
 
 ## Ship It
 
-This lesson produces:
-- `code/data_utils.py` - reusable data loading and caching utility
-- `outputs/prompt-data-helper.md` - prompt for finding the right dataset for a task
+Bài học này tạo ra:
+- `code/data_utils.py` - tiện ích tải và lưu đệm dữ liệu có thể tái sử dụng
+- `outputs/prompt-data-helper.md` - prompt để tìm tập dữ liệu phù hợp cho tác vụ
 
 ## Exercises
 
-1. Load the `glue` dataset with the `mrpc` config and inspect the first 5 examples
-2. Stream the `c4` dataset and count how many examples you can process in 10 seconds
-3. Convert a dataset to Parquet and compare the file size to CSV
-4. Create a 70/15/15 train/val/test split with a fixed seed and verify the sizes
+1. Tải tập dữ liệu `glue` với cấu hình `mrpc` và kiểm tra 5 ví dụ đầu tiên
+2. Truyền luồng tập dữ liệu `c4` và đếm số ví dụ bạn có thể xử lý trong 10 giây
+3. Chuyển đổi tập dữ liệu sang Parquet và so sánh kích thước tệp với CSV
+4. Tạo phần chia huấn luyện/kiểm định/kiểm thử 70/15/15 với seed cố định và xác minh kích thước
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Dataset split | "Training data" | A named subset (train/val/test) used at different stages of the ML lifecycle |
-| Streaming | "Load it lazily" | Processing data row by row from a remote source without downloading the full dataset |
-| Parquet | "Compressed CSV" | A columnar file format optimized for analytical queries and storage efficiency |
-| Arrow | "Fast dataframe" | An in-memory columnar format used internally by the datasets library for zero-copy reads |
-| Git LFS | "Git for big files" | An extension that stores large files outside the git repo while keeping pointers in version control |
-| DVC | "Git for data" | A version control system for datasets and models that integrates with cloud storage |
-| Cache | "Already downloaded" | A local copy of previously fetched data, stored at ~/.cache/huggingface/ by default |
+| Dataset split (Phần chia tập dữ liệu) | "Dữ liệu huấn luyện" | Một tập con có tên (train/val/test) được sử dụng ở các giai đoạn khác nhau trong vòng đời ML |
+| Streaming (Truyền theo luồng) | "Tải nó một cách lười biếng" | Xử lý dữ liệu từng hàng một từ một nguồn từ xa mà không tải xuống toàn bộ tập dữ liệu |
+| Parquet | "CSV được nén" | Một định dạng tệp theo cột được tối ưu hóa cho các truy vấn phân tích và hiệu quả lưu trữ |
+| Arrow | "Dataframe nhanh" | Một định dạng theo cột trong bộ nhớ được thư viện datasets sử dụng nội bộ cho việc đọc không sao chép |
+| Git LFS | "Git cho các tệp lớn" | Một phần mở rộng lưu trữ các tệp lớn bên ngoài kho git trong khi vẫn giữ các con trỏ trong hệ thống quản lý phiên bản |
+| DVC | "Git cho dữ liệu" | Một hệ thống quản lý phiên bản cho các tập dữ liệu và mô hình, tích hợp với lưu trữ đám mây |
+| Cache (Bộ nhớ đệm) | "Đã tải xuống" | Một bản sao cục bộ của dữ liệu đã được lấy trước đó, được lưu tại ~/.cache/huggingface/ theo mặc định |
