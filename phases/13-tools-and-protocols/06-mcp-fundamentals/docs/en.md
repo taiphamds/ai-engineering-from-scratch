@@ -1,6 +1,6 @@
 # MCP Fundamentals: Stateless Requests and JSON-RPC
 
-> Modern MCP has no handshake and no protocol session. Each request must carry enough metadata to be understood, authorized, routed, and retried on its own.
+> MCP hiện đại không có bắt tay và không có phiên giao thức. Mỗi yêu cầu phải mang đủ siêu dữ liệu để được hiểu, cấp quyền, định tuyến và thử lại độc lập.
 
 **Type:** Learn
 **Languages:** Python
@@ -9,52 +9,52 @@
 
 ## Learning Objectives
 
-- Distinguish MCP's server primitives from its client-side features.
-- Build valid JSON-RPC 2.0 requests and responses for MCP `2026-07-28`.
-- Attach protocol version, client capabilities, and client identity to every request.
-- Use `server/discover` and handle `UnsupportedProtocolVersionError` without a handshake.
-- Trace one independent request from validation through a complete result.
+- Phân biệt thành phần cơ bản phía máy chủ của MCP với tính năng phía client.
+- Xây yêu cầu và phản hồi JSON-RPC 2.0 hợp lệ cho MCP `2026-07-28`.
+- Gắn phiên bản giao thức, khả năng client và danh tính client vào mọi yêu cầu.
+- Dùng `server/discover` và xử lý `UnsupportedProtocolVersionError` không có bắt tay.
+- Lần theo một yêu cầu độc lập từ xác thực đến kết quả đầy đủ.
 
 ## The Problem
 
-An MCP server can receive two consecutive requests from different clients, with different capabilities, on the same process or HTTP worker. If the server remembers what the previous request declared, it can apply the wrong permissions or return the wrong wire shape.
+Máy chủ MCP có thể nhận hai yêu cầu liên tiếp từ các client khác nhau, với khả năng khác nhau, trên cùng tiến trình hoặc worker HTTP. Nếu máy chủ nhớ yêu cầu trước khai báo gì, nó có thể áp dụng sai quyền hoặc trả sai hình dạng đường truyền.
 
-MCP `2026-07-28` removes that ambiguity. The protocol core is stateless. A server must decide how to handle the current request from the current request, not from connection history.
+MCP `2026-07-28` loại bỏ sự mơ hồ đó. Lõi giao thức không trạng thái. Máy chủ phải quyết định cách xử lý yêu cầu hiện tại từ yêu cầu hiện tại, không từ lịch sử kết nối.
 
-This changes the mental model. The old sequence was connection first, handshake second, operations third. The modern sequence is simpler:
+Điều này thay đổi mô hình tư duy. Chuỗi cũ là kết nối trước, bắt tay thứ hai, thao tác thứ ba. Chuỗi hiện đại đơn giản hơn:
 
-1. The client sends a self-describing request.
-2. The server validates that request's version and capabilities.
-3. The server handles the method.
-4. The server returns a typed result or a JSON-RPC error.
+1. Client gửi yêu cầu tự mô tả.
+2. Máy chủ xác thực phiên bản và khả năng của yêu cầu đó.
+3. Máy chủ xử lý phương thức.
+4. Máy chủ trả kết quả có kiểu hoặc lỗi JSON-RPC.
 
-The next request repeats the same process from scratch.
+Yêu cầu tiếp theo lặp lại cùng quá trình từ đầu.
 
 ## The Concept
 
 ### Server primitives
 
-MCP servers expose three primary primitives:
+Máy chủ MCP cung cấp ba thành phần cơ bản chính:
 
-1. **Tools** are model-controlled actions, discovered with `tools/list` and invoked with `tools/call`.
-2. **Resources** are URI-addressed data, discovered with `resources/list` and retrieved with `resources/read`.
-3. **Prompts** are reusable templates, discovered with `prompts/list` and rendered with `prompts/get`.
+1. **Công cụ** là hành động do mô hình kiểm soát, được khám phá bằng `tools/list` và gọi bằng `tools/call`.
+2. **Tài nguyên** là dữ liệu định địa chỉ bằng URI, được khám phá bằng `resources/list` và lấy bằng `resources/read`.
+3. **Prompt** là mẫu tái sử dụng, được khám phá bằng `prompts/list` và kết xuất bằng `prompts/get`.
 
-Roots, sampling, and logging remain in the `2026-07-28` schema for compatibility, but they are deprecated. New implementations should use explicit tool or resource inputs for roots, direct model-provider APIs for sampling, and stderr or OpenTelemetry for logging. Elicitation remains available through Multi Round-Trip Requests, where a server returns an input request and the client retries the original operation. A modern server never starts an independent JSON-RPC request.
+Roots, sampling và logging vẫn trong lược đồ `2026-07-28` để tương thích, nhưng đã ngừng được khuyến nghị. Triển khai mới nên dùng đầu vào công cụ hoặc tài nguyên tường minh cho roots, API nhà cung cấp mô hình trực tiếp cho sampling và stderr hoặc OpenTelemetry cho logging. Elicitation vẫn có qua Yêu cầu nhiều lượt khứ hồi, nơi máy chủ trả yêu cầu đầu vào và client thử lại thao tác gốc. Máy chủ hiện đại không bao giờ khởi tạo yêu cầu JSON-RPC độc lập.
 
 ### JSON-RPC envelopes
 
-MCP uses JSON-RPC 2.0:
+MCP dùng JSON-RPC 2.0:
 
-- Request: `{jsonrpc, id, method, params}`
-- Response: `{jsonrpc, id, result}` or `{jsonrpc, id, error}`
-- Notification: `{jsonrpc, method, params}` with no `id`
+- Yêu cầu: `{jsonrpc, id, method, params}`
+- Phản hồi: `{jsonrpc, id, result}` hoặc `{jsonrpc, id, error}`
+- Thông báo: `{jsonrpc, method, params}` không có `id`
 
-The request `id` correlates one response. It does not create a protocol session.
+`id` yêu cầu liên hệ một phản hồi. Nó không tạo phiên giao thức.
 
 ### Required request metadata
 
-Every modern request carries a `_meta` object inside `params`:
+Mọi yêu cầu hiện đại mang đối tượng `_meta` bên trong `params`:
 
 ```json
 {
@@ -74,13 +74,13 @@ Every modern request carries a `_meta` object inside `params`:
 }
 ```
 
-The protocol version and client capabilities are required. Client identity is recommended. It is self-reported display and debugging data, not a security credential.
+Phiên bản giao thức và khả năng client là bắt buộc. Danh tính client được khuyến nghị. Nó là dữ liệu hiển thị và gỡ lỗi tự khai, không phải thông tin xác thực bảo mật.
 
-The server must not infer any of these values from an earlier request, a stdio process, an HTTP connection, or a transport header alone.
+Máy chủ không được suy ra bất kỳ giá trị nào trong số này từ yêu cầu trước, tiến trình stdio, kết nối HTTP hoặc chỉ header vận chuyển.
 
 ### Complete results and server identity
 
-Every successful modern result includes `resultType`. A normal final result uses `"complete"`. Servers should also identify themselves in result metadata:
+Mọi kết quả hiện đại thành công gồm `resultType`. Kết quả cuối thông thường dùng `"complete"`. Máy chủ cũng nên định danh mình trong siêu dữ liệu kết quả:
 
 ```json
 {
@@ -101,21 +101,21 @@ Every successful modern result includes `resultType`. A normal final result uses
 }
 ```
 
-`tools/list`, `resources/list`, `prompts/list`, `resources/templates/list`, `resources/read`, and `server/discover` are cacheable results. They include `ttlMs` and `cacheScope`. A safe default is `ttlMs: 0` and `cacheScope: "private"`. List items should have deterministic ordering so equivalent responses produce stable cache keys and stable model context.
+`tools/list`, `resources/list`, `prompts/list`, `resources/templates/list`, `resources/read` và `server/discover` là kết quả có thể lưu đệm. Chúng gồm `ttlMs` và `cacheScope`. Mặc định an toàn là `ttlMs: 0` và `cacheScope: "private"`. Mục danh sách nên có thứ tự tất định để phản hồi tương đương tạo khóa bộ đệm ổn định và ngữ cảnh mô hình ổn định.
 
 ### Discovery without a handshake
 
-Every modern server must implement `server/discover`. The client may call it before another method to retrieve:
+Mọi máy chủ hiện đại phải triển khai `server/discover`. Client có thể gọi trước phương thức khác để lấy:
 
 - `supportedVersions`
-- server `capabilities`
-- optional usage `instructions`
-- server identity in result `_meta`
-- cache hints
+- `capabilities` máy chủ
+- `instructions` sử dụng tùy chọn
+- danh tính máy chủ trong `_meta` kết quả
+- gợi ý bộ đệm
 
-Discovery is useful, but it is not a gate. A client can send `tools/list` first because that request already carries its protocol version and capabilities.
+Khám phá hữu ích nhưng không phải cổng kiểm soát. Client có thể gửi `tools/list` trước vì yêu cầu đó đã mang phiên bản giao thức và khả năng.
 
-If the requested version is unsupported, the server returns JSON-RPC code `-32022` with:
+Nếu phiên bản yêu cầu không được hỗ trợ, máy chủ trả mã JSON-RPC `-32022` với:
 
 ```json
 {
@@ -124,35 +124,35 @@ If the requested version is unsupported, the server returns JSON-RPC code `-3202
 }
 ```
 
-The client selects a mutually supported modern version and retries with a new JSON-RPC request id.
+Client chọn phiên bản hiện đại được cả hai hỗ trợ và thử lại với id yêu cầu JSON-RPC mới.
 
 ### One request lifecycle
 
-Trace a modern request in this order:
+Lần theo yêu cầu hiện đại theo thứ tự này:
 
-1. Parse one JSON-RPC envelope.
-2. Confirm `jsonrpc` is `"2.0"`, an `id` exists, `method` is a string, and `params` is an object.
-3. Require the version string and capability object in `params._meta`; malformed or missing metadata is `-32602`.
-4. At an HTTP boundary, compare the version, method, and applicable name headers with the body. A mismatch is `-32020` even when one of the two version values is unsupported.
-5. After equality is established, reject a matched but unsupported version with `-32022`.
-6. Check required capabilities, then route by `method` and validate method-specific arguments.
-7. Authenticate and authorize the concrete operation before its handler runs.
-8. Return a complete result with server identity.
-9. Forget request-scoped protocol metadata.
+1. Phân tích một vỏ JSON-RPC.
+2. Xác nhận `jsonrpc` là `"2.0"`, có `id`, `method` là chuỗi và `params` là đối tượng.
+3. Yêu cầu chuỗi phiên bản và đối tượng khả năng trong `params._meta`; siêu dữ liệu sai dạng hoặc thiếu là `-32602`.
+4. Tại ranh giới HTTP, so phiên bản, phương thức và header tên áp dụng với phần thân. Không khớp là `-32020` ngay cả khi một trong hai giá trị phiên bản không được hỗ trợ.
+5. Sau khi xác lập bằng nhau, từ chối phiên bản khớp nhưng không được hỗ trợ bằng `-32022`.
+6. Kiểm tra khả năng bắt buộc, rồi định tuyến theo `method` và xác thực đối số riêng phương thức.
+7. Xác thực danh tính và cấp quyền thao tác cụ thể trước khi trình xử lý chạy.
+8. Trả kết quả đầy đủ với danh tính máy chủ.
+9. Quên siêu dữ liệu giao thức phạm vi yêu cầu.
 
-That order prevents two components from interpreting different calls. A gateway must not authorize `Mcp-Name: notes.read` while the origin executes `params.name: notes.delete`. It also keeps malformed input, header confusion, version negotiation, capability failure, authorization, and handler failure as distinct evidence.
+Thứ tự đó ngăn hai thành phần diễn giải các lời gọi khác nhau. Gateway không được cấp quyền `Mcp-Name: notes.read` trong khi máy chủ gốc thực thi `params.name: notes.delete`. Nó cũng giữ đầu vào sai dạng, nhầm lẫn header, thương lượng phiên bản, lỗi khả năng, cấp quyền và lỗi trình xử lý thành bằng chứng riêng biệt.
 
-Closing stdin or an HTTP response ends transport activity. It does not terminate a protocol session because modern MCP has no protocol session.
+Đóng stdin hoặc phản hồi HTTP kết thúc hoạt động vận chuyển. Nó không kết thúc phiên giao thức vì MCP hiện đại không có phiên giao thức.
 
 ### Explicit legacy compatibility
 
-Versions through `2025-11-25` use `initialize`, `notifications/initialized`, connection-scoped capabilities, and, on earlier Streamable HTTP, optional protocol sessions. That behavior is still relevant when a dual-era client talks to an old server.
+Các phiên bản đến `2025-11-25` dùng `initialize`, `notifications/initialized`, khả năng phạm vi kết nối và, trên Streamable HTTP trước đây, phiên giao thức tùy chọn. Hành vi đó vẫn liên quan khi client hai thời kỳ nói chuyện với máy chủ cũ.
 
-Keep the eras separate. A modern request is identified by the required per-request metadata. A legacy connection is selected only through the documented fallback path. Do not send `initialize` as the default for a `2026-07-28` server.
+Giữ các thời kỳ riêng biệt. Yêu cầu hiện đại được nhận biết bằng siêu dữ liệu bắt buộc mỗi yêu cầu. Kết nối cũ chỉ được chọn qua nhánh dự phòng đã ghi lại. Không gửi `initialize` làm mặc định cho máy chủ `2026-07-28`.
 
-“Stateless” therefore has an era-specific meaning. In `2026-07-28`, it is a protocol invariant: every ordinary request is independently interpretable and no MCP session exists. In versions through `2025-11-25`, initialization and negotiated capabilities belong to a connection, so a compatibility adapter may retain that legacy connection state. A dual-era implementation is not one permissive state machine. It is a stateless modern core beside an isolated legacy adapter, with an explicit selection decision before either parser runs.
+Do đó “không trạng thái” có nghĩa riêng theo thời kỳ. Trong `2026-07-28`, đó là bất biến giao thức: mọi yêu cầu thông thường diễn giải được độc lập và không có phiên MCP. Trong các phiên bản đến `2025-11-25`, khởi tạo và khả năng đã thương lượng thuộc kết nối, nên adapter tương thích có thể giữ trạng thái kết nối cũ đó. Triển khai hai thời kỳ không phải một máy trạng thái dễ dãi. Nó là lõi hiện đại không trạng thái bên cạnh adapter cũ cô lập, với quyết định chọn tường minh trước khi một trong hai bộ phân tích chạy.
 
-Neither meaning forbids durable application state. A workflow, task, or draft can live behind an opaque handle in a shared store. The client sends that handle as ordinary input, and every replica authenticates and authorizes its use. Protocol context must not leak into that store as a substitute for the removed session.
+Không nghĩa nào cấm trạng thái ứng dụng bền vững. Quy trình, tác vụ hoặc bản nháp có thể tồn tại sau handle mờ trong kho dùng chung. Client gửi handle đó như đầu vào thường, và mọi bản sao xác thực danh tính và cấp quyền sử dụng nó. Ngữ cảnh giao thức không được rò vào kho đó để thay thế phiên đã bỏ.
 
 ```figure
 mcp-tool-call
@@ -160,43 +160,43 @@ mcp-tool-call
 
 ## Use It
 
-`code/main.py` builds, validates, traces, and dispatches modern MCP messages without a framework. Run:
+`code/main.py` xây dựng, xác thực, lần vết và phân phối thông điệp MCP hiện đại không có framework. Chạy:
 
 ```bash
 python3 code/main.py
 python3 -m unittest discover code/tests -v
 ```
 
-Watch for three invariants in the output:
+Quan sát ba bất biến trong đầu ra:
 
-- Every request repeats its `_meta` fields.
-- Every successful result is `resultType: "complete"` and includes server identity.
-- The list result is deterministically ordered and has explicit cache hints.
+- Mọi yêu cầu lặp các trường `_meta` của nó.
+- Mọi kết quả thành công là `resultType: "complete"` và gồm danh tính máy chủ.
+- Kết quả danh sách được sắp thứ tự tất định và có gợi ý bộ đệm tường minh.
 
 ## Ship It
 
-This lesson ships `outputs/skill-mcp-handshake-tracer.md`. The historical filename remains stable, but the artifact is now a stateless request tracer. It audits each message independently and labels legacy handshake traffic only when it is genuinely present.
+Bài học này cung cấp `outputs/skill-mcp-handshake-tracer.md`. Tên file lịch sử giữ ổn định, nhưng sản phẩm giờ là bộ lần vết yêu cầu không trạng thái. Nó kiểm tra độc lập mỗi thông điệp và chỉ gắn nhãn lưu lượng bắt tay cũ khi thực sự có.
 
 ## Exercises
 
-1. Change one request's protocol version to `2027-01-01`. Confirm the error code is `-32022` and the data advertises the supported version.
-2. Remove `io.modelcontextprotocol/clientCapabilities` from the second request. Confirm the server does not reuse capabilities from the first request.
-3. Reverse the in-memory tool registry. Confirm `tools/list` still returns the same deterministic order.
-4. Change `cacheScope` from `public` to `private`. Explain which authorization contexts may reuse the response in each case.
-5. Add an optional `clientInfo` omission test. The request should remain valid because client identity is recommended, not required.
+1. Đổi phiên bản giao thức của một yêu cầu thành `2027-01-01`. Xác nhận mã lỗi `-32022` và dữ liệu công bố phiên bản hỗ trợ.
+2. Bỏ `io.modelcontextprotocol/clientCapabilities` khỏi yêu cầu thứ hai. Xác nhận máy chủ không dùng lại khả năng từ yêu cầu đầu.
+3. Đảo sổ đăng ký công cụ trong bộ nhớ. Xác nhận `tools/list` vẫn trả cùng thứ tự tất định.
+4. Đổi `cacheScope` từ `public` sang `private`. Giải thích ngữ cảnh cấp quyền nào có thể dùng lại phản hồi trong mỗi trường hợp.
+5. Thêm kiểm thử bỏ `clientInfo` tùy chọn. Yêu cầu nên vẫn hợp lệ vì danh tính client được khuyến nghị, không bắt buộc.
 
 ## Key Terms
 
-| Term | Meaning |
+| Thuật ngữ | Ý nghĩa |
 |------|---------|
-| Stateless protocol | Every request supplies the metadata needed to interpret it |
-| Request metadata | Version, client capabilities, and recommended client identity in `params._meta` |
-| `server/discover` | Mandatory server method for versions, capabilities, instructions, and identity |
-| `resultType` | Discriminator on every successful modern result |
-| Cacheable result | Result that includes required `ttlMs` and `cacheScope` hints |
-| Protocol era | Modern per-request metadata or legacy connection-scoped initialization |
-| Transport lifetime | Process, connection, or response-stream lifetime, not protocol session state |
-| `-32022` | Unsupported protocol version error with requested and supported versions |
+| Stateless protocol (Giao thức không trạng thái) | Mọi yêu cầu cung cấp siêu dữ liệu cần để diễn giải nó |
+| Request metadata (Siêu dữ liệu yêu cầu) | Phiên bản, khả năng client và danh tính client được khuyến nghị trong `params._meta` |
+| `server/discover` | Phương thức máy chủ bắt buộc cho phiên bản, khả năng, chỉ dẫn và danh tính |
+| `resultType` | Trường phân biệt trên mọi kết quả hiện đại thành công |
+| Cacheable result (Kết quả có thể lưu đệm) | Kết quả gồm gợi ý `ttlMs` và `cacheScope` bắt buộc |
+| Protocol era (Thời kỳ giao thức) | Siêu dữ liệu hiện đại mỗi yêu cầu hoặc khởi tạo cũ phạm vi kết nối |
+| Transport lifetime (Vòng đời vận chuyển) | Vòng đời tiến trình, kết nối hoặc luồng phản hồi, không phải trạng thái phiên giao thức |
+| `-32022` | Lỗi phiên bản giao thức không được hỗ trợ với phiên bản yêu cầu và hỗ trợ |
 
 ## Further Reading
 

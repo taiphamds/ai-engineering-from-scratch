@@ -7,34 +7,34 @@ lesson: 06
 tags: [mcp, json-rpc, stateless, metadata, compatibility]
 ---
 
-Given a sequence of MCP JSON-RPC envelopes, audit each message independently against MCP `2026-07-28`. Detect legacy traffic, but never assume a handshake or protocol session exists.
+Với chuỗi vỏ JSON-RPC MCP, kiểm tra độc lập mỗi thông điệp theo MCP `2026-07-28`. Phát hiện lưu lượng cũ, nhưng không bao giờ giả định có bắt tay hoặc phiên giao thức.
 
-Produce:
+Tạo ra:
 
-1. Message annotation. State direction, JSON-RPC kind, method, primitive, request id, and detected era.
-2. Modern metadata check. For every request, verify `params._meta.io.modelcontextprotocol/protocolVersion` and `params._meta.io.modelcontextprotocol/clientCapabilities`. Record whether recommended `clientInfo` is present.
-3. Result check. Verify every modern success has `resultType: "complete"` or another specified result type, plus recommended server identity in result `_meta`.
-4. Discovery and version check. Verify modern servers implement `server/discover`. Interpret `-32022` as modern evidence and check `data.requested` plus `data.supported`.
-5. Cache check. For `server/discover`, list methods, and `resources/read`, require `ttlMs` and `cacheScope`. Flag nondeterministic list ordering.
-6. Direction check. Reject server-initiated JSON-RPC requests in modern traffic. Allow request-related notifications and client-opened `subscriptions/listen` streams.
-7. Compatibility check. Label `initialize` and `notifications/initialized` as legacy only. Do not require them in modern traffic.
+1. Chú giải thông điệp. Nêu hướng, loại JSON-RPC, phương thức, thành phần cơ bản, id yêu cầu và thời kỳ phát hiện.
+2. Kiểm tra siêu dữ liệu hiện đại. Với mọi yêu cầu, xác minh `params._meta.io.modelcontextprotocol/protocolVersion` và `params._meta.io.modelcontextprotocol/clientCapabilities`. Ghi có `clientInfo` được khuyến nghị hay không.
+3. Kiểm tra kết quả. Xác minh mọi thành công hiện đại có `resultType: "complete"` hoặc kiểu kết quả khác được chỉ định, cộng danh tính máy chủ được khuyến nghị trong `_meta` kết quả.
+4. Kiểm tra khám phá và phiên bản. Xác minh máy chủ hiện đại triển khai `server/discover`. Diễn giải `-32022` làm bằng chứng hiện đại và kiểm tra `data.requested` cộng `data.supported`.
+5. Kiểm tra bộ đệm. Với `server/discover`, phương thức liệt kê và `resources/read`, yêu cầu `ttlMs` và `cacheScope`. Đánh dấu thứ tự danh sách không tất định.
+6. Kiểm tra hướng. Từ chối yêu cầu JSON-RPC do máy chủ khởi tạo trong lưu lượng hiện đại. Cho phép thông báo liên quan yêu cầu và luồng `subscriptions/listen` do client mở.
+7. Kiểm tra tương thích. Chỉ gắn nhãn `initialize` và `notifications/initialized` là cũ. Không yêu cầu chúng trong lưu lượng hiện đại.
 
-Hard rejects:
+Các trường hợp bác bỏ tuyệt đối:
 
-- Treating a stdio process, HTTP connection, or `Mcp-Session-Id` as modern protocol state.
-- Inferring client capabilities from an earlier request.
-- Falling back to legacy after a recognized modern error such as `-32020`, `-32021`, or `-32022`.
-- Accepting a modern success without `resultType`.
+- Coi tiến trình stdio, kết nối HTTP hoặc `Mcp-Session-Id` là trạng thái giao thức hiện đại.
+- Suy khả năng client từ yêu cầu trước.
+- Dự phòng về cũ sau lỗi hiện đại đã nhận biết như `-32020`, `-32021` hoặc `-32022`.
+- Chấp nhận thành công hiện đại không có `resultType`.
 
-Refusal rules:
+Quy tắc từ chối:
 
-- If the transcript is not JSON-RPC 2.0, stop and identify the incompatible envelope.
-- If asked to silently rewrite evidence, refuse. Preserve the original transcript and produce a separate corrected example.
+- Nếu bản ghi không phải JSON-RPC 2.0, dừng và xác định vỏ không tương thích.
+- Nếu được yêu cầu âm thầm viết lại bằng chứng, từ chối. Giữ bản ghi gốc và tạo ví dụ đã sửa riêng.
 
-Output one line per message in arrival order:
+Xuất một dòng mỗi thông điệp theo thứ tự đến:
 
 ```text
 [request/modern/tools] id=7 tools/list metadata=valid
 ```
 
-End with counts for modern, legacy, invalid, and ambiguous messages, followed by the first corrective action.
+Kết thúc bằng số lượng thông điệp hiện đại, cũ, không hợp lệ và mơ hồ, theo sau là hành động khắc phục đầu tiên.
