@@ -7,27 +7,27 @@ lesson: 17
 tags: [claude-agent-sdk, subagents, hooks, session-store, mcp]
 ---
 
-Given a product domain and a list of MCP servers, scaffold a Claude Agent SDK app.
+Với một miền sản phẩm và một danh sách các máy chủ MCP, tạo khung một ứng dụng Claude Agent SDK.
 
-Produce:
+Tạo:
 
-1. A main agent definition with instructions, built-in tool access (read_file, write_file, shell, grep, glob, web fetch), and custom function tools.
-2. Subagent spawner for parallelization and context isolation. Use when the orchestrator would otherwise blow its context budget.
-3. Lifecycle hooks registered: PreToolUse + PostToolUse for audit, SessionStart for setup, SessionEnd for teardown, UserPromptSubmit for rule enforcement (see pro-workflow patterns).
-4. Session store (SQLite default) with `list_subkeys` wired to render a subagent tree.
-5. MCP server attachment for external tool/resource surfaces.
-6. W3C trace context propagation so OTel spans from the caller continue through the CLI.
+1. Một định nghĩa agent chính với các chỉ dẫn, truy cập công cụ tích hợp sẵn (read_file, write_file, shell, grep, glob, lấy web) và các công cụ hàm tùy chỉnh.
+2. Bộ tạo agent phụ cho song song hóa và cô lập ngữ cảnh. Sử dụng khi nếu không bộ điều phối sẽ vượt ngân sách ngữ cảnh của nó.
+3. Các hook vòng đời được đăng ký: PreToolUse + PostToolUse cho kiểm toán, SessionStart cho thiết lập, SessionEnd cho tháo dỡ, UserPromptSubmit cho thực thi quy tắc (xem các mẫu pro-workflow).
+4. Kho phiên (SQLite mặc định) với `list_subkeys` được nối để hiển thị một cây agent phụ.
+5. Gắn máy chủ MCP cho các bề mặt công cụ/tài nguyên bên ngoài.
+6. Lan truyền ngữ cảnh trace W3C để các span OTel từ bên gọi tiếp tục qua CLI.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Spawning a subagent for a single-tool task. Subagents are for parallelization or context isolation; not for "one read_file call."
-- Hooks with synchronous expensive work. Hooks should be microseconds to milliseconds. Long work belongs in a subagent.
-- Session stores without a cascade-delete policy. Orphaned subagent sessions bloat storage.
+- Tạo một agent phụ cho một tác vụ một công cụ. Các agent phụ dành cho song song hóa hoặc cô lập ngữ cảnh; không phải cho "một lời gọi read_file."
+- Các hook với công việc tốn kém đồng bộ. Các hook nên từ micro giây đến mili giây. Công việc dài thuộc về một agent phụ.
+- Các kho phiên không có chính sách xóa dây chuyền. Các phiên agent phụ mồ côi làm phình lưu trữ.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the product needs long-running async work (hours-to-days), refuse the self-hosted SDK and route to Claude Managed Agents.
-- If the user asks for `--session-mirror` to a shared location, refuse. Session transcripts carry PII; mirror to per-user encrypted storage.
-- If the agent depends on raw LLM streaming for UX without tool use, refuse the Agent SDK and recommend the Client SDK directly.
+- Nếu sản phẩm cần công việc bất đồng bộ chạy lâu (hàng giờ đến hàng ngày), từ chối SDK tự host và định tuyến đến Claude Managed Agents.
+- Nếu người dùng yêu cầu `--session-mirror` đến một vị trí dùng chung, từ chối. Các bản ghi phiên mang PII; phản chiếu đến lưu trữ được mã hóa cho từng người dùng.
+- Nếu agent phụ thuộc streaming LLM thô cho UX mà không sử dụng công cụ, từ chối Agent SDK và khuyến nghị Client SDK trực tiếp.
 
-Output: `agent.py`, `tools.py`, `hooks.py`, `session.py`, `README.md` explaining the subagent policy, hook registry, session backend, MCP attachments, and OTel wiring. End with "what to read next" pointing to Lesson 22 for voice handoffs, Lesson 23 for OTel span attribution, or Lesson 18 if product needs production runtime shape.
+Đầu ra: `agent.py`, `tools.py`, `hooks.py`, `session.py`, `README.md` giải thích chính sách agent phụ, sổ đăng ký hook, backend phiên, các gắn kết MCP và kết nối OTel. Kết thúc bằng "đọc gì tiếp theo" chỉ đến Bài 22 cho các bàn giao giọng nói, Bài 23 cho quy thuộc span OTel hoặc Bài 18 nếu sản phẩm cần hình dạng runtime sản xuất.
