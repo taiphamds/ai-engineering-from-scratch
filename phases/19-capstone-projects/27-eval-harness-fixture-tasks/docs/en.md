@@ -1,6 +1,6 @@
 # Capstone Lesson 27: Eval Harness with Fixture Tasks
 
-> A coding agent is only as good as the suite of tasks you measure it against. This lesson builds an evaluation harness that takes a folder of fixture tasks, runs each through a candidate agent, scores pass or fail through a deterministic verifier, and aggregates the results into pass@1, pass@k, mean latency, and mean cost. The harness is the source of truth that lets you tell a regression from a refactor.
+> Một agent lập trình chỉ tốt như bộ tác vụ bạn dùng để đo nó. Bài này xây dựng một harness đánh giá nhận một thư mục các tác vụ fixture, chạy từng tác vụ qua một agent ứng viên, chấm đạt hoặc trượt qua một bộ xác minh tất định, và tổng hợp các kết quả thành pass@1, pass@k, độ trễ trung bình, và chi phí trung bình. Harness là nguồn sự thật cho phép bạn phân biệt một lỗi thoái lui với một lần tái cấu trúc.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,23 +9,23 @@
 
 ## Learning Objectives
 
-- Define a fixture task as a triple of goal, setup, and verifier.
-- Score multiple sample runs per task and compute pass@1 and pass@k.
-- Aggregate latency and cost into mean and 95th-percentile metrics.
-- Wire deterministic verifiers (file diff, exit code, regex match) into reusable functions.
-- Emit a structured JSON report a regression-tracking script can ingest.
+- Định nghĩa một tác vụ fixture như một bộ ba mục tiêu, thiết lập, và bộ xác minh.
+- Chấm điểm nhiều lần chạy mẫu theo tác vụ và tính pass@1 và pass@k.
+- Tổng hợp độ trễ và chi phí thành các chỉ số trung bình và phân vị thứ 95.
+- Nối các bộ xác minh tất định (diff file, mã thoát, khớp regex) thành các hàm tái sử dụng.
+- Phát ra một báo cáo JSON có cấu trúc mà một script theo dõi thoái lui có thể tiếp nhận.
 
 ## The Problem
 
-Three failure modes plague agent benchmarks built without an eval harness.
+Ba chế độ lỗi gây tai họa cho các benchmark agent được xây dựng không có harness đánh giá.
 
-The first is unverified pass. The agent says it fixed the bug, the human glances at the diff, the suite is marked green, and three weeks later the regression test surfaces the same bug. The agent had reasoned plausibly without actually fixing anything.
+Thứ nhất là đạt không được xác minh. Agent nói nó đã sửa lỗi, con người liếc qua diff, bộ kiểm thử được đánh dấu xanh, và ba tuần sau kiểm thử hồi quy làm lộ cùng lỗi. Agent đã suy luận có vẻ hợp lý mà không thực sự sửa gì.
 
-The second is undetected regression. A change to the prompt template makes the agent 4% better on the loud task and 14% worse on the quiet one. Without a goldset and a per-task score, the regression rides into main and surfaces only when a customer complains.
+Thứ hai là thoái lui không bị phát hiện. Một thay đổi mẫu prompt khiến agent tốt hơn 4% ở tác vụ ồn ào và tệ hơn 14% ở tác vụ yên lặng. Không có tập chuẩn và điểm theo tác vụ, lỗi thoái lui đi vào main và chỉ xuất hiện khi một khách hàng phàn nàn.
 
-The third is per-task drift. The eval was run on Monday with 100 tasks and on Friday with 95 of them, because somebody renamed five fixtures. The pass rate looks like a 5% improvement. It isn't.
+Thứ ba là độ trôi theo tác vụ. Đánh giá được chạy vào thứ Hai với 100 tác vụ và vào thứ Sáu với 95 trong số đó, vì ai đó đổi tên năm fixture. Tỷ lệ đạt trông như một cải thiện 5%. Nó không phải.
 
-The harness is the program that turns these failures into facts. It runs every fixture, every time, in a reproducible order, against a verifier that returns true or false on a deterministic check.
+Harness là chương trình biến những thất bại này thành sự thật. Nó chạy mọi fixture, mọi lần, theo một thứ tự có thể tái lập, với một bộ xác minh trả về true hoặc false trên một bước kiểm tra tất định.
 
 ## The Concept
 
@@ -37,17 +37,17 @@ flowchart LR
   Harness --> Report[EvalReport<br/>pass@1 / pass@k<br/>mean ms / p95 ms<br/>mean cost]
 ```
 
-A `FixtureTask` is a small JSON file plus an optional `expected/` directory. The JSON declares an `id`, a `goal` (the prompt fed to the agent), a `setup` block (files to drop into the scratch dir), and a `verifier` block. The verifier block names a function in the harness's verifier registry and supplies its arguments.
+Một `FixtureTask` là một file JSON nhỏ cùng một thư mục `expected/` tùy chọn. JSON khai báo một `id`, một `goal` (prompt đưa vào agent), một khối `setup` (các file để đặt vào thư mục tạm), và một khối `verifier`. Khối verifier đặt tên một hàm trong registry bộ xác minh của harness và cung cấp các đối số của nó.
 
-Three verifier shapes cover the majority of useful tasks.
+Ba hình thức bộ xác minh bao phủ phần lớn các tác vụ hữu ích.
 
-The first is `file_equals`. After the agent runs, compare a named file against an expected content. This catches "fix this bug in this exact way" tasks.
+Thứ nhất là `file_equals`. Sau khi agent chạy, so sánh một file có tên với nội dung dự kiến. Điều này bắt các tác vụ "sửa lỗi này đúng theo cách này".
 
-The second is `regex_match`. The named file's contents are matched against a regex. This catches "the function must exist and return X" tasks where there are many acceptable solutions.
+Thứ hai là `regex_match`. Nội dung của file có tên được so khớp với một regex. Điều này bắt các tác vụ "hàm phải tồn tại và trả về X" nơi có nhiều lời giải chấp nhận được.
 
-The third is `shell_exit_zero`. The harness runs a shell command (through the sandbox from lesson 26) and passes the task only if the command exits zero. This catches "the tests must pass" tasks.
+Thứ ba là `shell_exit_zero`. Harness chạy một lệnh shell (qua sandbox từ bài 26) và chỉ cho tác vụ đạt nếu lệnh thoát với mã không. Điều này bắt các tác vụ "các kiểm thử phải đạt".
 
-The harness runs each task `k` times. Pass@k is `1 - (1 - p)^k` where p is the empirical pass rate; the harness also reports raw counts so you can spot variance. Latency is wall-clock per sample. Cost is whatever the agent self-reports (token count, USD, or both); the harness sums it across samples and presents the per-task and aggregate numbers.
+Harness chạy mỗi tác vụ `k` lần. Pass@k là `1 - (1 - p)^k` với p là tỷ lệ đạt thực nghiệm; harness cũng báo cáo số đếm thô để bạn có thể phát hiện phương sai. Độ trễ là thời gian thực theo mẫu. Chi phí là bất cứ thứ gì agent tự báo cáo (số token, USD, hoặc cả hai); harness cộng nó trên các mẫu và trình bày các số liệu theo tác vụ và tổng hợp.
 
 ```figure
 pass-at-k
@@ -63,37 +63,37 @@ flowchart TD
   TaskReport -->|aggregate| EvalReport[EvalReport<br/>total tasks / pass@1 / pass@k / p95 latency]
 ```
 
-The candidate is a callable: `Callable[[FixtureTask, str], SampleResult]`. The harness creates the scratch directory via `tempfile.mkdtemp()` and passes its path as a plain string. The harness does not care how the candidate works. The candidate could be a deterministic patch applier (useful for harness self-tests), a real LLM agent, a fuzzer. The contract is the SampleResult.
+Ứng viên là một đối tượng có thể gọi: `Callable[[FixtureTask, str], SampleResult]`. Harness tạo thư mục tạm qua `tempfile.mkdtemp()` và truyền đường dẫn của nó như một chuỗi thông thường. Harness không quan tâm ứng viên hoạt động thế nào. Ứng viên có thể là một bộ áp dụng patch tất định (hữu ích cho tự kiểm thử harness), một agent LLM thực, một fuzzer. Hợp đồng là SampleResult.
 
 ## What you will build
 
-`main.py` ships:
+`main.py` cung cấp:
 
-1. `FixtureTask` dataclass.
-2. `SampleResult` dataclass: success_self_reported, latency_ms, cost_units, edits.
-3. `TaskReport`, `EvalReport` dataclasses with `to_dict()`.
-4. `VerifierRegistry` mapping verifier name to function. Built-in verifiers: file_equals, regex_match, shell_exit_zero.
-5. `EvalHarness` class. Runs a directory of tasks against a candidate. Returns EvalReport.
-6. Five fixture tasks bundled in `tasks/`:
-   - off-by-one in `fizzbuzz`
-   - missing return in `factorial`
-   - typo in error message
-   - empty function body
-   - off-by-one in linked-list traversal
-7. A deterministic reference candidate (`apply_known_fixes`) the harness uses to demonstrate a clean pass@1 of 1.0.
-8. Demo prints the EvalReport JSON and exits zero.
+1. Dataclass `FixtureTask`.
+2. Dataclass `SampleResult`: success_self_reported, latency_ms, cost_units, edits.
+3. Các dataclass `TaskReport`, `EvalReport` với `to_dict()`.
+4. `VerifierRegistry` ánh xạ tên bộ xác minh sang hàm. Các bộ xác minh tích hợp: file_equals, regex_match, shell_exit_zero.
+5. Lớp `EvalHarness`. Chạy một thư mục tác vụ với một ứng viên. Trả về EvalReport.
+6. Năm tác vụ fixture được đóng gói trong `tasks/`:
+   - lệch một trong `fizzbuzz`
+   - thiếu return trong `factorial`
+   - lỗi gõ trong thông điệp lỗi
+   - thân hàm rỗng
+   - lệch một trong duyệt danh sách liên kết
+7. Một ứng viên tham chiếu tất định (`apply_known_fixes`) mà harness sử dụng để minh họa một pass@1 sạch là 1.0.
+8. Demo in JSON EvalReport và thoát với mã không.
 
-The fixture tasks are bundled as JSON files in `tasks/` plus paired source files in `tasks/<id>/buggy/` and `tasks/<id>/expected/`. The harness copies buggy into a scratch dir, hands it to the candidate, and verifies against expected.
+Các tác vụ fixture được đóng gói dưới dạng file JSON trong `tasks/` cùng các file nguồn đi cặp trong `tasks/<id>/buggy/` và `tasks/<id>/expected/`. Harness sao chép buggy vào một thư mục tạm, đưa nó cho ứng viên, và xác minh với expected.
 
 ## Why pass@k and not just pass@1
 
-Real LLM agents are stochastic. A pass@1 of 0.6 looks like a failure. A pass@5 of 0.95 says the agent gets the right answer most of the time but is choosing wrong on early samples. The fix is sampling and ranking, not always more training. Pass@k makes that visible.
+Các agent LLM thực mang tính ngẫu nhiên. Một pass@1 là 0.6 trông như một thất bại. Một pass@5 là 0.95 nói rằng agent có đáp án đúng phần lớn thời gian nhưng đang chọn sai trên các mẫu đầu. Cách sửa là lấy mẫu và xếp hạng, không phải lúc nào cũng huấn luyện thêm. Pass@k làm điều đó hiển lộ.
 
-Pass@k is reported alongside pass@1 because pass@k papers over a real failure: if the model gets the right answer once in twenty tries you do not have a useful agent. The harness shows both.
+Pass@k được báo cáo cùng pass@1 vì pass@k che đậy một thất bại thực: nếu mô hình có đáp án đúng một lần trong hai mươi lần thử thì bạn không có một agent hữu ích. Harness hiển thị cả hai.
 
 ## How this composes with the rest of Track A
 
-Lesson 25 produced the gate chain. Lesson 26 produced the sandbox. The harness uses the sandbox for any `shell_exit_zero` verifier. Lesson 28 wraps each harness run in an OTel trace. Lesson 29 runs the end-to-end demo against one of the bundled fixtures and asserts pass@1 = 1.0 for the reference candidate.
+Bài 25 tạo ra chuỗi cổng. Bài 26 tạo ra sandbox. Harness sử dụng sandbox cho bất kỳ bộ xác minh `shell_exit_zero` nào. Bài 28 bọc mỗi lần chạy harness trong một trace OTel. Bài 29 chạy demo đầu cuối với một trong các fixture được đóng gói và khẳng định pass@1 = 1.0 cho ứng viên tham chiếu.
 
 ## Running it
 
@@ -103,4 +103,4 @@ python3 code/main.py
 python3 -m pytest code/tests/ -v
 ```
 
-The demo prints the EvalReport in JSON, including pass@1, pass@5, mean latency, and per-task breakdown. The exit code is zero. The tests cover the verifier functions, the pass@k math, fixture loading, and the harness end-to-end against the bundled reference candidate.
+Demo in EvalReport dưới dạng JSON, bao gồm pass@1, pass@5, độ trễ trung bình, và phân tích theo tác vụ. Mã thoát là không. Các kiểm thử bao phủ các hàm xác minh, phép toán pass@k, nạp fixture, và harness từ đầu đến cuối với ứng viên tham chiếu được đóng gói.
