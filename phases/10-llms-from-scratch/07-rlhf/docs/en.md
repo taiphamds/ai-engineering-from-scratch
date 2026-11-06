@@ -1,6 +1,6 @@
 # RLHF: Reward Model + PPO
 
-> SFT teaches the model to follow instructions. But it doesn't teach the model which response is BETTER. Two grammatically correct, factually accurate answers can differ enormously in helpfulness. RLHF is how you encode human judgment into the model's behavior. It's what makes Claude helpful and GPT polite.
+> SFT dạy mô hình làm theo chỉ dẫn. Nhưng nó không dạy mô hình phản hồi nào TỐT HƠN. Hai câu trả lời đúng ngữ pháp, chính xác sự thật có thể khác nhau rất lớn về tính hữu ích. RLHF là cách bạn mã hóa phán đoán con người vào hành vi mô hình. Nó là thứ làm Claude hữu ích và GPT lịch sự.
 
 **Type:** Build
 **Languages:** Python (with numpy)
@@ -9,36 +9,36 @@
 
 ## Learning Objectives
 
-- Build a reward model that scores response quality from human preference pairs (chosen vs rejected)
-- Implement the PPO training loop that optimizes a language model policy against the reward model with a KL penalty
-- Explain why RLHF requires three models (SFT, reward, policy) and how the KL constraint prevents reward hacking
-- Evaluate the effect of RLHF by comparing response quality before and after preference optimization
+- Xây một mô hình phần thưởng chấm chất lượng phản hồi từ các cặp sở thích con người (được chọn so với bị loại)
+- Triển khai vòng lặp huấn luyện PPO tối ưu chính sách mô hình ngôn ngữ theo mô hình phần thưởng với phạt KL
+- Giải thích vì sao RLHF cần ba mô hình (SFT, phần thưởng, chính sách) và cách ràng buộc KL ngăn reward hacking
+- Đánh giá tác động RLHF bằng so sánh chất lượng phản hồi trước và sau tối ưu sở thích
 
 ## The Problem
 
-Ask a model "Explain quantum computing" and it might produce:
+Hỏi mô hình "Giải thích tính toán lượng tử" và nó có thể tạo:
 
-**Response A:** "Quantum computing uses qubits that can exist in superposition, meaning they can be 0, 1, or both simultaneously. This allows quantum computers to process certain calculations exponentially faster than classical computers. Key algorithms include Shor's algorithm for factoring large numbers and Grover's algorithm for searching unsorted databases."
+**Phản hồi A:** "Tính toán lượng tử dùng qubit có thể tồn tại ở trạng thái chồng chập, nghĩa là chúng có thể là 0, 1 hoặc cả hai đồng thời. Điều này cho phép máy tính lượng tử xử lý một số phép tính nhanh hơn máy tính cổ điển theo hàm mũ. Các thuật toán chính gồm thuật toán Shor để phân tích số lớn thành thừa số và thuật toán Grover để tìm kiếm cơ sở dữ liệu chưa sắp xếp."
 
-**Response B:** "Quantum computing is a type of computing that uses quantum mechanical phenomena. It was first proposed in the 1980s. Richard Feynman suggested that quantum systems could be simulated by quantum computers. The field has grown significantly since then. Many companies are now working on quantum computers. IBM, Google, and others have made progress. Quantum supremacy was claimed by Google in 2019."
+**Phản hồi B:** "Tính toán lượng tử là một loại tính toán dùng các hiện tượng cơ học lượng tử. Nó được đề xuất lần đầu vào những năm 1980. Richard Feynman gợi ý rằng hệ lượng tử có thể được mô phỏng bằng máy tính lượng tử. Lĩnh vực đã phát triển đáng kể từ đó. Nhiều công ty hiện đang làm việc về máy tính lượng tử. IBM, Google và các công ty khác đã tiến bộ. Google tuyên bố ưu thế lượng tử năm 2019."
 
-Both responses are factually correct. Both are grammatically sound. Both follow the instruction. But Response A is clearly better. It's more concise, more informative, and better structured. A human would pick A every time.
+Cả hai phản hồi đều đúng sự thật. Cả hai đều đúng ngữ pháp. Cả hai đều làm theo chỉ dẫn. Nhưng Phản hồi A rõ ràng tốt hơn. Nó súc tích hơn, nhiều thông tin hơn và có cấu trúc tốt hơn. Con người sẽ chọn A mọi lần.
 
-SFT can't capture this distinction. It trains the model on "correct" responses, but it has no mechanism for saying "this response is better than that one." It treats every training example as equally good. If both A and B appeared in the SFT dataset, the model would learn from both equally.
+SFT không thể nắm bắt phân biệt này. Nó huấn luyện mô hình trên phản hồi "đúng", nhưng không có cơ chế nói "phản hồi này tốt hơn phản hồi kia." Nó coi mọi ví dụ huấn luyện tốt ngang nhau. Nếu cả A và B xuất hiện trong tập SFT, mô hình sẽ học từ cả hai ngang nhau.
 
-RLHF solves this. It trains a reward model to predict which response a human would prefer, then uses that reward signal to push the language model toward higher-quality outputs. InstructGPT (the precursor to ChatGPT) used RLHF to dramatically improve GPT-3's helpfulness, truthfulness, and harmlessness. OpenAI's internal evaluators preferred InstructGPT outputs over GPT-3 outputs 85% of the time, despite InstructGPT being 135x smaller (1.3B vs 175B parameters).
+RLHF giải quyết điều này. Nó huấn luyện một mô hình phần thưởng dự đoán phản hồi nào con người sẽ ưa thích, rồi dùng tín hiệu phần thưởng đó đẩy mô hình ngôn ngữ về đầu ra chất lượng cao hơn. InstructGPT (tiền thân ChatGPT) dùng RLHF để cải thiện mạnh tính hữu ích, trung thực và vô hại của GPT-3. Người đánh giá nội bộ OpenAI ưa thích đầu ra InstructGPT hơn GPT-3 trong 85% trường hợp, dù InstructGPT nhỏ hơn 135x (1.3B so với 175B tham số).
 
 ## The Concept
 
 ### The Three Stages
 
-RLHF is not a single training run. It's a pipeline of three sequential stages, each building on the previous one.
+RLHF không phải một lần huấn luyện. Nó là một pipeline ba giai đoạn tuần tự, mỗi giai đoạn xây trên giai đoạn trước.
 
-**Stage 1: SFT.** Train a base model on instruction-response pairs (Lesson 06). This gives you a model that can follow instructions but doesn't know which responses are better than others.
+**Giai đoạn 1: SFT.** Huấn luyện một mô hình cơ sở trên cặp chỉ dẫn-phản hồi (Bài 06). Điều này cho mô hình có thể làm theo chỉ dẫn nhưng không biết phản hồi nào tốt hơn phản hồi khác.
 
-**Stage 2: Reward Model.** Collect human preference data: show annotators two responses to the same prompt and ask "which is better?" Train a model to predict these preferences. The reward model takes (prompt, response) as input and outputs a scalar score.
+**Giai đoạn 2: Mô hình phần thưởng.** Thu thập dữ liệu sở thích con người: cho người chú giải xem hai phản hồi cùng prompt và hỏi "cái nào tốt hơn?" Huấn luyện mô hình dự đoán các sở thích này. Mô hình phần thưởng nhận (prompt, phản hồi) làm đầu vào và xuất điểm vô hướng.
 
-**Stage 3: PPO.** Use the reward model to generate a training signal for the language model. The language model generates responses, the reward model scores them, and PPO updates the language model to produce higher-scoring responses. A KL divergence penalty prevents the language model from straying too far from the SFT checkpoint.
+**Giai đoạn 3: PPO.** Dùng mô hình phần thưởng để sinh tín hiệu huấn luyện cho mô hình ngôn ngữ. Mô hình ngôn ngữ sinh phản hồi, mô hình phần thưởng chấm chúng, và PPO cập nhật mô hình ngôn ngữ để tạo phản hồi điểm cao hơn. Một khoản phạt phân kỳ KL ngăn mô hình ngôn ngữ lệch quá xa checkpoint SFT.
 
 ```mermaid
 graph TD
@@ -72,45 +72,45 @@ graph TD
 
 ### The Reward Model
 
-The reward model is a language model repurposed as a scorer. Take the SFT model, replace the language modeling head (which outputs a distribution over vocabulary) with a scalar head (which outputs a single number). The architecture is identical up to the final layer.
+Mô hình phần thưởng là một mô hình ngôn ngữ được dùng lại làm bộ chấm điểm. Lấy mô hình SFT, thay head mô hình hóa ngôn ngữ (xuất phân phối trên từ vựng) bằng head vô hướng (xuất một số). Kiến trúc giống hệt đến lớp cuối.
 
-Input: a prompt concatenated with a response. Output: a single scalar reward score.
+Đầu vào: một prompt nối với một phản hồi. Đầu ra: một điểm phần thưởng vô hướng.
 
-Training data is human preference pairs. For each prompt, annotators see two responses and pick the better one. This creates training triples: (prompt, preferred_response, rejected_response).
+Dữ liệu huấn luyện là các cặp sở thích con người. Với mỗi prompt, người chú giải thấy hai phản hồi và chọn cái tốt hơn. Điều này tạo bộ ba huấn luyện: (prompt, preferred_response, rejected_response).
 
-The loss function uses the Bradley-Terry model of pairwise preferences:
+Hàm mất mát dùng mô hình Bradley-Terry của sở thích theo cặp:
 
 ```
 loss = -log(sigmoid(reward(preferred) - reward(rejected)))
 ```
 
-This is the key equation. `sigmoid(reward(A) - reward(B))` gives the probability that response A is preferred over response B. The loss pushes the reward model to assign a higher score to the preferred response.
+Đây là phương trình then chốt. `sigmoid(reward(A) - reward(B))` cho xác suất phản hồi A được ưa thích hơn B. Mất mát đẩy mô hình phần thưởng gán điểm cao hơn cho phản hồi được ưa thích.
 
-Why pairwise comparisons instead of absolute scores? Because humans are terrible at assigning absolute quality scores ("Is this response a 7.3 or a 7.5 out of 10?") but very good at relative comparisons ("Is A better than B?"). The Bradley-Terry model converts relative comparisons into a consistent absolute scoring system.
+Vì sao so sánh theo cặp thay vì điểm tuyệt đối? Vì con người rất tệ trong gán điểm chất lượng tuyệt đối ("Phản hồi này là 7.3 hay 7.5 trên 10?") nhưng rất tốt trong so sánh tương đối ("A tốt hơn B không?"). Mô hình Bradley-Terry chuyển so sánh tương đối thành hệ chấm điểm tuyệt đối nhất quán.
 
-**InstructGPT numbers:** OpenAI collected 33,000 comparison pairs from 40 contractors. Each comparison took about 5 minutes. That's 2,750 hours of human labor for the reward model training data.
+**Các con số InstructGPT:** OpenAI thu thập 33,000 cặp so sánh từ 40 nhà thầu. Mỗi so sánh mất khoảng 5 phút. Đó là 2,750 giờ lao động con người cho dữ liệu huấn luyện mô hình phần thưởng.
 
 ### PPO: Proximal Policy Optimization
 
-PPO is a reinforcement learning algorithm. In RLHF, the "environment" is the reward model, the "agent" is the language model, and the "action" is generating a token.
+PPO là một thuật toán học tăng cường. Trong RLHF, "môi trường" là mô hình phần thưởng, "agent" là mô hình ngôn ngữ, và "hành động" là sinh một token.
 
-The objective:
+Mục tiêu:
 
 ```
 maximize: E[R(prompt, response)] - beta * KL(policy || reference)
 ```
 
-The first term pushes the model to generate high-reward responses. The second term (KL divergence penalty) prevents the model from deviating too far from the SFT checkpoint.
+Hạng tử đầu đẩy mô hình sinh phản hồi phần thưởng cao. Hạng tử thứ hai (phạt phân kỳ KL) ngăn mô hình lệch quá xa checkpoint SFT.
 
-Why the KL penalty? Without it, the model finds degenerate solutions. The reward model is trained on a finite dataset of human preferences. It has blind spots. The language model will exploit those blind spots -- finding outputs that score high on the reward model but are actually nonsensical. Classic examples:
+Vì sao phạt KL? Không có nó, mô hình tìm các lời giải suy biến. Mô hình phần thưởng được huấn luyện trên tập hữu hạn sở thích con người. Nó có điểm mù. Mô hình ngôn ngữ sẽ khai thác các điểm mù đó -- tìm đầu ra đạt điểm cao trên mô hình phần thưởng nhưng thực ra vô nghĩa. Ví dụ kinh điển:
 
-- Repeating "I'm so helpful and harmless!" scores high on helpfulness/harmlessness reward models
-- Producing verbose, formal-sounding but empty responses that pattern-match to "high quality"
-- Exploiting specific phrases that happened to correlate with high reward in the training data
+- Lặp "Tôi thật hữu ích và vô hại!" đạt điểm cao trên mô hình phần thưởng hữu ích/vô hại
+- Tạo phản hồi dài dòng, nghe trang trọng nhưng rỗng khớp mẫu "chất lượng cao"
+- Khai thác các cụm cụ thể tình cờ tương quan với phần thưởng cao trong dữ liệu huấn luyện
 
-The KL penalty says: you can improve, but you can't become a completely different model. Stay close to the SFT version, which was already reasonable. Wander too far and the KL cost dominates the reward.
+Phạt KL nói: bạn có thể cải thiện, nhưng không thể trở thành một mô hình hoàn toàn khác. Ở gần phiên bản SFT, vốn đã hợp lý. Đi quá xa và chi phí KL chi phối phần thưởng.
 
-**InstructGPT numbers:** PPO training used lr=1.5e-5, KL coefficient beta=0.02, 256K episodes (prompt-response pairs), and 4 PPO epochs per batch. The entire RLHF pipeline took several days on a cluster of GPUs.
+**Các con số InstructGPT:** Huấn luyện PPO dùng lr=1.5e-5, hệ số KL beta=0.02, 256K episode (cặp prompt-phản hồi), và 4 epoch PPO mỗi batch. Toàn pipeline RLHF mất vài ngày trên một cụm GPU.
 
 ```mermaid
 graph LR
@@ -133,7 +133,7 @@ graph LR
 
 ### The PPO Objective in Detail
 
-PPO uses a "clipped surrogate objective" to prevent excessively large updates. The ratio between the new policy and old policy probabilities is clipped to the range [1 - epsilon, 1 + epsilon], where epsilon is typically 0.2.
+PPO dùng một "mục tiêu thay thế được cắt" để ngăn cập nhật quá lớn. Tỷ số giữa xác suất chính sách mới và cũ được cắt về phạm vi [1 - epsilon, 1 + epsilon], trong đó epsilon thường là 0.2.
 
 ```
 ratio = pi_new(action | state) / pi_old(action | state)
@@ -141,41 +141,41 @@ clipped_ratio = clip(ratio, 1 - epsilon, 1 + epsilon)
 loss = -min(ratio * advantage, clipped_ratio * advantage)
 ```
 
-The advantage function estimates how much better the current response is compared to the expected quality. In RLHF:
+Hàm lợi thế ước lượng phản hồi hiện tại tốt hơn chất lượng kỳ vọng bao nhiêu. Trong RLHF:
 
 ```
 advantage = reward(prompt, response) - baseline
 ```
 
-The baseline is often the average reward over recent responses. A positive advantage means the response was better than average; a negative advantage means it was worse. PPO increases the probability of above-average responses and decreases the probability of below-average ones.
+Baseline thường là phần thưởng trung bình trên các phản hồi gần đây. Lợi thế dương nghĩa là phản hồi tốt hơn trung bình; lợi thế âm nghĩa là tệ hơn. PPO tăng xác suất phản hồi trên trung bình và giảm xác suất phản hồi dưới trung bình.
 
-The clipping prevents catastrophic updates. If a single response gets an unusually high reward, the unclipped ratio could be very large, causing the model to dramatically shift toward that response. Clipping caps the update, maintaining training stability.
+Cắt ngăn cập nhật thảm khốc. Nếu một phản hồi nhận phần thưởng cao bất thường, tỷ số chưa cắt có thể rất lớn, khiến mô hình dịch mạnh về phản hồi đó. Cắt giới hạn cập nhật, duy trì ổn định huấn luyện.
 
 ### Reward Hacking
 
-The dark side of RLHF. The language model is optimizing against the reward model, which is an imperfect proxy for human preferences. As the language model gets better at maximizing reward, it starts exploiting the reward model's weaknesses.
+Mặt tối của RLHF. Mô hình ngôn ngữ tối ưu theo mô hình phần thưởng, vốn là đại diện không hoàn hảo cho sở thích con người. Khi mô hình ngôn ngữ giỏi hơn trong tối đa hóa phần thưởng, nó bắt đầu khai thác điểm yếu của mô hình phần thưởng.
 
-Common failure modes:
+Các kiểu thất bại phổ biến:
 
-| Failure | What happens | Why |
+| Thất bại | Điều gì xảy ra | Vì sao |
 |---------|-------------|-----|
-| Verbosity | Model produces longer and longer responses | Human annotators often preferred longer, more detailed responses, so the reward model assigns higher scores to length |
-| Sycophancy | Model agrees with everything the user says | Annotators preferred responses that agreed with the premise of the question |
-| Hedging | Model refuses to commit to an answer | Hedged responses ("This is a complex topic with many perspectives...") rarely get marked as wrong |
-| Format gaming | Model uses bullet points and headers excessively | Formatted responses looked more "polished" to annotators |
+| Dài dòng | Mô hình tạo phản hồi ngày càng dài | Người chú giải thường ưa phản hồi dài, chi tiết hơn, nên mô hình phần thưởng gán điểm cao hơn cho độ dài |
+| Xu nịnh | Mô hình đồng ý mọi điều người dùng nói | Người chú giải ưa phản hồi đồng ý với tiền đề câu hỏi |
+| Nói nước đôi | Mô hình từ chối chốt một câu trả lời | Phản hồi nước đôi ("Đây là một chủ đề phức tạp với nhiều góc nhìn...") hiếm khi bị đánh dấu sai |
+| Thao túng định dạng | Mô hình dùng quá nhiều dấu đầu dòng và tiêu đề | Phản hồi có định dạng trông "trau chuốt" hơn với người chú giải |
 
-Mitigation strategies: stronger KL penalty (prevents the model from straying far enough to exploit weaknesses), training the reward model on adversarial examples (patch known failure modes), and using multiple reward models with different architectures (harder to hack all simultaneously).
+Chiến lược giảm nhẹ: phạt KL mạnh hơn (ngăn mô hình đi đủ xa để khai thác điểm yếu), huấn luyện mô hình phần thưởng trên ví dụ đối kháng (vá các kiểu thất bại đã biết), và dùng nhiều mô hình phần thưởng có kiến trúc khác nhau (khó thao túng tất cả đồng thời hơn).
 
 ### Real RLHF Pipelines
 
-| Model | Comparison Pairs | Annotators | RM Size | PPO Steps | KL Coeff |
+| Mô hình | Cặp so sánh | Người chú giải | Kích thước RM | Bước PPO | Hệ số KL |
 |-------|-----------------|------------|---------|-----------|----------|
 | InstructGPT | 33K | 40 | 6B | 256K | 0.02 |
-| Llama 2 Chat | ~1M | undisclosed | 70B | undisclosed | 0.01 |
-| Claude | undisclosed | undisclosed | undisclosed | undisclosed | undisclosed |
-| Anthropic RLHF paper | 22K | 20 | 52B | 50K | 0.001 |
+| Llama 2 Chat | ~1M | không công bố | 70B | không công bố | 0.01 |
+| Claude | không công bố | không công bố | không công bố | không công bố | không công bố |
+| Bài báo RLHF Anthropic | 22K | 20 | 52B | 50K | 0.001 |
 
-Anthropic's 2022 paper trained a 52B reward model on 22,000 comparisons. Larger reward models produce more reliable signals, which makes PPO training more stable. Using a small reward model to train a large language model is risky -- the reward model doesn't have enough capacity to capture the nuances of good vs bad responses.
+Bài báo năm 2022 của Anthropic huấn luyện mô hình phần thưởng 52B trên 22,000 so sánh. Mô hình phần thưởng lớn hơn tạo tín hiệu đáng tin cậy hơn, làm huấn luyện PPO ổn định hơn. Dùng mô hình phần thưởng nhỏ để huấn luyện mô hình ngôn ngữ lớn rủi ro -- mô hình phần thưởng không đủ năng lực nắm bắt sắc thái của phản hồi tốt so với xấu.
 
 ```figure
 rlhf-pipeline
@@ -185,7 +185,7 @@ rlhf-pipeline
 
 ### Step 1: Synthetic Preference Data
 
-In production, human annotators create preference data. We'll create synthetic pairs where the "preferred" response is objectively better (more concise, more accurate, more helpful).
+Trong production, người chú giải tạo dữ liệu sở thích. Chúng ta sẽ tạo cặp tổng hợp mà phản hồi "được ưa thích" tốt hơn khách quan (súc tích hơn, chính xác hơn, hữu ích hơn).
 
 ```python
 import numpy as np
@@ -224,11 +224,11 @@ PREFERENCE_DATA = [
 ]
 ```
 
-The preferred responses are concise and direct. The rejected responses exhibit common failure modes: unnecessary padding, hedging, redundant explanation, and imprecision. This is exactly the kind of distinction that SFT cannot capture but RLHF can.
+Phản hồi được ưa thích súc tích và trực tiếp. Phản hồi bị loại thể hiện các kiểu thất bại phổ biến: kéo dài không cần thiết, nước đôi, giải thích dư thừa và thiếu chính xác. Đây chính là loại phân biệt SFT không thể nắm bắt nhưng RLHF có thể.
 
 ### Step 2: Reward Model Architecture
 
-The reward model reuses the transformer architecture from the mini GPT, but replaces the vocabulary-sized output head with a single scalar projection.
+Mô hình phần thưởng tái sử dụng kiến trúc transformer từ mini GPT, nhưng thay head đầu ra kích thước từ vựng bằng một phép chiếu vô hướng.
 
 ```python
 import sys
@@ -263,11 +263,11 @@ class RewardModel:
         return reward
 ```
 
-The reward model takes the hidden state at the *last* token position and projects it to a scalar. Why the last token? Because the causal attention mask means the last position has attended to every previous token. It has the most complete representation of the entire (prompt, response) sequence.
+Mô hình phần thưởng lấy trạng thái ẩn ở vị trí token *cuối* và chiếu sang vô hướng. Vì sao token cuối? Vì mặt nạ attention nhân quả nghĩa là vị trí cuối đã chú ý đến mọi token trước. Nó có biểu diễn đầy đủ nhất của toàn chuỗi (prompt, phản hồi).
 
 ### Step 3: Bradley-Terry Loss
 
-Train the reward model on preference pairs using the Bradley-Terry pairwise loss.
+Huấn luyện mô hình phần thưởng trên cặp sở thích bằng mất mát theo cặp Bradley-Terry.
 
 ```python
 def tokenize_for_reward(prompt, response, vocab_size=256):
@@ -345,11 +345,11 @@ def train_reward_model(rm, preference_data, num_epochs=10, lr=1e-4, max_seq_len=
     return rm, losses, accuracies
 ```
 
-The accuracy metric is straightforward: what fraction of preference pairs does the reward model rank correctly? A random model scores 50%. A well-trained reward model on clean data should exceed 70%. InstructGPT's reward model achieved about 72% accuracy on held-out comparisons, which sounds low but is actually good -- many preference pairs are ambiguous even to humans (inter-annotator agreement was about 73%).
+Thước đo độ chính xác đơn giản: mô hình phần thưởng xếp hạng đúng bao nhiêu phần cặp sở thích? Mô hình ngẫu nhiên đạt 50%. Mô hình phần thưởng được huấn luyện tốt trên dữ liệu sạch nên vượt 70%. Mô hình phần thưởng InstructGPT đạt khoảng 72% độ chính xác trên so sánh giữ lại, nghe thấp nhưng thực ra tốt -- nhiều cặp sở thích mơ hồ ngay cả với con người (độ đồng thuận giữa người chú giải khoảng 73%).
 
 ### Step 4: Simplified PPO Loop
 
-Full PPO is complex. This implementation captures the core mechanism: generate responses, score them, compute the advantage, and update the policy with a KL penalty.
+PPO đầy đủ phức tạp. Triển khai này nắm cơ chế cốt lõi: sinh phản hồi, chấm điểm, tính lợi thế, và cập nhật chính sách với phạt KL.
 
 ```python
 def compute_kl_divergence(policy_logits, reference_logits):
@@ -448,11 +448,11 @@ def ppo_training(policy_model, reference_model, reward_model, prompts,
     return policy_model, rewards_history, kl_history
 ```
 
-The core loop: (1) sample a prompt, (2) generate a response, (3) score it with the reward model, (4) compute KL divergence against the frozen reference, (5) compute the adjusted reward (reward minus KL penalty), (6) update the policy. The KL penalty grows as the policy diverges from the reference, automatically preventing reward hacking.
+Vòng lặp cốt lõi: (1) lấy mẫu prompt, (2) sinh phản hồi, (3) chấm bằng mô hình phần thưởng, (4) tính phân kỳ KL với tham chiếu đóng băng, (5) tính phần thưởng điều chỉnh (phần thưởng trừ phạt KL), (6) cập nhật chính sách. Phạt KL tăng khi chính sách phân kỳ khỏi tham chiếu, tự động ngăn reward hacking.
 
 ### Step 5: Reward Score Comparison
 
-After RLHF, the policy model's responses should score higher on the reward model than the original SFT model's responses.
+Sau RLHF, phản hồi mô hình chính sách nên đạt điểm cao hơn trên mô hình phần thưởng so với phản hồi mô hình SFT gốc.
 
 ```python
 def compare_models(sft_model, rlhf_model, reward_model, prompts, max_seq_len=128):
@@ -596,38 +596,38 @@ if __name__ == "__main__":
 
 ## Ship It
 
-This lesson produces `outputs/prompt-reward-model-designer.md` -- a prompt for designing reward model training pipelines. Given a target behavior (helpfulness, coding ability, safety), it produces a data collection protocol, annotator guidelines, and reward model evaluation criteria.
+Bài học này tạo ra `outputs/prompt-reward-model-designer.md` -- một prompt thiết kế pipeline huấn luyện mô hình phần thưởng. Với một hành vi mục tiêu (hữu ích, khả năng lập trình, an toàn), nó tạo quy trình thu thập dữ liệu, hướng dẫn người chú giải và tiêu chí đánh giá mô hình phần thưởng.
 
 ## Exercises
 
-1. Modify the reward model to use the mean of all hidden states instead of just the last position. Compare accuracy. The mean pooling approach gives every token equal weight, while the last-position approach relies on the causal attention to aggregate information. Test on the 6 preference pairs and report which approach scores higher accuracy.
+1. Sửa mô hình phần thưởng dùng trung bình mọi trạng thái ẩn thay vì chỉ vị trí cuối. So sánh độ chính xác. Cách mean pooling cho mọi token trọng số bằng nhau, còn cách vị trí cuối dựa vào attention nhân quả để tổng hợp thông tin. Kiểm thử trên 6 cặp sở thích và báo cáo cách nào có độ chính xác cao hơn.
 
-2. Implement reward model calibration. After training, run all preference pairs through the reward model and compute: (a) the average reward for preferred responses, (b) the average reward for rejected responses, (c) the margin (preferred minus rejected). A well-calibrated model should have a clear margin. Then add 4 new preference pairs and check if the margin holds on unseen data.
+2. Triển khai hiệu chuẩn mô hình phần thưởng. Sau huấn luyện, chạy mọi cặp sở thích qua mô hình phần thưởng và tính: (a) phần thưởng trung bình của phản hồi được ưa thích, (b) phần thưởng trung bình của phản hồi bị loại, (c) biên (được ưa thích trừ bị loại). Mô hình hiệu chuẩn tốt nên có biên rõ. Rồi thêm 4 cặp sở thích mới và kiểm tra biên có giữ trên dữ liệu chưa thấy không.
 
-3. Simulate reward hacking. Create a reward model that gives high scores to long responses (reward = len(response) / 100). Run PPO with this flawed reward model and observe the policy model generating increasingly long, repetitive outputs. Then add a KL penalty of 0.1 and show that it prevents the degenerate behavior.
+3. Mô phỏng reward hacking. Tạo một mô hình phần thưởng cho điểm cao với phản hồi dài (reward = len(response) / 100). Chạy PPO với mô hình phần thưởng lỗi này và quan sát mô hình chính sách sinh đầu ra ngày càng dài, lặp lại. Rồi thêm phạt KL 0.1 và cho thấy nó ngăn hành vi suy biến.
 
-4. Implement a multi-objective reward. Train two reward models -- one for helpfulness and one for conciseness. Combine them as R = 0.7 * R_helpful + 0.3 * R_concise. Show that the combined objective produces responses that are both helpful and concise, avoiding the verbosity trap of a single helpfulness reward.
+4. Triển khai phần thưởng đa mục tiêu. Huấn luyện hai mô hình phần thưởng -- một cho hữu ích và một cho súc tích. Kết hợp thành R = 0.7 * R_helpful + 0.3 * R_concise. Cho thấy mục tiêu kết hợp tạo phản hồi vừa hữu ích vừa súc tích, tránh bẫy dài dòng của một phần thưởng hữu ích đơn lẻ.
 
-5. Compare different KL coefficients. Run PPO with beta=0.001 (too low, reward hacking), beta=0.02 (standard), and beta=0.5 (too high, no learning). Plot the reward curve and KL curve for each. The beta=0.02 run should show steady reward improvement with bounded KL.
+5. So sánh các hệ số KL khác nhau. Chạy PPO với beta=0.001 (quá thấp, reward hacking), beta=0.02 (tiêu chuẩn), và beta=0.5 (quá cao, không học). Vẽ đường cong phần thưởng và KL cho mỗi trường hợp. Lần beta=0.02 nên cho cải thiện phần thưởng đều với KL bị chặn.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| RLHF | "Training with human feedback" | Reinforcement Learning from Human Feedback: a three-stage pipeline (SFT, reward model, PPO) that optimizes language model outputs using human preference signals |
-| Reward model | "A model that scores responses" | A transformer with a scalar output head, trained on pairwise human preferences using the Bradley-Terry loss |
-| Bradley-Terry | "The comparison model" | A probabilistic model where P(A > B) = sigmoid(score(A) - score(B)), converting pairwise preferences into a consistent scoring function |
-| PPO | "The RL algorithm" | Proximal Policy Optimization: updates the policy to maximize reward while clipping the update magnitude to prevent instability |
-| KL divergence | "How different two distributions are" | A measure of the difference between the policy model's token distribution and the reference model's -- used as a penalty to prevent reward hacking |
-| KL penalty | "The leash on the model" | Beta * KL(policy \|\| reference) subtracted from the reward signal -- prevents the policy from diverging too far from the SFT checkpoint |
-| Reward hacking | "Gaming the reward" | When the policy finds degenerate high-reward outputs by exploiting weaknesses in the reward model instead of genuinely improving |
-| Preference pair | "Which is better, A or B?" | A training example consisting of (prompt, preferred_response, rejected_response) -- the fundamental unit of RLHF training data |
-| Reference model | "The frozen SFT checkpoint" | A copy of the SFT model whose weights never change -- used as the anchor for KL divergence computation |
+| RLHF | "Huấn luyện với phản hồi con người" | Học tăng cường từ phản hồi con người: pipeline ba giai đoạn (SFT, mô hình phần thưởng, PPO) tối ưu đầu ra mô hình ngôn ngữ bằng tín hiệu sở thích con người |
+| Reward model (Mô hình phần thưởng) | "Một mô hình chấm phản hồi" | Một transformer có head đầu ra vô hướng, huấn luyện trên sở thích con người theo cặp bằng mất mát Bradley-Terry |
+| Bradley-Terry | "Mô hình so sánh" | Một mô hình xác suất mà P(A > B) = sigmoid(score(A) - score(B)), chuyển sở thích theo cặp thành hàm chấm điểm nhất quán |
+| PPO | "Thuật toán RL" | Tối ưu hóa chính sách lân cận: cập nhật chính sách để tối đa phần thưởng trong khi cắt độ lớn cập nhật để ngăn bất ổn |
+| KL divergence (Phân kỳ KL) | "Hai phân phối khác nhau đến đâu" | Một thước đo khác biệt giữa phân phối token mô hình chính sách và mô hình tham chiếu -- dùng làm phạt để ngăn reward hacking |
+| KL penalty (Phạt KL) | "Dây xích mô hình" | Beta * KL(policy \|\| reference) trừ khỏi tín hiệu phần thưởng -- ngăn chính sách phân kỳ quá xa checkpoint SFT |
+| Reward hacking (Thao túng phần thưởng) | "Thao túng phần thưởng" | Khi chính sách tìm đầu ra suy biến phần thưởng cao bằng khai thác điểm yếu mô hình phần thưởng thay vì thực sự cải thiện |
+| Preference pair (Cặp sở thích) | "A hay B tốt hơn?" | Một ví dụ huấn luyện gồm (prompt, preferred_response, rejected_response) -- đơn vị cơ bản của dữ liệu huấn luyện RLHF |
+| Reference model (Mô hình tham chiếu) | "Checkpoint SFT đóng băng" | Một bản sao mô hình SFT có trọng số không bao giờ đổi -- dùng làm điểm neo cho tính phân kỳ KL |
 
 ## Further Reading
 
-- [Ouyang et al., 2022 -- "Training language models to follow instructions with human feedback" (InstructGPT)](https://arxiv.org/abs/2203.02155) -- the paper that made RLHF practical for large language models
-- [Schulman et al., 2017 -- "Proximal Policy Optimization Algorithms"](https://arxiv.org/abs/1707.06347) -- the original PPO paper from OpenAI
-- [Bai et al., 2022 -- "Training a Helpful and Harmless Assistant with Reinforcement Learning from Human Feedback"](https://arxiv.org/abs/2204.05862) -- Anthropic's RLHF paper with detailed analysis of reward hacking and KL penalty
-- [Stiennon et al., 2020 -- "Learning to summarize with human feedback"](https://arxiv.org/abs/2009.01325) -- RLHF applied to summarization, showing reward models can capture nuanced quality judgments
-- [Christiano et al., 2017 -- "Deep reinforcement learning from human preferences"](https://arxiv.org/abs/1706.03741) -- the foundational work on learning reward functions from human comparisons
+- [Ouyang et al., 2022 -- "Training language models to follow instructions with human feedback" (InstructGPT)](https://arxiv.org/abs/2203.02155) -- bài báo làm RLHF thực tiễn cho mô hình ngôn ngữ lớn
+- [Schulman et al., 2017 -- "Proximal Policy Optimization Algorithms"](https://arxiv.org/abs/1707.06347) -- bài báo PPO gốc từ OpenAI
+- [Bai et al., 2022 -- "Training a Helpful and Harmless Assistant with Reinforcement Learning from Human Feedback"](https://arxiv.org/abs/2204.05862) -- bài báo RLHF của Anthropic với phân tích chi tiết reward hacking và phạt KL
+- [Stiennon et al., 2020 -- "Learning to summarize with human feedback"](https://arxiv.org/abs/2009.01325) -- RLHF áp dụng cho tóm tắt, cho thấy mô hình phần thưởng có thể nắm phán đoán chất lượng tinh tế
+- [Christiano et al., 2017 -- "Deep reinforcement learning from human preferences"](https://arxiv.org/abs/1706.03741) -- công trình nền tảng về học hàm phần thưởng từ so sánh con người

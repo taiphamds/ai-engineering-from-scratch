@@ -9,121 +9,121 @@ tags: [rlhf, reward-model, ppo, alignment, human-feedback, preference-learning]
 
 # Reward Model Designer
 
-When building an RLHF pipeline to align a language model toward a target behavior (helpfulness, coding ability, safety, honesty), use this framework to design the data collection protocol, train the reward model, and configure PPO.
+Khi xây một pipeline RLHF để căn chỉnh mô hình ngôn ngữ về hành vi mục tiêu (hữu ích, khả năng lập trình, an toàn, trung thực), dùng khung này để thiết kế quy trình thu thập dữ liệu, huấn luyện mô hình phần thưởng và cấu hình PPO.
 
 ## Input Requirements
 
-Provide:
-- **Target behavior** (e.g., "helpful and harmless assistant", "expert Python coder", "medical Q&A with safety")
-- **Base model** (e.g., Llama 3 8B after SFT, Mistral 7B Chat)
-- **Reward model size** (typically same size or larger than the policy model)
-- **Annotation budget** (human hours or comparison pairs available)
-- **Compute budget** (GPU hours for reward model training + PPO)
+Cung cấp:
+- **Hành vi mục tiêu** (ví dụ "trợ lý hữu ích và vô hại", "chuyên gia lập trình Python", "Hỏi đáp y tế với an toàn")
+- **Mô hình cơ sở** (ví dụ Llama 3 8B sau SFT, Mistral 7B Chat)
+- **Kích thước mô hình phần thưởng** (thường cùng kích thước hoặc lớn hơn mô hình chính sách)
+- **Ngân sách chú giải** (giờ con người hoặc cặp so sánh sẵn có)
+- **Ngân sách tính toán** (giờ GPU cho huấn luyện mô hình phần thưởng + PPO)
 
 ## Step 1: Preference Data Collection
 
 ### Annotation Protocol
 
-1. **Prompt selection**: Sample from the SFT training distribution plus out-of-distribution prompts (10-20% novel)
-2. **Response generation**: Generate 2-4 responses per prompt using the SFT model with different temperatures (0.3, 0.7, 1.0)
-3. **Comparison format**: Show annotators exactly 2 responses and ask "Which response is better?"
-4. **Criteria rubric**: Define what "better" means for your use case
+1. **Chọn prompt**: Lấy mẫu từ phân phối huấn luyện SFT cộng prompt ngoài phân phối (10-20% mới)
+2. **Sinh phản hồi**: Sinh 2-4 phản hồi mỗi prompt bằng mô hình SFT với temperature khác nhau (0.3, 0.7, 1.0)
+3. **Định dạng so sánh**: Cho người chú giải xem đúng 2 phản hồi và hỏi "Phản hồi nào tốt hơn?"
+4. **Rubric tiêu chí**: Định nghĩa "tốt hơn" nghĩa là gì cho trường hợp sử dụng
 
 ### Rubric Template
 
-| Criterion | Weight | Description |
+| Tiêu chí | Trọng số | Mô tả |
 |-----------|--------|-------------|
-| Helpfulness | 40% | Does it answer the question completely and correctly? |
-| Harmlessness | 25% | Does it avoid harmful, biased, or misleading content? |
-| Honesty | 20% | Does it acknowledge uncertainty rather than hallucinate? |
-| Conciseness | 15% | Is the response an appropriate length for the question? |
+| Hữu ích | 40% | Nó có trả lời câu hỏi đầy đủ và đúng không? |
+| Vô hại | 25% | Nó có tránh nội dung có hại, thiên lệch hoặc gây hiểu lầm không? |
+| Trung thực | 20% | Nó có thừa nhận bất định thay vì ảo giác không? |
+| Súc tích | 15% | Phản hồi có độ dài phù hợp với câu hỏi không? |
 
-Adjust weights for your use case. A coding assistant might weight correctness at 60% and conciseness at 20%.
+Điều chỉnh trọng số cho trường hợp sử dụng. Một trợ lý lập trình có thể đặt trọng số tính đúng đắn 60% và súc tích 20%.
 
 ### Data Size Guidelines
 
-| Scale | Comparison Pairs | Annotator Hours | Expected RM Accuracy |
+| Quy mô | Cặp so sánh | Giờ chú giải | Độ chính xác RM kỳ vọng |
 |-------|-----------------|-----------------|---------------------|
-| Minimum viable | 5,000-10,000 | 400-800 | 60-65% |
-| Production v1 | 20,000-50,000 | 1,600-4,000 | 65-72% |
-| Production v2 | 100,000-500,000 | 8,000-40,000 | 72-78% |
+| Tối thiểu khả dụng | 5,000-10,000 | 400-800 | 60-65% |
+| Sản xuất v1 | 20,000-50,000 | 1,600-4,000 | 65-72% |
+| Sản xuất v2 | 100,000-500,000 | 8,000-40,000 | 72-78% |
 
-InstructGPT used 33,000 comparisons from 40 contractors. Anthropic's initial paper used 22,000 from 20 annotators. Inter-annotator agreement is typically 70-75% -- the reward model cannot exceed human agreement levels.
+InstructGPT dùng 33,000 so sánh từ 40 nhà thầu. Bài báo ban đầu của Anthropic dùng 22,000 từ 20 người chú giải. Độ đồng thuận giữa người chú giải thường là 70-75% -- mô hình phần thưởng không thể vượt mức đồng thuận con người.
 
 ### Quality Control
 
-- **Agreement filtering**: Discard pairs where fewer than 70% of annotators agree
-- **Annotator calibration**: Run calibration rounds with known-good pairs before real annotation
-- **Bias detection**: Monitor if annotators consistently prefer longer responses, formal language, or specific patterns
-- **Adversarial examples**: Include 5-10% examples designed to catch annotators who are not reading carefully
+- **Lọc đồng thuận**: Bỏ cặp có dưới 70% người chú giải đồng ý
+- **Hiệu chuẩn người chú giải**: Chạy các vòng hiệu chuẩn với cặp đã biết tốt trước chú giải thực
+- **Phát hiện thiên lệch**: Theo dõi xem người chú giải có luôn ưa phản hồi dài hơn, ngôn ngữ trang trọng hoặc các mẫu cụ thể không
+- **Ví dụ đối kháng**: Bao gồm 5-10% ví dụ thiết kế để bắt người chú giải không đọc cẩn thận
 
 ## Step 2: Reward Model Architecture
 
 ### Architecture Decisions
 
-| Decision | Recommendation | Rationale |
+| Quyết định | Đề xuất | Lý do |
 |----------|---------------|-----------|
-| Base architecture | Same transformer as the policy | Weight initialization from SFT checkpoint gives strong starting features |
-| Output head | Single linear projection from last hidden state | Scalar reward from the most complete position representation |
-| Model size | >= policy model size | Smaller RM produces unreliable signals that destabilize PPO |
-| Initialization | SFT checkpoint with new output head | Pre-trained features capture language quality already |
+| Kiến trúc cơ sở | Cùng transformer như chính sách | Khởi tạo trọng số từ checkpoint SFT cho đặc trưng khởi đầu mạnh |
+| Head đầu ra | Một phép chiếu tuyến tính từ trạng thái ẩn cuối | Phần thưởng vô hướng từ biểu diễn vị trí đầy đủ nhất |
+| Kích thước mô hình | >= kích thước mô hình chính sách | RM nhỏ hơn tạo tín hiệu không đáng tin làm mất ổn định PPO |
+| Khởi tạo | Checkpoint SFT với head đầu ra mới | Đặc trưng được huấn luyện trước đã nắm chất lượng ngôn ngữ |
 
 ### Training Configuration
 
-| Parameter | Range | Notes |
+| Tham số | Phạm vi | Ghi chú |
 |-----------|-------|-------|
-| Learning rate | 1e-5 to 5e-5 | Lower than SFT because the task is simpler |
-| Epochs | 1-3 | Overfitting is a major risk with limited comparison data |
-| Batch size | 64-256 | Each "example" is a pair, so effective data is 2x |
-| Loss function | Bradley-Terry: -log(sigmoid(r_preferred - r_rejected)) | Standard for pairwise comparisons |
-| Validation split | 10-20% | Monitor accuracy on held-out pairs |
+| Tốc độ học | 1e-5 đến 5e-5 | Thấp hơn SFT vì tác vụ đơn giản hơn |
+| Epoch | 1-3 | Overfit là rủi ro lớn với dữ liệu so sánh hạn chế |
+| Kích thước batch | 64-256 | Mỗi "ví dụ" là một cặp, nên dữ liệu hiệu dụng là 2x |
+| Hàm mất mát | Bradley-Terry: -log(sigmoid(r_preferred - r_rejected)) | Tiêu chuẩn cho so sánh theo cặp |
+| Phần chia xác thực | 10-20% | Theo dõi độ chính xác trên cặp giữ lại |
 
 ### Evaluation Metrics
 
-1. **Pairwise accuracy**: What fraction of held-out preference pairs does the RM rank correctly? Target: > 65%
-2. **Margin distribution**: Plot the distribution of (r_preferred - r_rejected). Should be centered above 0 with few negatives.
-3. **Calibration**: Is sigmoid(r_preferred - r_rejected) close to the actual human preference probability?
-4. **OOD generalization**: Test on prompts from a different distribution than training. Accuracy should drop < 10%.
+1. **Độ chính xác theo cặp**: RM xếp hạng đúng bao nhiêu phần cặp sở thích giữ lại? Mục tiêu: > 65%
+2. **Phân phối biên**: Vẽ phân phối (r_preferred - r_rejected). Nên tập trung trên 0 với ít giá trị âm.
+3. **Hiệu chuẩn**: sigmoid(r_preferred - r_rejected) có gần xác suất sở thích con người thực tế không?
+4. **Khái quát hóa OOD**: Kiểm thử trên prompt từ phân phối khác huấn luyện. Độ chính xác nên giảm < 10%.
 
 ## Step 3: PPO Configuration
 
 ### Hyperparameters
 
-| Parameter | Typical Value | Effect of Being Too High | Effect of Being Too Low |
+| Tham số | Giá trị điển hình | Tác động khi quá cao | Tác động khi quá thấp |
 |-----------|--------------|-------------------------|------------------------|
-| KL coefficient (beta) | 0.01-0.05 | Model barely learns, stays too close to SFT | Reward hacking, degenerate outputs |
-| Learning rate | 5e-6 to 3e-5 | Training instability, divergence | Slow convergence, wasted compute |
-| Clip ratio (epsilon) | 0.1-0.3 | Large, potentially destabilizing updates | Very conservative updates, slow learning |
-| PPO epochs per batch | 1-4 | Overfitting to current batch | Underutilizing each batch |
-| Generation batch size | 128-512 | Memory issues | Noisy gradient estimates |
-| Max response length | 256-1024 | Slow generation, memory issues | Truncates useful responses |
+| Hệ số KL (beta) | 0.01-0.05 | Mô hình hầu như không học, ở quá gần SFT | Reward hacking, đầu ra suy biến |
+| Tốc độ học | 5e-6 đến 3e-5 | Huấn luyện bất ổn, phân kỳ | Hội tụ chậm, lãng phí tính toán |
+| Tỷ số cắt (epsilon) | 0.1-0.3 | Cập nhật lớn, có thể gây mất ổn định | Cập nhật rất bảo thủ, học chậm |
+| Epoch PPO mỗi batch | 1-4 | Overfit batch hiện tại | Sử dụng chưa hết mỗi batch |
+| Kích thước batch sinh | 128-512 | Vấn đề bộ nhớ | Ước lượng gradient nhiều nhiễu |
+| Độ dài phản hồi tối đa | 256-1024 | Sinh chậm, vấn đề bộ nhớ | Cắt ngắn phản hồi hữu ích |
 
 ### Monitoring Dashboard
 
-Track these metrics during PPO training:
+Theo dõi các thước đo này trong huấn luyện PPO:
 
-1. **Mean reward**: Should increase over training. Plateau is fine; decrease means instability.
-2. **KL divergence**: Should stay below 10-20 nats. Spike = reward hacking.
-3. **Response length**: Should stay stable. Monotonic increase = verbosity reward hacking.
-4. **Entropy**: Token distribution entropy should decrease slowly. Rapid decrease = mode collapse.
-5. **Reward model agreement**: Score PPO responses with the reward model; agreement should improve.
+1. **Phần thưởng trung bình**: Nên tăng qua huấn luyện. Chững lại là được; giảm nghĩa là bất ổn.
+2. **Phân kỳ KL**: Nên giữ dưới 10-20 nat. Tăng vọt = reward hacking.
+3. **Độ dài phản hồi**: Nên giữ ổn định. Tăng đơn điệu = reward hacking dài dòng.
+4. **Entropy**: Entropy phân phối token nên giảm chậm. Giảm nhanh = sụp đổ mode.
+5. **Đồng thuận mô hình phần thưởng**: Chấm phản hồi PPO bằng mô hình phần thưởng; đồng thuận nên cải thiện.
 
 ### Red Flags During PPO
 
-| Symptom | Likely Cause | Fix |
+| Triệu chứng | Nguyên nhân có thể | Cách khắc phục |
 |---------|-------------|-----|
-| Reward increases but outputs degrade | Reward hacking | Increase KL coefficient, retrain RM on adversarial examples |
-| KL divergence explodes | Learning rate too high or KL coefficient too low | Reduce lr, increase beta |
-| Response length grows monotonically | RM rewards verbosity | Add length penalty to reward, retrain RM with length-controlled pairs |
-| All responses become identical | Mode collapse | Increase generation temperature, reduce PPO epochs |
-| Reward oscillates wildly | PPO instability | Reduce learning rate, increase clip ratio |
+| Phần thưởng tăng nhưng đầu ra giảm chất lượng | Reward hacking | Tăng hệ số KL, huấn luyện lại RM trên ví dụ đối kháng |
+| Phân kỳ KL bùng nổ | Tốc độ học quá cao hoặc hệ số KL quá thấp | Giảm lr, tăng beta |
+| Độ dài phản hồi tăng đơn điệu | RM thưởng dài dòng | Thêm phạt độ dài vào phần thưởng, huấn luyện lại RM với cặp được kiểm soát độ dài |
+| Mọi phản hồi thành giống hệt | Sụp đổ mode | Tăng temperature sinh, giảm epoch PPO |
+| Phần thưởng dao động mạnh | PPO bất ổn | Giảm tốc độ học, tăng tỷ số cắt |
 
 ## Step 4: End-to-End Validation
 
-Before deploying an RLHF-trained model:
+Trước khi triển khai mô hình được huấn luyện RLHF:
 
-1. **A/B test vs SFT**: Run the SFT and RLHF models on 200+ test prompts. Have 3+ evaluators compare responses. The RLHF model should win > 60% of the time.
-2. **Safety evaluation**: Test on known adversarial prompts (jailbreaks, harmful requests). The RLHF model should refuse appropriately.
-3. **Regression check**: Run standard benchmarks (MMLU, HumanEval, MT-Bench) to confirm the RLHF model hasn't lost core capabilities.
-4. **Forgetting check**: Measure perplexity on a general text corpus. Increase should be < 10% vs the SFT model.
-5. **Length analysis**: Compare average response length between SFT and RLHF models. If RLHF is > 50% longer, the reward model likely has a verbosity bias.
+1. **Kiểm thử A/B so với SFT**: Chạy mô hình SFT và RLHF trên 200+ prompt kiểm thử. Có 3+ người đánh giá so sánh phản hồi. Mô hình RLHF nên thắng > 60% trường hợp.
+2. **Đánh giá an toàn**: Kiểm thử trên prompt đối kháng đã biết (jailbreak, yêu cầu có hại). Mô hình RLHF nên từ chối phù hợp.
+3. **Kiểm tra hồi quy**: Chạy benchmark tiêu chuẩn (MMLU, HumanEval, MT-Bench) để xác nhận mô hình RLHF chưa mất năng lực cốt lõi.
+4. **Kiểm tra quên**: Đo perplexity trên một corpus văn bản tổng quát. Mức tăng nên < 10% so với mô hình SFT.
+5. **Phân tích độ dài**: So sánh độ dài phản hồi trung bình giữa mô hình SFT và RLHF. Nếu RLHF dài hơn > 50%, mô hình phần thưởng có thể có thiên lệch dài dòng.
