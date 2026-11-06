@@ -1,6 +1,6 @@
 # GPU Autoscaling on Kubernetes — Karpenter, KAI Scheduler, Gang Scheduling
 
-> Three layers, not one. Karpenter provisions nodes dynamically (under one minute, 40% faster than Cluster Autoscaler). KAI Scheduler handles gang scheduling, topology awareness, and hierarchical queues — it prevents the 7-of-8 partial allocation trap where seven nodes wait and burn on one missing GPU. Application-level autoscalers (NVIDIA Dynamo Planner, llm-d Workload Variant Autoscaler) scale on inference-specific signals — queue depth, KV cache utilization — not CPU/DCGM duty cycle. The classic HPA trap is that `DCGM_FI_DEV_GPU_UTIL` is a duty-cycle measurement: 100% could be 10 requests or 100. vLLM pre-allocates KV cache memory, so memory never triggers scale-down. This lesson teaches you to compose the three layers and avoid the default Karpenter `WhenEmptyOrUnderutilized` policy that terminates running GPU jobs mid-inference.
+> Ba lớp, không phải một. Karpenter cấp phát các node động (dưới một phút, nhanh hơn 40% so với Cluster Autoscaler). KAI Scheduler xử lý lập lịch theo nhóm, nhận biết cấu trúc liên kết, và các hàng đợi phân cấp — nó ngăn bẫy phân bổ một phần 7-trong-8 nơi bảy node chờ và đốt tiền vì một GPU thiếu. Các bộ tự động mở rộng cấp ứng dụng (NVIDIA Dynamo Planner, llm-d Workload Variant Autoscaler) mở rộng theo các tín hiệu riêng cho suy luận — độ sâu hàng đợi, mức sử dụng bộ nhớ đệm KV — không phải CPU/chu kỳ hoạt động DCGM. Bẫy HPA cổ điển là `DCGM_FI_DEV_GPU_UTIL` là một phép đo chu kỳ hoạt động: 100% có thể là 10 yêu cầu hoặc 100. vLLM cấp phát trước bộ nhớ đệm KV, nên bộ nhớ không bao giờ kích hoạt giảm quy mô. Bài này dạy bạn kết hợp ba lớp và tránh chính sách Karpenter mặc định `WhenEmptyOrUnderutilized` chấm dứt các công việc GPU đang chạy giữa suy luận.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy queue-depth autoscaler simulator)
@@ -9,30 +9,30 @@
 
 ## Learning Objectives
 
-- Diagram the three autoscaling layers (node provisioning, gang scheduling, application-level) and name the tool used at each layer.
-- Explain why `DCGM_FI_DEV_GPU_UTIL` is the wrong HPA signal for vLLM and name two replacements (queue depth, KV cache utilization).
-- Describe gang scheduling and the partial-allocation failure mode KAI Scheduler prevents (7 of 8 GPUs idle).
-- Name the Karpenter consolidation policy (`WhenEmptyOrUnderutilized`) that terminates running GPU jobs and state the 2026 safe alternative.
+- Vẽ sơ đồ ba lớp tự động mở rộng (cấp phát node, lập lịch theo nhóm, cấp ứng dụng) và nêu công cụ được dùng ở mỗi lớp.
+- Giải thích vì sao `DCGM_FI_DEV_GPU_UTIL` là tín hiệu HPA sai cho vLLM và nêu hai thay thế (độ sâu hàng đợi, mức sử dụng bộ nhớ đệm KV).
+- Mô tả lập lịch theo nhóm và chế độ lỗi phân bổ một phần mà KAI Scheduler ngăn (7 trong 8 GPU nhàn rỗi).
+- Nêu chính sách hợp nhất Karpenter (`WhenEmptyOrUnderutilized`) chấm dứt các công việc GPU đang chạy và nêu lựa chọn an toàn năm 2026.
 
 ## The Problem
 
-Your team ships an LLM-serving service on Kubernetes. You set up HPA with `DCGM_FI_DEV_GPU_UTIL` as the signal. The service pins at 100% utilization during business hours. HPA never scales up — it already thinks you're full. You add a replica manually; TTFT drops. HPA still doesn't scale. The signal is lying to you.
+Nhóm của bạn phát hành một dịch vụ phục vụ LLM trên Kubernetes. Bạn thiết lập HPA với `DCGM_FI_DEV_GPU_UTIL` làm tín hiệu. Dịch vụ ghim ở mức sử dụng 100% trong giờ làm việc. HPA không bao giờ tăng quy mô — nó đã nghĩ bạn đầy. Bạn thêm một bản sao bằng tay; TTFT giảm. HPA vẫn không mở rộng. Tín hiệu đang nói dối bạn.
 
-Separately, you use Cluster Autoscaler for nodes. A 1M-token prompt arrives at 2 a.m.; the cluster spends 3 minutes provisioning a node, and the request times out.
+Riêng biệt, bạn sử dụng Cluster Autoscaler cho các node. Một prompt 1M token đến lúc 2 giờ sáng; cụm dành 3 phút cấp phát một node, và yêu cầu hết thời gian chờ.
 
-Separately again, you deploy a 70B model requiring 8 GPUs across 2 nodes. The cluster has 7 GPUs free and 1 spread across 3 nodes. Cluster Autoscaler provisions a node for the 1 missing GPU. Seven nodes wait 4 minutes burning money while Kubernetes gets the last GPU up.
+Lại riêng biệt, bạn triển khai một mô hình 70B cần 8 GPU trên 2 node. Cụm có 7 GPU trống và 1 trải trên 3 node. Cluster Autoscaler cấp phát một node cho 1 GPU thiếu. Bảy node chờ 4 phút đốt tiền trong khi Kubernetes khởi động GPU cuối.
 
-Three layers, three different failure modes. GPU-aware autoscaling in 2026 is not "turn on HPA." It's composing node provisioning, gang scheduling, and application-signal autoscaling.
+Ba lớp, ba chế độ lỗi khác nhau. Tự động mở rộng nhận biết GPU năm 2026 không phải “bật HPA.” Nó là kết hợp cấp phát node, lập lịch theo nhóm, và tự động mở rộng theo tín hiệu ứng dụng.
 
 ## The Concept
 
 ### Layer 1 — node provisioning (Karpenter)
 
-Karpenter watches pending pods and provisions nodes within ~45-60 seconds (Cluster Autoscaler typically takes 90-120 seconds for GPU nodes). It picks instance types dynamically per the `NodePool` constraint — if your pod needs 8 H100s and the cluster has no matching node, Karpenter provisions one directly instead of scaling an existing group.
+Karpenter theo dõi các pod đang chờ và cấp phát các node trong ~45-60 giây (Cluster Autoscaler thường mất 90-120 giây cho các node GPU). Nó chọn các loại instance động theo ràng buộc `NodePool` — nếu pod cần 8 H100 và cụm không có node khớp, Karpenter cấp phát trực tiếp một node thay vì mở rộng một nhóm hiện có.
 
-**The consolidation trap**: Karpenter's default `consolidationPolicy: WhenEmptyOrUnderutilized` is dangerous for GPU pools. It will terminate a running GPU node to migrate pods to a cheaper right-sized instance. For inference workloads that means evicting running requests and reloading a 70B model on the new node. Loss is minutes of capacity plus request failures.
+**Bẫy hợp nhất**: `consolidationPolicy: WhenEmptyOrUnderutilized` mặc định của Karpenter nguy hiểm cho các bể GPU. Nó sẽ chấm dứt một node GPU đang chạy để di chuyển các pod tới một instance rẻ hơn có kích thước phù hợp. Với các khối lượng công việc suy luận, điều đó có nghĩa trục xuất các yêu cầu đang chạy và tải lại một mô hình 70B trên node mới. Tổn thất là nhiều phút dung lượng cộng các yêu cầu thất bại.
 
-Safe setting for GPU pools:
+Thiết lập an toàn cho các bể GPU:
 
 ```yaml
 disruption:
@@ -40,59 +40,59 @@ disruption:
   consolidateAfter: 1h
 ```
 
-Lets Karpenter consolidate truly empty nodes after an hour but never evict a running job.
+Cho phép Karpenter hợp nhất các node thực sự trống sau một giờ nhưng không bao giờ trục xuất một công việc đang chạy.
 
 ### Layer 2 — gang scheduling (KAI Scheduler)
 
-KAI Scheduler (project "Karp" then renamed) handles what default kube-scheduler does not:
+KAI Scheduler (dự án “Karp” rồi đổi tên) xử lý những gì kube-scheduler mặc định không làm:
 
-**Gang scheduling** — schedule all-or-nothing. A distributed inference pod requiring 8 GPUs either all 8 start together or none do. Without this, you get the partial-allocation trap: 7 of 8 pods start, wait indefinitely, burn money.
+**Lập lịch theo nhóm** — lập lịch tất cả hoặc không gì. Một pod suy luận phân tán cần 8 GPU hoặc cả 8 khởi động cùng nhau hoặc không cái nào khởi động. Không có điều này, bạn nhận bẫy phân bổ một phần: 7 trong 8 pod khởi động, chờ vô thời hạn, đốt tiền.
 
-**Topology awareness** — know which GPUs share NVLink, which sit on the same rack, which have InfiniBand between them. Place pods accordingly. A DeepSeek-V3 67B tensor-parallel workload must stay on one NVLink domain; KAI Scheduler respects that.
+**Nhận biết cấu trúc liên kết** — biết các GPU nào chia sẻ NVLink, các GPU nào nằm trên cùng rack, các GPU nào có InfiniBand giữa chúng. Đặt các pod tương ứng. Một khối lượng công việc song song tensor DeepSeek-V3 67B phải ở trong một miền NVLink; KAI Scheduler tôn trọng điều đó.
 
-**Hierarchical queues** — multiple teams compete for the same GPU pool with priority and quota. Team A's production pinch gets preempted by Team B's training job only if priority rules allow.
+**Các hàng đợi phân cấp** — nhiều nhóm cạnh tranh cùng bể GPU với ưu tiên và hạn ngạch. Nhu cầu sản xuất cấp bách của Nhóm A chỉ bị công việc huấn luyện của Nhóm B chiếm trước nếu các quy tắc ưu tiên cho phép.
 
-KAI is deployed alongside kube-scheduler as a secondary scheduler; you annotate workloads to use it. Ray and vLLM production-stack both integrate.
+KAI được triển khai cạnh kube-scheduler như một bộ lập lịch thứ cấp; bạn chú thích các khối lượng công việc để sử dụng nó. Ray và vLLM production-stack đều tích hợp.
 
 ### Layer 3 — application-level signals
 
-**The HPA trap**: `DCGM_FI_DEV_GPU_UTIL` is a duty-cycle metric — it measures whether the GPU was doing work at each sampling interval. 100% utilization could mean 10 concurrent requests or 100; the GPU was busy either way. Scaling on duty cycle is scaling blindly.
+**Bẫy HPA**: `DCGM_FI_DEV_GPU_UTIL` là một chỉ số chu kỳ hoạt động — nó đo liệu GPU có đang làm việc tại mỗi khoảng lấy mẫu không. Mức sử dụng 100% có thể có nghĩa 10 yêu cầu đồng thời hoặc 100; GPU bận trong cả hai trường hợp. Mở rộng theo chu kỳ hoạt động là mở rộng mù quáng.
 
-Worse, vLLM and similar engines pre-allocate KV cache memory (up to `--gpu-memory-utilization`). Memory usage stays near 90% even at one request. Memory-based HPA never scales down.
+Tệ hơn, vLLM và các engine tương tự cấp phát trước bộ nhớ đệm KV (tới `--gpu-memory-utilization`). Mức dùng bộ nhớ ở gần 90% ngay cả ở một yêu cầu. HPA dựa trên bộ nhớ không bao giờ giảm quy mô.
 
-**2026 replacement signals**:
+**Các tín hiệu thay thế năm 2026**:
 
-- Queue depth (number of requests waiting for prefill).
-- KV cache utilization (what fraction of blocks are allocated to active sequences).
-- Per-replica P99 TTFT (your SLA signal).
-- Goodput (requests meeting all SLOs per second).
+- Độ sâu hàng đợi (số yêu cầu chờ prefill).
+- Mức sử dụng bộ nhớ đệm KV (tỷ lệ các block được cấp phát cho các chuỗi hoạt động).
+- P99 TTFT theo từng bản sao (tín hiệu SLA của bạn).
+- Goodput (các yêu cầu đáp ứng mọi SLO mỗi giây).
 
-NVIDIA Dynamo Planner and llm-d Workload Variant Autoscaler consume these signals and scale replicas. They replace HPA entirely for LLM serving.
+NVIDIA Dynamo Planner và llm-d Workload Variant Autoscaler tiêu thụ các tín hiệu này và mở rộng các bản sao. Chúng thay HPA hoàn toàn cho phục vụ LLM.
 
 ### When to use what
 
-| Scale decision | Tool |
+| Quyết định mở rộng | Công cụ |
 |----------------|------|
-| Add/remove nodes | Karpenter |
-| Schedule multi-GPU jobs | KAI Scheduler |
-| Add/remove replicas | Dynamo Planner / llm-d WVA (or custom HPA on queue depth) |
-| Choose GPU type | Karpenter NodePool |
-| Preempt low-priority | KAI Scheduler queues |
+| Thêm/bỏ các node | Karpenter |
+| Lập lịch các công việc nhiều GPU | KAI Scheduler |
+| Thêm/bỏ các bản sao | Dynamo Planner / llm-d WVA (hoặc HPA tùy chỉnh trên độ sâu hàng đợi) |
+| Chọn loại GPU | Karpenter NodePool |
+| Chiếm trước ưu tiên thấp | Các hàng đợi KAI Scheduler |
 
 ### Disaggregated prefill/decode complicates everything
 
-If you run disaggregated prefill/decode (Phase 17 · 17), you have two pod classes with different scaling triggers: prefill pods scale on queue depth, decode pods scale on KV cache pressure. llm-d exposes these as separate `Services` with per-role HPA. Do not try to put a single HPA in front of both.
+Nếu bạn chạy prefill/decode tách rời (Giai đoạn 17 · 17), bạn có hai lớp pod với các tác nhân kích hoạt mở rộng khác nhau: các pod prefill mở rộng theo độ sâu hàng đợi, các pod decode mở rộng theo áp lực bộ nhớ đệm KV. llm-d cung cấp chúng như các `Services` riêng với HPA theo từng vai trò. Đừng cố đặt một HPA đơn lẻ phía trước cả hai.
 
 ### Cold start matters here too
 
-Cold-start mitigation (Phase 17 · 10) is where node provisioning time becomes user-visible. Karpenter's 45-60 second warm-up plus a 20GB model load plus engine init means a from-zero request takes 2-5 minutes. Keep a warm pool (`min_workers=1`) for SLO-critical paths, or use Modal-style checkpointing at application layer.
+Giảm thiểu khởi động nguội (Giai đoạn 17 · 10) là nơi thời gian cấp phát node trở nên nhìn thấy với người dùng. Làm nóng 45-60 giây của Karpenter cộng tải mô hình 20GB cộng khởi tạo engine có nghĩa một yêu cầu từ số không mất 2-5 phút. Giữ một bể nóng (`min_workers=1`) cho các đường trọng yếu SLO, hoặc sử dụng tạo checkpoint kiểu Modal ở lớp ứng dụng.
 
 ### Numbers you should remember
 
-- Karpenter node provisioning: ~45-60s vs Cluster Autoscaler ~90-120s (GPU nodes).
-- KAI Scheduler prevents partial-allocation waste — 7-of-8 trap.
-- `DCGM_FI_DEV_GPU_UTIL` as HPA signal: broken; use queue depth or KV utilization.
-- Karpenter `WhenEmptyOrUnderutilized`: terminates running GPU jobs. Use `WhenEmpty + consolidateAfter: 1h` for inference.
+- Cấp phát node Karpenter: ~45-60s so với Cluster Autoscaler ~90-120s (các node GPU).
+- KAI Scheduler ngăn lãng phí phân bổ một phần — bẫy 7-trong-8.
+- `DCGM_FI_DEV_GPU_UTIL` làm tín hiệu HPA: hỏng; sử dụng độ sâu hàng đợi hoặc mức sử dụng KV.
+- Karpenter `WhenEmptyOrUnderutilized`: chấm dứt các công việc GPU đang chạy. Sử dụng `WhenEmpty + consolidateAfter: 1h` cho suy luận.
 
 ```figure
 autoscaling
@@ -100,40 +100,40 @@ autoscaling
 
 ## Use It
 
-`code/main.py` simulates a three-layer autoscaler on a bursty GPU workload. Compares naive HPA (duty cycle), queue-depth HPA, and KAI-gang-scheduled scaling. Reports unmet requests, idle-GPU minutes, and a composite score.
+`code/main.py` mô phỏng một bộ tự động mở rộng ba lớp trên một khối lượng công việc GPU bùng phát. So sánh HPA ngây thơ (chu kỳ hoạt động), HPA độ sâu hàng đợi, và mở rộng được KAI lập lịch theo nhóm. Báo cáo các yêu cầu không được đáp ứng, số phút GPU nhàn rỗi, và một điểm tổng hợp.
 
 ## Ship It
 
-This lesson produces `outputs/skill-gpu-autoscaler-plan.md`. Given cluster topology, workload shape, and SLO, it designs a three-layer autoscaling plan.
+Bài này tạo ra `outputs/skill-gpu-autoscaler-plan.md`. Với cấu trúc liên kết cụm, hình dạng khối lượng công việc, và SLO, nó thiết kế một kế hoạch tự động mở rộng ba lớp.
 
 ## Exercises
 
-1. Run `code/main.py`. Under a bursty workload, how many requests does naive duty-cycle HPA drop that queue-depth HPA catches? Where does the difference come from?
-2. Design a Karpenter NodePool for a cluster serving Llama 3.3 70B FP8 on H100 SXM5. Specify `capacity-type`, `disruption.consolidationPolicy`, `consolidateAfter`, and a taint that keeps non-GPU workloads off these nodes.
-3. Your team reports that deployments are stuck in Pending because "GPUs available but pod won't schedule." Diagnose — is this Karpenter, kube-scheduler, or KAI Scheduler? Which metrics confirm?
-4. Pick a signal to autoscale disaggregated prefill pods and a different signal for decode pods. Justify both.
-5. Compute the cost of the `WhenEmptyOrUnderutilized` consolidation trap on a 24x7 production service that averages 60 request-dropping events/day at P99 TTFT > 10s.
+1. Chạy `code/main.py`. Dưới một khối lượng công việc bùng phát, HPA chu kỳ hoạt động ngây thơ bỏ bao nhiêu yêu cầu mà HPA độ sâu hàng đợi bắt được? Khác biệt đến từ đâu?
+2. Thiết kế một Karpenter NodePool cho một cụm phục vụ Llama 3.3 70B FP8 trên H100 SXM5. Chỉ rõ `capacity-type`, `disruption.consolidationPolicy`, `consolidateAfter`, và một taint giữ các khối lượng công việc không GPU khỏi các node này.
+3. Nhóm của bạn báo các triển khai mắc kẹt ở Pending vì “các GPU có sẵn nhưng pod không được lập lịch.” Chẩn đoán — đây là Karpenter, kube-scheduler, hay KAI Scheduler? Các chỉ số nào xác nhận?
+4. Chọn một tín hiệu để tự động mở rộng các pod prefill tách rời và một tín hiệu khác cho các pod decode. Giải thích cả hai.
+5. Tính chi phí bẫy hợp nhất `WhenEmptyOrUnderutilized` trên một dịch vụ sản xuất 24x7 có trung bình 60 sự kiện bỏ yêu cầu/ngày ở P99 TTFT > 10s.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Karpenter | "the node provisioner" | Kubernetes node autoscaler; sub-minute provisioning |
-| Cluster Autoscaler | "the old scaler" | Kubernetes node autoscaler predecessor; slower, group-based |
-| KAI Scheduler | "the GPU scheduler" | Secondary scheduler for gang + topology + queues |
-| Gang scheduling | "all or nothing" | Schedule N pods atomically or defer all of them |
-| Topology awareness | "rack-aware" | Place pods based on NVLink/IB/rack placement |
-| `DCGM_FI_DEV_GPU_UTIL` | "GPU utilization" | Duty-cycle metric; NOT a scaling signal for LLMs |
-| Queue depth | "waiting requests" | Correct HPA signal for prefill-bound scaling |
-| KV cache utilization | "memory pressure" | Correct HPA signal for decode-bound scaling |
-| Consolidation | "Karpenter consolidation" | Node termination to cheaper instance type |
-| `WhenEmpty + 1h` | "safe consolidation" | Policy that doesn't evict running GPU jobs |
+| Karpenter | “bộ cấp phát node” | Bộ tự động mở rộng node Kubernetes; cấp phát dưới một phút |
+| Cluster Autoscaler | “bộ mở rộng cũ” | Tiền thân bộ tự động mở rộng node Kubernetes; chậm hơn, dựa trên nhóm |
+| KAI Scheduler | “bộ lập lịch GPU” | Bộ lập lịch thứ cấp cho nhóm + cấu trúc liên kết + hàng đợi |
+| Gang scheduling (Lập lịch theo nhóm) | “tất cả hoặc không gì” | Lập lịch N pod một cách nguyên tử hoặc hoãn tất cả |
+| Topology awareness (Nhận biết cấu trúc liên kết) | “nhận biết rack” | Đặt các pod dựa trên vị trí NVLink/IB/rack |
+| `DCGM_FI_DEV_GPU_UTIL` | “mức sử dụng GPU” | Chỉ số chu kỳ hoạt động; KHÔNG phải tín hiệu mở rộng cho các LLM |
+| Queue depth (Độ sâu hàng đợi) | “các yêu cầu đang chờ” | Tín hiệu HPA đúng cho mở rộng bị giới hạn bởi prefill |
+| KV cache utilization (Mức sử dụng bộ nhớ đệm KV) | “áp lực bộ nhớ” | Tín hiệu HPA đúng cho mở rộng bị giới hạn bởi decode |
+| Consolidation (Hợp nhất) | “Hợp nhất Karpenter” | Chấm dứt node để chuyển sang loại instance rẻ hơn |
+| `WhenEmpty + 1h` | “hợp nhất an toàn” | Chính sách không trục xuất các công việc GPU đang chạy |
 
 ## Further Reading
 
-- [KAI Scheduler GitHub](https://github.com/kai-scheduler/KAI-Scheduler) — design docs and configuration examples.
-- [Karpenter Disruption Controls](https://karpenter.sh/docs/concepts/disruption/) — consolidation policy semantics and GPU-safe defaults.
-- [NVIDIA — Disaggregated LLM Inference on Kubernetes](https://developer.nvidia.com/blog/deploying-disaggregated-llm-inference-workloads-on-kubernetes/) — Dynamo Planner scaling signals.
-- [Ray docs — KAI Scheduler for RayClusters](https://docs.ray.io/en/latest/cluster/kubernetes/k8s-ecosystem/kai-scheduler.html) — Ray integration pattern.
-- [AWS EKS Compute and Autoscaling Best Practices](https://docs.aws.amazon.com/eks/latest/best-practices/aiml-compute.html) — managed-Kubernetes-specific guidance.
-- [llm-d GitHub](https://github.com/llm-d/llm-d) — Workload Variant Autoscaler design.
+- [KAI Scheduler GitHub](https://github.com/kai-scheduler/KAI-Scheduler) — các tài liệu thiết kế và ví dụ cấu hình.
+- [Karpenter Disruption Controls](https://karpenter.sh/docs/concepts/disruption/) — ngữ nghĩa chính sách hợp nhất và các mặc định an toàn GPU.
+- [NVIDIA — Disaggregated LLM Inference on Kubernetes](https://developer.nvidia.com/blog/deploying-disaggregated-llm-inference-workloads-on-kubernetes/) — các tín hiệu mở rộng Dynamo Planner.
+- [Ray docs — KAI Scheduler for RayClusters](https://docs.ray.io/en/latest/cluster/kubernetes/k8s-ecosystem/kai-scheduler.html) — mẫu tích hợp Ray.
+- [AWS EKS Compute and Autoscaling Best Practices](https://docs.aws.amazon.com/eks/latest/best-practices/aiml-compute.html) — hướng dẫn riêng cho Kubernetes được quản lý.
+- [llm-d GitHub](https://github.com/llm-d/llm-d) — thiết kế Workload Variant Autoscaler.

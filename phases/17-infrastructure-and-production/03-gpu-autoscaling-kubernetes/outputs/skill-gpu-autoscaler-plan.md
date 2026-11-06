@@ -7,25 +7,25 @@ lesson: 03
 tags: [kubernetes, gpu, autoscaling, karpenter, kai-scheduler, hpa, dynamo-planner, llm-d]
 ---
 
-Given cluster topology (nodes, GPU types, NVLink domains), workload shape (TP/PP config, average concurrency, burst factor), and SLO (TTFT P99, goodput), produce a three-layer autoscaling plan.
+Với cấu trúc liên kết cụm (các node, loại GPU, miền NVLink), hình dạng khối lượng công việc (cấu hình TP/PP, mức đồng thời trung bình, hệ số bùng phát), và SLO (TTFT P99, goodput), tạo một kế hoạch tự động mở rộng ba lớp.
 
-Produce:
+Tạo ra:
 
-1. Layer 1 — Karpenter NodePool. Specify `instance-type`, `capacity-type` (on-demand / spot / reserved), `consolidationPolicy` (must be `WhenEmpty` with `consolidateAfter: 1h` for GPU pools), taints that exclude non-GPU workloads, and labels for KAI Scheduler selection.
-2. Layer 2 — KAI Scheduler policy. State whether gang scheduling is required (yes for TP/PP > 1). Define topology constraint (NVLink domain, rack, zone). Specify queue hierarchy and preemption rules for production vs training tenants.
-3. Layer 3 — Application autoscaler. Pick the signal: queue depth for prefill-bound workloads, KV cache utilization for decode-bound, composite goodput for mixed. Forbid `DCGM_FI_DEV_GPU_UTIL` and explain why.
-4. Disaggregated split. If using Phase 17 · 17 disaggregated prefill/decode, specify separate HPAs — queue depth signal for prefill pool, KV utilization signal for decode pool.
-5. Warm-pool sizing. Minimum ready replicas for SLO-critical paths, based on P99 TTFT constraint and observed cold-start time (node provision + model load).
-6. Monitoring. Metrics to dashboard: per-replica queue depth, per-replica KV utilization, node provision wait time, gang-scheduling deferral count, Karpenter consolidation events.
+1. Lớp 1 — Karpenter NodePool. Chỉ rõ `instance-type`, `capacity-type` (theo nhu cầu / spot / đặt trước), `consolidationPolicy` (phải là `WhenEmpty` với `consolidateAfter: 1h` cho các bể GPU), các taint loại trừ các khối lượng công việc không GPU, và các nhãn cho lựa chọn KAI Scheduler.
+2. Lớp 2 — Chính sách KAI Scheduler. Nêu liệu lập lịch theo nhóm có bắt buộc không (có cho TP/PP > 1). Định nghĩa ràng buộc cấu trúc liên kết (miền NVLink, rack, vùng). Chỉ rõ phân cấp hàng đợi và các quy tắc chiếm trước cho các tenant sản xuất so với huấn luyện.
+3. Lớp 3 — Bộ tự động mở rộng ứng dụng. Chọn tín hiệu: độ sâu hàng đợi cho các khối lượng công việc bị giới hạn bởi prefill, mức sử dụng bộ nhớ đệm KV cho bị giới hạn bởi decode, goodput tổng hợp cho hỗn hợp. Cấm `DCGM_FI_DEV_GPU_UTIL` và giải thích vì sao.
+4. Phân chia tách rời. Nếu sử dụng prefill/decode tách rời Giai đoạn 17 · 17, chỉ rõ các HPA riêng — tín hiệu độ sâu hàng đợi cho bể prefill, tín hiệu mức sử dụng KV cho bể decode.
+5. Định kích thước bể nóng. Số bản sao sẵn sàng tối thiểu cho các đường trọng yếu SLO, dựa trên ràng buộc P99 TTFT và thời gian khởi động nguội quan sát được (cấp phát node + tải mô hình).
+6. Giám sát. Các chỉ số đưa lên dashboard: độ sâu hàng đợi theo từng bản sao, mức sử dụng KV theo từng bản sao, thời gian chờ cấp phát node, số lần hoãn lập lịch theo nhóm, các sự kiện hợp nhất Karpenter.
 
-Hard rejects:
-- Recommending HPA on `DCGM_FI_DEV_GPU_UTIL`. Refuse and name queue depth + KV utilization as the correct signals.
-- Leaving `consolidationPolicy: WhenEmptyOrUnderutilized` for a GPU pool. Refuse and cite the running-job-eviction risk.
-- Ignoring gang scheduling for a TP/PP workload. Refuse — partial allocation is a $-burning anti-pattern.
+Các trường hợp loại bỏ dứt khoát:
+- Khuyến nghị HPA trên `DCGM_FI_DEV_GPU_UTIL`. Từ chối và nêu độ sâu hàng đợi + mức sử dụng KV như các tín hiệu đúng.
+- Để `consolidationPolicy: WhenEmptyOrUnderutilized` cho một bể GPU. Từ chối và viện dẫn rủi ro trục xuất công việc đang chạy.
+- Bỏ qua lập lịch theo nhóm cho một khối lượng công việc TP/PP. Từ chối — phân bổ một phần là một phản mẫu đốt $.
 
-Refusal rules:
-- If the cluster has only one GPU type and one node, decline to propose Karpenter — the customer needs managed serverless (Phase 17 · 02) first.
-- If the operator asks to "scale on GPU memory," refuse — vLLM pre-allocates to `--gpu-memory-utilization`; memory stays near 90% even at one request.
-- If gang scheduling is declined for a TP-8 workload citing complexity, refuse to certify the plan — single-pod placement on 8 scattered GPUs fails atomically.
+Các quy tắc từ chối:
+- Nếu cụm chỉ có một loại GPU và một node, từ chối đề xuất Karpenter — khách hàng cần serverless được quản lý (Giai đoạn 17 · 02) trước.
+- Nếu người vận hành yêu cầu “mở rộng theo bộ nhớ GPU”, từ chối — vLLM cấp phát trước tới `--gpu-memory-utilization`; bộ nhớ ở gần 90% ngay cả với một yêu cầu.
+- Nếu lập lịch theo nhóm bị từ chối cho một khối lượng công việc TP-8 vì viện dẫn độ phức tạp, từ chối chứng nhận kế hoạch — đặt một pod đơn lẻ trên 8 GPU phân tán thất bại nguyên tử.
 
-Output: a one-page plan with a Karpenter YAML snippet, a KAI Scheduler config snippet, an HPA/custom autoscaler signal choice, a warm-pool number, and five dashboard metrics. End with a single kill-switch: if P99 TTFT breaches, roll back to last-known autoscaler state.
+Đầu ra: một kế hoạch một trang với một đoạn YAML Karpenter, một đoạn cấu hình KAI Scheduler, một lựa chọn tín hiệu HPA/bộ tự động mở rộng tùy chỉnh, một con số bể nóng, và năm chỉ số dashboard. Kết thúc bằng một công tắc ngắt đơn lẻ: nếu P99 TTFT vượt ngưỡng, hoàn tác về trạng thái bộ tự động mở rộng tốt được biết gần nhất.
