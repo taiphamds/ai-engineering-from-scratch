@@ -9,77 +9,77 @@ tags: [prompt-engineering, patterns, llm, temperature, cross-model, few-shot, ch
 
 # Prompt Pattern Selection Guide
 
-When building an LLM-powered feature, choose your prompt pattern before writing the prompt. The pattern determines the structure. The content fills it in.
+Khi xây dựng một tính năng dùng LLM, chọn mẫu prompt trước khi viết prompt. Mẫu quyết định cấu trúc. Nội dung lấp vào nó.
 
 ## Pattern Decision Matrix
 
-| Task Type | Primary Pattern | Secondary Pattern | Temperature | Few-Shot Needed? |
+| Loại tác vụ | Mẫu chính | Mẫu phụ | Temperature | Cần Few-Shot? |
 |-----------|----------------|-------------------|-------------|-----------------|
-| Data extraction | Template Fill | Few-Shot | 0.0 | Yes (2-3 examples) |
-| Classification | Few-Shot | Guardrail | 0.0 | Yes (3-5 examples) |
-| Summarization | Persona + Template | Audience Adapt | 0.3 | No |
-| Code generation | Persona | Chain-of-Thought | 0.0 | Optional |
-| Creative writing | Persona | Critique | 0.7-1.0 | No |
-| Multi-step reasoning | Chain-of-Thought | Decomposition | 0.3 | Optional |
-| Question answering | Persona + Guardrail | Boundary | 0.3 | No |
-| Prompt generation | Meta-Prompt | Critique | 0.7 | Yes (1-2 examples) |
-| Content moderation | Guardrail + Boundary | Few-Shot | 0.0 | Yes (5+ examples) |
-| Translation/adaptation | Audience Adapt | Few-Shot | 0.3 | Yes (2-3 examples) |
+| Trích xuất dữ liệu | Điền khuôn mẫu | Few-Shot | 0.0 | Có (2-3 ví dụ) |
+| Phân loại | Few-Shot | Rào chắn | 0.0 | Có (3-5 ví dụ) |
+| Tóm tắt | Nhân vật + Khuôn mẫu | Điều chỉnh theo đối tượng đọc | 0.3 | Không |
+| Sinh mã | Nhân vật | Chain-of-Thought | 0.0 | Tùy chọn |
+| Viết sáng tạo | Nhân vật | Phê bình | 0.7-1.0 | Không |
+| Suy luận nhiều bước | Chain-of-Thought | Phân rã | 0.3 | Tùy chọn |
+| Trả lời câu hỏi | Nhân vật + Rào chắn | Ranh giới | 0.3 | Không |
+| Sinh prompt | Meta-Prompt | Phê bình | 0.7 | Có (1-2 ví dụ) |
+| Kiểm duyệt nội dung | Rào chắn + Ranh giới | Few-Shot | 0.0 | Có (5+ ví dụ) |
+| Dịch/điều chỉnh | Điều chỉnh theo đối tượng đọc | Few-Shot | 0.3 | Có (2-3 ví dụ) |
 
 ## When to Use Each Pattern
 
-**Persona Pattern**: use for every prompt as a baseline. The only question is how specific to make the role. For generic tasks, a broad role suffices. For domain-specific tasks, the role should name the domain, seniority level, and context.
+**Mẫu nhân vật**: dùng cho mọi prompt làm baseline. Câu hỏi duy nhất là vai trò nên cụ thể đến đâu. Với tác vụ tổng quát, một vai trò rộng là đủ. Với tác vụ chuyên biệt miền, vai trò nên nêu tên miền, mức thâm niên và ngữ cảnh.
 
-**Few-Shot Pattern**: use when output format matters more than content. If the model needs to produce a specific JSON shape, CSV format, or classification label, examples are more effective than instructions. Rule of thumb: 2-3 examples for simple formats, 5+ for complex or ambiguous formats.
+**Mẫu Few-Shot**: dùng khi định dạng đầu ra quan trọng hơn nội dung. Nếu mô hình cần tạo một hình dạng JSON, định dạng CSV hoặc nhãn phân loại cụ thể, ví dụ hiệu quả hơn chỉ dẫn. Quy tắc kinh nghiệm: 2-3 ví dụ cho định dạng đơn giản, 5+ cho định dạng phức tạp hoặc mơ hồ.
 
-**Chain-of-Thought Pattern**: use for math, logic, multi-step analysis, and any task where the model needs to "show its work." Improves accuracy by 10-40% on reasoning tasks (Wei et al., 2022). Do NOT use for simple factual lookups or extraction -- it wastes tokens.
+**Mẫu Chain-of-Thought**: dùng cho toán, logic, phân tích nhiều bước và bất kỳ tác vụ nào mà mô hình cần "trình bày cách làm." Cải thiện độ chính xác 10-40% trên các tác vụ suy luận (Wei và cộng sự, 2022). KHÔNG dùng cho tra cứu sự kiện đơn giản hoặc trích xuất -- nó lãng phí token.
 
-**Template Fill Pattern**: use for structured extraction where every output must have the same shape. Works best with temperature=0.0 and explicit "N/A" handling for missing fields.
+**Mẫu điền khuôn mẫu**: dùng cho trích xuất có cấu trúc mà mọi đầu ra phải có cùng hình dạng. Hoạt động tốt nhất với temperature=0.0 và xử lý "N/A" rõ ràng cho các trường thiếu.
 
-**Critique Pattern**: use when quality matters more than speed. The model generates, critiques, and improves. Roughly doubles token cost but significantly improves accuracy and completeness. Best for high-stakes outputs (reports, recommendations, public-facing content).
+**Mẫu phê bình**: dùng khi chất lượng quan trọng hơn tốc độ. Mô hình tạo, phê bình và cải thiện. Tăng khoảng gấp đôi chi phí token nhưng cải thiện đáng kể độ chính xác và đầy đủ. Tốt nhất cho đầu ra hệ trọng (báo cáo, khuyến nghị, nội dung công khai).
 
-**Guardrail Pattern**: use for any user-facing system. Always include: scope boundaries, refusal behavior for out-of-scope requests, and explicit "I don't know" handling. Combine with input validation on the application side.
+**Mẫu rào chắn**: dùng cho bất kỳ hệ thống nào tiếp xúc với người dùng. Luôn bao gồm: ranh giới phạm vi, hành vi từ chối cho yêu cầu ngoài phạm vi và xử lý "Tôi không biết" rõ ràng. Kết hợp với xác thực đầu vào ở phía ứng dụng.
 
-**Meta-Prompt Pattern**: use to generate prompts for new tasks. Instead of writing a prompt from scratch, describe the task and let the model write the prompt. Then test and iterate. Saves time on initial prompt development.
+**Mẫu Meta-Prompt**: dùng để tạo prompt cho tác vụ mới. Thay vì viết prompt từ đầu, mô tả tác vụ và để mô hình viết prompt. Sau đó kiểm thử và lặp lại. Tiết kiệm thời gian phát triển prompt ban đầu.
 
-**Decomposition Pattern**: use for complex problems that benefit from divide-and-conquer. The model breaks the problem into parts, solves each, and combines. Most effective for tasks with 3-7 sub-problems.
+**Mẫu phân rã**: dùng cho các bài toán phức tạp hưởng lợi từ chia để trị. Mô hình chia bài toán thành các phần, giải từng phần và kết hợp. Hiệu quả nhất với tác vụ có 3-7 bài toán con.
 
-**Audience Adaptation Pattern**: use when the same content needs to serve different audiences. Specify the audience explicitly -- do not rely on the model guessing from context.
+**Mẫu điều chỉnh theo đối tượng đọc**: dùng khi cùng nội dung cần phục vụ các đối tượng đọc khác nhau. Chỉ định đối tượng đọc rõ ràng -- không dựa vào việc mô hình đoán từ ngữ cảnh.
 
-**Boundary Pattern**: use for production systems that must NEVER answer certain types of questions. Stronger than guardrails because it defines a hard scope with an exact refusal message. Essential for compliance-sensitive domains.
+**Mẫu ranh giới**: dùng cho hệ thống sản xuất KHÔNG BAO GIỜ được trả lời một số loại câu hỏi. Mạnh hơn rào chắn vì nó định nghĩa phạm vi cứng với thông điệp từ chối chính xác. Thiết yếu cho các miền nhạy cảm về tuân thủ.
 
 ## Cross-Model Compatibility
 
-Patterns ranked by how consistently they work across GPT-4o, Claude 3.5 Sonnet, Gemini 1.5 Pro, and Llama 3:
+Các mẫu được xếp hạng theo mức nhất quán khi hoạt động trên GPT-4o, Claude 3.5 Sonnet, Gemini 1.5 Pro và Llama 3:
 
-| Pattern | Cross-Model Consistency | Notes |
+| Mẫu | Tính nhất quán xuyên mô hình | Ghi chú |
 |---------|------------------------|-------|
-| Few-Shot | Very high | Examples transfer well across all models |
-| Template Fill | Very high | Explicit structure leaves little room for divergence |
-| Chain-of-Thought | High | All major models support "think step by step" |
-| Persona | High | Works everywhere but different models respond to different role specificity levels |
-| Guardrail | Moderate | Claude follows guardrails most strictly; GPT-4o sometimes drifts in long conversations |
-| Critique | Moderate | Quality of self-critique varies significantly by model |
-| Meta-Prompt | Moderate | GPT-4o and Claude produce different prompt styles |
-| Boundary | Low-Moderate | Refusal behavior varies; test per model |
+| Few-Shot | Rất cao | Ví dụ chuyển giao tốt trên mọi mô hình |
+| Điền khuôn mẫu | Rất cao | Cấu trúc rõ ràng để lại ít chỗ cho sai lệch |
+| Chain-of-Thought | Cao | Mọi mô hình lớn hỗ trợ "suy nghĩ từng bước" |
+| Nhân vật | Cao | Hoạt động ở mọi nơi nhưng các mô hình khác nhau phản hồi với các mức cụ thể vai trò khác nhau |
+| Rào chắn | Trung bình | Claude tuân theo rào chắn nghiêm ngặt nhất; GPT-4o đôi khi lệch trong hội thoại dài |
+| Phê bình | Trung bình | Chất lượng tự phê bình khác nhau đáng kể theo mô hình |
+| Meta-Prompt | Trung bình | GPT-4o và Claude tạo các phong cách prompt khác nhau |
+| Ranh giới | Thấp-Trung bình | Hành vi từ chối khác nhau; kiểm thử theo mô hình |
 
 ## Common Mistakes
 
-1. **Using Chain-of-Thought for everything**: CoT adds tokens and latency. Only use it when reasoning steps are needed.
-2. **Too many constraints**: more than 5-7 constraints and the model starts dropping some. Prioritize the 3 most important.
-3. **Contradictory persona + constraints**: "You are a creative writer" + "Never use metaphors" confuses the model.
-4. **No temperature specification**: leaving temperature at default (usually 1.0) when you need deterministic output.
-5. **Copy-pasting prompts across models**: always test. A prompt tuned for GPT-4o may underperform on Claude and vice versa.
-6. **Ignoring system message**: putting everything in the user message instead of using the system message for persistent rules.
-7. **Over-relying on negative constraints**: "Do NOT do X, Y, Z, A, B, C" is less effective than "ONLY do W." Positive framing gives the model a clear target.
+1. **Dùng Chain-of-Thought cho mọi thứ**: CoT thêm token và độ trễ. Chỉ dùng khi cần các bước suy luận.
+2. **Quá nhiều ràng buộc**: hơn 5-7 ràng buộc và mô hình bắt đầu bỏ một số. Ưu tiên 3 ràng buộc quan trọng nhất.
+3. **Nhân vật + ràng buộc mâu thuẫn**: "Bạn là nhà văn sáng tạo" + "Không bao giờ dùng ẩn dụ" khiến mô hình bối rối.
+4. **Không chỉ định temperature**: để temperature mặc định (thường là 1.0) khi bạn cần đầu ra tất định.
+5. **Sao chép và dán prompt giữa các mô hình**: luôn kiểm thử. Một prompt được tinh chỉnh cho GPT-4o có thể hoạt động kém trên Claude và ngược lại.
+6. **Bỏ qua thông điệp hệ thống**: đặt mọi thứ trong thông điệp người dùng thay vì dùng thông điệp hệ thống cho các quy tắc lâu dài.
+7. **Dựa quá nhiều vào ràng buộc phủ định**: "KHÔNG làm X, Y, Z, A, B, C" kém hiệu quả hơn "CHỈ làm W." Cách diễn đạt khẳng định cho mô hình một mục tiêu rõ ràng.
 
 ## Reliability Targets
 
-| Use Case | Pattern Combination | Expected Accuracy | Token Cost |
+| Trường hợp sử dụng | Tổ hợp mẫu | Độ chính xác kỳ vọng | Chi phí token |
 |----------|-------------------|-------------------|------------|
-| Production extraction | Template + Few-Shot | 95%+ | Low (500-1K) |
-| User-facing Q&A | Persona + Guardrail + Boundary | 90%+ | Medium (1-2K) |
-| Code generation | Persona + Chain-of-Thought | 85%+ | Medium (1-3K) |
-| Content generation | Persona + Critique | 90%+ quality | High (2-4K, double pass) |
-| Classification | Few-Shot + Guardrail | 95%+ | Low (300-800) |
-| Complex analysis | Decomposition + Chain-of-Thought | 85%+ | High (3-5K) |
+| Trích xuất trong sản xuất | Khuôn mẫu + Few-Shot | 95%+ | Thấp (500-1K) |
+| Hỏi đáp tiếp xúc với người dùng | Nhân vật + Rào chắn + Ranh giới | 90%+ | Trung bình (1-2K) |
+| Sinh mã | Nhân vật + Chain-of-Thought | 85%+ | Trung bình (1-3K) |
+| Sinh nội dung | Nhân vật + Phê bình | Chất lượng 90%+ | Cao (2-4K, hai lượt) |
+| Phân loại | Few-Shot + Rào chắn | 95%+ | Thấp (300-800) |
+| Phân tích phức tạp | Phân rã + Chain-of-Thought | 85%+ | Cao (3-5K) |
