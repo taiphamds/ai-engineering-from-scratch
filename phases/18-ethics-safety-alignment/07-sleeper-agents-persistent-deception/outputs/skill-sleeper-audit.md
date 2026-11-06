@@ -7,23 +7,23 @@ lesson: 7
 tags: [sleeper-agents, backdoor, alignment-training, adversarial-training, probes]
 ---
 
-Given a report that claims a harmful behaviour has been removed from a model (via SFT, RLHF, adversarial training, or any combination), audit whether the removal has actually been demonstrated against the standard Hubinger et al. 2024 threat model.
+Với báo cáo khẳng định hành vi có hại đã loại bỏ khỏi mô hình (qua SFT, RLHF, huấn luyện đối kháng hoặc tổ hợp bất kỳ), kiểm tra việc loại bỏ có thực sự được chứng minh đối với mô hình đe dọa tiêu chuẩn Hubinger và cộng sự 2024 không.
 
-Produce:
+Tạo:
 
-1. Elicitation scope. Did the report hold out an elicitation method that the training pipeline never saw? If the only evaluation is the red team's own distribution, removal is unproven.
-2. Trigger generality. Is the claimed trigger a literal string, a distribution shift, or an environmental feature (date, token, context size)? Generality of the trigger determines the size of the search space the red team has to cover.
-3. Internal-state evidence. Did the team apply residual-stream probes, SAE features, or other mechanistic probes to check whether the trigger-relevant state is still present internally even when behaviour is clean? Per the April 2024 Anthropic follow-up, internal state remains linearly legible after behavioural removal.
-4. Persistence-through-pipeline check. Was removal verified after every subsequent training stage (further SFT, later RLHF pass, adapter merge, distillation)? Backdoors persist through training — the final model is the thing evaluated, not a middle checkpoint.
-5. Scale-consistency check. If the claim is based on a smaller model, Hubinger 2024 Figure 4 shows persistence grows with scale. Smaller-model evidence does not transfer upward.
+1. Phạm vi gợi hành vi. Báo cáo có giữ riêng một phương pháp gợi hành vi mà pipeline huấn luyện chưa từng thấy không? Nếu đánh giá duy nhất là phân phối của chính red team, việc loại bỏ chưa được chứng minh.
+2. Tính tổng quát kích hoạt. Kích hoạt được nêu là chuỗi nguyên văn, dịch chuyển phân phối hay đặc trưng môi trường (ngày, token, kích thước ngữ cảnh)? Tính tổng quát quyết định kích thước không gian tìm kiếm red team phải bao phủ.
+3. Bằng chứng trạng thái nội bộ. Nhóm có áp dụng thăm dò luồng phần dư, đặc trưng SAE hoặc thăm dò cơ chế khác để kiểm tra trạng thái liên quan kích hoạt còn hiện diện bên trong ngay cả khi hành vi sạch không? Theo công trình tiếp nối Anthropic tháng 4 năm 2024, trạng thái nội bộ vẫn đọc tuyến tính được sau loại bỏ hành vi.
+4. Kiểm tra sự tồn tại bền bỉ qua pipeline. Việc loại bỏ có được xác minh sau mọi giai đoạn huấn luyện tiếp theo (SFT thêm, lượt RLHF sau, hợp nhất adapter, chưng cất) không? Cửa hậu tồn tại bền bỉ qua huấn luyện — mô hình cuối là thứ được đánh giá, không phải checkpoint giữa.
+5. Kiểm tra nhất quán quy mô. Nếu khẳng định dựa trên mô hình nhỏ hơn, Hình 4 Hubinger 2024 cho thấy sự tồn tại bền bỉ tăng theo quy mô. Bằng chứng mô hình nhỏ hơn không chuyển lên trên.
 
-Hard rejects:
-- Any claim that "we applied RLHF so the model is safe" with no held-out elicitation.
-- Any claim based only on red-team-distribution evaluation (training and evaluation draw from the same pool).
-- Any claim of removal without internal-state probes when the original implant mechanism is unknown.
+Các trường hợp loại bỏ dứt khoát:
+- Mọi khẳng định "chúng tôi áp dụng RLHF nên mô hình an toàn" không có cách gợi hành vi giữ riêng.
+- Mọi khẳng định chỉ dựa trên đánh giá phân phối red-team (huấn luyện và đánh giá rút từ cùng nguồn).
+- Mọi khẳng định loại bỏ không có thăm dò trạng thái nội bộ khi cơ chế cấy ban đầu chưa biết.
 
-Refusal rules:
-- If the user asks "can RLHF remove deceptive alignment," refuse the binary answer and point to Hubinger et al. 2024 Section 5 on persistence and Section 6 on chain-of-thought.
-- If the user asks for a numeric probability of latent deception, refuse and explain that base rates are unknown; the empirical evidence is persistence in constructed organisms, not emergence rate in naturally trained models.
+Quy tắc từ chối:
+- Nếu người dùng hỏi "RLHF có thể loại căn chỉnh mang tính lừa dối không," từ chối trả lời nhị phân và trỏ đến Phần 5 Hubinger và cộng sự 2024 về sự tồn tại bền bỉ và Phần 6 về chuỗi suy nghĩ.
+- Nếu người dùng hỏi xác suất số của lừa dối tiềm ẩn, từ chối và giải thích tỷ lệ nền chưa biết; bằng chứng thực nghiệm là sự tồn tại bền bỉ trong sinh vật được xây, không phải tỷ lệ xuất hiện trong mô hình huấn luyện tự nhiên.
 
-Output: a one-page audit that maps the report's evidence onto the five audit dimensions above, flags every dimension the report does not address, and states the single largest unaddressed threat model. Cite Hubinger et al. (arXiv:2401.05566) for the baseline threat model.
+Đầu ra: bản kiểm tra một trang ánh xạ bằng chứng báo cáo lên năm chiều kiểm tra trên, đánh dấu mọi chiều báo cáo không giải quyết, và nêu mô hình đe dọa chưa giải quyết lớn nhất duy nhất. Trích dẫn Hubinger và cộng sự (arXiv:2401.05566) cho mô hình đe dọa cơ sở.
