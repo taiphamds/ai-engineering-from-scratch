@@ -1,6 +1,6 @@
 # Automated Alignment Research (Anthropic AAR)
 
-> Anthropic ran parallel teams of Claude Opus 4.6 Autonomous Alignment Researchers in independent sandboxes, coordinating via a shared forum whose logs live outside any sandbox (so agents cannot delete their own records). On the weak-to-strong training problem, the AARs outperformed human researchers. Anthropic's own summary flags that prescribed workflows often constrain AAR flexibility and degrade performance. Automating alignment research is the compression step that compresses the timeline to the exact misalignment risks the RSP is meant to detect.
+> Anthropic chạy các nhóm song song gồm các Nhà nghiên cứu căn chỉnh tự chủ Claude Opus 4.6 trong các sandbox độc lập, phối hợp qua một diễn đàn dùng chung có các log nằm ngoài mọi sandbox (để các agent không thể xóa các bản ghi của chính chúng). Trên bài toán huấn luyện yếu đến mạnh, các AAR vượt các nhà nghiên cứu con người. Chính bản tóm tắt của Anthropic gắn cờ rằng các workflow được quy định thường hạn chế tính linh hoạt AAR và làm suy giảm hiệu năng. Tự động hóa nghiên cứu căn chỉnh là bước nén nén thời gian đến chính các rủi ro lệch căn chỉnh mà RSP nhằm phát hiện.
 
 **Type:** Learn
 **Languages:** Python (stdlib, parallel-research-forum simulator)
@@ -9,46 +9,46 @@
 
 ## The Problem
 
-Alignment research is expensive in human-researcher time. Problems like scalable oversight, reward specification, or weak-to-strong training require experiments that take weeks per iteration. As frontier capabilities advance, the alignment workload grows faster than the supply of qualified researchers.
+Nghiên cứu căn chỉnh tốn kém về thời gian nhà nghiên cứu con người. Các bài toán như giám sát có thể mở rộng, đặc tả phần thưởng hoặc huấn luyện yếu đến mạnh yêu cầu các thí nghiệm mất hàng tuần cho mỗi lần lặp. Khi các năng lực tiên tiến nhất phát triển, khối lượng công việc căn chỉnh tăng nhanh hơn nguồn cung các nhà nghiên cứu đủ trình độ.
 
-Automated Alignment Research (AAR) asks whether the same frontier models whose capability is outrunning alignment can contribute to closing the gap. Anthropic's 2026 report on an AAR-run weak-to-strong-training study (alignment.anthropic.com/2026/automated-w2s-researcher/) is one of the first public results from a deployed system of this class.
+Nghiên cứu căn chỉnh tự động (AAR) hỏi liệu cùng các mô hình tiên tiến nhất có năng lực đang vượt căn chỉnh có thể góp phần thu hẹp khoảng cách không. Báo cáo năm 2026 của Anthropic về một nghiên cứu huấn luyện yếu đến mạnh do AAR thực hiện (alignment.anthropic.com/2026/automated-w2s-researcher/) là một trong các kết quả công khai đầu tiên từ một hệ thống đã triển khai thuộc lớp này.
 
-The result is genuinely positive: AARs solved a research problem better than the human baseline. The result also concentrates, in a single system, every concern this phase has developed. If alignment research can be automated, so can the parts that compromise safeguards. The RSP's thresholds for AI R&D capability are written with this loop in mind.
+Kết quả thực sự tích cực: các AAR giải một bài toán nghiên cứu tốt hơn đường cơ sở con người. Kết quả cũng tập trung, trong một hệ thống duy nhất, mọi mối quan tâm mà giai đoạn này đã phát triển. Nếu nghiên cứu căn chỉnh có thể được tự động hóa, thì các phần làm tổn hại các biện pháp bảo vệ cũng có thể. Các ngưỡng năng lực R&D AI của RSP được viết với vòng lặp này trong tâm trí.
 
 ## The Concept
 
 ### The architecture (as publicly described)
 
-- **Parallel agents.** Multiple Claude Opus 4.6 instances run as AARs, each in an independent sandbox. Sandboxes limit filesystem, network, and process surface.
-- **Shared forum.** Findings are published to a shared forum whose storage backend sits outside every sandbox. Agents can read the forum; agents cannot delete or edit forum records from within their own sandbox.
-- **Task allocation.** A human-designed task queue assigns research problems to AARs. AARs propose decompositions, run experiments, write up findings.
-- **Weak-to-strong training focus.** The published study addressed weak-to-strong training — using a weaker supervisor model to train a stronger student model. AARs outperformed human researchers on this task.
+- **Các agent song song.** Nhiều thể hiện Claude Opus 4.6 chạy như các AAR, mỗi thể hiện trong một sandbox độc lập. Các sandbox giới hạn bề mặt hệ thống file, mạng và tiến trình.
+- **Diễn đàn dùng chung.** Các phát hiện được công bố lên một diễn đàn dùng chung có backend lưu trữ nằm ngoài mọi sandbox. Các agent có thể đọc diễn đàn; các agent không thể xóa hoặc chỉnh sửa các bản ghi diễn đàn từ bên trong sandbox của chính chúng.
+- **Phân bổ tác vụ.** Một hàng đợi tác vụ do con người thiết kế giao các bài toán nghiên cứu cho các AAR. Các AAR đề xuất các phép phân rã, chạy các thí nghiệm, viết các phát hiện.
+- **Trọng tâm huấn luyện yếu đến mạnh.** Nghiên cứu được công bố giải quyết huấn luyện yếu đến mạnh — sử dụng một mô hình giám sát yếu hơn để huấn luyện một mô hình học sinh mạnh hơn. Các AAR vượt các nhà nghiên cứu con người trên tác vụ này.
 
 ### Why the out-of-sandbox log matters
 
-The log-integrity property is the difference between a controlled experiment and a potentially compromised one. If AARs could edit their own logs, they could cover up failed or dubious experiments. Anthropic flags this directly: the property is a necessary condition for trusting the research output, and it is non-trivial to verify.
+Thuộc tính toàn vẹn log là khác biệt giữa một thí nghiệm được kiểm soát và một thí nghiệm có thể bị xâm phạm. Nếu các AAR có thể chỉnh sửa các log riêng, chúng có thể che các thí nghiệm thất bại hoặc đáng ngờ. Anthropic gắn cờ trực tiếp điều này: thuộc tính là một điều kiện cần để tin đầu ra nghiên cứu, và không tầm thường để xác minh.
 
-The analog in infrastructure terms is append-only logs with write-through to external storage (e.g. S3 object-lock, immutable Datadog logs). The agent has no credential to modify past records. This is the same pattern that 2026 corporate security teams use to make ransomware-resistant audit trails.
+Tương đương theo thuật ngữ hạ tầng là các log chỉ thêm với ghi xuyên đến lưu trữ bên ngoài (ví dụ khóa đối tượng S3, các log Datadog bất biến). Agent không có thông tin xác thực để sửa đổi các bản ghi quá khứ. Đây là cùng mẫu mà các nhóm bảo mật doanh nghiệp năm 2026 sử dụng để tạo các dấu vết kiểm toán chống ransomware.
 
 ### The prescribed-workflow tradeoff
 
-Anthropic's report notes that prescribed workflows often constrain AAR flexibility and degrade performance. In other words: if the human designer writes the research plan step-by-step, AARs do worse than if given high-level goals and freedom to decompose. This is consistent with results across agentic research (LangGraph, Microsoft's Agent Framework) — overspecified scaffolds hurt capable agents.
+Báo cáo của Anthropic lưu ý rằng các workflow được quy định thường hạn chế tính linh hoạt AAR và làm suy giảm hiệu năng. Nói cách khác: nếu người thiết kế con người viết kế hoạch nghiên cứu từng bước, các AAR làm tệ hơn so với được cho các mục tiêu cấp cao và tự do phân rã. Điều này nhất quán với các kết quả xuyên nghiên cứu agentic (LangGraph, Agent Framework của Microsoft) — các khung được đặc tả quá mức gây hại các agent có năng lực.
 
-The safety implication is subtle. The flexibility that improves AAR performance is also the flexibility that allows unsanctioned decomposition, novel tool use, and goal-drift. The tradeoff is a design-space decision: how much flexibility buys enough capability to beat humans, without handing the agent room to generalize goals off-distribution?
+Hệ quả an toàn tinh tế. Tính linh hoạt cải thiện hiệu năng AAR cũng là tính linh hoạt cho phép phân rã không được cho phép, sử dụng công cụ mới và trôi dạt mục tiêu. Đánh đổi là một quyết định không gian thiết kế: bao nhiêu linh hoạt mua đủ năng lực để thắng con người, mà không cho agent không gian khái quát hóa các mục tiêu ra ngoài phân phối?
 
 ### The compression risk
 
-RSP v3.0 (Lesson 19) introduces an AI R&D capability threshold: the ability to fully automate the AI R&D pipeline at competitive cost vs human + AI tools. DeepMind's FSF v3 includes an analogous ML R&D autonomy level. Both frameworks treat this threshold as the trigger for elevated controls.
+RSP v3.0 (Bài 19) giới thiệu một ngưỡng năng lực R&D AI: khả năng tự động hóa hoàn toàn pipeline R&D AI với chi phí cạnh tranh so với con người + các công cụ AI. FSF v3 của DeepMind bao gồm một mức tự chủ R&D ML tương tự. Cả hai framework coi ngưỡng này như kích hoạt các biện pháp kiểm soát nâng cao.
 
-AAR is one step short of the threshold: it automates part of the pipeline (alignment research on specific, well-scoped tasks) but not the end-to-end capability development loop. The timeline question is how fast the gap closes.
+AAR còn cách ngưỡng một bước: nó tự động hóa một phần pipeline (nghiên cứu căn chỉnh trên các tác vụ cụ thể, có phạm vi rõ) nhưng không phải vòng lặp phát triển năng lực từ đầu đến cuối. Câu hỏi thời gian là khoảng cách khép nhanh đến đâu.
 
-Compressed timelines are the compounding-failure concern. If alignment research and capability research compound at similar rates, the misalignment risk surface grows at least as fast as capability. If capability compounds faster (the historical trend), the gap widens. This is the argument for AAR being a qualified good: each additional alignment result reduces the gap if and only if the research process is trustworthy.
+Các mốc thời gian bị nén là mối quan tâm thất bại tích lũy. Nếu nghiên cứu căn chỉnh và nghiên cứu năng lực tích lũy ở các tốc độ tương tự, bề mặt rủi ro lệch căn chỉnh tăng ít nhất nhanh bằng năng lực. Nếu năng lực tích lũy nhanh hơn (xu hướng lịch sử), khoảng cách mở rộng. Đây là lập luận cho AAR là một điều tốt có điều kiện: mỗi kết quả căn chỉnh bổ sung giảm khoảng cách khi và chỉ khi quá trình nghiên cứu đáng tin cậy.
 
 ### What AAR does not replace
 
-Human researchers set the task queue, review results, and hold the constitutional authority. The AARs accelerate the middle of the pipeline, not the ends. Anthropic's published outputs include both AAR contributions and human-researcher judgement on what to publish, what to retract, and what to refine.
+Các nhà nghiên cứu con người đặt hàng đợi tác vụ, đánh giá các kết quả và nắm thẩm quyền hiến định. Các AAR tăng tốc phần giữa pipeline, không phải các đầu. Các đầu ra được công bố của Anthropic bao gồm cả các đóng góp AAR lẫn phán đoán nhà nghiên cứu con người về điều gì công bố, điều gì rút lại và điều gì tinh chỉnh.
 
-This matches the propose-then-commit pattern from Lesson 15 applied to research itself: AARs propose; humans commit.
+Điều này khớp mẫu đề xuất rồi cam kết từ Bài 15 được áp dụng cho chính nghiên cứu: các AAR đề xuất; con người cam kết.
 
 ```figure
 aar-forum
@@ -56,47 +56,47 @@ aar-forum
 
 ## Use It
 
-`code/main.py` simulates a multi-AAR research forum. Three independent "research agents" run in parallel, posting findings to an append-only forum with optional tamper attempts.
+`code/main.py` mô phỏng một diễn đàn nghiên cứu nhiều AAR. Ba "agent nghiên cứu" độc lập chạy song song, đăng các phát hiện lên một diễn đàn chỉ thêm với các nỗ lực can thiệp tùy chọn.
 
-Watch:
+Quan sát:
 
-- How out-of-sandbox logging catches log-tampering attempts.
-- How task allocation with free decomposition outperforms fixed workflows on harder problems.
-- How a single compromised AAR can contaminate the forum's signal if the log is not tamper-evident.
+- Cách ghi log ngoài sandbox bắt các nỗ lực can thiệp log.
+- Cách phân bổ tác vụ với phân rã tự do vượt các workflow cố định trên các bài toán khó hơn.
+- Cách một AAR bị xâm phạm duy nhất có thể làm nhiễm bẩn tín hiệu diễn đàn nếu log không hiển thị dấu vết can thiệp.
 
 ## Ship It
 
-`outputs/skill-aar-deployment-review.md` is a pre-deployment review of an automated-alignment-research pipeline.
+`outputs/skill-aar-deployment-review.md` là một đánh giá trước triển khai của một pipeline nghiên cứu căn chỉnh tự động.
 
 ## Exercises
 
-1. Run `code/main.py`. Compare the "fixed-workflow" vs "free-decomposition" settings. Does free decomposition always win, or are there problem classes where the fixed workflow is competitive?
+1. Chạy `code/main.py`. So sánh các thiết lập "workflow cố định" với "phân rã tự do". Phân rã tự do có luôn thắng, hay có các lớp bài toán mà workflow cố định cạnh tranh được?
 
-2. Modify the simulator so one agent attempts log tampering. Confirm the append-only log detects it. Write one paragraph describing exactly what the detection signature looks like in the log.
+2. Sửa bộ mô phỏng để một agent cố can thiệp log. Xác nhận log chỉ thêm phát hiện nó. Viết một đoạn mô tả chính xác dấu hiệu phát hiện trông như thế nào trong log.
 
-3. Read Anthropic's weak-to-strong AAR report. Identify the specific sub-task the AARs beat human researchers on. What made it amenable to automation?
+3. Đọc báo cáo AAR yếu đến mạnh của Anthropic. Nhận diện tác vụ con cụ thể mà các AAR thắng các nhà nghiên cứu con người. Điều gì làm nó phù hợp với tự động hóa?
 
-4. Design a task-queue allocation policy that balances AAR flexibility (better results) against prescribed-workflow constraints (easier audit). Describe how you would A/B test the two.
+4. Thiết kế một chính sách phân bổ hàng đợi tác vụ cân bằng tính linh hoạt AAR (các kết quả tốt hơn) với các ràng buộc workflow được quy định (kiểm toán dễ hơn). Mô tả cách bạn sẽ kiểm thử A/B hai cách.
 
-5. Read RSP v3.0's AI R&D-4 threshold. In one paragraph, describe what you think would cross it that AAR currently does not.
+5. Đọc ngưỡng AI R&D-4 của RSP v3.0. Trong một đoạn, mô tả điều bạn nghĩ sẽ vượt nó mà AAR hiện chưa làm.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |---|---|---|
-| AAR | "Automated Alignment Researcher" | Claude Opus 4.6 instance operated autonomously on alignment problems |
-| Weak-to-strong training | "Training a stronger model with a weaker supervisor" | Classic scalable-oversight benchmark AARs outperformed humans on |
-| Shared forum | "Where agents publish findings" | Append-only, out-of-sandbox storage |
-| Out-of-sandbox log | "Agent cannot edit its own record" | Tamper-evident write-through to external storage |
-| Prescribed workflow | "Step-by-step plan from human designer" | Constrains AAR; often degrades performance vs free decomposition |
-| Free decomposition | "Agent decides how to break the task" | More capable, harder to audit |
-| AI R&D threshold | "RSP/FSF capability level" | Full automation of R&D pipeline at competitive cost |
-| Compressed timeline | "Alignment vs capability race" | If capability compounds faster than alignment, misalignment risk grows |
+| AAR | "Nhà nghiên cứu căn chỉnh tự động" | Thể hiện Claude Opus 4.6 được vận hành tự chủ trên các bài toán căn chỉnh |
+| Weak-to-strong training (Huấn luyện yếu đến mạnh) | "Huấn luyện một mô hình mạnh hơn với một bên giám sát yếu hơn" | Benchmark giám sát có thể mở rộng kinh điển mà các AAR vượt con người |
+| Shared forum (Diễn đàn dùng chung) | "Nơi các agent công bố phát hiện" | Lưu trữ chỉ thêm, ngoài sandbox |
+| Out-of-sandbox log (Log ngoài sandbox) | "Agent không thể chỉnh sửa bản ghi riêng" | Ghi xuyên có dấu vết can thiệp đến lưu trữ bên ngoài |
+| Prescribed workflow (Workflow được quy định) | "Kế hoạch từng bước từ người thiết kế con người" | Hạn chế AAR; thường làm suy giảm hiệu năng so với phân rã tự do |
+| Free decomposition (Phân rã tự do) | "Agent quyết định cách chia tác vụ" | Có năng lực hơn, khó kiểm toán hơn |
+| AI R&D threshold (Ngưỡng R&D AI) | "Mức năng lực RSP/FSF" | Tự động hóa toàn bộ pipeline R&D với chi phí cạnh tranh |
+| Compressed timeline (Mốc thời gian bị nén) | "Cuộc đua căn chỉnh với năng lực" | Nếu năng lực tích lũy nhanh hơn căn chỉnh, rủi ro lệch căn chỉnh tăng |
 
 ## Further Reading
 
-- [Anthropic — Automated Weak-to-Strong Researcher](https://alignment.anthropic.com/2026/automated-w2s-researcher/) — primary source.
-- [Anthropic Responsible Scaling Policy v3.0](https://anthropic.com/responsible-scaling-policy/rsp-v3-0) — AI R&D threshold framing.
-- [Anthropic — Measuring AI agent autonomy](https://www.anthropic.com/research/measuring-agent-autonomy) — broader agent-autonomy framing.
-- [DeepMind Frontier Safety Framework v3](https://deepmind.google/blog/strengthening-our-frontier-safety-framework/) — ML R&D autonomy levels parallel to RSP.
-- [Burns et al. (2023). Weak-to-Strong Generalization (OpenAI)](https://openai.com/index/weak-to-strong-generalization/) — the underlying problem AARs attacked.
+- [Anthropic — Automated Weak-to-Strong Researcher](https://alignment.anthropic.com/2026/automated-w2s-researcher/) — nguồn sơ cấp.
+- [Anthropic Responsible Scaling Policy v3.0](https://anthropic.com/responsible-scaling-policy/rsp-v3-0) — cách định khung ngưỡng R&D AI.
+- [Anthropic — Measuring AI agent autonomy](https://www.anthropic.com/research/measuring-agent-autonomy) — cách định khung tự chủ agent rộng hơn.
+- [DeepMind Frontier Safety Framework v3](https://deepmind.google/blog/strengthening-our-frontier-safety-framework/) — các mức tự chủ R&D ML song song với RSP.
+- [Burns et al. (2023). Weak-to-Strong Generalization (OpenAI)](https://openai.com/index/weak-to-strong-generalization/) — bài toán bên dưới mà các AAR giải quyết.
