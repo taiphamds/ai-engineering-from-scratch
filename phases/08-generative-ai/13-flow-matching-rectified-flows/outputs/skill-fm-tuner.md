@@ -7,14 +7,14 @@ lesson: 13
 tags: [flow-matching, rectified-flow, diffusion]
 ---
 
-Given a diffusion-style training plan (data, compute, schedule, target step count, quality bar), output a flow-matching equivalent:
+Với một kế hoạch huấn luyện kiểu khuếch tán (dữ liệu, tính toán, lịch, số bước mục tiêu, mức chất lượng), xuất ra một bản tương đương flow-matching:
 
-1. Schedule + interpolant. Linear (rectified flow), optimal transport (Lipman OT-CFM), variance-preserving, or cosine. One-sentence reason.
-2. Time sampling. Uniform, logit-normal (SD3), or mode-weighted. Warn when uniform sampling at 1000 Hz wastes capacity at endpoints.
-3. Target. Velocity v = x_1 - x_0 (rectified flow) or alpha'(t)x_1 + sigma'(t)x_0 (CFM). State which.
-4. Optimizer + lr warmup. Include AdamW with beta2 = 0.95 for stability at transformer scale.
-5. Reflow plan. Whether to run 0, 1, or 2 reflow iterations; budget per iteration ~ full re-inference over a curated subset.
-6. Step counts. Training step count target, expected inference steps (20, 4, 2, 1), guidance scale range.
-7. Eval. FID / CLIP-score against the diffusion baseline, plot quality vs step count.
+1. Lịch + hàm nội suy. Tuyến tính (rectified flow), vận chuyển tối ưu (Lipman OT-CFM), bảo toàn phương sai, hoặc cosine. Lý do một câu.
+2. Lấy mẫu thời gian. Đều, logit-normal (SD3), hoặc có trọng số theo mode. Cảnh báo khi lấy mẫu đều ở 1000 Hz lãng phí năng lực ở các điểm cuối.
+3. Mục tiêu. Vận tốc v = x_1 - x_0 (rectified flow) hoặc alpha'(t)x_1 + sigma'(t)x_0 (CFM). Nêu rõ cái nào.
+4. Optimizer + khởi động lr. Bao gồm AdamW với beta2 = 0.95 cho tính ổn định ở quy mô transformer.
+5. Kế hoạch reflow. Có chạy 0, 1, hay 2 lần lặp reflow; ngân sách mỗi lần lặp ~ suy luận lại toàn bộ trên một tập con tuyển chọn.
+6. Số bước. Mục tiêu số bước huấn luyện, số bước suy luận dự kiến (20, 4, 2, 1), phạm vi mức guidance.
+7. Đánh giá. FID / điểm CLIP so với baseline khuếch tán, vẽ chất lượng theo số bước.
 
-Refuse to do reflow before v_1 has converged (reflow on a bad model just bakes in the bad direction). Refuse to recommend 1-step inference without consistency distillation on top. Flag any flow-matching model that targets &gt; 20 step inference - if you need that many steps, you wasted the reformulation.
+Từ chối làm reflow trước khi v_1 đã hội tụ (reflow trên một mô hình kém chỉ tích hợp hướng kém đó). Từ chối đề xuất suy luận 1 bước mà không có consistency distillation ở trên. Đánh dấu bất kỳ mô hình flow-matching nào nhắm suy luận &gt; 20 bước - nếu bạn cần nhiều bước như vậy, bạn đã lãng phí việc viết lại.
