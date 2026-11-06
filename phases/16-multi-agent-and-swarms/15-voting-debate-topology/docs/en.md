@@ -1,6 +1,6 @@
 # Voting, Self-Consistency, and Debate Topology
 
-> The cheapest aggregation: sample N independent agents, majority-vote. Wang et al. 2022 self-consistency did this with one model sampled N times. Multi-agent extends it with **heterogeneous** agents to escape monoculture — different models, different prompts, different temperatures, different contexts. Beyond majority vote, debate topology matters: MultiAgentBench (arXiv:2503.01935, ACL 2025) evaluated star / chain / tree / graph coordination and found **graph best for research**, with a "coordination tax" past ~4 agents. AgentVerse (ICLR 2024) documents two emergent patterns — volunteer behaviors and conformity behaviors — and conformity is both a feature (finding consensus) and a risk (groupthink, Lesson 24). This lesson maps the topology space, builds each variant, and measures the coordination tax.
+> Cách tổng hợp rẻ nhất: lấy mẫu N agent độc lập, bỏ phiếu đa số. Tự nhất quán của Wang và cộng sự năm 2022 làm điều này với một mô hình được lấy mẫu N lần. Đa agent mở rộng nó với các agent **không đồng nhất** để thoát đơn văn hóa — các mô hình khác nhau, các prompt khác nhau, các temperature khác nhau, các ngữ cảnh khác nhau. Ngoài bỏ phiếu đa số, cấu trúc liên kết tranh luận quan trọng: MultiAgentBench (arXiv:2503.01935, ACL 2025) đánh giá phối hợp hình sao / chuỗi / cây / đồ thị và thấy **đồ thị tốt nhất cho nghiên cứu**, với một “thuế phối hợp” sau ~4 agent. AgentVerse (ICLR 2024) ghi nhận hai mẫu nổi lên — các hành vi tình nguyện và các hành vi thuận theo — và thuận theo vừa là một tính năng (tìm đồng thuận) vừa là một rủi ro (tư duy nhóm, Bài 24). Bài này lập bản đồ không gian cấu trúc liên kết, xây dựng từng biến thể, và đo thuế phối hợp.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,28 +9,28 @@
 
 ## Problem
 
-Debate can improve accuracy (Du et al., arXiv:2305.14325). It can also degrade it. Whether debate helps depends on four structural choices:
+Tranh luận có thể cải thiện độ chính xác (Du và cộng sự, arXiv:2305.14325). Nó cũng có thể làm suy giảm độ chính xác. Tranh luận có giúp hay không phụ thuộc vào bốn lựa chọn cấu trúc:
 
-1. Who talks to whom (topology).
-2. How many rounds (Du 2023: both rounds and agents matter independently).
-3. Whether agents are heterogeneous (different base models break monoculture).
-4. Whether an adversarial voice is present (steel-manning vs. straw-manning).
+1. Ai nói với ai (cấu trúc liên kết).
+2. Bao nhiêu vòng (Du 2023: cả số vòng và số agent quan trọng độc lập).
+3. Liệu các agent có không đồng nhất không (các mô hình cơ sở khác nhau phá đơn văn hóa).
+4. Liệu một tiếng nói đối kháng có hiện diện không (xây dựng lập luận mạnh nhất so với dựng người rơm).
 
-Teams that bolt "run 5 agents and vote" onto a task often regress vs. a single agent. The failures are not random. They track topology and heterogeneity. This lesson is the topology map.
+Các nhóm gắn “chạy 5 agent và bỏ phiếu” vào một tác vụ thường thụt lùi so với một agent đơn lẻ. Các thất bại không ngẫu nhiên. Chúng đi theo cấu trúc liên kết và tính không đồng nhất. Bài này là bản đồ cấu trúc liên kết.
 
 ## Concept
 
 ### Self-consistency, the single-model baseline
 
-Wang et al. 2022 ("Self-Consistency Improves Chain of Thought Reasoning") sampled the same model N times at temperature > 0 and majority-voted on reasoning-path answers. The result on GSM8K: substantial gains with N=40 samples over a single greedy decode. Self-consistency is the single-agent precursor to multi-agent voting.
+Wang và cộng sự năm 2022 (“Self-Consistency Improves Chain of Thought Reasoning”) lấy mẫu cùng mô hình N lần ở temperature > 0 và bỏ phiếu đa số trên các câu trả lời đường suy luận. Kết quả trên GSM8K: các mức tăng đáng kể với N=40 mẫu so với một giải mã tham lam đơn lẻ. Tự nhất quán là tiền thân đơn agent của bỏ phiếu đa agent.
 
-Limit: self-consistency uses one base model. Errors are correlated by construction. If the model has a systematic bias, all N samples share it.
+Giới hạn: tự nhất quán sử dụng một mô hình cơ sở. Các lỗi tương quan do cách xây dựng. Nếu mô hình có một thiên lệch hệ thống, mọi N mẫu chia sẻ nó.
 
 ### Multi-agent vote, the heterogeneous extension
 
-Replace N samples with N *different* agents. Different base models (Claude, GPT, Llama), different prompts, different tool access. The benefit: uncorrelated errors. The cost: different agents cost different amounts; coordinating them adds overhead.
+Thay N mẫu bằng N agent *khác nhau*. Các mô hình cơ sở khác nhau (Claude, GPT, Llama), các prompt khác nhau, quyền truy cập công cụ khác nhau. Lợi ích: các lỗi không tương quan. Chi phí: các agent khác nhau tốn các lượng khác nhau; phối hợp chúng thêm chi phí phụ.
 
-The canonical 2026 name for heterogeneous debate is **A-HMAD** — Adversarial Heterogeneous Multi-Agent Debate. Not universally adopted, but papers use the term for "different models debate, which reduces correlated errors from monoculture collapse."
+Tên chuẩn năm 2026 cho tranh luận không đồng nhất là **A-HMAD** — Tranh luận đa agent không đồng nhất đối kháng. Không được áp dụng phổ quát, nhưng các bài báo sử dụng thuật ngữ cho “các mô hình khác nhau tranh luận, giúp giảm các lỗi tương quan từ sụp đổ đơn văn hóa.”
 
 ### The four topologies
 
@@ -44,58 +44,58 @@ star                chain               tree                graph
     D   E                         D   E F   G           (fully connected)
 ```
 
-Star: one hub, all others talk only to hub. Equivalent to supervisor-worker without back-channel.
-Chain: linear, each agent sees the prior one's output. Pipeline-like.
-Tree: hierarchical, used by hierarchical agent systems (Lesson 06).
-Graph: any-to-any. Includes fully-connected clique and arbitrary DAGs.
+Hình sao: một trung tâm, mọi bên khác chỉ nói với trung tâm. Tương đương bộ giám sát-worker không có kênh bên.
+Chuỗi: tuyến tính, mỗi agent thấy đầu ra của agent trước. Giống pipeline.
+Cây: phân cấp, được các hệ thống agent phân cấp sử dụng (Bài 06).
+Đồ thị: bất kỳ bên nào với bất kỳ bên nào. Bao gồm clique kết nối đầy đủ và các DAG tùy ý.
 
 ### The coordination tax (MultiAgentBench)
 
-MultiAgentBench (MARBLE, ACL 2025, arXiv:2503.01935) benchmarked star, chain, tree, graph on a task suite including research, coding, and planning. Key measured results:
+MultiAgentBench (MARBLE, ACL 2025, arXiv:2503.01935) đánh giá benchmark hình sao, chuỗi, cây, đồ thị trên một bộ tác vụ gồm nghiên cứu, lập trình, và lập kế hoạch. Các kết quả đo then chốt:
 
-- **Graph** topology wins on research tasks. Information flows any-to-any; agents can critique each other.
-- **Star** wins on fast-answer factual tasks. Hub filters and consolidates.
-- **Chain** wins on stepwise pipelines (staged refinement).
-- **Coordination tax** appears past ~4 agents in graph topology. Wall-clock and token cost grow faster than quality.
+- Cấu trúc liên kết **đồ thị** thắng trên các tác vụ nghiên cứu. Thông tin chảy từ bất kỳ bên nào tới bất kỳ bên nào; các agent có thể phê bình nhau.
+- **Hình sao** thắng trên các tác vụ sự kiện trả lời nhanh. Trung tâm lọc và hợp nhất.
+- **Chuỗi** thắng trên các pipeline từng bước (tinh chỉnh theo giai đoạn).
+- **Thuế phối hợp** xuất hiện sau ~4 agent trong cấu trúc liên kết đồ thị. Thời gian thực và chi phí token tăng nhanh hơn chất lượng.
 
-The 4-agent ceiling is empirical, not fundamental. It reflects 2026 LLM context capacity: each agent's context fills with peers' outputs, and marginal value of adding agent N+1 drops once everyone can see everyone.
+Mức trần 4 agent là thực nghiệm, không phải cơ bản. Nó phản ánh dung lượng ngữ cảnh LLM năm 2026: ngữ cảnh của mỗi agent đầy các đầu ra của các bên ngang hàng, và giá trị biên của việc thêm agent N+1 giảm một khi mọi bên có thể thấy mọi bên.
 
 ### Multi-Agent Debate Strategies ("Should we be going MAD?")
 
-arXiv:2311.17371 is the 2023 survey of MAD strategies. Key finding replicated by others: MAD variants that are *structurally similar* to self-consistency (independent sampling + aggregation) often underperform self-consistency when using the same budget. MAD helps most when agents are genuinely heterogeneous and the debate has adversarial structure (one agent argues against).
+arXiv:2311.17371 là khảo sát năm 2023 về các chiến lược MAD. Phát hiện then chốt được các bên khác tái lập: các biến thể MAD *tương tự về cấu trúc* với tự nhất quán (lấy mẫu độc lập + tổng hợp) thường kém hơn tự nhất quán khi sử dụng cùng ngân sách. MAD giúp nhất khi các agent thực sự không đồng nhất và tranh luận có cấu trúc đối kháng (một agent lập luận chống lại).
 
 ### AgentVerse emergent patterns
 
-AgentVerse (ICLR 2024, https://proceedings.iclr.cc/paper_files/paper/2024/file/578e65cdee35d00c708d4c64bce32971-Paper-Conference.pdf) documents two behaviors that emerge from multi-agent debate even without explicit design:
+AgentVerse (ICLR 2024, https://proceedings.iclr.cc/paper_files/paper/2024/file/578e65cdee35d00c708d4c64bce32971-Paper-Conference.pdf) ghi nhận hai hành vi nổi lên từ tranh luận đa agent ngay cả khi không có thiết kế tường minh:
 
-- **Volunteer.** An agent offers help ("I can take the next step") unprompted. Useful: it allocates work to the most-capable agent for a subtask.
-- **Conformity.** An agent adjusts its stance to match a critic, even when the critic is wrong. This is the debate-equivalent of sycophancy (Lesson 14).
+- **Tình nguyện.** Một agent đề nghị giúp (“Tôi có thể nhận bước tiếp theo”) mà không được prompt. Hữu ích: nó phân bổ công việc cho agent có năng lực nhất cho một tác vụ con.
+- **Thuận theo.** Một agent điều chỉnh lập trường để khớp một bên phê bình, ngay cả khi bên phê bình sai. Đây là dạng tương đương tranh luận của xu nịnh (Bài 14).
 
-Conformity is why debate-until-agreement rewards bullies. Bounded rounds with a separate judge mitigate.
+Thuận theo là lý do tranh luận cho đến khi đồng ý thưởng các bên bắt nạt. Các vòng bị giới hạn với một giám khảo riêng giảm thiểu.
 
 ### Heterogeneity: the actual knob that moves accuracy
 
-A 2024-2026 pattern in the practical literature: swapping one of your N agents for a different base model gives a bigger accuracy bump than increasing N by 1. The intuition is monoculture — each new independent-error source is worth more than an additional correlated sample.
+Một mẫu giai đoạn 2024-2026 trong tài liệu thực hành: đổi một trong N agent của bạn sang một mô hình cơ sở khác mang lại mức tăng độ chính xác lớn hơn tăng N thêm 1. Trực giác là đơn văn hóa — mỗi nguồn lỗi độc lập mới đáng giá hơn một mẫu tương quan bổ sung.
 
-In the limit, heterogeneity beats numerosity. Three different models beat five copies of one model on most tasks that have clean ground truth.
+Ở giới hạn, tính không đồng nhất vượt số lượng. Ba mô hình khác nhau vượt năm bản sao của một mô hình trên hầu hết các tác vụ có chuẩn tham chiếu sạch.
 
 ### Jury methods
 
-The Sibyl framework (cited in Minsky-LLM literature) formalizes a "jury" — a small set of specialized agents that refine answers by voting at each stage. Unlike plain majority vote, a jury has roles: one agent cross-examines, one supplies context, one scores plausibility. Jury methods are a midpoint between plain vote (cheap, monoculture-prone) and full MAD (expensive, conformity-prone).
+Framework Sibyl (được trích trong tài liệu Minsky-LLM) hình thức hóa một “bồi thẩm đoàn” — một tập nhỏ các agent chuyên biệt tinh chỉnh các câu trả lời bằng cách bỏ phiếu ở mỗi giai đoạn. Khác bỏ phiếu đa số thuần túy, một bồi thẩm đoàn có các vai trò: một agent chất vấn chéo, một agent cung cấp ngữ cảnh, một agent chấm tính hợp lý. Các phương pháp bồi thẩm đoàn là trung điểm giữa bỏ phiếu thuần túy (rẻ, dễ đơn văn hóa) và MAD đầy đủ (đắt, dễ thuận theo).
 
 ### When vote-with-debate dominates
 
-- The question has ground truth (fact, math, code behavior). Vote convergence is meaningful.
-- Agents can access different sources or tools (heterogeneity is available).
-- Rounds are bounded (2-3 typical) and there is a separate judge or verifier.
-- Budget allows 3-5 agents. Beyond 5-7 on graph topology, coordination tax dominates.
+- Câu hỏi có chuẩn tham chiếu (sự kiện, toán, hành vi mã). Hội tụ phiếu có ý nghĩa.
+- Các agent có thể truy cập các nguồn hoặc công cụ khác nhau (có tính không đồng nhất).
+- Các vòng bị giới hạn (thường 2-3) và có một giám khảo hoặc bộ xác minh riêng.
+- Ngân sách cho phép 3-5 agent. Vượt 5-7 trên cấu trúc liên kết đồ thị, thuế phối hợp chi phối.
 
 ### When vote-with-debate hurts
 
-- The question is opinion-shaped. Agents converge to whichever answer looks most confident, not most correct.
-- All agents share a base model. Monoculture makes consensus meaningless.
-- Rounds are unbounded. Conformity wins every time.
-- The task is simple. A single agent with self-consistency at N=5 is cheaper and as accurate.
+- Câu hỏi mang dạng ý kiến. Các agent hội tụ tới câu trả lời trông tự tin nhất, không phải đúng nhất.
+- Mọi agent chia sẻ một mô hình cơ sở. Đơn văn hóa làm đồng thuận vô nghĩa.
+- Các vòng không giới hạn. Thuận theo thắng mọi lần.
+- Tác vụ đơn giản. Một agent đơn lẻ với tự nhất quán ở N=5 rẻ hơn và chính xác như nhau.
 
 ```figure
 sw-debate-topology
@@ -103,64 +103,64 @@ sw-debate-topology
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `run_star(agents, hub, question)` — hub polls each worker, aggregates.
-- `run_chain(agents, question)` — sequential refinement.
-- `run_tree(root, children, question)` — hierarchical with depth-2 aggregation.
-- `run_graph(agents, question, rounds)` — all-to-all debate, bounded rounds.
-- A scripted heterogeneity dial: each agent has an `error_bias` indicating its systematic wrongness.
-- A measurement harness that runs each topology at N=3, 5, 7 and reports (accuracy, total_tokens, wallclock_simulated).
+- `run_star(agents, hub, question)` — trung tâm hỏi từng worker, tổng hợp.
+- `run_chain(agents, question)` — tinh chỉnh tuần tự.
+- `run_tree(root, children, question)` — phân cấp với tổng hợp độ sâu 2.
+- `run_graph(agents, question, rounds)` — tranh luận mọi bên với mọi bên, số vòng bị giới hạn.
+- Một núm điều chỉnh tính không đồng nhất được viết kịch bản: mỗi agent có một `error_bias` chỉ sự sai mang tính hệ thống của nó.
+- Một harness đo chạy mỗi cấu trúc liên kết ở N=3, 5, 7 và báo cáo (accuracy, total_tokens, wallclock_simulated).
 
-Run:
+Chạy:
 
 ```
 python3 code/main.py
 ```
 
-Expected output: a table of topology × N → (accuracy, tokens, latency). Graph wins at N=3-5 on the research-style tasks; star wins on the fast-factual tasks; graph at N=7 shows the coordination tax (latency inflates faster than accuracy).
+Đầu ra kỳ vọng: một bảng cấu trúc liên kết × N → (độ chính xác, token, độ trễ). Đồ thị thắng ở N=3-5 trên các tác vụ kiểu nghiên cứu; hình sao thắng trên các tác vụ sự kiện nhanh; đồ thị ở N=7 cho thấy thuế phối hợp (độ trễ phình nhanh hơn độ chính xác).
 
 ## Use It
 
-`outputs/skill-topology-picker.md` is a skill that reads a task description and recommends a topology (star / chain / tree / graph), an N (number of agents), a heterogeneity profile (base models to use), and a round bound.
+`outputs/skill-topology-picker.md` là một skill đọc một mô tả tác vụ và đề xuất một cấu trúc liên kết (hình sao / chuỗi / cây / đồ thị), một N (số agent), một hồ sơ tính không đồng nhất (các mô hình cơ sở cần dùng), và một giới hạn số vòng.
 
 ## Ship It
 
-For any ensemble:
+Với bất kỳ tập hợp nào:
 
-- Start with **self-consistency at N=5** using one strong base model. It is the cheap baseline.
-- Upgrade to **heterogeneous voting at N=3** if accuracy matters. Measure the delta.
-- Only upgrade to **debate topology** if the task has structure (research, multi-step) and bounded rounds are feasible.
-- Always log the minority cluster. When a minority is persistently right, you have a diversity signal.
-- Benchmark wall-clock and tokens alongside accuracy. "Better accuracy at 10x cost" is a business decision.
+- Bắt đầu bằng **tự nhất quán ở N=5** sử dụng một mô hình cơ sở mạnh. Nó là đường cơ sở rẻ.
+- Nâng lên **bỏ phiếu không đồng nhất ở N=3** nếu độ chính xác quan trọng. Đo chênh lệch.
+- Chỉ nâng lên **cấu trúc liên kết tranh luận** nếu tác vụ có cấu trúc (nghiên cứu, nhiều bước) và các vòng bị giới hạn khả thi.
+- Luôn ghi nhật ký cụm thiểu số. Khi một thiểu số liên tục đúng, bạn có một tín hiệu đa dạng.
+- Đánh giá benchmark thời gian thực và token cùng với độ chính xác. “Độ chính xác tốt hơn ở chi phí 10x” là một quyết định kinh doanh.
 
 ## Exercises
 
-1. Run `code/main.py`. Plot the coordination-tax curve for graph topology: accuracy vs N, tokens vs N. At what N does the curve inflect?
-2. Implement A-HMAD: three agents with deliberately different biases. How does the all-same-bias baseline compare to A-HMAD on the monoculture attack from Lesson 14?
-3. Add a "judge" role to the graph topology that does not vote, only scores the final consensus. Does this change the emergent conformity behavior?
-4. Read the AgentVerse paper (ICLR 2024). Identify which emergent behavior your implementation exhibits most strongly. Can you elicit the opposite behavior by a prompt change?
-5. Read MultiAgentBench (arXiv:2503.01935) Section 4 (topology experiments). Reproduce the "graph-wins-research" result on one task from the paper using your harness.
+1. Chạy `code/main.py`. Vẽ đường cong thuế phối hợp cho cấu trúc liên kết đồ thị: độ chính xác theo N, token theo N. Ở N nào đường cong có điểm uốn?
+2. Triển khai A-HMAD: ba agent với các thiên lệch cố ý khác nhau. Đường cơ sở tất cả cùng thiên lệch so với A-HMAD như thế nào trên cuộc tấn công đơn văn hóa từ Bài 14?
+3. Thêm một vai trò “giám khảo” vào cấu trúc liên kết đồ thị không bỏ phiếu, chỉ chấm đồng thuận cuối cùng. Điều này có thay đổi hành vi thuận theo nổi lên không?
+4. Đọc bài báo AgentVerse (ICLR 2024). Xác định hành vi nổi lên nào triển khai của bạn thể hiện mạnh nhất. Bạn có thể khơi gợi hành vi ngược lại bằng một thay đổi prompt không?
+5. Đọc MultiAgentBench (arXiv:2503.01935) Phần 4 (các thí nghiệm cấu trúc liên kết). Tái tạo kết quả “đồ thị thắng nghiên cứu” trên một tác vụ từ bài báo bằng harness của bạn.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Self-consistency | "Sample N times, vote" | Wang 2022. Single model, N temperature>0 samples, majority vote on reasoning paths. |
-| Heterogeneity | "Different models" | Ensemble of different base models or prompt families. Breaks monoculture. |
-| MAD | "Multi-agent debate" | Generic term for agents exchanging critiques over rounds. See Du 2023. |
-| A-HMAD | "Adversarial Heterogeneous MAD" | MAD variant emphasizing different models + adversarial structure. |
-| Topology | "Who talks to whom" | Star, chain, tree, graph. Determines information flow. |
-| Coordination tax | "Diminishing returns" | Above ~4 agents on graph, cost grows faster than quality. |
-| Volunteer behavior | "Unprompted help" | AgentVerse emergent pattern: an agent offers to take a step. |
-| Conformity behavior | "Agreement under pressure" | AgentVerse emergent pattern: an agent aligns with a critic. |
-| Jury | "Small specialized panel" | Sibyl-style ensemble with roles (examiner, context, scorer). |
+| Self-consistency (Tự nhất quán) | “Lấy mẫu N lần, bỏ phiếu” | Wang 2022. Một mô hình, N mẫu temperature>0, bỏ phiếu đa số trên các đường suy luận. |
+| Heterogeneity (Tính không đồng nhất) | “Các mô hình khác nhau” | Tập hợp các mô hình cơ sở hoặc họ prompt khác nhau. Phá đơn văn hóa. |
+| MAD | “Tranh luận đa agent” | Thuật ngữ chung cho các agent trao đổi phê bình qua các vòng. Xem Du 2023. |
+| A-HMAD | “MAD không đồng nhất đối kháng” | Biến thể MAD nhấn mạnh các mô hình khác nhau + cấu trúc đối kháng. |
+| Topology (Cấu trúc liên kết) | “Ai nói với ai” | Hình sao, chuỗi, cây, đồ thị. Quyết định luồng thông tin. |
+| Coordination tax (Thuế phối hợp) | “Lợi ích giảm dần” | Trên ~4 agent trên đồ thị, chi phí tăng nhanh hơn chất lượng. |
+| Volunteer behavior (Hành vi tình nguyện) | “Giúp không được prompt” | Mẫu nổi lên AgentVerse: một agent đề nghị nhận một bước. |
+| Conformity behavior (Hành vi thuận theo) | “Đồng ý dưới áp lực” | Mẫu nổi lên AgentVerse: một agent thuận theo một bên phê bình. |
+| Jury (Bồi thẩm đoàn) | “Hội đồng chuyên biệt nhỏ” | Tập hợp kiểu Sibyl có các vai trò (bên chất vấn, ngữ cảnh, bên chấm điểm). |
 
 ## Further Reading
 
-- [Wang et al. — Self-Consistency Improves Chain of Thought Reasoning](https://arxiv.org/abs/2203.11171) — single-model baseline
-- [Du et al. — Improving Factuality and Reasoning via Multiagent Debate](https://arxiv.org/abs/2305.14325) — both agents AND rounds matter independently
-- [MultiAgentBench / MARBLE](https://arxiv.org/abs/2503.01935) — topology benchmark showing graph best for research, chain for pipelines
-- [Should we be going MAD?](https://arxiv.org/abs/2311.17371) — MAD-strategy survey; finds MAD often loses to self-consistency at equal budget
-- [AgentVerse (ICLR 2024)](https://proceedings.iclr.cc/paper_files/paper/2024/file/578e65cdee35d00c708d4c64bce32971-Paper-Conference.pdf) — volunteer and conformity emergent patterns
-- [MARBLE repo](https://github.com/ulab-uiuc/MARBLE) — reference benchmark implementation
+- [Wang et al. — Self-Consistency Improves Chain of Thought Reasoning](https://arxiv.org/abs/2203.11171) — đường cơ sở một mô hình
+- [Du et al. — Improving Factuality and Reasoning via Multiagent Debate](https://arxiv.org/abs/2305.14325) — cả các agent VÀ các vòng quan trọng độc lập
+- [MultiAgentBench / MARBLE](https://arxiv.org/abs/2503.01935) — benchmark cấu trúc liên kết cho thấy đồ thị tốt nhất cho nghiên cứu, chuỗi cho pipeline
+- [Should we be going MAD?](https://arxiv.org/abs/2311.17371) — khảo sát chiến lược MAD; thấy MAD thường thua tự nhất quán ở ngân sách bằng nhau
+- [AgentVerse (ICLR 2024)](https://proceedings.iclr.cc/paper_files/paper/2024/file/578e65cdee35d00c708d4c64bce32971-Paper-Conference.pdf) — các mẫu nổi lên tình nguyện và thuận theo
+- [MARBLE repo](https://github.com/ulab-uiuc/MARBLE) — triển khai benchmark tham chiếu

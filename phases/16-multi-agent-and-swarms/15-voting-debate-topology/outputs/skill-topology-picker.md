@@ -7,33 +7,33 @@ lesson: 15
 tags: [multi-agent, debate, topology, voting, self-consistency]
 ---
 
-Given a task description, recommend a multi-agent topology and sizing.
+Với một mô tả tác vụ, đề xuất một cấu trúc liên kết đa agent và quy mô.
 
-Produce:
+Tạo ra:
 
-1. **Task fingerprint.** Research (long-horizon, open-ended), fast-factual (closed-form answer), stepwise-refinement (staged pipeline), or opinion (no ground truth). Pick one; if it spans two, pick the dominant shape.
-2. **Topology.** Star, chain, tree, or graph. Justify from the fingerprint:
-   - research → graph (any-to-any critique)
-   - fast-factual → star (hub aggregates)
-   - stepwise-refinement → chain (or tree if divide-and-conquer)
-   - opinion → none of the above; recommend single agent + human decision
-3. **N of agents.** 3 is the cheapest useful ensemble; 5 is the common sweet spot; 7+ is specialty. Above 5 on graph topology, warn about coordination tax.
-4. **Heterogeneity profile.** At least one agent must come from a different base model family if monoculture matters (research, reasoning). Prefer 3 different base models at N=5.
-5. **Round bound.** 1 round = vote. 2 rounds = one refinement. 3 rounds = maximum before conformity dominates. Never unbounded.
-6. **Aggregation.** Plurality (cheap), confidence-weighted (CP-WBFT from Lesson 14), geometric median (DecentLLMs), or judge-scored. Default to confidence-weighted unless cost constraints dictate plurality.
-7. **Escalation.** Below-threshold consensus → escalate where? Human, another ensemble with different base models, or abstention?
+1. **Dấu vân tay tác vụ.** Nghiên cứu (tầm thời gian dài, mở), sự kiện nhanh (câu trả lời dạng đóng), tinh chỉnh từng bước (pipeline theo giai đoạn), hoặc ý kiến (không có chuẩn tham chiếu). Chọn một; nếu trải hai loại, chọn hình dạng chi phối.
+2. **Cấu trúc liên kết.** Hình sao, chuỗi, cây, hoặc đồ thị. Giải thích từ dấu vân tay:
+   - nghiên cứu → đồ thị (phê bình bất kỳ bên nào với bất kỳ bên nào)
+   - sự kiện nhanh → hình sao (trung tâm tổng hợp)
+   - tinh chỉnh từng bước → chuỗi (hoặc cây nếu chia để trị)
+   - ý kiến → không loại nào ở trên; đề xuất một agent đơn lẻ + quyết định con người
+3. **N agent.** 3 là tập hợp hữu ích rẻ nhất; 5 là điểm cân bằng phổ biến; 7+ là chuyên biệt. Trên 5 ở cấu trúc liên kết đồ thị, cảnh báo về thuế phối hợp.
+4. **Hồ sơ tính không đồng nhất.** Ít nhất một agent phải đến từ một họ mô hình cơ sở khác nếu đơn văn hóa quan trọng (nghiên cứu, suy luận). Ưu tiên 3 mô hình cơ sở khác nhau ở N=5.
+5. **Giới hạn số vòng.** 1 vòng = bỏ phiếu. 2 vòng = một tinh chỉnh. 3 vòng = tối đa trước khi thuận theo chi phối. Không bao giờ không giới hạn.
+6. **Tổng hợp.** Bỏ phiếu theo số phiếu cao nhất (rẻ), có trọng số độ tự tin (CP-WBFT từ Bài 14), trung vị hình học (DecentLLMs), hoặc giám khảo chấm điểm. Mặc định dùng trọng số độ tự tin trừ khi các ràng buộc chi phí đòi bỏ phiếu theo số phiếu cao nhất.
+7. **Chuyển cấp.** Đồng thuận dưới ngưỡng → chuyển cấp đi đâu? Con người, một tập hợp khác với các mô hình cơ sở khác nhau, hay bỏ phiếu trắng?
 
-Hard rejects:
+Các trường hợp loại bỏ dứt khoát:
 
-- Any recommendation of 10+ agents on graph topology. Coordination tax dominates; measure first.
-- Star topology for open research questions. Star loses the benefit of any-to-any critique.
-- Any recommendation that runs the same base model N times and calls it multi-agent. That is self-consistency in disguise; label it correctly.
-- Unbounded rounds. Rewards conformity; the longer debate runs, the more agents agree by pressure rather than logic.
+- Bất kỳ khuyến nghị 10+ agent nào trên cấu trúc liên kết đồ thị. Thuế phối hợp chi phối; đo trước.
+- Cấu trúc liên kết hình sao cho các câu hỏi nghiên cứu mở. Hình sao mất lợi ích phê bình bất kỳ bên nào với bất kỳ bên nào.
+- Bất kỳ khuyến nghị nào chạy cùng mô hình cơ sở N lần và gọi đó là đa agent. Đó là tự nhất quán trá hình; gắn nhãn đúng.
+- Các vòng không giới hạn. Thưởng thuận theo; tranh luận chạy càng lâu, các agent càng đồng ý vì áp lực thay vì logic.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the task has no ground truth (opinion, synthesis, creative), state that voting is advisory. Recommend single agent + human decision.
-- If the user lacks access to multiple base models, flag the monoculture ceiling and recommend self-consistency with temperature variation as a fallback.
-- If the task is simple (single factual lookup, < 100 tokens of reasoning), recommend a single agent with self-consistency N=5.
+- Nếu tác vụ không có chuẩn tham chiếu (ý kiến, tổng hợp, sáng tạo), nêu rằng bỏ phiếu mang tính tư vấn. Đề xuất một agent đơn lẻ + quyết định con người.
+- Nếu người dùng thiếu quyền truy cập nhiều mô hình cơ sở, gắn cờ mức trần đơn văn hóa và đề xuất tự nhất quán với biến thiên temperature làm dự phòng.
+- Nếu tác vụ đơn giản (một tra cứu sự kiện đơn lẻ, < 100 token suy luận), đề xuất một agent đơn lẻ với tự nhất quán N=5.
 
-Output: a one-page brief. Start with a single-sentence recommendation ("Graph topology, N=5 agents from 3 different base models, 2 rounds, confidence-weighted aggregation, escalate to human on below-threshold."), then the seven sections above. End with a budget estimate: expected tokens per query and expected latency in seconds.
+Đầu ra: một bản tóm lược một trang. Bắt đầu với một khuyến nghị một câu (“Cấu trúc liên kết đồ thị, N=5 agent từ 3 mô hình cơ sở khác nhau, 2 vòng, tổng hợp có trọng số độ tự tin, chuyển cấp tới con người khi dưới ngưỡng.”), rồi bảy phần ở trên. Kết thúc bằng một ước tính ngân sách: token kỳ vọng mỗi truy vấn và độ trễ kỳ vọng bằng giây.
