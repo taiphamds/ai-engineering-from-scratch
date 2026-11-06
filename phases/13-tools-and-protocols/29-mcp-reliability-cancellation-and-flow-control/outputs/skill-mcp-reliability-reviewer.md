@@ -7,106 +7,106 @@ lesson: 29
 tags: [mcp, reliability, cancellation, idempotency, sse, backpressure]
 ---
 
-Review one MCP operation from request start through failure recovery.
+Đánh giá một thao tác MCP từ bắt đầu yêu cầu đến phục hồi thất bại.
 
-Ask for these inputs if they are absent:
+Hỏi đầu vào này nếu vắng:
 
-1. Transport: stdio or Streamable HTTP.
-2. Operation semantics and side effects.
-3. Idle and absolute maximum timeouts.
-4. Progress-token behavior and rate limits.
-5. Retry policy and business idempotency storage.
-6. SSE buffer, proxy, keepalive, and reconnect settings.
-7. Durable Task behavior, if the operation uses the Tasks extension.
+1. Vận chuyển: stdio hoặc Streamable HTTP.
+2. Ngữ nghĩa thao tác và tác dụng phụ.
+3. Thời gian chờ nhàn và tối đa tuyệt đối.
+4. Hành vi token tiến độ và giới hạn tốc độ.
+5. Chính sách thử lại và lưu lũy đẳng nghiệp vụ.
+6. Thiết lập bộ đệm SSE, proxy, keepalive và kết nối lại.
+7. Hành vi Task bền vững nếu thao tác dùng phần mở rộng Tasks.
 
-Produce the following sections.
+Tạo các mục sau.
 
 ## Cancellation wire
 
-- For stdio, require a client-sent `notifications/cancelled` notification that references an active request id.
-- For Streamable HTTP, require closure of that request's response stream. Reject an ordinary cancellation POST.
-- Require no JSON-RPC response to a cancellation notification.
-- Reserve server-sent `notifications/cancelled` for stdio `subscriptions/listen` teardown.
-- State what happens when cancellation is unknown, malformed, late, or impossible.
+- Với stdio, yêu cầu thông báo `notifications/cancelled` client gửi tham chiếu id yêu cầu hoạt động.
+- Với Streamable HTTP, yêu cầu đóng luồng phản hồi yêu cầu đó. Từ chối POST hủy thường.
+- Yêu cầu không phản hồi JSON-RPC cho thông báo hủy.
+- Dành `notifications/cancelled` máy chủ gửi cho gỡ `subscriptions/listen` stdio.
+- Nêu điều gì xảy ra khi hủy không biết, sai dạng, trễ hoặc không thể.
 
 ## Race table
 
-Give deterministic outcomes for:
+Cho kết quả tất định cho:
 
-| Event order | Server terminal state | Final response | Client behavior |
+| Thứ tự sự kiện | Trạng thái kết thúc máy chủ | Phản hồi cuối | Hành vi client |
 |------------|-----------------------|----------------|-----------------|
-| Cancel then complete | Cancelled | Suppressed | Continue recovery |
-| Complete then cancel | Completed | Preserved | Ignore late cancellation |
-| Timeout then late response | Transport-dependent cancellation | Ignore or suppress by observed order | Reconcile before unsafe retry |
-| Disconnect during progress | Cancelled in-flight request | No resumable stream | Reconnect and refetch |
+| Hủy rồi hoàn tất | Đã hủy | Bị chặn | Tiếp tục phục hồi |
+| Hoàn tất rồi hủy | Hoàn tất | Giữ | Bỏ hủy trễ |
+| Hết thời gian rồi phản hồi trễ | Hủy phụ thuộc vận chuyển | Bỏ hoặc chặn theo thứ tự quan sát | Đối soát trước thử lại không an toàn |
+| Ngắt kết nối khi tiến độ | Yêu cầu đang xử lý bị hủy | Không luồng tiếp tục được | Kết nối lại và lấy lại |
 
 ## Deadline policy
 
-Require both an idle timeout and an absolute maximum timeout. Progress may reset idle time only when it is valid, monotonic, and rate-limited. Keepalive comments do not count as semantic progress. The maximum timeout never resets.
+Yêu cầu cả thời gian chờ nhàn và tối đa tuyệt đối. Tiến độ chỉ được đặt lại nhàn khi hợp lệ, đơn điệu và giới hạn tốc độ. Bình luận keepalive không tính là tiến độ ngữ nghĩa. Thời gian chờ tối đa không bao giờ đặt lại.
 
 ## Retry classification
 
-Return one class per operation:
+Trả một lớp mỗi thao tác:
 
-- `SAFE`: application contract proves no side effect.
-- `CONDITIONAL`: mutation has one durable idempotency key reused with identical arguments.
-- `UNSAFE`: mutation lacks authoritative deduplication.
+- `SAFE`: hợp đồng ứng dụng chứng minh không tác dụng phụ.
+- `CONDITIONAL`: thay đổi có một khóa lũy đẳng bền vững dùng lại với đối số giống hệt.
+- `UNSAFE`: thay đổi thiếu khử trùng có thẩm quyền.
 
-Never treat a new JSON-RPC id, a tool annotation, or a transport reconnect as business idempotency.
+Không bao giờ coi id JSON-RPC mới, chú giải công cụ hoặc kết nối lại vận chuyển là lũy đẳng nghiệp vụ.
 
-For conditional retries, require a stored argument fingerprint and committed result. Reject one key reused with changed arguments.
+Với thử lại có điều kiện, yêu cầu dấu vân tay đối số lưu và kết quả commit. Từ chối một khóa dùng lại với đối số đổi.
 
-Require one atomic, durable ledger boundary for the key claim, argument
-fingerprint, business effect record, and committed result. A process-local
-dictionary or lock is not durable and does not coordinate replicas. Accept a
-shared database transaction, transactional outbox, or upstream provider that
-enforces the same key. State which effect is actually inside that boundary.
+Yêu cầu một ranh giới sổ nguyên tử, bền vững cho chiếm khóa, dấu vân tay
+đối số, bản ghi hiệu ứng nghiệp vụ và kết quả commit. Từ điển
+hoặc khóa cục bộ tiến trình không bền và không điều phối bản sao. Chấp nhận
+giao dịch cơ sở dữ liệu chung, transactional outbox hoặc nhà cung cấp phía trước
+cưỡng chế cùng khóa. Nêu hiệu ứng nào thực sự trong ranh giới đó.
 
-Return a defensive copy of a committed result. Never expose a mutable object
-held by the ledger. Prove both properties with a concurrent same-key fixture,
-a reopen fixture, and a mutation-alias fixture.
+Trả bản sao phòng vệ của kết quả commit. Không bao giờ đưa đối tượng thay đổi được
+sổ giữ ra. Chứng minh cả hai thuộc tính bằng fixture cùng khóa đồng thời,
+fixture mở lại và fixture bí danh thay đổi.
 
 ## Flow control
 
-- Set an explicit per-stream or per-client capacity.
-- Coalesce replaceable progress.
-- Mark dropped progress as requiring authoritative refetch.
-- Preserve final JSON-RPC responses.
-- Set `Content-Type: text/event-stream`, `Cache-Control: no-cache`, and `X-Accel-Buffering: no` for SSE.
-- Define keepalive cadence separately from operation progress.
-- Reject an unbounded queue.
+- Đặt sức chứa mỗi luồng hoặc client tường minh.
+- Gộp tiến độ thay thế được.
+- Đánh dấu tiến độ bỏ là cần lấy lại có thẩm quyền.
+- Giữ phản hồi JSON-RPC cuối.
+- Đặt `Content-Type: text/event-stream`, `Cache-Control: no-cache` và `X-Accel-Buffering: no` cho SSE.
+- Định nghĩa nhịp keepalive riêng tiến độ thao tác.
+- Từ chối hàng đợi vô hạn.
 
 ## Reconnect plan
 
-- Open a new request with a new id.
-- Restore subscription filters.
-- Do not use `Last-Event-ID` for MCP 2026-07-28.
-- Refetch affected resources, lists, prompts, or Tasks.
-- Do not replay unsafe mutations automatically.
-- Use capped exponential backoff with jitter.
+- Mở yêu cầu mới với id mới.
+- Khôi phục bộ lọc đăng ký.
+- Không dùng `Last-Event-ID` cho MCP 2026-07-28.
+- Lấy lại tài nguyên, danh sách, prompt hoặc Tasks bị ảnh hưởng.
+- Không tự phát lại thay đổi không an toàn.
+- Dùng backoff hàm mũ có trần với jitter.
 
 ## Durable Tasks
 
-When a Task exists, keep `tasks/cancel` separate from request cancellation. A complete acknowledgement proves only that cancellation intent was accepted. Poll or listen until the durable task reaches a terminal state.
+Khi có Task, giữ `tasks/cancel` riêng hủy yêu cầu. Xác nhận đầy đủ chỉ chứng minh ý định hủy được nhận. Thăm dò hoặc nghe đến khi tác vụ bền vững đạt trạng thái kết thúc.
 
 ## Required fixtures
 
-Return at least these executable scenarios:
+Trả ít nhất kịch bản thực thi được này:
 
-1. stdio cancel before completion;
-2. stdio completion before late cancellation;
-3. HTTP stream closure before completion;
-4. progress resetting idle timeout while maximum timeout still fires;
-5. duplicate mutation with two JSON-RPC ids and no idempotency key;
-6. duplicate mutation with one key and identical arguments;
-7. key reuse with changed arguments;
-8. slow consumer exceeding the progress buffer;
-9. stream drop followed by new subscription and authoritative refetch;
-10. `tasks/cancel` acknowledgement followed by delayed worker cancellation.
-11. two independent ledger connections racing on one key and identical arguments;
-12. caller mutation of a returned result followed by a clean replay from the durable record.
+1. stdio hủy trước hoàn tất;
+2. stdio hoàn tất trước hủy trễ;
+3. đóng luồng HTTP trước hoàn tất;
+4. tiến độ đặt lại chờ nhàn trong khi chờ tối đa vẫn kích hoạt;
+5. thay đổi trùng với hai id JSON-RPC và không khóa lũy đẳng;
+6. thay đổi trùng với một khóa và đối số giống hệt;
+7. dùng lại khóa với đối số đổi;
+8. bên tiếp nhận chậm vượt bộ đệm tiến độ;
+9. rớt luồng theo sau đăng ký mới và lấy lại có thẩm quyền;
+10. xác nhận `tasks/cancel` theo sau hủy worker trì hoãn.
+11. hai kết nối sổ độc lập tranh một khóa và đối số giống hệt;
+12. bên gọi sửa kết quả trả theo sau phát lại sạch từ bản ghi bền vững.
 
-Refuse a production-ready verdict when retry policy is described only as
-"retry on timeout", the ledger is process-local, the external effect sits
-outside the claimed atomic boundary without an outbox or upstream key, returned
-records alias mutable storage, or queue capacity is unspecified.
+Từ chối kết luận sẵn sàng sản xuất khi chính sách thử lại chỉ mô tả là
+"thử lại khi hết thời gian", sổ cục bộ tiến trình, hiệu ứng ngoài nằm
+ngoài ranh giới nguyên tử tuyên bố không outbox hoặc khóa phía trước, bản ghi trả
+là bí danh lưu trữ thay đổi được hoặc sức chứa hàng đợi chưa chỉ định.

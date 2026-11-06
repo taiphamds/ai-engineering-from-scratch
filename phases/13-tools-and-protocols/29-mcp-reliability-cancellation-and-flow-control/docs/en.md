@@ -1,6 +1,6 @@
 # MCP Reliability, Cancellation, and Flow Control
 
-> A request ID correlates a message. It does not make a side effect safe, stop a worker, or protect a stream from a slow consumer.
+> ID yêu cầu liên hệ thông điệp. Không làm tác dụng phụ an toàn, dừng worker hoặc bảo vệ luồng khỏi bên tiếp nhận chậm.
 
 **Type:** Build
 **Languages:** Python
@@ -9,42 +9,42 @@
 
 ## Learning Objectives
 
-- Implement the correct cancellation signal for stdio and Streamable HTTP.
-- Resolve completion and cancellation races without sending messages after cancellation.
-- Separate request cancellation from durable `tasks/cancel` semantics.
-- Build retry decisions from side effects and explicit idempotency keys.
-- Bound progress queues while preserving final responses.
-- Recover streams through reconnect, refetch, and jittered backoff.
+- Triển khai đúng tín hiệu hủy cho stdio và Streamable HTTP.
+- Giải quyết tranh chấp hoàn tất và hủy không gửi thông điệp sau hủy.
+- Tách hủy yêu cầu khỏi ngữ nghĩa `tasks/cancel` bền vững.
+- Xây quyết định thử lại từ tác dụng phụ và khóa lũy đẳng tường minh.
+- Giới hạn hàng đợi tiến độ trong khi giữ phản hồi cuối.
+- Phục hồi luồng qua kết nối lại, lấy lại và backoff có jitter.
 
 ## The Problem
 
-The happy path hides the most expensive distributed-systems bugs.
+Nhánh thành công giấu lỗi hệ thống phân tán đắt nhất.
 
-A client calls a tool. The server starts work. Progress arrives. A proxy buffers the stream. The client reaches its timeout and disconnects. The server finishes one millisecond later. The client retries with a new JSON-RPC id. The mutation runs twice.
+Client gọi công cụ. Máy chủ bắt đầu làm. Tiến độ đến. Proxy đệm luồng. Client hết thời gian và ngắt kết nối. Máy chủ xong sau một mili giây. Client thử lại với id JSON-RPC mới. Thay đổi chạy hai lần.
 
-Every component behaved locally. The system failed globally.
+Mọi thành phần hành xử cục bộ. Hệ thống thất bại toàn cục.
 
-MCP defines message and transport behavior, but your application still owns:
+MCP định nghĩa hành vi thông điệp và vận chuyển, nhưng ứng dụng vẫn sở hữu:
 
-- time budgets;
-- business idempotency;
-- bounded queues;
-- retry classification;
-- durable task state;
-- reconnect and refetch policy.
+- ngân sách thời gian;
+- tính lũy đẳng nghiệp vụ;
+- hàng đợi có giới hạn;
+- phân loại thử lại;
+- trạng thái tác vụ bền vững;
+- chính sách kết nối lại và lấy lại.
 
-This lesson builds those decisions into a deterministic simulator. There are
-no sleeps, sockets, or random failures. You control cancellation event order
-directly. One synchronized thread test forces two ledger clients to compete
-for the same idempotency key.
+Bài này xây quyết định vào mô phỏng tất định. Không có
+sleep, socket hoặc thất bại ngẫu nhiên. Bạn kiểm soát thứ tự sự kiện hủy
+trực tiếp. Một kiểm thử luồng đồng bộ ép hai client sổ cùng tranh
+một khóa lũy đẳng.
 
 ## Request Cancellation Is Transport-Specific
 
-The intent is the same on every transport: the client no longer needs an in-flight result. The wire signal is different.
+Ý định giống trên mọi vận chuyển: client không còn cần kết quả đang xử lý. Tín hiệu đường truyền khác.
 
 ### stdio
 
-stdio uses one shared bidirectional channel. A client sends a notification:
+stdio dùng một kênh hai chiều dùng chung. Client gửi thông báo:
 
 ```json
 {
@@ -57,27 +57,27 @@ stdio uses one shared bidirectional channel. A client sends a notification:
 }
 ```
 
-The notification is fire-and-forget. The server emits no JSON-RPC response to it.
+Thông báo gửi rồi quên. Máy chủ không phát phản hồi JSON-RPC cho nó.
 
-The server should stop work, free resources, and avoid sending a response for the cancelled request. It may ignore cancellation when the request is unknown, already finished, or cannot be stopped safely.
+Máy chủ nên dừng công việc, giải phóng tài nguyên và tránh gửi phản hồi cho yêu cầu hủy. Có thể bỏ hủy khi yêu cầu không biết, đã xong hoặc không dừng an toàn được.
 
-Malformed, unknown, and already completed cancellation notifications are ignored. Turning those races into new errors would create more races.
+Thông báo hủy sai dạng, không biết và đã hoàn tất bị bỏ qua. Biến tranh chấp đó thành lỗi mới tạo thêm tranh chấp.
 
 ### Streamable HTTP
 
-Modern Streamable HTTP gives each request its own HTTP response or SSE response stream. The client cancels by closing that request's response stream.
+Streamable HTTP hiện đại cho mỗi yêu cầu phản hồi HTTP hoặc luồng phản hồi SSE riêng. Client hủy bằng đóng luồng phản hồi yêu cầu đó.
 
-Do not POST `notifications/cancelled` for an ordinary HTTP request. Stream closure is the cancellation signal.
+Không POST `notifications/cancelled` cho yêu cầu HTTP thường. Đóng luồng là tín hiệu hủy.
 
-Once the server observes the disconnect, it should stop work and must not send more messages for that request.
+Khi máy chủ quan sát ngắt kết nối, nên dừng công việc và không được gửi thêm thông điệp cho yêu cầu đó.
 
 ### Server-sent cancellation is narrow
 
-A server does not use `notifications/cancelled` to cancel arbitrary client calls. On stdio, server-sent cancellation is reserved for terminating a `subscriptions/listen` request. Keep that path separate from ordinary client-request cancellation.
+Máy chủ không dùng `notifications/cancelled` để hủy lời gọi client tùy ý. Trên stdio, hủy do máy chủ gửi dành cho kết thúc yêu cầu `subscriptions/listen`. Giữ nhánh đó riêng hủy yêu cầu client thường.
 
 ## Cancellation Is a Race
 
-Two event orders are both valid.
+Hai thứ tự sự kiện đều hợp lệ.
 
 ### Cancellation wins
 
@@ -99,24 +99,24 @@ cancellation arrives late
 server ignores the late notification
 ```
 
-The client must also ignore a late response for a request it already abandoned. Network latency means neither side can prove which event the other side observed first.
+Client cũng phải bỏ phản hồi trễ cho yêu cầu đã bỏ. Độ trễ mạng nghĩa không bên nào chứng minh được bên kia quan sát sự kiện nào trước.
 
 ```figure
 mcp-reliability-race
 ```
 
-The lesson's `RequestCoordinator` stores one terminal state. `complete()` returns no response after cancellation. A late cancellation cannot change a completed record.
+`RequestCoordinator` bài lưu một trạng thái kết thúc. `complete()` không trả phản hồi sau hủy. Hủy trễ không đổi bản ghi hoàn tất.
 
 ## Timeouts Need Two Clocks
 
-A single inactivity timer is not enough.
+Một bộ đếm bất hoạt không đủ.
 
-Use two limits:
+Dùng hai giới hạn:
 
-1. **Idle timeout.** How long the request may produce no useful activity.
-2. **Maximum timeout.** The absolute wall-clock budget from request start.
+1. **Thời gian chờ nhàn rỗi.** Yêu cầu được không tạo hoạt động hữu ích bao lâu.
+2. **Thời gian chờ tối đa.** Ngân sách thời gian thực tuyệt đối từ bắt đầu yêu cầu.
 
-Progress may reset the idle clock. It must never remove the maximum deadline.
+Tiến độ có thể đặt lại đồng hồ nhàn rỗi. Không bao giờ được bỏ thời hạn tối đa.
 
 ```text
 start: 0 ms
@@ -127,33 +127,33 @@ idle timeout: 500 ms
 maximum timeout: 2000 ms
 ```
 
-At 1500 ms, the request is still active because the latest progress is only 300 ms old. At 2000 ms, the maximum deadline cancels it even if another progress event arrived at 1999 ms.
+Ở 1500 ms, yêu cầu còn hoạt động vì tiến độ mới nhất chỉ cũ 300 ms. Ở 2000 ms, thời hạn tối đa hủy dù sự kiện tiến độ khác đến ở 1999 ms.
 
-Progress is optional. A server can accept a progress token and emit no updates. Never turn the presence of a token into an infinite timeout.
+Tiến độ tùy chọn. Máy chủ có thể nhận token tiến độ và không phát cập nhật. Không bao giờ biến có token thành chờ vô hạn.
 
-MCP progress values must increase. Notifications stop after completion or cancellation. Rate-limit progress so a fast worker cannot flood the transport.
+Giá trị tiến độ MCP phải tăng. Thông báo dừng sau hoàn tất hoặc hủy. Giới hạn tốc độ tiến độ để worker nhanh không làm ngập vận chuyển.
 
 ## Request Cancellation Is Not `tasks/cancel`
 
-These mechanisms solve different lifetimes.
+Các cơ chế giải vòng đời khác.
 
-| Mechanism | Target | Signal | What success means |
+| Cơ chế | Đích | Tín hiệu | Thành công nghĩa gì |
 |-----------|--------|--------|--------------------|
-| Request cancellation on stdio | One in-flight RPC | `notifications/cancelled` | Client abandoned the request; server should stop if practical |
-| Request cancellation on HTTP | One in-flight response stream | Close the stream | Client abandoned the request; server should stop if practical |
-| `tasks/cancel` | One durable Task | Ordinary MCP request | Server acknowledged cancellation intent |
+| Hủy yêu cầu trên stdio | Một RPC đang xử lý | `notifications/cancelled` | Client bỏ yêu cầu; máy chủ nên dừng nếu thực tế cho phép |
+| Hủy yêu cầu trên HTTP | Một luồng phản hồi đang xử lý | Đóng luồng | Client bỏ yêu cầu; máy chủ nên dừng nếu thực tế cho phép |
+| `tasks/cancel` | Một Task bền vững | Yêu cầu MCP thường | Máy chủ xác nhận ý định hủy |
 
-A successful `tasks/cancel` result does not prove the worker stopped. The task may remain `working` until a worker checkpoint observes the flag. Work may complete before that checkpoint.
+Kết quả `tasks/cancel` thành công không chứng minh worker dừng. Tác vụ có thể còn `working` đến khi điểm kiểm tra worker thấy cờ. Công việc có thể xong trước điểm đó.
 
-Do not erase durable task state when the HTTP connection closes. The reason to create a Task is that its lifecycle outlives one request and one connection.
+Không xóa trạng thái tác vụ bền vững khi kết nối HTTP đóng. Lý do tạo Task là vòng đời vượt một yêu cầu và một kết nối.
 
 ## A New JSON-RPC ID Is Not Idempotency
 
-JSON-RPC ids correlate requests and responses. They do not identify a business operation.
+Id JSON-RPC liên hệ yêu cầu và phản hồi. Không định danh thao tác nghiệp vụ.
 
-Suppose a client submits a charge with id `41`, loses the response, and retries with id `42`. The server sees two different messages. Without an application key, it cannot know they represent one checkout.
+Giả sử client gửi khoản thu với id `41`, mất phản hồi và thử lại id `42`. Máy chủ thấy hai thông điệp khác. Không khóa ứng dụng, không biết chúng biểu diễn một lần thanh toán.
 
-An idempotency key identifies the business intent:
+Khóa lũy đẳng định danh ý định nghiệp vụ:
 
 ```json
 {
@@ -166,17 +166,17 @@ An idempotency key identifies the business intent:
 }
 ```
 
-The server stores:
+Máy chủ lưu:
 
-- the key;
-- a fingerprint of operation arguments;
-- the committed result.
+- khóa;
+- dấu vân tay đối số thao tác;
+- kết quả đã commit.
 
-The same key and same arguments return the stored result. The same key with different arguments is rejected. This prevents accidental key reuse from mutating a different business operation.
+Cùng khóa và cùng đối số trả kết quả lưu. Cùng khóa với đối số khác bị từ chối. Ngăn dùng lại khóa vô tình làm đổi thao tác nghiệp vụ khác.
 
 ### The ledger boundary must be atomic and durable
 
-This sequence is unsafe:
+Chuỗi này không an toàn:
 
 ```text
 check key
@@ -184,61 +184,61 @@ run mutation
 store result
 ```
 
-Two workers can both observe a missing key and both run the mutation. A crash
-after the effect but before the store creates the same ambiguity on retry.
+Hai worker đều có thể quan sát khóa thiếu và cùng chạy thay đổi. Sập
+sau hiệu ứng nhưng trước lưu tạo cùng mơ hồ khi thử lại.
 
-The lesson uses a file-backed SQLite ledger. `BEGIN IMMEDIATE` serializes the
-key check, simulated business effect, execution counter, and stored result into
-one transaction. Two independent ledger connections racing with the same key
-therefore observe one committed result and one execution. Closing and reopening
-the ledger keeps that record.
+Bài dùng sổ SQLite dựa file. `BEGIN IMMEDIATE` tuần tự hóa
+kiểm tra khóa, hiệu ứng nghiệp vụ mô phỏng, bộ đếm thực thi và kết quả lưu vào
+một giao dịch. Vì vậy hai kết nối sổ độc lập tranh cùng khóa
+quan sát một kết quả commit và một lần thực thi. Đóng và mở lại
+sổ giữ bản ghi đó.
 
-Every return value is reconstructed from stored JSON. The caller never receives
-the mutable object held by the ledger, so changing a returned dictionary cannot
-corrupt later replay results.
+Mọi giá trị trả dựng lại từ JSON lưu. Bên gọi không bao giờ nhận
+đối tượng thay đổi được do sổ giữ, nên đổi từ điển trả không thể
+làm hỏng kết quả phát lại sau.
 
-The simulator's business effect is the receipt and execution counter inside the
-same SQLite transaction. A real payment, deployment, or external API call is
-not made atomic merely by writing a local table. Production needs a durable
-shared database transaction, a transactional outbox, or an upstream provider
-that enforces the same idempotency key. A process lock alone does not protect
-multiple replicas or survive a restart.
+Hiệu ứng nghiệp vụ mô phỏng là biên nhận và bộ đếm thực thi trong
+cùng giao dịch SQLite. Thanh toán, triển khai hoặc lời gọi API ngoài thật
+không thành nguyên tử chỉ bằng ghi bảng cục bộ. Sản xuất cần giao dịch
+cơ sở dữ liệu dùng chung bền vững, transactional outbox hoặc nhà cung cấp phía trước
+cưỡng chế cùng khóa lũy đẳng. Chỉ khóa tiến trình không bảo vệ
+nhiều bản sao hoặc sống qua khởi động lại.
 
 ### Retry matrix
 
-Classify retries before implementing them.
+Phân loại thử lại trước triển khai.
 
-| Class | Example | Retry rule |
+| Lớp | Ví dụ | Quy tắc thử lại |
 |------|---------|------------|
-| Safe | Deterministic read with no side effect | Retry with a new JSON-RPC id after the failure boundary is understood |
-| Conditional | Mutation with a durable idempotency key | Retry with the same key and identical arguments |
-| Unsafe | Mutation without business deduplication | Do not retry automatically; reconcile first |
+| An toàn | Đọc tất định không tác dụng phụ | Thử lại với id JSON-RPC mới sau hiểu ranh giới thất bại |
+| Có điều kiện | Thay đổi với khóa lũy đẳng bền vững | Thử lại cùng khóa và đối số giống hệt |
+| Không an toàn | Thay đổi không khử trùng nghiệp vụ | Không tự thử lại; đối soát trước |
 
-Tool annotations such as `readOnlyHint` and `idempotentHint` remain untrusted hints. The application contract and server implementation decide retry safety.
+Chú giải công cụ như `readOnlyHint` và `idempotentHint` vẫn là gợi ý không đáng tin. Hợp đồng ứng dụng và triển khai máy chủ quyết định an toàn thử lại.
 
 ## Backpressure Is Part of Correctness
 
-An SSE producer can generate progress faster than a client, proxy, or network can consume it. An unbounded queue converts slowness into memory exhaustion.
+Bên tạo SSE có thể tạo tiến độ nhanh hơn client, proxy hoặc mạng tiếp nhận được. Hàng đợi vô hạn biến chậm thành cạn bộ nhớ.
 
-Use a bounded queue and define what can be lost.
+Dùng hàng đợi có giới hạn và định nghĩa mất được gì.
 
-Progress is replaceable. A later progress value supersedes an earlier one for the same token. A final JSON-RPC response is not replaceable.
+Tiến độ thay thế được. Giá trị tiến độ sau thay trước cho cùng token. Phản hồi JSON-RPC cuối không thay thế được.
 
-The lesson buffer applies this policy:
+Bộ đệm bài áp chính sách:
 
-1. Coalesce adjacent progress for the same token.
-2. Drop the oldest progress when capacity is reached.
-3. Mark the stream as needing authoritative refetch.
-4. Preserve the final response.
-5. Refuse a state where preserving the final response would require dropping another final response.
+1. Gộp tiến độ liền kề cùng token.
+2. Bỏ tiến độ cũ nhất khi đạt sức chứa.
+3. Đánh dấu luồng cần lấy lại từ nguồn có thẩm quyền.
+4. Giữ phản hồi cuối.
+5. Từ chối trạng thái giữ phản hồi cuối đòi bỏ phản hồi cuối khác.
 
-This is bounded loss with explicit recovery. Silent loss is not a strategy.
+Đây là mất có giới hạn với phục hồi tường minh. Mất âm thầm không là chiến lược.
 
 ### Proxy buffering
 
-A server can stream correctly while a reverse proxy holds events in a buffer.
+Máy chủ có thể truyền luồng đúng trong khi reverse proxy giữ sự kiện trong bộ đệm.
 
-For an SSE response, send:
+Với phản hồi SSE, gửi:
 
 ```http
 Content-Type: text/event-stream
@@ -246,37 +246,37 @@ Cache-Control: no-cache
 X-Accel-Buffering: no
 ```
 
-The 2026 Streamable HTTP specification recommends `X-Accel-Buffering: no` so compatible proxies deliver events immediately.
+Đặc tả Streamable HTTP năm 2026 khuyến nghị `X-Accel-Buffering: no` để proxy tương thích phân phối sự kiện ngay.
 
-For quiet long-lived streams, periodically emit an SSE comment:
+Với luồng sống lâu yên, định kỳ phát bình luận SSE:
 
 ```text
 :
 ```
 
-The client ignores comment lines. Intermediaries see traffic and are less likely to close an idle connection.
+Client bỏ dòng bình luận. Trung gian thấy lưu lượng và ít đóng kết nối nhàn hơn.
 
-Keepalive is not progress. Do not reset an operation's semantic idle timeout merely because a transport comment arrived.
+Keepalive không là tiến độ. Không đặt lại thời gian chờ nhàn ngữ nghĩa thao tác chỉ vì bình luận vận chuyển đến.
 
 ## Reconnect Means Refetch
 
-Modern Streamable HTTP does not support resumable SSE through `Last-Event-ID`.
+Streamable HTTP hiện đại không hỗ trợ SSE tiếp tục qua `Last-Event-ID`.
 
-After a `subscriptions/listen` stream drops:
+Sau luồng `subscriptions/listen` rớt:
 
-1. Open a new listen request with a new JSON-RPC id.
-2. Restore the desired subscription filter.
-3. Refetch affected tools, resources, prompts, or Tasks from authoritative methods.
-4. Deduplicate application state by stable identifiers.
-5. Do not replay an unsafe mutation just because its response was lost.
+1. Mở yêu cầu listen mới với id JSON-RPC mới.
+2. Khôi phục bộ lọc đăng ký mong muốn.
+3. Lấy lại công cụ, tài nguyên, prompt hoặc Tasks bị ảnh hưởng từ phương thức có thẩm quyền.
+4. Khử trùng trạng thái ứng dụng bằng định danh ổn định.
+5. Không phát lại thay đổi không an toàn chỉ vì mất phản hồi.
 
-The sample recovery plan explicitly sets `sendLastEventId` to false and lists resources to refetch.
+Kế hoạch phục hồi mẫu đặt rõ `sendLastEventId` false và liệt kê tài nguyên lấy lại.
 
 ### Prevent a reconnect herd
 
-If 10,000 clients reconnect at exactly one second, the recovering server fails again.
+Nếu 10,000 client kết nối lại đúng một giây, máy chủ đang phục hồi lại thất bại.
 
-Use exponential backoff with jitter and a cap. The lesson computes deterministic jitter from client id and attempt number so tests remain reproducible:
+Dùng backoff hàm mũ có jitter và trần. Bài tính jitter tất định từ id client và số lần thử để kiểm thử tái hiện được:
 
 ```text
 attempt 0: up to 250 ms
@@ -286,52 +286,52 @@ attempt 2: up to 1000 ms
 cap: 8000 ms
 ```
 
-Production can use cryptographically secure or runtime randomness. The invariant is distribution, not a specific formula.
+Sản xuất có thể dùng ngẫu nhiên an toàn mật mã hoặc runtime. Bất biến là phân tán, không công thức cụ thể.
 
 ## Build It
 
-`code/main.py` builds five small reliability components.
+`code/main.py` xây năm thành phần độ tin cậy nhỏ.
 
 ### `RequestCoordinator`
 
-- starts an in-flight request with idle and maximum deadlines;
-- emits monotonic progress notifications;
-- produces the correct stdio or HTTP cancellation signal;
-- ignores invalid cancellation notifications;
-- makes cancellation and completion terminal races explicit;
-- reserves server-sent cancellation for stdio subscriptions.
+- bắt đầu yêu cầu đang xử lý với thời hạn nhàn và tối đa;
+- phát thông báo tiến độ đơn điệu;
+- tạo đúng tín hiệu hủy stdio hoặc HTTP;
+- bỏ thông báo hủy không hợp lệ;
+- làm tranh chấp kết thúc giữa hủy và hoàn tất tường minh;
+- dành hủy máy chủ gửi cho đăng ký stdio.
 
 ### `MutationLedger`
 
-- proves that two JSON-RPC ids execute twice without a business key;
-- uses a file-backed SQLite transaction for the key check, simulated effect,
-  execution counter, and result commit;
-- deduplicates matching arguments under one idempotency key across independent
-  ledger connections;
-- rejects one key reused with different arguments;
-- returns defensive copies and preserves committed records across reopen.
+- chứng minh hai id JSON-RPC thực thi hai lần không khóa nghiệp vụ;
+- dùng giao dịch SQLite dựa file cho kiểm tra khóa, hiệu ứng mô phỏng,
+  bộ đếm thực thi và commit kết quả;
+- khử trùng đối số khớp dưới một khóa lũy đẳng qua kết nối
+  sổ độc lập;
+- từ chối một khóa dùng lại với đối số khác;
+- trả bản sao phòng vệ và giữ bản ghi commit qua mở lại.
 
 ### `DurableTaskService`
 
-- acknowledges a cancellation request;
-- keeps the task `working` until a worker checkpoint;
-- demonstrates why acknowledgement is not final status.
+- xác nhận yêu cầu hủy;
+- giữ tác vụ `working` đến điểm kiểm tra worker;
+- minh họa tại sao xác nhận không là trạng thái cuối.
 
 ### `BoundedSseBuffer`
 
-- coalesces or drops progress under pressure;
-- records that authoritative refetch is required;
-- never drops the final response.
+- gộp hoặc bỏ tiến độ dưới áp lực;
+- ghi cần lấy lại từ nguồn có thẩm quyền;
+- không bao giờ bỏ phản hồi cuối.
 
 ### Recovery helpers
 
-- return proxy-safe SSE headers and keepalive comments;
-- create a reconnect and refetch plan;
-- spread retries with deterministic exponential backoff and jitter.
+- trả header SSE an toàn proxy và bình luận keepalive;
+- tạo kế hoạch kết nối lại và lấy lại;
+- phân tán thử lại bằng backoff hàm mũ và jitter tất định.
 
 ## Use It
 
-From the repository root:
+Từ thư mục gốc repo:
 
 ```bash
 cd phases/13-tools-and-protocols/29-mcp-reliability-cancellation-and-flow-control/code
@@ -339,124 +339,124 @@ python3 main.py
 python3 -m unittest discover tests -v
 ```
 
-The demo runs both sides of the central race, executes a transactionally
-deduplicated mutation in a temporary file-backed ledger, overloads a bounded
-progress buffer, and shows a durable Task moving from acknowledged cancellation
-to worker-observed cancellation.
+Demo chạy cả hai phía tranh chấp trung tâm, thực thi thay đổi
+khử trùng bằng giao dịch trong sổ dựa file tạm, làm quá tải bộ đệm
+tiến độ có giới hạn và cho thấy Task bền vững chuyển từ xác nhận hủy
+sang hủy worker quan sát.
 
 ## Interactive Lab
 
-Run four event orderings without adding sleeps.
+Chạy bốn thứ tự sự kiện không thêm sleep.
 
-1. Start request `A`, cancel it, then call `complete()`.
-2. Start request `B`, complete it, then deliver cancellation.
-3. Start request `C`, emit progress before every idle deadline, then cross the maximum deadline.
-4. Start request `D` over Streamable HTTP and close its response stream.
+1. Bắt đầu yêu cầu `A`, hủy rồi gọi `complete()`.
+2. Bắt đầu yêu cầu `B`, hoàn tất rồi đưa hủy đến.
+3. Bắt đầu yêu cầu `C`, phát tiến độ trước mọi thời hạn nhàn rồi vượt thời hạn tối đa.
+4. Bắt đầu yêu cầu `D` trên Streamable HTTP và đóng luồng phản hồi.
 
-Record for each scenario:
+Ghi mỗi kịch bản:
 
-- the terminal request state;
-- whether a final response exists;
-- the cancellation signal placed on the wire;
-- which event the client should ignore.
+- trạng thái yêu cầu kết thúc;
+- có phản hồi cuối không;
+- tín hiệu hủy đặt trên đường truyền;
+- sự kiện nào client nên bỏ.
 
-Then change `D` to stdio. The operation is identical, but the cancellation signal must change.
+Rồi đổi `D` sang stdio. Thao tác giống hệt nhưng tín hiệu hủy phải đổi.
 
 ## Practice Lab
 
-Add a `reserve_inventory` mutation to `MutationLedger`.
+Thêm thay đổi `reserve_inventory` vào `MutationLedger`.
 
-Requirements:
+Yêu cầu:
 
-1. The key binds SKU, quantity, tenant, and operation name.
-2. A retry with the same key and same arguments returns the first reservation.
-3. A retry with changed quantity fails without another reservation.
-4. An execution that committed but lost its response can be reconciled by key.
-5. The result records no secret or payment data.
-6. Automatic retry is disabled when the client did not provide a key.
-7. Add a simulated subscription drop and refetch the inventory record before deciding what to do next.
-8. Start two ledger connections at a barrier and submit the same key
-   concurrently. Assert one reservation was committed.
-9. Mutate the first returned reservation object. Replay the key and prove the
-   stored result did not change.
-10. Close and reopen the ledger file, then reconcile the reservation by key.
+1. Khóa gắn SKU, số lượng, tenant và tên thao tác.
+2. Thử lại cùng khóa và đối số trả lần giữ hàng đầu.
+3. Thử lại số lượng đổi thất bại không giữ hàng thêm.
+4. Thực thi đã commit nhưng mất phản hồi đối soát theo khóa được.
+5. Kết quả không ghi bí mật hoặc dữ liệu thanh toán.
+6. Thử lại tự động tắt khi client không cho khóa.
+7. Thêm rớt đăng ký mô phỏng và lấy lại bản ghi tồn kho trước quyết định làm gì tiếp.
+8. Bắt đầu hai kết nối sổ tại barrier và gửi cùng khóa
+   đồng thời. Xác nhận một lần giữ hàng được commit.
+9. Sửa đối tượng giữ hàng trả đầu. Phát lại khóa và chứng minh
+   kết quả lưu không đổi.
+10. Đóng và mở lại file sổ rồi đối soát giữ hàng theo khóa.
 
-Keep the lab honest: if inventory lives in another service, explain whether
-that service accepts the same idempotency key or whether a transactional outbox
-bridges the local commit to the remote effect.
+Giữ lab trung thực: nếu tồn kho ở dịch vụ khác, giải thích liệu
+dịch vụ đó nhận cùng khóa lũy đẳng hoặc transactional outbox
+nối commit cục bộ với hiệu ứng từ xa.
 
 ## Shipped Artifact
 
-`outputs/skill-mcp-reliability-reviewer.md` is a flat reliability review skill. Give it an MCP operation, transport, timeout policy, retry behavior, queue policy, and recovery plan. It returns a race table, retry classification, idempotency boundary, flow-control checks, and failure fixtures.
+`outputs/skill-mcp-reliability-reviewer.md` là skill đánh giá độ tin cậy phẳng. Cho thao tác MCP, vận chuyển, chính sách thời gian chờ, hành vi thử lại, chính sách hàng đợi và kế hoạch phục hồi. Trả bảng tranh chấp, phân loại thử lại, ranh giới lũy đẳng, kiểm tra kiểm soát luồng và fixture thất bại.
 
 ## Verify It
 
-The lesson is complete when these statements are true:
+Bài hoàn tất khi tuyên bố này đúng:
 
-- stdio cancellation sends `notifications/cancelled` and receives no response.
-- Streamable HTTP cancellation closes the request stream and sends no cancellation POST.
-- Cancel-before-complete suppresses the final response.
-- Complete-before-cancel preserves the response and ignores the late cancellation.
-- Progress can reset idle timeout but never maximum timeout.
-- A new JSON-RPC id alone executes the mutation again.
-- One idempotency key and identical arguments execute once under a concurrent
-  two-connection race.
-- A committed record survives reopen and replay returns a defensive copy.
-- Mutating one returned result cannot alter the stored result.
-- The bounded buffer stays within capacity and preserves the final response.
-- Reconnect uses a new request, does not send `Last-Event-ID`, and refetches affected state.
-- `tasks/cancel` acknowledgement leaves the task non-terminal until the worker observes it.
+- Hủy stdio gửi `notifications/cancelled` và không nhận phản hồi.
+- Hủy Streamable HTTP đóng luồng yêu cầu và không gửi POST hủy.
+- Hủy-trước-hoàn-tất chặn phản hồi cuối.
+- Hoàn-tất-trước-hủy giữ phản hồi và bỏ hủy trễ.
+- Tiến độ có thể đặt lại chờ nhàn nhưng không bao giờ chờ tối đa.
+- Chỉ id JSON-RPC mới thực thi thay đổi lần nữa.
+- Một khóa lũy đẳng và đối số giống hệt thực thi một lần trong tranh chấp
+  đồng thời hai kết nối.
+- Bản ghi commit sống qua mở lại và phát lại trả bản sao phòng vệ.
+- Sửa một kết quả trả không đổi kết quả lưu được.
+- Bộ đệm có giới hạn giữ trong sức chứa và giữ phản hồi cuối.
+- Kết nối lại dùng yêu cầu mới, không gửi `Last-Event-ID` và lấy lại trạng thái bị ảnh hưởng.
+- Xác nhận `tasks/cancel` để tác vụ chưa kết thúc đến khi worker thấy.
 
 ## Production Failure Modes
 
-| Failure | Observable symptom | Correct response |
+| Thất bại | Triệu chứng quan sát | Phản ứng đúng |
 |---------|--------------------|------------------|
-| HTTP client POSTs cancellation notification | Server and client disagree about request lifetime | Close the request's SSE response stream |
-| Server responds after accepted cancellation | Client receives an unusable late result | Stop work and suppress further messages when cancellation wins |
-| Progress resets every deadline | Hung work survives forever | Keep a separate absolute maximum timeout |
-| New RPC id treated as deduplication | Charge, deployment, or deletion runs twice | Add a durable application idempotency key |
-| Key check and effect are separate | Concurrent workers both observe a missing key | Commit key claim, effect record, and result atomically |
-| In-memory ledger used across replicas | Restart or another worker forgets prior commits | Use shared durable storage or upstream idempotency |
-| Stored mutable result returned directly | Caller mutation corrupts later replays | Serialize committed results and return defensive copies |
-| Key reused with changed arguments | One key aliases two business intents | Store and compare an argument fingerprint |
-| Unbounded progress queue | Memory rises with a slow consumer | Coalesce and drop replaceable progress within a bound |
-| Final response dropped under pressure | Client cannot know the request outcome | Reserve capacity or evict progress, never the final response |
-| Proxy buffers SSE | Progress arrives in bursts or after timeout | Disable buffering and configure compatible proxy timeouts |
-| `Last-Event-ID` assumed | Client resumes from state the server does not support | Reconnect with a new request and refetch |
-| Every client reconnects immediately | Recovery creates another outage | Use capped exponential backoff with jitter |
-| Task ack treated as final cancellation | Worker keeps running after UI says stopped | Poll the Task until a terminal status |
+| Client HTTP POST thông báo hủy | Máy chủ và client bất đồng vòng đời yêu cầu | Đóng luồng phản hồi SSE của yêu cầu |
+| Máy chủ trả sau hủy chấp nhận | Client nhận kết quả trễ không dùng được | Dừng làm và chặn thông điệp thêm khi hủy thắng |
+| Tiến độ đặt lại mọi thời hạn | Công việc treo sống mãi | Giữ thời gian chờ tối đa tuyệt đối riêng |
+| Id RPC mới coi là khử trùng | Thu tiền, triển khai hoặc xóa chạy hai lần | Thêm khóa lũy đẳng ứng dụng bền vững |
+| Kiểm tra khóa và hiệu ứng riêng | Worker đồng thời cùng thấy khóa thiếu | Commit chiếm khóa, bản ghi hiệu ứng và kết quả nguyên tử |
+| Sổ trong bộ nhớ dùng qua bản sao | Khởi động lại hoặc worker khác quên commit trước | Dùng lưu trữ bền vững chung hoặc lũy đẳng phía trước |
+| Kết quả lưu thay đổi được trả trực tiếp | Bên gọi sửa làm hỏng phát lại sau | Tuần tự hóa kết quả commit và trả bản sao phòng vệ |
+| Khóa dùng lại với đối số đổi | Một khóa là bí danh hai ý định nghiệp vụ | Lưu và so dấu vân tay đối số |
+| Hàng đợi tiến độ không giới hạn | Bộ nhớ tăng với bên tiếp nhận chậm | Gộp và bỏ tiến độ thay thế được trong giới hạn |
+| Phản hồi cuối bỏ dưới áp lực | Client không biết kết quả yêu cầu | Dành sức chứa hoặc đẩy tiến độ, không bao giờ phản hồi cuối |
+| Proxy đệm SSE | Tiến độ đến thành đợt hoặc sau hết thời gian | Tắt đệm và cấu hình thời gian chờ proxy tương thích |
+| Giả định `Last-Event-ID` | Client tiếp tục từ trạng thái máy chủ không hỗ trợ | Kết nối lại với yêu cầu mới và lấy lại |
+| Mọi client kết nối lại ngay | Phục hồi tạo mất dịch vụ khác | Dùng backoff hàm mũ có trần với jitter |
+| Ack tác vụ coi là hủy cuối | Worker còn chạy sau UI nói dừng | Thăm dò Task đến trạng thái kết thúc |
 
 ## Capstone Connection
 
-The tool-ecosystem capstone should treat reliability as executable evidence, not a paragraph in an architecture diagram.
+Bài tổng kết hệ sinh thái công cụ nên coi độ tin cậy là bằng chứng thực thi được, không đoạn trong sơ đồ kiến trúc.
 
-Require these artifacts:
+Yêu cầu sản phẩm này:
 
-- one cancellation race transcript for each transport;
-- a retry table for every exposed mutation;
-- an idempotency-key record and mismatch fixture;
-- a concurrent same-key transcript, a reopen check, and a mutation-alias check;
-- a bounded-buffer overload result;
-- reverse-proxy SSE headers and idle policy;
-- a reconnect plan that names authoritative refetch methods;
-- a durable Task cancellation trace when the capstone uses Tasks.
+- một bản ghi tranh chấp hủy mỗi vận chuyển;
+- bảng thử lại cho mọi thay đổi đưa ra;
+- bản ghi khóa lũy đẳng và fixture không khớp;
+- bản ghi cùng khóa đồng thời, kiểm tra mở lại và kiểm tra bí danh thay đổi;
+- kết quả quá tải bộ đệm có giới hạn;
+- header SSE reverse proxy và chính sách nhàn;
+- kế hoạch kết nối lại nêu phương thức lấy lại có thẩm quyền;
+- trace hủy Task bền vững khi bài tổng kết dùng Tasks.
 
-A green request in a local process proves only the happy path. The capstone is production-ready when lost responses, late cancellation, slow consumers, and reconnect herds have deterministic outcomes.
+Yêu cầu xanh trong tiến trình cục bộ chỉ chứng minh nhánh thành công. Bài tổng kết sẵn sàng sản xuất khi mất phản hồi, hủy trễ, bên tiếp nhận chậm và bầy kết nối lại có kết quả tất định.
 
 ## Key Terms
 
-| Term | Meaning |
+| Thuật ngữ | Ý nghĩa |
 |------|---------|
-| Request cancellation | Abandonment of one in-flight MCP request |
-| Cancellation race | Competition between terminal completion and cancellation events |
-| Idle timeout | Limit since the last useful request activity |
-| Maximum timeout | Absolute limit from request start, unaffected by progress |
-| Idempotency key | Application identifier that deduplicates one business intent |
-| Atomic ledger | Durable boundary that commits the key claim, effect record, and result as one unit |
-| Backpressure | Control applied when producers outpace consumers |
-| Progress coalescing | Replacing older progress with a newer authoritative value |
-| Refetch | Reading current state again after a stream gap |
-| Jitter | Deliberate variation that spreads retries across time |
+| Request cancellation (Hủy yêu cầu) | Bỏ một yêu cầu MCP đang xử lý |
+| Cancellation race (Tranh chấp hủy) | Cạnh tranh giữa sự kiện hoàn tất kết thúc và hủy |
+| Idle timeout (Thời gian chờ nhàn rỗi) | Giới hạn từ hoạt động yêu cầu hữu ích cuối |
+| Maximum timeout (Thời gian chờ tối đa) | Giới hạn tuyệt đối từ bắt đầu yêu cầu, không bị tiến độ ảnh hưởng |
+| Idempotency key (Khóa lũy đẳng) | Định danh ứng dụng khử trùng một ý định nghiệp vụ |
+| Atomic ledger (Sổ nguyên tử) | Ranh giới bền vững commit chiếm khóa, bản ghi hiệu ứng và kết quả thành một đơn vị |
+| Backpressure (Áp lực ngược) | Kiểm soát áp khi bên tạo nhanh hơn bên tiếp nhận |
+| Progress coalescing (Gộp tiến độ) | Thay tiến độ cũ bằng giá trị có thẩm quyền mới hơn |
+| Refetch (Lấy lại) | Đọc trạng thái hiện tại lần nữa sau khoảng trống luồng |
+| Jitter (Độ biến thiên) | Biến thiên chủ ý phân tán thử lại theo thời gian |
 
 ## Further Reading
 
