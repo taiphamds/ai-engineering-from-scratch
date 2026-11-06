@@ -9,13 +9,13 @@ tags: [3d-gaussian-splatting, export, glTF, OpenUSD, pipeline]
 
 # 3DGS Export Router
 
-Map a downstream target to the right 3DGS file format. Saves hours of "it does not load" debugging.
+Ánh xạ đích phía sau tới định dạng file 3DGS đúng. Tiết kiệm hàng giờ gỡ lỗi "nó không tải".
 
 ## When to use
 
-- After training a 3DGS scene, before sharing it with a content pipeline.
-- Choosing between research-grade (.ply) and production-grade (glTF / USD) formats.
-- Pipeline handoff: capture team -> 3DGS engineer -> game designer / VFX artist / web developer.
+- Sau huấn luyện cảnh 3DGS, trước khi chia sẻ với pipeline nội dung.
+- Chọn giữa định dạng cấp nghiên cứu (.ply) và cấp production (glTF / USD).
+- Bàn giao pipeline: nhóm thu nhận -> kỹ sư 3DGS -> nhà thiết kế trò chơi / nghệ sĩ VFX / nhà phát triển web.
 
 ## Inputs
 
@@ -25,25 +25,25 @@ Map a downstream target to the right 3DGS file format. Saves hours of "it does n
 
 ## Format decision
 
-| Target | Recommended format | Why |
+| Đích | Định dạng khuyến nghị | Tại sao |
 |--------|--------------------|-----|
-| Unreal Engine (virtual production) | Volinga plugin or glTF KHR_gaussian_splatting | Native Unreal SDK path |
-| Unity (XR / game) | .ply via Aras-P Unity-GaussianSplatting plugin | Community-standard Unity pipeline |
-| NVIDIA Omniverse, Pixar tools | OpenUSD 26.03 (UsdVolParticleField3DGaussianSplat) | Native USD prim type |
-| Apple Vision Pro | OpenUSD 26.03 | Native to visionOS 2.x |
-| Blender | .ply + KIRI Engine add-on | Community add-on reads raw splats |
-| Three.js web viewer | glTF KHR_gaussian_splatting or .splat | Browser-standard, works with `GaussianSplats3D` |
-| Babylon.js V9+ | glTF KHR_gaussian_splatting | V9 added native support |
-| Cesium (CesiumJS 1.139+, Cesium for Unreal 2.23+) | glTF KHR_gaussian_splatting | Shipped explicit support |
-| PlayCanvas | .splat | PlayCanvas native quantised format |
-| SuperSplat (editor) | .ply or .splat | Import + export |
+| Unreal Engine (sản xuất ảo) | Plugin Volinga hoặc glTF KHR_gaussian_splatting | Đường SDK Unreal gốc |
+| Unity (XR / trò chơi) | .ply qua plugin Aras-P Unity-GaussianSplatting | Pipeline Unity tiêu chuẩn cộng đồng |
+| NVIDIA Omniverse, công cụ Pixar | OpenUSD 26.03 (UsdVolParticleField3DGaussianSplat) | Loại prim USD gốc |
+| Apple Vision Pro | OpenUSD 26.03 | Gốc visionOS 2.x |
+| Blender | .ply + add-on KIRI Engine | Add-on cộng đồng đọc splat thô |
+| Trình xem web Three.js | glTF KHR_gaussian_splatting hoặc .splat | Tiêu chuẩn trình duyệt, hoạt động với `GaussianSplats3D` |
+| Babylon.js V9+ | glTF KHR_gaussian_splatting | V9 thêm hỗ trợ gốc |
+| Cesium (CesiumJS 1.139+, Cesium for Unreal 2.23+) | glTF KHR_gaussian_splatting | Đã phát hành hỗ trợ tường minh |
+| PlayCanvas | .splat | Định dạng lượng tử hóa gốc PlayCanvas |
+| SuperSplat (trình biên tập) | .ply hoặc .splat | Nhập + xuất |
 
 ## Quantisation trade-offs
 
-- `.ply` full-precision: largest file, lossless, any viewer.
-- `.splat`: 4x-8x smaller, slight quality loss on SH3 coefficients, PlayCanvas-ecosystem standard.
-- glTF KHR: configurable via EXT_meshopt_compression; smallest with highest compatibility.
-- USD: compressed by USDZ packaging; smallest for Apple pipelines.
+- `.ply` độ chính xác đầy đủ: file lớn nhất, không mất mát, mọi trình xem.
+- `.splat`: nhỏ hơn 4-8 lần, mất chất lượng nhẹ trên hệ số SH3, tiêu chuẩn hệ sinh thái PlayCanvas.
+- glTF KHR: cấu hình được qua EXT_meshopt_compression; nhỏ nhất với tương thích cao nhất.
+- USD: nén bằng đóng gói USDZ; nhỏ nhất cho pipeline Apple.
 
 ## Output report
 
@@ -66,8 +66,8 @@ Map a downstream target to the right 3DGS file format. Saves hours of "it does n
 
 ## Rules
 
-- Never strip SH3 coefficients silently — it visibly changes specular reflections.
-- If `priority == file_size`, recommend `.splat` or glTF with meshopt; warn about quality loss.
-- For Apple platforms, prefer USD / USDZ over glTF in 2026; USDZ has first-class visionOS support.
-- If the target viewer's 3DGS support is pre-standard (pre-Feb 2026), recommend `.ply` and the viewer's custom loader; Khronos-standard glTF will not yet be recognised.
-- Always validate the exported file in at least one viewer before handing off; silent corruption happens during quantisation.
+- Không bao giờ âm thầm bỏ các hệ số SH3 — nó thay đổi rõ các phản xạ gương.
+- Nếu `priority == file_size`, khuyến nghị `.splat` hoặc glTF với meshopt; cảnh báo mất chất lượng.
+- Với nền tảng Apple, ưu tiên USD / USDZ hơn glTF năm 2026; USDZ có hỗ trợ visionOS hạng nhất.
+- Nếu hỗ trợ 3DGS của trình xem đích có trước tiêu chuẩn (trước tháng 2 năm 2026), khuyến nghị `.ply` và bộ tải tùy chỉnh của trình xem; glTF tiêu chuẩn Khronos sẽ chưa được nhận dạng.
+- Luôn xác thực file xuất trong ít nhất một trình xem trước bàn giao; hỏng âm thầm xảy ra khi lượng tử hóa.

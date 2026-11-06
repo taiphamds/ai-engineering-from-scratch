@@ -1,6 +1,6 @@
 # 3D Gaussian Splatting from Scratch
 
-> A scene is a cloud of millions of 3D Gaussians. Each one has a position, orientation, scale, opacity, and a colour that depends on viewing direction. Rasterise them, backprop through the rasterisation, done.
+> Một cảnh là một đám mây hàng triệu Gaussian 3D. Mỗi Gaussian có vị trí, hướng, tỷ lệ, độ đục và màu phụ thuộc hướng nhìn. Raster hóa chúng, lan truyền ngược qua raster hóa, xong.
 
 **Type:** Build
 **Languages:** Python
@@ -9,24 +9,24 @@
 
 ## Learning Objectives
 
-- Explain why 3D Gaussian Splatting replaced NeRF as the production default for photorealistic 3D reconstruction in 2026
-- State the six per-Gaussian parameters (position, rotation quaternion, scale, opacity, spherical harmonics colour, optional feature) and how many floats each contributes
-- Implement a 2D Gaussian splatting rasterizer from scratch using `alpha` compositing, then show how the 3D case projects to the same loop
-- Use `nerfstudio`, `gsplat`, or `SuperSplat` to reconstruct a scene from 20-50 photos and export to the `KHR_gaussian_splatting` glTF extension or the OpenUSD 26.03 `UsdVolParticleField3DGaussianSplat` schema
+- Giải thích tại sao 3D Gaussian Splatting thay NeRF làm mặc định production cho tái tạo 3D chân thực như ảnh năm 2026
+- Nêu sáu tham số mỗi Gaussian (vị trí, quaternion xoay, tỷ lệ, độ đục, màu điều hòa cầu, đặc trưng tùy chọn) và số float mỗi tham số đóng góp
+- Triển khai bộ raster hóa Gaussian splatting 2D từ đầu bằng tổng hợp `alpha`, rồi cho thấy trường hợp 3D chiếu về cùng vòng lặp
+- Sử dụng `nerfstudio`, `gsplat` hoặc `SuperSplat` để tái tạo cảnh từ 20-50 ảnh và xuất sang phần mở rộng glTF `KHR_gaussian_splatting` hoặc schema `UsdVolParticleField3DGaussianSplat` của OpenUSD 26.03
 
 ## The Problem
 
-A NeRF stores a scene as the weights of an MLP. Every rendered pixel is hundreds of MLP queries along a ray. Training takes hours, rendering takes seconds, and the weights cannot be edited — if you want to move a chair inside a scene, you have to retrain.
+Một NeRF lưu cảnh như các trọng số MLP. Mỗi pixel kết xuất là hàng trăm truy vấn MLP dọc một tia. Huấn luyện mất hàng giờ, kết xuất mất vài giây và các trọng số không thể chỉnh sửa — nếu muốn di chuyển một ghế trong cảnh, bạn phải huấn luyện lại.
 
-3D Gaussian Splatting (Kerbl, Kopanas, Leimkühler, Drettakis, SIGGRAPH 2023) replaced all of that. A scene is an explicit set of 3D Gaussians. Rendering is GPU rasterisation at 100+ fps. Training takes minutes. Editing is direct: translate a subset of Gaussians and you have moved the chair. By 2026 the Khronos Group has ratified a glTF extension for Gaussian splats, OpenUSD 26.03 ships a Gaussian splat schema, Zillow and Apartments.com render real estate with them, and most new research papers on 3D reconstruction are variants on the core 3DGS idea.
+3D Gaussian Splatting (Kerbl, Kopanas, Leimkühler, Drettakis, SIGGRAPH 2023) thay tất cả điều đó. Một cảnh là tập tường minh các Gaussian 3D. Kết xuất là raster hóa GPU ở 100+ fps. Huấn luyện mất vài phút. Chỉnh sửa trực tiếp: tịnh tiến một tập con Gaussian và bạn đã di chuyển ghế. Đến năm 2026 Khronos Group đã phê chuẩn phần mở rộng glTF cho Gaussian splat, OpenUSD 26.03 cung cấp schema Gaussian splat, Zillow và Apartments.com kết xuất bất động sản bằng chúng, và hầu hết bài báo nghiên cứu mới về tái tạo 3D là biến thể ý tưởng 3DGS cốt lõi.
 
-The mental model is simple, the math has enough moving parts that most introductions start at rasterisation and skip past the projections and spherical harmonics. This lesson builds the whole thing — a 2D version first, then the 3D extension.
+Mô hình tư duy đơn giản, toán học có đủ nhiều thành phần chuyển động khiến hầu hết phần giới thiệu bắt đầu ở raster hóa và bỏ qua các phép chiếu và điều hòa cầu. Bài này xây toàn bộ — phiên bản 2D trước, rồi mở rộng 3D.
 
 ## The Concept
 
 ### What a Gaussian carries
 
-One 3D Gaussian is a parametric blob in space with these attributes:
+Một Gaussian 3D là một đốm tham số trong không gian có các thuộc tính này:
 
 ```
 position         mu         (3,)    centre in world coordinates
@@ -36,9 +36,9 @@ opacity          alpha      (1,)    post-sigmoid opacity [0, 1]
 SH coefficients  c_lm       (3 * (L+1)^2,)   view-dependent colour
 ```
 
-Rotation + scale build a 3x3 covariance: `Sigma = R S S^T R^T`. That is the shape of the Gaussian in 3D. Spherical harmonics let the colour change with viewing direction — specular highlights, subtle sheen, view-dependent glow — without storing per-view textures. With SH degree 3 you get 16 coefficients per colour channel, 48 floats per Gaussian for colour alone.
+Xoay + tỷ lệ xây một hiệp phương sai 3x3: `Sigma = R S S^T R^T`. Đó là hình dạng Gaussian trong 3D. Điều hòa cầu cho phép màu thay đổi theo hướng nhìn — điểm sáng phản chiếu, ánh bóng nhẹ, phát sáng phụ thuộc góc nhìn — mà không lưu kết cấu từng góc nhìn. Với bậc SH 3 bạn có 16 hệ số mỗi kênh màu, 48 float mỗi Gaussian chỉ cho màu.
 
-A scene typically has 1-5 million Gaussians. Each stores roughly 60 floats (3 + 4 + 3 + 1 + 48 + misc). That is 240 MB for a five-million-Gaussian scene — far smaller than the equivalent point cloud with per-point texture, and an order of magnitude smaller than a NeRF's MLP weights re-rendered at high resolution.
+Một cảnh thường có 1-5 triệu Gaussian. Mỗi Gaussian lưu khoảng 60 float (3 + 4 + 3 + 1 + 48 + phụ). Đó là 240 MB cho cảnh năm triệu Gaussian — nhỏ hơn nhiều đám mây điểm tương đương với kết cấu từng điểm, và nhỏ hơn một bậc độ lớn so với trọng số MLP NeRF được kết xuất lại ở độ phân giải cao.
 
 ### Rasterisation, not ray marching
 
@@ -55,11 +55,11 @@ flowchart LR
     style PIX fill:#dcfce7,stroke:#16a34a
 ```
 
-Five steps, all GPU-friendly. No MLP query per pixel. A single RTX 3080 Ti renders 6 million splats at 147 fps.
+Năm bước, tất cả thân thiện GPU. Không truy vấn MLP mỗi pixel. Một RTX 3080 Ti duy nhất kết xuất 6 triệu splat ở 147 fps.
 
 ### The projection step
 
-The 3D Gaussian at world position `mu` with 3D covariance `Sigma` projects to a 2D Gaussian at screen position `mu'` with 2D covariance `Sigma'`:
+Gaussian 3D ở vị trí thế giới `mu` với hiệp phương sai 3D `Sigma` chiếu thành Gaussian 2D ở vị trí màn hình `mu'` với hiệp phương sai 2D `Sigma'`:
 
 ```
 mu' = project(mu)
@@ -69,11 +69,11 @@ W = viewing transform (rotation + translation of camera)
 J = Jacobian of the perspective projection at mu'
 ```
 
-The 2D Gaussian's footprint is an ellipse whose axes are the eigenvectors of `Sigma'`. Every pixel inside that ellipse receives the Gaussian's contribution, weighted by `exp(-0.5 * (p - mu')^T Sigma'^-1 (p - mu'))`.
+Dấu phủ Gaussian 2D là một ellipse có các trục là vector riêng của `Sigma'`. Mọi pixel trong ellipse nhận đóng góp Gaussian, có trọng số `exp(-0.5 * (p - mu')^T Sigma'^-1 (p - mu'))`.
 
 ### The alpha-compositing rule
 
-For one pixel, the Gaussians that cover it are sorted back-to-front (or equivalently front-to-back with inverted formula). Colour is composited with the same equation as every semi-transparent rasteriser since the 1980s:
+Với một pixel, các Gaussian phủ nó được sắp từ sau ra trước (hoặc tương đương từ trước ra sau với công thức đảo). Màu được tổng hợp bằng cùng phương trình như mọi bộ raster hóa bán trong suốt từ thập niên 1980:
 
 ```
 C_pixel = sum_i alpha_i * T_i * c_i
@@ -83,25 +83,25 @@ alpha_i = opacity_i * exp(-0.5 * d^T Sigma'^-1 d)   local contribution
 c_i = eval_SH(SH_i, view_direction)    view-dependent colour
 ```
 
-This is **the same equation as NeRF's volumetric render**, just over an explicit sparse set of Gaussians instead of dense samples along a ray. That identity is why rendered quality matches NeRF — both are integrating the same radiance-field equation.
+Đây là **cùng phương trình như kết xuất thể tích NeRF**, chỉ trên tập Gaussian thưa tường minh thay các mẫu dày đặc dọc tia. Sự đồng nhất đó là lý do chất lượng kết xuất khớp NeRF — cả hai tích phân cùng phương trình trường bức xạ.
 
 ### Why this is differentiable
 
-Every step — projection, tile assignment, alpha compositing, SH evaluation — is differentiable with respect to the Gaussian parameters. Given a ground-truth image, compute rendered pixel loss, backprop through the rasteriser, update all `(mu, q, s, alpha, c_lm)` by gradient descent. Over ~30,000 iterations the Gaussians find their right positions, scales, and colours.
+Mọi bước — chiếu, gán ô, tổng hợp alpha, tính SH — khả vi theo các tham số Gaussian. Với hình ảnh sự thật nền, tính mất mát pixel kết xuất, lan truyền ngược qua bộ raster hóa, cập nhật mọi `(mu, q, s, alpha, c_lm)` bằng hạ gradient. Qua ~30,000 lần lặp các Gaussian tìm vị trí, tỷ lệ và màu đúng.
 
 ### Densification and pruning
 
-A fixed set of Gaussians cannot cover a complex scene. Training includes two adaptive mechanisms:
+Một tập Gaussian cố định không thể phủ một cảnh phức tạp. Huấn luyện gồm hai cơ chế thích nghi:
 
-- **Clone** a Gaussian at its current position when its gradient magnitude is high but its scale is small — the reconstruction needs more detail here.
-- **Split** a large-scale Gaussian into two smaller ones when its gradient is high — one big Gaussian is too smooth to fit the region.
-- **Prune** Gaussians whose opacity drops below a threshold — they are not contributing.
+- **Nhân bản** một Gaussian tại vị trí hiện tại khi độ lớn gradient cao nhưng tỷ lệ nhỏ — tái tạo cần thêm chi tiết ở đây.
+- **Tách** một Gaussian tỷ lệ lớn thành hai Gaussian nhỏ hơn khi gradient cao — một Gaussian lớn quá mượt để khớp vùng.
+- **Cắt tỉa** các Gaussian có độ đục giảm dưới ngưỡng — chúng không đóng góp.
 
-Densification runs every N iterations. A scene typically grows from ~100k initial Gaussians (seeded from SfM points) to 1-5M at the end of training.
+Làm dày chạy mỗi N lần lặp. Một cảnh thường tăng từ ~100k Gaussian ban đầu (khởi tạo từ các điểm SfM) tới 1-5M ở cuối huấn luyện.
 
 ### Spherical harmonics in one paragraph
 
-View-dependent colour is a function `c(direction)` on the unit sphere. Spherical harmonics are the sphere's Fourier basis. Truncate at degree `L` and you get `(L+1)^2` basis functions per channel. Evaluating the colour for a new view is a dot product between the learned SH coefficients and the basis evaluated at the viewing direction. Degree 0 = one coefficient = constant colour. Degree 3 = 16 coefficients = enough to capture Lambertian shading, specular, and mild reflection. SD Gaussian Splatting papers use degree 3 by default.
+Màu phụ thuộc hướng nhìn là hàm `c(direction)` trên mặt cầu đơn vị. Điều hòa cầu là cơ sở Fourier của mặt cầu. Cắt ở bậc `L` và bạn có `(L+1)^2` hàm cơ sở mỗi kênh. Tính màu cho góc nhìn mới là tích vô hướng giữa các hệ số SH được học và cơ sở tính tại hướng nhìn. Bậc 0 = một hệ số = màu hằng. Bậc 3 = 16 hệ số = đủ để nắm bắt đổ bóng Lambert, phản chiếu và phản xạ nhẹ. Các bài báo SD Gaussian Splatting mặc định dùng bậc 3.
 
 ### The 2026 production stack
 
@@ -116,9 +116,9 @@ View-dependent colour is a function `c(direction)` on the unit sphere. Spherical
 
 ### 4D and generative variants
 
-- **4D Gaussian Splatting** — Gaussians are functions of time; used for volumetric video (Superman 2026, A$AP Rocky's "Helicopter").
-- **Generative splats** — text-to-splat models (Marble by World Labs) that hallucinate entire scenes.
-- **3D Gaussian Unscented Transform** — NVIDIA NuRec's variant for autonomous driving simulation.
+- **4D Gaussian Splatting** — các Gaussian là hàm thời gian; dùng cho video thể tích (Superman 2026, "Helicopter" của A$AP Rocky).
+- **Splat tạo sinh** — các mô hình văn bản-sang-splat (Marble của World Labs) ảo giác toàn bộ cảnh.
+- **3D Gaussian Unscented Transform** — biến thể của NVIDIA NuRec cho mô phỏng lái xe tự hành.
 
 ```figure
 cv3-gaussian-splat
@@ -128,7 +128,7 @@ cv3-gaussian-splat
 
 ### Step 1: A 2D Gaussian
 
-We first build a 2D rasteriser. The 3D case reduces to it after projection.
+Trước tiên xây bộ raster hóa 2D. Trường hợp 3D rút về nó sau chiếu.
 
 ```python
 import torch
@@ -153,11 +153,11 @@ def eval_2d_gaussian(means, covs, points):
     return density.view(G, H, W)
 ```
 
-`einsum` does the quadratic form `diff^T Sigma^-1 diff` for every (Gaussian, pixel) pair.
+`einsum` tính dạng toàn phương `diff^T Sigma^-1 diff` cho mọi cặp (Gaussian, pixel).
 
 ### Step 2: 2D splatting rasteriser
 
-Alpha-compositing front-to-back. Depth in 2D is meaningless, so we use a learned per-Gaussian scalar for order.
+Tổng hợp alpha từ trước ra sau. Độ sâu trong 2D vô nghĩa, nên dùng số vô hướng được học mỗi Gaussian cho thứ tự.
 
 ```python
 def rasterise_2d(means, covs, colours, opacities, depths, image_size):
@@ -195,7 +195,7 @@ def rasterise_2d(means, covs, colours, opacities, depths, image_size):
     return out
 ```
 
-Not fast — a real implementation uses tile-based CUDA kernels — but exactly the right math and fully differentiable.
+Không nhanh — bản triển khai thật dùng các kernel CUDA dựa trên ô — nhưng toán học hoàn toàn đúng và khả vi đầy đủ.
 
 ### Step 3: A trainable 2D splat scene
 
@@ -229,7 +229,7 @@ class Splats2D(nn.Module):
         return rasterise_2d(self.means, covs, colours, opacities, self.depth, image_size)
 ```
 
-`log_scale`, `opacity_logit`, and `colour_logits` are all unconstrained parameters mapped through the right activation at render time. This is the standard pattern for every 3DGS implementation.
+`log_scale`, `opacity_logit` và `colour_logits` đều là các tham số không ràng buộc ánh xạ qua kích hoạt đúng khi kết xuất. Đây là mẫu tiêu chuẩn cho mọi bản triển khai 3DGS.
 
 ### Step 4: Fit 2D Gaussians to a target image
 
@@ -261,23 +261,23 @@ for step in range(200):
         print(f"step {step:3d}  mse {loss.item():.4f}")
 ```
 
-Over 200 steps the 64 Gaussians settle into the two shapes. That is the entire idea — gradient-descent on explicit geometric primitives.
+Qua 200 bước 64 Gaussian ổn định thành hai hình dạng. Đó là toàn bộ ý tưởng — hạ gradient trên các thành phần hình học tường minh.
 
 ### Step 5: From 2D to 3D
 
-The 3D extension keeps the same loop. The additions:
+Mở rộng 3D giữ cùng vòng lặp. Các bổ sung:
 
-1. Per-Gaussian rotation is a quaternion instead of a single angle.
-2. Covariance is `R S S^T R^T` with `R` built from the quaternion and `S = diag(exp(log_scale))`.
-3. Projection `(mu, Sigma) -> (mu', Sigma')` uses the camera extrinsics and the Jacobian of the perspective projection at `mu`.
-4. Colour becomes a spherical-harmonics expansion; evaluate it at the viewing direction.
-5. Depth-sort is from actual camera-space z instead of a learned scalar.
+1. Xoay từng Gaussian là quaternion thay vì góc đơn.
+2. Hiệp phương sai là `R S S^T R^T` với `R` xây từ quaternion và `S = diag(exp(log_scale))`.
+3. Phép chiếu `(mu, Sigma) -> (mu', Sigma')` dùng ngoại tại máy ảnh và Jacobian của phép chiếu phối cảnh tại `mu`.
+4. Màu trở thành khai triển điều hòa cầu; tính tại hướng nhìn.
+5. Sắp xếp độ sâu từ z thật trong không gian máy ảnh thay số vô hướng được học.
 
-Every production implementation (`gsplat`, `inria/gaussian-splatting`, `nerfstudio`) does exactly this on the GPU with tile-based CUDA kernels.
+Mọi bản triển khai production (`gsplat`, `inria/gaussian-splatting`, `nerfstudio`) làm đúng điều này trên GPU bằng kernel CUDA dựa trên ô.
 
 ### Step 6: Spherical harmonics evaluation
 
-The SH basis up to degree 3 has 16 terms per channel. Evaluation:
+Cơ sở SH tới bậc 3 có 16 số hạng mỗi kênh. Cách tính:
 
 ```python
 def eval_sh_degree_3(sh_coeffs, dirs):
@@ -310,11 +310,11 @@ def eval_sh_degree_3(sh_coeffs, dirs):
     return result
 ```
 
-Learned `sh_coeffs` store the "colour in every direction" for that Gaussian. At render time you evaluate against the current view direction and get a 3-vector RGB.
+Các `sh_coeffs` được học lưu "màu ở mọi hướng" cho Gaussian đó. Khi kết xuất bạn tính theo hướng nhìn hiện tại và có vector RGB 3 phần tử.
 
 ## Use It
 
-For real 3DGS work, use `gsplat` (Meta) or `nerfstudio`:
+Cho công việc 3DGS thật, dùng `gsplat` (Meta) hoặc `nerfstudio`:
 
 ```bash
 pip install nerfstudio gsplat
@@ -322,48 +322,48 @@ ns-download-data example
 ns-train splatfacto --data path/to/data
 ```
 
-`splatfacto` is nerfstudio's 3DGS trainer. The run takes 10-30 minutes on an RTX 4090 for a typical scene.
+`splatfacto` là bộ huấn luyện 3DGS của nerfstudio. Lần chạy mất 10-30 phút trên RTX 4090 cho cảnh điển hình.
 
-Export options that matter in 2026:
+Các lựa chọn xuất quan trọng năm 2026:
 
-- `.ply` — raw Gaussian cloud (portable, largest file).
-- `.splat` — PlayCanvas / SuperSplat quantised format.
-- glTF `KHR_gaussian_splatting` — Khronos standard, portable across viewers (Feb 2026 RC).
-- OpenUSD `UsdVolParticleField3DGaussianSplat` — USD-native, for NVIDIA Omniverse and Vision Pro pipelines.
+- `.ply` — đám mây Gaussian thô (di động, file lớn nhất).
+- `.splat` — định dạng lượng tử hóa PlayCanvas / SuperSplat.
+- glTF `KHR_gaussian_splatting` — tiêu chuẩn Khronos, di động giữa các trình xem (RC tháng 2 năm 2026).
+- OpenUSD `UsdVolParticleField3DGaussianSplat` — gốc USD, cho pipeline NVIDIA Omniverse và Vision Pro.
 
-For 4D / dynamic scenes, `4DGS` and `Deformable-3DGS` extend the same machinery with time-varying means and opacities.
+Với cảnh 4D / động, `4DGS` và `Deformable-3DGS` mở rộng cùng bộ máy với các trung bình và độ đục biến thiên theo thời gian.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-3dgs-capture-planner.md` — a prompt that plans a capture session (number of photos, camera path, lighting) for a given scene type.
-- `outputs/skill-3dgs-export-router.md` — a skill that picks the right export format (`.ply` / `.splat` / glTF / USD) given the downstream viewer or engine.
+- `outputs/prompt-3dgs-capture-planner.md` — một prompt lập kế hoạch buổi thu nhận (số ảnh, đường máy ảnh, ánh sáng) cho loại cảnh nhất định.
+- `outputs/skill-3dgs-export-router.md` — một skill chọn định dạng xuất đúng (`.ply` / `.splat` / glTF / USD) với trình xem hoặc engine phía sau cho trước.
 
 ## Exercises
 
-1. **(Easy)** Run the 2D splat trainer above on a different synthetic image. Vary `num_splats` in `[16, 64, 256]` and plot MSE vs step for each. Identify the point of diminishing returns.
-2. **(Medium)** Extend the 2D rasteriser to support per-Gaussian RGB colours that depend on a scalar "view angle" through a degree-2 harmonic. Train on a pair of target images and verify the model reconstructs both.
-3. **(Hard)** Clone `nerfstudio` and train `splatfacto` on a 20-photo capture of any scene you have (desk, plant, face, room). Export to glTF `KHR_gaussian_splatting` and open it in a viewer (Three.js `GaussianSplats3D`, SuperSplat, Babylon.js V9). Report training time, number of Gaussians, and rendered fps.
+1. **(Dễ)** Chạy bộ huấn luyện splat 2D trên trên hình ảnh tổng hợp khác. Thay đổi `num_splats` trong `[16, 64, 256]` và vẽ MSE theo bước cho mỗi cách. Xác định điểm lợi ích giảm dần.
+2. **(Vừa)** Mở rộng bộ raster hóa 2D để hỗ trợ màu RGB từng Gaussian phụ thuộc một "góc nhìn" vô hướng qua điều hòa bậc 2. Huấn luyện trên cặp ảnh đích và xác minh mô hình tái tạo cả hai.
+3. **(Khó)** Clone `nerfstudio` và huấn luyện `splatfacto` trên bộ thu nhận 20 ảnh của bất kỳ cảnh bạn có (bàn, cây, mặt, phòng). Xuất glTF `KHR_gaussian_splatting` và mở trong trình xem (Three.js `GaussianSplats3D`, SuperSplat, Babylon.js V9). Báo cáo thời gian huấn luyện, số Gaussian và fps kết xuất.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| 3DGS | "Gaussian splats" | Explicit scene representation as millions of 3D Gaussians with per-Gaussian position, rotation, scale, opacity, SH colour |
-| Covariance | "Shape of the Gaussian" | `Sigma = R S S^T R^T`; orientation and anisotropic scale of one Gaussian |
-| Alpha compositing | "Back-to-front blend" | Same equation as NeRF's volumetric render, now over an explicit sparse set |
-| Densification | "Clone and split" | Adaptive addition of new Gaussians where reconstruction is under-fit |
-| Pruning | "Delete low-opacity" | Remove Gaussians that have collapsed to near-zero opacity during training |
-| Spherical harmonics | "View-dependent colour" | Fourier basis on the sphere; stores colour as a function of viewing direction |
-| Splatfacto | "nerfstudio's 3DGS" | The easiest path to training 3DGS in 2026 |
-| `KHR_gaussian_splatting` | "glTF standard" | Khronos 2026 extension that makes 3DGS portable across viewers and engines |
+| 3DGS | "Các Gaussian splat" | Biểu diễn cảnh tường minh bằng hàng triệu Gaussian 3D với vị trí, xoay, tỷ lệ, độ đục, màu SH từng Gaussian |
+| Covariance (Hiệp phương sai) | "Hình dạng Gaussian" | `Sigma = R S S^T R^T`; hướng và tỷ lệ dị hướng của một Gaussian |
+| Alpha compositing (Tổng hợp alpha) | "Trộn từ sau ra trước" | Cùng phương trình kết xuất thể tích NeRF, giờ trên tập thưa tường minh |
+| Densification (Làm dày) | "Nhân bản và tách" | Bổ sung thích nghi các Gaussian mới nơi tái tạo khớp thiếu |
+| Pruning (Cắt tỉa) | "Xóa độ đục thấp" | Loại các Gaussian đã sụp về độ đục gần không trong huấn luyện |
+| Spherical harmonics (Điều hòa cầu) | "Màu phụ thuộc góc nhìn" | Cơ sở Fourier trên mặt cầu; lưu màu như hàm hướng nhìn |
+| Splatfacto | "3DGS của nerfstudio" | Đường dễ nhất tới huấn luyện 3DGS năm 2026 |
+| `KHR_gaussian_splatting` | "Tiêu chuẩn glTF" | Phần mở rộng Khronos 2026 khiến 3DGS di động giữa các trình xem và engine |
 
 ## Further Reading
 
-- [3D Gaussian Splatting for Real-Time Radiance Field Rendering (Kerbl et al., SIGGRAPH 2023)](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) — the original paper
-- [gsplat (Meta/nerfstudio)](https://github.com/nerfstudio-project/gsplat) — production-quality CUDA rasteriser
-- [nerfstudio Splatfacto](https://docs.nerf.studio/nerfology/methods/splat.html) — reference training recipe
-- [Khronos KHR_gaussian_splatting extension](https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_gaussian_splatting/README.md) — the 2026 portable format
-- [OpenUSD 26.03 release notes](https://openusd.org/release/) — `UsdVolParticleField3DGaussianSplat` schema
-- [THE FUTURE 3D State of Gaussian Splatting 2026](https://www.thefuture3d.com/blog-0/2026/4/4/state-of-gaussian-splatting-2026) — industry overview
+- [3D Gaussian Splatting for Real-Time Radiance Field Rendering (Kerbl et al., SIGGRAPH 2023)](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/) — bài báo gốc
+- [gsplat (Meta/nerfstudio)](https://github.com/nerfstudio-project/gsplat) — bộ raster hóa CUDA chất lượng production
+- [nerfstudio Splatfacto](https://docs.nerf.studio/nerfology/methods/splat.html) — công thức huấn luyện tham chiếu
+- [Khronos KHR_gaussian_splatting extension](https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_gaussian_splatting/README.md) — định dạng di động năm 2026
+- [OpenUSD 26.03 release notes](https://openusd.org/release/) — schema `UsdVolParticleField3DGaussianSplat`
+- [THE FUTURE 3D State of Gaussian Splatting 2026](https://www.thefuture3d.com/blog-0/2026/4/4/state-of-gaussian-splatting-2026) — tổng quan ngành
