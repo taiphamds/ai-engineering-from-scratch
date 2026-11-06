@@ -9,21 +9,21 @@ tags: [vlm, production, monitoring, hallucination]
 
 # CMER Monitor
 
-Treat cross-modal alignment as a first-class production KPI.
+Coi căn chỉnh liên phương thức như một KPI production hạng nhất.
 
 ## When to use
 
-- Deploying any VLM endpoint that produces text grounded on images.
-- Investigating reports of hallucinated responses.
-- Tracking whether an input distribution shift degrades model grounding.
+- Triển khai bất kỳ endpoint VLM nào tạo văn bản dựa trên hình ảnh.
+- Điều tra báo cáo phản hồi ảo giác.
+- Theo dõi liệu dịch chuyển phân phối đầu vào làm giảm khả năng bám hình ảnh của mô hình.
 
 ## Inputs
 
-- `vlm_output`: generated text.
-- `text_confidence`: mean per-token probability after softmax, in `[0, 1]`. Compute as `exp(mean(log_probs))`. Do not pass raw logits; raw logits are unbounded and `conf_threshold` assumes a probability.
-- `image_embedding`: CLIP-family embedding of the image (DINOv3, SigLIP, CLIP).
-- `text_embedding`: CLIP-family embedding of the generated text.
-- Optional `prompt_type`: label for grouping (vqa / ocr / captioning / agent).
+- `vlm_output`: văn bản sinh.
+- `text_confidence`: xác suất trung bình từng token sau softmax, trong `[0, 1]`. Tính bằng `exp(mean(log_probs))`. Không truyền logit thô; logit thô không bị chặn và `conf_threshold` giả định xác suất.
+- `image_embedding`: embedding họ CLIP của hình ảnh (DINOv3, SigLIP, CLIP).
+- `text_embedding`: embedding họ CLIP của văn bản sinh.
+- `prompt_type` tùy chọn: nhãn để nhóm (vqa / ocr / captioning / agent).
 
 ## Per-request computation
 
@@ -40,9 +40,9 @@ def cmer_flag(image_emb, text_emb, text_conf, sim_thr=0.25, conf_thr=0.8):
     return {"sim": sim, "flagged": flagged}
 ```
 
-Embeddings are 1-D PyTorch tensors (`torch.float32`) from an independent CLIP-family encoder. If you use NumPy arrays, swap `.norm()` for `np.linalg.norm(...)` and cast the output accordingly.
+Các embedding là tensor PyTorch 1-D (`torch.float32`) từ encoder họ CLIP độc lập. Nếu dùng mảng NumPy, đổi `.norm()` thành `np.linalg.norm(...)` và ép kiểu đầu ra tương ứng.
 
-Store `sim`, `text_conf`, `flagged`, `prompt_type`, `timestamp`, `model_version`, `request_id` to your monitoring pipeline (Prometheus, DataDog, OpenTelemetry).
+Lưu `sim`, `text_conf`, `flagged`, `prompt_type`, `timestamp`, `model_version`, `request_id` vào pipeline giám sát (Prometheus, DataDog, OpenTelemetry).
 
 ## Aggregate metric
 
@@ -50,32 +50,32 @@ Store `sim`, `text_conf`, `flagged`, `prompt_type`, `timestamp`, `model_version`
 CMER = (flagged requests in window) / (total requests in window)
 ```
 
-Report per endpoint, per prompt_type, per model version.
+Báo cáo từng endpoint, từng prompt_type, từng phiên bản mô hình.
 
 ## Alert thresholds
 
-- Baseline CMER: establish over 7 days of normal traffic.
-- Warning: CMER >= 1.5x baseline for 1 hour.
-- Critical: CMER >= 2x baseline for 30 minutes or > 15% absolute for any window.
+- CMER cơ sở: thiết lập qua 7 ngày lưu lượng bình thường.
+- Cảnh báo: CMER >= 1.5 lần mức cơ sở trong 1 giờ.
+- Nghiêm trọng: CMER >= 2 lần mức cơ sở trong 30 phút hoặc tuyệt đối > 15% cho bất kỳ cửa sổ nào.
 
 ## Dashboard panels
 
-1. CMER over time (5-minute bucket, 7-day window).
-2. CMER by prompt_type (stacked bar).
-3. Distribution of `sim` per hour (histogram).
-4. Top hallucinated outputs (sample 20 flagged responses per day for human review).
+1. CMER theo thời gian (nhóm 5 phút, cửa sổ 7 ngày).
+2. CMER theo prompt_type (thanh xếp chồng).
+3. Phân phối `sim` mỗi giờ (histogram).
+4. Các đầu ra ảo giác hàng đầu (lấy mẫu 20 phản hồi đánh dấu mỗi ngày để con người xem xét).
 
 ## Actions when CMER spikes
 
-1. Sample the flagged requests.
-2. Verify the model version has not changed inadvertently.
-3. Check the input distribution (new file format? new image source? compressed differently?).
-4. Route the affected traffic to human review until the spike resolves.
-5. If the spike is persistent, fine-tune or replace the model; do not suppress the alert.
+1. Lấy mẫu các yêu cầu đánh dấu.
+2. Xác minh phiên bản mô hình không thay đổi ngoài ý muốn.
+3. Kiểm tra phân phối đầu vào (định dạng file mới? nguồn hình ảnh mới? nén khác?).
+4. Chuyển lưu lượng bị ảnh hưởng tới con người xem xét tới khi đỉnh tăng giải quyết.
+5. Nếu đỉnh tăng dai dẳng, tinh chỉnh hoặc thay mô hình; không tắt cảnh báo.
 
 ## Rules
 
-- Never compute CMER using the VLM's own embeddings; use an independent encoder (DINOv3, SigLIP, or CLIP-L/14). Otherwise you are measuring the model's self-consistency, not alignment.
-- Always log the raw `sim` value, not just the `flagged` bit; distribution shifts show up in the lower quartile before the flag rate changes.
-- Do not ship a VLM endpoint without CMER monitoring; hallucinations are the dominant production failure mode and silent without this metric.
-- For sensitive domains (medical, legal, financial), raise `sim_threshold` to 0.35 or higher; the flag condition is `sim < sim_threshold`, so a higher threshold catches more outputs as potentially ungrounded — the right default for high-stakes use.
+- Không bao giờ tính CMER bằng embedding của chính VLM; dùng encoder độc lập (DINOv3, SigLIP hoặc CLIP-L/14). Nếu không bạn đo tự nhất quán của mô hình, không phải căn chỉnh.
+- Luôn ghi giá trị `sim` thô, không chỉ bit `flagged`; dịch chuyển phân phối xuất hiện ở tứ phân vị dưới trước khi tỷ lệ đánh dấu thay đổi.
+- Không phát hành endpoint VLM thiếu giám sát CMER; ảo giác là kiểu thất bại production chủ đạo và âm thầm nếu không có thước đo này.
+- Với lĩnh vực nhạy cảm (y tế, pháp lý, tài chính), tăng `sim_threshold` lên 0.35 hoặc cao hơn; điều kiện đánh dấu là `sim < sim_threshold`, nên ngưỡng cao hơn phát hiện nhiều đầu ra có thể không bám ảnh — mặc định đúng cho sử dụng hệ trọng.

@@ -1,6 +1,6 @@
 # Vision-Language Models — The ViT-MLP-LLM Pattern
 
-> A vision encoder converts an image into tokens. An MLP projector maps those tokens into the LLM's embedding space. A language model does the rest. That pattern — ViT-MLP-LLM — is every production VLM in 2026.
+> Một encoder thị giác chuyển hình ảnh thành token. Một bộ chiếu MLP ánh xạ các token vào không gian embedding LLM. Một mô hình ngôn ngữ làm phần còn lại. Mẫu đó — ViT-MLP-LLM — là mọi VLM production năm 2026.
 
 **Type:** Learn + Use
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- State the ViT-MLP-LLM architecture and explain what each of the three components contributes
-- Compare Qwen3-VL, InternVL3.5, LLaVA-Next, and GLM-4.6V on parameter count, context length, and benchmark performance
-- Explain DeepStack: why multi-level ViT features tighten vision-language alignment better than a single last-layer feature
-- Measure VLM hallucination in production with Cross-Modal Error Rate (CMER) and act on the signal
+- Nêu kiến trúc ViT-MLP-LLM và giải thích đóng góp của mỗi thành phần trong ba thành phần
+- So sánh Qwen3-VL, InternVL3.5, LLaVA-Next và GLM-4.6V về số tham số, độ dài ngữ cảnh và hiệu suất benchmark
+- Giải thích DeepStack: tại sao đặc trưng ViT nhiều mức siết căn chỉnh thị giác-ngôn ngữ tốt hơn một đặc trưng lớp cuối
+- Đo ảo giác VLM trong production bằng Cross-Modal Error Rate (CMER) và hành động theo tín hiệu
 
 ## The Problem
 
-CLIP (Phase 4 Lesson 18) gives you a shared embedding space for images and text, which is enough for zero-shot classification and retrieval. It cannot answer "how many red cars are in this image?" because CLIP does not generate text — it only scores similarities.
+CLIP (Giai đoạn 4 Bài 18) cho bạn không gian embedding chung cho hình ảnh và văn bản, đủ cho phân loại zero-shot và truy xuất. Nó không thể trả lời "có bao nhiêu xe đỏ trong hình ảnh này?" vì CLIP không sinh văn bản — nó chỉ chấm các độ tương đồng.
 
-Vision-Language Models (VLMs) — Qwen3-VL, InternVL3.5, LLaVA-Next, GLM-4.6V — bolt a CLIP-family image encoder to a full language model. The model sees an image plus a question and generates an answer. In 2026 open-source VLMs rival or beat GPT-5 and Gemini-2.5-Pro on multimodal benchmarks (MMMU, MMBench, DocVQA, ChartQA, MathVista, OSWorld).
+Các Mô hình Thị giác-Ngôn ngữ (VLM) — Qwen3-VL, InternVL3.5, LLaVA-Next, GLM-4.6V — gắn một encoder hình ảnh họ CLIP vào một mô hình ngôn ngữ đầy đủ. Mô hình thấy hình ảnh cộng câu hỏi và sinh câu trả lời. Năm 2026 các VLM nguồn mở ngang hoặc vượt GPT-5 và Gemini-2.5-Pro trên các benchmark đa phương thức (MMMU, MMBench, DocVQA, ChartQA, MathVista, OSWorld).
 
-The trio of pieces (ViT, projector, LLM) is the standard. The differences between models are in which ViT, which projector, which LLM, the training data, and the alignment recipe. Once you understand the pattern, swapping any component is mechanical.
+Bộ ba thành phần (ViT, bộ chiếu, LLM) là tiêu chuẩn. Khác biệt giữa mô hình nằm ở ViT nào, bộ chiếu nào, LLM nào, dữ liệu huấn luyện và công thức căn chỉnh. Một khi hiểu mẫu, đổi bất kỳ thành phần nào là việc máy móc.
 
 ## The Concept
 
@@ -44,66 +44,66 @@ flowchart LR
     style LLM fill:#dcfce7,stroke:#16a34a
 ```
 
-1. **Vision encoder** — a pretrained ViT (CLIP-L/14, SigLIP, DINOv3, or a fine-tuned variant). Produces patch tokens.
-2. **Projector** — a small module (2-4 layer MLP, or a Q-former) that maps vision tokens into the LLM's embedding dimension. This is where most of the fine-tuning happens.
-3. **LLM** — a decoder-only language model (Qwen3, Llama, Mistral, GLM, InternLM). Reads the vision + text tokens in sequence, generates text.
+1. **Encoder thị giác** — một ViT được tiền huấn luyện (CLIP-L/14, SigLIP, DINOv3 hoặc biến thể tinh chỉnh). Tạo các token patch.
+2. **Bộ chiếu** — một module nhỏ (MLP 2-4 lớp hoặc Q-former) ánh xạ token thị giác vào số chiều embedding LLM. Đây là nơi phần lớn tinh chỉnh diễn ra.
+3. **LLM** — một mô hình ngôn ngữ chỉ decoder (Qwen3, Llama, Mistral, GLM, InternLM). Đọc các token thị giác + văn bản theo chuỗi, sinh văn bản.
 
-All three pieces are trainable in principle. In practice, the vision encoder and LLM stay mostly frozen while the projector trains — a few billion parameters of signal for cheap.
+Cả ba phần về nguyên tắc có thể huấn luyện. Trong thực tế, encoder thị giác và LLM phần lớn đóng băng trong khi bộ chiếu huấn luyện — vài tỷ tham số tín hiệu với giá rẻ.
 
 ### DeepStack
 
-Vanilla projection uses only the last ViT layer. DeepStack (Qwen3-VL) samples features from multiple ViT depths and stacks them. Deeper layers carry high-level semantics; shallower layers carry fine-grained spatial and textural information. Feeding both into the LLM closes the gap between "what does the image contain" (semantics) and "where exactly" (spatial grounding).
+Phép chiếu nguyên bản chỉ dùng lớp ViT cuối. DeepStack (Qwen3-VL) lấy các đặc trưng từ nhiều độ sâu ViT và xếp chúng. Các lớp sâu mang ngữ nghĩa cấp cao; các lớp nông mang thông tin không gian và kết cấu tinh. Đưa cả hai vào LLM khép khoảng cách giữa "hình ảnh chứa gì" (ngữ nghĩa) và "chính xác ở đâu" (định vị không gian).
 
 ### Three training stages
 
-Modern VLMs train in stages:
+Các VLM hiện đại huấn luyện theo giai đoạn:
 
-1. **Alignment** — freeze ViT and LLM. Train only the projector on image-caption pairs. Teaches the projector to map vision space into language space.
-2. **Pre-training** — unfreeze everything. Train on large-scale interleaved image-text data (500M+ pairs). Builds the model's visual knowledge.
-3. **Instruction tuning** — fine-tune on curated (image, question, answer) triples. Teaches conversational behaviour and task formats. This is what turns a "vision-aware LM" into a usable assistant.
+1. **Căn chỉnh** — đóng băng ViT và LLM. Chỉ huấn luyện bộ chiếu trên các cặp hình ảnh-chú thích. Dạy bộ chiếu ánh xạ không gian thị giác vào không gian ngôn ngữ.
+2. **Tiền huấn luyện** — mở băng mọi thứ. Huấn luyện trên dữ liệu hình ảnh-văn bản đan xen quy mô lớn (500M+ cặp). Xây kiến thức thị giác của mô hình.
+3. **Tinh chỉnh chỉ dẫn** — tinh chỉnh trên các bộ ba (hình ảnh, câu hỏi, câu trả lời) được tuyển chọn. Dạy hành vi hội thoại và định dạng tác vụ. Đây là thứ biến "LM nhận biết thị giác" thành trợ lý dùng được.
 
-Most LoRA fine-tunes target stage 3 with a small labelled dataset.
+Hầu hết tinh chỉnh LoRA nhắm giai đoạn 3 với tập gán nhãn nhỏ.
 
 ### Model family comparison (early 2026)
 
-| Model | Params | Vision encoder | LLM | Context | Strengths |
+| Mô hình | Tham số | Encoder thị giác | LLM | Ngữ cảnh | Điểm mạnh |
 |-------|--------|----------------|-----|---------|-----------|
-| Qwen3-VL-235B-A22B (MoE) | 235B (22B active) | custom ViT + DeepStack | Qwen3 | 256K | General SOTA, GUI agent |
-| Qwen3-VL-30B-A3B (MoE) | 30B (3B active) | custom ViT + DeepStack | Qwen3 | 256K | Smaller MoE alternative |
-| Qwen3-VL-8B (dense) | 8B | custom ViT | Qwen3 | 128K | Production dense default |
-| InternVL3.5-38B | 38B | InternViT-6B | Qwen3 + GPT-OSS | 128K | Strong MMBench / MMVet |
-| InternVL3.5-241B-A28B | 241B (28B active) | InternViT-6B | Qwen3 | 128K | Competitive with GPT-4o |
-| LLaVA-Next 72B | 72B | SigLIP | Llama-3 | 32K | Open, easy to fine-tune |
-| GLM-4.6V | ~70B | custom | GLM | 64K | Open-source, strong OCR |
-| MiniCPM-V-2.6 | 8B | SigLIP | MiniCPM | 32K | Edge-friendly |
+| Qwen3-VL-235B-A22B (MoE) | 235B (22B hoạt động) | ViT tùy chỉnh + DeepStack | Qwen3 | 256K | SOTA tổng quát, agent GUI |
+| Qwen3-VL-30B-A3B (MoE) | 30B (3B hoạt động) | ViT tùy chỉnh + DeepStack | Qwen3 | 256K | Lựa chọn MoE nhỏ hơn |
+| Qwen3-VL-8B (dày đặc) | 8B | ViT tùy chỉnh | Qwen3 | 128K | Mặc định dày đặc production |
+| InternVL3.5-38B | 38B | InternViT-6B | Qwen3 + GPT-OSS | 128K | Mạnh trên MMBench / MMVet |
+| InternVL3.5-241B-A28B | 241B (28B hoạt động) | InternViT-6B | Qwen3 | 128K | Cạnh tranh với GPT-4o |
+| LLaVA-Next 72B | 72B | SigLIP | Llama-3 | 32K | Mở, dễ tinh chỉnh |
+| GLM-4.6V | ~70B | tùy chỉnh | GLM | 64K | Nguồn mở, OCR mạnh |
+| MiniCPM-V-2.6 | 8B | SigLIP | MiniCPM | 32K | Thân thiện biên |
 
 ### Visual agents
 
-Qwen3-VL-235B reaches top global performance on OSWorld — a benchmark for **visual agents** that operate GUIs (desktop, mobile, web). The model sees a screenshot, understands the UI, and emits actions (click, type, scroll). Combined with tools, it closes the loop on common desktop tasks. This is what most 2026 "AI PC" demos run under the hood.
+Qwen3-VL-235B đạt hiệu suất hàng đầu toàn cầu trên OSWorld — benchmark cho **agent thị giác** vận hành GUI (máy tính, di động, web). Mô hình thấy ảnh chụp màn hình, hiểu giao diện và xuất hành động (nhấp, gõ, cuộn). Kết hợp công cụ, nó khép vòng lặp các tác vụ máy tính phổ biến. Đây là thứ hầu hết bản minh họa "AI PC" năm 2026 chạy bên dưới.
 
 ### Agentic capabilities + RoPE variants
 
-VLMs need to know **when** a frame is in a video. Qwen3-VL evolved from T-RoPE (temporal rotary position embeddings) to **text-based time alignment** — explicit timestamp text tokens interleaved with video frames. The model sees "`<timestamp 00:32>` frame, prompt" and can reason about temporal relationships.
+VLM cần biết một khung hình ở **khi nào** trong video. Qwen3-VL phát triển từ T-RoPE (embedding vị trí xoay thời gian) tới **căn chỉnh thời gian dựa trên văn bản** — các token văn bản dấu thời gian tường minh đan xen với khung hình video. Mô hình thấy "`<timestamp 00:32>` khung hình, prompt" và có thể suy luận các quan hệ thời gian.
 
 ### The alignment problem
 
-12% of image-text pairs in a crawled dataset contain descriptions not fully grounded in the image. A VLM trained on this silently learns to hallucinate — fabricate objects, misread numbers, invent relationships. In production this is the dominant failure mode.
+12% cặp hình ảnh-văn bản trong tập thu thập chứa mô tả không hoàn toàn dựa trên hình ảnh. VLM huấn luyện trên đó âm thầm học ảo giác — bịa đối tượng, đọc sai số, tưởng tượng quan hệ. Trong production đây là kiểu thất bại chủ đạo.
 
-Skywork.ai introduced the **Cross-Modal Error Rate (CMER)** to track it:
+Skywork.ai giới thiệu **Tỷ lệ Lỗi Liên Phương thức (CMER)** để theo dõi:
 
 ```
 CMER = fraction of outputs where the text confidence is high but the image-text similarity (via a CLIP-family checker) is low
 ```
 
-High CMER means the model is confidently saying things not grounded in the image. Monitoring CMER and treating it as a production KPI cut hallucination rate by ~35% in their deployment. The trick is not "fix the model" but "route high-CMER outputs to human review."
+CMER cao nghĩa là mô hình tự tin nói điều không dựa trên hình ảnh. Giám sát CMER và coi nó như KPI production giảm tỷ lệ ảo giác ~35% trong triển khai của họ. Thủ thuật không phải "sửa mô hình" mà là "chuyển đầu ra CMER cao cho con người xem xét."
 
 ### Fine-tuning with LoRA / QLoRA
 
-Full fine-tuning of a 70B VLM is out of reach for most teams. LoRA (rank 16-64) on attention + projector layers, or QLoRA with 4-bit base weights, fits on a single A100 / H100. Cost: 5,000-50,000 examples, $100-$5,000 in compute, 2-10 hours of training.
+Tinh chỉnh đầy đủ VLM 70B ngoài tầm hầu hết nhóm. LoRA (hạng 16-64) trên attention + các lớp bộ chiếu, hoặc QLoRA với trọng số cơ sở 4 bit, vừa một A100 / H100. Chi phí: 5,000-50,000 ví dụ, $100-$5,000 tính toán, 2-10 giờ huấn luyện.
 
 ### Spatial reasoning is still weak
 
-Current VLMs score 50-60% on spatial reasoning benchmarks (above-below, left-right, counting, distance). If your use case depends on "which object is on top of which," validate heavily — generic VLM performance is below human. Better-than-VLM alternatives for pure spatial tasks: a specialised keypoint / pose estimator, a depth model, or a detection model with box geometry post-processed.
+Các VLM hiện tại đạt 50-60% trên benchmark suy luận không gian (trên-dưới, trái-phải, đếm, khoảng cách). Nếu trường hợp của bạn phụ thuộc "đối tượng nào ở trên đối tượng nào", xác thực kỹ — hiệu suất VLM tổng quát dưới con người. Các lựa chọn tốt hơn VLM cho tác vụ không gian thuần: bộ ước lượng điểm / tư thế chuyên biệt, mô hình độ sâu hoặc mô hình phát hiện với hình học hộp được hậu xử lý.
 
 ```figure
 v4-vlm-projector
@@ -113,7 +113,7 @@ v4-vlm-projector
 
 ### Step 1: The projector
 
-The part you will train most often. 2-4 layer MLP with GELU.
+Phần bạn sẽ huấn luyện thường nhất. MLP 2-4 lớp với GELU.
 
 ```python
 import torch
@@ -133,11 +133,11 @@ class Projector(nn.Module):
         return self.net(x)
 ```
 
-Input is a `(N_patches, d_vit)` token tensor. Output is `(N_patches, d_llm)`. The LLM treats every output row as just another token.
+Đầu vào là tensor token `(N_patches, d_vit)`. Đầu ra là `(N_patches, d_llm)`. LLM coi mọi hàng đầu ra như một token khác.
 
 ### Step 2: Assemble ViT-MLP-LLM end-to-end
 
-Skeleton of the forward pass for a minimal VLM. Real code uses `transformers`; this is the conceptual layout.
+Bộ khung lượt truyền xuôi cho VLM tối giản. Mã thật dùng `transformers`; đây là bố cục khái niệm.
 
 ```python
 class MinimalVLM(nn.Module):
@@ -175,11 +175,11 @@ class MinimalVLM(nn.Module):
         return out
 ```
 
-The `<image>` placeholder token in the text gets replaced with real image embeddings — same pattern LLaVA, Qwen-VL, and InternVL use.
+Token giữ chỗ `<image>` trong văn bản được thay bằng các embedding hình ảnh thật — cùng mẫu LLaVA, Qwen-VL và InternVL dùng.
 
 ### Step 3: CMER computation
 
-A lightweight runtime check.
+Một kiểm tra nhẹ lúc chạy.
 
 ```python
 import torch.nn.functional as F
@@ -198,11 +198,11 @@ def cross_modal_error_rate(image_emb, text_emb, text_confidence, sim_threshold=0
     return high_conf_low_sim.float().mean().item()
 ```
 
-Treat CMER as a production KPI. Monitor it per endpoint, per prompt type, per customer. Rising CMER indicates the model is starting to hallucinate on some input distribution.
+Coi CMER như KPI production. Giám sát mỗi endpoint, mỗi loại prompt, mỗi khách hàng. CMER tăng cho thấy mô hình bắt đầu ảo giác trên phân phối đầu vào nào đó.
 
 ### Step 4: Toy VLM classifier (runnable)
 
-Demonstrate the projector trains. Fake "ViT features" go in; a tiny LLM-style token predicts a class.
+Minh họa bộ chiếu huấn luyện được. "Đặc trưng ViT" giả đi vào; token kiểu LLM nhỏ dự đoán một lớp.
 
 ```python
 class ToyVLM(nn.Module):
@@ -217,15 +217,15 @@ class ToyVLM(nn.Module):
         return self.head(pooled)
 ```
 
-One can fit this on synthetic (feature, class) pairs in under 200 steps — enough to show the projector pattern works.
+Có thể khớp trên các cặp (đặc trưng, lớp) tổng hợp trong dưới 200 bước — đủ cho thấy mẫu bộ chiếu hoạt động.
 
 ## Use It
 
-Three ways production teams use VLMs in 2026:
+Ba cách các nhóm production dùng VLM năm 2026:
 
-- **Hosted API** — OpenAI Vision, Anthropic Claude Vision, Google Gemini Vision. Zero infra, vendor risk.
-- **Open-source self-host** — Qwen3-VL or InternVL3.5 via `transformers` and `vllm`. Full control, higher up-front effort.
-- **Fine-tune on domain** — load Qwen2.5-VL-7B or LLaVA-1.6-7B, LoRA on 5k-50k custom examples, serve with `vllm` or `TGI`.
+- **API được lưu trữ** — OpenAI Vision, Anthropic Claude Vision, Google Gemini Vision. Không hạ tầng, rủi ro nhà cung cấp.
+- **Tự lưu trữ nguồn mở** — Qwen3-VL hoặc InternVL3.5 qua `transformers` và `vllm`. Toàn quyền kiểm soát, công sức ban đầu cao hơn.
+- **Tinh chỉnh theo lĩnh vực** — tải Qwen2.5-VL-7B hoặc LLaVA-1.6-7B, LoRA trên 5k-50k ví dụ tùy chỉnh, phục vụ bằng `vllm` hoặc `TGI`.
 
 ```python
 from transformers import AutoProcessor, AutoModelForVision2Seq
@@ -248,33 +248,33 @@ generated = model.generate(**inputs, max_new_tokens=256)
 answer = processor.decode(generated[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
 ```
 
-`apply_chat_template` hides the `<image>` placeholder tokenisation; the model handles the merge internally.
+`apply_chat_template` che giấu token hóa giữ chỗ `<image>`; mô hình xử lý việc gộp bên trong.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-vlm-selector.md` — picks Qwen3-VL / InternVL3.5 / LLaVA-Next / API given accuracy, latency, context length, and budget.
-- `outputs/skill-cmer-monitor.md` — emits the code to instrument a production VLM endpoint with cross-modal error rate, per-endpoint dashboards, and alerting thresholds.
+- `outputs/prompt-vlm-selector.md` — chọn Qwen3-VL / InternVL3.5 / LLaVA-Next / API với accuracy, độ trễ, độ dài ngữ cảnh và ngân sách cho trước.
+- `outputs/skill-cmer-monitor.md` — xuất mã để trang bị endpoint VLM production với tỷ lệ lỗi liên phương thức, bảng điều khiển từng endpoint và ngưỡng cảnh báo.
 
 ## Exercises
 
-1. **(Easy)** Run three prompts ("what is this?", "count the objects", "describe the scene") through any open VLM on five images. Score each answer as correct / partially correct / hallucinated by hand. Compute a first-pass CMER-like rate.
-2. **(Medium)** Fine-tune Qwen2.5-VL-3B or LLaVA-1.6-7B with LoRA (rank 16) on 500 images of a target domain with captions. Compare zero-shot vs fine-tuned MMBench-style accuracy.
-3. **(Hard)** Replace the VLM's image encoder with DINOv3 instead of its default SigLIP/CLIP. Re-train only the projector (frozen LLM + frozen DINOv3). Measure whether dense-prediction tasks (counting, spatial reasoning) improve.
+1. **(Dễ)** Chạy ba prompt ("đây là gì?", "đếm các đối tượng", "mô tả cảnh") qua bất kỳ VLM mở nào trên năm ảnh. Chấm mỗi câu trả lời đúng / đúng một phần / ảo giác bằng tay. Tính tỷ lệ kiểu CMER bước đầu.
+2. **(Vừa)** Tinh chỉnh Qwen2.5-VL-3B hoặc LLaVA-1.6-7B bằng LoRA (hạng 16) trên 500 ảnh lĩnh vực đích có chú thích. So sánh accuracy kiểu MMBench zero-shot với đã tinh chỉnh.
+3. **(Khó)** Thay encoder hình ảnh VLM bằng DINOv3 thay SigLIP/CLIP mặc định. Chỉ huấn luyện lại bộ chiếu (LLM đóng băng + DINOv3 đóng băng). Đo liệu các tác vụ dự đoán dày đặc (đếm, suy luận không gian) cải thiện.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| ViT-MLP-LLM | "The VLM pattern" | Vision encoder + projector + language model; every 2026 VLM |
-| Projector | "The bridge" | 2-4 layer MLP (or Q-former) that maps vision tokens into LLM embedding space |
-| DeepStack | "Qwen3-VL feature trick" | Multi-level ViT features stacked rather than last-layer only |
-| Image token | "<image> placeholder" | Special token in the text stream replaced by projected vision embeddings |
-| CMER | "Hallucination KPI" | Cross-Modal Error Rate; high when text confidence is high but image-text similarity is low |
-| Visual agent | "VLM that clicks" | VLM operating GUIs (OSWorld, mobile, web) with tool calls |
-| Q-former | "Fixed-count token bridge" | BLIP-2 style projector producing a fixed number of visual query tokens |
-| Alignment / pre-training / instruction tuning | "Three stages" | Standard VLM training pipeline |
+| ViT-MLP-LLM | "Mẫu VLM" | Encoder thị giác + bộ chiếu + mô hình ngôn ngữ; mọi VLM năm 2026 |
+| Projector (Bộ chiếu) | "Cầu nối" | MLP 2-4 lớp (hoặc Q-former) ánh xạ token thị giác vào không gian embedding LLM |
+| DeepStack | "Thủ thuật đặc trưng Qwen3-VL" | Các đặc trưng ViT nhiều mức xếp chồng thay vì chỉ lớp cuối |
+| Image token (Token hình ảnh) | "Giữ chỗ <image>" | Token đặc biệt trong luồng văn bản được thay bằng các embedding thị giác đã chiếu |
+| CMER | "KPI ảo giác" | Cross-Modal Error Rate; cao khi độ tin cậy văn bản cao nhưng tương đồng hình ảnh-văn bản thấp |
+| Visual agent (Agent thị giác) | "VLM biết nhấp" | VLM vận hành GUI (OSWorld, di động, web) bằng lời gọi công cụ |
+| Q-former | "Cầu nối số token cố định" | Bộ chiếu kiểu BLIP-2 tạo số token truy vấn thị giác cố định |
+| Alignment / pre-training / instruction tuning (Căn chỉnh / tiền huấn luyện / tinh chỉnh chỉ dẫn) | "Ba giai đoạn" | Pipeline huấn luyện VLM tiêu chuẩn |
 
 ## Further Reading
 
