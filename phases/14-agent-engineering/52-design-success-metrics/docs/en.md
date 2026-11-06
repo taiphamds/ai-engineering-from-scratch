@@ -1,6 +1,6 @@
 # Design Success Metrics Before the Result Exists
 
-> Measurement should answer a decision, not decorate a dashboard. Start with the goal, derive questions, then choose the smallest metrics that answer them.
+> Đo lường nên trả lời một quyết định, không trang trí một dashboard. Bắt đầu với mục tiêu, suy ra các câu hỏi, rồi chọn các thước đo nhỏ nhất trả lời chúng.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,25 +9,25 @@
 
 ## Learning Objectives
 
-- Derive questions and metrics from an outcome goal.
-- Define thresholds, windows, sources, and directions before observing results.
-- Pair outcome metrics with guardrails and counter-metrics.
-- Match evaluation evidence to the decision the build must support.
+- Suy ra các câu hỏi và thước đo từ một mục tiêu kết quả.
+- Định nghĩa các ngưỡng, khoảng thời gian, nguồn và hướng trước khi quan sát các kết quả.
+- Ghép các thước đo kết quả với các chốt bảo vệ và thước đo đối trọng.
+- Khớp bằng chứng đánh giá với quyết định mà bản xây dựng phải hỗ trợ.
 
 ## Goal, Question, Metric
 
-Start with a goal:
+Bắt đầu với một mục tiêu:
 
-> Reduce time to identify the affected service without increasing unsafe actions.
+> Giảm thời gian để nhận diện dịch vụ bị ảnh hưởng mà không tăng các hành động không an toàn.
 
-Derive questions:
+Suy ra các câu hỏi:
 
-- How quickly is the correct service identified?
-- How often is the identified service correct?
-- Does diagnosis remain read-only?
-- Does the workflow increase alert dismissal or operator workload?
+- Dịch vụ đúng được nhận diện nhanh đến đâu?
+- Dịch vụ được nhận diện là đúng thường xuyên đến đâu?
+- Chẩn đoán có giữ chỉ đọc không?
+- Workflow có tăng việc bỏ qua cảnh báo hoặc khối lượng công việc của người vận hành không?
 
-Then choose metrics that operationalize those questions.
+Rồi chọn các thước đo vận hành hóa các câu hỏi đó.
 
 ```mermaid
 flowchart LR
@@ -41,68 +41,68 @@ flowchart LR
 
 ## A Metric Needs a Contract
 
-Every metric needs:
+Mọi thước đo cần:
 
-| Field | Example |
+| Trường | Ví dụ |
 |---|---|
-| Name | `median_identification_seconds` |
-| Direction | at most |
-| Threshold | 120 |
-| Window | ten incident replays |
-| Source | replay event log |
-| Population | on-call engineers in the pilot |
-| Kind | outcome or guardrail |
+| Tên | `median_identification_seconds` |
+| Hướng | tối đa |
+| Ngưỡng | 120 |
+| Khoảng thời gian | mười lần phát lại sự cố |
+| Nguồn | log sự kiện phát lại |
+| Quần thể | các kỹ sư trực trong thí điểm |
+| Loại | kết quả hoặc chốt bảo vệ |
 
-Without source and window, a number cannot be reproduced. Without a threshold, it cannot drive a decision.
+Không có nguồn và khoảng thời gian, một con số không thể được tái tạo. Không có một ngưỡng, nó không thể dẫn dắt một quyết định.
 
 ## Outcome, Guardrail, and Counter-Metric
 
-- **Outcome metric:** did the desired state improve?
-- **Guardrail:** did a fixed constraint remain true?
-- **Counter-metric:** did the local improvement shift cost or harm elsewhere?
+- **Thước đo kết quả:** trạng thái mong muốn có cải thiện không?
+- **Chốt bảo vệ:** một ràng buộc cố định có giữ đúng không?
+- **Thước đo đối trọng:** cải thiện cục bộ có chuyển chi phí hoặc tác hại sang nơi khác không?
 
-For an incident workflow, speed is not enough. Correctness, production writes, operator workload, and missed alerts protect against a fast but unsafe result.
+Với một workflow sự cố, tốc độ là chưa đủ. Tính đúng đắn, các lần ghi sản xuất, khối lượng công việc người vận hành và các cảnh báo bị bỏ lỡ bảo vệ trước một kết quả nhanh nhưng không an toàn.
 
 ## Offline and Online Evidence
 
-Offline replay is useful for repeatability and edge coverage. A bounded pilot is useful for real behavior, trust, and workflow effects. Neither substitutes for the other.
+Phát lại ngoại tuyến hữu ích cho tính lặp lại và độ bao phủ biên. Một thí điểm có giới hạn hữu ích cho hành vi thực, niềm tin và các tác động workflow. Không cái nào thay thế cái kia.
 
-Use the cheapest evidence that can answer the current decision. Do not expose real users merely because the implementation is ready.
+Sử dụng bằng chứng rẻ nhất có thể trả lời quyết định hiện tại. Đừng để người dùng thực tiếp xúc chỉ vì triển khai đã sẵn sàng.
 
 ## Decide Before You Measure
 
-Write the pass, fail, and ambiguous paths before seeing results. Otherwise the team will move the threshold to protect the build.
+Viết các đường đạt, không đạt và mơ hồ trước khi nhìn thấy các kết quả. Nếu không nhóm sẽ di chuyển ngưỡng để bảo vệ bản xây dựng.
 
-Example:
+Ví dụ:
 
-- pass: correct service rate at least 0.9 and median time at most 120 seconds;
-- fail: any production write or correct rate below 0.75;
-- ambiguous: small improvement with wide variance, requiring a larger replay set.
+- đạt: tỷ lệ dịch vụ đúng ít nhất 0.9 và thời gian trung vị tối đa 120 giây;
+- không đạt: bất kỳ lần ghi sản xuất nào hoặc tỷ lệ đúng dưới 0.75;
+- mơ hồ: cải thiện nhỏ với biến thiên rộng, yêu cầu một tập phát lại lớn hơn.
 
 ## Build It
 
-The lab validates a measurement plan, evaluates inclusive thresholds, records missing values, and writes `outputs/measurement-report.json`.
+Bài thực hành xác thực một kế hoạch đo lường, đánh giá các ngưỡng bao gồm biên, ghi lại các giá trị bị thiếu và ghi `outputs/measurement-report.json`.
 
 ```bash
 python3 code/main.py
 python3 -m unittest discover code/tests -v
 ```
 
-Remove the guardrail metric and observe why the plan becomes invalid even when the outcome metrics remain.
+Loại bỏ thước đo chốt bảo vệ và quan sát vì sao kế hoạch trở nên không hợp lệ ngay cả khi các thước đo kết quả còn lại.
 
 ## Exercises
 
-1. Derive three questions from one outcome goal.
-2. Add a counter-metric that catches cost shifted to another role.
-3. Define the source, population, and window for every metric.
-4. Write pass, fail, and ambiguous decisions before generating values.
-5. Identify one metric that is easy to collect but cannot change the decision. Remove it.
+1. Suy ra ba câu hỏi từ một mục tiêu kết quả.
+2. Thêm một thước đo đối trọng bắt chi phí được chuyển sang một vai trò khác.
+3. Định nghĩa nguồn, quần thể và khoảng thời gian cho mọi thước đo.
+4. Viết các quyết định đạt, không đạt và mơ hồ trước khi tạo các giá trị.
+5. Nhận diện một thước đo dễ thu thập nhưng không thể thay đổi quyết định. Loại bỏ nó.
 
 ## Further Reading
 
-- [Basili, Software Modeling and Measurement: The Goal/Question/Metric Paradigm](https://drum.lib.umd.edu/items/8119803a-362b-42ec-b6ce-2311713e7236), for deriving operational measurements from explicit goals.
-- [Basili, Caldiera, and Rombach, The Goal Question Metric Approach](https://www.cs.toronto.edu/~sme/CSC444F/handouts/GQM-paper.pdf), for applying the method as a feedback and improvement system.
+- [Basili, Software Modeling and Measurement: The Goal/Question/Metric Paradigm](https://drum.lib.umd.edu/items/8119803a-362b-42ec-b6ce-2311713e7236), để suy ra các phép đo vận hành từ các mục tiêu tường minh.
+- [Basili, Caldiera, and Rombach, The Goal Question Metric Approach](https://www.cs.toronto.edu/~sme/CSC444F/handouts/GQM-paper.pdf), để áp dụng phương pháp như một hệ thống phản hồi và cải thiện.
 
 ## What You Keep
 
-Keep `outputs/measurement-report.json`. It defines the evidence gate for the prototype, pilot, or production stage.
+Giữ `outputs/measurement-report.json`. Nó định nghĩa cổng bằng chứng cho giai đoạn nguyên mẫu, thí điểm hoặc sản xuất.
