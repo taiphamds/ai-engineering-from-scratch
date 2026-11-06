@@ -9,177 +9,177 @@ tags: [evaluation, testing, llm-as-judge, regression, confidence-intervals, ci-c
 
 # Eval Patterns
 
-When building evaluation for an LLM application, apply this decision framework.
+Khi xây dựng đánh giá cho ứng dụng LLM, áp dụng khung quyết định này.
 
 ## Choose your evaluation method
 
-**Use automated metrics (BLEU, ROUGE, BERTScore) when:**
-- You have reference answers for every test case
-- Speed matters more than nuance (10,000+ cases)
-- You need a cheap first-pass filter before expensive evaluation
-- You are evaluating translation or summarization specifically
+**Dùng thước đo tự động (BLEU, ROUGE, BERTScore) khi:**
+- Bạn có câu trả lời tham chiếu cho mọi trường hợp kiểm thử
+- Tốc độ quan trọng hơn sắc thái (10,000+ trường hợp)
+- Bạn cần bộ lọc lượt đầu rẻ trước đánh giá đắt
+- Bạn đang đánh giá riêng dịch hoặc tóm tắt
 
-**Use LLM-as-judge when:**
-- Quality is subjective (helpfulness, tone, completeness)
-- You do not have reference answers for every case
-- You need to evaluate safety, bias, or policy compliance
-- You are comparing prompt versions or model versions
-- Budget allows ~$20 per 1,000 eval calls
+**Dùng LLM-as-judge khi:**
+- Chất lượng mang tính chủ quan (hữu ích, giọng điệu, đầy đủ)
+- Bạn không có câu trả lời tham chiếu cho mọi trường hợp
+- Bạn cần đánh giá an toàn, thiên lệch hoặc tuân thủ chính sách
+- Bạn đang so phiên bản prompt hoặc mô hình
+- Ngân sách cho phép ~$20 mỗi 1,000 lệnh gọi đánh giá
 
-**Use human evaluation when:**
-- Calibrating your LLM judge (run both, measure correlation)
-- Evaluating edge cases where the judge might be wrong
-- High-stakes domains (medical, legal, financial)
-- Initial rubric design -- humans define what "good" means
-- You need defensible results for stakeholders
+**Dùng đánh giá con người khi:**
+- Hiệu chuẩn giám khảo LLM (chạy cả hai, đo tương quan)
+- Đánh giá trường hợp biên mà giám khảo có thể sai
+- Miền hệ trọng (y tế, pháp lý, tài chính)
+- Thiết kế rubric ban đầu -- con người định nghĩa "tốt" nghĩa là gì
+- Bạn cần kết quả có thể bảo vệ trước các bên liên quan
 
-**Use all three in combination when:**
-- Launching a new application (human -> LLM judge -> automated as you scale)
-- Quarterly audits (automated daily, LLM judge on PRs, human quarterly)
+**Kết hợp cả ba khi:**
+- Ra mắt ứng dụng mới (con người -> giám khảo LLM -> tự động khi mở rộng)
+- Kiểm toán hằng quý (tự động hằng ngày, giám khảo LLM trên PR, con người hằng quý)
 
 ## Rubric design principles
 
 ### Anchored scales beat unanchored scales
 
-Unanchored: "Rate the answer quality from 1-5."
-Anchored: "5: Factually correct, directly answers the question, includes specific examples."
+Không neo: "Chấm chất lượng câu trả lời từ 1-5."
+Có neo: "5: Đúng sự kiện, trực tiếp trả lời câu hỏi, bao gồm ví dụ cụ thể."
 
-Anchored rubrics reduce inter-rater disagreement by 30-40%. Every level must describe a concrete, observable behavior.
+Rubric có neo giảm bất đồng giữa người chấm 30-40%. Mọi mức phải mô tả hành vi cụ thể, quan sát được.
 
 ### Three rubric architectures
 
-**Pointwise scoring (1-5 per criterion)**: Score each output independently. Simple, scalable, works for CI. Suffers from scale drift -- what a judge calls a "4" today might be a "3" tomorrow.
+**Chấm từng điểm (1-5 mỗi tiêu chí)**: Chấm mỗi đầu ra độc lập. Đơn giản, có thể mở rộng, hoạt động cho CI. Chịu trôi thang -- thứ giám khảo gọi là "4" hôm nay có thể là "3" ngày mai.
 
-**Pairwise comparison (A vs B)**: Show two outputs, pick the better one. Eliminates scale calibration. Best for comparing two specific versions. Does not produce an absolute quality number.
+**So sánh cặp (A so với B)**: Cho thấy hai đầu ra, chọn tốt hơn. Loại bỏ hiệu chuẩn thang. Tốt nhất để so hai phiên bản cụ thể. Không tạo con số chất lượng tuyệt đối.
 
-**Best-of-N selection**: Generate N outputs, judge picks the best. Measures the ceiling of your system. If best-of-5 is much better than best-of-1, you benefit from sampling + selection at inference time.
+**Lựa chọn Best-of-N**: Sinh N đầu ra, giám khảo chọn tốt nhất. Đo trần hệ thống. Nếu best-of-5 tốt hơn nhiều best-of-1, bạn hưởng lợi từ lấy mẫu + lựa chọn lúc suy luận.
 
 ### Criteria selection guide
 
-| Application | Recommended criteria |
+| Ứng dụng | Tiêu chí được khuyến nghị |
 |------------|---------------------|
-| Customer support chatbot | Relevance, correctness, helpfulness, safety, tone |
-| Code generation | Correctness, completeness, code quality, security |
-| RAG/Q&A | Relevance, faithfulness, correctness, completeness |
-| Summarization | Faithfulness, completeness, conciseness |
-| Creative writing | Relevance, creativity, style, coherence |
-| Classification | Accuracy, calibration (confidence vs correctness) |
-| Multi-turn dialogue | Coherence, memory, helpfulness, safety |
+| Chatbot hỗ trợ khách hàng | Liên quan, đúng đắn, hữu ích, an toàn, giọng điệu |
+| Sinh mã | Đúng đắn, đầy đủ, chất lượng mã, bảo mật |
+| RAG/Hỏi đáp | Liên quan, trung thực, đúng đắn, đầy đủ |
+| Tóm tắt | Trung thực, đầy đủ, súc tích |
+| Viết sáng tạo | Liên quan, sáng tạo, phong cách, mạch lạc |
+| Phân loại | Độ chính xác, hiệu chuẩn (độ tin cậy so với đúng đắn) |
+| Hội thoại nhiều lượt | Mạch lạc, bộ nhớ, hữu ích, an toàn |
 
 ## Test suite sizing
 
 ### Minimum sample sizes
 
-| Decision | Minimum cases | Why |
+| Quyết định | Số trường hợp tối thiểu | Tại sao |
 |----------|-------------|-----|
-| Quick sanity check | 20-50 | Catches catastrophic failures only |
-| PR-level regression test | 100-200 | Detects 5-10% quality changes |
-| Deployment decision | 200-500 | Statistical significance on 5% differences |
-| Model comparison | 500-1000 | Distinguishes closely-matched systems |
-| Publication-grade | 1000+ | Narrow confidence intervals, per-category analysis |
+| Kiểm tra hợp lý nhanh | 20-50 | Chỉ bắt thất bại thảm khốc |
+| Kiểm thử hồi quy cấp PR | 100-200 | Phát hiện thay đổi chất lượng 5-10% |
+| Quyết định triển khai | 200-500 | Ý nghĩa thống kê cho chênh lệch 5% |
+| So sánh mô hình | 500-1000 | Phân biệt hệ thống gần ngang nhau |
+| Cấp công bố | 1000+ | Khoảng tin cậy hẹp, phân tích từng loại |
 
 ### The math
 
-With N test cases and observed accuracy p, the 95% Wilson confidence interval width is approximately:
+Với N trường hợp kiểm thử và độ chính xác quan sát p, độ rộng khoảng tin cậy Wilson 95% xấp xỉ:
 
-- N=50, p=0.9: width = 0.19 (useless for close comparisons)
-- N=200, p=0.9: width = 0.09 (adequate for deployment)
-- N=500, p=0.9: width = 0.05 (good for model comparison)
-- N=1000, p=0.9: width = 0.03 (publication-grade)
+- N=50, p=0.9: độ rộng = 0.19 (vô dụng để so gần nhau)
+- N=200, p=0.9: độ rộng = 0.09 (đủ để triển khai)
+- N=500, p=0.9: độ rộng = 0.05 (tốt để so mô hình)
+- N=1000, p=0.9: độ rộng = 0.03 (cấp công bố)
 
-If the confidence intervals of two systems overlap, you cannot claim one is better.
+Nếu khoảng tin cậy của hai hệ thống chồng lấp, bạn không thể tuyên bố một hệ thống tốt hơn.
 
 ## Regression testing workflow
 
 ### On every PR that touches prompts or LLM code
 
-1. Load the golden test set (100-200 cases)
-2. Run the baseline prompt -- load cached scores if available
-3. Run the new prompt
-4. Score both with LLM-as-judge on 4 criteria
-5. Compute per-criterion means and bootstrap CIs
-6. Flag any criterion with mean regression > 0.3 points
-7. Flag any criterion where the new lower CI bound is below the baseline lower CI bound
-8. If no flags -- auto-approve the eval check
-9. If flagged -- require human review of flagged test cases
+1. Nạp tập kiểm thử vàng (100-200 trường hợp)
+2. Chạy prompt baseline -- nạp điểm cache nếu có
+3. Chạy prompt mới
+4. Chấm cả hai bằng LLM-as-judge trên 4 tiêu chí
+5. Tính trung bình mỗi tiêu chí và CI bootstrap
+6. Đánh dấu bất kỳ tiêu chí nào có hồi quy trung bình > 0.3 điểm
+7. Đánh dấu bất kỳ tiêu chí nào mà cận dưới CI mới thấp hơn cận dưới CI baseline
+8. Nếu không dấu -- tự phê duyệt kiểm tra đánh giá
+9. Nếu có dấu -- yêu cầu con người xem xét trường hợp kiểm thử được đánh dấu
 
 ### Weekly full eval
 
-1. Sample 500 cases from production traffic
-2. Run against the current production prompt
-3. Compare against the last weekly baseline
-4. Compute per-category scores
-5. Alert if any category regresses > 5%
-6. Update the baseline if scores are stable or improved
+1. Lấy mẫu 500 trường hợp từ lưu lượng sản xuất
+2. Chạy với prompt sản xuất hiện tại
+3. So với baseline hằng tuần gần nhất
+4. Tính điểm từng loại
+5. Cảnh báo nếu bất kỳ loại nào hồi quy > 5%
+6. Cập nhật baseline nếu điểm ổn định hoặc cải thiện
 
 ### Monthly calibration
 
-1. Sample 50 cases from the weekly eval
-2. Have 2 human raters score them
-3. Compute correlation between LLM judge and human scores
-4. If correlation drops below 0.75 -- retune the rubric or switch judge models
-5. Archive calibration results for audit trail
+1. Lấy mẫu 50 trường hợp từ đánh giá hằng tuần
+2. Để 2 người chấm điểm
+3. Tính tương quan giữa điểm giám khảo LLM và con người
+4. Nếu tương quan giảm dưới 0.75 -- tinh chỉnh lại rubric hoặc đổi mô hình giám khảo
+5. Lưu trữ kết quả hiệu chuẩn cho dấu vết kiểm toán
 
 ## Cost management
 
 ### Budget by eval frequency
 
-| Eval type | Frequency | Cases | Judge cost per run | Monthly cost (10 PRs/week) |
+| Loại đánh giá | Tần suất | Trường hợp | Chi phí giám khảo mỗi lượt | Chi phí hằng tháng (10 PR/tuần) |
 |-----------|-----------|-------|--------------------|---------------------------|
-| PR eval | Per PR | 200 | ~$16 (GPT-4o) | ~$640 |
-| Weekly full | Weekly | 500 | ~$40 | ~$160 |
-| Monthly calibration | Monthly | 50 (human) | ~$25 (human time) | ~$25 |
-| **Total** | | | | **~$825/month** |
+| Đánh giá PR | Mỗi PR | 200 | ~$16 (GPT-4o) | ~$640 |
+| Đầy đủ hằng tuần | Hằng tuần | 500 | ~$40 | ~$160 |
+| Hiệu chuẩn hằng tháng | Hằng tháng | 50 (con người) | ~$25 (thời gian con người) | ~$25 |
+| **Tổng** | | | | **~$825/tháng** |
 
 ### Cost reduction strategies
 
-- **Cache baseline scores**: Only re-score the baseline when the test suite changes, not on every run
-- **Use cheaper judges for screening**: Run GPT-4o-mini first, escalate borderline cases (score 2-4) to GPT-4o
-- **Tiered evaluation**: Run ROUGE-L first (free), only judge-score cases that pass the ROUGE threshold
-- **Subsample on stable criteria**: If safety scores are consistently 5/5, sample 20% of cases for safety eval instead of 100%
-- **Batch API pricing**: OpenAI Batch API is 50% cheaper -- use for weekly/monthly evals that are not time-sensitive
+- **Cache điểm baseline**: Chỉ chấm lại baseline khi bộ kiểm thử thay đổi, không phải mỗi lượt
+- **Dùng giám khảo rẻ hơn để sàng lọc**: Chạy GPT-4o-mini trước, tăng cấp trường hợp sát ranh giới (điểm 2-4) lên GPT-4o
+- **Đánh giá phân tầng**: Chạy ROUGE-L trước (miễn phí), chỉ chấm bằng giám khảo các trường hợp vượt ngưỡng ROUGE
+- **Lấy mẫu con trên tiêu chí ổn định**: Nếu điểm an toàn nhất quán 5/5, lấy mẫu 20% trường hợp để đánh giá an toàn thay vì 100%
+- **Giá Batch API**: OpenAI Batch API rẻ hơn 50% -- dùng cho đánh giá hằng tuần/tháng không nhạy thời gian
 
 ## CI/CD integration patterns
 
 ### GitHub Actions
 
-Trigger: any PR modifying `prompts/`, `src/llm/`, or `config/model*.yaml`
+Điều kiện kích hoạt: mọi PR sửa `prompts/`, `src/llm/` hoặc `config/model*.yaml`
 
-Steps:
-1. Checkout code
-2. Install eval dependencies (deepeval, promptfoo, or custom)
-3. Run eval suite against the PR branch
-4. Compare against cached baseline scores
-5. Post results as a PR comment (table of criteria, pass/fail, diff)
-6. Set check status: pass if no regressions, fail if any criterion regresses
+Các bước:
+1. Checkout mã
+2. Cài phụ thuộc đánh giá (deepeval, promptfoo hoặc tùy chỉnh)
+3. Chạy bộ đánh giá với nhánh PR
+4. So với điểm baseline đã cache
+5. Đăng kết quả làm bình luận PR (bảng tiêu chí, đạt/không đạt, diff)
+6. Đặt trạng thái kiểm tra: đạt nếu không hồi quy, không đạt nếu bất kỳ tiêu chí nào hồi quy
 
 ### Eval as a merge gate
 
-The eval check should be **required** for merge, not advisory. Treat it like a failing test suite. If the eval says BLOCK, the PR does not merge until the regression is fixed or the test case is updated with justification.
+Kiểm tra đánh giá phải là **bắt buộc** để merge, không phải tham khảo. Xem như bộ kiểm thử thất bại. Nếu đánh giá nói BLOCK, PR không được merge đến khi sửa hồi quy hoặc cập nhật trường hợp kiểm thử với lý giải.
 
 ### Storing results
 
-Store eval results as JSON artifacts:
-- PR number, commit SHA, timestamp
-- Per-test-case scores with judge reasoning
-- Aggregate metrics with confidence intervals
-- Comparison diff against baseline
+Lưu kết quả đánh giá làm artifact JSON:
+- Số PR, SHA commit, dấu thời gian
+- Điểm từng trường hợp kiểm thử với suy luận giám khảo
+- Thước đo tổng hợp với khoảng tin cậy
+- Diff so sánh với baseline
 
-Use these artifacts for trend analysis. A gradual 0.1-point decline per week across 8 weeks is a 0.8-point regression that no single PR check would catch.
+Dùng artifact này để phân tích xu hướng. Giảm dần 0.1 điểm mỗi tuần trong 8 tuần là hồi quy 0.8 điểm mà không một kiểm tra PR riêng lẻ nào bắt được.
 
 ## Anti-patterns to avoid
 
-| Anti-pattern | Why it fails | Fix |
+| Mẫu phản tác dụng | Tại sao thất bại | Cách sửa |
 |-------------|-------------|-----|
-| Vibes-based eval | Humans cannot perceive 5% regressions | Automated scoring with statistical tests |
-| Testing on prompt examples | Measures memorization, not generalization | Keep eval data separate from prompt examples |
-| Single metric | Optimizing correctness tanks helpfulness | Score 3-5 criteria minimum |
-| No baseline | "4.2/5" means nothing without comparison | Always compare against a known-good version |
-| Weak judge model | GPT-3.5 produces noisy, inconsistent scores | Use GPT-4o or Claude Sonnet as judge |
-| Too few test cases | 50 cases gives 19-point CI -- useless | Minimum 200 for deployment decisions |
-| Static test suite | Distribution shift makes old tests irrelevant | Refresh from production traffic monthly |
-| Ignoring per-category scores | Overall improvement can mask category regression | Report per-category with CIs |
-| Eval once at launch | Quality degrades over time (model updates, data drift) | Continuous eval -- weekly minimum |
+| Đánh giá cảm tính | Con người không nhận thấy hồi quy 5% | Chấm tự động với kiểm định thống kê |
+| Kiểm thử trên ví dụ prompt | Đo ghi nhớ, không phải khái quát hóa | Giữ dữ liệu đánh giá riêng với ví dụ prompt |
+| Một thước đo | Tối ưu đúng đắn làm hữu ích sụt giảm | Chấm tối thiểu 3-5 tiêu chí |
+| Không baseline | "4.2/5" không có nghĩa nếu thiếu so sánh | Luôn so với phiên bản đã biết tốt |
+| Mô hình giám khảo yếu | GPT-3.5 tạo điểm nhiễu, không nhất quán | Dùng GPT-4o hoặc Claude Sonnet làm giám khảo |
+| Quá ít trường hợp kiểm thử | 50 trường hợp cho CI 19 điểm -- vô dụng | Tối thiểu 200 để quyết định triển khai |
+| Bộ kiểm thử tĩnh | Dịch chuyển phân phối khiến kiểm thử cũ không liên quan | Làm mới từ lưu lượng sản xuất hằng tháng |
+| Bỏ qua điểm từng loại | Cải thiện tổng thể có thể che hồi quy từng loại | Báo cáo từng loại với CI |
+| Đánh giá một lần khi ra mắt | Chất lượng suy giảm theo thời gian (cập nhật mô hình, trôi dữ liệu) | Đánh giá liên tục -- tối thiểu hằng tuần |
 
 ## Judge prompt templates
 

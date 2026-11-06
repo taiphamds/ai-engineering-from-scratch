@@ -1,37 +1,37 @@
 # Evaluation & Testing LLM Applications
 
-> You would never deploy a web app without tests. You would never ship a database migration without a rollback plan. But right now, most teams ship LLM applications by reading 10 outputs and saying "yeah, looks good." That is not evaluation. That is hope. Hope is not an engineering practice. Every prompt change, every model swap, every temperature tweak changes your output distribution in ways you cannot predict by reading a handful of examples. Evaluation is the only thing standing between your application and silent degradation.
+> Bạn sẽ không bao giờ triển khai ứng dụng web mà không kiểm thử. Bạn sẽ không bao giờ phát hành migration cơ sở dữ liệu mà không có kế hoạch hoàn tác. Nhưng ngay lúc này, hầu hết nhóm phát hành ứng dụng LLM bằng cách đọc 10 đầu ra và nói "ừ, có vẻ ổn." Đó không phải đánh giá. Đó là hy vọng. Hy vọng không phải thực hành kỹ thuật. Mọi thay đổi prompt, mọi lần đổi mô hình, mọi điều chỉnh temperature thay đổi phân phối đầu ra theo những cách bạn không thể dự đoán bằng cách đọc một ít ví dụ. Đánh giá là thứ duy nhất đứng giữa ứng dụng của bạn và sự suy giảm âm thầm.
 
 **Type:** Build
 **Languages:** Python
 **Prerequisites:** Phase 11 Lesson 01 (Prompt Engineering), Lesson 09 (Function Calling)
 **Time:** ~45 minutes
-**Related:** Phase 5 · 27 (LLM Evaluation — RAGAS, DeepEval, G-Eval) covers the framework-level concepts (NLI-based faithfulness, judge calibration, the RAG four). Phase 5 · 28 (Long-Context Evaluation) covers NIAH / RULER / LongBench / MRCR for context-length regression. This lesson focuses on what is LLM-engineering-specific: CI/CD integration, cost-gated eval runs, regression dashboards.
+**Liên quan:** Giai đoạn 5 · 27 (LLM Evaluation — RAGAS, DeepEval, G-Eval) trình bày khái niệm cấp framework (độ trung thực dựa trên NLI, hiệu chuẩn giám khảo, bộ bốn RAG). Giai đoạn 5 · 28 (Long-Context Evaluation) trình bày NIAH / RULER / LongBench / MRCR cho hồi quy độ dài ngữ cảnh. Bài học này tập trung vào phần riêng của kỹ thuật LLM: tích hợp CI/CD, lượt đánh giá có giới hạn chi phí, dashboard hồi quy.
 
 ## Learning Objectives
 
-- Build an evaluation dataset with input-output pairs, rubrics, and edge cases specific to your LLM application
-- Implement automated scoring using LLM-as-judge, regex matching, and deterministic assertion checks
-- Set up regression testing that detects quality degradation when prompts, models, or parameters change
-- Design evaluation metrics that capture what matters for your use case (correctness, tone, format compliance, latency)
+- Xây dựng bộ dữ liệu đánh giá với cặp đầu vào-đầu ra, rubric và trường hợp biên riêng cho ứng dụng LLM của bạn
+- Triển khai chấm điểm tự động bằng LLM-as-judge, khớp regex và kiểm tra assertion tất định
+- Thiết lập kiểm thử hồi quy phát hiện suy giảm chất lượng khi prompt, mô hình hoặc tham số thay đổi
+- Thiết kế thước đo đánh giá nắm bắt điều quan trọng cho trường hợp sử dụng của bạn (tính đúng đắn, giọng điệu, tuân thủ định dạng, độ trễ)
 
 ## The Problem
 
-You build a RAG chatbot for customer support. It works great in your demos. You ship it. Two weeks later, someone changes the system prompt to reduce hallucinations. The change works -- hallucination rate drops. But answer completeness also drops 34% because the model now refuses to answer anything it is not 100% certain about.
+Bạn xây chatbot RAG cho hỗ trợ khách hàng. Nó hoạt động rất tốt trong demo. Bạn phát hành. Hai tuần sau, ai đó đổi system prompt để giảm ảo giác. Thay đổi có tác dụng -- tỷ lệ ảo giác giảm. Nhưng độ đầy đủ câu trả lời cũng giảm 34% vì mô hình giờ từ chối trả lời bất kỳ điều gì nó không chắc chắn 100%.
 
-Nobody noticed for 11 days. Revenue from the self-service channel fell. Support tickets spiked.
+Không ai nhận thấy trong 11 ngày. Doanh thu từ kênh tự phục vụ giảm. Phiếu hỗ trợ tăng vọt.
 
-This is the default outcome when you evaluate by vibes. You check a few examples, they look fine, you merge. But LLM outputs are stochastic. A prompt that works on 5 test cases can fail on the 6th. A model that scores 92% on your benchmarks can score 71% on the edge cases your users actually hit.
+Đây là kết quả mặc định khi đánh giá bằng cảm tính. Bạn kiểm tra vài ví dụ, chúng trông ổn, bạn merge. Nhưng đầu ra LLM mang tính ngẫu nhiên. Prompt hoạt động trên 5 trường hợp kiểm thử có thể thất bại ở trường hợp thứ 6. Mô hình đạt 92% trên benchmark có thể đạt 71% trên các trường hợp biên người dùng thực sự gặp.
 
-The fix is not "be more careful." The fix is automated evaluation that runs on every change, scores outputs against rubrics, computes confidence intervals, and blocks deployment when quality regresses.
+Cách sửa không phải "cẩn thận hơn." Cách sửa là đánh giá tự động chạy trên mọi thay đổi, chấm đầu ra theo rubric, tính khoảng tin cậy và chặn triển khai khi chất lượng hồi quy.
 
-Evaluation is not a nice-to-have. It is table stakes. Shipping without evals is deploying blind.
+Đánh giá không phải thứ có thì tốt. Nó là yêu cầu tối thiểu. Phát hành không có đánh giá là triển khai mù.
 
 ## The Concept
 
 ### The Eval Taxonomy
 
-There are three categories of LLM evaluation. Each has a role. None is sufficient alone.
+Có ba loại đánh giá LLM. Mỗi loại có vai trò. Không loại nào đủ khi đứng một mình.
 
 ```mermaid
 graph TD
@@ -57,59 +57,59 @@ graph TD
     style H fill:#e8e8e8,stroke:#333
 ```
 
-**Automated metrics** compare output text against reference answers using algorithms. BLEU measures n-gram overlap (originally for machine translation). ROUGE measures recall of reference n-grams (originally for summarization). BERTScore uses BERT embeddings to measure semantic similarity. These are fast and cheap -- you can score 10,000 outputs in seconds. But they miss nuance. Two answers can have zero word overlap and both be correct. One answer can have high ROUGE and be completely wrong in context.
+**Thước đo tự động** so sánh văn bản đầu ra với câu trả lời tham chiếu bằng thuật toán. BLEU đo chồng lấp n-gram (ban đầu cho dịch máy). ROUGE đo recall của n-gram tham chiếu (ban đầu cho tóm tắt). BERTScore dùng embedding BERT để đo tương đồng ngữ nghĩa. Chúng nhanh và rẻ -- bạn có thể chấm 10,000 đầu ra trong vài giây. Nhưng chúng bỏ lỡ sắc thái. Hai câu trả lời có thể không chồng lấp từ mà cả hai đều đúng. Một câu trả lời có thể có ROUGE cao và hoàn toàn sai trong ngữ cảnh.
 
-**LLM-as-judge** uses a strong model (GPT-5, Claude Opus 4.7, Gemini 3 Pro) to grade outputs against a rubric. This captures semantic quality -- relevance, correctness, helpfulness, safety -- that string metrics miss. It costs money (~$8 per 1,000 judge calls with GPT-5-mini, ~$25 with Claude Opus 4.7) but correlates 82-88% with human judgment on well-designed rubrics — see Phase 5 · 27 for the calibration recipe.
+**LLM-as-judge** dùng mô hình mạnh (GPT-5, Claude Opus 4.7, Gemini 3 Pro) để chấm đầu ra theo rubric. Nó nắm chất lượng ngữ nghĩa -- liên quan, đúng đắn, hữu ích, an toàn -- mà thước đo chuỗi bỏ lỡ. Nó tốn tiền (~$8 mỗi 1,000 lệnh gọi giám khảo với GPT-5-mini, ~$25 với Claude Opus 4.7) nhưng tương quan 82-88% với đánh giá con người trên rubric được thiết kế tốt — xem Giai đoạn 5 · 27 để có công thức hiệu chuẩn.
 
-**Human evaluation** is the gold standard but the slowest and most expensive. Reserve it for calibrating your automated evals, not for running on every commit.
+**Đánh giá con người** là chuẩn vàng nhưng chậm và đắt nhất. Dành cho hiệu chuẩn đánh giá tự động, không phải chạy trên mỗi commit.
 
-| Method | Speed | Cost per 1K evals | Correlation with humans | Best for |
+| Phương pháp | Tốc độ | Chi phí mỗi 1K đánh giá | Tương quan với con người | Tốt nhất cho |
 |--------|-------|-------------------|------------------------|----------|
-| BLEU/ROUGE | <1 sec | $0 | 40-60% | Translation, summarization baselines |
-| BERTScore | ~30 sec | $0 | 55-70% | Semantic similarity screening |
-| LLM-as-judge (GPT-5-mini) | ~3 min | ~$8 | 82-86% | Default CI judge; cheap, fast, calibrated |
-| LLM-as-judge (Claude Opus 4.7) | ~5 min | ~$25 | 85-88% | High-stakes scoring, safety, refusals |
-| LLM-as-judge (Gemini 3 Flash) | ~2 min | ~$3 | 80-84% | Highest-throughput judge; for 1M+ eval pass |
-| RAGAS (NLI faithfulness + judge) | ~5 min | ~$12 | 85% | RAG-specific metrics (see Phase 5 · 27) |
-| DeepEval (G-Eval + Pytest) | ~4 min | depends on judge | 80-88% | CI-native, per-PR regression gates |
-| Human expert | ~2 hours | ~$500 | 100% (by definition) | Calibration, edge cases, policy |
+| BLEU/ROUGE | <1 giây | $0 | 40-60% | Baseline dịch, tóm tắt |
+| BERTScore | ~30 giây | $0 | 55-70% | Sàng lọc tương đồng ngữ nghĩa |
+| LLM-as-judge (GPT-5-mini) | ~3 phút | ~$8 | 82-86% | Giám khảo CI mặc định; rẻ, nhanh, được hiệu chuẩn |
+| LLM-as-judge (Claude Opus 4.7) | ~5 phút | ~$25 | 85-88% | Chấm điểm hệ trọng, an toàn, từ chối |
+| LLM-as-judge (Gemini 3 Flash) | ~2 phút | ~$3 | 80-84% | Giám khảo thông lượng cao nhất; cho lượt đánh giá 1M+ |
+| RAGAS (độ trung thực NLI + giám khảo) | ~5 phút | ~$12 | 85% | Thước đo riêng RAG (xem Giai đoạn 5 · 27) |
+| DeepEval (G-Eval + Pytest) | ~4 phút | tùy giám khảo | 80-88% | Nguyên bản CI, cổng kiểm tra hồi quy mỗi PR |
+| Chuyên gia con người | ~2 giờ | ~$500 | 100% (theo định nghĩa) | Hiệu chuẩn, trường hợp biên, chính sách |
 
 ### LLM-as-Judge: The Workhorse
 
-This is the evaluation method you will use 90% of the time. The pattern is simple: give a strong model the input, the output, an optional reference answer, and a rubric. Ask it to score.
+Đây là phương pháp đánh giá bạn sẽ dùng 90% thời gian. Mẫu đơn giản: đưa cho mô hình mạnh đầu vào, đầu ra, câu trả lời tham chiếu tùy chọn và rubric. Yêu cầu chấm điểm.
 
-Four criteria cover most use cases:
+Bốn tiêu chí bao quát hầu hết trường hợp sử dụng:
 
-**Relevance** (1-5): Does the output address what was asked? A score of 1 means completely off-topic. A score of 5 means directly and specifically answers the question.
+**Mức liên quan** (1-5): Đầu ra có giải quyết điều được hỏi không? Điểm 1 nghĩa là hoàn toàn lạc đề. Điểm 5 nghĩa là trả lời câu hỏi trực tiếp và cụ thể.
 
-**Correctness** (1-5): Is the information factually accurate? A score of 1 means contains major factual errors. A score of 5 means all claims are verifiable and accurate.
+**Tính đúng đắn** (1-5): Thông tin có chính xác về sự kiện không? Điểm 1 nghĩa là chứa lỗi sự kiện lớn. Điểm 5 nghĩa là mọi khẳng định đều có thể xác minh và chính xác.
 
-**Helpfulness** (1-5): Would a user find this useful? A score of 1 means the response provides no value. A score of 5 means the user can immediately act on the information.
+**Tính hữu ích** (1-5): Người dùng có thấy hữu ích không? Điểm 1 nghĩa là phản hồi không cung cấp giá trị. Điểm 5 nghĩa là người dùng có thể hành động ngay dựa trên thông tin.
 
-**Safety** (1-5): Is the output free from harmful content, bias, or policy violations? A score of 1 means contains harmful or dangerous content. A score of 5 means completely safe and appropriate.
+**An toàn** (1-5): Đầu ra có không chứa nội dung có hại, thiên lệch hoặc vi phạm chính sách không? Điểm 1 nghĩa là chứa nội dung có hại hoặc nguy hiểm. Điểm 5 nghĩa là hoàn toàn an toàn và phù hợp.
 
 ### Rubric Design
 
-Bad rubrics produce noisy scores. Good rubrics anchor each score to specific, observable behaviors.
+Rubric kém tạo điểm nhiễu. Rubric tốt neo mỗi điểm vào hành vi cụ thể, quan sát được.
 
-Bad rubric: "Rate from 1-5 how good the answer is."
+Rubric kém: "Chấm từ 1-5 câu trả lời tốt đến mức nào."
 
-Good rubric:
-- **5**: The answer is factually correct, directly addresses the question, includes specific details or examples, and provides actionable information.
-- **4**: The answer is factually correct and addresses the question but lacks specific detail or is slightly verbose.
-- **3**: The answer is mostly correct but contains a minor inaccuracy or partially misses the question's intent.
-- **2**: The answer contains significant factual errors or only tangentially relates to the question.
-- **1**: The answer is factually wrong, off-topic, or harmful.
+Rubric tốt:
+- **5**: Câu trả lời đúng về sự kiện, trực tiếp giải quyết câu hỏi, bao gồm chi tiết hoặc ví dụ cụ thể và cung cấp thông tin có thể hành động.
+- **4**: Câu trả lời đúng về sự kiện và giải quyết câu hỏi nhưng thiếu chi tiết cụ thể hoặc hơi dài dòng.
+- **3**: Câu trả lời phần lớn đúng nhưng có sai sót nhỏ hoặc bỏ lỡ một phần ý định câu hỏi.
+- **2**: Câu trả lời chứa lỗi sự kiện đáng kể hoặc chỉ liên quan gián tiếp đến câu hỏi.
+- **1**: Câu trả lời sai sự kiện, lạc đề hoặc có hại.
 
-Anchored descriptions reduce judge variance by 30-40% compared to unanchored scales.
+Mô tả có neo giảm phương sai giám khảo 30-40% so với thang không neo.
 
-**Pairwise comparison** is an alternative: show the judge two outputs and ask which is better. This eliminates scale calibration issues -- the judge does not need to decide if something is a "3" or a "4." It just picks the winner. Useful for comparing two prompt versions head-to-head.
+**So sánh cặp** là phương án thay thế: cho giám khảo thấy hai đầu ra và hỏi đầu ra nào tốt hơn. Điều này loại bỏ vấn đề hiệu chuẩn thang -- giám khảo không cần quyết định một thứ là "3" hay "4." Nó chỉ chọn người thắng. Hữu ích để so trực tiếp hai phiên bản prompt.
 
-**Best-of-N** generates N outputs for each input and has the judge pick the best one. This measures the ceiling of your system. If best-of-5 consistently beats best-of-1, you might benefit from sampling multiple responses and selecting.
+**Best-of-N** sinh N đầu ra cho mỗi đầu vào và để giám khảo chọn tốt nhất. Điều này đo trần hệ thống của bạn. Nếu best-of-5 liên tục thắng best-of-1, bạn có thể hưởng lợi từ lấy mẫu nhiều phản hồi và lựa chọn.
 
 ### The Eval Pipeline
 
-Every evaluation follows the same 6-step pipeline.
+Mọi đánh giá tuân cùng pipeline 6 bước.
 
 ```mermaid
 flowchart LR
@@ -127,96 +127,96 @@ flowchart LR
     D -->|ship or block| P
 ```
 
-**Prompt**: Define your test cases. Each case has an input (user query + context) and optionally a reference answer.
+**Prompt**: Định nghĩa các trường hợp kiểm thử. Mỗi trường hợp có đầu vào (truy vấn người dùng + ngữ cảnh) và câu trả lời tham chiếu tùy chọn.
 
-**Run**: Execute the prompt against the model. Collect outputs. Run each test case 1-3 times if you want to measure variance.
+**Chạy**: Thực thi prompt với mô hình. Thu đầu ra. Chạy mỗi trường hợp kiểm thử 1-3 lần nếu muốn đo phương sai.
 
-**Collect**: Store inputs, outputs, and metadata (model, temperature, timestamp, prompt version).
+**Thu thập**: Lưu đầu vào, đầu ra và metadata (mô hình, temperature, dấu thời gian, phiên bản prompt).
 
-**Score**: Apply your evaluation method -- automated metrics, LLM-as-judge, or both.
+**Chấm điểm**: Áp dụng phương pháp đánh giá -- thước đo tự động, LLM-as-judge hoặc cả hai.
 
-**Compare**: Compare scores against a baseline. The baseline is your last known-good version. Compute confidence intervals on the difference.
+**So sánh**: So điểm với baseline. Baseline là phiên bản tốt gần nhất đã biết. Tính khoảng tin cậy cho chênh lệch.
 
-**Decide**: If the new version is statistically significantly better (or not worse), ship it. If it regresses, block.
+**Quyết định**: Nếu phiên bản mới tốt hơn có ý nghĩa thống kê (hoặc không tệ hơn), phát hành. Nếu hồi quy, chặn.
 
 ### Eval Datasets: The Foundation
 
-Your eval dataset is only as good as the cases in it. Three types of test cases matter:
+Bộ dữ liệu đánh giá chỉ tốt bằng các trường hợp trong đó. Ba loại trường hợp kiểm thử quan trọng:
 
-**Golden test set** (50-100 cases): Curated input-output pairs that represent your core use cases. These are your regression tests. Every prompt change must pass these.
+**Tập kiểm thử vàng** (50-100 trường hợp): Các cặp đầu vào-đầu ra được tuyển chọn đại diện trường hợp sử dụng cốt lõi. Đây là kiểm thử hồi quy. Mọi thay đổi prompt phải vượt qua.
 
-**Adversarial examples** (20-50 cases): Inputs designed to break your system. Prompt injections, edge cases, ambiguous queries, questions about topics outside your domain, requests for harmful content.
+**Ví dụ đối kháng** (20-50 trường hợp): Đầu vào được thiết kế phá hệ thống. Prompt injection, trường hợp biên, truy vấn mơ hồ, câu hỏi ngoài miền của bạn, yêu cầu nội dung có hại.
 
-**Distribution samples** (100-200 cases): Random samples from real production traffic. These catch problems that curated tests miss because they reflect what users actually ask.
+**Mẫu phân phối** (100-200 trường hợp): Mẫu ngẫu nhiên từ lưu lượng sản xuất thực. Chúng bắt vấn đề kiểm thử tuyển chọn bỏ lỡ vì phản ánh điều người dùng thực sự hỏi.
 
 ### Sample Size and Confidence
 
-50 test cases is not enough.
+50 trường hợp kiểm thử là không đủ.
 
-If your eval scores 90% on 50 cases, the 95% confidence interval is [78%, 97%]. That is a 19-point spread. You cannot distinguish a system scoring 80% from one scoring 96%.
+Nếu đánh giá đạt 90% trên 50 trường hợp, khoảng tin cậy 95% là [78%, 97%]. Đó là độ trải 19 điểm. Bạn không thể phân biệt hệ thống đạt 80% với hệ thống đạt 96%.
 
-At 200 cases with 90% accuracy, the confidence interval tightens to [85%, 94%]. Now you can make decisions.
+Ở 200 trường hợp với độ chính xác 90%, khoảng tin cậy thu hẹp còn [85%, 94%]. Giờ bạn có thể quyết định.
 
-| Test cases | Observed accuracy | 95% CI width | Can detect 5% regression? |
+| Trường hợp kiểm thử | Độ chính xác quan sát | Độ rộng CI 95% | Phát hiện hồi quy 5% được không? |
 |-----------|------------------|-------------|--------------------------|
-| 50 | 90% | 19 points | No |
-| 100 | 90% | 12 points | Barely |
-| 200 | 90% | 9 points | Yes |
-| 500 | 90% | 5 points | Confidently |
-| 1000 | 90% | 3 points | Precisely |
+| 50 | 90% | 19 điểm | Không |
+| 100 | 90% | 12 điểm | Chỉ vừa đủ |
+| 200 | 90% | 9 điểm | Có |
+| 500 | 90% | 5 điểm | Tự tin |
+| 1000 | 90% | 3 điểm | Chính xác |
 
-Use at least 200 test cases for any evaluation where you need to make deployment decisions. Use 500+ if you are comparing two systems that are close in quality.
+Dùng ít nhất 200 trường hợp kiểm thử cho mọi đánh giá cần quyết định triển khai. Dùng 500+ nếu so hai hệ thống gần nhau về chất lượng.
 
 ### Regression Testing
 
-Every prompt change needs a before/after eval. This is non-negotiable.
+Mọi thay đổi prompt cần đánh giá trước/sau. Điều này không thể thương lượng.
 
-The workflow:
-1. Run your eval suite on the current (baseline) prompt -- store the scores
-2. Make the prompt change
-3. Run the same eval suite on the new prompt
-4. Compare scores with a statistical test (paired t-test or bootstrap)
-5. If no statistically significant regression on any criteria -- ship
-6. If regression detected -- investigate which test cases degraded and why
+Quy trình:
+1. Chạy bộ đánh giá trên prompt hiện tại (baseline) -- lưu điểm
+2. Thực hiện thay đổi prompt
+3. Chạy cùng bộ đánh giá trên prompt mới
+4. So điểm bằng kiểm định thống kê (t-test cặp hoặc bootstrap)
+5. Nếu không hồi quy có ý nghĩa thống kê ở bất kỳ tiêu chí nào -- phát hành
+6. Nếu phát hiện hồi quy -- điều tra trường hợp kiểm thử nào suy giảm và tại sao
 
 ### Cost of Evals
 
-Evals cost money when using LLM-as-judge. Budget for it.
+Đánh giá tốn tiền khi dùng LLM-as-judge. Lập ngân sách cho nó.
 
-| Eval size | GPT-5-mini judge | Claude Opus 4.7 judge | Gemini 3 Flash judge | Time |
+| Kích thước đánh giá | Giám khảo GPT-5-mini | Giám khảo Claude Opus 4.7 | Giám khảo Gemini 3 Flash | Thời gian |
 |-----------|------------------|-----------------------|----------------------|------|
-| 100 cases x 4 criteria | ~$2 | ~$6 | ~$0.40 | ~2 min |
-| 200 cases x 4 criteria | ~$4 | ~$12 | ~$0.80 | ~4 min |
-| 500 cases x 4 criteria | ~$10 | ~$30 | ~$2 | ~10 min |
-| 1000 cases x 4 criteria | ~$20 | ~$60 | ~$4 | ~20 min |
+| 100 trường hợp x 4 tiêu chí | ~$2 | ~$6 | ~$0.40 | ~2 phút |
+| 200 trường hợp x 4 tiêu chí | ~$4 | ~$12 | ~$0.80 | ~4 phút |
+| 500 trường hợp x 4 tiêu chí | ~$10 | ~$30 | ~$2 | ~10 phút |
+| 1000 trường hợp x 4 tiêu chí | ~$20 | ~$60 | ~$4 | ~20 phút |
 
-A 200-case eval suite running on every PR with GPT-5-mini costs ~$4 per run. If your team merges 10 PRs per week, that is $160/month. Compare that to the cost of shipping a regression that tanks user satisfaction for 11 days.
+Bộ đánh giá 200 trường hợp chạy trên mỗi PR với GPT-5-mini tốn ~$4 mỗi lượt. Nếu nhóm merge 10 PR mỗi tuần, đó là $160/tháng. So với chi phí phát hành một hồi quy làm mức hài lòng người dùng sụt giảm trong 11 ngày.
 
 ### Anti-Patterns
 
-**Vibes-based evaluation.** "I read 5 outputs and they looked good." You cannot perceive a 5% quality regression by reading examples. Your brain cherry-picks confirming evidence.
+**Đánh giá dựa trên cảm tính.** "Tôi đọc 5 đầu ra và chúng trông tốt." Bạn không thể nhận thấy hồi quy chất lượng 5% bằng đọc ví dụ. Não bạn chọn lọc bằng chứng xác nhận.
 
-**Testing on training examples.** If your eval cases overlap with examples in your prompt or fine-tuning data, you are measuring memorization, not generalization. Keep eval data separate.
+**Kiểm thử trên ví dụ huấn luyện.** Nếu trường hợp đánh giá trùng với ví dụ trong prompt hoặc dữ liệu fine-tuning, bạn đang đo ghi nhớ, không phải khái quát hóa. Giữ dữ liệu đánh giá riêng.
 
-**Single-metric obsession.** Optimizing only for correctness while ignoring helpfulness produces terse, technically-accurate-but-useless answers. Always score multiple criteria.
+**Ám ảnh một thước đo.** Chỉ tối ưu tính đúng đắn trong khi bỏ tính hữu ích tạo câu trả lời cụt, chính xác kỹ thuật nhưng vô dụng. Luôn chấm nhiều tiêu chí.
 
-**Evaluating without baselines.** A score of 4.2/5 means nothing in isolation. Is that better or worse than yesterday? Better or worse than the competing prompt? Always compare.
+**Đánh giá không baseline.** Điểm 4.2/5 không có nghĩa gì khi đứng riêng. Tốt hay tệ hơn hôm qua? Tốt hay tệ hơn prompt cạnh tranh? Luôn so sánh.
 
-**Using a weak judge.** GPT-3.5 as a judge produces noisy, inconsistent scores. Use GPT-4o or Claude Sonnet. The judge must be at least as capable as the model being evaluated.
+**Dùng giám khảo yếu.** GPT-3.5 làm giám khảo tạo điểm nhiễu, không nhất quán. Dùng GPT-4o hoặc Claude Sonnet. Giám khảo phải ít nhất có năng lực ngang mô hình được đánh giá.
 
 ### Real Tools
 
-You do not have to build everything from scratch. These tools provide eval infrastructure:
+Bạn không phải xây mọi thứ từ đầu. Các công cụ này cung cấp hạ tầng đánh giá:
 
-| Tool | What it does | Pricing |
+| Công cụ | Nó làm gì | Giá |
 |------|-------------|---------|
-| [promptfoo](https://promptfoo.dev) | Open-source eval framework, YAML config, LLM-as-judge, CI integration | Free (OSS) |
-| [Braintrust](https://braintrust.dev) | Eval platform with scoring, experiments, datasets, logging | Free tier, then usage-based |
-| [LangSmith](https://smith.langchain.com) | LangChain's eval/observability platform, tracing, datasets, annotation | Free tier, $39/mo+ |
-| [DeepEval](https://deepeval.com) | Python eval framework, 14+ metrics, Pytest integration | Free (OSS) |
-| [Arize Phoenix](https://phoenix.arize.com) | Open-source observability + evals, tracing, span-level scoring | Free (OSS) |
+| [promptfoo](https://promptfoo.dev) | Framework đánh giá mã nguồn mở, cấu hình YAML, LLM-as-judge, tích hợp CI | Miễn phí (OSS) |
+| [Braintrust](https://braintrust.dev) | Nền tảng đánh giá với chấm điểm, thí nghiệm, bộ dữ liệu, ghi log | Gói miễn phí, rồi theo mức dùng |
+| [LangSmith](https://smith.langchain.com) | Nền tảng đánh giá/khả năng quan sát của LangChain, tracing, bộ dữ liệu, chú giải | Gói miễn phí, $39/tháng+ |
+| [DeepEval](https://deepeval.com) | Framework đánh giá Python, 14+ thước đo, tích hợp Pytest | Miễn phí (OSS) |
+| [Arize Phoenix](https://phoenix.arize.com) | Khả năng quan sát + đánh giá mã nguồn mở, tracing, chấm điểm cấp span | Miễn phí (OSS) |
 
-For this lesson, we build it from scratch so you understand every layer. In production, use one of these tools.
+Với bài học này, chúng ta xây từ đầu để bạn hiểu từng lớp. Trong sản xuất, dùng một trong các công cụ này.
 
 ```figure
 llm-judge-rubric
@@ -226,7 +226,7 @@ llm-judge-rubric
 
 ### Step 1: Define the Eval Data Structures
 
-Build the core types: test cases, eval results, and scoring rubrics.
+Xây các kiểu cốt lõi: trường hợp kiểm thử, kết quả đánh giá và rubric chấm điểm.
 
 ```python
 import json
@@ -280,7 +280,7 @@ class EvalResult:
 
 ### Step 2: Build the LLM-as-Judge Scorer
 
-This simulates a judge model scoring outputs against rubrics. In production, replace the simulation with actual GPT-4o or Claude API calls.
+Điều này mô phỏng mô hình giám khảo chấm đầu ra theo rubric. Trong sản xuất, thay mô phỏng bằng lệnh gọi API GPT-4o hoặc Claude thực.
 
 ```python
 RUBRICS = {
@@ -381,7 +381,7 @@ def generate_judge_reasoning(input_text, model_output, criterion, score):
 
 ### Step 3: Build Automated Metrics
 
-Implement ROUGE-L and a simple semantic similarity score alongside the LLM judge.
+Triển khai ROUGE-L và điểm tương đồng ngữ nghĩa đơn giản bên cạnh giám khảo LLM.
 
 ```python
 def rouge_l_score(reference, hypothesis):
@@ -423,7 +423,7 @@ def word_overlap_score(reference, hypothesis):
 
 ### Step 4: Build the Confidence Interval Calculator
 
-Statistical rigor separates real evaluation from vibes.
+Sự chặt chẽ thống kê phân biệt đánh giá thực sự với cảm tính.
 
 ```python
 def wilson_confidence_interval(successes, total, z=1.96):
@@ -462,7 +462,7 @@ def bootstrap_confidence_interval(scores, n_bootstrap=1000, confidence=0.95):
 
 ### Step 5: Build the Eval Runner and Comparison Report
 
-This is the orchestration layer that ties everything together.
+Đây là lớp điều phối gắn mọi thứ lại.
 
 ```python
 SIMULATED_MODELS = {
@@ -763,7 +763,7 @@ if __name__ == "__main__":
 # View: promptfoo view
 ```
 
-promptfoo is the fastest path from zero to eval pipeline. YAML config, built-in LLM-as-judge, web viewer, CI-friendly output. It supports 15+ providers out of the box and custom scoring functions in JavaScript or Python.
+promptfoo là con đường nhanh nhất từ không đến pipeline đánh giá. Cấu hình YAML, LLM-as-judge tích hợp, trình xem web, đầu ra thân thiện CI. Nó hỗ trợ 15+ nhà cung cấp ngay từ đầu và hàm chấm tùy chỉnh bằng JavaScript hoặc Python.
 
 ### DeepEval Integration
 
@@ -785,7 +785,7 @@ promptfoo is the fastest path from zero to eval pipeline. YAML config, built-in 
 # evaluate([test_case], [relevancy, faithfulness])
 ```
 
-DeepEval integrates with Pytest. Run `deepeval test run test_evals.py` to execute evals as part of your test suite. It includes 14 built-in metrics including hallucination detection, bias, and toxicity.
+DeepEval tích hợp với Pytest. Chạy `deepeval test run test_evals.py` để thực thi đánh giá như một phần bộ kiểm thử. Nó bao gồm 14 thước đo tích hợp gồm phát hiện ảo giác, thiên lệch và độc hại.
 
 ### CI/CD Integration Pattern
 
@@ -814,50 +814,50 @@ DeepEval integrates with Pytest. Run `deepeval test run test_evals.py` to execut
 #           path: eval_results/
 ```
 
-Trigger evals on every PR that touches prompts or LLM code. Block the merge if any criterion regresses beyond the threshold. Upload results as artifacts for review.
+Kích hoạt đánh giá trên mọi PR chạm prompt hoặc mã LLM. Chặn merge nếu bất kỳ tiêu chí nào hồi quy quá ngưỡng. Tải kết quả lên làm artifact để xem xét.
 
 ## Ship It
 
-This lesson produces `outputs/prompt-eval-designer.md` -- a reusable prompt template for designing evaluation rubrics. Give it a description of your LLM application and it produces tailored evaluation criteria with anchored scoring rubrics.
+Bài học này tạo ra `outputs/prompt-eval-designer.md` -- một khuôn mẫu prompt tái sử dụng thiết kế rubric đánh giá. Đưa mô tả ứng dụng LLM và nó tạo tiêu chí đánh giá phù hợp với rubric chấm điểm có neo.
 
-It also produces `outputs/skill-eval-patterns.md` -- a decision framework for choosing the right evaluation strategy based on your use case, budget, and quality requirements.
+Nó cũng tạo ra `outputs/skill-eval-patterns.md` -- khung quyết định chọn chiến lược đánh giá phù hợp theo trường hợp sử dụng, ngân sách và yêu cầu chất lượng.
 
 ## Exercises
 
-1. **Add BERTScore.** Implement a simplified BERTScore using word embedding cosine similarity. Create a dictionary of 100 common words mapped to random 50-dimensional vectors. Compute the pairwise cosine similarity matrix between reference and hypothesis tokens. Use greedy matching (each hypothesis token matches its most similar reference token) to compute precision, recall, and F1.
+1. **Thêm BERTScore.** Triển khai BERTScore giản lược bằng cosine similarity của word embedding. Tạo từ điển 100 từ phổ biến ánh xạ sang vector ngẫu nhiên 50 chiều. Tính ma trận cosine similarity từng cặp giữa token tham chiếu và giả thuyết. Dùng khớp tham lam (mỗi token giả thuyết khớp token tham chiếu tương tự nhất) để tính precision, recall và F1.
 
-2. **Build pairwise comparison.** Modify the judge to compare two model outputs side-by-side instead of scoring individually. Given the same input and two outputs, the judge should return which output is better and why. Run pairwise comparison across your test suite with baseline-v1 vs baseline-v2 and compute the win rate with confidence intervals.
+2. **Xây so sánh cặp.** Sửa giám khảo để so hai đầu ra mô hình cạnh nhau thay vì chấm riêng. Với cùng đầu vào và hai đầu ra, giám khảo phải trả đầu ra nào tốt hơn và tại sao. Chạy so sánh cặp trên bộ kiểm thử với baseline-v1 so với baseline-v2 và tính tỷ lệ thắng với khoảng tin cậy.
 
-3. **Implement stratified analysis.** Group test cases by category (factual, technical, safety, coding, summarization) and compute per-category scores with confidence intervals. Identify which categories improved and which regressed between prompt versions. A system can improve overall while regressing on a specific category.
+3. **Triển khai phân tích phân tầng.** Nhóm trường hợp kiểm thử theo loại (sự kiện, kỹ thuật, an toàn, lập trình, tóm tắt) và tính điểm từng loại với khoảng tin cậy. Xác định loại nào cải thiện và loại nào hồi quy giữa các phiên bản prompt. Hệ thống có thể cải thiện tổng thể trong khi hồi quy ở một loại cụ thể.
 
-4. **Add inter-rater reliability.** Run the LLM judge 3 times on each test case (simulating different judge "raters"). Compute Cohen's kappa or Krippendorff's alpha between the three runs. If agreement is below 0.7, your rubric is too ambiguous -- rewrite it.
+4. **Thêm độ tin cậy giữa người chấm.** Chạy giám khảo LLM 3 lần trên mỗi trường hợp kiểm thử (mô phỏng các "người chấm" giám khảo khác nhau). Tính Cohen's kappa hoặc Krippendorff's alpha giữa ba lượt. Nếu mức đồng thuận dưới 0.7, rubric quá mơ hồ -- viết lại.
 
-5. **Build a cost tracker.** Track the token usage and cost of every judge call. Each input to the judge includes the original prompt, the model output, and the rubric (~500 tokens input, ~100 tokens output). Compute the total eval cost across your test suite and project the monthly cost assuming 10 eval runs per week.
+5. **Xây bộ theo dõi chi phí.** Theo dõi mức dùng token và chi phí mỗi lệnh gọi giám khảo. Mỗi đầu vào giám khảo gồm prompt gốc, đầu ra mô hình và rubric (~500 token đầu vào, ~100 token đầu ra). Tính tổng chi phí đánh giá trên bộ kiểm thử và dự báo chi phí hằng tháng giả sử 10 lượt đánh giá mỗi tuần.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Eval | "Testing" | Systematically scoring LLM outputs against defined criteria using automated metrics, LLM judges, or human review |
-| LLM-as-judge | "AI grading" | Using a strong model (GPT-4o, Claude) to score outputs against a rubric -- correlates 80-85% with human judgment |
-| Rubric | "Scoring guide" | Anchored descriptions for each score level (1-5) that reduce judge variance by defining exactly what each score means |
-| ROUGE-L | "Text overlap" | Longest Common Subsequence-based metric measuring how much of the reference appears in the output -- recall-oriented |
-| Confidence interval | "Error bars" | A range around your measured score that tells you how much uncertainty remains -- wider with fewer test cases |
-| Regression testing | "Before/after" | Running the same eval suite on old and new prompt versions to detect quality degradation before deployment |
-| Golden test set | "Core evals" | Curated input-output pairs representing your most important use cases -- every change must pass these |
-| Pairwise comparison | "A vs B" | Showing a judge two outputs and asking which is better -- eliminates scale calibration problems |
-| Bootstrap | "Resampling" | Estimating confidence intervals by repeatedly sampling from your scores with replacement -- works with any distribution |
-| Wilson interval | "Proportion CI" | A confidence interval for pass/fail rates that works correctly even with small sample sizes or extreme proportions |
+| Eval (Đánh giá) | "Kiểm thử" | Chấm đầu ra LLM có hệ thống theo tiêu chí định nghĩa bằng thước đo tự động, giám khảo LLM hoặc con người xem xét |
+| LLM-as-judge (LLM làm giám khảo) | "AI chấm điểm" | Dùng mô hình mạnh (GPT-4o, Claude) chấm đầu ra theo rubric -- tương quan 80-85% với đánh giá con người |
+| Rubric (Hướng dẫn chấm điểm) | "Hướng dẫn chấm" | Mô tả có neo cho mỗi mức điểm (1-5) giảm phương sai giám khảo bằng định nghĩa chính xác ý nghĩa mỗi điểm |
+| ROUGE-L | "Chồng lấp văn bản" | Thước đo dựa trên dãy con chung dài nhất đo bao nhiêu phần tham chiếu xuất hiện trong đầu ra -- thiên về recall |
+| Confidence interval (Khoảng tin cậy) | "Thanh sai số" | Phạm vi quanh điểm đo cho biết còn bao nhiêu bất định -- rộng hơn khi ít trường hợp kiểm thử |
+| Regression testing (Kiểm thử hồi quy) | "Trước/sau" | Chạy cùng bộ đánh giá trên phiên bản prompt cũ và mới để phát hiện suy giảm chất lượng trước triển khai |
+| Golden test set (Tập kiểm thử vàng) | "Đánh giá cốt lõi" | Cặp đầu vào-đầu ra tuyển chọn đại diện trường hợp sử dụng quan trọng nhất -- mọi thay đổi phải vượt qua |
+| Pairwise comparison (So sánh cặp) | "A so với B" | Cho giám khảo thấy hai đầu ra và hỏi cái nào tốt hơn -- loại bỏ vấn đề hiệu chuẩn thang |
+| Bootstrap | "Lấy mẫu lại" | Ước lượng khoảng tin cậy bằng cách lặp lấy mẫu có hoàn lại từ điểm của bạn -- hoạt động với mọi phân phối |
+| Wilson interval (Khoảng Wilson) | "CI tỷ lệ" | Khoảng tin cậy cho tỷ lệ đạt/không đạt hoạt động đúng ngay cả với cỡ mẫu nhỏ hoặc tỷ lệ cực đoan |
 
 ## Further Reading
 
-- [Zheng et al., 2023 -- "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena"](https://arxiv.org/abs/2306.05685) -- the foundational paper on using LLMs to judge other LLMs, introducing MT-Bench and the pairwise comparison protocol
-- [promptfoo Documentation](https://promptfoo.dev/docs/intro) -- the most practical open-source eval framework with YAML config, 15+ providers, LLM-as-judge, and CI integration
-- [DeepEval Documentation](https://docs.confident-ai.com) -- Python-native eval framework with 14+ metrics, Pytest integration, and hallucination detection
-- [Braintrust Eval Guide](https://www.braintrust.dev/docs) -- production eval platform with experiment tracking, scoring functions, and dataset management
-- [Ribeiro et al., 2020 -- "Beyond Accuracy: Behavioral Testing of NLP Models with CheckList"](https://arxiv.org/abs/2005.04118) -- systematic behavioral testing methodology (minimum functionality, invariance, directional expectations) applicable to LLM evaluation
-- [Arena (formerly LMSYS Chatbot Arena)](https://arena.ai/) -- live human evaluation platform where users vote on model outputs, the largest pairwise comparison dataset for LLMs
-- [Es et al., "RAGAS: Automated Evaluation of Retrieval Augmented Generation" (EACL 2024 demo)](https://arxiv.org/abs/2309.15217) -- reference-free metrics for RAG (faithfulness, answer relevancy, context precision/recall); the eval pattern that scales to prod without labelers.
-- [Liu et al., "G-Eval: NLG Evaluation using GPT-4 with Better Human Alignment" (EMNLP 2023)](https://arxiv.org/abs/2303.16634) -- chain-of-thought + form-filling as a judge protocol; the calibration and bias results every judge-builder needs.
-- [Hugging Face LLM Evaluation Guidebook](https://huggingface.co/spaces/OpenEvals/evaluation-guidebook) -- practical advice on data contamination, metric selection, and reproducibility from the team maintaining the Open LLM Leaderboard.
-- [EleutherAI lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) -- the standard framework for automated benchmarks (MMLU, HellaSwag, TruthfulQA, BIG-Bench); the engine behind the Open LLM Leaderboard.
+- [Zheng et al., 2023 -- "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena"](https://arxiv.org/abs/2306.05685) -- bài báo nền tảng về dùng LLM chấm các LLM khác, giới thiệu MT-Bench và giao thức so sánh cặp
+- [promptfoo Documentation](https://promptfoo.dev/docs/intro) -- framework đánh giá mã nguồn mở thực dụng nhất với cấu hình YAML, 15+ nhà cung cấp, LLM-as-judge và tích hợp CI
+- [DeepEval Documentation](https://docs.confident-ai.com) -- framework đánh giá nguyên bản Python với 14+ thước đo, tích hợp Pytest và phát hiện ảo giác
+- [Braintrust Eval Guide](https://www.braintrust.dev/docs) -- nền tảng đánh giá sản xuất với theo dõi thí nghiệm, hàm chấm điểm và quản lý bộ dữ liệu
+- [Ribeiro et al., 2020 -- "Beyond Accuracy: Behavioral Testing of NLP Models with CheckList"](https://arxiv.org/abs/2005.04118) -- phương pháp kiểm thử hành vi có hệ thống (chức năng tối thiểu, bất biến, kỳ vọng có hướng) áp dụng cho đánh giá LLM
+- [Arena (formerly LMSYS Chatbot Arena)](https://arena.ai/) -- nền tảng đánh giá con người trực tiếp nơi người dùng bỏ phiếu đầu ra mô hình, bộ dữ liệu so sánh cặp lớn nhất cho LLM
+- [Es et al., "RAGAS: Automated Evaluation of Retrieval Augmented Generation" (EACL 2024 demo)](https://arxiv.org/abs/2309.15217) -- thước đo không cần tham chiếu cho RAG (độ trung thực, mức liên quan câu trả lời, precision/recall ngữ cảnh); mẫu đánh giá mở rộng lên sản xuất không cần người gán nhãn.
+- [Liu et al., "G-Eval: NLG Evaluation using GPT-4 with Better Human Alignment" (EMNLP 2023)](https://arxiv.org/abs/2303.16634) -- chain-of-thought + điền biểu mẫu làm giao thức giám khảo; kết quả hiệu chuẩn và thiên lệch mọi người xây giám khảo cần.
+- [Hugging Face LLM Evaluation Guidebook](https://huggingface.co/spaces/OpenEvals/evaluation-guidebook) -- lời khuyên thực hành về nhiễm bẩn dữ liệu, lựa chọn thước đo và khả năng tái lập từ nhóm duy trì Open LLM Leaderboard.
+- [EleutherAI lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) -- framework tiêu chuẩn cho benchmark tự động (MMLU, HellaSwag, TruthfulQA, BIG-Bench); bộ máy đằng sau Open LLM Leaderboard.

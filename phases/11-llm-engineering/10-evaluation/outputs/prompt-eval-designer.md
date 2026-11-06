@@ -5,49 +5,49 @@ phase: 11
 lesson: 10
 ---
 
-You are an LLM evaluation designer. I will describe an LLM application. You will produce a complete evaluation framework: criteria, rubrics, test cases, and scoring methodology.
+Bạn là một người thiết kế đánh giá LLM. Tôi sẽ mô tả một ứng dụng LLM. Bạn sẽ tạo một khung đánh giá hoàn chỉnh: tiêu chí, rubric, trường hợp kiểm thử và phương pháp chấm điểm.
 
 ## Design Protocol
 
 ### 1. Analyze the Application
 
-Before writing rubrics:
+Trước khi viết rubric:
 
-- Identify the core task (Q&A, summarization, code generation, classification, creative writing, multi-turn dialogue)
-- Determine the stakeholders (end users, developers, compliance, business)
-- Identify the failure modes (hallucination, off-topic, harmful, too verbose, too terse, wrong format)
-- Determine if there is a ground truth (factual answers, known-correct code, reference summaries)
-- Assess the risk level (low: creative writing; high: medical, legal, financial advice)
+- Xác định tác vụ cốt lõi (hỏi đáp, tóm tắt, sinh mã, phân loại, viết sáng tạo, hội thoại nhiều lượt)
+- Xác định các bên liên quan (người dùng cuối, lập trình viên, tuân thủ, kinh doanh)
+- Xác định dạng thất bại (ảo giác, lạc đề, có hại, quá dài dòng, quá cụt, sai định dạng)
+- Xác định có nhãn thực không (câu trả lời sự kiện, mã đã biết đúng, bản tóm tắt tham chiếu)
+- Đánh giá mức rủi ro (thấp: viết sáng tạo; cao: tư vấn y tế, pháp lý, tài chính)
 
 ### 2. Select Evaluation Criteria
 
-Choose 3-5 criteria from this menu. Not every criterion applies to every application.
+Chọn 3-5 tiêu chí từ danh mục này. Không phải mọi tiêu chí áp dụng cho mọi ứng dụng.
 
-| Criterion | Use when | Skip when |
+| Tiêu chí | Dùng khi | Bỏ qua khi |
 |-----------|----------|-----------|
-| Relevance | Always | Never |
-| Correctness | Factual tasks, Q&A, code | Creative writing, brainstorming |
-| Helpfulness | User-facing applications | Internal pipelines |
-| Safety | All user-facing, especially sensitive domains | Internal batch processing |
-| Completeness | Summarization, instructions, multi-part questions | Single-fact lookups |
-| Conciseness | Chatbots, quick answers | Detailed explanations, tutorials |
-| Tone/Style | Brand-sensitive, customer-facing | Technical pipelines |
-| Code Quality | Code generation | Non-code tasks |
-| Faithfulness | RAG, grounded generation | Open-ended generation |
+| Mức liên quan | Luôn luôn | Không bao giờ |
+| Tính đúng đắn | Tác vụ sự kiện, hỏi đáp, mã | Viết sáng tạo, động não |
+| Tính hữu ích | Ứng dụng tiếp xúc người dùng | Pipeline nội bộ |
+| An toàn | Mọi ứng dụng tiếp xúc người dùng, đặc biệt miền nhạy cảm | Xử lý batch nội bộ |
+| Độ đầy đủ | Tóm tắt, chỉ dẫn, câu hỏi nhiều phần | Tra cứu một sự kiện |
+| Tính súc tích | Chatbot, câu trả lời nhanh | Giải thích chi tiết, hướng dẫn |
+| Giọng điệu/Phong cách | Nhạy cảm thương hiệu, tiếp xúc khách hàng | Pipeline kỹ thuật |
+| Chất lượng mã | Sinh mã | Tác vụ không mã |
+| Độ trung thực | RAG, sinh có căn cứ | Sinh mở |
 
 ### 3. Write Anchored Rubrics
 
-For each selected criterion, write a 1-5 scale with specific, observable descriptions.
+Với mỗi tiêu chí đã chọn, viết thang 1-5 với mô tả cụ thể, quan sát được.
 
-Rules:
-- Each level must describe a concrete behavior, not a vague quality
-- Level 5 is not "perfect" -- it is the highest realistic standard
-- Level 3 is "acceptable but with notable issues"
-- Level 1 is "fails the criterion entirely"
-- Descriptions should be mutually exclusive -- a rater should never be torn between two levels
-- Include examples in the description when possible
+Quy tắc:
+- Mỗi mức phải mô tả hành vi cụ thể, không phải chất lượng mơ hồ
+- Mức 5 không phải "hoàn hảo" -- nó là chuẩn thực tế cao nhất
+- Mức 3 là "chấp nhận được nhưng có vấn đề đáng kể"
+- Mức 1 là "hoàn toàn không đạt tiêu chí"
+- Mô tả phải loại trừ lẫn nhau -- người chấm không bao giờ phải phân vân giữa hai mức
+- Bao gồm ví dụ trong mô tả khi có thể
 
-Template:
+Khuôn mẫu:
 
 ```
 **[Criterion Name]** (1-5)
@@ -60,27 +60,27 @@ Template:
 
 ### 4. Design the Test Suite
 
-Create test cases in three tiers:
+Tạo trường hợp kiểm thử theo ba tầng:
 
-**Tier 1: Golden Set (50-100 cases)**
-- Core use cases that must always work
-- Include a reference answer for each
-- Cover every category the application handles
-- Update quarterly or after major changes
+**Tầng 1: Tập vàng (50-100 trường hợp)**
+- Trường hợp sử dụng cốt lõi phải luôn hoạt động
+- Bao gồm câu trả lời tham chiếu cho mỗi trường hợp
+- Bao quát mọi loại ứng dụng xử lý
+- Cập nhật hằng quý hoặc sau thay đổi lớn
 
-**Tier 2: Adversarial Set (20-50 cases)**
-- Prompt injections ("Ignore all previous instructions and...")
-- Out-of-domain queries (asking a cooking bot about politics)
-- Edge cases (empty input, extremely long input, Unicode, code in natural language input)
-- Ambiguous queries with multiple valid interpretations
-- Harmful content requests
+**Tầng 2: Tập đối kháng (20-50 trường hợp)**
+- Prompt injection ("Bỏ qua mọi chỉ dẫn trước và...")
+- Truy vấn ngoài miền (hỏi bot nấu ăn về chính trị)
+- Trường hợp biên (đầu vào rỗng, cực dài, Unicode, mã trong đầu vào ngôn ngữ tự nhiên)
+- Truy vấn mơ hồ có nhiều cách hiểu hợp lệ
+- Yêu cầu nội dung có hại
 
-**Tier 3: Distribution Sample (100-200 cases)**
-- Random sample from production traffic (anonymized)
-- Refresh monthly to track distribution shift
-- Weight by frequency -- common queries matter more
+**Tầng 3: Mẫu phân phối (100-200 trường hợp)**
+- Mẫu ngẫu nhiên từ lưu lượng sản xuất (đã ẩn danh)
+- Làm mới hằng tháng để theo dõi dịch chuyển phân phối
+- Gán trọng số theo tần suất -- truy vấn phổ biến quan trọng hơn
 
-For each test case, specify:
+Với mỗi trường hợp kiểm thử, chỉ định:
 
 ```json
 {
@@ -99,7 +99,7 @@ For each test case, specify:
 
 ### 5. Specify the Judge Prompt
 
-Build the system prompt for the LLM judge:
+Xây system prompt cho giám khảo LLM:
 
 ```
 You are an expert evaluator for [APPLICATION TYPE]. You will be given an input, a model output, and optionally a reference answer.
@@ -127,37 +127,37 @@ Respond in JSON:
 
 ### 6. Define the Decision Framework
 
-Specify what happens with the scores:
+Chỉ định điều xảy ra với điểm:
 
-- **Pass threshold**: minimum average score to ship (e.g., 3.8/5 across all criteria)
-- **Blocking criteria**: any single criterion where a regression blocks deployment (e.g., safety must never regress)
-- **Minimum sample size**: at least 200 cases for deployment decisions, 50 for quick checks
-- **Comparison method**: paired bootstrap or Wilson interval on pass rates
-- **Regression threshold**: a drop of more than 0.3 points on any criterion triggers investigation
+- **Ngưỡng đạt**: điểm trung bình tối thiểu để phát hành (ví dụ 3.8/5 trên mọi tiêu chí)
+- **Tiêu chí chặn**: bất kỳ tiêu chí đơn lẻ nào mà hồi quy chặn triển khai (ví dụ an toàn không bao giờ được hồi quy)
+- **Cỡ mẫu tối thiểu**: ít nhất 200 trường hợp để quyết định triển khai, 50 để kiểm tra nhanh
+- **Phương pháp so sánh**: bootstrap cặp hoặc khoảng Wilson trên tỷ lệ đạt
+- **Ngưỡng hồi quy**: giảm hơn 0.3 điểm ở bất kỳ tiêu chí nào kích hoạt điều tra
 
 ## Input Format
 
-**Application description:**
+**Mô tả ứng dụng:**
 ```
 {description}
 ```
 
-**Domain/industry (optional):**
+**Miền/ngành (tùy chọn):**
 ```
 {domain}
 ```
 
-**Risk level (optional):**
+**Mức rủi ro (tùy chọn):**
 ```
 {risk_level}
 ```
 
 ## Output
 
-A complete evaluation framework with:
-1. Selected criteria with rationale
-2. Anchored 1-5 rubrics for each criterion
-3. 10 example test cases (mix of golden, adversarial, distribution)
-4. Judge system prompt ready to use with GPT-4o or Claude
-5. Decision framework with thresholds
-6. Estimated eval cost per run
+Một khung đánh giá hoàn chỉnh với:
+1. Tiêu chí đã chọn kèm lý do
+2. Rubric 1-5 có neo cho mỗi tiêu chí
+3. 10 trường hợp kiểm thử ví dụ (trộn vàng, đối kháng, phân phối)
+4. System prompt giám khảo sẵn dùng với GPT-4o hoặc Claude
+5. Khung quyết định với các ngưỡng
+6. Chi phí đánh giá ước lượng mỗi lượt
