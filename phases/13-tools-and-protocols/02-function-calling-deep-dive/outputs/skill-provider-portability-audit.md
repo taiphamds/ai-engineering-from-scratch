@@ -7,23 +7,23 @@ lesson: 02
 tags: [function-calling, openai, anthropic, gemini, portability]
 ---
 
-Given a function-calling integration on one provider (OpenAI, Anthropic, or Gemini), produce a portability audit listing every field rename, behavior difference, and hard-limit collision that appears when the same logic is shipped on the other two providers.
+Với tích hợp function calling trên một nhà cung cấp (OpenAI, Anthropic hoặc Gemini), tạo bản kiểm tra khả năng chuyển đổi liệt kê mọi đổi tên trường, khác biệt hành vi và xung đột giới hạn cứng xuất hiện khi cùng logic được phát hành trên hai nhà cung cấp kia.
 
-Produce:
+Tạo ra:
 
-1. Declaration diff. For each tool in the integration, show the envelope / field rename / schema translation required for each of the other two providers. Flag any JSON Schema construct the target provider does not support (Gemini: OpenAPI 3.0 subset; OpenAI strict: no `$ref`, no ambiguous `oneOf`).
-2. Response diff. Document where the tool call lives in each provider's response shape (`tool_calls[]` vs `content[]` block vs `parts[]` entry) and who is responsible for parsing `arguments` (string on OpenAI, object on Anthropic and Gemini).
-3. `tool_choice` diff. Map the integration's current choice setting (auto / forbid / force / required) to the target provider shape; flag missing modes.
-4. Limit collisions. Report tool-count (128 / 64 / 64), schema depth (5 / 10 / effectively unbounded), and per-argument length caps. Raise block-severity on any integration that exceeds a target provider's limits.
-5. Strict-mode mapping. State whether strict-mode semantics are preserved on the target. OpenAI `strict: true` has no exact equivalent on Anthropic; Gemini `responseSchema` approximates but is at the request level.
+1. Đối chiếu khai báo. Với mỗi công cụ trong tích hợp, cho thấy vỏ / đổi tên trường / chuyển lược đồ cần cho mỗi bên trong hai nhà cung cấp kia. Đánh dấu mọi cấu trúc JSON Schema nhà cung cấp đích không hỗ trợ (Gemini: tập con OpenAPI 3.0; OpenAI nghiêm ngặt: không `$ref`, không `oneOf` mơ hồ).
+2. Đối chiếu phản hồi. Ghi nơi lời gọi công cụ nằm trong hình dạng phản hồi mỗi nhà cung cấp (`tool_calls[]` so với khối `content[]` so với mục `parts[]`) và ai chịu trách nhiệm phân tích `arguments` (chuỗi trên OpenAI, đối tượng trên Anthropic và Gemini).
+3. Đối chiếu `tool_choice`. Ánh xạ thiết lập lựa chọn hiện tại của tích hợp (tự động / cấm / ép / bắt buộc) sang hình dạng nhà cung cấp đích; đánh dấu chế độ thiếu.
+4. Xung đột giới hạn. Báo cáo số công cụ (128 / 64 / 64), độ sâu lược đồ (5 / 10 / về thực chất không giới hạn) và giới hạn độ dài mỗi đối số. Nâng mức nghiêm trọng chặn với tích hợp vượt giới hạn nhà cung cấp đích.
+5. Ánh xạ chế độ nghiêm ngặt. Nêu ngữ nghĩa chế độ nghiêm ngặt có được giữ trên đích không. `strict: true` của OpenAI không có tương đương chính xác trên Anthropic; `responseSchema` của Gemini gần đúng nhưng ở cấp yêu cầu.
 
-Hard rejects:
-- Any integration that assumes `arguments` is a string on the non-OpenAI targets. Will silently produce wrong results.
-- Any integration whose tool count exceeds 64 when porting to Anthropic or Gemini without a router.
-- Any integration that uses `$ref` in the schema when the target is OpenAI strict mode.
+Các trường hợp bác bỏ tuyệt đối:
+- Bất kỳ tích hợp nào giả định `arguments` là chuỗi trên đích không phải OpenAI. Sẽ âm thầm tạo kết quả sai.
+- Bất kỳ tích hợp nào có số công cụ vượt 64 khi chuyển sang Anthropic hoặc Gemini mà không có bộ định tuyến.
+- Bất kỳ tích hợp nào dùng `$ref` trong lược đồ khi đích là chế độ nghiêm ngặt OpenAI.
 
-Refusal rules:
-- If asked to port an integration that depends on a provider-specific feature with no analog (e.g. OpenAI Responses API stateful turns, Anthropic computer-use blocks), refuse and explain which feature has no target equivalent.
-- If asked to pick a winner, refuse. The choice depends on the host's strict-mode needs, cost profile, and parallel-call requirements.
+Quy tắc từ chối:
+- Nếu được yêu cầu chuyển tích hợp phụ thuộc tính năng riêng nhà cung cấp không có tương tự (ví dụ lượt có trạng thái của OpenAI Responses API, khối sử dụng máy tính Anthropic), từ chối và giải thích tính năng nào không có tương đương đích.
+- Nếu được yêu cầu chọn bên thắng, từ chối. Lựa chọn phụ thuộc nhu cầu chế độ nghiêm ngặt, hồ sơ chi phí và yêu cầu lời gọi song song của host.
 
-Output: a one-page audit with a per-tool diff table, a limits table, and a final "port verdict" per target provider (ship / needs-router / blocked-by-feature). End with one sentence naming the highest-leverage migration change.
+Đầu ra: bản kiểm tra một trang với bảng đối chiếu mỗi công cụ, bảng giới hạn và "kết luận chuyển đổi" cuối cho mỗi nhà cung cấp đích (phát hành / cần-bộ-định-tuyến / bị-chặn-bởi-tính-năng). Kết thúc bằng một câu nêu thay đổi chuyển đổi có tác động lớn nhất.
