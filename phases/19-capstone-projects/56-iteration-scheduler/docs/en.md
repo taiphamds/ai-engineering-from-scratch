@@ -1,6 +1,6 @@
 # Iteration Scheduler
 
-> A research loop without a scheduler is a queue with delusions. The scheduler is where the loop decides what to stop exploring, and that decision is the whole game.
+> Một vòng lặp nghiên cứu không có bộ lập lịch là một hàng đợi với những ảo tưởng. Bộ lập lịch là nơi vòng lặp quyết định ngừng khám phá điều gì, và quyết định đó là toàn bộ cuộc chơi.
 
 **Type:** Build
 **Languages:** Python
@@ -9,11 +9,11 @@
 
 ## Learning Objectives
 
-- Model a research workflow as a hypothesis queue feeding parallel experiment slots whose results fan back in.
-- Run multiple experiments concurrently with asyncio so the scheduler can keep all slots busy.
-- Score each hypothesis branch with UCB so the scheduler can prune low-yield branches without abandoning exploration.
-- Fan out finished results to a paper-write stage and a re-queue stage so a high-yield branch spawns follow-up hypotheses.
-- Surface a per-iteration trace with branch scores, slot occupancy, and pruning decisions.
+- Mô hình hóa một quy trình nghiên cứu như một hàng đợi giả thuyết cấp cho các vị trí thí nghiệm song song có các kết quả hội tụ trở lại.
+- Chạy nhiều thí nghiệm đồng thời bằng asyncio để bộ lập lịch có thể giữ mọi vị trí bận.
+- Chấm mỗi nhánh giả thuyết bằng UCB để bộ lập lịch có thể cắt tỉa các nhánh năng suất thấp mà không từ bỏ khám phá.
+- Phân nhánh các kết quả hoàn tất tới một giai đoạn viết bài báo và một giai đoạn đưa lại vào hàng đợi để một nhánh năng suất cao sinh các giả thuyết tiếp nối.
+- Đưa ra một trace theo lần lặp với các điểm nhánh, mức chiếm dụng vị trí, và các quyết định cắt tỉa.
 
 ```figure
 ch-ucb-scheduler
@@ -21,9 +21,9 @@ ch-ucb-scheduler
 
 ## Why a scheduler, not a worklist
 
-A flat worklist runs jobs in submission order. That is fine when each job is independent. Research is not independent: a finding from experiment three changes the priority of experiments four and five. A scheduler that reads the result fan-in and reorders the queue gets more useful work done per unit of compute.
+Một danh sách công việc phẳng chạy các công việc theo thứ tự nộp. Điều đó ổn khi mỗi công việc độc lập. Nghiên cứu không độc lập: một phát hiện từ thí nghiệm ba thay đổi ưu tiên của thí nghiệm bốn và năm. Một bộ lập lịch đọc các kết quả hội tụ và sắp lại hàng đợi hoàn thành nhiều công việc hữu ích hơn mỗi đơn vị tính toán.
 
-The interesting design choice is the scoring rule. A greedy scorer always picks the current leader and never explores. A uniform scorer never exploits. UCB (upper confidence bound) is the middle path: exploit the leader while reserving capacity for branches that have been tried less.
+Lựa chọn thiết kế thú vị là quy tắc chấm điểm. Một bộ chấm tham lam luôn chọn người dẫn đầu hiện tại và không bao giờ khám phá. Một bộ chấm đều không bao giờ khai thác. UCB (cận tin cậy trên) là con đường giữa: khai thác người dẫn đầu trong khi dành năng lực cho các nhánh đã được thử ít hơn.
 
 ## The system shape
 
@@ -41,7 +41,7 @@ flowchart LR
     Bus --> Paper[Paper write fan-out]
 ```
 
-The queue holds hypotheses. The scheduler picks the highest-UCB hypothesis when a slot frees. Each slot runs an experiment asynchronously. Finished experiments fan their result onto the bus. The bus updates UCB statistics on the originating branch and fans out to the paper-write stage when a branch's yield crosses a threshold.
+Hàng đợi giữ các giả thuyết. Bộ lập lịch chọn giả thuyết UCB cao nhất khi một vị trí trống. Mỗi vị trí chạy một thí nghiệm bất đồng bộ. Các thí nghiệm hoàn tất đưa kết quả lên bus. Bus cập nhật các thống kê UCB trên nhánh nguồn và phân nhánh tới giai đoạn viết bài báo khi năng suất của một nhánh vượt một ngưỡng.
 
 ## The Hypothesis shape
 
@@ -55,23 +55,23 @@ flowchart TB
     Stats --> Sum[reward sum float]
 ```
 
-`branch` is the key for UCB statistics. Multiple hypotheses may share a branch (the branch is the research direction; the hypothesis is one trial within it). `runs` is the count of completed experiments for that branch, `reward_sum` is the cumulative reward. UCB reads both.
+`branch` là khóa cho các thống kê UCB. Nhiều giả thuyết có thể dùng chung một nhánh (nhánh là hướng nghiên cứu; giả thuyết là một lần thử trong đó). `runs` là số thí nghiệm hoàn tất cho nhánh đó, `reward_sum` là phần thưởng tích lũy. UCB đọc cả hai.
 
 ## UCB scoring
 
-The UCB formula used in this lesson is the classic UCB1.
+Công thức UCB được dùng trong bài này là UCB1 cổ điển.
 
 ```text
 ucb(branch) = mean_reward(branch) + c * sqrt( ln(total_runs) / runs(branch) )
 ```
 
-`total_runs` is the count of all experiments completed across all branches. `c` is the exploration weight; the lesson defaults to `sqrt(2)`. A branch with zero runs gets `+inf` so untried branches are always scheduled first. A branch with high mean reward keeps a high score until other branches catch up; a branch that runs many times without much reward gets eclipsed by less-run alternatives.
+`total_runs` là số mọi thí nghiệm hoàn tất trên mọi nhánh. `c` là trọng số khám phá; bài học mặc định `sqrt(2)`. Một nhánh có không lần chạy nhận `+inf` để các nhánh chưa thử luôn được lập lịch trước. Một nhánh có phần thưởng trung bình cao giữ một điểm cao cho đến khi các nhánh khác bắt kịp; một nhánh chạy nhiều lần mà không có nhiều phần thưởng bị các lựa chọn ít chạy hơn lấn át.
 
-The pruning gate is separate from the picker. Pruning removes a branch from future scheduling when its mean reward falls below an absolute floor (default `0.2`) after at least `prune_after_runs` trials (default `3`). This keeps the queue bounded.
+Cổng cắt tỉa tách khỏi bộ chọn. Cắt tỉa loại một nhánh khỏi lập lịch tương lai khi phần thưởng trung bình của nó giảm dưới một sàn tuyệt đối (mặc định `0.2`) sau ít nhất `prune_after_runs` lần thử (mặc định `3`). Điều này giữ hàng đợi có giới hạn.
 
 ## Parallel slots with asyncio
 
-The scheduler drives experiments with `asyncio.create_task`. Each task runs the experiment runner (an `async def` callable) that returns a `Result`. The main loop waits on the set of in-flight tasks with `asyncio.wait(..., return_when=asyncio.FIRST_COMPLETED)` and fires the scoring update on each completion.
+Bộ lập lịch điều khiển các thí nghiệm bằng `asyncio.create_task`. Mỗi tác vụ chạy trình chạy thí nghiệm (một đối tượng có thể gọi `async def`) trả về một `Result`. Vòng lặp chính đợi trên tập các tác vụ đang xử lý với `asyncio.wait(..., return_when=asyncio.FIRST_COMPLETED)` và kích hoạt cập nhật chấm điểm trên mỗi lần hoàn tất.
 
 ```mermaid
 sequenceDiagram
@@ -88,39 +88,39 @@ sequenceDiagram
     S->>Q: re-queue follow-ups
 ```
 
-Three slots run concurrently. The main loop never blocks on a single experiment. The scheduler keeps starting new tasks as soon as a slot frees, until both the queue is empty and no tasks are in flight.
+Ba vị trí chạy đồng thời. Vòng lặp chính không bao giờ chặn trên một thí nghiệm duy nhất. Bộ lập lịch tiếp tục bắt đầu các tác vụ mới ngay khi một vị trí trống, cho đến khi cả hàng đợi rỗng và không tác vụ nào đang xử lý.
 
 ## Fan-out: paper triggers
 
-When a branch's mean reward crosses `paper_threshold` (default `0.7`) and that branch has not yet produced a paper, the scheduler fans a `paper.trigger` event onto an output list. Downstream the paper writer from lesson fifty-four would pick this up. In this lesson the trigger is captured as a list so tests can assert it.
+Khi phần thưởng trung bình của một nhánh vượt `paper_threshold` (mặc định `0.7`) và nhánh đó chưa tạo một bài báo, bộ lập lịch phân nhánh một sự kiện `paper.trigger` vào một danh sách đầu ra. Ở hạ nguồn bộ viết bài báo từ bài năm mươi bốn sẽ nhận nó. Trong bài này kích hoạt được thu như một danh sách để các kiểm thử có thể khẳng định nó.
 
 ## Fan-out: follow-up hypotheses
 
-When a high-yield result lands, the scheduler can call the user-supplied `expander` to produce one or more follow-up hypotheses on the same branch. The expander is a pure function from `Result` to `list[Hypothesis]`. The lesson ships a deterministic expander that produces two follow-ups for any result whose reward exceeds the paper threshold.
+Khi một kết quả năng suất cao đến, bộ lập lịch có thể gọi `expander` do người dùng cung cấp để tạo một hoặc nhiều giả thuyết tiếp nối trên cùng nhánh. Bộ mở rộng là một hàm thuần túy từ `Result` sang `list[Hypothesis]`. Bài học cung cấp một bộ mở rộng tất định tạo hai giả thuyết tiếp nối cho bất kỳ kết quả nào có phần thưởng vượt ngưỡng bài báo.
 
 ## Budgets
 
-Two budgets protect the scheduler from runaway loops.
+Hai ngân sách bảo vệ bộ lập lịch khỏi các vòng lặp mất kiểm soát.
 
 ```text
 max_experiments    : total count of experiments run across all branches
 max_seconds        : wall-clock cap (asyncio time)
 ```
 
-When either fires, the scheduler stops scheduling new tasks, awaits the in-flight ones, and returns the final trace. The trace includes a `stop_reason`.
+Khi một trong hai kích hoạt, bộ lập lịch ngừng lập lịch các tác vụ mới, đợi các tác vụ đang xử lý, và trả về trace cuối. Trace bao gồm một `stop_reason`.
 
 ## The Trace and final report
 
-Each scheduling decision (pick, dispatch, result, prune, fan-out) emits one event. The final report summarises per-branch stats, total runs, total wall-clock, and the paper triggers fired. The next lesson, the end-to-end demo, reads this report to drive the paper writer.
+Mỗi quyết định lập lịch (chọn, điều phối, kết quả, cắt tỉa, phân nhánh) phát ra một sự kiện. Báo cáo cuối tóm tắt các thống kê theo nhánh, tổng số lần chạy, tổng thời gian thực, và các kích hoạt bài báo đã phát. Bài tiếp theo, demo đầu cuối, đọc báo cáo này để điều khiển bộ viết bài báo.
 
 ## How to read the code
 
-`code/main.py` defines `Hypothesis`, `Result`, `BranchStats`, `IterationScheduler`, and a `make_deterministic_runner` factory that returns an asyncio experiment runner with predictable rewards. The runner sleeps for a fixed `delay_ms` (default `5ms`) so concurrency is observable.
+`code/main.py` định nghĩa `Hypothesis`, `Result`, `BranchStats`, `IterationScheduler`, và một factory `make_deterministic_runner` trả về một trình chạy thí nghiệm asyncio với các phần thưởng có thể dự đoán. Trình chạy ngủ trong một `delay_ms` cố định (mặc định `5ms`) để tính đồng thời có thể quan sát.
 
-`code/tests/test_scheduler.py` covers: UCB picks untried branches first, parallel slot occupancy, paper triggers when threshold is crossed, branch pruning after low-yield trials, fan-out follow-up hypotheses, and budget exit (both experiment count and wall clock).
+`code/tests/test_scheduler.py` bao phủ: UCB chọn các nhánh chưa thử trước, mức chiếm dụng vị trí song song, các kích hoạt bài báo khi vượt ngưỡng, cắt tỉa nhánh sau các lần thử năng suất thấp, các giả thuyết tiếp nối phân nhánh, và thoát theo ngân sách (cả số thí nghiệm và thời gian thực).
 
 ## Going further
 
-Three extensions a real implementation will want. First, persistent UCB stats across sessions: the current statistics live in memory; a real scheduler would checkpoint them so a restart preserves the exploration budget already spent. Second, multi-objective scoring: instead of a scalar reward, each result emits a vector and UCB becomes a Pareto-style picker. Third, contextual bandits: the picker conditions on hypothesis features (length, complexity) so similar hypotheses share exploration.
+Ba phần mở rộng mà một triển khai thực sẽ muốn. Thứ nhất, các thống kê UCB bền vững qua các phiên: các thống kê hiện tại nằm trong bộ nhớ; một bộ lập lịch thực sẽ checkpoint chúng để một lần khởi động lại bảo toàn ngân sách khám phá đã chi. Thứ hai, chấm điểm đa mục tiêu: thay vì một phần thưởng vô hướng, mỗi kết quả phát ra một vector và UCB trở thành một bộ chọn kiểu Pareto. Thứ ba, bandit theo ngữ cảnh: bộ chọn điều kiện hóa trên các đặc trưng giả thuyết (độ dài, độ phức tạp) để các giả thuyết tương tự chia sẻ khám phá.
 
-The scheduler is the place where research becomes more than a worklist. Once UCB is wired and the slots run in parallel, every other improvement composes on top.
+Bộ lập lịch là nơi nghiên cứu trở thành nhiều hơn một danh sách công việc. Một khi UCB được nối và các vị trí chạy song song, mọi cải thiện khác kết hợp lên trên.
