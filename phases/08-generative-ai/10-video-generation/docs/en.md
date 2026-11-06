@@ -1,6 +1,6 @@
 # Video Generation
 
-> An image is a 2-D tensor. A video is a 3-D one. The theory is the same; the compute is 10-100x harder. OpenAI's Sora (Feb 2024) proved it was possible. By 2026 Veo 2, Kling 1.5, Runway Gen-3, Pika 2.0, and WAN 2.2 ship production video from text at 1080p — and the open-weights stack (CogVideoX, HunyuanVideo, Mochi-1, WAN 2.2) is 12 months behind.
+> Một ảnh là một tensor 2-D. Một video là một tensor 3-D. Lý thuyết giống nhau; tính toán khó hơn 10-100x. Sora của OpenAI (tháng 2 năm 2024) chứng minh điều đó là có thể. Đến năm 2026 Veo 2, Kling 1.5, Runway Gen-3, Pika 2.0 và WAN 2.2 cung cấp video production từ văn bản ở 1080p — và bộ công cụ trọng số mở (CogVideoX, HunyuanVideo, Mochi-1, WAN 2.2) chậm hơn 12 tháng.
 
 **Type:** Build
 **Languages:** Python
@@ -9,14 +9,14 @@
 
 ## The Problem
 
-A 10-second 1080p video at 24fps is 240 frames of 1920×1080×3 pixels. That's ~1.5 GB of raw data per clip. Pixel-space diffusion is infeasible. You need:
+Một video 1080p dài 10 giây ở 24fps là 240 khung hình 1920×1080×3 pixel. Đó là ~1.5 GB dữ liệu thô mỗi clip. Khuếch tán trong không gian pixel không khả thi. Bạn cần:
 
-1. **Spatiotemporal compression.** A VAE that encodes videos, not frames, into a sequence of spatial-temporal patches.
-2. **Temporal coherence.** Frames need to share content, lighting, and object identity over seconds. The net has to model motion.
-3. **Compute budget.** Video training is 10-100x more expensive than image for the same model size.
-4. **Conditioning.** Text, image (first-frame), audio, or another video. Most production models accept all four.
+1. **Nén không gian-thời gian.** Một VAE mã hóa video, không phải khung hình, thành một chuỗi patch không gian-thời gian.
+2. **Nhất quán thời gian.** Các khung hình cần chia sẻ nội dung, ánh sáng và danh tính vật thể qua nhiều giây. Mạng phải mô hình hóa chuyển động.
+3. **Ngân sách tính toán.** Huấn luyện video tốn kém hơn ảnh 10-100x với cùng kích thước mô hình.
+4. **Điều kiện hóa.** Văn bản, ảnh (khung hình đầu tiên), âm thanh, hoặc một video khác. Hầu hết mô hình production nhận cả bốn.
 
-The architecture that solved this is the **Diffusion Transformer (DiT)** applied to spatiotemporal patches, trained on huge (prompt, caption, video) datasets. Same diffusion loss as Lesson 06.
+Kiến trúc giải quyết điều này là **Diffusion Transformer (DiT)** được áp dụng cho các patch không gian-thời gian, được huấn luyện trên các tập dữ liệu (prompt, chú thích, video) khổng lồ. Cùng hàm mất mát khuếch tán như Bài 06.
 
 ## The Concept
 
@@ -24,41 +24,41 @@ The architecture that solved this is the **Diffusion Transformer (DiT)** applied
 
 ### Patchify
 
-Encode the video with a 3D VAE (learned spatiotemporal compression). The latent is shape `[T_latent, H_latent, W_latent, C_latent]`. Split into patches of size `[t_p, h_p, w_p]`. For Sora-style models, `t_p = 1` (per-frame patches) or `t_p = 2` (every two frames). A 10-second 1080p video compresses to ~20,000-100,000 patches.
+Mã hóa video bằng một VAE 3D (nén không gian-thời gian được học). Latent có hình dạng `[T_latent, H_latent, W_latent, C_latent]`. Chia thành các patch kích thước `[t_p, h_p, w_p]`. Với các mô hình kiểu Sora, `t_p = 1` (patch theo khung hình) hoặc `t_p = 2` (mỗi hai khung hình). Một video 1080p dài 10 giây nén thành ~20,000-100,000 patch.
 
 ### Spatiotemporal DiT
 
-A transformer processes the flat sequence of patches. Each patch has a 3D positional embedding (time + y + x). Attention is usually factorized:
+Một transformer xử lý chuỗi patch phẳng. Mỗi patch có một embedding vị trí 3D (thời gian + y + x). Attention thường được phân tách:
 
-- **Spatial attention** within each frame's patches.
-- **Temporal attention** across frames at the same spatial location.
-- **Full 3D attention** is 16-100x more expensive; used only at low resolution or in research.
+- **Attention không gian** trong các patch của mỗi khung hình.
+- **Attention thời gian** xuyên các khung hình ở cùng vị trí không gian.
+- **Attention 3D đầy đủ** tốn kém hơn 16-100x; chỉ dùng ở độ phân giải thấp hoặc trong nghiên cứu.
 
 ### Text conditioning
 
-Cross-attention with a large text encoder (T5-XXL for Sora, CogVideoX-5B uses T5-XXL). Long prompts matter — Sora's training set had GPT-generated dense re-captions averaging 200 tokens per clip.
+Cross-attention với một encoder văn bản lớn (T5-XXL cho Sora, CogVideoX-5B dùng T5-XXL). Prompt dài quan trọng — tập huấn luyện của Sora có các chú thích lại dày đặc do GPT sinh, trung bình 200 token mỗi clip.
 
 ### Training
 
-Standard diffusion loss (ε or v prediction) over spatiotemporal latents. Data: web video + ~100M curated clips + synthetic text captions. Compute: 10,000+ GPU hours for even a small research run; Sora-scale is 100,000+.
+Hàm mất mát khuếch tán tiêu chuẩn (dự đoán ε hoặc v) trên các latent không gian-thời gian. Dữ liệu: video web + ~100M clip tuyển chọn + chú thích văn bản tổng hợp. Tính toán: 10,000+ giờ GPU cho ngay cả một lần chạy nghiên cứu nhỏ; quy mô Sora là 100,000+.
 
 ## The 2026 production landscape
 
-| Model | Date | Max duration | Max res | Open weights? | Notable |
+| Mô hình | Thời điểm | Thời lượng tối đa | Độ phân giải tối đa | Trọng số mở? | Đáng chú ý |
 |-------|------|--------------|---------|---------------|---------|
-| Sora (OpenAI) | 2024-02 | 60s | 1080p | No | First model to show world simulator properties at scale |
-| Sora Turbo | 2024-12 | 20s | 1080p | No | Production Sora at 5x faster inference |
-| Veo 2 (Google) | 2024-12 | 8s | 4K | No | Highest quality + physics in 2025 |
-| Veo 3 | 2025 Q3 | 15s | 4K | No | Native audio and stronger camera control |
-| Kling 1.5 / 2.1 (Kuaishou) | 2024-2025 | 10s | 1080p | No | Best human motion in 2025 Q1 |
-| Runway Gen-3 Alpha | 2024-06 | 10s | 768p | No | Professional video tools on top |
-| Pika 2.0 | 2024-10 | 5s | 1080p | No | Strongest character consistency |
-| CogVideoX (THUDM) | 2024 | 10s | 720p | Yes (2B, 5B) | First open 5B-scale video |
-| HunyuanVideo (Tencent) | 2024-12 | 5s | 720p | Yes (13B) | Open SOTA late 2024 |
-| Mochi-1 (Genmo) | 2024-10 | 5.4s | 480p | Yes (10B) | Most permissively licensed |
-| WAN 2.2 (Alibaba) | 2025-07 | 5s | 720p | Yes | Strongest open model mid-2025 |
+| Sora (OpenAI) | 2024-02 | 60s | 1080p | Không | Mô hình đầu tiên cho thấy các tính chất mô phỏng thế giới ở quy mô lớn |
+| Sora Turbo | 2024-12 | 20s | 1080p | Không | Sora production với suy luận nhanh hơn 5x |
+| Veo 2 (Google) | 2024-12 | 8s | 4K | Không | Chất lượng + vật lý cao nhất năm 2025 |
+| Veo 3 | 2025 Q3 | 15s | 4K | Không | Âm thanh gốc và điều khiển camera mạnh hơn |
+| Kling 1.5 / 2.1 (Kuaishou) | 2024-2025 | 10s | 1080p | Không | Chuyển động con người tốt nhất trong Q1 năm 2025 |
+| Runway Gen-3 Alpha | 2024-06 | 10s | 768p | Không | Các công cụ video chuyên nghiệp ở trên |
+| Pika 2.0 | 2024-10 | 5s | 1080p | Không | Tính nhất quán nhân vật mạnh nhất |
+| CogVideoX (THUDM) | 2024 | 10s | 720p | Có (2B, 5B) | Video mở quy mô 5B đầu tiên |
+| HunyuanVideo (Tencent) | 2024-12 | 5s | 720p | Có (13B) | SOTA mở cuối năm 2024 |
+| Mochi-1 (Genmo) | 2024-10 | 5.4s | 480p | Có (10B) | Có giấy phép ít hạn chế nhất |
+| WAN 2.2 (Alibaba) | 2025-07 | 5s | 720p | Có | Mô hình mở mạnh nhất giữa năm 2025 |
 
-Open weights are closing the gap faster than in the image space: HunyuanVideo + WAN 2.2 LoRAs already power most open-source workflows by mid-2026.
+Trọng số mở đang thu hẹp khoảng cách nhanh hơn trong không gian ảnh: HunyuanVideo + các LoRA WAN 2.2 đã hỗ trợ hầu hết các quy trình mã nguồn mở vào giữa năm 2026.
 
 ```figure
 video-diffusion-denoise
@@ -66,7 +66,7 @@ video-diffusion-denoise
 
 ## Build It
 
-`code/main.py` simulates the core spatiotemporal DiT idea: patchify a small synthetic video, add a per-patch position embedding, and denoise the whole sequence with a transformer-style attention over patches. No numpy; pure Python. We show that temporal coherence emerges even in 1-D when adjacent-frame patches share a denoiser and position embeddings.
+`code/main.py` mô phỏng ý tưởng DiT không gian-thời gian cốt lõi: chia một video tổng hợp nhỏ thành patch, thêm một embedding vị trí theo patch, và khử nhiễu toàn bộ chuỗi bằng attention kiểu transformer trên các patch. Không numpy; Python thuần. Chúng ta cho thấy tính nhất quán thời gian xuất hiện ngay cả trong 1-D khi các patch khung hình liền kề chia sẻ một bộ khử nhiễu và các embedding vị trí.
 
 ### Step 1: patchify a synthetic 1-D "video"
 
@@ -86,73 +86,73 @@ def pos_embed(t, dim):
 
 ### Step 3: denoiser sees the whole sequence
 
-Instead of denoising each frame independently, our tiny net concatenates all frame values + their position embeddings and predicts the noise for all frames jointly.
+Thay vì khử nhiễu mỗi khung hình độc lập, mạng nhỏ của chúng ta nối tất cả các giá trị khung hình + embedding vị trí của chúng và dự đoán nhiễu cho tất cả khung hình cùng nhau.
 
 ### Step 4: temporal coherence test
 
-After training, sample a video. Measure the frame-to-frame delta. If the model has learned temporal structure, the deltas stay smaller than sampling each frame independently.
+Sau huấn luyện, lấy mẫu một video. Đo chênh lệch giữa các khung hình. Nếu mô hình đã học cấu trúc thời gian, các chênh lệch nhỏ hơn so với lấy mẫu từng khung hình độc lập.
 
 ## Pitfalls
 
-- **Independent per-frame sampling = flicker.** If you run image diffusion on each frame separately, the output flickers because each frame's noise is independent. Video diffusion fixes this by coupling the frames through attention or shared noise.
-- **Naive 3D attention = OOM.** Full 3D attention on a 10-second 1080p latent is hundreds of billions of operations. Factorize into spatial + temporal.
-- **Data captioning matters more than size.** Sora's main upgrade over prior work was training on ~10x more detailed captions (GPT-4 re-labelled clips). OpenAI's technical report is explicit on this.
-- **First-frame conditioning.** Most production models also accept an image as the first frame. This is "image-to-video" mode; training includes this variant.
-- **Physics drift.** Long clips (>10s) accumulate subtle inconsistencies. Sliding-window generation + keyframe anchoring helps.
+- **Lấy mẫu độc lập theo khung hình = nhấp nháy.** Nếu bạn chạy khuếch tán ảnh trên từng khung hình riêng, đầu ra nhấp nháy vì nhiễu của mỗi khung hình độc lập. Khuếch tán video khắc phục điều này bằng cách liên kết các khung hình qua attention hoặc nhiễu chung.
+- **Attention 3D đơn giản = OOM.** Attention 3D đầy đủ trên một latent 1080p dài 10 giây là hàng trăm tỷ phép toán. Phân tách thành không gian + thời gian.
+- **Chú thích dữ liệu quan trọng hơn kích thước.** Nâng cấp chính của Sora so với công trình trước là huấn luyện trên các chú thích chi tiết hơn ~10x (clip được GPT-4 gán nhãn lại). Báo cáo kỹ thuật của OpenAI nói rõ điều này.
+- **Điều kiện hóa khung hình đầu tiên.** Hầu hết mô hình production cũng nhận một ảnh làm khung hình đầu tiên. Đây là chế độ "ảnh thành video"; huấn luyện bao gồm biến thể này.
+- **Trôi vật lý.** Clip dài (>10s) tích lũy các bất nhất tinh vi. Sinh theo cửa sổ trượt + neo khung hình chính giúp ích.
 
 ## Use It
 
-| Use case | 2026 pick |
+| Trường hợp sử dụng | Lựa chọn năm 2026 |
 |----------|-----------|
-| Highest-quality text-to-video, hosted | Veo 3 or Sora |
-| Camera-controlled cinematic | Runway Gen-3 with motion brushes |
-| Character consistency across clips | Pika 2.0 or Kling 2.1 |
-| Open weights, fast fine-tune | WAN 2.2 + LoRA |
-| Image-to-video | WAN 2.2-I2V, Kling 2.1 I2V, or Runway |
-| Audio-to-video lip sync | Veo 3 (native audio) or a dedicated lip-sync model |
-| Video editing | Runway Act-Two, Kling Motion Brush, Flux-Kontext (still-frame) |
+| Văn bản thành video chất lượng cao nhất, được lưu trữ | Veo 3 hoặc Sora |
+| Điện ảnh có điều khiển camera | Runway Gen-3 với cọ chuyển động |
+| Tính nhất quán nhân vật xuyên các clip | Pika 2.0 hoặc Kling 2.1 |
+| Trọng số mở, tinh chỉnh nhanh | WAN 2.2 + LoRA |
+| Ảnh thành video | WAN 2.2-I2V, Kling 2.1 I2V, hoặc Runway |
+| Đồng bộ môi âm thanh thành video | Veo 3 (âm thanh gốc) hoặc một mô hình đồng bộ môi chuyên dụng |
+| Chỉnh sửa video | Runway Act-Two, Kling Motion Brush, Flux-Kontext (khung hình tĩnh) |
 
-Cost per second of video at quality parity has dropped 20x between 2024 and 2026.
+Chi phí mỗi giây video ở chất lượng tương đương đã giảm 20x từ năm 2024 đến năm 2026.
 
 ## Ship It
 
-Save `outputs/skill-video-brief.md`. Skill takes a video brief (duration, aspect ratio, style, camera plan, subject consistency, audio) and outputs: model + hosting, prompt scaffolding (camera language, subject description, motion descriptors), seed + reproducibility protocol, and a frame-level QA checklist.
+Lưu `outputs/skill-video-brief.md`. Skill nhận một bản yêu cầu video (thời lượng, tỷ lệ khung hình, phong cách, kế hoạch camera, tính nhất quán chủ thể, âm thanh) và xuất ra: mô hình + nơi lưu trữ, khung prompt (ngôn ngữ camera, mô tả chủ thể, các mô tả chuyển động), seed + quy trình tái lập, và một danh sách kiểm tra QA cấp khung hình.
 
 ## Exercises
 
-1. **Easy.** In `code/main.py`, compare frame-to-frame delta for (a) independent per-frame sampling, (b) joint sequence sampling. Report the mean and variance of the deltas.
-2. **Medium.** Add a first-frame condition: pin frame 0 to a given value and sample the rest. Measure how the pinned value propagates.
-3. **Hard.** Use HuggingFace diffusers to run CogVideoX-2B on a local GPU. Time 20 inference steps at 720p for a 6-second clip. Profile the spatiotemporal attention to identify the bottleneck.
+1. **Dễ.** Trong `code/main.py`, so sánh chênh lệch giữa các khung hình cho (a) lấy mẫu độc lập theo khung hình, (b) lấy mẫu chuỗi chung. Báo cáo trung bình và phương sai của các chênh lệch.
+2. **Trung bình.** Thêm một điều kiện khung hình đầu tiên: cố định khung hình 0 ở một giá trị cho trước và lấy mẫu phần còn lại. Đo cách giá trị cố định lan truyền.
+3. **Khó.** Dùng HuggingFace diffusers để chạy CogVideoX-2B trên một GPU cục bộ. Đo thời gian 20 bước suy luận ở 720p cho một clip dài 6 giây. Profile attention không gian-thời gian để xác định nút thắt cổ chai.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Video VAE | "3-D VAE" | Encoder that compresses `(T, H, W, C)` → spatiotemporal latent. |
-| Patches | "The tokens" | Fixed-size 3-D blocks of the latent; input to the DiT. |
-| Factorized attention | "Spatial + temporal" | Run attention over space, then over time; skip full 3-D attention. |
-| Image-to-video (I2V) | "Animate this photo" | Model takes an image + text, outputs a video that starts from it. |
-| Keyframe conditioning | "Anchor frames" | Pin specific frames to control the video's arc. |
-| Motion brush | "Directional hint" | UI input where the user paints motion vectors onto the image. |
-| Re-captioning | "Dense captions" | Using an LLM to re-label training clips with detailed prompts. |
-| Flicker | "Temporal artifact" | Frame-to-frame inconsistency; fixed with coupled denoising. |
+| Video VAE (VAE video) | "VAE 3-D" | Encoder nén `(T, H, W, C)` → latent không gian-thời gian. |
+| Patches (Các patch) | "Các token" | Các khối 3-D kích thước cố định của latent; đầu vào cho DiT. |
+| Factorized attention (Attention phân tách) | "Không gian + thời gian" | Chạy attention trên không gian, rồi trên thời gian; bỏ attention 3-D đầy đủ. |
+| Image-to-video (I2V) (Ảnh thành video) | "Làm ảnh chụp này chuyển động" | Mô hình nhận một ảnh + văn bản, xuất ra một video bắt đầu từ nó. |
+| Keyframe conditioning (Điều kiện hóa khung hình chính) | "Các khung hình neo" | Cố định các khung hình cụ thể để điều khiển diễn tiến video. |
+| Motion brush (Cọ chuyển động) | "Gợi ý hướng" | Đầu vào UI nơi người dùng vẽ các vector chuyển động lên ảnh. |
+| Re-captioning (Chú thích lại) | "Chú thích dày đặc" | Dùng một LLM để gán nhãn lại các clip huấn luyện bằng prompt chi tiết. |
+| Flicker (Nhấp nháy) | "Lỗi giả thời gian" | Bất nhất giữa các khung hình; khắc phục bằng khử nhiễu liên kết. |
 
 ## Production note: video latents are a memory-bandwidth problem
 
-A 10-second 1080p clip at 24 fps is 240 frames × 1920 × 1080 × 3 ≈ 1.5 GB of raw pixels. After a 4× video VAE compression (`2 × spatial × 2 × temporal`) the latent is ~100 MB per request. Run this through a spatiotemporal DiT for 30 steps at batch 1 and you are moving ~3 GB/step through HBM — memory bandwidth, not FLOPs, is the bottleneck.
+Một clip 1080p dài 10 giây ở 24 fps là 240 khung hình × 1920 × 1080 × 3 ≈ 1.5 GB pixel thô. Sau nén VAE video 4× (`2 × spatial × 2 × temporal`), latent là ~100 MB mỗi yêu cầu. Chạy thứ này qua một DiT không gian-thời gian trong 30 bước ở batch 1 và bạn đang chuyển ~3 GB/bước qua HBM — băng thông bộ nhớ, không phải FLOPs, là nút thắt cổ chai.
 
-Three production knobs, all straight from production-inference literature inference chapter:
+Ba nút điều chỉnh production, tất cả đều lấy thẳng từ chương suy luận trong tài liệu suy luận production:
 
-- **TP across the DiT.** Text-to-video models are routinely ≥10B params. TP=4 across 4 H100s is standard; PP=2 × TP=2 for 405B-class models. Latency per step drops roughly linearly with TP up to the all-reduce wall.
-- **Frame batching = continuous batching.** At generation time, video is conceptually a batch of frames linked by attention. Continuous batching (in-flight scheduling) applies: start rendering frame `t+1` while frame `t-1` is being returned, if the model architecture allows sliding-window generation.
-- **Clip-level prefill cache.** For image-to-video, the first-frame conditioning is analogous to an LLM's prompt prefill: compute it once, reuse across the temporal decoder passes. This is effectively a KV-cache for video.
+- **TP xuyên DiT.** Các mô hình văn bản thành video thường có ≥10B tham số. TP=4 trên 4 H100 là tiêu chuẩn; PP=2 × TP=2 cho các mô hình hạng 405B. Độ trễ mỗi bước giảm gần tuyến tính theo TP cho đến giới hạn all-reduce.
+- **Gom batch khung hình = continuous batching.** Khi sinh, về khái niệm video là một batch các khung hình liên kết bởi attention. Continuous batching (lập lịch đang xử lý) áp dụng được: bắt đầu kết xuất khung hình `t+1` trong khi khung hình `t-1` đang được trả về, nếu kiến trúc mô hình cho phép sinh theo cửa sổ trượt.
+- **Cache prefill cấp clip.** Với ảnh thành video, điều kiện hóa khung hình đầu tiên tương tự prompt prefill của một LLM: tính nó một lần, tái sử dụng qua các lượt decoder thời gian. Đây thực chất là một KV-cache cho video.
 
 ## Further Reading
 
-- [Brooks et al. (2024). Video generation models as world simulators](https://openai.com/index/video-generation-models-as-world-simulators/) — Sora technical report.
+- [Brooks et al. (2024). Video generation models as world simulators](https://openai.com/index/video-generation-models-as-world-simulators/) — báo cáo kỹ thuật Sora.
 - [Yang et al. (2024). CogVideoX: Text-to-Video Diffusion Models with An Expert Transformer](https://arxiv.org/abs/2408.06072) — CogVideoX.
 - [Kong et al. (2024). HunyuanVideo: A Systematic Framework for Large Video Generative Models](https://arxiv.org/abs/2412.03603) — HunyuanVideo.
 - [Genmo (2024). Mochi-1 Technical Report](https://www.genmo.ai/blog/mochi) — Mochi-1.
-- [Alibaba (2025). WAN 2.2](https://wanvideo.io/) — open SOTA mid-2025.
-- [Ho, Salimans, Gritsenko et al. (2022). Video Diffusion Models](https://arxiv.org/abs/2204.03458) — the seminal video diffusion paper.
-- [Blattmann et al. (2023). Align your Latents (Video LDM)](https://arxiv.org/abs/2304.08818) — Stable Video Diffusion's ancestor.
+- [Alibaba (2025). WAN 2.2](https://wanvideo.io/) — SOTA mở giữa năm 2025.
+- [Ho, Salimans, Gritsenko et al. (2022). Video Diffusion Models](https://arxiv.org/abs/2204.03458) — bài báo khuếch tán video có tính khai phá.
+- [Blattmann et al. (2023). Align your Latents (Video LDM)](https://arxiv.org/abs/2304.08818) — tiền thân của Stable Video Diffusion.

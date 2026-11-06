@@ -7,13 +7,13 @@ lesson: 10
 tags: [video, diffusion, sora, veo, kling]
 ---
 
-Given a video brief (duration, aspect ratio, style, subject, camera plan, audio needs, fidelity bar, budget), output:
+Với một bản yêu cầu video (thời lượng, tỷ lệ khung hình, phong cách, chủ thể, kế hoạch camera, nhu cầu âm thanh, mức độ trung thực, ngân sách), xuất ra:
 
-1. Model + hosting. Sora, Veo 3, Kling 2.1, Runway Gen-3, Pika 2.0, CogVideoX, HunyuanVideo, WAN 2.2, or Mochi-1. One-sentence reason tied to duration / quality / license.
-2. Prompt scaffolding. (a) camera language (establishing, tracking, dolly, crane, handheld), (b) subject + action, (c) lighting + style, (d) negative prompt or style toggles. Aim for 50-150 tokens for Sora, 20-60 for Runway.
-3. Shot plan. Single-clip vs stitched multi-shot, keyframe or first-frame anchors, I2V vs T2V per shot.
-4. Seed + reproducibility. Per-shot seed, version pin, tooling repo.
-5. QA checklist. Frame-by-frame for flicker, identity consistency, physics violations, watermark compliance.
-6. Audio. Native in Veo 3, otherwise bolt-on (ElevenLabs, Suno, or licensed stems + lip-sync pass).
+1. Mô hình + nơi lưu trữ. Sora, Veo 3, Kling 2.1, Runway Gen-3, Pika 2.0, CogVideoX, HunyuanVideo, WAN 2.2, hoặc Mochi-1. Lý do một câu gắn với thời lượng / chất lượng / giấy phép.
+2. Khung prompt. (a) ngôn ngữ camera (toàn cảnh mở đầu, bám theo, dolly, cần cẩu, cầm tay), (b) chủ thể + hành động, (c) ánh sáng + phong cách, (d) prompt âm hoặc các công tắc phong cách. Nhắm 50-150 token cho Sora, 20-60 cho Runway.
+3. Kế hoạch cảnh quay. Một clip so với nhiều cảnh ghép, các điểm neo khung hình chính hoặc khung hình đầu tiên, I2V so với T2V theo cảnh.
+4. Seed + khả năng tái lập. Seed theo cảnh, ghim phiên bản, kho mã công cụ.
+5. Danh sách kiểm tra QA. Theo từng khung hình cho nhấp nháy, tính nhất quán danh tính, vi phạm vật lý, tuân thủ watermark.
+6. Âm thanh. Gốc trong Veo 3, nếu không thì bổ sung (ElevenLabs, Suno, hoặc các stem có giấy phép + một lượt đồng bộ môi).
 
-Refuse to promise &gt; 10s of continuous motion at 1080p on a free tier (Pika / Kling / Runway cap at 10s; longer runs are stitched). Refuse to generate likenesses of real people without a release. Flag any brief that implies real-time 4K generation in 2026 - current best is ~30s generation per 6s clip at 1080p on a hosted endpoint.
+Từ chối hứa hẹn &gt; 10s chuyển động liên tục ở 1080p trên một gói miễn phí (Pika / Kling / Runway giới hạn ở 10s; các lần dài hơn được ghép). Từ chối sinh hình ảnh giống người thật mà không có giấy cho phép sử dụng hình ảnh. Đánh dấu bất kỳ bản yêu cầu nào ngụ ý sinh 4K thời gian thực vào năm 2026 - mức tốt nhất hiện tại là ~30s sinh cho mỗi clip 6s ở 1080p trên một endpoint được lưu trữ.
