@@ -130,7 +130,7 @@ Bài học này tạo ra `outputs/skill-finops-plan.md`. Với sản phẩm và 
 1. Chạy `code/main.py`. Ở z-score nào công tắc ngắt kích hoạt? Bạn chọn ngưỡng như thế nào?
 2. Thiết kế bảng điều khiển chi phí theo tenant, theo tác vụ. 5 khung nhìn bạn xây đầu tiên là gì?
 3. Tenant lớn nhất của bạn có tính kinh tế đơn vị âm. Đề xuất ba can thiệp theo thứ tự tác động khách hàng.
-4. Tính chi phí mỗi phiếu hỗ trợ được giải quyết cho một sản phẩm hỗ trợ: 3M token/phiếu, ~800 phiếu/ngày, giá bộ nhớ đệm GPT-5.
+4. Tính chi phí trên mỗi ticket được giải quyết cho một sản phẩm hỗ trợ: 3M token/ticket, ~800 ticket/ngày, toàn bộ đầu vào ở mức giá cache GPT-5 là $0.125/M (giá niêm yết khi ra mắt; kiểm tra bảng giá hiện hành).
 5. Lập luận liệu gắn thẻ hồi tố có bao giờ hoạt động được không. Khi nào nó chấp nhận được?
 
 ## Key Terms

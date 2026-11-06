@@ -34,7 +34,7 @@ flowchart LR
     Writer --> Report[Demo report]
 ```
 
-Năm giai đoạn. Seed là một danh sách ba giả thuyết. Bộ lập lịch chạy sáu thí nghiệm trên chúng với ba vị trí song song. Bus báo cáo một hoặc nhiều kích hoạt bài báo. Bộ chọn chọn kết quả tốt nhất duy nhất. Vòng lặp phê bình lặp trên một bản nháp được xây dựng từ kết quả đó. Bộ viết bài báo phát ra LaTeX, BibTeX, và bản kê khai cuối.
+Sáu giai đoạn. Hạt giống là một danh sách ba giả thuyết. Scheduler chạy sáu thí nghiệm trên chúng với ba slot song song. Bus báo cáo một hoặc nhiều trigger bài báo. Bộ chọn chọn kết quả tốt nhất duy nhất. Vòng lặp phản biện lặp lại trên một bản nháp được xây dựng từ kết quả đó. Trình viết bài báo phát ra LaTeX, BibTeX và manifest cuối cùng.
 
 ## Why import, not copy
 

@@ -1,72 +1,72 @@
 ---
 name: recovering-data-and-types
-description: Turn a disassembly listing and an optional debug build into a struct layout with evidence per field, a stride with its sources, a comparison against DWARF, and a list of what stayed unknown.
+description: Chuyển một bản liệt kê disassembly và một bản dựng gỡ lỗi tùy chọn thành một bố cục struct có bằng chứng cho từng trường, một stride với các nguồn của nó, một phép so sánh với DWARF, và một danh sách những gì vẫn chưa biết.
 version: 1.0.0
 phase: 13
 lesson: 41
 tags: [reverse-engineering, x86-64, types, structs, dwarf, system-v-abi, itanium-abi, vtables]
 ---
 
-Given an x86-64 object that you built yourself, its `llvm-objdump -d -r` listing, and the functions that receive a pointer to the type under study, produce the field layout the instructions prove, the stride the loops prove, the comparison with the DWARF layout when a `-g` build exists, and the names and qualifiers that no instruction can supply. Use this skill with Claude, Cursor, Codex, OpenClaw, Hermes, or any agent that reads SKILL.md.
+Với một tệp đối tượng x86-64 do chính bạn dựng, bản liệt kê `llvm-objdump -d -r` của nó, và các hàm nhận một con trỏ đến kiểu đang nghiên cứu, hãy tạo bố cục trường mà các lệnh chứng minh, stride mà các vòng lặp chứng minh, phép so sánh với bố cục DWARF khi có một bản dựng `-g`, và các tên cùng qualifier mà không lệnh nào có thể cung cấp. Dùng skill này với Claude, Cursor, Codex, OpenClaw, Hermes, hoặc bất kỳ agent nào đọc SKILL.md.
 
 ## Required inputs
 
-- The object file, the exact compiler and command that produced it, and the `llvm-objdump -d -r` text captured from the same object.
-- The names of the functions whose first parameter points at the type, or the call sites that pass one object to them.
-- When available, a `-g` build of the same source and its `llvm-dwarfdump --debug-info` text.
-- For a C++ object, the symbol table and the relocation records of the `.data.rel.ro.*` sections that hold the vtables.
-- The pass and the reader from lesson 41 (`code/main.py`) or an equivalent that records the instruction behind every field.
+- Tệp đối tượng, trình biên dịch và lệnh chính xác đã tạo nó, và văn bản `llvm-objdump -d -r` được thu lại từ cùng tệp đối tượng.
+- Tên của các hàm có tham số đầu tiên trỏ đến kiểu, hoặc các vị trí gọi truyền một đối tượng cho chúng.
+- Khi có, một bản dựng `-g` của cùng mã nguồn và văn bản `llvm-dwarfdump --debug-info` của nó.
+- Với một tệp đối tượng C++, bảng ký hiệu và các bản ghi relocation của các section `.data.rel.ro.*` giữ các vtable.
+- Lượt xử lý và bộ đọc từ bài 41 (`code/main.py`) hoặc một bản tương đương ghi lại lệnh đằng sau mỗi trường.
 
 ## Procedure
 
-1. Parse the listing into functions. Attach each relocation line to the instruction above it, so that calls carry their callee name.
-2. Run the forward trace over each function with the System V argument registers seeded as pointers. Record every memory operand whose base holds a pointer as an access with root, offset, width, kind, sign, and store flag. Record 64-bit increments, backward branches as loops, and the argument values at each call.
-3. For each loop, group same-width accesses through one base register. If the offsets are `d` apart and the loop step is `k * d` with `k` distinct offsets, fold them onto one offset and record `unrolled`. Do not trust any offset past the stride before this step.
-4. Collect stride evidence of every kind: index scales from shifts and multiplies, loop steps, offset deltas, and call-site element offsets. The stride is the greatest common divisor of all of them. Name the kind of each value.
-5. Build the fields. Merge accesses at one offset and width. Mark a field as a pointer only when a value loaded from it was later used as a base or advanced with `lea`. Record overlapping accesses of different widths as conflicts.
-6. If a `-g` build exists, read its DWARF 5 through the abbreviation table and the relocated `.debug_str_offsets` and `.debug_addr` tables. Check the unit header, the member offsets, and the byte size against `llvm-dwarfdump`. Compare field by field and label every row `match`, `no-evidence`, `size-mismatch`, `pointer-unproven`, `kind-mismatch`, or `unexpected`.
-7. Check the recovered layout against the System V rules: every field at a multiple of its own size, size a multiple of the strictest alignment, gaps where the rules require padding. A violation means a packed struct, a bit-field, or a wrong field.
-8. For a C++ object, read each `_ZTV` symbol from its relocations: offset to top, typeinfo, then slots from the address point 16 bytes in. Read each `_ZTI` for its kind, name string, and base. Resolve every `call *disp(%reg)` whose register was loaded from offset 0 of an object to `disp / 8` and list the candidate functions per class. Demangle every `_Z` name and check against `llvm-cxxfilt --no-strip-underscore`.
-9. Write every name, qualifier, pointee type, and alias assumption as unknown or inferred. The instructions supply none of them.
+1. Phân tích bản liệt kê thành các hàm. Gắn mỗi dòng relocation vào lệnh bên trên nó, để các lời gọi mang tên hàm được gọi.
+2. Chạy vết tiến trên mỗi hàm với các thanh ghi đối số System V được khởi tạo làm con trỏ. Ghi lại mọi toán hạng bộ nhớ có cơ sở giữ một con trỏ dưới dạng một truy cập với gốc, độ lệch, độ rộng, loại, dấu, và cờ lưu. Ghi lại các lần tăng 64 bit, các nhánh ngược dưới dạng vòng lặp, và các giá trị đối số tại mỗi lời gọi.
+3. Với mỗi vòng lặp, nhóm các truy cập cùng độ rộng qua một thanh ghi cơ sở. Nếu các độ lệch cách nhau `d` và bước vòng lặp là `k * d` với `k` độ lệch phân biệt, gộp chúng về một độ lệch và ghi lại `unrolled`. Không tin bất kỳ độ lệch nào vượt quá stride trước bước này.
+4. Thu thập bằng chứng stride của mọi loại: các hệ số chỉ mục từ phép dịch và phép nhân, các bước vòng lặp, các hiệu độ lệch, và các độ lệch phần tử tại vị trí gọi. Stride là ước chung lớn nhất của tất cả chúng. Nêu loại của mỗi giá trị.
+5. Dựng các trường. Gộp các truy cập tại một độ lệch và độ rộng. Đánh dấu một trường là con trỏ chỉ khi một giá trị được nạp từ nó sau đó được dùng làm cơ sở hoặc được tăng bằng `lea`. Ghi lại các truy cập chồng lấn có độ rộng khác nhau là xung đột.
+6. Nếu có một bản dựng `-g`, đọc DWARF 5 của nó qua bảng viết tắt và các bảng `.debug_str_offsets` cùng `.debug_addr` đã áp dụng relocation. Kiểm tra header đơn vị, các độ lệch thành viên, và kích thước byte với `llvm-dwarfdump`. So sánh từng trường và gắn nhãn mỗi hàng là `match`, `no-evidence`, `size-mismatch`, `pointer-unproven`, `kind-mismatch`, hoặc `unexpected`.
+7. Kiểm tra bố cục đã khôi phục với các quy tắc System V: mỗi trường tại một bội số của kích thước riêng của nó, kích thước là bội số của căn chỉnh nghiêm ngặt nhất, các khoảng trống ở nơi các quy tắc yêu cầu đệm. Một vi phạm có nghĩa là một packed struct, một bit-field, hoặc một trường sai.
+8. Với một tệp đối tượng C++, đọc mỗi ký hiệu `_ZTV` từ các relocation của nó: độ lệch đến đỉnh, typeinfo, rồi các ô từ điểm địa chỉ cách vào 16 byte. Đọc mỗi `_ZTI` để lấy loại, chuỗi tên, và cơ sở của nó. Phân giải mọi `call *disp(%reg)` có thanh ghi được nạp từ độ lệch 0 của một đối tượng thành `disp / 8` và liệt kê các hàm ứng viên theo lớp. Giải mã mọi tên `_Z` và kiểm tra với `llvm-cxxfilt --no-strip-underscore`.
+9. Viết mọi tên, qualifier, kiểu được trỏ đến, và giả định alias là chưa biết hoặc được suy ra. Các lệnh không cung cấp bất kỳ thứ nào trong số đó.
 
 ## Required report
 
-For the type, report:
+Với kiểu, báo cáo:
 
-- object name, compiler, build command, and listing path
-- witness functions and the evidence that they share one type (call sites or an analyst assertion)
-- field table with offset, size, kind, sign, access count, and the address of each access
-- pointer proofs with the dereferencing instruction
-- stride table with every value and its kind, the folded loops, and the resulting stride and size
-- comparison rows against DWARF when a `-g` build exists, and the unit header values that were checked
-- alignment check against the System V rules
-- for C++: vtables with slots and symbols, typeinfo kind and base, virtual calls with slot and candidates, demangled names
-- every unknown: members with no evidence, unproven pointers, names, qualifiers, pointee types
+- tên tệp đối tượng, trình biên dịch, lệnh dựng, và đường dẫn bản liệt kê
+- các hàm nhân chứng và bằng chứng rằng chúng dùng chung một kiểu (các vị trí gọi hoặc một khẳng định của người phân tích)
+- bảng trường với độ lệch, kích thước, loại, dấu, số lần truy cập, và địa chỉ của mỗi truy cập
+- các bằng chứng con trỏ với lệnh giải tham chiếu
+- bảng stride với mọi giá trị và loại của nó, các vòng lặp đã gộp, và stride cùng kích thước kết quả
+- các hàng so sánh với DWARF khi có một bản dựng `-g`, và các giá trị header đơn vị đã được kiểm tra
+- kiểm tra căn chỉnh với các quy tắc System V
+- với C++: các vtable với ô và ký hiệu, loại và cơ sở typeinfo, các lời gọi ảo với ô và ứng viên, các tên đã giải mã
+- mọi điều chưa biết: các thành viên không có bằng chứng, các con trỏ chưa được chứng minh, các tên, qualifier, các kiểu được trỏ đến
 
 ## Hard rejects
 
-- Reporting an offset past the stride without checking the loop for unrolling.
-- Taking a single loop increment as the element size.
-- Calling an 8-byte field a pointer without a dereference.
-- Calling a 1-byte compare a signed or unsigned char.
-- Merging the accesses of several functions into one struct without call-site evidence or a recorded assertion.
-- Reading `.debug_str` by raw index, or `.debug_addr` without its relocations, in a relocatable object.
-- Parsing a DWARF 4 header with the DWARF 5 layout.
-- Reading vtable slots from the symbol start instead of the address point.
-- Treating a missing vtable in one object as proof that the class has none.
-- Copying a decompiler's type name into the report as evidence.
-- Inventing a member name.
+- Báo cáo một độ lệch vượt quá stride mà không kiểm tra vòng lặp có unroll hay không.
+- Coi một lần tăng vòng lặp duy nhất là kích thước phần tử.
+- Gọi một trường 8 byte là con trỏ mà không có phép giải tham chiếu.
+- Gọi một phép so sánh 1 byte là char có dấu hoặc không dấu.
+- Gộp các truy cập của nhiều hàm thành một struct mà không có bằng chứng vị trí gọi hoặc một khẳng định được ghi lại.
+- Đọc `.debug_str` bằng chỉ mục thô, hoặc `.debug_addr` mà không có các relocation của nó, trong một tệp đối tượng có thể relocation.
+- Phân tích một header DWARF 4 bằng bố cục DWARF 5.
+- Đọc các ô vtable từ điểm bắt đầu ký hiệu thay vì điểm địa chỉ.
+- Coi một vtable vắng mặt trong một tệp đối tượng là bằng chứng rằng lớp không có vtable.
+- Sao chép tên kiểu của một trình dịch ngược vào báo cáo làm bằng chứng.
+- Bịa ra một tên thành viên.
 
 ## Produce
 
-Return these sections:
+Trả về những phần này:
 
-1. Witnesses: the functions, the roots, and the alias evidence.
-2. Accesses: the full access table with addresses.
-3. Layout: fields, pointer proofs, conflicts, gaps, and the alignment check.
-4. Stride: every value with its kind, the folds applied, the stride, and the size.
-5. DWARF: the unit header check and the comparison rows, or the statement that no debug build exists.
-6. C++: vtables, typeinfo, virtual calls, and demangled names, or the statement that the object has none.
-7. Unknowns: every member, kind, name, and qualifier the evidence does not reach.
+1. Nhân chứng: các hàm, các gốc, và bằng chứng alias.
+2. Truy cập: bảng truy cập đầy đủ có địa chỉ.
+3. Bố cục: các trường, các bằng chứng con trỏ, các xung đột, các khoảng trống, và phép kiểm tra căn chỉnh.
+4. Stride: mọi giá trị với loại của nó, các phép gộp đã áp dụng, stride, và kích thước.
+5. DWARF: phép kiểm tra header đơn vị và các hàng so sánh, hoặc phát biểu rằng không có bản dựng gỡ lỗi.
+6. C++: các vtable, typeinfo, các lời gọi ảo, và các tên đã giải mã, hoặc phát biểu rằng tệp đối tượng không có chúng.
+7. Những điều chưa biết: mọi thành viên, loại, tên, và qualifier mà bằng chứng không chạm đến.
 
-End with the first unknown. If there is none, state the number of members matched against DWARF and the number of stride sources that agreed.
+Kết thúc bằng điều chưa biết đầu tiên. Nếu không có, hãy nêu số thành viên khớp với DWARF và số nguồn stride đã thống nhất.

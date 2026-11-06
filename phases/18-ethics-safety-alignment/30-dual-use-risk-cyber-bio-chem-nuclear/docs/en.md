@@ -16,7 +16,7 @@
 
 ## The Problem
 
-Bài 17 là phương pháp đo. Bài 30 là hiện trạng phép đo 2026. Bức tranh dịch chuyển đáng kể giữa 2024 và cuối 2025: mỗi miền vượt ngưỡng mà khung 2024 không dự đoán.
+Bài 17 là phương pháp đo lường. Bài 30 là trạng thái đo lường năm 2026. Bức tranh thay đổi đáng kể từ năm 2024 đến cuối năm 2025: ba trong bốn lĩnh vực vượt một ngưỡng mà các framework năm 2024 không dự đoán.
 
 ## The Concept
 
@@ -47,6 +47,8 @@ Hàm ý:
 - Lập trình có agent là thành phần cơ bản tự động hóa tấn công. Hỗ trợ mạng AI trước bị giới hạn cấp đoạn mã; workflow có agent tích hợp trinh sát, khai thác, hậu khai thác và đưa dữ liệu ra ngoài trái phép.
 - 4-6 bước con người là nút thắt; tăng năng lực tương lai sẽ giảm số đó.
 - Lưỡng dụng phòng vệ: thí điểm "truy cập đáng tin" OpenAI cho tổ chức bảo mật đã thẩm định (công ty ứng phó sự cố uy tín, chính phủ) truy cập năng lực phòng vệ. Bất đối xứng truy cập ưu tiên bên phòng vệ nếu thí điểm mở rộng.
+
+Phía phòng thủ của công việc này bắt đầu bằng việc đọc mã đã biên dịch mà bạn được phép phân tích. Nhánh reverse engineering ở Giai đoạn 13 dạy điều đó trên các chương trình bạn tự xây dựng, chỉ bằng phân tích tĩnh: một trình đọc ELF trong [Bài 13.32](../../../13-tools-and-protocols/32-program-anatomy-elf-from-scratch/docs/en.md), disassembly trong [Bài 13.33](../../../13-tools-and-protocols/33-disassembly-and-control-flow/docs/en.md), nâng lên mã giả trong [Bài 13.34](../../../13-tools-and-protocols/34-lifting-to-pseudocode/docs/en.md) và một sổ bằng chứng giữ các sự kiện quan sát được tách khỏi các điều suy luận trong [Bài 13.35](../../../13-tools-and-protocols/35-evidence-confidence-and-unknowns/docs/en.md). Máy [Inside a Decompiler](https://aiengineeringfromscratch.com/inside-a-decompiler) hiển thị toàn bộ pipeline trên một hàm. Một agent làm công việc này cần cùng sổ đó, vì một bản decompile tự tin vẫn có thể dựa trên một phỏng đoán.
 
 ### Nuclear
 

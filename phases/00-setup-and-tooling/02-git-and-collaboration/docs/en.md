@@ -106,6 +106,14 @@ Chỉ vậy thôi. Bạn không cần rebase, cherry-pick hay submodule cho khó
 2. Tạo một `.gitignore` loại trừ các tệp checkpoint mô hình (`.pt`, `.pth`, `.safetensors`)
 3. Xem lịch sử commit của kho mã này bằng `git log --oneline` và đọc cách các bài học được thêm vào
 
+### Hints
+
+**Bài tập 1.** Nhấp Fork trên GitHub, rồi `git clone` URL của bản fork của chính bạn. Sau `git push -u origin my-progress`, mở bản fork của bạn trên GitHub và xác nhận danh sách nhánh hiển thị `my-progress` cùng tệp của bạn.
+
+**Bài tập 2.** Thêm một mẫu cho mỗi phần mở rộng, chẳng hạn `*.pt`, vào một tệp `.gitignore` trong thư mục gốc của kho mã. Tạo một tệp trống với mỗi phần mở rộng và chạy `git status`; không tệp nào trong số chúng được xuất hiện trong danh sách tệp chưa được theo dõi.
+
+**Bài tập 3.** Chạy `git log --oneline` rồi `git log --oneline -- phases/00-setup-and-tooling` để chỉ hiển thị các commit đã thay đổi giai đoạn này. Chọn một commit và chạy `git show --stat <hash>` để xem nó đã thêm những tệp bài học nào.
+
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |

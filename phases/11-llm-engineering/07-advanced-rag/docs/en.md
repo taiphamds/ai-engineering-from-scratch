@@ -89,7 +89,7 @@ Các mô hình xếp hạng lại phổ biến (danh sách năm 2026):
 - Jina-Reranker-v2 Multilingual: trọng số mở, 100+ ngôn ngữ
 - bge-reranker-v2-m3: trọng số mở, baseline mạnh
 - cross-encoder/ms-marco-MiniLM-L-6-v2: trọng số mở, chạy trên CPU để tạo mẫu
-- ColBERTv2 / Jina-ColBERT-v2: bộ xếp hạng lại đa vector tương tác muộn — O(tokens) không phải O(docs) ở thời điểm chấm điểm
+- ColBERTv2 / Jina-ColBERT-v2: bộ xếp hạng lại đa vector tương tác muộn — $O(\text{tokens})$ không phải $O(\text{docs})$ ở thời điểm chấm điểm
 
 ### Query Transformation
 

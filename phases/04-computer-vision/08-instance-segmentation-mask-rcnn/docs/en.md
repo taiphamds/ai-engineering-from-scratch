@@ -84,10 +84,10 @@ Tăng mẫu mặt nạ 28x28 tới kích thước pixel gốc của đề xuất
 
 ### Losses
 
-Mask R-CNN có bốn mất mát cộng lại:
+Mask R-CNN có năm loss được cộng lại:
 
-```
-L = L_rpn_cls + L_rpn_box + L_box_cls + L_box_reg + L_mask
+```math
+L = L_{\text{rpn\_cls}} + L_{\text{rpn\_box}} + L_{\text{box\_cls}} + L_{\text{box\_reg}} + L_{\text{mask}}
 ```
 
 - `L_rpn_cls`, `L_rpn_box` — objectness + hồi quy hộp cho các đề xuất RPN.
@@ -261,7 +261,7 @@ def train_step(model, images, targets, optimizer):
     return {k: v.item() for k, v in loss_dict.items()}
 ```
 
-Danh sách `targets` phải có các dict từng hình ảnh với `boxes`, `labels` và `masks` (dưới dạng các tensor nhị phân `(num_instances, H, W)`). Mô hình trả về một dict bốn mất mát trong huấn luyện và một danh sách dự đoán trong eval, dựa trên `model.training`.
+Danh sách `targets` phải có các dict theo từng hình ảnh với `boxes`, `labels` và `masks` (dưới dạng các tensor nhị phân `(num_instances, H, W)`). Mô hình trả về một dict chứa năm loss trong lúc huấn luyện và một danh sách dự đoán trong lúc đánh giá, được quyết định theo `model.training`.
 
 Bộ đánh giá `pycocotools` tạo mAP@IoU=0.5:0.95 cho cả hộp và mặt nạ; bạn cần cả hai con số để biết đầu hộp hay đầu mặt nạ là nút thắt.
 

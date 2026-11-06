@@ -9,9 +9,9 @@
 
 ## The Problem
 
-Một mô hình sinh làm một việc: với các mẫu huấn luyện được lấy từ một phân phối chưa biết nào đó `p_data(x)`, xuất ra các mẫu mới trông như thể chúng đến từ cùng phân phối đó. Khuôn mặt, câu, tệp MIDI, cấu trúc protein — tất cả đều là cùng một bài toán nếu bạn nheo mắt.
+Một mô hình sinh làm một việc: với các mẫu huấn luyện được lấy từ một phân phối chưa biết nào đó $p_{\text{data}}(x)$, xuất ra các mẫu mới trông như thể chúng đến từ cùng phân phối đó. Khuôn mặt, câu, tệp MIDI, cấu trúc protein — tất cả đều là cùng một bài toán nếu bạn nheo mắt.
 
-Điểm khó là `p_data` nằm trong một không gian có hàng triệu chiều (một ảnh RGB 512x512 có ~786k chiều), các mẫu nằm trên một đa tạp mỏng bên trong không gian đó, và bạn có lẽ chỉ có 10M ví dụ. Vét cạn mật độ là vô vọng. Mọi mô hình sinh đều là một sự thỏa hiệp đổi một bài toán khó lấy một bài toán ít khó hơn một chút.
+Điểm khó là $p_{\text{data}}$ nằm trong một không gian có hàng triệu chiều (một ảnh RGB 512x512 có ~786k chiều), các mẫu nằm trên một đa tạp mỏng bên trong không gian đó, và bạn có lẽ chỉ có 10M ví dụ. Vét cạn mật độ là vô vọng. Mọi mô hình sinh đều là một sự thỏa hiệp đổi một bài toán khó lấy một bài toán ít khó hơn một chút.
 
 Năm họ đã tồn tại qua mười hai năm vừa qua. Biết mỗi họ đưa ra sự thỏa hiệp nào cho bạn biết vì sao nó thắng ở một số tác vụ và sụp đổ ở những tác vụ khác.
 
@@ -19,13 +19,13 @@ Năm họ đã tồn tại qua mười hai năm vừa qua. Biết mỗi họ đ�
 
 ![Five families of generative models — taxonomy by what they model](../assets/taxonomy.svg)
 
-**1. Mật độ tường minh, tính toán được.** Viết `log p(x)` thành một tổng mà bạn thực sự có thể tính. Các mô hình tự hồi quy (PixelCNN, WaveNet, GPT) phân tích `p(x) = ∏ p(x_i | x_<i)`. Normalizing flow (RealNVP, Glow) xây dựng `p(x)` như một phép biến đổi khả nghịch của một phân phối cơ sở đơn giản. Ưu điểm: độ hợp lý chính xác, hàm mất mát huấn luyện rõ ràng. Nhược điểm: suy luận tự hồi quy là tuần tự (chậm với các chuỗi dài), flow cần kiến trúc khả nghịch (hạn chế về kiến trúc).
+**1. Mật độ tường minh, tính toán được.** Viết $\log p(x)$ thành một tổng mà bạn thực sự có thể tính. Các mô hình tự hồi quy (PixelCNN, WaveNet, GPT) phân tích $p(x) = \prod_i p(x_i \mid x_{<i})$. Normalizing flow (RealNVP, Glow) xây dựng $p(x)$ như một phép biến đổi khả nghịch của một phân phối cơ sở đơn giản. Ưu điểm: độ hợp lý chính xác, hàm mất mát huấn luyện rõ ràng. Nhược điểm: suy luận tự hồi quy là tuần tự (chậm với các chuỗi dài), flow cần kiến trúc khả nghịch (hạn chế về kiến trúc).
 
-**2. Mật độ tường minh, xấp xỉ.** Chặn `log p(x)` từ dưới (ELBO) và tối ưu cận đó. VAE (Kingma 2013) dùng một encoder-decoder với một hậu nghiệm biến phân. Các mô hình khuếch tán (DDPM, Ho 2020) huấn luyện một bộ khử nhiễu tối ưu ngầm một ELBO có trọng số. Khuếch tán là backbone chủ đạo cho ảnh, video và 3D vào năm 2026.
+**2. Mật độ tường minh, xấp xỉ.** Chặn $\log p(x)$ từ dưới (ELBO) và tối ưu cận đó. VAE (Kingma 2013) dùng một encoder-decoder với một hậu nghiệm biến phân. Các mô hình khuếch tán (DDPM, Ho 2020) huấn luyện một bộ khử nhiễu tối ưu ngầm một ELBO có trọng số. Khuếch tán là backbone chủ đạo cho ảnh, video và 3D vào năm 2026.
 
-**3. Mật độ ẩn.** Bỏ qua mật độ hoàn toàn; học một bộ sinh `G(z)` tạo ra các mẫu và một bộ phân biệt `D(x)` phân biệt thật với giả. GAN (Goodfellow 2014). Nhanh khi suy luận (một lượt truyền xuôi) nhưng nổi tiếng không ổn định khi huấn luyện. StyleGAN 1/2/3 vẫn đạt mức tiên tiến nhất về độ chân thực như ảnh chụp trong miền cố định (khuôn mặt, phòng ngủ) ngay cả vào năm 2026.
+**3. Mật độ ẩn.** Bỏ qua mật độ hoàn toàn; học một bộ sinh $G(z)$ tạo ra các mẫu và một bộ phân biệt $D(x)$ phân biệt thật với giả. GAN (Goodfellow 2014). Nhanh khi suy luận (một lượt truyền xuôi) nhưng nổi tiếng không ổn định khi huấn luyện. StyleGAN 1/2/3 vẫn đạt mức tiên tiến nhất về độ chân thực như ảnh chụp trong miền cố định (khuôn mặt, phòng ngủ) ngay cả vào năm 2026.
 
-**4. Dựa trên score / thời gian liên tục.** Học trực tiếp gradient của log mật độ `∇_x log p(x)` (score). Song & Ermon (2019) cho thấy score matching khái quát hóa khuếch tán thành một SDE. Flow matching (Lipman 2023) là xu hướng nóng giai đoạn 2024-2026: huấn luyện không cần mô phỏng, đường đi thẳng hơn, lấy mẫu nhanh hơn DDPM 4-10x. Stable Diffusion 3, Flux, AudioCraft 2 đều dùng flow matching.
+**4. Dựa trên score / thời gian liên tục.** Học trực tiếp gradient của log mật độ $\nabla_x \log p(x)$ (score). Song & Ermon (2019) cho thấy score matching khái quát hóa khuếch tán thành một SDE. Flow matching (Lipman 2023) là xu hướng nóng giai đoạn 2024-2026: huấn luyện không cần mô phỏng, đường đi thẳng hơn, lấy mẫu nhanh hơn DDPM 4-10x. Stable Diffusion 3, Flux, AudioCraft 2 đều dùng flow matching.
 
 **5. Tự hồi quy dựa trên token trên các mã rời rạc.** Nén dữ liệu nhiều chiều bằng một VQ-VAE hoặc bộ lượng tử hóa phần dư thành một chuỗi ngắn các token rời rạc, rồi dùng một Transformer để mô hình hóa chuỗi token. Parti, MuseNet, AudioLM, VALL-E, bộ tokenizer patch của Sora đều dùng cách này. Đây là nhóm 1 cộng với một tokenizer được học.
 
@@ -53,7 +53,7 @@ Năm họ đã tồn tại qua mười hai năm vừa qua. Biết mỗi họ đ�
 Khi một bài báo mô hình sinh mới xuất hiện, hãy trả lời năm câu hỏi này trước khi đọc phần phương pháp.
 
 1. **Cái gì đang được mô hình hóa?** Pixel, latent, token rời rạc, Gaussian 3D, mesh, dạng sóng?
-2. **Mật độ là tường minh hay ẩn?** Họ có viết ra `log p(x)` không?
+2. **Mật độ là tường minh hay ẩn?** Họ có viết ra $\log p(x)$ không?
 3. **Lấy mẫu: một lần hay lặp?** Lặp có nghĩa là suy luận chậm hơn; một lần thường có nghĩa là đối kháng hoặc được chưng cất.
 4. **Điều kiện hóa: vô điều kiện, lớp, văn bản, ảnh, tư thế?** Điều này quyết định hàm mất mát và khung kiến trúc.
 5. **Đánh giá: FID, điểm CLIP, IS, sở thích của con người, độ chính xác tác vụ?** Mỗi loại đều có các kiểu thất bại đã biết (xem Bài 14).
@@ -90,7 +90,7 @@ Họ nào, cho tác vụ nào, vào năm 2026?
 | Văn bản thành video | Diffusion Transformer + flow matching | Sora, Veo 2, Kling. |
 | Tiếng nói + âm nhạc | AR dựa trên token (AudioLM, VALL-E, MusicGen) hoặc flow matching (AudioCraft 2) | Token rời rạc mở rộng quy mô với chi phí thấp. |
 | Cảnh 3D | Khớp Gaussian Splatting, tiên nghiệm khuếch tán | 3D-GS cho tái dựng, khuếch tán cho góc nhìn mới. |
-| Ước lượng mật độ (không lấy mẫu) | Flow | Họ duy nhất có `log p(x)` chính xác. |
+| Ước lượng mật độ (không lấy mẫu) | Flow | Họ duy nhất có $\log p(x)$ chính xác. |
 | Mô phỏng / vật lý | Flow matching, score SDE | Đường đi thẳng, trường vector trơn. |
 
 ## Ship It
@@ -109,11 +109,11 @@ Skill nhận mô tả tác vụ và xuất ra: (1) nên dùng họ nào, (2) m�
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Generative model (Mô hình sinh) | "Nó tạo ra những thứ mới" | Học một bộ lấy mẫu cho `p_data(x)`, có thể cung cấp `log p(x)`. |
-| Explicit density (Mật độ tường minh) | "Bạn có thể tính nó" | Mô hình cung cấp `log p(x)` dạng đóng hoặc tính toán được. |
-| Implicit density (Mật độ ẩn) | "Kiểu GAN" | Chỉ có một bộ lấy mẫu — không có cách tính `p(x)` của một điểm cho trước. |
-| ELBO | "Cận dưới bằng chứng" | Một cận dưới tính toán được của `log p(x)`; VAE và khuếch tán tối ưu nó. |
-| Score | "Gradient của log mật độ" | `∇_x log p(x)`; các mô hình khuếch tán và SDE học trường này. |
+| Generative model (Mô hình sinh) | "Nó tạo ra những thứ mới" | Học một bộ lấy mẫu cho $p_{\text{data}}(x)$, có thể cung cấp $\log p(x)$. |
+| Explicit density (Mật độ tường minh) | "Bạn có thể tính nó" | Mô hình cung cấp $\log p(x)$ dạng đóng hoặc tính toán được. |
+| Implicit density (Mật độ ẩn) | "Kiểu GAN" | Chỉ có một bộ lấy mẫu — không có cách tính $p(x)$ của một điểm cho trước. |
+| ELBO | "Cận dưới bằng chứng" | Một cận dưới tính toán được của $\log p(x)$; VAE và khuếch tán tối ưu nó. |
+| Score | "Gradient của log mật độ" | $\nabla_x \log p(x)$; các mô hình khuếch tán và SDE học trường này. |
 | Manifold hypothesis (Giả thuyết đa tạp) | "Dữ liệu nằm trên một bề mặt" | Dữ liệu nhiều chiều tập trung trên một đa tạp ít chiều; lý do giảm chiều hoạt động. |
 | Autoregressive (Tự hồi quy) | "Dự đoán phần tiếp theo" | Phân tích phân phối đồng thời thành tích các phân phối có điều kiện. |
 | Latent (Tiềm ẩn) | "Mã được nén" | Biểu diễn ít chiều mà từ đó một decoder có thể tái dựng đầu vào. |

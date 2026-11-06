@@ -38,6 +38,7 @@
       "Một bản ghi phản hồi dẫn dắt quyết định tiếp theo"
     ]
   },
+  "projects": ["csv-repair-workbench", "inbox-triage-desk", "meeting-notes-to-actions", "document-extraction-desk", "support-agent-with-google-adk", "signed-webhook-inbox"],
   "readinessCriteria": [
     "Có thể tách biệt đầu ra được yêu cầu với kết quả vận hành nằm bên dưới.",
     "Có thể xếp hạng các giả định theo mức độ bất định và hậu quả.",

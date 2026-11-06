@@ -81,11 +81,11 @@ flowchart TB
     Fold5 --> R
 ```
 
-1. Chia dữ liệu thành K fold có kích thước bằng nhau
-2. Với mỗi fold, huấn luyện trên K-1 fold và xác thực trên fold còn lại
-3. Lấy trung bình K điểm xác thực
+1. Chia dữ liệu thành $K$ fold có kích thước bằng nhau
+2. Với mỗi fold, huấn luyện trên $K-1$ fold và xác thực trên fold còn lại
+3. Lấy trung bình $K$ điểm xác thực
 
-K=5 hoặc K=10 là các lựa chọn tiêu chuẩn. Mỗi điểm dữ liệu được dùng để xác thực đúng một lần. Điểm trung bình là một ước lượng ổn định hơn bất kỳ lần chia đơn lẻ nào.
+$K=5$ hoặc $K=10$ là các lựa chọn tiêu chuẩn. Mỗi điểm dữ liệu được dùng để xác thực đúng một lần. Điểm trung bình là một ước lượng ổn định hơn bất kỳ lần chia đơn lẻ nào.
 
 **K-fold phân tầng**: bảo toàn phân phối lớp trong mỗi fold. Nếu tập dữ liệu có 70% lớp A và 30% lớp B, mỗi fold sẽ có tỉ lệ xấp xỉ như vậy. Điều này quan trọng với các tập dữ liệu mất cân bằng nơi một lần chia ngẫu nhiên có thể đưa tất cả mẫu thiểu số vào một fold.
 
@@ -100,18 +100,18 @@ K=5 hoặc K=10 là các lựa chọn tiêu chuẩn. Mỗi điểm dữ liệu �
 
 Từ ma trận này, mọi chỉ số khác suy ra:
 
-- **Accuracy** = (TP + TN) / (TP + TN + FP + FN). Tỉ lệ các dự đoán đúng. Gây hiểu lầm khi các lớp mất cân bằng.
-- **Precision** = TP / (TP + FP). Trong tất cả những thứ được dự đoán dương, có bao nhiêu thực sự dương? Sử dụng khi dương tính giả tốn kém (ví dụ, bộ lọc thư rác đánh dấu email thật là thư rác).
-- **Recall** (độ nhạy) = TP / (TP + FN). Trong tất cả trường hợp thực sự dương, chúng ta phát hiện bao nhiêu? Sử dụng khi âm tính giả tốn kém (ví dụ, sàng lọc ung thư bỏ sót một khối u).
-- **Điểm F1** = 2 * precision * recall / (precision + recall). Trung bình điều hòa của precision và recall. Cân bằng cả hai khi không chỉ số nào rõ ràng chi phối.
+- **Accuracy** = $(TP + TN) / (TP + TN + FP + FN)$. Tỉ lệ các dự đoán đúng. Gây hiểu lầm khi các lớp mất cân bằng.
+- **Precision** = $TP / (TP + FP)$. Trong tất cả những thứ được dự đoán dương, có bao nhiêu thực sự dương? Sử dụng khi dương tính giả tốn kém (ví dụ, bộ lọc thư rác đánh dấu email thật là thư rác).
+- **Recall** (độ nhạy) = $TP / (TP + FN)$. Trong tất cả trường hợp thực sự dương, chúng ta phát hiện bao nhiêu? Sử dụng khi âm tính giả tốn kém (ví dụ, sàng lọc ung thư bỏ sót một khối u).
+- **Điểm F1** = $2 \cdot \text{precision} \cdot \text{recall} / (\text{precision} + \text{recall})$. Trung bình điều hòa của precision và recall. Cân bằng cả hai khi không chỉ số nào rõ ràng chi phối.
 - **AUC-ROC**: Diện tích Dưới đường cong Đặc trưng Hoạt động của Bộ thu. Vẽ tỉ lệ dương tính thật theo tỉ lệ dương tính giả tại các ngưỡng phân loại khác nhau. AUC = 0.5 nghĩa là đoán ngẫu nhiên, AUC = 1.0 nghĩa là phân tách hoàn hảo. Độc lập với ngưỡng: nó đo mức độ mô hình xếp hạng các trường hợp dương cao hơn âm, bất kể điểm cắt bạn chọn.
 
 ### Regression Metrics
 
-- **MSE** (Sai số Bình phương Trung bình) = mean((y_true - y_pred)^2). Phạt các sai số lớn theo bậc hai. Nhạy với ngoại lệ.
-- **RMSE** (Căn Sai số Bình phương Trung bình) = sqrt(MSE). Cùng đơn vị với biến mục tiêu. Dễ diễn giải hơn MSE.
-- **MAE** (Sai số Tuyệt đối Trung bình) = mean(|y_true - y_pred|). Xử lý mọi sai số tuyến tính. Bền vững với ngoại lệ hơn MSE.
-- **R-bình phương** = 1 - SS_res / SS_tot, trong đó SS_res = sum((y_true - y_pred)^2) và SS_tot = sum((y_true - y_mean)^2). Phần phương sai được mô hình giải thích. R^2 = 1.0 là hoàn hảo. R^2 = 0.0 nghĩa là mô hình không tốt hơn việc luôn dự đoán trung bình. R^2 có thể âm nếu mô hình tệ hơn trung bình.
+- **MSE** (Sai số Bình phương Trung bình) = $\text{mean}((y_{\text{true}} - y_{\text{pred}})^2)$. Phạt các sai số lớn theo bậc hai. Nhạy với ngoại lệ.
+- **RMSE** (Căn Sai số Bình phương Trung bình) = $\sqrt{\text{MSE}}$. Cùng đơn vị với biến mục tiêu. Dễ diễn giải hơn MSE.
+- **MAE** (Sai số Tuyệt đối Trung bình) = $\text{mean}(\lvert y_{\text{true}} - y_{\text{pred}} \rvert)$. Xử lý mọi sai số tuyến tính. Bền vững với ngoại lệ hơn MSE.
+- **R-bình phương** = $1 - SS_{\text{res}} / SS_{\text{tot}}$, trong đó $SS_{\text{res}} = \sum (y_{\text{true}} - y_{\text{pred}})^2$ và $SS_{\text{tot}} = \sum (y_{\text{true}} - y_{\text{mean}})^2$. Phần phương sai được mô hình giải thích. $R^2 = 1.0$ là hoàn hảo. $R^2 = 0.0$ nghĩa là mô hình không tốt hơn việc luôn dự đoán trung bình. $R^2$ có thể âm nếu mô hình tệ hơn trung bình.
 
 ### Learning Curves
 
@@ -664,10 +664,10 @@ Bài học này tạo ra:
 |------|----------------|----------------------|
 | Overfitting (Khớp quá mức) | "Ghi nhớ dữ liệu huấn luyện" | Mô hình nắm bắt nhiễu trong dữ liệu huấn luyện, hoạt động tốt trên huấn luyện nhưng kém trên dữ liệu chưa thấy |
 | Cross-validation (Xác thực chéo) | "Kiểm tra trên các tập con khác nhau" | Luân phiên có hệ thống phần dữ liệu được dùng để xác thực, lấy trung bình kết quả trên tất cả lần luân phiên |
-| Precision | "Bao nhiêu dự đoán dương là đúng" | TP / (TP + FP): tỉ lệ các dự đoán dương thực sự là dương |
-| Recall | "Bao nhiêu trường hợp thực sự dương chúng ta tìm được" | TP / (TP + FN): tỉ lệ các trường hợp thực sự dương được nhận diện đúng |
+| Precision | "Bao nhiêu dự đoán dương là đúng" | $TP / (TP + FP)$: tỉ lệ các dự đoán dương thực sự là dương |
+| Recall | "Bao nhiêu trường hợp thực sự dương chúng ta tìm được" | $TP / (TP + FN)$: tỉ lệ các trường hợp thực sự dương được nhận diện đúng |
 | AUC-ROC | "Mô hình phân tách các lớp tốt đến mức nào" | Diện tích dưới đường cong tỉ lệ dương tính thật theo tỉ lệ dương tính giả trên tất cả ngưỡng, từ 0.5 (ngẫu nhiên) đến 1.0 (hoàn hảo) |
-| R-squared (R-bình phương) | "Bao nhiêu phương sai được giải thích" | 1 - (tổng bình phương phần dư / tổng bình phương toàn phần): phần phương sai mục tiêu được mô hình nắm bắt |
+| R-squared | "Bao nhiêu phương sai được giải thích" | $1 - (\text{sum of squared residuals} / \text{total sum of squares})$: tỷ phần phương sai mục tiêu được mô hình nắm giữ |
 | Data leakage (Rò rỉ dữ liệu) | "Mô hình gian lận" | Sử dụng thông tin trong huấn luyện mà không có ở thời điểm dự đoán, dẫn đến đánh giá lạc quan |
 | Learning curve (Đường cong học) | "Hiệu năng thay đổi thế nào khi có thêm dữ liệu" | Một đồ thị điểm huấn luyện và xác thực theo kích thước tập huấn luyện, bộc lộ khớp chưa đủ hoặc khớp quá mức |
 | Stratified split (Chia phân tầng) | "Giữ tỉ lệ lớp cân bằng" | Chia dữ liệu để mỗi tập con có cùng tỉ lệ mỗi lớp như toàn bộ tập dữ liệu |

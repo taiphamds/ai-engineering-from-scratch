@@ -80,8 +80,8 @@ Trên ngữ liệu Brown, baseline này đạt accuracy ~85%. Không tốt, như
 
 Mô hình hóa xác suất đồng thời của chuỗi:
 
-```
-P(tags, words) = prod P(tag_i | tag_{i-1}) * P(word_i | tag_i)
+```math
+P(\text{tags}, \text{words}) = \prod_i P(\text{tag}_i \mid \text{tag}_{i-1}) \cdot P(\text{word}_i \mid \text{tag}_i)
 ```
 
 Hai bảng: các xác suất chuyển tiếp (nhãn khi biết nhãn trước), các xác suất phát xạ (từ khi biết nhãn). Ước lượng cả hai từ các số đếm với làm trơn Laplace. Giải mã bằng Viterbi (quy hoạch động trên lưới nhãn).

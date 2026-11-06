@@ -39,7 +39,7 @@ Tokenizer là autoencoder biến phân lượng tử hóa vector. Kiến trúc:
 
 Huấn luyện: loss tái dựng VAE + loss cam kết + loss codebook. Chỉ số codebook tạo bảng chữ cái rời rạc cho ảnh.
 
-Với Chameleon: một ảnh thành 32*32 = 1024 token lấy từ từ vựng 8192. Nối với token văn bản (từ từ vựng BPE LLM, chẳng hạn 32000). Từ vựng cuối: 40192. Transformer thấy một chuỗi, một loss.
+Đối với Chameleon: một hình ảnh trở thành 32*32 = 1024 token được lấy từ một từ vựng 8192. Đặt các ID hình ảnh đó trong cùng không gian ID với các token BPE văn bản. Tokenizer duy nhất của Chameleon có 65,536 phần tử, và số lượng đó đã bao gồm 8192 mã hình ảnh và các token đặc biệt như các dấu phân cách hình ảnh. Transformer nhìn thấy một chuỗi, một loss.
 
 ### The shared vocabulary
 

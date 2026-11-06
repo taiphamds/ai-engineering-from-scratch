@@ -30,8 +30,8 @@ Bạn cần hiểu các lịch vì các mặc định sẽ không hoạt động
 
 Cách tiếp cận đơn giản nhất. Chọn một con số, sử dụng nó cho mọi bước.
 
-```
-lr(t) = lr_0
+```math
+\text{lr}(t) = \text{lr}_0
 ```
 
 Hiếm khi tối ưu. Nó hoặc quá cao cho cuối huấn luyện (dao động quanh cực tiểu) hoặc quá thấp cho ban đầu (lãng phí tính toán vào các bước rất nhỏ). Hoạt động ổn cho các mô hình nhỏ và gỡ lỗi. Một lựa chọn tệ cho bất cứ thứ gì huấn luyện hơn một giờ.
@@ -40,11 +40,11 @@ Hiếm khi tối ưu. Nó hoặc quá cao cho cuối huấn luyện (dao động
 
 Cách tiếp cận kiểu cũ từ thời ResNet. Giảm tốc độ học theo một hệ số (thường 10 lần) tại các epoch cố định.
 
-```
-lr(t) = lr_0 * gamma^(floor(epoch / step_size))
+```math
+\text{lr}(t) = \text{lr}_0 \cdot \gamma^{\lfloor \text{epoch} / \text{step\_size} \rfloor}
 ```
 
-Trong đó gamma = 0.1 và step_size = 30 nghĩa là: lr giảm 10 lần mỗi 30 epoch. ResNet-50 sử dụng cách này -- lr=0.1, giảm 10 lần tại các epoch 30, 60 và 90.
+Trong đó $\gamma = 0.1$ và step_size = 30 nghĩa là: lr giảm 10 lần mỗi 30 epoch. ResNet-50 sử dụng cách này -- lr=0.1, giảm 10 lần tại các epoch 30, 60 và 90.
 
 Vấn đề: các điểm suy giảm tối ưu phụ thuộc tập dữ liệu và kiến trúc. Chuyển sang một bài toán khác và bạn cần điều chỉnh lại khi nào giảm. Các chuyển tiếp đột ngột -- mất mát có thể tăng vọt khi tốc độ đột ngột thay đổi.
 
@@ -52,24 +52,24 @@ Vấn đề: các điểm suy giảm tối ưu phụ thuộc tập dữ liệu v
 
 Suy giảm trơn từ tốc độ học tối đa tới tối thiểu, theo một đường cong cosine:
 
+```math
+\text{lr}(t) = \text{lr}_{\min} + 0.5 \cdot (\text{lr}_{\max} - \text{lr}_{\min}) \cdot \left(1 + \cos\left(\frac{\pi t}{T}\right)\right)
 ```
-lr(t) = lr_min + 0.5 * (lr_max - lr_min) * (1 + cos(pi * t / T))
-```
 
-Trong đó t là bước hiện tại và T là tổng số bước.
+Trong đó $t$ là bước hiện tại và $T$ là tổng số bước.
 
-Tại t=0, số hạng cosine là 1, nên lr = lr_max. Tại t=T, số hạng cosine là -1, nên lr = lr_min. Suy giảm nhẹ lúc đầu, tăng tốc ở giữa và nhẹ trở lại gần cuối.
+Tại $t=0$, số hạng cosine là 1, nên $\text{lr} = \text{lr} _{\max}$. Tại $t=T$, số hạng cosine là -1, nên $\text{lr} = \text{lr} _{\min}$. Suy giảm nhẹ lúc đầu, tăng tốc ở giữa và nhẹ trở lại gần cuối.
 
-Đây là mặc định cho hầu hết các lần huấn luyện hiện đại. Không có siêu tham số cần điều chỉnh ngoài lr_max và lr_min. Hình dạng cosine khớp quan sát thực nghiệm rằng hầu hết việc học xảy ra ở giữa huấn luyện -- bạn muốn kích thước bước hợp lý trong giai đoạn then chốt đó.
+Đây là mặc định cho hầu hết các lần huấn luyện hiện đại. Không có siêu tham số cần điều chỉnh ngoài $\text{lr} _{\max}$ và $\text{lr} _{\min}$. Hình dạng cosine khớp quan sát thực nghiệm rằng hầu hết việc học xảy ra ở giữa huấn luyện -- bạn muốn kích thước bước hợp lý trong giai đoạn then chốt đó.
 
 ### Warmup: Why You Start Small
 
 Adam và các bộ tối ưu hóa thích nghi khác duy trì các ước lượng tích lũy của trung bình và phương sai gradient. Ở bước 0, các ước lượng này được khởi tạo bằng không. Vài cập nhật gradient đầu tiên dựa trên các thống kê vô giá trị. Nếu tốc độ học của bạn lớn trong giai đoạn này, mô hình thực hiện các bước khổng lồ, định hướng kém.
 
-Warmup khắc phục điều này. Bắt đầu với một tốc độ học rất nhỏ (thường lr_max / warmup_steps hoặc thậm chí không) và tăng tuyến tính tới lr_max trong N bước đầu. Khi bạn đạt tốc độ học đầy đủ, các thống kê của Adam đã ổn định.
+Warmup khắc phục điều này. Bắt đầu với một tốc độ học rất nhỏ (thường là lr_max / warmup_steps hoặc thậm chí bằng không) và tăng tuyến tính đến $\text{lr}_{\max}$ trong $N$ bước đầu tiên. Khi bạn đạt tốc độ học đầy đủ, các thống kê của Adam đã ổn định.
 
-```
-lr(t) = lr_max * (t / warmup_steps)     for t < warmup_steps
+```math
+\text{lr}(t) = \text{lr}_{\max} \cdot \frac{t}{\text{warmup\_steps}} \quad \text{for } t < \text{warmup\_steps}
 ```
 
 Warmup điển hình: 1-5% tổng số bước huấn luyện. Llama 3 huấn luyện trên ~1.8 nghìn tỷ token và warmup trong 2000 bước. GPT-3 warmup trên 375 triệu token.
@@ -398,13 +398,13 @@ Bài học này tạo ra:
 
 ## Exercises
 
-1. Triển khai suy giảm hàm mũ: lr(t) = lr_0 * gamma^t trong đó gamma = 0.999. So sánh với ủ cosine trên tập dữ liệu đường tròn.
+1. Triển khai suy giảm hàm mũ: $\text{lr}(t) = \text{lr}_0 \cdot \gamma^t$ trong đó $\gamma = 0.999$. So sánh với ủ cosine trên tập dữ liệu đường tròn.
 
 2. Triển khai phép kiểm tra phạm vi tốc độ học (Leslie Smith): huấn luyện vài trăm bước trong khi tăng LR theo hàm mũ từ 1e-7 tới 1. Vẽ mất mát theo LR. LR tối đa tối ưu nằm ngay trước khi mất mát bắt đầu tăng.
 
 3. Huấn luyện với warmup + cosine nhưng thay đổi độ dài warmup: 0%, 1%, 5%, 10%, 20% tổng số bước. Tìm điểm phù hợp nơi huấn luyện ổn định nhất.
 
-4. Triển khai ủ cosine với khởi động lại ấm (SGDR): đặt lại tốc độ học thành lr_max mỗi T bước và suy giảm lại. So sánh với cosine tiêu chuẩn trên một lần huấn luyện dài hơn.
+4. Triển khai ủ cosine với khởi động lại ấm (SGDR): đặt lại tốc độ học thành $\text{lr}_{\max}$ mỗi $T$ bước và suy giảm lại. So sánh với cosine tiêu chuẩn trên một lần huấn luyện dài hơn.
 
 5. Xây dựng một "bác sĩ phẫu thuật lịch" giám sát mất mát huấn luyện và tự động chuyển từ warmup sang cosine khi mất mát ổn định, và giảm lr nếu mất mát chững lại quá lâu.
 
@@ -414,12 +414,12 @@ Bài học này tạo ra:
 |------|----------------|----------------------|
 | Learning rate (Tốc độ học) | "Mô hình học nhanh đến mức nào" | Số vô hướng nhân với gradient để xác định kích thước cập nhật tham số |
 | Schedule (Lịch) | "Thay đổi LR theo thời gian" | Một hàm ánh xạ bước huấn luyện thành tốc độ học, được thiết kế để tối ưu hóa hội tụ |
-| Warmup | "Bắt đầu với LR nhỏ" | Tăng LR tuyến tính từ gần không tới giá trị mục tiêu trong N bước đầu để ổn định các thống kê bộ tối ưu hóa |
-| Cosine annealing (Ủ cosine) | "Suy giảm LR trơn" | Giảm LR theo một đường cong cosine từ lr_max tới lr_min trong huấn luyện |
+| Warmup | "Bắt đầu với LR nhỏ" | Tăng LR tuyến tính từ gần không tới giá trị mục tiêu trong $N$ bước đầu để ổn định các thống kê bộ tối ưu hóa |
+| Cosine annealing (Ủ cosine) | "Suy giảm LR trơn" | Giảm LR theo một đường cong cosine từ $\text{lr} _{\max}$ tới $\text{lr} _{\min}$ trong huấn luyện |
 | Step decay (Suy giảm bậc thang) | "Giảm LR tại các cột mốc" | Nhân LR với một hệ số (thường 0.1) tại các khoảng epoch cố định |
 | 1cycle policy (Chính sách 1cycle) | "Lên rồi xuống" | Phương pháp của Leslie Smith tăng LR rồi giảm trong một chu kỳ duy nhất để hội tụ nhanh hơn |
 | LR range test (Kiểm tra phạm vi LR) | "Tìm tốc độ học tốt nhất" | Huấn luyện ngắn trong khi tăng LR để tìm giá trị mà mất mát bắt đầu phân kỳ |
-| Cosine with warm restarts (Cosine với khởi động lại ấm) | "Đặt lại và lặp lại" | Định kỳ đặt lại LR thành lr_max và suy giảm lại (SGDR) |
+| Cosine with warm restarts (Cosine với khởi động lại ấm) | "Đặt lại và lặp lại" | Định kỳ đặt lại LR thành $\text{lr} _{\max}$ và suy giảm lại (SGDR) |
 | Eta min | "Mức sàn của LR" | Tốc độ học tối thiểu mà lịch suy giảm tới |
 | Peak learning rate (Tốc độ học đỉnh) | "LR tối đa" | LR cao nhất đạt được trong huấn luyện, thường sau warmup |
 

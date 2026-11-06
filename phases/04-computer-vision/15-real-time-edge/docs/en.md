@@ -1,6 +1,6 @@
 # Real-Time Vision — Edge Deployment
 
-> Suy luận biên là kỷ luật đưa một mô hình accuracy 90 chạy ở 30 fps trên thiết bị có 2 GB RAM. Mỗi điểm phần trăm accuracy được đánh đổi với mili giây độ trễ.
+> Suy luận biên là lĩnh vực làm cho một mô hình có độ chính xác 90% chạy ở 30 fps trên một thiết bị có 2 GB RAM. Mỗi điểm phần trăm độ chính xác được đánh đổi với mili giây độ trễ.
 
 **Type:** Learn + Build
 **Languages:** Python
@@ -41,7 +41,7 @@ flowchart LR
     style PWR fill:#dbeafe,stroke:#2563eb
 ```
 
-- **Độ trễ**: p50, p95, p99. Chỉ lấy trung bình p50 che giấu hành vi đuôi quan trọng với các hệ thống thời gian thực.
+- **Độ trễ**: p50, p95, p99. Chỉ báo cáo p50 (hoặc trung bình) che giấu hành vi ở đuôi có ý nghĩa đối với các hệ thống thời gian thực.
 - **Bộ nhớ đỉnh**: mức tối đa thiết bị từng thấy, không phải trung bình trạng thái ổn định. Quan trọng vì OOM gây chết trên các đích nhúng.
 - **Công suất / năng lượng**: mili joule mỗi suy luận trên thiết bị chạy pin. Thường được đại diện bằng mức sử dụng CPU/GPU * thời gian.
 

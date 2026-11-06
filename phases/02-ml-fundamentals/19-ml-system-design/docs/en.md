@@ -1,6 +1,6 @@
 # ML System Design — From Problem to Deployed Model
 
-> A model is one part of a system. The design decides what the model predicts, who acts on it, what it costs, and what happens when it fails.
+> Một mô hình là một phần của một hệ thống. Thiết kế quyết định mô hình dự đoán gì, ai hành động theo nó, chi phí của nó và điều gì xảy ra khi nó thất bại.
 
 **Type:** Build
 **Languages:** Python
@@ -9,64 +9,64 @@
 
 ## Learning Objectives
 
-- Frame a business problem as an ML task with a prediction, a decision that uses it, and a reason why rules are not enough
-- Separate offline, online, business, and guardrail metrics, and compare every model against trivial and heuristic baselines
-- Estimate the daily cost, latency, and staleness of batch and online inference from traffic numbers
-- Choose a rollout pattern (shadow, canary, A/B test) and a safe default for each failure mode
-- Identify feedback loops in which the model changes the data that trains its next version
-- Write an ML design document and score it against a fixed checklist
+- Định hình một vấn đề kinh doanh thành một tác vụ ML với một dự đoán, một quyết định sử dụng nó và một lý do vì sao quy tắc là chưa đủ
+- Tách các chỉ số ngoại tuyến, trực tuyến, kinh doanh và rào chắn, và so sánh mọi mô hình với các baseline tầm thường và heuristic
+- Ước tính chi phí hàng ngày, độ trễ và độ cũ của suy luận batch và trực tuyến từ các số lưu lượng
+- Chọn một mẫu rollout (shadow, canary, kiểm tra A/B) và một mặc định an toàn cho mỗi chế độ lỗi
+- Xác định các vòng lặp phản hồi trong đó mô hình thay đổi dữ liệu huấn luyện phiên bản tiếp theo của nó
+- Viết một tài liệu thiết kế ML và chấm điểm nó theo một checklist cố định
 
 ## The Problem
 
-A subscription company asks for "a churn model". A data scientist trains a gradient-boosted classifier and reports an AUC of 0.91. Three months later, nobody uses it.
+Một công ty thuê bao yêu cầu "một mô hình churn". Một nhà khoa học dữ liệu huấn luyện một bộ phân loại gradient-boosted và báo cáo AUC 0.91. Ba tháng sau, không ai sử dụng nó.
 
-The reasons have nothing to do with the algorithm. Nobody decided which action a score starts. The scores arrive once a week, but the retention team calls customers every day. The label came from a cancellations table that also stored the cancellation reason, so one feature contained the answer. Nobody compared the model with the rule the support team already used: call anyone idle for two weeks.
+Các lý do không liên quan gì đến thuật toán. Không ai quyết định một điểm số khởi động hành động nào. Các điểm số đến mỗi tuần một lần, nhưng nhóm giữ chân gọi khách hàng mỗi ngày. Nhãn đến từ một bảng hủy cũng lưu lý do hủy, nên một đặc trưng chứa câu trả lời. Không ai so sánh mô hình với quy tắc mà nhóm hỗ trợ đã sử dụng: gọi bất cứ ai không hoạt động trong hai tuần.
 
-Each of these failures happened before training started. They are design failures, and a one-page design document asks about each of them. This lesson teaches the decisions in that document. You build a toolkit that prices batch and online serving, compares a model with its baselines, and scores a design document against a checklist.
+Mỗi thất bại này xảy ra trước khi việc huấn luyện bắt đầu. Chúng là các thất bại thiết kế, và một tài liệu thiết kế một trang hỏi về từng điều đó. Bài học này dạy các quyết định trong tài liệu đó. Bạn xây dựng một bộ công cụ định giá phục vụ batch và trực tuyến, so sánh một mô hình với các baseline của nó và chấm điểm một tài liệu thiết kế theo một checklist.
 
 ## The Concept
 
 ### From a business goal to an ML task
 
-A business goal is not an ML task. You turn it into one with four questions:
+Một mục tiêu kinh doanh không phải một tác vụ ML. Bạn biến nó thành một tác vụ bằng bốn câu hỏi:
 
-1. What exactly does the model predict, and for which entity (user, payment, store, item)?
-2. Which decision uses the prediction, and who or what makes that decision?
-3. When is the prediction needed, and which data exists at that moment?
-4. How will you know that the decision got better?
+1. Chính xác mô hình dự đoán gì, và cho thực thể nào (người dùng, thanh toán, cửa hàng, mặt hàng)?
+2. Quyết định nào sử dụng dự đoán, và ai hoặc cái gì đưa ra quyết định đó?
+3. Khi nào cần dự đoán, và dữ liệu nào tồn tại ở thời điểm đó?
+4. Làm sao bạn biết quyết định đã tốt hơn?
 
-| Business goal | Prediction | Decision that uses it | ML task |
+| Mục tiêu kinh doanh | Dự đoán | Quyết định sử dụng nó | Tác vụ ML |
 |---|---|---|---|
-| Reduce churn | Probability that a user cancels in the next 30 days | Send a save offer to the top 5 percent each night | Binary classification |
-| Cut fraud losses | Probability that a payment is fraud | Approve, review, or block within 100 ms | Binary classification |
-| Keep shelves stocked | Units sold per store per day next week | Order quantity for each store | Forecasting |
-| Show relevant items | Relevance score for a (user, item) pair | Order of items in the feed | Ranking |
+| Giảm churn | Xác suất một người dùng hủy trong 30 ngày tới | Gửi một ưu đãi giữ chân đến 5 phần trăm cao nhất mỗi đêm | Phân loại nhị phân |
+| Cắt giảm tổn thất gian lận | Xác suất một khoản thanh toán là gian lận | Phê duyệt, xem xét hoặc chặn trong 100 ms | Phân loại nhị phân |
+| Giữ hàng trên kệ đầy đủ | Số đơn vị bán theo cửa hàng theo ngày trong tuần tới | Số lượng đặt hàng cho mỗi cửa hàng | Dự báo |
+| Hiển thị các mặt hàng liên quan | Điểm liên quan cho một cặp (người dùng, mặt hàng) | Thứ tự các mặt hàng trong feed | Xếp hạng |
 
-The second column needs the most care. "Predict churn" leaves the horizon, the entity, and the action open. "Predict whether this user cancels in the next 30 days, so that tonight's job can pick who gets an offer" fixes all three.
+Cột thứ hai cần cẩn trọng nhất. "Dự đoán churn" để chân trời, thực thể và hành động mở. "Dự đoán liệu người dùng này có hủy trong 30 ngày tới hay không, để tác vụ tối nay có thể chọn ai nhận một ưu đãi" cố định cả ba.
 
 ### When not to use ML
 
-Rule #1 in Google's Rules of Machine Learning says not to be afraid to launch a product without machine learning. Machine learning needs data, and a simple heuristic often gets you part of the way. Do not use ML in these cases:
+Quy tắc #1 trong Rules of Machine Learning của Google nói đừng sợ ra mắt một sản phẩm không có machine learning. Machine learning cần dữ liệu, và một heuristic đơn giản thường đưa bạn đi được một phần đường. Không sử dụng ML trong những trường hợp này:
 
-- A short rule reaches the goal and stays correct. A rule is cheaper to run, test, and explain.
-- You have no labels and no practical way to collect them.
-- Nobody acts on the prediction, so a better prediction changes nothing.
-- The data that exists at prediction time does not contain the signal.
-- One error is unacceptable and no person can check the output.
-- Building and running the system costs more than the better decisions are worth.
+- Một quy tắc ngắn đạt mục tiêu và vẫn đúng. Một quy tắc rẻ hơn để chạy, kiểm tra và giải thích.
+- Bạn không có nhãn và không có cách thực tế để thu thập chúng.
+- Không ai hành động theo dự đoán, nên một dự đoán tốt hơn không thay đổi gì.
+- Dữ liệu tồn tại lúc dự đoán không chứa tín hiệu.
+- Một lỗi là không thể chấp nhận và không ai có thể kiểm tra đầu ra.
+- Xây dựng và vận hành hệ thống tốn hơn giá trị của các quyết định tốt hơn.
 
-When a rule gets long and fragile, ML starts to pay off. Rule #3 of the same guide prefers ML over a complex heuristic, because a learned model is easier to update and maintain.
+Khi một quy tắc trở nên dài và mong manh, ML bắt đầu mang lại lợi ích. Quy tắc #3 của cùng hướng dẫn ưu tiên ML hơn một heuristic phức tạp, vì một mô hình được học dễ cập nhật và bảo trì hơn.
 
 ### Three layers of metrics
 
-You measure an ML system at three layers, plus a set of limits:
+Bạn đo một hệ thống ML ở ba tầng, cộng một tập các giới hạn:
 
-| Layer | When you can measure it | Churn example |
+| Tầng | Khi nào bạn có thể đo | Ví dụ churn |
 |---|---|---|
-| Offline metric | Before launch, on held-out past data | F1 at the offer threshold, precision in the top 5 percent |
-| Online metric | During launch, on live traffic | Offer acceptance rate, share of users scored, score distribution |
-| Business metric | Weeks after launch, with an experiment | 30-day churn rate in the treated group versus a holdout group |
-| Guardrail metric | All the time | Offer cost per saved user, unsubscribe rate, p99 latency |
+| Chỉ số ngoại tuyến | Trước ra mắt, trên dữ liệu quá khứ được giữ lại | F1 tại ngưỡng ưu đãi, precision trong 5 phần trăm cao nhất |
+| Chỉ số trực tuyến | Trong khi ra mắt, trên lưu lượng thực | Tỷ lệ chấp nhận ưu đãi, tỷ lệ người dùng được chấm điểm, phân phối điểm |
+| Chỉ số kinh doanh | Nhiều tuần sau ra mắt, với một thí nghiệm | Tỷ lệ churn 30 ngày trong nhóm được tác động so với nhóm giữ lại |
+| Chỉ số rào chắn | Mọi lúc | Chi phí ưu đãi trên mỗi người dùng giữ được, tỷ lệ hủy đăng ký, độ trễ p99 |
 
 ```mermaid
 flowchart LR
@@ -76,109 +76,109 @@ flowchart LR
     G -.-> C
 ```
 
-The layers often disagree. An offline metric scores past data, and the past did not contain your model. An online metric depends on how people react to the decision. A business metric moves slowly and carries noise from everything else in the company.
+Các tầng thường bất đồng. Một chỉ số ngoại tuyến chấm điểm dữ liệu quá khứ, và quá khứ không chứa mô hình của bạn. Một chỉ số trực tuyến phụ thuộc cách mọi người phản ứng với quyết định. Một chỉ số kinh doanh chuyển động chậm và mang nhiễu từ mọi thứ khác trong công ty.
 
-Pick the offline metric that matches the decision. If the job contacts the top 5 percent of users, measure precision in the top 5 percent. AUC averages over every threshold, including thresholds that you never use. Rule #2 of the same guide says to design and implement metrics first, before you decide what the ML system will do.
+Chọn chỉ số ngoại tuyến khớp với quyết định. Nếu tác vụ liên hệ 5 phần trăm người dùng cao nhất, đo precision trong 5 phần trăm cao nhất. AUC lấy trung bình trên mọi ngưỡng, bao gồm những ngưỡng bạn không bao giờ sử dụng. Quy tắc #2 của cùng hướng dẫn nói thiết kế và triển khai chỉ số trước, trước khi bạn quyết định hệ thống ML sẽ làm gì.
 
 ### Baselines
 
-A metric value means nothing alone. An F1 of 0.56 is good if the best alternative reaches 0.30 and poor if a rule reaches 0.60. Compare every model with three kinds of baseline:
+Một giá trị chỉ số không có ý nghĩa khi đứng một mình. F1 0.56 là tốt nếu phương án thay thế tốt nhất đạt 0.30 và kém nếu một quy tắc đạt 0.60. So sánh mọi mô hình với ba loại baseline:
 
-- **Trivial baseline.** Always predict the majority class, or always predict the training mean. We used this check in the model evaluation lesson.
-- **Heuristic baseline.** A rule from domain knowledge, or a one-feature threshold that you fit on the training data.
-- **Current system.** Whatever makes the decision today, even when it is a person with a spreadsheet.
+- **Baseline tầm thường.** Luôn dự đoán lớp đa số, hoặc luôn dự đoán trung bình huấn luyện. Chúng ta đã sử dụng kiểm tra này trong bài đánh giá mô hình.
+- **Baseline heuristic.** Một quy tắc từ kiến thức lĩnh vực, hoặc một ngưỡng một đặc trưng mà bạn khớp trên dữ liệu huấn luyện.
+- **Hệ thống hiện tại.** Bất cứ thứ gì đưa ra quyết định hôm nay, ngay cả khi đó là một người với một bảng tính.
 
-The lift is the model score minus the score of the strongest baseline. Set a minimum lift before you look at the results, and make it large enough to pay for the extra system. The trivial baseline is usually weak. The heuristic baseline is the hard one to beat.
+Mức tăng là điểm mô hình trừ điểm của baseline mạnh nhất. Đặt một mức tăng tối thiểu trước khi bạn xem kết quả, và làm nó đủ lớn để bù cho hệ thống bổ sung. Baseline tầm thường thường yếu. Baseline heuristic là cái khó đánh bại.
 
 ### Data and label requirements
 
-Answer these questions before you train:
+Trả lời những câu hỏi này trước khi bạn huấn luyện:
 
-- **Label source.** Which table or event defines the label, and who owns it?
-- **Label delay.** How long after the prediction does the true outcome arrive? Fraud chargebacks can arrive weeks after the payment. Churn labels arrive at the end of the 30-day horizon.
-- **Label quality.** Who assigns the label, and how often is it wrong?
-- **Availability at prediction time.** Does every feature exist at the moment of the prediction? A feature that the system writes after the outcome leaks the label into training.
-- **Volume per class.** How many positive examples exist? Two hundred positives limit you to simple models.
-- **Time split.** Hold out the most recent period. We split data by time in the time-series lesson for the same reason.
+- **Nguồn nhãn.** Bảng hoặc sự kiện nào xác định nhãn, và ai sở hữu nó?
+- **Độ trễ nhãn.** Bao lâu sau dự đoán thì kết quả thật đến? Các khoản chargeback gian lận có thể đến nhiều tuần sau thanh toán. Nhãn churn đến ở cuối chân trời 30 ngày.
+- **Chất lượng nhãn.** Ai gán nhãn, và nó sai thường xuyên đến mức nào?
+- **Tính sẵn có lúc dự đoán.** Mọi đặc trưng có tồn tại ở thời điểm dự đoán không? Một đặc trưng mà hệ thống ghi sau kết quả làm rò rỉ nhãn vào huấn luyện.
+- **Khối lượng theo lớp.** Có bao nhiêu ví dụ dương tính? Hai trăm dương tính giới hạn bạn ở các mô hình đơn giản.
+- **Chia theo thời gian.** Giữ lại giai đoạn gần nhất. Chúng ta đã chia dữ liệu theo thời gian trong bài chuỗi thời gian vì cùng lý do.
 
 ### Latency, throughput, and cost budgets
 
-Three numbers bound every serving design:
+Ba con số giới hạn mọi thiết kế phục vụ:
 
-- **Latency budget.** The p99 latency is the time that 99 of 100 requests stay under. A payment check can need 50 ms. A nightly report can take hours.
-- **Peak throughput.** Size the system for the busiest minute, not for the daily average. Peak QPS is often several times the average.
-- **Cost budget.** Express it as dollars per day or dollars per 1000 predictions, so that you can compare designs.
+- **Ngân sách độ trễ.** Độ trễ p99 là thời gian mà 99 trong 100 yêu cầu nằm dưới. Một kiểm tra thanh toán có thể cần 50 ms. Một báo cáo hàng đêm có thể mất hàng giờ.
+- **Throughput đỉnh.** Định kích thước hệ thống cho phút bận nhất, không phải trung bình hàng ngày. QPS đỉnh thường gấp nhiều lần trung bình.
+- **Ngân sách chi phí.** Biểu diễn nó bằng đô la mỗi ngày hoặc đô la trên 1000 dự đoán, để bạn có thể so sánh các thiết kế.
 
-Little's law connects the first two. The number of requests in progress equals throughput times latency. At 400 requests per second and 50 ms each, 20 requests are in progress at any moment.
+Định luật Little kết nối hai điều đầu. Số yêu cầu đang xử lý bằng throughput nhân độ trễ. Ở 400 yêu cầu mỗi giây và mỗi yêu cầu 50 ms, có 20 yêu cầu đang xử lý tại mọi thời điểm.
 
 ### Batch inference versus online inference
 
-There are two basic ways to serve predictions:
+Có hai cách cơ bản để phục vụ dự đoán:
 
-- **Batch inference.** A scheduled job scores every entity and writes the scores to a table or a key-value store. The application reads the stored score at request time.
-- **Online inference.** The application sends the features to a model service at request time and waits for the score.
+- **Suy luận batch.** Một tác vụ được lên lịch chấm điểm mọi thực thể và ghi điểm vào một bảng hoặc một kho key-value. Ứng dụng đọc điểm đã lưu lúc có yêu cầu.
+- **Suy luận trực tuyến.** Ứng dụng gửi các đặc trưng đến một dịch vụ mô hình lúc có yêu cầu và chờ điểm.
 
-| Property | Batch | Online |
+| Thuộc tính | Batch | Trực tuyến |
 |---|---|---|
-| Freshness | As old as the last run, plus the run time | Uses the data of the request |
-| Request latency | One key-value read, a few ms | Feature fetch plus model time |
-| Cost driver | Number of entities times runs per day | Replicas sized for peak QPS |
-| New entities | No score until the next run | Scored on the first request |
-| When it breaks | Old scores stay readable | Requests fail or time out |
+| Độ mới | Cũ bằng thời gian từ lần chạy gần nhất, cộng thời gian chạy | Sử dụng dữ liệu của yêu cầu |
+| Độ trễ yêu cầu | Một lần đọc key-value, vài ms | Tìm nạp đặc trưng cộng thời gian mô hình |
+| Yếu tố chi phối chi phí | Số thực thể nhân số lần chạy mỗi ngày | Các bản sao được định kích thước cho QPS đỉnh |
+| Thực thể mới | Không có điểm cho đến lần chạy tiếp theo | Được chấm điểm ở yêu cầu đầu tiên |
+| Khi nó hỏng | Điểm cũ vẫn đọc được | Yêu cầu thất bại hoặc hết thời gian |
 
-The toolkit in this lesson prices both. Batch cost grows with the number of entities and with the number of runs per day. A shorter staleness limit means more runs. Online cost grows with peak traffic, because you pay for idle replicas between peaks. A batch job that takes one hour cannot meet a staleness limit under one hour at any price.
+Bộ công cụ trong bài học này định giá cả hai. Chi phí batch tăng theo số thực thể và số lần chạy mỗi ngày. Một giới hạn độ cũ ngắn hơn nghĩa là nhiều lần chạy hơn. Chi phí trực tuyến tăng theo lưu lượng đỉnh, vì bạn trả cho các bản sao nhàn rỗi giữa các đỉnh. Một tác vụ batch mất một giờ không thể đáp ứng giới hạn độ cũ dưới một giờ ở bất kỳ mức giá nào.
 
-A hybrid design is common. A nightly batch job scores known users, and an online path scores new users and requests that need fresh data.
+Một thiết kế lai là phổ biến. Một tác vụ batch hàng đêm chấm điểm người dùng đã biết, và một đường trực tuyến chấm điểm người dùng mới cùng các yêu cầu cần dữ liệu mới.
 
 ### Deployment patterns
 
-A new model reaches users in stages:
+Một mô hình mới đến người dùng theo các giai đoạn:
 
-1. **Shadow.** The new model receives a copy of live traffic. The system logs its predictions and never uses them. You compare latency, error rate, and prediction distribution with the current model.
-2. **Canary.** The new model makes real decisions for a small share of traffic, often 1 to 5 percent. You widen the share in steps and roll back when a guardrail breaks.
-3. **A/B test.** A random split of users sees each model. You measure the business metric with a statistical test, and you need enough traffic and enough time to see the difference.
+1. **Shadow.** Mô hình mới nhận một bản sao lưu lượng thực. Hệ thống ghi nhật ký các dự đoán của nó và không bao giờ sử dụng chúng. Bạn so sánh độ trễ, tỷ lệ lỗi và phân phối dự đoán với mô hình hiện tại.
+2. **Canary.** Mô hình mới đưa ra các quyết định thực cho một tỷ lệ lưu lượng nhỏ, thường 1 đến 5 phần trăm. Bạn mở rộng tỷ lệ theo các bước và rollback khi một rào chắn bị phá vỡ.
+3. **Kiểm tra A/B.** Một phép chia người dùng ngẫu nhiên thấy mỗi mô hình. Bạn đo chỉ số kinh doanh bằng một kiểm định thống kê, và bạn cần đủ lưu lượng cùng đủ thời gian để thấy khác biệt.
 
-Every stage needs a rollback that takes minutes. Keep the old model version deployed and switch traffic with configuration. The LLM serving phase covers the same three patterns for language models in the [shadow and canary lesson](../../../17-infrastructure-and-production/20-shadow-canary-progressive/docs/en.md) and the [A/B testing lesson](../../../17-infrastructure-and-production/21-ab-testing-llm-features/docs/en.md).
+Mọi giai đoạn cần một rollback mất vài phút. Giữ phiên bản mô hình cũ được triển khai và chuyển lưu lượng bằng cấu hình. Giai đoạn phục vụ LLM bao quát cùng ba mẫu cho mô hình ngôn ngữ trong [bài shadow và canary](../../../17-infrastructure-and-production/20-shadow-canary-progressive/docs/en.md) và [bài kiểm tra A/B](../../../17-infrastructure-and-production/21-ab-testing-llm-features/docs/en.md).
 
 ### Feedback loops
 
-A feedback loop exists when the model's decisions change the data that trains its next version. Sculley et al. list direct and hidden feedback loops among the main sources of technical debt in ML systems. Three common cases:
+Một vòng lặp phản hồi tồn tại khi các quyết định của mô hình thay đổi dữ liệu huấn luyện phiên bản tiếp theo của nó. Sculley và cộng sự liệt kê các vòng lặp phản hồi trực tiếp và ẩn trong số các nguồn nợ kỹ thuật chính trong các hệ thống ML. Ba trường hợp phổ biến:
 
-- **Interventions hide the label.** A churn model sends offers, and the offers keep some users. Next month, high-risk users look loyal, and the retrained model learns that their features do not predict churn.
-- **Blocked actions have no outcome.** A fraud model blocks a payment, so that payment never gets a chargeback label. Retrained models see fewer fraud examples from the blocked region.
-- **Exposure limits feedback.** A ranking model shows its top items, so only those items collect clicks.
+- **Các can thiệp che giấu nhãn.** Một mô hình churn gửi ưu đãi, và các ưu đãi giữ lại một số người dùng. Tháng sau, những người dùng rủi ro cao trông trung thành, và mô hình được huấn luyện lại học rằng các đặc trưng của họ không dự đoán churn.
+- **Các hành động bị chặn không có kết quả.** Một mô hình gian lận chặn một khoản thanh toán, nên khoản thanh toán đó không bao giờ có nhãn chargeback. Các mô hình được huấn luyện lại thấy ít ví dụ gian lận hơn từ vùng bị chặn.
+- **Việc hiển thị giới hạn phản hồi.** Một mô hình xếp hạng hiển thị các mặt hàng hàng đầu của nó, nên chỉ những mặt hàng đó thu thập lượt nhấp.
 
-The fixes share one idea: keep some data that the model did not influence. Hold out a small random group that never gets the intervention. Give a small share of traffic a random decision. Log the score and the decision with each example, so that later training can tell influenced data from clean data.
+Các cách sửa chia sẻ một ý tưởng: giữ một số dữ liệu mà mô hình không ảnh hưởng. Giữ lại một nhóm ngẫu nhiên nhỏ không bao giờ nhận can thiệp. Cho một tỷ lệ lưu lượng nhỏ một quyết định ngẫu nhiên. Ghi nhật ký điểm và quyết định với mỗi ví dụ, để huấn luyện sau này có thể phân biệt dữ liệu bị ảnh hưởng với dữ liệu sạch.
 
 ### Failure modes and safe defaults
 
-Every part of the system fails sooner or later. Decide the default action for each failure in the design, not during the incident:
+Mọi phần của hệ thống sớm muộn cũng thất bại. Quyết định hành động mặc định cho mỗi lỗi trong thiết kế, không phải trong sự cố:
 
-| Failure | Result without a plan | Safe default |
+| Lỗi | Kết quả khi không có kế hoạch | Mặc định an toàn |
 |---|---|---|
-| Model service times out | The request fails | Use the heuristic baseline |
-| Nightly batch job fails | Scores go missing or get old | Serve the last good scores for a fixed time, then the rule |
-| Feature is missing or out of range | The model scores bad input | Use the documented default value and log the event |
-| New entity with no history | No score exists | Use the rule or the population average |
-| Score distribution moves suddenly | Wrong decisions at scale | Pause automatic actions and alert a person |
+| Dịch vụ mô hình hết thời gian | Yêu cầu thất bại | Sử dụng baseline heuristic |
+| Tác vụ batch hàng đêm thất bại | Điểm bị thiếu hoặc trở nên cũ | Phục vụ các điểm tốt gần nhất trong một thời gian cố định, rồi quy tắc |
+| Đặc trưng thiếu hoặc ngoài phạm vi | Mô hình chấm điểm đầu vào xấu | Sử dụng giá trị mặc định được ghi tài liệu và ghi nhật ký sự kiện |
+| Thực thể mới không có lịch sử | Không có điểm | Sử dụng quy tắc hoặc trung bình tổng thể |
+| Phân phối điểm thay đổi đột ngột | Các quyết định sai ở quy mô lớn | Tạm dừng các hành động tự động và cảnh báo một người |
 
-The heuristic baseline from your metric section is also the default for most failures, so build it first.
+Baseline heuristic từ phần chỉ số của bạn cũng là mặc định cho hầu hết các lỗi, nên xây dựng nó trước.
 
 ### The design document
 
-The design document records every decision above in one place, before training starts. The checker in this lesson scores a JSON version of it. Six items block a review, because each one makes the system unsafe or useless:
+Tài liệu thiết kế ghi lại mọi quyết định ở trên vào một nơi, trước khi việc huấn luyện bắt đầu. Bộ kiểm tra trong bài học này chấm điểm một phiên bản JSON của nó. Sáu mục chặn một lần xem xét, vì mỗi mục làm hệ thống không an toàn hoặc vô dụng:
 
-| Section | Question it answers | Blocking |
+| Phần | Câu hỏi nó trả lời | Chặn |
 |---|---|---|
-| Problem | What is predicted, which decision uses it, and why rules are not enough? | The decision |
-| Metrics | Which offline, online, business, and guardrail metrics apply? | The business metric |
-| Baselines | Which trivial, heuristic, and current-system baselines apply? | A heuristic or current baseline |
-| Data | Where do labels come from, how late, and does each feature exist at prediction time? | No leakage |
-| Budgets and serving | Which latency, peak QPS, cost, and staleness limits apply, and which serving mode fits them? | No |
-| Rollout | Which shadow, canary, and A/B stages apply, and how do you roll back? | Shadow or canary, plus rollback |
-| Feedback loops | How can the model change its own future data, and what keeps clean data? | No |
-| Failure modes | What is the default action for each failure? | A default for every failure |
-| Monitoring | What do you watch after launch? | No |
+| Vấn đề | Dự đoán gì, quyết định nào sử dụng nó và vì sao quy tắc chưa đủ? | Quyết định |
+| Chỉ số | Các chỉ số ngoại tuyến, trực tuyến, kinh doanh và rào chắn nào áp dụng? | Chỉ số kinh doanh |
+| Baseline | Các baseline tầm thường, heuristic và hệ thống hiện tại nào áp dụng? | Một baseline heuristic hoặc hiện tại |
+| Dữ liệu | Nhãn đến từ đâu, muộn bao lâu và mỗi đặc trưng có tồn tại lúc dự đoán không? | Không rò rỉ |
+| Ngân sách và phục vụ | Các giới hạn độ trễ, QPS đỉnh, chi phí và độ cũ nào áp dụng, và chế độ phục vụ nào khớp với chúng? | Không |
+| Rollout | Các giai đoạn shadow, canary và A/B nào áp dụng, và bạn rollback thế nào? | Shadow hoặc canary, cộng rollback |
+| Vòng lặp phản hồi | Mô hình có thể thay đổi dữ liệu tương lai của chính nó thế nào, và điều gì giữ dữ liệu sạch? | Không |
+| Chế độ lỗi | Hành động mặc định cho mỗi lỗi là gì? | Một mặc định cho mọi lỗi |
+| Giám sát | Bạn theo dõi gì sau khi ra mắt? | Không |
 
 ```figure
 mlprod-serving-cost
@@ -186,11 +186,11 @@ mlprod-serving-cost
 
 ## Build It
 
-The code in `code/main.py` uses only the standard library. It has three tools: a serving cost model, a baseline comparator, and a design-document checker.
+Mã trong `code/main.py` chỉ sử dụng thư viện chuẩn. Nó có ba công cụ: một mô hình chi phí phục vụ, một bộ so sánh baseline và một bộ kiểm tra tài liệu thiết kế.
 
 ### Step 1: Describe the workload and the prices
 
-A workload holds the traffic numbers and the budgets. A cost model holds the prices. The prices are round numbers for the exercise, not vendor quotes.
+Một workload chứa các số lưu lượng và ngân sách. Một mô hình chi phí chứa giá. Các mức giá là số tròn cho bài tập, không phải báo giá nhà cung cấp.
 
 ```python
 @dataclass(frozen=True)
@@ -217,7 +217,7 @@ class CostModel:
 
 ### Step 2: Price batch and online serving
 
-A batch job must finish inside the staleness limit. The time between runs is the limit minus the job time. Each run scores every entity, whether or not anyone asks for that score.
+Một tác vụ batch phải hoàn thành trong giới hạn độ cũ. Thời gian giữa các lần chạy là giới hạn trừ thời gian tác vụ. Mỗi lần chạy chấm điểm mọi thực thể, dù có ai yêu cầu điểm đó hay không.
 
 ```python
 def batch_plan(workload: Workload, costs: CostModel) -> ServingPlan:
@@ -236,7 +236,7 @@ def batch_plan(workload: Workload, costs: CostModel) -> ServingPlan:
     ...
 ```
 
-Online serving pays for enough replicas to handle the peak, with a minimum of two for availability:
+Phục vụ trực tuyến trả cho đủ bản sao để xử lý đỉnh, với tối thiểu hai để có tính sẵn sàng:
 
 ```python
 def online_plan(workload: Workload, costs: CostModel) -> ServingPlan:
@@ -246,11 +246,11 @@ def online_plan(workload: Workload, costs: CostModel) -> ServingPlan:
     ...
 ```
 
-`choose_serving` keeps the plans that meet the latency and staleness limits and returns the cheapest one. It returns `None` when no plan fits, which tells you to change the budgets.
+`choose_serving` giữ các kế hoạch đáp ứng giới hạn độ trễ và độ cũ và trả về kế hoạch rẻ nhất. Nó trả về `None` khi không kế hoạch nào phù hợp, cho bạn biết cần thay đổi ngân sách.
 
 ### Step 3: Compare a model with its baselines
 
-The comparator scores the model and every baseline with the same metric. It measures the lift against the strongest baseline, not the weakest.
+Bộ so sánh chấm điểm mô hình và mọi baseline bằng cùng chỉ số. Nó đo mức tăng so với baseline mạnh nhất, không phải yếu nhất.
 
 ```python
 def compare_to_baselines(
@@ -272,11 +272,11 @@ def compare_to_baselines(
     return BaselineReport(metric_name, {"model": model_score, **scores}, best_name, lift, min_lift)
 ```
 
-The heuristic baseline is a one-feature rule. `fit_rule` tries each value of the feature as a threshold on the training data and keeps the threshold with the best F1. The demo trains a small logistic regression on synthetic churn data and compares it with three baselines.
+Baseline heuristic là một quy tắc một đặc trưng. `fit_rule` thử mỗi giá trị của đặc trưng làm một ngưỡng trên dữ liệu huấn luyện và giữ ngưỡng có F1 tốt nhất. Demo huấn luyện một logistic regression nhỏ trên dữ liệu churn tổng hợp và so sánh nó với ba baseline.
 
 ### Step 4: Score a design document
 
-Each checklist item has a key, a weight, a blocking flag, a message, and a check function. A blocking item has weight 2.
+Mỗi mục checklist có một khóa, một trọng số, một cờ chặn, một thông báo và một hàm kiểm tra. Một mục chặn có trọng số 2.
 
 ```python
 CheckItem("decision", 2, True, "name the action that uses each prediction", lambda d: _text(d, "problem.decision")),
@@ -287,9 +287,9 @@ CheckItem("serving_fit", 1, False, "pick a serving mode that meets the staleness
           check_serving_fit),
 ```
 
-`check_serving_fit` reuses the cost model. It reads the workload numbers from the document and prices the chosen mode. The check fails when that mode misses the staleness limit, the latency budget, or the daily cost budget. A document that says "batch" with a three-minute staleness limit fails this check. The cost model has no hybrid plan, so a document that says "hybrid" fails this check until you add that plan in Exercise 1.
+`check_serving_fit` tái sử dụng mô hình chi phí. Nó đọc các số workload từ tài liệu và định giá chế độ được chọn. Kiểm tra thất bại khi chế độ đó không đạt giới hạn độ cũ, ngân sách độ trễ hoặc ngân sách chi phí hàng ngày. Một tài liệu nói "batch" với giới hạn độ cũ ba phút thất bại kiểm tra này. Mô hình chi phí không có kế hoạch lai, nên một tài liệu nói "hybrid" thất bại kiểm tra này cho đến khi bạn thêm kế hoạch đó trong Bài tập 1.
 
-`review_design_doc` adds the weights of the passed items and divides by the total. The verdict is "ready for review" only when the score reaches 0.85 and no blocking item fails.
+`review_design_doc` cộng trọng số các mục qua và chia cho tổng. Phán quyết chỉ là "sẵn sàng để xem xét" khi điểm đạt 0.85 và không có mục chặn nào thất bại.
 
 ### Step 5: Run it
 
@@ -316,9 +316,9 @@ feed ranking, 2-hour freshness
   model beats the strongest baseline (days_idle > 12.8688) by +0.064
 ```
 
-The majority baseline scores 0 on F1, because it never predicts churn. The fitted rule is the real competitor. The model beats it by 0.064, so the model earns its place. With weaker features the rule can win, and then the rule is the right system to deploy.
+Baseline đa số đạt 0 trên F1, vì nó không bao giờ dự đoán churn. Quy tắc được khớp là đối thủ thực sự. Mô hình đánh bại nó 0.064, nên mô hình xứng đáng có vị trí. Với các đặc trưng yếu hơn, quy tắc có thể thắng, và khi đó quy tắc là hệ thống đúng để triển khai.
 
-The design-document review prints the weak document with six blocking items and the complete document with a score of 1.00. Pass a path to review your own document:
+Xem xét tài liệu thiết kế in tài liệu yếu với sáu mục chặn và tài liệu đầy đủ với điểm 1.00. Truyền một đường dẫn để xem xét tài liệu của riêng bạn:
 
 ```bash
 python3 code/main.py my_design_doc.json
@@ -326,9 +326,9 @@ python3 code/main.py my_design_doc.json
 
 ## Use It
 
-Each part of the toolkit maps to tools that teams use in production.
+Mỗi phần của bộ công cụ ánh xạ đến các công cụ mà các nhóm sử dụng trong production.
 
-**Baselines.** scikit-learn provides the trivial baselines as estimators, so they fit into the same pipeline as the model:
+**Baseline.** scikit-learn cung cấp các baseline tầm thường dưới dạng estimator, nên chúng khớp vào cùng pipeline với mô hình:
 
 ```python
 from sklearn.dummy import DummyClassifier, DummyRegressor
@@ -341,49 +341,49 @@ mean_value = DummyRegressor(strategy="mean").fit(X_train, y_reg_train)
 print(f1_score(y_test, majority.predict(X_test)))
 ```
 
-`most_frequent` matches `majority_baseline`, and `stratified` matches `base_rate_baseline`. scikit-learn has no heuristic baseline, because the heuristic comes from your domain.
+`most_frequent` khớp với `majority_baseline`, và `stratified` khớp với `base_rate_baseline`. scikit-learn không có baseline heuristic, vì heuristic đến từ lĩnh vực của bạn.
 
-**Batch serving.** A workflow scheduler such as Apache Airflow or Dagster runs the scoring job. The job writes scores to a warehouse table or to a key-value store such as Redis or DynamoDB.
+**Phục vụ batch.** Một workflow scheduler như Apache Airflow hoặc Dagster chạy tác vụ chấm điểm. Tác vụ ghi điểm vào một bảng kho dữ liệu hoặc một kho key-value như Redis hoặc DynamoDB.
 
-**Online serving.** Model servers such as KServe, BentoML, NVIDIA Triton, and TorchServe wrap a model behind an HTTP or gRPC endpoint. A plain web service with a loaded model also works for small models.
+**Phục vụ trực tuyến.** Các model server như KServe, BentoML, NVIDIA Triton và TorchServe bọc một mô hình đằng sau một endpoint HTTP hoặc gRPC. Một dịch vụ web thông thường với một mô hình đã tải cũng hoạt động cho các mô hình nhỏ.
 
-**Rollouts.** Kubernetes tools such as Argo Rollouts split traffic for canary releases. Experiment platforms such as GrowthBook and Statsig assign users to A/B groups and compute the statistics.
+**Rollout.** Các công cụ Kubernetes như Argo Rollouts chia lưu lượng cho các bản phát hành canary. Các nền tảng thí nghiệm như GrowthBook và Statsig gán người dùng vào các nhóm A/B và tính các thống kê.
 
-**Design review.** Breck et al. published the ML Test Score, a rubric of 28 tests and monitoring needs for production ML systems. Our checker is smaller. It asks the design questions that come before those tests.
+**Xem xét thiết kế.** Breck và cộng sự công bố ML Test Score, một thang tiêu chí gồm 28 bài kiểm tra và nhu cầu giám sát cho các hệ thống ML production. Bộ kiểm tra của chúng ta nhỏ hơn. Nó hỏi các câu hỏi thiết kế đến trước những bài kiểm tra đó.
 
 ## Ship It
 
-This lesson produces `outputs/skill-ml-design-review.md`. The skill reviews an ML design document section by section and names the blocking gaps first. It also checks the serving choice with the batch and online cost arithmetic from this lesson.
+Bài học này tạo ra `outputs/skill-ml-design-review.md`. Skill xem xét một tài liệu thiết kế ML từng phần và nêu tên các khoảng trống chặn trước. Nó cũng kiểm tra lựa chọn phục vụ bằng phép tính chi phí batch và trực tuyến từ bài học này.
 
 ## Exercises
 
-1. Add a hybrid plan to `choose_serving`. Score known users in batch and new users online. Compare its daily cost.
-2. Change the churn data until the model no longer beats the rule. Report the smallest coefficient change that removes the lift.
-3. Add a `budgets.max_dollars_per_1k_predictions` item to the checklist. Write a test that fails without it.
-4. Write a JSON design document for a payment fraud check. Run the checker and fix every blocking item.
-5. Simulate the churn feedback loop. Remove the labels of users who got an offer, retrain, and measure the change in F1.
+1. Thêm một kế hoạch lai vào `choose_serving`. Chấm điểm người dùng đã biết trong batch và người dùng mới trực tuyến. So sánh chi phí hàng ngày của nó.
+2. Thay đổi dữ liệu churn cho đến khi mô hình không còn đánh bại quy tắc. Báo cáo thay đổi hệ số nhỏ nhất loại bỏ mức tăng.
+3. Thêm một mục `budgets.max_dollars_per_1k_predictions` vào checklist. Viết một bài kiểm tra thất bại khi thiếu nó.
+4. Viết một tài liệu thiết kế JSON cho một kiểm tra gian lận thanh toán. Chạy bộ kiểm tra và sửa mọi mục chặn.
+5. Mô phỏng vòng lặp phản hồi churn. Loại các nhãn của người dùng đã nhận ưu đãi, huấn luyện lại và đo thay đổi F1.
 
 ## Key Terms
 
-| Term | What people say | What it means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa |
 |------|----------------|----------------------|
-| ML task | "Build a churn model" | A prediction target, an entity, a horizon, and the decision that uses the prediction |
-| Offline metric | "The model score" | A metric computed on held-out past data before launch |
-| Online metric | "Live numbers" | A metric measured on real traffic while the model runs |
-| Business metric | "The goal" | The company outcome that the decision must change, measured with an experiment |
-| Guardrail metric | "Do no harm" | A metric that must not get worse when the new model launches |
-| Baseline | "The dumb model" | A trivial, heuristic, or current-system predictor that the model must beat by a set margin |
-| Batch inference | "Precomputed scores" | A scheduled job scores every entity and stores the results for lookup |
-| Online inference | "Real-time model" | The model scores each request when it arrives |
-| Shadow deployment | "Dark launch" | The new model scores live traffic, and nobody uses its output |
-| Canary release | "Slow rollout" | The new model decides for a small, growing share of traffic, with a rollback ready |
-| Feedback loop | "The model trains itself" | The model's decisions change the data that trains its next version |
+| ML task — Tác vụ ML | "Xây dựng một mô hình churn" | Một mục tiêu dự đoán, một thực thể, một chân trời và quyết định sử dụng dự đoán |
+| Offline metric — Chỉ số ngoại tuyến | "Điểm mô hình" | Một chỉ số được tính trên dữ liệu quá khứ giữ lại trước khi ra mắt |
+| Online metric — Chỉ số trực tuyến | "Các số liệu thực" | Một chỉ số được đo trên lưu lượng thực trong khi mô hình chạy |
+| Business metric — Chỉ số kinh doanh | "Mục tiêu" | Kết quả công ty mà quyết định phải thay đổi, được đo bằng một thí nghiệm |
+| Guardrail metric — Chỉ số rào chắn | "Không gây hại" | Một chỉ số không được xấu đi khi mô hình mới ra mắt |
+| Baseline — Đường cơ sở | "Mô hình ngốc" | Một bộ dự đoán tầm thường, heuristic hoặc hệ thống hiện tại mà mô hình phải đánh bại với một biên đặt trước |
+| Batch inference — Suy luận batch | "Điểm được tính trước" | Một tác vụ được lên lịch chấm điểm mọi thực thể và lưu kết quả để tra cứu |
+| Online inference — Suy luận trực tuyến | "Mô hình thời gian thực" | Mô hình chấm điểm mỗi yêu cầu khi nó đến |
+| Shadow deployment — Triển khai shadow | "Ra mắt tối" | Mô hình mới chấm điểm lưu lượng thực, và không ai sử dụng đầu ra của nó |
+| Canary release — Phát hành canary | "Rollout chậm" | Mô hình mới quyết định cho một tỷ lệ lưu lượng nhỏ, tăng dần, với rollback sẵn sàng |
+| Feedback loop — Vòng lặp phản hồi | "Mô hình tự huấn luyện" | Các quyết định của mô hình thay đổi dữ liệu huấn luyện phiên bản tiếp theo của nó |
 
 ## Further Reading
 
-- [Sculley et al., Hidden Technical Debt in Machine Learning Systems (NeurIPS 2015)](https://papers.nips.cc/paper/2015/hash/86df7dcfd896fcaf2674f757a2463eba-Abstract.html): feedback loops, entanglement, and the system costs around a model
-- [Google, Rules of Machine Learning](https://developers.google.com/machine-learning/guides/rules-of-ml): practical rules for the first model, metrics, and training-serving consistency
-- [Breck et al., The ML Test Score (IEEE Big Data 2017)](https://research.google/pubs/the-ml-test-score-a-rubric-for-ml-production-readiness-and-technical-debt-reduction/): 28 tests that measure production readiness
-- [Kohavi, Tang, and Xu, Trustworthy Online Controlled Experiments (Cambridge University Press, 2020)](https://experimentguide.com/): how to run A/B tests that give correct answers
-- [Sato, Wider, and Windheuser, Continuous Delivery for Machine Learning (2019)](https://martinfowler.com/articles/cd4ml.html): versioned data, models, and deployment pipelines
-- [Google Cloud, MLOps: Continuous delivery and automation pipelines in machine learning](https://cloud.google.com/architecture/mlops-continuous-delivery-and-automation-pipelines-in-machine-learning): three maturity levels for training and serving automation
+- [Sculley et al., Hidden Technical Debt in Machine Learning Systems (NeurIPS 2015)](https://papers.nips.cc/paper/2015/hash/86df7dcfd896fcaf2674f757a2463eba-Abstract.html): vòng lặp phản hồi, sự đan xen và các chi phí hệ thống xung quanh một mô hình
+- [Google, Rules of Machine Learning](https://developers.google.com/machine-learning/guides/rules-of-ml): các quy tắc thực tế cho mô hình đầu tiên, chỉ số và tính nhất quán huấn luyện-phục vụ
+- [Breck et al., The ML Test Score (IEEE Big Data 2017)](https://research.google/pubs/the-ml-test-score-a-rubric-for-ml-production-readiness-and-technical-debt-reduction/): 28 bài kiểm tra đo sự sẵn sàng production
+- [Kohavi, Tang, and Xu, Trustworthy Online Controlled Experiments (Cambridge University Press, 2020)](https://experimentguide.com/): cách chạy các kiểm tra A/B cho câu trả lời đúng
+- [Sato, Wider, and Windheuser, Continuous Delivery for Machine Learning (2019)](https://martinfowler.com/articles/cd4ml.html): dữ liệu, mô hình và pipeline triển khai được quản lý phiên bản
+- [Google Cloud, MLOps: Continuous delivery and automation pipelines in machine learning](https://cloud.google.com/architecture/mlops-continuous-delivery-and-automation-pipelines-in-machine-learning): ba mức trưởng thành cho tự động hóa huấn luyện và phục vụ

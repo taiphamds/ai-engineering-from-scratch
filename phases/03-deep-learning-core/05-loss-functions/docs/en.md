@@ -30,8 +30,8 @@ Mọi chuyện còn tệ hơn. Trong học tự giám sát, bạn thậm chí kh
 
 Mặc định cho hồi quy. Tính bình phương chênh lệch giữa dự đoán và mục tiêu, lấy trung bình trên tất cả các mẫu.
 
-```
-MSE = (1/n) * sum((y_pred - y_true)^2)
+```math
+\text{MSE} = \frac{1}{n} \sum (y_{\text{pred}} - y_{\text{true}})^2
 ```
 
 Tại sao bình phương quan trọng: nó phạt các sai số lớn theo bậc hai. Một sai số 2 tốn gấp 4 lần một sai số 1. Một sai số 10 tốn gấp 100 lần. Điều này khiến MSE nhạy với các ngoại lệ -- một dự đoán sai lệch rất lớn duy nhất chi phối mất mát.
@@ -40,8 +40,8 @@ Các con số thực tế: nếu mô hình của bạn dự đoán giá nhà và
 
 Gradient của MSE theo một dự đoán là:
 
-```
-dMSE/dy_pred = (2/n) * (y_pred - y_true)
+```math
+\frac{\partial \text{MSE}}{\partial y_{\text{pred}}} = \frac{2}{n} (y_{\text{pred}} - y_{\text{true}})
 ```
 
 Tuyến tính theo sai số. Các sai số lớn hơn nhận các gradient lớn hơn. Đây là một đặc tính tốt cho hồi quy (các sai số lớn cần các điều chỉnh lớn) và một lỗi cho phân loại (bạn muốn phạt các câu trả lời sai tự tin theo cấp số nhân, không phải tuyến tính).
@@ -52,31 +52,31 @@ Hàm mất mát cho phân loại. Bắt nguồn từ lý thuyết thông tin -- 
 
 **Cross-Entropy Nhị phân (BCE):**
 
-```
-BCE = -(y * log(p) + (1 - y) * log(1 - p))
+```math
+\text{BCE} = -\left(y \log(p) + (1 - y) \log(1 - p)\right)
 ```
 
-Trong đó y là nhãn thật (0 hoặc 1) và p là xác suất dự đoán.
+Trong đó $y$ là nhãn thật (0 hoặc 1) và $p$ là xác suất dự đoán.
 
-Tại sao -log(p) hoạt động: khi nhãn thật là 1 và bạn dự đoán p = 0.99, mất mát là -log(0.99) = 0.01. Khi bạn dự đoán p = 0.01, mất mát là -log(0.01) = 4.6. Khác biệt gấp 460 lần đó là lý do cross-entropy hoạt động. Nó trừng phạt nặng các dự đoán sai tự tin trong khi hầu như không phạt các dự đoán đúng tự tin.
+Tại sao $-\log(p)$ hoạt động: khi nhãn thật là 1 và bạn dự đoán $p = 0.99$, mất mát là $-\log(0.99) = 0.01$. Khi bạn dự đoán $p = 0.01$, mất mát là $-\log(0.01) = 4.6$. Khác biệt gấp 460 lần đó là lý do cross-entropy hoạt động. Nó trừng phạt nặng các dự đoán sai tự tin trong khi hầu như không phạt các dự đoán đúng tự tin.
 
 Gradient kể cùng câu chuyện:
 
-```
-dBCE/dp = -(y/p) + (1-y)/(1-p)
+```math
+\frac{\partial \text{BCE}}{\partial p} = -\frac{y}{p} + \frac{1-y}{1-p}
 ```
 
-Khi y = 1 và p gần không, gradient là -1/p, tiến tới âm vô cực. Mô hình nhận một tín hiệu khổng lồ để sửa sai lầm. Khi p gần 1, gradient rất nhỏ. Đã đúng, không có gì cần sửa.
+Khi $y = 1$ và $p$ gần không, gradient là $-1/p$, tiến tới âm vô cực. Mô hình nhận một tín hiệu khổng lồ để sửa sai lầm. Khi $p$ gần 1, gradient rất nhỏ. Đã đúng, không có gì cần sửa.
 
 **Cross-Entropy Đa lớp:**
 
 Cho phân loại đa lớp với các mục tiêu được mã hóa one-hot.
 
-```
-CCE = -sum(y_i * log(p_i))
+```math
+\text{CCE} = -\sum_i y_i \log(p_i)
 ```
 
-Chỉ lớp thật đóng góp vào mất mát (vì mọi y_i khác bằng không). Nếu có 10 lớp và lớp đúng nhận xác suất 0.1 (đoán ngẫu nhiên), mất mát là -log(0.1) = 2.3. Nếu lớp đúng nhận xác suất 0.9, mất mát là -log(0.9) = 0.105. Mô hình học cách tập trung khối lượng xác suất vào câu trả lời đúng.
+Chỉ lớp thật đóng góp vào mất mát (vì mọi $y_i$ khác bằng không). Nếu có 10 lớp và lớp đúng nhận xác suất 0.1 (đoán ngẫu nhiên), mất mát là $-\log(0.1) = 2.3$. Nếu lớp đúng nhận xác suất 0.9, mất mát là $-\log(0.9) = 0.105$. Mô hình học cách tập trung khối lượng xác suất vào câu trả lời đúng.
 
 ### Why MSE Fails for Classification
 
@@ -96,19 +96,19 @@ graph TD
     C3 -->|"CE gradient<br/>explodes near<br/>wrong answer"| Fast["Fast correction"]
 ```
 
-Các gradient MSE phẳng đi khi các dự đoán gần 0 hoặc 1 (do bão hòa sigmoid). Các gradient cross-entropy bù lại điều này -- -log triệt tiêu các vùng phẳng của sigmoid, cho các gradient mạnh đúng nơi cần chúng nhất.
+Các gradient MSE phẳng đi khi các dự đoán gần 0 hoặc 1 (do bão hòa sigmoid). Các gradient cross-entropy bù lại điều này -- $-\log$ triệt tiêu các vùng phẳng của sigmoid, cho các gradient mạnh đúng nơi cần chúng nhất.
 
 ### Label Smoothing
 
 Các nhãn one-hot tiêu chuẩn nói "đây là 100% lớp 3 và 0% mọi thứ khác." Đó là một khẳng định mạnh. Làm trơn nhãn làm mềm nó:
 
-```
-smooth_label = (1 - alpha) * one_hot + alpha / num_classes
+```math
+\text{smooth\_label} = (1 - \alpha) \cdot \text{one\_hot} + \frac{\alpha}{\text{num\_classes}}
 ```
 
-Với alpha = 0.1 và 10 lớp: thay vì [0, 0, 1, 0, ...], mục tiêu trở thành [0.01, 0.01, 0.91, 0.01, ...]. Mô hình nhắm tới 0.91 thay vì 1.0.
+Với $\alpha = 0.1$ và 10 lớp: thay vì [0, 0, 1, 0, ...], mục tiêu trở thành [0.01, 0.01, 0.91, 0.01, ...]. Mô hình nhắm tới 0.91 thay vì 1.0.
 
-Tại sao điều này hoạt động: một mô hình cố xuất ra đúng 1.0 qua softmax cần đẩy các logit tới vô cực. Điều này gây quá tự tin, làm hại khả năng khái quát hóa và khiến mô hình mong manh trước dịch chuyển phân phối. Làm trơn nhãn chặn mục tiêu ở 0.9 (với alpha=0.1), giữ các logit trong phạm vi hợp lý. GPT và hầu hết các mô hình hiện đại sử dụng làm trơn nhãn hoặc tương đương.
+Tại sao điều này hoạt động: một mô hình cố xuất ra đúng 1.0 qua softmax cần đẩy các logit tới vô cực. Điều này gây quá tự tin, làm hại khả năng khái quát hóa và khiến mô hình mong manh trước dịch chuyển phân phối. Làm trơn nhãn chặn mục tiêu ở 0.9 (với $\alpha = 0.1$), giữ các logit trong phạm vi hợp lý. GPT và hầu hết các mô hình hiện đại sử dụng làm trơn nhãn hoặc tương đương.
 
 ### Contrastive Loss
 
@@ -118,20 +118,20 @@ Không nhãn. Không lớp. Chỉ các cặp đầu vào và câu hỏi: chúng 
 
 Lấy một hình ảnh. Tạo hai góc nhìn tăng cường của nó (cắt, xoay, làm nhiễu màu). Đây là "cặp dương" -- chúng nên có các embedding tương tự. Mọi hình ảnh khác trong batch tạo thành một "cặp âm" -- chúng nên có các embedding khác nhau.
 
-```
-L = -log(exp(sim(z_i, z_j) / tau) / sum(exp(sim(z_i, z_k) / tau)))
+```math
+L = -\log \frac{\exp(\text{sim}(z_i, z_j) / \tau)}{\sum_k \exp(\text{sim}(z_i, z_k) / \tau)}
 ```
 
-Trong đó sim() là độ tương đồng cosine, z_i và z_j là cặp dương, tổng chạy trên tất cả các mẫu âm, và tau (nhiệt độ) kiểm soát độ sắc của phân phối. Nhiệt độ thấp hơn = các mẫu âm khó hơn = phân tách quyết liệt hơn.
+Trong đó $\text{sim}()$ là độ tương đồng cosine, $z_i$ và $z_j$ là cặp dương, tổng chạy trên tất cả các mẫu âm, và $\tau$ (nhiệt độ) kiểm soát độ sắc của phân phối. Nhiệt độ thấp hơn = các mẫu âm khó hơn = phân tách quyết liệt hơn.
 
-Các con số thực tế: kích thước batch 256 nghĩa là 255 mẫu âm trên mỗi cặp dương. Nhiệt độ tau = 0.07 (mặc định SimCLR). Mất mát trông như một softmax trên các độ tương đồng -- nó muốn độ tương đồng của cặp dương cao nhất trong tất cả 256 lựa chọn.
+Các con số thực tế: kích thước batch 256 nghĩa là 255 mẫu âm trên mỗi cặp dương. Nhiệt độ $\tau = 0.07$ (mặc định SimCLR). Mất mát trông như một softmax trên các độ tương đồng -- nó muốn độ tương đồng của cặp dương cao nhất trong tất cả 256 lựa chọn.
 
 **Mất mát Bộ ba:**
 
 Nhận ba đầu vào: neo, dương (cùng lớp), âm (khác lớp).
 
-```
-L = max(0, d(anchor, positive) - d(anchor, negative) + margin)
+```math
+L = \max\left(0, d(\text{anchor}, \text{positive}) - d(\text{anchor}, \text{negative}) + \text{margin}\right)
 ```
 
 Biên (thường là 0.2-1.0) áp đặt một khoảng cách tối thiểu giữa các khoảng cách dương và âm. Nếu mẫu âm đã đủ xa, mất mát bằng không -- không gradient, không cập nhật. Điều này khiến huấn luyện hiệu quả nhưng cần khai thác bộ ba cẩn thận (chọn các mẫu âm khó nằm gần neo).
@@ -140,14 +140,14 @@ Biên (thường là 0.2-1.0) áp đặt một khoảng cách tối thiểu gi�
 
 Cho các tập dữ liệu mất cân bằng. Cross-entropy tiêu chuẩn coi mọi ví dụ được phân loại đúng như nhau. Focal loss giảm trọng số các ví dụ dễ:
 
-```
-FL = -alpha * (1 - p_t)^gamma * log(p_t)
+```math
+\text{FL} = -\alpha (1 - p_t)^\gamma \log(p_t)
 ```
 
-Trong đó p_t là xác suất dự đoán của lớp thật và gamma kiểm soát sự tập trung. Với gamma = 0, đây là cross-entropy tiêu chuẩn. Với gamma = 2 (mặc định):
+Trong đó $p_t$ là xác suất dự đoán của lớp thật và $\gamma$ kiểm soát sự tập trung. Với $\gamma = 0$, đây là cross-entropy tiêu chuẩn. Với $\gamma = 2$ (mặc định):
 
-- Ví dụ dễ (p_t = 0.9): trọng số = (0.1)^2 = 0.01. Về thực chất bị bỏ qua.
-- Ví dụ khó (p_t = 0.1): trọng số = (0.9)^2 = 0.81. Tín hiệu gradient đầy đủ.
+- Ví dụ dễ ($p_t = 0.9$): trọng số $= (0.1)^2 = 0.01$. Về thực chất bị bỏ qua.
+- Ví dụ khó ($p_t = 0.1$): trọng số $= (0.9)^2 = 0.81$. Tín hiệu gradient đầy đủ.
 
 Focal loss được Lin và cộng sự giới thiệu cho phát hiện đối tượng, nơi 99% vùng ứng viên là nền (các mẫu âm dễ). Không có focal loss, mô hình chìm trong các ví dụ nền dễ và không bao giờ học phát hiện đối tượng. Có nó, mô hình tập trung năng lực vào các trường hợp khó, mơ hồ có ý nghĩa.
 
@@ -213,7 +213,7 @@ def mse_gradient(predictions, targets):
 
 ### Step 2: Binary Cross-Entropy
 
-Vấn đề log(0) là có thật. Nếu mô hình dự đoán đúng 0 cho một ví dụ dương, log(0) = âm vô cực. Cắt ngưỡng ngăn điều này.
+Vấn đề log(0) là có thật. Nếu mô hình dự đoán chính xác 0 cho một ví dụ dương tính, $\log(0) = -\infty$. Clipping ngăn điều này.
 
 ```python
 import math
@@ -425,15 +425,15 @@ Bài học này tạo ra:
 
 ## Exercises
 
-1. Triển khai mất mát Huber (mất mát L1 trơn), là MSE cho các sai số nhỏ và MAE cho các sai số lớn. Huấn luyện một mạng hồi quy dự đoán y = sin(x) với MSE so với Huber khi 5% mục tiêu huấn luyện được thêm nhiễu ngẫu nhiên (các ngoại lệ). So sánh sai số test cuối cùng.
+1. Triển khai mất mát Huber (mất mát L1 trơn), là MSE cho các sai số nhỏ và MAE cho các sai số lớn. Huấn luyện một mạng hồi quy dự đoán $y = \sin(x)$ với MSE so với Huber khi 5% mục tiêu huấn luyện được thêm nhiễu ngẫu nhiên (các ngoại lệ). So sánh sai số test cuối cùng.
 
-2. Thêm focal loss vào vòng lặp huấn luyện phân loại nhị phân. Tạo một tập dữ liệu mất cân bằng (90% lớp 0, 10% lớp 1). So sánh BCE tiêu chuẩn với focal loss (gamma=2) theo recall lớp thiểu số sau 200 epoch.
+2. Thêm focal loss vào vòng lặp huấn luyện phân loại nhị phân. Tạo một tập dữ liệu mất cân bằng (90% lớp 0, 10% lớp 1). So sánh BCE tiêu chuẩn với focal loss ($\gamma = 2$) theo recall lớp thiểu số sau 200 epoch.
 
 3. Triển khai mất mát bộ ba với khai thác mẫu âm bán khó. Sinh dữ liệu embedding 2D cho 5 lớp. Với mỗi neo, tìm mẫu âm khó nhất vẫn xa hơn mẫu dương (bán khó). So sánh hội tụ với lựa chọn bộ ba ngẫu nhiên.
 
 4. Chạy so sánh MSE với cross-entropy nhưng theo dõi độ lớn gradient tại mỗi lớp trong huấn luyện. Vẽ chuẩn gradient trung bình mỗi epoch. Xác minh cross-entropy tạo ra các gradient lớn hơn ở các epoch đầu khi mô hình bất định nhất.
 
-5. Triển khai mất mát phân kỳ KL và xác minh rằng tối thiểu hóa KL(true || predicted) cho cùng các gradient như cross-entropy khi phân phối thật là one-hot. Sau đó thử các mục tiêu mềm (như chưng cất tri thức) trong đó phân phối "thật" đến từ đầu ra softmax của một mô hình giáo viên.
+5. Triển khai mất mát phân kỳ KL và xác minh rằng tối thiểu hóa $\mathrm{KL}(\text{true} \Vert \text{predicted})$ cho cùng các gradient như cross-entropy khi phân phối thật là one-hot. Sau đó thử các mục tiêu mềm (như chưng cất tri thức) trong đó phân phối "thật" đến từ đầu ra softmax của một mô hình giáo viên.
 
 ## Key Terms
 
@@ -441,12 +441,12 @@ Bài học này tạo ra:
 |------|----------------|----------------------|
 | Loss function (Hàm mất mát) | "Mô hình sai đến mức nào" | Một hàm khả vi ánh xạ các dự đoán và mục tiêu thành một số vô hướng mà bộ tối ưu hóa tối thiểu hóa |
 | MSE | "Sai số bình phương trung bình" | Trung bình của các bình phương chênh lệch giữa các dự đoán và mục tiêu; phạt các sai số lớn theo bậc hai |
-| Cross-entropy | "Mất mát phân loại" | Đo độ phân kỳ giữa phân phối xác suất dự đoán và phân phối thật bằng -log(p) |
-| Binary cross-entropy (Cross-entropy nhị phân) | "BCE" | Cross-entropy cho hai lớp: -(y*log(p) + (1-y)*log(1-p)) |
+| Cross-entropy | "Mất mát phân loại" | Đo độ phân kỳ giữa phân phối xác suất dự đoán và phân phối thật bằng $-\log(p)$ |
+| Binary cross-entropy (Cross-entropy nhị phân) | "BCE" | Cross-entropy cho hai lớp: $-(y \log(p) + (1-y) \log(1-p))$ |
 | Label smoothing (Làm trơn nhãn) | "Làm mềm các mục tiêu" | Thay các mục tiêu 0/1 cứng bằng các giá trị mềm (ví dụ: 0.1/0.9) để ngăn quá tự tin và cải thiện khái quát hóa |
 | Contrastive loss (Mất mát tương phản) | "Kéo lại gần, đẩy ra xa" | Một mất mát học các biểu diễn bằng cách làm các cặp tương tự gần nhau và các cặp khác biệt xa nhau trong không gian embedding |
 | InfoNCE | "Mất mát CLIP/SimCLR" | Cross-entropy chuẩn hóa được co giãn theo nhiệt độ trên các điểm tương đồng; coi học tương phản là phân loại |
-| Focal loss | "Cách khắc phục dữ liệu mất cân bằng" | Cross-entropy được gán trọng số bằng (1-p_t)^gamma để giảm trọng số các ví dụ dễ và tập trung vào các ví dụ khó |
+| Focal loss | "Cách khắc phục dữ liệu mất cân bằng" | Cross-entropy được gán trọng số bằng $(1-p_t)^\gamma$ để giảm trọng số các ví dụ dễ và tập trung vào các ví dụ khó |
 | Triplet loss (Mất mát bộ ba) | "Neo-dương-âm" | Đẩy neo gần mẫu dương hơn mẫu âm ít nhất một biên trong không gian embedding |
 | Temperature (Nhiệt độ) | "Núm điều chỉnh độ sắc" | Một số chia vô hướng trên các logit/độ tương đồng kiểm soát độ nhọn của phân phối kết quả; thấp hơn = sắc hơn |
 

@@ -1,6 +1,6 @@
 # Attention Variants — Sliding Window, Sparse, Differential
 
-> Attention đầy đủ là một vòng tròn. Mọi token thấy mọi token, và bộ nhớ trả giá. Bốn biến thể uốn hình dạng vòng tròn và lấy lại một nửa chi phí.
+> Full attention là một vòng tròn. Mọi token nhìn thấy mọi token, và bộ nhớ trả giá. Ba biến thể uốn hình dạng của vòng tròn và lấy lại một nửa chi phí.
 
 **Type:** Build
 **Languages:** Python
@@ -9,11 +9,11 @@
 
 ## The Problem
 
-Attention đầy đủ tốn bộ nhớ `O(N²)` và tính toán `O(N²)` theo độ dài chuỗi. Với một Llama 3 70B ngữ cảnh 128K đó là 16 tỷ phần tử attention mỗi tầng, nhân 80 tầng. Flash Attention (Bài 12) che bộ nhớ kích hoạt `O(N²)` nhưng không thay đổi chi phí số học — mọi token vẫn chú ý đến mọi token khác.
+Attention đầy đủ tốn bộ nhớ $O(N^2)$ và tính toán $O(N^2)$ theo độ dài chuỗi. Với một Llama 3 70B ngữ cảnh 128K đó là 16 tỷ phần tử attention mỗi tầng, nhân 80 tầng. Flash Attention (Bài 12) che bộ nhớ kích hoạt $O(N^2)$ nhưng không thay đổi chi phí số học — mọi token vẫn chú ý đến mọi token khác.
 
 Ba lớp biến thể thay đổi chính cấu trúc liên kết của ma trận attention:
 
-1. **Attention cửa sổ trượt (SWA).** Mỗi token chú ý đến một cửa sổ lân cận cố định, không phải toàn tiền tố. Bộ nhớ và tính toán giảm xuống `O(N · W)` trong đó `W` là cửa sổ. Gemma 2/3, các tầng đầu của Mistral 7B, Phi-3-Long.
+1. **Attention cửa sổ trượt (SWA).** Mỗi token chú ý đến một cửa sổ lân cận cố định, không phải toàn tiền tố. Bộ nhớ và tính toán giảm xuống $O(N \cdot W)$ trong đó $W$ là cửa sổ. Gemma 2/3, các tầng đầu của Mistral 7B, Phi-3-Long.
 2. **Attention thưa / khối.** Chỉ các cặp `(i, j)` được chọn được chấm điểm; phần còn lại bị ép trọng số bằng không. Longformer, BigBird, sparse transformer của OpenAI.
 3. **Attention vi sai.** Tính hai bản đồ attention với các phép chiếu Q/K riêng, trừ bản đồ này khỏi bản đồ kia. Loại "attention sink" làm trọng số chảy vào vài token đầu. DIFF Transformer của Microsoft (2024).
 
@@ -23,7 +23,7 @@ Chúng cùng tồn tại. Một mô hình tiên phong năm 2026 thường trộn
 
 ### Sliding Window Attention (SWA)
 
-Mỗi query ở vị trí `i` chỉ chú ý đến các vị trí trong `[i - W, i]` (SWA nhân quả) hoặc `[i - W/2, i + W/2]` (hai chiều). Các token ngoài cửa sổ nhận `-inf` trong ma trận điểm.
+Mỗi query tại vị trí $i$ chỉ chú ý đến các vị trí trong $[i - W, i]$ (SWA nhân quả) hoặc $[i - W/2, i + W/2]$ (hai chiều). Các token bên ngoài cửa sổ nhận $-\infty$ trong ma trận điểm.
 
 ```
 full causal:           sliding window (W=4):
@@ -39,17 +39,17 @@ positions 0-7          positions 0-7, W=4
 7 | x x x x x x x x  7 |          x x x x
 ```
 
-Với `N = 8192` và `W = 1024`, ma trận điểm có 1024 × 8192 hàng khác không theo kỳ vọng — giảm 8×.
+Với $N = 8192$ và $W = 1024$, ma trận điểm có 1024 × 8192 hàng khác không theo kỳ vọng — giảm 8×.
 
-**KV cache thu nhỏ với SWA.** Chỉ cần giữ `W` token K và V cuối mỗi tầng. Với một cấu hình kiểu Gemma-3 (cửa sổ 1024, ngữ cảnh 128K), KV cache giảm 128×.
+**KV cache thu nhỏ với SWA.** Chỉ cần giữ $W$ token K và V cuối mỗi tầng. Với một cấu hình kiểu Gemma-3 (cửa sổ 1024, ngữ cảnh 128K), KV cache giảm 128×.
 
-**Chi phí chất lượng.** Các transformer chỉ SWA chật vật với truy xuất xa. Cách sửa: xen kẽ các tầng SWA với các tầng attention đầy đủ. Gemma 3 dùng SWA:toàn cục 5:1. Mistral 7B dùng một chồng SWA nhân quả nơi thông tin "chảy về phía trước" qua các cửa sổ chồng lấn — mỗi tầng mở rộng trường tiếp nhận hiệu dụng thêm `W`, và sau `L` tầng mô hình có thể chú ý lùi `L × W` token.
+**Chi phí chất lượng.** Các transformer chỉ SWA chật vật với truy xuất xa. Cách sửa: xen kẽ các tầng SWA với các tầng attention đầy đủ. Gemma 3 dùng SWA:toàn cục 5:1. Mistral 7B dùng một chồng SWA nhân quả nơi thông tin "chảy về phía trước" qua các cửa sổ chồng lấn — mỗi tầng mở rộng trường tiếp nhận hiệu dụng thêm $W$, và sau `L` tầng mô hình có thể chú ý lùi `L × W` token.
 
 ### Sparse / Block Attention
 
 Chọn trước một mẫu thưa `N × N`. Ba hình dạng kinh điển:
 
-- **Cục bộ + có bước nhảy (sparse transformer của OpenAI).** Chú ý đến `W` token cuối cộng mỗi token thứ `stride` trước đó. Nắm bắt cả cục bộ và xa ở tính toán `O(N · sqrt(N))`.
+- **Cục bộ + có bước nhảy (sparse transformer của OpenAI).** Chú ý đến $W$ token cuối cộng mỗi token thứ `stride` trước đó. Nắm bắt cả cục bộ và xa ở tính toán $O(N \cdot \sqrt{N})$.
 - **Longformer / BigBird.** Cửa sổ cục bộ + một tập nhỏ các token toàn cục (ví dụ `[CLS]`) chú ý đến mọi token và được mọi token chú ý + các liên kết thưa ngẫu nhiên. Thực nghiệm đạt ngữ cảnh 2× ở chất lượng tương ứng.
 - **Native Sparse Attention (DeepSeek, 2025).** Học những khối `(Q, K)` nào quan trọng; bỏ các khối không ở cấp kernel. Tương thích FlashAttention.
 
@@ -61,13 +61,15 @@ Attention thường có một vấn đề "attention sink": softmax buộc mọi
 
 Attention vi sai sửa điều này bằng cách tính **hai** bản đồ attention và trừ:
 
-```
-A1 = softmax(Q1 K1^T / √d)
-A2 = softmax(Q2 K2^T / √d)
-DiffAttn = (A1 - λ · A2) V
+```math
+\begin{aligned}
+A_1 &= \mathop{\mathrm{softmax}}(Q_1 K_1^T / \sqrt{d}) \\
+A_2 &= \mathop{\mathrm{softmax}}(Q_2 K_2^T / \sqrt{d}) \\
+\text{DiffAttn} &= (A_1 - \lambda \cdot A_2) V
+\end{aligned}
 ```
 
-trong đó `λ` là một vô hướng được học (thường 0.5–0.8). A1 nắm bắt các trọng số nội dung thực; A2 nắm bắt sink. Phép trừ triệt tiêu sink, phân bổ lại trọng số cho các token liên quan.
+trong đó $\lambda$ là một vô hướng được học (thường 0.5–0.8). A1 nắm bắt các trọng số nội dung thực; A2 nắm bắt sink. Phép trừ triệt tiêu sink, phân bổ lại trọng số cho các token liên quan.
 
 Các kết quả báo cáo (Microsoft 2024): perplexity thấp hơn 5–10%, ngữ cảnh hiệu dụng dài hơn 1.5–2× ở cùng độ dài huấn luyện, truy xuất kim-trong-đống-cỏ sắc hơn.
 
@@ -75,12 +77,12 @@ Các kết quả báo cáo (Microsoft 2024): perplexity thấp hơn 5–10%, ng�
 
 | Biến thể | Tính toán | KV cache | Chất lượng so với đầy đủ | Sử dụng production |
 |---------|---------|----------|-----------------|----------------|
-| Attention đầy đủ | O(N²) | O(N) mỗi tầng | baseline | tầng mặc định của mọi mô hình |
-| SWA (cửa sổ 1024) | O(N·W) | O(W) mỗi tầng | -0.1 ppl, tốt với các tầng toàn cục | Gemma 2/3, Phi-3-Long |
-| Thưa cục bộ + có bước nhảy | O(N·√N) | hỗn hợp | tương tự SWA | sparse transformer của OpenAI, Longformer |
-| BigBird (cục bộ + toàn cục + ngẫu nhiên) | O(N) xấp xỉ | hỗn hợp | ngang đầy đủ tại ngữ cảnh 2× | BERT ngữ cảnh dài ban đầu |
-| Native Sparse (DeepSeek-V3.2) | O(N · active fraction) | O(N) | trong 0.05 ppl | DeepSeek-V3.2, 2025 |
-| Vi sai | O(2·N²) | O(2N) | -5 đến -10% ppl | DIFF Transformer, các mô hình đầu năm 2026 |
+| Attention đầy đủ | $O(N^2)$ | $O(N)$ mỗi tầng | baseline | tầng mặc định của mọi mô hình |
+| SWA (cửa sổ 1024) | $O(N \cdot W)$ | $O(W)$ mỗi tầng | -0.1 ppl, tốt với các tầng toàn cục | Gemma 2/3, Phi-3-Long |
+| Thưa cục bộ + có bước nhảy | $O(N \cdot \sqrt{N})$ | hỗn hợp | tương tự SWA | sparse transformer của OpenAI, Longformer |
+| BigBird (cục bộ + toàn cục + ngẫu nhiên) | $O(N)$ xấp xỉ | hỗn hợp | ngang đầy đủ tại ngữ cảnh 2× | BERT ngữ cảnh dài ban đầu |
+| Native Sparse (DeepSeek-V3.2) | $O(N \cdot \text{active fraction})$ | $O(N)$ | trong 0.05 ppl | DeepSeek-V3.2, 2025 |
+| Vi sai | $O(2 \cdot N^2)$ | $O(2N)$ | -5 đến -10% ppl | DIFF Transformer, các mô hình đầu năm 2026 |
 
 ```figure
 gqa-kv-sharing
@@ -142,7 +144,7 @@ Hai lượt attention, trừ với một hệ số trộn được học. Trong 
 
 ### Step 5: KV cache sizes
 
-In kích thước cache mỗi tầng tại `N = 131072` cho mỗi biến thể. SWA và các biến thể thưa giảm 10–100×. Vi sai tăng gấp đôi. Trả hóa đơn bộ nhớ một cách có ý thức.
+In kích thước cache mỗi tầng tại $N = 131072$ cho mỗi biến thể. SWA và các biến thể thưa giảm 10–100×. Vi sai tăng gấp đôi. Trả hóa đơn bộ nhớ một cách có ý thức.
 
 ## Use It
 
@@ -185,17 +187,17 @@ Xem `outputs/skill-attention-variant-picker.md`. Skill chọn một cấu trúc 
 1. **Dễ.** Chạy `code/main.py`. Xác minh SWA tại `window=4` đặt không mọi thứ ngoài 4 token cuối mỗi hàng. Xác minh `window=n` tái hiện attention nhân quả đầy đủ giống từng bit.
 2. **Trung bình.** Triển khai SWA nhân quả với `window=1024` trên capstone Bài 07. Huấn luyện 1,000 bước trên tinyshakespeare. Val loss suy giảm bao nhiêu so với attention đầy đủ? Bộ nhớ đỉnh giảm bao nhiêu?
 3. **Khó.** Triển khai một hỗn hợp tầng 5:1 kiểu Gemma-3 (5 SWA, 1 toàn cục) trong mô hình capstone. So sánh loss, bộ nhớ và chất lượng sinh với các baseline chỉ SWA và chỉ toàn cục ở số tham số tương ứng.
-4. **Khó.** Triển khai attention vi sai với một `λ` được học mỗi head. Huấn luyện trên một tác vụ truy xuất tổng hợp (một kim, 2,000 yếu tố gây nhiễu). Đo accuracy truy xuất so với một baseline attention đơn ở số tham số tương ứng.
+4. **Khó.** Triển khai attention vi sai với một $\lambda$ được học mỗi head. Huấn luyện trên một tác vụ truy xuất tổng hợp (một kim, 2,000 yếu tố gây nhiễu). Đo accuracy truy xuất so với một baseline attention đơn ở số tham số tương ứng.
 
 ## Key Terms
 
 | Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Sliding window attention (SWA) (Attention cửa sổ trượt) | "Attention cục bộ" | Mỗi query chú ý đến `W` token cuối; KV cache thu nhỏ về `O(W)`. |
-| Effective receptive field (Trường tiếp nhận hiệu dụng) | "Mô hình thấy lùi bao xa" | Trong một chồng SWA `L` tầng với cửa sổ `W`, đến `L × W` token. |
+| Sliding window attention (SWA) (Attention cửa sổ trượt) | "Attention cục bộ" | Mỗi query chú ý đến $W$ token cuối; KV cache thu nhỏ về $O(W)$. |
+| Effective receptive field (Trường tiếp nhận hiệu dụng) | "Mô hình thấy lùi bao xa" | Trong một chồng SWA $L$ tầng với cửa sổ $W$, đến $L \times W$ token. |
 | Longformer / BigBird | "Cục bộ + toàn cục + ngẫu nhiên" | Các mẫu thưa với một vài token toàn cục luôn chú ý; cách tiếp cận ngữ cảnh dài ban đầu. |
 | Native Sparse Attention | "Thủ thuật kernel của DeepSeek" | Học tính thưa cấp khối; bỏ các khối không ở cấp kernel trong khi giữ chất lượng. |
-| Differential attention (Attention vi sai) | "Hai bản đồ, một bản trừ" | DIFF Transformer: trừ một bản đồ attention thứ hai nhân với `λ` được học khỏi bản đầu để triệt tiêu các attention sink. |
+| Differential attention (Attention vi sai) | "Hai bản đồ, một bản trừ" | DIFF Transformer: trừ một bản đồ attention thứ hai nhân với $\lambda$ được học khỏi bản đầu để triệt tiêu các attention sink. |
 | Attention sink | "Trọng số chảy sang token 0" | Chuẩn hóa softmax buộc các hàng có tổng bằng 1; các query không thông tin đổ trọng số lên vị trí 0. |
 | FlexAttention | "Mặt nạ dưới dạng Python" | API PyTorch 2.5+ biên dịch các hàm mặt nạ tùy ý thành các kernel dạng FlashAttention. |
 | Layer type mix (Hỗn hợp loại tầng) | "SWA-trên-toàn-cục 5:1" | Xen kẽ các tầng attention thưa và đầy đủ trong một chồng để giữ chất lượng với bộ nhớ thấp hơn. |

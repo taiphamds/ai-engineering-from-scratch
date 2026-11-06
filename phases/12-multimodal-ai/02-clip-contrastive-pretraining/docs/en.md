@@ -35,10 +35,10 @@ CLIP có hai tháp:
 
 Cả hai tháp chuẩn hóa đầu ra về độ dài đơn vị. Độ tương đồng là `cos(f(x), g(y)) = f(x)^T g(y)` vì cả hai có chuẩn đơn vị.
 
-Với batch N cặp (ảnh, chú thích), xây ma trận tương đồng `S` hình dạng `(N, N)`:
+Với batch $N$ cặp (ảnh, chú thích), xây ma trận tương đồng `S` hình dạng `(N, N)`:
 
-```
-S[i, j] = cos(f(x_i), g(y_j)) / tau
+```math
+S[i, j] = \cos(f(x_i), g(y_j)) / \tau
 ```
 
 trong đó `tau` là temperature được học (CLIP khởi tạo 0.07; học trong không gian log).
@@ -57,7 +57,7 @@ loss = (loss_i2t + loss_t2i) / 2
 
 ### Temperature
 
-`tau` kiểm soát độ sắc softmax. Tau thấp → phân phối sắc, hiệu ứng khai thác âm khó. Tau cao → mềm, mọi mẫu đóng góp. CLIP học log(1/tau), cắt ngưỡng để ngăn sụp đổ. SigLIP 2 cố định tau ban đầu và dùng bias được học thay thế.
+`tau` kiểm soát độ sắc nhọn của softmax. $\tau$ thấp → phân phối sắc nhọn, hiệu ứng khai thác mẫu âm khó. $\tau$ cao → mềm, mọi mẫu đều đóng góp. CLIP học $\log(1/\tau)$, được clip để ngăn sụp đổ. SigLIP 2 cố định $\tau$ ban đầu và sử dụng một bias được học thay thế.
 
 ### Why sigmoid scales better (SigLIP)
 
@@ -65,8 +65,8 @@ Softmax cần toàn ma trận tương đồng đồng bộ. Trong huấn luyện
 
 SigLIP thay softmax bằng sigmoid từng phần tử: với mỗi cặp `(i, j)`, loss là phân loại nhị phân "đây có phải cặp khớp?" nhãn lớp dương ở đường chéo, mọi thứ khác âm. Loss là:
 
-```
-L = -1/N sum over (i, j) [ y_ij log sigmoid(S[i,j]) + (1-y_ij) log sigmoid(-S[i,j]) ]
+```math
+L = -\frac{1}{N} \sum_{(i, j)} \Big[ y_{ij} \log \mathop{\mathrm{sigmoid}}(S[i,j]) + (1-y_{ij}) \log \mathop{\mathrm{sigmoid}}(-S[i,j]) \Big]
 ```
 
 `y_ij = 1` nếu `i == j`, nếu không 0. Loss mỗi cặp độc lập. Không cần all-gather. Mỗi GPU tính khối cục bộ và cộng. SigLIP 2 mở rộng rẻ đến batch 32k-512k nơi CLIP cần giao tiếp nhiều hơn tương ứng.
@@ -132,7 +132,7 @@ Bài học này tạo `outputs/skill-clip-zero-shot.md`. Với tập ảnh (qua 
 
 3. Xây bộ phân loại zero-shot mèo so với chó. Thử hai khuôn mẫu prompt: `a photo of a {class}` và `a picture of a {class}`. Đo độ chính xác trên 100 ảnh kiểm thử. Tổ hợp khuôn mẫu có thắng một khuôn mẫu không?
 
-4. Tính chi phí giao tiếp softmax InfoNCE so với sigmoid từng cặp cho lượt chạy 512 GPU ở batch 32k. Loại nào tăng O(N), loại nào O(N^2)? Trích Mục 4 SigLIP.
+4. Tính chi phí giao tiếp softmax InfoNCE so với sigmoid từng cặp cho lượt chạy 512 GPU ở batch 32k. Loại nào tăng $O(N)$, loại nào $O(N^2)$? Trích Mục 4 SigLIP.
 
 5. Đọc bài báo quy luật mở rộng OpenCLIP (arXiv:2212.07143, Cherti và cộng sự). Tái hiện kết luận mở rộng dữ liệu từ hình: ở kích thước mô hình cố định, quan hệ log-tuyến tính giữa độ chính xác ImageNet zero-shot và kích thước dữ liệu huấn luyện là gì?
 

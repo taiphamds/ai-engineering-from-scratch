@@ -43,11 +43,10 @@ Một vector 2D `[3, 4]` hướng đến tọa độ (3, 4) trên một mặt ph
 
 ### Matrices: grids of numbers
 
-Một ma trận là một lưới 2D. Hàng và cột. Một ma trận m x n có m hàng và n cột.
+Một ma trận là một lưới 2D. Hàng và cột. Một ma trận $m \times n$ có $m$ hàng và $n$ cột.
 
-```
-A = | 1  2  3 |     -- 2x3 matrix (2 rows, 3 columns)
-    | 4  5  6 |
+```math
+A = \begin{bmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \end{bmatrix} \quad \text{2x3 matrix (2 rows, 3 columns)}
 ```
 
 Trong mạng nơ-ron, các ma trận trọng số biến đổi các vector đầu vào thành các vector đầu ra. Một lớp có 784 đầu vào và 128 đầu ra sử dụng một ma trận trọng số 128x784.
@@ -83,16 +82,14 @@ Sự phân biệt này liên tục gây khó cho người mới.
 
 Theo từng phần tử: nhân các vị trí tương ứng. Cả hai ma trận phải có cùng hình dạng.
 
-```
-| 1  2 |   | 5  6 |   | 5  12 |
-| 3  4 | * | 7  8 | = | 21 32 |
+```math
+\begin{bmatrix} 1 & 2 \\ 3 & 4 \end{bmatrix} * \begin{bmatrix} 5 & 6 \\ 7 & 8 \end{bmatrix} = \begin{bmatrix} 5 & 12 \\ 21 & 32 \end{bmatrix}
 ```
 
 Nhân ma trận: các tích vô hướng của hàng và cột. Các chiều bên trong phải khớp.
 
-```
-| 1  2 |   | 5  6 |   | 1*5+2*7  1*6+2*8 |   | 19  22 |
-| 3  4 | @ | 7  8 | = | 3*5+4*7  3*6+4*8 | = | 43  50 |
+```math
+\begin{bmatrix} 1 & 2 \\ 3 & 4 \end{bmatrix} @ \begin{bmatrix} 5 & 6 \\ 7 & 8 \end{bmatrix} = \begin{bmatrix} 1 \cdot 5 + 2 \cdot 7 & 1 \cdot 6 + 2 \cdot 8 \\ 3 \cdot 5 + 4 \cdot 7 & 3 \cdot 6 + 4 \cdot 8 \end{bmatrix} = \begin{bmatrix} 19 & 22 \\ 43 & 50 \end{bmatrix}
 ```
 
 Các phép toán khác nhau, kết quả khác nhau, quy tắc khác nhau.
@@ -325,6 +322,14 @@ Lớp Matrix được xây dựng ở đây là nền tảng cho framework mạn
 
 3. **Xây dựng một mạng hai lớp.** Chỉ sử dụng lớp Matrix của bạn (không NumPy), tạo một mạng nơ-ron hai lớp: đầu vào (3) -> ẩn (4) -> đầu ra (2). Khởi tạo các trọng số ngẫu nhiên, chạy một lượt truyền xuôi và xác minh tất cả hình dạng đều đúng.
 
+### Hints
+
+**Bài tập 1.** Nhân `A @ A.inverse_2x2()` cho ba ma trận và so sánh mỗi ô với ma trận đơn vị trong phạm vi `1e-9`. Đối với một ma trận có định thức bằng 0, chẳng hạn [[1, 2], [2, 4]], `inverse_2x2` phát sinh một `ValueError`, và đây là kết quả mong đợi.
+
+**Bài tập 2.** Tính ma trận phần bù đại số 3x3, chuyển vị nó để có ma trận phụ hợp, rồi chia mỗi ô cho `determinant()`. Kiểm tra rằng `A @ A_inv` cho ma trận đơn vị và mỗi ô khớp với `np.linalg.inv(A)` trong phạm vi `1e-9`.
+
+**Bài tập 3.** Viết kích thước của mỗi ma trận trước khi nhân: `W1` là 4x3 và `W2` là 2x4, như trong `demo_neural_network_layer`. Một đầu vào 3x1 phải cho một vector ẩn 4x1 và một đầu ra 2x1.
+
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
@@ -332,7 +337,7 @@ Lớp Matrix được xây dựng ở đây là nền tảng cho framework mạn
 | Vector | "Một mũi tên" | Một danh sách các số có thứ tự. Trong AI: một điểm trong không gian nhiều chiều. |
 | Matrix (Ma trận) | "Một bảng các số" | Một phép biến đổi tuyến tính. Nó ánh xạ các vector từ không gian này sang không gian khác. |
 | Matrix multiply (Nhân ma trận) | "Chỉ nhân các số" | Các tích vô hướng giữa mọi hàng của ma trận thứ nhất và mọi cột của ma trận thứ hai. Thứ tự có ý nghĩa. |
-| Transpose (Chuyển vị) | "Lật nó" | Hoán đổi hàng và cột. Biến một ma trận m x n thành n x m. Thiết yếu trong lan truyền ngược. |
+| Transpose (Chuyển vị) | "Lật nó" | Hoán đổi hàng và cột. Biến một ma trận $m \times n$ thành $n \times m$. Thiết yếu trong lan truyền ngược. |
 | Determinant (Định thức) | "Một số nào đó từ ma trận" | Đo mức độ ma trận co giãn diện tích (2D) hoặc thể tích (3D). Bằng không có nghĩa là phép biến đổi ép dẹp một chiều. |
 | Inverse (Nghịch đảo) | "Hoàn tác ma trận" | Ma trận đảo ngược phép biến đổi. Chỉ tồn tại khi định thức khác không. |
 | Identity matrix (Ma trận đơn vị) | "Ma trận nhàm chán" | Ma trận tương đương với việc nhân với 1. Được sử dụng trong các kết nối phần dư (ResNets). |

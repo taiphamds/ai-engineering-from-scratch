@@ -239,6 +239,14 @@ Bài học này tạo ra:
 2. Tạo một notebook có cả ô markdown lẫn ô mã để tải một CSV, hiển thị dataframe và vẽ biểu đồ. Sau đó chạy Kernel > Restart & Run All để xác minh nó hoạt động từ trên xuống dưới
 3. Lấy mã từ `code/notebook_tips.py`, dán vào notebook Colab và chạy bằng GPU miễn phí
 
+### Hints
+
+**Bài tập 1.** Khởi động JupyterLab bằng `jupyter lab`, rồi đặt mỗi phiên bản trong một ô riêng bắt đầu bằng `%timeit`. Sử dụng cùng kích thước 100,000 trong cả hai ô để hai thời gian đo cùng một công việc.
+
+**Bài tập 2.** Sử dụng `pd.read_csv` cho dữ liệu, hiển thị dataframe ở dòng cuối của một ô và vẽ biểu đồ bằng `df.plot()` hoặc matplotlib. Sau Kernel > Restart & Run All, mọi ô phải hiển thị một số trong bộ đếm thực thi của nó và không ô nào được hiển thị lỗi.
+
+**Bài tập 3.** Trong Colab, chọn Runtime > Change runtime type > GPU trước khi dán mã. Lần chạy là đúng khi mỗi hàm trong `code/notebook_tips.py` in phần của nó và `torch.cuda.is_available()` trả về `True` trong một ô.
+
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |

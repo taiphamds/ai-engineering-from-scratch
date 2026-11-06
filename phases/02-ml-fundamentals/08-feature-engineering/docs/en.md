@@ -51,7 +51,7 @@ Các con số thô hiếm khi sẵn sàng cho mô hình. Các phép biến đổ
 
 **Chia khoảng:** Chuyển các giá trị liên tục thành các loại. Hữu ích khi quan hệ giữa đặc trưng và mục tiêu phi tuyến nhưng theo từng bước (ví dụ, nhóm tuổi).
 
-**Các đặc trưng đa thức:** Tạo các số hạng x^2, x^3, x1*x2. Cho phép các mô hình tuyến tính nắm bắt các quan hệ phi tuyến với cái giá là nhiều đặc trưng hơn.
+**Các đặc trưng đa thức:** Tạo các số hạng $x^2$, $x^3$, $x_1 x_2$. Cho phép các mô hình tuyến tính nắm bắt các quan hệ phi tuyến với cái giá là nhiều đặc trưng hơn.
 
 ### Categorical Features
 
@@ -69,10 +69,12 @@ Mô hình cần số. Các loại cần mã hóa.
 
 **TF-IDF:** Tần suất Thuật ngữ-Tần suất Tài liệu Nghịch đảo. Gán trọng số cho các từ theo mức độ độc đáo của chúng trên các tài liệu. Các từ phổ biến như "the" nhận trọng số thấp. Các từ hiếm, đặc trưng nhận trọng số cao.
 
-```
-TF(word, doc) = count(word in doc) / total words in doc
-IDF(word) = log(total docs / docs containing word)
-TF-IDF = TF * IDF
+```math
+\begin{aligned}
+\text{TF}(\text{word}, \text{doc}) &= \frac{\text{count(word in doc)}}{\text{total words in doc}} \\
+\text{IDF}(\text{word}) &= \log \frac{\text{total docs}}{\text{docs containing word}} \\
+\text{TF-IDF} &= \text{TF} \cdot \text{IDF}
+\end{aligned}
 ```
 
 ### Missing Values
@@ -80,14 +82,14 @@ TF-IDF = TF * IDF
 Dữ liệu thực có các lỗ hổng. Các chiến lược:
 
 - **Bỏ hàng:** Chỉ khi dữ liệu thiếu hiếm và ngẫu nhiên
-- **Điền khuyết trung bình/trung vị:** Đơn giản, bảo toàn hình dạng phân phối (trung vị bền vững hơn với ngoại lệ)
+- **Điền khuyết bằng trung bình/trung vị:** Đơn giản, giữ trung tâm của đặc trưng (trung vị vững hơn trước các giá trị ngoại lai), nhưng thu hẹp phương sai của nó và dồn mọi giá trị được điền vào một đỉnh, vì vậy hình dạng phân phối thay đổi
 - **Điền khuyết mốt:** Cho các đặc trưng phân loại
 - **Cột chỉ báo:** Thêm một cột nhị phân "was_this_missing" trước khi điền khuyết. Việc dữ liệu bị thiếu tự nó có thể cung cấp thông tin
 - **Điền tiến/lùi:** Cho dữ liệu chuỗi thời gian
 
 ### Feature Interaction
 
-Đôi khi quan hệ nằm trong sự kết hợp. Chỉ riêng "Chiều cao" và "cân nặng" có khả năng dự đoán kém hơn "BMI = weight / height^2". Các tương tác đặc trưng nhân rộng không gian đặc trưng, nên sử dụng kiến thức chuyên môn để chọn những tương tác phù hợp.
+Đôi khi quan hệ nằm trong sự kết hợp. Chỉ riêng "Chiều cao" và "cân nặng" có khả năng dự đoán kém hơn $\text{BMI} = \text{weight} / \text{height}^2$. Các tương tác đặc trưng nhân rộng không gian đặc trưng, nên sử dụng kiến thức chuyên môn để chọn những tương tác phù hợp.
 
 ### Feature Selection
 

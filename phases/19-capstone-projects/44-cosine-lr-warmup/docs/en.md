@@ -108,7 +108,7 @@ Các mẫu sản xuất:
 
 1. Thêm một biến thể căn bậc hai nghịch đảo của lịch và so sánh nó trên một lần chạy huấn luyện đồ chơi 200 bước. Đường cong nào tạo mất mát cuối thấp hơn?
 2. Thêm một cờ `--restart` thêm một khởi động thứ hai tại `total_steps / 2`. Bảo vệ việc các khởi động lại ấm cải thiện hay gây hại trên lần chạy đồ chơi.
-3. Thêm một kiểm thử đơn vị rằng lịch liên tục: với mọi bước trong `[0, total_steps]` chênh lệch `|lr(step+1) - lr(step)|` được chặn bởi `lr_max / warmup_steps`.
+3. Thêm một unit test rằng lịch là liên tục: với `warmup_steps > 0`, với mỗi bước trong `[0, total_steps]`, hiệu `|lr(step+1) - lr(step)|` được chặn bởi giá trị lớn hơn giữa độ dốc warmup `lr_max / warmup_steps` và độ dốc cosine lớn nhất `pi * (lr_max - lr_min) / (2 * (total_steps - warmup_steps))`. Một đoạn cosine ngắn có thể dốc hơn đoạn tăng warmup, nên chỉ độ dốc warmup không phải một cận an toàn.
 4. Nối lịch vào một `torch.optim.lr_scheduler.LambdaLR` để nó kết hợp với mã framework. Bài học dùng một hàm bước thông thường; lớp bọc thay đổi gì?
 5. Thêm một cờ `--plot-png` ghi một biểu đồ thực qua `matplotlib`. Bảo vệ việc biểu đồ văn bản của bài học hay PNG là mặc định tốt hơn cho các lần chạy CI.
 

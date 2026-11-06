@@ -16,7 +16,7 @@
 
 ## The Problem
 
-Xếp chồng hai phép biến đổi tuyến tính: y = W2(W1x + b1) + b2. Khai triển: y = W2W1x + W2b1 + b2. Đó chỉ là y = Ax + c -- một phép biến đổi tuyến tính duy nhất. Bất kể bạn xếp chồng bao nhiêu lớp tuyến tính, kết quả thu gọn thành một phép nhân ma trận. Mạng 100 lớp của bạn có cùng năng lực biểu diễn như một lớp đơn lẻ.
+Xếp chồng hai phép biến đổi tuyến tính: $y = W_2(W_1 x + b_1) + b_2$. Khai triển: $y = W_2 W_1 x + W_2 b_1 + b_2$. Đó chỉ là $y = Ax + c$ -- một phép biến đổi tuyến tính duy nhất. Bất kể bạn xếp chồng bao nhiêu lớp tuyến tính, kết quả thu gọn thành một phép nhân ma trận. Mạng 100 lớp của bạn có cùng năng lực biểu diễn như một lớp đơn lẻ.
 
 Đây không phải là một điều thú vị thuần lý thuyết. Nó có nghĩa một mạng tuyến tính sâu thực sự không thể học XOR, không thể phân loại một tập dữ liệu xoắn ốc, không thể nhận dạng một khuôn mặt. Không có các hàm kích hoạt, độ sâu là một ảo ảnh.
 
@@ -26,52 +26,58 @@ Các hàm kích hoạt phá vỡ tính tuyến tính. Chúng uốn đầu ra m�
 
 ### Why Nonlinearity Is Necessary
 
-Phép nhân ma trận có thể kết hợp được. Nhân một vector với ma trận A rồi ma trận B giống hệt nhân với AB. Điều này nghĩa là xếp chồng mười lớp tuyến tính tương đương về mặt toán học với một lớp tuyến tính có một ma trận lớn. Tất cả những tham số đó, tất cả độ sâu đó -- lãng phí. Bạn cần thứ gì đó phá vỡ chuỗi. Đó là điều các hàm kích hoạt làm.
+Phép nhân ma trận có thể kết hợp được. Nhân một vector với ma trận $A$ rồi ma trận $B$ giống hệt nhân với $AB$. Điều này nghĩa là xếp chồng mười lớp tuyến tính tương đương về mặt toán học với một lớp tuyến tính có một ma trận lớn. Tất cả những tham số đó, tất cả độ sâu đó -- lãng phí. Bạn cần thứ gì đó phá vỡ chuỗi. Đó là điều các hàm kích hoạt làm.
 
-Đây là chứng minh. Một lớp tuyến tính tính f(x) = Wx + b. Xếp chồng hai lớp:
+Đây là chứng minh. Một lớp tuyến tính tính $f(x) = Wx + b$. Xếp chồng hai lớp:
 
-```
-Layer 1: h = W1 * x + b1
-Layer 2: y = W2 * h + b2
+```math
+\begin{aligned}
+\text{Layer 1:} \quad h &= W_1 x + b_1 \\
+\text{Layer 2:} \quad y &= W_2 h + b_2
+\end{aligned}
 ```
 
 Thế vào:
 
-```
-y = W2 * (W1 * x + b1) + b2
-y = (W2 * W1) * x + (W2 * b1 + b2)
-y = A * x + c
-```
-
-Một lớp. Chèn một kích hoạt phi tuyến g() giữa các lớp:
-
-```
-h = g(W1 * x + b1)
-y = W2 * h + b2
+```math
+\begin{aligned}
+y &= W_2 (W_1 x + b_1) + b_2 \\
+y &= (W_2 W_1) x + (W_2 b_1 + b_2) \\
+y &= A x + c
+\end{aligned}
 ```
 
-Giờ phép thế bị phá vỡ. W2 * g(W1 * x + b1) + b2 không thể được rút gọn thành một phép biến đổi tuyến tính duy nhất. Mạng có thể biểu diễn các hàm phi tuyến. Mỗi lớp bổ sung có kích hoạt thêm năng lực biểu diễn.
+Một lớp. Chèn một kích hoạt phi tuyến $g()$ giữa các lớp:
+
+```math
+\begin{aligned}
+h &= g(W_1 x + b_1) \\
+y &= W_2 h + b_2
+\end{aligned}
+```
+
+Giờ phép thế bị phá vỡ. $W_2 g(W_1 x + b_1) + b_2$ không thể được rút gọn thành một phép biến đổi tuyến tính duy nhất. Mạng có thể biểu diễn các hàm phi tuyến. Mỗi lớp bổ sung có kích hoạt thêm năng lực biểu diễn.
 
 ### Sigmoid
 
 Hàm kích hoạt ban đầu cho mạng nơ-ron.
 
-```
-sigmoid(x) = 1 / (1 + e^(-x))
+```math
+\text{sigmoid}(x) = \frac{1}{1 + e^{-x}}
 ```
 
 Phạm vi đầu ra: (0, 1). Trơn, khả vi, ánh xạ bất kỳ số thực nào thành một giá trị giống xác suất.
 
 Đạo hàm:
 
-```
-sigmoid'(x) = sigmoid(x) * (1 - sigmoid(x))
+```math
+\text{sigmoid}'(x) = \text{sigmoid}(x) \cdot (1 - \text{sigmoid}(x))
 ```
 
-Giá trị tối đa của đạo hàm này là 0.25, xảy ra tại x = 0. Trong lan truyền ngược, các gradient nhân qua các lớp. Mười lớp sigmoid nghĩa là gradient được nhân với nhiều nhất 0.25 mười lần:
+Giá trị tối đa của đạo hàm này là 0.25, xảy ra tại $x = 0$. Trong lan truyền ngược, các gradient nhân qua các lớp. Mười lớp sigmoid nghĩa là gradient được nhân với nhiều nhất 0.25 mười lần:
 
-```
-0.25^10 = 0.000000953674
+```math
+0.25^{10} = 0.000000953674
 ```
 
 Ít hơn một phần triệu tín hiệu ban đầu. Đây là vấn đề tiêu biến gradient. Các gradient trong các lớp đầu trở nên nhỏ tới mức các trọng số hầu như không cập nhật. Mạng dường như học -- mất mát giảm trong các lớp sau -- nhưng các lớp đầu bị đóng băng. Các mạng sigmoid sâu đơn giản là không huấn luyện được.
@@ -82,33 +88,32 @@ Vấn đề bổ sung: các đầu ra sigmoid luôn dương (0 đến 1), nghĩa
 
 Phiên bản được đặt tâm của sigmoid.
 
-```
-tanh(x) = (e^x - e^(-x)) / (e^x + e^(-x))
+```math
+\tanh(x) = \frac{e^x - e^{-x}}{e^x + e^{-x}}
 ```
 
 Phạm vi đầu ra: (-1, 1). Có tâm tại không, loại bỏ vấn đề zíc zắc.
 
 Đạo hàm:
 
-```
-tanh'(x) = 1 - tanh(x)^2
+```math
+\tanh'(x) = 1 - \tanh(x)^2
 ```
 
-Đạo hàm tối đa là 1.0 tại x = 0 -- tốt hơn sigmoid bốn lần. Nhưng vấn đề tiêu biến gradient vẫn tồn tại. Với các đầu vào dương hoặc âm lớn, đạo hàm tiến về không. Mười lớp vẫn nghiền nát gradient, chỉ ít quyết liệt hơn.
+Đạo hàm tối đa là 1.0 tại $x = 0$ -- tốt hơn sigmoid bốn lần. Nhưng vấn đề tiêu biến gradient vẫn tồn tại. Với các đầu vào dương hoặc âm lớn, đạo hàm tiến về không. Mười lớp vẫn nghiền nát gradient, chỉ ít quyết liệt hơn.
 
 ### ReLU: The Breakthrough
 
 Rectified Linear Unit. Được Nair và Hinton phổ biến cho học sâu vào năm 2010 (bản thân hàm có từ công trình năm 1969 của Fukushima), nó đã thay đổi mọi thứ.
 
-```
-relu(x) = max(0, x)
+```math
+\text{relu}(x) = \max(0, x)
 ```
 
-Phạm vi đầu ra: [0, vô cực). Đạo hàm cực kỳ đơn giản:
+Khoảng đầu ra: $[0, \infty)$. Đạo hàm vô cùng đơn giản:
 
-```
-relu'(x) = 1  if x > 0
-            0  if x <= 0
+```math
+\text{relu}'(x) = \begin{cases} 1 & \text{if } x > 0 \\ 0 & \text{if } x \le 0 \end{cases}
 ```
 
 Không có tiêu biến gradient đối với các đầu vào dương. Gradient đúng bằng 1, được truyền thẳng qua. Đây là lý do các mạng sâu trở nên có thể huấn luyện -- ReLU bảo toàn độ lớn gradient qua các lớp.
@@ -119,25 +124,24 @@ Nhưng có một kiểu thất bại: vấn đề nơ-ron chết. Nếu đầu v
 
 Cách khắc phục đơn giản nhất cho các nơ-ron chết.
 
-```
-leaky_relu(x) = x        if x > 0
-                alpha * x if x <= 0
+```math
+\text{leaky\_relu}(x) = \begin{cases} x & \text{if } x > 0 \\ \alpha x & \text{if } x \le 0 \end{cases}
 ```
 
-Trong đó alpha là một hằng số nhỏ, thường là 0.01. Phía âm có độ dốc nhỏ thay vì không, nên các nơ-ron chết vẫn nhận được một tín hiệu gradient và có thể phục hồi.
+Trong đó $\alpha$ là một hằng số nhỏ, thường là 0.01. Phía âm có độ dốc nhỏ thay vì không, nên các nơ-ron chết vẫn nhận được một tín hiệu gradient và có thể phục hồi.
 
 ### GELU: The Modern Default
 
 Gaussian Error Linear Unit. Được Hendrycks và Gimpel giới thiệu năm 2016. Kích hoạt mặc định trong BERT, GPT và hầu hết các transformer hiện đại.
 
-```
-gelu(x) = x * Phi(x)
+```math
+\text{gelu}(x) = x \cdot \Phi(x)
 ```
 
-Trong đó Phi(x) là hàm phân phối tích lũy của phân phối chuẩn tắc. Xấp xỉ được sử dụng trong thực tế:
+Trong đó $\Phi(x)$ là hàm phân phối tích lũy của phân phối chuẩn tắc. Xấp xỉ được sử dụng trong thực tế:
 
-```
-gelu(x) ~= 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
+```math
+\text{gelu}(x) \approx 0.5 \cdot x \cdot \left(1 + \tanh\left(\sqrt{2/\pi} \cdot (x + 0.044715 \cdot x^3)\right)\right)
 ```
 
 GELU trơn ở mọi nơi, cho phép các giá trị âm nhỏ (khác ReLU cắt cứng về không), và có một cách diễn giải xác suất: nó gán trọng số cho mỗi đầu vào theo khả năng đầu vào đó dương dưới một phân phối Gaussian. Cơ chế cổng trơn này vượt ReLU trong các kiến trúc transformer vì nó cung cấp luồng gradient tốt hơn và hoàn toàn tránh vấn đề nơ-ron chết.
@@ -146,11 +150,11 @@ GELU trơn ở mọi nơi, cho phép các giá trị âm nhỏ (khác ReLU cắt
 
 Kích hoạt tự đặt cổng được Ramachandran và cộng sự khám phá năm 2017 thông qua tìm kiếm tự động.
 
-```
-swish(x) = x * sigmoid(x)
+```math
+\text{swish}(x) = x \cdot \text{sigmoid}(x)
 ```
 
-Swish về mặt hình thức là x * sigmoid(x). Google khám phá nó thông qua tìm kiếm tự động trên không gian hàm kích hoạt -- một mạng nơ-ron thiết kế các phần của mạng nơ-ron.
+Swish về mặt hình thức là $x \cdot \text{sigmoid}(x)$. Google khám phá nó thông qua tìm kiếm tự động trên không gian hàm kích hoạt -- một mạng nơ-ron thiết kế các phần của mạng nơ-ron.
 
 Giống GELU, nó trơn, không đơn điệu và cho phép các giá trị âm nhỏ. Khác biệt rất tinh tế: Swish sử dụng sigmoid cho cơ chế cổng trong khi GELU sử dụng CDF Gaussian. Trong thực tế, hiệu suất gần như giống hệt. Swish được sử dụng trong EfficientNet và một số mô hình thị giác. GELU thống trị trong các mô hình ngôn ngữ.
 
@@ -158,8 +162,8 @@ Giống GELU, nó trơn, không đơn điệu và cho phép các giá trị âm 
 
 Không được sử dụng trong các lớp ẩn. Softmax chuyển một vector điểm thô (logit) thành một phân phối xác suất.
 
-```
-softmax(x_i) = e^(x_i) / sum(e^(x_j) for all j)
+```math
+\text{softmax}(x_i) = \frac{e^{x_i}}{\sum_j e^{x_j}}
 ```
 
 Mỗi đầu ra nằm giữa 0 và 1. Tất cả đầu ra cộng lại bằng 1. Điều này khiến nó là kích hoạt cuối tiêu chuẩn cho phân loại đa lớp. Logit lớn nhất nhận xác suất cao nhất, nhưng khác argmax, softmax khả vi và bảo toàn thông tin về độ tin cậy tương đối.
@@ -500,11 +504,11 @@ Bài học này tạo ra:
 
 ## Exercises
 
-1. Triển khai Parametric ReLU (PReLU) trong đó độ dốc âm alpha là một tham số có thể học. Huấn luyện nó trên tập dữ liệu đường tròn và so sánh với Leaky ReLU cố định.
+1. Triển khai Parametric ReLU (PReLU) trong đó độ dốc âm $\alpha$ là một tham số có thể học. Huấn luyện nó trên tập dữ liệu đường tròn và so sánh với Leaky ReLU cố định.
 
 2. Chạy thí nghiệm tiêu biến gradient với 50 lớp thay vì 10. Vẽ độ lớn tại mỗi lớp cho sigmoid, tanh, ReLU và GELU. Tại lớp nào tín hiệu của mỗi kích hoạt về thực chất đạt không?
 
-3. Triển khai ELU (Exponential Linear Unit): elu(x) = x nếu x > 0, alpha * (e^x - 1) nếu x <= 0. So sánh tỷ lệ nơ-ron chết của nó với ReLU trên cùng mạng.
+3. Triển khai ELU (Exponential Linear Unit): $\text{elu}(x) = x$ nếu $x \gt 0$, $\alpha (e^x - 1)$ nếu $x \le 0$. So sánh tỷ lệ nơ-ron chết của nó với ReLU trên cùng mạng.
 
 4. Xây dựng một "bộ giám sát sức khỏe gradient" chạy trong quá trình huấn luyện: tại mỗi epoch, tính độ lớn gradient trung bình ở mỗi lớp. In cảnh báo khi gradient của bất kỳ lớp nào giảm dưới 0.001 hoặc vượt 100.
 
@@ -518,12 +522,12 @@ Bài học này tạo ra:
 | Vanishing gradient (Tiêu biến gradient) | "Các gradient biến mất trong các mạng sâu" | Các gradient co lại theo cấp số nhân qua các lớp khi đạo hàm của kích hoạt nhỏ hơn 1, khiến các lớp đầu không thể huấn luyện |
 | Exploding gradient (Bùng nổ gradient) | "Các gradient nổ tung" | Các gradient tăng theo cấp số nhân qua các lớp khi hệ số nhân hiệu dụng vượt 1, gây huấn luyện không ổn định |
 | Dead neuron (Nơ-ron chết) | "Một nơ-ron đã ngừng học" | Một nơ-ron ReLU có đầu vào âm vĩnh viễn, tạo ra đầu ra bằng không và gradient bằng không |
-| Sigmoid | "Ép các giá trị về 0-1" | Hàm logistic 1/(1+e^-x), quan trọng về lịch sử nhưng gây tiêu biến gradient trong các mạng sâu |
-| ReLU | "Cắt các giá trị âm về không" | max(0, x) -- kích hoạt khiến học sâu trở nên thực tiễn bằng cách bảo toàn độ lớn gradient |
+| Sigmoid | "Ép các giá trị về 0-1" | Hàm logistic $1/(1+e^{-x})$, quan trọng về lịch sử nhưng gây tiêu biến gradient trong các mạng sâu |
+| ReLU | "Cắt các giá trị âm về không" | $\max(0, x)$ -- kích hoạt khiến học sâu trở nên thực tiễn bằng cách bảo toàn độ lớn gradient |
 | GELU | "Kích hoạt transformer" | Gaussian Error Linear Unit, một kích hoạt trơn gán trọng số cho các đầu vào theo xác suất chúng dương |
-| Swish/SiLU | "ReLU tự đặt cổng" | x * sigmoid(x), được khám phá thông qua tìm kiếm tự động, được sử dụng trong EfficientNet |
+| Swish/SiLU | "ReLU tự đặt cổng" | $x \cdot \text{sigmoid}(x)$, được khám phá thông qua tìm kiếm tự động, được sử dụng trong EfficientNet |
 | Softmax | "Biến điểm số thành xác suất" | Chuẩn hóa một vector logit thành một phân phối xác suất trong đó mọi giá trị thuộc (0,1) và có tổng bằng 1 |
-| Leaky ReLU | "ReLU không chết" | max(alpha*x, x) trong đó alpha nhỏ (0.01), ngăn các nơ-ron chết bằng cách cho phép các gradient âm nhỏ |
+| Leaky ReLU | "ReLU không chết" | $\max(\alpha x, x)$ trong đó $\alpha$ nhỏ (0.01), ngăn các nơ-ron chết bằng cách cho phép các gradient âm nhỏ |
 | Saturation (Bão hòa) | "Phần phẳng của sigmoid" | Các vùng mà đạo hàm của một kích hoạt tiến về không, chặn luồng gradient |
 | Logit | "Điểm thô trước softmax" | Đầu ra chưa chuẩn hóa của lớp cuối trước khi áp dụng softmax hoặc sigmoid |
 

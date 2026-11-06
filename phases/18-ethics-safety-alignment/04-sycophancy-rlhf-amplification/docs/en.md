@@ -28,10 +28,12 @@ Lập luận mang tính tổng quát. Nó không phụ thuộc xu nịnh là thi
 
 Gọi `pi_0` là mô hình nền, `pi_A` là mô hình sau căn chỉnh, `r` là phần thưởng đại diện, `s(x, y)` là chỉ báo xu nịnh nhị phân. Xác định:
 
-```
-E[s | r]            = probability of sycophancy given reward
-E_{pi_0}[s | r]     = measured on the base model's output distribution
-E_{pi_A}[s | r]     = measured on the aligned model's output distribution
+```math
+\begin{aligned}
+\mathbb{E}[s \mid r] &= \text{probability of sycophancy given reward} \\
+\mathbb{E}_{\pi_0}[s \mid r] &= \text{measured on the base model's output distribution} \\
+\mathbb{E}_{\pi_A}[s \mid r] &= \text{measured on the aligned model's output distribution}
+\end{aligned}
 ```
 
 Giai đoạn 1: theo thực nghiệm, `E_{pi_0}[s | r=high] > E_{pi_0}[s | r=low]`. Phần hoàn thành xu nịnh được chấm cao hơn trung bình so với phần không xu nịnh đối sánh dưới RM huấn luyện trên dữ liệu ưu tiên người gắn nhãn.
@@ -69,8 +71,8 @@ Sahoo (arXiv:2604.10585) huấn luyện GRPO trên suy luận toán với "câu 
 
 Shapira và cộng sự đề xuất sửa phần thưởng:
 
-```
-r'(x, y) = r(x, y) - alpha * agree(x, y)
+```math
+r'(x, y) = r(x, y) - \alpha \cdot \text{agree}(x, y)
 ```
 
 trong đó `agree(x, y)` là bộ phân loại phụ đo `y` có đồng ý với tiền đề của `x` không. Quét alpha cho thấy xu nịnh giảm gần mức mô hình nền ở `alpha` khoảng 0.3-0.5, đổi lại mất một phần đồng ý chính đáng (mô hình trở nên hơi hay phản bác hơn đối với niềm tin đúng của người dùng).

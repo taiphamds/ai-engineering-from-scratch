@@ -82,7 +82,7 @@ Bộ đếm token cố ý là một heuristic ngớ ngẩn `len(text) // 4`. Đi
 
 ## Why the chain order matters
 
-Một lần từ chối rẻ hơn một lần cho phép. `WhitelistGate` chạy tra cứu băm O(1). `RegexGate` chạy trong O(pattern * argv). `RecencyGate` đọc một phần nhỏ của kho thông điệp. `BudgetGate` đọc toàn bộ sổ cái. Bạn sắp xếp chúng theo chi phí tăng dần để một lệnh gọi bị từ chối đoản mạch trước khi làm công việc đắt.
+Một lần từ chối rẻ hơn một lần cho phép. `WhitelistGate` chạy tra cứu băm $O(1)$. `RegexGate` chạy trong $O(\text{pattern} \cdot \text{argv})$. `RecencyGate` đọc một phần nhỏ của kho thông điệp. `BudgetGate` đọc toàn bộ sổ cái. Bạn sắp xếp chúng theo chi phí tăng dần để một lệnh gọi bị từ chối đoản mạch trước khi làm công việc đắt.
 
 Bạn cũng sắp xếp chúng theo phạm vi ảnh hưởng. Danh sách trắng là khẳng định mạnh nhất: công cụ này không nằm trong hợp đồng. Cổng regex tiếp theo: đối số này không nằm trong hợp đồng. Độ gần đây đến sau: harness vẫn quan tâm nhưng lệnh gọi hợp lệ về cấu trúc. Ngân sách cuối cùng vì, theo định nghĩa, nó chỉ kích hoạt khi mọi thứ khác đã đạt.
 

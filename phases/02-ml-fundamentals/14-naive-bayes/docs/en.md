@@ -30,8 +30,8 @@ Hiểu tại sao một giả định sai dẫn đến các dự đoán tốt d�
 
 Định lý Bayes đảo các xác suất có điều kiện:
 
-```
-P(class | features) = P(features | class) * P(class) / P(features)
+```math
+P(\text{class} \mid \text{features}) = \frac{P(\text{features} \mid \text{class}) \cdot P(\text{class})}{P(\text{features})}
 ```
 
 Chúng ta muốn `P(class | features)` -- xác suất một tài liệu thuộc một lớp khi biết các từ trong nó. Chúng ta có thể tính từ:
@@ -43,15 +43,15 @@ Lớp có `P(class | features)` cao nhất thắng.
 
 ### The Naive Independence Assumption
 
-Tính chính xác `P(features | class)` đòi hỏi ước lượng xác suất đồng thời của tất cả đặc trưng cùng nhau. Với từ vựng 10,000 từ, bạn cần ước lượng một phân phối trên 2^10,000 tổ hợp có thể. Bất khả thi.
+Tính chính xác `P(features | class)` đòi hỏi ước lượng xác suất đồng thời của tất cả đặc trưng cùng nhau. Với từ vựng 10,000 từ, bạn cần ước lượng một phân phối trên $2^{10{,}000}$ tổ hợp có thể. Bất khả thi.
 
 Giả định ngây thơ: mọi đặc trưng độc lập có điều kiện khi biết lớp.
 
-```
-P(w1, w2, ..., wn | class) = P(w1 | class) * P(w2 | class) * ... * P(wn | class)
+```math
+P(w_1, w_2, \ldots, w_n \mid \text{class}) = P(w_1 \mid \text{class}) \cdot P(w_2 \mid \text{class}) \cdots P(w_n \mid \text{class})
 ```
 
-Thay vì một phân phối đồng thời bất khả thi, bạn ước lượng n phân phối đơn giản theo từng đặc trưng. Mỗi phân phối chỉ cần một số đếm.
+Thay vì một phân phối đồng thời bất khả thi, bạn ước lượng $n$ phân phối đơn giản theo từng đặc trưng. Mỗi phân phối chỉ cần một số đếm.
 
 Giả định này rõ ràng sai. Các từ "machine" và "learning" không độc lập trong bất kỳ tài liệu nào. Nhưng bộ phân loại không cần các ước lượng xác suất đúng. Nó cần các thứ hạng đúng -- lớp nào có xác suất cao nhất. Giả định độc lập đưa vào các sai số hệ thống, nhưng các sai số đó ảnh hưởng mọi lớp tương tự nhau, nên thứ hạng giữ đúng.
 
@@ -59,7 +59,7 @@ Giả định này rõ ràng sai. Các từ "machine" và "learning" không đ�
 
 Ba lý do:
 
-1. **Xếp hạng hơn hiệu chỉnh.** Phân loại chỉ cần lớp được xếp hạng đầu đúng. Ngay cả nếu P(spam) = 0.99999 khi xác suất thực là 0.7, bộ phân loại vẫn chọn thư rác đúng. Chúng ta không cần các xác suất đúng. Chúng ta cần bên thắng đúng.
+1. **Xếp hạng hơn hiệu chỉnh.** Phân loại chỉ cần lớp được xếp hạng đầu đúng. Ngay cả nếu $P(\text{spam}) = 0.99999$ khi xác suất thực là 0.7, bộ phân loại vẫn chọn thư rác đúng. Chúng ta không cần các xác suất đúng. Chúng ta cần bên thắng đúng.
 
 2. **Độ chệch cao, phương sai thấp.** Giả định độc lập là một tiên nghiệm mạnh. Nó ràng buộc mô hình nặng, ngăn khớp quá mức. Với dữ liệu huấn luyện hạn chế, một mô hình hơi sai nhưng ổn định thắng một mô hình đúng về lý thuyết nhưng rất không ổn định. Đây là sự đánh đổi độ chệch-phương sai trong thực tế.
 
@@ -76,31 +76,33 @@ Dữ liệu huấn luyện:
 - Email không phải thư rác nhắc "free" 5 lần, "money" 10 lần, "meeting" 100 lần (tổng 115 từ)
 - 40% email là thư rác, 60% không phải thư rác
 
-Với làm trơn Laplace (alpha=1):
+Với làm trơn Laplace ($\alpha=1$):
 
-```
-P(free | spam)    = (80 + 1) / (150 + 3) = 81/153 = 0.529
-P(money | spam)   = (60 + 1) / (150 + 3) = 61/153 = 0.399
-P(meeting | spam) = (10 + 1) / (150 + 3) = 11/153 = 0.072
-
-P(free | not-spam)    = (5 + 1) / (115 + 3) = 6/118 = 0.051
-P(money | not-spam)   = (10 + 1) / (115 + 3) = 11/118 = 0.093
-P(meeting | not-spam) = (100 + 1) / (115 + 3) = 101/118 = 0.856
+```math
+\begin{aligned}
+P(\text{free} \mid \text{spam}) &= (80 + 1) / (150 + 3) = 81/153 = 0.529 \\
+P(\text{money} \mid \text{spam}) &= (60 + 1) / (150 + 3) = 61/153 = 0.399 \\
+P(\text{meeting} \mid \text{spam}) &= (10 + 1) / (150 + 3) = 11/153 = 0.072 \\[6pt]
+P(\text{free} \mid \text{not-spam}) &= (5 + 1) / (115 + 3) = 6/118 = 0.051 \\
+P(\text{money} \mid \text{not-spam}) &= (10 + 1) / (115 + 3) = 11/118 = 0.093 \\
+P(\text{meeting} \mid \text{not-spam}) &= (100 + 1) / (115 + 3) = 101/118 = 0.856
+\end{aligned}
 ```
 
 Email mới chứa: "free" (2 lần), "money" (1 lần), "meeting" (0 lần).
 
+```math
+\begin{aligned}
+\log P(\text{spam} \mid \text{email}) &= \log(0.4) + 2 \log(0.529) + 1 \log(0.399) + 0 \log(0.072) \\
+&= -0.916 + 2(-0.637) + (-0.919) + 0 \\
+&= -3.109 \\[6pt]
+\log P(\text{not-spam} \mid \text{email}) &= \log(0.6) + 2 \log(0.051) + 1 \log(0.093) + 0 \log(0.856) \\
+&= -0.511 + 2(-2.976) + (-2.375) + 0 \\
+&= -8.838
+\end{aligned}
 ```
-log P(spam | email) = log(0.4) + 2*log(0.529) + 1*log(0.399) + 0*log(0.072)
-                    = -0.916 + 2*(-0.637) + (-0.919) + 0
-                    = -3.109
 
-log P(not-spam | email) = log(0.6) + 2*log(0.051) + 1*log(0.093) + 0*log(0.856)
-                        = -0.511 + 2*(-2.976) + (-2.375) + 0
-                        = -8.838
-```
-
-Thư rác thắng với cách biệt lớn. Từ "free" xuất hiện hai lần là bằng chứng mạnh cho thư rác. Lưu ý "meeting" không xuất hiện đóng góp bằng không vào cả hai tổng log (0 * log(P)) -- trong Multinomial NB, các từ vắng mặt không có tác động. Chính Bernoulli NB mô hình hóa tường minh sự vắng mặt của từ.
+Thư rác thắng với cách biệt lớn. Từ "free" xuất hiện hai lần là bằng chứng mạnh cho thư rác. Lưu ý "meeting" không xuất hiện đóng góp bằng không vào cả hai tổng log ($0 \cdot \log P$) -- trong Multinomial NB, các từ vắng mặt không có tác động. Chính Bernoulli NB mô hình hóa tường minh sự vắng mặt của từ.
 
 ### Three Variants
 
@@ -110,8 +112,8 @@ Naive Bayes có ba dạng. Mỗi dạng mô hình hóa `P(feature | class)` khá
 
 Mô hình hóa mỗi đặc trưng thành một số đếm. Tốt nhất cho dữ liệu văn bản nơi các đặc trưng là tần suất từ hoặc giá trị TF-IDF.
 
-```
-P(word_i | class) = (count of word_i in class + alpha) / (total words in class + alpha * vocab_size)
+```math
+P(\text{word}_i \mid \text{class}) = \frac{\text{count of } \text{word}_i \text{ in class} + \alpha}{\text{total words in class} + \alpha \cdot \text{vocab\_size}}
 ```
 
 `alpha` là làm trơn Laplace (giải thích bên dưới). Biến thể này là công cụ chủ lực cho phân loại văn bản.
@@ -120,8 +122,8 @@ P(word_i | class) = (count of word_i in class + alpha) / (total words in class +
 
 Mô hình hóa mỗi đặc trưng thành một phân phối chuẩn. Tốt nhất cho các đặc trưng liên tục.
 
-```
-P(x_i | class) = (1 / sqrt(2 * pi * var)) * exp(-(x_i - mean)^2 / (2 * var))
+```math
+P(x_i \mid \text{class}) = \frac{1}{\sqrt{2 \pi \cdot \text{var}}} \cdot \exp\left(-\frac{(x_i - \text{mean})^2}{2 \cdot \text{var}}\right)
 ```
 
 Mỗi lớp có trung bình và phương sai riêng theo từng đặc trưng. Cách này hoạt động tốt khi các đặc trưng thực sự theo đường cong hình chuông trong mỗi lớp.
@@ -130,8 +132,8 @@ Mỗi lớp có trung bình và phương sai riêng theo từng đặc trưng. C
 
 Mô hình hóa mỗi đặc trưng là nhị phân (hiện diện hoặc vắng mặt). Tốt nhất cho văn bản ngắn hoặc các vector đặc trưng nhị phân.
 
-```
-P(word_i | class) = (docs in class containing word_i + alpha) / (total docs in class + 2 * alpha)
+```math
+P(\text{word}_i \mid \text{class}) = \frac{\text{docs in class containing } \text{word}_i + \alpha}{\text{total docs in class} + 2 \alpha}
 ```
 
 Khác Multinomial, Bernoulli phạt tường minh sự vắng mặt của một từ. Nếu "free" thường xuất hiện trong thư rác nhưng vắng mặt trong email này, Bernoulli tính đó là bằng chứng chống thư rác.
@@ -152,11 +154,11 @@ Không làm trơn: `P(word | class) = 0/N = 0`. Một số không nhân xuyên t
 
 Làm trơn Laplace thêm một số đếm nhỏ `alpha` (thường là 1) vào mọi số đếm đặc trưng:
 
-```
-P(word_i | class) = (count(word_i, class) + alpha) / (total_words_in_class + alpha * vocab_size)
+```math
+P(\text{word}_i \mid \text{class}) = \frac{\text{count}(\text{word}_i, \text{class}) + \alpha}{\text{total\_words\_in\_class} + \alpha \cdot \text{vocab\_size}}
 ```
 
-Với alpha=1, mọi từ có ít nhất một xác suất rất nhỏ. Từ "discombobulate" xuất hiện trong một email kiểm tra không còn triệt tiêu xác suất thư rác. Làm trơn có một diễn giải Bayes: nó tương đương với đặt một tiên nghiệm Dirichlet đều trên các phân phối từ.
+Với $\alpha=1$, mọi từ có ít nhất một xác suất rất nhỏ. Từ "discombobulate" xuất hiện trong một email kiểm tra không còn triệt tiêu xác suất thư rác. Làm trơn có một diễn giải Bayes: nó tương đương với đặt một tiên nghiệm Dirichlet đều trên các phân phối từ.
 
 Alpha cao hơn nghĩa là làm trơn mạnh hơn (các phân phối đều hơn). Alpha thấp hơn nghĩa là mô hình tin dữ liệu hơn. Alpha là một siêu tham số bạn điều chỉnh.
 
@@ -175,8 +177,8 @@ Nhân hàng trăm xác suất (mỗi xác suất nhỏ hơn 1) gây hụt dướ
 
 Giải pháp: làm việc trong không gian log. Thay vì nhân các xác suất, cộng các logarit:
 
-```
-log P(class | x1, x2, ..., xn) = log P(class) + sum_i log P(xi | class)
+```math
+\log P(\text{class} \mid x_1, x_2, \ldots, x_n) = \log P(\text{class}) + \sum_i \log P(x_i \mid \text{class})
 ```
 
 Điều này biến dự đoán thành một tích vô hướng:
@@ -194,7 +196,7 @@ Cả hai là các bộ phân loại tuyến tính cho văn bản. Khác biệt n
 
 | Khía cạnh | Naive Bayes | Hồi quy Logistic |
 |--------|------------|-------------------|
-| Loại | Tạo sinh (mô hình hóa P(X\|Y)) | Phân biệt (mô hình hóa P(Y\|X)) |
+| Loại | Tạo sinh (mô hình hóa $P(X \mid Y){}$) | Phân biệt (mô hình hóa $P(Y \mid X){}$) |
 | Huấn luyện | Đếm các tần suất | Tối ưu hóa hàm mất mát |
 | Dữ liệu nhỏ | Tốt hơn (tiên nghiệm mạnh giúp) | Kém hơn (không đủ để ước lượng trọng số) |
 | Dữ liệu lớn | Kém hơn (giả định sai gây hại) | Tốt hơn (biên linh hoạt) |
@@ -221,8 +223,8 @@ flowchart LR
 
 Trong thực tế, chúng ta làm việc trong không gian log để tránh hụt dưới dấu phẩy động. Thay vì nhân nhiều xác suất nhỏ, chúng ta cộng các logarit:
 
-```
-log P(class | features) = log P(class) + sum_i log P(feature_i | class)
+```math
+\log P(\text{class} \mid \text{features}) = \log P(\text{class}) + \sum_i \log P(\text{feature}_i \mid \text{class})
 ```
 
 ```figure
@@ -239,7 +241,7 @@ Triển khai từ đầu:
 
 1. **fit(X, y)**: Với mỗi lớp, đếm tần suất mỗi đặc trưng. Thêm làm trơn Laplace. Tính xác suất log. Lưu các tiên nghiệm lớp (log của các tần suất lớp).
 
-2. **predict_log_proba(X)**: Với mỗi mẫu, tính log P(class) + tổng log P(feature_i | class) cho mọi lớp. Đây là phép nhân ma trận: X @ log_probs.T + log_priors.
+2. **predict_log_proba(X)**: Với mỗi mẫu, tính $\log P(\text{class})$ + tổng $\log P(\text{feature}_i \mid \text{class})$ cho mọi lớp. Đây là phép nhân ma trận: X @ log_probs.T + log_priors.
 
 3. **predict(X)**: Trả về lớp có xác suất log cao nhất.
 
@@ -312,9 +314,9 @@ Mã cũng minh họa:
 
 ### Prediction Speed
 
-Dự đoán Naive Bayes là phép nhân ma trận. Với n mẫu có d đặc trưng và k lớp:
-- MultinomialNB: một phép nhân ma trận (n x d) @ (d x k) = O(n * d * k)
-- GaussianNB: n * k lần tính PDF Gaussian, mỗi lần trên d đặc trưng = O(n * d * k)
+Dự đoán Naive Bayes là phép nhân ma trận. Với $n$ mẫu có $d$ đặc trưng và $k$ lớp:
+- MultinomialNB: một phép nhân ma trận $(n \times d) \mathbin{@} (d \times k) = O(n \cdot d \cdot k)$
+- GaussianNB: $n \cdot k$ lần tính PDF Gaussian, mỗi lần trên $d$ đặc trưng = $O(n \cdot d \cdot k)$
 
 Cả hai tuyến tính theo mọi chiều. So sánh với KNN (đòi hỏi tính khoảng cách đến tất cả điểm huấn luyện) hoặc SVM với kernel RBF (đòi hỏi tính kernel với tất cả vector hỗ trợ). NB nhanh hơn nhiều bậc độ lớn tại thời điểm dự đoán.
 
@@ -387,7 +389,7 @@ Cờ `binary=True` trong CountVectorizer chuyển mọi số đếm thành 0/1. 
 
 ### Calibrating NB Probabilities
 
-Các xác suất NB được hiệu chỉnh kém. Khi NB nói P(spam) = 0.95, xác suất thực có thể là 0.7. Nếu cần các ước lượng xác suất đáng tin cậy (ví dụ, để đặt ngưỡng hoặc kết hợp với các mô hình khác), sử dụng CalibratedClassifierCV của sklearn:
+Các xác suất NB được hiệu chỉnh kém. Khi NB nói $P(\text{spam}) = 0.95$, xác suất thực có thể là 0.7. Nếu cần các ước lượng xác suất đáng tin cậy (ví dụ, để đặt ngưỡng hoặc kết hợp với các mô hình khác), sử dụng CalibratedClassifierCV của sklearn:
 
 ```python
 from sklearn.calibration import CalibratedClassifierCV
@@ -405,7 +407,7 @@ proba = calibrated_nb.predict_proba(X_test)
 
 2. **Các đặc trưng phương sai bằng không.** GaussianNB chia cho phương sai. Nếu một đặc trưng có phương sai bằng không cho một lớp (mọi giá trị giống hệt), phép tính xác suất hỏng. Mã thêm một số hạng làm trơn nhỏ (1e-9) vào mọi phương sai để ngăn điều này.
 
-3. **Mất cân bằng lớp.** Nếu 99% email không phải thư rác, tiên nghiệm P(not-spam) = 0.99 mạnh đến mức lấn át bằng chứng hợp lý. Bạn có thể đặt các tiên nghiệm lớp thủ công hoặc sử dụng tham số class_prior trong sklearn.
+3. **Mất cân bằng lớp.** Nếu 99% email không phải thư rác, tiên nghiệm $P(\text{not-spam}) = 0.99$ mạnh đến mức lấn át bằng chứng hợp lý. Bạn có thể đặt các tiên nghiệm lớp thủ công hoặc sử dụng tham số class_prior trong sklearn.
 
 4. **Co giãn đặc trưng.** MultinomialNB không cần co giãn (nó làm việc trên số đếm). GaussianNB cũng không cần co giãn (nó ước lượng các thống kê theo từng đặc trưng). Đây là lợi thế so với hồi quy logistic và SVM, vốn nhạy với thang đo đặc trưng.
 
@@ -431,7 +433,7 @@ Trong thực tế, các kiểu thất bại này hiếm đối với phân loạ
 
 1. **Thí nghiệm làm trơn.** Huấn luyện MultinomialNB trên dữ liệu văn bản với các giá trị alpha 0.01, 0.1, 1.0, 10.0 và 100.0. Vẽ độ chính xác theo alpha. Hiệu năng đạt đỉnh ở đâu? Tại sao alpha rất cao gây hại?
 
-2. **Kiểm tra độc lập đặc trưng.** Lấy một tập dữ liệu văn bản thực. Chọn hai từ rõ ràng tương quan ("machine" và "learning"). Tính P(word1 | class) * P(word2 | class) và so sánh với P(word1 AND word2 | class). Giả định độc lập sai đến mức nào? Nó có ảnh hưởng độ chính xác phân loại không?
+2. **Kiểm tra độc lập đặc trưng.** Lấy một tập dữ liệu văn bản thực. Chọn hai từ rõ ràng tương quan ("machine" và "learning"). Tính $P(\text{word}_1 \mid \text{class}) \cdot P(\text{word}_2 \mid \text{class})$ và so sánh với $P(\text{word}_1 \text{ AND } \text{word}_2 \mid \text{class})$. Giả định độc lập sai đến mức nào? Nó có ảnh hưởng độ chính xác phân loại không?
 
 3. **Triển khai Bernoulli.** Mở rộng mã với một lớp BernoulliNB. Chuyển bag-of-words thành nhị phân (hiện diện/vắng mặt) và so sánh độ chính xác với MultinomialNB trên dữ liệu văn bản. Khi nào Bernoulli thắng?
 
@@ -444,14 +446,14 @@ Trong thực tế, các kiểu thất bại này hiếm đối với phân loạ
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
 | Naive Bayes | "Bộ phân loại xác suất đơn giản" | Một bộ phân loại áp dụng định lý Bayes với giả định các đặc trưng độc lập có điều kiện khi biết lớp |
-| Conditional independence (Độc lập có điều kiện) | "Các đặc trưng không ảnh hưởng lẫn nhau" | P(A, B \| C) = P(A \| C) * P(B \| C) -- biết B không cho thêm điều gì mới về A một khi đã biết C |
+| Conditional independence (Độc lập có điều kiện) | "Các đặc trưng không ảnh hưởng lẫn nhau" | $P(A, B \mid C) = P(A \mid C) \cdot P(B \mid C)$ -- biết $B$ không cho thêm điều gì mới về $A$ một khi đã biết $C$ |
 | Laplace smoothing (Làm trơn Laplace) | "Làm trơn cộng một" | Thêm một số đếm nhỏ vào mọi đặc trưng để ngăn các xác suất bằng không chi phối dự đoán |
-| Prior (Tiên nghiệm) | "Những gì bạn tin trước khi thấy dữ liệu" | P(class) -- xác suất mỗi lớp trước khi quan sát bất kỳ đặc trưng nào |
-| Likelihood (Hợp lý) | "Dữ liệu khớp tốt đến mức nào" | P(features \| class) -- xác suất quan sát các đặc trưng này nếu lớp đã biết |
-| Posterior (Hậu nghiệm) | "Những gì bạn tin sau khi thấy dữ liệu" | P(class \| features) -- xác suất lớp đã cập nhật sau khi quan sát các đặc trưng |
-| Generative model (Mô hình tạo sinh) | "Mô hình hóa cách dữ liệu được sinh" | Một mô hình học P(X \| Y) và P(Y), rồi sử dụng định lý Bayes để có P(Y \| X) |
-| Discriminative model (Mô hình phân biệt) | "Mô hình hóa biên quyết định" | Một mô hình học trực tiếp P(Y \| X) mà không mô hình hóa cách X được sinh |
-| Log probability (Xác suất log) | "Tránh hụt dưới" | Làm việc với log P thay vì P để ngăn tích của nhiều số nhỏ trở thành không trong dấu phẩy động |
+| Prior (Tiên nghiệm) | "Những gì bạn tin trước khi thấy dữ liệu" | $P(\text{class})$ -- xác suất mỗi lớp trước khi quan sát bất kỳ đặc trưng nào |
+| Likelihood (Hợp lý) | "Dữ liệu khớp tốt đến mức nào" | $P(\text{features} \mid \text{class})$ -- xác suất quan sát các đặc trưng này nếu lớp đã biết |
+| Posterior (Hậu nghiệm) | "Những gì bạn tin sau khi thấy dữ liệu" | $P(\text{class} \mid \text{features})$ -- xác suất lớp đã cập nhật sau khi quan sát các đặc trưng |
+| Generative model (Mô hình tạo sinh) | "Mô hình hóa cách dữ liệu được sinh" | Một mô hình học $P(X \mid Y)$ và $P(Y)$, rồi sử dụng định lý Bayes để có $P(Y \mid X)$ |
+| Discriminative model (Mô hình phân biệt) | "Mô hình hóa biên quyết định" | Một mô hình học trực tiếp $P(Y \mid X)$ mà không mô hình hóa cách $X$ được sinh |
+| Log probability (Xác suất log) | "Tránh hụt dưới" | Làm việc với $\log P$ thay vì $P$ để ngăn tích của nhiều số nhỏ trở thành không trong dấu phẩy động |
 
 ## Further Reading
 

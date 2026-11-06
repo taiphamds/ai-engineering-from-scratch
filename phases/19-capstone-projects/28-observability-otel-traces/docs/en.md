@@ -77,15 +77,15 @@ Registry chỉ số là hai dict. Các bộ đếm là `{(name, frozen_labels): 
 6. Decorator `wrap_tool_call(name)` phát ra một span và cập nhật các chỉ số.
 7. Demo: tổng hợp một lần gọi agent hoàn chỉnh (span gen_ai.chat quanh các span công cụ), ghi traces.jsonl, in phần trình bày Prometheus, thoát với mã không.
 
-Span id và trace id là các chuỗi hex 16 byte, được tạo từ `os.urandom`. Điều đó khớp với ngữ cảnh trace W3C của OTel. Bộ xuất không bao giờ ném ngoại lệ; các lỗi IO được đưa ra nhưng harness tiếp tục chạy.
+Trace id là một giá trị 16 byte (32 ký tự hex) và span id là một giá trị 8 byte (16 ký tự hex), cả hai đều được cắt từ hex `uuid4` ngẫu nhiên. Điều đó khớp với kích thước W3C Trace Context mà OTel sử dụng. Exporter không bao giờ ném ngoại lệ; lỗi IO được hiển thị nhưng harness tiếp tục chạy.
 
-Histogram có một tập nhóm cố định (mặc định OTel cho độ trễ tính bằng mili giây: 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, +Inf). Các mẫu được lưu dưới dạng một danh sách; phần trình bày tính số đếm theo nhóm khi cần.
+Histogram có một tập bucket cố định cho độ trễ tính bằng mili giây: 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, +Inf. Nó là một phiên bản rút gọn của các ranh giới mặc định OTel SDK, vốn còn bao gồm 0, 75, 750 và 7500. Các mẫu được lưu dưới dạng một danh sách; phần trình bày tính số đếm theo bucket theo yêu cầu.
 
 ## Why hand-rolled instead of opentelemetry-sdk
 
-OTel Python SDK là một phụ thuộc thực. Nó cũng là vài nghìn dòng mã, nhiều tiến trình cho bộ xuất OTLP, và một chi phí runtime lấn át ngân sách bài học. Phiên bản viết thủ công dạy định dạng truyền tin. Trong sản xuất bạn nối cùng các thuộc tính vào SDK thực và nhận bộ xuất OTLP, chia lô, và phát hiện tài nguyên miễn phí.
+OTel Python SDK là một dependency thực sự. Nó cũng là vài nghìn dòng mã, một luồng xuất nền cho OTLP exporter và một chi phí runtime lấn át ngân sách bài học. Phiên bản tự viết dạy định dạng truyền. Trong production bạn nối cùng các thuộc tính vào SDK thật và có OTLP exporter, batching cùng phát hiện tài nguyên miễn phí.
 
-Các quy ước ổn định. Định dạng truyền tin mà bài học phát ra sẽ tiếp tục được phân tích vào năm 2030 vì OTel không bao giờ phá vỡ các tên thuộc tính GenAI; họ chỉ thêm các tên mới.
+Các quy ước GenAI vẫn được đánh dấu Development trong đặc tả, và chúng đã đổi tên thuộc tính trước đây: `gen_ai.usage.prompt_tokens` trở thành `gen_ai.usage.input_tokens`. Ghim phiên bản semantic-conventions bạn phát ra và kiểm tra nó khi bạn nâng cấp SDK.
 
 ## How this composes with the rest of Track A
 

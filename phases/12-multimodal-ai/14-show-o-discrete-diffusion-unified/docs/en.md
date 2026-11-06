@@ -11,7 +11,7 @@
 
 - Giải thích khuếch tán rời rạc có mặt nạ: lịch che token đồng đều rồi yêu cầu transformer khôi phục chúng.
 - So sánh giải mã ảnh song song (Show-o, MaskGIT) với giải mã ảnh tự hồi quy (Chameleon, Emu3) về tốc độ và chất lượng.
-- Nêu tên ba tác vụ Show-o xử lý trong một checkpoint: T2I, VQA, điền khuyết ảnh.
+- Nêu tên bốn tác vụ Show-o xử lý trong một checkpoint: tạo văn bản, VQA, T2I, inpainting hình ảnh.
 - Chọn một lịch che (cosine, tuyến tính, cắt cụt) và suy luận về ảnh hưởng của nó đến chất lượng mẫu.
 
 ## The Problem
@@ -69,11 +69,11 @@ Khả năng điền khuyết ảnh có được miễn phí từ huấn luyện 
 
 Lịch số token cần bỏ che mỗi bước định hình chất lượng. Show-o khuyến nghị cosine:
 
-```
-mask_ratio(t) = cos(pi * t / (2 * T))   # t = 0..T
+```math
+\text{mask\_ratio}(t) = \cos\left(\frac{\pi t}{2T}\right) \qquad t = 0, \ldots, T
 ```
 
-Ở bước 0, mọi token bị che (tỷ lệ 1.0). Ở bước T, không token nào bị che. Cosine tập trung khối lượng vào các tỷ lệ tầm trung nơi dự đoán mang nhiều thông tin nhất. Lịch tuyến tính cũng hoạt động nhưng chững lại nhanh hơn.
+Ở bước 0, mọi token bị che (tỷ lệ 1.0). Ở bước $T$, không token nào bị che. Cosine tập trung khối lượng vào các tỷ lệ tầm trung nơi dự đoán mang nhiều thông tin nhất. Lịch tuyến tính cũng hoạt động nhưng chững lại nhanh hơn.
 
 ### Show-o2
 
@@ -117,7 +117,7 @@ Bài học này tạo ra `outputs/skill-unified-gen-model-picker.md`. Với mộ
 
 3. Lịch cosine so với lịch tuyến tính: lần theo số token được bỏ che mỗi bước cho T=8. Lịch nào cân bằng hơn?
 
-4. Một ảnh Show-o 512x512 là 1024 token. Ở bộ từ vựng K=16384, mô hình phát ra 1024 * log2(16384) = 14,336 bit (~1.75 KiB) dữ liệu. Stable Diffusion xuất 512*512*24 bit = 6,291,456 bit (~768 KiB) pixel thô. Tỷ lệ nén là bao nhiêu và nó mang lại chất lượng gì?
+4. Một ảnh Show-o 512x512 là 1024 token. Ở bộ từ vựng $K=16384$, mô hình phát ra $1024 \cdot \log_2(16384) = 14{,}336$ bit (~1.75 KiB) dữ liệu. Stable Diffusion xuất 512*512*24 bit = 6,291,456 bit (~768 KiB) pixel thô. Tỷ lệ nén là bao nhiêu và nó mang lại chất lượng gì?
 
 5. Đọc LlamaGen (arXiv:2406.06525). Mô hình ảnh tự hồi quy có điều kiện theo lớp của LlamaGen khác cách tiếp cận có mặt nạ của Show-o như thế nào?
 

@@ -60,7 +60,7 @@ Resulting tokens:      (T / P_t) * (H / P_h) * (W / P_w) tokens
 
 Mã hóa vị trí là 3D: một embedding xoay hoặc được học cho mỗi tọa độ (t, h, w). Attention có thể là:
 
-- **Kết hợp đầy đủ** — tất cả token chú ý đến tất cả token. O(N^2) với N token. Quá tốn kém đối với video dài.
+- **Kết hợp đầy đủ** — tất cả token chú ý đến tất cả token. $O(N^2)$ với $N$ token. Quá tốn kém đối với video dài.
 - **Phân chia** — luân phiên attention theo thời gian (cùng vị trí không gian, qua thời gian: `(H*W) * T^2`) và attention theo không gian (cùng bước thời gian, qua không gian: `T * (H*W)^2`). Được TimeSformer và phần lớn video DiT sử dụng.
 - **Cửa sổ** — các cửa sổ cục bộ trong (t, h, w). Được Video Swin sử dụng.
 
@@ -213,7 +213,7 @@ class DividedAttentionBlock(nn.Module):
         return xs
 ```
 
-Attention theo thời gian chú ý trong mỗi vị trí không gian qua thời gian; attention theo không gian chú ý trong mỗi khung hình qua các vị trí. Hai phép toán O(T^2 + (HW)^2) thay cho một phép toán O((THW)^2). Đây là cốt lõi của TimeSformer và mọi video DiT hiện đại.
+Attention theo thời gian chú ý trong mỗi vị trí không gian qua thời gian; attention theo không gian chú ý trong mỗi khung hình qua các vị trí. Hai phép toán $O(T^2 + (HW)^2)$ thay cho một phép toán $O((THW)^2)$. Đây là cốt lõi của TimeSformer và mọi video DiT hiện đại.
 
 ### Step 4: Compose a tiny video DiT
 
@@ -286,7 +286,7 @@ Bài học này tạo ra:
 | World model (Mô hình thế giới) | "Bộ mô phỏng được học" | Một mô hình dự đoán các quan sát tương lai dựa trên trạng thái và hành động |
 | Video DiT | "Transformer không-thời gian" | Diffusion transformer với chia patch 3D và attention phân chia |
 | Latent action (Hành động tiềm ẩn) | "Điều khiển được suy ra" | Biến tiềm ẩn hành động rời rạc hoặc liên tục được suy ra từ các cặp khung hình; được dùng để điều kiện hóa việc sinh khung hình tiếp theo |
-| Divided attention (Attention phân chia) | "Thời gian rồi không gian" | Hai phép toán attention cho mỗi khối — qua thời gian rồi qua không gian — để giữ O(N^2) trong mức có thể quản lý |
+| Divided attention (Attention phân chia) | "Thời gian rồi không gian" | Hai phép toán attention cho mỗi khối — qua thời gian rồi qua không gian — để giữ $O(N^2)$ trong mức có thể quản lý |
 | Object permanence (Tính thường tồn của đối tượng) | "Các vật vẫn tồn tại thực" | Thuộc tính của cảnh mà các mô hình video phải học; dạng lỗi kinh điển đối với thức ăn, đồ thủy tinh |
 | FVD | "Fréchet Video Distance" | Tương đương của FID cho video; thước đo chất lượng hình ảnh chính |
 | Inverse dynamics model (Mô hình động lực học nghịch đảo) | "Quan sát thành hành động" | Cho (trạng thái, trạng thái tiếp theo), xuất ra hành động kết nối chúng; khép kín vòng lặp robot học |

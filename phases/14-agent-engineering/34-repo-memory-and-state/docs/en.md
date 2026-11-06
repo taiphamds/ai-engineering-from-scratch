@@ -95,7 +95,7 @@ Bốn mẫu biến mức tối thiểu của bài học thành thứ mà một m
 
 **Tách các sản phẩm lớn khỏi trạng thái.** Đừng lưu các CSV, bản ghi dài hoặc file được tạo trong `agent_state.json`. Lưu sản phẩm thành một file riêng (hoặc tải lên lưu trữ đối tượng) và chỉ giữ đường dẫn trong trạng thái. Các checkpoint vẫn nhỏ và nhanh; các sản phẩm tăng độc lập.
 
-**Event sourcing cho kiểm toán, các ảnh chụp cho tiếp tục.** Thêm vào một log sự kiện (`state.events.jsonl`) trên mọi thay đổi; định kỳ chụp vào `state.json`. Tiếp tục đọc ảnh chụp, rồi phát lại bất kỳ sự kiện nào sau dấu thời gian của ảnh chụp. Điều này tốn nhiều đĩa hơn nhưng cho phép bạn phát lại các quyết định agent nguyên văn — thiết yếu khi gỡ lỗi các lần chạy tầm dài. Cùng hình dạng mà Postgres sử dụng nội bộ cho WAL.
+**Event sourcing để kiểm toán, snapshot để tiếp tục.** Nối thêm vào nhật ký sự kiện (`state.events.jsonl`) sau mỗi thay đổi; định kỳ chụp snapshot vào `state.json`. Khi tiếp tục, đọc snapshot, rồi phát lại mọi sự kiện sau dấu thời gian của snapshot. Cách này tốn thêm dung lượng đĩa nhưng cho phép bạn phát lại nguyên văn các quyết định của agent — điều thiết yếu khi gỡ lỗi các lần chạy dài hạn. Postgres sử dụng cùng ý tưởng nhật ký cộng checkpoint ở tầng lưu trữ với WAL của nó, dù ở mức thấp hơn nhiều so với sự kiện ứng dụng.
 
 **Các lần di chuyển schema hoặc từ chối tải.** Số nguyên `schema_version` là hợp đồng. Khi bộ quản lý tải một file ở một phiên bản không xác định, nó từ chối đọc. Cung cấp một script di chuyển cạnh lần tăng schema; `tools/migrate_state.py` chạy lũy đẳng trên mỗi lần khởi động.
 

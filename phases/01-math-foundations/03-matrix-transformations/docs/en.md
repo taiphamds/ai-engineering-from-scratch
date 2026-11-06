@@ -45,7 +45,7 @@ graph LR
 
 ### Rotation
 
-Một phép quay 2D một góc theta giữ nguyên khoảng cách và góc. Nó di chuyển mọi điểm dọc theo một cung tròn.
+Một phép quay 2D một góc $\theta$ giữ nguyên khoảng cách và góc. Nó di chuyển mọi điểm dọc theo một cung tròn.
 
 ```mermaid
 graph LR
@@ -66,18 +66,12 @@ graph LR
 
 Trong 3D, bạn quay quanh một trục. Mỗi trục có ma trận quay riêng:
 
-```
-Rz(theta) = | cos  -sin  0 |     Rotate around z-axis
-            | sin   cos  0 |     (x-y plane spins, z stays)
-            |  0     0   1 |
-
-Rx(theta) = | 1   0     0    |   Rotate around x-axis
-            | 0  cos  -sin   |   (y-z plane spins, x stays)
-            | 0  sin   cos   |
-
-Ry(theta) = |  cos  0  sin |     Rotate around y-axis
-            |   0   1   0  |     (x-z plane spins, y stays)
-            | -sin  0  cos |
+```math
+\begin{aligned}
+R_z(\theta) &= \begin{bmatrix} \cos\theta & -\sin\theta & 0 \\ \sin\theta & \cos\theta & 0 \\ 0 & 0 & 1 \end{bmatrix} \quad \text{Rotate around z-axis (x-y plane spins, z stays)} \\[6pt]
+R_x(\theta) &= \begin{bmatrix} 1 & 0 & 0 \\ 0 & \cos\theta & -\sin\theta \\ 0 & \sin\theta & \cos\theta \end{bmatrix} \quad \text{Rotate around x-axis (y-z plane spins, x stays)} \\[6pt]
+R_y(\theta) &= \begin{bmatrix} \cos\theta & 0 & \sin\theta \\ 0 & 1 & 0 \\ -\sin\theta & 0 & \cos\theta \end{bmatrix} \quad \text{Rotate around y-axis (x-z plane spins, y stays)}
+\end{aligned}
 ```
 
 ### Scaling
@@ -123,8 +117,8 @@ graph LR
 ```
 
 Các ma trận trượt:
-- `Shx = [[1, k], [0, 1]]` dịch x một lượng k * y
-- `Shy = [[1, 0], [k, 1]]` dịch y một lượng k * x
+- `Shx = [[1, k], [0, 1]]` dịch $x$ một lượng $k \cdot y$
+- `Shy = [[1, 0], [k, 1]]` dịch $y$ một lượng $k \cdot x$
 
 ### Reflection
 
@@ -196,7 +190,7 @@ Ma trận kéo giãn không gian 3 lần theo [1, 1] và giữ nguyên [1, -1]. 
 
 ### Eigendecomposition
 
-Nếu một ma trận có n vector riêng độc lập tuyến tính, nó có thể được phân rã:
+Nếu một ma trận có $n$ vector riêng độc lập tuyến tính, nó có thể được phân rã:
 
 ```
 A = V @ D @ V^(-1)
@@ -210,7 +204,7 @@ This says: rotate into eigenvector coordinates, scale along each axis, rotate ba
 
 ### Why eigenvalues matter
 
-**PCA.** Các vector riêng của ma trận hiệp phương sai là các thành phần chính. Các giá trị riêng cho bạn biết mỗi thành phần nắm bắt bao nhiêu phương sai. Sắp xếp theo giá trị riêng, giữ lại k thành phần đầu, và bạn có giảm chiều.
+**PCA.** Các vector riêng của ma trận hiệp phương sai là các thành phần chính. Các giá trị riêng cho bạn biết mỗi thành phần nắm bắt bao nhiêu phương sai. Sắp xếp theo giá trị riêng, giữ lại $k$ thành phần đầu, và bạn có giảm chiều.
 
 **Tính ổn định.** Trong các mạng hồi quy và hệ động lực, các giá trị riêng có độ lớn > 1 khiến đầu ra bùng nổ. Độ lớn < 1 khiến chúng tiêu biến. Đây là vấn đề gradient tiêu biến/bùng nổ được phát biểu trong một câu.
 
@@ -309,7 +303,7 @@ print(f"Same? {result1 == result2}")
 
 ### Step 3: Eigenvalues from scratch (2x2)
 
-Với một ma trận 2x2 `[[a, b], [c, d]]`, các giá trị riêng giải phương trình đặc trưng: `lambda^2 - (a+d)*lambda + (ad - bc) = 0`.
+Với một ma trận 2x2 `[[a, b], [c, d]]`, các giá trị riêng giải phương trình đặc trưng: $\lambda^2 - (a+d)\lambda + (ad - bc) = 0$.
 
 ```python
 def eigenvalues_2x2(matrix):
@@ -443,6 +437,14 @@ Bài học này xây dựng nền tảng hình học cho PCA (Giai đoạn 2) v�
 
 3. Tạo một phép hợp thành của ba phép biến đổi (quay 30 độ, co giãn theo [1.5, 0.8], trượt với kx=0.3) và áp dụng nó cho 8 điểm được bố trí trên một đường tròn. In tọa độ trước và sau. Tính định thức của ma trận hợp thành và xác minh nó bằng tích các định thức riêng lẻ.
 
+### Hints
+
+**Bài tập 1.** Áp dụng `rotation_2d`, `scaling_2d` và `shearing_2d` cho mỗi góc bằng `mat_vec_mul`. Đối với phép quay, tính 4 độ dài cạnh và 2 đường chéo trước và sau; mỗi giá trị phải giữ nguyên.
+
+**Bài tập 2.** Viết phương trình đặc trưng $\lambda^2 - (\text{trace})\lambda + \det = 0$ và giải nó. Kiểm tra hai giá trị của bạn cộng lại bằng vết (7) và nhân lại bằng định thức (10), rồi so sánh với `eigenvalues_2x2` và `np.linalg.eigvals`.
+
+**Bài tập 3.** Xây dựng ba ma trận, với `shearing_2d(0.3, 0)` cho phép shear, nhân chúng bằng `mat_mul` theo thứ tự áp dụng và áp dụng kết quả cho 8 điểm $(\cos\theta, \sin\theta)$. Phép quay có định thức 1 và phép shear có định thức 1, vì vậy `det_2x2` của phép hợp phải bằng $1.5 \times 0.8 = 1.2$.
+
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
@@ -454,9 +456,9 @@ Bài học này xây dựng nền tảng hình học cho PCA (Giai đoạn 2) v�
 | Composition (Phép hợp thành) | "Làm hai việc" | Nhân các ma trận biến đổi để nối chuỗi các phép toán. Thứ tự có ý nghĩa: B @ A nghĩa là áp dụng A trước, rồi B. |
 | Eigenvector (Vector riêng) | "Hướng đặc biệt" | Một hướng mà ma trận chỉ co giãn, không bao giờ quay. Dấu vân tay của phép biến đổi. |
 | Eigenvalue (Giá trị riêng) | "Nó kéo giãn bao nhiêu" | Hệ số vô hướng mà ma trận dùng để co giãn vector riêng của nó. Có thể âm (lật) hoặc phức (quay). |
-| Eigendecomposition (Phân rã riêng) | "Tách ma trận ra" | Viết một ma trận dưới dạng V @ D @ V^(-1), tách nó thành các hướng và độ lớn co giãn cơ bản. |
+| Eigendecomposition (Phân rã riêng) | "Tách ma trận ra" | Viết một ma trận dưới dạng $V D V^{-1}$, tách nó thành các hướng và độ lớn co giãn cơ bản. |
 | Determinant (Định thức) | "Một số duy nhất từ một ma trận" | Hệ số mà phép biến đổi dùng để co giãn diện tích (2D) hoặc thể tích (3D). Bằng không có nghĩa là phép biến đổi không thể đảo ngược. |
-| Characteristic equation (Phương trình đặc trưng) | "Nơi các giá trị riêng xuất phát" | det(A - lambda * I) = 0. Đa thức có các nghiệm là các giá trị riêng. |
+| Characteristic equation (Phương trình đặc trưng) | "Nơi các giá trị riêng xuất phát" | $\det(A - \lambda I) = 0$. Đa thức có các nghiệm là các giá trị riêng. |
 
 ## Further Reading
 

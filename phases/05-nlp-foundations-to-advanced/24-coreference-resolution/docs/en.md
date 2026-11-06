@@ -36,7 +36,7 @@ Vì sao nó quan trọng năm 2026:
 **Các kiến trúc.**
 
 1. **Dựa trên quy tắc (Hobbs, 1978).** Phân giải đại từ dựa trên cây cú pháp bằng các quy tắc ngữ pháp. Baseline tốt. Khó bị đánh bại đến ngạc nhiên trên các đại từ.
-2. **Bộ phân loại cặp lần nhắc.** Với mọi cặp lần nhắc (m_i, m_j), dự đoán liệu chúng có đồng tham chiếu. Phân cụm bằng bao đóng bắc cầu. Tiêu chuẩn trước 2016.
+2. **Bộ phân loại cặp lần nhắc.** Với mọi cặp lần nhắc $(m_i, m_j)$, dự đoán liệu chúng có đồng tham chiếu. Phân cụm bằng bao đóng bắc cầu. Tiêu chuẩn trước 2016.
 3. **Xếp hạng lần nhắc.** Với mỗi lần nhắc, xếp hạng các tiền ngữ ứng viên (bao gồm "không tiền ngữ"). Chọn đầu bảng.
 4. **Đầu cuối dựa trên span (Lee và cộng sự, 2017).** Encoder transformer. Liệt kê mọi span ứng viên đến một giới hạn độ dài. Dự đoán các điểm lần nhắc. Dự đoán xác suất tiền ngữ cho mỗi span. Phân cụm tham lam. Mặc định hiện đại.
 5. **Sinh (2024+).** Prompt một LLM: "Liệt kê mọi đại từ trong văn bản này và tiền ngữ của nó." Hoạt động tốt trên các trường hợp dễ, chật vật trên các tài liệu dài và các đối tượng quy chiếu hiếm.
@@ -61,14 +61,14 @@ coref-links
 ```python
 import spacy
 nlp = spacy.load("en_coreference_web_trf")   # experimental model
-doc = nlp("Apple announced new products. The company said they would ship soon.")
+doc = nlp("Apple announced new products. The company said it would ship them soon.")
 for cluster in doc._.coref_clusters:
     print(cluster, "->", [m.text for m in cluster])
 ```
 
 Trên một tài liệu dài hơn, bạn nhận thứ gì đó như:
-- Cụm 1: [Apple, Công ty, họ]
-- Cụm 2: [các sản phẩm mới]
+- Cụm 1: [Apple, The company, it]
+- Cụm 2: [new products, them]
 
 ### Step 2: rule-based pronoun resolver (teaching)
 

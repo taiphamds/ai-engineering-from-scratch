@@ -97,7 +97,7 @@ python train.py > output.log 2> errors.log
 python train.py > train_full.log 2>&1
 ```
 
-Ba cách chuyển hướng bạn cần:
+Bốn phép chuyển hướng và pipe bạn cần:
 
 | Symbol | What it does |
 |--------|-------------|
@@ -335,6 +335,16 @@ env | grep -i torch
 2. Thêm các bí danh từ `code/shell_aliases.sh` vào cấu hình shell và tải lại bằng `source ~/.zshrc` (hoặc `~/.bashrc`).
 3. Tạo nhật ký huấn luyện giả bằng `for i in $(seq 1 100); do echo "epoch $i loss: $(echo "scale=4; 1/$i" | bc)"; sleep 0.1; done > fake_train.log` rồi dùng `grep`, `tail` và `awk` để chỉ trích xuất các giá trị mất mát.
 4. Thiết lập một mục cấu hình SSH cho máy chủ bạn có quyền truy cập (hoặc dùng `localhost` để thực hành cú pháp).
+
+### Hints
+
+**Bài tập 1.** Bắt đầu bằng `tmux new -s practice`, rồi chia bằng tiền tố `Ctrl+B` theo sau bởi `"` và `%`, và di chuyển giữa các pane bằng `Ctrl+B` cùng một phím mũi tên. Tách ra bằng `Ctrl+B` rồi `d`, chạy `tmux ls` và gắn lại bằng `tmux attach -t practice`; cả ba chương trình vẫn phải chạy.
+
+**Bài tập 2.** Sao chép các dòng từ `code/shell_aliases.sh` vào cuối `~/.zshrc` hoặc `~/.bashrc`, rồi chạy `source` trên tệp đó. Chạy `alias` hoặc `type <name>` cho một trong các alias mới để xác nhận shell biết nó.
+
+**Bài tập 3.** Trước tiên chạy `tail -5 fake_train.log` để xem định dạng dòng. Sau đó lọc bằng `grep loss` và chỉ in trường cuối bằng `awk '{print $NF}'`; đầu ra phải là 100 số nhỏ dần.
+
+**Bài tập 4.** Sao chép khối `Host gpu` từ bài học vào `~/.ssh/config` và đổi `HostName` cùng `User` thành máy chủ của bạn, hoặc thành `localhost` và tên người dùng của bạn. Chạy `ssh -G gpu` để in các thiết lập mà SSH sẽ sử dụng. Nếu bạn có một máy chủ SSH có thể truy cập và chấp nhận khóa của bạn, chạy `ssh gpu` để kết nối.
 
 ## Key Terms
 

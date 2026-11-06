@@ -21,7 +21,7 @@ Một mô hình đa phương thức thống nhất dễ tuyên bố và khó xâ
 Các thách thức kỹ thuật:
 
 - Tokenizer phải tồn tại cho mọi phương thức, nén đủ ít mất mát để tái tạo và tạo token ở tốc độ transformer có thể tiếp nhận.
-- Một bộ từ vựng duy nhất phải phân bổ không gian cho văn bản (32k+), ảnh (16k+), lời nói (4k+), âm nhạc (8k+). Tối thiểu hơn bốn mươi nghìn mục.
+- Một từ vựng duy nhất phải phân bổ chỗ cho văn bản (32k+), hình ảnh (8k+), lời nói (4k+), âm nhạc (8k+). Tối thiểu hơn năm mươi nghìn phần tử.
 - Dữ liệu huấn luyện phải bao phủ mọi cặp đầu vào-đầu ra (văn bản→ảnh, ảnh→lời nói, lời nói→ảnh, v.v.) hoặc mô hình phải kết hợp.
 - Suy luận phải truyền luồng token đầu ra đủ nhanh cho độ trễ hội thoại (<500ms đến byte âm thanh đầu tiên).
 
@@ -32,21 +32,21 @@ Các thách thức kỹ thuật:
 Ngăn xếp tokenizer của MIO:
 
 - Văn bản: BPE tiêu chuẩn, bộ từ vựng ~32000.
-- Ảnh: SEED-Tokenizer (2023) — VAE lượng tử hóa với codebook rời rạc, 4096 mục, 32x32 token trên mỗi ảnh.
-- Lời nói: residual-VQ của SpeechTokenizer (2023) — mã hóa dạng sóng 16kHz thành 8 codebook phân cấp; cấp đầu tiên là nội dung thô, các cấp sau thêm ngữ điệu và danh tính người nói.
-- Âm nhạc: residual-VQ tương tự (họ MusicGen / Encodec của Meta), 4-8 codebook.
+- Hình ảnh: SEED-Tokenizer (2023), một tokenizer hình ảnh rời rạc với một codebook 8192 phần tử xuất ra 32 token mỗi hình ảnh.
+- Lời nói: SpeechTokenizer residual-VQ (2023), mã hóa một dạng sóng 16kHz thành 8 codebook phân cấp; cấp đầu là nội dung thô, các cấp sau thêm ngữ điệu và danh tính người nói. MIO giữ cấp nội dung cộng ba cấp âm sắc đầu tiên, mỗi cấp 1024 mã, vì vậy có 4096 ID lời nói.
+- Âm nhạc: residual-VQ tương tự (họ MusicGen / Encodec của Meta), 4-8 codebook. Bản thân MIO không cung cấp một tokenizer âm nhạc (phương thức thứ tư của nó là video, dưới dạng các khung hình qua tokenizer hình ảnh); ví dụ đồ chơi của bài học này thêm âm nhạc để cho thấy một phương thức mới chiếm một khoảng ID như thế nào.
 
 Mỗi phương thức tạo token số nguyên. Các token nhận các dải ID không giao nhau trong bộ từ vựng dùng chung:
 
 ```
 text:   0..31999
-image:  32000..36095  (4096 image tokens)
-speech: 36096..40191  (4096 speech base tokens, plus residual layers)
-music:  40192..48383  (8192 music tokens)
-sep:    48384..48390  (<image>, <speech>, <music>, </...>, etc.)
+image:  32000..40191  (8192 image tokens)
+speech: 40192..44287  (4 codebooks x 1024 speech tokens)
+music:  44288..52479  (8192 music tokens, the toy's extension)
+sep:    52480..52485  (<image>, <speech>, <music>, </...>)
 ```
 
-Tổng cộng: bộ từ vựng ~48k. Embedding đầu vào và phép chiếu đầu ra bao phủ toàn bộ nó.
+Tổng: từ vựng ~52k. Embedding đầu vào và phép chiếu đầu ra bao phủ toàn bộ nó.
 
 ### Streaming decode
 
@@ -57,7 +57,7 @@ Mẫu truyền luồng:
 1. Người dùng nói vào mic; tokenizer âm thanh thời gian thực phát token lời nói mỗi 50ms.
 2. MIO tiếp nhận token khi chúng đến (nạp trước prompt + truyền xuôi tăng dần).
 3. Token đầu ra được truyền luồng khi tạo ra; một bộ giải mã lời nói song song chuyển chúng thành mẫu âm thanh với độ trễ ~50-150ms.
-4. Thời gian đến byte âm thanh đầu tiên: ~300-500ms trong bài báo MIO, tiến gần ~250ms của GPT-4o.
+4. Thời gian đến byte âm thanh đầu tiên: bài báo MIO không báo cáo con số độ trễ. Ngân sách bên dưới đặt thiết kế này ở xấp xỉ 300ms trong trường hợp tốt nhất, so với ~250ms của GPT-4o.
 
 Mini-Omni (arXiv:2408.16725), GLM-4-Voice (arXiv:2412.02612) và Moshi (arXiv:2410.00037) là các thiết kế LLM lời nói truyền luồng bổ trợ. Riêng Moshi đạt thời gian khứ hồi 160ms trên một GPU.
 
@@ -100,7 +100,7 @@ Với sản phẩm hội thoại, độ trễ của mọi thành phần đều q
 - Token đầu ra đầu tiên: ~50ms.
 - Residual-VQ song song + bộ giải mã lời nói: ~100-150ms.
 
-Tổng thời gian đến byte âm thanh đầu tiên: tối thiểu ~300ms. GPT-4o tuyên bố ~250ms. Moshi tuyên bố 160ms. MIO/AnyGPT nằm trong khoảng 400-600ms theo các benchmark công khai.
+Tổng thời gian đến byte âm thanh đầu tiên: tối thiểu ~300ms. GPT-4o tuyên bố ~250ms. Moshi tuyên bố 160ms. Cả MIO lẫn AnyGPT đều không công bố số liệu đo được, vì vậy hãy xem ngân sách này là một ước tính, không phải một benchmark.
 
 ### Why any-to-any stays hard
 
@@ -134,7 +134,7 @@ Bài học này tạo ra `outputs/skill-any-to-any-pipeline-auditor.md`. Với m
 
 2. Residual-VQ của SpeechTokenizer dùng 8 codebook. Đề xuất lý do việc giải mã song song các cấp phần dư là cần thiết (so với tuần tự) và mức tiết kiệm độ trễ nó mang lại.
 
-3. Bộ từ vựng của bạn có 32k văn bản + 4k ảnh + 4k lời nói. Thêm 8k âm nhạc và ~10 dấu phân cách. Chi phí tham số ma trận embedding ở chiều ẩn 4096 là bao nhiêu?
+3. Từ vựng của bạn có 32k văn bản + 8k hình ảnh + 4k lời nói. Thêm 8k âm nhạc và ~10 dấu phân cách. Chi phí tham số của ma trận embedding ở chiều ẩn 4096 là bao nhiêu?
 
 4. Chuỗi suy nghĩ thị giác phát ra một ảnh trung gian. Những loại câu hỏi nào được lợi? Những loại nào bị ảnh hưởng xấu bởi token bổ sung?
 
@@ -146,7 +146,7 @@ Bài học này tạo ra `outputs/skill-any-to-any-pipeline-auditor.md`. Với m
 |------|-----------------|------------------------|
 | Any-to-any (Bất kỳ phương thức nào sang bất kỳ phương thức nào) | "Đa phương thức vào/ra" | Một mô hình duy nhất nhận và phát văn bản, ảnh, lời nói và âm nhạc theo bất kỳ hướng nào |
 | Residual-VQ | "Ngăn xếp tokenizer lời nói" | Token hóa nhiều codebook trong đó mỗi lớp thêm thông tin; lớp cơ sở là nội dung, các lớp sau là ngữ điệu |
-| SEED-Tokenizer | "Mã ảnh" | Tokenizer ảnh rời rạc có codebook 4096 mục được MIO sử dụng |
+| SEED-Tokenizer | "Mã hình ảnh" | Tokenizer hình ảnh rời rạc với một codebook 8192 phần tử và 32 token mỗi hình ảnh, được MIO sử dụng |
 | Chain-of-visual-thought (Chuỗi suy nghĩ thị giác) | "Trang nháp thị giác" | Mô hình tạo một ảnh trung gian như bước suy luận trước câu trả lời cuối cùng |
 | Time-to-first-audio-byte (Thời gian đến byte âm thanh đầu tiên) | "TTFAB" | Độ trễ từ giọng nói người dùng đến đầu ra âm thanh đầu tiên; <500ms để có cảm giác hội thoại |
 | Four-stage curriculum (Chương trình bốn giai đoạn) | "Công thức huấn luyện" | Căn chỉnh -> xen kẽ -> tăng cường lời nói -> SFT, theo thứ tự đó |

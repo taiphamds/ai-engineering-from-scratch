@@ -9,7 +9,7 @@
 
 ## Learning Objectives
 
-- Liệt kê sáu tính năng cốt lõi của gateway (định tuyến, dự phòng, thử lại, giới hạn tốc độ, bí mật, khả năng quan sát, chốt bảo vệ).
+- Liệt kê bảy tính năng gateway cốt lõi (định tuyến, fallback, thử lại, giới hạn tốc độ, bí mật, khả năng quan sát, rào chắn).
 - Ánh xạ bốn gateway năm 2026 (LiteLLM, Portkey, Kong AI, Bifrost) đến trần quy mô và trường hợp sử dụng.
 - Trích dẫn phép đo chuẩn Kong (228% so với Portkey, 859% so với LiteLLM) và giải thích tại sao nó quan trọng với >500 RPS.
 - Chọn tự lưu trữ so với được quản lý với lưu trú dữ liệu và ngân sách vận hành.
@@ -22,7 +22,7 @@ Phát minh lại điều này ở lớp ứng dụng gắn mọi dịch vụ v�
 
 ## The Concept
 
-### Six core features
+### Seven core features
 
 1. **Định tuyến nhà cung cấp** — OpenAI, Anthropic, Gemini, tự lưu trữ, v.v. sau một API.
 2. **Dự phòng** — khi có 429, 5xx hoặc lỗi chất lượng, thử lại nơi khác.
@@ -109,7 +109,7 @@ Bài học này tạo ra `outputs/skill-gateway-picker.md`. Với quy mô, đị
 ## Exercises
 
 1. Chạy `code/main.py`. Cấu hình dự phòng từ OpenAI→Anthropic→tự lưu trữ. Tỷ lệ trúng dự kiến ở tỷ lệ lỗi nhà cung cấp 5% là bao nhiêu?
-2. SLA của bạn là TTFT P99 < 200 ms trên đường cơ sở 300 ms. Những gateway nào ở trong ngân sách?
+2. SLA của bạn là TTFT P99 < 320 ms và riêng mô hình đo được 300 ms ở P99. Những gateway nào nằm trong ngân sách?
 3. Một khách hàng y tế yêu cầu tự lưu trữ + che PII + kiểm toán. Chọn Portkey OSS hoặc Kong.
 4. So sánh LiteLLM với Kong: ở trần RPS nào một nhóm nên chuyển đổi?
 5. Thiết kế chính sách giới hạn tốc độ cho một SaaS đa tenant: gói miễn phí, gói dùng thử, gói trả phí. Token-bucket hay cửa sổ trượt?

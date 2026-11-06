@@ -1,6 +1,6 @@
 # Model Routing as a Cost-Reduction Primitive
 
-> Một bộ môi giới động đánh giá từng yêu cầu (loại tác vụ, độ dài token, độ tương đồng embedding, độ tin cậy) và gửi truy vấn đơn giản đến mô hình rẻ, chuyển truy vấn phức tạp lên mô hình tiên tiến hàng đầu. Cũng được gọi là xếp tầng mô hình. Các nghiên cứu tình huống sản xuất cho thấy giảm chi phí 20-60% ở cùng chất lượng trên các triển khai Mỹ/Anh/EU; cải thiện hiệu quả định tuyến 30% trên SaaS khối lượng lớn chuyển thành tiết kiệm hằng năm sáu chữ số. Bối cảnh năm 2026 là giá suy luận LLM giảm ~10x mỗi năm — một token tầm GPT-4 giảm từ $20/M xuống ~$0.40/M từ cuối năm 2022 đến 2026. Phần lớn mức giảm đến từ ngăn xếp phục vụ tốt hơn (Giai đoạn 17 · 04-09), không phải phần cứng. Định tuyến là cách bạn chuyển mức giảm giá đó thành biên lợi nhuận mà không làm sản phẩm suy giảm. Chế độ lỗi là độ trôi mô hình rẻ: tuyến đẩy 40% sang mô hình yếu hơn, chất lượng giảm 3-5% trên tác vụ suy luận, không ai nhận ra suốt một quý. Kiểm soát tuyến bằng chỉ số chất lượng trực tuyến, không chỉ bộ đánh giá ngoại tuyến.
+> Một bộ môi giới động đánh giá mỗi yêu cầu (loại tác vụ, độ dài token, độ tương đồng embedding, độ tin cậy) và gửi các truy vấn đơn giản đến một mô hình rẻ, nâng các truy vấn phức tạp lên một mô hình tiên phong. Còn gọi là model cascading. Các nghiên cứu tình huống production cho thấy giảm chi phí 20-60% ở cùng chất lượng trên các triển khai Mỹ/Anh/EU; cải thiện hiệu quả định tuyến 30% trên SaaS lưu lượng cao biến thành khoản tiết kiệm hàng năm sáu chữ số. Bối cảnh năm 2026 là giá suy luận LLM cho một mức năng lực cố định đã giảm khoảng 10x mỗi năm (ước tính LLMflation của a16z); ở tầng GPT-4 mức giảm chậm hơn, từ $20/M xuống ~$0.40/M (khoảng 50x) từ cuối năm 2022 đến năm 2026. Phần lớn mức giảm là nhờ các ngăn xếp phục vụ tốt hơn (Giai đoạn 17 · 04-09), không phải phần cứng. Định tuyến là cách bạn chuyển mức giảm giá đó thành biên lợi nhuận mà không gây hồi quy sản phẩm. Chế độ lỗi là trôi dạt mô hình rẻ: tuyến đẩy 40% sang một mô hình yếu hơn, chất lượng giảm 3-5% trên các tác vụ suy luận, không ai nhận ra trong một quý. Đặt cổng cho các tuyến bằng chỉ số chất lượng trực tuyến, không chỉ các tập đánh giá ngoại tuyến.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy cascading router simulator)
@@ -44,7 +44,7 @@ Nếu bạn định tuyến 70% sang rẻ và 30% sang đắt, hóa đơn giảm
 
 Các gateway AI (Giai đoạn 17 · 19) cung cấp định tuyến. LiteLLM có cấu hình `router` với dự phòng và định tuyến chi phí. Portkey có các chốt bảo vệ + định tuyến. Kong AI Gateway có định tuyến dựa trên plugin. Chợ mô hình OpenRouter cung cấp một API khuyến nghị.
 
-Mã nguồn mở: RouteLLM (LMSYS), Not Diamond (thương mại), Prompt Mule.
+Mã nguồn mở: RouteLLM (LMSYS), Prompt Mule. Thương mại: Not Diamond.
 
 ### The 2026 price curve
 
@@ -69,7 +69,7 @@ Kiểm soát tuyến bằng chỉ số chất lượng trực tuyến:
 ### Numbers you should remember
 
 - Tiết kiệm định tuyến năm 2026 ở cùng chất lượng: nghiên cứu tình huống 20-60%.
-- Mức giảm giá LLM 2022-2026: tổng hợp ~10x mỗi năm.
+- Mức giảm giá LLM ở một mức năng lực cố định: ~10x mỗi năm (ước tính LLMflation của a16z); tổng cộng khoảng 50x ở tầng GPT-4 từ năm 2022 đến năm 2026.
 - Cấp GPT-4 năm 2022 so với 2026: ~$20/M → ~$0.40/M.
 - Tác động độ trễ xếp tầng: trung vị ~1.2x, chuyển cấp ~2x (~10% lưu lượng).
 

@@ -75,7 +75,7 @@ v2.0 (tháng 2 năm 2025) thêm phần Căn chỉnh Mang tính Lừa dối và c
 - DeepMind "Mức Năng lực Tới hạn."
 - OpenAI "ngưỡng Năng lực Cao."
 
-Không có thuật ngữ tiêu chuẩn ngành. Thống nhất về cấu trúc: ba tầng năng lực tiên tiến hàng đầu với tiêu chí đánh giá công bố. Cả ba gồm điều khoản điều chỉnh theo đối thủ (từ 2025).
+Không có thuật ngữ chuẩn toàn ngành. Đồng nhất về cấu trúc: mỗi trong ba framework xác định các ngưỡng năng lực phân tầng với tiêu chí đánh giá được công bố. Cả ba đều có các điều khoản điều chỉnh theo đối thủ cạnh tranh (từ năm 2025 trở đi).
 
 ### Safety cases
 
@@ -85,7 +85,7 @@ Hồ sơ lập luận an toàn là lập luận bằng văn bản rằng triển
 - **Tính không dễ hiểu.** Mô hình có thiếu khả năng thực hiện kế hoạch mạch lạc gây hại không?
 - **Thiếu năng lực.** Mô hình có thiếu năng lực gây thiệt hại đang xét không?
 
-Hồ sơ khác nhắm trụ cột khác. Với hồ sơ CBRN ASL-3, thiếu năng lực (qua quên học) là mục tiêu chính. Với căn chỉnh mang tính lừa dối, giám sát và tính không dễ hiểu là mục tiêu. Với mức nâng mạng, cả ba liên quan.
+Các hồ sơ an toàn khác nhau nhắm vào các trụ cột khác nhau. Với một hồ sơ ASL-3 CBRN, không có năng lực (qua unlearning) là mục tiêu chính. Với deceptive alignment, giám sát và tính khó đọc hiểu là các mục tiêu. Với nâng cao năng lực cyber, cả ba đều liên quan.
 
 ### The race-dynamic problem
 

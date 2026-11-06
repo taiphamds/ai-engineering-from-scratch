@@ -21,7 +21,7 @@ Bạn xây chatbot RAG. Nó hoạt động tuyệt vời. Người dùng yêu th
 
 Rồi hóa đơn đến.
 
-GPT-5 tốn $5 mỗi triệu token đầu vào và $15 mỗi triệu đầu ra. Claude Opus 4.7 tốn $15 đầu vào / $75 đầu ra. Gemini 3 Pro tốn $1.25 đầu vào / $5 đầu ra. GPT-5-mini là $0.25/$2. Giá bên dưới là minh họa; luôn kiểm tra trang giá hiện tại của nhà cung cấp.
+GPT-5 có giá $1.25 cho mỗi triệu token đầu vào và $10 cho mỗi triệu token đầu ra. Claude Opus 4.7 có giá $5 đầu vào / $25 đầu ra. Gemini 3.1 Pro có giá $2 đầu vào / $12 đầu ra (prompt tối đa 200K token). GPT-5-mini là $0.25/$2. GPT-4o, mô hình trong phép tính bên dưới, là $2.50/$10. Giá chỉ mang tính minh họa; luôn kiểm tra trang giá hiện hành của nhà cung cấp.
 
 Đây là phép tính giết startup:
 
@@ -863,7 +863,7 @@ Batch API giảm cố định 50% trên mọi token. Kết quả đến trong 24
 #     return None
 ```
 
-Trong sản xuất, thay quét tuyến tính bằng chỉ mục vector (Redis Vector Search, Pinecone hoặc pgvector). Quét tuyến tính hoạt động cho <1,000 mục. Vượt mức đó, dùng ANN (láng giềng gần nhất xấp xỉ) để tra cứu O(log n).
+Trong sản xuất, thay quét tuyến tính bằng chỉ mục vector (Redis Vector Search, Pinecone hoặc pgvector). Quét tuyến tính hoạt động cho <1,000 mục. Vượt mức đó, dùng ANN (láng giềng gần nhất xấp xỉ) để tra cứu $O(\log n)$.
 
 ## Ship It
 

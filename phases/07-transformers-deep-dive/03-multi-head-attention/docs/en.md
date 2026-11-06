@@ -11,7 +11,7 @@
 
 Một head self-attention duy nhất tính một ma trận attention. Ma trận đó nắm bắt một loại quan hệ — thường là loại giảm thiểu loss trên bất kỳ tín hiệu huấn luyện nào. Nếu dữ liệu của bạn có hòa hợp chủ ngữ-động từ, đồng tham chiếu, diễn ngôn xa và chia cụm cú pháp đan vào nhau, một head duy nhất trộn chúng thành một phân phối soft-max duy nhất và mất nửa tín hiệu.
 
-Cách sửa từ bài báo Vaswani năm 2017: chạy vài hàm attention song song, mỗi hàm có các phép chiếu Q, K, V riêng, rồi nối các đầu ra. Mỗi head hoạt động trong một không gian con nhỏ hơn có số chiều `d_model / n_heads`. Tổng tham số giữ nguyên. Sức biểu đạt tăng.
+Cách sửa từ bài báo Vaswani năm 2017: chạy vài hàm attention song song, mỗi hàm có các phép chiếu Q, K, V riêng, rồi nối các đầu ra. Mỗi head hoạt động trong một không gian con nhỏ hơn có số chiều $d_{\text{model}} / n_{\text{heads}}$. Tổng tham số giữ nguyên. Sức biểu đạt tăng.
 
 Multi-head attention là mặc định mọi transformer năm 2026 được phát hành cùng. Tranh luận duy nhất là về *bao nhiêu* head và liệu key và value có dùng chung các phép chiếu không (Grouped-Query Attention, Multi-Query Attention, Multi-head Latent Attention).
 
@@ -19,7 +19,7 @@ Multi-head attention là mặc định mọi transformer năm 2026 được phá
 
 ![Multi-head attention splits, attends, concatenates](../assets/multi-head-attention.svg)
 
-**Chia.** Lấy `X` có hình dạng `(N, d_model)`. Chiếu thành Q, K, V mỗi ma trận có hình dạng `(N, d_model)`. Đổi hình dạng thành `(N, n_heads, d_head)` trong đó `d_head = d_model / n_heads`. Chuyển vị thành `(n_heads, N, d_head)`.
+**Chia.** Lấy `X` có hình dạng `(N, d_model)`. Chiếu thành Q, K, V mỗi ma trận có hình dạng `(N, d_model)`. Đổi hình dạng thành `(N, n_heads, d_head)` trong đó $d_{\text{head}} = d_{\text{model}} / n_{\text{heads}}$. Chuyển vị thành `(n_heads, N, d_head)`.
 
 **Attention song song.** Chạy scaled dot-product attention bên trong mỗi head. Mỗi head tạo `(N, d_head)`. Các head hoạt động trên các không gian con khác nhau của embedding và không bao giờ trao đổi trong chính phép tính attention.
 
@@ -36,7 +36,7 @@ Multi-head attention là mặc định mọi transformer năm 2026 được phá
 | Grouped-query (GQA) | N | G (ví dụ N/8) | Llama 2 70B, Llama 3+, Qwen 2+, Mistral |
 | Multi-head latent (MLA) | N | nén xuống hạng thấp | DeepSeek-V2, V3 |
 
-GQA là mặc định hiện đại vì nó giảm bộ nhớ KV-cache theo hệ số `N/G` trong khi giữ chất lượng gần đầy đủ. MLA đi xa hơn bằng cách nén K/V vào một không gian tiềm ẩn, rồi chiếu trở lại khi tính toán — tốn FLOP, tiết kiệm nhiều bộ nhớ hơn.
+GQA là mặc định hiện đại vì nó giảm bộ nhớ KV-cache theo hệ số $N/G$ trong khi giữ chất lượng gần đầy đủ. MLA đi xa hơn bằng cách nén K/V vào một không gian tiềm ẩn, rồi chiếu trở lại khi tính toán — tốn FLOP, tiết kiệm nhiều bộ nhớ hơn.
 
 ```figure
 multihead-split
@@ -129,7 +129,7 @@ out = scaled_dot_product_attention(q, k, v, is_causal=True, enable_gqa=True)
 | Lớn (~1B) | 2048 | 16 | 128 |
 | Tiên phong (~70B) | 8192 | 64 | 128 |
 
-`d_head` gần như luôn là 64 hoặc 128. Nó là đơn vị đo một head có thể "thấy" bao nhiêu. Xuống dưới 32 và các head bắt đầu chống lại hệ số chia tỷ lệ `sqrt(d_head)`; lên trên 256 và bạn mất lợi ích "nhiều chuyên gia nhỏ".
+`d_head` gần như luôn là 64 hoặc 128. Nó là đơn vị đo một head có thể "thấy" bao nhiêu. Xuống dưới 32 và các head bắt đầu chống lại hệ số chia tỷ lệ $\sqrt{d_{\text{head}}}$; lên trên 256 và bạn mất lợi ích "nhiều chuyên gia nhỏ".
 
 ## Ship It
 
@@ -145,7 +145,7 @@ Xem `outputs/skill-mha-configurator.md`. Skill khuyến nghị số head, số h
 
 | Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Head | "Một mạch attention duy nhất" | Một phép chiếu Q/K/V có số chiều `d_head = d_model / n_heads` với ma trận attention riêng. |
+| Head | "Một mạch attention duy nhất" | Một phép chiếu Q/K/V có số chiều $d_{\text{head}} = d_{\text{model}} / n_{\text{heads}}$ với ma trận attention riêng. |
 | d_head | "Số chiều head" | Độ rộng ẩn theo head; gần như luôn 64 hoặc 128 trong production. |
 | Split / combine (Chia / kết hợp) | "Các thủ thuật đổi hình dạng" | Đổi hình dạng+chuyển vị `(N, d_model) ↔ (n_heads, N, d_head)` quanh attention. |
 | W_o | "Phép chiếu đầu ra" | Ma trận `(d_model, d_model)` áp dụng sau khi nối các head; nơi các head trộn. |

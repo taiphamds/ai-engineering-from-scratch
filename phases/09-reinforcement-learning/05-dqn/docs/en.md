@@ -11,7 +11,7 @@
 
 Q-learning dạng bảng cần một giá trị Q riêng cho mỗi cặp (trạng thái, hành động). Một bàn cờ vua có ~10⁴³ trạng thái. Một khung hình Atari là 210×160×3 = 100,800 đặc trưng. RL dạng bảng chết ở hàng nghìn trạng thái, chứ chưa nói hàng tỷ.
 
-Cách khắc phục hiển nhiên khi nhìn lại: thay bảng Q bằng một mạng nơ-ron, `Q(s, a; θ)`. Nhưng điều hiển nhiên khi nhìn lại đã mất hàng thập kỷ. Xấp xỉ hàm đơn giản với Q-learning phân kỳ dưới "bộ ba chết chóc" — xấp xỉ hàm + bootstrapping + học off-policy. Mnih và cộng sự (2013, 2015) xác định ba thủ thuật kỹ thuật ổn định việc học:
+Cách khắc phục hiển nhiên khi nhìn lại: thay bảng Q bằng một mạng nơ-ron, $Q(s, a; \theta)$. Nhưng điều hiển nhiên khi nhìn lại đã mất hàng thập kỷ. Xấp xỉ hàm đơn giản với Q-learning phân kỳ dưới "bộ ba chết chóc" — xấp xỉ hàm + bootstrapping + học off-policy. Mnih và cộng sự (2013, 2015) xác định ba thủ thuật kỹ thuật ổn định việc học:
 
 1. **Phát lại trải nghiệm** khử tương quan các chuyển tiếp.
 2. **Mạng mục tiêu** đóng băng mục tiêu bootstrap.
@@ -25,25 +25,29 @@ DQN trên Atari là lần đầu tiên một kiến trúc duy nhất với một
 
 **Mục tiêu.** DQN tối thiểu hóa hàm mất mát TD một bước trên một hàm Q nơ-ron:
 
-`L(θ) = E_{(s,a,r,s')~D} [ (r + γ max_{a'} Q(s', a'; θ^-) - Q(s, a; θ))² ]`
+```math
+L(\theta) = \mathbb{E}_{(s,a,r,s') \sim D}[ (r + \gamma \max_{a'} Q(s', a'; \theta^-) - Q(s, a; \theta))^2 ]
+```
 
-`θ` = mạng trực tuyến, được cập nhật mỗi bước bằng gradient descent. `θ^-` = mạng mục tiêu, được sao chép định kỳ từ `θ` (mỗi ~10,000 bước). `D` = bộ đệm phát lại các chuyển tiếp quá khứ.
+$\theta$ = mạng trực tuyến, được cập nhật mỗi bước bằng gradient descent. $\theta^-$ = mạng mục tiêu, được sao chép định kỳ từ $\theta$ (mỗi ~10,000 bước). $D$ = bộ đệm phát lại các chuyển tiếp quá khứ.
 
 **Ba thủ thuật, theo thứ tự quan trọng:**
 
 **Phát lại trải nghiệm.** Một bộ đệm vòng chứa `~10⁶` chuyển tiếp. Mỗi bước huấn luyện lấy mẫu một minibatch ngẫu nhiên đều. Điều này phá vỡ tương quan thời gian (các khung hình liên tiếp gần như giống hệt), cho phép mạng học nhiều lần từ các chuyển tiếp hiếm có phần thưởng, và khử tương quan các cập nhật gradient liên tiếp. Không có nó, TD on-policy với một mạng nơ-ron phân kỳ trên Atari.
 
-**Mạng mục tiêu.** Dùng cùng mạng `Q(·; θ)` ở cả hai vế phương trình Bellman khiến mục tiêu di chuyển mỗi lần cập nhật — "đuổi theo đuôi của chính mình." Cách khắc phục: giữ một mạng thứ hai `Q(·; θ^-)` với trọng số đóng băng. Mỗi `C` bước, sao chép `θ → θ^-`. Điều này ổn định mục tiêu hồi quy cho hàng nghìn bước gradient mỗi lần. Cập nhật mềm `θ^- ← τ θ + (1-τ) θ^-` (được dùng trong DDPG, SAC) là một biến thể trơn hơn.
+**Mạng mục tiêu.** Dùng cùng mạng $Q(\cdot; \theta)$ ở cả hai vế phương trình Bellman khiến mục tiêu di chuyển mỗi lần cập nhật — "đuổi theo đuôi của chính mình." Cách khắc phục: giữ một mạng thứ hai $Q(\cdot; \theta^-)$ với trọng số đóng băng. Mỗi $C$ bước, sao chép $\theta \to \theta^-$. Điều này ổn định mục tiêu hồi quy cho hàng nghìn bước gradient mỗi lần. Cập nhật mềm $\theta^- \leftarrow \tau \theta + (1-\tau) \theta^-$ (được dùng trong DDPG, SAC) là một biến thể trơn hơn.
 
-**Cắt phần thưởng.** Độ lớn phần thưởng Atari thay đổi từ 1 đến 1000+. Cắt về `{-1, 0, +1}` ngăn bất kỳ trò chơi đơn lẻ nào chi phối gradient. Sai khi độ lớn phần thưởng quan trọng; phù hợp cho Atari nơi chỉ dấu là quan trọng.
+**Cắt phần thưởng.** Độ lớn phần thưởng Atari thay đổi từ 1 đến 1000+. Cắt về $\lbrace-1, 0, +1 \rbrace$ ngăn bất kỳ trò chơi đơn lẻ nào chi phối gradient. Sai khi độ lớn phần thưởng quan trọng; phù hợp cho Atari nơi chỉ dấu là quan trọng.
 
 **Double DQN.** Hasselt (2016) khắc phục độ chệch cực đại hóa: dùng mạng trực tuyến để *chọn* hành động, mạng mục tiêu để *đánh giá* nó.
 
-`target = r + γ Q(s', argmax_{a'} Q(s', a'; θ); θ^-)`
+```math
+\text{target} = r + \gamma Q(s', \arg\max_{a'} Q(s', a'; \theta); \theta^-)
+```
 
 Thay thế trực tiếp, luôn tốt hơn. Dùng nó theo mặc định.
 
-**Các cải thiện khác (Rainbow, 2017):** phát lại ưu tiên (lấy mẫu nhiều hơn các chuyển tiếp có sai số TD cao), kiến trúc dueling (các head `V(s)` và lợi thế riêng), mạng có nhiễu (khám phá được học), lợi tức n bước, Q phân phối (C51/QR-DQN), bootstrapping nhiều bước. Mỗi thứ thêm vài phần trăm; các mức tăng gần như cộng được.
+**Các cải thiện khác (Rainbow, 2017):** phát lại ưu tiên (lấy mẫu nhiều hơn các chuyển tiếp có sai số TD cao), kiến trúc dueling (các head $V(s)$ và lợi thế riêng), mạng có nhiễu (khám phá được học), lợi tức n bước, Q phân phối (C51/QR-DQN), bootstrapping nhiều bước. Mỗi thứ thêm vài phần trăm; các mức tăng gần như cộng được.
 
 ```figure
 f3-dqn-stability
@@ -68,7 +72,7 @@ class ReplayBuffer:
         return rng.sample(self.buf, batch)
 ```
 
-Dung lượng ~50,000 cho Atari; 5,000 đủ cho môi trường đồ chơi của chúng ta.
+Dung lượng ~10⁶ cho Atari, như trong DQN gốc (nó thu thập 50,000 chuyển tiếp trước khi bắt đầu học); 5,000 là đủ cho môi trường đồ chơi của chúng ta.
 
 ### Step 2: a tiny Q-network (manual MLP)
 
@@ -104,11 +108,11 @@ def train_step(online, target, batch, gamma, lr):
     apply_sgd(online, grads, lr / len(batch))
 ```
 
-Cấu trúc là Q-learning từ Bài 04 với hai khác biệt: (a) chúng ta lan truyền ngược qua một `Q(·; θ)` khả vi thay vì truy cập bảng theo chỉ số, (b) mục tiêu dùng `Q(·; θ^-)`.
+Cấu trúc là Q-learning từ Bài 04 với hai khác biệt: (a) chúng ta lan truyền ngược qua một $Q(\cdot; \theta)$ khả vi thay vì truy cập bảng theo chỉ số, (b) mục tiêu dùng $Q(\cdot; \theta^-)$.
 
 ### Step 4: the outer loop
 
-Với mỗi episode, hành động ε-greedy trên `Q(·; θ)`, đẩy các chuyển tiếp vào bộ đệm, lấy mẫu một minibatch, thực hiện một bước gradient, đồng bộ định kỳ `θ^- ← θ`. Mô thức:
+Với mỗi episode, hành động ε-greedy trên $Q(\cdot; \theta)$, đẩy các chuyển tiếp vào bộ đệm, lấy mẫu một minibatch, thực hiện một bước gradient, đồng bộ định kỳ $\theta^- \leftarrow \theta$. Mô thức:
 
 ```python
 for episode in range(N):
@@ -181,7 +185,7 @@ Refuse to ship a DQN with no target network, no replay buffer, or ε held at 1. 
 
 1. **Dễ.** Chạy `code/main.py`. Vẽ đường cong lợi tức theo episode. Bao nhiêu episode cho đến khi trung bình tích lũy vượt -10?
 2. **Trung bình.** Tắt mạng mục tiêu (dùng mạng trực tuyến cho cả hai vế của mục tiêu Bellman). Đo tính không ổn định huấn luyện — lợi tức dao động hay phân kỳ?
-3. **Khó.** Thêm Double DQN: dùng mạng trực tuyến để chọn `argmax a'`, mạng mục tiêu để đánh giá. So sánh độ chệch của `Q(s_0, best_a)` với `V*(s_0)` thật sau 1,000 episode khi có so với không có Double DQN trên một GridWorld phần thưởng có nhiễu.
+3. **Khó.** Thêm Double DQN: dùng mạng trực tuyến để chọn `argmax a'`, mạng mục tiêu để đánh giá. So sánh độ chệch của `Q(s_0, best_a)` với $V^{\ast}(s_0)$ thật sau 1,000 episode khi có so với không có Double DQN trên một GridWorld phần thưởng có nhiễu.
 
 ## Key Terms
 

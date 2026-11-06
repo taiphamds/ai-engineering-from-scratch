@@ -9,7 +9,7 @@
 
 ## Learning Objectives
 
-- Kết hợp mười một bài trước (tokenizer, dữ liệu, huấn luyện trước, mở rộng, SFT, RLHF, DPO, CAI, đánh giá, lượng tử hóa, suy luận) thành một đặc tả pipeline tái lập được
+- Kết hợp mười hai bài học trước (hai bài tokenizer, dữ liệu, tiền huấn luyện, mở rộng quy mô, SFT, RLHF, DPO, CAI, đánh giá, lượng tử hóa, suy luận) thành một đặc tả pipeline có thể tái lập duy nhất
 - Định nghĩa quy ước artifact giữa các giai đoạn: mỗi giai đoạn tiêu thụ gì, tạo gì và giai đoạn sau xác minh đầu vào thế nào
 - Xây bộ điều phối theo dõi thử nghiệm, băm artifact và đặt cổng quyết định phát hành theo ngưỡng đánh giá
 - Thiết kế kế hoạch hoàn tác: artifact nào rẻ để chạy lại, cái nào đắt, và checkpoint hỏng tốn gì
@@ -72,7 +72,7 @@ stages:
     cost_usd: 12
 ```
 
-Hash đầu ra giai đoạn N là hash đầu vào giai đoạn N+1. Bất kỳ sai lệch nào thì pipeline dừng. Đây là cách bắt hỏng dữ liệu sớm. Cũng là cách đồng đội trên lục địa khác xác minh lần chạy lại tạo cùng artifact như bạn.
+Hash đầu ra của giai đoạn N là hash đầu vào của giai đoạn N+1. Bất kỳ sai lệch nào cũng khiến pipeline dừng. Đây là cách bạn phát hiện hỏng dữ liệu sớm. Đây cũng là cách một đồng đội ở châu lục khác xác minh rằng việc chạy lại một giai đoạn tất định của họ tạo ra cùng sản phẩm như của bạn.
 
 Trong thực tế nhóm dùng schema YAML nhỏ cộng bộ kiểm tra manifest so khác biệt với lần thành công trước. Mọi thay đổi ngoài trường kỳ vọng (chi phí, thời gian thực) là dấu hiệu cảnh báo.
 
@@ -150,7 +150,7 @@ Chi phí Llama 3 được báo cáo là $61M. DeepSeek-V3 báo cáo $5.6M cho l�
 
 Hai thứ này không giống nhau. *Tái lập được* nghĩa là cùng manifest cộng cùng mã cộng cùng hạ tầng tạo checkpoint có thước đo phía sau tương đương. *Tất định* nghĩa là đầu ra giống hệt từng bit.
 
-Huấn luyện LLM hiện đại tái lập được nhưng không tất định. Thứ tự reduce của huấn luyện phân tán, tính không tất định kernel GPU (cuBLAS, flash-attn), và làm tròn độ chính xác hỗn hợp kết hợp tạo float khác nhau ở mức 1e-5 giữa lần chạy. Điều này ổn cho thước đo cuối, vốn không đổi. Nó chí mạng nếu bạn cố gỡ lỗi bằng diff cấp bit. Cách chữa là ghi hash đầu vào, hash đầu ra và thước đo chính mỗi giai đoạn -- nếu chúng khớp, lần chạy "được tái lập" dù trọng số không giống từng bit.
+Huấn luyện LLM hiện đại có thể tái lập nhưng không tất định. Thứ tự phép reduce của huấn luyện phân tán, tính không tất định của kernel GPU (cuBLAS, flash-attn) và làm tròn độ chính xác hỗn hợp kết hợp để tạo ra các số thực khác nhau ở mức 1e-5 giữa các lần chạy. Điều này ổn đối với các chỉ số cuối, vốn không thay đổi. Nó là tai hại nếu bạn đang cố gỡ lỗi bằng các diff ở cấp bit. Cách khắc phục là ghi log hash đầu vào, hash đầu ra và các chỉ số chính của mọi giai đoạn. Trong một lần chạy lại, các hash chỉ khớp đối với các giai đoạn tất định, như xử lý dữ liệu và tách token. Một giai đoạn huấn luyện ghi các trọng số mới, vì vậy hash đầu ra của nó thay đổi. Đối với những giai đoạn đó, lần chạy được "tái lập" khi các chỉ số chính khớp, dù các trọng số không giống hệt ở cấp bit.
 
 ```mermaid
 graph LR
@@ -249,7 +249,7 @@ Bài học này tạo ra `outputs/skill-llm-pipeline-reviewer.md`. Đưa manifes
 | Manifest | "File công thức" | YAML hoặc JSON mô tả phiên bản pipeline, seed, cấu hình từng giai đoạn và ngưỡng cổng — đủ để chạy lại |
 | Content-addressed (Định địa chỉ theo nội dung) | "Bằng hash không bằng tên" | Artifact lưu theo SHA-256 nội dung, nên không thể nhầm phiên bản A với B |
 | Eval gate (Cổng đánh giá) | "Tiêu chí phát hành" | Ngưỡng số trên thước đo benchmark và điểm an toàn phải đạt trước khi artifact được đánh dấu có thể phát hành |
-| KL budget (Ngân sách KL) | "Căn chỉnh đã trôi xa bao nhiêu" | Trần KL(policy || reference) tích lũy xuyên các giai đoạn căn chỉnh, thực thi như cổng |
+| KL budget (Ngân sách KL) | "Căn chỉnh đã trôi xa bao nhiêu" | Trần $\mathrm{KL}(\text{policy} \Vert \text{reference})$ tích lũy xuyên các giai đoạn căn chỉnh, thực thi như cổng |
 | MFU | "Bạn đã dùng bao nhiêu GPU" | Mức sử dụng FLOPs mô hình — FLOPs đạt được chia đỉnh lý thuyết. 40% điển hình ở quy mô 70B, 55% ở 7B |
 | Rollback plan (Kế hoạch hoàn tác) | "Làm gì khi nó hỏng" | Tập hành động viết trước theo giai đoạn khi lỗi: chạy lại, quay về, huấn luyện lại với đầu vào sửa đổi |
 | Orchestrator (Bộ điều phối) | "Nhạc trưởng" | Tiến trình đọc manifest, phân công giai đoạn, xác minh hash, dừng khi vi phạm bất kỳ quy ước nào |

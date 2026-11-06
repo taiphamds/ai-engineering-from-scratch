@@ -30,7 +30,7 @@ Phương pháp (từ blog và các bài báo METR):
 
 1. Thu thập một bộ tác vụ trải từ thời gian hoàn thành của chuyên gia ở quy mô phút đến quy mô giờ. Các bộ hiện tại: HCAST (180+ tác vụ), RE-Bench (71 tác vụ), SWAA.
 2. Chạy mô hình trên mỗi tác vụ; ghi lại thành công hoặc thất bại.
-3. Khớp một đường cong logistic: P(thành công) như một hàm của log(thời gian hoàn thành của chuyên gia).
+3. Khớp một đường cong logistic: $P(\text{success})$ như một hàm của $\log(\text{expert completion time})$.
 4. Tầm thời gian là thời gian chuyên gia mà tại đó P(thành công) = 0.5.
 
 Hình dạng khớp logistic là hình dạng đúng vì năng lực thường có một mối quan hệ tăng, tiến tới cao nguyên với độ khó tác vụ. Điểm 50% là một lựa chọn (có thể là 10%, 90%); METR báo cáo nhiều ngưỡng trong bài báo chi tiết nhưng dẫn đầu bằng 50% vì nó trực quan nhất.
@@ -79,7 +79,7 @@ a5-horizon-fit
 
 ## Use It
 
-`code/main.py` triển khai một phép khớp logistic của thành công tác vụ theo log(thời gian chuyên gia), với một tập kết quả tổng hợp. Nó báo cáo tầm thời gian 50% (con số nổi bật của METR), tầm thời gian 10% (bảo thủ), và tầm thời gian 90% (lạc quan). Cũng minh họa những gì thay đổi khi tỷ lệ thành công bị thổi phồng nhân tạo bởi lách ngữ cảnh đánh giá.
+`code/main.py` triển khai phép khớp logistic giữa thành công tác vụ và $\log(\text{expert time})$, với một tập kết quả tổng hợp cho trước. Nó báo cáo chân trời 50% (con số chính của METR), chân trời 10% (thận trọng) và chân trời 90% (lạc quan). Cũng trình diễn điều thay đổi khi tỷ lệ thành công được thổi phồng nhân tạo bằng việc lách ngữ cảnh đánh giá.
 
 ## Ship It
 

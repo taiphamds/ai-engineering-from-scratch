@@ -1,6 +1,6 @@
 # Monitoring Models in Production — Data Drift and Concept Drift
 
-> A deployed model fails without an error message. It keeps returning scores while the world moves away from its training data, and only monitoring shows the gap.
+> Một mô hình đã triển khai thất bại mà không có thông báo lỗi. Nó tiếp tục trả về điểm trong khi thế giới rời xa dữ liệu huấn luyện của nó, và chỉ việc giám sát cho thấy khoảng cách.
 
 **Type:** Build
 **Languages:** Python
@@ -9,107 +9,107 @@
 
 ## Learning Objectives
 
-- Choose monitoring signals at four layers: system health, inputs, predictions, and outcomes
-- Distinguish covariate drift, prior drift, and concept drift by the part of the joint distribution that changes
-- Implement the Population Stability Index, the two-sample Kolmogorov-Smirnov statistic, and the chi-square test from scratch
-- Compare a fixed reference window with sliding current windows, and explain how window size changes noise and delay
-- Design an alert policy that limits false alarms with effect sizes, a multiple-testing correction, and a persistence rule
-- Decide which kind of drift needs retraining, which needs new labels, and which needs no action
+- Chọn các tín hiệu giám sát ở bốn tầng: sức khỏe hệ thống, đầu vào, dự đoán và kết quả
+- Phân biệt covariate drift, prior drift và concept drift theo phần của phân phối đồng thời thay đổi
+- Triển khai Population Stability Index, thống kê Kolmogorov-Smirnov hai mẫu và kiểm định chi-square từ đầu
+- So sánh một cửa sổ tham chiếu cố định với các cửa sổ hiện tại trượt, và giải thích cách kích thước cửa sổ thay đổi nhiễu và độ trễ
+- Thiết kế một chính sách cảnh báo giới hạn báo động giả bằng kích thước hiệu ứng, hiệu chỉnh đa kiểm định và một quy tắc duy trì
+- Quyết định loại drift nào cần huấn luyện lại, loại nào cần nhãn mới và loại nào không cần hành động
 
 ## The Problem
 
-A payment-risk model goes live with 95 percent accuracy. Two months later, a marketing campaign brings in app users with larger baskets. Four months later, fraudsters change their tactics, and payments that used to be safe start to turn into chargebacks.
+Một mô hình rủi ro thanh toán đi vào hoạt động với độ chính xác 95 phần trăm. Hai tháng sau, một chiến dịch marketing đưa đến những người dùng ứng dụng với giỏ hàng lớn hơn. Bốn tháng sau, những kẻ gian lận thay đổi chiến thuật, và các khoản thanh toán từng an toàn bắt đầu trở thành chargeback.
 
-The model service returns HTTP 200 for every request during all of this. The latency is normal, and the logs show no errors. The first sign of trouble is a finance report about chargebacks, weeks after the damage.
+Dịch vụ mô hình trả về HTTP 200 cho mọi yêu cầu trong suốt tất cả những điều này. Độ trễ bình thường, và nhật ký không cho thấy lỗi nào. Dấu hiệu rắc rối đầu tiên là một báo cáo tài chính về chargeback, nhiều tuần sau thiệt hại.
 
-Software monitoring checks whether a service answers. Model monitoring checks whether the answers are still right, and whether the data still looks like the data that trained the model. This lesson builds the statistics, the windows, and the alert policy for that second job. You run them on a synthetic stream with two injected changes and watch which monitor reacts to which change.
+Giám sát phần mềm kiểm tra liệu một dịch vụ có trả lời hay không. Giám sát mô hình kiểm tra liệu các câu trả lời còn đúng hay không, và liệu dữ liệu còn giống dữ liệu đã huấn luyện mô hình hay không. Bài học này xây dựng các thống kê, các cửa sổ và chính sách cảnh báo cho công việc thứ hai đó. Bạn chạy chúng trên một luồng tổng hợp với hai thay đổi được chèn và theo dõi monitor nào phản ứng với thay đổi nào.
 
 ## The Concept
 
 ### What to monitor
 
-Monitor four layers. The first three give early warnings. Only the fourth measures correctness, and it arrives late.
+Giám sát bốn tầng. Ba tầng đầu đưa ra cảnh báo sớm. Chỉ tầng thứ tư đo tính đúng, và nó đến muộn.
 
-| Layer | Signals | Available | Question it answers |
+| Tầng | Tín hiệu | Có sẵn | Câu hỏi nó trả lời |
 |---|---|---|---|
-| System health | p50 and p99 latency, error rate, throughput, memory | At once | Does the service answer? |
-| Inputs | Distribution of each feature, missing-value rate, schema, new categories | At once | Does live data look like training data? |
-| Predictions | Score distribution, positive rate, share of default answers | At once | Does the model behave as before? |
-| Outcomes | Accuracy, precision, calibration, business metric | After the label delay | Is the model still right? |
+| Sức khỏe hệ thống | Độ trễ p50 và p99, tỷ lệ lỗi, throughput, bộ nhớ | Ngay lập tức | Dịch vụ có trả lời không? |
+| Đầu vào | Phân phối của mỗi đặc trưng, tỷ lệ giá trị thiếu, schema, danh mục mới | Ngay lập tức | Dữ liệu thực có giống dữ liệu huấn luyện không? |
+| Dự đoán | Phân phối điểm, tỷ lệ dương tính, tỷ lệ câu trả lời mặc định | Ngay lập tức | Mô hình có hành xử như trước không? |
+| Kết quả | Accuracy, precision, calibration, chỉ số kinh doanh | Sau độ trễ nhãn | Mô hình còn đúng không? |
 
-Input monitoring is the main subject of this lesson, because it works before labels arrive. It has a limit that the demo shows: some changes leave the inputs untouched.
+Giám sát đầu vào là chủ đề chính của bài học này, vì nó hoạt động trước khi nhãn đến. Nó có một giới hạn mà demo cho thấy: một số thay đổi để các đầu vào nguyên vẹn.
 
 ### Three kinds of drift
 
-Write the joint distribution of inputs `x` and labels `y` in two ways:
+Viết phân phối đồng thời của đầu vào `x` và nhãn `y` theo hai cách:
 
 ```math
 P(x, y) = P(x) \cdot P(y \mid x) = P(y) \cdot P(x \mid y)
 ```
 
-Each kind of drift changes a different factor:
+Mỗi loại drift thay đổi một thừa số khác nhau:
 
-| Drift | What changes | What stays | Payment example | Which monitor sees it |
+| Drift | Điều thay đổi | Điều giữ nguyên | Ví dụ thanh toán | Monitor nào thấy nó |
 |---|---|---|---|---|
-| Covariate drift | `P(x)` | `P(y \| x)` | More app users with larger baskets | Input monitors |
-| Prior drift | `P(y)` | `P(x \| y)` | The fraud rate doubles during an attack, and fraud looks the same | Prediction and outcome monitors |
-| Concept drift | `P(y \| x)` | Can stay | The same basket now has a different fraud risk | Outcome monitors only |
+| Covariate drift | `P(x)` | `P(y \| x)` | Nhiều người dùng ứng dụng hơn với giỏ hàng lớn hơn | Monitor đầu vào |
+| Prior drift | `P(y)` | `P(x \| y)` | Tỷ lệ gian lận tăng gấp đôi trong một cuộc tấn công, và gian lận trông vẫn như cũ | Monitor dự đoán và kết quả |
+| Concept drift | `P(y \| x)` | Có thể giữ nguyên | Cùng giỏ hàng giờ có một rủi ro gian lận khác | Chỉ monitor kết quả |
 
-Gama et al. call a change in `P(y | x)` real concept drift. They call a change in `P(x)` that leaves `P(y | x)` alone virtual drift. Their survey also sorts drift by how it happens over time: sudden, incremental, gradual, or as a concept that comes back.
+Gama và cộng sự gọi một thay đổi trong `P(y | x)` là concept drift thực. Họ gọi một thay đổi trong `P(x)` để `P(y | x)` nguyên vẹn là drift ảo. Khảo sát của họ cũng phân loại drift theo cách nó xảy ra theo thời gian: đột ngột, tăng dần, từ từ hoặc như một khái niệm quay trở lại.
 
-Covariate drift does not always hurt. If the model learned `P(y | x)` well, it stays right for each input. It can still lose accuracy when traffic moves into regions with little training data or close to the decision boundary.
+Covariate drift không phải lúc nào cũng gây hại. Nếu mô hình học `P(y | x)` tốt, nó vẫn đúng cho mỗi đầu vào. Nó vẫn có thể mất độ chính xác khi lưu lượng chuyển vào các vùng có ít dữ liệu huấn luyện hoặc gần ranh giới quyết định.
 
 ### Delayed labels
 
-The outcome arrives after the prediction. The delay depends on the problem:
+Kết quả đến sau dự đoán. Độ trễ phụ thuộc vấn đề:
 
-| Problem | When the label arrives |
+| Vấn đề | Khi nhãn đến |
 |---|---|
-| Ad click | Seconds |
-| Churn in the next 30 days | 30 days |
-| Card fraud | When the chargeback arrives, often weeks later |
-| Loan default | Months or years |
+| Nhấp quảng cáo | Vài giây |
+| Churn trong 30 ngày tới | 30 ngày |
+| Gian lận thẻ | Khi chargeback đến, thường nhiều tuần sau |
+| Vỡ nợ khoản vay | Nhiều tháng hoặc năm |
 
-During the delay, you have inputs and predictions but no outcomes. Monitor the inputs and predictions, join the labels when they arrive, and compute outcome metrics on the labeled part only. The demo uses a label delay of 500 events, so the outcome monitor always looks 500 events into the past.
+Trong khoảng trễ, bạn có đầu vào và dự đoán nhưng không có kết quả. Giám sát đầu vào và dự đoán, nối các nhãn khi chúng đến và chỉ tính các chỉ số kết quả trên phần đã có nhãn. Demo sử dụng độ trễ nhãn 500 sự kiện, nên monitor kết quả luôn nhìn 500 sự kiện vào quá khứ.
 
 ### Reference and current windows
 
-Every drift test compares two samples:
+Mọi kiểm định drift so sánh hai mẫu:
 
-- **Reference window.** The training data, or a period of production that you checked by hand. It stays fixed until you retrain.
-- **Current window.** The most recent events, either the last `N` events or the last `T` hours.
+- **Cửa sổ tham chiếu.** Dữ liệu huấn luyện, hoặc một giai đoạn production mà bạn đã kiểm tra thủ công. Nó giữ cố định cho đến khi bạn huấn luyện lại.
+- **Cửa sổ hiện tại.** Các sự kiện gần nhất, hoặc `N` sự kiện cuối hoặc `T` giờ cuối.
 
-A sliding window moves forward by a step smaller than its size, so consecutive windows overlap. A tumbling window moves by its full size. Window size is a trade-off. A small window reacts quickly but scores noise as drift. A large window is stable but reports a change late.
+Một cửa sổ trượt tiến lên theo một bước nhỏ hơn kích thước của nó, nên các cửa sổ liên tiếp chồng lấp. Một cửa sổ tumbling di chuyển bằng toàn bộ kích thước của nó. Kích thước cửa sổ là một đánh đổi. Một cửa sổ nhỏ phản ứng nhanh nhưng chấm nhiễu thành drift. Một cửa sổ lớn ổn định nhưng báo cáo thay đổi muộn.
 
-Seasonality breaks naive windows. Monday traffic differs from Saturday traffic in many products. Make the reference cover a full cycle, or compare each window with the same period in an earlier cycle.
+Tính mùa vụ phá các cửa sổ ngây thơ. Lưu lượng thứ Hai khác lưu lượng thứ Bảy trong nhiều sản phẩm. Làm cho tham chiếu bao quát một chu kỳ đầy đủ, hoặc so sánh mỗi cửa sổ với cùng giai đoạn trong một chu kỳ trước.
 
 ### Population Stability Index
 
-PSI comes from credit scoring. Cut the reference values into bins, usually ten bins at the reference deciles, so that each bin holds 10 percent of the reference. Count the share of current values in each bin. Then add up one term per bin:
+PSI đến từ chấm điểm tín dụng. Cắt các giá trị tham chiếu thành bin, thường mười bin tại các thập phân vị tham chiếu, để mỗi bin chứa 10 phần trăm tham chiếu. Đếm tỷ lệ các giá trị hiện tại trong mỗi bin. Rồi cộng một số hạng theo mỗi bin:
 
 ```math
 \text{PSI} = \sum_{\text{bins}} (\text{current\_share} - \text{reference\_share}) \cdot \ln\left(\frac{\text{current\_share}}{\text{reference\_share}}\right)
 ```
 
-A bin with a share of zero makes the log infinite, so clip every share to a small value such as 0.0001. PSI is symmetric. It equals the KL divergence from current to reference plus the KL divergence from reference to current.
+Một bin có tỷ lệ bằng không làm log vô hạn, nên chặn mỗi tỷ lệ ở một giá trị nhỏ chẳng hạn 0.0001. PSI đối xứng. Nó bằng KL divergence từ hiện tại đến tham chiếu cộng KL divergence từ tham chiếu đến hiện tại.
 
-Practitioners read PSI with fixed bands: below 0.1 is stable, 0.1 to 0.25 is a moderate shift, and above 0.25 is a significant shift. Treat these bands as a convention, not a test. PSI grows with the number of bins and shrinks with sample size. In the demo, windows of 500 events with no drift score between 0.01 and 0.04.
+Người thực hành đọc PSI với các dải cố định: dưới 0.1 là ổn định, 0.1 đến 0.25 là dịch chuyển vừa phải và trên 0.25 là dịch chuyển đáng kể. Coi các dải này là một quy ước, không phải kiểm định. PSI tăng theo số bin và giảm theo kích thước mẫu. Trong demo, các cửa sổ 500 sự kiện không có drift có điểm từ 0.01 đến 0.04.
 
 ### Kolmogorov-Smirnov statistic
 
-The two-sample KS statistic `D` is the largest vertical gap between the two empirical cumulative distribution functions:
+Thống kê KS hai mẫu `D` là khoảng cách thẳng đứng lớn nhất giữa hai hàm phân phối tích lũy thực nghiệm:
 
 ```math
 D = \max_x \left\lvert F_{\text{reference}}(x) - F_{\text{current}}(x) \right\rvert
 ```
 
-`D` is 0 for identical samples and 1 for samples that do not overlap. It needs no bins. The p-value comes from the Kolmogorov distribution with the effective sample size `n * m / (n + m)`.
+`D` là 0 cho các mẫu giống hệt và 1 cho các mẫu không chồng lấp. Nó không cần bin. P-value đến từ phân phối Kolmogorov với kích thước mẫu hiệu dụng `n * m / (n + m)`.
 
-With large samples, the p-value goes to zero for a gap that nobody cares about. A shift of 0.02 standard deviations is "significant" with a million events per window. Use `D` itself as an effect size, and alert only when both `D` and the p-value pass their thresholds.
+Với các mẫu lớn, p-value về không cho một khoảng cách mà không ai quan tâm. Một dịch chuyển 0.02 độ lệch chuẩn là "có ý nghĩa" với một triệu sự kiện mỗi cửa sổ. Sử dụng chính `D` làm kích thước hiệu ứng, và chỉ cảnh báo khi cả `D` và p-value vượt các ngưỡng của chúng.
 
 ### Chi-square test for categorical features
 
-For a categorical feature, such as the payment channel, build a table with two rows (reference, current) and one column per category. The expected count in each cell comes from the row and column totals:
+Với một đặc trưng phân loại, chẳng hạn kênh thanh toán, xây dựng một bảng hai hàng (tham chiếu, hiện tại) và một cột mỗi danh mục. Số đếm kỳ vọng trong mỗi ô đến từ tổng hàng và cột:
 
 ```math
 \begin{aligned}
@@ -118,39 +118,39 @@ For a categorical feature, such as the payment channel, build a table with two r
 \end{aligned}
 ```
 
-The test has `k - 1` degrees of freedom for `k` categories. A category that appears only in the current window adds a large term, so the test reacts to new values. Cramér's V is the effect size. For a table with two rows, it equals the square root of `chi2 / grand_total`.
+Kiểm định có `k - 1` bậc tự do cho `k` danh mục. Một danh mục chỉ xuất hiện trong cửa sổ hiện tại thêm một số hạng lớn, nên kiểm định phản ứng với các giá trị mới. Cramér's V là kích thước hiệu ứng. Với một bảng hai hàng, nó bằng căn bậc hai của `chi2 / grand_total`.
 
 ### Alert thresholds and false alarms
 
-Each test has a false-alarm rate `alpha` when nothing changed. Monitoring runs many tests. With 50 features checked every hour at `alpha = 0.05`, you expect about 60 false alarms per day when nothing changed. People stop reading alerts long before that.
+Mỗi kiểm định có một tỷ lệ báo động giả `alpha` khi không có gì thay đổi. Giám sát chạy nhiều kiểm định. Với 50 đặc trưng được kiểm tra mỗi giờ ở `alpha = 0.05`, bạn kỳ vọng khoảng 60 báo động giả mỗi ngày khi không có gì thay đổi. Mọi người ngừng đọc cảnh báo từ rất lâu trước đó.
 
-Four rules keep the alert rate useful:
+Bốn quy tắc giữ tỷ lệ cảnh báo hữu ích:
 
-1. **Correct for multiple tests.** The Bonferroni correction divides `alpha` by the number of tests. The demo uses a family `alpha` of 0.01 over two tests, so each test uses 0.005.
-2. **Require an effect size.** Alert only when PSI, `D`, or Cramér's V also passes a threshold.
-3. **Require persistence.** Alert only after `k` consecutive drift windows. The demo uses `k = 2`.
-4. **Separate warnings from alerts.** A warning goes to a dashboard. An alert goes to a person.
+1. **Hiệu chỉnh đa kiểm định.** Hiệu chỉnh Bonferroni chia `alpha` cho số kiểm định. Demo sử dụng `alpha` họ 0.01 trên hai kiểm định, nên mỗi kiểm định sử dụng 0.005.
+2. **Yêu cầu một kích thước hiệu ứng.** Chỉ cảnh báo khi PSI, `D` hoặc Cramér's V cũng vượt một ngưỡng.
+3. **Yêu cầu tính duy trì.** Chỉ cảnh báo sau `k` cửa sổ drift liên tiếp. Demo sử dụng `k = 2`.
+4. **Tách lời cảnh báo khỏi báo động.** Một lời cảnh báo đi đến dashboard. Một báo động đi đến một người.
 
-The demo shows rule 2 at work. One clean window has a chi-square p-value of 0.0009, below the per-test `alpha`. Its Cramér's V is below 0.1, so the policy logs a warning, not an alert.
+Demo cho thấy quy tắc 2 hoạt động. Một cửa sổ sạch có chi-square p-value 0.0009, dưới `alpha` mỗi kiểm định. Cramér's V của nó dưới 0.1, nên chính sách ghi nhật ký một lời cảnh báo, không phải một báo động.
 
 ### Retraining triggers
 
-There are three common triggers for retraining:
+Có ba trigger phổ biến để huấn luyện lại:
 
-- **Schedule.** Retrain every week or month. This is simple, but it retrains when nothing changed and waits when something did.
-- **Drift.** Retrain when input drift on important features stays above the threshold.
-- **Performance.** Retrain when an outcome metric drops below the reference value minus a tolerance.
+- **Lịch.** Huấn luyện lại mỗi tuần hoặc tháng. Điều này đơn giản, nhưng nó huấn luyện lại khi không có gì thay đổi và chờ khi có điều thay đổi.
+- **Drift.** Huấn luyện lại khi drift đầu vào trên các đặc trưng quan trọng duy trì trên ngưỡng.
+- **Hiệu năng.** Huấn luyện lại khi một chỉ số kết quả giảm xuống dưới giá trị tham chiếu trừ một dung sai.
 
-The kind of drift decides what retraining can do:
+Loại drift quyết định huấn luyện lại có thể làm gì:
 
-| Drift | Useful action |
+| Drift | Hành động hữu ích |
 |---|---|
-| Covariate drift, accuracy stable | Often none. Keep watching the outcome metric. |
-| Covariate drift into regions with little data | Retrain on recent data that includes those regions |
-| Prior drift | Recalibrate the scores or move the decision threshold |
-| Concept drift | Collect new labels first. Retraining on old labels teaches the old concept again. |
+| Covariate drift, độ chính xác ổn định | Thường không có gì. Tiếp tục theo dõi chỉ số kết quả. |
+| Covariate drift vào các vùng có ít dữ liệu | Huấn luyện lại trên dữ liệu gần đây bao gồm các vùng đó |
+| Prior drift | Hiệu chuẩn lại các điểm hoặc di chuyển ngưỡng quyết định |
+| Concept drift | Thu thập nhãn mới trước. Huấn luyện lại trên nhãn cũ dạy lại khái niệm cũ. |
 
-After retraining, test the new model on the most recent labeled data. Roll it out with the shadow and canary stages from the system design lesson. Then reset the reference window to the new training data.
+Sau huấn luyện lại, kiểm tra mô hình mới trên dữ liệu đã có nhãn gần nhất. Rollout nó với các giai đoạn shadow và canary từ bài thiết kế hệ thống. Rồi đặt lại cửa sổ tham chiếu về dữ liệu huấn luyện mới.
 
 ```figure
 mlprod-drift-psi
@@ -158,11 +158,11 @@ mlprod-drift-psi
 
 ## Build It
 
-The code in `code/main.py` uses only the standard library.
+Mã trong `code/main.py` chỉ sử dụng thư viện chuẩn.
 
 ### Step 1: Quantile bins and PSI
 
-The bin edges are the reference deciles. `bisect_right` finds the bin of each value.
+Các cạnh bin là các thập phân vị tham chiếu. `bisect_right` tìm bin của mỗi giá trị.
 
 ```python
 def quantile_edges(reference: list[float], bins: int = 10) -> list[float]:
@@ -182,7 +182,7 @@ def psi_from_fractions(expected: list[float], actual: list[float], eps: float = 
 
 ### Step 2: The KS statistic and its p-value
 
-Walk both sorted samples together. At each distinct value, move past every copy of it in both samples, then compare the two cumulative shares. This handles ties correctly.
+Duyệt cả hai mẫu đã sắp xếp cùng nhau. Tại mỗi giá trị phân biệt, di chuyển qua mọi bản sao của nó trong cả hai mẫu, rồi so sánh hai tỷ lệ tích lũy. Điều này xử lý đúng các giá trị hòa.
 
 ```python
 def ks_statistic(sample_a: list[float], sample_b: list[float]) -> float:
@@ -200,11 +200,11 @@ def ks_statistic(sample_a: list[float], sample_b: list[float]) -> float:
     return d
 ```
 
-The p-value uses the series for the Kolmogorov distribution, `2 * sum((-1)^(k-1) * exp(-2 k^2 lambda^2))`, with `lambda = sqrt(n * m / (n + m)) * D`.
+P-value sử dụng chuỗi cho phân phối Kolmogorov, `2 * sum((-1)^(k-1) * exp(-2 k^2 lambda^2))`, với `lambda = sqrt(n * m / (n + m)) * D`.
 
 ### Step 3: The chi-square test
 
-`chi2_sf` computes the chi-square survival function through the regularized upper incomplete gamma function. It uses a series for small arguments and a continued fraction for large ones. `chi_square_test` builds the two-row table, computes the statistic, and returns the p-value and Cramér's V.
+`chi2_sf` tính hàm sống sót chi-square qua hàm gamma không đầy đủ phía trên được chuẩn hóa. Nó sử dụng một chuỗi cho các đối số nhỏ và một phân số liên tục cho các đối số lớn. `chi_square_test` xây dựng bảng hai hàng, tính thống kê và trả về p-value cùng Cramér's V.
 
 ```python
 def chi_square_test(reference_counts: dict[str, int], current_counts: dict[str, int]) -> ChiSquareResult:
@@ -227,11 +227,11 @@ def chi_square_test(reference_counts: dict[str, int], current_counts: dict[str, 
 
 ### Step 4: Windows and the drift monitor
 
-`SlidingWindow` keeps the last `size` events in a `deque`. `DriftMonitor` computes the reference bins and counts once. Its `check` method returns PSI, `D`, and the KS p-value for each numeric feature, and the chi-square result for each categorical feature.
+`SlidingWindow` giữ `size` sự kiện cuối trong một `deque`. `DriftMonitor` tính các bin và số đếm tham chiếu một lần. Phương thức `check` của nó trả về PSI, `D` và KS p-value cho mỗi đặc trưng số, và kết quả chi-square cho mỗi đặc trưng phân loại.
 
 ### Step 5: The alert policy
 
-The policy turns each metric set into a level and counts consecutive drift windows per signal:
+Chính sách biến mỗi tập chỉ số thành một mức và đếm các cửa sổ drift liên tiếp theo tín hiệu:
 
 ```python
 def level(self, metrics: dict[str, float]) -> str:
@@ -244,20 +244,20 @@ def level(self, metrics: dict[str, float]) -> str:
     return "warn" if metrics["p"] < self.alpha else "ok"
 ```
 
-`update` returns `ALERT` on the window that completes the streak, and `resolved` on the first clean window after an alert.
+`update` trả về `ALERT` trên cửa sổ hoàn thành chuỗi liên tiếp, và `resolved` trên cửa sổ sạch đầu tiên sau một báo động.
 
 ### Step 6: A stream with injected drift
 
-The stream has 9000 payment events with an `amount`, a `channel`, and a fraud `label`. Four segments define it:
+Luồng có 9000 sự kiện thanh toán với một `amount`, một `channel` và một `label` gian lận. Bốn đoạn định nghĩa nó:
 
-| Events | Amount | Channel mix (app, store, web) | Label boundary | Change |
+| Sự kiện | Số tiền | Cơ cấu kênh (app, store, web) | Ranh giới nhãn | Thay đổi |
 |---|---|---|---|---|
-| 0 to 2999 | mean 100, sd 20 | 35, 15, 50 percent | 120 | Reference period |
-| 3000 to 4999 | mean 118, sd 24 | 60, 10, 30 percent | 120 | Covariate drift |
-| 5000 to 6499 | mean 100, sd 20 | 35, 15, 50 percent | 120 | Back to normal |
-| 6500 to 8999 | mean 100, sd 20 | 35, 15, 50 percent | 105 | Concept drift |
+| 0 đến 2999 | trung bình 100, sd 20 | 35, 15, 50 phần trăm | 120 | Giai đoạn tham chiếu |
+| 3000 đến 4999 | trung bình 118, sd 24 | 60, 10, 30 phần trăm | 120 | Covariate drift |
+| 5000 đến 6499 | trung bình 100, sd 20 | 35, 15, 50 phần trăm | 120 | Trở lại bình thường |
+| 6500 đến 8999 | trung bình 100, sd 20 | 35, 15, 50 phần trăm | 105 | Concept drift |
 
-The model is a threshold on `amount`, fitted on the first 2000 events. Windows hold 500 events and move by 250. Labels arrive 500 events late.
+Mô hình là một ngưỡng trên `amount`, được khớp trên 2000 sự kiện đầu. Các cửa sổ chứa 500 sự kiện và di chuyển 250. Nhãn đến muộn 500 sự kiện.
 
 ```bash
 python3 code/main.py
@@ -276,15 +276,15 @@ python3 code/main.py
  7500  0.022  0.039  6.1e-01  0.778  ok/ok/drift                        ALERT accuracy
 ```
 
-Read the result in three parts:
+Đọc kết quả theo ba phần:
 
-- **Covariate drift.** Drift starts at event 3000, and the `amount` alert follows at 3500. Accuracy stays between 0.89 and 0.95, because the label rule did not change.
-- **Recovery.** The inputs return to normal at 5000, and both alerts resolve at 5500.
-- **Concept drift.** Drift starts at 6500, and the input monitors stay quiet because the inputs did not change. Accuracy falls from 0.946 to between 0.76 and 0.79. The accuracy alert comes at 7500, 1000 events after the change, and the label delay accounts for 500 of them.
+- **Covariate drift.** Drift bắt đầu ở sự kiện 3000, và báo động `amount` theo sau ở 3500. Độ chính xác giữ từ 0.89 đến 0.95, vì quy tắc nhãn không thay đổi.
+- **Khôi phục.** Các đầu vào trở lại bình thường ở 5000, và cả hai báo động được giải quyết ở 5500.
+- **Concept drift.** Drift bắt đầu ở 6500, và các monitor đầu vào giữ im lặng vì đầu vào không thay đổi. Độ chính xác giảm từ 0.946 xuống từ 0.76 đến 0.79. Báo động độ chính xác đến ở 7500, 1000 sự kiện sau thay đổi, và độ trễ nhãn chiếm 500 trong số đó.
 
 ## Use It
 
-**scipy.** `scipy.stats` implements both tests. The statistics match the from-scratch code. scipy is not needed to run this lesson.
+**scipy.** `scipy.stats` triển khai cả hai kiểm định. Các thống kê khớp mã viết từ đầu. scipy không cần thiết để chạy bài học này.
 
 ```python
 from scipy import stats
@@ -297,53 +297,53 @@ chi2 = stats.chi2_contingency(table)
 print(chi2.statistic, chi2.pvalue, chi2.dof)
 ```
 
-We checked `ks_statistic` and `chi_square_test` against scipy 1.18.1 on random samples. The KS statistic, the chi-square statistic, and the chi-square p-value matched to floating-point precision. Over 200 random pairs of samples, the KS p-values differed from scipy's by up to 18 percent of scipy's value. The largest gaps were at very small p-values.
+Chúng tôi kiểm tra `ks_statistic` và `chi_square_test` với scipy 1.18.1 trên các mẫu ngẫu nhiên. Thống kê KS, thống kê chi-square và chi-square p-value khớp đến độ chính xác dấu phẩy động. Trên 200 cặp mẫu ngẫu nhiên, các KS p-value khác của scipy tới 18 phần trăm giá trị của scipy. Các khoảng cách lớn nhất ở các p-value rất nhỏ.
 
-The gap comes from the method. Our code uses the limiting Kolmogorov distribution. By default, `ks_2samp` uses an exact method when both samples have at most 10,000 values. Its asymptotic mode uses a finite-sample distribution with the rounded effective sample size. With two categories, `chi2_contingency` applies Yates' continuity correction by default, so the statistics differ there.
+Khoảng cách đến từ phương pháp. Mã của chúng ta sử dụng phân phối Kolmogorov giới hạn. Mặc định, `ks_2samp` sử dụng một phương pháp chính xác khi cả hai mẫu có tối đa 10,000 giá trị. Chế độ tiệm cận của nó sử dụng một phân phối mẫu hữu hạn với kích thước mẫu hiệu dụng được làm tròn. Với hai danh mục, `chi2_contingency` áp dụng hiệu chỉnh liên tục Yates mặc định, nên các thống kê khác nhau ở đó.
 
-**Monitoring libraries.** Several open-source libraries package these tests with reports and dashboards:
+**Thư viện giám sát.** Nhiều thư viện mã nguồn mở đóng gói các kiểm định này với báo cáo và dashboard:
 
-- **Evidently** picks a drift test per column. For a reference with 1000 rows or fewer, it uses the KS test for numeric columns and the chi-square test for categorical columns. For larger data, it uses the Wasserstein distance and the Jensen-Shannon divergence with a threshold of 0.1. PSI is one of the other methods that you can select.
-- **NannyML** estimates model performance before labels arrive. Its Confidence-based Performance Estimation (CBPE) uses the model's predicted probabilities, which must be well calibrated. The NannyML documentation states that CBPE handles covariate shift but does not cope with concept drift. The demo stream shows why: only labels revealed the concept drift.
-- **TensorFlow Data Validation** compares consecutive spans of data. It uses the L-infinity distance for categorical features and an approximate Jensen-Shannon divergence for numeric features. It also compares training data with serving data, which the feature store lesson covers.
+- **Evidently** chọn một kiểm định drift theo cột. Với một tham chiếu 1000 hàng hoặc ít hơn, nó sử dụng kiểm định KS cho cột số và kiểm định chi-square cho cột phân loại. Với dữ liệu lớn hơn, nó sử dụng khoảng cách Wasserstein và Jensen-Shannon divergence với ngưỡng 0.1. PSI là một trong các phương pháp khác mà bạn có thể chọn.
+- **NannyML** ước tính hiệu năng mô hình trước khi nhãn đến. Confidence-based Performance Estimation (CBPE) của nó sử dụng các xác suất dự đoán của mô hình, phải được hiệu chuẩn tốt. Tài liệu NannyML nêu rằng CBPE xử lý covariate shift nhưng không đối phó được concept drift. Luồng demo cho thấy vì sao: chỉ các nhãn tiết lộ concept drift.
+- **TensorFlow Data Validation** so sánh các span dữ liệu liên tiếp. Nó sử dụng khoảng cách L-infinity cho các đặc trưng phân loại và một Jensen-Shannon divergence xấp xỉ cho các đặc trưng số. Nó cũng so sánh dữ liệu huấn luyện với dữ liệu phục vụ, điều bài feature store bao quát.
 
-The from-scratch code shows what every one of these tools computes. The tools add storage, scheduling, dashboards, and many more tests.
+Mã viết từ đầu cho thấy mỗi trong các công cụ này tính gì. Các công cụ thêm lưu trữ, lên lịch, dashboard và nhiều kiểm định hơn nữa.
 
-For LLM applications, the [LLM observability lesson](../../../17-infrastructure-and-production/13-llm-observability/docs/en.md) in the infrastructure phase covers tracing and evaluation tools. The ideas in this lesson still apply to the inputs and outputs of those systems.
+Với các ứng dụng LLM, [bài khả năng quan sát LLM](../../../17-infrastructure-and-production/13-llm-observability/docs/en.md) trong giai đoạn hạ tầng bao quát các công cụ tracing và đánh giá. Các ý tưởng trong bài học này vẫn áp dụng cho đầu vào và đầu ra của các hệ thống đó.
 
 ## Ship It
 
-This lesson produces `outputs/skill-drift-monitoring.md`. The skill plans the monitors for a new model and triages a drift alert. It asks which layer fired, which kind of drift fits the evidence, and whether the right action is to wait, recalibrate, collect labels, or retrain.
+Bài học này tạo ra `outputs/skill-drift-monitoring.md`. Skill lập kế hoạch các monitor cho một mô hình mới và phân loại một báo động drift. Nó hỏi tầng nào đã kích hoạt, loại drift nào khớp bằng chứng và liệu hành động đúng là chờ, hiệu chuẩn lại, thu thập nhãn hay huấn luyện lại.
 
 ## Exercises
 
-1. Run the stream with windows of 200 and 2000 events. Record the false warnings before event 3000 and the alert delay.
-2. Set `n_tests=1`, `patience=1`, and `min_cramers_v=0`. Count the alerts in the clean period from 5000 to 6500.
-3. Add a feature whose mean grows by 0.01 per 100 events. Find which signal, PSI or KS, reacts first.
-4. Implement the Jensen-Shannon distance on the same decile bins. Compare it with PSI on every window.
-5. Add a monitor for the model's positive-prediction rate. Explain why it stays quiet during the concept drift.
+1. Chạy luồng với các cửa sổ 200 và 2000 sự kiện. Ghi lại các lời cảnh báo giả trước sự kiện 3000 và độ trễ báo động.
+2. Đặt `n_tests=1`, `patience=1` và `min_cramers_v=0`. Đếm các báo động trong giai đoạn sạch từ 5000 đến 6500.
+3. Thêm một đặc trưng có trung bình tăng 0.01 mỗi 100 sự kiện. Tìm tín hiệu nào, PSI hay KS, phản ứng trước.
+4. Triển khai khoảng cách Jensen-Shannon trên cùng các bin thập phân vị. So sánh nó với PSI trên mọi cửa sổ.
+5. Thêm một monitor cho tỷ lệ dự đoán dương tính của mô hình. Giải thích vì sao nó giữ im lặng trong concept drift.
 
 ## Key Terms
 
-| Term | What people say | What it means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa |
 |------|----------------|----------------------|
-| Data drift | "The data changed" | A change in the distribution of inputs, predictions, or labels compared with a reference window |
-| Covariate drift | "New kinds of users" | `P(x)` changes while `P(y \| x)` stays the same |
-| Prior drift | "More positives than before" | `P(y)` changes while `P(x \| y)` stays the same, also called label shift |
-| Concept drift | "The rules of the game changed" | `P(y \| x)` changes, so the same input now has a different correct answer |
-| Reference window | "The baseline data" | A fixed sample, often the training data, that every current window is compared with |
-| PSI | "The stability score" | A symmetric sum over bins of (current share minus reference share) times the log of their ratio |
-| KS statistic | "The KS test" | The largest gap between two empirical cumulative distribution functions |
-| Cramér's V | "Effect size for categories" | The chi-square statistic scaled to the range 0 to 1 |
-| Label delay | "Ground truth comes later" | The time between a prediction and the arrival of its true outcome |
-| Alert fatigue | "Too many pages" | People ignore alerts because most of them were false alarms |
+| Data drift — Trôi dạt dữ liệu | "Dữ liệu đã thay đổi" | Một thay đổi trong phân phối đầu vào, dự đoán hoặc nhãn so với một cửa sổ tham chiếu |
+| Covariate drift | "Các loại người dùng mới" | `P(x)` thay đổi trong khi `P(y \| x)` giữ nguyên |
+| Prior drift | "Nhiều dương tính hơn trước" | `P(y)` thay đổi trong khi `P(x \| y)` giữ nguyên, còn gọi là label shift |
+| Concept drift | "Luật chơi đã thay đổi" | `P(y \| x)` thay đổi, nên cùng đầu vào giờ có một câu trả lời đúng khác |
+| Reference window — Cửa sổ tham chiếu | "Dữ liệu đường cơ sở" | Một mẫu cố định, thường là dữ liệu huấn luyện, mà mọi cửa sổ hiện tại được so sánh với |
+| PSI | "Điểm ổn định" | Một tổng đối xứng trên các bin của (tỷ lệ hiện tại trừ tỷ lệ tham chiếu) nhân log tỷ số của chúng |
+| KS statistic — Thống kê KS | "Kiểm định KS" | Khoảng cách lớn nhất giữa hai hàm phân phối tích lũy thực nghiệm |
+| Cramér's V | "Kích thước hiệu ứng cho danh mục" | Thống kê chi-square được đưa về phạm vi 0 đến 1 |
+| Label delay — Độ trễ nhãn | "Ground truth đến sau" | Thời gian giữa một dự đoán và sự xuất hiện của kết quả thật của nó |
+| Alert fatigue — Mệt mỏi cảnh báo | "Quá nhiều thông báo khẩn" | Mọi người bỏ qua cảnh báo vì phần lớn chúng là báo động giả |
 
 ## Further Reading
 
-- [Gama et al., A Survey on Concept Drift Adaptation (ACM Computing Surveys, 2014)](https://research.tue.nl/en/publications/a-survey-on-concept-drift-adaptation): real and virtual drift, drift patterns, and adaptation methods
-- [Rabanser, Günnemann, and Lipton, Failing Loudly: An Empirical Study of Methods for Detecting Dataset Shift (NeurIPS 2019)](https://arxiv.org/abs/1810.11953): two-sample tests for shift detection
-- [Lu et al., Learning under Concept Drift: A Review (2020)](https://arxiv.org/abs/2004.05785): drift detection, understanding, and adaptation methods
-- [Yurdakul, Statistical Properties of Population Stability Index (Western Michigan University, 2018)](https://scholarworks.wmich.edu/dissertations/3208/): how PSI behaves with sample size and bin count
-- [scipy.stats.ks_2samp documentation](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.ks_2samp.html): exact and asymptotic p-value methods for the two-sample KS test
-- [Evidently, How data drift detection works](https://docs.evidentlyai.com/metrics/explainer_drift): default test selection by column type and data size
-- [NannyML, Performance estimation](https://nannyml.readthedocs.io/en/stable/how_it_works/performance_estimation.html): CBPE and its assumptions
+- [Gama et al., A Survey on Concept Drift Adaptation (ACM Computing Surveys, 2014)](https://research.tue.nl/en/publications/a-survey-on-concept-drift-adaptation): drift thực và ảo, các mẫu drift và các phương pháp thích ứng
+- [Rabanser, Günnemann, and Lipton, Failing Loudly: An Empirical Study of Methods for Detecting Dataset Shift (NeurIPS 2019)](https://arxiv.org/abs/1810.11953): các kiểm định hai mẫu để phát hiện dịch chuyển
+- [Lu et al., Learning under Concept Drift: A Review (2020)](https://arxiv.org/abs/2004.05785): các phương pháp phát hiện, hiểu và thích ứng drift
+- [Yurdakul, Statistical Properties of Population Stability Index (Western Michigan University, 2018)](https://scholarworks.wmich.edu/dissertations/3208/): cách PSI hành xử theo kích thước mẫu và số bin
+- [Tài liệu scipy.stats.ks_2samp](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.ks_2samp.html): các phương pháp p-value chính xác và tiệm cận cho kiểm định KS hai mẫu
+- [Evidently, How data drift detection works](https://docs.evidentlyai.com/metrics/explainer_drift): lựa chọn kiểm định mặc định theo loại cột và kích thước dữ liệu
+- [NannyML, Performance estimation](https://nannyml.readthedocs.io/en/stable/how_it_works/performance_estimation.html): CBPE và các giả định của nó

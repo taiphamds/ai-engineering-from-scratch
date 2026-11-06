@@ -63,7 +63,7 @@ Hai sơ đồ xếp hạng phục vụ các mục tiêu khác nhau.
 
 Điểm trung bình là trung bình các điểm theo tác vụ cho một mô hình. Nó là con số chính các bảng xếp hạng báo cáo. Nó nhạy với các giá trị ngoại lai và sự mất cân bằng tác vụ.
 
-Tỷ lệ thắng đếm tần suất một mô hình vượt mọi mô hình khác trên cùng tác vụ. Với mỗi tác vụ, mô hình có điểm cao nhất thắng (hòa chia đều). Tỷ lệ thắng bằng số thắng chia cho số tác vụ mà mô hình có điểm. Nó ít nhạy với các giá trị ngoại lai và khác biệt thang đo hơn nhưng mất thông tin.
+Win-rate đếm tần suất một mô hình đánh bại mọi mô hình khác trên cùng tác vụ. Với mỗi tác vụ, mô hình có điểm cao nhất thắng (hòa cho một lần thắng đầy đủ cho mọi mô hình hòa). Tỷ lệ thắng bằng số lần thắng chia cho số tác vụ mà mô hình có điểm. Nó ít nhạy với ngoại lệ và khác biệt thang đo hơn nhưng mất thông tin.
 
 ```python
 def win_rate(model_id, runs_by_task, all_models):
@@ -131,4 +131,4 @@ Nó không chạy các mô hình. Nó không gọi lớp chỉ số. Nó không 
 
 ## Going further
 
-Bước tiếp theo tự nhiên là ý nghĩa tác vụ ghép cặp thay vì bootstrap không ghép cặp. Nếu mô hình A và B đều chạy cùng một trăm tác vụ, kiểm định thích hợp là bootstrap ghép cặp trên các chênh lệch từng tác vụ, điều chúng ta triển khai. Xa hơn, bạn muốn một bootstrap phân cấp tôn trọng các họ tác vụ (các bài toán không độc lập với nhau; một mẫu lỗi số học ảnh hưởng mười bài). Đó là một phần tiếp nối. Điểm chính của bài này là làm đúng mức sàn để đánh giá báo cáo một con số bạn có thể bảo vệ.
+Các khoảng theo mô hình là không ghép cặp, nhưng so sánh mô hình nên ghép cặp. Nếu mô hình A và B đều chạy cùng một trăm tác vụ, kiểm định thích hợp là bootstrap ghép cặp trên các hiệu theo từng tác vụ, mà `bootstrap_pairwise_diff` đã triển khai. Ngoài ra, bạn muốn một bootstrap phân cấp tôn trọng các họ tác vụ (các bài toán không độc lập với nhau; một mẫu lỗi số học ảnh hưởng mười bài trong đó). Đó là phần tiếp theo. Điểm chính của bài học này là làm đúng nền tảng để đánh giá báo cáo một con số mà bạn có thể bảo vệ.

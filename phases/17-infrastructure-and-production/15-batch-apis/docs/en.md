@@ -1,6 +1,6 @@
 # Batch APIs — the 50% Discount as Industry Standard
 
-> Mọi nhà cung cấp lớn đều cung cấp API xử lý theo lô bất đồng bộ với giảm giá 50% và thời gian hoàn thành ~24 giờ. OpenAI, Anthropic, Google và hầu hết nền tảng suy luận (gói xử lý theo lô Fireworks, xử lý theo lô Together) triển khai cùng mẫu. Kết hợp xử lý theo lô với lưu bộ nhớ đệm prompt và pipeline qua đêm giảm xuống ~10% chi phí đồng bộ không lưu bộ nhớ đệm. Quy tắc cực kỳ đơn giản: nếu không tương tác, nó thuộc xử lý theo lô. Pipeline tạo nội dung, phân loại tài liệu, trích xuất dữ liệu, tạo báo cáo, gắn nhãn hàng loạt, gắn thẻ danh mục — bất cứ thứ gì chịu được độ trễ 24 giờ đều là tiền bị bỏ phí cho đến khi chuyển sang xử lý theo lô. Mẫu sản xuất năm 2026 là phân loại mọi khối lượng công việc LLM mới vào ba làn: tương tác (đồng bộ có lưu bộ nhớ đệm), bán tương tác (hàng đợi bất đồng bộ có dự phòng), theo lô (qua đêm, kết hợp đầu vào được lưu bộ nhớ đệm). Khối lượng công việc giả là tương tác nhưng chịu được độ trễ tính bằng phút lãng phí nhiều nhất.
+> Mọi nhà cung cấp lớn đều phát hành một batch API bất đồng bộ với giảm giá 50% và thời gian hoàn thành ~24 giờ. OpenAI, Anthropic, Google và hầu hết các nền tảng suy luận (tầng batch Fireworks, Together batch) triển khai cùng một mẫu. Kết hợp batch với prompt caching và các pipeline qua đêm giảm xuống ~10% chi phí đồng bộ không cache. Quy tắc đơn giản đến tàn nhẫn: nếu nó chịu được hàng giờ độ trễ, nó thuộc về batch. Pipeline tạo nội dung, phân loại tài liệu, trích xuất dữ liệu, tạo báo cáo, gắn nhãn hàng loạt, gắn thẻ danh mục — bất cứ thứ gì chịu được độ trễ 24 giờ đều là tiền bị bỏ phí cho đến khi chuyển sang batch. Mẫu production năm 2026 là phân loại mọi khối lượng công việc LLM mới vào ba làn: tương tác (đồng bộ với caching), bán tương tác (hàng đợi bất đồng bộ với fallback), batch (qua đêm, kết hợp đầu vào được cache). Các khối lượng công việc giả vờ tương tác nhưng chịu được vài phút độ trễ lãng phí nhiều nhất.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy batch-vs-sync cost simulator)
@@ -52,7 +52,7 @@ Sự kết hợp: theo lô + bộ nhớ đệm = ~10% hóa đơn đồng bộ kh
 
 **Bán tương tác** — người dùng gửi một tác vụ, quay lại kiểm tra sau vài phút. Hàng đợi bất đồng bộ với dự phòng sang đồng bộ nếu xử lý theo lô không khả dụng. Hãy nghĩ đến lập chỉ mục RAG khối lượng vừa phải.
 
-**Theo lô** — người dùng mong đợi kết quả "trước buổi sáng" hoặc "giờ tới." Pipeline nội dung, phân loại ở quy mô lớn, phân tích ngoại tuyến. Luôn xử lý theo lô, luôn kết hợp lưu bộ nhớ đệm.
+**Batch** — người dùng mong đợi kết quả "vào sáng mai" hoặc "vào cuối ngày". Pipeline nội dung, phân loại ở quy mô lớn, phân tích ngoại tuyến. Luôn batch, luôn kết hợp caching.
 
 Sai lầm phổ biến: phân loại mọi thứ là tương tác vì pipeline đang trong sản xuất. Sản xuất không phải đặc tả độ trễ — SLA mới là.
 

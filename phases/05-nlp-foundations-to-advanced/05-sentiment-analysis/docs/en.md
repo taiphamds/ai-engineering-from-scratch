@@ -200,7 +200,7 @@ pipe.fit(X_train, y_train)
 print(pipe.score(X_test, y_test))
 ```
 
-Ba điều cần chú ý. `stop_words=None` giữ các từ phủ định. `ngram_range=(1, 2)` thêm bigram để `not_good` trở thành một đặc trưng. `sublinear_tf=True` làm giảm tác động của các từ lặp lại. Ba cờ này là sự khác biệt giữa một baseline chính xác 75% và một baseline chính xác 85% trên SST-2.
+Ba điều cần chú ý. `stop_words=None` giữ các phủ định. `ngram_range=(1, 2)` thêm bigram để `not good` trở thành một đặc trưng (scikit-learn nối hai từ bằng một dấu cách). `sublinear_tf=True` làm giảm tác động của các từ lặp lại. Ba cờ này là sự khác biệt giữa một đường cơ sở có độ chính xác 75% và một đường cơ sở có độ chính xác 85% trên SST-2.
 
 ### When to reach for a transformer
 

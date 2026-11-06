@@ -141,13 +141,13 @@ graph LR
     style V fill:#1a1a2e,stroke:#0f3460,color:#fff
 ```
 
-Phép chia cho sqrt(d_k) -- sqrt(64) = 8 -- là co giãn. Không có nó, tích vô hướng tăng lớn với vector nhiều chiều, đẩy softmax vào các vùng mà gradient gần bằng không. Đây là một trong các nhận thức then chốt trong bài báo "Attention Is All You Need" gốc.
+Phép chia cho $\sqrt{d_k}$ -- $\sqrt{64} = 8$ -- là co giãn. Không có nó, tích vô hướng tăng lớn với vector nhiều chiều, đẩy softmax vào các vùng mà gradient gần bằng không. Đây là một trong các nhận thức then chốt trong bài báo "Attention Is All You Need" gốc.
 
 ### KV Cache: Why Inference Is Fast
 
-Trong huấn luyện, bạn xử lý toàn bộ chuỗi cùng lúc. Trong suy luận, bạn sinh từng token một. Không tối ưu, sinh token N đòi hỏi tính lại attention cho tất cả N-1 token trước. Đó là O(N^2) mỗi token được sinh, hay tổng O(N^3) cho một chuỗi độ dài N.
+Trong huấn luyện, bạn xử lý toàn bộ chuỗi cùng lúc. Trong suy luận, bạn sinh từng token một. Không tối ưu, sinh token $N$ đòi hỏi tính lại attention cho tất cả $N-1$ token trước. Đó là $O(N^2)$ mỗi token được sinh, hay tổng $O(N^3)$ cho một chuỗi độ dài $N$.
 
-KV Cache giải quyết điều này. Sau khi tính K và V cho mỗi token, lưu chúng. Khi sinh token N+1, bạn chỉ cần tính Q cho token mới và tra K, V đã cache từ tất cả token trước. Điều này giảm chi phí mỗi token từ O(N) xuống O(1) cho tính toán K và V. Tính điểm attention vẫn là O(N) vì bạn chú ý đến mọi vị trí trước, nhưng tránh các phép nhân ma trận dư thừa trên đầu vào.
+KV Cache giải quyết điều này. Sau khi tính K và V cho mỗi token, lưu chúng. Khi sinh token $N+1$, bạn chỉ cần tính Q cho token mới và tra K, V đã cache từ tất cả token trước. Điều này giảm chi phí mỗi token từ $O(N)$ xuống $O(1)$ cho tính toán K và V. Tính điểm attention vẫn là $O(N)$ vì bạn chú ý đến mọi vị trí trước, nhưng tránh các phép nhân ma trận dư thừa trên đầu vào.
 
 Với GPT-2 có 12 lớp và 12 head, KV cache lưu 2 (K + V) x 12 lớp x 12 head x 64 chiều = 18,432 giá trị mỗi token. Với một chuỗi 1024 token, đó là khoảng 75MB ở FP32. Với Llama 3 405B có 128 lớp, KV cache cho một chuỗi có thể vượt 10GB. Đây là lý do suy luận ngữ cảnh dài bị giới hạn bộ nhớ.
 
@@ -211,7 +211,7 @@ Lịch tốc độ học quan trọng hơn bạn có thể kỳ vọng. GPT-2 kh
 |-----------|-------|------------|
 | Embedding token | (50257, 768) | 38,597,376 |
 | Embedding vị trí | (1024, 768) | 786,432 |
-| Attention mỗi khối (W_q, W_k, W_v, W_out) | 4 x (768, 768) | 2,359,296 |
+| Attention mỗi khối ($W_q, W_k, W_v, W_{\text{out}}$) | 4 x (768, 768) | 2,359,296 |
 | FFN mỗi khối (lên + xuống) | (768, 3072) + (3072, 768) | 4,718,592 |
 | Các LayerNorm mỗi khối (2x) | 2 x 768 x 2 | 3,072 |
 | LayerNorm cuối | 768 x 2 | 1,536 |
@@ -221,6 +221,10 @@ Lịch tốc độ học quan trọng hơn bạn có thể kỳ vọng. GPT-2 kh
 Phép chiếu đầu ra (head logits) chia sẻ trọng số với ma trận embedding token. Điều này gọi là buộc trọng số -- nó giảm số tham số 38M và cải thiện hiệu năng vì buộc mô hình dùng cùng không gian biểu diễn cho đầu vào và đầu ra.
 
 ## Build It
+
+```figure
+iso-machine {"machine":"mini-gpt"}
+```
 
 ### Step 1: Embedding Layer
 
@@ -258,7 +262,7 @@ def attention(Q, K, V, mask=None):
     return weights @ V
 ```
 
-Triển khai softmax trừ giá trị lớn nhất trước khi lấy hàm mũ. Không có điều này, exp(large_number) tràn thành vô cùng. Đây là thủ thuật ổn định số không thay đổi đầu ra vì softmax(x - c) = softmax(x) với bất kỳ hằng số c nào.
+Triển khai softmax trừ giá trị lớn nhất trước khi lấy hàm mũ. Không có điều này, exp(large_number) tràn thành vô cùng. Đây là thủ thuật ổn định số không thay đổi đầu ra vì $\mathop{\mathrm{softmax}}(x - c) = \mathop{\mathrm{softmax}}(x)$ với bất kỳ hằng số $c$ nào.
 
 ### Step 3: Multi-Head Attention
 
@@ -504,7 +508,7 @@ Bài học này tạo ra `outputs/prompt-gpt-architecture-analyzer.md` -- một 
 
 1. Sửa mô hình dùng 24 lớp và 16 head thay vì 12/12. Đếm tham số. Tăng gấp đôi độ sâu so với tăng gấp đôi độ rộng (số chiều embedding) thế nào?
 
-2. Triển khai hàm kích hoạt GELU (GELU(x) = x * 0.5 * (1 + erf(x / sqrt(2)))) và thay ReLU trong mạng feedforward. Chạy huấn luyện 500 bước với mỗi kích hoạt và so sánh mất mát cuối.
+2. Triển khai hàm kích hoạt GELU $(\mathop{\mathrm{GELU}}(x) = x \cdot 0.5 \cdot (1 + \mathop{\mathrm{erf}}(x / \sqrt{2})))$ và thay ReLU trong mạng feedforward. Chạy huấn luyện 500 bước với mỗi kích hoạt và so sánh mất mát cuối.
 
 3. Thêm một KV cache vào hàm sinh. Lưu các tensor K và V cho mỗi lớp sau lượt truyền xuôi đầu, và tái sử dụng cho các token sau. Đo tăng tốc: sinh 200 token có và không có cache rồi so sánh thời gian thực.
 
@@ -525,7 +529,7 @@ Bài học này tạo ra `outputs/prompt-gpt-architecture-analyzer.md` -- một 
 | Weight tying (Buộc trọng số) | "Chia sẻ embedding" | Dùng cùng ma trận cho embedding token đầu vào và head chiếu đầu ra -- tiết kiệm 38M tham số trong GPT-2 |
 | Residual connection (Kết nối phần dư) | "Kết nối tắt" | Cộng đầu vào trực tiếp với đầu ra một lớp con (x + sublayer(x)) -- cho phép gradient truyền trong mạng sâu |
 | Layer normalization (Chuẩn hóa lớp) | "Chuẩn hóa activation" | Chuẩn hóa trên chiều đặc trưng về trung bình 0 và phương sai 1, với các tham số scale và bias có thể học |
-| Cross-entropy loss (Hàm mất mát cross-entropy) | "Dự đoán sai đến đâu" | -log(xác suất gán cho token tiếp theo đúng), lấy trung bình trên mọi vị trí -- mục tiêu huấn luyện LLM tiêu chuẩn |
+| Cross-entropy loss | "Các dự đoán sai đến mức nào" | $-\log(\text{probability assigned to the correct next token})$, được lấy trung bình trên mọi vị trí -- mục tiêu huấn luyện LLM tiêu chuẩn |
 
 ## Further Reading
 

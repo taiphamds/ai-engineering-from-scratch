@@ -61,8 +61,8 @@ flowchart TB
 
 Công thức UCB được dùng trong bài này là UCB1 cổ điển.
 
-```text
-ucb(branch) = mean_reward(branch) + c * sqrt( ln(total_runs) / runs(branch) )
+```math
+\text{ucb}(\text{branch}) = \text{mean\_reward}(\text{branch}) + c \sqrt{ \frac{\ln(\text{total\_runs})}{\text{runs}(\text{branch})} }
 ```
 
 `total_runs` là số mọi thí nghiệm hoàn tất trên mọi nhánh. `c` là trọng số khám phá; bài học mặc định `sqrt(2)`. Một nhánh có không lần chạy nhận `+inf` để các nhánh chưa thử luôn được lập lịch trước. Một nhánh có phần thưởng trung bình cao giữ một điểm cao cho đến khi các nhánh khác bắt kịp; một nhánh chạy nhiều lần mà không có nhiều phần thưởng bị các lựa chọn ít chạy hơn lấn át.

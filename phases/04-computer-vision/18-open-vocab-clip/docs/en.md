@@ -42,7 +42,7 @@ Cả hai encoder kết thúc bằng một phép chiếu tuyến tính tới cùn
 
 ### The objective
 
-Với một batch N cặp (hình ảnh, chú thích), xây một ma trận tương đồng NxN. Huấn luyện cả hai encoder để đường chéo (các cặp khớp) có tương đồng cao và ngoài đường chéo (không khớp) có tương đồng thấp.
+Với một batch gồm $N$ cặp (hình ảnh, chú thích), xây dựng một ma trận độ tương đồng $N \times N$. Huấn luyện cả hai encoder sao cho đường chéo (các cặp khớp) có độ tương đồng cao và các phần tử ngoài đường chéo (không khớp) có độ tương đồng thấp.
 
 ```
 sim_matrix = image_embeddings @ text_embeddings.T / tau
@@ -58,9 +58,11 @@ loss = (loss_i2t + loss_t2i) / 2
 
 SigLIP (Zhai et al., 2023) thay softmax bằng sigmoid từng cặp:
 
-```
-loss = mean over pairs of log(1 + exp(-y_ij * sim_ij))
-y_ij = +1 if matching, -1 otherwise
+```math
+\begin{aligned}
+\text{loss} &= \mathop{\mathrm{mean}}\limits_{\text{pairs}} \log\left(1 + \exp(-y_{ij} \cdot \text{sim}_{ij})\right) \\
+y_{ij} &= \begin{cases} +1 & \text{if matching} \\ -1 & \text{otherwise} \end{cases}
+\end{aligned}
 ```
 
 Mất mát từng cặp loại bỏ chuẩn hóa cấp batch mà CLIP cần. SigLIP huấn luyện tốt hơn ở kích thước batch nhỏ và ngang hoặc vượt CLIP với cùng dữ liệu.

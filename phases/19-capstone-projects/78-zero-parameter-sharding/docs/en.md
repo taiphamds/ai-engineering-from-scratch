@@ -16,7 +16,7 @@
 
 ## The Problem
 
-DDP thông thường sao chép mọi thứ: các tham số, gradient, và trạng thái bộ tối ưu hiện diện đầy đủ trên mọi rank. Với một mô hình 7B tham số trong fp16 điều đó nghĩa là 14 GB tham số, 14 GB gradient, và 28 GB trạng thái bộ tối ưu mỗi rank. Trạng thái bộ tối ưu là số hạng lớn nhất và dễ chia shard nhất vì nó chỉ được chạm trong bước, không phải trong lượt tiến hoặc ngược.
+DDP nguyên bản sao chép mọi thứ: tham số, gradient và trạng thái optimizer hiện diện đầy đủ trên mọi rank. Với một mô hình 7B tham số ở fp16, điều đó nghĩa là 14 GB tham số, 14 GB gradient và 56 GB trạng thái optimizer (hai moment Adam float32) trên mỗi rank. Huấn luyện mixed-precision thêm một bản sao master float32 28 GB của trọng số ở trên. Trạng thái optimizer là số hạng lớn nhất và dễ phân shard nhất vì nó chỉ được chạm tới trong bước cập nhật, không trong forward hay backward.
 
 ZeRO giai đoạn 1 chia shard trạng thái bộ tối ưu. Mỗi rank giữ 1/N các mômen Adam. Sau lượt ngược, thay vì allreduce gradient đầy đủ và thực hiện bước cục bộ, ZeRO reduce_scatter để mỗi rank chỉ nhận gradient được cộng của shard nó. Rank áp dụng bước bộ tối ưu lên shard tham số chính của nó. Các shard tham số được cập nhật sau đó allgather trở lại để mọi rank có mô hình đầy đủ cho lượt tiến tiếp theo. Bộ nhớ bộ tối ưu giảm theo N. Lưu lượng truyền tin mỗi bước giống DDP: một reduce_scatter cộng một allgather bằng một allreduce về băng thông. Bộ nhớ thắng, thông lượng giữ.
 
@@ -92,7 +92,7 @@ Ba mẫu gia cố ZeRO đủ để cung cấp.
 
 **Độ chính xác hỗn hợp là điểm chính.** ZeRO là một kỹ thuật độ chính xác hỗn hợp; bản sao chính fp32 là thứ được chia shard. Chạy ZeRO không có độ chính xác hỗn hợp trả thuế bộ nhớ trên bản chính fp32 mà không có lợi ích lượt tiến fp16 tương ứng. Các lần chạy sản xuất luôn ghép ZeRO với autocast hoặc các trọng số bf16.
 
-**Giai đoạn 1 là một lợi ích gần miễn phí.** Giao tiếp giống hệt DDP về băng thông. Các tiết kiệm bộ nhớ tuyến tính theo N. Chi phí duy nhất là ghi sổ cho shard bộ tối ưu. Các ngăn xếp sản xuất mặc định giai đoạn 1 trừ khi bộ nhớ shard tham số cũng là vấn đề; khi đó giai đoạn 2 hoặc 3 đánh đổi giao tiếp lấy bộ nhớ.
+**Stage 1 là một lợi ích gần như miễn phí.** Giao tiếp giống hệt DDP về băng thông. Tiết kiệm bộ nhớ tuyến tính theo N. Chi phí duy nhất là việc ghi sổ cho shard optimizer. Các ngăn xếp production mặc định stage 1 trừ khi bộ nhớ gradient hoặc tham số cũng là vấn đề. Stage 2 phân shard gradient mà không thêm băng thông; chỉ stage 3 phân shard chính các tham số, và nó đánh đổi giao tiếp theo tầng lấy bộ nhớ đó.
 
 ## Use It
 

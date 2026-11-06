@@ -38,6 +38,7 @@
       "Một cải tiến được ghi thành tài liệu dựa trên phản hồi của nhà phát triển"
     ]
   },
+  "projects": ["glossary-hovercard-publisher", "api-tutorial-runner", "changelog-writer-from-git", "plain-language-rewrite-desk", "diagram-reading-companion", "community-learning-path-finder"],
   "readinessCriteria": [
     "Có thể giải thích sự khác biệt giữa một gói chỉ dẫn và một công cụ có thể thực thi.",
     "Có thể thiết kế một giao diện nhỏ, không mơ hồ với các thông báo lỗi hữu ích.",

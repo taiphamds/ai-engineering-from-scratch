@@ -1,6 +1,6 @@
 # The Workbench on a Real Repo
 
-> Mười một bài học về các bề mặt không đáng gì nếu chúng không sống sót khi tiếp xúc một cơ sở mã thực. Bài này chạy cùng tác vụ hai lần trên một ứng dụng mẫu nhỏ: chỉ có prompt so với được workbench hướng dẫn. Các con số làm việc tranh luận.
+> Mười một bài học về các bề mặt workbench chẳng có giá trị gì nếu chúng không trụ được khi tiếp xúc với một codebase thực. Bài học này chạy cùng một tác vụ hai lần trên một ứng dụng mẫu nhỏ: chỉ dùng prompt so với được workbench hướng dẫn. Các con số sẽ tranh luận.
 
 **Type:** Build
 **Languages:** Python (stdlib)

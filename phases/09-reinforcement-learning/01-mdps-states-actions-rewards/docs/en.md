@@ -21,20 +21,24 @@ Bạn không thể học từ luồng này cho đến khi hình thức hóa nó.
 
 **Năm đối tượng.**
 
-- **Trạng thái** `S`. Mọi thứ agent cần để quyết định. Trong GridWorld, là ô. Trong cờ vua, là bàn cờ. Trong một LLM, là cửa sổ ngữ cảnh cộng với bất kỳ bộ nhớ nào.
-- **Hành động** `A`. Các lựa chọn. Di chuyển lên/xuống/trái/phải. Đi một nước cờ. Phát ra một token.
-- **Chuyển tiếp** `P(s' | s, a)`. Với trạng thái `s` và hành động `a`, phân phối trên trạng thái tiếp theo. Tất định trong cờ vua, ngẫu nhiên trong tồn kho, gần như tất định trong giải mã LLM.
-- **Phần thưởng** `R(s, a, s')`. Tín hiệu vô hướng. Thắng = +1, thua = -1. Doanh thu trừ chi phí. Hạng tử tỷ số log-likelihood trong GRPO.
-- **Chiết khấu** `γ ∈ [0, 1)`. Phần thưởng tương lai được tính bao nhiêu so với hiện tại. `γ = 0.99` cho một chân trời ~100 bước; `γ = 0.9` cho ~10.
+- **Trạng thái** $S$. Mọi thứ agent cần để quyết định. Trong GridWorld, là ô. Trong cờ vua, là bàn cờ. Trong một LLM, là cửa sổ ngữ cảnh cộng với bất kỳ bộ nhớ nào.
+- **Hành động** $A$. Các lựa chọn. Di chuyển lên/xuống/trái/phải. Đi một nước cờ. Phát ra một token.
+- **Chuyển tiếp** $P(s' \mid s, a)$. Với trạng thái $s$ và hành động $a$, phân phối trên trạng thái tiếp theo. Tất định trong cờ vua, ngẫu nhiên trong tồn kho, gần như tất định trong giải mã LLM.
+- **Phần thưởng** $R(s, a, s')$. Tín hiệu vô hướng. Thắng = +1, thua = -1. Doanh thu trừ chi phí. Hạng tử tỷ số log-likelihood trong GRPO.
+- **Chiết khấu** $\gamma \in [0, 1)$. Phần thưởng tương lai được tính bao nhiêu so với hiện tại. $\gamma = 0.99$ cho một chân trời ~100 bước; $\gamma = 0.9$ cho ~10.
 
-**Tính chất Markov** `P(s_{t+1} | s_t, a_t) = P(s_{t+1} | s_0, a_0, …, s_t, a_t)`. Tương lai chỉ phụ thuộc trạng thái hiện tại. Nếu không, biểu diễn trạng thái chưa đầy đủ — không phải thất bại của phương pháp, mà là thất bại của trạng thái.
+**Tính chất Markov** $P(s_{t+1} \mid s_t, a_t) = P(s_{t+1} \mid s_0, a_0, \ldots, s_t, a_t)$. Tương lai chỉ phụ thuộc trạng thái hiện tại. Nếu không, biểu diễn trạng thái chưa đầy đủ — không phải thất bại của phương pháp, mà là thất bại của trạng thái.
 
-**Chính sách và lợi tức.** Một chính sách `π(a | s)` ánh xạ trạng thái sang phân phối hành động. Lợi tức `G_t = r_t + γ r_{t+1} + γ² r_{t+2} + …` là tổng chiết khấu của các phần thưởng tương lai. Giá trị `V^π(s) = E[G_t | s_t = s]` là lợi tức kỳ vọng bắt đầu từ `s` theo chính sách `π`. Giá trị Q `Q^π(s, a) = E[G_t | s_t = s, a_t = a]` là lợi tức kỳ vọng bắt đầu với một hành động cụ thể. Mọi thuật toán RL ước lượng một trong hai thứ này, rồi cải thiện `π` tương ứng.
+**Chính sách và lợi tức.** Một chính sách $\pi(a \mid s)$ ánh xạ trạng thái sang phân phối hành động. Lợi tức $G_t = r_t + \gamma r_{t+1} + \gamma^2 r_{t+2} + \ldots$ là tổng chiết khấu của các phần thưởng tương lai. Giá trị $V^\pi(s) = \mathbb{E}[G_t \mid s_t = s]$ là lợi tức kỳ vọng bắt đầu từ $s$ theo chính sách $\pi$. Giá trị Q $Q^\pi(s, a) = \mathbb{E}[G_t \mid s_t = s, a_t = a]$ là lợi tức kỳ vọng bắt đầu với một hành động cụ thể. Mọi thuật toán RL ước lượng một trong hai thứ này, rồi cải thiện $\pi$ tương ứng.
 
 **Các phương trình Bellman.** Các phương trình điểm bất động mà mọi thứ trong giai đoạn này dùng:
 
-`V^π(s) = Σ_a π(a|s) Σ_{s', r} P(s', r | s, a) [r + γ V^π(s')]`
-`Q^π(s, a) = Σ_{s', r} P(s', r | s, a) [r + γ Σ_{a'} π(a'|s') Q^π(s', a')]`
+```math
+\begin{aligned}
+V^\pi(s) &= \sum_a \pi(a \mid s) \sum_{s', r} P(s', r \mid s, a) [r + \gamma V^\pi(s')] \\
+Q^\pi(s, a) &= \sum_{s', r} P(s', r \mid s, a) [r + \gamma \sum_{a'} \pi(a' \mid s') Q^\pi(s', a')]
+\end{aligned}
+```
 
 Chúng tách lợi tức kỳ vọng thành "phần thưởng của bước này" cộng với "giá trị chiết khấu của nơi bạn đến." Đệ quy. Mọi thuật toán trong Giai đoạn 9 hoặc lặp phương trình này đến hội tụ (quy hoạch động), lấy mẫu từ nó (Monte Carlo), hoặc bootstrap nó một bước (sai phân thời gian).
 
@@ -113,16 +117,16 @@ def policy_evaluation(policy, gamma=0.99, tol=1e-6):
 
 ### Step 4: `γ` is a hyperparameter with physical meaning
 
-Chân trời hiệu dụng xấp xỉ `1 / (1 - γ)`. `γ = 0.9` → 10 bước. `γ = 0.99` → 100 bước. `γ = 0.999` → 1000 bước.
+Chân trời hiệu dụng xấp xỉ $1 / (1 - \gamma)$. $\gamma = 0.9$ → 10 bước. $\gamma = 0.99$ → 100 bước. $\gamma = 0.999$ → 1000 bước.
 
-Quá thấp thì agent hành động thiển cận. Quá cao thì việc gán công trạng trở nên nhiều nhiễu, vì nhiều bước đầu chia sẻ trách nhiệm cho phần thưởng ở tương lai xa. RLHF cho LLM thường dùng `γ = 1` vì các episode ngắn và bị chặn. Các tác vụ điều khiển dùng `0.95–0.99`. Các trò chơi chiến thuật chân trời dài dùng `0.999`.
+Quá thấp thì agent hành động thiển cận. Quá cao thì việc gán công trạng trở nên nhiều nhiễu, vì nhiều bước đầu chia sẻ trách nhiệm cho phần thưởng ở tương lai xa. RLHF cho LLM thường dùng $\gamma = 1$ vì các episode ngắn và bị chặn. Các tác vụ điều khiển dùng `0.95–0.99`. Các trò chơi chiến thuật chân trời dài dùng `0.999`.
 
 ## Pitfalls
 
 - **Trạng thái phi Markov.** Nếu bạn cần ba quan sát gần nhất để quyết định, "trạng thái" không chỉ là quan sát hiện tại. Cách khắc phục: xếp chồng khung hình (DQN trên Atari xếp 4) hoặc dùng một trạng thái hồi tiếp (LSTM/GRU trên các quan sát).
 - **Phần thưởng thưa.** Phần thưởng chỉ khi thắng khiến việc học gần như không thể trong các không gian trạng thái lớn. Định hình phần thưởng (tín hiệu trung gian) hoặc bootstrap bằng bắt chước (Giai đoạn 9 · 09).
 - **Reward hacking.** Tối ưu một phần thưởng đại diện thường tạo ra hành vi bệnh lý. Agent đua thuyền của OpenAI xoay vòng thu thập vật phẩm tăng sức mạnh mãi mãi thay vì hoàn thành cuộc đua. Luôn định nghĩa phần thưởng từ kết quả mục tiêu, không phải đại diện.
-- **Đặc tả chiết khấu sai.** `γ = 1` trên một tác vụ chân trời vô hạn khiến mọi giá trị vô hạn. Luôn giới hạn bằng một chân trời hữu hạn hoặc `γ < 1`.
+- **Đặc tả chiết khấu sai.** $\gamma = 1$ trên một tác vụ chân trời vô hạn khiến mọi giá trị vô hạn. Luôn giới hạn bằng một chân trời hữu hạn hoặc $\gamma < 1$.
 - **Thang phần thưởng.** Phần thưởng {+100, -100} so với {+1, -1} cho các chính sách tối ưu giống hệt nhưng độ lớn gradient rất khác nhau. Chuẩn hóa về khoảng `[-1, 1]` trước khi đưa vào PPO/DQN.
 
 ## Use It
@@ -167,21 +171,21 @@ Refuse to ship any MDP where the state is non-Markovian without explicit mention
 ## Exercises
 
 1. **Dễ.** Triển khai GridWorld 4×4 và rollout chính sách ngẫu nhiên trong `code/main.py`. Chạy 10,000 episode. Báo cáo trung bình và độ lệch chuẩn của lợi tức. So sánh với lợi tức tối ưu (-6).
-2. **Trung bình.** Chạy `policy_evaluation` với `γ ∈ {0.5, 0.9, 0.99}` cho chính sách ngẫu nhiên đều. In `V` thành một lưới 4×4 cho mỗi trường hợp. Giải thích vì sao các giá trị trạng thái gần trạng thái kết thúc tăng nhanh hơn với `γ` lớn hơn.
-3. **Khó.** Biến GridWorld thành ngẫu nhiên: mỗi hành động trượt sang một hướng liền kề với xác suất `p = 0.1`. Đánh giá lại chính sách đều. `V[start]` tốt hơn hay tệ hơn? Vì sao?
+2. **Trung bình.** Chạy `policy_evaluation` với $\gamma \in \lbrace 0.5, 0.9, 0.99 \rbrace$ cho chính sách ngẫu nhiên đều. In `V` thành một lưới 4×4 cho mỗi trường hợp. Giải thích vì sao các giá trị trạng thái gần trạng thái kết thúc tăng nhanh hơn với $\gamma$ lớn hơn.
+3. **Khó.** Biến GridWorld thành ngẫu nhiên: mỗi hành động trượt sang một hướng liền kề với xác suất $p = 0.1$. Đánh giá lại chính sách đều. `V[start]` tốt hơn hay tệ hơn? Vì sao?
 
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| MDP | "Thiết lập học tăng cường" | Bộ `(S, A, P, R, γ)` thỏa mãn tính chất Markov. |
+| MDP | "Thiết lập học tăng cường" | Bộ $(S, A, P, R, \gamma)$ thỏa mãn tính chất Markov. |
 | State (Trạng thái) | "Những gì agent thấy" | Thống kê đủ cho động lực học tương lai theo lớp chính sách đã chọn. |
-| Policy (Chính sách) | "Hành vi của agent" | Phân phối có điều kiện `π(a \| s)` hoặc ánh xạ tất định `s → a`. |
-| Return (Lợi tức) | "Tổng phần thưởng" | Tổng chiết khấu `Σ γ^t r_t` từ bước hiện tại. |
-| Value (Giá trị) | "Một trạng thái tốt đến đâu" | Lợi tức kỳ vọng theo `π` bắt đầu từ `s`. |
-| Q-value (Giá trị Q) | "Một hành động tốt đến đâu" | Lợi tức kỳ vọng theo `π` bắt đầu từ `s` với hành động đầu tiên `a`. |
+| Policy (Chính sách) | "Hành vi của agent" | Phân phối có điều kiện $\pi(a \mid s)$ hoặc ánh xạ tất định $s \to a$. |
+| Return (Lợi tức) | "Tổng phần thưởng" | Tổng chiết khấu $\sum \gamma^t r_t$ từ bước hiện tại. |
+| Value (Giá trị) | "Một trạng thái tốt đến đâu" | Lợi tức kỳ vọng theo $\pi$ bắt đầu từ $s$. |
+| Q-value (Giá trị Q) | "Một hành động tốt đến đâu" | Lợi tức kỳ vọng theo $\pi$ bắt đầu từ $s$ với hành động đầu tiên $a$. |
 | Bellman equation (Phương trình Bellman) | "Đệ quy quy hoạch động" | Phân rã điểm bất động của giá trị / Q thành phần thưởng một bước cộng giá trị trạng thái kế tiếp được chiết khấu. |
-| Discount `γ` (Chiết khấu) | "Tương lai so với hiện tại" | Trọng số theo cấp số nhân trên phần thưởng tương lai xa; chân trời hiệu dụng `~1/(1-γ)`. |
+| Discount $\gamma$ (Chiết khấu) | "Tương lai so với hiện tại" | Trọng số theo cấp số nhân trên phần thưởng tương lai xa; chân trời hiệu dụng $\approx 1/(1-\gamma)$. |
 
 ## Further Reading
 

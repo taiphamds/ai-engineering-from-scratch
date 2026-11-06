@@ -54,8 +54,8 @@ Với hầu hết trường hợp production, bắt đầu bằng backbone đư�
 
 ### Triplet loss formally
 
-```
-L = max(0, ||f(a) - f(p)||^2 - ||f(a) - f(n)||^2 + margin)
+```math
+L = \max\left(0, \lVert f(a) - f(p) \rVert^2 - \lVert f(a) - f(n) \rVert^2 + \text{margin}\right)
 ```
 
 Kéo neo `a` gần mẫu dương `p`, đẩy xa mẫu âm `n`, với một `margin` bảo đảm khoảng cách. Cấu trúc ba hình ảnh tổng quát hóa tới mọi thứ tự tương đồng.
@@ -235,7 +235,7 @@ Bài học này tạo ra:
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
 | Metric learning (Học metric) | "Định hình không gian" | Huấn luyện encoder để khoảng cách trong không gian đầu ra phản ánh độ tương đồng đích |
-| Triplet loss (Mất mát bộ ba) | "Kéo và đẩy" | L = max(0, d(a, p) - d(a, n) + margin); mất mát học metric chuẩn |
+| Triplet loss (Mất mát bộ ba) | "Kéo và đẩy" | $L = \max(0, d(a, p) - d(a, n) + \text{margin})$; mất mát học metric chuẩn |
 | Semi-hard mining (Khai thác bán khó) | "Các mẫu âm hữu ích" | Các mẫu âm xa neo hơn mẫu dương nhưng trong biên; nhiều thông tin nhất theo thực nghiệm |
 | Proxy-based loss (Mất mát dựa trên proxy) | "Các nguyên mẫu lớp" | Một proxy được học mỗi lớp; cross-entropy trên tương đồng-với-proxy; không khai thác cặp |
 | Recall@K | "Tỷ lệ trúng top-K" | Tỷ lệ truy vấn có ít nhất một kết quả đúng trong K kết quả đầu |

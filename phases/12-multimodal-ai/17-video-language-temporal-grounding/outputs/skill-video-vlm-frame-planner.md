@@ -13,7 +13,7 @@ Tạo ra:
 
 1. Lựa chọn bộ lấy mẫu khung hình. Đồng đều cho nội dung ổn định, FPS động cho chuyển động hỗn hợp, theo sự kiện cho nhiều hành động, khung hình chính+ngữ cảnh cho điện ảnh.
 2. Pool mỗi khung hình. 2x2 cho chi tiết cao, mặc định 3x3, 4x4 hoặc 6x6 cho quy trình agent nơi mật độ nội dung ít quan trọng hơn độ bao phủ.
-3. Mã hóa thời gian. TMRoPE cho họ Qwen2.5-VL; embedding thời gian học được cho mô hình nhỏ hơn; không mã hóa cho tác vụ một clip.
+3. Mã hóa thời gian. M-RoPE căn chỉnh theo thời gian cho họ Qwen2.5-VL (TMRoPE trong Qwen2.5-Omni); embedding thời gian được học cho các mô hình nhỏ hơn; không mã hóa cho các tác vụ clip đơn.
 4. Định dạng đầu ra. JSON với `{event, start, end, confidence}` cho định vị; văn bản tự do cho tóm tắt; phân cách bằng token cho luồng hỗn hợp.
 5. Kế hoạch benchmark. VideoMME cho tổng quát, TempCompass cho định vị, EgoSchema cho khoảng thời gian dài. Chỉ rõ mức độ chính xác kỳ vọng.
 6. Ngân sách ngữ cảnh / độ trễ. Tổng token = thời lượng * fps * tokens_per_frame. Cảnh báo nếu vượt 40% ngữ cảnh.

@@ -268,7 +268,7 @@ python3 code/main.py
 python3 -m unittest discover code/tests -v
 ```
 
-Kiểm tra bốn thứ trong đầu ra:
+Kiểm tra năm điều trong đầu ra:
 
 1. Mọi lời gọi độc lập.
 2. Mọi yêu cầu có khả năng `_meta`.
@@ -292,7 +292,7 @@ Bài học này cung cấp `outputs/skill-mcp-apps-spec.md`. Dùng để đánh 
 2. Gửi `Mcp-Name: ui://notes/other.html` với phần thân đọc dòng thời gian. Xác nhận lỗi `-32020`.
 3. Đổi tài nguyên thành `cacheScope: private`. Mô tả điều kiện riêng người dùng biện minh.
 4. Chuyển script đến `https://static.example.com/app.js`. Thêm origin đó vào `resourceDomains` và giải thích rủi ro chuỗi cung ứng mới.
-5. Thêm công cụ `notes_open` và định tuyến nhấp nút qua host. Giữ phê duyệt người dùng trong host.
+5. Thêm một công cụ `notes_open` và định tuyến lần nhấp nút qua host. Giữ việc phê duyệt của người dùng trong host.
 
 ## Key Terms
 

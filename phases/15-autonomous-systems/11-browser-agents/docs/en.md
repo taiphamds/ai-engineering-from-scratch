@@ -1,6 +1,6 @@
 # Browser Agents and Long-Horizon Web Tasks
 
-> ChatGPT agent (tháng 7 năm 2025) hợp nhất Operator và deep research thành một agent trình duyệt/terminal và thiết lập SOTA BrowseComp ở mức 68.9%. OpenAI đóng Operator vào ngày 31 tháng 8 năm 2025 — hợp nhất ở lớp sản phẩm. Việc Anthropic mua lại Vercept đã đưa Claude Sonnet trên OSWorld từ dưới 15% lên 72.5%. WebArena-Verified (ServiceNow, ICLR 2026) sửa 11.3 điểm phần trăm tỷ lệ âm tính giả trong WebArena gốc và phát hành tập con Hard gồm 258 tác vụ. Các con số là có thật. Bề mặt tấn công cũng vậy: người đứng đầu bộ phận preparedness của OpenAI công khai tuyên bố rằng chèn prompt gián tiếp vào các agent trình duyệt “không phải là một lỗi có thể vá hoàn toàn.” Các cuộc tấn công được ghi nhận trong năm 2025–2026: Tainted Memories (Atlas CSRF), HashJack (Cato Networks), và chiếm quyền bằng một lần nhấp trong Perplexity Comet.
+> ChatGPT agent (tháng 7 năm 2025) hợp nhất Operator và deep research thành một agent trình duyệt/terminal và thiết lập SOTA BrowseComp ở 68.9%. OpenAI đóng Operator vào ngày 31 tháng 8 năm 2025 — sự hợp nhất ở tầng sản phẩm. Việc Anthropic mua lại Vercept đưa Claude Sonnet trên OSWorld từ dưới 15% lên 72.5%. WebArena-Verified (ServiceNow, ICLR 2026) sửa tỷ lệ âm tính giả ~11.3% trong WebArena ban đầu và phát hành tập con Hard gồm 258 tác vụ. Các con số là thật. Bề mặt tấn công cũng vậy: người đứng đầu bộ phận preparedness của OpenAI công khai tuyên bố rằng prompt injection gián tiếp vào các agent trình duyệt "không phải một lỗi có thể được vá hoàn toàn". Các cuộc tấn công được ghi nhận năm 2025–2026: Tainted Memories (Atlas CSRF), HashJack (Cato Networks) và các vụ chiếm quyền chỉ bằng một cú nhấp trong Perplexity Comet.
 
 **Type:** Learn
 **Languages:** Python (stdlib, indirect prompt-injection attack surface model)
@@ -9,7 +9,7 @@
 
 ## The Problem
 
-Một agent trình duyệt là một agent có tầm thời gian dài đọc nội dung không đáng tin cậy và thực hiện các hành động có hệ quả. Mọi trang agent truy cập đều là một đầu vào mà người dùng không viết. Mọi biểu mẫu trên mọi trang đều là một kênh lệnh tiềm năng. Tập hợp tấn công năm 2025–2026 cho thấy đây không phải là giả định: Tainted Memories cho phép kẻ tấn công gắn các chỉ dẫn độc hại vào bộ nhớ của agent thông qua một trang được chế tạo; HashJack giấu các lệnh trong các fragment URL mà agent truy cập; các vụ chiếm quyền Perplexity Comet xảy ra chỉ với một lần nhấp.
+Một agent trình duyệt là một agent dài hạn đọc nội dung không đáng tin cậy và thực hiện các hành động có hệ quả. Mỗi trang agent truy cập là một đầu vào mà người dùng không viết. Mỗi biểu mẫu trên mỗi trang là một kênh lệnh tiềm năng. Tập hợp tấn công năm 2025–2026 cho thấy đây không phải giả thuyết: Tainted Memories cho phép kẻ tấn công gắn chỉ dẫn độc hại vào bộ nhớ của agent qua một trang được chế tạo; HashJack giấu lệnh trong các fragment URL mà agent truy cập; các vụ chiếm quyền Perplexity Comet chỉ cần một cú nhấp.
 
 Bức tranh phòng thủ không dễ chịu. Người đứng đầu bộ phận preparedness của OpenAI đã nói to điều thường được nói nhỏ: chèn prompt gián tiếp “không phải là một lỗi có thể vá hoàn toàn.” Điều này là vì cuộc tấn công nằm ở ranh giới đọc và hành động của agent, vốn mờ nhạt về mặt kiến trúc — về nguyên tắc, mọi token mô hình đọc đều có thể được đọc như một chỉ dẫn.
 

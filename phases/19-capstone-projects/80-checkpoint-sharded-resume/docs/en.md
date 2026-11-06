@@ -52,7 +52,7 @@ Ba trường chịu tải. `world_size` khiến một lần tiếp tục trên m
 
 ### Atomic write
 
-Mẫu tiêu chuẩn: ghi mọi shard vào `<name>.tmp`, ghi bản kê khai vào `manifest.json.tmp`, fsync từng file, rồi đổi tên. Đổi tên POSIX trong cùng hệ thống file là nguyên tử; hoặc file mới hiện diện đầy đủ hoặc file cũ hiện diện. Một sự cố trước lần đổi tên cuối để checkpoint trước làm bản hoạt động. Không ghi nguyên tử một sự cố có thể để lại một shard một phần với một bản kê khai hiện diện trỏ tới nó, và việc nạp làm hỏng trạng thái bộ tối ưu khi tiếp tục.
+Mẫu tiêu chuẩn: ghi mỗi shard vào `<name>.tmp`, ghi manifest vào `manifest.json.tmp`, fsync từng tệp, đổi tên các shard và đổi tên manifest cuối cùng. Một lần đổi tên POSIX trong cùng filesystem là nguyên tử: hoặc tệp mới hiện diện đầy đủ hoặc tệp cũ hiện diện. Một tập các lần đổi tên không phải một transaction, nên lần đổi tên manifest là điểm commit, và loader kiểm tra mỗi shard với các hash trong manifest. Ghi mỗi checkpoint vào thư mục bước riêng của nó; khi đó một sự cố trước lần đổi tên manifest để checkpoint trước là checkpoint đang hoạt động. Tái sử dụng một thư mục phá vỡ bảo đảm đó, vì các lần đổi tên shard thay thế các shard cũ trước khi manifest mới xuất hiện. Không có ghi nguyên tử, một sự cố có thể để lại một shard chưa đầy đủ với một manifest hiện diện trỏ đến nó, và việc tải làm hỏng trạng thái optimizer khi tiếp tục.
 
 ### Three failure modes the schema must defend against
 

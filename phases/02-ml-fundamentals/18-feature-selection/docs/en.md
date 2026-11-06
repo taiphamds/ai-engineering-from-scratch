@@ -9,7 +9,7 @@
 
 ## Learning Objectives
 
-- Triển khai các phương pháp lọc (ngưỡng phương sai, thông tin tương hỗ, chi bình phương) và các phương pháp bao bọc (RFE, lựa chọn tiến) từ đầu
+- Triển khai các phương pháp lọc (ngưỡng phương sai, thông tin tương hỗ), một phương pháp wrapper (RFE) và các phương pháp nhúng (L1, độ quan trọng của cây) từ đầu, rồi thêm lựa chọn tiến trong các bài tập
 - Giải thích tại sao thông tin tương hỗ nắm bắt các quan hệ phi tuyến giữa đặc trưng và mục tiêu mà tương quan bỏ sót
 - So sánh chính quy hóa L1 (lựa chọn nhúng) với RFE (lựa chọn bao bọc) và đánh giá các đánh đổi về tính toán của chúng
 - Xây dựng một pipeline lựa chọn đặc trưng kết hợp nhiều phương pháp và chứng minh khả năng khái quát hóa được cải thiện trên dữ liệu được giữ lại
@@ -62,8 +62,8 @@ Bộ lọc đơn giản nhất. Nếu một đặc trưng hầu như không bi�
 
 Xét một đặc trưng bằng 0.0 ở 999 trong số 1000 mẫu. Phương sai của nó gần bằng không. Không mô hình nào có thể sử dụng nó để phân biệt các lớp. Loại bỏ nó.
 
-```
-variance(x) = mean((x - mean(x))^2)
+```math
+\text{variance}(x) = \text{mean}\bigl((x - \text{mean}(x))^2\bigr)
 ```
 
 Đặt một ngưỡng (ví dụ: 0.01). Loại bỏ mọi đặc trưng có phương sai thấp hơn ngưỡng đó. Cách này loại bỏ các đặc trưng hằng hoặc gần hằng mà hoàn toàn không nhìn vào biến mục tiêu.
@@ -74,17 +74,17 @@ Hạn chế: một đặc trưng có thể có phương sai cao mà vẫn hoàn 
 
 ### Mutual Information
 
-Thông tin tương hỗ đo mức độ mà việc biết giá trị đặc trưng X làm giảm sự bất định về mục tiêu Y.
+Thông tin tương hỗ đo mức độ mà việc biết giá trị đặc trưng $X$ làm giảm sự bất định về mục tiêu $Y$.
 
-```
-I(X; Y) = sum_x sum_y p(x, y) * log(p(x, y) / (p(x) * p(y)))
+```math
+I(X; Y) = \sum_x \sum_y p(x, y) \cdot \log \frac{p(x, y)}{p(x) \cdot p(y)}
 ```
 
-Nếu X và Y độc lập, p(x, y) = p(x) * p(y), nên số hạng log bằng không và I(X; Y) = 0. X cho bạn biết càng nhiều về Y, thông tin tương hỗ càng cao.
+Nếu $X$ và $Y$ độc lập, $p(x, y) = p(x) \cdot p(y)$, nên số hạng log bằng không và $I(X; Y) = 0$. $X$ cho bạn biết càng nhiều về $Y$, thông tin tương hỗ càng cao.
 
 Ưu điểm chính so với tương quan: thông tin tương hỗ nắm bắt các quan hệ phi tuyến. Một đặc trưng có thể có tương quan bằng không với mục tiêu nhưng thông tin tương hỗ cao vì quan hệ là bậc hai hoặc tuần hoàn.
 
-Đối với các đặc trưng liên tục, trước tiên rời rạc hóa thành các bin (ước lượng dựa trên histogram). Số bin ảnh hưởng đến ước lượng -- quá ít bin làm mất thông tin, quá nhiều bin thêm nhiễu. Một lựa chọn phổ biến: sqrt(n) bin hoặc quy tắc Sturges (1 + log2(n)).
+Đối với các đặc trưng liên tục, trước tiên rời rạc hóa thành các bin (ước lượng dựa trên histogram). Số bin ảnh hưởng đến ước lượng -- quá ít bin làm mất thông tin, quá nhiều bin thêm nhiễu. Một lựa chọn phổ biến: $\sqrt{n}$ bin hoặc quy tắc Sturges ($1 + \log_2 n$).
 
 ```mermaid
 flowchart LR
@@ -116,14 +116,14 @@ flowchart TD
 
 RFE xét các tương tác đặc trưng vì mô hình nhìn thấy tất cả các đặc trưng còn lại cùng nhau. Loại bỏ một đặc trưng làm thay đổi độ quan trọng của các đặc trưng khác. Điều này khiến nó kỹ lưỡng hơn các phương pháp lọc.
 
-Chi phí: bạn huấn luyện mô hình N - target lần. Với 500 đặc trưng và mục tiêu là 10, đó là 490 lần huấn luyện. Đối với các mô hình tốn kém, cách này chậm. Bạn có thể tăng tốc bằng cách loại bỏ nhiều đặc trưng mỗi bước (ví dụ: loại bỏ 10% thấp nhất mỗi vòng).
+Chi phí: bạn huấn luyện mô hình $N - \text{target}$ lần. Với 500 đặc trưng và mục tiêu là 10, đó là 490 lần huấn luyện. Đối với các mô hình tốn kém, cách này chậm. Bạn có thể tăng tốc bằng cách loại bỏ nhiều đặc trưng mỗi bước (ví dụ: loại bỏ 10% thấp nhất mỗi vòng).
 
 ### L1 (Lasso) Regularization
 
 Chính quy hóa L1 thêm giá trị tuyệt đối của các trọng số vào hàm mất mát:
 
-```
-loss = prediction_error + alpha * sum(|w_i|)
+```math
+\text{loss} = \text{prediction\_error} + \alpha \cdot \sum \lvert w_i \rvert
 ```
 
 Tham số alpha kiểm soát mức độ quyết liệt khi cắt tỉa đặc trưng. Alpha cao hơn nghĩa là nhiều trọng số về đúng bằng không hơn.
@@ -140,12 +140,10 @@ Hạn chế: chỉ hoạt động cho mô hình tuyến tính. Không thể nắ
 
 Cây quyết định và các ensemble của chúng (rừng ngẫu nhiên, gradient boosting) tự nhiên xếp hạng các đặc trưng. Mỗi phép chia giảm độ hỗn tạp (Gini hoặc entropy cho phân loại, phương sai cho hồi quy). Các đặc trưng tạo ra mức giảm độ hỗn tạp lớn hơn thì quan trọng hơn.
 
-Đối với một rừng ngẫu nhiên có T cây:
+Đối với một rừng ngẫu nhiên có $T$ cây:
 
-```
-importance(feature_j) = (1/T) * sum over all trees of
-    sum over all nodes splitting on feature_j of
-        (n_samples * impurity_decrease)
+```math
+\text{importance}(\text{feature}_j) = \frac{1}{T} \sum_{\text{all trees}} \; \sum_{\text{all nodes splitting on } \text{feature}_j} (\text{n\_samples} \cdot \text{impurity\_decrease})
 ```
 
 Cách này cho một điểm quan trọng được chuẩn hóa cho từng đặc trưng. Nó tự động xử lý các quan hệ phi tuyến và tương tác đặc trưng.
@@ -524,7 +522,7 @@ Bài học này tạo ra:
 | Filter method (Phương pháp lọc) | "Chấm điểm độc lập các đặc trưng" | Một cách tiếp cận lựa chọn đặc trưng xếp hạng các đặc trưng bằng một thước đo thống kê mà không huấn luyện mô hình, đánh giá riêng từng đặc trưng |
 | Wrapper method (Phương pháp bao bọc) | "Sử dụng mô hình để chọn đặc trưng" | Một cách tiếp cận lựa chọn đặc trưng đánh giá các tập con đặc trưng bằng cách huấn luyện mô hình và sử dụng hiệu suất của nó làm tiêu chí lựa chọn |
 | Embedded method (Phương pháp nhúng) | "Mô hình lựa chọn đặc trưng trong quá trình huấn luyện" | Lựa chọn đặc trưng diễn ra như một phần của quá trình khớp mô hình, chẳng hạn như chính quy hóa L1 đẩy các trọng số về không |
-| Mutual information (Thông tin tương hỗ) | "Một biến cho bạn biết bao nhiêu về biến khác" | Một thước đo mức giảm sự bất định về Y khi biết X, nắm bắt cả các phụ thuộc tuyến tính và phi tuyến |
+| Mutual information (Thông tin tương hỗ) | "Một biến cho bạn biết bao nhiêu về biến khác" | Một thước đo mức giảm sự bất định về $Y$ khi biết $X$, nắm bắt cả các phụ thuộc tuyến tính và phi tuyến |
 | Recursive Feature Elimination (Loại bỏ đặc trưng đệ quy) | "Huấn luyện, xếp hạng, cắt tỉa, lặp lại" | Một phương pháp bao bọc lặp lại, huấn luyện mô hình, loại bỏ (các) đặc trưng ít quan trọng nhất và lặp lại cho tới khi đạt số lượng mục tiêu |
 | L1 / Lasso regularization (Chính quy hóa L1 / Lasso) | "Hình phạt tiêu diệt các đặc trưng" | Thêm tổng các giá trị tuyệt đối của trọng số vào hàm mất mát, đẩy trọng số của các đặc trưng không quan trọng về đúng bằng không |
 | Variance threshold (Ngưỡng phương sai) | "Loại bỏ các đặc trưng hằng" | Loại bỏ các đặc trưng có phương sai giữa các mẫu thấp hơn một ngưỡng được chỉ định, lọc bỏ các đặc trưng không mang thông tin |

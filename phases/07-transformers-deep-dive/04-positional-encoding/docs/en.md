@@ -29,25 +29,25 @@ Tính đến năm 2026, về cơ bản mọi mô hình mở tiên phong dùng Ro
 
 Tính trước một ma trận cố định `PE` có hình dạng `(max_len, d_model)`:
 
-```
-PE[pos, 2i]   = sin(pos / 10000^(2i / d_model))
-PE[pos, 2i+1] = cos(pos / 10000^(2i / d_model))
+```math
+\begin{aligned}
+PE_{(pos, 2i)} &= \sin\left(pos / 10000^{2i / d_{\text{model}}}\right) \\
+PE_{(pos, 2i+1)} &= \cos\left(pos / 10000^{2i / d_{\text{model}}}\right)
+\end{aligned}
 ```
 
 Rồi `X' = X + PE[:N]` trước attention. Mỗi chiều là một hình sin ở một tần số khác nhau. Mô hình học đọc vị trí từ mẫu pha. Thất bại vượt `max_len`: không có gì cho mô hình biết điều gì xảy ra ở vị trí 2048 khi nó chỉ thấy các vị trí 0–2047.
 
 ### RoPE
 
-Xoay các vector Q và K (không phải embedding). Với một cặp chiều `(2i, 2i+1)`:
+Xoay các vector Q và K (không phải embedding). Với một cặp chiều $(2i, 2i+1)$:
 
-```
-[q'_2i    ]   [ cos(pos·θ_i)  -sin(pos·θ_i) ] [q_2i   ]
-[q'_2i+1  ] = [ sin(pos·θ_i)   cos(pos·θ_i) ] [q_2i+1 ]
-
-θ_i = base^(-2i / d_head),  base = 10000 by default
+```math
+\begin{bmatrix} q'_{2i} \\ q'_{2i+1} \end{bmatrix} = \begin{bmatrix} \cos(pos \cdot \theta_i) & -\sin(pos \cdot \theta_i) \\ \sin(pos \cdot \theta_i) & \cos(pos \cdot \theta_i) \end{bmatrix} \begin{bmatrix} q_{2i} \\ q_{2i+1} \end{bmatrix}
+\qquad \theta_i = \text{base}^{-2i / d_{\text{head}}}, \quad \text{base} = 10000 \text{ by default}
 ```
 
-Áp dụng cùng phép xoay cho key với vị trí `pos_k`. Tích vô hướng `q'_m · k'_n` trở thành một hàm chỉ của `(m - n)`. Nghĩa là: **điểm attention chỉ phụ thuộc khoảng cách tương đối**, dù phép xoay được xác định từ các vị trí tuyệt đối. Thủ thuật đẹp.
+Áp dụng cùng phép xoay cho key với vị trí `pos_k`. Tích vô hướng $q'_m \cdot k'_n$ trở thành một hàm chỉ của $(m - n)$. Nghĩa là: **điểm attention chỉ phụ thuộc khoảng cách tương đối**, dù phép xoay được xác định từ các vị trí tuyệt đối. Thủ thuật đẹp.
 
 Mở rộng RoPE: `base` có thể được co giãn (NTK-aware, YaRN, LongRoPE) để ngoại suy đến các ngữ cảnh dài hơn không cần huấn luyện lại. Llama 3 mở rộng từ ngữ cảnh 8K lên 128K theo cách này.
 
@@ -55,11 +55,11 @@ Mở rộng RoPE: `base` có thể được co giãn (NTK-aware, YaRN, LongRoPE)
 
 Bỏ thủ thuật embedding. Tạo bias trực tiếp cho các điểm attention:
 
-```
-attn_score[i, j] = (q_i · k_j) / √d  -  m_h · |i - j|
+```math
+\text{attn\_score}[i, j] = \frac{q_i \cdot k_j}{\sqrt{d}} - m_h \cdot |i - j|
 ```
 
-Trong đó `m_h` là một độ dốc riêng theo head (ví dụ `1 / 2^(8·h/H)`). Các token gần hơn được tăng; các token xa bị phạt. Không có chi phí khi huấn luyện. Bài báo cho thấy ngoại suy độ dài thắng hình sin và ngang RoPE trên độ dài được huấn luyện gốc.
+Trong đó $m_h$ là một độ dốc riêng theo head (ví dụ $1 / 2^{8h/H}$). Các token gần hơn được tăng; các token xa bị phạt. Không có chi phí khi huấn luyện. Bài báo cho thấy ngoại suy độ dài thắng hình sin và ngang RoPE trên độ dài được huấn luyện gốc.
 
 ### What to pick in 2026
 
@@ -113,7 +113,7 @@ def apply_rope(x, pos, base=10000):
     return out
 ```
 
-Quan trọng: áp dụng cùng hàm cho Q ở vị trí `m` và K ở vị trí `n`. Tích vô hướng của chúng nhận một hệ số `cos((m-n)·θ_i)` trên mỗi cặp tọa độ. Attention học vị trí tương đối miễn phí.
+Quan trọng: áp dụng cùng hàm cho Q ở vị trí $m$ và K ở vị trí $n$. Tích vô hướng của chúng nhận một hệ số $\cos((m-n) \cdot \theta_i)$ trên mỗi cặp tọa độ. Attention học vị trí tương đối miễn phí.
 
 ### Step 3: ALiBi slopes and bias
 
@@ -168,7 +168,7 @@ Xem `outputs/skill-positional-encoding-picker.md`. Skill chọn một chiến l�
 | Positional encoding (Mã hóa vị trí) | "Cho attention biết thứ tự" | Bất kỳ tín hiệu nào được thêm vào embedding hoặc attention mã hóa vị trí. |
 | Sinusoidal (Hình sin) | "Loại gốc" | `sin/cos` ở các tần số hình học được thêm vào embedding; không ngoại suy. |
 | RoPE | "Embedding xoay" | Xoay Q, K theo góc phụ thuộc vị trí; tích vô hướng mã hóa khoảng cách tương đối. |
-| ALiBi | "Thủ thuật bias tuyến tính" | Thêm `-m·\|i-j\|` vào các điểm attention; không cần embedding, ngoại suy tuyệt vời. |
+| ALiBi | "Thủ thuật bias tuyến tính" | Thêm $-m \cdot \lvert i-j \rvert$ vào các điểm attention; không cần embedding, ngoại suy tuyệt vời. |
 | base | "Nút điều chỉnh của RoPE" | Hệ số co giãn tần số trong RoPE; tăng để mở rộng ngữ cảnh khi suy luận. |
 | NTK-aware | "Một thủ thuật co giãn RoPE" | Co giãn `base` để các chiều tần số cao không bị ép khi ngữ cảnh mở rộng. |
 | YaRN | "Loại cầu kỳ" | Nội suy+ngoại suy theo chiều giữ entropy attention. |

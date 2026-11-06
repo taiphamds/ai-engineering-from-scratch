@@ -1,6 +1,6 @@
 # Actor-Critic — A2C and A3C
 
-> REINFORCE nhiều nhiễu. Thêm một critic học `V̂(s)`, trừ nó khỏi lợi tức, và bạn có một lợi thế có cùng kỳ vọng nhưng phương sai thấp hơn nhiều. Đó là actor-critic. A2C chạy nó đồng bộ; A3C chạy nó trên nhiều luồng. Cả hai là mô hình tư duy cho mọi phương pháp deep-RL hiện đại.
+> REINFORCE nhiều nhiễu. Thêm một critic học $\hat{V}(s)$, trừ nó khỏi lợi tức, và bạn có một lợi thế có cùng kỳ vọng nhưng phương sai thấp hơn nhiều. Đó là actor-critic. A2C chạy nó đồng bộ; A3C chạy nó trên nhiều luồng. Cả hai là mô hình tư duy cho mọi phương pháp deep-RL hiện đại.
 
 **Type:** Build
 **Languages:** Python
@@ -9,11 +9,13 @@
 
 ## The Problem
 
-REINFORCE nguyên bản hoạt động, nhưng phương sai của nó khủng khiếp. Các lợi tức Monte Carlo `G_t` có thể dao động với hệ số 10 giữa các episode. Nhân nhiễu đó với `∇ log π` và lấy trung bình tạo ra một bộ ước lượng gradient cần hàng nghìn episode để dịch chuyển chính sách cùng khoảng cách mà bạn có thể dịch chuyển nó với ít cập nhật DQN hơn nhiều.
+REINFORCE nguyên bản hoạt động, nhưng phương sai của nó khủng khiếp. Các lợi tức Monte Carlo $G_t$ có thể dao động với hệ số 10 giữa các episode. Nhân nhiễu đó với $\nabla \log \pi$ và lấy trung bình tạo ra một bộ ước lượng gradient cần hàng nghìn episode để dịch chuyển chính sách cùng khoảng cách mà bạn có thể dịch chuyển nó với ít cập nhật DQN hơn nhiều.
 
-Phương sai đến từ việc dùng lợi tức thô. Nếu bạn trừ một baseline `b(s_t)` — bất kỳ hàm nào của trạng thái, gồm một giá trị được học — kỳ vọng không đổi và phương sai giảm. Baseline tốt nhất tính toán được là `V̂(s_t)`. Giờ đại lượng nhân với `∇ log π` là *lợi thế*:
+Phương sai đến từ việc dùng lợi tức thô. Nếu bạn trừ một baseline $b(s_t)$ — bất kỳ hàm nào của trạng thái, gồm một giá trị được học — kỳ vọng không đổi và phương sai giảm. Baseline tốt nhất tính toán được là $\hat{V}(s_t)$. Giờ đại lượng nhân với $\nabla \log \pi$ là *lợi thế*:
 
-`A(s, a) = G - V̂(s)`
+```math
+A(s, a) = G - \hat{V}(s)
+```
 
 Một hành động tốt nếu nó tạo ra lợi tức trên trung bình; xấu nếu dưới. REINFORCE với một critic được học là *actor-critic*. Critic cho actor một người thầy phương sai thấp. Đây là mọi phương pháp chính sách sâu sau năm 2015 (A2C, A3C, PPO, SAC, IMPALA).
 
@@ -23,33 +25,39 @@ Một hành động tốt nếu nó tạo ra lợi tức trên trung bình; xấ
 
 **Hai mạng, một hàm mất mát chung:**
 
-- **Actor** `π_θ(a | s)`: chính sách. Được lấy mẫu để hành động. Được huấn luyện bằng gradient chính sách.
-- **Critic** `V_φ(s)`: ước lượng lợi tức kỳ vọng từ trạng thái. Được huấn luyện để tối thiểu hóa `(V_φ(s) - target)²`.
+- **Actor** $\pi_\theta(a \mid s)$: chính sách. Được lấy mẫu để hành động. Được huấn luyện bằng gradient chính sách.
+- **Critic** $V_\phi(s)$: ước lượng lợi tức kỳ vọng từ trạng thái. Được huấn luyện để tối thiểu hóa $(V_\phi(s) - \text{target})^2$.
 
 **Lợi thế.** Hai dạng tiêu chuẩn:
 
-- *Lợi thế MC:* `A_t = G_t - V_φ(s_t)`. Không chệch, phương sai cao hơn.
-- *Lợi thế TD:* `A_t = r_{t+1} + γ V_φ(s_{t+1}) - V_φ(s_t)`. Chệch (dùng `V_φ`), phương sai thấp hơn nhiều. Cũng được gọi là *phần dư TD* `δ_t`.
+- *Lợi thế MC:* $A_t = G_t - V_\phi(s_t)$. Không chệch, phương sai cao hơn.
+- *Lợi thế TD:* $A_t = r_{t+1} + \gamma V_\phi(s_{t+1}) - V_\phi(s_t)$. Chệch (dùng $V_\phi$), phương sai thấp hơn nhiều. Cũng được gọi là *phần dư TD* $\delta_t$.
 
 **Lợi thế n bước.** Nội suy giữa hai dạng:
 
-`A_t^{(n)} = r_{t+1} + γ r_{t+2} + … + γ^{n-1} r_{t+n} + γ^n V_φ(s_{t+n}) - V_φ(s_t)`
+```math
+A_t^{(n)} = r_{t+1} + \gamma r_{t+2} + \ldots + \gamma^{n-1} r_{t+n} + \gamma^n V_\phi(s_{t+n}) - V_\phi(s_t)
+```
 
-`n = 1` là TD thuần túy. `n = ∞` là MC. Hầu hết triển khai dùng `n = 5` cho Atari, `n = 2048` cho PPO trên MuJoCo.
+$n = 1$ là TD thuần túy. $n = \infty$ là MC. Hầu hết triển khai dùng $n = 5$ cho Atari, $n = 2048$ cho PPO trên MuJoCo.
 
 **Ước lượng lợi thế tổng quát (GAE).** Schulman và cộng sự (2016) đề xuất một trung bình có trọng số theo hàm mũ trên tất cả lợi thế n bước:
 
-`A_t^{GAE} = Σ_{l=0}^{∞} (γλ)^l δ_{t+l}`
+```math
+A_t^{\text{GAE}} = \sum_{l=0}^{\infty} (\gamma \lambda)^l \delta_{t+l}
+```
 
-với `λ ∈ [0, 1]`. `λ = 0` là TD (phương sai thấp, độ chệch cao). `λ = 1` là MC (phương sai cao, không chệch). `λ = 0.95` là mặc định năm 2026 — điều chỉnh cho đến khi nút độ chệch/phương sai ở nơi bạn muốn.
+với $\lambda \in [0, 1]$. $\lambda = 0$ là TD (phương sai thấp, độ chệch cao). $\lambda = 1$ là MC (phương sai cao, không chệch). $\lambda = 0.95$ là mặc định năm 2026 — điều chỉnh cho đến khi nút độ chệch/phương sai ở nơi bạn muốn.
 
-**A2C: actor-critic lợi thế đồng bộ.** Thu thập `T` bước trên `N` môi trường song song. Tính lợi thế cho mỗi bước. Cập nhật actor và critic trên batch kết hợp. Lặp lại. Người anh em đơn giản hơn, dễ mở rộng quy mô hơn của A3C.
+**A2C: actor-critic lợi thế đồng bộ.** Thu thập $T$ bước trên $N$ môi trường song song. Tính lợi thế cho mỗi bước. Cập nhật actor và critic trên batch kết hợp. Lặp lại. Người anh em đơn giản hơn, dễ mở rộng quy mô hơn của A3C.
 
-**A3C: actor-critic lợi thế bất đồng bộ.** Mnih và cộng sự (2016). Tạo `N` luồng worker, mỗi luồng chạy một môi trường. Mỗi worker tính gradient cục bộ trên rollout của chính nó, rồi áp dụng chúng bất đồng bộ vào một máy chủ tham số chung. Không cần bộ đệm phát lại — các worker khử tương quan bằng cách chạy các quỹ đạo khác nhau. A3C chứng minh bạn có thể huấn luyện trên CPU ở quy mô lớn. Vào năm 2026, A2C dựa trên GPU (các môi trường song song được gom batch) chi phối vì GPU muốn các batch lớn.
+**A3C: actor-critic lợi thế bất đồng bộ.** Mnih và cộng sự (2016). Tạo $N$ luồng worker, mỗi luồng chạy một môi trường. Mỗi worker tính gradient cục bộ trên rollout của chính nó, rồi áp dụng chúng bất đồng bộ vào một máy chủ tham số chung. Không cần bộ đệm phát lại — các worker khử tương quan bằng cách chạy các quỹ đạo khác nhau. A3C chứng minh bạn có thể huấn luyện trên CPU ở quy mô lớn. Vào năm 2026, A2C dựa trên GPU (các môi trường song song được gom batch) chi phối vì GPU muốn các batch lớn.
 
 **Hàm mất mát kết hợp.**
 
-`L(θ, φ) = -E[ A_t · log π_θ(a_t | s_t) ]  +  c_v · E[(V_φ(s_t) - G_t)²]  -  c_e · E[H(π_θ(·|s_t))]`
+```math
+L(\theta, \phi) = -\mathbb{E}[ A_t \cdot \log \pi_\theta(a_t \mid s_t) ] + c_v \cdot \mathbb{E}[(V_\phi(s_t) - G_t)^2] - c_e \cdot \mathbb{E}[H(\pi_\theta(\cdot \mid s_t))]
+```
 
 Ba hạng tử: hàm mất mát gradient chính sách, hồi quy giá trị, thưởng entropy. `c_v ~ 0.5`, `c_e ~ 0.01` là các điểm khởi đầu chuẩn.
 
@@ -61,7 +69,7 @@ actor-critic
 
 ### Step 1: a critic
 
-Critic tuyến tính `V_φ(s) = w · features(s)` được cập nhật bằng MSE:
+Critic tuyến tính $V_\phi(s) = w \cdot \text{features}(s)$ được cập nhật bằng MSE:
 
 ```python
 def critic_update(w, x, target, lr):
@@ -76,7 +84,7 @@ Trên một môi trường dạng bảng, critic hội tụ trong vài trăm epi
 
 ### Step 2: n-step advantage
 
-Với một rollout dài `T` và một `V(s_T)` cuối được bootstrap:
+Với một rollout dài $T$ và một $V(s_T)$ cuối được bootstrap:
 
 ```python
 def compute_advantages(rewards, values, gamma=0.99, lam=0.95, last_value=0.0):
@@ -91,7 +99,7 @@ def compute_advantages(rewards, values, gamma=0.99, lam=0.95, last_value=0.0):
     return advantages, returns
 ```
 
-`returns` là mục tiêu critic. `advantages` là thứ nhân với `∇ log π`.
+`returns` là mục tiêu critic. `advantages` là thứ nhân với $\nabla \log \pi$.
 
 ### Step 3: combined update
 
@@ -114,8 +122,8 @@ On-policy, một rollout mỗi cập nhật, tốc độ học riêng cho actor 
 
 ### Step 4: parallelization (A3C vs A2C)
 
-- **A3C:** khởi chạy `N` luồng. Mỗi luồng chạy môi trường riêng và lượt truyền xuôi riêng. Định kỳ đẩy các cập nhật gradient đến một bản chính chung. Không khóa trên bản chính — tranh chấp là được, chúng chỉ thêm nhiễu.
-- **A2C:** chạy `N` bản môi trường trong một tiến trình duy nhất, xếp các quan sát thành một batch `[N, obs_dim]`, lượt truyền xuôi theo batch, lượt truyền ngược theo batch. Mức sử dụng GPU cao hơn, tất định, dễ suy luận hơn. Mặc định năm 2026.
+- **A3C:** khởi chạy $N$ luồng. Mỗi luồng chạy môi trường riêng và lượt truyền xuôi riêng. Định kỳ đẩy các cập nhật gradient đến một bản chính chung. Không khóa trên bản chính — tranh chấp là được, chúng chỉ thêm nhiễu.
+- **A2C:** chạy $N$ bản môi trường trong một tiến trình duy nhất, xếp các quan sát thành một batch `[N, obs_dim]`, lượt truyền xuôi theo batch, lượt truyền ngược theo batch. Mức sử dụng GPU cao hơn, tất định, dễ suy luận hơn. Mặc định năm 2026.
 
 Mã đồ chơi của chúng ta đơn luồng để rõ ràng; viết lại thành A2C theo batch là ba dòng numpy.
 
@@ -125,7 +133,7 @@ Mã đồ chơi của chúng ta đơn luồng để rõ ràng; viết lại thà
 - **Chuẩn hóa lợi thế.** Chuẩn hóa lợi thế về trung bình bằng không/độ lệch chuẩn đơn vị mỗi batch. Ổn định huấn luyện rất nhiều với chi phí gần bằng không.
 - **Thân chung.** Dùng một bộ trích xuất đặc trưng chung cho actor và critic trên đầu vào ảnh. Các head riêng. Các đặc trưng chung hưởng lợi từ cả hai hàm mất mát.
 - **Quy ước on-policy.** A2C tái sử dụng dữ liệu cho đúng một lần cập nhật. Nhiều hơn thì gradient của bạn bị chệch (hiệu chỉnh lấy mẫu quan trọng là thứ PPO thêm vào).
-- **Sụp đổ entropy.** Không có `c_e > 0`, chính sách trở nên gần tất định trong vài trăm lần cập nhật và ngừng khám phá.
+- **Sụp đổ entropy.** Không có $c_e > 0$, chính sách trở nên gần tất định trong vài trăm lần cập nhật và ngừng khám phá.
 - **Thang phần thưởng.** Độ lớn lợi thế phụ thuộc thang phần thưởng. Chuẩn hóa phần thưởng (ví dụ chia cho độ lệch chuẩn tích lũy) để có độ lớn gradient nhất quán xuyên tác vụ.
 
 ## Use It
@@ -170,22 +178,22 @@ Refuse single-worker A2C on environments with horizon > 1000 (too on-policy, too
 
 ## Exercises
 
-1. **Dễ.** Huấn luyện actor-critic với lợi thế MC (`G_t - V(s_t)`) trên GridWorld 4×4. So sánh hiệu quả mẫu với REINFORCE có baseline trung bình tích lũy từ Bài 06.
-2. **Trung bình.** Chuyển sang lợi thế phần dư TD (`r + γ V(s') - V(s)`). Đo phương sai của các batch lợi thế. Nó giảm bao nhiêu?
-3. **Khó.** Triển khai GAE(λ). Quét `λ ∈ {0, 0.5, 0.9, 0.95, 1.0}`. Vẽ lợi tức cuối cùng so với hiệu quả mẫu. Điểm độ chệch/phương sai tốt nhất cho tác vụ này ở đâu?
+1. **Dễ.** Huấn luyện actor-critic với advantage MC $(G_t - V(s_t))$ trên GridWorld 4×4. So sánh hiệu quả mẫu với REINFORCE có đường cơ sở trung bình chạy từ Bài 06.
+2. **Trung bình.** Chuyển sang advantage phần dư TD $(r + \gamma V(s') - V(s))$. Đo phương sai của các batch advantage. Nó giảm bao nhiêu?
+3. **Khó.** Triển khai GAE(λ). Quét $\lambda \in \lbrace 0, 0.5, 0.9, 0.95, 1.0 \rbrace$. Vẽ lợi tức cuối cùng so với hiệu quả mẫu. Điểm độ chệch/phương sai tốt nhất cho tác vụ này ở đâu?
 
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Actor | "Mạng chính sách" | `π_θ(a\|s)`, được cập nhật bằng gradient chính sách. |
-| Critic | "Mạng giá trị" | `V_φ(s)`, được cập nhật bằng hồi quy MSE đến lợi tức / mục tiêu TD. |
-| Advantage (Lợi thế) | "Tốt hơn trung bình bao nhiêu" | `A(s, a) = Q(s, a) - V(s)` hoặc các bộ ước lượng của nó. Hệ số nhân cho `∇ log π`. |
-| TD residual (Phần dư TD) | "δ" | `δ_t = r + γ V(s') - V(s)`; ước lượng lợi thế một bước. |
-| GAE | "Nút nội suy" | Tổng có trọng số theo hàm mũ của các lợi thế n bước, được tham số hóa bởi `λ`. |
+| Actor | "Mạng chính sách" | $\pi_\theta(a \mid s)$, được cập nhật bằng gradient chính sách. |
+| Critic | "Mạng giá trị" | $V_\phi(s)$, được cập nhật bằng hồi quy MSE đến lợi tức / mục tiêu TD. |
+| Advantage (Lợi thế) | "Tốt hơn trung bình bao nhiêu" | $A(s, a) = Q(s, a) - V(s)$ hoặc các bộ ước lượng của nó. Hệ số nhân cho $\nabla \log \pi$. |
+| TD residual (Phần dư TD) | "δ" | $\delta_t = r + \gamma V(s') - V(s)$; ước lượng lợi thế một bước. |
+| GAE | "Nút nội suy" | Tổng có trọng số theo hàm mũ của các lợi thế n bước, được tham số hóa bởi $\lambda$. |
 | A2C | "Actor-critic đồng bộ" | Gom batch xuyên các môi trường; một bước gradient mỗi rollout. |
 | A3C | "Actor-critic bất đồng bộ" | Các luồng worker đẩy gradient đến một máy chủ tham số chung. Bài báo gốc; ít phổ biến hơn vào năm 2026. |
-| Bootstrap | "Dùng V ở chân trời" | Cắt ngắn rollout, thêm `γ^n V(s_{t+n})` để khép tổng. |
+| Bootstrap | "Dùng V ở chân trời" | Cắt ngắn rollout, thêm $\gamma^n V(s_{t+n})$ để khép tổng. |
 
 ## Further Reading
 

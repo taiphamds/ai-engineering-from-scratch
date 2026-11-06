@@ -59,8 +59,8 @@ DDPM định nghĩa quá trình xuôi như một SDE nhiễu nơi `x_t` ngày c�
 
 Rectified flow định nghĩa một nội suy **đường thẳng** giữa dữ liệu sạch và nhiễu thuần:
 
-```
-x_t = (1 - t) * x_0 + t * epsilon,     t in [0, 1]
+```math
+x_t = (1 - t) \, x_0 + t \, \epsilon, \qquad t \in [0, 1]
 ```
 
 Huấn luyện một mạng dự đoán vận tốc `v_theta(x_t, t) = epsilon - x_0` — hướng xuôi dọc đường thẳng từ dữ liệu sạch tới nhiễu (`dx_t/dt`). Khi lấy mẫu, bạn tích phân vận tốc này ngược để bước từ nhiễu về dữ liệu. ODE kết quả gần đường thẳng hơn nhiều, nên cần ít bước tích phân hơn nhiều để lấy mẫu.
@@ -338,7 +338,7 @@ Bài học này tạo ra:
 | DiT | "Transformer khuếch tán" | Transformer thay U-Net làm bộ khử nhiễu khuếch tán; hoạt động trên các biểu diễn tiềm ẩn chia patch |
 | AdaLN | "Layer norm thích nghi" | Điều kiện hóa bước thời gian/văn bản qua scale, shift, gate được học áp dụng sau LayerNorm; tiêu chuẩn trong mọi DiT hiện đại |
 | MMDiT | "DiT đa phương thức (SD3)" | Các luồng trọng số riêng cho token văn bản và hình ảnh dùng chung self-attention kết hợp |
-| Single-stream / double-stream (Một luồng / hai luồng) | "Thủ thuật FLUX" | N khối đầu hai luồng (trọng số riêng mỗi phương thức), các khối sau một luồng (nối + dùng chung trọng số) để hiệu quả |
+| Single-stream / double-stream (Một luồng / hai luồng) | "Thủ thuật FLUX" | $N$ khối đầu hai luồng (trọng số riêng mỗi phương thức), các khối sau một luồng (nối + dùng chung trọng số) để hiệu quả |
 | Rectified flow | "Đường thẳng nhiễu-tới-dữ liệu" | Nội suy tuyến tính giữa dữ liệu và nhiễu; mạng dự đoán vận tốc; cần ít bước ODE hơn khi suy luận |
 | Velocity target (Mục tiêu vận tốc) | "epsilon - x_0" | Mục tiêu hồi quy trong rectified flow; chỉ từ dữ liệu sạch tới nhiễu |
 | CFG guidance | "classifier-free guidance" | Trộn các dự đoán có điều kiện và không điều kiện; vẫn dùng trong mô hình rectified-flow |

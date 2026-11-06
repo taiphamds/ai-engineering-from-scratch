@@ -1,6 +1,6 @@
 # Agent Observability: Langfuse, Phoenix, Opik
 
-> Ba nền tảng khả năng quan sát agent mã nguồn mở thống trị năm 2026. Langfuse (MIT) — 6M+ lượt cài/tháng, truy vết + quản lý prompt + đánh giá + phát lại phiên. Arize Phoenix (Elastic 2.0) — các đánh giá sâu dành riêng cho agent, tính liên quan RAG, tự động đo lường OpenInference. Comet Opik (Apache 2.0) — tối ưu hóa prompt tự động, các chốt bảo vệ, phát hiện ảo giác bằng giám khảo LLM.
+> Ba nền tảng khả năng quan sát agent có thể tự lưu trữ thống trị năm 2026. Langfuse (MIT) — hơn 6M lượt cài đặt/tháng, truy vết + quản lý prompt + đánh giá + phát lại phiên. Arize Phoenix (Elastic 2.0) — đánh giá chuyên sâu riêng cho agent, độ liên quan RAG, tự động gắn cơ chế đo lường OpenInference. Comet Opik (Apache 2.0) — tối ưu prompt tự động, guardrail, phát hiện ảo giác bằng LLM làm giám khảo.
 
 **Type:** Learn
 **Languages:** Python (stdlib)
@@ -9,7 +9,7 @@
 
 ## Learning Objectives
 
-- Nêu tên ba nền tảng khả năng quan sát agent mã nguồn mở hàng đầu và các giấy phép của chúng.
+- Nêu tên ba nền tảng khả năng quan sát agent có thể tự lưu trữ hàng đầu cùng giấy phép của chúng, và cho biết giấy phép nào không phải mã nguồn mở theo OSI.
 - Phân biệt điều mỗi nền tảng mạnh nhất: Langfuse (quản lý prompt + phiên), Phoenix (RAG + tự động đo lường), Opik (tối ưu hóa + các chốt bảo vệ).
 - Giải thích vì sao 89% tổ chức báo cáo đã có khả năng quan sát agent vào năm 2026.
 - Triển khai một pipeline từ trace đến dashboard dùng thư viện chuẩn với đánh giá bằng giám khảo LLM.

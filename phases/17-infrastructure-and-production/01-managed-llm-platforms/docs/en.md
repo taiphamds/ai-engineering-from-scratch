@@ -34,7 +34,7 @@ Bài này lập bản đồ ba đặt cược, khoảng cách độ trễ, kho�
 
 ### Latency gap at scale
 
-Artificial Analysis chạy các benchmark liên tục. Trên các triển khai Llama 3.1 405B tương đương (theo nhu cầu dùng chung), độ trễ token đầu tiên trung vị của Azure OpenAI khoảng 50 ms; Bedrock khoảng 75 ms. Khoảng cách không phải một thất bại AWS — đó là khác biệt mô hình dung lượng. Azure bán PTU (các Đơn vị thông lượng được cấp sẵn), đặt trước dung lượng GPU cho tenant của bạn. Dạng tương đương của Bedrock (Provisioned Throughput) tồn tại nhưng bắt đầu khoảng $21/giờ mỗi đơn vị, và hầu hết khách hàng ở lại theo nhu cầu dùng chung.
+Artificial Analysis chạy các benchmark liên tục. Trên các triển khai Llama 3.1 405B tương đương, độ trễ token đầu tiên trung vị của Azure khoảng 50 ms với PTU; Bedrock trên on-demand dùng chung khoảng 75 ms. Khoảng cách này không phải thất bại của AWS — đó là khác biệt về mô hình năng lực. Azure bán PTU (Provisioned Throughput Units), dành riêng năng lực GPU cho tenant của bạn. Phương án tương đương của Bedrock (Provisioned Throughput) tồn tại nhưng bắt đầu khoảng $21/giờ mỗi đơn vị, và hầu hết khách hàng vẫn ở on-demand dùng chung.
 
 Dung lượng theo nhu cầu dùng chung cạnh tranh với lưu lượng của mọi khách hàng khác. Dung lượng chuyên dụng không như vậy. Nếu SLA sản phẩm của bạn là TTFT < 100 ms ở P99, bạn hoặc mua PTU trên Azure, mua Bedrock Provisioned Throughput, hoặc chấp nhận phương sai mặc định.
 
@@ -96,7 +96,7 @@ Bài này tạo ra `outputs/skill-managed-platform-picker.md`. Với một hồ 
 2. Sản phẩm của bạn cần Claude 3.7 Sonnet và GPT-4o. Thiết kế một triển khai hai nhà cung cấp — mô hình nào tới nhà cung cấp siêu quy mô nào, gateway nào nằm phía trước, chính sách chuyển đổi dự phòng là gì?
 3. Một khách hàng chăm sóc sức khỏe được quản lý yêu cầu các BAA, lưu trú dữ liệu US-East, và TTFT P99 dưới 100ms. Chọn một nền tảng và giải thích bằng ba tính năng cụ thể.
 4. Bạn phát hiện hóa đơn Bedrock tăng 4x tháng này không có thay đổi lưu lượng. Không có Application Inference Profiles, bạn sẽ tìm thủ phạm như thế nào? Có các hồ sơ, mất bao lâu?
-5. Đọc các trang giá Azure OpenAI và Bedrock. Với một khối lượng công việc Claude 100M token/tháng, cách nào rẻ hơn — API Anthropic trực tiếp, Bedrock theo nhu cầu, hay Bedrock Provisioned Throughput?
+5. Đọc các trang giá Anthropic API và Bedrock. Với khối lượng công việc Claude 100M token/tháng, phương án nào rẻ hơn — Anthropic API trực tiếp, Bedrock on-demand hay Bedrock Provisioned Throughput?
 
 ## Key Terms
 

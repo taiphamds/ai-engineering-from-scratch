@@ -84,7 +84,7 @@ Quy tắc kinh nghiệm: nếu đối số `action` có hơn ba giá trị, tác
 ### Parameter design
 
 - **Enum cho mọi tập đóng.** `units: "celsius" | "fahrenheit"`, không phải `units: string`. Enum cho mô hình biết toàn bộ giá trị chấp nhận được.
-- **Bắt buộc so với tùy chọn.** Đánh dấu mức tối thiểu cần thiết. Mọi thứ khác tùy chọn. Chế độ nghiêm ngặt OpenAI yêu cầu mọi trường trong `required`; thêm quy ước `is_default: true` trong mã và để mô hình bỏ nó.
+- **Bắt buộc so với tùy chọn.** Đánh dấu mức tối thiểu cần thiết. Mọi thứ khác là tùy chọn. Chế độ nghiêm ngặt của OpenAI yêu cầu mọi trường nằm trong `required`, vì vậy mô hình không thể bỏ một trường. Định kiểu một trường tùy chọn thành một hợp với `null` và để mô hình gửi `null` khi nó không có giá trị.
 - **ID có kiểu.** `note_id: string` ổn nhưng thêm `pattern` (`^note-[0-9]{8}$`) để bắt id bịa ra.
 - **Không kiểu quá linh hoạt.** Tránh `type: any`. Mô hình sẽ bịa hình dạng.
 - **Mô tả trường.** `{"type": "string", "description": "ISO 8601 date in UTC, e.g. 2026-04-22"}`. Mô tả là phần prompt của mô hình.

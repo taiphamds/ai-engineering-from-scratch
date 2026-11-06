@@ -100,8 +100,8 @@ Với các tập dữ liệu nhỏ, một lớp tuyến tính duy nhất thườ
 
 Một phiên bản mượt hơn của LR phân biệt được dùng trong tinh chỉnh hiện đại (BEiT, DINOv2, tinh chỉnh ViT-B). Thay vì nhóm các lớp thành giai đoạn, cho mỗi lớp một LR nhỏ hơn một chút so với lớp phía trên:
 
-```
-lr_layer_k = base_lr * decay^(L - k)
+```math
+\text{lr\_layer}_k = \text{base\_lr} \cdot \text{decay}^{L - k}
 ```
 
 Với decay = 0.75 và L = 12 khối transformer, khối đầu huấn luyện ở `0.75^11 ≈ 0.04x` LR của đầu. Quan trọng với tinh chỉnh transformer hơn CNN, nơi các LR nhóm theo giai đoạn thường đủ.

@@ -77,11 +77,11 @@ Nếu ngăn xếp của bạn yêu cầu triển khai lại để hoàn tác, s�
 
 ### Metrics cadence
 
-Các cổng canary kiểm tra mỗi 5-15 phút tùy lượng lưu lượng. Lưu lượng 1% với 10 yêu cầu/phút cho 50-150 điểm dữ liệu mỗi cửa sổ — đủ cho độ trễ nhưng nhiễu với phản hồi người dùng. 10% cho nhiều hơn ~10x. Các bước tiến nên dừng đủ lâu để tích lũy đủ mẫu ở mỗi bước.
+Các cổng canary kiểm tra mỗi 5-15 phút tùy khối lượng lưu lượng. 1% của 1,000 yêu cầu/phút (10 yêu cầu/phút đến canary) cho 50-150 điểm dữ liệu trên mỗi cửa sổ 5-15 phút — đủ cho độ trễ nhưng nhiễu cho phản hồi người dùng. 10% cho nhiều hơn ~10x. Các bước tiến nên tạm dừng đủ lâu để tích lũy đủ mẫu ở mỗi bước.
 
 ### The A/B step is optional
 
-Nếu mô hình mới khác biệt rõ rệt (hành vi khác, đường cong chi phí khác, giọng điệu khác), thử nghiệm A/B nó ở 50% sau khi canary vượt qua. Nếu chỉ là phiên bản cải tiến, chuyển thẳng lên 100% khi vượt các cổng canary.
+Nếu mô hình mới khác biệt rõ rệt (hành vi khác, đường cong chi phí khác, giọng điệu khác), kiểm tra A/B nó ở 50% sau khi canary qua. Nếu nó chỉ là một phiên bản cải thiện của cùng hành vi, chuyển thẳng lên 100% khi các cổng canary qua. Cải thiện nghĩa là đánh giá ngoại tuyến đã cho thấy lợi ích. Các cổng canary không đo việc hoàn thành tác vụ, nên việc bỏ qua tin vào đánh giá về điều đó.
 
 ### Numbers you should remember
 

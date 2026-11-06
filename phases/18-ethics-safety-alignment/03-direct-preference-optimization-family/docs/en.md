@@ -18,20 +18,20 @@
 
 Mục tiêu RLHF (Bài 1):
 
-```
-max_pi E_{x,y~pi} [ r(x, y) ] - beta * KL(pi || pi_ref)
+```math
+\max_{\pi} \; \mathbb{E}_{x, y \sim \pi} \big[ r(x, y) \big] - \beta \, \mathrm{KL}(\pi \,\|\, \pi_{\text{ref}})
 ```
 
 có một nghiệm tối ưu đã biết:
 
-```
-pi*(y|x) = (1/Z(x)) * pi_ref(y|x) * exp(r(x, y) / beta)
+```math
+\pi^*(y \mid x) = \frac{1}{Z(x)} \, \pi_{\text{ref}}(y \mid x) \exp\!\left(\frac{r(x, y)}{\beta}\right)
 ```
 
 Vì vậy phần thưởng được xác định ngầm bởi tỷ số giữa chính sách tối ưu và tham chiếu:
 
-```
-r(x, y) = beta * log(pi*(y|x) / pi_ref(y|x)) + beta * log Z(x)
+```math
+r(x, y) = \beta \log \frac{\pi^*(y \mid x)}{\pi_{\text{ref}}(y \mid x)} + \beta \log Z(x)
 ```
 
 Thay biểu thức này vào likelihood ưu tiên Bradley-Terry và hàm phân hoạch `Z(x)` triệt tiêu vì nó chỉ phụ thuộc `x`. Phần còn lại là hàm mất mát chỉ theo tham số chính sách — không cần mô hình phần thưởng. Đó là DPO.
@@ -42,25 +42,25 @@ Thay biểu thức này vào likelihood ưu tiên Bradley-Terry và hàm phân h
 
 ### DPO (Rafailov et al., 2023)
 
-```
-L_DPO = -log sigmoid(
-  beta * log(pi(y_w | x) / pi_ref(y_w | x))
-  - beta * log(pi(y_l | x) / pi_ref(y_l | x))
-)
+```math
+L_{\text{DPO}} = -\log \sigma\!\left(
+  \beta \log \frac{\pi(y_w \mid x)}{\pi_{\text{ref}}(y_w \mid x)}
+  - \beta \log \frac{\pi(y_l \mid x)}{\pi_{\text{ref}}(y_l \mid x)}
+\right)
 ```
 
 Điều gì có thể sai:
 
 - Khoảng cách phần thưởng ngầm `beta * (log(pi/pi_ref)_w - log(pi/pi_ref)_l)` không bị chặn. Một ưu tiên rất nhỏ có thể tạo khoảng cách lớn tùy ý.
 - Hàm mất mát đẩy log-prob được chọn và bị loại theo hai hướng đối lập. Nó có thể đẩy log-prob tuyệt đối của phần được chọn xuống miễn phần bị loại giảm nhanh hơn. Đây là hiện tượng Phản hồi Được chọn Suy giảm.
-- Ưu tiên ngoài phân phối (cặp hiếm hiếm so với cặp hiếm hiếm) tạo phần thưởng ngầm tùy ý.
+- Các ưu tiên ngoài phân phối (các cặp mà cả hai phản hồi đều hiếm dưới chính sách tham chiếu) tạo ra các phần thưởng ngầm tùy ý.
 
 ### IPO (Azar et al., 2024)
 
 Tối ưu hóa Ưu tiên Đồng nhất thay log-sigmoid bằng ánh xạ đồng nhất trên xác suất ưu tiên. Hàm mất mát trở thành sai số bình phương trên một mục tiêu bị chặn:
 
-```
-L_IPO = (log(pi(y_w | x) / pi_ref(y_w | x)) - log(pi(y_l | x) / pi_ref(y_l | x)) - 1/(2 beta))^2
+```math
+L_{\text{IPO}} = \left( \log \frac{\pi(y_w \mid x)}{\pi_{\text{ref}}(y_w \mid x)} - \log \frac{\pi(y_l \mid x)}{\pi_{\text{ref}}(y_l \mid x)} - \frac{1}{2\beta} \right)^2
 ```
 
 Biên bị chặn bởi `1/(2 beta)`. Cường độ ưu tiên và khoảng cách phần thưởng ngầm tỷ lệ thuận. Không bùng nổ.
@@ -69,8 +69,8 @@ Biên bị chặn bởi `1/(2 beta)`. Cường độ ưu tiên và khoảng các
 
 Tối ưu hóa Kahneman-Tversky bỏ hoàn toàn cấu trúc theo cặp. Với một đầu ra có nhãn duy nhất và tín hiệu nhị phân "mong muốn" hoặc "không mong muốn", nó ánh xạ sang mức thỏa dụng theo lý thuyết triển vọng:
 
-```
-v(x, y) = sigma(beta * log(pi(y|x) / pi_ref(y|x)) - z_ref)
+```math
+v(x, y) = \sigma\!\left(\beta \log \frac{\pi(y \mid x)}{\pi_{\text{ref}}(y \mid x)} - z_{\text{ref}}\right)
 ```
 
 với trọng số khác nhau cho được và mất (né tránh mất mát). Lợi ích: bạn có thể dùng dữ liệu không ghép cặp, vốn dồi dào hơn nhiều.
@@ -79,12 +79,12 @@ với trọng số khác nhau cho được và mất (né tránh mất mát). L�
 
 Tối ưu hóa Ưu tiên Đơn giản căn chỉnh tín hiệu huấn luyện với quá trình sinh. Loại hoàn toàn chính sách tham chiếu và chuẩn hóa log-likelihood theo độ dài:
 
-```
-L_SimPO = -log sigmoid(
-  (beta / |y_w|) * log pi(y_w | x)
-  - (beta / |y_l|) * log pi(y_l | x)
-  - gamma
-)
+```math
+L_{\text{SimPO}} = -\log \sigma\!\left(
+  \frac{\beta}{|y_w|} \log \pi(y_w \mid x)
+  - \frac{\beta}{|y_l|} \log \pi(y_l \mid x)
+  - \gamma
+\right)
 ```
 
 với biên `gamma` để ổn định. Chuẩn hóa độ dài loại bỏ động cơ khai thác chế độ lỗi thiên lệch độ dài của DPO (`y_w` dài hơn cho khoảng cách log-prob lớn hơn theo cách xây dựng).
@@ -93,9 +93,11 @@ với biên `gamma` để ổn định. Chuẩn hóa độ dài loại bỏ đ�
 
 Tối ưu hóa Ưu tiên Tỷ số Odds thêm một số hạng ưu tiên vào log-likelihood âm SFT tiêu chuẩn:
 
-```
-L_ORPO = L_NLL(y_w) + lambda * L_OR
-L_OR = -log sigmoid(log(odds(y_w) / odds(y_l)))
+```math
+\begin{aligned}
+L_{\text{ORPO}} &= L_{\text{NLL}}(y_w) + \lambda L_{\text{OR}} \\
+L_{\text{OR}} &= -\log \sigma\!\left(\log \frac{\text{odds}(y_w)}{\text{odds}(y_l)}\right)
+\end{aligned}
 ```
 
 Không có chính sách tham chiếu — số hạng SFT là bộ điều chuẩn. Huấn luyện trong một giai đoạn từ mô hình nền đến mô hình được căn chỉnh. Không có checkpoint SFT riêng.

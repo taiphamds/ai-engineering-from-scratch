@@ -19,7 +19,7 @@ Nội dung thực tế: khung bốn rủi ro của CAIS là hệ phân loại r�
 
 ### CAIS — Center for AI Safety
 
-- Thành lập: năm 2022 tại San Francisco, bởi Dan Hendrycks và các đồng nghiệp (tên “Zhang” chỉ một cộng tác viên ban đầu, không phải một đồng sáng lập hiện tại; xem trang web CAIS để biết ban lãnh đạo hiện tại).
+- Thành lập: năm 2022 tại San Francisco, bởi Dan Hendrycks và Oliver Zhang. Hendrycks là Giám đốc Điều hành và Nghiên cứu; Zhang là Giám đốc Quản lý.
 - Tình trạng: tổ chức phi lợi nhuận 501(c)(3).
 - Đầu ra đáng chú ý năm 2023: tuyên bố về rủi ro tuyệt chủng, được hàng trăm nhà nghiên cứu và CEO cùng ký. Nêu rằng: “Giảm thiểu rủi ro tuyệt chủng từ AI nên là một ưu tiên toàn cầu bên cạnh các rủi ro quy mô xã hội khác như đại dịch và chiến tranh hạt nhân.”
 - Các đầu ra năm 2026: AI Dashboard cho đánh giá mô hình tiên tiến nhất, Remote Labor Index (chung với Scale AI), Superintelligence Strategy Paper, bản tin AI Frontiers.

@@ -85,7 +85,7 @@ ce-otel-drift
 
 8. **Chuỗi cảnh báo.** Bộ xuất Prometheus đọc các tổng hợp điểm đánh giá và các phân vị độ trễ; Alertmanager chuyển đến Slack cho các cảnh báo và PagerDuty cho các vi phạm nghiêm trọng.
 
-9. **Phép thăm dò thoái lui.** Chèn một lỗi: chatbot được đánh giá bắt đầu rò rỉ SSN giả trong 1% số lần. Đo MTTR: từ khi triển khai lỗi đến cảnh báo Slack.
+9. **Thăm dò hồi quy.** Chèn một lỗi: chatbot được đánh giá bắt đầu rò rỉ SSN giả 1% số lần. Đo thời gian phát hiện (MTTD): từ lúc lỗi được triển khai đến cảnh báo Slack. Phát hiện là phần MTTR mà dashboard chịu trách nhiệm; sửa và triển khai lại đến sau.
 
 ## Use It
 
@@ -106,7 +106,7 @@ $ curl -X POST https://my-otel-collector/v1/traces -d @trace.json
 |:-:|---|---|
 | 25 | Độ bao phủ lược đồ trace | Số họ SDK tạo ra span GenAI chuẩn (mục tiêu: 6+) |
 | 20 | Tính đúng đắn của đánh giá | Điểm DeepEval / RAGAS so với tập gắn nhãn thủ công |
-| 20 | UX bảng điều khiển | MTTR trên lỗi thoái lui được chèn vào (mục tiêu dưới 5 phút) |
+| 20 | UX dashboard | MTTD với hồi quy được chèn (mục tiêu dưới 5 phút) |
 | 20 | Chi phí / quy mô | Tiếp nhận duy trì ở mức 1k span/giây mà không tồn đọng |
 | 15 | Cảnh báo + phát hiện độ trôi | Chuỗi Prometheus/Alertmanager được thực thi từ đầu đến cuối |
 | **100** | | |

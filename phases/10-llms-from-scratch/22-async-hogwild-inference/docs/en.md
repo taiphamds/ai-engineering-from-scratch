@@ -55,7 +55,7 @@ Tên bài báo lấy ý từ Hogwild! SGD (Recht và cộng sự, 2011), một b
 
 ### RoPE makes this tractable
 
-Rotary Position Embeddings (RoPE, Su và cộng sự 2021) mã hóa thông tin vị trí qua phép quay trong các vector Q và K. Vì vị trí là các phép quay chứ không phải độ lệch cố định sẵn, vị trí của một token có thể dịch chuyển mà không tính lại mục KV cache. Khi worker `i` ghi vào cache dùng chung tại vị trí `p`, các worker khác đọc vị trí đó có thể dùng trực tiếp mục đã cache — không cần quay lại.
+Rotary Position Embeddings (RoPE, Su và cộng sự 2021) mã hóa thông tin vị trí thông qua phép quay trong các vector Q và K. Vì điểm attention giữa một query đã quay và một key đã quay chỉ phụ thuộc vào khoảng cách tương đối của chúng, toàn bộ một khối phần tử đã cache có thể chuyển đến một độ lệch mới mà không cần tính lại: quay query thay vì quay lại mọi key đã cache. Hogwild! Inference thực hiện điều này một lần cho mỗi khối cache: đối với một query tại vị trí `i_q` và một khối bắt đầu tại `i_k` trong góc nhìn của worker đó, query được quay theo khoảng cách tương đối `i_q - i_k`. Đó là cách mỗi worker nhìn thấy các khối cache chia sẻ theo thứ tự riêng của nó. Thủ thuật hoạt động với một phép dịch đồng đều của một khối liên tục. Di chuyển từng token riêng lẻ đến các vị trí khác nhau sẽ thay đổi các phép quay của chúng và vẫn cần tính lại.
 
 Trong mô hình vị trí được học hoặc vị trí tuyệt đối, Hogwild! sẽ cần vô hiệu hóa cache ở mỗi lần ghi đồng thời. RoPE cho phép cache giữ ổn định.
 

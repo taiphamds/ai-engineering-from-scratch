@@ -26,36 +26,36 @@ Hồi quy tuyến tính cho bạn đường đó. Quan trọng hơn, nó giới 
 
 ### The Model
 
-Hồi quy tuyến tính giả định một quan hệ tuyến tính giữa đầu vào (x) và đầu ra (y):
+Hồi quy tuyến tính giả định một quan hệ tuyến tính giữa đầu vào ($x$) và đầu ra ($y$):
 
-```
+```math
 y = wx + b
 ```
 
-- `w` (trọng số/độ dốc): y thay đổi bao nhiêu khi x tăng 1
-- `b` (bias/tung độ gốc): giá trị của y khi x = 0
+- `w` (trọng số/độ dốc): $y$ thay đổi bao nhiêu khi $x$ tăng 1
+- `b` (bias/tung độ gốc): giá trị của $y$ khi $x = 0$
 
 Với nhiều đầu vào (đặc trưng), điều này mở rộng thành:
 
-```
-y = w1*x1 + w2*x2 + ... + wn*xn + b
+```math
+y = w_1 x_1 + w_2 x_2 + \cdots + w_n x_n + b
 ```
 
-Hoặc ở dạng vector: `y = w^T * x + b`
+Hoặc ở dạng vector: $y = w^T x + b$
 
-Mục tiêu: tìm các giá trị w và b làm y dự đoán gần y thực nhất có thể trên tất cả các ví dụ huấn luyện.
+Mục tiêu: tìm các giá trị $w$ và $b$ làm $y$ dự đoán gần $y$ thực nhất có thể trên tất cả các ví dụ huấn luyện.
 
 ### The Cost Function (Mean Squared Error)
 
 Bạn đo "gần nhất có thể" bằng cách nào? Bạn cần một con số duy nhất nắm bắt mức độ sai của các dự đoán. Lựa chọn phổ biến nhất là Sai số Bình phương Trung bình (MSE):
 
-```
-MSE = (1/n) * sum((y_predicted - y_actual)^2)
+```math
+\text{MSE} = \frac{1}{n} \sum (y_{\text{predicted}} - y_{\text{actual}})^2
 ```
 
 Tại sao bình phương? Hai lý do. Thứ nhất, nó phạt sai số lớn hơn sai số nhỏ (sai số 10 tệ hơn sai số 1 đến 100 lần, không phải 10 lần). Thứ hai, hàm bình phương trơn và khả vi ở mọi nơi, làm việc tối ưu hóa đơn giản.
 
-Hàm chi phí tạo ra một bề mặt. Với một trọng số w và bias b duy nhất, bề mặt MSE trông như một cái bát (một paraboloid lồi). Đáy bát là nơi MSE được tối thiểu hóa. Huấn luyện nghĩa là tìm đáy đó.
+Hàm chi phí tạo ra một bề mặt. Với một trọng số $w$ và bias $b$ duy nhất, bề mặt MSE trông như một cái bát (một paraboloid lồi). Đáy bát là nơi MSE được tối thiểu hóa. Huấn luyện nghĩa là tìm đáy đó.
 
 ### Gradient Descent
 
@@ -74,18 +74,22 @@ flowchart TD
 
 Gradient cho bạn biết hai điều: di chuyển mỗi tham số theo hướng nào và di chuyển bao nhiêu.
 
-Với MSE khi y_hat = wx + b:
+Với MSE khi $\hat{y} = wx + b$:
 
-```
-dMSE/dw = (2/n) * sum((y_hat - y) * x)
-dMSE/db = (2/n) * sum(y_hat - y)
+```math
+\begin{aligned}
+\frac{\partial \text{MSE}}{\partial w} &= \frac{2}{n} \sum (\hat{y} - y) \, x \\
+\frac{\partial \text{MSE}}{\partial b} &= \frac{2}{n} \sum (\hat{y} - y)
+\end{aligned}
 ```
 
 Quy tắc cập nhật:
 
-```
-w = w - learning_rate * dMSE/dw
-b = b - learning_rate * dMSE/db
+```math
+\begin{aligned}
+w &= w - \text{learning\_rate} \cdot \frac{\partial \text{MSE}}{\partial w} \\
+b &= b - \text{learning\_rate} \cdot \frac{\partial \text{MSE}}{\partial b}
+\end{aligned}
 ```
 
 Tốc độ học điều khiển kích thước bước. Quá lớn: bạn vượt qua cực tiểu và phân kỳ. Quá nhỏ: huấn luyện kéo dài mãi. Các giá trị bắt đầu điển hình: 0.01, 0.001 hoặc 0.0001.
@@ -94,18 +98,18 @@ Tốc độ học điều khiển kích thước bước. Quá lớn: bạn vư�
 
 Riêng với hồi quy tuyến tính, có một công thức trực tiếp cho các trọng số tối ưu mà không cần lần lặp nào:
 
-```
-w = (X^T * X)^(-1) * X^T * y
+```math
+w = (X^T X)^{-1} X^T y
 ```
 
-Công thức này nghịch đảo một ma trận để giải w trong một bước. Nó hoạt động hoàn hảo với các tập dữ liệu nhỏ. Với các tập dữ liệu lớn (hàng triệu hàng hoặc hàng nghìn đặc trưng), gradient descent được ưu tiên vì nghịch đảo ma trận có độ phức tạp O(n^3) theo số đặc trưng.
+Công thức này nghịch đảo một ma trận để giải $w$ trong một bước. Nó hoạt động hoàn hảo với các tập dữ liệu nhỏ. Với các tập dữ liệu lớn (hàng triệu hàng hoặc hàng nghìn đặc trưng), gradient descent được ưu tiên vì nghịch đảo ma trận có độ phức tạp $O(n^3)$ theo số đặc trưng.
 
 ### Multiple Linear Regression
 
 Với nhiều đặc trưng, mô hình trở thành:
 
-```
-y = w1*x1 + w2*x2 + ... + wn*xn + b
+```math
+y = w_1 x_1 + w_2 x_2 + \cdots + w_n x_n + b
 ```
 
 Mọi thứ hoạt động giống nhau: MSE là hàm chi phí, gradient descent cập nhật tất cả trọng số đồng thời. Khác biệt duy nhất là bạn đang khớp một siêu phẳng thay vì một đường thẳng.
@@ -116,36 +120,38 @@ Co giãn đặc trưng quan trọng ở đây. Nếu một đặc trưng nằm t
 
 Nếu quan hệ không tuyến tính thì sao? Bạn vẫn có thể sử dụng hồi quy tuyến tính bằng cách tạo các đặc trưng đa thức:
 
-```
-y = w1*x + w2*x^2 + w3*x^3 + b
+```math
+y = w_1 x + w_2 x^2 + w_3 x^3 + b
 ```
 
-Đây vẫn là hồi quy "tuyến tính" vì mô hình tuyến tính theo các trọng số (w1, w2, w3). Bạn chỉ đang sử dụng các đặc trưng phi tuyến của x.
+Đây vẫn là hồi quy "tuyến tính" vì mô hình tuyến tính theo các trọng số ($w_1, w_2, w_3$). Bạn chỉ đang sử dụng các đặc trưng phi tuyến của $x$.
 
 Các đa thức bậc cao hơn có thể khớp các đường cong phức tạp hơn nhưng có nguy cơ khớp quá mức. Một đa thức bậc 10 sẽ đi qua mọi điểm trong tập dữ liệu 10 điểm nhưng dự đoán kém trên dữ liệu mới.
 
 ### R-Squared Score
 
-MSE cho bạn biết sai đến mức nào, nhưng con số phụ thuộc vào thang đo của y. R-bình phương (R^2) cho một thước đo độc lập với thang đo:
+MSE cho bạn biết sai đến mức nào, nhưng con số phụ thuộc vào thang đo của $y$. R-bình phương ($R^2$) cho một thước đo độc lập với thang đo:
 
-```
-R^2 = 1 - (sum of squared residuals) / (sum of squared deviations from mean)
-    = 1 - SS_res / SS_tot
+```math
+\begin{aligned}
+R^2 &= 1 - \frac{\text{sum of squared residuals}}{\text{sum of squared deviations from mean}} \\
+&= 1 - \frac{SS_{\text{res}}}{SS_{\text{tot}}}
+\end{aligned}
 ```
 
-- R^2 = 1.0: các dự đoán hoàn hảo
-- R^2 = 0.0: mô hình không tốt hơn việc dự đoán trung bình mỗi lần
-- R^2 < 0.0: mô hình tệ hơn việc dự đoán trung bình
+- $R^2 = 1.0$: các dự đoán hoàn hảo
+- $R^2 = 0.0$: mô hình không tốt hơn việc dự đoán trung bình mỗi lần
+- $R^2 < 0.0$: mô hình tệ hơn việc dự đoán trung bình
 
 ### Regularization Preview (Ridge Regression)
 
 Khi có nhiều đặc trưng, mô hình có thể khớp quá mức bằng cách gán các trọng số lớn. Hồi quy Ridge (L2 regularization) thêm một hình phạt:
 
-```
-Cost = MSE + lambda * sum(w_i^2)
+```math
+\text{Cost} = \text{MSE} + \lambda \sum w_i^2
 ```
 
-Số hạng phạt hạn chế các trọng số lớn. Siêu tham số lambda điều khiển sự đánh đổi: lambda cao hơn nghĩa là trọng số nhỏ hơn và nhiều regularization hơn. Điều này được trình bày sâu trong một bài học sau. Hiện tại, hãy biết nó tồn tại và tại sao nó giúp ích.
+Số hạng phạt hạn chế các trọng số lớn. Siêu tham số $\lambda$ điều khiển sự đánh đổi: $\lambda$ cao hơn nghĩa là trọng số nhỏ hơn và nhiều regularization hơn. Điều này được trình bày sâu trong một bài học sau. Hiện tại, hãy biết nó tồn tại và tại sao nó giúp ích.
 
 ```figure
 linear-regression-fit
@@ -520,24 +526,24 @@ Bài học này tạo ra:
 ## Exercises
 
 1. Triển khai batch gradient descent, gradient descent ngẫu nhiên (SGD) và mini-batch gradient descent. So sánh tốc độ hội tụ trên cùng tập dữ liệu. Loại nào hội tụ nhanh nhất? Loại nào có đường cong chi phí mượt nhất?
-2. Tạo dữ liệu từ một hàm bậc ba (y = ax^3 + bx^2 + cx + d + noise). Khớp các đa thức bậc 1, 3 và 10. So sánh R^2 huấn luyện và R^2 kiểm tra. Ở bậc nào khớp quá mức trở nên rõ ràng?
-3. Triển khai hồi quy Lasso (L1 regularization: penalty = alpha * sum(|w_i|)). Huấn luyện trên dữ liệu nhà ở nhiều đặc trưng. So sánh các trọng số nào về không so với Ridge. Tại sao L1 tạo các nghiệm thưa trong khi L2 thì không?
+2. Tạo dữ liệu từ một hàm bậc ba ($y = ax^3 + bx^2 + cx + d + \text{noise}$). Khớp các đa thức bậc 1, 3 và 10. So sánh $R^2$ huấn luyện và $R^2$ kiểm tra. Ở bậc nào khớp quá mức trở nên rõ ràng?
+3. Triển khai hồi quy Lasso (L1 regularization: $\text{penalty} = \alpha \sum \lvert w_i \rvert$). Huấn luyện trên dữ liệu nhà ở nhiều đặc trưng. So sánh các trọng số nào về không so với Ridge. Tại sao L1 tạo các nghiệm thưa trong khi L2 thì không?
 
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Linear regression (Hồi quy tuyến tính) | "Vẽ một đường qua dữ liệu" | Tìm trọng số w và bias b tối thiểu hóa tổng bình phương chênh lệch giữa wx+b và các giá trị y thực |
+| Linear regression (Hồi quy tuyến tính) | "Vẽ một đường qua dữ liệu" | Tìm trọng số $w$ và bias $b$ tối thiểu hóa tổng bình phương chênh lệch giữa $wx+b$ và các giá trị $y$ thực |
 | Cost function (Hàm chi phí) | "Mô hình tệ đến mức nào" | Một hàm ánh xạ các tham số mô hình thành một con số duy nhất đo sai số dự đoán, mà quá trình tối ưu hóa tối thiểu hóa |
-| Mean squared error (Sai số bình phương trung bình) | "Trung bình các sai số bình phương" | (1/n) * tổng của (predicted - actual)^2, phạt các sai số lớn một cách không cân xứng |
+| Mean squared error (Sai số bình phương trung bình) | "Trung bình của các sai số bình phương" | $\frac{1}{n} \sum (\text{predicted} - \text{actual})^2$, phạt các sai số lớn theo tỷ lệ vượt trội |
 | Gradient descent | "Đi xuống dốc" | Lặp lại việc điều chỉnh các tham số theo hướng làm giảm hàm chi phí, sử dụng các đạo hàm riêng |
 | Learning rate (Tốc độ học) | "Kích thước bước" | Một số vô hướng điều khiển mức thay đổi tham số trong mỗi bước gradient descent |
-| Normal equation (Phương trình chuẩn) | "Giải trực tiếp" | Nghiệm dạng đóng w = (X^T X)^-1 X^T y cho các trọng số tối ưu mà không lặp |
-| R-squared (R-bình phương) | "Mức khớp tốt đến đâu" | Phần phương sai trong y được mô hình giải thích, nằm trong khoảng từ âm vô cực đến 1.0 |
+| Normal equation (Phương trình chuẩn) | "Giải trực tiếp" | Nghiệm dạng đóng $w = (X^T X)^{-1} X^T y$ cho các trọng số tối ưu mà không lặp |
+| R-squared (R-bình phương) | "Mức khớp tốt đến đâu" | Phần phương sai trong $y$ được mô hình giải thích, nằm trong khoảng từ âm vô cực đến 1.0 |
 | Feature scaling (Co giãn đặc trưng) | "Làm các đặc trưng có thể so sánh" | Biến đổi các đặc trưng về các khoảng tương tự (ví dụ, trung bình bằng không, phương sai đơn vị) để gradient descent hội tụ nhanh hơn |
 | Regularization | "Phạt độ phức tạp" | Thêm một số hạng vào hàm chi phí để thu nhỏ trọng số, ngăn khớp quá mức |
-| Ridge regression (Hồi quy Ridge) | "L2 regularization" | Hồi quy tuyến tính với hình phạt lambda * sum(w_i^2) được thêm vào MSE |
-| Polynomial regression (Hồi quy đa thức) | "Khớp các đường cong bằng toán tuyến tính" | Hồi quy tuyến tính trên các đặc trưng đa thức (x, x^2, x^3, ...), vẫn tuyến tính theo trọng số |
+| Ridge regression (Hồi quy Ridge) | "L2 regularization" | Hồi quy tuyến tính với hình phạt $\lambda \sum w_i^2$ được thêm vào MSE |
+| Polynomial regression (Hồi quy đa thức) | "Khớp các đường cong bằng toán tuyến tính" | Hồi quy tuyến tính trên các đặc trưng đa thức ($x, x^2, x^3, \ldots$), vẫn tuyến tính theo trọng số |
 | Overfitting (Khớp quá mức) | "Ghi nhớ dữ liệu huấn luyện" | Sử dụng một mô hình phức tạp đến mức nó khớp nhiễu trong dữ liệu huấn luyện và thất bại trên dữ liệu mới |
 
 ## Further Reading

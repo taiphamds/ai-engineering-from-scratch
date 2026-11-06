@@ -1,6 +1,6 @@
 # Evidence, Confidence, and Unknowns in Binary Analysis
 
-> A finding about a compiled program is a record with a hash, a confidence, an authority, and a list of what it cannot show.
+> Một phát hiện về một chương trình đã biên dịch là một bản ghi với một hash, một độ tin cậy, một thẩm quyền và một danh sách những gì nó không thể cho thấy.
 
 **Type:** Build
 **Languages:** Python, C
@@ -9,24 +9,24 @@
 
 ## Learning Objectives
 
-- Build an evidence record modelled on rea's `Evidence` with observed, derived, and inferred confidence.
-- Compute content-hash ids that stay the same when the file moves to another folder.
-- Record what each provider cannot show as limitations that travel with the record.
-- Refuse to state a result until an observed run of the function supports it.
-- Keep residual unknowns as revisioned records joined by a hash chain.
-- Cache provider answers under an exact key and refuse a stale replay.
+- Xây dựng một bản ghi bằng chứng theo mẫu `Evidence` của rea với độ tin cậy observed, derived và inferred.
+- Tính các id hash nội dung giữ nguyên khi tệp chuyển sang một thư mục khác.
+- Ghi lại những gì mỗi provider không thể cho thấy như các giới hạn đi cùng bản ghi.
+- Từ chối nêu một kết quả cho đến khi một lần chạy được quan sát của hàm hỗ trợ nó.
+- Giữ các điều chưa biết còn lại dưới dạng các bản ghi có revision được nối bằng một chuỗi hash.
+- Cache các câu trả lời provider dưới một khóa chính xác và từ chối một lần phát lại cũ.
 
 ## The Problem
 
-You ask an agent what `grade` in `ledger-x86_64-O1.o` returns for a score of 55. The agent calls rea, reads the Ghidra pseudocode, and answers 0. A reviewer asks how the agent knows. The agent has a block of text that Ghidra printed. For the default path, that text reads `uVar1 = -(param_1 >> 0x1f) ^ (uint)((ulong)((long)param_1 * 0x66666667) >> 0x3f);`. The bytes at that point say `xor eax, eax`.
+Bạn hỏi một agent `grade` trong `ledger-x86_64-O1.o` trả về gì cho điểm 55. Agent gọi rea, đọc mã giả Ghidra và trả lời 0. Một người xem xét hỏi làm sao agent biết. Agent có một khối văn bản mà Ghidra đã in. Với đường mặc định, văn bản đó đọc là `uVar1 = -(param_1 >> 0x1f) ^ (uint)((ulong)((long)param_1 * 0x66666667) >> 0x3f);`. Các byte ở điểm đó nói `xor eax, eax`.
 
-The expression and the instruction both produce 0 for every input. The agent did not know that. It trusted the text because a tool produced it. A 2026 study ran three agents on 24 reverse engineering tasks ([NDSS BAR 2026](https://www.ndss-symposium.org/wp-content/uploads/bar2026-58.pdf)). It named four recurring weaknesses: training bias, over-trust in observations, context limits, and plan persistence. Another 2026 study planted text inside binaries and found that models proposed the planted unsafe action in 35 of 40 cases ([arXiv 2607.12507](https://arxiv.org/abs/2607.12507)).
+Biểu thức và chỉ lệnh đều tạo 0 cho mọi đầu vào. Agent không biết điều đó. Nó tin văn bản vì một công cụ tạo ra nó. Một nghiên cứu năm 2026 chạy ba agent trên 24 tác vụ reverse engineering ([NDSS BAR 2026](https://www.ndss-symposium.org/wp-content/uploads/bar2026-58.pdf)). Nó nêu tên bốn điểm yếu lặp lại: thiên lệch huấn luyện, quá tin các quan sát, giới hạn ngữ cảnh và sự bám giữ kế hoạch. Một nghiên cứu năm 2026 khác cấy văn bản bên trong các binary và phát hiện rằng các mô hình đề xuất hành động không an toàn được cấy trong 35 trên 40 trường hợp ([arXiv 2607.12507](https://arxiv.org/abs/2607.12507)).
 
-rea 6.5.0 gives the agent a vocabulary for this. Every successful tool call produces one `Evidence` record with a `confidence` of `observed`, `derived`, or `inferred`, an `authority`, and a list of `limitations`. The packaged skill tells the agent: "Every conclusion must distinguish observations, inferences, and unknowns. Cite Evidence IDs, preserve limitations and incomplete coverage, and never imply that static analysis observed execution.".
+rea 6.5.0 cho agent một bộ từ vựng cho điều này. Mọi lần gọi công cụ thành công tạo một bản ghi `Evidence` với một `confidence` là `observed`, `derived` hoặc `inferred`, một `authority` và một danh sách `limitations`. Skill được đóng gói nói với agent: "Mọi kết luận phải phân biệt quan sát, suy luận và điều chưa biết. Trích Evidence ID, giữ các giới hạn và độ bao phủ không đầy đủ, và không bao giờ ngụ ý rằng phân tích tĩnh đã quan sát thực thi.".
 
-Three things rea leaves to you. Its snapshots cache exact query results, not analysis. Its verification passes a claim when a comparison dimension is unchanged, and its own comment says that a pass "does not establish global implementation equivalence.". Its obligation ledger takes candidates only from JavaScript and managed graphs, so a native function never reaches `verified` through it.
+Ba điều rea để cho bạn. Các snapshot của nó cache kết quả truy vấn chính xác, không phải phân tích. Xác minh của nó cho một khẳng định qua khi một chiều so sánh không thay đổi, và bình luận của chính nó nói rằng một lần qua "không xác lập tính tương đương triển khai toàn cục.". Sổ nghĩa vụ của nó chỉ lấy ứng viên từ các đồ thị JavaScript và managed, nên một hàm native không bao giờ đạt `verified` qua nó.
 
-This lesson builds the missing piece in plain Python. You write a ledger that stores every fact about the fixture as a record with a content hash. You make predictions about `percent_change` and `grade`, mark them inferred, and check them against runs of a test program you compile yourself. You import two real rea records and the snapshot they came from, and your ledger recomputes every hash rea wrote.
+Bài học này xây dựng mảnh còn thiếu bằng Python thuần. Bạn viết một sổ lưu mọi sự kiện về fixture dưới dạng một bản ghi với một hash nội dung. Bạn đưa ra các dự đoán về `percent_change` và `grade`, đánh dấu chúng inferred và kiểm tra chúng với các lần chạy của một chương trình kiểm tra bạn tự biên dịch. Bạn import hai bản ghi rea thực và snapshot mà chúng đến từ đó, và sổ của bạn tính lại mọi hash mà rea đã ghi.
 
 ```figure
 re-evidence-ledger
@@ -34,42 +34,42 @@ re-evidence-ledger
 
 ## Three Words for Confidence, Five for Authority
 
-`confidence` is an enum with three values, never a number. `authority` has five values. When a producer says nothing, rea uses `shipped-artifact` with `observed`.
+`confidence` là một enum với ba giá trị, không bao giờ là một số. `authority` có năm giá trị. Khi một bên tạo không nói gì, rea sử dụng `shipped-artifact` với `observed`.
 
-| Value | Meaning on the fixture | Records in this lesson |
+| Giá trị | Ý nghĩa trên fixture | Bản ghi trong bài học này |
 |---|---|---|
-| `observed` | A fact read from bytes or from a run | the ELF reader's section and symbol reads, the two Ghidra records, 17 host runs |
-| `derived` | A fact computed from observed records | the switch table model, the division model, every unknown mutation |
-| `inferred` | An expectation that no observation states yet | 18 predictions |
-| `shipped-artifact` | The file on disk was the source | every read of `ledger-x86_64-O1.o` |
-| `controlled-replay` | A run you controlled produced the fact | the host runs of `harness.c` |
-| `analyst-inference` | Your own judgement | predictions and unknown mutations |
-| `historical-reference` | An older source tree or document | none here |
-| `external-service` | A service outside the file and the host | none here |
+| `observed` | Một sự kiện đọc từ byte hoặc từ một lần chạy | các lần đọc section và symbol của trình đọc ELF, hai bản ghi Ghidra, 17 lần chạy host |
+| `derived` | Một sự kiện được tính từ các bản ghi observed | mô hình bảng switch, mô hình phép chia, mọi biến đổi điều chưa biết |
+| `inferred` | Một kỳ vọng mà chưa quan sát nào nêu | 18 dự đoán |
+| `shipped-artifact` | Tệp trên đĩa là nguồn | mọi lần đọc `ledger-x86_64-O1.o` |
+| `controlled-replay` | Một lần chạy bạn kiểm soát tạo ra sự kiện | các lần chạy host của `harness.c` |
+| `analyst-inference` | Phán đoán của riêng bạn | các dự đoán và các biến đổi điều chưa biết |
+| `historical-reference` | Một cây nguồn hoặc tài liệu cũ hơn | không có ở đây |
+| `external-service` | Một dịch vụ ngoài tệp và host | không có ở đây |
 
-Two confusions cost the most time. The first treats pseudocode as an observation of behaviour. It is an observation of what Ghidra printed. The second treats an empty list as proof of absence. rea's design note is strict: "Missing coverage is unknown, not absence.". The ledger in `code/main.py` encodes both rules.
+Hai nhầm lẫn tốn nhiều thời gian nhất. Thứ nhất coi mã giả như một quan sát hành vi. Nó là một quan sát những gì Ghidra đã in. Thứ hai coi một danh sách rỗng là bằng chứng vắng mặt. Ghi chú thiết kế của rea nghiêm ngặt: "Độ bao phủ thiếu là chưa biết, không phải vắng mặt.". Sổ trong `code/main.py` mã hóa cả hai quy tắc.
 
 ## The Record
 
-A record has exactly sixteen fields, and rea 6.5.0 rejects any other field. `code/main.py` keeps the same names as rea, so a record from either side validates on the other. The sixteenth field, `relationship_coverage`, says how complete a list of callers or callees is. Its value is `complete`, `partial`, or `unknown`, or `null` when the operation reports no call relationships.
+Một bản ghi có chính xác mười sáu trường, và rea 6.5.0 từ chối mọi trường khác. `code/main.py` giữ cùng tên với rea, để một bản ghi từ bất kỳ bên nào xác thực ở bên kia. Trường thứ mười sáu, `relationship_coverage`, nói một danh sách caller hoặc callee đầy đủ đến đâu. Giá trị của nó là `complete`, `partial` hoặc `unknown`, hoặc `null` khi thao tác không báo cáo quan hệ gọi.
 
-| Field | What it holds |
+| Trường | Nó chứa gì |
 | --- | --- |
-| `evidence_id` | `ev_` and 64 hex digits, a hash of the content |
-| `subject` | `name`, `digest.sha256`, `format`, `architecture`, `local_path`, or `null` |
-| `provider` | `id`, `name`, `version` or `null` |
-| `analysis_profile` | the provider's settings and their digest, or `null`, always present |
-| `predicate_type` | a tag, `rea.analysis` by default |
-| `operation`, `parameters` | the tool and its input |
-| `raw_result`, `normalized_result` | provider output and the canonical result |
-| `confidence`, `authority` | the enums above |
-| `environment` | `id`, `platform`, `architecture`, `isolation`, or `null` |
-| `limitations` | plain sentences |
-| `relationship_coverage` | `status` `complete`, `partial`, or `unknown` with diagnostics, or `null` |
+| `evidence_id` | `ev_` và 64 chữ số hex, một hash của nội dung |
+| `subject` | `name`, `digest.sha256`, `format`, `architecture`, `local_path` hoặc `null` |
+| `provider` | `id`, `name`, `version` hoặc `null` |
+| `analysis_profile` | các thiết lập của provider và digest của chúng, hoặc `null`, luôn hiện diện |
+| `predicate_type` | một tag, mặc định `rea.analysis` |
+| `operation`, `parameters` | công cụ và đầu vào của nó |
+| `raw_result`, `normalized_result` | đầu ra provider và kết quả chính tắc |
+| `confidence`, `authority` | các enum ở trên |
+| `environment` | `id`, `platform`, `architecture`, `isolation` hoặc `null` |
+| `limitations` | các câu thông thường |
+| `relationship_coverage` | `status` `complete`, `partial` hoặc `unknown` với chẩn đoán, hoặc `null` |
 | `locations` | `address`, `address-range`, `artifact-path`, `file-offset`, `file-offset-range` |
-| `evidence_links` | the `ev_` ids this record rests on |
+| `evidence_links` | các id `ev_` mà bản ghi này dựa vào |
 
-This is the real record rea wrote for `grade`, cut to the fields that matter here. The full file is `code/fixtures/rea-evidence-grade.json`, 37,573 bytes.
+Đây là bản ghi thực rea đã ghi cho `grade`, cắt xuống các trường quan trọng ở đây. Tệp đầy đủ là `code/fixtures/rea-evidence-grade.json`, 37,573 byte.
 
 ```json
 {
@@ -107,71 +107,71 @@ This is the real record rea wrote for `grade`, cut to the fields that matter her
 }
 ```
 
-The real `parameters` object of the profile has 25 keys. The real `limitations` list has ten sentences. Keep them. A limitation is part of the content, so dropping one changes the id, and your ledger would then reject the record.
+Đối tượng `parameters` thực của profile có 25 khóa. Danh sách `limitations` thực có mười câu. Giữ chúng. Một giới hạn là một phần của nội dung, nên bỏ một giới hạn thay đổi id, và sổ của bạn sau đó sẽ từ chối bản ghi.
 
-Note what the record does not say. `environment` is `null` because Ghidra read a file and ran nothing. `locations` is empty because this operation reports addresses inside `normalized_result`. `relationship_coverage` has the status `complete`. Its diagnostic says that only resolved Ghidra call references are returned, and that unresolved computed or indirect calls stay unknown. So the caller and callee lists are complete for resolved calls only.
+Chú ý điều bản ghi không nói. `environment` là `null` vì Ghidra đọc một tệp và không chạy gì. `locations` rỗng vì thao tác này báo cáo các địa chỉ bên trong `normalized_result`. `relationship_coverage` có trạng thái `complete`. Chẩn đoán của nó nói rằng chỉ các tham chiếu gọi Ghidra đã phân giải được trả về, và rằng các lần gọi tính toán hoặc gián tiếp chưa phân giải vẫn chưa biết. Vì vậy các danh sách caller và callee chỉ đầy đủ cho các lần gọi đã phân giải.
 
 ## The Id Is a Hash of Content, and the Path Is Not in It
 
-rea computes `evidence_id` as `ev_` plus SHA-256 over the RFC 8785 canonical JSON of a projection of the record. The projection keeps the subject's `digest`, `format`, and `architecture` and drops `name` and `local_path`. It drops `relationship_coverage` when its value is `null`, so a record without call relationships keeps the same id as before the field existed. Everything else, including `raw_result` and every limitation, is hashed.
+rea tính `evidence_id` là `ev_` cộng SHA-256 trên JSON chính tắc RFC 8785 của một phép chiếu bản ghi. Phép chiếu giữ `digest`, `format` và `architecture` của subject và bỏ `name` cùng `local_path`. Nó bỏ `relationship_coverage` khi giá trị của nó là `null`, để một bản ghi không có quan hệ gọi giữ cùng id như trước khi trường tồn tại. Mọi thứ khác, bao gồm `raw_result` và mọi giới hạn, được hash.
 
-RFC 8785 sorts object keys, removes whitespace, and fixes the number and string forms. For records whose numbers are integers, Python's standard library produces the same bytes:
+RFC 8785 sắp xếp khóa đối tượng, loại khoảng trắng và cố định các dạng số cùng chuỗi. Với các bản ghi có số là số nguyên, thư viện chuẩn Python tạo cùng các byte:
 
 ```python
 def canonical_json(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
 ```
 
-`code/main.py` refuses floats before it hashes, because RFC 8785 and Python print some floats differently. The two rea records and the snapshot hold no floats, so the recipe reproduces every rea hash:
+`code/main.py` từ chối float trước khi hash, vì RFC 8785 và Python in một số float khác nhau. Hai bản ghi rea và snapshot không chứa float, nên công thức tái tạo mọi hash rea:
 
-| rea value | Recomputed by `code/main.py` |
+| Giá trị rea | Được `code/main.py` tính lại |
 |---|---|
-| `ev_67b6d3f992eaf49a…` for `grade` | equal |
-| `ev_e88b10dc0c6400e5…` for `percent_change` | equal |
-| profile digest `9c7f6b24be69294e…` over `{provider, parameters}` | equal |
-| `query_26122aebe9d8abae…` for the `grade` snapshot entry | equal |
-| `query_0f95ef38038d3666…` for the `percent_change` entry | equal |
+| `ev_67b6d3f992eaf49a…` cho `grade` | bằng nhau |
+| `ev_e88b10dc0c6400e5…` cho `percent_change` | bằng nhau |
+| digest profile `9c7f6b24be69294e…` trên `{provider, parameters}` | bằng nhau |
+| `query_26122aebe9d8abae…` cho mục snapshot `grade` | bằng nhau |
+| `query_0f95ef38038d3666…` cho mục `percent_change` | bằng nhau |
 
-Why exclude the path? The same observation of the same bytes gets the same id on any machine and in any folder. The `local_path` in the listing above names a folder on one Mac. The id does not change when you copy the fixture to `/home/you/re`. `rebind_subject_path()` lets you show a record under a new path. It refuses when `sha256`, `format`, or `architecture` differ. rea 6.5.0 does the same with `rebindEvidenceToTargetPath` when it replays a snapshot record for a target at a new path.
+Vì sao loại đường dẫn? Cùng quan sát của cùng các byte nhận cùng id trên bất kỳ máy nào và trong bất kỳ thư mục nào. `local_path` trong danh sách ở trên nêu tên một thư mục trên một máy Mac. Id không thay đổi khi bạn sao chép fixture vào `/home/you/re`. `rebind_subject_path()` cho phép bạn hiển thị một bản ghi dưới một đường dẫn mới. Nó từ chối khi `sha256`, `format` hoặc `architecture` khác nhau. rea 6.5.0 làm tương tự bằng `rebindEvidenceToTargetPath` khi nó phát lại một bản ghi snapshot cho một mục tiêu ở một đường dẫn mới.
 
-`validate_evidence()` recomputes the id and rejects a mismatch with rea's sentence, "Evidence semantic identifier does not match its record". It also rejects a record whose `analysis_profile.provider` differs from its `provider`. The test `test_tampered_id_and_mismatched_profile_are_rejected` edits one line of pseudocode inside the real `grade` record and watches the ledger refuse it.
+`validate_evidence()` tính lại id và từ chối một lần không khớp bằng câu của rea, "Định danh ngữ nghĩa bằng chứng không khớp bản ghi của nó". Nó cũng từ chối một bản ghi có `analysis_profile.provider` khác `provider` của nó. Bài kiểm tra `test_tampered_id_and_mismatched_profile_are_rejected` chỉnh sửa một dòng mã giả bên trong bản ghi `grade` thực và theo dõi sổ từ chối nó.
 
 ## Observe the Object Yourself
 
-Before any provider, the ledger reads the file. `observe_object()` parses the ELF64 section headers, `.symtab`, `.strtab`, and `.rela.text` with `struct.unpack_from`. It writes one `inspect_object` record and one `read_function_bytes` record per function symbol. All five are `observed` with authority `shipped-artifact`, because the source was the file on disk.
+Trước mọi provider, sổ đọc tệp. `observe_object()` phân tích ELF64 section header, `.symtab`, `.strtab` và `.rela.text` bằng `struct.unpack_from`. Nó ghi một bản ghi `inspect_object` và một bản ghi `read_function_bytes` mỗi function symbol. Cả năm là `observed` với thẩm quyền `shipped-artifact`, vì nguồn là tệp trên đĩa.
 
-| Record | Content | Id |
+| Bản ghi | Nội dung | Id |
 |---|---|---|
-| `inspect_object` | five sections with offsets, sizes, and hashes, four functions, three relocations | `ev_645e0a145f28bd5c…` |
-| `read_function_bytes percent_change` | 16 bytes at `.text+0x00` | `ev_2572a7d254ad15cb…` |
-| `read_function_bytes grade` | 46 bytes at `.text+0x10`, SHA-256 `ffcb75c2a7bb1104…` | `ev_a467c2427bfc0c56…` |
-| `read_function_bytes total` | 31 bytes at `.text+0x40` | `ev_b1e845cea2543073…` |
-| `read_function_bytes grade_label` | 63 bytes at `.text+0x60` | `ev_c50041be26e6b7f4…` |
+| `inspect_object` | năm section với offset, kích thước và hash, bốn hàm, ba relocation | `ev_645e0a145f28bd5c…` |
+| `read_function_bytes percent_change` | 16 byte tại `.text+0x00` | `ev_2572a7d254ad15cb…` |
+| `read_function_bytes grade` | 46 byte tại `.text+0x10`, SHA-256 `ffcb75c2a7bb1104…` | `ev_a467c2427bfc0c56…` |
+| `read_function_bytes total` | 31 byte tại `.text+0x40` | `ev_b1e845cea2543073…` |
+| `read_function_bytes grade_label` | 63 byte tại `.text+0x60` | `ev_c50041be26e6b7f4…` |
 
-`llvm-objdump -t` agrees: `grade` at `0000000000000010` with size `2e`. The three relocations in `.rela.text` are `R_X86_64_PC32` against `.rodata` at offsets `0x36`, `0x84`, and `0x93`, with addends `0x10`, `0x24`, and `-0x4`. Each record carries a `file-offset-range` location and one limitation: "Section bytes are read from the file on disk. The reader applies no relocation and runs no code."
+`llvm-objdump -t` đồng nhất: `grade` tại `0000000000000010` với kích thước `2e`. Ba relocation trong `.rela.text` là `R_X86_64_PC32` đối với `.rodata` tại các offset `0x36`, `0x84` và `0x93`, với các addend `0x10`, `0x24` và `-0x4`. Mỗi bản ghi mang một vị trí `file-offset-range` và một giới hạn: "Các byte section được đọc từ tệp trên đĩa. Trình đọc không áp dụng relocation và không chạy mã."
 
-Lesson 32 builds this reader in full. Here it is 60 lines, because this lesson is about what you record about the read.
+Bài 32 xây dựng trình đọc này đầy đủ. Ở đây nó là 60 dòng, vì bài học này nói về những gì bạn ghi lại về lần đọc.
 
 ## Derive the Table, and Say That You Derived It
 
-The 46 bytes of `grade` contain four patterns that lesson 33 decoded:
+46 byte của `grade` chứa bốn mẫu mà bài 33 đã giải mã:
 
-| Bytes | Instruction | Offset in `grade` |
+| Byte | Chỉ lệnh | Offset trong `grade` |
 |---|---|---|
 | `48 69 c0 67 66 66 66` | `imul rax, rax, 0x66666667` | 3 |
 | `48 c1 f9 22` | `sar rcx, 34` | 13 |
 | `83 c1 fa` | `add ecx, -6` | 23 |
-| `83 f9 04 77 0c` | `cmp ecx, 4` then `ja` | 28 |
+| `83 f9 04 77 0c` | `cmp ecx, 4` rồi `ja` | 28 |
 
-A multiply by `0x66666667` followed by a shift of 34 is a signed division by 10. The file holds no 10. `derive_grade_model()` writes that fact as a limitation: "The divisor 10 is a derivation from the multiplier 0x66666667 and the shift 34. The file holds no 10."
+Một phép nhân với `0x66666667` theo sau bởi một độ dịch 34 là một phép chia có dấu cho 10. Tệp không chứa 10. `derive_grade_model()` ghi sự kiện đó như một giới hạn: "Số chia 10 là một phép suy ra từ hệ số nhân 0x66666667 và độ dịch 34. Tệp không chứa 10."
 
-The `add ecx, -6` sets the first case to 6. The `cmp ecx, 4` with an unsigned jump admits five cases, 6 to 10.
+`add ecx, -6` đặt case đầu thành 6. `cmp ecx, 4` với một bước nhảy không dấu chấp nhận năm case, 6 đến 10.
 
-The `lea` at `.text+0x33` carries the relocation with addend `0x10`. A PC32 relocation measures from the end of the 4-byte displacement, so the table starts at `.rodata+0x14`. Five little-endian words there read `1, 2, 3, 4, 4`. The switch in `ledger.c` returns 1 for 60 to 69, 2 for the seventies, 3 for the eighties, and 4 for 90 to 100. The compiler turned the switch into a lookup table of return values.
+`lea` tại `.text+0x33` mang relocation với addend `0x10`. Một relocation PC32 đo từ cuối displacement 4 byte, nên bảng bắt đầu tại `.rodata+0x14`. Năm word little-endian ở đó đọc ra `1, 2, 3, 4, 4`. Switch trong `ledger.c` trả về 1 cho 60 đến 69, 2 cho các số bảy mươi, 3 cho các số tám mươi và 4 cho 90 đến 100. Compiler biến switch thành một bảng tra cứu các giá trị trả về.
 
-The resulting record `ev_605106bff2d9998f…` has `confidence` `derived`, and its `evidence_links` name the two observed records it rests on. Remove the bytes record from the ledger and the derived record has a dangling link. The figure above shows that state when you turn off `ev_a467c242…`.
+Bản ghi kết quả `ev_605106bff2d9998f…` có `confidence` `derived`, và `evidence_links` của nó nêu tên hai bản ghi observed mà nó dựa vào. Loại bản ghi byte khỏi sổ và bản ghi derived có một liên kết treo. Hình ở trên cho thấy trạng thái đó khi bạn tắt `ev_a467c242…`.
 
-Now compare with Ghidra. Its pseudocode for the same bytes:
+Giờ so sánh với Ghidra. Mã giả của nó cho cùng các byte:
 
 ```c
 uint grade(int param_1)
@@ -188,36 +188,36 @@ uint grade(int param_1)
 }
 ```
 
-Ghidra applied the relocation and named the table `DAT_001000b4`, which is `.rodata+0x14` after it placed `.text` at `0x100000`. It recovered the division by 10 and the five cases. For the default value it printed an expression that is always 0 and never says 0. The p-code in `native_value_flow` marks those operations `is_dead: true`. The record is a faithful observation of Ghidra. The meaning you read from it is derived, and the value you expect from a run is inferred.
+Ghidra áp dụng relocation và đặt tên bảng `DAT_001000b4`, tức `.rodata+0x14` sau khi nó đặt `.text` tại `0x100000`. Nó khôi phục phép chia cho 10 và năm case. Với giá trị mặc định, nó in một biểu thức luôn là 0 và không bao giờ nói 0. P-code trong `native_value_flow` đánh dấu các thao tác đó `is_dead: true`. Bản ghi là một quan sát trung thực về Ghidra. Ý nghĩa bạn đọc từ nó là derived, và giá trị bạn kỳ vọng từ một lần chạy là inferred.
 
-The `percent_change` record shows the other failure. Ghidra's signature reads `undefined1 [16] percent_change(int param_1,int param_2,ulong param_3)`. The source says `int percent_change(int before, int after)`. `idiv` writes `EDX:EAX`, and the zero path leaves `EDX` untouched, so the decompiler inferred a 16-byte return and a third parameter. Its own `native_api.return_type.confidence` for `grade` is `"low"`. Treat a recovered signature as the provider's inference, and record it that way.
+Bản ghi `percent_change` cho thấy lỗi kia. Chữ ký của Ghidra đọc là `undefined1 [16] percent_change(int param_1,int param_2,ulong param_3)`. Nguồn nói `int percent_change(int before, int after)`. `idiv` ghi `EDX:EAX`, và đường bằng không để `EDX` nguyên vẹn, nên decompiler suy ra một giá trị trả về 16 byte và một tham số thứ ba. `native_api.return_type.confidence` của chính nó cho `grade` là `"low"`. Coi một chữ ký được khôi phục là suy luận của provider, và ghi nó theo cách đó.
 
 ## Predictions Are Inferred Records
 
-A prediction is a claim about behaviour that no observation has stated. `claim_suite()` builds eighteen of them from the derived models and from the source. `record_prediction()` stores each one as a record with `confidence` `inferred` and `authority` `analyst-inference`, linked to the records it rests on.
+Một dự đoán là một khẳng định về hành vi mà chưa quan sát nào nêu. `claim_suite()` xây dựng mười tám dự đoán từ các mô hình derived và từ nguồn. `record_prediction()` lưu mỗi dự đoán dưới dạng một bản ghi với `confidence` `inferred` và `authority` `analyst-inference`, liên kết đến các bản ghi mà nó dựa vào.
 
-| Claim | Predicted value | Rests on |
+| Khẳng định | Giá trị dự đoán | Dựa vào |
 |---|---|---|
-| `percent_change(12400, 15500)` | 25, from 310000 / 12400 | division model `ev_076a9167…` |
-| `percent_change(0, 5)` | 0, the zero guard | division model |
-| `percent_change(100, 50)` | -50 | division model |
-| `percent_change(-7, 3)` | -142, because `idiv` truncates toward zero | division model |
-| `grade(55)` | 0, index -1 fails the unsigned compare | table model `ev_605106bf…` |
-| `grade(60)`, `grade(69)` | 1, 1 | table model |
-| `grade(70)`, `grade(85)` | 2, 3 | table model |
-| `grade(95)`, `grade(100)`, `grade(105)` | 4, 4, 4 | table model |
-| `grade(110)`, `grade(-5)` | 0, 0 | table model |
-| `total(1, 2, 3)`, `total()` | 6, 0 | source record `ev_2f1e6d25…` |
-| `grade_label(85)` | `"B"` | source record and table model |
-| `grade(score)` for 90 to 100 | 4 for all eleven inputs | table model |
+| `percent_change(12400, 15500)` | 25, từ 310000 / 12400 | mô hình phép chia `ev_076a9167…` |
+| `percent_change(0, 5)` | 0, điều kiện bảo vệ bằng không | mô hình phép chia |
+| `percent_change(100, 50)` | -50 | mô hình phép chia |
+| `percent_change(-7, 3)` | -142, vì `idiv` cắt về không | mô hình phép chia |
+| `grade(55)` | 0, chỉ số -1 không qua so sánh không dấu | mô hình bảng `ev_605106bf…` |
+| `grade(60)`, `grade(69)` | 1, 1 | mô hình bảng |
+| `grade(70)`, `grade(85)` | 2, 3 | mô hình bảng |
+| `grade(95)`, `grade(100)`, `grade(105)` | 4, 4, 4 | mô hình bảng |
+| `grade(110)`, `grade(-5)` | 0, 0 | mô hình bảng |
+| `total(1, 2, 3)`, `total()` | 6, 0 | bản ghi nguồn `ev_2f1e6d25…` |
+| `grade_label(85)` | `"B"` | bản ghi nguồn và mô hình bảng |
+| `grade(score)` cho 90 đến 100 | 4 cho cả mười một đầu vào | mô hình bảng |
 
-`predict()` uses C semantics, not Python semantics. `c_div()` truncates toward zero, and `wrap32()` folds every intermediate into 32 bits. Python's `//` rounds toward negative infinity, so `(3 - -7) * 100 // -7` gives -143 and the C program gives -142. Lesson 36 makes this grid much larger.
+`predict()` sử dụng ngữ nghĩa C, không phải ngữ nghĩa Python. `c_div()` cắt về không, và `wrap32()` gập mọi giá trị trung gian vào 32 bit. `//` của Python làm tròn về âm vô cùng, nên `(3 - -7) * 100 // -7` cho -143 và chương trình C cho -142. Bài 36 làm lưới này lớn hơn nhiều.
 
-Each prediction opens one residual unknown. The unknown asks for `observed` evidence with authority `controlled-replay` and recommends one probe: `execute_function` on the host build. The next section produces that evidence. The question for the first grade claim reads "Does grade(95) == 4 hold when the compiled function runs?"
+Mỗi dự đoán mở một điều chưa biết còn lại. Điều chưa biết yêu cầu bằng chứng `observed` với thẩm quyền `controlled-replay` và khuyến nghị một thăm dò: `execute_function` trên bản build host. Phần tiếp theo tạo ra bằng chứng đó. Câu hỏi cho khẳng định grade đầu tiên đọc là "grade(95) == 4 có đúng khi hàm đã biên dịch chạy không?"
 
 ## Check Them Against a Run
 
-`code/fixtures/harness.c` includes `ledger.c` and prints one result per invocation. `observe_runs()` compiles it with the first of `clang`, `cc`, or `gcc` on your PATH and runs every input in the grid once. Each run becomes one record:
+`code/fixtures/harness.c` bao gồm `ledger.c` và in một kết quả mỗi lần gọi. `observe_runs()` biên dịch nó bằng công cụ đầu tiên trong `clang`, `cc` hoặc `gcc` trên PATH của bạn và chạy mỗi đầu vào trong lưới một lần. Mỗi lần chạy trở thành một bản ghi:
 
 ```json
 {
@@ -234,81 +234,81 @@ Each prediction opens one residual unknown. The unknown asks for `observed` evid
 }
 ```
 
-The subject of a run record is the harness binary, a Mach-O arm64 file on this Mac, with its own SHA-256. The provider is `course-harness` with the compiler's version line, here `Apple clang version 17.0.0 (clang-1700.6.3.2)`. The `evidence_links` name the source record `ev_2f1e6d251543d017…`, because the run and the object share `ledger.c` and nothing else.
+Subject của một bản ghi chạy là binary harness, một tệp Mach-O arm64 trên máy Mac này, với SHA-256 riêng của nó. Provider là `course-harness` với dòng phiên bản compiler, ở đây `Apple clang version 17.0.0 (clang-1700.6.3.2)`. `evidence_links` nêu tên bản ghi nguồn `ev_2f1e6d251543d017…`, vì lần chạy và object chia sẻ `ledger.c` và không gì khác.
 
-Read the first limitation twice. The x86-64 object never ran on this machine. What ran was a second build of the same source for another architecture. That is still an observation, and it is the strongest one available without an emulator, so the claim passes with that sentence attached. A report that omits it has lost information the reader needs.
+Đọc giới hạn đầu hai lần. Object x86-64 không bao giờ chạy trên máy này. Thứ chạy là một bản build thứ hai của cùng nguồn cho một kiến trúc khác. Đó vẫn là một quan sát, và là quan sát mạnh nhất có sẵn khi không có trình giả lập, nên khẳng định qua với câu đó đính kèm. Một báo cáo bỏ nó đã mất thông tin người đọc cần.
 
-The 17 single-input runs all agreed with the predictions. `code/fixtures/run-evidence.json` holds those 17 records and the source record, exported with `--record` on 2026-10-13. When no compiler is present, `build_ledger()` imports that bundle instead of running, and the report says so in its `runs` field.
+17 lần chạy đầu vào đơn đều đồng nhất với các dự đoán. `code/fixtures/run-evidence.json` chứa 17 bản ghi đó và bản ghi nguồn, được xuất với `--record` ngày 2026-10-13. Khi không có compiler, `build_ledger()` import gói đó thay vì chạy, và báo cáo nói vậy trong trường `runs` của nó.
 
 ## Promotion Rules
 
-A claim moves from inferred to supported only through observed runs. `check_claim()` looks for `execute_function` records with the same function and arguments, compares each result with the prediction, and counts the covered inputs:
+Một khẳng định chỉ chuyển từ inferred sang được hỗ trợ qua các lần chạy observed. `check_claim()` tìm các bản ghi `execute_function` với cùng hàm và đối số, so sánh mỗi kết quả với dự đoán và đếm các đầu vào được bao phủ:
 
-| Status | Condition | rea's completion ledger |
+| Trạng thái | Điều kiện | Sổ hoàn thành của rea |
 |---|---|---|
-| `pass` | every input has an agreeing run and none disagrees | `pass` |
-| `fail` | any run disagrees | `fail` |
-| `unknown` | some inputs have runs, others have none | `unknown` |
-| `unsupported` | no input has a run | `unsupported` |
+| `pass` | mọi đầu vào có một lần chạy đồng nhất và không lần nào bất đồng | `pass` |
+| `fail` | bất kỳ lần chạy nào bất đồng | `fail` |
+| `unknown` | một số đầu vào có lần chạy, các đầu vào khác không có | `unknown` |
+| `unsupported` | không đầu vào nào có lần chạy | `unsupported` |
 
-`promote_claim()` is the strict form. It raises `ClaimError` when any id is `inferred` or `derived`. It raises when an id names a run of another function or of other arguments. It raises when the list is empty, and when the runs cover fewer inputs than the claim. The Ghidra pseudocode record and the table model both exist for `grade(55)`, and neither can promote it. Turn off `ev_7be90c0c…` in the figure and watch the claim fall to `unsupported` while two records about `grade` remain.
+`promote_claim()` là dạng nghiêm ngặt. Nó phát sinh `ClaimError` khi bất kỳ id nào là `inferred` hoặc `derived`. Nó phát sinh ngoại lệ khi một id nêu tên một lần chạy của hàm khác hoặc các đối số khác. Nó phát sinh ngoại lệ khi danh sách rỗng, và khi các lần chạy bao phủ ít đầu vào hơn khẳng định. Bản ghi mã giả Ghidra và mô hình bảng đều tồn tại cho `grade(55)`, và không bản ghi nào có thể nâng nó. Tắt `ev_7be90c0c…` trong hình và theo dõi khẳng định rơi xuống `unsupported` trong khi hai bản ghi về `grade` vẫn còn.
 
-The range claim shows the partial case. Only two of its eleven inputs, 95 and 100, appear in the run grid. `check_claim()` returns `unknown` with `covered` 2 of 11, and `promote_claim()` refuses with "2 of 11 inputs have observed runs". The ledger does not round that up.
+Khẳng định phạm vi cho thấy trường hợp một phần. Chỉ hai trong mười một đầu vào của nó, 95 và 100, xuất hiện trong lưới chạy. `check_claim()` trả về `unknown` với `covered` 2 trên 11, và `promote_claim()` từ chối với "2 trong 11 đầu vào có các lần chạy được quan sát". Sổ không làm tròn điều đó lên.
 
-`completion_ledger()` mirrors rea's `EvidenceCompletionLedger`. Its id is `ecl_` plus the hash of its records, and `complete` is true only when `pass` equals `total`. The demo prints `ecl_da64933ea13befed…` with `complete: false`, because of that one range claim.
+`completion_ledger()` phản chiếu `EvidenceCompletionLedger` của rea. Id của nó là `ecl_` cộng hash các bản ghi của nó, và `complete` chỉ đúng khi `pass` bằng `total`. Demo in `ecl_da64933ea13befed…` với `complete: false`, vì một khẳng định phạm vi đó.
 
 ## Unknowns Are Records with a Hash Chain
 
-rea stores a residual unknown as a strict record. `code/main.py` keeps the same fields and the same invariants.
+rea lưu một điều chưa biết còn lại dưới dạng một bản ghi nghiêm ngặt. `code/main.py` giữ cùng các trường và cùng các bất biến.
 
-The id is `unk_` plus SHA-256 over `{domain, question, scope_digest}`, with the question's whitespace collapsed to single spaces. Two analysts who ask the same question about the same file get the same id. The `scope_digest` is the SHA-256 of the object.
+Id là `unk_` cộng SHA-256 trên `{domain, question, scope_digest}`, với khoảng trắng của câu hỏi được thu gọn thành dấu cách đơn. Hai nhà phân tích hỏi cùng câu hỏi về cùng tệp nhận cùng id. `scope_digest` là SHA-256 của object.
 
-Every change is a new revision. Revision 1 has `previous_revision_digest` `null`. Every later revision names the `revision_digest` of the one before it, and the digest covers every field except itself. `verify_unknown_chain()` walks the list and recomputes each digest. It checks that each link points at the previous revision. It checks that the mutation evidence each revision names is in the ledger.
+Mọi thay đổi là một revision mới. Revision 1 có `previous_revision_digest` `null`. Mọi revision sau nêu tên `revision_digest` của revision trước nó, và digest bao phủ mọi trường trừ chính nó. `verify_unknown_chain()` duyệt danh sách và tính lại mỗi digest. Nó kiểm tra rằng mỗi liên kết trỏ đến revision trước. Nó kiểm tra rằng bằng chứng biến đổi mà mỗi revision nêu tên có trong sổ.
 
-Each mutation is itself an evidence record, as rea does with provider `rea-unknown-registry`. Ours carries `confidence` `derived`, `authority` `analyst-inference`, and no subject. Its limitation reads "A registry mutation records what the analyst decided. It is not proof of the answer."
+Bản thân mỗi biến đổi là một bản ghi bằng chứng, như rea làm với provider `rea-unknown-registry`. Bản của chúng ta mang `confidence` `derived`, `authority` `analyst-inference` và không subject. Giới hạn của nó đọc là "Một biến đổi registry ghi lại điều nhà phân tích quyết định. Nó không phải bằng chứng của câu trả lời."
 
-That is why the demo's 81 records include 36 derived mutation records: 18 openings and 18 updates.
+Đó là lý do 81 bản ghi của demo bao gồm 36 bản ghi biến đổi derived: 18 lần mở và 18 lần cập nhật.
 
-Three invariants are enforced on every revision:
+Ba bất biến được thực thi trên mọi revision:
 
-- Only a `resolved` unknown carries a `resolution`, and only revision 1 has no predecessor.
-- A `contradicted` unknown names at least one contradicting id, and no id appears in both lists.
-- A `verified` resolution names at least one evidence id with the required confidence and authority.
+- Chỉ một điều chưa biết `resolved` mang một `resolution`, và chỉ revision 1 không có tiền nhiệm.
+- Một điều chưa biết `contradicted` nêu tên ít nhất một id mâu thuẫn, và không id nào xuất hiện trong cả hai danh sách.
+- Một resolution `verified` nêu tên ít nhất một id bằng chứng có độ tin cậy và thẩm quyền được yêu cầu.
 
-The third rule is where the ledger refuses most often. rea's workflow notes say "Only qualifying observed evidence can verify a resolution.". `resolve_unknown()` therefore rejects the table model, rejects an observed record with authority `shipped-artifact`, and accepts the run record `ev_f4ffbe8f922ec7fe…`. The resolved revision for `grade(95)` is revision 2, and its `previous_revision_digest` is `ffca840b55a8a188…`, the digest of revision 1.
+Quy tắc thứ ba là nơi sổ từ chối thường xuyên nhất. Các ghi chú workflow của rea nói "Chỉ bằng chứng observed đủ điều kiện có thể xác minh một resolution.". `resolve_unknown()` do đó từ chối mô hình bảng, từ chối một bản ghi observed với thẩm quyền `shipped-artifact` và chấp nhận bản ghi chạy `ev_f4ffbe8f922ec7fe…`. Revision đã giải quyết cho `grade(95)` là revision 2, và `previous_revision_digest` của nó là `ffca840b55a8a188…`, digest của revision 1.
 
-`update_unknown()` takes `expected_revision` and raises `revision-conflict` when it is stale, as rea's `update_unknown` tool does. The right reaction is the one rea's notes give: reread the current revision and decide again.
+`update_unknown()` nhận `expected_revision` và phát sinh `revision-conflict` khi nó cũ, như công cụ `update_unknown` của rea làm. Phản ứng đúng là điều các ghi chú của rea đưa ra: đọc lại revision hiện tại và quyết định lại.
 
-One unknown stays open after the demo: `unk_f2eb0d7f84c80a19…`, "Does grade(score) == 4 for every score from 90 to 100 hold when the compiled function runs?". Its status is `investigating`, its supporting ids include the two runs, and its probe still names the nine inputs without a run.
+Một điều chưa biết vẫn mở sau demo: `unk_f2eb0d7f84c80a19…`, "grade(score) == 4 với mọi điểm từ 90 đến 100 có đúng khi hàm đã biên dịch chạy không?". Trạng thái của nó là `investigating`, các id hỗ trợ của nó bao gồm hai lần chạy, và thăm dò của nó vẫn nêu tên chín đầu vào không có lần chạy.
 
 ## A Cache of Answers Is Not a Database of Analysis
 
-rea has three things that look like a cache. The Ghidra target snapshot is a private copy of the input, imported with `-readOnly -deleteProject` and deleted on close. The in-memory `AnalysisSnapshotCache` holds up to 10,000 entries for one binary identity. The snapshot file holds `target`, `binding`, `entries`, `workflow_entries`, and an `evidence_bundle`.
+rea có ba thứ trông như một cache. Snapshot mục tiêu Ghidra là một bản sao riêng của đầu vào, được import với `-readOnly -deleteProject` và xóa khi đóng. `AnalysisSnapshotCache` trong bộ nhớ chứa tối đa 10,000 mục cho một danh tính binary. Tệp snapshot chứa `target`, `binding`, `entries`, `workflow_entries` và một `evidence_bundle`.
 
-The cache key is `query_` plus SHA-256 over `{target, binding, operation, parameters}`. `target` is `{sha256, kind, format, architecture}`, and a `raw-binary` target also has `entry_point`. `binding` is the provider and the whole analysis profile, digest included. Change any of the 25 profile parameters, for example `jump_table_evidence` from `typed-case-default-blocks-v1` to a `v2`, and the digest changes, so every key changes.
+Khóa cache là `query_` cộng SHA-256 trên `{target, binding, operation, parameters}`. `target` là `{sha256, kind, format, architecture}`, và một mục tiêu `raw-binary` cũng có `entry_point`. `binding` là provider và toàn bộ analysis profile, bao gồm digest. Thay đổi bất kỳ tham số nào trong 25 tham số profile, ví dụ `jump_table_evidence` từ `typed-case-default-blocks-v1` sang một `v2`, và digest thay đổi, nên mọi khóa thay đổi.
 
-`code/fixtures/rea-snapshot.json` is the file rea wrote during the two runs, 142,690 bytes. rea wrote it with owner-only permissions, and the committed copy is readable by everyone. It has two entries and an evidence bundle with the same two records. `AnswerCache.import_snapshot()` recomputes each `query_id` and refuses the file when any differs. It refuses a snapshot whose `target` or `binding` differs from the active one, with rea's wording `profile_mismatch`. It refuses a snapshot whose `format_version` is not `course-answer-cache-1`.
+`code/fixtures/rea-snapshot.json` là tệp rea ghi trong hai lần chạy, 142,690 byte. rea ghi nó với quyền chỉ chủ sở hữu, và bản sao đã commit có thể đọc bởi mọi người. Nó có hai mục và một gói bằng chứng với cùng hai bản ghi. `AnswerCache.import_snapshot()` tính lại mỗi `query_id` và từ chối tệp khi bất kỳ giá trị nào khác. Nó từ chối một snapshot có `target` hoặc `binding` khác cái đang hoạt động, với cách diễn đạt của rea `profile_mismatch`. Nó từ chối một snapshot có `format_version` không phải `course-answer-cache-1`.
 
-Three measurements from this machine. The first `grade` query took 8.6 s, with a fresh Ghidra import. The `percent_change` query against the same snapshot took 8.5 s, because a different query is a cache miss. A third `grade` query took 2.1 s and returned the identical record with the identical `evidence_id`. The in-memory replay in rea adds the limitation "Loaded from a local REA analysis snapshot; this call did not re-run the provider.". Our `lookup()` adds a sentence of the same kind, so a reader can tell a replay from a fresh answer.
+Ba phép đo từ máy này. Truy vấn `grade` đầu tiên mất 8.6 s, với một lần import Ghidra mới. Truy vấn `percent_change` với cùng snapshot mất 8.5 s, vì một truy vấn khác là một cache miss. Một truy vấn `grade` thứ ba mất 2.1 s và trả về bản ghi giống hệt với `evidence_id` giống hệt. Phát lại trong bộ nhớ của rea thêm giới hạn "Được tải từ một snapshot phân tích REA cục bộ; lần gọi này không chạy lại provider.". `lookup()` của chúng ta thêm một câu cùng loại, để người đọc có thể phân biệt một lần phát lại với một câu trả lời mới.
 
-A mutation ends the cache. In rea 6.5.0, a rename or a comment clears the snapshot cache before rea sends the call to the provider. A failed reply cannot prove that the write rolled back, so a failed write also stops replay. A metadata import that changes the database does the same.
+Một biến đổi chấm dứt cache. Trong rea 6.5.0, một lần đổi tên hoặc một bình luận xóa snapshot cache trước khi rea gửi lần gọi đến provider. Một phản hồi thất bại không thể chứng minh lần ghi đã rollback, nên một lần ghi thất bại cũng dừng phát lại. Một lần import metadata thay đổi cơ sở dữ liệu làm tương tự.
 
 ## Why an Agent Needs This
 
-An agent that drives rea through MCP sees the full record on every call and can cite `evidence_id` in its report. The research from 2026 says where that goes wrong. Over-trust in tool output was one of the four weaknesses in the NDSS BAR study. In the planted-text study, showing binary content as data alone still left 15 unsafe proposals of 40, and provenance checks with tool authorization removed them. A third study watched an agent drive Ghidra through MCP ([arXiv 2606.06838](https://arxiv.org/abs/2606.06838)). In binaries with hundreds of functions, only 10 to 15 percent received real analysis before the agent produced stubs.
+Một agent điều khiển rea qua MCP thấy toàn bộ bản ghi trên mỗi lần gọi và có thể trích `evidence_id` trong báo cáo của nó. Nghiên cứu từ năm 2026 nói điều đó sai ở đâu. Quá tin đầu ra công cụ là một trong bốn điểm yếu trong nghiên cứu NDSS BAR. Trong nghiên cứu văn bản được cấy, hiển thị nội dung binary chỉ như dữ liệu vẫn để lại 15 đề xuất không an toàn trên 40, và kiểm tra nguồn gốc với ủy quyền công cụ loại bỏ chúng. Một nghiên cứu thứ ba theo dõi một agent điều khiển Ghidra qua MCP ([arXiv 2606.06838](https://arxiv.org/abs/2606.06838)). Trong các binary có hàng trăm hàm, chỉ 10 đến 15 phần trăm nhận phân tích thực trước khi agent tạo các stub.
 
-The ledger answers each of these with a record, and the agent reports only what the ledger holds. A claim without an observed run is `unsupported`. A claim with some runs is `unknown`. A provider text is `observed` about the provider and nothing more. Give the agent the skill file in `outputs/` and make the ledger the only place it writes conclusions. That holds for Claude, Cursor, Codex, OpenClaw, Hermes, or any agent that reads SKILL.md.
+Sổ trả lời mỗi điều này bằng một bản ghi, và agent chỉ báo cáo những gì sổ chứa. Một khẳng định không có lần chạy observed là `unsupported`. Một khẳng định có một số lần chạy là `unknown`. Một văn bản provider là `observed` về provider và không gì hơn. Đưa cho agent tệp skill trong `outputs/` và làm sổ thành nơi duy nhất nó viết các kết luận. Điều đó đúng cho Claude, Cursor, Codex, OpenClaw, Hermes hoặc bất kỳ agent nào đọc SKILL.md.
 
 ## Build It
 
-Run the standard-library demo:
+Chạy demo dùng thư viện chuẩn:
 
 ```bash
 cd phases/13-tools-and-protocols/35-evidence-confidence-and-unknowns
 python3 code/main.py
 ```
 
-The demo reads the object, imports the two rea records, verifies the rea snapshot, and derives the two models. It then records 18 predictions, opens 18 unknowns, compiles and runs the harness, checks every claim, and resolves 17 unknowns. Expected shape:
+Demo đọc object, import hai bản ghi rea, xác minh snapshot rea và suy ra hai mô hình. Rồi nó ghi 18 dự đoán, mở 18 điều chưa biết, biên dịch và chạy harness, kiểm tra mọi khẳng định và giải quyết 17 điều chưa biết. Dạng kỳ vọng:
 
 ```json
 {
@@ -324,40 +324,40 @@ The demo reads the object, imports the two rea records, verifies the rea snapsho
 }
 ```
 
-Without a C compiler, `runs` reads `imported 17 recorded run records from run-evidence.json` and the rest is the same.
+Không có một compiler C, `runs` đọc là `imported 17 recorded run records from run-evidence.json` và phần còn lại giống nhau.
 
-Read `code/main.py` in this order:
+Đọc `code/main.py` theo thứ tự này:
 
-1. `canonical_json()` and `compute_evidence_id()` hold the hash recipe and the semantic projection.
-2. `create_evidence()` and `validate_evidence()` build and check a record.
-3. `EvidenceLedger.record()` and `import_bundle()` store records and refuse conflicts.
-4. `open_unknown()`, `update_unknown()`, and `resolve_unknown()` keep the revision chain.
-5. `observe_object()` reads the ELF, and `derive_grade_model()` reads the table.
-6. `claim_suite()`, `predict()`, and `record_prediction()` write the inferred tier.
-7. `observe_runs()` turns each harness run into an observed record.
-8. `check_claim()`, `promote_claim()`, and `completion_ledger()` apply the promotion rules.
-9. `AnswerCache` keys answers like rea's snapshots and refuses stale ones.
+1. `canonical_json()` và `compute_evidence_id()` chứa công thức hash và phép chiếu ngữ nghĩa.
+2. `create_evidence()` và `validate_evidence()` xây dựng và kiểm tra một bản ghi.
+3. `EvidenceLedger.record()` và `import_bundle()` lưu các bản ghi và từ chối xung đột.
+4. `open_unknown()`, `update_unknown()` và `resolve_unknown()` giữ chuỗi revision.
+5. `observe_object()` đọc ELF, và `derive_grade_model()` đọc bảng.
+6. `claim_suite()`, `predict()` và `record_prediction()` ghi tầng inferred.
+7. `observe_runs()` biến mỗi lần chạy harness thành một bản ghi observed.
+8. `check_claim()`, `promote_claim()` và `completion_ledger()` áp dụng các quy tắc nâng cấp.
+9. `AnswerCache` đặt khóa câu trả lời như các snapshot của rea và từ chối những câu trả lời cũ.
 
 ## Use It
 
-Keep one ledger per target and per investigation. Put the target's SHA-256 in every subject and the question's scope digest in every unknown. When you change tools, change the `provider` and let the ids diverge. When you rebuild the fixture, the subject digest changes and every old record becomes evidence about another file.
+Giữ một sổ mỗi mục tiêu và mỗi cuộc điều tra. Đặt SHA-256 của mục tiêu trong mọi subject và scope digest của câu hỏi trong mọi điều chưa biết. Khi bạn thay công cụ, thay `provider` và để các id phân kỳ. Khi bạn dựng lại fixture, digest subject thay đổi và mọi bản ghi cũ trở thành bằng chứng về một tệp khác.
 
-Write limitations at the moment you know them. The reader that applies no relocation says so. The run of a host build says so. The model that infers a divisor says so. A record written without its limitations looks stronger than the facts allow, and a later reader cannot repair that.
+Viết các giới hạn ngay lúc bạn biết chúng. Trình đọc không áp dụng relocation nói vậy. Lần chạy của một bản build host nói vậy. Mô hình suy ra một số chia nói vậy. Một bản ghi viết không có các giới hạn của nó trông mạnh hơn những gì sự kiện cho phép, và người đọc sau không thể sửa điều đó.
 
-Treat every provider text as data. Strings and pseudocode from the target are text that the target controls. They never become instructions, and they never become observations of behaviour. rea 6.5.0 marks such results with `_meta.provenance.untrusted_content: true`. Its server instructions tell the model to treat target content as data and to report any request in it to run, install, download, or send something as a prompt-injection attempt. The marker helps, but your ledger must still keep target text out of the instructions.
+Coi mọi văn bản provider là dữ liệu. Các chuỗi và mã giả từ mục tiêu là văn bản mà mục tiêu kiểm soát. Chúng không bao giờ trở thành chỉ dẫn, và không bao giờ trở thành quan sát hành vi. rea 6.5.0 đánh dấu các kết quả như vậy bằng `_meta.provenance.untrusted_content: true`. Các chỉ dẫn server của nó nói mô hình coi nội dung mục tiêu là dữ liệu và báo cáo mọi yêu cầu trong đó để chạy, cài đặt, tải xuống hoặc gửi thứ gì đó như một nỗ lực prompt injection. Dấu giúp ích, nhưng sổ của bạn vẫn phải giữ văn bản mục tiêu ngoài các chỉ dẫn.
 
 ## Interactive Lab
 
 ### Lab A: recompute a rea id
 
-From the `code` directory, open Python:
+Từ thư mục `code`, mở Python:
 
 ```bash
 cd phases/13-tools-and-protocols/35-evidence-confidence-and-unknowns/code
 python3 -q
 ```
 
-Run:
+Chạy:
 
 ```python
 from main import *
@@ -369,7 +369,7 @@ record["limitations"].pop()
 record["evidence_id"] == compute_evidence_id(record)
 ```
 
-The first two comparisons are true. The path is not in the hash. The third is false, because a limitation is content.
+Hai phép so sánh đầu đúng. Đường dẫn không nằm trong hash. Phép thứ ba sai, vì một giới hạn là nội dung.
 
 ### Lab B: refuse a promotion
 
@@ -379,14 +379,14 @@ claim = [c for c in claim_suite(ledger.find(operation="derive_switch_model")[0],
 promote_claim(ledger, claim, [ledger.find(operation="derive_switch_model")[0]["evidence_id"]])
 ```
 
-The call raises `ClaimError` and names the derived id. Now pass the run id:
+Lần gọi phát sinh `ClaimError` và nêu tên id derived. Giờ truyền id chạy:
 
 ```python
 run = run_records_for(ledger, "grade", [55])[0]
 promote_claim(ledger, claim, [run["evidence_id"]])["status"]
 ```
 
-The status is `pass`, and the returned `limitations` carry the host-build sentence.
+Trạng thái là `pass`, và `limitations` được trả về mang câu về bản build host.
 
 ### Lab C: refuse a stale snapshot
 
@@ -399,7 +399,7 @@ stale = dict(binding["analysis_profile"]["parameters"], jump_table_evidence="typ
 AnswerCache(target, {"provider": binding["provider"], "analysis_profile": make_profile(binding["provider"], stale)}).import_snapshot(snapshot)
 ```
 
-The first import returns 2. The second raises `CacheError` with `profile_mismatch`. One version string changed, and the whole snapshot is refused.
+Lần import đầu trả về 2. Lần thứ hai phát sinh `CacheError` với `profile_mismatch`. Một chuỗi phiên bản thay đổi, và toàn bộ snapshot bị từ chối.
 
 ### Lab D: break the chain
 
@@ -410,52 +410,52 @@ ledger.unknowns[unknown_id][0]["severity"] = "critical"
 ledger.verify_unknown_chain(unknown_id)
 ```
 
-The first call returns 2. The second raises `EvidenceIntegrityError`, because revision 1 no longer matches its own digest and revision 2 points at a digest that no longer exists.
+Lần gọi đầu trả về 2. Lần thứ hai phát sinh `EvidenceIntegrityError`, vì revision 1 không còn khớp digest của chính nó và revision 2 trỏ đến một digest không còn tồn tại.
 
 ## Practice Lab
 
-Close the open unknown and add a second provider.
+Đóng điều chưa biết đang mở và thêm một provider thứ hai.
 
-Requirements:
+Yêu cầu:
 
-- Extend `run_grid()` so the range claim's nine missing inputs run, then confirm the unknown moves to `resolved` at revision 3.
-- Add `llvm-objdump -d` as a second provider with its own `provider` object and record its listing of `grade` as `observed`.
-- Write a `derived` record that states the two listings, Ghidra's and llvm-objdump's, decode the same 14 instructions, and link both.
-- Open an unknown for `grade_label(105)` with severity `high`, since the table index 4 reads `labels[4]`, and resolve it with a run.
-- Export the ledger with `export_bundle()`, import it into a fresh ledger, and prove every chain still verifies.
+- Mở rộng `run_grid()` để chín đầu vào thiếu của khẳng định phạm vi được chạy, rồi xác nhận điều chưa biết chuyển sang `resolved` ở revision 3.
+- Thêm `llvm-objdump -d` làm một provider thứ hai với đối tượng `provider` riêng và ghi danh sách `grade` của nó là `observed`.
+- Viết một bản ghi `derived` nêu rằng hai danh sách, của Ghidra và llvm-objdump, giải mã cùng 14 chỉ lệnh, và liên kết cả hai.
+- Mở một điều chưa biết cho `grade_label(105)` với mức nghiêm trọng `high`, vì chỉ số bảng 4 đọc `labels[4]`, và giải quyết nó bằng một lần chạy.
+- Xuất sổ bằng `export_bundle()`, import nó vào một sổ mới và chứng minh mọi chuỗi vẫn xác minh được.
 
-Success means a report in which every sentence cites an id from the bundle and the one `unknown` claim is gone.
+Thành công nghĩa là một báo cáo trong đó mỗi câu trích một id từ gói và một khẳng định `unknown` đã biến mất.
 
 ## Graded Lab
 
-Five questions about the fixtures of this lesson. Find each answer with the code you built, then write it into `code/lab_answers.json`. Write numbers as numbers or as hex strings such as `"0x40"`, and lists as JSON lists.
+Năm câu hỏi về các fixture của bài học này. Tìm mỗi câu trả lời bằng mã bạn đã xây dựng, rồi ghi nó vào `code/lab_answers.json`. Viết số dưới dạng số hoặc chuỗi hex chẳng hạn `"0x40"`, và danh sách dưới dạng danh sách JSON.
 
-1. `t1`: the evidence id that compute_evidence_id gives for rea-evidence-grade.json.
-2. `t2`: the number of limitations in the grade record.
-3. `t3`: the relationship_coverage status of the grade record.
-4. `t4`: the confidence and the authority of the grade record, as a list of two strings.
-5. `t5`: the SHA-256 of the subject of the grade record.
+1. `t1`: evidence id mà compute_evidence_id cho rea-evidence-grade.json.
+2. `t2`: số giới hạn trong bản ghi grade.
+3. `t3`: trạng thái relationship_coverage của bản ghi grade.
+4. `t4`: confidence và authority của bản ghi grade, dưới dạng một danh sách hai chuỗi.
+5. `t5`: SHA-256 của subject của bản ghi grade.
 
-Check your answers:
+Kiểm tra các câu trả lời của bạn:
 
 ```bash
 cd phases/13-tools-and-protocols/35-evidence-confidence-and-unknowns
 python3 code/lab.py
 ```
 
-The checker computes each expected value from `code/main.py` on the committed fixtures. It prints `PASS`, `FAIL` or `TODO` for each task and a score, and it exits 0 only when all five pass. `python3 code/lab.py my-answers.json` checks another file. `code/tests/test_lab.py` proves that the checker accepts the right answers and rejects a wrong one.
+Bộ kiểm tra tính mỗi giá trị kỳ vọng từ `code/main.py` trên các fixture đã commit. Nó in `PASS`, `FAIL` hoặc `TODO` cho mỗi tác vụ và một điểm số, và nó chỉ thoát 0 khi cả năm qua. `python3 code/lab.py my-answers.json` kiểm tra một tệp khác. `code/tests/test_lab.py` chứng minh rằng bộ kiểm tra chấp nhận các câu trả lời đúng và từ chối một câu sai.
 
 ### See it run
 
-The [Inside a Decompiler](https://aiengineeringfromscratch.com/inside-a-decompiler?symbols=off) machine keeps an evidence ledger with four trays: observed, derived, inferred and unknown. This link opens the run with the symbol table switched off, so the name and the end of the function file as unknowns and the start files as inferred.
+Máy [Inside a Decompiler](https://aiengineeringfromscratch.com/inside-a-decompiler?symbols=off) giữ một sổ bằng chứng với bốn khay: observed, derived, inferred và unknown. Liên kết này mở lần chạy với bảng symbol tắt, nên tên và cuối hàm được xếp như các điều chưa biết và điểm bắt đầu được xếp là inferred.
 
 ## Lesson Artifact
 
-This lesson produces `outputs/skill-evidence-ledger.md`. It tells an agent how to write every finding as a record with confidence, authority, limitations, and links. It tells the agent how to keep unknowns as revisions, and when a claim is `pass`, `fail`, `unknown`, or `unsupported`.
+Bài học này tạo ra `outputs/skill-evidence-ledger.md`. Nó nói một agent cách viết mọi phát hiện dưới dạng một bản ghi với độ tin cậy, thẩm quyền, giới hạn và liên kết. Nó nói agent cách giữ các điều chưa biết dưới dạng revision, và khi nào một khẳng định là `pass`, `fail`, `unknown` hoặc `unsupported`.
 
 ## Verify It
 
-Run the demo and the deterministic suite:
+Chạy demo và bộ kiểm tra tất định:
 
 ```bash
 cd phases/13-tools-and-protocols/35-evidence-confidence-and-unknowns
@@ -463,42 +463,42 @@ python3 code/main.py
 python3 -m unittest discover -s code/tests -v
 ```
 
-The 28 tests prove:
+28 bài kiểm tra chứng minh:
 
-- both rea `evidence_id` values, the profile digest, and both snapshot `query_id` values recompute from content
-- a changed path keeps the id and a changed limitation changes it
-- a tampered record, a mismatched profile provider, a float, and an unknown enum value are rejected
-- a duplicate record returns `duplicate`, a conflicting record raises, and a bundle import is atomic
-- the recorded run bundle imports with 18 records and no dangling links
-- an unknown opens at revision 1, refuses a stale `expected_revision`, and resolves only with observed `controlled-replay` evidence
-- an edited revision breaks the chain
-- promotion refuses inferred, derived, empty, and unrelated evidence, and passes with an agreeing run
-- partial coverage is `unknown` and a disagreeing run is `fail`
-- the cache hits on the exact key and misses on other parameters
-- the cache refuses a bumped profile version, a wrong target, a wrong format version, and a tampered key
-- the ELF reader agrees with `llvm-objdump` on offsets, sizes, bytes, and relocations, and the table reads `1, 2, 3, 4, 4`
-- the predictions use C division, and the recorded runs agree with all 17 single-input claims
-- with a compiler present, the live runs agree too
+- cả hai giá trị `evidence_id` của rea, digest profile và cả hai giá trị `query_id` snapshot được tính lại từ nội dung
+- một đường dẫn thay đổi giữ id và một giới hạn thay đổi làm nó thay đổi
+- một bản ghi bị sửa, một provider profile không khớp, một float và một giá trị enum không biết bị từ chối
+- một bản ghi trùng lặp trả về `duplicate`, một bản ghi xung đột phát sinh ngoại lệ và một lần import gói là nguyên tử
+- gói chạy đã ghi import với 18 bản ghi và không có liên kết treo
+- một điều chưa biết mở ở revision 1, từ chối một `expected_revision` cũ và chỉ được giải quyết bằng bằng chứng `controlled-replay` observed
+- một revision được chỉnh sửa phá chuỗi
+- việc nâng cấp từ chối bằng chứng inferred, derived, rỗng và không liên quan, và qua với một lần chạy đồng nhất
+- độ bao phủ một phần là `unknown` và một lần chạy bất đồng là `fail`
+- cache hit trên khóa chính xác và miss trên các tham số khác
+- cache từ chối một phiên bản profile được tăng, một mục tiêu sai, một phiên bản định dạng sai và một khóa bị sửa
+- trình đọc ELF đồng nhất với `llvm-objdump` về offset, kích thước, byte và relocation, và bảng đọc ra `1, 2, 3, 4, 4`
+- các dự đoán sử dụng phép chia C, và các lần chạy đã ghi đồng nhất với cả 17 khẳng định đầu vào đơn
+- khi có compiler, các lần chạy trực tiếp cũng đồng nhất
 
 ## Production Failure Modes
 
-| Failure | What the weak report says | What the ledger requires |
+| Lỗi | Báo cáo yếu nói gì | Sổ yêu cầu gì |
 |---|---|---|
-| Pseudocode read as behaviour | "grade returns 0 for failing scores" | an `execute_function` record for that input, or `unsupported` |
-| Decompiler signature trusted | "percent_change returns 16 bytes" | the signature marked as the provider's inference with its `low` confidence |
-| Empty list read as absence | "the function has no callers" | an `unknown` status, or a coverage field when the tool provides one |
-| Path hashed into the id | "the record changed" after a copy | the semantic projection without `name` and `local_path` |
-| Limitation dropped from a copy | a record that looks stronger than the source | id mismatch and rejection on import |
-| Partial grid rounded up | "all scores from 90 pass" | `unknown` with `covered` 2 of 11 |
-| Host run presented as the object's run | "the x86-64 object returned 25" | the host-build limitation carried on the claim |
-| Unknown closed by a sentence | "resolved, see above" | a `verified` resolution with observed ids of the required authority |
-| Stale revision overwritten | two analysts' edits collide | `revision-conflict` and a reread |
-| Old snapshot replayed after a release | answers from a changed contract | `profile_mismatch` on import |
-| Cache kept after a rename | a replay that hides a metadata write | invalidation before dispatch and a failed export |
+| Mã giả được đọc như hành vi | "grade trả về 0 cho các điểm trượt" | một bản ghi `execute_function` cho đầu vào đó, hoặc `unsupported` |
+| Tin chữ ký decompiler | "percent_change trả về 16 byte" | chữ ký được đánh dấu là suy luận của provider với độ tin cậy `low` của nó |
+| Danh sách rỗng được đọc là vắng mặt | "hàm không có caller" | một trạng thái `unknown`, hoặc một trường bao phủ khi công cụ cung cấp |
+| Đường dẫn được hash vào id | "bản ghi đã thay đổi" sau một lần sao chép | phép chiếu ngữ nghĩa không có `name` và `local_path` |
+| Giới hạn bị bỏ khỏi một bản sao | một bản ghi trông mạnh hơn nguồn | id không khớp và bị từ chối khi import |
+| Lưới một phần được làm tròn lên | "mọi điểm từ 90 qua" | `unknown` với `covered` 2 trên 11 |
+| Lần chạy host được trình bày như lần chạy object | "object x86-64 trả về 25" | giới hạn bản build host được mang theo khẳng định |
+| Điều chưa biết được đóng bằng một câu | "đã giải quyết, xem ở trên" | một resolution `verified` với các id observed có thẩm quyền được yêu cầu |
+| Revision cũ bị ghi đè | chỉnh sửa của hai nhà phân tích xung đột | `revision-conflict` và đọc lại |
+| Snapshot cũ được phát lại sau một bản phát hành | các câu trả lời từ một hợp đồng đã thay đổi | `profile_mismatch` khi import |
+| Cache được giữ sau một lần đổi tên | một lần phát lại che giấu một lần ghi metadata | vô hiệu hóa trước khi phân phối và một lần xuất thất bại |
 
 ## Operational Rule
 
-Record what you read, what you computed, and what you expect as three kinds of record with three words. Close an unknown with an id, never with a sentence. Replay an answer only under the exact key it was stored with, and refuse it when one version string differs.
+Ghi điều bạn đọc, điều bạn tính và điều bạn kỳ vọng như ba loại bản ghi với ba từ. Đóng một điều chưa biết bằng một id, không bao giờ bằng một câu. Chỉ phát lại một câu trả lời dưới đúng khóa mà nó được lưu cùng, và từ chối nó khi một chuỗi phiên bản khác.
 
 ## Further Reading
 
@@ -509,4 +509,4 @@ Record what you read, what you computed, and what you expect as three kinds of r
 - [When Binaries Talk Back: Representation-Confusion Attacks on LLM-Assisted Reverse Engineering, arXiv 2607.12507](https://arxiv.org/abs/2607.12507)
 - [Agentic decompilation study, arXiv 2606.06838](https://arxiv.org/abs/2606.06838)
 - [When LLM Decompilers Recompile More and Preserve Less, arXiv 2609.05370](https://arxiv.org/abs/2609.05370)
-- rea 6.5.0 source at tag `3b79af2` that this lesson describes: `src/domain/evidence.ts`, `.agents/skills/reverse-engineer-anything/SKILL.md`, `docs/cli.md`, `src/domain/reconstructionVerification.ts`, `src/application/ReconstructionObligationCandidates.ts`, `docs/tool-design.md`, `src/domain/evidenceCompletionLedger.ts`, `src/domain/residualUnknown.ts`, `src/application/investigation/UnknownEvidence.ts`, `.agents/skills/reverse-engineer-anything/references/evidence-workflows.md`, `src/application/binary/AnalysisSnapshotCache.ts`, `src/domain/analysisSnapshot.ts`, `src/application/binary/BinarySession.ts`, `src/application/binary/BinarySessionRecords.ts`, `docs/mcp-contracts.md`.
+- Nguồn rea 6.5.0 tại tag `3b79af2` mà bài học này mô tả: `src/domain/evidence.ts`, `.agents/skills/reverse-engineer-anything/SKILL.md`, `docs/cli.md`, `src/domain/reconstructionVerification.ts`, `src/application/ReconstructionObligationCandidates.ts`, `docs/tool-design.md`, `src/domain/evidenceCompletionLedger.ts`, `src/domain/residualUnknown.ts`, `src/application/investigation/UnknownEvidence.ts`, `.agents/skills/reverse-engineer-anything/references/evidence-workflows.md`, `src/application/binary/AnalysisSnapshotCache.ts`, `src/domain/analysisSnapshot.ts`, `src/application/binary/BinarySession.ts`, `src/application/binary/BinarySessionRecords.ts`, `docs/mcp-contracts.md`.

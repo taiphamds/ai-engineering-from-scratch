@@ -128,7 +128,7 @@ mm-agent-loop
 
 `code/main.py` là khung bài tổng kết:
 
-- Định nghĩa JSON lược đồ hành động (10 hành động).
+- Định nghĩa schema hành động JSON (10 hành động: chín hành động được liệt kê ở trên cộng `screenshot_region`, một công cụ cắt + phóng to).
 - Trạng thái trình duyệt giả lập dưới dạng dict.
 - Khung vòng lặp agent: nhận trạng thái, phát hành động, áp dụng, lặp.
 - Benchmark nhỏ 10 tác vụ (trang tổng hợp) để đo tỷ lệ thành công đầu cuối.
@@ -140,7 +140,7 @@ Bài học này tạo ra `outputs/skill-multimodal-agent-designer.md`. Với s�
 
 ## Exercises
 
-1. Mở rộng lược đồ hành động với công cụ `screenshot_region` (cắt + phóng to). Tác vụ nào được lợi?
+1. Schema của mã thêm một công cụ `screenshot_region` (cắt + phóng to) vào chín hành động cốt lõi. Những tác vụ nào được hưởng lợi?
 
 2. Đọc AgentVista (arXiv:2602.23166). Mô tả nhóm tác vụ khó nhất và tại sao mô hình tiên tiến nhất vẫn thất bại.
 

@@ -8,7 +8,7 @@ hữu ích để duyệt. Các lộ trình tập trung bên dưới là thứ t�
 
 ## Start this phase on GitHub
 
-**Prerequisites:** Các API hoàn thành LLM của Giai đoạn 11. Với MCP hoặc Agent Skills, sử dụng
+**Prerequisites:** Phase 11 LLM completion APIs. For MCP or Agent Skills, use
 lộ trình tập trung bên dưới thay vì cho rằng thứ tự bài học theo số là thứ tự học.
 
 **Bài học đầu tiên của toàn bộ giai đoạn:** [Giao diện công cụ](01-the-tool-interface/)
@@ -133,6 +133,29 @@ Bài thực hành đầu tiên của nó đưa một skill vào một host thự
 - [Bài 23](23-capstone-tool-ecosystem/) là một đồ án tổng kết hệ thống tùy chọn,
   không phải bài học Agent Skills tiếp theo sau 22. Hoàn thành các bài học từ 06 đến 20
   trước khi thực hiện nó.
+
+## Reverse engineering path
+
+Mười bốn bài học dạy cách đọc một chương trình đã biên dịch mà bạn tự xây dựng. Các Bài 32 đến 36 xây dựng pipeline cốt lõi: bạn phân tích tệp, giải mã các lệnh của nó, nâng chúng thành mã giả, ghi lại những gì bạn biết dưới dạng bằng chứng và chứng minh một hàm được xây dựng lại bằng hàm gốc. Các Bài 37 đến 45 dạy lĩnh vực xung quanh pipeline đó: lịch sử và các công cụ chính, quy ước gọi, thành ngữ của trình biên dịch, liên kết và các tệp nhị phân đã loại bỏ ký hiệu, khôi phục kiểu, gỡ lỗi, định dạng bytecode, so sánh nhị phân và thực thi ký hiệu, cùng phân tích có AI hỗ trợ. Mỗi bài học chạy các công cụ thực trên cùng các fixture. Tài liệu hướng dẫn đi kèm, [Reverse Engineering 101](../../manuals/reverse-engineering-101/), chạy cùng fixture qua rea 6.7.0 và Ghidra 12.1.4.
+
+| Bài học | Những gì bạn xây dựng | Thời gian |
+|---|---|---|
+| [32](32-program-anatomy-elf-from-scratch/) | Một trình đọc ELF: header, section, symbol, relocation | 2 giờ |
+| [33](33-disassembly-and-control-flow/) | Một bộ giải mã x86-64, quét tuyến tính, duyệt đệ quy và một đồ thị luồng điều khiển | 2 giờ 30 phút |
+| [34](34-lifting-to-pseudocode/) | Một bộ nâng từ các lệnh sang mã giả có cấu trúc | 2 giờ 30 phút |
+| [35](35-evidence-confidence-and-unknowns/) | Một sổ bằng chứng với độ tin cậy, giới hạn và những điều chưa biết | 1 giờ 45 phút |
+| [36](36-rebuild-and-prove-equal/) | Một harness kiểm thử vi sai và một phép so sánh byte che các relocation | 1 giờ 50 phút |
+| [37](37-the-reverse-engineering-landscape/) | Một harness so sánh trên năm công cụ, với một dòng thời gian lịch sử và bốn IR | 2 giờ 30 phút |
+| [38](38-calling-conventions-and-stack-frames/) | Một bộ phân tích quy ước gọi cho System V, Windows x64 và AArch64 | 2 giờ 20 phút |
+| [39](39-compiler-idioms-and-optimization/) | Một bộ nhận diện thành ngữ giải mã phép chia, switch, vòng lặp và select | 2 giờ 30 phút |
+| [40](40-linking-loading-and-stripped-binaries/) | Các trình đọc PE, fixup Mach-O và liên kết ELF, cùng một bộ tìm hàm cho các bản build đã loại bỏ ký hiệu | 2 giờ 40 phút |
+| [41](41-recovering-data-and-types/) | Một lượt khôi phục kiểu struct và C++ được đối chiếu với một trình đọc DWARF | 2 giờ 20 phút |
+| [42](42-dynamic-analysis-of-your-own-program/) | Một harness lldb xác nhận hoặc bác bỏ các khẳng định tĩnh | 2 giờ 10 phút |
+| [43](43-bytecode-and-managed-formats/) | Các trình đọc cho .pyc, lớp JVM, .NET CIL và WebAssembly | 2 giờ 30 phút |
+| [44](44-binary-diffing-and-symbolic-execution/) | Một bộ so sánh hàm và một bộ thực thi ký hiệu nhỏ | 2 giờ 30 phút |
+| [45](45-ai-assisted-reverse-engineering/) | Một bảng điểm chuẩn cho các bản tái dựng và báo cáo phân tích của AI | 2 giờ 20 phút |
+
+Mọi mục tiêu trong lộ trình này là một chương trình bạn đã viết và biên dịch. Bài 32 bắt đầu với luật và các quy tắc ủy quyền. Để theo lộ trình với một gia sư ghi lại tiến độ của bạn, chạy skill `learn-reverse-engineering`. Thứ tự và các điểm kiểm tra của nó nằm trong [manifest Reverse Engineering](../../learning-paths/reverse-engineering.json).
 
 ## Full phase
 

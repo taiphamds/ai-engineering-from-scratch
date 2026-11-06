@@ -210,10 +210,10 @@ Thử nó:
 
 ```python
 print(pre_tokenize("Hello, world! Don't stop."))
-# [' Hello', ',', ' world', '!', " Don", "'t", ' stop', '.']
+# ['Hello', ',', ' world', '!', ' Don', "'t", ' stop', '.']
 ```
 
-Khoảng trắng đầu vẫn gắn với từ. Các dạng rút gọn tách ở dấu nháy đơn. Dấu câu thành khối riêng. BPE sẽ không bao giờ gộp token xuyên các ranh giới này.
+Dấu cách đứng đầu vẫn gắn với từ theo sau nó. Từ đầu tiên không có dấu cách trước nó, vì vậy phần của nó là `Hello`. Các dạng rút gọn tách tại dấu nháy đơn. Dấu câu trở thành một phần riêng. BPE sẽ không bao giờ gộp các token qua những ranh giới này.
 
 ### Step 3: BPE on Byte Sequences
 

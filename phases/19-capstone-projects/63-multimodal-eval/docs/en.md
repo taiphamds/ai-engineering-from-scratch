@@ -49,15 +49,14 @@ Với mỗi (ảnh, câu hỏi, đáp án), mã hóa ảnh, nhúng câu hỏi, h
 
 ### BLEU-4
 
-```text
-BLEU-4 = BP * exp(mean(log p1, log p2, log p3, log p4))
+```math
+\text{BLEU-4} = \text{BP} \cdot \exp\big(\text{mean}(\log p_1, \log p_2, \log p_3, \log p_4)\big)
 ```
 
 Trong đó `p_n` là precision n-gram sửa đổi (số đếm bị cắt của các n-gram được sinh xuất hiện trong bất kỳ tham chiếu nào, chia cho tổng n-gram được sinh), và `BP` là hình phạt ngắn:
 
-```text
-BP = 1                if generated length > reference length
-   = exp(1 - r/g)     otherwise, where r is reference length and g is generated
+```math
+\text{BP} = \begin{cases} 1 & \text{if generated length} > \text{reference length} \\ \exp(1 - r/g) & \text{otherwise, where } r \text{ is reference length and } g \text{ is generated} \end{cases}
 ```
 
 Làm mượt cần thiết cho các mẫu nhỏ nơi một số `p_n` bằng không. Triển khai dùng "phương pháp 1" của Chen và Cherry (thêm 1 vào tử và mẫu cho bất kỳ số đếm không nào), là mặc định an toàn nhất cho các chế độ số đếm thấp.
@@ -109,7 +108,7 @@ python3 code/main.py
 
 Mỗi chỉ số ánh xạ trực tiếp lên một benchmark sản xuất:
 
-- **Truy xuất.** MS-COCO 5K val, Flickr30K, ImageNet zero-shot đều là các bài toán R@K trên cùng ma trận tương tự. Thay đánh giá tổng hợp bằng các file thực và chữ ký hàm không đổi.
+- **Truy xuất.** MS-COCO 5K val và Flickr30K là các bài toán R@K trên cùng một ma trận độ tương đồng. ImageNet zero-shot cũng sử dụng ma trận đó, với một prompt embedding mỗi lớp, nhưng nó báo cáo độ chính xác phân loại top-1, tức R@1 trên các prompt lớp. Thay đánh giá tổng hợp bằng các tệp thật và chữ ký hàm không thay đổi.
 - **VQA.** VQA v2, GQA, OK-VQA dùng cùng hình thức khớp chính xác (với độ chính xác mềm thay EM một đáp án cho VQA v2).
 - **BLEU-4.** Chú thích MS-COCO, NoCaps, chú thích Flickr30K đều dùng BLEU-4 cùng CIDEr và METEOR. Thêm CIDEr là thêm một hàm.
 
@@ -142,7 +141,7 @@ python3 -m unittest code/test_main.py
 
 4. Tính thứ hạng nghịch đảo trung bình (MRR) cạnh R@K. MRR nhạy với vị trí mục đúng nằm ngoài top K; R@K nhạy với việc nó có nằm trong top K không.
 
-5. Chạy đánh giá trên mô hình ở năm checkpoint trong huấn luyện (bước 0, 10, 20, 30, 40, 50) và vẽ đường cong học. Xác nhận các quỹ đạo chỉ số theo quỹ đạo mất mát.
+5. Chạy đánh giá trên mô hình ở sáu checkpoint trong huấn luyện (bước 0, 10, 20, 30, 40, 50) và vẽ đường cong học. Xác nhận các quỹ đạo chỉ số theo sát quỹ đạo hàm mất mát.
 
 ## Key Terms
 

@@ -97,7 +97,7 @@ Các transformer đầu dùng post-LN (`x = LN(x + sublayer(x))`) và khó huấ
 
 - Patch 16x16 -> 196 token, tiêu chuẩn.
 - Patch 32x32 -> 49 token, nhanh hơn nhưng độ phân giải thấp hơn.
-- Patch 8x8 -> 784 token, mịn hơn nhưng chi phí attention O(n^2) mở rộng kém.
+- Patch 8x8 -> 784 token, mịn hơn nhưng chi phí attention $O(n^2)$ mở rộng kém.
 
 Patch lớn hơn = ít token hơn = nhanh hơn nhưng ít chi tiết không gian hơn. SwinV2 sử dụng patch 4x4 trong các cửa sổ phân cấp.
 

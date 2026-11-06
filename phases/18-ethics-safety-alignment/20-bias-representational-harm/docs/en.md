@@ -12,7 +12,7 @@
 - Định nghĩa tổn hại biểu đạt so với phân bổ và cho một ví dụ mỗi loại trong triển khai LLM.
 - Nêu ba nhóm chỉ số đánh giá từ Gallegos và cộng sự 2024 và mô tả một chỉ số mỗi nhóm.
 - Mô tả tính giao thoa và tại sao phép đo công bằng dựa trên bất định WinoIdentity giải quyết khoảng trống đánh giá thiên lệch một trục.
-- Mô tả hai cách tiếp cận khả năng diễn giải cơ chế đối với thiên lệch (neuron giới, đặc trưng SAE, thao tác đầu attention).
+- Mô tả ba cách tiếp cận mechanistic interpretability đối với thiên lệch (neuron giới tính, đặc trưng SAE, thao tác attention-head).
 
 ## The Problem
 

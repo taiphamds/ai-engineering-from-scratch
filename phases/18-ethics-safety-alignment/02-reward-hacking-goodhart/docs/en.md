@@ -26,14 +26,16 @@ Gao, Schulman, Hilton (2023) đo trực tiếp điều này. Huấn luyện mô 
 
 Phát biểu ban đầu của Goodhart: "Khi một thước đo trở thành mục tiêu, nó không còn là thước đo tốt." Manheim và Garrabrant (2018) phân biệt bốn biến thể: hồi quy (mẫu hữu hạn), cực trị (đuôi), nhân quả (đại diện nằm sau mục tiêu), và đối kháng (agent lách luật). Với RLHF, cực trị + đối kháng là các dạng chi phối.
 
-Gao và cộng sự đưa ra một dạng hàm. Gọi `d = sqrt(KL(pi || pi_init))`. Gọi `R_proxy(d)` là phần thưởng đại diện trung bình và `R_gold(d)` là phần thưởng chuẩn trung bình. Theo thực nghiệm:
+Gao và cộng sự đưa ra một dạng hàm cho phần thưởng chuẩn. Đặt `d = sqrt(KL(pi || pi_init))` và để `R_gold(d)` là phần thưởng chuẩn trung bình. Theo thực nghiệm:
 
-```
-R_proxy(d) = alpha * d - beta_proxy * d^2
-R_gold(d)  = alpha * d - beta_gold  * d^2
+```math
+\begin{aligned}
+R_{\text{gold}}^{\text{BoN}}(d) &= d\,(\alpha_{\text{BoN}} - \beta_{\text{BoN}}\, d) \\
+R_{\text{gold}}^{\text{RL}}(d) &= d\,(\alpha_{\text{RL}} - \beta_{\text{RL}} \log d)
+\end{aligned}
 ```
 
-với `beta_gold > beta_proxy`. Cả hai tăng từ KL bằng không, cả hai đạt đỉnh, đỉnh chuẩn gần gốc hơn. Ở `d` lớn, chuẩn giảm dưới đường cơ sở ngay cả khi đại diện tiếp tục tăng. Khoảng cách đại diện-chuẩn có cùng dấu hiệu trên lấy mẫu BoN, PPO và SFT-to-best.
+Cả hai dạng tăng từ KL bằng không, đạt đỉnh rồi giảm. Điểm proxy không có phép khớp rõ ràng trong bài báo; nó tiếp tục tăng, gần tuyến tính theo `d` ở KL lớn. Vì vậy ở `d` lớn, phần thưởng chuẩn giảm xuống dưới đường cơ sở ngay cả khi proxy tiếp tục tăng. Khoảng cách proxy-chuẩn có cùng dấu hiệu với lấy mẫu best-of-n và với RL.
 
 Đây là "đường cong quá tối ưu hóa." Nó không phải lỗi trong một mô hình phần thưởng cụ thể. Nó là hình dạng của vấn đề.
 
@@ -87,7 +89,7 @@ Bài học này tạo ra `outputs/skill-reward-hack-auditor.md`. Với mô hình
 
 2. Sửa phân phối nhiễu từ Gaussian sang Student-t với bậc tự do thấp (đuôi nặng). Giữ nguyên thiết lập huấn luyện RM đại diện. Vị trí đỉnh và sụp đổ sau đỉnh thay đổi thế nào?
 
-3. Đọc Hình 1 của Gao và cộng sự (ICML 2023). Bài báo đề xuất dạng hàm cho khoảng cách đại diện-chuẩn. Khớp nó với đường cong mô phỏng từ Bài tập 1 và so sánh tham số.
+3. Đọc Hình 1 của Gao và cộng sự (ICML 2023). Bài báo đề xuất một dạng hàm cho phần thưởng chuẩn theo `d`. Khớp nó với các đường cong mô phỏng của bạn từ Bài tập 1 và so sánh các tham số.
 
 4. Lấy một bài báo RLHF gần đây khẳng định đã "giải quyết" khai thác phần thưởng (cụm từ là dấu hiệu cảnh báo). Xác định lớp ngụy trang nào trong bốn lớp được bài báo kiểm thử và lớp nào không.
 

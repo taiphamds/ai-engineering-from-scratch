@@ -75,8 +75,8 @@ Mỗi nơ-ron làm ba việc:
 
 Hiện tại, kích hoạt là sigmoid:
 
-```
-sigmoid(z) = 1 / (1 + e^(-z))
+```math
+\text{sigmoid}(z) = \frac{1}{1 + e^{-z}}
 ```
 
 Sigmoid ép bất kỳ số nào vào khoảng (0, 1). Các đầu vào dương lớn đẩy về phía 1. Các đầu vào âm lớn đẩy về phía 0. Số không ánh xạ thành 0.5. Đường cong trơn này là điều khiến việc học trở nên khả thi -- khác với bước cứng của perceptron, sigmoid có gradient ở mọi nơi.
@@ -99,9 +99,11 @@ graph TD
 
 Tại mỗi lớp, ba phép toán xảy ra theo thứ tự:
 
-```
-z = W * input + b       (linear transformation)
-a = sigmoid(z)           (activation)
+```math
+\begin{aligned}
+z &= W \cdot \text{input} + b \quad \text{(linear transformation)} \\
+a &= \text{sigmoid}(z) \quad \text{(activation)}
+\end{aligned}
 ```
 
 Đầu ra của một lớp trở thành đầu vào của lớp tiếp theo. Đó là toàn bộ lượt truyền xuôi.
@@ -112,13 +114,13 @@ Theo dõi kích thước là kỹ năng gỡ lỗi quan trọng nhất trong h�
 
 | Bước | Phép toán | Kích thước | Hình dạng kết quả |
 |------|-----------|------------|-------------|
-| Đầu vào | x | -- | (2,) |
-| Tuyến tính lớp ẩn | W1 * x + b1 | W1: (3, 2), b1: (3,) | (3,) |
-| Kích hoạt lớp ẩn | sigmoid(z1) | -- | (3,) |
-| Tuyến tính đầu ra | W2 * h + b2 | W2: (1, 3), b2: (1,) | (1,) |
-| Kích hoạt đầu ra | sigmoid(z2) | -- | (1,) |
+| Đầu vào | $x$ | -- | (2,) |
+| Tuyến tính lớp ẩn | $W_1 x + b_1$ | $W_1$: (3, 2), $b_1$: (3,) | (3,) |
+| Kích hoạt lớp ẩn | $\text{sigmoid}(z_1)$ | -- | (3,) |
+| Tuyến tính đầu ra | $W_2 h + b_2$ | $W_2$: (1, 3), $b_2$: (1,) | (1,) |
+| Kích hoạt đầu ra | $\text{sigmoid}(z_2)$ | -- | (1,) |
 
-Quy tắc: ma trận trọng số W tại lớp k có hình dạng (neurons_in_layer_k, neurons_in_layer_k_minus_1). Các hàng khớp lớp hiện tại. Các cột khớp lớp trước. Nếu các hình dạng không khớp nhau, bạn có lỗi.
+Quy tắc: ma trận trọng số $W$ tại lớp $k$ có hình dạng (neurons_in_layer_k, neurons_in_layer_k_minus_1). Các hàng khớp lớp hiện tại. Các cột khớp lớp trước. Nếu các hình dạng không khớp nhau, bạn có lỗi.
 
 ### Universal Approximation Theorem
 
@@ -168,7 +170,7 @@ Việc chặn về [-500, 500] ngăn tràn số. `math.exp(500)` lớn nhưng h�
 
 ### Step 2: Layer Class
 
-Phép toán quan trọng nhất trong toàn bộ học sâu là nhân ma trận. Mọi lớp, mọi đầu attention, mọi lượt truyền xuôi -- tất cả đều là các phép nhân ma trận từ trên xuống dưới. Một lớp tuyến tính nhận một vector đầu vào, nhân nó với một ma trận trọng số và cộng một vector bias: y = Wx + b. Một phương trình đó chiếm 90% tính toán trong một mạng nơ-ron.
+Phép toán quan trọng nhất trong toàn bộ học sâu là nhân ma trận. Mọi lớp, mọi đầu attention, mọi lượt truyền xuôi -- tất cả đều là các phép nhân ma trận từ trên xuống dưới. Một lớp tuyến tính nhận một vector đầu vào, nhân nó với một ma trận trọng số và cộng một vector bias: $y = Wx + b$. Một phương trình đó chiếm 90% tính toán trong một mạng nơ-ron.
 
 Một lớp chứa một ma trận trọng số và một vector bias. Phương thức forward của nó nhận một vector đầu vào và trả về đầu ra đã kích hoạt.
 
@@ -204,7 +206,7 @@ Ma trận trọng số có hình dạng (n_neurons, n_inputs). Mỗi hàng là c
 
 ### Step 3: Network Class
 
-Một mạng là một danh sách các lớp. Lượt truyền xuôi nối chúng thành chuỗi: đầu ra của lớp k đưa vào lớp k+1.
+Một mạng là một danh sách các lớp. Lượt truyền xuôi nối chúng thành chuỗi: đầu ra của lớp $k$ đưa vào lớp $k+1$.
 
 ```python
 class Network:
@@ -346,11 +348,11 @@ Sử dụng nó khi bạn cần quyết định bao nhiêu lớp, bao nhiêu nơ
 | Hidden layer (Lớp ẩn) | "Phần giữa" | Bất kỳ lớp nào giữa đầu vào và đầu ra có các giá trị không được quan sát trực tiếp trong dữ liệu |
 | Multi-layer network (Mạng nhiều lớp) | "Một mạng nơ-ron sâu" | Các lớp nơ-ron xếp chồng tuần tự, trong đó đầu ra mỗi lớp đưa vào đầu vào lớp tiếp theo |
 | Activation function (Hàm kích hoạt) | "Tính phi tuyến" | Một hàm được áp dụng sau phép biến đổi tuyến tính đưa các đường cong vào ranh giới quyết định |
-| Sigmoid | "Đường cong chữ S" | sigma(z) = 1/(1+e^(-z)), ép bất kỳ số thực nào về (0,1), trơn và khả vi ở mọi nơi |
-| Weight matrix (Ma trận trọng số) | "Các tham số" | Một ma trận W có hình dạng (current_layer_neurons, previous_layer_neurons) chứa các độ mạnh kết nối có thể học |
+| Sigmoid | "Đường cong chữ S" | $\sigma(z) = 1/(1+e^{-z})$, ép bất kỳ số thực nào về (0,1), trơn và khả vi ở mọi nơi |
+| Weight matrix (Ma trận trọng số) | "Các tham số" | Một ma trận $W$ có hình dạng (current_layer_neurons, previous_layer_neurons) chứa các độ mạnh kết nối có thể học |
 | Bias vector (Vector bias) | "Độ dịch" | Một vector được cộng sau phép nhân ma trận cho phép các nơ-ron kích hoạt ngay cả khi tất cả các đầu vào bằng không |
 | Universal approximation (Xấp xỉ phổ dụng) | "Mạng nơ-ron có thể học bất cứ thứ gì" | Một lớp ẩn duy nhất có đủ nơ-ron có thể xấp xỉ bất kỳ hàm liên tục nào -- nhưng "đủ" có thể nghĩa là hàng tỷ |
-| Linear transformation (Phép biến đổi tuyến tính) | "Bước nhân ma trận" | z = W * x + b, phép tính trước kích hoạt, ánh xạ các đầu vào sang một không gian mới |
+| Linear transformation (Phép biến đổi tuyến tính) | "Bước nhân ma trận" | $z = W x + b$, phép tính trước kích hoạt, ánh xạ các đầu vào sang một không gian mới |
 | Decision boundary (Ranh giới quyết định) | "Nơi bộ phân loại chuyển đổi" | Bề mặt trong không gian đầu vào nơi đầu ra mạng vượt qua ngưỡng phân loại |
 
 ## Further Reading

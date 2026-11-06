@@ -27,7 +27,7 @@ Stdlib cộng numpy là đủ. BLEU là đếm và một phép chặn. ROUGE-L l
 
 ## Tokenisation
 
-Tokenizer là `re.findall(r"\w+", text.lower())`. Chữ thường, các chuỗi chữ-số, bỏ dấu câu. Mọi chỉ số trong bài này dùng chính xác tokenizer này. Trình chạy không được chọn. Nếu bạn đổi tokenizer, bạn đang chạy một benchmark khác.
+Tokenizer là `re.findall(r"\w+", text.lower())`. Chuyển chữ thường, các chuỗi ký tự từ (chữ cái, chữ số và dấu gạch dưới), bỏ mọi thứ khác. Mọi chỉ số trong bài học này sử dụng chính xác tokenizer này. Runner không được chọn. Nếu bạn thay tokenizer, bạn đang chạy một benchmark khác.
 
 ```python
 TOKEN_RE = re.compile(r"\w+", re.UNICODE)
@@ -66,7 +66,7 @@ Với các tác vụ đa đích, chúng ta lấy F1 tốt nhất trên danh sác
 
 ## BLEU-4
 
-BLEU là chỉ số dịch máy chuẩn và nó vẫn xuất hiện trong nghiên cứu tóm tắt. Công thức chúng ta dùng là BLEU-4 ở mức corpus với hình phạt ngắn tiêu chuẩn và làm mượt cộng một trên các số đếm n-gram sửa đổi để một 4-gram thiếu duy nhất không đẩy điểm về không.
+BLEU là chỉ số dịch máy chuẩn và nó vẫn xuất hiện trong công việc tóm tắt. Công thức chúng ta sử dụng là BLEU-4 cấp câu, chấm điểm theo từng cặp dự đoán và tham chiếu, với brevity penalty tiêu chuẩn và làm trơn cộng một trên số đếm n-gram đã sửa đổi để một 4-gram thiếu duy nhất không đẩy điểm về không.
 
 Với mỗi cặp ứng viên-tham chiếu, chúng ta đếm precision n-gram sửa đổi với n bằng 1, 2, 3, 4. Precision sửa đổi cắt số đếm n-gram ứng viên theo số đếm tối đa của n-gram đó trong bất kỳ tham chiếu nào, để một ứng viên không thể thổi phồng bằng cách lặp một cụm. Trung bình nhân trên bốn precision được bọc bằng hình phạt ngắn.
 
@@ -105,11 +105,11 @@ def lcs_length(a, b):
     return int(dp[n, m])
 ```
 
-Bảng numpy khiến triển khai dễ đọc; các danh sách Python thuần cũng sẽ hoạt động. Các tác vụ chọn ROUGE-L trả chi phí O(n m) mỗi tác vụ. Với các độ dài tóm tắt điển hình điều đó giữ dưới một mili giây.
+Bảng numpy khiến triển khai dễ đọc; các danh sách Python thuần cũng sẽ hoạt động. Các tác vụ chọn ROUGE-L trả chi phí $O(n m)$ mỗi tác vụ. Với các độ dài tóm tắt điển hình điều đó giữ dưới một mili giây.
 
 ## Accuracy
 
-Với các tác vụ phân loại đa đích, độ chính xác rút về khớp chính xác với một đích được chuẩn hóa duy nhất. Chúng ta cung cấp nó như một hàm riêng để dispatcher có thể điều phối theo `metric_name` mà không đi qua các so sánh chuỗi bên trong trình chạy.
+Với các tác vụ phân loại, accuracy quy về exact-match: dự đoán được điểm 1 nếu nó khớp bất kỳ mục tiêu đã chuẩn hóa nào trong danh sách. Chúng ta cung cấp nó như một hàm riêng để dispatcher có thể phân phối theo `metric_name` mà không đi qua các so sánh chuỗi bên trong runner.
 
 ## Dispatch contract
 

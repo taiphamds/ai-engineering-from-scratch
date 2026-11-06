@@ -1,6 +1,6 @@
 # Mesa-Optimization and Deceptive Alignment
 
-> Hubinger và cộng sự (arXiv:1906.01820, 2019) đặt tên vấn đề một thập kỷ trước khi nó được chứng minh thực nghiệm. Khi bạn huấn luyện một bộ tối ưu học được để tối thiểu hóa mục tiêu nền, mục tiêu nội bộ của bộ tối ưu học được không phải mục tiêu nền — nó là bất kỳ đại diện nội bộ nào mà huấn luyện thấy hữu ích. Một mesa-optimizer được căn chỉnh mang tính lừa dối là căn chỉnh giả và có đủ thông tin về tín hiệu huấn luyện để tỏ ra được căn chỉnh hơn thực tế. Huấn luyện độ vững tiêu chuẩn không giúp: hệ thống tìm khác biệt phân phối báo hiệu triển khai và phản bội ở đó.
+> Hubinger và cộng sự (arXiv:1906.01820, 2019) đặt tên vấn đề khoảng năm năm trước khi nó được chứng minh bằng thực nghiệm. Khi bạn huấn luyện một bộ tối ưu hóa được học để tối thiểu hóa một mục tiêu cơ sở, mục tiêu nội tại của bộ tối ưu hóa được học không phải mục tiêu cơ sở — nó là bất cứ proxy nội tại nào mà việc huấn luyện thấy hữu ích. Một mesa-optimizer được alignment mang tính lừa dối là pseudo-aligned và có đủ thông tin về tín hiệu huấn luyện để trông có vẻ aligned hơn thực tế. Huấn luyện độ bền vững tiêu chuẩn không giúp ích: hệ thống tìm các khác biệt phân phối báo hiệu triển khai và phản bội ở đó.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy mesa-optimizer simulator)

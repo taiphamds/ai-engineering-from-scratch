@@ -21,7 +21,7 @@ Mỗi thang chú ý đến tất cả các thang trước (theo nhân quả tron
 
 ### VQ-VAE Multi-Scale Tokenizer
 
-VAR cần một **tokenizer rời rạc đa thang**. Với một ảnh x, nó tạo ra một chuỗi các lưới token có độ phân giải cao dần:
+VAR cần một **tokenizer rời rạc đa thang**. Với một ảnh $x$, nó tạo ra một chuỗi các lưới token có độ phân giải cao dần:
 
 ```
 x -> encoder -> latent f
@@ -31,13 +31,13 @@ f -> tokenize at 2x2: token grid z_2 of shape (2, 2)
 f -> tokenize at (H/p)x(W/p): token grid z_K of shape (H/p, W/p)
 ```
 
-Mỗi z_k dùng cùng codebook (kích thước điển hình 4096-16384). Token hóa ở mỗi thang không độc lập — nó được huấn luyện để tổng các phần dư ở mỗi thang tái dựng f:
+Mỗi $z_k$ dùng cùng codebook (kích thước điển hình 4096-16384). Token hóa ở mỗi thang không độc lập — nó được huấn luyện để tổng các phần dư ở mỗi thang tái dựng $f$:
 
-```
-f ≈ upsample(embed(z_1), target_size) + ... + upsample(embed(z_K), target_size)
+```math
+f \approx \mathop{\mathrm{upsample}}(\mathop{\mathrm{embed}}(z_1), \text{target\_size}) + \cdots + \mathop{\mathrm{upsample}}(\mathop{\mathrm{embed}}(z_K), \text{target\_size})
 ```
 
-Đây là một biến thể **VQ phần dư**. Thang k nắm bắt những gì các thang 1..k-1 bỏ sót. Decoder nhận tổng của tất cả embedding thang và tạo ra ảnh.
+Đây là một biến thể **VQ phần dư**. Thang $k$ nắm bắt những gì các thang $1 \ldots k-1$ bỏ sót. Decoder nhận tổng của tất cả embedding thang và tạo ra ảnh.
 
 Tokenizer VQ đa thang được huấn luyện một lần (như VQGAN) rồi đóng băng. Toàn bộ công việc sinh được thực hiện bởi mô hình tự hồi quy ở trên.
 
@@ -50,9 +50,9 @@ Cấu trúc chuỗi đầu vào:
 [START, z_1 tokens, z_2 tokens, z_3 tokens, ..., z_K tokens]
 ```
 
-Embedding vị trí mã hóa cả chỉ số thang và vị trí không gian trong thang. Attention có tính nhân quả theo thứ tự thang: token ở thang k, vị trí (i, j) có thể chú ý đến tất cả token ở các thang 1..k và đến các token ở chính thang k xuất hiện trước theo bất kỳ thứ tự nội thang nào được dùng (VAR dùng attention vị trí cố định không có nhân quả nội thang — tất cả vị trí trong một thang được dự đoán song song).
+Embedding vị trí mã hóa cả chỉ số thang tỷ lệ và vị trí không gian trong thang đó. Attention có tính nhân quả theo thứ tự thang tỷ lệ và theo khối bên trong một thang: token ở thang $k$, vị trí $(i, j)$ có thể chú ý đến mọi token ở các thang $1 \ldots k$, bao gồm mọi vị trí của chính thang $k$. Không có thứ tự trong cùng thang và không có tính nhân quả trong cùng thang, vì vậy mọi vị trí trong một thang được dự đoán song song.
 
-Hàm mất mát huấn luyện: ở mỗi thang k, dự đoán các token z_k với tất cả token của các thang trước. Hàm mất mát cross-entropy trên các mã VQ rời rạc. Cùng cấu trúc như GPT ngoại trừ "chuỗi" giờ có cấu trúc theo thang.
+Hàm mất mát huấn luyện: ở mỗi thang $k$, dự đoán các token $z_k$ với tất cả token của các thang trước. Hàm mất mát cross-entropy trên các mã VQ rời rạc. Cùng cấu trúc như GPT ngoại trừ "chuỗi" giờ có cấu trúc theo thang.
 
 ### Generation
 
@@ -66,7 +66,7 @@ decode: f = sum of embed-and-upsample scales 1..K
 image = VAE_decoder(f)
 ```
 
-Với K = 10 thang, sinh là 10 lượt truyền xuôi transformer. Mỗi lượt tạo ra toàn bộ thang của nó song song — không tự hồi quy theo token trong một thang. Với một ảnh 256x256, đây là khoảng 10 lượt so với 28-50 của DiT.
+Với $K = 10$ thang, sinh là 10 lượt truyền xuôi transformer. Mỗi lượt tạo ra toàn bộ thang của nó song song — không tự hồi quy theo token trong một thang. Với một ảnh 256x256, đây là khoảng 10 lượt so với 28-50 của DiT.
 
 ### Why Next-Scale Wins Over Next-Token
 
@@ -127,7 +127,7 @@ Bài học này tạo ra `outputs/skill-var-tokenizer-designer.md` — một ski
 | Multi-scale VQ tokenizer (Tokenizer VQ đa thang) | "VQ phần dư" | VQ-VAE tạo ra K lưới token có độ phân giải tăng dần, với decoder cộng tất cả các thang |
 | Scale k (Thang k) | "Mức kim tự tháp k" | Một trong K mức độ phân giải, từ 1x1 ở k=1 lên đến (H/p)x(W/p) ở k=K |
 | Parallel-within-scale (Song song trong thang) | "Một lượt truyền xuôi mỗi thang" | Tất cả token ở thang k được dự đoán trong một lượt transformer, không tự hồi quy |
-| Causal-across-scales (Nhân quả xuyên thang) | "Attention theo thứ tự thang" | Token ở thang k có thể chú ý đến toàn bộ các thang 1..k nhưng không đến các thang k+1..K |
+| Causal-across-scales (Nhân quả xuyên thang) | "Attention theo thứ tự thang" | Token ở thang $k$ có thể chú ý đến toàn bộ các thang $1 \ldots k$ nhưng không đến các thang $k+1 \ldots K$ |
 | Residual VQ (VQ phần dư) | "Token hóa cộng" | Các token của mỗi thang mã hóa phần dư do các thang thấp hơn để lại; decoder cộng tất cả embedding thang |
 | VAR scaling law (Quy luật mở rộng VAR) | "Mở rộng GPT ảnh" | FID tuân theo một luật lũy thừa có thể dự đoán theo tính toán, như perplexity của các mô hình ngôn ngữ |
 | HART | "VAR lai + văn bản" | Biến thể VAR có điều kiện bằng văn bản kết hợp giải mã lặp kiểu MaskGIT với cấu trúc thang của VAR |

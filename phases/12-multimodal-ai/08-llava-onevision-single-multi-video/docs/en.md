@@ -1,6 +1,6 @@
 # LLaVA-OneVision: Single-Image, Multi-Image, Video in One Model
 
-> Trước LLaVA-OneVision (Li và cộng sự, tháng 8 năm 2024), thế giới VLM mở có dòng riêng: LLaVA-1.5 cho một ảnh, mô hình nhiều ảnh như Mantis và VILA, mô hình video như Video-LLaVA và Video-LLaMA. Mỗi loại thắng benchmark của mình và thất bại ở loại khác. LLaVA-OneVision lập luận một giáo trình có thể huấn luyện một mô hình thống trị cả ba kịch bản, và hiệu ứng chuyển giao tác vụ tự phát (kỹ năng một ảnh xuất sang video, suy luận nhiều ảnh xuất sang một ảnh) vượt tổng các mô hình chuyên biệt. Công thức đơn giản một cách đánh lừa: ngân sách token thị giác giữ hằng giữa kịch bản, cộng giáo trình rõ ràng đi từ một ảnh sang OneVision (nhiều ảnh) rồi video. Bài học này đọc ngân sách, giáo trình và hành vi tự phát.
+> Trước LLaVA-OneVision (Li và cộng sự, tháng 8 năm 2024), thế giới VLM mở có các dòng dõi riêng: LLaVA-1.5 cho hình ảnh đơn, các mô hình nhiều hình ảnh như Mantis và VILA, các mô hình video như Video-LLaVA và Video-LLaMA. Mỗi mô hình thắng benchmark của nó và thất bại ở các benchmark khác. LLaVA-OneVision lập luận rằng một giáo trình duy nhất có thể huấn luyện một mô hình thống trị cả ba kịch bản, và rằng các hiệu ứng chuyển giao tác vụ nổi lên (kỹ năng hình ảnh đơn được chuyển sang video, suy luận nhiều hình ảnh được chuyển sang hình ảnh đơn) vượt tổng của các mô hình chuyên biệt. Công thức đơn giản đến bất ngờ: một ngân sách token thị giác cân bằng giữa các kịch bản, cộng một giáo trình tường minh chuyển từ hình ảnh đơn sang OneVision (nhiều hình ảnh) rồi sang video. Bài học này đọc ngân sách, giáo trình và các hành vi nổi lên.
 
 **Type:** Build
 **Languages:** Python (stdlib, token budget solver + curriculum planner)
@@ -9,7 +9,7 @@
 
 ## Learning Objectives
 
-- Thiết kế ngân sách token thị giác giữ hằng giữa đầu vào một ảnh, nhiều ảnh và video.
+- Thiết kế một ngân sách token thị giác giữ cân bằng giữa các đầu vào hình ảnh đơn, nhiều hình ảnh và video.
 - Sắp giáo trình huấn luyện chuyển kỹ năng từ một ảnh sang video không quên thảm khốc.
 - Giải thích tại sao một mô hình thắng các mô hình chuyên biệt cùng số tham số khi giáo trình làm đúng.
 - Nêu tên ba năng lực tự phát LLaVA-OneVision báo cáo: suy luận nhiều camera, prompting set-of-mark, tác tử ảnh chụp màn hình iPhone.
@@ -32,13 +32,13 @@ Trước OneVision, câu trả lời mặc định là "huấn luyện một k�
 
 ### The OneVision token budget
 
-LLaVA-OneVision chọn ngân sách token thị giác thống nhất khoảng 3000-4000 token mỗi mẫu, phân bổ khác theo kịch bản:
+LLaVA-OneVision không cố định một số token chính xác duy nhất. Nó cân bằng số token thị giác tối đa cho mỗi mẫu để ba kịch bản nằm trong cùng khoảng, xấp xỉ 6,000 đến 9,000 token, được phân bổ khác nhau theo từng kịch bản:
 
-- Một ảnh: AnyRes-9 (ô 3x3 + ảnh thu nhỏ), mỗi ô ở 384 với 729 patch, pooling song tuyến tính mạnh 2x2 → 182 mỗi ô. Tổng: 9 * 182 + 182 = 1820 token. Hoặc AnyRes-4 ở 729 mỗi ô = 2916 + 729.
-- Nhiều ảnh: mỗi ảnh độ phân giải vừa (384, không chia ô), 729 token không pooling. Ngân sách 6 ảnh → 4374 token.
-- Video: 32 khung ở độ phân giải 384 với pooling song tuyến tính mạnh 3x3 → 81 token mỗi khung. Tổng: 32 * 81 = 2592 token.
+- Hình ảnh đơn: AnyRes-Max-9 (tối đa 9 ô + một khung nhìn cơ sở), mỗi khung nhìn 384x384 cho 729 token từ SigLIP SO400M. Tối đa: 729 * (1 + 9) = 7290 token.
+- Nhiều hình ảnh: mỗi hình ảnh ở 384 không chia ô, 729 token không pooling. Tối đa 12 hình ảnh → 8748 token.
+- Video: tối đa 32 khung hình ở 384 với pooling song tuyến tính 2x2 → 196 token mỗi khung hình. Tổng: 32 * 196 = 6272 token.
 
-Phân bổ giữ tổng token gần hằng. LLM không bao giờ thấy batch làm nổ ngữ cảnh. Encoder tạo hình học khác mỗi kịch bản, nhưng LLM tiêu thụ cùng ngân sách.
+Việc phân bổ giữ các tổng tối đa trong cùng một dải, để không kịch bản nào chi phối ngữ cảnh hoặc gradient. Encoder tạo ra hình học khác nhau cho mỗi kịch bản, nhưng LLM tiêu thụ một ngân sách tương tự. Bộ lập kế hoạch `code/main.py` bên dưới sử dụng một ngân sách đồ chơi nhỏ hơn là 4096 để cho thấy cùng logic cân bằng.
 
 ### The three-stage curriculum
 
@@ -111,18 +111,18 @@ Bài học này tạo `outputs/skill-onevision-budget-planner.md`. Với phân p
 
 4. Bài báo báo benchmark video huấn luyện chỉ 8 khung mỗi mẫu. Có khái quát sang video 30 giây khi suy luận không? Thứ gì hỏng trước — ngân sách token hay suy luận thời gian?
 
-5. Pooling song tuyến tính patch 24x24 xuống 12x12 là giảm 4x mỗi chiều. Triển khai pooling bằng stdlib Python và xác minh trung bình mỗi khối 2x2 khớp đầu ra song tuyến tính.
+5. Pooling song tuyến tính các patch 24x24 thành 12x12 là giảm 2 lần theo mỗi chiều, vì vậy ít hơn 4 lần số token. Triển khai pooling bằng stdlib Python và xác minh trung bình trên mỗi khối 2x2 khớp đầu ra song tuyến tính.
 
 ## Key Terms
 
 | Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| OneVision scenario (Kịch bản OneVision) | "Một ảnh, nhiều ảnh hoặc video" | Một trong ba hình dạng đầu vào VLM thống nhất xử lý; ngân sách giữ hằng giữa chúng |
-| Token budget (Ngân sách token) | "Bao nhiêu token mỗi mẫu" | Tổng token thị giác LLM thấy mỗi mẫu huấn luyện / suy luận, thường 3000-4000 |
+| OneVision scenario (Kịch bản OneVision) | "Hình ảnh đơn, nhiều hình ảnh hoặc video" | Một trong ba dạng đầu vào mà VLM thống nhất xử lý; ngân sách giữ cân bằng giữa chúng |
+| Token budget (Ngân sách token) | "Bao nhiêu token mỗi mẫu" | Tổng token thị giác mà LLM nhìn thấy cho mỗi mẫu huấn luyện / suy luận, tối đa khoảng 6k đến 9k trong LLaVA-OneVision |
 | Curriculum (Giáo trình) | "Thứ tự huấn luyện" | Thứ tự giai đoạn (một ảnh → nhiều ảnh → video) chọn để có chuyển giao tự phát |
 | Bilinear pooling (Pooling song tuyến tính) | "Thu nhỏ token" | Áp dụng nội suy song tuyến tính lên lưới patch (2D) để giảm token nhưng giữ tính cục bộ |
 | Emergent skill (Kỹ năng tự phát) | "Không huấn luyện, vẫn hoạt động" | Năng lực xuất hiện khi suy luận không có dữ liệu huấn luyện khớp, nhờ kết hợp giáo trình |
-| AnyRes-k | "Thiết lập k ô" | k ô con độ phân giải cố định cộng một ảnh thu nhỏ, k điển hình ∈ {4, 9} |
+| AnyRes-k | "Thiết lập k ô" | k ô con có độ phân giải cố định cộng một ảnh thu nhỏ, thường là $k \in \lbrace 4, 9 \rbrace$ |
 | Task transfer (Chuyển giao tác vụ) | "Khái quát xuyên kịch bản" | Kỹ năng học trên một ảnh áp dụng sang video (và ngược lại) qua backbone dùng chung |
 
 ## Further Reading

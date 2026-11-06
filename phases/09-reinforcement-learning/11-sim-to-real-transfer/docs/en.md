@@ -31,7 +31,7 @@ Bạn cần một chính sách *vững trước dịch chuyển phân phối t�
 
 **Thích nghi miền.** Huấn luyện trong mô phỏng, tinh chỉnh với một lượng nhỏ dữ liệu thật. Hai dạng:
 
-- **Real2Sim2Real:** học một bộ mô phỏng phần dư `f(s, a, z) - f_sim(s, a)` bằng các rollout thật, huấn luyện trong mô phỏng được hiệu chỉnh. Thu hẹp khoảng cách mà không cần nhiều dữ liệu thật.
+- **Real2Sim2Real:** học một bộ mô phỏng phần dư $f(s, a, z) - f_{\text{sim}}(s, a)$ bằng các rollout thật, huấn luyện trong mô phỏng được hiệu chỉnh. Thu hẹp khoảng cách mà không cần nhiều dữ liệu thật.
 - **Thích nghi quan sát:** huấn luyện một chính sách ánh xạ quan sát thật → quan sát giống mô phỏng qua một bộ trích xuất đặc trưng được học (ví dụ GAN pixel sang pixel). Bộ điều khiển ở lại trong mô phỏng.
 
 **Học đặc quyền / thầy-trò.** Miki và cộng sự 2022 (robot bốn chân ANYmal). Huấn luyện một *mô hình thầy* trong mô phỏng có quyền truy cập thông tin đặc quyền (ma sát ground truth, độ cao địa hình, độ trôi IMU). Chưng cất một *mô hình trò* chỉ thấy các quan sát cảm biến thật. Mô hình trò học suy ra các đặc trưng đặc quyền từ lịch sử, vững trên các tham số vật lý.
@@ -128,7 +128,7 @@ Refuse to deploy without (a) a zero-shot sim-variant test, (b) a safety shield, 
 
 ## Exercises
 
-1. **Dễ.** Huấn luyện một agent Q-learning trên GridWorld độ trượt cố định (slip=0.0). Đánh giá trên slip ∈ {0.0, 0.1, 0.3, 0.5}. Vẽ lợi tức theo độ trượt.
+1. **Dễ.** Huấn luyện một agent Q-learning trên GridWorld độ trượt cố định (slip=0.0). Đánh giá trên $\text{slip} \in \lbrace 0.0, 0.1, 0.3, 0.5 \rbrace$. Vẽ lợi tức theo độ trượt.
 2. **Trung bình.** Huấn luyện một agent Q-learning DR lấy mẫu `slip ~ Uniform[0, 0.3]`. Đánh giá cùng phép quét. DR mang lại bao nhiêu ở slip=0.5 (ngoài phân phối)?
 3. **Khó.** Triển khai một chương trình học: bắt đầu với slip=0.0, mở rộng phạm vi DR mỗi khi chính sách đạt 90% tối ưu. Đo tổng số bước môi trường để đạt slip=0.3 zero-shot so với một baseline DR cố định.
 

@@ -74,11 +74,13 @@ Các bộ phát hiện hiện đại thường sử dụng FPN với các tập 
 
 Các `tx, ty, tw, th` thô không phải tọa độ hộp; chúng là các mục tiêu hồi quy cần được biến đổi trước khi vẽ:
 
-```
-centre x  = (sigmoid(tx) + cell_x) * stride
-centre y  = (sigmoid(ty) + cell_y) * stride
-width     = anchor_w * exp(tw)
-height    = anchor_h * exp(th)
+```math
+\begin{aligned}
+\text{centre } x &= (\sigma(t_x) + \text{cell}_x) \cdot \text{stride} \\
+\text{centre } y &= (\sigma(t_y) + \text{cell}_y) \cdot \text{stride} \\
+\text{width} &= \text{anchor}_w \cdot \exp(t_w) \\
+\text{height} &= \text{anchor}_h \cdot \exp(t_h)
+\end{aligned}
 ```
 
 `sigmoid` giữ các độ lệch tâm trong ô. `exp` cho phép chiều rộng co giãn tự do từ anchor mà không đổi dấu. `stride` co giãn tọa độ lưới trở lại pixel. Bước giải mã này giống nhau trong mọi phiên bản YOLO từ v2.
@@ -87,11 +89,11 @@ height    = anchor_h * exp(th)
 
 Thước đo tương đồng phổ quát của phát hiện giữa hai hộp:
 
-```
-IoU(A, B) = area(A intersect B) / area(A union B)
+```math
+\mathrm{IoU}(A, B) = \frac{\mathop{\mathrm{area}}(A \cap B)}{\mathop{\mathrm{area}}(A \cup B)}
 ```
 
-IoU = 1 nghĩa là giống hệt; IoU = 0 nghĩa là không chồng lấn. IoU giữa dự đoán và hộp sự thật nền quyết định liệu một dự đoán được tính là dương tính thật không (thường IoU >= 0.5). IoU giữa hai dự đoán là thứ NMS dùng để loại trùng.
+$\mathrm{IoU} = 1$ nghĩa là giống hệt; $\mathrm{IoU} = 0$ nghĩa là không chồng lấn. IoU giữa dự đoán và hộp sự thật nền quyết định liệu một dự đoán được tính là dương tính thật không (thường $\mathrm{IoU} \ge 0.5$). IoU giữa hai dự đoán là thứ NMS dùng để loại trùng.
 
 ### Non-maximum suppression
 
@@ -113,11 +115,13 @@ Ngưỡng điển hình: 0.45 cho phát hiện đối tượng. Các bộ phát 
 
 Mất mát YOLO là ba mất mát cộng với các trọng số:
 
-```
-L = lambda_coord * L_box(pred, target, where obj=1)
-  + lambda_obj   * L_obj(pred, 1,     where obj=1)
-  + lambda_noobj * L_obj(pred, 0,     where obj=0)
-  + lambda_cls   * L_cls(pred, target, where obj=1)
+```math
+\begin{aligned}
+L = {} & \lambda_{\text{coord}} \cdot L_{\text{box}}(\text{pred}, \text{target}, \text{where obj}=1) \\
++ {} & \lambda_{\text{obj}} \cdot L_{\text{obj}}(\text{pred}, 1, \text{where obj}=1) \\
++ {} & \lambda_{\text{noobj}} \cdot L_{\text{obj}}(\text{pred}, 0, \text{where obj}=0) \\
++ {} & \lambda_{\text{cls}} \cdot L_{\text{cls}}(\text{pred}, \text{target}, \text{where obj}=1)
+\end{aligned}
 ```
 
 Chỉ các ô chứa một đối tượng đóng góp vào các mất mát hồi quy hộp và phân loại. Các ô không có đối tượng chỉ đóng góp vào mất mát objectness (dạy mô hình im lặng). `lambda_noobj` thường nhỏ (~0.5) vì đại đa số ô trống và nếu không sẽ chi phối tổng mất mát.
@@ -199,8 +203,10 @@ def encode(box_xyxy, cell_x, cell_y, stride, anchor_wh):
     cy = 0.5 * (y1 + y2)
     w = x2 - x1
     h = y2 - y1
-    tx = cx / stride - cell_x
-    ty = cy / stride - cell_y
+    off_x = np.clip(cx / stride - cell_x, 1e-6, 1 - 1e-6)
+    off_y = np.clip(cy / stride - cell_y, 1e-6, 1 - 1e-6)
+    tx = np.log(off_x / (1 - off_x))
+    ty = np.log(off_y / (1 - off_y))
     tw = np.log(w / anchor_wh[0] + 1e-8)
     th = np.log(h / anchor_wh[1] + 1e-8)
     return np.array([tx, ty, tw, th])
@@ -219,7 +225,7 @@ def sigmoid(x):
     return 1.0 / (1.0 + np.exp(-x))
 ```
 
-Kiểm tra: mã hóa một hộp rồi giải mã — bạn nên nhận lại thứ rất gần bản gốc (ngoại trừ nghịch đảo sigmoid không hoàn toàn khả nghịch khi `tx` không nằm trong phạm vi sau sigmoid).
+Kiểm thử: mã hóa một hộp có tâm nằm hoàn toàn bên trong ô, rồi giải mã, và bạn phải nhận lại hộp ban đầu trong phạm vi sai số số thực. `encode` lưu độ lệch tâm dưới dạng một logit, nghịch đảo của `sigmoid` trong `decode`. Phép clip giữ logit hữu hạn; một tâm nằm chính xác trên cạnh ô di chuyển tối đa `1e-6` ô. `assign_targets` bên dưới lưu cùng các logit, vì vậy head huấn luyện trong không gian mà `decode` mong đợi.
 
 ### Step 4: A minimal YOLO head
 
@@ -269,8 +275,10 @@ def assign_targets(boxes_xyxy, classes, anchors, stride, grid_size, num_classes)
         best = int(np.argmax(ious))
         aw, ah = anchors[best]
 
-        target[gy, gx, best, 0] = cx / stride - gx
-        target[gy, gx, best, 1] = cy / stride - gy
+        off_x = np.clip(cx / stride - gx, 1e-6, 1 - 1e-6)
+        off_y = np.clip(cy / stride - gy, 1e-6, 1 - 1e-6)
+        target[gy, gx, best, 0] = np.log(off_x / (1 - off_x))
+        target[gy, gx, best, 1] = np.log(off_y / (1 - off_y))
         target[gy, gx, best, 2] = np.log(bw / aw + 1e-8)
         target[gy, gx, best, 3] = np.log(bh / ah + 1e-8)
         target[gy, gx, best, 4] = 1.0
@@ -315,7 +323,7 @@ def yolo_loss(pred, target, has_obj, lambda_coord=5.0, lambda_obj=1.0, lambda_no
                    "obj_neg": loss_obj_neg.item(), "cls": loss_cls.item()}
 ```
 
-Năm siêu tham số mà mọi hướng dẫn YOLO hoặc mã hóa cứng hoặc quét. Các tỷ lệ quan trọng: `lambda_coord=5, lambda_noobj=0.5` phản ánh bài báo YOLOv1 gốc và vẫn hoạt động như một mặc định hợp lý.
+Bốn trọng số loss mà mọi hướng dẫn YOLO hoặc viết cố định hoặc quét qua. Các tỷ lệ có ý nghĩa: `lambda_coord=5, lambda_noobj=0.5` phản ánh bài báo YOLOv1 gốc và vẫn hoạt động như một mặc định hợp lý.
 
 ### Step 7: Inference pipeline
 

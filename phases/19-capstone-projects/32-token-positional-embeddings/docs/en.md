@@ -68,7 +68,7 @@ emb[p, 2k]     = sin(angle)
 emb[p, 2k + 1] = cos(angle)
 ```
 
-Hàm không có tham số. Mỗi vị trí có một vector duy nhất. Bước sóng biến thiên theo cấp số nhân trên các chiều đặc trưng, nên các chiều thấp hơn mã hóa vị trí thô và các chiều cao hơn mã hóa vị trí tinh.
+Hàm không có tham số. Mỗi vị trí có một vector duy nhất. Bước sóng thay đổi theo cấp số nhân trên các chiều đặc trưng. Các chiều thấp hơn có bước sóng ngắn nhất và mã hóa vị trí tinh. Các chiều cao hơn có bước sóng dài nhất và mã hóa vị trí thô.
 
 Thuộc tính theo sau lựa chọn dùng `sin` và `cos` cùng nhau là vector tại vị trí `p + k` là một hàm tuyến tính của vector tại vị trí `p`. Điều đó cho lớp attention một đường dễ dàng để học các độ lệch vị trí tương đối. Mô hình không cần một tham số riêng để biểu đạt "nhìn lùi năm token."
 

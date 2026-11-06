@@ -1,64 +1,64 @@
 ---
 name: dynamic-analysis-of-your-own-program
-description: Drive lldb or gdb in batch mode over a program you compiled, record registers and memory at every stop, and grade each static claim as confirmed, refuted, or not observed for that run.
+description: Điều khiển lldb hoặc gdb ở chế độ batch trên một chương trình bạn đã biên dịch, ghi lại các thanh ghi và bộ nhớ tại mỗi lần dừng, và chấm mỗi khẳng định tĩnh là được xác nhận, bị bác bỏ, hoặc không được quan sát cho lần chạy đó.
 version: 1.0.0
 phase: 13
 lesson: 42
 tags: [reverse-engineering, dynamic-analysis, lldb, gdb, breakpoints, watchpoints, core-dumps, evidence]
 ---
 
-Given a program you wrote and compiled with debug information, a disassembly listing of that build, and a list of static claims from earlier analysis, produce one debugger run whose transcript is saved, and one evidence record per claim per stop. Use this skill with Claude, Cursor, Codex, OpenClaw, Hermes, or any agent that reads SKILL.md.
+Với một chương trình bạn đã viết và biên dịch cùng thông tin gỡ lỗi, một bản liệt kê disassembly của bản dựng đó, và một danh sách các khẳng định tĩnh từ phân tích trước, hãy tạo một lần chạy debugger có bản ghi được lưu, và một bản ghi bằng chứng cho mỗi khẳng định tại mỗi lần dừng. Dùng skill này với Claude, Cursor, Codex, OpenClaw, Hermes, hoặc bất kỳ agent nào đọc SKILL.md.
 
 ## Required inputs
 
-- The source, the exact compiler command, and the binary it produced. Debug only builds you made yourself.
-- A listing from `llvm-objdump -d` or `objdump -d` of that binary, so breakpoint addresses come from the listing and not from memory.
-- The DWARF dump of the struct types the claims mention, or the `ctypes` layout, as the source of field offsets.
-- The claims to test, each as a sentence with the function, the register or address, the expected value or edge, and the lesson or document it came from.
-- A debugger: lldb from the Command Line Tools or Xcode on macOS, lldb or gdb on Linux. Record the version string.
+- Mã nguồn, lệnh biên dịch chính xác, và tệp nhị phân nó tạo ra. Chỉ gỡ lỗi các bản dựng do chính bạn tạo.
+- Một bản liệt kê từ `llvm-objdump -d` hoặc `objdump -d` của tệp nhị phân đó, để các địa chỉ breakpoint đến từ bản liệt kê chứ không từ trí nhớ.
+- Bản dump DWARF của các kiểu struct mà các khẳng định đề cập, hoặc bố cục `ctypes`, làm nguồn các độ lệch trường.
+- Các khẳng định cần kiểm tra, mỗi khẳng định là một câu với hàm, thanh ghi hoặc địa chỉ, giá trị hoặc cạnh kỳ vọng, và bài học hoặc tài liệu nó đến từ.
+- Một trình gỡ lỗi: lldb từ Command Line Tools hoặc Xcode trên macOS, lldb hoặc gdb trên Linux. Ghi lại chuỗi phiên bản.
 
 ## Procedure
 
-1. Read the listing. For each function in the claims record its start and end address. For each conditional branch in a function with an edge claim record the branch address, its target, and its fall-through address.
-2. Write the debugger commands to a file before you run anything: one `breakpoint set -n` per function, one `breakpoint set -a ADDR -s MODULE` per branch successor, one stop hook that reads the argument registers, the memory behind the first argument, and the frame variables, then `run`, the watchpoint you want, a fixed budget of `continue`, and `breakpoint list` plus `watchpoint list -v` at the end.
-3. Run the debugger in batch mode with `settings set interpreter.stop-command-source-on-error false` so a command that fails after the process exits does not end the session. Save the complete output as the transcript with the command line and the debugger version in a header.
-4. Parse the transcript into stops. Each stop has a program counter, a function, a stop reason, the registers and memory the hook printed, and the frame variables. Attach hook output to the stop report that follows it.
-5. Grade each claim at each stop that can test it. A register claim compares the register with the frame variable. A field-offset claim decodes the memory words through the DWARF offsets and compares them with the frame variable fields. An edge claim reads the compared value at the function entry and checks that the next stop is the successor the lifted condition predicts. A call-edge claim counts entry stops after the process has exited.
-6. Write `confirmed` when the observation agrees, `refuted` when it disagrees, and `not-observed` when no stop could test the claim. Say why it was not observed: the breakpoint never hit, the watchpoint was never set, or the process did not exit.
-7. Repeat on an optimized build of the same source. Expect resolved breakpoints with hit count 0 where the compiler inlined the function, and keep those claims `not-observed` unless the claim was about the call edge itself, which the full run refutes.
-8. If the run cannot start, record the exact error. On macOS a sandboxed shell reports `attach failed ((os/kern) invalid address)`, and a hardened target without `com.apple.security.get-task-allow` refuses the task port. Neither is evidence about the program.
+1. Đọc bản liệt kê. Với mỗi hàm trong các khẳng định, ghi lại địa chỉ bắt đầu và kết thúc của nó. Với mỗi nhánh có điều kiện trong một hàm có một khẳng định cạnh, ghi lại địa chỉ nhánh, đích của nó, và địa chỉ fall-through của nó.
+2. Viết các lệnh debugger vào một tệp trước khi bạn chạy bất cứ thứ gì: một `breakpoint set -n` cho mỗi hàm, một `breakpoint set -a ADDR -s MODULE` cho mỗi nút kế tiếp của nhánh, một stop hook đọc các thanh ghi đối số, bộ nhớ đằng sau đối số đầu tiên, và các biến frame, rồi `run`, watchpoint bạn muốn, một ngân sách cố định `continue`, và `breakpoint list` cùng `watchpoint list -v` ở cuối.
+3. Chạy debugger ở chế độ batch với `settings set interpreter.stop-command-source-on-error false` để một lệnh thất bại sau khi tiến trình thoát không kết thúc phiên. Lưu toàn bộ đầu ra làm bản ghi với dòng lệnh và phiên bản debugger trong một header.
+4. Phân tích bản ghi thành các lần dừng. Mỗi lần dừng có một bộ đếm chương trình, một hàm, một lý do dừng, các thanh ghi và bộ nhớ mà hook đã in, và các biến frame. Gắn đầu ra hook vào báo cáo dừng theo sau nó.
+5. Chấm mỗi khẳng định tại mỗi lần dừng có thể kiểm tra nó. Một khẳng định thanh ghi so sánh thanh ghi với biến frame. Một khẳng định độ lệch trường giải mã các word bộ nhớ qua các độ lệch DWARF và so sánh chúng với các trường biến frame. Một khẳng định cạnh đọc giá trị được so sánh tại điểm vào hàm và kiểm tra rằng lần dừng tiếp theo là nút kế tiếp mà điều kiện đã nâng dự đoán. Một khẳng định cạnh gọi đếm các lần dừng điểm vào sau khi tiến trình đã thoát.
+6. Viết `confirmed` khi quan sát đồng ý, `refuted` khi nó không đồng ý, và `not-observed` khi không lần dừng nào có thể kiểm tra khẳng định. Nói lý do nó không được quan sát: breakpoint chưa bao giờ chạm, watchpoint chưa bao giờ được đặt, hoặc tiến trình không thoát.
+7. Lặp lại trên một bản dựng được tối ưu của cùng mã nguồn. Kỳ vọng các breakpoint phân giải được với số lần chạm 0 ở nơi trình biên dịch đã nội tuyến hàm, và giữ các khẳng định đó là `not-observed` trừ khi khẳng định là về chính cạnh gọi, điều mà lần chạy đầy đủ bác bỏ.
+8. Nếu lần chạy không thể bắt đầu, ghi lại lỗi chính xác. Trên macOS một shell trong sandbox báo cáo `attach failed ((os/kern) invalid address)`, và một đích được harden không có `com.apple.security.get-task-allow` từ chối cổng tác vụ. Không điều nào là bằng chứng về chương trình.
 
 ## Required report
 
-- compiler, debugger version, operating system, and the build flags of every binary used
-- the transcript file names and the command that produced each one
-- the stops in order with program counter, function, reason, and the registers read
-- every claim with its verdict, the stop indexes that produced the verdict, and the observation text
-- breakpoint hit counts and watchpoint hit counts from the end of the run
-- the process exit status and its standard output
-- the claims that stayed `not-observed` and the reason for each
+- trình biên dịch, phiên bản debugger, hệ điều hành, và các cờ dựng của mọi tệp nhị phân được dùng
+- các tên tệp bản ghi và lệnh đã tạo từng tệp
+- các lần dừng theo thứ tự với bộ đếm chương trình, hàm, lý do, và các thanh ghi đã đọc
+- mọi khẳng định cùng kết luận, các chỉ mục lần dừng đã tạo kết luận, và văn bản quan sát
+- các số lần chạm breakpoint và số lần chạm watchpoint từ cuối lần chạy
+- trạng thái thoát tiến trình và đầu ra chuẩn của nó
+- các khẳng định vẫn `not-observed` và lý do cho từng khẳng định
 
 ## Hard rejects
 
-- Treating a resolved breakpoint as proof that the code runs.
-- Treating a hit count of zero as proof that a function is dead code.
-- Reading a struct through a pointer without the field offsets from DWARF or from the ABI rules.
-- Comparing an argument register at a stop that is not the function entry, where the register may hold a leftover value.
-- Grading an edge claim from the branch instruction alone instead of from the stop at the successor.
-- Setting a watchpoint on a local that lives in a register in an optimized build and reporting the silence as proof.
-- Running the debugger against a binary you did not build, or attaching to a process you do not own.
-- Deleting the transcript after grading. The transcript is the evidence; the verdicts are derived from it.
-- Reporting a run on one input as a statement about every input.
+- Coi một breakpoint phân giải được là bằng chứng rằng mã chạy.
+- Coi số lần chạm bằng không là bằng chứng rằng một hàm là mã chết.
+- Đọc một struct qua một con trỏ mà không có các độ lệch trường từ DWARF hoặc từ các quy tắc ABI.
+- So sánh một thanh ghi đối số tại một lần dừng không phải điểm vào hàm, nơi thanh ghi có thể giữ một giá trị còn lại.
+- Chấm một khẳng định cạnh chỉ từ lệnh nhánh thay vì từ lần dừng tại nút kế tiếp.
+- Đặt một watchpoint trên một biến cục bộ nằm trong thanh ghi ở một bản dựng được tối ưu và báo cáo sự im lặng làm bằng chứng.
+- Chạy debugger với một tệp nhị phân bạn không dựng, hoặc attach vào một tiến trình bạn không sở hữu.
+- Xóa bản ghi sau khi chấm. Bản ghi là bằng chứng; các kết luận được suy ra từ nó.
+- Báo cáo một lần chạy trên một đầu vào như một phát biểu về mọi đầu vào.
 
 ## Produce
 
-Return these sections:
+Trả về những phần này:
 
-1. Build: compiler, flags, debugger, and the listing and DWARF files used.
-2. Plan: the command file as written, with the address of every breakpoint and where it came from.
-3. Stops: the timeline, one row per stop.
-4. Verdicts: one row per claim with confirmed, refuted, and not-observed counts and the final verdict.
-5. Not observed: each claim no stop tested, with the reason.
-6. Environment facts: signing flags of the binary, hardware watchpoint count, and any launch error.
+1. Bản dựng: trình biên dịch, các cờ, debugger, và các tệp bản liệt kê cùng DWARF được dùng.
+2. Kế hoạch: tệp lệnh như đã viết, với địa chỉ của mọi breakpoint và nơi nó đến từ.
+3. Các lần dừng: dòng thời gian, một hàng cho mỗi lần dừng.
+4. Các kết luận: một hàng cho mỗi khẳng định với các số lượng được xác nhận, bị bác bỏ, và không được quan sát và kết luận cuối cùng.
+5. Không được quan sát: mỗi khẳng định không lần dừng nào kiểm tra, kèm lý do.
+6. Các thông tin môi trường: các cờ ký của tệp nhị phân, số watchpoint phần cứng, và bất kỳ lỗi khởi chạy nào.
 
-End with the first refuted claim. If there is none, state the number of stops and the number of claims confirmed by them.
+Kết thúc bằng khẳng định bị bác bỏ đầu tiên. Nếu không có, hãy nêu số lần dừng và số khẳng định được chúng xác nhận.

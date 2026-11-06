@@ -36,8 +36,8 @@ Xếp `N` lệnh gọi liên tiếp này bằng một lượt truyền xuôi b�
 
 Gọi `α` là tỷ lệ chấp nhận kỳ vọng mỗi token nháp. Gọi `c = cost(draft) / cost(verifier)` là tỷ lệ chi phí. Số token chấp nhận kỳ vọng mỗi lượt bộ xác minh là:
 
-```
-E[accepted] = (1 - α^(N+1)) / (1 - α)
+```math
+\mathbb{E}[\text{accepted}] = \frac{1 - \alpha^{N+1}}{1 - \alpha}
 ```
 
 Tổng thời gian thực kỳ vọng mỗi token chấp nhận là `(N * c + 1) / E[accepted]`. Tối thiểu hóa theo `N` và có điểm tốt nhất. Với `α = 0.8, c = 0.05`: `N` tối ưu khoảng 5–7, tăng tốc 3.2×. Với `α = 0.95, c = 0.02`: `N` tối ưu khoảng 8–10, tăng tốc tiến tới 5×.
@@ -70,6 +70,8 @@ Với tìm kiếm cây EAGLE-2, bộ xác minh chạy attention với mặt nạ
 | EAGLE-2 | EAGLE-1 + cây nháp động | 0.80-0.88 | 3-4× | ~60B token |
 | EAGLE-3 | Hợp nhất đặc trưng nhiều lớp + TTT | 0.88-0.92 | 3.5-6.5× | ~60-200B token |
 | Lookahead | Không nháp (lặp Jacobi) | N/A | 1.3-1.6× | Không |
+
+Cột `α` là tỷ lệ chấp nhận theo token dọc theo đường đi được chấp nhận, trên các benchmark trò chuyện, với một mô hình dự thảo được huấn luyện trên dữ liệu trò chuyện tương ứng. Đó là dải trên. Giai đoạn 10 · 25 trích dẫn 0.82 cho EAGLE-3 từ một thiết lập khác, còn Giai đoạn 17 · 05 lập kế hoạch triển khai thực tế với 0.6 đến 0.8 trên trò chuyện tổng quát. Đo `α` trên lưu lượng của chính bạn trước khi chọn `N`.
 
 Trong production năm 2026: vLLM và SGLang mặc định EAGLE-3 khi có, nếu không EAGLE-2. TensorRT-LLM có đường Medusa nhanh nhất cho mô hình công khai Meta và NVIDIA. llama.cpp cung cấp nháp nguyên bản cho triển khai CPU.
 

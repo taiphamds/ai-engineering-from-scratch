@@ -1,6 +1,6 @@
 # Video-Language Models: Temporal Tokens and Grounding
 
-> Video không phải chồng ảnh. Một đoạn clip 5 giây có thứ tự nhân quả, động từ hành động và thời điểm sự kiện mà mô hình ảnh không thể biểu diễn. Video-LLaMA (Zhang và cộng sự, tháng 6 năm 2023) phát hành video-LLM mở đầu tiên với khả năng neo nghe-nhìn. VideoChat và Video-LLaVA mở rộng mẫu này. Đến năm 2025, TMRoPE của Qwen2.5-VL thu hẹp khoảng cách với các mô hình độc quyền tiên tiến. Mỗi hệ thống giải quyết token thời gian theo cách khác nhau — Q-former cho mỗi clip, ghép-pool cho mỗi khung hình, TMRoPE cho mỗi token. Bài học này đọc các mẫu, xây dựng bộ lấy mẫu khung hình đồng đều so với động và đánh giá trên các tác vụ định vị theo thời gian.
+> Video không phải một chồng ảnh. Một clip 5 giây có thứ tự nhân quả, các động từ hành động và thời điểm sự kiện mà một mô hình hình ảnh không thể biểu diễn. Video-LLaMA (Zhang và cộng sự, tháng 6 năm 2023) phát hành video-LLM mở đầu tiên với việc gắn kết nghe-nhìn. VideoChat và Video-LLaVA mở rộng mẫu này. Đến năm 2025, M-RoPE căn chỉnh theo thời gian của Qwen2.5-VL thu hẹp khoảng cách với các mô hình độc quyền tiên tiến. Mỗi hệ thống giải quyết các token thời gian theo cách khác nhau — Q-former cho mỗi clip, nối-pool cho mỗi khung hình, M-RoPE căn chỉnh theo thời gian cho mỗi token. Bài học này đọc các mẫu, xây dựng một bộ lấy mẫu khung hình đều so với động và đánh giá trên các tác vụ gắn với mốc thời gian.
 
 **Type:** Build
 **Languages:** Python (stdlib, frame sampler + temporal-grounding evaluator)
@@ -11,7 +11,7 @@
 
 - Giải thích tại sao mã hóa vị trí thời gian thay đổi hiệu năng VLM video độc lập với bộ mã hóa thị giác.
 - So sánh lấy mẫu khung hình đồng đều, FPS động và theo sự kiện về token mỗi giây so với độ chính xác định vị.
-- Mô tả các thiết kế Q-former-mỗi-clip (Video-LLaMA) so với pool-mỗi-khung-hình (Video-LLaVA) so với M-RoPE-mỗi-token (Qwen2.5-VL).
+- Mô tả các thiết kế Q-former cho mỗi clip (Video-LLaMA) so với pool cho mỗi khung hình (Video-LLaVA) so với M-RoPE căn chỉnh theo thời gian cho mỗi token (Qwen2.5-VL).
 - Nêu tên bốn benchmark video: VideoMME, TempCompass, EgoSchema, Video-MMMU.
 
 ## The Problem
@@ -26,7 +26,7 @@ Có ba chiến lược giảm:
 
 Mỗi đánh đổi khác nhau. Lấy mẫu thưa mất chi tiết thời gian. Pool mất chi tiết không gian. Q-former mất một chút cả hai nhưng tiết kiệm token.
 
-Mã hóa vị trí thời gian là trục còn lại: mô hình biết khung hình 5 đến trước khung hình 6 bằng cách nào? Các lựa chọn gồm RoPE thời gian 1D đơn giản (Video-LLaMA), embedding thời gian học được (Video-LLaVA) và TMRoPE (Qwen2.5-VL, 3D đầy đủ).
+Mã hóa vị trí thời gian là trục còn lại: làm thế nào mô hình biết khung hình 5 đến trước khung hình 6? Các lựa chọn bao gồm RoPE thời gian 1D đơn giản (Video-LLaMA), embedding thời gian được học (Video-LLaVA) và M-RoPE căn chỉnh theo thời gian (Qwen2.5-VL, 3D đầy đủ).
 
 ## The Concept
 
@@ -46,17 +46,17 @@ VideoChat giữ ý tưởng Video-LLaMA nhưng bỏ âm thanh và đơn giản h
 
 Không mô hình nào xử lý video dài. Cả hai là hệ thống 8-16 khung hình.
 
-### Qwen2.5-VL and TMRoPE
+### Qwen2.5-VL and time-aligned M-RoPE
 
-Qwen2.5-VL giới thiệu TMRoPE — Embedding vị trí quay thời gian-phương thức. Mỗi token patch mang vị trí (t, h, w), trong đó t là dấu thời gian thực (không phải chỉ số khung hình).
+Qwen2.5-VL giữ M-RoPE (Multimodal Rotary Position Embedding) của Qwen2-VL và căn chỉnh trục thời gian của nó với thời gian tuyệt đối. Mỗi token patch mang một vị trí (t, h, w) trong đó t theo timestamp thực tế (không phải chỉ số khung hình). Qwen2.5-Omni (Bài 12.20) sau này đặt tên phiên bản âm thanh và video của cùng ý tưởng là TMRoPE, Time-aligned Multimodal RoPE.
 
 Khác biệt then chốt so với embedding thời gian đơn giản:
 
 - Thời gian tuyệt đối, không phải chỉ số. Mô hình thấy "ở 4.2 giây", không phải "ở khung hình 15."
 - Phép quay mỗi token, không phải mỗi clip. Mỗi token thị giác quay độc lập theo dấu thời gian của nó.
-- Tương thích FPS động. Nếu bạn lấy mẫu ở 2 FPS chỗ này và 4 FPS chỗ kia, TMRoPE xử lý khoảng cách không đều một cách nguyên bản.
+- Tương thích với FPS động. Nếu bạn lấy mẫu ở 2 FPS tại đây và 4 FPS tại kia, M-RoPE căn chỉnh theo thời gian xử lý khoảng cách không đều một cách tự nhiên.
 
-TMRoPE cho phép truy vấn "ở giây nào con mèo nhảy?". Mô hình có thể xuất "ở 4.2 giây." Video-LLaMA chỉ có thể nói "ở đầu clip."
+M-RoPE căn chỉnh theo thời gian cho phép các truy vấn "con mèo nhảy ở giây nào?" Mô hình có thể xuất ra "ở 4.2 giây." Video-LLaMA chỉ có thể nói "ở đầu clip."
 
 ### Frame sampling strategies
 
@@ -70,7 +70,7 @@ Khung hình chính + ngữ cảnh: lấy mẫu tại ranh giới cảnh quay + v
 
 ### Pooling per frame
 
-Ở 1 FPS và 576 token mỗi khung hình, clip 5 phút là 172,800 token. Khả thi với ngữ cảnh 128k của Qwen2.5-VL-72B nhưng tốn kém.
+Ở 1 FPS và 576 token mỗi khung hình, một clip 5 phút là 172,800 token. Điều đó vượt ngữ cảnh 128k của Qwen2.5-VL-72B, vì vậy bạn phải giảm tốc độ khung hình hoặc pool token cho mỗi khung hình trước.
 
 Pool song tuyến tính 3x3 giảm còn 64 token mỗi khung hình -> 19,200 token cho 5 phút. Điểm cân bằng cho phần lớn tác vụ.
 
@@ -91,7 +91,7 @@ Pool mạnh hơn (6x6 -> 16 token mỗi khung hình) cho quy trình agent nơi c
 
 - Văn bản tự do: "Con mèo nhảy vào khoảng mốc 4 giây." Dễ phân tích cú pháp nhưng thiếu chính xác.
 - JSON có cấu trúc: `{"event": "jump", "start": 4.1, "end": 4.3}`. Qwen2.5-VL huấn luyện điều này.
-- Dựa trên token: token đặc biệt `<time>4.1</time>` xen kẽ với câu trả lời. Định dạng nội bộ của Qwen2.5-VL.
+- Dựa trên token: các token đặc biệt `<time>4.1</time>` xen kẽ với câu trả lời. Một số mô hình video sử dụng cách này; Qwen2.5-VL thay vào đó mã hóa thời gian trong các ID vị trí M-RoPE của nó và trả lời bằng văn bản hoặc JSON.
 
 Dựa trên token là chính xác nhất cho sử dụng phía sau. Định dạng đầu ra JSON của Qwen2.5-VL được phân tích cú pháp trực tiếp.
 
@@ -99,7 +99,7 @@ Dựa trên token là chính xác nhất cho sử dụng phía sau. Định dạ
 
 Đối với VLM video năm 2026:
 
-- Bộ mã hóa: SigLIP 2 với M-RoPE hoặc TMRoPE (Qwen2.5-VL).
+- Encoder: SigLIP 2 hoặc một ViT độ phân giải gốc, với M-RoPE căn chỉnh theo thời gian trong LLM (Qwen2.5-VL).
 - Lấy mẫu khung hình: FPS động (1-4 tùy chuyển động) với giới hạn số khung hình tối đa.
 - Pool mỗi khung hình: song tuyến tính 3x3.
 - Đầu ra: JSON có cấu trúc với các trường thời gian + sự kiện.
@@ -115,7 +115,7 @@ video-temporal-patches
 
 - Bộ lấy mẫu khung hình đồng đều và FPS động.
 - Bộ đánh giá định vị theo thời gian đơn giản: với một sự kiện "chuẩn thực tế" tại thời điểm T và đầu ra mô hình, chấm độ chính xác với dung sai.
-- So sánh giữa Video-LLaMA (16 khung hình, Q-former), Video-LLaVA (8 khung hình, MLP), Qwen2.5-VL (FPS động + TMRoPE).
+- Một phép so sánh giữa Video-LLaMA (16 khung hình, Q-former), Video-LLaVA (8 khung hình, MLP), Qwen2.5-VL (FPS động + M-RoPE căn chỉnh theo thời gian).
 
 ## Ship It
 
@@ -125,7 +125,7 @@ Bài học này tạo ra `outputs/skill-video-vlm-frame-planner.md`. Với một
 
 1. Với một video trình diễn nấu ăn 3 phút, chọn FPS đồng đều so với động. Biện minh bằng số token.
 
-2. TMRoPE bổ sung cụ thể điều gì mà bảng embedding thời gian đơn giản không làm được?
+2. M-RoPE căn chỉnh theo thời gian bổ sung cụ thể điều gì mà một bảng embedding thời gian đơn giản không thể làm?
 
 3. Viết lược đồ JSON cho định vị theo thời gian mà VLM có thể học phát ra. Bao gồm các trường hợp lỗi.
 
@@ -138,7 +138,7 @@ Bài học này tạo ra `outputs/skill-video-vlm-frame-planner.md`. Với một
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
 | Temporal grounding (Định vị theo thời gian) | "Câu trả lời được định vị thời gian" | VLM xuất khoảng dấu thời gian cụ thể khi sự kiện xảy ra |
-| TMRoPE | "RoPE thời gian-đa phương thức" | Vị trí quay 3D với dấu thời gian tuyệt đối, được Qwen2.5-VL sử dụng |
+| Time-aligned M-RoPE (M-RoPE căn chỉnh theo thời gian) | "TMRoPE" | Vị trí quay 3D có trục thời gian theo timestamp tuyệt đối; Qwen2.5-VL sử dụng nó cho video, và Qwen2.5-Omni đặt tên dạng âm thanh và video của nó là TMRoPE |
 | Dynamic FPS (FPS động) | "Lấy mẫu nhận biết chuyển động" | Lấy mẫu nhiều khung hình hơn ở đoạn chuyển động mạnh, ít hơn ở đoạn tĩnh |
 | Frame pooling (Pool khung hình) | "Nén không gian mỗi khung hình" | Giảm patch mỗi khung hình bằng nội suy song tuyến tính trước LLM |
 | Video Q-former | "Bộ nén clip" | Nút thắt cross-attention ánh xạ N khung hình thành K truy vấn học được |

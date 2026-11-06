@@ -58,7 +58,7 @@ Cách khắc phục trong AlphaEvolve: cung cấp một bộ đánh giá đượ
 
 LLM có thể tạo các sửa đổi có thể biên dịch, có vẻ hợp lý về ngữ nghĩa. Một GA đột biến ngẫu nhiên trên một file Python 2000 dòng gần như luôn tạo các lỗi cú pháp. LLM cũng tập trung tìm kiếm vào các lân cận có vẻ hợp lý (thay đổi một hàm, không phải các byte ngẫu nhiên), làm giảm mạnh các lời gọi bộ đánh giá bị lãng phí.
 
-Đổi lại, bộ đánh giá bắt các bịa đặt của LLM. Các LLM sẽ tự tin tuyên bố một hàm "là O(n log n) trong giới hạn" khi nó thực ra là O(n^2); một benchmark thời gian đồng hồ làm câu hỏi ngã ngũ.
+Đổi lại, bộ đánh giá bắt các bịa đặt của LLM. Các LLM sẽ tự tin tuyên bố một hàm "là $O(n \log n)$ trong giới hạn" khi nó thực ra là $O(n^2)$; một benchmark thời gian đồng hồ làm câu hỏi ngã ngũ.
 
 ### Where AlphaEvolve fits in the frontier stack
 

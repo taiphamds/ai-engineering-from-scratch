@@ -12,7 +12,7 @@
 - Chia pipeline suy luận thành Thinker (suy luận văn bản) và Talker (tổng hợp lời nói) và giải thích tại sao truyền luồng song song hoạt động.
 - Tính ngân sách thời gian đến byte âm thanh đầu tiên (TTFAB) cho tương tác hội thoại, theo từng thành phần.
 - Mô tả mã hóa vị trí căn chỉnh thời gian của TMRoPE trên thị giác, âm thanh và văn bản trong Thinker.
-- Nêu tên ba mẫu hội thoại thời gian thực: bán song công, luân phiên lượt, song công toàn phần.
+- Nêu tên hai mẫu hội thoại thời gian thực, bán song công và song công toàn phần, và giải thích cách luân phiên lượt dựa trên VAD điều khiển việc chuyển giao bán song công.
 
 ## The Problem
 
@@ -41,10 +41,10 @@ Việc tách biệt quan trọng. Thinker phải lớn để suy luận tốt. T
 
 Chạy cả hai song song:
 
-1. Thinker phát token văn bản t_i.
-2. Talker tiếp nhận t_i (qua truyền luồng) và phát token lời nói s_i, s_{i+1}, ..., s_{i+k}.
+1. Thinker phát token văn bản $t_i$.
+2. Talker tiếp nhận $t_i$ (qua truyền luồng) và phát token lời nói $s_i, s_{i+1}, \ldots, s_{i+k}$.
 3. Bộ giải mã lời nói tiếp nhận token lời nói khi chúng đến và phát mẫu âm thanh.
-4. Đến khi Thinker ở token văn bản t_{i+3}, Talker đã truyền luồng âm thanh cho t_0..t_{i+2}.
+4. Đến khi Thinker ở token văn bản $t_{i+3}$, Talker đã truyền luồng âm thanh cho $t_0, \ldots, t_{i+2}$.
 
 ### TMRoPE — time-aligned multimodal positions
 
@@ -85,7 +85,7 @@ Với tương tác truyền luồng điển hình:
 - Giải mã residual-VQ: 30ms.
 - Giải mã dạng sóng lời nói: 50-80ms.
 
-Tổng TTFAB: 320-510ms ở 7B, 600-900ms ở 70B. Chất lượng tiên tiến nhất thường có nghĩa 70B+; vì vậy có khoảng cách độ trễ ở mức tiên tiến nhất.
+Tổng TTFAB: 320-490ms ở 7B, 600-900ms ở 70B. Chất lượng tiên tiến thường có nghĩa là 70B+; do đó có khoảng cách độ trễ ở mức tiên tiến.
 
 ### Token-rate math
 

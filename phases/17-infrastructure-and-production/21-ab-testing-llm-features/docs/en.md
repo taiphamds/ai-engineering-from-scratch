@@ -108,7 +108,7 @@ Bài học này tạo ra `outputs/skill-ab-plan.md`. Với thay đổi tính nă
 2. Chọn Statsig hoặc GrowthBook cho một khách hàng tại chỗ chịu quy định y tế.
 3. Thiết kế A/B thử GPT-4 so với GPT-3.5 trên chi phí mỗi phiếu hỗ trợ được giải quyết. Chỉ số chính, chỉ số bảo vệ, chỉ số phụ là gì?
 4. Canary của bạn vượt qua nhưng A/B cho thấy chuyển đổi -1.2%. Bạn có triển khai không? Viết tiêu chí chuyển cấp.
-5. Áp dụng CUPED cho một kỳ trước có 60% phương sai của kỳ sau. Tính mức tăng cỡ mẫu hiệu dụng.
+5. Áp dụng CUPED với một biến đồng biến trước kỳ giải thích 60% phương sai sau kỳ (bình phương tương quan 0.6). Tính mức tăng kích thước mẫu hiệu dụng.
 
 ## Key Terms
 

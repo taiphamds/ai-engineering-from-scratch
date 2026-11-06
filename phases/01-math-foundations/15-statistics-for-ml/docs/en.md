@@ -44,7 +44,7 @@ Mode:   most frequent value
         Useful for categorical data. For continuous data, rarely informative.
 ```
 
-Trung bình là điểm cân bằng. Trung vị là mốc giữa. Khi chúng lệch nhau, phân phối của bạn bị lệch. Các phân phối thu nhập có trung bình >> trung vị (lệch phải do các tỷ phú). Các phân phối mất mát trong huấn luyện thường có trung bình << trung vị (lệch trái do các mẫu dễ).
+Trung bình là điểm cân bằng. Trung vị là mốc chia đôi. Khi chúng khác nhau, phân phối của bạn bị lệch. Các phân phối thu nhập có $\text{mean} \gg \text{median}$ (lệch phải từ các tỷ phú). Các phân phối loss trong quá trình huấn luyện thường có $\text{mean} \ll \text{median}$ (lệch trái từ các mẫu dễ).
 
 **Các thước đo độ phân tán** trả lời "dữ liệu phân tán đến mức nào?"
 
@@ -75,14 +75,16 @@ For latency monitoring:
 
 Trong ML, bạn quan tâm đến các phân vị phần trăm cho độ trễ suy luận, phân phối độ tự tin dự đoán và việc hiểu các phân phối sai số. Một mô hình có sai số trung bình thấp nhưng sai số P99 tệ có thể vô ích cho các ứng dụng thiết yếu về an toàn.
 
-**Thống kê mẫu so với tổng thể.** Khi tính phương sai từ một mẫu, chia cho (n-1) thay vì n. Đây là hiệu chỉnh Bessel. Nó bù cho việc trung bình mẫu không phải trung bình tổng thể thực. Với n ở mẫu số, bạn đánh giá thấp phương sai thực một cách có hệ thống. Với (n-1), ước lượng không chệch.
+**Thống kê mẫu so với tổng thể.** Khi tính phương sai từ một mẫu, chia cho $(n-1)$ thay vì $n$. Đây là hiệu chỉnh Bessel. Nó bù cho việc trung bình mẫu không phải trung bình tổng thể thực. Với $n$ ở mẫu số, bạn đánh giá thấp phương sai thực một cách có hệ thống. Với $(n-1)$, ước lượng không chệch.
 
-```
-Population variance: sigma^2 = (1/N) * sum((x_i - mu)^2)
-Sample variance:     s^2     = (1/(n-1)) * sum((x_i - x_bar)^2)
+```math
+\begin{aligned}
+\text{Population variance:} \quad \sigma^2 &= \frac{1}{N} \sum (x_i - \mu)^2 \\
+\text{Sample variance:} \quad s^2 &= \frac{1}{n-1} \sum (x_i - \bar{x})^2
+\end{aligned}
 ```
 
-Trong thực tế: nếu n lớn (hàng nghìn mẫu), sự khác biệt không đáng kể. Nếu n nhỏ (hàng chục mẫu), nó quan trọng.
+Trong thực tế: nếu $n$ lớn (hàng nghìn mẫu), sự khác biệt không đáng kể. Nếu $n$ nhỏ (hàng chục mẫu), nó quan trọng.
 
 ### Correlation: How Variables Move Together
 
@@ -100,7 +102,7 @@ r =  0:  no linear relationship (but there might be a nonlinear one!)
 Range: [-1, 1]
 ```
 
-Pearson giả định quan hệ tuyến tính và cả hai biến xấp xỉ phân phối chuẩn. Nó nhạy với ngoại lệ. Một điểm cực đoan duy nhất có thể kéo r từ 0.1 đến 0.9.
+Pearson giả định quan hệ tuyến tính và cả hai biến xấp xỉ phân phối chuẩn. Nó nhạy với ngoại lệ. Một điểm cực đoan duy nhất có thể kéo $r$ từ 0.1 đến 0.9.
 
 **Tương quan hạng Spearman** đo sự liên hệ đơn điệu:
 
@@ -139,7 +141,7 @@ Cov(X, Y) < 0:  when X increases, Y tends to decrease
 Cov(X, Y) = 0:  no linear co-movement
 ```
 
-Với d đặc trưng, ma trận hiệp phương sai C là một ma trận d x d trong đó C[i][j] = Cov(feature_i, feature_j). Các phần tử đường chéo C[i][i] là phương sai của mỗi đặc trưng.
+Với $d$ đặc trưng, ma trận hiệp phương sai $C$ là một ma trận $d \times d$ trong đó $C[i][j] = \mathop{\mathrm{Cov}}(\text{feature}_i, \text{feature}_j)$. Các phần tử đường chéo $C[i][i]$ là phương sai của mỗi đặc trưng.
 
 ```
 C = | Var(x1)      Cov(x1,x2)  Cov(x1,x3) |
@@ -155,7 +157,7 @@ Properties:
 
 **Mối liên hệ với PCA.** PCA phân rã riêng ma trận hiệp phương sai. Các vector riêng là các thành phần chính (hướng phương sai lớn nhất). Các giá trị riêng cho bạn biết mỗi thành phần nắm bắt bao nhiêu phương sai. Đây chính xác là những gì Bài học 10 đã đề cập, nhưng giờ bạn thấy tại sao ma trận hiệp phương sai là thứ phù hợp để phân rã: nó mã hóa mọi quan hệ tuyến tính từng cặp trong dữ liệu.
 
-**Mối liên hệ với tương quan.** Ma trận tương quan là ma trận hiệp phương sai của các biến đã chuẩn hóa (mỗi biến chia cho độ lệch chuẩn của nó). Tương quan chuẩn hóa hiệp phương sai để mọi giá trị nằm trong [-1, 1].
+**Mối liên hệ với tương quan.** Ma trận tương quan là ma trận hiệp phương sai của các biến đã chuẩn hóa (mỗi biến chia cho độ lệch chuẩn của nó). Tương quan chuẩn hóa hiệp phương sai để mọi giá trị nằm trong $[-1, 1]$.
 
 ### Hypothesis Testing
 
@@ -205,10 +207,11 @@ t-test so sánh các trung bình. Có một số dạng.
 
 **t-test một mẫu:** trung bình tổng thể có khác một giá trị giả thuyết không?
 
-```
-t = (x_bar - mu_0) / (s / sqrt(n))
-
-degrees of freedom = n - 1
+```math
+\begin{aligned}
+t &= \frac{\bar{x} - \mu_0}{s / \sqrt{n}} \\[4pt]
+\text{degrees of freedom} &= n - 1
+\end{aligned}
 ```
 
 **t-test hai mẫu (độc lập):** trung bình hai nhóm có khác nhau không?
@@ -297,19 +300,20 @@ engineering cost of deploying a new model.
 
 **Kích thước hiệu ứng** định lượng độ lớn của khác biệt, độc lập với kích thước mẫu:
 
-```
-Cohen's d = (mean_1 - mean_2) / pooled_std
-
-d = 0.2:  small effect
-d = 0.5:  medium effect
-d = 0.8:  large effect
+```math
+\begin{aligned}
+\text{Cohen's } d &= \frac{\text{mean}_1 - \text{mean}_2}{\text{pooled\_std}} \\[4pt]
+d &= 0.2: \quad \text{small effect} \\
+d &= 0.5: \quad \text{medium effect} \\
+d &= 0.8: \quad \text{large effect}
+\end{aligned}
 ```
 
 Luôn báo cáo cả p-value lẫn kích thước hiệu ứng. p-value cho bạn biết khác biệt có thật không. Kích thước hiệu ứng cho bạn biết nó có quan trọng không.
 
 ### Multiple Comparison Problem
 
-Khi bạn kiểm định nhiều giả thuyết, một số sẽ "có ý nghĩa" do ngẫu nhiên. Nếu kiểm định 20 thứ tại alpha = 0.05, bạn kỳ vọng 1 dương tính giả ngay cả khi không có gì là thật.
+Khi bạn kiểm định nhiều giả thuyết, một số sẽ "có ý nghĩa" do ngẫu nhiên. Nếu kiểm định 20 thứ tại $\alpha = 0.05$, bạn kỳ vọng 1 dương tính giả ngay cả khi không có gì là thật.
 
 ```
 P(at least one false positive) = 1 - (1 - alpha)^m
@@ -320,7 +324,7 @@ P(false positive) = 1 - 0.95^20 = 0.64
 You have a 64% chance of at least one false positive.
 ```
 
-**Hiệu chỉnh Bonferroni:** chia alpha cho số kiểm định.
+**Hiệu chỉnh Bonferroni:** chia $\alpha$ cho số kiểm định.
 
 ```
 Adjusted alpha = alpha / m = 0.05 / 20 = 0.0025
@@ -417,11 +421,11 @@ Kruskal-Wallis:     compares multiple groups (replaces ANOVA)
 - More statistical power (better at detecting real differences)
 ```
 
-Trong các thí nghiệm ML, bạn thường có n nhỏ (5 hoặc 10 fold xác thực chéo), nên các kiểm định phi tham số như Wilcoxon signed-rank thường thích hợp hơn t-test.
+Trong các thí nghiệm ML, bạn thường có $n$ nhỏ (5 hoặc 10 fold xác thực chéo), nên các kiểm định phi tham số như Wilcoxon signed-rank thường thích hợp hơn t-test.
 
 ### Central Limit Theorem: Practical Implications
 
-CLT nói rằng phân phối của các trung bình mẫu tiến đến một phân phối chuẩn khi n tăng, bất kể phân phối tổng thể nền tảng.
+CLT nói rằng phân phối của các trung bình mẫu tiến đến một phân phối chuẩn khi $n$ tăng, bất kể phân phối tổng thể nền tảng.
 
 ```
 If X_1, X_2, ..., X_n are iid with mean mu and variance sigma^2:
@@ -473,7 +477,7 @@ For highly skewed distributions, you might need n >= 100.
 
 9. **Giả định độc lập khi dữ liệu không độc lập.** Các hình ảnh y khoa từ cùng một bệnh nhân, nhiều câu từ cùng một tài liệu. Các quan sát trong một nhóm tương quan.
 
-10. **P-hacking.** Thử các kiểm định, tập con hoặc tiêu chí loại trừ khác nhau cho đến khi có p < 0.05. Kết quả là sản phẩm của quá trình tìm kiếm.
+10. **P-hacking.** Thử các kiểm định, tập con hoặc tiêu chí loại trừ khác nhau cho đến khi có $p < 0.05$. Kết quả là sản phẩm của quá trình tìm kiếm.
 
 ## Building It
 
@@ -484,7 +488,7 @@ Bạn sẽ triển khai:
 3. **Các kiểm định giả thuyết** (t-test một mẫu, t-test hai mẫu, kiểm định chi bình phương)
 4. **Các khoảng tin cậy bootstrap** (cho bất kỳ thống kê nào, không cần giả định)
 5. **Bộ mô phỏng kiểm thử A/B** (tạo dữ liệu, kiểm định, kiểm tra sai lầm Loại I và Loại II)
-6. **Demo ý nghĩa thống kê so với thực tiễn** (cho thấy n lớn làm mọi thứ "có ý nghĩa")
+6. **Demo ý nghĩa thống kê so với thực tiễn** (cho thấy $n$ lớn làm mọi thứ "có ý nghĩa")
 
 Tất cả từ đầu, chỉ sử dụng `math` và `random`. Không numpy, không scipy.
 
@@ -501,7 +505,7 @@ f3-bootstrap-resample
 | Standard deviation (Độ lệch chuẩn) | Căn bậc hai của phương sai. Đo độ phân tán theo đơn vị gốc. |
 | Percentile (Phân vị phần trăm) | Giá trị mà dưới đó có một tỉ lệ phần trăm dữ liệu nhất định. |
 | IQR | Khoảng tứ phân vị. Q3 trừ Q1. Độ phân tán của 50% ở giữa. |
-| Pearson correlation (Tương quan Pearson) | Đo sự liên hệ tuyến tính giữa hai biến. Phạm vi [-1, 1]. |
+| Pearson correlation (Tương quan Pearson) | Đo sự liên hệ tuyến tính giữa hai biến. Phạm vi $[-1, 1]$. |
 | Spearman correlation (Tương quan Spearman) | Đo sự liên hệ đơn điệu bằng thứ hạng. |
 | Covariance matrix (Ma trận hiệp phương sai) | Ma trận hiệp phương sai từng cặp giữa tất cả đặc trưng. |
 | Null hypothesis (Giả thuyết không) | Giả định mặc định không có hiệu ứng hoặc không có khác biệt. |

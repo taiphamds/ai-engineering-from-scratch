@@ -9,47 +9,47 @@
 
 ## The Problem
 
-Bạn muốn một bộ lấy mẫu cho `p_data(x)`. GAN chơi một trò chơi minimax thường phân kỳ. VAE tạo ra các mẫu mờ từ một decoder Gaussian. Điều bạn thực sự muốn là một mục tiêu huấn luyện (a) là một hàm mất mát ổn định duy nhất (không điểm yên ngựa, không minimax), (b) là một cận dưới của `log p(x)` (để bạn có các độ hợp lý), và (c) các mẫu đạt chất lượng SOTA.
+Bạn muốn một bộ lấy mẫu cho $p_{\text{data}}(x)$. GAN chơi một trò chơi minimax thường phân kỳ. VAE tạo ra các mẫu mờ từ một decoder Gaussian. Điều bạn thực sự muốn là một mục tiêu huấn luyện (a) là một hàm mất mát ổn định duy nhất (không điểm yên ngựa, không minimax), (b) là một cận dưới của $\log p(x)$ (để bạn có các độ hợp lý), và (c) các mẫu đạt chất lượng SOTA.
 
-Sohl-Dickstein và cộng sự (2015) có một câu trả lời lý thuyết: định nghĩa một chuỗi Markov `q(x_t | x_{t-1})` dần thêm nhiễu Gaussian, và huấn luyện một chuỗi ngược `p_θ(x_{t-1} | x_t)` để khử nhiễu. Ho, Jain, Abbeel (2020) cho thấy hàm mất mát có thể đơn giản hóa thành một dòng — dự đoán nhiễu — và làm rõ phần toán học. Năm 2020 đây là một điều lạ. Năm 2021 nó tạo ra các mẫu tiên tiến nhất. Năm 2022 nó trở thành Stable Diffusion. Năm 2026 nó là nền tảng.
+Sohl-Dickstein và cộng sự (2015) có một câu trả lời lý thuyết: định nghĩa một chuỗi Markov $q(x_t \mid x_{t-1})$ dần thêm nhiễu Gaussian, và huấn luyện một chuỗi ngược $p_\theta(x_{t-1} \mid x_t)$ để khử nhiễu. Ho, Jain, Abbeel (2020) cho thấy hàm mất mát có thể đơn giản hóa thành một dòng — dự đoán nhiễu — và làm rõ phần toán học. Năm 2020 đây là một điều lạ. Năm 2021 nó tạo ra các mẫu tiên tiến nhất. Năm 2022 nó trở thành Stable Diffusion. Năm 2026 nó là nền tảng.
 
 ## The Concept
 
 ![DDPM: forward noise, reverse denoise](../assets/ddpm.svg)
 
-**Quá trình xuôi `q`.** Thêm nhiễu Gaussian trong `T` bước nhỏ. Dạng đóng — lý do toán học tính toán được — là bước tích lũy cũng là Gaussian:
+**Quá trình xuôi $q$.** Thêm nhiễu Gaussian trong $T$ bước nhỏ. Dạng đóng — lý do toán học tính toán được — là bước tích lũy cũng là Gaussian:
 
-```
-q(x_t | x_0) = N( sqrt(α̅_t) · x_0,  (1 - α̅_t) · I )
-```
-
-trong đó `α̅_t = ∏_{s=1..t} (1 - β_s)` cho một lịch `β_t`. Chọn `β_t` từ 1e-4 đến 0.02 tuyến tính qua T=1000 bước và `x_T` xấp xỉ `N(0, I)`.
-
-**Quá trình ngược `p_θ`.** Học một mạng nơ-ron `ε_θ(x_t, t)` dự đoán nhiễu đã được thêm. Với `x_t`, khử nhiễu bằng:
-
-```
-x_{t-1} = (1 / sqrt(α_t)) · ( x_t - (β_t / sqrt(1 - α̅_t)) · ε_θ(x_t, t) )  +  σ_t · z
+```math
+q(x_t \mid x_0) = \mathcal{N}\left( \sqrt{\bar{\alpha}_t} \cdot x_0, (1 - \bar{\alpha}_t) \cdot I \right)
 ```
 
-trong đó `σ_t` là `sqrt(β_t)` hoặc một phương sai được học. Biểu thức trông xấu nhưng chỉ là đại số — giải tìm `x_{t-1}` với hậu nghiệm `q(x_{t-1} | x_t, x_0)` và thay `x_0` bằng ước lượng dự đoán từ nhiễu của nó.
+trong đó $\bar\alpha_t = \prod_{s=1}^{t} (1 - \beta_s)$ cho một lịch $\beta_t$. Chọn $\beta_t$ từ 1e-4 đến 0.02 tuyến tính qua $T=1000$ bước và $x_T$ xấp xỉ $\mathcal{N}(0, I)$.
+
+**Quá trình ngược $p_\theta$.** Học một mạng nơ-ron $\epsilon_\theta(x_t, t)$ dự đoán nhiễu đã được thêm. Với $x_t$, khử nhiễu bằng:
+
+```math
+x_{t-1} = \frac{1}{\sqrt{\alpha_t}} \cdot \left( x_t - \frac{\beta_t}{\sqrt{1 - \bar{\alpha}_t}} \cdot \epsilon_\theta(x_t, t) \right) + \sigma_t \cdot z
+```
+
+trong đó $\sigma_t$ là $\sqrt{\beta_t}$ hoặc một phương sai được học. Biểu thức trông xấu nhưng chỉ là đại số — giải tìm $x_{t-1}$ với hậu nghiệm $q(x_{t-1} \mid x_t, x_0)$ và thay $x_0$ bằng ước lượng dự đoán từ nhiễu của nó.
 
 **Hàm mất mát huấn luyện.**
 
-```
-L_simple = E_{x_0, t, ε} [ || ε - ε_θ( sqrt(α̅_t) · x_0 + sqrt(1 - α̅_t) · ε,  t ) ||² ]
+```math
+L_{\text{simple}} = \mathbb{E}_{x_0, t, \epsilon} \left[ \left\lVert \epsilon - \epsilon_\theta\left( \sqrt{\bar{\alpha}_t} \cdot x_0 + \sqrt{1 - \bar{\alpha}_t} \cdot \epsilon, t \right) \right\rVert^2 \right]
 ```
 
-Lấy mẫu `x_0` từ dữ liệu, chọn một `t` ngẫu nhiên, lấy mẫu `ε ~ N(0, I)`, tính `x_t` có nhiễu trong một lần qua dạng đóng, và hồi quy theo nhiễu. Một hàm mất mát, không minimax, không KL, không thủ thuật tái tham số hóa.
+Lấy mẫu $x_0$ từ dữ liệu, chọn một $t$ ngẫu nhiên, lấy mẫu $\epsilon \sim \mathcal{N}(0, I)$, tính $x_t$ có nhiễu trong một lần qua dạng đóng, và hồi quy theo nhiễu. Một hàm mất mát, không minimax, không KL, không thủ thuật tái tham số hóa.
 
-**Lấy mẫu.** Bắt đầu `x_T ~ N(0, I)`. Lặp bước ngược từ `t = T` đến `1`. Xong.
+**Lấy mẫu.** Bắt đầu $x_T \sim \mathcal{N}(0, I)$. Lặp bước ngược từ $t = T$ đến 1. Xong.
 
 ## Why it works
 
 Ba trực giác:
 
-1. **Khử nhiễu dễ; sinh khó.** Ở `t=T`, dữ liệu là nhiễu thuần túy — mạng phải giải một bài toán đơn giản. Ở `t=0`, mạng chỉ phải làm sạch vài pixel. Ở `t` trung gian, bài toán khó nhưng mạng có nhiều gradient truyền qua cùng các trọng số từ mọi mức nhiễu.
+1. **Khử nhiễu dễ; sinh khó.** Ở $t=T$, dữ liệu là nhiễu thuần túy — mạng phải giải một bài toán đơn giản. Ở $t=0$, mạng chỉ phải làm sạch vài pixel. Ở $t$ trung gian, bài toán khó nhưng mạng có nhiều gradient truyền qua cùng các trọng số từ mọi mức nhiễu.
 
-2. **Score matching ngụy trang.** Vincent (2011) chứng minh dự đoán nhiễu tương đương với ước lượng `∇_x log q(x_t | x_0)`, tức *score*. SDE ngược dùng score này để đi lên theo gradient mật độ — một bước đi ngẫu nhiên có hướng dẫn về các vùng xác suất cao.
+2. **Score matching ngụy trang.** Vincent (2011) chứng minh dự đoán nhiễu tương đương với ước lượng $\nabla_x \log q(x_t \mid x_0)$, tức *score*. SDE ngược dùng score này để đi lên theo gradient mật độ — một bước đi ngẫu nhiên có hướng dẫn về các vùng xác suất cao.
 
 3. **ELBO rút về MSE đơn giản.** Cận dưới biến phân đầy đủ có một hạng tử KL cho mỗi bước thời gian. Với cách tham số hóa của DDPM, các hạng tử KL đó đơn giản hóa thành MSE trên dự đoán nhiễu với các hệ số cụ thể; Ho bỏ các hệ số (gọi nó là hàm mất mát "đơn giản") và chất lượng *cải thiện*.
 
@@ -59,7 +59,7 @@ diffusion-denoise
 
 ## Build It
 
-`code/main.py` triển khai một DDPM 1-D. Dữ liệu là một hỗn hợp hai mode. "Mạng" là một MLP nhỏ nhận `(x_t, t)` và xuất ra nhiễu dự đoán. Huấn luyện là hàm mất mát một dòng. Lấy mẫu lặp chuỗi ngược.
+`code/main.py` triển khai một DDPM 1-D. Dữ liệu là một hỗn hợp hai mode. "Mạng" là một MLP nhỏ nhận $(x_t, t)$ và xuất ra nhiễu dự đoán. Huấn luyện là hàm mất mát một dòng. Lấy mẫu lặp chuỗi ngược.
 
 ### Step 1: the forward schedule (closed form)
 
@@ -114,17 +114,17 @@ Với một bài toán 1-D có 40 bước thời gian và một MLP 24 đơn v�
 
 Mạng cần biết nó đang khử nhiễu bước thời gian nào. Hai lựa chọn tiêu chuẩn:
 
-- **Embedding hình sin.** Như mã hóa vị trí Transformer. `embed(t) = [sin(t/ω_0), cos(t/ω_0), sin(t/ω_1), ...]`. Truyền qua một MLP, broadcast vào mạng.
+- **Embedding hình sin.** Như mã hóa vị trí Transformer. $\text{embed}(t) = [\sin(t/\omega_0), \cos(t/\omega_0), \sin(t/\omega_1), \ldots]$. Truyền qua một MLP, broadcast vào mạng.
 - **Điều kiện hóa Film / group-norm.** Chiếu embedding thành scale/bias theo kênh (FiLM) ở mỗi khối.
 
 Mã đồ chơi của chúng ta dùng hình sin → nối. U-Net production dùng FiLM.
 
 ## Pitfalls
 
-- **Lịch rất quan trọng.** `β` tuyến tính là mặc định DDPM nhưng lịch cosine (Nichol & Dhariwal, 2021) cho FID tốt hơn với cùng tính toán. Đổi lịch nếu chất lượng chững lại.
-- **Embedding bước thời gian mong manh.** Truyền `t` thô dạng float hoạt động với 1-D đồ chơi nhưng thất bại với ảnh; luôn dùng một embedding đúng cách.
-- **V-prediction so với ε-prediction.** Với các chế độ hẹp (t rất nhỏ hoặc rất lớn), `ε` có tỷ lệ tín hiệu trên nhiễu kém. V-prediction (`v = α·ε - σ·x`) ổn định hơn; SDXL, SD3 và Flux dùng nó.
-- **Classifier-free guidance.** Khi suy luận, tính cả `ε` có điều kiện và vô điều kiện, rồi `ε_cfg = (1 + w) · ε_cond - w · ε_uncond` với `w ≈ 3-7`. Được trình bày trong Bài 08.
+- **Lịch rất quan trọng.** $\beta$ tuyến tính là mặc định DDPM nhưng lịch cosine (Nichol & Dhariwal, 2021) cho FID tốt hơn với cùng tính toán. Đổi lịch nếu chất lượng chững lại.
+- **Embedding bước thời gian mong manh.** Truyền $t$ thô dạng float hoạt động với 1-D đồ chơi nhưng thất bại với ảnh; luôn dùng một embedding đúng cách.
+- **V-prediction so với ε-prediction.** Với các chế độ hẹp (t rất nhỏ hoặc rất lớn), $\epsilon$ có tỷ lệ tín hiệu trên nhiễu kém. V-prediction ($v = \alpha \cdot \epsilon - \sigma \cdot x$) ổn định hơn; SDXL, SD3 và Flux dùng nó.
+- **Classifier-free guidance.** Khi suy luận, tính cả $\epsilon$ có điều kiện và vô điều kiện, rồi $\epsilon_{\text{cfg}} = (1 + w) \cdot \epsilon_{\text{cond}} - w \cdot \epsilon_{\text{uncond}}$ với $w \approx 3\text{-}7$. Được trình bày trong Bài 08.
 - **1000 bước là nhiều.** Production dùng DDIM (20-50 bước), DPM-Solver (10-20 bước), hoặc chưng cất (1-4 bước). Xem Bài 12.
 
 ## Use It
@@ -147,19 +147,19 @@ Lưu `outputs/skill-diffusion-trainer.md`. Skill nhận một tập dữ liệu 
 
 1. **Dễ.** Thay T từ 40 thành 10 trong `code/main.py`. Chất lượng mẫu (histogram trực quan của đầu ra) suy giảm thế nào? Ở T nào cấu trúc hai mode sụp đổ?
 2. **Trung bình.** Chuyển từ ε-prediction sang v-prediction. Suy ra lại bước ngược. So sánh chất lượng mẫu cuối cùng.
-3. **Khó.** Thêm classifier-free guidance. Điều kiện hóa theo một nhãn lớp `c ∈ {0, 1}`, bỏ nó 10% thời gian khi huấn luyện, và lúc lấy mẫu dùng `ε = (1+w)·ε_cond - w·ε_uncond`. Đo tỷ lệ trúng mode có điều kiện ở `w = 0, 1, 3, 7`.
+3. **Khó.** Thêm classifier-free guidance. Điều kiện hóa theo một nhãn lớp $c \in \lbrace 0, 1 \rbrace$, bỏ nó 10% thời gian khi huấn luyện, và lúc lấy mẫu dùng $\epsilon = (1+w) \cdot \epsilon_{\text{cond}} - w \cdot \epsilon_{\text{uncond}}$. Đo tỷ lệ trúng mode có điều kiện ở $w = 0, 1, 3, 7$.
 
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Forward process (Quá trình xuôi) | "Thêm nhiễu" | Chuỗi Markov cố định `q(x_t \| x_{t-1})` phá hủy dữ liệu. |
-| Reverse process (Quá trình ngược) | "Khử nhiễu" | Chuỗi được học `p_θ(x_{t-1} \| x_t)` tái dựng dữ liệu. |
+| Forward process (Quá trình xuôi) | "Thêm nhiễu" | Chuỗi Markov cố định $q(x_t \mid x_{t-1})$ phá hủy dữ liệu. |
+| Reverse process (Quá trình ngược) | "Khử nhiễu" | Chuỗi được học $p_\theta(x_{t-1} \mid x_t)$ tái dựng dữ liệu. |
 | β schedule (Lịch β) | "Thang nhiễu" | Phương sai mỗi bước; tuyến tính, cosine, hoặc sigmoid. |
-| α̅ | "Alpha bar" | Tích tích lũy `∏(1 - β)`; cho `x_t` dạng đóng từ `x_0`. |
-| Simple loss (Hàm mất mát đơn giản) | "MSE trên nhiễu" | `\|\|ε - ε_θ(x_t, t)\|\|²`; mọi suy dẫn biến phân đều rút về đây. |
+| α̅ | "Alpha bar" | Tích tích lũy $\prod (1 - \beta)$; cho $x_t$ dạng đóng từ $x_0$. |
+| Simple loss (Hàm mất mát đơn giản) | "MSE trên nhiễu" | $\lVert \epsilon - \epsilon_\theta(x_t, t) \rVert^2$; mọi suy dẫn biến phân đều rút về đây. |
 | ε-prediction (Dự đoán ε) | "Dự đoán nhiễu" | Đầu ra là nhiễu được thêm; DDPM tiêu chuẩn. |
-| V-prediction (Dự đoán V) | "Dự đoán vận tốc" | Đầu ra là `α·ε - σ·x`; điều kiện hóa tốt hơn xuyên suốt t. |
+| V-prediction (Dự đoán V) | "Dự đoán vận tốc" | Đầu ra là $\alpha \cdot \epsilon - \sigma \cdot x$; điều kiện hóa tốt hơn xuyên suốt t. |
 | DDPM | "Bài báo" | Ho và cộng sự 2020; β tuyến tính, 1000 bước, U-Net. |
 | DDIM | "Bộ lấy mẫu tất định" | Bộ lấy mẫu phi Markov, 20-50 bước, cùng mục tiêu huấn luyện. |
 | Classifier-free guidance | "CFG" | Trộn các dự đoán nhiễu có điều kiện và vô điều kiện để khuếch đại điều kiện hóa. |
@@ -168,7 +168,7 @@ Lưu `outputs/skill-diffusion-trainer.md`. Skill nhận một tập dữ liệu 
 
 Bài báo DDPM chạy T=1000 bước ngược. Không ai triển khai điều đó trong production. Mọi bộ công cụ suy luận thực đều chọn một trong ba chiến lược — và mỗi chiến lược đều tương ứng rõ ràng với cách production đặt vấn đề "độ trễ đến từ đâu":
 
-1. **Bộ lấy mẫu nhanh hơn, cùng mô hình.** DDIM (20-50 bước), DPM-Solver++ (10-20), UniPC (8-16). Thay thế trực tiếp vòng lặp ngược; các trọng số `ε_θ` đã huấn luyện không bị chạm đến. Giảm độ trễ 20-50×.
+1. **Bộ lấy mẫu nhanh hơn, cùng mô hình.** DDIM (20-50 bước), DPM-Solver++ (10-20), UniPC (8-16). Thay thế trực tiếp vòng lặp ngược; các trọng số $\epsilon_\theta$ đã huấn luyện không bị chạm đến. Giảm độ trễ 20-50×.
 2. **Chưng cất.** Huấn luyện một mô hình học trò khớp mô hình thầy trong ít bước hơn: Progressive Distillation (2 → 1), Consistency Models (tùy ý → 1-4), LCM, SDXL-Turbo, SD3-Turbo. Giảm độ trễ thêm 5-10×, cần huấn luyện lại.
 3. **Cache và biên dịch.** `torch.compile(unet, mode="reduce-overhead")`, các backend khuếch tán của TensorRT-LLM, attention `xformers`/SDPA, trọng số bf16. Giảm độ trễ mỗi bước ~2×. Kết hợp với (1) và (2).
 

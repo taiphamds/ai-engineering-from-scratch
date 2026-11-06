@@ -1,6 +1,6 @@
 # The Reverse Engineering Landscape: History, Tool Families, and How a Decompiler Is Built
 
-> Five tools read the same object and give four addresses, three block counts, and two answers for one switch, and this lesson builds the harness that shows which is which.
+> Năm công cụ đọc cùng object và cho bốn địa chỉ, ba số đếm khối và hai câu trả lời cho một switch, và bài học này xây dựng harness cho thấy cái nào là cái nào.
 
 **Type:** Build
 **Languages:** Python, C, x86-64 assembly, Java (one Ghidra script)
@@ -9,22 +9,22 @@
 
 ## Learning Objectives
 
-- Place the main tools of the field on a dated timeline from 1973 to 2026 and name the family each one belongs to.
-- Name the eight stages of a decompiler and the term that Ghidra, Binary Ninja, Hex-Rays, radare2, rizin, and angr use for each stage.
-- Lift one instruction into ESIL, RzIL, P-code, and VEX and explain which of them write flags eagerly and which store a thunk.
-- Reduce the addresses of five tools to one `.text` offset and prove the reduction on one function.
-- Build a comparison harness that reads captured tool outputs and reports agreement on instruction starts, blocks, edges, and function starts.
-- Name, from captured evidence, where each tool invents code, misses code, or stops at an indirect jump.
+- Đặt các công cụ chính của lĩnh vực lên một dòng thời gian có ngày từ 1973 đến 2026 và nêu tên họ mà mỗi công cụ thuộc về.
+- Nêu tên tám giai đoạn của một decompiler và thuật ngữ mà Ghidra, Binary Ninja, Hex-Rays, radare2, rizin và angr sử dụng cho mỗi giai đoạn.
+- Nâng một chỉ lệnh vào ESIL, RzIL, P-code và VEX và giải thích những thứ nào ghi cờ ngay và những thứ nào lưu một thunk.
+- Quy các địa chỉ của năm công cụ về một offset `.text` và chứng minh phép quy trên một hàm.
+- Xây dựng một harness so sánh đọc các đầu ra công cụ đã thu và báo cáo sự đồng nhất về các điểm bắt đầu chỉ lệnh, khối, cạnh và điểm bắt đầu hàm.
+- Nêu tên, từ bằng chứng đã thu, nơi mỗi công cụ bịa mã, bỏ lỡ mã hoặc dừng ở một bước nhảy gián tiếp.
 
 ## The Problem
 
-You ask an agent to summarise what three reverse engineering tools say about `grade` in `ledger-x86_64-O1.o`. The agent runs each tool, reads three listings, and reports that the function sits at `0x08000050` in one tool, `0x400010` in another, and `0x100010` in the third. It concludes that the tools disagree about where the function is.
+Bạn yêu cầu một agent tóm tắt những gì ba công cụ reverse engineering nói về `grade` trong `ledger-x86_64-O1.o`. Agent chạy mỗi công cụ, đọc ba danh sách và báo cáo rằng hàm nằm tại `0x08000050` trong một công cụ, `0x400010` trong một công cụ khác và `0x100010` trong công cụ thứ ba. Nó kết luận rằng các công cụ bất đồng về nơi hàm nằm.
 
-The tools agree. The object is relocatable and has no load address, so each tool chooses one. Subtract the address each tool gave `.text` and every answer is `0x10`. The agent compared raw addresses because nothing told it what the address meant in each tool.
+Các công cụ đồng nhất. Object có thể tái định vị và không có địa chỉ tải, nên mỗi công cụ chọn một. Trừ địa chỉ mà mỗi công cụ cho `.text` và mọi câu trả lời là `0x10`. Agent so sánh các địa chỉ thô vì không có gì nói cho nó địa chỉ có nghĩa gì trong mỗi công cụ.
 
-Later the same agent reads `grade` in the `-O0` build and reports 3, 8, 8, and 9 basic blocks from four tools. All four numbers are real. One tool stopped at `jmp rax`. Two tools read the jump table through its relocations. One tool split a block at the jump to place a label. A block count without the reason behind it is a number without a claim.
+Sau đó cùng agent đọc `grade` trong bản build `-O0` và báo cáo 3, 8, 8 và 9 basic block từ bốn công cụ. Cả bốn con số là thật. Một công cụ dừng tại `jmp rax`. Hai công cụ đọc jump table qua các relocation của nó. Một công cụ tách một khối tại bước nhảy để đặt một nhãn. Một số đếm khối không có lý do đằng sau là một con số không có một khẳng định.
 
-This lesson is the map you need before you trust any of those numbers. Lessons 32 to 36 built one decoder, one lifter, one evidence record, and one rebuild. The second half of the track puts them next to the tools people use. To do that you need the history of the field, the families the tools fall into, the pipeline every decompiler runs, and a harness that compares what the tools say on objects you compiled yourself.
+Bài học này là bản đồ bạn cần trước khi tin bất kỳ con số nào trong số đó. Bài 32 đến 36 xây dựng một decoder, một lifter, một bản ghi bằng chứng và một bản dựng lại. Nửa sau của nhánh đặt chúng cạnh các công cụ mà mọi người sử dụng. Để làm điều đó bạn cần lịch sử của lĩnh vực, các họ mà các công cụ thuộc về, pipeline mà mọi decompiler chạy và một harness so sánh những gì các công cụ nói trên các object bạn tự biên dịch.
 
 ```figure
 re-37-field-map
@@ -32,151 +32,151 @@ re-37-field-map
 
 ## Fifty-Three Years in Dated Steps
 
-The field is older than most of its tools. Each date below has a primary source in Further Reading.
+Lĩnh vực lâu đời hơn hầu hết các công cụ của nó. Mỗi ngày bên dưới có một nguồn sơ cấp trong Further Reading.
 
 ### 1973 to 1991: debuggers first, then disassemblers
 
-The first decompilation theses are from 1973. Hollander at Stanford and Housel at Purdue wrote them, and both are known today through citations. The practical tools of the period were debuggers. Maranzano and Bourne wrote the `adb` tutorial at Bell Labs in 1977, and the debugger shipped with UNIX V7 in 1979. Tim Paterson's `DEBUG`, with an 8086 disassembler, shipped in PC-DOS 1.00 in August 1981. Richard Stallman's GDB entered distribution in 1986. SoftICE put a kernel debugger under DOS in 1987.
+Các luận án decompilation đầu tiên là từ năm 1973. Hollander ở Stanford và Housel ở Purdue viết chúng, và cả hai được biết đến ngày nay qua các trích dẫn. Các công cụ thực tế của thời kỳ là debugger. Maranzano và Bourne viết hướng dẫn `adb` tại Bell Labs năm 1977, và debugger được phát hành với UNIX V7 năm 1979. `DEBUG` của Tim Paterson, với một disassembler 8086, được phát hành trong PC-DOS 1.00 tháng 8 năm 1981. GDB của Richard Stallman được đưa vào phân phối năm 1986. SoftICE đặt một kernel debugger dưới DOS năm 1987.
 
-Batch disassemblers came next. Sourcer, from V Communications in 1988, ran multiple passes over a DOS program and wrote a commented listing. GNU binutils began with unnumbered snapshots in 1988, and `objdump` carries a 1990 copyright. Ilfak Guilfanov wrote the first line of IDA in January 1991 and released IDA 0.1 as shareware on 20 May 1991.
+Các disassembler batch đến tiếp theo. Sourcer, từ V Communications năm 1988, chạy nhiều lượt trên một chương trình DOS và viết một danh sách có bình luận. GNU binutils bắt đầu với các snapshot không đánh số năm 1988, và `objdump` mang bản quyền năm 1990. Ilfak Guilfanov viết dòng đầu của IDA tháng 1 năm 1991 và phát hành IDA 0.1 như shareware ngày 20 tháng 5 năm 1991.
 
 ### 1991 to 2009: interactive disassemblers and the first decompilers
 
-Cristina Cifuentes finished "Reverse Compilation Techniques" at QUT in July 1994. Her decompiler, `dcc`, took i80286 DOS programs to C, and her 1995 paper with Gough set the phases that every later decompiler kept. REC followed in 1997 and Boomerang in 2002, the first open-source decompiler, under a BSD licence.
+Cristina Cifuentes hoàn thành "Reverse Compilation Techniques" tại QUT tháng 7 năm 1994. Decompiler của bà, `dcc`, đưa các chương trình DOS i80286 sang C, và bài báo năm 1995 của bà với Gough đặt các giai đoạn mà mọi decompiler sau giữ lại. REC theo sau năm 1997 và Boomerang năm 2002, decompiler mã nguồn mở đầu tiên, dưới giấy phép BSD.
 
-IDA became a commercial product at DataRescue in 1996, gained a plugin SDK in 1999, and moved to Hex-Rays, founded in 2005. The Hex-Rays Decompiler 1.0 shipped on 17 September 2007. In the same year Mike Van Emmerik submitted "Static Single Assignment for Decompilation", the thesis that put SSA at the centre of decompiler data flow. Halvar Flake's "Structural Comparison of Executable Objects" (2004) started the diffing family, and BinDiff went on sale in August 2004.
+IDA trở thành một sản phẩm thương mại tại DataRescue năm 1996, có thêm plugin SDK năm 1999 và chuyển đến Hex-Rays, được thành lập năm 2005. Hex-Rays Decompiler 1.0 được phát hành ngày 17 tháng 9 năm 2007. Cùng năm đó, Mike Van Emmerik nộp "Static Single Assignment for Decompilation", luận án đặt SSA ở trung tâm luồng dữ liệu decompiler. "Structural Comparison of Executable Objects" (2004) của Halvar Flake khởi đầu họ diffing, và BinDiff được bán tháng 8 năm 2004.
 
-radare started in February 2006 as a forensic hex editor with 64-bit offsets. radare2, the modular rewrite under LGPL-3.0, had its first release on 7 March 2009.
+radare bắt đầu tháng 2 năm 2006 như một trình chỉnh sửa hex pháp chứng với offset 64 bit. radare2, bản viết lại mô-đun dưới LGPL-3.0, có bản phát hành đầu tiên ngày 7 tháng 3 năm 2009.
 
 ### 2009 to 2019: frameworks and intermediate representations
 
-LLDB was announced as an LLVM subproject on 8 June 2010. BAP, the Binary Analysis Platform with its BIL intermediate language, appeared at CAV 2011. Google acquired zynamics, the makers of BinDiff, on 1 March 2011. Hopper appeared on the Mac App Store around the end of 2011. Matt Godbolt started Compiler Explorer in 2012 so that a C++ programmer could see the assembly a compiler produced.
+LLDB được công bố như một dự án con LLVM ngày 8 tháng 6 năm 2010. BAP, Binary Analysis Platform với ngôn ngữ trung gian BIL của nó, xuất hiện tại CAV 2011. Google mua lại zynamics, những người làm BinDiff, ngày 1 tháng 3 năm 2011. Hopper xuất hiện trên Mac App Store vào khoảng cuối năm 2011. Matt Godbolt khởi đầu Compiler Explorer năm 2012 để một lập trình viên C++ có thể thấy assembly mà một compiler tạo ra.
 
-angr received its first line of code in August 2013. The Phoenix paper (Schwartz, Lee, Woo, Brumley, USENIX Security 2013) showed semantics-preserving structuring with 40 `goto` statements across 8,676 functions. DREAM (Yakdan and others, NDSS 2015) removed the `goto` statements with pattern-independent structuring. Vector 35 was founded on 14 January 2015, and Binary Ninja went on sale on 23 July 2016 with its Low Level IL and a Python API. angr was released publicly in 2015 and placed third at the DARPA Cyber Grand Challenge in August 2016. BinDiff became free of charge in March 2016. Cutter 1.0 gave radare2 a Qt GUI in December 2017. In 2018 Guilfanov presented "Decompiler internals: microcode" at Recon, the first public description of the Hex-Rays IR.
+angr nhận dòng mã đầu tiên tháng 8 năm 2013. Bài báo Phoenix (Schwartz, Lee, Woo, Brumley, USENIX Security 2013) cho thấy cấu trúc hóa bảo toàn ngữ nghĩa với 40 câu lệnh `goto` trên 8,676 hàm. DREAM (Yakdan và những người khác, NDSS 2015) loại các câu lệnh `goto` bằng cấu trúc hóa độc lập mẫu. Vector 35 được thành lập ngày 14 tháng 1 năm 2015, và Binary Ninja được bán ngày 23 tháng 7 năm 2016 với Low Level IL và một API Python. angr được phát hành công khai năm 2015 và đứng thứ ba tại DARPA Cyber Grand Challenge tháng 8 năm 2016. BinDiff trở nên miễn phí tháng 3 năm 2016. Cutter 1.0 cho radare2 một GUI Qt tháng 12 năm 2017. Năm 2018, Guilfanov trình bày "Decompiler internals: microcode" tại Recon, mô tả công khai đầu tiên về IR Hex-Rays.
 
 ### 2019 to 2026: open decompilers and the research turn
 
-Ghidra 9.0 was released by the NSA at the RSA Conference on 5 March 2019 under Apache-2.0, with full source on GitHub a month later. angr 8.19.2.4 added a preliminary decompiler the same year. Binary Ninja 2.0 shipped its High Level IL decompiler on 20 May 2020. Rizin was announced as a fork of radare2 on 8 December 2020, and the Cutter team moved to it. IDA Freeware 7.6 added a cloud x64 decompiler in May 2021.
+Ghidra 9.0 được NSA phát hành tại RSA Conference ngày 5 tháng 3 năm 2019 dưới Apache-2.0, với toàn bộ nguồn trên GitHub một tháng sau. angr 8.19.2.4 thêm một decompiler sơ bộ cùng năm. Binary Ninja 2.0 phát hành decompiler High Level IL ngày 20 tháng 5 năm 2020. Rizin được công bố như một fork của radare2 ngày 8 tháng 12 năm 2020, và nhóm Cutter chuyển sang nó. IDA Freeware 7.6 thêm một decompiler x64 đám mây tháng 5 năm 2021.
 
-BinDiff 8 was open-sourced under Apache-2.0 on 25 September 2023. SAILR (Basque and others, USENIX Security 2024) became angr's default structurer and argued that only spurious `goto` statements should be removed, because Linux 6.1 has 3,754 of them in its source. Binary Ninja 4.0 added a Free edition in February 2024, and IDA 9.0 added `idalib` for headless use. The learned-decompiler papers run from SLaDe (2023) through LLM4Decompile (2024) to DecompileBench (2025) and two 2026 studies on agent-assisted readability and on decompilers that recompile more and preserve less.
+BinDiff 8 được mở nguồn dưới Apache-2.0 ngày 25 tháng 9 năm 2023. SAILR (Basque và những người khác, USENIX Security 2024) trở thành structurer mặc định của angr và lập luận rằng chỉ các câu lệnh `goto` thừa mới nên bị loại, vì Linux 6.1 có 3,754 câu trong nguồn của nó. Binary Ninja 4.0 thêm một phiên bản Free tháng 2 năm 2024, và IDA 9.0 thêm `idalib` để sử dụng headless. Các bài báo decompiler được học trải từ SLaDe (2023) qua LLM4Decompile (2024) đến DecompileBench (2025) và hai nghiên cứu năm 2026 về khả năng đọc có agent hỗ trợ và về các decompiler biên dịch lại nhiều hơn và bảo toàn ít hơn.
 
-The versions this lesson ran are the current ones on 14 October 2026: Ghidra 12.1.4 (21 September 2026), radare2 6.2.4 (5 October 2026), rizin 0.9.1 (29 June 2026), and angr 10.0.3 (10 October 2026). Binary Ninja 6.0 "Krypton" (3 September 2026) and IDA 9.4 (13 July 2026) are the current closed tools. This lesson did not run them.
+Các phiên bản bài học này chạy là những phiên bản hiện hành ngày 14 tháng 10 năm 2026: Ghidra 12.1.4 (21 tháng 9 năm 2026), radare2 6.2.4 (5 tháng 10 năm 2026), rizin 0.9.1 (29 tháng 6 năm 2026) và angr 10.0.3 (10 tháng 10 năm 2026). Binary Ninja 6.0 "Krypton" (3 tháng 9 năm 2026) và IDA 9.4 (13 tháng 7 năm 2026) là các công cụ đóng hiện hành. Bài học này không chạy chúng.
 
 ## The Tool Families
 
-A tool belongs to a family by what it produces. The families overlap in one program, and the overlap is where most confusion starts.
+Một công cụ thuộc một họ theo thứ nó tạo ra. Các họ chồng lấp trong một chương trình, và sự chồng lấp là nơi phần lớn nhầm lẫn bắt đầu.
 
 ### Disassemblers
 
-A linear sweep decodes from the first byte of a code section to the last. GNU `objdump -d` and `llvm-objdump -d` work this way, and neither builds a control-flow graph. GNU `objdump` treats symbols as instruction boundaries and sweeps between them. binutils 2.47 (26 July 2026) is GPL-3.0-or-later. LLVM 23.1.3 is Apache-2.0 with the LLVM exception. Apple's Command Line Tools ship `llvm-objdump` as "Apple LLVM version 17.0.0", and that is the copy this lesson captured.
+Một linear sweep giải mã từ byte đầu của một code section đến byte cuối. GNU `objdump -d` và `llvm-objdump -d` hoạt động theo cách này, và không công cụ nào xây dựng một đồ thị luồng điều khiển. GNU `objdump` coi các symbol là các ranh giới chỉ lệnh và quét giữa chúng. binutils 2.47 (26 tháng 7 năm 2026) là GPL-3.0-or-later. LLVM 23.1.3 là Apache-2.0 với ngoại lệ LLVM. Command Line Tools của Apple phát hành `llvm-objdump` dưới dạng "Apple LLVM version 17.0.0", và đó là bản sao mà bài học này thu.
 
-An interactive disassembler runs recursive descent from known entries, adds heuristics for function starts, and keeps a database. IDA Pro (processor modules, autoanalysis queues, FLIRT signatures), Ghidra (`Disassembler` plus Auto Analysis analyzers), Binary Ninja (recursive descent, then linear sweep over unknown regions), Hopper, radare2 and rizin (`aa`, `aaa`, `af`), with Cutter and iaito as GUIs, are all in this family. Andriesse and others (USENIX Security 2016) measured nine of them on compiler-generated binaries. Instruction accuracy was close to 100 percent, and the hard primitive was function starts, with false negative rates of 20 percent or more.
+Một disassembler tương tác chạy recursive descent từ các điểm vào đã biết, thêm heuristic cho các điểm bắt đầu hàm và giữ một cơ sở dữ liệu. IDA Pro (các mô-đun bộ xử lý, hàng đợi autoanalysis, chữ ký FLIRT), Ghidra (`Disassembler` cộng các analyzer Auto Analysis), Binary Ninja (recursive descent, rồi linear sweep trên các vùng chưa biết), Hopper, radare2 và rizin (`aa`, `aaa`, `af`), với Cutter và iaito làm GUI, đều thuộc họ này. Andriesse và những người khác (USENIX Security 2016) đo chín công cụ trên các binary do compiler tạo. Độ chính xác chỉ lệnh gần 100 phần trăm, và primitive khó là các điểm bắt đầu hàm, với tỷ lệ âm tính giả 20 phần trăm trở lên.
 
 ### Decompilers
 
-Commercial decompilers: the Hex-Rays Decompiler (twelve target families from x86 to RISC-V), Binary Ninja's HLIL with its Pseudo C rendering, and Hopper's pseudo-code view. Open decompilers: the Ghidra decompiler, a C++ engine under Apache-2.0 that r2ghidra and rz-ghidra reuse as a plugin and that pypcode reuses as a lifter; the angr decompiler on AIL with SAILR structuring under BSD-2-Clause; r2dec and jsdec in JavaScript; Boomerang and `dcc` as history. radare2 also has a built-in `pdc`, "pseudo disassembler output in C-like syntax". rizin has no built-in decompiler. The command `pdc` does not exist in rizin 0.9.1, and `pdg` needs the rz-ghidra plugin.
+Các decompiler thương mại: Hex-Rays Decompiler (mười hai họ mục tiêu từ x86 đến RISC-V), HLIL của Binary Ninja với cách kết xuất Pseudo C và góc nhìn pseudo-code của Hopper. Các decompiler mở: decompiler Ghidra, một engine C++ dưới Apache-2.0 mà r2ghidra và rz-ghidra tái sử dụng như một plugin và pypcode tái sử dụng như một lifter; decompiler angr trên AIL với cấu trúc hóa SAILR dưới BSD-2-Clause; r2dec và jsdec trong JavaScript; Boomerang và `dcc` như lịch sử. radare2 cũng có một `pdc` tích hợp, "đầu ra pseudo disassembler theo cú pháp giống C". rizin không có decompiler tích hợp. Lệnh `pdc` không tồn tại trong rizin 0.9.1, và `pdg` cần plugin rz-ghidra.
 
 ### Debuggers
 
-GDB (1986) with the GEF and pwndbg front-ends, LLDB (2010), WinDbg with Time Travel Debugging (2017), OllyDbg (frozen in 2014), x64dbg (GPL-3.0, 2014), the Ghidra Debugger with its Python connectors, the Binary Ninja debugger, and the built-in debuggers of radare2 and rizin. Lesson 42 uses two of them on your own builds.
+GDB (1986) với các front-end GEF và pwndbg, LLDB (2010), WinDbg với Time Travel Debugging (2017), OllyDbg (đóng băng năm 2014), x64dbg (GPL-3.0, 2014), Ghidra Debugger với các connector Python của nó, debugger Binary Ninja và các debugger tích hợp của radare2 và rizin. Bài 42 sử dụng hai trong số đó trên các bản build của riêng bạn.
 
 ### Binary analysis frameworks
 
-angr (VEX IR, symbolic execution, `CFGFast` and `CFGEmulated`, decompiler), BAP (BIL, OCaml), Dyninst, Jakstab, and ByteWeight are the frameworks that Andriesse named. Ghidra is a library through PyGhidra, Binary Ninja through `import binaryninja`, and IDA through `idalib`.
+angr (VEX IR, thực thi ký hiệu, `CFGFast` và `CFGEmulated`, decompiler), BAP (BIL, OCaml), Dyninst, Jakstab và ByteWeight là các framework mà Andriesse nêu tên. Ghidra là một thư viện qua PyGhidra, Binary Ninja qua `import binaryninja` và IDA qua `idalib`.
 
 ### Format and engine libraries
 
-LIEF 1.0.0 (12 July 2026, Apache-2.0) parses ELF, PE, Mach-O, COFF, and the Android formats. CLE, "CLE Loads Everything", is angr's loader. Capstone 5.0.9 (28 May 2026, BSD-3-Clause) decodes; Keystone 0.9.2 (GPL-2.0) assembles; Unicorn 2.1.4 (GPL-2.0) emulates. radare2 6.2.4 bundles Capstone 5, and rizin 0.9.1 vendors Capstone, Zydis, and tree-sitter.
+LIEF 1.0.0 (12 tháng 7 năm 2026, Apache-2.0) phân tích ELF, PE, Mach-O, COFF và các định dạng Android. CLE, "CLE Loads Everything", là loader của angr. Capstone 5.0.9 (28 tháng 5 năm 2026, BSD-3-Clause) giải mã; Keystone 0.9.2 (GPL-2.0) hợp dịch; Unicorn 2.1.4 (GPL-2.0) giả lập. radare2 6.2.4 đóng gói Capstone 5, và rizin 0.9.1 đưa kèm Capstone, Zydis và tree-sitter.
 
 ### Diffing tools and compiler-side viewers
 
-BinDiff 8 (Apache-2.0) with its BinExport 12 plugin for IDA Pro, Binary Ninja, and Ghidra; Diaphora 3.4.3 (11 October 2026, AGPL-3.0) as an IDA plugin; `radiff2` and `rz-diff`. Compiler Explorer (BSD-2-Clause) shows the assembly a compiler emits for a source fragment, which is the forward direction of everything else in this list. Lesson 44 uses the diffing family.
+BinDiff 8 (Apache-2.0) với plugin BinExport 12 cho IDA Pro, Binary Ninja và Ghidra; Diaphora 3.4.3 (11 tháng 10 năm 2026, AGPL-3.0) như một plugin IDA; `radiff2` và `rz-diff`. Compiler Explorer (BSD-2-Clause) cho thấy assembly mà một compiler phát ra cho một đoạn nguồn, chính là chiều xuôi của mọi thứ khác trong danh sách này. Bài 44 sử dụng họ diffing.
 
 ### Versions, licences, and what this lesson ran
 
-| Tool | Version read on 2026-10-14 | Licence | Headless entry | Ran here |
+| Công cụ | Phiên bản đọc ngày 2026-10-14 | Giấy phép | Điểm vào headless | Đã chạy ở đây |
 |---|---|---|---|---|
-| Ghidra | 12.1.4 | Apache-2.0 | `analyzeHeadless`, `pyghidra.start()` | yes, on all four objects |
-| radare2 | 6.2.4 | LGPL-3.0 | `r2 -qc '<cmds>' file`, `rabin2` | yes |
-| rizin | 0.9.1 | LGPL-3.0 | `rizin -qc '<cmds>' file`, `rz-bin` | yes |
-| angr | 10.0.3 | BSD-2-Clause | `angr.Project` in Python | yes |
-| llvm-objdump | Apple LLVM 17.0.0 | Apache-2.0 with LLVM exception | `llvm-objdump -d -r` | yes |
-| Binary Ninja | 6.0 "Krypton" | commercial; Free edition for non-commercial use | `binaryninja.load()` with a Commercial, Ultimate, or headless licence | no, documentation only |
-| IDA Pro | 9.4 | commercial subscription; IDA Free for non-commercial x86 and x86-64 | `idat`, `ida -A -S`, `idalib` | no, documentation only |
-| Hopper | 6.6.0 | commercial, perpetual | none documented | no, documentation only |
-| Cutter | 2.5.0 | GPL-3.0 | GUI over rizin | no |
+| Ghidra | 12.1.4 | Apache-2.0 | `analyzeHeadless`, `pyghidra.start()` | có, trên cả bốn object |
+| radare2 | 6.2.4 | LGPL-3.0 | `r2 -qc '<cmds>' file`, `rabin2` | có |
+| rizin | 0.9.1 | LGPL-3.0 | `rizin -qc '<cmds>' file`, `rz-bin` | có |
+| angr | 10.0.3 | BSD-2-Clause | `angr.Project` trong Python | có |
+| llvm-objdump | Apple LLVM 17.0.0 | Apache-2.0 với ngoại lệ LLVM | `llvm-objdump -d -r` | có |
+| Binary Ninja | 6.0 "Krypton" | thương mại; phiên bản Free cho sử dụng phi thương mại | `binaryninja.load()` với giấy phép Commercial, Ultimate hoặc headless | không, chỉ tài liệu |
+| IDA Pro | 9.4 | thuê bao thương mại; IDA Free cho x86 và x86-64 phi thương mại | `idat`, `ida -A -S`, `idalib` | không, chỉ tài liệu |
+| Hopper | 6.6.0 | thương mại, vĩnh viễn | không có được ghi tài liệu | không, chỉ tài liệu |
+| Cutter | 2.5.0 | GPL-3.0 | GUI trên rizin | không |
 
-The Free edition of Binary Ninja decompiles x86, x86-64, ARMv7, and AArch64 only and has no API. IDA Free has no IDAPython, no SDK, and no `idalib`, and its decompiler runs in the cloud. Every statement about those two tools in this lesson comes from their documentation and release notes, and the figure marks them as not run.
+Phiên bản Free của Binary Ninja chỉ decompile x86, x86-64, ARMv7 và AArch64 và không có API. IDA Free không có IDAPython, không SDK và không `idalib`, và decompiler của nó chạy trên đám mây. Mọi phát biểu về hai công cụ đó trong bài học này đến từ tài liệu và ghi chú phát hành của chúng, và hình đánh dấu chúng là chưa chạy.
 
 ## The Decompiler Pipeline, Stage by Stage
 
-Cifuentes named the phases in 1994: syntax analysis, semantic analysis, intermediate code generation, control-flow graph generation, data-flow analysis, control-flow analysis, and code generation. She split them into a machine-dependent front end, a machine- and language-independent middle, and a language-dependent back end. Every decompiler since keeps that shape and renames the parts. The table below gives the eight stages this lesson uses and the name each tool gives them. The figure shows the same table with the tool columns selectable.
+Cifuentes đặt tên các giai đoạn năm 1994: phân tích cú pháp, phân tích ngữ nghĩa, tạo mã trung gian, tạo đồ thị luồng điều khiển, phân tích luồng dữ liệu, phân tích luồng điều khiển và tạo mã. Bà chia chúng thành một front end phụ thuộc máy, một phần giữa độc lập máy và ngôn ngữ, và một back end phụ thuộc ngôn ngữ. Mọi decompiler kể từ đó giữ dạng đó và đổi tên các phần. Bảng bên dưới cho tám giai đoạn bài học này sử dụng và tên mà mỗi công cụ cho chúng. Hình hiển thị cùng bảng với các cột công cụ có thể chọn.
 
-| Stage | Ghidra | Binary Ninja | Hex-Rays / IDA | radare2 | rizin | angr |
+| Giai đoạn | Ghidra | Binary Ninja | Hex-Rays / IDA | radare2 | rizin | angr |
 |---|---|---|---|---|---|---|
-| Loader | `ElfLoader`, `MachoLoader`, `PeLoader`; `.ldefs` picks the language | `BinaryView`, `BinaryViewType` | loader module (`LDSC`) | RBin (`rabin2`) | RzBin (`rz-bin`) | CLE (`cle.Loader`, `main_object`) |
-| Disassembly | `Disassembler`; SLEIGH `.slaspec` compiled to `.sla`; analyzers "Disassemble Entry Points", "Function Start Search" | architecture plugin; Recursive Descent, then linear sweep phases | processor module (`ana.cpp`, `emu.cpp`, `out.cpp`); autoanalysis queues; FLIRT | RArch plugin to `RAnalOp`; `aa`, `aaa`, `af` | RzAnalysis plugin; `aa`, `aaa`, `af` | Capstone blocks; `CFGFast` function start search |
-| CFG recovery | "Generate Basic Blocks and the CFG"; `BlockGraph`; "Decompiler Switch Analysis" | `Function`, `BasicBlock`; "Control Flow Graph (CFG) Analysis" phase | `mbl_graph_t`, ready at `MMAT_LOCOPT` | `afb`, `agf`, `aab` | `afb`, `agf`, `aab` (Nucleus) | `CFGFast`, `CFGEmulated`; `kb.functions`; IRSB |
-| Lifting | "Generate Raw P-code"; Varnodes in `ram`, `register`, `const`, `unique` | Lifted IL, LLIL, Mapped MLIL, MLIL | microcode (`minsn_t`, `mop_t`); `MMAT_GENERATED` | ESIL (`asm.esil`, `ae`) | RzIL (`aoi`, `aez`) | VEX (`pyvex.lift`, IRSB), then AIL |
-| SSA | `Heritage`, `ActionHeritage`; `MULTIEQUAL`, `INDIRECT` | LLIL SSA, MLIL SSA, HLIL SSA; `HLIL_VAR_PHI` | no named SSA; use-def data flow in `MMAT_GLBOPT1` to `3` | none; ESIL is built for emulation | none; RzIL is built for emulation | `_stage_transform_to_ssa_level0` and `level1`; `SeqNodeDephication` |
-| Data flow and types | `ActionDeadCode`, `ActionInferTypes`, the `Rule` pool; prototype from `.cspec` | MLIL constant propagation, variables and types; `analyzeReturns` | "Transform microcode"; `MMAT_CALLS`, `MMAT_GLBOPT`, `MMAT_LVARS`; TIL | `afv`, `afc`, `aaft`; ESIL emulation | `afv`, `afc`, `aft` | `CallingConventionAnalysis`, `VariableRecoveryFast`, `Typehoon` |
-| Structuring | `CollapseStructure`; `BlockIf`, `BlockWhileDo`, `BlockSwitch`, `BlockGoto` | `HLIL_IF`, `HLIL_WHILE`, `HLIL_SWITCH`; AST at `root` | "Generate ctree"; structural analysis; goto regions | `pdc`; `pdd` (r2dec); `pdg` (r2ghidra) | `pdg` (rz-ghidra); jsdec | `RegionIdentifier`; `RecursiveStructurer` with `SAILRStructurer` |
-| Emission | "Emit Final C Tokens"; `PrintC`, `ActionNameVars`, `ActionSetCasts` | HLIL rendering; Pseudo C, Pseudo Rust, Pseudo Python | "Beautify ctree; Print ctree"; `cfunc_t` | text of `pdc`, `pdd`, `pdg` | `pdg` text | `CStructuredCodeGenerator`; `codegen.text` |
+| Loader | `ElfLoader`, `MachoLoader`, `PeLoader`; `.ldefs` chọn ngôn ngữ | `BinaryView`, `BinaryViewType` | mô-đun loader (`LDSC`) | RBin (`rabin2`) | RzBin (`rz-bin`) | CLE (`cle.Loader`, `main_object`) |
+| Disassembly | `Disassembler`; SLEIGH `.slaspec` được biên dịch thành `.sla`; analyzer "Disassemble Entry Points", "Function Start Search" | plugin kiến trúc; Recursive Descent, rồi các giai đoạn linear sweep | mô-đun bộ xử lý (`ana.cpp`, `emu.cpp`, `out.cpp`); hàng đợi autoanalysis; FLIRT | plugin RArch sang `RAnalOp`; `aa`, `aaa`, `af` | plugin RzAnalysis; `aa`, `aaa`, `af` | các khối Capstone; tìm điểm bắt đầu hàm `CFGFast` |
+| Khôi phục CFG | "Generate Basic Blocks and the CFG"; `BlockGraph`; "Decompiler Switch Analysis" | `Function`, `BasicBlock`; giai đoạn "Control Flow Graph (CFG) Analysis" | `mbl_graph_t`, sẵn sàng tại `MMAT_LOCOPT` | `afb`, `agf`, `aab` | `afb`, `agf`, `aab` (Nucleus) | `CFGFast`, `CFGEmulated`; `kb.functions`; IRSB |
+| Nâng | "Generate Raw P-code"; Varnode trong `ram`, `register`, `const`, `unique` | Lifted IL, LLIL, Mapped MLIL, MLIL | microcode (`minsn_t`, `mop_t`); `MMAT_GENERATED` | ESIL (`asm.esil`, `ae`) | RzIL (`aoi`, `aez`) | VEX (`pyvex.lift`, IRSB), rồi AIL |
+| SSA | `Heritage`, `ActionHeritage`; `MULTIEQUAL`, `INDIRECT` | LLIL SSA, MLIL SSA, HLIL SSA; `HLIL_VAR_PHI` | không có SSA được đặt tên; luồng dữ liệu use-def trong `MMAT_GLBOPT1` đến `3` | không có; ESIL được xây dựng để giả lập | không có; RzIL được xây dựng để giả lập | `_stage_transform_to_ssa_level0` và `level1`; `SeqNodeDephication` |
+| Luồng dữ liệu và kiểu | `ActionDeadCode`, `ActionInferTypes`, pool `Rule`; prototype từ `.cspec` | lan truyền hằng số MLIL, biến và kiểu; `analyzeReturns` | "Transform microcode"; `MMAT_CALLS`, `MMAT_GLBOPT`, `MMAT_LVARS`; TIL | `afv`, `afc`, `aaft`; giả lập ESIL | `afv`, `afc`, `aft` | `CallingConventionAnalysis`, `VariableRecoveryFast`, `Typehoon` |
+| Cấu trúc hóa | `CollapseStructure`; `BlockIf`, `BlockWhileDo`, `BlockSwitch`, `BlockGoto` | `HLIL_IF`, `HLIL_WHILE`, `HLIL_SWITCH`; AST tại `root` | "Generate ctree"; phân tích cấu trúc; các vùng goto | `pdc`; `pdd` (r2dec); `pdg` (r2ghidra) | `pdg` (rz-ghidra); jsdec | `RegionIdentifier`; `RecursiveStructurer` với `SAILRStructurer` |
+| Phát ra | "Emit Final C Tokens"; `PrintC`, `ActionNameVars`, `ActionSetCasts` | kết xuất HLIL; Pseudo C, Pseudo Rust, Pseudo Python | "Beautify ctree; Print ctree"; `cfunc_t` | văn bản của `pdc`, `pdd`, `pdg` | văn bản `pdg` | `CStructuredCodeGenerator`; `codegen.text` |
 
 ### Loader
 
-The loader parses the container, maps sections, and reads symbols and relocations. In a relocatable object nothing has an address yet, so the loader picks one. radare2 and rizin map the file at `0x08000000`, which puts `.text` at `0x08000040` because the section starts at file offset `0x40`. CLE places `.text` at `0x400000`. Ghidra's `ElfLoader` places it at `0x100000`. `llvm-objdump` prints section offsets and no base at all.
+Loader phân tích container, ánh xạ các section và đọc symbol cùng relocation. Trong một object có thể tái định vị chưa có gì có địa chỉ, nên loader chọn một. radare2 và rizin ánh xạ tệp tại `0x08000000`, đặt `.text` tại `0x08000040` vì section bắt đầu ở file offset `0x40`. CLE đặt `.text` tại `0x400000`. `ElfLoader` của Ghidra đặt nó tại `0x100000`. `llvm-objdump` in offset section và hoàn toàn không có địa chỉ cơ sở.
 
-The loaders also differ on relocations. Ghidra processes them on import, and CLE applies them. radare2 prints a hint when it opens the object: relocations were not applied, and `bin.relocs.apply=true` changes that. What a loader does with relocations decides what every later stage can see, and you will meet the effect in the `-O0` jump table below.
+Các loader cũng khác về relocation. Ghidra xử lý chúng khi import, và CLE áp dụng chúng. radare2 in một gợi ý khi nó mở object: relocation chưa được áp dụng, và `bin.relocs.apply=true` thay đổi điều đó. Điều một loader làm với relocation quyết định mọi giai đoạn sau có thể thấy gì, và bạn sẽ gặp hiệu ứng trong jump table `-O0` bên dưới.
 
 ### Disassembly
 
-Lesson 33 built both methods. Every tool in the table except `llvm-objdump` runs recursive descent and then adds a search for function starts. Binary Ninja's documentation names the phases in order: Recursive Descent, Call Target Analysis, CFG Analysis as "linear disassembly of the unknown regions", and Tail Call Analysis. Ghidra runs its analyzers by priority, with "Disassemble Entry Points" and "Function Start Search" early. IDA keeps autoanalysis queues, each with a priority, and FLIRT signatures for library code. angr's `CFGFast` documents four sources of function starts: symbols, a prologue scan, call targets, and a complete scan of the remaining bytes. That last source is where angr invents functions at padding.
+Bài 33 xây dựng cả hai phương pháp. Mọi công cụ trong bảng trừ `llvm-objdump` chạy recursive descent rồi thêm một tìm kiếm các điểm bắt đầu hàm. Tài liệu Binary Ninja nêu tên các giai đoạn theo thứ tự: Recursive Descent, Call Target Analysis, CFG Analysis như "disassembly tuyến tính của các vùng chưa biết" và Tail Call Analysis. Ghidra chạy các analyzer theo độ ưu tiên, với "Disassemble Entry Points" và "Function Start Search" sớm. IDA giữ các hàng đợi autoanalysis, mỗi hàng có một độ ưu tiên, và các chữ ký FLIRT cho mã thư viện. `CFGFast` của angr ghi tài liệu bốn nguồn điểm bắt đầu hàm: symbol, một phép quét prologue, các đích gọi và một phép quét đầy đủ các byte còn lại. Nguồn cuối đó là nơi angr bịa các hàm ở padding.
 
 ### CFG recovery
 
-Each tool cuts blocks the way lesson 33 did, with one difference you will measure. angr ends a block at a `call`, because its IRSB is a single-entry, multiple-exit block and a call is an exit. Ghidra, radare2, and rizin run through a call. On `grade_label` at `-O0`, which calls `grade`, angr reports 2 blocks and the other three report 1. The instructions are the same.
+Mỗi công cụ cắt các khối theo cách bài 33 làm, với một khác biệt bạn sẽ đo. angr kết thúc một khối tại một `call`, vì IRSB của nó là một khối một điểm vào, nhiều điểm ra và một lần gọi là một điểm ra. Ghidra, radare2 và rizin đi xuyên qua một lần gọi. Trên `grade_label` ở `-O0`, gọi `grade`, angr báo cáo 2 khối và ba công cụ kia báo cáo 1. Các chỉ lệnh giống nhau.
 
 ### Lifting
 
-Binary Ninja defines lifting as "translating from a lower level language to an intermediate language considered higher". The IRs differ in what they are for. P-code and VEX were built for analysis and decompilation. ESIL and RzIL were built for emulation, and neither has an SSA stage. Hex-Rays microcode starts as RISC-like code with 72 opcodes and passes through maturity levels from `MMAT_GENERATED` to `MMAT_LVARS`. Binary Ninja lifts to Lifted IL, then folds flags into conditions in LLIL, and MLIL "translates registers and memory accesses into variables". The next section puts four of these IRs side by side on one instruction.
+Binary Ninja định nghĩa lifting là "dịch từ một ngôn ngữ mức thấp hơn sang một ngôn ngữ trung gian được coi là cao hơn". Các IR khác nhau về mục đích của chúng. P-code và VEX được xây dựng để phân tích và decompilation. ESIL và RzIL được xây dựng để giả lập, và không cái nào có giai đoạn SSA. Microcode Hex-Rays bắt đầu như mã giống RISC với 72 opcode và đi qua các mức trưởng thành từ `MMAT_GENERATED` đến `MMAT_LVARS`. Binary Ninja nâng sang Lifted IL, rồi gộp cờ thành điều kiện trong LLIL, và MLIL "dịch các thanh ghi và truy cập bộ nhớ thành các biến". Phần tiếp theo đặt bốn IR này cạnh nhau trên một chỉ lệnh.
 
 ### SSA
 
-Van Emmerik's thesis lists what SSA buys a decompiler: expression propagation, parameter and return identification without an ABI assumption, preservation analysis, type analysis as a sparse data-flow problem, and the analysis of indirect jumps and calls. Ghidra calls its SSA construction `Heritage` and adds two operations that exist only in the graph, `MULTIEQUAL` for the phi and `INDIRECT` for side effects. Binary Ninja exposes an SSA form at every IL level. angr has two SSA stages inside `Clinic`. Hex-Rays does not name an SSA form and does use-def data flow in its global optimisation passes. ESIL and RzIL have none.
+Luận án của Van Emmerik liệt kê những gì SSA mang lại cho một decompiler: lan truyền biểu thức, xác định tham số và giá trị trả về không có giả định ABI, phân tích bảo toàn, phân tích kiểu như một bài toán luồng dữ liệu thưa và phân tích các bước nhảy cùng lần gọi gián tiếp. Ghidra gọi việc xây dựng SSA của nó là `Heritage` và thêm hai thao tác chỉ tồn tại trong đồ thị, `MULTIEQUAL` cho phi và `INDIRECT` cho tác dụng phụ. Binary Ninja cung cấp một dạng SSA ở mọi mức IL. angr có hai giai đoạn SSA bên trong `Clinic`. Hex-Rays không đặt tên một dạng SSA và làm luồng dữ liệu use-def trong các lượt tối ưu hóa toàn cục của nó. ESIL và RzIL không có.
 
 ### Data flow and types
 
-Ghidra's main simplification loop runs "Eliminate Dead Code", "Propagate Local Types", and "Perform Term Rewriting" until nothing changes, with the rewriting done by a pool of `Rule` objects. Hex-Rays transforms microcode, detects call arguments at `MMAT_CALLS`, and allocates local variables at `MMAT_LVARS`. angr runs `CallingConventionAnalysis`, `VariableRecoveryFast`, and `Typehoon`, an implementation of Noonan, Loginov, and Cok's polymorphic type inference. Lesson 41 is about this stage.
+Vòng lặp đơn giản hóa chính của Ghidra chạy "Eliminate Dead Code", "Propagate Local Types" và "Perform Term Rewriting" cho đến khi không có gì thay đổi, với việc viết lại do một pool các đối tượng `Rule` thực hiện. Hex-Rays biến đổi microcode, phát hiện các đối số gọi tại `MMAT_CALLS` và cấp phát các biến cục bộ tại `MMAT_LVARS`. angr chạy `CallingConventionAnalysis`, `VariableRecoveryFast` và `Typehoon`, một triển khai suy luận kiểu đa hình của Noonan, Loginov và Cok. Bài 41 nói về giai đoạn này.
 
 ### Structuring
 
-Ghidra's `CollapseStructure` searches for sub-graphs that match a structure, collapses them to one node, and when it gets stuck removes an edge and marks it unstructured. Hex-Rays reduces the CFG to `if`, `while`, `do`, and `switch` and leaves the rest as goto regions. angr identifies single-entry, single-exit regions and structures them with `SAILRStructurer` by default, with `PhoenixStructurer` and `DreamStructurer` as alternatives. Lesson 34 wrote one structurer by hand.
+`CollapseStructure` của Ghidra tìm các đồ thị con khớp một cấu trúc, thu gọn chúng thành một nút và khi mắc kẹt loại một cạnh và đánh dấu nó không có cấu trúc. Hex-Rays rút CFG về `if`, `while`, `do` và `switch` và để phần còn lại thành các vùng goto. angr xác định các vùng một điểm vào, một điểm ra và cấu trúc hóa chúng bằng `SAILRStructurer` mặc định, với `PhoenixStructurer` và `DreamStructurer` làm các phương án thay thế. Bài 34 viết một structurer bằng tay.
 
 ### Emission
 
-Ghidra emits C tokens through `PrintC` with an Oppen pretty-printer after `ActionNameVars` and `ActionSetCasts`. Hex-Rays beautifies and prints the ctree. Binary Ninja renders HLIL as Pseudo C, Pseudo Rust, or Pseudo Python. angr returns `codegen.text`. radare2 prints `pdc`, `pdd`, or `pdg`.
+Ghidra phát ra các token C qua `PrintC` với một pretty-printer Oppen sau `ActionNameVars` và `ActionSetCasts`. Hex-Rays làm đẹp và in ctree. Binary Ninja kết xuất HLIL thành Pseudo C, Pseudo Rust hoặc Pseudo Python. angr trả về `codegen.text`. radare2 in `pdc`, `pdd` hoặc `pdg`.
 
 ## One Instruction in Four IRs
 
-Take `48 83 ec 10`, `subq $0x10, %rsp`. Decode it on paper with the rules from lesson 33.
+Lấy `48 83 ec 10`, `subq $0x10, %rsp`. Giải mã nó trên giấy bằng các quy tắc từ bài 33.
 
-1. `48` is REX with `W = 1`. The operand is 64 bits.
-2. `83` is the group-1 arithmetic opcode with an 8-bit immediate. The ModRM reg field picks the operation.
-3. `ec` is ModRM `11 101 100`. `mod = 11` is the register form. `reg = 101` is `/5`, which is `sub`. `r/m = 100` is `%rsp`.
-4. `10` is the immediate, 16.
+1. `48` là REX với `W = 1`. Toán hạng là 64 bit.
+2. `83` là opcode số học nhóm 1 với một immediate 8 bit. Trường reg ModRM chọn phép toán.
+3. `ec` là ModRM `11 101 100`. `mod = 11` là dạng thanh ghi. `reg = 101` là `/5`, tức `sub`. `r/m = 100` là `%rsp`.
+4. `10` là immediate, 16.
 
-Four lifters were given those four bytes. The fixtures hold the exact commands and the full text.
+Bốn lifter được cung cấp bốn byte đó. Các fixture chứa các lệnh chính xác và văn bản đầy đủ.
 
-ESIL from radare2 6.2.4 is one comma-separated string of 30 tokens:
+ESIL từ radare2 6.2.4 là một chuỗi phân tách bằng dấu phẩy gồm 30 token:
 
 ```text
 16,0x8000000000000000,-,!,16,rsp,-=,63,$o,^,of,:=,63,$s,sf,:=,$z,zf,:=,$p,pf,:=,64,$b,cf,:=,4,$b,af,:=
 ```
 
-It is a stack machine. `16,rsp,-=` subtracts in place. Every flag is then written with an internal operator: `$o` overflow, `$s` sign, `$z` zero, `$p` parity, `$b` borrow.
+Nó là một máy stack. `16,rsp,-=` trừ tại chỗ. Mỗi cờ sau đó được ghi bằng một toán tử nội bộ: `$o` tràn, `$s` dấu, `$z` không, `$p` parity, `$b` mượn.
 
-RzIL from rizin 0.9.1 is an S-expression with 14 `set` effects:
+RzIL từ rizin 0.9.1 là một S-expression với 14 hiệu ứng `set`:
 
 ```text
 (seq (set op1 (var rsp)) (set op2 (bv 64 0x10)) (set sub (- (var op1) (var op2))) (set rsp (var sub))
@@ -184,9 +184,9 @@ RzIL from rizin 0.9.1 is an S-expression with 14 `set` effects:
      (set zf (is_zero (var _result))) (set sf (msb (var _result))) ... (set cf (|| ...)) (set of (|| ...)) (set af (|| ...)))
 ```
 
-Every flag is a boolean expression over bitvectors. The parity flag alone is a four-level `let`.
+Mỗi cờ là một biểu thức boolean trên các bitvector. Riêng cờ parity là một `let` bốn mức.
 
-P-code from the SLEIGH specification `x86:LE:64:default` through pypcode 4.0.1 is nine operations after the `IMARK`:
+P-code từ đặc tả SLEIGH `x86:LE:64:default` qua pypcode 4.0.1 là chín thao tác sau `IMARK`:
 
 ```text
 CF = RSP < 0x10
@@ -200,9 +200,9 @@ unique[58500:1] = unique[58400:1] & 0x1
 PF = unique[58500:1] == 0x0
 ```
 
-Register transfers with temporaries in the `unique` space. The flags are computed at the instruction, eagerly, and `CF` and `OF` are computed before the subtraction overwrites `RSP`.
+Các chuyển thanh ghi với biến tạm trong không gian `unique`. Các cờ được tính tại chỉ lệnh, ngay lập tức, và `CF` cùng `OF` được tính trước khi phép trừ ghi đè `RSP`.
 
-VEX from pyvex 10.0.3 is seven statements after the `IMark`:
+VEX từ pyvex 10.0.3 là bảy câu lệnh sau `IMark`:
 
 ```text
 t2 = GET:I64(offset=48)
@@ -214,65 +214,65 @@ PUT(offset=168) = 0x0000000000000000
 PUT(offset=48) = t0
 ```
 
-No flag appears. VEX names registers by their offset in the guest state, and offset 48 is `rsp`. Offsets 144 to 168 are `cc_op`, `cc_dep1`, `cc_dep2`, and `cc_ndep`. The lifter stores the operation code 8, which is the 64-bit subtraction, and the two operands. A later branch that reads a flag computes it from the thunk. That is why `pcode.writesFlags` is true and `vex.computesFlags` is false in the harness report, and why VEX is the shortest of the four.
+Không cờ nào xuất hiện. VEX đặt tên các thanh ghi theo offset của chúng trong trạng thái guest, và offset 48 là `rsp`. Các offset 144 đến 168 là `cc_op`, `cc_dep1`, `cc_dep2` và `cc_ndep`. Lifter lưu mã thao tác 8, tức phép trừ 64 bit, và hai toán hạng. Một nhánh sau đọc một cờ tính nó từ thunk. Đó là lý do `pcode.writesFlags` đúng và `vex.computesFlags` sai trong báo cáo harness, và vì sao VEX ngắn nhất trong bốn dạng.
 
-The same four lifters on `48 63 c7`, `movslq %edi, %rax`, the first instruction of `grade` at `-O1`, give 5 ESIL tokens (`32,edi,~,rax,=`), 1 RzIL `set`, 1 P-code operation (`RAX = sext(EDI)`), and 4 VEX statements. No lifter writes a flag, because the instruction has none. Ghidra's own listing of that instruction, captured through the headless script, prints the same operation as `(register, 0x0, 8) INT_SEXT (register, 0x38, 4)`: register offset 0 is `RAX`, offset `0x38` is `RDI`, and the sizes are 8 and 4 bytes.
+Cùng bốn lifter trên `48 63 c7`, `movslq %edi, %rax`, chỉ lệnh đầu của `grade` ở `-O1`, cho 5 token ESIL (`32,edi,~,rax,=`), 1 `set` RzIL, 1 thao tác P-code (`RAX = sext(EDI)`) và 4 câu lệnh VEX. Không lifter nào ghi một cờ, vì chỉ lệnh không có cờ nào. Danh sách riêng của Ghidra cho chỉ lệnh đó, được thu qua script headless, in cùng thao tác là `(register, 0x0, 8) INT_SEXT (register, 0x38, 4)`: offset thanh ghi 0 là `RAX`, offset `0x38` là `RDI`, và kích thước là 8 cùng 4 byte.
 
-`83 f9 04`, `cmpl $0x4, %ecx`, from the bounds check in `grade`, gives 30 ESIL tokens, 13 RzIL `set` effects, 10 P-code operations, and 7 VEX statements with `cc_op` 7, the 32-bit subtraction. Nothing writes `%ecx`. The two subtraction widths you will meet in VEX are 7 for 32 bits and 8 for 64 bits, and the translator you build carries that table.
+`83 f9 04`, `cmpl $0x4, %ecx`, từ kiểm tra biên trong `grade`, cho 30 token ESIL, 13 hiệu ứng `set` RzIL, 10 thao tác P-code và 7 câu lệnh VEX với `cc_op` 7, phép trừ 32 bit. Không có gì ghi `%ecx`. Hai chiều rộng phép trừ bạn sẽ gặp trong VEX là 7 cho 32 bit và 8 cho 64 bit, và trình dịch bạn xây dựng mang bảng đó.
 
 ## Four Address Bases for One Function
 
-Before the harness can compare anything it has to agree with itself about where a function is. Do the arithmetic once by hand for `grade` in `ledger-x86_64-O1.o`.
+Trước khi harness có thể so sánh bất cứ thứ gì, nó phải đồng nhất với chính nó về nơi một hàm nằm. Làm phép tính một lần bằng tay cho `grade` trong `ledger-x86_64-O1.o`.
 
-| Tool | Address of `.text` | Address of `grade` | Offset |
+| Công cụ | Địa chỉ của `.text` | Địa chỉ của `grade` | Offset |
 |---|---|---|---|
 | `llvm-objdump` | `0x0` | `0x10` | `0x10 - 0x0 = 0x10` |
 | radare2, rizin | `0x08000040` | `0x08000050` | `0x08000050 - 0x08000040 = 0x10` |
 | angr | `0x400000` | `0x400010` | `0x400010 - 0x400000 = 0x10` |
 | Ghidra | `0x100000` | `0x100010` | `0x100010 - 0x100000 = 0x10` |
 
-The symbol table says `grade` is at `.text + 0x10` with size 46. Every tool agrees once the base is removed. The harness reads the base from each capture: `iSj` in radare2 and rizin, the `.text` section entry in the angr capture, the `.text` memory block in the Ghidra capture, and zero for the sweep. The test `test_every_tool_places_grade_at_offset_0x10_from_its_own_base` fixes that fact.
+Bảng symbol nói `grade` ở `.text + 0x10` với kích thước 46. Mọi công cụ đồng nhất khi địa chỉ cơ sở được loại bỏ. Harness đọc địa chỉ cơ sở từ mỗi bản thu: `iSj` trong radare2 và rizin, mục section `.text` trong bản thu angr, khối bộ nhớ `.text` trong bản thu Ghidra và không cho sweep. Bài kiểm tra `test_every_tool_places_grade_at_offset_0x10_from_its_own_base` cố định sự kiện đó.
 
 ## Where the Tools Agree and Where They Split
 
-The harness in `code/main.py` reads the captures, reduces every address, and compares. These are the numbers it reports, and the tests assert each of them.
+Harness trong `code/main.py` đọc các bản thu, quy mọi địa chỉ và so sánh. Đây là các con số nó báo cáo, và các bài kiểm tra khẳng định mỗi con số.
 
 ### The agreement case: ledger at -O1
 
-Four functions, 56 instructions in the sweep, 54 inside the symbols and 2 in padding. Every tool reports the same instruction starts in every function: 9, 14, 13, and 18. The four graph builders report 3, 3, 5, and 4 blocks and 2, 3, 5, and 4 edges, and the edge sets are identical, pair for pair, across radare2, rizin, angr, and Ghidra. The five blocks and five edges of `total` are the ones lesson 33 drew by hand.
+Bốn hàm, 56 chỉ lệnh trong sweep, 54 bên trong các symbol và 2 trong padding. Mọi công cụ báo cáo cùng các điểm bắt đầu chỉ lệnh trong mọi hàm: 9, 14, 13 và 18. Bốn bộ dựng đồ thị báo cáo 3, 3, 5 và 4 khối cùng 2, 3, 5 và 4 cạnh, và các tập cạnh giống hệt, từng cặp, trên radare2, rizin, angr và Ghidra. Năm khối và năm cạnh của `total` là những khối và cạnh mà bài 33 vẽ bằng tay.
 
-The one difference is at the padding. The 3 bytes between functions (`66 90` after `grade`, `90` after `total`) are decoded by the sweep, which has no reason to stop, and by angr, which creates `sub_40003e` and `sub_40005f` with no symbol. radare2, rizin, and Ghidra claim none of them.
+Một khác biệt nằm ở padding. 3 byte giữa các hàm (`66 90` sau `grade`, `90` sau `total`) được giải mã bởi sweep, vốn không có lý do để dừng, và bởi angr, tạo `sub_40003e` và `sub_40005f` không có symbol. radare2, rizin và Ghidra không nhận byte nào trong số đó.
 
 ### The vectorised case: ledger at -O2
 
-`total` is 41 instructions in 10 blocks with 13 edges, in every one of the four graph builders. The SSE2 loop and the scalar remainder loop from lesson 33 are cut the same way everywhere. angr again adds two functions at padding.
+`total` là 41 chỉ lệnh trong 10 khối với 13 cạnh, trong mọi bộ dựng đồ thị trong bốn bộ. Vòng lặp SSE2 và vòng lặp phần dư vô hướng từ bài 33 được cắt theo cùng cách ở mọi nơi. angr lại thêm hai hàm ở padding.
 
 ### The jump table: grade at -O0
 
-Here the tools split, and the split is the lesson.
+Ở đây các công cụ phân tách, và sự phân tách là bài học.
 
-| Tool | Blocks | Edges | What the capture says |
+| Công cụ | Khối | Cạnh | Bản thu nói gì |
 |---|---|---|---|
-| radare2 | 3 | 2 | the block at `0x62` has no successor; bytes `0x76` to `0x9a` are never reached; 8 instruction starts missing |
-| rizin | 8 | 11 | the block at `0x62` carries a `switch_op` with 5 cases and 4 distinct targets |
-| angr | 8 | 7 | the case blocks exist, and the transfer at `0x62` goes to an unresolvable target node |
-| Ghidra | 9 | 12 | `switchD` label at `0x74` splits the block; four `COMPUTED_JUMP` flows to `0x76`, `0x7f`, `0x88`, `0x91` |
+| radare2 | 3 | 2 | khối tại `0x62` không có kế nhiệm; các byte `0x76` đến `0x9a` không bao giờ được tới; thiếu 8 điểm bắt đầu chỉ lệnh |
+| rizin | 8 | 11 | khối tại `0x62` mang một `switch_op` với 5 case và 4 đích phân biệt |
+| angr | 8 | 7 | các khối case tồn tại, và chuyển giao tại `0x62` đi đến một nút đích không thể phân giải |
+| Ghidra | 9 | 12 | nhãn `switchD` tại `0x74` chia khối; bốn luồng `COMPUTED_JUMP` tới `0x76`, `0x7f`, `0x88`, `0x91` |
 
-All four decoded the same 33 instructions when they reached them. radare2 stopped at `jmp rax` and left 36 bytes unclaimed, and the harness names that range as missed code. rizin and Ghidra found the four distinct targets that lesson 33 read from the five relocations in `.rela.rodata`. angr lists the case blocks inside `grade` and still has no edge from the jump block to them; its capture records the transfer at `0x62` as leading to an unresolvable target node, and its decompiler printed a computed `goto`. Ghidra has one block and one edge more than rizin for the same control flow because its switch analysis placed a label on the `jmp rax` and the block model starts a new block at a label.
+Cả bốn giải mã cùng 33 chỉ lệnh khi chúng tới được chúng. radare2 dừng tại `jmp rax` và để 36 byte không được nhận, và harness nêu tên phạm vi đó là mã bị bỏ lỡ. rizin và Ghidra tìm bốn đích phân biệt mà bài 33 đọc từ năm relocation trong `.rela.rodata`. angr liệt kê các khối case bên trong `grade` và vẫn không có cạnh từ khối nhảy tới chúng; bản thu của nó ghi chuyển giao tại `0x62` là dẫn đến một nút đích không thể phân giải, và decompiler của nó in một `goto` tính toán. Ghidra có thêm một khối và một cạnh so với rizin cho cùng luồng điều khiển vì phân tích switch của nó đặt một nhãn trên `jmp rax` và mô hình khối bắt đầu một khối mới tại một nhãn.
 
-The lesson-33 graph had 8 blocks and 11 edges. rizin matches it exactly. The point is to see that 9 and 11 and 7 and 2 are not four measurements of code found. They are four answers to how far a tool followed one indirect jump and where it chose to cut.
+Đồ thị bài 33 có 8 khối và 11 cạnh. rizin khớp nó chính xác. Điểm chính là thấy rằng 9 và 11 và 7 và 2 không phải bốn phép đo mã được tìm thấy. Chúng là bốn câu trả lời cho việc một công cụ đi theo một bước nhảy gián tiếp xa đến đâu và nó chọn cắt ở đâu.
 
 ### Data in code: sweep-trap
 
-`lookup` is 24 bytes with the 4 table bytes `31 c0 90 48` at `0x10`. The sweep reports 8 instruction starts in that range. The harness lists its differences from the majority: extra starts at `0x10`, `0x12`, and `0x13`, and a missing start at `0x14`. That is the `addq $0x1, %rax` from lesson 33 one byte early. radare2, rizin, and Ghidra report 6 starts, 2 blocks, 1 edge, and leave `0x10` to `0x14` unclaimed. angr reports the same 2 blocks and 1 edge for `lookup` and then invents `sub_400010` on the table bytes: 2 instructions in a 4-byte block that ends at `0x14`, where the second block of `lookup` starts, so the REX byte at `0x13` belongs to no instruction. The harness's last finding for this object is that no graph builder decodes `0x10` to `0x14`, so those bytes sit inside a function and are data.
+`lookup` là 24 byte với 4 byte bảng `31 c0 90 48` tại `0x10`. Sweep báo cáo 8 điểm bắt đầu chỉ lệnh trong phạm vi đó. Harness liệt kê các khác biệt của nó với đa số: các điểm bắt đầu thừa tại `0x10`, `0x12` và `0x13`, và một điểm bắt đầu thiếu tại `0x14`. Đó là `addq $0x1, %rax` từ bài 33 sớm một byte. radare2, rizin và Ghidra báo cáo 6 điểm bắt đầu, 2 khối, 1 cạnh và để `0x10` đến `0x14` không được nhận. angr báo cáo cùng 2 khối và 1 cạnh cho `lookup` rồi bịa `sub_400010` trên các byte bảng: 2 chỉ lệnh trong một khối 4 byte kết thúc tại `0x14`, nơi khối thứ hai của `lookup` bắt đầu, nên byte REX tại `0x13` không thuộc chỉ lệnh nào. Phát hiện cuối của harness cho object này là không bộ dựng đồ thị nào giải mã `0x10` đến `0x14`, nên những byte đó nằm bên trong một hàm và là dữ liệu.
 
 ### Invented and missed, by tool
 
-Across the four objects the harness names 9 functions that angr invents with no symbol, every one at padding or at the trap table. It names one range that radare2 misses, the 36 case bytes of `grade` at `-O0`. It names 9 ranges that the linear sweep decodes and no graph builder treats as code: the eight padding gaps plus the trap table. It names no missed function in any tool.
+Trên bốn object, harness nêu tên 9 hàm mà angr bịa không có symbol, mọi hàm ở padding hoặc ở bảng bẫy. Nó nêu tên một phạm vi mà radare2 bỏ lỡ, 36 byte case của `grade` ở `-O0`. Nó nêu tên 9 phạm vi mà linear sweep giải mã và không bộ dựng đồ thị nào coi là mã: tám khoảng trống padding cộng bảng bẫy. Nó không nêu tên hàm bị bỏ lỡ nào trong bất kỳ công cụ nào.
 
 ## Three Decompilers on grade
 
-Three of the captured tools emit C-like text for `grade` at `-O1`. The source is `switch (score / 10)` with five cases, compiled to a bounds check and a table of return values.
+Ba trong số các công cụ được thu phát ra văn bản giống C cho `grade` ở `-O1`. Nguồn là `switch (score / 10)` với năm case, được biên dịch thành một kiểm tra biên và một bảng các giá trị trả về.
 
 Ghidra 12.1.4:
 
@@ -331,22 +331,22 @@ void sym.grade (int64_t arg1) {
 }
 ```
 
-Read the three against the pipeline. Ghidra's term rewriting folded the multiply by `0x66666667` and the shift by 34 back into `param_1 / 10`, which is lesson 34's idiom. angr lifted the same bytes and left the arithmetic as `a0 * 1717986919 >> 0x22`. radare2's `pdc` is ESIL emulation plus pseudo syntax: register names, no variables, no types, and the bounds check printed as `<= 0` after an unsigned subtraction. Ghidra typed the table load through `DAT_001000b4`; angr declared `g_4000b4[4]`, four elements where the source has five. Neither Ghidra nor angr recovered the enumeration of cases, because at `-O1` there is no switch left in the bytes. At `-O0`, where the jump table exists, Ghidra printed `switch(param_1 / 10)` with cases 6 to 10 and a default, and angr printed a computed `goto`.
+Đọc ba văn bản đối chiếu pipeline. Việc viết lại số hạng của Ghidra gộp phép nhân với `0x66666667` và độ dịch 34 trở lại thành `param_1 / 10`, chính là mẫu của bài 34. angr nâng cùng các byte và để phép toán là `a0 * 1717986919 >> 0x22`. `pdc` của radare2 là giả lập ESIL cộng cú pháp giả: tên thanh ghi, không biến, không kiểu và kiểm tra biên được in là `<= 0` sau một phép trừ không dấu. Ghidra gán kiểu lần tải bảng qua `DAT_001000b4`; angr khai báo `g_4000b4[4]`, bốn phần tử nơi nguồn có năm. Không Ghidra lẫn angr khôi phục việc liệt kê các case, vì ở `-O1` không còn switch trong các byte. Ở `-O0`, nơi jump table tồn tại, Ghidra in `switch(param_1 / 10)` với case 6 đến 10 và một mặc định, và angr in một `goto` tính toán.
 
-rizin has no decompiler of its own, and the capture records that `pdc` does not exist there. Binary Ninja's HLIL and the Hex-Rays ctree are the two outputs this lesson could not capture.
+rizin không có decompiler riêng, và bản thu ghi rằng `pdc` không tồn tại ở đó. HLIL của Binary Ninja và ctree Hex-Rays là hai đầu ra mà bài học này không thể thu.
 
 ## Build It
 
-Run the demo:
+Chạy demo:
 
 ```bash
 cd phases/13-tools-and-protocols/37-the-reverse-engineering-landscape
 python3 code/main.py
 ```
 
-The output is one JSON report. It opens with the tool versions recorded at capture time and with the tools present on your machine, which may all be absent. Then for each of the four objects it gives the symbol extents, the padding gaps, the base each tool used, the function starts each tool found or invented, and for each function the instruction-start agreement, block counts, edge counts, and the edges each tool lacks. It ends with byte accounting per tool, the tools' own notes, a list of findings in plain sentences, and the IR section: the translator's output for the three instructions next to the counts measured on the captured lifts.
+Đầu ra là một báo cáo JSON. Nó mở bằng các phiên bản công cụ được ghi lúc thu và các công cụ hiện diện trên máy bạn, có thể đều vắng mặt. Rồi với mỗi trong bốn object, nó cho các phạm vi symbol, các khoảng trống padding, địa chỉ cơ sở mà mỗi công cụ sử dụng, các điểm bắt đầu hàm mà mỗi công cụ tìm hoặc bịa, và với mỗi hàm, sự đồng nhất điểm bắt đầu chỉ lệnh, số khối, số cạnh và các cạnh mà mỗi công cụ thiếu. Nó kết thúc bằng hạch toán byte theo công cụ, các ghi chú riêng của công cụ, một danh sách phát hiện trong các câu thông thường và phần IR: đầu ra của trình dịch cho ba chỉ lệnh cạnh các số đếm đo được trên các bản nâng đã thu.
 
-Expected shape:
+Dạng kỳ vọng:
 
 ```json
 {
@@ -363,45 +363,45 @@ Expected shape:
 }
 ```
 
-Read `code/main.py` in this order:
+Đọc `code/main.py` theo thứ tự này:
 
-1. `read_text_symbols()` reads the section headers and the `STT_FUNC` symbols of `.text`. The symbol table is the only ground truth the harness has, and `TextSection.gaps()` derives the padding from it.
-2. `parse_objdump()`, `parse_r2_family()`, `parse_angr()`, and `parse_ghidra()` each turn one capture into a `ToolView`: a base, the instructions as offset to length, and one `FunctionView` per function with blocks, edges, and any decompiled text. Each parser knows one tool's vocabulary and nothing else.
-3. `majority()` and `ranges()` are the two helpers every comparison uses.
-4. `function_report()` compares instruction starts against the majority of the graph builders, then block counts, then edge sets, and lists what each tool lacks.
-5. `byte_report()` accounts for every byte as code inside a symbol, padding, unclaimed, invented, or missed, and names the bytes inside symbols that no graph builder decodes.
-6. `findings()` turns those into sentences, and `compare()` assembles one report per object.
-7. `decode_small()`, `to_pcode_like()`, and `to_vex_like()` are the translator: three encodings in register form, one eager style, one thunk style.
-8. `observed_ir()` measures the captured lifts, and `figure_data()` assembles the timeline, the stage table, and the evidence the figure shows.
+1. `read_text_symbols()` đọc các section header và các symbol `STT_FUNC` của `.text`. Bảng symbol là ground truth duy nhất mà harness có, và `TextSection.gaps()` suy ra padding từ nó.
+2. `parse_objdump()`, `parse_r2_family()`, `parse_angr()` và `parse_ghidra()`, mỗi hàm biến một bản thu thành một `ToolView`: một địa chỉ cơ sở, các chỉ lệnh dưới dạng offset tới độ dài, và một `FunctionView` mỗi hàm với khối, cạnh và mọi văn bản được decompile. Mỗi parser biết bộ từ vựng của một công cụ và không gì khác.
+3. `majority()` và `ranges()` là hai hàm hỗ trợ mà mọi phép so sánh sử dụng.
+4. `function_report()` so sánh các điểm bắt đầu chỉ lệnh với đa số các bộ dựng đồ thị, rồi số khối, rồi các tập cạnh và liệt kê những gì mỗi công cụ thiếu.
+5. `byte_report()` hạch toán mỗi byte là mã bên trong một symbol, padding, không được nhận, được bịa hoặc bị bỏ lỡ, và nêu tên các byte bên trong symbol mà không bộ dựng đồ thị nào giải mã.
+6. `findings()` biến những điều đó thành các câu, và `compare()` lắp ráp một báo cáo mỗi object.
+7. `decode_small()`, `to_pcode_like()` và `to_vex_like()` là trình dịch: ba mã hóa ở dạng thanh ghi, một kiểu ngay lập tức, một kiểu thunk.
+8. `observed_ir()` đo các bản nâng đã thu, và `figure_data()` lắp ráp dòng thời gian, bảng giai đoạn và bằng chứng mà hình hiển thị.
 
-Three more commands exist. `python3 code/main.py compare FIXTURE.o` prints one object's report. `python3 code/main.py ir 4883ec10` prints the translator's two forms for one instruction. `python3 code/main.py figure-data` prints the data embedded in the figure.
+Có thêm ba lệnh. `python3 code/main.py compare FIXTURE.o` in báo cáo của một object. `python3 code/main.py ir 4883ec10` in hai dạng của trình dịch cho một chỉ lệnh. `python3 code/main.py figure-data` in dữ liệu được nhúng trong hình.
 
-The captures were made once by `code/fixtures/capture_tools.py`, which records every command and version in `captures.json`. The harness and the tests never start a tool. If you have the tools, run the capture script to refresh the files, and read the fixtures README for the environment it needs.
+Các bản thu được tạo một lần bởi `code/fixtures/capture_tools.py`, ghi mọi lệnh và phiên bản trong `captures.json`. Harness và các bài kiểm tra không bao giờ khởi động một công cụ. Nếu bạn có các công cụ, chạy script thu để làm mới các tệp, và đọc README fixture về môi trường nó cần.
 
 ## Use It
 
-Use the harness on a new object in this order.
+Sử dụng harness trên một object mới theo thứ tự này.
 
-1. Build the object yourself and keep the compiler command. Read its symbol table before you open any tool, so you know how many functions there are and where the padding is.
-2. Capture each tool once in headless mode. Store the raw output and the exact command beside the object. A disagreement you cannot re-read is not a finding.
-3. Check the base. Pick one function and confirm that every tool places it at the same offset after you subtract its `.text` address. If one does not, stop and find out what that tool loaded.
-4. Compare instruction starts first. If the graph builders disagree here, the rest of the comparison is about decoding and not about analysis.
-5. Compare blocks and edges, and read each tool's notes before you judge a count. A `switch_op`, a `COMPUTED_JUMP`, or an unresolvable target node explains most differences.
-6. Account for bytes. Padding that a tool claims is a heuristic at work. Symbol bytes that a tool leaves are a stopped walk. Symbol bytes that no graph builder claims are data.
-7. Write down which tools you did not run. A description from documentation is useful and is a different kind of evidence from a capture.
+1. Tự dựng object và giữ lệnh compiler. Đọc bảng symbol của nó trước khi mở bất kỳ công cụ nào, để bạn biết có bao nhiêu hàm và padding ở đâu.
+2. Thu mỗi công cụ một lần ở chế độ headless. Lưu đầu ra thô và lệnh chính xác cạnh object. Một bất đồng bạn không thể đọc lại không phải một phát hiện.
+3. Kiểm tra địa chỉ cơ sở. Chọn một hàm và xác nhận rằng mọi công cụ đặt nó tại cùng offset sau khi bạn trừ địa chỉ `.text` của nó. Nếu một công cụ không như vậy, dừng và tìm hiểu công cụ đó đã tải gì.
+4. So sánh các điểm bắt đầu chỉ lệnh trước. Nếu các bộ dựng đồ thị bất đồng ở đây, phần còn lại của phép so sánh là về giải mã chứ không về phân tích.
+5. So sánh khối và cạnh, và đọc các ghi chú của mỗi công cụ trước khi phán đoán một số đếm. Một `switch_op`, một `COMPUTED_JUMP` hoặc một nút đích không thể phân giải giải thích hầu hết các khác biệt.
+6. Hạch toán byte. Padding mà một công cụ nhận là một heuristic đang hoạt động. Các byte symbol mà một công cụ để lại là một phép duyệt đã dừng. Các byte symbol mà không bộ dựng đồ thị nào nhận là dữ liệu.
+7. Viết ra các công cụ nào bạn chưa chạy. Một mô tả từ tài liệu hữu ích và là một loại bằng chứng khác với một bản thu.
 
 ## Interactive Lab
 
 ### Lab A: one function, four bases
 
-From the `code` directory, open Python:
+Từ thư mục `code`, mở Python:
 
 ```bash
 cd phases/13-tools-and-protocols/37-the-reverse-engineering-landscape/code
 python3 -q
 ```
 
-Run:
+Chạy:
 
 ```python
 from main import *
@@ -410,7 +410,7 @@ views = load_views("ledger-x86_64-O1.o")
 {tool: hex(view.functions["grade"].start + view.base) for tool, view in views.items()}
 ```
 
-Write the four raw addresses down before you run the second line and check them against the table in this lesson. Then replace `grade` with `grade_label` and compute by hand where it sits in Ghidra.
+Viết ra bốn địa chỉ thô trước khi chạy dòng thứ hai và kiểm tra chúng với bảng trong bài học này. Rồi thay `grade` bằng `grade_label` và tính bằng tay nơi nó nằm trong Ghidra.
 
 ### Lab B: the jump table from four sides
 
@@ -423,7 +423,7 @@ report["notes"]["ghidra"]
 report["bytes"]["radare2"]["misses"]
 ```
 
-Count the edges radare2 lacks and match each one to a line of the `-O0` listing from lesson 33. Then read the Ghidra note and find the `switchD` label in the Ghidra capture.
+Đếm các cạnh radare2 thiếu và khớp mỗi cạnh với một dòng của danh sách `-O0` từ bài 33. Rồi đọc ghi chú Ghidra và tìm nhãn `switchD` trong bản thu Ghidra.
 
 ### Lab C: eager flags against a thunk
 
@@ -434,7 +434,7 @@ translate("83 f9 04")["vexLike"]
 {row["name"]: (row["pcode"]["ops"], row["vex"]["statements"]) for row in observed_ir()["instructions"]}
 ```
 
-Find the `cc_op` constant in both outputs and explain why one is 8 and the other 7. Then try `translate("48 01 c8")` and read the `TranslateError`.
+Tìm hằng số `cc_op` trong cả hai đầu ra và giải thích vì sao một là 8 và cái kia 7. Rồi thử `translate("48 01 c8")` và đọc `TranslateError`.
 
 ### Lab D: the trap under five tools
 
@@ -445,29 +445,29 @@ report["bytes"]["dataInsideSymbols"]
 report["functionStarts"]["angr"]
 ```
 
-Decode the bytes `31 c0 90 48 83 c0 01` on paper as a sweep would, then as a descent would after the `jmp`. Match your two listings to the extra and missing starts the harness reports.
+Giải mã các byte `31 c0 90 48 83 c0 01` trên giấy như một sweep sẽ làm, rồi như một descent sẽ làm sau `jmp`. Khớp hai danh sách của bạn với các điểm bắt đầu thừa và thiếu mà harness báo cáo.
 
 ## Practice Lab
 
-Add a fifth capture and extend the harness.
+Thêm một bản thu thứ năm và mở rộng harness.
 
-Requirements:
+Yêu cầu:
 
-- Pick one tool this lesson did not capture and that you can run on your machine: GNU `objdump`, LIEF with Capstone, a Binary Ninja Free session exported by hand, or Ghidra with a different analyzer set. Capture its output on all four objects with the exact command and version in `captures.json`.
-- Write one parser that turns the capture into a `ToolView` with the tool's base, instructions, functions, blocks where the tool has them, and edges where it has them.
-- Add the tool to `TOOLS` and, if it builds a graph, to `DESCENT_TOOLS`. Run the demo and read what changed in the majority sets.
-- Write a test that asserts the tool's block counts on `ledger-x86_64-O1.o` and a test that asserts what it does with the trap table.
-- Write one paragraph for the lesson that says, in the tool's own words, what it calls the loader, the disassembler, and the CFG.
+- Chọn một công cụ bài học này chưa thu và bạn có thể chạy trên máy mình: GNU `objdump`, LIEF với Capstone, một phiên Binary Ninja Free được xuất thủ công hoặc Ghidra với một tập analyzer khác. Thu đầu ra của nó trên cả bốn object với lệnh và phiên bản chính xác trong `captures.json`.
+- Viết một parser biến bản thu thành một `ToolView` với địa chỉ cơ sở, chỉ lệnh, hàm của công cụ, khối nơi công cụ có chúng và cạnh nơi nó có chúng.
+- Thêm công cụ vào `TOOLS` và, nếu nó dựng một đồ thị, vào `DESCENT_TOOLS`. Chạy demo và đọc điều thay đổi trong các tập đa số.
+- Viết một bài kiểm tra khẳng định số khối của công cụ trên `ledger-x86_64-O1.o` và một bài kiểm tra khẳng định điều nó làm với bảng bẫy.
+- Viết một đoạn cho bài học nói, bằng từ ngữ riêng của công cụ, nó gọi loader, disassembler và CFG là gì.
 
-Success means `python3 code/main.py` reports the new tool in `captureTools`, every function in `ledger-x86_64-O1.o` keeps `allDescentToolsAgree` true, and the findings for `sweep-trap.o` say what the new tool did with bytes `0x10` to `0x14`.
+Thành công nghĩa là `python3 code/main.py` báo cáo công cụ mới trong `captureTools`, mọi hàm trong `ledger-x86_64-O1.o` giữ `allDescentToolsAgree` đúng và các phát hiện cho `sweep-trap.o` nói điều công cụ mới làm với các byte `0x10` đến `0x14`.
 
 ## Lesson Artifact
 
-This lesson includes `outputs/skill-the-reverse-engineering-landscape.md`. Use it to run several tools on one object you built, reduce their addresses to one base, and report, per function, where they agree on instruction starts, blocks, and edges, and which bytes each tool invents or misses. It requires captures with recorded commands and versions, a symbol table read from the file, and a statement of which tools were described from documentation only.
+Bài học này bao gồm `outputs/skill-the-reverse-engineering-landscape.md`. Sử dụng nó để chạy nhiều công cụ trên một object bạn đã dựng, quy các địa chỉ của chúng về một địa chỉ cơ sở và báo cáo, theo hàm, nơi chúng đồng nhất về điểm bắt đầu chỉ lệnh, khối và cạnh, và các byte nào mỗi công cụ bịa hoặc bỏ lỡ. Nó yêu cầu các bản thu với các lệnh và phiên bản được ghi lại, một bảng symbol được đọc từ tệp và một phát biểu về các công cụ nào chỉ được mô tả từ tài liệu.
 
 ## Verify It
 
-Run the demo and the deterministic suite:
+Chạy demo và bộ kiểm tra tất định:
 
 ```bash
 cd phases/13-tools-and-protocols/37-the-reverse-engineering-landscape
@@ -475,49 +475,49 @@ python3 code/main.py
 python3 -m unittest discover -s code/tests -v
 ```
 
-Verification should prove:
+Xác minh nên chứng minh:
 
-- the ELF reader finds four function symbols in `ledger-x86_64-O1.o` with sizes 16, 46, 31, and 63, and two padding gaps
-- the sweep captures hold 86, 56, 84, and 11 instructions for the four objects
-- radare2 and rizin report the same instructions, blocks, and edges on `ledger-x86_64-O1.o`, and only radare2 has `pdc` text
-- angr marks `sub_40003e` and `sub_40005f` as functions with no symbol
-- Ghidra's blocks for `total` are the five blocks of lesson 33 and its call flows are not graph edges
-- every tool places `grade` at offset `0x10` after its base is removed
-- every tool agrees on every instruction start in every function of `ledger-x86_64-O1.o`
-- the four graph builders report 3, 3, 5, 4 blocks and 2, 3, 5, 4 edges there, with identical edge sets
-- `total` at `-O2` has 10 blocks and 13 edges in every graph builder
-- `grade` at `-O0` has 3, 8, 8, and 9 blocks and 2, 11, 7, and 12 edges in radare2, rizin, angr, and Ghidra, with the reasons in each tool's notes
-- `grade_label` at `-O0` is one block everywhere except angr, which ends a block at the call
-- angr invents one function per padding gap plus one on the trap table, and no other tool invents or misses a function
-- the sweep gains starts `0x10`, `0x12`, `0x13` and loses `0x14` on the trap, and no graph builder decodes `0x10` to `0x14`
-- the findings name the missed range in radare2 and every invented function in angr
-- the manifest records a version and a command for all 21 capture files
-- three tools decompile `grade`, and only Ghidra folds the division idiom
-- the translator writes CF, OF, SF, ZF, PF eagerly in one style and a `cc_op` thunk in the other, writes no register for `cmp`, and no flag for `movslq`
-- the translator refuses memory forms, other opcodes, extra REX bits, and wrong lengths
-- the translator's `cc_op` numbers 8 and 7 equal the ones in the captured VEX
-- the captured lifts give 9, 1, 10 P-code operations and 7, 4, 7 VEX statements for the three instructions
-- the timeline runs from 1973 to 2026 in order, the pipeline has eight stages and six tools with a term in every cell, and the two closed tools are marked as not run
-- the interactive figure embeds the same data the harness produces
+- trình đọc ELF tìm bốn function symbol trong `ledger-x86_64-O1.o` với kích thước 16, 46, 31 và 63, và hai khoảng trống padding
+- các bản thu sweep chứa 86, 56, 84 và 11 chỉ lệnh cho bốn object
+- radare2 và rizin báo cáo cùng chỉ lệnh, khối và cạnh trên `ledger-x86_64-O1.o`, và chỉ radare2 có văn bản `pdc`
+- angr đánh dấu `sub_40003e` và `sub_40005f` là các hàm không có symbol
+- các khối của Ghidra cho `total` là năm khối của bài 33 và các luồng gọi của nó không phải các cạnh đồ thị
+- mọi công cụ đặt `grade` tại offset `0x10` sau khi địa chỉ cơ sở của nó được loại bỏ
+- mọi công cụ đồng nhất trên mọi điểm bắt đầu chỉ lệnh trong mọi hàm của `ledger-x86_64-O1.o`
+- bốn bộ dựng đồ thị báo cáo 3, 3, 5, 4 khối và 2, 3, 5, 4 cạnh ở đó, với các tập cạnh giống hệt
+- `total` ở `-O2` có 10 khối và 13 cạnh trong mọi bộ dựng đồ thị
+- `grade` ở `-O0` có 3, 8, 8 và 9 khối và 2, 11, 7 và 12 cạnh trong radare2, rizin, angr và Ghidra, với các lý do trong các ghi chú của mỗi công cụ
+- `grade_label` ở `-O0` là một khối ở mọi nơi trừ angr, kết thúc một khối tại lần gọi
+- angr bịa một hàm mỗi khoảng trống padding cộng một trên bảng bẫy, và không công cụ nào khác bịa hoặc bỏ lỡ một hàm
+- sweep thêm các điểm bắt đầu `0x10`, `0x12`, `0x13` và mất `0x14` trên bẫy, và không bộ dựng đồ thị nào giải mã `0x10` đến `0x14`
+- các phát hiện nêu tên phạm vi bị bỏ lỡ trong radare2 và mọi hàm được bịa trong angr
+- manifest ghi một phiên bản và một lệnh cho cả 21 tệp thu
+- ba công cụ decompile `grade`, và chỉ Ghidra gộp mẫu phép chia
+- trình dịch ghi CF, OF, SF, ZF, PF ngay lập tức trong một kiểu và một thunk `cc_op` trong kiểu kia, không ghi thanh ghi nào cho `cmp` và không cờ nào cho `movslq`
+- trình dịch từ chối các dạng bộ nhớ, các opcode khác, các bit REX thừa và độ dài sai
+- các số `cc_op` 8 và 7 của trình dịch bằng các số trong VEX đã thu
+- các bản nâng đã thu cho 9, 1, 10 thao tác P-code và 7, 4, 7 câu lệnh VEX cho ba chỉ lệnh
+- dòng thời gian chạy từ 1973 đến 2026 theo thứ tự, pipeline có tám giai đoạn và sáu công cụ với một thuật ngữ trong mọi ô, và hai công cụ đóng được đánh dấu là chưa chạy
+- hình tương tác nhúng cùng dữ liệu mà harness tạo ra
 
 ## Production Failure Modes
 
-| Failure | What the weak report says | What the harness must prove |
+| Lỗi | Báo cáo yếu nói gì | Harness phải chứng minh gì |
 |---|---|---|
-| Raw addresses from different tools | "the tools disagree about where grade is" | one offset after each base is removed, checked on one function |
-| Block count as a measure of code found | "Ghidra found the most code" | the same instruction starts, with the extra block explained by a label |
-| One tool as the oracle | "objdump shows the table bytes are instructions" | the sweep is a linear sweep; three graph builders leave the bytes unclaimed |
-| Padding functions counted as discoveries | "angr found seven more functions" | every one sits in a padding gap or on data, and none has a symbol |
-| A stopped walk reported as dead code | "the four case blocks are unreachable" | 36 bytes missed by one tool and reached by three |
-| Edge counts compared without the notes | "rizin and Ghidra disagree on grade" | the same four computed targets, one extra split at a label |
-| A decompiler's arithmetic read as the program | "the function multiplies by 1717986919" | the idiom from lesson 34, folded by one tool and left by another |
-| A closed tool described as if run | "Binary Ninja reports five blocks" | the figure and the table mark it as documentation only |
-| Captures without commands | "we ran radare2" | the manifest with version, command, and date for every file |
-| An IR with no flags read as a lossy lift | "VEX dropped the flags" | the thunk in `cc_op`, `cc_dep1`, `cc_dep2`, evaluated at the branch |
+| Các địa chỉ thô từ các công cụ khác nhau | "các công cụ bất đồng về nơi grade nằm" | một offset sau khi mỗi địa chỉ cơ sở được loại bỏ, được kiểm tra trên một hàm |
+| Số khối như một phép đo mã được tìm thấy | "Ghidra tìm thấy nhiều mã nhất" | cùng các điểm bắt đầu chỉ lệnh, với khối thừa được giải thích bằng một nhãn |
+| Một công cụ làm oracle | "objdump cho thấy các byte bảng là chỉ lệnh" | sweep là một linear sweep; ba bộ dựng đồ thị để các byte không được nhận |
+| Các hàm padding được tính là phát hiện | "angr tìm thấy thêm bảy hàm" | mọi hàm nằm trong một khoảng trống padding hoặc trên dữ liệu, và không hàm nào có một symbol |
+| Một phép duyệt đã dừng được báo cáo là mã chết | "bốn khối case không thể tới" | 36 byte bị một công cụ bỏ lỡ và được ba công cụ tới |
+| Các số cạnh được so sánh không có các ghi chú | "rizin và Ghidra bất đồng về grade" | cùng bốn đích tính toán, thêm một lần tách tại một nhãn |
+| Phép toán của một decompiler được đọc như chương trình | "hàm nhân với 1717986919" | mẫu từ bài 34, được một công cụ gộp và một công cụ khác để lại |
+| Một công cụ đóng được mô tả như đã chạy | "Binary Ninja báo cáo năm khối" | hình và bảng đánh dấu nó là chỉ tài liệu |
+| Các bản thu không có lệnh | "chúng tôi đã chạy radare2" | manifest với phiên bản, lệnh và ngày cho mỗi tệp |
+| Một IR không có cờ được đọc như một bản nâng mất mát | "VEX bỏ các cờ" | thunk trong `cc_op`, `cc_dep1`, `cc_dep2`, được đánh giá tại nhánh |
 
 ## Operational Rule
 
-Capture every tool once with its command and version, reduce every address to one base, and compare instruction starts before blocks and blocks before edges. Account for every byte as claimed, padding, data, or missed. Read a tool's own note before you judge its count, and say which tools you only read about.
+Thu mọi công cụ một lần với lệnh và phiên bản của nó, quy mọi địa chỉ về một địa chỉ cơ sở và so sánh các điểm bắt đầu chỉ lệnh trước các khối và các khối trước các cạnh. Hạch toán mỗi byte là được nhận, padding, dữ liệu hoặc bị bỏ lỡ. Đọc ghi chú riêng của một công cụ trước khi phán đoán số đếm của nó, và nói các công cụ nào bạn chỉ đọc về chúng.
 
 ## Further Reading
 

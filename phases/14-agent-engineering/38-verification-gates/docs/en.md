@@ -87,7 +87,7 @@ python3 code/main.py
 
 ## Production patterns in the wild
 
-Bốn mẫu nâng cổng từ "một job lint nữa" thành "cạnh quyết định."
+Năm mẫu nâng cổng từ "một tác vụ lint nữa" thành "cạnh quyết định".
 
 **Phòng vệ nhiều lớp, không phải cổng đơn.** Hook trước commit → kiểm tra trạng thái CI → hook cấp quyền trước công cụ → cổng trước hợp nhất. Mỗi lớp mang tính xác định để một thất bại trong một lớp được lớp tiếp theo bắt. Sổ tay tháng 3 năm 2026 của microservices.io nói rõ: hook trước commit không thể bị vượt qua vì, khác với một skill phía mô hình, nó không phụ thuộc agent làm theo chỉ dẫn. Cổng xác minh nằm ở lớp CI / trước hợp nhất.
 

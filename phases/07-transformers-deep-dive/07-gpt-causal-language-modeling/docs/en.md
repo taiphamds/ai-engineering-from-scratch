@@ -23,14 +23,13 @@ GPT-1 (2018), GPT-2 (2019), GPT-3 (2020), GPT-4 (2023), GPT-5 (2025), Claude, Ll
 
 ### The mask
 
-Cho một chuỗi có độ dài `N`, xây dựng một ma trận `N × N`:
+Cho một chuỗi có độ dài $N$, xây dựng một ma trận $N \times N$:
 
-```
-M[i, j] = 0       if j <= i
-M[i, j] = -inf    if j > i
+```math
+M_{ij} = \begin{cases} 0 & \text{if } j \le i \\ -\infty & \text{if } j > i \end{cases}
 ```
 
-Thêm `M` vào các điểm attention thô trước softmax. `exp(-inf) = 0`, nên các vị trí được che đóng góp trọng số bằng không. Mỗi hàng ma trận attention là một phân phối xác suất chỉ trên các vị trí trước.
+Cộng `M` vào các điểm attention thô trước softmax. $\exp(-\infty) = 0$, vì vậy các vị trí bị che đóng góp trọng số bằng không. Mỗi hàng của ma trận attention là một phân phối xác suất chỉ trên các vị trí trước đó.
 
 Chi phí triển khai: một lời gọi `torch.tril()`. Thời gian tính: nano giây. Tác động lên lĩnh vực: mọi thứ.
 
@@ -38,7 +37,7 @@ Chi phí triển khai: một lời gọi `torch.tril()`. Thời gian tính: nano
 
 Mặt nạ thường được trình bày như một miếng vá gắn vào attention. Chạy suy dẫn theo chiều ngược và nó ngừng bí ẩn: attention là tinh chỉnh thứ ba của một trung bình tiền tố, và tam giác là các giới hạn vòng lặp của trung bình đó, được viết thành một ma trận.
 
-**Giai đoạn 1 — trung bình tiền tố.** Bản tóm tắt nhân quả ngớ ngẩn nhất của một chuỗi: vị trí `i` trở thành trung bình các vị trí `0…i`. Dưới dạng vòng lặp, đó là `out[i] = X[:i+1].mean(0)`. Cùng phép tính là một phép nhân ma trận. Lấy một ma trận tam giác dưới toàn số một, chia mỗi hàng cho số đếm của nó, nhân:
+**Giai đoạn 1 — trung bình tiền tố.** Bản tóm tắt nhân quả ngớ ngẩn nhất của một chuỗi: vị trí $i$ trở thành trung bình các vị trí $0 \ldots i$. Dưới dạng vòng lặp, đó là `out[i] = X[:i+1].mean(0)`. Cùng phép tính là một phép nhân ma trận. Lấy một ma trận tam giác dưới toàn số một, chia mỗi hàng cho số đếm của nó, nhân:
 
 ```python
 import numpy as np
@@ -48,7 +47,7 @@ A = A / A.sum(axis=1, keepdims=True)
 out = A @ X
 ```
 
-Hàng `i` của `A` là `[1/(i+1), …, 1/(i+1), 0, …, 0]`. Các số không trên đường chéo là tính nhân quả. Không có gì về tương lai bị che đi; tương lai chưa bao giờ nằm trong tổng.
+Hàng $i$ của $A$ là $[1/(i+1), \ldots, 1/(i+1), 0, \ldots, 0]$. Các số không trên đường chéo là tính nhân quả. Không có gì về tương lai bị che đi; tương lai chưa bao giờ nằm trong tổng.
 
 **Giai đoạn 2 — các trọng số được học.** Một trung bình đều coi mọi token quá khứ liên quan ngang nhau. Thay các số một bằng một ma trận điểm được học `S`. Giờ các hàng không còn có tổng bằng một do cách xây dựng, nên chuẩn hóa mỗi hàng bằng softmax thay vì chia cho số đếm. Softmax không bao giờ xuất một số không chính xác, điều phá tính nhân quả — trừ khi các điểm tương lai đi vào dưới dạng `-inf`, vì `exp(-inf) = 0`:
 
@@ -166,7 +165,7 @@ print(tok.decode(out[0]))
 
 Bên dưới, `generate()` chạy lượt truyền xuôi, lấy logits vị trí cuối, lấy mẫu token tiếp theo, nối nó và lặp lại. Mọi ngăn xếp suy luận LLM production (vLLM, TensorRT-LLM, llama.cpp, Ollama, MLX) triển khai cùng vòng lặp với tối ưu hóa mạnh — prefill theo batch, batching liên tục, phân trang KV cache, speculative decoding.
 
-**GPT so với BERT, mỗi loại một dòng:** GPT dự đoán `P(x_t | x_{<t})`. BERT dự đoán `P(x_masked | x_unmasked)`. Loss quyết định mô hình có thể sinh hay không.
+**GPT so với BERT, mỗi loại một dòng:** GPT dự đoán $P(x_t \mid x_{<t})$. BERT dự đoán $P(x_{\text{masked}} \mid x_{\text{unmasked}})$. Loss quyết định mô hình có thể sinh hay không.
 
 ## Ship It
 
@@ -186,8 +185,8 @@ Xem `outputs/skill-sampling-tuner.md`. Skill chọn các tham số lấy mẫu c
 | Next-token prediction (Dự đoán token tiếp theo) | "Loss" | Cross-entropy của phân phối mô hình so với token tiếp theo thật ở mọi vị trí. |
 | Autoregressive (Tự hồi quy) | "Sinh từng cái một" | Đưa đầu ra trở lại làm đầu vào; tính song song chỉ trong huấn luyện, không trong sinh. |
 | Logits | "Các điểm trước softmax" | Đầu ra thô của head LM trước softmax; lấy mẫu xảy ra trên chúng. |
-| Temperature | "Nút điều chỉnh sáng tạo" | Chia logits cho T; T→0 = tham lam, T→∞ = đều. |
-| Top-p | "Lấy mẫu nucleus" | Cắt phân phối về tập nhỏ nhất có tổng ≥p; lấy mẫu từ phần còn lại. |
+| Temperature | "Nút điều chỉnh sáng tạo" | Chia logits cho $T$; $T \to 0$ = tham lam, $T \to \infty$ = đều. |
+| Top-p | "Lấy mẫu nucleus" | Cắt phân phối về tập nhỏ nhất có tổng $\ge p$; lấy mẫu từ phần còn lại. |
 | Min-p | "Tốt hơn top-p" | Giữ các token mà `p ≥ min_p × max_p`; điều chỉnh ngưỡng cắt theo độ nhọn phân phối. |
 | Speculative decoding (Giải mã suy đoán) | "Nháp + xác minh" | Mô hình rẻ đề xuất N token; mô hình lớn xác minh song song. |
 | Teacher forcing | "Thủ thuật huấn luyện" | Khi huấn luyện, đưa token trước thật vào, không phải dự đoán của mô hình. Tiêu chuẩn cho mọi LM seq2seq. |

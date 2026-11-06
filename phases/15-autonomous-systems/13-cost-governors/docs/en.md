@@ -58,7 +58,7 @@ Agent Governance Toolkit của Microsoft bao phủ OWASP Agentic Top 10 và các
 
 ### The observed $1,200 → $4,800 case
 
-Trường hợp thực trong tài liệu Microsoft: một agent thương mại điện tử có chi phí hằng tháng tăng gấp ba sau khi một công cụ mới được thêm vào. Công cụ cho phép agent thăm dò trạng thái đơn hàng trong mỗi phiên. Không phát hiện vòng lặp. Không mức trần theo từng công cụ. Không cảnh báo về tăng trưởng tuần so với tuần. Cách khắc phục là một mức trần theo từng công cụ cộng với một cảnh báo tăng trưởng hằng ngày. Đây là một khuôn mẫu: mọi bề mặt công cụ mới đều là một vòng lặp tiềm năng mới; mọi công cụ mới đều cần mức trần riêng và cảnh báo riêng.
+Trường hợp thực trong tài liệu Microsoft: một agent thương mại điện tử có chi phí hàng tháng tăng gấp bốn sau khi thêm một công cụ mới. Công cụ cho phép agent thăm dò trạng thái đơn hàng trong mỗi phiên. Không phát hiện vòng lặp. Không có giới hạn theo công cụ. Không có cảnh báo tăng trưởng tuần so với tuần. Cách sửa là giới hạn theo công cụ cộng cảnh báo tăng trưởng hàng ngày. Đây là một mẫu: mỗi bề mặt công cụ mới là một vòng lặp tiềm năng mới; mỗi công cụ mới cần giới hạn riêng và cảnh báo riêng.
 
 ```figure
 cost-governor-stack

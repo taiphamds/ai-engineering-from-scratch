@@ -20,7 +20,7 @@ Nhóm của bạn phát hành một dịch vụ phục vụ LLM trên Kubernetes
 
 Riêng biệt, bạn sử dụng Cluster Autoscaler cho các node. Một prompt 1M token đến lúc 2 giờ sáng; cụm dành 3 phút cấp phát một node, và yêu cầu hết thời gian chờ.
 
-Lại riêng biệt, bạn triển khai một mô hình 70B cần 8 GPU trên 2 node. Cụm có 7 GPU trống và 1 trải trên 3 node. Cluster Autoscaler cấp phát một node cho 1 GPU thiếu. Bảy node chờ 4 phút đốt tiền trong khi Kubernetes khởi động GPU cuối.
+Lại một trường hợp riêng khác, bạn triển khai một mô hình 70B cần 8 GPU trên 2 node. Cụm có 7 GPU trống, phân tán trên 3 node, và cần thêm 1. Cluster Autoscaler cấp phát một node cho 1 GPU còn thiếu. 7 GPU đã dành chỗ nằm nhàn rỗi trong 4 phút đốt tiền trong khi Kubernetes khởi động GPU cuối cùng.
 
 Ba lớp, ba chế độ lỗi khác nhau. Tự động mở rộng nhận biết GPU năm 2026 không phải “bật HPA.” Nó là kết hợp cấp phát node, lập lịch theo nhóm, và tự động mở rộng theo tín hiệu ứng dụng.
 

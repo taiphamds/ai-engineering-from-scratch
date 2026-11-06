@@ -37,7 +37,7 @@ Năm 2026, WER SOTA trên LibriSpeech test-clean là 1.4% (Parakeet-TDT-1.1B, NV
 
 ### WER: the one number
 
-**Tỷ lệ Lỗi Từ** = `(S + D + I) / N`, trong đó S=thay thế, D=xóa, I=chèn, N=số từ tham chiếu. Khớp khoảng cách chỉnh sửa Levenshtein ở cấp từ. Thấp hơn là tốt hơn. WER trên 20% thường không dùng được; dưới 5% là ngang con người cho tiếng nói đọc. Các con số năm 2026 trên các benchmark tiêu chuẩn:
+**Tỷ lệ Lỗi Từ** = $(S + D + I) / N$, trong đó $S$=thay thế, $D$=xóa, $I$=chèn, $N$=số từ tham chiếu. Khớp khoảng cách chỉnh sửa Levenshtein ở cấp từ. Thấp hơn là tốt hơn. WER trên 20% thường không dùng được; dưới 5% là ngang con người cho tiếng nói đọc. Các con số năm 2026 trên các benchmark tiêu chuẩn:
 
 | Mô hình | LibriSpeech test-clean | LibriSpeech test-other | Kích thước |
 |-------|------------------------|------------------------|------|

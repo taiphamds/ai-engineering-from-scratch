@@ -106,7 +106,7 @@ Trình chạy là một lớp bọc mỏng sống sót qua mọi lần di chuy�
 2. Thêm một bước `redaction` loại bỏ các dòng khớp `^Bearer ` hoặc `password=`. Kiểm thử trên một bản ghi mẫu.
 3. Giới hạn tổng kích thước `feedback_record.jsonl` ở 1 MB bằng cách xoay sang các file `.1`, `.2`. Bảo vệ chính sách xoay vòng.
 4. Thêm một `parent_command_id` để các chuỗi thử lại nhìn thấy được: lệnh nào tạo đầu vào mà lệnh tiếp theo tiêu thụ.
-5. Dẫn JSONL vào một TUI nhỏ làm nổi bật mã thoát khác không mới nhất. Tám tính năng chính mà TUI phải cho thấy để hữu ích trong một lần đánh giá.
+5. Chuyển JSONL qua pipe vào một TUI nhỏ làm nổi bật mã thoát khác không gần nhất. Liệt kê tám tính năng chính mà TUI phải hiển thị để hữu ích trong một lần xem xét.
 
 ## Key Terms
 

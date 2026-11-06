@@ -52,18 +52,20 @@ Mỗi dòng trong vòng lặp này đều là nơi một lỗi có thể tồn t
 
 Một bộ phân loại tạo ra `C` số mỗi hình ảnh gọi là logit. Áp dụng softmax chuyển chúng thành một phân phối xác suất:
 
-```
-softmax(z)_i = exp(z_i) / sum_j exp(z_j)
+```math
+\mathop{\mathrm{softmax}}(z)_i = \frac{\exp(z_i)}{\sum_j \exp(z_j)}
 ```
 
 Cross-entropy đo log xác suất âm của lớp đúng:
 
-```
-CE(z, y) = -log( softmax(z)_y )
-        = -z_y + log( sum_j exp(z_j) )
+```math
+\begin{aligned}
+\mathrm{CE}(z, y) &= -\log\left( \mathop{\mathrm{softmax}}(z)_y \right) \\
+&= -z_y + \log\left( \sum_j \exp(z_j) \right)
+\end{aligned}
 ```
 
-Dạng bên phải là dạng ổn định về số (log-sum-exp). `nn.CrossEntropyLoss` của PyTorch hợp nhất softmax + NLL trong một phép toán và nhận trực tiếp logit thô. Tự áp dụng softmax trước gần như luôn là lỗi — bạn tính log(softmax(softmax(z))), một đại lượng vô nghĩa.
+Dạng bên phải là dạng ổn định về số (log-sum-exp). `nn.CrossEntropyLoss` của PyTorch hợp nhất softmax + NLL trong một phép toán và nhận trực tiếp logit thô. Tự áp dụng softmax trước gần như luôn là lỗi — bạn tính $\log(\mathop{\mathrm{softmax}}(\mathop{\mathrm{softmax}}(z)))$, một đại lượng vô nghĩa.
 
 ### Why augmentation works
 
@@ -98,14 +100,14 @@ Tại sao giúp ích: mô hình ngừng ghi nhớ các mục tiêu one-hot nhọ
 
 ### Label smoothing
 
-Một họ hàng của mixup. Thay vì huấn luyện theo `[0, 0, 1, 0, 0]`, huấn luyện theo `[eps/C, eps/C, 1-eps, eps/C, eps/C]` với `eps` nhỏ như 0.1. Ngăn mô hình tạo ra các logit sắc tùy ý và cải thiện hiệu chỉnh với chi phí gần như không có. Được tích hợp trong `nn.CrossEntropyLoss(label_smoothing=0.1)` từ PyTorch 1.10.
+Một người họ hàng của mixup. Thay vì huấn luyện với `[0, 0, 1, 0, 0]`, huấn luyện với `[eps/C, eps/C, 1-eps+eps/C, eps/C, eps/C]` cho một `eps` nhỏ như 0.1 (mục tiêu one-hot được trộn với một phân phối đều, vì vậy nó vẫn cộng lại bằng 1). Ngăn mô hình tạo ra các logit sắc nhọn tùy ý và cải thiện độ hiệu chỉnh với gần như không có chi phí. Được tích hợp vào `nn.CrossEntropyLoss(label_smoothing=0.1)` từ PyTorch 1.10.
 
 ### Evaluation beyond accuracy
 
 Accuracy tổng hợp che giấu mất cân bằng. Một bộ phân loại nhị phân 90-10 luôn dự đoán lớp đa số đạt 90%. Các công cụ thực sự cho bạn biết điều gì đang xảy ra:
 
 - **Accuracy từng lớp** — một con số mỗi lớp; lập tức làm lộ các loại hoạt động kém.
-- **Ma trận nhầm lẫn** — lưới C x C với hàng i cột j = số lượng lớp thật i được dự đoán là lớp j; đường chéo đúng, các ô ngoài đường chéo là nơi mô hình của bạn tồn tại.
+- **Ma trận nhầm lẫn** — lưới $C \times C$ với hàng $i$ cột $j$ = số lượng lớp thật $i$ được dự đoán là lớp $j$; đường chéo đúng, các ô ngoài đường chéo là nơi mô hình của bạn tồn tại.
 - **Top-1 / Top-5** — liệu lớp đúng có nằm trong 1 hoặc 5 dự đoán cao nhất không; Top-5 quan trọng với ImageNet vì các lớp như "Norwich terrier" so với "Norfolk terrier" thực sự mơ hồ.
 - **Hiệu chỉnh (ECE)** — một dự đoán có độ tin cậy 0.8 có đúng 80% thời gian không? Các mạng hiện đại quá tự tin một cách có hệ thống; khắc phục bằng co giãn nhiệt độ hoặc làm trơn nhãn.
 
@@ -413,7 +415,7 @@ Bài học này tạo ra:
 | DataLoader | "Bộ chia batch" | Bao bọc một tập dữ liệu với xáo trộn, chia batch và tải nhiều worker (tùy chọn); bị đổ lỗi cho một nửa lỗi huấn luyện |
 | Augmentation (Tăng cường) | "Các phép biến đổi ngẫu nhiên" | Bất kỳ phép biến đổi cấp pixel nào lúc huấn luyện giữ nguyên nhãn; dạy các tính bất biến mà CNN không có sẵn |
 | Mixup / Cutmix | "Trộn hai hình ảnh" | Trộn cả đầu vào và nhãn để bộ phân loại học các nội suy trơn thay vì các ranh giới cứng |
-| Label smoothing (Làm trơn nhãn) | "Các mục tiêu mềm hơn" | Thay one-hot bằng (1-eps, eps/(C-1), ...); cải thiện hiệu chỉnh và tăng nhẹ accuracy |
+| Label smoothing (Làm mượt nhãn) | "Các mục tiêu mềm hơn" | Thay one-hot bằng (1-eps+eps/C, eps/C, ...); cải thiện độ hiệu chỉnh và tăng nhẹ độ chính xác |
 | Top-k accuracy (Accuracy top-k) | "Top-5" | Lớp đúng nằm trong k dự đoán có xác suất cao nhất; được dùng trên các tập dữ liệu có các lớp thực sự mơ hồ |
 | Confusion matrix (Ma trận nhầm lẫn) | "Nơi các lỗi tồn tại" | Bảng C x C trong đó ô (i, j) đếm các hình ảnh của lớp thật i được dự đoán là j; đường chéo đúng, ngoài đường chéo cho bạn biết cần sửa gì |
 

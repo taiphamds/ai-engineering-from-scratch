@@ -66,7 +66,7 @@ Mọi lời gọi mô hình phát có `id`. Mọi kết quả host trả phải 
 
 Host chạy bộ thực thi mỗi lời gọi trên luồng, coroutine hoặc worker từ xa riêng. Bộ khung đơn giản nhất dùng nhóm luồng; sản xuất dùng asyncio với `asyncio.gather` hoặc đồng thời có cấu trúc. Thứ tự hoàn tất không đoán được — id là định danh.
 
-Một lỗi phổ biến: trả kết quả theo thứ tự danh sách lời gọi thay vì thứ tự hoàn tất. Điều này thường hoạt động vì mô hình chỉ quan tâm `tool_call_id`, nhưng nếu kết quả bị bỏ hoặc lặp, gửi sai thứ tự khiến gỡ lỗi khó hơn. Ưu tiên trả lời theo thứ tự hoàn tất với id tường minh.
+Một lỗi phổ biến: trả lời bằng các kết quả theo thứ tự danh sách lệnh gọi thay vì thứ tự hoàn thành. Điều này thường hoạt động vì mô hình chỉ quan tâm đến `tool_call_id`, nhưng nếu một kết quả bị mất hoặc trùng lặp, một danh sách phản hồi được sắp xếp khác với thứ tự các kết quả đến sẽ làm khoảng trống khó tìm hơn trong log. Ưu tiên trả lời theo thứ tự hoàn thành với các ID tường minh.
 
 ### Streaming tool calls
 

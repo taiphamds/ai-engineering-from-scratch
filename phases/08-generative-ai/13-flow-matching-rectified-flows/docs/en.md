@@ -9,9 +9,9 @@
 
 ## The Problem
 
-Quá trình ngược của DDPM là một bước đi ngẫu nhiên 1000 bước từ `N(0, I)` trở lại phân phối dữ liệu. DDIM thu nó thành 20-50 bước tất định. Bạn muốn ít bước hơn — lý tưởng là một. Trở ngại là ODE giải quá trình ngược bị cứng; đường đi cong.
+Quá trình ngược của DDPM là một bước đi ngẫu nhiên 1000 bước từ $\mathcal{N}(0, I)$ trở lại phân phối dữ liệu. DDIM thu nó thành 20-50 bước tất định. Bạn muốn ít bước hơn — lý tưởng là một. Trở ngại là ODE giải quá trình ngược bị cứng; đường đi cong.
 
-Nếu bạn có thể huấn luyện mô hình sao cho đường đi từ nhiễu đến dữ liệu là một *đường thẳng*, một bước Euler duy nhất từ `t=1` đến `t=0` sẽ hoạt động. Flow matching xây dựng điều này trực tiếp: định nghĩa một nội suy đường thẳng từ `x_1 ∼ N(0, I)` đến `x_0 ∼ data`, huấn luyện một trường vector `v_θ(x, t)` để khớp đạo hàm theo thời gian của nó, tích phân khi suy luận.
+Nếu bạn có thể huấn luyện mô hình sao cho đường đi từ nhiễu đến dữ liệu là một *đường thẳng*, một bước Euler duy nhất từ $t=1$ đến $t=0$ sẽ hoạt động. Flow matching xây dựng điều này trực tiếp: định nghĩa một nội suy đường thẳng từ $x_1 \sim \mathcal{N}(0, I)$ đến $x_0 \sim \text{data}$, huấn luyện một trường vector $v_\theta(x, t)$ để khớp đạo hàm theo thời gian của nó, tích phân khi suy luận.
 
 Rectified flow (Liu 2022) đi xa hơn: lặp lại việc làm thẳng các đường đi bằng một quy trình reflow tạo ra một ODE dần gần tuyến tính hơn. Sau hai lần lặp reflow, một bộ lấy mẫu 2 bước đạt chất lượng DDPM 50 bước.
 
@@ -23,41 +23,41 @@ Rectified flow (Liu 2022) đi xa hơn: lặp lại việc làm thẳng các đư
 
 Định nghĩa:
 
-```
-x_t = t · x_1 + (1 - t) · x_0,   t ∈ [0, 1]
-```
-
-trong đó `x_0 ~ data` và `x_1 ~ N(0, I)`. Đạo hàm theo thời gian dọc đường thẳng này là hằng số:
-
-```
-dx_t / dt = x_1 - x_0
+```math
+x_t = t \cdot x_1 + (1 - t) \cdot x_0, \quad t \in [0, 1]
 ```
 
-Định nghĩa một trường vector nơ-ron `v_θ(x_t, t)` và huấn luyện nó để khớp đạo hàm này:
+trong đó $x_0 \sim \text{data}$ và $x_1 \sim \mathcal{N}(0, I)$. Đạo hàm theo thời gian dọc đường thẳng này là hằng số:
 
-```
-L = E_{x_0, x_1, t} || v_θ(x_t, t) - (x_1 - x_0) ||²
+```math
+\frac{dx_t}{dt} = x_1 - x_0
 ```
 
-Đây là hàm mất mát **flow matching có điều kiện** (Lipman 2023). Huấn luyện không cần mô phỏng: bạn không bao giờ triển khai các bước ODE. Chỉ lấy mẫu `(x_0, x_1, t)` và hồi quy.
+Định nghĩa một trường vector nơ-ron $v_\theta(x_t, t)$ và huấn luyện nó để khớp đạo hàm này:
+
+```math
+L = \mathbb{E}_{x_0, x_1, t} \left\lVert v_\theta(x_t, t) - (x_1 - x_0) \right\rVert^2
+```
+
+Đây là hàm mất mát **flow matching có điều kiện** (Lipman 2023). Huấn luyện không cần mô phỏng: bạn không bao giờ triển khai các bước ODE. Chỉ lấy mẫu $(x_0, x_1, t)$ và hồi quy.
 
 ### Sampling
 
 Khi suy luận, tích phân trường vector được học *ngược* theo thời gian:
 
-```
-x_{t-Δt} = x_t - Δt · v_θ(x_t, t)
+```math
+x_{t-\Delta t} = x_t - \Delta t \cdot v_\theta(x_t, t)
 ```
 
-Bắt đầu ở `x_1 ~ N(0, I)`, bước Euler xuống `t=0`.
+Bắt đầu ở $x_1 \sim \mathcal{N}(0, I)$, bước Euler xuống $t=0$.
 
 ### Rectified flow (Liu 2022)
 
-Flow đường thẳng hoạt động nhưng các đường đi được học *thực ra không thẳng* — chúng cong vì nhiều `x_0` có thể ánh xạ đến cùng một `x_1`. Bước reflow của rectified flow:
+Flow đường thẳng hoạt động nhưng các đường đi được học *không thực sự thẳng* — chúng cong vì nhiều $x_0$ có thể ánh xạ đến cùng $x_1$. Bước reflow của rectified flow:
 
-1. Huấn luyện mô hình flow v_1 với các ghép cặp ngẫu nhiên.
-2. Lấy mẫu N cặp `(x_1, x_0)` bằng cách tích phân v_1 từ `x_1` đến điểm đến `x_0` của nó.
-3. Huấn luyện v_2 trên các ví dụ ghép cặp đó. Vì các cặp giờ đã "khớp ODE", đường nội suy thẳng giữa chúng thực sự phẳng hơn.
+1. Huấn luyện mô hình flow $v_1$ với các ghép cặp ngẫu nhiên.
+2. Lấy mẫu N cặp $(x_1, x_0)$ bằng cách tích phân $v_1$ từ $x_1$ đến điểm đến $x_0$ của nó.
+3. Huấn luyện $v_2$ trên các ví dụ ghép cặp đó. Vì các cặp giờ đã "khớp ODE", đường nội suy thẳng giữa chúng thực sự phẳng hơn.
 4. Lặp lại.
 
 Trong thực tế 2 lần lặp reflow đưa bạn đến gần tuyến tính, cho phép suy luận 2-4 bước. SDXL-Turbo, SD3-Turbo, LCM đều là các mô hình được chưng cất từ flow-matching.
@@ -72,7 +72,7 @@ Ba lý do:
 
 ## Flow matching vs DDPM — the exact connection
 
-Flow matching với một đường đi Gaussian có điều kiện là khuếch tán *với một lịch nhiễu cụ thể*. Chọn lịch `x_t = α(t) x_0 + σ(t) x_1` và flow matching khôi phục khuếch tán được viết lại theo Stratonovich với `v = α'·x_0 - σ'·x_1`. Hai cách tương đương về đại số với các đường đi Gaussian.
+Flow matching với một đường đi Gaussian có điều kiện là khuếch tán *với một lịch nhiễu cụ thể*. Chọn lịch $x_t = \alpha(t) x_0 + \sigma(t) x_1$ và flow matching khôi phục khuếch tán được viết lại theo Stratonovich với $v = \alpha' \cdot x_0 - \sigma' \cdot x_1$. Hai cách tương đương về đại số với các đường đi Gaussian.
 
 Những gì flow matching thêm vào: *sự rõ ràng* của mục tiêu (một vận tốc thuần túy), một hàm mất mát gọn hơn, và sự cho phép thử nghiệm các hàm nội suy phi Gaussian.
 
@@ -82,7 +82,7 @@ normalizing-flow
 
 ## Build It
 
-`code/main.py` triển khai flow matching 1-D trên một hỗn hợp Gaussian hai mode. Trường vector `v_θ(x, t)` là một MLP nhỏ được huấn luyện với mục tiêu đường thẳng. Khi suy luận, tích phân 1, 2, 4 và 20 bước Euler và so sánh chất lượng mẫu.
+`code/main.py` triển khai flow matching 1-D trên một hỗn hợp Gaussian hai mode. Trường vector $v_\theta(x, t)$ là một MLP nhỏ được huấn luyện với mục tiêu đường thẳng. Khi suy luận, tích phân 1, 2, 4 và 20 bước Euler và so sánh chất lượng mẫu.
 
 ### Step 1: training loss
 
@@ -115,10 +115,10 @@ Kỳ vọng bộ lấy mẫu 4 bước đã đạt chất lượng 20 bước �
 
 ## Pitfalls
 
-- **Tham số hóa thời gian.** Flow matching dùng `t ∈ [0, 1]` với `t=0` ở dữ liệu, `t=1` ở nhiễu. DDPM dùng `t ∈ [0, T]` với `t=0` ở dữ liệu, `t=T` ở nhiễu. Cùng hướng, khác thang đo. Các bài báo liên tục làm sai điều này.
+- **Tham số hóa thời gian.** Flow matching dùng $t \in [0, 1]$ với $t=0$ ở dữ liệu, $t=1$ ở nhiễu. DDPM dùng $t \in [0, T]$ với $t=0$ ở dữ liệu, $t=T$ ở nhiễu. Cùng hướng, khác thang đo. Các bài báo liên tục làm sai điều này.
 - **Lựa chọn lịch.** Đường thẳng của rectified flow là "lịch" flow-matching, nhưng bạn có thể dùng lấy mẫu t cosine hoặc logit-normal (SD3 làm điều này) để bao phủ thang đo tốt hơn.
 - **Chi phí reflow.** Sinh tập dữ liệu ghép cặp cho reflow là một lượt suy luận đầy đủ mỗi mẫu. Chỉ làm reflow khi bạn thực sự cần suy luận 1-2 bước.
-- **Classifier-free guidance vẫn áp dụng.** Chỉ đổi ε thành v trong tổ hợp tuyến tính: `v_cfg = (1+w) v_cond - w v_uncond`.
+- **Classifier-free guidance vẫn áp dụng.** Chỉ đổi $\epsilon$ thành $v$ trong tổ hợp tuyến tính: $v_{\text{cfg}} = (1+w) v_{\text{cond}} - w v_{\text{uncond}}$.
 
 ## Use It
 
@@ -140,21 +140,21 @@ Lưu `outputs/skill-fm-tuner.md`. Skill nhận một đặc tả mô hình kiể
 ## Exercises
 
 1. **Dễ.** Chạy `code/main.py` và so sánh MSE 1 bước so với 20 bước so với phân phối dữ liệu thật.
-2. **Trung bình.** Chuyển từ lấy mẫu `t` đều sang logit-normal (tập trung lấy mẫu ở t giữa). Chất lượng mô hình có cải thiện không?
-3. **Khó.** Triển khai một lần lặp reflow: sinh các cặp (x_0, x_1) bằng cách tích phân mô hình đầu tiên, huấn luyện một mô hình thứ hai trên các cặp, và so sánh chất lượng mẫu 1 bước.
+2. **Trung bình.** Chuyển từ lấy mẫu $t$ đều sang logit-normal (tập trung lấy mẫu ở t giữa). Chất lượng mô hình có cải thiện không?
+3. **Khó.** Triển khai một lần lặp reflow: sinh các cặp $(x_0, x_1)$ bằng cách tích phân mô hình đầu tiên, huấn luyện một mô hình thứ hai trên các cặp, và so sánh chất lượng mẫu 1 bước.
 
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Flow matching | "Khuếch tán đường thẳng" | Huấn luyện `v_θ(x, t)` để khớp `x_1 - x_0` dọc một hàm nội suy. |
+| Flow matching | "Khuếch tán đường thẳng" | Huấn luyện $v_\theta(x, t)$ để khớp $x_1 - x_0$ dọc một hàm nội suy. |
 | Rectified flow | "Reflow" | Quy trình lặp làm thẳng các flow đã học. |
-| Velocity field (Trường vận tốc) | "v_θ" | Đầu ra của mô hình — hướng di chuyển `x_t`. |
-| Straight-line interpolant (Hàm nội suy đường thẳng) | "Đường đi" | `x_t = (1-t)·x_0 + t·x_1`; đạo hàm mục tiêu đơn giản. |
+| Velocity field (Trường vận tốc) | "v_θ" | Đầu ra của mô hình — hướng di chuyển $x_t$. |
+| Straight-line interpolant (Hàm nội suy đường thẳng) | "Đường đi" | $x_t = (1-t) \cdot x_0 + t \cdot x_1$; đạo hàm mục tiêu đơn giản. |
 | Euler sampler (Bộ lấy mẫu Euler) | "Bộ giải ODE bậc 1" | Bộ tích phân đơn giản nhất; hoạt động tốt khi các đường đi thẳng. |
-| Logit-normal t | "Lấy mẫu SD3" | Tập trung lấy mẫu `t` về các giá trị giữa nơi gradient mạnh nhất. |
-| Consistency distillation (Chưng cất nhất quán) | "Bộ lấy mẫu 1 bước" | Huấn luyện một mô hình học trò ánh xạ bất kỳ `x_t` nào trực tiếp đến `x_0`. |
-| CFG with velocity (CFG với vận tốc) | "v-CFG" | `v_cfg = (1+w) v_cond - w v_uncond`; cùng thủ thuật, biến mới. |
+| Logit-normal t | "Lấy mẫu SD3" | Tập trung lấy mẫu $t$ về các giá trị giữa nơi gradient mạnh nhất. |
+| Consistency distillation (Chưng cất nhất quán) | "Bộ lấy mẫu 1 bước" | Huấn luyện một mô hình học trò ánh xạ bất kỳ $x_t$ nào trực tiếp đến $x_0$. |
+| CFG with velocity (CFG với vận tốc) | "v-CFG" | $v_{\text{cfg}} = (1+w) v_{\text{cond}} - w v_{\text{uncond}}$; cùng thủ thuật, biến mới. |
 
 ## Production note: Flux.1-schnell is flow matching at its fastest
 

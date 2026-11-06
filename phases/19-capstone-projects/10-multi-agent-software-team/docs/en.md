@@ -123,7 +123,7 @@ $ team run --issue https://github.com/acme/widget/issues/842
 
 1. Chèn một lỗi rõ ràng vào diff giữa lần chạy (thêm `return None` trước phần thân chính). Đo tỷ lệ chấp thuận sai của người rà soát. Điều chỉnh prompt của người rà soát cho đến khi mức chấp thuận sai dưới 5%.
 
-2. Giảm xuống hai lập trình viên (kiến trúc sư + lập trình viên + người rà soát + người kiểm thử, lập trình viên chạy hai nhiệm vụ con tuần tự). So sánh thời gian thực và tỷ lệ đạt.
+2. Giảm xuống hai coder (kiến trúc sư + hai coder + người xem xét + người kiểm tra, mỗi coder chạy hai tác vụ con tuần tự). So sánh thời gian thực và tỷ lệ qua.
 
 3. Thay bộ điều phối hợp nhất bằng một ràng buộc người ghi duy nhất (các nhiệm vụ con chạm đến các tập file rời nhau). Đo gánh nặng lập kế hoạch lên kiến trúc sư.
 

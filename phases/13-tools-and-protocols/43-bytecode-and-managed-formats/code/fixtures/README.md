@@ -1,17 +1,17 @@
 # Fixtures for lesson 43
 
-Every file here was written or built on this machine from the source beside it. `build_fixtures.sh` holds the exact commands and writes `versions.txt` and `sha256.txt`. Nothing is downloaded.
+Mọi tệp ở đây được viết hoặc dựng trên máy này từ mã nguồn ở cạnh nó. `build_fixtures.sh` giữ các lệnh chính xác và viết `versions.txt` cùng `sha256.txt`. Không có gì được tải xuống.
 
-| Folder | Source | Built outputs | Oracle text |
+| Thư mục | Mã nguồn | Các đầu ra được dựng | Văn bản oracle |
 |---|---|---|---|
-| `python/` | `ledger.py` (the same four functions as `ledger.c`, plus a `LABELS` tuple) | `ledger.cpython-31N.pyc` (checked-hash) and `ledger.cpython-31N.timestamp.pyc` for N in 1, 2, 3, 4, written by `compile_pyc.py` under each interpreter with `dfile="ledger.py"` | `ledger.cpython-31N.dis.txt` from `python3.1N -m dis ledger.py`, `ledger.cpython-314.dis-caches.txt` from `python3.14 -m dis -C -O ledger.py`, `ledger.cpython-314.adaptive.txt` from `dis.dis(..., adaptive=True)` after 200 calls |
-| `java/` | `Ledger.java` | `Ledger.class` (`javac`, JDK 21.0.12.1), `Ledger-g.class` (`javac -g`), `Ledger-gnone.class` (`javac -g:none`), `Ledger-jdk25.class` (`javac`, JDK 25.0.2) | `*.javap-c.txt` from `javap -c -p`, `*.javap-v.txt` from `javap -v -p`, both with JDK 21 |
-| `wasm/` | `ledger.wat` (copied from the manual fixtures) | `ledger.wasm` (copied, equal byte for byte to `wat2wasm ledger.wat`), `ledger-names.wasm` from `wat2wasm --debug-names` | `*.wasm2wat.txt` from `wasm2wat`, `*.objdump.txt` from `wasm-objdump -h -x -d`, both wabt 1.0.42 |
-| `dotnet/` | `Ledger.cs` and `LedgerNet.csproj` | `LedgerNet.dll` (`dotnet build -c Release`, SDK 8.0.205, net8.0, `DebugType` none) | `LedgerNet.metadump.txt` from `MetaDump/Program.cs`, a System.Reflection.Metadata reader that prints tables, methods, IL bytes, and the `System.Reflection.Emit.OpCodes` table |
-| `native/` | `ledger.c` | `ledger-x86_64-O0.o`, copied from lesson 33 (`clang -target x86_64-unknown-linux-gnu -O0 -fno-asynchronous-unwind-tables -c`) | `ledger-x86_64-O0.objdump.txt`, the lesson 33 `llvm-objdump -d` capture |
+| `python/` | `ledger.py` (cùng bốn hàm như `ledger.c`, cộng một tuple `LABELS`) | `ledger.cpython-31N.pyc` (checked-hash) và `ledger.cpython-31N.timestamp.pyc` với N là 1, 2, 3, 4, được `compile_pyc.py` viết dưới mỗi trình thông dịch với `dfile="ledger.py"` | `ledger.cpython-31N.dis.txt` từ `python3.1N -m dis ledger.py`, `ledger.cpython-314.dis-caches.txt` từ `python3.14 -m dis -C -O ledger.py`, `ledger.cpython-314.adaptive.txt` từ `dis.dis(..., adaptive=True)` sau 200 lời gọi |
+| `java/` | `Ledger.java` | `Ledger.class` (`javac`, JDK 21.0.12.1), `Ledger-g.class` (`javac -g`), `Ledger-gnone.class` (`javac -g:none`), `Ledger-jdk25.class` (`javac`, JDK 25.0.2) | `*.javap-c.txt` từ `javap -c -p`, `*.javap-v.txt` từ `javap -v -p`, cả hai với JDK 21 |
+| `wasm/` | `ledger.wat` (được sao chép từ các fixture thủ công) | `ledger.wasm` (được sao chép, bằng từng byte với `wat2wasm ledger.wat`), `ledger-names.wasm` từ `wat2wasm --debug-names` | `*.wasm2wat.txt` từ `wasm2wat`, `*.objdump.txt` từ `wasm-objdump -h -x -d`, cả hai wabt 1.0.42 |
+| `dotnet/` | `Ledger.cs` và `LedgerNet.csproj` | `LedgerNet.dll` (`dotnet build -c Release`, SDK 8.0.205, net8.0, `DebugType` none) | `LedgerNet.metadump.txt` từ `MetaDump/Program.cs`, một bộ đọc System.Reflection.Metadata in các bảng, phương thức, byte IL, và bảng `System.Reflection.Emit.OpCodes` |
+| `native/` | `ledger.c` | `ledger-x86_64-O0.o`, được sao chép từ bài 33 (`clang -target x86_64-unknown-linux-gnu -O0 -fno-asynchronous-unwind-tables -c`) | `ledger-x86_64-O0.objdump.txt`, bản thu `llvm-objdump -d` bài 33 |
 
-`java/Ledger-g.r2.txt`, `wasm/ledger.r2.txt`, and `dotnet/LedgerNet.r2.txt` hold `rabin2 -I` and `radare2 -qc` output from radare2 6.2.4, built from source. The build script writes them only when `rabin2` and `radare2` are on `PATH`.
+`java/Ledger-g.r2.txt`, `wasm/ledger.r2.txt`, và `dotnet/LedgerNet.r2.txt` giữ đầu ra `rabin2 -I` và `radare2 -qc` từ radare2 6.2.4, được dựng từ mã nguồn. Script dựng chỉ viết chúng khi `rabin2` và `radare2` nằm trên `PATH`.
 
-Interpreters and tools recorded in `versions.txt`: Python 3.11.14, 3.12.12, 3.13.12, 3.14.6; javac 21.0.12.1 and 25.0.2; wabt 1.0.42; .NET SDK 8.0.205. Python 3.15 was not installed when the fixtures were built, so the 3.15 magic number in `main.py` comes from the CPython source and not from a file here.
+Các trình thông dịch và công cụ được ghi trong `versions.txt`: Python 3.11.14, 3.12.12, 3.13.12, 3.14.6; javac 21.0.12.1 và 25.0.2; wabt 1.0.42; .NET SDK 8.0.205. Python 3.15 chưa được cài khi các fixture được dựng, nên số magic 3.15 trong `main.py` đến từ mã nguồn CPython chứ không phải từ một tệp ở đây.
 
-The timestamp pyc files store the mtime of `ledger.py` at build time, 1791975565, and its size, 497. A fresh checkout gives the source a new mtime, so an import would recompile. The checked-hash files do not depend on the mtime.
+Các tệp pyc timestamp lưu mtime của `ledger.py` tại thời điểm dựng, 1791975565, và kích thước của nó, 497. Một checkout mới cho mã nguồn một mtime mới, nên một lần import sẽ biên dịch lại. Các tệp checked-hash không phụ thuộc vào mtime.

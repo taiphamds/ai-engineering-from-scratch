@@ -9,7 +9,7 @@
 
 ## Learning Objectives
 
-- Suy ra đồng nhất lô hiệu dụng: `effective_batch = micro_batch * accum_steps`.
+- Suy ra đẳng thức batch hiệu dụng: `effective_batch = micro_batch * accum_steps * world_size`, tức là `micro_batch * accum_steps` trên thiết bị đơn mà bài học này sử dụng.
 - Triển khai chia tỷ lệ mất mát theo lô vi mô để gradient tích lũy khớp một lượt ngược lô đầy đủ duy nhất.
 - Bỏ qua đồng bộ bộ tối ưu cho đến lô vi mô cuối (đồng bộ ở bước cuối).
 - Đọc một đường cong thông lượng so với lô hiệu dụng và giải thích lợi ích giảm dần.

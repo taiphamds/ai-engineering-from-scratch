@@ -1,6 +1,6 @@
 # Automated Alignment Research (Anthropic AAR)
 
-> Anthropic chạy các nhóm song song gồm các Nhà nghiên cứu căn chỉnh tự chủ Claude Opus 4.6 trong các sandbox độc lập, phối hợp qua một diễn đàn dùng chung có các log nằm ngoài mọi sandbox (để các agent không thể xóa các bản ghi của chính chúng). Trên bài toán huấn luyện yếu đến mạnh, các AAR vượt các nhà nghiên cứu con người. Chính bản tóm tắt của Anthropic gắn cờ rằng các workflow được quy định thường hạn chế tính linh hoạt AAR và làm suy giảm hiệu năng. Tự động hóa nghiên cứu căn chỉnh là bước nén nén thời gian đến chính các rủi ro lệch căn chỉnh mà RSP nhằm phát hiện.
+> Anthropic vận hành các nhóm Autonomous Alignment Researchers Claude Opus 4.6 song song trong các sandbox độc lập, điều phối qua một diễn đàn chung có nhật ký nằm ngoài mọi sandbox (để các agent không thể xóa hồ sơ của chính mình). Với bài toán huấn luyện từ yếu đến mạnh, các AAR vượt trội hơn các nhà nghiên cứu con người. Bản tóm tắt của chính Anthropic lưu ý rằng các quy trình làm việc được quy định thường hạn chế tính linh hoạt của AAR và làm giảm hiệu năng. Tự động hóa nghiên cứu alignment rút ngắn tiến độ, và nó làm vậy trên chính các rủi ro misalignment mà RSP nhằm phát hiện.
 
 **Type:** Learn
 **Languages:** Python (stdlib, parallel-research-forum simulator)

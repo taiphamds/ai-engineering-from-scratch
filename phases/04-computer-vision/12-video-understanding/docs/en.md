@@ -67,7 +67,7 @@ Thủ thuật I3D: lấy một mô hình ImageNet 2D được tiền huấn luy�
 - Thổi phồng I3D cho học chuyển giao miễn phí.
 
 Nhược điểm:
-- Nhiều FLOP hơn đối ứng 2D T/8 lần (với kernel thời gian 3 xếp chồng 3 lần).
+- Khoảng 3 lần FLOP của mạng 2D chạy từng khung hình, vì mỗi kernel 3x3 trở thành 3x3x3.
 - Các kernel thời gian nhỏ; chuyển động xa cần cách tiếp cận tháp hoặc hai luồng.
 
 Khi sử dụng: nhận dạng hành động nơi chuyển động là tín hiệu (Something-Something V2, Kinetics có các lớp nặng chuyển động).

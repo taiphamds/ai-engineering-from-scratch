@@ -104,6 +104,8 @@ gpu-memory-breakdown
 
 `code/main.py` tính dung lượng bộ nhớ chiếm dụng (trọng số + KV + các kích hoạt) và thông lượng tương đối trên sáu định dạng cho một dải kích thước mô hình. Cho thấy nơi bộ nhớ đệm KV chi phối, nơi nén trọng số có lợi, và nơi FP8 là lựa chọn an toàn.
 
+Máy [Inside an LLM Serving GPU](https://aiengineeringfromscratch.com/inside-an-llm-serving-gpu?dtype=fp8&users=64) hiển thị FP8 trên một NVIDIA L4. Trọng số giảm từ 15.28 GB xuống 8.81 GB, KV pool tăng từ 24,094 lên 142,369 token và đầu ra đo được ở 64 người dùng đi từ 250.85 lên 735.91 token mỗi giây.
+
 ## Ship It
 
 Bài này tạo ra `outputs/skill-quantization-picker.md`. Với phần cứng, kích thước mô hình, loại khối lượng công việc, và dung sai chất lượng, chọn một định dạng và tạo một kế hoạch hiệu chuẩn/xác thực.

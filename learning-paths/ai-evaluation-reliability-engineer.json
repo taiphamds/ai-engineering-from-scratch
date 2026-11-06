@@ -38,6 +38,7 @@
       "Một kiểm thử chaos hoặc phân tích sự cố với các hành động khắc phục"
     ]
   },
+  "projects": ["prompt-regression-tester", "json-schema-output-guard", "retrieval-evaluation-lab", "local-model-eval-harness", "report-judge", "retry-storm-lab", "distributed-eval-farm"],
   "readinessCriteria": [
     "Có thể chọn các chỉ số phù hợp với hành vi và rủi ro lỗi đang được kiểm thử.",
     "Có thể xây dựng các kiểm tra hồi quy mô hình, LLM và agent có thể tái lập.",

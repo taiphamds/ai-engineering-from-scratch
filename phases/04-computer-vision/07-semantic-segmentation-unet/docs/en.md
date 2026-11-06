@@ -87,10 +87,10 @@ Cả hai xuất hiện trong thực tế. Với U-Net đầu tiên, song tuyến
 
 ### Cross-entropy on a pixel grid
 
-Với phân đoạn ngữ nghĩa có C lớp, đầu ra mô hình là `(N, C, H, W)`. Mục tiêu là `(N, H, W)` với các ID lớp nguyên. Cross-entropy giống hệt trường hợp phân loại, chỉ áp dụng tại mọi vị trí không gian:
+Với phân đoạn ngữ nghĩa có $C$ lớp, đầu ra mô hình là `(N, C, H, W)`. Mục tiêu là `(N, H, W)` với các ID lớp nguyên. Cross-entropy giống hệt trường hợp phân loại, chỉ áp dụng tại mọi vị trí không gian:
 
-```
-Loss = mean over (n, h, w) of -log( softmax(logits[n, :, h, w])[target[n, h, w]] )
+```math
+\text{Loss} = \mathop{\mathrm{mean}}\limits_{(n, h, w)} \left[ -\log\left( \mathop{\mathrm{softmax}}(\text{logits}[n, :, h, w])[\text{target}[n, h, w]] \right) \right]
 ```
 
 `F.cross_entropy` trong PyTorch xử lý hình dạng này trực tiếp. Không cần đổi hình dạng.
@@ -101,17 +101,19 @@ Cross-entropy coi mọi pixel như nhau. Điều đó sai khi một lớp chi ph
 
 Mất mát Dice giải quyết bằng cách trực tiếp tối ưu độ chồng lấn giữa mặt nạ dự đoán và thật:
 
-```
-Dice(p, y) = 2 * sum(p * y) / (sum(p) + sum(y) + epsilon)
-Dice_loss = 1 - Dice
+```math
+\begin{aligned}
+\mathop{\mathrm{Dice}}(p, y) &= \frac{2 \sum (p \cdot y)}{\sum p + \sum y + \epsilon} \\
+\text{Dice}_{\text{loss}} &= 1 - \text{Dice}
+\end{aligned}
 ```
 
 trong đó `p` là bản đồ xác suất sigmoid/softmax cho một lớp và `y` là mặt nạ sự thật nền nhị phân. Mất mát chỉ bằng không khi chồng lấn hoàn hảo. Vì dựa trên tỷ số, mất cân bằng lớp không liên quan.
 
 Trong thực tế, sử dụng **mất mát kết hợp**:
 
-```
-L = L_cross_entropy + lambda * L_dice       (lambda ~ 1)
+```math
+L = L_{\text{cross\_entropy}} + \lambda \cdot L_{\text{dice}} \qquad (\lambda \approx 1)
 ```
 
 Cross-entropy cho các gradient ổn định ở đầu huấn luyện; Dice tập trung phần cuối huấn luyện vào việc thực sự khớp hình dạng mặt nạ. Tổ hợp này là mặc định hình ảnh y tế và khó đánh bại trên bất kỳ tập dữ liệu mất cân bằng lớp nào.
@@ -120,14 +122,14 @@ Cross-entropy cho các gradient ổn định ở đầu huấn luyện; Dice t�
 
 - **Accuracy pixel** — phần trăm pixel được dự đoán đúng. Rẻ. Không hoạt động trên dữ liệu mất cân bằng vì cùng lý do như accuracy trong phân loại.
 - **IoU từng lớp** — giao trên hợp cho mặt nạ mỗi lớp; trung bình trên các lớp = mIoU.
-- **Dice (F1 trên pixel)** — tương tự IoU; `Dice = 2 * IoU / (1 + IoU)`. Hình ảnh y tế thích Dice, cộng đồng lái xe thích IoU; chúng có quan hệ đơn điệu.
+- **Dice (F1 trên pixel)** — tương tự IoU; $\text{Dice} = 2 \cdot \text{IoU} / (1 + \text{IoU})$. Hình ảnh y tế thích Dice, cộng đồng lái xe thích IoU; chúng có quan hệ đơn điệu.
 - **F1 biên** — đo các biên dự đoán gần các biên sự thật nền đến mức nào, phạt ngay cả các dịch chuyển nhỏ. Quan trọng với tác vụ độ chính xác cao như kiểm tra bán dẫn.
 
 Báo cáo IoU từng lớp, không chỉ mIoU. IoU trung bình che giấu một lớp ở 15% khi chín lớp khác ở 85%.
 
 ### Input resolution trade-off
 
-Encoder U-Net giảm một nửa độ phân giải bốn lần, nên đầu vào phải chia hết cho 16. Các hình ảnh y tế thường 512x512 hoặc 1024x1024. Các vùng cắt lái xe tự hành là 2048x1024. Chi phí bộ nhớ U-Net tăng theo `H * W * C_max`, và ở 1024x1024 với 1024 kênh bottleneck lượt truyền xuôi đã sử dụng hàng gigabyte VRAM.
+Encoder của U-Net giảm một nửa độ phân giải bốn lần, vì vậy các kết nối bỏ qua chỉ khớp chính xác khi đầu vào chia hết cho 16. Các kích thước khác cần padding hoặc thay đổi kích thước trong khối up (Bước 2). Hình ảnh y khoa thường là 512x512 hoặc 1024x1024. Các ảnh cắt lái xe tự chủ là 2048x1024. Chi phí bộ nhớ của U-Net tăng theo `H * W * C_max`, và ở 1024x1024 với 1024 kênh bottleneck, lượt truyền xuôi đã sử dụng nhiều gigabyte VRAM.
 
 Hai cách khắc phục tiêu chuẩn:
 1. Chia ô đầu vào — xử lý các ô 256x256 có chồng lấn rồi ghép.

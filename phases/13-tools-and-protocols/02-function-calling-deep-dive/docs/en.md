@@ -52,12 +52,12 @@ Mọi nhà cung cấp cần năm thứ:
 | Khối kết quả | vai trò `tool`, `tool_call_id` | `user` với `tool_result`, `tool_use_id` | `functionResponse` với `id` khớp |
 | Ép một công cụ | `tool_choice: {type: "function", function: {name}}` | `tool_choice: {type: "tool", name}` | `tool_config: {function_calling_config: {mode: "ANY"}}` |
 | Cấm công cụ | `tool_choice: "none"` | `tool_choice: {type: "none"}` | `mode: "NONE"` |
-| Lược đồ nghiêm ngặt | `strict: true` | lược đồ-là-lược-đồ (luôn bắt buộc) | `responseSchema` ở cấp yêu cầu |
+| Schema nghiêm ngặt | `strict: true` | `strict: true` cho mỗi công cụ (tùy chọn bật) | `responseSchema` ở cấp yêu cầu |
 
 ### Limits you will actually hit
 
 - **OpenAI.** 128 công cụ mỗi yêu cầu. Độ sâu lược đồ 5. Chuỗi đối số <= 8192 byte. Chế độ nghiêm ngặt yêu cầu không `$ref`, không `oneOf`/`anyOf`/`allOf` chồng lấn, mọi thuộc tính được liệt kê trong `required`.
-- **Anthropic.** 64 công cụ mỗi yêu cầu. Độ sâu lược đồ về thực chất không giới hạn nhưng giới hạn thực tế 10. Không cờ chế độ nghiêm ngặt; lược đồ là hợp đồng và mô hình có xu hướng tuân thủ.
+- **Anthropic.** 64 công cụ mỗi yêu cầu. Độ sâu schema về thực tế không bị giới hạn nhưng giới hạn thực hành là 10. Việc sử dụng công cụ nghiêm ngặt được bật theo lựa chọn với `strict: true` trên định nghĩa công cụ. Không có nó, schema là một hợp đồng mà mô hình có xu hướng tuân theo, không phải một bảo đảm.
 - **Gemini.** 64 hàm mỗi yêu cầu. Kiểu lược đồ là tập con OpenAPI 3.0 (hơi khác JSON Schema 2020-12). Lời gọi song song có id duy nhất từ Gemini 3.
 
 ### `tool_choice` behavior
@@ -94,7 +94,7 @@ Lỗi đối số không hợp lệ cũng trông khác nhau.
 
 - **OpenAI (không nghiêm ngặt).** Mô hình trả `arguments: "{bad json}"`, phân tích JSON của bạn thất bại, bạn chèn thông điệp lỗi và gọi lại.
 - **OpenAI (nghiêm ngặt).** Xác thực xảy ra lúc giải mã; JSON không hợp lệ là không thể nhưng `refusal` có thể xuất hiện.
-- **Anthropic.** `input` có thể chứa trường ngoài dự kiến; lược đồ mang tính hướng dẫn. Xác thực phía máy chủ.
+- **Anthropic (không nghiêm ngặt).** `input` có thể chứa các trường không mong đợi; schema mang tính hướng dẫn. Kiểm tra tính hợp lệ phía máy chủ. Với `strict: true`, việc lấy mẫu bị ràng buộc theo schema.
 - **Gemini.** Điểm đặc thù OpenAPI 3.0: `enum` trên trường đối tượng bị âm thầm bỏ qua; tự xác thực.
 
 ### The translator pattern

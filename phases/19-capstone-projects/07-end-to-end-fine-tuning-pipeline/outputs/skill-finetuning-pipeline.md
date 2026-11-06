@@ -7,7 +7,7 @@ lesson: 07
 tags: [capstone, fine-tuning, axolotl, trl, dpo, grpo, vllm, eagle-3, mof]
 ---
 
-Với mô hình nền (Llama 3.3 8B, Qwen3 14B hoặc Gemma 3 12B) và tập dữ liệu riêng tác vụ, xây pipeline một lệnh tạo endpoint phục vụ và thẻ mô hình tái lập được.
+Với một mô hình cơ sở (Llama 3.1 8B, Qwen3 14B hoặc Gemma 3 12B) và một bộ dữ liệu đặc thù tác vụ, xây dựng một pipeline một lệnh tạo ra một endpoint phục vụ và một model card có thể tái tạo.
 
 Kế hoạch xây dựng:
 
@@ -44,4 +44,4 @@ Quy tắc từ chối:
 - Từ chối tinh chỉnh trên dữ liệu có giấy phép cấm mô hình phái sinh. MOF chấm cấp phép dữ liệu.
 - Từ chối phát hành mô hình lượng tử hóa không đo mất chất lượng trên ma trận đánh giá.
 
-Đầu ra: repo chứa bộ điều phối pipeline, YAML cho Llama 3.3 8B + một nền thay thế, log lần chạy W&B SFT và DPO, tạo tác lượng tử hóa, endpoint phục vụ, ma trận đánh giá ba phép đo chuẩn, đánh giá an toàn, thẻ mô hình MOF 2026 và bài viết về ba vấn đề giữ gìn dữ liệu lớn nhất bạn bắt và sửa.
+Đầu ra: một kho mã chứa trình điều phối pipeline, các YAML cho Llama 3.1 8B + một mô hình cơ sở thay thế, nhật ký chạy W&B SFT và DPO, các sản phẩm lượng tử hóa, endpoint phục vụ, ma trận đánh giá ba benchmark, đánh giá an toàn, model card MOF 2026 và một bài viết về ba vấn đề vệ sinh dữ liệu lớn nhất bạn phát hiện và sửa.

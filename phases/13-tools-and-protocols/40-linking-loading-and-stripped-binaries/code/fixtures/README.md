@@ -1,30 +1,30 @@
 # Fixtures for lesson 40
 
-Every file here is a program you built. `ledger.c` is the shared fixture of the reverse engineering track (the same source as lesson 32). `main.c` calls its four functions, `puts`, and `printf`, and holds a string-pointer table (`names`) and a function-pointer table (`fns`), so the linked image needs both binds and rebases. The objects and images were built on macOS 26.2 with Apple clang 17.0.0 (clang-1700.6.3.2), `ld` from PROJECT:ld-1230.1, and SDK 26.2. `build_fixtures.sh` runs every command below. The committed bytes are the fixture, and the tests read them, so the build is not part of the test run.
+Mỗi tệp ở đây là một chương trình bạn đã dựng. `ledger.c` là fixture chung của nhánh reverse engineering (cùng nguồn với bài 32). `main.c` gọi bốn hàm của nó, `puts` và `printf`, và chứa một bảng con trỏ chuỗi (`names`) và một bảng con trỏ hàm (`fns`), nên image đã liên kết cần cả bind và rebase. Các object và image được dựng trên macOS 26.2 với Apple clang 17.0.0 (clang-1700.6.3.2), `ld` từ PROJECT:ld-1230.1 và SDK 26.2. `build_fixtures.sh` chạy mọi lệnh bên dưới. Các byte đã commit là fixture, và các bài kiểm tra đọc chúng, nên build không phải một phần của lần chạy kiểm tra.
 
-Only Mach-O links on this machine. The ELF and COFF objects compile here with `clang -target`, and no ELF or PE link editor is installed, so the two linked images in those formats were written byte by byte by the two Python scripts from the specifications. They were not run; `llvm-objdump` and the library probe read them.
+Chỉ Mach-O liên kết trên máy này. Các object ELF và COFF biên dịch ở đây bằng `clang -target`, và không link editor ELF hoặc PE nào được cài, nên hai image đã liên kết trong các định dạng đó được hai script Python viết từng byte từ các đặc tả. Chúng chưa được chạy; `llvm-objdump` và thăm dò thư viện đọc chúng.
 
-| File | Exact build command |
+| Tệp | Lệnh build chính xác |
 |---|---|
 | `libledger.dylib` | `clang -target arm64-apple-macos -O1 -fno-asynchronous-unwind-tables -dynamiclib -install_name @rpath/libledger.dylib ledger.c -o libledger.dylib` |
 | `ledger_main` | `clang -target arm64-apple-macos -O1 -fno-asynchronous-unwind-tables main.c -L. -lledger -Wl,-rpath,@executable_path -o ledger_main` |
-| `ledger_main_nochain` | the `ledger_main` command plus `-Wl,-no_fixup_chains` |
+| `ledger_main_nochain` | lệnh `ledger_main` cộng `-Wl,-no_fixup_chains` |
 | `ledger_main.stripped` | `cp ledger_main ledger_main.stripped && strip ledger_main.stripped` |
 | `libledger.stripped.dylib` | `cp libledger.dylib libledger.stripped.dylib && strip libledger.stripped.dylib` |
 | `ledger-arm64-O0.o`, `main-arm64-O0.o` | `clang -target arm64-apple-macos -O0 -fno-asynchronous-unwind-tables -c FILE.c` |
-| `ledger-arm64-O2.o`, `main-arm64-O2.o` | the same with `-O2` |
+| `ledger-arm64-O2.o`, `main-arm64-O2.o` | tương tự với `-O2` |
 | `static-arm64-O0`, `static-arm64-O2` | `clang -target arm64-apple-macos -OLEVEL -fno-asynchronous-unwind-tables main-arm64-OLEVEL.o ledger-arm64-OLEVEL.o -o static-arm64-OLEVEL` |
-| `static-arm64-O0.stripped`, `static-arm64-O2.stripped` | `cp` then `strip` |
+| `static-arm64-O0.stripped`, `static-arm64-O2.stripped` | `cp` rồi `strip` |
 | `ledger-x86_64-O1.o`, `main-x86_64-O1.o` | `clang -target x86_64-unknown-linux-gnu -O1 -fno-asynchronous-unwind-tables -c FILE.c` |
 | `tiny-dyn-x86_64` | `python3 build_tiny_dyn_elf.py` |
 | `ledger-x86_64.obj`, `main-x86_64.obj` | `clang -target x86_64-pc-windows-msvc -O1 -fno-asynchronous-unwind-tables -c FILE.c` |
 | `tiny-x86_64.exe` | `python3 build_tiny_pe.py` |
 
-`ledger-x86_64-O1.o` has the same SHA-256 as the lesson 32 fixture of the same name.
+`ledger-x86_64-O1.o` có cùng SHA-256 như fixture bài 32 cùng tên.
 
-Captured tool text, with the exact command. `llvm-objdump` is `/Library/Developer/CommandLineTools/usr/bin/llvm-objdump` (Apple LLVM version 17.0.0); `otool`, `nm`, `strip`, and `dyld_info` are the ones in `/usr/bin`.
+Văn bản công cụ đã thu, với lệnh chính xác. `llvm-objdump` là `/Library/Developer/CommandLineTools/usr/bin/llvm-objdump` (Apple LLVM phiên bản 17.0.0); `otool`, `nm`, `strip` và `dyld_info` là các công cụ trong `/usr/bin`.
 
-| File | Capture command |
+| Tệp | Lệnh thu |
 |---|---|
 | `ledger_main.otool-h.txt` | `otool -h ledger_main` |
 | `ledger_main.otool-l.txt`, `ledger_main_nochain.otool-l.txt`, `ledger_main.stripped.otool-l.txt` | `otool -l FILE` |
@@ -45,9 +45,9 @@ Captured tool text, with the exact command. `llvm-objdump` is `/Library/Develope
 | `ledger-x86_64.obj.objdump.txt`, `main-x86_64.obj.objdump.txt` | `llvm-objdump -h -t -r FILE.obj` |
 | `tiny-x86_64.exe.objdump.txt` | `llvm-objdump -h -p tiny-x86_64.exe` |
 | `ledger_main.run.txt`, `ledger_main.stripped.run.txt`, `static-arm64-O2.stripped.run.txt` | `./FILE; echo exit=$?` |
-| `probe-libs.txt` | `python3 -I probe_libs.py` with lief 1.0.0, pyelftools 0.33, pefile 2024.8.26 installed |
+| `probe-libs.txt` | `python3 -I probe_libs.py` với lief 1.0.0, pyelftools 0.33, pefile 2024.8.26 được cài |
 
-SHA-256 of the built files:
+SHA-256 của các tệp đã dựng:
 
 ```
 a6dd27ce057df5c4bdb815d2c0f63a9859200abbcc564d31ed39b77adcc1cca8  libledger.dylib

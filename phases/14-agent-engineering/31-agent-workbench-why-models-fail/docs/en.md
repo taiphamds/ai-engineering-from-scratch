@@ -124,7 +124,7 @@ Tuyên bố harness hơn mô hình hiện có các con số đằng sau nó. Đ�
 
 Đây là phần mà bạn không cần lịch sự.
 
-- *Anatomy of an Agent Harness* của LangChain liệt kê mười một thành phần — prompt, công cụ, hook, sandbox, điều phối, bộ nhớ, skill, agent phụ và một "vòng lặp ngu" runtime. Nó không nêu tên các hàng đợi, worker như một đơn vị triển khai, ngữ nghĩa kích hoạt, lưu giữ phiên như một mối quan tâm riêng hoặc chính sách cấp quyền. Nó coi harness như một đối tượng bạn cấu hình, không phải như một hệ thống bạn triển khai.
+- *Anatomy of an Agent Harness* của LangChain trình bày các thành phần harness cốt lõi: prompt, công cụ, hook, sandbox, điều phối, bộ nhớ, skill, subagent và một runtime "vòng lặp ngốc". Nó không nêu tên hàng đợi, worker như một đơn vị triển khai, ngữ nghĩa trigger, tính bền vững của phiên như một mối quan tâm riêng biệt, hay chính sách ủy quyền. Nó coi harness là một đối tượng bạn cấu hình, không phải một hệ thống bạn triển khai.
 - *Agent Harness Engineering* của Addy Osmani đưa ra cách định khung `Agent = Model + Harness` và mẫu bánh cóc, nhưng dừng trước khi nói một harness được xây từ gì. Nó đọc như một lập trường, không phải một đặc tả.
 - Anthropic và OpenAI đi sâu nhất vào các bề mặt nhưng vẫn ở trong các runtime riêng. Công bố "tách biệt harness-tính toán" trong Agents SDK tháng 4 năm 2026 là bài viết nhà cung cấp đầu tiên tán thành rõ ràng sự phân tách mặt phẳng điều khiển / mặt phẳng dữ liệu. Đó là một ý tưởng nguyên thủy, không phải một ý tưởng mới.
 - Sách agentic_harness coi harness như một đối tượng cấu hình (*Agentic Engineering* của Jaymin West, chương 6) và câu mạnh nhất trong đó là "harness là ranh giới bảo mật chính trong một hệ thống agentic." Đó chỉ là chính sách cấp quyền, được phát biểu lại.
@@ -193,7 +193,7 @@ Kỹ thuật workbench là lĩnh vực làm cho các bề mặt đó tường mi
 Các cách định khung nhà cung cấp:
 
 - [Addy Osmani, Agent Harness Engineering](https://addyosmani.com/blog/agent-harness-engineering/) — `Agent = Model + Harness` và mẫu bánh cóc; ít về hạ tầng
-- [LangChain, The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/) — mười một thành phần: prompt, công cụ, hook, điều phối, sandbox, bộ nhớ, skill, agent phụ, runtime; bỏ qua hàng đợi, triển khai, cấp quyền
+- [LangChain, The Anatomy of an Agent Harness](https://blog.langchain.com/the-anatomy-of-an-agent-harness/) — các thành phần harness cốt lõi: prompt, công cụ, hook, điều phối, sandbox, bộ nhớ, skill, subagent, runtime; bỏ qua hàng đợi, triển khai, authz
 - [OpenAI, Harness engineering: leveraging Codex in an agent-first world](https://openai.com/index/harness-engineering/) — góc nhìn của nhóm Codex về các bề mặt quanh runtime của họ
 - [OpenAI, Unrolling the Codex agent loop](https://openai.com/index/unrolling-the-codex-agent-loop/) — vòng lặp agent được rút về một `while` trên các lời gọi hàm
 - [Anthropic, Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) — các bề mặt tầm dài bên trong một runtime cụ thể

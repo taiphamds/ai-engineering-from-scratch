@@ -225,8 +225,8 @@ Trước phát hành, ước lượng chi phí tháng. Bảng tính này quyết
 | Truy vấn mỗi người dùng mỗi ngày | 5 | Phân tích sản phẩm |
 | Token đầu vào trung bình mỗi truy vấn | 1,500 | Đo được (hệ thống + ngữ cảnh + người dùng) |
 | Token đầu ra trung bình mỗi truy vấn | 400 | Đo được |
-| Giá đầu vào mỗi 1M token | $5.00 | Giá OpenAI GPT-5 |
-| Giá đầu ra mỗi 1M token | $15.00 | Giá OpenAI GPT-5 |
+| Giá đầu vào cho mỗi 1M token | $2.50 | Giá OpenAI GPT-4o |
+| Giá đầu ra cho mỗi 1M token | $10.00 | Giá OpenAI GPT-4o |
 | Tỷ lệ cache hit | 35% | Đo từ thước đo cache |
 | Truy vấn hằng ngày hiệu dụng | 32,500 | 50,000 * (1 - 0.35) |
 

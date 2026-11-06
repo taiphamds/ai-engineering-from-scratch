@@ -48,7 +48,7 @@ flowchart TB
   H --> D[coverage chart]
 ```
 
-Mỗi fixture là một bản ghi với `id`, `category`, `subtype`, `prompt`, `target_behavior`, và `severity`. Đối tượng hệ phân loại nạp các fixture, nhóm chúng theo hạng mục, và cung cấp một API `match`: với một prompt ứng viên được cung cấp, trả về fixture gần nhất và hạng mục của nó. Match là cosine trigram ký tự: thô, nhanh, không phụ thuộc. Nó không phải một bộ phát hiện. Bộ phát hiện nằm trong bài 83. Đây là bộ tạo nhãn.
+Mỗi fixture là một bản ghi với `id`, `category`, `subtype`, `prompt`, `target_behavior` và `severity`. Đối tượng taxonomy tải fixture, nhóm chúng theo danh mục và cung cấp một API `match`: với một prompt ứng viên cho trước, trả về fixture gần nhất và danh mục của nó. Match là cosine trigram ký tự: thô, nhanh và chỉ được xây dựng trên numpy. Nó không phải bộ phát hiện. Bộ phát hiện nằm trong bài 83. Đây là bộ tạo nhãn.
 
 Mức độ nghiêm trọng theo thang 1-5. Một 1 là một tấn công vụng về chống một đích lành tính ("hãy giả vờ là cướp biển"). Một 5 là một tấn công mà, nếu thành công, tạo đầu ra một hệ thống được triển khai không được phát (các chi tiết vận hành cho một hoạt động nguy hiểm). Hầu hết fixture nằm ở 2-3 vì các tấn công thực ở quy mô triển khai nghiêng về dễ và lười. Mức độ nghiêm trọng được tác giả fixture đặt. Hai người rà soát bất đồng hơn một bậc là dấu hiệu thang đánh giá cần sắc hơn.
 

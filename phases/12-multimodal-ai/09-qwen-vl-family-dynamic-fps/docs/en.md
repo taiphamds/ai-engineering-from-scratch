@@ -53,7 +53,7 @@ Kết quả: Qwen2-VL-7B ngang GPT-4o trên vài benchmark đa phương thức v
 
 Chuyển dịch lớn Qwen2.5-VL là video. FPS động không chỉ "lấy thêm khung khi cần." Bài báo hình thức hóa:
 
-- Token thời gian tuyệt đối. Thay chỉ số vị trí (khung 0, 1, 2...), dùng dấu thời gian thực. "Ở 0:04, mèo nhảy." Mô hình thấy token `<time>0.04</time>` xen token khung.
+- Thời gian tuyệt đối trong các ID vị trí. Thay vì các chỉ số khung hình (khung hình 0, 1, 2...), trục thời gian của M-RoPE theo các timestamp thực tế, vì vậy khoảng cách giữa ID của hai khung hình theo số giây giữa chúng. "Tại 0:04, con mèo nhảy." Không có token văn bản bổ sung mang thời gian, vì vậy mã hóa không thêm độ dài chuỗi.
 - FPS động. Lấy mẫu 1 FPS cho cảnh chậm, 4+ FPS cho hành động. Người dùng hoặc trainer chọn; M-RoPE thích ứng.
 - Window attention trong ViT. Attention không gian chia cửa sổ (cục bộ trong khối) cho thông lượng; attention toàn cục mỗi vài lớp.
 - Định dạng đầu ra JSON rõ ràng. Huấn luyện trên dữ liệu gọi công cụ: "{\"tool\": \"click\", \"coords\": [380, 220]}". Sẵn làm tác tử ngay.
@@ -71,10 +71,12 @@ Bài học từ dòng phát triển: đến năm 2025 kiến trúc Qwen-VL ổn 
 
 RoPE cổ điển quay query `q` chiều `d` theo vị trí `m` bằng tọa độ ghép cặp:
 
-```
-q_rot[2i]   = q[2i]   * cos(m * theta_i) - q[2i+1] * sin(m * theta_i)
-q_rot[2i+1] = q[2i]   * sin(m * theta_i) + q[2i+1] * cos(m * theta_i)
-theta_i     = 10000^(-2i/d)
+```math
+\begin{aligned}
+q_{\text{rot}}[2i] &= q[2i] \cos(m \theta_i) - q[2i+1] \sin(m \theta_i) \\
+q_{\text{rot}}[2i+1] &= q[2i] \sin(m \theta_i) + q[2i+1] \cos(m \theta_i) \\
+\theta_i &= 10000^{-2i/d}
+\end{aligned}
 ```
 
 M-RoPE chia chiều ẩn thành ba dải. Chẳng hạn `d = 96`. Gán 32 chiều cho thời gian, 32 chiều chiều cao, 32 chiều chiều rộng. Mỗi dải quay theo vị trí trục riêng. Patch ở (t=5, h=10, w=20) nhận phép quay `R_t(5)`, `R_h(10)`, `R_w(20)` áp dụng cho ba dải.
@@ -90,7 +92,7 @@ Với video dài `T` giây và ngân sách token đích `B`:
 1. Tính FPS tối đa đủ chi phí: `fps_max = B / (T * tokens_per_frame)`.
 2. Chọn FPS đích từ `{1, 2, 4, 8}` thỏa `fps <= fps_max`.
 3. Nếu chuyển động cao (heuristic optical-flow hoặc yêu cầu rõ của người dùng), chọn FPS cao hơn. Nếu chuyển động thấp, chọn thấp hơn.
-4. Lấy mẫu đều ở FPS chọn; chèn token `<time>t</time>` giữa khung.
+4. Lấy mẫu đều ở FPS đã chọn; đặt ID thời gian M-RoPE của mỗi khung hình từ timestamp tính bằng giây của nó.
 
 Qwen2.5-VL huấn luyện logic này ngầm; khi suy luận người dùng kiểm soát qua tham số `fps`. Chuỗi hành động 60 giây ở 4 FPS với 81 token mỗi khung = 19440 token, quản lý được trong ngữ cảnh 32k.
 
@@ -145,7 +147,7 @@ Bài học này tạo `outputs/skill-qwen-vl-pipeline-designer.md`. Với tác v
 |------|-----------------|------------------------|
 | M-RoPE | "RoPE đa phương thức" | Embedding vị trí quay 3D với dải thời gian, chiều cao và chiều rộng trong chiều ẩn |
 | Dynamic FPS (FPS động) | "Lấy mẫu thông minh" | Tốc độ lấy mẫu khung chọn mỗi video theo chuyển động, thời lượng và ngân sách token |
-| Absolute time token (Token thời gian tuyệt đối) | "Token dấu thời gian" | `<time>t</time>` xen trong chuỗi để mô hình thấy giây thực không chỉ số khung |
+| Absolute time encoding (Mã hóa thời gian tuyệt đối) | "M-RoPE căn chỉnh theo thời gian" | Các ID vị trí thời gian được đặt từ timestamp của mỗi khung hình, để mô hình nhìn thấy số giây thực tế, không phải chỉ số khung hình, mà không có token bổ sung |
 | Window attention (Attention cửa sổ) | "Attention cục bộ" | Self-attention không gian giới hạn trong cửa sổ nhỏ cho tốc độ; attention toàn cục thêm định kỳ |
 | Structured agent output (Đầu ra tác tử có cấu trúc) | "Chế độ JSON" | Giám sát dữ liệu huấn luyện dạy VLM phát JSON phân tích được với tọa độ và tên công cụ |
 | min_pixels / max_pixels | "Cận độ phân giải" | Điều khiển mỗi yêu cầu Qwen2.5-VL giới hạn tổng pixel và do đó số token |

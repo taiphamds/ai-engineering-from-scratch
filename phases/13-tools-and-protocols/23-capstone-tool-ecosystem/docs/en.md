@@ -205,7 +205,7 @@ cd phases/13-tools-and-protocols/23-capstone-tool-ecosystem
 python3 code/main.py
 ```
 
-Kiểm tra năm thứ:
+Kiểm tra sáu điều:
 
 1. `server/discover` công bố bản sửa đổi `2026-07-28` và phần mở rộng Tasks.
 2. Alice đọc và tạo báo cáo được, trong khi lời gọi phạm vi ghi của Bob bị từ chối.

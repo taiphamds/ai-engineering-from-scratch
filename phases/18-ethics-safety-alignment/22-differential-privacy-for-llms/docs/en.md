@@ -22,8 +22,11 @@ LLM ghi nhớ. Carlini và cộng sự 2021 cho thấy mô hình ngôn ngữ s�
 
 ### (ε, δ)-differential privacy
 
-Thuật toán ngẫu nhiên M là (ε, δ)-DP nếu với bất kỳ hai tập dữ liệu khác một ví dụ và bất kỳ biến cố S:
-P(M(D) in S) <= e^ε * P(M(D') in S) + δ.
+Thuật toán ngẫu nhiên $M$ là $(\varepsilon, \delta)$-DP nếu với bất kỳ hai tập dữ liệu khác một ví dụ và bất kỳ biến cố $S$:
+
+```math
+P(M(D) \in S) \le e^{\varepsilon} \cdot P(M(D') \in S) + \delta.
+```
 
 Diễn giải: phân phối đầu ra đủ gần (tham số hóa bằng ε) để đóng góp của cá nhân đơn lẻ không thể suy ra đáng tin cậy, ngoại trừ với xác suất δ.
 
@@ -33,7 +36,7 @@ Abadi và cộng sự 2016. Công thức tiêu chuẩn:
 1. Lấy mẫu mini-batch.
 2. Tính gradient theo ví dụ.
 3. Cắt mỗi gradient theo ví dụ đến ngưỡng C.
-4. Cộng gradient đã cắt và thêm nhiễu Gaussian với độ lệch chuẩn σ * C.
+4. Cộng gradient đã cắt và thêm nhiễu Gaussian với độ lệch chuẩn $\sigma \cdot C$.
 5. Dùng tổng có nhiễu cập nhật tham số.
 
 Chi phí riêng tư được theo dõi bằng bộ tính (Moments Accountant, bộ tính Rényi DP). Giá trị ε báo cáo trong tài liệu LLM thay đổi rộng theo mô hình đe dọa, độ nhạy dữ liệu và mục tiêu mức thỏa dụng; không có ε mặc định "an toàn" phổ quát. Ví dụ công bố trải khoảng ε ≈ 1–10 trong một số thiết lập huấn luyện LLM, nhưng chỉ minh họa — không là mặc định khuyến nghị. ε thấp hơn thường cần nhiều nhiễu hơn và có thể tăng mất mức thỏa dụng.
@@ -84,9 +87,9 @@ Bài học này tạo ra `outputs/skill-dp-audit.md`. Với khẳng định DP t
 
 ## Exercises
 
-1. Chạy `code/main.py`. Quét σ trong {0.5, 1.0, 2.0} và báo cáo đánh đổi (ε, δ)-độ chính xác. Xác định điểm mức thỏa dụng sụp đổ.
+1. Chạy `code/main.py`. Quét $\sigma \in \lbrace 0.5, 1.0, 2.0 \rbrace$ và báo cáo đánh đổi (ε, δ)-độ chính xác. Xác định điểm mà tính hữu dụng sụp đổ.
 
-2. Triển khai chèn canary và kiểm thử log-loss. Đo tỷ lệ phát hiện trước và sau DP-SGD ở σ = 1.0.
+2. Triển khai chèn canary và kiểm thử log-loss. Đo tỷ lệ phát hiện trước và sau DP-SGD ở $\sigma = 1.0$.
 
 3. Đọc Nasr và cộng sự 2025 về trích xuất dữ liệu huấn luyện. Tại sao thành công trích xuất không sụp đổ dưới ε vừa phải? Hàm ý gì cho MIA-là-đánh-giá?
 

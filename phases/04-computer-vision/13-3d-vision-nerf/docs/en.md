@@ -26,7 +26,7 @@ Hai biểu diễn chiếm ưu thế vì các lý do khác nhau. Đám mây đi�
 
 ### Point clouds
 
-Một đám mây điểm là một tập không thứ tự gồm N điểm trong R^3, tùy chọn mỗi điểm có các đặc trưng (màu, cường độ, pháp tuyến).
+Một đám mây điểm là một tập không thứ tự gồm $N$ điểm trong $\mathbb{R}^3$, tùy chọn mỗi điểm có các đặc trưng (màu, cường độ, pháp tuyến).
 
 ```
 cloud = [
@@ -44,8 +44,8 @@ Không lưới, không kết nối. Hai thuộc tính khiến điều này khó 
 
 PointNet (Qi et al., 2017) giải cả hai bằng một ý tưởng: áp dụng một MLP dùng chung cho mọi điểm, rồi tổng hợp bằng một hàm đối xứng (max pool). Kết quả là một vector kích thước cố định không phụ thuộc thứ tự.
 
-```
-f(P) = max_{p in P} MLP(p)
+```math
+f(P) = \max_{p \in P} \mathop{\mathrm{MLP}}(p)
 ```
 
 Đây là toàn bộ cốt lõi PointNet. Các biến thể sâu hơn (PointNet++, Point Transformer) thêm lấy mẫu phân cấp và tổng hợp cục bộ nhưng thủ thuật hàm đối xứng không đổi.
@@ -89,22 +89,23 @@ Một mất mát so sánh pixel được kết xuất với pixel sự thật n�
 
 Một MLP nguyên bản trên `(x, y, z)` không thể biểu diễn các chi tiết tần số cao vì MLP có thiên kiến phổ về các tần số thấp. NeRF khắc phục bằng cách mã hóa mỗi tọa độ thành một vector đặc trưng Fourier trước MLP:
 
-```
-gamma(p) = (sin(2^0 pi p), cos(2^0 pi p), sin(2^1 pi p), cos(2^1 pi p), ...)
+```math
+\gamma(p) = \left(\sin(2^0 \pi p), \cos(2^0 \pi p), \sin(2^1 \pi p), \cos(2^1 \pi p), \ldots\right)
 ```
 
-Tới L=10 mức tần số. Đây là cùng thủ thuật transformer sử dụng cho vị trí, và nó lại xuất hiện trong điều kiện hóa thời gian khuếch tán (Bài 10). Không có nó, NeRF trông mờ.
+Tới $L=10$ mức tần số. Đây là cùng thủ thuật transformer sử dụng cho vị trí, và nó lại xuất hiện trong điều kiện hóa thời gian khuếch tán (Bài 10). Không có nó, NeRF trông mờ.
 
 ### Volumetric rendering
 
+```math
+\begin{aligned}
+C(r) &= \sum_i T_i \left(1 - \exp(-\sigma_i \delta_i)\right) c_i \\[4pt]
+T_i &= \exp\left(-\sum_{j<i} \sigma_j \delta_j\right) \\
+\delta_i &= t_{i+1} - t_i
+\end{aligned}
 ```
-C(r) = sum_i T_i * (1 - exp(-sigma_i * delta_i)) * c_i
 
-T_i  = exp(- sum_{j<i} sigma_j * delta_j)
-delta_i = t_{i+1} - t_i
-```
-
-`T_i` là độ truyền qua — lượng ánh sáng sống sót tới điểm i. `(1 - exp(-sigma_i * delta_i))` là độ đục tại điểm i. `c_i` là màu. Pixel cuối là một tổng có trọng số dọc tia.
+`T_i` là độ truyền qua — lượng ánh sáng sống sót tới điểm $i$. `(1 - exp(-sigma_i * delta_i))` là độ đục tại điểm $i$. `c_i` là màu. Pixel cuối là một tổng có trọng số dọc tia.
 
 ### What replaced NeRFs
 

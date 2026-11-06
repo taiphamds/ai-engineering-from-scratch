@@ -10,7 +10,7 @@
 ## Learning Objectives
 
 - Tính tổng số token thị giác cho video dài ở các mức FPS và pool khác nhau.
-- Giải thích ba con đường mở rộng: ngữ cảnh trực tiếp (Gemini 1.5), ring attention (LWM), nén token (LongVILA / Video-XL).
+- Giải thích bốn hướng mở rộng quy mô: ngữ cảnh thô (Gemini 1.5), ring attention (LWM), nén token (LongVILA / Video-XL), truy xuất bằng agent (VideoAgent).
 - So sánh VLM video ngữ cảnh thô với VLM video truy xuất bằng agent (VideoAgent) về độ chính xác và độ trễ.
 - Thiết kế phép kiểm tra kim trong đống cỏ khô cho video 30 phút và đo độ thu hồi tại một phút cụ thể.
 
@@ -20,7 +20,7 @@ Một khung hình với patch cỡ Qwen2.5-VL ở độ phân giải gốc 384 l
 
 Một phim 2 giờ ở 1 FPS là 583k token. Vượt phần lớn mô hình mở năm 2026; đòi hỏi Gemini 2.5 Pro hoặc pool mạnh hơn.
 
-Ba con đường mở rộng xuất hiện.
+Bốn hướng mở rộng quy mô đã xuất hiện.
 
 ## The Concept
 
@@ -36,7 +36,7 @@ Kỹ thuật: triển khai attention tùy chỉnh với phân cấp bộ nhớ (
 
 Ring attention phân phối chuỗi dài trên các thiết bị trong một "vòng", nơi mỗi thiết bị giữ một phần. Attention trên toàn chuỗi diễn ra bằng cách mỗi thiết bị gửi phần của mình sang thiết bị tiếp theo theo mẫu vòng, tính attention từng phần và tổng hợp.
 
-LWM (Liu và cộng sự, 2024) huấn luyện mô hình ngữ cảnh 1M token theo cách này. Lượng tính toán huấn luyện tăng tuyến tính theo ngữ cảnh, không phải bậc hai — tác động bậc hai của attention được phân bổ trên các thiết bị của vòng.
+LWM (Liu và cộng sự, 2024) huấn luyện một mô hình ngữ cảnh 1M token theo cách này. Bộ nhớ cho mỗi thiết bị tăng theo phần mà mỗi thiết bị giữ, vì vậy thêm thiết bị mở rộng ngữ cảnh gần tuyến tính. Tổng tính toán attention vẫn là bậc hai theo ngữ cảnh; vòng chia công việc đó giữa các thiết bị và chồng lấn việc truyền key/value với tính toán.
 
 LongVILA (arXiv:2408.10188) điều chỉnh mẫu này cho VLM. Video 1400 khung hình ở 192 token mỗi khung hình = ngữ cảnh 268k, được huấn luyện với ring attention trên song song 8 chiều.
 
@@ -118,7 +118,7 @@ Bài học này tạo ra `outputs/skill-long-video-strategy-planner.md`. Với t
 
 3. So sánh Qwen2.5-VL-72B ngữ cảnh trực tiếp (ngữ cảnh 80k) với VideoAgent (Claude 3.5 + truy xuất) trên video 1 giờ. Cách nào thắng về độ thu hồi? Cách nào thắng về độ trễ?
 
-4. Chi phí bộ nhớ của ring attention tăng tuyến tính theo độ dài chuỗi và tuyến tính theo số thiết bị. Giải thích tại sao và điều gì hỏng nếu bỏ giai đoạn xoay vòng.
+4. Bộ nhớ cho mỗi thiết bị của ring attention tăng theo độ dài chuỗi chia cho số thiết bị, trong khi tổng tính toán attention vẫn là bậc hai. Giải thích vì sao và điều gì thất bại nếu bạn bỏ giai đoạn quay vòng.
 
 5. Đọc Mục 5 của Gemini 1.5 về kim trong đống cỏ khô. Bài báo phát hiện điều gì về độ thu hồi tại ranh giới token 1M so với 10M?
 

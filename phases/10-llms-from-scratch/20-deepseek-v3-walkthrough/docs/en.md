@@ -106,18 +106,18 @@ Phân tích nó:
 Phép tính đầy đủ nằm trong `code/main.py`. Các con số chính:
 
 - Embedding: `vocab * hidden = 129280 * 7168 = ~0.93B`.
-- 3 khối dense đầu: attention với MLA (~144M mỗi khối) + MLP dense (~260M mỗi khối) + các norm. Tổng cộng khoảng 1.2B.
-- 58 khối MoE: attention với MLA (~144M) + 256 expert mỗi khối (30M mỗi expert) + 1 expert dùng chung (30M) + norm. Tổng ~7.95B mỗi khối, gồm tất cả expert. Tổng 461B cho 58 khối MoE.
-- Mô-đun MTP: 14B.
+- 3 khối dense đầu tiên: attention với MLA (~84M mỗi khối trong cách đếm đơn giản hóa của bộ tính) + MLP SwiGLU dense (`3 * 7168 * 18432 = ~396M` mỗi khối) + các norm. Tổng khoảng 1.4B.
+- 58 khối MoE: attention với MLA (~84M) + 256 chuyên gia được định tuyến (`3 * 7168 * 2048 = ~44M` mỗi chuyên gia) + 1 chuyên gia dùng chung (~44M) + router + các norm. Khoảng 11.4B mỗi khối, bao gồm mọi chuyên gia. Khoảng 661B cho 58 khối MoE.
+- Module MTP: module đã công bố là 14B. Bộ tính sử dụng một phần thay thế dense ~0.8B.
 
-Tổng cộng: ~476B cho kiến trúc cốt lõi + 14B MTP + riêng con số 671B đã công bố tính đến các tham số cấu trúc bổ sung (tensor bias, thành phần riêng của expert, hệ số tỷ lệ expert dùng chung, v.v.). Con số chúng ta tái hiện trong bộ tính nằm trong khoảng 3-5% so với số công bố — chênh lệch đến từ việc tính chi tiết mà báo cáo DeepSeek ghi lại trong phần phụ lục Mục 2.
+Tổng cộng: bộ tính ra ~664B so với 671B đã công bố cho mô hình chính. Checkpoint Hugging Face là 685B vì nó thêm module MTP 14B lên trên 671B. Khoảng cách ~1% còn lại đến từ các đơn giản hóa: bộ tính bỏ qua các chiều RoPE tách rời trong MLA, head đầu ra không chia sẻ và một vài tensor nhỏ.
 
 Tham số hoạt động mỗi forward:
 
-- Attention: 144M mỗi lớp * 61 = 8.8B (tất cả lớp hoạt động).
-- MLP hoạt động: 3 lớp đầu dense (3 * 260M = 780M), 58 lớp MoE mỗi lớp hoạt động với 8 expert được định tuyến + 1 expert dùng chung + chi phí định tuyến. MLP hoạt động mỗi lớp: ~260M. Tổng: 3 * 260M + 58 * 260M = ~15.9B.
-- Embedding + các norm: 1.2B.
-- Tổng hoạt động: khoảng 26B cốt lõi + 14B MTP (được huấn luyện nhưng không phải lúc nào cũng chạy khi suy luận) ≈ 37B.
+- Attention: 84M mỗi lớp * 61 = ~5.1B (mọi lớp đều hoạt động).
+- MLP hoạt động: 3 lớp đầu dense (`3 * 396M = ~1.2B`), 58 lớp MoE, mỗi lớp hoạt động với 8 chuyên gia được định tuyến + 1 chuyên gia dùng chung (`9 * 44M = ~396M` mỗi lớp, tổng ~23B). Tổng cộng khoảng 24B.
+- Embedding + các norm: ~0.9B.
+- Tổng hoạt động: ~30B từ bộ tính so với 37B đã công bố. Phần lớn khoảng cách là attention: MLA đầy đủ, với các chiều RoPE cùng các head query và key rộng hơn, lớn hơn cách đếm đơn giản hóa. Module MTP không được tính vào 37B.
 
 ### The 671B / 37B ratio
 
@@ -180,7 +180,7 @@ Bài học này tạo ra `outputs/skill-deepseek-v3-reader.md`. Với một mô 
 | num_experts_per_tok | "Định tuyến top-k" | Có bao nhiêu expert được định tuyến hoạt động trên mỗi token; DeepSeek-V3 dùng 8 |
 | Shared experts (Expert dùng chung) | "Expert luôn hoạt động" | Các expert xử lý mọi token bất kể định tuyến; DeepSeek-V3 dùng 1 |
 | Auxiliary-loss-free routing (Định tuyến không có auxiliary loss) | "Cân bằng tải điều chỉnh bằng bias" | Các số hạng bias cho từng expert được điều chỉnh khi huấn luyện để giữ tải expert cân bằng mà không thêm số hạng loss |
-| MTP module (Mô-đun MTP) | "Head dự đoán bổ sung" | Khối transformer dự đoán t+2 từ h^(1) và E(t+1); huấn luyện dày đặc hơn, bản dự thảo speculative decoding miễn phí |
+| MTP module (Mô-đun MTP) | "Head dự đoán bổ sung" | Khối transformer dự đoán $t+2$ từ $h^{(1)}$ và $E(t+1)$; huấn luyện dày đặc hơn, bản dự thảo speculative decoding miễn phí |
 | DualPipe | "Pipeline hai chiều" | Lịch huấn luyện chồng lấp tính toán forward/backward với all-to-all giữa các node |
 | Active parameter ratio (Tỷ lệ tham số hoạt động) | "Độ thưa" | active_params / total_params; DeepSeek-V3 đạt 5.5% |
 | FP8 training (Huấn luyện FP8) | "Huấn luyện 8 bit" | Lưu trữ khi huấn luyện và nhiều phép tính dùng FP8; giảm khoảng một nửa bộ nhớ so với BF16 với chi phí chất lượng nhỏ |

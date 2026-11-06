@@ -1,6 +1,6 @@
 # Feature Stores and Training-Serving Skew
 
-> A feature has one definition and two readers. Training reads its history as of each label time, and serving reads its latest value. When the two readers disagree, the model sees inputs that it never trained on.
+> Một đặc trưng có một định nghĩa và hai bên đọc. Huấn luyện đọc lịch sử của nó tại mỗi thời điểm nhãn, và phục vụ đọc giá trị mới nhất của nó. Khi hai bên đọc bất đồng, mô hình thấy các đầu vào mà nó chưa từng huấn luyện trên đó.
 
 **Type:** Build
 **Languages:** Python
@@ -9,36 +9,36 @@
 
 ## Learning Objectives
 
-- Describe the offline store, the online store, entities, event timestamps, and TTLs, and the job of each one
-- Implement a point-in-time correct join and show how a naive join copies future values into training data
-- Name four causes of training-serving skew: two code paths, stale features, different defaults, and time travel
-- Build a feature registry in which one definition feeds both the training path and the serving path
-- Backfill a new feature over past dates without reading data from after each date
-- Detect skew by comparing logged serving features with the training path for the same entity and time
+- Mô tả offline store, online store, thực thể, dấu thời gian sự kiện và TTL, cùng công việc của mỗi thứ
+- Triển khai một phép join đúng theo thời điểm và cho thấy cách một phép join ngây thơ sao chép các giá trị tương lai vào dữ liệu huấn luyện
+- Nêu tên bốn nguyên nhân training-serving skew: hai đường mã, đặc trưng cũ, các mặc định khác nhau và du hành thời gian
+- Xây dựng một feature registry trong đó một định nghĩa cung cấp cho cả đường huấn luyện và đường phục vụ
+- Backfill một đặc trưng mới trên các ngày quá khứ mà không đọc dữ liệu từ sau mỗi ngày
+- Phát hiện skew bằng cách so sánh các đặc trưng phục vụ được ghi nhật ký với đường huấn luyện cho cùng thực thể và thời điểm
 
 ## The Problem
 
-A team builds a churn model. Each label says whether a user made no purchase in the 30 days after a label day. The team joins the labels to the user feature table on `user_id` and trains a rule on `days_since_last_purchase`. Offline accuracy is 0.948.
+Một nhóm xây dựng một mô hình churn. Mỗi nhãn cho biết liệu một người dùng có không mua hàng trong 30 ngày sau một ngày nhãn hay không. Nhóm join các nhãn với bảng đặc trưng người dùng theo `user_id` và huấn luyện một quy tắc trên `days_since_last_purchase`. Độ chính xác ngoại tuyến là 0.948.
 
-On live traffic, the model does worse than an older and simpler version. The feature table held the newest value for each user, from weeks after the label days. A user whose last purchase was on day 115 showed 60 idle days in the day 175 snapshot, so the feature contained the answer. Meanwhile, another team wrote the serving features again in a different service. Their 30-day window included one extra day, and their default for a new user was -1 instead of 365.
+Trên lưu lượng thực, mô hình hoạt động kém hơn một phiên bản cũ hơn và đơn giản hơn. Bảng đặc trưng chứa giá trị mới nhất cho mỗi người dùng, từ nhiều tuần sau các ngày nhãn. Một người dùng có lần mua cuối vào ngày 115 hiển thị 60 ngày không hoạt động trong snapshot ngày 175, nên đặc trưng chứa câu trả lời. Trong khi đó, một nhóm khác viết lại các đặc trưng phục vụ trong một dịch vụ khác. Cửa sổ 30 ngày của họ bao gồm thêm một ngày, và mặc định của họ cho một người dùng mới là -1 thay vì 365.
 
-Both defects have the same cause. Training and serving computed "the same feature" in two different ways. This lesson builds the pieces of a feature store from scratch. You write a registry, a backfill, a point-in-time join, an online store with a TTL, and a skew check. The demo reproduces both defects with numbers.
+Cả hai khuyết tật có cùng nguyên nhân. Huấn luyện và phục vụ tính "cùng một đặc trưng" theo hai cách khác nhau. Bài học này xây dựng các mảnh của một feature store từ đầu. Bạn viết một registry, một backfill, một phép join theo thời điểm, một online store với TTL và một kiểm tra skew. Demo tái tạo cả hai khuyết tật bằng các con số.
 
 ## The Concept
 
 ### Two readers of the same feature
 
-Training and serving ask for features in different shapes:
+Huấn luyện và phục vụ yêu cầu các đặc trưng theo các dạng khác nhau:
 
-| Property | Training (offline) | Serving (online) |
+| Thuộc tính | Huấn luyện (ngoại tuyến) | Phục vụ (trực tuyến) |
 |---|---|---|
-| Question | "What was the value for each of 10 million (entity, time) pairs?" | "What is the value for this one entity now?" |
-| Time | Many points in the past | The present |
-| Volume | Millions of rows per job | One row per request |
-| Latency | Minutes are fine | A few milliseconds |
-| Storage | Offline store: full history with timestamps, in columnar files or a warehouse | Online store: the latest value per entity, in a key-value database |
+| Câu hỏi | "Giá trị cho mỗi trong 10 triệu cặp (thực thể, thời gian) là gì?" | "Giá trị cho một thực thể này bây giờ là gì?" |
+| Thời gian | Nhiều thời điểm trong quá khứ | Hiện tại |
+| Khối lượng | Hàng triệu hàng mỗi tác vụ | Một hàng mỗi yêu cầu |
+| Độ trễ | Vài phút là ổn | Vài mili giây |
+| Lưu trữ | Offline store: lịch sử đầy đủ với dấu thời gian, trong tệp dạng cột hoặc một kho dữ liệu | Online store: giá trị mới nhất mỗi thực thể, trong một cơ sở dữ liệu key-value |
 
-A feature store keeps both stores filled from one set of feature definitions. Materialization is the job that copies the latest values from the offline store to the online store.
+Một feature store giữ cả hai kho được điền từ một tập định nghĩa đặc trưng. Materialization là tác vụ sao chép các giá trị mới nhất từ offline store sang online store.
 
 ```mermaid
 flowchart LR
@@ -56,74 +56,74 @@ flowchart LR
 
 ### Entities, timestamps, and TTL
 
-Four terms describe every feature row:
+Bốn thuật ngữ mô tả mọi hàng đặc trưng:
 
-- **Entity.** The key that a feature describes, such as `user_id` or `card_id`.
-- **Event timestamp.** The time at which the value became true. A purchase count "as of day 14" has the event timestamp day 14.
-- **Created timestamp.** The time at which the system wrote the row. A backfill that runs today writes rows with old event timestamps and a new created timestamp.
-- **TTL (time to live).** The maximum age of a value. A value older than the TTL counts as missing, so the reader uses the default.
+- **Thực thể.** Khóa mà một đặc trưng mô tả, chẳng hạn `user_id` hoặc `card_id`.
+- **Dấu thời gian sự kiện.** Thời điểm mà giá trị trở thành đúng. Một số đếm mua hàng "tính đến ngày 14" có dấu thời gian sự kiện ngày 14.
+- **Dấu thời gian tạo.** Thời điểm mà hệ thống ghi hàng. Một backfill chạy hôm nay ghi các hàng với dấu thời gian sự kiện cũ và dấu thời gian tạo mới.
+- **TTL (thời gian tồn tại).** Tuổi tối đa của một giá trị. Một giá trị cũ hơn TTL được tính là thiếu, nên bên đọc sử dụng mặc định.
 
-A group of features with the same entity, source, and TTL is often called a feature view.
+Một nhóm đặc trưng với cùng thực thể, nguồn và TTL thường được gọi là một feature view.
 
 ### Point-in-time correct joins
 
-A training row pairs a label with the feature values that existed at the label time. The point-in-time join does this for each label:
+Một hàng huấn luyện ghép một nhãn với các giá trị đặc trưng tồn tại tại thời điểm nhãn. Phép join theo thời điểm làm điều này cho mỗi nhãn:
 
-1. Find the feature rows of the same entity.
-2. Keep the rows whose event timestamp is at or before the label timestamp.
-3. Take the latest of those rows.
-4. Drop it if the label timestamp minus its event timestamp is more than the TTL.
+1. Tìm các hàng đặc trưng của cùng thực thể.
+2. Giữ các hàng có dấu thời gian sự kiện ở hoặc trước dấu thời gian nhãn.
+3. Lấy hàng mới nhất trong số đó.
+4. Bỏ nó nếu dấu thời gian nhãn trừ dấu thời gian sự kiện của nó lớn hơn TTL.
 
-Here is one user, a label at day 16, and weekly feature rows:
+Đây là một người dùng, một nhãn ở ngày 16 và các hàng đặc trưng hàng tuần:
 
-| Feature row day | `purchases_30d` | Point-in-time join | Naive join on `user_id` |
+| Ngày hàng đặc trưng | `purchases_30d` | Join theo thời điểm | Join ngây thơ theo `user_id` |
 |---|---|---|---|
 | 7 | 4 | | |
-| 14 | 3 | Selected | |
-| 21 | 1 | Future | |
-| 28 | 0 | Future | Selected |
+| 14 | 3 | Được chọn | |
+| 21 | 1 | Tương lai | |
+| 28 | 0 | Tương lai | Được chọn |
 
-The label asks whether the user buys anything in days 17 to 46. The day 28 row already counts the quiet days after the label day. It shows 0 purchases because the user stopped buying, which is the event that the label measures. The naive join copies the answer into the input.
+Nhãn hỏi liệu người dùng có mua gì trong ngày 17 đến 46 hay không. Hàng ngày 28 đã đếm các ngày yên ắng sau ngày nhãn. Nó hiển thị 0 lần mua vì người dùng đã ngừng mua, chính là sự kiện mà nhãn đo. Phép join ngây thơ sao chép câu trả lời vào đầu vào.
 
-We split data by time in the time-series lesson for the same reason. A point-in-time join applies that rule to every row instead of to one split point.
+Chúng ta đã chia dữ liệu theo thời gian trong bài chuỗi thời gian vì cùng lý do. Một phép join theo thời điểm áp dụng quy tắc đó cho mọi hàng thay vì cho một điểm chia.
 
 ### Causes of training-serving skew
 
-Google's Rules of Machine Learning define training-serving skew as a difference between performance during training and performance during serving. They name three causes: different data handling in the two pipelines, a change in the data between training and serving, and a feedback loop. In feature pipelines, four concrete causes appear again and again:
+Rules of Machine Learning của Google định nghĩa training-serving skew là một khác biệt giữa hiệu năng trong huấn luyện và hiệu năng trong phục vụ. Họ nêu tên ba nguyên nhân: xử lý dữ liệu khác nhau trong hai pipeline, một thay đổi dữ liệu giữa huấn luyện và phục vụ và một vòng lặp phản hồi. Trong các pipeline đặc trưng, bốn nguyên nhân cụ thể xuất hiện lặp đi lặp lại:
 
-| Cause | What happens | Example from the demo |
+| Nguyên nhân | Điều xảy ra | Ví dụ từ demo |
 |---|---|---|
-| Two code paths | Training and serving compute the feature with different code | The serving window includes day `now - 30`, and the training window does not |
-| Stale features | The value that serving reads has a different age from the value that training used | Training reads weekly snapshots, and a new service computes fresh values |
-| Different defaults | The two paths fill a missing value differently | Training uses 365 for "no purchase yet", and serving uses -1 |
-| Time travel | Training reads a value from after the label time | The naive join reads the newest snapshot for every label |
+| Hai đường mã | Huấn luyện và phục vụ tính đặc trưng bằng mã khác nhau | Cửa sổ phục vụ bao gồm ngày `now - 30`, còn cửa sổ huấn luyện thì không |
+| Đặc trưng cũ | Giá trị phục vụ đọc có tuổi khác giá trị mà huấn luyện sử dụng | Huấn luyện đọc các snapshot hàng tuần, và một dịch vụ mới tính các giá trị mới |
+| Mặc định khác nhau | Hai đường điền một giá trị thiếu khác nhau | Huấn luyện sử dụng 365 cho "chưa mua hàng", và phục vụ sử dụng -1 |
+| Du hành thời gian | Huấn luyện đọc một giá trị từ sau thời điểm nhãn | Phép join ngây thơ đọc snapshot mới nhất cho mọi nhãn |
 
-Rule #32 of the same guide says to reuse code between the training pipeline and the serving pipeline whenever possible. A feature store follows that rule with one definition that both paths call.
+Quy tắc #32 của cùng hướng dẫn nói tái sử dụng mã giữa pipeline huấn luyện và pipeline phục vụ bất cứ khi nào có thể. Một feature store theo quy tắc đó với một định nghĩa mà cả hai đường gọi.
 
 ### A feature registry
 
-The registry is the catalog of feature definitions. Each entry holds a name, an entity, a source, a transformation, a window, a default value, a TTL, an owner, a version, and a description.
+Registry là danh mục các định nghĩa đặc trưng. Mỗi mục chứa một tên, một thực thể, một nguồn, một phép biến đổi, một cửa sổ, một giá trị mặc định, một TTL, một người sở hữu, một phiên bản và một mô tả.
 
-Two rules keep it safe:
+Hai quy tắc giữ nó an toàn:
 
-- Both paths read the definition from the registry. No service keeps a private copy of the transformation.
-- A change to a definition creates a new version. The old version stays, so old models keep the feature that they trained on.
+- Cả hai đường đọc định nghĩa từ registry. Không dịch vụ nào giữ một bản sao riêng của phép biến đổi.
+- Một thay đổi định nghĩa tạo một phiên bản mới. Phiên bản cũ ở lại, để các mô hình cũ giữ đặc trưng mà chúng đã huấn luyện trên đó.
 
 ### Backfills
 
-A new feature has no history, but training needs its value at every old label time. A backfill runs the definition at each past date and writes one row per entity and date. Each run reads only the events with timestamps at or before its date.
+Một đặc trưng mới không có lịch sử, nhưng huấn luyện cần giá trị của nó tại mọi thời điểm nhãn cũ. Một backfill chạy định nghĩa tại mỗi ngày quá khứ và ghi một hàng mỗi thực thể và ngày. Mỗi lần chạy chỉ đọc các sự kiện có dấu thời gian ở hoặc trước ngày của nó.
 
-Backfills cost compute that grows with the number of entities times the number of dates. They also bring a subtle leak. A backfill that runs today writes rows with old event timestamps, but it can read data that arrived late or was corrected later. A strict point-in-time join also checks that the created timestamp is at or before the label time.
+Backfill tốn tính toán tăng theo số thực thể nhân số ngày. Chúng cũng mang đến một rò rỉ tinh vi. Một backfill chạy hôm nay ghi các hàng với dấu thời gian sự kiện cũ, nhưng nó có thể đọc dữ liệu đến muộn hoặc được sửa sau đó. Một phép join theo thời điểm nghiêm ngặt cũng kiểm tra rằng dấu thời gian tạo ở hoặc trước thời điểm nhãn.
 
 ### Detecting skew
 
-Rule #29 of the same guide says to log the features at serving time and use them in training. Even a small logged sample lets you check consistency. Compare each logged value with the value that the training path produces for the same entity and time. For each feature, report the share of mismatches and the mean absolute difference.
+Quy tắc #29 của cùng hướng dẫn nói ghi nhật ký các đặc trưng lúc phục vụ và sử dụng chúng trong huấn luyện. Ngay cả một mẫu ghi nhật ký nhỏ cũng cho phép bạn kiểm tra tính nhất quán. So sánh mỗi giá trị ghi nhật ký với giá trị mà đường huấn luyện tạo ra cho cùng thực thể và thời điểm. Với mỗi đặc trưng, báo cáo tỷ lệ không khớp và sai khác tuyệt đối trung bình.
 
-To find the cause, compare three pairs:
+Để tìm nguyên nhân, so sánh ba cặp:
 
-1. Online store read versus training join. This tests the whole system and should show zero skew.
-2. Fresh computation versus training join. This isolates staleness.
-3. Second code path versus fresh computation. This isolates code differences, such as windows and defaults.
+1. Lần đọc online store so với join huấn luyện. Điều này kiểm tra toàn hệ thống và nên cho thấy skew bằng không.
+2. Tính toán mới so với join huấn luyện. Điều này cô lập độ cũ.
+3. Đường mã thứ hai so với tính toán mới. Điều này cô lập các khác biệt mã, chẳng hạn cửa sổ và mặc định.
 
 ```figure
 mlprod-pit-join
@@ -131,11 +131,11 @@ mlprod-pit-join
 
 ## Build It
 
-The code in `code/main.py` uses only the standard library. Time is a whole number of days. A weekly batch job writes feature snapshots on days 7, 14, and so on up to 175.
+Mã trong `code/main.py` chỉ sử dụng thư viện chuẩn. Thời gian là một số nguyên ngày. Một tác vụ batch hàng tuần ghi các snapshot đặc trưng vào ngày 7, 14 và tiếp tục đến 175.
 
 ### Step 1: Feature definitions and the registry
 
-A `FeatureDefinition` holds the transformation as data: an aggregate, a window, and a default. Its `compute` method never reads events after `as_of`.
+Một `FeatureDefinition` chứa phép biến đổi dưới dạng dữ liệu: một phép tổng hợp, một cửa sổ và một mặc định. Phương thức `compute` của nó không bao giờ đọc các sự kiện sau `as_of`.
 
 ```python
 @dataclass(frozen=True)
@@ -162,9 +162,9 @@ class FeatureDefinition:
         raise ValueError(f"unknown aggregate {self.aggregate!r}")
 ```
 
-`FeatureRegistry.register` accepts the same definition twice, but it rejects a different definition with the same name and version. `fill_defaults` gives both paths the same default for a missing value.
+`FeatureRegistry.register` chấp nhận cùng định nghĩa hai lần, nhưng nó từ chối một định nghĩa khác với cùng tên và phiên bản. `fill_defaults` cho cả hai đường cùng mặc định cho một giá trị thiếu.
 
-A model pins a definition with a reference such as `spend_30d@1`. `compute` and `fill_defaults` resolve the reference, and a name without `@` reads the latest version. A reference with `@` and no version number raises `ValueError`, so a typo cannot read the latest version without a warning. The reference is also the key in each stored row, so the backfill, the online store, and the serving read all use the pinned definition.
+Một mô hình ghim một định nghĩa bằng một tham chiếu như `spend_30d@1`. `compute` và `fill_defaults` phân giải tham chiếu, và một tên không có `@` đọc phiên bản mới nhất. Một tham chiếu có `@` và không có số phiên bản phát sinh `ValueError`, nên một lỗi gõ không thể đọc phiên bản mới nhất mà không có lời cảnh báo. Tham chiếu cũng là khóa trong mỗi hàng được lưu, nên backfill, online store và lần đọc phục vụ đều sử dụng định nghĩa đã ghim.
 
 ### Step 2: Backfill the offline store
 
@@ -177,11 +177,11 @@ def backfill(registry: FeatureRegistry, names: list[str], events: list[Event], d
     return rows
 ```
 
-The demo backfills three features for 299 users on 25 snapshot days, which gives 7475 rows.
+Demo backfill ba đặc trưng cho 299 người dùng trên 25 ngày snapshot, cho 7475 hàng.
 
 ### Step 3: The point-in-time join
 
-Sort each entity's rows by day once. For each label, `bisect_right` finds the last row at or before the label day. The TTL check drops a row that is too old.
+Sắp xếp các hàng của mỗi thực thể theo ngày một lần. Với mỗi nhãn, `bisect_right` tìm hàng cuối ở hoặc trước ngày nhãn. Kiểm tra TTL bỏ một hàng quá cũ.
 
 ```python
 def point_in_time_join(labels: list[LabelRow], rows: list[FeatureRow], ttl_days: int | None = None) -> list[JoinedRow]:
@@ -208,7 +208,7 @@ def point_in_time_join(labels: list[LabelRow], rows: list[FeatureRow], ttl_days:
 
 ### Step 4: Measure the leak from a naive join
 
-`naive_latest_join` joins on the entity only, so it returns the newest row for every label. The demo builds labels on days 100, 120, and 140 and fits a one-feature rule on each training set. It then tests both rules on labels from day 145, with point-in-time features:
+`naive_latest_join` chỉ join theo thực thể, nên nó trả về hàng mới nhất cho mọi nhãn. Demo xây dựng nhãn vào ngày 100, 120 và 140 và khớp một quy tắc một đặc trưng trên mỗi tập huấn luyện. Rồi nó kiểm tra cả hai quy tắc trên các nhãn từ ngày 145, với các đặc trưng theo thời điểm:
 
 ```console
   naive join used a snapshot from after the label day for 100% of rows
@@ -218,11 +218,11 @@ def point_in_time_join(labels: list[LabelRow], rows: list[FeatureRow], ttl_days:
   accuracy on day 145, trained with PIT join:   0.876
 ```
 
-The naive join looks better offline, 0.948 against 0.893. On new data it is worse, 0.763 against 0.876. The leaked feature moved the fitted threshold from 19 to 53 idle days.
+Phép join ngây thơ trông tốt hơn ngoại tuyến, 0.948 so với 0.893. Trên dữ liệu mới nó tệ hơn, 0.763 so với 0.876. Đặc trưng bị rò rỉ chuyển ngưỡng được khớp từ 19 sang 53 ngày không hoạt động.
 
 ### Step 5: The online store and materialization
 
-The online store keeps one row per entity and refuses rows older than the TTL. `materialize` writes only rows whose day is at or before the job time.
+Online store giữ một hàng mỗi thực thể và từ chối các hàng cũ hơn TTL. `materialize` chỉ ghi các hàng có ngày ở hoặc trước thời điểm tác vụ.
 
 ```python
 class OnlineStore:
@@ -242,11 +242,11 @@ class OnlineStore:
         return dict(row.values)
 ```
 
-With a TTL of 10 days, a read on day 145 returns the day 140 row. A read on day 160, with no new materialization, returns the defaults, because the row is 20 days old.
+Với TTL 10 ngày, một lần đọc vào ngày 145 trả về hàng ngày 140. Một lần đọc vào ngày 160, không có materialization mới, trả về các mặc định, vì hàng đã 20 ngày tuổi.
 
 ### Step 6: The skew check
 
-`detect_skew` compares two views keyed by `(entity, day)`. It reports the mismatch rate and the mean absolute difference per feature and flags a feature when more than 1 percent of values differ. It raises `ValueError` when the two views have different keys or no keys. A missing request can hide skew, and a check with no requests shows nothing.
+`detect_skew` so sánh hai view có khóa `(entity, day)`. Nó báo cáo tỷ lệ không khớp và sai khác tuyệt đối trung bình theo đặc trưng và gắn cờ một đặc trưng khi hơn 1 phần trăm giá trị khác nhau. Nó phát sinh `ValueError` khi hai view có các khóa khác nhau hoặc không có khóa. Một yêu cầu bị thiếu có thể che giấu skew, và một kiểm tra không có yêu cầu không cho thấy gì.
 
 ```python
 def detect_skew(
@@ -271,7 +271,7 @@ def detect_skew(
     return reports
 ```
 
-The demo logs requests on days 141 to 150 and runs the three comparisons from the concept section. The request pool includes 20 new users with no history.
+Demo ghi nhật ký các yêu cầu vào ngày 141 đến 150 và chạy ba phép so sánh từ phần khái niệm. Nhóm yêu cầu bao gồm 20 người dùng mới không có lịch sử.
 
 ```bash
 python3 code/main.py
@@ -293,26 +293,26 @@ python3 code/main.py
     SKEW spend_30d                  mismatch  12.5%  mean |diff|    5.09
 ```
 
-Read the three blocks in order:
+Đọc ba khối theo thứ tự:
 
-- **One definition, same snapshots.** The online store and the training join read the same materialized rows, so skew is zero.
-- **Staleness.** A fresh value differs from the weekly snapshot on most requests. Fresher data is not automatically better here, because the model learned from values up to six days old.
-- **Code differences.** The second code path differs on 12.5 percent of window counts, because its window includes one extra day. It differs on `days_since_last_purchase` for new users only, but by a large amount: -1 against 365.
+- **Một định nghĩa, cùng các snapshot.** Online store và join huấn luyện đọc cùng các hàng đã materialize, nên skew bằng không.
+- **Độ cũ.** Một giá trị mới khác snapshot hàng tuần trên hầu hết các yêu cầu. Dữ liệu mới hơn không tự động tốt hơn ở đây, vì mô hình học từ các giá trị cũ tới sáu ngày.
+- **Các khác biệt mã.** Đường mã thứ hai khác trên 12.5 phần trăm các số đếm cửa sổ, vì cửa sổ của nó bao gồm thêm một ngày. Nó chỉ khác trên `days_since_last_purchase` với người dùng mới, nhưng với một lượng lớn: -1 so với 365.
 
 ## Use It
 
-Feast is an open-source feature store. Each piece of the from-scratch code has a Feast counterpart:
+Feast là một feature store mã nguồn mở. Mỗi mảnh của mã viết từ đầu có một phần tương ứng trong Feast:
 
-| From scratch | Feast |
+| Từ đầu | Feast |
 |---|---|
-| `FeatureDefinition`, `FeatureRegistry` | `Entity`, `FeatureView`, and `Field` in a feature repository, registered with `feast apply` |
-| `FeatureRow` history | An offline store, for example a `FileSource` over Parquet files or a warehouse table |
-| `point_in_time_join` with a TTL | `store.get_historical_features(entity_df=..., features=[...])` |
+| `FeatureDefinition`, `FeatureRegistry` | `Entity`, `FeatureView` và `Field` trong một kho đặc trưng, được đăng ký bằng `feast apply` |
+| Lịch sử `FeatureRow` | Một offline store, ví dụ một `FileSource` trên các tệp Parquet hoặc một bảng kho dữ liệu |
+| `point_in_time_join` với một TTL | `store.get_historical_features(entity_df=..., features=[...])` |
 | `materialize` | `feast materialize-incremental <end time>` |
 | `OnlineStore.read` | `store.get_online_features(features=[...], entity_rows=[...])` |
-| Created timestamp check | `created_timestamp_column` on the source and `filter_by_created_timestamp=True` |
+| Kiểm tra dấu thời gian tạo | `created_timestamp_column` trên nguồn và `filter_by_created_timestamp=True` |
 
-The definitions look like this. The code follows the Feast quickstart and is not needed to run this lesson.
+Các định nghĩa trông như thế này. Mã theo quickstart Feast và không cần thiết để chạy bài học này.
 
 ```python
 from datetime import timedelta
@@ -342,7 +342,7 @@ user_activity = FeatureView(
 )
 ```
 
-Training and serving then read the same feature view:
+Huấn luyện và phục vụ sau đó đọc cùng feature view:
 
 ```python
 from feast import FeatureStore
@@ -361,42 +361,42 @@ online = store.get_online_features(
 ).to_dict()
 ```
 
-`labels_df` holds one row per label with `user_id`, `event_timestamp`, and the label. The Feast documentation states that the TTL is relative to each timestamp in the entity dataframe, not to the time of the query. That matches the TTL check in `point_in_time_join`. The same page describes `filter_by_created_timestamp=True`, which keeps backfilled values from leaking into training data. Not every offline store supports this option. A store without support raises an error instead of ignoring the option.
+`labels_df` chứa một hàng mỗi nhãn với `user_id`, `event_timestamp` và nhãn. Tài liệu Feast nêu rằng TTL tương đối với mỗi dấu thời gian trong dataframe thực thể, không phải với thời điểm truy vấn. Điều đó khớp kiểm tra TTL trong `point_in_time_join`. Cùng trang mô tả `filter_by_created_timestamp=True`, giữ các giá trị backfill không rò rỉ vào dữ liệu huấn luyện. Không phải mọi offline store đều hỗ trợ tùy chọn này. Một kho không hỗ trợ phát sinh lỗi thay vì bỏ qua tùy chọn.
 
-Tecton, Hopsworks, and the feature stores in the large cloud ML platforms use the same split between offline and online stores. For the skew check, TensorFlow Data Validation can compare training data with serving data to detect skew. Breck et al. describe the data validation system in TFX, Google's end-to-end ML platform, including training-serving skew.
+Tecton, Hopsworks và các feature store trong các nền tảng ML đám mây lớn sử dụng cùng sự phân chia giữa offline store và online store. Với kiểm tra skew, TensorFlow Data Validation có thể so sánh dữ liệu huấn luyện với dữ liệu phục vụ để phát hiện skew. Breck và cộng sự mô tả hệ thống xác thực dữ liệu trong TFX, nền tảng ML đầu cuối của Google, bao gồm training-serving skew.
 
 ## Ship It
 
-This lesson produces `outputs/skill-feature-skew-audit.md`. The skill audits a feature pipeline for time travel and training-serving skew. It walks through the join, the definitions, the defaults, the freshness of each path, and the logging that a skew check needs.
+Bài học này tạo ra `outputs/skill-feature-skew-audit.md`. Skill kiểm toán một pipeline đặc trưng về du hành thời gian và training-serving skew. Nó đi qua phép join, các định nghĩa, các mặc định, độ mới của mỗi đường và việc ghi nhật ký mà một kiểm tra skew cần.
 
 ## Exercises
 
-1. Change the snapshot interval from 7 days to 1 day. Rerun the staleness comparison and explain the result.
-2. Set the TTL to 3 days. Count the training rows that lose their features and get defaults.
-3. Add a created day to `FeatureRow`. Make the join ignore rows written after the label day.
-4. Register `spend_7d` as version 2 of `spend_30d`. Backfill it and print both versions from the registry.
-5. Fix `legacy_serving_features` until the third skew check passes. List each change.
+1. Thay khoảng snapshot từ 7 ngày thành 1 ngày. Chạy lại phép so sánh độ cũ và giải thích kết quả.
+2. Đặt TTL thành 3 ngày. Đếm các hàng huấn luyện mất các đặc trưng của chúng và nhận mặc định.
+3. Thêm một ngày tạo vào `FeatureRow`. Làm phép join bỏ qua các hàng được ghi sau ngày nhãn.
+4. Đăng ký `spend_7d` là phiên bản 2 của `spend_30d`. Backfill nó và in cả hai phiên bản từ registry.
+5. Sửa `legacy_serving_features` cho đến khi kiểm tra skew thứ ba qua. Liệt kê mỗi thay đổi.
 
 ## Key Terms
 
-| Term | What people say | What it means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa |
 |------|----------------|----------------------|
-| Feature store | "A database for features" | A system that computes features from one set of definitions and serves them to training and to serving |
-| Offline store | "The training data" | Full feature history with event timestamps, read by training jobs and backfills |
-| Online store | "The feature cache" | The latest value per entity, read by the serving path in milliseconds |
-| Entity | "The ID" | The key that a feature describes, such as a user or a card |
-| Event timestamp | "When it happened" | The time at which a feature value became true |
-| Point-in-time join | "An as-of join" | A join that pairs each label with the latest feature row at or before the label time |
-| TTL | "Expiry" | The maximum age of a feature value before a reader treats it as missing |
-| Materialization | "Syncing to online" | The job that copies the latest feature values from the offline store to the online store |
-| Backfill | "Computing history" | Running a feature definition at past dates to create its history |
-| Training-serving skew | "It worked offline" | A difference between the features or behavior in training and in serving |
+| Feature store — Kho đặc trưng | "Một cơ sở dữ liệu cho đặc trưng" | Một hệ thống tính các đặc trưng từ một tập định nghĩa và phục vụ chúng cho huấn luyện và cho phục vụ |
+| Offline store — Kho ngoại tuyến | "Dữ liệu huấn luyện" | Lịch sử đặc trưng đầy đủ với dấu thời gian sự kiện, được đọc bởi các tác vụ huấn luyện và backfill |
+| Online store — Kho trực tuyến | "Cache đặc trưng" | Giá trị mới nhất mỗi thực thể, được đường phục vụ đọc trong mili giây |
+| Entity — Thực thể | "ID" | Khóa mà một đặc trưng mô tả, chẳng hạn một người dùng hoặc một thẻ |
+| Event timestamp — Dấu thời gian sự kiện | "Khi nó xảy ra" | Thời điểm mà một giá trị đặc trưng trở thành đúng |
+| Point-in-time join — Join theo thời điểm | "Một as-of join" | Một phép join ghép mỗi nhãn với hàng đặc trưng mới nhất ở hoặc trước thời điểm nhãn |
+| TTL | "Hết hạn" | Tuổi tối đa của một giá trị đặc trưng trước khi một bên đọc coi nó là thiếu |
+| Materialization | "Đồng bộ sang trực tuyến" | Tác vụ sao chép các giá trị đặc trưng mới nhất từ offline store sang online store |
+| Backfill | "Tính lịch sử" | Chạy một định nghĩa đặc trưng tại các ngày quá khứ để tạo lịch sử của nó |
+| Training-serving skew | "Nó hoạt động ngoại tuyến" | Một khác biệt giữa các đặc trưng hoặc hành vi trong huấn luyện và trong phục vụ |
 
 ## Further Reading
 
-- [Feast, Point-in-time joins](https://docs.feast.dev/getting-started/concepts/point-in-time-joins): TTL semantics and the created timestamp filter
-- [Feast documentation](https://docs.feast.dev/): feature views, offline stores, online stores, and materialization
-- [Google, Rules of Machine Learning](https://developers.google.com/machine-learning/guides/rules-of-ml): the training-serving skew rules, from Rule #29 to Rule #37
-- [Breck et al., Data Validation for Machine Learning (SysML 2019)](https://research.google/pubs/data-validation-for-machine-learning/): data validation at Google, including training-serving skew
-- [TensorFlow Data Validation guide](https://www.tensorflow.org/tfx/guide/tfdv): schema checks, skew detection, and drift detection
-- [Sculley et al., Hidden Technical Debt in Machine Learning Systems (NeurIPS 2015)](https://papers.nips.cc/paper/2015/hash/86df7dcfd896fcaf2674f757a2463eba-Abstract.html): data dependencies and pipeline debt around a model
+- [Feast, Point-in-time joins](https://docs.feast.dev/getting-started/concepts/point-in-time-joins): ngữ nghĩa TTL và bộ lọc dấu thời gian tạo
+- [Tài liệu Feast](https://docs.feast.dev/): feature view, offline store, online store và materialization
+- [Google, Rules of Machine Learning](https://developers.google.com/machine-learning/guides/rules-of-ml): các quy tắc training-serving skew, từ Quy tắc #29 đến Quy tắc #37
+- [Breck et al., Data Validation for Machine Learning (SysML 2019)](https://research.google/pubs/data-validation-for-machine-learning/): xác thực dữ liệu tại Google, bao gồm training-serving skew
+- [Hướng dẫn TensorFlow Data Validation](https://www.tensorflow.org/tfx/guide/tfdv): kiểm tra schema, phát hiện skew và phát hiện drift
+- [Sculley et al., Hidden Technical Debt in Machine Learning Systems (NeurIPS 2015)](https://papers.nips.cc/paper/2015/hash/86df7dcfd896fcaf2674f757a2463eba-Abstract.html): các phụ thuộc dữ liệu và nợ pipeline xung quanh một mô hình

@@ -68,7 +68,7 @@ Vấn đề không phải là bản thân trạng thái dùng chung — mà là 
 
 1. **Gắn nguồn gốc trên mọi lần ghi.** Mọi mục trong trạng thái dùng chung ghi lại ai viết nó, khi nào, dưới prompt nào, và (nếu áp dụng) agent trích nguồn nào. Các agent hạ nguồn đọc với sự hoài nghi theo nguồn gốc.
 2. **Đặt phiên bản các lần ghi; coi chúng là chỉ thêm.** Một sửa chữa là một mục mới thay thế mục cũ, không phải một cập nhật tại chỗ. Dấu vết kiểm toán được bảo toàn.
-3. **Giữ ít nhất một agent không thể ghi vào trạng thái dùng chung.** Một agent xác minh chỉ đọc lấy mẫu các mục, lấy lại các nguồn, và gắn cờ các điểm không nhất quán. Vì nó không thể ghi vào bể, nó không thể bị bể đầu độc.
+3. **Giữ ít nhất một agent không thể ghi vào trạng thái chung.** Một agent xác minh chỉ đọc lấy mẫu các mục, tìm nạp lại nguồn và gắn cờ các điểm không nhất quán. Nó vẫn đọc kho chung, nên có thể bị một mục xấu đánh lừa, nhưng nó kiểm tra mỗi mục với nguồn gốc và không thể ghi, nên các phán quyết của nó không bao giờ đưa một sự kiện bị đầu độc trở lại trạng thái chung.
 
 ### Blackboard precedent (Hayes-Roth, 1985)
 

@@ -173,8 +173,8 @@ Với hầu hết CNN hiện đại bạn đưa vào RGB. Bạn gặp các khôn
 
 Thang xám từ RGB là một tổng có trọng số, không phải trung bình, vì mắt người nhạy với xanh lá hơn đỏ hoặc xanh dương:
 
-```
-Y = 0.299 R + 0.587 G + 0.114 B       (ITU-R BT.601, the classic weights)
+```math
+Y = 0.299 R + 0.587 G + 0.114 B \qquad \text{(ITU-R BT.601, the classic weights)}
 ```
 
 ### Aspect ratio, resizing, and interpolation

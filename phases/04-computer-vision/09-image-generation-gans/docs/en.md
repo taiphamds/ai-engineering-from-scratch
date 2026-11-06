@@ -9,7 +9,7 @@
 
 ## Learning Objectives
 
-- Giải thích trò chơi minimax giữa bộ sinh và bộ phân biệt và tại sao cân bằng tương ứng với p_model = p_data
+- Giải thích trò chơi minimax giữa bộ sinh và bộ phân biệt và tại sao cân bằng tương ứng với $p_{\text{model}} = p_{\text{data}}$
 - Triển khai một DCGAN bằng PyTorch và khiến nó sinh các hình ảnh tổng hợp 32x32 nhất quán trong dưới 60 dòng
 - Ổn định huấn luyện GAN bằng ba thủ thuật tiêu chuẩn: mất mát không bão hòa, spectral norm, TTUR (quy tắc cập nhật hai thang thời gian)
 - Đọc các đường cong huấn luyện phân biệt hội tụ khỏe mạnh với sụp đổ mode, dao động và bộ phân biệt thắng hoàn toàn
@@ -45,8 +45,8 @@ flowchart LR
 
 G muốn D sai. D muốn đúng. Về hình thức:
 
-```
-min_G max_D  E_x[log D(x)] + E_z[log(1 - D(G(z)))]
+```math
+\min_G \max_D \; \mathbb{E}_x[\log D(x)] + \mathbb{E}_z[\log(1 - D(G(z)))]
 ```
 
 Đọc từ phải sang trái: D tối đa hóa accuracy trên các hình ảnh thật (`log D(real)`) và giả (`log (1 - D(fake))`). G tối thiểu hóa accuracy của D trên các ảnh giả — nó muốn `D(G(z))` cao.
@@ -57,9 +57,11 @@ Goodfellow chứng minh minimax này có một cân bằng toàn cục nơi `p_G
 
 Dạng trên không ổn định về số. Đầu huấn luyện, `D(G(z))` gần không với mọi ảnh giả, nên `log(1 - D(G(z)))` có các gradient tiêu biến theo G. Khắc phục: đảo mất mát của G.
 
-```
-L_D = -E_x[log D(x)] - E_z[log(1 - D(G(z)))]
-L_G = -E_z[log D(G(z))]                          # non-saturating
+```math
+\begin{aligned}
+L_D &= -\mathbb{E}_x[\log D(x)] - \mathbb{E}_z[\log(1 - D(G(z)))] \\
+L_G &= -\mathbb{E}_z[\log D(G(z))] \qquad \text{(non-saturating)}
+\end{aligned}
 ```
 
 Giờ khi `D(G(z))` gần không, mất mát G lớn và gradient của nó có thông tin. Mọi GAN hiện đại đều huấn luyện với biến thể này.
@@ -299,8 +301,8 @@ Bài học này tạo ra:
 |------|----------------|----------------------|
 | Generator (G) (Bộ sinh) | "Mạng vẽ các thứ" | Ánh xạ nhiễu thành hình ảnh; được huấn luyện để đánh lừa bộ phân biệt |
 | Discriminator (D) (Bộ phân biệt) | "Người phê bình" | Bộ phân loại nhị phân; được huấn luyện để phân biệt hình ảnh thật với hình ảnh sinh |
-| Minimax | "Trò chơi" | min trên G, max trên D của một mất mát đối kháng; cân bằng là p_G = p_data |
-| Non-saturating loss (Mất mát không bão hòa) | "Phiên bản hợp lý về số" | Mất mát G là -log(D(G(z))) thay vì log(1 - D(G(z))) để tránh gradient tiêu biến đầu huấn luyện |
+| Minimax | "Trò chơi" | min trên G, max trên D của một mất mát đối kháng; cân bằng là $p_G = p_{\text{data}}$ |
+| Non-saturating loss (Mất mát không bão hòa) | "Phiên bản hợp lý về số" | Mất mát G là $-\log(D(G(z)))$ thay vì $\log(1 - D(G(z)))$ để tránh gradient tiêu biến đầu huấn luyện |
 | Mode collapse (Sụp đổ mode) | "Bộ sinh tạo một thứ" | G chỉ tạo một tập con nhỏ của phân phối dữ liệu; khắc phục bằng SN, phân biệt minibatch hoặc batch lớn hơn |
 | TTUR | "Hai tốc độ học" | D học nhanh hơn G, thường 2-4 lần; ổn định huấn luyện |
 | Spectral norm | "Lớp 1-Lipschitz" | Một phép chuẩn hóa trọng số chặn hằng số Lipschitz mỗi lớp; ngăn D trở nên dốc tùy ý |

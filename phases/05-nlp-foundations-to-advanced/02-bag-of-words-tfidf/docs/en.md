@@ -23,9 +23,11 @@ Bài học này xây dựng bag of words, rồi TF-IDF, từ đầu. Sau đó ch
 
 **TF-IDF** gán lại trọng số cho BoW. Một từ xuất hiện trong mọi tài liệu không mang thông tin, nên giảm trọng số của nó. Một từ hiếm trong toàn ngữ liệu nhưng thường gặp trong một tài liệu là tín hiệu, nên tăng trọng số của nó.
 
-```
-TF-IDF(w, d) = TF(w, d) * IDF(w)
-             = count(w in d) / |d| * log(N / df(w))
+```math
+\begin{aligned}
+\text{TF-IDF}(w, d) &= \text{TF}(w, d) \cdot \text{IDF}(w) \\
+&= \frac{\mathop{\mathrm{count}}(w \text{ in } d)}{|d|} \cdot \log\frac{N}{\mathop{\mathrm{df}}(w)}
+\end{aligned}
 ```
 
 Trong đó `TF` là tần suất thuật ngữ trong tài liệu, `df` là tần suất tài liệu (bao nhiêu tài liệu chứa từ đó), `N` là tổng số tài liệu. `log` giữ trọng số trong giới hạn cho các từ có mặt khắp nơi.
@@ -124,7 +126,7 @@ def tfidf(bow_matrix):
 >>> tfidf(bow)
 ```
 
-Ba tài liệu, năm từ vựng (`the`, `cat`, `sat`, `dog`, `ran`). `the` xuất hiện trong cả ba, nên IDF của nó thấp. `dog` xuất hiện trong một, nên IDF của nó cao. Các vector thưa (hầu hết phần tử nhỏ) và các từ có tính phân biệt nổi bật lên.
+Ba tài liệu, năm từ vựng (`the`, `cat`, `sat`, `dog`, `ran`). `the` xuất hiện trong cả ba, vì vậy IDF của nó thấp. `dog` xuất hiện trong một tài liệu, vì vậy IDF của nó cao. Với một từ vựng thực có hàng nghìn từ, các vector này thưa (phần lớn phần tử bằng không). Ngay cả trong ví dụ đồ chơi này, các từ có khả năng phân biệt vẫn nổi bật.
 
 ### Step 5: L2-normalize rows
 

@@ -1,6 +1,6 @@
 # From CLIP to BLIP-2 — Q-Former as Modality Bridge
 
-> CLIP căn chỉnh ảnh và văn bản nhưng không thể sinh chú thích, trả lời câu hỏi hay hội thoại. BLIP-2 (Salesforce, 2023) giải bằng cầu nối nhỏ có thể huấn luyện: 32 vector query có thể học attend trên đặc trưng ViT đóng băng qua cross-attention, rồi đặt trực tiếp vào luồng đầu vào LLM đóng băng. 188M tham số cầu nối kết nối LLM 11B với ViT-g/14. Mọi VLM dựa trên adapter đến năm 2026 — MiniGPT-4, InstructBLIP, họ hàng LLaVA — đều là hậu duệ. Bài học này đọc kiến trúc Q-Former, giải thích huấn luyện hai giai đoạn và xây phiên bản minh họa đưa token thị giác vào decoder văn bản đóng băng.
+> CLIP căn chỉnh hình ảnh và văn bản nhưng không thể tạo chú thích, trả lời câu hỏi hoặc trò chuyện. BLIP-2 (Salesforce, 2023) giải quyết điều đó bằng một cầu nối nhỏ có thể huấn luyện: 32 vector query có thể học chú ý đến các đặc trưng của một ViT đóng băng qua cross-attention, rồi đi trực tiếp vào luồng đầu vào của một LLM đóng băng. 188M tham số cầu nối kết nối một ViT-g/14 với các LLM đóng băng lớn đến Flan-T5-XXL 11B. Mọi VLM dựa trên adapter đến năm 2026 — MiniGPT-4, InstructBLIP, các mô hình họ hàng của LLaVA — đều là hậu duệ. Bài học này đọc kiến trúc Q-Former, giải thích quá trình huấn luyện hai giai đoạn và xây dựng một phiên bản đồ chơi đưa các token thị giác vào một decoder văn bản đóng băng.
 
 **Type:** Build
 **Languages:** Python (stdlib, cross-attention + learnable-query demo)
@@ -117,7 +117,7 @@ Bài học này tạo `outputs/skill-modality-bridge-picker.md`. Với cấu hì
 
 4. Đọc Mục 3.2 bài báo BLIP-2 (arXiv:2301.12597) về khởi tạo Q-Former. Giải thích tại sao khởi tạo từ BERT-base (không ngẫu nhiên) tăng tốc hội tụ.
 
-5. Với video 10 phút ở 1 FPS được lấy mẫu thành 60 khung, tính chi phí token mỗi khung ở (Q-Former → 32 token/khung) so với (projector MLP → 576 token/khung). Loại nào vừa cửa sổ ngữ cảnh LLM 128k token?
+5. Đối với một video 10 phút ở 1 FPS được lấy mẫu thành 60 khung hình, tính chi phí token cho mỗi khung hình với (Q-Former → 32 token/khung hình) so với (MLP projector → 576 token/khung hình). Mỗi cầu nối có thể chứa bao nhiêu khung hình trong một cửa sổ ngữ cảnh LLM 128k token trước khi văn bản prompt có chút chỗ nào?
 
 ## Key Terms
 
@@ -132,7 +132,7 @@ Bài học này tạo `outputs/skill-modality-bridge-picker.md`. Với cấu hì
 | Two-stage pretraining (Tiền huấn luyện hai giai đoạn) | "Biểu diễn rồi sinh" | Giai đoạn 1 chỉ huấn luyện Q-Former (ITC/ITM/ITG); Giai đoạn 2 gắn LLM đóng băng và chỉ huấn luyện phép chiếu + Q-Former |
 | Frozen backbone (Backbone đóng băng) | "Không finetune" | Trọng số encoder thị giác và LLM cố định; chỉ cầu nối huấn luyện |
 | Projection head (Head chiếu) | "Tuyến tính đến chiều LLM" | Lớp tuyến tính cuối ánh xạ đầu ra Q-Former sang chiều embedding LLM |
-| Perceiver resampler | "Phiên bản Flamingo" | Cross-attention query có thể học tương tự, được Flamingo dùng ở mọi lớp thay vì một cầu nối duy nhất |
+| Perceiver resampler | "Phiên bản của Flamingo" | Cross-attention với query có thể học tương tự; Flamingo chạy nó một lần cho mỗi hình ảnh để tạo các latent cố định, rồi đọc chúng qua cross-attention có cổng ở mọi lớp LLM |
 
 ## Further Reading
 

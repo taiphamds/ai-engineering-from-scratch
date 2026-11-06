@@ -21,7 +21,7 @@ Hầu hết demo agent hoạt động riêng lẻ: một sandbox tự nó, một
 
 Chuỗi cổng nói ALLOW nhưng sandbox từ chối vì một lý do chuỗi không dự liệu. Harness đánh giá ghi nhận đạt nhưng các span OTel nói cổng đã từ chối một công cụ mà agent tuyên bố nó đã dùng. Bộ đếm Prometheus tăng hai lần khi lẽ ra phải tăng một lần. Ngân sách quan sát bị vượt nhưng agent tiếp tục vì ngân sách được theo dõi trong chuỗi và sandbox không biết.
 
-Bài này là kiểm thử tích hợp cho toàn bộ track. Agent phải làm bốn việc theo thứ tự: đọc dự án, chạy các kiểm thử, xác định lỗi từ thất bại kiểm thử, ghi bản sửa, chạy lại các kiểm thử, và dừng. Mọi thao tác đều qua chuỗi cổng. Mọi lần thực thi công cụ đều qua sandbox. Mọi bước được bọc trong một span. Harness đánh giá chấm toàn bộ ở cuối.
+Bài học này là bài kiểm tra tích hợp cho toàn nhánh. Agent phải làm sáu việc theo thứ tự: đọc dự án, chạy các bài kiểm tra, xác định lỗi từ lần kiểm tra thất bại, viết bản sửa, chạy lại các bài kiểm tra và dừng. Mọi thao tác đều đi qua chuỗi cổng. Mọi lần thực thi công cụ đều đi qua sandbox. Mọi bước đều được bọc trong một span. Harness đánh giá chấm điểm toàn bộ ở cuối.
 
 ## The Concept
 

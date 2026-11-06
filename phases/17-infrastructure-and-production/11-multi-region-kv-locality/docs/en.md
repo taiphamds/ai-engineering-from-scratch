@@ -30,7 +30,7 @@ Phục vụ LLM đa vùng là vấn đề bộ nhớ đệm, vấn đề định
 
 Yêu cầu đến với một prompt. Bộ định tuyến hash tiền tố (chẳng hạn, 512 token đầu tiên); nó hỏi từng bản sao "bạn có tiền tố này trong bộ nhớ đệm không?". Các bản sao công bố sự kiện bộ nhớ đệm KV trên một kênh pub/sub khi cấp phát và loại bỏ block. Bộ định tuyến chọn bản sao khớp, chuyển sang tiêu chí phá hòa dựa trên mức sử dụng GPU nếu không bản sao nào có.
 
-**vLLM Router** (Rust, production-stack 2026): đăng ký các sự kiện `kv.cache.block_added`, duy trì một chỉ mục hash tiền tố → bản sao, định tuyến bằng tra cứu O(1). Chuyển sang độ sâu hàng đợi nhỏ nhất khi không khớp.
+**vLLM Router** (Rust, production-stack 2026): đăng ký các sự kiện `kv.cache.block_added`, duy trì một chỉ mục hash tiền tố → bản sao, định tuyến bằng tra cứu $O(1)$. Chuyển sang độ sâu hàng đợi nhỏ nhất khi không khớp.
 
 **llm-d router**: cùng mẫu, nguyên bản Kubernetes. Công bố sự kiện qua API ControlPlane.
 
@@ -51,7 +51,7 @@ RTT liên vùng:
 - us-east-1 ↔ eu-west-1: ~75 ms.
 - us-east-1 ↔ ap-southeast-1: ~220 ms.
 
-Nếu định tuyến đưa một yêu cầu từ us-east-1 đến một tiền tố nóng ở ap-southeast-1, prefill tiết kiệm được (800 → 80 ms) bị lấn át bởi 440 ms khứ hồi. GORGO (nghiên cứu năm 2026) thể hiện điều này tường minh — cùng tối thiểu hóa `prefill_time + network_latency`, không chỉ prefill. Thường câu trả lời là giữ định tuyến trong vùng, ngoại trừ các tiền tố khổng lồ nhiều MB mà prefill chiếm ưu thế.
+Nếu định tuyến đưa một yêu cầu từ us-east-1 đến một prefix nóng ở ap-southeast-1, prefill tiết kiệm được (800 → 80 ms, tức 720 ms) co lại còn khoảng 500 ms khi trả chi phí RTT ~220 ms, và biên lợi ích biến mất nếu vùng từ xa xếp yêu cầu vào hàng đợi hoặc đã loại prefix. GORGO (nghiên cứu năm 2026) làm điều này rõ ràng — cùng tối thiểu hóa `prefill_time + network_latency`, không chỉ prefill. Thường câu trả lời là giữ định tuyến trong vùng trừ với các prefix khổng lồ nhiều MB nơi prefill chiếm ưu thế.
 
 ### Commercial "cross-region inference" does not help here
 

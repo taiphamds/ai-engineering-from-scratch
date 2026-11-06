@@ -29,7 +29,7 @@ Bài học này xây dựng trực giác cho cả ba và nêu khi nào nên ch�
 
 Các triển khai năm 2026:
 
-- **Outlines.** Biên dịch JSON Schema hoặc regex thành một máy trạng thái hữu hạn. Mỗi token có một tra cứu token tiếp theo hợp lệ O(1). Dựa trên FSM, nên các schema đệ quy cần làm phẳng.
+- **Outlines.** Biên dịch JSON Schema hoặc regex thành một máy trạng thái hữu hạn. Mỗi token có một tra cứu token tiếp theo hợp lệ $O(1)$. Dựa trên FSM, nên các schema đệ quy cần làm phẳng.
 - **XGrammar / llguidance.** Các engine ngữ pháp phi ngữ cảnh. Xử lý JSON Schema đệ quy. Chi phí phụ giải mã gần bằng không. OpenAI ghi nhận llguidance trong triển khai đầu ra có cấu trúc năm 2025 của họ.
 - **Giải mã có hướng dẫn vLLM.** `guided_json`, `guided_regex`, `guided_choice`, `guided_grammar` tích hợp qua các backend Outlines, XGrammar hoặc lm-format-enforcer.
 - **Instructor.** Lớp bọc dựa trên Pydantic trên bất kỳ LLM nào. Thử lại khi xác thực thất bại. Xuyên nhà cung cấp, nhưng không sửa logits — nó dựa vào thử lại + các prompt nhận biết đầu ra có cấu trúc.
@@ -210,7 +210,7 @@ Refuse any design that puts `answer` or `decision` before reasoning fields. Refu
 |------|-----------------|-----------------------|
 | Constrained decoding (Giải mã có ràng buộc) | Ép đầu ra hợp lệ | Che logits token không hợp lệ ở mỗi bước sinh. |
 | Logit processor (Bộ xử lý logit) | Thứ tạo ràng buộc | Hàm: `(logits, state) -> masked_logits`. |
-| FSM | Máy trạng thái hữu hạn | Biểu diễn ngữ pháp đã biên dịch; tra cứu token tiếp theo hợp lệ O(1). |
+| FSM | Máy trạng thái hữu hạn | Biểu diễn ngữ pháp đã biên dịch; tra cứu token tiếp theo hợp lệ $O(1)$. |
 | CFG | Ngữ pháp phi ngữ cảnh | Ngữ pháp xử lý đệ quy; chậm hơn nhưng có sức biểu đạt lớn hơn FSM. |
 | Schema field order (Thứ tự trường schema) | Nó có quan trọng không? | Có — trường đầu chốt; luôn đặt suy luận trước câu trả lời. |
 | Guided decoding (Giải mã có hướng dẫn) | Tên vLLM đặt cho nó | Cùng khái niệm, được tích hợp vào máy chủ suy luận. |

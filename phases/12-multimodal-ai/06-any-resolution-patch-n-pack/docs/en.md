@@ -1,6 +1,6 @@
 # Any-Resolution Vision: Patch-n'-Pack and NaFlex
 
-> Ảnh thực không phải hình vuông 224x224. Hóa đơn là 9:16, biểu đồ là 16:9, ảnh quét y tế có thể 4096x4096, ảnh chụp màn hình di động là 9:19.5. Câu trả lời VLM trước năm 2024 — đổi mọi thứ về hình vuông cố định — bỏ đi tín hiệu khiến OCR, hiểu tài liệu và phân tích cảnh độ phân giải cao hoạt động. NaViT (Google, 2023) cho thấy có thể đóng gói patch khác độ phân giải thành một batch transformer với mask chéo khối. M-RoPE của Qwen2-VL (2024) bỏ hoàn toàn bảng vị trí tuyệt đối. AnyRes của LLaVA-NeXT chia ảnh độ phân giải cao thành ảnh cơ sở + ảnh con. Biến thể NaFlex của SigLIP 2 (2025) giờ là encoder mặc định cho VLM mở muốn một checkpoint phục vụ mọi tỷ lệ khung hình. Bài học này triển khai patch-n'-pack từ đầu đến cuối.
+> Hình ảnh thực không phải các hình vuông 224x224. Một hóa đơn có tỷ lệ 1:3, một biểu đồ là 16:9, một ảnh quét y khoa có thể là 4096x4096, một ảnh chụp màn hình điện thoại là 9:19.5. Câu trả lời của VLM trước 2024 — đổi kích thước mọi thứ về một hình vuông cố định — đã loại bỏ tín hiệu làm cho OCR, hiểu tài liệu và phân tích cảnh độ phân giải cao hoạt động. NaViT (Google, 2023) cho thấy bạn có thể đóng gói các patch có độ phân giải thay đổi vào một batch transformer duy nhất với mặt nạ đường chéo khối. M-RoPE của Qwen2-VL (2024) bỏ hoàn toàn các bảng vị trí tuyệt đối. AnyRes của LLaVA-NeXT chia các hình ảnh độ phân giải cao thành một ảnh cơ sở + các ảnh con. Biến thể NaFlex của SigLIP 2 (2025) hiện là encoder mặc định cho các VLM mở muốn một checkpoint duy nhất phục vụ mọi tỷ lệ khung hình. Bài học này triển khai patch-n'-pack từ đầu đến cuối.
 
 **Type:** Build
 **Languages:** Python (stdlib, patch packer + block-diagonal mask)
@@ -55,7 +55,7 @@ AnyRes LLaVA-NeXT là phương án thực dụng. Với ảnh độ phân giải
 
 Với ảnh 672x672 ở lưới 2x2 cộng ảnh thu nhỏ: 4 * 576 + 576 = 2880 token thị giác. Đắt nhưng hiệu quả — LLM thấy cả chi tiết cục bộ và ngữ cảnh toàn cục.
 
-AnyRes là đường ưu tiên khi encoder đóng băng và chỉ hỗ trợ một độ phân giải. Nó làm số token bùng nổ cho ảnh lớn (ảnh 1344x1344 ở lưới 4x4 là 9216 + 576 ≈ 9800 token, lấp phần lớn ngữ cảnh LLM 8k).
+AnyRes là hướng được chọn khi encoder của bạn đóng băng và chỉ hỗ trợ một độ phân giải. Nó làm bùng nổ số token đối với các hình ảnh lớn (một hình ảnh 1344x1344 theo lưới 4x4 là 9216 + 576 ≈ 9800 token, vượt một ngữ cảnh LLM 8k trước khi có bất kỳ văn bản nào).
 
 ### M-RoPE (Qwen2-VL)
 
@@ -63,7 +63,7 @@ Qwen2-VL giới thiệu Multimodal Rotary Position Embedding. Thay vị trí ph�
 
 M-RoPE cung cấp độ phân giải động nguyên bản không huấn luyện lại. Khi suy luận đưa bất kỳ ảnh HxW, bộ nhúng patch tạo H/14 x W/14 token, mỗi token nhận vị trí (t=0, r=row, c=col), RoPE quay attention với tần số đúng, xong. Qwen2.5-VL và Qwen3-VL tiếp tục. V2PE InternVL3 cùng ý tưởng với mã hóa thay đổi theo phương thức.
 
-Khác AnyRes, M-RoPE có O(H x W / P^2) token ở độ phân giải nguyên bản — không chi phí ô nhân thêm. Khác NaViT, nó vẫn kỳ vọng một ảnh mỗi forward. Batch giữa các độ phân giải vẫn cần patch-n'-pack bên trên.
+Khác AnyRes, M-RoPE có $O(H \times W / P^2)$ token ở độ phân giải nguyên bản — không chi phí ô nhân thêm. Khác NaViT, nó vẫn kỳ vọng một ảnh mỗi forward. Batch giữa các độ phân giải vẫn cần patch-n'-pack bên trên.
 
 ### NaFlex (SigLIP 2)
 

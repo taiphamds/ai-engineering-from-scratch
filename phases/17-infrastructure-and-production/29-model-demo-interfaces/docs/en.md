@@ -1,6 +1,6 @@
 # Model Demo Interfaces — From a Function to a Shareable App
 
-> A model demo has one contract: an input, a model call, and an output. Put a limit on each part before you share the link.
+> Một demo mô hình có một hợp đồng: một đầu vào, một lời gọi mô hình, và một đầu ra. Đặt một giới hạn lên mỗi phần trước khi bạn chia sẻ liên kết.
 
 **Type:** Build
 **Languages:** Python
@@ -9,41 +9,41 @@
 
 ## Learning Objectives
 
-- Write the input, model call, and output contract of a demo, with a limit on each part.
-- Build a standard library HTTP app with one HTML page, a JSON endpoint, and a Server-Sent Events endpoint.
-- Validate input in order of cost, and return JSON errors that tell the user the next action.
-- Protect a public demo with a per-client token bucket, a daily usage cap, and an optional access token.
-- Write request logs that keep no input text and no client address.
-- Compare the standard library demo with two framework versions, and name the signals that a demo must become a product.
+- Viết hợp đồng đầu vào, lời gọi mô hình, và đầu ra của một demo, với một giới hạn trên mỗi phần.
+- Dựng một ứng dụng HTTP thư viện chuẩn với một trang HTML, một endpoint JSON, và một endpoint Server-Sent Events.
+- Xác thực đầu vào theo thứ tự chi phí, và trả về các lỗi JSON cho người dùng biết hành động tiếp theo.
+- Bảo vệ một demo công khai bằng một token bucket cho mỗi client, một mức trần sử dụng hằng ngày, và một access token tùy chọn.
+- Viết các log yêu cầu không giữ văn bản đầu vào và không địa chỉ client.
+- So sánh demo thư viện chuẩn với hai phiên bản framework, và nêu các dấu hiệu rằng một demo phải trở thành một sản phẩm.
 
 ## The Problem
 
-Your model works in a notebook. Now a reviewer wants to try ten inputs, and a customer wants to see one result on a phone. Neither of them will open your notebook.
+Mô hình của bạn hoạt động trong một notebook. Bây giờ một người đánh giá muốn thử mười đầu vào, và một khách hàng muốn thấy một kết quả trên điện thoại. Không ai trong số họ sẽ mở notebook của bạn.
 
-A notebook cell has no input limits and no progress display. Its errors are stack traces that only you can read. It also runs with your credentials and your budget. If you put the cell behind a public URL without changes, you can expect failures like these:
+Một ô notebook không có các giới hạn đầu vào và không hiển thị tiến độ. Các lỗi của nó là các stack trace mà chỉ bạn có thể đọc. Nó cũng chạy với thông tin xác thực và ngân sách của bạn. Nếu bạn đặt ô đó đằng sau một URL công khai mà không thay đổi, bạn có thể kỳ vọng các thất bại như sau:
 
-- A user pastes a 40,000-character document. The model call runs for a minute and then fails with a stack trace.
-- One script sends 500 requests in one minute. Each request is a paid model call.
-- The page shows nothing for eight seconds, so the user clicks the button four more times.
-- The server log keeps every input, including the input with a customer account number.
+- Một người dùng dán một tài liệu 40,000 ký tự. Lời gọi mô hình chạy trong một phút rồi thất bại với một stack trace.
+- Một script gửi 500 yêu cầu trong một phút. Mỗi yêu cầu là một lời gọi mô hình trả phí.
+- Trang không hiển thị gì trong tám giây, nên người dùng nhấp nút thêm bốn lần.
+- Log server giữ mọi đầu vào, bao gồm đầu vào có một số tài khoản khách hàng.
 
-A demo interface prevents these failures with a small amount of code. This lesson builds one with the Python standard library, so you can see every part. Then it builds the same demo with two popular frameworks and compares what each one does by default.
+Một giao diện demo ngăn các thất bại này bằng một lượng mã nhỏ. Bài học này dựng một giao diện bằng thư viện chuẩn Python, để bạn có thể thấy mọi phần. Sau đó nó dựng cùng demo bằng hai framework phổ biến và so sánh mỗi framework mặc định làm gì.
 
 ## The Concept
 
 ### A demo is a contract
 
-Every demo has three parts. The input is what the user can send. The model call turns the input into an output. The output is what the user sees, and that includes errors.
+Mọi demo có ba phần. Đầu vào là những gì người dùng có thể gửi. Lời gọi mô hình chuyển đầu vào thành một đầu ra. Đầu ra là những gì người dùng thấy, và điều đó bao gồm các lỗi.
 
-Write the contract down before you write the page:
+Viết hợp đồng ra trước khi bạn viết trang:
 
-| Part | Question to answer | Answer in this lesson |
+| Phần | Câu hỏi cần trả lời | Câu trả lời trong bài học này |
 |------|--------------------|-----------------------|
-| Input | What type, what size, which characters? | A string of 1 to 500 characters, with no control characters |
-| Model call | How long does one call take, and what does it cost? | A toy keyword model that runs in under a millisecond at no cost |
-| Output | What does the user see on success and on failure? | A label, a score, and a reply, or a JSON error with a hint |
+| Đầu vào | Kiểu gì, kích thước gì, những ký tự nào? | Một chuỗi từ 1 đến 500 ký tự, không có ký tự điều khiển |
+| Lời gọi mô hình | Một lời gọi mất bao lâu, và nó tốn bao nhiêu? | Một mô hình từ khóa đồ chơi chạy dưới một mili giây không mất phí |
+| Đầu ra | Người dùng thấy gì khi thành công và khi thất bại? | Một nhãn, một điểm số, và một câu trả lời, hoặc một lỗi JSON có gợi ý |
 
-A notebook has no limit on any of the three parts. A demo sets a limit on each part, and the server applies the limits to every client.
+Một notebook không có giới hạn trên bất kỳ phần nào trong ba phần. Một demo đặt một giới hạn trên mỗi phần, và server áp dụng các giới hạn cho mọi client.
 
 ```mermaid
 flowchart LR
@@ -61,51 +61,51 @@ flowchart LR
   Cap -.->|503| Err
 ```
 
-The checks run in order of cost. A bad request stops at the first check that it fails, so it costs the server almost nothing. The model call comes last, because it is the only step that costs money.
+Các phép kiểm tra chạy theo thứ tự chi phí. Một yêu cầu không hợp lệ dừng tại phép kiểm tra đầu tiên mà nó trượt, nên nó gần như không tốn gì cho server. Lời gọi mô hình đến cuối cùng, vì nó là bước duy nhất tốn tiền.
 
 ### Validate before the model runs
 
-The browser can check input before it sends anything. The `maxlength` and `required` attributes on a text area give the user feedback with no network call. These checks help honest users only. Any client can send a request without the page, so the server repeats every check.
+Trình duyệt có thể kiểm tra đầu vào trước khi gửi bất cứ thứ gì. Các thuộc tính `maxlength` và `required` trên một vùng văn bản cho người dùng phản hồi không cần lời gọi mạng. Các phép kiểm tra này chỉ giúp những người dùng trung thực. Bất kỳ client nào cũng có thể gửi một yêu cầu mà không qua trang, nên server lặp lại mọi phép kiểm tra.
 
-Put the server checks in order of cost:
+Đặt các phép kiểm tra server theo thứ tự chi phí:
 
-1. Read the `Content-Length` header. Refuse a body over the limit before you read it.
-2. Parse the JSON body. Refuse a body that is not a JSON object.
-3. Check the fields. Refuse empty text, text over the limit, and control characters.
-4. Spend a model call only on a request that passed every check.
+1. Đọc header `Content-Length`. Từ chối một body vượt giới hạn trước khi bạn đọc nó.
+2. Phân tích body JSON. Từ chối một body không phải đối tượng JSON.
+3. Kiểm tra các trường. Từ chối văn bản rỗng, văn bản vượt giới hạn, và các ký tự điều khiển.
+4. Chỉ dùng một lời gọi mô hình cho một yêu cầu đã vượt qua mọi phép kiểm tra.
 
-| Failed check | HTTP status | Error code |
+| Phép kiểm tra trượt | Trạng thái HTTP | Mã lỗi |
 |--------------|-------------|------------|
-| No `Content-Length` header | 411 Length Required | `length_required` |
-| `Content-Length` is not a number | 400 Bad Request | `bad_length` |
-| Body over 4,096 bytes | 413 Content Too Large | `body_too_large` |
-| Body stops before `Content-Length` bytes arrive | 408 Request Timeout | `request_timeout` |
-| Content type is not JSON | 415 Unsupported Media Type | `unsupported_media_type` |
-| Body is not a JSON object | 400 Bad Request | `bad_json` |
-| Text is missing, empty, too long, or has control characters | 422 Unprocessable Content | `missing_text`, `empty_text`, `text_too_long`, `control_characters` |
+| Không có header `Content-Length` | 411 Length Required | `length_required` |
+| `Content-Length` không phải một số | 400 Bad Request | `bad_length` |
+| Body vượt 4,096 byte | 413 Content Too Large | `body_too_large` |
+| Body dừng trước khi `Content-Length` byte đến | 408 Request Timeout | `request_timeout` |
+| Kiểu nội dung không phải JSON | 415 Unsupported Media Type | `unsupported_media_type` |
+| Body không phải một đối tượng JSON | 400 Bad Request | `bad_json` |
+| Văn bản thiếu, rỗng, quá dài, hoặc có ký tự điều khiển | 422 Unprocessable Content | `missing_text`, `empty_text`, `text_too_long`, `control_characters` |
 
-RFC 9110 defines these status codes and their names.
+RFC 9110 định nghĩa các mã trạng thái này và các tên của chúng.
 
-Examples are part of the input design. An example shows the user what a good input looks like. It also gives a reviewer a test with one click. Pick one example for each output class. This demo has a positive, a negative, and a neutral example.
+Các ví dụ là một phần của thiết kế đầu vào. Một ví dụ cho người dùng thấy một đầu vào tốt trông như thế nào. Nó cũng cho một người đánh giá một kiểm thử với một lần nhấp. Chọn một ví dụ cho mỗi lớp đầu ra. Demo này có một ví dụ tích cực, một tiêu cực, và một trung lập.
 
 ### Show that the model is working
 
-A model call can take several seconds. With no feedback, the user cannot tell a slow model from a broken page. A user who sees no change can click again, and then the server gets a second paid request.
+Một lời gọi mô hình có thể mất vài giây. Không có phản hồi, người dùng không thể phân biệt một mô hình chậm với một trang bị hỏng. Một người dùng không thấy thay đổi có thể nhấp lần nữa, và khi đó server nhận một yêu cầu trả phí thứ hai.
 
-The page in this lesson gives four kinds of feedback:
+Trang trong bài học này cho bốn loại phản hồi:
 
-- It disables the submit button while a request runs.
-- It shows the elapsed time and updates it every 100 milliseconds.
-- It shows the time to first token when the first token arrives.
-- It shows the total time when the request ends.
+- Nó vô hiệu hóa nút gửi khi một yêu cầu chạy.
+- Nó hiển thị thời gian đã trôi qua và cập nhật mỗi 100 mili giây.
+- Nó hiển thị thời gian đến token đầu tiên khi token đầu tiên đến.
+- Nó hiển thị tổng thời gian khi yêu cầu kết thúc.
 
-When you studied [inference metrics](../../08-inference-metrics-goodput/), time to first token (TTFT) was a server metric. The demo page shows the same number to the user, measured in the browser.
+Khi bạn học [các metric suy luận](../../08-inference-metrics-goodput/), thời gian đến token đầu tiên (TTFT) là một metric server. Trang demo hiển thị cùng con số cho người dùng, được đo trong trình duyệt.
 
 ### Send the output as a stream
 
-A language model produces its reply one token at a time. If the server waits for the last token, the user waits for the full generation. If the server sends each token when it is ready, the user starts to read after the first token.
+Một mô hình ngôn ngữ tạo câu trả lời của nó từng token một. Nếu server chờ token cuối cùng, người dùng chờ toàn bộ quá trình sinh. Nếu server gửi mỗi token khi nó sẵn sàng, người dùng bắt đầu đọc sau token đầu tiên.
 
-Server-Sent Events (SSE) is the standard format for this. The response has the content type `text/event-stream`. Each event is a group of `event:` and `data:` lines, and a blank line ends the event. The WHATWG HTML standard defines the format.
+Server-Sent Events (SSE) là định dạng chuẩn cho việc này. Phản hồi có kiểu nội dung `text/event-stream`. Mỗi sự kiện là một nhóm các dòng `event:` và `data:`, và một dòng trống kết thúc sự kiện. Tiêu chuẩn HTML WHATWG định nghĩa định dạng.
 
 ```text
 event: token
@@ -118,17 +118,17 @@ event: done
 data: {"label":"positive","score":1.0,"tokens":11}
 ```
 
-The browser has an `EventSource` interface for SSE, but it only sends GET requests. A GET request puts the input in the URL, and web servers and proxies write URLs into their access logs. This demo sends a POST request with a JSON body instead. The page reads the response with `fetch()` and `response.body.getReader()`, and it parses the event format itself.
+Trình duyệt có một giao diện `EventSource` cho SSE, nhưng nó chỉ gửi các yêu cầu GET. Một yêu cầu GET đặt đầu vào trong URL, và các web server cùng proxy viết các URL vào các access log của chúng. Thay vào đó demo này gửi một yêu cầu POST với một body JSON. Trang đọc phản hồi bằng `fetch()` và `response.body.getReader()`, và nó tự phân tích định dạng sự kiện.
 
-A stream has one problem that a single JSON reply does not have. The server sends status 200 before the first token. If the model fails after that, the server cannot change the status. So the server sends an `error` event in the stream, and the page shows that event as an error.
+Một stream có một vấn đề mà một câu trả lời JSON đơn lẻ không có. Server gửi trạng thái 200 trước token đầu tiên. Nếu mô hình thất bại sau đó, server không thể thay đổi trạng thái. Nên server gửi một sự kiện `error` trong stream, và trang hiển thị sự kiện đó là một lỗi.
 
-When you built the [production LLM application](../../../11-llm-engineering/13-production-app/), a framework sent the tokens over SSE for you. This lesson writes the same protocol by hand, so you can see each line that the server sends.
+Khi bạn dựng [ứng dụng LLM production](../../../11-llm-engineering/13-production-app/), một framework gửi các token qua SSE cho bạn. Bài học này viết cùng giao thức bằng tay, để bạn có thể thấy mỗi dòng mà server gửi.
 
 ### Write errors that a user can act on
 
-An error message has two jobs. It tells the user what happened, and it tells the user what to do next. A stack trace does neither job for a stranger.
+Một thông điệp lỗi có hai nhiệm vụ. Nó cho người dùng biết điều gì đã xảy ra, và nó cho người dùng biết phải làm gì tiếp theo. Một stack trace không làm nhiệm vụ nào cho một người lạ.
 
-Every error in this demo has the same JSON shape:
+Mọi lỗi trong demo này có cùng hình dạng JSON:
 
 ```json
 {
@@ -141,61 +141,61 @@ Every error in this demo has the same JSON shape:
 }
 ```
 
-- `code` is a stable name. Client code and tests compare against it.
-- `message` states the fact, with the numbers that the user needs.
-- `hint` gives the user one action.
-- `request_id` connects a user report to one log record.
+- `code` là một tên ổn định. Mã client và các kiểm thử so sánh với nó.
+- `message` nêu sự việc, với các con số mà người dùng cần.
+- `hint` cho người dùng một hành động.
+- `request_id` kết nối một báo cáo người dùng với một bản ghi log.
 
-RFC 9457 defines a standard error format for HTTP APIs, called problem details. This demo uses a smaller shape for the same purpose. Use RFC 9457 when other teams call your API.
+RFC 9457 định nghĩa một định dạng lỗi chuẩn cho các API HTTP, được gọi là problem details. Demo này dùng một hình dạng nhỏ hơn cho cùng mục đích. Dùng RFC 9457 khi các nhóm khác gọi API của bạn.
 
 ### Share a public demo safely
 
-A public link changes who can send requests. Plan one control for each risk:
+Một liên kết công khai thay đổi ai có thể gửi yêu cầu. Lập kế hoạch một biện pháp kiểm soát cho mỗi rủi ro:
 
-| Risk | Control in this demo | Control for a larger audience |
+| Rủi ro | Biện pháp kiểm soát trong demo này | Biện pháp kiểm soát cho một lượng người dùng lớn hơn |
 |------|----------------------|-------------------------------|
-| One client sends too many requests | A token bucket per client, with 429 and `Retry-After` | Per-user limits after sign-in |
-| Strangers find the link | An optional access token in the `Authorization` header | Single sign-on with an identity provider |
-| Total cost grows with no limit | A daily usage cap, with 503 and `Retry-After` | Spend limits and alerts at the model provider |
-| Very large or unusual input | Body size limit, text length limit, control character check | Content moderation on input and output |
-| Logs keep private input | Records with the input length and a keyed hash of the client | A retention period and access control on the logs |
+| Một client gửi quá nhiều yêu cầu | Một token bucket cho mỗi client, với 429 và `Retry-After` | Các giới hạn theo người dùng sau khi đăng nhập |
+| Những người lạ tìm thấy liên kết | Một access token tùy chọn trong header `Authorization` | Đăng nhập một lần với một nhà cung cấp danh tính |
+| Tổng chi phí tăng không có giới hạn | Một mức trần sử dụng hằng ngày, với 503 và `Retry-After` | Các giới hạn chi tiêu và cảnh báo tại nhà cung cấp mô hình |
+| Đầu vào rất lớn hoặc bất thường | Giới hạn kích thước body, giới hạn độ dài văn bản, kiểm tra ký tự điều khiển | Kiểm duyệt nội dung trên đầu vào và đầu ra |
+| Các log giữ đầu vào riêng tư | Các bản ghi với độ dài đầu vào và một hash có khóa của client | Một thời hạn lưu giữ và kiểm soát truy cập trên các log |
 
-A token bucket uses two numbers. The capacity is the largest burst that one client can send. The refill rate is the long-run request rate. Each request takes one token, and the bucket refills continuously up to its capacity:
+Một token bucket dùng hai con số. Dung lượng là đợt bùng phát lớn nhất mà một client có thể gửi. Tốc độ nạp lại là tốc độ yêu cầu dài hạn. Mỗi yêu cầu lấy một token, và bucket nạp lại liên tục đến dung lượng của nó:
 
 ```text
 tokens = min(capacity, tokens + refill_rate * seconds_since_last_request)
 accept the request if tokens >= 1, then subtract 1
 ```
 
-When the bucket is empty, the server answers `429 Too Many Requests`. RFC 6585 defines status 429, and it lets the server add a `Retry-After` header. This demo always adds the header, with the number of seconds until the next token. The page reads the header and disables the button for that time.
+Khi bucket rỗng, server trả lời `429 Too Many Requests`. RFC 6585 định nghĩa trạng thái 429, và nó cho phép server thêm một header `Retry-After`. Demo này luôn thêm header, với số giây đến token tiếp theo. Trang đọc header và vô hiệu hóa nút trong khoảng thời gian đó.
 
-The demo uses the client IP address as the bucket key. Behind a reverse proxy, every request comes from the proxy address, so all users share one bucket. In that case, read the client address from a header that your own proxy sets. Do not trust that header from any other source, because a client can put any value in it.
+Demo dùng địa chỉ IP client làm khóa bucket. Đằng sau một reverse proxy, mọi yêu cầu đến từ địa chỉ proxy, nên tất cả người dùng dùng chung một bucket. Trong trường hợp đó, đọc địa chỉ client từ một header mà proxy của chính bạn đặt. Không tin header đó từ bất kỳ nguồn nào khác, vì một client có thể đặt bất kỳ giá trị nào vào nó.
 
-When you studied [AI gateways](../../19-ai-gateways/), the gateway applied rate limits per tenant. A demo needs the same control at a smaller scale. A rate limit controls each client, but it does not control the total. A hundred clients that each stay under the limit can still use the full budget. A usage cap counts all model calls in one day and refuses calls after a fixed number.
+Khi bạn học [các AI gateway](../../19-ai-gateways/), gateway áp dụng các giới hạn tốc độ theo tenant. Một demo cần cùng biện pháp kiểm soát ở quy mô nhỏ hơn. Một giới hạn tốc độ kiểm soát mỗi client, nhưng nó không kiểm soát tổng. Một trăm client mỗi client đều dưới giới hạn vẫn có thể dùng toàn bộ ngân sách. Một mức trần sử dụng đếm tất cả các lời gọi mô hình trong một ngày và từ chối các lời gọi sau một con số cố định.
 
-Logs need the same care as input. The default `http.server` handler writes the client IP address and the request line to standard error. If the input is in the URL, the input goes into the log. This demo replaces that log line. Each request writes one record with the route, the status, the error code, the latency, and the input length. The client address becomes a keyed hash, so you can count requests per client without storing the address.
+Các log cần sự cẩn thận tương tự đầu vào. Handler `http.server` mặc định viết địa chỉ IP client và dòng yêu cầu vào standard error. Nếu đầu vào nằm trong URL, đầu vào đi vào log. Demo này thay thế dòng log đó. Mỗi yêu cầu viết một bản ghi với route, trạng thái, mã lỗi, độ trễ, và độ dài đầu vào. Địa chỉ client trở thành một hash có khóa, để bạn có thể đếm các yêu cầu theo client mà không lưu địa chỉ.
 
-Tell users what you keep. The demo page says that the server keeps the length of the text and never the text itself.
+Cho người dùng biết bạn giữ gì. Trang demo nói server giữ độ dài văn bản và không bao giờ chính văn bản.
 
 ### When a demo becomes a product
 
-A demo serves known people in short sessions from one process. These signals tell you that the demo is now a product:
+Một demo phục vụ những người đã biết trong các phiên ngắn từ một tiến trình. Những dấu hiệu này cho bạn biết demo hiện là một sản phẩm:
 
-- People outside your team use it every week.
-- Someone asks for an uptime target, or reports an outage.
-- Users ask to sign in, save results, or see their history.
-- The weekly model cost is a line in a budget.
-- The input includes data that a contract or a law covers.
+- Những người ngoài nhóm của bạn dùng nó mỗi tuần.
+- Ai đó yêu cầu một mục tiêu uptime, hoặc báo cáo một lần ngừng hoạt động.
+- Người dùng yêu cầu đăng nhập, lưu kết quả, hoặc xem lịch sử của họ.
+- Chi phí mô hình hằng tuần là một dòng trong một ngân sách.
+- Đầu vào bao gồm dữ liệu mà một hợp đồng hoặc một luật điều chỉnh.
 
-| Property | Demo | Product |
+| Thuộc tính | Demo | Sản phẩm |
 |----------|------|---------|
-| Users | Known people, short sessions | Unknown people, daily use |
-| State | None | Accounts, history, saved results |
-| Availability | Best effort, one process | A written target, replicas, an on-call owner |
-| Cost control | One daily usage cap | Per-user quotas and billing |
-| Observability | One log record per request | Traces, metrics, and alerts |
+| Người dùng | Những người đã biết, các phiên ngắn | Những người chưa biết, sử dụng hằng ngày |
+| Trạng thái | Không có | Các tài khoản, lịch sử, kết quả đã lưu |
+| Tính khả dụng | Nỗ lực tốt nhất, một tiến trình | Một mục tiêu được viết ra, các replica, một người phụ trách trực |
+| Kiểm soát chi phí | Một mức trần sử dụng hằng ngày | Các quota theo người dùng và thanh toán |
+| Khả năng quan sát | Một bản ghi log cho mỗi yêu cầu | Các trace, metric, và cảnh báo |
 
-When you see these signals, move the demo onto the production stack from the production LLM application lesson. That stack adds real authentication, fallback models, tracing, and cost tracking per user.
+Khi bạn thấy những dấu hiệu này, chuyển demo sang stack production từ bài học ứng dụng LLM production. Stack đó thêm xác thực thực sự, các mô hình dự phòng, tracing, và theo dõi chi phí theo người dùng.
 
 ```figure
 demo-token-bucket
@@ -203,23 +203,23 @@ demo-token-bucket
 
 ## Build It
 
-The code is one file, `code/main.py`, with no dependencies outside the standard library. Run the self-test first:
+Mã là một tệp, `code/main.py`, không có dependency ngoài thư viện chuẩn. Chạy self-test trước:
 
 ```bash
 python3 code/main.py
 ```
 
-The self-test checks the validator, the token bucket, the stream format, and one real HTTP round trip. It starts the server on a free port, sends three requests, stops the server, and exits. Start the server for a browser only when you need it:
+Self-test kiểm tra validator, token bucket, định dạng stream, và một vòng HTTP thực sự. Nó khởi động server trên một cổng trống, gửi ba yêu cầu, dừng server, và thoát. Chỉ khởi động server cho một trình duyệt khi bạn cần nó:
 
 ```bash
 python3 code/main.py --serve
 ```
 
-Open `http://127.0.0.1:8000` in a browser. Press Ctrl+C to stop the server.
+Mở `http://127.0.0.1:8000` trong một trình duyệt. Nhấn Ctrl+C để dừng server.
 
 ### Step 1: The model call
 
-The model is a toy keyword counter. It labels text as positive, negative, or neutral. It also produces a short reply, one token at a time.
+Mô hình là một bộ đếm từ khóa đồ chơi. Nó gắn nhãn văn bản là tích cực, tiêu cực, hoặc trung lập. Nó cũng tạo một câu trả lời ngắn, từng token một.
 
 ```python
 def classify(text):
@@ -249,11 +249,11 @@ def generate(text):
         yield " " + part
 ```
 
-A real model replaces `generate` and nothing else. Put an API call or a local model inside it. Keep the signature: a string goes in, and tokens come out. The validator, the limits, and the page stay the same.
+Một mô hình thật thay thế `generate` và không gì khác. Đặt một lời gọi API hoặc một mô hình cục bộ bên trong nó. Giữ chữ ký: một chuỗi đi vào, và các token đi ra. Validator, các giới hạn, và trang giữ nguyên.
 
 ### Step 2: Validation and error responses
 
-One exception class carries every error. It holds the HTTP status, a stable code, a message, a hint, and optional response headers.
+Một lớp ngoại lệ mang mọi lỗi. Nó giữ trạng thái HTTP, một mã ổn định, một thông điệp, một gợi ý, và các header phản hồi tùy chọn.
 
 ```python
 class DemoError(Exception):
@@ -284,7 +284,7 @@ def validate_text(payload, max_chars=MAX_CHARS):
     return text
 ```
 
-The validator removes leading and trailing white space first. A text of only spaces then fails as empty, and the hint tells the user what to type. `check_body_size` and `parse_json_body` use the same pattern for the 411, 413, 415, and 400 cases. `error_body` turns any `DemoError` into the JSON shape from the concept section.
+Validator loại bỏ khoảng trắng đầu và cuối trước. Một văn bản chỉ có dấu cách khi đó trượt vì rỗng, và gợi ý cho người dùng biết cần nhập gì. `check_body_size` và `parse_json_body` dùng cùng mẫu cho các trường hợp 411, 413, 415, và 400. `error_body` chuyển bất kỳ `DemoError` nào thành hình dạng JSON từ mục khái niệm.
 
 ### Step 3: The token bucket
 
@@ -310,11 +310,11 @@ class TokenBucket:
         return (cost - self.tokens) / self.refill_per_second
 ```
 
-`take` returns 0.0 when it accepts the request. Otherwise it returns the seconds until the bucket has enough tokens. The server rounds that value up and sends it in `Retry-After`.
+`take` trả về 0.0 khi nó chấp nhận yêu cầu. Nếu không nó trả về số giây đến khi bucket có đủ token. Server làm tròn giá trị đó lên và gửi nó trong `Retry-After`.
 
-`RateLimiter` keeps one bucket per client in an `OrderedDict`. A lock protects the dictionary, because `ThreadingHTTPServer` handles each request in its own thread. When the dictionary has more than `max_clients` entries, the limiter removes the client with the oldest request. A removed client gets a full bucket on its next request. Set `max_clients` above the number of active clients that you expect.
+`RateLimiter` giữ một bucket cho mỗi client trong một `OrderedDict`. Một khóa bảo vệ từ điển, vì `ThreadingHTTPServer` xử lý mỗi yêu cầu trong luồng riêng của nó. Khi từ điển có hơn `max_clients` mục, bộ giới hạn loại bỏ client có yêu cầu cũ nhất. Một client bị loại bỏ nhận một bucket đầy ở yêu cầu tiếp theo của nó. Đặt `max_clients` cao hơn số client hoạt động mà bạn kỳ vọng.
 
-The limiter takes a `clock` argument. The tests pass a `FakeClock`, so a test can move time forward by ten seconds with no wait. `UsageCap` uses the same clock pattern for the daily total. It counts calls in fixed windows of 86,400 seconds, and it returns the seconds until the next window when the count is full.
+Bộ giới hạn nhận một đối số `clock`. Các kiểm thử truyền một `FakeClock`, để một kiểm thử có thể tiến thời gian thêm mười giây mà không chờ. `UsageCap` dùng cùng mẫu đồng hồ cho tổng hằng ngày. Nó đếm các lời gọi trong các cửa sổ cố định 86,400 giây, và nó trả về số giây đến cửa sổ tiếp theo khi số đếm đầy.
 
 ### Step 4: The stream
 
@@ -339,13 +339,13 @@ def stream_events(text, generate_fn=generate, delay=0.0, sleep=time.sleep):
     yield sse_event("done", {"label": result["label"], "score": result["score"], "tokens": count})
 ```
 
-`json.dumps` writes a newline inside a string as the two characters `\n`. Each event therefore has one data line with no raw newline in it. A raw newline in the data would break the event format.
+`json.dumps` viết một ký tự xuống dòng bên trong một chuỗi thành hai ký tự `\n`. Vì vậy mỗi sự kiện có một dòng dữ liệu không có ký tự xuống dòng thô trong đó. Một ký tự xuống dòng thô trong dữ liệu sẽ phá định dạng sự kiện.
 
-The generator catches a model failure and sends an `error` event, because the server already sent the status line. The `delay` and `sleep` arguments slow the stream down for a browser, and they keep the tests fast.
+Generator bắt một lỗi mô hình và gửi một sự kiện `error`, vì server đã gửi dòng trạng thái. Các đối số `delay` và `sleep` làm chậm stream cho một trình duyệt, và chúng giữ các kiểm thử nhanh.
 
 ### Step 5: The request handler
 
-`DemoHandler` extends `BaseHTTPRequestHandler`. The POST handler runs the checks in the order from the concept section:
+`DemoHandler` mở rộng `BaseHTTPRequestHandler`. Handler POST chạy các phép kiểm tra theo thứ tự từ mục khái niệm:
 
 ```python
 def do_POST(self):
@@ -394,20 +394,20 @@ def do_POST(self):
         app.log.record(request_id, route, client_id, status, chars, latency_ms, code)
 ```
 
-`admit` checks the access token and the token bucket. `charge` checks the daily cap. It runs last, so only valid requests count against the cap. Every request writes one log record in the `finally` block, and that includes rejected requests. The record keeps `route`, never the raw path, because a path can carry a query string with user text.
+`admit` kiểm tra access token và token bucket. `charge` kiểm tra mức trần hằng ngày. Nó chạy cuối cùng, để chỉ các yêu cầu hợp lệ được tính vào mức trần. Mọi yêu cầu viết một bản ghi log trong khối `finally`, và điều đó bao gồm các yêu cầu bị từ chối. Bản ghi giữ `route`, không bao giờ đường dẫn thô, vì một đường dẫn có thể mang một chuỗi truy vấn có văn bản người dùng.
 
-Four details prevent failures that are easy to miss:
+Bốn chi tiết ngăn các thất bại dễ bị bỏ sót:
 
-- `timeout = 10` on the handler class closes a connection when the client stops sending. Without it, a client that declares 100 bytes and sends 10 holds a server thread forever. The handler sends a 408 JSON error with the request id and closes the connection. A timeout after the stream starts only closes the connection, because the status line is already sent.
-- `log_message` returns without output. This removes the default log line with the client address and the request line.
-- `drain` reads and discards up to 64 KiB of a refused body. RFC 1122 says that TCP sends a reset when a host closes a connection with unread data. The client can then lose the 413 reply.
-- `send_stream` catches `BrokenPipeError` and closes the generator. When the user closes the tab, the model stops, and the request costs nothing more.
+- `timeout = 10` trên lớp handler đóng một kết nối khi client ngừng gửi. Không có nó, một client khai báo 100 byte và gửi 10 giữ một luồng server mãi mãi. Handler gửi một lỗi JSON 408 với id yêu cầu và đóng kết nối. Một timeout sau khi stream bắt đầu chỉ đóng kết nối, vì dòng trạng thái đã được gửi.
+- `log_message` trả về không có đầu ra. Điều này loại bỏ dòng log mặc định có địa chỉ client và dòng yêu cầu.
+- `drain` đọc và loại bỏ tối đa 64 KiB của một body bị từ chối. RFC 1122 nói TCP gửi một reset khi một máy chủ đóng một kết nối có dữ liệu chưa đọc. Khi đó client có thể mất câu trả lời 413.
+- `send_stream` bắt `BrokenPipeError` và đóng generator. Khi người dùng đóng tab, mô hình dừng, và yêu cầu không tốn thêm gì.
 
-`BaseHTTPRequestHandler` uses HTTP/1.0 by default. The end of a streamed body is then the moment when the server closes the connection. A server that uses HTTP/1.1 sends the body with chunked transfer coding for the same purpose.
+`BaseHTTPRequestHandler` mặc định dùng HTTP/1.0. Khi đó điểm kết thúc của một body được stream là thời điểm server đóng kết nối. Một server dùng HTTP/1.1 gửi body với mã hóa truyền chunked cho cùng mục đích.
 
 ### Step 6: The page
 
-`render_page` returns one HTML document with an inline style and an inline script. The page loads no external script, font, or image. The script reads the stream like this:
+`render_page` trả về một tài liệu HTML với một style inline và một script inline. Trang không nạp script, font, hoặc hình ảnh bên ngoài nào. Script đọc stream như sau:
 
 ```javascript
 const reader = response.body.getReader();
@@ -427,11 +427,11 @@ while (true) {
 }
 ```
 
-A network chunk can end in the middle of an event. The reader keeps the incomplete part in `buffer` until the blank line arrives.
+Một chunk mạng có thể kết thúc ở giữa một sự kiện. Bộ đọc giữ phần chưa hoàn chỉnh trong `buffer` cho đến khi dòng trống đến.
 
-The page writes model output with `textContent` and never with `innerHTML`. Model output is untrusted text. Suppose the page inserts a reply as HTML, and the reply contains an element with an `onerror` attribute. That attribute can then run code in the user's browser.
+Trang viết đầu ra mô hình bằng `textContent` và không bao giờ bằng `innerHTML`. Đầu ra mô hình là văn bản không đáng tin cậy. Giả sử trang chèn một câu trả lời dưới dạng HTML, và câu trả lời chứa một phần tử có một thuộc tính `onerror`. Khi đó thuộc tính đó có thể chạy mã trong trình duyệt của người dùng.
 
-The server also sends a `Content-Security-Policy` header with `default-src 'none'`. The policy allows one inline script and one inline style, identified by their SHA-256 hashes. The browser refuses every other script, including a script that an attacker injects into the page.
+Server cũng gửi một header `Content-Security-Policy` với `default-src 'none'`. Chính sách cho phép một script inline và một style inline, được nhận diện bằng các hash SHA-256 của chúng. Trình duyệt từ chối mọi script khác, bao gồm một script mà một kẻ tấn công chèn vào trang.
 
 ```python
 def csp_hash(source):
@@ -441,7 +441,7 @@ def csp_hash(source):
 
 ### Step 7: Run it and try to break it
 
-Start the server, then use `curl` from a second terminal. Send seven requests in a row to a fresh server. The bucket holds five tokens and gets one new token every two seconds:
+Khởi động server, rồi dùng `curl` từ một terminal thứ hai. Gửi liên tiếp bảy yêu cầu đến một server mới. Bucket giữ năm token và nhận một token mới mỗi hai giây:
 
 ```bash
 for i in 1 2 3 4 5 6 7; do
@@ -454,7 +454,7 @@ done
 200 200 200 200 200 429 429
 ```
 
-Wait ten seconds, then send an empty text:
+Chờ mười giây, rồi gửi một văn bản rỗng:
 
 ```bash
 curl -s -X POST http://127.0.0.1:8000/api/predict \
@@ -465,14 +465,14 @@ curl -s -X POST http://127.0.0.1:8000/api/predict \
 {"error": {"code": "empty_text", "message": "The text is empty.", "hint": "Type a sentence or pick an example.", "request_id": "e3e3599feaea"}}
 ```
 
-Watch the event stream with `curl -N`, which turns off output buffering:
+Xem stream sự kiện bằng `curl -N`, tắt đệm đầu ra:
 
 ```bash
 curl -N -X POST http://127.0.0.1:8000/api/stream \
   -H 'Content-Type: application/json' -d '{"text": "The screen is bright."}'
 ```
 
-To require an access token, set `DEMO_ACCESS_TOKEN` before you start the server. The page then shows a field for the token.
+Để yêu cầu một access token, đặt `DEMO_ACCESS_TOKEN` trước khi bạn khởi động server. Khi đó trang hiển thị một trường cho token.
 
 ```bash
 export DEMO_ACCESS_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
@@ -480,21 +480,21 @@ echo "$DEMO_ACCESS_TOKEN"
 python3 code/main.py --serve
 ```
 
-Run the tests:
+Chạy các kiểm thử:
 
 ```bash
 python3 -m unittest discover -s code/tests -v
 ```
 
-The HTTP tests start the server on port 0, so the operating system picks a free port. `tearDown` stops the server and checks that its thread has ended.
+Các kiểm thử HTTP khởi động server trên cổng 0, để hệ điều hành chọn một cổng trống. `tearDown` dừng server và kiểm tra rằng luồng của nó đã kết thúc.
 
 ## Use It
 
-Two Python frameworks build the same kind of demo with less code: Gradio and Streamlit. Both examples below import the contract from `main.py`, so the validator and the model stay the same. You do not need either framework to run `main.py` or the tests.
+Hai framework Python dựng cùng loại demo với ít mã hơn: Gradio và Streamlit. Cả hai ví dụ bên dưới import hợp đồng từ `main.py`, để validator và mô hình giữ nguyên. Bạn không cần framework nào để chạy `main.py` hoặc các kiểm thử.
 
 ### Components around one function
 
-Gradio puts a web interface around one Python function. Input and output components describe the contract, and a generator function sends partial output.
+Gradio đặt một giao diện web quanh một hàm Python. Các thành phần đầu vào và đầu ra mô tả hợp đồng, và một hàm generator gửi đầu ra từng phần.
 
 ```python
 import os
@@ -528,15 +528,15 @@ if __name__ == "__main__":
     demo.queue(max_size=20).launch(auth=("demo", os.environ["DEMO_PASSWORD"]))
 ```
 
-Each `yield` replaces the whole output value. The function therefore yields the full reply so far at each step.
+Mỗi `yield` thay thế toàn bộ giá trị đầu ra. Vì vậy hàm yield toàn bộ câu trả lời đến thời điểm đó ở mỗi bước.
 
-Set `flagging_mode` on purpose before you share a link. The default mode shows a flag button. When a user presses it, Gradio writes the input and the output to a CSV file on the server. The value `"never"` removes the button.
+Đặt `flagging_mode` có chủ đích trước khi bạn chia sẻ một liên kết. Chế độ mặc định hiển thị một nút đánh dấu. Khi một người dùng nhấn nó, Gradio viết đầu vào và đầu ra vào một tệp CSV trên server. Giá trị `"never"` loại bỏ nút.
 
-`queue(max_size=20)` limits the number of waiting requests. The default concurrency limit is one running call per event. A slow model then serves one user at a time until you raise the limit. Gradio also creates API endpoints when the app launches, so scripts can call the demo without the page. Your rate limit must apply to those endpoints too.
+`queue(max_size=20)` giới hạn số yêu cầu đang chờ. Giới hạn đồng thời mặc định là một lời gọi đang chạy cho mỗi sự kiện. Khi đó một mô hình chậm phục vụ từng người dùng một cho đến khi bạn tăng giới hạn. Gradio cũng tạo các endpoint API khi ứng dụng khởi chạy, nên các script có thể gọi demo mà không qua trang. Giới hạn tốc độ của bạn cũng phải áp dụng cho các endpoint đó.
 
 ### A script that reruns on every input
 
-Streamlit runs your whole script from top to bottom each time the user changes a widget. A form collects its widget values and sends them in one batch when the user presses the submit button.
+Streamlit chạy toàn bộ script của bạn từ trên xuống dưới mỗi lần người dùng thay đổi một widget. Một form thu thập các giá trị widget của nó và gửi chúng trong một batch khi người dùng nhấn nút gửi.
 
 ```python
 import streamlit as st
@@ -561,67 +561,67 @@ if submitted:
         st.write(f"Label: {classify(clean)['label']}")
 ```
 
-`st.write_stream` takes the generator directly and writes each chunk when it arrives. Load a real model with `@st.cache_resource`, because the script runs again on every submit. The decorator keeps one copy of the model for all sessions.
+`st.write_stream` nhận generator trực tiếp và viết mỗi chunk khi nó đến. Nạp một mô hình thật bằng `@st.cache_resource`, vì script chạy lại ở mỗi lần gửi. Decorator giữ một bản sao của mô hình cho tất cả các phiên.
 
 ### What each option does by default
 
-| Need | Standard library (this lesson) | Gradio | Streamlit |
+| Nhu cầu | Thư viện chuẩn (bài học này) | Gradio | Streamlit |
 |------|--------------------------------|--------|-----------|
-| Form, examples, result area | You write the HTML | `Interface` builds them from components and `examples` | Widgets such as `st.text_area` and `st.selectbox` |
-| Input length limit | `maxlength` on the page and a server check | `max_length` on `Textbox` | `max_chars` on `st.text_area` |
-| Partial output | You write SSE and the stream reader | A generator function, where each `yield` replaces the output | `st.write_stream` with a generator of chunks |
-| Progress display | You write the timer | A progress display on the output area, set by `show_progress` | `st.write_stream` shows each chunk when it arrives |
-| Errors for the user | JSON with `code`, `message`, `hint`, `request_id` | `raise gr.Error(...)` shows the message | `st.error(...)` shows the message |
-| Concurrency | One thread per request, no limit | A queue, with one running call per event by default | Each interaction runs the script again for that session |
-| Public link | You run the server and the domain | `launch(share=True)` gives a link that expires after one week | You deploy the app to a server |
-| Sign-in | A bearer token check | `launch(auth=...)` with user names and passwords | `st.login()` with an OpenID Connect provider |
-| Rate limit and cost cap | Token bucket and daily cap | Your code, with the client address from the request | Your code |
-| Input that the tool writes to disk | Only the input length, in the log | Flagged samples in a CSV file, unless `flagging_mode="never"` | Your code decides |
+| Form, ví dụ, vùng kết quả | Bạn viết HTML | `Interface` dựng chúng từ các thành phần và `examples` | Các widget như `st.text_area` và `st.selectbox` |
+| Giới hạn độ dài đầu vào | `maxlength` trên trang và một phép kiểm tra server | `max_length` trên `Textbox` | `max_chars` trên `st.text_area` |
+| Đầu ra từng phần | Bạn viết SSE và bộ đọc stream | Một hàm generator, nơi mỗi `yield` thay thế đầu ra | `st.write_stream` với một generator các chunk |
+| Hiển thị tiến độ | Bạn viết bộ đếm thời gian | Một hiển thị tiến độ trên vùng đầu ra, được đặt bằng `show_progress` | `st.write_stream` hiển thị mỗi chunk khi nó đến |
+| Các lỗi cho người dùng | JSON với `code`, `message`, `hint`, `request_id` | `raise gr.Error(...)` hiển thị thông điệp | `st.error(...)` hiển thị thông điệp |
+| Tính đồng thời | Một luồng cho mỗi yêu cầu, không giới hạn | Một hàng đợi, với một lời gọi đang chạy cho mỗi sự kiện theo mặc định | Mỗi tương tác chạy lại script cho phiên đó |
+| Liên kết công khai | Bạn vận hành server và tên miền | `launch(share=True)` cho một liên kết hết hạn sau một tuần | Bạn triển khai ứng dụng lên một server |
+| Đăng nhập | Một phép kiểm tra bearer token | `launch(auth=...)` với tên người dùng và mật khẩu | `st.login()` với một nhà cung cấp OpenID Connect |
+| Giới hạn tốc độ và mức trần chi phí | Token bucket và mức trần hằng ngày | Mã của bạn, với địa chỉ client từ yêu cầu | Mã của bạn |
+| Đầu vào mà công cụ ghi ra đĩa | Chỉ độ dài đầu vào, trong log | Các mẫu được đánh dấu trong một tệp CSV, trừ khi `flagging_mode="never"` | Mã của bạn quyết định |
 
-The frameworks save the most work on the page: the form, the examples, the progress display, and the partial output. They save less work on the risks of a public link. In all three versions, the rate limit, the cost cap, and log privacy are your job. The standard library version shows each of these parts, so you know what to check in a framework.
+Các framework tiết kiệm nhiều công việc nhất trên trang: form, các ví dụ, hiển thị tiến độ, và đầu ra từng phần. Chúng tiết kiệm ít công việc hơn trên các rủi ro của một liên kết công khai. Trong cả ba phiên bản, giới hạn tốc độ, mức trần chi phí, và quyền riêng tư log là công việc của bạn. Phiên bản thư viện chuẩn cho thấy từng phần này, để bạn biết cần kiểm tra gì trong một framework.
 
 ## Ship It
 
-This lesson produces `outputs/skill-demo-interface-checklist.md`. Give it a description of a model demo or its code. It returns a pass or fail review of the contract, the feedback, the errors, and the controls for a public link. Each failure comes with one fix.
+Bài học này tạo `outputs/skill-demo-interface-checklist.md`. Đưa cho nó một mô tả của một demo mô hình hoặc mã của demo. Nó trả về một đánh giá đạt hoặc trượt về hợp đồng, phản hồi, các lỗi, và các biện pháp kiểm soát cho một liên kết công khai. Mỗi mục trượt đi cùng một cách sửa.
 
 ## Exercises
 
-1. Set `BUCKET_CAPACITY` to 2 and `REFILL_PER_SECOND` to 1. Predict the output of the seven-request loop. Then run it and compare.
-2. Add a `language` field to the request body. Accept only `"en"`. Return a 422 error with a hint for any other value, and add two tests.
-3. Find a sentence that the toy model labels wrong, such as "The screen is not good." Add it as a fourth example, with a note on the page that explains the limit.
-4. Put the demo behind a reverse proxy on your machine. Add a `trust_proxy` option that reads `X-Forwarded-For` only from the proxy address. Write a test that proves a client cannot choose its own bucket key.
-5. Replace `generate` with a call to a model API that returns tokens as a stream. Keep the validator, the limits, and the event format. Compare the time to first token in the page with the latency in the server log.
+1. Đặt `BUCKET_CAPACITY` thành 2 và `REFILL_PER_SECOND` thành 1. Dự đoán đầu ra của vòng lặp bảy yêu cầu. Sau đó chạy nó và so sánh.
+2. Thêm một trường `language` vào body yêu cầu. Chỉ chấp nhận `"en"`. Trả về một lỗi 422 có gợi ý cho bất kỳ giá trị nào khác, và thêm hai kiểm thử.
+3. Tìm một câu mà mô hình đồ chơi gắn nhãn sai, như "Màn hình không tốt." Thêm nó làm một ví dụ thứ tư, với một ghi chú trên trang giải thích giới hạn.
+4. Đặt demo đằng sau một reverse proxy trên máy của bạn. Thêm một tùy chọn `trust_proxy` chỉ đọc `X-Forwarded-For` từ địa chỉ proxy. Viết một kiểm thử chứng minh rằng một client không thể chọn khóa bucket riêng của nó.
+5. Thay `generate` bằng một lời gọi đến một API mô hình trả về các token dưới dạng một stream. Giữ validator, các giới hạn, và định dạng sự kiện. So sánh thời gian đến token đầu tiên trong trang với độ trễ trong log server.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Demo contract | "The UI" | The input limits, the model call, and the output shape, including errors |
-| Token bucket | "A rate limiter" | A per-client counter that refills at a fixed rate up to a capacity. Each request uses one token |
-| Retry-After | "Try later" | A response header with the number of seconds, or a date, after which the client can try again |
-| Server-Sent Events | "Streaming" | A `text/event-stream` response of `event:` and `data:` lines, with a blank line after each event |
-| Time to first token | "Latency" | The time from the request to the first token on the user's screen |
-| Usage cap | "The budget" | A limit on the total number of model calls in a time window, for all clients together |
-| Keyed hash | "An anonymous ID" | An HMAC of the client address with a secret salt. It is a pseudonym: anyone with the salt can test a known address |
-| Content Security Policy | "CSP" | A response header that tells the browser which scripts, styles, and connections the page can use |
+| Demo contract (Hợp đồng demo) | "UI" | Các giới hạn đầu vào, lời gọi mô hình, và hình dạng đầu ra, bao gồm các lỗi |
+| Token bucket | "Một bộ giới hạn tốc độ" | Một bộ đếm theo client nạp lại ở một tốc độ cố định đến một dung lượng. Mỗi yêu cầu dùng một token |
+| Retry-After | "Thử sau" | Một header phản hồi với số giây, hoặc một ngày, sau đó client có thể thử lại |
+| Server-Sent Events | "Streaming" | Một phản hồi `text/event-stream` gồm các dòng `event:` và `data:`, với một dòng trống sau mỗi sự kiện |
+| Time to first token (Thời gian đến token đầu tiên) | "Độ trễ" | Thời gian từ yêu cầu đến token đầu tiên trên màn hình của người dùng |
+| Usage cap (Mức trần sử dụng) | "Ngân sách" | Một giới hạn trên tổng số lời gọi mô hình trong một cửa sổ thời gian, cho tất cả các client cùng nhau |
+| Keyed hash (Hash có khóa) | "Một ID ẩn danh" | Một HMAC của địa chỉ client với một salt bí mật. Nó là một định danh giả: bất kỳ ai có salt có thể kiểm tra một địa chỉ đã biết |
+| Content Security Policy | "CSP" | Một header phản hồi cho trình duyệt biết trang có thể dùng những script, style, và kết nối nào |
 
 ## Further Reading
 
-- [Python `http.server` documentation](https://docs.python.org/3/library/http.server.html): the server classes, the HTTP/1.0 default, the default log line, and the warning that the module is not for production.
-- [WHATWG HTML Standard, server-sent events](https://html.spec.whatwg.org/multipage/server-sent-events.html): the event stream format and the `EventSource` interface.
-- [MDN, Using server-sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events): examples of the event format and the browser API.
-- [MDN, Using readable streams](https://developer.mozilla.org/en-US/docs/Web/API/Streams_API/Using_readable_streams): how to read a `fetch()` response body chunk by chunk.
-- [MDN, Using the Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch): requests with a JSON body, and response handling.
-- [MDN, 429 Too Many Requests](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/429) and [MDN, Retry-After](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Retry-After): the rate limit status and its header.
-- [MDN, Content Security Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP): hashes for inline scripts and the `default-src` directive.
-- [RFC 6585](https://www.rfc-editor.org/rfc/rfc6585.html): additional HTTP status codes, including 429.
-- [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html): HTTP semantics, including 413, 415, and 422.
-- [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457.html): problem details, a standard JSON error format for HTTP APIs.
-- [RFC 1122](https://www.rfc-editor.org/rfc/rfc1122.html): host requirements, including the TCP reset on close with unread data (section 4.2.2.13).
-- [Gradio, Sharing your app](https://gradio.app/guides/sharing-your-app): share links, authentication, the API page, and rate limits.
-- [Gradio, Streaming outputs](https://gradio.app/guides/streaming-outputs): generator functions as partial output.
-- [Gradio, Interface](https://gradio.app/docs/gradio/interface): `examples`, `flagging_mode`, and `concurrency_limit`.
-- [Gradio, Using flagging](https://gradio.app/guides/using-flagging): where flagged samples go on disk.
-- [Streamlit, Basic concepts](https://docs.streamlit.io/get-started/fundamentals/main-concepts): the rerun data flow.
-- [Streamlit, st.write_stream](https://docs.streamlit.io/develop/api-reference/write-magic/st.write_stream) and [Streamlit, Caching](https://docs.streamlit.io/develop/concepts/architecture/caching): partial output and a model that loads once.
-- [Streamlit, st.login](https://docs.streamlit.io/develop/api-reference/user/st.login): sign-in with an OpenID Connect provider.
+- [Tài liệu Python `http.server`](https://docs.python.org/3/library/http.server.html): các lớp server, mặc định HTTP/1.0, dòng log mặc định, và cảnh báo rằng mô-đun không dành cho production.
+- [Tiêu chuẩn HTML WHATWG, server-sent events](https://html.spec.whatwg.org/multipage/server-sent-events.html): định dạng stream sự kiện và giao diện `EventSource`.
+- [MDN, Sử dụng server-sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events): các ví dụ về định dạng sự kiện và API trình duyệt.
+- [MDN, Sử dụng readable stream](https://developer.mozilla.org/en-US/docs/Web/API/Streams_API/Using_readable_streams): cách đọc một body phản hồi `fetch()` từng chunk.
+- [MDN, Sử dụng Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch): các yêu cầu có một body JSON, và xử lý phản hồi.
+- [MDN, 429 Too Many Requests](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/429) và [MDN, Retry-After](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Retry-After): trạng thái giới hạn tốc độ và header của nó.
+- [MDN, Content Security Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP): các hash cho các script inline và chỉ thị `default-src`.
+- [RFC 6585](https://www.rfc-editor.org/rfc/rfc6585.html): các mã trạng thái HTTP bổ sung, bao gồm 429.
+- [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html): ngữ nghĩa HTTP, bao gồm 413, 415, và 422.
+- [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457.html): problem details, một định dạng lỗi JSON chuẩn cho các API HTTP.
+- [RFC 1122](https://www.rfc-editor.org/rfc/rfc1122.html): các yêu cầu máy chủ, bao gồm TCP reset khi đóng với dữ liệu chưa đọc (mục 4.2.2.13).
+- [Gradio, Chia sẻ ứng dụng của bạn](https://gradio.app/guides/sharing-your-app): các liên kết chia sẻ, xác thực, trang API, và các giới hạn tốc độ.
+- [Gradio, Các đầu ra streaming](https://gradio.app/guides/streaming-outputs): các hàm generator làm đầu ra từng phần.
+- [Gradio, Interface](https://gradio.app/docs/gradio/interface): `examples`, `flagging_mode`, và `concurrency_limit`.
+- [Gradio, Sử dụng flagging](https://gradio.app/guides/using-flagging): nơi các mẫu được đánh dấu đi vào trên đĩa.
+- [Streamlit, Các khái niệm cơ bản](https://docs.streamlit.io/get-started/fundamentals/main-concepts): luồng dữ liệu chạy lại.
+- [Streamlit, st.write_stream](https://docs.streamlit.io/develop/api-reference/write-magic/st.write_stream) và [Streamlit, Caching](https://docs.streamlit.io/develop/concepts/architecture/caching): đầu ra từng phần và một mô hình nạp một lần.
+- [Streamlit, st.login](https://docs.streamlit.io/develop/api-reference/user/st.login): đăng nhập với một nhà cung cấp OpenID Connect.

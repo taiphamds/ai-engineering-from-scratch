@@ -395,3 +395,15 @@ Xem `outputs/prompt-debug-ai-code.md` để có một prompt giúp chẩn đoán
 3. Sử dụng `tracemalloc` để tìm dòng nào trong quy trình tải dữ liệu của bạn cấp phát nhiều bộ nhớ nhất.
 4. Thiết lập TensorBoard cho một lần huấn luyện đơn giản và xác định xem mô hình có khớp quá mức hay không.
 5. Sử dụng `breakpoint()` bên trong một vòng lặp huấn luyện. Thực hành kiểm tra hình dạng, thiết bị và giá trị gradient của tensor từ dấu nhắc của trình gỡ lỗi.
+
+### Hints
+
+**Bài tập 1.** Chạy `python3 phases/00-setup-and-tooling/12-debugging-and-profiling/code/debug_tools.py` và đọc đầu ra của mỗi hàm demo. Sau đó thay đổi mô hình trong `demo_nan_detection` để đầu ra của nó chia cho không, rồi chạy lại; `detect_nan` phải in một cảnh báo NaN với số bước.
+
+**Bài tập 2.** Chạy vòng lặp dưới `python -m cProfile -s cumtime your_script.py`, hoặc bọc nó trong `cProfile.Profile()`. Đọc các hàng đầu của cột `cumtime`; hàm có thời gian lớn nhất thuộc mã của chính bạn là hàm chậm nhất.
+
+**Bài tập 3.** Gọi `tracemalloc.start()` trước mã tải dữ liệu và `tracemalloc.take_snapshot()` sau nó, như trong `demo_memory_tracking`. In `snapshot.statistics("lineno")[:5]`; dòng đầu tiên hiển thị tệp và số dòng có lượng cấp phát lớn nhất.
+
+**Bài tập 4.** Ghi loss huấn luyện và loss xác thực vào một `SummaryWriter` ở mỗi epoch, rồi chạy `tensorboard --logdir=runs`. Nếu loss huấn luyện tiếp tục giảm trong khi loss xác thực tăng, mô hình bị overfit.
+
+**Bài tập 5.** Đặt `breakpoint()` bên trong vòng lặp sau `loss.backward()` và chạy script. Tại dấu nhắc `(Pdb)`, in `x.shape`, `x.device` và `next(model.parameters()).grad`, rồi nhập `c` để tiếp tục đến bước tiếp theo.

@@ -72,7 +72,7 @@ stack:   conv 3x3 -> conv 3x3 -> pool 2x2
 repeat:  16 or 19 conv layers
 ```
 
-Hai tích chập 3x3 nhìn cùng diện tích đầu vào 5x5 như một tích chập 5x5 nhưng có ít tham số hơn (2*9*C^2 = 18C^2 so với 25*C^2) và thêm một ReLU ở giữa. VGG biến quan sát này thành cả một kiến trúc. Sự đơn giản — một loại khối, lặp lại — khiến nó là điểm tham chiếu cho mọi thứ sau đó.
+Hai tích chập 3x3 nhìn cùng diện tích đầu vào 5x5 như một tích chập 5x5 nhưng có ít tham số hơn ($2 \cdot 9 \cdot C^2 = 18C^2$ so với $25 \cdot C^2$) và thêm một ReLU ở giữa. VGG biến quan sát này thành cả một kiến trúc. Sự đơn giản — một loại khối, lặp lại — khiến nó là điểm tham chiếu cho mọi thứ sau đó.
 
 Chi phí: 138M tham số, huấn luyện chậm, suy luận tốn kém.
 
@@ -120,9 +120,11 @@ VGG hoạt động ở 19 lớp vì batch norm (được công bố đồng th�
 
 He, Zhang, Ren, Sun đề xuất một thay đổi khắc phục mọi thứ:
 
-```
-standard block:   y = F(x)
-residual block:   y = F(x) + x
+```math
+\begin{aligned}
+\text{standard block:} \quad & y = F(x) \\
+\text{residual block:} \quad & y = F(x) + x
+\end{aligned}
 ```
 
 `+ x` nghĩa là lớp luôn có thể chọn không làm gì bằng cách đưa `F(x)` về không. Một ResNet 1,000 lớp giờ nhiều nhất chỉ tệ bằng một mạng 1 lớp, vì mỗi khối bổ sung có một lối thoát đơn giản. Với bảo đảm đó, bộ tối ưu hóa sẵn sàng làm mỗi khối hữu ích *một chút* — và hữu ích một chút, xếp chồng 100 lần, là tiên tiến nhất.

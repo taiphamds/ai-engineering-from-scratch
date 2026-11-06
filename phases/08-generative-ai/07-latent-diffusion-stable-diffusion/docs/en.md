@@ -21,9 +21,9 @@ Hầu hết FLOPs đó dùng để đẩy các chi tiết không quan trọng v�
 
 **Hai giai đoạn, được huấn luyện riêng.**
 
-1. **Giai đoạn 1 — VAE.** Encoder `E(x) → z`, decoder `D(z) → x`. Mục tiêu nén: giảm mẫu 8× ở mỗi trục không gian + điều chỉnh kênh để tổng kích thước latent bằng ~1/16 số pixel. Hàm mất mát = tái dựng (L1 + cảm nhận LPIPS) + KL (trọng số nhỏ để `z` không bị buộc quá Gaussian, vì chúng ta không cần lấy mẫu chính xác từ `z`). Thường được huấn luyện với một hàm mất mát đối kháng để ảnh được giải mã sắc nét.
+1. **Giai đoạn 1 — VAE.** Encoder $E(x) \to z$, decoder $D(z) \to x$. Mục tiêu nén: giảm mẫu 8× ở mỗi trục không gian + điều chỉnh kênh để tổng kích thước latent bằng ~1/16 số pixel. Hàm mất mát = tái dựng (L1 + cảm nhận LPIPS) + KL (trọng số nhỏ để $z$ không bị buộc quá Gaussian, vì chúng ta không cần lấy mẫu chính xác từ $z$). Thường được huấn luyện với một hàm mất mát đối kháng để ảnh được giải mã sắc nét.
 
-2. **Giai đoạn 2 — khuếch tán trên `z`.** Coi `z = E(x_real)` là dữ liệu. Huấn luyện một U-Net (hoặc DiT) để khử nhiễu `z_t`. Khi suy luận: lấy mẫu `z_0` qua khuếch tán, rồi `x = D(z_0)`.
+2. **Giai đoạn 2 — khuếch tán trên $z$.** Coi $z = E(x_{\text{real}})$ là dữ liệu. Huấn luyện một U-Net (hoặc DiT) để khử nhiễu $z_t$. Khi suy luận: lấy mẫu $z_0$ qua khuếch tán, rồi $x = D(z_0)$.
 
 **Điều kiện hóa bằng văn bản.** Hai thành phần bổ sung. Một encoder văn bản đóng băng (CLIP-L cho SD 1.x, CLIP-L+OpenCLIP-G cho SD 2/XL, T5-XXL cho SD3 và Flux). Một cơ chế đưa vào bằng cross-attention: mỗi khối U-Net nhận `[Q = image features, K = V = text tokens]` và trộn chúng vào. Các token là cách duy nhất văn bản ảnh hưởng đến ảnh.
 
@@ -49,7 +49,7 @@ noise-schedule
 
 ## Build It
 
-`code/main.py` xếp một "VAE" 1-D đồ chơi (encoder + decoder đồng nhất, để minh họa; một VAE thực sẽ là một mạng conv) lên DDPM từ Bài 06 và thêm điều kiện hóa theo lớp với classifier-free guidance. Nó cho thấy cùng hàm mất mát khuếch tán hoạt động dù bạn chạy trên các giá trị 1-D thô hay trên các giá trị được mã hóa — nhận thức then chốt.
+`code/main.py` xếp một "VAE" đồ chơi 1-D (một encoder cố định co giãn theo 0.5 và nghịch đảo chính xác của nó làm decoder, để minh họa; một VAE thực sẽ là một mạng tích chập) lên trên DDPM từ Bài 06 và thêm điều kiện hóa theo lớp với classifier-free guidance. Nó cho thấy cùng loss diffusion hoạt động dù bạn chạy trên các giá trị 1-D thô hay trên các giá trị đã mã hóa. Đó là nhận xét then chốt.
 
 ### Step 1: encoder/decoder
 
@@ -58,21 +58,21 @@ def encode(x):    return x * 0.5          # toy "compression" to smaller scale
 def decode(z):    return z * 2.0
 ```
 
-Một VAE thực có các trọng số đã huấn luyện. Vì mục đích sư phạm, ánh xạ tuyến tính này đủ để cho thấy khuếch tán hoạt động trên `z` mà không quan tâm không gian dữ liệu gốc.
+Một VAE thực có các trọng số đã huấn luyện. Vì mục đích sư phạm, ánh xạ tuyến tính này đủ để cho thấy khuếch tán hoạt động trên $z$ mà không quan tâm không gian dữ liệu gốc.
 
 ### Step 2: diffusion in `z`-space
 
-Cùng DDPM như Bài 06. Dữ liệu mạng thấy là `z = E(x)`. Sau khi lấy mẫu `z_0`, giải mã bằng `D(z_0)`.
+Cùng DDPM như Bài 06. Dữ liệu mạng thấy là $z = E(x)$. Sau khi lấy mẫu $z_0$, giải mã bằng $D(z_0)$.
 
 ### Step 3: classifier-free guidance
 
-Trong huấn luyện, bỏ nhãn lớp 10% thời gian (thay bằng một null token). Khi suy luận, tính cả `ε_cond` và `ε_uncond`, rồi:
+Trong huấn luyện, bỏ nhãn lớp 10% thời gian (thay bằng một null token). Khi suy luận, tính cả $\epsilon_{\text{cond}}$ và $\epsilon_{\text{uncond}}$, rồi:
 
 ```python
 eps_cfg = (1 + w) * eps_cond - w * eps_uncond
 ```
 
-`w = 0` = không guidance (đa dạng đầy đủ), `w = 3` = mặc định, `w = 7+` = bão hòa / quá sắc nét.
+$w = 0$ = không guidance (đa dạng đầy đủ), $w = 3$ = mặc định, $w = 7+$ = bão hòa / quá sắc nét.
 
 ### Step 4: text conditioning (concept, not code)
 
@@ -90,7 +90,7 @@ h = h + CrossAttention(Q=h, K=text_embed, V=text_embed)
 - **Encoder văn bản âm thầm sai.** SD3 cần T5-XXL với >=128 token, và chuyển về chỉ CLIP gây mất mát. Luôn kiểm tra `use_t5=True` nếu không độ trung thành với prompt lao dốc.
 - **Trộn không gian latent.** SDXL, SD3, Flux đều dùng các VAE khác nhau. Một LoRA được huấn luyện trên latent SDXL sẽ không hoạt động trên SD3. Hugging Face diffusers 0.30+ từ chối tải các checkpoint không khớp.
 - **CFG quá cao.** `w > 10` tạo ra các ảnh bão hòa, bóng dầu và overfit prompt với cái giá là sự đa dạng. Khoảng tốt nhất là `w = 3-7`.
-- **Prompt âm rò rỉ.** Prompt âm rỗng trở thành null token; một prompt âm có nội dung trở thành `ε_uncond`. Chúng không giống nhau; một số pipeline âm thầm mặc định về null.
+- **Prompt âm rò rỉ.** Prompt âm rỗng trở thành null token; một prompt âm có nội dung trở thành $\epsilon_{\text{uncond}}$. Chúng không giống nhau; một số pipeline âm thầm mặc định về null.
 
 ## Use It
 
@@ -111,7 +111,7 @@ Lưu `outputs/skill-sd-prompter.md`. Skill nhận một prompt văn bản + phon
 
 ## Exercises
 
-1. **Dễ.** Chạy `code/main.py` với guidance `w ∈ {0, 1, 3, 7, 15}`. Ghi lại trung bình mẫu theo lớp. Ở `w` nào trung bình các lớp phân kỳ vượt quá trung bình dữ liệu thật?
+1. **Dễ.** Chạy `code/main.py` với guidance $w \in \lbrace 0, 1, 3, 7, 15 \rbrace$. Ghi lại trung bình mẫu theo lớp. Ở $w$ nào trung bình các lớp phân kỳ vượt quá trung bình dữ liệu thật?
 2. **Trung bình.** Thay encoder tuyến tính đồ chơi bằng một cặp encoder/decoder tanh-MLP với một hàm mất mát tái dựng. Huấn luyện lại khuếch tán trên các latent mới. Chất lượng mẫu có thay đổi không?
 3. **Khó.** Thiết lập suy luận Stable Diffusion thực với diffusers: tải `sdxl-base`, chạy 30 bước Euler với CFG=7, đo thời gian. Giờ chuyển sang `sdxl-turbo` với 4 bước và CFG=0. Cùng chủ thể, chất lượng khác — mô tả điều gì đã thay đổi và vì sao.
 
@@ -121,8 +121,8 @@ Lưu `outputs/skill-sd-prompter.md`. Skill nhận một prompt văn bản + phon
 |------|-----------------|-----------------------|
 | First stage (Giai đoạn thứ nhất) | "VAE" | Cặp encoder/decoder đã huấn luyện; nén 512² xuống 64². |
 | Second stage (Giai đoạn thứ hai) | "U-Net" | Mô hình khuếch tán trên không gian latent. |
-| CFG | "Mức guidance" | `(1+w)·ε_cond - w·ε_uncond`; điều chỉnh cường độ điều kiện hóa. |
-| Null token (Token rỗng) | "Embedding prompt rỗng" | Embedding vô điều kiện dùng cho `ε_uncond`. |
+| CFG | "Mức guidance" | $(1+w) \cdot \epsilon_{\text{cond}} - w \cdot \epsilon_{\text{uncond}}$; điều chỉnh cường độ điều kiện hóa. |
+| Null token (Token rỗng) | "Embedding prompt rỗng" | Embedding vô điều kiện dùng cho $\epsilon_{\text{uncond}}$. |
 | Cross-attention (Chú ý chéo) | "Cách văn bản đi vào" | Mỗi khối U-Net chú ý đến các token văn bản làm K và V. |
 | DiT | "Diffusion Transformer" | Thay U-Net bằng một transformer trên các patch latent; mở rộng quy mô tốt hơn. |
 | MMDiT | "DiT đa phương thức" | Kiến trúc của SD3: các luồng văn bản và ảnh với attention chung. |
@@ -132,7 +132,7 @@ Lưu `outputs/skill-sd-prompter.md`. Skill nhận một prompt văn bản + phon
 
 tích hợp Flux tham chiếu là công thức chuẩn cho "Tôi có một GPU phổ thông, tôi có thể triển khai cái này không?" Thủ thuật là cùng công thức ba nút điều chỉnh mà tài liệu suy luận production liệt kê được áp dụng cho một DiT khuếch tán:
 
-1. **Tải so le.** Flux có ba mạng không bao giờ cần cùng tồn tại trong VRAM: encoder văn bản T5-XXL (~10 GB ở fp32), CLIP-L (nhỏ), MMDiT 12B, và VAE. Mã hóa prompt trước, *xóa* các encoder, tải DiT, khử nhiễu, *xóa* DiT, tải VAE, giải mã. GPU phổ thông 8GB chỉ chứa được một giai đoạn mỗi lần.
+1. **Tải lệch thời điểm.** Flux có bốn mạng không bao giờ cần cùng tồn tại trong VRAM: encoder văn bản T5-XXL (~10 GB trong fp32), CLIP-L (nhỏ), MMDiT 12B và VAE. Mã hóa prompt trước, *xóa* các encoder, tải DiT, khử nhiễu, *xóa* DiT, tải VAE, giải mã. GPU tiêu dùng 8GB chỉ chứa vừa một giai đoạn tại một thời điểm.
 2. **Lượng tử hóa 4-bit qua bitsandbytes.** `BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16)` trên cả encoder T5 và DiT. Giảm bộ nhớ 8×, suy giảm chất lượng không thể nhận thấy cho văn bản thành ảnh theo các benchmark của Aritra (được liên kết trong notebook).
 3. **CPU offload.** `pipe.enable_model_cpu_offload()` tự động hoán đổi các mô-đun giữa CPU và GPU khi mỗi lượt truyền xuôi tiến triển. Thêm độ trễ 10-20% nhưng khiến pipeline có thể chạy được.
 

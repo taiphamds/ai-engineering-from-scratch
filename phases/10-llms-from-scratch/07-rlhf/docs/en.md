@@ -80,8 +80,8 @@ Dữ liệu huấn luyện là các cặp sở thích con người. Với mỗi 
 
 Hàm mất mát dùng mô hình Bradley-Terry của sở thích theo cặp:
 
-```
-loss = -log(sigmoid(reward(preferred) - reward(rejected)))
+```math
+\text{loss} = -\log\big(\mathop{\mathrm{sigmoid}}(\text{reward}(\text{preferred}) - \text{reward}(\text{rejected}))\big)
 ```
 
 Đây là phương trình then chốt. `sigmoid(reward(A) - reward(B))` cho xác suất phản hồi A được ưa thích hơn B. Mất mát đẩy mô hình phần thưởng gán điểm cao hơn cho phản hồi được ưa thích.
@@ -96,8 +96,8 @@ PPO là một thuật toán học tăng cường. Trong RLHF, "môi trường" l
 
 Mục tiêu:
 
-```
-maximize: E[R(prompt, response)] - beta * KL(policy || reference)
+```math
+\text{maximize:} \quad \mathbb{E}[R(\text{prompt}, \text{response})] - \beta \cdot \mathrm{KL}(\text{policy} \,\|\, \text{reference})
 ```
 
 Hạng tử đầu đẩy mô hình sinh phản hồi phần thưởng cao. Hạng tử thứ hai (phạt phân kỳ KL) ngăn mô hình lệch quá xa checkpoint SFT.
@@ -110,7 +110,7 @@ Vì sao phạt KL? Không có nó, mô hình tìm các lời giải suy biến. 
 
 Phạt KL nói: bạn có thể cải thiện, nhưng không thể trở thành một mô hình hoàn toàn khác. Ở gần phiên bản SFT, vốn đã hợp lý. Đi quá xa và chi phí KL chi phối phần thưởng.
 
-**Các con số InstructGPT:** Huấn luyện PPO dùng lr=1.5e-5, hệ số KL beta=0.02, 256K episode (cặp prompt-phản hồi), và 4 epoch PPO mỗi batch. Toàn pipeline RLHF mất vài ngày trên một cụm GPU.
+**Các con số InstructGPT:** Huấn luyện PPO dùng lr=1.5e-5, hệ số KL $\beta=0.02$, 256K episode (cặp prompt-phản hồi), và 4 epoch PPO mỗi batch. Toàn pipeline RLHF mất vài ngày trên một cụm GPU.
 
 ```mermaid
 graph LR
@@ -133,12 +133,14 @@ graph LR
 
 ### The PPO Objective in Detail
 
-PPO dùng một "mục tiêu thay thế được cắt" để ngăn cập nhật quá lớn. Tỷ số giữa xác suất chính sách mới và cũ được cắt về phạm vi [1 - epsilon, 1 + epsilon], trong đó epsilon thường là 0.2.
+PPO dùng một "mục tiêu thay thế được cắt" để ngăn cập nhật quá lớn. Tỷ số giữa xác suất chính sách mới và cũ được cắt về phạm vi $[1 - \epsilon, 1 + \epsilon]$, trong đó $\epsilon$ thường là 0.2.
 
-```
-ratio = pi_new(action | state) / pi_old(action | state)
-clipped_ratio = clip(ratio, 1 - epsilon, 1 + epsilon)
-loss = -min(ratio * advantage, clipped_ratio * advantage)
+```math
+\begin{aligned}
+\text{ratio} &= \pi_{\text{new}}(\text{action} \mid \text{state}) / \pi_{\text{old}}(\text{action} \mid \text{state}) \\
+\text{clipped\_ratio} &= \mathop{\mathrm{clip}}(\text{ratio}, 1 - \epsilon, 1 + \epsilon) \\
+\text{loss} &= -\min(\text{ratio} \cdot \text{advantage}, \text{clipped\_ratio} \cdot \text{advantage})
+\end{aligned}
 ```
 
 Hàm lợi thế ước lượng phản hồi hiện tại tốt hơn chất lượng kỳ vọng bao nhiêu. Trong RLHF:
@@ -606,9 +608,9 @@ Bài học này tạo ra `outputs/prompt-reward-model-designer.md` -- một prom
 
 3. Mô phỏng reward hacking. Tạo một mô hình phần thưởng cho điểm cao với phản hồi dài (reward = len(response) / 100). Chạy PPO với mô hình phần thưởng lỗi này và quan sát mô hình chính sách sinh đầu ra ngày càng dài, lặp lại. Rồi thêm phạt KL 0.1 và cho thấy nó ngăn hành vi suy biến.
 
-4. Triển khai phần thưởng đa mục tiêu. Huấn luyện hai mô hình phần thưởng -- một cho hữu ích và một cho súc tích. Kết hợp thành R = 0.7 * R_helpful + 0.3 * R_concise. Cho thấy mục tiêu kết hợp tạo phản hồi vừa hữu ích vừa súc tích, tránh bẫy dài dòng của một phần thưởng hữu ích đơn lẻ.
+4. Triển khai phần thưởng đa mục tiêu. Huấn luyện hai mô hình phần thưởng -- một cho hữu ích và một cho súc tích. Kết hợp thành $R = 0.7 \cdot R_{\text{helpful}} + 0.3 \cdot R_{\text{concise}}$. Cho thấy mục tiêu kết hợp tạo phản hồi vừa hữu ích vừa súc tích, tránh bẫy dài dòng của một phần thưởng hữu ích đơn lẻ.
 
-5. So sánh các hệ số KL khác nhau. Chạy PPO với beta=0.001 (quá thấp, reward hacking), beta=0.02 (tiêu chuẩn), và beta=0.5 (quá cao, không học). Vẽ đường cong phần thưởng và KL cho mỗi trường hợp. Lần beta=0.02 nên cho cải thiện phần thưởng đều với KL bị chặn.
+5. So sánh các hệ số KL khác nhau. Chạy PPO với $\beta=0.001$ (quá thấp, reward hacking), $\beta=0.02$ (tiêu chuẩn), và $\beta=0.5$ (quá cao, không học). Vẽ đường cong phần thưởng và KL cho mỗi trường hợp. Lần $\beta=0.02$ nên cho cải thiện phần thưởng đều với KL bị chặn.
 
 ## Key Terms
 
@@ -616,10 +618,10 @@ Bài học này tạo ra `outputs/prompt-reward-model-designer.md` -- một prom
 |------|----------------|----------------------|
 | RLHF | "Huấn luyện với phản hồi con người" | Học tăng cường từ phản hồi con người: pipeline ba giai đoạn (SFT, mô hình phần thưởng, PPO) tối ưu đầu ra mô hình ngôn ngữ bằng tín hiệu sở thích con người |
 | Reward model (Mô hình phần thưởng) | "Một mô hình chấm phản hồi" | Một transformer có head đầu ra vô hướng, huấn luyện trên sở thích con người theo cặp bằng mất mát Bradley-Terry |
-| Bradley-Terry | "Mô hình so sánh" | Một mô hình xác suất mà P(A > B) = sigmoid(score(A) - score(B)), chuyển sở thích theo cặp thành hàm chấm điểm nhất quán |
+| Bradley-Terry | "Mô hình so sánh" | Một mô hình xác suất mà $P(A > B) = \mathop{\mathrm{sigmoid}}(\text{score}(A) - \text{score}(B))$, chuyển sở thích theo cặp thành hàm chấm điểm nhất quán |
 | PPO | "Thuật toán RL" | Tối ưu hóa chính sách lân cận: cập nhật chính sách để tối đa phần thưởng trong khi cắt độ lớn cập nhật để ngăn bất ổn |
 | KL divergence (Phân kỳ KL) | "Hai phân phối khác nhau đến đâu" | Một thước đo khác biệt giữa phân phối token mô hình chính sách và mô hình tham chiếu -- dùng làm phạt để ngăn reward hacking |
-| KL penalty (Phạt KL) | "Dây xích mô hình" | Beta * KL(policy \|\| reference) trừ khỏi tín hiệu phần thưởng -- ngăn chính sách phân kỳ quá xa checkpoint SFT |
+| KL penalty (Khoản phạt KL) | "Dây giữ mô hình" | $\beta \cdot \mathrm{KL}(\text{policy} \Vert \text{reference})$ được trừ khỏi tín hiệu phần thưởng -- ngăn chính sách phân kỳ quá xa khỏi checkpoint SFT |
 | Reward hacking (Thao túng phần thưởng) | "Thao túng phần thưởng" | Khi chính sách tìm đầu ra suy biến phần thưởng cao bằng khai thác điểm yếu mô hình phần thưởng thay vì thực sự cải thiện |
 | Preference pair (Cặp sở thích) | "A hay B tốt hơn?" | Một ví dụ huấn luyện gồm (prompt, preferred_response, rejected_response) -- đơn vị cơ bản của dữ liệu huấn luyện RLHF |
 | Reference model (Mô hình tham chiếu) | "Checkpoint SFT đóng băng" | Một bản sao mô hình SFT có trọng số không bao giờ đổi -- dùng làm điểm neo cho tính phân kỳ KL |

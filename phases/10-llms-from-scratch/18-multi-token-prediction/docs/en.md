@@ -28,7 +28,7 @@ Bài học này xây dựng một mô-đun MTP và loss D độ sâu từ đầu
 
 ### The sequential MTP recipe
 
-DeepSeek-V3 thêm `D` mô-đun MTP trên mô hình chính. Mỗi mô-đun `k` (với `k = 1..D`) dự đoán token ở độ sâu `k` — tức là `t_{i+k}` với tiền tố đến hết vị trí `i`.
+DeepSeek-V3 thêm `D` module MTP lên trên mô hình chính. Mô hình chính dự đoán `t_{i+1}`. Mỗi module `k` (với `k = 1..D`) dự đoán token xa hơn `k` bước, `t_{i+k+1}`, với một tiền tố đến vị trí `i`.
 
 Mô-đun `k` gồm:
 
@@ -39,27 +39,29 @@ Mô-đun `k` gồm:
 
 Khi huấn luyện, với một tiền tố đến hết vị trí `i`, trạng thái ẩn ở từng độ sâu là:
 
-```
-h_i^(0) = main model backbone at position i
-h_i^(k) = T_k( M_k * concat(RMSNorm(h_i^(k-1)), RMSNorm(E(t_{i+k}))) )   for k >= 1
+```math
+\begin{aligned}
+h_i^{(0)} &= \text{main model backbone at position } i \\
+h_i^{(k)} &= T_k\Big( M_k \cdot \mathop{\mathrm{concat}}\big(\mathop{\mathrm{RMSNorm}}(h_i^{(k-1)}), \mathop{\mathrm{RMSNorm}}(E(t_{i+k}))\big) \Big) \quad \text{for } k \ge 1
+\end{aligned}
 ```
 
 Dự đoán ở từng độ sâu là:
 
-```
-logits_{i+k} = Out(h_i^(k-1))   for k = 1..D
+```math
+\text{logits}_{i+k+1} = \mathop{\mathrm{Out}}(h_i^{(k)}) \quad \text{for } k = 1, \ldots, D
 ```
 
-Loss ở từng độ sâu là cross-entropy so với nhãn thực `t_{i+k}`:
+Loss theo mỗi độ sâu là cross-entropy so với giá trị chuẩn `t_{i+k+1}`:
 
-```
-L_k = CE(logits_{i+k}, t_{i+k})
+```math
+L_k = \mathop{\mathrm{CE}}(\text{logits}_{i+k+1}, t_{i+k+1})
 ```
 
 Loss kết hợp trên các độ sâu:
 
-```
-L_MTP = (lambda / D) * sum_{k=1..D} L_k
+```math
+L_{\text{MTP}} = \frac{\lambda}{D} \sum_{k=1}^{D} L_k
 ```
 
 `lambda` là một hệ số trọng số nhỏ — DeepSeek-V3 dùng 0.3 trong 10% đầu quá trình huấn luyện và 0.1 sau đó. Tổng loss huấn luyện là `L_main + L_MTP`.
@@ -68,9 +70,9 @@ L_MTP = (lambda / D) * sum_{k=1..D} L_k
 
 MTP song song ban đầu của Gloeckle có D head đầu ra, mỗi head được áp dụng trực tiếp lên `h_i^(0)`. Mỗi head dự đoán `t_{i+k}` từ cùng trạng thái ẩn của backbone. Điều đó huấn luyện tốt, nhưng các dự đoán không được điều kiện hóa theo nhau. Bạn không thể dùng đầu ra của `head_1` để hỗ trợ `head_2` — các head hoạt động song song.
 
-Thiết kế tuần tự của DeepSeek-V3 xây dựng `h_i^(k)` từ `h_i^(k-1)` cộng embedding token tiếp theo thực tế `E(t_{i+k})`. Điều đó bảo toàn chuỗi nhân quả: để dự đoán `t_{i+k+1}`, mô-đun ở độ sâu `k+1` thấy những gì có tại `t_{i+k}`. Về cấu trúc, điều này giống hệt cách một bộ giải mã tự hồi quy tiêu thụ đầu ra của chính nó — khiến các mô-đun MTP có thể được dùng trực tiếp làm bộ dự thảo speculative decoding.
+Thiết kế tuần tự của DeepSeek-V3 xây dựng `h_i^(k)` từ `h_i^(k-1)` cộng embedding token tiếp theo thực `E(t_{i+k})`. Điều đó giữ chuỗi nhân quả: để dự đoán `t_{i+k+1}`, module ở độ sâu `k` nhìn thấy thứ ở `t_{i+k}`. Điều này giống hệt về cấu trúc với cách một decoder tự hồi quy tiêu thụ đầu ra của chính nó, khiến các module MTP có thể dùng trực tiếp làm bộ dự thảo speculative decoding.
 
-Khi suy luận: đưa `h_i^(k-1)` và `t_{i+k}` đã dự thảo vào mô-đun `k+1`, nhận dự đoán cho `t_{i+k+1}`. Lặp lại. Đó chính xác là một bản dự thảo kiểu EAGLE, dùng mô-đun MTP đã huấn luyện làm mạng dự thảo. DeepSeek-V3 báo cáo tỷ lệ chấp nhận 80%+ trên mô-đun MTP đầu tiên và tăng tốc ~1.8×.
+Lúc suy luận: đưa `h_i^(k-1)` và `t_{i+k}` đã dự thảo vào module `k`, nhận một dự đoán cho `t_{i+k+1}`. Lặp lại. Đó chính xác là một bản dự thảo kiểu EAGLE, sử dụng module MTP đã huấn luyện làm mạng dự thảo. DeepSeek-V3 báo cáo mức chấp nhận hơn 80% trên module MTP đầu tiên và mức tăng tốc ~1.8×.
 
 ### Parameter accounting
 
@@ -139,7 +141,7 @@ Tái sử dụng phép chiếu đầu ra của mô hình chính. Logit trên t�
 
 ### Step 5: per-depth loss
 
-Cross-entropy của softmax(logits) so với token nhãn thực ở độ lệch `k`. Tổng hợp trên các độ sâu với hệ số tỷ lệ `lambda / D`.
+Cross-entropy của softmax(logits) so với token chuẩn tại độ lệch `k+1`. Tổng hợp trên các độ sâu bằng hệ số co giãn `lambda / D`.
 
 ### Step 6: parameter accounting
 
@@ -174,24 +176,24 @@ Bài học này tạo ra `outputs/skill-mtp-planner.md`. Với một đặc tả
 
 2. Tính chi phí tham số bổ sung cho mô hình dense 70B (kích thước ẩn 8192, 80 lớp) với D=1 mô-đun MTP. So sánh với chi phí bổ sung 14B được DeepSeek-V3 báo cáo. Giải thích tại sao con số của DeepSeek cao hơn: khối transformer MTP kế thừa cùng cấu trúc MoE, làm tăng số tham số của mỗi mô-đun.
 
-3. Triển khai D=2 trong bản minh họa: thêm mô-đun MTP thứ hai nhận h^(1) và dự đoán `t_{i+2}`. Xác minh loss kết hợp và việc tính tham số khớp với các phương trình 19-21 trong bài báo DeepSeek.
+3. Triển khai D=2 trong ví dụ đồ chơi: thêm một module MTP thứ hai nhận $h^{(1)}$ và dự đoán `t_{i+3}`. Xác minh loss kết hợp và việc tính số tham số khớp các phương trình 19-21 của bài báo DeepSeek.
 
 4. Chuyển bản minh họa sang MTP song song (kiểu Gloeckle): thêm D head đầu ra trên trạng thái ẩn chính, mỗi head dự đoán một độ lệch khác nhau. Đo cách các loss ở từng độ sâu so sánh với phiên bản tuần tự trên cùng tín hiệu tổng hợp. Phiên bản tuần tự phải tạo loss độ sâu k thấp hơn với k > 1 vì nó điều kiện hóa theo các dự đoán trung gian.
 
-5. Dùng mô-đun MTP đã huấn luyện làm bản dự thảo kiểu EAGLE: gọi mô-đun k để đề xuất `t_{i+k}` khi suy luận. Đo tỷ lệ chấp nhận các token dự thảo này so với dự đoán của mô hình chính trên một chuỗi giữ riêng. Nếu bạn đạt 50%+ trên bản minh họa, bạn đã tái hiện thuộc tính thực nghiệm MTP làm bản dự thảo.
+5. Sử dụng module MTP đã huấn luyện làm một mô hình dự thảo kiểu EAGLE: gọi module k để đề xuất `t_{i+k+1}` lúc suy luận. Đo tỷ lệ chấp nhận các token dự thảo này so với dự đoán của mô hình chính trên một chuỗi giữ riêng. Nếu bạn đạt hơn 50% trên ví dụ đồ chơi, bạn đã tái lập tính chất thực nghiệm MTP làm mô hình dự thảo.
 
 ## Key Terms
 
 | Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
 | MTP module (Mô-đun MTP) | "Khối loss bổ sung" | Một khối transformer nhỏ cộng phép chiếu dự đoán một token đi trước mô hình chính `k` vị trí |
-| Prediction depth (Độ sâu dự đoán) | "Độ lệch nào" | Số nguyên `k` sao cho mô-đun `k` dự đoán `t_{i+k}` từ tiền tố đến hết vị trí `i` |
+| Prediction depth (Độ sâu dự đoán) | "Độ lệch nào" | Số nguyên `k` sao cho module `k` dự đoán `t_{i+k+1}` từ tiền tố đến vị trí `i` (mô hình chính ở độ sâu 0 và dự đoán `t_{i+1}`) |
 | Parallel MTP (MTP song song) | "Kiểu Gloeckle" | D head độc lập trên cùng trạng thái ẩn của backbone, không có chuỗi điều kiện |
 | Sequential MTP (MTP tuần tự) | "Kiểu DeepSeek-V3" | Mỗi mô-đun điều kiện hóa theo trạng thái ẩn của độ sâu trước cộng embedding của token tiếp theo; bảo toàn chuỗi nhân quả |
 | Shared output head (Head đầu ra dùng chung) | "Tái sử dụng head chính" | Các mô-đun MTP gọi LM head của mô hình chính, không phải một phép chiếu đầu ra riêng |
 | Shared embedding (Embedding dùng chung) | "Tái sử dụng bảng chính" | Cùng một bảng embedding từ vựng được dùng ở mọi nơi; không có tham số trùng lặp |
-| Projection matrix M_k (Ma trận chiếu M_k) | "Kết hợp trạng thái ẩn + token tiếp theo" | Một lớp tuyến tính `h x 2h` gộp trạng thái ẩn trước và embedding token mục tiêu vào đầu vào của độ sâu tiếp theo |
-| Joint loss L_MTP (Loss kết hợp L_MTP) | "Các loss bổ sung được lấy trung bình" | Trung bình cộng của các loss cross-entropy ở từng độ sâu, được nhân tỷ lệ `lambda` |
+| Projection matrix (Ma trận chiếu) $M_k$ | "Kết hợp trạng thái ẩn + token tiếp theo" | Một lớp tuyến tính `h x 2h` kết hợp trạng thái ẩn trước đó và embedding token mục tiêu vào đầu vào của độ sâu tiếp theo |
+| Joint loss (Loss kết hợp) $L_{\text{MTP}}$ | "Các loss bổ sung được lấy trung bình" | Trung bình số học của các loss cross-entropy theo mỗi độ sâu, được co giãn bởi `lambda` |
 | Acceptance rate at depth 1 (Tỷ lệ chấp nhận ở độ sâu 1) | "Tần suất bản dự thảo MTP đúng" | Tỷ lệ dự đoán top-1 của mô-đun MTP D=1 bằng dự đoán top-1 của mô hình chính; 80%+ trên DeepSeek-V3 |
 | Lambda weighting (Trọng số lambda) | "Mức quan trọng của loss bổ sung" | Hệ số tỷ lệ ở từng độ sâu; 0.3 khi bắt đầu huấn luyện, 0.1 về sau trên DeepSeek-V3 |
 

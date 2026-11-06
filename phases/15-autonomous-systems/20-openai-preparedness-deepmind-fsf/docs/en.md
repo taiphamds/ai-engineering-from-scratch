@@ -30,7 +30,7 @@ Cách định hình then chốt trong v2: các Danh mục nghiên cứu không t
 
 Cấu trúc:
 
-- **Các Mức năng lực tới hạn (CCL)**: các ngưỡng năng lực trên năm lĩnh vực: An ninh mạng, Sinh học, R&D ML, CBRN, Tự chủ (được gộp vào R&D ML và An ninh mạng).
+- **Critical Capability Levels (CCLs)**: các ngưỡng năng lực trong ba nhóm: lạm dụng (CBRN, Cyber, Harmful Manipulation), ML R&D và một nhánh misalignment mang tính thăm dò. Tính tự chủ không phải một lĩnh vực riêng; nó được gộp vào ML R&D và Cyber.
 - **Các Mức năng lực được theo dõi**: độ hạt bổ sung được thêm vào tháng 4 năm 2026. Ví dụ cụ thể: mức tự chủ R&D ML 1 = tự động hóa hoàn toàn pipeline R&D AI với chi phí cạnh tranh so với con người + công cụ AI.
 - **Giám sát căn chỉnh lừa dối**: cam kết tường minh giám sát tự động việc lạm dụng suy luận công cụ.
 
@@ -94,7 +94,7 @@ a5-tracked-vs-research
 | Tracked Category (Danh mục được theo dõi) | “Giảm thiểu bắt buộc” | Kích hoạt Báo cáo năng lực + biện pháp bảo vệ; xem xét SAG |
 | Research Category (Danh mục nghiên cứu) | “Chỉ được giám sát” | Được theo dõi nhưng không có giảm thiểu tự động; bao gồm Tự chủ tầm xa |
 | Frontier Safety Framework (Khung an toàn tiên tiến nhất) | “Chính sách mở rộng quy mô của DeepMind” | FSF v3 (tháng 9 năm 2025) + các Mức năng lực được theo dõi (tháng 4 năm 2026) |
-| CCL | “Mức năng lực tới hạn” | Ngưỡng DeepMind theo từng lĩnh vực (An ninh mạng, Sinh học, R&D ML, CBRN) |
+| CCL | "Critical Capability Level" — Mức năng lực tới hạn | Ngưỡng của DeepMind theo lĩnh vực (CBRN, Cyber, Harmful Manipulation, ML R&D) |
 | ML R&D autonomy level 1 (Mức tự chủ R&D ML 1) | “Tự động hóa R&D” | Tự động hóa hoàn toàn pipeline R&D AI với chi phí cạnh tranh |
 | Sandbagging (Cố ý thể hiện dưới năng lực) | “Thể hiện dưới năng lực có chiến lược” | Mô hình thể hiện dưới năng lực trên các đánh giá; trong các Danh mục nghiên cứu của OpenAI |
 | Instrumental reasoning (Suy luận công cụ) | “Suy luận phương tiện-mục đích” | Suy luận về cách đạt mục tiêu; đích giám sát của DeepMind |

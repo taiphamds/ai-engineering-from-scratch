@@ -88,7 +88,7 @@ Một bộ theo dõi hoặc UI có thể hiển thị điều này dưới dạn
 
 ## Two budgets, both hard
 
-`max_steps` giới hạn tổng số lần thực thi bước trên toàn bộ phiên, bao gồm các lần lập lại kế hoạch. Mặc định là mười hai. Một kế hoạch tuyến tính năm bước lập lại kế hoạch hai lần và thêm ba bước mỗi lần chạm mười sáu lần thực thi và sẽ vượt ngân sách. Bộ thực thi sẽ từ chối lần lập lại kế hoạch và trả về FAILED.
+`max_steps` giới hạn tổng số lần thực thi bước trên toàn phiên, bao gồm lập lại kế hoạch. Mặc định là mười hai. Các lần thử thất bại cũng được tính. Một kế hoạch năm bước thất bại ở bước cuối đã dùng năm lần thực thi. Nếu mỗi lần lập lại kế hoạch thử lại bước đó và thêm ba bước mới, và bước cuối của lần sửa đầu tiên lại thất bại, số đếm là chín, và lần sửa thứ hai cần thêm bốn: mười ba. Trình thực thi chạy lần thứ mười hai, từ chối lần thứ mười ba và trả về FAILED với lý do `step_budget`.
 
 `max_replans` giới hạn số lần bộ lập kế hoạch được gọi sau kế hoạch đầu tiên. Mặc định là năm. Đây là giới hạn quan trọng hơn. Một bộ lập kế hoạch trả về cùng một kế hoạch hỏng năm lần liên tiếp nếu không sẽ lặp cho đến khi ngân sách bước bắt được nó. Giới hạn lập lại kế hoạch khiến thất bại nhanh hơn và lý do rõ ràng hơn.
 

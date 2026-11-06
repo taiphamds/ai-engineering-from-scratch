@@ -58,9 +58,9 @@ Hàm mục tiêu (inertia) đo tổng khoảng cách bình phương từ mỗi �
 
 Hai phương pháp tiêu chuẩn:
 
-**Phương pháp khuỷu tay:** Chạy K-Means cho K = 1, 2, 3, ..., n. Vẽ inertia theo K. Tìm "khuỷu tay" nơi việc thêm cụm ngừng giảm inertia đáng kể.
+**Phương pháp khuỷu tay:** Chạy K-Means cho $K = 1, 2, 3, \ldots, n$. Vẽ inertia theo K. Tìm "khuỷu tay" nơi việc thêm cụm ngừng giảm inertia đáng kể.
 
-**Điểm silhouette:** Với mỗi điểm, đo mức độ tương tự với cụm của nó (a) so với cụm khác gần nhất (b). Hệ số silhouette là (b - a) / max(a, b), nằm trong khoảng từ -1 (sai cụm) đến +1 (phân cụm tốt). Lấy trung bình trên mọi điểm để có điểm toàn cục.
+**Điểm silhouette:** Với mỗi điểm, đo mức độ tương tự với cụm của nó ($a$) so với cụm khác gần nhất ($b$). Hệ số silhouette là $(b - a) / \max(a, b)$, nằm trong khoảng từ -1 (sai cụm) đến +1 (phân cụm tốt). Lấy trung bình trên mọi điểm để có điểm toàn cục.
 
 ### DBSCAN: Density-Based Clustering
 
@@ -112,7 +112,7 @@ GMM có thể mô hình hóa các cụm ellipse (không chỉ hình cầu như K
 |--------|----------|------------|
 | K-Means | Các tập dữ liệu lớn, cụm hình cầu, biết K | Hình dạng không đều, có ngoại lệ |
 | DBSCAN | Không biết K, hình dạng tùy ý, phát hiện ngoại lệ | Mật độ thay đổi, số chiều rất cao |
-| Phân cấp | Các tập dữ liệu nhỏ, cần dendrogram, không biết K | Các tập dữ liệu lớn (bộ nhớ O(n^2)) |
+| Phân cấp | Các tập dữ liệu nhỏ, cần dendrogram, không biết K | Các tập dữ liệu lớn ($O(n^2)$ bộ nhớ) |
 | GMM | Các cụm chồng lấp, cần phép gán mềm | Các tập dữ liệu rất lớn, quá nhiều chiều |
 
 ### Anomaly Detection with Clustering
@@ -488,7 +488,7 @@ Bài học này tạo ra các triển khai hoạt động của K-Means, DBSCAN 
 | Clustering (Phân cụm) | "Nhóm các thứ tương tự" | Phân hoạch dữ liệu thành các tập con mà độ tương đồng trong nhóm vượt độ tương đồng giữa nhóm, được đo bằng một metric khoảng cách cụ thể |
 | Centroid (Trọng tâm) | "Tâm của một cụm" | Trung bình của tất cả các điểm được gán cho một cụm; được K-Means dùng làm đại diện cụm |
 | Inertia | "Các cụm chặt đến mức nào" | Tổng khoảng cách bình phương từ mỗi điểm đến trọng tâm được gán; thấp hơn là chặt hơn |
-| Silhouette score (Điểm silhouette) | "Các cụm được phân tách tốt đến mức nào" | Với mỗi điểm, (b - a) / max(a, b) trong đó a là khoảng cách nội cụm trung bình và b là khoảng cách cụm gần nhất trung bình |
+| Silhouette score (Điểm silhouette) | "Các cụm được phân tách tốt đến mức nào" | Với mỗi điểm, $(b - a) / \max(a, b)$ trong đó $a$ là khoảng cách nội cụm trung bình và $b$ là khoảng cách cụm gần nhất trung bình |
 | Core point (Điểm lõi) | "Một điểm trong vùng dày đặc" | Một điểm có ít nhất min_samples láng giềng trong khoảng cách eps, trong DBSCAN |
 | EM algorithm (Thuật toán EM) | "K-Means mềm" | Kỳ vọng-Cực đại hóa: lặp lại việc tính các xác suất thuộc cụm (bước E) và cập nhật các tham số phân phối (bước M) |
 | Dendrogram | "Một cây các cụm" | Một sơ đồ cây thể hiện thứ tự và khoảng cách mà tại đó các cụm được hợp nhất trong phân cụm phân cấp |

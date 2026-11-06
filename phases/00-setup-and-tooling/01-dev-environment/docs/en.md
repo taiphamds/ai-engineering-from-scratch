@@ -220,3 +220,11 @@ Xem `outputs/prompt-env-check.md` để có một prompt giúp trợ lý AI ch�
 1. Chạy script xác minh và khắc phục mọi lỗi
 2. Tạo một môi trường ảo Python cho khóa học này và cài đặt PyTorch
 3. Viết một chương trình "hello world" bằng cả bốn ngôn ngữ và chạy từng chương trình
+
+### Hints
+
+**Bài tập 1.** Chạy `python3 phases/00-setup-and-tooling/01-dev-environment/code/verify.py --route beginner` từ thư mục gốc của kho mã và sửa dòng thất bại đầu tiên trước khi xem dòng tiếp theo. Việc kiểm tra hoàn tất khi bạn chạy lại script và mọi phép thăm dò bắt buộc đều đạt.
+
+**Bài tập 2.** Tạo môi trường bằng `uv venv` trong thư mục gốc của kho mã, kích hoạt nó, rồi cài PyTorch bằng lệnh ở Bước 6 phù hợp với phần cứng của bạn. Chạy `python -c "import torch; print(torch.__version__)"` bên trong môi trường; một số phiên bản có nghĩa là việc cài đặt đã thành công.
+
+**Bài tập 3.** Sử dụng bốn runtime trong ngăn xếp ở The Concept: Python, TypeScript trên Node.js, Rust và Julia. Viết một tệp nhỏ cho mỗi runtime và chạy nó bằng `python3`, `npx tsx` (Node.js không thể chạy trực tiếp một tệp `.ts`), `cargo run` hoặc `rustc`, và `julia`. Mỗi lần chạy phải in thông điệp của bạn và thoát với mã 0.

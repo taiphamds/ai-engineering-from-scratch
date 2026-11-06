@@ -1,6 +1,6 @@
 # Python for AI Engineering
 
-> Most code in this course uses the same small set of Python idioms. Learn that set here, before the math and model lessons depend on it.
+> Hầu hết mã trong khóa học này sử dụng cùng một tập nhỏ các cách viết Python. Học tập đó ở đây, trước khi các bài toán và mô hình phụ thuộc vào nó.
 
 **Type:** Build
 **Languages:** Python
@@ -9,54 +9,54 @@
 
 ## Learning Objectives
 
-- Read and write the idioms that most course code uses, from unpacking and f-strings to dataclasses and comprehensions.
-- Find three Python mistakes that give wrong results with no error: shared lists, mutable defaults, and used-up generators.
-- Build a CSV and JSON loader, a seeded split, and a mini-batch generator with only the standard library.
-- Write dot product, mean, and standard deviation in pure Python, and measure their speed and memory use.
-- Explain why a pure-Python loop over numbers is slow, and how NumPy broadcasting moves the loop into compiled code.
+- Đọc và viết các cách viết mà hầu hết mã khóa học sử dụng, từ unpacking và f-string đến dataclass và comprehension.
+- Tìm ba lỗi Python cho kết quả sai mà không có lỗi: danh sách dùng chung, giá trị mặc định có thể thay đổi và generator đã dùng hết.
+- Xây dựng một loader CSV và JSON, một phép chia có seed và một generator mini-batch chỉ với thư viện chuẩn.
+- Viết tích vô hướng, trung bình và độ lệch chuẩn bằng Python thuần, và đo tốc độ cùng mức sử dụng bộ nhớ của chúng.
+- Giải thích vì sao một vòng lặp Python thuần trên các số lại chậm, và cách NumPy broadcasting chuyển vòng lặp vào mã đã biên dịch.
 
 ## The Problem
 
-The lessons after this phase use plain Python for the math and the models. Of the 541 Python files in the lessons, 276 import `dataclasses`. Also, 187 files call `random.seed` or create a `random.Random` generator. If those idioms are new to you, you read syntax when you want to read the math.
+Các bài học sau giai đoạn này sử dụng Python thuần cho toán học và các mô hình. Trong 541 tệp Python trong các bài học, 276 import `dataclasses`. Ngoài ra, 187 tệp gọi `random.seed` hoặc tạo một generator `random.Random`. Nếu những cách viết đó mới với bạn, bạn đọc cú pháp khi bạn muốn đọc toán học.
 
-Python also has behaviors that give wrong results with no error message. Two names can refer to one list, so a change through one name also changes the other. A default argument keeps its value from one call to the next. A generator is empty after one pass, so a second training epoch gets no data and the loss does not change.
+Python cũng có những hành vi cho kết quả sai mà không có thông báo lỗi. Hai tên có thể tham chiếu đến một danh sách, nên thay đổi qua một tên cũng thay đổi tên kia. Một đối số mặc định giữ giá trị của nó từ lần gọi này sang lần gọi tiếp theo. Một generator rỗng sau một lượt, nên epoch huấn luyện thứ hai không có dữ liệu và hàm mất mát không thay đổi.
 
-The last problem is speed. On our test laptop, a pure-Python loop over a million floats took about 30 milliseconds. NumPy computed the same dot product in less than one millisecond. You need to know the reason, so that you can choose between a clear loop and an array operation.
+Vấn đề cuối cùng là tốc độ. Trên laptop kiểm thử của chúng tôi, một vòng lặp Python thuần trên một triệu số float mất khoảng 30 mili giây. NumPy tính cùng tích vô hướng trong ít hơn một mili giây. Bạn cần biết lý do, để bạn có thể chọn giữa một vòng lặp rõ ràng và một phép toán mảng.
 
 ## The Concept
 
 ### What the course code uses
 
-We parsed all 541 Python files in `phases/*/*/code/` with the `ast` module. The table counts the files that use each construct at least once. The counts are from the day we wrote this lesson, and they change as lessons are added.
+Chúng tôi phân tích cả 541 tệp Python trong `phases/*/*/code/` bằng mô-đun `ast`. Bảng đếm các tệp sử dụng mỗi cấu trúc ít nhất một lần. Các số đếm là từ ngày chúng tôi viết bài học này, và chúng thay đổi khi các bài học được thêm vào.
 
-| Construct | Files | Share |
+| Cấu trúc | Tệp | Tỷ lệ |
 |-----------|-------|-------|
-| Function definitions | 541 | 100% |
+| Định nghĩa hàm | 541 | 100% |
 | `if __name__ == "__main__":` | 529 | 98% |
-| f-strings | 517 | 96% |
-| Tuple unpacking | 448 | 83% |
-| Classes | 379 | 70% |
-| List comprehensions | 375 | 69% |
-| Type hints on functions | 342 | 63% |
-| Generator expressions | 326 | 60% |
-| Slices | 314 | 58% |
+| f-string | 517 | 96% |
+| Unpacking tuple | 448 | 83% |
+| Lớp | 379 | 70% |
+| List comprehension | 375 | 69% |
+| Gợi ý kiểu trên hàm | 342 | 63% |
+| Biểu thức generator | 326 | 60% |
+| Lát cắt | 314 | 58% |
 | `lambda` | 175 | 32% |
-| `try` and `except` | 120 | 22% |
-| `with` statements | 96 | 18% |
-| Dict comprehensions | 93 | 17% |
-| Generator functions with `yield` | 14 | 3% |
+| `try` và `except` | 120 | 22% |
+| Câu lệnh `with` | 96 | 18% |
+| Dict comprehension | 93 | 17% |
+| Hàm generator với `yield` | 14 | 3% |
 
-Imports show which standard modules matter. Of the 541 files, 340 start with `from __future__ import annotations`, and 276 import `dataclasses`. The `math`, `random`, and `json` modules appear in 187, 175, and 126 files. The `collections` module appears in 70 files, and `itertools` appears in only 4.
+Các import cho thấy những mô-đun chuẩn nào quan trọng. Trong 541 tệp, 340 bắt đầu bằng `from __future__ import annotations`, và 276 import `dataclasses`. Các mô-đun `math`, `random` và `json` xuất hiện trong 187, 175 và 126 tệp. Mô-đun `collections` xuất hiện trong 70 tệp, và `itertools` chỉ xuất hiện trong 4.
 
-No lesson calls `map()` or `filter()`. Comprehensions do that work. Calls to `sorted`, `min`, `max`, or `.sort` with a `key=` function appear in more than 140 files. This lesson spends the most time on the idioms at the top of these lists.
+Không bài học nào gọi `map()` hoặc `filter()`. Comprehension làm công việc đó. Các lần gọi `sorted`, `min`, `max` hoặc `.sort` với một hàm `key=` xuất hiện trong hơn 140 tệp. Bài học này dành nhiều thời gian nhất cho các cách viết ở đầu những danh sách này.
 
 ### Names refer to objects
 
-In Python, a variable is a name that refers to an object. Assignment binds a name to an object. It does not copy the object. When two names refer to one list, a change through either name is visible through both. Numbers, strings, and tuples cannot change, so this rule causes no problems for them. Lists, dicts, and sets can change, so make a copy when you need an independent version.
+Trong Python, một biến là một tên tham chiếu đến một đối tượng. Phép gán gắn một tên với một đối tượng. Nó không sao chép đối tượng. Khi hai tên tham chiếu đến một danh sách, thay đổi qua bất kỳ tên nào đều thấy được qua cả hai. Số, chuỗi và tuple không thể thay đổi, nên quy tắc này không gây vấn đề cho chúng. List, dict và set có thể thay đổi, nên tạo một bản sao khi bạn cần một phiên bản độc lập.
 
 ### A list holds pointers, an array holds numbers
 
-A Python list does not store numbers directly. It stores pointers, and each pointer refers to a full Python object. On a 64-bit build of CPython, each pointer takes 8 bytes and each `float` object takes 24 bytes. A NumPy `float64` array stores the raw 8-byte values side by side in one block of memory.
+Một list Python không lưu số trực tiếp. Nó lưu các con trỏ, và mỗi con trỏ tham chiếu đến một đối tượng Python đầy đủ. Trên một bản dựng CPython 64 bit, mỗi con trỏ chiếm 8 byte và mỗi đối tượng `float` chiếm 24 byte. Một mảng NumPy `float64` lưu các giá trị 8 byte thô cạnh nhau trong một khối bộ nhớ.
 
 ```mermaid
 graph LR
@@ -70,17 +70,17 @@ graph LR
     end
 ```
 
-A loop over a list does a lot of work for each element. The interpreter runs one bytecode instruction at a time. For each element, it follows a pointer and checks the type of each operand. Then it calls the float multiply code and makes a Python float object to hold the result.
+Một vòng lặp trên một list làm nhiều việc cho mỗi phần tử. Trình thông dịch chạy từng chỉ lệnh bytecode một. Với mỗi phần tử, nó đi theo một con trỏ và kiểm tra kiểu của mỗi toán hạng. Rồi nó gọi mã nhân float và tạo một đối tượng float Python để chứa kết quả.
 
-NumPy does the same arithmetic in a loop of compiled code over the raw values. It checks the data type once for the whole array, and it makes no Python object for each element. Vectorized code describes one operation over a whole array, such as `(x - mean) / std`, and a library runs the loop. The vector functions in this lesson follow that rule. Each one does one array operation, so you can replace it with one NumPy call later.
+NumPy làm cùng phép toán trong một vòng lặp mã đã biên dịch trên các giá trị thô. Nó kiểm tra kiểu dữ liệu một lần cho toàn mảng, và không tạo đối tượng Python cho mỗi phần tử. Mã vector hóa mô tả một phép toán trên toàn mảng, chẳng hạn `(x - mean) / std`, và một thư viện chạy vòng lặp. Các hàm vector trong bài học này theo quy tắc đó. Mỗi hàm làm một phép toán mảng, nên bạn có thể thay nó bằng một lần gọi NumPy sau này.
 
 ### A list holds every item, a generator holds one
 
-A list comprehension builds every item before the next line runs. A generator builds one item each time the caller asks for the next one. The memory for a list grows with the number of items. The memory for a generator stays about the same for any number of items.
+Một list comprehension xây dựng mọi mục trước khi dòng tiếp theo chạy. Một generator xây dựng một mục mỗi lần bên gọi yêu cầu mục tiếp theo. Bộ nhớ cho một list tăng theo số mục. Bộ nhớ cho một generator giữ gần như giống nhau với mọi số mục.
 
-A generator can run only once. After the last item, it raises `StopIteration` on each request, so a second `for` loop over it gets no items. Training code reads the dataset once per epoch, so it must create a new generator for each epoch.
+Một generator chỉ có thể chạy một lần. Sau mục cuối cùng, nó phát sinh `StopIteration` với mỗi yêu cầu, nên một vòng lặp `for` thứ hai trên nó không nhận được mục nào. Mã huấn luyện đọc dataset một lần mỗi epoch, nên nó phải tạo một generator mới cho mỗi epoch.
 
-Generator functions are rare in the lesson code. The data loaders that the deep learning lessons use are iterables of batches, so the idea is in every training loop. The figure shows both approaches on the same eight rows.
+Các hàm generator hiếm trong mã bài học. Các data loader mà bài deep learning sử dụng là các iterable của batch, nên ý tưởng có trong mọi vòng lặp huấn luyện. Hình cho thấy cả hai cách tiếp cận trên cùng tám hàng.
 
 ```figure
 s0-list-vs-generator
@@ -88,20 +88,20 @@ s0-list-vs-generator
 
 ## The Idioms You Need
 
-Each block in this section runs on its own. Save it to a file and run it with `python3`. The blocks need Python 3.11 or newer, the version that we installed in the dev environment lesson.
+Mỗi khối trong phần này chạy độc lập. Lưu nó vào một tệp và chạy bằng `python3`. Các khối cần Python 3.11 hoặc mới hơn, phiên bản mà chúng ta đã cài trong bài môi trường phát triển.
 
 ### 1. Values, collections, and unpacking
 
-Python has four built-in collections. Learn when to use each one.
+Python có bốn collection tích hợp sẵn. Học khi nào sử dụng mỗi loại.
 
-| Type | Example | Ordered | Can change | Typical use in the course |
+| Kiểu | Ví dụ | Có thứ tự | Có thể thay đổi | Cách dùng điển hình trong khóa học |
 |------|---------|---------|------------|---------------------------|
-| `list` | `[0.5, 1.2]` | Yes | Yes | Samples, losses, weights |
-| `tuple` | `(32, 784)` | Yes | No | Shapes, fixed records, dict keys |
-| `dict` | `{"lr": 0.01}` | Insertion order | Yes | Configs, vocabularies, JSON rows |
-| `set` | `{"cat", "dog"}` | No | Yes | Unique tokens, overlap checks |
+| `list` | `[0.5, 1.2]` | Có | Có | Mẫu, hàm mất mát, trọng số |
+| `tuple` | `(32, 784)` | Có | Không | Hình dạng, bản ghi cố định, khóa dict |
+| `dict` | `{"lr": 0.01}` | Thứ tự chèn | Có | Cấu hình, từ vựng, hàng JSON |
+| `set` | `{"cat", "dog"}` | Không | Có | Token duy nhất, kiểm tra chồng lấp |
 
-This block shows that assignment does not copy a list.
+Khối này cho thấy phép gán không sao chép một list.
 
 ```python
 weights = [0.5, -1.2, 3.0]
@@ -129,9 +129,9 @@ print(grid)
 [[1, 0, 0], [0, 0, 0]]
 ```
 
-The expression `[[0] * 3] * 2` makes an outer list with two references to one inner list. The comprehension makes a new inner list for each row. The math phase builds matrices from lists, so use the comprehension form.
+Biểu thức `[[0] * 3] * 2` tạo một list bên ngoài với hai tham chiếu đến một list bên trong. Comprehension tạo một list bên trong mới cho mỗi hàng. Giai đoạn toán xây dựng ma trận từ list, nên sử dụng dạng comprehension.
 
-Unpacking assigns the items of a sequence to several names in one line. A starred name collects the remaining items. An f-string puts the value of an expression into a string, with an optional format after a colon.
+Unpacking gán các mục của một chuỗi cho nhiều tên trong một dòng. Một tên có dấu sao thu thập các mục còn lại. Một f-string đặt giá trị của một biểu thức vào một chuỗi, với định dạng tùy chọn sau dấu hai chấm.
 
 ```python
 shape = (32, 784)
@@ -156,9 +156,9 @@ print(f"lr={config['lr']:.0e} loss={0.123456:.3f} n={60_000:,} {batch_size=}")
 lr=1e-02 loss=0.123 n=60,000 batch_size=32
 ```
 
-`dict.get` returns a default value when the key is missing. The `in` test on a set takes about the same time for any set size. The `{batch_size=}` form prints the name and the value, which helps when you debug.
+`dict.get` trả về một giá trị mặc định khi thiếu khóa. Phép kiểm tra `in` trên một set mất thời gian gần như bằng nhau với mọi kích thước set. Dạng `{batch_size=}` in tên và giá trị, giúp ích khi bạn gỡ lỗi.
 
-A slice `a[start:stop:step]` includes `start` and excludes `stop`. Negative indexes count from the end. A slice of a list is a new list, so a slice of a large list copies all of its pointers.
+Một lát `a[start:stop:step]` bao gồm `start` và loại trừ `stop`. Chỉ số âm đếm từ cuối. Một lát của một list là một list mới, nên một lát của một list lớn sao chép tất cả các con trỏ của nó.
 
 ```python
 tokens = ["<s>", "the", "cat", "sat", "on", "the", "mat", "</s>"]
@@ -180,7 +180,7 @@ print(len(windows), windows[0])
 
 ### 2. Comprehensions
 
-A comprehension builds a list, dict, or set from an iterable in one expression. It reads like the math that it describes.
+Một comprehension xây dựng một list, dict hoặc set từ một iterable trong một biểu thức. Nó đọc như phép toán mà nó mô tả.
 
 ```python
 scores = [0.91, 0.42, 0.77, 0.15, 0.66]
@@ -203,13 +203,13 @@ print(transposed, flat)
 [[1, 4], [2, 5], [3, 6]] [1, 2, 3, 4, 5, 6]
 ```
 
-A trailing `if` keeps only some items. The expression before `for` can be a conditional expression, `a if condition else b`. Two `for` clauses run in the same order as two nested loops.
+Một `if` ở cuối chỉ giữ một số mục. Biểu thức trước `for` có thể là một biểu thức điều kiện, `a if condition else b`. Hai mệnh đề `for` chạy theo cùng thứ tự như hai vòng lặp lồng nhau.
 
-Round brackets make a generator expression. In `sum(s * s for s in scores)`, `sum` reads one square at a time, and Python builds no list. In `zip(*matrix)`, the star passes each row as a separate argument, and `zip` pairs the items at each position.
+Dấu ngoặc tròn tạo một biểu thức generator. Trong `sum(s * s for s in scores)`, `sum` đọc từng bình phương một, và Python không xây dựng list nào. Trong `zip(*matrix)`, dấu sao truyền mỗi hàng như một đối số riêng, và `zip` ghép các mục ở mỗi vị trí.
 
 ### 3. Functions, arguments, and closures
 
-A default value makes an argument optional. A keyword argument names the parameter at the call. A `*` by itself in the parameter list makes the next parameters keyword-only.
+Một giá trị mặc định làm một đối số thành tùy chọn. Một đối số từ khóa nêu tên tham số tại lần gọi. Một `*` đứng riêng trong danh sách tham số làm các tham số tiếp theo chỉ được truyền bằng từ khóa.
 
 ```python
 def clip(value, low=0.0, high=1.0):
@@ -238,13 +238,13 @@ print(to_percent([0.25, 0.5]))
 [25.0, 50.0]
 ```
 
-With keyword-only arguments, a call such as `train(data, 0.1, 3)` raises `TypeError`. The caller must write `lr=0.1`, so two numbers cannot change places by accident.
+Với các đối số chỉ bằng từ khóa, một lần gọi như `train(data, 0.1, 3)` phát sinh `TypeError`. Bên gọi phải viết `lr=0.1`, nên hai số không thể vô tình đổi chỗ.
 
-The inner function `scale` uses `factor` from the function that created it. Python keeps `factor` for as long as `scale` exists. A function that keeps variables from its creator is a closure. The standardizer in Build It uses a closure to keep the training statistics.
+Hàm bên trong `scale` sử dụng `factor` từ hàm tạo ra nó. Python giữ `factor` chừng nào `scale` còn tồn tại. Một hàm giữ các biến từ bên tạo ra nó là một closure. Standardizer trong Build It sử dụng một closure để giữ các thống kê huấn luyện.
 
-A `lambda` is a one-expression function with no name. Course code uses it mostly as a `key=` function, which part 8 shows.
+Một `lambda` là một hàm một biểu thức không có tên. Mã khóa học sử dụng nó chủ yếu như một hàm `key=`, điều phần 8 cho thấy.
 
-Python evaluates a default value once, when it runs the `def` statement. Every call that uses the default gets the same object.
+Python đánh giá một giá trị mặc định một lần, khi nó chạy câu lệnh `def`. Mọi lần gọi sử dụng giá trị mặc định nhận cùng một đối tượng.
 
 ```python
 def add_bad(item, bucket=[]):
@@ -270,11 +270,11 @@ print(add_good("b"))
 ['b']
 ```
 
-Use `None` as the default for a list, dict, or set. Create the new object inside the function.
+Sử dụng `None` làm giá trị mặc định cho một list, dict hoặc set. Tạo đối tượng mới bên trong hàm.
 
 ### 4. Classes and dataclasses
 
-The `@dataclass` decorator writes `__init__`, `__repr__`, and `__eq__` from the annotated fields. With `frozen=True`, the object cannot change after creation, and you can use it as a dict key or put it in a set.
+Decorator `@dataclass` viết `__init__`, `__repr__` và `__eq__` từ các trường được chú thích. Với `frozen=True`, đối tượng không thể thay đổi sau khi tạo, và bạn có thể sử dụng nó như một khóa dict hoặc đặt nó trong một set.
 
 ```python
 from dataclasses import dataclass, field
@@ -313,9 +313,9 @@ lr=0.01 epochs=10 hidden=[64, 32]
 FrozenInstanceError
 ```
 
-`field(default_factory=...)` gives each instance a new list. It solves the shared-default problem from part 3 inside a dataclass.
+`field(default_factory=...)` cho mỗi instance một list mới. Nó giải quyết vấn đề giá trị mặc định dùng chung từ phần 3 bên trong một dataclass.
 
-Special methods connect a class to Python syntax. `len(ds)` calls `__len__`, and `ds[2]` calls `__getitem__`.
+Các phương thức đặc biệt kết nối một lớp với cú pháp Python. `len(ds)` gọi `__len__`, và `ds[2]` gọi `__getitem__`.
 
 ```python
 class SquaresDataset:
@@ -341,11 +341,11 @@ print(list(ds))
 [(0, 0), (1, 1), (2, 4), (3, 9)]
 ```
 
-The `for` loop inside `list(ds)` works without an `__iter__` method. Python calls `__getitem__` with 0, 1, 2, and so on until it gets `IndexError`. PyTorch map-style datasets use the same two methods, `__len__` and `__getitem__`.
+Vòng lặp `for` bên trong `list(ds)` hoạt động mà không có phương thức `__iter__`. Python gọi `__getitem__` với 0, 1, 2 và tiếp tục cho đến khi nhận `IndexError`. Các dataset kiểu map của PyTorch sử dụng cùng hai phương thức, `__len__` và `__getitem__`.
 
 ### 5. Iterators and generators
 
-An iterable is any object that a `for` loop accepts. `iter()` gets an iterator from it, and `next()` asks the iterator for one item. When the iterator has no more items, it raises `StopIteration`. A `for` loop calls `next()` for you and stops at `StopIteration`.
+Một iterable là bất kỳ đối tượng nào mà một vòng lặp `for` chấp nhận. `iter()` lấy một iterator từ nó, và `next()` yêu cầu iterator một mục. Khi iterator không còn mục nào, nó phát sinh `StopIteration`. Một vòng lặp `for` gọi `next()` cho bạn và dừng tại `StopIteration`.
 
 ```python
 numbers = [10, 20, 30]
@@ -377,9 +377,9 @@ generator
 []
 ```
 
-A function with `yield` in its body is a generator function. A call to it runs none of its code and returns a generator object. Each `next()` runs the body to the next `yield` and pauses there. The second `list(gen)` is empty because the first one used up the generator.
+Một hàm có `yield` trong thân là một hàm generator. Một lần gọi nó không chạy mã nào của nó và trả về một đối tượng generator. Mỗi `next()` chạy thân đến `yield` tiếp theo và tạm dừng ở đó. `list(gen)` thứ hai rỗng vì lần đầu đã dùng hết generator.
 
-A generator can read a file one line at a time.
+Một generator có thể đọc một tệp từng dòng một.
 
 ```python
 import os
@@ -408,7 +408,7 @@ with tempfile.TemporaryDirectory() as tmp:
 4
 ```
 
-`read_rows` keeps one line of the file in memory at a time. It is the `read_rows` in the figure. It splits on commas to keep the example short. Real CSV files can contain commas inside quoted fields, so Build It uses the `csv` module.
+`read_rows` giữ một dòng của tệp trong bộ nhớ tại một thời điểm. Nó là `read_rows` trong hình. Nó tách theo dấu phẩy để giữ ví dụ ngắn. Tệp CSV thật có thể chứa dấu phẩy bên trong các trường được trích dẫn, nên Build It sử dụng mô-đun `csv`.
 
 ```python
 import sys
@@ -419,13 +419,13 @@ print(sys.getsizeof(as_list), sys.getsizeof(as_generator))
 print(sum(as_list) == sum(as_generator))
 ```
 
-On 64-bit CPython, the list reports about 8 MB and the generator about 200 bytes. `sys.getsizeof` counts only the pointers of the list, and the integer objects use more memory. Build It measures the real peak with `tracemalloc`, which we used in the debugging and profiling lesson.
+Trên CPython 64 bit, list báo cáo khoảng 8 MB và generator khoảng 200 byte. `sys.getsizeof` chỉ đếm các con trỏ của list, và các đối tượng số nguyên sử dụng thêm bộ nhớ. Build It đo đỉnh thực bằng `tracemalloc`, mà chúng ta đã sử dụng trong bài gỡ lỗi và profiling.
 
 ### 6. Context managers and exceptions
 
-A `with` statement runs setup code, then its body, and then cleanup code. The cleanup runs even when the body raises an exception. The file object from `open()` is a context manager that closes the file.
+Một câu lệnh `with` chạy mã thiết lập, rồi thân của nó, rồi mã dọn dẹp. Phần dọn dẹp chạy ngay cả khi thân phát sinh một ngoại lệ. Đối tượng tệp từ `open()` là một context manager đóng tệp.
 
-In the debugging and profiling lesson, we wrote a `Timer` class with `__enter__` and `__exit__`. The `contextlib.contextmanager` decorator makes the same kind of object from a generator. The code before `yield` is the setup, and the `finally` block is the cleanup.
+Trong bài gỡ lỗi và profiling, chúng ta đã viết một lớp `Timer` với `__enter__` và `__exit__`. Decorator `contextlib.contextmanager` tạo cùng loại đối tượng từ một generator. Mã trước `yield` là phần thiết lập, và khối `finally` là phần dọn dẹp.
 
 ```python
 import time
@@ -464,11 +464,11 @@ sum of squares: 9.4 ms
 rejected: label must be an integer, got 'cat'
 ```
 
-The time on your machine will be different. Name the exact exception that you expect in the `except` clause, such as `ValueError` or `KeyError`. An `except:` clause with no exception type also handles `KeyboardInterrupt`, so Ctrl+C can fail to stop a loop that contains it. Raise an exception with a clear message when the input is wrong. Add `from None` when your message replaces the original traceback.
+Thời gian trên máy bạn sẽ khác. Nêu tên chính xác ngoại lệ bạn kỳ vọng trong mệnh đề `except`, chẳng hạn `ValueError` hoặc `KeyError`. Một mệnh đề `except:` không có kiểu ngoại lệ cũng xử lý `KeyboardInterrupt`, nên Ctrl+C có thể không dừng được một vòng lặp chứa nó. Phát sinh một ngoại lệ với thông báo rõ ràng khi đầu vào sai. Thêm `from None` khi thông báo của bạn thay thế traceback ban đầu.
 
 ### 7. Type hints, modules, and the main guard
 
-Type hints tell the reader what a function takes and returns. Python does not check them when the code runs. A type checker, such as mypy, reads them before the code runs.
+Gợi ý kiểu cho người đọc biết một hàm nhận và trả về gì. Python không kiểm tra chúng khi mã chạy. Một bộ kiểm tra kiểu, chẳng hạn mypy, đọc chúng trước khi mã chạy.
 
 ```python
 from __future__ import annotations
@@ -502,13 +502,13 @@ if __name__ == "__main__":
 {'values': 'Sequence[float]', 'return': 'float'}
 ```
 
-With `from __future__ import annotations`, Python stores each hint as a string, as the last line shows. `Sequence` means any object with `len()` and indexes, such as a list or a tuple. `Iterable` means any object that a `for` loop accepts. Many course files import the same names from `typing`, which also works.
+Với `from __future__ import annotations`, Python lưu mỗi gợi ý dưới dạng một chuỗi, như dòng cuối cho thấy. `Sequence` nghĩa là bất kỳ đối tượng nào có `len()` và chỉ số, chẳng hạn một list hoặc một tuple. `Iterable` nghĩa là bất kỳ đối tượng nào mà một vòng lặp `for` chấp nhận. Nhiều tệp khóa học import cùng các tên từ `typing`, cách đó cũng hoạt động.
 
-Every `.py` file is a module. When you run a file with `python3 file.py`, Python sets its `__name__` to `"__main__"`. When another file imports it, `__name__` is the module name. The guard calls `main()` only in the first case. Because of the guard, the tests in `code/tests/` can import `main.py` without a start of the demo.
+Mỗi tệp `.py` là một mô-đun. Khi bạn chạy một tệp bằng `python3 file.py`, Python đặt `__name__` của nó thành `"__main__"`. Khi một tệp khác import nó, `__name__` là tên mô-đun. Điều kiện bảo vệ chỉ gọi `main()` trong trường hợp đầu tiên. Nhờ điều kiện bảo vệ, các bài kiểm tra trong `code/tests/` có thể import `main.py` mà không khởi động demo.
 
 ### 8. Files, JSON, CSV, and sorting
 
-`pathlib.Path` joins paths with `/` and can read or write a whole file in one call. Always give `encoding="utf-8"`, because the default encoding depends on the operating system.
+`pathlib.Path` nối các đường dẫn bằng `/` và có thể đọc hoặc ghi toàn bộ một tệp trong một lần gọi. Luôn cung cấp `encoding="utf-8"`, vì encoding mặc định phụ thuộc hệ điều hành.
 
 ```python
 import csv
@@ -552,13 +552,13 @@ great movie
 ['fine acting', 'great movie', 'boring plot']
 ```
 
-JSON keeps numbers as numbers. CSV gives every field back as a string, so you must convert each field. Open CSV files with `newline=""`, as the `csv` documentation tells you to.
+JSON giữ số là số. CSV trả mọi trường về dạng chuỗi, nên bạn phải chuyển đổi mỗi trường. Mở các tệp CSV với `newline=""`, như tài liệu `csv` hướng dẫn.
 
-A `key=` function returns the value that Python compares for each item. `sorted`, `min`, and `max` all accept one. A tuple key sorts by the first value, and it uses the second value only for ties. The minus sign puts the larger label first. Python's sort is stable, so items with equal keys keep their original order.
+Một hàm `key=` trả về giá trị mà Python so sánh cho mỗi mục. `sorted`, `min` và `max` đều chấp nhận một hàm như vậy. Một khóa tuple sắp xếp theo giá trị đầu tiên, và nó chỉ sử dụng giá trị thứ hai khi hòa. Dấu trừ đặt nhãn lớn hơn trước. Phép sắp xếp của Python là ổn định, nên các mục có khóa bằng nhau giữ thứ tự ban đầu của chúng.
 
 ### 9. Counting, grouping, and iterator tools
 
-These two modules hold the data structures and iterator tools that plain lists and dicts do not give you.
+Hai mô-đun này chứa các cấu trúc dữ liệu và công cụ iterator mà list và dict thông thường không cung cấp cho bạn.
 
 ```python
 from collections import Counter, defaultdict, deque
@@ -592,13 +592,13 @@ print(list(islice(range(100), 5, 10)))
 [5, 6, 7, 8, 9]
 ```
 
-`Counter` counts hashable items, such as labels or tokens. `defaultdict(list)` creates an empty list the first time that you use a new key, so a grouping loop needs no key check. `deque(maxlen=3)` removes the oldest item when you add a fourth, which gives a moving window over recent losses. `enumerate` gives each item with its index.
+`Counter` đếm các mục có thể hash, chẳng hạn nhãn hoặc token. `defaultdict(list)` tạo một list rỗng lần đầu bạn sử dụng một khóa mới, nên một vòng lặp nhóm không cần kiểm tra khóa. `deque(maxlen=3)` loại mục cũ nhất khi bạn thêm mục thứ tư, tạo một cửa sổ di chuyển trên các giá trị hàm mất mát gần đây. `enumerate` cung cấp mỗi mục cùng chỉ số của nó.
 
-`product` gives every combination of its inputs, which is a hyperparameter grid. `chain` joins iterables end to end. `islice` takes a slice of any iterator, including a generator. The mini-batch generator in Build It uses `islice`.
+`product` cung cấp mọi tổ hợp của các đầu vào của nó, tức một lưới siêu tham số. `chain` nối các iterable từ đầu đến cuối. `islice` lấy một lát của bất kỳ iterator nào, bao gồm một generator. Generator mini-batch trong Build It sử dụng `islice`.
 
 ### 10. Why loops over numbers are slow
 
-The `dis` module prints the bytecode instructions that the interpreter runs for a function.
+Mô-đun `dis` in các chỉ lệnh bytecode mà trình thông dịch chạy cho một hàm.
 
 ```python
 import dis
@@ -614,17 +614,17 @@ def dot(a, b):
 dis.dis(dot)
 ```
 
-The instructions from `FOR_ITER` to the jump back to it run once for each element. That is about ten instructions for each multiply and add. The exact instruction names change between Python versions.
+Các chỉ lệnh từ `FOR_ITER` đến lệnh nhảy trở lại nó chạy một lần cho mỗi phần tử. Đó là khoảng mười chỉ lệnh cho mỗi phép nhân và cộng. Tên chỉ lệnh chính xác thay đổi giữa các phiên bản Python.
 
-A loop gets faster when fewer of its steps run as bytecode. Built-in functions such as `sum`, `map`, and `zip` are written in C. Build It measures this effect in pure Python, and Use It moves the whole loop into NumPy.
+Một vòng lặp nhanh hơn khi ít bước của nó chạy dưới dạng bytecode hơn. Các hàm tích hợp như `sum`, `map` và `zip` được viết bằng C. Build It đo hiệu ứng này bằng Python thuần, và Use It chuyển toàn bộ vòng lặp vào NumPy.
 
 ## Build It
 
-Now build the pieces that later lessons need. The full version is `code/main.py`, and `code/tests/test_main.py` tests it. Each block below runs on its own.
+Bây giờ xây dựng các mảnh mà các bài sau cần. Phiên bản đầy đủ là `code/main.py`, và `code/tests/test_main.py` kiểm tra nó. Mỗi khối bên dưới chạy độc lập.
 
 ### Step 1: A record type and a dataset loader
 
-The loader reads a CSV file or a JSON file into one shape: a tuple of float features and an integer label.
+Loader đọc một tệp CSV hoặc một tệp JSON thành một dạng: một tuple các đặc trưng float và một nhãn số nguyên.
 
 ```python
 import csv
@@ -677,7 +677,7 @@ with tempfile.TemporaryDirectory() as tmp:
 [Record(features=(1.5, 60.0), label=1)]
 ```
 
-The first row sets the feature names and their order. `DictReader` and `json.loads` keep the keys in file order, and a dict keeps the order in which keys were added. The JSON standard does not define an order for the keys in an object, so `row_to_record` reads each row by name, in the order of the first row. A missing label, a missing or extra feature, or an unknown file type raises `ValueError` with a message, so a bad file stops the run at the start. `main.py` also has `save_records`, which writes the same two formats.
+Hàng đầu tiên đặt tên các đặc trưng và thứ tự của chúng. `DictReader` và `json.loads` giữ các khóa theo thứ tự tệp, và một dict giữ thứ tự mà các khóa được thêm vào. Chuẩn JSON không định nghĩa thứ tự cho các khóa trong một đối tượng, nên `row_to_record` đọc mỗi hàng theo tên, theo thứ tự của hàng đầu tiên. Một nhãn thiếu, một đặc trưng thiếu hoặc thừa, hoặc một loại tệp không biết phát sinh `ValueError` kèm thông báo, nên một tệp xấu dừng lần chạy ngay từ đầu. `main.py` cũng có `save_records`, ghi cùng hai định dạng.
 
 ### Step 2: A seeded train and test split
 
@@ -712,9 +712,9 @@ True
 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 ```
 
-`random.Random(seed)` creates a private random number generator. `random.seed(seed)` resets the one global generator that all modules share, so a call in another library can change your sequence. In the course, 100 lesson files call `random.seed` and 96 create `random.Random`. Use the private generator in new code.
+`random.Random(seed)` tạo một bộ sinh số ngẫu nhiên riêng. `random.seed(seed)` đặt lại một bộ sinh toàn cục mà mọi mô-đun chia sẻ, nên một lần gọi trong thư viện khác có thể thay đổi chuỗi của bạn. Trong khóa học, 100 tệp bài học gọi `random.seed` và 96 tạo `random.Random`. Sử dụng bộ sinh riêng trong mã mới.
 
-The function shuffles a list of indexes, so the input list stays unchanged. The same seed always gives the same split. Each side keeps at least one item, so a list with fewer than 2 items raises `ValueError`. Split the data before any step that learns from it, such as standardization. In the debugging and profiling lesson, we saw that overlap between train and test data gives test scores that are too high.
+Hàm xáo trộn một list các chỉ số, nên list đầu vào giữ nguyên. Cùng seed luôn cho cùng phép chia. Mỗi bên giữ ít nhất một mục, nên một list ít hơn 2 mục phát sinh `ValueError`. Chia dữ liệu trước mọi bước học từ nó, chẳng hạn chuẩn hóa. Trong bài gỡ lỗi và profiling, chúng ta đã thấy chồng lấp giữa dữ liệu train và test cho điểm test quá cao.
 
 ### Step 3: A mini-batch generator
 
@@ -754,9 +754,9 @@ epoch 0: [4, 4, 2]
 epoch 1: [4, 4, 2]
 ```
 
-`islice` takes up to `batch_size` items from the iterator. `batches` needs only `iter()`, so it accepts lists, files, and other generators. The last batch is smaller when the length is not a multiple of the batch size. `drop_last=True` removes that batch, for a model that needs a fixed batch shape.
+`islice` lấy tối đa `batch_size` mục từ iterator. `batches` chỉ cần `iter()`, nên nó chấp nhận list, tệp và các generator khác. Batch cuối nhỏ hơn khi độ dài không phải bội của kích thước batch. `drop_last=True` loại batch đó, cho một mô hình cần hình dạng batch cố định.
 
-The work is in two functions because a generator function runs no code until the first `next()`. With the check inside the generator, `batches(data, 0)` would return with no error. The error would come later, from inside the training loop. The outer function is a normal function, so it checks the argument at once. The epoch loop calls `batches()` again for each epoch, because a generator gives its items only once.
+Công việc nằm trong hai hàm vì một hàm generator không chạy mã nào cho đến `next()` đầu tiên. Với kiểm tra bên trong generator, `batches(data, 0)` sẽ trả về không có lỗi. Lỗi sẽ đến sau, từ bên trong vòng lặp huấn luyện. Hàm bên ngoài là một hàm thông thường, nên nó kiểm tra đối số ngay lập tức. Vòng lặp epoch gọi lại `batches()` cho mỗi epoch, vì một generator chỉ cung cấp các mục của nó một lần.
 
 ### Step 4: Vector math and a standardizer
 
@@ -807,17 +807,17 @@ print([round(v, 3) for v in standardize((4.0, 700.0))])
 [2.449, 2.449]
 ```
 
-With `strict=True`, `zip` raises `ValueError` when the two vectors have different lengths. Without it, `zip` stops at the end of the shorter input and returns a wrong answer with no error. The `strict` argument needs Python 3.10 or newer.
+Với `strict=True`, `zip` phát sinh `ValueError` khi hai vector có độ dài khác nhau. Không có nó, `zip` dừng ở cuối đầu vào ngắn hơn và trả về một câu trả lời sai mà không có lỗi. Đối số `strict` cần Python 3.10 hoặc mới hơn.
 
-`std` divides by `n`, so it gives the population standard deviation, as `statistics.pstdev` does. Divide by `n - 1` when you estimate the spread of a larger population from a sample.
+`std` chia cho `n`, nên nó cho độ lệch chuẩn tổng thể, như `statistics.pstdev`. Chia cho `n - 1` khi bạn ước tính độ phân tán của một tổng thể lớn hơn từ một mẫu.
 
-`make_standardizer` is a closure. It computes the means and standard deviations from the training rows once, and `standardize` keeps them. You apply the same function to the test rows, so the test data has no effect on the statistics. A constant column has a standard deviation of 0, so the standardizer uses a scale of 1 for it.
+`make_standardizer` là một closure. Nó tính các trung bình và độ lệch chuẩn từ các hàng huấn luyện một lần, và `standardize` giữ chúng. Bạn áp dụng cùng hàm cho các hàng test, nên dữ liệu test không ảnh hưởng đến các thống kê. Một cột hằng có độ lệch chuẩn 0, nên standardizer sử dụng hệ số tỷ lệ 1 cho nó.
 
 ### Step 5: A complete run
 
-`code/main.py` connects the pieces. It makes 400 records from two clusters, saves them as CSV and JSON, and loads both files back. Then it splits the records, fits the standardizer on the training split, and computes class centroids from batches of 48.
+`code/main.py` kết nối các mảnh. Nó tạo 400 bản ghi từ hai cụm, lưu chúng dưới dạng CSV và JSON, rồi tải lại cả hai tệp. Sau đó nó chia các bản ghi, khớp standardizer trên phần chia huấn luyện và tính tâm lớp từ các batch 48.
 
-A nearest-centroid classifier stores the mean feature vector of each class. It predicts the class whose mean is closest to the input. `fit_centroids` adds up the rows one batch at a time, so it never needs the full training set in memory. `predict` uses `min()` with a `key=` function to find the closest centroid.
+Một bộ phân loại tâm gần nhất lưu vector đặc trưng trung bình của mỗi lớp. Nó dự đoán lớp có trung bình gần đầu vào nhất. `fit_centroids` cộng các hàng từng batch một, nên nó không bao giờ cần toàn bộ tập huấn luyện trong bộ nhớ. `predict` sử dụng `min()` với một hàm `key=` để tìm tâm gần nhất.
 
 ```bash
 python3 phases/00-setup-and-tooling/13-python-for-ai-engineering/code/main.py
@@ -839,7 +839,7 @@ memory   peak bytes to sum 100,000 squares:
            generator               472
 ```
 
-The two features have very different scales. The second feature has ten times the spread of the first, so it controls the raw distances, and the raw accuracy is lower. Your speed and memory numbers will differ from these numbers.
+Hai đặc trưng có thang đo rất khác nhau. Đặc trưng thứ hai có độ phân tán gấp mười đặc trưng đầu, nên nó chi phối khoảng cách thô, và độ chính xác thô thấp hơn. Các số tốc độ và bộ nhớ của bạn sẽ khác các số này.
 
 ### Step 6: Measure speed and memory
 
@@ -893,23 +893,23 @@ print(peak_bytes(lambda: sum([i * i for i in range(100_000)])))
 print(peak_bytes(lambda: sum(i * i for i in range(100_000))))
 ```
 
-`best_time` reports the fastest of several runs. Other programs on the machine can only add time, so the minimum is the closest to the real cost. The documentation of the `timeit` module gives the same advice.
+`best_time` báo cáo lần nhanh nhất trong nhiều lần chạy. Các chương trình khác trên máy chỉ có thể thêm thời gian, nên giá trị nhỏ nhất gần chi phí thật nhất. Tài liệu mô-đun `timeit` đưa ra cùng lời khuyên.
 
-On our test laptop with Python 3.11, the index loop took about 33 ms. The zip version took about 30 ms, and the `map` version about 14 ms. All three do the same arithmetic. The `map` version is faster because `map` and `operator.mul` are written in C, so fewer bytecode instructions run for each element. The memory numbers repeat the figure: about 4 MB for the list and less than 1 KB for the generator.
+Trên laptop kiểm thử của chúng tôi với Python 3.11, vòng lặp chỉ số mất khoảng 33 ms. Phiên bản zip mất khoảng 30 ms, và phiên bản `map` khoảng 14 ms. Cả ba làm cùng phép toán. Phiên bản `map` nhanh hơn vì `map` và `operator.mul` được viết bằng C, nên ít chỉ lệnh bytecode chạy cho mỗi phần tử hơn. Các số bộ nhớ lặp lại hình: khoảng 4 MB cho list và ít hơn 1 KB cho generator.
 
 ## Use It
 
 ### The standard library versions
 
-The standard library has a tested version of most of the pieces that you built.
+Thư viện chuẩn có một phiên bản đã được kiểm tra của hầu hết các mảnh bạn đã xây dựng.
 
-| You built | Standard library | Note |
+| Bạn đã xây dựng | Thư viện chuẩn | Ghi chú |
 |-----------|------------------|------|
-| `mean`, `std` | `statistics.fmean`, `statistics.pstdev` | The tests compare against these |
-| `dot` | `math.sumprod` | Python 3.12 or newer |
-| `batches` | `itertools.batched` | Python 3.12 or newer, gives tuples |
-| `best_time` | `timeit.repeat` | Also turns off garbage collection during the runs |
-| `peak_bytes` | `tracemalloc` | The same module, with snapshots and per-line statistics |
+| `mean`, `std` | `statistics.fmean`, `statistics.pstdev` | Các bài kiểm tra so sánh với những hàm này |
+| `dot` | `math.sumprod` | Python 3.12 hoặc mới hơn |
+| `batches` | `itertools.batched` | Python 3.12 hoặc mới hơn, cho tuple |
+| `best_time` | `timeit.repeat` | Cũng tắt thu gom rác trong các lần chạy |
+| `peak_bytes` | `tracemalloc` | Cùng mô-đun, với snapshot và thống kê theo dòng |
 
 ```python
 import statistics
@@ -932,11 +932,11 @@ if sys.version_info >= (3, 12):
 [(0, 1, 2, 3), (4, 5, 6, 7), (8, 9)]
 ```
 
-The course supports Python 3.11, so `main.py` uses its own `dot` and `batches`. On Python 3.11, the block prints only the first line.
+Khóa học hỗ trợ Python 3.11, nên `main.py` sử dụng `dot` và `batches` của riêng nó. Trên Python 3.11, khối chỉ in dòng đầu tiên.
 
 ### The same math with compiled arrays
 
-Install NumPy in the virtual environment from the Python environments lesson, for example with `uv pip install numpy`. The lesson code and tests do not need it.
+Cài NumPy trong môi trường ảo từ bài môi trường Python, ví dụ bằng `uv pip install numpy`. Mã bài học và các bài kiểm tra không cần nó.
 
 ```python
 import time
@@ -963,19 +963,19 @@ print(f"difference  {abs(slow - fast):.1e}")
 print(a.dtype, a.itemsize, a.nbytes)
 ```
 
-On our test laptop, NumPy took less than 1 ms, and the pure-Python version took about 30 ms. The two results differ in the last digits, because the two versions add the products in a different order. Floating-point addition gives slightly different results in a different order.
+Trên laptop kiểm thử của chúng tôi, NumPy mất ít hơn 1 ms, và phiên bản Python thuần mất khoảng 30 ms. Hai kết quả khác nhau ở các chữ số cuối, vì hai phiên bản cộng các tích theo thứ tự khác nhau. Phép cộng dấu phẩy động cho kết quả hơi khác nhau theo thứ tự khác nhau.
 
-NumPy is faster for three reasons:
+NumPy nhanh hơn vì ba lý do:
 
-- The array stores raw `float64` values, 8 bytes each, in one block of memory. A list of floats needs an 8-byte pointer and a 24-byte float object for each value.
-- The loop runs in compiled code. NumPy checks the data type once for the whole array and makes no Python object for each element.
-- Values that sit side by side in memory let NumPy use SIMD instructions, which process several values with one instruction.
+- Mảng lưu các giá trị `float64` thô, mỗi giá trị 8 byte, trong một khối bộ nhớ. Một list các float cần một con trỏ 8 byte và một đối tượng float 24 byte cho mỗi giá trị.
+- Vòng lặp chạy trong mã đã biên dịch. NumPy kiểm tra kiểu dữ liệu một lần cho toàn mảng và không tạo đối tượng Python cho mỗi phần tử.
+- Các giá trị nằm cạnh nhau trong bộ nhớ cho phép NumPy sử dụng chỉ lệnh SIMD, xử lý nhiều giá trị bằng một chỉ lệnh.
 
-For very small arrays, the fixed cost of one NumPy call can be larger than a short Python loop. Exercise 4 finds the size where NumPy becomes faster on your machine.
+Với các mảng rất nhỏ, chi phí cố định của một lần gọi NumPy có thể lớn hơn một vòng lặp Python ngắn. Bài tập 4 tìm kích thước nơi NumPy trở nên nhanh hơn trên máy bạn.
 
 ### Broadcasting
 
-Broadcasting lets NumPy combine arrays of different shapes without a loop in your code. This block does the same work as `make_standardizer` from Step 4.
+Broadcasting cho phép NumPy kết hợp các mảng có hình dạng khác nhau mà không có vòng lặp trong mã của bạn. Khối này làm cùng công việc như `make_standardizer` từ Bước 4.
 
 ```python
 import numpy as np
@@ -999,73 +999,73 @@ print(norms.shape, (X / norms).shape)
 (3, 1) (3, 2)
 ```
 
-NumPy compares the two shapes from the last dimension back to the first. Two dimensions are compatible when they are equal or when one of them is 1. A missing leading dimension counts as 1. A dimension of size 1 is used again along the larger dimension, and NumPy makes no copy of the data.
+NumPy so sánh hai hình dạng từ chiều cuối ngược về chiều đầu. Hai chiều tương thích khi chúng bằng nhau hoặc khi một trong chúng là 1. Một chiều đầu bị thiếu được tính là 1. Một chiều kích thước 1 được sử dụng lại dọc theo chiều lớn hơn, và NumPy không tạo bản sao dữ liệu.
 
-| Shape of `X` | Shape of the other array | Result |
+| Hình dạng của `X` | Hình dạng của mảng kia | Kết quả |
 |--------------|--------------------------|--------|
-| `(3, 2)` | `(2,)`, column means | `(3, 2)` |
-| `(3, 2)` | `(3, 1)`, row norms with `keepdims=True` | `(3, 2)` |
-| `(3, 2)` | `(3,)`, row norms without `keepdims` | `ValueError` |
+| `(3, 2)` | `(2,)`, trung bình cột | `(3, 2)` |
+| `(3, 2)` | `(3, 1)`, chuẩn hàng với `keepdims=True` | `(3, 2)` |
+| `(3, 2)` | `(3,)`, chuẩn hàng không có `keepdims` | `ValueError` |
 
-The last row is a common error. NumPy compares the trailing 2 with 3, and neither one is 1. Keep `keepdims=True` when you reduce over rows and then combine the result with the original array.
+Hàng cuối là một lỗi phổ biến. NumPy so sánh 2 ở cuối với 3, và không số nào là 1. Giữ `keepdims=True` khi bạn rút gọn theo các hàng rồi kết hợp kết quả với mảng ban đầu.
 
 ## Ship It
 
-This lesson produces `outputs/prompt-python-review.md`. It is a review prompt for Python code in AI and data projects. Give it a file or a diff. It checks the code for the idioms and the silent errors from this lesson:
+Bài học này tạo ra `outputs/prompt-python-review.md`. Nó là một prompt xem xét cho mã Python trong các dự án AI và dữ liệu. Đưa cho nó một tệp hoặc một diff. Nó kiểm tra mã về các cách viết và các lỗi âm thầm từ bài học này:
 
-- Shared references and mutable default arguments
-- Generators that a second epoch reads after they are used up
-- Random numbers without a seed, or with only the global seed
-- Statistics that come from the test split
-- Pure-Python loops over large numeric arrays
+- Tham chiếu dùng chung và đối số mặc định có thể thay đổi
+- Generator mà một epoch thứ hai đọc sau khi chúng đã dùng hết
+- Số ngẫu nhiên không có seed, hoặc chỉ có seed toàn cục
+- Thống kê đến từ phần chia test
+- Vòng lặp Python thuần trên các mảng số lớn
 
-It reports each finding with a location, the problem, and a fix.
+Nó báo cáo mỗi phát hiện với một vị trí, vấn đề và cách sửa.
 
 ## Exercises
 
-1. Run `run_demo(seed=8)` from `main.py`. Find the output lines that change and the lines that stay the same. Explain why the split sizes stay the same.
-2. Write `median(values)` in pure Python. Test it against `statistics.median` on lists of odd length and even length.
-3. Write `stream_records(path)`, a generator that yields one `Record` at a time from a CSV file. Make a file of 200,000 rows. Compare the peak memory of `stream_records` and `load_records` with `tracemalloc`.
-4. Write `matvec(matrix, vector)` in pure Python and in NumPy. Measure both with `best_time` for sizes 4, 64, and 1024. Find the size where NumPy becomes faster on your machine.
-5. Write the construct scan from The Concept. Use `ast.parse` and `ast.walk` on each file in `phases/*/*/code/*.py`. Count the files that contain `ast.ListComp`, `ast.Yield`, and `ast.With`, and compare your counts with the table.
+1. Chạy `run_demo(seed=8)` từ `main.py`. Tìm các dòng đầu ra thay đổi và các dòng giữ nguyên. Giải thích vì sao kích thước các phần chia giữ nguyên.
+2. Viết `median(values)` bằng Python thuần. Kiểm tra nó với `statistics.median` trên các list độ dài lẻ và độ dài chẵn.
+3. Viết `stream_records(path)`, một generator yield từng `Record` một từ một tệp CSV. Tạo một tệp 200,000 hàng. So sánh bộ nhớ đỉnh của `stream_records` và `load_records` bằng `tracemalloc`.
+4. Viết `matvec(matrix, vector)` bằng Python thuần và bằng NumPy. Đo cả hai bằng `best_time` cho các kích thước 4, 64 và 1024. Tìm kích thước nơi NumPy trở nên nhanh hơn trên máy bạn.
+5. Viết phép quét cấu trúc từ The Concept. Sử dụng `ast.parse` và `ast.walk` trên mỗi tệp trong `phases/*/*/code/*.py`. Đếm các tệp chứa `ast.ListComp`, `ast.Yield` và `ast.With`, và so sánh số đếm của bạn với bảng.
 
 ### Hints
 
-**Exercise 1.** Import `run_demo` from `code/main.py` and call it with `seed=7` and with `seed=8`, then print both results with `format_report`. The values that come from random data change; the split sizes depend only on `n` and `test_fraction`, so they stay the same.
+**Bài tập 1.** Import `run_demo` từ `code/main.py` và gọi nó với `seed=7` và với `seed=8`, rồi in cả hai kết quả bằng `format_report`. Các giá trị đến từ dữ liệu ngẫu nhiên thay đổi; kích thước các phần chia chỉ phụ thuộc `n` và `test_fraction`, nên chúng giữ nguyên.
 
-**Exercise 2.** Sort a copy of the list first, then take the middle item for odd lengths and the mean of the two middle items for even lengths. Compare your result with `statistics.median` on lists such as `[3, 1, 2]` and `[4, 1, 3, 2]`; both must give the same numbers.
+**Bài tập 2.** Sắp xếp một bản sao của list trước, rồi lấy mục giữa cho độ dài lẻ và trung bình của hai mục giữa cho độ dài chẵn. So sánh kết quả của bạn với `statistics.median` trên các list như `[3, 1, 2]` và `[4, 1, 3, 2]`; cả hai phải cho cùng các số.
 
-**Exercise 3.** Read `load_records` in `code/main.py` and keep its parsing step, but `yield` each `Record` instead of appending it to a list. Use `save_records` with `make_dataset(200_000)` to make the file, then compare `peak_bytes(lambda: load_records(path))` with `peak_bytes(lambda: sum(1 for _ in your_generator(path)))`. The generator must be consumed inside the callable, or `peak_bytes` measures only its creation. It must report a much smaller peak.
+**Bài tập 3.** Đọc `load_records` trong `code/main.py` và giữ bước phân tích của nó, nhưng `yield` mỗi `Record` thay vì nối nó vào một list. Sử dụng `save_records` với `make_dataset(200_000)` để tạo tệp, rồi so sánh `peak_bytes(lambda: load_records(path))` với `peak_bytes(lambda: sum(1 for _ in your_generator(path)))`. Generator phải được tiêu thụ bên trong callable, nếu không `peak_bytes` chỉ đo việc tạo nó. Nó phải báo cáo một đỉnh nhỏ hơn nhiều.
 
-**Exercise 4.** Use `dot` as the model for the pure Python version and call it once for each row, then use `np.array(matrix) @ np.array(vector)` for NumPy. Time both with `best_time` and print one table row for each size; the two results must be equal before you compare the times.
+**Bài tập 4.** Sử dụng `dot` làm mẫu cho phiên bản Python thuần và gọi nó một lần cho mỗi hàng, rồi sử dụng `np.array(matrix) @ np.array(vector)` cho NumPy. Đo thời gian cả hai bằng `best_time` và in một hàng bảng cho mỗi kích thước; hai kết quả phải bằng nhau trước khi bạn so sánh thời gian.
 
-**Exercise 5.** Read each file with `Path.read_text`, parse it with `ast.parse`, and use `any(isinstance(node, ast.ListComp) for node in ast.walk(tree))` to test one construct. Count each file one time, because the table in The Concept counts files.
+**Bài tập 5.** Đọc mỗi tệp bằng `Path.read_text`, phân tích nó bằng `ast.parse` và sử dụng `any(isinstance(node, ast.ListComp) for node in ast.walk(tree))` để kiểm tra một cấu trúc. Đếm mỗi tệp một lần, vì bảng trong The Concept đếm tệp.
 
 ## Key Terms
 
-| Term | What people say | What it means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa |
 |------|----------------|----------------------|
-| Iterable | "Something you can loop over" | An object that `iter()` accepts, such as a list, a file, or a generator |
-| Iterator | "A cursor" | An object whose `__next__` method returns one item per call and raises `StopIteration` at the end |
-| Generator | "A lazy list" | An iterator from a `yield` function or a generator expression. It makes each item on request and runs only once. |
-| Comprehension | "A one-line loop" | An expression that builds a list, dict, or set from an iterable, with an optional filter |
-| Closure | "A function inside a function" | A function that keeps variables from the function that created it |
-| Dataclass | "A struct" | A class whose `__init__`, `__repr__`, and `__eq__` methods Python writes from the annotated fields |
-| Context manager | "A with block" | An object that runs setup code at the start of a `with` block and cleanup code at the end, even after an exception |
-| Seed | "The random number" | The start value of a pseudo-random generator. The same seed gives the same sequence. |
-| Vectorized code | "Fast code" | Code that applies one operation to a whole array, so that compiled code runs the loop |
-| Broadcasting | "Automatic shape matching" | The NumPy rules that combine arrays of different shapes by using size-1 dimensions again, with no copy |
+| Iterable | "Thứ gì đó bạn có thể lặp qua" | Một đối tượng mà `iter()` chấp nhận, chẳng hạn một list, một tệp hoặc một generator |
+| Iterator | "Một con trỏ" | Một đối tượng có phương thức `__next__` trả về một mục mỗi lần gọi và phát sinh `StopIteration` ở cuối |
+| Generator | "Một list lười" | Một iterator từ một hàm `yield` hoặc một biểu thức generator. Nó tạo mỗi mục theo yêu cầu và chỉ chạy một lần. |
+| Comprehension | "Một vòng lặp một dòng" | Một biểu thức xây dựng một list, dict hoặc set từ một iterable, với một bộ lọc tùy chọn |
+| Closure | "Một hàm bên trong một hàm" | Một hàm giữ các biến từ hàm đã tạo ra nó |
+| Dataclass | "Một struct" | Một lớp mà Python viết các phương thức `__init__`, `__repr__` và `__eq__` từ các trường được chú thích |
+| Context manager | "Một khối with" | Một đối tượng chạy mã thiết lập ở đầu một khối `with` và mã dọn dẹp ở cuối, ngay cả sau một ngoại lệ |
+| Seed — Hạt giống | "Số ngẫu nhiên" | Giá trị khởi đầu của một bộ sinh giả ngẫu nhiên. Cùng seed cho cùng chuỗi. |
+| Vectorized code — Mã vector hóa | "Mã nhanh" | Mã áp dụng một phép toán cho toàn mảng, để mã đã biên dịch chạy vòng lặp |
+| Broadcasting | "Khớp hình dạng tự động" | Các quy tắc NumPy kết hợp các mảng có hình dạng khác nhau bằng cách sử dụng lại các chiều kích thước 1, không sao chép |
 
 ## Further Reading
 
-- [The Python Tutorial: Data Structures](https://docs.python.org/3/tutorial/datastructures.html): lists, tuples, sets, dicts, and comprehensions.
-- [The Python Tutorial: Classes](https://docs.python.org/3/tutorial/classes.html): scopes, classes, iterators, and generators.
-- [dataclasses](https://docs.python.org/3/library/dataclasses.html): every option of the decorator, including `frozen` and `field`.
-- [collections](https://docs.python.org/3/library/collections.html): `Counter`, `defaultdict`, `deque`, and the other container types.
-- [itertools](https://docs.python.org/3/library/itertools.html): `islice`, `chain`, `product`, `batched`, and recipes that combine them.
-- [Sorting Techniques](https://docs.python.org/3/howto/sorting.html): key functions, stable sorts, and sorts on several keys.
-- [timeit](https://docs.python.org/3/library/timeit.html): how to measure small pieces of code, and why to report the minimum.
-- [random](https://docs.python.org/3/library/random.html): the global generator, `random.Random` instances, and reproducibility.
-- [PEP 255: Simple Generators](https://peps.python.org/pep-0255/): the proposal that added `yield`, with the reasons for its design.
-- [NumPy: Broadcasting](https://numpy.org/doc/stable/user/basics.broadcasting.html): the full shape rules, with diagrams.
-- [Harris et al., Array programming with NumPy, Nature 585, 2020](https://doi.org/10.1038/s41586-020-2649-2): the design of the NumPy array and the reasons for its speed.
+- [The Python Tutorial: Data Structures](https://docs.python.org/3/tutorial/datastructures.html): list, tuple, set, dict và comprehension.
+- [The Python Tutorial: Classes](https://docs.python.org/3/tutorial/classes.html): phạm vi, lớp, iterator và generator.
+- [dataclasses](https://docs.python.org/3/library/dataclasses.html): mọi tùy chọn của decorator, bao gồm `frozen` và `field`.
+- [collections](https://docs.python.org/3/library/collections.html): `Counter`, `defaultdict`, `deque` và các kiểu container khác.
+- [itertools](https://docs.python.org/3/library/itertools.html): `islice`, `chain`, `product`, `batched` và các công thức kết hợp chúng.
+- [Sorting Techniques](https://docs.python.org/3/howto/sorting.html): hàm khóa, sắp xếp ổn định và sắp xếp trên nhiều khóa.
+- [timeit](https://docs.python.org/3/library/timeit.html): cách đo các mảnh mã nhỏ, và vì sao báo cáo giá trị nhỏ nhất.
+- [random](https://docs.python.org/3/library/random.html): bộ sinh toàn cục, các instance `random.Random` và khả năng tái tạo.
+- [PEP 255: Simple Generators](https://peps.python.org/pep-0255/): đề xuất thêm `yield`, với các lý do cho thiết kế của nó.
+- [NumPy: Broadcasting](https://numpy.org/doc/stable/user/basics.broadcasting.html): các quy tắc hình dạng đầy đủ, với sơ đồ.
+- [Harris et al., Array programming with NumPy, Nature 585, 2020](https://doi.org/10.1038/s41586-020-2649-2): thiết kế của mảng NumPy và các lý do cho tốc độ của nó.

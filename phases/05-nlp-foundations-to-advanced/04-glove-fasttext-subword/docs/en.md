@@ -25,7 +25,7 @@ Bài học này đi qua cả ba, rồi giải thích nên chọn phương pháp 
 
 **FastText.** Một từ là tổng các n-gram ký tự của nó cộng chính từ đó. `where` trở thành `<wh, whe, her, ere, re>, <where>`. Vector từ là tổng của các vector thành phần đó. Huấn luyện như Word2Vec. Lợi ích: các từ chưa thấy (`whereupon`) được kết hợp từ các n-gram đã biết.
 
-**BPE (Byte-Pair Encoding).** Bắt đầu với một từ vựng các byte riêng lẻ (hoặc ký tự). Đếm mọi cặp liền kề trong ngữ liệu. Gộp cặp thường gặp nhất thành một token mới. Lặp lại `k` lần. Kết quả: một từ vựng `k + 256` token trong đó các chuỗi thường gặp (`ing`, `tion`, `the`) là các token đơn và các từ hiếm được chia thành các mảnh quen thuộc. Mọi câu đều tokenize được thành thứ gì đó.
+**BPE (Byte-Pair Encoding).** Bắt đầu với một từ vựng gồm các byte riêng lẻ (hoặc ký tự). Đếm mọi cặp liền kề trong kho ngữ liệu. Gộp cặp phổ biến nhất thành một token mới. Lặp lại trong `k` vòng. Kết quả: một từ vựng gồm các ký hiệu cơ sở cộng `k` lần gộp (`k + 256` token khi bạn bắt đầu từ byte), trong đó các chuỗi thường gặp (`ing`, `tion`, `the`) là các token đơn và các từ hiếm được tách thành những phần quen thuộc. Mọi câu đều được tách thành các token nào đó.
 
 ```figure
 n5-subword-merge

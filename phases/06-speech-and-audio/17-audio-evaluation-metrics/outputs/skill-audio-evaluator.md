@@ -22,8 +22,8 @@ Từ chối đánh giá một con số duy nhất cho độ trễ (báo cáo cá
 
 Đầu ra ví dụ:
 - Chính: UTMOS (các mẫu âm thanh theo cặp trên 50 prompt mỗi ngôn ngữ) + MOS hội đồng con người (20 người nghe mỗi ngôn ngữ, A/B mù so với baseline).
-- Phụ: trung vị & P95 TTFA (phải khớp baseline); SECS &gt; 0.80 so với một tham chiếu giọng cố định (không suy giảm người nói); CER trên ASR vòng đi-về (Whisper-large-v3-turbo) &lt; 2%.
-- Chuẩn hóa: Whisper-normalizer tiếng Anh + multilingual-normalizer tiếng Tây Ban Nha của Hugging Face cho WER vòng đi-về.
+- Thứ cấp: trung vị và P95 TTFA (phải khớp đường cơ sở); SECS &gt; 0.80 so với một tham chiếu giọng cố định (không suy giảm người nói); WER qua ASR vòng khứ hồi (Whisper-large-v3-turbo) &lt; 2% cho mỗi ngôn ngữ, tiếng Anh và tiếng Tây Ban Nha (cả hai đều phân tách bằng dấu cách, vì vậy WER phù hợp; sử dụng CER cho các ngôn ngữ không có ranh giới từ).
+- Chuẩn hóa: `EnglishTextNormalizer` từ gói `openai-whisper` cho tiếng Anh, và `BasicTextNormalizer` của nó cho tiếng Tây Ban Nha và cho các prompt trộn ngôn ngữ, được áp dụng cho cả tham chiếu lẫn giả thuyết trước WER vòng khứ hồi. Hàm trợ giúp `wer()` của bài học chỉ hỗ trợ ASCII, vì vậy hãy sử dụng các bộ chuẩn hóa này (hoặc một bộ đánh giá bên ngoài) cho tiếng Tây Ban Nha.
 - Benchmark công khai: TTS Arena (tiếng Anh) và Artificial Analysis Speech để định vị ELO tương đối. Mục tiêu: trong 50 ELO của đối thủ gần nhất.
 - Nội bộ: 200 prompt được giữ lại (100 mỗi ngôn ngữ) bao phủ tiền, ngày, tên sản phẩm, tường thuật 2 câu, đọc có cảm xúc, chuyển mã ngôn ngữ. 10 giọng nhân khẩu học.
-- Báo cáo: ghi chú phát hành với tiêu điểm (UTMOS + MOS), histogram P50/P95 TTFA, CDF SECS, phân tích CER theo nhóm, các điểm nêu dạng lỗi (các prompt chuyển mã ngôn ngữ thất bại ở X%).
+- Báo cáo: ghi chú phát hành với chỉ số chính (UTMOS + MOS), biểu đồ tần suất TTFA P50/P95, CDF SECS, phân tích WER/CER theo danh mục, các điểm nhấn về dạng lỗi (các prompt trộn ngôn ngữ thất bại ở mức X%).

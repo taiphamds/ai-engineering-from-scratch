@@ -1,75 +1,75 @@
 ---
 name: evidence-ledger
-description: Record binary analysis findings as observed, derived, or inferred evidence with content-hash ids, and refuse to state a result without an observed run.
+description: Ghi các phát hiện phân tích binary dưới dạng bằng chứng observed, derived hoặc inferred với các id hash nội dung, và từ chối nêu một kết quả không có một lần chạy observed.
 version: 1.0.0
 phase: 13
 lesson: 35
 tags: [reverse-engineering, evidence, confidence, unknowns, ghidra, rea]
 ---
 
-Given a program you compiled yourself and a set of questions about it, keep one ledger of evidence records and one list of residual unknowns. Every sentence in the final report cites an evidence id. Use this skill with Claude, Cursor, Codex, OpenClaw, Hermes, or any agent that reads SKILL.md.
+Với một chương trình bạn tự biên dịch và một tập câu hỏi về nó, giữ một sổ các bản ghi bằng chứng và một danh sách các điều chưa biết còn lại. Mỗi câu trong báo cáo cuối trích một id bằng chứng. Sử dụng skill này với Claude, Cursor, Codex, OpenClaw, Hermes hoặc bất kỳ agent nào đọc SKILL.md.
 
 ## Required inputs
 
-- The target file, its SHA-256, its format, and its architecture.
-- The provider for each observation: a tool name and version, or the analyst.
-- The analysis profile of each provider run, including every contract version string.
-- The questions to answer, each with the authority and confidence that would settle it.
-- A host compiler and a test program when the questions are about behaviour.
-- The authorization that covers the target. Analyze only programs you own or have written permission to analyze.
+- Tệp mục tiêu, SHA-256 của nó, định dạng và kiến trúc của nó.
+- Provider cho mỗi quan sát: một tên công cụ và phiên bản, hoặc nhà phân tích.
+- Analysis profile của mỗi lần chạy provider, bao gồm mọi chuỗi phiên bản hợp đồng.
+- Các câu hỏi cần trả lời, mỗi câu với thẩm quyền và độ tin cậy sẽ giải quyết nó.
+- Một compiler host và một chương trình kiểm tra khi các câu hỏi về hành vi.
+- Sự cho phép bao phủ mục tiêu. Chỉ phân tích các chương trình bạn sở hữu hoặc có quyền bằng văn bản để phân tích.
 
 ## Procedure
 
-1. Hash the target. Put the digest, format, and architecture in every subject. Keep name and path out of the identity.
-2. Give every record one confidence. `observed` means read from bytes or from a run. `derived` means computed from observed records. `inferred` means an expectation.
-3. Give every record one authority. `shipped-artifact` means a read of the file. `controlled-replay` means a run you controlled. `analyst-inference` means your own judgement.
-4. Compute `evidence_id` as `ev_` plus SHA-256 over the canonical JSON (RFC 8785) of the record. Leave out the id, the name, and the path.
-5. Record provider limitations verbatim. Add your own limitation when a run used a different build than the file under analysis.
-6. Link every derived and inferred record to the records it rests on through `evidence_links`.
-7. Open one unknown per question. Store the question, the scope digest, the severity, the required confidence, the required authority, and one recommended probe.
-8. Make every change to an unknown a new revision that names the digest of the revision before it. Refuse a change whose expected revision is stale.
-9. Check a behaviour claim only against observed run records that name the same function and arguments. Count the inputs that have a run.
-10. Report `pass` when every input has an agreeing run. Report `fail` when any run disagrees. Report `unknown` when some inputs have no run. Report `unsupported` when none do.
-11. Resolve an unknown only with evidence ids that have the required confidence and authority. A sentence does not close an unknown.
-12. Cache provider answers under a key that covers the target, the provider, the profile digest, the operation, and the parameters. Refuse a snapshot whose profile digest or format version differs.
+1. Hash mục tiêu. Đặt digest, định dạng và kiến trúc trong mọi subject. Giữ tên và đường dẫn ngoài danh tính.
+2. Cho mọi bản ghi một độ tin cậy. `observed` nghĩa là đọc từ byte hoặc từ một lần chạy. `derived` nghĩa là được tính từ các bản ghi observed. `inferred` nghĩa là một kỳ vọng.
+3. Cho mọi bản ghi một thẩm quyền. `shipped-artifact` nghĩa là một lần đọc tệp. `controlled-replay` nghĩa là một lần chạy bạn kiểm soát. `analyst-inference` nghĩa là phán đoán của riêng bạn.
+4. Tính `evidence_id` là `ev_` cộng SHA-256 trên JSON chính tắc (RFC 8785) của bản ghi. Bỏ id, tên và đường dẫn.
+5. Ghi các giới hạn provider nguyên văn. Thêm giới hạn của riêng bạn khi một lần chạy sử dụng một bản build khác với tệp đang phân tích.
+6. Liên kết mọi bản ghi derived và inferred đến các bản ghi mà nó dựa vào qua `evidence_links`.
+7. Mở một điều chưa biết mỗi câu hỏi. Lưu câu hỏi, scope digest, mức nghiêm trọng, độ tin cậy được yêu cầu, thẩm quyền được yêu cầu và một thăm dò được khuyến nghị.
+8. Làm mọi thay đổi với một điều chưa biết thành một revision mới nêu tên digest của revision trước nó. Từ chối một thay đổi có revision kỳ vọng đã cũ.
+9. Chỉ kiểm tra một khẳng định hành vi với các bản ghi chạy observed nêu tên cùng hàm và đối số. Đếm các đầu vào có một lần chạy.
+10. Báo cáo `pass` khi mọi đầu vào có một lần chạy đồng nhất. Báo cáo `fail` khi bất kỳ lần chạy nào bất đồng. Báo cáo `unknown` khi một số đầu vào không có lần chạy. Báo cáo `unsupported` khi không đầu vào nào có.
+11. Chỉ giải quyết một điều chưa biết bằng các id bằng chứng có độ tin cậy và thẩm quyền được yêu cầu. Một câu không đóng một điều chưa biết.
+12. Cache các câu trả lời provider dưới một khóa bao phủ mục tiêu, provider, digest profile, thao tác và các tham số. Từ chối một snapshot có digest profile hoặc phiên bản định dạng khác.
 
 ## Required ledger
 
-For every claim, report:
+Với mọi khẳng định, báo cáo:
 
-- claim text and the function and arguments it covers
-- the prediction record id and the derived records it rests on
-- inputs with observed runs, out of the inputs the claim covers
-- supporting and contradicting evidence ids
-- limitations carried from the supporting records
-- status: `pass`, `fail`, `unknown`, or `unsupported`
-- the unknown id, its current status, and its revision
+- văn bản khẳng định và hàm cùng đối số mà nó bao phủ
+- id bản ghi dự đoán và các bản ghi derived mà nó dựa vào
+- các đầu vào có lần chạy observed, trên các đầu vào mà khẳng định bao phủ
+- các id bằng chứng hỗ trợ và mâu thuẫn
+- các giới hạn được mang theo từ các bản ghi hỗ trợ
+- trạng thái: `pass`, `fail`, `unknown` hoặc `unsupported`
+- id điều chưa biết, trạng thái hiện tại và revision của nó
 
-For every unknown, report the question, the severity, the required authority, the current status, and the revision count.
+Với mọi điều chưa biết, báo cáo câu hỏi, mức nghiêm trọng, thẩm quyền được yêu cầu, trạng thái hiện tại và số revision.
 
 ## Hard rejects
 
-- A result stated from pseudocode or a disassembly listing with no observed run.
-- A `pass` for a claim whose inputs are only partly covered by runs.
-- A `fail` or a `pass` written from an empty list. An empty list is `unknown`.
-- An evidence id computed over the local path or the file name.
-- A record whose analysis profile names a different provider than the record.
-- An unknown resolved with derived or inferred evidence, or with no evidence id.
-- An unknown changed without the current revision number.
-- A snapshot replayed after a contract version string changed.
-- A record that drops a provider limitation.
-- A run record that hides the fact that it executed a different build of the same source.
-- A claim that calls static analysis an observation of execution.
+- Một kết quả được nêu từ mã giả hoặc một danh sách disassembly không có lần chạy observed.
+- Một `pass` cho một khẳng định có các đầu vào chỉ được các lần chạy bao phủ một phần.
+- Một `fail` hoặc một `pass` được viết từ một danh sách rỗng. Một danh sách rỗng là `unknown`.
+- Một id bằng chứng được tính trên đường dẫn cục bộ hoặc tên tệp.
+- Một bản ghi có analysis profile nêu tên một provider khác với bản ghi.
+- Một điều chưa biết được giải quyết bằng bằng chứng derived hoặc inferred, hoặc không có id bằng chứng.
+- Một điều chưa biết được thay đổi không có số revision hiện tại.
+- Một snapshot được phát lại sau khi một chuỗi phiên bản hợp đồng thay đổi.
+- Một bản ghi bỏ một giới hạn provider.
+- Một bản ghi chạy che giấu sự kiện rằng nó thực thi một bản build khác của cùng nguồn.
+- Một khẳng định gọi phân tích tĩnh là một quan sát thực thi.
 
 ## Produce
 
-Return these sections:
+Trả về những phần này:
 
-1. Target: digest, format, architecture, build command, and authorization.
-2. Evidence: every record with id, confidence, authority, operation, and limitations.
-3. Claims: the required ledger above, one row per claim.
-4. Unknowns: open, investigating, blocked, contradicted, and resolved, each with its revision chain.
-5. Cache: the snapshot key fields, the entries reused, and every refused import with its reason.
-6. Completion: the `ecl_` id, the count per status, and whether every claim passed.
+1. Mục tiêu: digest, định dạng, kiến trúc, lệnh build và sự cho phép.
+2. Bằng chứng: mọi bản ghi với id, độ tin cậy, thẩm quyền, thao tác và giới hạn.
+3. Khẳng định: sổ được yêu cầu ở trên, một hàng mỗi khẳng định.
+4. Điều chưa biết: mở, đang điều tra, bị chặn, bị mâu thuẫn và đã giải quyết, mỗi điều với chuỗi revision của nó.
+5. Cache: các trường khóa snapshot, các mục được tái sử dụng và mọi lần import bị từ chối với lý do của nó.
+6. Hoàn thành: id `ecl_`, số đếm theo trạng thái và liệu mọi khẳng định đã qua hay chưa.
 
-End with the first unknown that still blocks a complete answer, and the probe that would close it.
+Kết thúc bằng điều chưa biết đầu tiên vẫn chặn một câu trả lời đầy đủ, và thăm dò sẽ đóng nó.

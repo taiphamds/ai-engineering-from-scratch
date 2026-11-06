@@ -36,7 +36,7 @@ graph LR
     T3 --> T4["4D Tensor<br/>rank 4<br/>shape: (B,C,H,W)"]
 ```
 
-Tổng số phần tử = tích tất cả các kích thước. Một hình dạng `(2, 3, 4)` chứa `2 * 3 * 4 = 24` phần tử.
+Tổng số phần tử = tích tất cả các kích thước. Một hình dạng `(2, 3, 4)` chứa $2 \cdot 3 \cdot 4 = 24$ phần tử.
 
 ### Tensor shapes in deep learning
 
@@ -232,7 +232,7 @@ batch_B = np.random.randn(4, 5, 2)
 batch_mm = np.einsum("bij,bjk->bik", batch_A, batch_B)
 ```
 
-Chi phí tính toán của một phép co là tích tất cả kích thước chỉ số (được giữ và được lấy tổng). Với `bij,bjk->bik` khi B=32, I=128, J=64, K=128: `32 * 128 * 64 * 128 = 33,554,432` phép nhân-cộng.
+Chi phí tính toán của một phép co là tích tất cả kích thước chỉ số (được giữ và được lấy tổng). Với `bij,bjk->bik` khi $B=32$, $I=128$, $J=64$, $K=128$: $32 \cdot 128 \cdot 64 \cdot 128 = 33{,}554{,}432$ phép nhân-cộng.
 
 ### Step 7: Attention mechanism via einsum
 
@@ -319,6 +319,16 @@ Bài học này tạo ra hai prompt có thể tái sử dụng:
 3. **Khó -- Xây dựng einsum từ đầu.** Triển khai một hàm `einsum(subscripts, *tensors)` cơ bản xử lý ít nhất: tích vô hướng (`i,i->`), nhân ma trận (`ij,jk->ik`), tích ngoài (`i,j->ij`) và chuyển vị (`ij->ji`). Phân tích chuỗi chỉ số, xác định các chỉ số được co và lặp qua tất cả tổ hợp chỉ số. So sánh kết quả với `np.einsum`.
 
 4. **Khó -- Bộ theo dõi hình dạng attention.** Viết một hàm nhận `batch_size`, `seq_len`, `embed_dim` và `num_heads` làm đầu vào và in hình dạng chính xác tại mọi bước của multi-head attention: đầu vào, phép chiếu Q/K/V, tách head, điểm attention, trọng số softmax, tổng có trọng số, gộp head, phép chiếu đầu ra. Xác minh với đầu ra `demo_attention_einsum()`.
+
+### Hints
+
+**Bài tập 1.** Xây dựng tensor từ `list(range(24))` để mỗi phần tử thể hiện vị trí của chính nó. Sau mỗi lệnh gọi `reshape`, in `flatten().to_list()` và kiểm tra nó vẫn là 0 đến 23 theo thứ tự.
+
+**Bài tập 2.** Một chiều chỉ có thể broadcast khi hai kích thước bằng nhau hoặc một trong chúng là 1, vì vậy trước tiên hãy kiểm tra quy tắc đó và phát sinh lỗi khi nó không đạt. Đối với kích thước `(3, 1)` và `(1, 4)`, kiểm tra phần tử `[i][j]` của kết quả bằng `a[i][0] + b[0][j]`, và so sánh toàn bộ kết quả với NumPy.
+
+**Bài tập 3.** Tách các chỉ số dưới tại `->`. Một chữ cái có trong các đầu vào nhưng không có trong đầu ra là một chỉ số được lấy tổng, vì vậy hãy lặp qua mọi giá trị của mọi chữ cái và cộng vào vị trí đầu ra. Kiểm thử từng trường hợp trong bốn trường hợp trên các mảng ngẫu nhiên nhỏ bằng `np.allclose(mine, np.einsum(...))`.
+
+**Bài tập 4.** Bắt đầu với kích thước head `embed_dim // num_heads` và khẳng định rằng `embed_dim % num_heads == 0`. Các điểm attention có kích thước `(batch_size, num_heads, seq_len, seq_len)`, vì vậy hãy đối chiếu bản in của bạn với kích thước đó và các kích thước mà `demo_attention_einsum()` in ra.
 
 ## Key Terms
 

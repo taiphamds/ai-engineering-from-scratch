@@ -35,25 +35,27 @@ Xét một tập dữ liệu có 1000 mẫu: 990 âm tính, 10 dương tính. M�
 | Thực tế dương tính | 0 (TP) | 10 (FN) |
 | Thực tế âm tính | 0 (FP) | 990 (TN) |
 
-Accuracy = (0 + 990) / 1000 = 99.0%
+```math
+\text{Accuracy} = (0 + 990) / 1000 = 99.0\%
+```
 
 Mô hình không phát hiện được gian lận nào. Không bệnh nào. Không lỗi nào. Nhưng accuracy nói 99%. Đây là lý do accuracy nguy hiểm đối với các bài toán mất cân bằng.
 
 ### Better Metrics
 
-**Precision** = TP / (TP + FP). Trong mọi thứ được đánh dấu là dương tính, bao nhiêu thực sự là dương tính? Precision cao nghĩa là ít báo động giả.
+**Precision** = $\text{TP} / (\text{TP} + \text{FP})$. Trong mọi thứ được đánh dấu là dương tính, bao nhiêu thực sự là dương tính? Precision cao nghĩa là ít báo động giả.
 
-**Recall** = TP / (TP + FN). Trong mọi thứ thực sự dương tính, chúng ta phát hiện được bao nhiêu? Recall cao nghĩa là ít dương tính bị bỏ sót.
+**Recall** = $\text{TP} / (\text{TP} + \text{FN})$. Trong mọi thứ thực sự dương tính, chúng ta phát hiện được bao nhiêu? Recall cao nghĩa là ít dương tính bị bỏ sót.
 
-**Điểm F1** = 2 * precision * recall / (precision + recall). Trung bình điều hòa. Phạt sự mất cân bằng cực độ giữa precision và recall nhiều hơn trung bình cộng.
+**Điểm F1** = $2 \cdot \text{precision} \cdot \text{recall} / (\text{precision} + \text{recall})$. Trung bình điều hòa. Phạt sự mất cân bằng cực độ giữa precision và recall nhiều hơn trung bình cộng.
 
-**Điểm F-beta** = (1 + beta^2) * precision * recall / (beta^2 * precision + recall). Khi beta > 1, recall quan trọng hơn. Khi beta < 1, precision quan trọng hơn. F2 phổ biến trong phát hiện gian lận (bỏ sót gian lận tệ hơn báo động giả).
+**Điểm F-beta** = $(1 + \beta^2) \cdot \text{precision} \cdot \text{recall} / (\beta^2 \cdot \text{precision} + \text{recall})$. Khi $\beta > 1$, recall quan trọng hơn. Khi $\beta < 1$, precision quan trọng hơn. F2 phổ biến trong phát hiện gian lận (bỏ sót gian lận tệ hơn báo động giả).
 
 **AUPRC** (Diện tích dưới đường cong Precision-Recall). Giống AUC-ROC nhưng cung cấp nhiều thông tin hơn đối với dữ liệu mất cân bằng. Một bộ phân loại ngẫu nhiên có AUPRC bằng tỷ lệ lớp dương tính (không phải 0.5 như ROC). Điều này khiến các cải thiện dễ thấy hơn.
 
-**Matthews Correlation Coefficient** = (TP * TN - FP * FN) / sqrt((TP+FP)(TP+FN)(TN+FP)(TN+FN)). Nằm trong khoảng -1 đến +1. Chỉ cho điểm cao khi mô hình làm tốt trên cả hai lớp. Cân bằng ngay cả khi các lớp có kích thước rất khác nhau.
+**Matthews Correlation Coefficient** = $(\text{TP} \cdot \text{TN} - \text{FP} \cdot \text{FN}) / \sqrt{(\text{TP}+\text{FP})(\text{TP}+\text{FN})(\text{TN}+\text{FP})(\text{TN}+\text{FN})}$. Nằm trong khoảng -1 đến +1. Chỉ cho điểm cao khi mô hình làm tốt trên cả hai lớp. Cân bằng ngay cả khi các lớp có kích thước rất khác nhau.
 
-Với mô hình "luôn dự đoán âm tính" ở trên: precision = 0/0 (không xác định, thường được đặt thành 0), recall = 0/10 = 0, F1 = 0, MCC = 0. Các thước đo này xác định đúng rằng mô hình vô giá trị.
+Với mô hình "luôn dự đoán âm tính" ở trên: $\text{precision} = 0/0$ (không xác định, thường được đặt thành 0), $\text{recall} = 0/10 = 0$, $\text{F1} = 0$, $\text{MCC} = 0$. Các thước đo này xác định đúng rằng mô hình vô giá trị.
 
 ### The Imbalanced Data Pipeline
 
@@ -79,9 +81,9 @@ Lấy mẫu tăng cường ngẫu nhiên sao chép các mẫu thiểu số hiệ
 
 SMOTE tạo các mẫu thiểu số tổng hợp mới hợp lý nhưng không phải bản sao. Thuật toán:
 
-1. Với mỗi mẫu thiểu số x, tìm k láng giềng gần nhất của nó trong các mẫu thiểu số khác
+1. Với mỗi mẫu thiểu số $x$, tìm $k$ láng giềng gần nhất của nó trong các mẫu thiểu số khác
 2. Chọn ngẫu nhiên một láng giềng
-3. Tạo một mẫu mới trên đoạn thẳng giữa x và láng giềng đó
+3. Tạo một mẫu mới trên đoạn thẳng giữa $x$ và láng giềng đó
 
 Công thức: `new_sample = x + random(0, 1) * (neighbor - x)`
 
@@ -137,24 +139,24 @@ flowchart LR
 Thay vì thay đổi dữ liệu, hãy thay đổi cách mô hình xử lý lỗi. Gán trọng số cao hơn cho việc phân loại sai lớp thiểu số.
 
 Với một bài toán nhị phân có 950 mẫu âm tính và 50 mẫu dương tính:
-- Trọng số cho lớp âm tính = n_samples / (2 * n_negative) = 1000 / (2 * 950) = 0.526
-- Trọng số cho lớp dương tính = n_samples / (2 * n_positive) = 1000 / (2 * 50) = 10.0
+- Trọng số cho lớp âm tính = $n_{\text{samples}} / (2 \cdot n_{\text{negative}}) = 1000 / (2 \cdot 950) = 0.526$
+- Trọng số cho lớp dương tính = $n_{\text{samples}} / (2 \cdot n_{\text{positive}}) = 1000 / (2 \cdot 50) = 10.0$
 
 Lớp dương tính nhận trọng số gấp 19 lần. Phân loại sai một mẫu dương tính tốn chi phí bằng phân loại sai 19 mẫu âm tính. Mô hình bị buộc phải chú ý tới lớp thiểu số.
 
 Trong hồi quy logistic, điều này sửa đổi hàm mất mát:
 
-```
-weighted_loss = -sum(w_i * [y_i * log(p_i) + (1-y_i) * log(1-p_i)])
+```math
+\text{weighted\_loss} = -\sum \bigl( w_i \cdot [y_i \log(p_i) + (1-y_i) \log(1-p_i)] \bigr)
 ```
 
-trong đó w_i phụ thuộc vào lớp của mẫu i.
+trong đó $w_i$ phụ thuộc vào lớp của mẫu $i$.
 
 Về mặt toán học, trọng số lớp tương đương với lấy mẫu tăng cường theo kỳ vọng, nhưng không tạo ra các điểm dữ liệu mới. Điều này khiến chúng nhanh hơn và tránh nguy cơ quá khớp của các mẫu bị sao chép.
 
 ### Threshold Tuning
 
-Hầu hết các bộ phân loại xuất ra một xác suất. Ngưỡng mặc định là 0.5: nếu P(positive) >= 0.5, dự đoán dương tính. Nhưng 0.5 là tùy ý. Khi các lớp mất cân bằng, ngưỡng tối ưu thường thấp hơn nhiều.
+Hầu hết các bộ phân loại xuất ra một xác suất. Ngưỡng mặc định là 0.5: nếu $P(\text{positive}) \ge 0.5$, dự đoán dương tính. Nhưng 0.5 là tùy ý. Khi các lớp mất cân bằng, ngưỡng tối ưu thường thấp hơn nhiều.
 
 Quy trình:
 1. Huấn luyện một mô hình
@@ -172,7 +174,7 @@ flowchart LR
     E --> F[Use in Production]
 ```
 
-Một mô hình có thể xuất ra P(fraud) = 0.15 cho một giao dịch gian lận. Ở ngưỡng 0.5, giao dịch này được phân loại là không gian lận. Ở ngưỡng 0.10, nó được phát hiện đúng. Hiệu chỉnh xác suất ít quan trọng hơn thứ hạng -- miễn là gian lận nhận xác suất cao hơn không gian lận, sẽ tồn tại một ngưỡng tách chúng.
+Một mô hình có thể xuất ra $P(\text{fraud}) = 0.15$ cho một giao dịch gian lận. Ở ngưỡng 0.5, giao dịch này được phân loại là không gian lận. Ở ngưỡng 0.10, nó được phát hiện đúng. Hiệu chỉnh xác suất ít quan trọng hơn thứ hạng -- miễn là gian lận nhận xác suất cao hơn không gian lận, sẽ tồn tại một ngưỡng tách chúng.
 
 ### Cost-Sensitive Learning
 
@@ -180,8 +182,8 @@ Sự tổng quát hóa của trọng số lớp. Thay vì các chi phí đồng 
 
 | | Dự đoán dương tính | Dự đoán âm tính |
 |--|---|---|
-| Thực tế dương tính | 0 (đúng) | C_FN = 100 |
-| Thực tế âm tính | C_FP = 1 | 0 (đúng) |
+| Thực tế dương tính | 0 (đúng) | $C_{\text{FN}} = 100$ |
+| Thực tế âm tính | $C_{\text{FP}} = 1$ | 0 (đúng) |
 
 Bỏ sót một giao dịch gian lận (FN) tốn chi phí gấp 100 lần báo động giả (FP). Mô hình tối ưu hóa tổng chi phí, không phải tổng số lỗi.
 
@@ -453,8 +455,14 @@ w_cw, b_cw = logistic_regression_weighted(
 probs_cw = sigmoid(X_test @ w_cw + b_cw)
 preds_cw = (probs_cw >= 0.5).astype(int)
 
-# Threshold tuning (tune on held-out validation set, not test set)
-probs_val = sigmoid(X_val @ w_cw + b_cw)
+# Threshold tuning (tune on a validation slice of the training set, not the test set)
+val_split = int(0.75 * len(y_train))
+X_tr, X_val = X_train[:val_split], X_train[val_split:]
+y_tr, y_val = y_train[:val_split], y_train[val_split:]
+w_val, b_val = logistic_regression_weighted(
+    X_tr, y_tr, compute_class_weights(y_tr), lr=0.1, epochs=300
+)
+probs_val = sigmoid(X_val @ w_val + b_val)
 best_thresh, best_f1 = find_optimal_threshold(y_val, probs_val, metric="f1")
 preds_thresh = (probs_cw >= best_thresh).astype(int)
 ```

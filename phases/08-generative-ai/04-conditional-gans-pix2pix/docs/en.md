@@ -9,34 +9,36 @@
 
 ## The Problem
 
-Một GAN vô điều kiện lấy mẫu các khuôn mặt tùy ý. Hữu ích cho bản demo, vô dụng trong production. Bạn muốn: *ánh xạ một bản phác thảo sang một ảnh chụp*, *ánh xạ một bản đồ sang một ảnh chụp từ trên không*, *ánh xạ một cảnh ban ngày sang ban đêm*, *tô màu một ảnh thang xám*. Trong tất cả những trường hợp này, bạn được cho một ảnh đầu vào `x` và phải xuất ra `y` có sự tương ứng ngữ nghĩa nào đó. Có nhiều `y` có vẻ hợp lý cho mỗi `x`. Sai số bình phương trung bình san chúng thành một mớ nhão. Hàm mất mát đối kháng thì không, vì "trông thật" là sắc nét.
+Một GAN vô điều kiện lấy mẫu các khuôn mặt tùy ý. Hữu ích cho một bản demo, vô dụng trong vận hành thực tế. Bạn muốn: *ánh xạ một bản phác thảo thành một bức ảnh*, *ánh xạ một bản đồ thành một ảnh chụp từ trên không*, *ánh xạ một cảnh ban ngày thành ban đêm*, *tô màu một ảnh thang xám*. Trong tất cả các trường hợp này, bạn được cho một hình ảnh đầu vào $x$ và phải xuất ra $y$ với một sự tương ứng ngữ nghĩa nào đó. Có nhiều $y$ hợp lý cho mỗi $x$. Sai số bình phương trung bình làm phẳng chúng thành một khối nhão. Loss đối kháng thì không, vì "trông thật" là sắc nét.
 
-GAN có điều kiện (Mirza & Osindero, 2014) thêm một điều kiện `c` làm đầu vào cho cả `G` và `D`. Pix2Pix (Isola et al., 2017) chuyên biệt hóa điều này: điều kiện là một ảnh đầu vào đầy đủ, bộ sinh là một U-Net, bộ phân biệt là một bộ phân loại *dựa trên patch* (PatchGAN), và hàm mất mát là đối kháng + L1. Công thức đó vượt các mô hình văn bản thành ảnh từ đầu trên các miền ảnh sang ảnh hẹp ngay cả vào năm 2026 vì nó được huấn luyện trên *dữ liệu ghép cặp* — bạn có đúng tín hiệu bạn cần.
+GAN có điều kiện (Mirza & Osindero, 2014) thêm một điều kiện $c$ làm đầu vào cho cả $G$ và $D$. Pix2Pix (Isola et al., 2017) chuyên biệt hóa điều này: điều kiện là một ảnh đầu vào đầy đủ, bộ sinh là một U-Net, bộ phân biệt là một bộ phân loại *dựa trên patch* (PatchGAN), và hàm mất mát là đối kháng + L1. Công thức đó vượt các mô hình văn bản thành ảnh từ đầu trên các miền ảnh sang ảnh hẹp ngay cả vào năm 2026 vì nó được huấn luyện trên *dữ liệu ghép cặp* — bạn có đúng tín hiệu bạn cần.
 
 ## The Concept
 
 ![Pix2Pix: U-Net generator, PatchGAN discriminator](../assets/pix2pix.svg)
 
-**G có điều kiện.** `G(x, z) → y`. Trong Pix2Pix, `z` là dropout bên trong G (không có nhiễu đầu vào — Isola nhận thấy nhiễu tường minh bị bỏ qua).
+**G có điều kiện.** $G(x, z) \to y$. Trong Pix2Pix, $z$ là dropout bên trong G (không có nhiễu đầu vào — Isola nhận thấy nhiễu tường minh bị bỏ qua).
 
-**D có điều kiện.** `D(x, y) → [0, 1]`. Đầu vào là *cặp* (điều kiện, đầu ra). Đây là khác biệt chính: D phải đánh giá liệu `y` có nhất quán với `x` hay không, chứ không chỉ liệu `y` có trông thật hay không.
+**D có điều kiện.** $D(x, y) \to [0, 1]$. Đầu vào là *cặp* (điều kiện, đầu ra). Đây là khác biệt chính: D phải đánh giá liệu $y$ có nhất quán với $x$ hay không, chứ không chỉ liệu $y$ có trông thật hay không.
 
 **Bộ sinh U-Net.** Encoder-decoder với các kết nối tắt xuyên qua nút thắt cổ chai. Quan trọng đối với các tác vụ mà đầu vào và đầu ra chia sẻ cấu trúc cấp thấp (cạnh, hình bóng). Không có các kết nối tắt, chi tiết tần số cao biến mất.
 
-**Bộ phân biệt PatchGAN.** Thay vì xuất ra một điểm thật/giả duy nhất, D xuất ra một lưới `N×N` trong đó mỗi ô đánh giá một trường tiếp nhận ~70×70 pixel. Lấy trung bình. Đây là một giả định trường ngẫu nhiên Markov: tính chân thực là cục bộ. Huấn luyện nhanh hơn nhiều, ít tham số hơn, đầu ra sắc nét hơn.
+**Bộ phân biệt PatchGAN.** Thay vì xuất ra một điểm thật/giả duy nhất, D xuất ra một lưới $N \times N$ trong đó mỗi ô đánh giá một trường tiếp nhận ~70×70 pixel. Lấy trung bình. Đây là một giả định trường ngẫu nhiên Markov: tính chân thực là cục bộ. Huấn luyện nhanh hơn nhiều, ít tham số hơn, đầu ra sắc nét hơn.
 
 **Hàm mất mát.**
 
-```
-loss_G = -log D(x, G(x)) + λ · ||y - G(x)||_1
-loss_D = -log D(x, y) - log (1 - D(x, G(x)))
+```math
+\begin{aligned}
+\text{loss}_G &= -\log D(x, G(x)) + \lambda \cdot \lVert y - G(x) \rVert_1 \\
+\text{loss}_D &= -\log D(x, y) - \log(1 - D(x, G(x)))
+\end{aligned}
 ```
 
-Hạng tử L1 ổn định huấn luyện và đẩy G về mục tiêu đã biết. L1 cho các cạnh sắc nét hơn L2 (trung vị, không phải trung bình). `λ = 100` là mặc định của Pix2Pix.
+Hạng tử L1 ổn định huấn luyện và đẩy G về mục tiêu đã biết. L1 cho các cạnh sắc nét hơn L2 (trung vị, không phải trung bình). $\lambda = 100$ là mặc định của Pix2Pix.
 
 ## CycleGAN — when you don't have pairs
 
-Pix2Pix cần dữ liệu `(x, y)` ghép cặp. CycleGAN (Zhu et al., 2017) bỏ yêu cầu này với cái giá là một hàm mất mát bổ sung: hàm mất mát *nhất quán chu trình*. Hai bộ sinh `G: X → Y` và `F: Y → X`. Huấn luyện chúng sao cho `F(G(x)) ≈ x` và `G(F(y)) ≈ y`. Điều này cho phép bạn chuyển ngựa thành ngựa vằn, mùa hè thành mùa đông, mà không có ví dụ ghép cặp.
+Pix2Pix cần dữ liệu $(x, y)$ ghép cặp. CycleGAN (Zhu et al., 2017) bỏ yêu cầu này với cái giá là một hàm mất mát bổ sung: hàm mất mát *nhất quán chu trình*. Hai bộ sinh $G: X \to Y$ và $F: Y \to X$. Huấn luyện chúng sao cho $F(G(x)) \approx x$ và $G(F(y)) \approx y$. Điều này cho phép bạn chuyển ngựa thành ngựa vằn, mùa hè thành mùa đông, mà không có ví dụ ghép cặp.
 
 Vào năm 2026, ảnh sang ảnh không ghép cặp phần lớn được làm qua khuếch tán (ControlNet, IP-Adapter) thay vì CycleGAN, nhưng ý tưởng nhất quán chu trình tồn tại trong gần như mọi bài báo thích nghi miền không ghép cặp.
 
@@ -46,7 +48,7 @@ gx-patchgan
 
 ## Build It
 
-`code/main.py` triển khai một GAN có điều kiện nhỏ trên dữ liệu 1-D. Điều kiện `c` là một nhãn lớp (0 hoặc 1). Tác vụ: tạo ra một mẫu từ phân phối có điều kiện cho lớp đã cho.
+`code/main.py` triển khai một GAN có điều kiện nhỏ trên dữ liệu 1-D. Điều kiện $c$ là một nhãn lớp (0 hoặc 1). Tác vụ: tạo ra một mẫu từ phân phối có điều kiện cho lớp đã cho.
 
 ### Step 1: append condition to both G and D inputs
 
@@ -84,9 +86,9 @@ for c in [0, 1]:
 ## Pitfalls
 
 - **Điều kiện bị bỏ qua.** G học lấy biên, D không bao giờ phạt vì tín hiệu điều kiện yếu. Cách khắc phục: điều kiện hóa D mạnh hơn (lớp sớm, không chỉ lớp muộn), dùng bộ phân biệt chiếu (Miyato & Koyama 2018).
-- **Trọng số L1 quá thấp.** G trôi sang các đầu ra trông thật tùy ý, không phải các đầu ra trung thành. Bắt đầu λ≈100 cho các tác vụ kiểu Pix2Pix.
-- **Trọng số L1 quá cao.** G tạo ra các đầu ra mờ vì L1 vẫn là một chuẩn L_p. Giảm dần khi huấn luyện đã ổn định.
-- **Rò rỉ ground-truth trong D.** Nối `(x, y)` làm đầu vào D, không chỉ `y`. Không có điều này D không thể kiểm tra tính nhất quán.
+- **Trọng số L1 quá thấp.** G trôi sang các đầu ra trông thật tùy ý, không phải các đầu ra trung thành. Bắt đầu $\lambda \approx 100$ cho các tác vụ kiểu Pix2Pix.
+- **Trọng số L1 quá cao.** G tạo ra các đầu ra mờ vì L1 vẫn là một chuẩn $L_p$. Giảm dần khi huấn luyện đã ổn định.
+- **Rò rỉ ground-truth trong D.** Nối $(x, y)$ làm đầu vào D, không chỉ $y$. Không có điều này D không thể kiểm tra tính nhất quán.
 - **Sụp đổ mode theo lớp.** Mỗi lớp có thể sụp đổ độc lập. Chạy kiểm tra độ đa dạng có điều kiện theo lớp.
 
 ## Use It

@@ -16,7 +16,7 @@
 
 ## The Problem
 
-Một allreduce ngây thơ trên N rank gửi N lần tensor đến một gốc và phát quảng bá N lần trở lại. Băng thông tăng theo O(N) mỗi rank, gốc trở thành một nút thắt, và sàn thời gian thực là liên kết chậm nhất nhân N. Allreduce vòng làm phẳng điều đó thành 2(N-1) đoạn kích thước T/N, để các byte theo rank giảm xuống 2T(N-1)/N độc lập kích thước cụm. Allreduce cây thắng trên N nhỏ và các liên kết độ trễ cao vì độ sâu là log2(N) bước nhảy thay vì 2(N-1). Chọn sai cấu trúc liên kết cho hình thức cụm và GPU chậm nhất quyết định thời gian bước.
+Một allreduce ngây thơ trên N rank gửi N lần tensor đến một gốc và broadcast N lần trở lại. Băng thông tăng theo $O(N)$ trên mỗi rank, gốc trở thành nút thắt và sàn thời gian thực là liên kết chậm nhất nhân N. Ring allreduce làm phẳng điều đó thành $2(N-1)$ chunk kích thước $T/N$, nên số byte theo rank giảm xuống $2T(N-1)/N$, tiến tới $2T$ khi N tăng và không bao giờ vượt nó, bất kể kích thước cụm. Tree allreduce thắng với N nhỏ và các liên kết độ trễ cao vì chiều sâu là $\log_2(N)$ hop thay vì $2(N-1)$. Chọn sai topology cho hình dạng cụm và GPU chậm nhất quyết định thời gian bước.
 
 Mọi framework huấn luyện phân tán bạn sẽ đọc trong track này phụ thuộc vào bốn thành phần cơ sở này. PyTorch DDP đồng bộ các gradient bằng một allreduce mỗi nhóm tham số. ZeRO chia shard trạng thái bộ tối ưu bằng reduce_scatter và phát quảng bá các tham số được cập nhật bằng allgather. FSDP biến toàn lượt tiến thành allgather cộng reduce_scatter. Song song pipeline cần broadcast cho các kích hoạt giữa các nhóm giai đoạn. Nếu bạn không thể triển khai bốn phép tập thể, bạn không thể suy luận về tại sao huấn luyện đình trệ, tại sao sự không khớp gradient xuất hiện ở rank 3, hoặc tại sao bong bóng pipeline tăng gấp đôi khi bạn đổi cấu trúc liên kết.
 
@@ -97,7 +97,7 @@ Các mẫu sản xuất:
 
 ## Ship It
 
-Dùng các thành phần cơ sở mạng lưới hàng đợi trong các bài 77-81. Bài 77 nối allreduce vào DDP. Bài 78 nối reduce_scatter vào ZeRO. Bài 79 nối broadcast vào các kích hoạt pipeline. Bài 81 kết hợp cả bốn vào demo đầu cuối.
+Sử dụng các primitive queue-mesh trong bài 77-81. Bài 77 nối allreduce vào DDP. Bài 78 nối reduce_scatter vào ZeRO. Bài 79 di chuyển activation pipeline bằng send và recv điểm-điểm, không phải một collective. Bài 81 kết hợp cả bốn thành demo đầu cuối.
 
 ## Exercises
 

@@ -1,77 +1,77 @@
 ---
 name: lifting-to-pseudocode
-description: Lift one compiled function to pseudocode with a derivation for every line, then reconcile it with the decompiler's text.
+description: Nâng một hàm đã biên dịch thành mã giả với một phép suy ra cho mỗi dòng, rồi đối chiếu nó với văn bản của decompiler.
 version: 1.0.0
 phase: 13
 lesson: 34
 tags: [reverse-engineering, decompilation, ir, ssa, structuring, ghidra, rea]
 ---
 
-Given a function in an object file or executable that you built or are authorized to analyze, produce two things. First, pseudocode where every line traces back to instructions. Second, a difference table against the decompiler's output. Use this skill with Claude, Cursor, Codex, OpenClaw, Hermes, or any agent that reads SKILL.md.
+Với một hàm trong một tệp object hoặc executable mà bạn xây dựng hoặc được phép phân tích, tạo ra hai thứ. Thứ nhất, mã giả nơi mỗi dòng truy ngược về các chỉ lệnh. Thứ hai, một bảng khác biệt đối chiếu đầu ra của decompiler. Sử dụng skill này với Claude, Cursor, Codex, OpenClaw, Hermes hoặc bất kỳ agent nào đọc SKILL.md.
 
 ## Required inputs
 
-- The target file, its SHA-256, the compiler and flags that produced it, and the written authorization to analyze it.
-- The function name or entry address and the section that holds it.
-- A reference disassembly from `llvm-objdump -d -r` or the decompiler's instruction view.
-- The relocation records that apply to the function body.
-- The calling convention of the target (System V AMD64 psABI section 3.2.3 for x86-64 Linux objects).
-- The decompiler text for the same function, with the provider name and version, for example Ghidra 12.1.4 through rea 6.5.0.
-- The source of the function when the target is your own fixture, for the behaviour comparison.
+- Tệp mục tiêu, SHA-256 của nó, compiler và các cờ tạo ra nó, và sự cho phép bằng văn bản để phân tích nó.
+- Tên hàm hoặc địa chỉ vào và section chứa nó.
+- Một disassembly tham chiếu từ `llvm-objdump -d -r` hoặc góc nhìn chỉ lệnh của decompiler.
+- Các bản ghi relocation áp dụng cho thân hàm.
+- Quy ước gọi của mục tiêu (System V AMD64 psABI mục 3.2.3 cho các object Linux x86-64).
+- Văn bản decompiler cho cùng hàm, với tên provider và phiên bản, ví dụ Ghidra 12.1.4 qua rea 6.5.0.
+- Nguồn của hàm khi mục tiêu là fixture của riêng bạn, cho phép so sánh hành vi.
 
 ## Procedure
 
-1. Decode the function from its first byte to the next function start. Compare every instruction with the reference disassembly by address, bytes, and text. Stop on the first disagreement.
-2. Split the instructions into basic blocks at jump targets and after every jump or return. Record successors and predecessors. Compute immediate dominators in reverse postorder.
-3. Lift every instruction to IR statements. Model flag-setting instructions as writes to one `flags` variable and every conditional jump as a read of it. Keep the stack pointer and frame pointer out of the IR and turn frame slots into named locals.
-4. Resolve every RIP-relative operand through its relocation: target = symbol + addend + the distance from the displacement field to the end of the instruction. Name the target by section and offset.
-5. Take parameters from the calling convention. A register in the argument sequence that is read before any write is a parameter. The highest such register fixes the count. Never take a callee-saved register as a parameter.
-6. Build SSA: place phi functions on the iterated dominance frontier of each variable's definitions, then rename with a dominator tree walk. Record the width of every definition.
-7. Simplify: fold condition codes against `cmp` and `test`, fold casts, turn scaled loads into element accesses, and recognize the multiply-and-shift division idiom only when the multiplier equals the ceiling of a power of two over the divisor and the error bound holds.
-8. Substitute a value into its only use when the use is in the same block and no store or call sits between them. Substitute constants anywhere except into a phi. Remove definitions with no uses and no side effect. Repeat until nothing changes.
-9. Coalesce each phi with its arguments into one variable. Give variables names that show the register or slot they came from. Infer `int` or `long` from width and a pointer type from use as a scaled load base, and share the type along copies.
-10. Structure: use the immediate post-dominator as the join of a conditional. Emit `if`, `if` with `else`, or an early return. Detect loops from back edges. Emit `while` when the header exits and `do while` when the latch exits. Report an indirect jump as unresolved instead of guessing targets.
-11. Compile the pseudocode with the target triple and `-Wall -Werror`. When the source is available, compile the source and the pseudocode into separate programs with one driver and compare their outputs over an input grid.
-12. Place the decompiler text next to the pseudocode. For every line that differs, write the instruction that explains the difference, or write that the difference is a decompiler guess with no instruction behind it.
+1. Giải mã hàm từ byte đầu của nó đến điểm bắt đầu hàm tiếp theo. So sánh mỗi chỉ lệnh với disassembly tham chiếu theo địa chỉ, byte và văn bản. Dừng ở bất đồng đầu tiên.
+2. Chia các chỉ lệnh thành basic block tại các đích nhảy và sau mỗi bước nhảy hoặc lần trả về. Ghi các kế nhiệm và tiền nhiệm. Tính immediate dominator theo reverse postorder.
+3. Nâng mỗi chỉ lệnh thành các câu lệnh IR. Mô hình hóa các chỉ lệnh đặt cờ như các lần ghi vào một biến `flags` và mỗi bước nhảy có điều kiện như một lần đọc nó. Giữ con trỏ stack và con trỏ khung ngoài IR và biến các slot khung thành các biến cục bộ có tên.
+4. Phân giải mọi toán hạng tương đối theo RIP qua relocation của nó: đích = symbol + addend + khoảng cách từ trường displacement đến cuối chỉ lệnh. Đặt tên đích theo section và offset.
+5. Lấy các tham số từ quy ước gọi. Một thanh ghi trong chuỗi đối số được đọc trước mọi lần ghi là một tham số. Thanh ghi cao nhất như vậy cố định số lượng. Không bao giờ lấy một thanh ghi callee-saved làm một tham số.
+6. Xây dựng SSA: đặt các hàm phi trên dominance frontier lặp của các định nghĩa của mỗi biến, rồi đổi tên bằng một phép duyệt cây dominator. Ghi chiều rộng của mọi định nghĩa.
+7. Đơn giản hóa: gộp các mã điều kiện với `cmp` và `test`, gộp các phép ép kiểu, biến các lần tải có tỷ lệ thành truy cập phần tử và chỉ nhận dạng mẫu chia bằng nhân-và-dịch khi hệ số nhân bằng giá trị trần của một lũy thừa hai chia cho số chia và cận sai số đúng.
+8. Thế một giá trị vào lần dùng duy nhất của nó khi lần dùng nằm trong cùng khối và không có lần lưu hoặc lần gọi nằm giữa chúng. Thế các hằng số ở mọi nơi trừ vào một phi. Loại các định nghĩa không có lần dùng và không có tác dụng phụ. Lặp lại cho đến khi không có gì thay đổi.
+9. Hợp nhất mỗi phi với các đối số của nó thành một biến. Cho các biến những tên cho thấy thanh ghi hoặc slot mà chúng đến từ đó. Suy ra `int` hoặc `long` từ chiều rộng và một kiểu con trỏ từ việc dùng làm base của một lần tải có tỷ lệ, và chia sẻ kiểu dọc theo các bản sao.
+10. Cấu trúc hóa: sử dụng immediate post-dominator làm điểm nối của một điều kiện. Phát ra `if`, `if` với `else` hoặc một lần trả về sớm. Phát hiện các vòng lặp từ back edge. Phát ra `while` khi header thoát và `do while` khi latch thoát. Báo cáo một bước nhảy gián tiếp là chưa phân giải thay vì đoán các đích.
+11. Biên dịch mã giả với target triple và `-Wall -Werror`. Khi nguồn có sẵn, biên dịch nguồn và mã giả thành các chương trình riêng với một driver và so sánh đầu ra của chúng trên một lưới đầu vào.
+12. Đặt văn bản decompiler cạnh mã giả. Với mỗi dòng khác nhau, viết chỉ lệnh giải thích khác biệt, hoặc viết rằng khác biệt là một phỏng đoán decompiler không có chỉ lệnh đằng sau.
 
 ## Required matrix
 
-For every function, report:
+Với mọi hàm, báo cáo:
 
-- function name, address range, instruction count, block count, and phi count
-- decoder agreement with the reference disassembly: every instruction or the first address that differs
-- each parameter with its register, width, and inferred type
-- each table read with its relocation, section offset, element width, and the bound that fixed its length
-- each idiom recognized, with the arithmetic that justifies it
-- each structure emitted (if, if-else, early return, while, do while, unresolved indirect jump)
-- compile result and behaviour comparison result with the input grid used
-- the difference table against the decompiler: line, our text, their text, instruction or guess
+- tên hàm, phạm vi địa chỉ, số chỉ lệnh, số khối và số phi
+- sự đồng nhất decoder với disassembly tham chiếu: mọi chỉ lệnh hoặc địa chỉ đầu tiên khác nhau
+- mỗi tham số với thanh ghi, chiều rộng và kiểu suy ra của nó
+- mỗi lần đọc bảng với relocation, offset section, chiều rộng phần tử và cận cố định độ dài của nó
+- mỗi mẫu được nhận ra, với phép tính biện minh cho nó
+- mỗi cấu trúc được phát ra (if, if-else, trả về sớm, while, do while, bước nhảy gián tiếp chưa phân giải)
+- kết quả biên dịch và kết quả so sánh hành vi với lưới đầu vào được sử dụng
+- bảng khác biệt đối chiếu decompiler: dòng, văn bản của chúng ta, văn bản của họ, chỉ lệnh hoặc phỏng đoán
 
 ## Hard rejects
 
-- Trusting a decompiler signature, return type, or parameter count without checking the register reads and writes behind it.
-- Taking a callee-saved register or a register first written inside the function as a parameter.
-- Folding a multiply-and-shift into a division without checking the multiplier and the error bound.
-- Guessing the targets of an indirect jump from nearby code.
-- Reading a table past the next referenced address or the section end.
-- Substituting a loaded value across a store or a call.
-- Emitting `goto` for a shape that an `if`, `while`, or `do while` covers.
-- Declaring the pseudocode correct because it compiles. Compiling proves syntax, the behaviour comparison proves semantics.
-- Accepting a refinement model's edit that replaces a visible unknown with an invented field, type, callee, or guard.
-- Analyzing software you do not own or are not authorized to analyze.
+- Tin một chữ ký, kiểu trả về hoặc số tham số decompiler mà không kiểm tra các lần đọc và ghi thanh ghi đằng sau nó.
+- Lấy một thanh ghi callee-saved hoặc một thanh ghi được ghi lần đầu bên trong hàm làm một tham số.
+- Gộp một phép nhân-và-dịch thành một phép chia mà không kiểm tra hệ số nhân và cận sai số.
+- Đoán các đích của một bước nhảy gián tiếp từ mã lân cận.
+- Đọc một bảng vượt địa chỉ được tham chiếu tiếp theo hoặc cuối section.
+- Thế một giá trị được tải qua một lần lưu hoặc một lần gọi.
+- Phát ra `goto` cho một dạng mà một `if`, `while` hoặc `do while` bao quát.
+- Tuyên bố mã giả đúng vì nó biên dịch. Biên dịch chứng minh cú pháp, so sánh hành vi chứng minh ngữ nghĩa.
+- Chấp nhận một chỉnh sửa của mô hình tinh chỉnh thay một điều chưa biết nhìn thấy được bằng một trường, kiểu, callee hoặc điều kiện bảo vệ được bịa.
+- Phân tích phần mềm bạn không sở hữu hoặc không được phép phân tích.
 
 ## Produce
 
-Return these sections:
+Trả về những phần này:
 
-1. Target: file, SHA-256, compiler, flags, authorization.
-2. Decoder Agreement: instruction count and the reference comparison result.
-3. Graph: blocks, successors, immediate dominators, loops.
-4. IR and SSA: the statement listings with versions and phi functions.
-5. Pseudocode: the structured text with its data definitions.
-6. Types: every parameter, local, and return type with the evidence for each.
-7. Decompiler Comparison: the difference table with the instruction or guess for each line.
-8. Proof: compile result and the behaviour comparison over the input grid.
-9. Unknowns: unresolved jumps, unapplied relocations, types that the machine code cannot fix.
+1. Mục tiêu: tệp, SHA-256, compiler, cờ, sự cho phép.
+2. Đồng nhất Decoder: số chỉ lệnh và kết quả so sánh tham chiếu.
+3. Đồ thị: khối, kế nhiệm, immediate dominator, vòng lặp.
+4. IR và SSA: các danh sách câu lệnh với phiên bản và hàm phi.
+5. Mã giả: văn bản có cấu trúc với các định nghĩa dữ liệu của nó.
+6. Kiểu: mỗi tham số, biến cục bộ và kiểu trả về với bằng chứng cho mỗi thứ.
+7. So sánh Decompiler: bảng khác biệt với chỉ lệnh hoặc phỏng đoán cho mỗi dòng.
+8. Bằng chứng: kết quả biên dịch và phép so sánh hành vi trên lưới đầu vào.
+9. Điều chưa biết: các bước nhảy chưa phân giải, các relocation chưa áp dụng, các kiểu mà mã máy không thể cố định.
 
-End with the first line of the decompiler text that no instruction supports. If every line is supported, state the input grid that proved the behaviour equal.
+Kết thúc bằng dòng đầu tiên của văn bản decompiler mà không chỉ lệnh nào hỗ trợ. Nếu mọi dòng được hỗ trợ, nêu lưới đầu vào đã chứng minh hành vi bằng nhau.

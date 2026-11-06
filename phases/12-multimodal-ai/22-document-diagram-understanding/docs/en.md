@@ -74,7 +74,7 @@ LayoutLMv3 là đỉnh cao của hiểu tài liệu dựa trên OCR. Mạnh trê
 
 ### DocLLM (2023)
 
-DocLLM (Wang và cộng sự, arXiv:2401.00908) là anh em tạo sinh của LayoutLM. Tạo câu trả lời tự do được điều kiện hóa trên token bố cục. Tốt hơn cho hỏi đáp tài liệu; vẫn phụ thuộc đầu vào OCR.
+DocLLM (Wang và cộng sự, arXiv:2401.00908, được nộp ngày 31 tháng 12 năm 2023, vì vậy ID mang tiền tố tháng 1 năm 2024) là mô hình anh em có tính tạo sinh của LayoutLM. Tạo câu trả lời tự do có điều kiện theo các token bố cục. Tốt hơn cho QA trên tài liệu; vẫn phụ thuộc đầu vào OCR.
 
 ### Era 3 — VLM-native (2024+)
 
@@ -83,7 +83,7 @@ VLM năm 2024 trở nên đủ tốt để thay hoàn toàn pipeline. Đưa ản
 - AnyRes ô 336 của LLaVA-NeXT hoạt động cho tài liệu nhỏ.
 - Độ phân giải động của Qwen2.5-VL xử lý nguyên bản 2048+ pixel.
 - Claude Opus 4.7 hỗ trợ tài liệu 2576px.
-- PaliGemma 2 (tháng 4 năm 2025) huấn luyện riêng cho tài liệu + chữ viết tay.
+- PaliGemma 2 (tháng 12 năm 2024) huấn luyện riêng cho tài liệu + chữ viết tay.
 
 Khoảng cách giữa VLM nguyên bản và pipeline OCR khép lại nhanh chóng. Đến năm 2026, VLM nguyên bản thắng trên:
 

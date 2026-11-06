@@ -16,7 +16,7 @@
 
 ## The Problem
 
-Bạn đặt một công việc huấn luyện trong 18 giờ. Trần thời gian thực là 4 giờ. Cụm khởi động lại ở giờ 11 vì ai đó ở cấp lương cao hơn bạn phê duyệt một nâng cấp kernel. Không có checkpoint bạn bắt đầu lại. Không có tiếp tục bạn cũng mất trạng thái bộ tối ưu đã mất 11 giờ đầu để học, nên ngay cả nếu các trọng số mô hình sống sót, các mômen AdamW đã mất và bước tiếp theo giật theo một hướng mà quỹ đạo huấn luyện đã đi qua.
+Bạn đặt một tác vụ huấn luyện trong 18 giờ. Scheduler giới hạn mỗi lần cấp phát ở 4 giờ, nên lần chạy vốn đã là một chuỗi các tác vụ được tiếp tục. Rồi cụm khởi động lại vào giờ thứ 11 của lần chạy vì một người ở cấp cao hơn bạn đã phê duyệt nâng cấp kernel. Không có checkpoint, bạn bắt đầu lại. Không có resume, bạn cũng mất trạng thái optimizer mất 11 giờ đầu để học, nên ngay cả khi trọng số mô hình còn, các moment AdamW đã mất và bước tiếp theo lao theo một hướng mà quỹ đạo huấn luyện đã đi qua.
 
 Hiện vật đúng là một file duy nhất giữ mọi thứ cần để tiếp tục: các tham số mô hình, trạng thái bộ tối ưu, trạng thái bộ lập lịch, lịch sử mất mát cho các biểu đồ, các bộ đếm bước và epoch và lô-trong-epoch hiện tại, và trạng thái RNG cho mọi nguồn ngẫu nhiên. Không có trạng thái RNG đường cong mất mát được tiếp tục là một đường cong khác. Cùng mô hình, cùng dữ liệu, xáo trộn khác, mặt nạ dropout khác, con số khác trên bảng điều khiển.
 

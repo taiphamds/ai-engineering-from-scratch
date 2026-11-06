@@ -36,28 +36,28 @@ Cách khắc phục của ColPali: bỏ OCR, embedding ảnh trang trực tiếp
 
 ColBERT (Khattab & Zaharia, arXiv:2004.12832) là phương pháp truy xuất văn bản. Thay vì một vector mỗi tài liệu, nó tạo một vector mỗi token. Lúc truy vấn:
 
-- Token truy vấn nhận embedding riêng (N_q vector).
-- Token tài liệu nhận embedding (N_d vector, thường được lưu đệm).
-- Điểm = tổng trên token truy vấn của giá trị cực đại trên token tài liệu về độ tương đồng cosine: Σ_i max_j cos(q_i, d_j).
+- Token truy vấn nhận embedding riêng ($N_q$ vector).
+- Token tài liệu nhận embedding ($N_d$ vector, thường được lưu đệm).
+- Điểm = tổng trên token truy vấn của giá trị cực đại trên token tài liệu về độ tương đồng cosine: $\sum_i \max_j \cos(q_i, d_j)$.
 
 Đây là phép toán MaxSim. Mỗi token truy vấn "chọn" token tài liệu khớp tốt nhất. Điểm cuối cùng là tổng.
 
-Ưu điểm: độ thu hồi mạnh, xử lý ngữ nghĩa cấp từ. Nhược điểm: N_d vector mỗi tài liệu, lưu trữ tốn kém.
+Ưu điểm: độ thu hồi mạnh, xử lý ngữ nghĩa cấp từ. Nhược điểm: $N_d$ vector mỗi tài liệu, lưu trữ tốn kém.
 
 ### ColPali
 
 ColPali (Faysse và cộng sự, arXiv:2407.01449) áp dụng mẫu ColBERT cho ảnh.
 
-- Mỗi trang được PaliGemma (ViT + ngôn ngữ) mã hóa thành embedding patch: N_p vector mỗi trang.
-- Mỗi truy vấn người dùng (văn bản) được mã hóa thành embedding token truy vấn: N_q vector.
-- Điểm = Σ_i max_j cos(q_i, p_j), tức MaxSim trên token văn bản truy vấn và patch ảnh trang.
+- Mỗi trang được PaliGemma (ViT + ngôn ngữ) mã hóa thành embedding patch: $N_p$ vector mỗi trang.
+- Mỗi truy vấn người dùng (văn bản) được mã hóa thành embedding token truy vấn: $N_q$ vector.
+- Điểm = $\sum_i \max_j \cos(q_i, p_j)$, tức MaxSim trên token văn bản truy vấn và patch ảnh trang.
 - Truy xuất top-k trang theo tổng điểm.
 
 Lúc tiếp nhận tài liệu: embedding mọi trang bằng PaliGemma, lưu toàn bộ embedding patch. Lúc truy vấn: embedding token truy vấn, tính MaxSim với mọi embedding trang đã lưu, trả top-k trang.
 
 Ưu điểm: đầu cuối vượt RAG văn bản 20-40% trên tài liệu giàu thị giác. Mỗi vector patch nắm bắt bố cục và nội dung cục bộ.
 
-Nhược điểm: N_p patch × số thực 4 byte × vector D chiều mỗi trang = lưu trữ tăng nhanh. Giảm nhẹ bằng lượng tử hóa PQ / OPQ.
+Nhược điểm: $N_p$ patch × số thực 4 byte × vector $D$ chiều mỗi trang = lưu trữ tăng nhanh. Giảm nhẹ bằng lượng tử hóa PQ / OPQ.
 
 ### ColQwen2 and ColSmol
 
@@ -95,10 +95,10 @@ Không OCR ở bất kỳ đâu. Hình, biểu đồ, phông chữ, bố cục �
 
 Báo cáo tài chính 50 trang với 729 patch mỗi trang và embedding 128 chiều:
 
-- ColPali: 50 * 729 * 128 * 4 byte = ~18 MB thô, ~4 MB sau PQ.
+- ColPali: 50 * 729 * 128 * 4 byte = ~18 MB thô, ~2.3 MB sau PQ 8 lần.
 - RAG văn bản: 50 đoạn * 768 chiều * 4 byte = ~150 kB.
 
-ColPali cần lưu trữ nhiều hơn ~30x mỗi tài liệu. Ở quy mô lớn, OPQ / PQ giảm xuống ~5-10x, thường chấp nhận được.
+ColPali tốn lưu trữ thô cho mỗi tài liệu nhiều hơn ~120 lần. Ở quy mô lớn, OPQ / PQ 8 lần đưa nó xuống ~15 lần, thường có thể chấp nhận.
 
 ### When text-RAG still wins
 
@@ -128,7 +128,7 @@ Bài học này tạo ra `outputs/skill-vision-rag-designer.md`. Với dự án 
 
 1. Báo cáo thường niên 200 trang ở 729 patch mỗi trang, embedding 128 chiều, số thực 4 byte. Tính lưu trữ thô và lưu trữ nén PQ (8x).
 
-2. MaxSim là Σ_i max_j cos(q_i, p_j). Tổng này nắm bắt điều gì mà độ tương đồng trung bình đơn giản không nắm bắt?
+2. MaxSim là $\sum_i \max_j \cos(q_i, p_j)$. Tổng này nắm bắt điều gì mà độ tương đồng trung bình đơn giản không nắm bắt?
 
 3. ColPali lập chỉ mục trang thành tập patch. Điều gì thay đổi nếu thay vào đó lập chỉ mục ở cấp từ (như ColBERT)? Các đánh đổi?
 
@@ -143,7 +143,7 @@ Bài học này tạo ra `outputs/skill-vision-rag-designer.md`. Với dự án 
 | Late interaction (Tương tác muộn) | "Kiểu ColBERT" | Truy xuất dùng embedding mỗi token hoặc mỗi patch + MaxSim, thay vì một vector tài liệu |
 | MaxSim | "Cực đại trên patch" | Với mỗi token truy vấn, chọn token tài liệu có độ tương đồng cao nhất; cộng trên truy vấn |
 | Bi-encoder | "Một vector" | Một vector mỗi tài liệu; nhanh hơn nhưng mất độ chi tiết |
-| Multi-vector (Đa vector) | "Nhiều vector mỗi tài liệu" | Lưu N_p vector mỗi tài liệu / trang; chi phí lưu trữ tăng nhưng độ thu hồi cải thiện |
+| Multi-vector (Đa vector) | "Nhiều vector mỗi tài liệu" | Lưu $N_p$ vector mỗi tài liệu / trang; chi phí lưu trữ tăng nhưng độ thu hồi cải thiện |
 | Patch embedding (Embedding patch) | "Đặc trưng trang" | Một vector mỗi patch ảnh từ bộ mã hóa VLM, lưu đệm theo trang |
 | ViDoRe | "Benchmark tài liệu thị giác" | Bộ benchmark ColPali cho truy xuất tài liệu thị giác |
 | PQ quantization (Lượng tử hóa PQ) | "Lượng tử hóa tích" | Nén duy trì độ tương đồng vector trong khi giảm lưu trữ ~8x |

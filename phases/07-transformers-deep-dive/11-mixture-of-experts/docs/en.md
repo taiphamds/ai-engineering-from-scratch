@@ -11,7 +11,7 @@
 
 FLOP của một transformer đặc khi suy luận bằng số tham số của nó (nhân 2 cho lượt truyền xuôi). Mở rộng một mô hình đặc và mỗi token trả toàn bộ hóa đơn. Đến năm 2024 tuyến đầu đang chạm một bức tường tính toán: để thông minh hơn đáng kể, bạn cần nhiều FLOP hơn theo cấp số nhân mỗi token.
 
-Mixture of Experts phá liên kết này. Thay mỗi FFN bằng `E` chuyên gia độc lập + một bộ định tuyến chọn `k` chuyên gia mỗi token. Tổng tham số = `E × FFN_size`. Tham số hoạt động mỗi token = `k × FFN_size`. Cấu hình điển hình năm 2026: `E=256`, `k=8`. Lưu trữ tăng theo `E`, tính toán tăng theo `k`.
+Mixture of Experts phá liên kết này. Thay mỗi FFN bằng $E$ chuyên gia độc lập + một bộ định tuyến chọn $k$ chuyên gia mỗi token. Tổng tham số = $E \times \text{FFN size}$. Tham số hoạt động mỗi token = $k \times \text{FFN size}$. Cấu hình điển hình năm 2026: $E=256$, $k=8$. Lưu trữ tăng theo $E$, tính toán tăng theo $k$.
 
 Tuyến đầu năm 2026 gần như hoàn toàn là MoE: DeepSeek-V3 (671B tổng / 37B hoạt động), Mixtral 8×22B, Qwen2.5-MoE, Llama 4, Kimi K2, gpt-oss. Trên bảng xếp hạng độc lập của Artificial Analysis, top 10 mô hình mã nguồn mở đều là MoE.
 
@@ -46,7 +46,7 @@ Mỗi chuyên gia là một FFN độc lập (thường là SwiGLU). Bộ địn
 Nếu bộ định tuyến đưa 90% token qua chuyên gia 3, các chuyên gia khác bị đói. Ba cách sửa đã được thử:
 
 1. **Loss phụ cân bằng tải** (Switch Transformer, Mixtral). Thêm một phạt tỷ lệ với phương sai sử dụng chuyên gia. Hoạt động, nhưng thêm một siêu tham số và một tín hiệu gradient thứ hai.
-2. **Dung lượng chuyên gia + bỏ token** (Switch ban đầu). Mỗi chuyên gia xử lý tối đa `C × N/E` token; các token tràn bỏ qua tầng. Gây hại chất lượng.
+2. **Dung lượng chuyên gia + bỏ token** (Switch ban đầu). Mỗi chuyên gia xử lý tối đa $C \times N/E$ token; các token tràn bỏ qua tầng. Gây hại chất lượng.
 3. **Cân bằng không loss phụ** (DeepSeek-V3). Thêm một bias được học theo chuyên gia dịch lựa chọn top-k của bộ định tuyến. Bias được cập nhật ngoài loss huấn luyện. Không phạt lên mục tiêu chính. Bước mở khóa lớn năm 2024.
 
 Cách tiếp cận của DeepSeek-V3: sau mỗi bước huấn luyện, với mỗi chuyên gia, kiểm tra mức sử dụng trên hay dưới mục tiêu. Điều chỉnh nhẹ bias bằng `±γ`. Lựa chọn dùng `scores + bias`. Các xác suất chuyên gia dùng cho gating là `scores` thô không đổi. Tách định tuyến khỏi biểu đạt.
@@ -59,7 +59,7 @@ DeepSeek-V2/V3 cũng chia các chuyên gia thành *dùng chung* và *được đ
 
 MoE cổ điển (GShard, Switch): mỗi chuyên gia rộng bằng một FFN đầy đủ. `E` nhỏ (8–64), `k` nhỏ (1–2).
 
-MoE chi tiết hiện đại (DeepSeek-V3, Qwen-MoE): mỗi chuyên gia hẹp hơn (1/8 kích thước FFN). `E` lớn (256+), `k` lớn hơn (8+). Cùng tổng tham số, nhưng các tổ hợp tăng nhanh hơn nhiều. `C(256, 8) = 400 trillion` "chuyên gia" có thể có mỗi token. Chất lượng tăng, độ trễ giữ phẳng.
+MoE hạt mịn hiện đại (DeepSeek-V3, Qwen-MoE): mỗi chuyên gia hẹp hơn (1/8 kích thước FFN). $E$ lớn (256+), $k$ lớn hơn (8+). Cùng tổng số tham số, nhưng các tổ hợp tăng nhanh hơn nhiều. $\binom{256}{8} \approx 400$ nghìn tỷ "chuyên gia" có thể có cho mỗi token. Chất lượng tăng, độ trễ giữ nguyên.
 
 ### The cost profile
 
@@ -159,7 +159,7 @@ Xem `outputs/skill-moe-configurator.md`. Skill chọn E, k và bố cục chuyê
 | Auxiliary-loss-free (Không loss phụ) | "Thủ thuật của DeepSeek-V3" | Cân bằng qua bias theo chuyên gia chỉ trên lựa chọn của bộ định tuyến; không gradient bổ sung. |
 | Shared expert (Chuyên gia dùng chung) | "Luôn bật" | Chuyên gia bổ sung mà mọi token đi qua; nắm bắt kiến thức chung. |
 | Expert parallelism (Tính song song chuyên gia) | "Phân mảnh theo chuyên gia" | Phân phối các chuyên gia khác nhau đến các GPU khác nhau; định tuyến token qua mạng. |
-| Sparsity (Tính thưa) | "Tham số hoạt động < tổng tham số" | Tỷ lệ `k × expert_size / (E × expert_size)`; 37/671 ≈ 5.5% cho DeepSeek-V3. |
+| Sparsity (Tính thưa) | "Tham số hoạt động < tổng tham số" | Tỷ lệ $k \times \text{expert size} / (E \times \text{expert size})$; 37/671 ≈ 5.5% cho DeepSeek-V3. |
 
 ## Further Reading
 

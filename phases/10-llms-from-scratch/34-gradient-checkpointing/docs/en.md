@@ -11,7 +11,7 @@
 
 Huấn luyện một transformer lưu, cho mỗi lớp, đầu vào của mọi phép toán được lấy đạo hàm trong backward: đầu vào attention, các phép chiếu Q/K/V, đầu ra softmax, đầu vào FFN, đầu ra norm và luồng residual. Với một lớp có kích thước ẩn `d`, độ dài chuỗi `L`, batch `B`, con số này vào khoảng `12 * B * L * d` số thực dấu phẩy động mỗi lớp.
 
-Với `d=8192, L=8192, B=1`, đó là 800 MB/lớp ở BF16. Một mô hình 64 lớp có 51 GB activation — và đó là trước khi bạn nhân với kích thước microbatch, trước khi bạn thêm các giá trị trung gian attention-softmax (`L^2` mỗi head), và trước khi bạn tính đến các bản sao một phần tensor-parallel.
+Với `d=8192, L=8192, B=1`, đó là khoảng 805M giá trị, hoặc 1.6 GB/lớp trong BF16. Một mô hình 64 lớp có khoảng 103 GB activation, và đó là trước khi bạn nhân với kích thước microbatch, trước khi thêm các giá trị trung gian attention-softmax (`L^2` mỗi head), và trước khi tính đến các bản sao bộ phận của tensor parallel.
 
 Hóa đơn hai phía: trọng số BF16 cộng trạng thái bộ tối ưu có thể vừa 80GB, nhưng activation đẩy bạn vượt quá. Gradient checkpointing (còn gọi là tính lại activation) là cách khắc phục tiêu chuẩn. Bỏ phần lớn activation; làm lại forward trong backward để lấy chúng lại. Chi phí: thêm FLOPs. Lợi ích: bộ nhớ giảm theo tỷ lệ giữa các đoạn checkpoint và tổng số lớp.
 
@@ -37,13 +37,13 @@ Ví dụ: transformer 32 lớp chia thành 32 đoạn, mỗi đoạn 1 lớp.
 - Bộ nhớ: 32 đầu vào lớp (nhỏ) so với 32 * (dung lượng activation mỗi lớp) (khổng lồ).
 - Tính toán bổ sung: 1 forward bổ sung mỗi đoạn, tức là tổng FLOPs forward nhiều hơn ~33% (vì backward bằng 2x forward, bước đầy đủ trở thành 1 + 1 + 2 = 4 đơn vị thay vì 1 + 2 = 3).
 
-Đây là công thức gốc của Chen và cộng sự năm 2016: một checkpoint mỗi `sqrt(L)` lớp để cân bằng bộ nhớ và tính toán. Với L=64, đó là 8 checkpoint.
+Đây là công thức gốc của Chen và cộng sự năm 2016: một checkpoint mỗi `sqrt(L)` lớp để cân bằng bộ nhớ và tính toán. Với $L=64$, đó là 8 checkpoint.
 
 ### Selective Checkpointing (Korthikanti 2022)
 
 Không phải mọi activation đều có chi phí như nhau. Đầu ra attention softmax là `B*L*L*heads` và tăng *bậc hai* theo độ dài chuỗi. Activation ẩn FFN là `B*L*4d` và tăng tuyến tính. Với các chuỗi dài, softmax chiếm ưu thế.
 
-Checkpointing chọn lọc giữ các activation có chi phí lưu thấp (các phép chiếu tuyến tính, residual) và chỉ tính lại các activation tốn kém (attention). Bạn trả FLOPs tối thiểu để tính lại nhưng tiết kiệm bộ nhớ O(L^2).
+Checkpointing chọn lọc giữ các activation có chi phí lưu thấp (các phép chiếu tuyến tính, residual) và chỉ tính lại các activation tốn kém (attention). Bạn trả FLOPs tối thiểu để tính lại nhưng tiết kiệm bộ nhớ $O(L^2)$.
 
 Megatron-Core triển khai điều này dưới dạng tính lại activation "chọn lọc". Được dùng trong phần lớn lượt huấn luyện tiên tiến nhất từ năm 2024 trở đi.
 
@@ -293,8 +293,8 @@ Bài học này tạo ra `outputs/prompt-activation-recompute-policy.md` — m�
 | Block checkpointing (Checkpointing khối) | "Mức thô" | Checkpoint các khối transformer nguyên vẹn; mức hạt lớn nhất |
 | FLOP overhead (Chi phí FLOP bổ sung) | "Thuế tính toán" | FLOPs bổ sung mỗi bước = (FLOPs tính lại) / (FLOPs fwd + bwd); 33% đơn giản, 5% chọn lọc |
 | Activation offload (Offload activation) | "Chuyển sang CPU" | Chuyển activation sang RAM CPU qua forward->backward; phương án thay thế tính lại |
-| sqrt-L rule (Quy tắc sqrt-L) | "Điểm tối ưu cổ điển" | Với các lớp có chi phí đồng đều, khoảng cách checkpoint tối ưu là sqrt(L) lớp |
-| Attention-softmax volume (Dung lượng attention-softmax) | "Vấn đề O(L^2)" | L^2 * heads * batch số thực dấu phẩy động; chiếm ưu thế trong bộ nhớ activation ở ngữ cảnh dài |
+| sqrt-L rule (Quy tắc sqrt-L) | "Điểm tối ưu cổ điển" | Với các lớp có chi phí đồng đều, khoảng cách checkpoint tối ưu là $\sqrt{L}$ lớp |
+| Attention-softmax volume (Dung lượng attention-softmax) | "Vấn đề O(L^2)" | $L^2 \cdot \text{heads} \cdot \text{batch}$ số thực dấu phẩy động; chiếm ưu thế trong bộ nhớ activation ở ngữ cảnh dài |
 
 ## Further Reading
 

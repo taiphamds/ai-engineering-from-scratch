@@ -24,7 +24,7 @@ Nhận thức 2024-2026: **một codec tái tạo thuần cho bạn tiếng nói
 
 ### The core trick: Residual Vector Quantization (RVQ)
 
-Thay vì một codebook lớn (sẽ cần hàng triệu mã cho chất lượng tốt), mọi codec âm thanh hiện đại dùng **RVQ**: một chuỗi nối tầng các codebook nhỏ. Codebook đầu lượng tử hóa đầu ra encoder; codebook thứ hai lượng tử hóa phần dư; v.v. Mỗi codebook có 1024 mã. 8 codebook = từ vựng hiệu dụng 1024^8 = 10^24.
+Thay vì một codebook lớn (sẽ cần hàng triệu mã cho chất lượng tốt), mọi codec âm thanh hiện đại dùng **RVQ**: một chuỗi nối tầng các codebook nhỏ. Codebook đầu lượng tử hóa đầu ra encoder; codebook thứ hai lượng tử hóa phần dư; v.v. Mỗi codebook có 1024 mã. 8 codebook = từ vựng hiệu dụng $1024^8 = 10^{24}$.
 
 Khi suy luận, decoder cộng mọi mã được chọn theo khung để tái tạo.
 
@@ -129,8 +129,8 @@ Codebook ngữ nghĩa 0 được căn chỉnh với WavLM. Bạn có thể huấ
 
 Với một đoạn tiếng nói 10 s ở 12.5 Hz × 8 codebook của Mimi:
 
-```
-N_tokens = 10 * 12.5 * 8 = 1000 tokens
+```math
+N_{\text{tokens}} = 10 \times 12.5 \times 8 = 1000 \text{ tokens}
 ```
 
 1000 token là một ngữ cảnh nhỏ đối với một transformer. Một transformer 256M tham số có thể sinh 10 giây tiếng nói trong vài mili giây trên một GPU hiện đại.

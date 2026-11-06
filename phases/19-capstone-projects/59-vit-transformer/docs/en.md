@@ -65,11 +65,11 @@ FFN đi `hidden -> 4 * hidden -> hidden` với GELU ở giữa. Hệ số 4 là 
 | 12 khối | khoảng 85M |
 | Cộng phần đầu | tổng khoảng 86M |
 
-ViT-Base là một bộ mã hóa 86M tham số. Điều đó nhỏ theo chuẩn năm 2026 (SigLIP-So400M là 400M, ViT Qwen-VL là 675M), nhưng kiến trúc giống hệt sai khác ở độ rộng và độ sâu.
+ViT-Base là một encoder 86M tham số. Điều đó nhỏ theo tiêu chuẩn năm 2026 (SigLIP-So400M là 400M, ViT của Qwen-VL là 675M), nhưng kiến trúc giống hệt ngoài chiều rộng và chiều sâu.
 
 ### Causal mask or not?
 
-Vision Transformer chỉ encoder và hai chiều: token `i` có thể chú ý đến token `j` cho bất kỳ cặp nào. Không mặt nạ. Cross-attention phía decoder trong bài 61 sẽ dùng một mặt nạ nhân quả, nhưng bên trong bộ mã hóa thị giác, attention kết nối đầy đủ.
+Vision Transformer chỉ có encoder và hai chiều: token `i` có thể chú ý đến token `j` với mọi cặp. Không có mask. Self-attention văn bản trong decoder của bài 61 sẽ sử dụng causal mask (cross-attention của nó lên các patch hình ảnh thì không), nhưng bên trong vision encoder, attention được kết nối đầy đủ.
 
 ### What the CLS token learns
 

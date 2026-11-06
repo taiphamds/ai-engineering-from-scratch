@@ -1,68 +1,68 @@
 ---
 name: compiler-idioms-and-optimization
-description: Recognize compiler idioms in a disassembly listing of a program you built, decode each one back to its source construct with a derivation, and verify the result against the source.
+description: Nhận dạng các mẫu compiler trong một danh sách disassembly của một chương trình bạn đã dựng, giải mã mỗi mẫu trở lại cấu trúc nguồn của nó với một phép suy ra và xác minh kết quả với nguồn.
 version: 1.0.0
 phase: 13
 lesson: 39
 tags: [reverse-engineering, x86-64, arm64, compiler-idioms, division-by-constant, switch-lowering, vectorization, inlining, tail-calls]
 ---
 
-Given an `llvm-objdump -d -r` listing of an object you compiled yourself, the object file, and the C source, produce a list of recognized compiler idioms. Each entry names the kind, the evidence instructions, the decoded source form, and whether the source confirms it. Use this skill with Claude, Cursor, Codex, OpenClaw, Hermes, or any agent that reads SKILL.md.
+Với một danh sách `llvm-objdump -d -r` của một object bạn tự biên dịch, tệp object và nguồn C, tạo một danh sách các mẫu compiler được nhận dạng. Mỗi mục nêu tên loại, các chỉ lệnh bằng chứng, dạng nguồn đã giải mã và liệu nguồn xác nhận nó hay không. Sử dụng skill này với Claude, Cursor, Codex, OpenClaw, Hermes hoặc bất kỳ agent nào đọc SKILL.md.
 
 ## Required inputs
 
-- The C source and the exact compiler, target, optimization level, and flags that produced the object.
-- The object file and its `llvm-objdump -d -r` listing captured from that object.
-- The recognizer from lesson 39 (`code/main.py`) or an equivalent that reports evidence addresses for every claim.
-- For comparison, the output of at least one decompiler on the same object, captured with its version.
+- Nguồn C và compiler, mục tiêu, mức tối ưu hóa và các cờ chính xác tạo ra object.
+- Tệp object và danh sách `llvm-objdump -d -r` của nó được thu từ object đó.
+- Bộ nhận dạng từ bài 39 (`code/main.py`) hoặc một bộ tương đương báo cáo các địa chỉ bằng chứng cho mọi khẳng định.
+- Để so sánh, đầu ra của ít nhất một decompiler trên cùng object, được thu với phiên bản của nó.
 
 ## Procedure
 
-1. Parse the listing into functions and instructions. Attach each relocation line to the instruction before it. Record the architecture from the file format line.
-2. Find divisions by a constant. On x86-64 look for `imul` with a 32-bit immediate or a `mov $imm` feeding `imul`, then the shifts and the sign fix-up or the add fix-up. On AArch64 look for `mov` and `movk` building the constant, then `smull` or `umull` and the shifts. Recover the divisor from the multiplier and the total shift with the Granlund-Montgomery bound, and accept it only when the algorithm gives the same constants back.
-3. Find modulos as a recognized quotient multiplied back by the divisor and subtracted, as `msub`, or as the power-of-two bias and mask form. When a quotient also feeds another use, keep both the division and the modulo.
-4. Classify every switch by its lowering: jump table (indirect jump through a table of addresses, entries from relocations or bytes), lookup table (indexed load of values, entries from the bytes at the relocated address plus 4 for a RIP-relative field), linear map (affine arithmetic selected by a bounds compare), comparison tree (equality tests split by ordered compares), compare chain (equality tests only), or select chain. Read the bounds check for the entry count and compare entries with the source cases, allowing a constant factor the compiler folded in.
-5. Find loops from backward branches whose target can reach them again. A loop body that uses SIMD registers is vectorized: report lanes, accumulators, elements per iteration, the trip-count mask, the minimum-trip guard, the reduction, and the scalar remainder loop. A body with N loads at consecutive offsets from one base is unrolled by N.
-6. Find tail calls (a `jmp` or `b` carrying a call relocation), inlined callees (a source call with no call instruction and the callee's body shape present in the caller), library replacements (`memset` and `memcpy` reached from a loop or a fixed copy), and inline expansions (a 16-byte load and store pair).
-7. Decode branchless selects by evaluating the straight-line code before the `cmov`, `setcc`, `csel`, `cneg`, or `cset` with the parameter names from the source.
-8. Report hardening shapes separately: the stack protector (guard load, slot, compare, `__stack_chk_fail`) and `endbr64`.
-9. Verify every idiom against the source: the divisor appears after `/` or `%`, the switch exists and its cases match, the loop exists, the callee is called, the select exists. Mark each idiom verified or not and list the unverified ones first.
-10. Compare with the decompiler output: for each idiom state whether the tool folded it, left it as arithmetic, or printed something else, and quote the tool's text.
+1. Phân tích danh sách thành các hàm và chỉ lệnh. Gắn mỗi dòng relocation vào chỉ lệnh trước nó. Ghi kiến trúc từ dòng định dạng tệp.
+2. Tìm các phép chia cho một hằng số. Trên x86-64, tìm `imul` với một immediate 32 bit hoặc một `mov $imm` cung cấp cho `imul`, rồi các phép dịch và sửa dấu hoặc sửa cộng. Trên AArch64, tìm `mov` và `movk` xây hằng số, rồi `smull` hoặc `umull` và các phép dịch. Khôi phục số chia từ hệ số nhân và tổng độ dịch bằng cận Granlund-Montgomery, và chỉ chấp nhận nó khi thuật toán cho lại cùng các hằng số.
+3. Tìm các modulo dưới dạng một thương được nhận dạng được nhân lại với số chia và bị trừ, dưới dạng `msub` hoặc dưới dạng thiên lệch và mask lũy thừa hai. Khi một thương cũng cung cấp cho một lần dùng khác, giữ cả phép chia và modulo.
+4. Phân loại mọi switch theo cách hạ của nó: jump table (bước nhảy gián tiếp qua một bảng địa chỉ, các mục từ relocation hoặc byte), bảng tra cứu (lần tải giá trị có chỉ số, các mục từ các byte tại địa chỉ được tái định vị cộng 4 cho một trường tương đối theo RIP), ánh xạ tuyến tính (số học affine được chọn bởi một phép so sánh biên), cây so sánh (các kiểm tra bằng nhau được chia bởi các phép so sánh có thứ tự), chuỗi so sánh (chỉ các kiểm tra bằng nhau) hoặc chuỗi select. Đọc kiểm tra biên cho số mục và so sánh các mục với các case nguồn, cho phép một hệ số hằng mà compiler đã gộp vào.
+5. Tìm các vòng lặp từ các nhánh ngược có đích có thể đến lại chúng. Một thân vòng lặp sử dụng các thanh ghi SIMD được vector hóa: báo cáo lane, bộ tích lũy, phần tử mỗi vòng lặp, mask số lượt lặp, điều kiện bảo vệ số lượt tối thiểu, phép rút gọn và vòng lặp phần dư vô hướng. Một thân với N lần tải tại các offset liên tiếp từ một base được unroll theo N.
+6. Tìm tail call (một `jmp` hoặc `b` mang một relocation gọi), callee inline (một lần gọi nguồn không có chỉ lệnh gọi và dạng thân của callee hiện diện trong caller), thay thế thư viện (`memset` và `memcpy` được tới từ một vòng lặp hoặc một bản sao cố định) và mở rộng inline (một cặp tải và lưu 16 byte).
+7. Giải mã các select không nhánh bằng cách đánh giá mã đường thẳng trước `cmov`, `setcc`, `csel`, `cneg` hoặc `cset` với các tên tham số từ nguồn.
+8. Báo cáo riêng các dạng tăng cường bảo vệ: stack protector (lần tải guard, slot, phép so sánh, `__stack_chk_fail`) và `endbr64`.
+9. Xác minh mọi mẫu với nguồn: số chia xuất hiện sau `/` hoặc `%`, switch tồn tại và các case của nó khớp, vòng lặp tồn tại, callee được gọi, select tồn tại. Đánh dấu mỗi mẫu đã xác minh hay chưa và liệt kê những mẫu chưa xác minh trước.
+10. So sánh với đầu ra decompiler: với mỗi mẫu nêu liệu công cụ gộp nó, để nó như số học hay in thứ khác, và trích văn bản của công cụ.
 
 ## Required report
 
-For the object, report:
+Với object, báo cáo:
 
-- compiler, target, level, flags, and the listing tool version
-- per function, every idiom with kind, decoded source form, evidence addresses, and verification status
-- for divisions, the multiplier, the total shift, the divisor, the error, and whether the compiler's constants match the algorithm
-- for switches, the lowering kind, the entry count, the table location, the entries or targets, and the evidence kind (relocation or bytes)
-- for loops, lanes, accumulators, elements per iteration, remainder loop, or the unroll factor
-- the kind matrix per optimization level and whether two levels produced the same code
-- the decompiler comparison with quoted output and the tool version
-- every idiom the source did not confirm, with the reason
+- compiler, mục tiêu, mức, cờ và phiên bản công cụ liệt kê
+- theo hàm, mọi mẫu với loại, dạng nguồn đã giải mã, các địa chỉ bằng chứng và trạng thái xác minh
+- với các phép chia, hệ số nhân, tổng độ dịch, số chia, sai số và liệu các hằng số của compiler khớp thuật toán hay không
+- với các switch, loại hạ, số mục, vị trí bảng, các mục hoặc đích và loại bằng chứng (relocation hoặc byte)
+- với các vòng lặp, lane, bộ tích lũy, phần tử mỗi vòng lặp, vòng lặp phần dư hoặc hệ số unroll
+- ma trận loại theo mức tối ưu hóa và liệu hai mức tạo cùng mã hay không
+- phép so sánh decompiler với đầu ra được trích và phiên bản công cụ
+- mọi mẫu mà nguồn không xác nhận, với lý do
 
 ## Hard rejects
 
-- Naming a divisor from the multiplier alone without the shift. The same multiplier means different divisors at different shifts.
-- Reporting a lookup table as a jump table or a jump table as dead code.
-- Reading table entries from zero bytes in a relocatable object when the entries are relocations.
-- Counting a backward branch to a shared default block as a loop.
-- Calling a library tail call a return from the function.
-- Treating `-O0` hardware division as proof that no magic multiply exists for that compiler.
-- Claiming a decompiler folds an idiom without quoting its output on this object.
-- Reporting an idiom that the source does not contain without marking it unverified.
+- Nêu tên một số chia chỉ từ hệ số nhân không có độ dịch. Cùng hệ số nhân nghĩa là các số chia khác nhau ở các độ dịch khác nhau.
+- Báo cáo một bảng tra cứu là một jump table hoặc một jump table là mã chết.
+- Đọc các mục bảng từ các byte bằng không trong một object có thể tái định vị khi các mục là relocation.
+- Đếm một nhánh ngược tới một khối mặc định dùng chung là một vòng lặp.
+- Gọi một tail call thư viện là một lần trả về từ hàm.
+- Coi phép chia phần cứng `-O0` là bằng chứng rằng không có phép nhân ma thuật cho compiler đó.
+- Khẳng định một decompiler gộp một mẫu mà không trích đầu ra của nó trên object này.
+- Báo cáo một mẫu mà nguồn không chứa mà không đánh dấu nó chưa được xác minh.
 
 ## Produce
 
-Return these sections:
+Trả về những phần này:
 
-1. Build: compiler, target, level, flags, listing tool.
-2. Idioms: per function, kind, source form, evidence, verified.
-3. Divisions: the magic table with divisor, multiplier, shift, error, add form, and algorithm match.
-4. Switches: lowering per function per level with entries and evidence kind.
-5. Loops: vector and unroll facts per loop.
-6. Decompilers: per idiom, folded or not, with the quoted text and version.
-7. Unverified: every idiom the source did not confirm.
+1. Build: compiler, mục tiêu, mức, cờ, công cụ liệt kê.
+2. Mẫu: theo hàm, loại, dạng nguồn, bằng chứng, đã xác minh.
+3. Phép chia: bảng ma thuật với số chia, hệ số nhân, độ dịch, sai số, dạng cộng và khớp thuật toán.
+4. Switch: cách hạ theo hàm theo mức với các mục và loại bằng chứng.
+5. Vòng lặp: các sự kiện vector và unroll theo vòng lặp.
+6. Decompiler: theo mẫu, được gộp hay không, với văn bản được trích và phiên bản.
+7. Chưa xác minh: mọi mẫu mà nguồn không xác nhận.
 
-End with the unverified list. If it is empty, state the number of idioms recognized and the number of divisions whose constants matched the algorithm.
+Kết thúc bằng danh sách chưa xác minh. Nếu nó rỗng, nêu số mẫu được nhận dạng và số phép chia có các hằng số khớp thuật toán.

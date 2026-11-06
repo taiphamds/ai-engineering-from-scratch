@@ -94,6 +94,8 @@ roofline
 
 `code/main.py` triển khai một bộ nhớ đệm KV cây radix đồ chơi cộng một bộ lập lịch với hai chính sách: FCFS và nhận biết bộ nhớ đệm. Chạy cùng khối lượng công việc qua cả hai, báo cáo tỷ lệ trúng bộ nhớ đệm tiền tố và chênh lệch thông lượng. Rồi chạy một khối lượng công việc “thứ tự xáo trộn” để cho thấy sự sụp đổ 6.4x.
 
+Máy [Inside an LLM Serving GPU](https://aiengineeringfromscratch.com/inside-an-llm-serving-gpu?workload=shared&shared=4096) hiển thị radix cache trên một lần chạy L4 thực. Bốn nhóm, mỗi nhóm có system prompt 4,096 token riêng. Yêu cầu đầu tiên của một nhóm tính toán prompt của nó. Trong khi prompt đó còn trong cache, các yêu cầu sau của nhóm chỉ tính toán câu hỏi 128 token. Tắt radix cache để thấy token đầu tiên trung vị đi từ 479 ms lên 14,706 ms.
+
 ## Ship It
 
 Bài này tạo ra `outputs/skill-radix-scheduler-advisor.md`. Với một mô tả khối lượng công việc (hình dạng mẫu prompt, mẫu truy xuất, số tenant đồng thời), nó tạo một chỉ dẫn thứ tự prompt và quyết định làm/không làm cho áp dụng SGLang.

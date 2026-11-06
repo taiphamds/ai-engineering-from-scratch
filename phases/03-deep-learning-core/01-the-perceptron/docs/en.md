@@ -26,7 +26,7 @@ Hiểu perceptron nghĩa là hiểu "học" thực sự có nghĩa gì trong mã
 
 ### One Neuron, One Decision
 
-Một perceptron nhận n đầu vào, nhân mỗi đầu vào với một trọng số, cộng chúng lại, cộng một bias và đưa kết quả qua một hàm kích hoạt.
+Một perceptron nhận $n$ đầu vào, nhân mỗi đầu vào với một trọng số, cộng chúng lại, cộng một bias và đưa kết quả qua một hàm kích hoạt.
 
 ```mermaid
 graph LR
@@ -38,11 +38,10 @@ graph LR
     step --> out["output (0 or 1)"]
 ```
 
-Hàm bước rất thẳng tay: nếu tổng có trọng số cộng bias >= 0, xuất ra 1. Nếu không, xuất ra 0.
+Hàm bước rất thẳng tay: nếu tổng có trọng số cộng bias $\ge 0$, xuất ra 1. Nếu không, xuất ra 0.
 
-```
-step(z) = 1  if z >= 0
-           0  if z < 0
+```math
+\text{step}(z) = \begin{cases} 1 & \text{if } z \ge 0 \\ 0 & \text{if } z < 0 \end{cases}
 ```
 
 Đây là một bộ phân loại tuyến tính. Các trọng số và bias xác định một đường thẳng (hoặc siêu phẳng trong không gian nhiều chiều hơn) chia không gian đầu vào thành hai vùng.
@@ -80,7 +79,7 @@ For each training example (x, y_true):
     bias = bias + learning_rate * error
 ```
 
-Nếu dự đoán đúng, error = 0, không có gì thay đổi. Nếu nó dự đoán 0 nhưng lẽ ra phải là 1, các trọng số tăng. Nếu nó dự đoán 1 nhưng lẽ ra phải là 0, các trọng số giảm. Tốc độ học kiểm soát độ lớn mỗi lần điều chỉnh.
+Nếu dự đoán đúng, $\text{error} = 0$, không có gì thay đổi. Nếu nó dự đoán 0 nhưng lẽ ra phải là 1, các trọng số tăng. Nếu nó dự đoán 1 nhưng lẽ ra phải là 0, các trọng số giảm. Tốc độ học kiểm soát độ lớn mỗi lần điều chỉnh.
 
 ### The XOR Problem
 
@@ -213,7 +212,7 @@ Nó sẽ không bao giờ hội tụ. Đây là bằng chứng chắc chắn r�
 
 ### Step 4: Solve XOR with two layers
 
-Thủ thuật: XOR = (x1 OR x2) AND NOT (x1 AND x2). Kết hợp ba perceptron:
+Thủ thuật: $\text{XOR} = (x_1 \text{ OR } x_2) \text{ AND NOT } (x_1 \text{ AND } x_2)$. Kết hợp ba perceptron:
 
 ```mermaid
 graph LR
@@ -359,7 +358,7 @@ Bài học này tạo ra:
 ## Exercises
 
 1. Huấn luyện một perceptron trên một cổng NAND (cổng phổ dụng - bất kỳ mạch logic nào cũng có thể được xây dựng từ NAND). Xác minh các trọng số và bias của nó tạo thành một ranh giới quyết định hợp lệ.
-2. Sửa lớp Perceptron để theo dõi ranh giới quyết định (w1*x1 + w2*x2 + b = 0) ở mỗi epoch. In cách đường thẳng dịch chuyển trong quá trình huấn luyện trên cổng AND.
+2. Sửa lớp Perceptron để theo dõi ranh giới quyết định ($w_1 x_1 + w_2 x_2 + b = 0$) ở mỗi epoch. In cách đường thẳng dịch chuyển trong quá trình huấn luyện trên cổng AND.
 3. Xây dựng một perceptron 3 đầu vào chỉ xuất ra 1 khi ít nhất 2 trong 3 đầu vào là 1 (một hàm bỏ phiếu đa số). Bài toán này có phân tách tuyến tính được không? Tại sao?
 
 ## Key Terms
@@ -372,7 +371,7 @@ Bài học này tạo ra:
 | Activation function (Hàm kích hoạt) | "Thứ ép các giá trị lại" | Một hàm được áp dụng sau tổng có trọng số - hàm bước cho perceptron, sigmoid/ReLU cho các mạng hiện đại |
 | Linearly separable (Phân tách tuyến tính được) | "Bạn có thể vẽ một đường thẳng giữa chúng" | Một tập dữ liệu mà một siêu phẳng duy nhất có thể phân tách hoàn hảo các lớp |
 | XOR problem (Bài toán XOR) | "Điều perceptron không thể làm" | Bằng chứng rằng các mạng một lớp không thể học các hàm không phân tách tuyến tính được |
-| Decision boundary (Ranh giới quyết định) | "Nơi bộ phân loại chuyển đổi" | Siêu phẳng w*x + b = 0 chia không gian đầu vào thành hai lớp |
+| Decision boundary (Ranh giới quyết định) | "Nơi bộ phân loại chuyển đổi" | Siêu phẳng $w \cdot x + b = 0$ chia không gian đầu vào thành hai lớp |
 | Multi-layer perceptron (Perceptron nhiều lớp) | "Một mạng nơ-ron thực sự" | Các perceptron được xếp chồng thành các lớp, trong đó đầu ra mỗi lớp đưa vào đầu vào của lớp tiếp theo |
 
 ## Further Reading

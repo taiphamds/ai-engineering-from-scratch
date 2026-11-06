@@ -80,7 +80,7 @@ Với một khối có `d_model = d` và mở rộng FFN `r`:
 - FFN (SwiGLU): `3 · d · (r · d)` ≈ `3rd²`
 - Norm: không đáng kể
 
-Tại `d = 4096, r = 2.6, layers = 32` (xấp xỉ Llama 3 8B), tổng: `32 · (4·4096² + 3·2.6·4096²) ≈ 32 · (16 + 32) M = ~1.5B parameters per layer × 32 ≈ 7B` (cộng embedding và head). Khớp các số đếm đã công bố.
+Tại `d = 4096, r = 2.6, layers = 32` (xấp xỉ Llama 3 8B), tổng: `32 · (4·4096² + 3·2.6·4096²) ≈ 32 · (67M + 131M) ≈ 32 · 198M ≈ 6.3B` tham số trong các khối, cộng khoảng 1B cho các embedding và head đầu ra (từ vựng 128K × 4096, không chia sẻ trọng số). Kết quả đó gần 8B đã công bố. Mô hình thực sử dụng GQA (các phép chiếu K và V nhỏ hơn) và một FFN rộng hơn (`r = 3.5`), chuyển tham số từ attention sang FFN nhưng giữ tổng gần 8B.
 
 ## Build It
 

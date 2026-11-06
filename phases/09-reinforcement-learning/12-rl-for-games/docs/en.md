@@ -1,6 +1,6 @@
 # RL for Games — AlphaZero, MuZero, and the LLM-Reasoning Era
 
-> 1992: TD-Gammon đánh bại các nhà vô địch con người ở backgammon bằng TD thuần túy. 2016: AlphaGo đánh bại Lee Sedol. 2017: AlphaZero thống trị cờ vua, shogi và cờ vây từ đầu. 2024: DeepSeek-R1 chứng minh cùng công thức, với GRPO thay PPO, hoạt động trên suy luận. Trò chơi là benchmark thúc đẩy mọi đột phá trong giai đoạn này.
+> 1992: TD-Gammon đánh bại các nhà vô địch con người ở backgammon bằng TD thuần túy. 2016: AlphaGo đánh bại Lee Sedol. 2017: AlphaZero thống trị cờ vua, shogi và cờ vây từ đầu. 2025: DeepSeek-R1 chứng minh cùng công thức đó, với GRPO thay PPO, hoạt động cho suy luận. Trò chơi là benchmark thúc đẩy mọi đột phá trong giai đoạn này.
 
 **Type:** Build
 **Languages:** Python
@@ -30,19 +30,19 @@ while True:
 
 **AlphaZero (2017).** Silver và cộng sự. Với một trò chơi (cờ vua, shogi, cờ vây) có luật đã biết:
 
-- Mạng chính sách-giá trị: một tháp `f_θ(s) → (p, v)`. `p` là một tiên nghiệm trên các nước đi hợp lệ. `v` là kết quả ván đấu kỳ vọng.
-- Tìm kiếm cây Monte Carlo (MCTS): ở mỗi nước đi, mở rộng một cây các phần tiếp nối có thể. Dùng `(p, v)` làm tiên nghiệm + bootstrap. Chọn các nút bằng UCB (PUCT): `a* = argmax Q(s, a) + c · p(a|s) · √N(s) / (1 + N(s, a))`.
-- Tự chơi: chơi các ván agent đấu agent. Ở nước đi `t`, phân phối lượt ghé MCTS `π_t` trở thành mục tiêu huấn luyện chính sách.
-- Hàm mất mát: `L = (v - z)² - π · log p + c · ||θ||²`. `z` là kết quả ván đấu (+1 / 0 / -1).
+- Mạng chính sách-giá trị: một tháp $f_\theta(s) \to (p, v)$. $p$ là một tiên nghiệm trên các nước đi hợp lệ. $v$ là kết quả ván đấu kỳ vọng.
+- Monte Carlo Tree Search (MCTS): ở mỗi nước đi, mở rộng một cây gồm các diễn biến tiếp theo có thể có. Sử dụng $(p, v)$ làm tiên nghiệm + bootstrap. Chọn nút bằng UCB (PUCT): $a^{\ast} = \arg\max_a Q(s, a) + c \cdot p(a \mid s) \cdot \sqrt{N(s)} / (1 + N(s, a))$.
+- Tự chơi: chơi các ván agent đấu agent. Ở nước đi $t$, phân phối lượt ghé MCTS $\pi_t$ trở thành mục tiêu huấn luyện chính sách.
+- Hàm mất mát: $L = (v - z)^2 - \pi \cdot \log p + c \cdot \lVert \theta \rVert^2$. $z$ là kết quả ván đấu (+1 / 0 / -1).
 
 Không kiến thức con người. Không heuristic thủ công. Một công thức duy nhất làm chủ cờ vua, shogi và cờ vây sau vài chục triệu ván tự chơi cho mỗi trò.
 
 **MuZero (2019).** Schrittwieser và cộng sự. Bỏ yêu cầu rằng luật phải được biết.
 
-- Thay vì một môi trường cố định, học một *mô hình động lực học tiềm ẩn* `(h, g, f)`:
-  - `h(s)`: mã hóa quan sát thành trạng thái tiềm ẩn.
-  - `g(s_latent, a)`: dự đoán trạng thái tiềm ẩn tiếp theo + phần thưởng.
-  - `f(s_latent)`: dự đoán tiên nghiệm chính sách + giá trị.
+- Thay vì một môi trường cố định, học một *mô hình động lực học tiềm ẩn* $(h, g, f)$:
+  - $h(s)$: mã hóa quan sát thành trạng thái tiềm ẩn.
+  - $g(s_{\text{latent}}, a)$: dự đoán trạng thái tiềm ẩn tiếp theo + phần thưởng.
+  - $f(s_{\text{latent}})$: dự đoán tiên nghiệm chính sách + giá trị.
 - MCTS chạy trong *không gian tiềm ẩn được học*. Cùng tìm kiếm, cùng vòng lặp huấn luyện.
 - Hoạt động trên cờ vây, cờ vua, shogi *và* Atari — một thuật toán, không kiến thức luật.
 
@@ -54,13 +54,13 @@ Không kiến thức con người. Không heuristic thủ công. Một công th�
 
 - "Trò chơi": trả lời một bài toán toán học / lập trình / suy luận. "Thắng" = bộ xác minh (ca kiểm thử vượt qua, đáp án số khớp) trả về 1.
 - Chính sách: LLM. Hành động: token. Trạng thái: prompt + phản hồi đến hiện tại.
-- Không critic (V_φ kiểu PPO). Thay vào đó, với mỗi prompt, lấy mẫu `G` phần hoàn thành từ chính sách. Tính phần thưởng cho mỗi phần. Dùng **lợi thế tương đối theo nhóm** `A_i = (r_i - mean_r) / std_r` làm tín hiệu cho cập nhật kiểu REINFORCE.
+- Không critic ($V_\phi$ kiểu PPO). Thay vào đó, với mỗi prompt, lấy mẫu $G$ phần hoàn thành từ chính sách. Tính phần thưởng cho mỗi phần. Dùng **lợi thế tương đối theo nhóm** $A_i = (r_i - \text{mean}_r) / \text{std}_r$ làm tín hiệu cho cập nhật kiểu REINFORCE.
 - Phạt KL đến chính sách tham chiếu để ngăn trôi (như RLHF).
 - Hàm mất mát đầy đủ:
 
-  `L_GRPO(θ) = -E_{q, {o_i}} [ (1/G) Σ_i A_i · log π_θ(o_i | q) ] + β · KL(π_θ || π_ref)`
+  $L_{\text{GRPO}}(\theta) = -\mathbb E_{q, \lbrace o_i \rbrace} \left[ \frac{1}{G} \sum_i A_i \cdot \log \pi_\theta(o_i \mid q) \right] + \beta \cdot \mathrm{KL}(\pi_\theta \Vert \pi_{\text{ref}})$
 
-Không mô hình phần thưởng, không critic, không MCTS. Baseline tương đối theo nhóm thay cả ba. Ngang bằng hoặc vượt chất lượng PPO-RLHF trên các benchmark suy luận với một phần nhỏ tính toán.
+Không có mô hình phần thưởng được học, không có critic, không có MCTS. Một bộ xác minh dựa trên quy tắc cung cấp phần thưởng, đường cơ sở tương đối theo nhóm thay critic và bước tìm kiếm bị bỏ đi. Ngang hoặc vượt chất lượng PPO-RLHF trên các benchmark suy luận với một phần nhỏ chi phí tính toán.
 
 **Công thức R1 đầy đủ.** DeepSeek-R1 (DeepSeek 2025) là hai mô hình trong một bài báo:
 
@@ -86,7 +86,7 @@ f3-selfplay-ladder
 
 ## Build It
 
-Mã trong `code/main.py` triển khai **GRPO thu nhỏ** — một bandit với nhiều nhóm mẫu. Thuật toán giống như trên một LLM; chỉ chính sách và môi trường đơn giản hơn. Nó dạy *hàm mất mát* và *lợi thế tương đối theo nhóm*, là đổi mới năm 2025.
+Mã trong `code/main.py` triển khai **GRPO thu nhỏ**: một bandit với nhiều nhóm mẫu. Thuật toán giống như trên một LLM; chỉ chính sách và môi trường đơn giản hơn. Nó dạy về *loss* và *advantage tương đối theo nhóm*, là đổi mới năm 2024 từ DeepSeekMath.
 
 ### Step 1: a tiny verifier environment
 
@@ -144,7 +144,7 @@ Cùng chẩn đoán như RLHF: KL trung bình đến tham chiếu, entropy chín
 ## Pitfalls
 
 - **Reward hacking qua thao túng bộ xác minh.** GRPO kế thừa rủi ro của RLHF: nếu bộ xác minh sai hoặc có thể bị khai thác, LLM sẽ tìm ra cách khai thác. Các bộ xác minh vững (nhiều ca kiểm thử, chứng minh hình thức) quan trọng.
-- **Kích thước nhóm quá nhỏ.** Phương sai của baseline nhóm biến thiên như `1/√G`. Dưới `G = 4`, tín hiệu lợi thế nhiều nhiễu; lựa chọn tiêu chuẩn là `G = 8` đến `64`.
+- **Kích thước nhóm quá nhỏ.** Phương sai của đường cơ sở trung bình nhóm biến thiên theo $1/G$ (sai số chuẩn của nó theo $1/\sqrt{G}$). Dưới $G = 4$, tín hiệu advantage bị nhiễu; lựa chọn tiêu chuẩn là $G = 8$ đến 64.
 - **Thiên lệch độ dài.** Các phần hoàn thành LLM có độ dài khác nhau có log xác suất khác nhau. Chuẩn hóa theo số token, hoặc dùng log xác suất cấp chuỗi, hoặc cắt ngắn về độ dài tối đa.
 - **Chu kỳ tự chơi thuần túy.** Huấn luyện kiểu AlphaZero có thể bị kẹt trong các vòng thống trị trên trò chơi general-sum. Giảm nhẹ bằng các tập đối thủ đa dạng (chơi liên đoàn, Bài 10).
 - **Không khớp tìm kiếm-chính sách.** AlphaZero huấn luyện chính sách để bắt chước đầu ra tìm kiếm. Nếu mạng chính sách quá nhỏ để biểu diễn phân phối của tìm kiếm, huấn luyện đình trệ.
@@ -195,7 +195,7 @@ Refuse AlphaZero on imperfect-info games (route to CFR). Refuse GRPO without a t
 
 ## Exercises
 
-1. **Dễ.** Triển khai bandit GRPO trong `code/main.py`. Huấn luyện trên 2 prompt × 4 token đáp án mỗi prompt. Hội tụ trong < 1,000 cập nhật với `G=8`.
+1. **Dễ.** Triển khai bandit GRPO trong `code/main.py`. Huấn luyện trên 2 prompt × 4 token đáp án mỗi prompt. Hội tụ trong < 1,000 cập nhật với $G=8$.
 2. **Trung bình.** Cắm PPO (được cắt) và REINFORCE nguyên bản vào. So sánh hiệu quả mẫu và phương sai phần thưởng với GRPO trên cùng bandit.
 3. **Khó.** Mở rộng thành một "chuỗi suy luận" dài 2: agent phát ra hai token và bộ xác minh thưởng cho cặp. Đo cách GRPO xử lý gán công trạng trên các chuỗi hai bước. (Gợi ý: tính lợi thế nhóm theo *toàn bộ chuỗi*, lan truyền đến cả hai vị trí token.)
 
@@ -203,11 +203,11 @@ Refuse AlphaZero on imperfect-info games (route to CFR). Refuse GRPO without a t
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| MCTS | "Tìm kiếm cây với mạng được học" | Tìm kiếm cây Monte Carlo; lựa chọn UCB1/PUCT với các tiên nghiệm `(p, v)` được học. |
+| MCTS | "Tìm kiếm cây với mạng được học" | Tìm kiếm cây Monte Carlo; lựa chọn UCB1/PUCT với các tiên nghiệm $(p, v)$ được học. |
 | AlphaZero | "Tự chơi + MCTS" | Mạng chính sách-giá trị được huấn luyện để khớp lượt ghé MCTS và kết quả ván đấu. |
 | MuZero | "AlphaZero với mô hình được học" | Cùng vòng lặp nhưng trong không gian tiềm ẩn qua động lực học được học. |
 | GRPO | "PPO không critic" | Tối ưu hóa chính sách tương đối theo nhóm; REINFORCE với baseline trung bình nhóm + KL. |
-| PUCT | "UCB của AlphaZero" | `Q + c · p · √N / (1 + N_a)` — cân bằng ước lượng giá trị với tiên nghiệm. |
+| PUCT | "UCB của AlphaZero" | $Q + c \cdot p \cdot \sqrt{N} / (1 + N_a)$ — cân bằng ước lượng giá trị với tiên nghiệm. |
 | Self-play (Tự chơi) | "Agent đấu với bản thân quá khứ" | Tiêu chuẩn cho tổng bằng không; tín hiệu huấn luyện đối xứng. |
 | League play (Chơi liên đoàn) | "Tự chơi dựa trên quần thể" | Quá khứ + hiện tại + các exploiter được lấy mẫu làm đối thủ. |
 | Verifier reward (Phần thưởng bộ xác minh) | "RL có thể xác minh" | Phần thưởng đến từ một bộ kiểm tra tất định (kiểm thử vượt qua, đáp án khớp). |

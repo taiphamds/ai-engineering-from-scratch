@@ -16,7 +16,7 @@
 
 ## The Problem
 
-Một mô hình 70B tham số trong fp16 cần 140 GB chỉ riêng tham số. Không GPU tiêu dùng nào chứa được nó. ZeRO-3 chia shard các tham số trên các rank nhưng vẫn cần mọi rank allgather lớp đầy đủ cho mỗi bước lượt tiến, trả log(N) bước nhảy mỗi lớp. Song song pipeline đi đường khác: cắt mô hình thành N giai đoạn và đặt một giai đoạn trên mỗi rank. Lượt tiến của lớp 1 hoàn tất trên rank 0 và đưa tensor kích hoạt cho rank 1; rank 1 chạy lớp 2 và đưa cho rank 2; và tiếp tục. Lượt ngược chảy ngược lại. Bộ nhớ giảm tuyến tính vì mỗi rank chỉ giữ một giai đoạn; tính toán tuần tự, là vấn đề bong bóng.
+Một mô hình 70B tham số trong fp16 cần 140 GB chỉ riêng tham số. Không GPU tiêu dùng nào chứa được nó. ZeRO-3 chia shard các tham số trên các rank nhưng vẫn cần mọi rank allgather lớp đầy đủ cho mỗi bước lượt tiến, trả $\log(N)$ bước nhảy mỗi lớp. Song song pipeline đi đường khác: cắt mô hình thành N giai đoạn và đặt một giai đoạn trên mỗi rank. Lượt tiến của lớp 1 hoàn tất trên rank 0 và đưa tensor kích hoạt cho rank 1; rank 1 chạy lớp 2 và đưa cho rank 2; và tiếp tục. Lượt ngược chảy ngược lại. Bộ nhớ giảm tuyến tính vì mỗi rank chỉ giữ một giai đoạn; tính toán tuần tự, là vấn đề bong bóng.
 
 Bong bóng là thời gian nhàn rỗi ở đầu pipeline (đợi lô vi mô đầu đến giai đoạn cuối) và ở cuối (đợi lô vi mô cuối chảy ngược qua). Với M lô vi mô và N giai đoạn tỷ lệ bong bóng theo giai đoạn là (N-1)/(M+N-1). Tại M=8, N=4 đó là 27%. Tại M=64, N=4 là 4.5%. Bong bóng co lại khi bạn có nhiều lô vi mô mỗi bước, nghĩa là các kích thước lô nhỏ theo lô vi mô, là ràng buộc điều khiển thiết kế lô vi mô.
 

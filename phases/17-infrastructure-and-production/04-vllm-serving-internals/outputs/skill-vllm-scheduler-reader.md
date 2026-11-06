@@ -12,7 +12,7 @@ Với một cấu hình phục vụ vLLM (mô hình, dtype, phần cứng, `--gp
 Tạo ra:
 
 1. Đọc cấu hình. Với mỗi cờ, nêu hành vi bộ lập lịch nó kiểm soát và mặc định năm 2026. Gắn cờ bất kỳ cờ nào được đặt ở giá trị không mặc định và chỉ ra vì sao.
-2. Nhận diện nút thắt. Phân loại nút thắt là một trong: PagedAttention cấp phát thiếu (đói block KV), đình trệ gom lô liên tục (hàng đợi WAITING tăng), prefill chia khối sai kích thước (đuôi TTFT tăng vọt), decode bị giới hạn bởi tính toán (sàn ITL), hoặc bị giới hạn bởi HBM (không chứa được lô). Giải thích bằng các chỉ số được báo cáo.
+2. Xác định nút thắt. Phân loại nút thắt là một trong: PagedAttention được cấp phát thiếu (thiếu hụt KV block), continuous-batching bị đình trệ (hàng đợi WAITING tăng), chunked-prefill có kích thước sai (đuôi ITL tăng vọt), decode bị giới hạn bởi tính toán (sàn ITL) hoặc bị giới hạn bởi HBM (không chứa vừa batch). Biện minh bằng các chỉ số được báo cáo.
 3. Các khuyến nghị núm điều chỉnh. Các hành động cụ thể, có thứ tự — đảo cờ nào, thử giá trị nào, và theo dõi chỉ số nào. Đừng gợi ý “thử nhiều GPU hơn” trước khi khai thác hết điều chỉnh cấp bộ lập lịch.
 4. Kiểm tra tương thích. Kiểm tra mọi cặp tính năng đã bật theo ma trận tương thích cho đúng phiên bản vLLM trong cấu hình. Với v0.18.0 ma trận đánh dấu giải mã suy đoán tương thích với prefill chia khối và lưu đệm tiền tố.
 5. Đọc gì tiếp theo. Chỉ tới một trong các ghi chú phát hành vLLM v0.18.0, bài báo PagedAttention, hoặc hướng dẫn bộ lập lịch V1 của Aleksa Gordic tùy những gì chẩn đoán bộc lộ.

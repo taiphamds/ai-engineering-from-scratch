@@ -42,11 +42,11 @@ INT8:  [1 sign] [7 value]                   = 8  bits (uniform steps)
 INT4:  [1 sign] [3 value]                   = 4  bits (16 levels total)
 ```
 
-**FP32** là độ chính xác đầy đủ. 23 bit phần định trị cho khoảng 7 chữ số thập phân chính xác. Phạm vi: khoảng 1.2 x 10^-38 đến 3.4 x 10^38. Huấn luyện từng chỉ diễn ra ở FP32. Nó vẫn dùng cho tích lũy (tổng tích lũy trong nhân ma trận).
+**FP32** là độ chính xác đầy đủ. 23 bit phần định trị cho khoảng 7 chữ số thập phân chính xác. Phạm vi: khoảng $1.2 \times 10^{-38}$ đến $3.4 \times 10^{38}$. Huấn luyện từng chỉ diễn ra ở FP32. Nó vẫn dùng cho tích lũy (tổng tích lũy trong nhân ma trận).
 
 **FP16** giảm nửa số bit. 10 bit phần định trị cho khoảng 3.3 chữ số thập phân. Số mũ co về 5 bit, giảm mạnh phạm vi (giá trị tối đa ~65,504). Điều này ổn cho trọng số (tập trung gần không) nhưng nguy hiểm cho activation và gradient có thể tăng vọt khi huấn luyện. Huấn luyện FP16 cần co giãn mất mát để ngăn hụt số.
 
-**BF16** (Brain Float 16) giữ số mũ 8-bit từ FP32 nhưng co phần định trị về 7 bit. Cùng phạm vi FP32, ít chính xác hơn FP16. Google thiết kế riêng cho học sâu. Trực giác: phạm vi quan trọng hơn độ chính xác với mạng nơ-ron. Gradient 10^-20 hụt về không ở FP16 sống sót ở BF16. Trọng số 0.07342 làm tròn thành 0.0734 ở BF16 đủ gần. Mọi lần huấn luyện hiện đại dùng BF16 hoặc hỗn hợp BF16/FP32.
+**BF16** (Brain Float 16) giữ số mũ 8-bit từ FP32 nhưng co phần định trị về 7 bit. Cùng phạm vi FP32, ít chính xác hơn FP16. Google thiết kế riêng cho học sâu. Trực giác: phạm vi quan trọng hơn độ chính xác với mạng nơ-ron. Gradient $10^{-20}$ hụt về không ở FP16 sống sót ở BF16. Trọng số 0.07342 làm tròn thành 0.0734 ở BF16 đủ gần. Mọi lần huấn luyện hiện đại dùng BF16 hoặc hỗn hợp BF16/FP32.
 
 **FP8** có hai dạng. E4M3 (4 số mũ, 3 phần định trị) dùng cho trọng số và activation khi suy luận. E5M2 (5 số mũ, 2 phần định trị) dùng cho gradient khi huấn luyện nơi phạm vi quan trọng hơn độ chính xác. Suy luận FP8 trên GPU H100 đạt tăng tốc 30-50% so với FP16 với mất mát chất lượng không đáng kể.
 

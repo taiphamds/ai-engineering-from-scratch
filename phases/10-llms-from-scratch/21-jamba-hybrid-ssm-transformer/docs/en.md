@@ -30,12 +30,14 @@ Bài học này đọc cả ba bài báo và tạo ra mô hình tư duy cho vi�
 
 Một mô hình không gian trạng thái xử lý chuỗi `x_1, ..., x_N` thông qua trạng thái kích thước cố định `h`:
 
-```
-h_t = A h_{t-1} + B x_t
-y_t = C h_t
+```math
+\begin{aligned}
+h_t &= A h_{t-1} + B x_t \\
+y_t &= C h_t
+\end{aligned}
 ```
 
-Ở mỗi bước, trạng thái tiến triển qua động lực học tuyến tính `A`, nhận đầu vào `B x_t` và phát đầu ra `C h_t`. `A, B, C` có thể được học. Lưu ý thuộc tính then chốt: tính `y_t` chỉ cần `h_{t-1}` và `x_t`, không cần bất kỳ `x` nào trước đó. Bộ nhớ là hằng số. Suy luận có độ phức tạp O(1) mỗi token.
+Ở mỗi bước, trạng thái tiến triển qua động lực học tuyến tính `A`, nhận đầu vào `B x_t` và phát đầu ra `C h_t`. `A, B, C` có thể được học. Lưu ý thuộc tính then chốt: tính `y_t` chỉ cần `h_{t-1}` và `x_t`, không cần bất kỳ `x` nào trước đó. Bộ nhớ là hằng số. Suy luận có độ phức tạp $O(1)$ mỗi token.
 
 Mẹo để có chất lượng mô hình hóa là cấu trúc của `A`. S4 (Gu 2021) dùng một ma trận có cấu trúc cao có thể được tính hiệu quả dưới dạng tích chập dài trong huấn luyện. Mamba (Gu, Dao 2023) thay `A, B, C` cố định bằng các giá trị phụ thuộc dữ liệu (phần "chọn lọc"). Mamba-2 (2024) đơn giản hóa cấu trúc thêm nữa. Mamba-3 (2026) thêm lại độ phức tạp ở những vị trí cụ thể.
 
@@ -75,10 +77,10 @@ Bản thân các lớp Mamba nhận biết vị trí (thông qua truy hồi). C�
 
 Với hình dạng Jamba-1 (32 lớp: 28 Mamba + 4 Attention, kích thước ẩn 4096, 32 head attention):
 
-- KV cache (chỉ các lớp attention): `2 * 4 * 32 * 128 * 256k * 2 = 8.4 GB` ở 256k BF16. Chỉ 4 lớp attention đóng góp.
+- KV cache (chỉ các lớp attention): `2 * 4 * 32 * 128 * 256k * 2 = 16 GB` ở 256k BF16. Chỉ 4 lớp attention đóng góp. Jamba đã phát hành sử dụng GQA với 8 head KV trong các lớp đó, đưa con số này xuống 4 GB, số liệu trong bài báo Jamba.
 - Trạng thái SSM: `28 * hidden * state_size` trên mỗi tiền tố token, nhưng đây là kích thước cố định cho mỗi lớp, không tăng theo độ dài chuỗi. Trạng thái Mamba điển hình là 16 trên mỗi đặc trưng, kích thước ẩn 4096: tổng `28 * 4096 * 16 * 2 = 3.7 MB`.
 
-So sánh với một Transformer thuần 32 lớp, cùng kích thước ẩn, MHA đầy đủ với 32 head: `2 * 32 * 32 * 128 * 256k * 2 = 128 GB` ở 256k BF16. Giảm 8x KV cache. Ngay cả so với baseline GQA(8) mà phần lớn mô hình năm 2024 dùng (`2 * 32 * 8 * 128 * 256k * 2 = 32 GB`), mô hình lai 1:7 của Jamba ở 16 GB vẫn nhỏ hơn 2x.
+So sánh với một Transformer thuần túy có 32 lớp, cùng chiều ẩn, MHA đầy đủ ở 32 head: `2 * 32 * 32 * 128 * 256k * 2 = 128 GB` ở 256k BF16. Giảm 8 lần KV cache. Ngay cả so với đường cơ sở GQA(8) mà phần lớn mô hình 2024 sử dụng (`2 * 32 * 8 * 128 * 256k * 2 = 32 GB`), một mô hình lai 1:7 có 32 head KV ở 16 GB vẫn nhỏ hơn 2 lần. Jamba đã phát hành, ở 4 GB, nhỏ hơn 8 lần.
 
 Đó là ý của AI21 khi nói "ngữ cảnh 256k trên một GPU 80GB duy nhất." KV cache của một Transformer thuần full-MHA sẽ không vừa; ngay cả baseline GQA cũng không để lại chỗ cho trọng số và activation; của Jamba thì có.
 

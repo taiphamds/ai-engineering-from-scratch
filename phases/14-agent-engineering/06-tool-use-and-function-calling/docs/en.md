@@ -79,7 +79,7 @@ Quy tắc kỹ thuật: coi các ID tương quan là trụ cột. Hoán đổi c
 
 ### Sandboxing
 
-Thực thi công cụ là ranh giới sandbox. Xem Bài 09 để biết chi tiết. Bản ngắn: mỗi công cụ nên chỉ rõ bề mặt đọc/ghi, truy cập mạng, thời gian chờ, giới hạn bộ nhớ. `run_shell(cmd)` tổng quát là một dấu hiệu cảnh báo; `git_status()` cụ thể an toàn hơn.
+Thực thi công cụ là ranh giới sandbox. Xem Giai đoạn 13 · 26 để biết chi tiết. Phiên bản ngắn: mọi công cụ phải chỉ rõ bề mặt đọc/ghi, truy cập mạng, thời gian chờ và giới hạn bộ nhớ. `run_shell(cmd)` tổng quát là một dấu hiệu cảnh báo; `git_status()` cụ thể an toàn hơn.
 
 ```figure
 tool-routing

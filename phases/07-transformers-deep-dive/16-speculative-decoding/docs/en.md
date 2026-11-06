@@ -9,7 +9,7 @@
 
 ## The Problem
 
-Một LLM 70B lấy mẫu một token mất ~30 ms trên H100. Một mô hình nháp 3B mất ~3 ms. Nếu chúng ta để 3B nháp trước 5 token, rồi chạy 70B *một lần* để xác minh cả 5, tổng là `5×3 + 30 = 45 ms` cho tối đa 5 token được chấp nhận — so với `5×30 = 150 ms` cho sinh thẳng. Đó là toàn bộ lời chào giải mã suy đoán: đổi một lượng nhỏ bộ nhớ GPU bổ sung (mô hình nháp) lấy độ trễ giải mã thấp hơn 2–4×.
+Một LLM 70B lấy mẫu một token mất ~30 ms trên một H100. Một mô hình dự thảo 3B mất ~3 ms. Nếu chúng ta để mô hình 3B dự thảo trước 5 token, rồi chạy mô hình 70B *một lần* để xác minh cả 5, tổng là $5 \times 3 + 30 = 45$ ms cho tối đa 5 token được chấp nhận — so với `5×30 = 150 ms` cho tạo sinh tuần tự trực tiếp. Đó là toàn bộ lời chào mời của speculative decoding: đánh đổi một lượng nhỏ bộ nhớ GPU bổ sung (mô hình dự thảo) để có độ trễ giải mã thấp hơn 2–4×.
 
 Thủ thuật phải giữ phân phối. Lấy mẫu suy đoán, được Leviathan và cộng sự (2023) và Chen và cộng sự giới thiệu đồng thời, bảo đảm chuỗi đầu ra **có phân phối giống hệt** điều mô hình lớn sẽ tự tạo ra. Không đánh đổi chất lượng. Chỉ nhanh hơn.
 
@@ -26,30 +26,30 @@ Mọi ngăn xếp suy luận production năm 2026 cung cấp giải mã suy đo�
 
 ### The core algorithm
 
-Cho một bộ xác minh `M_q` và một nháp rẻ hơn `M_p`:
+Cho một bộ xác minh $M_q$ và một nháp rẻ hơn $M_p$:
 
-1. Để `x_1..x_k` là tiền tố đã được giải mã.
-2. **Nháp**: dùng `M_p` để đề xuất tự hồi quy `d_{k+1}, d_{k+2}, ..., d_{k+N}` với các xác suất nháp `p_1..p_N`.
-3. **Xác minh song song**: chạy `M_q` một lần trên `x_1..x_k, d_{k+1}, ..., d_{k+N}`, nhận các xác suất bộ xác minh `q_1..q_{N+1}` cho các vị trí `k+1..k+N+1`.
-4. **Chấp nhận/từ chối mỗi token nháp từ trái sang phải**: với mỗi `i`, chấp nhận với xác suất `min(1, q_i(d_i) / p_i(d_i))`.
-5. Tại lần từ chối đầu ở vị trí `j`: lấy mẫu `t_j` từ phân phối "phần dư" `(q_j - p_j)_+` được chuẩn hóa. Tất cả các nháp sau `j` bị loại.
-6. Khi chấp nhận cả `N`: lấy mẫu thêm một token `t_{N+1}` từ `q_{N+1}` (token thưởng miễn phí).
+1. Để $x_1 \ldots x_k$ là tiền tố đã được giải mã.
+2. **Nháp**: dùng $M_p$ để đề xuất tự hồi quy $d_{k+1}, d_{k+2}, \ldots, d_{k+N}$ với các xác suất nháp $p_1 \ldots p_N$.
+3. **Xác minh song song**: chạy $M_q$ một lần trên $x_1 \ldots x_k, d_{k+1}, \ldots, d_{k+N}$, nhận các xác suất bộ xác minh $q_1 \ldots q_{N+1}$ cho các vị trí $k+1 \ldots k+N+1$.
+4. **Chấp nhận/từ chối mỗi token nháp từ trái sang phải**: với mỗi $i$, chấp nhận với xác suất $\min(1, q_i(d_i) / p_i(d_i))$.
+5. Tại lần từ chối đầu ở vị trí $j$: lấy mẫu $t_j$ từ phân phối "phần dư" $(q_j - p_j)_+$ được chuẩn hóa. Tất cả các nháp sau $j$ bị loại.
+6. Khi chấp nhận cả $N$: lấy mẫu thêm một token $t_{N+1}$ từ $q_{N+1}$ (token thưởng miễn phí).
 
-Thủ thuật phân phối phần dư là nhận thức toán học giữ đầu ra có phân phối chính xác như thể `M_q` đã lấy mẫu từ đầu.
+Thủ thuật phân phối phần dư là nhận thức toán học giữ đầu ra có phân phối chính xác như thể $M_q$ đã lấy mẫu từ đầu.
 
 ### What determines speedup
 
-Đặt `α` = tỷ lệ chấp nhận kỳ vọng mỗi token nháp. Đặt `c` = tỷ lệ chi phí nháp-trên-xác minh. Theo bước:
+Đặt $\alpha$ = tỷ lệ chấp nhận kỳ vọng mỗi token nháp. Đặt $c$ = tỷ lệ chi phí nháp-trên-xác minh. Theo bước:
 
 - Sinh ngây thơ thực hiện 1 lời gọi mô hình lớn mỗi token.
-- Suy đoán thực hiện 1 lời gọi mô hình lớn mỗi `(1 - α^{N+1}) / (1 - α) ≈ 1/(1-α)` token khi `α` cao.
+- Suy đoán thực hiện 1 lời gọi mô hình lớn mỗi $(1 - \alpha^{N+1}) / (1 - \alpha) \approx 1/(1-\alpha)$ token khi $\alpha$ cao.
 
-Quy tắc kinh nghiệm điển hình tại `α = 0.75` và `N = 5`: ít lời gọi mô hình lớn hơn 3×. Chi phí nháp là 5× rẻ. Tổng thời gian thực giảm ~2.5×.
+Quy tắc kinh nghiệm điển hình tại $\alpha = 0.75$ và $N = 5$: ít lời gọi mô hình lớn hơn 3×. Chi phí nháp là 5× rẻ. Tổng thời gian thực giảm ~2.5×.
 
-**α phụ thuộc vào:**
+**$\alpha$ phụ thuộc vào:**
 
-- Nháp xấp xỉ bộ xác minh tốt đến đâu. Cùng họ / cùng dữ liệu huấn luyện tăng α đáng kể.
-- Chiến lược giải mã. Nháp tham lam với bộ xác minh tham lam: α cao. Lấy mẫu temperature: khó khớp hơn; chấp nhận giảm.
+- Nháp xấp xỉ bộ xác minh tốt đến đâu. Cùng họ / cùng dữ liệu huấn luyện tăng $\alpha$ đáng kể.
+- Chiến lược giải mã. Nháp tham lam với bộ xác minh tham lam: $\alpha$ cao. Lấy mẫu temperature: khó khớp hơn; chấp nhận giảm.
 - Loại tác vụ. Mã và đầu ra có cấu trúc chấp nhận nhiều hơn (dự đoán được); viết sáng tạo tự do chấp nhận ít hơn.
 
 ### Medusa — drafts without a draft model
@@ -70,13 +70,13 @@ Mỗi head xuất logits riêng. Khi suy luận bạn lấy mẫu từ mỗi hea
 
 ### EAGLE — better draft by reusing hidden states
 
-EAGLE-1/2/3 (Li và cộng sự, 2024–2025) biến mô hình nháp thành một transformer tí hon (thường 1 tầng) nhận các trạng thái ẩn tầng cuối của bộ xác minh. Vì nháp thấy biểu diễn đặc trưng của bộ xác minh, các dự đoán của nó tương quan mạnh với phân phối đầu ra của bộ xác minh. Các tỷ lệ chấp nhận tăng từ ~0.6 (nguyên bản) lên 0.85+.
+EAGLE-1/2/3 (Li và cộng sự, 2024–2025) làm cho mô hình dự thảo là một transformer rất nhỏ (thường là 1 lớp) tiếp nhận các trạng thái ẩn của lớp cuối của bộ xác minh. Vì mô hình dự thảo nhìn thấy biểu diễn đặc trưng của bộ xác minh, các dự đoán của nó tương quan mạnh với phân phối đầu ra của bộ xác minh. Tỷ lệ chấp nhận tăng từ ~0.6 (thông thường) lên 0.85+. Đây là các tỷ lệ theo token trên các benchmark trò chuyện, với một mô hình dự thảo được huấn luyện trên dữ liệu trò chuyện tương ứng. Trên lưu lượng vận hành hỗn hợp, Giai đoạn 17 · 05 lập kế hoạch với 0.6 đến 0.8 cho EAGLE-3, và lưu lượng theo lĩnh vực có thể thấp hơn.
 
 EAGLE-3 (2025) thêm tìm kiếm cây trên các tiếp nối ứng viên. vLLM và SGLang cung cấp EAGLE-2/3 làm đường suy đoán mặc định cho Llama 3/4 và Qwen 3.
 
 ### The KV cache dance
 
-Xác minh đưa `N` token nháp vào bộ xác minh trong một lượt truyền xuôi. Điều này mở rộng KV cache của bộ xác minh thêm `N` mục. Nếu một số nháp bị từ chối, bạn phải hoàn tác cache về độ dài tiền tố được chấp nhận.
+Xác minh đưa $N$ token nháp vào bộ xác minh trong một lượt truyền xuôi. Điều này mở rộng KV cache của bộ xác minh thêm $N$ mục. Nếu một số nháp bị từ chối, bạn phải hoàn tác cache về độ dài tiền tố được chấp nhận.
 
 Các triển khai production (`--speculative-config` của vLLM, LookaheadDecoder của TensorRT-LLM) xử lý việc này bằng các bộ đệm KV tạm. Ghi trước, chốt khi chấp nhận. Nó không khó về khái niệm, nhưng lắt nhắt.
 
@@ -181,7 +181,7 @@ TensorRT-LLM có đường Medusa nhanh nhất tính đến giữa năm 2026. `f
 **Khi nào KHÔNG giải mã suy đoán:**
 
 - Sinh một chuỗi duy nhất 1–5 token. Chi phí phụ chi phối.
-- Lấy mẫu cực kỳ sáng tạo / temperature cao (α giảm).
+- Lấy mẫu cực kỳ sáng tạo / temperature cao ($\alpha$ giảm).
 - Các triển khai hạn chế bộ nhớ (mô hình nháp thêm VRAM).
 
 ## Ship It
@@ -191,7 +191,7 @@ Xem `outputs/skill-spec-decode-picker.md`. Skill chọn một chiến lược gi
 ## Exercises
 
 1. **Dễ.** Chạy `code/main.py`. Xác nhận phân phối token suy đoán khớp phân phối lấy mẫu trực tiếp của bộ xác minh trên 50,000 token trong chi-square p > 0.05.
-2. **Trung bình.** Vẽ mức tăng tốc (token mỗi lượt truyền xuôi mô hình lớn) theo `N` với `α = 0.5, 0.7, 0.85`. Xác định `N` tối ưu cho mỗi α. (Gợi ý: số token kỳ vọng mỗi lời gọi xác minh = `(1 - α^{N+1}) / (1 - α)`.)
+2. **Trung bình.** Vẽ mức tăng tốc (token mỗi lượt truyền xuôi mô hình lớn) theo $N$ với $\alpha = 0.5, 0.7, 0.85$. Xác định $N$ tối ưu cho mỗi $\alpha$. (Gợi ý: số token kỳ vọng mỗi lời gọi xác minh = $(1 - \alpha^{N+1}) / (1 - \alpha)$.)
 3. **Khó.** Triển khai một Medusa tí hon: lấy GPT capstone từ Bài 14, thêm 3 head LM bổ sung dự đoán các vị trí t+2, t+3, t+4. Huấn luyện trên tinyshakespeare với một multi-head loss kết hợp. So sánh các tỷ lệ chấp nhận với một nháp nguyên bản được tạo bằng cắt ngắn cùng mô hình.
 4. **Khó.** Triển khai hoàn tác: bắt đầu với KV cache tiền tố 10 token, đưa 5 token nháp, mô phỏng một lần từ chối tại vị trí 3. Xác minh các lần đọc cache khớp đúng "tiền tố + 2 nháp đầu được chấp nhận" ở lần lặp tiếp theo.
 
@@ -201,7 +201,7 @@ Xem `outputs/skill-spec-decode-picker.md`. Skill chọn một chiến lược gi
 |------|-----------------|-----------------------|
 | Draft model (Mô hình nháp) | "Mô hình rẻ" | Một mô hình nhỏ hơn đề xuất các token ứng viên; thường rẻ hơn bộ xác minh 10–50×. |
 | Verifier (Bộ xác minh) | "Mô hình lớn" | Mô hình đích mà chúng ta giữ phân phối; chạy một lần mỗi bước suy đoán. |
-| Acceptance rate (α) (Tỷ lệ chấp nhận) | "Nháp đúng thường xuyên bao nhiêu" | Xác suất theo token mà bộ xác minh chấp nhận nháp. Thường 0.7–0.9. |
+| Acceptance rate ($\alpha$) (Tỷ lệ chấp nhận) | "Nháp đúng thường xuyên bao nhiêu" | Xác suất theo token mà bộ xác minh chấp nhận nháp. Thường 0.7–0.9. |
 | Residual distribution (Phân phối phần dư) | "Dự phòng khi từ chối" | `(q - p)_+` được chuẩn hóa; lấy mẫu từ đây khi từ chối giữ phân phối bộ xác minh. |
 | Bonus token (Token thưởng) | "Token miễn phí" | Khi cả N nháp được chấp nhận, lấy mẫu thêm một từ phân phối bước tiếp của bộ xác minh. |
 | Medusa | "Suy đoán không nháp" | Nhiều head LM trên bộ xác minh dự đoán các vị trí t+1..t+k song song. |

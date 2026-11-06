@@ -38,6 +38,7 @@
       "Một bản ghi triển khai và đưa vào sử dụng theo giai đoạn"
     ]
   },
+  "projects": ["token-counter-and-cost-meter", "json-schema-output-guard", "doc-qa-with-citations", "research-report-agent", "llm-gateway-with-fallbacks", "streaming-answer-recovery"],
   "readinessCriteria": [
     "Có thể chọn prompt, schema, truy xuất và công cụ dựa trên một yêu cầu sản phẩm.",
     "Có thể xây dựng một tập đánh giá trước khi điều chỉnh hành vi.",

@@ -1,6 +1,6 @@
 # Linking, Loading, and Stripped Binaries: PLT, GOT, Imports, Fixups, and Function Identification
 
-> A linked program calls functions it does not contain. This lesson reads the tables the link editor wrote for those calls in three formats, follows one call to the slot the loader fills, and finds the functions of a build after its names are gone.
+> Một chương trình đã liên kết gọi các hàm mà nó không chứa. Bài học này đọc các bảng mà link editor viết cho các lần gọi đó trong ba định dạng, đi theo một lần gọi đến slot mà loader điền và tìm các hàm của một bản build sau khi các tên của nó đã mất.
 
 **Type:** Build
 **Languages:** Python, C, x86-64 and arm64 assembly
@@ -9,24 +9,24 @@
 
 ## Learning Objectives
 
-- Decide from a relocation record and the symbol tables what the link editor makes of it: a fixed distance, a PLT entry with a GOT slot, or a dynamic relocation.
-- Read the dynamic section, the PLT, and the GOT of a position-independent ELF executable and follow one call through them with the psABI formulas.
-- Read a COFF object (20-byte file header, 40-byte section entries, 18-byte symbols, 10-byte relocations) and the import, export, and base relocation directories of a PE32+ image.
-- Decode a Mach-O chained fixup chain word by word and match every word against `dyld_info`.
-- State what `strip` removes and what survives in each format, and run the stripped program to prove that it still works.
-- Recover the function starts of a stripped arm64 build with `LC_FUNCTION_STARTS`, prologue scans, and call targets, score each method against the symbol table of the unstripped twin, and name the functions with a FLIRT-shaped signature.
+- Quyết định từ một bản ghi relocation và các bảng symbol điều link editor làm với nó: một khoảng cách cố định, một mục PLT với một slot GOT hoặc một relocation động.
+- Đọc dynamic section, PLT và GOT của một executable ELF độc lập vị trí và đi theo một lần gọi qua chúng bằng các công thức psABI.
+- Đọc một object COFF (file header 20 byte, mục section 40 byte, symbol 18 byte, relocation 10 byte) và các thư mục import, export và base relocation của một image PE32+.
+- Giải mã một chuỗi chained fixup Mach-O từng word và khớp mỗi word với `dyld_info`.
+- Nêu điều `strip` loại bỏ và điều sống sót trong mỗi định dạng, và chạy chương trình đã strip để chứng minh rằng nó vẫn hoạt động.
+- Khôi phục các điểm bắt đầu hàm của một bản build arm64 đã strip bằng `LC_FUNCTION_STARTS`, quét prologue và đích gọi, chấm điểm mỗi phương pháp với bảng symbol của bản song sinh chưa strip và đặt tên các hàm bằng một chữ ký dạng FLIRT.
 
 ## The Problem
 
-You linked `main.c` against `libledger.dylib` and asked an agent which function `main` calls at `0x1000005a0`. The agent disassembled the instruction and read `bl 0x100000694`. That address holds twelve bytes: `adrp x16`, `ldr x16, [x16, #0x38]`, `br x16`. The agent followed the load to `0x100004038`, read the eight bytes `00 00 00 00 00 00 10 80`, and reported a call through a corrupt pointer into kernel space.
+Bạn liên kết `main.c` với `libledger.dylib` và hỏi một agent hàm nào mà `main` gọi tại `0x1000005a0`. Agent disassemble chỉ lệnh và đọc `bl 0x100000694`. Địa chỉ đó chứa mười hai byte: `adrp x16`, `ldr x16, [x16, #0x38]`, `br x16`. Agent đi theo lần tải đến `0x100004038`, đọc tám byte `00 00 00 00 00 00 10 80` và báo cáo một lần gọi qua một con trỏ hỏng vào không gian kernel.
 
-Then you stripped the static build of the same program and asked how many functions it has. The agent ran `nm`, saw one name, `__mh_execute_header`, and answered one.
+Rồi bạn strip bản build tĩnh của cùng chương trình và hỏi nó có bao nhiêu hàm. Agent chạy `nm`, thấy một tên, `__mh_execute_header`, và trả lời một.
 
-Both answers read the file as if it were the running process. The word at `0x100004038` is a chained fixup. Bit 63 says bind, twelve bits say where the next fixup is, and the low bits say which import to bind. dyld replaces the word with the address of `_puts` before `main` runs. The stripped file lost its symbol table and kept `LC_FUNCTION_STARTS`, which lists all five function starts in nine bytes.
+Cả hai câu trả lời đọc tệp như thể nó là tiến trình đang chạy. Word tại `0x100004038` là một chained fixup. Bit 63 nói bind, mười hai bit nói nơi fixup tiếp theo nằm và các bit thấp nói import nào cần bind. dyld thay word bằng địa chỉ của `_puts` trước khi `main` chạy. Tệp đã strip mất bảng symbol và giữ `LC_FUNCTION_STARTS`, liệt kê cả năm điểm bắt đầu hàm trong chín byte.
 
-This lesson builds five readers in standard-library Python. A COFF reader for our own objects and a PE32+ reader for the import, export, and base relocation directories. A Mach-O reader for load commands, stubs, the indirect symbol table, the chained fixup chain, and the exports trie, checked word for word against `dyld_info`. An ELF reader for the dynamic section, the PLT, and the GOT, plus a planner that says what a PIE link of our objects would create. A function finder for a stripped build with four methods and a score for each. A signature builder in the shape of FLIRT, with wildcarded relocation bytes and a CRC16 of the tail.
+Bài học này xây dựng năm trình đọc bằng Python thư viện chuẩn. Một trình đọc COFF cho các object của riêng chúng ta và một trình đọc PE32+ cho các thư mục import, export và base relocation. Một trình đọc Mach-O cho load command, stub, bảng symbol gián tiếp, chuỗi chained fixup và exports trie, được kiểm tra từng word với `dyld_info`. Một trình đọc ELF cho dynamic section, PLT và GOT, cộng một planner nói một lần liên kết PIE các object của chúng ta sẽ tạo gì. Một bộ tìm hàm cho một bản build đã strip với bốn phương pháp và một điểm cho mỗi phương pháp. Một bộ dựng chữ ký theo dạng FLIRT, với các byte relocation được wildcard và một CRC16 của đuôi.
 
-Only Mach-O links on this machine. The arm64 executables and the dylib were linked, stripped, and run. The ELF and COFF objects compiled here with `clang -target`, and no ELF or PE link editor is installed, so the two linked images in those formats were written byte by byte from the specifications by two Python scripts in the fixtures folder. `llvm-objdump` reads them, and so does the library probe. They were not run, and the text says so where it matters.
+Chỉ Mach-O liên kết trên máy này. Các executable arm64 và dylib được liên kết, strip và chạy. Các object ELF và COFF biên dịch ở đây bằng `clang -target`, và không link editor ELF hoặc PE nào được cài, nên hai image đã liên kết trong các định dạng đó được hai script Python trong thư mục fixture viết từng byte từ các đặc tả. `llvm-objdump` đọc chúng, và thăm dò thư viện cũng vậy. Chúng chưa được chạy, và văn bản nói vậy ở nơi quan trọng.
 
 ```figure
 re-40-call-through-three-formats
@@ -34,53 +34,53 @@ re-40-call-through-three-formats
 
 ## What the Link Editor Does With a Relocation
 
-Lesson 32 read relocation records and lesson 33 applied `S + A - P` to a `lea`. A record names a place `P`, a type, a symbol `S`, and an addend `A`. The x86-64 psABI Table 4.9 gives one formula per type, with `L` for the place of the symbol's PLT entry, `G` for its GOT offset, `GOT` for the GOT address, and `B` for the load base of the image. Three outcomes cover our objects.
+Bài 32 đọc các bản ghi relocation và bài 33 áp dụng `S + A - P` cho một `lea`. Một bản ghi nêu tên một vị trí `P`, một type, một symbol `S` và một addend `A`. Bảng 4.9 của x86-64 psABI cho một công thức mỗi type, với `L` cho vị trí mục PLT của symbol, `G` cho offset GOT của nó, `GOT` cho địa chỉ GOT và `B` cho địa chỉ tải cơ sở của image. Ba kết quả bao quát các object của chúng ta.
 
-The link editor writes the value into the field and the record is gone. `R_X86_64_PC32` against a symbol defined in the inputs is this case. The distance between two bytes of one image never changes, whatever the load address.
+Link editor ghi giá trị vào trường và bản ghi biến mất. `R_X86_64_PC32` đối với một symbol được định nghĩa trong các đầu vào là trường hợp này. Khoảng cách giữa hai byte của một image không bao giờ thay đổi, bất kể địa chỉ tải.
 
-The link editor makes a PLT entry and a GOT slot. `R_X86_64_PLT32` against an undefined function is this case. The call gets `L + A - P`, the distance to the entry. The entry jumps through the slot. A `R_X86_64_JUMP_SLOT` record in `.rela.plt` tells the dynamic linker to fill the slot.
+Link editor tạo một mục PLT và một slot GOT. `R_X86_64_PLT32` đối với một hàm không xác định là trường hợp này. Lần gọi nhận `L + A - P`, khoảng cách đến mục. Mục nhảy qua slot. Một bản ghi `R_X86_64_JUMP_SLOT` trong `.rela.plt` nói dynamic linker điền slot.
 
-The link editor keeps a relocation for the loader. `R_X86_64_64` is an eight-byte absolute address, and a position-independent executable does not know its address until it loads. The record becomes `R_X86_64_RELATIVE` with formula `B + A` in `.rela.dyn`.
+Link editor giữ một relocation cho loader. `R_X86_64_64` là một địa chỉ tuyệt đối tám byte, và một executable độc lập vị trí không biết địa chỉ của nó cho đến khi tải. Bản ghi trở thành `R_X86_64_RELATIVE` với công thức `B + A` trong `.rela.dyn`.
 
-`main-x86_64-O1.o` has 18 records: 14 in `.text`, 2 in `.data.rel.ro`, and 2 in `.rodata`. `plan_dynamic_link()` in `code/main.py` applies the three rules to them together with `ledger-x86_64-O1.o`:
+`main-x86_64-O1.o` có 18 bản ghi: 14 trong `.text`, 2 trong `.data.rel.ro` và 2 trong `.rodata`. `plan_dynamic_link()` trong `code/main.py` áp dụng ba quy tắc cho chúng cùng với `ledger-x86_64-O1.o`:
 
-| Record | Count | Decision | Why |
+| Bản ghi | Số lượng | Quyết định | Vì sao |
 |---|---|---|---|
-| `R_X86_64_PC32` to `.rodata`, `.L.str`, `fns`, the table in `.rodata` | 16 | in place | the symbol is defined in the inputs |
-| `R_X86_64_PLT32` to `percent_change`, `grade`, `total`, `grade_label` | 4 | direct, no PLT | defined in `ledger-x86_64-O1.o`, so the link editor reduces PLT32 to PC32 |
-| `R_X86_64_PLT32` to `puts` twice and `printf` twice | 4 | PLT entry and GOT slot | undefined, provided by a shared library |
-| `R_X86_64_64` to `grade` in `fns[]` | 2 | `R_X86_64_RELATIVE` | an absolute field in a PIE |
+| `R_X86_64_PC32` tới `.rodata`, `.L.str`, `fns`, bảng trong `.rodata` | 16 | tại chỗ | symbol được định nghĩa trong các đầu vào |
+| `R_X86_64_PLT32` tới `percent_change`, `grade`, `total`, `grade_label` | 4 | trực tiếp, không PLT | được định nghĩa trong `ledger-x86_64-O1.o`, nên link editor rút PLT32 về PC32 |
+| `R_X86_64_PLT32` tới `puts` hai lần và `printf` hai lần | 4 | mục PLT và slot GOT | không xác định, được cung cấp bởi một thư viện dùng chung |
+| `R_X86_64_64` tới `grade` trong `fns[]` | 2 | `R_X86_64_RELATIVE` | một trường tuyệt đối trong một PIE |
 
-Two imports give a `.plt` of 48 bytes (PLT0 plus two entries of 16), a `.got.plt` of 40 bytes (three reserved slots plus two), and a `.rela.plt` of 48 bytes. The two relative records give a `.rela.dyn` of 48 bytes. These numbers come from the spec applied to our records. The hand-built `tiny-dyn-x86_64` implements the PLT part of this plan for the same two imports, and its sizes match the plan.
+Hai import cho một `.plt` 48 byte (PLT0 cộng hai mục 16), một `.got.plt` 40 byte (ba slot dành riêng cộng hai) và một `.rela.plt` 48 byte. Hai bản ghi tương đối cho một `.rela.dyn` 48 byte. Các con số này đến từ đặc tả được áp dụng cho các bản ghi của chúng ta. `tiny-dyn-x86_64` dựng tay triển khai phần PLT của kế hoạch này cho cùng hai import, và các kích thước của nó khớp kế hoạch.
 
-The compiler writes `PLT32` on every call, defined or undefined, since binutils 2.31 (H.J. Lu, 2018-02-13) and LLVM 7.0.0 (D43383, 2018-02-20). The link editor decides. A `PLT32` in an object therefore says "a call", and says nothing about whether a PLT entry will exist. Two more types appear in other builds. `R_X86_64_GOTPCRELX` and `R_X86_64_REX_GOTPCRELX` (`G + GOT + A - P`) ask for a GOT slot without a PLT, which `-fno-plt` produces and which the link editor may relax to a direct `lea` or `call` when the symbol is local (psABI Appendix B). `R_X86_64_32` and `R_X86_64_32S` cannot hold an address in a PIE and the link fails. Neither kind occurs in our two objects.
+Compiler ghi `PLT32` trên mọi lần gọi, được định nghĩa hoặc không xác định, từ binutils 2.31 (H.J. Lu, 2018-02-13) và LLVM 7.0.0 (D43383, 2018-02-20). Link editor quyết định. Một `PLT32` trong một object do đó nói "một lần gọi", và không nói gì về liệu một mục PLT sẽ tồn tại hay không. Thêm hai type xuất hiện trong các bản build khác. `R_X86_64_GOTPCRELX` và `R_X86_64_REX_GOTPCRELX` (`G + GOT + A - P`) yêu cầu một slot GOT không có PLT, được `-fno-plt` tạo ra và link editor có thể nới thành một `lea` hoặc `call` trực tiếp khi symbol cục bộ (psABI Phụ lục B). `R_X86_64_32` và `R_X86_64_32S` không thể chứa một địa chỉ trong một PIE và liên kết thất bại. Không loại nào xảy ra trong hai object của chúng ta.
 
 ## The Dynamic Section, the PLT, and the GOT
 
-The gABI chapter 5 says that an executable that takes part in dynamic linking has one `PT_INTERP` program header, which must precede any loadable segment, and one `PT_DYNAMIC`, which covers the `.dynamic` section. The section is an array of `Elf64_Dyn` pairs, a signed tag and a value, ended by `DT_NULL`.
+Chương 5 của gABI nói rằng một executable tham gia liên kết động có một program header `PT_INTERP`, phải đứng trước mọi segment có thể tải, và một `PT_DYNAMIC`, bao phủ section `.dynamic`. Section là một mảng các cặp `Elf64_Dyn`, một tag có dấu và một giá trị, kết thúc bằng `DT_NULL`.
 
-`tiny-dyn-x86_64` is 5,184 bytes written by `build_tiny_dyn_elf.py` from the gABI and the psABI. Its dynamic section holds twelve pairs at `0x1000`:
+`tiny-dyn-x86_64` là 5,184 byte được `build_tiny_dyn_elf.py` viết từ gABI và psABI. Dynamic section của nó chứa mười hai cặp tại `0x1000`:
 
-| Tag | Number | Value | Meaning |
+| Tag | Số | Giá trị | Ý nghĩa |
 |---|---|---|---|
-| `DT_NEEDED` | 1 | `libc.so.6` | a string table offset, `0xb`, the library to load |
-| `DT_HASH` | 4 | `0x1a0` | the SysV hash table |
+| `DT_NEEDED` | 1 | `libc.so.6` | một offset bảng chuỗi, `0xb`, thư viện cần tải |
+| `DT_HASH` | 4 | `0x1a0` | bảng hash SysV |
 | `DT_STRTAB` | 5 | `0x188` | `.dynstr` |
-| `DT_SYMTAB` | 6 | `0x140` | `.dynsym`, 24 bytes per entry |
-| `DT_STRSZ` | 10 | `0x15` | 21 bytes of strings |
+| `DT_SYMTAB` | 6 | `0x140` | `.dynsym`, 24 byte mỗi mục |
+| `DT_STRSZ` | 10 | `0x15` | 21 byte chuỗi |
 | `DT_SYMENT` | 11 | `0x18` | 24 |
 | `DT_PLTGOT` | 3 | `0x10c0` | `.got.plt` |
-| `DT_PLTRELSZ` | 2 | `0x30` | two 24-byte records |
-| `DT_PLTREL` | 20 | 7 | the records are `DT_RELA` |
+| `DT_PLTRELSZ` | 2 | `0x30` | hai bản ghi 24 byte |
+| `DT_PLTREL` | 20 | 7 | các bản ghi là `DT_RELA` |
 | `DT_JMPREL` | 23 | `0x1b8` | `.rela.plt` |
-| `DT_FLAGS_1` | `0x6ffffffb` | `0x08000000` | `DF_1_PIE`, a GNU tag |
-| `DT_NULL` | 0 | 0 | end |
+| `DT_FLAGS_1` | `0x6ffffffb` | `0x08000000` | `DF_1_PIE`, một tag GNU |
+| `DT_NULL` | 0 | 0 | kết thúc |
 
-The gABI says why `DT_JMPREL` is separate: it "holds the address of relocation entries associated solely with the procedure linkage table. Separating these relocation entries lets the dynamic linker ignore them during process initialization, if lazy binding is enabled." `DF_BIND_NOW` in `DT_FLAGS`, `DF_1_NOW` in `DT_FLAGS_1`, or `LD_BIND_NOW` in the environment turn lazy binding off and the dynamic linker processes them at startup.
+gABI nói vì sao `DT_JMPREL` riêng biệt: nó "chứa địa chỉ các mục relocation chỉ liên quan đến procedure linkage table. Tách các mục relocation này cho phép dynamic linker bỏ qua chúng trong khởi tạo tiến trình, nếu lazy binding được bật." `DF_BIND_NOW` trong `DT_FLAGS`, `DF_1_NOW` trong `DT_FLAGS_1` hoặc `LD_BIND_NOW` trong môi trường tắt lazy binding và dynamic linker xử lý chúng lúc khởi động.
 
 ### PLT0 and the entry for puts
 
-psABI section 5.2 gives the two shapes in Figure 5.2. Here are the bytes of our file:
+Mục 5.2 của psABI cho hai dạng trong Hình 5.2. Đây là các byte của tệp chúng ta:
 
 ```text
      1f0: ff 35 d2 0e 00 00    pushq  0xed2(%rip)      # 0x10c8 = GOT+8
@@ -92,85 +92,85 @@ psABI section 5.2 gives the two shapes in Figure 5.2. Here are the bytes of our 
      20b: e9 e0 ff ff ff       jmp    0x1f0            # PLT0
 ```
 
-Do the arithmetic once. The RIP-relative displacement is relative to the next instruction. `0x1f6 + 0xed2 = 0x10c8`, which is `.got.plt + 8`. `0x1fc + 0xed4 = 0x10d0`, which is `.got.plt + 16`. `0x206 + 0xed2 = 0x10d8`, the fourth slot. `0x210 - 0x20 = 0x1f0`, PLT0. Every entry is 16 bytes, so the entry for `exit` starts at `0x210`, pushes `$0x1`, and reads `0x10e0`.
+Làm phép tính một lần. Displacement tương đối theo RIP tương đối với chỉ lệnh tiếp theo. `0x1f6 + 0xed2 = 0x10c8`, tức `.got.plt + 8`. `0x1fc + 0xed4 = 0x10d0`, tức `.got.plt + 16`. `0x206 + 0xed2 = 0x10d8`, slot thứ tư. `0x210 - 0x20 = 0x1f0`, PLT0. Mọi mục là 16 byte, nên mục cho `exit` bắt đầu tại `0x210`, đẩy `$0x1` và đọc `0x10e0`.
 
-The GOT reserves three slots. psABI 5.2: entry zero holds the address of `_DYNAMIC`, and "entries one and two in the global offset table also are reserved". Our `.got.plt` reads `0x1000, 0, 0, 0x206, 0x216`. glibc fills slot one with its `struct link_map` and slot two with `_dl_runtime_resolve` when it loads the file. Slot three holds `0x206` in the file, which is the `pushq` inside `puts@plt`. psABI: the slot "initially ... holds the address of the following pushq instruction".
+GOT dành riêng ba slot. psABI 5.2: mục không chứa địa chỉ của `_DYNAMIC`, và "các mục một và hai trong global offset table cũng được dành riêng". `.got.plt` của chúng ta đọc ra `0x1000, 0, 0, 0x206, 0x216`. glibc điền slot một bằng `struct link_map` của nó và slot hai bằng `_dl_runtime_resolve` khi nó tải tệp. Slot ba chứa `0x206` trong tệp, chính là `pushq` bên trong `puts@plt`. psABI: slot "ban đầu ... chứa địa chỉ của chỉ lệnh pushq theo sau".
 
-So the first call runs `call 0x200`, `jmpq *0x10d8` lands on `pushq $0`, `jmp 0x1f0` pushes GOT+8 and jumps through GOT+16 into the resolver, which reads record 0 of `DT_JMPREL`, `R_X86_64_JUMP_SLOT puts`, looks `puts` up in `libc.so.6`, writes its address into `0x10d8`, and jumps there. The second call runs `call`, `jmpq *0x10d8`, and arrives. Drepper writes that "the overhead for all but the first call is therefore 'only' one indirect jump". The psABI footnote on `%r11` explains one register choice in lesson 38: it is a scratch register so "code in the PLT need not spill any registers".
+Vì vậy lần gọi đầu chạy `call 0x200`, `jmpq *0x10d8` đến `pushq $0`, `jmp 0x1f0` đẩy GOT+8 và nhảy qua GOT+16 vào resolver, đọc bản ghi 0 của `DT_JMPREL`, `R_X86_64_JUMP_SLOT puts`, tra `puts` trong `libc.so.6`, ghi địa chỉ của nó vào `0x10d8` và nhảy đến đó. Lần gọi thứ hai chạy `call`, `jmpq *0x10d8` và đến nơi. Drepper viết rằng "chi phí bổ sung cho mọi lần gọi trừ lần đầu do đó 'chỉ' là một bước nhảy gián tiếp". Chú thích psABI về `%r11` giải thích một lựa chọn thanh ghi trong bài 38: nó là một thanh ghi tạm để "mã trong PLT không cần spill bất kỳ thanh ghi nào".
 
-The call site in `.text` reads `e8 d4 ff ff ff` at `0x227`, and `0x22c - 0x2c = 0x200`. `llvm-objdump` prints `callq 0x200 <puts@plt>` for it and names the entry from the `.rela.plt` record, which is how `plt_entries()` names it too.
+Điểm gọi trong `.text` đọc ra `e8 d4 ff ff ff` tại `0x227`, và `0x22c - 0x2c = 0x200`. `llvm-objdump` in `callq 0x200 <puts@plt>` cho nó và đặt tên mục từ bản ghi `.rela.plt`, cũng là cách `plt_entries()` đặt tên nó.
 
 ### What the file does not have
 
-The file has no `PT_GNU_RELRO`. Jakub Jelinek proposed RELRO on the binutils list on 2004-01-06: move the sections written only during relocation to the start of the writable segment, so the dynamic linker can `mprotect` them read-only afterwards. GNU ld's default script puts `.init_array`, `.fini_array`, `.data.rel.ro`, `.dynamic`, and `.got` inside, and keeps only the three reserved slots of `.got.plt` inside, 24 bytes, because the other slots are written lazily. That is partial RELRO. `-z now` sets `DF_BIND_NOW` and moves the whole `.got.plt` inside, full RELRO, because nothing is written after startup. glibc's `_dl_protect_relro` calls `mprotect(start, end - start, PROT_READ)` on the page-aligned range. `-fno-plt` goes one step further on the compiler side: calls go through `jmpq *name@GOTPCREL(%rip)`, lazy binding is impossible, and GCC's manual says that "all external symbols are resolved at load time".
+Tệp không có `PT_GNU_RELRO`. Jakub Jelinek đề xuất RELRO trên danh sách binutils ngày 2004-01-06: chuyển các section chỉ được ghi trong relocation đến đầu segment có thể ghi, để dynamic linker có thể `mprotect` chúng thành chỉ đọc sau đó. Script mặc định của GNU ld đặt `.init_array`, `.fini_array`, `.data.rel.ro`, `.dynamic` và `.got` bên trong, và chỉ giữ ba slot dành riêng của `.got.plt` bên trong, 24 byte, vì các slot khác được ghi lười. Đó là partial RELRO. `-z now` đặt `DF_BIND_NOW` và chuyển toàn bộ `.got.plt` vào trong, full RELRO, vì không có gì được ghi sau khởi động. `_dl_protect_relro` của glibc gọi `mprotect(start, end - start, PROT_READ)` trên phạm vi được căn theo trang. `-fno-plt` đi thêm một bước ở phía compiler: các lần gọi đi qua `jmpq *name@GOTPCREL(%rip)`, lazy binding là không thể và sổ tay GCC nói rằng "mọi symbol bên ngoài được phân giải lúc tải".
 
-The file has no version sections either. A real link against `libc.so.6` adds `.gnu.version`, one `Elfxx_Half` per `.dynsym` entry, and `.gnu.version_r`, a `Verneed` for each library with `Vernaux` records for each version name. `printf@GLIBC_2.2.5` means: the entry of `printf` in `.gnu.version` holds an index, the `Vernaux` whose `vna_other` equals that index has `vna_name` "GLIBC_2.2.5", under the `Verneed` whose `vn_file` is "libc.so.6". Index 0 is local, 1 is global, and bit 15 (`VERSYM_HIDDEN`, `0x8000`) hides a version from the link editor.
+Tệp cũng không có các section phiên bản. Một lần liên kết thật với `libc.so.6` thêm `.gnu.version`, một `Elfxx_Half` mỗi mục `.dynsym`, và `.gnu.version_r`, một `Verneed` cho mỗi thư viện với các bản ghi `Vernaux` cho mỗi tên phiên bản. `printf@GLIBC_2.2.5` nghĩa là: mục của `printf` trong `.gnu.version` chứa một chỉ số, `Vernaux` có `vna_other` bằng chỉ số đó có `vna_name` "GLIBC_2.2.5", dưới `Verneed` có `vn_file` là "libc.so.6". Chỉ số 0 là local, 1 là global, và bit 15 (`VERSYM_HIDDEN`, `0x8000`) ẩn một phiên bản khỏi link editor.
 
-The hash table is a SysV `DT_HASH` with one bucket and a three-entry chain, 24 bytes. The dynamic linker needs `DT_HASH` or `DT_GNU_HASH` to look symbols up in the file. This file exports nothing, and it was not run here, so whether glibc accepts a one-bucket table is unverified.
+Bảng hash là một `DT_HASH` SysV với một bucket và một chuỗi ba mục, 24 byte. Dynamic linker cần `DT_HASH` hoặc `DT_GNU_HASH` để tra các symbol trong tệp. Tệp này không export gì, và nó chưa được chạy ở đây, nên liệu glibc có chấp nhận một bảng một bucket hay không là chưa xác minh.
 
 ### .dynsym, .symtab, and strip
 
-The gABI makes `.dynsym` and `.dynstr` allocated sections and `.symtab` and `.strtab` unallocated ones. The dynamic linker reads the first pair and never the second. Drepper: "The normal symbol table is not used at run-time and it is therefore not necessary to strip a binary of it. It has no impact on performance."
+gABI làm `.dynsym` và `.dynstr` thành các section được cấp phát và `.symtab` cùng `.strtab` thành các section không được cấp phát. Dynamic linker đọc cặp đầu và không bao giờ cặp thứ hai. Drepper: "Bảng symbol thông thường không được sử dụng lúc chạy và do đó không cần thiết phải strip nó khỏi một binary. Nó không có tác động đến hiệu năng."
 
-GNU `strip --strip-all` removes `.symtab`, `.strtab`, `.debug_*`, and `.comment`. Every allocated section stays: `.interp`, `.dynsym`, `.dynstr`, `.gnu.hash`, `.gnu.version*`, `.rela.dyn`, `.rela.plt`, `.plt`, `.text`, `.rodata`, `.eh_frame`, `.init_array`, `.dynamic`, `.got`, `.got.plt`, `.data`, `.bss`, and the notes. Section headers stay unless you add `--strip-section-headers` (binutils 2.41) or run `llvm-strip --strip-sections`. `--strip-debug` keeps the symbols. `--only-keep-debug` writes the debug file that `--add-gnu-debuglink` names from the stripped one, with a CRC32 in `.gnu_debuglink`, and `ld --build-id` writes `.note.gnu.build-id` so a debugger can match the two.
+GNU `strip --strip-all` loại `.symtab`, `.strtab`, `.debug_*` và `.comment`. Mọi section được cấp phát ở lại: `.interp`, `.dynsym`, `.dynstr`, `.gnu.hash`, `.gnu.version*`, `.rela.dyn`, `.rela.plt`, `.plt`, `.text`, `.rodata`, `.eh_frame`, `.init_array`, `.dynamic`, `.got`, `.got.plt`, `.data`, `.bss` và các note. Các section header ở lại trừ khi bạn thêm `--strip-section-headers` (binutils 2.41) hoặc chạy `llvm-strip --strip-sections`. `--strip-debug` giữ các symbol. `--only-keep-debug` ghi tệp debug mà `--add-gnu-debuglink` nêu tên từ tệp đã strip, với một CRC32 trong `.gnu_debuglink`, và `ld --build-id` ghi `.note.gnu.build-id` để một debugger có thể khớp hai tệp.
 
 ## The COFF Object
 
-`clang -target x86_64-pc-windows-msvc -O1 -fno-asynchronous-unwind-tables -c` produced `main-x86_64.obj` and `ledger-x86_64.obj`. The PE Format page defines the object: a 20-byte file header, no optional header, a section table of 40-byte entries, a symbol table of 18-byte records, and 10-byte relocation records per section.
+`clang -target x86_64-pc-windows-msvc -O1 -fno-asynchronous-unwind-tables -c` tạo `main-x86_64.obj` và `ledger-x86_64.obj`. Trang PE Format định nghĩa object: một file header 20 byte, không optional header, một bảng section với các mục 40 byte, một bảng symbol với các bản ghi 18 byte và các bản ghi relocation 10 byte theo section.
 
-`CoffObject` in `code/main.py` reads all four. The file header says machine `0x8664`, 10 sections, 37 symbol records, `SizeOfOptionalHeader` 0. The section table names `.text`, `.data`, `.bss`, six sections called `.rdata`, and `/16`. A name that starts with `/` is a decimal offset into the string table, which begins with its own four-byte size; `/16` resolves to `.llvm_addrsig`, which is the name `llvm-objdump -h` prints.
+`CoffObject` trong `code/main.py` đọc cả bốn. File header nói machine `0x8664`, 10 section, 37 bản ghi symbol, `SizeOfOptionalHeader` 0. Bảng section nêu tên `.text`, `.data`, `.bss`, sáu section tên `.rdata` và `/16`. Một tên bắt đầu bằng `/` là một offset thập phân vào bảng chuỗi, bắt đầu bằng kích thước bốn byte của chính nó; `/16` phân giải thành `.llvm_addrsig`, chính là tên mà `llvm-objdump -h` in.
 
-The 37 records include auxiliary records. A section symbol (storage class 3) carries one that holds the section length, the relocation count, a checksum, and a COMDAT selection. Five of the `.rdata` sections have selection 2, "any", and hold one string literal each under an MSVC-mangled name: `??_C@_04JDDJEAHN@even?$AA@` is the string "even". The link editor keeps one copy of each. The last record is `.file` with the auxiliary record "main.c". `llvm-objdump -t` prints these as `[ 0]`, `AUX scnlen ...`, `[ 2]`, and so on, skipping the auxiliary indexes, and the test compares our index and name pairs with that text.
+37 bản ghi bao gồm các bản ghi phụ trợ. Một section symbol (storage class 3) mang một bản ghi chứa độ dài section, số relocation, một checksum và một lựa chọn COMDAT. Năm trong các section `.rdata` có selection 2, "any", và mỗi section chứa một literal chuỗi dưới một tên được mangle theo MSVC: `??_C@_04JDDJEAHN@even?$AA@` là chuỗi "even". Link editor giữ một bản sao mỗi chuỗi. Bản ghi cuối là `.file` với bản ghi phụ trợ "main.c". `llvm-objdump -t` in chúng là `[ 0]`, `AUX scnlen ...`, `[ 2]` và tiếp tục, bỏ qua các chỉ số phụ trợ, và bài kiểm tra so sánh các cặp chỉ số và tên của chúng ta với văn bản đó.
 
-The relocations: 14 `IMAGE_REL_AMD64_REL32` in `.text` and 4 `IMAGE_REL_AMD64_ADDR64` in `.rdata`. `REL32` is "the 32-bit relative address from the byte following the relocation". That is `R_X86_64_PC32` with the `-4` built in: the ELF record carries addend `-4` because the record has an addend field, and the COFF record has none. `ledger-x86_64.obj` has three `REL32` at `0x36`, `0x84`, and `0x93`, and lesson 32's `ledger-x86_64-O1.o` has its three `R_X86_64_PC32` at the same three offsets. The code is the same, and the formats differ only in where the four is written. `ADDR64` is an eight-byte absolute address, the `labels` table of string pointers, and it becomes a base relocation in the image, as `R_X86_64_64` becomes `R_X86_64_RELATIVE`.
+Các relocation: 14 `IMAGE_REL_AMD64_REL32` trong `.text` và 4 `IMAGE_REL_AMD64_ADDR64` trong `.rdata`. `REL32` là "địa chỉ tương đối 32 bit từ byte theo sau relocation". Đó là `R_X86_64_PC32` với `-4` tích hợp: bản ghi ELF mang addend `-4` vì bản ghi có một trường addend, và bản ghi COFF không có. `ledger-x86_64.obj` có ba `REL32` tại `0x36`, `0x84` và `0x93`, và `ledger-x86_64-O1.o` của bài 32 có ba `R_X86_64_PC32` của nó tại cùng ba offset. Mã giống nhau, và các định dạng chỉ khác ở nơi số bốn được viết. `ADDR64` là một địa chỉ tuyệt đối tám byte, bảng `labels` của các con trỏ chuỗi, và nó trở thành một base relocation trong image, như `R_X86_64_64` trở thành `R_X86_64_RELATIVE`.
 
-| | ELF `Elf64_Rela` | COFF relocation | Mach-O `relocation_info` |
+| | ELF `Elf64_Rela` | relocation COFF | Mach-O `relocation_info` |
 |---|---|---|---|
-| record size | 24 bytes | 10 bytes | 8 bytes |
-| fields | offset, type and symbol in `r_info`, addend | offset, symbol index, type | address, then a 32-bit word with symbolnum:24, pcrel:1, length:2, extern:1, type:4 |
-| addend | explicit | none, lives in the field | none, or an `ARM64_RELOC_ADDEND` record before the real one |
-| the call to `puts` | `R_X86_64_PLT32 puts-0x4` | `IMAGE_REL_AMD64_REL32 puts` | `ARM64_RELOC_BRANCH26 _puts` |
+| kích thước bản ghi | 24 byte | 10 byte | 8 byte |
+| trường | offset, type và symbol trong `r_info`, addend | offset, chỉ số symbol, type | địa chỉ, rồi một word 32 bit với symbolnum:24, pcrel:1, length:2, extern:1, type:4 |
+| addend | tường minh | không có, nằm trong trường | không có, hoặc một bản ghi `ARM64_RELOC_ADDEND` trước bản ghi thật |
+| lần gọi tới `puts` | `R_X86_64_PLT32 puts-0x4` | `IMAGE_REL_AMD64_REL32 puts` | `ARM64_RELOC_BRANCH26 _puts` |
 
 ## The PE Image: Imports, Exports, and Base Relocations
 
-`tiny-x86_64.exe` is 2,560 bytes written by `build_tiny_pe.py`. It has the same job as the tiny ELF: call `puts` and `exit` from `msvcrt.dll`. It also exports one name and carries one base relocation, so the three directories this lesson needs are all present. `pefile` 2024.8.26 and `llvm-objdump -p` both read it, and both captures are fixtures.
+`tiny-x86_64.exe` là 2,560 byte được `build_tiny_pe.py` viết. Nó có cùng công việc như ELF nhỏ: gọi `puts` và `exit` từ `msvcrt.dll`. Nó cũng export một tên và mang một base relocation, nên cả ba thư mục bài học này cần đều hiện diện. `pefile` 2024.8.26 và `llvm-objdump -p` đều đọc nó, và cả hai bản thu là fixture.
 
-Walk the headers. The MS-DOS stub starts with `MZ` and at offset `0x3c` holds `e_lfanew`, `0x40`. At `0x40` the signature `PE\0\0`. Then the COFF file header: machine `0x8664`, 4 sections, `SizeOfOptionalHeader` 240, characteristics `0x22` (executable image, large address aware). The optional header starts with the `Magic` field, `0x20b`, which means PE32+. `AddressOfEntryPoint` is `0x1000`, `ImageBase` is `0x140000000`, `SectionAlignment` `0x1000`, `FileAlignment` `0x200`, `SizeOfImage` `0x5000`, `Subsystem` 3 (console). `DllCharacteristics` `0x8160` decodes to `HIGH_ENTROPY_VA 0x0020`, `DYNAMIC_BASE 0x0040`, `NX_COMPAT 0x0100`, and `TERMINAL_SERVER_AWARE 0x8000`. Then 16 data directories of RVA and size. Four are set: Export at `0x2080` size `0x4d`, Import at `0x2000` size `0x28`, Base Relocation at `0x4000` size `0xc`, IAT at `0x2040` size `0x18`.
+Duyệt các header. Stub MS-DOS bắt đầu bằng `MZ` và tại offset `0x3c` chứa `e_lfanew`, `0x40`. Tại `0x40` là chữ ký `PE\0\0`. Rồi file header COFF: machine `0x8664`, 4 section, `SizeOfOptionalHeader` 240, characteristics `0x22` (image thực thi, nhận biết địa chỉ lớn). Optional header bắt đầu với trường `Magic`, `0x20b`, nghĩa là PE32+. `AddressOfEntryPoint` là `0x1000`, `ImageBase` là `0x140000000`, `SectionAlignment` `0x1000`, `FileAlignment` `0x200`, `SizeOfImage` `0x5000`, `Subsystem` 3 (console). `DllCharacteristics` `0x8160` giải mã thành `HIGH_ENTROPY_VA 0x0020`, `DYNAMIC_BASE 0x0040`, `NX_COMPAT 0x0100` và `TERMINAL_SERVER_AWARE 0x8000`. Rồi 16 data directory gồm RVA và kích thước. Bốn mục được đặt: Export tại `0x2080` kích thước `0x4d`, Import tại `0x2000` kích thước `0x28`, Base Relocation tại `0x4000` kích thước `0xc`, IAT tại `0x2040` kích thước `0x18`.
 
-Addresses in an image are RVAs, offsets from the load base. The section table maps them to file offsets: `.text` RVA `0x1000` at file `0x200`, `.rdata` RVA `0x2000` at `0x400`, `.data` RVA `0x3000` at `0x600`, `.reloc` RVA `0x4000` at `0x800`. `PeImage.rva_to_offset()` is that table.
+Các địa chỉ trong một image là RVA, offset từ địa chỉ tải cơ sở. Bảng section ánh xạ chúng đến file offset: RVA `.text` `0x1000` tại tệp `0x200`, RVA `.rdata` `0x2000` tại `0x400`, RVA `.data` `0x3000` tại `0x600`, RVA `.reloc` `0x4000` tại `0x800`. `PeImage.rva_to_offset()` là bảng đó.
 
 ### The import directory
 
-At RVA `0x2000` sits an array of 20-byte import descriptors ended by a zero descriptor. Ours has one: Import Lookup Table `0x2028`, timestamp 0, forwarder chain 0, name `0x2068`, Import Address Table `0x2040`. The name RVA points at "msvcrt.dll". The lookup table holds 64-bit entries ended by zero. Bit 63 set means import by ordinal, with the ordinal in bits 15 to 0. Bit 63 clear means bits 30 to 0 are the RVA of a hint/name entry: a 16-bit hint, "an index into the export name pointer table", then the ASCII name. Ours are `0x2058` (hint 0, "puts") and `0x2060` (hint 0, "exit").
+Tại RVA `0x2000` là một mảng import descriptor 20 byte kết thúc bằng một descriptor bằng không. Bản của chúng ta có một: Import Lookup Table `0x2028`, timestamp 0, forwarder chain 0, name `0x2068`, Import Address Table `0x2040`. RVA tên trỏ đến "msvcrt.dll". Bảng tra cứu chứa các mục 64 bit kết thúc bằng không. Bit 63 được đặt nghĩa là import theo ordinal, với ordinal trong các bit 15 đến 0. Bit 63 không được đặt nghĩa là các bit 30 đến 0 là RVA của một mục hint/name: một hint 16 bit, "một chỉ số vào export name pointer table", rồi tên ASCII. Các mục của chúng ta là `0x2058` (hint 0, "puts") và `0x2060` (hint 0, "exit").
 
-The spec says the IAT is "identical to the contents of the import lookup table until the image is bound". Our IAT at `0x2040` holds the same two RVAs, and the test checks that the 24 bytes at `0x2028` equal the 24 bytes at `0x2040`. "During binding, the entries in the import address table are overwritten with the 32-bit (for PE32) or 64-bit (for PE32+) addresses of the symbols that are being imported." The Windows loader does that before the entry point runs. There is no lazy binding and no stub. The code reaches the slot directly:
+Đặc tả nói IAT "giống hệt nội dung của import lookup table cho đến khi image được bind". IAT của chúng ta tại `0x2040` chứa cùng hai RVA, và bài kiểm tra kiểm tra rằng 24 byte tại `0x2028` bằng 24 byte tại `0x2040`. "Trong binding, các mục trong import address table được ghi đè bằng các địa chỉ 32 bit (cho PE32) hoặc 64 bit (cho PE32+) của các symbol đang được import." Loader Windows làm điều đó trước khi điểm vào chạy. Không có lazy binding và không stub. Mã đến slot trực tiếp:
 
 ```text
     100b: ff 15 2f 10 00 00    call qword ptr [rip + 0x102f]   # 0x1011 + 0x102f = 0x2040, the IAT slot of puts
     1013: ff 15 2f 10 00 00    call qword ptr [rip + 0x102f]   # 0x1019 + 0x102f = 0x2048, the IAT slot of exit
 ```
 
-`FF /2` is the indirect near call. The two instructions have the same bytes because each one sits eight bytes after the other and reads a slot eight bytes after the other. `iat_calls()` scans the code section for `ff 15`, adds six and the displacement, and names the slot from the import directory.
+`FF /2` là lần gọi near gián tiếp. Hai chỉ lệnh có cùng các byte vì mỗi chỉ lệnh nằm sau chỉ lệnh kia tám byte và đọc một slot sau slot kia tám byte. `iat_calls()` quét code section tìm `ff 15`, cộng sáu và displacement, và đặt tên slot từ import directory.
 
 ### The export directory
 
-At RVA `0x2080` the 40-byte export directory table: flags, timestamp, version, a name RVA pointing at "tiny-x86_64.exe", ordinal base 1, 1 address table entry, 1 name pointer. Three tables follow. The Export Address Table at `0x20a8` holds one RVA, `0x1000`. The Export Name Pointer Table at `0x20ac` holds one RVA to the string "tiny_entry". The Export Ordinal Table at `0x20b0` holds one 16-bit unbiased index, 0. Name `k` maps to address entry `ordinals[k]`, and the exported ordinal is `ordinals[k] + ordinal base`. The spec adds a rule we do not use: an address entry that points inside the export section is a forwarder string such as `MYDLL.expfunc`, and the name pointer table is "ordered lexically to allow binary searches".
+Tại RVA `0x2080` là bảng export directory 40 byte: cờ, timestamp, version, một RVA tên trỏ đến "tiny-x86_64.exe", ordinal base 1, 1 mục address table, 1 name pointer. Ba bảng theo sau. Export Address Table tại `0x20a8` chứa một RVA, `0x1000`. Export Name Pointer Table tại `0x20ac` chứa một RVA tới chuỗi "tiny_entry". Export Ordinal Table tại `0x20b0` chứa một chỉ số không thiên lệch 16 bit, 0. Tên `k` ánh xạ đến mục địa chỉ `ordinals[k]`, và ordinal được export là `ordinals[k] + ordinal base`. Đặc tả thêm một quy tắc chúng ta không sử dụng: một mục địa chỉ trỏ bên trong export section là một chuỗi forwarder chẳng hạn `MYDLL.expfunc`, và name pointer table được "sắp xếp theo từ điển để cho phép tìm kiếm nhị phân".
 
 ### Base relocations
 
-`.reloc` holds blocks. Each block starts with a page RVA and a block size, then 16-bit entries with the type in the top four bits and a page offset in the low twelve. Our one block: page `0x3000`, size 12, entry `0xa000`, type 10, `IMAGE_REL_BASED_DIR64`, offset 0, and a padding entry of type 0, `IMAGE_REL_BASED_ABSOLUTE`. The eight bytes at RVA `0x3000` hold `0x1400020d0`, the image base plus the RVA of the string "linked by hand". If the loader places the image anywhere else, it adds the difference to that field. The spec: "Image files do not contain COFF relocations ... An image contains relocation information in the form of base relocations in the .reloc section (unless the image has the IMAGE_FILE_RELOCS_STRIPPED attribute)." `/DYNAMICBASE` is on by default in current link.exe, so images carry `.reloc` and `DYNAMIC_BASE`.
+`.reloc` chứa các khối. Mỗi khối bắt đầu với một RVA trang và một kích thước khối, rồi các mục 16 bit với type trong bốn bit trên và một offset trang trong mười hai bit thấp. Một khối của chúng ta: page `0x3000`, size 12, entry `0xa000`, type 10, `IMAGE_REL_BASED_DIR64`, offset 0 và một mục padding type 0, `IMAGE_REL_BASED_ABSOLUTE`. Tám byte tại RVA `0x3000` chứa `0x1400020d0`, image base cộng RVA của chuỗi "linked by hand". Nếu loader đặt image ở bất kỳ nơi khác, nó cộng hiệu vào trường đó. Đặc tả: "Các tệp image không chứa relocation COFF ... Một image chứa thông tin relocation dưới dạng các base relocation trong section .reloc (trừ khi image có thuộc tính IMAGE_FILE_RELOCS_STRIPPED)." `/DYNAMICBASE` bật mặc định trong link.exe hiện tại, nên các image mang `.reloc` và `DYNAMIC_BASE`.
 
-A PE image has no symbol table to strip. The file header's `PointerToSymbolTable` "should be zero for an image because COFF debugging information is deprecated", and the names live in a separate PDB. What survives in every image is the import directory, the export directory, and, for 64-bit code, `.pdata`, whose `RUNTIME_FUNCTION` entries name the start and end of every function that allocates stack or calls another function. Leaf functions are absent from it.
+Một image PE không có bảng symbol để strip. `PointerToSymbolTable` của file header "nên bằng không cho một image vì thông tin gỡ lỗi COFF đã lỗi thời", và các tên nằm trong một PDB riêng. Điều sống sót trong mọi image là import directory, export directory và, với mã 64 bit, `.pdata`, có các mục `RUNTIME_FUNCTION` nêu tên điểm bắt đầu và kết thúc của mọi hàm cấp phát stack hoặc gọi một hàm khác. Các hàm leaf vắng mặt khỏi nó.
 
 ## The Mach-O Image: Load Commands, Stubs, and the Indirect Symbol Table
 
-`ledger_main` is the linked arm64 executable. `otool -h` prints 19 load commands and flags `0x00200085`. `MH_NOUNDEFS 0x1`, `MH_DYLDLINK 0x4`, `MH_TWOLEVEL 0x80`, and `MH_PIE 0x200000` sum to that value. The 19 commands are four `LC_SEGMENT_64` (`__PAGEZERO`, `__TEXT`, `__DATA_CONST`, `__LINKEDIT`), two `LC_LOAD_DYLIB` (`@rpath/libledger.dylib` then `/usr/lib/libSystem.B.dylib`), and one each of `LC_DYLD_CHAINED_FIXUPS`, `LC_DYLD_EXPORTS_TRIE`, `LC_SYMTAB`, `LC_DYSYMTAB`, `LC_LOAD_DYLINKER`, `LC_UUID`, `LC_BUILD_VERSION`, `LC_SOURCE_VERSION`, `LC_MAIN`, `LC_RPATH`, `LC_FUNCTION_STARTS`, `LC_DATA_IN_CODE`, and `LC_CODE_SIGNATURE`. `MachoFile.command_names()` returns the same list in the same order as `otool -l`.
+`ledger_main` là executable arm64 đã liên kết. `otool -h` in 19 load command và các cờ `0x00200085`. `MH_NOUNDEFS 0x1`, `MH_DYLDLINK 0x4`, `MH_TWOLEVEL 0x80` và `MH_PIE 0x200000` cộng thành giá trị đó. 19 lệnh là bốn `LC_SEGMENT_64` (`__PAGEZERO`, `__TEXT`, `__DATA_CONST`, `__LINKEDIT`), hai `LC_LOAD_DYLIB` (`@rpath/libledger.dylib` rồi `/usr/lib/libSystem.B.dylib`) và một mỗi loại `LC_DYLD_CHAINED_FIXUPS`, `LC_DYLD_EXPORTS_TRIE`, `LC_SYMTAB`, `LC_DYSYMTAB`, `LC_LOAD_DYLINKER`, `LC_UUID`, `LC_BUILD_VERSION`, `LC_SOURCE_VERSION`, `LC_MAIN`, `LC_RPATH`, `LC_FUNCTION_STARTS`, `LC_DATA_IN_CODE` và `LC_CODE_SIGNATURE`. `MachoFile.command_names()` trả về cùng danh sách theo cùng thứ tự như `otool -l`.
 
-`__TEXT` starts at `0x100000000`. `__text` is 256 bytes at `0x100000558`, `main` and nothing else, because the four ledger functions live in the dylib. `__stubs` is 84 bytes at `0x100000658`, seven stubs of twelve bytes. `__DATA_CONST` starts at `0x100004000` with `__got`, 64 bytes, eight pointer slots of section type `S_NON_LAZY_SYMBOL_POINTERS`, and `__const`, 32 bytes, the `fns[]` and `names[]` tables of `main.c`.
+`__TEXT` bắt đầu tại `0x100000000`. `__text` là 256 byte tại `0x100000558`, `main` và không gì khác, vì bốn hàm ledger nằm trong dylib. `__stubs` là 84 byte tại `0x100000658`, bảy stub mười hai byte. `__DATA_CONST` bắt đầu tại `0x100004000` với `__got`, 64 byte, tám slot con trỏ có section type `S_NON_LAZY_SYMBOL_POINTERS`, và `__const`, 32 byte, các bảng `fns[]` và `names[]` của `main.c`.
 
 ### One stub, by hand
 
-The stub for `_puts` is at `0x100000694`:
+Stub cho `_puts` ở `0x100000694`:
 
 ```text
     30 00 00 90    adrp x16, 0x100004000
@@ -178,85 +178,85 @@ The stub for `_puts` is at `0x100000694`:
     00 02 1f d6    br   x16
 ```
 
-`0x90000030` is `adrp`. The register is the low five bits, 16. `immlo` is bits 30 to 29, 0. `immhi` is bits 23 to 5, 1. The value is `immhi << 2 | immlo = 4`, in pages of 4,096 bytes, so the target page is the page of the instruction, `0x100000000`, plus `0x4000`. `0xf9401e10` is `ldr` with an unsigned 12-bit offset scaled by 8: bits 21 to 10 are 7, times 8 is `0x38`, so the load reads `0x100004038`. `0xd61f0200` is `br x16`. The arm64 stub in ld64's source is this exact three-instruction `StubAtom`.
+`0x90000030` là `adrp`. Thanh ghi là năm bit thấp, 16. `immlo` là các bit 30 đến 29, 0. `immhi` là các bit 23 đến 5, 1. Giá trị là `immhi << 2 | immlo = 4`, theo các trang 4,096 byte, nên trang đích là trang của chỉ lệnh, `0x100000000`, cộng `0x4000`. `0xf9401e10` là `ldr` với một offset 12 bit không dấu được nhân tỷ lệ 8: các bit 21 đến 10 là 7, nhân 8 là `0x38`, nên lần tải đọc `0x100004038`. `0xd61f0200` là `br x16`. Stub arm64 trong nguồn ld64 là chính `StubAtom` ba chỉ lệnh này.
 
-Which name belongs to the slot comes from the indirect symbol table. `LC_DYSYMTAB` points at 15 indexes into the symbol table. A stubs section says in `reserved1` where its run of indexes starts and in `reserved2` how large each stub is (12). A pointer section uses `reserved1` and eight bytes per slot. `__stubs` starts at index 0 and `__got` at index 7, so stub 5 maps to symbol table entry 10, `_puts`, and slot 7 of `__got` maps to the same entry. `otool -Iv` prints both runs, and `indirect_table()` reproduces every row.
+Tên nào thuộc slot đến từ bảng symbol gián tiếp. `LC_DYSYMTAB` trỏ đến 15 chỉ số vào bảng symbol. Một stubs section nói trong `reserved1` nơi dãy chỉ số của nó bắt đầu và trong `reserved2` mỗi stub lớn bao nhiêu (12). Một pointer section sử dụng `reserved1` và tám byte mỗi slot. `__stubs` bắt đầu tại chỉ số 0 và `__got` tại chỉ số 7, nên stub 5 ánh xạ đến mục bảng symbol 10, `_puts`, và slot 7 của `__got` ánh xạ đến cùng mục. `otool -Iv` in cả hai dãy, và `indirect_table()` tái tạo mọi hàng.
 
 ### Two-level namespace
 
-`nm -m` prints `(undefined) external _puts (from libSystem)` and `(undefined) external _grade (from libledger)`. The library comes from the symbol record itself. `nlist.h` defines `GET_LIBRARY_ORDINAL(n_desc)` as bits 15 to 8 of `n_desc`, 1 for the first `LC_LOAD_DYLIB`, 2 for the second, `0xfe` for dynamic lookup, `0xff` for the executable. `ld(1)`: "With -two_levelnamespace (the default), the linker only searches dylibs on the command line for symbols, and records in which dylib they were found." `nm_lines()` renders the twelve records from `n_type`, `n_sect`, `n_desc`, and `n_value`, and the test compares its output line for line with the captured `nm -m`. Relink with `-Wl,-flat_namespace` and read `otool -h` to see the `MH_TWOLEVEL` bit disappear.
+`nm -m` in `(undefined) external _puts (from libSystem)` và `(undefined) external _grade (from libledger)`. Thư viện đến từ chính bản ghi symbol. `nlist.h` định nghĩa `GET_LIBRARY_ORDINAL(n_desc)` là các bit 15 đến 8 của `n_desc`, 1 cho `LC_LOAD_DYLIB` đầu, 2 cho lệnh thứ hai, `0xfe` cho tra cứu động, `0xff` cho executable. `ld(1)`: "Với -two_levelnamespace (mặc định), linker chỉ tìm các symbol trong các dylib trên dòng lệnh và ghi lại chúng được tìm thấy trong dylib nào." `nm_lines()` kết xuất mười hai bản ghi từ `n_type`, `n_sect`, `n_desc` và `n_value`, và bài kiểm tra so sánh đầu ra của nó từng dòng với `nm -m` đã thu. Liên kết lại bằng `-Wl,-flat_namespace` và đọc `otool -h` để thấy bit `MH_TWOLEVEL` biến mất.
 
 ## Chained Fixups, Byte for Byte
 
-`LC_DYLD_CHAINED_FIXUPS` is a `linkedit_data_command`: `dataoff 0x8000`, `datasize 208`. The 208 bytes follow `fixup-chains.h`.
+`LC_DYLD_CHAINED_FIXUPS` là một `linkedit_data_command`: `dataoff 0x8000`, `datasize 208`. 208 byte theo `fixup-chains.h`.
 
-The header is seven 32-bit fields: `fixups_version 0`, `starts_offset 32`, `imports_offset 80`, `symbols_offset 112`, `imports_count 8`, `imports_format 1` (`DYLD_CHAINED_IMPORT`), `symbols_format 0` (uncompressed). `llvm-objdump --macho --chained-fixups` prints these seven values and the test compares them.
+Header là bảy trường 32 bit: `fixups_version 0`, `starts_offset 32`, `imports_offset 80`, `symbols_offset 112`, `imports_count 8`, `imports_format 1` (`DYLD_CHAINED_IMPORT`), `symbols_format 0` (không nén). `llvm-objdump --macho --chained-fixups` in bảy giá trị này và bài kiểm tra so sánh chúng.
 
-At offset 32, `dyld_chained_starts_in_image`: `seg_count 4` and four offsets, one per segment, zero for segments without fixups. Only `__DATA_CONST` has one. Its `dyld_chained_starts_in_segment` reads `size 24`, `page_size 0x4000`, `pointer_format 6` (`DYLD_CHAINED_PTR_64_OFFSET`, "target is vm offset"), `segment_offset 0x4000`, `max_valid_pointer 0`, `page_count 1`, and one `page_start` of 0. `DYLD_CHAINED_PTR_START_NONE`, `0xffff`, would mean a page with no fixups.
+Tại offset 32, `dyld_chained_starts_in_image`: `seg_count 4` và bốn offset, một mỗi segment, không cho các segment không có fixup. Chỉ `__DATA_CONST` có một. `dyld_chained_starts_in_segment` của nó đọc là `size 24`, `page_size 0x4000`, `pointer_format 6` (`DYLD_CHAINED_PTR_64_OFFSET`, "đích là vm offset"), `segment_offset 0x4000`, `max_valid_pointer 0`, `page_count 1` và một `page_start` 0. `DYLD_CHAINED_PTR_START_NONE`, `0xffff`, sẽ nghĩa là một trang không có fixup.
 
-The chain starts at file offset `0x4000 + 0`. Each 64-bit word carries two things: what to write there, and where the next word is.
+Chuỗi bắt đầu tại file offset `0x4000 + 0`. Mỗi word 64 bit mang hai thứ: ghi gì ở đó và word tiếp theo ở đâu.
 
 ```text
   dyld_chained_ptr_64_bind    ordinal:24  addend:8  reserved:19  next:12  bind:1 = 1
   dyld_chained_ptr_64_rebase  target:36   high8:8   reserved:7   next:12  bind:1 = 0
 ```
 
-Read the first word, `0x8010000000000000`. Bit 63 is set, a bind. `next` is bits 62 to 51, `0x002`, in units of 4 bytes, so the next fixup is 8 bytes on. The ordinal is 0. Read the twelfth word at `0x4058`, `0x00000000000006db`. Bit 63 clear, a rebase. `next` is 0, the end of the chain. The target is `0x6db`, a vm offset, and the image base `0x100000000` makes it `0x1000006db`, the string "odd" in `__cstring`. The word before it, `0x00100000000006d6`, rebases `names[0]` to "even".
+Đọc word đầu, `0x8010000000000000`. Bit 63 được đặt, một bind. `next` là các bit 62 đến 51, `0x002`, theo đơn vị 4 byte, nên fixup tiếp theo cách 8 byte. Ordinal là 0. Đọc word thứ mười hai tại `0x4058`, `0x00000000000006db`. Bit 63 không được đặt, một rebase. `next` là 0, cuối chuỗi. Đích là `0x6db`, một vm offset, và image base `0x100000000` làm nó thành `0x1000006db`, chuỗi "odd" trong `__cstring`. Word trước nó, `0x00100000000006d6`, rebase `names[0]` thành "even".
 
-The walk visits twelve words: eight binds in `__got` with ordinals 0 to 7, two binds in `__const` with ordinal 0 (both entries of `fns[]` point at `_grade`), and the two rebases of `names[]`. `chained_fixups()` returns them with their file offsets and raw words, and the test compares the twelve `(offset, raw)` pairs with `dyld_info -fixup_chain_details`, which prints `raw: 0x8010000000000000 bind: (next: 002, bindOrdinal: 0x000000)` for the first.
+Phép duyệt thăm mười hai word: tám bind trong `__got` với ordinal 0 đến 7, hai bind trong `__const` với ordinal 0 (cả hai mục của `fns[]` trỏ đến `_grade`) và hai rebase của `names[]`. `chained_fixups()` trả về chúng với các file offset và word thô của chúng, và bài kiểm tra so sánh mười hai cặp `(offset, raw)` với `dyld_info -fixup_chain_details`, in `raw: 0x8010000000000000 bind: (next: 002, bindOrdinal: 0x000000)` cho word đầu.
 
-The imports table at offset 80 has eight 32-bit entries: `lib_ordinal:8`, `weak_import:1`, `name_offset:23`, with names at offset 112. Ordinals 0 to 3 are `_grade`, `_grade_label`, `_percent_change`, `_total` from library 1, and 4 to 7 are `___stack_chk_fail`, `___stack_chk_guard`, `_printf`, `_puts` from library 2. `fixup_rows()` joins the two tables into the lines `dyld_info -fixups` prints, such as `__DATA_CONST __got 0x100004038 bind libSystem/_puts`, and the test compares all twelve.
+Bảng import tại offset 80 có tám mục 32 bit: `lib_ordinal:8`, `weak_import:1`, `name_offset:23`, với tên tại offset 112. Các ordinal 0 đến 3 là `_grade`, `_grade_label`, `_percent_change`, `_total` từ thư viện 1, và 4 đến 7 là `___stack_chk_fail`, `___stack_chk_guard`, `_printf`, `_puts` từ thư viện 2. `fixup_rows()` join hai bảng thành các dòng mà `dyld_info -fixups` in, chẳng hạn `__DATA_CONST __got 0x100004038 bind libSystem/_puts`, và bài kiểm tra so sánh cả mười hai.
 
-So the "corrupt pointer" at `0x100004038` is import 7. dyld walks this chain once, at load, and writes the address of `_puts` into the slot. Apple's WWDC22 session put it this way: "in the 64-bit pointer location in DATA, some of the bits contain the offset to the next fixup location. Also packed in there is a bit that says if the fixup is a bind or a rebase." Xcode 13 made the format the default for a deployment target of macOS 12 or iOS 15, and Xcode 13.3 extended it to macOS 11 and iOS 13.4. There is no lazy binding in this format. Every slot is bound before `main` runs.
+Vì vậy "con trỏ hỏng" tại `0x100004038` là import 7. dyld duyệt chuỗi này một lần, lúc tải, và ghi địa chỉ của `_puts` vào slot. Phiên WWDC22 của Apple diễn đạt như sau: "trong vị trí con trỏ 64 bit trong DATA, một số bit chứa offset đến vị trí fixup tiếp theo. Cũng được đóng gói trong đó là một bit nói fixup là bind hay rebase." Xcode 13 làm định dạng thành mặc định cho một deployment target macOS 12 hoặc iOS 15, và Xcode 13.3 mở rộng nó đến macOS 11 và iOS 13.4. Không có lazy binding trong định dạng này. Mọi slot được bind trước khi `main` chạy.
 
 ### The layout it replaced
 
-`ledger_main_nochain` is the same link with `-Wl,-no_fixup_chains`. It has `LC_DYLD_INFO_ONLY` instead, with four byte-coded tables: rebase 8 bytes, bind 72, lazy bind 120, export 64. It also has three sections the chained file lacks: `__TEXT,__stub_helper` (108 bytes), a `__got` of only 16 bytes holding `___stack_chk_guard` and `dyld_stub_binder`, and `__DATA,__la_symbol_ptr` (56 bytes, seven slots). `dyld_info -fixups` lists seven `lazy-bind` rows and seven rebases that point each lazy slot at its own trampoline in `__stub_helper`. The trampoline pushes an index and jumps to `dyld_stub_binder`, which resolves the name and writes the slot. That is the PLT and GOT of the previous section in Mach-O shapes: `__la_symbol_ptr` is `.got.plt`, `__stub_helper` is PLT0 and the `pushq $index`, and `dyld_stub_binder` is `_dl_runtime_resolve`. `code/main.py` reports the offsets and sections of this file and does not decode the bind opcodes; the practice lab asks for that.
+`ledger_main_nochain` là cùng lần liên kết với `-Wl,-no_fixup_chains`. Thay vào đó nó có `LC_DYLD_INFO_ONLY`, với bốn bảng mã byte: rebase 8 byte, bind 72, lazy bind 120, export 64. Nó cũng có ba section mà tệp chained thiếu: `__TEXT,__stub_helper` (108 byte), một `__got` chỉ 16 byte chứa `___stack_chk_guard` và `dyld_stub_binder`, và `__DATA,__la_symbol_ptr` (56 byte, bảy slot). `dyld_info -fixups` liệt kê bảy hàng `lazy-bind` và bảy rebase trỏ mỗi slot lazy đến trampoline riêng của nó trong `__stub_helper`. Trampoline đẩy một chỉ số và nhảy đến `dyld_stub_binder`, phân giải tên và ghi slot. Đó là PLT và GOT của phần trước theo các dạng Mach-O: `__la_symbol_ptr` là `.got.plt`, `__stub_helper` là PLT0 và `pushq $index`, và `dyld_stub_binder` là `_dl_runtime_resolve`. `code/main.py` báo cáo các offset và section của tệp này và không giải mã các opcode bind; bài thực hành yêu cầu điều đó.
 
 ### The exports trie
 
-`LC_DYLD_EXPORTS_TRIE` is a prefix tree. Each node is a uleb128 terminal size, then, if it is nonzero, uleb128 flags and a uleb128 offset, then one byte of child count and, for each child, a string edge and a uleb128 node offset. `exports_trie()` walks it. On `libledger.dylib` it returns `_percent_change 0x410`, `_grade 0x428`, `_total 0x464`, `_grade_label 0x498`, the four offsets `dyld_info -exports` prints. On the executable it returns `__mh_execute_header`, `_fns`, and `_main`.
+`LC_DYLD_EXPORTS_TRIE` là một cây tiền tố. Mỗi nút là một kích thước terminal uleb128, rồi, nếu nó khác không, các cờ uleb128 và một offset uleb128, rồi một byte số con và, cho mỗi con, một cạnh chuỗi và một offset nút uleb128. `exports_trie()` duyệt nó. Trên `libledger.dylib`, nó trả về `_percent_change 0x410`, `_grade 0x428`, `_total 0x464`, `_grade_label 0x498`, bốn offset mà `dyld_info -exports` in. Trên executable, nó trả về `__mh_execute_header`, `_fns` và `_main`.
 
 ## What strip Leaves
 
-Apple's `strip(1)` says that with no options on a dynamically linked executable it behaves like `-u -r`: save undefined symbols and symbols referenced dynamically. `-x` removes local symbols. `-N` removes the whole symbol table and string table. "For dynamic shared libraries, the maximum level of stripping is usually -x", because "Only global symbols are used by the dynamic linking process".
+`strip(1)` của Apple nói rằng không có tùy chọn trên một executable liên kết động, nó hành xử như `-u -r`: giữ các symbol không xác định và các symbol được tham chiếu động. `-x` loại các symbol cục bộ. `-N` loại toàn bộ bảng symbol và bảng chuỗi. "Với các thư viện dùng chung động, mức strip tối đa thường là -x", vì "Chỉ các symbol toàn cục được sử dụng bởi quá trình liên kết động".
 
-Observed on our fixtures. `strip ledger_main` took `LC_SYMTAB` from 12 to 10 records and removed `_main`, `_fns`, and `_names`. The eight undefined imports stay, because dyld needs their names to bind, and `__mh_execute_header` stays because it is `REFERENCED_DYNAMICALLY`. The tenth record is a stab of type `N_OPT` named `radr://5614542`, which Apple's tools write so the table is never empty; `nm` does not print it. The stripped program prints the same three lines as the original and exits 0. `LC_FUNCTION_STARTS` still has one start, `main`.
+Quan sát trên các fixture của chúng ta. `strip ledger_main` đưa `LC_SYMTAB` từ 12 xuống 10 bản ghi và loại `_main`, `_fns` và `_names`. Tám import không xác định ở lại, vì dyld cần các tên của chúng để bind, và `__mh_execute_header` ở lại vì nó là `REFERENCED_DYNAMICALLY`. Bản ghi thứ mười là một stab type `N_OPT` tên `radr://5614542`, mà các công cụ Apple viết để bảng không bao giờ rỗng; `nm` không in nó. Chương trình đã strip in cùng ba dòng như bản gốc và thoát 0. `LC_FUNCTION_STARTS` vẫn có một điểm bắt đầu, `main`.
 
-`strip libledger.dylib` with no options went further than the man page's usual `-x`: `LC_SYMTAB` has 0 records and `nm` prints "no symbols". The exports trie still lists the four functions at the same offsets, because dyld binds through the trie and never through `LC_SYMTAB`. `LC_FUNCTION_STARTS` still lists four starts. Lab C links a fresh `main.c` against the stripped dylib to show that the link editor is also served by the trie.
+`strip libledger.dylib` không có tùy chọn đi xa hơn `-x` thông thường của man page: `LC_SYMTAB` có 0 bản ghi và `nm` in "no symbols". Exports trie vẫn liệt kê bốn hàm tại cùng các offset, vì dyld bind qua trie và không bao giờ qua `LC_SYMTAB`. `LC_FUNCTION_STARTS` vẫn liệt kê bốn điểm bắt đầu. Lab C liên kết một `main.c` mới với dylib đã strip để cho thấy link editor cũng được trie phục vụ.
 
-| What | ELF after `--strip-all` | PE image | Mach-O after `strip` |
+| Điều gì | ELF sau `--strip-all` | Image PE | Mach-O sau `strip` |
 |---|---|---|---|
-| static symbol table | gone | never present in an image | local and defined names gone, undefined imports stay |
-| names the loader binds | `.dynsym` and `.dynstr` stay | import directory stays | imports stay in `LC_SYMTAB` and in the chained imports table |
-| exported names | `.dynsym` stays | export directory stays | exports trie stays |
-| function starts | `.eh_frame` FDEs, unless built without unwind tables | `.pdata` for non-leaf functions | `LC_FUNCTION_STARTS` stays |
-| debug information | `.debug_*` gone | in the PDB, never in the image | in the dSYM, never in the image |
-| section or load command headers | stay unless `--strip-section-headers` | stay | stay |
+| bảng symbol tĩnh | mất | không bao giờ hiện diện trong một image | tên cục bộ và được định nghĩa mất, import không xác định ở lại |
+| các tên mà loader bind | `.dynsym` và `.dynstr` ở lại | import directory ở lại | import ở lại trong `LC_SYMTAB` và trong bảng chained import |
+| tên được export | `.dynsym` ở lại | export directory ở lại | exports trie ở lại |
+| điểm bắt đầu hàm | các FDE `.eh_frame`, trừ khi dựng không có bảng unwind | `.pdata` cho các hàm không phải leaf | `LC_FUNCTION_STARTS` ở lại |
+| thông tin gỡ lỗi | `.debug_*` mất | trong PDB, không bao giờ trong image | trong dSYM, không bao giờ trong image |
+| section header hoặc load command header | ở lại trừ khi `--strip-section-headers` | ở lại | ở lại |
 
 ## Finding Functions Without Symbols
 
-`static-arm64-O2` links `main-arm64-O2.o` and `ledger-arm64-O2.o` into one executable with five functions in `__text`. `nm -n` of the unstripped file is the ground truth: `_main` at `0x100000500` (244 bytes), `_percent_change` at `0x1000005f4` (24), `_grade` at `0x10000060c` (60), `_total` at `0x100000648` (248), `_grade_label` at `0x100000740` (72). `static-arm64-O2.stripped` has no `N_SECT` symbol inside `__text`. `FunctionFinder` runs four methods on it and `score()` compares each list with the truth.
+`static-arm64-O2` liên kết `main-arm64-O2.o` và `ledger-arm64-O2.o` thành một executable với năm hàm trong `__text`. `nm -n` của tệp chưa strip là ground truth: `_main` tại `0x100000500` (244 byte), `_percent_change` tại `0x1000005f4` (24), `_grade` tại `0x10000060c` (60), `_total` tại `0x100000648` (248), `_grade_label` tại `0x100000740` (72). `static-arm64-O2.stripped` không có symbol `N_SECT` bên trong `__text`. `FunctionFinder` chạy bốn phương pháp trên nó và `score()` so sánh mỗi danh sách với sự thật.
 
 ### LC_FUNCTION_STARTS
 
-The command points at nine bytes in `__LINKEDIT`: `80 0a f4 01 18 3c f8 01 00`. The format is uleb128 deltas, the first from the `__TEXT` address. `80 0a` is `0x500`, so the first start is `0x100000500`. `f4 01` is `0xf4`, so `0x1000005f4`. `18` gives `0x10000060c`, `3c` gives `0x100000648`, `f8 01` gives `0x100000740`, and `00` ends the list. Five of five, no false positives, at `-O0` and at `-O2`. The link editor writes this table for the unwinder and the crash reporter, and `strip` does not touch it. Ghidra reads it in its "Mach-O Function Starts" analyzer, `dyld_info -function_starts` prints it, and LIEF exposes it as `function_starts`.
+Lệnh trỏ đến chín byte trong `__LINKEDIT`: `80 0a f4 01 18 3c f8 01 00`. Định dạng là các delta uleb128, delta đầu từ địa chỉ `__TEXT`. `80 0a` là `0x500`, nên điểm bắt đầu đầu tiên là `0x100000500`. `f4 01` là `0xf4`, nên `0x1000005f4`. `18` cho `0x10000060c`, `3c` cho `0x100000648`, `f8 01` cho `0x100000740`, và `00` kết thúc danh sách. Năm trên năm, không dương tính giả, ở `-O0` và ở `-O2`. Link editor viết bảng này cho unwinder và crash reporter, và `strip` không chạm nó. Ghidra đọc nó trong analyzer "Mach-O Function Starts", `dyld_info -function_starts` in nó và LIEF cung cấp nó là `function_starts`.
 
 ### Prologue scans
 
-Ghidra's AARCH64 start patterns begin with `fd 7b bf a9`, which is `stp x29, x30, [sp, #-0x10]!`. On our files it finds 0 of 5 at both levels. clang emits `sub sp, sp, #N` first and then `stp x29, x30, [sp, #M]` with a positive offset, so the pre-index form never occurs. A mask for `sub sp, sp, #imm`, `(word & 0xff0003ff) == 0xd10003ff`, finds 5 of 5 at `-O0`, where every function has a frame, and 1 of 5 at `-O2`, where `percent_change`, `grade`, `total`, and `grade_label` are leaf functions with no frame at all. `percent_change` starts with `cbz w0, ...`. A prologue scan reports what the compiler chose to emit, and lesson 38 showed how often that is nothing.
+Các mẫu điểm bắt đầu AARCH64 của Ghidra bắt đầu bằng `fd 7b bf a9`, tức `stp x29, x30, [sp, #-0x10]!`. Trên các tệp của chúng ta, nó tìm 0 trên 5 ở cả hai mức. clang phát ra `sub sp, sp, #N` trước rồi `stp x29, x30, [sp, #M]` với một offset dương, nên dạng pre-index không bao giờ xảy ra. Một mask cho `sub sp, sp, #imm`, `(word & 0xff0003ff) == 0xd10003ff`, tìm 5 trên 5 ở `-O0`, nơi mọi hàm có một khung, và 1 trên 5 ở `-O2`, nơi `percent_change`, `grade`, `total` và `grade_label` là các hàm leaf hoàn toàn không có khung. `percent_change` bắt đầu bằng `cbz w0, ...`. Một phép quét prologue báo cáo những gì compiler chọn phát ra, và bài 38 cho thấy thường xuyên đó là không gì cả.
 
-Neither scan produced a false positive here, because the program is small. One-byte patterns such as the x86-64 `55` of `push rbp` hit inside other instructions, which is why Ghidra's x86-64 pattern files pair a post-pattern like `55 48 89 e5` with a pre-pattern such as `ret` or `nop` that must end the previous function.
+Không phép quét nào tạo một dương tính giả ở đây, vì chương trình nhỏ. Các mẫu một byte chẳng hạn `55` x86-64 của `push rbp` khớp bên trong các chỉ lệnh khác, đó là lý do các tệp mẫu x86-64 của Ghidra ghép một post-pattern như `55 48 89 e5` với một pre-pattern chẳng hạn `ret` hoặc `nop` phải kết thúc hàm trước.
 
 ### Call targets
 
-Every `bl` in `__text` names a function start, because a `bl` into the middle of a function is something a compiler does not emit for C. The encoding is `0x94000000` with a signed 26-bit word offset. The `bl` at `0x1000005a0` reads `3d 00 00 94`: `0x3d` is 61, times 4 is `0xf4`, so the target is `0x100000694`. In `ledger_main` that is the stub for `_puts`. In the static build, `call_targets()` collects the targets inside `__text`, drops the ones that land in `__stubs`, and adds the `LC_MAIN` entry, because nothing calls `main`. Five of five at both levels. Nucleus (Andriesse, Slowinska, Bos, 2017) builds its function detection on this idea for compiler-generated code, and Andriesse and others measured in 2016 that function boundaries are the hard part of disassembly, harder than instruction boundaries.
+Mọi `bl` trong `__text` nêu tên một điểm bắt đầu hàm, vì một `bl` vào giữa một hàm là thứ một compiler không phát ra cho C. Mã hóa là `0x94000000` với một offset word 26 bit có dấu. `bl` tại `0x1000005a0` đọc ra `3d 00 00 94`: `0x3d` là 61, nhân 4 là `0xf4`, nên đích là `0x100000694`. Trong `ledger_main`, đó là stub cho `_puts`. Trong bản build tĩnh, `call_targets()` thu các đích bên trong `__text`, bỏ các đích rơi trong `__stubs` và thêm điểm vào `LC_MAIN`, vì không có gì gọi `main`. Năm trên năm ở cả hai mức. Nucleus (Andriesse, Slowinska, Bos, 2017) xây dựng phát hiện hàm của nó trên ý tưởng này cho mã do compiler tạo, và Andriesse cùng những người khác đo năm 2016 rằng các ranh giới hàm là phần khó của disassembly, khó hơn các ranh giới chỉ lệnh.
 
 ## A FLIRT-Shaped Signature
 
-Hex-Rays describes FLIRT in its documentation: a pattern is "first 32 bytes of a function where all variant bytes are marked", the variant bytes come from fixups and external references, patterns live in a tree, and beyond the pattern "we calculate the CRC16 of the bytes starting from position 33 until the first variant byte" and store that length. Two functions with the same pattern and CRC are told apart by a tail byte at a position where they differ, then by the names they reference. A collision that nothing separates is "solved by natural intelligence". Functions shorter than four bytes without external references are excluded, and "the signature file contains no byte from the original libraries, except for the names of the functions".
+Hex-Rays mô tả FLIRT trong tài liệu của nó: một mẫu là "32 byte đầu của một hàm nơi mọi byte biến thể được đánh dấu", các byte biến thể đến từ fixup và tham chiếu bên ngoài, các mẫu nằm trong một cây, và ngoài mẫu "chúng ta tính CRC16 của các byte bắt đầu từ vị trí 33 cho đến byte biến thể đầu tiên" và lưu độ dài đó. Hai hàm có cùng mẫu và CRC được phân biệt bởi một byte đuôi tại một vị trí nơi chúng khác nhau, rồi bởi các tên mà chúng tham chiếu. Một va chạm mà không có gì phân biệt được "được giải quyết bằng trí thông minh tự nhiên". Các hàm ngắn hơn bốn byte không có tham chiếu bên ngoài bị loại, và "tệp chữ ký không chứa byte nào từ các thư viện gốc, trừ các tên hàm".
 
-`signatures_from_object()` builds that from `ledger-arm64-O2.o` and `main-arm64-O2.o`, the way FLAIR builds it from a library's objects. Every `relocation_info` record covers one four-byte word, and those bytes become variant. The `.pat` line layout, documented in rizin's parser, is the pattern, the CRC length, the CRC16, the function length, `:0000` and the name, and `^offset name` for each referenced name:
+`signatures_from_object()` xây dựng điều đó từ `ledger-arm64-O2.o` và `main-arm64-O2.o`, theo cách FLAIR xây dựng nó từ các object của một thư viện. Mọi bản ghi `relocation_info` bao phủ một word bốn byte, và các byte đó trở thành biến thể. Bố cục dòng `.pat`, được ghi tài liệu trong parser của rizin, là mẫu, độ dài CRC, CRC16, độ dài hàm, `:0000` và tên, và `^offset name` cho mỗi tên được tham chiếu:
 
 ```text
 A00000342800004B890C8052087D091B000DC01AC0035FD6 00 0000 0018 :0000 _percent_change
@@ -264,30 +264,30 @@ E8CC8C52C8CCAC72087C289B09FD7FD308FD62930801090B081900511F110071 04 9AAF 003C :0
 E8CC8C52C8CCAC72087C289B09FD7FD308FD62930801090B081900511F110071 04 9AAF 0048 :0000 _grade_label ^0000 l_switch.table.grade_label ^0001 l_switch.table.grade_label ^0002 _labels ^0003 _labels
 ```
 
-`_percent_change` is 24 bytes, so its pattern is the whole function and the CRC length is 0. `_grade` is 60 bytes with its first relocation at byte 36, so the CRC covers four bytes. The CRC16 is the one the public `.pat` parsers use: polynomial `0x8408`, initial value `0xffff`, complement, then swap the two bytes. Its value for the ASCII string "123456789" is `0x6e90`, and the test pins that.
+`_percent_change` là 24 byte, nên mẫu của nó là toàn bộ hàm và độ dài CRC là 0. `_grade` là 60 byte với relocation đầu tại byte 36, nên CRC bao phủ bốn byte. CRC16 là CRC mà các parser `.pat` công khai sử dụng: đa thức `0x8408`, giá trị đầu `0xffff`, lấy bù, rồi đổi chỗ hai byte. Giá trị của nó cho chuỗi ASCII "123456789" là `0x6e90`, và bài kiểm tra ghim điều đó.
 
-`match_signatures()` tries every signature at every function start of the stripped build, pattern first, then CRC. At `-O0` all five functions get their names and nothing collides. At `-O2` the two lines above collide. `grade_label` inlined `grade`, so the two functions share their first 36 bytes and the four CRC bytes. Both signatures match at `0x10000060c` and at `0x100000740`. The tail splits them: at byte 44 `_grade` has `20` and `_grade_label` has `28`, which is `ldr w0, [x9, w8, uxtw #2]` against `ldr x8, [x9, w8, uxtw #3]`, and the lengths are 60 against 72. The report records both collisions and the byte that decided them. Five of five named, at both levels.
+`match_signatures()` thử mọi chữ ký tại mọi điểm bắt đầu hàm của bản build đã strip, mẫu trước, rồi CRC. Ở `-O0`, cả năm hàm nhận các tên của chúng và không có gì va chạm. Ở `-O2`, hai dòng ở trên va chạm. `grade_label` inline `grade`, nên hai hàm chia sẻ 36 byte đầu và bốn byte CRC của chúng. Cả hai chữ ký khớp tại `0x10000060c` và tại `0x100000740`. Đuôi tách chúng: tại byte 44, `_grade` có `20` và `_grade_label` có `28`, tức `ldr w0, [x9, w8, uxtw #2]` so với `ldr x8, [x9, w8, uxtw #3]`, và các độ dài là 60 so với 72. Báo cáo ghi cả hai va chạm và byte quyết định chúng. Năm trên năm được đặt tên, ở cả hai mức.
 
-The test `test_object_bytes_equal_linked_bytes_outside_relocated_words` checks the premise: every non-variant byte of each object function equals the byte at the same offset in the linked executable, so the link editor changed only the relocated words. `_total` has no relocation and no variant byte at all.
+Bài kiểm tra `test_object_bytes_equal_linked_bytes_outside_relocated_words` kiểm tra tiền đề: mọi byte không biến thể của mỗi hàm object bằng byte ở cùng offset trong executable đã liên kết, nên link editor chỉ thay đổi các word được tái định vị. `_total` không có relocation và hoàn toàn không byte biến thể.
 
 ### What the tools do with the same idea
 
-IDA Pro 9.4 ships FLIRT signatures per processor and the `sigmake` tool to build them; IDA Free covers x86 and x86-64 only and is for non-commercial use. Lumina is a server that keys function metadata by an md5 of the function and skips functions under 32 bytes. Ghidra 12.1.4 (Apache-2.0) has Function ID: a full hash over mnemonics and addressing modes that is "robust against changes due to linking" and a specific hash that adds constant operands, scored per matched instruction, with parent and child functions as tie-breakers; its shipped databases cover Visual Studio libraries only, and you populate your own from your own binaries. Binary Ninja 6.0 Krypton (commercial, with a Free edition) uses WARP (Apache-2.0): the function GUID is a UUIDv5 over the basic block GUIDs, each a UUIDv5 over block bytes after zeroing "all relocatable instructions" and dropping NOPs, with called, caller, and adjacent functions as constraints. BinDiff 8 (Apache-2.0) matches functions between two binaries with a fixed order of steps, from hash matching through flow graph MD indexes to call sequence matching, and weights the similarity from matched edges, blocks, instructions, and the flow graph MD index. Diaphora 3.4.3 (AGPL-3.0, IDA only) adds the small primes product, where each mnemonic maps to a prime and a function is the product, an order-free multiset fingerprint. radare2 6.2.4 (LGPL-3.0) has zignatures (`zg`, `z/`, `zb`) and reads FLIRT `.sig` files with `zfs`; rizin 0.9.1 (LGPL-3.0) creates `.pat` or `.sig` from an open binary with `Fc` and applies one with `Fs`.
+IDA Pro 9.4 phát hành các chữ ký FLIRT theo bộ xử lý và công cụ `sigmake` để dựng chúng; IDA Free chỉ bao quát x86 và x86-64 và dành cho sử dụng phi thương mại. Lumina là một server đặt khóa metadata hàm theo một md5 của hàm và bỏ qua các hàm dưới 32 byte. Ghidra 12.1.4 (Apache-2.0) có Function ID: một hash đầy đủ trên mnemonic và các chế độ định địa chỉ "bền vững trước các thay đổi do liên kết" và một hash cụ thể thêm các toán hạng hằng số, được chấm điểm theo chỉ lệnh khớp, với các hàm cha và con làm tiêu chí phân xử; các cơ sở dữ liệu đi kèm của nó chỉ bao quát các thư viện Visual Studio, và bạn điền bản của riêng bạn từ các binary của riêng bạn. Binary Ninja 6.0 Krypton (thương mại, với một phiên bản Free) sử dụng WARP (Apache-2.0): GUID hàm là một UUIDv5 trên các GUID basic block, mỗi GUID là một UUIDv5 trên các byte khối sau khi đặt không "mọi chỉ lệnh có thể tái định vị" và bỏ NOP, với các hàm được gọi, caller và hàm liền kề làm các ràng buộc. BinDiff 8 (Apache-2.0) khớp các hàm giữa hai binary với một thứ tự bước cố định, từ khớp hash qua các MD index đồ thị luồng đến khớp chuỗi gọi, và tính trọng số độ tương đồng từ các cạnh, khối, chỉ lệnh được khớp và MD index đồ thị luồng. Diaphora 3.4.3 (AGPL-3.0, chỉ IDA) thêm tích các số nguyên tố nhỏ, nơi mỗi mnemonic ánh xạ đến một số nguyên tố và một hàm là tích, một dấu vân tay đa tập không thứ tự. radare2 6.2.4 (LGPL-3.0) có zignature (`zg`, `z/`, `zb`) và đọc các tệp FLIRT `.sig` bằng `zfs`; rizin 0.9.1 (LGPL-3.0) tạo `.pat` hoặc `.sig` từ một binary đang mở bằng `Fc` và áp dụng một chữ ký bằng `Fs`.
 
-IDA and Binary Ninja are closed and are described here from their documentation. radare2 and rizin are not installed on this machine, and their commands are quoted from their books and sources. The tools that ran on these fixtures are `clang`, `ld`, `llvm-objdump`, `otool`, `nm`, `strip`, and `dyld_info` from the Command Line Tools, and LIEF 1.0.0, pyelftools 0.33, and pefile 2024.8.26 through the probe. LIEF read every format here, including the COFF objects, which it has supported since 0.17.0, and reported ten bindings and two rebases on `ledger_main`, the same twelve fixups. pyelftools read the ELF files only. pefile refused `main-x86_64.obj` with `PEFormatError: 'DOS Header magic not found.'` and read the tiny image.
+IDA và Binary Ninja đóng và được mô tả ở đây từ tài liệu của chúng. radare2 và rizin không được cài trên máy này, và các lệnh của chúng được trích từ các sách và nguồn của chúng. Các công cụ đã chạy trên các fixture này là `clang`, `ld`, `llvm-objdump`, `otool`, `nm`, `strip` và `dyld_info` từ Command Line Tools, và LIEF 1.0.0, pyelftools 0.33 và pefile 2024.8.26 qua thăm dò. LIEF đọc mọi định dạng ở đây, bao gồm các object COFF, mà nó hỗ trợ từ 0.17.0, và báo cáo mười binding và hai rebase trên `ledger_main`, cùng mười hai fixup. pyelftools chỉ đọc các tệp ELF. pefile từ chối `main-x86_64.obj` với `PEFormatError: 'DOS Header magic not found.'` và đọc image nhỏ.
 
 ## Build It
 
-Run the demo:
+Chạy demo:
 
 ```bash
 cd phases/13-tools-and-protocols/40-linking-loading-and-stripped-binaries
 python3 code/main.py
 ```
 
-The output is one JSON report with five parts. `elf` holds the relocation counts of the two objects, the link plan, and the dynamic section, PLT, and GOT of `tiny-dyn-x86_64`. `coff` holds the sections, relocations, functions, and undefined names of the two objects. `pe` holds the headers, directories, imports, exports, base relocations, and IAT calls of `tiny-x86_64.exe`. `macho` holds `ledger_main` with its stubs, chained fixups, fixup rows, and exports, the legacy layout of `ledger_main_nochain`, the dylib, and the two strip reports. `identification` holds the truth, the four methods with scores, and the signatures with their collisions, at `-O0` and `-O2`.
+Đầu ra là một báo cáo JSON với năm phần. `elf` chứa các số relocation của hai object, kế hoạch liên kết và dynamic section, PLT, GOT của `tiny-dyn-x86_64`. `coff` chứa các section, relocation, hàm và tên không xác định của hai object. `pe` chứa các header, directory, import, export, base relocation và lần gọi IAT của `tiny-x86_64.exe`. `macho` chứa `ledger_main` với các stub, chained fixup, hàng fixup và export của nó, bố cục cũ của `ledger_main_nochain`, dylib và hai báo cáo strip. `identification` chứa sự thật, bốn phương pháp với điểm số và các chữ ký với các va chạm của chúng, ở `-O0` và `-O2`.
 
-Expected shape:
+Dạng kỳ vọng:
 
 ```json
 {
@@ -299,44 +299,44 @@ Expected shape:
 }
 ```
 
-Read `code/main.py` in this order:
+Đọc `code/main.py` theo thứ tự này:
 
-1. `ElfFile` reads headers, sections, both symbol tables, and relocations, and `dynamic_entries()`, `jump_slots()`, `plt_entries()`, and `plt0()` read the linked image.
-2. `plan_dynamic_link()` applies Table 4.9 and section 5.2 to the relocation records of relocatable objects.
-3. `CoffObject` reads the file header, section table, 18-byte symbols with their auxiliary records, and 10-byte relocations.
-4. `PeImage` reads the MS-DOS stub, PE signature, optional header, data directories, sections, and the import, export, and base relocation directories, and `iat_calls()` decodes `ff 15`.
-5. `MachoFile` reads load commands, segments, `nlist` records, the indirect symbol table, stubs, chained fixups, the exports trie, and object relocations.
-6. `FunctionFinder` runs the four start finders and `score()` compares each with the truth.
-7. `signatures_from_object()` and `match_signatures()` build and apply the FLIRT-shaped signatures.
-8. The `parse_*` functions read the captured tool text that the tests compare against.
+1. `ElfFile` đọc header, section, cả hai bảng symbol và relocation, và `dynamic_entries()`, `jump_slots()`, `plt_entries()` và `plt0()` đọc image đã liên kết.
+2. `plan_dynamic_link()` áp dụng Bảng 4.9 và mục 5.2 cho các bản ghi relocation của các object có thể tái định vị.
+3. `CoffObject` đọc file header, bảng section, các symbol 18 byte với các bản ghi phụ trợ của chúng và các relocation 10 byte.
+4. `PeImage` đọc stub MS-DOS, chữ ký PE, optional header, data directory, section và các directory import, export, base relocation, và `iat_calls()` giải mã `ff 15`.
+5. `MachoFile` đọc load command, segment, bản ghi `nlist`, bảng symbol gián tiếp, stub, chained fixup, exports trie và relocation object.
+6. `FunctionFinder` chạy bốn bộ tìm điểm bắt đầu và `score()` so sánh mỗi bộ với sự thật.
+7. `signatures_from_object()` và `match_signatures()` xây dựng và áp dụng các chữ ký dạng FLIRT.
+8. Các hàm `parse_*` đọc văn bản công cụ đã thu mà các bài kiểm tra so sánh đối chiếu.
 
-More commands: `python3 code/main.py elf FILE`, `coff FILE`, `pe FILE`, and `macho FILE` print one report. `python3 code/main.py plan OBJECT...` prints the link plan for any set of ELF objects. `python3 code/main.py functions STRIPPED UNSTRIPPED OBJECT...` scores the finders and the signatures on another pair of your own builds.
+Thêm các lệnh: `python3 code/main.py elf FILE`, `coff FILE`, `pe FILE` và `macho FILE` in một báo cáo. `python3 code/main.py plan OBJECT...` in kế hoạch liên kết cho bất kỳ tập object ELF nào. `python3 code/main.py functions STRIPPED UNSTRIPPED OBJECT...` chấm điểm các bộ tìm và các chữ ký trên một cặp bản build khác của riêng bạn.
 
 ## Use It
 
-Use the readers in this order on a program you built.
+Sử dụng các trình đọc theo thứ tự này trên một chương trình bạn đã dựng.
 
-1. Read the headers and name the format and the kind: relocatable object, executable, or shared library. The reader refuses what it does not know, and that refusal is information.
-2. List the imports with their providers: `DT_NEEDED` and `.dynsym`, the import directory, or the chained imports table and `LC_LOAD_DYLIB`. Every call to a name on that list leaves the image.
-3. Follow one call by hand to its slot. Write down the call bytes, the stub or PLT bytes, the slot address, the word in the file, and what the loader writes there. If the word in the file looks like garbage, decode it as a fixup before you call it garbage.
-4. Compare the symbol table with the exports and the function starts. Names the loader needs survive `strip`. Names only a debugger needs do not. Say which group a missing name belonged to.
-5. In a stripped build, run the finders you can run and score them against the unstripped twin while you still have one. Prefer the tables the link editor wrote, `LC_FUNCTION_STARTS`, `.pdata`, or `.eh_frame`, over byte patterns, and use call targets to fill gaps.
-6. Build signatures from your own objects and apply them. Record every collision and the byte that split it. A name that two signatures claimed is an unknown until the tail or a referenced name decides it.
+1. Đọc các header và nêu tên định dạng và loại: object có thể tái định vị, executable hoặc thư viện dùng chung. Trình đọc từ chối những gì nó không biết, và sự từ chối đó là thông tin.
+2. Liệt kê các import với provider của chúng: `DT_NEEDED` và `.dynsym`, import directory hoặc bảng chained import và `LC_LOAD_DYLIB`. Mọi lần gọi đến một tên trên danh sách đó rời image.
+3. Đi theo một lần gọi bằng tay đến slot của nó. Viết ra các byte gọi, các byte stub hoặc PLT, địa chỉ slot, word trong tệp và điều loader ghi ở đó. Nếu word trong tệp trông như rác, giải mã nó như một fixup trước khi gọi nó là rác.
+4. So sánh bảng symbol với các export và các điểm bắt đầu hàm. Các tên mà loader cần sống sót qua `strip`. Các tên mà chỉ debugger cần thì không. Nói một tên thiếu thuộc nhóm nào.
+5. Trong một bản build đã strip, chạy các bộ tìm bạn có thể chạy và chấm điểm chúng với bản song sinh chưa strip trong khi bạn vẫn có một bản. Ưu tiên các bảng mà link editor viết, `LC_FUNCTION_STARTS`, `.pdata` hoặc `.eh_frame`, hơn các mẫu byte, và sử dụng các đích gọi để lấp các khoảng trống.
+6. Xây dựng các chữ ký từ các object của riêng bạn và áp dụng chúng. Ghi mọi va chạm và byte tách nó. Một tên mà hai chữ ký nhận là một điều chưa biết cho đến khi đuôi hoặc một tên được tham chiếu quyết định nó.
 
-Keep the captured tool text with the files. When the toolchain changes, recapture, because a changed listing is a changed fixture.
+Giữ văn bản công cụ đã thu cùng các tệp. Khi toolchain thay đổi, thu lại, vì một danh sách thay đổi là một fixture thay đổi.
 
 ## Interactive Lab
 
 ### Lab A: the PLT by hand
 
-From the `code` directory, open Python:
+Từ thư mục `code`, mở Python:
 
 ```bash
 cd phases/13-tools-and-protocols/40-linking-loading-and-stripped-binaries/code
 python3 -q
 ```
 
-Run:
+Chạy:
 
 ```python
 from main import *
@@ -347,7 +347,7 @@ elf.plt0()
 [hex(w) for w in elf.got_plt_words()]
 ```
 
-Before each call, compute the answer from the bytes in the text above. Then change `IMPORTS` in `build_tiny_dyn_elf.py` to three names, rebuild, and predict the new sizes of `.plt`, `.got.plt`, and `.rela.plt` before you read them.
+Trước mỗi lần gọi, tính câu trả lời từ các byte trong văn bản ở trên. Rồi thay `IMPORTS` trong `build_tiny_dyn_elf.py` thành ba tên, dựng lại và dự đoán các kích thước mới của `.plt`, `.got.plt` và `.rela.plt` trước khi đọc chúng.
 
 ### Lab B: one chained fixup
 
@@ -360,11 +360,11 @@ hex(raw), raw >> 63, (raw >> 51) & 0xfff, raw & 0xffffff
 [(i.index, i.name, i.library) for i in exe.chained_fixups()["imports"]]
 ```
 
-Decode the bind word on paper first: the bind bit, the `next` field in units of four bytes, the ordinal. Then read the word eight bytes further and confirm it is the next fixup. Then read the last word of the chain at `0x100004058` and explain why its `next` is zero.
+Giải mã word bind trên giấy trước: bit bind, trường `next` theo đơn vị bốn byte, ordinal. Rồi đọc word cách tám byte và xác nhận nó là fixup tiếp theo. Rồi đọc word cuối của chuỗi tại `0x100004058` và giải thích vì sao `next` của nó bằng không.
 
 ### Lab C: strip and relink
 
-In the fixtures directory, link a fresh program against the fully stripped dylib:
+Trong thư mục fixture, liên kết một chương trình mới với dylib đã strip hoàn toàn:
 
 ```bash
 cd phases/13-tools-and-protocols/40-linking-loading-and-stripped-binaries/code/fixtures
@@ -373,7 +373,7 @@ nm /tmp/relinked | grep ' U '
 dyld_info -exports libledger.stripped.dylib
 ```
 
-The link succeeds with a library whose `LC_SYMTAB` is empty, because the link editor reads the exports trie. Then run `python3 ../main.py macho libledger.stripped.dylib` and compare `symtab`, `exports`, and `functionStarts`. Then strip the static build with `-N` instead and see what `dyld_info -function_starts` still prints.
+Liên kết thành công với một thư viện có `LC_SYMTAB` rỗng, vì link editor đọc exports trie. Rồi chạy `python3 ../main.py macho libledger.stripped.dylib` và so sánh `symtab`, `exports` và `functionStarts`. Rồi thay vào đó strip bản build tĩnh bằng `-N` và thấy điều `dyld_info -function_starts` vẫn in.
 
 ### Lab D: the collision
 
@@ -386,28 +386,28 @@ starts = FunctionFinder(stripped).function_starts()
 match_signatures(sigs, stripped, starts)
 ```
 
-Read the two collision records. Then build the signatures from `ledger-arm64-O0.o`, match them against `static-arm64-O0.stripped`, and explain from the `.pat` lines why no collision occurs at `-O0`. Then shorten `PATTERN_LENGTH` to 16 and count how many functions collide.
+Đọc hai bản ghi va chạm. Rồi xây dựng các chữ ký từ `ledger-arm64-O0.o`, khớp chúng với `static-arm64-O0.stripped` và giải thích từ các dòng `.pat` vì sao không có va chạm xảy ra ở `-O0`. Rồi rút `PATTERN_LENGTH` xuống 16 và đếm bao nhiêu hàm va chạm.
 
 ## Practice Lab
 
-Decode the legacy binding tables and add the PE finder.
+Giải mã các bảng binding cũ và thêm bộ tìm PE.
 
-Requirements:
+Yêu cầu:
 
-- Decode the `LC_DYLD_INFO_ONLY` rebase, bind, and lazy bind opcode streams of `ledger_main_nochain` into rows with segment, section, address, type, and target, and make them equal the 21 rows in the captured `dyld_info -fixups` text.
-- Add a `PT_GNU_RELRO` program header and a `DT_FLAGS` with `DF_BIND_NOW` to `build_tiny_dyn_elf.py`, move `.got.plt` inside the covered range, and make `llvm-objdump -p` show the new header. Say in the fixtures README which part of full RELRO this reproduces and which part only glibc can perform.
-- Write a `.pdata` reader for a PE32+ image and a function finder that uses `RUNTIME_FUNCTION` begin addresses. Build an object with `clang -target x86_64-pc-windows-msvc -c` without `-fno-asynchronous-unwind-tables`, read its `.pdata` relocations, and state which of its functions are leaf functions that the table omits.
-- Write a test for each reader that compares with captured tool text.
+- Giải mã các luồng opcode rebase, bind và lazy bind `LC_DYLD_INFO_ONLY` của `ledger_main_nochain` thành các hàng với segment, section, địa chỉ, type và đích, và làm chúng bằng 21 hàng trong văn bản `dyld_info -fixups` đã thu.
+- Thêm một program header `PT_GNU_RELRO` và một `DT_FLAGS` với `DF_BIND_NOW` vào `build_tiny_dyn_elf.py`, chuyển `.got.plt` vào trong phạm vi được bao phủ và làm `llvm-objdump -p` hiển thị header mới. Nói trong README fixture phần nào của full RELRO mà điều này tái tạo và phần nào chỉ glibc có thể thực hiện.
+- Viết một trình đọc `.pdata` cho một image PE32+ và một bộ tìm hàm sử dụng các địa chỉ bắt đầu `RUNTIME_FUNCTION`. Dựng một object bằng `clang -target x86_64-pc-windows-msvc -c` không có `-fno-asynchronous-unwind-tables`, đọc các relocation `.pdata` của nó và nêu những hàm nào của nó là các hàm leaf mà bảng bỏ qua.
+- Viết một bài kiểm tra cho mỗi trình đọc so sánh với văn bản công cụ đã thu.
 
-Success means `python3 code/main.py macho ledger_main_nochain` prints the same 21 fixup rows that `dyld_info` prints, the tiny ELF carries a `PT_GNU_RELRO` that `llvm-objdump` lists, and the `.pdata` finder names the functions it can and lists the leaf functions it cannot.
+Thành công nghĩa là `python3 code/main.py macho ledger_main_nochain` in cùng 21 hàng fixup mà `dyld_info` in, ELF nhỏ mang một `PT_GNU_RELRO` mà `llvm-objdump` liệt kê, và bộ tìm `.pdata` nêu tên các hàm nó có thể và liệt kê các hàm leaf nó không thể.
 
 ## Lesson Artifact
 
-This lesson includes `outputs/skill-linking-loading-and-stripped-binaries.md`. Use it to turn a program you built into a list of its imports with their providers, one call traced to the slot the loader fills, a statement of what `strip` removed and what survived, and a scored recovery of function starts and names in a stripped build. It requires the unstripped twin as ground truth, a captured tool listing for every claim, and a record of every collision.
+Bài học này bao gồm `outputs/skill-linking-loading-and-stripped-binaries.md`. Sử dụng nó để biến một chương trình bạn đã dựng thành một danh sách các import với provider của chúng, một lần gọi được truy vết đến slot mà loader điền, một phát biểu về điều `strip` loại bỏ và điều sống sót, và một khôi phục có chấm điểm các điểm bắt đầu hàm cùng tên trong một bản build đã strip. Nó yêu cầu bản song sinh chưa strip làm ground truth, một danh sách công cụ đã thu cho mọi khẳng định và một bản ghi của mọi va chạm.
 
 ## Verify It
 
-Run the demo and the deterministic suite:
+Chạy demo và bộ kiểm tra tất định:
 
 ```bash
 cd phases/13-tools-and-protocols/40-linking-loading-and-stripped-binaries
@@ -415,57 +415,57 @@ python3 code/main.py
 python3 code/tests/test_main.py
 ```
 
-Verification should prove:
+Xác minh nên chứng minh:
 
-- the dynamic section of `tiny-dyn-x86_64` matches `llvm-objdump -p` tag for tag, and `DT_FLAGS_1` carries `DF_1_PIE`
-- the two `R_X86_64_JUMP_SLOT` records match `llvm-objdump -R` and name `puts` and `exit`
-- PLT0 pushes GOT+8 and jumps through GOT+16, each entry reads its slot and pushes its index, and each slot holds the address of its own `pushq`
-- the sections and program headers of the tiny ELF match `llvm-objdump -h -p`
-- the relocation records of the two ELF objects match `llvm-objdump -r`
-- the link plan finds two PLT symbols, four direct calls, two relative relocations, and the sizes of the tiny image
-- the COFF section table, 37 symbol records with auxiliary records, and relocations match `llvm-objdump -h -t -r`, and `/16` resolves to `.llvm_addrsig`
-- the three COFF `REL32` records of `ledger` sit at the three ELF `PC32` offsets
-- the PE headers, `DllCharacteristics`, and data directories match `llvm-objdump -p`
-- the import directory, hint/name entries, and IAT match `llvm-objdump` and `pefile`, and the IAT equals the lookup table before binding
-- the export directory and the `DIR64` base relocation decode, and the relocated pointer names the string "linked by hand"
-- `ff 15` at RVA `0x100b` resolves to the IAT slot of `puts`
-- Mach-O flags, the 19 load command names, and the two libraries match `otool`
-- the seven stubs decode to the eight `__got` slots and the indirect symbol table matches `otool -Iv`
-- the chained fixups header matches `llvm-objdump --macho --chained-fixups`
-- the chain walk reproduces all twelve raw words of `dyld_info -fixup_chain_details`
-- the fixup rows and the imports table match `dyld_info -fixups` and `-imports`
-- the exports trie matches `dyld_info -exports` for the dylib and for its stripped copy
-- `nm_lines()` equals `nm -m` for the executable and its stripped copy
-- `strip` removed `_main`, `_fns`, and `_names`, kept nine names and one `radr://5614542` stab, and the stripped program prints the same output
-- the legacy layout has `LC_DYLD_INFO_ONLY`, seven lazy pointers, and rebases into `__stub_helper`
-- arm64 object relocations match `llvm-objdump -r`
-- `LC_FUNCTION_STARTS` recovers five of five at both levels and equals `nm` and `dyld_info -function_starts`
-- the `sub sp` scan finds five of five at `-O0` and one of five at `-O2`, and the `stp` frame scan finds none
-- `bl` targets plus the `LC_MAIN` entry recover five of five
-- the signatures name all five functions at both levels and record the `grade` collision split by byte 44
-- the CRC16 of "123456789" is `0x6e90`, and the eight bytes under the GOT-load pair of `main` are variant
-- every non-variant object byte equals the linked byte
-- the demo and the figure data report the same addresses, and the site module embeds the same data in ES5
+- dynamic section của `tiny-dyn-x86_64` khớp `llvm-objdump -p` từng tag, và `DT_FLAGS_1` mang `DF_1_PIE`
+- hai bản ghi `R_X86_64_JUMP_SLOT` khớp `llvm-objdump -R` và nêu tên `puts` và `exit`
+- PLT0 đẩy GOT+8 và nhảy qua GOT+16, mỗi mục đọc slot của nó và đẩy chỉ số của nó, và mỗi slot chứa địa chỉ `pushq` riêng của nó
+- các section và program header của ELF nhỏ khớp `llvm-objdump -h -p`
+- các bản ghi relocation của hai object ELF khớp `llvm-objdump -r`
+- kế hoạch liên kết tìm hai symbol PLT, bốn lần gọi trực tiếp, hai relocation tương đối và các kích thước của image nhỏ
+- bảng section COFF, 37 bản ghi symbol với các bản ghi phụ trợ và các relocation khớp `llvm-objdump -h -t -r`, và `/16` phân giải thành `.llvm_addrsig`
+- ba bản ghi COFF `REL32` của `ledger` nằm tại ba offset ELF `PC32`
+- các header PE, `DllCharacteristics` và các data directory khớp `llvm-objdump -p`
+- import directory, các mục hint/name và IAT khớp `llvm-objdump` và `pefile`, và IAT bằng lookup table trước binding
+- export directory và base relocation `DIR64` giải mã được, và con trỏ được tái định vị nêu tên chuỗi "linked by hand"
+- `ff 15` tại RVA `0x100b` phân giải đến slot IAT của `puts`
+- các cờ Mach-O, 19 tên load command và hai thư viện khớp `otool`
+- bảy stub giải mã thành tám slot `__got` và bảng symbol gián tiếp khớp `otool -Iv`
+- header chained fixup khớp `llvm-objdump --macho --chained-fixups`
+- phép duyệt chuỗi tái tạo cả mười hai word thô của `dyld_info -fixup_chain_details`
+- các hàng fixup và bảng import khớp `dyld_info -fixups` và `-imports`
+- exports trie khớp `dyld_info -exports` cho dylib và cho bản sao đã strip của nó
+- `nm_lines()` bằng `nm -m` cho executable và bản sao đã strip của nó
+- `strip` loại `_main`, `_fns` và `_names`, giữ chín tên và một stab `radr://5614542`, và chương trình đã strip in cùng đầu ra
+- bố cục cũ có `LC_DYLD_INFO_ONLY`, bảy con trỏ lazy và các rebase vào `__stub_helper`
+- các relocation object arm64 khớp `llvm-objdump -r`
+- `LC_FUNCTION_STARTS` khôi phục năm trên năm ở cả hai mức và bằng `nm` cùng `dyld_info -function_starts`
+- phép quét `sub sp` tìm năm trên năm ở `-O0` và một trên năm ở `-O2`, và phép quét khung `stp` không tìm gì
+- các đích `bl` cộng điểm vào `LC_MAIN` khôi phục năm trên năm
+- các chữ ký đặt tên cả năm hàm ở cả hai mức và ghi va chạm `grade` được tách bằng byte 44
+- CRC16 của "123456789" là `0x6e90`, và tám byte dưới cặp tải GOT của `main` là biến thể
+- mọi byte object không biến thể bằng byte đã liên kết
+- demo và dữ liệu hình báo cáo cùng các địa chỉ, và mô-đun site nhúng cùng dữ liệu trong ES5
 
 ## Production Failure Modes
 
-| Failure | What the weak tool reports | What the analysis must prove |
+| Lỗi | Công cụ yếu báo cáo gì | Phân tích phải chứng minh gì |
 |---|---|---|
-| A `bl` or `call` lands in a stub | "calls an unnamed function at 0x694" | the stub bytes, the slot it loads, and the import the slot binds |
-| A GOT word read from the file | "corrupt pointer 0x8010000000000007" | bit 63 is bind, `next` is 2, ordinal 7 is `_puts` from library 2 |
-| `PLT32` in an object | "every call goes through the PLT" | defined symbols are reduced to a direct distance, only undefined ones get an entry |
-| Partial RELRO read as full | "GOT is read-only" | `.got.plt` slots after the three reserved ones sit outside `PT_GNU_RELRO` without `-z now` |
-| COFF `REL32` compared with ELF `PC32` | "the Windows build has different relocations" | same offsets, the `-4` lives in the ELF addend and in the COFF field |
-| IAT read before load | "imports point at strings" | the IAT equals the lookup table until the loader binds, and the strings are hint/name entries |
-| A stripped dylib | "no symbols, nothing exported" | the exports trie and `LC_FUNCTION_STARTS` list every function |
-| `nm` on a stripped executable | "one function" | `LC_FUNCTION_STARTS` lists five starts, nine bytes long |
-| A prologue scan at `-O2` | "one function" | four leaf functions have no frame, call targets and the starts table find them |
-| Two functions share 36 bytes | "grade_label is grade" | the tail byte at 44 and the lengths 60 and 72 split the collision |
-| A tool run on another machine's build | the numbers in this text | recapture every listing from your own fixtures |
+| Một `bl` hoặc `call` đến một stub | "gọi một hàm không tên tại 0x694" | các byte stub, slot nó tải và import mà slot bind |
+| Một word GOT đọc từ tệp | "con trỏ hỏng 0x8010000000000007" | bit 63 là bind, `next` là 2, ordinal 7 là `_puts` từ thư viện 2 |
+| `PLT32` trong một object | "mọi lần gọi đi qua PLT" | các symbol được định nghĩa được rút về một khoảng cách trực tiếp, chỉ các symbol không xác định có một mục |
+| Partial RELRO được đọc như full | "GOT chỉ đọc" | các slot `.got.plt` sau ba slot dành riêng nằm ngoài `PT_GNU_RELRO` khi không có `-z now` |
+| COFF `REL32` được so sánh với ELF `PC32` | "bản build Windows có các relocation khác" | cùng các offset, `-4` nằm trong addend ELF và trong trường COFF |
+| IAT được đọc trước khi tải | "các import trỏ đến chuỗi" | IAT bằng lookup table cho đến khi loader bind, và các chuỗi là các mục hint/name |
+| Một dylib đã strip | "không symbol, không gì được export" | exports trie và `LC_FUNCTION_STARTS` liệt kê mọi hàm |
+| `nm` trên một executable đã strip | "một hàm" | `LC_FUNCTION_STARTS` liệt kê năm điểm bắt đầu, dài chín byte |
+| Một phép quét prologue ở `-O2` | "một hàm" | bốn hàm leaf không có khung, các đích gọi và bảng điểm bắt đầu tìm chúng |
+| Hai hàm chia sẻ 36 byte | "grade_label là grade" | byte đuôi tại 44 và các độ dài 60 và 72 tách va chạm |
+| Một công cụ chạy trên bản build của máy khác | các con số trong văn bản này | thu lại mọi danh sách từ các fixture của riêng bạn |
 
 ## Operational Rule
 
-Follow every external call from the call site to the slot the loader fills, and decode the word in that slot as the format defines it before you call it an address. Strip only after you have recorded what the loader still needs. Recover function starts from the tables the link editor wrote before you scan for bytes, score every finder against a twin with symbols, and record each signature collision with the byte that split it.
+Đi theo mọi lần gọi bên ngoài từ điểm gọi đến slot mà loader điền, và giải mã word trong slot đó như định dạng định nghĩa nó trước khi gọi nó là một địa chỉ. Chỉ strip sau khi bạn đã ghi những gì loader vẫn cần. Khôi phục các điểm bắt đầu hàm từ các bảng mà link editor viết trước khi bạn quét các byte, chấm điểm mọi bộ tìm với một bản song sinh có symbol và ghi mỗi va chạm chữ ký với byte đã tách nó.
 
 ## Further Reading
 
@@ -475,21 +475,21 @@ Follow every external call from the call site to the slot the loader fills, and 
 - [Drepper, "ELF Symbol Versioning"](https://akkadia.org/drepper/symbol-versioning)
 - [Jelinek, "Little hardening DSOs/executables against exploits", binutils list, 2004-01-06](https://www.sourceware.org/ml/binutils/2004-01/msg00070.html)
 - [Taylor, "Linker relro", 2008](https://www.airs.com/blog/archives/189)
-- [binutils commit bd7ab16b: PLT32 for calls, 2018-02-13](https://gnu.googlesource.com/binutils-gdb/+/bd7ab16b4537788ad53521c45469a1bdae84ad4a) and [LLVM D43383](https://reviews.llvm.org/D43383)
-- [GNU Binutils: strip](https://sourceware.org/binutils/docs/binutils/strip.html) and [llvm-objcopy](https://llvm.org/docs/CommandGuide/llvm-objcopy.html)
+- [Commit binutils bd7ab16b: PLT32 cho các lần gọi, 2018-02-13](https://gnu.googlesource.com/binutils-gdb/+/bd7ab16b4537788ad53521c45469a1bdae84ad4a) và [LLVM D43383](https://reviews.llvm.org/D43383)
+- [GNU Binutils: strip](https://sourceware.org/binutils/docs/binutils/strip.html) và [llvm-objcopy](https://llvm.org/docs/CommandGuide/llvm-objcopy.html)
 - [Microsoft, PE Format](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format)
 - [CALL instruction reference, FF /2](https://www.felixcloutier.com/x86/call)
-- [Apple, mach-o/loader.h](https://github.com/apple-oss-distributions/xnu/blob/main/EXTERNAL_HEADERS/mach-o/loader.h) and [mach-o/nlist.h](https://github.com/apple-oss-distributions/xnu/blob/main/EXTERNAL_HEADERS/mach-o/nlist.h)
+- [Apple, mach-o/loader.h](https://github.com/apple-oss-distributions/xnu/blob/main/EXTERNAL_HEADERS/mach-o/loader.h) và [mach-o/nlist.h](https://github.com/apple-oss-distributions/xnu/blob/main/EXTERNAL_HEADERS/mach-o/nlist.h)
 - [Apple dyld, mach-o/fixup-chains.h](https://github.com/apple-oss-distributions/dyld/blob/main/include/mach-o/fixup-chains.h)
 - [Apple ld64, stub_arm64.hpp](https://github.com/apple-oss-distributions/ld64/blob/main/src/ld/passes/stubs/stub_arm64.hpp)
-- [Xcode 13 release notes: chained fixups](https://developer.apple.com/documentation/xcode-release-notes/xcode-13-release-notes) and [WWDC22 session 110362, "Link fast: Improve build and launch times"](https://developer.apple.com/videos/play/wwdc2022/110362/)
-- [strip(1)](https://keith.github.io/xcode-man-pages/strip.1.html), [ld(1)](https://keith.github.io/xcode-man-pages/ld.1.html), and [dyld(1)](https://keith.github.io/xcode-man-pages/dyld.1.html)
-- [Hex-Rays, IDA F.L.I.R.T. Technology: In-Depth](https://docs.hex-rays.com/core/flirt/concepts/ida-f.l.i.r.t.-technology-in-depth) and [Lumina overview](https://docs.hex-rays.com/add-ons/lumina/overview)
-- [Ghidra Function ID help](https://github.com/NationalSecurityAgency/ghidra/blob/master/Ghidra/Features/FunctionID/src/main/help/help/topics/FunctionID/FunctionID.html) and [AARCH64 function start patterns](https://github.com/NationalSecurityAgency/ghidra/blob/master/Ghidra/Processors/AARCH64/data/patterns/AARCH64_LE_patterns.xml)
-- [Vector 35, WARP](https://github.com/Vector35/warp) and [Binary Ninja WARP guide](https://docs.binary.ninja/guide/warp.html)
-- [BinDiff manual](https://www.zynamics.com/bindiff/manual/) and [BinDiff source](https://github.com/google/bindiff)
+- [Ghi chú phát hành Xcode 13: chained fixup](https://developer.apple.com/documentation/xcode-release-notes/xcode-13-release-notes) và [phiên WWDC22 110362, "Link fast: Improve build and launch times"](https://developer.apple.com/videos/play/wwdc2022/110362/)
+- [strip(1)](https://keith.github.io/xcode-man-pages/strip.1.html), [ld(1)](https://keith.github.io/xcode-man-pages/ld.1.html) và [dyld(1)](https://keith.github.io/xcode-man-pages/dyld.1.html)
+- [Hex-Rays, IDA F.L.I.R.T. Technology: In-Depth](https://docs.hex-rays.com/core/flirt/concepts/ida-f.l.i.r.t.-technology-in-depth) và [Tổng quan Lumina](https://docs.hex-rays.com/add-ons/lumina/overview)
+- [Trợ giúp Ghidra Function ID](https://github.com/NationalSecurityAgency/ghidra/blob/master/Ghidra/Features/FunctionID/src/main/help/help/topics/FunctionID/FunctionID.html) và [các mẫu điểm bắt đầu hàm AARCH64](https://github.com/NationalSecurityAgency/ghidra/blob/master/Ghidra/Processors/AARCH64/data/patterns/AARCH64_LE_patterns.xml)
+- [Vector 35, WARP](https://github.com/Vector35/warp) và [hướng dẫn Binary Ninja WARP](https://docs.binary.ninja/guide/warp.html)
+- [Sổ tay BinDiff](https://www.zynamics.com/bindiff/manual/) và [nguồn BinDiff](https://github.com/google/bindiff)
 - [Diaphora](https://github.com/joxeankoret/diaphora)
-- [rizin pat.c, the .pat parser](https://github.com/rizinorg/rizin/blob/dev/librz/sign/pat.c), [radare2 flirt.c](https://github.com/radareorg/radare2/blob/master/libr/anal/flirt.c), and [radare2 book: Zignatures](https://book.rada.re/signatures/zignatures.html)
-- [Andriesse et al., "An In-Depth Analysis of Disassembly on Full-Scale x86/x64 Binaries" (USENIX Security 2016)](https://www.usenix.org/conference/usenixsecurity16/technical-sessions/presentation/andriesse) and [Andriesse, Slowinska, Bos, "Compiler-Agnostic Function Detection in Binaries" (EuroS&P 2017)](https://danielandriesse.com/papers/eurosp-2017.pdf)
-- [Bao et al., ByteWeight (USENIX Security 2014)](https://www.usenix.org/conference/usenixsecurity14/technical-sessions/presentation/bao) and [Shin, Song, Moazzezi, "Recognizing Functions in Binaries with Neural Networks" (USENIX Security 2015)](https://www.usenix.org/conference/usenixsecurity15/technical-sessions/presentation/shin)
-- [LIEF changelog](https://lief.re/doc/latest/changelog.html), [pyelftools](https://github.com/eliben/pyelftools), and [pefile](https://github.com/erocarrera/pefile)
+- [rizin pat.c, parser .pat](https://github.com/rizinorg/rizin/blob/dev/librz/sign/pat.c), [radare2 flirt.c](https://github.com/radareorg/radare2/blob/master/libr/anal/flirt.c) và [sách radare2: Zignatures](https://book.rada.re/signatures/zignatures.html)
+- [Andriesse et al., "An In-Depth Analysis of Disassembly on Full-Scale x86/x64 Binaries" (USENIX Security 2016)](https://www.usenix.org/conference/usenixsecurity16/technical-sessions/presentation/andriesse) và [Andriesse, Slowinska, Bos, "Compiler-Agnostic Function Detection in Binaries" (EuroS&P 2017)](https://danielandriesse.com/papers/eurosp-2017.pdf)
+- [Bao et al., ByteWeight (USENIX Security 2014)](https://www.usenix.org/conference/usenixsecurity14/technical-sessions/presentation/bao) và [Shin, Song, Moazzezi, "Recognizing Functions in Binaries with Neural Networks" (USENIX Security 2015)](https://www.usenix.org/conference/usenixsecurity15/technical-sessions/presentation/shin)
+- [Nhật ký thay đổi LIEF](https://lief.re/doc/latest/changelog.html), [pyelftools](https://github.com/eliben/pyelftools) và [pefile](https://github.com/erocarrera/pefile)

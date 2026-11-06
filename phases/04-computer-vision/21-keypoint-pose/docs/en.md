@@ -50,8 +50,8 @@ Từ trên xuống (HRNet, ViTPose) dẫn đầu accuracy; từ dưới lên (Op
 
 Thay vì hồi quy `(x, y)` trực tiếp, dự đoán một bản đồ nhiệt `H x W` mỗi điểm với đốm Gaussian đặt tâm tại vị trí thật.
 
-```
-target[k, y, x] = exp(-((x - cx_k)^2 + (y - cy_k)^2) / (2 sigma^2))
+```math
+\text{target}[k, y, x] = \exp\left(-\frac{(x - \mathit{cx}_k)^2 + (y - \mathit{cy}_k)^2}{2 \sigma^2}\right)
 ```
 
 Khi suy luận, argmax của mỗi bản đồ nhiệt là vị trí điểm đặc trưng dự đoán.
@@ -60,7 +60,7 @@ Tại sao bản đồ nhiệt hoạt động tốt hơn hồi quy trực tiếp:
 
 ### Sub-pixel localisation
 
-Argmax cho tọa độ nguyên. Để có độ chính xác dưới pixel, tinh chỉnh bằng cách khớp một parabol với argmax và các láng giềng, hoặc dùng hướng độ lệch quen thuộc `(dx, dy) = 0.25 * (heatmap[y, x+1] - heatmap[y, x-1], ...)`.
+Argmax cho các tọa độ nguyên. Để đạt độ chính xác dưới pixel, tinh chỉnh bằng cách khớp một parabol với argmax và các láng giềng của nó, hoặc dịch argmax về phía láng giềng cao hơn bằng `dx = 0.25 * (heatmap[y, x+1] - heatmap[y, x-1])` và tương tự cho `dy`, như mã thực hiện.
 
 ### Part Affinity Fields (PAFs)
 

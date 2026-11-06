@@ -1,63 +1,63 @@
 ---
 name: bytecode-and-managed-formats
-description: Read a .pyc, a JVM class file, a .NET assembly, or a WebAssembly module from its header to its instructions, check the reading against the format's own tool, and report which names, types, and control structure the container keeps.
+description: Đọc một .pyc, một tệp class JVM, một assembly .NET, hoặc một mô-đun WebAssembly từ header đến các lệnh của nó, kiểm tra việc đọc với công cụ riêng của định dạng, và báo cáo container giữ những tên, kiểu, và cấu trúc điều khiển nào.
 version: 1.0.0
 phase: 13
 lesson: 43
 tags: [reverse-engineering, bytecode, cpython, pyc, jvm, class-file, ecma-335, cil, webassembly, metadata]
 ---
 
-Given a bytecode container that you built yourself, produce a header report, a listing of one function, and a table of what the container stores beside the instructions. Use this skill with Claude, Cursor, Codex, OpenClaw, Hermes, or any agent that reads SKILL.md.
+Với một container bytecode do chính bạn dựng, hãy tạo một báo cáo header, một bản liệt kê của một hàm, và một bảng những gì container lưu bên cạnh các lệnh. Dùng skill này với Claude, Cursor, Codex, OpenClaw, Hermes, hoặc bất kỳ agent nào đọc SKILL.md.
 
 ## Required inputs
 
-- The bytecode file and the exact compiler, interpreter, or assembler version and command that produced it.
-- The source it was built from, kept beside it.
-- A reference listing from the format's own tool captured from the same file: `python3.N -m dis` for a pyc, `javap -c -p` for a class file, `wasm-objdump -h -x -d` for a module, a System.Reflection.Metadata dump or `ilspycmd -il` for an assembly.
-- The readers from lesson 43 (`code/main.py`) or equivalents that raise on an unknown type code, opcode, or table.
-- The function to report on.
+- Tệp bytecode và phiên bản cùng lệnh chính xác của trình biên dịch, trình thông dịch, hoặc assembler đã tạo ra nó.
+- Mã nguồn mà nó được dựng từ, được giữ cạnh nó.
+- Một bản liệt kê tham chiếu từ công cụ riêng của định dạng được thu lại từ cùng tệp: `python3.N -m dis` cho một pyc, `javap -c -p` cho một tệp class, `wasm-objdump -h -x -d` cho một mô-đun, một bản dump System.Reflection.Metadata hoặc `ilspycmd -il` cho một assembly.
+- Các bộ đọc từ bài 43 (`code/main.py`) hoặc các bản tương đương phát sinh ngoại lệ khi gặp một mã kiểu, opcode, hoặc bảng không biết.
+- Hàm cần báo cáo.
 
 ## Procedure
 
-1. Identify the container from its first bytes: two bytes then `0d 0a` is a pyc, `ca fe ba be` is a class file, `00 61 73 6d` is a Wasm module, `4d 5a` with data directory 14 set is a .NET assembly. Stop if none match.
-2. Read the header and write down the version facts: pyc magic word and flags, class major and minor version, Wasm binary version, CLI runtime version and metadata version string. Name the producer version that those facts allow.
-3. Read the whole container with the reader. A pyc gives the module code object and its nested code objects. A class file gives the constant pool, fields, methods, and attributes. A module gives its sections, types, imports, exports, code bodies, data, and any name section. An assembly gives the streams, the table row counts, the TypeDef, MethodDef, Param, and Field rows, and the method bodies.
-4. Disassemble the chosen function. For a pyc, use `dis` only when the running interpreter wrote the file, otherwise use the captured listing from the matching interpreter. For the other three, use the reader's disassembler.
-5. Compare the listing with the reference by offset, bytes, and mnemonic. Stop and fix the reader on the first mismatch. Record the count that agreed.
-6. Fill the facts table for the function: function name, parameter names, parameter types, return type, local names, line numbers, body size, and the control-flow shape (jumps, switch instruction, nested blocks).
-7. Write down which facts the container lost and where they would have lived: the PDB for .NET local names, the name custom section for Wasm names, `javac -g` for JVM local names, DWARF for native code.
-8. Before running any decompiler, check that its documented version ceiling covers the header version from step 2. Record the ceiling and the source of that claim.
+1. Nhận diện container từ các byte đầu của nó: hai byte rồi `0d 0a` là một pyc, `ca fe ba be` là một tệp class, `00 61 73 6d` là một mô-đun Wasm, `4d 5a` với thư mục dữ liệu 14 được đặt là một assembly .NET. Dừng nếu không có gì khớp.
+2. Đọc header và viết ra các thông tin phiên bản: word magic và các cờ pyc, phiên bản major và minor class, phiên bản nhị phân Wasm, phiên bản runtime CLI và chuỗi phiên bản metadata. Nêu phiên bản bên tạo mà những thông tin đó cho phép.
+3. Đọc toàn bộ container bằng bộ đọc. Một pyc cho đối tượng mã mô-đun và các đối tượng mã lồng nhau của nó. Một tệp class cho constant pool, các trường, phương thức, và thuộc tính. Một mô-đun cho các section, kiểu, import, export, thân mã, dữ liệu, và bất kỳ section name nào của nó. Một assembly cho các stream, các số hàng bảng, các hàng TypeDef, MethodDef, Param, và Field, và các thân phương thức.
+4. Disassemble hàm đã chọn. Với một pyc, chỉ dùng `dis` khi trình thông dịch đang chạy đã viết tệp, nếu không dùng bản liệt kê đã thu lại từ trình thông dịch tương ứng. Với ba loại còn lại, dùng trình disassemble của bộ đọc.
+5. So sánh bản liệt kê với bản tham chiếu theo độ lệch, byte, và mnemonic. Dừng và sửa bộ đọc tại điểm không khớp đầu tiên. Ghi lại số lượng đã thống nhất.
+6. Điền bảng thông tin cho hàm: tên hàm, tên tham số, kiểu tham số, kiểu trả về, tên cục bộ, số dòng, kích thước thân, và hình dạng luồng điều khiển (các bước nhảy, lệnh switch, các khối lồng nhau).
+7. Viết ra những thông tin nào container đã mất và nơi chúng lẽ ra tồn tại: PDB cho các tên cục bộ .NET, section tùy chỉnh name cho các tên Wasm, `javac -g` cho các tên cục bộ JVM, DWARF cho mã native.
+8. Trước khi chạy bất kỳ trình dịch ngược nào, kiểm tra rằng mức trần phiên bản được ghi tài liệu của nó bao quát phiên bản header từ bước 2. Ghi lại mức trần và nguồn của khẳng định đó.
 
 ## Required report
 
-- container, producer version, build command, and reference listing command
-- header facts with the raw bytes they came from
-- reference agreement as agreed over compared rows
-- the function listing with offsets, bytes, and text
-- the facts table with kept or lost for each row and the evidence for each
-- the decompilers considered, their version ceilings, and whether the file is inside them
-- every byte range the reader could not interpret, with its offset
+- container, phiên bản bên tạo, lệnh dựng, và lệnh bản liệt kê tham chiếu
+- các thông tin header với các byte thô mà chúng đến từ
+- sự thống nhất tham chiếu dưới dạng số hàng thống nhất trên số hàng được so sánh
+- bản liệt kê hàm với các độ lệch, byte, và văn bản
+- bảng thông tin với được giữ hoặc bị mất cho mỗi hàng và bằng chứng cho từng hàng
+- các trình dịch ngược được xem xét, các mức trần phiên bản của chúng, và liệu tệp có nằm trong các mức đó hay không
+- mọi phạm vi byte mà bộ đọc không thể diễn giải, kèm độ lệch của nó
 
 ## Hard rejects
 
-- Guessing the producer version from the file name instead of the header bytes.
-- Listing pyc instructions with the `dis` module of a different interpreter version.
-- Reading a class file branch target as relative to the next instruction. JVMS makes it relative to the branch opcode.
-- Skipping the alignment padding before `tableswitch` and `lookupswitch`.
-- Treating a Wasm export name as a local variable name, or a missing name section as a stripped binary.
-- Reading a .NET token without checking its table byte, or sizing a table row without the HeapSizes bits and the row counts.
-- Reporting a container as obfuscated because a decompiler printed an unsupported opcode.
-- Comparing against a reference listing captured from a different build of the same source.
+- Đoán phiên bản bên tạo từ tên tệp thay vì các byte header.
+- Liệt kê các lệnh pyc bằng mô-đun `dis` của một phiên bản trình thông dịch khác.
+- Đọc một đích nhánh tệp class là tương đối với lệnh tiếp theo. JVMS làm nó tương đối với opcode nhánh.
+- Bỏ qua phần đệm căn chỉnh trước `tableswitch` và `lookupswitch`.
+- Coi một tên export Wasm là một tên biến cục bộ, hoặc một section name vắng mặt là một tệp nhị phân đã strip.
+- Đọc một token .NET mà không kiểm tra byte bảng của nó, hoặc tính kích thước một hàng bảng mà không có các bit HeapSizes và các số hàng.
+- Báo cáo một container là bị làm rối vì một trình dịch ngược đã in một opcode không được hỗ trợ.
+- So sánh với một bản liệt kê tham chiếu được thu lại từ một bản dựng khác của cùng mã nguồn.
 
 ## Produce
 
-Return these sections:
+Trả về những phần này:
 
-1. Container and Version: the header bytes and the producer they name.
-2. Reference: rows compared, rows agreed, first mismatch if any.
-3. Listing: the function with offsets, bytes, and text.
-4. Facts: name, parameters, types, locals, lines, size, control-flow shape, each marked kept or lost with its evidence.
-5. Decompiler Limits: the tools considered and their documented ceilings against the header version.
-6. Unknowns: every offset the reader skipped or refused and why.
+1. Container và Phiên bản: các byte header và bên tạo mà chúng nêu.
+2. Tham chiếu: số hàng được so sánh, số hàng thống nhất, điểm không khớp đầu tiên nếu có.
+3. Bản liệt kê: hàm với các độ lệch, byte, và văn bản.
+4. Các thông tin: tên, tham số, kiểu, biến cục bộ, dòng, kích thước, hình dạng luồng điều khiển, mỗi thông tin được đánh dấu được giữ hoặc bị mất cùng bằng chứng của nó.
+5. Các giới hạn trình dịch ngược: các công cụ được xem xét và các mức trần được ghi tài liệu của chúng đối chiếu với phiên bản header.
+6. Những điều chưa biết: mọi độ lệch mà bộ đọc đã bỏ qua hoặc từ chối và lý do.
 
-End with the first unknown. If there is none, state the reference agreement count and the number of facts the container kept out of six.
+Kết thúc bằng điều chưa biết đầu tiên. Nếu không có, hãy nêu số lượng thống nhất tham chiếu và số thông tin container đã giữ trên sáu.

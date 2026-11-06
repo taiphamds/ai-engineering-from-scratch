@@ -82,7 +82,7 @@ Trong thực tế, các hệ thống tốt nhất kết hợp cả hai: phát hi
 
 ### Z-Score Method
 
-Cách tiếp cận đơn giản nhất. Tính trung bình và độ lệch chuẩn của từng đặc trưng. Đánh dấu bất kỳ điểm nào cách trung bình hơn k độ lệch chuẩn.
+Cách tiếp cận đơn giản nhất. Tính trung bình và độ lệch chuẩn của từng đặc trưng. Đánh dấu bất kỳ điểm nào cách trung bình hơn $k$ độ lệch chuẩn.
 
 ```text
 z_score = (x - mean) / std
@@ -148,11 +148,11 @@ flowchart TD
 
 Điểm bất thường dựa trên độ dài đường đi trung bình trên tất cả các cây, được chuẩn hóa bằng độ dài đường đi kỳ vọng của một cây tìm kiếm nhị phân ngẫu nhiên:
 
-```
-score(x) = 2^(-average_path_length(x) / c(n))
+```math
+\text{score}(x) = 2^{-\text{average\_path\_length}(x) / c(n)}
 ```
 
-Trong đó `c(n)` là độ dài đường đi kỳ vọng cho n mẫu. Điểm gần 1 nghĩa là bất thường. Điểm gần 0.5 nghĩa là bình thường. Điểm gần 0 nghĩa là rất bình thường (nằm sâu trong các cụm dày đặc).
+Trong đó `c(n)` là độ dài đường đi kỳ vọng cho $n$ mẫu. Điểm gần 1 nghĩa là bất thường. Điểm gần 0.5 nghĩa là bình thường. Điểm gần 0 nghĩa là rất bình thường (nằm sâu trong các cụm dày đặc).
 
 **Điểm mạnh:** Không có giả định về phân phối. Hoạt động trong không gian nhiều chiều. Mở rộng tốt (dưới tuyến tính theo kích thước mẫu vì mỗi cây sử dụng một mẫu con). Xử lý các loại đặc trưng hỗn hợp.
 
@@ -168,7 +168,7 @@ Trong đó `c(n)` là độ dài đường đi kỳ vọng cho n mẫu. Điểm 
 LOF so sánh mật độ cục bộ quanh một điểm với mật độ quanh các láng giềng của nó. Một điểm trong vùng thưa được bao quanh bởi các vùng dày đặc là bất thường.
 
 **Cách hoạt động:**
-1. Với mỗi điểm, tìm k láng giềng gần nhất của nó
+1. Với mỗi điểm, tìm $k$ láng giềng gần nhất của nó
 2. Tính mật độ khả đạt cục bộ (vùng lân cận dày đặc đến mức nào)
 3. So sánh mật độ của từng điểm với mật độ của các láng giềng
 4. Nếu một điểm có mật độ thấp hơn nhiều so với các láng giềng, nó là một ngoại lệ
@@ -182,7 +182,7 @@ Phần "cục bộ" rất quan trọng. Xét một tập dữ liệu có hai c�
 
 **Điểm mạnh:** Phát hiện các bất thường cục bộ (những điểm khác thường trong vùng lân cận, ngay cả khi chúng không khác thường trên toàn cục). Hoạt động trên các cụm có mật độ khác nhau.
 
-**Điểm yếu:** Chậm trên các tập dữ liệu lớn (O(n^2) với cách triển khai đơn giản). Nhạy với lựa chọn k. Không hoạt động tốt trong không gian rất nhiều chiều (lời nguyền số chiều ảnh hưởng đến các phép tính khoảng cách).
+**Điểm yếu:** Chậm trên các tập dữ liệu lớn ($O(n^2)$ với cách triển khai đơn giản). Nhạy với lựa chọn $k$. Không hoạt động tốt trong không gian rất nhiều chiều (lời nguyền số chiều ảnh hưởng đến các phép tính khoảng cách).
 
 ### Comparison
 
@@ -199,7 +199,7 @@ Phần "cục bộ" rất quan trọng. Xét một tập dữ liệu có hai c�
 
 - **Mất cân bằng lớp cực độ.** Với 0.1% bất thường, dự đoán "bình thường" cho mọi thứ cho accuracy 99.9%. Accuracy vô dụng.
 - **AUROC gây hiểu lầm.** Với mức mất cân bằng lớn, AUROC có thể trông tốt ngay cả khi mô hình bỏ sót hầu hết các bất thường ở các ngưỡng thực tế.
-- **Các thước đo tốt hơn:** Precision@k (trong k mục được đánh dấu cao nhất, bao nhiêu mục là bất thường thật), AUPRC (diện tích dưới đường cong precision-recall) và recall tại một tỷ lệ dương tính giả cố định.
+- **Các chỉ số tốt hơn:** Precision@k (trong $k$ mục được gắn cờ đứng đầu, có bao nhiêu mục thực sự là bất thường), AUPRC (diện tích dưới đường cong precision-recall) và recall tại một tỷ lệ dương tính giả cố định.
 
 ```mermaid
 flowchart LR
@@ -267,6 +267,14 @@ def iqr_detect(X, factor=1.5):
 Bản triển khai từ đầu xây dựng các cây cô lập phân hoạch ngẫu nhiên không gian đặc trưng:
 
 ```python
+def _c_factor(n):
+    if n <= 1:
+        return 0.0
+    if n == 2:
+        return 1.0
+    return 2.0 * (np.log(n - 1) + 0.5772156649) - 2.0 * (n - 1.0) / n
+
+
 class IsolationTree:
     def __init__(self, max_depth):
         self.max_depth = max_depth
@@ -290,6 +298,13 @@ class IsolationTree:
         self.left = IsolationTree(self.max_depth).fit(X[left_mask], depth + 1)
         self.right = IsolationTree(self.max_depth).fit(X[~left_mask], depth + 1)
         return self
+
+    def path_length(self, x, depth=0):
+        if self.is_leaf:
+            return depth + _c_factor(self.size)
+        if x[self.feature] < self.threshold:
+            return self.left.path_length(x, depth + 1)
+        return self.right.path_length(x, depth + 1)
 ```
 
 Độ dài đường đi để cô lập một điểm quyết định điểm bất thường của nó. Đường đi ngắn hơn nghĩa là bất thường hơn.
@@ -301,8 +316,14 @@ class IsolationForest:
     def __init__(self, n_estimators=100, max_samples=256, seed=42):
         self.n_estimators = n_estimators
         self.max_samples = max_samples
+        self.seed = seed
+        self.trees = []
+        self.n_train = 0
 
     def fit(self, X):
+        self.n_train = X.shape[0]
+        rng = np.random.RandomState(self.seed)
+        self.trees = []
         sample_size = min(self.max_samples, X.shape[0])
         max_depth = int(np.ceil(np.log2(sample_size)))
         for _ in range(self.n_estimators):
@@ -310,14 +331,19 @@ class IsolationForest:
             tree = IsolationTree(max_depth=max_depth)
             tree.fit(X[idx])
             self.trees.append(tree)
+        return self
 
     def anomaly_score(self, X):
-        avg_path = average path length across all trees
-        scores = 2.0 ** (-avg_path / c(max_samples))
-        return scores
+        avg_path = np.zeros(X.shape[0])
+        for tree in self.trees:
+            for i in range(X.shape[0]):
+                avg_path[i] += tree.path_length(X[i])
+        avg_path /= self.n_estimators
+        c = _c_factor(min(self.max_samples, self.n_train))
+        return 2.0 ** (-avg_path / c) if c > 0 else np.zeros(X.shape[0])
 ```
 
-Hệ số chuẩn hóa `c(n)` là độ dài đường đi kỳ vọng của một phép tìm kiếm không thành công trong một cây tìm kiếm nhị phân có n phần tử. Nó bằng `2 * H(n-1) - 2*(n-1)/n` trong đó `H` là số điều hòa. Phép chuẩn hóa này bảo đảm các điểm số có thể so sánh được giữa những tập dữ liệu có kích thước khác nhau.
+Hệ số chuẩn hóa `c(n)` (`_c_factor` trong mã) là độ dài đường đi kỳ vọng của một lần tìm kiếm không thành công trong một cây tìm kiếm nhị phân có $n$ phần tử. Nó bằng `2 * H(n-1) - 2*(n-1)/n` trong đó `H` là số điều hòa. Mã sử dụng phép xấp xỉ chuẩn `H(i) ≈ ln(i) + 0.5772` (hằng số Euler), như bài báo Isolation Forest gốc. Việc chuẩn hóa này bảo đảm các điểm có thể được so sánh giữa các tập dữ liệu có kích thước khác nhau.
 
 ### Demo Scenarios
 
@@ -433,7 +459,7 @@ Trong cả hai trường hợp, ngưỡng tối ưu phụ thuộc vào tỷ lệ
 
 2. **Bất thường đa biến.** Tạo dữ liệu 2D mà từng đặc trưng riêng lẻ trông bình thường, nhưng tổ hợp lại bất thường (ví dụ: các điểm xa đường chéo của cụm chính). Cho thấy Z-score theo từng đặc trưng bỏ sót chúng nhưng Isolation Forest phát hiện được chúng.
 
-3. **LOF từ đầu.** Triển khai Local Outlier Factor sử dụng k láng giềng gần nhất. So sánh với LocalOutlierFactor của sklearn trên cùng dữ liệu. Sử dụng k=10 và k=50 -- lựa chọn k ảnh hưởng đến kết quả như thế nào?
+3. **LOF từ đầu.** Triển khai Local Outlier Factor bằng k láng giềng gần nhất. So sánh với LocalOutlierFactor của sklearn trên cùng dữ liệu. Sử dụng $k=10$ và $k=50$ -- lựa chọn $k$ ảnh hưởng đến kết quả thế nào?
 
 4. **Phát hiện bất thường trên luồng.** Sửa bộ phát hiện Z-score để hoạt động trong bối cảnh dữ liệu luồng: cập nhật trung bình và phương sai tích lũy khi các điểm mới đến (thuật toán trực tuyến của Welford). So sánh với Z-score theo lô trên cùng dữ liệu.
 
@@ -448,10 +474,10 @@ Trong cả hai trường hợp, ngưỡng tối ưu phụ thuộc vào tỷ lệ
 | Contextual anomaly (Bất thường theo ngữ cảnh) | "Giá trị bình thường, ngữ cảnh sai" | Một quan sát khác thường xét trong ngữ cảnh của nó (thời gian, vị trí, v.v.) nhưng có thể bình thường trong ngữ cảnh khác |
 | Isolation Forest | "Chia ngẫu nhiên để tìm ngoại lệ" | Một ensemble các cây ngẫu nhiên cô lập bất thường bằng ít phép chia hơn các điểm bình thường |
 | Local Outlier Factor | "So sánh mật độ với các láng giềng" | Một phương pháp đánh dấu các điểm có mật độ cục bộ thấp hơn nhiều so với mật độ của các láng giềng |
-| Z-score | "Số độ lệch chuẩn so với trung bình" | (x - mean) / std, đo khoảng cách của một điểm tới tâm theo đơn vị độ lệch chuẩn |
-| IQR | "Khoảng tứ phân vị" | Q3 - Q1, đo độ phân tán của 50% dữ liệu ở giữa, được sử dụng để phát hiện ngoại lệ một cách vững chắc |
+| Z-score | "Số độ lệch chuẩn so với trung bình" | $(x - \text{mean}) / \text{std}$, đo khoảng cách của một điểm tới tâm theo đơn vị độ lệch chuẩn |
+| IQR | "Khoảng tứ phân vị" | $Q3 - Q1$, đo độ phân tán của 50% dữ liệu ở giữa, được sử dụng để phát hiện ngoại lệ một cách vững chắc |
 | Contamination (Mức nhiễm) | "Tỷ lệ bất thường kỳ vọng" | Một siêu tham số cho bộ phát hiện biết tỷ lệ dữ liệu mà nó nên đánh dấu là bất thường |
-| Precision@k | "Trong k điểm được đánh dấu cao nhất, bao nhiêu là thật" | Precision chỉ được tính trên k điểm đáng ngờ nhất, hữu ích cho phát hiện bất thường mất cân bằng |
+| Precision@k | "Trong k cờ đứng đầu, có bao nhiêu cờ là thực" | Precision chỉ được tính trên $k$ điểm đáng ngờ nhất, hữu ích cho phát hiện bất thường mất cân bằng |
 | AUPRC | "Diện tích dưới đường cong precision-recall" | Một thước đo tóm tắt hiệu suất precision-recall trên tất cả các ngưỡng, tốt hơn AUROC đối với dữ liệu mất cân bằng |
 
 ## Further Reading

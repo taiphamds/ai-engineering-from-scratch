@@ -54,23 +54,24 @@ High variance (overfitting):
 
 ### The Decomposition
 
-Với bất kỳ điểm x nào, sai số dự đoán kỳ vọng dưới mất mát bình phương phân rã chính xác:
+Với bất kỳ điểm $x$ nào, sai số dự đoán kỳ vọng dưới mất mát bình phương phân rã chính xác:
 
+```math
+\begin{aligned}
+& \text{Expected Error} = \text{Bias}^2 + \text{Variance} + \text{Irreducible Noise} \\[6pt]
+& \text{where:} \\
+& \quad \text{Bias}^2 = (\mathbb{E}[\hat{f}(x)] - f(x))^2 \\
+& \quad \text{Variance} = \mathbb{E}[(\hat{f}(x) - \mathbb{E}[\hat{f}(x)])^2] \\
+& \quad \text{Noise} = \mathbb{E}[(y - f(x))^2] \quad (\sigma^2)
+\end{aligned}
 ```
-Expected Error = Bias^2 + Variance + Irreducible Noise
 
-where:
-  Bias^2   = (E[f_hat(x)] - f(x))^2
-  Variance = E[(f_hat(x) - E[f_hat(x)])^2]
-  Noise    = E[(y - f(x))^2]             (sigma^2)
-```
+- $f(x)$ là hàm thực
+- $\hat{f}(x)$ là dự đoán của mô hình
+- $\mathbb{E}[\ldots]$ là kỳ vọng trên các tập huấn luyện khác nhau
+- $y$ là nhãn quan sát (hàm thực cộng nhiễu)
 
-- `f(x)` là hàm thực
-- `f_hat(x)` là dự đoán của mô hình
-- `E[...]` là kỳ vọng trên các tập huấn luyện khác nhau
-- `y` là nhãn quan sát (hàm thực cộng nhiễu)
-
-Số hạng nhiễu không thể giảm. Không mô hình nào làm tốt hơn sigma^2 trên dữ liệu nhiễu. Công việc của bạn là tìm sự cân bằng phù hợp giữa độ chệch^2 và phương sai.
+Số hạng nhiễu là không thể khử. Không mô hình nào có thể làm tốt hơn $\sigma^2$ trên dữ liệu có nhiễu. Công việc của bạn là tìm sự cân bằng phù hợp giữa $\text{bias}^2$ và phương sai.
 
 ### Model Complexity vs Error
 
@@ -131,9 +132,9 @@ Tại sao điều này xảy ra? Tại ngưỡng nội suy, mô hình có vừa 
 
 | Chế độ | Tham số so với Mẫu | Hành vi |
 |--------|----------------------|----------|
-| Thiếu tham số | p << n | Đánh đổi cổ điển áp dụng |
-| Ngưỡng nội suy | p ~ n | Phương sai đạt đỉnh, sai số kiểm tra tăng vọt |
-| Thừa tham số | p >> n | Regularization ngầm bắt đầu tác động, sai số kiểm tra giảm |
+| Thiếu tham số | $p \ll n$ | Đánh đổi cổ điển áp dụng |
+| Ngưỡng nội suy | $p \sim n$ | Phương sai đạt đỉnh, sai số kiểm tra tăng vọt |
+| Thừa tham số | $p \gg n$ | Regularization ngầm bắt đầu tác động, sai số kiểm tra giảm |
 
 Cho mục đích thực tế: nếu bạn đang sử dụng mạng nơ-ron hoặc các tập hợp cây lớn, không dừng ở ngưỡng nội suy. Hoặc ở thấp hơn hẳn (với regularization tường minh) hoặc đi vượt xa nó. Vị trí tệ nhất là ngay tại ngưỡng.
 
@@ -180,7 +181,7 @@ Các phương pháp tập hợp là công cụ thực tế nhất để chống 
 
 **Bagging (Tổng hợp Bootstrap)** huấn luyện nhiều mô hình trên các mẫu bootstrap khác nhau của dữ liệu huấn luyện, rồi lấy trung bình các dự đoán. Mỗi mô hình riêng lẻ có phương sai cao, nhưng trung bình có phương sai thấp hơn nhiều. Rừng ngẫu nhiên là bagging được áp dụng cho các cây quyết định.
 
-Tại sao nó hoạt động về mặt toán học: nếu bạn lấy trung bình N dự đoán độc lập, mỗi dự đoán có phương sai sigma^2, phương sai của trung bình là sigma^2 / N. Các mô hình không thực sự độc lập (chúng đều thấy dữ liệu tương tự), nên mức giảm ít hơn 1/N, nhưng vẫn đáng kể.
+Tại sao nó hoạt động về mặt toán học: nếu bạn lấy trung bình $N$ dự đoán độc lập, mỗi dự đoán có phương sai $\sigma^2$, phương sai của trung bình là $\sigma^2 / N$. Các mô hình không thực sự độc lập (chúng đều thấy dữ liệu tương tự), nên mức giảm ít hơn $1/N$, nhưng vẫn đáng kể.
 
 **Boosting** giảm độ chệch bằng cách xây dựng các mô hình tuần tự, nơi mỗi mô hình mới tập trung vào sai số của tập hợp cho đến lúc đó. Gradient boosting và AdaBoost là các ví dụ chính. Boosting có thể khớp quá mức nếu bạn thêm quá nhiều mô hình, nên cần dừng sớm hoặc regularization.
 
@@ -306,10 +307,10 @@ variance = np.mean(predictions.var(axis=0))
 total_error = np.mean(np.mean((predictions - y_true) ** 2, axis=1))
 ```
 
-- `mean_pred` là E[f_hat(x)] được ước lượng từ các mẫu bootstrap
+- `mean_pred` là $\mathbb{E}[\hat{f}(x)]$ được ước lượng từ các mẫu bootstrap
 - `bias_sq` là bình phương khoảng cách giữa dự đoán trung bình và sự thật
 - `variance` là độ phân tán trung bình của các dự đoán trên các mẫu bootstrap
-- `total_error` nên xấp xỉ bằng bias^2 + variance + noise
+- `total_error` nên xấp xỉ bằng $\text{bias}^2 + \text{variance} + \text{noise}$
 
 ### Step 4: Learning Curves
 
@@ -440,7 +441,7 @@ Bài học này tạo ra: `outputs/prompt-model-diagnostics.md`
 
 2. Tăng kích thước tập huấn luyện từ 30 lên 300. Điều này ảnh hưởng đến thành phần phương sai thế nào? Bậc đa thức tối ưu có dịch chuyển không?
 
-3. Thêm L2 regularization (hồi quy Ridge) vào thí nghiệm. Với một đa thức bậc cao cố định (bậc 15), quét lambda từ 0 đến 100. Vẽ bias^2 và phương sai như các hàm của lambda.
+3. Thêm L2 regularization (hồi quy Ridge) vào thí nghiệm. Với một đa thức bậc cao cố định (bậc 15), quét lambda từ 0 đến 100. Vẽ $\text{bias}^2$ và phương sai như các hàm của lambda.
 
 4. Thay hàm thực từ một đa thức thành `sin(x)`. Phân rã độ chệch-phương sai thay đổi như thế nào? Vẫn có một bậc tối ưu rõ ràng không?
 

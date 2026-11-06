@@ -11,9 +11,9 @@
 
 Q-learning và DQN tham số hóa hàm *giá trị*. Bạn chọn hành động bằng `argmax Q`. Điều đó phù hợp cho hành động rời rạc và trạng thái rời rạc. Nó hỏng khi hành động liên tục (`argmax` nào trên một mô-men xoắn 10 chiều?) hoặc khi bạn muốn một chính sách ngẫu nhiên (`argmax` tất định theo cách xây dựng).
 
-Gradient chính sách thay vào đó tham số hóa *chính sách*. `π_θ(a | s)` là một mạng nơ-ron xuất ra một phân phối trên các hành động. Lấy mẫu từ nó để hành động. Tính gradient của lợi tức kỳ vọng theo `θ`. Bước lên dốc. Không `argmax`. Không đệ quy Bellman. Chỉ gradient ascent trên `J(θ) = E_{π_θ}[G]`.
+Gradient chính sách thay vào đó tham số hóa *chính sách*. $\pi_\theta(a \mid s)$ là một mạng nơ-ron xuất ra một phân phối trên các hành động. Lấy mẫu từ nó để hành động. Tính gradient của lợi tức kỳ vọng theo $\theta$. Bước lên dốc. Không `argmax`. Không đệ quy Bellman. Chỉ gradient ascent trên $J(\theta) = \mathbb E_{\pi_\theta}[G]$.
 
-Định lý REINFORCE (Williams 1992) cho bạn biết gradient này tính được: `∇J(θ) = E_π[ G · ∇_θ log π_θ(a | s) ]`. Chạy một episode. Tính lợi tức. Nhân với `∇ log π_θ(a | s)` ở mỗi bước. Lấy trung bình. Gradient-ascent. Xong.
+Định lý REINFORCE (Williams 1992) cho bạn biết gradient này tính được: $\nabla J(\theta) = \mathbb E_\pi[ G \cdot \nabla_\theta \log \pi_\theta(a \mid s) ]$. Chạy một episode. Tính lợi tức. Nhân với $\nabla \log \pi_\theta(a \mid s)$ ở mỗi bước. Lấy trung bình. Gradient-ascent. Xong.
 
 Mọi thuật toán LLM-RL năm 2026 — PPO, DPO, GRPO — đều là một cải tiến của REINFORCE. Hiểu nó đến mức thuần tay là điều kiện tiên quyết cho phần còn lại của giai đoạn này, và cho Giai đoạn 10 · 07 (triển khai RLHF) và Giai đoạn 10 · 08 (DPO).
 
@@ -21,36 +21,44 @@ Mọi thuật toán LLM-RL năm 2026 — PPO, DPO, GRPO — đều là một c�
 
 ![Policy gradient: softmax policy, log-π gradient, return-weighted update](../assets/policy-gradient.svg)
 
-**Định lý gradient chính sách.** Với bất kỳ chính sách `π_θ` nào được tham số hóa bởi `θ`:
+**Định lý gradient chính sách.** Với bất kỳ chính sách $\pi_\theta$ nào được tham số hóa bởi $\theta$:
 
-`∇J(θ) = E_{τ ~ π_θ}[ Σ_{t=0}^{T} G_t · ∇_θ log π_θ(a_t | s_t) ]`
+```math
+\nabla J(\theta) = \mathbb{E}_{\tau \sim \pi_\theta}[ \sum_{t=0}^{T} G_t \cdot \nabla_\theta \log \pi_\theta(a_t \mid s_t) ]
+```
 
-trong đó `G_t = Σ_{k=t}^{T} γ^{k-t} r_{k+1}` là lợi tức chiết khấu từ bước `t`. Kỳ vọng được lấy trên các quỹ đạo đầy đủ `τ` được lấy mẫu từ `π_θ`.
+trong đó $G_t = \sum_{k=t}^{T} \gamma^{k-t} r_{k+1}$ là lợi tức chiết khấu từ bước $t$. Kỳ vọng được lấy trên các quỹ đạo đầy đủ $\tau$ được lấy mẫu từ $\pi_\theta$.
 
-**Chứng minh ngắn.** Lấy đạo hàm `J(θ) = Σ_τ P(τ; θ) G(τ)` dưới kỳ vọng. Dùng `∇P(τ; θ) = P(τ; θ) ∇ log P(τ; θ)` (thủ thuật đạo hàm log). Phân tích `log P(τ; θ) = Σ log π_θ(a_t | s_t) + environment terms that do not depend on θ`. Các hạng tử môi trường biến mất. Hai dòng đại số cho bạn định lý.
+**Chứng minh ngắn.** Lấy đạo hàm $J(\theta) = \sum_\tau P(\tau; \theta) G(\tau)$ dưới kỳ vọng. Dùng $\nabla P(\tau; \theta) = P(\tau; \theta) \nabla \log P(\tau; \theta)$ (thủ thuật đạo hàm log). Phân tích $\log P(\tau; \theta) = \sum \log \pi_\theta(a_t \mid s_t) + \text{environment terms that do not depend on } \theta$. Các hạng tử môi trường biến mất. Hai dòng đại số cho bạn định lý.
 
-**Các thủ thuật giảm phương sai.** REINFORCE nguyên bản có phương sai khủng khiếp — lợi tức nhiều nhiễu, `∇ log π` nhiều nhiễu, tích của chúng rất nhiều nhiễu. Hai cách khắc phục tiêu chuẩn:
+**Các thủ thuật giảm phương sai.** REINFORCE nguyên bản có phương sai khủng khiếp — lợi tức nhiều nhiễu, $\nabla \log \pi$ nhiều nhiễu, tích của chúng rất nhiều nhiễu. Hai cách khắc phục tiêu chuẩn:
 
-1. **Trừ baseline.** Thay `G_t` bằng `G_t - b(s_t)` cho bất kỳ baseline `b(s_t)` nào không phụ thuộc `a_t`. Không chệch vì `E[b(s_t) · ∇ log π(a_t | s_t)] = 0`. Lựa chọn điển hình: `b(s_t) = V̂(s_t)` được học bởi một critic → actor-critic (Bài 07).
-2. **Reward-to-go.** Thay `Σ_t G_t · ∇ log π_θ(a_t | s_t)` bằng `Σ_t G_t^{from t} · ∇ log π_θ(a_t | s_t)`. Chỉ các lợi tức tương lai quan trọng với một hành động cho trước — phần thưởng quá khứ đóng góp nhiễu trung bình bằng không.
+1. **Trừ baseline.** Thay $G_t$ bằng $G_t - b(s_t)$ cho bất kỳ baseline $b(s_t)$ nào không phụ thuộc $a_t$. Không chệch vì $\mathbb{E}[b(s_t) \cdot \nabla \log \pi(a_t \mid s_t)] = 0$. Lựa chọn điển hình: $b(s_t) = \hat{V}(s_t)$ được học bởi một critic → actor-critic (Bài 07).
+2. **Reward-to-go.** Thay $\sum_t G_t \cdot \nabla \log \pi_\theta(a_t \mid s_t)$ bằng $\sum_t G_t^{\text{from } t} \cdot \nabla \log \pi_\theta(a_t \mid s_t)$. Chỉ các lợi tức tương lai quan trọng với một hành động cho trước — phần thưởng quá khứ đóng góp nhiễu trung bình bằng không.
 
 Kết hợp lại, bạn có:
 
-`∇J ≈ (1/N) Σ_{i=1}^{N} Σ_{t=0}^{T_i} [ G_t^{(i)} - V̂(s_t^{(i)}) ] · ∇_θ log π_θ(a_t^{(i)} | s_t^{(i)})`
+```math
+\nabla J \approx (1/N) \sum_{i=1}^{N} \sum_{t=0}^{T_i} [ G_t^{(i)} - \hat{V}(s_t^{(i)}) ] \cdot \nabla_\theta \log \pi_\theta(a_t^{(i)} \mid s_t^{(i)})
+```
 
 đó là REINFORCE với một baseline — tổ tiên trực tiếp của A2C (Bài 07) và PPO (Bài 08).
 
 **Tham số hóa chính sách softmax.** Với hành động rời rạc, lựa chọn tiêu chuẩn:
 
-`π_θ(a | s) = exp(f_θ(s, a)) / Σ_{a'} exp(f_θ(s, a'))`
+```math
+\pi_\theta(a \mid s) = \exp(f_\theta(s, a)) / \sum_{a'} \exp(f_\theta(s, a'))
+```
 
-trong đó `f_θ` là bất kỳ mạng nơ-ron nào xuất ra một điểm cho mỗi hành động. Gradient có một dạng rõ ràng:
+trong đó $f_\theta$ là bất kỳ mạng nơ-ron nào xuất ra một điểm cho mỗi hành động. Gradient có một dạng rõ ràng:
 
-`∇_θ log π_θ(a | s) = ∇_θ f_θ(s, a) - Σ_{a'} π_θ(a' | s) ∇_θ f_θ(s, a')`
+```math
+\nabla_\theta \log \pi_\theta(a \mid s) = \nabla_\theta f_\theta(s, a) - \sum_{a'} \pi_\theta(a' \mid s) \nabla_\theta f_\theta(s, a')
+```
 
 tức là, điểm của hành động đã thực hiện trừ giá trị kỳ vọng của nó theo chính sách.
 
-**Chính sách Gaussian cho hành động liên tục.** `π_θ(a | s) = N(μ_θ(s), σ_θ(s))`. `∇ log N(a; μ, σ)` có một dạng đóng. Đó là tất cả những gì SAC ở Giai đoạn 9 · 07 cần.
+**Chính sách Gaussian cho hành động liên tục.** $\pi_\theta(a \mid s) = N(\mu_\theta(s), \sigma_\theta(s))$. $\nabla \log N(a; \mu, \sigma)$ có một dạng đóng. Đó là tất cả những gì SAC ở Giai đoạn 9 · 07 cần.
 
 ```figure
 policy-gradient-landscape
@@ -119,19 +127,19 @@ def reinforce_step(theta, trajectory, gamma, lr, baseline=0.0):
                 theta[i][j] += lr * advantage * grad_log_pi_a[i] * s[j]
 ```
 
-Gradient `∇ log π(a|s) = e_a - π(·|s)` (onehot của `a` trừ các xác suất) là trái tim của gradient chính sách softmax. Khắc nó vào trí nhớ cơ bắp.
+Gradient $\nabla \log \pi(a \mid s) = e_a - \pi(\cdot \mid s)$ (onehot của $a$ trừ các xác suất) là trái tim của gradient chính sách softmax. Khắc nó vào trí nhớ cơ bắp.
 
 ### Step 5: baselines
 
-Một trung bình tích lũy của `G` trên các episode gần đây đủ giảm phương sai để một GridWorld 4×4 hoạt động; nó mất ~500 episode để hội tụ. Nâng cấp baseline thành một `V̂(s)` được học và bạn có actor-critic.
+Một trung bình tích lũy của $G$ trên các episode gần đây đủ giảm phương sai để một GridWorld 4×4 hoạt động; nó mất ~500 episode để hội tụ. Nâng cấp baseline thành một $\hat{V}(s)$ được học và bạn có actor-critic.
 
 ## Pitfalls
 
-- **Bùng nổ gradient.** Lợi tức có thể rất lớn. Luôn chuẩn hóa `G` về `~N(0, 1)` trên batch trước khi nhân với `∇ log π`.
-- **Sụp đổ entropy.** Chính sách hội tụ về một hành động gần tất định quá sớm, ngừng khám phá, bị kẹt. Cách khắc phục: thêm thưởng entropy `β · H(π(·|s))` vào mục tiêu.
+- **Bùng nổ gradient.** Lợi tức có thể rất lớn. Luôn chuẩn hóa $G$ về `~N(0, 1)` trên batch trước khi nhân với $\nabla \log \pi$.
+- **Sụp đổ entropy.** Chính sách hội tụ về một hành động gần tất định quá sớm, ngừng khám phá, bị kẹt. Cách khắc phục: thêm thưởng entropy $\beta \cdot H(\pi(\cdot \mid s))$ vào mục tiêu.
 - **Phương sai cao.** REINFORCE nguyên bản cần hàng nghìn episode. Một baseline critic (Bài 07) hoặc miền tin cậy của TRPO/PPO (Bài 08) là cách khắc phục tiêu chuẩn.
 - **Kém hiệu quả mẫu.** On-policy nghĩa là bạn vứt bỏ mọi chuyển tiếp sau một lần cập nhật. Hiệu chỉnh off-policy qua lấy mẫu quan trọng mang dữ liệu trở lại, với cái giá là phương sai (tỷ số của PPO là một trọng số IS được cắt).
-- **Gradient phi dừng.** Cùng gradient từ 100 episode trước dùng `π` cũ. Các phương pháp on-policy cập nhật mỗi vài rollout vì lý do này.
+- **Gradient phi dừng.** Cùng gradient từ 100 episode trước dùng $\pi$ cũ. Các phương pháp on-policy cập nhật mỗi vài rollout vì lý do này.
 - **Gán công trạng.** Không có reward-to-go, các phần thưởng quá khứ đóng góp nhiễu. Luôn dùng reward-to-go.
 
 ## Use It
@@ -178,20 +186,20 @@ Refuse REINFORCE-no-baseline on horizons > 500 steps. Refuse continuous-action c
 
 1. **Dễ.** Triển khai REINFORCE trên GridWorld 4×4 với một chính sách softmax tuyến tính. Huấn luyện trong 1,000 episode không có baseline. Vẽ đường cong học; đo phương sai (độ lệch chuẩn của lợi tức).
 2. **Trung bình.** Thêm một baseline trung bình tích lũy. Huấn luyện lại. So sánh hiệu quả mẫu và phương sai với lần chạy nguyên bản. Baseline giảm số bước đến hội tụ bao nhiêu?
-3. **Khó.** Thêm một thưởng entropy `β · H(π)`. Quét `β ∈ {0, 0.01, 0.1, 1.0}`. Vẽ lợi tức cuối cùng và entropy chính sách. Điểm tốt nhất trên tác vụ này ở đâu?
+3. **Khó.** Thêm một thưởng entropy $\beta \cdot H(\pi)$. Quét $\beta \in \lbrace 0, 0.01, 0.1, 1.0 \rbrace$. Vẽ lợi tức cuối cùng và entropy chính sách. Điểm tốt nhất trên tác vụ này ở đâu?
 
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Policy gradient (Gradient chính sách) | "Huấn luyện trực tiếp chính sách" | `∇J(θ) = E[G · ∇ log π_θ(a\|s)]`; suy ra từ thủ thuật đạo hàm log. |
+| Policy gradient (Gradient chính sách) | "Huấn luyện trực tiếp chính sách" | $\nabla J(\theta) = \mathbb{E}[G \cdot \nabla \log \pi_\theta(a \mid s)]$; suy ra từ thủ thuật đạo hàm log. |
 | REINFORCE | "Thuật toán PG gốc" | Williams (1992); lợi tức Monte Carlo nhân với gradient log chính sách. |
-| Log-derivative trick (Thủ thuật đạo hàm log) | "Bộ ước lượng hàm score" | `∇P(τ;θ) = P(τ;θ) · ∇ log P(τ;θ)`; làm gradient của kỳ vọng tính toán được. |
-| Baseline (Đường cơ sở) | "Giảm phương sai" | Bất kỳ `b(s)` nào được trừ khỏi `G`; không chệch vì `E[b · ∇ log π] = 0`. |
-| Reward-to-go | "Chỉ lợi tức tương lai được tính" | `G_t^{from t}` thay vì toàn bộ `G_0`; đúng và phương sai thấp hơn. |
-| Entropy bonus (Thưởng entropy) | "Khuyến khích khám phá" | Hạng tử `+β · H(π(·\|s))` giữ chính sách khỏi sụp đổ. |
+| Log-derivative trick (Thủ thuật đạo hàm log) | "Bộ ước lượng hàm score" | $\nabla P(\tau;\theta) = P(\tau;\theta) \cdot \nabla \log P(\tau;\theta)$; làm gradient của kỳ vọng tính toán được. |
+| Baseline (Đường cơ sở) | "Giảm phương sai" | Bất kỳ $b(s)$ nào được trừ khỏi $G$; không chệch vì $\mathbb{E}[b \cdot \nabla \log \pi] = 0$. |
+| Reward-to-go | "Chỉ lợi tức tương lai được tính" | $G_t^{\text{from } t}$ thay vì toàn bộ $G_0$; đúng và phương sai thấp hơn. |
+| Entropy bonus (Thưởng entropy) | "Khuyến khích khám phá" | Hạng tử $+\beta \cdot H(\pi(\cdot \mid s))$ giữ chính sách khỏi sụp đổ. |
 | On-policy | "Huấn luyện trên những gì bạn vừa thấy" | Kỳ vọng gradient lấy theo chính sách hiện tại — không thể trực tiếp tái sử dụng dữ liệu cũ. |
-| Advantage (Lợi thế) | "Tốt hơn trung bình bao nhiêu" | `A(s, a) = G(s, a) - V(s)`; đại lượng có dấu mà REINFORCE với baseline nhân vào. |
+| Advantage (Lợi thế) | "Tốt hơn trung bình bao nhiêu" | $A(s, a) = G(s, a) - V(s)$; đại lượng có dấu mà REINFORCE với baseline nhân vào. |
 
 ## Further Reading
 

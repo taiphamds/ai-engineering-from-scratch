@@ -64,7 +64,7 @@ Các key và value ảnh được tính một lần lúc bắt đầu giải mã
 
 ### Block composition
 
-Một khối decoder chạy: pre-LN -> self-attention -> phần dư -> pre-LN -> cross-attention -> phần dư -> pre-LN -> truyền thẳng -> phần dư. Ba lớp con, mỗi lớp có LayerNorm riêng. Bài báo Flamingo thêm một cổng được học trên cross-attention để mô hình có thể chọn bỏ đường ảnh với chi phí ổn định tại thời điểm huấn luyện; đường cơ sở chuẩn (được dùng ở đây) không có cổng.
+Một khối decoder chạy: pre-LN -> self-attention -> residual -> pre-LN -> cross-attention -> residual -> pre-LN -> feed-forward -> residual. Ba tầng con, mỗi tầng có LayerNorm riêng. Bài báo Flamingo thêm một cổng tanh được học trên cross-attention, khởi tạo bằng không, để mô hình ngôn ngữ đã đóng băng bắt đầu không thay đổi và việc huấn luyện giữ ổn định; baseline chuẩn (được dùng ở đây) không có cổng.
 
 ```python
 class DecoderBlock:

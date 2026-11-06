@@ -47,7 +47,7 @@ Perplexity là `exp(mean negative log-likelihood per token)`. Triển khai có h
 - Trung bình phải trên các vị trí token thực, không phải trên batch * sequence. Các token đệm phải được loại khỏi mẫu số hoặc perplexity sẽ trông tốt hơn thực tế.
 - Mô hình dự đoán token tiếp theo, nên các logit tại vị trí `i` dự đoán token tại vị trí `i+1`. Các lỗi lệch một ở đây âm thầm: mất mát vẫn huấn luyện, nhưng chỉ số trở nên vô nghĩa.
 
-Đánh giá tính các tổng theo lô của `-log p(token)` trên các vị trí không đệm và một số đếm token theo lô, rồi chia ở cuối. Điều này an toàn số học hơn lấy trung bình các perplexity theo lô (vốn đặt trọng số thấp cho các chuỗi ngắn) và khớp định nghĩa sách giáo khoa.
+Đánh giá tính tổng `-log p(token)` theo batch trên các vị trí không phải pad và số token theo batch, rồi chia ở cuối. Điều này an toàn hơn về mặt số học so với lấy trung bình perplexity theo batch (cách đó cho mỗi batch trọng số bằng nhau, nên mỗi token trong batch ngắn được tính nhiều hơn một token trong batch dài) và khớp với định nghĩa trong giáo trình.
 
 ## Exact-match, with normalisation
 

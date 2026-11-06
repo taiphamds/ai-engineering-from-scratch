@@ -11,12 +11,12 @@
 
 VAE tạo ra các mẫu mờ vì hàm mất mát decoder MSE của chúng tối ưu Bayes cho ảnh *trung bình* — và trung bình của nhiều chữ số có vẻ hợp lý là một chữ số nhòe. Bạn muốn một hàm mất mát thưởng cho *tính hợp lý*, chứ không phải độ gần theo từng pixel với bất kỳ mục tiêu đơn lẻ nào. Không có dạng đóng cho tính hợp lý. Bạn phải học nó.
 
-Ý tưởng của Goodfellow: huấn luyện một bộ phân loại `D(x)` để phân biệt ảnh thật với hàng giả. Huấn luyện một bộ sinh `G(z)` để đánh lừa `D`. Tín hiệu mất mát cho `G` là bất cứ thứ gì `D` hiện cho rằng khiến một thứ trông thật. Tín hiệu này cập nhật khi `G` cải thiện, đuổi theo một mục tiêu di động. Nếu cả hai mạng hội tụ, `G` đã học phân phối dữ liệu mà chưa từng viết ra `log p(x)`.
+Ý tưởng của Goodfellow: huấn luyện một bộ phân loại $D(x)$ để phân biệt ảnh thật với hàng giả. Huấn luyện một bộ sinh $G(z)$ để đánh lừa $D$. Tín hiệu mất mát cho $G$ là bất cứ thứ gì $D$ hiện cho rằng khiến một thứ trông thật. Tín hiệu này cập nhật khi $G$ cải thiện, đuổi theo một mục tiêu di động. Nếu cả hai mạng hội tụ, $G$ đã học phân phối dữ liệu mà chưa từng viết ra `log p(x)`.
 
 Đây là huấn luyện đối kháng. Toán học là một trò chơi minimax:
 
-```
-min_G max_D  E_real[log D(x)] + E_fake[log(1 - D(G(z)))]
+```math
+\min_G \max_D \; \mathbb{E}_{\text{real}}[\log D(x)] + \mathbb{E}_{\text{fake}}[\log(1 - D(G(z)))]
 ```
 
 Vào năm 2026 GAN không còn là bộ sinh SOTA (khuếch tán và flow matching đã chiếm ngôi đó). Nhưng StyleGAN 2/3 vẫn là những mô hình khuôn mặt sắc nét nhất từng được phát hành, các bộ phân biệt GAN được dùng làm *hàm mất mát cảm nhận* trong huấn luyện khuếch tán, và huấn luyện đối kháng hỗ trợ các phép chưng cất 1 bước nhanh (SDXL-Turbo, SD3-Turbo, LCM) cho phép bạn triển khai khuếch tán thời gian thực.
@@ -25,20 +25,20 @@ Vào năm 2026 GAN không còn là bộ sinh SOTA (khuếch tán và flow matchi
 
 ![GAN training: generator and discriminator in minimax](../assets/gan.svg)
 
-**Bộ sinh `G(z)`.** Ánh xạ một vector nhiễu `z ~ N(0, I)` sang một mẫu `x̂`. Một mạng có hình dạng decoder (dense hoặc conv chuyển vị).
+**Bộ sinh $G(z)$.** Ánh xạ một vector nhiễu $z \sim \mathcal{N}(0, I)$ sang một mẫu $\hat{x}$. Một mạng có hình dạng decoder (dense hoặc conv chuyển vị).
 
-**Bộ phân biệt `D(x)`.** Ánh xạ một mẫu sang một xác suất vô hướng (hoặc điểm). Thật → 1, giả → 0.
+**Bộ phân biệt $D(x)$.** Ánh xạ một mẫu sang một xác suất vô hướng (hoặc điểm). Thật → 1, giả → 0.
 
 **Hàm mất mát.** Hai cập nhật luân phiên:
 
-- **Huấn luyện `D`:** `loss_D = -[ log D(x) + log(1 - D(G(z))) ]`. Binary cross-entropy trên thật=1, giả=0.
-- **Huấn luyện `G`:** `loss_G = -log D(G(z))`. Đây là dạng *không bão hòa* Goodfellow đã dùng (`log(1 - D(G(z)))` ban đầu bão hòa và giết gradient khi `D` tự tin).
+- **Huấn luyện $D$:** $\text{loss}_D = -[ \log D(x) + \log(1 - D(G(z))) ]$. Binary cross-entropy trên thật=1, giả=0.
+- **Huấn luyện $G$:** $\text{loss}_G = -\log D(G(z))$. Đây là dạng *không bão hòa* Goodfellow đã dùng ($\log(1 - D(G(z)))$ ban đầu bão hòa và giết gradient khi $D$ tự tin).
 
-**Vòng lặp huấn luyện.** Một bước của `D`, một bước của `G`. Lặp lại.
+**Vòng lặp huấn luyện.** Một bước của $D$, một bước của $G$. Lặp lại.
 
-**Vì sao nó hoạt động.** Nếu `G` khớp hoàn hảo với `p_data`, thì `D` không thể làm tốt hơn ngẫu nhiên và xuất ra 0.5 ở mọi nơi; `G` không nhận thêm gradient. Cân bằng.
+**Vì sao nó hoạt động.** Nếu $G$ khớp hoàn hảo với $p_{\text{data}}$, thì $D$ không thể làm tốt hơn ngẫu nhiên và xuất ra 0.5 ở mọi nơi; $G$ không nhận thêm gradient. Cân bằng.
 
-**Vì sao nó hỏng.** Sụp đổ mode (`G` tìm được một mode mà `D` không thể phân loại và tạo ra nó mãi mãi), triệt tiêu gradient (`D` học quá nhanh và `log D` bão hòa), huấn luyện không ổn định (tốc độ học, kích thước batch, bất cứ thứ gì).
+**Vì sao nó hỏng.** Sụp đổ mode ($G$ tìm được một mode mà $D$ không thể phân loại và tạo ra nó mãi mãi), triệt tiêu gradient ($D$ học quá nhanh và $\log D$ bão hòa), huấn luyện không ổn định (tốc độ học, kích thước batch, bất cứ thứ gì).
 
 ## Variants that made GANs work
 
@@ -63,7 +63,7 @@ gan-minimax
 
 ### Step 1: non-saturating loss
 
-Hàm mất mát Goodfellow nguyên bản `log(1 - D(G(z)))` tiến về 0 khi D phân loại hàng giả của G là giả với độ tự tin cao. Ở thời điểm đó gradient cho G về cơ bản bằng không — G không thể cải thiện. Dạng không bão hòa `-log D(G(z))` có tiệm cận ngược lại: nó tăng vọt khi D tự tin, cho G một tín hiệu mạnh.
+Hàm mất mát Goodfellow nguyên bản $\log(1 - D(G(z)))$ tiến về 0 khi D phân loại hàng giả của G là giả với độ tự tin cao. Ở thời điểm đó gradient cho G về cơ bản bằng không — G không thể cải thiện. Dạng không bão hòa $-\log D(G(z))$ có tiệm cận ngược lại: nó tăng vọt khi D tự tin, cho G một tín hiệu mạnh.
 
 ```python
 def g_loss(d_fake):
@@ -130,7 +130,7 @@ Lưu `outputs/skill-gan-debugger.md`. Skill nhận một lần chạy GAN thất
 ## Exercises
 
 1. **Dễ.** Chạy `code/main.py` với thiết lập mặc định. Sau đó đặt `D_LR = 5 * G_LR` và chạy lại. Hàm mất mát của G sụp xuống một hằng số nhanh đến mức nào?
-2. **Trung bình.** Thay hàm mất mát BCE Goodfellow bằng hàm mất mát WGAN: `loss_D = E[D(fake)] - E[D(real)]`, `loss_G = -E[D(fake)]`, và cắt trọng số của D về `[-0.01, 0.01]`. Huấn luyện có ổn định hơn không? So sánh hội tụ theo thời gian thực.
+2. **Trung bình.** Thay hàm mất mát BCE Goodfellow bằng hàm mất mát WGAN: $\text{loss}_D = \mathbb{E}[D(\text{fake})] - \mathbb{E}[D(\text{real})]$, $\text{loss}_G = -\mathbb{E}[D(\text{fake})]$, và cắt trọng số của D về `[-0.01, 0.01]`. Huấn luyện có ổn định hơn không? So sánh hội tụ theo thời gian thực.
 3. **Khó.** Mở rộng ví dụ 1-D sang dữ liệu 2-D (hỗn hợp 8 Gaussian trên một vòng tròn). Theo dõi bộ sinh nắm bắt bao nhiêu trong 8 mode ở các bước 1k, 5k, 10k. Triển khai minibatch discrimination và đo lại.
 
 ## Key Terms
@@ -139,8 +139,8 @@ Lưu `outputs/skill-gan-debugger.md`. Skill nhận một lần chạy GAN thất
 |------|-----------------|-----------------------|
 | Generator (Bộ sinh) | "G" | Mạng từ nhiễu sang mẫu, `G: z → x̂`. |
 | Discriminator (Bộ phân biệt) | "D" | Bộ phân loại `D: x → [0, 1]`, thật so với giả. |
-| Minimax | "Trò chơi" | `min_G max_D` của một mục tiêu chung. |
-| Non-saturating loss (Hàm mất mát không bão hòa) | "Cách khắc phục" | Dùng `-log D(G(z))` cho G thay vì `log(1 - D(G(z)))`. |
+| Minimax | "Trò chơi" | $\min_G \max_D$ của một mục tiêu chung. |
+| Non-saturating loss (Hàm mất mát không bão hòa) | "Cách khắc phục" | Dùng $-\log D(G(z))$ cho G thay vì $\log(1 - D(G(z)))$. |
 | Mode collapse (Sụp đổ mode) | "G đã ghi nhớ một thứ" | Bộ sinh tạo ra ít đầu ra khác biệt dù dữ liệu đa dạng. |
 | WGAN | "Wasserstein" | Thay BCE bằng khoảng cách Earth-Mover + phạt gradient; gradient trơn hơn. |
 | Spectral norm (Chuẩn hóa phổ) | "Thủ thuật Lipschitz" | Ràng buộc chuẩn trọng số của D để chặn độ dốc của nó; ổn định huấn luyện. |
@@ -150,7 +150,7 @@ Lưu `outputs/skill-gan-debugger.md`. Skill nhận một lần chạy GAN thất
 
 GAN không còn thắng về chất lượng mẫu cho sinh trong miền mở, nhưng chúng vẫn thắng về chi phí suy luận. Theo từ vựng trong tài liệu suy luận production, một GAN có:
 
-- **Không có giai đoạn prefill, không có decode.** Một lượt truyền xuôi `G(z)` duy nhất. TTFT ≈ tổng độ trễ.
+- **Không có giai đoạn prefill, không có decode.** Một lượt truyền xuôi $G(z)$ duy nhất. TTFT ≈ tổng độ trễ.
 - **Không có áp lực KV-cache.** Trạng thái duy nhất là các trọng số. Kích thước batch bị chặn bởi bộ nhớ activation, không phải cache.
 - **Continuous batching đơn giản.** Vì mọi yêu cầu có cùng FLOPs cố định, một batch tĩnh ở mức chiếm dụng mục tiêu của máy chủ thường là tối ưu. Không cần bộ lập lịch cho các yêu cầu đang xử lý.
 

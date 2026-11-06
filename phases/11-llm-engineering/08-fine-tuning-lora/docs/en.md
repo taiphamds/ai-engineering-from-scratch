@@ -11,7 +11,7 @@
 ## Learning Objectives
 
 - Triển khai LoRA bằng cách đưa các ma trận adapter hạng thấp (A và B) vào các lớp attention của mô hình đã tiền huấn luyện
-- Tính mức tiết kiệm tham số của LoRA so với fine-tuning toàn phần: hạng r với d_model chiều huấn luyện 2*r*d tham số thay vì d^2
+- Tính mức tiết kiệm tham số của LoRA so với fine-tuning toàn phần: hạng $r$ với $d_{\text{model}}$ chiều huấn luyện $2 \cdot r \cdot d$ tham số thay vì $d^2$
 - Fine-tune một mô hình bằng QLoRA (mô hình cơ sở lượng tử hóa 4 bit + adapter LoRA) để vừa bộ nhớ GPU tiêu dùng
 - Gộp trọng số LoRA trở lại mô hình cơ sở để triển khai và so sánh tốc độ suy luận có và không có adapter
 
@@ -37,21 +37,21 @@ Edward Hu và các đồng nghiệp tại Microsoft công bố LoRA vào tháng 
 
 Đây là phần toán. Một lớp tuyến tính tiêu chuẩn tính:
 
-```
+```math
 y = Wx
 ```
 
-Trong đó W là ma trận d_out x d_in. Với phép chiếu attention 4096x4096, đó là 16,777,216 tham số.
+Trong đó $W$ là ma trận $d_{\text{out}} \times d_{\text{in}}$. Với phép chiếu attention 4096x4096, đó là 16,777,216 tham số.
 
-LoRA đóng băng W và thêm phân rã hạng thấp:
+LoRA đóng băng $W$ và thêm phân rã hạng thấp:
 
-```
+```math
 y = Wx + BAx
 ```
 
-Trong đó B là (d_out x r) và A là (r x d_in). Hạng r nhỏ hơn d rất nhiều -- thường 8, 16 hoặc 32.
+Trong đó $B$ là $(d_{\text{out}} \times r)$ và $A$ là $(r \times d_{\text{in}})$. Hạng $r$ nhỏ hơn $d$ rất nhiều -- thường 8, 16 hoặc 32.
 
-Với r=16 trên lớp 4096x4096:
+Với $r=16$ trên lớp 4096x4096:
 - Tham số gốc: 4096 x 4096 = 16,777,216
 - Tham số LoRA: (4096 x 16) + (16 x 4096) = 65,536 + 65,536 = 131,072
 - Mức giảm: 131,072 / 16,777,216 = 0.78%
@@ -76,18 +76,18 @@ A được khởi tạo bằng Gaussian ngẫu nhiên. B được khởi tạo b
 
 ### The Scaling Factor: Alpha
 
-LoRA đưa vào hệ số tỷ lệ alpha kiểm soát mức cập nhật hạng thấp ảnh hưởng đầu ra:
+LoRA đưa vào hệ số tỷ lệ $\alpha$ kiểm soát mức cập nhật hạng thấp ảnh hưởng đầu ra:
 
-```
-y = Wx + (alpha / r) * BAx
+```math
+y = Wx + \frac{\alpha}{r} \cdot BAx
 ```
 
-Khi alpha = r, tỷ lệ là 1x. Khi alpha = 2r (mặc định phổ biến), tỷ lệ là 2x. Siêu tham số này kiểm soát tốc độ học của nhánh LoRA độc lập với tốc độ học cơ sở.
+Khi $\alpha = r$, tỷ lệ là 1x. Khi $\alpha = 2r$ (mặc định phổ biến), tỷ lệ là 2x. Siêu tham số này kiểm soát tốc độ học của nhánh LoRA độc lập với tốc độ học cơ sở.
 
 Hướng dẫn thực hành:
-- alpha = 2 * rank là quy ước cộng đồng phổ biến (bài báo gốc dùng alpha = rank trong hầu hết thí nghiệm)
-- alpha = rank cho tỷ lệ 1x, thận trọng nhưng ổn định
-- Alpha cao hơn nghĩa là cập nhật lớn hơn mỗi bước, có thể tăng tốc hội tụ hoặc gây bất ổn
+- $\alpha = 2 \cdot \text{rank}$ là quy ước cộng đồng phổ biến (bài báo gốc dùng $\alpha = \text{rank}$ trong hầu hết thí nghiệm)
+- $\alpha = \text{rank}$ cho tỷ lệ 1x, thận trọng nhưng ổn định
+- $\alpha$ cao hơn nghĩa là các cập nhật lớn hơn ở mỗi bước, có thể tăng tốc hội tụ hoặc gây bất ổn
 
 ### Where to Apply LoRA
 
@@ -104,7 +104,7 @@ Một transformer có nhiều lớp tuyến tính. Bạn không cần thêm LoRA
 
 ### Rank Selection
 
-Hạng r kiểm soát khả năng biểu đạt của sự thích nghi:
+Hạng $r$ kiểm soát khả năng biểu đạt của sự thích nghi:
 
 | Hạng | Tham số có thể huấn luyện (mỗi lớp) | Tốt nhất cho |
 |------|---------------------------|----------|
@@ -115,7 +115,7 @@ Hạng r kiểm soát khả năng biểu đạt của sự thích nghi:
 | 64 | 524,288 | Lợi ích giảm dần cho hầu hết tác vụ |
 | 128 | 1,048,576 | Hiếm khi có cơ sở |
 
-Hu và cộng sự cho thấy r=4 đã nắm phần lớn sự thích nghi cho tác vụ đơn giản. r=8 và r=16 là lựa chọn phổ biến nhất trong thực tế. Vượt r=64 hiếm khi cải thiện chất lượng và bắt đầu mất lợi thế bộ nhớ của LoRA.
+Hu và cộng sự cho thấy $r=4$ đã nắm phần lớn sự thích nghi cho tác vụ đơn giản. $r=8$ và $r=16$ là lựa chọn phổ biến nhất trong thực tế. Vượt $r=64$ hiếm khi cải thiện chất lượng và bắt đầu mất lợi thế bộ nhớ của LoRA.
 
 ### QLoRA: 4-Bit Quantization + LoRA
 
@@ -148,7 +148,7 @@ Giảm tham số hoặc lượng tử hóa mô hình cơ sở có hại chất l
 | QLoRA r=16 (NF4) | 47.5 | 6.61 | 13.4 |
 | QLoRA r=64 (NF4) | 48.1 | 6.70 | 14.2 |
 
-LoRA ở r=16 nằm trong khoảng 1% so với fine-tuning toàn phần trên hầu hết benchmark. QLoRA ở r=16 mất thêm một phần của một phần trăm. QLoRA ở r=64 về cơ bản ngang fine-tuning toàn phần trong khi dùng ít bộ nhớ hơn 90%.
+LoRA ở $r=16$ nằm trong khoảng 1% so với fine-tuning toàn phần trên hầu hết benchmark. QLoRA ở $r=16$ mất thêm một phần của một phần trăm. QLoRA ở $r=64$ về cơ bản ngang fine-tuning toàn phần trong khi dùng ít bộ nhớ hơn 90%.
 
 ### Real-World Costs
 
@@ -183,7 +183,7 @@ Sau huấn luyện, bạn có hai thứ: mô hình cơ sở đã đóng băng v�
 
 1. **Giữ riêng chúng**: Nạp mô hình cơ sở, nạp adapter bên trên. Đổi adapter cho tác vụ khác nhau. Đây là cách phục vụ nhiều biến thể fine-tuned từ một mô hình cơ sở.
 
-2. **Gộp chúng vĩnh viễn**: Tính W' = W + (alpha/r) * BA và lưu kết quả thành mô hình đầy đủ mới. Mô hình đã gộp có cùng kích thước như bản gốc. Không chi phí suy luận bổ sung. Không adapter cần quản lý.
+2. **Gộp chúng vĩnh viễn**: Tính $W' = W + (\alpha/r) \cdot BA$ và lưu kết quả thành mô hình đầy đủ mới. Mô hình đã gộp có cùng kích thước như bản gốc. Không chi phí suy luận bổ sung. Không adapter cần quản lý.
 
 Để phục vụ nhiều tác vụ (adapter hỗ trợ khách hàng, adapter mã, adapter dịch), giữ riêng chúng. Để triển khai một mô hình chuyên biệt duy nhất, gộp.
 
@@ -531,11 +531,11 @@ Bài học này tạo ra:
 | LoRA | "Fine-tuning hiệu quả" | Low-Rank Adaptation: đóng băng trọng số cơ sở, huấn luyện hai ma trận nhỏ A và B có tích xấp xỉ cập nhật trọng số đầy đủ |
 | QLoRA | "Fine-tune trên laptop" | Quantized LoRA: nạp mô hình cơ sở ở NF4 4 bit, huấn luyện adapter LoRA fp16 bên trên, cho phép fine-tuning 7B trong 6GB VRAM |
 | Rank (r) (Hạng) | "Mô hình học được bao nhiêu" | Chiều bên trong của các ma trận A và B; kiểm soát khả năng biểu đạt so với số tham số |
-| Alpha | "Tốc độ học LoRA" | Hệ số tỷ lệ áp dụng cho đầu ra LoRA; alpha/r co giãn đóng góp của sự thích nghi vào đầu ra cuối |
+| Alpha | "Tốc độ học LoRA" | Hệ số tỷ lệ áp dụng cho đầu ra LoRA; $\alpha/r$ co giãn đóng góp của sự thích nghi vào đầu ra cuối |
 | NF4 | "Lượng tử hóa 4 bit" | Normal Float 4: kiểu dữ liệu 4 bit có mức lượng tử hóa ở phân vị phân phối chuẩn, tối ưu cho trọng số mạng nơ-ron |
 | Adapter (Bộ thích nghi) | "Phần nhỏ được huấn luyện" | Các ma trận LoRA A và B lưu thành file riêng (10-100MB), có thể nạp trên bất kỳ bản sao mô hình cơ sở nào |
 | Target modules (Mô-đun đích) | "LoRA vào lớp nào" | Các lớp tuyến tính cụ thể (q_proj, v_proj, v.v.) nơi adapter LoRA được đưa vào |
-| Merging (Gộp) | "Tích hợp vào" | Tính W + (alpha/r) * BA và thay trọng số gốc, loại bỏ chi phí adapter bổ sung khi suy luận |
+| Merging (Gộp) | "Tích hợp vào" | Tính $W + (\alpha/r) \cdot BA$ và thay trọng số gốc, loại bỏ chi phí adapter bổ sung khi suy luận |
 | Paged optimizers (Bộ tối ưu phân trang) | "Không OOM trong huấn luyện" | Offload trạng thái bộ tối ưu (động lượng, phương sai Adam) sang CPU khi bộ nhớ GPU cạn |
 | Catastrophic forgetting (Quên thảm khốc) | "Fine-tuning làm hỏng mọi thứ khác" | Khi cập nhật mọi trọng số khiến mô hình mất các năng lực đã học trước |
 

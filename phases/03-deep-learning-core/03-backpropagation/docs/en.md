@@ -26,7 +26,7 @@ Lan truyền ngược giải quyết điều này. Một lượt truyền xuôi,
 
 ### The Chain Rule, Applied to Networks
 
-Bạn đã thấy quy tắc chuỗi trong Giai đoạn 01, Bài 05. Nhắc lại nhanh: nếu y = f(g(x)), thì dy/dx = f'(g(x)) * g'(x). Bạn nhân các đạo hàm dọc theo chuỗi.
+Bạn đã thấy quy tắc chuỗi trong Giai đoạn 01, Bài 05. Nhắc lại nhanh: nếu $y = f(g(x))$, thì $\frac{dy}{dx} = f'(g(x)) \cdot g'(x)$. Bạn nhân các đạo hàm dọc theo chuỗi.
 
 Trong một mạng nơ-ron, "chuỗi" là dãy phép toán từ đầu vào tới mất mát. Mỗi lớp áp dụng các trọng số, cộng các bias, đưa qua một kích hoạt. Hàm mất mát so sánh đầu ra cuối cùng với mục tiêu. Lan truyền ngược lần theo chuỗi này ngược lại, tính xem mỗi phép toán đóng góp vào sai số như thế nào.
 
@@ -45,9 +45,9 @@ graph LR
     y["target"] --> loss
 ```
 
-Lượt truyền xuôi: các giá trị chảy từ trái sang phải. x và w tạo ra z1 = w*x. Cộng b để có z2. Sigmoid cho kích hoạt a. So sánh a với mục tiêu y bằng hàm mất mát.
+Lượt truyền xuôi: các giá trị chảy từ trái sang phải. $x$ và $w$ tạo ra $z_1 = w x$. Cộng $b$ để có $z_2$. Sigmoid cho kích hoạt $a$. So sánh $a$ với mục tiêu $y$ bằng hàm mất mát.
 
-Lượt truyền ngược: các gradient chảy từ phải sang trái. Bắt đầu với dL/da (mất mát thay đổi theo kích hoạt như thế nào). Nhân với da/dz2 (đạo hàm sigmoid). Điều đó cho dL/dz2. Tách thành dL/db (bằng dL/dz2, vì z2 = z1 + b) và dL/dz1. Sau đó dL/dw = dL/dz1 * x và dL/dx = dL/dz1 * w.
+Lượt truyền ngược: gradient chảy từ phải sang trái. Bắt đầu với $\partial L/\partial a$ (loss thay đổi thế nào theo activation). Nhân với $\partial a/\partial z_2$ (đạo hàm sigmoid). Điều đó cho $\partial L/\partial z_2$. Tách thành $\partial L/\partial b$ (bằng $\partial L/\partial z_2$, vì $z_2 = z_1 + b$) và $\partial L/\partial z_1$. Sau đó $\partial L/\partial w = \partial L/\partial z_1 \cdot x$ và $\partial L/\partial x = \partial L/\partial z_1 \cdot w$.
 
 Mỗi nút trong đồ thị có một việc trong lượt truyền ngược: nhận gradient đến từ phía trên, nhân với đạo hàm cục bộ của nó và truyền xuống.
 
@@ -84,7 +84,7 @@ graph RL
     L1 -- "dL/dz1 = dL/da1 * sigmoid'(z1)" --> I["Input"]
 ```
 
-Tại mỗi lớp, gradient được nhân với đạo hàm sigmoid. Đạo hàm sigmoid là a * (1 - a), đạt tối đa 0.25 (khi a = 0.5). Sâu ba lớp, gradient đã được nhân với nhiều nhất 0.25^3 = 0.0156. Sâu mười lớp: 0.25^10 = 0.000001.
+Tại mỗi lớp, gradient được nhân với đạo hàm sigmoid. Đạo hàm sigmoid là $a(1 - a)$, đạt tối đa 0.25 (khi $a = 0.5$). Sâu ba lớp, gradient đã được nhân với nhiều nhất $0.25^3 = 0.0156$. Sâu mười lớp: $0.25^{10} = 0.000001$.
 
 ### Vanishing Gradients
 
@@ -102,32 +102,35 @@ After 10 layers:  gradient * 0.25^10 = 0.000001x original
 
 ### Deriving Gradients for a 2-Layer Network
 
-Toán học cụ thể cho một mạng có đầu vào x, lớp ẩn với sigmoid, lớp đầu ra với sigmoid và mất mát MSE.
+Toán học cụ thể cho một mạng có đầu vào $x$, lớp ẩn với sigmoid, lớp đầu ra với sigmoid và mất mát MSE.
 
 Lượt truyền xuôi:
-```
-z1 = W1 * x + b1
-a1 = sigmoid(z1)
-z2 = W2 * a1 + b2
-a2 = sigmoid(z2)
-L = (a2 - y)^2
+
+```math
+\begin{aligned}
+z_1 &= W_1 x + b_1 \\
+a_1 &= \text{sigmoid}(z_1) \\
+z_2 &= W_2 a_1 + b_2 \\
+a_2 &= \text{sigmoid}(z_2) \\
+L &= (a_2 - y)^2
+\end{aligned}
 ```
 
 Lượt truyền ngược (áp dụng quy tắc chuỗi từng bước):
-```
-dL/da2 = 2(a2 - y)
-da2/dz2 = a2 * (1 - a2)
-dL/dz2 = dL/da2 * da2/dz2 = 2(a2 - y) * a2 * (1 - a2)
 
-dL/dW2 = dL/dz2 * a1
-dL/db2 = dL/dz2
-
-dL/da1 = dL/dz2 * W2
-da1/dz1 = a1 * (1 - a1)
-dL/dz1 = dL/da1 * da1/dz1
-
-dL/dW1 = dL/dz1 * x
-dL/db1 = dL/dz1
+```math
+\begin{aligned}
+\frac{\partial L}{\partial a_2} &= 2(a_2 - y) \\
+\frac{\partial a_2}{\partial z_2} &= a_2 (1 - a_2) \\
+\frac{\partial L}{\partial z_2} &= \frac{\partial L}{\partial a_2} \cdot \frac{\partial a_2}{\partial z_2} = 2(a_2 - y) \cdot a_2 (1 - a_2) \\[6pt]
+\frac{\partial L}{\partial W_2} &= \frac{\partial L}{\partial z_2} \cdot a_1 \\
+\frac{\partial L}{\partial b_2} &= \frac{\partial L}{\partial z_2} \\[6pt]
+\frac{\partial L}{\partial a_1} &= \frac{\partial L}{\partial z_2} \cdot W_2 \\
+\frac{\partial a_1}{\partial z_1} &= a_1 (1 - a_1) \\
+\frac{\partial L}{\partial z_1} &= \frac{\partial L}{\partial a_1} \cdot \frac{\partial a_1}{\partial z_1} \\[6pt]
+\frac{\partial L}{\partial W_1} &= \frac{\partial L}{\partial z_1} \cdot x \\
+\frac{\partial L}{\partial b_1} &= \frac{\partial L}{\partial z_1}
+\end{aligned}
 ```
 
 Mỗi gradient là một tích các đạo hàm cục bộ được lần ngược từ mất mát. Lan truyền ngược chỉ có vậy.
@@ -185,9 +188,9 @@ def __mul__(self, other):
     return out
 ```
 
-Với phép cộng: d(a+b)/da = 1, d(a+b)/db = 1. Vì vậy cả hai đầu vào trực tiếp nhận gradient của đầu ra.
+Đối với phép cộng: $\partial(a+b)/\partial a = 1$, $\partial(a+b)/\partial b = 1$. Vì vậy cả hai đầu vào nhận trực tiếp gradient của đầu ra.
 
-Với phép nhân: d(a*b)/da = b, d(a*b)/db = a. Mỗi đầu vào nhận giá trị của đầu vào kia nhân gradient đầu ra.
+Đối với phép nhân: $\partial(ab)/\partial a = b$, $\partial(ab)/\partial b = a$. Mỗi đầu vào nhận giá trị của đầu vào còn lại nhân gradient đầu ra.
 
 `+=` rất quan trọng. Một Value có thể được sử dụng trong nhiều phép toán. Gradient của nó là tổng các gradient từ tất cả các đường đi.
 
@@ -209,7 +212,7 @@ def sigmoid(self):
     return out
 ```
 
-Đạo hàm sigmoid: sigmoid(x) * (1 - sigmoid(x)). Chúng ta đã tính sigmoid(x) = s trong lượt truyền xuôi. Sử dụng lại nó. Không cần thêm công việc.
+Đạo hàm sigmoid: $\text{sigmoid}(x) \cdot (1 - \text{sigmoid}(x))$. Chúng ta đã tính $\text{sigmoid}(x) = s$ trong lượt truyền xuôi. Sử dụng lại nó. Không cần thêm công việc.
 
 ```python
 def mse_loss(predicted, target):
@@ -217,7 +220,7 @@ def mse_loss(predicted, target):
     return diff * diff
 ```
 
-MSE cho một đầu ra đơn lẻ: (predicted - target)^2. Chúng ta biểu diễn phép trừ như phép cộng với một Value đổi dấu.
+MSE cho một đầu ra đơn lẻ: $(\text{predicted} - \text{target})^2$. Chúng ta biểu diễn phép trừ như phép cộng với một Value đổi dấu.
 
 ### Step 4: Backward Pass
 
@@ -241,7 +244,7 @@ def backward(self):
         v._backward()
 ```
 
-Bắt đầu tại mất mát (gradient = 1.0, vì dL/dL = 1). Đi ngược qua đồ thị đã sắp xếp. `_backward` của mỗi nút đẩy các gradient tới các nút con của nó.
+Bắt đầu tại mất mát (gradient = 1.0, vì $dL/dL = 1$). Đi ngược qua đồ thị đã sắp xếp. `_backward` của mỗi nút đẩy các gradient tới các nút con của nó.
 
 ### Step 5: Layer and Network
 
@@ -301,7 +304,7 @@ class Network:
             p.grad = 0.0
 ```
 
-Một Neuron nhận các đầu vào, tính tổng có trọng số + bias và áp dụng sigmoid. Khởi tạo trọng số co giãn theo sqrt(2/n_inputs) để ngăn bão hòa sigmoid trong các mạng sâu hơn. Một Layer là một danh sách Neuron. Một Network là một danh sách Layer. Phương thức `parameters()` thu thập tất cả các Value có thể học để chúng ta có thể cập nhật chúng.
+Một Neuron nhận các đầu vào, tính tổng có trọng số + bias và áp dụng sigmoid. Khởi tạo trọng số co giãn theo $\sqrt{2/n_{\text{inputs}}}$ để ngăn bão hòa sigmoid trong các mạng sâu hơn. Một Layer là một danh sách Neuron. Một Network là một danh sách Layer. Phương thức `parameters()` thu thập tất cả các Value có thể học để chúng ta có thể cập nhật chúng.
 
 ### Step 6: Train on XOR
 
@@ -439,9 +442,9 @@ Bài học này tạo ra:
 
 ## Exercises
 
-1. Thêm một phương thức `__sub__` vào lớp Value (a - b = a + (-1 * b)). Sau đó triển khai một phương thức `__neg__`. Xác minh các gradient đúng bằng cách so sánh với tính toán thủ công cho một biểu thức đơn giản như (a - b)^2.
+1. Thêm một phương thức `__sub__` vào lớp Value $(a - b = a + (-1 \cdot b))$. Sau đó triển khai một phương thức `__neg__`. Xác minh các gradient đúng bằng cách so sánh với tính toán thủ công cho một biểu thức đơn giản như $(a - b)^2$.
 
-2. Thêm một phương thức `relu` vào Value (xuất ra max(0, x), đạo hàm là 1 nếu x > 0, nếu không là 0). Thay sigmoid bằng relu trong các lớp ẩn và huấn luyện lại trên XOR. So sánh tốc độ hội tụ. Bạn sẽ thấy huấn luyện nhanh hơn -- điều này xem trước Bài 04.
+2. Thêm một phương thức `relu` vào Value (xuất ra $\max(0, x)$, đạo hàm là 1 nếu $x \gt 0$, nếu không là 0). Thay sigmoid bằng relu trong các lớp ẩn và huấn luyện lại trên XOR. So sánh tốc độ hội tụ. Bạn sẽ thấy huấn luyện nhanh hơn -- điều này xem trước Bài 04.
 
 3. Triển khai một phương thức `__pow__` trên Value cho các lũy thừa nguyên. Sử dụng nó để thay `mse_loss` bằng một biểu thức `(predicted - target) ** 2` đúng nghĩa. Xác minh các gradient khớp bản triển khai gốc.
 
@@ -453,14 +456,14 @@ Bài học này tạo ra:
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Backpropagation (Lan truyền ngược) | "Mạng học" | Một thuật toán tính dL/dw cho mọi trọng số bằng cách áp dụng quy tắc chuỗi ngược qua đồ thị tính toán |
+| Backpropagation | "Mạng học" | Một thuật toán tính $\partial L/\partial w$ cho mọi trọng số bằng cách áp dụng quy tắc dây chuyền ngược qua đồ thị tính toán |
 | Computational graph (Đồ thị tính toán) | "Cấu trúc mạng" | Một đồ thị có hướng không chu trình trong đó các nút là phép toán và các cạnh mang giá trị (xuôi) và gradient (ngược) |
-| Chain rule (Quy tắc chuỗi) | "Nhân các đạo hàm" | Nếu y = f(g(x)), thì dy/dx = f'(g(x)) * g'(x) -- nền tảng toán học của lan truyền ngược |
+| Chain rule (Quy tắc chuỗi) | "Nhân các đạo hàm" | Nếu $y = f(g(x))$, thì $\frac{dy}{dx} = f'(g(x)) \cdot g'(x)$ -- nền tảng toán học của lan truyền ngược |
 | Gradient | "Hướng tăng dốc nhất" | Đạo hàm riêng của mất mát theo một tham số -- cho bạn biết cách thay đổi tham số đó để giảm mất mát |
 | Vanishing gradient (Tiêu biến gradient) | "Các mạng sâu không học" | Các gradient co lại theo cấp số nhân khi chúng lan truyền qua các lớp có kích hoạt bão hòa như sigmoid |
 | Forward pass (Lượt truyền xuôi) | "Chạy mạng" | Tính đầu ra từ các đầu vào bằng cách áp dụng tuần tự các phép toán của mỗi lớp và lưu các giá trị trung gian |
 | Backward pass (Lượt truyền ngược) | "Tính các gradient" | Duyệt đồ thị tính toán theo chiều ngược lại, tích lũy gradient tại mỗi nút bằng quy tắc chuỗi |
-| Learning rate (Tốc độ học) | "Nó học nhanh đến mức nào" | Một số vô hướng kiểm soát kích thước bước khi cập nhật trọng số: w_new = w_old - lr * gradient |
+| Learning rate (Tốc độ học) | "Nó học nhanh đến mức nào" | Một số vô hướng kiểm soát kích thước bước khi cập nhật trọng số: $w_{\text{new}} = w_{\text{old}} - \text{lr} \cdot \text{gradient}$ |
 | Topological sort (Sắp xếp tô pô) | "Thứ tự đúng" | Một thứ tự các nút đồ thị mà mỗi nút xuất hiện sau tất cả các nút nó phụ thuộc -- bảo đảm các gradient được tích lũy đầy đủ trước khi lan truyền |
 | Autograd | "Vi phân tự động" | Một hệ thống xây dựng các đồ thị tính toán trong tính toán xuôi và tự động tính gradient -- điều bộ máy của PyTorch làm |
 

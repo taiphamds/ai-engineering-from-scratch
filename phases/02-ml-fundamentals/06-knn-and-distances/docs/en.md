@@ -56,12 +56,12 @@ K là siêu tham số duy nhất. Nó điều khiển sự đánh đổi độ c
 
 | K | Hành vi |
 |---|----------|
-| K = 1 | Biên quyết định đi theo từng điểm. Sai số huấn luyện bằng không. Phương sai cao. Khớp quá mức |
+| $K = 1$ | Biên quyết định đi theo từng điểm. Sai số huấn luyện bằng không. Phương sai cao. Khớp quá mức |
 | K nhỏ (3-5) | Nhạy với cấu trúc cục bộ. Có thể nắm bắt các biên phức tạp |
 | K lớn | Các biên mượt hơn. Bền vững hơn với nhiễu. Có thể khớp chưa đủ |
-| K = N | Dự đoán lớp đa số cho mọi điểm. Độ chệch tối đa |
+| $K = N$ | Dự đoán lớp đa số cho mọi điểm. Độ chệch tối đa |
 
-Một điểm bắt đầu phổ biến là K = sqrt(N) cho một tập dữ liệu N điểm. Sử dụng K lẻ cho phân loại nhị phân để tránh hòa.
+Một điểm bắt đầu phổ biến là $K = \sqrt{N}$ cho một tập dữ liệu $N$ điểm. Sử dụng K lẻ cho phân loại nhị phân để tránh hòa.
 
 ```mermaid
 graph LR
@@ -83,32 +83,33 @@ Hàm khoảng cách xác định "gần" có nghĩa gì. Các metric khác nhau 
 
 **L2 (Euclid)** là mặc định. Khoảng cách đường thẳng.
 
-```
-d(a, b) = sqrt(sum((a_i - b_i)^2))
+```math
+d(a, b) = \sqrt{\sum_i (a_i - b_i)^2}
 ```
 
 Nhạy với thang đo đặc trưng. Luôn chuẩn hóa các đặc trưng trước khi sử dụng L2 với KNN.
 
 **L1 (Manhattan)** cộng các chênh lệch tuyệt đối. Bền vững với ngoại lệ hơn L2 vì nó không bình phương các chênh lệch.
 
-```
-d(a, b) = sum(|a_i - b_i|)
+```math
+d(a, b) = \sum_i \lvert a_i - b_i \rvert
 ```
 
 **Khoảng cách cosine** đo góc giữa các vector, bỏ qua độ lớn. Thiết yếu cho dữ liệu văn bản và embedding.
 
-```
-d(a, b) = 1 - (a . b) / (||a|| * ||b||)
+```math
+d(a, b) = 1 - \frac{a \cdot b}{\lVert a \rVert \, \lVert b \rVert}
 ```
 
-**Minkowski** tổng quát hóa L1 và L2 với tham số p.
+**Minkowski** tổng quát hóa L1 và L2 với tham số $p$.
 
-```
-d(a, b) = (sum(|a_i - b_i|^p))^(1/p)
-
-p=1: Manhattan
-p=2: Euclidean
-p->inf: Chebyshev (max absolute difference)
+```math
+\begin{aligned}
+& d(a, b) = \left( \sum_i \lvert a_i - b_i \rvert^p \right)^{1/p} \\[6pt]
+& p=1\text{: Manhattan} \\
+& p=2\text{: Euclidean} \\
+& p \to \infty\text{: Chebyshev (max absolute difference)}
+\end{aligned}
 ```
 
 Metric nào nên dùng phụ thuộc vào dữ liệu:
@@ -127,14 +128,15 @@ KNN tiêu chuẩn cho trọng số bằng nhau với tất cả K láng giềng.
 
 **KNN có trọng số theo khoảng cách** gán trọng số nghịch với khoảng cách cho mỗi láng giềng:
 
+```math
+\begin{aligned}
+& \text{weight}_i = \frac{1}{\text{distance}_i + \epsilon} \\[6pt]
+& \text{For classification: weighted vote} \\
+& \text{For regression: weighted average} = \frac{\sum_i w_i y_i}{\sum_i w_i}
+\end{aligned}
 ```
-weight_i = 1 / (distance_i + epsilon)
 
-For classification: weighted vote
-For regression:     weighted average = sum(w_i * y_i) / sum(w_i)
-```
-
-Epsilon ngăn chia cho không khi một điểm truy vấn khớp chính xác một điểm huấn luyện.
+$\epsilon$ ngăn phép chia cho không khi một điểm truy vấn khớp chính xác với một điểm huấn luyện.
 
 KNN có trọng số ít nhạy với lựa chọn K hơn vì các láng giềng xa đóng góp rất ít bất kể K.
 
@@ -162,7 +164,7 @@ Hệ quả thực tế: KNN hoạt động tốt đến khoảng 20-50 đặc tr
 
 ### KD-trees: fast nearest neighbor search
 
-KNN vét cạn tính khoảng cách từ truy vấn đến mọi điểm huấn luyện. Đó là O(n * d) mỗi truy vấn. Với các tập dữ liệu lớn, điều này quá chậm.
+KNN vét cạn tính khoảng cách từ truy vấn đến mọi điểm huấn luyện. Đó là $O(n \cdot d)$ mỗi truy vấn. Với các tập dữ liệu lớn, điều này quá chậm.
 
 Một KD-tree phân hoạch đệ quy không gian dọc theo các trục đặc trưng. Tại mỗi mức, nó chia dọc theo một chiều tại giá trị trung vị.
 
@@ -178,7 +180,7 @@ graph TD
 
 Để tìm láng giềng gần nhất, duyệt cây đến lá chứa truy vấn, rồi quay lui và kiểm tra các phân hoạch lân cận chỉ khi chúng có thể chứa các điểm gần hơn.
 
-Thời gian truy vấn trung bình: O(log n) với số chiều thấp. Nhưng KD-tree suy giảm về O(n) trong không gian nhiều chiều (d > 20) vì quay lui loại bỏ ngày càng ít nhánh.
+Thời gian truy vấn trung bình: $O(\log n)$ với số chiều thấp. Nhưng KD-tree suy giảm về $O(n)$ trong không gian nhiều chiều ($d > 20$) vì quay lui loại bỏ ngày càng ít nhánh.
 
 ### Ball trees: better for moderate dimensions
 
@@ -197,8 +199,8 @@ KNN là một bộ học lười: nó không làm việc tại thời điểm hu
 
 | Khía cạnh | Lười (KNN) | Háo hức (SVM, mạng nơ-ron) |
 |--------|------------|------------------------|
-| Thời gian huấn luyện | O(1) chỉ lưu dữ liệu | O(n * epochs) |
-| Thời gian dự đoán | O(n * d) mỗi truy vấn | O(d) hoặc O(parameters) |
+| Thời gian huấn luyện | $O(1)$ chỉ lưu dữ liệu | $O(n \cdot \text{epochs})$ |
+| Thời gian dự đoán | $O(n \cdot d)$ mỗi truy vấn | $O(d)$ hoặc $O(\text{parameters})$ |
 | Bộ nhớ lúc dự đoán | Lưu toàn bộ tập huấn luyện | Chỉ lưu các tham số mô hình |
 | Thích nghi với dữ liệu mới | Thêm điểm ngay lập tức | Huấn luyện lại mô hình |
 | Biên quyết định | Ngầm, được tính tức thời | Tường minh, cố định sau huấn luyện |
@@ -213,12 +215,12 @@ Học lười lý tưởng khi:
 
 Thay vì bỏ phiếu đa số, KNN cho hồi quy lấy trung bình các giá trị mục tiêu của K láng giềng.
 
-```
-prediction = (1/K) * sum(y_i for i in K nearest neighbors)
-
-Or with distance weighting:
-prediction = sum(w_i * y_i) / sum(w_i)
-where w_i = 1 / distance_i
+```math
+\begin{aligned}
+& \text{prediction} = \frac{1}{K} \sum_{i \in K \text{ nearest neighbors}} y_i \\[6pt]
+& \text{Or with distance weighting:} \\
+& \text{prediction} = \frac{\sum_i w_i y_i}{\sum_i w_i} \quad \text{where } w_i = \frac{1}{\text{distance}_i + \epsilon}
+\end{aligned}
 ```
 
 Hồi quy KNN tạo các dự đoán hằng từng khúc (hoặc mượt từng khúc khi có trọng số). Nó không thể ngoại suy vượt khoảng của dữ liệu huấn luyện. Nếu các mục tiêu huấn luyện đều giữa 0 và 100, KNN sẽ không bao giờ dự đoán 200.
@@ -345,7 +347,7 @@ distances, indices = index.search(query_vectors, k=5)
 
 ## Exercises
 
-1. Triển khai phân loại KNN trên một tập dữ liệu 2D có 3 lớp. Vẽ biên quyết định cho K=1, K=5, K=15 và K=N. Quan sát chuyển tiếp từ khớp quá mức sang khớp chưa đủ.
+1. Triển khai phân loại KNN trên một tập dữ liệu 2D có 3 lớp. Vẽ biên quyết định cho $K=1$, $K=5$, $K=15$ và $K=N$. Quan sát chuyển tiếp từ khớp quá mức sang khớp chưa đủ.
 
 2. Tạo 1000 điểm ngẫu nhiên trong 2, 5, 10, 50, 100 và 500 chiều. Với mỗi số chiều, tính tỉ số khoảng cách từng cặp lớn nhất với khoảng cách từng cặp nhỏ nhất. Vẽ tỉ số theo số chiều để trực quan hóa lời nguyền số chiều.
 
@@ -353,7 +355,7 @@ distances, indices = index.search(query_vectors, k=5)
 
 4. Triển khai một KD-tree và đo thời gian truy vấn so với vét cạn cho các tập dữ liệu 1k, 10k và 100k điểm trong 2D, 10D và 50D. Ở số chiều nào KD-tree ngừng nhanh hơn vét cạn?
 
-5. Xây dựng một bộ hồi quy KNN có trọng số cho y = sin(x) + noise. So sánh nó với KNN không trọng số cho K=3, 10, 30. Chỉ ra rằng trọng số tạo ra các dự đoán mượt hơn, đặc biệt với K lớn.
+5. Xây dựng một bộ hồi quy KNN có trọng số cho $y = \sin(x) + \text{noise}$. So sánh nó với KNN không trọng số cho $K=3, 10, 30$. Chỉ ra rằng trọng số tạo ra các dự đoán mượt hơn, đặc biệt với K lớn.
 
 ## Key Terms
 
@@ -363,14 +365,14 @@ distances, indices = index.search(query_vectors, k=5)
 | Lazy learning (Học lười) | Không tính toán tại thời điểm huấn luyện. Mọi việc diễn ra tại thời điểm dự đoán. KNN là ví dụ điển hình |
 | Eager learning (Học háo hức) | Tính toán nặng tại thời điểm huấn luyện để xây dựng một mô hình gọn. Hầu hết thuật toán ML là háo hức |
 | Curse of dimensionality (Lời nguyền số chiều) | Trong không gian nhiều chiều, các khoảng cách hội tụ và vùng lân cận mở rộng để bao phủ hầu hết không gian, làm KNN không hiệu quả |
-| KD-tree | Cây nhị phân phân hoạch đệ quy không gian dọc theo các trục đặc trưng. Các truy vấn O(log n) trong không gian ít chiều |
+| KD-tree | Cây nhị phân phân hoạch đệ quy không gian dọc theo các trục đặc trưng. Các truy vấn $O(\log n)$ trong không gian ít chiều |
 | Ball tree | Cây các siêu cầu lồng nhau. Hoạt động tốt hơn KD-tree ở số chiều vừa phải (đến ~50) |
 | Weighted KNN (KNN có trọng số) | Các láng giềng được gán trọng số nghịch với khoảng cách. Các láng giềng gần hơn ảnh hưởng nhiều hơn đến dự đoán |
 | Feature scaling (Co giãn đặc trưng) | Chuẩn hóa các đặc trưng về các khoảng có thể so sánh. Cần cho các phương pháp dựa trên khoảng cách như KNN |
 | Majority vote (Bỏ phiếu đa số) | Phân loại bằng cách đếm lớp nào phổ biến nhất trong K láng giềng |
-| Brute force search (Tìm kiếm vét cạn) | Tính khoảng cách đến mọi điểm huấn luyện. O(n*d) mỗi truy vấn. Chính xác nhưng chậm với n lớn |
+| Brute force search (Tìm kiếm vét cạn) | Tính khoảng cách đến mọi điểm huấn luyện. $O(n \cdot d)$ mỗi truy vấn. Chính xác nhưng chậm với $n$ lớn |
 | Approximate nearest neighbor (Láng giềng gần nhất xấp xỉ) | Các thuật toán (HNSW, LSH, IVF) tìm các điểm gần nhất xấp xỉ nhanh hơn nhiều so với tìm kiếm chính xác |
-| Voronoi diagram (Biểu đồ Voronoi) | Phân hoạch không gian nơi mỗi miền chứa tất cả các điểm gần một điểm huấn luyện hơn bất kỳ điểm nào khác. KNN với K=1 tạo các biên Voronoi |
+| Voronoi diagram (Biểu đồ Voronoi) | Phân hoạch không gian nơi mỗi miền chứa tất cả các điểm gần một điểm huấn luyện hơn bất kỳ điểm nào khác. KNN với $K=1$ tạo các biên Voronoi |
 
 ## Further Reading
 

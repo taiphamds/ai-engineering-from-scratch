@@ -61,7 +61,7 @@ Mọi bộ theo dõi cổ điển dùng bộ lọc Kalman ở bước dự đoá
 
 ### The Hungarian algorithm
 
-Với ma trận chi phí `M x N` (quỹ đạo x phát hiện), tìm phép gán một-một tối thiểu tổng chi phí. Chi phí thường `1 - IoU(track_bbox, detection_bbox)` hoặc âm độ tương đồng cosine của đặc trưng diện mạo. Thời gian chạy O((M+N)^3); với M, N tới ~1000, đủ nhanh trong Python qua `scipy.optimize.linear_sum_assignment`.
+Với ma trận chi phí `M x N` (quỹ đạo x phát hiện), tìm phép gán một-một tối thiểu tổng chi phí. Chi phí thường `1 - IoU(track_bbox, detection_bbox)` hoặc âm độ tương đồng cosine của đặc trưng diện mạo. Thời gian chạy $O((M+N)^3)$; với $M, N$ tới ~1000, đủ nhanh trong Python qua `scipy.optimize.linear_sum_assignment`.
 
 ### ByteTrack's key idea
 
@@ -69,7 +69,7 @@ Các bộ theo dõi tiêu chuẩn bỏ phát hiện tin cậy thấp (< 0.5). By
 
 ### SAM 2 memory-based tracking
 
-SAM 2 xử lý video bằng cách giữ **ngân hàng bộ nhớ** các đặc trưng không-thời gian từng thực thể. Với một prompt (nhấp, hộp, văn bản) trên một khung, nó mã hóa thực thể vào bộ nhớ. Trên các khung sau, bộ nhớ được cross-attention với các đặc trưng khung mới, và decoder tạo mặt nạ cho cùng thực thể trong khung mới.
+SAM 2 xử lý video bằng cách giữ một **ngân hàng bộ nhớ** chứa các đặc trưng không gian-thời gian theo từng đối tượng. Với một prompt (nhấp, hộp hoặc mặt nạ) trên một khung hình, nó mã hóa đối tượng vào bộ nhớ. Ở các khung hình tiếp theo, bộ nhớ được cross-attention với các đặc trưng của khung hình mới, và decoder tạo một mặt nạ cho cùng đối tượng trong khung hình mới.
 
 Không bộ lọc Kalman, không phép gán Hungarian. Liên kết ngầm trong phép toán attention bộ nhớ.
 

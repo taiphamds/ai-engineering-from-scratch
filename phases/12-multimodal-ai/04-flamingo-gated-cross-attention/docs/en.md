@@ -20,7 +20,7 @@ BLIP-2 đưa 32 token thị giác vào lớp đầu vào LLM đóng băng. Hoạ
 
 Câu trả lời Flamingo: không đổi luồng đầu vào LLM chút nào. Chèn thêm lớp cross-attention giữa khối LLM hiện có. Token văn bản vẫn chảy qua self-attention nhân quả LLM như thường. Giữa mỗi vài khối LLM, token văn bản cũng cross-attend đến đặc trưng ảnh qua lớp có cổng mới. Cổng (khởi tạo bằng không) nghĩa là tại bước không các lớp mới không làm gì — mô hình hành xử đúng như LLM tiền huấn luyện. Khi huấn luyện tiến triển cổng mở và thông tin thị giác bắt đầu chảy.
 
-Câu hỏi thứ hai Flamingo trả lời: xử lý số ảnh thay đổi (0, 1 hoặc nhiều) mỗi prompt thế nào? Perceiver resampler — mô-đun cross-attention nhỏ nhận bất kỳ số patch nào và tạo số token tiềm ẩn thị giác cố định. Lớp cross-attention LLM thấy cùng hình dạng bất kể bao nhiêu ảnh trong prompt.
+Câu hỏi thứ hai Flamingo trả lời: làm thế nào bạn xử lý một số lượng hình ảnh thay đổi (0, 1 hoặc nhiều) cho mỗi prompt? Một Perceiver resampler — một module cross-attention nhỏ nhận bất kỳ số lượng patch nào bạn có và tạo một số lượng cố định token tiềm ẩn thị giác cho mỗi hình ảnh. Tổng tăng theo số hình ảnh, nhưng mỗi token văn bản chỉ đọc các latent của một hình ảnh, vì vậy những gì bất kỳ token văn bản đơn lẻ nào nhìn thấy trong cross-attention đều có cùng kích thước bất kể có bao nhiêu hình ảnh trong prompt.
 
 ## The Concept
 
@@ -30,18 +30,18 @@ Flamingo bắt đầu với LLM Chinchilla 70B đóng băng. Cả 70B trọng s�
 
 ### Perceiver resampler
 
-Với mỗi ảnh trong prompt, ViT tạo N token patch. Perceiver resampler có K biến tiềm ẩn cố định có thể học (Flamingo dùng K=64). Mỗi khối resampler là hai bước con:
+Với mỗi ảnh trong prompt, ViT tạo $N$ token patch. Perceiver resampler có $K$ biến tiềm ẩn cố định có thể học (Flamingo dùng $K=64$). Mỗi khối resampler là hai bước con:
 
-1. Cross-attention: K biến tiềm ẩn attend trên N token patch (Q từ biến tiềm ẩn, K/V từ patch).
+1. Cross-attention: $K$ latent chú ý đến $N$ token patch (Q từ latent, K/V từ patch).
 2. Self-attention + FFN trong các biến tiềm ẩn.
 
-Sau 6 khối resampler, đầu ra là K=64 token thị giác chiều 1024, bất kể ViT tạo bao nhiêu patch. Ảnh 224x224 (196 patch) và ảnh 480x480 (900 patch) đều ra thành 64 token resampler.
+Sau 6 khối resampler, đầu ra là $K=64$ token thị giác chiều 1024, bất kể ViT tạo bao nhiêu patch. Ảnh 224x224 (196 patch) và ảnh 480x480 (900 patch) đều ra thành 64 token resampler.
 
-Với video, resampler áp dụng theo thời gian: patch mỗi khung tạo 64 biến tiềm ẩn và mã hóa vị trí thời gian cho mô hình phân biệt t=0 với t=N. Toàn video thành T * 64 token thị giác.
+Với video, resampler áp dụng theo thời gian: patch mỗi khung tạo 64 biến tiềm ẩn và mã hóa vị trí thời gian cho mô hình phân biệt $t=0$ với $t=N$. Toàn video thành $T \cdot 64$ token thị giác.
 
 ### Gated cross-attention
 
-Giữa mỗi M lớp LLM đóng băng (Flamingo dùng M=4), chèn khối cross-attention có cổng mới:
+Giữa mỗi $M$ lớp LLM đóng băng (Flamingo dùng $M=4$), chèn khối cross-attention có cổng mới:
 
 ```
 x_after_llm_block = llm_block(x_before)
@@ -59,7 +59,7 @@ x_before_next_block = gated
 
 ### Masked cross-attention for interleaved inputs
 
-Trong prompt như "<image A> caption A <image B> caption B <image C> ?", mỗi token văn bản chỉ nên thấy ảnh đến trước trong chuỗi. Cross-attention mask cưỡng chế: token văn bản ở vị trí `t` chỉ attend đến token resampler ảnh có chỉ số ảnh `i < i_t` trong đó `i_t` là ảnh gần nhất trước vị trí `t`. "Chỉ thấy ảnh cuối phía trước" hoặc "thấy mọi ảnh phía trước" đều là lựa chọn hợp lệ; Flamingo chọn cách đầu.
+Trong một prompt như "<image A> chú thích A <image B> chú thích B <image C> ?", mỗi token văn bản chỉ nên nhìn thấy các hình ảnh đứng trước nó trong chuỗi. Mặt nạ cross-attention thực thi: token văn bản tại vị trí `t` chỉ chú ý đến các token resampler của hình ảnh `i_t`, trong đó `i_t` là hình ảnh gần nhất trước vị trí `t`; các token từ mọi hình ảnh khác đều bị che. "Chỉ nhìn thấy hình ảnh đứng trước gần nhất" hoặc "nhìn thấy mọi hình ảnh đứng trước" đều là các lựa chọn hợp lệ; Flamingo chọn cách đầu tiên.
 
 ### In-context few-shot learning
 
@@ -76,7 +76,7 @@ Mô hình thấy mẫu hoàn thành và xuất "chim" (hoặc bất kỳ thứ g
 Flamingo huấn luyện trên ba bộ dữ liệu:
 
 1. MultiModal MassiveWeb (M3W): 43M trang web với ảnh và văn bản xen kẽ, tái dựng thứ tự đọc.
-2. Image-Text Pairs (ALIGN + LTIP): 4.4B cặp.
+2. Các cặp hình ảnh-văn bản: ALIGN (1.8B cặp) cộng LTIP (312M cặp), tổng khoảng 2.1B cặp.
 3. Video-Text Pairs (VTP): 27M đoạn video ngắn.
 
 OBELICS (2023) là tái tạo mở ngữ liệu web xen kẽ, mà Idefics, Idefics2 và hầu hết mô hình mở "giống Flamingo" huấn luyện trên đó.
@@ -102,7 +102,7 @@ Otter (2023) xây trên OpenFlamingo với instruction tuning trên MIMIC-IT (b�
 | LLM đóng băng | Có | Có |
 | Few-shot trong ngữ cảnh | Yếu | Mạnh — trọng tâm bài báo |
 | Đầu vào xen kẽ | Không hỗ trợ nguyên bản | Có, mục tiêu thiết kế |
-| Dữ liệu huấn luyện | 130M cặp | 1.3B cặp + 43M trang xen kẽ |
+| Dữ liệu huấn luyện | 130M cặp | ~2.1B cặp + 27M clip video + 43M trang xen kẽ |
 | Số tham số | 188M được huấn luyện | ~10B được huấn luyện (lớp cross-attn) |
 | Tính toán | Vài ngày trên 8 A100 | Nhiều tuần trên hàng nghìn TPUv4 |
 
@@ -148,7 +148,7 @@ Bài học này tạo `outputs/skill-gated-bridge-diagnostic.md`. Với cấu h�
 | OBELICS | "Ngữ liệu web xen kẽ" | Bộ dữ liệu mở 141M trang web có ảnh và văn bản theo thứ tự đọc |
 | Chinchilla | "Cơ sở 70B đóng băng" | LLM văn bản đóng băng của Flamingo, từ bài báo Chinchilla DeepMind |
 | Gate schedule (Lịch cổng) | "Cách alpha di chuyển" | Tốc độ cổng cross-attention mở trong huấn luyện |
-| Cross-attn frequency (Tần suất cross-attn) | "Mỗi M lớp" | Tần suất chèn khối cross-attention có cổng; Flamingo dùng M=4 |
+| Cross-attn frequency (Tần suất cross-attn) | "Mỗi M lớp" | Tần suất chèn khối cross-attention có cổng; Flamingo dùng $M=4$ |
 | OpenFlamingo | "Tái tạo mở" | Checkpoint mở MosaicML/LAION ở 3-9B; kiến trúc giống hệt Flamingo |
 
 ## Further Reading

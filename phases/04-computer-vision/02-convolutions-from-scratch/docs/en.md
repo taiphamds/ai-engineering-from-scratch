@@ -74,8 +74,8 @@ Một công thức đó — **các trọng số dùng chung, tính cục bộ, c
 
 Cho kích thước không gian đầu vào `H`, kích thước kernel `K`, padding `P`, stride `S`:
 
-```
-H_out = floor( (H - K + 2P) / S ) + 1
+```math
+H_{\text{out}} = \left\lfloor \frac{H - K + 2P}{S} \right\rfloor + 1
 ```
 
 Ghi nhớ điều này. Bạn sẽ tính nó hàng chục lần mỗi kiến trúc.
@@ -88,7 +88,7 @@ Ghi nhớ điều này. Bạn sẽ tính nó hàng chục lần mỗi kiến tr�
 | Pool 2x2 | 32 | 2 | 0 | 2 | 16 |
 | Trường tiếp nhận lớn | 32 | 7 | 3 | 2 | 16 |
 
-"Same padding" nghĩa là chọn P sao cho H_out == H khi S == 1. Với K lẻ, đó là P = (K - 1) / 2. Đó là lý do các kernel 3x3 chiếm ưu thế — chúng là kernel lẻ nhỏ nhất vẫn có tâm.
+"Same padding" nghĩa là chọn $P$ sao cho $H_{\text{out}} = H$ khi $S = 1$. Với $K$ lẻ, đó là $P = (K - 1) / 2$. Đó là lý do các kernel 3x3 chiếm ưu thế — chúng là kernel lẻ nhỏ nhất vẫn có tâm.
 
 ### Padding
 

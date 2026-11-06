@@ -117,7 +117,7 @@ Các quy tắc cho mô phỏng sản xuất:
 
 - **Bộ nhớ là cơ sở dữ liệu.** Chọn một kho thực (DB vector, Postgres) ở quy mô lớn. Thư viện chuẩn trong bộ nhớ dành cho nguyên mẫu.
 - **Ghi nhật ký dấu vết truy xuất.** Với mọi hành động, ghi nhật ký các ký ức top-k thúc đẩy nó. Đây là khả năng gỡ lỗi của bạn.
-- **Dự trù token theo từng agent.** Truy xuất + phản tư + lập kế hoạch của mỗi agent mỗi nhịp là O(k) lệnh gọi LLM. N agent × T nhịp × số lệnh gọi mỗi nhịp có thể lớn hơn ngân sách của bạn rất nhiều.
+- **Dự trù token theo từng agent.** Truy xuất + phản tư + lập kế hoạch của mỗi agent mỗi nhịp là $O(k)$ lệnh gọi LLM. N agent × T nhịp × số lệnh gọi mỗi nhịp có thể lớn hơn ngân sách của bạn rất nhiều.
 - **Nén bộ nhớ định kỳ.** Tóm tắt và cắt tỉa các mục mức quan trọng thấp. Chính sách lưu giữ là một quyết định thiết kế, không phải một chi tiết.
 - **Phát hiện các vi phạm chuẩn mực không gian / xã hội** tường minh. Kiến trúc không học chúng.
 

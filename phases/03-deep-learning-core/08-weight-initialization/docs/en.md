@@ -38,40 +38,40 @@ Nhưng "ngẫu nhiên" là chưa đủ. *Thang đo* của tính ngẫu nhiên qu
 
 Xét một lớp đơn lẻ có fan_in đầu vào:
 
-```
-z = w1*x1 + w2*x2 + ... + w_n*x_n
-```
-
-Nếu mỗi trọng số wi được lấy từ một phân phối có phương sai Var(w) và mỗi đầu vào xi có phương sai Var(x), phương sai đầu ra là:
-
-```
-Var(z) = fan_in * Var(w) * Var(x)
+```math
+z = w_1 x_1 + w_2 x_2 + \cdots + w_n x_n
 ```
 
-Nếu Var(w) = 1 và fan_in = 512, phương sai đầu ra gấp 512 lần phương sai đầu vào. Sau 10 lớp: 512^10 = 1.2e27. Tín hiệu của bạn đã bùng nổ.
+Nếu mỗi trọng số $w_i$ được lấy mẫu từ một phân phối có phương sai $\mathrm{Var}(w)$ và mỗi đầu vào $x_i$ có phương sai $\mathrm{Var}(x)$, phương sai đầu ra là:
 
-Nếu Var(w) = 0.001, phương sai đầu ra co lại theo hệ số 0.001 * 512 = 0.512 mỗi lớp. Sau 10 lớp: 0.512^10 = 0.00013. Tín hiệu của bạn đã tiêu biến.
+```math
+\mathrm{Var}(z) = \text{fan}_{\text{in}} \cdot \mathrm{Var}(w) \cdot \mathrm{Var}(x)
+```
 
-Mục tiêu: chọn Var(w) sao cho Var(z) = Var(x). Độ lớn tín hiệu giữ nguyên qua các lớp.
+Nếu $\mathrm{Var}(w) = 1$ và $\text{fan}_{\text{in}} = 512$, phương sai đầu ra gấp 512 lần phương sai đầu vào. Sau 10 lớp: $512^{10} = 1.2 \times 10^{27}$. Tín hiệu của bạn đã bùng nổ.
+
+Nếu $\mathrm{Var}(w) = 0.001$, phương sai đầu ra co lại theo hệ số $0.001 \cdot 512 = 0.512$ mỗi lớp. Sau 10 lớp: $0.512^{10} = 0.00013$. Tín hiệu của bạn đã tiêu biến.
+
+Mục tiêu: chọn $\mathrm{Var}(w)$ sao cho $\mathrm{Var}(z) = \mathrm{Var}(x)$. Độ lớn tín hiệu giữ nguyên qua các lớp.
 
 ### Xavier/Glorot Initialization
 
 Glorot và Bengio (2010) suy ra nghiệm cho các kích hoạt sigmoid và tanh. Để giữ phương sai không đổi trong cả lượt truyền xuôi và lượt truyền ngược:
 
-```
-Var(w) = 2 / (fan_in + fan_out)
+```math
+\mathrm{Var}(w) = \frac{2}{\text{fan}_{\text{in}} + \text{fan}_{\text{out}}}
 ```
 
 Trong thực tế, các trọng số được lấy từ:
 
-```
-w ~ Uniform(-limit, limit)  where limit = sqrt(6 / (fan_in + fan_out))
+```math
+w \sim \text{Uniform}(-\text{limit}, \text{limit}) \quad \text{where } \text{limit} = \sqrt{\frac{6}{\text{fan}_{\text{in}} + \text{fan}_{\text{out}}}}
 ```
 
 hoặc:
 
-```
-w ~ Normal(0, sqrt(2 / (fan_in + fan_out)))
+```math
+w \sim \text{Normal}\left(0, \sqrt{\frac{2}{\text{fan}_{\text{in}} + \text{fan}_{\text{out}}}}\right)
 ```
 
 Điều này hoạt động vì sigmoid và tanh gần tuyến tính quanh không, nơi các kích hoạt được khởi tạo đúng nằm. Phương sai giữ ổn định qua hàng chục lớp.
@@ -82,27 +82,27 @@ ReLU giết một nửa các đầu ra (mọi thứ âm trở thành không). fa
 
 He và cộng sự (2015) điều chỉnh công thức:
 
-```
-Var(w) = 2 / fan_in
+```math
+\mathrm{Var}(w) = \frac{2}{\text{fan}_{\text{in}}}
 ```
 
 Các trọng số được lấy từ:
 
-```
-w ~ Normal(0, sqrt(2 / fan_in))
+```math
+w \sim \text{Normal}\left(0, \sqrt{\frac{2}{\text{fan}_{\text{in}}}}\right)
 ```
 
-Hệ số 2 bù cho việc ReLU đưa một nửa các kích hoạt về không. Không có nó, tín hiệu co lại theo hệ số ~0.5 mỗi lớp. Với 50 lớp: 0.5^50 = 8.8e-16. Khởi tạo Kaiming ngăn điều này.
+Hệ số 2 bù cho việc ReLU đưa một nửa các kích hoạt về không. Không có nó, tín hiệu co lại theo hệ số ~0.5 mỗi lớp. Với 50 lớp: $0.5^{50} = 8.8 \times 10^{-16}$. Khởi tạo Kaiming ngăn điều này.
 
 ### Transformer Initialization
 
 GPT-2 giới thiệu một mẫu khác. Các kết nối phần dư cộng đầu ra mỗi lớp con vào đầu vào của nó:
 
-```
-x = x + sublayer(x)
+```math
+x = x + \text{sublayer}(x)
 ```
 
-Mỗi phép cộng tăng phương sai. Với N lớp phần dư, phương sai tăng tỷ lệ với N. GPT-2 co giãn các trọng số của các lớp phần dư theo 1/sqrt(2N), trong đó N là số lớp. Điều này giữ độ lớn tín hiệu tích lũy ổn định.
+Mỗi phép cộng tăng phương sai. Với $N$ lớp phần dư, phương sai tăng tỷ lệ với $N$. GPT-2 co giãn các trọng số của các lớp phần dư theo $1/\sqrt{2N}$, trong đó $N$ là số lớp. Điều này giữ độ lớn tín hiệu tích lũy ổn định.
 
 Llama 3 (405B tham số, 126 lớp) sử dụng một cơ chế tương tự. Không có phép co giãn này, luồng phần dư sẽ tăng không giới hạn qua 126 lớp khối attention và feedforward.
 
@@ -341,7 +341,7 @@ nn.init.zeros_(layer.bias)
 
 Khi bạn gọi `nn.Linear(512, 256)`, PyTorch mặc định khởi tạo đều Kaiming. Đó là lý do hầu hết các mạng đơn giản "cứ hoạt động" -- PyTorch đã đưa ra lựa chọn đúng. Nhưng khi bạn xây dựng các kiến trúc tùy chỉnh hoặc đi sâu hơn 20 lớp, bạn cần hiểu điều gì đang xảy ra và có thể ghi đè mặc định.
 
-Với transformer, các mô hình HuggingFace thường xử lý khởi tạo trong phương thức `_init_weights` của chúng. Bản triển khai GPT-2 co giãn các phép chiếu phần dư theo 1/sqrt(N). Nếu bạn xây dựng một transformer từ đầu, bạn cần tự thêm điều này.
+Với transformer, các mô hình HuggingFace thường xử lý khởi tạo trong phương thức `_init_weights` của chúng. Bản triển khai GPT-2 co giãn các phép chiếu phần dư theo $1/\sqrt{N}$. Nếu bạn xây dựng một transformer từ đầu, bạn cần tự thêm điều này.
 
 ## Ship It
 
@@ -350,13 +350,13 @@ Bài học này tạo ra:
 
 ## Exercises
 
-1. Thêm khởi tạo LeCun (Var = 1/fan_in, được thiết kế cho kích hoạt SELU). Chạy thí nghiệm 50 lớp với khởi tạo LeCun + tanh và so sánh với Xavier + tanh.
+1. Thêm khởi tạo LeCun ($\mathrm{Var} = 1/\text{fan}_{\text{in}}$, được thiết kế cho kích hoạt SELU). Chạy thí nghiệm 50 lớp với khởi tạo LeCun + tanh và so sánh với Xavier + tanh.
 
-2. Triển khai co giãn phần dư GPT-2: nhân đầu ra mỗi lớp với 1/sqrt(2*N) trước khi cộng vào luồng phần dư. Chạy 50 lớp có và không co giãn, đo độ lớn phần dư tăng nhanh đến mức nào.
+2. Triển khai co giãn phần dư GPT-2: nhân đầu ra mỗi lớp với $1/\sqrt{2N}$ trước khi cộng vào luồng phần dư. Chạy 50 lớp có và không co giãn, đo độ lớn phần dư tăng nhanh đến mức nào.
 
 3. Tạo một hàm "kiểm tra sức khỏe khởi tạo" nhận các kích thước lớp và loại kích hoạt của một mạng, rồi khuyến nghị khởi tạo đúng và cảnh báo nếu khởi tạo hiện tại sẽ gây vấn đề.
 
-4. Chạy thí nghiệm với fan_in = 16 so với fan_in = 1024. Xavier và Kaiming thích nghi với fan_in, nhưng khởi tạo ngẫu nhiên thì không. Cho thấy khoảng cách giữa "hoạt động" và "hỏng" rộng ra như thế nào với các lớp lớn hơn.
+4. Chạy thí nghiệm với $\text{fan} _{\text{in}} = 16$ so với $\text{fan} _{\text{in}} = 1024$. Xavier và Kaiming thích nghi với fan_in, nhưng khởi tạo ngẫu nhiên thì không. Cho thấy khoảng cách giữa "hoạt động" và "hỏng" rộng ra như thế nào với các lớp lớn hơn.
 
 5. Triển khai khởi tạo trực giao (sinh một ma trận ngẫu nhiên, tính SVD của nó, sử dụng ma trận trực giao U). So sánh với Kaiming cho các mạng ReLU ở 50 lớp.
 
@@ -368,10 +368,10 @@ Bài học này tạo ra:
 | Symmetry breaking (Phá vỡ đối xứng) | "Làm các nơ-ron khác nhau" | Sử dụng khởi tạo ngẫu nhiên để bảo đảm các nơ-ron học các đặc trưng riêng biệt thay vì tính các hàm giống hệt |
 | Fan-in | "Số đầu vào của một nơ-ron" | Số kết nối đi vào, quyết định phương sai đầu vào tích lũy như thế nào trong tổng có trọng số |
 | Fan-out | "Số đầu ra từ một nơ-ron" | Số kết nối đi ra, liên quan tới duy trì phương sai gradient trong lan truyền ngược |
-| Xavier/Glorot init (Khởi tạo Xavier/Glorot) | "Khởi tạo sigmoid" | Var(w) = 2/(fan_in + fan_out), được thiết kế để bảo toàn phương sai qua các kích hoạt sigmoid và tanh |
-| Kaiming/He init (Khởi tạo Kaiming/He) | "Khởi tạo ReLU" | Var(w) = 2/fan_in, tính đến việc ReLU đưa một nửa các kích hoạt về không |
+| Xavier/Glorot init (Khởi tạo Xavier/Glorot) | "Khởi tạo sigmoid" | $\mathrm{Var}(w) = 2/(\text{fan} _{\text{in}} + \text{fan} _{\text{out}})$, được thiết kế để bảo toàn phương sai qua các kích hoạt sigmoid và tanh |
+| Kaiming/He init (Khởi tạo Kaiming/He) | "Khởi tạo ReLU" | $\mathrm{Var}(w) = 2/\text{fan}_{\text{in}}$, tính đến việc ReLU đưa một nửa các kích hoạt về không |
 | Variance propagation (Lan truyền phương sai) | "Các tín hiệu tăng hoặc co lại qua các lớp như thế nào" | Phân tích toán học về cách phương sai kích hoạt thay đổi từng lớp dựa trên thang đo trọng số |
-| Residual scaling (Co giãn phần dư) | "Thủ thuật khởi tạo của GPT-2" | Co giãn các trọng số kết nối phần dư theo 1/sqrt(2N) để ngăn phương sai tăng qua N lớp transformer |
+| Residual scaling (Co giãn phần dư) | "Thủ thuật khởi tạo của GPT-2" | Co giãn các trọng số kết nối phần dư theo $1/\sqrt{2N}$ để ngăn phương sai tăng qua $N$ lớp transformer |
 | Dead network (Mạng chết) | "Không gì huấn luyện được" | Một mạng mà khởi tạo kém khiến tất cả các gradient bằng không hoặc tất cả các kích hoạt bão hòa |
 | Exploding activations (Kích hoạt bùng nổ) | "Các giá trị đi tới vô cực" | Khi phương sai trọng số quá cao, khiến các độ lớn kích hoạt tăng theo cấp số nhân qua các lớp |
 

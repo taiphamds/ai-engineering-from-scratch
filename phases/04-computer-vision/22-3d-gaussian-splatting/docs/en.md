@@ -61,12 +61,13 @@ Năm bước, tất cả thân thiện GPU. Không truy vấn MLP mỗi pixel. M
 
 Gaussian 3D ở vị trí thế giới `mu` với hiệp phương sai 3D `Sigma` chiếu thành Gaussian 2D ở vị trí màn hình `mu'` với hiệp phương sai 2D `Sigma'`:
 
-```
-mu' = project(mu)
-Sigma' = J W Sigma W^T J^T          (2 x 2)
-
-W = viewing transform (rotation + translation of camera)
-J = Jacobian of the perspective projection at mu'
+```math
+\begin{aligned}
+\mu' &= \mathop{\mathrm{project}}(\mu) \\
+\Sigma' &= J W \Sigma W^T J^T \qquad (2 \times 2) \\[6pt]
+W &= \text{viewing transform (rotation + translation of camera)} \\
+J &= \text{Jacobian of the perspective projection at } \mu'
+\end{aligned}
 ```
 
 Dấu phủ Gaussian 2D là một ellipse có các trục là vector riêng của `Sigma'`. Mọi pixel trong ellipse nhận đóng góp Gaussian, có trọng số `exp(-0.5 * (p - mu')^T Sigma'^-1 (p - mu'))`.
@@ -75,12 +76,13 @@ Dấu phủ Gaussian 2D là một ellipse có các trục là vector riêng củ
 
 Với một pixel, các Gaussian phủ nó được sắp từ sau ra trước (hoặc tương đương từ trước ra sau với công thức đảo). Màu được tổng hợp bằng cùng phương trình như mọi bộ raster hóa bán trong suốt từ thập niên 1980:
 
-```
-C_pixel = sum_i alpha_i * T_i * c_i
-
-T_i = prod_{j < i} (1 - alpha_j)       transmittance up to i
-alpha_i = opacity_i * exp(-0.5 * d^T Sigma'^-1 d)   local contribution
-c_i = eval_SH(SH_i, view_direction)    view-dependent colour
+```math
+\begin{aligned}
+C_{\text{pixel}} &= \sum_i \alpha_i T_i c_i \\[6pt]
+T_i &= \prod_{j < i} (1 - \alpha_j) && \text{transmittance up to } i \\
+\alpha_i &= \text{opacity}_i \cdot \exp\left(-0.5 \, d^T \Sigma'^{-1} d\right) && \text{local contribution} \\
+c_i &= \mathop{\mathrm{eval\_SH}}(\text{SH}_i, \text{view\_direction}) && \text{view-dependent colour}
+\end{aligned}
 ```
 
 Đây là **cùng phương trình như kết xuất thể tích NeRF**, chỉ trên tập Gaussian thưa tường minh thay các mẫu dày đặc dọc tia. Sự đồng nhất đó là lý do chất lượng kết xuất khớp NeRF — cả hai tích phân cùng phương trình trường bức xạ.
@@ -97,7 +99,7 @@ Một tập Gaussian cố định không thể phủ một cảnh phức tạp. 
 - **Tách** một Gaussian tỷ lệ lớn thành hai Gaussian nhỏ hơn khi gradient cao — một Gaussian lớn quá mượt để khớp vùng.
 - **Cắt tỉa** các Gaussian có độ đục giảm dưới ngưỡng — chúng không đóng góp.
 
-Làm dày chạy mỗi N lần lặp. Một cảnh thường tăng từ ~100k Gaussian ban đầu (khởi tạo từ các điểm SfM) tới 1-5M ở cuối huấn luyện.
+Làm dày chạy mỗi $N$ lần lặp. Một cảnh thường tăng từ ~100k Gaussian ban đầu (khởi tạo từ các điểm SfM) tới 1-5M ở cuối huấn luyện.
 
 ### Spherical harmonics in one paragraph
 

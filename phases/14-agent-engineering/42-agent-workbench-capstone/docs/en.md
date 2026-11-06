@@ -13,6 +13,7 @@
 - Ghim các schema, script và mẫu để một repo mới nhận một đường cơ sở tốt đã biết.
 - Thêm một script cài đặt duy nhất đặt bộ xuống một cách lũy đẳng.
 - Quyết định điều gì ở trong bộ và điều gì ở ngoài, bảo vệ lựa chọn cho mỗi điều.
+- Trình diễn một thay đổi kho mã có agent hỗ trợ với bằng chứng mà người xem xét có thể tái tạo.
 
 ## The Problem
 
@@ -132,6 +133,78 @@ Bộ là công thức. Mỗi lần cài là một khẩu phần.
 3. Thêm một `bin/uninstall.sh` loại bỏ bộ an toàn và từ chối nếu các file trạng thái có lịch sử không tầm thường. Điều gì được tính là không tầm thường?
 4. Thêm một `lint_pack.py` thất bại khi bộ trôi khỏi `VERSION`. Nối nó vào CI cho repo riêng của bộ.
 5. Soạn sổ tay di chuyển từ một workbench tự dựng sang bộ này. Thứ tự thao tác nào giảm thiểu thời gian ngừng hoạt động?
+
+## Career Practice: Prove One Repository Change
+
+Bản demo đóng gói chứng minh rằng trình lắp ráp chạy và tạo ra các tệp. Nó không chứng minh rằng agent của bạn có thể hoàn thành một tác vụ mới, rằng các kiểm tra được tạo ra chứng minh tác vụ đó, hay rằng một hệ thống được triển khai hoạt động. Giữ các khẳng định đó tách biệt.
+
+Chọn một tác vụ thực nhỏ trong một kho mã bạn sở hữu hoặc được phép thay đổi. Sử dụng một coding agent mà bạn đã có quyền truy cập. Một bản sửa lỗi, một tính năng có giới hạn hoặc một cải tiến vận hành là đủ; cài đặt nhiều agent không phải là một phần của bài tập.
+
+Dành ngân sách cho một phiên làm việc riêng ngoài bài thực hành đóng gói. Sao chép mẫu bằng chứng được liên kết bên dưới vào thư mục `learning-artifacts/` của riêng bạn. Giữ nguyên mẫu và gói đã được đưa vào kho mã làm tài liệu tham khảo.
+
+### 1. Frame the task and choose the autonomy
+
+Sử dụng khung tác vụ từ bài 43 và kế hoạch bằng chứng từ bài 44. Ghi lại revision khởi đầu, mục tiêu có thể quan sát, các điều không phải mục tiêu, đường dẫn được phép và bằng chứng nghiệm thu. Xác định người dùng hoặc người vận hành thực sự cần hành vi đó.
+
+Chọn một chế độ làm việc: các bước được hướng dẫn, triển khai có checkpoint hoặc một lần chạy tự chủ có giới hạn. Giải thích vì sao sự không chắc chắn, hậu quả và khả năng đảo ngược biện minh cho lựa chọn đó. Một lần refactor cục bộ nhỏ có thể cần ít checkpoint hơn một thay đổi đối với kiểm soát truy cập.
+
+Đặt ngân sách thời gian thực và giới hạn token hoặc chi phí nếu agent cung cấp. Ghi lại trung thực các phép đo không có sẵn. Xác định điều kiện dừng khi thất bại lặp lại, có quyền mới, cạn ngân sách hoặc có quyết định hợp đồng chưa được giải quyết; nêu tên người có thể giải quyết nó.
+
+### 2. Prepare the smallest useful environment
+
+Truy xuất phần triển khai, bên gọi, bài kiểm tra và chỉ dẫn cục bộ có liên quan. Ghi lại vì sao mỗi nguồn thuộc về ngữ cảnh và bằng chứng hiện tại nào sẽ ghi đè một ghi chú lỗi thời. Không mặc định tải toàn bộ kho mã.
+
+Đưa ra một lựa chọn rõ ràng cho mỗi phần mở rộng có liên quan: một skill cung cấp quy trình có thể lặp lại; một công cụ MCP cung cấp quyền truy cập; một hook chạy kiểm tra tất định; một plugin đóng gói các khả năng. Chỉ giữ một phần mở rộng khi tác vụ cần nó, với ít quyền nhất cho phép nó hoạt động.
+
+Ghi lại chi phí ngữ cảnh hoặc bảo trì của một phần bổ sung được đề xuất mà bạn từ chối. Kiểm tra lại một bộ nhớ hoặc chỉ dẫn lỗi thời, rồi loại bỏ hoặc thay thế nó trong thiết lập thuộc sở hữu của người học khi bằng chứng ủng hộ quyết định đó. Chạy lại kiểm tra bị ảnh hưởng để xác nhận việc loại bỏ không làm mất một ràng buộc cần thiết.
+
+### 3. Capture the baseline and implement
+
+Trước khi chỉnh sửa, chạy kiểm tra hiện có gần nhất và trình diễn trạng thái hiện tại của hành vi được yêu cầu. Giữ lại lệnh, revision, kết quả và vị trí bằng chứng. Một tính năng chưa tồn tại vẫn có đường cơ sở: ghi lại phản hồi quan sát được hoặc thao tác chưa được hỗ trợ.
+
+Để agent triển khai trong phạm vi hợp đồng. Giữ một nhật ký can thiệp với lý do cho mỗi lần sửa, thay đổi quyền hoặc điều chỉnh kế hoạch. Ủy nhiệm là tùy chọn; nếu hữu ích, áp dụng hợp đồng quyền sở hữu và tích hợp của bài 45 trước khi thêm một worker khác.
+
+### 4. Challenge the evidence
+
+Chọn bằng chứng quan sát bề mặt đã thay đổi. Với UI, dựng lại và kiểm tra hành trình được phục vụ ở các độ rộng có liên quan. Với API, kiểm tra yêu cầu và phản hồi đã tuần tự hóa. Với CLI, chạy lệnh đã được dựng và kiểm tra mã thoát cùng đầu ra của nó. Chọn các kiểm tra mà tác vụ của bạn cần và giải thích giới hạn của chúng.
+
+Viết một kết quả kỳ vọng từ hợp đồng tác vụ một cách độc lập với phần triển khai của agent. Trong một bản sao dùng một lần, đưa vào một kết quả sai cụ thể, chẳng hạn chấp nhận một giá trị không hợp lệ hoặc bỏ một trường phản hồi bắt buộc. Chạy cùng kiểm tra nghiệm thu: nó phải thất bại vì lý do đó.
+
+Nếu nó vẫn xanh, hãy tăng cường khẳng định kiểm tra hoặc quan sát trước khi tin tưởng nó. Khôi phục phần triển khai đúng và chạy lại thành công. Giữ cả hai biên nhận. Lỗi cú pháp hoặc thiết lập kiểm tra bị hỏng không được tính là phát hiện lỗi hồi quy.
+
+Xem xét diff cuối cùng, bao gồm các bài kiểm tra đã thay đổi, so với mục tiêu ban đầu và đường dẫn được phép. Nhờ một đồng nghiệp hoặc một phiên người xem xét riêng thách thức bằng chứng yếu nhất mà không chỉnh sửa phần triển khai. Bạn vẫn chịu trách nhiệm cho phán đoán cuối cùng; sự đồng ý của một agent khác không phải bằng chứng thực thi.
+
+### 5. Rehearse operation and recovery
+
+Chạy sản phẩm đã thay đổi trong một môi trường cục bộ dùng một lần hoặc staging. Gắn nhãn mỗi quan sát là `local`, `staging` hoặc `live`, kèm revision chính xác hoặc danh tính sản phẩm. Một buổi diễn tập cục bộ hỗ trợ một khẳng định cục bộ; triển khai production không bắt buộc cho bài tập này.
+
+Chọn một tín hiệu lỗi liên quan đến tác vụ, một ngưỡng, một cửa sổ quan sát và một người chịu trách nhiệm. Giải thích cách phản ứng khi vượt ngưỡng đó. Kích hoạt tín hiệu một cách an toàn trong buổi diễn tập và giữ lại nhật ký, chỉ số hoặc phản hồi quan sát được.
+
+Diễn tập rollback về một sản phẩm đã biết là tốt và kiểm tra rằng hành vi trước đó được khôi phục. Tính đến dữ liệu bền vững khi có liên quan; chỉ thay thế một tệp nhị phân có thể không đảo ngược được một thay đổi dữ liệu. Ghi lại mọi bước khôi phục mà bạn không thể xác minh.
+
+### 6. Improve the next run and hand it off
+
+So sánh kết quả với đường cơ sở, bao gồm thời gian đã trôi qua, dữ liệu sử dụng có sẵn và các can thiệp của con người. Một tác vụ cho thấy điều đã xảy ra với tác vụ đó; nó không xác lập rằng một agent nói chung nhanh hơn hoặc đáng tin cậy hơn.
+
+Chuyển một sửa đổi quan sát được thành một bài kiểm tra, một ranh giới quyền nhỏ hơn, một tự động hóa hoặc một ví dụ rõ ràng hơn bằng bài 46. Chạy lại kiểm tra bị ảnh hưởng. Loại bỏ các biến đổi tạm thời và để lại nhánh cuối cùng, các tệp đã thay đổi, rủi ro còn mở và hành động tiếp theo rõ ràng cho phiên tiếp theo.
+
+### Manual review rubric
+
+Để người xem xét kiểm tra các tệp bằng chứng và tái tạo ít nhất kiểm tra nghiệm thu yếu nhất. Sử dụng `demonstrated`, `needs revision` hoặc `unverified` cho mỗi hàng, kèm con trỏ bằng chứng và lý do. Các trường đã điền và các script đóng gói chạy qua không thay thế được những quan sát này.
+
+| Chiều | Bằng chứng người xem xét nên thách thức |
+|---|---|
+| Tác vụ và tính tự chủ | Hành vi khởi đầu, mục tiêu có giới hạn, quyền được biện minh, ngân sách và một quy tắc dừng dùng được |
+| Ngữ cảnh và môi trường | Các nguồn có liên quan, quyền truy cập công cụ được biện minh và quyết định loại bỏ được kiểm tra lại |
+| Xác minh | Hành vi trước/sau thực tế và một kết quả sai có chủ ý mà cùng kiểm tra đó từ chối |
+| Xem xét và vận hành | Diff đã được kiểm tra, thách thức độc lập, quan sát runtime có nhãn và khôi phục đã diễn tập |
+| Lặp lại và bàn giao | Một cải tiến đã xác minh, giới hạn trung thực, trạng thái cuối sạch và hành động tiếp theo có thể tái tạo |
+
+Giải quyết các phát hiện `needs revision` trước khi tuyên bố tác vụ hoàn tất. Để bằng chứng không có sẵn ở trạng thái `unverified` và thu hẹp khẳng định tương ứng. Hồ sơ năng lực thể hiện phán đoán kỹ thuật của bạn với một tác vụ có giới hạn; nó không phải bảo đảm tuyển dụng hay triển khai.
+
+## Shipped Artifact
+
+Giữ gói tái sử dụng và bản [career-agent-evidence.md](https://github.com/rohitg00/ai-engineering-from-scratch/blob/main/phases/14-agent-engineering/42-agent-workbench-capstone/outputs/career-agent-evidence.md) đã hoàn thành của bạn. Mẫu kết nối khung tác vụ, kế hoạch thực thi, biên nhận runtime, xem xét, diễn tập khôi phục và bàn giao thành một nghiên cứu tình huống có thể xem xét.
 
 ## Key Terms
 

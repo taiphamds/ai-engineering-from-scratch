@@ -16,7 +16,7 @@
 
 ## The Problem
 
-Attention softmax tiêu chuẩn có tính chất toán học thành đau đầu vận hành ở quy mô lớn. Với query `q`, trọng số attention là `softmax(qK^T / sqrt(d))`. Softmax không bao giờ tạo số không chính xác — mỗi token không khớp nhận một khối lượng dương. Khối lượng dư đó là nhiễu, tăng theo độ dài ngữ cảnh. Ở 128k token, dù mỗi token không khớp chỉ nhận 0.001% xác suất, 127,999 token cộng lại đóng góp khoảng 12% tổng. Mô hình phải học định tuyến tránh nền nhiễu tăng theo ngữ cảnh.
+Softmax attention tiêu chuẩn có một tính chất toán học trở thành một vấn đề vận hành khó chịu ở quy mô lớn. Đối với một query `q`, các trọng số attention là `softmax(qK^T / sqrt(d))`. Softmax không bao giờ tạo được các giá trị 0 chính xác: mọi token không khớp nhận một lượng xác suất dương nào đó. Lượng xác suất còn dư đó là nhiễu, và nó tăng theo độ dài ngữ cảnh. Ở 128k token, ngay cả khi mỗi token không khớp chỉ nhận 0.0001% xác suất, 127,999 token đó kết hợp đóng góp khoảng 13% tổng số. Mô hình phải học cách định tuyến vòng qua một nền nhiễu tăng theo ngữ cảnh.
 
 Thực nghiệm cho thấy nhiễu giữa head attention: trích dẫn ảo giác trong RAG ngữ cảnh dài, thất bại lost-in-the-middle trên truy xuất 100k token, và suy giảm chính xác tinh tế trên benchmark needle-in-haystack quá 32k. Bài báo Differential Transformer (arXiv:2410.05258, ICLR 2025) đo khoảng cách: DIFF Transformer đạt perplexity thấp hơn, chính xác ngữ cảnh dài cao hơn và ít ảo giác hơn baseline cùng kích thước.
 
@@ -28,8 +28,8 @@ DIFF V1 có ba vấn đề ngăn nó vào pipeline huấn luyện trước hàng
 
 Với query `q` và key `K = [k_1, ..., k_N]`, trọng số attention là:
 
-```
-w_i = exp(q . k_i / sqrt(d)) / sum_j exp(q . k_j / sqrt(d))
+```math
+w_i = \frac{\exp(q \cdot k_i / \sqrt{d})}{\sum_j \exp(q \cdot k_j / \sqrt{d})}
 ```
 
 Không `w_i` nào bằng không. Nếu `k_i` hoàn toàn không liên quan `q`, điểm `q . k_i` không phải 0 — nó dao động quanh không với phương sai `||q||^2 / d`. Sau chuẩn hóa softmax, mỗi token không liên quan vẫn đóng góp `O(1/N)` vào tổng có trọng số. Tổng đóng góp token không liên quan là `O((N-1)/N) = O(1)` — không phải lượng nhỏ.
@@ -38,17 +38,19 @@ Mô hình muốn thứ như top-k cứng: trọng số cao trên token khớp, g
 
 ### The differential idea
 
-Chia phép chiếu Q và K mỗi head thành hai: Q = (Q_1, Q_2) và K = (K_1, K_2). Tính hai bản đồ attention:
+Chia phép chiếu Q và K mỗi head thành hai: $Q = (Q_1, Q_2)$ và $K = (K_1, K_2)$. Tính hai bản đồ attention:
 
-```
-A_1 = softmax(Q_1 K_1^T / sqrt(d))
-A_2 = softmax(Q_2 K_2^T / sqrt(d))
+```math
+\begin{aligned}
+A_1 &= \mathop{\mathrm{softmax}}(Q_1 K_1^T / \sqrt{d}) \\
+A_2 &= \mathop{\mathrm{softmax}}(Q_2 K_2^T / \sqrt{d})
+\end{aligned}
 ```
 
 Đầu ra:
 
-```
-DiffAttn = (A_1 - lambda * A_2) V
+```math
+\mathop{\mathrm{DiffAttn}} = (A_1 - \lambda \cdot A_2) V
 ```
 
 Phép trừ triệt mọi phân phối nhiễu hai bản đồ chung. Nếu cả hai có trọng số gần đều trên 127k token không liên quan (điều sẽ xảy ra ở khởi tạo ngẫu nhiên), chúng triệt. Tín hiệu — trọng số nhọn trên vài token thực sự liên quan — chỉ triệt nếu xuất hiện ở cả hai cùng độ lớn, điều sẽ không xảy ra khi mô hình huấn luyện.
@@ -63,7 +65,7 @@ Nghĩ hai micro nhiều nhiễu thu cùng giọng. Cả hai thu người nói c�
 
 V1 giữ tham số bằng Transformer cơ sở. Để có hai query mỗi head, nó giảm nửa số chiều head. Điều đó tốn sức biểu đạt head và — đau hơn — giảm nửa cache value mỗi head. Decode phải tải cache value hai lần mỗi bước (mỗi nhánh softmax một lần). Kết quả: decode chậm hơn baseline dù cùng số tham số.
 
-V2 tăng gấp đôi số head query và giữ head KV như cũ (mượn tham số từ phép chiếu lên). Số chiều head giữ như baseline. Sau phép trừ, chiều bổ sung được chiếu xuống lại để khớp phép chiếu O_W của Transformer cơ sở. Ba thứ đồng thời xảy ra:
+V2 tăng gấp đôi số head query và giữ head KV như cũ (mượn tham số từ phép chiếu lên). Số chiều head giữ như baseline. Sau phép trừ, chiều bổ sung được chiếu xuống lại để khớp phép chiếu $O_W$ của Transformer cơ sở. Ba thứ đồng thời xảy ra:
 
 1. Tốc độ decode khớp baseline (KV cache tải một lần).
 2. FlashAttention chạy không đổi (không kernel tùy chỉnh).
@@ -139,8 +141,8 @@ Xây chuỗi tổng hợp dài 1024. Đặt token tín hiệu ở vị trí bi�
 Với cấu hình (hidden=4096, heads=32, d_head=128), in:
 
 - Transformer cơ sở: Q, K, V mỗi cái kích thước `hidden * hidden`, MLP ở 4 * hidden.
-- DIFF V1: Q, K mỗi cái kích thước `hidden * hidden`, V kích thước `hidden * hidden` (không đổi), số chiều head giảm nửa nội bộ. Thêm tham số `lambda` theo head (O(heads * d_head)).
-- DIFF V2: Q kích thước `2 * hidden * hidden`, K kích thước `hidden * hidden`, V kích thước `hidden * hidden`. Chiều thêm được chiếu xuống lại trước O_W. Thêm cùng tham số `lambda`.
+- DIFF V1: Q, K mỗi cái kích thước `hidden * hidden`, V kích thước `hidden * hidden` (không đổi), số chiều head giảm nửa nội bộ. Thêm tham số `lambda` theo head $(O(\text{heads} \cdot d_{\text{head}}))$.
+- DIFF V2: Q kích thước `2 * hidden * hidden`, K kích thước `hidden * hidden`, V kích thước `hidden * hidden`. Chiều thêm được chiếu xuống lại trước $O_W$. Thêm cùng tham số `lambda`.
 
 Mô hình đồ chơi đo chi phí tham số thêm cho V2 (khoảng thêm `hidden * hidden` mỗi khối attention) và in ra.
 
@@ -182,8 +184,8 @@ Bài này tạo ra `outputs/skill-diff-attention-integrator.md`. Với kiến tr
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Differential attention (Attention vi sai) | "Hai softmax trừ nhau" | Chia Q, K thành hai nửa, tính hai bản đồ softmax, trừ bản thứ hai (co giãn bằng lambda) khỏi thứ nhất, rồi nhân V |
-| Noise floor (Nền nhiễu) | "Đuôi khác không của softmax" | Trọng số O(1/N) softmax đặt trên mọi token không liên quan, cộng thành O(1) qua ngữ cảnh dài |
+| Differential attention (Attention vi sai) | "Hai softmax trừ nhau" | Chia Q, K thành hai nửa, tính hai bản đồ softmax, trừ bản thứ hai (co giãn bằng $\lambda$) khỏi thứ nhất, rồi nhân V |
+| Noise floor (Nền nhiễu) | "Đuôi khác không của softmax" | Trọng số $O(1/N)$ softmax đặt trên mọi token không liên quan, cộng thành $O(1)$ qua ngữ cảnh dài |
 | lambda | "Hệ số phép trừ" | Vô hướng có thể học theo head tham số hóa thành `exp(lq1.lk1) - exp(lq2.lk2) + lambda_init`; có thể âm |
 | DIFF V1 | "Phiên bản ICLR 2025" | Differential Transformer gốc; giảm nửa số chiều head để giữ tham số, cần kernel tùy chỉnh, decode chậm hơn |
 | DIFF V2 | "Bản sửa tháng 1 năm 2026" | Tăng gấp đôi head Q, giữ head KV; khớp tốc độ decode cơ sở và chạy với FlashAttention |

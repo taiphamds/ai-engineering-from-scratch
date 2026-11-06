@@ -39,15 +39,15 @@ features += weight_a * control_a(depth) + weight_b * control_b(pose)
 
 ### LoRA (Hu et al., 2021)
 
-Với bất kỳ lớp tuyến tính `W ∈ R^{d×d}` nào trong mô hình, đóng băng `W` và thêm một delta hạng thấp:
+Với bất kỳ lớp tuyến tính $W \in \mathbb{R}^{d \times d}$ nào trong mô hình, đóng băng $W$ và thêm một delta hạng thấp:
 
+```math
+W' = W + \Delta W, \quad \Delta W = B A, \quad A \in \mathbb{R}^{r \times d}, \quad B \in \mathbb{R}^{d \times r}
 ```
-W' = W + ΔW,  ΔW = B @ A,  A ∈ R^{r×d},  B ∈ R^{d×r}
-```
 
-với `r << d`. Hạng 4-16 là tiêu chuẩn cho attention, hạng 64-128 cho tinh chỉnh nặng. Số tham số mới: `2 · d · r` thay vì `d²`. Với attention SDXL có `d=640`, `r=16`: 20k tham số mỗi adapter thay vì 410k — giảm 20x. Trên toàn mô hình: một LoRA thường là 20-200MB so với mô hình cơ sở 5GB.
+với $r \ll d$. Hạng 4-16 là tiêu chuẩn cho attention, hạng 64-128 cho tinh chỉnh nặng. Số tham số mới: $2 \cdot d \cdot r$ thay vì $d^2$. Với attention SDXL có $d=640$, $r=16$: 20k tham số mỗi adapter thay vì 410k — giảm 20x. Trên toàn mô hình: một LoRA thường là 20-200MB so với mô hình cơ sở 5GB.
 
-Khi suy luận bạn có thể co giãn LoRA: `W' = W + α · B @ A`. `α = 0.5-1.5` là bình thường. Nhiều LoRA cộng chồng lên nhau (với lưu ý thông thường rằng chúng tương tác theo những cách phi tuyến).
+Khi suy luận bạn có thể co giãn LoRA: $W' = W + \alpha \cdot B A$. $\alpha = 0.5\text{-}1.5$ là bình thường. Nhiều LoRA cộng chồng lên nhau (với lưu ý thông thường rằng chúng tương tác theo những cách phi tuyến).
 
 ### IP-Adapter (Ye et al., 2023)
 
@@ -74,7 +74,7 @@ v4-controlnet-zero
 
 `code/main.py` mô phỏng hai cơ chế trên 1-D:
 
-1. **LoRA.** Một lớp tuyến tính được huấn luyện trước `W`. Đóng băng nó. Huấn luyện một `B @ A` hạng thấp sao cho `W + BA` khớp một lớp tuyến tính mục tiêu. Cho thấy `r = 1` đủ để học hoàn hảo một hiệu chỉnh hạng 1.
+1. **LoRA.** Một lớp tuyến tính được huấn luyện trước $W$. Đóng băng nó. Huấn luyện một $BA$ hạng thấp sao cho $W + BA$ khớp một lớp tuyến tính mục tiêu. Cho thấy $r = 1$ đủ để học hoàn hảo một hiệu chỉnh hạng 1.
 
 2. **ControlNet-lite.** Một bộ dự đoán "cơ sở đóng băng" và một "mạng phụ" đọc một tín hiệu bổ sung. Đầu ra của mạng phụ được đặt cổng bằng một vô hướng có thể học được khởi tạo bằng không (phiên bản zero-conv của chúng ta). Huấn luyện và xem cổng tăng dần.
 
@@ -98,11 +98,11 @@ h = base(x) + gated
 
 ## Pitfalls
 
-- **Co giãn LoRA quá mức.** `α = 2` hoặc `α = 3` là một mẹo "làm nó mạnh hơn" phổ biến tạo ra các đầu ra quá cách điệu / hỏng. Giữ `α ≤ 1.5`.
+- **Co giãn LoRA quá mức.** $\alpha = 2$ hoặc $\alpha = 3$ là một mẹo "làm nó mạnh hơn" phổ biến tạo ra các đầu ra quá cách điệu / hỏng. Giữ $\alpha \le 1.5$.
 - **Xung đột trọng số ControlNet.** Dùng một Pose ControlNet ở trọng số 1.0 và một Depth ControlNet ở trọng số 1.0 thường vượt quá mức. Tổng trọng số ≈ 1.0 là một mặc định an toàn.
 - **LoRA trên sai mô hình cơ sở.** Các LoRA SDXL âm thầm không làm gì trên SD 1.5 vì số chiều attention không khớp. Diffusers sẽ cảnh báo ở 0.30+.
 - **Trôi Textual Inversion.** Các token được huấn luyện trên một checkpoint trôi nghiêm trọng trên một checkpoint khác. LoRA dễ chuyển hơn.
-- **Gộp và lưu trữ trọng số LoRA.** Bạn có thể tích hợp một LoRA vào các trọng số mô hình cơ sở để suy luận nhanh hơn (không cộng lúc chạy), nhưng bạn mất khả năng co giãn `α` lúc chạy. Giữ cả hai phiên bản.
+- **Gộp và lưu trữ trọng số LoRA.** Bạn có thể tích hợp một LoRA vào các trọng số mô hình cơ sở để suy luận nhanh hơn (không cộng lúc chạy), nhưng bạn mất khả năng co giãn $\alpha$ lúc chạy. Giữ cả hai phiên bản.
 
 ## Use It
 
@@ -125,7 +125,7 @@ Lưu `outputs/skill-sd-toolkit-composer.md`. Skill nhận một tác vụ (tài 
 
 1. **Dễ.** Trong `code/main.py`, thay đổi hạng LoRA `r` từ 1 đến 4. Ở hạng nào LoRA khớp chính xác một delta mục tiêu hạng 2?
 2. **Trung bình.** Huấn luyện hai LoRA riêng trên hai phép biến đổi mục tiêu. Tải chúng cùng nhau và cho thấy tương tác cộng của chúng. Khi nào tương tác phá vỡ tính tuyến tính?
-3. **Khó.** Dùng diffusers để xếp chồng: SDXL-base + Canny-ControlNet (trọng số 0.8) + một LoRA phong cách (α 0.8) + IP-Adapter (trọng số 0.6). Đo đánh đổi FID so với bám sát prompt khi các trọng số của bộ thay đổi.
+3. **Khó.** Dùng diffusers để xếp chồng: SDXL-base + Canny-ControlNet (trọng số 0.8) + một LoRA phong cách ($\alpha$ 0.8) + IP-Adapter (trọng số 0.6). Đo đánh đổi FID so với bám sát prompt khi các trọng số của bộ thay đổi.
 
 ## Key Terms
 
@@ -133,9 +133,9 @@ Lưu `outputs/skill-sd-toolkit-composer.md`. Skill nhận một tác vụ (tài 
 |------|-----------------|-----------------------|
 | ControlNet | "Điều khiển không gian" | Encoder sao chép + các kết nối tắt zero-conv; đọc một ảnh điều kiện hóa. |
 | Zero convolution (Tích chập không) | "Bắt đầu như đồng nhất" | Conv 1×1 được khởi tạo bằng không; ControlNet bắt đầu như no-op. |
-| LoRA | "Adapter hạng thấp" | `W + B @ A`, `r << d`; ít tham số hơn 100x so với tinh chỉnh toàn bộ. |
+| LoRA | "Adapter hạng thấp" | $W + BA$, $r \ll d$; ít tham số hơn 100x so với tinh chỉnh toàn bộ. |
 | rank r (hạng r) | "Nút điều chỉnh" | Nén LoRA; 4-16 điển hình, 64+ cho cá nhân hóa nặng. |
-| α | "Cường độ LoRA" | Co giãn delta LoRA lúc chạy. |
+| $\alpha$ | "Cường độ LoRA" | Co giãn delta LoRA lúc chạy. |
 | IP-Adapter | "Ảnh tham chiếu" | Adapter điều kiện hóa ảnh nhỏ qua các token CLIP-image. |
 | DreamBooth | "Tinh chỉnh toàn bộ chủ thể" | Huấn luyện toàn bộ mô hình trên ~30 ảnh của một chủ thể. |
 | Textual Inversion | "Token mới" | Chỉ học một word embedding mới; đời cũ, phần lớn đã được thay thế. |
@@ -144,7 +144,7 @@ Lưu `outputs/skill-sd-toolkit-composer.md`. Skill nhận một tác vụ (tài 
 
 Một SaaS văn bản thành ảnh thực phục vụ hàng trăm LoRA và khoảng mười hai ControlNet trên cùng checkpoint cơ sở. Bài toán phục vụ rất giống đa khách thuê LLM (tài liệu production trình bày trường hợp LLM dưới continuous batching và LoRAX / S-LoRA):
 
-- **Hoán đổi nóng LoRA, đừng gộp.** Gộp `W' = W + α·B·A` vào mô hình cơ sở cho suy luận mỗi bước nhanh hơn ~3-5% nhưng đóng băng `α` và mô hình cơ sở. Giữ các LoRA nóng trong VRAM như các delta hạng r; diffusers cung cấp `pipe.load_lora_weights()` + `pipe.set_adapters([...], adapter_weights=[...])` để kích hoạt theo yêu cầu. Chi phí hoán đổi là các trọng số `2 · d · r · num_layers` — quy mô MB, dưới một giây.
+- **Hoán đổi nóng LoRA, đừng gộp.** Gộp $W' = W + \alpha \cdot B \cdot A$ vào mô hình cơ sở cho suy luận mỗi bước nhanh hơn ~3-5% nhưng đóng băng $\alpha$ và mô hình cơ sở. Giữ các LoRA nóng trong VRAM như các delta hạng r; diffusers cung cấp `pipe.load_lora_weights()` + `pipe.set_adapters([...], adapter_weights=[...])` để kích hoạt theo yêu cầu. Chi phí hoán đổi là các trọng số `2 · d · r · num_layers` — quy mô MB, dưới một giây.
 - **ControlNet như một làn attention thứ hai.** Encoder sao chép chạy song song với mô hình cơ sở. Hai ControlNet ở trọng số 1.0 mỗi cái = hai lượt truyền xuôi bổ sung mỗi bước, không phải một lượt gộp. Dư địa kích thước batch giảm theo bậc hai. Dự trù ~1.5× chi phí mỗi bước cho mỗi ControlNet hoạt động.
 - **LoRA cũng được lượng tử hóa.** Nếu bạn đã lượng tử hóa mô hình cơ sở (xem Bài 07, Flux trên 8GB), delta LoRA cũng lượng tử hóa tốt xuống 8-bit hoặc 4-bit. Tải kiểu QLoRA cho phép bạn xếp 5-10 LoRA lên một mô hình cơ sở Flux 4-bit mà không làm bùng bộ nhớ.
 

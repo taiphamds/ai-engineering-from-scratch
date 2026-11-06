@@ -150,7 +150,7 @@ Bài này tạo `outputs/skill-otel-genai-instrumentation.md`. Với cơ sở m�
 | Span | "Thao tác có thời gian" | Đơn vị công việc với bắt đầu, kết thúc và thuộc tính |
 | Trace (Dấu vết) | "Quan hệ tổ tiên chéo span" | Cây span dùng chung id trace |
 | SpanKind | "CLIENT / SERVER / INTERNAL" | Gợi ý về hướng span |
-| OTLP | "Giao thức dòng OpenTelemetry" | Định dạng đường truyền cho exporter |
+| OTLP | "OpenTelemetry Protocol" | Định dạng trên đường truyền cho các exporter |
 | Opt-in content (Nội dung chọn bật) | "Thu prompt / phần hoàn thành" | Tắt mặc định; biến môi trường để bật |
 | traceparent | "Header W3C" | Lan truyền ngữ cảnh trace qua dịch vụ |
 | Exporter (Bộ xuất) | "Bộ gửi riêng backend" | Thành phần gửi span đến Jaeger / Datadog / v.v. |

@@ -375,6 +375,16 @@ Bỏ cờ `--gpus all` và khối deploy NVIDIA. Container vẫn hoạt động 
 3. Thêm `flask` vào Dockerfile, dựng lại và chạy một máy chủ API đơn giản trên cổng 5000. Ánh xạ cổng bằng `-p 5000:5000`
 4. Đo kích thước image bằng `docker images`. Thử đổi image nền từ `devel` sang `runtime` và so sánh kích thước
 
+### Hints
+
+**Bài tập 1.** Build bằng lệnh `docker build -t ai-dev -f phases/00-setup-and-tooling/07-docker-for-ai/code/Dockerfile .` trong bài học, rồi chạy lệnh import bên trong `docker run --rm ai-dev`. Trên Mac, bỏ `--gpus all`, như bài học giải thích. Container phải in một phiên bản bắt đầu bằng `2.6.0`.
+
+**Bài tập 2.** Chạy `docker compose up -d` trong thư mục `code/`, rồi mở một shell trong dịch vụ `ai-dev` bằng `docker compose exec ai-dev bash`. Bên trong nó, chạy `curl http://qdrant:6333/collections`; một phản hồi JSON có nghĩa là tên dịch vụ được phân giải trên mạng compose.
+
+**Bài tập 3.** Thêm một dòng `RUN pip install flask` vào Dockerfile, build lại và khởi động máy chủ với `host="0.0.0.0"`, vì không thể truy cập từ bên ngoài đến một máy chủ được bind với localhost bên trong container. Mở `http://localhost:5000` trên máy của bạn để xác nhận ánh xạ cổng hoạt động.
+
+**Bài tập 4.** Chạy `docker images ai-dev` và ghi lại cột SIZE. Đổi `devel` thành `runtime` trong dòng `FROM`, build với một thẻ mới và so sánh hai kích thước; image runtime bỏ các trình biên dịch và header.
+
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |

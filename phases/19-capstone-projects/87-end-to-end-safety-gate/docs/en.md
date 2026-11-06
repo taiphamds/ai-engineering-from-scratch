@@ -9,7 +9,7 @@
 
 ## Problem
 
-Các bài 82-86 trong track này mỗi bài cung cấp một phần duy nhất: một hệ phân loại, một bộ phát hiện đầu vào, một framework đánh giá, một bộ phân loại đầu ra, một bộ máy quy tắc. Một cổng an toàn thực phải kết hợp chúng, chạy chúng tại thời điểm đúng trong vòng đời yêu cầu, quyết định hành động nào khi chúng bất đồng, và tạo một trace mà một người rà soát có thể đọc vào sáng thứ Hai. Sự kết hợp là bài học.
+Bài 82-86 trong nhánh này, mỗi bài phát hành một mảnh: một taxonomy, một bộ phát hiện đầu vào, một framework đánh giá, một bộ phân loại đầu ra, một rules engine. Một cổng an toàn thực sự phải kết hợp các mảnh runtime (bộ phát hiện bài 83, bộ phân loại bài 85 và rules engine bài 86), chạy chúng đúng thời điểm trong vòng đời yêu cầu, quyết định hành động khi chúng bất đồng và tạo ra một trace mà người xem xét có thể đọc vào sáng thứ Hai. Sự kết hợp là bài học.
 
 Cổng nằm tại ba điểm kiểm tra. Trước sinh chạy trước khi mô hình được gọi: bộ phát hiện từ bài 83 nhìn prompt và hoặc cho qua, chặn hoàn toàn (tấn công độ tin cậy cao), hoặc gắn một cờ cho các lớp hạ nguồn cân nhắc. Trong sinh chạy khi mô hình phát token: một bộ lọc truyền luồng đệm các đoạn và kết thúc luồng sớm nếu một cụm bị cấm xuất hiện (prefix-injection sống sót qua điều này nếu cổng chỉ nhìn hậu nghiệm). Sau sinh chạy sau khi mô hình hoàn tất: bộ định tuyến bộ phân loại từ bài 85 và bộ máy quy tắc từ bài 86 kiểm tra đầu ra đầy đủ, cổng tổng hợp các kết luận của chúng với tín hiệu trước sinh, và cổng áp dụng một hành động cuối.
 
@@ -35,11 +35,11 @@ Bộ tổng hợp kết hợp bốn tín hiệu mức nghiêm trọng: độ tin
 
 | Trạng thái tín hiệu | Hành động |
 |---|---|
+| độ tin cậy bộ phát hiện >= 0.85 trên một danh mục không lành tính | chặn trước khi sinh |
 | bất kỳ mức nghiêm trọng cao nào | block |
-| bất kỳ mức nghiêm trọng trung bình nào | redact |
-| bất kỳ mức nghiêm trọng thấp nào | warn |
-| tất cả không có + độ tin cậy bộ phát hiện < 0.5 | allow |
-| độ tin cậy bộ phát hiện 0.5-0.85, không tín hiệu khác | warn |
+| bất kỳ mức nghiêm trọng trung bình nào (độ tin cậy bộ phát hiện 0.5 đến 0.85, hoặc kết thúc stream sớm) | che thông tin |
+| bất kỳ mức nghiêm trọng thấp nào (độ tin cậy bộ phát hiện dưới 0.5 trên một danh mục không lành tính) | cảnh báo |
+| bộ phát hiện nói lành tính và không có tín hiệu nào khác | cho phép |
 
 Block trả về một từ chối. Redact cung cấp văn bản được bộ phân loại che và áp dụng bộ sửa bộ máy quy tắc. Warn cung cấp bản gốc với một thông báo nhẹ. Allow cung cấp bản gốc. Mỗi yêu cầu phát ra một `RequestTrace` với `request_id`, `prompt`, `pre_gen` (kết luận bộ phát hiện), `during_gen` (kích hoạt bộ lọc token), `post_gen` (hành động bộ phân loại + báo cáo quy tắc), `final_action`, `final_output`, và `latency_ms`.
 

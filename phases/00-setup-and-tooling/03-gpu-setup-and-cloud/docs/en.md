@@ -55,7 +55,13 @@ Kiểm tra xem bạn có GPU hay không:
 nvidia-smi
 ```
 
-Cài đặt PyTorch với CUDA:
+Cài PyTorch với CUDA. Trên Linux, wheel mặc định đi kèm CUDA. Trên Windows, sao chép lệnh CUDA từ bộ chọn tại pytorch.org.
+
+```bash
+pip install torch torchvision torchaudio
+```
+
+Sau đó kiểm tra rằng PyTorch nhận diện GPU:
 
 ```python
 import torch
@@ -129,6 +135,14 @@ if torch.cuda.is_available():
 1. Chạy phép đo hiệu năng bên trên và so sánh thời gian CPU với GPU
 2. Nếu bạn không có GPU, hãy chạy trên Google Colab và so sánh
 3. Kiểm tra dung lượng bộ nhớ GPU bạn có và ước tính mô hình lớn nhất có thể chứa (quy tắc ước lượng: 2 byte mỗi tham số đối với fp16)
+
+### Hints
+
+**Bài tập 1.** Chạy nguyên trạng mã trong phần Build It, rồi ghi lại thời gian CPU, thời gian GPU và dòng mức tăng tốc. Chạy lần thứ hai; lần chạy GPU đầu tiên bao gồm chi phí khởi động, vì vậy các số ở lần thứ hai là những số dùng để so sánh.
+
+**Bài tập 2.** Trong Colab, chọn Runtime > Change runtime type > GPU, rồi dán phép đo hiệu năng vào một ô. Trước tiên chạy `!nvidia-smi` trong một ô khác; nó phải hiển thị tên GPU trước khi kết quả đo hiệu năng có ý nghĩa.
+
+**Bài tập 3.** Đọc tổng bộ nhớ bằng `torch.cuda.get_device_properties(0).total_memory / 1e9`, như trong `code/gpu_check.py`. Chia bộ nhớ tính bằng byte cho 2 để có số tham số cho fp16, rồi chừa một khoảng dự phòng, vì activation và ngữ cảnh CUDA cũng sử dụng bộ nhớ.
 
 ## Key Terms
 

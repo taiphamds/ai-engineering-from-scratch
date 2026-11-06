@@ -22,7 +22,7 @@ Các agent vượt qua các bản demo. Chúng thất bại trong sản xuất t
 
 ### Three evaluation layers
 
-1. **Các benchmark tĩnh** — SWE-bench Verified cho mã (Bài 19), WebArena/OSWorld cho duyệt web / máy tính để bàn (Bài 20), GAIA cho tổng quát (Bài 19), BFCL V4 cho sử dụng công cụ (Bài 06). Sử dụng để so sánh xuyên mô hình và kiểm soát hồi quy. Nhiễm bẩn là thực: SWE-bench+ phát hiện rò rỉ lời giải 32.67%. Luôn báo cáo các điểm Verified / được kiểm toán bằng +.
+1. **Các benchmark tĩnh** — SWE-bench Verified cho mã (Bài 19), WebArena/OSWorld cho duyệt web / desktop (Bài 20), GAIA cho năng lực tổng quát (Bài 19), BFCL V4 cho sử dụng công cụ (Bài 06). Sử dụng để so sánh giữa các mô hình và làm chốt kiểm tra hồi quy. Ô nhiễm dữ liệu là có thật: SWE-bench+ phát hiện rò rỉ lời giải 32.67%. Luôn báo cáo điểm trên SWE-bench Verified hoặc trên một tập đã kiểm tra rò rỉ như SWE-bench+.
 
 2. **Các đánh giá ngoại tuyến tùy chỉnh** — hình dạng sản phẩm của bạn:
    - LLM làm giám khảo (Langfuse, Phoenix, Opik — Bài 24).
@@ -54,7 +54,7 @@ Vòng lặp chặt chẽ:
 
 ### Tying Phase 14 together
 
-Mọi bài học trong Giai đoạn 14 tạo các trường hợp đánh giá:
+Phần lớn bài học trong Giai đoạn 14 tạo các trường hợp đánh giá. Bảng liệt kê những bài học có trường hợp rõ ràng nhất:
 
 | Bài học | Trường hợp đánh giá nó tạo ra |
 |--------|------------------------|
@@ -77,7 +77,7 @@ Mọi bài học trong Giai đoạn 14 tạo các trường hợp đánh giá:
 | 28 Điều phối | Bộ giám sát định tuyến đến đúng chuyên gia |
 | 29 Các hình dạng runtime | DLQ xử lý N% thất bại |
 
-Nếu bộ đánh giá của bạn có các trường hợp cho mỗi bài, bạn đã bao phủ Giai đoạn 14.
+Nếu bộ đánh giá của bạn có một trường hợp cho mỗi hàng, bạn đã bao phủ cốt lõi của Giai đoạn 14.
 
 ### Where eval-driven development fails
 

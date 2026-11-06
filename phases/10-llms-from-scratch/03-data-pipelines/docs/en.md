@@ -161,11 +161,13 @@ Tài liệu dài bị cắt ngắn hoặc chia thành các khối ở ranh giớ
 
 ### The Chinchilla Scaling Law
 
-Với một ngân sách tính toán cố định C (đo bằng FLOPs), kích thước mô hình tối ưu N và kích thước tập dữ liệu D tuân theo:
+Với một ngân sách tính toán cố định $C$ (đo bằng FLOPs), kích thước mô hình tối ưu $N$ và kích thước tập dữ liệu $D$ tuân theo:
 
-```
-N_opt ~ C^0.5
-D_opt ~ C^0.5
+```math
+\begin{aligned}
+N_{\text{opt}} &\sim C^{0.5} \\
+D_{\text{opt}} &\sim C^{0.5}
+\end{aligned}
 ```
 
 Trong thực tế, điều này nghĩa là bạn nên mở rộng kích thước mô hình và kích thước tập dữ liệu gần như ngang nhau. Một mô hình có nhiều tham số hơn 10x cần khoảng nhiều token huấn luyện hơn 10x để đạt cùng hàm mất mát.
@@ -432,7 +434,7 @@ Bài học này tạo ra một prompt để xác thực và gỡ lỗi chất l�
 |------|----------------|----------------------|
 | Common Crawl | "Internet" | Một tổ chức phi lợi nhuận thu thập web hàng tháng -- ~250TB thô, điểm khởi đầu cho hầu hết dữ liệu huấn luyện LLM |
 | MinHash | "Một thủ thuật băm nào đó" | Một kỹ thuật ước lượng độ tương đồng Jaccard giữa các tập bằng chữ ký kích thước cố định -- cho phép phát hiện gần trùng lặp ở quy mô lớn |
-| LSH | "Băm nhạy cục bộ" | Một phương pháp nhóm các mục tương đồng vào cùng bucket -- giảm so sánh theo cặp từ O(n^2) xuống gần tuyến tính |
+| LSH | "Băm nhạy cục bộ" | Một phương pháp nhóm các mục tương đồng vào cùng bucket -- giảm so sánh theo cặp từ $O(n^2)$ xuống gần tuyến tính |
 | Sequence packing (Đóng gói chuỗi) | "Nối tài liệu" | Ghép nhiều tài liệu vào các chuỗi độ dài cố định với mặt nạ attention đúng -- loại lãng phí đệm |
 | Chinchilla scaling (Mở rộng Chinchilla) | "Huấn luyện trên nhiều dữ liệu hơn" | Với ngân sách tính toán cố định, hiệu năng tối ưu đòi hỏi mở rộng kích thước mô hình và token huấn luyện gần như ngang nhau |
 | Fertility | "Token mỗi từ" | Số token trung bình mỗi từ -- 1.3 cho tiếng Anh trong GPT-4, cao hơn cho các hệ chữ phi Latin |

@@ -1,6 +1,6 @@
 # StyleGAN
 
-> Hầu hết các bộ sinh trộn `z` vào mọi lớp cùng lúc. StyleGAN tách nó ra: trước tiên ánh xạ `z` sang một `w` trung gian, rồi *đưa* `w` vào ở mọi mức độ phân giải qua AdaIN. Một thay đổi đó đã gỡ rối không gian latent và biến khuôn mặt chân thực như ảnh chụp thành một bài toán đã được giải trong bảy năm liên tiếp.
+> Hầu hết các bộ sinh trộn $z$ vào mọi lớp cùng lúc. StyleGAN tách nó ra: trước tiên ánh xạ $z$ sang một $w$ trung gian, rồi *đưa* $w$ vào ở mọi mức độ phân giải qua AdaIN. Một thay đổi đó đã gỡ rối không gian latent và biến khuôn mặt chân thực như ảnh chụp thành một bài toán đã được giải trong bảy năm liên tiếp.
 
 **Type:** Build
 **Languages:** Python
@@ -9,31 +9,31 @@
 
 ## The Problem
 
-Một DCGAN ánh xạ `z` sang một ảnh qua một chồng tích chập chuyển vị. Vấn đề: `z` điều khiển mọi thứ — tư thế, ánh sáng, danh tính, nền — đan xen với nhau. Di chuyển dọc một trục của `z`, cả bốn đều thay đổi. Bạn không thể yêu cầu mô hình "cùng một người, tư thế khác" vì biểu diễn không phân tách theo cách đó.
+Một DCGAN ánh xạ $z$ sang một ảnh qua một chồng tích chập chuyển vị. Vấn đề: $z$ điều khiển mọi thứ — tư thế, ánh sáng, danh tính, nền — đan xen với nhau. Di chuyển dọc một trục của $z$, cả bốn đều thay đổi. Bạn không thể yêu cầu mô hình "cùng một người, tư thế khác" vì biểu diễn không phân tách theo cách đó.
 
-Karras và cộng sự (2019, NVIDIA) đề xuất: ngừng đưa `z` trực tiếp vào các lớp conv. Đưa một tensor hằng `4×4×512` làm đầu vào mạng. Học một MLP 8 lớp ánh xạ `z ∈ Z → w ∈ W`. Đưa `w` vào ở mọi độ phân giải qua *chuẩn hóa instance thích nghi* (AdaIN): chuẩn hóa từng bản đồ đặc trưng conv, rồi co giãn và dịch chuyển bằng các phép chiếu affine của `w`. Thêm nhiễu theo lớp cho chi tiết ngẫu nhiên (lỗ chân lông, sợi tóc).
+Karras và cộng sự (2019, NVIDIA) đề xuất: ngừng đưa $z$ trực tiếp vào các lớp conv. Đưa một tensor hằng `4×4×512` làm đầu vào mạng. Học một MLP 8 lớp ánh xạ $z \in Z \to w \in W$. Đưa $w$ vào ở mọi độ phân giải qua *chuẩn hóa instance thích nghi* (AdaIN): chuẩn hóa từng bản đồ đặc trưng conv, rồi co giãn và dịch chuyển bằng các phép chiếu affine của $w$. Thêm nhiễu theo lớp cho chi tiết ngẫu nhiên (lỗ chân lông, sợi tóc).
 
-Kết quả: `W` có các trục gần trực giao cho "phong cách cấp cao" (tư thế, danh tính) so với "phong cách tinh" (ánh sáng, màu sắc). Bạn có thể hoán đổi phong cách giữa hai ảnh bằng cách dùng `w` của ảnh A cho các mức độ phân giải thấp và `w` của ảnh B cho các mức cao. Điều này mở ra chỉnh sửa, cách điệu xuyên miền và toàn bộ nhánh nghiên cứu "StyleGAN-inversion".
+Kết quả: $W$ có các trục gần trực giao cho "phong cách cấp cao" (tư thế, danh tính) so với "phong cách tinh" (ánh sáng, màu sắc). Bạn có thể hoán đổi phong cách giữa hai ảnh bằng cách dùng $w$ của ảnh A cho các mức độ phân giải thấp và $w$ của ảnh B cho các mức cao. Điều này mở ra chỉnh sửa, cách điệu xuyên miền và toàn bộ nhánh nghiên cứu "StyleGAN-inversion".
 
 ## The Concept
 
 ![StyleGAN: mapping network + AdaIN + per-layer noise](../assets/stylegan.svg)
 
-**Mạng ánh xạ.** `f: Z → W`, một MLP 8 lớp. `Z = N(0, I)^512`. `W` không bị buộc là Gaussian — nó học một hình dạng thích nghi với dữ liệu.
+**Mạng ánh xạ.** $f: Z \to W$, một MLP 8 lớp. $Z = \mathcal{N}(0, I)^{512}$. $W$ không bị buộc là Gaussian — nó học một hình dạng thích nghi với dữ liệu.
 
 **Mạng tổng hợp.** Bắt đầu từ một hằng số được học `4×4×512`. Mỗi khối độ phân giải: `upsample → conv → AdaIN(w_i) → noise → conv → AdaIN(w_i) → noise`. Độ phân giải tăng gấp đôi: 4, 8, 16, 32, 64, 128, 256, 512, 1024.
 
 **AdaIN.**
 
-```
-AdaIN(x, y) = y_scale · (x - mean(x)) / std(x) + y_bias
+```math
+\mathop{\mathrm{AdaIN}}(x, y) = y_{\text{scale}} \cdot \frac{x - \mathop{\mathrm{mean}}(x)}{\mathop{\mathrm{std}}(x)} + y_{\text{bias}}
 ```
 
-trong đó `y_scale` và `y_bias` đến từ các phép chiếu affine của `w`. Chuẩn hóa theo từng bản đồ đặc trưng, rồi tạo lại phong cách. "Phong cách" ở đây là các thống kê bậc nhất và bậc hai của bản đồ đặc trưng.
+trong đó $y_{\text{scale}}$ và $y_{\text{bias}}$ đến từ các phép chiếu affine của $w$. Chuẩn hóa theo từng bản đồ đặc trưng, rồi tạo lại phong cách. "Phong cách" ở đây là các thống kê bậc nhất và bậc hai của bản đồ đặc trưng.
 
 **Nhiễu theo lớp.** Nhiễu Gaussian một kênh được thêm vào mỗi bản đồ đặc trưng, được co giãn bởi một hệ số theo kênh được học. Điều khiển chi tiết ngẫu nhiên mà không ảnh hưởng cấu trúc toàn cục.
 
-**Thủ thuật truncation.** Khi suy luận, lấy mẫu `z`, tính `w = mapping(z)`, rồi `w' = ŵ + ψ·(w - ŵ)` trong đó `ŵ` là trung bình `w` trên nhiều mẫu. `ψ < 1` đánh đổi đa dạng lấy chất lượng. Gần như mọi bản demo StyleGAN đều dùng `ψ ≈ 0.7`.
+**Thủ thuật truncation.** Khi suy luận, lấy mẫu $z$, tính $w = \text{mapping}(z)$, rồi $w' = \hat{w} + \psi \cdot (w - \hat{w})$ trong đó $\hat{w}$ là trung bình $w$ trên nhiều mẫu. $\psi < 1$ đánh đổi đa dạng lấy chất lượng. Gần như mọi bản demo StyleGAN đều dùng $\psi \approx 0.7$.
 
 ## StyleGAN 1 → 2 → 3
 
@@ -45,7 +45,7 @@ trong đó `y_scale` và `y_bias` đến từ các phép chiếu affine của `w
 | StyleGAN-XL | 2022 | Có điều kiện theo lớp, 1024², ImageNet. |
 | R3GAN | 2024 | Đổi thương hiệu với regularization mạnh hơn; thu hẹp khoảng cách với khuếch tán trên FFHQ-1024 với ít tham số hơn 20x. |
 
-Vào năm 2026 StyleGAN3 vẫn là mặc định cho (a) độ chân thực như ảnh chụp trong miền hẹp ở FPS cao, (b) thích nghi miền few-shot (huấn luyện trên một tập dữ liệu mới có 100 ảnh, đóng băng mạng ánh xạ), (c) chỉnh sửa dựa trên nghịch đảo (tìm `w` tái dựng một ảnh chụp thật, rồi chỉnh sửa `w` đó). Cho văn bản thành ảnh miền mở, nó không phải công cụ phù hợp — khuếch tán mới là.
+Vào năm 2026 StyleGAN3 vẫn là mặc định cho (a) độ chân thực như ảnh chụp trong miền hẹp ở FPS cao, (b) thích nghi miền few-shot (huấn luyện trên một tập dữ liệu mới có 100 ảnh, đóng băng mạng ánh xạ), (c) chỉnh sửa dựa trên nghịch đảo (tìm $w$ tái dựng một ảnh chụp thật, rồi chỉnh sửa $w$ đó). Cho văn bản thành ảnh miền mở, nó không phải công cụ phù hợp — khuếch tán mới là.
 
 ```figure
 gx-stylegan-mapping
@@ -53,7 +53,7 @@ gx-stylegan-mapping
 
 ## Build It
 
-`code/main.py` triển khai một "style-GAN lite" đồ chơi trong 1-D: một MLP ánh xạ, một hàm tổng hợp nhận một vector hằng được học và điều biến nó bằng scale/bias suy ra từ `w`, và nhiễu theo lớp. Nó cho thấy đưa `w` vào qua điều biến affine ngang bằng hoặc vượt việc nối `z` vào đầu vào bộ sinh.
+`code/main.py` triển khai một "style-GAN lite" đồ chơi trong 1-D: một MLP ánh xạ, một hàm tổng hợp nhận một vector hằng được học và điều biến nó bằng scale/bias suy ra từ $w$, và nhiễu theo lớp. Nó cho thấy đưa $w$ vào qua điều biến affine ngang bằng hoặc vượt việc nối $z$ vào đầu vào bộ sinh.
 
 ### Step 1: mapping network
 
@@ -75,7 +75,7 @@ def adain(x, w_scale, w_bias):
     return [w_scale * xi + w_bias for xi in x_norm]
 ```
 
-Scale và bias theo từng bản đồ đặc trưng đến từ `w` qua phép chiếu tuyến tính.
+Scale và bias theo từng bản đồ đặc trưng đến từ $w$ qua phép chiếu tuyến tính.
 
 ### Step 3: per-layer noise
 
@@ -91,7 +91,7 @@ Sigma theo kênh có thể học được.
 - **Lỗi giả giọt nước.** StyleGAN 1 tạo ra một giọt nước dạng đốm trong các bản đồ đặc trưng vì AdaIN đưa trung bình về không. Giải điều biến trọng số của StyleGAN 2 khắc phục bằng cách co giãn trọng số tích chập thay thế.
 - **Kết cấu bám dính.** Kết cấu StyleGAN 1 và 2 đi theo tọa độ pixel, không phải tọa độ vật thể (nhìn thấy khi nội suy). Các tích chập không alias của StyleGAN 3 khắc phục điều này bằng bộ lọc sinc có cửa sổ.
 - **Độ bao phủ mode.** Truncation `ψ < 0.7` trông sạch nhưng lấy mẫu từ một hình nón hẹp; dùng `ψ = 1.0` nếu bạn cần đa dạng.
-- **Nghịch đảo có mất mát.** Nghịch đảo một ảnh chụp thật vào `W` thường được làm qua tối ưu hóa hoặc một encoder (e4e, ReStyle, HyperStyle). Kết quả trôi qua nhiều lần lặp.
+- **Nghịch đảo có mất mát.** Nghịch đảo một ảnh chụp thật vào $W$ thường được làm qua tối ưu hóa hoặc một encoder (e4e, ReStyle, HyperStyle). Kết quả trôi qua nhiều lần lặp.
 
 ## Use It
 
@@ -108,26 +108,26 @@ Với các bản demo cấp sản phẩm mà câu trả lời là "ảnh chụp 
 
 ## Ship It
 
-Lưu `outputs/skill-stylegan-inversion.md`. Skill nhận một ảnh chụp thật và xuất ra: phương pháp nghịch đảo (e4e / ReStyle / HyperStyle), mất mát latent dự kiến, ngân sách chỉnh sửa (bạn có thể di chuyển xa bao nhiêu trong `W` trước khi có lỗi giả), và một danh sách các hướng chỉnh sửa đã biết là tốt (tuổi, biểu cảm, tư thế).
+Lưu `outputs/skill-stylegan-inversion.md`. Skill nhận một ảnh chụp thật và xuất ra: phương pháp nghịch đảo (e4e / ReStyle / HyperStyle), mất mát latent dự kiến, ngân sách chỉnh sửa (bạn có thể di chuyển xa bao nhiêu trong $W$ trước khi có lỗi giả), và một danh sách các hướng chỉnh sửa đã biết là tốt (tuổi, biểu cảm, tư thế).
 
 ## Exercises
 
 1. **Dễ.** Chạy `code/main.py` với `adain_on=True` và `adain_on=False`. So sánh độ phân tán của đầu ra cho một latent cố định so với latent bị nhiễu.
-2. **Trung bình.** Triển khai mixing regularization: với một batch huấn luyện, tính `w_a`, `w_b`, và áp dụng `w_a` cho nửa đầu của quá trình tổng hợp và `w_b` cho nửa sau. Decoder có học các phong cách tách biệt không?
-3. **Khó.** Lấy một mô hình StyleGAN3 FFHQ được huấn luyện trước (ffhq-1024.pkl). Tìm hướng `w` điều khiển "nụ cười" bằng cách huấn luyện một SVM trên các mẫu có nhãn; báo cáo bạn có thể đẩy xa đến đâu trước khi danh tính trôi.
+2. **Trung bình.** Triển khai mixing regularization: với một batch huấn luyện, tính $w_a$, $w_b$, và áp dụng $w_a$ cho nửa đầu của quá trình tổng hợp và $w_b$ cho nửa sau. Decoder có học các phong cách tách biệt không?
+3. **Khó.** Lấy một mô hình StyleGAN3 FFHQ được huấn luyện trước (ffhq-1024.pkl). Tìm hướng $w$ điều khiển "nụ cười" bằng cách huấn luyện một SVM trên các mẫu có nhãn; báo cáo bạn có thể đẩy xa đến đâu trước khi danh tính trôi.
 
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Mapping network (Mạng ánh xạ) | "MLP" | `f: Z → W`, 8 lớp, tách hình học latent khỏi thống kê dữ liệu. |
+| Mapping network (Mạng ánh xạ) | "MLP" | $f: Z \to W$, 8 lớp, tách hình học latent khỏi thống kê dữ liệu. |
 | W space (Không gian W) | "Không gian phong cách" | Đầu ra của mạng ánh xạ; gần như tách biệt. |
-| AdaIN | "Chuẩn hóa instance thích nghi" | Chuẩn hóa bản đồ đặc trưng, rồi co giãn + dịch chuyển bằng phép chiếu `w`. |
-| Truncation trick (Thủ thuật truncation) | "Psi" | `w = mean + ψ·(w - mean)`, ψ<1 đánh đổi đa dạng lấy chất lượng. |
-| Path-length regularization (Regularization độ dài đường đi) | "PL reg" | Phạt các thay đổi lớn trong ảnh trên mỗi đơn vị thay đổi trong `w`; làm `W` trơn hơn. |
+| AdaIN | "Chuẩn hóa instance thích nghi" | Chuẩn hóa bản đồ đặc trưng, rồi co giãn + dịch chuyển bằng phép chiếu $w$. |
+| Truncation trick (Thủ thuật truncation) | "Psi" | $w = \text{mean} + \psi \cdot (w - \text{mean})$, $\psi<1$ đánh đổi đa dạng lấy chất lượng. |
+| Path-length regularization (Regularization độ dài đường đi) | "PL reg" | Phạt các thay đổi lớn trong ảnh trên mỗi đơn vị thay đổi trong $w$; làm $W$ trơn hơn. |
 | Weight demodulation (Giải điều biến trọng số) | "Cách khắc phục của StyleGAN2" | Chuẩn hóa trọng số conv thay vì activation; loại bỏ lỗi giả giọt nước. |
 | Alias-free (Không alias) | "Thủ thuật của StyleGAN3" | Các bộ lọc sinc có cửa sổ; loại bỏ kết cấu bám vào lưới pixel. |
-| Inversion (Nghịch đảo) | "Tìm w cho một ảnh thật" | Tối ưu hoặc mã hóa `x → w` sao cho `G(w) ≈ x`. |
+| Inversion (Nghịch đảo) | "Tìm w cho một ảnh thật" | Tối ưu hoặc mã hóa $x \to w$ sao cho $G(w) \approx x$. |
 
 ## Production note: why StyleGAN still ships in 2026
 

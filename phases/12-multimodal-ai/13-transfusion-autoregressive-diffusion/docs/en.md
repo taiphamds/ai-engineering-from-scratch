@@ -51,7 +51,7 @@ Mặt nạ:
 M[i, j] = 1 if:
   (i is text and j is text and j <= i)   # causal for text
   OR (i is image and j is image and same_image_block(i, j))   # bidirectional within image
-  OR (i is text and j is image and j < i_image_end)   # text attends to previous images
+  OR (i is text and j is image and j < i)   # text attends to images that closed before it
   OR (i is image and j is text and j < i_image_start)   # image attends to preceding text
 ```
 
@@ -62,9 +62,9 @@ M[i, j] = 1 if:
 Hàm mất mát khuếch tán là tiêu chuẩn: thêm nhiễu vào patch ảnh, yêu cầu mô hình dự đoán nhiễu (hoặc tương đương là patch sạch). Phiên bản của Transfusion sử dụng flow matching — dự đoán trường vận tốc từ nhiễu đến sạch.
 
 Trong quá trình huấn luyện:
-1. Với mỗi patch ảnh x0, lấy mẫu một bước thời gian ngẫu nhiên t.
-2. Lấy mẫu nhiễu ε, tính xt = (1-t) * x0 + t * ε (nội suy tuyến tính cho flow matching).
-3. Transformer dự đoán v_theta(xt, t); hàm mất mát = MSE(v_theta(xt, t), ε - x0).
+1. Với mỗi patch ảnh $x_0$, lấy mẫu một bước thời gian ngẫu nhiên $t$.
+2. Lấy mẫu nhiễu $\epsilon$, tính $x_t = (1-t) \cdot x_0 + t \cdot \epsilon$ (nội suy tuyến tính cho flow matching).
+3. Transformer dự đoán $v_\theta(x_t, t)$; $\text{loss} = \mathop{\mathrm{MSE}}(v_\theta(x_t, t), \epsilon - x_0)$.
 4. Lan truyền ngược cùng các hàm mất mát NTP văn bản từ cùng chuỗi.
 
 Khi suy luận, quá trình tạo sinh là:
@@ -97,7 +97,7 @@ Nhược điểm: Transfusion là mô hình hai hàm mất mát, khiến động
 
 Janus-Pro (Bài học 12.15) tinh chỉnh ý tưởng của Transfusion bằng cách tách bộ mã hóa thị giác cho hiểu và tạo sinh — SigLIP cho bên này, VQ cho bên kia — trong khi dùng chung phần thân transformer. Show-o (Bài học 12.14) thay khuếch tán bằng khuếch tán rời rạc (dự đoán có mặt nạ). Họ mô hình tạo sinh thống nhất phân nhánh nhanh chóng sau Transfusion.
 
-Các VLM sản xuất năm 2026 phát ra ảnh — Gemini 3 Pro, GPT-5, nhánh tạo ảnh của Claude Opus 4.7 — gần như chắc chắn sử dụng một hậu duệ nào đó của họ này. Các chi tiết là độc quyền.
+Các mô hình thương mại đóng xuất hình ảnh trực tiếp có thể sử dụng một hậu duệ nào đó của họ này, nhưng kiến trúc của chúng không được công bố, vì vậy hãy xem mọi khẳng định như vậy là một phỏng đoán.
 
 ```figure
 cfg-guidance-scale
@@ -111,7 +111,7 @@ cfg-guidance-scale
 - Ảnh là các lưới byte 4x4.
 - Một cặp phép chiếu tuyến tính dùng chung trọng số đóng vai trò thay thế transformer; hàm mất mát NTP trên văn bản, hàm mất mát MSE trên patch nhiễu.
 - Vòng lặp huấn luyện luân phiên hai hàm mất mát, mặt nạ attention được thể hiện tường minh.
-- Quá trình tạo sinh tạo ra một chú thích văn bản và một ảnh 4x4 trong một lượt truyền xuôi.
+- Một bản demo mặt nạ in mẫu attention tam giác khối cho một chuỗi văn bản, hình ảnh, văn bản. Việc tạo sinh không được chạy: một bộ lấy mẫu thực sẽ giải mã văn bản theo từng token, rồi khử nhiễu các patch hình ảnh qua nhiều bước, như các bài tập bên dưới đếm.
 
 Transformer là mô hình đơn giản. Phần kết nối hai hàm mất mát, xây dựng mặt nạ attention và vòng lặp suy luận mới là các sản phẩm thực sự.
 

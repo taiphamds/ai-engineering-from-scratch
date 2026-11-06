@@ -146,6 +146,14 @@ Bài học này tạo ra:
 2. Thử phiên bản HTTP thuần và so sánh định dạng phản hồi với phiên bản SDK
 3. Cố ý dùng khóa API sai và đọc thông báo lỗi
 
+### Hints
+
+**Bài tập 1.** Tạo một khóa trong Anthropic Console, đặt nó vào `ANTHROPIC_API_KEY` như được trình bày trong bài học và chạy `code/first_api_call.py`. Lệnh gọi hoạt động khi script in câu trả lời của mô hình và không có lỗi.
+
+**Bài tập 2.** Cả hai hàm trong `code/first_api_call.py` chỉ in văn bản và số lượng token. Thêm `print(response)` trong `call_with_sdk()` và `print(result)` trong `call_raw_http()`, rồi chạy script để xem cả hai phản hồi đầy đủ. So sánh tên các trường: JSON thô có cùng các trường `content`, `usage` và `stop_reason` mà SDK chuyển thành các thuộc tính đối tượng.
+
+**Bài tập 3.** Đặt `ANTHROPIC_API_KEY` thành một giá trị giả chỉ trong một terminal, rồi chạy lại script. Tìm mã trạng thái HTTP và loại lỗi trong đầu ra; lỗi xác thực trả về trạng thái 401.
+
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |

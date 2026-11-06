@@ -28,10 +28,10 @@ Bài học này xây dựng mọi công thức từ đầu để bạn thấy ch
 
 Khi điều gì đó ít có khả năng xảy ra, nó mang nhiều thông tin hơn. Đồng xu ra mặt ngửa? Không bất ngờ. Trúng xổ số? Rất bất ngờ.
 
-Lượng thông tin của một biến cố có xác suất p là:
+Lượng thông tin của một biến cố có xác suất $p$ là:
 
-```
-I(x) = -log(p(x))
+```math
+I(x) = -\log(p(x))
 ```
 
 Sử dụng log cơ số 2 cho bạn bit. Sử dụng log tự nhiên cho bạn nat. Cùng ý tưởng, khác đơn vị.
@@ -50,98 +50,104 @@ Các biến cố chắc chắn mang lượng thông tin bằng không. Bạn đ�
 
 Entropy là sự bất ngờ kỳ vọng trên tất cả các kết quả có thể của một phân phối.
 
-```
-H(P) = -sum( p(x) * log(p(x)) )  for all x
+```math
+H(P) = -\sum_{x} p(x) \log(p(x))
 ```
 
 Một đồng xu cân bằng có entropy lớn nhất cho một biến nhị phân: 1 bit. Một đồng xu thiên lệch (99% mặt ngửa) có entropy thấp: 0.08 bit. Bạn đã biết điều gì sẽ xảy ra, nên mỗi lần tung hầu như không cho bạn biết gì.
 
-```
-Fair coin:    H = -(0.5 * log2(0.5) + 0.5 * log2(0.5)) = 1.0 bit
-Biased coin:  H = -(0.99 * log2(0.99) + 0.01 * log2(0.01)) = 0.08 bits
+```math
+\begin{aligned}
+\text{Fair coin:} \quad & H = -(0.5 \log_2(0.5) + 0.5 \log_2(0.5)) = 1.0 \text{ bit} \\
+\text{Biased coin:} \quad & H = -(0.99 \log_2(0.99) + 0.01 \log_2(0.01)) = 0.08 \text{ bits}
+\end{aligned}
 ```
 
 Entropy đo sự không chắc chắn không thể giảm trong một phân phối. Bạn không thể nén xuống dưới nó.
 
 ### Cross-Entropy (The Loss Function You Use Every Day)
 
-Cross-entropy đo sự bất ngờ trung bình khi bạn sử dụng phân phối Q để mã hóa các biến cố thực sự đến từ phân phối P.
+Cross-entropy đo sự bất ngờ trung bình khi bạn sử dụng phân phối $Q$ để mã hóa các biến cố thực sự đến từ phân phối $P$.
 
+```math
+H(P, Q) = -\sum_{x} p(x) \log(q(x))
 ```
-H(P, Q) = -sum( p(x) * log(q(x)) )  for all x
-```
 
-P là phân phối thực (các nhãn). Q là các dự đoán của mô hình. Nếu Q khớp hoàn hảo với P, cross-entropy bằng entropy. Bất kỳ sự không khớp nào cũng làm nó lớn hơn.
+$P$ là phân phối thực (các nhãn). $Q$ là các dự đoán của mô hình. Nếu $Q$ khớp hoàn hảo với $P$, cross-entropy bằng entropy. Bất kỳ sự không khớp nào cũng làm nó lớn hơn.
 
-Trong phân loại, P là một vector one-hot (lớp thực có xác suất 1, mọi thứ khác 0). Điều này đơn giản hóa cross-entropy thành:
+Trong phân loại, $P$ là một vector one-hot (lớp thực có xác suất 1, mọi thứ khác 0). Điều này đơn giản hóa cross-entropy thành:
 
-```
-H(P, Q) = -log(q(true_class))
+```math
+H(P, Q) = -\log(q(\text{true\_class}))
 ```
 
 Đó là toàn bộ công thức mất mát cross-entropy cho phân loại. Cực đại hóa xác suất dự đoán của lớp đúng.
 
 ### KL Divergence (Distance Between Distributions)
 
-Phân kỳ KL đo lượng bất ngờ thêm mà bạn nhận được khi sử dụng Q thay vì P.
+Phân kỳ KL đo lượng bất ngờ thêm mà bạn nhận được khi sử dụng $Q$ thay vì $P$.
 
-```
-D_KL(P || Q) = sum( p(x) * log(p(x) / q(x)) )  for all x
-             = H(P, Q) - H(P)
+```math
+\begin{aligned}
+D_{KL}(P \,\|\, Q) &= \sum_{x} p(x) \log(p(x) / q(x)) \\
+&= H(P, Q) - H(P)
+\end{aligned}
 ```
 
 Cross-entropy là entropy cộng phân kỳ KL. Vì entropy của phân phối thực không đổi trong quá trình huấn luyện, tối thiểu hóa cross-entropy giống như tối thiểu hóa phân kỳ KL. Bạn đang đẩy phân phối của mô hình về phía phân phối thực.
 
-Phân kỳ KL không đối xứng: D_KL(P || Q) != D_KL(Q || P). Nó không phải là một metric khoảng cách thực sự.
+Phân kỳ KL không đối xứng: $D_{KL}(P \Vert Q) \ne D_{KL}(Q \Vert P)$. Nó không phải là một metric khoảng cách thực sự.
 
 ### Mutual Information
 
 Thông tin tương hỗ đo mức độ biết một biến cho bạn biết về một biến khác.
 
-```
-I(X; Y) = H(X) - H(X|Y)
-        = H(X) + H(Y) - H(X, Y)
+```math
+\begin{aligned}
+I(X; Y) &= H(X) - H(X \mid Y) \\
+&= H(X) + H(Y) - H(X, Y)
+\end{aligned}
 ```
 
-Nếu X và Y độc lập, thông tin tương hỗ bằng không. Biết một biến không cho bạn biết gì về biến còn lại. Nếu chúng tương quan hoàn hảo, thông tin tương hỗ bằng entropy của một trong hai biến.
+Nếu $X$ và $Y$ độc lập, thông tin tương hỗ bằng không. Biết một biến không cho bạn biết gì về biến còn lại. Nếu chúng tương quan hoàn hảo, thông tin tương hỗ bằng entropy của một trong hai biến.
 
 Trong lựa chọn đặc trưng, thông tin tương hỗ cao giữa một đặc trưng và mục tiêu có nghĩa là đặc trưng hữu ích. Thông tin tương hỗ thấp có nghĩa là nó là nhiễu.
 
 ### Conditional Entropy
 
-H(Y|X) đo lượng không chắc chắn còn lại về Y sau khi bạn quan sát X.
+$H(Y \mid X)$ đo lượng không chắc chắn còn lại về $Y$ sau khi bạn quan sát $X$.
 
-```
-H(Y|X) = H(X,Y) - H(X)
+```math
+H(Y \mid X) = H(X,Y) - H(X)
 ```
 
 Hai cực:
-- Nếu X xác định hoàn toàn Y, thì H(Y|X) = 0. Biết X loại bỏ mọi sự không chắc chắn về Y. Ví dụ: X = nhiệt độ Celsius, Y = nhiệt độ Fahrenheit.
-- Nếu X không cho bạn biết gì về Y, thì H(Y|X) = H(Y). Biết X hoàn toàn không giảm sự không chắc chắn của bạn. Ví dụ: X = lần tung đồng xu, Y = thời tiết ngày mai.
+- Nếu $X$ xác định hoàn toàn $Y$, thì $H(Y \mid X) = 0$. Biết $X$ loại bỏ mọi sự không chắc chắn về $Y$. Ví dụ: $X$ = nhiệt độ Celsius, $Y$ = nhiệt độ Fahrenheit.
+- Nếu $X$ không cho bạn biết gì về $Y$, thì $H(Y \mid X) = H(Y)$. Biết $X$ hoàn toàn không giảm sự không chắc chắn của bạn. Ví dụ: $X$ = lần tung đồng xu, $Y$ = thời tiết ngày mai.
 
-Entropy có điều kiện luôn không âm và không bao giờ vượt quá H(Y):
+Entropy có điều kiện luôn không âm và không bao giờ vượt quá $H(Y)$:
 
+```math
+0 \le H(Y \mid X) \le H(Y)
 ```
-0 <= H(Y|X) <= H(Y)
-```
 
-Trong học máy, entropy có điều kiện xuất hiện trong cây quyết định. Tại mỗi lần chia, thuật toán chọn đặc trưng X tối thiểu hóa H(Y|X) -- đặc trưng loại bỏ nhiều nhất sự không chắc chắn về nhãn Y.
+Trong học máy, entropy có điều kiện xuất hiện trong cây quyết định. Tại mỗi lần chia, thuật toán chọn đặc trưng $X$ tối thiểu hóa $H(Y \mid X)$ -- đặc trưng loại bỏ nhiều nhất sự không chắc chắn về nhãn $Y$.
 
 ### Joint Entropy
 
-H(X,Y) là entropy của phân phối đồng thời của X và Y.
+$H(X,Y)$ là entropy của phân phối đồng thời của $X$ và $Y$.
 
-```
-H(X,Y) = -sum sum p(x,y) * log(p(x,y))   for all x, y
+```math
+H(X,Y) = -\sum_{x} \sum_{y} p(x,y) \log(p(x,y))
 ```
 
 Tính chất chính:
 
-```
-H(X,Y) <= H(X) + H(Y)
+```math
+H(X,Y) \le H(X) + H(Y)
 ```
 
-Dấu bằng xảy ra khi X và Y độc lập. Nếu chúng chia sẻ thông tin, entropy đồng thời nhỏ hơn tổng các entropy riêng lẻ. Entropy "thiếu" chính là thông tin tương hỗ.
+Dấu bằng xảy ra khi $X$ và $Y$ độc lập. Nếu chúng chia sẻ thông tin, entropy đồng thời nhỏ hơn tổng các entropy riêng lẻ. Entropy "thiếu" chính là thông tin tương hỗ.
 
 ```mermaid
 graph TD
@@ -167,50 +173,52 @@ graph TD
 ```
 
 Các mối quan hệ:
-- H(X,Y) = H(X) + H(Y|X) = H(Y) + H(X|Y)
-- I(X;Y) = H(X) - H(X|Y) = H(Y) - H(Y|X)
-- H(X,Y) = H(X) + H(Y) - I(X;Y)
+- $H(X,Y) = H(X) + H(Y \mid X) = H(Y) + H(X \mid Y)$
+- $I(X;Y) = H(X) - H(X \mid Y) = H(Y) - H(Y \mid X)$
+- $H(X,Y) = H(X) + H(Y) - I(X;Y)$
 
 ### Mutual Information (Deep Dive)
 
-Thông tin tương hỗ I(X;Y) định lượng mức độ biết một biến làm giảm sự không chắc chắn về biến còn lại.
+Thông tin tương hỗ $I(X;Y)$ định lượng mức độ biết một biến làm giảm sự không chắc chắn về biến còn lại.
 
-```
-I(X;Y) = H(X) - H(X|Y)
-       = H(Y) - H(Y|X)
-       = H(X) + H(Y) - H(X,Y)
-       = sum sum p(x,y) * log(p(x,y) / (p(x) * p(y)))
+```math
+\begin{aligned}
+I(X;Y) &= H(X) - H(X \mid Y) \\
+&= H(Y) - H(Y \mid X) \\
+&= H(X) + H(Y) - H(X,Y) \\
+&= \sum_{x} \sum_{y} p(x,y) \log\left(\frac{p(x,y)}{p(x) \, p(y)}\right)
+\end{aligned}
 ```
 
 Các tính chất:
-- I(X;Y) >= 0 luôn luôn. Bạn không bao giờ mất thông tin khi quan sát điều gì đó.
-- I(X;Y) = 0 khi và chỉ khi X và Y độc lập.
-- I(X;Y) = I(Y;X). Nó đối xứng, khác với phân kỳ KL.
-- I(X;X) = H(X). Một biến chia sẻ toàn bộ thông tin của nó với chính nó.
+- $I(X;Y) \ge 0$ luôn luôn. Bạn không bao giờ mất thông tin khi quan sát điều gì đó.
+- $I(X;Y) = 0$ khi và chỉ khi $X$ và $Y$ độc lập.
+- $I(X;Y) = I(Y;X)$. Nó đối xứng, khác với phân kỳ KL.
+- $I(X;X) = H(X)$. Một biến chia sẻ toàn bộ thông tin của nó với chính nó.
 
 **Thông tin tương hỗ để lựa chọn đặc trưng.** Trong ML, bạn muốn các đặc trưng cung cấp thông tin về mục tiêu. Thông tin tương hỗ cho bạn một cách có nguyên tắc để xếp hạng các đặc trưng:
 
-1. Với mỗi đặc trưng X_i, tính I(X_i; Y) trong đó Y là biến mục tiêu.
+1. Với mỗi đặc trưng $X_i$, tính $I(X_i; Y)$ trong đó $Y$ là biến mục tiêu.
 2. Xếp hạng các đặc trưng theo điểm MI.
-3. Giữ lại k đặc trưng đứng đầu.
+3. Giữ lại $k$ đặc trưng đứng đầu.
 
-Điều này hoạt động cho bất kỳ mối quan hệ nào giữa đặc trưng và mục tiêu -- tuyến tính, phi tuyến, đơn điệu hoặc không. Tương quan chỉ phát hiện các quan hệ tuyến tính. MI phát hiện mọi thứ.
+Điều này hoạt động với bất kỳ mối quan hệ nào giữa đặc trưng và mục tiêu -- tuyến tính, phi tuyến, đơn điệu hoặc không. Tương quan Pearson chỉ phát hiện các mối quan hệ tuyến tính. MI phát hiện bất kỳ sự phụ thuộc nào, nhưng với dữ liệu hữu hạn, ước lượng của nó cần đủ mẫu và một cách chia khoảng hợp lý.
 
 | Phương pháp | Phát hiện | Chi phí tính toán | Xử lý biến phân loại? |
 |--------|---------|-------------------|---------------------|
-| Tương quan Pearson | Các quan hệ tuyến tính | O(n) | Không |
-| Tương quan Spearman | Các quan hệ đơn điệu | O(n log n) | Không |
-| Thông tin tương hỗ | Bất kỳ sự phụ thuộc thống kê nào | O(n log n) với chia khoảng | Có |
+| Tương quan Pearson | Các quan hệ tuyến tính | $O(n)$ | Không |
+| Tương quan Spearman | Các quan hệ đơn điệu | $O(n \log n)$ | Không |
+| Thông tin tương hỗ | Bất kỳ sự phụ thuộc thống kê nào | $O(n \log n)$ với chia khoảng | Có |
 
 ### Label Smoothing and Cross-Entropy
 
 Phân loại tiêu chuẩn sử dụng các mục tiêu cứng: [0, 0, 1, 0]. Lớp thực nhận xác suất 1, mọi thứ khác nhận 0. Làm trơn nhãn thay thế chúng bằng các mục tiêu mềm:
 
-```
-soft_target = (1 - epsilon) * hard_target + epsilon / num_classes
+```math
+\text{soft\_target} = (1 - \epsilon) \cdot \text{hard\_target} + \epsilon / \text{num\_classes}
 ```
 
-Với epsilon = 0.1 và 4 lớp:
+Với $\epsilon = 0.1$ và 4 lớp:
 - Mục tiêu cứng:  [0, 0, 1, 0]
 - Mục tiêu mềm:  [0.025, 0.025, 0.925, 0.025]
 
@@ -224,8 +232,8 @@ Tại sao điều này giúp ích:
 
 Mất mát cross-entropy có làm trơn nhãn trở thành:
 
-```
-L = (1 - epsilon) * CE(hard_target, prediction) + epsilon * H_uniform(prediction)
+```math
+L = (1 - \epsilon) \cdot \text{CE}(\text{hard\_target}, \text{prediction}) + \epsilon \cdot H_{\text{uniform}}(\text{prediction})
 ```
 
 Số hạng thứ hai phạt các dự đoán cách xa phân phối đều -- một regularization trực tiếp lên sự tự tin.
@@ -236,12 +244,14 @@ Ba góc nhìn, cùng kết luận.
 
 **Góc nhìn lý thuyết thông tin.** Cross-entropy đo số bit bạn lãng phí khi sử dụng phân phối của mô hình thay vì phân phối thực. Tối thiểu hóa nó khiến mô hình trở thành bộ mã hóa thực tế hiệu quả nhất.
 
-**Góc nhìn hợp lý cực đại.** Với N mẫu huấn luyện có các lớp thực y_i:
+**Góc nhìn hợp lý cực đại.** Với $N$ mẫu huấn luyện có các lớp thực $y_i$:
 
-```
-Likelihood     = product( q(y_i) )
-Log-likelihood = sum( log(q(y_i)) )
-Negative log-likelihood = -sum( log(q(y_i)) )
+```math
+\begin{aligned}
+\text{Likelihood} &= \prod_i q(y_i) \\
+\text{Log-likelihood} &= \sum_i \log(q(y_i)) \\
+\text{Negative log-likelihood} &= -\sum_i \log(q(y_i))
+\end{aligned}
 ```
 
 Dòng cuối đó là mất mát cross-entropy. Tối thiểu hóa cross-entropy = cực đại hóa hợp lý của dữ liệu huấn luyện dưới mô hình của bạn.
@@ -258,15 +268,17 @@ log base e   -> nats      (machine learning convention)
 log base 10  -> hartleys  (rarely used)
 ```
 
-1 nat = 1/ln(2) bit = 1.4427 bit. PyTorch và TensorFlow sử dụng log tự nhiên (nat) theo mặc định.
+1 nat = $1/\ln(2)$ bit = 1.4427 bit. PyTorch và TensorFlow sử dụng log tự nhiên (nat) theo mặc định.
 
 ### Perplexity
 
 Perplexity là hàm mũ của cross-entropy. Nó cho bạn biết số lựa chọn có khả năng như nhau hiệu dụng mà mô hình không chắc chắn giữa chúng.
 
-```
-Perplexity = 2^H(P,Q)   (if using bits)
-Perplexity = e^H(P,Q)   (if using nats)
+```math
+\begin{aligned}
+\text{Perplexity} &= 2^{H(P,Q)} \quad \text{(if using bits)} \\
+\text{Perplexity} &= e^{H(P,Q)} \quad \text{(if using nats)}
+\end{aligned}
 ```
 
 Một mô hình ngôn ngữ có perplexity 50, tính trung bình, bối rối như thể nó phải chọn đều từ 50 token tiếp theo có thể. Thấp hơn là tốt hơn.
@@ -445,19 +457,29 @@ Bạn đã xây dựng từ đầu những gì `torch.nn.CrossEntropyLoss()` th�
 
 2. Một mô hình xuất ra logits [5.0, 2.0, 0.5] cho một mẫu có lớp thực 1. Tính mất mát cross-entropy bằng tay, rồi xác minh bằng hàm `cross_entropy_loss` của bạn. Logits nào sẽ cho mất mát bằng không?
 
-3. Chỉ ra rằng phân kỳ KL không đối xứng. Chọn hai phân phối P và Q và tính D_KL(P || Q) và D_KL(Q || P). Giải thích tại sao chúng khác nhau.
+3. Chỉ ra rằng phân kỳ KL không đối xứng. Chọn hai phân phối $P$ và $Q$ và tính $D_{KL}(P \Vert Q)$ và $D_{KL}(Q \Vert P)$. Giải thích tại sao chúng khác nhau.
 
 4. Xây dựng một hàm tính perplexity cho một chuỗi dự đoán token. Với một danh sách các cặp (true_token_index, predicted_logits), trả về perplexity của chuỗi.
+
+### Hints
+
+**Bài tập 1.** Gọi `entropy` với 26 xác suất bằng nhau; kết quả phải là $\log_2 26 \approx 4.70$ bit. Tần suất chữ cái thực tế không đều, vì vậy entropy với chúng phải thấp hơn.
+
+**Bài tập 2.** Tính `softmax` của các logit, rồi $-\ln$ của xác suất tại chỉ số 1, và so sánh với `cross_entropy_loss(1, logits)`; cả hai phải gần 3.06. Loss chỉ tiến gần 0 khi logit cho lớp 1 lớn hơn nhiều so với hai logit còn lại.
+
+**Bài tập 3.** Sử dụng hai phân phối nhỏ có hình dạng khác nhau, ví dụ $P = [0.9, 0.1]$ và $Q = [0.5, 0.5]$, và gọi `kl_divergence` theo cả hai thứ tự. Hai giá trị phải khác nhau, vì mỗi hướng gán trọng số cho tỷ số log bằng một phân phối khác nhau.
+
+**Bài tập 4.** Với mỗi cặp, tính `cross_entropy_loss(true_token_index, predicted_logits)`, lấy trung bình và truyền nó cho `perplexity`. Kiểm tra bằng các logit đều trên $V$ token: perplexity phải là $V$.
 
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Information content (Lượng thông tin) | "Sự bất ngờ" | Số bit (hoặc nat) cần để mã hóa một biến cố: -log(p) |
+| Information content (Lượng thông tin) | "Sự bất ngờ" | Số bit (hoặc nat) cần để mã hóa một biến cố: $-\log(p)$ |
 | Entropy | "Tính ngẫu nhiên" | Sự bất ngờ trung bình trên tất cả các kết quả của một phân phối. Đo sự không chắc chắn không thể giảm. |
-| Cross-entropy | "Hàm mất mát" | Sự bất ngờ trung bình khi sử dụng phân phối mô hình Q để mã hóa các biến cố từ phân phối thực P. |
-| KL divergence (Phân kỳ KL) | "Khoảng cách giữa các phân phối" | Các bit thêm bị lãng phí khi sử dụng Q thay vì P. Bằng cross-entropy trừ entropy. Không đối xứng. |
-| Mutual information (Thông tin tương hỗ) | "X và Y liên quan đến mức nào" | Mức giảm sự không chắc chắn về X khi biết Y. Bằng không nghĩa là độc lập. |
+| Cross-entropy | "Hàm mất mát" | Sự bất ngờ trung bình khi sử dụng phân phối mô hình $Q$ để mã hóa các biến cố từ phân phối thực $P$. |
+| KL divergence (Phân kỳ KL) | "Khoảng cách giữa các phân phối" | Các bit thêm bị lãng phí khi sử dụng $Q$ thay vì $P$. Bằng cross-entropy trừ entropy. Không đối xứng. |
+| Mutual information (Thông tin tương hỗ) | "X và Y liên quan đến nhau đến mức nào" | Mức giảm bất định về $X$ nhờ biết $Y$. Số 0 nghĩa là độc lập. |
 | Softmax | "Biến logits thành xác suất" | Lấy hàm mũ và chuẩn hóa. Ánh xạ bất kỳ vector có giá trị thực nào thành một phân phối xác suất hợp lệ. |
 | Perplexity | "Mô hình bối rối đến mức nào" | Hàm mũ của cross-entropy. Kích thước từ vựng hiệu dụng mà mô hình lựa chọn từ đó tại mỗi bước. |
 | Bits (Bit) | "Đơn vị của Shannon" | Thông tin được đo bằng log cơ số 2. Một bit giải quyết một lần tung đồng xu cân bằng. |

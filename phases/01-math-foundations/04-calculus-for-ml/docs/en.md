@@ -9,7 +9,7 @@
 
 ## Learning Objectives
 
-- Tính đạo hàm số và đạo hàm giải tích cho các hàm ML phổ biến (x^2, sigmoid, cross-entropy)
+- Tính đạo hàm số và đạo hàm giải tích cho các hàm ML phổ biến ($x^2$, sigmoid, cross-entropy)
 - Triển khai gradient descent từ đầu để tối thiểu hóa một hàm mất mát trong 1D và 2D
 - Suy ra gradient của một mô hình hồi quy tuyến tính và huấn luyện nó bằng các cập nhật trọng số thủ công
 - Giải thích ma trận Hessian, các xấp xỉ chuỗi Taylor và mối liên hệ của chúng với các phương pháp tối ưu hóa
@@ -24,59 +24,58 @@ Không có giải tích, huấn luyện một mạng nơ-ron có nghĩa là th�
 
 ### What is a derivative?
 
-Một đạo hàm đo tốc độ thay đổi. Với một hàm y = f(x), đạo hàm f'(x) cho bạn biết: nếu bạn dịch x một lượng rất nhỏ, y thay đổi bao nhiêu?
+Một đạo hàm đo tốc độ thay đổi. Với một hàm $y = f(x)$, đạo hàm $f'(x)$ cho bạn biết: nếu bạn dịch $x$ một lượng rất nhỏ, $y$ thay đổi bao nhiêu?
 
 Về mặt hình học, đạo hàm là độ dốc của đường tiếp tuyến tại một điểm.
 
-**f(x) = x^2:**
+**$f(x) = x^2$:**
 
-| x | f(x) | f'(x) (độ dốc) |
+| $x$ | $f(x)$ | $f'(x)$ (độ dốc) |
 |---|------|---------------|
 | 0 | 0    | 0 (phẳng, tại đáy) |
 | 1 | 1    | 2 |
 | 2 | 4    | 4 (độ dốc đường tiếp tuyến tại điểm này) |
 | 3 | 9    | 6 |
 
-Tại x=2, độ dốc là 4. Nếu bạn di chuyển x một chút sang phải, y tăng khoảng 4 lần lượng đó. Tại x=0, độ dốc là 0. Bạn đang ở đáy cái bát.
+Tại $x=2$, độ dốc là 4. Nếu bạn di chuyển $x$ một chút sang phải, $y$ tăng khoảng 4 lần lượng đó. Tại $x=0$, độ dốc là 0. Bạn đang ở đáy cái bát.
 
 Định nghĩa hình thức:
 
-```
-f'(x) = lim   f(x + h) - f(x)
-        h->0  -----------------
-                     h
+```math
+f'(x) = \lim_{h \to 0} \frac{f(x + h) - f(x)}{h}
 ```
 
-Trong mã, bạn bỏ qua giới hạn và chỉ sử dụng một h rất nhỏ. Đó là đạo hàm số.
+Trong mã, bạn bỏ qua giới hạn và chỉ sử dụng một $h$ rất nhỏ. Đó là đạo hàm số.
 
 ### Partial derivatives: one variable at a time
 
 Các hàm thực tế có nhiều đầu vào. Mất mát của một mạng nơ-ron phụ thuộc vào hàng nghìn trọng số. Một đạo hàm riêng giữ tất cả các biến không đổi trừ một biến, rồi lấy đạo hàm theo biến đó.
 
-```
-f(x, y) = x^2 + 3xy + y^2
-
-df/dx = 2x + 3y     (treat y as a constant)
-df/dy = 3x + 2y     (treat x as a constant)
+```math
+\begin{aligned}
+f(x, y) &= x^2 + 3xy + y^2 \\[4pt]
+\frac{\partial f}{\partial x} &= 2x + 3y \quad \text{(treat } y \text{ as a constant)} \\
+\frac{\partial f}{\partial y} &= 3x + 2y \quad \text{(treat } x \text{ as a constant)}
+\end{aligned}
 ```
 
 Mỗi đạo hàm riêng trả lời: nếu tôi chỉ dịch riêng trọng số này, mất mát thay đổi như thế nào?
 
 ### The gradient: vector of all partial derivatives
 
-Gradient gom mọi đạo hàm riêng vào một vector. Với một hàm f(x, y, z), gradient là:
+Gradient gom mọi đạo hàm riêng vào một vector. Với một hàm $f(x, y, z)$, gradient là:
 
-```
-grad f = [ df/dx, df/dy, df/dz ]
+```math
+\nabla f = \left[ \frac{\partial f}{\partial x}, \frac{\partial f}{\partial y}, \frac{\partial f}{\partial z} \right]
 ```
 
 Gradient chỉ theo hướng tăng dốc nhất. Để tối thiểu hóa một hàm, đi theo hướng ngược lại.
 
-**Đồ thị đường đồng mức của f(x,y) = x^2 + y^2:**
+**Đồ thị đường đồng mức của $f(x,y) = x^2 + y^2$:**
 
 Hàm tạo thành hình cái bát với các đường tròn đồng tâm làm đường đồng mức. Điểm cực tiểu nằm tại (0, 0).
 
-| Điểm | grad f | -grad f (hướng đi xuống) |
+| Điểm | $\nabla f$ | $-\nabla f$ (hướng đi xuống) |
 |-------|--------|----------------------------|
 | (1, 1) | [2, 2] (hướng lên dốc, ra xa cực tiểu) | [-2, -2] (hướng xuống dốc, về phía cực tiểu) |
 | (0, 0) | [0, 0] (phẳng, tại cực tiểu) | [0, 0] |
@@ -85,7 +84,7 @@ Hàm tạo thành hình cái bát với các đường tròn đồng tâm làm �
 
 ### The connection to optimization
 
-Huấn luyện một mạng nơ-ron là tối ưu hóa. Bạn có một hàm mất mát L(w1, w2, ..., wn) đo mức độ sai của mô hình. Bạn muốn tối thiểu hóa nó.
+Huấn luyện một mạng nơ-ron là tối ưu hóa. Bạn có một hàm loss $L(w_1, w_2, \ldots, w_n)$ đo mức độ sai của mô hình. Bạn muốn tối thiểu hóa nó.
 
 ```
 Gradient descent update rule:
@@ -102,7 +101,7 @@ Tốc độ học điều khiển kích thước bước. Quá lớn và bạn v
 
 **Địa hình mất mát (lát cắt 1D):**
 
-Hàm mất mát L(w) tạo thành một đường cong với các đỉnh và thung lũng khi trọng số w thay đổi.
+Hàm mất mát $L(w)$ tạo thành một đường cong với các đỉnh và thung lũng khi trọng số $w$ thay đổi.
 
 | Đặc điểm | Mô tả |
 |---------|-------------|
@@ -116,9 +115,9 @@ Gradient descent đi theo độ dốc xuống dưới. Nó có thể bị kẹt 
 
 Có hai cách để tính một đạo hàm.
 
-Giải tích: áp dụng các quy tắc giải tích bằng tay. Với f(x) = x^2, đạo hàm là f'(x) = 2x. Chính xác. Nhanh.
+Giải tích: áp dụng các quy tắc giải tích bằng tay. Với $f(x) = x^2$, đạo hàm là $f'(x) = 2x$. Chính xác. Nhanh.
 
-Số: xấp xỉ bằng định nghĩa. Tính f(x+h) và f(x-h) cho một h rất nhỏ, rồi sử dụng hiệu.
+Số: xấp xỉ bằng định nghĩa. Tính $f(x+h)$ và $f(x-h)$ cho một $h$ rất nhỏ, rồi sử dụng hiệu.
 
 ```
 Numerical (central difference):
@@ -148,7 +147,7 @@ f(x) = ln(x)   f'(x) = 1/x     Cross-entropy loss
 f(x) = 1/(1+e^-x)  f'(x) = f(x)(1-f(x))   Sigmoid activation
 ```
 
-Với f(x) = x^2:
+Với $f(x) = x^2$:
 
 ```
 f(x) = x^2    f'(x) = 2x
@@ -161,7 +160,7 @@ f(x) = x^2    f'(x) = 2x
    2    4       4      slope tilts right (increasing)
 ```
 
-Với f(w) = wx + b với x=3, b=1:
+Với $f(w) = wx + b$ với $x=3$, $b=1$:
 
 ```
 f(w) = 3w + 1    f'(w) = 3
@@ -189,17 +188,16 @@ Mạng nơ-ron là các chuỗi hàm: đầu vào -> tuyến tính -> kích ho�
 
 Gradient cho bạn biết độ dốc. Hessian cho bạn biết độ cong.
 
-Hessian là ma trận các đạo hàm riêng bậc hai. Với một hàm f(x1, x2, ..., xn), phần tử (i, j) của Hessian là:
+Hessian là ma trận các đạo hàm riêng bậc hai. Đối với một hàm $f(x_1, x_2, \ldots, x_n)$, phần tử $(i, j)$ của Hessian là:
 
-```
-H[i][j] = d^2f / (dx_i * dx_j)
+```math
+H_{ij} = \frac{\partial^2 f}{\partial x_i \, \partial x_j}
 ```
 
-Với một hàm 2 biến f(x, y):
+Với một hàm 2 biến $f(x, y)$:
 
-```
-H = | d^2f/dx^2    d^2f/dxdy |
-    | d^2f/dydx    d^2f/dy^2 |
+```math
+H = \begin{bmatrix} \dfrac{\partial^2 f}{\partial x^2} & \dfrac{\partial^2 f}{\partial x \, \partial y} \\[8pt] \dfrac{\partial^2 f}{\partial y \, \partial x} & \dfrac{\partial^2 f}{\partial y^2} \end{bmatrix}
 ```
 
 **Hessian cho bạn biết điều gì tại một điểm dừng (nơi gradient = 0):**
@@ -210,7 +208,7 @@ H = | d^2f/dx^2    d^2f/dxdy |
 | Xác định âm (mọi giá trị riêng < 0) | Cực đại cục bộ | Cái bát hướng xuống |
 | Không xác định (các giá trị riêng khác dấu) | Điểm yên ngựa | Hình yên ngựa |
 
-**Ví dụ:** f(x, y) = x^2 - y^2 (một hàm yên ngựa)
+**Ví dụ:** $f(x, y) = x^2 - y^2$ (một hàm yên ngựa)
 
 ```
 df/dx = 2x       df/dy = -2y
@@ -223,7 +221,7 @@ Eigenvalues: 2 and -2 (one positive, one negative)
 --> Saddle point at (0, 0)
 ```
 
-So sánh với f(x, y) = x^2 + y^2 (một cái bát):
+So sánh với $f(x, y) = x^2 + y^2$ (một cái bát):
 
 ```
 H = | 2  0 |
@@ -237,22 +235,24 @@ Eigenvalues: 2 and 2 (both positive)
 
 Phương pháp Newton sử dụng Hessian để thực hiện các bước tối ưu hóa tốt hơn gradient descent. Thay vì chỉ đi theo độ dốc, nó xét đến độ cong:
 
-```
-Newton's update:    w_new = w_old - H^(-1) * gradient
-Gradient descent:   w_new = w_old - lr * gradient
+```math
+\begin{aligned}
+\text{Newton's update:} \quad & w_{\text{new}} = w_{\text{old}} - H^{-1} \cdot \text{gradient} \\
+\text{Gradient descent:} \quad & w_{\text{new}} = w_{\text{old}} - \text{lr} \cdot \text{gradient}
+\end{aligned}
 ```
 
 Phương pháp Newton hội tụ nhanh hơn vì Hessian "điều chỉnh tỉ lệ" gradient -- các hướng dốc có bước nhỏ hơn, các hướng phẳng có bước lớn hơn.
 
-Điểm vướng mắc: với một mạng nơ-ron có N tham số, Hessian có kích thước N x N. Một mô hình có 1 triệu tham số sẽ cần một ma trận 1 nghìn tỷ phần tử. Đó là lý do chúng ta sử dụng các xấp xỉ.
+Điểm vướng mắc: với một mạng nơ-ron có $N$ tham số, Hessian có kích thước $N \times N$. Một mô hình có 1 triệu tham số sẽ cần một ma trận 1 nghìn tỷ phần tử. Đó là lý do chúng ta sử dụng các xấp xỉ.
 
 | Phương pháp | Những gì nó sử dụng | Chi phí | Hội tụ |
 |--------|-------------|------|-------------|
-| Gradient descent | Chỉ các đạo hàm bậc nhất | O(N) mỗi bước | Chậm (tuyến tính) |
-| Phương pháp Newton | Hessian đầy đủ | O(N^3) mỗi bước | Nhanh (bậc hai) |
-| L-BFGS | Hessian xấp xỉ từ lịch sử gradient | O(N) mỗi bước | Trung bình (siêu tuyến tính) |
-| Adam | Tốc độ thích nghi theo từng tham số (xấp xỉ Hessian đường chéo) | O(N) mỗi bước | Trung bình |
-| Gradient tự nhiên | Ma trận thông tin Fisher (Hessian thống kê) | O(N^2) mỗi bước | Nhanh |
+| Gradient descent | Chỉ các đạo hàm bậc nhất | $O(N)$ mỗi bước | Chậm (tuyến tính) |
+| Phương pháp Newton | Hessian đầy đủ | $O(N^3)$ mỗi bước | Nhanh (bậc hai) |
+| L-BFGS | Hessian xấp xỉ từ lịch sử gradient | $O(N)$ mỗi bước | Trung bình (siêu tuyến tính) |
+| Adam | Tốc độ thích nghi theo từng tham số (xấp xỉ Hessian đường chéo) | $O(N)$ mỗi bước | Trung bình |
+| Gradient tự nhiên | Ma trận thông tin Fisher (Hessian thống kê) | $O(N^2)$ mỗi bước | Nhanh |
 
 Trong thực tế, Adam là bộ tối ưu hóa mặc định cho học sâu. Nó xấp xỉ thông tin bậc hai với chi phí thấp bằng cách theo dõi trung bình và phương sai cập nhật liên tục của gradient theo từng tham số.
 
@@ -260,17 +260,17 @@ Trong thực tế, Adam là bộ tối ưu hóa mặc định cho học sâu. N�
 
 Bất kỳ hàm trơn nào cũng có thể được xấp xỉ cục bộ bằng một đa thức:
 
-```
-f(x + h) = f(x) + f'(x)*h + (1/2)*f''(x)*h^2 + (1/6)*f'''(x)*h^3 + ...
+```math
+f(x + h) = f(x) + f'(x)\,h + \frac{1}{2} f''(x)\,h^2 + \frac{1}{6} f'''(x)\,h^3 + \cdots
 ```
 
-Càng đưa vào nhiều số hạng, xấp xỉ càng tốt -- nhưng chỉ gần điểm x.
+Càng đưa vào nhiều số hạng, xấp xỉ càng tốt -- nhưng chỉ gần điểm $x$.
 
 **Tại sao chuỗi Taylor quan trọng đối với ML:**
 
-- **Taylor bậc nhất = gradient descent.** Khi bạn sử dụng f(x + h) ~ f(x) + f'(x)*h, bạn đang thực hiện một xấp xỉ tuyến tính. Gradient descent tối thiểu hóa mô hình tuyến tính này để chọn h = -lr * f'(x).
+- **Taylor bậc nhất = gradient descent.** Khi bạn sử dụng $f(x + h) \approx f(x) + f'(x) h$, bạn đang thực hiện một xấp xỉ tuyến tính. Gradient descent tối thiểu hóa mô hình tuyến tính này để chọn $h = -\text{lr} \cdot f'(x)$.
 
-- **Taylor bậc hai = phương pháp Newton.** Sử dụng f(x + h) ~ f(x) + f'(x)*h + (1/2)*f''(x)*h^2, bạn có một mô hình bậc hai. Tối thiểu hóa nó cho h = -f'(x)/f''(x) -- bước Newton.
+- **Taylor bậc hai = phương pháp Newton.** Sử dụng $f(x + h) \approx f(x) + f'(x) h + \frac{1}{2} f''(x) h^2$, bạn có một mô hình bậc hai. Tối thiểu hóa nó cho $h = -f'(x)/f''(x)$ -- bước Newton.
 
 - **Thiết kế hàm mất mát.** MSE và cross-entropy là các hàm trơn, có nghĩa là các khai triển Taylor của chúng có tính chất tốt. Đây không phải sự tình cờ. Các hàm mất mát trơn làm cho việc tối ưu hóa có thể dự đoán được.
 
@@ -291,28 +291,36 @@ Higher orders          Finer structure     Rarely used in ML
 
 Trong ML, bạn hiếm khi tính tích phân bằng tay, nhưng khái niệm này có ở khắp nơi:
 
-**Xác suất.** Với một biến ngẫu nhiên liên tục có mật độ p(x):
+**Xác suất.** Với một biến ngẫu nhiên liên tục có mật độ $p(x)$:
+
+```math
+P(a < X < b) = \int_a^b p(x) \, dx
 ```
-P(a < X < b) = integral from a to b of p(x) dx
-```
-Diện tích dưới đường cong mật độ xác suất giữa a và b là xác suất rơi vào khoảng đó.
+
+Diện tích dưới đường cong mật độ xác suất giữa $a$ và $b$ là xác suất rơi vào khoảng đó.
 
 **Kỳ vọng.** Kết quả trung bình được lấy trọng số theo xác suất:
+
+```math
+\mathbb{E}[f(X)] = \int f(x) \, p(x) \, dx
 ```
-E[f(X)] = integral of f(x) * p(x) dx
-```
+
 Mất mát kỳ vọng trên một phân phối dữ liệu là một tích phân. Việc huấn luyện tối thiểu hóa một xấp xỉ thực nghiệm của nó.
 
 **Phân kỳ KL.** Đo mức độ khác nhau giữa hai phân phối:
+
+```math
+\mathrm{KL}(p \,\|\, q) = \int p(x) \log \frac{p(x)}{q(x)} \, dx
 ```
-KL(p || q) = integral of p(x) * log(p(x) / q(x)) dx
-```
+
 Được sử dụng trong VAE, chưng cất tri thức và suy luận Bayes.
 
 **Các hằng số chuẩn hóa.** Trong suy luận Bayes:
+
+```math
+p(w \mid \text{data}) = \frac{p(\text{data} \mid w) \, p(w)}{\int p(\text{data} \mid w) \, p(w) \, dw}
 ```
-p(w | data) = p(data | w) * p(w) / integral of p(data | w) * p(w) dw
-```
+
 Mẫu số là một tích phân trên tất cả các giá trị tham số có thể. Nó thường không thể tính toán được, đó là lý do chúng ta dùng các xấp xỉ như MCMC và suy luận biến phân.
 
 | Khái niệm tích phân | Nơi xuất hiện trong ML |
@@ -353,16 +361,16 @@ Mỗi mũi tên nhân với đạo hàm cục bộ. Gradient cho bất kỳ tham
 
 Khi một hàm ánh xạ một vector thành một vector (như một lớp mạng nơ-ron), đạo hàm của nó là một ma trận. Jacobian chứa mọi đạo hàm riêng của mọi đầu ra theo mọi đầu vào.
 
-Với f: R^n -> R^m, Jacobian J là một ma trận m x n:
+Với $f: \mathbb{R}^n \to \mathbb{R}^m$, Jacobian $J$ là một ma trận $m \times n$:
 
-| | x1 | x2 | ... | xn |
+| | $x_1$ | $x_2$ | ... | $x_n$ |
 |---|---|---|---|---|
-| f1 | df1/dx1 | df1/dx2 | ... | df1/dxn |
-| f2 | df2/dx1 | df2/dx2 | ... | df2/dxn |
+| $f_1$ | $\partial f_1/\partial x_1$ | $\partial f_1/\partial x_2$ | ... | $\partial f_1/\partial x_n$ |
+| $f_2$ | $\partial f_2/\partial x_1$ | $\partial f_2/\partial x_2$ | ... | $\partial f_2/\partial x_n$ |
 | ... | ... | ... | ... | ... |
-| fm | dfm/dx1 | dfm/dx2 | ... | dfm/dxn |
+| $f_m$ | $\partial f_m/\partial x_1$ | $\partial f_m/\partial x_2$ | ... | $\partial f_m/\partial x_n$ |
 
-Bạn sẽ không tính Jacobian bằng tay cho các mạng nơ-ron. PyTorch xử lý việc đó. Nhưng biết nó tồn tại giúp bạn hiểu hình dạng trong lan truyền ngược: nếu một lớp ánh xạ R^n đến R^m, Jacobian của nó là m x n. Gradient truyền ngược qua chuyển vị của ma trận này.
+Bạn sẽ không tính Jacobian bằng tay cho các mạng nơ-ron. PyTorch xử lý việc đó. Nhưng biết nó tồn tại giúp bạn hiểu hình dạng trong lan truyền ngược: nếu một lớp ánh xạ $\mathbb{R}^n$ đến $\mathbb{R}^m$, Jacobian của nó là $m \times n$. Gradient truyền ngược qua chuyển vị của ma trận này.
 
 ### Why this matters for neural networks
 
@@ -445,7 +453,7 @@ for step in range(20):
     print(f"step {step:2d}  x={x:8.4f}  f(x)={x**2:10.6f}")
 ```
 
-Bắt đầu tại x=5, mỗi bước di chuyển gần hơn đến x=0 (cực tiểu).
+Bắt đầu tại $x=5$, mỗi bước di chuyển gần hơn đến $x=0$ (cực tiểu).
 
 ### Step 4: Gradient descent on a 2D function
 
@@ -531,7 +539,7 @@ for h in [0.1, 0.5, 1.0, 2.0]:
     print(f"h={h:.1f}  sin(h)={true_val:.4f}  order1={t1:.4f}  order2={t2:.4f}")
 ```
 
-Gần x0=0, sin(x) ~ x (Taylor bậc nhất). Xấp xỉ rất tốt với h nhỏ nhưng không còn đúng với h lớn. Đây là lý do gradient descent hoạt động tốt nhất với tốc độ học nhỏ -- mỗi bước giả định xấp xỉ tuyến tính là chính xác.
+Gần $x_0=0$, $\sin(x) \approx x$ (Taylor bậc nhất). Xấp xỉ rất tốt với $h$ nhỏ nhưng không còn đúng với $h$ lớn. Đây là lý do gradient descent hoạt động tốt nhất với tốc độ học nhỏ -- mỗi bước giả định xấp xỉ tuyến tính là chính xác.
 
 ### Step 8: Why this matters for a neural network
 
@@ -600,9 +608,17 @@ Bạn vừa xây dựng gradient descent từ đầu. PyTorch tự động hóa 
 
 ## Exercises
 
-1. Triển khai `numerical_second_derivative(f, x)` bằng cách gọi `numerical_derivative` hai lần. Xác minh rằng đạo hàm bậc hai của x^3 tại x=2 là 12.
-2. Sử dụng gradient descent để tìm cực tiểu của f(x, y) = (x - 3)^2 + (y + 1)^2. Bắt đầu từ (0, 0). Đáp án sẽ hội tụ về (3, -1).
-3. Thêm momentum vào vòng lặp gradient descent: duy trì một vector vận tốc tích lũy các gradient quá khứ. So sánh tốc độ hội tụ khi có và không có momentum trên f(x) = x^4 - 3x^2.
+1. Triển khai `numerical_second_derivative(f, x)` bằng cách gọi `numerical_derivative` hai lần. Xác minh rằng đạo hàm bậc hai của $x^3$ tại $x=2$ là 12.
+2. Sử dụng gradient descent để tìm cực tiểu của $f(x, y) = (x - 3)^2 + (y + 1)^2$. Bắt đầu từ $(0, 0)$. Đáp án sẽ hội tụ về $(3, -1)$.
+3. Thêm momentum vào vòng lặp gradient descent: duy trì một vector vận tốc tích lũy các gradient quá khứ. So sánh tốc độ hội tụ khi có và không có momentum trên $f(x) = x^4 - 3x^2$.
+
+### Hints
+
+**Bài tập 1.** Định nghĩa một hàm trợ giúp trả về `numerical_derivative(f, x)` và truyền hàm trợ giúp đó cho `numerical_derivative` một lần nữa. Nếu kết quả nhiễu, sử dụng một bước lớn hơn như `h=1e-4` cho cả hai lệnh gọi; giá trị tại $x=2$ phải gần 12.
+
+**Bài tập 2.** Viết gradient $(2(x - 3), 2(y + 1))$ hoặc sử dụng `numerical_gradient`, và gọi `gradient_descent_nd` từ $(0, 0)$. In điểm sau mỗi 10 bước; nó phải di chuyển về phía $(3, -1)$ và loss phải giảm xuống gần 0.
+
+**Bài tập 3.** Giữ một vận tốc `v`, cập nhật nó thành `v = momentum * v - lr * grad`, rồi cộng `v` vào `x`. Đếm số bước mỗi phương pháp cần để đạt một gradient gần 0; cực tiểu nằm tại $x = \pm\sqrt{1.5} \approx \pm 1.225$.
 
 ## Key Terms
 
@@ -613,12 +629,12 @@ Bạn vừa xây dựng gradient descent từ đầu. PyTorch tự động hóa 
 | Gradient | "Hướng tăng dốc nhất" | Một vector của tất cả các đạo hàm riêng. Chỉ theo hướng làm hàm tăng nhanh nhất. |
 | Gradient descent | "Đi xuống dốc" | Trừ gradient (nhân với một tốc độ học) khỏi các tham số để giảm mất mát. Cốt lõi của việc huấn luyện mạng nơ-ron. |
 | Learning rate (Tốc độ học) | "Kích thước bước" | Một số vô hướng điều khiển độ lớn mỗi bước gradient descent. Quá lớn: phân kỳ. Quá nhỏ: hội tụ chậm. |
-| Chain rule (Quy tắc dây chuyền) | "Nhân các đạo hàm" | Quy tắc lấy đạo hàm của các hàm hợp: df/dx = df/dg * dg/dx. Cơ sở toán học của lan truyền ngược. |
+| Chain rule (Quy tắc dây chuyền) | "Nhân các đạo hàm" | Quy tắc lấy đạo hàm của các hàm hợp: $\frac{df}{dx} = \frac{df}{dg} \cdot \frac{dg}{dx}$. Cơ sở toán học của lan truyền ngược. |
 | Jacobian | "Ma trận các đạo hàm" | Khi một hàm ánh xạ các vector thành các vector, Jacobian là ma trận của tất cả các đạo hàm riêng của đầu ra theo đầu vào. |
 | Numerical derivative (Đạo hàm số) | "Sai phân hữu hạn" | Xấp xỉ một đạo hàm bằng cách tính giá trị hàm tại hai điểm gần nhau và tính độ dốc giữa chúng. |
 | Backpropagation (Lan truyền ngược) | "Autodiff chế độ ngược" | Tính gradient từng lớp từ đầu ra đến đầu vào bằng quy tắc dây chuyền. Cách mạng nơ-ron học. |
 | Hessian | "Ma trận các đạo hàm bậc hai" | Ma trận của tất cả các đạo hàm riêng bậc hai. Mô tả độ cong của một hàm. Hessian xác định dương tại một điểm dừng có nghĩa là cực tiểu cục bộ. |
-| Taylor series (Chuỗi Taylor) | "Xấp xỉ đa thức" | Xấp xỉ một hàm gần một điểm bằng các đạo hàm của nó: f(x+h) ~ f(x) + f'(x)h + (1/2)f''(x)h^2 + ... Cơ sở để hiểu tại sao gradient descent và phương pháp Newton hoạt động. |
+| Taylor series (Chuỗi Taylor) | "Xấp xỉ đa thức" | Xấp xỉ một hàm gần một điểm bằng các đạo hàm của nó: $f(x+h) \approx f(x) + f'(x)h + \frac{1}{2}f''(x)h^2 + \cdots$ Cơ sở để hiểu tại sao gradient descent và phương pháp Newton hoạt động. |
 | Integral (Tích phân) | "Diện tích dưới đường cong" | Sự tích lũy của một đại lượng trên một khoảng. Trong ML, tích phân xác định xác suất, kỳ vọng và phân kỳ KL. |
 
 ## Further Reading

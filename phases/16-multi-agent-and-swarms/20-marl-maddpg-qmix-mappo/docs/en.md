@@ -42,10 +42,10 @@ Chế độ lỗi: các critic tăng với N agent (đầu vào bao gồm mọi 
 
 ### QMIX (2018) — value decomposition
 
-Chỉ hợp tác. Phần thưởng toàn cục là tổng của một hàm đơn điệu của các giá trị Q theo từng agent:
+Chỉ hợp tác. Giá trị hành động chung `Q_tot` là một hàm trộn đơn điệu của các Q-value theo agent:
 
-```
-Q_tot(tau, a) = f(Q_1(tau_1, a_1), ..., Q_n(tau_n, a_n)),   df/dQ_i >= 0
+```math
+Q_{\text{tot}}(\tau, a) = f\big(Q_1(\tau_1, a_1), \ldots, Q_n(\tau_n, a_n)\big), \quad \frac{\partial f}{\partial Q_i} \ge 0
 ```
 
 Tính đơn điệu bảo đảm `argmax_a Q_tot` có thể được tính bằng việc mỗi agent chọn `argmax_{a_i} Q_i` độc lập. Đó **chính xác là thuộc tính thực thi phi tập trung** bạn cần. Tại thời điểm huấn luyện, một mạng trộn tạo `Q_tot` từ các Q theo từng agent.

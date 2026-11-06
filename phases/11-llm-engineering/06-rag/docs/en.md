@@ -94,20 +94,20 @@ Với hai vector, bạn đo độ tương đồng thế nào? Ba lựa chọn:
 
 **Cosine similarity**: cosin của góc giữa hai vector. Từ -1 (đối nhau) đến 1 (giống hệt). Bỏ qua độ lớn, chỉ quan tâm hướng. Đây là mặc định cho RAG.
 
-```
-cosine_sim(a, b) = dot(a, b) / (||a|| * ||b||)
+```math
+\mathop{\mathrm{cosine\_sim}}(a, b) = \frac{\mathop{\mathrm{dot}}(a, b)}{\lVert a \rVert \cdot \lVert b \rVert}
 ```
 
 **Tích vô hướng**: tích trong thô. Vector lớn hơn nhận điểm cao hơn. Hữu ích khi độ lớn mang thông tin (tài liệu dài hơn có thể liên quan hơn).
 
-```
-dot(a, b) = sum(a_i * b_i)
+```math
+\mathop{\mathrm{dot}}(a, b) = \sum_i a_i b_i
 ```
 
 **Khoảng cách L2 (Euclid)**: khoảng cách đường thẳng trong không gian vector. Khoảng cách nhỏ hơn = tương tự hơn. Nhạy với khác biệt độ lớn.
 
-```
-L2(a, b) = sqrt(sum((a_i - b_i)^2))
+```math
+\mathop{\mathrm{L2}}(a, b) = \sqrt{\sum_i (a_i - b_i)^2}
 ```
 
 Cosine similarity là tiêu chuẩn. Nó xử lý tốt tài liệu độ dài khác nhau vì chuẩn hóa theo độ lớn. Khi ai đó nói "tìm kiếm vector", họ gần như luôn muốn nói cosine similarity.

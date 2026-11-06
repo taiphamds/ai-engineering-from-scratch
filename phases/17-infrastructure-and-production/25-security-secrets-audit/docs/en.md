@@ -22,7 +22,7 @@ Riêng biệt, prompt người dùng chứa "SSN của tôi là 123-45-6789." Pr
 
 Riêng biệt, pod LLM trong cụm EKS của bạn có thể đến bất kỳ máy chủ internet nào. Ai đó đánh cắp dữ liệu qua tra cứu DNS đến một tên miền do kẻ tấn công kiểm soát. Không có gì chặn nó.
 
-Bảo mật cho dịch vụ LLM phải giải quyết cả ba hướng. Thông tin xác thực dựa trên vault. Làm sạch PII. Lọc lưu lượng mạng ra. Log kiểm toán.
+Bảo mật cho các dịch vụ LLM phải giải quyết cả ba vector và chứng minh điều đó sau này. Thông tin xác thực được Vault hỗ trợ. Loại bỏ PII. Lọc lưu lượng mạng đi ra. Nhật ký kiểm toán làm dấu vết bằng chứng.
 
 ## The Concept
 

@@ -174,7 +174,7 @@ Refuse BERTopic on documents longer than the embedding model's context window wi
 | Mixed membership (Tư cách thành viên hỗn hợp) | Tài liệu thuộc nhiều chủ đề | LDA gán cho mỗi tài liệu một phân phối trên mọi chủ đề. |
 | UMAP | Giảm số chiều | Học đa tạp giữ cấu trúc cục bộ; được dùng trong BERTopic. |
 | HDBSCAN | Phân cụm mật độ | Tìm các cụm kích thước thay đổi; tạo nhãn "nhiễu" (-1) cho các ngoại lệ. |
-| c_v coherence (Độ gắn kết c_v) | Thước đo chất lượng chủ đề | Thông tin tương hỗ theo điểm trung bình của các từ chủ đề hàng đầu trong các cửa sổ trượt. |
+| c_v coherence | Chỉ số chất lượng chủ đề | NPMI của các từ đứng đầu chủ đề trên các cửa sổ trượt, được chuyển thành các vector ngữ cảnh và so sánh bằng độ tương đồng cosine. |
 
 ## Further Reading
 

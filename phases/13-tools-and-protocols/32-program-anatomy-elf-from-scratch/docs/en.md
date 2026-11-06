@@ -1,6 +1,6 @@
 # Program Anatomy: An ELF Reader From Scratch
 
-> A compiled program is a set of tables that point at each other. A reader you wrote gives output you can check byte by byte.
+> Một chương trình đã biên dịch là một tập các bảng trỏ đến nhau. Một trình đọc bạn viết cho đầu ra mà bạn có thể kiểm tra từng byte.
 
 **Type:** Build
 **Languages:** Python (stdlib), C (fixture only)
@@ -9,42 +9,42 @@
 
 ## Learning Objectives
 
-- State the authorization rule for every target in this track and the four limits of 17 U.S.C. 1201(f).
-- Read the ELF header, the section header table, and both string tables with `struct.unpack`.
-- Decode `.symtab` entries and `.rela` records with the names from the gABI and the x86-64 psABI.
-- Return the exact bytes of a named function and map every file offset to the structure that owns it.
-- Read program headers and map a virtual address to a file offset through `PT_LOAD`.
-- Read the load commands of a Mach-O object and name the ELF idea that each one matches.
+- Nêu quy tắc ủy quyền cho mọi mục tiêu trong nhánh này và bốn giới hạn của 17 U.S.C. 1201(f).
+- Đọc ELF header, bảng section header và cả hai bảng chuỗi bằng `struct.unpack`.
+- Giải mã các mục `.symtab` và các bản ghi `.rela` với tên từ gABI và x86-64 psABI.
+- Trả về các byte chính xác của một hàm được đặt tên và ánh xạ mỗi file offset đến cấu trúc sở hữu nó.
+- Đọc program header và ánh xạ một địa chỉ ảo đến một file offset qua `PT_LOAD`.
+- Đọc các load command của một object Mach-O và nêu tên ý tưởng ELF mà mỗi lệnh tương ứng.
 
 ## Before You Start: Authorization and the Law
 
-Every target in lessons 32 to 36 is a program you wrote and compiled. The source is `code/fixtures/ledger.c`, four short C functions. You own the source, the compiler command, and the object files it produced. There is no licence to read, no protection to pass, and no third party whose code you open. The track never covers software protections, licence checks, or programs you do not own.
+Mọi mục tiêu trong bài 32 đến 36 là một chương trình bạn đã viết và biên dịch. Nguồn là `code/fixtures/ledger.c`, bốn hàm C ngắn. Bạn sở hữu nguồn, lệnh compiler và các tệp object nó tạo ra. Không có giấy phép để đọc, không có bảo vệ để vượt qua và không có bên thứ ba nào có mã mà bạn mở. Nhánh không bao giờ bao quát các bảo vệ phần mềm, kiểm tra giấy phép hoặc các chương trình bạn không sở hữu.
 
-The rule exists because the law treats disassembly as copying. In *Sega Enterprises Ltd. v. Accolade, Inc.*, 977 F.2d 1510 (9th Cir. 1992), the court held that intermediate copies made during disassembly are copies under the Copyright Act. It then held that "where disassembly is the only way to gain access to the ideas and functional elements embodied in a copyrighted computer program and where there is a legitimate reason for seeking such access, disassembly is a fair use of the copyrighted work, as a matter of law." 
+Quy tắc tồn tại vì luật coi disassembly là sao chép. Trong *Sega Enterprises Ltd. v. Accolade, Inc.*, 977 F.2d 1510 (9th Cir. 1992), tòa án phán rằng các bản sao trung gian được tạo trong disassembly là các bản sao theo Copyright Act. Sau đó tòa phán rằng "khi disassembly là cách duy nhất để tiếp cận các ý tưởng và yếu tố chức năng được thể hiện trong một chương trình máy tính có bản quyền và khi có một lý do chính đáng để tìm kiếm sự tiếp cận đó, disassembly là fair use của tác phẩm có bản quyền, theo pháp luật." 
 
-The second case is *Sony Computer Entertainment, Inc. v. Connectix Corp.*, 203 F.3d 596 (9th Cir. 2000). Connectix copied the PlayStation BIOS while it built an emulator, and the court held those copies fair use. Both cases protected the study. Neither protected copied code in the final product.
+Vụ thứ hai là *Sony Computer Entertainment, Inc. v. Connectix Corp.*, 203 F.3d 596 (9th Cir. 2000). Connectix sao chép PlayStation BIOS khi xây dựng một trình giả lập, và tòa án phán các bản sao đó là fair use. Cả hai vụ bảo vệ việc nghiên cứu. Không vụ nào bảo vệ mã được sao chép trong sản phẩm cuối.
 
-Two statutes set the limits. 17 U.S.C. 1201(f) lets a person who "has lawfully obtained the right to use a copy of a computer program" circumvent an access control "for the sole purpose of identifying and analyzing those elements of the program that are necessary to achieve interoperability of an independently created computer program with other programs". Four limits stack: a lawful copy, the interoperability purpose, elements that were not already "readily available", and analysis that is otherwise non-infringing. Section 1201(f) is an exception to the anti-circumvention rule only. The copying question stays with fair use.
+Hai đạo luật đặt các giới hạn. 17 U.S.C. 1201(f) cho phép một người "đã có được hợp pháp quyền sử dụng một bản sao của một chương trình máy tính" vượt qua một kiểm soát truy cập "chỉ nhằm mục đích xác định và phân tích những yếu tố của chương trình cần thiết để đạt tính tương tác của một chương trình máy tính được tạo độc lập với các chương trình khác". Bốn giới hạn cộng dồn: một bản sao hợp pháp, mục đích tương tác, các yếu tố chưa "sẵn có dễ dàng" và phân tích không vi phạm theo các khía cạnh khác. Mục 1201(f) chỉ là một ngoại lệ đối với quy tắc chống vượt qua. Câu hỏi sao chép vẫn thuộc fair use.
 
-In the European Union, Directive 2009/24/EC Article 5(3) covers study. A person with a right to use a copy can "observe, study or test the functioning of the program in order to determine the ideas and principles which underlie any element of the program". The right applies while loading, displaying, running, transmitting, or storing the program.
+Trong Liên minh Châu Âu, Điều 5(3) của Chỉ thị 2009/24/EC bao quát việc nghiên cứu. Một người có quyền sử dụng một bản sao có thể "quan sát, nghiên cứu hoặc kiểm tra hoạt động của chương trình để xác định các ý tưởng và nguyên tắc làm nền tảng cho bất kỳ yếu tố nào của chương trình". Quyền áp dụng trong khi tải, hiển thị, chạy, truyền hoặc lưu trữ chương trình.
 
-Article 6 permits decompilation without the rightholder's authorisation when it is "indispensable to obtain the information necessary to achieve the interoperability of an independently created computer program". The conditions match 1201(f). A licensee performs the acts, the information was not already readily available, and the acts stay within the parts needed. Article 6(2) bars using the result for any other goal or for a program that is substantially similar in expression. Article 8 makes contract terms contrary to Article 6 or Article 5(3) null and void.
+Điều 6 cho phép decompilation không cần sự cho phép của chủ thể quyền khi nó "không thể thiếu để có được thông tin cần thiết nhằm đạt tính tương tác của một chương trình máy tính được tạo độc lập". Các điều kiện khớp 1201(f). Một bên được cấp phép thực hiện các hành vi, thông tin chưa sẵn có dễ dàng và các hành vi nằm trong các phần cần thiết. Điều 6(2) cấm sử dụng kết quả cho bất kỳ mục tiêu khác hoặc cho một chương trình tương tự đáng kể về hình thức thể hiện. Điều 8 làm các điều khoản hợp đồng trái với Điều 6 hoặc Điều 5(3) vô hiệu.
 
-| Source | What it allows | Conditions |
+| Nguồn | Điều nó cho phép | Điều kiện |
 |---|---|---|
-| 17 U.S.C. 1201(f) | Circumventing an access control to analyze a program | Lawful copy, interoperability purpose, information not readily available, no infringement |
-| Directive 2009/24/EC Art. 5(3) | Observing, studying, and testing a running program | A right to use the copy, acts within normal loading and running |
-| Directive 2009/24/EC Art. 6 | Decompilation | Licensee, interoperability purpose, information not readily available, confined to the needed parts |
-| *Sega v. Accolade* | Disassembly as fair use | The only way to reach the ideas and functional elements, a legitimate reason |
-| *Sony v. Connectix* | Intermediate copies during reverse engineering | A non-infringing final product |
+| 17 U.S.C. 1201(f) | Vượt qua một kiểm soát truy cập để phân tích một chương trình | Bản sao hợp pháp, mục đích tương tác, thông tin không sẵn có dễ dàng, không vi phạm |
+| Chỉ thị 2009/24/EC Điều 5(3) | Quan sát, nghiên cứu và kiểm tra một chương trình đang chạy | Quyền sử dụng bản sao, các hành vi trong việc tải và chạy thông thường |
+| Chỉ thị 2009/24/EC Điều 6 | Decompilation | Bên được cấp phép, mục đích tương tác, thông tin không sẵn có dễ dàng, giới hạn trong các phần cần thiết |
+| *Sega v. Accolade* | Disassembly như fair use | Cách duy nhất để tiếp cận các ý tưởng và yếu tố chức năng, một lý do chính đáng |
+| *Sony v. Connectix* | Các bản sao trung gian trong reverse engineering | Một sản phẩm cuối không vi phạm |
 
-These notes come from the statutes and the opinions, and they are not legal advice. When a future target is not yours, obtain written authorization before you open the file and keep the authorization with your evidence. Section 2.1 of the Reverse Engineering 101 manual gives the full citations and the CJEU cases.
+Các ghi chú này đến từ các đạo luật và các phán quyết, và chúng không phải tư vấn pháp lý. Khi một mục tiêu tương lai không phải của bạn, có được sự cho phép bằng văn bản trước khi mở tệp và giữ sự cho phép cùng bằng chứng của bạn. Mục 2.1 của sổ tay Reverse Engineering 101 cung cấp các trích dẫn đầy đủ và các vụ CJEU.
 
 ## The Problem
 
-You compiled `ledger.c` and ran `llvm-objdump -t` on the object. The output lists `percent_change` at value `0000000000000000` with size `0000000000000010`. Which 16 bytes of the 1,768-byte file are that function? The listing also shows `R_X86_64_PC32 .rodata+0x10` at offset `0x36`, and the four bytes at that spot in the file are zero. What will they become, and why is the addend `0x10` when the table starts at `0x14`?
+Bạn biên dịch `ledger.c` và chạy `llvm-objdump -t` trên object. Đầu ra liệt kê `percent_change` ở giá trị `0000000000000000` với kích thước `0000000000000010`. 16 byte nào của tệp 1,768 byte là hàm đó? Danh sách cũng hiển thị `R_X86_64_PC32 .rodata+0x10` ở offset `0x36`, và bốn byte tại chỗ đó trong tệp bằng không. Chúng sẽ trở thành gì, và vì sao addend là `0x10` khi bảng bắt đầu ở `0x14`?
 
-rea answers layout questions with `inspect_binary_layout`, and that tool exists only on Linux x64 with pwntools 4.15.0 behind `REA_PWNTOOLS_PYTHON`. On this Mac it is absent. `address_to_file_offset` needs a Ghidra session and a complete copy of the original file bytes with a matching SHA-256. `inspect_artifact` lists what a container holds by path and content hash. It never opens the tables inside an object file. So you write the reader yourself in about 950 lines of Python with `struct.unpack` and no dependency. The tests compare every table with `llvm-objdump` text captured once into the fixtures.
+rea trả lời các câu hỏi bố cục bằng `inspect_binary_layout`, và công cụ đó chỉ tồn tại trên Linux x64 với pwntools 4.15.0 đằng sau `REA_PWNTOOLS_PYTHON`. Trên máy Mac này nó vắng mặt. `address_to_file_offset` cần một phiên Ghidra và một bản sao đầy đủ của các byte tệp gốc với SHA-256 khớp. `inspect_artifact` liệt kê những gì một container chứa theo đường dẫn và hash nội dung. Nó không bao giờ mở các bảng bên trong một tệp object. Vì vậy bạn tự viết trình đọc trong khoảng 950 dòng Python bằng `struct.unpack` và không dependency. Các bài kiểm tra so sánh mọi bảng với văn bản `llvm-objdump` được thu một lần vào các fixture.
 
 ```figure
 elf-byte-map
@@ -52,11 +52,11 @@ elf-byte-map
 
 ## The File Is Tables That Point at Tables
 
-The System V gABI, chapter 4, Figure 4-1, draws two views of one file. The linking view has an ELF header, an optional program header table, sections, and a required section header table. The execution view has an ELF header, a required program header table, segments, and an optional section header table. The gABI adds one sentence that governs the whole reader: "Only the ELF header has a fixed position in the file". Every other structure is found by an offset stored in another structure.
+System V gABI, chương 4, Hình 4-1, vẽ hai góc nhìn của một tệp. Góc nhìn liên kết có một ELF header, một bảng program header tùy chọn, các section và một bảng section header bắt buộc. Góc nhìn thực thi có một ELF header, một bảng program header bắt buộc, các segment và một bảng section header tùy chọn. gABI thêm một câu chi phối toàn bộ trình đọc: "Chỉ ELF header có vị trí cố định trong tệp". Mọi cấu trúc khác được tìm bằng một offset lưu trong một cấu trúc khác.
 
-The gABI also fixes the scalar types and says that "ELF uses no bit-fields". `Elf64_Addr` and `Elf64_Off` are 8 bytes, `Elf64_Half` is 2, `Elf64_Word` is 4, and `Elf64_Xword` is 8. The x86-64 psABI, section 4.1.1, requires `ELFCLASS64`, `ELFDATA2LSB`, `e_machine` `EM_X86_64` (62), and `e_flags` 0. Little-endian with fixed widths means `struct.unpack` with a `<` prefix reads every record in one call.
+gABI cũng cố định các kiểu vô hướng và nói rằng "ELF không sử dụng bit-field". `Elf64_Addr` và `Elf64_Off` là 8 byte, `Elf64_Half` là 2, `Elf64_Word` là 4 và `Elf64_Xword` là 8. x86-64 psABI, mục 4.1.1, yêu cầu `ELFCLASS64`, `ELFDATA2LSB`, `e_machine` `EM_X86_64` (62) và `e_flags` 0. Little-endian với chiều rộng cố định nghĩa là `struct.unpack` với tiền tố `<` đọc mỗi bản ghi trong một lần gọi.
 
-The first 64 bytes of `ledger-x86_64-O1.o`:
+64 byte đầu tiên của `ledger-x86_64-O1.o`:
 
 ```text
 00000000: 7f45 4c46 0201 0100 0000 0000 0000 0000  .ELF............
@@ -65,23 +65,23 @@ The first 64 bytes of `ledger-x86_64-O1.o`:
 00000030: 0000 0000 4000 0000 0000 4000 0b00 0100  ....@.....@.....
 ```
 
-Read them against the gABI "ELF Header" page. `e_ident` is the 16 bytes `7f 45 4c 46` (the magic), class 2 (64-bit), data 1 (little-endian), version 1, OS ABI 0 (System V), and padding.
+Đọc chúng đối chiếu trang "ELF Header" của gABI. `e_ident` là 16 byte `7f 45 4c 46` (magic), class 2 (64 bit), data 1 (little-endian), version 1, OS ABI 0 (System V) và padding.
 
-Then `e_type` `0x0001` is `ET_REL`, a relocatable object. `e_machine` `0x003e` is 62, `EM_X86_64`. `e_entry` is zero because an object has no entry point. `e_phoff` is zero because an object has no program headers. `e_shoff` is `0x428`, the file offset of the section header table. The last row holds `e_ehsize` `0x40`, `e_phentsize` 0, `e_phnum` 0, `e_shentsize` `0x40`, `e_shnum` `0x0b` (11 headers), and `e_shstrndx` `0x0001`.
+Sau đó `e_type` `0x0001` là `ET_REL`, một object có thể tái định vị. `e_machine` `0x003e` là 62, `EM_X86_64`. `e_entry` bằng không vì một object không có điểm vào. `e_phoff` bằng không vì một object không có program header. `e_shoff` là `0x428`, file offset của bảng section header. Hàng cuối chứa `e_ehsize` `0x40`, `e_phentsize` 0, `e_phnum` 0, `e_shentsize` `0x40`, `e_shnum` `0x0b` (11 header) và `e_shstrndx` `0x0001`.
 
-The reader turns that row into one call:
+Trình đọc biến hàng đó thành một lần gọi:
 
 ```python
 fields = struct.unpack_from("<HHIQQQIHHHHHH", data, 16)
 ```
 
-The format string is the gABI figure read left to right: two halfwords, a word, three 8-byte values, a word, and six halfwords. The reader refuses a file whose magic, class, or byte order differs, and it refuses `e_shentsize` or `e_phentsize` values that are not 64 and 56. A wrong width would make every later offset wrong, so the check sits at the top.
+Chuỗi định dạng là hình gABI đọc từ trái sang phải: hai halfword, một word, ba giá trị 8 byte, một word và sáu halfword. Trình đọc từ chối một tệp có magic, class hoặc thứ tự byte khác, và nó từ chối các giá trị `e_shentsize` hoặc `e_phentsize` không phải 64 và 56. Một chiều rộng sai sẽ làm mọi offset sau đó sai, nên kiểm tra nằm ở đầu.
 
 ## Section Headers and Two String Tables
 
-Each section header is an `Elf64_Shdr` of 64 bytes (gABI Figure 4-8): `sh_name`, `sh_type`, `sh_flags`, `sh_addr`, `sh_offset`, `sh_size`, `sh_link`, `sh_info`, `sh_addralign`, and `sh_entsize`. The format string is `<IIQQQQIIQQ`. `sh_name` is an offset into the section whose index is `e_shstrndx`, and the name ends at the first zero byte. In this object `e_shstrndx` is 1, and clang named that section `.strtab`, so one table serves both the section names and the symbol names.
+Mỗi section header là một `Elf64_Shdr` 64 byte (gABI Hình 4-8): `sh_name`, `sh_type`, `sh_flags`, `sh_addr`, `sh_offset`, `sh_size`, `sh_link`, `sh_info`, `sh_addralign` và `sh_entsize`. Chuỗi định dạng là `<IIQQQQIIQQ`. `sh_name` là một offset vào section có chỉ số `e_shstrndx`, và tên kết thúc tại byte không đầu tiên. Trong object này `e_shstrndx` là 1, và clang đặt tên section đó là `.strtab`, nên một bảng phục vụ cả tên section và tên symbol.
 
-The reader prints the 11 headers of the -O1 object:
+Trình đọc in 11 header của object -O1:
 
 ```text
 Idx Name             Type         Flags   Offset     Size       Addr Link Info Align
@@ -98,13 +98,13 @@ Idx Name             Type         Flags   Offset     Size       Addr Link Info A
  10 .symtab          SYMTAB                0x170    0x138        0x0    1    9     8
 ```
 
-Index 0 is the reserved null header. `.text` holds 159 bytes of code at file offset `0x40`, right after the header, with flags `A` (allocated in memory) and `X` (executable). `.rodata` holds 80 bytes of read-only data. `.rodata.str1.1` holds the five label strings `F\0D\0C\0B\0A\0`, 10 bytes, with flags `M` (mergeable) and `S` (strings).
+Chỉ số 0 là null header được dành riêng. `.text` chứa 159 byte mã ở file offset `0x40`, ngay sau header, với các cờ `A` (được cấp phát trong bộ nhớ) và `X` (có thể thực thi). `.rodata` chứa 80 byte dữ liệu chỉ đọc. `.rodata.str1.1` chứa năm chuỗi nhãn `F\0D\0C\0B\0A\0`, 10 byte, với các cờ `M` (có thể gộp) và `S` (chuỗi).
 
-`.comment` holds the 47-byte compiler stamp `\0Apple clang version 17.0.0 (clang-1700.6.3.2)\0`. `.llvm_addrsig` has type `0x6fff4c03`, inside the OS-specific range `SHT_LOOS` to `SHT_HIOS` that the gABI reserves, and LLVM's `ELF.h` names it. Its flag `E` is `SHF_EXCLUDE`, so a linker drops it.
+`.comment` chứa dấu compiler 47 byte `\0Apple clang version 17.0.0 (clang-1700.6.3.2)\0`. `.llvm_addrsig` có kiểu `0x6fff4c03`, bên trong phạm vi đặc thù hệ điều hành `SHT_LOOS` đến `SHT_HIOS` mà gABI dành riêng, và `ELF.h` của LLVM đặt tên nó. Cờ `E` của nó là `SHF_EXCLUDE`, nên một linker bỏ nó.
 
-The `sh_link` and `sh_info` columns are the pointers between tables. `.rela.text` has `sh_info` 2 and `sh_link` 10: it patches section 2 and takes its symbols from section 10. `.symtab` has `sh_link` 1, the string table for symbol names, and `sh_info` 9, the index of the first non-local symbol. `sh_addr` is zero in every row because an object has no addresses yet. The linker assigns them.
+Các cột `sh_link` và `sh_info` là các con trỏ giữa các bảng. `.rela.text` có `sh_info` 2 và `sh_link` 10: nó vá section 2 và lấy các symbol từ section 10. `.symtab` có `sh_link` 1, bảng chuỗi cho tên symbol, và `sh_info` 9, chỉ số của symbol không cục bộ đầu tiên. `sh_addr` bằng không trong mọi hàng vì một object chưa có địa chỉ. Linker gán chúng.
 
-Two gABI rules let the reader draw a complete map of the file. Sections "are contiguous and do not overlap", and a file "may contain inactive space". The reader sorts every structure by offset and fills the holes:
+Hai quy tắc gABI cho phép trình đọc vẽ một bản đồ đầy đủ của tệp. Các section "liên tục và không chồng lấp", và một tệp "có thể chứa không gian không hoạt động". Trình đọc sắp xếp mọi cấu trúc theo offset và lấp các lỗ:
 
 ```text
      0x0 +64    header   ELF header
@@ -122,13 +122,13 @@ Two gABI rules let the reader draw a complete map of the file. Sections "are con
    0x428 +704   table    section header table
 ```
 
-The three gaps total 10 bytes, and each one is alignment. `.rodata` has `sh_addralign` 8, so it starts at `0xe0` rather than `0xdf`. `.symtab` has alignment 8, so seven bytes sit unused after `.comment`. The section header table itself is aligned to 8.
+Ba khoảng trống tổng cộng 10 byte, và mỗi khoảng là căn chỉnh. `.rodata` có `sh_addralign` 8, nên nó bắt đầu ở `0xe0` thay vì `0xdf`. `.symtab` có căn chỉnh 8, nên bảy byte nằm không dùng sau `.comment`. Bản thân bảng section header được căn chỉnh tới 8.
 
-Sections of type `SHT_NOBITS` occupy no file bytes at all, so the map skips them. Nothing in this object has that type. A `.bss` in a linked program does, and a reader that trusts `sh_size` there reads past the file.
+Các section kiểu `SHT_NOBITS` hoàn toàn không chiếm byte tệp nào, nên bản đồ bỏ qua chúng. Không có gì trong object này có kiểu đó. Một `.bss` trong chương trình đã liên kết thì có, và một trình đọc tin `sh_size` ở đó đọc vượt tệp.
 
 ## Symbols: Binding, Type, Section, Value, Size
 
-An `Elf64_Sym` is 24 bytes (gABI Figure 4-18): `st_name`, `st_info`, `st_other`, `st_shndx`, `st_value`, `st_size`, format `<IBBHQQ`. `st_info` packs two fields: the binding in the high four bits and the type in the low four. The gABI names the bindings `STB_LOCAL` 0, `STB_GLOBAL` 1, `STB_WEAK` 2, and the types `STT_NOTYPE` 0, `STT_OBJECT` 1, `STT_FUNC` 2, `STT_SECTION` 3, `STT_FILE` 4. The low two bits of `st_other` hold the visibility, `STV_DEFAULT` 0 here throughout.
+Một `Elf64_Sym` là 24 byte (gABI Hình 4-18): `st_name`, `st_info`, `st_other`, `st_shndx`, `st_value`, `st_size`, định dạng `<IBBHQQ`. `st_info` đóng gói hai trường: binding trong bốn bit cao và type trong bốn bit thấp. gABI đặt tên các binding `STB_LOCAL` 0, `STB_GLOBAL` 1, `STB_WEAK` 2, và các type `STT_NOTYPE` 0, `STT_OBJECT` 1, `STT_FUNC` 2, `STT_SECTION` 3, `STT_FILE` 4. Hai bit thấp của `st_other` chứa visibility, ở đây toàn bộ là `STV_DEFAULT` 0.
 
 ```text
 Idx            Value   Size Bind   Type    Section          Name
@@ -147,9 +147,9 @@ Idx            Value   Size Bind   Type    Section          Name
  12             0x60     63 GLOBAL FUNC    .text            grade_label
 ```
 
-Index 0 is the reserved undefined symbol. `st_shndx` names the section that defines the symbol, with three reserved values: `SHN_UNDEF` 0, `SHN_ABS` `0xfff1` for the file name, and `SHN_COMMON` `0xfff2`. Section symbols have an empty name, so `llvm-objdump` prints the section's own name for them, and the reader does the same. The gABI rule that "all symbols with STB_LOCAL binding precede the weak and global symbols" shows up as the first nine rows, and `.symtab` recorded 9 in `sh_info` for that reason.
+Chỉ số 0 là symbol không xác định được dành riêng. `st_shndx` nêu tên section định nghĩa symbol, với ba giá trị dành riêng: `SHN_UNDEF` 0, `SHN_ABS` `0xfff1` cho tên tệp và `SHN_COMMON` `0xfff2`. Các section symbol có tên rỗng, nên `llvm-objdump` in tên của chính section cho chúng, và trình đọc làm tương tự. Quy tắc gABI rằng "mọi symbol có binding STB_LOCAL đứng trước các symbol weak và global" thể hiện ở chín hàng đầu, và `.symtab` ghi 9 trong `sh_info` vì lý do đó.
 
-In a relocatable object `st_value` is an offset inside the symbol's section, because `sh_addr` is zero. The file offset of a function is therefore `sh_offset + st_value - sh_addr`, and its length is `st_size`:
+Trong một object có thể tái định vị, `st_value` là một offset bên trong section của symbol, vì `sh_addr` bằng không. File offset của một hàm do đó là `sh_offset + st_value - sh_addr`, và độ dài của nó là `st_size`:
 
 ```python
 section = elf.sections[symbol.st_shndx]
@@ -157,13 +157,13 @@ file_offset = section.sh_offset + (symbol.st_value - section.sh_addr)
 code = elf.data[file_offset : file_offset + symbol.st_size]
 ```
 
-For `percent_change` that is `0x40 + 0`, and the 16 bytes are `85 ff 74 09 29 fe 6b c6 64 99 f7 ff c3 31 c0 c3`. The sizes matter as much as the starts. `grade` ends at `.text` offset `0x3e`. The two bytes `66 90` that follow are a `nop` the compiler added so that `total` starts at `0x40`, a 16-byte boundary. Those two bytes belong to no symbol. Lesson 33 uses `st_size` as the stop condition for a disassembler, and lesson 36 masks them out before it compares a rebuild.
+Với `percent_change` đó là `0x40 + 0`, và 16 byte là `85 ff 74 09 29 fe 6b c6 64 99 f7 ff c3 31 c0 c3`. Các kích thước quan trọng ngang các điểm bắt đầu. `grade` kết thúc ở offset `.text` `0x3e`. Hai byte `66 90` theo sau là một `nop` mà compiler thêm để `total` bắt đầu ở `0x40`, một ranh giới 16 byte. Hai byte đó không thuộc symbol nào. Bài 33 sử dụng `st_size` làm điều kiện dừng cho một disassembler, và bài 36 che chúng đi trước khi so sánh một bản build lại.
 
 ## Relocations: What the Zero Bytes Mean
 
-An `Elf64_Rela` is 24 bytes (gABI Figure 4-23): `r_offset`, `r_info`, and a signed `r_addend`, format `<QQq`. The gABI splits `r_info` with two macros: `ELF64_R_SYM(i)` is `i >> 32` and `ELF64_R_TYPE(i)` is `i & 0xffffffff`. In a relocatable file `r_offset` is an offset inside the section named by the table's `sh_info`. The type names and formulas come from the x86-64 psABI, Table 4.9. There `S` is the symbol value, `A` the addend, `P` the place being patched, and `L` the PLT entry. `R_X86_64_64` is `S + A`, `R_X86_64_PC32` is `S + A - P`, and `R_X86_64_PLT32` is `L + A - P`.
+Một `Elf64_Rela` là 24 byte (gABI Hình 4-23): `r_offset`, `r_info` và một `r_addend` có dấu, định dạng `<QQq`. gABI tách `r_info` bằng hai macro: `ELF64_R_SYM(i)` là `i >> 32` và `ELF64_R_TYPE(i)` là `i & 0xffffffff`. Trong một tệp có thể tái định vị, `r_offset` là một offset bên trong section được `sh_info` của bảng nêu tên. Các tên type và công thức đến từ x86-64 psABI, Bảng 4.9. Ở đó `S` là giá trị symbol, `A` là addend, `P` là vị trí được vá và `L` là mục PLT. `R_X86_64_64` là `S + A`, `R_X86_64_PC32` là `S + A - P`, và `R_X86_64_PLT32` là `L + A - P`.
 
-The -O1 object has eight records:
+Object -O1 có tám bản ghi:
 
 ```text
   .rela.text       0x36 R_X86_64_PC32          .rodata+0x10
@@ -176,29 +176,29 @@ The -O1 object has eight records:
   .rela.rodata     0x10 R_X86_64_PC32          .L.str.4+0x10
 ```
 
-Take the first one apart. Offset `0x36` lies inside `grade`, which spans `0x10` to `0x3e`. The instruction at `0x33` is `48 8d 0d 00 00 00 00`, a `lea` of a RIP-relative address, and its four-byte displacement sits at `0x36`. The processor adds the displacement to the address of the next instruction, `0x3a`.
+Tách bản ghi đầu tiên. Offset `0x36` nằm bên trong `grade`, trải từ `0x10` đến `0x3e`. Chỉ lệnh tại `0x33` là `48 8d 0d 00 00 00 00`, một `lea` của một địa chỉ tương đối theo RIP, và displacement bốn byte của nó nằm ở `0x36`. Bộ xử lý cộng displacement vào địa chỉ của chỉ lệnh tiếp theo, `0x3a`.
 
-The compiler wants the result to be `.rodata + 0x14`, where a five-entry table of 32-bit values `1, 2, 3, 4, 4` begins. So the stored value must be `(.rodata + 0x14) - 0x3a`. The formula `S + A - P` with `P = 0x36` gives `.rodata + A - 0x36`. Setting the two equal gives `A = 0x14 - 4 = 0x10`. The addend carries the target offset minus the four bytes between the displacement and the end of the instruction.
+Compiler muốn kết quả là `.rodata + 0x14`, nơi một bảng năm mục các giá trị 32 bit `1, 2, 3, 4, 4` bắt đầu. Vì vậy giá trị lưu phải là `(.rodata + 0x14) - 0x3a`. Công thức `S + A - P` với `P = 0x36` cho `.rodata + A - 0x36`. Đặt hai biểu thức bằng nhau cho `A = 0x14 - 4 = 0x10`. Addend mang offset đích trừ bốn byte giữa displacement và cuối chỉ lệnh.
 
-That table is how clang compiled the `switch` in `grade` at -O1. The code computes `score / 10` with a multiply by `0x66666667` and two shifts, subtracts 6, compares with 4, and indexes the table. The -O1 ELF object keeps no symbol for the table. The reference is the section symbol `.rodata` plus an addend, and only the arm64 build of the same source names it `l_switch.table.grade`. The second record, at `0x84` in `grade_label`, points at a second table of 8-byte values at `.rodata + 0x28`. The third, at `0x93`, points at `.rodata + 0x0`, the start of `labels.rel`.
+Bảng đó là cách clang biên dịch `switch` trong `grade` ở -O1. Mã tính `score / 10` bằng một phép nhân với `0x66666667` và hai phép dịch, trừ 6, so sánh với 4 và đánh chỉ số vào bảng. Object ELF -O1 không giữ symbol cho bảng. Tham chiếu là section symbol `.rodata` cộng một addend, và chỉ bản build arm64 của cùng nguồn đặt tên nó `l_switch.table.grade`. Bản ghi thứ hai, ở `0x84` trong `grade_label`, trỏ đến một bảng thứ hai các giá trị 8 byte ở `.rodata + 0x28`. Bản ghi thứ ba, ở `0x93`, trỏ đến `.rodata + 0x0`, điểm bắt đầu của `labels.rel`.
 
-The five `.rela.rodata` records fill `labels.rel`. Each entry sits at offset `4i` and gets the addend `4i`, so `S + A - P` reduces to the string's address minus the base of the table. `grade_label` reads an entry with `movslq`, adds the table base back, and has the pointer. The first record names the section symbol `.rodata.str1.1` with addend 0 because the string `F` is the first byte of that section. The others name `.L.str.1` to `.L.str.4`, the compiler's local labels for `D`, `C`, `B`, and `A`.
+Năm bản ghi `.rela.rodata` điền `labels.rel`. Mỗi mục nằm ở offset `4i` và nhận addend `4i`, nên `S + A - P` rút gọn thành địa chỉ chuỗi trừ địa chỉ cơ sở của bảng. `grade_label` đọc một mục bằng `movslq`, cộng lại địa chỉ cơ sở của bảng và có con trỏ. Bản ghi đầu nêu tên section symbol `.rodata.str1.1` với addend 0 vì chuỗi `F` là byte đầu tiên của section đó. Các bản ghi khác nêu tên `.L.str.1` đến `.L.str.4`, các nhãn cục bộ của compiler cho `D`, `C`, `B` và `A`.
 
-The same source compiles to three different tables at three optimization levels. The reader shows the difference without a disassembler:
+Cùng nguồn biên dịch thành ba bảng khác nhau ở ba mức tối ưu hóa. Trình đọc cho thấy khác biệt mà không cần disassembler:
 
-| Build | Where `labels` lives | How `grade` selects | How `grade_label` reaches `grade` |
+| Bản build | Nơi `labels` nằm | Cách `grade` chọn | Cách `grade_label` đến `grade` |
 |---|---|---|---|
-| -O0 | `.data`, five 8-byte pointers, five `R_X86_64_64` records | A jump table in `.rodata`: five `R_X86_64_PC32` records pointing into `.text` | A call with `R_X86_64_PLT32 grade-0x4` |
-| -O1 | `.rodata` as `labels.rel`, five 32-bit relative entries | A value table at `.rodata+0x14`, one `R_X86_64_PC32` | Inlined, no call |
-| -O2 | Same as -O1 | Same as -O1 | Inlined, `total` grows to 140 bytes |
+| -O0 | `.data`, năm con trỏ 8 byte, năm bản ghi `R_X86_64_64` | Một jump table trong `.rodata`: năm bản ghi `R_X86_64_PC32` trỏ vào `.text` | Một lần gọi với `R_X86_64_PLT32 grade-0x4` |
+| -O1 | `.rodata` dưới dạng `labels.rel`, năm mục tương đối 32 bit | Một bảng giá trị tại `.rodata+0x14`, một `R_X86_64_PC32` | Inline, không có lần gọi |
+| -O2 | Giống -O1 | Giống -O1 | Inline, `total` tăng lên 140 byte |
 
-At -O0 the `switch` is a real jump table whose five entries point back into `.text` at `+0x91`, `+0x8c`, `+0x87`, `+0x82`, and `+0x86`. The call to `grade` carries the same `-0x4` addend for the same reason as the `lea`. At -O1 the optimizer saw that every case returns a constant and replaced the jumps with a table of results. Lesson 33 decodes both shapes.
+Ở -O0, `switch` là một jump table thực có năm mục trỏ ngược vào `.text` tại `+0x91`, `+0x8c`, `+0x87`, `+0x82` và `+0x86`. Lần gọi đến `grade` mang cùng addend `-0x4` vì cùng lý do như `lea`. Ở -O1, optimizer thấy rằng mọi case trả về một hằng số và thay các bước nhảy bằng một bảng kết quả. Bài 33 giải mã cả hai dạng.
 
 ## Program Headers: The Loader's View
 
-A relocatable object has no program headers, so `e_phnum` is 0. An executable or a shared object has them, and the loader reads nothing else. An `Elf64_Phdr` is 56 bytes (gABI Figure 5-1): `p_type`, `p_flags`, `p_offset`, `p_vaddr`, `p_paddr`, `p_filesz`, `p_memsz`, `p_align`, format `<IIQQQQQQ`. The gABI fixes three rules for `PT_LOAD` entries. They appear in ascending `p_vaddr` order, and a `p_memsz` larger than `p_filesz` means zero fill. `p_vaddr` is congruent to `p_offset` modulo `p_align`.
+Một object có thể tái định vị không có program header, nên `e_phnum` là 0. Một executable hoặc một shared object có chúng, và loader không đọc gì khác. Một `Elf64_Phdr` là 56 byte (gABI Hình 5-1): `p_type`, `p_flags`, `p_offset`, `p_vaddr`, `p_paddr`, `p_filesz`, `p_memsz`, `p_align`, định dạng `<IIQQQQQQ`. gABI cố định ba quy tắc cho các mục `PT_LOAD`. Chúng xuất hiện theo thứ tự `p_vaddr` tăng dần, và một `p_memsz` lớn hơn `p_filesz` nghĩa là điền không. `p_vaddr` đồng dư với `p_offset` theo modulo `p_align`.
 
-Every target in this track is a program you built, and no linker on this Mac produces a Linux executable from `ledger.o`. So the fixture `tiny-x86_64` comes from `code/fixtures/build_tiny_elf.py`, which writes 736 bytes with `struct.pack`. The file holds an ELF header, two program headers, a 36-byte `_start`, a 3-byte `.rodata`, a symbol table, and six section headers. `_start` writes `ok\n` to file descriptor 1 and exits with status 42. On Linux x86-64 it runs. Here it is a fixture for the program header path.
+Mọi mục tiêu trong nhánh này là một chương trình bạn đã xây dựng, và không linker nào trên máy Mac này tạo một executable Linux từ `ledger.o`. Vì vậy fixture `tiny-x86_64` đến từ `code/fixtures/build_tiny_elf.py`, ghi 736 byte bằng `struct.pack`. Tệp chứa một ELF header, hai program header, một `_start` 36 byte, một `.rodata` 3 byte, một bảng symbol và sáu section header. `_start` ghi `ok\n` vào file descriptor 1 và thoát với trạng thái 42. Trên Linux x86-64 nó chạy. Ở đây nó là một fixture cho đường program header.
 
 ```text
 Program headers:
@@ -208,17 +208,17 @@ Program headers:
 entry 0x4000b0 is file offset 0xb0 through PT_LOAD
 ```
 
-The single `PT_LOAD` maps the whole 736-byte file at `0x400000`. The reader maps an address to a file offset by finding the `PT_LOAD` that contains it and computing `p_offset + (address - p_vaddr)`. For the entry point that is `0 + (0x4000b0 - 0x400000) = 0xb0`, the start of `.text`.
+`PT_LOAD` duy nhất ánh xạ toàn bộ tệp 736 byte tại `0x400000`. Trình đọc ánh xạ một địa chỉ thành một file offset bằng cách tìm `PT_LOAD` chứa nó và tính `p_offset + (address - p_vaddr)`. Với điểm vào, đó là `0 + (0x4000b0 - 0x400000) = 0xb0`, điểm bắt đầu của `.text`.
 
-This is the computation behind rea's `address_to_file_offset`. For a Ghidra target, that tool returns `{address, file_offset}`. The Hopper provider also returns `provider_file_offset` and `image_base_file_offset`. The tool needs a complete original copy of the file, and the SHA-256 of that copy must match the target. The documentation of rea's `inspect_binary_layout` adds a line to keep: "A linked address is not a runtime address". A position-independent executable loads at a base the kernel chooses, and the file offset is the only stable coordinate.
+Đây là phép tính đằng sau `address_to_file_offset` của rea. Với một mục tiêu Ghidra, công cụ đó trả về `{address, file_offset}`. Provider Hopper cũng trả về `provider_file_offset` và `image_base_file_offset`. Công cụ cần một bản sao gốc đầy đủ của tệp, và SHA-256 của bản sao đó phải khớp mục tiêu. Tài liệu của `inspect_binary_layout` của rea thêm một dòng cần giữ: "Một địa chỉ đã liên kết không phải một địa chỉ runtime". Một executable độc lập vị trí tải ở một địa chỉ cơ sở mà kernel chọn, và file offset là tọa độ ổn định duy nhất.
 
-Program headers also explain why a stripped executable still runs. A linker can remove the section header table entirely, and `e_shoff` becomes zero. A tool that walks sections then sees nothing. The loader never looked at them.
+Program header cũng giải thích vì sao một executable đã strip vẫn chạy. Một linker có thể loại bỏ hoàn toàn bảng section header, và `e_shoff` trở thành không. Một công cụ duyệt các section sau đó không thấy gì. Loader chưa bao giờ nhìn chúng.
 
 ## The Same Ideas in Mach-O
 
-Apple publishes no prose specification for Mach-O. The headers in the XNU source are the specification: `EXTERNAL_HEADERS/mach-o/loader.h`, `nlist.h`, and `reloc.h`. The fixture `ledger-arm64-O1.o` is the same `ledger.c` built with `clang -target arm64-apple-macos -O1 -fno-asynchronous-unwind-tables -c`.
+Apple không công bố đặc tả văn xuôi cho Mach-O. Các header trong nguồn XNU là đặc tả: `EXTERNAL_HEADERS/mach-o/loader.h`, `nlist.h` và `reloc.h`. Fixture `ledger-arm64-O1.o` là cùng `ledger.c` được dựng bằng `clang -target arm64-apple-macos -O1 -fno-asynchronous-unwind-tables -c`.
 
-A `mach_header_64` is 32 bytes: `magic`, `cputype`, `cpusubtype`, `filetype`, `ncmds`, `sizeofcmds`, `flags`, `reserved`. The magic is `0xfeedfacf`, `MH_MAGIC_64`. `cputype` is `0x0100000c`, `CPU_TYPE_ARM64`. `filetype` is 1, `MH_OBJECT`. `ncmds` is 5 and `sizeofcmds` is 616: the load commands occupy the 616 bytes after the header, and each one starts with `{cmd, cmdsize}`. The flag `0x2000` is `MH_SUBSECTIONS_VIA_SYMBOLS`.
+Một `mach_header_64` là 32 byte: `magic`, `cputype`, `cpusubtype`, `filetype`, `ncmds`, `sizeofcmds`, `flags`, `reserved`. Magic là `0xfeedfacf`, `MH_MAGIC_64`. `cputype` là `0x0100000c`, `CPU_TYPE_ARM64`. `filetype` là 1, `MH_OBJECT`. `ncmds` là 5 và `sizeofcmds` là 616: các load command chiếm 616 byte sau header, và mỗi lệnh bắt đầu bằng `{cmd, cmdsize}`. Cờ `0x2000` là `MH_SUBSECTIONS_VIA_SYMBOLS`.
 
 ```text
 Load commands:
@@ -229,7 +229,7 @@ Load commands:
   4 LC_DYSYMTAB                  cmdsize=80 at 0x238
 ```
 
-`LC_SEGMENT_64` (0x19) is the Mach-O answer to both ELF tables. Its `segment_command_64` has `segname`, `vmaddr`, `vmsize`, `fileoff`, `filesize`, `maxprot`, `initprot`, `nsects`, and `flags`. Then `nsects` records of type `section_64`, 80 bytes each, follow in the same command. The `loader.h` comment on `MH_OBJECT` says the sections live "in one unnamed segment with no segment padding". The fixture shows that: one segment with an empty name, `fileoff` 648, `filesize` 456, and five sections.
+`LC_SEGMENT_64` (0x19) là câu trả lời của Mach-O cho cả hai bảng ELF. `segment_command_64` của nó có `segname`, `vmaddr`, `vmsize`, `fileoff`, `filesize`, `maxprot`, `initprot`, `nsects` và `flags`. Rồi `nsects` bản ghi kiểu `section_64`, mỗi bản ghi 80 byte, theo sau trong cùng lệnh. Bình luận trong `loader.h` về `MH_OBJECT` nói các section nằm "trong một segment không tên duy nhất không có segment padding". Fixture cho thấy điều đó: một segment với tên rỗng, `fileoff` 648, `filesize` 456 và năm section.
 
 ```text
   Idx Section                    Addr   Size Offset Reloff Nreloc Type
@@ -240,44 +240,44 @@ Load commands:
     5 __LD,__compact_unwind     0x148   0x80    976   1192      4 S_REGULAR
 ```
 
-Each section names its parent segment in `segname`, so two sections called `__const` are distinct because one is `__DATA,__const` and the other `__TEXT,__const`. Relocations are per section through `reloff` and `nreloc`, where ELF has a separate `.rela.X` section per target.
+Mỗi section nêu tên segment cha trong `segname`, nên hai section tên `__const` là khác nhau vì một là `__DATA,__const` và cái kia `__TEXT,__const`. Relocation theo section qua `reloff` và `nreloc`, trong khi ELF có một section `.rela.X` riêng mỗi mục tiêu.
 
-Each `relocation_info` is 8 bytes. A signed `r_address` comes first. A 32-bit field follows, packed as `r_symbolnum` (24 bits), `r_pcrel` (1), `r_length` (2), `r_extern` (1), and `r_type` (4). The six `__text` records are three pairs of `ARM64_RELOC_PAGE21` and `ARM64_RELOC_PAGEOFF12`, one pair per table reference. An arm64 `adrp` plus `add` does what one x86-64 `lea` does, so each reference needs two records. The five `__DATA,__const` records are `ARM64_RELOC_UNSIGNED` with `r_length` 3, so each one patches an 8-byte absolute pointer.
+Mỗi `relocation_info` là 8 byte. Một `r_address` có dấu đứng trước. Một trường 32 bit theo sau, được đóng gói thành `r_symbolnum` (24 bit), `r_pcrel` (1), `r_length` (2), `r_extern` (1) và `r_type` (4). Sáu bản ghi `__text` là ba cặp `ARM64_RELOC_PAGE21` và `ARM64_RELOC_PAGEOFF12`, một cặp mỗi tham chiếu bảng. Một `adrp` cộng `add` của arm64 làm điều một `lea` x86-64 làm, nên mỗi tham chiếu cần hai bản ghi. Năm bản ghi `__DATA,__const` là `ARM64_RELOC_UNSIGNED` với `r_length` 3, nên mỗi bản ghi vá một con trỏ tuyệt đối 8 byte.
 
-At -O1 the arm64 build kept `labels` as plain pointers where the x86-64 build made a relative table.
+Ở -O1, bản build arm64 giữ `labels` là các con trỏ thông thường trong khi bản build x86-64 tạo một bảng tương đối.
 
-`LC_SYMTAB` (0x2) holds `symoff` 1240, `nsyms` 17, `stroff` 1512, `strsize` 176, and 1512 plus 176 is 1688, the file size. Each `nlist_64` is 16 bytes: `n_strx`, `n_type`, `n_sect`, `n_desc`, `n_value`. `n_type` is a bit field. `N_TYPE` (mask `0x0e`) equal to `N_SECT` (`0xe`) means defined in the section whose 1-based ordinal is `n_sect`. `N_EXT` (`0x01`) marks an external symbol.
+`LC_SYMTAB` (0x2) chứa `symoff` 1240, `nsyms` 17, `stroff` 1512, `strsize` 176, và 1512 cộng 176 là 1688, kích thước tệp. Mỗi `nlist_64` là 16 byte: `n_strx`, `n_type`, `n_sect`, `n_desc`, `n_value`. `n_type` là một bit field. `N_TYPE` (mask `0x0e`) bằng `N_SECT` (`0xe`) nghĩa là được định nghĩa trong section có số thứ tự bắt đầu từ 1 là `n_sect`. `N_EXT` (`0x01`) đánh dấu một symbol bên ngoài.
 
-`nlist_64` has no size field. To get the 24 bytes of `_percent_change` the reader takes the next symbol address in the same section, `_grade` at `0x18`. C symbols carry a leading `_` here, so the function is `_percent_change`.
+`nlist_64` không có trường kích thước. Để lấy 24 byte của `_percent_change`, trình đọc lấy địa chỉ symbol tiếp theo trong cùng section, `_grade` tại `0x18`. Các symbol C mang một `_` ở đầu ở đây, nên hàm là `_percent_change`.
 
-`LC_DYSYMTAB` (0xb) records the same locals-first rule as the ELF `sh_info`: `ilocalsym` 0, `nlocalsym` 13, `iextdefsym` 13, `nextdefsym` 4. `LC_BUILD_VERSION` (0x32) records `platform` 1 (macOS), `minos` 26.0, and `sdk` 26.2 as packed `XXXX.YY.ZZ` integers. That command is why the arm64 fixture is committed as bytes. A build on a Mac with another SDK produces a different file.
+`LC_DYSYMTAB` (0xb) ghi cùng quy tắc local trước như `sh_info` ELF: `ilocalsym` 0, `nlocalsym` 13, `iextdefsym` 13, `nextdefsym` 4. `LC_BUILD_VERSION` (0x32) ghi `platform` 1 (macOS), `minos` 26.0 và `sdk` 26.2 dưới dạng các số nguyên đóng gói `XXXX.YY.ZZ`. Lệnh đó là lý do fixture arm64 được commit dưới dạng byte. Một bản build trên một máy Mac với SDK khác tạo ra một tệp khác.
 
-The reader's `compare_formats` puts the two files side by side:
+`compare_formats` của trình đọc đặt hai tệp cạnh nhau:
 
-| Idea | ELF, `ledger-x86_64-O1.o` | Mach-O, `ledger-arm64-O1.o` |
+| Ý tưởng | ELF, `ledger-x86_64-O1.o` | Mach-O, `ledger-arm64-O1.o` |
 |---|---|---|
-| File identity | `e_ident` `7f 45 4c 46`, class 64, data LSB | `magic` `0xfeedfacf` |
-| Machine | `e_machine` 62, `EM_X86_64` | `cputype` `0x100000c`, `CPU_TYPE_ARM64` |
-| File kind | `e_type` 1, `ET_REL` | `filetype` 1, `MH_OBJECT` |
-| Where the tables are | `e_shoff` `0x428`, 11 section headers | 5 load commands, 616 bytes after the header |
-| The code | `.text` at `0x40`, size `0x9f`, flags `AX` | `__TEXT,__text` at 648, size `0xd0`, in the unnamed segment |
-| Symbol names | `.symtab` (section 10), names in `.strtab` through `sh_link` 1 | `LC_SYMTAB` `symoff` 1240, `nsyms` 17, names at `stroff` 1512 |
-| Symbol size | `st_size`: `percent_change` is 16 bytes | No field: next symbol minus this one, 24 bytes |
-| Relocations | `.rela.text`, 3 records, `R_X86_64_PC32` | `__text` `reloff` 1104, 6 records, `PAGE21` and `PAGEOFF12` |
-| Function bytes | `percent_change`: 16 bytes at `0x40` | `_percent_change`: 24 bytes at `0x288` |
+| Danh tính tệp | `e_ident` `7f 45 4c 46`, class 64, data LSB | `magic` `0xfeedfacf` |
+| Máy | `e_machine` 62, `EM_X86_64` | `cputype` `0x100000c`, `CPU_TYPE_ARM64` |
+| Loại tệp | `e_type` 1, `ET_REL` | `filetype` 1, `MH_OBJECT` |
+| Nơi các bảng nằm | `e_shoff` `0x428`, 11 section header | 5 load command, 616 byte sau header |
+| Mã | `.text` tại `0x40`, kích thước `0x9f`, cờ `AX` | `__TEXT,__text` tại 648, kích thước `0xd0`, trong segment không tên |
+| Tên symbol | `.symtab` (section 10), tên trong `.strtab` qua `sh_link` 1 | `LC_SYMTAB` `symoff` 1240, `nsyms` 17, tên tại `stroff` 1512 |
+| Kích thước symbol | `st_size`: `percent_change` là 16 byte | Không có trường: symbol tiếp theo trừ symbol này, 24 byte |
+| Relocation | `.rela.text`, 3 bản ghi, `R_X86_64_PC32` | `__text` `reloff` 1104, 6 bản ghi, `PAGE21` và `PAGEOFF12` |
+| Byte của hàm | `percent_change`: 16 byte tại `0x40` | `_percent_change`: 24 byte tại `0x288` |
 
-rea reads Mach-O through `inspect_macho`, which runs `otool -h -l`, `nm -gjU`, `dyld_info -imports -exports`, and `dwarfdump --uuid` through `xcrun`. Your reader needs none of them, and it reads the same `symoff` and `stroff` that `otool -l` prints. The `open_binary` tool of rea detects ELF, MZ, PE, and thin or universal Mach-O from the magic bytes. It also reads `e_machine` at offset 18 itself. That is the first 20 bytes of what you built here. For a file with no header, you give `format: raw-binary`, the architecture, and the entry address. The Ghidra provider refuses a universal binary and asks for a thinned slice. Your reader does the same when it sees `0xcafebabe`.
+rea đọc Mach-O qua `inspect_macho`, chạy `otool -h -l`, `nm -gjU`, `dyld_info -imports -exports` và `dwarfdump --uuid` qua `xcrun`. Trình đọc của bạn không cần công cụ nào trong số đó, và nó đọc cùng `symoff` và `stroff` mà `otool -l` in ra. Công cụ `open_binary` của rea phát hiện ELF, MZ, PE và Mach-O thin hoặc universal từ các byte magic. Nó cũng tự đọc `e_machine` tại offset 18. Đó là 20 byte đầu của thứ bạn xây dựng ở đây. Với một tệp không có header, bạn cung cấp `format: raw-binary`, kiến trúc và địa chỉ vào. Provider Ghidra từ chối một universal binary và yêu cầu một slice đã được làm mỏng. Trình đọc của bạn làm tương tự khi nó thấy `0xcafebabe`.
 
 ## Build It
 
-Run the standard-library reader:
+Chạy trình đọc dùng thư viện chuẩn:
 
 ```bash
 cd phases/13-tools-and-protocols/32-program-anatomy-elf-from-scratch
 python3 code/main.py
 ```
 
-The demo reads `ledger-x86_64-O1.o` and prints its header, sections, symbols, relocations, and file offset map. It then prints the four function byte strings, reads `ledger-arm64-O1.o`, and prints the comparison table. It ends with the program headers of `tiny-x86_64`. Expected lines:
+Demo đọc `ledger-x86_64-O1.o` và in header, section, symbol, relocation và bản đồ file offset của nó. Sau đó nó in bốn chuỗi byte hàm, đọc `ledger-arm64-O1.o` và in bảng so sánh. Nó kết thúc bằng các program header của `tiny-x86_64`. Các dòng kỳ vọng:
 
 ```text
 percent_change: 16 bytes at file offset 0x40: 85 ff 74 09 29 fe 6b c6 64 99 f7 ff c3 31 c0 c3
@@ -285,38 +285,38 @@ grade: 46 bytes at file offset 0x50: 48 63 c7 48 69 c0 67 66 66 66 ...
 entry 0x4000b0 is file offset 0xb0 through PT_LOAD
 ```
 
-Pass a path to read one file: `python3 code/main.py code/fixtures/ledger-x86_64-O0.o`. The reader picks ELF or Mach-O from the first four bytes.
+Truyền một đường dẫn để đọc một tệp: `python3 code/main.py code/fixtures/ledger-x86_64-O0.o`. Trình đọc chọn ELF hoặc Mach-O từ bốn byte đầu.
 
-Read `code/main.py` in this order:
+Đọc `code/main.py` theo thứ tự này:
 
-1. `ElfFile._read_header()` checks the magic, class, byte order, and entry sizes, then unpacks the header.
-2. `ElfFile._read_sections()` and `read_cstring()` read the section header table and resolve names through `e_shstrndx`.
-3. `ElfFile._read_symbols()` splits `st_info`, resolves names through `sh_link`, and keeps the reserved section indexes readable.
-4. `ElfFile._read_relocations()` walks every `SHT_RELA` section, splits `r_info`, and names types from Table 4.9.
-5. `ElfFile.function_span()` and `function_bytes()` turn a symbol into a file range and the bytes in it.
-6. `ElfFile.file_offset_map()` sorts every structure by offset and fills the inactive space.
-7. `ElfFile._read_program_headers()` and `address_to_file_offset()` handle executables.
-8. `MachOFile` reads the header, the load commands, `LC_SEGMENT_64` with its sections, `LC_SYMTAB`, `LC_BUILD_VERSION`, and per-section relocations.
-9. `compare_formats()` names the same idea in both files with the values read from each.
+1. `ElfFile._read_header()` kiểm tra magic, class, thứ tự byte và kích thước mục, rồi unpack header.
+2. `ElfFile._read_sections()` và `read_cstring()` đọc bảng section header và phân giải tên qua `e_shstrndx`.
+3. `ElfFile._read_symbols()` tách `st_info`, phân giải tên qua `sh_link` và giữ các chỉ số section dành riêng dễ đọc.
+4. `ElfFile._read_relocations()` duyệt mọi section `SHT_RELA`, tách `r_info` và đặt tên type từ Bảng 4.9.
+5. `ElfFile.function_span()` và `function_bytes()` biến một symbol thành một phạm vi tệp và các byte trong đó.
+6. `ElfFile.file_offset_map()` sắp xếp mọi cấu trúc theo offset và lấp không gian không hoạt động.
+7. `ElfFile._read_program_headers()` và `address_to_file_offset()` xử lý các executable.
+8. `MachOFile` đọc header, các load command, `LC_SEGMENT_64` với các section của nó, `LC_SYMTAB`, `LC_BUILD_VERSION` và các relocation theo section.
+9. `compare_formats()` nêu tên cùng ý tưởng trong cả hai tệp với các giá trị đọc từ mỗi tệp.
 
 ## Use It
 
-Import the reader from later lessons with `from main import ElfFile` after adding this lesson's `code` directory to `sys.path`. Lesson 33 asks it for `function_bytes` and `relocations_for(".text")`. Lesson 35 records its output as observed evidence. Lesson 36 asks it for the relocation offsets to mask before a byte comparison.
+Import trình đọc từ các bài sau bằng `from main import ElfFile` sau khi thêm thư mục `code` của bài này vào `sys.path`. Bài 33 yêu cầu nó cung cấp `function_bytes` và `relocations_for(".text")`. Bài 35 ghi lại đầu ra của nó làm bằng chứng quan sát được. Bài 36 yêu cầu nó cung cấp các offset relocation để che trước một phép so sánh byte.
 
-Compile your own C into an object with the same `clang -target x86_64-unknown-linux-gnu -c` command and run the reader on it. Add a relocation name only when the x86-64 psABI Table 4.9 lists it. Add a section type only when the gABI or the producing toolchain documents it. When the reader meets a value it has no name for, it prints the number in hexadecimal rather than guessing.
+Biên dịch C của riêng bạn thành một object bằng cùng lệnh `clang -target x86_64-unknown-linux-gnu -c` và chạy trình đọc trên nó. Chỉ thêm một tên relocation khi Bảng 4.9 của x86-64 psABI liệt kê nó. Chỉ thêm một section type khi gABI hoặc toolchain tạo ra nó ghi tài liệu về nó. Khi trình đọc gặp một giá trị mà nó không có tên, nó in số ở hệ thập lục phân thay vì đoán.
 
 ## Interactive Lab
 
 ### Lab A: the header by hand
 
-From the `code` directory, open Python:
+Từ thư mục `code`, mở Python:
 
 ```bash
 cd phases/13-tools-and-protocols/32-program-anatomy-elf-from-scratch/code
 python3 -q
 ```
 
-Run:
+Chạy:
 
 ```python
 import struct
@@ -328,7 +328,7 @@ elf = ElfFile(data)
 elf.header.e_shoff, elf.header.e_shnum, elf.sections[elf.header.e_shstrndx].name
 ```
 
-The tuple shows `e_type` 1, `e_machine` 62, and `e_shoff` 1064, which is `0x428`. The last line shows that section 1, `.strtab`, holds the section names.
+Tuple hiển thị `e_type` 1, `e_machine` 62 và `e_shoff` 1064, tức `0x428`. Dòng cuối cho thấy section 1, `.strtab`, chứa các tên section.
 
 ### Lab B: the value table behind the switch
 
@@ -339,7 +339,7 @@ rodata = elf.section_bytes(elf.section(".rodata"))
 [r for r in elf.relocations_for(".text") if r.symbol == ".rodata"]
 ```
 
-Both tables read `1, 2, 3, 4, 4`. Check them against `ledger.c`: `grade(65)` computes `65 / 10 - 6 = 0` and reads entry 0, which is 1, the value of `case 6`. `grade(100)` reads entry 4, which is 4, the value shared by `case 10` and `case 9`.
+Cả hai bảng đọc ra `1, 2, 3, 4, 4`. Kiểm tra chúng với `ledger.c`: `grade(65)` tính `65 / 10 - 6 = 0` và đọc mục 0, là 1, giá trị của `case 6`. `grade(100)` đọc mục 4, là 4, giá trị chung của `case 10` và `case 9`.
 
 ### Lab C: three builds of one source
 
@@ -351,7 +351,7 @@ for level in ("O0", "O1", "O2"):
     print(level, {s.name: s.st_size for s in obj.symbols if s.type == "FUNC"})
 ```
 
-The -O0 object has a `.data` section and three relocation types. The -O1 and -O2 objects have no `.data` and one type. `total` is 66 bytes at -O0, 31 at -O1, and 140 at -O2.
+Object -O0 có một section `.data` và ba relocation type. Các object -O1 và -O2 không có `.data` và có một type. `total` là 66 byte ở -O0, 31 ở -O1 và 140 ở -O2.
 
 ### Lab D: the same function in Mach-O
 
@@ -363,53 +363,53 @@ macho.function_span("_percent_change")
 macho.function_bytes("_percent_change")[:4].hex()
 ```
 
-The span is 24 bytes at file offset 648. The first four bytes are `a0000034`, the little-endian form of the instruction `0x340000a0`, which `llvm-objdump -d` prints as `cbz w0, 0x14`. That is the `before == 0` guard, the same test that the x86-64 build encodes as `85 ff 74 09`.
+Phạm vi là 24 byte ở file offset 648. Bốn byte đầu là `a0000034`, dạng little-endian của chỉ lệnh `0x340000a0`, mà `llvm-objdump -d` in là `cbz w0, 0x14`. Đó là điều kiện bảo vệ `before == 0`, cùng kiểm tra mà bản build x86-64 mã hóa thành `85 ff 74 09`.
 
 ## Practice Lab
 
-Extend the reader to a linked program. On a Linux x86-64 machine, build `clang -O1 -shared -fPIC code/fixtures/ledger.c -o libledger.so` and `clang -O1 code/fixtures/ledger.c -o ledger_main` with a `main` you add, then run the reader on both.
+Mở rộng trình đọc sang một chương trình đã liên kết. Trên một máy Linux x86-64, dựng `clang -O1 -shared -fPIC code/fixtures/ledger.c -o libledger.so` và `clang -O1 code/fixtures/ledger.c -o ledger_main` với một `main` bạn thêm, rồi chạy trình đọc trên cả hai.
 
-Requirements:
+Yêu cầu:
 
-- Read `.dynsym` with the same `Elf64_Sym` layout, since `SHT_DYNSYM` is 11 and the record is unchanged.
-- Read `.dynamic` as `Elf64_Dyn` records of `d_tag` and `d_val`, and name `DT_NEEDED`, `DT_STRTAB`, `DT_SYMTAB`, `DT_RELA`, and `DT_JMPREL` from the gABI "Dynamic Section" page.
-- List the undefined symbols with `st_shndx` `SHN_UNDEF` as the imports, and the `R_X86_64_JUMP_SLOT` records in `.rela.plt` as the call sites that reach them.
-- Map every `PT_LOAD` segment to the sections it contains, using the gABI rule that "an object file segment contains one or more sections".
-- Prove with `address_to_file_offset` that every defined function's bytes in the shared object are the bytes `function_bytes` returns.
-- Capture `llvm-objdump -h -t -r -p` and `llvm-objdump -T` text for both files into `code/fixtures/` and compare the reader against them in tests.
+- Đọc `.dynsym` với cùng bố cục `Elf64_Sym`, vì `SHT_DYNSYM` là 11 và bản ghi không thay đổi.
+- Đọc `.dynamic` dưới dạng các bản ghi `Elf64_Dyn` của `d_tag` và `d_val`, và đặt tên `DT_NEEDED`, `DT_STRTAB`, `DT_SYMTAB`, `DT_RELA` và `DT_JMPREL` từ trang "Dynamic Section" của gABI.
+- Liệt kê các symbol không xác định với `st_shndx` `SHN_UNDEF` làm các import, và các bản ghi `R_X86_64_JUMP_SLOT` trong `.rela.plt` làm các điểm gọi đến chúng.
+- Ánh xạ mỗi segment `PT_LOAD` đến các section nó chứa, sử dụng quy tắc gABI rằng "một segment tệp object chứa một hoặc nhiều section".
+- Chứng minh bằng `address_to_file_offset` rằng các byte của mỗi hàm được định nghĩa trong shared object là các byte mà `function_bytes` trả về.
+- Thu văn bản `llvm-objdump -h -t -r -p` và `llvm-objdump -T` cho cả hai tệp vào `code/fixtures/` và so sánh trình đọc với chúng trong các bài kiểm tra.
 
-Success means the import list, the segment map, and every function range agree with the captured tool output, with no tool run during the tests.
+Thành công nghĩa là danh sách import, bản đồ segment và mọi phạm vi hàm đồng nhất với đầu ra công cụ đã thu, không chạy công cụ trong các bài kiểm tra.
 
 ## Graded Lab
 
-Five questions about the fixtures of this lesson. Find each answer with the code you built, then write it into `code/lab_answers.json`. Write numbers as numbers or as hex strings such as `"0x40"`, and lists as JSON lists.
+Năm câu hỏi về các fixture của bài học này. Tìm mỗi câu trả lời bằng mã bạn đã xây dựng, rồi ghi nó vào `code/lab_answers.json`. Viết số dưới dạng số hoặc chuỗi hex chẳng hạn `"0x40"`, và danh sách dưới dạng danh sách JSON.
 
-1. `t1`: e_shoff of ledger-x86_64-O1.o, as a number.
-2. `t2`: st_size of percent_change in ledger-x86_64-O1.o.
-3. `t3`: file offset of .text in ledger-x86_64-O1.o, as hex.
-4. `t4`: relocation type names in ledger-x86_64-O0.o, sorted, as a list.
-5. `t5`: the five int values at .rodata+0x14 in ledger-x86_64-O1.o, as a list.
+1. `t1`: e_shoff của ledger-x86_64-O1.o, dưới dạng một số.
+2. `t2`: st_size của percent_change trong ledger-x86_64-O1.o.
+3. `t3`: file offset của .text trong ledger-x86_64-O1.o, dưới dạng hex.
+4. `t4`: tên các relocation type trong ledger-x86_64-O0.o, được sắp xếp, dưới dạng một danh sách.
+5. `t5`: năm giá trị int tại .rodata+0x14 trong ledger-x86_64-O1.o, dưới dạng một danh sách.
 
-Check your answers:
+Kiểm tra các câu trả lời của bạn:
 
 ```bash
 cd phases/13-tools-and-protocols/32-program-anatomy-elf-from-scratch
 python3 code/lab.py
 ```
 
-The checker computes each expected value from `code/main.py` on the committed fixtures. It prints `PASS`, `FAIL` or `TODO` for each task and a score, and it exits 0 only when all five pass. `python3 code/lab.py my-answers.json` checks another file. `code/tests/test_lab.py` proves that the checker accepts the right answers and rejects a wrong one.
+Bộ kiểm tra tính mỗi giá trị kỳ vọng từ `code/main.py` trên các fixture đã commit. Nó in `PASS`, `FAIL` hoặc `TODO` cho mỗi tác vụ và một điểm số, và nó chỉ thoát 0 khi cả năm qua. `python3 code/lab.py my-answers.json` kiểm tra một tệp khác. `code/tests/test_lab.py` chứng minh rằng bộ kiểm tra chấp nhận các câu trả lời đúng và từ chối một câu sai.
 
 ### See it run
 
-The [Inside a Decompiler](https://aiengineeringfromscratch.com/inside-a-decompiler) machine runs this lesson as its first two stations. The reel reads the header of the object file that holds `percent_change`, and the cabinet opens `.text` and reads the symbol. Switch Symbols off to see which facts the symbol table carried.
+Máy [Inside a Decompiler](https://aiengineeringfromscratch.com/inside-a-decompiler) chạy bài học này như hai trạm đầu tiên của nó. Cuộn đọc header của tệp object chứa `percent_change`, và tủ mở `.text` và đọc symbol. Tắt Symbols để thấy những sự kiện nào mà bảng symbol mang theo.
 
 ## Lesson Artifact
 
-This lesson produces `outputs/skill-program-anatomy-elf-from-scratch.md`. Use it with Claude, Cursor, Codex, OpenClaw, Hermes, or any agent that reads SKILL.md. The skill turns a compiled object or executable the user built into a layout report. The report gives the file range of every structure, symbol, and relocation, checked against captured tool output.
+Bài học này tạo ra `outputs/skill-program-anatomy-elf-from-scratch.md`. Sử dụng nó với Claude, Cursor, Codex, OpenClaw, Hermes hoặc bất kỳ agent nào đọc SKILL.md. Skill biến một object đã biên dịch hoặc executable mà người dùng xây dựng thành một báo cáo bố cục. Báo cáo cho phạm vi tệp của mọi cấu trúc, symbol và relocation, được kiểm tra với đầu ra công cụ đã thu.
 
 ## Verify It
 
-Run the demo and the deterministic suite:
+Chạy demo và bộ kiểm tra tất định:
 
 ```bash
 cd phases/13-tools-and-protocols/32-program-anatomy-elf-from-scratch
@@ -417,48 +417,48 @@ python3 code/main.py
 python3 -m unittest discover -s code/tests -v
 ```
 
-The suite proves:
+Bộ kiểm tra chứng minh:
 
-- every section index, name, size, address, and kind matches the captured `llvm-objdump -h` text for the three x86-64 objects and the tiny executable
-- every symbol value, binding, type, section, size, and name matches the captured `llvm-objdump -t` text
-- every relocation offset, type name, symbol, and addend matches the captured `llvm-objdump -r` text, including `R_X86_64_PLT32` and `R_X86_64_64` at -O0
-- both program headers of `tiny-x86_64` match the captured `llvm-objdump -p` text, and the objects have none
-- `percent_change` is 16 bytes at file offset `0x40` with the expected bytes, and every function lies inside `.text`
-- the file offset map covers every byte of every fixture once, with the three alignment gaps of the -O1 object in their places
-- the entry point of `tiny-x86_64` maps to file offset `0xb0` through `PT_LOAD`, and a relocatable object refuses address mapping
-- the Mach-O header, every load command, the segment, the five sections, `LC_SYMTAB`, and `LC_BUILD_VERSION` match the captured `--private-headers` text
-- the Mach-O symbols and the 15 relocations match the captured `llvm-objdump` text, and `_percent_change` is 24 bytes at offset 648
-- a wrong magic, a 32-bit class, a big-endian file, a truncated table, a universal binary, and a C source file all raise `FormatError`
-- `build_tiny_elf.py` reproduces the committed `tiny-x86_64` byte for byte
-- the figure module `site/figures-re-32.js` carries the exact bytes of `ledger-x86_64-O1.o`
+- mọi chỉ số section, tên, kích thước, địa chỉ và loại khớp văn bản `llvm-objdump -h` đã thu cho ba object x86-64 và executable nhỏ
+- mọi giá trị symbol, binding, type, section, kích thước và tên khớp văn bản `llvm-objdump -t` đã thu
+- mọi offset relocation, tên type, symbol và addend khớp văn bản `llvm-objdump -r` đã thu, bao gồm `R_X86_64_PLT32` và `R_X86_64_64` ở -O0
+- cả hai program header của `tiny-x86_64` khớp văn bản `llvm-objdump -p` đã thu, và các object không có program header
+- `percent_change` là 16 byte ở file offset `0x40` với các byte kỳ vọng, và mọi hàm nằm bên trong `.text`
+- bản đồ file offset bao phủ mỗi byte của mọi fixture một lần, với ba khoảng trống căn chỉnh của object -O1 ở đúng chỗ
+- điểm vào của `tiny-x86_64` ánh xạ đến file offset `0xb0` qua `PT_LOAD`, và một object có thể tái định vị từ chối ánh xạ địa chỉ
+- Mach-O header, mọi load command, segment, năm section, `LC_SYMTAB` và `LC_BUILD_VERSION` khớp văn bản `--private-headers` đã thu
+- các symbol Mach-O và 15 relocation khớp văn bản `llvm-objdump` đã thu, và `_percent_change` là 24 byte ở offset 648
+- một magic sai, một class 32 bit, một tệp big-endian, một bảng bị cắt ngắn, một universal binary và một tệp nguồn C đều phát sinh `FormatError`
+- `build_tiny_elf.py` tái tạo `tiny-x86_64` đã commit từng byte
+- mô-đun hình `site/figures-re-32.js` mang các byte chính xác của `ledger-x86_64-O1.o`
 
 ## Production Failure Modes
 
-| Failure | What the weak reading reports | What the reader must prove |
+| Lỗi | Cách đọc yếu báo cáo gì | Trình đọc phải chứng minh gì |
 |---|---|---|
-| `st_value` used as a file offset | "`percent_change` is at 0" | Offset is `sh_offset + st_value - sh_addr`, here `0x40` |
-| Padding counted as code | "`grade` is 48 bytes" | `st_size` is 46 and the `66 90` after it belongs to no symbol |
-| Section names read from the wrong table | Garbage names or an exception | `e_shstrndx` names the table, here section 1 |
-| `sh_size` trusted for `SHT_NOBITS` | A read past the end of the file | `.bss` has no file bytes and the map skips it |
-| Zero bytes read as the operand | "`lea 0(%rip)`" | The `.rela.text` record at `0x36` names `.rodata+0x10` |
-| Addend read as the target offset | "the table starts at `0x10`" | `S + A - P` with the instruction end gives `0x14` |
-| Sections walked on a stripped executable | "the file has no code" | `PT_LOAD` maps every address the loader uses |
-| A linked address treated as a runtime address | A wrong offset under a random base | The file offset from `PT_LOAD` is the stable coordinate |
-| A Mach-O section looked up by `sectname` alone | Two `__const` sections collapse into one | `segname,sectname` is the name |
-| A size field expected in `nlist_64` | An exception or zero bytes | The next symbol in the same section ends the function |
-| A universal binary read as one Mach-O | "magic `0xcafebabe` is unknown" | Refuse it and ask for a thinned slice |
-| The arm64 object rebuilt on another Mac | "the fixture changed" | `LC_BUILD_VERSION` records the SDK, so the committed bytes are the fixture |
+| `st_value` được dùng như một file offset | "`percent_change` ở 0" | Offset là `sh_offset + st_value - sh_addr`, ở đây `0x40` |
+| Padding được tính là mã | "`grade` là 48 byte" | `st_size` là 46 và `66 90` sau nó không thuộc symbol nào |
+| Tên section đọc từ sai bảng | Tên rác hoặc một ngoại lệ | `e_shstrndx` nêu tên bảng, ở đây section 1 |
+| Tin `sh_size` cho `SHT_NOBITS` | Một lần đọc vượt cuối tệp | `.bss` không có byte tệp và bản đồ bỏ qua nó |
+| Các byte không được đọc như toán hạng | "`lea 0(%rip)`" | Bản ghi `.rela.text` tại `0x36` nêu tên `.rodata+0x10` |
+| Addend được đọc như offset đích | "bảng bắt đầu tại `0x10`" | `S + A - P` với cuối chỉ lệnh cho `0x14` |
+| Duyệt các section trên một executable đã strip | "tệp không có mã" | `PT_LOAD` ánh xạ mọi địa chỉ mà loader sử dụng |
+| Một địa chỉ đã liên kết được coi như một địa chỉ runtime | Một offset sai dưới một địa chỉ cơ sở ngẫu nhiên | File offset từ `PT_LOAD` là tọa độ ổn định |
+| Một section Mach-O được tra cứu chỉ bằng `sectname` | Hai section `__const` gộp thành một | `segname,sectname` là tên |
+| Kỳ vọng một trường kích thước trong `nlist_64` | Một ngoại lệ hoặc không byte | Symbol tiếp theo trong cùng section kết thúc hàm |
+| Một universal binary được đọc như một Mach-O | "magic `0xcafebabe` không biết" | Từ chối nó và yêu cầu một slice đã được làm mỏng |
+| Object arm64 được dựng lại trên một máy Mac khác | "fixture đã thay đổi" | `LC_BUILD_VERSION` ghi SDK, nên các byte đã commit là fixture |
 
 ## Operational Rule
 
-Read the header you can trust, follow the offsets it holds, and name every field from the specification that defines it. Keep the tool output you compared against as a committed fixture, so the comparison runs without the tool. When a value has no name in the specification, print the number. The reader you can check byte by byte is the one that every later lesson builds on.
+Đọc header bạn có thể tin, đi theo các offset nó chứa và đặt tên mọi trường từ đặc tả định nghĩa nó. Giữ đầu ra công cụ bạn đã so sánh làm một fixture đã commit, để phép so sánh chạy không cần công cụ. Khi một giá trị không có tên trong đặc tả, in số. Trình đọc bạn có thể kiểm tra từng byte là trình đọc mà mọi bài sau xây dựng trên đó.
 
 ## Further Reading
 
-- [System V gABI, chapter 4: Object Files](https://www.sco.com/developers/gabi/latest/ch4.intro.html) and the [ELF Header](https://www.sco.com/developers/gabi/latest/ch4.eheader.html), [Sections](https://www.sco.com/developers/gabi/latest/ch4.sheader.html), [Symbol Table](https://www.sco.com/developers/gabi/latest/ch4.symtab.html), and [Relocation](https://www.sco.com/developers/gabi/latest/ch4.reloc.html) pages
-- [System V gABI, chapter 5: Program Header](https://www.sco.com/developers/gabi/latest/ch5.pheader.html) and [Dynamic Linking](https://www.sco.com/developers/gabi/latest/ch5.dynamic.html)
-- [System V ABI, AMD64 Architecture Processor Supplement](https://gitlab.com/x86-psABIs/x86-64-ABI), Table 4.9 Relocation Types
-- [Apple XNU `loader.h`](https://github.com/apple-oss-distributions/xnu/blob/main/EXTERNAL_HEADERS/mach-o/loader.h), [`nlist.h`](https://github.com/apple-oss-distributions/xnu/blob/main/EXTERNAL_HEADERS/mach-o/nlist.h), and [`reloc.h`](https://github.com/apple-oss-distributions/xnu/blob/main/EXTERNAL_HEADERS/mach-o/reloc.h)
-- [17 U.S.C. 1201](https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title17-section1201&num=0&edition=prelim) and [Directive 2009/24/EC](https://eur-lex.europa.eu/eli/dir/2009/24/oj/eng)
-- [Sega v. Accolade, 977 F.2d 1510](https://law.resource.org/pub/us/case/reporter/F2/977/977.F2d.1510.92-15655.html) and [Sony v. Connectix, 203 F.3d 596](https://law.resource.org/pub/us/case/reporter/F3/203/203.F3d.596.99-15852.html)
-- [rea 6.5.0 `docs/binary-diagnostics.md`](https://github.com/morluto/rea/blob/rea-agents-6.5.0/docs/binary-diagnostics.md) and [`docs/ghidra-provider.md`](https://github.com/morluto/rea/blob/rea-agents-6.5.0/docs/ghidra-provider.md)
+- [System V gABI, chương 4: Object Files](https://www.sco.com/developers/gabi/latest/ch4.intro.html) và các trang [ELF Header](https://www.sco.com/developers/gabi/latest/ch4.eheader.html), [Sections](https://www.sco.com/developers/gabi/latest/ch4.sheader.html), [Symbol Table](https://www.sco.com/developers/gabi/latest/ch4.symtab.html) và [Relocation](https://www.sco.com/developers/gabi/latest/ch4.reloc.html)
+- [System V gABI, chương 5: Program Header](https://www.sco.com/developers/gabi/latest/ch5.pheader.html) và [Dynamic Linking](https://www.sco.com/developers/gabi/latest/ch5.dynamic.html)
+- [System V ABI, AMD64 Architecture Processor Supplement](https://gitlab.com/x86-psABIs/x86-64-ABI), Bảng 4.9 Relocation Types
+- [Apple XNU `loader.h`](https://github.com/apple-oss-distributions/xnu/blob/main/EXTERNAL_HEADERS/mach-o/loader.h), [`nlist.h`](https://github.com/apple-oss-distributions/xnu/blob/main/EXTERNAL_HEADERS/mach-o/nlist.h) và [`reloc.h`](https://github.com/apple-oss-distributions/xnu/blob/main/EXTERNAL_HEADERS/mach-o/reloc.h)
+- [17 U.S.C. 1201](https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title17-section1201&num=0&edition=prelim) và [Chỉ thị 2009/24/EC](https://eur-lex.europa.eu/eli/dir/2009/24/oj/eng)
+- [Sega v. Accolade, 977 F.2d 1510](https://law.resource.org/pub/us/case/reporter/F2/977/977.F2d.1510.92-15655.html) và [Sony v. Connectix, 203 F.3d 596](https://law.resource.org/pub/us/case/reporter/F3/203/203.F3d.596.99-15852.html)
+- [rea 6.5.0 `docs/binary-diagnostics.md`](https://github.com/morluto/rea/blob/rea-agents-6.5.0/docs/binary-diagnostics.md) và [`docs/ghidra-provider.md`](https://github.com/morluto/rea/blob/rea-agents-6.5.0/docs/ghidra-provider.md)

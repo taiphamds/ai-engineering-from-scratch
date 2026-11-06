@@ -96,7 +96,7 @@ Relative error: 19.2%
 
 Đó là sai số tương đối 19% từ một phép trừ duy nhất. Trong ML, điều này xảy ra bất cứ khi nào bạn:
 
-- Tính phương sai của dữ liệu có trung bình lớn: `E[x^2] - E[x]^2` khi E[x] lớn
+- Tính phương sai của dữ liệu có trung bình lớn: $\mathbb{E}[x^2] - \mathbb{E}[x]^2$ khi $\mathbb{E}[x]$ lớn
 - Trừ các xác suất log gần bằng nhau
 - Tính gradient sai phân hữu hạn với epsilon quá nhỏ
 
@@ -141,20 +141,22 @@ Tính trực tiếp `log(sum(exp(x_i)))` nguy hiểm về mặt số học. Nế
 
 Thủ thuật: trừ giá trị lớn nhất trước khi lấy hàm mũ.
 
-```
-log(sum(exp(x_i))) = max(x) + log(sum(exp(x_i - max(x))))
+```math
+\log\left(\sum_i \exp(x_i)\right) = \max(x) + \log\left(\sum_i \exp(x_i - \max(x))\right)
 ```
 
 Tại sao điều này hoạt động: sau khi trừ `max(x)`, hàm mũ lớn nhất là `exp(0) = 1`. Không thể có tràn số. Ít nhất một số hạng trong tổng là 1, nên tổng ít nhất là 1, và `log(1) = 0`. Không thể hụt dưới về `-inf`.
 
 Chứng minh:
 
-```
-log(sum(exp(x_i)))
-= log(sum(exp(x_i - c + c)))                    (add and subtract c)
-= log(sum(exp(x_i - c) * exp(c)))               (exp(a+b) = exp(a)*exp(b))
-= log(exp(c) * sum(exp(x_i - c)))               (factor out exp(c))
-= c + log(sum(exp(x_i - c)))                    (log(a*b) = log(a) + log(b))
+```math
+\begin{aligned}
+& \log\left(\sum_i \exp(x_i)\right) \\
+&= \log\left(\sum_i \exp(x_i - c + c)\right) && \text{(add and subtract } c\text{)} \\
+&= \log\left(\sum_i \exp(x_i - c) \cdot \exp(c)\right) && (\exp(a+b) = \exp(a) \cdot \exp(b)) \\
+&= \log\left(\exp(c) \cdot \sum_i \exp(x_i - c)\right) && \text{(factor out } \exp(c)\text{)} \\
+&= c + \log\left(\sum_i \exp(x_i - c)\right) && (\log(a \cdot b) = \log(a) + \log(b))
+\end{aligned}
 ```
 
 Đặt `c = max(x)` và tràn số được loại bỏ.
@@ -170,8 +172,8 @@ Thủ thuật này xuất hiện khắp nơi trong ML:
 
 Softmax chuyển logits thành xác suất:
 
-```
-softmax(x_i) = exp(x_i) / sum(exp(x_j))
+```math
+\mathop{\mathrm{softmax}}(x_i) = \frac{\exp(x_i)}{\sum_j \exp(x_j)}
 ```
 
 Không có thủ thuật, logits [100, 101, 102] gây tràn số:
@@ -182,7 +184,7 @@ exp(101) = 7.31e43
 exp(102) = 1.99e44
 sum      = 2.99e44
 
-These overflow float32 (max ~3.4e38)? No, 2.69e43 < 3.4e38? Actually:
+2.69e43 > 3.4e38, the float32 maximum, so every term overflows.
 exp(88.7) is already at the float32 limit.
 exp(100) = inf in float32.
 ```
@@ -242,18 +244,18 @@ Gradient giải tích (từ lan truyền ngược) có thể có lỗi. Kiểm t
 
 Công thức sai phân trung tâm:
 
-```
-df/dx ~= (f(x + h) - f(x - h)) / (2h)
+```math
+\frac{df}{dx} \approx \frac{f(x + h) - f(x - h)}{2h}
 ```
 
-Công thức này có độ chính xác O(h^2), tốt hơn nhiều so với sai phân tiến `(f(x+h) - f(x)) / h` chỉ có độ chính xác O(h).
+Công thức này có độ chính xác $O(h^2)$, tốt hơn nhiều so với sai phân tiến $(f(x+h) - f(x)) / h$ chỉ có độ chính xác $O(h)$.
 
-Chọn h: quá lớn và xấp xỉ sai. Quá nhỏ và triệt tiêu nghiêm trọng phá hủy câu trả lời. `h = 1e-5` đến `1e-7` là điển hình.
+Chọn $h$: quá lớn và xấp xỉ sai. Quá nhỏ và triệt tiêu nghiêm trọng phá hủy câu trả lời. `h = 1e-5` đến `1e-7` là điển hình.
 
 Cách kiểm tra: tính chênh lệch tương đối giữa gradient giải tích và gradient số.
 
-```
-relative_error = |grad_analytical - grad_numerical| / max(|grad_analytical|, |grad_numerical|, 1e-8)
+```math
+\text{relative\_error} = \frac{\lvert \text{grad}_{\text{analytical}} - \text{grad}_{\text{numerical}} \rvert}{\max(\lvert \text{grad}_{\text{analytical}} \rvert, \lvert \text{grad}_{\text{numerical}} \rvert, 10^{-8})}
 ```
 
 Các quy tắc kinh nghiệm:
@@ -289,7 +291,7 @@ Cách khắc phục là điều chỉnh tỉ lệ mất mát:
 5. Net effect: same update, but no underflow
 ```
 
-Điều chỉnh tỉ lệ mất mát động tự động điều chỉnh hệ số tỉ lệ. Bắt đầu với một giá trị lớn (65536). Nếu gradient tràn thành `inf`, giảm nó một nửa. Nếu N bước trôi qua không tràn số, tăng gấp đôi nó.
+Điều chỉnh tỉ lệ mất mát động tự động điều chỉnh hệ số tỉ lệ. Bắt đầu với một giá trị lớn (65536). Nếu gradient tràn thành `inf`, giảm nó một nửa. Nếu $N$ bước trôi qua không tràn số, tăng gấp đôi nó.
 
 ### bfloat16 vs float16: Why bfloat16 Wins for Training
 
@@ -350,8 +352,8 @@ Layer 50: values in [0, inf]
 
 Chuẩn hóa đưa các kích hoạt về tâm và điều chỉnh lại tỉ lệ ở mọi lớp:
 
-```
-LayerNorm(x) = (x - mean(x)) / (std(x) + epsilon) * gamma + beta
+```math
+\mathop{\mathrm{LayerNorm}}(x) = \frac{x - \mathop{\mathrm{mean}}(x)}{\mathop{\mathrm{std}}(x) + \epsilon} \cdot \gamma + \beta
 ```
 
 `epsilon` (thường là 1e-5) ngăn chia cho không khi mọi kích hoạt giống hệt nhau. Các tham số học được `gamma` và `beta` cho phép mạng khôi phục bất kỳ thang đo nào nó cần.
@@ -568,7 +570,7 @@ Các triển khai ổn định này xuất hiện lại ở Giai đoạn 3 khi x
 
 ## Exercises
 
-1. **Triệt tiêu nghiêm trọng.** Tính phương sai của [1000000.0, 1000001.0, 1000002.0] bằng công thức ngây thơ `E[x^2] - E[x]^2` trong float32. Sau đó tính bằng thuật toán trực tuyến Welford. So sánh các sai số với phương sai thực (0.6667).
+1. **Triệt tiêu nghiêm trọng.** Tính phương sai của [1000000.0, 1000001.0, 1000002.0] bằng công thức ngây thơ $\mathbb{E}[x^2] - \mathbb{E}[x]^2$ trong float32. Sau đó tính bằng thuật toán trực tuyến Welford. So sánh các sai số với phương sai thực (0.6667).
 
 2. **Săn độ chính xác.** Tìm giá trị float32 dương nhỏ nhất `x` sao cho `1.0 + x == 1.0` trong Python. Đây là epsilon máy. Xác minh nó khớp với `numpy.finfo(numpy.float32).eps`.
 
@@ -578,17 +580,29 @@ Các triển khai ổn định này xuất hiện lại ở Giai đoạn 3 khi x
 
 5. **Thí nghiệm điều chỉnh tỉ lệ mất mát.** Mô phỏng huấn luyện với float16: tạo các gradient ngẫu nhiên trong khoảng [1e-9, 1e-3], chuyển sang float16 và đo tỉ lệ trở thành không. Sau đó áp dụng điều chỉnh tỉ lệ mất mát (nhân với 1024), chuyển sang float16, đưa tỉ lệ trở lại và đo lại tỉ lệ bằng không.
 
+### Hints
+
+**Bài tập 1.** Chuyển ba giá trị bằng `np.float32` trước khi bình phương chúng, rồi gọi `variance_naive` và `welford_variance`. Một giá trị gần $10^{12}$ trong float32 có khoảng cách lớn hơn nhiều so với 1, vì vậy hãy chờ đợi kết quả ngây thơ cách xa 0.6667 và kết quả Welford ở gần.
+
+**Bài tập 2.** Bắt đầu với `x = np.float32(1.0)` và chia đôi nó trong khi `np.float32(1.0) + x != np.float32(1.0)`. Giữ mọi giá trị ở float32, rồi so sánh giá trị cuối vẫn thay đổi tổng với `numpy.finfo(numpy.float32).eps`, là $2^{-23}$.
+
+**Bài tập 3.** Dự đoán mỗi đáp án trước. Đối với $n$ giá trị bằng nhau $c$, kết quả là $c + \ln n$. Đối với một giá trị lớn, kết quả gần giá trị đó. Đối với các giá trị gần -1000, kết quả gần $-1000 + \ln n$, trong khi `logsumexp_naive` trả về `-inf` vì mỗi hàm mũ bị underflow về 0.
+
+**Bài tập 4.** Đối với $y = Wx + b$ với một loss $L$, gradient của $W$ là tích ngoài của gradient từ phía sau và $x$. Bọc loss thành một hàm của $W$ đã làm phẳng, gọi `numerical_gradient` và truyền cả hai kết quả cho `check_gradient`.
+
+**Bài tập 5.** Lấy mẫu các độ lớn trên thang log bằng `10 ** np.random.uniform(-9, -3, n)` và chuyển đổi bằng `np.float16`. Float16 không thể giữ các giá trị dưới khoảng $6 \times 10^{-8}$, vì vậy hãy chờ đợi khoảng một phần tư các giá trị trở thành không trước khi co giãn và gần như không có giá trị nào sau khi bạn nhân với 1024.
+
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
 | IEEE 754 | "Tiêu chuẩn số dấu phẩy động" | Tiêu chuẩn quốc tế xác định các định dạng dấu phẩy động nhị phân, quy tắc làm tròn và giá trị đặc biệt (inf, nan). Mọi CPU và GPU hiện đại đều triển khai nó. |
-| Machine epsilon (Epsilon máy) | "Giới hạn độ chính xác" | Giá trị e nhỏ nhất sao cho 1.0 + e != 1.0 trong một định dạng dấu phẩy động cho trước. Với float32, nó khoảng 1.19e-7. |
+| Machine epsilon (Epsilon máy) | "Giới hạn độ chính xác" | Giá trị $e$ nhỏ nhất sao cho $1.0 + e \ne 1.0$ trong một định dạng dấu phẩy động cho trước. Với float32, nó khoảng 1.19e-7. |
 | Catastrophic cancellation (Triệt tiêu nghiêm trọng) | "Mất độ chính xác do phép trừ" | Khi trừ các số dấu phẩy động gần bằng nhau, các chữ số có nghĩa triệt tiêu và nhiễu làm tròn chi phối kết quả. |
 | Overflow (Tràn số) | "Số quá lớn" | Một kết quả vượt giá trị lớn nhất có thể biểu diễn và trở thành inf. exp(89) làm tràn float32. |
 | Underflow (Hụt dưới) | "Số quá nhỏ" | Một kết quả gần không hơn số dương nhỏ nhất có thể biểu diễn và trở thành 0.0. exp(-104) làm hụt dưới float32. |
-| Log-sum-exp trick (Thủ thuật log-sum-exp) | "Trừ giá trị lớn nhất trước" | Tính log(sum(exp(x))) bằng cách đưa exp(max(x)) ra làm nhân tử chung để ngăn tràn số và hụt dưới. Được sử dụng trong softmax, cross-entropy và toán xác suất log. |
-| Stable softmax (Softmax ổn định) | "Softmax không bùng nổ" | Trừ max(logits) trước khi lấy hàm mũ. Kết quả giống hệt về mặt số học, không thể tràn số. |
+| Log-sum-exp trick (Thủ thuật log-sum-exp) | "Trừ giá trị lớn nhất trước" | Tính $\log(\sum \exp(x))$ bằng cách đưa $\exp(\max(x))$ ra làm nhân tử chung để ngăn tràn số và hụt dưới. Được sử dụng trong softmax, cross-entropy và toán xác suất log. |
+| Stable softmax (Softmax ổn định) | "Softmax không bùng nổ" | Trừ $\max(\text{logits})$ trước khi lấy hàm mũ. Kết quả giống hệt về mặt số học, không thể tràn số. |
 | Gradient checking (Kiểm tra gradient) | "Xác minh lan truyền ngược của bạn" | So sánh gradient giải tích từ lan truyền ngược với gradient số từ sai phân hữu hạn để phát hiện lỗi triển khai. |
 | Mixed precision (Độ chính xác hỗn hợp) | "Float16 truyền xuôi, float32 truyền ngược" | Sử dụng số dấu phẩy động độ chính xác thấp hơn cho các phép toán cần tốc độ và độ chính xác cao hơn cho các phép toán nhạy về số học. Mức tăng tốc điển hình là 2-3 lần. |
 | Loss scaling (Điều chỉnh tỉ lệ mất mát) | "Ngăn gradient hụt dưới" | Nhân mất mát với một hằng số lớn trước lan truyền ngược để gradient nằm trong phạm vi biểu diễn của float16, rồi chia cho cùng hằng số trước các cập nhật trọng số. |
@@ -596,7 +610,7 @@ Các triển khai ổn định này xuất hiện lại ở Giai đoạn 3 khi x
 | Gradient clipping (Cắt gradient) | "Chặn chuẩn gradient" | Điều chỉnh tỉ lệ vector gradient để chuẩn của nó không vượt quá một ngưỡng. Ngăn gradient bùng nổ phá hỏng trọng số. |
 | NaN | "Không phải Số" | Giá trị dấu phẩy động đặc biệt từ các phép toán không xác định (0/0, inf-inf, sqrt(-1)). Lan truyền qua tất cả các phép tính số học sau đó. |
 | Inf | "Vô cực" | Giá trị dấu phẩy động đặc biệt từ tràn số hoặc chia cho không. Có thể kết hợp tạo ra NaN (inf - inf, inf * 0). |
-| Numerical gradient (Gradient số) | "Đạo hàm vét cạn" | Xấp xỉ một đạo hàm bằng cách tính f(x+h) và f(x-h) rồi chia cho 2h. Chậm nhưng đáng tin cậy để xác minh. |
+| Numerical gradient (Gradient số) | "Đạo hàm vét cạn" | Xấp xỉ một đạo hàm bằng cách tính $f(x+h)$ và $f(x-h)$ rồi chia cho $2h$. Chậm nhưng đáng tin cậy để xác minh. |
 
 ## Further Reading
 

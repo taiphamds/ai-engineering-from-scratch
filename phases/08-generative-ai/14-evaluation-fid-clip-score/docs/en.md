@@ -26,13 +26,13 @@ Bạn cũng sẽ thấy: IS (điểm inception, phần lớn đã nghỉ hưu), 
 Heusel và cộng sự (2017). Các bước:
 
 1. Trích xuất đặc trưng Inception-v3 (2048-D) cho N ảnh thật và N ảnh được sinh.
-2. Khớp một Gaussian với mỗi tập: tính trung bình `μ_r, μ_g` và hiệp phương sai `Σ_r, Σ_g`.
-3. FID = `||μ_r - μ_g||² + Tr(Σ_r + Σ_g - 2 · (Σ_r · Σ_g)^0.5)`.
+2. Khớp một Gaussian với mỗi tập: tính trung bình $\mu_r, \mu_g$ và hiệp phương sai $\Sigma_r, \Sigma_g$.
+3. $\text{FID} = \lVert \mu_r - \mu_g \rVert^2 + \mathop{\mathrm{Tr}}\left(\Sigma_r + \Sigma_g - 2 \cdot (\Sigma_r \cdot \Sigma_g)^{0.5}\right)$.
 
 Diễn giải: khoảng cách Fréchet giữa hai Gaussian đa biến trong không gian đặc trưng. Thấp hơn = các phân phối giống nhau hơn.
 
 Các kiểu thất bại:
-- **Bị chệch khi N nhỏ.** FID là bình phương trung bình trên phân phối đặc trưng — N nhỏ ước lượng thấp hiệp phương sai, cho FID thấp giả. Luôn dùng N ≥ 10,000.
+- **Bị chệch khi N nhỏ.** FID là bình phương trung bình trên phân phối đặc trưng — N nhỏ ước lượng thấp hiệp phương sai, cho FID thấp giả. Luôn dùng $N \ge 10{,}000$.
 - **Phụ thuộc Inception.** Inception-v3 được huấn luyện trên ImageNet. Các miền xa ImageNet (khuôn mặt, nghệ thuật, ảnh văn bản) cho FID vô nghĩa. Dùng một bộ trích xuất đặc trưng riêng cho miền.
 - **Thao túng.** Overfit tiên nghiệm Inception cho FID thấp mà không cải thiện chất lượng thị giác. Đánh bại nó bằng CMMD (bên dưới).
 

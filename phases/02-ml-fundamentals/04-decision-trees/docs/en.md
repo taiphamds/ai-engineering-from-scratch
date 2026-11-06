@@ -48,10 +48,8 @@ Tại mỗi nút, chúng ta có một tập mẫu. Chúng ta muốn chia chúng 
 
 **Độ hỗn tạp Gini** đo xác suất một mẫu được chọn ngẫu nhiên sẽ bị phân loại sai nếu nó được gắn nhãn theo phân phối lớp tại nút đó.
 
-```
-Gini(S) = 1 - sum(p_k^2)
-
-where p_k is the proportion of class k in set S.
+```math
+\text{Gini}(S) = 1 - \sum_k p_k^2 \quad \text{where } p_k \text{ is the proportion of class } k \text{ in set } S.
 ```
 
 Với một nút thuần (tất cả một lớp), Gini = 0. Với một phép chia nhị phân có các lớp 50/50, Gini = 0.5. Thấp hơn là tốt hơn.
@@ -64,8 +62,8 @@ Gini = 1 - (0.6^2 + 0.4^2) = 1 - (0.36 + 0.16) = 0.48
 
 **Entropy** đo lượng thông tin (độ hỗn loạn) trong một nút. Đã được đề cập trong Giai đoạn 1 Bài học 09.
 
-```
-Entropy(S) = -sum(p_k * log2(p_k))
+```math
+\text{Entropy}(S) = -\sum_k p_k \log_2(p_k)
 ```
 
 Với một nút thuần, entropy = 0. Với một phép chia nhị phân 50/50, entropy = 1.0. Thấp hơn là tốt hơn.
@@ -81,20 +79,21 @@ Entropy = -(0.6 * log2(0.6) + 0.4 * log2(0.4))
 
 **Độ lợi thông tin** là mức giảm độ hỗn tạp (entropy hoặc Gini) sau một phép chia.
 
-```
-IG(S, feature, threshold) = Impurity(S) - weighted_avg(Impurity(S_left), Impurity(S_right))
-
-where the weights are the proportions of samples in each child.
+```math
+\begin{aligned}
+& IG(S, \text{feature}, \text{threshold}) = \text{Impurity}(S) - \text{weighted\_avg}(\text{Impurity}(S_{\text{left}}), \text{Impurity}(S_{\text{right}})) \\[4pt]
+& \text{where the weights are the proportions of samples in each child.}
+\end{aligned}
 ```
 
 Thuật toán tham lam tại mỗi nút: thử mọi đặc trưng và mọi ngưỡng có thể. Chọn cặp (đặc trưng, ngưỡng) cực đại hóa độ lợi thông tin.
 
 ### How splitting works
 
-Với một tập dữ liệu có n đặc trưng và m mẫu tại nút hiện tại:
+Với một tập dữ liệu có $n$ đặc trưng và $m$ mẫu tại nút hiện tại:
 
-1. Với mỗi đặc trưng j (j = 1 đến n):
-   - Sắp xếp các mẫu theo đặc trưng j
+1. Với mỗi đặc trưng $j$ ($j = 1$ đến $n$):
+   - Sắp xếp các mẫu theo đặc trưng $j$
    - Thử mỗi trung điểm giữa các giá trị phân biệt liên tiếp làm ngưỡng
    - Tính độ lợi thông tin cho mỗi ngưỡng
 2. Chọn đặc trưng và ngưỡng có độ lợi thông tin cao nhất
@@ -105,11 +104,11 @@ Cách tiếp cận tham lam này không bảo đảm cây tối ưu toàn cục.
 
 ### Stopping conditions
 
-Không có các điều kiện dừng, cây phát triển cho đến khi mọi lá thuần (một mẫu mỗi lá). Điều này ghi nhớ hoàn hảo dữ liệu huấn luyện và tổng quát hóa rất tệ.
+Không có điều kiện dừng, cây phát triển cho đến khi mọi lá đều thuần nhất hoặc không phép chia nào có thể phân tách các mẫu của nó, thường xuống đến một mẫu duy nhất cho mỗi lá. Điều này ghi nhớ hoàn hảo dữ liệu huấn luyện và khái quát hóa rất tệ.
 
 **Cắt tỉa trước** dừng cây trước khi nó phát triển đầy đủ:
 - Độ sâu tối đa: dừng chia khi cây đạt độ sâu đã đặt
-- Số mẫu tối thiểu mỗi lá: dừng nếu một nút có ít hơn k mẫu
+- Số mẫu tối thiểu mỗi lá: dừng nếu một nút có ít hơn $k$ mẫu
 - Độ lợi thông tin tối thiểu: dừng nếu phép chia tốt nhất cải thiện độ hỗn tạp ít hơn một ngưỡng
 - Số nút lá tối đa: giới hạn tổng số lá
 
@@ -125,8 +124,8 @@ Với hồi quy, dự đoán tại lá là trung bình các giá trị mục ti�
 
 **Giảm phương sai** thay thế độ lợi thông tin:
 
-```
-VR(S, feature, threshold) = Var(S) - weighted_avg(Var(S_left), Var(S_right))
+```math
+VR(S, \text{feature}, \text{threshold}) = \text{Var}(S) - \text{weighted\_avg}(\text{Var}(S_{\text{left}}), \text{Var}(S_{\text{right}}))
 ```
 
 Chọn phép chia giảm phương sai nhiều nhất. Cây phân hoạch không gian đầu vào thành các miền và dự đoán một hằng số (trung bình) trong mỗi miền.
@@ -155,7 +154,7 @@ Hai nguồn ngẫu nhiên làm các cây đa dạng:
 
 **Bagging (tổng hợp bootstrap):** Mỗi cây được huấn luyện trên một mẫu bootstrap, một mẫu ngẫu nhiên có hoàn lại từ dữ liệu huấn luyện. Khoảng 63% các mẫu gốc xuất hiện trong mỗi bootstrap (phần còn lại là các mẫu ngoài túi có thể được dùng để xác thực).
 
-**Ngẫu nhiên hóa đặc trưng:** Tại mỗi phép chia, chỉ một tập con ngẫu nhiên các đặc trưng được xét. Với phân loại, mặc định là sqrt(n_features). Với hồi quy, n_features/3. Điều này ngăn mọi cây chia trên cùng đặc trưng chi phối.
+**Ngẫu nhiên hóa đặc trưng:** Tại mỗi phép chia, chỉ một tập con ngẫu nhiên các đặc trưng được xét. Với phân loại, mặc định là $\sqrt{n_{\text{features}}}$. Với hồi quy, $n_{\text{features}}/3$. Điều này ngăn mọi cây chia trên cùng đặc trưng chi phối.
 
 Điểm cốt yếu: lấy trung bình nhiều cây đã khử tương quan giảm phương sai mà không tăng độ chệch. Mỗi cây riêng lẻ có thể tầm thường. Tập hợp mạnh.
 
@@ -165,9 +164,8 @@ Rừng ngẫu nhiên cung cấp các điểm độ quan trọng đặc trưng m�
 
 **Mức Giảm Độ Hỗn tạp Trung bình (MDI):** Với mỗi đặc trưng, cộng tổng mức giảm độ hỗn tạp trên tất cả các cây và mọi nút nơi đặc trưng đó được sử dụng. Các đặc trưng tạo ra mức giảm độ hỗn tạp lớn hơn ở các phép chia sớm quan trọng hơn.
 
-```
-importance(feature_j) = sum over all nodes where feature_j is used:
-    (n_samples_at_node / n_total_samples) * impurity_decrease
+```math
+\text{importance}(\text{feature}_j) = \sum_{\text{nodes where feature}_j \text{ is used}} \frac{n_{\text{samples at node}}}{n_{\text{total samples}}} \cdot \text{impurity\_decrease}
 ```
 
 Cách này nhanh (được tính trong huấn luyện) nhưng thiên về các đặc trưng có nhiều giá trị phân biệt và các đặc trưng có nhiều điểm chia có thể.
@@ -444,7 +442,7 @@ Bài học này tạo ra `outputs/prompt-tree-interpreter.md` -- một prompt di
 
 1. Huấn luyện một cây quyết định đơn lẻ trên một tập dữ liệu 2D có 3 lớp. Theo dõi thủ công các phép chia và vẽ các biên quyết định chữ nhật. So sánh các biên tại max_depth=2 so với max_depth=10.
 
-2. Triển khai chia giảm phương sai cho cây hồi quy. Tạo y = sin(x) + noise cho 200 điểm và khớp cây hồi quy của bạn. Vẽ các dự đoán hằng từng khúc của cây so với đường cong thực.
+2. Triển khai chia giảm phương sai cho cây hồi quy. Tạo $y = \sin(x) + \text{noise}$ cho 200 điểm và khớp cây hồi quy của bạn. Vẽ các dự đoán hằng từng khúc của cây so với đường cong thực.
 
 3. Xây dựng một rừng ngẫu nhiên có 1, 5, 10, 50 và 200 cây. Vẽ độ chính xác huấn luyện và kiểm tra theo số cây. Quan sát độ chính xác kiểm tra chững lại nhưng không giảm (rừng chống khớp quá mức).
 

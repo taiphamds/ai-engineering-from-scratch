@@ -27,42 +27,46 @@ DPO thay cả hai giai đoạn bằng một mất mát có giám sát duy nhất
 
 Bắt đầu từ mô hình Bradley-Terry. Với một prompt `x` và hai phần hoàn thành `y_w` (được chọn) và `y_l` (bị từ chối), xác suất con người thích `y_w` là
 
-```text
-P(y_w > y_l | x) = sigmoid( r(x, y_w) - r(x, y_l) )
+```math
+P(y_w > y_l \mid x) = \sigma\big( r(x, y_w) - r(x, y_l) \big)
 ```
 
 trong đó `r` là một hàm phần thưởng tiềm ẩn nào đó. RLHF trước tiên khớp `r` từ các ưu tiên, rồi huấn luyện một chính sách `pi` để tối đa hóa `r` với một neo KL:
 
-```text
-max_pi   E_{x, y~pi} [ r(x, y) ] - beta * KL(pi || pi_ref)
+```math
+\max_{\pi} \; \mathbb{E}_{x, y \sim \pi} \big[ r(x, y) \big] - \beta \, \mathrm{KL}(\pi \,\|\, \pi_{\text{ref}})
 ```
 
 Phép suy ra DPO nhận thấy rằng chính sách tối ưu `pi*` dưới mục tiêu này có một dạng đóng theo `r`:
 
-```text
-pi*(y | x) = (1/Z(x)) * pi_ref(y | x) * exp( r(x, y) / beta )
+```math
+\pi^*(y \mid x) = \frac{1}{Z(x)} \, \pi_{\text{ref}}(y \mid x) \exp\!\left( \frac{r(x, y)}{\beta} \right)
 ```
 
 Sắp xếp lại theo `r`:
 
-```text
-r(x, y) = beta * ( log pi*(y | x) - log pi_ref(y | x) ) + beta * log Z(x)
+```math
+r(x, y) = \beta \big( \log \pi^*(y \mid x) - \log \pi_{\text{ref}}(y \mid x) \big) + \beta \log Z(x)
 ```
 
 Số hạng `log Z(x)` giống nhau cho cả `y_w` và `y_l` (nó phụ thuộc vào `x`, không phải `y`), nên nó triệt tiêu khi bạn tính chênh lệch ưu tiên:
 
-```text
-r(x, y_w) - r(x, y_l) = beta * ( log pi_theta(y_w|x) - log pi_ref(y_w|x)
-                                - log pi_theta(y_l|x) + log pi_ref(y_l|x) )
+```math
+\begin{aligned}
+r(x, y_w) - r(x, y_l) = \beta \big( &\log \pi_\theta(y_w \mid x) - \log \pi_{\text{ref}}(y_w \mid x) \\
+&- \log \pi_\theta(y_l \mid x) + \log \pi_{\text{ref}}(y_l \mid x) \big)
+\end{aligned}
 ```
 
 Thế vào sigmoid Bradley-Terry và lấy âm log hợp lý trên các cặp ưu tiên:
 
-```text
-L_DPO(theta) = - E_{(x, y_w, y_l)} [
-  log sigmoid( beta * ( log pi_theta(y_w|x) - log pi_ref(y_w|x)
-                       - log pi_theta(y_l|x) + log pi_ref(y_l|x) ) )
-]
+```math
+\begin{aligned}
+L_{\text{DPO}}(\theta) = -\mathbb{E}_{(x, y_w, y_l)} \Big[
+  \log \sigma\big( \beta \big( &\log \pi_\theta(y_w \mid x) - \log \pi_{\text{ref}}(y_w \mid x) \\
+  &- \log \pi_\theta(y_l \mid x) + \log \pi_{\text{ref}}(y_l \mid x) \big) \big)
+\Big]
+\end{aligned}
 ```
 
 Đây là mất mát. Nó là một sigmoid trên một đại lượng vô hướng duy nhất mỗi ví dụ, được tính từ bốn log-xác suất. Không mô hình phần thưởng riêng. Không PPO. Không số hạng KL trong mất mát; ràng buộc KL được đưa vào phép suy ra dạng đóng.
@@ -87,8 +91,8 @@ flowchart LR
 
 Một kiểm tra hợp lý hữu ích trước bất kỳ lần chạy huấn luyện nào. Lấy gradient theo `log pi_theta(y_w | x)`:
 
-```text
-d L_DPO / d log pi_theta(y_w | x) = - beta * (1 - sigmoid(z))
+```math
+\frac{\partial L_{\text{DPO}}}{\partial \log \pi_\theta(y_w \mid x)} = -\beta \big(1 - \sigma(z)\big)
 ```
 
 trong đó `z` là đối số của sigmoid. Điều này âm với mọi `z`, có nghĩa là: tăng log-xác suất của chính sách đối với phần hoàn thành được chọn làm giảm mất mát. Đối xứng, gradient theo `log pi_theta(y_l | x)` dương: tăng log-xác suất bị từ chối làm tăng mất mát. Huấn luyện đẩy phần được chọn lên và phần bị từ chối xuống. Tham chiếu đóng băng; nó không di chuyển.

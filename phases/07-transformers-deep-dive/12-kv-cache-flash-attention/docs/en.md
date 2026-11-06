@@ -9,13 +9,13 @@
 
 ## The Problem
 
-Một decoder tự hồi quy ngây thơ làm công việc `O(N²)` để sinh `N` token: ở mỗi bước nó tính lại attention trên toàn tiền tố. Với một phản hồi 4K token đó là 16M phép toán attention, hầu hết dư thừa. Mọi trạng thái ẩn của một token tiền tố đều tất định một khi được tính — bạn chỉ cần chạy query của token mới với các key và value đã lưu đệm của mọi thứ trước đó.
+Một decoder tự hồi quy ngây thơ làm công việc $O(N^2)$ để sinh $N$ token: ở mỗi bước nó tính lại attention trên toàn tiền tố. Với một phản hồi 4K token đó là 16M phép toán attention, hầu hết dư thừa. Mọi trạng thái ẩn của một token tiền tố đều tất định một khi được tính — bạn chỉ cần chạy query của token mới với các key và value đã lưu đệm của mọi thứ trước đó.
 
 Trên hết, bản thân attention di chuyển rất nhiều dữ liệu. Attention tiêu chuẩn hiện thực hóa một ma trận điểm N×N, đầu ra softmax N×d, đầu ra cuối N×d — quá nhiều đọc và ghi vào HBM. Với N≥2K, attention bị giới hạn bởi bộ nhớ trước khi bị giới hạn bởi FLOP. Các kernel attention cổ điển dùng không hết GPU hiện đại 4–10×.
 
 Hai tối ưu hóa, cả hai từ Dao và cộng sự, đẩy suy luận tiên phong từ "chậm" sang "nhanh":
 
-1. **KV cache.** Lưu các vector K và V của mọi token tiền tố. Attention của mỗi token mới là một query với các key đã lưu đệm. Suy luận giảm từ `O(N²)` xuống `O(N)` mỗi bước sinh.
+1. **KV cache.** Lưu các vector K và V của mọi token tiền tố. Attention của mỗi token mới là một query với các key đã lưu đệm. Suy luận giảm từ $O(N^2)$ xuống $O(N)$ mỗi bước sinh.
 2. **Flash Attention.** Chia ô phép tính attention để toàn ma trận N×N không bao giờ chạm HBM. Toàn bộ softmax + nhân ma trận xảy ra trong SRAM. Tăng tốc thời gian thực 2–4× trên A100; 5–10× trên H100 với FP8.
 
 Đến năm 2026 cả hai phổ dụng. Mọi ngăn xếp suy luận production (vLLM, TensorRT-LLM, SGLang, llama.cpp) giả định chúng. Mọi mô hình tiên phong được phát hành với Flash Attention bật.
@@ -26,32 +26,32 @@ Hai tối ưu hóa, cả hai từ Dao và cộng sự, đẩy suy luận tiên p
 
 ### KV cache math
 
-Theo tầng decoder, theo token, theo head:
+Theo mỗi lớp decoder, theo mỗi token, trên tất cả các head KV:
 
 ```
-bytes_per_token_per_layer = 2 * d_head * dtype_size
+bytes_per_token_per_layer = 2 * n_kv_heads * d_head * dtype_size
                           ^
                           K and V
 ```
 
-Với một mô hình 7B có 32 tầng, 32 head, d_head=128, fp16:
+Đối với một mô hình 7B với 32 lớp, 32 head (tất cả được dùng cho K và V), d_head=128, fp16:
 
 ```
-per token per layer = 2 * 128 * 2 = 512 bytes
-per token (32 layers) = 16 KB
-per 32K context = 512 MB
+per token per layer = 2 * 32 * 128 * 2 = 16384 bytes (16 KiB)
+per token (32 layers) = 512 KiB
+per 32K context = 16 GiB
 ```
 
 Với Llama 3 70B (80 tầng, d_head=128, GQA với 8 head KV):
 
 ```
-per token per layer = 2 * 8 * 128 * 2 = 4096 bytes (4 KB)
-per 32K context = 10.4 GB
+per token per layer = 2 * 8 * 128 * 2 = 4096 bytes (4 KiB)
+per 32K context = 10 GiB
 ```
 
-10 GB đó là lý do Llama 3 70B ở ngữ cảnh 128K cần phần lớn một A100 40 GB chỉ cho KV cache ở kích thước batch 1.
+10 GiB đó ở 32K tăng lên 40 GiB ở 128K, tức toàn bộ một A100 40 GB chỉ dành cho KV cache ở kích thước batch 1.
 
-**GQA là lợi ích KV-cache.** MHA với 64 head sẽ là 32 GB. MLA còn nén xa hơn.
+**GQA là lợi thế cho KV-cache.** MHA với 64 head KV sẽ lớn hơn 8 lần, khoảng 80 GiB ở 32K. MLA còn nén xa hơn.
 
 Kéo các chiều và quan sát kích thước cache thay đổi. Đẩy độ dài chuỗi hoặc batch lên và thấy nó vượt một GPU nhanh đến đâu:
 
@@ -84,7 +84,7 @@ for each block of Q (tile size ~128 × 128):
     write O_tile to HBM
 ```
 
-Một chuyến HBM mỗi ô. Tổng lượng bộ nhớ giảm từ `O(N²)` xuống `O(N)`. Lượt truyền ngược tính lại một số giá trị từ lượt truyền xuôi thay vì lưu chúng — thêm một lợi ích bộ nhớ.
+Một chuyến HBM mỗi ô. Tổng lượng bộ nhớ giảm từ $O(N^2)$ xuống $O(N)$. Lượt truyền ngược tính lại một số giá trị từ lượt truyền xuôi thay vì lưu chúng — thêm một lợi ích bộ nhớ.
 
 **Thủ thuật số.** Softmax cuốn chiếu duy trì `(max, sum)` qua các ô để chuẩn hóa cuối chính xác. Không phải xấp xỉ — Flash Attention tính đầu ra giống từng bit với attention tiêu chuẩn (ngoại trừ tính không kết hợp của fp16).
 
@@ -124,10 +124,14 @@ flash-attention-memory
 
 ## Build It
 
+```figure
+iso-machine {"machine":"kv-cache"}
+```
+
 Xem `code/main.py`. Chúng ta triển khai:
 
-1. Một decoder tăng dần `O(N²)` ngây thơ.
-2. Một decoder `O(N)` có KV cache.
+1. Một decoder tăng dần $O(N^2)$ ngây thơ.
+2. Một decoder $O(N)$ có KV cache.
 3. Một softmax chia ô mô phỏng thuật toán cực đại cuốn chiếu của Flash Attention.
 
 ### Step 1: KV cache
@@ -172,9 +176,9 @@ def tiled_softmax_dot(q, K, V, tile=4):
 
 Đầu ra giống từng bit với `softmax(qK) V` trong một lần, nhưng tại bất kỳ thời điểm nào tập làm việc là một khối `tile × d_head`, không phải toàn bộ `N × d_head`.
 
-### Step 3: compare naive vs cached decoding on 100-token generation
+### Step 3: compare naive vs cached decoding
 
-Đếm các phép toán attention. Ngây thơ: `O(N²)` = 5050. Có cache: `O(N)` = 100. Mã in cả hai.
+Đếm các phép toán attention. Cả hai decoder thực hiện cùng các phép so sánh query-key: bước `t` chú ý đến `t` token, vì vậy tổng là 1 + 2 + ... + N = N(N+1)/2. Mã sử dụng N = 10 và in 55 cho mỗi decoder. Đối với một lần tạo sinh 100 token, cả hai thực hiện 5050 phép so sánh. Cache tiết kiệm các phép chiếu K và V. Không có cache, mỗi bước tính lại K và V cho toàn bộ tiền tố, vì vậy một lần tạo sinh 100 token tính 5050 trạng thái token. Với cache, K và V của mỗi token được tính một lần, vì vậy cùng lần tạo sinh đó tính 100 trạng thái token.
 
 ## Use It
 

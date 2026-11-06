@@ -1,6 +1,6 @@
 # Binary Diffing and Symbolic Execution: Matching Functions and Solving for Inputs
 
-> A match between two functions is a claim made by one signature with one quality, and a solved input is one model of one path condition; this lesson builds both and checks them against radiff2, Ghidra, angr, and z3.
+> Một mục khớp giữa hai hàm là một khẳng định được đưa ra bởi một chữ ký với một chất lượng, và một đầu vào được giải là một mô hình của một điều kiện đường đi; bài học này dựng cả hai và kiểm tra chúng với radiff2, Ghidra, angr, và z3.
 
 **Type:** Build
 **Languages:** Python, C, x86-64 assembly, Java (one Ghidra script)
@@ -9,20 +9,20 @@
 
 ## Learning Objectives
 
-- Build five function signatures from an object and its listing: exact bytes, bytes with relocation fields masked, mnemonic sequence, flow-graph shape, and symbol name.
-- Run a staged greedy matcher in the BinDiff style, where a signature matches only when it is unique on both sides, and record the stage and quality behind every match.
-- Reproduce the case where two byte-identical functions fail a byte correlator on loaded images and pass it after masking, with the relocation arithmetic that explains the four changed bytes.
-- Reproduce radiff2's similarity ratios from the Levenshtein distance and explain why one ratio only appears when the comparison uses the 82 bytes radare2 reached.
-- Enumerate the paths of a function over a small IR, carry a condition per path, and solve each leaf for inputs with a bounded search.
-- Measure path explosion on a loop with a symbolic bound and compare the counts, classes, and models with angr 10.0.3 and z3 5.1.0.
+- Dựng năm chữ ký hàm từ một tệp đối tượng và bản liệt kê của nó: các byte chính xác, các byte với các trường relocation bị che, chuỗi mnemonic, hình dạng đồ thị luồng, và tên ký hiệu.
+- Chạy một bộ ghép tham lam theo giai đoạn theo phong cách BinDiff, nơi một chữ ký chỉ khớp khi nó duy nhất ở cả hai phía, và ghi lại giai đoạn cùng chất lượng đằng sau mỗi mục khớp.
+- Tái tạo trường hợp hai hàm giống hệt từng byte thất bại ở một correlator byte trên các ảnh đã nạp và đạt sau khi che, với phép tính relocation giải thích bốn byte đã thay đổi.
+- Tái tạo các tỷ lệ tương tự của radiff2 từ khoảng cách Levenshtein và giải thích tại sao một tỷ lệ chỉ xuất hiện khi phép so sánh dùng 82 byte mà radare2 đã đi đến.
+- Liệt kê các đường đi của một hàm trên một IR nhỏ, mang một điều kiện cho mỗi đường đi, và giải mỗi lá để tìm các đầu vào bằng một phép tìm kiếm có giới hạn.
+- Đo sự bùng nổ đường đi trên một vòng lặp có một cận ký hiệu và so sánh các số lượng, lớp, và mô hình với angr 10.0.3 và z3 5.1.0.
 
 ## The Problem
 
-You rebuilt `ledger.c` at `-O2` and asked an agent whether anything changed since the `-O1` build. The agent ran a differ and reported that `grade` was modified, because its bytes differ in the two loaded programs. It then spent its budget explaining a change that does not exist. The 46 bytes of `grade` are identical in the two object files. The differ compared images after relocation, and `.rodata` sits 0x70 bytes further on in the `-O2` program, so one displacement in `grade` grew by 0x70.
+Bạn dựng lại `ledger.c` tại `-O2` và hỏi một agent liệu có gì thay đổi kể từ bản dựng `-O1` không. Agent chạy một bộ so sánh khác biệt và báo cáo rằng `grade` đã được sửa đổi, vì các byte của nó khác nhau trong hai chương trình đã nạp. Sau đó nó dùng hết ngân sách giải thích một thay đổi không tồn tại. 46 byte của `grade` giống hệt nhau trong hai tệp đối tượng. Bộ so sánh khác biệt đã so sánh các ảnh sau relocation, và `.rodata` nằm xa hơn 0x70 byte trong chương trình `-O2`, nên một displacement trong `grade` tăng thêm 0x70.
 
-The same afternoon you asked which score makes `grade` return 4. The agent read the pseudocode and answered "90". That is one answer. The function returns 4 for every score from 90 to 109, and the question had no bound, so the agent's answer was a sample where you needed a set.
+Cùng chiều hôm đó bạn hỏi điểm số nào khiến `grade` trả về 4. Agent đọc mã giả và trả lời "90". Đó là một câu trả lời. Hàm trả về 4 cho mọi điểm từ 90 đến 109, và câu hỏi không có cận, nên câu trả lời của agent là một mẫu trong khi bạn cần một tập hợp.
 
-Both failures come from the same gap. A match and a solved input are each a claim with a method behind it. This lesson builds the two methods in standard-library Python and runs the production tools next to them. Where the tools and the code agree you have two derivations. Where they disagree you have an address, a byte, or a bound to look at.
+Cả hai thất bại đến từ cùng một khoảng trống. Một mục khớp và một đầu vào được giải mỗi thứ là một khẳng định có một phương pháp đằng sau. Bài học này dựng hai phương pháp bằng Python thư viện chuẩn và chạy các công cụ production bên cạnh chúng. Nơi các công cụ và mã thống nhất bạn có hai phép suy ra. Nơi chúng không thống nhất bạn có một địa chỉ, một byte, hoặc một cận để xem xét.
 
 ```figure
 re-44-matches-and-paths
@@ -30,35 +30,35 @@ re-44-matches-and-paths
 
 ## A Function Signature Is a Claim With a Quality
 
-Flake framed binary diffing in 2004 as the construction of an isomorphism between the function sets of two similar executables. Dullien and Rolles extended it in 2005 to basic blocks and instructions. The BinDiff concepts page describes the strategy that came out of that work. Compute one attribute for every function on both sides. A value that appears exactly once on each side is a match. A value that appears more than once is ambiguous and is drilled down with the next attribute inside that equivalence class. A value with no counterpart stays unmatched. After each pass, the callers and callees of new matches form small sets where the next attribute is likely to be unique, and the process repeats with the next attribute.
+Flake trình bày binary diffing vào năm 2004 là việc xây dựng một phép đẳng cấu giữa các tập hàm của hai tệp thực thi tương tự. Dullien và Rolles mở rộng nó vào năm 2005 sang các khối cơ bản và các lệnh. Trang khái niệm BinDiff mô tả chiến lược xuất phát từ công việc đó. Tính một thuộc tính cho mọi hàm ở cả hai phía. Một giá trị xuất hiện đúng một lần ở mỗi phía là một mục khớp. Một giá trị xuất hiện hơn một lần là mơ hồ và được đi sâu bằng thuộc tính tiếp theo bên trong lớp tương đương đó. Một giá trị không có đối ứng vẫn chưa được ghép. Sau mỗi lượt, các hàm gọi và được gọi của các mục khớp mới tạo thành các tập nhỏ nơi thuộc tính tiếp theo có khả năng là duy nhất, và quá trình lặp lại với thuộc tính tiếp theo.
 
-Each matching algorithm carries a quality. The page rates hash matching of raw function bytes and name hash matching as very good, the flow-graph MD index and prime signature matching (each mnemonic a small prime, product over the function) as good, string references as medium, and loop count or address sequence as poor. Confidence of a match is the average quality of the algorithms that produced it, weighted by a sigmoid. Function similarity is about 25% matched flow-graph edges, 15% matched basic blocks, 10% matched instructions, and 50% the difference in flow-graph MD index, multiplied by the confidence.
+Mỗi thuật toán ghép mang một chất lượng. Trang đánh giá ghép hash các byte hàm thô và ghép hash tên là rất tốt, chỉ số MD đồ thị luồng và ghép chữ ký số nguyên tố (mỗi mnemonic một số nguyên tố nhỏ, tích trên hàm) là tốt, các tham chiếu chuỗi là trung bình, và số vòng lặp hoặc chuỗi địa chỉ là kém. Độ tin cậy của một mục khớp là chất lượng trung bình của các thuật toán đã tạo nó, được lấy trọng số bằng một sigmoid. Độ tương tự hàm gồm khoảng 25% các cạnh đồ thị luồng được ghép, 15% các khối cơ bản được ghép, 10% các lệnh được ghép, và 50% sự khác biệt trong chỉ số MD đồ thị luồng, nhân với độ tin cậy.
 
-This lesson keeps five of those attributes and the one rule that matters: unique on both sides or no match. It drops the MD index, because the concepts page names it without a formula, and uses a plain degree sequence in its place. The quality labels stay, because a match is only as good as the weakest fact that produced it.
+Bài học này giữ năm thuộc tính đó và một quy tắc có ý nghĩa: duy nhất ở cả hai phía hoặc không khớp. Nó bỏ chỉ số MD, vì trang khái niệm nêu nó mà không có công thức, và dùng một dãy bậc thông thường thay cho nó. Các nhãn chất lượng ở lại, vì một mục khớp chỉ tốt bằng thông tin yếu nhất đã tạo ra nó.
 
 ## Five Signatures From One Function Record
 
-The differ reads two things per object. The ELF gives bytes, symbol sizes, and `.rela.*` records. The `llvm-objdump -d` listing gives instruction boundaries and mnemonics, and lesson 33 proved a decoder equal to that listing on every instruction of these objects. `function_record()` checks that every listed instruction's bytes equal the object's bytes at that address and raises otherwise. A stale listing is a changed fixture.
+Bộ so sánh khác biệt đọc hai thứ cho mỗi tệp đối tượng. ELF cho các byte, các kích thước ký hiệu, và các bản ghi `.rela.*`. Bản liệt kê `llvm-objdump -d` cho các ranh giới lệnh và mnemonic, và bài 33 đã chứng minh một bộ giải mã bằng với bản liệt kê đó trên mọi lệnh của các tệp đối tượng này. `function_record()` kiểm tra rằng các byte của mọi lệnh được liệt kê bằng các byte của tệp đối tượng tại địa chỉ đó và phát sinh ngoại lệ nếu không. Một bản liệt kê cũ là một fixture đã thay đổi.
 
-Take `grade` in `ledger-x86_64-O1.o`. The symbol says offset 0x10 and size 46, so the record covers 0x10 to 0x3e and excludes the two-byte `nop` that aligns the next function.
+Lấy `grade` trong `ledger-x86_64-O1.o`. Ký hiệu nói độ lệch 0x10 và kích thước 46, nên bản ghi bao quát 0x10 đến 0x3e và loại trừ `nop` hai byte căn chỉnh hàm tiếp theo.
 
-The exact-bytes signature is the SHA-256 of the 46 bytes. The masked-bytes signature zeroes every relocation field first. There is one field: the record `R_X86_64_PC32 .rodata+0x10` at offset 0x36, four bytes wide, the displacement of the `leaq (%rip), %rcx` at 0x33. In a RELA object those four bytes already hold zero, so the two signatures agree on every function of every object here. The mask exists for the next section.
+Chữ ký byte chính xác là SHA-256 của 46 byte. Chữ ký byte được che đặt mọi trường relocation về không trước. Có một trường: bản ghi `R_X86_64_PC32 .rodata+0x10` tại độ lệch 0x36, rộng bốn byte, displacement của `leaq (%rip), %rcx` tại 0x33. Trong một tệp đối tượng RELA, bốn byte đó đã giữ số không, nên hai chữ ký thống nhất trên mọi hàm của mọi tệp đối tượng ở đây. Mask tồn tại cho mục tiếp theo.
 
-The mnemonic signature hashes the sequence of 14 mnemonics:
+Chữ ký mnemonic hash chuỗi 14 mnemonic:
 
 ```text
 movslq imulq movq sarq shrq addl addl xorl cmpl ja movl leaq movl retq
 ```
 
-The flow-graph shape signature comes from the basic blocks and typed edges of lesson 33, restricted to the blocks the entry can reach. `grade` at `-O1` has three blocks and three edges. Block 0x10 ends in `ja 0x3d` with a taken edge and a fallthrough edge, block 0x31 falls through to 0x3d, and 0x3d returns. The degree sequence lists (in, out) per block in sorted order, so the signature reads `3b 3e [0/2,1/1,2/0]`. For `grade` at `-O0` the record resolves the indirect jump through the five `.rela.rodata` entries exactly as lesson 33 did, which gives eight blocks and eleven edges with four `table` edges.
+Chữ ký hình dạng đồ thị luồng đến từ các khối cơ bản và các cạnh có kiểu của bài 33, giới hạn ở các khối mà điểm vào có thể tiếp cận. `grade` tại `-O1` có ba khối và ba cạnh. Khối 0x10 kết thúc bằng `ja 0x3d` với một cạnh được đi và một cạnh fallthrough, khối 0x31 đi fallthrough đến 0x3d, và 0x3d trả về. Dãy bậc liệt kê (vào, ra) cho mỗi khối theo thứ tự đã sắp xếp, nên chữ ký đọc là `3b 3e [0/2,1/1,2/0]`. Với `grade` tại `-O0` bản ghi phân giải bước nhảy gián tiếp qua năm mục `.rela.rodata` đúng như bài 33 đã làm, cho tám khối và mười một cạnh với bốn cạnh `table`.
 
-The name signature is the symbol name. It is the strongest fact when it exists and nothing when the build is stripped.
+Chữ ký tên là tên ký hiệu. Nó là thông tin mạnh nhất khi tồn tại và không là gì khi bản dựng đã strip.
 
-One more field rides along for the patch case later. When a function has a `lea` relocation into `.rodata`, a bounds check, and an indexed load, `referenced_table()` reads the table the way lesson 36 did: the `cmpl $0x4` before `ja` gives five entries and the load `movl (%rcx,%rax,4), %eax` gives four bytes each. For `grade` at `-O1` the table at `.rodata+0x14` reads `1, 2, 3, 4, 4`.
+Một trường nữa đi cùng cho trường hợp bản vá sau này. Khi một hàm có một relocation `lea` vào `.rodata`, một phép kiểm tra cận, và một phép nạp theo chỉ mục, `referenced_table()` đọc bảng theo cách bài 36 đã làm: `cmpl $0x4` trước `ja` cho năm mục và phép nạp `movl (%rcx,%rax,4), %eax` cho bốn byte mỗi mục. Với `grade` tại `-O1` bảng tại `.rodata+0x14` đọc là `1, 2, 3, 4, 4`.
 
 ## The Greedy Matcher
 
-`match_functions()` runs the stages in order. For each stage it groups the still unmatched functions on each side by that stage's signature and accepts every value that has exactly one function on each side. The match records the stage, the stage's quality, every other signature that also agrees, and a similarity ratio.
+`match_functions()` chạy các giai đoạn theo thứ tự. Với mỗi giai đoạn nó nhóm các hàm vẫn chưa được ghép ở mỗi phía theo chữ ký của giai đoạn đó và chấp nhận mọi giá trị có đúng một hàm ở mỗi phía. Mục khớp ghi lại giai đoạn, chất lượng của giai đoạn, mọi chữ ký khác cũng thống nhất, và một tỷ lệ tương tự.
 
 ```python
 for stage in order:
@@ -71,114 +71,114 @@ for stage in order:
         matches.append(Match(a, b, stage, agreeing, radare2_ratio(a.raw, b.raw), data_equal))
 ```
 
-The lesson order runs the four structural stages first and names last, so the structural stages get tested and the names grade them afterwards. For `-O1` against `-O2`:
+Thứ tự bài học chạy bốn giai đoạn cấu trúc trước và các tên sau cùng, để các giai đoạn cấu trúc được kiểm tra và các tên chấm chúng sau đó. Với `-O1` so với `-O2`:
 
-| Function | Stage | Agreeing signatures | Similarity |
+| Hàm | Giai đoạn | Các chữ ký thống nhất | Độ tương tự |
 |---|---|---|---|
-| `percent_change` | exact bytes | all five | 1.000 |
-| `grade` | exact bytes | all five | 1.000 |
-| `total` | name | name only | 0.171 |
-| `grade_label` | exact bytes | all five | 1.000 |
+| `percent_change` | byte chính xác | cả năm | 1.000 |
+| `grade` | byte chính xác | cả năm | 1.000 |
+| `total` | tên | chỉ tên | 0.171 |
+| `grade_label` | byte chính xác | cả năm | 1.000 |
 
-`total` grew from 31 bytes and 13 instructions to 140 bytes and 41 instructions, because clang vectorised the loop with SSE2 and kept a scalar remainder loop. Its shape went from five blocks and five edges to ten blocks and thirteen edges. Nothing structural survives, and only the symbol links the two.
+`total` tăng từ 31 byte và 13 lệnh lên 140 byte và 41 lệnh, vì clang vector hóa vòng lặp bằng SSE2 và giữ một vòng lặp phần dư vô hướng. Hình dạng của nó đi từ năm khối và năm cạnh đến mười khối và mười ba cạnh. Không có gì về cấu trúc còn lại, và chỉ ký hiệu liên kết hai bên.
 
-For `-O0` against `-O1` the same order produces one wrong match:
+Với `-O0` so với `-O1` cùng thứ tự tạo ra một mục khớp sai:
 
-| Function at -O0 | Matched at -O1 | Stage | Names agree |
+| Hàm tại -O0 | Được ghép tại -O1 | Giai đoạn | Các tên thống nhất |
 |---|---|---|---|
-| `percent_change` | `grade_label` | flow-graph shape | no |
-| `grade` | `grade` | name | yes |
-| `total` | `total` | name | yes |
-| `grade_label` | unmatched | | |
+| `percent_change` | `grade_label` | hình dạng đồ thị luồng | không |
+| `grade` | `grade` | tên | có |
+| `total` | `total` | tên | có |
+| `grade_label` | chưa được ghép | | |
 
-`percent_change` at `-O0` is a four-block diamond: an entry that branches on `before == 0`, two arms, and a join that returns. Its degree sequence is `0/2, 1/1, 1/1, 2/0`. `grade_label` at `-O1` has `grade` inlined and the same diamond around the bounds check. The shape is unique on both sides and the rule accepts it. The medium quality label is the warning, and the name stage, run afterwards, contradicts it. The false match also consumes `grade_label` on the right, so the real `percent_change` and `grade_label` pairs stay unmatched.
+`percent_change` tại `-O0` là một hình thoi bốn khối: một điểm vào rẽ nhánh theo `before == 0`, hai nhánh, và một điểm nối trả về. Dãy bậc của nó là `0/2, 1/1, 1/1, 2/0`. `grade_label` tại `-O1` có `grade` được nội tuyến và cùng hình thoi quanh phép kiểm tra cận. Hình dạng là duy nhất ở cả hai phía và quy tắc chấp nhận nó. Nhãn chất lượng trung bình là cảnh báo, và giai đoạn tên, chạy sau đó, mâu thuẫn với nó. Mục khớp sai cũng dùng mất `grade_label` ở bên phải, nên các cặp `percent_change` và `grade_label` thật vẫn chưa được ghép.
 
-The BinDiff order runs name matching as the second stage when real names exist, and `BINDIFF_ORDER` in the code does the same. With that order all four `-O0` functions match their `-O1` versions by name, which is the result Ghidra reports below. The lesson keeps both orders in the demo so the failure is visible. A flow-graph shape of four nodes is the shape of every `if` and `else` that joins before the return.
+Thứ tự BinDiff chạy ghép tên làm giai đoạn thứ hai khi có các tên thật, và `BINDIFF_ORDER` trong mã làm tương tự. Với thứ tự đó cả bốn hàm `-O0` khớp với các phiên bản `-O1` của chúng theo tên, là kết quả Ghidra báo cáo bên dưới. Bài học giữ cả hai thứ tự trong demo để thất bại nhìn thấy được. Một hình dạng đồ thị luồng bốn nút là hình dạng của mọi `if` và `else` nối lại trước khi trả về.
 
 ## Identical Bytes, Relocated Operand
 
-Ghidra applies relocations when it imports an object. Its byte correlator therefore compares loaded images, and lesson 36 masked relocation fields for this reason. `load_image()` reproduces the import. It walks the allocated sections in header order, aligns each to its `sh_addralign`, and lays them out from 0x100000. Then it applies every record: `S + A - P` written as a signed 32-bit value for `R_X86_64_PC32` and `R_X86_64_PLT32`, `S + A` as 64 bits for `R_X86_64_64`.
+Ghidra áp dụng các relocation khi nhập một tệp đối tượng. Vì vậy correlator byte của nó so sánh các ảnh đã nạp, và bài 36 che các trường relocation vì lý do này. `load_image()` tái tạo việc nhập. Nó duyệt các section được cấp phát theo thứ tự header, căn chỉnh mỗi section theo `sh_addralign`, và bố trí chúng từ 0x100000. Sau đó nó áp dụng mọi bản ghi: `S + A - P` được viết dưới dạng một giá trị có dấu 32 bit cho `R_X86_64_PC32` và `R_X86_64_PLT32`, `S + A` dưới dạng 64 bit cho `R_X86_64_64`.
 
-The layout agrees with Ghidra 12.1.4 on every section start in both programs, which the test suite checks against the captured Version Tracking output:
+Bố cục thống nhất với Ghidra 12.1.4 trên mọi điểm bắt đầu section trong cả hai chương trình, điều mà bộ kiểm thử kiểm tra với đầu ra Version Tracking đã thu lại:
 
-| Section | `-O1` program | `-O2` program |
+| Section | Chương trình `-O1` | Chương trình `-O2` |
 |---|---|---|
-| `.text` | 0x100000, 159 bytes | 0x100000, 271 bytes |
+| `.text` | 0x100000, 159 byte | 0x100000, 271 byte |
 | `.rodata` | 0x1000a0 | 0x100110 |
 | `.rodata.str1.1` | 0x1000f0 | 0x100160 |
 
-`.text` is 112 bytes longer at `-O2`, the growth of `total`, so `.rodata` starts 0x70 bytes further on. `grade` sits at 0x100010 in both programs. Its `leaq` at offset 0x33 has its displacement field at 0x36 and ends at 0x3a. The relocation addend 0x10 plus the usual 4 puts the table at `.rodata+0x14`.
+`.text` dài hơn 112 byte tại `-O2`, sự tăng trưởng của `total`, nên `.rodata` bắt đầu xa hơn 0x70 byte. `grade` nằm tại 0x100010 trong cả hai chương trình. `leaq` của nó tại độ lệch 0x33 có trường displacement tại 0x36 và kết thúc tại 0x3a. Addend relocation 0x10 cộng với 4 thông thường đặt bảng tại `.rodata+0x14`.
 
-In the `-O1` image: `0x1000a0 + 0x14 - 0x10003a = 0x7a = 122`. In the `-O2` image: `0x100110 + 0x14 - 0x10003a = 0xea = 234`. The field bytes are `7a 00 00 00` in one image and `ea 00 00 00` in the other. One byte of 46 differs, the Levenshtein ratio is 0.978, and the exact-bytes stage fails. The masked-bytes stage zeroes the field and passes. `grade_label` moved by the same 0x70 as its table, so its displacements stayed equal and it passes on exact bytes in both views.
+Trong ảnh `-O1`: `0x1000a0 + 0x14 - 0x10003a = 0x7a = 122`. Trong ảnh `-O2`: `0x100110 + 0x14 - 0x10003a = 0xea = 234`. Các byte trường là `7a 00 00 00` trong một ảnh và `ea 00 00 00` trong ảnh kia. Một byte trong 46 byte khác nhau, tỷ lệ Levenshtein là 0.978, và giai đoạn byte chính xác thất bại. Giai đoạn byte được che đặt trường về không và đạt. `grade_label` di chuyển cùng 0x70 như bảng của nó, nên các displacement của nó vẫn bằng nhau và nó đạt trên các byte chính xác trong cả hai cách nhìn.
 
-Ghidra reports the same split. On `-O1` against `-O2`, Exact Function Bytes Match found `percent_change` and `grade_label`, Exact Function Instructions Match found those two plus `grade`, and Exact Function Mnemonics Match found the same three. The instruction correlator masks operands, which covers the displacement. The lesson's image view gives exact-bytes matches for exactly the two functions Ghidra's byte correlator found and masked-bytes agreement for exactly the three its instruction correlator found. The test suite asserts both equalities.
+Ghidra báo cáo cùng sự phân chia. Trên `-O1` so với `-O2`, Exact Function Bytes Match tìm thấy `percent_change` và `grade_label`, Exact Function Instructions Match tìm thấy hai hàm đó cộng `grade`, và Exact Function Mnemonics Match tìm thấy cùng ba hàm. Correlator lệnh che các toán hạng, bao quát displacement. Cách nhìn ảnh của bài học cho các mục khớp byte chính xác đối với đúng hai hàm mà correlator byte của Ghidra tìm thấy và sự thống nhất byte được che đối với đúng ba hàm mà correlator lệnh của nó tìm thấy. Bộ kiểm thử khẳng định cả hai đẳng thức.
 
-rea 6.5.0's `compare_functions` line-diffs provider text. On the assembly dimension it attaches the limitation "relocation normalization is unavailable". The loader and the mask in this lesson supply that normalization.
+`compare_functions` của rea 6.5.0 so sánh khác biệt văn bản provider theo dòng. Trên chiều assembly nó gắn giới hạn "chuẩn hóa relocation không khả dụng". Loader và mask trong bài học này cung cấp sự chuẩn hóa đó.
 
 ## What radiff2 Measures
 
-radare2 6.2.4 ships `radiff2`. With `-AC` it analyses both files and prints one row per function: the left size and address, MATCH or UNMATCH, a ratio, and the right size and address. The captured rows for our objects:
+radare2 6.2.4 cung cấp `radiff2`. Với `-AC` nó phân tích cả hai tệp và in một hàng cho mỗi hàm: kích thước và địa chỉ bên trái, MATCH hoặc UNMATCH, một tỷ lệ, và kích thước cùng địa chỉ bên phải. Các hàng đã thu lại cho các tệp đối tượng của chúng ta:
 
-| Pair | `percent_change` | `grade` | `total` | `grade_label` |
+| Cặp | `percent_change` | `grade` | `total` | `grade_label` |
 |---|---|---|---|---|
-| `-O0` vs `-O1` | UNMATCH 0.130435 | UNMATCH 0.426829 | UNMATCH 0.106061 | UNMATCH 0.269841 |
-| `-O1` vs `-O2` | MATCH 1.000000 | MATCH 1.000000 | UNMATCH 0.171429 | MATCH 1.000000 |
-| `-O1` vs `-O1` | MATCH 1.000000 | MATCH 1.000000 | MATCH 1.000000 | MATCH 1.000000 |
+| `-O0` so với `-O1` | UNMATCH 0.130435 | UNMATCH 0.426829 | UNMATCH 0.106061 | UNMATCH 0.269841 |
+| `-O1` so với `-O2` | MATCH 1.000000 | MATCH 1.000000 | UNMATCH 0.171429 | MATCH 1.000000 |
+| `-O1` so với `-O1` | MATCH 1.000000 | MATCH 1.000000 | MATCH 1.000000 | MATCH 1.000000 |
 
-The ratio in the radare2 source is `1 - distance / max(len_a, len_b)`, where the distance is the Levenshtein distance between the two function fingerprints and a fingerprint is the concatenation of the function's basic blocks in address order. The match threshold is 0.7. `radare2_ratio()` in `code/main.py` implements the same formula over the raw function bytes and reproduces 0.130435, 0.106061, 0.269841, and 0.171429 to six decimals.
+Tỷ lệ trong mã nguồn radare2 là `1 - distance / max(len_a, len_b)`, trong đó khoảng cách là khoảng cách Levenshtein giữa hai fingerprint hàm và một fingerprint là phép nối các khối cơ bản của hàm theo thứ tự địa chỉ. Ngưỡng khớp là 0.7. `radare2_ratio()` trong `code/main.py` triển khai cùng công thức trên các byte hàm thô và tái tạo 0.130435, 0.106061, 0.269841, và 0.171429 đến sáu chữ số thập phân.
 
-It does not reproduce 0.426829 for `grade` at `-O0`. Over the 118 bytes of the function the ratio is 0.296610. radare2 prints `118` in the size column. Its fingerprint is shorter. Without applied relocations it cannot resolve the jump table, so its analysis reaches the entry block, the block that ends in `jmpq *%rax`, the default case, and the return: 82 bytes, the same 82 that lesson 33's plain recursive descent claimed. The Levenshtein distance between those 82 bytes and the 46 bytes at `-O1` is 47, and `1 - 47/82 = 0.426829`. With `-e bin.relocs.apply=true` radare2 finds all 118 bytes and prints 0.288136, which equals the lesson's ratio over the relocated images, where the four displacement bytes differ from the zero fields of the object. Two tools agree only when they compare the same bytes, and the size column does not say which bytes went in.
+Nó không tái tạo 0.426829 cho `grade` tại `-O0`. Trên 118 byte của hàm tỷ lệ là 0.296610. radare2 in `118` trong cột kích thước. Fingerprint của nó ngắn hơn. Không có các relocation được áp dụng nó không thể phân giải bảng nhảy, nên phân tích của nó đến được khối điểm vào, khối kết thúc bằng `jmpq *%rax`, case mặc định, và phần trả về: 82 byte, cùng 82 byte mà phép duyệt đệ quy thông thường của bài 33 đã khẳng định. Khoảng cách Levenshtein giữa 82 byte đó và 46 byte tại `-O1` là 47, và `1 - 47/82 = 0.426829`. Với `-e bin.relocs.apply=true` radare2 tìm thấy cả 118 byte và in 0.288136, bằng tỷ lệ của bài học trên các ảnh đã áp dụng relocation, nơi bốn byte displacement khác với các trường không của tệp đối tượng. Hai công cụ chỉ thống nhất khi chúng so sánh cùng các byte, và cột kích thước không nói những byte nào đã được đưa vào.
 
-`-O` restricts the fingerprint to opcode bytes and zeroes the operands. The `-O0` versus `-O1` ratios rise to 0.239130, 0.512195, 0.303030, and 0.523810, and `total` at `-O1` versus `-O2` rises to 0.192857. Whole-file distances exist too: `-s` (Myers) reports similarity 0.956 and distance 162 between the two objects, `-ss` (Levenshtein) 0.927 and 137. Those numbers include headers, symbol tables, and relocation sections and say nothing about functions.
+`-O` giới hạn fingerprint ở các byte opcode và đặt các toán hạng về không. Các tỷ lệ `-O0` so với `-O1` tăng lên 0.239130, 0.512195, 0.303030, và 0.523810, và `total` tại `-O1` so với `-O2` tăng lên 0.192857. Các khoảng cách toàn tệp cũng tồn tại: `-s` (Myers) báo cáo độ tương tự 0.956 và khoảng cách 162 giữa hai tệp đối tượng, `-ss` (Levenshtein) 0.927 và 137. Các con số đó bao gồm các header, bảng ký hiệu, và section relocation và không nói gì về các hàm.
 
 ## Ghidra Version Tracking Correlators
 
-Ghidra's Version Tracking tool matches a source program to a destination program with correlators. The function correlators are Exact Function Bytes Match, Exact Function Instructions Match (operands masked), Exact Function Mnemonics Match, and Duplicate Function Instructions Match (1:N and N:M). Data correlators are Exact, Duplicate, and Similar Data Match. Symbol correlators match names exactly, as duplicates, or by similarity. Reference correlators use accepted matches to find more. Functions must be defined in the destination program, and the minimum function length defaults to 10 bytes. Auto Version Tracking runs Exact Symbol Name, Exact Data, Exact Function Bytes, Exact Function Instructions, Exact Function Mnemonics, Duplicate Function Instructions, then a reference correlator, and creates implied matches for accepted ones. A BSim correlator was added in 11.2.
+Công cụ Version Tracking của Ghidra ghép một chương trình nguồn với một chương trình đích bằng các correlator. Các correlator hàm là Exact Function Bytes Match, Exact Function Instructions Match (các toán hạng được che), Exact Function Mnemonics Match, và Duplicate Function Instructions Match (1:N và N:M). Các correlator dữ liệu là Exact, Duplicate, và Similar Data Match. Các correlator ký hiệu ghép các tên chính xác, như các bản trùng, hoặc theo độ tương tự. Các correlator tham chiếu dùng các mục khớp được chấp nhận để tìm thêm. Các hàm phải được định nghĩa trong chương trình đích, và độ dài hàm tối thiểu mặc định là 10 byte. Auto Version Tracking chạy Exact Symbol Name, Exact Data, Exact Function Bytes, Exact Function Instructions, Exact Function Mnemonics, Duplicate Function Instructions, rồi một correlator tham chiếu, và tạo các mục khớp ngụ ý cho những mục được chấp nhận. Một correlator BSim được thêm trong 11.2.
 
-The lesson captured the correlators headlessly. `capture_ghidra_vt.sh` imports the three objects into a project and runs `ListVersionTrackingMatches.java`, a short script that extends `AbstractGhidraVersionTrackingScript`, opens the source and destination programs by path, runs the six non-reference correlators in the Auto Version Tracking order, and prints one line per block, function, correlator, and match. Every number in this section comes from those two text files.
+Bài học thu lại các correlator ở chế độ headless. `capture_ghidra_vt.sh` nhập ba tệp đối tượng vào một dự án và chạy `ListVersionTrackingMatches.java`, một script ngắn mở rộng `AbstractGhidraVersionTrackingScript`, mở các chương trình nguồn và đích theo đường dẫn, chạy sáu correlator không tham chiếu theo thứ tự Auto Version Tracking, và in một dòng cho mỗi khối, hàm, correlator, và mục khớp. Mọi con số trong mục này đến từ hai tệp văn bản đó.
 
-| Correlator | `-O0` to `-O1` | `-O1` to `-O2` |
+| Correlator | `-O0` đến `-O1` | `-O1` đến `-O2` |
 |---|---|---|
-| Exact Symbol Name Match | 4 functions | 4 functions, 5 data items (`labels.rel`, `.L.str.1` to `.L.str.4`) |
+| Exact Symbol Name Match | 4 hàm | 4 hàm, 5 mục dữ liệu (`labels.rel`, `.L.str.1` đến `.L.str.4`) |
 | Exact Data Match | 0 | 0 |
 | Exact Function Bytes Match | 0 | 2 (`percent_change`, `grade_label`) |
-| Exact Function Instructions Match | 0 | 3 (adds `grade`) |
+| Exact Function Instructions Match | 0 | 3 (thêm `grade`) |
 | Exact Function Mnemonics Match | 0 | 3 |
 | Duplicate Function Instructions Match | 0 | 0 |
 
-Every function changed between `-O0` and `-O1`, so only the names matched, which is the result the lesson's matcher gives in the BinDiff order. Every match printed similarity 1.000 and confidence 10.000. The help page describes the exact correlators as similarity 1.0 and confidence 1.0, so the scale of the printed confidence is an open question this lesson records and does not resolve.
+Mọi hàm thay đổi giữa `-O0` và `-O1`, nên chỉ các tên khớp, là kết quả bộ ghép của bài học cho theo thứ tự BinDiff. Mọi mục khớp in độ tương tự 1.000 và độ tin cậy 10.000. Trang trợ giúp mô tả các correlator chính xác là độ tương tự 1.0 và độ tin cậy 1.0, nên thang đo của độ tin cậy được in là một câu hỏi mở mà bài học này ghi lại và không giải quyết.
 
-Program Differences, under Tools, is a different thing. It compares two programs with the same address space on bytes, labels, code units, references, comments, and functions at equal addresses. It is an address-aligned diff and matches nothing that moved.
+Program Differences, dưới Tools, là một thứ khác. Nó so sánh hai chương trình có cùng không gian địa chỉ trên các byte, nhãn, đơn vị mã, tham chiếu, chú thích, và hàm tại các địa chỉ bằng nhau. Nó là một phép diff căn chỉnh theo địa chỉ và không ghép thứ gì đã di chuyển.
 
 ## Diaphora and Binary Ninja, From Their Documentation
 
-Diaphora is an IDA Pro plugin, first released in 2015 and at version 3.4.2 as of 2026-08-18. It is AGPL-3.0 since 2.0 and needs IDAPython, so it runs in IDA Home or IDA Pro and not in IDA Free. It exports each database to SQLite and runs its heuristics as SQL queries. Each heuristic has a name, a category of Best, Partial, or Unreliable, a ratio type, and optional flags such as SAME_CPU or SLOW. The names in the current source read like the stages of this lesson with more of them: Bytes hash, Same address and mnemonics, Same cleaned assembly, Mnemonics small-primes-product, Same nodes, edges, loops and strongly connected components, Topological sort hash, and pseudo-code fuzzy hashes that need the Hex-Rays decompiler. Its release notes show the tuning history: slow heuristics only run below about 2,000 functions, and "Same graph" moved to the unreliable category. That move is the four-block diamond of this lesson, seen at scale.
+Diaphora là một plugin IDA Pro, được phát hành lần đầu năm 2015 và ở phiên bản 3.4.2 tính đến 2026-08-18. Nó là AGPL-3.0 từ 2.0 và cần IDAPython, nên nó chạy trong IDA Home hoặc IDA Pro và không trong IDA Free. Nó export mỗi cơ sở dữ liệu sang SQLite và chạy các heuristic của nó dưới dạng các truy vấn SQL. Mỗi heuristic có một tên, một danh mục Best, Partial, hoặc Unreliable, một loại tỷ lệ, và các cờ tùy chọn như SAME_CPU hoặc SLOW. Các tên trong mã nguồn hiện tại đọc như các giai đoạn của bài học này với nhiều hơn: Bytes hash, Same address and mnemonics, Same cleaned assembly, Mnemonics small-primes-product, Same nodes, edges, loops and strongly connected components, Topological sort hash, và các fuzzy hash mã giả cần trình dịch ngược Hex-Rays. Ghi chú phát hành của nó cho thấy lịch sử tinh chỉnh: các heuristic chậm chỉ chạy dưới khoảng 2,000 hàm, và "Same graph" chuyển sang danh mục không đáng tin cậy. Sự chuyển đó là hình thoi bốn khối của bài học này, được thấy ở quy mô lớn.
 
-Binary Ninja 6.0, released 2026-09-03, added Binary Similarity as a framework with providers and resolvers. It ships BinDiff as a structural provider and WARP for exact function matches that tolerate relocatable operands, and its guide says to use WARP when functions match apart from relocatable instructions and BinDiff when they stay structurally related after recompilation. The feature is in the Ultimate edition only. Binary Ninja has no package manager install here and was not run, so this paragraph comes from its documentation and nothing else.
+Binary Ninja 6.0, được phát hành 2026-09-03, thêm Binary Similarity dưới dạng một framework với các provider và resolver. Nó cung cấp BinDiff làm một provider cấu trúc và WARP cho các mục khớp hàm chính xác chấp nhận các toán hạng có thể relocation, và hướng dẫn của nó nói dùng WARP khi các hàm khớp ngoài các lệnh có thể relocation và BinDiff khi chúng vẫn liên quan về cấu trúc sau khi biên dịch lại. Tính năng chỉ có trong bản Ultimate. Binary Ninja không có bản cài qua trình quản lý gói ở đây và không được chạy, nên đoạn này đến từ tài liệu của nó và không gì khác.
 
-BinDiff itself has been open source since 2023-09-25 under Apache-2.0, with v8 the latest release. It needs a disassembler and the BinExport plugin, which supports IDA Pro 9.4 or later, Binary Ninja, and Ghidra. The free path for a learner is Ghidra plus BinExport plus the BinDiff command line. The lesson did not run it, and its Practice Lab asks you to.
+Bản thân BinDiff đã là mã nguồn mở từ 2023-09-25 theo Apache-2.0, với v8 là bản phát hành mới nhất. Nó cần một trình disassemble và plugin BinExport, hỗ trợ IDA Pro 9.4 trở về sau, Binary Ninja, và Ghidra. Con đường miễn phí cho người học là Ghidra cộng BinExport cộng dòng lệnh BinDiff. Bài học không chạy nó, và Practice Lab của nó yêu cầu bạn làm.
 
 ## Same Code, Different Constant
 
-Lesson 36 kept a candidate rebuild of `grade` whose table has 3 as its last entry, where the original has 4. `grade_case10_wrong.o` has the same 46 code bytes as `grade` at `-O1`. The matcher pairs them on exact bytes with every signature agreeing. The referenced-table check reads `1, 2, 3, 4, 4` through one relocation and `1, 2, 3, 4, 3` through the other and reports `dataEqual: false`. The three other `-O1` functions are unmatched on the left, because the candidate object holds one function.
+Bài 36 giữ một bản dựng lại ứng viên của `grade` có bảng với 3 ở mục cuối, nơi bản gốc có 4. `grade_case10_wrong.o` có cùng 46 byte mã như `grade` tại `-O1`. Bộ ghép ghép chúng trên các byte chính xác với mọi chữ ký thống nhất. Phép kiểm tra bảng được tham chiếu đọc `1, 2, 3, 4, 4` qua một relocation và `1, 2, 3, 4, 3` qua relocation kia và báo cáo `dataEqual: false`. Ba hàm `-O1` còn lại chưa được ghép ở bên trái, vì tệp đối tượng ứng viên giữ một hàm.
 
-This is the patch-analysis shape. A function differ that stops at bytes says nothing changed. Ghidra's Exact Data Match and BinDiff's string-reference matching exist for the same reason. The lesson's version is small: for every matched pair, compare the bytes each function's relocations point at, with the count from the bounds check and the width from the load.
+Đây là hình dạng phân tích bản vá. Một bộ so sánh khác biệt hàm dừng ở các byte nói không có gì thay đổi. Exact Data Match của Ghidra và ghép tham chiếu chuỗi của BinDiff tồn tại vì cùng lý do. Phiên bản của bài học nhỏ: với mọi cặp được ghép, so sánh các byte mà các relocation của mỗi hàm trỏ đến, với số lượng từ phép kiểm tra cận và độ rộng từ phép nạp.
 
 ## Symbolic Execution: Paths, Conditions, Solvers
 
-King described symbolic execution in 1976. Inputs become symbols. Each statement updates a symbolic store. Each branch adds a condition to the path, and a solver decides whether the path is feasible and produces a concrete input that follows it. A function with branches becomes a tree of paths, and a leaf is a return with a condition attached.
+King mô tả thực thi ký hiệu vào năm 1976. Các đầu vào trở thành các ký hiệu. Mỗi câu lệnh cập nhật một kho lưu trữ ký hiệu. Mỗi nhánh thêm một điều kiện vào đường đi, và một bộ giải quyết định liệu đường đi có khả thi và tạo ra một đầu vào cụ thể đi theo nó. Một hàm có các nhánh trở thành một cây đường đi, và một lá là một lệnh trả về có điều kiện gắn kèm.
 
-Baldoni, Coppa, D'Elia, Demetrescu, and Finocchi surveyed the field in 2018. Their section 5 names path explosion as the central cost: an executor may fork at every branch, so the state count can grow exponentially in the number of branches, and a loop whose bound depends on a symbolic input gives an unbounded set of paths. The mitigations they list are pruning unrealizable paths by solving at each branch, summaries for functions and loops, state merging, and under-approximation. Concolic execution runs the program concretely and symbolically at once, records the conditions along the concrete run, negates one, and asks the solver for the next input. DART (2005), CUTE (2005), and SAGE (2008) are the named systems.
+Baldoni, Coppa, D'Elia, Demetrescu, và Finocchi khảo sát lĩnh vực này vào năm 2018. Mục 5 của họ nêu sự bùng nổ đường đi là chi phí trung tâm: một bộ thực thi có thể phân nhánh tại mỗi nhánh, nên số trạng thái có thể tăng theo hàm mũ theo số nhánh, và một vòng lặp có cận phụ thuộc vào một đầu vào ký hiệu cho một tập đường đi không bị chặn. Các biện pháp giảm thiểu họ liệt kê là cắt các đường đi không thể thực hiện bằng cách giải tại mỗi nhánh, các bản tóm tắt cho các hàm và vòng lặp, gộp trạng thái, và xấp xỉ dưới. Thực thi concolic chạy chương trình đồng thời một cách cụ thể và ký hiệu, ghi lại các điều kiện dọc theo lần chạy cụ thể, phủ định một điều kiện, và hỏi bộ giải để tìm đầu vào tiếp theo. DART (2005), CUTE (2005), và SAGE (2008) là các hệ thống được nêu tên.
 
-KLEE (Cadar, Dunbar, Engler, OSDI 2008) is a symbolic virtual machine over LLVM bitcode, so its input is `clang -emit-llvm` output and not a binary. It ships a POSIX environment model and a replay library. On the 89 GNU coreutils programs it reached 84.5% line coverage against 67.7% for the developers' tests and found 56 serious bugs. KLEE 3.2 was released 2025-12-23 under the NCSA licence, with LLVM 16 recommended.
+KLEE (Cadar, Dunbar, Engler, OSDI 2008) là một máy ảo ký hiệu trên LLVM bitcode, nên đầu vào của nó là đầu ra `clang -emit-llvm` chứ không phải một tệp nhị phân. Nó cung cấp một mô hình môi trường POSIX và một thư viện phát lại. Trên 89 chương trình GNU coreutils nó đạt độ bao phủ dòng 84.5% so với 67.7% cho các kiểm thử của nhà phát triển và tìm thấy 56 lỗi nghiêm trọng. KLEE 3.2 được phát hành 2025-12-23 theo giấy phép NCSA, với LLVM 16 được khuyến nghị.
 
-angr works on binaries. `angr.Project` holds a CLE loader that maps the object and applies relocations, a lifter that turns a block into VEX IR (`block.vex`) with pypcode as an alternative, and a factory for states. A `SimState` holds registers, memory, and a solver. A `SimulationManager` steps stashes of states named `active`, `deadended`, `found`, `avoided`, and `errored`, and `explore(find=..., avoid=...)` wraps it. Per step the engines run in order: failure, syscall, hook, unicorn for concrete data, and VEX as the fallback. claripy is the solver front end over Z3, and in angr 10.0 it is a vendored Rust implementation imported as `from angr import claripy`. angr 10.0.3 was uploaded on 2026-10-10, is BSD-2-Clause, and needs Python 3.12 or later. Z3 5.1.0, released 2026-08-16 under MIT, is the solver behind angr, Triton, and KLEE's optional backend.
+angr hoạt động trên các tệp nhị phân. `angr.Project` giữ một loader CLE ánh xạ tệp đối tượng và áp dụng các relocation, một lifter chuyển một khối thành VEX IR (`block.vex`) với pypcode là một lựa chọn thay thế, và một factory cho các trạng thái. Một `SimState` giữ các thanh ghi, bộ nhớ, và một bộ giải. Một `SimulationManager` chạy bước các stash trạng thái tên `active`, `deadended`, `found`, `avoided`, và `errored`, và `explore(find=..., avoid=...)` bọc nó. Với mỗi bước các engine chạy theo thứ tự: lỗi, syscall, hook, unicorn cho dữ liệu cụ thể, và VEX làm phương án dự phòng. claripy là front end bộ giải trên Z3, và trong angr 10.0 nó là một triển khai Rust được đóng gói được import là `from angr import claripy`. angr 10.0.3 được tải lên vào 2026-10-10, là BSD-2-Clause, và cần Python 3.12 trở về sau. Z3 5.1.0, được phát hành 2026-08-16 theo MIT, là bộ giải đằng sau angr, Triton, và backend tùy chọn của KLEE.
 
 ## A Tiny Executor Over the Lesson 34 IR
 
-The executor in `code/main.py` uses a small IR with the statement shapes of lesson 34: `Assign`, `Branch`, `Jump`, `Return`, plus the `Switch` terminator that lesson 34's Practice Lab asked for. Expressions are `Const`, `Var`, `Bin` with a width, `Cast`, `Load` from a named concrete table, and `Not`. The four fixture functions are lifted by hand at the level lesson 34 reaches after simplification, where the `0x66666667` multiply has become `score / 10`, and every IR block lists the instruction addresses it came from. `check_ir_against_listing()` asserts that the addresses cover the function's listing exactly once.
+Bộ thực thi trong `code/main.py` dùng một IR nhỏ với các dạng câu lệnh của bài 34: `Assign`, `Branch`, `Jump`, `Return`, cộng terminator `Switch` mà Practice Lab của bài 34 đã yêu cầu. Các biểu thức là `Const`, `Var`, `Bin` có một độ rộng, `Cast`, `Load` từ một bảng cụ thể có tên, và `Not`. Bốn hàm fixture được nâng bằng tay ở mức mà bài 34 đạt sau khi đơn giản hóa, nơi phép nhân `0x66666667` đã trở thành `score / 10`, và mọi khối IR liệt kê các địa chỉ lệnh mà nó đến từ. `check_ir_against_listing()` khẳng định rằng các địa chỉ bao phủ bản liệt kê của hàm đúng một lần.
 
-`grade` at `-O0` in that IR:
+`grade` tại `-O0` trong IR đó:
 
 ```text
 0x30: local_8 = score; local_10 = score / 10 - 6; if (local_10 >u 4) goto 0x9a else 0x62
@@ -188,91 +188,91 @@ The executor in `code/main.py` uses a small IR with the statement shapes of less
 0x9a: local_4 = 0                    0xa1: return local_4
 ```
 
-The switch targets come from `jump_table_targets()`, the same relocation arithmetic as lesson 33, so the IR reads the fixture.
+Các đích switch đến từ `jump_table_targets()`, cùng phép tính relocation như bài 33, nên IR đọc fixture.
 
-`execute()` keeps a worklist of path states. A state has the current block, the trace of blocks, the condition list, and an environment that maps each variable to an expression over the inputs. `Assign` substitutes the environment into the source and stores the result. `Branch` substitutes into the condition, then asks the solver twice: once with the condition added, once with its negation. A side the solver cannot satisfy is dropped, which is the eager pruning the survey describes. `Switch` groups the table entries by target and forks once per distinct target with the disjunction of the entry equalities, which is how angr treats a symbolic jump target too. `Return` substitutes into the value and closes the leaf. A trace longer than the step limit marks the path truncated and stops it.
+`execute()` giữ một danh sách công việc các trạng thái đường đi. Một trạng thái có khối hiện tại, vết các khối, danh sách điều kiện, và một môi trường ánh xạ mỗi biến đến một biểu thức trên các đầu vào. `Assign` thay thế môi trường vào nguồn và lưu kết quả. `Branch` thay thế vào điều kiện, rồi hỏi bộ giải hai lần: một lần với điều kiện được thêm, một lần với phủ định của nó. Một phía mà bộ giải không thể thỏa mãn bị bỏ, là việc cắt tỉa sớm mà khảo sát mô tả. `Switch` nhóm các mục bảng theo đích và phân nhánh một lần cho mỗi đích phân biệt với phép tuyển của các đẳng thức mục, cũng là cách angr xử lý một đích nhảy ký hiệu. `Return` thay thế vào giá trị và đóng lá. Một vết dài hơn giới hạn bước đánh dấu đường đi là bị cắt ngắn và dừng nó.
 
-Follow the path to `return 4` by hand. The entry assigns `local_10 = score / 10 - 6`. The branch condition `local_10 >u 4` is false on this path, so the condition list holds `!(score / 10 - 6 >u 4)`. The switch entries 3 and 4 both point at 0x76, so the fork to 0x76 adds `score / 10 - 6 == 3 || score / 10 - 6 == 4`. Block 0x76 assigns `local_4 = 4`, jumps to 0xa1, and the return substitutes to `4`. The leaf is the pair of that condition and that value.
+Đi theo đường đến `return 4` bằng tay. Điểm vào gán `local_10 = score / 10 - 6`. Điều kiện nhánh `local_10 >u 4` sai trên đường đi này, nên danh sách điều kiện giữ `!(score / 10 - 6 >u 4)`. Các mục switch 3 và 4 đều trỏ đến 0x76, nên nhánh phân tách đến 0x76 thêm `score / 10 - 6 == 3 || score / 10 - 6 == 4`. Khối 0x76 gán `local_4 = 4`, nhảy đến 0xa1, và lệnh trả về thay thế thành `4`. Lá là cặp điều kiện đó và giá trị đó.
 
-The solver is `BoundedSearch`. It holds a finite domain per input, enumerates the product of the domains, and evaluates each constraint with C semantics: 32-bit wraparound, truncating division, signed and unsigned comparisons, and arithmetic or logical shifts. A division by zero or a table index outside the table makes that assignment fail the constraint. For `score` in -200 to 1200 the five paths of `grade` cost 44,460 evaluations and a few milliseconds. Solving each leaf for the input set gives:
+Bộ giải là `BoundedSearch`. Nó giữ một miền hữu hạn cho mỗi đầu vào, liệt kê tích của các miền, và đánh giá mỗi ràng buộc với ngữ nghĩa C: quay vòng 32 bit, phép chia cắt cụt, các phép so sánh có dấu và không dấu, và các phép dịch số học hoặc logic. Một phép chia cho không hoặc một chỉ mục bảng ngoài bảng khiến phép gán đó không thỏa ràng buộc. Với `score` trong -200 đến 1200, năm đường đi của `grade` tốn 44,460 lần đánh giá và vài mili giây. Giải mỗi lá để tìm tập đầu vào cho:
 
-| Leaf | Returns | Condition | Scores in the bound |
+| Lá | Trả về | Điều kiện | Các điểm số trong cận |
 |---|---|---|---|
-| 0x76 | 4 | `!(q >u 4) && (q == 3 \|\| q == 4)` | 90 to 109, 20 inputs |
-| 0x7f | 3 | `!(q >u 4) && q == 2` | 80 to 89, 10 inputs |
-| 0x88 | 2 | `!(q >u 4) && q == 1` | 70 to 79, 10 inputs |
-| 0x91 | 1 | `!(q >u 4) && q == 0` | 60 to 69, 10 inputs |
-| 0x9a | 0 | `q >u 4` | 1,351 inputs, the rest of the bound |
+| 0x76 | 4 | `!(q >u 4) && (q == 3 \|\| q == 4)` | 90 đến 109, 20 đầu vào |
+| 0x7f | 3 | `!(q >u 4) && q == 2` | 80 đến 89, 10 đầu vào |
+| 0x88 | 2 | `!(q >u 4) && q == 1` | 70 đến 79, 10 đầu vào |
+| 0x91 | 1 | `!(q >u 4) && q == 0` | 60 đến 69, 10 đầu vào |
+| 0x9a | 0 | `q >u 4` | 1,351 đầu vào, phần còn lại của cận |
 
-`q` stands for `score / 10 - 6`. The same classes come out of `grade` at `-O1`, where the IR has two paths, the table path returning `lookup_14[q]` and the default path returning 0, and the question becomes a constraint on the returned value, because there is no case block to reach. The table `lookup_14` is read from the object's `.rodata` at 0x14.
+`q` đại diện cho `score / 10 - 6`. Cùng các lớp xuất hiện từ `grade` tại `-O1`, nơi IR có hai đường đi, đường đi bảng trả về `lookup_14[q]` và đường đi mặc định trả về 0, và câu hỏi trở thành một ràng buộc trên giá trị trả về, vì không có khối case để đến. Bảng `lookup_14` được đọc từ `.rodata` của tệp đối tượng tại 0x14.
 
-The bound is the limit of the method. A bounded search is complete inside its domain and silent outside it. Within -200 to 1200 no score in 60 to 109 returns 0 and no score of 110 or more returns a non-zero value. z3 proves both for all 2^32 scores, and the next section shows where the two methods return different witnesses.
+Cận là giới hạn của phương pháp. Một phép tìm kiếm có giới hạn là đầy đủ bên trong miền của nó và im lặng bên ngoài nó. Trong -200 đến 1200 không điểm số nào trong 60 đến 109 trả về 0 và không điểm số từ 110 trở lên trả về một giá trị khác không. z3 chứng minh cả hai cho tất cả 2^32 điểm số, và mục tiếp theo cho thấy nơi hai phương pháp trả về các nhân chứng khác nhau.
 
 ## Path Explosion Measured
 
-`total` at `-O1` is the loop of lesson 33: a test on `count`, a loop body that adds `values[rdx]` and increments `rdx`, and a `jne` back to the body while `rdx != rcx`. In the IR `rcx` is `zext64(count)` and `rdx` starts at 0. Each pass through the back edge forks on `rdx != count` with `rdx` a constant, so the path for `count = c` runs the body `c` times and exits. With `count` bounded to 0 to 2 the executor finds 3 paths. With 0 to 4 it finds 5, and with 0 to 8 it finds 9. Every path returns the triangular sum of its count: (0, 0), (1, 1), (2, 3), up to (8, 36). angr reports 3, 5, and 9 deadended states and the same nine count-and-sum pairs at all three optimization levels, including `-O2`, whose vector loop needs a count of at least 8 and therefore never changes the path count in this range.
+`total` tại `-O1` là vòng lặp của bài 33: một phép kiểm tra trên `count`, một thân vòng lặp cộng `values[rdx]` và tăng `rdx`, và một `jne` trở lại thân khi `rdx != rcx`. Trong IR `rcx` là `zext64(count)` và `rdx` bắt đầu tại 0. Mỗi lần đi qua cạnh ngược phân nhánh theo `rdx != count` với `rdx` là một hằng số, nên đường đi cho `count = c` chạy thân `c` lần và thoát. Với `count` được giới hạn từ 0 đến 2 bộ thực thi tìm thấy 3 đường đi. Với 0 đến 4 nó tìm thấy 5, và với 0 đến 8 nó tìm thấy 9. Mỗi đường đi trả về tổng tam giác của số đếm của nó: (0, 0), (1, 1), (2, 3), đến (8, 36). angr báo cáo 3, 5, và 9 trạng thái deadended và cùng chín cặp số đếm-và-tổng ở cả ba mức tối ưu hóa, bao gồm `-O2`, có vòng lặp vector cần số đếm ít nhất bằng 8 và do đó không bao giờ thay đổi số đường đi trong phạm vi này.
 
-With no bound the executor never finishes, because every iteration count is one more feasible path. The lesson's cap of 24 blocks per path, run with `count` up to 64, returns 22 paths, truncates 2, and never starts the other 41 of the 65 that exist. The report gives those three numbers. The solve cost grows too: 33 evaluations at bound 2, 115 at 4, 531 at 8, and 6,900 for the capped run.
+Không có cận bộ thực thi không bao giờ hoàn tất, vì mỗi số lần lặp là thêm một đường đi khả thi. Mức trần 24 khối cho mỗi đường đi của bài học, chạy với `count` đến 64, trả về 22 đường đi, cắt ngắn 2, và không bao giờ bắt đầu 41 đường đi còn lại trong 65 đường đi tồn tại. Báo cáo cho ba con số đó. Chi phí giải cũng tăng: 33 lần đánh giá tại cận 2, 115 tại 4, 531 tại 8, và 6,900 cho lần chạy có mức trần.
 
 ## angr and z3 on the Same Questions
 
-`capture_angr.py` ran angr 10.0.3 over the three objects. CLE loaded each relocatable object with the ELF backend at 0x400000, applied 13 relocations for `-O0` and 8 for the others, and resolved the four symbols. For `grade` with one symbolic 64-bit argument, `run()` ended with 5 deadended states at `-O0` and 2 at `-O1` and `-O2`, in 0.475, 0.408, and 0.318 seconds. Adding `eax == v` to each deadended state and asking the solver for the signed minimum and maximum gave 60 to 69, 70 to 79, 80 to 89, and 90 to 109 for `v` from 1 to 4 at every level, and -2147483648 to 2147483647 for 0. Both cross checks were unsat.
+`capture_angr.py` chạy angr 10.0.3 trên ba tệp đối tượng. CLE nạp mỗi tệp đối tượng có thể relocation bằng backend ELF tại 0x400000, áp dụng 13 relocation cho `-O0` và 8 cho các bản khác, và phân giải bốn ký hiệu. Với `grade` có một đối số ký hiệu 64 bit, `run()` kết thúc với 5 trạng thái deadended tại `-O0` và 2 tại `-O1` và `-O2`, trong 0.475, 0.408, và 0.318 giây. Thêm `eax == v` vào mỗi trạng thái deadended và hỏi bộ giải để tìm giá trị nhỏ nhất và lớn nhất có dấu cho 60 đến 69, 70 đến 79, 80 đến 89, và 90 đến 109 với `v` từ 1 đến 4 ở mọi mức, và -2147483648 đến 2147483647 cho 0. Cả hai phép kiểm tra chéo đều unsat.
 
-The reach-a-block form used CFGFast on `grade` at `-O0`, which lists the eight blocks lesson 33 found, then `explore(find=0x400076)` for the block that stores 4. It found one state with three still active in 0.47 seconds, with minimum 90 and maximum 109 on the argument and samples 91, 93, 94, 97, and 101.
+Dạng đến-một-khối dùng CFGFast trên `grade` tại `-O0`, liệt kê tám khối mà bài 33 tìm thấy, rồi `explore(find=0x400076)` cho khối lưu 4. Nó tìm thấy một trạng thái với ba trạng thái vẫn active trong 0.47 giây, với giá trị nhỏ nhất 90 và lớn nhất 109 trên đối số và các mẫu 91, 93, 94, 97, và 101.
 
-For `percent_change`, two deadended states with the constraints `before[31:0] != 0` and `before[31:0] == 0`. Asking the non-zero state for `eax == 50` gave `before = 21055744, after = 332315210` at `-O0`, `40566804, 834296877` at `-O1`, and `-24484867, 993934694` at `-O2`. The bounded search in -16 to 16 answers `before = -10, after = -15`. z3, asked the same question over the lesson 34 listing, answers `before = -25092599, after = 305712160`. The test suite evaluates all five pairs with the IR evaluator and each gives 50. A model proves that an input exists. It is not the input, and three correct tools gave three different ones.
+Với `percent_change`, hai trạng thái deadended với các ràng buộc `before[31:0] != 0` và `before[31:0] == 0`. Hỏi trạng thái khác không để tìm `eax == 50` cho `before = 21055744, after = 332315210` tại `-O0`, `40566804, 834296877` tại `-O1`, và `-24484867, 993934694` tại `-O2`. Phép tìm kiếm có giới hạn trong -16 đến 16 trả lời `before = -10, after = -15`. z3, được hỏi cùng câu hỏi trên bản liệt kê bài 34, trả lời `before = -25092599, after = 305712160`. Bộ kiểm thử đánh giá cả năm cặp bằng bộ đánh giá IR và mỗi cặp cho 50. Một mô hình chứng minh rằng một đầu vào tồn tại. Nó không phải đầu vào duy nhất, và ba công cụ đúng cho ba đầu vào khác nhau.
 
-`capture_z3.py` models the `-O1` listing of `grade` in 32-bit bit-vectors with the multiply, the two shifts, and the table, and asks four more questions. The listing differs from the source `switch` for some 32-bit score: unsat in 0.068 seconds, so the compiled function equals the source on all 2^32 inputs. The listing differs from lesson 36's threshold rebuild: sat at score 706346536, where `score / 10` is 70634653 and the switch falls to the default while the thresholds return 4. The same difference restricted to 0 to 109: unsat, which is why lesson 36's grid could not see it. For `percent_change`, `before == 3` with result -133 is sat with `after = 1073741823`, the overflow cell of lesson 36, and the bounded search finds a second witness inside its domain, `after = -1`, where `(-1 - 3) * 100 / 3` truncates to -133 with no overflow at all.
+`capture_z3.py` mô hình hóa bản liệt kê `-O1` của `grade` bằng các bit-vector 32 bit với phép nhân, hai phép dịch, và bảng, và hỏi thêm bốn câu hỏi. Bản liệt kê khác với `switch` mã nguồn cho một điểm số 32 bit nào đó: unsat trong 0.068 giây, nên hàm đã biên dịch bằng với mã nguồn trên tất cả 2^32 đầu vào. Bản liệt kê khác với bản dựng lại theo ngưỡng của bài 36: sat tại điểm số 706346536, nơi `score / 10` là 70634653 và switch rơi vào mặc định trong khi các ngưỡng trả về 4. Cùng sự khác biệt giới hạn trong 0 đến 109: unsat, đó là lý do lưới của bài 36 không thể thấy nó. Với `percent_change`, `before == 3` với kết quả -133 là sat với `after = 1073741823`, ô tràn của bài 36, và phép tìm kiếm có giới hạn tìm thấy một nhân chứng thứ hai bên trong miền của nó, `after = -1`, nơi `(-1 - 3) * 100 / 3` cắt cụt thành -133 mà hoàn toàn không tràn.
 
 ## Build It
 
-Run the demo:
+Chạy demo:
 
 ```bash
 cd phases/13-tools-and-protocols/44-binary-diffing-and-symbolic-execution
 python3 code/main.py
 ```
 
-The output is one JSON report. `diffs` holds the object-file and loaded-image matches for `-O0` against `-O1` and `-O1` against `-O2`, plus the `-O0` pair in the BinDiff order. `toolComparison` puts the lesson's stage next to the radiff2 verdict and ratio and the Ghidra correlators for every function. `patch` is the `grade_case10_wrong.o` case. `radare2Ratios` reproduces the radiff2 numbers, `gradeRelocationCase` shows the layout and the two displacements, and `symbolic` holds the paths, classes, and explosion counts.
+Đầu ra là một báo cáo JSON. `diffs` giữ các mục khớp tệp đối tượng và ảnh đã nạp cho `-O0` so với `-O1` và `-O1` so với `-O2`, cộng cặp `-O0` theo thứ tự BinDiff. `toolComparison` đặt giai đoạn của bài học cạnh kết luận và tỷ lệ radiff2 cùng các correlator Ghidra cho mọi hàm. `patch` là trường hợp `grade_case10_wrong.o`. `radare2Ratios` tái tạo các con số radiff2, `gradeRelocationCase` hiển thị bố cục và hai displacement, và `symbolic` giữ các đường đi, lớp, và số lượng bùng nổ.
 
-Read `code/main.py` in this order:
+Đọc `code/main.py` theo thứ tự này:
 
-1. `ElfObject` reads sections, symbols, and `.rela.*` records. `parse_listing()` reads the `llvm-objdump` text.
-2. `jump_table_targets()` and `build_cfg()` give reachable blocks and typed edges. `FunctionRecord.signatures()` builds the five signatures.
-3. `load_image()` lays out the allocated sections and applies `S + A - P` and `S + A`.
-4. `match_functions()` is the staged matcher. `levenshtein()` and `radare2_ratio()` give the similarity.
-5. `parse_radiff2()` and `parse_ghidra_vt()` read the captured tool outputs for the comparison.
-6. `evaluate()`, `substitute()`, and `BoundedSearch` are the expression semantics and the solver.
-7. `execute()` enumerates paths. `solve_returns()` asks each leaf for an input set.
-8. `grade_ir_o0()`, `grade_ir_o1()`, `percent_change_ir_o1()`, and `total_ir_o1()` are the hand lifts with their instruction addresses.
+1. `ElfObject` đọc các section, ký hiệu, và bản ghi `.rela.*`. `parse_listing()` đọc văn bản `llvm-objdump`.
+2. `jump_table_targets()` và `build_cfg()` cho các khối có thể tiếp cận và các cạnh có kiểu. `FunctionRecord.signatures()` dựng năm chữ ký.
+3. `load_image()` bố trí các section được cấp phát và áp dụng `S + A - P` và `S + A`.
+4. `match_functions()` là bộ ghép theo giai đoạn. `levenshtein()` và `radare2_ratio()` cho độ tương tự.
+5. `parse_radiff2()` và `parse_ghidra_vt()` đọc các đầu ra công cụ đã thu lại cho phép so sánh.
+6. `evaluate()`, `substitute()`, và `BoundedSearch` là ngữ nghĩa biểu thức và bộ giải.
+7. `execute()` liệt kê các đường đi. `solve_returns()` hỏi mỗi lá để tìm một tập đầu vào.
+8. `grade_ir_o0()`, `grade_ir_o1()`, `percent_change_ir_o1()`, và `total_ir_o1()` là các bản nâng bằng tay với các địa chỉ lệnh của chúng.
 
-Three more commands exist. `python3 code/main.py diff A.o B.o` diffs two objects whose listings sit beside them, and `--image` diffs their loaded images. `python3 code/main.py paths grade O0` prints the paths and classes of one function, `paths total 8` the loop with a bound. `python3 code/main.py figure-data` prints the data the interactive figure embeds.
+Có thêm ba lệnh. `python3 code/main.py diff A.o B.o` so sánh khác biệt hai tệp đối tượng có các bản liệt kê nằm cạnh chúng, và `--image` so sánh khác biệt các ảnh đã nạp của chúng. `python3 code/main.py paths grade O0` in các đường đi và lớp của một hàm, `paths total 8` in vòng lặp có một cận. `python3 code/main.py figure-data` in dữ liệu mà figure tương tác nhúng.
 
 ## Use It
 
-Use the differ and the executor in this order on two builds of your own program.
+Dùng bộ so sánh khác biệt và bộ thực thi theo thứ tự này trên hai bản dựng của chương trình của chính bạn.
 
-1. Capture a listing for each object and let `function_record()` verify it against the bytes. Fix the listing before anything else.
-2. Diff the object files first. Read the stage of every match and treat flow-graph shape matches as suggestions until a second signature agrees.
-3. Diff the loaded images. A function that drops from exact bytes to masked bytes moved relative to its data, and the displacement arithmetic names the section that moved.
-4. For every match, compare the referenced tables. Same code with different constants is a modified function.
-5. Run the names stage and compare. When the build has symbols, run the BinDiff order and use the structural result only to grade the stages.
-6. When a tool reports a ratio, find out which bytes went into it before you compare it with your own.
-7. For the function whose inputs you want, write the IR with one address per statement, run `execute()` with a bound on every symbolic loop counter, and solve each leaf. Report the bound with the result.
-8. Run the same query through angr or z3 when they are available and compare the class bounds. A sample is one model.
+1. Thu lại một bản liệt kê cho mỗi tệp đối tượng và để `function_record()` xác minh nó với các byte. Sửa bản liệt kê trước bất cứ điều gì khác.
+2. So sánh khác biệt các tệp đối tượng trước. Đọc giai đoạn của mọi mục khớp và coi các mục khớp hình dạng đồ thị luồng là các gợi ý cho đến khi một chữ ký thứ hai thống nhất.
+3. So sánh khác biệt các ảnh đã nạp. Một hàm rơi từ byte chính xác xuống byte được che đã di chuyển tương đối với dữ liệu của nó, và phép tính displacement nêu section đã di chuyển.
+4. Với mọi mục khớp, so sánh các bảng được tham chiếu. Cùng mã với các hằng số khác nhau là một hàm đã sửa đổi.
+5. Chạy giai đoạn tên và so sánh. Khi bản dựng có các ký hiệu, chạy thứ tự BinDiff và chỉ dùng kết quả cấu trúc để chấm các giai đoạn.
+6. Khi một công cụ báo cáo một tỷ lệ, tìm hiểu những byte nào được đưa vào nó trước khi bạn so sánh nó với tỷ lệ của chính bạn.
+7. Với hàm mà bạn muốn các đầu vào, viết IR với một địa chỉ cho mỗi câu lệnh, chạy `execute()` với một cận trên mọi bộ đếm vòng lặp ký hiệu, và giải mỗi lá. Báo cáo cận cùng kết quả.
+8. Chạy cùng truy vấn qua angr hoặc z3 khi chúng có sẵn và so sánh các cận lớp. Một mẫu là một mô hình.
 
 ## Interactive Lab
 
 ### Lab A: five signatures by hand
 
-From the `code` directory, open Python:
+Từ thư mục `code`, mở Python:
 
 ```bash
 cd phases/13-tools-and-protocols/44-binary-diffing-and-symbolic-execution/code
 python3 -q
 ```
 
-Run:
+Chạy:
 
 ```python
 from main import *
@@ -284,7 +284,7 @@ grade.cfg_shape()
 grade.signatures()
 ```
 
-Write down the four bytes at offset 0x26 of the function before you print `grade.raw`. Then run the same lines on `grade` from `ledger-x86_64-O0.o` and count the `table` edges in `grade.edges`.
+Viết ra bốn byte tại độ lệch 0x26 của hàm trước khi bạn in `grade.raw`. Sau đó chạy cùng các dòng trên `grade` từ `ledger-x86_64-O0.o` và đếm các cạnh `table` trong `grade.edges`.
 
 ### Lab B: watch the relocation break the byte hash
 
@@ -295,7 +295,7 @@ case["displacements"], case["rodataShift"]
 case["objectBytesEqual"], case["imageBytesEqual"], case["maskedImageBytesEqual"]
 ```
 
-Compute `0x100110 + 0x14 - 0x10003a` on paper before you read `displacements`. Then change the base in `load_image()` to 0x400000 and confirm that the displacements do not change, because both operands move together.
+Tính `0x100110 + 0x14 - 0x10003a` trên giấy trước khi bạn đọc `displacements`. Sau đó thay cơ sở trong `load_image()` thành 0x400000 và xác nhận rằng các displacement không thay đổi, vì cả hai toán hạng di chuyển cùng nhau.
 
 ### Lab C: the false match and the order that avoids it
 
@@ -308,7 +308,7 @@ report = diff_fixtures("ledger-x86_64-O0.o", "ledger-x86_64-O1.o", stages=BINDIF
 [(m.left.name, m.right.name, m.stage) for m in report.matches]
 ```
 
-Print `records(...)["percent_change"].cfg_shape()` for `-O0` and `grade_label` for `-O1` and read the two degree sequences. Then write a sixth stage that hashes the sorted mnemonics, so order no longer matters, and see whether it separates them.
+In `records(...)["percent_change"].cfg_shape()` cho `-O0` và `grade_label` cho `-O1` và đọc hai dãy bậc. Sau đó viết một giai đoạn thứ sáu hash các mnemonic đã sắp xếp, để thứ tự không còn quan trọng, và xem liệu nó có tách chúng hay không.
 
 ### Lab D: paths and the bound
 
@@ -320,29 +320,29 @@ total_paths(2), total_paths(4), total_paths(8)
 total_paths(64, step_limit=24)["truncated"]
 ```
 
-Change `SCORE_DOMAIN` to `range(0, 110)` and rerun `grade_paths("O0")`. The class for 0 shrinks to 60 inputs and the two cross checks still hold. Then set the domain to `range(90, 100)` and read which leaves have no model at all.
+Thay `SCORE_DOMAIN` thành `range(0, 110)` và chạy lại `grade_paths("O0")`. Lớp cho 0 thu nhỏ xuống 60 đầu vào và hai phép kiểm tra chéo vẫn đúng. Sau đó đặt miền thành `range(90, 100)` và đọc những lá nào hoàn toàn không có mô hình.
 
 ## Practice Lab
 
-Run BinDiff on the fixtures and compare it with the three results you already have.
+Chạy BinDiff trên các fixture và so sánh nó với ba kết quả bạn đã có.
 
-Requirements:
+Yêu cầu:
 
-- Install the BinExport extension in Ghidra 12.1.4 and export the three ledger programs. Record the BinExport release tag and the Ghidra version.
-- Install the BinDiff 8 command line and produce the `-O0` versus `-O1` and `-O1` versus `-O2` results with the similarity-only option.
-- Capture the per-function similarity and confidence into `code/fixtures/` with the exact commands in `build_fixtures.sh`.
-- Extend `tool_comparison()` with a `bindiff` column and add a test that compares BinDiff's matched set on `-O1` versus `-O2` with the lesson's masked-bytes set.
-- Write one paragraph that names the algorithm BinDiff used for `grade` and whether it compared loaded images.
+- Cài extension BinExport trong Ghidra 12.1.4 và export ba chương trình ledger. Ghi lại tag phát hành BinExport và phiên bản Ghidra.
+- Cài dòng lệnh BinDiff 8 và tạo các kết quả `-O0` so với `-O1` và `-O1` so với `-O2` với tùy chọn chỉ độ tương tự.
+- Thu lại độ tương tự và độ tin cậy theo hàm vào `code/fixtures/` với các lệnh chính xác trong `build_fixtures.sh`.
+- Mở rộng `tool_comparison()` với một cột `bindiff` và thêm một kiểm thử so sánh tập được ghép của BinDiff trên `-O1` so với `-O2` với tập byte được che của bài học.
+- Viết một đoạn nêu thuật toán BinDiff đã dùng cho `grade` và liệu nó có so sánh các ảnh đã nạp hay không.
 
-Success means the demo prints four tool columns per function and the new test states one equality or one explained difference.
+Thành công nghĩa là demo in bốn cột công cụ cho mỗi hàm và kiểm thử mới nêu một đẳng thức hoặc một sự khác biệt được giải thích.
 
 ## Lesson Artifact
 
-This lesson includes `outputs/skill-binary-diffing-and-symbolic-execution.md`. Use it to turn two builds and a function into a staged diff with a stated quality per match, an explanation of every unmatched or changed function, and a path report with a solved input set per leaf and the bound that produced it.
+Bài học này bao gồm `outputs/skill-binary-diffing-and-symbolic-execution.md`. Dùng nó để chuyển hai bản dựng và một hàm thành một phép diff theo giai đoạn có chất lượng được nêu cho mỗi mục khớp, một lời giải thích cho mọi hàm chưa được ghép hoặc đã thay đổi, và một báo cáo đường đi với một tập đầu vào đã giải cho mỗi lá và cận đã tạo ra nó.
 
 ## Verify It
 
-Run the demo and the suite:
+Chạy demo và bộ kiểm thử:
 
 ```bash
 cd phases/13-tools-and-protocols/44-binary-diffing-and-symbolic-execution
@@ -350,53 +350,53 @@ python3 code/main.py
 python3 -m unittest discover -s code/tests -v
 ```
 
-Verification should prove:
+Xác minh nên chứng minh:
 
-- the symbol tables give the four functions with sizes 46, 118, 66, 39 at `-O0`, 16, 46, 31, 63 at `-O1`, and 16, 46, 140, 63 at `-O2`
-- the `.rela.text` records of the `-O1` object describe as `llvm-objdump -r` prints them
-- every listed instruction lies in its symbol extent and its bytes equal the object, and a changed byte raises
-- `total` at `-O1` has five blocks, five edges, and one self loop, and its shape string is deterministic
-- `grade` at `-O0` recovers five jump-table targets from `.rela.rodata` and has eight blocks and eleven edges
-- without the table, `grade` at `-O0` reaches 82 bytes in four blocks
-- `percent_change` at `-O0` and `grade_label` at `-O1` have the same four-block shape
-- exact and masked hashes agree on every function of a relocatable object
-- `-O1` and `-O2` share bytes for three functions, `-O0` and `-O1` share none
-- the referenced table of `grade` reads `1, 2, 3, 4, 4` and the candidate's reads `1, 2, 3, 4, 3`
-- the loader places `.text`, `.rodata`, and `.rodata.str1.1` where Ghidra placed them in both programs
-- `R_X86_64_PC32` is written as `S + A - P` and gives displacement 122, and `R_X86_64_64` entries in `.data` receive string addresses
-- `grade` bytes agree in the objects and differ in the images by a 0x70 shift, and masking restores the match
-- `-O1` versus `-O2` matches three functions on exact bytes and `total` by name; the image view matches `grade` by masked bytes with similarity 1 - 1/46
-- the lesson order produces one false flow-graph shape match on `-O0` versus `-O1`, and the BinDiff order matches all four by name
-- the patch candidate matches on bytes and fails on referenced data
-- the Levenshtein ratio reproduces 0.130435, 0.106061, 0.269841, 0.171429, 0.426829 over 82 bytes, and the relocated-bytes ratios radiff2 prints with relocations applied
-- radiff2's MATCH set equals the exact-bytes stage, and Ghidra's byte and instruction correlators equal the image view's exact and masked sets
-- Ghidra found only names on `-O0` versus `-O1`, with similarity 1.0 and confidence 10.0 on every match
-- the hand-lifted IR covers every listed instruction once, and the evaluator follows C semantics
-- `grade` has five paths at `-O0` with the switch conditions and two at `-O1` with the same classes
-- the bounded classes 60 to 69, 70 to 79, 80 to 89, 90 to 109 equal angr's at all three levels and z3's, with 5 and 2 deadended states and the reach-a-block range 90 to 109
-- the two cross checks have no model in the bound, in angr, or in z3, and z3 proves the listing equal to the source switch
-- every `percent_change` model from the bounded search, angr, and z3 evaluates to the requested value
-- `total` gives 3, 5, 9 paths with the triangular sums, the same as angr, and the step cap returns 22 and truncates 2
-- the figure data carries both views, the relocation numbers, and five leaves with their input sets, and the site module embeds the same data
+- các bảng ký hiệu cho bốn hàm với các kích thước 46, 118, 66, 39 tại `-O0`, 16, 46, 31, 63 tại `-O1`, và 16, 46, 140, 63 tại `-O2`
+- các bản ghi `.rela.text` của tệp đối tượng `-O1` được mô tả như `llvm-objdump -r` in chúng
+- mọi lệnh được liệt kê nằm trong phạm vi ký hiệu của nó và các byte của nó bằng tệp đối tượng, và một byte thay đổi gây ngoại lệ
+- `total` tại `-O1` có năm khối, năm cạnh, và một vòng tự lặp, và chuỗi hình dạng của nó có tính xác định
+- `grade` tại `-O0` khôi phục năm đích bảng nhảy từ `.rela.rodata` và có tám khối và mười một cạnh
+- không có bảng, `grade` tại `-O0` tiếp cận 82 byte trong bốn khối
+- `percent_change` tại `-O0` và `grade_label` tại `-O1` có cùng hình dạng bốn khối
+- các hash chính xác và được che thống nhất trên mọi hàm của một tệp đối tượng có thể relocation
+- `-O1` và `-O2` dùng chung các byte cho ba hàm, `-O0` và `-O1` không dùng chung hàm nào
+- bảng được tham chiếu của `grade` đọc là `1, 2, 3, 4, 4` và của ứng viên đọc là `1, 2, 3, 4, 3`
+- loader đặt `.text`, `.rodata`, và `.rodata.str1.1` ở nơi Ghidra đặt chúng trong cả hai chương trình
+- `R_X86_64_PC32` được viết là `S + A - P` và cho displacement 122, và các mục `R_X86_64_64` trong `.data` nhận các địa chỉ chuỗi
+- các byte `grade` thống nhất trong các tệp đối tượng và khác trong các ảnh bởi một sự dịch chuyển 0x70, và việc che khôi phục mục khớp
+- `-O1` so với `-O2` ghép ba hàm trên các byte chính xác và `total` theo tên; cách nhìn ảnh ghép `grade` bằng các byte được che với độ tương tự 1 - 1/46
+- thứ tự bài học tạo một mục khớp hình dạng đồ thị luồng sai trên `-O0` so với `-O1`, và thứ tự BinDiff ghép cả bốn theo tên
+- ứng viên bản vá khớp trên các byte và thất bại trên dữ liệu được tham chiếu
+- tỷ lệ Levenshtein tái tạo 0.130435, 0.106061, 0.269841, 0.171429, 0.426829 trên 82 byte, và các tỷ lệ byte đã relocation mà radiff2 in với các relocation được áp dụng
+- tập MATCH của radiff2 bằng giai đoạn byte chính xác, và các correlator byte và lệnh của Ghidra bằng các tập chính xác và được che của cách nhìn ảnh
+- Ghidra chỉ tìm thấy các tên trên `-O0` so với `-O1`, với độ tương tự 1.0 và độ tin cậy 10.0 trên mọi mục khớp
+- IR được nâng bằng tay bao phủ mọi lệnh được liệt kê một lần, và bộ đánh giá tuân theo ngữ nghĩa C
+- `grade` có năm đường đi tại `-O0` với các điều kiện switch và hai tại `-O1` với cùng các lớp
+- các lớp có giới hạn 60 đến 69, 70 đến 79, 80 đến 89, 90 đến 109 bằng của angr ở cả ba mức và của z3, với 5 và 2 trạng thái deadended và phạm vi đến-một-khối 90 đến 109
+- hai phép kiểm tra chéo không có mô hình trong cận, trong angr, hoặc trong z3, và z3 chứng minh bản liệt kê bằng với switch mã nguồn
+- mọi mô hình `percent_change` từ phép tìm kiếm có giới hạn, angr, và z3 được đánh giá thành giá trị yêu cầu
+- `total` cho 3, 5, 9 đường đi với các tổng tam giác, giống angr, và mức trần bước trả về 22 và cắt ngắn 2
+- dữ liệu figure mang cả hai cách nhìn, các con số relocation, và năm lá cùng các tập đầu vào của chúng, và mô-đun site nhúng cùng dữ liệu
 
 ## Production Failure Modes
 
-| Failure | What the weak tool reports | What the analysis must prove |
+| Lỗi | Công cụ yếu báo cáo gì | Phân tích phải chứng minh gì |
 |---|---|---|
-| Byte hash on a loaded image | "grade modified" between two builds with identical code | The field offset, the two displacements, and the section shift; the masked hash matches |
-| Masked hash on a relocatable object | "masking made no difference" | The fields were already zero; the relocation records and the referenced constants carry the change |
-| Flow-graph shape alone | A confident pair of unrelated functions | A second signature agrees, or the names contradict and the match is dropped |
-| Names before structure on a stripped build | Nothing matches | The structural stages with their qualities, and the unmatched list |
-| A ratio compared across tools | "radiff2 says 0.43 and the lesson says 0.30" | Which bytes each side fingerprinted; 82 bytes without relocations, 118 with |
-| Same code, different constant | "exact match" | The table read through the relocation and the bounds check |
-| One model reported as the input | "the score is 90" | The class 90 to 109 with its count, and the bound it was found in |
-| Bounded search reported as unsat | "no input gives -133" | Unsat inside the bound only; z3 finds 1073741823 outside it |
-| Symbolic loop without a bound | A timeout | The bound or the cap, the paths returned, truncated, and never started |
-| Closed tool described as run | Numbers with no capture | A capture file with the command and version, or a sentence saying documentation only |
+| Hash byte trên một ảnh đã nạp | "grade bị sửa đổi" giữa hai bản dựng có mã giống hệt | Độ lệch trường, hai displacement, và sự dịch chuyển section; hash được che khớp |
+| Hash được che trên một tệp đối tượng có thể relocation | "việc che không tạo khác biệt" | Các trường đã bằng không; các bản ghi relocation và các hằng số được tham chiếu mang thay đổi |
+| Chỉ hình dạng đồ thị luồng | Một cặp tự tin gồm các hàm không liên quan | Một chữ ký thứ hai thống nhất, hoặc các tên mâu thuẫn và mục khớp bị bỏ |
+| Các tên trước cấu trúc trên một bản dựng đã strip | Không có gì khớp | Các giai đoạn cấu trúc với các chất lượng của chúng, và danh sách chưa được ghép |
+| Một tỷ lệ được so sánh giữa các công cụ | "radiff2 nói 0.43 và bài học nói 0.30" | Những byte nào mỗi phía đã lấy fingerprint; 82 byte không có relocation, 118 khi có |
+| Cùng mã, hằng số khác | "khớp chính xác" | Bảng được đọc qua relocation và phép kiểm tra cận |
+| Một mô hình được báo cáo là đầu vào | "điểm số là 90" | Lớp 90 đến 109 cùng số lượng của nó, và cận mà nó được tìm thấy trong |
+| Phép tìm kiếm có giới hạn được báo cáo là unsat | "không đầu vào nào cho -133" | Chỉ unsat bên trong cận; z3 tìm thấy 1073741823 bên ngoài nó |
+| Vòng lặp ký hiệu không có cận | Một timeout | Cận hoặc mức trần, các đường đi được trả về, bị cắt ngắn, và chưa bao giờ bắt đầu |
+| Công cụ đóng được mô tả là đã chạy | Các con số không có bản thu | Một tệp bản thu có lệnh và phiên bản, hoặc một câu nói chỉ dựa trên tài liệu |
 
 ## Operational Rule
 
-Match on one signature at a time, accept only values unique on both sides, and keep the stage and its quality with the match. Diff the objects and the loaded images and explain every function that changes stage between the two. Enumerate paths with a solver at every branch, bound every symbolic loop, and report an input set with its bound. A single model without a bound is a sample.
+Ghép trên từng chữ ký một, chỉ chấp nhận các giá trị duy nhất ở cả hai phía, và giữ giai đoạn cùng chất lượng của nó với mục khớp. So sánh khác biệt các tệp đối tượng và các ảnh đã nạp và giải thích mọi hàm thay đổi giai đoạn giữa hai cách. Liệt kê các đường đi với một bộ giải tại mọi nhánh, đặt cận mọi vòng lặp ký hiệu, và báo cáo một tập đầu vào cùng cận của nó. Một mô hình đơn lẻ không có cận là một mẫu.
 
 ## Further Reading
 
@@ -408,14 +408,14 @@ Match on one signature at a time, accept only values unique on both sides, and k
 - [Ghidra Version Tracking correlators help page](https://github.com/NationalSecurityAgency/ghidra/blob/master/Ghidra/Features/VersionTracking/src/main/help/help/topics/VersionTrackingPlugin/VT_Correlators.html)
 - [Ghidra Auto Version Tracking help page](https://www.ghidradocs.com/11.0_PUBLIC/help/VersionTracking/help/topics/VersionTrackingPlugin/VT_AutoVT.html)
 - [Ghidra 12.1.4 release](https://github.com/NationalSecurityAgency/ghidra/releases)
-- [Binary Ninja 6.0 "Krypton" release notes](https://binary.ninja/2026/09/03/binary-ninja-6.0-krypton.html) and [Binary Similarity user guide](https://docs.binary.ninja/guide/similarity.html)
-- [radare2 book: radiff2](https://book.rada.re/tools/radiff2/intro.html) and [radare2 6.2.4 source](https://github.com/radareorg/radare2/releases/tag/6.2.4)
+- [Ghi chú phát hành Binary Ninja 6.0 "Krypton"](https://binary.ninja/2026/09/03/binary-ninja-6.0-krypton.html) và [Hướng dẫn người dùng Binary Similarity](https://docs.binary.ninja/guide/similarity.html)
+- [Sách radare2: radiff2](https://book.rada.re/tools/radiff2/intro.html) và [Mã nguồn radare2 6.2.4](https://github.com/radareorg/radare2/releases/tag/6.2.4)
 - [King, "Symbolic execution and program testing" (CACM 1976)](https://dl.acm.org/doi/10.1145/360248.360252)
 - [Baldoni et al., "A Survey of Symbolic Execution Techniques" (ACM Computing Surveys 2018)](https://dl.acm.org/doi/10.1145/3182657)
 - [Cadar, Sen, "Symbolic execution for software testing: three decades later" (CACM 2013)](https://dl.acm.org/doi/10.1145/2408776.2408795)
-- [Cadar, Dunbar, Engler, "KLEE: Unassisted and Automatic Generation of High-Coverage Tests for Complex Systems Programs" (OSDI 2008)](https://www.usenix.org/legacy/events/osdi08/tech/full_papers/cadar/cadar.pdf) and [KLEE 3.2 release](https://github.com/klee/klee/releases/tag/v3.2)
+- [Cadar, Dunbar, Engler, "KLEE: Unassisted and Automatic Generation of High-Coverage Tests for Complex Systems Programs" (OSDI 2008)](https://www.usenix.org/legacy/events/osdi08/tech/full_papers/cadar/cadar.pdf) và [Bản phát hành KLEE 3.2](https://github.com/klee/klee/releases/tag/v3.2)
 - [Shoshitaishvili et al., "SoK: (State of) The Art of War: Offensive Techniques in Binary Analysis" (IEEE S&P 2016)](https://oaklandsok.github.io/papers/shoshitaishvili2016.pdf)
-- [angr documentation: loading, simulation managers, and the simulation pipeline](https://docs.angr.io/en/latest/core-concepts/toplevel.html) and [angr 10.0.3 on PyPI](https://pypi.org/project/angr/)
+- [Tài liệu angr: nạp, các trình quản lý mô phỏng, và pipeline mô phỏng](https://docs.angr.io/en/latest/core-concepts/toplevel.html) và [angr 10.0.3 trên PyPI](https://pypi.org/project/angr/)
 - [Z3 5.1.0 release](https://github.com/Z3Prover/z3/releases/tag/z3-5.1.0)
 - [Triton dynamic binary analysis library](https://github.com/JonathanSalwan/Triton)
 - [System V Application Binary Interface, AMD64 Architecture Processor Supplement, Table 4.9: Relocation Types](https://gitlab.com/x86-psABIs/x86-64-ABI)

@@ -10,7 +10,7 @@
 ## Learning Objectives
 
 - Mô tả Claude computer use: ảnh chụp màn hình đầu vào, lệnh bàn phím/chuột đầu ra, không có API trợ năng.
-- Nêu các số liệu benchmark của ba mô hình trên OSWorld / WebArena / Online-Mind2Web.
+- Nhớ lại các số liệu benchmark lúc ra mắt mà bài học này trích dẫn: OpenAI CUA trên OSWorld / WebArena / WebVoyager và Gemini 2.5 Computer Use trên Online-Mind2Web.
 - Giải thích mẫu an toàn cho từng bước mà Gemini 2.5 Computer Use tài liệu hóa.
 - Tóm tắt hợp đồng đầu vào không đáng tin cậy mà cả ba mô hình thực thi.
 

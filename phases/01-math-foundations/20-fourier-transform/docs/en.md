@@ -9,7 +9,7 @@
 
 ## Learning Objectives
 
-- Triển khai DFT từ đầu và xác minh nó với FFT Cooley-Tukey O(N log N)
+- Triển khai DFT từ đầu và xác minh nó với FFT Cooley-Tukey $O(N \log N)$
 - Diễn giải các hệ số tần số: trích xuất biên độ, pha và phổ công suất từ một tín hiệu
 - Áp dụng định lý tích chập để thực hiện tích chập qua phép nhân FFT
 - Kết nối phân rã tần số Fourier với các mã hóa vị trí transformer và các lớp tích chập CNN
@@ -28,67 +28,64 @@ Biến đổi Fourier chuyển dữ liệu từ miền thời gian sang miền t
 
 ### The DFT definition
 
-Cho N mẫu x[0], x[1], ..., x[N-1], Biến đổi Fourier Rời rạc tạo ra N hệ số tần số X[0], X[1], ..., X[N-1]:
+Cho $N$ mẫu $x[0], x[1], \ldots, x[N-1]$, Biến đổi Fourier Rời rạc tạo ra $N$ hệ số tần số $X[0], X[1], \ldots, X[N-1]$:
 
-```
-X[k] = sum_{n=0}^{N-1} x[n] * e^(-2*pi*i*k*n/N)
-
-for k = 0, 1, ..., N-1
+```math
+X[k] = \sum_{n=0}^{N-1} x[n] \, e^{-2\pi i k n/N} \qquad \text{for } k = 0, 1, \ldots, N-1
 ```
 
-Mỗi X[k] là một số phức. Độ lớn |X[k]| của nó cho bạn biết biên độ của tần số k. Pha angle(X[k]) của nó cho bạn biết độ lệch pha của tần số đó.
+Mỗi $X[k]$ là một số phức. Độ lớn $\lvert X[k] \rvert$ của nó tỷ lệ với biên độ của tần số $k$. Không có chuẩn hóa, một sóng sin thực có biên độ $A$ rơi chính xác vào bin $k$ cho $\lvert X[k] \rvert = AN/2$, vì vậy hãy chia cho $N/2$ để đọc biên độ. Pha $\angle X[k]$ của nó cho bạn biết độ lệch pha của tần số đó.
 
-Điểm cốt yếu: `e^(-2*pi*i*k*n/N)` là một phasor quay tại tần số k. DFT tính tương quan giữa tín hiệu và từng tần số trong N tần số cách đều. Nếu tín hiệu chứa năng lượng tại tần số k, tương quan lớn. Nếu không, nó gần không.
+Điểm cốt yếu: $e^{-2\pi i k n/N}$ là một phasor quay tại tần số $k$. DFT tính tương quan giữa tín hiệu và từng tần số trong $N$ tần số cách đều. Nếu tín hiệu chứa năng lượng tại tần số $k$, tương quan lớn. Nếu không, nó gần không.
 
 ### What each coefficient means
 
-**X[0]: thành phần DC.** Đây là tổng tất cả các mẫu -- tỉ lệ với trung bình. Nó biểu diễn độ lệch không đổi (tần số không) của tín hiệu.
+**$X[0]$: thành phần DC.** Đây là tổng tất cả các mẫu -- tỉ lệ với trung bình. Nó biểu diễn độ lệch không đổi (tần số không) của tín hiệu.
 
+```math
+X[0] = \sum_{n=0}^{N-1} x[n] \, e^0 = \text{sum of all samples}
 ```
-X[0] = sum_{n=0}^{N-1} x[n] * e^0 = sum of all samples
-```
 
-**X[k] với 1 <= k <= N/2: các tần số dương.** X[k] biểu diễn tần số k chu kỳ trên N mẫu. k cao hơn nghĩa là tần số cao hơn (dao động nhanh hơn).
+**$X[k]$ với $1 \le k \le N/2$: các tần số dương.** $X[k]$ biểu diễn tần số $k$ chu kỳ trên $N$ mẫu. $k$ cao hơn nghĩa là tần số cao hơn (dao động nhanh hơn).
 
-**X[N/2]: tần số Nyquist.** Tần số cao nhất bạn có thể biểu diễn bằng N mẫu. Trên mức này, bạn có aliasing -- các tần số cao giả dạng các tần số thấp.
+**$X[N/2]$: tần số Nyquist.** Tần số cao nhất bạn có thể biểu diễn bằng $N$ mẫu. Trên mức này, bạn có aliasing -- các tần số cao giả dạng các tần số thấp.
 
-**X[k] với N/2 < k < N: các tần số âm.** Với tín hiệu có giá trị thực, X[N-k] = conj(X[k]). Các tần số âm là ảnh đối xứng của các tần số dương. Đây là lý do thông tin hữu ích nằm trong N/2 + 1 hệ số đầu.
+**$X[k]$ với $N/2 < k < N$: các tần số âm.** Đối với tín hiệu có giá trị thực, $X[N-k] = \overline{X[k]}$. Các tần số âm là ảnh phản chiếu của các tần số dương. Đây là lý do thông tin hữu ích nằm trong $N/2 + 1$ hệ số đầu tiên.
 
 ### Inverse DFT
 
 DFT ngược tái tạo tín hiệu gốc từ các hệ số tần số của nó:
 
-```
-x[n] = (1/N) * sum_{k=0}^{N-1} X[k] * e^(2*pi*i*k*n/N)
-
-for n = 0, 1, ..., N-1
+```math
+x[n] = \frac{1}{N} \sum_{k=0}^{N-1} X[k] \, e^{2\pi i k n/N} \qquad \text{for } n = 0, 1, \ldots, N-1
 ```
 
-Các khác biệt duy nhất so với DFT xuôi: dấu trong số mũ là dương (không phải âm), và có một hệ số chuẩn hóa 1/N.
+Các khác biệt duy nhất so với DFT xuôi: dấu trong số mũ là dương (không phải âm), và có một hệ số chuẩn hóa $1/N$.
 
 DFT ngược là tái tạo hoàn hảo. Không thông tin nào bị mất. Bạn có thể đi từ miền thời gian sang miền tần số và trở lại mà không có sai số nào. DFT là một phép đổi cơ sở -- nó biểu diễn lại cùng thông tin trong một hệ tọa độ khác.
 
 ### The FFT: making it fast
 
-DFT được định nghĩa ở trên có độ phức tạp O(N^2): với mỗi hệ số trong N hệ số đầu ra, bạn lấy tổng trên N mẫu đầu vào. Với N = 1 triệu, đó là 10^12 phép toán.
+DFT được định nghĩa ở trên có độ phức tạp $O(N^2)$: với mỗi hệ số trong $N$ hệ số đầu ra, bạn lấy tổng trên $N$ mẫu đầu vào. Với $N$ = 1 triệu, đó là $10^{12}$ phép toán.
 
-Biến đổi Fourier Nhanh (FFT) tính cùng kết quả trong O(N log N). Với N = 1 triệu, đó là khoảng 20 triệu phép toán thay vì một nghìn tỷ. Đây là điều làm phân tích tần số khả thi trong thực tế.
+Biến đổi Fourier Nhanh (FFT) tính cùng kết quả trong $O(N \log N)$. Với $N$ = 1 triệu, đó là khoảng 20 triệu phép toán thay vì một nghìn tỷ. Đây là điều làm phân tích tần số khả thi trong thực tế.
 
 Thuật toán Cooley-Tukey (FFT phổ biến nhất) hoạt động bằng chia để trị:
 
 1. Chia tín hiệu thành các mẫu có chỉ số chẵn và chỉ số lẻ.
 2. Tính DFT của mỗi nửa bằng đệ quy.
-3. Kết hợp hai DFT có kích thước một nửa bằng các "hệ số twiddle" e^(-2*pi*i*k/N).
+3. Kết hợp hai DFT có kích thước một nửa bằng các "hệ số twiddle" $e^{-2\pi i k/N}$.
 
+```math
+\begin{aligned}
+X[k] &= E[k] + e^{-2\pi i k/N} \, O[k] && \text{for } k = 0, \ldots, N/2 - 1 \\
+X[k + N/2] &= E[k] - e^{-2\pi i k/N} \, O[k] && \text{for } k = 0, \ldots, N/2 - 1 \\[6pt]
+\text{where } E &= \text{DFT of even-indexed samples} \\
+O &= \text{DFT of odd-indexed samples}
+\end{aligned}
 ```
-X[k] = E[k] + e^(-2*pi*i*k/N) * O[k]          for k = 0, ..., N/2 - 1
-X[k + N/2] = E[k] - e^(-2*pi*i*k/N) * O[k]    for k = 0, ..., N/2 - 1
 
-where E = DFT of even-indexed samples
-      O = DFT of odd-indexed samples
-```
-
-Tính đối xứng có nghĩa là mỗi mức đệ quy làm O(N) công việc, và có log2(N) mức. Tổng: O(N log N).
+Tính đối xứng có nghĩa là mỗi mức đệ quy làm $O(N)$ công việc, và có $\log_2(N)$ mức. Tổng: $O(N \log N)$.
 
 ```mermaid
 graph TD
@@ -106,27 +103,31 @@ graph TD
     end
 ```
 
-FFT đòi hỏi độ dài tín hiệu là lũy thừa của 2. Trong thực tế, tín hiệu được đệm số không đến lũy thừa tiếp theo của 2.
+FFT cơ số 2 được xây dựng ở đây nhanh nhất khi độ dài tín hiệu là một lũy thừa của 2. Bất cứ khi nào một bài toán con có độ dài lẻ, nó quay về `dft` thông thường, vì vậy các tín hiệu thường được đệm số không đến lũy thừa tiếp theo của 2 để tăng tốc. Các FFT thư viện như `numpy.fft` xử lý mọi độ dài bằng các thuật toán cơ số hỗn hợp, nhưng chúng nhanh nhất ở các độ dài có thừa số nguyên tố nhỏ.
 
 ### Spectral analysis
 
-**Phổ công suất** là |X[k]|^2 -- độ lớn bình phương của mỗi hệ số tần số. Nó cho thấy có bao nhiêu năng lượng tại mỗi tần số.
+**Phổ công suất** là $\lvert X[k] \rvert^2$ -- độ lớn bình phương của mỗi hệ số tần số. Nó cho thấy có bao nhiêu năng lượng tại mỗi tần số.
 
-**Phổ pha** là angle(X[k]) -- độ lệch pha của mỗi tần số. Với hầu hết các tác vụ phân tích, bạn quan tâm phổ công suất và bỏ qua pha.
+**Phổ pha** là $\angle X[k]$ -- độ lệch pha của mỗi tần số. Với hầu hết các tác vụ phân tích, bạn quan tâm phổ công suất và bỏ qua pha.
 
-```
-Power at frequency k:  P[k] = |X[k]|^2 = X[k].real^2 + X[k].imag^2
-Phase at frequency k:  phi[k] = atan2(X[k].imag, X[k].real)
+```math
+\begin{aligned}
+\text{Power at frequency } k: \quad P[k] &= |X[k]|^2 = \mathop{\mathrm{Re}}(X[k])^2 + \mathop{\mathrm{Im}}(X[k])^2 \\
+\text{Phase at frequency } k: \quad \phi[k] &= \mathop{\mathrm{atan2}}(\mathop{\mathrm{Im}}(X[k]), \mathop{\mathrm{Re}}(X[k]))
+\end{aligned}
 ```
 
 ### Frequency resolution
 
-Độ phân giải tần số của DFT phụ thuộc vào số mẫu N và tốc độ lấy mẫu fs.
+Độ phân giải tần số của DFT phụ thuộc vào số mẫu $N$ và tốc độ lấy mẫu $f_s$.
 
-```
-Frequency of bin k:      f_k = k * fs / N
-Frequency resolution:    delta_f = fs / N
-Maximum frequency:       f_max = fs / 2  (Nyquist)
+```math
+\begin{aligned}
+\text{Frequency of bin } k: \quad & f_k = k \cdot f_s / N \\
+\text{Frequency resolution:} \quad & \Delta f = f_s / N \\
+\text{Maximum frequency:} \quad & f_{\max} = f_s / 2 \quad \text{(Nyquist)}
+\end{aligned}
 ```
 
 Để phân biệt hai tần số gần nhau, bạn cần nhiều mẫu hơn. Để nắm bắt các tần số cao, bạn cần tốc độ lấy mẫu cao hơn.
@@ -137,20 +138,21 @@ Maximum frequency:       f_max = fs / 2  (Nyquist)
 
 **Tích chập trong miền thời gian bằng phép nhân theo từng điểm trong miền tần số.**
 
-```
-x * h = IFFT(FFT(x) . FFT(h))
-
-where * is convolution and . is element-wise multiplication
+```math
+\begin{aligned}
+& x * h = \text{IFFT}(\text{FFT}(x) \cdot \text{FFT}(h)) \\[4pt]
+& \text{where } * \text{ is convolution and } \cdot \text{ is element-wise multiplication}
+\end{aligned}
 ```
 
 Tại sao điều này quan trọng:
 
-- Tích chập trực tiếp của hai tín hiệu có độ dài N và M cần O(N*M) phép toán.
-- Tích chập dựa trên FFT cần O(N log N): biến đổi cả hai, nhân, biến đổi ngược.
+- Tích chập trực tiếp của hai tín hiệu có độ dài $N$ và $M$ cần $O(NM)$ phép toán.
+- Tích chập dựa trên FFT cần $O(N \log N)$: biến đổi cả hai, nhân, biến đổi ngược.
 - Với các kernel lớn, tích chập FFT nhanh hơn đáng kể.
 - Đây chính xác là những gì xảy ra trong các lớp tích chập có trường tiếp nhận lớn.
 
-Lưu ý: DFT tính tích chập vòng (tín hiệu quấn vòng). Với tích chập tuyến tính (không quấn vòng), đệm số không cho cả hai tín hiệu đến độ dài N + M - 1 trước khi tính.
+Lưu ý: DFT tính tích chập vòng (tín hiệu quấn vòng). Với tích chập tuyến tính (không quấn vòng), đệm số không cho cả hai tín hiệu đến độ dài $N + M - 1$ trước khi tính.
 
 ```mermaid
 graph LR
@@ -170,7 +172,7 @@ graph LR
 
 ### Windowing
 
-DFT giả định tín hiệu tuần hoàn -- nó xem N mẫu là một chu kỳ của một tín hiệu lặp lại vô hạn. Nếu tín hiệu không bắt đầu và kết thúc tại cùng giá trị, điều này tạo một gián đoạn tại biên, xuất hiện dưới dạng nội dung tần số cao giả. Điều này được gọi là rò rỉ phổ.
+DFT giả định tín hiệu tuần hoàn -- nó xem $N$ mẫu là một chu kỳ của một tín hiệu lặp lại vô hạn. Nếu tín hiệu không bắt đầu và kết thúc tại cùng giá trị, điều này tạo một gián đoạn tại biên, xuất hiện dưới dạng nội dung tần số cao giả. Điều này được gọi là rò rỉ phổ.
 
 Áp dụng cửa sổ giảm rò rỉ bằng cách làm tín hiệu giảm dần về không ở cả hai đầu trước khi tính DFT.
 
@@ -183,9 +185,11 @@ Các cửa sổ phổ biến:
 | Hamming | Cosine sửa đổi | Vừa phải | Thấp hơn (-42 dB) | Xử lý âm thanh, phân tích giọng nói |
 | Blackman | Ba cosine | Rộng | Rất thấp (-58 dB) | Khi việc triệt thùy phụ rất quan trọng |
 
-```
-Hann window:    w[n] = 0.5 * (1 - cos(2*pi*n / (N-1)))
-Hamming window: w[n] = 0.54 - 0.46 * cos(2*pi*n / (N-1))
+```math
+\begin{aligned}
+\text{Hann window:} \quad & w[n] = 0.5 \left(1 - \cos\frac{2\pi n}{N-1}\right) \\
+\text{Hamming window:} \quad & w[n] = 0.54 - 0.46 \cos\frac{2\pi n}{N-1}
+\end{aligned}
 ```
 
 Áp dụng cửa sổ bằng cách nhân nó theo từng phần tử với tín hiệu trước DFT: `X = DFT(x * w)`.
@@ -194,13 +198,13 @@ Hamming window: w[n] = 0.54 - 0.46 * cos(2*pi*n / (N-1))
 
 | Tính chất | Miền Thời gian | Miền Tần số |
 |----------|-------------|-----------------|
-| Tính tuyến tính | a*x + b*y | a*X + b*Y |
-| Dịch thời gian | x[n - k] | X[f] * e^(-2*pi*i*f*k/N) |
-| Dịch tần số | x[n] * e^(2*pi*i*f0*n/N) | X[f - f0] |
-| Tích chập | x * h | X * H (theo từng điểm) |
-| Phép nhân | x * h (theo từng điểm) | X * H (tích chập vòng, nhân tỉ lệ 1/N) |
-| Định lý Parseval | sum \|x[n]\|^2 | (1/N) * sum \|X[k]\|^2 |
-| Đối xứng liên hợp (đầu vào thực) | x[n] thực | X[k] = conj(X[N-k]) |
+| Tính tuyến tính | $ax + by$ | $aX + bY$ |
+| Dịch thời gian | $x[n - k]$ | $X[f] e^{-2\pi i f k/N}$ |
+| Dịch tần số | $x[n] e^{2\pi i f_0 n/N}$ | $X[f - f_0]$ |
+| Tích chập | $x * h$ | $X \cdot H$ (theo từng điểm) |
+| Phép nhân | $x \cdot h$ (theo từng điểm) | $X * H$ (tích chập vòng, nhân tỉ lệ $1/N$) |
+| Định lý Parseval | $\sum \lvert x[n] \rvert^2$ | $\frac{1}{N} \sum \lvert X[k] \rvert^2$ |
+| Đối xứng liên hợp (đầu vào thực) | $x[n]$ thực | $X[k] = \overline{X[N-k]}$ |
 
 Định lý Parseval nói rằng tổng năng lượng giống nhau trong cả hai miền. Năng lượng được bảo toàn qua phép biến đổi.
 
@@ -208,18 +212,20 @@ Hamming window: w[n] = 0.54 - 0.46 * cos(2*pi*n / (N-1))
 
 Transformer gốc sử dụng các mã hóa vị trí hình sin:
 
-```
-PE(pos, 2i)   = sin(pos / 10000^(2i/d_model))
-PE(pos, 2i+1) = cos(pos / 10000^(2i/d_model))
+```math
+\begin{aligned}
+PE(pos, 2i) &= \sin\left(pos / 10000^{2i/d_{\text{model}}}\right) \\
+PE(pos, 2i+1) &= \cos\left(pos / 10000^{2i/d_{\text{model}}}\right)
+\end{aligned}
 ```
 
-Mỗi cặp chiều (2i, 2i+1) dao động tại một tần số khác nhau. Các tần số cách nhau theo cấp số nhân từ cao (chiều 0,1) đến thấp (các chiều cuối). Điều này cho mỗi vị trí một mẫu duy nhất trên tất cả các dải tần -- tương tự cách các hệ số Fourier nhận diện duy nhất một tín hiệu.
+Mỗi cặp chiều $(2i, 2i+1)$ dao động tại một tần số khác nhau. Các tần số cách nhau theo cấp số nhân từ cao (chiều 0,1) đến thấp (các chiều cuối). Điều này cho mỗi vị trí một mẫu duy nhất trên tất cả các dải tần -- tương tự cách các hệ số Fourier nhận diện duy nhất một tín hiệu.
 
 Các tính chất chính mà điều này cung cấp:
 
 - **Tính duy nhất:** Không có hai vị trí có cùng mã hóa.
-- **Giá trị bị chặn:** sin và cos luôn nằm trong [-1, 1].
-- **Vị trí tương đối:** Mã hóa của vị trí p+k có thể được biểu diễn thành một hàm tuyến tính của mã hóa tại vị trí p. Mô hình có thể học cách chú ý đến các vị trí tương đối.
+- **Giá trị bị chặn:** sin và cos luôn nằm trong $[-1, 1]$.
+- **Vị trí tương đối:** Mã hóa của vị trí $p+k$ có thể được biểu diễn thành một hàm tuyến tính của mã hóa tại vị trí $p$. Mô hình có thể học cách chú ý đến các vị trí tương đối.
 
 ### Connection to CNNs
 
@@ -231,7 +237,7 @@ Theo định lý tích chập, điều này tương đương với:
 3. Nhân trong miền tần số
 4. IFFT kết quả
 
-Các triển khai CNN tiêu chuẩn sử dụng tích chập trực tiếp (nhanh hơn cho các kernel nhỏ 3x3). Nhưng với các kernel lớn hoặc tích chập toàn cục, các cách tiếp cận dựa trên FFT nhanh hơn đáng kể. Một số kiến trúc (như FNet) thay hoàn toàn attention bằng FFT, đạt độ chính xác cạnh tranh với độ phức tạp O(N log N) thay vì O(N^2).
+Các triển khai CNN tiêu chuẩn sử dụng tích chập trực tiếp (nhanh hơn cho các kernel nhỏ 3x3). Nhưng với các kernel lớn hoặc tích chập toàn cục, các cách tiếp cận dựa trên FFT nhanh hơn đáng kể. Một số kiến trúc (như FNet) thay hoàn toàn attention bằng FFT, đạt độ chính xác cạnh tranh với độ phức tạp $O(N \log N)$ thay vì $O(N^2)$.
 
 ### Spectrograms and the Short-Time Fourier Transform
 
@@ -254,7 +260,7 @@ Phổ thời gian-tần số là biểu diễn đầu vào tiêu chuẩn cho cá
 
 ### Aliasing
 
-Nếu một tín hiệu chứa các tần số trên fs/2 (tần số Nyquist), lấy mẫu ở tốc độ fs sẽ tạo các bản sao bị aliasing. Một tín hiệu 90 Hz được lấy mẫu ở 100 Hz trông giống hệt một tín hiệu 10 Hz. Không có cách phân biệt chúng chỉ từ các mẫu.
+Nếu một tín hiệu chứa các tần số trên $f_s/2$ (tần số Nyquist), lấy mẫu ở tốc độ $f_s$ sẽ tạo các bản sao bị alias. Một tín hiệu 90 Hz được lấy mẫu ở 100 Hz trông giống hệt một tín hiệu 10 Hz. Không có cách nào phân biệt chúng chỉ từ các mẫu.
 
 ```
 Example:
@@ -273,7 +279,7 @@ Example:
 
 Một hiểu lầm phổ biến: đệm số không cho một tín hiệu trước FFT cải thiện độ phân giải tần số. Nó không làm vậy. Đệm số không nội suy giữa các ô tần số hiện có, cho bạn một phổ trông mượt hơn. Nhưng nó không thể tiết lộ chi tiết tần số không có trong các mẫu gốc.
 
-Độ phân giải tần số thực chỉ phụ thuộc vào thời gian quan sát T = N / fs. Để phân biệt hai tần số cách nhau delta_f, bạn cần ít nhất T = 1 / delta_f giây dữ liệu. Không lượng đệm số không nào thay đổi giới hạn cơ bản này.
+Độ phân giải tần số thực chỉ phụ thuộc vào thời gian quan sát $T = N / f_s$. Để phân giải hai tần số cách nhau $\Delta f$, bạn cần ít nhất $T = 1 / \Delta f$ giây dữ liệu. Không lượng đệm số không nào thay đổi giới hạn cơ bản này.
 
 ```figure
 fourier-synthesis
@@ -283,7 +289,7 @@ fourier-synthesis
 
 ### Step 1: DFT from scratch
 
-DFT O(N^2) suy ra trực tiếp từ định nghĩa.
+DFT $O(N^2)$ suy ra trực tiếp từ định nghĩa.
 
 ```python
 import math
@@ -307,7 +313,7 @@ def dft(x):
 
 ### Step 2: Inverse DFT
 
-Cùng cấu trúc, số mũ dương, chia cho N.
+Cùng cấu trúc, số mũ dương, chia cho $N$.
 
 ```python
 def idft(X):
@@ -426,33 +432,45 @@ Chạy `code/fourier.py` để tạo `outputs/prompt-spectral-analyzer.md`.
 
 1. **Nhận diện âm thuần.** Tạo một tín hiệu với một sóng sin duy nhất tại một tần số chưa biết (giữa 1 và 50 Hz), được lấy mẫu tại 128 Hz trong 1 giây. Sử dụng DFT của bạn để nhận diện tần số. Xác minh câu trả lời khớp. Giờ thêm nhiễu Gaussian với độ lệch chuẩn 0.5 và lặp lại. Nhiễu ảnh hưởng đến phổ như thế nào?
 
-2. **Xác minh FFT so với DFT.** Tạo một tín hiệu ngẫu nhiên có độ dài 64. Tính cả DFT (O(N^2)) và FFT. Xác minh tất cả hệ số khớp trong phạm vi 1e-10. Đo thời gian cả hai hàm trên các tín hiệu có độ dài 256, 512, 1024 và 2048. Vẽ tỉ số thời gian DFT với thời gian FFT.
+2. **Xác minh FFT so với DFT.** Tạo một tín hiệu ngẫu nhiên có độ dài 64. Tính cả DFT ($O(N^2){}$) và FFT. Xác minh tất cả hệ số khớp trong phạm vi 1e-10. Đo thời gian cả hai hàm trên các tín hiệu có độ dài 256, 512, 1024 và 2048. Vẽ tỉ số thời gian DFT với thời gian FFT.
 
 3. **Chứng minh định lý tích chập bằng ví dụ.** Tạo tín hiệu x = [1, 2, 3, 4, 0, 0, 0, 0] và bộ lọc h = [1, 1, 1, 0, 0, 0, 0, 0]. Tính trực tiếp tích chập vòng của chúng (vòng lặp lồng nhau). Sau đó tính qua FFT (biến đổi, nhân, biến đổi ngược). Xác minh các kết quả khớp. Giờ thực hiện tích chập tuyến tính bằng cách đệm số không thích hợp.
 
 4. **Tác động của cửa sổ.** Tạo một tín hiệu là tổng hai sóng sin tại 10 Hz và 12 Hz (rất gần). Lấy mẫu tại 128 Hz trong 1 giây. Tính phổ công suất khi không có cửa sổ, với cửa sổ Hann và cửa sổ Hamming. Cửa sổ nào làm việc phân biệt hai đỉnh dễ nhất? Tại sao?
 
-5. **Phân tích mã hóa vị trí.** Tạo các mã hóa vị trí hình sin cho d_model = 128 và max_pos = 512. Với mỗi cặp vị trí (p1, p2), tính tích vô hướng của các mã hóa. Chỉ ra rằng tích vô hướng chỉ phụ thuộc vào |p1 - p2|, không phụ thuộc các vị trí tuyệt đối. Điều gì xảy ra với tích vô hướng khi khoảng cách tăng?
+5. **Phân tích mã hóa vị trí.** Tạo các mã hóa vị trí hình sin cho d_model = 128 và max_pos = 512. Với mỗi cặp vị trí $(p_1, p_2)$, tính tích vô hướng của các mã hóa. Chỉ ra rằng tích vô hướng chỉ phụ thuộc vào $\lvert p_1 - p_2 \rvert$, không phụ thuộc các vị trí tuyệt đối. Điều gì xảy ra với tích vô hướng khi khoảng cách tăng?
+
+### Hints
+
+**Bài tập 1.** Với 128 mẫu trong 1 giây, bin $k$ là $k$ Hz, vì vậy đối với một tần số nguyên, chỉ số của giá trị lớn nhất trong các bin 1 đến 63 là tần số. Chọn một số hertz nguyên. Một tần số giữa hai bin trải sang các bin lân cận, và đỉnh chỉ cho bin gần nhất. Sử dụng `generate_signal` và `magnitude_spectrum`. Sau khi thêm nhiễu, kiểm tra đỉnh vẫn ở cùng bin trong khi các bin khác tăng lên.
+
+**Bài tập 2.** Sử dụng độ dài là lũy thừa của hai, vì `fft` chia tín hiệu thành các nửa. Kiểm tra `max(abs(a - b))` trên mọi hệ số. Tỷ lệ thời gian phải tăng xấp xỉ theo $N / \log_2 N$.
+
+**Bài tập 3.** Đối với tích chập vòng, tính thủ công $y[n] = \sum_k h[k] x[(n-k) \bmod 8]$ cho $n$ = 0, 1 và 2, rồi so sánh ba giá trị đầu của `convolve_direct` và `convolve_fft`. Tích chập tuyến tính có độ dài 4 + 3 - 1 = 6, vì vậy trước tiên hãy kiểm tra liệu độ dài 8 đã đủ dài chưa.
+
+**Bài tập 4.** Sử dụng `hann_window`, `hamming_window`, `apply_window` và `power_spectrum`, và đếm các đỉnh riêng biệt giữa 9 và 13 Hz. Cả 10 Hz và 12 Hz đều hoàn thành các chu kỳ trọn vẹn trong 1 giây, vì vậy không dùng cửa sổ có thể trông tốt nhất. Lặp lại với 10.5 Hz và 12.5 Hz để thấy hiện tượng rò rỉ mà các cửa sổ làm giảm.
+
+**Bài tập 5.** Tính mỗi mã hóa bằng `positional_encoding(pos, 128)`. So sánh tích vô hướng cho các vị trí (0, 10) với tích vô hướng cho (100, 110): hai giá trị phải khớp đến khoảng 1e-10. Sau đó vẽ tích vô hướng theo $\lvert p_1 - p_2 \rvert$ cho một $p_1$ cố định.
 
 ## Key Terms
 
 | Thuật ngữ | Ý nghĩa |
 |------|---------------|
-| DFT (Discrete Fourier Transform) (Biến đổi Fourier Rời rạc) | Chuyển N mẫu miền thời gian thành N hệ số miền tần số. Mỗi hệ số là tương quan với một sóng sin phức tại tần số đó |
-| FFT (Fast Fourier Transform) (Biến đổi Fourier Nhanh) | Một thuật toán O(N log N) để tính DFT. Thuật toán Cooley-Tukey chia các chỉ số chẵn/lẻ bằng đệ quy |
-| Inverse DFT (DFT ngược) | Tái tạo tín hiệu miền thời gian từ các hệ số tần số. Cùng công thức với DFT nhưng đổi dấu số mũ và nhân tỉ lệ 1/N |
-| Frequency bin (Ô tần số) | Mỗi chỉ số k trong đầu ra DFT biểu diễn tần số k*fs/N Hz. "Ô" là vị trí tần số rời rạc |
-| DC component (Thành phần DC) | X[0], hệ số tần số không. Tỉ lệ với trung bình tín hiệu |
-| Nyquist frequency (Tần số Nyquist) | fs/2, tần số lớn nhất có thể biểu diễn tại tốc độ lấy mẫu fs. Các tần số trên mức này bị aliasing |
-| Power spectrum (Phổ công suất) | \|X[k]\|^2, độ lớn bình phương của mỗi hệ số tần số. Cho thấy phân bố năng lượng trên các tần số |
-| Phase spectrum (Phổ pha) | angle(X[k]), độ lệch pha của mỗi thành phần tần số. Thường bị bỏ qua trong phân tích |
+| DFT (Discrete Fourier Transform) (Biến đổi Fourier Rời rạc) | Chuyển $N$ mẫu miền thời gian thành $N$ hệ số miền tần số. Mỗi hệ số là tương quan với một sóng sin phức tại tần số đó |
+| FFT (Fast Fourier Transform) (Biến đổi Fourier Nhanh) | Một thuật toán $O(N \log N)$ để tính DFT. Thuật toán Cooley-Tukey chia các chỉ số chẵn/lẻ bằng đệ quy |
+| Inverse DFT (DFT ngược) | Tái tạo tín hiệu miền thời gian từ các hệ số tần số. Cùng công thức với DFT nhưng đổi dấu số mũ và nhân tỉ lệ $1/N$ |
+| Frequency bin (Bin tần số) | Mỗi chỉ số $k$ trong đầu ra DFT biểu thị tần số $k f_s/N$ Hz. "Bin" là ô tần số rời rạc |
+| DC component (Thành phần DC) | $X[0]$, hệ số tần số không. Tỉ lệ với trung bình tín hiệu |
+| Nyquist frequency (Tần số Nyquist) | $f_s/2$, tần số lớn nhất có thể biểu diễn ở tốc độ lấy mẫu $f_s$. Các tần số trên mức này bị alias |
+| Power spectrum (Phổ công suất) | $\lvert X[k] \rvert^2$, độ lớn bình phương của mỗi hệ số tần số. Cho thấy phân bố năng lượng trên các tần số |
+| Phase spectrum (Phổ pha) | $\angle X[k]$, độ lệch pha của mỗi thành phần tần số. Thường bị bỏ qua trong phân tích |
 | Spectral leakage (Rò rỉ phổ) | Nội dung tần số giả do xem một tín hiệu không tuần hoàn là tuần hoàn. Được giảm bằng áp dụng cửa sổ |
 | Window function (Hàm cửa sổ) | Một hàm giảm dần (Hann, Hamming, Blackman) được áp dụng trước DFT để giảm rò rỉ phổ |
-| Twiddle factor (Hệ số twiddle) | Hàm mũ phức e^(-2*pi*i*k/N) được sử dụng để kết hợp các DFT con trong phép tính bướm FFT |
+| Twiddle factor (Hệ số twiddle) | Hàm mũ phức $e^{-2\pi i k/N}$ được sử dụng để kết hợp các DFT con trong phép tính bướm FFT |
 | Convolution theorem (Định lý tích chập) | Tích chập trong miền thời gian bằng phép nhân theo từng điểm trong miền tần số. Nền tảng của xử lý tín hiệu và CNN |
 | Circular convolution (Tích chập vòng) | Tích chập nơi tín hiệu quấn vòng. Đây là những gì DFT tự nhiên tính |
 | Linear convolution (Tích chập tuyến tính) | Tích chập tiêu chuẩn không quấn vòng. Đạt được bằng cách đệm số không trước DFT |
-| Parseval's theorem (Định lý Parseval) | Tổng năng lượng được bảo toàn qua biến đổi Fourier. sum \|x[n]\|^2 = (1/N) sum \|X[k]\|^2 |
+| Parseval's theorem (Định lý Parseval) | Tổng năng lượng được bảo toàn qua biến đổi Fourier. $\sum \lvert x[n] \rvert^2 = \frac{1}{N} \sum \lvert X[k] \rvert^2$ |
 | Aliasing | Khi các tần số trên Nyquist xuất hiện dưới dạng các tần số thấp hơn do tốc độ lấy mẫu không đủ |
 
 ## Further Reading

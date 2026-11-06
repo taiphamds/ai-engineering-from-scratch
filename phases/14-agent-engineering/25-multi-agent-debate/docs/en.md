@@ -117,7 +117,7 @@ python3 code/main.py
 
 ## Further Reading
 
-- [Du et al., Society of Minds (arXiv:2305.14325)](https://arxiv.org/abs/2305.14325) — tranh luận nhiều agent kinh điển
+- [Du et al., Improving Factuality and Reasoning in Language Models through Multiagent Debate (arXiv:2305.14325)](https://arxiv.org/abs/2305.14325) — tranh luận đa agent chuẩn
 - [Sparse Communication Topology (arXiv:2406.11776)](https://arxiv.org/abs/2406.11776) — các kết quả cấu trúc thưa
 - [Anthropic, Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) — bộ điều phối-worker như một biến thể tranh luận
 - [Madaan et al., Self-Refine (arXiv:2303.17651)](https://arxiv.org/abs/2303.17651) — đối tác tự phê bình một mô hình

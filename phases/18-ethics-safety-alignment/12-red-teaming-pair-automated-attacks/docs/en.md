@@ -31,11 +31,11 @@ Red-teaming từng là hoạt động thủ công. Một số ít người kiể
 
 Lặp, với k trong 1..K:
 1. A nhận prompt gồm mục tiêu G và lịch sử cặp (prompt, phản hồi) đến nay.
-2. A xuất prompt mới p_k.
-3. Gửi p_k đến T; nhận phản hồi r_k.
-4. J chấm (p_k, r_k) theo mục tiêu.
+2. A xuất prompt mới $p_k$.
+3. Gửi $p_k$ đến T; nhận phản hồi $r_k$.
+4. J chấm $(p_k, r_k)$ theo mục tiêu.
 5. Nếu điểm >= ngưỡng, dừng — tìm thấy jailbreak.
-6. Nếu không, nối (p_k, r_k) vào lịch sử A; tiếp tục.
+6. Nếu không, nối $(p_k, r_k)$ vào lịch sử A; tiếp tục.
 
 Kết quả thực nghiệm (NeurIPS 2023): tỷ lệ tấn công thành công >50% đối với GPT-3.5-turbo, Llama-2-7B-chat; số truy vấn trung bình đến thành công trong khoảng 10-20.
 

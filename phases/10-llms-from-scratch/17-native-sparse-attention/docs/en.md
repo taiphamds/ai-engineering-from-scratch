@@ -36,8 +36,8 @@ Với mỗi query, NSA chạy attention ba lần, với ba góc nhìn KV cache k
 
 Ba đầu ra nhánh kết hợp qua cổng theo vị trí được học:
 
-```
-out = g_cmp * out_cmp + g_sel * out_sel + g_win * out_win
+```math
+\text{out} = g_{\text{cmp}} \cdot \text{out}_{\text{cmp}} + g_{\text{sel}} \cdot \text{out}_{\text{sel}} + g_{\text{win}} \cdot \text{out}_{\text{win}}
 ```
 
 `g_cmp, g_sel, g_win` là trọng số cổng từ MLP nhỏ trên query. Chúng không cần tổng bằng 1 — có thể đặt trọng số các nhánh độc lập.
@@ -46,7 +46,7 @@ out = g_cmp * out_cmp + g_sel * out_sel + g_win * out_win
 
 Bước chọn (khối top-k) rời rạc. Phép rời rạc phá luồng gradient. Công trình attention thưa trước hoặc bỏ truyền ngược qua chọn (hạn chế huấn luyện) hoặc dùng nới lỏng liên tục không cho tính thưa thực khi suy luận.
 
-NSA né điều này: attention nhánh nén CHÍNH LÀ attention thô khả vi trên toàn chuỗi. Phép top-k chỉ dùng lại điểm attention cao nhất từ nhánh nén để chọn khối tinh cần tải. Gradient truyền qua điểm nhánh nén (ảnh hưởng cả đầu ra nén VÀ logic chọn), và đóng góp của khối được chọn vào đầu ra cuối cũng khả vi. Phép `top_k` không khả vi là no-op trên đồ thị tính toán xuôi — nó chỉ điều khiển khối nào được tải từ bộ nhớ.
+NSA tránh điều này: attention của nhánh nén CHÍNH LÀ một attention hạt thô khả vi trên toàn bộ chuỗi. Phép toán top-k chỉ tái sử dụng các điểm attention đứng đầu từ nhánh nén để chọn những khối hạt mịn cần tải. Gradient đến các điểm của nhánh nén thông qua đầu ra riêng của nhánh nén, không qua việc chọn khối. Bên trong các khối đã chọn, attention trên các key và value được chọn là attention thông thường, vì vậy đóng góp của chúng cho đầu ra cuối cũng khả vi. Chính việc chọn chỉ số `top_k` không nhận gradient: nó chỉ kiểm soát những khối nào được tải từ bộ nhớ.
 
 Đây là lý do NSA dùng được trong huấn luyện trước đầu cuối. Mô hình học định tuyến thông tin chung qua ba nhánh, tạo mẫu thưa thực sự mang tăng tốc hứa hẹn khi suy luận.
 
@@ -171,7 +171,7 @@ Bài này tạo ra `outputs/skill-nsa-integrator.md`. Với đặc tả lần hu
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Compressed branch (Nhánh nén) | "Góc nhìn thô" | Attention trên key trung bình khối cho ngữ cảnh toàn cục với O(N/l) key mỗi query |
+| Compressed branch (Nhánh nén) | "Góc nhìn thô" | Attention trên key trung bình khối cho ngữ cảnh toàn cục với $O(N/l)$ key mỗi query |
 | Selected branch (Nhánh chọn lọc) | "Khối top-k" | Attention tinh trên `k` khối có điểm nhánh nén cao nhất |
 | Sliding window (Cửa sổ trượt) | "Ngữ cảnh cục bộ" | Attention trên `W` token cuối cho mẫu tầm ngắn |
 | Native trainability (Khả năng huấn luyện nguyên bản) | "Huấn luyện trước khi bật tính thưa" | Mẫu thưa được học khi huấn luyện trước, không gắn thêm lúc suy luận |

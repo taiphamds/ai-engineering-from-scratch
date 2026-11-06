@@ -67,8 +67,8 @@ Ba cơ chế khiến điểm benchmark ngừng phản ánh năng lực thực.
 
 Perplexity đo mức mô hình ngạc nhiên trước chuỗi token. Hình thức, nó là hàm mũ của log-likelihood âm trung bình:
 
-```
-PPL = exp(-1/N * sum(log P(token_i | context)))
+```math
+\text{PPL} = \exp\left(-\frac{1}{N} \sum_i \log P(\text{token}_i \mid \text{context})\right)
 ```
 
 Perplexity 10 nghĩa là mô hình trung bình bất định như chọn đều giữa 10 phương án ở mỗi vị trí token. Thấp hơn tốt hơn. GPT-2 có perplexity ~30 trên WikiText-103. GPT-3 có ~20. Llama 3 8B có ~7.
@@ -503,7 +503,7 @@ Nó cũng tạo ra `outputs/skill-llm-evaluation.md` -- khung quyết định ch
 | MMLU | "Benchmark" | Hiểu ngôn ngữ đa tác vụ quy mô lớn -- 15,908 câu trắc nghiệm trên 57 môn, bão hòa trên 88% vào năm 2025 |
 | HumanEval | "Đánh giá mã" | 164 bài hoàn thành hàm Python từ OpenAI, chỉ kiểm thử sinh hàm riêng lẻ |
 | SWE-bench | "Đánh giá lập trình thực" | 2,294 issue GitHub từ 12 repo Python, đo sửa lỗi đầu cuối gồm sinh kiểm thử |
-| Perplexity | "Mô hình bối rối đến đâu" | exp(-avg(log P(token_i given context))) -- thấp hơn nghĩa là mô hình gán xác suất cao hơn cho token thực tế |
+| Perplexity | "Mô hình bối rối đến đâu" | $\exp(-\mathop{\mathrm{avg}}(\log P(\text{token}_i \text{ given context})))$ -- thấp hơn nghĩa là mô hình gán xác suất cao hơn cho token thực tế |
 | ELO rating (Xếp hạng ELO) | "Xếp hạng cờ vua cho mô hình" | Xếp hạng kỹ năng tương đối tính từ hồ sơ thắng/thua theo cặp, được Chatbot Arena dùng xếp 100+ mô hình |
 | LLM-as-judge | "Dùng AI chấm AI" | Mô hình mạnh chấm đầu ra mô hình yếu theo rubric, ~80% đồng thuận giám khảo con người ở ~$0.01/phán xét |
 | Data contamination (Nhiễm dữ liệu) | "Mô hình đã thấy bài kiểm thử" | Dữ liệu huấn luyện chứa câu hỏi benchmark, làm tăng điểm mà không cải thiện năng lực thực |

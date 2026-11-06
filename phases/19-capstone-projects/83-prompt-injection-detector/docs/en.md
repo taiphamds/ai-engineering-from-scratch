@@ -81,4 +81,4 @@ Chạy `python3 main.py`. Demo nạp hệ phân loại, chạy bộ phát hiện
 
 ## Further Reading
 
-Các bài 84 đến 87 trong track này. Bộ phát hiện ở đây là một trong ba tín hiệu mà cổng đầu cuối kết hợp.
+Bài 84 đến 87 trong nhánh này. Bộ phát hiện ở đây là một trong bốn tín hiệu mà cổng đầu cuối kết hợp, bên cạnh bộ lọc token, bộ phân loại và rules engine.

@@ -147,7 +147,7 @@ Khi phát hiện một sửa đổi, ghi đè slot được cập nhật cuối 
 
 ## Pitfalls
 
-- **Chi phí sinh lại toàn lịch sử.** Để LLM sinh lại trạng thái mỗi lượt tốn tổng O(n²) token. Giới hạn lịch sử hoặc tóm tắt các lượt cũ.
+- **Chi phí sinh lại toàn lịch sử.** Để LLM sinh lại trạng thái mỗi lượt tốn tổng $O(n^2)$ token. Giới hạn lịch sử hoặc tóm tắt các lượt cũ.
 - **Độ trôi schema.** Thêm các slot mới sau đó phá dữ liệu huấn luyện cũ. Quản lý phiên bản schema của bạn.
 - **Phân biệt hoa thường.** "Italian" so với "italian" so với "ITALIAN" — chuẩn hóa ở mọi nơi.
 - **Kế thừa ngầm.** Nếu người dùng trước đó chỉ định "cho 4 người", một yêu cầu mới cho thời gian khác không nên xóa số người. Luôn truyền toàn bộ lịch sử.

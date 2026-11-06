@@ -21,31 +21,31 @@ Trong mọi bối cảnh đa agent, từ góc nhìn của bất kỳ một agent
 
 ![Four MARL regimes: indep, centralized critic, self-play, league](../assets/marl.svg)
 
-**Hình thức: Trò chơi Markov.** Một khái quát hóa của MDP: các trạng thái `S`, một hành động chung `a = (a_1, …, a_n)`, chuyển tiếp `P(s' | s, a)`, và các phần thưởng theo agent `R_i(s, a, s')`. Mỗi agent `i` tối đa hóa lợi tức riêng theo chính sách riêng `π_i`. Nếu phần thưởng giống hệt, nó là **hoàn toàn hợp tác**. Nếu tổng bằng không, nó là **đối kháng**. Nếu hỗn hợp, nó là **general-sum**.
+**Hình thức: Trò chơi Markov.** Một khái quát hóa của MDP: các trạng thái $S$, một hành động chung $a = (a_1, \ldots, a_n)$, chuyển tiếp $P(s' \mid s, a)$, và các phần thưởng theo agent $R_i(s, a, s')$. Mỗi agent $i$ tối đa hóa lợi tức riêng theo chính sách riêng $\pi_i$. Nếu phần thưởng giống hệt, nó là **hoàn toàn hợp tác**. Nếu tổng bằng không, nó là **đối kháng**. Nếu hỗn hợp, nó là **general-sum**.
 
 **Các thách thức cốt lõi:**
 
-- **Tính phi dừng.** `P(s' | s, a_i)` từ góc nhìn agent `i` phụ thuộc `π_{-i}`, vốn đang thay đổi.
+- **Tính phi dừng.** $P(s' \mid s, a_i)$ từ góc nhìn agent $i$ phụ thuộc $\pi_{-i}$, vốn đang thay đổi.
 - **Gán công trạng.** Với một phần thưởng chung, agent nào gây ra nó?
 - **Phối hợp khám phá.** Các agent phải khám phá các chiến lược bổ trợ, không khám phá trùng lặp cùng trạng thái.
-- **Khả năng mở rộng quy mô.** Không gian hành động chung tăng theo hàm mũ theo `n`.
+- **Khả năng mở rộng quy mô.** Không gian hành động chung tăng theo hàm mũ theo $n$.
 - **Khả năng quan sát một phần.** Mỗi agent chỉ thấy quan sát riêng; trạng thái toàn cục bị ẩn.
 
 **Bốn chế độ chi phối:**
 
 **1. Q-learning độc lập / PPO độc lập (IQL, IPPO).** Mỗi agent học Q hoặc chính sách riêng, coi các agent khác là một phần môi trường. Đơn giản, đôi khi hoạt động (đặc biệt với phát lại trải nghiệm đóng vai một thủ thuật làm trơn mô hình hóa agent). Hội tụ lý thuyết: không có. Trong thực tế: phù hợp cho các tác vụ ghép lỏng, kém cho các tác vụ ghép chặt.
 
-**2. Huấn luyện tập trung, thực thi phi tập trung (CTDE).** Mô thức hiện đại phổ biến nhất. Mỗi agent có *chính sách* riêng `π_i` có điều kiện theo quan sát cục bộ `o_i` — thực thi phi tập trung tiêu chuẩn khi triển khai. Trong *huấn luyện*, một critic tập trung `Q(s, a_1, …, a_n)` có điều kiện theo toàn bộ trạng thái toàn cục và hành động chung. Ví dụ:
+**2. Huấn luyện tập trung, thực thi phi tập trung (CTDE).** Mô thức hiện đại phổ biến nhất. Mỗi agent có *chính sách* riêng $\pi_i$ có điều kiện theo quan sát cục bộ $o_i$ — thực thi phi tập trung tiêu chuẩn khi triển khai. Trong *huấn luyện*, một critic tập trung $Q(s, a_1, \ldots, a_n)$ có điều kiện theo toàn bộ trạng thái toàn cục và hành động chung. Ví dụ:
 - **MADDPG** (Lowe và cộng sự 2017): DDPG với một critic tập trung cho mỗi agent.
-- **COMA** (Foerster và cộng sự 2017): baseline phản thực tế — hỏi "phần thưởng của tôi sẽ là gì nếu thay vào đó tôi thực hiện hành động `a'`?" — cô lập đóng góp của tôi.
+- **COMA** (Foerster và cộng sự 2017): baseline phản thực tế — hỏi "phần thưởng của tôi sẽ là gì nếu thay vào đó tôi thực hiện hành động $a'$?" — cô lập đóng góp của tôi.
 - **MAPPO** / **IPPO** với critic chung (Yu và cộng sự 2022): PPO với một hàm giá trị tập trung. Chi phối vào năm 2026 cho MARL hợp tác.
-- **QMIX** (Rashid và cộng sự 2018): phân rã giá trị — `Q_tot(s, a) = f(Q_1(s, a_1), …, Q_n(s, a_n))` với trộn đơn điệu.
+- **QMIX** (Rashid và cộng sự 2018): phân rã giá trị — $Q_{\text{tot}}(s, a) = f(Q_1(s, a_1), \ldots, Q_n(s, a_n))$ với trộn đơn điệu.
 
 **3. Tự chơi.** Hai bản sao của cùng một agent chơi với nhau. Chính sách đối thủ *là* chính sách của tôi từ một ảnh chụp quá khứ. AlphaGo / AlphaZero / MuZero. OpenAI Five. Hoạt động tốt nhất cho các trò chơi tổng bằng không; tín hiệu huấn luyện đối xứng.
 
 **4. Chơi liên đoàn.** Một mở rộng của tự chơi sang các môi trường general-sum / đối kháng: giữ một quần thể các chính sách quá khứ và hiện tại, lấy mẫu một đối thủ từ liên đoàn, huấn luyện đấu với họ. Thêm các exploiter (chuyên đánh bại bên tốt nhất hiện tại) và các main exploiter (chuyên đánh bại exploiter). AlphaStar (StarCraft II). Cần khi trò chơi cho phép các chu kỳ chiến lược "kéo-búa-bao".
 
-**Giao tiếp.** Cho phép các agent gửi các thông điệp được học `m_i` cho nhau. Hoạt động trong các bối cảnh hợp tác. Foerster và cộng sự (2016) cho thấy giao tiếp khả vi giữa các agent có thể được huấn luyện đầu cuối. Các hệ thống đa agent dựa trên LLM ngày nay (Giai đoạn 16) về cơ bản giao tiếp bằng ngôn ngữ tự nhiên.
+**Giao tiếp.** Cho phép các agent gửi các thông điệp được học $m_i$ cho nhau. Hoạt động trong các bối cảnh hợp tác. Foerster và cộng sự (2016) cho thấy giao tiếp khả vi giữa các agent có thể được huấn luyện đầu cuối. Các hệ thống đa agent dựa trên LLM ngày nay (Giai đoạn 16) về cơ bản giao tiếp bằng ngôn ngữ tự nhiên.
 
 ```figure
 f3-marl-orbit
@@ -86,10 +86,15 @@ def independent_q(env, episodes, alpha, gamma, epsilon):
     Q1, Q2 = defaultdict(default_q), defaultdict(default_q)
     for _ in range(episodes):
         s = env.reset()
+        done = False
         while not done:
             a1 = epsilon_greedy(Q1, s, epsilon)
             a2 = epsilon_greedy(Q2, s, epsilon)
             s_next, r, done = env.step(s, (a1, a2))
+            if done:
+                Q1[s][a1] += alpha * (r - Q1[s][a1])
+                Q2[s][a2] += alpha * (r - Q2[s][a2])
+                break
             target1 = r + gamma * max(Q1[s_next].values())
             target2 = r + gamma * max(Q2[s_next].values())
             Q1[s][a1] += alpha * (target1 - Q1[s][a1])
@@ -101,11 +106,11 @@ Hoạt động trên tác vụ này vì phần thưởng dày đặc và cùng h
 
 ### Step 3: centralized Q with decomposed-value update
 
-Dùng một Q trên các hành động chung `Q(s, a_1, a_2)`. Cập nhật từ phần thưởng chung. Phi tập trung khi thực thi bằng cách lấy biên: `π_i(s) = argmax_{a_i} max_{a_{-i}} Q(s, a_1, a_2)`. Đánh đổi không gian hành động chung tăng theo hàm mũ lấy một góc nhìn toàn cục *đúng*.
+Sử dụng một Q trên các hành động kết hợp $Q(s, a_1, a_2)$. Cập nhật từ phần thưởng chia sẻ. Phi tập trung hóa lúc thực thi bằng cách lấy biên: $\pi_i(s) = \arg\max_{a_i} \max_{a_{-i}} Q(s, a_1, a_2)$. Đánh đổi không gian hành động kết hợp tăng theo hàm mũ lấy một góc nhìn toàn cục *đúng*.
 
 ### Step 4: simple self-play (adversarial 2-agent)
 
-Cùng agent, hai vai trò. Huấn luyện agent A đấu agent B; sau `K` episode, sao chép trọng số của A vào B. Huấn luyện đối xứng, tiến bộ nhất quán. Công thức AlphaZero thu nhỏ.
+Cùng agent, hai vai trò. Huấn luyện agent A đấu agent B; sau $K$ episode, sao chép trọng số của A vào B. Huấn luyện đối xứng, tiến bộ nhất quán. Công thức AlphaZero thu nhỏ.
 
 ## Pitfalls
 
@@ -167,11 +172,11 @@ Refuse independent Q-learning on tightly-coupled cooperative tasks. Refuse to re
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Markov game (Trò chơi Markov) | "MDP đa agent" | `(S, A_1, …, A_n, P, R_1, …, R_n)`; mỗi agent có phần thưởng riêng. |
+| Markov game (Trò chơi Markov) | "MDP đa agent" | $(S, A_1, \ldots, A_n, P, R_1, \ldots, R_n)$; mỗi agent có phần thưởng riêng. |
 | CTDE | "Huấn luyện tập trung, thực thi phi tập trung" | Critic chung lúc huấn luyện; chính sách của mỗi agent chỉ dùng quan sát cục bộ. |
 | IPPO | "PPO độc lập" | Mỗi agent chạy PPO riêng. Baseline đơn giản; thường bị đánh giá thấp. |
 | MAPPO | "PPO đa agent" | PPO với một hàm giá trị tập trung có điều kiện theo trạng thái toàn cục. |
-| QMIX | "Phân rã giá trị đơn điệu" | `Q_tot = f_monotone(Q_1, …, Q_n)` cho phép argmax phi tập trung. |
+| QMIX | "Phân rã giá trị đơn điệu" | $Q_{\text{tot}} = f_{\text{monotone}}(Q_1, \ldots, Q_n)$ cho phép argmax phi tập trung. |
 | COMA | "Đa agent phản thực tế" | Lợi thế = Q của tôi trừ Q kỳ vọng lấy biên trên hành động của tôi. |
 | Self-play (Tự chơi) | "Agent đấu với bản thân quá khứ" | Một agent, hai vai trò; tiêu chuẩn cho các trò chơi tổng bằng không. |
 | League play (Chơi liên đoàn) | "Huấn luyện quần thể" | Cache các chính sách quá khứ, lấy mẫu đối thủ từ tập; xử lý chu kỳ chiến lược. |

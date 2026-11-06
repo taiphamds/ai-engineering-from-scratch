@@ -83,14 +83,16 @@ Marigold (Ke et al., CVPR 2024) đặt lại ước lượng độ sâu thành k
 
 Để nâng pixel `(u, v)` có độ sâu `d` thành điểm 3D `(X, Y, Z)` trong tọa độ máy ảnh:
 
-```
-fx, fy, cx, cy = camera intrinsics
-X = (u - cx) * d / fx
-Y = (v - cy) * d / fy
-Z = d
+```math
+\begin{aligned}
+f_x, f_y, c_x, c_y &= \text{camera intrinsics} \\
+X &= (u - c_x) \cdot d / f_x \\
+Y &= (v - c_y) \cdot d / f_y \\
+Z &= d
+\end{aligned}
 ```
 
-Nội tại đến từ siêu dữ liệu EXIF, mẫu hiệu chuẩn hoặc bộ ước lượng nội tại đơn mắt (Perspective Fields, UniDepth). Không có nội tại, bạn vẫn có thể kết xuất đám mây điểm bằng cách giả định FOV 60-70° và các điểm chính độ phân giải vừa — dùng được cho trực quan hóa, không cho đo lường.
+Các tham số nội tại đến từ metadata EXIF, một mẫu hiệu chuẩn hoặc một bộ ước lượng tham số nội tại đơn nhãn (Perspective Fields, UniDepth). Không có các tham số nội tại, bạn vẫn có thể kết xuất một đám mây điểm bằng cách giả định FOV 60-70° và một điểm chính tại tâm hình ảnh. Điều đó dùng được cho trực quan hóa, không phải cho đo lường.
 
 ### Evaluation
 
@@ -246,7 +248,7 @@ Bài học này tạo ra:
 | Monocular depth (Độ sâu đơn mắt) | "Độ sâu một hình ảnh" | Ước lượng độ sâu từ một khung RGB, không stereo hoặc LiDAR |
 | Relative depth (Độ sâu tương đối) | "Độ sâu có thứ tự" | Các giá trị z có thứ tự không có đơn vị thực |
 | Metric depth (Độ sâu theo đơn vị đo) | "Khoảng cách tuyệt đối" | Độ sâu theo mét; cần hiệu chuẩn hoặc mô hình được huấn luyện với giám sát theo đơn vị đo |
-| AbsRel | "Sai số tương đối tuyệt đối" | Trung bình |d_pred - d_gt| / d_gt; thước đo độ sâu tiêu chuẩn |
+| AbsRel | "Sai số tương đối tuyệt đối" | Trung bình $\lvert d_{\text{pred}} - d_{\text{gt}} \rvert / d_{\text{gt}}$; thước đo độ sâu tiêu chuẩn |
 | Delta accuracy (Accuracy delta) | "delta < 1.25" | Tỷ lệ pixel có dự đoán trong 25% sự thật nền |
 | Pinhole camera (Máy ảnh lỗ kim) | "fx, fy, cx, cy" | Mô hình máy ảnh dùng để nâng (u, v, d) thành (X, Y, Z) |
 | DPT | "Dense Prediction Transformer" | Decoder dựa trên tích chập dùng trên encoder ViT đóng băng cho độ sâu |

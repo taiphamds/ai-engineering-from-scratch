@@ -176,7 +176,7 @@ flowchart LR
 
 Tập kiểm tra là thiêng liêng. Bạn nhìn vào nó đúng một lần. Nếu liên tục điều chỉnh mô hình dựa trên hiệu năng kiểm tra, thực chất bạn đang huấn luyện trên tập kiểm tra và các con số báo cáo trở nên vô nghĩa.
 
-Với các tập dữ liệu nhỏ, sử dụng xác thực chéo k-fold: chia dữ liệu thành k phần, huấn luyện trên k-1 phần, xác thực trên phần còn lại, luân phiên và lấy trung bình kết quả.
+Đối với các tập dữ liệu nhỏ, sử dụng kiểm định chéo k-fold: chia dữ liệu thành $k$ phần, huấn luyện trên $k-1$ phần, xác thực trên phần còn lại, luân phiên và lấy trung bình các kết quả.
 
 ### Overfitting vs Underfitting
 
@@ -242,9 +242,9 @@ Các cách sửa khớp chưa đủ:
 | Vừa đúng | Trung bình | Trung bình | Tổng quát hóa tốt |
 | Quá cao (đa thức bậc 20 cho 10 điểm) | Thấp | Cao | Khớp quá mức |
 
-Tổng sai số = Độ chệch^2 + Phương sai + Nhiễu không thể giảm
+$\text{Total error} = \text{Bias}^2 + \text{Variance} + \text{Irreducible noise}$
 
-Bạn không thể giảm nhiễu không thể giảm (đó là tính ngẫu nhiên trong chính dữ liệu). Bạn muốn tìm điểm cân bằng nơi độ chệch^2 + phương sai được tối thiểu hóa.
+Bạn không thể giảm nhiễu không thể khử (đó là tính ngẫu nhiên trong chính dữ liệu). Bạn muốn tìm điểm cân bằng nơi $\text{bias}^2 + \text{variance}$ được tối thiểu hóa.
 
 ### No Free Lunch Theorem
 

@@ -1,6 +1,6 @@
 # Disassembly and Control Flow: From Bytes to a Graph You Can Check
 
-> A disassembly listing is a claim about which bytes are instructions, and this lesson builds the decoder and graph that check the claim.
+> Một danh sách disassembly là một khẳng định về những byte nào là chỉ lệnh, và bài học này xây dựng decoder và đồ thị kiểm tra khẳng định đó.
 
 **Type:** Build
 **Languages:** Python, C, x86-64 assembly
@@ -9,22 +9,22 @@
 
 ## Learning Objectives
 
-- Decode the x86-64 instruction subset in the ledger fixtures from the rules in Intel SDM Volume 2, Chapter 2.
-- Prove the decoder against `llvm-objdump -d` on every instruction of every fixture build.
-- Run a linear sweep and a recursive descent over the same bytes and explain where each one is wrong.
-- Cut instructions into basic blocks and build a control-flow graph with typed edges.
-- Compute immediate dominators with the iterative algorithm of Cooper, Harvey, and Kennedy, and find loops from back edges.
-- Recover the targets of an indirect jump from the relocation entries that point at its table.
+- Giải mã tập con chỉ lệnh x86-64 trong các fixture ledger từ các quy tắc trong Intel SDM Tập 2, Chương 2.
+- Chứng minh decoder với `llvm-objdump -d` trên mọi chỉ lệnh của mọi bản build fixture.
+- Chạy một linear sweep và một recursive descent trên cùng các byte và giải thích mỗi cách sai ở đâu.
+- Cắt các chỉ lệnh thành basic block và xây dựng một đồ thị luồng điều khiển với các cạnh có kiểu.
+- Tính immediate dominator bằng thuật toán lặp của Cooper, Harvey và Kennedy, và tìm các vòng lặp từ back edge.
+- Khôi phục các đích của một bước nhảy gián tiếp từ các mục relocation trỏ đến bảng của nó.
 
 ## The Problem
 
-You compiled `ledger.c` at `-O0` and asked an agent what `grade` does. The agent called a disassembler, read the listing, and answered that the function ends in `jmpq *%rax` with no known target. It then wrote pseudocode with a single `return 0`.
+Bạn biên dịch `ledger.c` ở `-O0` và hỏi một agent `grade` làm gì. Agent gọi một disassembler, đọc danh sách và trả lời rằng hàm kết thúc ở `jmpq *%rax` không có đích đã biết. Rồi nó viết mã giả với một `return 0` duy nhất.
 
-You open the same object in `llvm-objdump -d` and see four blocks after the jump that store 4, 3, 2, and 1. The listing had them all along. Nothing in the listing says how execution reaches them, so the tool treated them as dead code.
+Bạn mở cùng object trong `llvm-objdump -d` và thấy bốn khối sau bước nhảy lưu 4, 3, 2 và 1. Danh sách đã có chúng từ đầu. Không có gì trong danh sách nói cách thực thi đến chúng, nên công cụ coi chúng là mã chết.
 
-A listing answers one question only: which bytes form which instruction. It does not say which instructions run, in what order, or from where. To answer them you need three more structures: the bytes that control flow can reach, the basic blocks, and the edges between them.
+Một danh sách chỉ trả lời một câu hỏi: các byte nào tạo thành chỉ lệnh nào. Nó không nói các chỉ lệnh nào chạy, theo thứ tự nào hoặc từ đâu. Để trả lời chúng bạn cần thêm ba cấu trúc: các byte mà luồng điều khiển có thể tới, các basic block và các cạnh giữa chúng.
 
-rea 6.5.0 has no disassembler of its own. For deep analysis, its README asks you to bring Ghidra, Hopper, or IDA. For offline inspection, rea can also call a GNU objdump or a Rizin that you install. Its call graph stops at unresolved targets: "Callers/callees contain only resolved functions.... Targetless computed flow remains unknown.". This lesson builds the part that produces those facts, so you can judge them when a tool reports them.
+rea 6.5.0 không có disassembler riêng. Để phân tích sâu, README của nó yêu cầu bạn mang Ghidra, Hopper hoặc IDA. Để kiểm tra ngoại tuyến, rea cũng có thể gọi một GNU objdump hoặc một Rizin mà bạn cài. Call graph của nó dừng ở các đích chưa phân giải: "Các caller/callee chỉ chứa các hàm đã phân giải.... Luồng tính toán không có đích vẫn chưa biết.". Bài học này xây dựng phần tạo ra những sự kiện đó, để bạn có thể phán đoán chúng khi một công cụ báo cáo chúng.
 
 ```figure
 re-33-sweep-vs-descent
@@ -32,71 +32,71 @@ re-33-sweep-vs-descent
 
 ## The Instruction Format Has One Rule Per Field
 
-Intel SDM Volume 2, Figure 2-1 gives the byte order of every instruction. First come optional prefixes, then one to three opcode bytes, then an optional ModRM byte and an optional SIB byte. A displacement of 0, 1, 2, or 4 bytes follows, then an immediate of 0, 1, 2, or 4 bytes. The whole instruction is at most 15 bytes (SDM 2.3.11). AMD APM Volume 3, Chapter 1, Sections 1.1 to 1.7 describe the same format in fewer pages and are a good cross-check.
+Intel SDM Tập 2, Hình 2-1 cho thứ tự byte của mọi chỉ lệnh. Trước hết là các prefix tùy chọn, rồi một đến ba byte opcode, rồi một byte ModRM tùy chọn và một byte SIB tùy chọn. Một displacement 0, 1, 2 hoặc 4 byte theo sau, rồi một immediate 0, 1, 2 hoặc 4 byte. Toàn chỉ lệnh tối đa 15 byte (SDM 2.3.11). AMD APM Tập 3, Chương 1, Mục 1.1 đến 1.7 mô tả cùng định dạng trong ít trang hơn và là một đối chiếu tốt.
 
-Each field decides what the next field means. A decoder is therefore a chain of small decisions, and each decision has a sentence in the manual behind it.
+Mỗi trường quyết định trường tiếp theo có nghĩa gì. Một decoder do đó là một chuỗi quyết định nhỏ, và mỗi quyết định có một câu trong sổ tay đằng sau nó.
 
 ### Prefixes come in four groups
 
-SDM 2.1.1 lists the legacy prefixes. Group 1 holds `F0` lock and the repeat prefixes `F2` and `F3`. Group 2 holds the six segment overrides (`2E` is `%cs`) and the branch hints. Group 3 is `66`, the operand-size override. Group 4 is `67`, the address-size override.
+SDM 2.1.1 liệt kê các legacy prefix. Nhóm 1 chứa lock `F0` và các repeat prefix `F2` và `F3`. Nhóm 2 chứa sáu segment override (`2E` là `%cs`) và các branch hint. Nhóm 3 là `66`, operand-size override. Nhóm 4 là `67`, address-size override.
 
-The manual says one prefix from each group can be used. Compilers emit more. The alignment padding in `ledger-x86_64-O0.o` at offset `0xf2` reads `66 66 66 66 66 2e 0f 1f 84 00 00 00 00 00`, five copies of `66` in a row. `llvm-objdump` prints it as `nopw %cs:(%rax,%rax)` and so does the decoder you build. The decoder collects every prefix byte it sees and asks later which ones mattered.
+Sổ tay nói có thể sử dụng một prefix từ mỗi nhóm. Compiler phát ra nhiều hơn. Padding căn chỉnh trong `ledger-x86_64-O0.o` tại offset `0xf2` đọc ra `66 66 66 66 66 2e 0f 1f 84 00 00 00 00 00`, năm bản sao `66` liên tiếp. `llvm-objdump` in nó là `nopw %cs:(%rax,%rax)` và decoder bạn xây dựng cũng vậy. Decoder thu thập mọi byte prefix nó thấy và hỏi sau những byte nào có ý nghĩa.
 
-`66` has a second job. For SSE instructions it is a mandatory prefix that selects the opcode, so `66 0f ef c0` is `pxor %xmm0, %xmm0` and not a 16-bit anything. `F3 0f 6f` is `movdqu`. The decoder first looks up the pair of mandatory prefix and second opcode byte. Only when that pair has no entry does `66` mean a 16-bit operand.
+`66` có một công việc thứ hai. Với các chỉ lệnh SSE, nó là một prefix bắt buộc chọn opcode, nên `66 0f ef c0` là `pxor %xmm0, %xmm0` và không phải bất cứ thứ gì 16 bit. `F3 0f 6f` là `movdqu`. Decoder trước hết tra cặp prefix bắt buộc và byte opcode thứ hai. Chỉ khi cặp đó không có mục nào thì `66` mới có nghĩa là một toán hạng 16 bit.
 
 ### REX adds four bits and must sit next to the opcode
 
-SDM 2.2.1 defines REX as one byte from `40` to `4F` with the shape `0100WRXB`. `W` selects a 64-bit operand. `R` extends the ModRM reg field. `X` extends the SIB index field. `B` extends the ModRM r/m field, the SIB base field, or the register in the opcode byte (Table 2-4). REX must come right before the opcode or the escape bytes, and a REX followed by a legacy prefix is ignored.
+SDM 2.2.1 định nghĩa REX là một byte từ `40` đến `4F` có dạng `0100WRXB`. `W` chọn một toán hạng 64 bit. `R` mở rộng trường reg ModRM. `X` mở rộng trường index SIB. `B` mở rộng trường r/m ModRM, trường base SIB hoặc thanh ghi trong byte opcode (Bảng 2-4). REX phải đến ngay trước opcode hoặc các byte escape, và một REX theo sau bởi một legacy prefix bị bỏ qua.
 
-In `48 89 e5` the byte `48` is REX with `W` set. The opcode `89` is `MOV r/m, r`, and ModRM `e5` selects `%rsp` into `%rbp`. Remove the REX and the same bytes are `movl %esp, %ebp`.
+Trong `48 89 e5`, byte `48` là REX với `W` được đặt. Opcode `89` là `MOV r/m, r`, và ModRM `e5` chọn `%rsp` vào `%rbp`. Loại REX và cùng các byte là `movl %esp, %ebp`.
 
-REX changes the names of the byte registers too. With any REX present, encodings 4 to 7 select `%spl`, `%bpl`, `%sil`, and `%dil` instead of `%ah`, `%ch`, `%dh`, and `%bh`. The decoder keeps two tables for that reason.
+REX cũng thay đổi tên các thanh ghi byte. Khi có bất kỳ REX nào, các mã hóa 4 đến 7 chọn `%spl`, `%bpl`, `%sil` và `%dil` thay vì `%ah`, `%ch`, `%dh` và `%bh`. Decoder giữ hai bảng vì lý do đó.
 
 ### Opcodes live in two maps
 
-A one-byte opcode is the common case. `0F` escapes to the two-byte map, and `0F 38` or `0F 3A` escape to three-byte maps that the fixtures never use (SDM 2.1.2). Some opcodes use the ModRM reg field as three more opcode bits, written `/digit` in the manual. `83 /7` is `cmp` with an 8-bit immediate, `83 /5` is `sub`, and `FF /4` is the indirect `jmp`.
+Một opcode một byte là trường hợp phổ biến. `0F` escape sang bản đồ hai byte, và `0F 38` hoặc `0F 3A` escape sang các bản đồ ba byte mà các fixture không bao giờ sử dụng (SDM 2.1.2). Một số opcode sử dụng trường reg ModRM làm thêm ba bit opcode, viết là `/digit` trong sổ tay. `83 /7` là `cmp` với một immediate 8 bit, `83 /5` là `sub` và `FF /4` là `jmp` gián tiếp.
 
-The decoder in `code/main.py` covers the opcodes in the four fixture objects plus a few neighbours. The list is the eight arithmetic forms, `mov`, `lea`, `movslq`, `movzbl`, `imul`, the shifts, `test`, and `idiv`. It continues with `push`, `pop`, `call`, `ret`, the sixteen conditional jumps, the multi-byte `nop`, and five SSE2 opcodes. Any other opcode raises `DecodeError` with the address and the reason. A decoder that guesses is worse than one that stops.
+Decoder trong `code/main.py` bao quát các opcode trong bốn object fixture cộng vài opcode lân cận. Danh sách là tám dạng số học, `mov`, `lea`, `movslq`, `movzbl`, `imul`, các phép dịch, `test` và `idiv`. Nó tiếp tục với `push`, `pop`, `call`, `ret`, mười sáu bước nhảy có điều kiện, `nop` nhiều byte và năm opcode SSE2. Bất kỳ opcode nào khác phát sinh `DecodeError` với địa chỉ và lý do. Một decoder đoán thì tệ hơn một decoder dừng.
 
 ### ModRM and SIB select the operands
 
-SDM 2.1.3 splits ModRM into `mod` (bits 7:6), `reg` (5:3), and `r/m` (2:0). `mod = 11` means r/m is a register. `mod = 00`, `01`, and `10` mean memory with no displacement, an 8-bit displacement, or a 32-bit displacement. `r/m = 100` means a SIB byte follows. SIB splits into `scale` (7:6), `index` (5:3), and `base` (2:0), and an index of `100` means no index register.
+SDM 2.1.3 tách ModRM thành `mod` (bit 7:6), `reg` (5:3) và `r/m` (2:0). `mod = 11` nghĩa là r/m là một thanh ghi. `mod = 00`, `01` và `10` nghĩa là bộ nhớ không displacement, một displacement 8 bit hoặc một displacement 32 bit. `r/m = 100` nghĩa là một byte SIB theo sau. SIB tách thành `scale` (7:6), `index` (5:3) và `base` (2:0), và một index `100` nghĩa là không có thanh ghi index.
 
-Two special rows in Table 2-2 matter in 64-bit mode. `mod = 00` with `r/m = 101` is not `(%rbp)`. It is a 32-bit displacement relative to the next instruction (SDM 2.2.1.6). `mod = 00` with a SIB base of `101` is a 32-bit displacement with no base register.
+Hai hàng đặc biệt trong Bảng 2-2 quan trọng ở chế độ 64 bit. `mod = 00` với `r/m = 101` không phải `(%rbp)`. Nó là một displacement 32 bit tương đối với chỉ lệnh tiếp theo (SDM 2.2.1.6). `mod = 00` với một SIB base `101` là một displacement 32 bit không có thanh ghi base.
 
-Take `8d 44 08 fa` from `grade` at `-O0`. The opcode `8D` is `lea`. ModRM `44` is `01 000 100`: an 8-bit displacement, reg `%eax`, and a SIB follows. SIB `08` is `00 001 000`: scale 1, index `%rcx`, base `%rax`. The displacement byte `fa` is -6. The AT&T text is `leal -0x6(%rax,%rcx), %eax`, which computes `score / 10 - 6`, the switch index.
+Lấy `8d 44 08 fa` từ `grade` ở `-O0`. Opcode `8D` là `lea`. ModRM `44` là `01 000 100`: một displacement 8 bit, reg `%eax` và một SIB theo sau. SIB `08` là `00 001 000`: scale 1, index `%rcx`, base `%rax`. Byte displacement `fa` là -6. Văn bản AT&T là `leal -0x6(%rax,%rcx), %eax`, tính `score / 10 - 6`, chỉ số switch.
 
 ### The displacement is where the link editor writes
 
-`48 8d 0d 00 00 00 00` is `leaq (%rip), %rcx`. The four zero bytes are the displacement field of a RIP-relative operand. In a relocatable object they are placeholders. The entry in `.rela.text` at offset `0x69` says `R_X86_64_PC32.rodata-0x4`. The psABI (Table 4.9) defines `R_X86_64_PC32` as `S + A - P`: the symbol address plus the addend minus the address of the field.
+`48 8d 0d 00 00 00 00` là `leaq (%rip), %rcx`. Bốn byte không là trường displacement của một toán hạng tương đối theo RIP. Trong một object có thể tái định vị, chúng là các chỗ giữ chỗ. Mục trong `.rela.text` tại offset `0x69` nói `R_X86_64_PC32.rodata-0x4`. psABI (Bảng 4.9) định nghĩa `R_X86_64_PC32` là `S + A - P`: địa chỉ symbol cộng addend trừ địa chỉ của trường.
 
-The processor adds the field to the address of the next instruction, so the final target is `S + A + (end - P)`. For this `lea` the field is the last four bytes, so `end - P` is 4 and the target is `.rodata + (-4) + 4 =.rodata + 0x0`. The addend of -4 compensates for those four bytes in advance. Every RIP-relative operand in the fixtures carries this -4 inside its addend, so `.rodata+0x10` on the `-O1` `lea` means `.rodata+0x14`.
+Bộ xử lý cộng trường vào địa chỉ của chỉ lệnh tiếp theo, nên đích cuối là `S + A + (end - P)`. Với `lea` này, trường là bốn byte cuối, nên `end - P` là 4 và đích là `.rodata + (-4) + 4 =.rodata + 0x0`. Addend -4 bù trước cho bốn byte đó. Mọi toán hạng tương đối theo RIP trong các fixture mang -4 này bên trong addend của nó, nên `.rodata+0x10` trên `-O1` `lea` nghĩa là `.rodata+0x14`.
 
-The decoder records the offset of the displacement field inside each instruction. `resolve_reference()` looks that offset up in the relocation table and reports where the operand will point after linking. That one function is what turns `leaq (%rip), %rcx` into "the table at `.rodata+0x0`".
+Decoder ghi offset của trường displacement bên trong mỗi chỉ lệnh. `resolve_reference()` tra offset đó trong bảng relocation và báo cáo nơi toán hạng sẽ trỏ tới sau liên kết. Một hàm đó là thứ biến `leaq (%rip), %rcx` thành "bảng tại `.rodata+0x0`".
 
 ### Immediates are 32 bits at most, with one exception
 
-SDM 2.2.1.5 says immediates stay at most 32 bits in 64-bit mode and are sign-extended. The exception is `MOV r64, imm64` (`B8+r` with `REX.W`), which the AT&T syntax calls `movabsq`. The decoder reads 8-bit immediates as signed for arithmetic (`83 c1 fa` is `addl $-0x6, %ecx`) and as unsigned for shift counts and shuffle selectors (`pshufd $0xee`). That split matches what `llvm-objdump` prints.
+SDM 2.2.1.5 nói immediate vẫn tối đa 32 bit ở chế độ 64 bit và được mở rộng dấu. Ngoại lệ là `MOV r64, imm64` (`B8+r` với `REX.W`), mà cú pháp AT&T gọi là `movabsq`. Decoder đọc immediate 8 bit là có dấu cho số học (`83 c1 fa` là `addl $-0x6, %ecx`) và không dấu cho số đếm dịch cùng bộ chọn shuffle (`pshufd $0xee`). Sự phân chia đó khớp những gì `llvm-objdump` in.
 
-Near branches, `push`, and `pop` default to a 64-bit operand and ignore `66` (SDM 2.2.1.7). That is why the decoder names them `pushq`, `popq`, `callq`, and `retq` without reading an operand-size prefix.
+Các nhánh near, `push` và `pop` mặc định một toán hạng 64 bit và bỏ qua `66` (SDM 2.2.1.7). Đó là lý do decoder đặt tên chúng `pushq`, `popq`, `callq` và `retq` mà không đọc một operand-size prefix.
 
 ## Decode One Instruction by Hand
 
-Before you trust the code, decode `48 69 c0 67 66 66 66` from `grade` on paper.
+Trước khi tin mã, giải mã `48 69 c0 67 66 66 66` từ `grade` trên giấy.
 
-1. `48` is in `40` to `4F`, so it is REX with `W = 1`. Operand size is 64 bits.
-2. `69` is `IMUL r, r/m, imm32`.
-3. `c0` is ModRM `11 000 000`: register form, reg `%rax`, r/m `%rax`.
-4. The next four bytes are the immediate, little-endian: `0x66666667`.
-5. AT&T order is immediate, source, destination: `imulq $0x66666667, %rax, %rax`.
+1. `48` nằm trong `40` đến `4F`, nên nó là REX với `W = 1`. Kích thước toán hạng là 64 bit.
+2. `69` là `IMUL r, r/m, imm32`.
+3. `c0` là ModRM `11 000 000`: dạng thanh ghi, reg `%rax`, r/m `%rax`.
+4. Bốn byte tiếp theo là immediate, little-endian: `0x66666667`.
+5. Thứ tự AT&T là immediate, nguồn, đích: `imulq $0x66666667, %rax, %rax`.
 
-That is seven bytes, and `llvm-objdump` prints the same text. The constant is the reciprocal that lets clang divide by 10 with a multiply and the `sarq $0x22` that follows, which shifts by 34. You will meet that pair again in lesson 34, where the lifter turns it back into `score / 10`.
+Đó là bảy byte, và `llvm-objdump` in cùng văn bản. Hằng số là nghịch đảo cho phép clang chia cho 10 bằng một phép nhân và `sarq $0x22` theo sau, dịch 34. Bạn sẽ gặp lại cặp đó trong bài 34, nơi lifter biến nó trở lại thành `score / 10`.
 
-The decoder does these five steps in `Decoder.decode()`, `_State.modrm()`, and `_State.finish()`. Read them in that order and match each branch to the SDM section named in its docstring.
+Decoder làm năm bước này trong `Decoder.decode()`, `_State.modrm()` và `_State.finish()`. Đọc chúng theo thứ tự đó và khớp mỗi nhánh với mục SDM được nêu tên trong docstring của nó.
 
 ## Linear Sweep
 
-Schwarz, Debray, and Andrews describe linear sweep in Section 3.1 of "Disassembly of Executable Code Revisited" (WCRE 2002). Start at the first byte of the code section, decode one instruction, continue at the byte after it, and stop at the end. `objdump` works this way, and so does `llvm-objdump`.
+Schwarz, Debray và Andrews mô tả linear sweep trong Mục 3.1 của "Disassembly of Executable Code Revisited" (WCRE 2002). Bắt đầu ở byte đầu tiên của code section, giải mã một chỉ lệnh, tiếp tục ở byte sau nó và dừng ở cuối. `objdump` hoạt động theo cách này, và `llvm-objdump` cũng vậy.
 
 ```python
 def linear_sweep(code: bytes, start: int = 0, end: int | None = None) -> SweepResult:
@@ -112,13 +112,13 @@ def linear_sweep(code: bytes, start: int = 0, end: int | None = None) -> SweepRe
         position = instruction.end
 ```
 
-The method has one failure mode, and the paper's Figure 1 shows it. Bytes that are data get decoded as instructions, and the decoder then misses the real instruction boundaries for a while. On x86 the decoder usually re-synchronises within a few bytes, which is what makes the error hard to see. Detection happens only on an invalid opcode, and the paper's conclusion is that these algorithms "fail silently".
+Phương pháp có một chế độ lỗi, và Hình 1 của bài báo cho thấy nó. Các byte là dữ liệu được giải mã thành chỉ lệnh, và decoder sau đó bỏ lỡ các ranh giới chỉ lệnh thật trong một lúc. Trên x86, decoder thường đồng bộ lại trong vài byte, chính điều đó khiến lỗi khó thấy. Phát hiện chỉ xảy ra trên một opcode không hợp lệ, và kết luận của bài báo là các thuật toán này "thất bại âm thầm".
 
-The sweep is also the oracle for this lesson. The decoder must agree with `llvm-objdump -d` on every instruction of every fixture, and `llvm-objdump` is itself a linear sweep. The captured text lives in `code/fixtures/*.objdump.txt`. The test parses each line into address, bytes, and text, drops the comments after `#`, and compares. The four objects hold 86, 56, 84, and 11 instructions, 237 in total, and the decoder matches all of them.
+Sweep cũng là oracle cho bài học này. Decoder phải đồng nhất với `llvm-objdump -d` trên mọi chỉ lệnh của mọi fixture, và bản thân `llvm-objdump` là một linear sweep. Văn bản đã thu nằm trong `code/fixtures/*.objdump.txt`. Bài kiểm tra phân tích mỗi dòng thành địa chỉ, byte và văn bản, bỏ các bình luận sau `#` và so sánh. Bốn object chứa 86, 56, 84 và 11 chỉ lệnh, tổng cộng 237, và decoder khớp tất cả chúng.
 
 ## Recursive Descent
 
-Section 3.2 of the same paper calls the second method recursive traversal. Start at a known entry point and decode until a control transfer. For a direct jump, continue at the target. For a conditional branch, continue at both the target and the next instruction, and for a call, continue after it, because the callee returns. For a return, stop. Keep a set of visited addresses so the walk ends.
+Mục 3.2 của cùng bài báo gọi phương pháp thứ hai là recursive traversal. Bắt đầu ở một điểm vào đã biết và giải mã cho đến một chuyển giao điều khiển. Với một bước nhảy trực tiếp, tiếp tục tại đích. Với một nhánh có điều kiện, tiếp tục tại cả đích và chỉ lệnh tiếp theo, và với một lần gọi, tiếp tục sau nó, vì callee trả về. Với một lần trả về, dừng. Giữ một tập các địa chỉ đã thăm để phép duyệt kết thúc.
 
 ```python
 if instruction.flow == "branch":
@@ -131,13 +131,13 @@ elif instruction.flow == "indirect-jump":
         break
 ```
 
-The failure mode is the opposite one. An indirect jump has no target in its bytes. The walk stops there, and every block reachable only through the jump stays unknown. The paper's Figure 2 shows a second hazard: a target set derived from relocations that points into the middle of an instruction. The descent in `main.py` records that case as a conflict and stops that path, so the overlap is visible instead of silently decoded twice.
+Chế độ lỗi là điều ngược lại. Một bước nhảy gián tiếp không có đích trong các byte của nó. Phép duyệt dừng ở đó, và mọi khối chỉ có thể đến qua bước nhảy vẫn chưa biết. Hình 2 của bài báo cho thấy một nguy cơ thứ hai: một tập đích suy ra từ relocation trỏ vào giữa một chỉ lệnh. Descent trong `main.py` ghi trường hợp đó như một xung đột và dừng đường đó, để chồng lấp nhìn thấy được thay vì âm thầm giải mã hai lần.
 
-Andriesse and others measured nine disassemblers on 981 compiler-generated binaries (USENIX Security 2016). Inline data and overlapping code were rarer in real compiler output than the literature assumed, and the hard primitive was function boundary recovery. Keep both findings in mind. The trap in the next section is rare in compiler output. The indirect jump in `grade` is common.
+Andriesse và những người khác đo chín disassembler trên 981 binary do compiler tạo (USENIX Security 2016). Dữ liệu inline và mã chồng lấp hiếm hơn trong đầu ra compiler thực so với giả định của tài liệu, và primitive khó là khôi phục ranh giới hàm. Giữ cả hai phát hiện trong đầu. Bẫy trong phần tiếp theo hiếm trong đầu ra compiler. Bước nhảy gián tiếp trong `grade` phổ biến.
 
 ## A Fixture Where the Sweep Is Wrong and the Descent Is Right
 
-`code/fixtures/sweep-trap.s` is 24 bytes of hand-written assembly with a four-byte table inside the function body. The function indexes the table with `movzbl (%rcx,%rax), %eax` and jumps over it.
+`code/fixtures/sweep-trap.s` là 24 byte assembly viết tay với một bảng bốn byte bên trong thân hàm. Hàm đánh chỉ số vào bảng bằng `movzbl (%rcx,%rax), %eax` và nhảy qua nó.
 
 ```asm
 lookup:
@@ -152,7 +152,7 @@ lookup:
         retq
 ```
 
-Build it with `clang -target x86_64-unknown-linux-gnu -c sweep-trap.s`. The four table bytes were chosen so that they decode as plausible instructions. `31 c0` is `xorl %eax, %eax`. `90` is `nop`. `48` is a REX prefix, so the sweep joins it with the three bytes of the real `addl $1, %eax` and prints `addq $0x1, %rax`. The captured `llvm-objdump` output shows exactly that:
+Dựng nó bằng `clang -target x86_64-unknown-linux-gnu -c sweep-trap.s`. Bốn byte bảng được chọn để chúng giải mã thành các chỉ lệnh có vẻ hợp lý. `31 c0` là `xorl %eax, %eax`. `90` là `nop`. `48` là một REX prefix, nên sweep nối nó với ba byte của `addl $1, %eax` thật và in `addq $0x1, %rax`. Đầu ra `llvm-objdump` đã thu cho thấy chính xác điều đó:
 
 ```text
        e: eb 04                        	jmp	0x14 <lookup+0x14>
@@ -162,9 +162,9 @@ Build it with `clang -target x86_64-unknown-linux-gnu -c sweep-trap.s`. The four
       17: c3                           	retq
 ```
 
-Nothing in this listing looks broken. Every byte decoded, every mnemonic is real, and the `retq` is present. The listing is still wrong in three ways. The jump at `0xe` targets `0x14`, and no instruction in the listing starts at `0x14`. The instruction that does run at `0x14` is a 32-bit `addl`, and the listing shows a 64-bit `addq` one byte earlier. The four table bytes appear as code.
+Không có gì trong danh sách này trông hỏng. Mọi byte được giải mã, mọi mnemonic là thật và `retq` hiện diện. Danh sách vẫn sai theo ba cách. Bước nhảy tại `0xe` nhắm đến `0x14`, và không chỉ lệnh nào trong danh sách bắt đầu tại `0x14`. Chỉ lệnh thực sự chạy tại `0x14` là một `addl` 32 bit, và danh sách hiển thị một `addq` 64 bit sớm hơn một byte. Bốn byte bảng xuất hiện như mã.
 
-Recursive descent from the `lookup` symbol decodes six instructions, follows the jump to `0x14`, and reports `addl $0x1, %eax`. It claims none of the four table bytes and none of the eight padding bytes before `plus_one`. `trap_report()` in `main.py` prints the comparison:
+Recursive descent từ symbol `lookup` giải mã sáu chỉ lệnh, đi theo bước nhảy tới `0x14` và báo cáo `addl $0x1, %eax`. Nó không nhận bất kỳ byte nào trong bốn byte bảng và tám byte padding trước `plus_one`. `trap_report()` trong `main.py` in phép so sánh:
 
 ```json
 "linearSweep": {
@@ -181,13 +181,13 @@ Recursive descent from the `lookup` symbol decodes six instructions, follows the
 }
 ```
 
-The test `test_sweep_and_objdump_share_the_same_mistake` asserts that `llvm-objdump` printed `addq $0x1, %rax` at `0x13`. The oracle is a linear sweep and inherits its blind spot. Agreement with the oracle checks the decoder, and the descent checks which instructions run.
+Bài kiểm tra `test_sweep_and_objdump_share_the_same_mistake` khẳng định rằng `llvm-objdump` in `addq $0x1, %rax` tại `0x13`. Oracle là một linear sweep và thừa hưởng điểm mù của nó. Sự đồng nhất với oracle kiểm tra decoder, và descent kiểm tra những chỉ lệnh nào chạy.
 
 ## Basic Blocks
 
-Allen defined the basic block in "Control Flow Analysis" (1970). It is a sequence of instructions that is entered only at its first instruction and left only at its last. Yakdan and others restate it for decompilation in Section II.A.2 of "No More Gotos" (NDSS 2015), with the header node as the function entry.
+Allen định nghĩa basic block trong "Control Flow Analysis" (1970). Nó là một chuỗi chỉ lệnh chỉ được vào ở chỉ lệnh đầu tiên và chỉ được rời ở chỉ lệnh cuối cùng. Yakdan và những người khác phát biểu lại nó cho decompilation trong Mục II.A.2 của "No More Gotos" (NDSS 2015), với nút header là điểm vào hàm.
 
-The construction is a two-pass scan over the decoded instructions, sorted by address. The first pass collects leaders. A leader is the entry, a branch or jump target, a table target, or the instruction after any control transfer. The second pass starts a new block at every leader and at every gap in the address sequence.
+Việc xây dựng là một phép quét hai lượt trên các chỉ lệnh đã giải mã, sắp xếp theo địa chỉ. Lượt đầu thu thập các leader. Một leader là điểm vào, một đích nhánh hoặc bước nhảy, một đích bảng hoặc chỉ lệnh sau bất kỳ chuyển giao điều khiển nào. Lượt thứ hai bắt đầu một khối mới tại mỗi leader và tại mỗi khoảng trống trong chuỗi địa chỉ.
 
 ```python
 for instruction in self.instructions:
@@ -197,13 +197,13 @@ for instruction in self.instructions:
     current.instructions.append(instruction)
 ```
 
-Edges follow from the last instruction of each block. A return has no successor. A jump has one, tagged `jump`. A conditional branch has two, tagged `taken` and `fallthrough`. A plain instruction at the end of a block falls through to the next block, which happens when the next instruction is a branch target. An indirect jump has the targets of its table, tagged `table`, or none, and the block is recorded in `unresolved`.
+Các cạnh suy ra từ chỉ lệnh cuối của mỗi khối. Một lần trả về không có kế nhiệm. Một bước nhảy có một, gắn nhãn `jump`. Một nhánh có điều kiện có hai, gắn nhãn `taken` và `fallthrough`. Một chỉ lệnh thông thường ở cuối một khối đi tiếp xuống khối tiếp theo, điều xảy ra khi chỉ lệnh tiếp theo là một đích nhánh. Một bước nhảy gián tiếp có các đích của bảng của nó, gắn nhãn `table`, hoặc không có, và khối được ghi trong `unresolved`.
 
-Two more facts come out of the same scan. A block that the entry cannot reach is unreachable, and the sweep over `grade` at `-O0` produces five of them. A block whose start address falls inside an instruction of another method's listing is the overlap case from the trap.
+Thêm hai sự kiện xuất phát từ cùng phép quét. Một khối mà điểm vào không thể đến là không thể tới, và sweep trên `grade` ở `-O0` tạo ra năm khối như vậy. Một khối có địa chỉ bắt đầu nằm bên trong một chỉ lệnh của danh sách phương pháp khác là trường hợp chồng lấp từ bẫy.
 
 ## The Control-Flow Graph of total
 
-`total` at `-O1` is 31 bytes and 13 instructions:
+`total` ở `-O1` là 31 byte và 13 chỉ lệnh:
 
 ```text
       40: 85 f6                        	testl	%esi, %esi
@@ -221,25 +221,25 @@ Two more facts come out of the same scan. A block that the entry cannot reach is
       5e: c3                           	retq
 ```
 
-The leaders are `0x40` (entry), `0x44` (after the `jle`), `0x50` (target of the `jne`), `0x5b` (after the `jne`), and `0x5c` (target of the `jle`). Five blocks, five edges:
+Các leader là `0x40` (điểm vào), `0x44` (sau `jle`), `0x50` (đích của `jne`), `0x5b` (sau `jne`) và `0x5c` (đích của `jle`). Năm khối, năm cạnh:
 
-| From | To | Kind | Why |
+| Từ | Đến | Loại | Vì sao |
 |---|---|---|---|
-| `0x40` | `0x44` | fallthrough | `jle` not taken, count is positive |
-| `0x40` | `0x5c` | taken | count is zero or negative, return 0 |
-| `0x44` | `0x50` | fallthrough | the `nopw` is alignment inside the block, execution passes through it |
-| `0x50` | `0x50` | taken | `jne 0x50`, the loop |
-| `0x50` | `0x5b` | fallthrough | loop exit, return the sum |
+| `0x40` | `0x44` | fallthrough | không lấy nhánh `jle`, count dương |
+| `0x40` | `0x5c` | taken | count bằng không hoặc âm, trả về 0 |
+| `0x44` | `0x50` | fallthrough | `nopw` là căn chỉnh bên trong khối, thực thi đi qua nó |
+| `0x50` | `0x50` | taken | `jne 0x50`, vòng lặp |
+| `0x50` | `0x5b` | fallthrough | thoát vòng lặp, trả về tổng |
 
-The six-byte `nopw` at `0x4a` is padding so that the loop head at `0x50` sits on a 16-byte boundary. It is reachable, so it belongs to block `0x44`. The one-byte `nop` at `0x5f` after the last `retq` is also padding, and nothing reaches it. The sweep over the function makes a sixth block for it, and `unreachable()` lists it.
+`nopw` sáu byte tại `0x4a` là padding để đầu vòng lặp tại `0x50` nằm trên một ranh giới 16 byte. Nó có thể tới, nên nó thuộc khối `0x44`. `nop` một byte tại `0x5f` sau `retq` cuối cùng cũng là padding, và không có gì đến nó. Sweep trên hàm tạo một khối thứ sáu cho nó, và `unreachable()` liệt kê nó.
 
-At `-O2` the same function is 140 bytes with two loops. The SSE2 body at `0x80` adds eight values per pass with `paddd`, and the scalar remainder runs at `0xc0`. The CFG has two back edges, `0x80 -> 0x80` and `0xc0 -> 0xc0`, and the test suite checks both.
+Ở `-O2`, cùng hàm là 140 byte với hai vòng lặp. Thân SSE2 tại `0x80` cộng tám giá trị mỗi lượt bằng `paddd`, và phần dư vô hướng chạy tại `0xc0`. CFG có hai back edge, `0x80 -> 0x80` và `0xc0 -> 0xc0`, và bộ kiểm tra kiểm tra cả hai.
 
 ## Dominators With the Iterative Algorithm
 
-A block `d` dominates a block `b` when every path from the entry to `b` passes through `d`. The immediate dominator of `b` is the dominator of `b` that is closest to `b`. The notion goes back to Prosser (1959) through Allen (1970), and it is the structure that lesson 34 needs to place `if` and `while` correctly.
+Một khối `d` chi phối một khối `b` khi mọi đường từ điểm vào đến `b` đi qua `d`. Immediate dominator của `b` là dominator của `b` gần `b` nhất. Khái niệm bắt nguồn từ Prosser (1959) qua Allen (1970), và nó là cấu trúc mà bài 34 cần để đặt `if` và `while` đúng.
 
-Cooper, Harvey, and Kennedy wrote "A Simple, Fast Dominance Algorithm" (2001). They argue that the data-flow formulation, run in reverse postorder with a compact representation, beats Lengauer-Tarjan (1979) on graphs under about a thousand nodes. Their paper says its purpose is "not to present a new algorithm". It shows that simple algorithms can win in practice and are good teaching tools. A function CFG almost never has a thousand nodes.
+Cooper, Harvey và Kennedy viết "A Simple, Fast Dominance Algorithm" (2001). Họ lập luận rằng công thức luồng dữ liệu, chạy theo reverse postorder với một biểu diễn gọn, đánh bại Lengauer-Tarjan (1979) trên các đồ thị dưới khoảng một nghìn nút. Bài báo của họ nói mục đích của nó là "không trình bày một thuật toán mới". Nó cho thấy các thuật toán đơn giản có thể thắng trong thực tế và là các công cụ giảng dạy tốt. Một CFG hàm gần như không bao giờ có một nghìn nút.
 
 ```python
 def intersect(first: int, second: int) -> int:
@@ -263,13 +263,13 @@ while changed:
             changed = True
 ```
 
-`number` holds the reverse postorder position of each block, with the entry at 0. `intersect` walks two fingers up the current dominator tree until they meet. The paper writes the comparison with postorder numbers and `<`. This code uses reverse postorder numbers, so the comparison is `>`. Everything else follows the paper's pseudocode.
+`number` chứa vị trí reverse postorder của mỗi khối, với điểm vào ở 0. `intersect` di chuyển hai ngón tay lên cây dominator hiện tại cho đến khi chúng gặp nhau. Bài báo viết phép so sánh với số postorder và `<`. Mã này sử dụng số reverse postorder, nên phép so sánh là `>`. Mọi thứ khác theo mã giả của bài báo.
 
-For `total` at `-O1` the result is `idom(0x44) = 0x40`, `idom(0x50) = 0x44`, `idom(0x5b) = 0x50`, and `idom(0x5c) = 0x40`. The edge `0x50 -> 0x50` is a back edge because its target dominates its source, and a back edge marks a loop (Allen 1970). `back_edges()` returns it. The test `test_dominators_on_a_hand_built_diamond_with_a_loop` runs the same code on a 16-byte sequence with a join point, so `intersect` sees two predecessors.
+Với `total` ở `-O1`, kết quả là `idom(0x44) = 0x40`, `idom(0x50) = 0x44`, `idom(0x5b) = 0x50` và `idom(0x5c) = 0x40`. Cạnh `0x50 -> 0x50` là một back edge vì đích của nó chi phối nguồn của nó, và một back edge đánh dấu một vòng lặp (Allen 1970). `back_edges()` trả về nó. Bài kiểm tra `test_dominators_on_a_hand_built_diamond_with_a_loop` chạy cùng mã trên một chuỗi 16 byte với một điểm nối, để `intersect` thấy hai tiền nhiệm.
 
 ## The Jump Table in grade at -O0
 
-At `-O0` clang compiles the `switch` in `grade` to the position-independent jump table idiom:
+Ở `-O0`, clang biên dịch `switch` trong `grade` thành mẫu jump table độc lập vị trí:
 
 ```text
       5d: 83 e8 04                     	subl	$0x4, %eax
@@ -282,9 +282,9 @@ At `-O0` clang compiles the `switch` in `grade` to the position-independent jump
       74: ff e0                        	jmpq	*%rax
 ```
 
-Read it as four facts. The `subl $0x4` followed by `ja` is a bounds check: indexes above 4 go to the default case at `0x9a`, so the table has five entries. The `leaq` with its relocation puts the table address in `%rcx`, and the previous section showed that address is `.rodata+0x0`. The `movslq` loads a signed 32-bit entry scaled by 4. The `addq` adds the table base, so each entry is the distance from the table to its case block.
+Đọc nó như bốn sự kiện. `subl $0x4` theo sau bởi `ja` là một kiểm tra biên: các chỉ số trên 4 đi đến case mặc định tại `0x9a`, nên bảng có năm mục. `leaq` với relocation của nó đặt địa chỉ bảng vào `%rcx`, và phần trước cho thấy địa chỉ đó là `.rodata+0x0`. `movslq` tải một mục 32 bit có dấu được nhân tỷ lệ 4. `addq` cộng địa chỉ cơ sở của bảng, nên mỗi mục là khoảng cách từ bảng đến khối case của nó.
 
-In the object file every table byte is zero. The targets exist only as relocations in `.rela.rodata`:
+Trong tệp object, mọi byte bảng bằng không. Các đích chỉ tồn tại dưới dạng relocation trong `.rela.rodata`:
 
 ```text
 RELOCATION RECORDS FOR [.rodata]:
@@ -296,23 +296,23 @@ OFFSET           TYPE                     VALUE
 0000000000000010 R_X86_64_PC32            .text+0x86
 ```
 
-Apply `S + A - P` to entry `k` at offset `4k`. The stored value is `.text + A - (.rodata + 4k)`, and the code adds `.rodata + 0` to it, so the target is `.text + A - 4k`. Entry 0 is `0x91 - 0 = 0x91`, entry 1 is `0x8c - 4 = 0x88`, and entry 2 is `0x87 - 8 = 0x7f`. Entries 3 and 4 are `0x82 - 12 = 0x76` and `0x86 - 16 = 0x76`. Cases 6, 7, 8, 9, and 10 of `score / 10` go to the blocks that store 1, 2, 3, 4, and 4. That matches the C source line for line, including the shared case for 9 and 10.
+Áp dụng `S + A - P` cho mục `k` tại offset `4k`. Giá trị lưu là `.text + A - (.rodata + 4k)`, và mã cộng `.rodata + 0` vào nó, nên đích là `.text + A - 4k`. Mục 0 là `0x91 - 0 = 0x91`, mục 1 là `0x8c - 4 = 0x88` và mục 2 là `0x87 - 8 = 0x7f`. Mục 3 và 4 là `0x82 - 12 = 0x76` và `0x86 - 16 = 0x76`. Các case 6, 7, 8, 9 và 10 của `score / 10` đi đến các khối lưu 1, 2, 3, 4 và 4. Điều đó khớp nguồn C từng dòng, bao gồm case dùng chung cho 9 và 10.
 
-`recover_table()` does this arithmetic. `jump_table_resolver()` matches the idiom backwards from the `jmpq`. It finds the `addq` that made the register, the `movslq` that loaded it, the `leaq` that made the base, and the bounding `ja`. The descent then pushes the four distinct targets and continues. A linked executable has final values in the table and no relocations. The same function then reads the signed 32-bit entries and adds the table address, and `evidence` records which path produced the targets.
+`recover_table()` làm phép tính này. `jump_table_resolver()` khớp mẫu ngược từ `jmpq`. Nó tìm `addq` tạo thanh ghi, `movslq` tải nó, `leaq` tạo địa chỉ cơ sở và `ja` giới hạn. Descent sau đó đẩy bốn đích phân biệt và tiếp tục. Một executable đã liên kết có các giá trị cuối trong bảng và không có relocation. Cùng hàm sau đó đọc các mục 32 bit có dấu và cộng địa chỉ bảng, và `evidence` ghi đường nào tạo ra các đích.
 
-The numbers for `grade` at `-O0`, from `python3 code/main.py cfg code/fixtures/ledger-x86_64-O0.o grade`:
+Các con số cho `grade` ở `-O0`, từ `python3 code/main.py cfg code/fixtures/ledger-x86_64-O0.o grade`:
 
-| Method | Instructions | Blocks | Edges | Bytes | What is wrong |
+| Phương pháp | Chỉ lệnh | Khối | Cạnh | Byte | Điều gì sai |
 |---|---|---|---|---|---|
-| linear sweep | 34 | 9 | 7 | 118 code + 10 padding | 5 unreachable blocks, no edge into the four case blocks, padding decoded as `nopw` |
-| recursive descent | 25 | 3 | 2 | 82 code | 36 code bytes never reached, `jmpq *%rax` at `0x74` unresolved |
-| descent with the table | 33 | 8 | 11 | 118 code | nothing |
+| linear sweep | 34 | 9 | 7 | 118 mã + 10 padding | 5 khối không thể tới, không có cạnh vào bốn khối case, padding được giải mã là `nopw` |
+| recursive descent | 25 | 3 | 2 | 82 mã | 36 byte mã không bao giờ được tới, `jmpq *%rax` tại `0x74` chưa phân giải |
+| descent với bảng | 33 | 8 | 11 | 118 mã | không có gì |
 
-With the table the dominator tree is complete. The `idom` of each case block is `0x62`, the block with the jump. The `idom` of `0xa1` is the entry `0x30`, because the default path from `0x9a` reaches `0xa1` without passing `0x62`.
+Với bảng, cây dominator đầy đủ. `idom` của mỗi khối case là `0x62`, khối có bước nhảy. `idom` của `0xa1` là điểm vào `0x30`, vì đường mặc định từ `0x9a` đến `0xa1` mà không đi qua `0x62`.
 
 ## What the Optimizer Did to grade at -O1
 
-You will see `grade` described as a switch that compiles to a jump table. The bytes say something more specific. At `-O1` and `-O2` there is no indirect jump in `grade` at all:
+Bạn sẽ thấy `grade` được mô tả như một switch biên dịch thành một jump table. Các byte nói điều cụ thể hơn. Ở `-O1` và `-O2` hoàn toàn không có bước nhảy gián tiếp trong `grade`:
 
 ```text
       2c: 83 f9 04                     	cmpl	$0x4, %ecx
@@ -324,34 +324,34 @@ You will see `grade` described as a switch that compiles to a jump table. The by
       3d: c3                           	retq
 ```
 
-The relocation addend `0x10` plus the usual 4 puts the table at `.rodata+0x14`. The load is a plain `movl`, and the bytes there are `01 00 00 00 02 00 00 00 03 00 00 00 04 00 00 00 04 00 00 00`. The compiler replaced the five case blocks with a table of the five return values. There is a relocation, a table, and a bounds check. The control flow is three blocks and three edges with one conditional branch. `find_value_tables()` reports it as a `value-table` with entries `[1, 2, 3, 4, 4]` and `evidence: "bytes"`.
+Addend relocation `0x10` cộng 4 thông thường đặt bảng tại `.rodata+0x14`. Lần tải là một `movl` thông thường, và các byte ở đó là `01 00 00 00 02 00 00 00 03 00 00 00 04 00 00 00 04 00 00 00`. Compiler thay năm khối case bằng một bảng năm giá trị trả về. Có một relocation, một bảng và một kiểm tra biên. Luồng điều khiển là ba khối và ba cạnh với một nhánh có điều kiện. `find_value_tables()` báo cáo nó là một `value-table` với các mục `[1, 2, 3, 4, 4]` và `evidence: "bytes"`.
 
-`grade_label` at `-O2` goes one step further. The `labels` array of five string pointers became a table of five 32-bit offsets at `.rodata+0x0`. Each entry carries a `R_X86_64_PC32` relocation against the string section, and the function adds the table address to the entry it loads. `recover_table()` reads those five relocations and returns offsets `0, 2, 4, 6, 8` into `.rodata.str1.1`, which hold `F`, `D`, `C`, `B`, and `A`. The same arithmetic that recovers a jump table recovers a relative data table, because both are `S + A - P` at a known offset.
+`grade_label` ở `-O2` tiến thêm một bước. Mảng `labels` gồm năm con trỏ chuỗi trở thành một bảng năm offset 32 bit tại `.rodata+0x0`. Mỗi mục mang một relocation `R_X86_64_PC32` đối với section chuỗi, và hàm cộng địa chỉ bảng vào mục nó tải. `recover_table()` đọc năm relocation đó và trả về các offset `0, 2, 4, 6, 8` vào `.rodata.str1.1`, chứa `F`, `D`, `C`, `B` và `A`. Cùng phép tính khôi phục một jump table khôi phục một bảng dữ liệu tương đối, vì cả hai là `S + A - P` tại một offset đã biết.
 
-The lesson from the two builds is to name what the bytes show. A jump table changes the control-flow graph. A value table changes a load. Calling both "the switch" hides the difference that lesson 34 has to reconstruct.
+Bài học từ hai bản build là đặt tên điều các byte cho thấy. Một jump table thay đổi đồ thị luồng điều khiển. Một value table thay đổi một lần tải. Gọi cả hai là "switch" che giấu khác biệt mà bài 34 phải tái dựng.
 
 ## What rea and Ghidra Give You Here
 
-rea 6.5.0 with the Ghidra 12.1.4 provider returns the Listing text of a function from `procedure_assembly` as one string. `inspect_native_instruction` returns the bytes, length, decoder text, operand tokens, typed references, and flow of one instruction, with the return classified from p-code. `xrefs` returns the sorted unique source addresses from Ghidra's `ReferenceManager.getReferencesTo`. `analyze_function` carries the CFG and `body` of the function. `procedure_info` gives the body as inclusive ranges and warns that "Gaps and shared tails must not be treated as owned bytes".
+rea 6.5.0 với provider Ghidra 12.1.4 trả về văn bản Listing của một hàm từ `procedure_assembly` dưới dạng một chuỗi. `inspect_native_instruction` trả về byte, độ dài, văn bản decoder, token toán hạng, tham chiếu có kiểu và luồng của một chỉ lệnh, với lần trả về được phân loại từ p-code. `xrefs` trả về các địa chỉ nguồn duy nhất đã sắp xếp từ `ReferenceManager.getReferencesTo` của Ghidra. `analyze_function` mang CFG và `body` của hàm. `procedure_info` cung cấp body dưới dạng các phạm vi bao gồm hai đầu và cảnh báo rằng "Các khoảng trống và đuôi dùng chung không được coi là các byte được sở hữu".
 
-Every one of those facts is Ghidra's recursive descent plus its analyzers, serialised. The rea analysis profile pins contract versions for `instruction_flow_evidence`, `function_references`, and `jump_table_evidence`. A result therefore names the rules that produced it. What it cannot do is show its work. When Ghidra does not find the table, the flow is "unknown", and the case blocks are missing from callers, callees, and the CFG.
+Mỗi sự kiện trong số đó là recursive descent của Ghidra cộng các analyzer của nó, được tuần tự hóa. Hồ sơ phân tích rea ghim các phiên bản hợp đồng cho `instruction_flow_evidence`, `function_references` và `jump_table_evidence`. Một kết quả do đó nêu tên các quy tắc tạo ra nó. Điều nó không thể làm là cho thấy cách làm. Khi Ghidra không tìm được bảng, luồng là "chưa biết", và các khối case thiếu khỏi caller, callee và CFG.
 
-You now have the work. Run `python3 code/main.py cfg` on the same object and compare block starts, edge counts, and the recovered table with what the provider returns. Where they agree you have two independent derivations. Where they differ you have a specific address to look at, which is what lesson 35 records as an unknown.
+Giờ bạn có cách làm. Chạy `python3 code/main.py cfg` trên cùng object và so sánh các điểm bắt đầu khối, số cạnh và bảng được khôi phục với những gì provider trả về. Nơi chúng đồng nhất, bạn có hai phép suy ra độc lập. Nơi chúng khác nhau, bạn có một địa chỉ cụ thể để nhìn, chính là điều bài 35 ghi lại như một điều chưa biết.
 
-A note on the decoder as a program. Capstone 6.0.0-Alpha10 (2026-07-21) fixed out-of-bounds reads and writes under CVE-2026-55893 and CVE-2026-55894, and 5.0.9 (2026-05-28) backported CVE fixes. A decoder reads bytes it did not write. The 15-byte limit, the truncation check in `_Cursor.byte()`, and the refusal to guess an unknown opcode protect `main.py` from input it was not built for.
+Một ghi chú về decoder như một chương trình. Capstone 6.0.0-Alpha10 (2026-07-21) sửa các lần đọc và ghi ngoài biên dưới CVE-2026-55893 và CVE-2026-55894, và 5.0.9 (2026-05-28) backport các bản sửa CVE. Một decoder đọc các byte mà nó không viết. Giới hạn 15 byte, kiểm tra cắt ngắn trong `_Cursor.byte()` và việc từ chối đoán một opcode không biết bảo vệ `main.py` khỏi đầu vào mà nó không được xây dựng cho.
 
 ## Build It
 
-Run the demo:
+Chạy demo:
 
 ```bash
 cd phases/13-tools-and-protocols/33-disassembly-and-control-flow
 python3 code/main.py
 ```
 
-The output is one JSON report. For each fixture object it gives the oracle agreement. For each function it gives instruction, block, and edge counts under the three methods. It also lists unreachable blocks, unresolved indirect jumps, back edges, immediate dominators, and any tables. It ends with the trap comparison.
+Đầu ra là một báo cáo JSON. Với mỗi object fixture, nó cho sự đồng nhất oracle. Với mỗi hàm, nó cho số chỉ lệnh, khối và cạnh dưới ba phương pháp. Nó cũng liệt kê các khối không thể tới, các bước nhảy gián tiếp chưa phân giải, back edge, immediate dominator và mọi bảng. Nó kết thúc bằng phép so sánh bẫy.
 
-Expected shape:
+Dạng kỳ vọng:
 
 ```json
 {
@@ -374,43 +374,43 @@ Expected shape:
 }
 ```
 
-Read `code/main.py` in this order:
+Đọc `code/main.py` theo thứ tự này:
 
-1. `ElfObject` reads section headers, symbols, and `.rela.*` entries, and `symbolize()` names an address the way `llvm-objdump` does.
-2. `Decoder.decode()` reads prefixes and REX, then dispatches on the one-byte or two-byte opcode map.
-3. `_State.modrm()` reads ModRM, SIB, and the displacement, and records the displacement field offset.
-4. `resolve_reference()` applies `S + A - P` to the relocation on a displacement or immediate field.
-5. `linear_sweep()` and `recursive_descent()` are the two methods, each with its failure recorded.
-6. `recover_table()` and `jump_table_resolver()` read a table through its relocations or its bytes.
-7. `ControlFlowGraph` builds leaders, blocks, and typed edges, and `dominators()` is the iterative algorithm.
-8. `analyze_function()` runs every method on one function and `compare_with_oracle()` checks the decoder.
+1. `ElfObject` đọc section header, symbol và các mục `.rela.*`, và `symbolize()` đặt tên một địa chỉ theo cách `llvm-objdump` làm.
+2. `Decoder.decode()` đọc prefix và REX, rồi phân phối trên bản đồ opcode một byte hoặc hai byte.
+3. `_State.modrm()` đọc ModRM, SIB và displacement, và ghi offset trường displacement.
+4. `resolve_reference()` áp dụng `S + A - P` cho relocation trên một trường displacement hoặc immediate.
+5. `linear_sweep()` và `recursive_descent()` là hai phương pháp, mỗi phương pháp với lỗi của nó được ghi lại.
+6. `recover_table()` và `jump_table_resolver()` đọc một bảng qua các relocation hoặc các byte của nó.
+7. `ControlFlowGraph` xây dựng leader, khối và các cạnh có kiểu, và `dominators()` là thuật toán lặp.
+8. `analyze_function()` chạy mọi phương pháp trên một hàm và `compare_with_oracle()` kiểm tra decoder.
 
-Two more commands exist. `python3 code/main.py disasm FILE.o` prints a listing with the relocation target after each instruction that has one. `python3 code/main.py cfg FILE.o FUNCTION` prints the analysis of one function.
+Có thêm hai lệnh. `python3 code/main.py disasm FILE.o` in một danh sách với đích relocation sau mỗi chỉ lệnh có một đích như vậy. `python3 code/main.py cfg FILE.o FUNCTION` in phân tích của một hàm.
 
 ## Use It
 
-Use the three methods in this order on a new object.
+Sử dụng ba phương pháp theo thứ tự này trên một object mới.
 
-1. Run the oracle comparison first. A decoder that disagrees with `llvm-objdump` on a plain instruction has a bug, and every later structure inherits it.
-2. Run the recursive descent from every function symbol and read `unresolved`. Each entry is an indirect jump or call whose targets you do not have.
-3. For each unresolved jump, look for the table idiom and the relocation that points at it. If the idiom does not match, read the bytes before the jump and write down what you see. That note is the first unknown in lesson 35.
-4. Compare the sweep and the descent byte by byte. Bytes that only the sweep claims are padding or data. Bytes that neither claims are unreachable or belong to a function you have not found.
-5. Build the CFG from the descent with recovered tables and read the back edges. Each one is a loop that lesson 34 will turn into `while` or `for`.
+1. Chạy phép so sánh oracle trước. Một decoder bất đồng với `llvm-objdump` trên một chỉ lệnh thông thường có một lỗi, và mọi cấu trúc sau đó thừa hưởng nó.
+2. Chạy recursive descent từ mọi function symbol và đọc `unresolved`. Mỗi mục là một bước nhảy hoặc lần gọi gián tiếp mà bạn chưa có các đích.
+3. Với mỗi bước nhảy chưa phân giải, tìm mẫu bảng và relocation trỏ đến nó. Nếu mẫu không khớp, đọc các byte trước bước nhảy và viết ra điều bạn thấy. Ghi chú đó là điều chưa biết đầu tiên trong bài 35.
+4. So sánh sweep và descent từng byte. Các byte chỉ sweep nhận là padding hoặc dữ liệu. Các byte không cách nào nhận là không thể tới hoặc thuộc một hàm bạn chưa tìm thấy.
+5. Xây dựng CFG từ descent với các bảng đã khôi phục và đọc các back edge. Mỗi cạnh là một vòng lặp mà bài 34 sẽ biến thành `while` hoặc `for`.
 
-Keep the oracle text files with the objects. When you move to a new compiler version, re-capture them, because a changed listing is a changed fixture.
+Giữ các tệp văn bản oracle cùng các object. Khi bạn chuyển sang một phiên bản compiler mới, thu lại chúng, vì một danh sách thay đổi là một fixture thay đổi.
 
 ## Interactive Lab
 
 ### Lab A: decode on paper, then check
 
-From the `code` directory, open Python:
+Từ thư mục `code`, mở Python:
 
 ```bash
 cd phases/13-tools-and-protocols/33-disassembly-and-control-flow/code
 python3 -q
 ```
 
-Run:
+Chạy:
 
 ```python
 from main import *
@@ -419,7 +419,7 @@ decode(bytes.fromhex("8d 44 08 fa"), 0).text
 decode(bytes.fromhex("66 66 66 66 66 2e 0f 1f 84 00 00 00 00 00"), 0).length
 ```
 
-Write down what you expect before each call. Then remove the `48` from the first one and see the operand size change. Then try `decode(bytes.fromhex("0f 0a"), 0)` and read the `DecodeError`.
+Viết ra điều bạn kỳ vọng trước mỗi lần gọi. Rồi loại `48` khỏi lần đầu và thấy kích thước toán hạng thay đổi. Rồi thử `decode(bytes.fromhex("0f 0a"), 0)` và đọc `DecodeError`.
 
 ### Lab B: the relocation on a lea
 
@@ -431,7 +431,7 @@ lea.displacement_offset
 resolve_reference(elf, lea)
 ```
 
-The reference says `.rodata+0x0`. Change the address to `0x116` in `grade_label` and read the reference into `.data`. Then decode the `callq` at `0x10e` and resolve it. The immediate field carries `R_X86_64_PLT32 grade-0x4`, and the resolved target is `0x30`, which is `grade`.
+Tham chiếu nói `.rodata+0x0`. Đổi địa chỉ thành `0x116` trong `grade_label` và đọc tham chiếu vào `.data`. Rồi giải mã `callq` tại `0x10e` và phân giải nó. Trường immediate mang `R_X86_64_PLT32 grade-0x4`, và đích đã phân giải là `0x30`, tức `grade`.
 
 ### Lab C: watch the two methods disagree
 
@@ -442,7 +442,7 @@ text = trap.section(".text").data
 [i.text for i in recursive_descent(text, [0], 0x20).sorted_instructions()]
 ```
 
-Count the instructions in each list and find the one that starts at `0x13`. Then change the last table byte in `sweep-trap.s` from `0x48` to `0xe8`, rebuild, and run both again. The sweep now swallows the `addl` and the `retq` into a `callq` with a target outside the section. The function appears to have no return.
+Đếm các chỉ lệnh trong mỗi danh sách và tìm chỉ lệnh bắt đầu tại `0x13`. Rồi đổi byte bảng cuối trong `sweep-trap.s` từ `0x48` thành `0xe8`, dựng lại và chạy lại cả hai. Sweep giờ nuốt `addl` và `retq` vào một `callq` có đích ngoài section. Hàm có vẻ không có lần trả về.
 
 ### Lab D: dominators by hand
 
@@ -454,53 +454,53 @@ analysis.cfg.dominators()
 analysis.cfg.back_edges()
 ```
 
-Draw the five blocks on paper and compute the dominators before you look at the result. Then run the same four lines on `grade` at `-O0` and explain why `idom(0xa1)` is `0x30` and not `0x62`.
+Vẽ năm khối trên giấy và tính các dominator trước khi nhìn kết quả. Rồi chạy cùng bốn dòng trên `grade` ở `-O0` và giải thích vì sao `idom(0xa1)` là `0x30` chứ không phải `0x62`.
 
 ## Practice Lab
 
-Add an indirect call site to the fixtures and extend the analysis.
+Thêm một điểm gọi gián tiếp vào các fixture và mở rộng phân tích.
 
-Requirements:
+Yêu cầu:
 
-- Write a C function that calls through a function pointer chosen from a small array. Build it at `-O0` and `-O1` and commit the objects with their `llvm-objdump` text.
-- Make the decoder agree with the oracle on both objects. Add opcodes only when an instruction in the fixture needs them.
-- Extend `recursive_descent()` so an indirect call records the call site in `calls` with `None` as the target and continues after it.
-- Write a resolver that reads the function pointer array through its relocations and reports the possible callees.
-- Add the callee set to the function report as `indirectCalls` with the evidence kind for each target.
-- Write a test that fails when the resolver returns a target that is not a function symbol.
+- Viết một hàm C gọi qua một con trỏ hàm được chọn từ một mảng nhỏ. Dựng nó ở `-O0` và `-O1` và commit các object với văn bản `llvm-objdump` của chúng.
+- Làm decoder đồng nhất với oracle trên cả hai object. Chỉ thêm opcode khi một chỉ lệnh trong fixture cần chúng.
+- Mở rộng `recursive_descent()` để một lần gọi gián tiếp ghi điểm gọi trong `calls` với `None` làm đích và tiếp tục sau nó.
+- Viết một resolver đọc mảng con trỏ hàm qua các relocation của nó và báo cáo các callee có thể có.
+- Thêm tập callee vào báo cáo hàm dưới dạng `indirectCalls` với loại bằng chứng cho mỗi đích.
+- Viết một bài kiểm tra thất bại khi resolver trả về một đích không phải function symbol.
 
-Success means `python3 code/main.py cfg` names every possible callee with the relocation that proves it, and the oracle comparison still passes on every object.
+Thành công nghĩa là `python3 code/main.py cfg` nêu tên mọi callee có thể có với relocation chứng minh nó, và phép so sánh oracle vẫn qua trên mọi object.
 
 ## Graded Lab
 
-Five questions about the fixtures of this lesson. Find each answer with the code you built, then write it into `code/lab_answers.json`. Write numbers as numbers or as hex strings such as `"0x40"`, and lists as JSON lists.
+Năm câu hỏi về các fixture của bài học này. Tìm mỗi câu trả lời bằng mã bạn đã xây dựng, rồi ghi nó vào `code/lab_answers.json`. Viết số dưới dạng số hoặc chuỗi hex chẳng hạn `"0x40"`, và danh sách dưới dạng danh sách JSON.
 
-1. `t1`: instructions that recursive descent decodes in grade at -O1.
-2. `t2`: basic blocks in total at -O1.
-3. `t3`: address of the loop header in total at -O1, as hex.
-4. `t4`: in sweep-trap.o, the address where the linear sweep instruction that covers 0x14 starts, as hex.
-5. `t5`: entries in the jump table of grade at -O0.
+1. `t1`: các chỉ lệnh mà recursive descent giải mã trong grade ở -O1.
+2. `t2`: các basic block trong total ở -O1.
+3. `t3`: địa chỉ của loop header trong total ở -O1, dưới dạng hex.
+4. `t4`: trong sweep-trap.o, địa chỉ nơi chỉ lệnh linear sweep bao phủ 0x14 bắt đầu, dưới dạng hex.
+5. `t5`: các mục trong jump table của grade ở -O0.
 
-Check your answers:
+Kiểm tra các câu trả lời của bạn:
 
 ```bash
 cd phases/13-tools-and-protocols/33-disassembly-and-control-flow
 python3 code/lab.py
 ```
 
-The checker computes each expected value from `code/main.py` on the committed fixtures. It prints `PASS`, `FAIL` or `TODO` for each task and a score, and it exits 0 only when all five pass. `python3 code/lab.py my-answers.json` checks another file. `code/tests/test_lab.py` proves that the checker accepts the right answers and rejects a wrong one.
+Bộ kiểm tra tính mỗi giá trị kỳ vọng từ `code/main.py` trên các fixture đã commit. Nó in `PASS`, `FAIL` hoặc `TODO` cho mỗi tác vụ và một điểm số, và nó chỉ thoát 0 khi cả năm qua. `python3 code/lab.py my-answers.json` kiểm tra một tệp khác. `code/tests/test_lab.py` chứng minh rằng bộ kiểm tra chấp nhận các câu trả lời đúng và từ chối một câu sai.
 
 ### See it run
 
-The [Inside a Decompiler](https://aiengineeringfromscratch.com/inside-a-decompiler?program=trap&sweep=linear) machine runs this lesson as its decode bed and block board. This link opens `sweep-trap.o` with linear sweep: the bed shows the four data bytes decoded as code, and a pin marks the jump target at `0x14` inside the `addq` at `0x13`. Switch the decoder to recursive descent to see the jump skip the data.
+Máy [Inside a Decompiler](https://aiengineeringfromscratch.com/inside-a-decompiler?program=trap&sweep=linear) chạy bài học này như bệ giải mã và bảng khối của nó. Liên kết này mở `sweep-trap.o` với linear sweep: bệ cho thấy bốn byte dữ liệu được giải mã thành mã, và một ghim đánh dấu đích nhảy tại `0x14` bên trong `addq` tại `0x13`. Chuyển decoder sang recursive descent để thấy bước nhảy bỏ qua dữ liệu.
 
 ## Lesson Artifact
 
-This lesson includes `outputs/skill-disassembly-and-control-flow.md`. Use it to turn an object and a function name into a checked listing, blocks, typed edges, dominators, and every unresolved transfer. It requires an oracle comparison, both disassembly methods, byte accounting, relocation evidence for every recovered table, and a statement of what stayed unknown.
+Bài học này bao gồm `outputs/skill-disassembly-and-control-flow.md`. Sử dụng nó để biến một object và một tên hàm thành một danh sách đã kiểm tra, khối, cạnh có kiểu, dominator và mọi chuyển giao chưa phân giải. Nó yêu cầu một phép so sánh oracle, cả hai phương pháp disassembly, hạch toán byte, bằng chứng relocation cho mỗi bảng được khôi phục và một phát biểu về điều vẫn chưa biết.
 
 ## Verify It
 
-Run the demo and the deterministic suite:
+Chạy demo và bộ kiểm tra tất định:
 
 ```bash
 cd phases/13-tools-and-protocols/33-disassembly-and-control-flow
@@ -508,49 +508,49 @@ python3 code/main.py
 python3 code/tests/test_main.py
 ```
 
-Verification should prove:
+Xác minh nên chứng minh:
 
-- the decoder agrees with `llvm-objdump -d` on all 237 instructions of the four fixture objects
-- REX.W selects 64-bit operands and REX.R and REX.B extend the register fields
-- ModRM and SIB render the AT&T memory operand, including scale, index, and signed displacement
-- a RIP-relative displacement is recorded with its field offset inside the instruction
-- repeated legacy prefixes and a segment override decode like the oracle
-- a mandatory `66` prefix selects the SSE opcode and leaves the registers 32-bit
-- 8-bit immediates are sign-extended for arithmetic and unsigned for shift counts
-- an instruction over 15 bytes, a truncated instruction, and an unknown opcode raise `DecodeError`
-- `R_X86_64_PC32` on a `lea` resolves to the table and `R_X86_64_PLT32` on a `call` resolves to the callee
-- the sweep decodes the trap table as code and has no instruction at the jump target
-- the descent never claims the table or the padding and reads `addl $0x1, %eax` at the target
-- `llvm-objdump` makes the same mistake as the sweep on the trap
-- an entry inside an instruction is recorded as a conflict
-- an unresolved indirect jump stops the descent and is listed
-- `total` at `-O1` has five blocks, five typed edges, one back edge, and the expected immediate dominators
-- a hand-built diamond with a loop gives the dominators the algorithm defines
-- `total` at `-O2` has two loops
-- `grade` at `-O0` yields a five-entry jump table from `.rela.rodata` with targets `0x91, 0x88, 0x7f, 0x76, 0x76`
-- without the table `grade` at `-O0` has three blocks and one unresolved jump
-- `grade` at `-O1` and `-O2` is a value table `[1, 2, 3, 4, 4]` with no indirect jump
-- `grade_label` at `-O2` reads a relative string table through five relocations
-- the interactive figure embeds the same data the analysis produces
+- decoder đồng nhất với `llvm-objdump -d` trên cả 237 chỉ lệnh của bốn object fixture
+- REX.W chọn toán hạng 64 bit và REX.R cùng REX.B mở rộng các trường thanh ghi
+- ModRM và SIB kết xuất toán hạng bộ nhớ AT&T, bao gồm scale, index và displacement có dấu
+- một displacement tương đối theo RIP được ghi với offset trường của nó bên trong chỉ lệnh
+- các legacy prefix lặp lại và một segment override giải mã như oracle
+- một prefix `66` bắt buộc chọn opcode SSE và để các thanh ghi 32 bit
+- các immediate 8 bit được mở rộng dấu cho số học và không dấu cho số đếm dịch
+- một chỉ lệnh trên 15 byte, một chỉ lệnh bị cắt ngắn và một opcode không biết phát sinh `DecodeError`
+- `R_X86_64_PC32` trên một `lea` phân giải đến bảng và `R_X86_64_PLT32` trên một `call` phân giải đến callee
+- sweep giải mã bảng bẫy thành mã và không có chỉ lệnh tại đích nhảy
+- descent không bao giờ nhận bảng hoặc padding và đọc `addl $0x1, %eax` tại đích
+- `llvm-objdump` mắc cùng lỗi như sweep trên bẫy
+- một điểm vào bên trong một chỉ lệnh được ghi như một xung đột
+- một bước nhảy gián tiếp chưa phân giải dừng descent và được liệt kê
+- `total` ở `-O1` có năm khối, năm cạnh có kiểu, một back edge và các immediate dominator kỳ vọng
+- một hình thoi dựng tay có một vòng lặp cho các dominator mà thuật toán định nghĩa
+- `total` ở `-O2` có hai vòng lặp
+- `grade` ở `-O0` cho một jump table năm mục từ `.rela.rodata` với các đích `0x91, 0x88, 0x7f, 0x76, 0x76`
+- không có bảng, `grade` ở `-O0` có ba khối và một bước nhảy chưa phân giải
+- `grade` ở `-O1` và `-O2` là một value table `[1, 2, 3, 4, 4]` không có bước nhảy gián tiếp
+- `grade_label` ở `-O2` đọc một bảng chuỗi tương đối qua năm relocation
+- hình tương tác nhúng cùng dữ liệu mà phân tích tạo ra
 
 ## Production Failure Modes
 
-| Failure | What the weak tool reports | What the analysis must prove |
+| Lỗi | Công cụ yếu báo cáo gì | Phân tích phải chứng minh gì |
 |---|---|---|
-| Data inside `.text` | A plausible listing with every byte decoded | The descent claims no data byte and the jump target starts an instruction |
-| Padding after the last return | A `nopw` instruction at the end of the function | The bytes are unreachable from the entry |
-| Indirect jump through a table | "jmp rax" and four dead blocks | Table address from the `lea` relocation, entry count from the bounds check, targets from `.rela.rodata` |
-| Switch turned into a value table | "a jump table with a relocation" | A `movl` load from `.rodata+0x14`, three blocks, no indirect transfer |
-| Call with a zero displacement | `callq 0x113`, the next instruction | `R_X86_64_PLT32 grade-0x4` resolves to `0x30` |
-| Decoder guesses an unknown opcode | A mnemonic that looks right | `DecodeError` with the address, and the sweep records the byte |
-| Instruction longer than 15 bytes | A very long "instruction" | The cursor raises before reading byte 16 |
-| Branch into the middle of an instruction | Two overlapping listings | A conflict record with both addresses |
-| Loop reported as straight-line code | No `while` in the pseudocode | A back edge whose target dominates its source |
-| Oracle captured from a different compiler | Tests pass on stale text | The fixture README names the exact compiler and command |
+| Dữ liệu bên trong `.text` | Một danh sách có vẻ hợp lý với mọi byte được giải mã | Descent không nhận byte dữ liệu nào và đích nhảy bắt đầu một chỉ lệnh |
+| Padding sau lần trả về cuối | Một chỉ lệnh `nopw` ở cuối hàm | Các byte không thể tới từ điểm vào |
+| Bước nhảy gián tiếp qua một bảng | "jmp rax" và bốn khối chết | Địa chỉ bảng từ relocation `lea`, số mục từ kiểm tra biên, các đích từ `.rela.rodata` |
+| Switch được biến thành một value table | "một jump table với một relocation" | Một lần tải `movl` từ `.rodata+0x14`, ba khối, không có chuyển giao gián tiếp |
+| Lần gọi với displacement bằng không | `callq 0x113`, chỉ lệnh tiếp theo | `R_X86_64_PLT32 grade-0x4` phân giải đến `0x30` |
+| Decoder đoán một opcode không biết | Một mnemonic trông đúng | `DecodeError` với địa chỉ, và sweep ghi byte |
+| Chỉ lệnh dài hơn 15 byte | Một "chỉ lệnh" rất dài | Cursor phát sinh ngoại lệ trước khi đọc byte 16 |
+| Nhánh vào giữa một chỉ lệnh | Hai danh sách chồng lấp | Một bản ghi xung đột với cả hai địa chỉ |
+| Vòng lặp được báo cáo như mã đường thẳng | Không có `while` trong mã giả | Một back edge có đích chi phối nguồn của nó |
+| Oracle được thu từ một compiler khác | Các bài kiểm tra qua trên văn bản cũ | README fixture nêu compiler và lệnh chính xác |
 
 ## Operational Rule
 
-Decode against an oracle, walk control flow from known entries, and account for every byte as claimed, padding, data, or unreachable. Recover each indirect target from a relocation or a table you can point at. Record the rest as unknown, with the address.
+Giải mã đối chiếu một oracle, duyệt luồng điều khiển từ các điểm vào đã biết và hạch toán mỗi byte là được nhận, padding, dữ liệu hoặc không thể tới. Khôi phục mỗi đích gián tiếp từ một relocation hoặc một bảng mà bạn có thể chỉ ra. Ghi phần còn lại là chưa biết, với địa chỉ.
 
 ## Further Reading
 
@@ -563,4 +563,4 @@ Decode against an oracle, walk control flow from known entries, and account for 
 - [Cooper, Harvey, Kennedy, "A Simple, Fast Dominance Algorithm" (2001)](https://www.cs.tufts.edu/~nr/cs257/archive/keith-cooper/dom14.pdf)
 - [Lengauer, Tarjan, "A fast algorithm for finding dominators in a flowgraph" (1979)](https://doi.org/10.1145/357062.357071)
 - [Capstone 6.0.0-Alpha10 release notes](https://github.com/capstone-engine/capstone/releases/tag/6.0.0-Alpha10)
-- rea 6.5.0 source at tag `3b79af2` that this lesson describes: `README.md`, `docs/ghidra-provider.md`, `docs/ghidra-dos.md`, `docs/reverse-engineering-tools.md`, `bridge/ghidra/ReaGhidraBridge.java`, `src/contracts/officialToolContracts.ts`, `src/ghidra/GhidraAnalysisProfile.ts`.
+- Nguồn rea 6.5.0 tại tag `3b79af2` mà bài học này mô tả: `README.md`, `docs/ghidra-provider.md`, `docs/ghidra-dos.md`, `docs/reverse-engineering-tools.md`, `bridge/ghidra/ReaGhidraBridge.java`, `src/contracts/officialToolContracts.ts`, `src/ghidra/GhidraAnalysisProfile.ts`.

@@ -24,10 +24,10 @@ Các phương pháp tập hợp thực hiện chính xác điều này. Chúng l
 
 ### Why Ensembles Work
 
-Giả sử bạn có N bộ phân loại độc lập, mỗi bộ có độ chính xác p > 0.5. Bỏ phiếu đa số có độ chính xác:
+Giả sử bạn có $N$ bộ phân loại độc lập, mỗi bộ có độ chính xác $p > 0.5$. Bỏ phiếu đa số có độ chính xác:
 
-```
-P(majority correct) = sum over k > N/2 of C(N,k) * p^k * (1-p)^(N-k)
+```math
+P(\text{majority correct}) = \sum_{k > N/2} \binom{N}{k} p^k (1-p)^{N-k}
 ```
 
 Với 21 bộ phân loại mỗi bộ có độ chính xác 60%, độ chính xác bỏ phiếu đa số khoảng 74%. Với 101 bộ phân loại, nó tăng đến 84%. Các sai số triệt tiêu khi các mô hình mắc các lỗi khác nhau.
@@ -132,7 +132,7 @@ Gradient boosting tổng quát hóa boosting sang các hàm mất mát tùy ý. 
 3. Final prediction: F_T(x)
 ```
 
-Với mất mát sai số bình phương, các phần dư giả chỉ là các phần dư thực: `r_i = y_i - F_{t-1}(x_i)`. Mỗi cây thực sự khớp các sai số của tập hợp trước.
+Với mất mát sai số bình phương, các phần dư giả chỉ là các phần dư thực: $r_i = y_i - F_{t-1}(x_i)$. Mỗi cây thực sự khớp các sai số của tập hợp trước.
 
 Tốc độ học (thu nhỏ) điều khiển mức đóng góp của mỗi cây. Tốc độ học nhỏ hơn cần nhiều cây hơn nhưng tổng quát hóa tốt hơn. Các giá trị điển hình: 0.01 đến 0.3.
 

@@ -9,7 +9,7 @@
 
 ## The Problem
 
-Quy hoạch động thanh lịch, nhưng nó giả định bạn có thể truy vấn `P(s' | s, a)` cho mọi trạng thái và hành động. Hầu như không có gì trong thế giới thực hoạt động như vậy. Một robot không thể tính giải tích phân phối trên các pixel camera sau một mô-men xoắn khớp. Một thuật toán định giá không thể tích phân trên mọi phản ứng có thể của khách hàng. Một LLM không thể liệt kê mọi phần tiếp nối có thể sau một token.
+Quy hoạch động thanh lịch, nhưng nó giả định bạn có thể truy vấn $P(s' \mid s, a)$ cho mọi trạng thái và hành động. Hầu như không có gì trong thế giới thực hoạt động như vậy. Một robot không thể tính giải tích phân phối trên các pixel camera sau một mô-men xoắn khớp. Một thuật toán định giá không thể tích phân trên mọi phản ứng có thể của khách hàng. Một LLM không thể liệt kê mọi phần tiếp nối có thể sau một token.
 
 Bạn cần một phương pháp chỉ cần khả năng *lấy mẫu* từ môi trường. Chạy chính sách. Nhận một quỹ đạo `s_0, a_0, r_1, s_1, a_1, r_2, …, s_T`. Dùng nó để ước lượng giá trị. Đó là Monte Carlo.
 
@@ -19,30 +19,32 @@ Sự chuyển dịch từ DP sang MC quan trọng về mặt triết lý: chúng
 
 ![Monte Carlo: rollout, compute returns, average; first-visit vs every-visit](../assets/monte-carlo.svg)
 
-**Ý tưởng cốt lõi, trong một dòng:** `V^π(s) = E_π[G_t | s_t = s] ≈ (1/N) Σ_i G^{(i)}(s)` trong đó `G^{(i)}(s)` là các lợi tức quan sát được sau những lần ghé `s` theo chính sách `π`.
+**Ý tưởng cốt lõi, trong một dòng:** $V^\pi(s) = \mathbb E_\pi[G_t \mid s_t = s] \approx (1/N) \sum_i G^{(i)}(s)$ trong đó $G^{(i)}(s)$ là các lợi tức quan sát được sau những lần ghé $s$ theo chính sách $\pi$.
 
-**MC lần ghé đầu so với mọi lần ghé.** Với một episode ghé trạng thái `s` nhiều lần, MC lần ghé đầu chỉ tính lợi tức từ lần ghé đầu tiên; MC mọi lần ghé tính tất cả các lần ghé. Cả hai đều không chệch trong giới hạn. Lần ghé đầu đơn giản hơn để phân tích (các mẫu iid). Mọi lần ghé dùng nhiều dữ liệu hơn mỗi episode và thường hội tụ nhanh hơn trong thực tế.
+**MC lần ghé đầu so với mọi lần ghé.** Với một episode ghé trạng thái $s$ nhiều lần, MC lần ghé đầu chỉ tính return từ lần ghé đầu tiên; MC mọi lần ghé tính mọi lần ghé. MC lần ghé đầu không chệch. MC mọi lần ghé có thể hơi chệch sau một số episode hữu hạn, vì nó lấy trung bình một số lượng return ngẫu nhiên cho mỗi episode và số lượng đó có thể tương quan với các return, nhưng cả hai hội tụ đến $V^\pi(s)$ khi số lần ghé tiến đến vô cùng. Lần ghé đầu đơn giản hơn để phân tích (các mẫu iid). Mọi lần ghé sử dụng nhiều dữ liệu hơn cho mỗi episode và thường hội tụ nhanh hơn trong thực tế.
 
 **Trung bình tăng dần.** Thay vì lưu tất cả lợi tức, cập nhật trung bình tích lũy:
 
-`V_n(s) = V_{n-1}(s) + (1/n) [G_n - V_{n-1}(s)]`
+```math
+V_n(s) = V_{n-1}(s) + (1/n) [G_n - V_{n-1}(s)]
+```
 
-Sắp xếp lại: `V_new = V_old + α · (target - V_old)` với `α = 1/n`. Đổi `1/n` thành một kích thước bước không đổi `α ∈ (0, 1)` và bạn có một bộ ước lượng MC phi dừng theo dõi các thay đổi trong `π`. Thay đổi đó là toàn bộ bước nhảy từ MC sang TD đến mọi thuật toán RL hiện đại.
+Sắp xếp lại: $V_{\text{new}} = V_{\text{old}} + \alpha \cdot (\text{target} - V_{\text{old}})$ với $\alpha = 1/n$. Đổi $1/n$ thành một kích thước bước không đổi $\alpha \in (0, 1)$ và bạn có một bộ ước lượng MC phi dừng theo dõi các thay đổi trong $\pi$. Thay đổi đó là toàn bộ bước nhảy từ MC sang TD đến mọi thuật toán RL hiện đại.
 
-**Khám phá giờ là một vấn đề.** DP chạm đến mọi trạng thái bằng liệt kê. MC chỉ thấy các trạng thái mà chính sách ghé. Nếu `π` tất định, cả những vùng của không gian trạng thái không bao giờ được lấy mẫu, và ước lượng giá trị của chúng mãi bằng không. Ba cách khắc phục, theo thứ tự lịch sử:
+**Khám phá giờ là một vấn đề.** DP chạm đến mọi trạng thái bằng liệt kê. MC chỉ thấy các trạng thái mà chính sách ghé. Nếu $\pi$ tất định, cả những vùng của không gian trạng thái không bao giờ được lấy mẫu, và ước lượng giá trị của chúng mãi bằng không. Ba cách khắc phục, theo thứ tự lịch sử:
 
 1. **Khởi đầu khám phá.** Bắt đầu mỗi episode từ một cặp (s, a) ngẫu nhiên. Bảo đảm độ bao phủ; không thực tế trong thực hành (bạn không thể "đặt lại" một robot vào một trạng thái tùy ý).
-2. **ε-greedy.** Hành động tham lam theo Q hiện tại, nhưng với xác suất `ε` chọn một hành động ngẫu nhiên. Tất cả các cặp trạng thái-hành động được lấy mẫu theo tiệm cận.
-3. **MC off-policy.** Thu thập dữ liệu theo một chính sách hành vi `μ`, học về chính sách mục tiêu `π` qua lấy mẫu quan trọng. Phương sai cao, nhưng đó là cầu nối đến các phương pháp bộ đệm phát lại như DQN.
+2. **ε-greedy.** Hành động tham lam theo Q hiện tại, nhưng với xác suất $\epsilon$ chọn một hành động ngẫu nhiên. Tất cả các cặp trạng thái-hành động được lấy mẫu theo tiệm cận.
+3. **MC off-policy.** Thu thập dữ liệu theo một chính sách hành vi $\mu$, học về chính sách mục tiêu $\pi$ qua lấy mẫu quan trọng. Phương sai cao, nhưng đó là cầu nối đến các phương pháp bộ đệm phát lại như DQN.
 
 **Điều khiển Monte Carlo.** Đánh giá → cải thiện → đánh giá, giống lặp chính sách, nhưng đánh giá dựa trên lấy mẫu:
 
-1. Chạy `π`, nhận một episode.
-2. Cập nhật `Q(s, a)` từ các lợi tức quan sát được.
-3. Làm `π` ε-greedy theo `Q`.
+1. Chạy $\pi$, nhận một episode.
+2. Cập nhật $Q(s, a)$ từ các lợi tức quan sát được.
+3. Làm $\pi$ ε-greedy theo $Q$.
 4. Lặp lại.
 
-Hội tụ đến `Q*` và `π*` với xác suất 1 dưới các điều kiện nhẹ (mỗi cặp được ghé vô hạn lần, `α` thỏa mãn Robbins-Monro).
+Hội tụ đến $Q^{\ast}$ và $\pi^{\ast}$ với xác suất 1 dưới các điều kiện nhẹ (mỗi cặp được ghé vô hạn lần, $\alpha$ thỏa mãn Robbins-Monro).
 
 ```figure
 epsilon-greedy
@@ -80,7 +82,7 @@ def returns_from(trajectory, gamma):
     return list(reversed(returns))
 ```
 
-Một lượt, `O(T)`. Truy hồi ngược `G_t = r_{t+1} + γ G_{t+1}` tránh cộng lại.
+Một lượt, $O(T)$. Truy hồi ngược $G_t = r_{t+1} + \gamma G_{t+1}$ tránh cộng lại.
 
 ### Step 3: first-visit MC evaluation
 
@@ -130,15 +132,15 @@ def mc_control(env, episodes, gamma=0.99, epsilon=0.1):
 
 ### Step 5: compare to DP gold standard
 
-Ước lượng MC của bạn về `V^π` nên khớp kết quả DP từ Bài 02 khi số episode → ∞. Trong thực tế: 50,000 episode trên GridWorld 4×4 đưa bạn đến trong khoảng `~0.1` so với câu trả lời DP.
+Ước lượng MC của bạn về $V^\pi$ nên khớp kết quả DP từ Bài 02 khi số episode → ∞. Trong thực tế: 50,000 episode trên GridWorld 4×4 đưa bạn đến trong khoảng `~0.1` so với câu trả lời DP.
 
 ## Pitfalls
 
 - **Episode vô hạn.** MC yêu cầu các episode phải *kết thúc*. Nếu chính sách của bạn có thể lặp mãi mãi, giới hạn `max_steps` và coi mức giới hạn là thất bại ngầm. GridWorld với một chính sách ngẫu nhiên thường xuyên hết thời gian — điều đó bình thường, chỉ cần bảo đảm bạn tính nó đúng.
-- **Phương sai.** MC dùng các lợi tức đầy đủ. Trên các episode dài, phương sai rất lớn — một phần thưởng không may ở cuối dịch chuyển `V(s_0)` cùng một lượng. Các phương pháp TD (Bài 04) giảm điều này bằng bootstrapping.
+- **Phương sai.** MC dùng các lợi tức đầy đủ. Trên các episode dài, phương sai rất lớn — một phần thưởng không may ở cuối dịch chuyển $V(s_0)$ cùng một lượng. Các phương pháp TD (Bài 04) giảm điều này bằng bootstrapping.
 - **Độ bao phủ trạng thái.** MC tham lam trên một Q mới có các giá trị hòa sẽ chỉ thử một hành động. Bạn *phải* khám phá (ε-greedy, khởi đầu khám phá, UCB).
-- **Chính sách phi dừng.** Nếu `π` thay đổi (như trong điều khiển MC), các lợi tức cũ đến từ một chính sách khác. MC α không đổi xử lý điều này; MC trung bình mẫu thì không.
-- **Lấy mẫu quan trọng off-policy.** Các trọng số `π(a|s)/μ(a|s)` nhân với nhau trên một quỹ đạo. Phương sai bùng nổ theo chân trời. Giới hạn bằng IS có trọng số theo quyết định hoặc chuyển sang TD.
+- **Chính sách phi dừng.** Nếu $\pi$ thay đổi (như trong điều khiển MC), các lợi tức cũ đến từ một chính sách khác. MC α không đổi xử lý điều này; MC trung bình mẫu thì không.
+- **Lấy mẫu quan trọng off-policy.** Các trọng số $\pi(a \mid s)/\mu(a \mid s)$ nhân với nhau trên một quỹ đạo. Phương sai bùng nổ theo chân trời. Giới hạn bằng IS có trọng số theo quyết định hoặc chuyển sang TD.
 
 ## Use It
 
@@ -150,10 +152,10 @@ Vai trò năm 2026 của các phương pháp Monte Carlo:
 | Đánh giá ngoại tuyến một chính sách đã ghi log | Lấy trung bình các lợi tức chiết khấu trên các quỹ đạo được lưu. |
 | Tìm kiếm cây Monte Carlo (AlphaZero) | Các rollout MC từ lá cây hướng dẫn lựa chọn. |
 | Đánh giá RL cho LLM | Tính phần thưởng trung bình trên các phần hoàn thành được lấy mẫu cho một chính sách cho trước. |
-| Ước lượng baseline trong PPO | Mục tiêu lợi thế `A_t = G_t - V(s_t)` dùng một `G_t` MC. |
+| Ước lượng baseline trong PPO | Mục tiêu lợi thế $A_t = G_t - V(s_t)$ dùng một $G_t$ MC. |
 | Dạy RL | Thuật toán đơn giản nhất thực sự hoạt động — bỏ bootstrapping để thấy cốt lõi. |
 
-Các thuật toán deep-RL hiện đại (PPO, SAC) nội suy giữa MC thuần túy (lợi tức đầy đủ) và TD thuần túy (bootstrap một bước) qua lợi tức `n` bước hoặc GAE. Cả hai đầu mút là các trường hợp của cùng một bộ ước lượng.
+Các thuật toán deep-RL hiện đại (PPO, SAC) nội suy giữa MC thuần túy (lợi tức đầy đủ) và TD thuần túy (bootstrap một bước) qua lợi tức $n$ bước hoặc GAE. Cả hai đầu mút là các trường hợp của cùng một bộ ước lượng.
 
 ## Ship It
 
@@ -182,20 +184,20 @@ Refuse to run MC on non-episodic tasks without a finite horizon cap. Refuse to r
 
 ## Exercises
 
-1. **Dễ.** Triển khai đánh giá MC lần ghé đầu cho chính sách ngẫu nhiên đều trên GridWorld 4×4. Chạy 10,000 episode. Vẽ `V(0,0)` như một hàm của số episode so với câu trả lời DP.
-2. **Trung bình.** Triển khai điều khiển MC ε-greedy với `ε ∈ {0.01, 0.1, 0.3}`. So sánh lợi tức trung bình sau 20,000 episode. Đường cong trông như thế nào? Đánh đổi độ chệch-phương sai nằm ở đâu?
-3. **Khó.** Triển khai MC *off-policy* với lấy mẫu quan trọng: thu thập dữ liệu theo chính sách ngẫu nhiên đều `μ`, ước lượng `V^π` cho chính sách tối ưu tất định `π`. So sánh IS thông thường với IS theo quyết định với IS có trọng số. Cái nào có phương sai thấp nhất?
+1. **Dễ.** Triển khai đánh giá MC lần ghé đầu cho chính sách ngẫu nhiên đều trên GridWorld 4×4. Chạy 10,000 episode. Vẽ $V(0,0)$ như một hàm của số episode so với câu trả lời DP.
+2. **Trung bình.** Triển khai điều khiển MC ε-greedy với $\epsilon \in \lbrace 0.01, 0.1, 0.3 \rbrace$. So sánh lợi tức trung bình sau 20,000 episode. Đường cong trông như thế nào? Đánh đổi độ chệch-phương sai nằm ở đâu?
+3. **Khó.** Triển khai MC *off-policy* với lấy mẫu quan trọng: thu thập dữ liệu theo chính sách ngẫu nhiên đều $\mu$, ước lượng $V^\pi$ cho chính sách tối ưu tất định $\pi$. So sánh IS thông thường với IS theo quyết định với IS có trọng số. Cái nào có phương sai thấp nhất?
 
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
 | Monte Carlo | "Lấy mẫu ngẫu nhiên" | Ước lượng kỳ vọng bằng cách lấy trung bình trên các mẫu iid từ phân phối. |
-| Return `G_t` (Lợi tức) | "Phần thưởng tương lai" | Tổng các phần thưởng chiết khấu từ bước `t` đến cuối episode: `Σ_{k≥0} γ^k r_{t+k+1}`. |
+| Return $G_t$ (Lợi tức) | "Phần thưởng tương lai" | Tổng các phần thưởng chiết khấu từ bước $t$ đến cuối episode: $\sum_{k\ge 0} \gamma^k r_{t+k+1}$. |
 | First-visit MC (MC lần ghé đầu) | "Đếm mỗi trạng thái một lần" | Chỉ lần ghé đầu tiên trong một episode đóng góp vào ước lượng giá trị. |
-| Every-visit MC (MC mọi lần ghé) | "Dùng tất cả các lần ghé" | Mọi lần ghé đều đóng góp; hơi chệch nhưng hiệu quả mẫu hơn. |
-| ε-greedy | "Nhiễu khám phá" | Chọn hành động tham lam với xác suất `1-ε`; hành động ngẫu nhiên với xác suất `ε`. |
-| Importance sampling (Lấy mẫu quan trọng) | "Hiệu chỉnh việc lấy mẫu từ sai phân phối" | Đặt lại trọng số lợi tức bằng các tích `π(a\|s)/μ(a\|s)` để ước lượng `V^π` từ dữ liệu `μ`. |
+| Every-visit MC (MC mọi lần ghé) | "Sử dụng mọi lần ghé" | Mọi lần ghé đều đóng góp; hơi chệch với mẫu hữu hạn, nhất quán trong giới hạn và hiệu quả mẫu hơn. |
+| ε-greedy | "Nhiễu khám phá" | Chọn hành động tham lam với xác suất $1-\epsilon$; hành động ngẫu nhiên với xác suất $\epsilon$. |
+| Importance sampling (Lấy mẫu quan trọng) | "Hiệu chỉnh việc lấy mẫu từ sai phân phối" | Đặt lại trọng số lợi tức bằng các tích $\pi(a \mid s)/\mu(a \mid s)$ để ước lượng $V^\pi$ từ dữ liệu $\mu$. |
 | On-policy | "Học từ dữ liệu của chính tôi" | Chính sách mục tiêu = chính sách hành vi. MC nguyên bản, PPO, SARSA. |
 | Off-policy | "Học từ dữ liệu của người khác" | Chính sách mục tiêu ≠ chính sách hành vi. MC lấy mẫu quan trọng, Q-learning, DQN. |
 

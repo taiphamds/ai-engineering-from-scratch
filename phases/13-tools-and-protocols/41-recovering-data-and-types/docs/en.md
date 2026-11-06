@@ -1,6 +1,6 @@
 # Recovering Data and Types: Structs, Arrays, C++ Objects, and DWARF
 
-> A decompiler prints `a->balance` when it has a type table and `*(int *)(param_1 + 4)` when it does not. This lesson builds the table from the accesses, reads the real one from DWARF 5, and shows where the two agree.
+> Một decompiler in `a->balance` khi nó có một bảng kiểu và `*(int *)(param_1 + 4)` khi không có. Bài học này xây dựng bảng từ các truy cập, đọc bảng thực từ DWARF 5 và cho thấy nơi hai bảng đồng nhất.
 
 **Type:** Build
 **Languages:** Python, C, C++, x86-64 assembly
@@ -9,16 +9,16 @@
 
 ## Learning Objectives
 
-- Read a struct member access as base register plus displacement, and an array access as base plus index times stride, from the Intel SDM addressing rules.
-- Apply the System V alignment rules by hand to `struct account` and explain each padding byte.
-- Build a type-recovery pass that turns the accesses in a listing into field offsets, widths, kinds, a stride, and a size, with the evidence for each.
-- Write a DWARF 5 reader for `.debug_info`, `.debug_abbrev`, `.debug_str_offsets`, and `.debug_addr` of a relocatable object, and check it against `llvm-dwarfdump`.
-- Compare the recovered layout with the DWARF layout and name every difference as missing evidence, a merged access, or an unprovable kind.
-- Read an Itanium C++ vtable, its typeinfo, and its mangled names from relocations, and resolve a virtual call to a slot.
+- Đọc một truy cập thành viên struct là thanh ghi base cộng displacement, và một truy cập mảng là base cộng index nhân stride, từ các quy tắc định địa chỉ Intel SDM.
+- Áp dụng các quy tắc căn chỉnh System V bằng tay cho `struct account` và giải thích mỗi byte padding.
+- Xây dựng một lượt khôi phục kiểu biến các truy cập trong một danh sách thành các offset trường, chiều rộng, loại, một stride và một kích thước, với bằng chứng cho mỗi thứ.
+- Viết một trình đọc DWARF 5 cho `.debug_info`, `.debug_abbrev`, `.debug_str_offsets` và `.debug_addr` của một object có thể tái định vị, và kiểm tra nó với `llvm-dwarfdump`.
+- So sánh bố cục được khôi phục với bố cục DWARF và nêu tên mọi khác biệt là bằng chứng thiếu, một truy cập được gộp hoặc một loại không thể chứng minh.
+- Đọc một vtable C++ Itanium, typeinfo của nó và các tên được mangle của nó từ các relocation, và phân giải một lần gọi ảo thành một slot.
 
 ## The Problem
 
-You compiled `account.c` without `-g` and asked an agent what `bump` does. The agent sent the object to Ghidra 12.1.4 and got this back:
+Bạn biên dịch `account.c` không có `-g` và hỏi một agent `bump` làm gì. Agent gửi object tới Ghidra 12.1.4 và nhận lại điều này:
 
 ```c
 void bump(long param_1,int param_2)
@@ -28,7 +28,7 @@ void bump(long param_1,int param_2)
 }
 ```
 
-The same source compiled with `-g` gives this from the same decompiler:
+Cùng nguồn được biên dịch với `-g` cho điều này từ cùng decompiler:
 
 ```c
 int bump(account *a,int by)
@@ -38,9 +38,9 @@ int bump(account *a,int by)
 }
 ```
 
-The instructions are identical in both objects. The difference is a type table. With the table the decompiler knows that the first parameter points at a 32-byte structure whose field at offset 4 is a 4-byte `int` named `balance`. Without it the decompiler knows only that something 8 bytes wide arrived in `%rdi` and that 4 bytes at `+4` were read and written.
+Các chỉ lệnh giống hệt trong cả hai object. Khác biệt là một bảng kiểu. Có bảng, decompiler biết tham số đầu trỏ đến một cấu trúc 32 byte có trường tại offset 4 là một `int` 4 byte tên `balance`. Không có nó, decompiler chỉ biết rằng thứ gì đó rộng 8 byte đến trong `%rdi` và rằng 4 byte tại `+4` được đọc và ghi.
 
-Everything in that table has a source. The offset 4 comes from the displacement byte of `addl 0x4(%rax), %ecx`. The width 4 comes from the `l` suffix. The name comes from a `DW_TAG_member` entry in `.debug_info`. This lesson builds both halves: a pass that recovers what the instructions prove, and a reader that decodes what the compiler recorded. The gap between them is what a type name costs.
+Mọi thứ trong bảng đó có một nguồn. Offset 4 đến từ byte displacement của `addl 0x4(%rax), %ecx`. Chiều rộng 4 đến từ hậu tố `l`. Tên đến từ một mục `DW_TAG_member` trong `.debug_info`. Bài học này xây dựng cả hai nửa: một lượt khôi phục những gì các chỉ lệnh chứng minh, và một trình đọc giải mã những gì compiler ghi lại. Khoảng cách giữa chúng là giá của một tên kiểu.
 
 ```figure
 re-41-struct-recovery
@@ -48,9 +48,9 @@ re-41-struct-recovery
 
 ## A Member Access Is a Displacement
 
-Intel SDM Volume 1, section 3.7.5, defines the effective address as `Offset = Base + (Index * Scale) + Displacement`, with a scale of 1, 2, 4, or 8 and a displacement of 8, 16, or 32 bits. Section 3.7.5.1 adds the 64-bit mode form `RIP + Displacement`. A struct member access uses the first form with no index: the base register holds the address of the object and the displacement is the member offset. An array access adds the index term, and the scale or a separate multiply carries the element size.
+Intel SDM Tập 1, mục 3.7.5, định nghĩa địa chỉ hiệu dụng là `Offset = Base + (Index * Scale) + Displacement`, với scale 1, 2, 4 hoặc 8 và một displacement 8, 16 hoặc 32 bit. Mục 3.7.5.1 thêm dạng chế độ 64 bit `RIP + Displacement`. Một truy cập thành viên struct sử dụng dạng đầu không có index: thanh ghi base chứa địa chỉ của đối tượng và displacement là offset thành viên. Một truy cập mảng thêm số hạng index, và scale hoặc một phép nhân riêng mang kích thước phần tử.
 
-Take `bump` at `-O0`. The listing from `llvm-objdump -d -r` reads:
+Lấy `bump` ở `-O0`. Danh sách từ `llvm-objdump -d -r` đọc là:
 
 ```text
        4: 48 89 7d f8                  	movq	%rdi, -0x8(%rbp)
@@ -59,15 +59,15 @@ Take `bump` at `-O0`. The listing from `llvm-objdump -d -r` reads:
       15: 89 48 04                     	movl	%ecx, 0x4(%rax)
 ```
 
-Decode `03 48 04` with the rules from lesson 33. `03` is `ADD r32, r/m32`. ModRM `48` is `01 001 000`: `mod = 01` means a memory operand with an 8-bit displacement, `reg = 001` is `%ecx`, `r/m = 000` is `%rax`. The displacement byte is `04`. The instruction reads 4 bytes at `%rax + 4` and adds them into `%ecx`. The `l` suffix that `llvm-objdump` prints is the operand size, so the field is 4 bytes wide. The `%rax` came from the frame slot at `-0x8(%rbp)`, and that slot received `%rdi`, the first integer argument under the System V calling convention. Three facts follow: the first parameter is a pointer, the object it points at has a 4-byte field at offset 4, and `bump` reads and writes that field.
+Giải mã `03 48 04` bằng các quy tắc từ bài 33. `03` là `ADD r32, r/m32`. ModRM `48` là `01 001 000`: `mod = 01` nghĩa là một toán hạng bộ nhớ với một displacement 8 bit, `reg = 001` là `%ecx`, `r/m = 000` là `%rax`. Byte displacement là `04`. Chỉ lệnh đọc 4 byte tại `%rax + 4` và cộng chúng vào `%ecx`. Hậu tố `l` mà `llvm-objdump` in là kích thước toán hạng, nên trường rộng 4 byte. `%rax` đến từ slot khung tại `-0x8(%rbp)`, và slot đó nhận `%rdi`, đối số số nguyên đầu tiên dưới quy ước gọi System V. Ba sự kiện suy ra: tham số đầu là một con trỏ, đối tượng nó trỏ tới có một trường 4 byte tại offset 4 và `bump` đọc và ghi trường đó.
 
-Nothing in these bytes says `int`, `balance`, or `struct account`. Nothing says how big the object is. The remaining 28 bytes of the struct are invisible to `bump`.
+Không có gì trong các byte này nói `int`, `balance` hoặc `struct account`. Không có gì nói đối tượng lớn bao nhiêu. 28 byte còn lại của struct vô hình với `bump`.
 
 ## The System V Layout Rules
 
-The x86-64 psABI, section 3.1.2, gives three rules for aggregates. "Structures and unions assume the alignment of their most strictly aligned component. Each member is assigned to the lowest available offset with the appropriate alignment. The size of any object is always a multiple of the object's alignment." Figure 3.1 of the same document gives the scalar sizes and alignments: `char` 1 and 1, `short` 2 and 2, `int` 4 and 4, `double` 8 and 8, any pointer 8 and 8.
+x86-64 psABI, mục 3.1.2, cho ba quy tắc cho aggregate. "Cấu trúc và union nhận căn chỉnh của thành phần được căn chỉnh nghiêm ngặt nhất của chúng. Mỗi thành viên được gán offset khả dụng thấp nhất với căn chỉnh thích hợp. Kích thước của mọi đối tượng luôn là một bội của căn chỉnh đối tượng." Hình 3.1 của cùng tài liệu cho các kích thước vô hướng và căn chỉnh: `char` 1 và 1, `short` 2 và 2, `int` 4 và 4, `double` 8 và 8, mọi con trỏ 8 và 8.
 
-Apply the rules to the struct in `account.c`:
+Áp dụng các quy tắc cho struct trong `account.c`:
 
 ```c
 struct account {
@@ -79,17 +79,17 @@ struct account {
 };
 ```
 
-| Member | Size | Alignment | Lowest offset that fits | Padding before |
+| Thành viên | Kích thước | Căn chỉnh | Offset thấp nhất vừa | Padding trước |
 |---|---|---|---|---|
 | `kind` | 1 | 1 | 0 | 0 |
-| `balance` | 4 | 4 | 4 | 3 (bytes 1 to 3) |
+| `balance` | 4 | 4 | 4 | 3 (byte 1 đến 3) |
 | `code` | 2 | 2 | 8 | 0 |
-| `rate` | 8 | 8 | 16 | 6 (bytes 10 to 15) |
+| `rate` | 8 | 8 | 16 | 6 (byte 10 đến 15) |
 | `label` | 8 | 8 | 24 | 0 |
 
-The last member ends at 32. The strictest alignment is 8, and 32 is a multiple of 8, so the size is 32 with no tail padding. Nine bytes of the 32 are padding, and the psABI says "The contents of any padding is undefined".
+Thành viên cuối kết thúc tại 32. Căn chỉnh nghiêm ngặt nhất là 8, và 32 là một bội của 8, nên kích thước là 32 không có tail padding. Chín byte trong 32 là padding, và psABI nói "Nội dung của mọi padding là không xác định".
 
-The order of the members decides the size. The same five members as `double, pointer, int, short, char` fill offsets 0, 8, 16, 20, 22 and end at 23, which rounds up to 24. `sysv_layout()` in `code/main.py` applies the three rules and produces both results. Python's `ctypes` module applies the same rules through the host compiler's convention, and `ctypes.sizeof`, `ctypes.alignment`, and the `.offset` of each field give 32, 8, and `0, 4, 8, 16, 24` for the same struct. The program itself prints the third copy when you build and run it on this machine:
+Thứ tự các thành viên quyết định kích thước. Cùng năm thành viên dưới dạng `double, pointer, int, short, char` lấp các offset 0, 8, 16, 20, 22 và kết thúc tại 23, được làm tròn lên 24. `sysv_layout()` trong `code/main.py` áp dụng ba quy tắc và tạo cả hai kết quả. Mô-đun `ctypes` của Python áp dụng cùng các quy tắc qua quy ước của compiler host, và `ctypes.sizeof`, `ctypes.alignment` cùng `.offset` của mỗi trường cho 32, 8 và `0, 4, 8, 16, 24` cho cùng struct. Chính chương trình in bản sao thứ ba khi bạn dựng và chạy nó trên máy này:
 
 ```text
 sizeof 32 align 8
@@ -97,13 +97,13 @@ kind 0 balance 4 code 8 rate 16 label 24
 sum 315 tag -3 projected 318.75 label_length 7
 ```
 
-That native build is arm64. The Arm AAPCS64 states the same aggregate rules in its section 5.10.1, and Apple's arm64 document keeps these five scalar sizes, so the numbers agree across the two targets. The lesson's x86-64 objects are compiled with `-target x86_64-unknown-linux-gnu` so that the ELF reader from lesson 33 and the DWARF reader below work on them.
+Bản build native đó là arm64. Arm AAPCS64 nêu cùng các quy tắc aggregate trong mục 5.10.1 của nó, và tài liệu arm64 của Apple giữ năm kích thước vô hướng này, nên các con số đồng nhất trên hai mục tiêu. Các object x86-64 của bài học được biên dịch bằng `-target x86_64-unknown-linux-gnu` để trình đọc ELF từ bài 33 và trình đọc DWARF bên dưới hoạt động trên chúng.
 
 ## Read the Rest of the Struct by Hand
 
-`bump` sees one field. The other four functions in `account.c` see the rest, and each one shows a different instruction form. All addresses below are from `account-x86_64-O0-g.objdump.txt`.
+`bump` thấy một trường. Bốn hàm khác trong `account.c` thấy phần còn lại, và mỗi hàm cho thấy một dạng chỉ lệnh khác nhau. Mọi địa chỉ bên dưới đến từ `account-x86_64-O0-g.objdump.txt`.
 
-`sum_balances` indexes an array of the struct:
+`sum_balances` đánh chỉ số một mảng của struct:
 
 ```text
       51: 48 8b 45 f8                  	movq	-0x8(%rbp), %rax
@@ -113,27 +113,27 @@ That native build is arm64. The Arm AAPCS64 states the same aggregate rules in i
       60: 8b 40 04                     	movl	0x4(%rax), %eax
 ```
 
-`%rax` is `list`, `%rcx` is `i` sign-extended to 64 bits, and `shlq $0x5` multiplies it by 32. After the `addq`, `%rax` is `list + 32 * i`, and the load reads 4 bytes at offset 4 of element `i`. The shift count is the only place in this object where the size of the struct appears as a number. The loop that contains these instructions runs from `0x49` to the `jmp 0x49` at `0x72`.
+`%rax` là `list`, `%rcx` là `i` được mở rộng dấu thành 64 bit, và `shlq $0x5` nhân nó với 32. Sau `addq`, `%rax` là `list + 32 * i`, và lần tải đọc 4 byte tại offset 4 của phần tử `i`. Số đếm dịch là nơi duy nhất trong object này nơi kích thước struct xuất hiện như một số. Vòng lặp chứa các chỉ lệnh này chạy từ `0x49` đến `jmp 0x49` tại `0x72`.
 
-`tag` reads two narrow fields:
+`tag` đọc hai trường hẹp:
 
 ```text
       8c: 0f be 00                     	movsbl	(%rax), %eax
       98: 0f bf 48 08                  	movswl	0x8(%rax), %ecx
 ```
 
-`movsbl` loads one byte at offset 0 and sign-extends it, so the field at 0 is a signed 1-byte integer. `movswl` loads two bytes at offset 8 with sign extension, so the field at 8 is a signed 2-byte integer. At `-O1` the first access becomes `cmpb $0x6c, (%rdi)`, which still says 1 byte at offset 0 and says nothing about the sign.
+`movsbl` tải một byte tại offset 0 và mở rộng dấu nó, nên trường tại 0 là một số nguyên 1 byte có dấu. `movswl` tải hai byte tại offset 8 với mở rộng dấu, nên trường tại 8 là một số nguyên 2 byte có dấu. Ở `-O1`, truy cập đầu trở thành `cmpb $0x6c, (%rdi)`, vẫn nói 1 byte tại offset 0 và không nói gì về dấu.
 
-`projected` reads a float:
+`projected` đọc một float:
 
 ```text
       cc: f2 0f 2a 40 04               	cvtsi2sdl	0x4(%rax), %xmm0
       d5: f2 0f 59 40 10               	mulsd	0x10(%rax), %xmm0
 ```
 
-`cvtsi2sdl` converts a signed 32-bit integer from memory to a double, which confirms that offset 4 holds a signed 4-byte integer. `mulsd` multiplies by a double from memory, so offset 16 holds an 8-byte floating-point value.
+`cvtsi2sdl` chuyển một số nguyên 32 bit có dấu từ bộ nhớ sang một double, xác nhận rằng offset 4 chứa một số nguyên 4 byte có dấu. `mulsd` nhân với một double từ bộ nhớ, nên offset 16 chứa một giá trị dấu phẩy động 8 byte.
 
-`label_length` reads a pointer and then follows it:
+`label_length` đọc một con trỏ rồi đi theo nó:
 
 ```text
       f3: 48 8b 40 18                  	movq	0x18(%rax), %rax
@@ -141,24 +141,24 @@ That native build is arm64. The Arm AAPCS64 states the same aggregate rules in i
       fb: 80 3c 08 00                  	cmpb	$0x0, (%rax,%rcx)
 ```
 
-The `movq` reads 8 bytes at offset 24. On its own that is an 8-byte integer or a pointer. The `cmpb` uses the loaded value as the base of a memory operand. A value that is used as an address is a pointer. The `cmpb` reads 1 byte at index `%rcx` from it, and at `-O1` the pointer is advanced with `leaq 0x1(%rcx), %rcx` inside the loop, so the pointed-to elements are 1 byte apart.
+`movq` đọc 8 byte tại offset 24. Riêng nó thì đó là một số nguyên 8 byte hoặc một con trỏ. `cmpb` sử dụng giá trị được tải làm base của một toán hạng bộ nhớ. Một giá trị được sử dụng như một địa chỉ là một con trỏ. `cmpb` đọc 1 byte tại index `%rcx` từ nó, và ở `-O1` con trỏ được tăng bằng `leaq 0x1(%rcx), %rcx` bên trong vòng lặp, nên các phần tử được trỏ tới cách nhau 1 byte.
 
-Put the five functions together and the struct is `{ i8 at 0, i32 at 4, i16 at 8, f64 at 16, pointer at 24 }` with a stride of 32. The gaps at 1 to 3 and 10 to 15 are exactly the padding the psABI rules predicted. What the instructions do not say: the member names, that the pointer is `const char *`, the declared type of the signed byte at 0, which the source spells `char`, and that the five functions receive the same type. The last claim comes from `main`, which passes one frame object to all five. At `-O0` the call sites make that visible: `leaq -0x70(%rbp), %rdi` followed by `addq $0x20, %rdi` before `callq bump`, and `addq $0x40, %rdi` before `callq tag`. The offsets 0, `0x20`, and `0x40` are three elements of one array, and the `memcpy` of `0x60` bytes that fills it is 96 bytes, which is three elements of 32.
+Đặt năm hàm cùng nhau và struct là `{ i8 at 0, i32 at 4, i16 at 8, f64 at 16, pointer at 24 }` với một stride 32. Các khoảng trống tại 1 đến 3 và 10 đến 15 chính xác là padding mà các quy tắc psABI dự đoán. Điều các chỉ lệnh không nói: các tên thành viên, rằng con trỏ là `const char *`, kiểu được khai báo của byte có dấu tại 0, mà nguồn viết là `char`, và rằng năm hàm nhận cùng kiểu. Khẳng định cuối đến từ `main`, truyền một đối tượng khung cho cả năm. Ở `-O0`, các điểm gọi làm điều đó nhìn thấy được: `leaq -0x70(%rbp), %rdi` theo sau bởi `addq $0x20, %rdi` trước `callq bump`, và `addq $0x40, %rdi` trước `callq tag`. Các offset 0, `0x20` và `0x40` là ba phần tử của một mảng, và `memcpy` `0x60` byte điền nó là 96 byte, tức ba phần tử 32.
 
 ## The Pass
 
-`trace_function()` in `code/main.py` walks one function's instructions in address order and keeps a small abstract state. A holder is a 64-bit register or a frame slot such as `-0x8(%rbp)`. Each holder has one of three values. A `Pointer` is a root plus a constant offset plus a set of strides, where a stride records that an unknown multiple of that many bytes was added. An `Index` is an integer of unknown value that is a multiple of a scale. Anything else is nothing.
+`trace_function()` trong `code/main.py` duyệt các chỉ lệnh của một hàm theo thứ tự địa chỉ và giữ một trạng thái trừu tượng nhỏ. Một holder là một thanh ghi 64 bit hoặc một slot khung chẳng hạn `-0x8(%rbp)`. Mỗi holder có một trong ba giá trị. Một `Pointer` là một gốc cộng một offset hằng cộng một tập stride, nơi một stride ghi rằng một bội chưa biết của số byte đó đã được cộng. Một `Index` là một số nguyên chưa biết giá trị là một bội của một scale. Mọi thứ khác là không gì cả.
 
-The state starts with the six System V argument registers holding `Pointer("param0", 0)` through `Pointer("param5", 0)`. Then each instruction applies one rule:
+Trạng thái bắt đầu với sáu thanh ghi đối số System V chứa `Pointer("param0", 0)` đến `Pointer("param5", 0)`. Rồi mỗi chỉ lệnh áp dụng một quy tắc:
 
-- A `movq` between a 64-bit register and a frame slot copies the value. A 32-bit or narrower write to a register makes it an `Index` with scale 1.
-- A `leaq` with a pointer base produces a pointer with the displacement added, and with an index register it adds `scale * index_scale` to the strides. A `leaq` whose base is `%rbp` or `%rsp` names a frame object, which is how `main` passes `rows`.
-- `shlq $n` on an `Index` multiplies its scale by `2^n`, and `imulq $k` multiplies by `k`.
-- `addq` of a pointer and an index keeps the pointer and adds the index scale to the strides. `addq $k` to a pointer moves its offset and is also recorded as an increment of that register.
-- A call makes every caller-saved register unknown, and the argument registers that hold pointers are recorded as a call site.
-- Any memory operand whose base register holds a pointer becomes an `Access` with the pointer's root and offset, the width and kind from the mnemonic, and a store flag.
+- Một `movq` giữa một thanh ghi 64 bit và một slot khung sao chép giá trị. Một lần ghi 32 bit hoặc hẹp hơn vào một thanh ghi làm nó thành một `Index` với scale 1.
+- Một `leaq` có một base con trỏ tạo ra một con trỏ với displacement được cộng, và với một thanh ghi index nó thêm `scale * index_scale` vào các stride. Một `leaq` có base là `%rbp` hoặc `%rsp` nêu tên một đối tượng khung, chính là cách `main` truyền `rows`.
+- `shlq $n` trên một `Index` nhân scale của nó với `2^n`, và `imulq $k` nhân với `k`.
+- `addq` của một con trỏ và một index giữ con trỏ và thêm scale index vào các stride. `addq $k` vào một con trỏ di chuyển offset của nó và cũng được ghi như một lần tăng của thanh ghi đó.
+- Một lần gọi làm mọi thanh ghi caller-saved thành chưa biết, và các thanh ghi đối số chứa con trỏ được ghi như một điểm gọi.
+- Mọi toán hạng bộ nhớ có thanh ghi base chứa một con trỏ trở thành một `Access` với gốc và offset của con trỏ, chiều rộng và loại từ mnemonic và một cờ lưu.
 
-Width and kind come from the mnemonic alone. `access_width()` maps the `b`, `w`, `l`, and `q` suffixes to 1, 2, 4, and 8 bytes, `movsbl` and `movswl` to signed narrow loads, `movzbl` to unsigned, the `sd` and `ss` scalar SSE instructions to 8-byte and 4-byte floats, `cvtsi2sdl` to a signed 4-byte integer source, and the 16-byte `movaps` family to a vector. `leaq` and the `nop` forms are not accesses.
+Chiều rộng và loại chỉ đến từ mnemonic. `access_width()` ánh xạ các hậu tố `b`, `w`, `l` và `q` thành 1, 2, 4 và 8 byte, `movsbl` và `movswl` thành các lần tải hẹp có dấu, `movzbl` thành không dấu, các chỉ lệnh SSE vô hướng `sd` và `ss` thành các float 8 byte và 4 byte, `cvtsi2sdl` thành một nguồn số nguyên 4 byte có dấu và họ `movaps` 16 byte thành một vector. `leaq` và các dạng `nop` không phải các truy cập.
 
 ```python
 if memory.base in FRAME_REGISTERS:
@@ -173,24 +173,24 @@ if memory.index is not None:
 return Pointer(base.root, base.offset + memory.displacement, frozenset(strides), base.origin)
 ```
 
-A load of 8 bytes through a pointer produces a new pointer whose root names the field it came from, such as `param0->0x18`. When that value is later used as a base, or advanced with `leaq`, the field it came from is marked as a proven pointer. That is the rule that turns offset 24 from "8 bytes" into "pointer".
+Một lần tải 8 byte qua một con trỏ tạo một con trỏ mới có gốc nêu tên trường mà nó đến từ đó, chẳng hạn `param0->0x18`. Khi giá trị đó sau này được sử dụng làm một base, hoặc tăng bằng `leaq`, trường mà nó đến từ đó được đánh dấu là một con trỏ đã chứng minh. Đó là quy tắc biến offset 24 từ "8 byte" thành "con trỏ".
 
 ### Four kinds of stride evidence
 
-`infer_layout()` merges the accesses of every witness function and collects the stride from four sources, each with the instruction that produced it.
+`infer_layout()` gộp các truy cập của mọi hàm chứng kiến và thu stride từ bốn nguồn, mỗi nguồn với chỉ lệnh tạo ra nó.
 
-| Kind | Where it comes from | Build that shows it |
+| Loại | Nó đến từ đâu | Bản build cho thấy nó |
 |---|---|---|
-| `scale` | an `Index` with scale above 1 reached a pointer, from `shlq $0x5` or `imulq` | `-O0`, `shlq $0x5, %rcx` at `0x59` |
-| `loop-step` | a 64-bit increment of the base or index register inside a loop that also contains the access | `-O1`, `addq $0x20, %rdx` at `0x24` |
-| `offset-delta` | same-width accesses through one base register inside one loop, at offsets a constant apart | `-O2`, eight loads 32 apart |
-| `call-site` | the offsets at which one frame object is passed to the witness functions | `-O0`, `main` passes `rows`, `rows+0x20`, `rows+0x40` |
+| `scale` | một `Index` có scale trên 1 đến một con trỏ, từ `shlq $0x5` hoặc `imulq` | `-O0`, `shlq $0x5, %rcx` tại `0x59` |
+| `loop-step` | một lần tăng 64 bit của thanh ghi base hoặc index bên trong một vòng lặp cũng chứa truy cập | `-O1`, `addq $0x20, %rdx` tại `0x24` |
+| `offset-delta` | các truy cập cùng chiều rộng qua một thanh ghi base bên trong một vòng lặp, tại các offset cách nhau một hằng số | `-O2`, tám lần tải cách nhau 32 |
+| `call-site` | các offset mà tại đó một đối tượng khung được truyền cho các hàm chứng kiến | `-O0`, `main` truyền `rows`, `rows+0x20`, `rows+0x40` |
 
-A loop is a backward `jmp` or conditional branch, and an increment counts only when the loop range contains both the increment and the access. That rule excludes the `addl $0x1, %eax` that advances `i` at `-O0`, because it is a 32-bit add and because the access does not go through `%eax`. The final stride is the greatest common divisor of every value found. The size is the stride when the stride is at least as large as the end of the last field.
+Một vòng lặp là một `jmp` ngược hoặc nhánh có điều kiện, và một lần tăng chỉ được tính khi phạm vi vòng lặp chứa cả lần tăng và truy cập. Quy tắc đó loại `addl $0x1, %eax` tăng `i` ở `-O0`, vì nó là một phép cộng 32 bit và vì truy cập không đi qua `%eax`. Stride cuối là ước chung lớn nhất của mọi giá trị được tìm thấy. Kích thước là stride khi stride ít nhất lớn bằng cuối của trường cuối.
 
 ### The vectorised loop at -O2
 
-At `-O2` clang vectorises `sum_balances`. The loop body from `0x50` to `0xaa` reads eight elements per pass:
+Ở `-O2`, clang vector hóa `sum_balances`. Thân vòng lặp từ `0x50` đến `0xaa` đọc tám phần tử mỗi lượt:
 
 ```text
       3b: 48 8d 87 e4 00 00 00         	leaq	0xe4(%rdi), %rax
@@ -206,19 +206,19 @@ At `-O2` clang vectorises `sum_balances`. The loop body from `0x50` to `0xaa` re
       aa: 75 a4                        	jne	0x50 <sum_balances+0x40>
 ```
 
-`%rax` starts at `list + 0xe4`. The eight displacements place the loads at offsets `0x04, 0x24, 0x44, 0x64, 0x84, 0xa4, 0xc4, 0xe4` from `list`, which are `4, 36, 68, 100, 132, 164, 196, 228`. The increment is `0x100`, which is 256. A pass that records offsets as it sees them reports eight fields and a struct of at least 232 bytes. The listing is correct and the conclusion is wrong.
+`%rax` bắt đầu tại `list + 0xe4`. Tám displacement đặt các lần tải tại các offset `0x04, 0x24, 0x44, 0x64, 0x84, 0xa4, 0xc4, 0xe4` từ `list`, tức `4, 36, 68, 100, 132, 164, 196, 228`. Lần tăng là `0x100`, tức 256. Một lượt ghi các offset khi thấy chúng báo cáo tám trường và một struct ít nhất 232 byte. Danh sách đúng và kết luận sai.
 
-`fold_unrolled()` applies one rule. Inside one loop, take the same-width accesses through one base register. Their offsets are `d` apart, here 32. If the loop step is `k * d` and there are exactly `k` distinct offsets, the loop was unrolled `k` times, and every access is the same element access at offset `(offset - lowest) mod d`. Here `256 = 8 * 32` with eight offsets, so all eight loads fold onto offset 4, and the stride evidence records `offset-delta 32`, `unrolled 32`, and `loop-step 256`. The scalar remainder loop at `0xe0` adds `scale 32` from `shlq $0x5, %rdx` and `loop-step 32` from `addq $0x20, %rdx`. The greatest common divisor of all five values is 32.
+`fold_unrolled()` áp dụng một quy tắc. Bên trong một vòng lặp, lấy các truy cập cùng chiều rộng qua một thanh ghi base. Các offset của chúng cách nhau `d`, ở đây 32. Nếu bước vòng lặp là `k * d` và có chính xác `k` offset phân biệt, vòng lặp được unroll `k` lần, và mọi truy cập là cùng truy cập phần tử tại offset `(offset - lowest) mod d`. Ở đây `256 = 8 * 32` với tám offset, nên cả tám lần tải gộp về offset 4, và bằng chứng stride ghi `offset-delta 32`, `unrolled 32` và `loop-step 256`. Vòng lặp phần dư vô hướng tại `0xe0` thêm `scale 32` từ `shlq $0x5, %rdx` và `loop-step 32` từ `addq $0x20, %rdx`. Ước chung lớn nhất của cả năm giá trị là 32.
 
-The figure has a button that turns folding off. With it off, the `-O2` build shows seven fields past byte 32 and no size. That state is what a reader sees who trusts the displacement without the loop.
+Hình có một nút tắt việc gộp. Khi nó tắt, bản build `-O2` hiển thị bảy trường vượt byte 32 và không có kích thước. Trạng thái đó là điều một người đọc thấy khi tin displacement mà không có vòng lặp.
 
 ## DWARF 5 From the Bytes
 
-The `-g` build of `account.c` carries eight debug sections. `.debug_info` is 493 bytes, `.debug_abbrev` 179, `.debug_str` 230, `.debug_str_offsets` 124, `.debug_addr` 112, `.debug_line` 312, `.debug_line_str` 12, and `.debug_frame` 264. The introduction of the DWARF 5 standard lists `.debug_str_offsets`, `.debug_addr`, and `.debug_line_str` as new in Version 5. The reader in `code/main.py` needs the first five.
+Bản build `-g` của `account.c` mang tám debug section. `.debug_info` là 493 byte, `.debug_abbrev` 179, `.debug_str` 230, `.debug_str_offsets` 124, `.debug_addr` 112, `.debug_line` 312, `.debug_line_str` 12 và `.debug_frame` 264. Phần giới thiệu của chuẩn DWARF 5 liệt kê `.debug_str_offsets`, `.debug_addr` và `.debug_line_str` là mới trong Phiên bản 5. Trình đọc trong `code/main.py` cần năm section đầu.
 
 ### The unit header
 
-Section 7.5.1.1 of the standard gives the full compilation unit header: `unit_length`, `version`, `unit_type`, `address_size`, and `debug_abbrev_offset`. The first twelve bytes of `.debug_info` are:
+Mục 7.5.1.1 của chuẩn cho compilation unit header đầy đủ: `unit_length`, `version`, `unit_type`, `address_size` và `debug_abbrev_offset`. Mười hai byte đầu của `.debug_info` là:
 
 ```text
 e9 01 00 00   unit_length = 0x1e9 = 489
@@ -228,11 +228,11 @@ e9 01 00 00   unit_length = 0x1e9 = 489
 00 00 00 00   debug_abbrev_offset = 0
 ```
 
-The `unit_type` byte is new in Version 5, and the standard says so in the same section. The length counts the bytes after itself, so the next unit would start at `4 + 489 = 493`, the end of the section. `llvm-dwarfdump --debug-info` prints the same five values on its `Compile Unit:` line, and the first test parses that line and compares.
+Byte `unit_type` mới trong Phiên bản 5, và chuẩn nói vậy trong cùng mục. Độ dài đếm các byte sau chính nó, nên unit tiếp theo sẽ bắt đầu tại `4 + 489 = 493`, cuối section. `llvm-dwarfdump --debug-info` in cùng năm giá trị trên dòng `Compile Unit:` của nó, và bài kiểm tra đầu phân tích dòng đó và so sánh.
 
 ### Abbreviations
 
-Section 2.1 says each debugging information entry "consists of an identifying tag and a series of attributes". The entry itself stores only an abbreviation code. The code selects a declaration in `.debug_abbrev` (section 7.5.3) that names the tag, says whether children follow, and lists each attribute with its form. This object has 14 declarations. Two matter here:
+Mục 2.1 nói mỗi debugging information entry "gồm một tag nhận dạng và một chuỗi thuộc tính". Bản thân mục chỉ lưu một mã viết tắt. Mã chọn một khai báo trong `.debug_abbrev` (mục 7.5.3) nêu tên tag, nói liệu các mục con theo sau hay không và liệt kê mỗi thuộc tính với dạng của nó. Object này có 14 khai báo. Hai khai báo quan trọng ở đây:
 
 ```text
 [12] DW_TAG_structure_type  DW_CHILDREN_yes
@@ -248,67 +248,67 @@ Section 2.1 says each debugging information entry "consists of an identifying ta
      DW_AT_data_member_location  DW_FORM_data1
 ```
 
-`parse_abbreviations()` reads ULEB128 code, ULEB128 tag, one children byte, then attribute and form pairs until a `0, 0` pair. Section 7.5.6 gives the form encodings: `data1` is one byte, `ref4` is a 4-byte offset relative to the unit, `strx1` is a 1-byte index into the string offsets table, `sec_offset` and `data4` are 4 bytes, `addrx` is a ULEB128 index into the address table, `exprloc` is a ULEB128 length and that many bytes, and `flag_present` has no bytes at all.
+`parse_abbreviations()` đọc mã ULEB128, tag ULEB128, một byte children, rồi các cặp thuộc tính và dạng cho đến một cặp `0, 0`. Mục 7.5.6 cho các mã hóa dạng: `data1` là một byte, `ref4` là một offset 4 byte tương đối với unit, `strx1` là một chỉ số 1 byte vào bảng string offset, `sec_offset` và `data4` là 4 byte, `addrx` là một chỉ số ULEB128 vào bảng địa chỉ, `exprloc` là một độ dài ULEB128 và số byte đó, và `flag_present` hoàn toàn không có byte.
 
 ### Decode the balance member by hand
 
-The structure entry for `account` starts at offset `0x195` with the bytes `0c 15 20 00 03`. The abbreviation code is 12, the structure. `DW_AT_name` is string index `0x15`, `DW_AT_byte_size` is `0x20` = 32, `DW_AT_decl_file` is 0, and `DW_AT_decl_line` is 3, which is the line of `struct account {` in the source.
+Mục cấu trúc cho `account` bắt đầu tại offset `0x195` với các byte `0c 15 20 00 03`. Mã viết tắt là 12, cấu trúc. `DW_AT_name` là chỉ số chuỗi `0x15`, `DW_AT_byte_size` là `0x20` = 32, `DW_AT_decl_file` là 0 và `DW_AT_decl_line` là 3, chính là dòng của `struct account {` trong nguồn.
 
-The second member entry starts at `0x1a3` with `0d 10 88 01 00 00 00 05 04`:
+Mục thành viên thứ hai bắt đầu tại `0x1a3` với `0d 10 88 01 00 00 00 05 04`:
 
-1. `0d` is abbreviation 13, a member.
-2. `10` is `DW_AT_name` as `strx1`: string index 16.
-3. `88 01 00 00` is `DW_AT_type` as `ref4`: offset `0x188` from the unit start, which is the `DW_TAG_base_type` entry named `int`.
-4. `00` is `DW_AT_decl_file` and `05` is `DW_AT_decl_line`: line 5 of `account.c`.
-5. `04` is `DW_AT_data_member_location`: offset 4.
+1. `0d` là viết tắt 13, một thành viên.
+2. `10` là `DW_AT_name` dưới dạng `strx1`: chỉ số chuỗi 16.
+3. `88 01 00 00` là `DW_AT_type` dưới dạng `ref4`: offset `0x188` từ đầu unit, chính là mục `DW_TAG_base_type` tên `int`.
+4. `00` là `DW_AT_decl_file` và `05` là `DW_AT_decl_line`: dòng 5 của `account.c`.
+5. `04` là `DW_AT_data_member_location`: offset 4.
 
-Section 5.7.6 says a member entry "may have either a DW_AT_data_member_location attribute or a DW_AT_data_bit_offset attribute" and that an integer constant "is the offset in bytes from the beginning of the containing entity". That byte is the same number as the displacement in `addl 0x4(%rax), %ecx`, and `compare_layouts()` is the function that puts the two side by side.
+Mục 5.7.6 nói một mục thành viên "có thể có một thuộc tính DW_AT_data_member_location hoặc một thuộc tính DW_AT_data_bit_offset" và rằng một hằng số nguyên "là offset tính bằng byte từ đầu thực thể chứa". Byte đó là cùng con số như displacement trong `addl 0x4(%rax), %ecx`, và `compare_layouts()` là hàm đặt hai thứ cạnh nhau.
 
 ### Strings and addresses go through two tables
 
-String index 16 is not an offset into `.debug_str`. The reader takes `DW_AT_str_offsets_base` from the unit entry, which is 8, and reads the 4-byte entry at `8 + 4 * 16` in `.debug_str_offsets`. That entry holds the offset of `"balance"` in `.debug_str`. The same indirection applies to addresses. The entry for `sum_balances` starts with the bytes `07 07`: abbreviation 7, a subprogram, then `DW_AT_low_pc` as `addrx` index 7. The 8-byte entry at `8 + 8 * 7` in `.debug_addr` is `0x30`, the address of the function in `.text`. The first six entries of that table are the addresses of the six string literals.
+Chỉ số chuỗi 16 không phải một offset vào `.debug_str`. Trình đọc lấy `DW_AT_str_offsets_base` từ mục unit, là 8, và đọc mục 4 byte tại `8 + 4 * 16` trong `.debug_str_offsets`. Mục đó chứa offset của `"balance"` trong `.debug_str`. Cùng sự gián tiếp áp dụng cho các địa chỉ. Mục cho `sum_balances` bắt đầu bằng các byte `07 07`: viết tắt 7, một subprogram, rồi `DW_AT_low_pc` dưới dạng chỉ số `addrx` 7. Mục 8 byte tại `8 + 8 * 7` trong `.debug_addr` là `0x30`, địa chỉ của hàm trong `.text`. Sáu mục đầu của bảng đó là các địa chỉ của sáu literal chuỗi.
 
-In a relocatable object neither table holds its final values. Every entry in `.debug_str_offsets` is zero in the file, and `.rela.debug_str_offsets` holds 29 `R_X86_64_32` relocations against `.debug_str` with the real offset in the addend. `.debug_addr` has 13 `R_X86_64_64` relocations against `.text` and `.rodata.str1.1`. `.debug_info` has four relocations of its own: the abbreviation offset, `DW_AT_str_offsets_base` as `.debug_str_offsets+0x8`, `DW_AT_stmt_list`, and `DW_AT_addr_base` as `.debug_addr+0x8`. `ElfObject.relocated()` applies `S + A` for the 32-bit and 64-bit types before the reader parses a section. A section symbol has value 0 in an object file, so the field receives the addend. `llvm-dwarfdump` does the same resolution, which is why its output shows names and addresses with every index resolved.
+Trong một object có thể tái định vị, không bảng nào chứa các giá trị cuối của nó. Mọi mục trong `.debug_str_offsets` bằng không trong tệp, và `.rela.debug_str_offsets` chứa 29 relocation `R_X86_64_32` đối với `.debug_str` với offset thật trong addend. `.debug_addr` có 13 relocation `R_X86_64_64` đối với `.text` và `.rodata.str1.1`. `.debug_info` có bốn relocation riêng: offset viết tắt, `DW_AT_str_offsets_base` dưới dạng `.debug_str_offsets+0x8`, `DW_AT_stmt_list` và `DW_AT_addr_base` dưới dạng `.debug_addr+0x8`. `ElfObject.relocated()` áp dụng `S + A` cho các type 32 bit và 64 bit trước khi trình đọc phân tích một section. Một section symbol có giá trị 0 trong một tệp object, nên trường nhận addend. `llvm-dwarfdump` làm cùng phân giải, đó là lý do đầu ra của nó hiển thị tên và địa chỉ với mọi chỉ số được phân giải.
 
 ### Types, functions, and locations
 
-`DwarfInfo.type_name()` follows `DW_AT_type` references. The `label` member points at a `DW_TAG_pointer_type`, which points at a `DW_TAG_const_type`, which points at the `char` base type, so the name composes to `const char *`. `type_size()` returns `DW_AT_byte_size` for base types and structures, 8 for a pointer, and count times element size for an array. `type_kind()` reduces the `DW_AT_encoding` of a base type to `int` with a sign, or `float`, and a pointer type to `pointer`, which is the vocabulary the comparison uses.
+`DwarfInfo.type_name()` đi theo các tham chiếu `DW_AT_type`. Thành viên `label` trỏ đến một `DW_TAG_pointer_type`, trỏ đến một `DW_TAG_const_type`, trỏ đến base type `char`, nên tên ghép thành `const char *`. `type_size()` trả về `DW_AT_byte_size` cho các base type và cấu trúc, 8 cho một con trỏ và số đếm nhân kích thước phần tử cho một mảng. `type_kind()` rút `DW_AT_encoding` của một base type về `int` với một dấu, hoặc `float`, và một pointer type về `pointer`, là bộ từ vựng mà phép so sánh sử dụng.
 
-`DwarfInfo.functions()` reads six `DW_TAG_subprogram` entries. `bump` runs from `0x0` to `0x21`, which is `DW_AT_low_pc` plus the `DW_AT_high_pc` length. Its frame base is `DW_OP_reg6 RBP`, and its parameter `a` has the location expression `91 78`: `DW_OP_fbreg` with the SLEB128 value `0x78`, which is -8. That is the frame slot `-0x8(%rbp)` into which the listing stored `%rdi` at address `0x4`. The debug information and the instructions describe the same slot from two sides.
+`DwarfInfo.functions()` đọc sáu mục `DW_TAG_subprogram`. `bump` chạy từ `0x0` đến `0x21`, tức `DW_AT_low_pc` cộng độ dài `DW_AT_high_pc`. Frame base của nó là `DW_OP_reg6 RBP`, và tham số `a` của nó có biểu thức vị trí `91 78`: `DW_OP_fbreg` với giá trị SLEB128 `0x78`, tức -8. Đó là slot khung `-0x8(%rbp)` mà danh sách lưu `%rdi` vào tại địa chỉ `0x4`. Thông tin gỡ lỗi và các chỉ lệnh mô tả cùng slot từ hai phía.
 
 ## Compare the Two Layouts
 
-`compare_layouts()` walks the DWARF members and looks for an inferred field at the same offset. A member with no field is `no-evidence`. A field of a different size is `size-mismatch`. A pointer member whose field was never dereferenced is `pointer-unproven`. A kind that disagrees, such as a float where the instructions used integer arithmetic, is `kind-mismatch`. Inferred fields that start inside a member or inside padding are `unexpected`. The size compares the stride with `DW_AT_byte_size`.
+`compare_layouts()` duyệt các thành viên DWARF và tìm một trường suy ra tại cùng offset. Một thành viên không có trường là `no-evidence`. Một trường có kích thước khác là `size-mismatch`. Một thành viên con trỏ có trường chưa bao giờ được dereference là `pointer-unproven`. Một loại bất đồng, chẳng hạn một float nơi các chỉ lệnh sử dụng số học nguyên, là `kind-mismatch`. Các trường suy ra bắt đầu bên trong một thành viên hoặc bên trong padding là `unexpected`. Kích thước so sánh stride với `DW_AT_byte_size`.
 
-The numbers for the three builds, from `python3 code/main.py`:
+Các con số cho ba bản build, từ `python3 code/main.py`:
 
-| Build | Accesses through the first parameter | Fields | Stride evidence | Members matched | Size |
+| Bản build | Truy cập qua tham số đầu | Trường | Bằng chứng stride | Thành viên khớp | Kích thước |
 |---|---|---|---|---|---|
-| `-O0` | 11 | 5 | `scale 32`, `call-site 32`, `call-site 64` | 5 of 5 | 32, match |
-| `-O1` | 9 | 5 | `loop-step 32` | 5 of 5 | 32, match |
-| `-O2` | 17 | 5 after folding, 12 before | `offset-delta 32`, `unrolled 32`, `loop-step 256`, `scale 32`, `loop-step 32` | 5 of 5 | 32, match |
+| `-O0` | 11 | 5 | `scale 32`, `call-site 32`, `call-site 64` | 5 trên 5 | 32, khớp |
+| `-O1` | 9 | 5 | `loop-step 32` | 5 trên 5 | 32, khớp |
+| `-O2` | 17 | 5 sau gộp, 12 trước | `offset-delta 32`, `unrolled 32`, `loop-step 256`, `scale 32`, `loop-step 32` | 5 trên 5 | 32, khớp |
 
-The inferred gaps are bytes 1 to 3 and 10 to 15 in every build, and those are exactly the padding bytes of the DWARF layout. Every inferred field sits at a multiple of its own size, which is what the psABI rules require, and `natural_alignment_ok()` records that.
+Các khoảng trống suy ra là các byte 1 đến 3 và 10 đến 15 trong mọi bản build, và đó chính xác là các byte padding của bố cục DWARF. Mọi trường suy ra nằm tại một bội của kích thước riêng của nó, chính là điều các quy tắc psABI yêu cầu, và `natural_alignment_ok()` ghi điều đó.
 
-Add the functions one at a time and the picture changes. With `bump` alone the layout is one field at offset 4, the size is unknown, and the lower bound is 8. `sum_balances` adds the stride. `tag` adds offsets 0 and 8. `projected` adds the float at 16. `label_length` adds the pointer at 24 and proves it is a pointer. `main` adds the call sites at `-O0` and adds nothing at `-O1` and `-O2`, because the compiler inlined every call. The figure steps through this order for each build.
+Thêm các hàm từng hàm một và bức tranh thay đổi. Chỉ với `bump`, bố cục là một trường tại offset 4, kích thước chưa biết và cận dưới là 8. `sum_balances` thêm stride. `tag` thêm các offset 0 và 8. `projected` thêm float tại 16. `label_length` thêm con trỏ tại 24 và chứng minh nó là một con trỏ. `main` thêm các điểm gọi ở `-O0` và không thêm gì ở `-O1` và `-O2`, vì compiler inline mọi lần gọi. Hình đi từng bước qua thứ tự này cho mỗi bản build.
 
-Three things stay out of reach. The names are not in the instructions. The qualifier `const` is not in the instructions. The pointee type of `label` is only "elements 1 byte apart" from the `leaq 0x1(%rcx), %rcx` in the string loop, which is consistent with `char` and with `unsigned char` and `_Bool`. At `-O1` the sign of the byte at offset 0 is unknown, because `cmpb $0x6c, (%rdi)` compares without extending. The pass reports `int8` there and `i8` at `-O0`, where `movsbl` sign-extends. These are the facts lesson 35 records as unknowns.
+Ba điều vẫn ngoài tầm với. Các tên không có trong các chỉ lệnh. Qualifier `const` không có trong các chỉ lệnh. Pointee type của `label` chỉ là "các phần tử cách nhau 1 byte" từ `leaq 0x1(%rcx), %rcx` trong vòng lặp chuỗi, nhất quán với `char` và với `unsigned char` cùng `_Bool`. Ở `-O1`, dấu của byte tại offset 0 chưa biết, vì `cmpb $0x6c, (%rdi)` so sánh mà không mở rộng. Lượt báo cáo `int8` ở đó và `i8` ở `-O0`, nơi `movsbl` mở rộng dấu. Đây là các sự kiện mà bài 35 ghi là các điều chưa biết.
 
 ## C++ Objects
 
-`shapes.cpp` defines `Shape` with a virtual destructor, a pure virtual `area()`, and a virtual `name()`, and `Rect`, which derives from `Shape` and adds two `int` members. The Itanium C++ ABI governs how clang lays these out on x86-64 Linux.
+`shapes.cpp` định nghĩa `Shape` với một destructor ảo, một `area()` thuần ảo và một `name()` ảo, và `Rect`, kế thừa từ `Shape` và thêm hai thành viên `int`. Itanium C++ ABI chi phối cách clang bố trí chúng trên Linux x86-64.
 
 ### Mangled names
 
-Section 5.1.2 of the ABI says "a name is mangled by prefixing `_Z` to an encoding of its name". The object has 19 such symbols. `_ZNK4Rect4areaEv` reads as `_Z`, then `N` for a nested name, `K` for a const member function, `4Rect` and `4area` as length-prefixed source names, `E` to close the nested name, and `v` for an empty parameter list. `llvm-cxxfilt` prints `Rect::area() const`. `_Z8describeRK5Shapei` is `describe(Shape const&, int)`: `R` is a reference, `K` is const, `5Shape` is the class, `i` is `int`. The special names in section 5.1.4 are `_ZTV` for a vtable, `_ZTI` for typeinfo, and `_ZTS` for the typeinfo name string. Constructors and destructors are `C1`, `C2`, `D0`, `D1`, and `D2`, so `_ZN4RectD0Ev` and `_ZN4RectD2Ev` both print as `Rect::~Rect()`: the deleting destructor and the base-object destructor share a source name.
+Mục 5.1.2 của ABI nói rằng "một tên được mã hóa bằng cách thêm tiền tố `_Z` vào một mã hóa của tên đó". Tệp đối tượng có 19 ký hiệu như vậy. `_ZNK4Rect4areaEv` được đọc là `_Z`, rồi `N` cho một tên lồng nhau, `K` cho một hàm thành viên const, `4Rect` và `4area` là các tên nguồn có tiền tố độ dài, `E` để đóng tên lồng nhau, và `v` cho danh sách tham số rỗng. `llvm-cxxfilt` in `Rect::area() const`. `_Z8describeRK5Shapei` là `describe(Shape const&, int)`: `R` là tham chiếu, `K` là const, `5Shape` là lớp, `i` là `int`. Các tên đặc biệt trong mục 5.1.4 là `_ZTV` cho vtable, `_ZTI` cho typeinfo, và `_ZTS` cho chuỗi tên typeinfo. Hàm khởi tạo và hàm hủy là `C1`, `C2`, `D0`, `D1`, và `D2`, nên `_ZN4RectD0Ev` và `_ZN4RectD2Ev` đều được in thành `Rect::~Rect()`: hàm hủy xóa và hàm hủy đối tượng cơ sở dùng chung một tên nguồn.
 
-`Demangler` in `code/main.py` covers that subset plus the builtin type codes of section 5.1.5.2 and the `S_` substitutions of section 5.1.10. The test runs it on all 19 names and compares with the captured `llvm-cxxfilt --no-strip-underscore` output. The flag matters on macOS, where the tool strips one leading underscore by default and then fails to recognise `Z8describe...`.
+`Demangler` trong `code/main.py` bao quát tập con đó cùng các mã kiểu dựng sẵn của mục 5.1.5.2 và các phép thay thế `S_` của mục 5.1.10. Kiểm thử chạy nó trên cả 19 tên và so sánh với đầu ra `llvm-cxxfilt --no-strip-underscore` đã thu lại. Cờ này có ý nghĩa trên macOS, nơi công cụ mặc định loại bỏ một dấu gạch dưới đầu tiên rồi không nhận ra `Z8describe...`.
 
 ### The vtable from its relocations
 
-Section 2.5.2 of the ABI lists the components of a virtual table in order: virtual call offsets, virtual base offsets, offset to top, the typeinfo pointer, and then the virtual function pointers. The address point, the value an object's vptr holds, is the address of the first function pointer (section 2.6.2). `Rect` has no virtual bases, so its table is offset to top, typeinfo, and functions.
+Mục 2.5.2 của ABI liệt kê các thành phần của một bảng ảo theo thứ tự: các độ lệch lời gọi ảo, các độ lệch cơ sở ảo, độ lệch đến đỉnh, con trỏ typeinfo, rồi các con trỏ hàm ảo. Điểm địa chỉ, giá trị mà vptr của một đối tượng giữ, là địa chỉ của con trỏ hàm đầu tiên (mục 2.6.2). `Rect` không có cơ sở ảo, nên bảng của nó gồm độ lệch đến đỉnh, typeinfo, và các hàm.
 
-The symbol `_ZTV4Rect` is 0x30 bytes, six 8-byte slots. In the object every byte is zero. The contents are in `.rela.data.rel.ro._ZTV4Rect`:
+Ký hiệu `_ZTV4Rect` dài 0x30 byte, sáu ô 8 byte. Trong tệp đối tượng mọi byte đều bằng không. Nội dung nằm trong `.rela.data.rel.ro._ZTV4Rect`:
 
 ```text
 0000000000000008 R_X86_64_64              _ZTI4Rect
@@ -318,15 +318,15 @@ The symbol `_ZTV4Rect` is 0x30 bytes, six 8-byte slots. In the object every byte
 0000000000000028 R_X86_64_64              _ZNK4Rect4nameEv
 ```
 
-Slot 0 holds the offset to top, which is 0 and needs no relocation. Slot 1 is the typeinfo. The address point is at `+16`. From there, slot 0 is the complete-object destructor, slot 1 the deleting destructor, slot 2 `area`, slot 3 `name`. `read_vtable()` reads the symbol size, the relocations in its range, and the zero at offset 0. `Shape`'s table has the same shape with `__cxa_pure_virtual` in slot 2, which is the runtime function that a pure virtual call reaches.
+Ô 0 giữ độ lệch đến đỉnh, bằng 0 và không cần relocation. Ô 1 là typeinfo. Điểm địa chỉ nằm tại `+16`. Từ đó, ô 0 là hàm hủy đối tượng hoàn chỉnh, ô 1 là hàm hủy xóa, ô 2 là `area`, ô 3 là `name`. `read_vtable()` đọc kích thước ký hiệu, các relocation trong phạm vi của nó, và số không tại độ lệch 0. Bảng của `Shape` có cùng hình dạng với `__cxa_pure_virtual` ở ô 2, là hàm runtime mà một lời gọi thuần ảo đi đến.
 
 ### RTTI
 
-Section 2.9.4 describes `std::type_info` as a vptr followed by a pointer to the mangled type name, and lists the derived classes. `_ZTI4Rect` has three relocations: `_ZTVN10__cxxabiv120__si_class_type_infoE+0x10`, `_ZTS4Rect`, and `_ZTI5Shape`. The first is the vtable of `__si_class_type_info`, the class the ABI uses for a type with a single public non-virtual base at offset zero, and the `+0x10` is that vtable's address point. The second points at the string `4Rect`, which is the mangled type name, and `name()` on a `type_info` returns exactly that string. The third is the base. `_ZTI5Shape` uses `__class_type_info` and has no base pointer. `read_typeinfo()` returns these three facts.
+Mục 2.9.4 mô tả `std::type_info` là một vptr theo sau bởi một con trỏ đến tên kiểu đã mã hóa, và liệt kê các lớp dẫn xuất. `_ZTI4Rect` có ba relocation: `_ZTVN10__cxxabiv120__si_class_type_infoE+0x10`, `_ZTS4Rect`, và `_ZTI5Shape`. Đầu tiên là vtable của `__si_class_type_info`, lớp mà ABI dùng cho một kiểu có một cơ sở công khai không ảo duy nhất tại độ lệch không, và `+0x10` là điểm địa chỉ của vtable đó. Thứ hai trỏ đến chuỗi `4Rect`, là tên kiểu đã mã hóa, và `name()` trên một `type_info` trả về đúng chuỗi đó. Thứ ba là cơ sở. `_ZTI5Shape` dùng `__class_type_info` và không có con trỏ cơ sở. `read_typeinfo()` trả về ba thông tin này.
 
 ### The virtual call
 
-`describe` at `-O0` makes one virtual call:
+`describe` tại `-O0` thực hiện một lời gọi ảo:
 
 ```text
        f: 48 8b 7d f8                  	movq	-0x8(%rbp), %rdi
@@ -334,60 +334,60 @@ Section 2.9.4 describes `std::type_info` as a vptr followed by a pointer to the 
       16: ff 50 10                     	callq	*0x10(%rax)
 ```
 
-The first `movq` loads the object pointer. The second reads 8 bytes at offset 0 of the object, which is the vptr, because the ABI places it first in a class with virtual functions. The `callq` goes through `0x10` past the vptr, and `0x10 / 8` is slot 2. `find_virtual_calls()` matches the pattern and reports both candidates: `Rect::area() const` from `_ZTV4Rect` and `__cxa_pure_virtual` from `_ZTV5Shape`. Which one runs depends on the object, which is why the call is indirect.
+`movq` đầu tiên nạp con trỏ đối tượng. Lệnh thứ hai đọc 8 byte tại độ lệch 0 của đối tượng, là vptr, vì ABI đặt nó đầu tiên trong một lớp có hàm ảo. `callq` đi qua vị trí cách vptr `0x10`, và `0x10 / 8` là ô 2. `find_virtual_calls()` khớp mẫu và báo cáo cả hai ứng viên: `Rect::area() const` từ `_ZTV4Rect` và `__cxa_pure_virtual` từ `_ZTV5Shape`. Hàm nào chạy phụ thuộc vào đối tượng, đó là lý do lời gọi là gián tiếp.
 
-DWARF records the same slot. The `DW_TAG_subprogram` entries for `area` in both classes carry `DW_AT_vtable_elem_location (DW_OP_constu 0x2)`, `name` carries slot 3, and the destructors carry slot 0. `Rect` is a `DW_TAG_structure_type` of 16 bytes with a `DW_TAG_inheritance` entry for `Shape` at offset 0 and members `w` at 8 and `h` at 12. `Shape` is 8 bytes with one artificial member `_vptr$Shape`. Two independent derivations give slot 2 for `area`: the relocation table and the debug entries.
+DWARF ghi lại cùng ô đó. Các mục `DW_TAG_subprogram` cho `area` trong cả hai lớp mang `DW_AT_vtable_elem_location (DW_OP_constu 0x2)`, `name` mang ô 3, và các hàm hủy mang ô 0. `Rect` là một `DW_TAG_structure_type` 16 byte với một mục `DW_TAG_inheritance` cho `Shape` tại độ lệch 0 và các thành viên `w` tại 8 và `h` tại 12. `Shape` dài 8 byte với một thành viên nhân tạo `_vptr$Shape`. Hai phép suy ra độc lập cho ô 2 đối với `area`: bảng relocation và các mục gỡ lỗi.
 
-At `-O1` the object has no vtable at all. `main` constructs `Rect` as a local, so the compiler resolved `r.name()` and `describe(r, 2)` at compile time and inlined them. Nothing takes the address of the table, so the table is not emitted. `describe` still contains `movq (%rdi), %rax` and `callq *0x10(%rax)`, because its parameter can be any `Shape`. A missing vtable is a fact about one object file, and the test `test_the_optimised_object_keeps_the_call_pattern_but_drops_the_vtables` checks both halves.
+Tại `-O1` tệp đối tượng hoàn toàn không có vtable. `main` tạo `Rect` làm biến cục bộ, nên trình biên dịch đã phân giải `r.name()` và `describe(r, 2)` tại thời điểm biên dịch và nội tuyến chúng. Không có gì lấy địa chỉ của bảng, nên bảng không được phát ra. `describe` vẫn chứa `movq (%rdi), %rax` và `callq *0x10(%rax)`, vì tham số của nó có thể là bất kỳ `Shape` nào. Một vtable vắng mặt là một thông tin về một tệp đối tượng, và kiểm thử `test_the_optimised_object_keeps_the_call_pattern_but_drops_the_vtables` kiểm tra cả hai nửa.
 
-The Microsoft ABI differs in every one of these details. Decorated names start with `?` and encode the calling convention, so `void test(void)` compiled as C++ `__cdecl` is `?test@@ZAXXZ`. The RTTI locator sits at `vfptr[-1]` as a `_RTTICompleteObjectLocator`, and the symbols are `??_7` for a vftable and `??_R4` for the locator. Microsoft's own documentation says there are "no standards for C++ naming between compiler vendors". This lesson's fixtures are Itanium only.
+ABI của Microsoft khác ở từng chi tiết này. Các tên được trang trí bắt đầu bằng `?` và mã hóa quy ước gọi, nên `void test(void)` được biên dịch dưới dạng C++ `__cdecl` là `?test@@ZAXXZ`. Bộ định vị RTTI nằm tại `vfptr[-1]` dưới dạng một `_RTTICompleteObjectLocator`, và các ký hiệu là `??_7` cho vftable và `??_R4` cho bộ định vị. Tài liệu của chính Microsoft nói rằng "không có tiêu chuẩn cho việc đặt tên C++ giữa các nhà cung cấp trình biên dịch". Các fixture của bài học này chỉ dùng Itanium.
 
 ## How the Tools Present Recovered Types
 
-Every row below that names an output was produced on this machine and captured into `code/fixtures/tools/`. Rows for tools that are not installed here describe their documentation and say so.
+Mỗi hàng bên dưới có nêu một đầu ra đều được tạo trên máy này và thu lại vào `code/fixtures/tools/`. Các hàng cho những công cụ không được cài ở đây mô tả tài liệu của chúng và nói rõ điều đó.
 
-| Tool | Version, licence | Where types live | On our fixtures |
+| Công cụ | Phiên bản, giấy phép | Nơi các kiểu tồn tại | Trên các fixture của chúng ta |
 |---|---|---|---|
-| Ghidra | 12.1.4, 2026-09-21, Apache-2.0 | Data Type Manager with built-in, user-defined, and derived types; `.gdt` archives; types used by a program are copied into it | With DWARF: `/DWARF/account.c/account size=32 align=8` and `a->balance = by + a->balance;`. Without: `*(int *)(param_1 + 4)` with `long param_1`, `tag(char *param_1)`, and `*(char **)(param_1 + 0x18)` |
-| IDA Pro | 9.4, 2026-07-13, commercial; IDA Free is non-commercial with a cloud decompiler for x86 only | Local Types window, `.til` type libraries, DWARF and PDB import into a `dwarf` or `pdb` folder | Not installed. Documentation only |
-| Binary Ninja | 6.0, 2026-09-03, commercial with a Free edition | Type editing, header import and export, type archives, debug info from DWARF and PDB, type libraries, platform types | Not installed. Documentation only |
-| radare2 | 6.2.4, 2026-10-05, LGPLv3 | `ts`, `tsc`, `afvd` | `ts` and `tsc account` printed nothing for the relocatable object with `bin.dbginfo=true`; `pdf` shows `mov dword [rax + 4], ecx` with source line comments from DWARF |
-| rizin | 0.9.1, 2026-06-29, LGPL core | `ts`, `tsc`, `afvd` | `tsc account` printed `struct account { char kind; int balance; short code; double rate; const char *label; };` from DWARF; the build without `-g` lists only its bundled header types |
-| lldb | lldb-1703.0.236.21 | `image lookup -t` | `byte-size = 32` and the full `compiler_type` text from the ELF object |
-| gdb | not installed here | `ptype /o` prints "the offsets and sizes of fields in a struct" with holes marked | Documentation only |
-| pyelftools | 0.33, public domain | Python API over `.debug_info` | A 43-line script prints the same five members and `unit version 5` |
-| llvm-dwarfdump | Apple LLVM 17.0.0 | `--debug-info`, `--debug-abbrev`, `--debug-str-offsets` | The oracle for every reader test |
+| Ghidra | 12.1.4, 2026-09-21, Apache-2.0 | Data Type Manager với các kiểu dựng sẵn, do người dùng định nghĩa, và dẫn xuất; các kho lưu trữ `.gdt`; các kiểu được một chương trình sử dụng được sao chép vào chương trình đó | Có DWARF: `/DWARF/account.c/account size=32 align=8` và `a->balance = by + a->balance;`. Không có: `*(int *)(param_1 + 4)` với `long param_1`, `tag(char *param_1)`, và `*(char **)(param_1 + 0x18)` |
+| IDA Pro | 9.4, 2026-07-13, thương mại; IDA Free dành cho mục đích phi thương mại với một trình dịch ngược trên đám mây chỉ cho x86 | Cửa sổ Local Types, các thư viện kiểu `.til`, nhập DWARF và PDB vào một thư mục `dwarf` hoặc `pdb` | Chưa cài đặt. Chỉ dựa trên tài liệu |
+| Binary Ninja | 6.0, 2026-09-03, thương mại với một bản Free | Chỉnh sửa kiểu, nhập và xuất header, các kho lưu trữ kiểu, thông tin gỡ lỗi từ DWARF và PDB, các thư viện kiểu, các kiểu nền tảng | Chưa cài đặt. Chỉ dựa trên tài liệu |
+| radare2 | 6.2.4, 2026-10-05, LGPLv3 | `ts`, `tsc`, `afvd` | `ts` và `tsc account` không in gì cho tệp đối tượng có thể relocation với `bin.dbginfo=true`; `pdf` hiển thị `mov dword [rax + 4], ecx` với chú thích dòng nguồn từ DWARF |
+| rizin | 0.9.1, 2026-06-29, lõi LGPL | `ts`, `tsc`, `afvd` | `tsc account` in `struct account { char kind; int balance; short code; double rate; const char *label; };` từ DWARF; bản dựng không có `-g` chỉ liệt kê các kiểu header đi kèm của nó |
+| lldb | lldb-1703.0.236.21 | `image lookup -t` | `byte-size = 32` và toàn bộ văn bản `compiler_type` từ tệp đối tượng ELF |
+| gdb | chưa cài đặt ở đây | `ptype /o` in "các độ lệch và kích thước của các trường trong một struct" với các khoảng trống được đánh dấu | Chỉ dựa trên tài liệu |
+| pyelftools | 0.33, phạm vi công cộng | API Python trên `.debug_info` | Một script 43 dòng in cùng năm thành viên và `unit version 5` |
+| llvm-dwarfdump | Apple LLVM 17.0.0 | `--debug-info`, `--debug-abbrev`, `--debug-str-offsets` | Oracle cho mọi kiểm thử bộ đọc |
 
-Ghidra's output without DWARF shows the same two rules at work. Its decompiler assigned `char *` to the parameter of `tag` because the function compares one byte through it, and `char **` to the field at `0x18` because `label_length` dereferences the loaded value and compares bytes. Those are the same two rules the pass in this lesson applies: width from the instruction, pointer from the dereference. Ghidra's decompiler documentation says that p-code varnodes "do not necessarily have a data-type associated with them" and that the decompiler "ultimately assigns a formal data-type" by propagation. The option "Infer constant pointers" extends the same propagation to constants. Ghidra 12.1 added bitfield recovery to the decompiler, which this lesson's fixtures do not exercise.
+Đầu ra của Ghidra không có DWARF cho thấy cùng hai quy tắc đang hoạt động. Trình dịch ngược của nó gán `char *` cho tham số của `tag` vì hàm so sánh một byte thông qua nó, và `char **` cho trường tại `0x18` vì `label_length` giải tham chiếu giá trị đã nạp và so sánh các byte. Đó là cùng hai quy tắc mà lượt xử lý trong bài học này áp dụng: độ rộng từ lệnh, con trỏ từ phép giải tham chiếu. Tài liệu trình dịch ngược của Ghidra nói rằng các varnode p-code "không nhất thiết có một kiểu dữ liệu gắn với chúng" và trình dịch ngược "cuối cùng gán một kiểu dữ liệu chính thức" bằng sự lan truyền. Tùy chọn "Infer constant pointers" mở rộng cùng sự lan truyền sang các hằng số. Ghidra 12.1 đã thêm khôi phục bitfield vào trình dịch ngược, điều mà các fixture của bài học này không thực hiện.
 
-The hand-made table is the other half of the story. Ghidra's Data Type Manager, IDA's Local Types, Binary Ninja's type archives, and rizin's `td` all let you type the struct from the recovered layout and watch the decompiler re-render. The pass tells you what to type and which fields you are guessing.
+Bảng làm thủ công là nửa còn lại của câu chuyện. Data Type Manager của Ghidra, Local Types của IDA, các kho lưu trữ kiểu của Binary Ninja, và `td` của rizin đều cho phép bạn nhập struct từ bố cục đã khôi phục và xem trình dịch ngược kết xuất lại. Lượt xử lý cho bạn biết cần nhập gì và những trường nào bạn đang đoán.
 
-rea 6.5.0 with its Ghidra provider returns the decompiler text as a record. Everything in the Ghidra row applies to it, and the record carries the type names without the evidence that produced them. Running `python3 code/main.py infer` on the same listing gives you that evidence.
+rea 6.5.0 với provider Ghidra của nó trả về văn bản trình dịch ngược dưới dạng một bản ghi. Mọi thứ trong hàng Ghidra đều áp dụng cho nó, và bản ghi mang các tên kiểu mà không có bằng chứng đã tạo ra chúng. Chạy `python3 code/main.py infer` trên cùng bản liệt kê cho bạn bằng chứng đó.
 
 ## Type Inference Research
 
-The pass here is the constraint-generation half of a type inference system, restricted to one struct reached from a parameter. The field has gone further.
+Lượt xử lý ở đây là nửa tạo ràng buộc của một hệ thống suy luận kiểu, giới hạn ở một struct được tiếp cận từ một tham số. Lĩnh vực này đã tiến xa hơn.
 
-- TIE (Lee, Avgerinos, Brumley, NDSS 2011) framed type reconstruction as constraint generation and solving over a binary IR, measured conservativeness and precision, and compared against a commercial decompiler on 87 coreutils programs.
-- Retypd (Noonan, Loginov, Cok, PLDI 2016) added subtyping, polymorphism, and recursive types, and reported reconstruction of pointer `const` annotations with 98% recall. An open-source implementation exists under GrammaTech's name.
-- OSPREY (Zhang and others, IEEE S&P 2021) treats each memory location as a random variable and infers the most probable types.
-- DIRTY (Chen and others, USENIX Security 2022) and ReSym (Xie and others, CCS 2024) post-process decompiler output with learned models, and ReSym reports 72.9% precision on full struct layouts.
-- RecStruct (Chen and others, USENIX Security 2026) recovers nested structs without a decompiler, with flow-insensitive symbolic execution and union-find over stack slots.
+- TIE (Lee, Avgerinos, Brumley, NDSS 2011) trình bày việc tái tạo kiểu dưới dạng tạo và giải ràng buộc trên một IR nhị phân, đo tính bảo thủ và độ chính xác, và so sánh với một trình dịch ngược thương mại trên 87 chương trình coreutils.
+- Retypd (Noonan, Loginov, Cok, PLDI 2016) thêm kiểu con, tính đa hình, và các kiểu đệ quy, và báo cáo việc tái tạo các chú thích `const` của con trỏ với recall 98%. Một triển khai mã nguồn mở tồn tại dưới tên GrammaTech.
+- OSPREY (Zhang và những người khác, IEEE S&P 2021) coi mỗi vị trí bộ nhớ là một biến ngẫu nhiên và suy ra các kiểu có xác suất cao nhất.
+- DIRTY (Chen và những người khác, USENIX Security 2022) và ReSym (Xie và những người khác, CCS 2024) hậu xử lý đầu ra trình dịch ngược bằng các mô hình đã học, và ReSym báo cáo precision 72.9% trên các bố cục struct đầy đủ.
+- RecStruct (Chen và những người khác, USENIX Security 2026) khôi phục các struct lồng nhau mà không cần trình dịch ngược, bằng thực thi ký hiệu không nhạy luồng và union-find trên các ô stack.
 
-The stack struct is the first thing this lesson's pass skips. At `-O1`, `main` keeps `rows` on the stack and the inlined code reads `0x24(%rsp)`, `0x40(%rsp)`, `0x48(%rsp)`, `0x30(%rsp)`, and `0x38(%rsp)`. Those offsets modulo 32 are 4, 0, 8, 16, and 24: the same struct, with no parameter to seed from. The Practice Lab asks you to recover it.
+Struct trên stack là thứ đầu tiên lượt xử lý của bài học này bỏ qua. Tại `-O1`, `main` giữ `rows` trên stack và mã nội tuyến đọc `0x24(%rsp)`, `0x40(%rsp)`, `0x48(%rsp)`, `0x30(%rsp)`, và `0x38(%rsp)`. Các độ lệch đó modulo 32 là 4, 0, 8, 16, và 24: cùng struct, không có tham số để khởi tạo từ đó. Practice Lab yêu cầu bạn khôi phục nó.
 
 ## Build It
 
-Run the demo:
+Chạy demo:
 
 ```bash
 cd phases/13-tools-and-protocols/41-recovering-data-and-types
 python3 code/main.py
 ```
 
-The output is one JSON report with five parts. `dwarf` holds the unit header, the structures, and the functions of the `-O0` object. `oracles` holds the psABI rule layout, the `ctypes` layout, the DWARF layout, the native run, and an `agree` flag. `builds` holds the accesses, the inferred layout, and the comparison for each of the three objects. `cxx` holds the demangled names, both vtables, both typeinfo records, the virtual call, and the DWARF slots. `tools` lists the captured tool outputs.
+Đầu ra là một báo cáo JSON có năm phần. `dwarf` giữ header đơn vị, các cấu trúc, và các hàm của tệp đối tượng `-O0`. `oracles` giữ bố cục theo quy tắc psABI, bố cục `ctypes`, bố cục DWARF, lần chạy native, và một cờ `agree`. `builds` giữ các truy cập, bố cục được suy ra, và phép so sánh cho mỗi tệp trong ba tệp đối tượng. `cxx` giữ các tên đã giải mã, cả hai vtable, cả hai bản ghi typeinfo, lời gọi ảo, và các ô DWARF. `tools` liệt kê các đầu ra công cụ đã thu lại.
 
-Expected shape:
+Dạng kỳ vọng:
 
 ```json
 {
@@ -402,43 +402,43 @@ Expected shape:
 }
 ```
 
-Read `code/main.py` in this order:
+Đọc `code/main.py` theo thứ tự này:
 
-1. `ElfObject` reads sections, symbols, and relocations, and `relocated()` applies `S + A` to a debug section.
-2. `parse_abbreviations()` and `DwarfInfo._parse_unit()` read the header, the abbreviation table, and the entries, then resolve `strx` and `addrx` through the two tables.
-3. `DwarfInfo.struct_layouts()` and `functions()` turn entries into `StructLayout` and `FunctionInfo` records, with `type_name()`, `type_size()`, and `type_kind()`.
-4. `parse_listing()`, `parse_memory()`, and `access_width()` read the `llvm-objdump` text.
-5. `trace_function()` is the abstract state machine, and `fold_unrolled()` and `infer_layout()` turn accesses into a layout.
-6. `compare_layouts()` produces the status rows, and `sysv_layout()` and `ctypes_layout()` are the two other oracles.
-7. `Demangler`, `read_vtable()`, `read_typeinfo()`, and `find_virtual_calls()` cover the C++ object.
+1. `ElfObject` đọc các section, ký hiệu, và relocation, và `relocated()` áp dụng `S + A` cho một section gỡ lỗi.
+2. `parse_abbreviations()` và `DwarfInfo._parse_unit()` đọc header, bảng viết tắt, và các mục, rồi phân giải `strx` và `addrx` qua hai bảng.
+3. `DwarfInfo.struct_layouts()` và `functions()` chuyển các mục thành các bản ghi `StructLayout` và `FunctionInfo`, với `type_name()`, `type_size()`, và `type_kind()`.
+4. `parse_listing()`, `parse_memory()`, và `access_width()` đọc văn bản `llvm-objdump`.
+5. `trace_function()` là máy trạng thái trừu tượng, và `fold_unrolled()` cùng `infer_layout()` chuyển các truy cập thành một bố cục.
+6. `compare_layouts()` tạo các hàng trạng thái, và `sysv_layout()` cùng `ctypes_layout()` là hai oracle còn lại.
+7. `Demangler`, `read_vtable()`, `read_typeinfo()`, và `find_virtual_calls()` bao quát tệp đối tượng C++.
 
-Four more commands exist. `python3 code/main.py dwarf FILE.o` prints the structures and functions of any DWARF 5 relocatable object. `python3 code/main.py infer LISTING.txt [FILE.o]` runs the pass on a listing and, with an object, compares against its DWARF. `python3 code/main.py demangle NAME...` and `python3 code/main.py vtable FILE.o` cover the C++ half.
+Có thêm bốn lệnh. `python3 code/main.py dwarf FILE.o` in các cấu trúc và hàm của bất kỳ tệp đối tượng có thể relocation DWARF 5 nào. `python3 code/main.py infer LISTING.txt [FILE.o]` chạy lượt xử lý trên một bản liệt kê và, khi có một tệp đối tượng, so sánh với DWARF của nó. `python3 code/main.py demangle NAME...` và `python3 code/main.py vtable FILE.o` bao quát nửa C++.
 
 ## Use It
 
-On a new object you built yourself:
+Trên một tệp đối tượng mới do chính bạn dựng:
 
-1. Capture `llvm-objdump -d -r` of the object and keep it beside the object. The pass reads that text.
-2. Run `python3 code/main.py infer` on the listing. Read the witnesses line first: it names the functions whose first parameter was used as a memory base. If a function is missing, its parameter never reached a memory operand, or it reached one through a path the pass does not track.
-3. Read each field with its access count. One access is one witness. Record a field with a single witness as inferred.
-4. Read the stride evidence. A `call-site` or `scale` entry is strong. A single `loop-step` entry with no other kind is weak, because an unrolled loop reports the step of several elements. If `unrolled` appears, check the fold by hand.
-5. If a `-g` build exists, run the comparison and read every row that is not `match`. A `no-evidence` row names a member no function touched. An `unexpected` row names an access the pass could not place.
-6. Type the layout into your tool's type manager as a struct, and record which fields, names, and kinds are guesses.
+1. Thu lại `llvm-objdump -d -r` của tệp đối tượng và giữ nó cạnh tệp đối tượng. Lượt xử lý đọc văn bản đó.
+2. Chạy `python3 code/main.py infer` trên bản liệt kê. Đọc dòng nhân chứng trước: nó nêu các hàm có tham số đầu tiên được dùng làm cơ sở bộ nhớ. Nếu thiếu một hàm, tham số của nó chưa bao giờ đến một toán hạng bộ nhớ, hoặc đã đến qua một đường mà lượt xử lý không theo dõi.
+3. Đọc mỗi trường cùng số lần truy cập của nó. Một truy cập là một nhân chứng. Ghi nhận một trường có một nhân chứng duy nhất là được suy ra.
+4. Đọc bằng chứng stride. Một mục `call-site` hoặc `scale` là mạnh. Một mục `loop-step` duy nhất mà không có loại nào khác là yếu, vì một vòng lặp đã unroll báo cáo bước của nhiều phần tử. Nếu `unrolled` xuất hiện, hãy kiểm tra phép gộp bằng tay.
+5. Nếu có một bản dựng `-g`, hãy chạy phép so sánh và đọc mọi hàng không phải `match`. Một hàng `no-evidence` nêu một thành viên mà không hàm nào chạm đến. Một hàng `unexpected` nêu một truy cập mà lượt xử lý không thể đặt vào vị trí.
+6. Nhập bố cục vào trình quản lý kiểu của công cụ dưới dạng một struct, và ghi lại những trường, tên, và loại nào là phỏng đoán.
 
-Keep the three oracles in reach. When the rules, `ctypes`, and DWARF disagree on a layout you wrote, you have found a packed struct, a bit-field, or a target with different rules.
+Giữ ba oracle trong tầm sử dụng. Khi các quy tắc, `ctypes`, và DWARF không thống nhất về một bố cục bạn viết, bạn đã tìm thấy một packed struct, một bit-field, hoặc một đích có các quy tắc khác.
 
 ## Interactive Lab
 
 ### Lab A: decode the member entry
 
-From the `code` directory, open Python:
+Từ thư mục `code`, mở Python:
 
 ```bash
 cd phases/13-tools-and-protocols/41-recovering-data-and-types/code
 python3 -q
 ```
 
-Run:
+Chạy:
 
 ```python
 from main import *
@@ -450,7 +450,7 @@ dwarf.dies[0x1a3].attributes
 dwarf.type_name(dwarf.type_of(dwarf.dies[0x1a3]))
 ```
 
-Decode the nine bytes on paper with abbreviation 13 before you look at the dictionary. Then read the raw section without relocations, `elf.section(".debug_str_offsets").data[8:16].hex()`, and the relocated one, `elf.relocated(".debug_str_offsets")[8:16].hex()`, and explain the difference.
+Giải mã chín byte trên giấy với mục viết tắt 13 trước khi bạn xem từ điển. Sau đó đọc section thô không có relocation, `elf.section(".debug_str_offsets").data[8:16].hex()`, và section đã áp dụng relocation, `elf.relocated(".debug_str_offsets")[8:16].hex()`, và giải thích sự khác biệt.
 
 ### Lab B: trace one function
 
@@ -462,7 +462,7 @@ trace.pointer_uses
 trace_function("sum_balances", listing["sum_balances"]).loops
 ```
 
-Write down, before running, which access proves that offset 24 is a pointer. Then run the same lines on the `-O1` listing and find the `leaq 0x1(%rcx), %rcx` in `trace.increments`.
+Viết ra, trước khi chạy, truy cập nào chứng minh rằng độ lệch 24 là một con trỏ. Sau đó chạy cùng các dòng trên bản liệt kê `-O1` và tìm `leaq 0x1(%rcx), %rcx` trong `trace.increments`.
 
 ### Lab C: fold the vectorised loop
 
@@ -474,7 +474,7 @@ folded, evidence = fold_unrolled(trace, trace.accesses)
 sorted({a.offset for a in folded}), [(e.kind, e.value, e.text) for e in evidence]
 ```
 
-Then run `analyze_build("O2", fold=False)["comparison"]` and count the `unexpected` rows. Change the fold rule so it requires the loop step to be exactly `k * d` with `k` at least 2, and confirm that the `-O1` loop, with one access and step 32, is left alone.
+Sau đó chạy `analyze_build("O2", fold=False)["comparison"]` và đếm các hàng `unexpected`. Thay đổi quy tắc gộp để nó yêu cầu bước vòng lặp phải chính xác là `k * d` với `k` ít nhất bằng 2, và xác nhận rằng vòng lặp `-O1`, với một truy cập và bước 32, được giữ nguyên.
 
 ### Lab D: the vtable and the names
 
@@ -486,29 +486,29 @@ demangle("_ZNK4Rect4areaEv"), demangle("_Z8describeRK5Shapei")
 find_virtual_calls(load_listing("shapes-x86_64-O0-g.objdump.txt"), [read_vtable(shapes, "_ZTV5Shape"), read_vtable(shapes, "_ZTV4Rect")])
 ```
 
-Compute the slot from `callq *0x10(%rax)` on paper, then confirm it against `DwarfInfo(shapes).struct("Rect").virtual_methods`. Then load `shapes-x86_64-O1-g.o` and try `read_vtable` on it. Read the `ElfError` and explain why the symbol is absent.
+Tính ô từ `callq *0x10(%rax)` trên giấy, rồi xác nhận nó với `DwarfInfo(shapes).struct("Rect").virtual_methods`. Sau đó nạp `shapes-x86_64-O1-g.o` và thử `read_vtable` trên nó. Đọc `ElfError` và giải thích tại sao ký hiệu vắng mặt.
 
 ## Practice Lab
 
-Recover the stack struct in `main` at `-O1`.
+Khôi phục struct trên stack trong `main` tại `-O1`.
 
-Requirements:
+Yêu cầu:
 
-- Extend `trace_function()` so that a frame slot region can be a root. Seed it from the `movaps` stores that fill `0x0(%rsp)` to `0x5f(%rsp)` from `.data.rel.ro`, which is the 96-byte initializer of `rows`.
-- Attribute the inlined accesses `0x24(%rsp)`, `0x40(%rsp)`, `0x48(%rsp)`, `0x30(%rsp)`, and `0x38(%rsp)` to that root and report their offsets modulo a candidate stride.
-- Derive the stride 32 from the loop at `0x120` to `0x12c`, where `%r14` starts at 4 and advances by `0x20` until `0x64`, and show that the loop bound `0x64` is three elements plus the field offset.
-- Compare the result with the DWARF layout and reach five matches, and record which kinds stay unproven.
-- Add a test that fails when the frame root is attributed to a parameter.
+- Mở rộng `trace_function()` để một vùng ô frame có thể là một gốc. Khởi tạo nó từ các phép lưu `movaps` điền `0x0(%rsp)` đến `0x5f(%rsp)` từ `.data.rel.ro`, là phần khởi tạo 96 byte của `rows`.
+- Quy các truy cập nội tuyến `0x24(%rsp)`, `0x40(%rsp)`, `0x48(%rsp)`, `0x30(%rsp)`, và `0x38(%rsp)` về gốc đó và báo cáo các độ lệch của chúng modulo một stride ứng viên.
+- Suy ra stride 32 từ vòng lặp tại `0x120` đến `0x12c`, nơi `%r14` bắt đầu ở 4 và tiến thêm `0x20` đến `0x64`, và chỉ ra rằng cận vòng lặp `0x64` là ba phần tử cộng với độ lệch trường.
+- So sánh kết quả với bố cục DWARF và đạt năm mục khớp, và ghi lại những loại nào vẫn chưa được chứng minh.
+- Thêm một kiểm thử thất bại khi gốc frame được quy về một tham số.
 
-Success means `python3 code/main.py infer` on the `-O1` listing lists `main` as a witness with a frame root, and the comparison shows five matches from `main` alone.
+Thành công nghĩa là `python3 code/main.py infer` trên bản liệt kê `-O1` liệt kê `main` như một nhân chứng có một gốc frame, và phép so sánh hiển thị năm mục khớp chỉ từ `main`.
 
 ## Lesson Artifact
 
-This lesson includes `outputs/skill-recovering-data-and-types.md`. Use it to turn a listing and an optional debug build into a struct layout with evidence per field, a stride with its sources, a comparison against DWARF, and a list of what stayed unknown. It requires the access table, the stride evidence, the fold check, the DWARF oracle when one exists, and a statement of names and qualifiers that no instruction can supply.
+Bài học này bao gồm `outputs/skill-recovering-data-and-types.md`. Dùng nó để chuyển một bản liệt kê và một bản dựng gỡ lỗi tùy chọn thành một bố cục struct có bằng chứng cho từng trường, một stride với các nguồn của nó, một phép so sánh với DWARF, và một danh sách những gì vẫn chưa biết. Nó yêu cầu bảng truy cập, bằng chứng stride, phép kiểm tra gộp, oracle DWARF khi có, và một phát biểu về những tên và qualifier mà không lệnh nào có thể cung cấp.
 
 ## Verify It
 
-Run the demo and the deterministic suite:
+Chạy demo và bộ kiểm tra tất định:
 
 ```bash
 cd phases/13-tools-and-protocols/41-recovering-data-and-types
@@ -516,49 +516,49 @@ python3 code/main.py
 python3 -m unittest discover -s code/tests -v
 ```
 
-Verification should prove:
+Xác minh nên chứng minh:
 
-- the unit header, the 14 abbreviations, and the five member offsets agree with `llvm-dwarfdump`
-- names arrive through the relocated `.debug_str_offsets` table and the unit's `str_offsets_base` and `addr_base` are 8
-- six functions carry the ranges, `DW_OP_reg6 RBP`, and `DW_OP_fbreg` locations the dump shows, and their low addresses equal the listing's function starts
-- an object without `.debug_info` raises, and the LEB128 decoders handle `0x78` as -8
-- `pyelftools` and `lldb` print the same layout as the reader
-- the psABI rules, `ctypes`, DWARF, and the native run give offsets `0, 4, 8, 16, 24` and size 32, and the reordered struct is 24 bytes
-- the listing parser reads 13 instructions in `bump`, attaches `R_X86_64_PLT32 bump-0x4` to the call at `0x194`, and finds the backward jump at `0x72`
-- memory operands, widths, kinds, and signs decode from the AT&T text and the mnemonic
-- `bump` at `-O0` reads its pointer back from the frame slot and makes three accesses at offset 4
-- the stride comes from `shlq $0x5` at `-O0`, from `addq $0x20, %rdx` at `-O1`, and from eight loads folded by a step of 256 at `-O2`
-- `label_length` proves the pointer at offset 24 by dereferencing it
-- `main` passes one frame object at offsets 0, `0x20`, and `0x40` at `-O0` and calls nothing but `printf` at `-O1`
-- every build matches five of five members with size 32 and gaps equal to the DWARF padding
-- without folding the `-O2` build reports seven fields past byte 32 and no size
-- the demangler reproduces all 19 `llvm-cxxfilt` strings
-- both vtables, both typeinfo records, and the virtual call at `0x16` resolve to slot 2, and DWARF agrees
-- the `-O1` C++ object keeps the call pattern and has no vtable
-- the Ghidra, rizin, and radare2 captures show the struct with DWARF and the raw offsets without it
-- the interactive figure embeds the same data the analysis produces
+- header đơn vị, 14 mục viết tắt, và năm độ lệch thành viên khớp với `llvm-dwarfdump`
+- các tên đến qua bảng `.debug_str_offsets` đã áp dụng relocation và `str_offsets_base` cùng `addr_base` của đơn vị bằng 8
+- sáu hàm mang các phạm vi, `DW_OP_reg6 RBP`, và các vị trí `DW_OP_fbreg` mà bản dump hiển thị, và các địa chỉ thấp của chúng bằng các điểm bắt đầu hàm trong bản liệt kê
+- một tệp đối tượng không có `.debug_info` phát sinh ngoại lệ, và các bộ giải mã LEB128 xử lý `0x78` là -8
+- `pyelftools` và `lldb` in cùng bố cục với bộ đọc
+- các quy tắc psABI, `ctypes`, DWARF, và lần chạy native cho các độ lệch `0, 4, 8, 16, 24` và kích thước 32, và struct được sắp xếp lại dài 24 byte
+- bộ phân tích bản liệt kê đọc 13 lệnh trong `bump`, gắn `R_X86_64_PLT32 bump-0x4` vào lời gọi tại `0x194`, và tìm thấy bước nhảy ngược tại `0x72`
+- các toán hạng bộ nhớ, độ rộng, loại, và dấu được giải mã từ văn bản AT&T và mnemonic
+- `bump` tại `-O0` đọc lại con trỏ của nó từ ô frame và thực hiện ba truy cập tại độ lệch 4
+- stride đến từ `shlq $0x5` tại `-O0`, từ `addq $0x20, %rdx` tại `-O1`, và từ tám phép nạp được gộp theo bước 256 tại `-O2`
+- `label_length` chứng minh con trỏ tại độ lệch 24 bằng cách giải tham chiếu nó
+- `main` truyền một đối tượng frame tại các độ lệch 0, `0x20`, và `0x40` tại `-O0` và không gọi gì ngoài `printf` tại `-O1`
+- mọi bản dựng khớp năm trên năm thành viên với kích thước 32 và các khoảng trống bằng phần đệm DWARF
+- không có phép gộp, bản dựng `-O2` báo cáo bảy trường vượt quá byte 32 và không có kích thước
+- bộ giải mã tên tái tạo cả 19 chuỗi `llvm-cxxfilt`
+- cả hai vtable, cả hai bản ghi typeinfo, và lời gọi ảo tại `0x16` phân giải thành ô 2, và DWARF đồng ý
+- tệp đối tượng C++ `-O1` giữ mẫu lời gọi và không có vtable
+- các bản thu Ghidra, rizin, và radare2 hiển thị struct khi có DWARF và các độ lệch thô khi không có nó
+- hình tương tác nhúng cùng dữ liệu mà phân tích tạo ra
 
 ## Production Failure Modes
 
-| Failure | What the weak tool reports | What the analysis must prove |
+| Lỗi | Công cụ yếu báo cáo gì | Phân tích phải chứng minh gì |
 |---|---|---|
-| Unrolled loop | Eight fields 32 bytes apart and a 232-byte struct | Loop step 256 equals 8 times the offset delta 32, so one field at offset 4 |
-| Stride read from one increment | `sizeof` 256 from `addq $0x100` | The greatest common divisor of every stride source, with the scalar tail's `addq $0x20` |
-| 8-byte field called a pointer | `void *` at offset 24 | A later access uses the loaded value as a base, or the kind stays `int64` |
-| Pointer called an integer | `long` at offset 24 | The dereference at `0xfb`, recorded as pointer proof |
-| Narrow compare | `char` with a sign | `cmpb` carries no sign; only `movsbl` or `movzbl` does |
-| Five functions assumed to share a type | One struct with no evidence of aliasing | Call sites in `main` that pass one frame object, or an explicit analyst assertion |
-| Strings read from `.debug_str` by index | Garbage names from a relocatable object | `str_offsets_base` plus the relocated `.debug_str_offsets` entry |
-| Addresses read as numbers | `low_pc` of 0 for every function | `addrx` through the relocated `.debug_addr` table |
-| DWARF 4 object | A reader that misparses the header | Version check on the second header field; 4 has no `unit_type` byte |
-| Missing vtable | "the class has no virtual functions" | The `-O1` object inlined every call; the `-O0` object has the table and its relocations |
-| Vtable slot read from the wrong base | Off-by-two slot numbers | The address point is 16 bytes past the symbol, after offset-to-top and typeinfo |
-| Mangled name stripped | `Z8describeRK5Shapei` left as is | `--no-strip-underscore` on macOS, or a demangler that checks for `_Z` |
-| Struct typed from one tool's guess | `char *param_1` taken as the field type | The width and the dereference, written as evidence, and the name marked as a guess |
+| Vòng lặp đã unroll | Tám trường cách nhau 32 byte và một struct 232 byte | Bước vòng lặp 256 bằng 8 lần hiệu độ lệch 32, nên là một trường tại độ lệch 4 |
+| Stride được đọc từ một lần tăng | `sizeof` 256 từ `addq $0x100` | Ước chung lớn nhất của mọi nguồn stride, cùng `addq $0x20` của phần đuôi vô hướng |
+| Trường 8 byte được gọi là con trỏ | `void *` tại độ lệch 24 | Một truy cập sau dùng giá trị đã nạp làm cơ sở, hoặc loại vẫn là `int64` |
+| Con trỏ được gọi là số nguyên | `long` tại độ lệch 24 | Phép giải tham chiếu tại `0xfb`, được ghi lại làm bằng chứng con trỏ |
+| Phép so sánh hẹp | `char` có dấu | `cmpb` không mang dấu; chỉ `movsbl` hoặc `movzbl` mang dấu |
+| Năm hàm được giả định dùng chung một kiểu | Một struct không có bằng chứng aliasing | Các vị trí gọi trong `main` truyền một đối tượng frame, hoặc một khẳng định rõ ràng của người phân tích |
+| Các chuỗi được đọc từ `.debug_str` theo chỉ mục | Các tên rác từ một tệp đối tượng có thể relocation | `str_offsets_base` cộng với mục `.debug_str_offsets` đã áp dụng relocation |
+| Các địa chỉ được đọc như các số | `low_pc` bằng 0 cho mọi hàm | `addrx` qua bảng `.debug_addr` đã áp dụng relocation |
+| Tệp đối tượng DWARF 4 | Một bộ đọc phân tích sai header | Kiểm tra phiên bản trên trường header thứ hai; 4 không có byte `unit_type` |
+| Vtable vắng mặt | "lớp không có hàm ảo" | Tệp đối tượng `-O1` nội tuyến mọi lời gọi; tệp đối tượng `-O0` có bảng và các relocation của nó |
+| Ô vtable được đọc từ sai cơ sở | Các số ô lệch hai | Điểm địa chỉ nằm cách ký hiệu 16 byte, sau offset-to-top và typeinfo |
+| Tên đã mã hóa bị loại bỏ tiền tố | `Z8describeRK5Shapei` được để nguyên | `--no-strip-underscore` trên macOS, hoặc một bộ giải mã tên kiểm tra `_Z` |
+| Struct được nhập kiểu từ phỏng đoán của một công cụ | `char *param_1` được coi là kiểu trường | Độ rộng và phép giải tham chiếu, được viết làm bằng chứng, và tên được đánh dấu là phỏng đoán |
 
 ## Operational Rule
 
-Recover a field from an access and a stride from a loop, and attach the instruction to each. Fold unrolled loops before you trust an offset past the stride. Read DWARF through its abbreviations and its relocated tables, never by index into a string section. Compare field by field and write every member without evidence, every unproven pointer, and every name as unknown. In a C++ object, read the vtable from its relocations and the slot from the call, then use DWARF to confirm the slot you read.
+Khôi phục một trường từ một truy cập và một stride từ một vòng lặp, và gắn lệnh vào từng thứ. Gộp các vòng lặp đã unroll trước khi bạn tin một độ lệch vượt quá stride. Đọc DWARF qua các mục viết tắt và các bảng đã áp dụng relocation của nó, không bao giờ bằng chỉ mục vào một section chuỗi. So sánh từng trường và viết mọi thành viên không có bằng chứng, mọi con trỏ chưa được chứng minh, và mọi tên là chưa biết. Trong một tệp đối tượng C++, đọc vtable từ các relocation của nó và ô từ lời gọi, rồi dùng DWARF để xác nhận ô bạn đã đọc.
 
 ## Further Reading
 
@@ -568,17 +568,17 @@ Recover a field from an access and a stride from a loop, and attach the instruct
 - [Intel 64 and IA-32 Architectures Software Developer's Manual, Volume 1, section 3.7.5: Specifying an Offset](https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html)
 - [DWARF Debugging Information Format Version 5, sections 2.1, 5.7.6, 7.5.1.1, 7.5.3, 7.5.6](https://dwarfstd.org/doc/DWARF5.pdf)
 - [Itanium C++ ABI, sections 2.5 (Virtual Table Layout), 2.9 (Run-Time Type Information), 5.1 (External Names)](https://itanium-cxx-abi.github.io/cxx-abi/abi.html)
-- [Microsoft Learn: Decorated names](https://learn.microsoft.com/en-us/cpp/build/reference/decorated-names?view=msvc-170) and [Name Decoration](https://learn.microsoft.com/en-us/cpp/error-messages/tool-errors/name-decoration?view=msvc-170)
-- [llvm-dwarfdump command guide](https://llvm.org/docs/CommandGuide/llvm-dwarfdump.html) and [llvm-cxxfilt command guide](https://llvm.org/docs/CommandGuide/llvm-cxxfilt.html)
+- [Microsoft Learn: Tên được trang trí](https://learn.microsoft.com/en-us/cpp/build/reference/decorated-names?view=msvc-170) và [Trang trí tên](https://learn.microsoft.com/en-us/cpp/error-messages/tool-errors/name-decoration?view=msvc-170)
+- [Hướng dẫn lệnh llvm-dwarfdump](https://llvm.org/docs/CommandGuide/llvm-dwarfdump.html) và [Hướng dẫn lệnh llvm-cxxfilt](https://llvm.org/docs/CommandGuide/llvm-cxxfilt.html)
 - [Python ctypes: Structure layout, sizeof, alignment](https://docs.python.org/3/library/ctypes.html)
-- [Ghidra Data Type Manager](https://github.com/NationalSecurityAgency/ghidra/blob/master/Ghidra/Features/Base/src/main/help/help/topics/DataTypeManagerPlugin/data_type_manager_description.htm), [Decompiler Concepts](https://github.com/NationalSecurityAgency/ghidra/blob/master/Ghidra/Features/Decompiler/src/main/help/help/topics/DecompilePlugin/DecompilerConcepts.html), [Decompiler Options](https://github.com/NationalSecurityAgency/ghidra/blob/master/Ghidra/Features/Decompiler/src/main/help/help/topics/DecompilePlugin/DecompilerOptions.html), and [Ghidra 12.1.4 release](https://github.com/NationalSecurityAgency/ghidra/releases/tag/Ghidra_12.1.4_build)
-- [IDA 9.1 user guide: Types](https://docs.hex-rays.com/9.1/user-guide/types), [IDA 9.4 release post](https://hex-rays.com/blog/ida-9.4-release-a-new-dyld-shared-cache-swift-analysis-new-teams-add-on-and-more-), and [IDA Free](https://hex-rays.com/ida-free)
-- [Binary Ninja user guide: Types](https://docs.binary.ninja/guide/types/) and [Binary Ninja 6.0 Krypton](https://binary.ninja/2026/09/03/binary-ninja-6.0-krypton.html)
-- [radare2 6.2.4 release](https://github.com/radareorg/radare2/releases/tag/6.2.4) and [rizin v0.9.1 release](https://github.com/rizinorg/rizin/releases/tag/v0.9.1)
+- [Data Type Manager của Ghidra](https://github.com/NationalSecurityAgency/ghidra/blob/master/Ghidra/Features/Base/src/main/help/help/topics/DataTypeManagerPlugin/data_type_manager_description.htm), [Các khái niệm của trình dịch ngược](https://github.com/NationalSecurityAgency/ghidra/blob/master/Ghidra/Features/Decompiler/src/main/help/help/topics/DecompilePlugin/DecompilerConcepts.html), [Các tùy chọn của trình dịch ngược](https://github.com/NationalSecurityAgency/ghidra/blob/master/Ghidra/Features/Decompiler/src/main/help/help/topics/DecompilePlugin/DecompilerOptions.html), và [Bản phát hành Ghidra 12.1.4](https://github.com/NationalSecurityAgency/ghidra/releases/tag/Ghidra_12.1.4_build)
+- [Hướng dẫn người dùng IDA 9.1: Kiểu](https://docs.hex-rays.com/9.1/user-guide/types), [Bài viết phát hành IDA 9.4](https://hex-rays.com/blog/ida-9.4-release-a-new-dyld-shared-cache-swift-analysis-new-teams-add-on-and-more-), và [IDA Free](https://hex-rays.com/ida-free)
+- [Hướng dẫn người dùng Binary Ninja: Kiểu](https://docs.binary.ninja/guide/types/) và [Binary Ninja 6.0 Krypton](https://binary.ninja/2026/09/03/binary-ninja-6.0-krypton.html)
+- [Bản phát hành radare2 6.2.4](https://github.com/radareorg/radare2/releases/tag/6.2.4) và [Bản phát hành rizin v0.9.1](https://github.com/rizinorg/rizin/releases/tag/v0.9.1)
 - [GDB manual: Examining the Symbol Table, ptype /o](https://sourceware.org/gdb/current/onlinedocs/gdb.html/Symbols.html)
 - [pyelftools on PyPI](https://pypi.org/project/pyelftools/)
 - [Lee, Avgerinos, Brumley, "TIE: Principled Reverse Engineering of Types in Binary Programs" (NDSS 2011)](https://www.ndss-symposium.org/ndss2011/tie-principled-reverse-engineering-of-types-in-binary-programs/)
-- [Noonan, Loginov, Cok, "Polymorphic Type Inference for Machine Code" (PLDI 2016)](https://arxiv.org/abs/1603.05495) and [the retypd repository](https://github.com/GrammaTech/retypd)
+- [Noonan, Loginov, Cok, "Polymorphic Type Inference for Machine Code" (PLDI 2016)](https://arxiv.org/abs/1603.05495) và [kho retypd](https://github.com/GrammaTech/retypd)
 - [Zhang et al., "OSPREY: Recovery of Variable and Data Structure via Probabilistic Analysis for Stripped Binary" (IEEE S&P 2021)](https://ieeexplore.ieee.org/document/9519451/)
 - [Chen et al., "Augmenting Decompiler Output with Learned Variable Names and Types" (USENIX Security 2022)](https://www.usenix.org/conference/usenixsecurity22/presentation/chen-qibin)
 - [Xie et al., "ReSym: Harnessing LLMs to Recover Variable and Data Structure Symbols from Stripped Binaries" (CCS 2024)](https://dl.acm.org/doi/10.1145/3658644.3670340)

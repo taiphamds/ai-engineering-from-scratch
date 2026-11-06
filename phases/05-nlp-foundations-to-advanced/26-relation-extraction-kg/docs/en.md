@@ -67,21 +67,21 @@ PATTERNS = [
 
 Xem `code/main.py` để có bộ trích xuất đồ chơi đầy đủ. Các mẫu Hearst vẫn được phát hành trong các pipeline riêng lĩnh vực vì chúng có thể gỡ lỗi.
 
-### Step 2: supervised relation classification
+### Step 2: supervised seq2seq relation extraction
 
 ```python
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 tok = AutoTokenizer.from_pretrained("Babelscape/rebel-large")
-model = AutoModelForSequenceClassification.from_pretrained("Babelscape/rebel-large")
+model = AutoModelForSeq2SeqLM.from_pretrained("Babelscape/rebel-large")
 
 text = "Tim Cook was born in Alabama. He later became CEO of Apple."
 encoded = tok(text, return_tensors="pt", truncation=True)
 output = model.generate(**encoded, max_length=200)
-triples = tok.batch_decode(output, skip_special_tokens=False)
+decoded = tok.batch_decode(output, skip_special_tokens=False)
 ```
 
-REBEL là một bộ trích xuất quan hệ seq2seq: văn bản vào, các bộ ba ra, đã ở dạng các id thuộc tính Wikidata. Được fine-tune trên dữ liệu giám sát từ xa. Baseline trọng số mở tiêu chuẩn.
+REBEL là một bộ trích xuất quan hệ seq2seq dựa trên BART: nó tạo các bộ ba thay vì phân loại các cặp thực thể. Văn bản vào, bộ ba ra, với tên quan hệ được lấy từ các thuộc tính Wikidata. Các chuỗi đã giải mã vẫn mang các dấu `<triplet>`, `<subj>` và `<obj>` của REBEL, vì vậy hãy tách theo chúng (như trình phân tích trong model card thực hiện) để có các bản ghi `(subject, relation, object)`. Được fine-tune trên dữ liệu giám sát từ xa. Đường cơ sở trọng số mở tiêu chuẩn.
 
 ### Step 3: LLM-prompted extraction with anchoring
 

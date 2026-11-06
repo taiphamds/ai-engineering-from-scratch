@@ -24,7 +24,7 @@ Mọi dự đoán mà một mô hình đưa ra là một phân phối xác suấ
 
 ### Events, Sample Spaces, and Probability
 
-Không gian mẫu S là tập hợp tất cả các kết quả có thể. Một biến cố là một tập con của không gian mẫu. Xác suất ánh xạ các biến cố thành các số giữa 0 và 1.
+Không gian mẫu $S$ là tập hợp tất cả các kết quả có thể. Một biến cố là một tập con của không gian mẫu. Xác suất ánh xạ các biến cố thành các số giữa 0 và 1.
 
 ```
 Coin flip:
@@ -37,15 +37,15 @@ Single die roll:
 ```
 
 Ba tiên đề xác định toàn bộ xác suất:
-1. P(A) >= 0 với mọi biến cố A
-2. P(S) = 1 (luôn có điều gì đó xảy ra)
-3. P(A hoặc B) = P(A) + P(B) khi A và B không thể cùng xảy ra
+1. $P(A) \ge 0$ với mọi biến cố $A$
+2. $P(S) = 1$ (luôn có điều gì đó xảy ra)
+3. $P(A \text{ or } B) = P(A) + P(B)$ khi $A$ và $B$ không thể cùng xảy ra
 
 Mọi thứ khác (định lý Bayes, kỳ vọng, phân phối) đều suy ra từ ba quy tắc này.
 
 ### Conditional Probability and Independence
 
-P(A|B) là xác suất của A khi biết B đã xảy ra.
+$P(A \mid B)$ là xác suất của $A$ khi biết $B$ đã xảy ra.
 
 ```
 P(A|B) = P(A and B) / P(B)
@@ -58,9 +58,11 @@ Example: deck of cards
 
 Hai biến cố độc lập khi biết một biến cố không cho bạn biết gì về biến cố còn lại:
 
-```
-Independent:   P(A|B) = P(A)
-Equivalent to: P(A and B) = P(A) * P(B)
+```math
+\begin{aligned}
+\text{Independent:} \quad & P(A \mid B) = P(A) \\
+\text{Equivalent to:} \quad & P(A \text{ and } B) = P(A) \cdot P(B)
+\end{aligned}
 ```
 
 Các lần tung đồng xu độc lập. Rút bài không hoàn lại thì không.
@@ -98,27 +100,33 @@ Sự phân biệt này quan trọng trong ML. Đầu ra phân loại là PMF (c�
 
 **Bernoulli:** một phép thử, hai kết quả. Mô hình hóa phân loại nhị phân.
 
-```
-P(X = 1) = p
-P(X = 0) = 1 - p
-Mean = p,  Variance = p(1-p)
+```math
+\begin{aligned}
+P(X = 1) &= p \\
+P(X = 0) &= 1 - p \\
+\text{Mean} = p, &\quad \text{Variance} = p(1-p)
+\end{aligned}
 ```
 
-**Categorical:** một phép thử, k kết quả. Mô hình hóa phân loại đa lớp (đầu ra softmax).
+**Categorical:** một phép thử, $k$ kết quả. Mô hình hóa phân loại đa lớp (đầu ra softmax).
 
-```
-P(X = i) = p_i,  where sum of p_i = 1
-Example: P(cat) = 0.7,  P(dog) = 0.2,  P(bird) = 0.1
+```math
+\begin{aligned}
+& P(X = i) = p_i, \quad \text{where } \textstyle\sum_i p_i = 1 \\
+& \text{Example: } P(\text{cat}) = 0.7, \quad P(\text{dog}) = 0.2, \quad P(\text{bird}) = 0.1
+\end{aligned}
 ```
 
 **Đều:** mọi kết quả có khả năng như nhau. Được sử dụng để khởi tạo ngẫu nhiên.
 
-```
-Discrete: P(X = k) = 1/n for k in {1, ..., n}
-Continuous: f(x) = 1/(b-a) for x in [a, b]
+```math
+\begin{aligned}
+\text{Discrete:} \quad & P(X = k) = 1/n \text{ for } k \in \lbrace 1, \ldots, n \rbrace \\
+\text{Continuous:} \quad & f(x) = 1/(b-a) \text{ for } x \in [a, b]
+\end{aligned}
 ```
 
-**Chuẩn (Gaussian):** đường cong hình chuông. Được tham số hóa bằng trung bình (mu) và phương sai (sigma^2).
+**Chuẩn (Gaussian):** đường cong hình chuông. Được tham số hóa bằng trung bình ($\mu$) và phương sai ($\sigma^2$).
 
 ```
 f(x) = (1 / sqrt(2*pi*sigma^2)) * exp(-(x - mu)^2 / (2*sigma^2))
@@ -131,59 +139,65 @@ Standard normal: mu = 0, sigma = 1
 
 **Poisson:** số lần các biến cố hiếm xảy ra trong một khoảng cố định. Mô hình hóa tần suất biến cố.
 
-```
-P(X = k) = (lambda^k * e^(-lambda)) / k!
-Mean = lambda,  Variance = lambda
+```math
+\begin{aligned}
+P(X = k) &= \frac{\lambda^k e^{-\lambda}}{k!} \\
+\text{Mean} = \lambda, &\quad \text{Variance} = \lambda
+\end{aligned}
 ```
 
 ### Expected Value and Variance
 
 Kỳ vọng là kết quả trung bình có trọng số.
 
-```
-Discrete:   E[X] = sum of x_i * P(X = x_i)
-Continuous: E[X] = integral of x * f(x) dx
+```math
+\begin{aligned}
+\text{Discrete:} \quad & \mathbb{E}[X] = \sum_i x_i \, P(X = x_i) \\
+\text{Continuous:} \quad & \mathbb{E}[X] = \int x \, f(x) \, dx
+\end{aligned}
 ```
 
 Phương sai đo độ phân tán quanh trung bình.
 
-```
-Var(X) = E[(X - E[X])^2] = E[X^2] - (E[X])^2
-Standard deviation = sqrt(Var(X))
+```math
+\begin{aligned}
+\mathrm{Var}(X) &= \mathbb{E}[(X - \mathbb{E}[X])^2] = \mathbb{E}[X^2] - (\mathbb{E}[X])^2 \\
+\text{Standard deviation} &= \sqrt{\mathrm{Var}(X)}
+\end{aligned}
 ```
 
 Trong ML, kỳ vọng xuất hiện dưới dạng hàm mất mát (mất mát trung bình trên phân phối dữ liệu). Phương sai cho bạn biết về tính ổn định của mô hình. Phương sai cao trong gradient có nghĩa là huấn luyện nhiều nhiễu.
 
 ### Joint and Marginal Distributions
 
-Một phân phối đồng thời P(X, Y) mô tả hai biến ngẫu nhiên cùng nhau.
+Một phân phối đồng thời $P(X, Y)$ mô tả hai biến ngẫu nhiên cùng nhau.
 
-Ví dụ PMF đồng thời (X = thời tiết, Y = ô):
+Ví dụ PMF đồng thời ($X$ = thời tiết, $Y$ = ô):
 
-| | Y=0 (không có ô) | Y=1 (có ô) | P(X) biên |
+| | $Y=0$ (không có ô) | $Y=1$ (có ô) | $P(X)$ biên |
 |---|---|---|---|
-| X=0 (nắng) | 0.40 | 0.10 | P(X=0) = 0.50 |
-| X=1 (mưa) | 0.05 | 0.45 | P(X=1) = 0.50 |
-| **P(Y) biên** | P(Y=0) = 0.45 | P(Y=1) = 0.55 | 1.00 |
+| $X=0$ (nắng) | 0.40 | 0.10 | $P(X=0) = 0.50$ |
+| $X=1$ (mưa) | 0.05 | 0.45 | $P(X=1) = 0.50$ |
+| **$P(Y)$ biên** | $P(Y=0) = 0.45$ | $P(Y=1) = 0.55$ | 1.00 |
 
 Phân phối biên lấy tổng để loại biến còn lại:
 
-```
-P(X = x) = sum over all y of P(X = x, Y = y)
+```math
+P(X = x) = \sum_{y} P(X = x, Y = y)
 ```
 
 Các tổng hàng và cột trong bảng trên là các phân phối biên.
 
 ### Why the Normal Distribution Shows Up Everywhere
 
-Định lý Giới hạn Trung tâm: tổng (hoặc trung bình) của nhiều biến ngẫu nhiên độc lập hội tụ về một phân phối chuẩn, bất kể phân phối ban đầu.
+Định lý giới hạn trung tâm: trung bình của nhiều biến ngẫu nhiên độc lập từ cùng một phân phối, sau khi được định tâm và co giãn theo $\sqrt{n}$, tiến gần đến một phân phối chuẩn, bất kể hình dạng của phân phối ban đầu, miễn là phương sai của nó hữu hạn. Điều tương tự cũng đúng với tổng đã được định tâm và co giãn.
 
 ```
 Roll 1 die:  uniform distribution (flat)
 Average of 2 dice:  triangular (peaked)
 Average of 30 dice: nearly perfect bell curve
 
-This works for ANY starting distribution.
+This works for ANY starting distribution with finite variance.
 ```
 
 Đây là lý do:
@@ -196,23 +210,27 @@ This works for ANY starting distribution.
 
 Xác suất thô gây ra các vấn đề số học. Nhân nhiều xác suất nhỏ với nhau nhanh chóng gây hụt dưới về không.
 
-```
-P(sentence) = P(word1) * P(word2) * ... * P(word_n)
-            = 0.01 * 0.003 * 0.02 * ...
-            -> 0.0 (underflow after ~30 terms)
+```math
+\begin{aligned}
+P(\text{sentence}) &= P(\text{word}_1) \cdot P(\text{word}_2) \cdot \ldots \cdot P(\text{word}_n) \\
+&= 0.01 \cdot 0.003 \cdot 0.02 \cdot \ldots \\
+&\to 0.0 \quad \text{(underflow after } \sim 30 \text{ terms)}
+\end{aligned}
 ```
 
 Xác suất log khắc phục điều này. Phép nhân trở thành phép cộng.
 
-```
-log P(sentence) = log P(word1) + log P(word2) + ... + log P(word_n)
-                = -4.6 + -5.8 + -3.9 + ...
-                -> finite number (no underflow)
+```math
+\begin{aligned}
+\log P(\text{sentence}) &= \log P(\text{word}_1) + \log P(\text{word}_2) + \ldots + \log P(\text{word}_n) \\
+&= -4.6 + -5.8 + -3.9 + \ldots \\
+&\to \text{finite number (no underflow)}
+\end{aligned}
 ```
 
 Các quy tắc:
-- log(a * b) = log(a) + log(b)
-- xác suất log luôn <= 0 (vì 0 < P <= 1)
+- $\log(a \cdot b) = \log(a) + \log(b)$
+- xác suất log luôn $\le 0$ (vì $0 < P \le 1$)
 - Âm hơn = ít có khả năng hơn
 - Mất mát cross-entropy là âm xác suất log của lớp đúng
 
@@ -430,24 +448,34 @@ Bạn đã xây dựng chúng từ đầu. Giờ bạn biết các lời gọi t
 
 4. Viết một hàm nhận một danh sách xác suất log và trả về chuỗi có khả năng nhất, tổng xác suất log và xác suất thô tương đương. Kiểm tra nó với một câu gồm 50 từ trong đó mỗi từ có xác suất 0.01.
 
+### Hints
+
+**Bài tập 1.** Lấy mẫu `u` từ một phân phối đều và trả về $-\ln(1 - u) / \lambda$. Kiểm tra trung bình mẫu gần $1/\lambda$ và các khoảng của biểu đồ tần suất tuân theo $\lambda e^{-\lambda x}$.
+
+**Bài tập 2.** Điền một bảng 6x6 trong đó mỗi ô là một xác suất và tổng của mọi ô là 1, rồi gọi `joint_to_marginals`. Sử dụng `check_independence`: các xúc xắc chỉ độc lập nếu mọi ô bằng tích của hai xác suất biên của nó.
+
+**Bài tập 3.** Áp dụng `softmax` cho các logit và lấy $-\ln$ của xác suất tại chỉ số 3. Kết quả phải gần 0.421, là giá trị mà `nn.CrossEntropyLoss` cho đối với cùng các logit và mục tiêu.
+
+**Bài tập 4.** Cộng các xác suất log; không nhân các xác suất thô. Đối với 50 từ có xác suất 0.01, tổng phải là $50 \ln(0.01) \approx -230.26$, và xác suất thô là $10^{-100}$.
+
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Sample space (Không gian mẫu) | "Tất cả các khả năng" | Tập S của mọi kết quả có thể của một thí nghiệm |
+| Sample space (Không gian mẫu) | "Tất cả các khả năng" | Tập $S$ của mọi kết quả có thể của một thí nghiệm |
 | PMF | "Hàm xác suất" | Một hàm cho xác suất chính xác của mỗi kết quả rời rạc, có tổng bằng 1 |
 | PDF | "Đường cong xác suất" | Một hàm mật độ cho các biến liên tục. Lấy tích phân nó trên một khoảng để có xác suất |
-| Conditional probability (Xác suất có điều kiện) | "Xác suất khi biết điều gì đó" | P(A\|B) = P(A và B) / P(B). Nền tảng của tư duy Bayes và định lý Bayes |
-| Independence (Tính độc lập) | "Chúng không ảnh hưởng lẫn nhau" | P(A và B) = P(A) * P(B). Biết một biến cố không cho bạn biết gì về biến cố còn lại |
+| Conditional probability (Xác suất có điều kiện) | "Xác suất khi biết điều gì đó" | $P(A \mid B) = P(A \text{ and } B) / P(B)$. Nền tảng của tư duy Bayes và định lý Bayes |
+| Independence (Tính độc lập) | "Chúng không ảnh hưởng đến nhau" | $P(A \text{ and } B) = P(A) \cdot P(B)$. Biết một sự kiện không cho bạn biết gì về sự kiện còn lại |
 | Expected value (Kỳ vọng) | "Trung bình" | Tổng tất cả các kết quả có trọng số theo xác suất. Hàm mất mát là một kỳ vọng |
 | Variance (Phương sai) | "Phân tán đến mức nào" | Kỳ vọng của độ lệch bình phương so với trung bình. Phương sai cao = các ước lượng nhiều nhiễu, không ổn định |
-| Normal distribution (Phân phối chuẩn) | "Đường cong hình chuông" | f(x) = (1/sqrt(2*pi*sigma^2)) * exp(-(x-mu)^2/(2*sigma^2)). Xuất hiện khắp nơi nhờ CLT |
-| Central Limit Theorem (Định lý Giới hạn Trung tâm) | "Các trung bình trở nên chuẩn" | Trung bình của nhiều mẫu độc lập hội tụ về một phân phối chuẩn bất kể nguồn |
-| Joint distribution (Phân phối đồng thời) | "Hai biến cùng nhau" | P(X, Y) mô tả xác suất của mọi tổ hợp kết quả X và Y |
-| Marginal distribution (Phân phối biên) | "Lấy tổng để loại biến còn lại" | P(X) = sum_y P(X, Y). Khôi phục phân phối của một biến từ phân phối đồng thời |
-| Log probability (Xác suất log) | "Log của xác suất" | log P(x). Biến tích thành tổng, ngăn hụt dưới số học trong các chuỗi dài |
-| Softmax | "Biến điểm số thành xác suất" | softmax(z_i) = exp(z_i) / sum(exp(z_j)). Ánh xạ logits có giá trị thực thành một phân phối xác suất hợp lệ |
-| Cross-entropy | "Hàm mất mát" | -sum(p_true * log(p_predicted)). Đo mức độ khác nhau giữa hai phân phối. Thấp hơn là tốt hơn |
+| Normal distribution (Phân phối chuẩn) | "Đường cong hình chuông" | $f(x) = (1/\sqrt{2\pi\sigma^2}) \cdot \exp(-(x-\mu)^2/(2\sigma^2))$. Xuất hiện khắp nơi nhờ CLT |
+| Central Limit Theorem (Định lý giới hạn trung tâm) | "Các giá trị trung bình trở nên chuẩn" | Trung bình đã được định tâm và co giãn của nhiều mẫu độc lập hội tụ về một phân phối chuẩn đối với bất kỳ nguồn nào có phương sai hữu hạn |
+| Joint distribution (Phân phối đồng thời) | "Hai biến cùng nhau" | $P(X, Y)$ mô tả xác suất của mọi tổ hợp kết quả $X$ và $Y$ |
+| Marginal distribution (Phân phối biên) | "Lấy tổng để loại biến còn lại" | $P(X) = \sum_y P(X, Y)$. Khôi phục phân phối của một biến từ phân phối đồng thời |
+| Log probability (Xác suất log) | "Log của xác suất" | $\log P(x)$. Biến tích thành tổng, ngăn hụt dưới số học trong các chuỗi dài |
+| Softmax | "Biến điểm số thành xác suất" | $\text{softmax}(z_i) = \exp(z_i) / \sum_j \exp(z_j)$. Ánh xạ logits có giá trị thực thành một phân phối xác suất hợp lệ |
+| Cross-entropy | "Hàm mất mát" | $-\sum p_{\text{true}} \cdot \log(p_{\text{predicted}})$. Đo mức độ khác nhau giữa hai phân phối. Thấp hơn là tốt hơn |
 | Logits | "Đầu ra mô hình thô" | Các điểm số chưa chuẩn hóa trước softmax. Được đặt tên theo hàm logistic |
 | Sampling (Lấy mẫu) | "Rút các giá trị ngẫu nhiên" | Tạo các giá trị theo một phân phối xác suất. Cách các mô hình tạo đầu ra |
 

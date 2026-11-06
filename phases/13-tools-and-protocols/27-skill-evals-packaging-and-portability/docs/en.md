@@ -137,10 +137,12 @@ Chia ca thành tập phát triển và xác thực. Điều chỉnh mô tả tr�
 
 Với gọi nhị phân:
 
-```text
-precision = true_positives / (true_positives + false_positives)
-recall = true_positives / (true_positives + false_negatives)
-f1 = 2 * precision * recall / (precision + recall)
+```math
+\begin{aligned}
+\text{precision} &= \frac{\text{true\_positives}}{\text{true\_positives} + \text{false\_positives}} \\[4pt]
+\text{recall} &= \frac{\text{true\_positives}}{\text{true\_positives} + \text{false\_negatives}} \\[4pt]
+\text{f1} &= \frac{2 \cdot \text{precision} \cdot \text{recall}}{\text{precision} + \text{recall}}
+\end{aligned}
 ```
 
 Báo số đếm thô cùng tỷ lệ. Mười trên mười và một trăm trên một trăm đều 100 phần trăm nhưng bằng chứng khác.

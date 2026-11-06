@@ -2,51 +2,51 @@
   "schemaVersion": 1,
   "id": "reverse-engineering",
   "title": "Reverse Engineering",
-  "summary": "Read a compiled program you built yourself: parse the file, decode the instructions, lift them to pseudocode, record evidence, and prove a rebuild equal, then learn the field around that pipeline with its main tools.",
+  "summary": "Đọc một chương trình đã biên dịch do chính bạn dựng: phân tích tệp, giải mã các lệnh, nâng chúng thành mã giả, ghi lại bằng chứng, và chứng minh một bản dựng lại bằng nhau, rồi tìm hiểu lĩnh vực quanh pipeline đó với các công cụ chính của nó.",
   "estimatedMinutes": 1945,
   "stateFile": "REVERSE-ENGINEERING-LEARNING.md",
   "prerequisites": [
     {
       "type": "knowledge",
       "required": true,
-      "title": "Python, hexadecimal, and the command line",
-      "description": "You can read Python, run a command, and convert between hexadecimal and decimal. No prior assembly or binary analysis experience is required."
+      "title": "Python, hệ thập lục phân, và dòng lệnh",
+      "description": "Bạn có thể đọc Python, chạy một lệnh, và chuyển đổi giữa hệ thập lục phân và thập phân. Không yêu cầu kinh nghiệm assembly hoặc phân tích nhị phân trước đó."
     },
     {
       "type": "software",
       "required": true,
-      "title": "Python 3.10 or later",
-      "description": "Every reader, decoder, lifter, and ledger in the path uses the Python standard library only. The compiled fixtures are in the repository."
+      "title": "Python 3.10 trở về sau",
+      "description": "Mọi bộ đọc, bộ giải mã, lifter, và sổ cái trong lộ trình chỉ dùng thư viện chuẩn Python. Các fixture đã biên dịch nằm trong kho."
     },
     {
       "type": "software",
       "required": false,
-      "title": "clang for rebuilding fixtures and Lesson 36",
-      "description": "clang rebuilds the fixtures from source and compiles the Lesson 36 differential driver. Without it, Lesson 36 reads the committed objects and reports its behaviour claims as unknown."
+      "title": "clang để dựng lại các fixture và Bài 36",
+      "description": "clang dựng lại các fixture từ mã nguồn và biên dịch driver vi sai Bài 36. Không có nó, Bài 36 đọc các tệp đối tượng đã commit và báo cáo các khẳng định hành vi của nó là chưa biết."
     },
     {
       "id": "own-binaries-only",
       "type": "knowledge",
       "required": true,
-      "title": "Analyze only programs you built or are authorized to analyze",
-      "description": "Before Lesson 32's lab, confirm that every target is a program you wrote and compiled, or one with written authorization. Lesson 32 opens with the law and the authorization rules."
+      "title": "Chỉ phân tích các chương trình bạn đã dựng hoặc được ủy quyền phân tích",
+      "description": "Trước bài lab của Bài 32, xác nhận rằng mọi đích là một chương trình bạn đã viết và biên dịch, hoặc một chương trình có ủy quyền bằng văn bản. Bài 32 mở đầu với luật và các quy tắc ủy quyền."
     }
   ],
   "invocation": {
-    "codex": "learn-reverse-engineering, or choose it from /skills",
+    "codex": "learn-reverse-engineering, hoặc chọn nó từ /skills",
     "claudeCode": "/learn-reverse-engineering",
-    "portableFallback": "Use learn-reverse-engineering to start or resume the Reverse Engineering path."
+    "portableFallback": "Dùng learn-reverse-engineering để bắt đầu hoặc tiếp tục lộ trình Reverse Engineering."
   },
-  "conceptualFallback": "Read the website or each lesson's docs/en.md and trace the named fixture by hand. Record the checkpoint as conceptual and leave decoder, lifter, ledger, and proof evidence pending until the repository and Python 3 are available.",
+  "conceptualFallback": "Đọc trang web hoặc docs/en.md của mỗi bài học và theo vết fixture được nêu bằng tay. Ghi lại checkpoint là mang tính khái niệm và để bằng chứng bộ giải mã, lifter, sổ cái, và chứng minh đang chờ cho đến khi có kho và Python 3.",
   "quickStart": {
     "estimatedMinutes": 10,
     "lessonPath": "phases/13-tools-and-protocols/32-program-anatomy-elf-from-scratch",
-    "goal": "Parse one compiled object you did not hand-write the bytes of, and name its sections, symbols, and relocations.",
+    "goal": "Phân tích một tệp đối tượng đã biên dịch mà bạn không tự viết tay các byte của nó, và nêu các section, ký hiệu, và relocation của nó.",
     "workingDirectory": "phases/13-tools-and-protocols/32-program-anatomy-elf-from-scratch",
     "command": "python3 code/main.py code/fixtures/ledger-x86_64-O0.o",
     "expectedEvidence": [
-      "The reader names the file format from its first four bytes.",
-      "The section table, the four function symbols, and the relocation records print with their offsets."
+      "Bộ đọc nêu định dạng tệp từ bốn byte đầu tiên của nó.",
+      "Bảng section, bốn ký hiệu hàm, và các bản ghi relocation được in cùng các độ lệch của chúng."
     ]
   },
   "lessons": [
@@ -54,144 +54,144 @@
       "order": 1,
       "phase": 13,
       "lesson": 32,
-      "title": "Program Anatomy: An ELF Reader From Scratch",
+      "title": "Giải phẫu chương trình: Một bộ đọc ELF từ đầu",
       "path": "phases/13-tools-and-protocols/32-program-anatomy-elf-from-scratch",
       "minutes": 120,
       "required": true,
       "prerequisiteChecks": [
         "own-binaries-only"
       ],
-      "checkpoint": "Parse an ELF64 and a Mach-O fixture, and match the section, symbol, and relocation output against the recorded reference."
+      "checkpoint": "Phân tích một fixture ELF64 và một Mach-O, và đối chiếu đầu ra section, ký hiệu, và relocation với bản tham chiếu đã ghi."
     },
     {
       "order": 2,
       "phase": 13,
       "lesson": 33,
-      "title": "Disassembly and Control Flow: From Bytes to a Graph You Can Check",
+      "title": "Disassembly và luồng điều khiển: Từ các byte đến một đồ thị bạn có thể kiểm tra",
       "path": "phases/13-tools-and-protocols/33-disassembly-and-control-flow",
       "minutes": 150,
       "required": true,
-      "checkpoint": "Decode the fixture functions with a result that matches llvm-objdump, then build the control-flow graph and its dominators for grade."
+      "checkpoint": "Giải mã các hàm fixture với một kết quả khớp llvm-objdump, rồi dựng đồ thị luồng điều khiển và các dominator của nó cho grade."
     },
     {
       "order": 3,
       "phase": 13,
       "lesson": 34,
-      "title": "Lifting to Pseudocode: IR, SSA, and Structuring From Scratch",
+      "title": "Nâng thành mã giả: IR, SSA, và cấu trúc hóa từ đầu",
       "path": "phases/13-tools-and-protocols/34-lifting-to-pseudocode",
       "minutes": 150,
       "required": true,
-      "checkpoint": "Lift percent_change to SSA and structured pseudocode, and explain each difference from the Ghidra output."
+      "checkpoint": "Nâng percent_change thành SSA và mã giả có cấu trúc, và giải thích mỗi sự khác biệt với đầu ra Ghidra."
     },
     {
       "order": 4,
       "phase": 13,
       "lesson": 35,
-      "title": "Evidence, Confidence, and Unknowns in Binary Analysis",
+      "title": "Bằng chứng, độ tin cậy, và những điều chưa biết trong phân tích nhị phân",
       "path": "phases/13-tools-and-protocols/35-evidence-confidence-and-unknowns",
       "minutes": 105,
       "required": true,
-      "checkpoint": "Record one finding as an evidence entry with its confidence, limitations, and residual unknowns, and recompute its evidence id."
+      "checkpoint": "Ghi lại một phát hiện dưới dạng một mục bằng chứng với độ tin cậy, các giới hạn, và những điều chưa biết còn lại của nó, và tính lại id bằng chứng của nó."
     },
     {
       "order": 5,
       "phase": 13,
       "lesson": 36,
-      "title": "Rebuild and Prove Equal: Differential Tests, Byte Comparison, and the Evidence Loop",
+      "title": "Dựng lại và chứng minh bằng nhau: Các kiểm thử vi sai, so sánh byte, và vòng lặp bằng chứng",
       "path": "phases/13-tools-and-protocols/36-rebuild-and-prove-equal",
       "minutes": 110,
       "required": true,
-      "checkpoint": "Run the differential grid and the relocation-masked byte comparison on a rebuilt function, and record the result as evidence."
+      "checkpoint": "Chạy lưới vi sai và phép so sánh byte được che relocation trên một hàm được dựng lại, và ghi lại kết quả làm bằng chứng."
     },
     {
       "order": 6,
       "phase": 13,
       "lesson": 37,
-      "title": "The Reverse Engineering Landscape: History, Tool Families, and How a Decompiler Is Built",
+      "title": "Toàn cảnh Reverse Engineering: Lịch sử, các họ công cụ, và cách một trình dịch ngược được xây dựng",
       "path": "phases/13-tools-and-protocols/37-the-reverse-engineering-landscape",
       "minutes": 150,
       "required": true,
-      "checkpoint": "Run the comparison harness on the four fixture functions and explain each place where a tool invents or misses code, then name the same pipeline stage in three tools."
+      "checkpoint": "Chạy harness so sánh trên bốn hàm fixture và giải thích mỗi nơi một công cụ bịa ra hoặc bỏ sót mã, rồi nêu cùng giai đoạn pipeline trong ba công cụ."
     },
     {
       "order": 7,
       "phase": 13,
       "lesson": 38,
-      "title": "Calling Conventions and Stack Frames: System V, Windows x64, and AArch64",
+      "title": "Các quy ước gọi và stack frame: System V, Windows x64, và AArch64",
       "path": "phases/13-tools-and-protocols/38-calling-conventions-and-stack-frames",
       "minutes": 140,
       "required": true,
-      "checkpoint": "Infer parameter count, frame size, and saved registers for one function under three ABIs, and cite the spec rule behind each inference."
+      "checkpoint": "Suy ra số tham số, kích thước frame, và các thanh ghi được lưu cho một hàm dưới ba ABI, và trích dẫn quy tắc đặc tả đằng sau mỗi suy luận."
     },
     {
       "order": 8,
       "phase": 13,
       "lesson": 39,
-      "title": "Compiler Idioms: What Optimization Does to Your Code and How to Read It Back",
+      "title": "Các idiom trình biên dịch: Tối ưu hóa làm gì với mã của bạn và cách đọc ngược nó",
       "path": "phases/13-tools-and-protocols/39-compiler-idioms-and-optimization",
       "minutes": 150,
       "required": true,
-      "checkpoint": "Recover a divisor from its magic multiplier and shift, and classify the switch lowering of one function at -O0 and -O2 with the evidence instructions."
+      "checkpoint": "Khôi phục một số chia từ hệ số nhân magic và phép dịch của nó, và phân loại cách hạ switch của một hàm tại -O0 và -O2 với các lệnh bằng chứng."
     },
     {
       "order": 9,
       "phase": 13,
       "lesson": 40,
-      "title": "Linking, Loading, and Stripped Binaries: PLT, GOT, Imports, Fixups, and Function Identification",
+      "title": "Liên kết, nạp, và các tệp nhị phân đã strip: PLT, GOT, import, fixup, và nhận diện hàm",
       "path": "phases/13-tools-and-protocols/40-linking-loading-and-stripped-binaries",
       "minutes": 160,
       "required": true,
-      "checkpoint": "Trace one imported call through its stub and fixup in a Mach-O build, and name the functions of a stripped build with signatures made from the unstripped one."
+      "checkpoint": "Theo vết một lời gọi được import qua stub và fixup của nó trong một bản dựng Mach-O, và nêu các hàm của một bản dựng đã strip bằng các chữ ký được tạo từ bản chưa strip."
     },
     {
       "order": 10,
       "phase": 13,
       "lesson": 41,
-      "title": "Recovering Data and Types: Structs, Arrays, C++ Objects, and DWARF",
+      "title": "Khôi phục dữ liệu và kiểu: Struct, mảng, đối tượng C++, và DWARF",
       "path": "phases/13-tools-and-protocols/41-recovering-data-and-types",
       "minutes": 140,
       "required": true,
-      "checkpoint": "Infer a struct layout from memory accesses and match every field against the DWARF reader, then resolve one virtual call to its vtable slot."
+      "checkpoint": "Suy ra một bố cục struct từ các truy cập bộ nhớ và đối chiếu mọi trường với bộ đọc DWARF, rồi phân giải một lời gọi ảo về ô vtable của nó."
     },
     {
       "order": 11,
       "phase": 13,
       "lesson": 42,
-      "title": "Dynamic Analysis of Your Own Program: Debuggers, Traces, and Confirming Static Claims",
+      "title": "Phân tích động chương trình của chính bạn: Debugger, trace, và xác nhận các khẳng định tĩnh",
       "path": "phases/13-tools-and-protocols/42-dynamic-analysis-of-your-own-program",
       "minutes": 130,
       "required": true,
-      "checkpoint": "Grade the static claims for one build as confirmed, refuted, or not observed from a debugger transcript, and explain the -O2 build where breakpoints never hit."
+      "checkpoint": "Chấm các khẳng định tĩnh cho một bản dựng là được xác nhận, bị bác bỏ, hoặc không được quan sát từ một bản ghi debugger, và giải thích bản dựng -O2 nơi các breakpoint không bao giờ chạm."
     },
     {
       "order": 12,
       "phase": 13,
       "lesson": 43,
-      "title": "Beyond Native Code: Python, JVM, .NET, and WebAssembly Bytecode",
+      "title": "Vượt ra ngoài mã native: Bytecode Python, JVM, .NET, và WebAssembly",
       "path": "phases/13-tools-and-protocols/43-bytecode-and-managed-formats",
       "minutes": 150,
       "required": true,
-      "checkpoint": "Parse the same function from a .pyc, a class file, and a Wasm module, match each listing against the reference tool, and list what each container keeps."
+      "checkpoint": "Phân tích cùng hàm từ một .pyc, một tệp class, và một mô-đun Wasm, đối chiếu mỗi bản liệt kê với công cụ tham chiếu, và liệt kê mỗi container giữ gì."
     },
     {
       "order": 13,
       "phase": 13,
       "lesson": 44,
-      "title": "Binary Diffing and Symbolic Execution: Matching Functions and Solving for Inputs",
+      "title": "So sánh khác biệt nhị phân và thực thi ký hiệu: Ghép các hàm và giải để tìm các đầu vào",
       "path": "phases/13-tools-and-protocols/44-binary-diffing-and-symbolic-execution",
       "minutes": 150,
       "required": true,
-      "checkpoint": "Match functions between two optimization levels with the staged matcher, show the relocation case that masking fixes, and solve one input for each path of grade."
+      "checkpoint": "Ghép các hàm giữa hai mức tối ưu hóa bằng bộ ghép theo giai đoạn, cho thấy trường hợp relocation mà việc che sửa được, và giải một đầu vào cho mỗi đường đi của grade."
     },
     {
       "order": 14,
       "phase": 13,
       "lesson": 45,
-      "title": "AI-Assisted Reverse Engineering: LLM Decompilers, Analysis Agents, and Ground Truth",
+      "title": "Reverse Engineering có AI hỗ trợ: Các trình dịch ngược LLM, agent phân tích, và ground truth",
       "path": "phases/13-tools-and-protocols/45-ai-assisted-reverse-engineering",
       "minutes": 140,
       "required": true,
-      "checkpoint": "Score the candidate reconstructions on all six scorecard fields and explain the failing evidence for each candidate that does not pass."
+      "checkpoint": "Chấm các bản tái tạo ứng viên trên cả sáu trường bảng điểm và giải thích bằng chứng trượt cho mỗi ứng viên không đạt."
     }
   ],
   "optionalLessons": []

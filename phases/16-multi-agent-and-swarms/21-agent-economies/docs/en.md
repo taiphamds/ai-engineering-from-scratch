@@ -61,8 +61,8 @@ Vì sao điều này quan trọng cho các hệ thống LLM: bạn có thể thu
 
 Một điểm danh tiếng gắn DID tích lũy từ các đóng góp được xác nhận. Một quy tắc cập nhật đơn giản:
 
-```
-rep(i, t+1) = alpha * rep(i, t) + (1 - alpha) * contribution_quality(i, t)
+```math
+\text{rep}(i, t+1) = \alpha \cdot \text{rep}(i, t) + (1 - \alpha) \cdot \text{contribution\_quality}(i, t)
 ```
 
 Với hệ số suy giảm `alpha` gần 1. Danh tiếng:

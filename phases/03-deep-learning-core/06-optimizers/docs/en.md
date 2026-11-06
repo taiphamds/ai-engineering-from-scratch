@@ -18,7 +18,7 @@
 
 Bạn đã tính các gradient. Bạn biết trọng số #4,721 nên giảm 0.003 để giảm mất mát. Nhưng 0.003 theo đơn vị nào? Được co giãn bởi gì? Và bạn có nên di chuyển cùng một lượng ở bước 1 như ở bước 1,000 không?
 
-Hạ gradient nguyên bản áp dụng cùng tốc độ học cho mọi tham số ở mọi bước: w = w - lr * gradient. Điều này tạo ra ba vấn đề khiến việc huấn luyện mạng nơ-ron khó nhọc trong thực tế.
+Hạ gradient nguyên bản áp dụng cùng tốc độ học cho mọi tham số ở mọi bước: $w = w - \text{lr} \cdot \text{gradient}$. Điều này tạo ra ba vấn đề khiến việc huấn luyện mạng nơ-ron khó nhọc trong thực tế.
 
 Thứ nhất, dao động. Bề mặt mất mát hiếm khi có hình dạng như một cái bát trơn. Nó giống một thung lũng dài, hẹp hơn. Gradient chỉ ngang thung lũng (hướng dốc), không phải dọc theo nó (hướng thoải). Hạ gradient nảy qua lại theo chiều hẹp trong khi tiến rất ít theo chiều hữu ích. Bạn đã thấy điều này: mất mát giảm nhanh rồi chững lại, không phải vì mô hình hội tụ mà vì nó đang dao động.
 
@@ -34,8 +34,8 @@ Adam giải quyết cả ba. Nó duy trì hai trung bình tích lũy cho mỗi t
 
 Bộ tối ưu hóa đơn giản nhất. Tính gradient trên một mini-batch và bước theo hướng ngược lại.
 
-```
-w = w - lr * gradient
+```math
+w = w - \text{lr} \cdot \text{gradient}
 ```
 
 "Ngẫu nhiên" nghĩa là bạn sử dụng một tập con ngẫu nhiên (mini-batch) của dữ liệu để ước lượng gradient, thay vì toàn bộ tập dữ liệu. Nhiễu này thực sự hữu ích -- nó giúp thoát các cực tiểu cục bộ sắc nhọn. Nhưng nhiễu cũng gây dao động.
@@ -46,27 +46,31 @@ Tốc độ học là núm điều chỉnh duy nhất. Quá cao: mất mát phâ
 
 Phép ví von quả bóng lăn xuống dốc bị lạm dụng nhưng chính xác. Thay vì chỉ bước theo gradient, bạn duy trì một vận tốc tích lũy các gradient quá khứ.
 
-```
-m_t = beta * m_{t-1} + gradient
-w = w - lr * m_t
+```math
+\begin{aligned}
+m_t &= \beta \, m_{t-1} + \text{gradient} \\
+w &= w - \text{lr} \cdot m_t
+\end{aligned}
 ```
 
-Beta (thường là 0.9) kiểm soát lượng lịch sử giữ lại. Với beta = 0.9, momentum gần bằng trung bình của 10 gradient gần nhất (1 / (1 - 0.9) = 10).
+Beta (thường là 0.9) kiểm soát lượng lịch sử giữ lại. Với $\beta = 0.9$, momentum gần bằng trung bình của 10 gradient gần nhất ($1 / (1 - 0.9) = 10$).
 
 Tại sao điều này khắc phục dao động: các gradient cùng hướng tích lũy. Các gradient đổi hướng triệt tiêu nhau. Trong thung lũng hẹp đó, thành phần "ngang" đổi dấu mỗi bước và bị giảm chấn. Thành phần "dọc" nhất quán và được khuếch đại. Kết quả là tăng tốc trơn tru theo hướng hữu ích.
 
-Các con số thực tế: riêng SGD trên một bề mặt mất mát có điều kiện kém có thể cần 10,000 bước. SGD với momentum (beta=0.9) thường cần 3,000-5,000 bước trên cùng bài toán. Mức tăng tốc không hề nhỏ.
+Các con số thực tế: riêng SGD trên một bề mặt mất mát có điều kiện kém có thể cần 10,000 bước. SGD với momentum ($\beta = 0.9$) thường cần 3,000-5,000 bước trên cùng bài toán. Mức tăng tốc không hề nhỏ.
 
 ### RMSProp
 
 Phương pháp tốc độ học thích nghi theo từng tham số đầu tiên thực sự hoạt động. Được Hinton đề xuất trong một bài giảng Coursera (chưa bao giờ được xuất bản chính thức).
 
-```
-s_t = beta * s_{t-1} + (1 - beta) * gradient^2
-w = w - lr * gradient / (sqrt(s_t) + epsilon)
+```math
+\begin{aligned}
+s_t &= \beta \, s_{t-1} + (1 - \beta) \cdot \text{gradient}^2 \\
+w &= w - \text{lr} \cdot \frac{\text{gradient}}{\sqrt{s_t} + \epsilon}
+\end{aligned}
 ```
 
-s_t theo dõi trung bình tích lũy của các gradient bình phương. Các tham số có gradient lớn nhất quán được chia cho một số lớn (tốc độ học hiệu dụng nhỏ hơn). Các tham số có gradient nhỏ được chia cho một số nhỏ (tốc độ học hiệu dụng lớn hơn).
+$s_t$ theo dõi trung bình tích lũy của các gradient bình phương. Các tham số có gradient lớn nhất quán được chia cho một số lớn (tốc độ học hiệu dụng nhỏ hơn). Các tham số có gradient nhỏ được chia cho một số nhỏ (tốc độ học hiệu dụng lớn hơn).
 
 Điều này giải quyết vấn đề "một tốc độ học cho mọi tham số". Một trọng số đã nhận các cập nhật lớn có lẽ gần mục tiêu của nó -- làm nó chậm lại. Một trọng số đã nhận các cập nhật rất nhỏ có thể chưa được huấn luyện đủ -- tăng tốc nó.
 
@@ -76,41 +80,45 @@ Epsilon (thường là 1e-8) ngăn chia cho không khi một tham số chưa đ�
 
 Adam kết hợp cả hai ý tưởng. Nó duy trì hai trung bình trượt hàm mũ cho mỗi tham số:
 
-```
-m_t = beta1 * m_{t-1} + (1 - beta1) * gradient        (first moment: mean)
-v_t = beta2 * v_{t-1} + (1 - beta2) * gradient^2       (second moment: variance)
-```
-
-**Hiệu chỉnh độ chệch** là chi tiết then chốt mà hầu hết lời giải thích bỏ qua. Ở bước 1, m_1 = (1 - beta1) * gradient. Với beta1 = 0.9, đó là 0.1 * gradient -- nhỏ hơn mười lần so với cần thiết. Trung bình trượt chưa khởi động xong. Hiệu chỉnh độ chệch bù lại:
-
-```
-m_hat = m_t / (1 - beta1^t)
-v_hat = v_t / (1 - beta2^t)
+```math
+\begin{aligned}
+m_t &= \beta_1 m_{t-1} + (1 - \beta_1) \cdot \text{gradient} && \text{(first moment: mean)} \\
+v_t &= \beta_2 v_{t-1} + (1 - \beta_2) \cdot \text{gradient}^2 && \text{(second moment: variance)}
+\end{aligned}
 ```
 
-Ở bước 1 với beta1 = 0.9: m_hat = m_1 / (1 - 0.9) = m_1 / 0.1 = gradient thực tế. Ở bước 100: (1 - 0.9^100) xấp xỉ 1.0, nên hiệu chỉnh biến mất. Hiệu chỉnh độ chệch quan trọng trong ~10 bước đầu và không còn liên quan sau ~50.
+**Hiệu chỉnh độ chệch** là chi tiết then chốt mà hầu hết lời giải thích bỏ qua. Ở bước 1, $m_1 = (1 - \beta_1) \cdot \text{gradient}$. Với $\beta_1 = 0.9$, đó là $0.1 \cdot \text{gradient}$ -- nhỏ hơn mười lần so với cần thiết. Trung bình trượt chưa khởi động xong. Hiệu chỉnh độ chệch bù lại:
+
+```math
+\begin{aligned}
+\hat{m} &= \frac{m_t}{1 - \beta_1^t} \\
+\hat{v} &= \frac{v_t}{1 - \beta_2^t}
+\end{aligned}
+```
+
+Ở bước 1 với $\beta_1 = 0.9$: $\hat{m} = m_1 / (1 - 0.9) = m_1 / 0.1 =$ gradient thực tế. Ở bước 100: $(1 - 0.9^{100})$ xấp xỉ 1.0, nên hiệu chỉnh biến mất. Hiệu chỉnh độ chệch quan trọng trong ~10 bước đầu và không còn liên quan sau ~50.
 
 Cập nhật:
 
-```
-w = w - lr * m_hat / (sqrt(v_hat) + epsilon)
+```math
+w = w - \text{lr} \cdot \frac{\hat{m}}{\sqrt{\hat{v}} + \epsilon}
 ```
 
-Các mặc định Adam: lr = 0.001, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8. Các mặc định này hoạt động cho 80% bài toán. Khi không hoạt động, thay đổi lr trước. Rồi beta2. Gần như không bao giờ thay đổi beta1 hoặc epsilon.
+Các mặc định Adam: $\text{lr} = 0.001$, $\beta_1 = 0.9$, $\beta_2 = 0.999$, $\epsilon = 10^{-8}$. Các mặc định này hoạt động cho 80% bài toán. Khi không hoạt động, thay đổi lr trước. Rồi $\beta_2$. Gần như không bao giờ thay đổi $\beta_1$ hoặc $\epsilon$.
 
 ### AdamW: Weight Decay Done Right
 
-Chính quy hóa L2 thêm lambda * w^2 vào mất mát. Trong SGD nguyên bản, điều này tương đương weight decay (trừ lambda * w khỏi trọng số ở mỗi bước). Trong Adam, sự tương đương này bị phá vỡ.
+Chính quy hóa L2 thêm $\lambda w^2$ vào mất mát. Trong SGD nguyên bản, điều này tương đương weight decay (trừ $\lambda w$ khỏi trọng số ở mỗi bước). Trong Adam, sự tương đương này bị phá vỡ.
 
 Nhận định của Loshchilov & Hutter: khi bạn thêm L2 vào mất mát rồi Adam xử lý gradient, tốc độ học thích nghi cũng co giãn số hạng chính quy hóa. Các tham số có phương sai gradient lớn nhận ít chính quy hóa hơn. Các tham số có phương sai nhỏ nhận nhiều hơn. Đây không phải điều bạn muốn -- bạn muốn chính quy hóa đồng đều bất kể thống kê gradient.
 
 AdamW khắc phục điều này bằng cách áp dụng weight decay trực tiếp lên các trọng số, sau cập nhật Adam:
 
-```
-w = w - lr * m_hat / (sqrt(v_hat) + epsilon) - lr * lambda * w
+```math
+w = w - \text{lr} \cdot \frac{\hat{m}}{\sqrt{\hat{v}} + \epsilon} - \text{lr} \cdot \lambda w
 ```
 
-Số hạng weight decay (lr * lambda * w) không được co giãn bởi hệ số thích nghi của Adam. Mỗi tham số nhận cùng mức co lại theo tỷ lệ.
+Số hạng weight decay ($\text{lr} \cdot \lambda w$) không được co giãn bởi hệ số thích nghi của Adam. Mỗi tham số nhận cùng mức co lại theo tỷ lệ.
 
 Điều này có vẻ là một chi tiết nhỏ. Không phải vậy. AdamW hội tụ tới các nghiệm tốt hơn Adam + chính quy hóa L2 trên gần như mọi tác vụ. Nó là bộ tối ưu hóa mặc định trong PyTorch để huấn luyện transformer, mô hình khuếch tán và hầu hết các kiến trúc hiện đại. BERT, GPT, LLaMA, Stable Diffusion -- tất cả đều được huấn luyện với AdamW.
 
@@ -424,11 +432,11 @@ Bài học này tạo ra:
 
 ## Exercises
 
-1. Triển khai momentum Nesterov, trong đó bạn tính gradient tại vị trí "nhìn trước" (w - lr * beta * v) thay vì vị trí hiện tại. So sánh hội tụ với momentum tiêu chuẩn trên tập dữ liệu đường tròn.
+1. Triển khai momentum Nesterov, trong đó bạn tính gradient tại vị trí "nhìn trước" ($w - \text{lr} \cdot \beta v$) thay vì vị trí hiện tại. So sánh hội tụ với momentum tiêu chuẩn trên tập dữ liệu đường tròn.
 
 2. Triển khai một lịch warmup tốc độ học: tăng tuyến tính từ 0 tới max_lr trong 10% số bước huấn luyện đầu, rồi suy giảm cosine về 0. Huấn luyện với Adam + warmup so với Adam không có warmup. Đo số epoch cần để đạt accuracy 90% trên tập dữ liệu đường tròn.
 
-3. Theo dõi tốc độ học hiệu dụng của mỗi tham số trong huấn luyện Adam. Tốc độ hiệu dụng là lr * m_hat / (sqrt(v_hat) + eps). Vẽ phân phối các tốc độ hiệu dụng sau 10, 50 và 200 bước. Tất cả các tham số có được cập nhật cùng tốc độ không?
+3. Theo dõi tốc độ học hiệu dụng của mỗi tham số trong quá trình huấn luyện Adam. Tốc độ hiệu dụng là $\text{lr} \cdot \hat{m} / (\sqrt{\hat{v}} + \epsilon)$. Vẽ phân phối của các tốc độ hiệu dụng sau 10, 50 và 200 bước. Có phải mọi tham số đều được cập nhật với cùng tốc độ không?
 
 4. Triển khai cắt gradient (cắt theo chuẩn toàn cục). Đặt chuẩn gradient tối đa là 1.0. Huấn luyện có và không cắt bằng một tốc độ học cao (lr=0.01 cho Adam). Đếm bao nhiêu lần chạy phân kỳ (mất mát thành NaN) khi có và không cắt trên 10 seed ngẫu nhiên.
 
@@ -439,12 +447,12 @@ Bài học này tạo ra:
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
 | Learning rate (Tốc độ học) | "Kích thước bước" | Hệ số nhân vô hướng trên cập nhật gradient; siêu tham số có tác động lớn nhất trong huấn luyện |
-| SGD | "Hạ gradient cơ bản" | Hạ gradient ngẫu nhiên: cập nhật trọng số bằng cách trừ lr * gradient, được tính trên một mini-batch |
+| SGD | "Hạ gradient cơ bản" | Hạ gradient ngẫu nhiên: cập nhật trọng số bằng cách trừ $\text{lr} \cdot \text{gradient}$, được tính trên một mini-batch |
 | Momentum | "Phép ví von quả bóng lăn" | Trung bình trượt hàm mũ của các gradient quá khứ; giảm chấn dao động và tăng tốc các hướng nhất quán |
 | RMSProp | "Tốc độ học thích nghi" | Chia gradient của mỗi tham số cho RMS tích lũy của các gradient gần đây; cân bằng các tốc độ học |
 | Adam | "Bộ tối ưu hóa mặc định" | Kết hợp momentum (moment bậc nhất) và RMSProp (moment bậc hai) với hiệu chỉnh độ chệch cho các bước đầu |
 | AdamW | "Adam được làm đúng" | Adam với weight decay tách rời; áp dụng chính quy hóa trực tiếp lên các trọng số thay vì thông qua gradient |
-| Bias correction (Hiệu chỉnh độ chệch) | "Warmup cho các trung bình tích lũy" | Chia cho (1 - beta^t) để bù cho việc khởi tạo bằng không các ước lượng moment của Adam |
+| Bias correction (Hiệu chỉnh độ chệch) | "Warmup cho các trung bình tích lũy" | Chia cho $(1 - \beta^t)$ để bù cho việc khởi tạo bằng không các ước lượng moment của Adam |
 | Weight decay | "Co các trọng số lại" | Trừ một phần giá trị trọng số ở mỗi bước; một cơ chế chính quy hóa phạt các trọng số lớn |
 | Learning rate schedule (Lịch tốc độ học) | "Thay đổi lr theo thời gian" | Một hàm điều chỉnh tốc độ học trong quá trình huấn luyện; warmup + suy giảm cosine là mặc định hiện đại |
 | Gradient clipping (Cắt gradient) | "Chặn chuẩn gradient" | Co nhỏ vector gradient khi chuẩn của nó vượt một ngưỡng; ngăn các cập nhật gradient bùng nổ |

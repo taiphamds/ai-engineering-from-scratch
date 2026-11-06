@@ -16,7 +16,7 @@
 
 ## The Problem
 
-Một kho là sai cho một trong ba lớp truy vấn:
+Mỗi kho chỉ phù hợp với một trong ba lớp truy vấn:
 
 - **Độ tương tự ngữ nghĩa** — "chúng ta đã thảo luận gì về sự trôi dạt agent tuần trước?" Vector thắng; KV và đồ thị bỏ lỡ.
 - **Tra cứu sự thật** — "số điện thoại của người dùng là gì?" KV thắng; vector lãng phí, đồ thị quá mức cần thiết.
@@ -32,7 +32,7 @@ Mem0 (arXiv:2504.19413, tháng 4 năm 2025) trên `add(text, user_id, metadata)`
 
 1. Trích xuất các sự thật ứng viên từ văn bản (một bước do LLM điều khiển).
 2. Ghi mỗi sự thật vào kho vector (embedding) cho tìm kiếm ngữ nghĩa.
-3. Ghi mỗi sự thật vào kho KV được đánh khóa theo (user_id, fact_type, entity) cho tra cứu O(1).
+3. Ghi mỗi sự thật vào kho KV được đánh khóa theo (user_id, fact_type, entity) cho tra cứu $O(1)$.
 4. Ghi mỗi sự thật vào kho đồ thị (Mem0g) dưới dạng các cạnh có kiểu cho các truy vấn quan hệ.
 
 Trên `search(query, user_id)`:

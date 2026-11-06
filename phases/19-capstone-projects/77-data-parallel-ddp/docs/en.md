@@ -57,7 +57,7 @@ Một transformer có hàng nghìn tensor tham số. Một allreduce mỗi tenso
 
 ### Why pin the seed
 
-Mọi rank phải gọi `torch.manual_seed(seed + rank)` để xáo trộn nhưng `torch.manual_seed(seed)` để khởi tạo tham số. Một seed dùng chung duy nhất nghĩa là mọi rank thấy cùng thứ tự lô (đánh bại song song dữ liệu); một seed đặc thù rank cho tham số nghĩa là các tham số ban đầu bất đồng theo epsilon float và đồng bộ gradient không còn khiến các bản sao giống hệt. Làm đúng mẫu seed hoặc kiểm thử tương đương tham số thất bại ở bước 1.
+Mỗi rank phải gọi `torch.manual_seed(seed + rank)` để xáo trộn nhưng `torch.manual_seed(seed)` để khởi tạo tham số. Một seed dùng chung duy nhất để xáo trộn nghĩa là mọi rank thấy cùng thứ tự batch (làm mất tác dụng data parallel). Với tham số, broadcast từ rank 0 lúc xây dựng là điều khiến các bản sao giống hệt và nó ghi đè bất cứ thứ gì mỗi rank đã khởi tạo. Seed khởi tạo dùng chung là dự phòng: nếu broadcast bị bỏ qua hoặc hỏng, khởi tạo đặc thù rank cho mỗi bản sao trọng số khởi đầu khác nhau, và chỉ đồng bộ gradient không bao giờ kéo chúng lại với nhau. Làm đúng mẫu seed hoặc bài kiểm tra tính tương đương tham số thất bại ở bước 1.
 
 ```figure
 ci-ddp-grad-sync

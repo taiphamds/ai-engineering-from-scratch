@@ -20,7 +20,7 @@ Các mô hình thị giác riêng lẻ hữu ích; các sản phẩm thị giác
 
 Nối các chuỗi đó là phần phân biệt một mẫu thử ML với sản phẩm. Mọi giao diện giữa mô hình là một nơi mới cho lỗi. Mọi phép biến đổi tọa độ, mọi chuẩn hóa, mọi đổi kích thước mặt nạ là một ứng viên thất bại âm thầm. Một pipeline mạnh bằng giao diện yếu nhất của nó.
 
-Bài capstone này thiết lập pipeline khả dụng tối thiểu: phát hiện + phân loại + đầu ra có cấu trúc + lớp phục vụ. Mọi thứ khác trong Giai đoạn 4 cắm vào bộ khung này: đổi Mask R-CNN thành YOLOv8, thêm đầu OCR, thêm nhánh phân đoạn, thêm bộ theo dõi. Kiến trúc ổn định; các phần có thể cắm vào.
+Dự án tổng kết này thiết lập pipeline khả dụng tối thiểu: phát hiện + phân loại + đầu ra có cấu trúc + một lớp phục vụ. Mọi thứ khác trong Giai đoạn 4 đều lắp vào bộ khung này: thay Mask R-CNN bằng YOLOv8, thêm một head OCR, thêm một nhánh phân đoạn, thêm một bộ theo dõi. Kiến trúc ổn định; các thành phần có thể được cắm vào.
 
 ## The Concept
 
@@ -54,7 +54,7 @@ Detection(
     box: tuple[float, float, float, float],   # (x1, y1, x2, y2), absolute pixels
     score: float,                              # [0, 1]
     class_id: int,                             # from detector's label map
-    mask: Optional[list[list[int]]],           # RLE-encoded if present
+    mask_rle: Optional[str],                   # RLE string if present
 )
 
 PipelineResult(

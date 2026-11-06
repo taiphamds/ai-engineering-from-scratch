@@ -26,35 +26,32 @@ Bài này xây DDPM tối giản: thêm nhiễu xuôi, khử nhiễu ngược, v
 
 ### The forward process
 
-Lấy một hình ảnh `x_0`. Thêm một lượng nhiễu Gaussian rất nhỏ để có `x_1`. Thêm một chút nữa để có `x_2`. Tiếp tục T bước tới khi `x_T` gần như không thể phân biệt với nhiễu Gaussian thuần.
+Lấy một hình ảnh `x_0`. Thêm một lượng nhiễu Gaussian rất nhỏ để có `x_1`. Thêm một chút nữa để có `x_2`. Tiếp tục $T$ bước tới khi `x_T` gần như không thể phân biệt với nhiễu Gaussian thuần.
 
-```
-q(x_t | x_{t-1}) = N(x_t; sqrt(1 - beta_t) * x_{t-1},  beta_t * I)
+```math
+q(x_t \mid x_{t-1}) = \mathcal{N}\left(x_t; \sqrt{1 - \beta_t} \, x_{t-1}, \; \beta_t I\right)
 ```
 
-`beta_t` là một lịch phương sai nhỏ, thường tuyến tính từ 0.0001 tới 0.02 qua T=1000 bước. Mỗi bước làm tín hiệu co nhẹ và đưa vào nhiễu mới.
+`beta_t` là một lịch phương sai nhỏ, thường tuyến tính từ 0.0001 tới 0.02 qua $T=1000$ bước. Mỗi bước làm tín hiệu co nhẹ và đưa vào nhiễu mới.
 
 ### The closed-form jump
 
 Thêm nhiễu từng bước là một chuỗi Markov, nhưng toán học gộp lại được: bạn có thể lấy mẫu `x_t` trực tiếp từ `x_0` trong một bước.
 
-```
-Define alpha_t = 1 - beta_t
-Define alpha_bar_t = prod_{s=1..t} alpha_s
-
-Then:
-  q(x_t | x_0) = N(x_t; sqrt(alpha_bar_t) * x_0,  (1 - alpha_bar_t) * I)
-
-Equivalently:
-  x_t = sqrt(alpha_bar_t) * x_0 + sqrt(1 - alpha_bar_t) * epsilon
-  where epsilon ~ N(0, I)
+```math
+\begin{aligned}
+&\text{Define } \alpha_t = 1 - \beta_t \\
+&\text{Define } \bar{\alpha}_t = \prod_{s=1}^{t} \alpha_s \\[6pt]
+&\text{Then: } q(x_t \mid x_0) = \mathcal{N}\left(x_t; \sqrt{\bar{\alpha}_t} \, x_0, \; (1 - \bar{\alpha}_t) I\right) \\[6pt]
+&\text{Equivalently: } x_t = \sqrt{\bar{\alpha}_t} \, x_0 + \sqrt{1 - \bar{\alpha}_t} \, \epsilon \quad \text{where } \epsilon \sim \mathcal{N}(0, I)
+\end{aligned}
 ```
 
 Một phương trình này là toàn bộ lý do khuếch tán thực tiễn. Trong huấn luyện bạn chọn một `t` ngẫu nhiên, lấy mẫu `x_t` trực tiếp từ `x_0` và huấn luyện trong một bước — không cần mô phỏng toàn bộ chuỗi Markov.
 
 ### The reverse process
 
-Quá trình xuôi cố định. Quá trình ngược `p(x_{t-1} | x_t)` là thứ mạng nơ-ron học. Các mô hình khuếch tán không dự đoán `x_{t-1}` trực tiếp; chúng dự đoán nhiễu `epsilon` được thêm ở bước t, và toán học suy ra `x_{t-1}` từ đó.
+Quá trình xuôi cố định. Quá trình ngược `p(x_{t-1} | x_t)` là thứ mạng nơ-ron học. Các mô hình khuếch tán không dự đoán `x_{t-1}` trực tiếp; chúng dự đoán nhiễu `epsilon` được thêm ở bước $t$, và toán học suy ra `x_{t-1}` từ đó.
 
 ```mermaid
 flowchart LR
@@ -79,7 +76,7 @@ flowchart LR
 Với mỗi bước huấn luyện:
 
 1. Lấy mẫu một hình ảnh thật `x_0`.
-2. Lấy mẫu một bước thời gian `t` đồng đều từ [1, T].
+2. Lấy mẫu một bước thời gian `t` đồng đều từ $[1, T]$.
 3. Lấy mẫu nhiễu `epsilon ~ N(0, I)`.
 4. Tính `x_t = sqrt(alpha_bar_t) * x_0 + sqrt(1 - alpha_bar_t) * epsilon`.
 5. Dự đoán `epsilon_theta(x_t, t)` bằng mạng.
@@ -103,7 +100,7 @@ return x_0
 
 ### Why 1000 steps
 
-Lịch nhiễu xuôi được chọn để mỗi bước thêm vừa đủ nhiễu khiến bước ngược gần Gaussian. Quá ít bước và bước ngược xa Gaussian, mạng không thể mô hình hóa tốt. Quá nhiều bước và lấy mẫu trở nên tốn kém với lợi ích giảm dần. T=1000 với lịch tuyến tính là mặc định DDPM.
+Lịch nhiễu xuôi được chọn để mỗi bước thêm vừa đủ nhiễu khiến bước ngược gần Gaussian. Quá ít bước và bước ngược xa Gaussian, mạng không thể mô hình hóa tốt. Quá nhiều bước và lấy mẫu trở nên tốn kém với lợi ích giảm dần. $T=1000$ với lịch tuyến tính là mặc định DDPM.
 
 ### DDIM: 20x faster sampling
 
@@ -263,7 +260,7 @@ def sample_ddim(model, schedule, shape, steps=50, T=1000, device="cpu", eta=0.0)
     x = torch.randn(shape, device=device)
     alphas_cumprod = schedule["alphas_cumprod"].to(device)
 
-    ts = torch.linspace(T - 1, 0, steps + 1).long()
+    ts = torch.linspace(T - 1, -1, steps + 1).round().long()
     for i in range(steps):
         t = ts[i]
         t_prev = ts[i + 1]
@@ -279,7 +276,7 @@ def sample_ddim(model, schedule, shape, steps=50, T=1000, device="cpu", eta=0.0)
     return x
 ```
 
-`eta=0` hoàn toàn tất định (cùng đầu vào nhiễu luôn tạo cùng đầu ra). `eta=1` khôi phục DDPM.
+Lịch kết thúc tại `t_prev = -1`, vì vậy bước cuối sử dụng `a_prev = 1.0` và trả về `x0_pred` sạch không có nhiễu còn sót lại. `eta=0` là hoàn toàn tất định (cùng đầu vào nhiễu luôn tạo ra cùng đầu ra). `eta=1` khôi phục DDPM khi lịch đi qua mọi bước thời gian (`steps=T`).
 
 ## Use It
 
@@ -313,14 +310,14 @@ Bài học này tạo ra:
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Forward process (Quá trình xuôi) | "Thêm nhiễu theo thời gian" | Chuỗi Markov cố định làm hỏng một hình ảnh thành nhiễu Gaussian qua T bước |
+| Forward process (Quá trình xuôi) | "Thêm nhiễu theo thời gian" | Chuỗi Markov cố định làm hỏng một hình ảnh thành nhiễu Gaussian qua $T$ bước |
 | Reverse process (Quá trình ngược) | "Khử nhiễu từng bước" | Phân phối được học đi ngược từ nhiễu tới hình ảnh |
-| Epsilon prediction (Dự đoán epsilon) | "Dự đoán nhiễu" | Mục tiêu huấn luyện: `epsilon_theta(x_t, t)` dự đoán nhiễu thêm ở bước t |
-| Beta schedule (Lịch beta) | "Các lượng nhiễu" | Chuỗi T phương sai nhỏ xác định lượng nhiễu đi vào mỗi bước |
-| alpha_bar_t | "Hệ số giữ tích lũy" | Tích của (1 - beta_s) tới thời điểm t; t lớn hơn nghĩa là còn ít tín hiệu hơn |
-| DDPM sampler (Bộ lấy mẫu DDPM) | "Ancestral, ngẫu nhiên" | Lấy mẫu mỗi x_{t-1} từ Gaussian có điều kiện của nó; 1000 bước |
+| Epsilon prediction (Dự đoán epsilon) | "Dự đoán nhiễu" | Mục tiêu huấn luyện: `epsilon_theta(x_t, t)` dự đoán nhiễu thêm ở bước $t$ |
+| Beta schedule (Lịch beta) | "Các lượng nhiễu" | Chuỗi $T$ phương sai nhỏ xác định lượng nhiễu đi vào mỗi bước |
+| $\bar{\alpha}_t$ | "Hệ số giữ tích lũy" | Tích của $(1 - \beta_s)$ tới thời điểm $t$; $t$ lớn hơn nghĩa là còn ít tín hiệu hơn |
+| DDPM sampler (Bộ lấy mẫu DDPM) | "Ancestral, ngẫu nhiên" | Lấy mẫu mỗi $x_{t-1}$ từ Gaussian có điều kiện của nó; 1000 bước |
 | DDIM sampler (Bộ lấy mẫu DDIM) | "Tất định, nhanh" | Viết lại lấy mẫu thành một ODE tất định; 20-100 bước với chất lượng tương tự |
-| Time conditioning (Điều kiện hóa thời gian) | "Cho mô hình biết t nào" | Embedding hình sin của t được đưa vào U-Net để nó biết mức nhiễu |
+| Time conditioning (Điều kiện hóa theo thời gian) | "Cho mô hình biết t nào" | Embedding hình sin của $t$ được đưa vào U-Net để nó biết mức nhiễu |
 
 ## Further Reading
 

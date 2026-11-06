@@ -1,6 +1,6 @@
 # Compiler Idioms: What Optimization Does to Your Code and How to Read It Back
 
-> An optimizing compiler replaces source constructs with cheaper instruction shapes. Each shape has a derivation, and this lesson builds the recognizer that runs the derivation backwards and checks it against the source.
+> Một compiler tối ưu hóa thay các cấu trúc nguồn bằng các dạng chỉ lệnh rẻ hơn. Mỗi dạng có một phép suy ra, và bài học này xây dựng bộ nhận dạng chạy ngược phép suy ra và kiểm tra nó với nguồn.
 
 **Type:** Build
 **Languages:** Python, C, x86-64 assembly, AArch64 assembly
@@ -9,20 +9,20 @@
 
 ## Learning Objectives
 
-- Derive the magic number and shift for division by any constant with the Granlund-Montgomery bound, and recover the divisor from the constants clang emitted.
-- Name the five ways LLVM lowers a `switch` and read the entry count, the table location, and the entries from the object.
-- Read a vectorized loop as lanes, accumulators, elements per iteration, trip-count mask, reduction, and remainder loop.
-- Recognize tail calls, inlined callees, branchless selects, and loops that became `memset` or `memcpy`.
-- Report every idiom with its evidence instructions and its decoded source form, on x86-64 and on AArch64, at `-O0` through `-O3`.
-- Compare the result with what Ghidra, angr, radare2, rizin, and lldb show for the same bytes.
+- Suy ra số ma thuật và độ dịch cho phép chia cho bất kỳ hằng số nào bằng cận Granlund-Montgomery, và khôi phục số chia từ các hằng số mà clang phát ra.
+- Nêu tên năm cách LLVM hạ một `switch` và đọc số mục, vị trí bảng và các mục từ object.
+- Đọc một vòng lặp được vector hóa dưới dạng lane, bộ tích lũy, phần tử mỗi vòng lặp, mask số lượt lặp, phép rút gọn và vòng lặp phần dư.
+- Nhận dạng tail call, callee inline, select không nhánh và các vòng lặp trở thành `memset` hoặc `memcpy`.
+- Báo cáo mọi mẫu với các chỉ lệnh bằng chứng và dạng nguồn đã giải mã của nó, trên x86-64 và trên AArch64, ở `-O0` đến `-O3`.
+- So sánh kết quả với những gì Ghidra, angr, radare2, rizin và lldb hiển thị cho cùng các byte.
 
 ## The Problem
 
-You compiled `idioms.c` at `-O2` and asked an agent what `div7u` does. The agent read `imulq $0x24924925, %rax, %rax` and answered that the function multiplies by 613566757, shifts, and adds. Every word is true. The function computes `x / 7`.
+Bạn biên dịch `idioms.c` ở `-O2` và hỏi một agent `div7u` làm gì. Agent đọc `imulq $0x24924925, %rax, %rax` và trả lời rằng hàm nhân với 613566757, dịch và cộng. Mọi từ đều đúng. Hàm tính `x / 7`.
 
-The same object holds a `switch` with seven cases that has no jump at all, a `switch` with five cases that is a jump table, a `switch` with two cases that is a `sete` and a `cmovne`, and a loop over `n` integers that runs eight integers per iteration in two `xmm` registers and then finishes the rest in a second loop. At `-O0` the same source produced `divl`, seven-entry jump tables, and one scalar loop. At `-O1` the seven-case switch became a table of values and the vector loop did not exist yet.
+Cùng object chứa một `switch` với bảy case hoàn toàn không có bước nhảy, một `switch` với năm case là một jump table, một `switch` với hai case là một `sete` và một `cmovne`, và một vòng lặp trên `n` số nguyên chạy tám số nguyên mỗi vòng lặp trong hai thanh ghi `xmm` rồi hoàn thành phần còn lại trong một vòng lặp thứ hai. Ở `-O0`, cùng nguồn tạo ra `divl`, các jump table bảy mục và một vòng lặp vô hướng. Ở `-O1`, switch bảy case trở thành một bảng giá trị và vòng lặp vector chưa tồn tại.
 
-These shapes are idioms. A compiler emits each one from a rule you can read in its source, and each one can be decoded back to the construct it came from. The decoding is arithmetic, and arithmetic can be checked. Lesson 34 proved one of them, the multiply by `0x66666667`. This lesson builds the recognizer for all of them, runs it over 18 builds of our own code, and verifies all 373 reports against the C source.
+Các dạng này là idiom. Một compiler phát ra mỗi dạng từ một quy tắc bạn có thể đọc trong nguồn của nó, và mỗi dạng có thể được giải mã trở lại cấu trúc mà nó đến từ đó. Việc giải mã là số học, và số học có thể được kiểm tra. Bài 34 chứng minh một trong số đó, phép nhân với `0x66666667`. Bài học này xây dựng bộ nhận dạng cho tất cả chúng, chạy nó trên 18 bản build mã của riêng chúng ta và xác minh cả 373 báo cáo với nguồn C.
 
 ```figure
 re-39-idioms-by-level
@@ -30,25 +30,25 @@ re-39-idioms-by-level
 
 ## An Idiom Is a Shape With a Derivation
 
-An idiom is a sequence of instructions the compiler emits for one source construct. Three things make it recognizable. It has a fixed shape, the operands carry constants that the derivation predicts, and the shape differs from what a programmer would write by hand.
+Một idiom là một chuỗi chỉ lệnh mà compiler phát ra cho một cấu trúc nguồn. Ba điều khiến nó có thể nhận dạng. Nó có một dạng cố định, các toán hạng mang các hằng số mà phép suy ra dự đoán, và dạng khác với những gì một lập trình viên sẽ viết bằng tay.
 
-The recognizer in `code/main.py` works on the text of `llvm-objdump -d -r`, which lesson 33 established as the oracle for instruction boundaries. It parses each function into instructions with address, bytes, mnemonic, operands, and the relocation line that follows it. It reads the object file for two things only: the bytes of `.rodata`, where value tables live, and the `.rela.rodata` entries, where jump-table targets live before linking.
+Bộ nhận dạng trong `code/main.py` hoạt động trên văn bản của `llvm-objdump -d -r`, mà bài 33 xác lập là oracle cho các ranh giới chỉ lệnh. Nó phân tích mỗi hàm thành các chỉ lệnh với địa chỉ, byte, mnemonic, toán hạng và dòng relocation theo sau nó. Nó chỉ đọc tệp object cho hai thứ: các byte của `.rodata`, nơi các value table nằm, và các mục `.rela.rodata`, nơi các đích jump table nằm trước liên kết.
 
-Every detection is an `Idiom` record with a `kind`, a decoded `source` form, a list of `evidence` addresses, a `detail` dictionary, and a `verified` flag. The flag comes from the C source. `parse_source()` reads `idioms.c`, finds each function, and extracts the divisors after `/` and `%`, the multipliers after `*`, the `switch` cases and their values, the `? :` operators, the `for` loops, and the callees. A division idiom is verified when its divisor is in the function's division list. A lookup table is verified when its entries match the case values, up to a constant factor. A tail call is verified when the callee is called in the source. The demo report ends with an `unverified` list, and the test suite asserts that the list is empty for all 18 builds.
+Mỗi phát hiện là một bản ghi `Idiom` với một `kind`, một dạng `source` đã giải mã, một danh sách địa chỉ `evidence`, một từ điển `detail` và một cờ `verified`. Cờ đến từ nguồn C. `parse_source()` đọc `idioms.c`, tìm mỗi hàm và trích các số chia sau `/` và `%`, các hệ số nhân sau `*`, các case `switch` và giá trị của chúng, các toán tử `? :`, các vòng lặp `for` và các callee. Một mẫu chia được xác minh khi số chia của nó nằm trong danh sách phép chia của hàm. Một bảng tra cứu được xác minh khi các mục của nó khớp các giá trị case, sai khác tối đa một hệ số hằng. Một tail call được xác minh khi callee được gọi trong nguồn. Báo cáo demo kết thúc bằng một danh sách `unverified`, và bộ kiểm tra khẳng định rằng danh sách rỗng cho cả 18 bản build.
 
-Decoding needs names. The recognizer runs a small symbolic evaluator over each function's basic blocks, in listing order, with the parameter names from the source in the argument registers of the System V and AAPCS64 conventions from lesson 38. Stack slots are tracked by their operand text so `-O0` code reads through its spills. At each block entry the states of the predecessors are merged, and where they differ a name that an earlier idiom assigned wins over a constant. That is how `cmovll %edx, %eax` in `digest` reads back as `sum % 10 < 5 ? sum % 10 : 5`: the loop idiom named the accumulator `sum`, the division idiom named its quotient `sum / 10`, and the modulo idiom named its result `sum % 10`. The source writes `rem > 5 ? 5 : rem`. Both expressions give the smaller of `rem` and 5, and they agree at `rem == 5`.
+Giải mã cần tên. Bộ nhận dạng chạy một bộ đánh giá ký hiệu nhỏ trên các basic block của mỗi hàm, theo thứ tự danh sách, với các tên tham số từ nguồn trong các thanh ghi đối số của các quy ước System V và AAPCS64 từ bài 38. Các slot stack được theo dõi theo văn bản toán hạng của chúng để mã `-O0` đọc qua các spill của nó. Tại mỗi điểm vào khối, các trạng thái của các tiền nhiệm được gộp, và nơi chúng khác nhau một tên mà một mẫu trước đó gán thắng một hằng số. Đó là cách `cmovll %edx, %eax` trong `digest` đọc trở lại thành `sum % 10 < 5 ? sum % 10 : 5`: mẫu vòng lặp đặt tên bộ tích lũy `sum`, mẫu chia đặt tên thương của nó `sum / 10` và mẫu modulo đặt tên kết quả của nó `sum % 10`. Nguồn viết `rem > 5 ? 5 : rem`. Cả hai biểu thức cho giá trị nhỏ hơn của `rem` và 5, và chúng đồng nhất tại `rem == 5`.
 
 ## Division by a Constant
 
-Granlund and Montgomery, "Division by Invariant Integers using Multiplication" (PLDI 1994), replace `n / d` with a multiply and a shift. Pick a shift `s` and a multiplier `m = ceil(2^s / d)`. Then `floor(n * m / 2^s)` equals `floor(n / d)` for every `n` in range when the error `e = m * d - 2^s` is small enough. For unsigned 32-bit `n` the bound is `e <= 2^(s - 32)`. For signed `n` with `|n| < 2^31` the bound is `e <= 2^(s - 31)`, and a sign fix-up adds 1 when `n` is negative, because the floor rounds the wrong way for negative quotients.
+Granlund và Montgomery, "Division by Invariant Integers using Multiplication" (PLDI 1994), thay `n / d` bằng một phép nhân và một phép dịch. Chọn một độ dịch `s` và một hệ số nhân `m = ceil(2^s / d)`. Rồi `floor(n * m / 2^s)` bằng `floor(n / d)` với mọi `n` trong phạm vi khi sai số `e = m * d - 2^s` đủ nhỏ. Với `n` 32 bit không dấu, cận là `e <= 2^(s - 32)`. Với `n` có dấu với `|n| < 2^31`, cận là `e <= 2^(s - 31)`, và một sửa dấu cộng 1 khi `n` âm, vì floor làm tròn sai chiều cho các thương âm.
 
-`magic_numbers(d, bits, signed)` in `main.py` searches `s` upward from 32 and returns the first pair that satisfies the bound. That search reproduces every constant clang emitted in the fixtures.
+`magic_numbers(d, bits, signed)` trong `main.py` tìm `s` tăng dần từ 32 và trả về cặp đầu tiên đáp ứng cận. Tìm kiếm đó tái tạo mọi hằng số clang phát ra trong các fixture.
 
 ### Unsigned 10 by hand
 
-`2^35 / 10 = 3435973836.8`. The ceiling is `3435973837 = 0xCCCCCCCD`. The error is `0xCCCCCCCD * 10 - 2^35 = 2`, and the bound at `s = 35` is `2^3 = 8`. At `s = 34` the error would be 6 against a bound of 4, so 35 is the smallest shift. Check with `n = 123`: `123 * 3435973837 = 422624781951`, and `422624781951 >> 35 = 12`.
+`2^35 / 10 = 3435973836.8`. Giá trị trần là `3435973837 = 0xCCCCCCCD`. Sai số là `0xCCCCCCCD * 10 - 2^35 = 2`, và cận tại `s = 35` là `2^3 = 8`. Tại `s = 34`, sai số sẽ là 6 so với cận 4, nên 35 là độ dịch nhỏ nhất. Kiểm tra với `n = 123`: `123 * 3435973837 = 422624781951`, và `422624781951 >> 35 = 12`.
 
-clang emits exactly this for `div10u` at `-O2` on x86-64:
+clang phát ra chính xác điều này cho `div10u` ở `-O2` trên x86-64:
 
 ```text
        0: 89 f9                        	movl	%edi, %ecx
@@ -57,13 +57,13 @@ clang emits exactly this for `div10u` at `-O2` on x86-64:
        b: 48 c1 e8 23                  	shrq	$0x23, %rax
 ```
 
-`0x23` is 35. The `movl %edi, %ecx` zero-extends the 32-bit argument into a 64-bit register, which is the unsigned form. The recognizer reads the multiplier from the `movl $imm` that feeds the two-operand `imulq`, reads the shift, and calls `divisor_from_magic(0xCCCCCCCD, 35)`. That function tries `2^35 // m = 10` and 11, and accepts 10 because `magic_numbers(10)` gives the same multiplier and shift back.
+`0x23` là 35. `movl %edi, %ecx` mở rộng bằng không đối số 32 bit vào một thanh ghi 64 bit, là dạng không dấu. Bộ nhận dạng đọc hệ số nhân từ `movl $imm` cung cấp cho `imulq` hai toán hạng, đọc độ dịch và gọi `divisor_from_magic(0xCCCCCCCD, 35)`. Hàm đó thử `2^35 // m = 10` và 11, và chấp nhận 10 vì `magic_numbers(10)` cho lại cùng hệ số nhân và độ dịch.
 
-On AArch64 the same function is `mov w8, #0xcccd; movk w8, #0xcccc, lsl #16; umull x8, w0, w8; lsr x0, x8, #35`. The constant arrives in two 16-bit halves, the multiply is `umull`, and the shift is written in decimal. The recognizer assembles the halves and reports the same divisor.
+Trên AArch64, cùng hàm là `mov w8, #0xcccd; movk w8, #0xcccc, lsl #16; umull x8, w0, w8; lsr x0, x8, #35`. Hằng số đến trong hai nửa 16 bit, phép nhân là `umull` và độ dịch được viết trong hệ thập phân. Bộ nhận dạng lắp ráp các nửa và báo cáo cùng số chia.
 
 ### Unsigned 7 by hand, with the add fix-up
 
-`2^35 / 7 = 4908534052.57`. The ceiling is `4908534053 = 0x124924925`, which needs 33 bits. The error is 3 against a bound of 8, so the shift is 35, and no smaller shift works. A 32-bit multiply cannot hold the multiplier, so the compiler multiplies by the low 32 bits `0x24924925` and adds the dividend back in a fixed sequence:
+`2^35 / 7 = 4908534052.57`. Giá trị trần là `4908534053 = 0x124924925`, cần 33 bit. Sai số là 3 so với cận 8, nên độ dịch là 35, và không độ dịch nhỏ hơn nào hoạt động. Một phép nhân 32 bit không thể chứa hệ số nhân, nên compiler nhân với 32 bit thấp `0x24924925` và cộng lại số bị chia theo một chuỗi cố định:
 
 ```text
       32: 48 69 c0 25 49 92 24         	imulq	$0x24924925, %rax, %rax
@@ -74,27 +74,27 @@ On AArch64 the same function is `mov w8, #0xcccd; movk w8, #0xcccc, lsl #16; umu
       43: c1 e8 02                     	shrl	$0x2, %eax
 ```
 
-Read it as `t = (n * 0x24924925) >> 32`, then `q = (((n - t) >> 1) + t) >> 2`. The total shift is `32 + 1 + 2 = 35`. With `n = 100`: `t = 14`, `(100 - 14) >> 1 = 43`, `43 + 14 = 57`, `57 >> 2 = 14`. The recognizer detects the `sub`, `shr`, `add`, `shr` tail after a 32-bit shift, adds `2^32` back to the multiplier, and recovers 7. `evaluate_division()` runs this exact sequence and the test checks it against `n // 7` on the 32-bit edge values. The AArch64 form is `sub w9, w0, w8; add w8, w8, w9, lsr #1; lsr w0, w8, #2`, one instruction shorter because the shifted add is one instruction.
+Đọc nó là `t = (n * 0x24924925) >> 32`, rồi `q = (((n - t) >> 1) + t) >> 2`. Tổng độ dịch là `32 + 1 + 2 = 35`. Với `n = 100`: `t = 14`, `(100 - 14) >> 1 = 43`, `43 + 14 = 57`, `57 >> 2 = 14`. Bộ nhận dạng phát hiện đuôi `sub`, `shr`, `add`, `shr` sau một độ dịch 32 bit, cộng lại `2^32` vào hệ số nhân và khôi phục 7. `evaluate_division()` chạy chính xác chuỗi này và bài kiểm tra kiểm tra nó với `n // 7` trên các giá trị biên 32 bit. Dạng AArch64 là `sub w9, w0, w8; add w8, w8, w9, lsr #1; lsr w0, w8, #2`, ngắn hơn một chỉ lệnh vì phép cộng có dịch là một chỉ lệnh.
 
 ### Signed 3 by hand
 
-`2^32 / 3 = 1431655765.33`, ceiling `1431655766 = 0x55555556`, error 2, and the signed bound at `s = 32` is `2^1 = 2`. The bound holds with no room to spare, so the shift is 32 and clang uses `shrq $0x20`. With `n = -7`: the product is `-10021590362`, the arithmetic shift by 32 gives `-3`, the sign bit is set, so the fix-up adds 1 and the result is `-2`, which is `-7 / 3` in C. The signed fixtures `div10s` and `div3s` both carry the fix-up as `shrq $0x3f` on a copy of the product followed by `addl`.
+`2^32 / 3 = 1431655765.33`, giá trị trần `1431655766 = 0x55555556`, sai số 2, và cận có dấu tại `s = 32` là `2^1 = 2`. Cận đúng không còn dư địa, nên độ dịch là 32 và clang sử dụng `shrq $0x20`. Với `n = -7`: tích là `-10021590362`, phép dịch số học 32 cho `-3`, bit dấu được đặt, nên sửa dấu cộng 1 và kết quả là `-2`, tức `-7 / 3` trong C. Các fixture có dấu `div10s` và `div3s` đều mang sửa dấu dưới dạng `shrq $0x3f` trên một bản sao của tích theo sau bởi `addl`.
 
 ### What the constants are not
 
-The multiplier alone names no divisor. `0x66666667` with shift 34 is 10. The same multiplier with shift 33 is 5, as lesson 34 showed. The recognizer therefore always pairs the multiplier with the total shift, and the `clangMatchesAlgorithm` field records that the pair is the one the search produces. Powers of two never use the multiply. `magic_numbers()` refuses them, because the compiler emits a shift with a sign bias instead, and `mod8s` in the next section shows that shape.
+Chỉ hệ số nhân không nêu tên số chia nào. `0x66666667` với độ dịch 34 là 10. Cùng hệ số nhân với độ dịch 33 là 5, như bài 34 cho thấy. Bộ nhận dạng do đó luôn ghép hệ số nhân với tổng độ dịch, và trường `clangMatchesAlgorithm` ghi rằng cặp là cặp mà tìm kiếm tạo ra. Các lũy thừa hai không bao giờ sử dụng phép nhân. `magic_numbers()` từ chối chúng, vì compiler phát ra một phép dịch với một thiên lệch dấu thay thế, và `mod8s` trong phần tiếp theo cho thấy dạng đó.
 
 ### The idiom belongs to the instruction selector
 
-At `-O0`, `div10u` is `movl $0xa, %ecx; xorl %edx, %edx; divl %ecx`. `div10s` is `cltd; idivl %ecx`. In the same object, `digest` divides its loop sum by 10 with `imulq $0x66666667`. One flag explains the difference. The fixture `idioms-x86_64-nofastisel-O0.o` was built with `-O0 -mllvm -fast-isel=false`, and in it every division is the multiply, including `div10u` with `movl $0xcccccccd, %ecx; imulq %rcx, %rax; shrq $0x23`. The hardware divide is the fast instruction selector's choice at `-O0`. The multiply is SelectionDAG's lowering, which is what LLVM's `UnsignedDivisionByConstantInfo` and `SignedDivisionByConstantInfo` produce. The `digest` block that holds the division also holds a `switch`, and that block went to SelectionDAG. The recognizer reports both forms, `hardware idivl` and `magic multiply`, and the figure shows the mixed `-O0` function.
+Ở `-O0`, `div10u` là `movl $0xa, %ecx; xorl %edx, %edx; divl %ecx`. `div10s` là `cltd; idivl %ecx`. Trong cùng object, `digest` chia tổng vòng lặp của nó cho 10 bằng `imulq $0x66666667`. Một cờ giải thích khác biệt. Fixture `idioms-x86_64-nofastisel-O0.o` được dựng bằng `-O0 -mllvm -fast-isel=false`, và trong nó mọi phép chia là phép nhân, bao gồm `div10u` với `movl $0xcccccccd, %ecx; imulq %rcx, %rax; shrq $0x23`. Phép chia phần cứng là lựa chọn của bộ chọn chỉ lệnh nhanh ở `-O0`. Phép nhân là cách hạ của SelectionDAG, chính là điều mà `UnsignedDivisionByConstantInfo` và `SignedDivisionByConstantInfo` của LLVM tạo ra. Khối `digest` chứa phép chia cũng chứa một `switch`, và khối đó đi tới SelectionDAG. Bộ nhận dạng báo cáo cả hai dạng, `hardware idivl` và `magic multiply`, và hình cho thấy hàm `-O0` hỗn hợp.
 
 ## Modulo Follows the Quotient
 
-`x % d` is `x - (x / d) * d`. The compiler computes the quotient with the idiom above, multiplies it back, and subtracts. On x86-64 the multiply back by 10 is `addl %ecx, %ecx; leal (%rcx,%rcx,4), %ecx`, which is `2 * q * 5`. On AArch64 it is one instruction, `msub w0, w8, w9, w0`, which computes `w0 - w8 * w9` with `w9 = 10`. The recognizer follows the quotient register through copies, tracks the accumulated factor through `add`, `lea`, `shl`, and `imul`, and accepts a `sub` when the factor equals the divisor.
+`x % d` là `x - (x / d) * d`. Compiler tính thương bằng mẫu ở trên, nhân nó trở lại và trừ. Trên x86-64, phép nhân trở lại với 10 là `addl %ecx, %ecx; leal (%rcx,%rcx,4), %ecx`, tức `2 * q * 5`. Trên AArch64, nó là một chỉ lệnh, `msub w0, w8, w9, w0`, tính `w0 - w8 * w9` với `w9 = 10`. Bộ nhận dạng đi theo thanh ghi thương qua các bản sao, theo dõi hệ số tích lũy qua `add`, `lea`, `shl` và `imul`, và chấp nhận một `sub` khi hệ số bằng số chia.
 
-When the same quotient also feeds another expression, both idioms stay in the report. At `-O1` the compiler computes `sum / 10` once in `digest` and uses it for the `switch` index and for the modulo. On x86-64 it even combines the quotient twice, `leal (%rax,%rsi), %edi` for the modulo and `addl %esi, %eax` for the switch. The recognizer reports one division and one modulo and marks the quotient as shared. A report that lost the division here would make the `switch` index unreadable.
+Khi cùng thương cũng cung cấp cho một biểu thức khác, cả hai mẫu ở lại trong báo cáo. Ở `-O1`, compiler tính `sum / 10` một lần trong `digest` và sử dụng nó cho chỉ số `switch` và cho modulo. Trên x86-64 nó thậm chí kết hợp thương hai lần, `leal (%rax,%rsi), %edi` cho modulo và `addl %esi, %eax` cho switch. Bộ nhận dạng báo cáo một phép chia và một modulo và đánh dấu thương là dùng chung. Một báo cáo làm mất phép chia ở đây sẽ khiến chỉ số `switch` không thể đọc.
 
-Signed modulo by a power of two has its own shape, because the quotient is never computed:
+Modulo có dấu với một lũy thừa hai có dạng riêng, vì thương không bao giờ được tính:
 
 ```text
       92: 8d 48 07                     	leal	0x7(%rax), %ecx
@@ -104,25 +104,25 @@ Signed modulo by a power of two has its own shape, because the quotient is never
       9d: 29 c8                        	subl	%ecx, %eax
 ```
 
-For a negative `x` the code biases by 7 before masking, so that the truncation rounds toward zero as C requires. The masked value is `x` rounded to a multiple of 8, and the subtraction leaves `x % 8`. AArch64 does it with `negs w8, w0; and w9, w0, #0x7; and w8, w8, #0x7; csneg w0, w9, w8, mi`: mask both `x` and `-x`, then pick and negate by the sign. Ghidra names its rule for this `RuleSignMod2nOpt`, with the brief "Convert INT_SREM forms: `(V + (sign >> (64-n)) & (2^n-1)) - (sign >> (64-n)) => V s% 2^n`".
+Với một `x` âm, mã thêm thiên lệch 7 trước khi mask, để việc cắt làm tròn về không như C yêu cầu. Giá trị được mask là `x` được làm tròn đến một bội của 8, và phép trừ để lại `x % 8`. AArch64 làm điều đó bằng `negs w8, w0; and w9, w0, #0x7; and w8, w8, #0x7; csneg w0, w9, w8, mi`: mask cả `x` và `-x`, rồi chọn và đổi dấu theo dấu. Ghidra đặt tên quy tắc của nó cho điều này là `RuleSignMod2nOpt`, với mô tả ngắn "Chuyển các dạng INT_SREM: `(V + (sign >> (64-n)) & (2^n-1)) - (sign >> (64-n)) => V s% 2^n`".
 
-At `-O0` AArch64 writes modulo as `sdiv w9, w8, w10; mul w9, w9, w10; subs w0, w8, w9`. The recognizer accepts that form too and reports `hardware sdiv + mul + subs`.
+Ở `-O0`, AArch64 viết modulo là `sdiv w9, w8, w10; mul w9, w9, w10; subs w0, w8, w9`. Bộ nhận dạng cũng chấp nhận dạng đó và báo cáo `hardware sdiv + mul + subs`.
 
 ## Five Ways to Lower a switch
 
-LLVM decides the shape of a `switch` in two places. `SimplifyCFG::simplifySwitchLookup` runs at `-O1` and above and turns a switch whose cases all produce constants into a table of values, when there are at least three cases and the target can build lookup tables. Its table kinds are `SingleValueKind`, `LinearMapKind`, `BitMapKind`, and `ArrayKind`. The `-O0` pipeline never runs this pass. The remaining switches reach `SwitchLowering::findJumpTables` in instruction selection, which builds a jump table when the cluster has at least `min-jump-table-entries` entries, 4 by default, and is dense enough: `NumCases * 100 >= Range * MinDensity` with `jump-table-density` 10 for normal functions and 40 under `-Os`. What is left becomes a binary search over the case constants, with `splitWorkItem` choosing the pivot. The fixtures hold one function per outcome.
+LLVM quyết định dạng của một `switch` ở hai nơi. `SimplifyCFG::simplifySwitchLookup` chạy ở `-O1` trở lên và biến một switch có các case đều tạo hằng số thành một bảng giá trị, khi có ít nhất ba case và mục tiêu có thể xây dựng các bảng tra cứu. Các loại bảng của nó là `SingleValueKind`, `LinearMapKind`, `BitMapKind` và `ArrayKind`. Pipeline `-O0` không bao giờ chạy lượt này. Các switch còn lại đến `SwitchLowering::findJumpTables` trong chọn chỉ lệnh, xây dựng một jump table khi cụm có ít nhất `min-jump-table-entries` mục, mặc định 4, và đủ dày: `NumCases * 100 >= Range * MinDensity` với `jump-table-density` 10 cho các hàm thông thường và 40 dưới `-Os`. Phần còn lại trở thành một tìm kiếm nhị phân trên các hằng số case, với `splitWorkItem` chọn pivot. Các fixture chứa một hàm mỗi kết quả.
 
-| Function | Source | `-O0` x86-64 | `-O2` x86-64 | `-O2` AArch64 |
+| Hàm | Nguồn | `-O0` x86-64 | `-O2` x86-64 | `-O2` AArch64 |
 |---|---|---|---|---|
-| `linear_switch` | cases 0 to 6 return 10 to 70 | jump table, 7 entries | linear map `10*k + 10`, default -1 | `madd` and `csinv` |
-| `table_switch` | cases 0 to 6 return 10 to 60 then 71 | jump table, 7 entries | lookup table at `.rodata+0x28` | lookup table at `.rodata+0x0` |
-| `call_switch` | cases 0 to 4 call one of five pointers | jump table, 5 entries | jump table, 5 entries | comparison tree, pivot 1 |
-| `sparse_switch` | cases 1, 100, 10000, 1000000, 100000000 | compare chain | comparison tree, pivot 9999 | comparison tree, pivot 9999 |
-| `two_cases` | cases 3 and 4 return 7 and 9 | compare chain | select chain `k != 3 ? (k == 4)*9 : 7` | two `csel` |
+| `linear_switch` | case 0 đến 6 trả về 10 đến 70 | jump table, 7 mục | ánh xạ tuyến tính `10*k + 10`, mặc định -1 | `madd` và `csinv` |
+| `table_switch` | case 0 đến 6 trả về 10 đến 60 rồi 71 | jump table, 7 mục | bảng tra cứu tại `.rodata+0x28` | bảng tra cứu tại `.rodata+0x0` |
+| `call_switch` | case 0 đến 4 gọi một trong năm con trỏ | jump table, 5 mục | jump table, 5 mục | cây so sánh, pivot 1 |
+| `sparse_switch` | case 1, 100, 10000, 1000000, 100000000 | chuỗi so sánh | cây so sánh, pivot 9999 | cây so sánh, pivot 9999 |
+| `two_cases` | case 3 và 4 trả về 7 và 9 | chuỗi so sánh | chuỗi select `k != 3 ? (k == 4)*9 : 7` | hai `csel` |
 
 ### The lookup table, read from the object
 
-`table_switch` at `-O2`:
+`table_switch` ở `-O2`:
 
 ```text
       d0: b8 ff ff ff ff               	movl	$0xffffffff, %eax
@@ -135,13 +135,13 @@ LLVM decides the shape of a `switch` in two places. `SimplifyCFG::simplifySwitch
       e6: c3                           	retq
 ```
 
-The bounds check `cmpl $6; ja` means 7 valid entries. The relocation addend `0x24` plus the 4 bytes of the RIP-relative field puts the table at `.rodata+0x28`, the rule lesson 33 derived. The bytes there are `0a 00 00 00 14 00 00 00 ...`, so the entries are `[10, 20, 30, 40, 50, 60, 71]`, and they equal the source case values. The assembler named this table `.Lswitch.table.table_switch` in the `.s` file, with a comment `@switch.table.table_switch`. In the object only the relocation and the bytes remain. There is no jump, so the control-flow graph has three blocks.
+Kiểm tra biên `cmpl $6; ja` nghĩa là 7 mục hợp lệ. Addend relocation `0x24` cộng 4 byte của trường tương đối theo RIP đặt bảng tại `.rodata+0x28`, quy tắc mà bài 33 suy ra. Các byte ở đó là `0a 00 00 00 14 00 00 00 ...`, nên các mục là `[10, 20, 30, 40, 50, 60, 71]`, và chúng bằng các giá trị case nguồn. Assembler đặt tên bảng này `.Lswitch.table.table_switch` trong tệp `.s`, với một bình luận `@switch.table.table_switch`. Trong object chỉ relocation và các byte còn lại. Không có bước nhảy, nên đồ thị luồng điều khiển có ba khối.
 
-The AArch64 form puts the table address together with `adrp x8` and `add x8, x8, #0x0`, each carrying its own relocation to `.rodata`, and loads with `ldr w0, [x8, w0, uxtw #2]`. The recognizer reads the addend from the `add` relocation.
+Dạng AArch64 ghép địa chỉ bảng bằng `adrp x8` và `add x8, x8, #0x0`, mỗi lệnh mang relocation riêng tới `.rodata`, và tải bằng `ldr w0, [x8, w0, uxtw #2]`. Bộ nhận dạng đọc addend từ relocation `add`.
 
 ### The linear map, with no table at all
 
-`linear_switch` returns `10 * (k + 1)` for `k` in 0 to 6. `simplifySwitchLookup` detects the affine relation and emits arithmetic:
+`linear_switch` trả về `10 * (k + 1)` cho `k` trong 0 đến 6. `simplifySwitchLookup` phát hiện quan hệ affine và phát ra số học:
 
 ```text
       b0: 83 ff 07                     	cmpl	$0x7, %edi
@@ -151,23 +151,23 @@ The AArch64 form puts the table address together with `adrp x8` and `add x8, x8,
       bf: 0f 42 c1                     	cmovbl	%ecx, %eax
 ```
 
-The evaluator reads `leal (%rdi,%rdi,4)` as `5*k`, `leal 0xa(%rax,%rax)` as `10*k + 10`, and the `cmovb` after `cmpl $7` as `k < 7 ? 10*k + 10 : -1`. The recognizer then checks the formula against every source case and marks the idiom verified. AArch64 reaches the same expression with `madd w8, w0, w8, w9` and `csinv w0, w8, wzr, lo`, where `csinv` with `wzr` yields `-1` on the default path.
+Bộ đánh giá đọc `leal (%rdi,%rdi,4)` là `5*k`, `leal 0xa(%rax,%rax)` là `10*k + 10`, và `cmovb` sau `cmpl $7` là `k < 7 ? 10*k + 10 : -1`. Bộ nhận dạng sau đó kiểm tra công thức với mọi case nguồn và đánh dấu mẫu đã xác minh. AArch64 đạt cùng biểu thức bằng `madd w8, w0, w8, w9` và `csinv w0, w8, wzr, lo`, nơi `csinv` với `wzr` cho `-1` trên đường mặc định.
 
 ### The jump table, read from relocations
 
-`call_switch` at `-O2` is the shape lesson 33 recovered in `grade` at `-O0`: `cmpl $4; ja`, a `leaq` to `.rodata-0x4`, a `movslq` of a 4-byte entry, `addq`, and `jmpq *%rax`. The five entries are relocations in `.rela.rodata`, and `target = addend - 4k` gives `0x10c, 0x107, 0x10e, 0x110, 0x109`, five distinct blocks that each tail-jump through a function pointer. The `dispatch` fixture scales this to 16 cases: 16 relocation entries on x86-64, and on AArch64 a compressed table of 16 single bytes read with `ldrb w11, [x9, x8]`, scaled by 4 with `add x10, x10, x11, lsl #2`, and based on an `adr` of the first case block. The recognizer decodes `[0x24, 0x74, 0x54, ...]` from the byte table and reports `compressed: true`.
+`call_switch` ở `-O2` là dạng mà bài 33 khôi phục trong `grade` ở `-O0`: `cmpl $4; ja`, một `leaq` tới `.rodata-0x4`, một `movslq` của một mục 4 byte, `addq` và `jmpq *%rax`. Năm mục là các relocation trong `.rela.rodata`, và `target = addend - 4k` cho `0x10c, 0x107, 0x10e, 0x110, 0x109`, năm khối phân biệt, mỗi khối tail-jump qua một con trỏ hàm. Fixture `dispatch` mở rộng điều này lên 16 case: 16 mục relocation trên x86-64, và trên AArch64 một bảng nén 16 byte đơn được đọc bằng `ldrb w11, [x9, x8]`, nhân tỷ lệ 4 bằng `add x10, x10, x11, lsl #2`, và dựa trên một `adr` của khối case đầu. Bộ nhận dạng giải mã `[0x24, 0x74, 0x54, ...]` từ bảng byte và báo cáo `compressed: true`.
 
 ### The same switch at four levels
 
-`digest` holds a switch on `sum / 10` with cases 6 to 10 and values 1, 2, 4, 8, 8, then multiplies the result by 16. On x86-64 it is a jump table at `-O0`, a lookup table at `-O1` with entries `[16, 32, 64, 128, 128]`, and a jump table again at `-O2` and `-O3` whose four case blocks store `0x10`, `0x20`, `0x40`, `0x80`. From `-O1` upward the multiplication by 16 has moved into the cases. At `-O0` the cases store 1, 2, 4, and 8, and the multiplication stays after the switch. For the `-O1` lookup table the recognizer compares the entries with the source values, finds a constant ratio, and reports `foldedFactor: 16`. On AArch64 the `-O2` form is a comparison tree with a pivot at 8, equality tests for 6, 7, and 8, and a range test `sub w9, w9, #9; cmp w9, #2; b.hs` that covers cases 9 and 10 in two instructions. The recognizer reports `rangeTests: [[9, 10]]`.
+`digest` chứa một switch trên `sum / 10` với case 6 đến 10 và các giá trị 1, 2, 4, 8, 8, rồi nhân kết quả với 16. Trên x86-64 nó là một jump table ở `-O0`, một bảng tra cứu ở `-O1` với các mục `[16, 32, 64, 128, 128]`, và lại một jump table ở `-O2` và `-O3` có bốn khối case lưu `0x10`, `0x20`, `0x40`, `0x80`. Từ `-O1` trở lên, phép nhân với 16 đã chuyển vào các case. Ở `-O0`, các case lưu 1, 2, 4 và 8, và phép nhân ở lại sau switch. Với bảng tra cứu `-O1`, bộ nhận dạng so sánh các mục với các giá trị nguồn, tìm một tỷ số hằng và báo cáo `foldedFactor: 16`. Trên AArch64, dạng `-O2` là một cây so sánh với một pivot tại 8, các kiểm tra bằng nhau cho 6, 7 và 8, và một kiểm tra phạm vi `sub w9, w9, #9; cmp w9, #2; b.hs` bao quát case 9 và 10 trong hai chỉ lệnh. Bộ nhận dạng báo cáo `rangeTests: [[9, 10]]`.
 
-Two flags move these boundaries. `-fno-jump-tables` turns `table_switch`, `call_switch`, and the `digest` switch into comparison trees on x86-64, with pivots 2 and 4 for the seven-case function. On AArch64, `-mllvm -min-jump-table-entries=4` leaves `call_switch` as a comparison tree, so on that target the entry count was not the deciding input for a five-case switch of indirect calls. The fixture `idioms-arm64-jt4-O2.o` records that run.
+Hai cờ di chuyển các ranh giới này. `-fno-jump-tables` biến `table_switch`, `call_switch` và switch `digest` thành các cây so sánh trên x86-64, với pivot 2 và 4 cho hàm bảy case. Trên AArch64, `-mllvm -min-jump-table-entries=4` để `call_switch` là một cây so sánh, nên trên mục tiêu đó số mục không phải đầu vào quyết định cho một switch năm case của các lần gọi gián tiếp. Fixture `idioms-arm64-jt4-O2.o` ghi lần chạy đó.
 
-GCC puts both decisions in `tree-switch-conversion.cc`, with the classes `jump_table_cluster`, `bit_test_cluster`, `switch_decision_tree`, and `switch_conversion`. Its `-ftree-switch-conversion` is on at `-O2`, `-fjump-tables` and `-fbit-tests` at `-O1`, and the jump table threshold comes from `case-values-threshold`, whose default is the machine's value. No GCC is installed on this machine, so those names come from the GCC source and manual, and Compiler Explorer is where you check them.
+GCC đặt cả hai quyết định trong `tree-switch-conversion.cc`, với các lớp `jump_table_cluster`, `bit_test_cluster`, `switch_decision_tree` và `switch_conversion`. `-ftree-switch-conversion` của nó bật ở `-O2`, `-fjump-tables` và `-fbit-tests` ở `-O1`, và ngưỡng jump table đến từ `case-values-threshold`, có mặc định là giá trị của máy. Không GCC nào được cài trên máy này, nên các tên đó đến từ nguồn và sổ tay GCC, và Compiler Explorer là nơi bạn kiểm tra chúng.
 
 ## Loops: Vectorized, Unrolled, or Replaced
 
-LLVM's loop vectorizer is on at `-O2`, `-O3`, and `-Os`, and off at `-O0` and `-O1`, a rule that dates to LLVM 3.4 in January 2014. `sum_n` at `-O2` shows every part of the shape:
+Loop vectorizer của LLVM bật ở `-O2`, `-O3` và `-Os`, và tắt ở `-O0` cùng `-O1`, một quy tắc có từ LLVM 3.4 tháng 1 năm 2014. `sum_n` ở `-O2` cho thấy mọi phần của dạng:
 
 ```text
      1f6: 83 fe 07                     	cmpl	$0x7, %esi
@@ -186,39 +186,39 @@ LLVM's loop vectorizer is on at `-O2`, `-O3`, and `-Os`, and off at `-O0` and `-
      279: 75 f5                        	jne	0x270 <sum_n+0x80>
 ```
 
-The guard `cmpl $7; ja` sends trip counts below 8 to the scalar loop. The mask `andl $0x7ffffff8` rounds the trip count down to a multiple of 8. The body loads 32 bytes per iteration into two `xmm` accumulators, four 32-bit lanes each, so the vectorization factor is 4 and the interleave factor is 2. After the loop, `paddd`, two `pshufd`, two more `paddd`, and `movd` reduce the eight lanes to one integer. The loop at `0x270` is the scalar remainder for the last 0 to 7 elements. The recognizer finds the loop from its back edge, sees the SIMD registers, reads the lane count from `paddd`, counts distinct accumulators, divides the step `0x20` by 4, and reports `4 lanes x 2 accumulators = 8 elements per iteration`, with the mask, the guard, the reduction, and the remainder loop as fields. AArch64 does the same with `ldp q2, q3`, two `add v.4s`, `addv s0, v0.4s`, and `fmov w8, s0`.
+Điều kiện bảo vệ `cmpl $7; ja` gửi các số lượt lặp dưới 8 tới vòng lặp vô hướng. Mask `andl $0x7ffffff8` làm tròn số lượt lặp xuống một bội của 8. Thân tải 32 byte mỗi vòng lặp vào hai bộ tích lũy `xmm`, mỗi bộ bốn lane 32 bit, nên hệ số vector hóa là 4 và hệ số đan xen là 2. Sau vòng lặp, `paddd`, hai `pshufd`, thêm hai `paddd` và `movd` rút tám lane về một số nguyên. Vòng lặp tại `0x270` là phần dư vô hướng cho 0 đến 7 phần tử cuối. Bộ nhận dạng tìm vòng lặp từ back edge của nó, thấy các thanh ghi SIMD, đọc số lane từ `paddd`, đếm các bộ tích lũy phân biệt, chia bước `0x20` cho 4 và báo cáo `4 lanes x 2 accumulators = 8 elements per iteration`, với mask, điều kiện bảo vệ, phép rút gọn và vòng lặp phần dư làm các trường. AArch64 làm tương tự bằng `ldp q2, q3`, hai `add v.4s`, `addv s0, v0.4s` và `fmov w8, s0`.
 
-A fixed trip count removes the loop. `sum4` is one `movdqu`, the reduction, and `movd`, with no back edge. `poly8` cannot vectorize, because each iteration depends on the previous accumulator, so the compiler unrolls it eight times: eight loads at offsets 0 through `0x1c` from `%rdi`, each followed by a shift by 5 and a subtract that compute `acc * 31`. The recognizer counts the loads at consecutive offsets from one base and reports `loop unrolled by 8, no back edge`. On AArch64 the same loads arrive as four `ldp` pairs.
+Một số lượt lặp cố định loại vòng lặp. `sum4` là một `movdqu`, phép rút gọn và `movd`, không có back edge. `poly8` không thể vector hóa, vì mỗi vòng lặp phụ thuộc bộ tích lũy trước, nên compiler unroll nó tám lần: tám lần tải tại các offset 0 đến `0x1c` từ `%rdi`, mỗi lần theo sau bởi một phép dịch 5 và một phép trừ tính `acc * 31`. Bộ nhận dạng đếm các lần tải tại các offset liên tiếp từ một base và báo cáo `loop unrolled by 8, no back edge`. Trên AArch64, cùng các lần tải đến dưới dạng bốn cặp `ldp`.
 
-Turn the vectorizer off with `-fno-vectorize -fno-slp-vectorize` and `sum_n` becomes a scalar loop unrolled by 8, with eight `addl k(%rdi,%rdx,4), %eax` and `addq $8`, plus a remainder loop. `sum4` becomes four adds. The recognizer reports `unrolled loop` with `copies: 8` and `indexStep: 8` for the first and `copies: 4` for the second.
+Tắt vectorizer bằng `-fno-vectorize -fno-slp-vectorize` và `sum_n` trở thành một vòng lặp vô hướng unroll theo 8, với tám `addl k(%rdi,%rdx,4), %eax` và `addq $8`, cộng một vòng lặp phần dư. `sum4` trở thành bốn phép cộng. Bộ nhận dạng báo cáo `unrolled loop` với `copies: 8` và `indexStep: 8` cho hàm đầu và `copies: 4` cho hàm thứ hai.
 
-Lesson 33 found two back edges in `total` at `-O2` and called them two loops. This lesson names them: one vector body and one scalar remainder of the same source loop. A back edge is a loop only when its target can reach it again. `is_loop()` checks that, because `digest` on AArch64 contains backward branches to a shared default block that are not loops, and the first version of the recognizer counted them as vector loops.
+Bài 33 tìm hai back edge trong `total` ở `-O2` và gọi chúng là hai vòng lặp. Bài học này đặt tên chúng: một thân vector và một phần dư vô hướng của cùng vòng lặp nguồn. Một back edge chỉ là một vòng lặp khi đích của nó có thể đến lại nó. `is_loop()` kiểm tra điều đó, vì `digest` trên AArch64 chứa các nhánh ngược tới một khối mặc định dùng chung không phải các vòng lặp, và phiên bản đầu của bộ nhận dạng đếm chúng là các vòng lặp vector.
 
 ### Loops that become library calls
 
-`LoopIdiomRecognize` turns a loop that stores zero into every byte into a call to `memset`, from `-O1` upward. `fill` at `-O2` is `testl %esi, %esi; jle; movl %esi, %edx; xorl %esi, %esi; jmp memset@PLT`. The call is a tail jump with the relocation `R_X86_64_PLT32 memset-0x4`, and the function's `retq` is only on the empty path. The recognizer reports `store loop recognized as memset(...)` and verifies it against the source loop, because the source never names `memset`.
+`LoopIdiomRecognize` biến một vòng lặp lưu không vào mọi byte thành một lần gọi `memset`, từ `-O1` trở lên. `fill` ở `-O2` là `testl %esi, %esi; jle; movl %esi, %edx; xorl %esi, %esi; jmp memset@PLT`. Lần gọi là một bước nhảy đuôi với relocation `R_X86_64_PLT32 memset-0x4`, và `retq` của hàm chỉ trên đường rỗng. Bộ nhận dạng báo cáo `store loop recognized as memset(...)` và xác minh nó với vòng lặp nguồn, vì nguồn không bao giờ nêu tên `memset`.
 
-`copy16` calls `memcpy` with a constant 16, and the x86 backend expands it inline as `movups (%rsi), %xmm0; movups %xmm0, (%rdi)`, within its limit of 8 stores per `memcpy`. At `-O0` the same call is two 8-byte `movq` pairs. With `-fno-builtin` the call stays a call, `jmp memcpy@PLT` with `movl $0x10, %edx`, and `fill` keeps its loop, which the vectorizer then turns into a loop of two 16-byte `movups` stores per iteration. The recognizer reports `vectorized store loop: 2 x 16-byte stores = 32 bytes per iteration` for that build.
+`copy16` gọi `memcpy` với một hằng số 16, và backend x86 mở rộng nó inline thành `movups (%rsi), %xmm0; movups %xmm0, (%rdi)`, trong giới hạn 8 lần lưu mỗi `memcpy` của nó. Ở `-O0`, cùng lần gọi là hai cặp `movq` 8 byte. Với `-fno-builtin`, lần gọi vẫn là một lần gọi, `jmp memcpy@PLT` với `movl $0x10, %edx`, và `fill` giữ vòng lặp của nó, mà vectorizer sau đó biến thành một vòng lặp hai lần lưu `movups` 16 byte mỗi vòng lặp. Bộ nhận dạng báo cáo `vectorized store loop: 2 x 16-byte stores = 32 bytes per iteration` cho bản build đó.
 
 ## Calls That Disappear or Become Jumps
 
-`tail_caller` returns `tail_target(x + 1)`. At `-O0` it is `addl $0x1, %edi; callq tail_target@PLT; addq $0x10, %rsp; popq %rbp; retq`. At `-O2` it is `incl %edi; jmp tail_target@PLT` and nothing else. The caller's frame is gone and the callee returns to the caller's caller. On AArch64 the jump is `b tail_target` with `R_AARCH64_JUMP26`. The recognizer treats a `jmp` or `b` that carries a call relocation as a tail call. Lesson 33's recursive descent must treat it as a function exit, because the target is outside the function.
+`tail_caller` trả về `tail_target(x + 1)`. Ở `-O0`, nó là `addl $0x1, %edi; callq tail_target@PLT; addq $0x10, %rsp; popq %rbp; retq`. Ở `-O2`, nó là `incl %edi; jmp tail_target@PLT` và không gì khác. Khung của caller đã mất và callee trả về cho caller của caller. Trên AArch64, bước nhảy là `b tail_target` với `R_AARCH64_JUMP26`. Bộ nhận dạng coi một `jmp` hoặc `b` mang một relocation gọi là một tail call. Recursive descent của bài 33 phải coi nó là một lối thoát hàm, vì đích nằm ngoài hàm.
 
-`twice_sum` calls `leaf_add`. At `-O0` the call is there, `callq leaf_add@PLT`. From `-O1` the body of `leaf_add`, `leal (%rdi,%rsi), %eax`, appears inside `twice_sum` and no call remains. At `-O0` clang marks every function `optnone` and `noinline` and runs only the always-inliner. The recognizer knows from the source that `twice_sum` calls `leaf_add`, finds no call or tail jump to it, and then looks for the callee's body shape in the caller: the mnemonic and source operands with the destination removed, so `add w8, w1, w0` in the AArch64 caller matches `add w0, w1, w0` in the callee. One match is the evidence.
+`twice_sum` gọi `leaf_add`. Ở `-O0`, lần gọi có đó, `callq leaf_add@PLT`. Từ `-O1`, thân của `leaf_add`, `leal (%rdi,%rsi), %eax`, xuất hiện bên trong `twice_sum` và không lần gọi nào còn lại. Ở `-O0`, clang đánh dấu mọi hàm `optnone` và `noinline` và chỉ chạy always-inliner. Bộ nhận dạng biết từ nguồn rằng `twice_sum` gọi `leaf_add`, không tìm thấy lần gọi hoặc bước nhảy đuôi tới nó, rồi tìm dạng thân của callee trong caller: mnemonic và các toán hạng nguồn với đích được loại bỏ, để `add w8, w1, w0` trong caller AArch64 khớp `add w0, w1, w0` trong callee. Một lần khớp là bằng chứng.
 
-`dispatch` combines both: a 16-entry jump table whose every case is `movl %esi, %edi; jmp fN@PLT`. The recognizer reports one switch and 16 tail calls, all verified against the 16 calls in the source.
+`dispatch` kết hợp cả hai: một jump table 16 mục mà mọi case là `movl %esi, %edi; jmp fN@PLT`. Bộ nhận dạng báo cáo một switch và 16 tail call, tất cả được xác minh với 16 lần gọi trong nguồn.
 
 ## Branches That Became Data Moves
 
-`clamp_max` is `movl %esi, %eax; cmpl %esi, %edi; cmovgl %edi, %eax`. The evaluator names `%edi` as `a` and `%esi` as `b`, records the compare, and reads the `cmovg` as `a > b ? a : b`, which is the source text. `abs_int` is `movl %edi, %eax; negl %eax; cmovsl %edi, %eax` and reads as `-x < 0 ? x : -x`; AArch64 writes it as `cmp w0, #0; cneg w0, w0, mi` and reads as `x < 0 ? -x : x`. `is_pos` is `xorl %eax, %eax; testl %edi, %edi; setg %al`, which reads as `(x > 0)`. These are `-fif-conversion` in GCC's words and `cmov` selection in LLVM's. LLVM's `X86CmovConversion` pass can turn a `cmov` back into branches when it judges that profitable, which is why the same source can show either shape in a loop.
+`clamp_max` là `movl %esi, %eax; cmpl %esi, %edi; cmovgl %edi, %eax`. Bộ đánh giá đặt tên `%edi` là `a` và `%esi` là `b`, ghi phép so sánh và đọc `cmovg` là `a > b ? a : b`, chính là văn bản nguồn. `abs_int` là `movl %edi, %eax; negl %eax; cmovsl %edi, %eax` và đọc là `-x < 0 ? x : -x`; AArch64 viết nó là `cmp w0, #0; cneg w0, w0, mi` và đọc là `x < 0 ? -x : x`. `is_pos` là `xorl %eax, %eax; testl %edi, %edi; setg %al`, đọc là `(x > 0)`. Đây là `-fif-conversion` theo từ ngữ của GCC và chọn `cmov` trong LLVM. Lượt `X86CmovConversion` của LLVM có thể biến một `cmov` trở lại thành các nhánh khi nó đánh giá điều đó có lợi, đó là lý do cùng nguồn có thể hiển thị bất kỳ dạng nào trong một vòng lặp.
 
-At `-O0` none of these exist. `clamp_max` is a compare, a `jle`, two stores to the same slot, and a load. The recognizer reports nothing for it at `-O0` and `branchless select` from `-O1`, which is one of the facts the figure makes visible.
+Ở `-O0`, không dạng nào trong số này tồn tại. `clamp_max` là một phép so sánh, một `jle`, hai lần lưu vào cùng slot và một lần tải. Bộ nhận dạng không báo cáo gì cho nó ở `-O0` và `branchless select` từ `-O1`, chính là một trong những sự kiện mà hình làm rõ.
 
-`mul9` is one `leal (%rdi,%rdi,8), %eax`, and the recognizer reports `strength reduction` with `x * 9`, because the source multiplies by 9. It only does so when the source has the factor; a `lea` that scales a table index is not a multiplication.
+`mul9` là một `leal (%rdi,%rdi,8), %eax`, và bộ nhận dạng báo cáo `strength reduction` với `x * 9`, vì nguồn nhân với 9. Nó chỉ làm vậy khi nguồn có hệ số; một `lea` nhân tỷ lệ một chỉ số bảng không phải một phép nhân.
 
 ## Two Hardening Features That Look Like Idioms
 
-The stack protector is a compiler feature, and it leaves a shape that an agent will otherwise read as program logic. `canary.c` compiled with `-fstack-protector-strong` for x86-64 Linux gives:
+Stack protector là một tính năng compiler, và nó để lại một dạng mà một agent nếu không sẽ đọc như logic chương trình. `canary.c` được biên dịch bằng `-fstack-protector-strong` cho Linux x86-64 cho:
 
 ```text
        7: 64 48 8b 04 25 28 00 00 00   	movq	%fs:0x28, %rax
@@ -230,34 +230,34 @@ The stack protector is a compiler feature, and it leaves a shape that an agent w
 		000000000000003c:  R_X86_64_PLT32	__stack_chk_fail-0x4
 ```
 
-`%fs:0x28` is `stack_guard` in glibc's `tcbhead_t`, at byte offset 40, and LLVM's `getIRStackGuard` names that slot for glibc, bionic, and Fuchsia. The prologue copies the guard above the buffer, the epilogue compares, and the failure path calls `__stack_chk_fail`. On AArch64 Linux the guard comes from the global `__stack_chk_guard` through the GOT with `adrp` and `ldr`, and the failure is `bl __stack_chk_fail`. The recognizer reports the guard source, the slot, the compare, and the fail call. `plain_leaf`, which has no array, has no canary under `strong`, which protects functions with arrays, `alloca`, or address-taken locals. The research notes also record the MSVC form under `/GS`, a cookie mixed with `%rsp` and checked by `__security_check_cookie`; no MSVC linker exists on this machine, so that shape is described from the compiler's assembly output only.
+`%fs:0x28` là `stack_guard` trong `tcbhead_t` của glibc, tại byte offset 40, và `getIRStackGuard` của LLVM nêu tên slot đó cho glibc, bionic và Fuchsia. Prologue sao chép guard phía trên buffer, epilogue so sánh và đường thất bại gọi `__stack_chk_fail`. Trên Linux AArch64, guard đến từ biến toàn cục `__stack_chk_guard` qua GOT bằng `adrp` và `ldr`, và thất bại là `bl __stack_chk_fail`. Bộ nhận dạng báo cáo nguồn guard, slot, phép so sánh và lần gọi thất bại. `plain_leaf`, không có mảng, không có canary dưới `strong`, bảo vệ các hàm có mảng, `alloca` hoặc biến cục bộ được lấy địa chỉ. Các ghi chú nghiên cứu cũng ghi dạng MSVC dưới `/GS`, một cookie trộn với `%rsp` và được kiểm tra bởi `__security_check_cookie`; không linker MSVC nào tồn tại trên máy này, nên dạng đó chỉ được mô tả từ đầu ra assembly của compiler.
 
-`-fcf-protection=full` puts `endbr64`, bytes `f3 0f 1e fa`, as the first instruction of every function. It is a landing pad for indirect branches on processors with control-flow enforcement, and it executes as a `nop` elsewhere. Ghidra's x86-64 function-start patterns include the `endbr64` prefixed variants of `push rbp; mov rbp, rsp` for this reason. The recognizer reports it as `cet landing pad`, so a function that starts with four unusual bytes is not mistaken for data.
+`-fcf-protection=full` đặt `endbr64`, các byte `f3 0f 1e fa`, làm chỉ lệnh đầu của mọi hàm. Nó là một landing pad cho các nhánh gián tiếp trên các bộ xử lý có thực thi luồng điều khiển, và nó thực thi như một `nop` ở nơi khác. Các mẫu điểm bắt đầu hàm x86-64 của Ghidra bao gồm các biến thể tiền tố `endbr64` của `push rbp; mov rbp, rsp` vì lý do này. Bộ nhận dạng báo cáo nó là `cet landing pad`, để một hàm bắt đầu bằng bốn byte bất thường không bị nhầm là dữ liệu.
 
 ## What the Decompilers Fold
 
-Every decompiler in lesson 37 runs some of these derivations as rewrite rules. Ghidra's decompiler names them in `ruleaction.cc`. `RuleDivOpt` is "Convert INT_MULT and shift forms into INT_DIV or INT_SDIV", with the forms `sub( (zext(V)*c), d) >> e => V / (2^n/(c-1)) where n = d*8 + e` and the signed variant with `sext` and `s>>`. `RuleModOpt` is "Simplify expressions that optimize INT_REM and INT_SREM". `RuleDivTermAdd` handles the add fix-up, `RuleSignDiv2` turns `(V + -1*(V s>> 31)) s>> 1` into `V s/ 2`, and `RulePositiveDiv` turns a signed division of values with clear sign bits into the unsigned one. Lesson 37 captured Ghidra 12.1.4 on lesson 33's `grade` at `-O1`, and the output reads `uVar2 = param_1 / 10 - 6;`. The division is folded.
+Mọi decompiler trong bài 37 chạy một số phép suy ra này như các quy tắc viết lại. Decompiler của Ghidra đặt tên chúng trong `ruleaction.cc`. `RuleDivOpt` là "Chuyển các dạng INT_MULT và dịch thành INT_DIV hoặc INT_SDIV", với các dạng `sub( (zext(V)*c), d) >> e => V / (2^n/(c-1)) where n = d*8 + e` và biến thể có dấu với `sext` và `s>>`. `RuleModOpt` là "Đơn giản hóa các biểu thức tối ưu hóa INT_REM và INT_SREM". `RuleDivTermAdd` xử lý sửa cộng, `RuleSignDiv2` biến `(V + -1*(V s>> 31)) s>> 1` thành `V s/ 2`, và `RulePositiveDiv` biến một phép chia có dấu của các giá trị có bit dấu không được đặt thành phép chia không dấu. Bài 37 thu Ghidra 12.1.4 trên `grade` của bài 33 ở `-O1`, và đầu ra đọc là `uVar2 = param_1 / 10 - 6;`. Phép chia được gộp.
 
-The input to those rules is visible without Java. The venv's pypcode 4.0.1 lifts with the same SLEIGH specification Ghidra uses, and `code/fixtures/idioms-x86_64-O2.lifts.json` holds the raw P-code for `div10s`: 112 entries for seven instructions, of which 7 are the `IMARK` markers that open each instruction, among them `RAX = RAX * unique[95a00:8]` after `unique[95a00:8] = sext(0x66666667)`, `RCX = RCX >> unique[d1a00:4]`, and `RAX = RAX s>> unique[c5c00:4]`. The `shrq` carries 41 operations and the `sarq` carries 40, and most of them compute the flags. `RuleDivOpt` matches the multiply and the two shifts in this stream, and dead-code elimination removes the flags that nothing reads.
+Đầu vào cho các quy tắc đó nhìn thấy được không cần Java. pypcode 4.0.1 của venv nâng bằng cùng đặc tả SLEIGH mà Ghidra sử dụng, và `code/fixtures/idioms-x86_64-O2.lifts.json` chứa P-code thô cho `div10s`: 112 mục cho bảy chỉ lệnh, trong đó 7 là các dấu `IMARK` mở mỗi chỉ lệnh, trong số chúng `RAX = RAX * unique[95a00:8]` sau `unique[95a00:8] = sext(0x66666667)`, `RCX = RCX >> unique[d1a00:4]` và `RAX = RAX s>> unique[c5c00:4]`. `shrq` mang 41 thao tác và `sarq` mang 40, và phần lớn chúng tính các cờ. `RuleDivOpt` khớp phép nhân và hai phép dịch trong luồng này, và loại bỏ mã chết loại các cờ mà không có gì đọc.
 
-angr 10.0.3 ran on our `-O2` object, and `idioms-x86_64-O2.angr.json` holds its decompiler output for 20 functions. It folds the unsigned form: `div10u` is `return a0 / 10;`. It does not fold the signed form: `div10s` is `v1 = a0 * 1717986919; return ((long long)(v1) >> 0x22) + (v1 >> 63);` and `mod10s` is `a0 - (...) * 2 * 5`. For `div7u` it prints `(a0 / 7 + ((a0 * 6 / 7 & 0xffffffff) >> 1 & 0xffffffff) & 0xffffffff) >> 2`, where the fix-up terms survive as arithmetic. It folds `mul9` to `a0 * 9`, `linear_switch` to `(a0 < 7 ? a0 * 10 + 10 : 0xffffffff)`, `clamp_max` to `((int)a1 < (int)a0 ? a0 : a1)`, `is_pos` to `a0 > 0`, and `fill` to `return memset(a0, 0, a1);`. It prints `table_switch` as a load `*(int *)(4 * a0 + 4195400)` without the values, `sum_n` with `_mm_add_epi32` and `_mm_shuffle_epi32` intrinsics, and `tail_caller` as `tail_target(); return;` with the argument lost. In `digest` the jump table becomes `goto *((void *)(...))` with the table arithmetic written out.
+angr 10.0.3 chạy trên object `-O2` của chúng ta, và `idioms-x86_64-O2.angr.json` chứa đầu ra decompiler của nó cho 20 hàm. Nó gộp dạng không dấu: `div10u` là `return a0 / 10;`. Nó không gộp dạng có dấu: `div10s` là `v1 = a0 * 1717986919; return ((long long)(v1) >> 0x22) + (v1 >> 63);` và `mod10s` là `a0 - (...) * 2 * 5`. Với `div7u`, nó in `(a0 / 7 + ((a0 * 6 / 7 & 0xffffffff) >> 1 & 0xffffffff) & 0xffffffff) >> 2`, nơi các số hạng sửa còn lại như số học. Nó gộp `mul9` thành `a0 * 9`, `linear_switch` thành `(a0 < 7 ? a0 * 10 + 10 : 0xffffffff)`, `clamp_max` thành `((int)a1 < (int)a0 ? a0 : a1)`, `is_pos` thành `a0 > 0` và `fill` thành `return memset(a0, 0, a1);`. Nó in `table_switch` là một lần tải `*(int *)(4 * a0 + 4195400)` không có các giá trị, `sum_n` với các intrinsic `_mm_add_epi32` và `_mm_shuffle_epi32`, và `tail_caller` là `tail_target(); return;` với đối số bị mất. Trong `digest`, jump table trở thành `goto *((void *)(...))` với phép toán bảng được viết ra.
 
-radare2 6.2.4 and rizin 0.9.1, built from source into the research cache, were run on the same object. radare2's `pdc` prints `div10s` as `rax = rax * 0x66666667; rcx >>>= 0x3f; rax >>= 0x22; eax += ecx`, register-level pseudo-C with no folding, and `table_switch` as `eax = dword [rcx + rax*4]` with a `RELOC 32 .rodata` comment on the `lea`. rizin has no built-in decompiler; its `aoi` prints the RzIL of the `imul` as a 128-bit product. lldb-1703.0.236.21 loads the ELF object and its `disassemble -n div10s` prints the same seven instructions as `llvm-objdump`, because both use LLVM's disassembler. Capstone 5.0.7 decodes the same bytes and reports groups such as `ret` and `mode64`; it is a decoder, and an idiom is never in a decoder's output. IDA Pro and Binary Ninja were not run here. Their documentation describes the stages where such rewriting happens, microcode optimization and the MLIL to HLIL passes, and this lesson makes no claim about which idioms they fold.
+radare2 6.2.4 và rizin 0.9.1, được dựng từ nguồn vào cache nghiên cứu, được chạy trên cùng object. `pdc` của radare2 in `div10s` là `rax = rax * 0x66666667; rcx >>>= 0x3f; rax >>= 0x22; eax += ecx`, pseudo-C cấp thanh ghi không gộp, và `table_switch` là `eax = dword [rcx + rax*4]` với một bình luận `RELOC 32 .rodata` trên `lea`. rizin không có decompiler tích hợp; `aoi` của nó in RzIL của `imul` như một tích 128 bit. lldb-1703.0.236.21 tải object ELF và `disassemble -n div10s` của nó in cùng bảy chỉ lệnh như `llvm-objdump`, vì cả hai sử dụng disassembler của LLVM. Capstone 5.0.7 giải mã cùng các byte và báo cáo các nhóm chẳng hạn `ret` và `mode64`; nó là một decoder, và một idiom không bao giờ nằm trong đầu ra của một decoder. IDA Pro và Binary Ninja chưa được chạy ở đây. Tài liệu của chúng mô tả các giai đoạn nơi việc viết lại như vậy xảy ra, tối ưu hóa microcode và các lượt MLIL sang HLIL, và bài học này không đưa ra khẳng định về các mẫu nào chúng gộp.
 
-Compiler Explorer is the tool for the forward direction. Paste `idioms.c`, pick a compiler entry such as "x86-64 clang 18.1.0" or "ARM64 GCC 14.2.0", and set the flags. The service lists about 1,050 C compiler entries and has an API: `GET /api/compilers/c` returns the identifiers and `POST /api/compiler/<id>/compile` returns the assembly as JSON. Matt Godbolt's 2019 ACM Queue article walks through the division, population count, chained conditional, and summation idioms with this tool. Use it for GCC output, which this machine cannot produce, and compare GCC's jump table thresholds and `-O2` vectorization defaults from GCC 12 with the clang output in the fixtures.
+Compiler Explorer là công cụ cho chiều xuôi. Dán `idioms.c`, chọn một mục compiler chẳng hạn "x86-64 clang 18.1.0" hoặc "ARM64 GCC 14.2.0" và đặt các cờ. Dịch vụ liệt kê khoảng 1,050 mục compiler C và có một API: `GET /api/compilers/c` trả về các định danh và `POST /api/compiler/<id>/compile` trả về assembly dưới dạng JSON. Bài viết ACM Queue năm 2019 của Matt Godbolt đi qua các mẫu chia, population count, điều kiện nối chuỗi và tính tổng bằng công cụ này. Sử dụng nó cho đầu ra GCC, mà máy này không thể tạo, và so sánh các ngưỡng jump table của GCC cùng mặc định vector hóa `-O2` từ GCC 12 với đầu ra clang trong các fixture.
 
 ## Build It
 
-Run the demo:
+Chạy demo:
 
 ```bash
 cd phases/13-tools-and-protocols/39-compiler-idioms-and-optimization
 python3 code/main.py
 ```
 
-The output is one JSON report. For each of the 18 builds it lists every function and its idioms, with kind, source form, evidence addresses, verification, and the detail fields. It ends with a kind matrix per build, the `-O2` versus `-O3` comparison for both architectures, and the `unverified` list.
+Đầu ra là một báo cáo JSON. Với mỗi trong 18 bản build, nó liệt kê mọi hàm và các mẫu của nó, với loại, dạng nguồn, địa chỉ bằng chứng, xác minh và các trường chi tiết. Nó kết thúc bằng một ma trận loại theo bản build, phép so sánh `-O2` với `-O3` cho cả hai kiến trúc và danh sách `unverified`.
 
-Expected shape:
+Dạng kỳ vọng:
 
 ```json
 {
@@ -277,43 +277,43 @@ Expected shape:
 }
 ```
 
-Read `code/main.py` in this order:
+Đọc `code/main.py` theo thứ tự này:
 
-1. `parse_listing()` turns the `llvm-objdump -d -r` text into functions, instructions, and attached relocations for both architectures.
-2. `ElfFile` reads sections, symbols, and `.rela.*` entries, and `words()` reads table entries.
-3. `magic_numbers()`, `divisor_from_magic()`, and `evaluate_division()` are the Granlund-Montgomery derivation forward, backward, and as the instruction sequence.
-4. `parse_source()` extracts the constructs the verification needs from the C file.
-5. `Evaluator` is the block-by-block symbolic pass that names registers and stack slots.
-6. `find_divisions()` and `find_modulos()` match the multiply, shift, fix-up, multiply-back, and power-of-two forms.
-7. `find_switches()` classifies jump tables, lookup tables, linear maps, select chains, comparison trees, and compare chains.
-8. `find_vector_loops()`, `find_unrolled_loops()`, `find_tail_calls()`, `find_inlined_calls()`, `find_selects()`, `find_memory_builtins()`, `find_stack_protector()`, `find_cet()`, and `find_strength_reduction()` cover the rest.
-9. `analyze_function()` runs them in order, feeding each idiom's result name into the next evaluator pass.
+1. `parse_listing()` biến văn bản `llvm-objdump -d -r` thành các hàm, chỉ lệnh và relocation đính kèm cho cả hai kiến trúc.
+2. `ElfFile` đọc section, symbol và các mục `.rela.*`, và `words()` đọc các mục bảng.
+3. `magic_numbers()`, `divisor_from_magic()` và `evaluate_division()` là phép suy ra Granlund-Montgomery theo chiều xuôi, ngược và dưới dạng chuỗi chỉ lệnh.
+4. `parse_source()` trích các cấu trúc mà xác minh cần từ tệp C.
+5. `Evaluator` là lượt ký hiệu từng khối đặt tên các thanh ghi và slot stack.
+6. `find_divisions()` và `find_modulos()` khớp các dạng nhân, dịch, sửa, nhân lại và lũy thừa hai.
+7. `find_switches()` phân loại jump table, bảng tra cứu, ánh xạ tuyến tính, chuỗi select, cây so sánh và chuỗi so sánh.
+8. `find_vector_loops()`, `find_unrolled_loops()`, `find_tail_calls()`, `find_inlined_calls()`, `find_selects()`, `find_memory_builtins()`, `find_stack_protector()`, `find_cet()` và `find_strength_reduction()` bao quát phần còn lại.
+9. `analyze_function()` chạy chúng theo thứ tự, đưa tên kết quả của mỗi mẫu vào lượt evaluator tiếp theo.
 
-Three more commands exist. `python3 code/main.py scan FILE.objdump.txt [FUNCTION]` runs the recognizer on one listing, with the object and the matching C file found beside it. `python3 code/main.py magic DIVISOR [signed]` prints the multiplier, shift, error, and whether the identity holds on the edge values. `python3 code/main.py figure-data` prints the data the figure embeds.
+Có thêm ba lệnh. `python3 code/main.py scan FILE.objdump.txt [FUNCTION]` chạy bộ nhận dạng trên một danh sách, với object và tệp C khớp được tìm bên cạnh nó. `python3 code/main.py magic DIVISOR [signed]` in hệ số nhân, độ dịch, sai số và liệu đồng nhất thức đúng trên các giá trị biên hay không. `python3 code/main.py figure-data` in dữ liệu mà hình nhúng.
 
 ## Use It
 
-Use the recognizer in this order on a new object you built.
+Sử dụng bộ nhận dạng theo thứ tự này trên một object mới bạn đã dựng.
 
-1. Capture `llvm-objdump -d -r` from the object and keep the exact compiler command beside it. The recognizer reads the architecture from the listing header.
-2. Run `scan` on the listing and read the `unverified` entries first. Each one is either a construct the source parser did not see or a shape the recognizer misread, and both deserve a look at the evidence addresses.
-3. For every division, read the `algorithm` field. When `clangMatchesAlgorithm` is true, the compiler chose the smallest valid shift. When it is false, the compiler had a reason you do not know yet; write the constants down.
-4. For every switch, compare the `lowering` across the levels you built. A table that becomes a tree, or a tree that becomes a table, marks a threshold you can name from the LLVM source.
-5. For every loop, read `elementsPerIteration` and `scalarRemainderLoop`, then confirm the two back edges lesson 33 reports are one source loop.
-6. Run one decompiler on the same object, quote its text next to each idiom, and record which ones it folded. That record is the baseline for lesson 45.
+1. Thu `llvm-objdump -d -r` từ object và giữ lệnh compiler chính xác cạnh nó. Bộ nhận dạng đọc kiến trúc từ header danh sách.
+2. Chạy `scan` trên danh sách và đọc các mục `unverified` trước. Mỗi mục hoặc là một cấu trúc mà source parser không thấy hoặc một dạng mà bộ nhận dạng đọc sai, và cả hai xứng đáng được nhìn vào các địa chỉ bằng chứng.
+3. Với mọi phép chia, đọc trường `algorithm`. Khi `clangMatchesAlgorithm` đúng, compiler chọn độ dịch hợp lệ nhỏ nhất. Khi nó sai, compiler có một lý do bạn chưa biết; viết ra các hằng số.
+4. Với mọi switch, so sánh `lowering` trên các mức bạn đã dựng. Một bảng trở thành một cây, hoặc một cây trở thành một bảng, đánh dấu một ngưỡng bạn có thể nêu tên từ nguồn LLVM.
+5. Với mọi vòng lặp, đọc `elementsPerIteration` và `scalarRemainderLoop`, rồi xác nhận hai back edge mà bài 33 báo cáo là một vòng lặp nguồn.
+6. Chạy một decompiler trên cùng object, trích văn bản của nó cạnh mỗi mẫu và ghi những mẫu nào nó gộp. Bản ghi đó là baseline cho bài 45.
 
 ## Interactive Lab
 
 ### Lab A: derive a magic number, then find it
 
-From the `code` directory, open Python:
+Từ thư mục `code`, mở Python:
 
 ```bash
 cd phases/13-tools-and-protocols/39-compiler-idioms-and-optimization/code
 python3 -q
 ```
 
-Run:
+Chạy:
 
 ```python
 from main import *
@@ -322,7 +322,7 @@ magic_numbers(7), magic_numbers(7, signed=True)
 divisor_from_magic(0x66666667, 34, signed=True), divisor_from_magic(0x66666667, 33, signed=True)
 ```
 
-Compute `ceil(2^35 / 10)` on paper before the first call. Then add a function `unsigned div13(unsigned x) { return x / 13; }` to a copy of `idioms.c`, build it at `-O2` with the command in `build_fixtures.sh`, and check the constant in the listing against `magic_numbers(13)`.
+Tính `ceil(2^35 / 10)` trên giấy trước lần gọi đầu. Rồi thêm một hàm `unsigned div13(unsigned x) { return x / 13; }` vào một bản sao của `idioms.c`, dựng nó ở `-O2` bằng lệnh trong `build_fixtures.sh` và kiểm tra hằng số trong danh sách với `magic_numbers(13)`.
 
 ### Lab B: the table and the tree
 
@@ -335,7 +335,7 @@ sources = load_source("idioms.c")
 elf.words(".rodata", 0x28, 7)
 ```
 
-Change `71` back to `70` in a copy of `table_switch`, rebuild at `-O2`, and watch the lookup table become a linear map. Then change one case value to 1000 and watch it stay an `ArrayKind` table.
+Thay `71` trở lại `70` trong một bản sao của `table_switch`, dựng lại ở `-O2` và theo dõi bảng tra cứu trở thành một ánh xạ tuyến tính. Rồi thay một giá trị case thành 1000 và theo dõi nó vẫn là một bảng `ArrayKind`.
 
 ### Lab C: the loop at three settings
 
@@ -344,7 +344,7 @@ for name in ("idioms-x86_64-O1", "idioms-x86_64-O2", "idioms-x86_64-novec-O2"):
     print(name, [i.source for i in analyze_function(load_listing(name + ".objdump.txt"), "sum_n", load_elf(name + ".o"), sources)])
 ```
 
-Draw the control-flow graph of `sum_n` at `-O2` by hand, mark the guard, the mask, the vector body, the reduction, and the remainder loop, and compare with the `detail` fields.
+Vẽ đồ thị luồng điều khiển của `sum_n` ở `-O2` bằng tay, đánh dấu điều kiện bảo vệ, mask, thân vector, phép rút gọn và vòng lặp phần dư, và so sánh với các trường `detail`.
 
 ### Lab D: the shared quotient
 
@@ -353,29 +353,29 @@ for name in ("idioms-x86_64-O1", "idioms-arm64-O1"):
     print([(i.kind, i.source, i.detail.get("sharedQuotient")) for i in analyze_function(load_listing(name + ".objdump.txt"), "digest", load_elf(name + ".o"), sources)])
 ```
 
-Read the `-O1` listing of `digest` and find the two instructions that combine the quotient with its sign fix-up on x86-64. Then explain why the AArch64 build needs only one.
+Đọc danh sách `-O1` của `digest` và tìm hai chỉ lệnh kết hợp thương với sửa dấu của nó trên x86-64. Rồi giải thích vì sao bản build AArch64 chỉ cần một.
 
 ## Practice Lab
 
-Add bit tricks to the fixtures and extend the recognizer.
+Thêm các thủ thuật bit vào các fixture và mở rộng bộ nhận dạng.
 
-Requirements:
+Yêu cầu:
 
-- Write `popcount`, `ctz`, and `rotl` functions with the GCC builtins and a shift-or rotate, build them at `-O2` with and without `-mpopcnt -mbmi`, and commit the objects with their listings.
-- Recognize the `0x55555555`, `0x33333333`, `0x0f0f0f0f`, `0x01010101` population-count sequence that `TargetLowering::expandCTPOP` emits, and report it as `popcount` with the four constants as evidence.
-- Recognize `rep bsfl` as the `tzcnt`-or-`bsf` encoding and `roll %cl` as the rotate, and decode both to the builtin.
-- Add the new kinds to `parse_source()` verification, so a `popcount` idiom is verified only when the source calls `__builtin_popcount`.
-- Add a test per idiom that reads the constants from the fixture listing.
+- Viết các hàm `popcount`, `ctz` và `rotl` bằng các builtin GCC và một phép quay dịch-or, dựng chúng ở `-O2` có và không có `-mpopcnt -mbmi`, và commit các object với các danh sách của chúng.
+- Nhận dạng chuỗi population-count `0x55555555`, `0x33333333`, `0x0f0f0f0f`, `0x01010101` mà `TargetLowering::expandCTPOP` phát ra, và báo cáo nó là `popcount` với bốn hằng số làm bằng chứng.
+- Nhận dạng `rep bsfl` là mã hóa `tzcnt`-hoặc-`bsf` và `roll %cl` là phép quay, và giải mã cả hai về builtin.
+- Thêm các loại mới vào xác minh `parse_source()`, để một mẫu `popcount` chỉ được xác minh khi nguồn gọi `__builtin_popcount`.
+- Thêm một bài kiểm tra mỗi mẫu đọc các hằng số từ danh sách fixture.
 
-Success means `python3 code/main.py` reports the three new kinds with `verified: true` in both builds, and the suite still reports an empty `unverified` list.
+Thành công nghĩa là `python3 code/main.py` báo cáo ba loại mới với `verified: true` trong cả hai bản build, và bộ kiểm tra vẫn báo cáo một danh sách `unverified` rỗng.
 
 ## Lesson Artifact
 
-This lesson includes `outputs/skill-compiler-idioms-and-optimization.md`. Use it to turn a listing, an object, and its source into a verified idiom report with a decompiler comparison. It requires evidence addresses for every claim, the magic-number derivation for every division, the lowering kind and entry source for every switch, and a quoted decompiler line for every idiom.
+Bài học này bao gồm `outputs/skill-compiler-idioms-and-optimization.md`. Sử dụng nó để biến một danh sách, một object và nguồn của nó thành một báo cáo mẫu đã xác minh với một phép so sánh decompiler. Nó yêu cầu các địa chỉ bằng chứng cho mọi khẳng định, phép suy ra số ma thuật cho mọi phép chia, loại hạ và nguồn mục cho mọi switch, và một dòng decompiler được trích cho mọi mẫu.
 
 ## Verify It
 
-Run the demo and the deterministic suite:
+Chạy demo và bộ kiểm tra tất định:
 
 ```bash
 cd phases/13-tools-and-protocols/39-compiler-idioms-and-optimization
@@ -383,56 +383,56 @@ python3 code/main.py
 python3 -m unittest discover -s code/tests -v
 ```
 
-Verification should prove:
+Xác minh nên chứng minh:
 
-- the listing parser reads 25 functions from the `-O2` object, keeps the bytes, and attaches `R_X86_64_PC32 .rodata+0x24` to the `leaq` in `table_switch`
-- the ELF reader returns `[10, 20, 30, 40, 50, 60, 71]` from `.rodata+0x28` and ten relocations in `.rela.rodata`
-- `magic_numbers` returns `0xcccccccd` with shift 35, `0x66666667` with 34, `0x124924925` with 35 and the add form, `0x55555556` with 32, and `0xaaaaaaab` with 33
-- the identity holds on the 32-bit edge values for every divisor from 2 to 64 that is not a power of two, signed and unsigned
-- `divisor_from_magic` recovers 10, 5, 7, and 3 from their pairs and rejects a wrong pair
-- the add fix-up sequence computes `n // 7` exactly
-- the four x86-64 divisions report the right multiplier, shift, divisor, and form, and the four AArch64 divisions decode `mov` and `movk`
-- `-O0` uses `divl` and `idivl`, `-O0 -fast-isel=false` uses the multiply, and `digest` at `-O0` mixes the two
-- modulo is recognized as multiply-back, `msub`, power-of-two, `sdiv` plus `mul` plus `subs`, and hardware `idivl`
-- a shared quotient keeps both the division and the modulo at `-O1`
-- the five lowerings are classified at `-O2` on both architectures, with the formula, the values, the targets, the pivots, and the select expression
-- `-O0` switches are jump tables on x86-64 and compare chains on AArch64
-- the `digest` switch is a jump table, then a lookup table with folded factor 16, then a jump table with four distinct targets on x86-64, and a comparison tree with the range test 9 to 10 on AArch64
-- `-fno-jump-tables` produces comparison trees, and the 16-case `dispatch` reads its targets from relocations on x86-64 and from a compressed byte table on AArch64
-- the vector loop reports 4 lanes, 2 accumulators, 8 elements per iteration, the mask, the guard, the reduction, and the remainder loop
-- fixed-trip loops are fully vectorized or fully unrolled, and `-fno-vectorize` unrolls by 8
-- `-O1` has no vectorization, `-O2` and `-O3` are identical on x86-64, and on AArch64 they differ only in `call_switch`, where `-O3` has 17 instructions and `-O2` has 18
-- `-fno-builtin` turns the store loop into a vectorized store loop and keeps `memcpy` a call
-- tail calls, the `memset` replacement, the inline 16-byte copy, and the `-O0` two-move copy are recognized
-- the inlined callee is found from `-O1` by its body shape
-- selects decode to `a > b ? a : b`, `-x < 0 ? x : -x`, `(x > 0)`, and `sum % 10 < 5 ? sum % 10 : 5`
-- the stack protector reports `%fs:0x28`, the slot, and `__stack_chk_fail`, and `endbr64` is reported on every function of the CET build
-- the source parser reads function-pointer parameters, the switch cases, the calls, and the accumulator names
-- every idiom in every build is verified and the kind matrices match
-- the interactive figure embeds the same data the analysis produces
+- parser danh sách đọc 25 hàm từ object `-O2`, giữ các byte và gắn `R_X86_64_PC32 .rodata+0x24` vào `leaq` trong `table_switch`
+- trình đọc ELF trả về `[10, 20, 30, 40, 50, 60, 71]` từ `.rodata+0x28` và mười relocation trong `.rela.rodata`
+- `magic_numbers` trả về `0xcccccccd` với độ dịch 35, `0x66666667` với 34, `0x124924925` với 35 và dạng cộng, `0x55555556` với 32 và `0xaaaaaaab` với 33
+- đồng nhất thức đúng trên các giá trị biên 32 bit cho mọi số chia từ 2 đến 64 không phải một lũy thừa hai, có dấu và không dấu
+- `divisor_from_magic` khôi phục 10, 5, 7 và 3 từ các cặp của chúng và từ chối một cặp sai
+- chuỗi sửa cộng tính `n // 7` chính xác
+- bốn phép chia x86-64 báo cáo đúng hệ số nhân, độ dịch, số chia và dạng, và bốn phép chia AArch64 giải mã `mov` và `movk`
+- `-O0` sử dụng `divl` và `idivl`, `-O0 -fast-isel=false` sử dụng phép nhân, và `digest` ở `-O0` trộn hai dạng
+- modulo được nhận dạng là nhân lại, `msub`, lũy thừa hai, `sdiv` cộng `mul` cộng `subs`, và `idivl` phần cứng
+- một thương dùng chung giữ cả phép chia và modulo ở `-O1`
+- năm cách hạ được phân loại ở `-O2` trên cả hai kiến trúc, với công thức, các giá trị, các đích, các pivot và biểu thức select
+- các switch `-O0` là các jump table trên x86-64 và các chuỗi so sánh trên AArch64
+- switch `digest` là một jump table, rồi một bảng tra cứu với hệ số được gộp 16, rồi một jump table với bốn đích phân biệt trên x86-64, và một cây so sánh với kiểm tra phạm vi 9 đến 10 trên AArch64
+- `-fno-jump-tables` tạo các cây so sánh, và `dispatch` 16 case đọc các đích của nó từ relocation trên x86-64 và từ một bảng byte nén trên AArch64
+- vòng lặp vector báo cáo 4 lane, 2 bộ tích lũy, 8 phần tử mỗi vòng lặp, mask, điều kiện bảo vệ, phép rút gọn và vòng lặp phần dư
+- các vòng lặp số lượt cố định được vector hóa hoàn toàn hoặc unroll hoàn toàn, và `-fno-vectorize` unroll theo 8
+- `-O1` không có vector hóa, `-O2` và `-O3` giống hệt trên x86-64, và trên AArch64 chúng chỉ khác ở `call_switch`, nơi `-O3` có 17 chỉ lệnh và `-O2` có 18
+- `-fno-builtin` biến vòng lặp lưu thành một vòng lặp lưu được vector hóa và giữ `memcpy` là một lần gọi
+- các tail call, thay thế `memset`, bản sao 16 byte inline và bản sao hai lần chuyển `-O0` được nhận dạng
+- callee inline được tìm từ `-O1` qua dạng thân của nó
+- các select giải mã thành `a > b ? a : b`, `-x < 0 ? x : -x`, `(x > 0)` và `sum % 10 < 5 ? sum % 10 : 5`
+- stack protector báo cáo `%fs:0x28`, slot và `__stack_chk_fail`, và `endbr64` được báo cáo trên mọi hàm của bản build CET
+- source parser đọc các tham số con trỏ hàm, các case switch, các lần gọi và các tên bộ tích lũy
+- mọi mẫu trong mọi bản build được xác minh và các ma trận loại khớp
+- hình tương tác nhúng cùng dữ liệu mà phân tích tạo ra
 
 ## Production Failure Modes
 
-| Failure | What the weak tool reports | What the analysis must prove |
+| Lỗi | Công cụ yếu báo cáo gì | Phân tích phải chứng minh gì |
 |---|---|---|
-| Multiply by a large odd constant | "multiplies by 1717986919" | The constant is `ceil(2^s / d)` for one `d`, the error satisfies the bound, and the shift is the smallest valid one |
-| Add fix-up after a 32-bit shift | Five arithmetic instructions | The multiplier is 33 bits wide and the tail is the add form of the same method |
-| Same multiplier, different shift | The same divisor | The shift selects the divisor: 34 is 10, 33 is 5 |
-| Power-of-two signed modulo | "adds 7, masks, subtracts" | The bias rounds toward zero and the result is `x % 8` |
-| Indexed load from `.rodata` | "a jump table" | A lookup table of values, with entries read from the bytes at addend plus 4 |
-| Affine arithmetic and a `cmov` | "computes 10k + 10" | A switch lowered as a linear map, verified against every source case |
-| Compare chain with ordered splits | "a sequence of ifs" | A binary search over the case constants with the pivots named |
-| Backward branch to a default block | "a loop" | The target leaves the region with an unconditional jump; it is a shared tail |
-| Two back edges in one function | "two loops" | One source loop: the vector body and its scalar remainder |
-| `jmp memset@PLT` with no `ret` | "the function has no return" | A tail call that returns through the callee, replacing a store loop |
-| Callee missing from the call graph | "never called" | Inlined: the callee's body shape appears in the caller |
-| `%fs:0x28` load and compare | "reads thread-local data" | The stack protector canary, with the fail path to `__stack_chk_fail` |
-| Four odd bytes at function start | "data before the function" | `endbr64`, the CET landing pad |
-| Decompiler shows raw arithmetic | "the tool is wrong" | The tool did not apply a fold; the derivation gives the source form and the quoted output records the gap |
+| Nhân với một hằng số lẻ lớn | "nhân với 1717986919" | Hằng số là `ceil(2^s / d)` cho một `d`, sai số đáp ứng cận và độ dịch là độ dịch hợp lệ nhỏ nhất |
+| Sửa cộng sau một độ dịch 32 bit | Năm chỉ lệnh số học | Hệ số nhân rộng 33 bit và đuôi là dạng cộng của cùng phương pháp |
+| Cùng hệ số nhân, độ dịch khác | Cùng số chia | Độ dịch chọn số chia: 34 là 10, 33 là 5 |
+| Modulo có dấu với lũy thừa hai | "cộng 7, mask, trừ" | Thiên lệch làm tròn về không và kết quả là `x % 8` |
+| Lần tải có chỉ số từ `.rodata` | "một jump table" | Một bảng tra cứu giá trị, với các mục đọc từ các byte tại addend cộng 4 |
+| Số học affine và một `cmov` | "tính 10k + 10" | Một switch được hạ thành một ánh xạ tuyến tính, được xác minh với mọi case nguồn |
+| Chuỗi so sánh với các lần tách có thứ tự | "một chuỗi if" | Một tìm kiếm nhị phân trên các hằng số case với các pivot được nêu tên |
+| Nhánh ngược tới một khối mặc định | "một vòng lặp" | Đích rời vùng bằng một bước nhảy vô điều kiện; nó là một đuôi dùng chung |
+| Hai back edge trong một hàm | "hai vòng lặp" | Một vòng lặp nguồn: thân vector và phần dư vô hướng của nó |
+| `jmp memset@PLT` không có `ret` | "hàm không có lần trả về" | Một tail call trả về qua callee, thay thế một vòng lặp lưu |
+| Callee thiếu khỏi call graph | "không bao giờ được gọi" | Inline: dạng thân của callee xuất hiện trong caller |
+| Lần tải và so sánh `%fs:0x28` | "đọc dữ liệu thread-local" | Canary stack protector, với đường thất bại tới `__stack_chk_fail` |
+| Bốn byte lạ ở điểm bắt đầu hàm | "dữ liệu trước hàm" | `endbr64`, landing pad CET |
+| Decompiler hiển thị số học thô | "công cụ sai" | Công cụ không áp dụng một phép gộp; phép suy ra cho dạng nguồn và đầu ra được trích ghi khoảng trống |
 
 ## Operational Rule
 
-Match the shape, run the derivation backwards, and write the constants that prove it. Report every idiom with its evidence addresses and its decoded source form, verify each one against the source you compiled, and quote what each decompiler printed for the same bytes.
+Khớp dạng, chạy ngược phép suy ra và viết các hằng số chứng minh nó. Báo cáo mọi mẫu với các địa chỉ bằng chứng và dạng nguồn đã giải mã của nó, xác minh mỗi mẫu với nguồn bạn đã biên dịch và trích những gì mỗi decompiler in cho cùng các byte.
 
 ## Further Reading
 
@@ -441,14 +441,14 @@ Match the shape, run the derivation backwards, and write the constants that prov
 - [Lemire, Kaser, Kurz, "Faster Remainder by Direct Computation" (2019)](https://arxiv.org/abs/1902.01961)
 - [libdivide, header-only division by runtime constants](https://github.com/ridiculousfish/libdivide)
 - [LLVM `DivisionByConstantInfo.cpp`](https://github.com/llvm/llvm-project/blob/main/llvm/lib/Support/DivisionByConstantInfo.cpp)
-- [LLVM `SwitchLoweringUtils.cpp`](https://github.com/llvm/llvm-project/blob/main/llvm/lib/CodeGen/SwitchLoweringUtils.cpp) and [`TargetLoweringBase.cpp`](https://github.com/llvm/llvm-project/blob/main/llvm/lib/CodeGen/TargetLoweringBase.cpp)
+- [LLVM `SwitchLoweringUtils.cpp`](https://github.com/llvm/llvm-project/blob/main/llvm/lib/CodeGen/SwitchLoweringUtils.cpp) và [`TargetLoweringBase.cpp`](https://github.com/llvm/llvm-project/blob/main/llvm/lib/CodeGen/TargetLoweringBase.cpp)
 - [LLVM `SimplifyCFG.cpp`, `simplifySwitchLookup`](https://github.com/llvm/llvm-project/blob/main/llvm/lib/Transforms/Utils/SimplifyCFG.cpp)
-- [LLVM Auto-Vectorization documentation](https://llvm.org/docs/Vectorizers.html) and [LLVM 3.4 release notes](https://releases.llvm.org/3.4/docs/ReleaseNotes.html)
+- [Tài liệu Auto-Vectorization LLVM](https://llvm.org/docs/Vectorizers.html) và [ghi chú phát hành LLVM 3.4](https://releases.llvm.org/3.4/docs/ReleaseNotes.html)
 - [LLVM `LoopIdiomRecognize.cpp`](https://github.com/llvm/llvm-project/blob/main/llvm/lib/Transforms/Scalar/LoopIdiomRecognize.cpp)
 - [LLVM `X86CmovConversion.cpp`](https://github.com/llvm/llvm-project/blob/release/20.x/llvm/lib/Target/X86/X86CmovConversion.cpp)
-- [LLVM `StackProtector.cpp`](https://github.com/llvm/llvm-project/blob/main/llvm/lib/CodeGen/StackProtector.cpp) and [`X86ISelLoweringCall.cpp`, `getIRStackGuard`](https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/X86/X86ISelLoweringCall.cpp)
+- [LLVM `StackProtector.cpp`](https://github.com/llvm/llvm-project/blob/main/llvm/lib/CodeGen/StackProtector.cpp) và [`X86ISelLoweringCall.cpp`, `getIRStackGuard`](https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/X86/X86ISelLoweringCall.cpp)
 - [glibc `sysdeps/x86_64/nptl/tls.h`, `tcbhead_t`](https://sourceware.org/git/?p=glibc.git;a=blob;f=sysdeps/x86_64/nptl/tls.h)
-- [GCC `tree-switch-conversion.cc`](https://github.com/gcc-mirror/gcc/blob/master/gcc/tree-switch-conversion.cc), [GCC Optimize Options](https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html), and [GCC 12 release notes](https://gcc.gnu.org/gcc-12/changes.html)
+- [GCC `tree-switch-conversion.cc`](https://github.com/gcc-mirror/gcc/blob/master/gcc/tree-switch-conversion.cc), [Các tùy chọn tối ưu hóa GCC](https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html) và [ghi chú phát hành GCC 12](https://gcc.gnu.org/gcc-12/changes.html)
 - [Ghidra decompiler `ruleaction.cc`](https://github.com/NationalSecurityAgency/ghidra/blob/master/Ghidra/Features/Decompiler/src/decompile/cpp/ruleaction.cc)
 - [angr decompiler documentation](https://docs.angr.io/en/latest/analyses/decompiler.html)
 - [radare2 book: decompilers](https://book.rada.re/arch/decompile.html)

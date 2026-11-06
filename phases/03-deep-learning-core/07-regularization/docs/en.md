@@ -41,21 +41,23 @@ graph LR
 
 ### Dropout
 
-Kỹ thuật chính quy hóa đơn giản nhất với cách diễn giải thanh nhã nhất. Trong huấn luyện, đặt ngẫu nhiên đầu ra mỗi nơ-ron bằng không với xác suất p.
+Kỹ thuật chính quy hóa đơn giản nhất với cách diễn giải thanh nhã nhất. Trong huấn luyện, đặt ngẫu nhiên đầu ra mỗi nơ-ron bằng không với xác suất $p$.
 
+```math
+\text{output} = \text{activation}(z) \cdot \text{mask} \quad \text{where }\text{mask}[i] \sim \text{Bernoulli}(1 - p)
 ```
-output = activation(z) * mask    where mask[i] ~ Bernoulli(1 - p)
-```
 
-Với p = 0.5, một nửa số nơ-ron được đưa về không trong mỗi lượt truyền xuôi. Mạng phải học các biểu diễn dư thừa vì nó không thể dự đoán những nơ-ron nào sẽ sẵn có. Điều này ngăn đồng thích nghi -- các nơ-ron học cách dựa vào sự hiện diện của những nơ-ron cụ thể khác.
+Với $p = 0.5$, một nửa số nơ-ron được đưa về không trong mỗi lượt truyền xuôi. Mạng phải học các biểu diễn dư thừa vì nó không thể dự đoán những nơ-ron nào sẽ sẵn có. Điều này ngăn đồng thích nghi -- các nơ-ron học cách dựa vào sự hiện diện của những nơ-ron cụ thể khác.
 
-Cách diễn giải ensemble: một mạng có N nơ-ron và dropout tạo ra 2^N mạng con có thể (mọi tổ hợp nơ-ron bật hay tắt). Huấn luyện với dropout xấp xỉ huấn luyện đồng thời tất cả 2^N mạng con, mỗi mạng trên các mini-batch khác nhau. Khi test, bạn sử dụng tất cả nơ-ron (không dropout) và co giãn các đầu ra theo (1 - p) để khớp giá trị kỳ vọng trong huấn luyện. Điều này tương đương lấy trung bình các dự đoán của 2^N mạng con -- một ensemble khổng lồ từ một mô hình duy nhất.
+Cách diễn giải ensemble: một mạng có $N$ nơ-ron và dropout tạo ra $2^N$ mạng con có thể (mọi tổ hợp nơ-ron bật hay tắt). Huấn luyện với dropout xấp xỉ huấn luyện đồng thời tất cả $2^N$ mạng con, mỗi mạng trên các mini-batch khác nhau. Khi test, bạn sử dụng tất cả nơ-ron (không dropout) và co giãn các đầu ra theo $(1 - p)$ để khớp giá trị kỳ vọng trong huấn luyện. Điều này tương đương lấy trung bình các dự đoán của $2^N$ mạng con -- một ensemble khổng lồ từ một mô hình duy nhất.
 
 Trong thực tế, phép co giãn được áp dụng khi huấn luyện thay vì test (dropout đảo ngược):
 
-```
-During training:  output = activation(z) * mask / (1 - p)
-During testing:   output = activation(z)   (no change needed)
+```math
+\begin{aligned}
+\text{During training:} \quad & \text{output} = \text{activation}(z) \cdot \text{mask} / (1 - p) \\
+\text{During testing:} \quad & \text{output} = \text{activation}(z) \quad \text{(no change needed)}
+\end{aligned}
 ```
 
 Cách này gọn hơn vì mã test không cần biết gì về dropout.
@@ -66,15 +68,15 @@ Các tỷ lệ mặc định: p = 0.1 cho transformer, p = 0.5 cho MLP, p = 0.2-
 
 Thêm độ lớn bình phương của tất cả trọng số vào mất mát:
 
-```
-total_loss = task_loss + (lambda / 2) * sum(w_i^2)
+```math
+\text{total\_loss} = \text{task\_loss} + \frac{\lambda}{2} \sum_i w_i^2
 ```
 
-Gradient của số hạng chính quy hóa là lambda * w. Điều này nghĩa là ở mỗi bước, mỗi trọng số co về không một phần tỷ lệ với độ lớn của nó. Các trọng số lớn bị phạt nhiều hơn. Mô hình được đẩy về các nghiệm mà không trọng số đơn lẻ nào chi phối.
+Gradient của số hạng chính quy hóa là $\lambda w$. Điều này nghĩa là ở mỗi bước, mỗi trọng số co về không một phần tỷ lệ với độ lớn của nó. Các trọng số lớn bị phạt nhiều hơn. Mô hình được đẩy về các nghiệm mà không trọng số đơn lẻ nào chi phối.
 
 Tại sao điều này giúp khái quát hóa: các mô hình quá khớp có xu hướng có trọng số lớn khuếch đại nhiễu trong dữ liệu huấn luyện. Weight decay giữ các trọng số nhỏ, giới hạn năng lực hiệu dụng của mô hình và buộc nó dựa vào các đặc trưng vững, có thể khái quát hóa thay vì những đặc điểm riêng đã ghi nhớ.
 
-Siêu tham số lambda kiểm soát độ mạnh. Các giá trị điển hình:
+Siêu tham số $\lambda$ kiểm soát độ mạnh. Các giá trị điển hình:
 
 - 0.01 cho AdamW trên transformer
 - 1e-4 cho SGD trên CNN
@@ -88,16 +90,18 @@ Chuẩn hóa đầu ra mỗi lớp trên toàn mini-batch trước khi đưa nó
 
 Với một mini-batch các kích hoạt tại một lớp nào đó:
 
-```
-mu = (1/B) * sum(x_i)           (batch mean)
-sigma^2 = (1/B) * sum((x_i - mu)^2)   (batch variance)
-x_hat = (x_i - mu) / sqrt(sigma^2 + eps)   (normalize)
-y = gamma * x_hat + beta        (scale and shift)
+```math
+\begin{aligned}
+\mu &= \frac{1}{B} \sum_i x_i && \text{(batch mean)} \\
+\sigma^2 &= \frac{1}{B} \sum_i (x_i - \mu)^2 && \text{(batch variance)} \\
+\hat{x} &= \frac{x_i - \mu}{\sqrt{\sigma^2 + \epsilon}} && \text{(normalize)} \\
+y &= \gamma \hat{x} + \beta && \text{(scale and shift)}
+\end{aligned}
 ```
 
 Gamma và beta là các tham số có thể học cho phép mạng hoàn tác chuẩn hóa nếu điều đó tối ưu. Không có chúng, bạn sẽ buộc đầu ra mọi lớp có trung bình bằng không và phương sai đơn vị, điều có thể không phải là điều mạng muốn.
 
-**Phân tách huấn luyện và suy luận:** Trong huấn luyện, mu và sigma đến từ mini-batch hiện tại. Trong suy luận, bạn sử dụng các trung bình tích lũy được thu thập trong huấn luyện (trung bình trượt hàm mũ với momentum = 0.1, nghĩa là 90% cũ + 10% mới).
+**Phân tách huấn luyện và suy luận:** Trong huấn luyện, $\mu$ và $\sigma$ đến từ mini-batch hiện tại. Trong suy luận, bạn sử dụng các trung bình tích lũy được thu thập trong huấn luyện (trung bình trượt hàm mũ với momentum = 0.1, nghĩa là 90% cũ + 10% mới).
 
 Tại sao BatchNorm hoạt động vẫn còn được tranh luận. Bài báo gốc tuyên bố nó giảm "dịch chuyển đồng biến nội bộ" (phân phối các đầu vào lớp thay đổi khi các lớp trước cập nhật). Santurkar và cộng sự (2018) cho thấy lời giải thích này sai. Lý do thực sự: BatchNorm làm bề mặt mất mát trơn hơn. Các gradient có tính dự báo cao hơn, các hằng số Lipschitz nhỏ hơn, và bộ tối ưu hóa có thể bước lớn hơn một cách an toàn. Đây là lý do BatchNorm cho phép bạn sử dụng các tốc độ học cao hơn và hội tụ nhanh hơn.
 
@@ -107,14 +111,16 @@ BatchNorm có một giới hạn cơ bản: nó phụ thuộc vào thống kê b
 
 Chuẩn hóa trên các đặc trưng thay vì trên batch. Với một mẫu đơn lẻ:
 
-```
-mu = (1/D) * sum(x_j)           (feature mean)
-sigma^2 = (1/D) * sum((x_j - mu)^2)   (feature variance)
-x_hat = (x_j - mu) / sqrt(sigma^2 + eps)
-y = gamma * x_hat + beta
+```math
+\begin{aligned}
+\mu &= \frac{1}{D} \sum_j x_j && \text{(feature mean)} \\
+\sigma^2 &= \frac{1}{D} \sum_j (x_j - \mu)^2 && \text{(feature variance)} \\
+\hat{x} &= \frac{x_j - \mu}{\sqrt{\sigma^2 + \epsilon}} \\
+y &= \gamma \hat{x} + \beta
+\end{aligned}
 ```
 
-D là số chiều đặc trưng. Mỗi mẫu được chuẩn hóa độc lập -- không phụ thuộc kích thước batch. Đây là lý do transformer sử dụng LayerNorm thay vì BatchNorm. Các chuỗi có độ dài thay đổi, kích thước batch thường nhỏ (hoặc 1 khi sinh), và tính toán giống hệt giữa huấn luyện và suy luận.
+$D$ là số chiều đặc trưng. Mỗi mẫu được chuẩn hóa độc lập -- không phụ thuộc kích thước batch. Đây là lý do transformer sử dụng LayerNorm thay vì BatchNorm. Các chuỗi có độ dài thay đổi, kích thước batch thường nhỏ (hoặc 1 khi sinh), và tính toán giống hệt giữa huấn luyện và suy luận.
 
 LayerNorm trong transformer được áp dụng sau mỗi khối self-attention và mỗi khối feed-forward (Post-LN), hoặc trước chúng (Pre-LN, ổn định hơn cho huấn luyện).
 
@@ -122,9 +128,11 @@ LayerNorm trong transformer được áp dụng sau mỗi khối self-attention 
 
 LayerNorm không có phép trừ trung bình. Được Zhang & Sennrich (2019) đề xuất.
 
-```
-rms = sqrt((1/D) * sum(x_j^2))
-y = gamma * x / rms
+```math
+\begin{aligned}
+\text{rms} &= \sqrt{\frac{1}{D} \sum_j x_j^2} \\
+y &= \gamma \cdot \frac{x}{\text{rms}}
+\end{aligned}
 ```
 
 Chỉ vậy thôi. Không tính trung bình, không tham số beta. Quan sát: việc đặt lại tâm (trừ trung bình) trong LayerNorm đóng góp rất ít vào hiệu suất mô hình, nhưng tốn tính toán. Loại bỏ nó cho cùng accuracy với chi phí phụ ít hơn khoảng 10%.
@@ -515,8 +523,8 @@ Bài học này tạo ra:
 |------|----------------|----------------------|
 | Overfitting (Quá khớp) | "Mô hình ghi nhớ dữ liệu" | Khi hiệu suất huấn luyện của mô hình vượt đáng kể hiệu suất test, cho thấy nó học nhiễu thay vì tín hiệu |
 | Regularization (Chính quy hóa) | "Ngăn quá khớp" | Bất kỳ kỹ thuật nào ràng buộc độ phức tạp mô hình để cải thiện khái quát hóa: dropout, weight decay, chuẩn hóa, tăng cường |
-| Dropout | "Xóa nơ-ron ngẫu nhiên" | Đưa các nơ-ron ngẫu nhiên về không trong huấn luyện với xác suất p, buộc các biểu diễn dư thừa; tương đương huấn luyện một ensemble |
-| Weight decay | "Hình phạt L2" | Co tất cả các trọng số về không bằng cách trừ lambda * w ở mỗi bước; phạt độ phức tạp thông qua độ lớn trọng số |
+| Dropout | "Xóa nơ-ron ngẫu nhiên" | Đưa các nơ-ron ngẫu nhiên về không trong huấn luyện với xác suất $p$, buộc các biểu diễn dư thừa; tương đương huấn luyện một ensemble |
+| Weight decay | "Hình phạt L2" | Co tất cả các trọng số về không bằng cách trừ $\lambda w$ ở mỗi bước; phạt độ phức tạp thông qua độ lớn trọng số |
 | Batch normalization | "Chuẩn hóa theo batch" | Chuẩn hóa các đầu ra lớp trên chiều batch bằng thống kê batch trong huấn luyện và các trung bình tích lũy trong suy luận |
 | Layer normalization | "Chuẩn hóa theo mẫu" | Chuẩn hóa trên các đặc trưng trong mỗi mẫu; độc lập với batch, được sử dụng trong transformer nơi kích thước batch thay đổi |
 | RMSNorm | "LayerNorm không có trung bình" | Chuẩn hóa căn trung bình bình phương; bỏ phép trừ trung bình khỏi LayerNorm để tăng tốc 10% với accuracy tương đương |

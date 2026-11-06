@@ -48,7 +48,7 @@ DPC Ireland (ngày 21 tháng 5 năm 2025): kế hoạch Meta huấn luyện trê
 
 Nguyên tắc hội tụ: lợi ích chính đáng có thể biện minh huấn luyện trên nội dung công khai bên thứ nhất với từ chối tham gia. Không cần đồng ý.
 
-### Brazilian ANPD (June 2024)
+### Brazilian ANPD (July 2024)
 
 Đình chỉ Meta xử lý dữ liệu người dùng Brazil cho huấn luyện AI do minh bạch thông tin không đủ. Kết quả khác DPA EU — ANPD ưu tiên minh bạch hơn tính chấp nhận lợi ích chính đáng.
 

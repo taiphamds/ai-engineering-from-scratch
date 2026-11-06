@@ -354,7 +354,7 @@ Bài này tạo `outputs/skill-mcp-auth.md`. Với cấu hình máy chủ MCP v�
 
 ## Exercises
 
-1. Chạy `code/main.py`. Lần theo luồng. Chú ý IdP xoay khóa ở bước 6, `refresh_jwks` theo lịch kéo lại tập công bố và cả token cũ (cửa sổ chồng lấn) lẫn token mới xác thực không khởi động lại.
+1. Chạy `code/main.py`. Theo dõi luồng. Chú ý cách IdP xoay vòng một khóa ở bước 6 của đầu ra script (bước 7 của luồng ở trên), tác vụ `refresh_jwks` được lên lịch tải lại tập đã công bố, và cả token cũ (cửa sổ chồng lấn) lẫn token mới đều xác thực hợp lệ mà không khởi động lại.
 
 2. Thêm IdP mới vào danh sách `authorization_servers` siêu dữ liệu tài nguyên được bảo vệ. Cấp token ký bởi IdP mới và xác nhận bộ xác thực nhận. Cấp token ký bởi IdP không liệt kê và xác nhận bộ xác thực từ chối với `WWW-Authenticate: Bearer error="invalid_token", error_description="iss not allowed"`.
 

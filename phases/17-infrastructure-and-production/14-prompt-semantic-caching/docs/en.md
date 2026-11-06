@@ -2,7 +2,7 @@
 
 > **Ảnh chụp mức giá vào 2026-04.** Các khẳng định số liệu bên dưới phản ánh bảng giá nhà cung cấp được ghi nhận lúc xuất bản bài học này; xác minh với tài liệu được liên kết trước khi trích dẫn chúng về sau.
 
-> Lưu bộ nhớ đệm diễn ra ở hai lớp. Lưu bộ nhớ đệm prompt/tiền tố L2 (cấp nhà cung cấp) tái sử dụng KV attention cho tiền tố lặp lại — tài liệu lưu bộ nhớ đệm prompt của Anthropic quảng cáo giảm chi phí tới 90% và giảm độ trễ 85% trên prompt dài; với Claude 3.5 Sonnet, đọc bộ nhớ đệm là $0.30/M so với $3.00/M đầu vào mới với TTL 5 phút và mức phụ phí ghi 2x cho tùy chọn TTL 1 giờ (docs.anthropic.com, 2026-04). Lưu bộ nhớ đệm prompt OpenAI tự động áp dụng cho prompt ≥1024 token và định giá đầu vào được lưu bộ nhớ đệm giảm khoảng 90% so với đầu vào mới (platform.openai.com, 2026-04); giá bộ nhớ đệm chính xác cho từng mô hình phụ thuộc bảng giá hiện hành. Lưu bộ nhớ đệm ngữ nghĩa L1 (cấp ứng dụng) bỏ qua hoàn toàn LLM khi trúng theo độ tương đồng embedding. "Độ chính xác 95%" của nhà cung cấp nói đến tính đúng đắn của việc khớp, không phải tỷ lệ trúng — tỷ lệ trúng trong sản xuất được báo cáo trải từ 10% (trò chuyện mở) đến 70% (FAQ có cấu trúc); không nhà cung cấp nào công bố đường cơ sở chính thức, nên xem đây là dữ liệu đo từ xa cộng đồng thay vì bảo đảm. Những cạm bẫy sản xuất: song song hóa phá hỏng lưu bộ nhớ đệm (N yêu cầu song song được gửi trước lần ghi bộ nhớ đệm đầu tiên có thể làm chi tiêu phình ra nhiều lần), và nội dung động trong tiền tố ngăn hoàn toàn việc trúng bộ nhớ đệm. ProjectDiscovery báo cáo chuyển từ tỷ lệ trúng 7% lên 74% (2025-11) bằng cách chuyển văn bản động ra khỏi tiền tố có thể lưu bộ nhớ đệm.
+> Caching xảy ra ở hai tầng. Prompt/prefix caching L2 (cấp nhà cung cấp) tái sử dụng attention KV cho các prefix lặp lại — tài liệu prompt-caching của Anthropic quảng cáo giảm chi phí tới 90% và giảm độ trễ 85% trên các prompt dài; với Claude 3.5 Sonnet, đọc cache là $0.30/M so với $3.00/M mới với TTL 5 phút và phụ phí ghi 2x cho tùy chọn TTL 1 giờ (docs.anthropic.com, 2026-04). Prompt caching của OpenAI áp dụng tự động cho prompt ≥1024 token và định giá đầu vào được cache giảm khoảng 90% so với mới (platform.openai.com, 2026-04); mức giá cache chính xác theo mô hình phụ thuộc bảng giá hiện hành. Semantic caching L1 (cấp ứng dụng) bỏ qua hoàn toàn LLM khi có kết quả khớp độ tương đồng embedding. "Độ chính xác 95%" của nhà cung cấp nói đến tính đúng của kết quả khớp, không phải hit rate — hit rate production được báo cáo dao động từ 10% (trò chuyện mở) đến 70% (FAQ có cấu trúc), với voice agent trên một tập prompt cố định được báo cáo ở 50-80%; không nhà cung cấp nào công bố đường cơ sở chính thức, nên coi đây là telemetry cộng đồng thay vì bảo đảm. Các cạm bẫy production: song song hóa phá caching (N yêu cầu song song phát ra trước lần ghi cache đầu tiên có thể làm chi tiêu tăng nhiều lần), và nội dung động bên trong prefix ngăn hoàn toàn cache hit. ProjectDiscovery báo cáo chuyển từ hit rate 7% lên 74% (2025-11) bằng cách chuyển văn bản động ra khỏi prefix có thể cache.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy two-layer cache simulator)
@@ -55,7 +55,7 @@ Các khẳng định độ chính xác của nhà cung cấp nói đến tần s
 
 Agent của bạn thực hiện 10 lệnh gọi công cụ song song. Cả 10 có cùng system prompt 4K token. Ghi bộ nhớ đệm Anthropic theo từng yêu cầu; lần ghi bộ nhớ đệm đầu tiên hoàn tất khoảng 300 ms sau khi nhà cung cấp thấy prompt. Yêu cầu 2-10 đến trong cùng cửa sổ mili giây và mỗi yêu cầu đều thấy trượt bộ nhớ đệm. Bạn trả 10 phụ phí ghi, 0 giảm giá đọc.
 
-Giải pháp: gom lô với tuần tự trước — thực hiện riêng yêu cầu 1, rồi gửi 2-10 khi bộ nhớ đệm của 1 đã được điền. Thêm 300 ms vào lệnh gọi công cụ đầu tiên; tiết kiệm hóa đơn 5-10x.
+Cách sửa: batch với lần đầu tuần tự — thực hiện yêu cầu 1 một mình, rồi phát 2-10 khi cache của 1 đã được điền. Thêm 300 ms cho lần gọi công cụ đầu tiên; tránh hóa đơn tăng 5-10x.
 
 ### The dynamic content anti-pattern
 
@@ -91,7 +91,7 @@ Các mức giá được ghi nhận vào 2026-04 từ tài liệu nhà cung cấ
 - Đọc bộ nhớ đệm Anthropic: $0.30/M trên Claude 3.5 Sonnet, rẻ hơn khoảng 10x so với đầu vào mới (docs.anthropic.com).
 - Phụ phí ghi bộ nhớ đệm Anthropic: 1.25x (TTL 5 phút) hoặc 2x (TTL 1 giờ).
 - Tự động lưu bộ nhớ đệm OpenAI: áp dụng cho prompt ≥1024 token; đầu vào được lưu bộ nhớ đệm có giá khoảng 10% đầu vào mới trên bảng giá hiện tại (platform.openai.com).
-- Tỷ lệ trúng bộ nhớ đệm ngữ nghĩa (cộng đồng báo cáo): ~10% trò chuyện mở; tới ~70% FAQ có cấu trúc. Không phải đường cơ sở được nhà cung cấp ghi trong tài liệu.
+- Semantic cache hit rate (cộng đồng báo cáo): ~10% trò chuyện mở; tới ~70% FAQ có cấu trúc; 50-80% cho voice agent trên một tập prompt cố định. Không phải đường cơ sở được nhà cung cấp ghi nhận.
 - ProjectDiscovery: tỷ lệ trúng 7% → 74% bằng cách chuyển nội dung động ra khỏi tiền tố (blog dự án, 2025-11).
 - Phản mẫu song song hóa: báo cáo điển hình về hóa đơn phình ra 5–10x khi N yêu cầu song song bỏ lỡ lần ghi bộ nhớ đệm đầu tiên.
 

@@ -11,7 +11,7 @@
 
 - Giải thích PagedAttention như một bộ cấp phát bộ nhớ đệm KV: các block, các bảng block, và vì sao phân mảnh ở dưới 4% tại tải sản xuất.
 - Vẽ sơ đồ gom lô liên tục ở cấp lần lặp: cách các chuỗi đã xong rời lô và các chuỗi mới tham gia mà không làm cạn lô.
-- Mô tả prefill chia khối trong một câu và nêu chỉ số độ trễ nào nó bảo vệ (gợi ý: đó là đuôi TTFT, không phải thông lượng trung bình).
+- Mô tả chunked prefill trong một câu và nêu tên chỉ số độ trễ mà nó bảo vệ (gợi ý: đó là đuôi ITL của các lượt decode đồng thời, không phải throughput trung bình).
 - Kiểm tra một tổ hợp tính năng vLLM theo ma trận tương thích cho phiên bản của bạn trước khi bật mọi tối ưu hóa cùng lúc.
 
 ## The Problem
@@ -44,7 +44,7 @@ Gom lô liên tục hoạt động giữa mỗi bước decode. Gọi tập các
 
 Kích thước lô không bao giờ được đệm tới một con số cố định. Các chuỗi ở các vị trí khác nhau trong đầu ra chia sẻ một lượt truyền xuôi hợp nhất. Trong vLLM năm 2026 điều này được gọi là `V1 scheduler`. Bất biến then chốt: bộ lập lịch chạy một lần mỗi lần lặp decode, không phải một lần mỗi yêu cầu.
 
-### Chunked prefill protects TTFT tail
+### Chunked prefill protects the ITL tail
 
 Prefill bị giới hạn bởi tính toán. Một prompt 32k token trên Llama 3.3 70B mất ~800 ms prefill thuần trên một H100. Trong khi prefill chạy, các token decode cho mọi chuỗi khác trong lô chờ. Trong một vòng lặp phục vụ, độ trễ token đầu tiên (TTFT) của một prompt dài trở thành cú nhô độ trễ giữa token (ITL) cho hàng chục người dùng khác.
 
@@ -130,7 +130,7 @@ Bài này tạo ra `outputs/skill-vllm-scheduler-reader.md`. Với một cấu h
 | Chunked prefill (Prefill chia khối) | “chia prefill” | Tách prefill dài thành các lát 512 token xen kẽ với decode |
 | TTFT | “thời gian token đầu tiên” | Prefill + hàng đợi + mạng; bị prefill chi phối ở các prompt dài |
 | ITL | “độ trễ giữa token” | Thời gian giữa các token decode liên tiếp; bị kích thước lô chi phối |
-| Goodput | “thông lượng đáp ứng SLO” | Token/giây nơi mọi yêu cầu vẫn đạt các mục tiêu TTFT và ITL |
+| Goodput | "throughput đáp ứng SLO" | Số yêu cầu/giây vẫn đạt mục tiêu TTFT và ITL (Giai đoạn 17 · 08 báo cáo nó dưới dạng tỷ lệ yêu cầu) |
 | V1 scheduler (Bộ lập lịch V1) | “bộ lập lịch mới” | Bộ lập lịch năm 2026 của vLLM; chạy gom lô liên tục với prefill chia khối |
 | `--gpu-memory-utilization` | “núm bộ nhớ” | Tỷ lệ HBM dành cho các block KV sau trọng số và các kích hoạt |
 

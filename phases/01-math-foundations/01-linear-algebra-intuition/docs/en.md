@@ -32,7 +32,7 @@ Một vector chỉ là một danh sách các số. Nhưng những số đó có 
 |---|---|-------|
 | 3 | 2 | Vector hướng từ gốc tọa độ (0,0) đến (3, 2) trên mặt phẳng |
 
-Vector có độ lớn sqrt(3^2 + 2^2) = sqrt(13) và hướng lên trên và sang phải.
+Vector có độ lớn $\sqrt{3^2 + 2^2} = \sqrt{13}$ và hướng lên trên và sang phải.
 
 Trong AI, vector biểu diễn mọi thứ:
 - Một từ → một vector gồm 768 số ("ý nghĩa" của nó trong không gian embedding)
@@ -71,19 +71,20 @@ Trong AI, ma trận CHÍNH LÀ mô hình:
 
 Tích vô hướng của hai vector cho bạn biết chúng tương đồng đến mức nào.
 
-```
-a · b = a₁×b₁ + a₂×b₂ + ... + aₙ×bₙ
-
-Same direction:      a · b > 0  (similar)
-Perpendicular:       a · b = 0  (unrelated)
-Opposite direction:  a · b < 0  (dissimilar)
+```math
+\begin{aligned}
+a \cdot b &= a_1 \times b_1 + a_2 \times b_2 + \cdots + a_n \times b_n \\[4pt]
+\text{Same direction:} \quad a \cdot b &> 0 \quad \text{(similar)} \\
+\text{Perpendicular:} \quad a \cdot b &= 0 \quad \text{(unrelated)} \\
+\text{Opposite direction:} \quad a \cdot b &< 0 \quad \text{(dissimilar)}
+\end{aligned}
 ```
 
 Đây chính xác là cách các công cụ tìm kiếm, hệ thống đề xuất và RAG hoạt động -- tìm các vector có tích vô hướng cao.
 
 ### Linear Independence
 
-Các vector độc lập tuyến tính nếu không có vector nào trong tập có thể được viết thành tổ hợp của các vector còn lại. Nếu v1, v2, v3 độc lập, chúng sinh ra một không gian 3D. Nếu một vector là tổ hợp của các vector còn lại, chúng chỉ sinh ra một mặt phẳng.
+Các vector độc lập tuyến tính nếu không có vector nào trong tập có thể được viết thành tổ hợp của các vector còn lại. Nếu $v_1, v_2, v_3$ độc lập, chúng sinh ra một không gian 3D. Nếu một vector là tổ hợp của các vector còn lại, chúng chỉ sinh ra một mặt phẳng.
 
 Tại sao điều này quan trọng đối với AI: ma trận đặc trưng của bạn nên có các cột độc lập tuyến tính. Nếu hai đặc trưng tương quan hoàn hảo (phụ thuộc tuyến tính), mô hình không thể phân biệt tác động của chúng. Điều này gây ra đa cộng tuyến trong hồi quy -- ma trận trọng số trở nên không ổn định, và những thay đổi nhỏ ở đầu vào tạo ra những dao động lớn ở đầu ra.
 
@@ -95,7 +96,7 @@ v2 = [0, 1, 0]
 v3 = [2, 1, 0]   # v3 = 2*v1 + v2
 ```
 
-v1 và v2 độc lập -- không vector nào là bội vô hướng hoặc tổ hợp của vector kia. Nhưng v3 = 2*v1 + v2, nên {v1, v2, v3} là một tập phụ thuộc. Cả ba vector này đều nằm trong mặt phẳng xy. Dù kết hợp chúng thế nào, bạn cũng không thể đạt đến [0, 0, 1]. Bạn có ba vector nhưng chỉ có hai chiều tự do.
+$v_1$ và $v_2$ độc lập -- không vector nào là bội vô hướng hoặc tổ hợp của vector kia. Nhưng $v_3 = 2 v_1 + v_2$, nên $\lbrace v_1, v_2, v_3 \rbrace$ là một tập phụ thuộc. Cả ba vector này đều nằm trong mặt phẳng xy. Dù kết hợp chúng thế nào, bạn cũng không thể đạt đến [0, 0, 1]. Bạn có ba vector nhưng chỉ có hai chiều tự do.
 
 Trong một tập dữ liệu: nếu feature_3 = 2*feature_1 + feature_2, việc thêm feature_3 không cung cấp thông tin mới nào cho mô hình. Tệ hơn, nó làm các phương trình chuẩn trở nên suy biến -- không có nghiệm duy nhất cho các trọng số.
 
@@ -105,15 +106,15 @@ Một cơ sở là một tập tối thiểu các vector độc lập tuyến t�
 
 Cơ sở chuẩn cho không gian 3D là {[1,0,0], [0,1,0], [0,0,1]}. Nhưng ba vector độc lập bất kỳ trong 3D đều tạo thành một cơ sở hợp lệ. Lựa chọn cơ sở là lựa chọn hệ tọa độ.
 
-Hạng của một ma trận = số cột độc lập tuyến tính = số hàng độc lập tuyến tính. Nếu rank < min(rows, cols), ma trận bị thiếu hạng. Điều này có nghĩa là:
+Hạng của một ma trận = số cột độc lập tuyến tính = số hàng độc lập tuyến tính. Nếu $\text{rank} < \min(\text{rows}, \text{cols})$, ma trận bị thiếu hạng. Điều này có nghĩa là:
 - Hệ có vô số nghiệm (hoặc không có nghiệm)
 - Thông tin bị mất trong phép biến đổi
 - Ma trận không thể nghịch đảo
 
 | Tình huống | Hạng | Ý nghĩa đối với ML |
 |-----------|------|---------------------|
-| Đầy hạng (rank = min(m, n)) | Tối đa có thể | Tồn tại nghiệm bình phương tối thiểu duy nhất. Mô hình có điều kiện tốt. |
-| Thiếu hạng (rank < min(m, n)) | Dưới mức tối đa | Các đặc trưng dư thừa. Vô số nghiệm trọng số. Cần regularization. |
+| Đầy hạng $(\text{rank} = \min(m, n))$ | Lớn nhất có thể | Khi số hàng ít nhất bằng số cột (đầy hạng cột), nghiệm bình phương tối thiểu là duy nhất. Khi số hàng ít hơn số cột, có vô số nghiệm khớp chính xác. |
+| Thiếu hạng $(\text{rank} < \min(m, n))$ | Dưới mức tối đa | Các đặc trưng dư thừa. Vô số nghiệm trọng số. Cần regularization. |
 | Hạng 1 | 1 | Mỗi cột là một bản sao được nhân hệ số của một vector. Tất cả dữ liệu nằm trên một đường thẳng. |
 | Gần thiếu hạng (các giá trị kỳ dị nhỏ) | Thấp về mặt số học | Ma trận có điều kiện kém. Nhiễu đầu vào rất nhỏ gây ra những thay đổi lớn ở đầu ra. Sử dụng cắt ngọn SVD hoặc hồi quy ridge. |
 
@@ -121,11 +122,11 @@ Hạng của một ma trận = số cột độc lập tuyến tính = số hàn
 
 Chiếu vector **a** lên vector **b** cho thành phần của **a** theo hướng của **b**:
 
-```
-proj_b(a) = (a dot b / b dot b) * b
+```math
+\mathop{\mathrm{proj}}_b(a) = \frac{a \cdot b}{b \cdot b} \, b
 ```
 
-Phần dư (a - proj_b(a)) vuông góc với b. Phép phân rã trực giao này là nền tảng của việc khớp bình phương tối thiểu.
+Phần dư $(a - \mathop{\mathrm{proj}}_b(a))$ vuông góc với $b$. Phép phân rã trực giao này là nền tảng của việc khớp bình phương tối thiểu.
 
 Phép chiếu có mặt khắp nơi trong ML:
 - Hồi quy tuyến tính tối thiểu hóa khoảng cách từ các quan sát đến không gian cột -- nghiệm CHÍNH LÀ một phép chiếu
@@ -143,9 +144,9 @@ graph LR
     end
 ```
 
-**Ví dụ:** a = [3, 4], b = [1, 0]
+**Ví dụ:** $a = [3, 4]$, $b = [1, 0]$
 
-proj_b(a) = (3*1 + 4*0) / (1*1 + 0*0) * [1, 0] = 3 * [1, 0] = [3, 0]
+$\mathop{\mathrm{proj}}_b(a) = (3 \cdot 1 + 4 \cdot 0) / (1 \cdot 1 + 0 \cdot 0) \cdot [1, 0] = 3 \cdot [1, 0] = [3, 0]$
 
 Phép chiếu loại bỏ thành phần y. Đây là giảm chiều ở dạng đơn giản nhất -- bỏ đi các hướng bạn không quan tâm.
 
@@ -448,6 +449,20 @@ LoRA đáng được đề cập riêng. Nó fine-tune các mô hình ngôn ng�
 5. Tạo một ma trận 3x3 có hạng 2. Xác minh bằng phương thức `rank()`. Sau đó giải thích các cột sinh ra đối tượng hình học nào.
 6. Chiếu vector [1, 2, 3] lên [1, 1, 1]. Kết quả biểu diễn điều gì về mặt hình học?
 
+### Hints
+
+**Bài tập 1.** Bắt đầu từ `cosine_similarity`, giữ giá trị trong khoảng từ -1 đến 1, rồi lấy arccos và chuyển radian sang độ. Kiểm tra rằng `Vector([1, 0])` và `Vector([0, 1])` cho 90 và một vector với chính nó cho 0.
+
+**Bài tập 2.** Đặt hai hệ số co giãn trên đường chéo của một ma trận 2x2 và đặt 0 vào hai ô còn lại. Kết quả đối với [1, 1] phải là [2, 3].
+
+**Bài tập 3.** Tính độ tương đồng cosine cho mọi cặp trong 5 vector (10 cặp) và giữ giá trị lớn nhất. Trước tiên kiểm tra vòng lặp của bạn bằng một vector với chính nó, kết quả phải là 1.
+
+**Bài tập 4.** Sử dụng `gram_schmidt` trên ba vector độc lập, rồi tính `dot` cho mỗi cặp và `magnitude` cho mỗi vector. So sánh với một dung sai như `1e-9`, vì số dấu phẩy động không cho các số 0 chính xác.
+
+**Bài tập 5.** Làm cho hàng hoặc cột thứ ba là tổng của hai hàng hoặc cột đầu tiên, để một hướng bị lặp lại. `rank()` phải trả về 2, và các cột khi đó sinh ra một mặt phẳng đi qua gốc tọa độ.
+
+**Bài tập 6.** Tính hệ số $\frac{a \cdot b}{b \cdot b}$ và nhân $b$ với nó, hoặc gọi `project_onto`. Kiểm tra rằng phần còn lại $a$ trừ hình chiếu có tích vô hướng bằng 0 với [1, 1, 1].
+
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
@@ -461,3 +476,17 @@ LoRA đáng được đề cập riêng. Nó fine-tune các mô hình ngôn ng�
 | Projection (Phép chiếu) | "Cái bóng" | Thành phần của một vector theo hướng của một vector khác |
 | Basis (Cơ sở) | "Các trục tọa độ" | Một tập tối thiểu các vector độc lập sinh ra không gian |
 | Orthonormal (Trực chuẩn) | "Các vector đơn vị vuông góc" | Các vector vuông góc với nhau và mỗi vector có độ dài 1 |
+
+## Summary
+
+| Công thức | Ý nghĩa |
+|---------|---------|
+| $a \cdot b = \sum_i a_i b_i$ | Tích vô hướng. Nó đo sự cùng hướng và là cốt lõi của điểm attention và độ tương đồng cosine |
+| $\cos\theta = \frac{a \cdot b}{\lvert a\rvert \lvert b\rvert}$ | Góc giữa các vector. 1 là cùng hướng, 0 là trực giao |
+| $\lvert a\rvert = \sqrt{a \cdot a}$ | Độ lớn vector (độ dài) |
+| $y = Ax, y_i = \sum_j A_{ij} x_j$ | Tích ma trận-vector. Một lớp mạng nơ-ron áp dụng nó cho mọi đầu vào |
+| $\text{proj}_b a = \frac{a \cdot b}{b \cdot b} b$ | Hình chiếu của $a$ lên $b$, phần của $a$ dọc theo $b$ |
+| $b^\perp = a - \text{proj}_b a$ | Thành phần của $a$ vuông góc với $b$, được dùng trong Gram-Schmidt |
+| $\text{rank}(A) \leq \min(m,n)$ | Hạng, số cột độc lập. Nó quyết định liệu $Ax = b$ có nghiệm hay không |
+| $\Delta W = BA$, $B$ là 4096×16, $A$ là 16×4096 | Cập nhật hạng thấp. LoRA thay thế một cập nhật 4096×4096 (16M tham số) bằng hai thừa số hạng 16 (131K tham số) |
+| Cơ sở trực chuẩn: $\lvert v_i\rvert = 1, v_i \cdot v_j = 0$ | Các phép biến đổi ổn định, khả nghịch như whitening và phân rã QR |

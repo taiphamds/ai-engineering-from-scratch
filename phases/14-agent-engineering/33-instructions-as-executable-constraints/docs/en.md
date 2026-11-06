@@ -104,11 +104,11 @@ python3 code/main.py
 
 Ba mẫu phân biệt một tập quy tắc tồn tại một quý với một tập suy tàn trong một tuần.
 
-**Gắn thẻ mức độ nghiêm trọng tại thời điểm ghi.** Mỗi quy tắc mang `severity`: `block`, `warn` hoặc `info`. Bộ kiểm tra báo cáo cả ba; runtime chỉ từ chối trên `block`. Hầu hết các nhóm nói quá mức độ nghiêm trọng ban đầu rồi âm thầm làm yếu nó dưới áp lực hạn chót; gắn thẻ tại thời điểm ghi buộc hiệu chỉnh từ đầu. Kết hợp với cổng xác minh (Giai đoạn 14 · 38), ký bất kỳ override nào của một quy tắc `block` vào một log kiểm toán `overrides.jsonl`.
+**Gắn nhãn mức độ nghiêm trọng khi viết.** Mỗi quy tắc mang `severity`: `block`, `warn` hoặc `info`. Bộ kiểm tra báo cáo cả ba; runtime chỉ từ chối với `block`. Hầu hết các nhóm đánh giá mức độ nghiêm trọng quá cao lúc đầu rồi âm thầm giảm nhẹ nó dưới áp lực thời hạn; gắn nhãn khi viết buộc việc hiệu chỉnh diễn ra từ đầu. Kết hợp với cổng xác minh (Giai đoạn 14 · 38), nơi ký mọi lần ghi đè quy tắc `block` vào nhật ký kiểm toán `overrides.jsonl`.
 
 **Hết hạn quy tắc như một yếu tố thúc đẩy.** Mỗi quy tắc mang một ngày `expires_at` (mặc định 90 ngày từ khi soạn). Bộ kiểm tra phát ra một cảnh báo khi một quy tắc chưa hết hạn không có vi phạm nào trong 60 ngày liên tiếp; đánh giá hàng quý tiếp theo hoặc biện minh việc giữ nó, làm yếu nó thành `info` hoặc xóa nó. Dữ liệu AI Code Review sản xuất của Cloudflare (tháng 4 năm 2026, 131,246 lần đánh giá xuyên 5,169 repo trong 30 ngày) cho thấy các tập quy tắc có hết hạn tường minh giữ dưới 30 quy tắc cho mỗi repo; các tập không có tăng lên 80+ với hầu hết không bao giờ kích hoạt.
 
-**Markdown làm nguồn, JSON làm bộ nhớ đệm.** `agent-rules.md` là file được soạn; `agent-rules.lock.json` là một bộ nhớ đệm mà bộ kiểm tra đọc trong đường xử lý chính. File lock được tạo lại bởi một hook trước commit. Các diff Markdown có thể đánh giá; phân tích JSON nằm ngoài mỗi lượt. Cùng hình dạng như `package.json` / `package-lock.json` và `Cargo.toml` / `Cargo.lock`.
+**Markdown làm nguồn, JSON làm bộ nhớ đệm.** `agent-rules.md` là tệp được biên soạn; `agent-rules.lock.json` là bộ nhớ đệm mà bộ kiểm tra đọc trên đường chạy thường xuyên. Tệp lock được tạo lại bởi một pre-commit hook. Các diff Markdown có thể được xem xét; việc phân tích Markdown nằm ngoài mỗi lượt, vì bộ kiểm tra chỉ tải JSON nhỏ đã được dựng sẵn. Cùng dạng với `package.json` / `package-lock.json` và `Cargo.toml` / `Cargo.lock`.
 
 ## Use It
 

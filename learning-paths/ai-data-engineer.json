@@ -38,6 +38,7 @@
       "Một ghi chú về nguồn gốc và rollback"
     ]
   },
+  "projects": ["csv-repair-workbench", "dataset-split-auditor", "dataset-contract-gate", "document-extraction-desk", "sensitive-text-redaction-gate", "rag-freshness-pipeline"],
   "readinessCriteria": [
     "Có thể giải thích dòng dõi dữ liệu từ dữ liệu thô đến đầu vào mô hình hoặc truy xuất.",
     "Có thể ngăn ngừa rò rỉ và xác minh các biến đổi đặc trưng.",

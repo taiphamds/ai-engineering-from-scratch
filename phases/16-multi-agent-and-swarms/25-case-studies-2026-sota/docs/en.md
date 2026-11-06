@@ -57,7 +57,7 @@ Các bài học thiết kế:
 Trường hợp quy mô quần thể sản xuất. Dòng thời gian:
 
 - **Tháng 11 năm 2025:** Clawdbot (agent lập trình vòng lặp ReAct cục bộ của Peter Steinberger) được phát hành.
-- **Tháng 12 năm 2025 – tháng 3 năm 2026:** được đổi tên hai lần (Clawdbot → OpenClaw → tiếp tục dưới OpenClaw).
+- **Tháng 1 năm 2026:** đổi tên hai lần trong một tuần (Clawdbot → Moltbot vào ngày 27 tháng 1 sau các khiếu nại nhãn hiệu, rồi Moltbot → OpenClaw ba ngày sau).
 - **Tháng 2 năm 2026:** Moltbook ra mắt như một mạng xã hội chỉ agent trên cùng các nguyên thủy; ~2.3M tài khoản agent trong vài ngày.
 - **Tháng 3 năm 2026 (2026-03-10):** Meta mua lại Moltbook.
 - **Tháng 3 năm 2026:** Trung Quốc hạn chế OpenClaw trên các máy tính chính phủ.

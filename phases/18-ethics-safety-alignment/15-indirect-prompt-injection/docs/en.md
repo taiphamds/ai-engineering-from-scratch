@@ -1,6 +1,6 @@
 # Indirect Prompt Injection — Production Attack Surface
 
-> Chèn prompt gián tiếp (IPI) nhúng chỉ dẫn trong nội dung bên ngoài — trang web, email, tài liệu chia sẻ, phiếu hỗ trợ — được hệ thống có agent tiêu thụ không cần hành động tường minh của người dùng. IPI là đe dọa sản xuất chi phối năm 2026: vượt bộ lọc đầu vào người dùng vì kẻ tấn công không bao giờ chạm người dùng, âm thầm mở rộng khi agent xử lý thêm nội dung ngoài, và nhắm workflow tự động nơi không ai đọc prompt. MDPI Information 17(1):54 (tháng 1 năm 2026) tổng hợp nghiên cứu 2023-2025. Bài báo phòng vệ IPI NDSS 2026 đặt thách thức cốt lõi: chỉ dẫn được chèn có thể vô hại về ngữ nghĩa ("vui lòng in Yes"), nên phát hiện cần hơn lọc từ khóa. "The Attacker Moves Second" (Nasr và cộng sự, hợp tác OpenAI/Anthropic/DeepMind, tháng 10 năm 2025): tấn công thích ứng (gradient, RL, tìm kiếm ngẫu nhiên, red-team con người) phá vỡ >90% của 12 phòng vệ công bố vốn ban đầu báo cáo tỷ lệ tấn công thành công gần không.
+> Indirect prompt injection (IPI) nhúng các chỉ dẫn bên trong nội dung bên ngoài — một trang web, một email, một tài liệu chia sẻ, một ticket hỗ trợ — được một hệ thống agentic tiêu thụ mà không có hành động rõ ràng của người dùng. IPI là mối đe dọa production chủ đạo năm 2026: nó vượt qua các bộ lọc đầu vào người dùng vì kẻ tấn công không bao giờ chạm đến người dùng, nó âm thầm mở rộng khi các agent xử lý thêm nội dung bên ngoài, và nó nhắm vào các quy trình tự động nơi không ai đọc prompt. MDPI Information 17(1):54 (tháng 1 năm 2026) tổng hợp nghiên cứu 2023-2025. Bài báo phòng thủ IPI của NDSS 2026 định hình thách thức cốt lõi: các chỉ dẫn được chèn có thể vô hại về ngữ nghĩa ("vui lòng in Yes"), nên phát hiện đòi hỏi nhiều hơn lọc từ khóa. "The Attacker Moves Second" (Nasr và cộng sự, hợp tác OpenAI/Anthropic/DeepMind, tháng 10 năm 2025): các cuộc tấn công thích ứng (gradient, RL, tìm kiếm ngẫu nhiên, red-team con người) vượt qua cả 12 biện pháp phòng thủ đã công bố mà họ thử nghiệm, với thành công tấn công trên 90% với phần lớn chúng, dù phần lớn các biện pháp phòng thủ đó ban đầu báo cáo tỷ lệ thành công tấn công gần bằng không.
 
 **Type:** Build
 **Languages:** Python (stdlib, IPI attack + defense harness)
@@ -40,7 +40,7 @@ CaMeL (Microsoft 2025), ConfAIde (Stanford 2024) và bài báo phòng vệ IPI N
 
 ### The Attacker Moves Second
 
-Nasr và cộng sự (tháng 10 năm 2025) kiểm thử 12 phòng vệ IPI công bố bằng tấn công thích ứng (tìm kiếm gradient, chính sách RL, tìm kiếm ngẫu nhiên, red-team con người 72 giờ). Mọi phòng vệ ban đầu báo cáo ASR gần không đều bị phá lên ASR >90%.
+Nasr và cộng sự (tháng 10 năm 2025) thử nghiệm 12 biện pháp phòng thủ IPI đã công bố bằng các cuộc tấn công thích ứng (tìm kiếm gradient, chính sách RL, tìm kiếm ngẫu nhiên, red-team con người 72 giờ). Mọi biện pháp phòng thủ đều bị vượt qua, phần lớn ở ASR >90%, và phần lớn ban đầu báo cáo ASR gần bằng không.
 
 Bài học phương pháp: chỉ công bố phòng vệ cùng đánh giá tấn công thích ứng. Phép đo chuẩn tấn công tĩnh không là bằng chứng độ vững; kẻ tấn công được biết phòng vệ.
 

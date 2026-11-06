@@ -46,7 +46,7 @@ Vi phạm thứ tự — đặt thông điệp người dùng trên system promp
 
 ### The break-even calculation
 
-Phụ phí ghi 25% của Anthropic nghĩa là khối cache phải được đọc ít nhất hai lần để tiết kiệm ròng. 1 ghi + 1 đọc trung bình chi phí 0.675x mỗi yêu cầu (tiết kiệm 32%); 1 ghi + 10 đọc trung bình 0.205x (tiết kiệm 80%). Quy tắc kinh nghiệm: cache mọi thứ bạn kỳ vọng tái sử dụng ít nhất 3 lần trong TTL.
+Phần phụ phí ghi 25% của Anthropic (TTL 5 phút) tự hoàn vốn ở lần đọc đầu tiên, vì một lần đọc cache có chi phí 0.1 lần. 1 lần ghi + 1 lần đọc có chi phí trung bình 0.675 lần cho mỗi yêu cầu (tiết kiệm 32%); 1 lần ghi + 10 lần đọc có chi phí trung bình 0.205 lần (tiết kiệm 80%). TTL 1 giờ tính phí 2 lần cho lần ghi, vì vậy khối đó cần hai lần đọc để có lợi hơn. Quy tắc kinh nghiệm: cache mọi thứ bạn dự kiến tái sử dụng ít nhất 3 lần trong TTL; điều đó vượt điểm hòa vốn với cả hai TTL.
 
 ```figure
 prompt-cache-hit

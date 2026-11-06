@@ -1,6 +1,6 @@
 # Rebuild and Prove Equal: Differential Tests, Byte Comparison, and the Evidence Loop
 
-> Passing your tests proves agreement on your tests, so equality needs a grid that reaches every edge and bytes that match after relocation masking.
+> Qua các bài kiểm tra của bạn chứng minh sự đồng nhất trên các bài kiểm tra của bạn, nên tính bằng nhau cần một lưới chạm mọi biên và các byte khớp sau khi che relocation.
 
 **Type:** Build
 **Languages:** Python, C
@@ -9,17 +9,17 @@
 
 ## Learning Objectives
 
-- Write a rebuild from the instruction listing and name the evidence record it came from.
-- Build an input grid with one class per hazard: zero guard, negative values, truncating division, 32-bit overflow, and a divide trap.
-- Run the original and the rebuild in one program and record every cell, including a trap.
-- Recompile the rebuild with the original flags and compare function bytes after masking relocation fields.
-- Read the constants a relocation points at and compare them, so a wrong literal cannot pass.
-- Drive rea's MCP server from a small stdio client and record each step with its evidence id.
-- Mint a fail-closed proof record whose id is a hash over its claims and evidence links.
+- Viết một bản dựng lại từ danh sách chỉ lệnh và nêu tên bản ghi bằng chứng mà nó đến từ đó.
+- Xây dựng một lưới đầu vào với một lớp mỗi nguy cơ: điều kiện bảo vệ bằng không, giá trị âm, phép chia cắt, tràn 32 bit và một bẫy phép chia.
+- Chạy bản gốc và bản dựng lại trong một chương trình và ghi mọi ô, bao gồm một bẫy.
+- Biên dịch lại bản dựng lại với các cờ gốc và so sánh các byte hàm sau khi che các trường relocation.
+- Đọc các hằng số mà một relocation trỏ tới và so sánh chúng, để một literal sai không thể qua.
+- Điều khiển MCP server của rea từ một client stdio nhỏ và ghi mỗi bước với id bằng chứng của nó.
+- Tạo một bản ghi bằng chứng fail-closed có id là một hash trên các khẳng định và liên kết bằng chứng của nó.
 
 ## The Problem
 
-You asked rea for the function dossier of `percent_change` in our `ledger-x86_64-O1.o` fixture. Ghidra 12.1.4 returned pseudocode, and the agent wrote this C from it:
+Bạn yêu cầu rea cung cấp hồ sơ hàm của `percent_change` trong fixture `ledger-x86_64-O1.o` của chúng ta. Ghidra 12.1.4 trả về mã giả, và agent viết C này từ nó:
 
 ```c
 int percent_change(int before, int after) {
@@ -28,18 +28,18 @@ int percent_change(int before, int after) {
 }
 ```
 
-Four tests pass: `(100, 150)` gives 50, `(200, 100)` gives -50, `(0, 5)` gives 0, `(50, 100)` gives 100. The agent also rebuilt `grade` as four `if` statements on 90, 80, 70, and 60. Six more tests pass. The report says "verified".
+Bốn bài kiểm tra qua: `(100, 150)` cho 50, `(200, 100)` cho -50, `(0, 5)` cho 0, `(50, 100)` cho 100. Agent cũng dựng lại `grade` thành bốn câu lệnh `if` trên 90, 80, 70 và 60. Thêm sáu bài kiểm tra qua. Báo cáo nói "đã xác minh".
 
-That report answers none of these questions:
+Báo cáo đó không trả lời câu hỏi nào trong số này:
 
-- What does the original return when `(after - before) * 100` does not fit in 32 bits?
-- What does the original return for a score of 110?
-- Does the rebuild compile to the same 16 bytes as the original?
-- When two compiled functions hold the same bytes, do their relocations point at the same constants?
-- Which evidence record did the rebuild come from, and did the agent read the listing or the pseudocode?
-- What status does the proof get on a host without a C compiler?
+- Bản gốc trả về gì khi `(after - before) * 100` không vừa trong 32 bit?
+- Bản gốc trả về gì cho điểm 110?
+- Bản dựng lại có biên dịch thành cùng 16 byte như bản gốc không?
+- Khi hai hàm đã biên dịch chứa cùng các byte, các relocation của chúng có trỏ đến cùng các hằng số không?
+- Bản dựng lại đến từ bản ghi bằng chứng nào, và agent đọc danh sách hay mã giả?
+- Bằng chứng nhận trạng thái nào trên một host không có compiler C?
 
-Every target in this lesson is a program we wrote and compiled. The scope and law rules from lesson 32 apply unchanged.
+Mọi mục tiêu trong bài học này là một chương trình chúng tôi đã viết và biên dịch. Các quy tắc phạm vi và luật từ bài 32 áp dụng không thay đổi.
 
 ```figure
 re-36-prove-equal
@@ -47,17 +47,17 @@ re-36-prove-equal
 
 ## What the Evidence Says
 
-The agent loop in `code/main.py` made six calls to rea 6.5.0 over stdio. The recorded run is `code/fixtures/runs/agent-run.json`. The server answered `initialize` with protocol version `2025-11-25`. Three calls returned Evidence records:
+Vòng lặp agent trong `code/main.py` thực hiện sáu lần gọi đến rea 6.5.0 qua stdio. Lần chạy đã ghi là `code/fixtures/runs/agent-run.json`. Server trả lời `initialize` với phiên bản giao thức `2025-11-25`. Ba lần gọi trả về các bản ghi Evidence:
 
-| Step | Tool | Time | Evidence id |
+| Bước | Công cụ | Thời gian | Id bằng chứng |
 |---|---|---|---|
 | 2 | `analyze_function percent_change` | 6.31 s | `ev_e88b10dc0c6400e51bb6f7fdc3eaea8d2c97cc02463f0db3e6afeefc273197cd` |
 | 3 | `analyze_function grade` | 0.02 s | `ev_67b6d3f992eaf49a2e16de084b6ebfdd9884e8c5c7f75e175b7bb20f4f748ce1` |
 | 4 | `read_bytes 0x1000b4, 20` | 0.00 s | `ev_c26146cfedf4c1ee146d8ff00cfa9a5d3f5335bdd9c97ccf4e1af5f6ea3ed6bc` |
 
-The first call paid for the Ghidra import and auto-analysis. Each record carries `confidence: "observed"`, `authority: "shipped-artifact"`, and the SHA-256 of the object, `9a4a8082ba5e285a732552981a6935e0c5255725664f380e37c44ebfb04d803f`. Ghidra loads the relocatable object with `.text` at `0x100000`, so `percent_change` sits at `0x100000` and `grade` at `0x100010`.
+Lần gọi đầu trả chi phí cho import Ghidra và phân tích tự động. Mỗi bản ghi mang `confidence: "observed"`, `authority: "shipped-artifact"` và SHA-256 của object, `9a4a8082ba5e285a732552981a6935e0c5255725664f380e37c44ebfb04d803f`. Ghidra tải object có thể tái định vị với `.text` tại `0x100000`, nên `percent_change` nằm tại `0x100000` và `grade` tại `0x100010`.
 
-The pseudocode for `percent_change` is where the `long` came from:
+Mã giả cho `percent_change` là nơi `long` đến từ:
 
 ```c
 undefined1  [16] percent_change(int param_1,int param_2,ulong param_3)
@@ -74,7 +74,7 @@ undefined1  [16] percent_change(int param_1,int param_2,ulong param_3)
 }
 ```
 
-The decompiler saw `cltd` and `idivl` write both `edx` and `eax` and modelled a 16-byte return value with a 64-bit division. The listing in the same record says something plainer:
+Decompiler thấy `cltd` và `idivl` ghi cả `edx` và `eax` và mô hình hóa một giá trị trả về 16 byte với một phép chia 64 bit. Danh sách trong cùng bản ghi nói điều đơn giản hơn:
 
 ```
 0x100000: TEST EDI, EDI
@@ -88,122 +88,122 @@ The decompiler saw `cltd` and `idivl` write both `edx` and `eax` and modelled a 
 0x10000f: RET
 ```
 
-Every operation is 32 bits wide. `IMUL EAX, ESI, 0x64` multiplies in 32 bits and keeps the low half. `CDQ` sign-extends `eax` into `edx`, and `IDIV EDI` divides the 64-bit pair by a 32-bit divisor. A rebuild that follows the listing is `100 * (after - before) / before` in `int`.
+Mọi phép toán rộng 32 bit. `IMUL EAX, ESI, 0x64` nhân trong 32 bit và giữ nửa thấp. `CDQ` mở rộng dấu `eax` vào `edx`, và `IDIV EDI` chia cặp 64 bit cho một số chia 32 bit. Một bản dựng lại theo danh sách là `100 * (after - before) / before` trong `int`.
 
-The `grade` record has the same shape. The pseudocode names a table, `*(uint *)(&DAT_001000b4 + (ulong)uVar2 * 4)`, and an unreadable default expression built from `0x66666667`. The listing shows the divide by 10 as `IMUL RAX, RAX, 0x66666667`, `SAR RCX, 0x22`, `SHR RAX, 0x3f`, `ADD ECX, EAX`. Then `ADD ECX, -0x6`, `CMP ECX, 0x4`, and `JA` keep tens from 6 to 10. `XOR EAX, EAX` before the compare is the default of 0. `LEA RCX, [0x1000b4]` and `MOV EAX, dword ptr [RCX + RAX*0x4]` read a table of five 4-byte entries.
+Bản ghi `grade` có cùng dạng. Mã giả nêu tên một bảng, `*(uint *)(&DAT_001000b4 + (ulong)uVar2 * 4)`, và một biểu thức mặc định không thể đọc được xây từ `0x66666667`. Danh sách cho thấy phép chia cho 10 là `IMUL RAX, RAX, 0x66666667`, `SAR RCX, 0x22`, `SHR RAX, 0x3f`, `ADD ECX, EAX`. Rồi `ADD ECX, -0x6`, `CMP ECX, 0x4` và `JA` giữ hàng chục từ 6 đến 10. `XOR EAX, EAX` trước phép so sánh là mặc định 0. `LEA RCX, [0x1000b4]` và `MOV EAX, dword ptr [RCX + RAX*0x4]` đọc một bảng năm mục 4 byte.
 
-Step 4 read those 20 bytes: `01000000 02000000 03000000 04000000 04000000`. The table is `1, 2, 3, 4, 4` for tens 6, 7, 8, 9, 10. That is the `switch` in `ledger.c`, with `case 10` and `case 9` sharing the value 4.
+Bước 4 đọc 20 byte đó: `01000000 02000000 03000000 04000000 04000000`. Bảng là `1, 2, 3, 4, 4` cho hàng chục 6, 7, 8, 9, 10. Đó là `switch` trong `ledger.c`, với `case 10` và `case 9` chia sẻ giá trị 4.
 
-Both proofs in rea's own evidence pages started from the listing and from `read_bytes` of constants. The DX-Ball first pseudocode was `FUN_00406400(void)` with no stack input, and the instruction view corrected it. Read the listing first. Cite the record id, then write the C.
+Cả hai bằng chứng trong các trang bằng chứng của chính rea bắt đầu từ danh sách và từ `read_bytes` của các hằng số. Mã giả DX-Ball đầu tiên là `FUN_00406400(void)` không có đầu vào stack, và góc nhìn chỉ lệnh sửa nó. Đọc danh sách trước. Trích id bản ghi, rồi viết C.
 
 ## Write the Candidates
 
-The folder `code/fixtures/candidates/` holds eight rebuilds, one function per file. Four follow the listing or compile to the same code. Four are plausible and wrong, or wrong in a way one hand-written test finds.
+Thư mục `code/fixtures/candidates/` chứa tám bản dựng lại, một hàm mỗi tệp. Bốn bản theo danh sách hoặc biên dịch thành cùng mã. Bốn bản có vẻ hợp lý và sai, hoặc sai theo cách một bài kiểm tra viết tay tìm thấy.
 
-| File | Source | What it does |
+| Tệp | Nguồn | Nó làm gì |
 |---|---|---|
-| `percent_change_mul_first.c` | `100 * (after - before) / before` | the listing in C |
-| `percent_change_split.c` | `(after * 100 - before * 100) / before` | different text, same bytes after clang folds it |
-| `percent_change_wide.c` | `(int)(((long)after - before) * 100 / before)` | the pseudocode's `long`, divides before it wraps |
-| `percent_change_div_first.c` | `(after - before) / before * 100` | divides first, so rounding differs |
-| `grade_switch.c` | `switch (score / 10)` with the five cases | the original source |
-| `grade_table.c` | `unsigned slot = score / 10 - 6; slot < 5 ? points[slot] : 0` | the listing in C |
-| `grade_thresholds.c` | `if (score >= 90) return 4; ...` | no upper bound on the top band |
-| `grade_case10_wrong.c` | `case 10: return 3;` | one table entry wrong |
+| `percent_change_mul_first.c` | `100 * (after - before) / before` | danh sách trong C |
+| `percent_change_split.c` | `(after * 100 - before * 100) / before` | văn bản khác, cùng các byte sau khi clang gộp nó |
+| `percent_change_wide.c` | `(int)(((long)after - before) * 100 / before)` | `long` của mã giả, chia trước khi nó wrap |
+| `percent_change_div_first.c` | `(after - before) / before * 100` | chia trước, nên làm tròn khác |
+| `grade_switch.c` | `switch (score / 10)` với năm case | nguồn gốc |
+| `grade_table.c` | `unsigned slot = score / 10 - 6; slot < 5 ? points[slot] : 0` | danh sách trong C |
+| `grade_thresholds.c` | `if (score >= 90) return 4; ...` | không có cận trên trên dải cao nhất |
+| `grade_case10_wrong.c` | `case 10: return 3;` | một mục bảng sai |
 
-Each file compiles with the fixture command, `clang -target x86_64-unknown-linux-gnu -O1 -fno-asynchronous-unwind-tables -c`. The compiled objects are committed beside the sources so the tests run on a host without clang.
+Mỗi tệp biên dịch với lệnh fixture, `clang -target x86_64-unknown-linux-gnu -O1 -fno-asynchronous-unwind-tables -c`. Các object đã biên dịch được commit cạnh các nguồn để các bài kiểm tra chạy trên một host không có clang.
 
 ## Leg One: Execute and Compare
 
-McKeeman's 1998 definition of differential testing needs "two or more comparable systems" fed "mechanically generated test cases", and treats a different result, a hang, or a crash as a bug candidate. He named the hard part: "The ugliest problem in testing is evaluating the result of a test." The original function is the oracle here. We do not need to know the right answer. We need the original and the rebuild to disagree nowhere on a grid that reaches every hazard.
+Định nghĩa differential testing năm 1998 của McKeeman cần "hai hoặc nhiều hệ thống có thể so sánh" được đưa vào "các trường hợp kiểm tra được tạo cơ học", và coi một kết quả khác, treo hoặc crash là một ứng viên lỗi. Ông nêu tên phần khó: "Vấn đề xấu xí nhất trong kiểm thử là đánh giá kết quả của một bài kiểm tra." Hàm gốc là oracle ở đây. Chúng ta không cần biết câu trả lời đúng. Chúng ta cần bản gốc và bản dựng lại không bất đồng ở đâu trên một lưới chạm mọi nguy cơ.
 
 ### Design the grid
 
-`input_grid()` in `code/main.py` builds 92 cells. For `percent_change` it takes every pair from ten `before` values and seven `after` values:
+`input_grid()` trong `code/main.py` xây dựng 92 ô. Với `percent_change`, nó lấy mọi cặp từ mười giá trị `before` và bảy giá trị `after`:
 
 ```
 before: 0, 1, -1, 3, -3, 7, 100, -100, 2147483647, -2147483648
 after:  0, 5, -5, 105, 536870911, 2147483647, -2147483648
 ```
 
-For `grade` it takes 22 scores: both sides of each band edge, negatives, 0, 110, and the two `int` limits. `classify()` tags each cell. Overflow has 32 cells, negative 17, boundary 14, plain 12, and zero guard 7. Negative truncation has 5, rounding 2, beyond the switch 2, and trap 1.
+Với `grade`, nó lấy 22 điểm: cả hai phía của mỗi cạnh dải, các số âm, 0, 110 và hai giới hạn `int`. `classify()` gắn nhãn mỗi ô. Overflow có 32 ô, negative 17, boundary 14, plain 12 và zero guard 7. Negative truncation có 5, rounding 2, beyond the switch 2 và trap 1.
 
-Each class exists for one reason. The zero guard cells check the `TEST EDI, EDI` branch. Negative cells check truncating division: C and `idiv` round toward zero, so `-9 / 10` is 0 and `-10 / 10` is -1. Rounding cells check that the multiply happens before the divide, so `(105 - 100) * 100 / 100` is 5 and not 0. Overflow cells make `(after - before) * 100` exceed 32 bits. The one trap cell makes the wrapped product equal `INT_MIN` with `before` equal to -1.
+Mỗi lớp tồn tại vì một lý do. Các ô zero guard kiểm tra nhánh `TEST EDI, EDI`. Các ô âm kiểm tra phép chia cắt: C và `idiv` làm tròn về không, nên `-9 / 10` là 0 và `-10 / 10` là -1. Các ô làm tròn kiểm tra rằng phép nhân xảy ra trước phép chia, nên `(105 - 100) * 100 / 100` là 5 chứ không phải 0. Các ô tràn làm `(after - before) * 100` vượt 32 bit. Một ô trap làm tích đã wrap bằng `INT_MIN` với `before` bằng -1.
 
-Yang, Chen, Eide, and Regehr built Csmith to generate programs with no undefined behaviour. An oracle disagreement on undefined behaviour is noise and never a bug report. Signed overflow is undefined in C. Our oracle is a compiled object with one fixed behaviour, so overflow cells are in scope. The lesson is to know which cells rest on the standard and which rest on the compiled bytes.
+Yang, Chen, Eide và Regehr xây dựng Csmith để tạo các chương trình không có hành vi không xác định. Một bất đồng oracle trên hành vi không xác định là nhiễu và không bao giờ là một báo cáo lỗi. Tràn có dấu là không xác định trong C. Oracle của chúng ta là một object đã biên dịch với một hành vi cố định, nên các ô tràn thuộc phạm vi. Bài học là biết các ô nào dựa vào chuẩn và các ô nào dựa vào các byte đã biên dịch.
 
 ### The driver and the trap
 
-`code/driver.c` reads one cell per line from stdin and prints the inputs, the original result, and the rebuild result. `build_harness()` compiles the candidate with `-Dpercent_change=cand_percent_change -Dgrade=cand_grade`, so both versions link into one program under different names. On an x86-64 Linux host the original is the fixture object itself. On any other host it is `ledger.c` compiled natively, and the report records `original_kind: fixture-source`.
+`code/driver.c` đọc một ô mỗi dòng từ stdin và in các đầu vào, kết quả gốc và kết quả bản dựng lại. `build_harness()` biên dịch ứng viên với `-Dpercent_change=cand_percent_change -Dgrade=cand_grade`, để cả hai phiên bản liên kết vào một chương trình dưới các tên khác nhau. Trên một host Linux x86-64, bản gốc là chính object fixture. Trên mọi host khác, nó là `ledger.c` được biên dịch native, và báo cáo ghi `original_kind: fixture-source`.
 
-The driver installs a `SIGFPE` handler with `sigsetjmp` and `siglongjmp`. For `before = -1` and `after = 536870911`, the difference is 536870912 and the 32-bit product wraps to -2147483648. On x86-64, `idiv` with that dividend and a divisor of -1 raises the divide error exception. The quotient does not fit in 32 bits (Intel SDM Volume 2, IDIV). The handler turns that into the recorded value `trap`.
+Driver cài một handler `SIGFPE` với `sigsetjmp` và `siglongjmp`. Với `before = -1` và `after = 536870911`, hiệu là 536870912 và tích 32 bit wrap thành -2147483648. Trên x86-64, `idiv` với số bị chia đó và số chia -1 phát sinh ngoại lệ lỗi chia. Thương không vừa trong 32 bit (Intel SDM Tập 2, IDIV). Handler biến điều đó thành giá trị được ghi `trap`.
 
-On AArch64, `sdiv` has no trap and returns -2147483648 for the same operands. Our run on an arm64 Mac recorded exactly that. The oracle depends on the architecture, and the report says which one ran.
+Trên AArch64, `sdiv` không có trap và trả về -2147483648 cho cùng các toán hạng. Lần chạy của chúng tôi trên một máy Mac arm64 ghi chính xác điều đó. Oracle phụ thuộc kiến trúc, và báo cáo nói kiến trúc nào đã chạy.
 
 ### Results
 
-`prove_behaviour(PLAUSIBLE)` builds the `long` rebuild and the threshold rebuild. The ten naive cases pass. The grid fails on 28 cells:
+`prove_behaviour(PLAUSIBLE)` xây dựng bản dựng lại `long` và bản dựng lại ngưỡng. Mười trường hợp ngây thơ qua. Lưới thất bại trên 28 ô:
 
-| Function | Inputs | Class | Original | Rebuild |
+| Hàm | Đầu vào | Lớp | Bản gốc | Bản dựng lại |
 |---|---|---|---|---|
 | `percent_change` | 3, 2147483647 | overflow | -133 | -1431655899 |
 | `percent_change` | 100, 2147483647 | overflow | -101 | 2147483547 |
 | `percent_change` | 2147483647, 5 | overflow | 0 | -99 |
-| `grade` | 110 | beyond the switch | 0 | 4 |
-| `grade` | 2147483647 | beyond the switch | 0 | 4 |
+| `grade` | 110 | vượt switch | 0 | 4 |
+| `grade` | 2147483647 | vượt switch | 0 | 4 |
 
-All 26 `percent_change` failures are overflow cells with `|before| > 1`. For `before` equal to 1 or -1 the 64-bit quotient truncates back to the wrapped value, so those cells agree by accident. The threshold `grade` fails because the original switch has no case for tens of 11 and above, and `110 / 10` is 11.
+Cả 26 thất bại `percent_change` là các ô tràn với `|before| > 1`. Với `before` bằng 1 hoặc -1, thương 64 bit cắt trở lại giá trị đã wrap, nên các ô đó đồng nhất do tình cờ. `grade` ngưỡng thất bại vì switch gốc không có case cho hàng chục 11 trở lên, và `110 / 10` là 11.
 
-`prove_behaviour(EQUAL)` builds `percent_change_mul_first.c` and `grade_switch.c`. All 92 cells agree. `percent_change_div_first.c` fails two of the four naive cases, which is the one case a hand-written test does find.
+`prove_behaviour(EQUAL)` dựng `percent_change_mul_first.c` và `grade_switch.c`. Cả 92 ô đồng nhất. `percent_change_div_first.c` thất bại hai trong bốn trường hợp ngây thơ, chính là một trường hợp mà một bài kiểm tra viết tay tìm thấy.
 
-`oracle_disagreements()` checks a second thing. `percent_change_model()` and `grade_model()` are Python models of the listing, with `wrap32()` for the 32-bit multiply and `idiv32()` for the architecture rule. The report compares the model with the observed original on every cell. Zero disagreements means the model and the binary agree on every cell. The model is derived evidence and the run is observed evidence. The report keeps them in separate fields.
+`oracle_disagreements()` kiểm tra một điều thứ hai. `percent_change_model()` và `grade_model()` là các mô hình Python của danh sách, với `wrap32()` cho phép nhân 32 bit và `idiv32()` cho quy tắc kiến trúc. Báo cáo so sánh mô hình với bản gốc được quan sát trên mỗi ô. Không bất đồng nghĩa là mô hình và binary đồng nhất trên mỗi ô. Mô hình là bằng chứng derived và lần chạy là bằng chứng observed. Báo cáo giữ chúng trong các trường riêng.
 
 ## Leg Two: Recompile and Compare
 
-Behaviour on a grid is one leg. The second leg asks whether the rebuild, compiled with the same compiler and flags, produces the same bytes. The DX-Ball project reported "63 matching bytes" for its helper. The TH04 project reported a 2,139-byte match. Each used the compiler of its own period. rea itself cannot do this. Its `compare_functions` line-diffs provider text and attaches the limitation "Assembly is opaque provider text; relocation normalization is unavailable."
+Hành vi trên một lưới là một chân. Chân thứ hai hỏi liệu bản dựng lại, được biên dịch với cùng compiler và cờ, có tạo cùng các byte hay không. Dự án DX-Ball báo cáo "63 byte khớp" cho hàm hỗ trợ của nó. Dự án TH04 báo cáo một kết quả khớp 2,139 byte. Mỗi dự án sử dụng compiler của thời kỳ riêng của nó. Bản thân rea không thể làm điều này. `compare_functions` của nó diff từng dòng văn bản provider và đính kèm giới hạn "Assembly là văn bản provider mờ đục; chuẩn hóa relocation không có sẵn."
 
 ### Read the object
 
-`ElfObject` in `code/main.py` reads one ELF64 relocatable object with `struct.unpack_from`. It checks the magic, the 64-bit class, little-endian data, `e_machine` 62, and `e_type` 1. Then it walks the section headers, the string table, `.symtab`, and every `.rela` section. In the fixture, `percent_change` starts at `.text` offset 0 with size 16 and `grade` at `0x10` with size 46. `total` starts at `0x40` with size 31 and `grade_label` at `0x60` with size 63.
+`ElfObject` trong `code/main.py` đọc một object có thể tái định vị ELF64 bằng `struct.unpack_from`. Nó kiểm tra magic, class 64 bit, dữ liệu little-endian, `e_machine` 62 và `e_type` 1. Rồi nó duyệt các section header, bảng chuỗi, `.symtab` và mọi section `.rela`. Trong fixture, `percent_change` bắt đầu tại offset `.text` 0 với kích thước 16 và `grade` tại `0x10` với kích thước 46. `total` bắt đầu tại `0x40` với kích thước 31 và `grade_label` tại `0x60` với kích thước 63.
 
-The 16 bytes of `percent_change` are `85 ff 74 09 29 fe 6b c6 64 99 f7 ff c3 31 c0 c3`. The function has no relocations. `grade` has one: offset `0x26` inside the function, type `R_X86_64_PC32`, symbol `.rodata`, addend `0x10`. It belongs to the 7-byte `leaq` at offset `0x23`, whose last four bytes are the displacement field.
+16 byte của `percent_change` là `85 ff 74 09 29 fe 6b c6 64 99 f7 ff c3 31 c0 c3`. Hàm không có relocation. `grade` có một: offset `0x26` bên trong hàm, type `R_X86_64_PC32`, symbol `.rodata`, addend `0x10`. Nó thuộc về `leaq` 7 byte tại offset `0x23`, có bốn byte cuối là trường displacement.
 
 ### Mask, then compare the records
 
-In a RELA object the addend lives in the relocation record, and the four field bytes are zero. The candidate `grade_switch.o` also holds zero there. A plain byte compare passes while the two relocations name different places. `mask_relocations()` zeroes the field on both sides anyway, so the same method holds for REL objects and for Mach-O, where the field carries the addend.
+Trong một object RELA, addend nằm trong bản ghi relocation, và bốn byte trường bằng không. Ứng viên `grade_switch.o` cũng chứa không ở đó. Một phép so sánh byte thông thường qua trong khi hai relocation nêu tên các chỗ khác nhau. `mask_relocations()` vẫn đặt trường về không ở cả hai bên, để cùng phương pháp đúng cho các object REL và cho Mach-O, nơi trường mang addend.
 
-Then `prove_bytes()` compares the relocation records by offset, type, and target section. The original says `.rodata+0x10` and the candidate says `.rodata-0x4`. The addend differs because the candidate object has no `labels.rel` table in front of its switch table. A different addend is a different offset, not a different function.
+Rồi `prove_bytes()` so sánh các bản ghi relocation theo offset, type và section đích. Bản gốc nói `.rodata+0x10` và ứng viên nói `.rodata-0x4`. Addend khác vì object ứng viên không có bảng `labels.rel` phía trước bảng switch của nó. Một addend khác là một offset khác, không phải một hàm khác.
 
 ### Read the constants the relocation points at
 
-For a PC-relative field that ends its instruction, the CPU adds the next instruction address, so the target is symbol plus addend plus 4. In the original that is `.rodata+0x14`, and in the candidate it is `.rodata+0x0`. `read_table()` reads five 4-byte entries there. Both hold `1, 2, 3, 4, 4`.
+Với một trường tương đối theo PC kết thúc chỉ lệnh của nó, CPU cộng địa chỉ chỉ lệnh tiếp theo, nên đích là symbol cộng addend cộng 4. Trong bản gốc đó là `.rodata+0x14`, và trong ứng viên là `.rodata+0x0`. `read_table()` đọc năm mục 4 byte ở đó. Cả hai chứa `1, 2, 3, 4, 4`.
 
-The count five comes from the listing: `CMP ECX, 0x4` with `JA` admits indexes 0 to 4, and `[RCX + RAX*0x4]` reads 4 bytes per index. `CLAIMS` in `code/main.py` records that shape for `grade` and records zero relocations for `percent_change`.
+Số đếm năm đến từ danh sách: `CMP ECX, 0x4` với `JA` chấp nhận các chỉ số 0 đến 4, và `[RCX + RAX*0x4]` đọc 4 byte mỗi chỉ số. `CLAIMS` trong `code/main.py` ghi dạng đó cho `grade` và ghi không relocation cho `percent_change`.
 
-This step exists because of a bug the TH08 project documented. Its older comparison "replayed the target address into the instruction's relocation field, then compared instruction bytes without checking the floating-literal data at that address. Source `0.0` could therefore appear exact against target `128.0`." The fix audited 1,548 floating-literal references and corrected twelve more. `grade_case10_wrong.c` is our version of that bug. Its 46 code bytes equal the original, its relocation record has the same shape, and its table is `1, 2, 3, 4, 3`. Only the constant check fails it.
+Bước này tồn tại vì một lỗi mà dự án TH08 ghi nhận. Phép so sánh cũ của nó "phát lại địa chỉ đích vào trường relocation của chỉ lệnh, rồi so sánh các byte chỉ lệnh mà không kiểm tra dữ liệu literal dấu phẩy động tại địa chỉ đó. Nguồn `0.0` do đó có thể trông chính xác đối với đích `128.0`." Bản sửa kiểm toán 1,548 tham chiếu literal dấu phẩy động và sửa thêm mười hai. `grade_case10_wrong.c` là phiên bản của chúng ta của lỗi đó. 46 byte mã của nó bằng bản gốc, bản ghi relocation của nó có cùng dạng và bảng của nó là `1, 2, 3, 4, 3`. Chỉ kiểm tra hằng số làm nó thất bại.
 
 ### Results
 
-| Candidate | Size | Masked bytes | Relocation records | Table | Status |
+| Ứng viên | Kích thước | Byte đã che | Bản ghi relocation | Bảng | Trạng thái |
 |---|---|---|---|---|---|
-| `percent_change_mul_first` | 16 vs 16 | equal | none | none | pass |
-| `percent_change_split` | 16 vs 16 | equal | none | none | pass |
-| `percent_change_wide` | 16 vs 26 | size differs | none | none | fail |
-| `percent_change_div_first` | 16 vs 18 | size differs | none | none | fail |
-| `grade_switch` | 46 vs 46 | equal | same shape | `1,2,3,4,4` both | pass |
-| `grade_table` | 46 vs 46 | equal | same shape | `1,2,3,4,4` both | pass |
-| `grade_thresholds` | 46 vs 39 | size differs | 1 vs 0 | none | fail |
-| `grade_case10_wrong` | 46 vs 46 | equal | same shape | `1,2,3,4,4` vs `1,2,3,4,3` | fail |
+| `percent_change_mul_first` | 16 so với 16 | bằng nhau | không có | không có | qua |
+| `percent_change_split` | 16 so với 16 | bằng nhau | không có | không có | qua |
+| `percent_change_wide` | 16 so với 26 | kích thước khác | không có | không có | thất bại |
+| `percent_change_div_first` | 16 so với 18 | kích thước khác | không có | không có | thất bại |
+| `grade_switch` | 46 so với 46 | bằng nhau | cùng dạng | cả hai `1,2,3,4,4` | qua |
+| `grade_table` | 46 so với 46 | bằng nhau | cùng dạng | cả hai `1,2,3,4,4` | qua |
+| `grade_thresholds` | 46 so với 39 | kích thước khác | 1 so với 0 | không có | thất bại |
+| `grade_case10_wrong` | 46 so với 46 | bằng nhau | cùng dạng | `1,2,3,4,4` so với `1,2,3,4,3` | thất bại |
 
-Two results deserve a second look. `percent_change_split.c` has different source text and identical bytes, because clang treats signed overflow as undefined and folds `after * 100 - before * 100` into one multiply. `grade_table.c` also matches byte for byte, so the compiler reached the same table from an array index and from a `switch`. A byte match proves that this compiler, with these flags, produced the same code from the candidate. It does not prove the candidate is the original source text.
+Hai kết quả đáng xem lại. `percent_change_split.c` có văn bản nguồn khác và các byte giống hệt, vì clang coi tràn có dấu là không xác định và gộp `after * 100 - before * 100` thành một phép nhân. `grade_table.c` cũng khớp từng byte, nên compiler đạt cùng bảng từ một chỉ số mảng và từ một `switch`. Một kết quả khớp byte chứng minh rằng compiler này, với các cờ này, tạo cùng mã từ ứng viên. Nó không chứng minh ứng viên là văn bản nguồn gốc.
 
-Size is a diagnostic and not an acceptance. rea's evidence pages record a 1,825-byte candidate with the right length and 467 differing bytes. The `wide` rebuild is 26 bytes because `movslq`, `imulq`, `cqto`, and `idivq` replaced the 32-bit forms. The listing had told us the width before any compile.
+Kích thước là một chẩn đoán chứ không phải một nghiệm thu. Các trang bằng chứng của rea ghi một ứng viên 1,825 byte có độ dài đúng và 467 byte khác nhau. Bản dựng lại `wide` là 26 byte vì `movslq`, `imulq`, `cqto` và `idivq` thay thế các dạng 32 bit. Danh sách đã nói cho chúng ta chiều rộng trước mọi lần biên dịch.
 
 ## The Agent Loop Over rea
 
-Sixty-five of rea's MCP tools have no CLI command, and `verify_reconstruction` is one of them. `McpStdioClient` in `code/main.py` is the smallest client that reaches them. It starts `npx -y rea-agents@6.5.0 mcp`, writes one JSON-RPC request per line to stdin, and reads one JSON object per line from stdout on a thread. It sends `initialize` with protocol version `2025-11-25`, then `notifications/initialized`, then `tools/call`. The default deadline per call is 330 s, the same number rea allows for a Ghidra cold start.
+Sáu mươi lăm công cụ MCP của rea không có lệnh CLI, và `verify_reconstruction` là một trong số đó. `McpStdioClient` trong `code/main.py` là client nhỏ nhất tới được chúng. Nó khởi động `npx -y rea-agents@6.5.0 mcp`, ghi một yêu cầu JSON-RPC mỗi dòng vào stdin và đọc một đối tượng JSON mỗi dòng từ stdout trên một luồng. Nó gửi `initialize` với phiên bản giao thức `2025-11-25`, rồi `notifications/initialized`, rồi `tools/call`. Thời hạn mặc định mỗi lần gọi là 330 s, cùng con số mà rea cho phép cho một cold start Ghidra.
 
-`agent_loop()` makes the six calls and records each one:
+`agent_loop()` thực hiện sáu lần gọi và ghi mỗi lần:
 
 ```json
 {
@@ -220,15 +220,15 @@ Sixty-five of rea's MCP tools have no CLI command, and `verify_reconstruction` i
 }
 ```
 
-The complete Evidence records are stored under their ids in the same file. The pseudocode and the listing the rebuild came from are part of the fixture. `table_address()` finds the `LEA` operand in the `grade` listing and feeds it to `read_bytes`. `open_binary`, `get_evidence_bundle`, and `close_binary` return no Evidence record and are recorded with a null id.
+Các bản ghi Evidence đầy đủ được lưu dưới các id của chúng trong cùng tệp. Mã giả và danh sách mà bản dựng lại đến từ đó là một phần của fixture. `table_address()` tìm toán hạng `LEA` trong danh sách `grade` và đưa nó vào `read_bytes`. `open_binary`, `get_evidence_bundle` và `close_binary` không trả về bản ghi Evidence và được ghi với một id null.
 
-`run_agent(live=True)` drives rea when `npx` is on the path and `GHIDRA_INSTALL_DIR` names a directory. Otherwise it replays the fixture and says so on stderr. The tests go one step further. `code/tests/fake_rea_server.py` is a stand-in server that answers each `tools/call` with the recorded record for the same tool and arguments. The client and the loop run against it on every test run, with no rea, Ghidra, or Java installed.
+`run_agent(live=True)` điều khiển rea khi `npx` nằm trên path và `GHIDRA_INSTALL_DIR` nêu tên một thư mục. Nếu không, nó phát lại fixture và nói vậy trên stderr. Các bài kiểm tra đi thêm một bước. `code/tests/fake_rea_server.py` là một server thay thế trả lời mỗi `tools/call` bằng bản ghi đã ghi cho cùng công cụ và đối số. Client và vòng lặp chạy đối chiếu nó trên mỗi lần chạy kiểm tra, không cài rea, Ghidra hoặc Java.
 
 ### What rea's verifier can and cannot say
 
-rea's `verify_reconstruction` takes claims that point at comparison Evidence and returns pass, fail, or unknown per claim. Its fixed limitation reads "Pass means every declared claim passed; it does not establish global implementation equivalence." A claim about a function compares provider text from `compare_functions`. A behavioural claim compares two recorded process captures from `compare_process_captures`. When a source record has incomplete call coverage, a claim about calls is `unknown`. Nothing inside rea compiles a rebuilt function or runs it over your input grid. The two legs in this lesson are the part rea leaves to you.
+`verify_reconstruction` của rea nhận các khẳng định trỏ đến Evidence so sánh và trả về pass, fail hoặc unknown theo khẳng định. Giới hạn cố định của nó đọc là "Pass nghĩa là mọi khẳng định được khai báo đã qua; nó không xác lập tính tương đương triển khai toàn cục." Một khẳng định về một hàm so sánh văn bản provider từ `compare_functions`. Một khẳng định hành vi so sánh hai bản thu tiến trình đã ghi từ `compare_process_captures`. Khi một bản ghi nguồn có độ bao phủ gọi không đầy đủ, một khẳng định về các lần gọi là `unknown`. Không có gì bên trong rea biên dịch một hàm dựng lại hoặc chạy nó trên lưới đầu vào của bạn. Hai chân trong bài học này là phần rea để cho bạn.
 
-rea's obligation ledger expects a proof record with `predicate_type: "rea.reconstruction-proof"`, `operation: "verify_reconstruction_obligations"`, `confidence: "observed"`, and `normalized_result.passed === true`. No public rea tool emits one. `build_proof()` in `code/main.py` mints it:
+Sổ nghĩa vụ của rea kỳ vọng một bản ghi bằng chứng với `predicate_type: "rea.reconstruction-proof"`, `operation: "verify_reconstruction_obligations"`, `confidence: "observed"` và `normalized_result.passed === true`. Không công cụ rea công khai nào phát ra một bản ghi như vậy. `build_proof()` trong `code/main.py` tạo nó:
 
 ```json
 {
@@ -252,30 +252,30 @@ rea's obligation ledger expects a proof record with `predicate_type: "rea.recons
 }
 ```
 
-The id is `ev_` plus the SHA-256 of the record without the id, over sorted-key compact JSON. `aggregate()` is fail-closed: `fail` wins, then `unknown`, and an empty claim list is `unknown`. On a host without a C compiler the two behaviour claims are `unknown`, so the record says `unknown` even when both byte claims pass. `authority` is `controlled-replay`, because the proof comes from our own harness and not from the object file alone.
+Id là `ev_` cộng SHA-256 của bản ghi không có id, trên JSON gọn với khóa được sắp xếp. `aggregate()` là fail-closed: `fail` thắng, rồi `unknown`, và một danh sách khẳng định rỗng là `unknown`. Trên một host không có compiler C, hai khẳng định hành vi là `unknown`, nên bản ghi nói `unknown` ngay cả khi cả hai khẳng định byte qua. `authority` là `controlled-replay`, vì bằng chứng đến từ harness của riêng chúng ta chứ không chỉ từ tệp object.
 
 ## What the Research Says
 
-Liu, Raff, and Micinski measured eight decompilation systems in nine configurations in 2026. Candidates that passed every test the benchmark includes still diverged on fuzzed inputs. The rate was 4.9 percent overall and up to 13 percent for one system. On 300 GitHub library functions and 287 CVE-grounded functions, the strongest refinement model raised Ghidra's build rate from 75 percent to 90 percent. Over the same functions the behavioural match rate fell from 74 percent to 62 percent. They traced the cause to invented fields, types, callees, and guards that replaced the visible unknowns a traditional decompiler leaves behind.
+Liu, Raff và Micinski đo tám hệ thống decompilation trong chín cấu hình năm 2026. Các ứng viên qua mọi bài kiểm tra mà benchmark bao gồm vẫn phân kỳ trên các đầu vào fuzz. Tỷ lệ là 4.9 phần trăm tổng thể và tới 13 phần trăm cho một hệ thống. Trên 300 hàm thư viện GitHub và 287 hàm có căn cứ CVE, mô hình tinh chỉnh mạnh nhất nâng tỷ lệ build của Ghidra từ 75 phần trăm lên 90 phần trăm. Trên cùng các hàm, tỷ lệ khớp hành vi giảm từ 74 phần trăm xuống 62 phần trăm. Họ truy nguyên nhân đến các trường, kiểu, callee và điều kiện bảo vệ được bịa thay thế các điều chưa biết nhìn thấy được mà một decompiler truyền thống để lại.
 
-Our `percent_change_wide.c` is one of those invented types. The pseudocode offered a `long`, the rebuild kept it, and the result compiled, passed ten tests, and failed 26 overflow cells. The grade-threshold rebuild is an invented guard. Both would count as re-executable under the LLM4Decompile metric, which recompiles the output and runs the benchmark's assertions. Ghidra's own pseudo-C passed 20.12 percent of those assertions on HumanEval-Decompile.
+`percent_change_wide.c` của chúng ta là một trong những kiểu được bịa đó. Mã giả cung cấp một `long`, bản dựng lại giữ nó và kết quả biên dịch, qua mười bài kiểm tra và thất bại 26 ô tràn. Bản dựng lại ngưỡng grade là một điều kiện bảo vệ được bịa. Cả hai sẽ được tính là có thể thực thi lại theo chỉ số LLM4Decompile, biên dịch lại đầu ra và chạy các assertion của benchmark. Pseudo-C của chính Ghidra qua 20.12 phần trăm các assertion đó trên HumanEval-Decompile.
 
-DecompileBench measured 23,400 functions from 130 real programs. It found LLM methods 52.2 percent lower on functionality correctness than industrial decompilers, with higher understandability scores.
+DecompileBench đo 23,400 hàm từ 130 chương trình thực. Nó thấy các phương pháp LLM thấp hơn 52.2 phần trăm về tính đúng chức năng so với các decompiler công nghiệp, với điểm dễ hiểu cao hơn.
 
-The three proofs the field uses are the three legs you can build. Phoenix and DREAM recompile the output and run the original program's tests. McKeeman and Csmith run generated inputs against the original with inputs kept inside defined behaviour. Ramos and Engler check two C functions with bounded symbolic execution, which proves equality on all explored paths up to an input size. This lesson builds the first two. The third is the practice lab in lesson 35's evidence ledger when a grid is too small to trust.
+Ba bằng chứng mà lĩnh vực sử dụng là ba chân bạn có thể xây dựng. Phoenix và DREAM biên dịch lại đầu ra và chạy các bài kiểm tra của chương trình gốc. McKeeman và Csmith chạy các đầu vào được tạo đối chiếu bản gốc với các đầu vào được giữ trong hành vi được định nghĩa. Ramos và Engler kiểm tra hai hàm C bằng thực thi ký hiệu có giới hạn, chứng minh tính bằng nhau trên mọi đường được khám phá tới một kích thước đầu vào. Bài học này xây dựng hai chân đầu. Chân thứ ba là bài thực hành trong sổ bằng chứng của bài 35 khi một lưới quá nhỏ để tin.
 
 ## Build It
 
-Run the standard-library harness:
+Chạy harness dùng thư viện chuẩn:
 
 ```bash
 cd phases/13-tools-and-protocols/36-rebuild-and-prove-equal
 python3 code/main.py
 ```
 
-With clang on the path, the demo compiles both candidate pairs and runs 92 cells for each. It recompiles eight candidates, replays the agent run, and mints the proof record. Without clang it reads the committed objects and reports the behaviour claims as `unknown`.
+Với clang trên path, demo biên dịch cả hai cặp ứng viên và chạy 92 ô cho mỗi cặp. Nó biên dịch lại tám ứng viên, phát lại lần chạy agent và tạo bản ghi bằng chứng. Không có clang, nó đọc các object đã commit và báo cáo các khẳng định hành vi là `unknown`.
 
-Expected shape on an arm64 Mac:
+Dạng kỳ vọng trên một máy Mac arm64:
 
 ```json
 {
@@ -294,43 +294,43 @@ Expected shape on an arm64 Mac:
 }
 ```
 
-Read `code/main.py` in this order:
+Đọc `code/main.py` theo thứ tự này:
 
-1. `wrap32()`, `c_div()`, `idiv32()`, and the two `*_model()` functions hold the integer semantics of the listing.
-2. `input_grid()` and `classify()` build and tag the 92 cells.
-3. `build_harness()` and `execute()` compile one program from the original, the renamed candidates, and `driver.c`, then run the cells.
-4. `prove_behaviour()` returns the leg-one report with mismatches and model disagreements.
-5. `ElfObject` reads headers, symbols, and `.rela` records. `mask_relocations()` and `read_table()` prepare the compare.
-6. `prove_bytes()` returns the leg-two report with sizes, masked ranges, relocation shape, and tables.
-7. `McpStdioClient` and `agent_loop()` drive rea and record each step.
-8. `build_proof()` and `aggregate()` mint the fail-closed record.
+1. `wrap32()`, `c_div()`, `idiv32()` và hai hàm `*_model()` chứa ngữ nghĩa số nguyên của danh sách.
+2. `input_grid()` và `classify()` xây dựng và gắn nhãn 92 ô.
+3. `build_harness()` và `execute()` biên dịch một chương trình từ bản gốc, các ứng viên được đổi tên và `driver.c`, rồi chạy các ô.
+4. `prove_behaviour()` trả về báo cáo chân một với các lần không khớp và bất đồng mô hình.
+5. `ElfObject` đọc header, symbol và các bản ghi `.rela`. `mask_relocations()` và `read_table()` chuẩn bị phép so sánh.
+6. `prove_bytes()` trả về báo cáo chân hai với kích thước, phạm vi đã che, dạng relocation và bảng.
+7. `McpStdioClient` và `agent_loop()` điều khiển rea và ghi mỗi bước.
+8. `build_proof()` và `aggregate()` tạo bản ghi fail-closed.
 
 ## Use It
 
-To prove a new function equal, repeat these steps:
+Để chứng minh một hàm mới bằng nhau, lặp lại các bước này:
 
-1. Fetch `analyze_function` for the function and record the evidence id. Read the listing before the pseudocode.
-2. Write the candidate from the listing's operation widths. Keep the original's function name.
-3. List every multiply, add, subtract, and divide in the listing. Add grid inputs that wrap each one at its width.
-4. Add both sides of every compare constant in the listing. For `grade` those were 6 and 4 after the subtract.
-5. Add every divisor that can trap on the target, and record which architecture ran the grid.
-6. Run both legs and read the reasons before the status.
-7. Keep the proof record beside the candidate. Its `evidence_links` tell a reader which records the claim rests on.
+1. Tìm nạp `analyze_function` cho hàm và ghi id bằng chứng. Đọc danh sách trước mã giả.
+2. Viết ứng viên từ các chiều rộng phép toán của danh sách. Giữ tên hàm của bản gốc.
+3. Liệt kê mọi phép nhân, cộng, trừ và chia trong danh sách. Thêm các đầu vào lưới làm mỗi phép wrap ở chiều rộng của nó.
+4. Thêm cả hai phía của mọi hằng số so sánh trong danh sách. Với `grade`, đó là 6 và 4 sau phép trừ.
+5. Thêm mọi số chia có thể trap trên mục tiêu, và ghi kiến trúc nào chạy lưới.
+6. Chạy cả hai chân và đọc các lý do trước trạng thái.
+7. Giữ bản ghi bằng chứng cạnh ứng viên. `evidence_links` của nó nói cho người đọc các bản ghi nào mà khẳng định dựa vào.
 
-Rerun both legs after any compiler update. A byte match is a statement about one compiler with one set of flags.
+Chạy lại cả hai chân sau mọi cập nhật compiler. Một kết quả khớp byte là một phát biểu về một compiler với một tập cờ.
 
 ## Interactive Lab
 
 ### Lab A: the model and the run
 
-From the `code` directory, open Python:
+Từ thư mục `code`, mở Python:
 
 ```bash
 cd phases/13-tools-and-protocols/36-rebuild-and-prove-equal/code
 python3 -q
 ```
 
-Run:
+Chạy:
 
 ```python
 from main import *
@@ -341,7 +341,7 @@ report = prove_behaviour(PLAUSIBLE)
 report.naive_passed, len(report.mismatches), report.mismatches[0]
 ```
 
-The first call gives -133, the wrapped product divided by 3. The second gives `'trap'` and the third gives -2147483648. The report shows ten naive cases passed and 28 grid cells failed. Compare `report.oracle_disagreements` with an empty list.
+Lần gọi đầu cho -133, tích đã wrap chia cho 3. Lần thứ hai cho `'trap'` và lần thứ ba cho -2147483648. Báo cáo cho thấy mười trường hợp ngây thơ qua và 28 ô lưới thất bại. So sánh `report.oracle_disagreements` với một danh sách rỗng.
 
 ### Lab B: read the object
 
@@ -352,7 +352,7 @@ grade.size, grade.data[0x26:0x2a].hex(), grade.relocations
 read_table(obj, grade.relocations[0], 5, 4)
 ```
 
-The field bytes are `00000000`. The relocation names `.rodata` with addend `0x10`, and the table reads `[1, 2, 3, 4, 4]`.
+Các byte trường là `00000000`. Relocation nêu tên `.rodata` với addend `0x10`, và bảng đọc ra `[1, 2, 3, 4, 4]`.
 
 ### Lab C: break one constant
 
@@ -361,11 +361,11 @@ report = prove_bytes("grade", CANDIDATES / "grade_case10_wrong.o")
 report.masked_equal, report.relocations_match, report.tables_equal, report.reasons()
 ```
 
-The bytes match, the records match, and the tables do not. Now edit `grade_case10_wrong.c` so `case 10` returns 4 again, recompile it with the fixture command, and watch the status change to `pass`.
+Các byte khớp, các bản ghi khớp và các bảng không khớp. Giờ chỉnh sửa `grade_case10_wrong.c` để `case 10` lại trả về 4, biên dịch lại nó bằng lệnh fixture và theo dõi trạng thái đổi thành `pass`.
 
 ### Lab D: drive rea
 
-With rea 6.5.0 and Ghidra 12.1.4 installed:
+Với rea 6.5.0 và Ghidra 12.1.4 được cài:
 
 ```bash
 GHIDRA_INSTALL_DIR=/opt/homebrew/Cellar/ghidra/12.1.4/libexec \
@@ -373,52 +373,52 @@ JAVA_HOME=/opt/homebrew/opt/openjdk@21 \
 python3 code/main.py --live
 ```
 
-The first `analyze_function` takes several seconds while Ghidra imports the object. Compare the new evidence ids with the committed run. The same bytes under the same analysis profile give the same ids, because the id is a content hash that excludes the file path.
+`analyze_function` đầu tiên mất vài giây trong khi Ghidra import object. So sánh các id bằng chứng mới với lần chạy đã commit. Cùng các byte dưới cùng analysis profile cho cùng các id, vì id là một hash nội dung loại trừ đường dẫn tệp.
 
 ## Practice Lab
 
-Extend both legs to `total` and `grade_label` from the same object.
+Mở rộng cả hai chân sang `total` và `grade_label` từ cùng object.
 
-Requirements:
+Yêu cầu:
 
-- For `total`, the input is an array and a count. Build cells with count 0, a negative count, one element, and sums that wrap at 32 bits.
-- For `grade_label`, the function calls `grade` inline and reads `labels.rel`, a table of five relative string offsets with their own relocations in `.rela.rodata`.
-- Add a `CLAIMS` entry for `grade_label` with two relocations and a table of five 4-byte entries, and compare the strings the entries point at.
-- Record which cells the model and the run disagree on, if any, and explain each one from the listing.
-- Add one claim per leg per function to the proof record and keep the aggregate fail-closed.
+- Với `total`, đầu vào là một mảng và một số đếm. Xây dựng các ô với số đếm 0, một số đếm âm, một phần tử và các tổng wrap ở 32 bit.
+- Với `grade_label`, hàm gọi `grade` inline và đọc `labels.rel`, một bảng năm offset chuỗi tương đối với các relocation riêng trong `.rela.rodata`.
+- Thêm một mục `CLAIMS` cho `grade_label` với hai relocation và một bảng năm mục 4 byte, và so sánh các chuỗi mà các mục trỏ tới.
+- Ghi các ô nào mà mô hình và lần chạy bất đồng, nếu có, và giải thích mỗi ô từ danh sách.
+- Thêm một khẳng định mỗi chân mỗi hàm vào bản ghi bằng chứng và giữ tổng hợp fail-closed.
 
-Success means the proof record lists four functions, every claim carries an evidence id, and `grade_label` fails when one label string differs.
+Thành công nghĩa là bản ghi bằng chứng liệt kê bốn hàm, mọi khẳng định mang một id bằng chứng và `grade_label` thất bại khi một chuỗi nhãn khác.
 
 ## Graded Lab
 
-Five questions about the fixtures of this lesson. Find each answer with the code you built, then write it into `code/lab_answers.json`. Write numbers as numbers or as hex strings such as `"0x40"`, and lists as JSON lists.
+Năm câu hỏi về các fixture của bài học này. Tìm mỗi câu trả lời bằng mã bạn đã xây dựng, rồi ghi nó vào `code/lab_answers.json`. Viết số dưới dạng số hoặc chuỗi hex chẳng hạn `"0x40"`, và danh sách dưới dạng danh sách JSON.
 
-1. `t1`: percent_change_model(3, 105) on x86_64.
-2. `t2`: percent_change_model(0, 5) on x86_64.
+1. `t1`: percent_change_model(3, 105) trên x86_64.
+2. `t2`: percent_change_model(0, 5) trên x86_64.
 3. `t3`: grade_model(100).
-4. `t4`: the number of cells in input_grid().
-5. `t5`: the number of grid cells where the x86_64 model traps.
+4. `t4`: số ô trong input_grid().
+5. `t5`: số ô lưới mà mô hình x86_64 trap.
 
-Check your answers:
+Kiểm tra các câu trả lời của bạn:
 
 ```bash
 cd phases/13-tools-and-protocols/36-rebuild-and-prove-equal
 python3 code/lab.py
 ```
 
-The checker computes each expected value from `code/main.py` on the committed fixtures. It prints `PASS`, `FAIL` or `TODO` for each task and a score, and it exits 0 only when all five pass. `python3 code/lab.py my-answers.json` checks another file. `code/tests/test_lab.py` proves that the checker accepts the right answers and rejects a wrong one.
+Bộ kiểm tra tính mỗi giá trị kỳ vọng từ `code/main.py` trên các fixture đã commit. Nó in `PASS`, `FAIL` hoặc `TODO` cho mỗi tác vụ và một điểm số, và nó chỉ thoát 0 khi cả năm qua. `python3 code/lab.py my-answers.json` kiểm tra một tệp khác. `code/tests/test_lab.py` chứng minh rằng bộ kiểm tra chấp nhận các câu trả lời đúng và từ chối một câu sai.
 
 ### See it run
 
-The [Inside a Decompiler](https://aiengineeringfromscratch.com/inside-a-decompiler) machine ends with pseudocode and files it as inferred: the page does not prove it. This lesson is the step that turns that claim into a checked one.
+Máy [Inside a Decompiler](https://aiengineeringfromscratch.com/inside-a-decompiler) kết thúc bằng mã giả và xếp nó là inferred: trang không chứng minh nó. Bài học này là bước biến khẳng định đó thành một khẳng định được kiểm tra.
 
 ## Output Skill
 
-This lesson produces `outputs/skill-rebuild-and-prove-equal.md`. Use it to turn function evidence and a candidate rebuild into a two-legged proof and a proof record. The skill requires the listing before the pseudocode, a grid with every hazard class, relocation masking plus a constant check, and a fail-closed aggregate.
+Bài học này tạo ra `outputs/skill-rebuild-and-prove-equal.md`. Sử dụng nó để biến bằng chứng hàm và một bản dựng lại ứng viên thành một bằng chứng hai chân và một bản ghi bằng chứng. Skill yêu cầu danh sách trước mã giả, một lưới với mọi lớp nguy cơ, che relocation cộng một kiểm tra hằng số và một tổng hợp fail-closed.
 
 ## Verify It
 
-Run the demo and the test suite:
+Chạy demo và bộ kiểm tra:
 
 ```bash
 cd phases/13-tools-and-protocols/36-rebuild-and-prove-equal
@@ -426,44 +426,44 @@ python3 code/main.py
 python3 -m unittest discover -s code/tests -v
 ```
 
-The 35 tests prove:
+35 bài kiểm tra chứng minh:
 
-- `c_div()` truncates toward zero and `wrap32()` follows two's complement
-- the model gives -133 for `(3, INT_MAX)`, `trap` for the trap cell on x86-64, and -2147483648 on AArch64
-- the grid has 92 cells and every hazard class, and the naive cases avoid every hard class
-- the ELF reader finds four functions at the recorded offsets and sizes
-- `percent_change` is 16 bytes with no relocations and `grade` has one `R_X86_64_PC32` at `0x26`
-- the relocation field bytes are zero and masking changes nothing in this RELA object
-- all eight committed candidates reach the expected status, with the recorded reasons
-- `grade_case10_wrong` passes masked bytes and fails only the constant check
-- the recorded leg-one runs show ten naive passes, 28 mismatches, and zero model disagreements
-- with a compiler, both pairs rebuild and rerun with the same outcome
-- the agent run targets the committed object by SHA-256, in order, with `ev_` ids on every Evidence step
-- the `read_bytes` record equals the table the ELF reader finds
-- the client drives the fake server and records the same evidence ids as the real run
-- an error result from the server goes into the run record
-- `aggregate()` is fail-closed and the proof id recomputes from its content
+- `c_div()` cắt về không và `wrap32()` theo bù hai
+- mô hình cho -133 với `(3, INT_MAX)`, `trap` cho ô trap trên x86-64 và -2147483648 trên AArch64
+- lưới có 92 ô và mọi lớp nguy cơ, và các trường hợp ngây thơ tránh mọi lớp khó
+- trình đọc ELF tìm bốn hàm ở các offset và kích thước đã ghi
+- `percent_change` là 16 byte không có relocation và `grade` có một `R_X86_64_PC32` tại `0x26`
+- các byte trường relocation bằng không và việc che không thay đổi gì trong object RELA này
+- cả tám ứng viên đã commit đạt trạng thái kỳ vọng, với các lý do đã ghi
+- `grade_case10_wrong` qua các byte đã che và chỉ thất bại kiểm tra hằng số
+- các lần chạy chân một đã ghi cho thấy mười lần qua ngây thơ, 28 lần không khớp và không bất đồng mô hình
+- với một compiler, cả hai cặp dựng lại và chạy lại với cùng kết quả
+- lần chạy agent nhắm đến object đã commit theo SHA-256, theo thứ tự, với các id `ev_` trên mọi bước Evidence
+- bản ghi `read_bytes` bằng bảng mà trình đọc ELF tìm thấy
+- client điều khiển server giả và ghi cùng các id bằng chứng như lần chạy thực
+- một kết quả lỗi từ server đi vào bản ghi chạy
+- `aggregate()` là fail-closed và id bằng chứng tính lại được từ nội dung của nó
 
 ## Production Failure Modes
 
-| Failure | What the weak report says | What the harness must prove |
+| Lỗi | Báo cáo yếu nói gì | Harness phải chứng minh gì |
 |---|---|---|
-| Rebuild keeps the decompiler's `long` | "ten tests pass" | 26 overflow cells differ from the original |
-| Thresholds replace a switch | "every grade band passes" | 110 and larger return 0 in the original |
-| Divide before multiply | "formula is algebraically equal" | rounding cells differ, naive cases fail |
-| Trap cell skipped | "no crashes" | x86-64 raises `#DE`, AArch64 returns `INT_MIN`, the report names the host |
-| Byte compare without masking | "bytes equal" | relocation records name different offsets |
-| Masking without reading constants | "bytes equal after masking" | `1,2,3,4,3` differs from `1,2,3,4,4` |
-| Size taken as acceptance | "same length" | differing bytes inside the same length |
-| Different compiler or flags | "bytes differ, rebuild wrong" | the same source gives different bytes, so the compare is void |
-| Model treated as observation | "model agrees" | the run is observed, the model is derived, disagreements are listed |
-| Claim without evidence id | "verified" | every claim links an `ev_` record of the function it covers |
-| No compiler on the CI host | "passed" | behaviour claims are `unknown` and the aggregate is `unknown` |
-| Pseudocode read as source | "decompiler says long" | the listing shows `IMUL EAX`, `CDQ`, `IDIV EDI` |
+| Bản dựng lại giữ `long` của decompiler | "mười bài kiểm tra qua" | 26 ô tràn khác bản gốc |
+| Các ngưỡng thay một switch | "mọi dải điểm qua" | 110 trở lên trả về 0 trong bản gốc |
+| Chia trước nhân | "công thức bằng nhau về đại số" | các ô làm tròn khác, các trường hợp ngây thơ thất bại |
+| Ô trap bị bỏ qua | "không crash" | x86-64 phát sinh `#DE`, AArch64 trả về `INT_MIN`, báo cáo nêu tên host |
+| So sánh byte không che | "các byte bằng nhau" | các bản ghi relocation nêu tên các offset khác nhau |
+| Che mà không đọc hằng số | "các byte bằng nhau sau khi che" | `1,2,3,4,3` khác `1,2,3,4,4` |
+| Kích thước được coi là nghiệm thu | "cùng độ dài" | các byte khác nhau bên trong cùng độ dài |
+| Compiler hoặc cờ khác | "các byte khác, bản dựng lại sai" | cùng nguồn cho các byte khác, nên phép so sánh vô hiệu |
+| Mô hình được coi là quan sát | "mô hình đồng nhất" | lần chạy là observed, mô hình là derived, các bất đồng được liệt kê |
+| Khẳng định không có id bằng chứng | "đã xác minh" | mọi khẳng định liên kết một bản ghi `ev_` của hàm mà nó bao phủ |
+| Không compiler trên host CI | "đã qua" | các khẳng định hành vi là `unknown` và tổng hợp là `unknown` |
+| Mã giả được đọc như nguồn | "decompiler nói long" | danh sách cho thấy `IMUL EAX`, `CDQ`, `IDIV EDI` |
 
 ## Operational Rule
 
-Write the rebuild from the listing and name the record it came from. Run it against the original over a grid that wraps every intermediate and crosses every compare constant. Recompile it with the original flags, mask the relocation fields, compare the records, and read the constants they point at. Record each claim with its evidence id, and let an unverified claim stay unknown.
+Viết bản dựng lại từ danh sách và nêu tên bản ghi mà nó đến từ đó. Chạy nó đối chiếu bản gốc trên một lưới làm mọi giá trị trung gian wrap và vượt mọi hằng số so sánh. Biên dịch lại nó với các cờ gốc, che các trường relocation, so sánh các bản ghi và đọc các hằng số mà chúng trỏ tới. Ghi mỗi khẳng định với id bằng chứng của nó, và để một khẳng định chưa được xác minh giữ là chưa biết.
 
 ## Further Reading
 

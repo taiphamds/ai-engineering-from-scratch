@@ -55,8 +55,8 @@ flowchart LR
 
 Điều kiện hóa văn bản thông thường học `epsilon_theta(x_t, t, c)` cho mọi prompt `c`. CFG huấn luyện cùng mạng với `c` bị bỏ 10% thời gian (thay bằng embedding rỗng), tạo một mô hình duy nhất dự đoán cả nhiễu có điều kiện và không điều kiện. Khi suy luận:
 
-```
-eps = eps_uncond + w * (eps_cond - eps_uncond)
+```math
+\epsilon = \epsilon_{\text{uncond}} + w \cdot (\epsilon_{\text{cond}} - \epsilon_{\text{uncond}})
 ```
 
 `w` là thang hướng dẫn. `w=0` là không điều kiện, `w=1` là có điều kiện thông thường, `w>1` đẩy đầu ra về phía "được điều kiện hóa theo prompt nhiều hơn" với chi phí đa dạng. Mặc định SD là `w=7.5`.
@@ -235,7 +235,7 @@ Trong production, các quyết định bạn thực sự đưa ra:
 
 - **Họ mô hình**: SD 1.5 cho các bản tinh chỉnh cộng đồng nguồn mở, SDXL cho độ trung thực cao hơn, SD3 / FLUX cho mức tiên tiến nhất và các yêu cầu giấy phép nghiêm ngặt.
 - **Bộ lập lịch**: DPM-Solver++ 2M Karras cho 20-30 bước, LCM-LoRA khi độ trễ dưới 1s.
-- **Độ chính xác**: `float16` trên 4080/4090, `bfloat16` trên A100 trở lên, `int8` (qua `bitsandbytes` hoặc `compel`) khi VRAM eo hẹp.
+- **Độ chính xác**: `float16` trên 4080/4090, `bfloat16` trên A100 và mới hơn, `int8` (qua `bitsandbytes`) khi VRAM eo hẹp.
 - **Điều kiện hóa**: văn bản thuần hoạt động; để kiểm soát mạnh hơn, thêm ControlNet (canny, độ sâu, tư thế) trên pipeline cơ sở.
 
 Cho sinh theo batch, `AUTO1111` / `ComfyUI` là các công cụ cộng đồng; cho API production, `diffusers` + `accelerate` hoặc `optimum-nvidia` với biên dịch TensorRT.

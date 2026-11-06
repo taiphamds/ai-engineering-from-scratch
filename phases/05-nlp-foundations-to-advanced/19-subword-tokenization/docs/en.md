@@ -79,7 +79,7 @@ def encode_bpe(word, merges):
     return symbols
 ```
 
-O(n·|merges|) ngây thơ. Các triển khai production (tiktoken, HF Tokenizers) dùng tra cứu thứ hạng phép gộp với các hàng đợi ưu tiên và chạy trong thời gian gần tuyến tính.
+$O(n \cdot \lvert \text{merges} \rvert)$ ngây thơ. Các triển khai production (tiktoken, HF Tokenizers) dùng tra cứu thứ hạng phép gộp với các hàng đợi ưu tiên và chạy trong thời gian gần tuyến tính.
 
 ### Step 3: SentencePiece in practice
 

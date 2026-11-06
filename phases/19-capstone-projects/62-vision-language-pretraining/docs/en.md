@@ -18,7 +18,7 @@
 
 Một mô hình thị giác-ngôn ngữ cần hai kỹ năng. Nó phải xếp hạng: với một chú thích được cung cấp, tìm ảnh đúng giữa nhiều ảnh. Nó phải sinh: với một ảnh được cung cấp, viết một chú thích. Tiền huấn luyện mô hình chỉ trên một kỹ năng cho bạn nửa hệ thống. CLIP làm tốt xếp hạng nhưng không thể chú thích. GPT-4V có thể chú thích nhưng dùng một đầu truy xuất riêng cho xếp hạng. Tiền huấn luyện đa mục tiêu nhận cả hai trong một lượt.
 
-InfoNCE xử lý nửa xếp hạng. Với một lô N cặp, mô hình coi N cặp khớp là dương tính và `N^2 - N` cặp không khớp là âm tính, rồi chạy một mất mát entropy chéo trên ma trận tương tự `(N, N)` kết quả. Mất mát LM xử lý nửa sinh: dự đoán token tiếp theo tiêu chuẩn điều kiện hóa trên ảnh. Cả hai mất mát khả vi và có thể dùng chung các trọng số bộ mã hóa, bộ chiếu, và decoder.
+InfoNCE xử lý nửa xếp hạng. Với một batch N cặp, mô hình coi N cặp khớp là dương tính và `N^2 - N` cặp không khớp là âm tính, rồi chạy một hàm mất mát cross-entropy trên ma trận độ tương đồng `(N, N)` kết quả. Hàm mất mát LM xử lý nửa sinh: dự đoán token tiếp theo tiêu chuẩn có điều kiện theo hình ảnh. Cả hai hàm mất mát đều khả vi và chia sẻ trọng số encoder cùng projector; decoder chỉ huấn luyện trên hàm mất mát LM.
 
 ## The Concept
 
@@ -54,7 +54,7 @@ Decoder tiêu thụ các token bộ nhớ ảnh qua cross-attention và dự đo
 
 ### Combining the losses
 
-`total = contrastive + lm_weight * lm` trong đó `lm_weight` là một đại lượng vô hướng (thường 1.0). Hai mất mát dùng chung các gradient vào bộ mã hóa và phép chiếu; chỉ decoder nhận gradient mất mát LM. Đây là công thức đa tác vụ mà CoCa, BLIP, và các mô hình kiểu SigLIP đều dùng, với các trọng số khác nhau.
+`total = contrastive + lm_weight * lm` trong đó `lm_weight` là một vô hướng (thường là 1.0). Hai hàm mất mát chia sẻ gradient vào encoder và projection; decoder chỉ nhận gradient từ hàm mất mát LM. Đây là công thức đa tác vụ mà CoCa và BLIP sử dụng, với các trọng số khác nhau. SigLIP chỉ giữ số hạng contrastive và thay softmax bằng một hàm mất mát cặp sigmoid.
 
 | Thành phần | Bề mặt mất mát | Ảnh hưởng |
 |-----------|--------------|---------|

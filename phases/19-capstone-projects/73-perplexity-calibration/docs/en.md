@@ -53,7 +53,7 @@ ECE bị thiên lệch bởi số nhóm và kích thước mẫu. Với mười 
 
 ## What Brier score does that ECE does not
 
-ECE chỉ quan tâm các khoảng cách trung bình. Một mô hình quá tự tin trên nửa số nhóm và thiếu tự tin trên nửa còn lại có thể có ECE thấp trong khi được hiệu chuẩn kém cục bộ. Điểm Brier đo sai số bình phương so với kết quả thật theo dự đoán, nên nó phạt độ phân tán trực tiếp.
+ECE chỉ quan tâm đến khoảng cách trung bình trong mỗi bin. Nó lấy khoảng cách tuyệt đối theo bin, nên các khoảng cách ở các bin khác nhau không triệt tiêu. Bên trong một bin thì có thể: nếu một số dự đoán trong bin quá tự tin và các dự đoán khác thiếu tự tin, các trung bình của bin có thể khớp và bin gần như không thêm gì vào ECE, trong khi mỗi dự đoán đều được hiệu chuẩn kém. Brier score đo sai số bình phương với kết quả thật theo từng dự đoán, nên nó phạt độ phân tán trực tiếp.
 
 Với các kết quả nhị phân, Brier là `mean((p_i - y_i)^2)`. Nó phân rã thành độ tin cậy, độ phân giải, và độ bất định. Chúng ta tính điểm và phân rã. Trình chạy báo cáo đại lượng vô hướng nhưng ghi nhật ký phân rã cho bảng điều khiển.
 
@@ -87,7 +87,7 @@ Harness không giả định độ tự tin đến từ softmax. Nó nhận bấ
 
 - Mọi dự đoán sai: ECE là độ tự tin trung bình, Brier cao, perplexity là bất cứ thứ gì mô hình nghĩ về văn bản.
 - Mọi dự đoán đúng với độ tự tin cao: ECE gần không, Brier gần không.
-- Bộ dự đoán hoàn toàn bất định tại p=0.5: ECE là 0.5 trừ độ chính xác, Brier là 0.25 trừ một số hạng hiệu chỉnh.
+- Bộ dự đoán hoàn toàn không chắc chắn ở p=0.5: mỗi dự đoán rơi vào một bin, nên ECE là `|0.5 - accuracy|`. Brier chính xác là 0.25, vì `(0.5 - y)^2 = 0.25` dù `y` là 0 hay 1.
 - Đầu vào rỗng: ECE, Brier, và độ tin cậy trả về `0.0` (hoặc các mảng điền không). Perplexity trả về `NaN` cho trường hợp không token. Không đường nào trong số này phát ra một cảnh báo; trình chạy kiểm tra các giá trị và quyết định báo cáo hay bỏ qua.
 
 Các trường hợp này được đưa vào các kiểm thử. Một mô hình thực trên một benchmark thực sẽ không gặp chúng, nhưng một adapter có lỗi hoặc một mẫu tí hon sẽ gặp, và trình chạy không nên sập.

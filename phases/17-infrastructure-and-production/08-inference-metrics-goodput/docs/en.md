@@ -1,6 +1,6 @@
 # Inference Metrics — TTFT, TPOT, ITL, Goodput, P99
 
-> Bốn chỉ số quyết định liệu một triển khai suy luận có hoạt động không. TTFT là prefill cộng hàng đợi cộng mạng. TPOT (tương đương ITL) là chi phí decode bị giới hạn bởi bộ nhớ theo từng token. Độ trễ đầu cuối là TTFT cộng TPOT nhân độ dài đầu ra. Thông lượng là token mỗi giây được tổng hợp trên toàn đội máy. Nhưng chỉ số quan trọng cho sản phẩm là goodput — tỷ lệ các yêu cầu đáp ứng mọi SLO đồng thời. Thông lượng cao ở goodput thấp nghĩa là bạn đang xử lý các token không bao giờ tới người dùng đúng giờ. Các con số tham chiếu cho Llama-3.1-8B-Instruct trên TRT-LLM năm 2026: TTFT trung bình 162 ms, TPOT trung bình 7.33 ms, E2E trung bình 1,093 ms. Luôn báo cáo P50, P90, P99 — không bao giờ chỉ trung bình. Và chú ý bẫy phép đo: GenAI-Perf loại TTFT khỏi tính ITL, LLMPerf bao gồm nó; hai công cụ bất đồng về TPOT cho cùng lần chạy.
+> Năm chỉ số quyết định liệu một triển khai suy luận có hoạt động hay không. TTFT là prefill cộng hàng đợi cộng mạng. TPOT (thường được báo cáo là ITL, dù các công cụ bất đồng về việc ITL có tính token đầu tiên hay không) là chi phí decode bị giới hạn bởi bộ nhớ trên mỗi token. Độ trễ đầu cuối là TTFT cộng TPOT nhân độ dài đầu ra. Throughput là token mỗi giây được tổng hợp trên toàn bộ đội máy. Nhưng chỉ số quan trọng với sản phẩm là goodput — tỷ lệ yêu cầu đáp ứng mọi SLO đồng thời. Throughput cao với goodput thấp nghĩa là bạn đang xử lý các token không bao giờ đến người dùng đúng giờ. Số liệu tham chiếu cho Llama-3.1-8B-Instruct trên TRT-LLM năm 2026: TTFT trung bình 162 ms, TPOT trung bình 7.33 ms, E2E trung bình 1,093 ms. Luôn báo cáo P50, P90, P99 — đừng bao giờ chỉ báo cáo trung bình. Và chú ý bẫy đo lường: GenAI-Perf loại TTFT khỏi phép tính ITL, LLMPerf bao gồm nó; hai công cụ bất đồng về TPOT cho cùng một lần chạy.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy percentile calculator and goodput reporter)
@@ -52,7 +52,7 @@ Chỉ số tổng hợp. Cho bạn biết hiệu quả đội máy. Không cho b
 
 `goodput = fraction of requests meeting (TTFT <= a) AND (TPOT <= b) AND (E2E <= c)`
 
-SLO là một đa ràng buộc. Một yêu cầu chỉ “tốt” nếu mọi ràng buộc đều được giữ. Goodput là tỷ lệ đó. Thông lượng cao ở goodput 60% là thất bại. Thông lượng thấp hơn ở goodput 99% là mục tiêu.
+SLO là đa ràng buộc. Một yêu cầu chỉ "tốt" nếu mọi ràng buộc đều được giữ. Goodput là tỷ lệ đó. Thay vào đó, một số bài báo và dashboard báo cáo goodput như một tốc độ: số yêu cầu mỗi giây đáp ứng mọi SLO. Nhân tỷ lệ với tốc độ yêu cầu để chuyển đổi. Throughput cao ở goodput 60% là thất bại. Throughput thấp hơn ở goodput 99% là mục tiêu.
 
 Năm 2026, goodput là chỉ số được dùng trong các bài nộp MLPerf Inference v6.0 và trong theo dõi SLA nội bộ tại các nhà cung cấp nền tảng AI.
 
@@ -107,6 +107,8 @@ throughput-latency
 ## Use It
 
 `code/main.py` là một bộ tính goodput đồ chơi. Sinh một phân phối độ trễ tổng hợp, áp dụng một SLO, và tính goodput. Cũng cho thấy khác biệt TPOT GenAI-Perf so với LLMPerf trên cùng dấu vết.
+
+Máy [Inside an LLM Serving GPU](https://aiengineeringfromscratch.com/inside-an-llm-serving-gpu?users=1) hiển thị thời gian trên mỗi token đầu ra đến từ đâu trên một NVIDIA L4. Một bước decode đọc 16.41 GB trọng số, mất ít nhất 54.7 ms ở 300 GB/s, và bước đo được mất 60.16 ms.
 
 ## Ship It
 

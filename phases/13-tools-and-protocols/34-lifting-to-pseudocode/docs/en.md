@@ -1,6 +1,6 @@
 # Lifting to Pseudocode: IR, SSA, and Structuring From Scratch
 
-> Decompiler output is a claim with a hidden derivation. When you build the derivation yourself, every line of that output becomes a thing you can check.
+> Đầu ra decompiler là một khẳng định với một phép suy ra ẩn. Khi bạn tự xây dựng phép suy ra, mỗi dòng của đầu ra đó trở thành một thứ bạn có thể kiểm tra.
 
 **Type:** Build
 **Languages:** Python, C
@@ -9,16 +9,16 @@
 
 ## Learning Objectives
 
-- Lift decoded x86-64 instructions to a small IR with explicit flags, loads, stores, branches, calls, and returns.
-- Turn frame slots into local variables and System V argument registers into parameters.
-- Build minimal SSA with phi functions on dominance frontiers, then substitute, simplify, and remove dead code.
-- Recover `if`, `if` with `else`, `while`, and `do while` from the control-flow graph with post-dominators and back edges.
-- Explain the multiply by `0x66666667` as a division by 10 and prove the identity.
-- Read Ghidra pseudocode for the same functions line by line and name the instruction, or the guess, behind every difference.
+- Nâng các chỉ lệnh x86-64 đã giải mã lên một IR nhỏ với cờ, tải, lưu, nhánh, lần gọi và lần trả về tường minh.
+- Biến các slot khung thành biến cục bộ và các thanh ghi đối số System V thành tham số.
+- Xây dựng SSA tối thiểu với các hàm phi trên các dominance frontier, rồi thế, đơn giản hóa và loại bỏ mã chết.
+- Khôi phục `if`, `if` với `else`, `while` và `do while` từ đồ thị luồng điều khiển bằng post-dominator và back edge.
+- Giải thích phép nhân với `0x66666667` là một phép chia cho 10 và chứng minh đồng nhất thức.
+- Đọc mã giả Ghidra cho cùng các hàm từng dòng và nêu tên chỉ lệnh, hoặc phỏng đoán, đằng sau mỗi khác biệt.
 
 ## The Problem
 
-You asked rea for the pseudocode of `percent_change` in `ledger-x86_64-O1.o`. Ghidra 12.1.4 answered in about ten seconds:
+Bạn yêu cầu rea cung cấp mã giả của `percent_change` trong `ledger-x86_64-O1.o`. Ghidra 12.1.4 trả lời trong khoảng mười giây:
 
 ```c
 undefined1  [16] percent_change(int param_1,int param_2,ulong param_3)
@@ -40,13 +40,13 @@ undefined1  [16] percent_change(int param_1,int param_2,ulong param_3)
 }
 ```
 
-The source is four lines long. It takes two `int` values and returns one `int`. Ghidra reports a 16-byte return value and a third parameter that the source does not have. The sixteen bytes of machine code are correct, and Ghidra decoded every one of them correctly. The signature is a guess, and nothing in the text marks it as one.
+Nguồn dài bốn dòng. Nó nhận hai giá trị `int` và trả về một `int`. Ghidra báo cáo một giá trị trả về 16 byte và một tham số thứ ba mà nguồn không có. Mười sáu byte mã máy là đúng, và Ghidra giải mã đúng từng byte. Chữ ký là một phỏng đoán, và không có gì trong văn bản đánh dấu nó như vậy.
 
-rea returns this text as the `procedure_pseudo_code` result and attaches one limitation to the record. The limitation reads "Pseudocode is Ghidra decompiler output, not original source and not text-equivalent to Hopper output". The `compare_functions` tool diffs pseudocode as lines of text. Its own dimension record says "Assembly is opaque provider text" and that relocation normalization is unavailable. rea cannot look inside the text, and neither can an agent that only reads it.
+rea trả về văn bản này như kết quả `procedure_pseudo_code` và đính kèm một giới hạn vào bản ghi. Giới hạn ghi "Mã giả là đầu ra decompiler Ghidra, không phải nguồn gốc và không tương đương văn bản với đầu ra Hopper". Công cụ `compare_functions` diff mã giả như các dòng văn bản. Bản ghi chiều của chính nó nói "Assembly là văn bản provider mờ đục" và rằng chuẩn hóa relocation không có sẵn. rea không thể nhìn bên trong văn bản, và một agent chỉ đọc nó cũng không thể.
 
-rea's DX-Ball record shows the cost. The first decompiler result was `FUN_00406400(void)` calling `__ftol()`. The instruction view showed a stack input and an x87 expression. The agent kept going only because the two views disagreed.
+Bản ghi DX-Ball của rea cho thấy chi phí. Kết quả decompiler đầu tiên là `FUN_00406400(void)` gọi `__ftol()`. Góc nhìn chỉ lệnh cho thấy một đầu vào stack và một biểu thức x87. Agent chỉ tiếp tục vì hai góc nhìn bất đồng.
 
-This lesson builds the derivation that the decompiler hides. You start from the 56 instructions that lesson 33 decoded, lift them to an IR, rename into SSA, simplify, and structure. Then you place your pseudocode next to Ghidra's for `percent_change`, `grade`, and `total`, and account for every difference. The tests compile your output with clang and run it against the source over an input grid.
+Bài học này xây dựng phép suy ra mà decompiler che giấu. Bạn bắt đầu từ 56 chỉ lệnh mà bài 33 đã giải mã, nâng chúng lên một IR, đổi tên sang SSA, đơn giản hóa và cấu trúc hóa. Rồi bạn đặt mã giả của bạn cạnh mã của Ghidra cho `percent_change`, `grade` và `total`, và giải trình mỗi khác biệt. Các bài kiểm tra biên dịch đầu ra của bạn bằng clang và chạy nó đối chiếu nguồn trên một lưới đầu vào.
 
 ```figure
 lifting-stages-percent-change
@@ -54,7 +54,7 @@ lifting-stages-percent-change
 
 ## The Fixture and the Oracle
 
-`code/fixtures/ledger.c` is the shared fixture of this part of the course:
+`code/fixtures/ledger.c` là fixture chung của phần này của khóa học:
 
 ```c
 int percent_change(int before, int after) {
@@ -80,13 +80,13 @@ int total(const int *values, int count) {
 }
 ```
 
-`grade_label` is also in the file and in the object, and the demo lifts it too. The three functions above are the ones this lesson tests.
+`grade_label` cũng có trong tệp và trong object, và demo cũng nâng nó. Ba hàm ở trên là những hàm mà bài học này kiểm tra.
 
-The object was built with `clang -target x86_64-unknown-linux-gnu -O1 -fno-asynchronous-unwind-tables -c ledger.c`. The `-O0` object sits beside it for the stack-slot section. `code/fixtures/README.md` lists both commands, the SHA-256 of each object, and the rea command that produced the Ghidra fixtures. The build is reproducible byte for byte on the pinned toolchain.
+Object được dựng bằng `clang -target x86_64-unknown-linux-gnu -O1 -fno-asynchronous-unwind-tables -c ledger.c`. Object `-O0` nằm bên cạnh nó cho phần slot stack. `code/fixtures/README.md` liệt kê cả hai lệnh, SHA-256 của mỗi object và lệnh rea tạo ra các fixture Ghidra. Bản build có thể tái tạo từng byte trên toolchain đã ghim.
 
-The oracle for the decoder is `llvm-objdump -d -r`. Its text for both objects is committed as `ledger-x86_64-O1.objdump.txt` and `ledger-x86_64-O0.objdump.txt`. A test parses those files and compares every instruction by address, by bytes, and by AT&T text. That covers all 56 instructions at `-O1` and every instruction at `-O0`. When `llvm-objdump` is installed at the pinned path, a second test runs it live and compares again.
+Oracle cho decoder là `llvm-objdump -d -r`. Văn bản của nó cho cả hai object được commit dưới dạng `ledger-x86_64-O1.objdump.txt` và `ledger-x86_64-O0.objdump.txt`. Một bài kiểm tra phân tích các tệp đó và so sánh mỗi chỉ lệnh theo địa chỉ, theo byte và theo văn bản AT&T. Điều đó bao quát cả 56 chỉ lệnh ở `-O1` và mọi chỉ lệnh ở `-O0`. Khi `llvm-objdump` được cài tại đường dẫn đã ghim, một bài kiểm tra thứ hai chạy nó trực tiếp và so sánh lại.
 
-Here is `percent_change` as the oracle prints it:
+Đây là `percent_change` như oracle in nó:
 
 ```text
 0000000000000000 <percent_change>:
@@ -103,52 +103,52 @@ Here is `percent_change` as the oracle prints it:
 
 ## Stage 1: Bytes to Instructions
 
-Lesson 33 built the decoder. This lesson keeps a small copy so the code runs on its own. The copy covers exactly the opcodes that clang emitted for `ledger.c` at `-O0` and `-O1`. For anything else it raises `DecodeError` with the address and the opcode byte.
+Bài 33 xây dựng decoder. Bài học này giữ một bản sao nhỏ để mã chạy độc lập. Bản sao bao quát chính xác các opcode mà clang phát ra cho `ledger.c` ở `-O0` và `-O1`. Với bất cứ thứ gì khác, nó phát sinh `DecodeError` với địa chỉ và byte opcode.
 
-The decoder follows the byte order of the Intel SDM, Volume 2, section 2.1. Prefixes come first, then the opcode, then ModR/M, then SIB, then the displacement, then the immediate. Section 2.2.1 adds the REX prefix, one byte from `0x40` to `0x4F`, which must sit directly before the opcode. REX.W selects a 64-bit operand, REX.R extends the `reg` field, REX.X extends the SIB index, and REX.B extends `r/m` or the SIB base. Section 2.1.3 defines the three ModR/M fields `mod`, `reg`, and `r/m`, and the three SIB fields `scale`, `index`, and `base`. In 64-bit mode, `mod = 00` with `r/m = 101` means a 32-bit displacement relative to the next instruction (section 2.2.1.6).
+Decoder theo thứ tự byte của Intel SDM, Tập 2, mục 2.1. Prefix đến trước, rồi opcode, rồi ModR/M, rồi SIB, rồi displacement, rồi immediate. Mục 2.2.1 thêm REX prefix, một byte từ `0x40` đến `0x4F`, phải nằm ngay trước opcode. REX.W chọn một toán hạng 64 bit, REX.R mở rộng trường `reg`, REX.X mở rộng SIB index, và REX.B mở rộng `r/m` hoặc SIB base. Mục 2.1.3 định nghĩa ba trường ModR/M `mod`, `reg` và `r/m`, và ba trường SIB `scale`, `index` và `base`. Ở chế độ 64 bit, `mod = 00` với `r/m = 101` nghĩa là một displacement 32 bit tương đối với chỉ lệnh tiếp theo (mục 2.2.1.6).
 
-| Opcode bytes | Form | Fixture example |
+| Byte opcode | Dạng | Ví dụ fixture |
 |---|---|---|
 | `01 29 31 39 85 89` | `op Ev, Gv` | `29 fe` `subl %edi, %esi` |
 | `03 2b 3b 8b 8d` | `op Gv, Ev` | `03 04 97` `addl (%rdi,%rdx,4), %eax` |
-| `63` with REX.W | `movsxd Gv, Ev` | `48 63 c7` `movslq %edi, %rax` |
-| `69` and `6b` | `imul Gv, Ev, imm` | `48 69 c0 67 66 66 66` |
+| `63` với REX.W | `movsxd Gv, Ev` | `48 63 c7` `movslq %edi, %rax` |
+| `69` và `6b` | `imul Gv, Ev, imm` | `48 69 c0 67 66 66 66` |
 | `83 /0 /5 /7` | `add sub cmp Ev, imm8` | `83 c1 fa` `addl $-0x6, %ecx` |
 | `c1 /5 /7` | `shr sar Ev, imm8` | `48 c1 f9 22` `sarq $0x22, %rcx` |
 | `f7 /7` | `idiv Ev` | `f7 ff` `idivl %edi` |
 | `ff /0 /4` | `inc Ev`, `jmp Ev` | `48 ff c2` `incq %rdx` |
-| `70` to `7f`, `eb`, `e8` | `jcc rel8`, `jmp rel8`, `call rel32` | `74 09` `je 0xd` |
+| `70` đến `7f`, `eb`, `e8` | `jcc rel8`, `jmp rel8`, `call rel32` | `74 09` `je 0xd` |
 | `99`, `c3`, `90`, `0f 1f` | `cltd`, `retq`, `nop` | `66 0f 1f 44 00 00` `nopw (%rax,%rax)` |
 
-The `leaq (%rip), %rcx` at `grade+0x23` is seven bytes with a zero displacement. The object carries a relocation `R_X86_64_PC32.rodata+0x10` at offset `0x36`, the displacement field. The lifter resolves it in stage 3.
+`leaq (%rip), %rcx` tại `grade+0x23` là bảy byte với một displacement bằng không. Object mang một relocation `R_X86_64_PC32.rodata+0x10` tại offset `0x36`, trường displacement. Lifter phân giải nó ở giai đoạn 3.
 
 ## Stage 2: Blocks and Dominators
 
-A basic block is a sequence of statements with one entry at the top and one exit at the bottom. That is the definition from Allen (1970), and every decompiler paper reuses it. `build_blocks()` collects leaders: the function entry, every jump target inside the function, and every address after a jump or return. Each block gets successors from its last instruction. A conditional jump has two successors and a `jmp` has one. A `ret` has none, and a block that ends in an ordinary instruction falls through to the next leader.
+Một basic block là một chuỗi câu lệnh với một điểm vào ở đầu và một điểm ra ở cuối. Đó là định nghĩa từ Allen (1970), và mọi bài báo decompiler tái sử dụng nó. `build_blocks()` thu thập leader: điểm vào hàm, mọi đích nhảy bên trong hàm và mọi địa chỉ sau một bước nhảy hoặc lần trả về. Mỗi khối nhận các kế nhiệm từ chỉ lệnh cuối của nó. Một bước nhảy có điều kiện có hai kế nhiệm và một `jmp` có một. Một `ret` không có, và một khối kết thúc bằng một chỉ lệnh thông thường đi tiếp xuống leader tiếp theo.
 
-`total` at `-O1` has five blocks:
+`total` ở `-O1` có năm khối:
 
-| Block | Instructions | Successors |
+| Khối | Chỉ lệnh | Kế nhiệm |
 |---|---|---|
-| `0x40` | `testl %esi, %esi` then `jle 0x5c` | `0x5c`, `0x44` |
+| `0x40` | `testl %esi, %esi` rồi `jle 0x5c` | `0x5c`, `0x44` |
 | `0x44` | `movl %esi, %ecx`, `xorl %edx, %edx`, `xorl %eax, %eax`, `nopw` | `0x50` |
 | `0x50` | `addl (%rdi,%rdx,4), %eax`, `incq %rdx`, `cmpq %rdx, %rcx`, `jne 0x50` | `0x50`, `0x5b` |
-| `0x5b` | `retq` | exit |
-| `0x5c` | `xorl %eax, %eax` then `retq` | exit |
+| `0x5b` | `retq` | thoát |
+| `0x5c` | `xorl %eax, %eax` rồi `retq` | thoát |
 
-`immediate_dominators()` is the iterative algorithm of Cooper, Harvey, and Kennedy (2001). It walks the blocks in reverse postorder and intersects the dominators of the processed predecessors until nothing changes. On graphs this small it finishes in two passes. For `total` it says that `0x44` dominates `0x50`. It also says that `0x50` dominates itself through the back edge, which is how stage 8 finds the loop.
+`immediate_dominators()` là thuật toán lặp của Cooper, Harvey và Kennedy (2001). Nó duyệt các khối theo reverse postorder và lấy giao các dominator của các tiền nhiệm đã xử lý cho đến khi không có gì thay đổi. Trên các đồ thị nhỏ thế này, nó hoàn thành trong hai lượt. Với `total`, nó nói rằng `0x44` chi phối `0x50`. Nó cũng nói rằng `0x50` chi phối chính nó qua back edge, đó là cách giai đoạn 8 tìm vòng lặp.
 
-The same function runs twice more. `dominance_frontiers()` uses it for SSA in stage 5. `post_dominators()` runs it on the reversed graph with a virtual exit node to find joins in stage 8.
+Cùng hàm chạy thêm hai lần. `dominance_frontiers()` sử dụng nó cho SSA ở giai đoạn 5. `post_dominators()` chạy nó trên đồ thị đảo ngược với một nút thoát ảo để tìm các điểm nối ở giai đoạn 8.
 
 ## Stage 3: Lifting to a Small IR
 
-The IR has six statement kinds: `Assign`, `Store`, `Branch`, `Jump`, `IndirectJump`, and `Return`. Expressions are constants, variables, binary operations with a width, casts (`sext`, `zext`, `trunc`), and loads. Five more shapes exist only to be simplified away later: `Flags`, `Cond`, `Concat`, `SignFill`, and `Symbolic`.
+IR có sáu loại câu lệnh: `Assign`, `Store`, `Branch`, `Jump`, `IndirectJump` và `Return`. Biểu thức là hằng số, biến, phép toán nhị phân với một chiều rộng, phép ép kiểu (`sext`, `zext`, `trunc`) và các lần tải. Thêm năm dạng chỉ tồn tại để được đơn giản hóa loại đi sau: `Flags`, `Cond`, `Concat`, `SignFill` và `Symbolic`.
 
-Registers are variables named by their 64-bit family. A write to `%eax` is an `Assign` to `rax` with width 32, and a read of `%eax` is a read of `rax` at width 32. In 64-bit mode a 32-bit write zero-extends into the full register, so a later 64-bit read of the same value is a `zext`. The lifter does not know the reaching definition, so it records the read width and lets SSA insert the cast in stage 5.
+Các thanh ghi là các biến được đặt tên theo họ 64 bit của chúng. Một lần ghi vào `%eax` là một `Assign` vào `rax` với chiều rộng 32, và một lần đọc `%eax` là một lần đọc `rax` ở chiều rộng 32. Ở chế độ 64 bit, một lần ghi 32 bit mở rộng bằng không vào toàn thanh ghi, nên một lần đọc 64 bit sau đó của cùng giá trị là một `zext`. Lifter không biết định nghĩa vươn tới, nên nó ghi chiều rộng đọc và để SSA chèn phép ép kiểu ở giai đoạn 5.
 
-| Instruction | IR statements |
+| Chỉ lệnh | Câu lệnh IR |
 |---|---|
-| `subl %edi, %esi` | `flags = cmp(esi, edi)` then `esi = esi - edi` |
+| `subl %edi, %esi` | `flags = cmp(esi, edi)` rồi `esi = esi - edi` |
 | `testl %edi, %edi` | `flags = test(edi, edi)` |
 | `je 0xd` | `if je(flags) goto 0xd else goto 0x4` |
 | `xorl %eax, %eax` | `eax = 0` |
@@ -157,55 +157,55 @@ Registers are variables named by their 64-bit family. A write to `%eax` is an `A
 | `movslq %edi, %rax` | `rax = sext64(edi)` |
 | `sarq $0x22, %rcx` | `rcx = rcx >>s 34` |
 | `shrq $0x3f, %rax` | `rax = rax >>u 63` |
-| `addl (%rdi,%rdx,4), %eax` | `flags = add(eax, load32(rdi + rdx * 4))` then `eax = eax + load32(rdi + rdx * 4)` |
-| `leaq (%rip), %rcx` with its relocation | `rcx = &.rodata+0x14` |
-| `pushq %rbp`, `movq %rsp, %rbp`, `subq $0x10, %rsp`, `popq %rbp` | nothing, frame bookkeeping |
+| `addl (%rdi,%rdx,4), %eax` | `flags = add(eax, load32(rdi + rdx * 4))` rồi `eax = eax + load32(rdi + rdx * 4)` |
+| `leaq (%rip), %rcx` với relocation của nó | `rcx = &.rodata+0x14` |
+| `pushq %rbp`, `movq %rsp, %rbp`, `subq $0x10, %rsp`, `popq %rbp` | không có gì, ghi sổ khung |
 | `retq` | `return rax` |
 
 ### Flags are a variable
 
-Every instruction that sets the condition codes writes one variable named `flags`, and every conditional jump reads it. A `cmp a, b` writes `cmp(a, b)`, a `test a, b` writes `test(a, b)`, and `sub` writes the same `cmp` shape as a side effect. A `jcc` becomes `Branch(Cond(cc, flags), target, fallthrough)`. The condition code decides the comparison operator when the two meet in stage 6:
+Mọi chỉ lệnh đặt các mã điều kiện ghi một biến tên `flags`, và mọi bước nhảy có điều kiện đọc nó. Một `cmp a, b` ghi `cmp(a, b)`, một `test a, b` ghi `test(a, b)`, và `sub` ghi cùng dạng `cmp` như một tác dụng phụ. Một `jcc` trở thành `Branch(Cond(cc, flags), target, fallthrough)`. Mã điều kiện quyết định toán tử so sánh khi hai thứ gặp nhau ở giai đoạn 6:
 
-| Code | After `cmp(a, b)` | After `test(a, a)` |
+| Mã | Sau `cmp(a, b)` | Sau `test(a, a)` |
 |---|---|---|
 | `je` | `a == b` | `a == 0` |
 | `jne` | `a != b` | `a != 0` |
-| `jl`, `jge`, `jle`, `jg` | signed `<`, `>=`, `<=`, `>` | signed compare with 0 |
-| `jb`, `jae`, `jbe`, `ja` | unsigned `<`, `>=`, `<=`, `>` | unsigned compare with 0 |
+| `jl`, `jge`, `jle`, `jg` | có dấu `<`, `>=`, `<=`, `>` | so sánh có dấu với 0 |
+| `jb`, `jae`, `jbe`, `ja` | không dấu `<`, `>=`, `<=`, `>` | so sánh không dấu với 0 |
 
-`xorl %eax, %eax` is lifted straight to `eax = 0`. The flags it sets are written as `add` style flags that no jump in the fixture reads. The `xor` idiom matters in `grade`, where Ghidra lost it.
+`xorl %eax, %eax` được nâng thẳng thành `eax = 0`. Các cờ nó đặt được viết dưới dạng cờ kiểu `add` mà không bước nhảy nào trong fixture đọc. Mẫu `xor` quan trọng trong `grade`, nơi Ghidra đã làm mất nó.
 
 ### cltd and idiv
 
-`cltd` fills `%edx` with the sign bit of `%eax`. `idivl %edi` divides the 64-bit pair `%edx:%eax` by `%edi`, puts the quotient in `%eax`, and the remainder in `%edx`. The lifter writes the pair into a temporary named `dividend` first. The remainder statement then reads the old `%eax` and not the fresh quotient. In SSA the high half shows up as `signfill` of the low half. The simplifier reduces the pair to the low half, and the division becomes a 32-bit `/`.
+`cltd` điền `%edx` bằng bit dấu của `%eax`. `idivl %edi` chia cặp 64 bit `%edx:%eax` cho `%edi`, đặt thương vào `%eax` và phần dư vào `%edx`. Lifter ghi cặp vào một biến tạm tên `dividend` trước. Câu lệnh phần dư sau đó đọc `%eax` cũ chứ không phải thương mới. Trong SSA, nửa cao xuất hiện dưới dạng `signfill` của nửa thấp. Bộ đơn giản hóa rút cặp về nửa thấp, và phép chia trở thành một `/` 32 bit.
 
 ### Stack slots at -O0
 
-At `-O0` clang keeps every local in the frame. `percent_change` stores `%edi` to `-0x8(%rbp)` and `%esi` to `-0xc(%rbp)`, then reads them back for every use. The lifter watches for `pushq %rbp` followed by `movq %rsp, %rbp`. After that prologue, a memory operand with base `%rbp`, no index, and a displacement becomes a variable named `local_<hex>`. `-0x8(%rbp)` is `local_8`, `-0xc(%rbp)` is `local_c`.
+Ở `-O0`, clang giữ mọi biến cục bộ trong khung. `percent_change` lưu `%edi` vào `-0x8(%rbp)` và `%esi` vào `-0xc(%rbp)`, rồi đọc lại chúng cho mỗi lần dùng. Lifter theo dõi `pushq %rbp` theo sau bởi `movq %rsp, %rbp`. Sau prologue đó, một toán hạng bộ nhớ có base `%rbp`, không index và một displacement trở thành một biến tên `local_<hex>`. `-0x8(%rbp)` là `local_8`, `-0xc(%rbp)` là `local_c`.
 
-The frame instructions themselves produce no IR, and neither do `subq` and `addq` on `%rsp`. Any other memory operand stays a `Load` or `Store`.
+Bản thân các chỉ lệnh khung không tạo IR, và `subq` cùng `addq` trên `%rsp` cũng không. Mọi toán hạng bộ nhớ khác vẫn là một `Load` hoặc `Store`.
 
 ### Relocations
 
-The `leaq (%rip), %rcx` in `grade` has displacement zero in the file. The relocation at offset `0x36` says `R_X86_64_PC32.rodata+0x10`. The linker will write `S + A - P` into the field. `S` is the address of `.rodata`, `A` is the addend `0x10`, and `P` is the address of the field. The instruction then computes `next_ip + disp = (P + 4) + S + A - P = S + A + 4`.
+`leaq (%rip), %rcx` trong `grade` có displacement bằng không trong tệp. Relocation tại offset `0x36` nói `R_X86_64_PC32.rodata+0x10`. Linker sẽ ghi `S + A - P` vào trường. `S` là địa chỉ của `.rodata`, `A` là addend `0x10` và `P` là địa chỉ của trường. Chỉ lệnh sau đó tính `next_ip + disp = (P + 4) + S + A - P = S + A + 4`.
 
-The lifter applies the same arithmetic without a linker. The target offset is the addend plus the distance from the field to the end of the instruction, `0x10 + 4 = 0x14`. The IR says `rcx = &.rodata+0x14`, and the table there holds the five `int` values `1, 2, 3, 4, 4`.
+Lifter áp dụng cùng phép tính mà không có linker. Offset đích là addend cộng khoảng cách từ trường đến cuối chỉ lệnh, `0x10 + 4 = 0x14`. IR nói `rcx = &.rodata+0x14`, và bảng ở đó chứa năm giá trị `int` `1, 2, 3, 4, 4`.
 
 ## Stage 4: Parameters From the Calling Convention
 
-The System V AMD64 psABI, section 3.2.3, passes INTEGER class arguments in `%rdi`, `%rsi`, `%rdx`, `%rcx`, `%r8`, `%r9`, in that order. The result returns in `%rax` and then `%rdx`. Section 3.2.1 says that `%rbp`, `%rbx`, and `%r12` through `%r15` belong to the caller and must be preserved. Everything else belongs to the callee.
+System V AMD64 psABI, mục 3.2.3, truyền các đối số lớp INTEGER trong `%rdi`, `%rsi`, `%rdx`, `%rcx`, `%r8`, `%r9`, theo thứ tự đó. Kết quả trả về trong `%rax` rồi `%rdx`. Mục 3.2.1 nói rằng `%rbp`, `%rbx` và `%r12` đến `%r15` thuộc caller và phải được bảo toàn. Mọi thứ khác thuộc callee.
 
-`collect_params()` applies one rule: an argument register that is read before any write in the function is a parameter. The highest such register fixes the count, so a function that reads `%rsi` and never `%rdi` still has two parameters. `percent_change` reads `%edi` and `%esi`, so it has `param_1` and `param_2`. `grade` reads only `%edi`. `total` reads `%rdi` as a 64-bit base and `%esi` as a 32-bit count.
+`collect_params()` áp dụng một quy tắc: một thanh ghi đối số được đọc trước mọi lần ghi trong hàm là một tham số. Thanh ghi cao nhất như vậy cố định số lượng, nên một hàm đọc `%rsi` và không bao giờ đọc `%rdi` vẫn có hai tham số. `percent_change` đọc `%edi` và `%esi`, nên nó có `param_1` và `param_2`. `grade` chỉ đọc `%edi`. `total` đọc `%rdi` như một base 64 bit và `%esi` như một count 32 bit.
 
-Now Ghidra's `param_3` has an explanation. `idivl` writes `%rdx`, and the psABI allows a 128-bit INTEGER return in `%rax:%rdx`. In an object file there is no caller to say how wide the return value is. Ghidra kept both registers as the return value.
+Giờ `param_3` của Ghidra có một lời giải thích. `idivl` ghi `%rdx`, và psABI cho phép một giá trị trả về INTEGER 128 bit trong `%rax:%rdx`. Trong một tệp object không có caller để nói giá trị trả về rộng bao nhiêu. Ghidra giữ cả hai thanh ghi làm giá trị trả về.
 
-On the zero path, `xorl %eax, %eax` writes only `%eax`. Ghidra read `%rdx` there as an input of the function, and that input became `param_3`. The instructions are right. The signature is a guess about the parts the instructions leave open.
+Trên đường bằng không, `xorl %eax, %eax` chỉ ghi `%eax`. Ghidra đọc `%rdx` ở đó như một đầu vào của hàm, và đầu vào đó trở thành `param_3`. Các chỉ lệnh đúng. Chữ ký là một phỏng đoán về những phần mà các chỉ lệnh để mở.
 
 ## Stage 5: SSA, One Name per Definition
 
-After lifting, `grade` writes `rax` four times and `rcx` three times. Cytron, Ferrante, Rosen, Wegman, and Zadeck (1991) define static single assignment form. Each variable is assigned exactly once, and phi functions at join points select among the definitions that reach them. Their construction has two steps. Section 5.1 places phi functions using dominance frontiers, and section 5.2 renames every definition and use with a walk over the dominator tree. `insert_phis()` and `rename()` follow those two sections.
+Sau khi nâng, `grade` ghi `rax` bốn lần và `rcx` ba lần. Cytron, Ferrante, Rosen, Wegman và Zadeck (1991) định nghĩa dạng static single assignment. Mỗi biến được gán chính xác một lần, và các hàm phi tại các điểm nối chọn giữa các định nghĩa vươn tới chúng. Cách xây dựng của họ có hai bước. Mục 5.1 đặt các hàm phi bằng dominance frontier, và mục 5.2 đổi tên mọi định nghĩa và lần dùng bằng một phép duyệt cây dominator. `insert_phis()` và `rename()` theo hai mục đó.
 
-The SSA listing of `total` shows what the construction produces:
+Danh sách SSA của `total` cho thấy điều cách xây dựng tạo ra:
 
 ```text
 block 0x44 -> 0x50
@@ -224,32 +224,32 @@ block 0x50 -> 0x50, 0x5b
   if jne(flags_5) goto 0x50 else goto 0x5b
 ```
 
-Version 0 of a register is its value at entry. `esi_0` and `rdi_0` are the parameters. The loop header `0x50` has two predecessors, the setup block and itself, so every variable with a definition in the loop gets a phi there. The `flags_2` phi is dead on arrival. Minimal SSA places it because `flags` has definitions in both predecessors, and stage 6 removes it because nothing reads it.
+Phiên bản 0 của một thanh ghi là giá trị của nó tại điểm vào. `esi_0` và `rdi_0` là các tham số. Loop header `0x50` có hai tiền nhiệm, khối thiết lập và chính nó, nên mọi biến có một định nghĩa trong vòng lặp nhận một phi ở đó. Phi `flags_2` chết ngay khi đến. SSA tối thiểu đặt nó vì `flags` có các định nghĩa trong cả hai tiền nhiệm, và giai đoạn 6 loại nó vì không có gì đọc nó.
 
-The renaming step also fixes widths. `edx_1 = 0` is a 32-bit definition and `rdx_3 = rdx_2 + 1` is 64-bit, so the phi `rdx_2` takes the wider width. The read of `%rcx` in `cmpq %rdx, %rcx` is 64-bit while its definition `ecx_1 = esi_0` is 32-bit, so the use becomes `zext64(ecx_1)`. Every cast in the final pseudocode comes from this one rule.
+Bước đổi tên cũng sửa chiều rộng. `edx_1 = 0` là một định nghĩa 32 bit và `rdx_3 = rdx_2 + 1` là 64 bit, nên phi `rdx_2` lấy chiều rộng lớn hơn. Lần đọc `%rcx` trong `cmpq %rdx, %rcx` là 64 bit trong khi định nghĩa của nó `ecx_1 = esi_0` là 32 bit, nên lần dùng trở thành `zext64(ecx_1)`. Mọi phép ép kiểu trong mã giả cuối đến từ một quy tắc này.
 
-The "lite" part is the way out of SSA. `coalesce_webs()` joins each phi with its arguments into one variable, called a web, and gives the web one name. This works for the shapes a compiler emits for these functions. It can break on parallel copies, where two phis at one join exchange values, and the lesson does not handle that case. Cytron's section 7 describes the general exit through coloring.
+Phần "lite" là cách ra khỏi SSA. `coalesce_webs()` nối mỗi phi với các đối số của nó thành một biến, gọi là một web, và cho web một tên. Điều này hoạt động cho các dạng mà một compiler phát ra cho các hàm này. Nó có thể hỏng trên các bản sao song song, nơi hai phi tại một điểm nối trao đổi các giá trị, và bài học không xử lý trường hợp đó. Mục 7 của Cytron mô tả lối ra tổng quát qua tô màu.
 
 ## Stage 6: Simplify, Substitute, Remove Dead Code
 
-`optimize()` repeats three passes until nothing changes. The simplifier rewrites expressions bottom up with these rules:
+`optimize()` lặp lại ba lượt cho đến khi không có gì thay đổi. Bộ đơn giản hóa viết lại các biểu thức từ dưới lên với các quy tắc này:
 
-| Before | After |
+| Trước | Sau |
 |---|---|
-| `Cond(je, cmp(a, b))` | `a == b`, and the same for the other nine codes |
+| `Cond(je, cmp(a, b))` | `a == b`, và tương tự cho chín mã khác |
 | `Cond(jle, test(a, a))` | `a <= 0` |
 | `x + (-6)` | `x - 6` |
-| `trunc32(zext64(x))` where `x` is 32-bit | `x` |
-| `trunc32(a + b)` on 64-bit operands | `trunc32(a) + trunc32(b)` |
-| `(signfill(x): x) / d` | `x / d` at width 32 |
+| `trunc32(zext64(x))` khi `x` là 32 bit | `x` |
+| `trunc32(a + b)` trên các toán hạng 64 bit | `trunc32(a) + trunc32(b)` |
+| `(signfill(x): x) / d` | `x / d` ở chiều rộng 32 |
 | `load32(base + idx * 4)` | `base[idx]` |
-| `trunc32(p >>s 34) + trunc32(p >>u 63)` with `p = sext64(x) * 0x66666667` | `x / 10` |
+| `trunc32(p >>s 34) + trunc32(p >>u 63)` với `p = sext64(x) * 0x66666667` | `x / 10` |
 
-Forward substitution moves a definition into its only use. The rule has three conditions. The use is in the same block. The use is a statement and not a phi. When the definition contains a load, no store or call sits between the definition and the use. A constant or a section address is substituted anywhere except into a phi, because a phi argument has to stay a variable for the web.
+Thế tiến chuyển một định nghĩa vào lần dùng duy nhất của nó. Quy tắc có ba điều kiện. Lần dùng nằm trong cùng khối. Lần dùng là một câu lệnh chứ không phải một phi. Khi định nghĩa chứa một lần tải, không có lần lưu hoặc lần gọi nào nằm giữa định nghĩa và lần dùng. Một hằng số hoặc một địa chỉ section được thế ở mọi nơi trừ vào một phi, vì một đối số phi phải giữ là một biến cho web.
 
-Dead code removal deletes an assignment or a phi whose destination has no use and whose expression has no call. The order of the passes matters. In `percent_change` the remainder `edx_2 = dividend_1 % edi_0` is dead, so it goes first. That leaves `edx_1 = signfill(eax_1)` with one use, so it is substituted into `dividend_1 = edx_1:eax_1`.
+Loại bỏ mã chết xóa một phép gán hoặc một phi có đích không có lần dùng và có biểu thức không có lần gọi. Thứ tự các lượt quan trọng. Trong `percent_change`, phần dư `edx_2 = dividend_1 % edi_0` là chết, nên nó đi trước. Điều đó để `edx_1 = signfill(eax_1)` có một lần dùng, nên nó được thế vào `dividend_1 = edx_1:eax_1`.
 
-The pair rule then reduces `signfill(eax_1):eax_1` to `eax_1`, and the division becomes `eax_1 / edi_0`. Now `eax_1 = esi_1 * 100` has one use, and `esi_1 = esi_0 - edi_0` has one use, and both move into the return statement. The `flags` definitions have been substituted into the branch conditions and disappear. Four instructions become one line:
+Quy tắc cặp sau đó rút `signfill(eax_1):eax_1` về `eax_1`, và phép chia trở thành `eax_1 / edi_0`. Giờ `eax_1 = esi_1 * 100` có một lần dùng, và `esi_1 = esi_0 - edi_0` có một lần dùng, và cả hai chuyển vào câu lệnh trả về. Các định nghĩa `flags` đã được thế vào các điều kiện nhánh và biến mất. Bốn chỉ lệnh trở thành một dòng:
 
 ```c
 return (param_2 - param_1) * 100 / param_1;
@@ -257,64 +257,64 @@ return (param_2 - param_1) * 100 / param_1;
 
 ### The 0x66666667 multiply
 
-`grade` divides the score by 10, and clang emits no `idiv`. It emits `imulq $0x66666667, %rax, %rax`, then `sarq $0x22, %rcx` on a copy, then `shrq $0x3f, %rax`, then adds the two. Granlund and Montgomery, "Division by Invariant Integers using Multiplication" (PLDI 1994), describe the method. The compiler picks a multiplier `m` and a shift `s`. For every `x` in the range, `(x * m) >> s` must equal `x / d`.
+`grade` chia score cho 10, và clang không phát ra `idiv`. Nó phát ra `imulq $0x66666667, %rax, %rax`, rồi `sarq $0x22, %rcx` trên một bản sao, rồi `shrq $0x3f, %rax`, rồi cộng hai giá trị. Granlund và Montgomery, "Division by Invariant Integers using Multiplication" (PLDI 1994), mô tả phương pháp. Compiler chọn một hệ số nhân `m` và một độ dịch `s`. Với mọi `x` trong phạm vi, `(x * m) >> s` phải bằng `x / d`.
 
-Here `m = 0x66666667 = 1717986919` and `s = 34`. The arithmetic checks out: `2^34 / 10 = 1717986918.4`, and the ceiling is `1717986919`. The error is `m * 10 - 2^34 = 6`. For the identity to hold on every 32-bit `x`, the error times `2^31` must stay below `2^34`, so the error must be at most 8. Six is at most eight, so `(x * m) >> 34` equals `floor(x / 10)` for every non-negative `int`.
+Ở đây `m = 0x66666667 = 1717986919` và `s = 34`. Phép tính đúng: `2^34 / 10 = 1717986918.4`, và giá trị trần là `1717986919`. Sai số là `m * 10 - 2^34 = 6`. Để đồng nhất thức đúng trên mọi `x` 32 bit, sai số nhân `2^31` phải giữ dưới `2^34`, nên sai số phải tối đa 8. Sáu tối đa là tám, nên `(x * m) >> 34` bằng `floor(x / 10)` với mọi `int` không âm.
 
-For negative `x` the floor rounds away from zero while C rounds toward zero. `shrq $0x3f` extracts the sign bit of the product, which is 1 exactly when `x` is negative. Adding it corrects the rounding.
+Với `x` âm, floor làm tròn ra xa không trong khi C làm tròn về không. `shrq $0x3f` trích bit dấu của tích, bằng 1 chính xác khi `x` âm. Cộng nó sửa việc làm tròn.
 
-`magic_divisor(m, s)` tests a candidate pair. It computes `d` as the integer quotient of `2^s` by `m` and tries `d` and `d + 1`. It accepts a `d` only when `m` equals the ceiling of `2^s / d` and the error bound holds. The same multiplier with `s = 33` gives `d = 5`, which is correct, because `0x66666667` is also the ceiling of `2^33 / 5`. A test checks the identity against `c_div(x, 10)` on 2,406 values including both ends of the `int` range.
+`magic_divisor(m, s)` kiểm tra một cặp ứng viên. Nó tính `d` là thương nguyên của `2^s` cho `m` và thử `d` cùng `d + 1`. Nó chỉ chấp nhận một `d` khi `m` bằng giá trị trần của `2^s / d` và cận sai số đúng. Cùng hệ số nhân với `s = 33` cho `d = 5`, điều đó đúng, vì `0x66666667` cũng là giá trị trần của `2^33 / 5`. Một bài kiểm tra kiểm tra đồng nhất thức với `c_div(x, 10)` trên 2,406 giá trị bao gồm cả hai đầu của phạm vi `int`.
 
-With recognition on, `grade` reads `ecx_1 = param_1 / 10 - 6;`. With recognition off, the demo prints the raw form:
+Khi bật nhận dạng, `grade` đọc là `ecx_1 = param_1 / 10 - 6;`. Khi tắt nhận dạng, demo in dạng thô:
 
 ```c
 rax_1 = (long)param_1 * 0x66666667;
 ecx_1 = (int)(rax_1 >> 34) + (int)((unsigned long)rax_1 >> 63) - 6;
 ```
 
-Both compile and both compute the same values. Keep the switch. When you read code from a compiler you have not studied, the raw form is the honest one.
+Cả hai biên dịch và cả hai tính cùng các giá trị. Giữ công tắc. Khi bạn đọc mã từ một compiler bạn chưa nghiên cứu, dạng thô là dạng trung thực.
 
 ## Stage 7: Types From Use
 
-Machine code has widths and no types. `infer_types()` turns three kinds of evidence into C types. A web whose definitions are 32 bits wide is `int`, and a 64-bit web is `long`. A web that is the base of an element access `base[idx]` with 4-byte elements is `int *`. The pointer type spreads along copies and phis, so `local_8 = param_1` at `-O0` makes both of them `int *`. The return type is the width of the value in the `return` statements.
+Mã máy có chiều rộng và không có kiểu. `infer_types()` biến ba loại bằng chứng thành các kiểu C. Một web có các định nghĩa rộng 32 bit là `int`, và một web 64 bit là `long`. Một web là base của một truy cập phần tử `base[idx]` với các phần tử 4 byte là `int *`. Kiểu con trỏ lan dọc theo các bản sao và phi, nên `local_8 = param_1` ở `-O0` làm cả hai thành `int *`. Kiểu trả về là chiều rộng của giá trị trong các câu lệnh `return`.
 
-The result for `total` is `int total(int *param_1, int param_2)`. Ghidra wrote `int total(long param_1,uint param_2)`. Both are consistent with the instructions. The lifter used the scaled load as pointer evidence. Ghidra kept the register width and wrote the access as `*(int *)(param_1 + uVar2 * 4)`. Neither can see `const`, and neither can tell `int *` from `unsigned *`.
+Kết quả cho `total` là `int total(int *param_1, int param_2)`. Ghidra viết `int total(long param_1,uint param_2)`. Cả hai nhất quán với các chỉ lệnh. Lifter sử dụng lần tải có tỷ lệ làm bằng chứng con trỏ. Ghidra giữ chiều rộng thanh ghi và viết truy cập là `*(int *)(param_1 + uVar2 * 4)`. Không bên nào thấy được `const`, và không bên nào phân biệt được `int *` với `unsigned *`.
 
-Lee, Avgerinos, and Brumley (TIE, NDSS 2011) frame type recovery as constraint solving over a lattice. The result is an upper and a lower bound instead of one guess. Noonan, Loginov, and Cok (Retypd, PLDI 2016) add polymorphism and recursion. They report 98 percent recall on `const` pointer annotations from idioms the compiler leaves behind. This lesson uses the two cheapest rules from that line of work and names what they cannot see.
+Lee, Avgerinos và Brumley (TIE, NDSS 2011) định hình khôi phục kiểu như giải ràng buộc trên một lattice. Kết quả là một cận trên và một cận dưới thay vì một phỏng đoán. Noonan, Loginov và Cok (Retypd, PLDI 2016) thêm tính đa hình và đệ quy. Họ báo cáo recall 98 phần trăm trên các chú thích con trỏ `const` từ các mẫu mà compiler để lại. Bài học này sử dụng hai quy tắc rẻ nhất từ dòng nghiên cứu đó và nêu tên những gì chúng không thể thấy.
 
-Unsigned arithmetic is kept in the expressions and not in the variable types. `ja` after `cmpl $0x4, %ecx` prints as `(unsigned int)ecx_1 > 4`, and `shrq` prints as `(unsigned long)rax_1 >> 63`. The variables stay signed so that a reader sees the register value and the one place where the instruction treats it as unsigned.
+Số học không dấu được giữ trong các biểu thức chứ không trong các kiểu biến. `ja` sau `cmpl $0x4, %ecx` in là `(unsigned int)ecx_1 > 4`, và `shrq` in là `(unsigned long)rax_1 >> 63`. Các biến giữ có dấu để người đọc thấy giá trị thanh ghi và một nơi mà chỉ lệnh coi nó là không dấu.
 
 ## Stage 8: Structuring From the Graph
 
-Cifuentes (1994), chapter 6, matches regions of the graph against the shapes of a high-level language. Loops come first (6.6.1), then two-way conditionals (6.6.2), then n-way conditionals (6.6.3). Yakdan, Eschweiler, Gerhards-Padilla, and Smith (NDSS 2015) take the other road. They derive the condition under which each node executes and build the structure from those conditions, with no fixed shapes. Their motivation is a measurement. Hex-Rays on one sample produced 1,571 `goto` statements in 49,514 lines, one per 32 lines, and their structuring produced none on 1,530 coreutils functions.
+Cifuentes (1994), chương 6, khớp các vùng của đồ thị với các dạng của một ngôn ngữ cấp cao. Vòng lặp đến trước (6.6.1), rồi điều kiện hai nhánh (6.6.2), rồi điều kiện n nhánh (6.6.3). Yakdan, Eschweiler, Gerhards-Padilla và Smith (NDSS 2015) đi đường khác. Họ suy ra điều kiện mà theo đó mỗi nút thực thi và xây dựng cấu trúc từ các điều kiện đó, không có dạng cố định. Động lực của họ là một phép đo. Hex-Rays trên một mẫu tạo ra 1,571 câu lệnh `goto` trong 49,514 dòng, một trên 32 dòng, và việc cấu trúc hóa của họ không tạo ra câu nào trên 1,530 hàm coreutils.
 
-`structure()` is a small member of the first family. It needs two facts from stage 2. The immediate post-dominator of a block that ends in a `Branch` is the join of the conditional. A back edge is an edge to a block that dominates its source. The natural loop is the set of blocks that reach the back edge source without passing the header.
+`structure()` là một thành viên nhỏ của họ đầu tiên. Nó cần hai sự kiện từ giai đoạn 2. Immediate post-dominator của một khối kết thúc bằng một `Branch` là điểm nối của điều kiện. Một back edge là một cạnh đến một khối chi phối nguồn của nó. Natural loop là tập các khối đến nguồn back edge mà không đi qua header.
 
-For a `Branch` with join `j`:
+Với một `Branch` có điểm nối `j`:
 
-- If `j` is the jump target, emit `if (!cond) { fallthrough region }` and continue at `j`.
-- If `j` is the fallthrough, emit `if (cond) { target region }` and continue at `j`.
-- If `j` is the function exit, both arms return. Emit the smaller arm as `if (cond) {... }` and the other arm after it, without an `else`. This is the early return in `percent_change` and `total`.
-- Otherwise emit `if (cond) { target } else { fallthrough }` and continue at `j`. This is `percent_change` at `-O0`, where both arms store `local_4` and meet at the epilogue.
+- Nếu `j` là đích nhảy, phát ra `if (!cond) { fallthrough region }` và tiếp tục tại `j`.
+- Nếu `j` là fallthrough, phát ra `if (cond) { target region }` và tiếp tục tại `j`.
+- Nếu `j` là điểm thoát hàm, cả hai nhánh trả về. Phát ra nhánh nhỏ hơn dưới dạng `if (cond) {... }` và nhánh kia sau nó, không có một `else`. Đây là lần trả về sớm trong `percent_change` và `total`.
+- Nếu không, phát ra `if (cond) { target } else { fallthrough }` và tiếp tục tại `j`. Đây là `percent_change` ở `-O0`, nơi cả hai nhánh lưu `local_4` và gặp nhau tại epilogue.
 
-For a loop header:
+Với một loop header:
 
-- If the header ends in a `Branch` with one successor outside the loop, emit `while (cond) { body }`. `total` at `-O0` has this shape: the header compares `local_14` with `local_c` and leaves on `jge`.
-- If the header is also the block with the back edge, or the latch exits instead, emit `do { body } while (cond);`. `total` at `-O1` has this shape: block `0x50` adds, increments, compares, and jumps to itself.
+- Nếu header kết thúc bằng một `Branch` có một kế nhiệm ngoài vòng lặp, phát ra `while (cond) { body }`. `total` ở `-O0` có dạng này: header so sánh `local_14` với `local_c` và rời trên `jge`.
+- Nếu header cũng là khối có back edge, hoặc thay vào đó latch thoát, phát ra `do { body } while (cond);`. `total` ở `-O1` có dạng này: khối `0x50` cộng, tăng, so sánh và nhảy tới chính nó.
 
-An `IndirectJump` ends a block with no successors. `grade` at `-O0` is a real jump table, `jmpq *%rax` through five relative offsets at `.rodata+0x0`, and lesson 33 resolves those targets. Here the lifter prints a note instead. Four blocks at `0x76`, `0x7f`, `0x88`, and `0x91` are reached only through the indirect jump and were not lifted. The practice lab adds the `switch`.
+Một `IndirectJump` kết thúc một khối không có kế nhiệm. `grade` ở `-O0` là một jump table thực, `jmpq *%rax` qua năm offset tương đối tại `.rodata+0x0`, và bài 33 phân giải các đích đó. Ở đây lifter in một ghi chú thay thế. Bốn khối tại `0x76`, `0x7f`, `0x88` và `0x91` chỉ được tới qua bước nhảy gián tiếp và chưa được nâng. Bài thực hành thêm `switch`.
 
 ### What -O1 did to the switch
 
-At `-O1` clang did not keep a jump table for `grade`. It computed `score / 10 - 6` and compared the result with 4 as an unsigned number. Then it loaded the return value from a five-entry table of `int` at `.rodata+0x14`. The unsigned compare is one instruction that covers both `score / 10 < 6` and `score / 10 > 10`. A negative difference is a large unsigned value, so it fails the same check.
+Ở `-O1`, clang không giữ một jump table cho `grade`. Nó tính `score / 10 - 6` và so sánh kết quả với 4 như một số không dấu. Rồi nó tải giá trị trả về từ một bảng năm mục `int` tại `.rodata+0x14`. So sánh không dấu là một chỉ lệnh bao quát cả `score / 10 < 6` và `score / 10 > 10`. Một hiệu âm là một giá trị không dấu lớn, nên nó thất bại cùng kiểm tra.
 
-The table holds `1, 2, 3, 4, 4` for the quotients 6 through 10. The `switch` with five `return` statements became an `if` and an array read. The lifter emits exactly that, and names the table `lookup_14` after its section offset.
+Bảng chứa `1, 2, 3, 4, 4` cho các thương 6 đến 10. `switch` với năm câu lệnh `return` trở thành một `if` và một lần đọc mảng. Lifter phát ra chính xác điều đó, và đặt tên bảng `lookup_14` theo offset section của nó.
 
-The length of the table is a heuristic. `table_values()` reads from the table start to the next `.rodata` offset that any `.text` relocation references, or to the end of the section. In this object the next referenced offset is `0x28`, the table of `grade_label`, so `lookup_14` has `(0x28 - 0x14) / 4 = 5` entries. The unsigned compare against 4 agrees. Ghidra does not know the length either. It wrote `*(uint *)(&DAT_001000b4 + (ulong)uVar2 * 4)`, a byte address plus an offset, and left the five values for the reader to look up.
+Độ dài của bảng là một heuristic. `table_values()` đọc từ đầu bảng đến offset `.rodata` tiếp theo mà bất kỳ relocation `.text` nào tham chiếu, hoặc đến cuối section. Trong object này, offset được tham chiếu tiếp theo là `0x28`, bảng của `grade_label`, nên `lookup_14` có `(0x28 - 0x14) / 4 = 5` mục. So sánh không dấu với 4 đồng nhất. Ghidra cũng không biết độ dài. Nó viết `*(uint *)(&DAT_001000b4 + (ulong)uVar2 * 4)`, một địa chỉ byte cộng một offset, và để năm giá trị cho người đọc tra cứu.
 
 ## Side by Side With Ghidra
 
-The demo prints each pair. The Ghidra text comes from `code/fixtures/ghidra/*.json`, the Evidence records that rea returned on 2026-10-14. The command was `npx -y rea-agents@6.5.0 decompile ledger-x86_64-O1.o <function> --provider ghidra --format json`. Each record carries `confidence: observed` and `authority: shipped-artifact`. The text is observed. The claims inside the text are derived, and the records do not say which ones.
+Demo in mỗi cặp. Văn bản Ghidra đến từ `code/fixtures/ghidra/*.json`, các bản ghi Evidence mà rea trả về ngày 2026-10-14. Lệnh là `npx -y rea-agents@6.5.0 decompile ledger-x86_64-O1.o <function> --provider ghidra --format json`. Mỗi bản ghi mang `confidence: observed` và `authority: shipped-artifact`. Văn bản được quan sát. Các khẳng định bên trong văn bản được suy ra, và các bản ghi không nói những khẳng định nào.
 
 ### percent_change
 
@@ -338,16 +338,16 @@ int percent_change(int param_1, int param_2)   | undefined1  [16] percent_change
                                                | }
 ```
 
-| Difference | Instruction or guess |
+| Khác biệt | Chỉ lệnh hoặc phỏng đoán |
 |---|---|
-| Return type `undefined1 [16]` against `int` | Guess. `idivl` writes `%rax` and `%rdx`, and no caller fixes the return width. Both registers were kept. |
-| `param_3` | Guess that follows from the first. On the zero path only `%eax` is written, so `%rdx` is read as an input. |
-| `lVar1 / (long)param_1 & 0xffffffff` against `/ param_1` | Instruction. `cltd` plus `idivl` is a 64-bit division of a sign-extended 32-bit value, truncated to 32 bits. Both texts describe it. Ours reduced the pair with the `signfill` rule. |
-| `lVar1 % (long)param_1` kept | Follows from the return type. The remainder in `%rdx` is dead in our analysis and alive in Ghidra's. |
-| `if (param_1 != 0)` with the zero case after it | Instruction order. `je 0xd` jumps to the zero return. Ghidra put the computed arm first, we put the smaller arm first. Both are correct. |
-| `return auVar2 << 0x40` | Guess. A 16-byte value with `param_3` in the low half, shifted into the high half, is how the decompiler expresses `%rax = 0` with `%rdx` unknown. |
+| Kiểu trả về `undefined1 [16]` so với `int` | Phỏng đoán. `idivl` ghi `%rax` và `%rdx`, và không caller nào cố định chiều rộng trả về. Cả hai thanh ghi được giữ. |
+| `param_3` | Phỏng đoán suy ra từ điều đầu. Trên đường bằng không, chỉ `%eax` được ghi, nên `%rdx` được đọc như một đầu vào. |
+| `lVar1 / (long)param_1 & 0xffffffff` so với `/ param_1` | Chỉ lệnh. `cltd` cộng `idivl` là một phép chia 64 bit của một giá trị 32 bit được mở rộng dấu, cắt xuống 32 bit. Cả hai văn bản mô tả nó. Văn bản của chúng ta rút cặp bằng quy tắc `signfill`. |
+| Giữ `lVar1 % (long)param_1` | Suy ra từ kiểu trả về. Phần dư trong `%rdx` chết trong phân tích của chúng ta và sống trong phân tích của Ghidra. |
+| `if (param_1 != 0)` với trường hợp bằng không sau nó | Thứ tự chỉ lệnh. `je 0xd` nhảy đến lần trả về không. Ghidra đặt nhánh được tính trước, chúng ta đặt nhánh nhỏ hơn trước. Cả hai đúng. |
+| `return auVar2 << 0x40` | Phỏng đoán. Một giá trị 16 byte với `param_3` trong nửa thấp, được dịch vào nửa cao, là cách decompiler diễn đạt `%rax = 0` với `%rdx` chưa biết. |
 
-The repaired version in `code/fixtures/ghidra/ledger-x86_64-O1.ghidra-repaired.c` edits only this function, and the test compares it with the source over 81 input pairs.
+Phiên bản được sửa trong `code/fixtures/ghidra/ledger-x86_64-O1.ghidra-repaired.c` chỉ chỉnh sửa hàm này, và bài kiểm tra so sánh nó với nguồn trên 81 cặp đầu vào.
 
 ### grade
 
@@ -369,13 +369,13 @@ int grade(int param_1)                         | {
 }                                              |
 ```
 
-| Difference | Instruction or guess |
+| Khác biệt | Chỉ lệnh hoặc phỏng đoán |
 |---|---|
-| `param_1 / 10 - 6` in both | Instruction. Both recognized the `0x66666667` idiom. |
-| `uVar1 = -(param_1 >> 0x1f) ^ (uint)(... >> 0x3f)` against `eax_1 = 0` | Instruction `xorl %eax, %eax` at `grade+0x1a`. The register is zero. Ghidra expressed the `xor` as the sign of `param_1` exclusive-or the sign bit of the product, two spellings of the same bit, and did not cancel them. The value is 0 for every `int`, and the test proves it over 141 scores. A reader who trusts the text believes the default depends on the score. |
-| `uVar2 < 5` against `(unsigned int)ecx_1 <= 4` | Instruction `cmpl $0x4, %ecx` then `ja`. Same condition. Ghidra typed `uVar2` as `uint`, we cast at the use. |
-| `*(uint *)(&DAT_001000b4 + (ulong)uVar2 * 4)` against `lookup_14[...]` | Instruction plus relocation. Ghidra loaded the object with `.rodata` at `0x001000a0`, so `0x001000b4` is `.rodata + 0x14`. It applied the relocation and kept a byte address. We named the table and read its five values. |
-| `uint` return against `int` | Guess on both sides. The instructions only say 32 bits. |
+| `param_1 / 10 - 6` trong cả hai | Chỉ lệnh. Cả hai nhận ra mẫu `0x66666667`. |
+| `uVar1 = -(param_1 >> 0x1f) ^ (uint)(... >> 0x3f)` so với `eax_1 = 0` | Chỉ lệnh `xorl %eax, %eax` tại `grade+0x1a`. Thanh ghi bằng không. Ghidra diễn đạt `xor` là dấu của `param_1` exclusive-or bit dấu của tích, hai cách viết của cùng bit, và không triệt tiêu chúng. Giá trị là 0 cho mọi `int`, và bài kiểm tra chứng minh nó trên 141 điểm số. Một người đọc tin văn bản tin rằng mặc định phụ thuộc vào điểm số. |
+| `uVar2 < 5` so với `(unsigned int)ecx_1 <= 4` | Chỉ lệnh `cmpl $0x4, %ecx` rồi `ja`. Cùng điều kiện. Ghidra gán kiểu `uVar2` là `uint`, chúng ta ép kiểu tại lần dùng. |
+| `*(uint *)(&DAT_001000b4 + (ulong)uVar2 * 4)` so với `lookup_14[...]` | Chỉ lệnh cộng relocation. Ghidra tải object với `.rodata` tại `0x001000a0`, nên `0x001000b4` là `.rodata + 0x14`. Nó áp dụng relocation và giữ một địa chỉ byte. Chúng ta đặt tên bảng và đọc năm giá trị của nó. |
+| Giá trị trả về `uint` so với `int` | Phỏng đoán ở cả hai bên. Các chỉ lệnh chỉ nói 32 bit. |
 
 ### total
 
@@ -402,36 +402,36 @@ int total(int *param_1, int param_2)           | int total(long param_1,uint par
 }                                              |
 ```
 
-| Difference | Instruction or guess |
+| Khác biệt | Chỉ lệnh hoặc phỏng đoán |
 |---|---|
-| `int *param_1` against `long param_1` | Inference on our side from `addl (%rdi,%rdx,4), %eax`. Ghidra kept the width. |
-| `uint param_2` and `(int)param_2` against `int param_2` | Ghidra chose unsigned because `cmpq %rdx, %rcx` compares the zero-extended count. We kept `int` and cast at the compare. |
-| `do { } while` in both | Instruction `jne 0x50` from the block to itself. The compiler rotated the loop. The `-O0` object keeps the `while`. |
-| `ecx_1 = param_2` kept against `param_2 != uVar2` | Our substitution rule stays inside one block. The copy `movl %esi, %ecx` is in the setup block and the compare is in the loop, so the variable stays. Ghidra propagated it. |
-| `(unsigned long)(unsigned int)ecx_1` | Instruction. `movl %esi, %ecx` zero-extends, and the 64-bit compare reads the full register. |
+| `int *param_1` so với `long param_1` | Suy luận ở phía chúng ta từ `addl (%rdi,%rdx,4), %eax`. Ghidra giữ chiều rộng. |
+| `uint param_2` và `(int)param_2` so với `int param_2` | Ghidra chọn không dấu vì `cmpq %rdx, %rcx` so sánh count được mở rộng bằng không. Chúng ta giữ `int` và ép kiểu tại phép so sánh. |
+| `do { } while` trong cả hai | Chỉ lệnh `jne 0x50` từ khối đến chính nó. Compiler xoay vòng lặp. Object `-O0` giữ `while`. |
+| Giữ `ecx_1 = param_2` so với `param_2 != uVar2` | Quy tắc thế của chúng ta giữ trong một khối. Bản sao `movl %esi, %ecx` nằm trong khối thiết lập và phép so sánh nằm trong vòng lặp, nên biến ở lại. Ghidra lan truyền nó. |
+| `(unsigned long)(unsigned int)ecx_1` | Chỉ lệnh. `movl %esi, %ecx` mở rộng bằng không, và so sánh 64 bit đọc toàn thanh ghi. |
 
-The behaviour test compiles the Ghidra text for `grade` and `total` unchanged. It adds two `typedef` lines and a definition of `DAT_001000b4` from the twenty bytes at `.rodata+0x14`. Both functions match the source over the grid.
+Bài kiểm tra hành vi biên dịch văn bản Ghidra cho `grade` và `total` không thay đổi. Nó thêm hai dòng `typedef` và một định nghĩa của `DAT_001000b4` từ hai mươi byte tại `.rodata+0x14`. Cả hai hàm khớp nguồn trên lưới.
 
 ## What the Research Says About Reading Pseudocode
 
-LLM4Decompile (EMNLP 2024) measured Ghidra alone at 20.12 percent re-executability on HumanEval-Decompile. About one in five functions recompiled and passed the assertions that come with the benchmark. Refining Ghidra's output with their 6.7B model raised that to 52.74 percent. DecompileBench (Findings of ACL 2025) ran six industrial decompilers and six LLM approaches on 23,400 functions from 130 programs. The LLM outputs read better and had 52.2 percent lower functionality correctness.
+LLM4Decompile (EMNLP 2024) đo riêng Ghidra ở khả năng thực thi lại 20.12 phần trăm trên HumanEval-Decompile. Khoảng một trong năm hàm biên dịch lại và qua các assertion đi kèm benchmark. Tinh chỉnh đầu ra Ghidra bằng mô hình 6.7B của họ nâng mức đó lên 52.74 phần trăm. DecompileBench (Findings of ACL 2025) chạy sáu decompiler công nghiệp và sáu cách tiếp cận LLM trên 23,400 hàm từ 130 chương trình. Các đầu ra LLM đọc hay hơn và có tính đúng chức năng thấp hơn 52.2 phần trăm.
 
-Liu, Raff, and Micinski (arXiv 2609.05370, September 2026) explain the gap. They used 300 GitHub library functions and 287 CVE-grounded functions. The strongest refinement model raised Ghidra's build rate from 75 to 90 percent while the behavioural match rate fell from 74 to 62 percent. Candidates that passed every test in the benchmark still diverged on fuzzed inputs. That happened in 4.9 percent of cases across eight systems, and in up to 13 percent for one system. Up to one tenth of disclosed vulnerabilities disappeared from the refined code.
+Liu, Raff và Micinski (arXiv 2609.05370, tháng 9 năm 2026) giải thích khoảng cách. Họ sử dụng 300 hàm thư viện GitHub và 287 hàm có căn cứ CVE. Mô hình tinh chỉnh mạnh nhất nâng tỷ lệ build của Ghidra từ 75 lên 90 phần trăm trong khi tỷ lệ khớp hành vi giảm từ 74 xuống 62 phần trăm. Các ứng viên qua mọi bài kiểm tra trong benchmark vẫn phân kỳ trên các đầu vào fuzz. Điều đó xảy ra trong 4.9 phần trăm trường hợp trên tám hệ thống, và tới 13 phần trăm với một hệ thống. Tới một phần mười các lỗ hổng được công bố biến mất khỏi mã được tinh chỉnh.
 
-The cause they trace is simple. Invented fields, types, callees, and guards replaced the visible unknowns that the decompiler had left in the text.
+Nguyên nhân họ truy ra đơn giản. Các trường, kiểu, callee và điều kiện bảo vệ được bịa ra thay thế các điều chưa biết nhìn thấy được mà decompiler đã để lại trong văn bản.
 
-This is the reason the lifter prints `(unsigned long)(unsigned int)ecx_1` instead of a prettier name. It prints a note instead of a `switch` for the unresolved jump, and `lookup_14` instead of a label a model would invent. Every line has a derivation you can read in `code/main.py`. Ghidra's `undefined1 [16]` is ugly and honest. A refinement model's clean `int percent_change(int, int)` is right for the wrong reason. The same model will produce a clean wrong signature on the next function.
+Đây là lý do lifter in `(unsigned long)(unsigned int)ecx_1` thay vì một tên đẹp hơn. Nó in một ghi chú thay vì một `switch` cho bước nhảy chưa phân giải, và `lookup_14` thay vì một nhãn mà một mô hình sẽ bịa ra. Mỗi dòng có một phép suy ra bạn có thể đọc trong `code/main.py`. `undefined1 [16]` của Ghidra xấu và trung thực. `int percent_change(int, int)` sạch của một mô hình tinh chỉnh đúng vì lý do sai. Cùng mô hình sẽ tạo ra một chữ ký sai sạch trên hàm tiếp theo.
 
 ## Build It
 
-Run the demo:
+Chạy demo:
 
 ```bash
 cd phases/13-tools-and-protocols/34-lifting-to-pseudocode
 python3 code/main.py
 ```
 
-The demo decodes all four functions of the `-O1` object and compares every instruction with the committed `llvm-objdump` text. For `percent_change`, `grade`, and `total` it prints the IR before SSA, the SSA listing with phi functions, and the pseudocode next to the Ghidra text. Then it prints `grade` with division recognition switched off, the `-O0` versions of `percent_change`, `total`, and `grade_label`, and a summary:
+Demo giải mã cả bốn hàm của object `-O1` và so sánh mỗi chỉ lệnh với văn bản `llvm-objdump` đã commit. Với `percent_change`, `grade` và `total`, nó in IR trước SSA, danh sách SSA với các hàm phi và mã giả cạnh văn bản Ghidra. Rồi nó in `grade` với nhận dạng phép chia tắt, các phiên bản `-O0` của `percent_change`, `total` và `grade_label`, và một bản tóm tắt:
 
 ```json
 {
@@ -443,36 +443,36 @@ The demo decodes all four functions of the `-O1` object and compares every instr
 }
 ```
 
-Read `code/main.py` in this order:
+Đọc `code/main.py` theo thứ tự này:
 
-1. `read_object()` reads section headers, the symbol table, and the `.rela` sections of an ELF64 relocatable object.
-2. `decode_one()` and `render_att()` decode one instruction and print it the way `llvm-objdump` does.
-3. `build_blocks()`, `immediate_dominators()`, and `dominance_frontiers()` build the graph facts.
-4. `lift_insn()` turns one instruction into IR statements and resolves relocations.
-5. `insert_phis()` and `rename()` build SSA and insert width casts.
-6. `make_simplifier()`, `substitute_once()`, and `remove_dead_code()` run inside `optimize()`.
-7. `collect_params()`, `coalesce_webs()`, and `infer_types()` name and type the webs.
-8. `structure()` with `post_dominators()` and `natural_loops()` emits the C body.
-9. `lift_function()` ties the stages together and `lift_all()` lifts a whole object with callee signatures.
+1. `read_object()` đọc section header, bảng symbol và các section `.rela` của một object có thể tái định vị ELF64.
+2. `decode_one()` và `render_att()` giải mã một chỉ lệnh và in nó theo cách `llvm-objdump` làm.
+3. `build_blocks()`, `immediate_dominators()` và `dominance_frontiers()` xây dựng các sự kiện đồ thị.
+4. `lift_insn()` biến một chỉ lệnh thành các câu lệnh IR và phân giải relocation.
+5. `insert_phis()` và `rename()` xây dựng SSA và chèn các phép ép kiểu chiều rộng.
+6. `make_simplifier()`, `substitute_once()` và `remove_dead_code()` chạy bên trong `optimize()`.
+7. `collect_params()`, `coalesce_webs()` và `infer_types()` đặt tên và gán kiểu các web.
+8. `structure()` với `post_dominators()` và `natural_loops()` phát ra thân C.
+9. `lift_function()` nối các giai đoạn với nhau và `lift_all()` nâng một object hoàn chỉnh với các chữ ký callee.
 
 ## Use It
 
-To lift a function from your own object, build it with `clang -target x86_64-unknown-linux-gnu -c` and call `lift_all(read_object(path))`. When the decoder raises `DecodeError`, read the opcode byte from the message and find it in the SDM opcode map. Then add one entry to the tables at the top of the file. When the lifter raises on a mnemonic, add one rule to `lift_insn()`. When the structurer emits a `goto`, print the graph with `IrPrinter` and decide which shape rule is missing. Each addition is small and each one is checked against `llvm-objdump` or clang by the existing tests.
+Để nâng một hàm từ object của riêng bạn, dựng nó bằng `clang -target x86_64-unknown-linux-gnu -c` và gọi `lift_all(read_object(path))`. Khi decoder phát sinh `DecodeError`, đọc byte opcode từ thông báo và tìm nó trong bản đồ opcode SDM. Rồi thêm một mục vào các bảng ở đầu tệp. Khi lifter phát sinh ngoại lệ trên một mnemonic, thêm một quy tắc vào `lift_insn()`. Khi structurer phát ra một `goto`, in đồ thị bằng `IrPrinter` và quyết định quy tắc dạng nào còn thiếu. Mỗi phần bổ sung nhỏ và mỗi phần được kiểm tra với `llvm-objdump` hoặc clang bằng các bài kiểm tra hiện có.
 
-When Ghidra is installed, run rea on the same function and place the two texts side by side. Fill the difference table before you believe either text. A difference with an instruction behind it is a presentation choice. A difference with no instruction behind it is a guess, and the guess can be on either side.
+Khi Ghidra được cài, chạy rea trên cùng hàm và đặt hai văn bản cạnh nhau. Điền bảng khác biệt trước khi tin bất kỳ văn bản nào. Một khác biệt có một chỉ lệnh đằng sau là một lựa chọn trình bày. Một khác biệt không có chỉ lệnh đằng sau là một phỏng đoán, và phỏng đoán có thể ở bất kỳ bên nào.
 
 ## Interactive Lab
 
 ### Lab A: one function through five stages
 
-From the `code` directory, open Python:
+Từ thư mục `code`, mở Python:
 
 ```bash
 cd phases/13-tools-and-protocols/34-lifting-to-pseudocode/code
 python3 -q
 ```
 
-Run:
+Chạy:
 
 ```python
 from main import *
@@ -484,7 +484,7 @@ print(lifted.ssa_text)
 print(lifted.pseudocode)
 ```
 
-Follow `%esi` from `subl %edi, %esi` to `esi_1 = esi_0 - edi_0` to `(param_2 - param_1)`. The byte `fe` is the ModR/M of the `subl`, with `mod = 11`, `reg = edi`, and `r/m = esi`.
+Theo `%esi` từ `subl %edi, %esi` đến `esi_1 = esi_0 - edi_0` đến `(param_2 - param_1)`. Byte `fe` là ModR/M của `subl`, với `mod = 11`, `reg = edi` và `r/m = esi`.
 
 ### Lab B: the division idiom
 
@@ -493,18 +493,18 @@ print(lift_function(obj, "grade", recognize_division=False).pseudocode)
 print(magic_divisor(0x66666667, 34), magic_divisor(0x66666667, 33), magic_divisor(0x66666667, 31))
 ```
 
-The first line prints the raw multiply and shifts. The second prints `10 5 None`. Work out why the same multiplier divides by 5 with one shift less, and why shift 31 fails the error bound.
+Dòng đầu in phép nhân và các phép dịch thô. Dòng thứ hai in `10 5 None`. Tìm hiểu vì sao cùng hệ số nhân chia cho 5 với một lần dịch ít hơn, và vì sao dịch 31 không đạt cận sai số.
 
 ### Lab C: a new object stops the decoder
 
-Build the fixture at `-O2` and lift it:
+Dựng fixture ở `-O2` và nâng nó:
 
 ```bash
 clang -target x86_64-unknown-linux-gnu -O2 -fno-asynchronous-unwind-tables -c fixtures/ledger.c -o "$TMPDIR/ledger-O2.o"
 python3 -c 'from main import *; from pathlib import Path; import os; lift_all(read_object(Path(os.environ["TMPDIR"]) / "ledger-O2.o"))'
 ```
 
-The decoder stops at `0x56` with `opcode 81 is outside the fixture subset`. Opcode `81` is the group 1 form with a 32-bit immediate. The instruction is `andl $0x7ffffff8, %edx`, and clang used it in the vectorized loop of `total`. Add it beside `0x83` in `decode_one()`, rerun, and note which opcode stops you next. The subset grows one entry at a time, and each entry is checked against `llvm-objdump`.
+Decoder dừng tại `0x56` với `opcode 81 is outside the fixture subset`. Opcode `81` là dạng nhóm 1 với một immediate 32 bit. Chỉ lệnh là `andl $0x7ffffff8, %edx`, và clang sử dụng nó trong vòng lặp được vector hóa của `total`. Thêm nó cạnh `0x83` trong `decode_one()`, chạy lại và ghi chú opcode nào dừng bạn tiếp theo. Tập con tăng từng mục một, và mỗi mục được kiểm tra với `llvm-objdump`.
 
 ### Lab D: Ghidra's default value in grade
 
@@ -516,53 +516,53 @@ for score in (-25, 0, 59, 60, 100, 115):
     print(score, sign ^ product_sign)
 ```
 
-Every row prints 0. Ghidra's `uVar1` expression is correct and unreadable, and the instruction `xorl %eax, %eax` says it in two bytes.
+Mỗi hàng in 0. Biểu thức `uVar1` của Ghidra đúng và không thể đọc, và chỉ lệnh `xorl %eax, %eax` nói điều đó trong hai byte.
 
 ## Practice Lab
 
-Add `switch` recovery for `grade` at `-O0`.
+Thêm khôi phục `switch` cho `grade` ở `-O0`.
 
-Requirements:
+Yêu cầu:
 
-- Read the five relocations in `.rela.rodata` of `ledger-x86_64-O0.o`, each `R_X86_64_PC32.text+offset`, and compute the five case targets from the table at `.rodata+0x0`.
-- Add a `Switch` terminator to the IR with the index expression, the target list, and the default from the `ja` before the table load.
-- Give the switch block one successor per target so that dominators, post-dominators, and SSA keep working.
-- Emit `switch (local_10) { case 0:... }` with one `case` per target and the shared epilogue after the join.
-- Keep the note for any indirect jump whose table you cannot bound.
-- Compile the result with clang and compare it with the source over the score grid in the tests.
+- Đọc năm relocation trong `.rela.rodata` của `ledger-x86_64-O0.o`, mỗi relocation là `R_X86_64_PC32.text+offset`, và tính năm đích case từ bảng tại `.rodata+0x0`.
+- Thêm một terminator `Switch` vào IR với biểu thức chỉ số, danh sách đích và mặc định từ `ja` trước lần tải bảng.
+- Cho khối switch một kế nhiệm mỗi đích để dominator, post-dominator và SSA tiếp tục hoạt động.
+- Phát ra `switch (local_10) { case 0:... }` với một `case` mỗi đích và epilogue dùng chung sau điểm nối.
+- Giữ ghi chú cho mọi bước nhảy gián tiếp có bảng mà bạn không thể giới hạn.
+- Biên dịch kết quả bằng clang và so sánh nó với nguồn trên lưới điểm số trong các bài kiểm tra.
 
-Success means `grade` at `-O0` and `grade` at `-O1` produce the same output over the grid, with one `switch` and no `goto`.
+Thành công nghĩa là `grade` ở `-O0` và `grade` ở `-O1` tạo cùng đầu ra trên lưới, với một `switch` và không có `goto`.
 
 ## Graded Lab
 
-Five questions about the fixtures of this lesson. Find each answer with the code you built, then write it into `code/lab_answers.json`. Write numbers as numbers or as hex strings such as `"0x40"`, and lists as JSON lists.
+Năm câu hỏi về các fixture của bài học này. Tìm mỗi câu trả lời bằng mã bạn đã xây dựng, rồi ghi nó vào `code/lab_answers.json`. Viết số dưới dạng số hoặc chuỗi hex chẳng hạn `"0x40"`, và danh sách dưới dạng danh sách JSON.
 
-1. `t1`: parameters that the calling convention gives percent_change at -O1.
-2. `t2`: phi functions in the SSA form of total at -O1.
-3. `t3`: the divisor that magic_divisor finds for 0x66666667 with shift 34.
-4. `t4`: the last statement of the percent_change pseudocode at -O1, as one line of text.
-5. `t5`: the recovered C type of param_1 of total at -O1.
+1. `t1`: các tham số mà quy ước gọi cho percent_change ở -O1.
+2. `t2`: các hàm phi trong dạng SSA của total ở -O1.
+3. `t3`: số chia mà magic_divisor tìm cho 0x66666667 với độ dịch 34.
+4. `t4`: câu lệnh cuối của mã giả percent_change ở -O1, dưới dạng một dòng văn bản.
+5. `t5`: kiểu C được khôi phục của param_1 của total ở -O1.
 
-Check your answers:
+Kiểm tra các câu trả lời của bạn:
 
 ```bash
 cd phases/13-tools-and-protocols/34-lifting-to-pseudocode
 python3 code/lab.py
 ```
 
-The checker computes each expected value from `code/main.py` on the committed fixtures. It prints `PASS`, `FAIL` or `TODO` for each task and a score, and it exits 0 only when all five pass. `python3 code/lab.py my-answers.json` checks another file. `code/tests/test_lab.py` proves that the checker accepts the right answers and rejects a wrong one.
+Bộ kiểm tra tính mỗi giá trị kỳ vọng từ `code/main.py` trên các fixture đã commit. Nó in `PASS`, `FAIL` hoặc `TODO` cho mỗi tác vụ và một điểm số, và nó chỉ thoát 0 khi cả năm qua. `python3 code/lab.py my-answers.json` kiểm tra một tệp khác. `code/tests/test_lab.py` chứng minh rằng bộ kiểm tra chấp nhận các câu trả lời đúng và từ chối một câu sai.
 
 ### See it run
 
-The [Inside a Decompiler](https://aiengineeringfromscratch.com/inside-a-decompiler?opt=O0) machine runs this lesson as its lift press, type pins, structuring jig and printer, with the IR, SSA and pseudocode that `code/main.py` prints. This link opens the `-O0` object: three stack slots become locals and the jig closes both jaws for the if/else.
+Máy [Inside a Decompiler](https://aiengineeringfromscratch.com/inside-a-decompiler?opt=O0) chạy bài học này như máy ép nâng, ghim kiểu, khuôn cấu trúc hóa và máy in của nó, với IR, SSA và mã giả mà `code/main.py` in. Liên kết này mở object `-O0`: ba slot stack trở thành biến cục bộ và khuôn đóng cả hai hàm kẹp cho if/else.
 
 ## Artifact
 
-This lesson produces `outputs/skill-lifting-to-pseudocode.md`. Use it to lift one function with a derivation for every line and to fill the difference table against a decompiler's text. The artifact requires the reference disassembly, the relocations, the calling convention, the compile check, the behaviour comparison, and a verdict for every differing line.
+Bài học này tạo ra `outputs/skill-lifting-to-pseudocode.md`. Sử dụng nó để nâng một hàm với một phép suy ra cho mỗi dòng và để điền bảng khác biệt đối chiếu văn bản của một decompiler. Sản phẩm yêu cầu disassembly tham chiếu, các relocation, quy ước gọi, kiểm tra biên dịch, so sánh hành vi và một phán quyết cho mỗi dòng khác nhau.
 
 ## Verify It
 
-Run the demo and the deterministic suite:
+Chạy demo và bộ kiểm tra tất định:
 
 ```bash
 cd phases/13-tools-and-protocols/34-lifting-to-pseudocode
@@ -570,45 +570,45 @@ python3 code/main.py
 python3 -m unittest discover -s code/tests -v
 ```
 
-The suite has 25 tests. Verification proves:
+Bộ kiểm tra có 25 bài kiểm tra. Xác minh chứng minh:
 
-- the decoder agrees with the committed `llvm-objdump` text on every instruction of both objects, and with a live `llvm-objdump` when it is installed
-- REX, ModR/M, SIB, and the displacement field offset of `leaq (%rip), %rcx` are decoded as the SDM describes
-- an opcode outside the subset raises `DecodeError` instead of guessing
-- the ELF reader lists the four functions and the three `.text` relocations
-- `total` has five blocks, `0x44` dominates `0x50`, and `0x50` is a loop header with itself as the body
-- `%rdi` and `%rsi` become `param_1` and `param_2`, and `param_1` in `total` is `int *`
-- `test` and `cmp` with `je`, `jle`, `ja`, and `jge` become `==`, `<=`, unsigned `>`, and `<`
-- SSA places two live phi functions at the loop header of `total` and none in `percent_change`
-- the pseudocode of `percent_change`, `grade`, and `total` equals the expected text
-- `grade` reads `param_1 / 10 - 6` with recognition on and the raw multiply with recognition off
-- `0x66666667` with shift 34 divides by 10, with shift 33 divides by 5, and the identity holds on the grid
-- stack slots at `-O0` become `local_4`, `local_8`, `local_c`, and the frame pointer never appears
-- the table at `.rodata+0x14` reads `1, 2, 3, 4, 4` through the relocation
-- the indirect jump in `grade` at `-O0` is reported with its four unlifted blocks
-- the Ghidra fixtures contain the 16-byte return, the `param_3`, the unsimplified `xor`, and the `long param_1`
-- the six emitted units compile with `clang -std=c11 -Wall -Werror` for `x86_64-unknown-linux-gnu`
-- the lifted functions, the repaired Ghidra text, and the source print the same 232 lines over the input grid
+- decoder đồng nhất với văn bản `llvm-objdump` đã commit trên mọi chỉ lệnh của cả hai object, và với một `llvm-objdump` chạy trực tiếp khi nó được cài
+- REX, ModR/M, SIB và offset trường displacement của `leaq (%rip), %rcx` được giải mã như SDM mô tả
+- một opcode ngoài tập con phát sinh `DecodeError` thay vì đoán
+- trình đọc ELF liệt kê bốn hàm và ba relocation `.text`
+- `total` có năm khối, `0x44` chi phối `0x50`, và `0x50` là một loop header với chính nó làm thân
+- `%rdi` và `%rsi` trở thành `param_1` và `param_2`, và `param_1` trong `total` là `int *`
+- `test` và `cmp` với `je`, `jle`, `ja` và `jge` trở thành `==`, `<=`, `>` không dấu và `<`
+- SSA đặt hai hàm phi sống tại loop header của `total` và không hàm nào trong `percent_change`
+- mã giả của `percent_change`, `grade` và `total` bằng văn bản kỳ vọng
+- `grade` đọc là `param_1 / 10 - 6` khi bật nhận dạng và phép nhân thô khi tắt nhận dạng
+- `0x66666667` với độ dịch 34 chia cho 10, với độ dịch 33 chia cho 5, và đồng nhất thức đúng trên lưới
+- các slot stack ở `-O0` trở thành `local_4`, `local_8`, `local_c`, và con trỏ khung không bao giờ xuất hiện
+- bảng tại `.rodata+0x14` đọc ra `1, 2, 3, 4, 4` qua relocation
+- bước nhảy gián tiếp trong `grade` ở `-O0` được báo cáo với bốn khối chưa được nâng của nó
+- các fixture Ghidra chứa giá trị trả về 16 byte, `param_3`, `xor` chưa đơn giản hóa và `long param_1`
+- sáu đơn vị được phát ra biên dịch bằng `clang -std=c11 -Wall -Werror` cho `x86_64-unknown-linux-gnu`
+- các hàm đã nâng, văn bản Ghidra được sửa và nguồn in cùng 232 dòng trên lưới đầu vào
 
 ## Production Failure Modes
 
-| Failure | What the weak reading reports | What the derivation must show |
+| Lỗi | Cách đọc yếu báo cáo gì | Phép suy ra phải cho thấy gì |
 |---|---|---|
-| Decompiler widens the return value | "returns a 16-byte struct" | `idivl` writes `%rdx`, and no caller fixes the width |
-| Decompiler adds a parameter | "takes three arguments" | The register is read on one path only because the return width was guessed |
-| Idiom goes unrecognized | "multiplies by a magic constant" | The multiplier is the ceiling of `2^s / d` and the error bound holds |
-| Idiom is recognized and a `xor` is lost | "default depends on the input" | `xorl %eax, %eax` writes zero, two spellings of one bit cancel |
-| Pointer typed as integer | "takes a long" | A scaled 4-byte load from the register is pointer evidence |
-| Table length unknown | "reads past the table" | The next referenced offset or the section end bounds it, and the range check agrees |
-| Loop shape misread | "while loop" | The header has no exit, the latch jumps back, so it is `do while` |
-| Indirect jump guessed | "switch with five cases" | The targets come from `.rela.rodata`, or the jump is reported as unresolved |
-| Substitution across a store | "one expression" | A loaded value moved past a store or a call changes meaning |
-| Refinement model edits the text | "compiles and looks right" | Build rate up, behaviour match down, invented guards replaced visible unknowns |
-| Decoder guesses an unknown opcode | "disassembly looks fine" | `DecodeError` with the address and the byte, then one table entry checked against `llvm-objdump` |
+| Decompiler mở rộng giá trị trả về | "trả về một struct 16 byte" | `idivl` ghi `%rdx`, và không caller nào cố định chiều rộng |
+| Decompiler thêm một tham số | "nhận ba đối số" | Thanh ghi được đọc trên một đường chỉ vì chiều rộng trả về được đoán |
+| Mẫu không được nhận ra | "nhân với một hằng số ma thuật" | Hệ số nhân là giá trị trần của `2^s / d` và cận sai số đúng |
+| Mẫu được nhận ra và một `xor` bị mất | "mặc định phụ thuộc đầu vào" | `xorl %eax, %eax` ghi không, hai cách viết của một bit triệt tiêu |
+| Con trỏ được gán kiểu số nguyên | "nhận một long" | Một lần tải 4 byte có tỷ lệ từ thanh ghi là bằng chứng con trỏ |
+| Độ dài bảng chưa biết | "đọc vượt bảng" | Offset được tham chiếu tiếp theo hoặc cuối section giới hạn nó, và kiểm tra phạm vi đồng nhất |
+| Dạng vòng lặp bị đọc sai | "vòng lặp while" | Header không có lối thoát, latch nhảy ngược, nên nó là `do while` |
+| Bước nhảy gián tiếp được đoán | "switch với năm case" | Các đích đến từ `.rela.rodata`, hoặc bước nhảy được báo cáo là chưa phân giải |
+| Thế qua một lần lưu | "một biểu thức" | Một giá trị được tải chuyển qua một lần lưu hoặc lần gọi thay đổi ý nghĩa |
+| Mô hình tinh chỉnh chỉnh sửa văn bản | "biên dịch và trông đúng" | Tỷ lệ build tăng, khớp hành vi giảm, các điều kiện bảo vệ được bịa thay thế các điều chưa biết nhìn thấy được |
+| Decoder đoán một opcode không biết | "disassembly trông ổn" | `DecodeError` với địa chỉ và byte, rồi một mục bảng được kiểm tra với `llvm-objdump` |
 
 ## Operational Rule
 
-Treat pseudocode as a derivation you have not seen. Reproduce it from the instructions with a lifter you can read. Place the two texts side by side, and write the instruction or the guess behind every line that differs. Compile both and run both against the source when you have it. A line without an instruction behind it stays a guess no matter how clean it reads.
+Coi mã giả là một phép suy ra bạn chưa thấy. Tái tạo nó từ các chỉ lệnh bằng một lifter bạn có thể đọc. Đặt hai văn bản cạnh nhau, và viết chỉ lệnh hoặc phỏng đoán đằng sau mỗi dòng khác nhau. Biên dịch cả hai và chạy cả hai đối chiếu nguồn khi bạn có nó. Một dòng không có một chỉ lệnh đằng sau vẫn là một phỏng đoán bất kể nó đọc sạch đến đâu.
 
 ## Further Reading
 
@@ -625,4 +625,4 @@ Treat pseudocode as a derivation you have not seen. Reproduce it from the instru
 - [DecompileBench, Findings of ACL 2025](https://aclanthology.org/2025.findings-acl.1194/)
 - [Liu, Raff, Micinski, When LLM Decompilers Recompile More and Preserve Less, 2026](https://arxiv.org/abs/2609.05370)
 - [rea 6.5.0 Ghidra provider notes](https://github.com/morluto/rea/blob/rea-agents-6.5.0/docs/ghidra-provider.md)
-- rea 6.5.0 source at tag `3b79af2` that this lesson describes: `src/domain/functionComparisonDimensions.ts`, `website/evidence/dx-ball-sound-pan.md`.
+- Nguồn rea 6.5.0 tại tag `3b79af2` mà bài học này mô tả: `src/domain/functionComparisonDimensions.ts`, `website/evidence/dx-ball-sound-pan.md`.

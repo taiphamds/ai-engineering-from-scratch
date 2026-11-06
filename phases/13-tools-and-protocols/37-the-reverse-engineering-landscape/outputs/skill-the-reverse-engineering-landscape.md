@@ -1,52 +1,52 @@
 ---
 name: the-reverse-engineering-landscape
-description: Run several disassemblers and decompilers on one object you built, normalise their addresses, and report where they agree and where each one invents or misses code.
+description: Chạy nhiều disassembler và decompiler trên một object bạn đã dựng, chuẩn hóa các địa chỉ của chúng và báo cáo nơi chúng đồng nhất và nơi mỗi công cụ bịa hoặc bỏ lỡ mã.
 version: 1.0.0
 phase: 13
 lesson: 37
 tags: [reverse-engineering, tool-comparison, disassembly, control-flow-graph, intermediate-representation, ghidra, radare2, rizin, angr]
 ---
 
-Given a relocatable or linked object that you built yourself, the compiler command that produced it, and two or more analysis tools, produce a comparison that says, for every function, which tools agree on instruction starts, blocks, and edges, and which bytes each tool decodes that the others do not. Use this skill with Claude, Cursor, Codex, OpenClaw, Hermes, or any agent that reads SKILL.md.
+Với một object có thể tái định vị hoặc đã liên kết mà bạn tự dựng, lệnh compiler tạo ra nó và hai hoặc nhiều công cụ phân tích, tạo một phép so sánh nói, với mọi hàm, những công cụ nào đồng nhất về các điểm bắt đầu chỉ lệnh, khối và cạnh, và các byte nào mỗi công cụ giải mã mà các công cụ khác không. Sử dụng skill này với Claude, Cursor, Codex, OpenClaw, Hermes hoặc bất kỳ agent nào đọc SKILL.md.
 
 ## Required inputs
 
-- The object file and the exact compiler and command that produced it.
-- The symbol table of the object (function names, offsets, sizes) read from the file itself.
-- For each tool: the version string, the exact headless command, and the raw output captured to a file beside the object.
-- The address each tool gave the `.text` section, so every address can be reduced to a section offset.
-- The lesson 37 harness (`code/main.py`) or an equivalent that reads captures and never trusts one tool as the oracle.
+- Tệp object và compiler cùng lệnh chính xác tạo ra nó.
+- Bảng symbol của object (tên hàm, offset, kích thước) được đọc từ chính tệp.
+- Với mỗi công cụ: chuỗi phiên bản, lệnh headless chính xác và đầu ra thô được thu vào một tệp cạnh object.
+- Địa chỉ mà mỗi công cụ cho section `.text`, để mọi địa chỉ có thể được quy về một offset section.
+- Harness bài 37 (`code/main.py`) hoặc một harness tương đương đọc các bản thu và không bao giờ tin một công cụ làm oracle.
 
 ## Procedure
 
-1. Capture first, compare second. Run every tool once in headless mode (`llvm-objdump -d -r`, `r2 -qc`, `rizin -qc`, an angr script, `analyzeHeadless -postScript`), store the output, and record the command and version in a manifest. Never compare live output that you cannot re-read.
-2. Read the function symbols from the ELF symbol table. They are the only shared ground truth. Compute the padding gaps between functions.
-3. Normalise every address to a `.text` offset by subtracting the base each tool reports for the section. Check that one known function lands at the same offset in every tool before you compare anything else.
-4. For each function extent, collect the set of instruction starts per tool. Take the majority set over the graph builders and report, per tool, the starts it adds and the starts it lacks.
-5. Collect block starts and edges per tool as offset pairs. Report counts and whether the sets match. When counts differ, list the edges each tool lacks relative to the union, and read the tool's own notes (switch resolution, computed jump, unresolvable target) before you judge.
-6. Account for bytes. For each tool, record code bytes inside symbols, padding bytes claimed, and symbol bytes left unclaimed. Name the bytes a tool claims that the majority does not as invented code, and the bytes it leaves that the majority decodes as missed code. Bytes inside a symbol that no graph builder decodes are data.
-7. Compare decompiler output on one small function with a known idiom (a division by a constant, a switch). Note which tool folds the idiom and which leaves the lifted arithmetic.
-8. For tools you did not run, say so in the report and describe them from their documentation only.
+1. Thu trước, so sánh sau. Chạy mọi công cụ một lần ở chế độ headless (`llvm-objdump -d -r`, `r2 -qc`, `rizin -qc`, một script angr, `analyzeHeadless -postScript`), lưu đầu ra và ghi lệnh cùng phiên bản trong một manifest. Không bao giờ so sánh đầu ra trực tiếp mà bạn không thể đọc lại.
+2. Đọc các function symbol từ bảng symbol ELF. Chúng là ground truth chung duy nhất. Tính các khoảng trống padding giữa các hàm.
+3. Chuẩn hóa mọi địa chỉ về một offset `.text` bằng cách trừ địa chỉ cơ sở mà mỗi công cụ báo cáo cho section. Kiểm tra rằng một hàm đã biết nằm ở cùng offset trong mọi công cụ trước khi bạn so sánh bất cứ thứ gì khác.
+4. Với mỗi phạm vi hàm, thu thập tập các điểm bắt đầu chỉ lệnh theo công cụ. Lấy tập đa số trên các bộ dựng đồ thị và báo cáo, theo công cụ, các điểm bắt đầu nó thêm và các điểm bắt đầu nó thiếu.
+5. Thu thập các điểm bắt đầu khối và các cạnh theo công cụ dưới dạng các cặp offset. Báo cáo các số đếm và liệu các tập khớp hay không. Khi các số đếm khác nhau, liệt kê các cạnh mà mỗi công cụ thiếu so với hợp, và đọc các ghi chú riêng của công cụ (phân giải switch, bước nhảy tính toán, đích không thể phân giải) trước khi phán đoán.
+6. Hạch toán byte. Với mỗi công cụ, ghi các byte mã bên trong symbol, các byte padding được nhận và các byte symbol không được nhận. Đặt tên các byte một công cụ nhận mà đa số không nhận là mã được bịa, và các byte nó để lại mà đa số giải mã là mã bị bỏ lỡ. Các byte bên trong một symbol mà không bộ dựng đồ thị nào giải mã là dữ liệu.
+7. So sánh đầu ra decompiler trên một hàm nhỏ với một mẫu đã biết (một phép chia cho một hằng số, một switch). Ghi chú công cụ nào gộp mẫu và công cụ nào để lại phép toán đã nâng.
+8. Với các công cụ bạn chưa chạy, nói vậy trong báo cáo và chỉ mô tả chúng từ tài liệu của chúng.
 
 ## Output
 
-For the object, report:
+Với object, báo cáo:
 
-- compiler, command, object name, and the manifest of tool versions and commands
-- the base each tool used and the offset check on one function
-- per function: instruction-start agreement, per-tool extra and missing starts, block counts, edge counts, edge sets missing per tool
-- per tool: code bytes inside symbols, padding bytes claimed, symbol bytes unclaimed, invented ranges, missed ranges
-- the data ranges inside symbols that no graph builder decodes
-- the functions a tool invents with no symbol, and the functions it misses
-- decompiler output for one function per tool with the idiom named
-- the list of tools described from documentation only
+- compiler, lệnh, tên object và manifest các phiên bản công cụ cùng lệnh
+- địa chỉ cơ sở mà mỗi công cụ sử dụng và kiểm tra offset trên một hàm
+- theo hàm: sự đồng nhất điểm bắt đầu chỉ lệnh, các điểm bắt đầu thừa và thiếu theo công cụ, số khối, số cạnh, các tập cạnh thiếu theo công cụ
+- theo công cụ: byte mã bên trong symbol, byte padding được nhận, byte symbol không được nhận, các phạm vi được bịa, các phạm vi bị bỏ lỡ
+- các phạm vi dữ liệu bên trong symbol mà không bộ dựng đồ thị nào giải mã
+- các hàm một công cụ bịa không có symbol, và các hàm nó bỏ lỡ
+- đầu ra decompiler cho một hàm mỗi công cụ với mẫu được nêu tên
+- danh sách các công cụ chỉ được mô tả từ tài liệu
 
 ## Failure modes
 
-- Comparing addresses before subtracting each tool's base, which makes every tool look wrong.
-- Treating one tool as the oracle. A linear sweep agrees with itself on data bytes.
-- Reading a block count as a measure of code found. A label split or a padding heuristic changes the count without changing the code.
-- Dropping a tool's own notes (switch resolution, unresolvable jump) from the report, which hides why edge counts differ.
-- Running the tools live inside the tests. Captures with recorded commands and versions are what make a disagreement reproducible.
-- Describing a tool you did not run as if you had run it.
-- Comparing captures made from different objects or different compiler versions.
+- So sánh các địa chỉ trước khi trừ địa chỉ cơ sở của mỗi công cụ, khiến mọi công cụ trông sai.
+- Coi một công cụ là oracle. Một linear sweep đồng nhất với chính nó trên các byte dữ liệu.
+- Đọc một số khối như một phép đo mã được tìm thấy. Một lần tách nhãn hoặc một heuristic padding thay đổi số đếm mà không thay đổi mã.
+- Bỏ các ghi chú riêng của một công cụ (phân giải switch, bước nhảy không thể phân giải) khỏi báo cáo, che giấu vì sao các số cạnh khác nhau.
+- Chạy các công cụ trực tiếp bên trong các bài kiểm tra. Các bản thu với lệnh và phiên bản được ghi lại là thứ khiến một bất đồng có thể tái tạo.
+- Mô tả một công cụ bạn chưa chạy như thể bạn đã chạy nó.
+- So sánh các bản thu được tạo từ các object khác nhau hoặc các phiên bản compiler khác nhau.

@@ -38,9 +38,9 @@ Dimension    Avg distance ratio (max/min between random points)
 1000         ~1.02
 ```
 
-**Thể tích tập trung ở các góc.** Một siêu lập phương đơn vị trong d chiều có 2^d góc. Trong 100 chiều, gần như toàn bộ thể tích nằm ở các góc, xa tâm. Các điểm dữ liệu trải ra rìa và mô hình của bạn thiếu dữ liệu ở bên trong.
+**Thể tích tập trung ở các góc.** Một siêu lập phương đơn vị trong $d$ chiều có $2^d$ góc. Trong 100 chiều, gần như toàn bộ thể tích nằm ở các góc, xa tâm. Các điểm dữ liệu trải ra rìa và mô hình của bạn thiếu dữ liệu ở bên trong.
 
-**Bạn cần nhiều dữ liệu hơn theo hàm mũ.** Để duy trì cùng mật độ mẫu trong một không gian, đi từ 2D đến 20D có nghĩa là bạn cần lượng dữ liệu gấp 10^18 lần. Bạn không bao giờ có đủ. Giảm chiều đưa mật độ dữ liệu trở lại mức có thể xử lý.
+**Bạn cần nhiều dữ liệu hơn theo hàm mũ.** Để duy trì cùng mật độ mẫu trong một không gian, đi từ 2D đến 20D có nghĩa là bạn cần lượng dữ liệu gấp $10^{18}$ lần. Bạn không bao giờ có đủ. Giảm chiều đưa mật độ dữ liệu trở lại mức có thể xử lý.
 
 ### PCA: find the directions that matter
 
@@ -88,7 +88,7 @@ Ba chiến lược:
 
 1. **Ngưỡng.** Giữ đủ thành phần để giải thích 90-95% phương sai.
 2. **Phương pháp khuỷu tay.** Vẽ phương sai được giải thích theo từng thành phần. Tìm một chỗ giảm mạnh.
-3. **Hiệu năng tác vụ phía sau.** Sử dụng PCA làm tiền xử lý. Quét k và đo độ chính xác mô hình. k tốt nhất là nơi độ chính xác chững lại.
+3. **Hiệu năng tác vụ phía sau.** Sử dụng PCA làm tiền xử lý. Quét $k$ và đo độ chính xác mô hình. $k$ tốt nhất là nơi độ chính xác chững lại.
 
 ### t-SNE: preserve neighborhoods
 
@@ -101,7 +101,7 @@ Các tính chất chính của t-SNE:
 - Ngẫu nhiên. Các lần chạy khác nhau tạo ra các cách bố trí khác nhau.
 - Tham số perplexity điều khiển số láng giềng cần xét (phạm vi điển hình: 5-50).
 - Khoảng cách giữa các cụm trong đầu ra không có ý nghĩa. Chỉ bản thân các cụm có ý nghĩa.
-- Chậm trên các tập dữ liệu lớn. O(n^2) theo mặc định.
+- Chậm trên các tập dữ liệu lớn. $O(n^2)$ theo mặc định.
 
 ### UMAP: faster, better global structure
 
@@ -135,27 +135,27 @@ PCA tiêu chuẩn tìm các không gian con tuyến tính. Nó quay hệ tọa �
 Kernel PCA áp dụng PCA trong một không gian đặc trưng nhiều chiều được tạo bởi một hàm kernel, mà không tính tường minh tọa độ trong không gian đó. Đây là thủ thuật kernel -- cùng ý tưởng đằng sau SVM.
 
 Thuật toán:
-1. Tính ma trận kernel K trong đó K_ij = k(x_i, x_j)
+1. Tính ma trận kernel $K$ trong đó $K_{ij} = k(x_i, x_j)$
 2. Đưa ma trận kernel về tâm trong không gian đặc trưng
 3. Phân rã riêng ma trận kernel đã đưa về tâm
-4. Các vector riêng đứng đầu (được nhân với 1/sqrt(eigenvalue)) là các hình chiếu
+4. Các vector riêng đứng đầu (được nhân với $1/\sqrt{\text{eigenvalue}}$) là các hình chiếu
 
 Các hàm kernel phổ biến:
 
 | Kernel | Công thức | Phù hợp cho |
 |--------|---------|----------|
-| RBF (Gaussian) | exp(-gamma * \|\|x - y\|\|^2) | Hầu hết dữ liệu phi tuyến, các đa tạp trơn |
-| Đa thức | (x . y + c)^d | Các quan hệ đa thức |
-| Sigmoid | tanh(alpha * x . y + c) | Các ánh xạ giống mạng nơ-ron |
+| RBF (Gaussian) | $\exp(-\gamma \lVert x - y \rVert^2)$ | Hầu hết dữ liệu phi tuyến, các đa tạp trơn |
+| Đa thức | $(x \cdot y + c)^d$ | Các quan hệ đa thức |
+| Sigmoid | $\tanh(\alpha x \cdot y + c)$ | Các ánh xạ giống mạng nơ-ron |
 
 Khi nào sử dụng kernel PCA so với PCA tiêu chuẩn:
 
 | Tiêu chí | PCA tiêu chuẩn | Kernel PCA |
 |-----------|-------------|------------|
 | Cấu trúc dữ liệu | Không gian con tuyến tính | Đa tạp phi tuyến |
-| Tốc độ | O(min(n^2 d, d^2 n)) | O(n^2 d + n^3) |
+| Tốc độ | $O(\min(n^2 d, d^2 n))$ | $O(n^2 d + n^3)$ |
 | Khả năng diễn giải | Các thành phần là tổ hợp tuyến tính của các đặc trưng | Các thành phần thiếu diễn giải trực tiếp theo đặc trưng |
-| Khả năng mở rộng | Hoạt động trên hàng triệu mẫu | Ma trận kernel có kích thước n x n, bị giới hạn bởi bộ nhớ |
+| Khả năng mở rộng | Hoạt động trên hàng triệu mẫu | Ma trận kernel có kích thước $n \times n$, bị giới hạn bởi bộ nhớ |
 | Tái tạo | Biến đổi ngược trực tiếp | Đòi hỏi xấp xỉ tiền ảnh |
 
 Ví dụ kinh điển: các đường tròn đồng tâm trong 2D. Hai vòng điểm, một vòng bên trong vòng kia. PCA tiêu chuẩn chiếu cả hai lên cùng một đường thẳng -- vô ích cho phân loại. Kernel PCA với một kernel RBF ánh xạ đường tròn trong và đường tròn ngoài đến các vùng khác nhau, làm chúng phân tách tuyến tính được.
@@ -165,22 +165,24 @@ Ví dụ kinh điển: các đường tròn đồng tâm trong 2D. Hai vòng đi
 Phép giảm chiều của bạn tốt đến mức nào? Bạn đã nén 784 chiều xuống 50. Bạn đã mất gì?
 
 Đo sai số tái tạo:
-1. Chiếu dữ liệu xuống k chiều: X_reduced = X @ W_k
-2. Tái tạo: X_hat = X_reduced @ W_k^T
-3. Tính MSE: mean((X - X_hat)^2)
+1. Chiếu dữ liệu xuống $k$ chiều: $X_{\text{reduced}} = X W_k$
+2. Tái tạo: $\hat{X} = X_{\text{reduced}} W_k^T$
+3. Tính MSE: $\text{mean}((X - \hat{X})^2)$
 
 Với PCA, sai số tái tạo có mối quan hệ rõ ràng với phương sai được giải thích:
 
-```
-Reconstruction error = sum of eigenvalues NOT included
-Total variance = sum of ALL eigenvalues
-Fraction lost = (sum of dropped eigenvalues) / (sum of all eigenvalues)
+```math
+\begin{aligned}
+\text{Reconstruction error} &= \text{sum of eigenvalues NOT included} \\
+\text{Total variance} &= \text{sum of ALL eigenvalues} \\
+\text{Fraction lost} &= \frac{\text{sum of dropped eigenvalues}}{\text{sum of all eigenvalues}}
+\end{aligned}
 ```
 
 Tỉ lệ phương sai được giải thích cho mỗi thành phần là:
 
-```
-explained_ratio_k = eigenvalue_k / sum(all eigenvalues)
+```math
+\text{explained\_ratio}_k = \frac{\text{eigenvalue}_k}{\sum \text{all eigenvalues}}
 ```
 
 Vẽ phương sai được giải thích tích lũy theo số thành phần cho bạn đường cong "khuỷu tay". Số thành phần phù hợp là nơi:
@@ -188,7 +190,7 @@ Vẽ phương sai được giải thích tích lũy theo số thành phần cho 
 - Phương sai tích lũy vượt ngưỡng của bạn (thường là 0.90 hoặc 0.95)
 - Hiệu năng tác vụ phía sau chững lại
 
-Sai số tái tạo hữu ích ngoài việc chọn k. Bạn có thể sử dụng nó để phát hiện bất thường: các mẫu có sai số tái tạo cao là các ngoại lệ không khớp với không gian con đã học. Đây là cơ sở của phát hiện bất thường dựa trên PCA trong các hệ thống sản xuất.
+Sai số tái tạo hữu ích ngoài việc chọn $k$. Bạn có thể sử dụng nó để phát hiện bất thường: các mẫu có sai số tái tạo cao là các ngoại lệ không khớp với không gian con đã học. Đây là cơ sở của phát hiện bất thường dựa trên PCA trong các hệ thống sản xuất.
 
 ```figure
 pca-axes
@@ -353,6 +355,14 @@ Bài học này tạo ra:
 
 3. Lấy một tập dữ liệu có 50 đặc trưng trong đó chỉ 5 đặc trưng cung cấp thông tin (tạo bằng `sklearn.datasets.make_classification`). Áp dụng PCA và kiểm tra xem đường cong phương sai được giải thích có xác định đúng rằng dữ liệu thực chất có 5 chiều hay không.
 
+### Hints
+
+**Bài tập 1.** Đọc `inverse_transform` trong lớp `PCA` và khớp một mô hình cho mỗi số thành phần. Tính `reconstruction_error` cho 10, 50 và 200 thành phần; sai số phải giảm khi số thành phần tăng.
+
+**Bài tập 2.** Khớp `sklearn.manifold.TSNE` ba lần trên cùng tập con, chỉ thay đổi `perplexity`, và sử dụng cùng `random_state`. Perplexity thấp xem xét ít láng giềng, vì vậy hãy chờ đợi các nhóm nhỏ, chặt; perplexity cao xem xét nhiều láng giềng hơn, vì vậy hãy chờ đợi các nhóm lớn hơn, mượt hơn.
+
+**Bài tập 3.** Gọi `make_classification(n_features=50, n_informative=5, n_redundant=45)`, khớp `PCA` và in phương sai được giải thích tích lũy. Các đặc trưng dư thừa là tổ hợp tuyến tính của các đặc trưng mang thông tin, vì vậy đường cong đạt gần 1.0 ở 5 thành phần. Sau đó thử `n_redundant=0`: 45 đặc trưng còn lại là nhiễu độc lập, và đường cong không phẳng ra.
+
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
@@ -360,8 +370,8 @@ Bài học này tạo ra:
 | Curse of dimensionality (Lời nguyền số chiều) | "Quá nhiều đặc trưng" | Khoảng cách, thể tích và mật độ dữ liệu đều có hành vi trái trực giác khi số chiều tăng. Mô hình cần nhiều dữ liệu hơn theo hàm mũ để bù lại. |
 | PCA | "Giảm chiều" | Quay hệ tọa độ để các trục thẳng hàng với các hướng phương sai lớn nhất, rồi bỏ các trục có phương sai thấp. |
 | Principal component (Thành phần chính) | "Một hướng quan trọng" | Một vector riêng của ma trận hiệp phương sai. Hướng trong không gian đặc trưng mà dọc theo đó dữ liệu biến thiên nhiều nhất. |
-| Explained variance ratio (Tỉ lệ phương sai được giải thích) | "Thành phần này có bao nhiêu thông tin" | Phần tổng phương sai được một thành phần chính nắm bắt. Cộng k tỉ lệ đứng đầu để xem k thành phần bảo toàn bao nhiêu. |
-| Covariance matrix (Ma trận hiệp phương sai) | "Cách các đặc trưng tương quan" | Một ma trận đối xứng trong đó phần tử (i,j) đo cách đặc trưng i và đặc trưng j cùng biến động. Các phần tử đường chéo là các phương sai riêng lẻ. |
+| Explained variance ratio (Tỉ lệ phương sai được giải thích) | "Thành phần này có bao nhiêu thông tin" | Phần tổng phương sai được một thành phần chính nắm bắt. Cộng $k$ tỉ lệ đứng đầu để xem $k$ thành phần bảo toàn bao nhiêu. |
+| Covariance matrix (Ma trận hiệp phương sai) | "Cách các đặc trưng tương quan" | Một ma trận đối xứng trong đó phần tử $(i,j)$ đo cách đặc trưng $i$ và đặc trưng $j$ cùng biến động. Các phần tử đường chéo là các phương sai riêng lẻ. |
 | t-SNE | "Đồ thị cụm đó" | Một phương pháp phi tuyến ánh xạ dữ liệu nhiều chiều xuống 2D bằng cách bảo toàn các xác suất lân cận từng cặp. Tốt cho trực quan hóa, không cho tiền xử lý. |
 | UMAP | "t-SNE nhanh hơn" | Một phương pháp phi tuyến dựa trên phân tích dữ liệu tô pô. Bảo toàn cả cấu trúc cục bộ và một phần toàn cục. Mở rộng tốt hơn t-SNE. |
 | Perplexity | "Một núm điều chỉnh t-SNE" | Điều khiển số láng giềng hiệu dụng mà mỗi điểm xét đến. Perplexity thấp tập trung vào cấu trúc rất cục bộ. Perplexity cao nắm bắt các mẫu rộng hơn. |

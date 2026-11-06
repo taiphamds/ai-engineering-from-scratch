@@ -69,7 +69,7 @@ Chúng ta bọc ứng viên bằng cách thêm `import sys` vào đầu và mộ
 
 Mọi tiến trình con nhận một ngân sách mặc định ba giây thời gian thực. Trình chạy dùng `subprocess.run(..., timeout=t)`. Nếu timeout kích hoạt, trình chạy bắt `TimeoutExpired`, diệt tiến trình, và ghi một lý do thoát `timeout` cho tác vụ. Điểm cho tác vụ đó bằng không. Trình chạy tiếp tục.
 
-Timeout có thể cấu hình theo tác vụ qua `task.metadata.timeout_s`. Các kiểm thử đơn vị chạy lâu có thể yêu cầu thêm; bộ xác thực từ bài 70 giới hạn giá trị ở ba mươi giây để giữ bộ có giới hạn.
+Timeout là đối số `timeout_s` của `run_candidate`; runner bài 75 đặt nó một lần mỗi lần chạy qua `code_exec_timeout_s`. Các unit test chạy lâu có thể yêu cầu nhiều hơn, nhưng `run_candidate` kẹp giá trị trong khoảng 0.1 đến ba mươi giây để giữ bộ kiểm tra có giới hạn.
 
 ## Output cap
 
@@ -83,7 +83,7 @@ Pass-at-k là ước lượng không chệch được HumanEval và các công c
 pass_at_k(n, c, k) = 1 - C(n - c, k) / C(n, k)
 ```
 
-Khi `n - c < k` tử số không xác định và giá trị là `1`. Triển khai xử lý trường hợp biên trực tiếp. Chúng ta cung cấp `pass_at_k(n, c, k)` để lớp bảng xếp hạng trong bài 74 sử dụng.
+Khi `n - c < k`, tử số `C(n - c, k)` bằng không theo quy ước thông thường (bạn không thể chọn `k` lần thất bại từ ít hơn `k`), nên giá trị là `1`. Phần triển khai xử lý trực tiếp trường hợp biên. Chúng ta cung cấp `pass_at_k(n, c, k)` để tầng bảng xếp hạng trong bài 74 sử dụng.
 
 ```mermaid
 flowchart LR

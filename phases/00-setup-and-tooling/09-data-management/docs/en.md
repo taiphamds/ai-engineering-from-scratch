@@ -245,6 +245,16 @@ Bài học này tạo ra:
 3. Chuyển đổi tập dữ liệu sang Parquet và so sánh kích thước tệp với CSV
 4. Tạo phần chia huấn luyện/kiểm định/kiểm thử 70/15/15 với seed cố định và xác minh kích thước
 
+### Hints
+
+**Bài tập 1.** Gọi `load_and_inspect("glue", "mrpc")` từ `code/data_utils.py`, hoặc gọi trực tiếp `load_dataset("glue", "mrpc")`, và in `ds["train"][:5]`. Mỗi ví dụ phải có các trường `sentence1`, `sentence2` và `label`.
+
+**Bài tập 2.** Tải tập dữ liệu với `streaming=True`, như `stream_dataset` thực hiện, và đọc các ví dụ trong một vòng lặp dừng khi `time.time()` vượt thời điểm bắt đầu cộng 10 giây. In số lượng; chạy hai lần, vì lần chạy đầu tiên bao gồm việc khởi động kết nối.
+
+**Bài tập 3.** Lưu cùng tập dữ liệu bằng `to_csv` và `to_parquet`, như `convert_format` thực hiện, rồi so sánh kích thước bằng `ls -lh` hoặc `os.path.getsize`. Tải lại tệp Parquet bằng `load_from_parquet` và kiểm tra số hàng không thay đổi.
+
+**Bài tập 4.** Sử dụng `train_test_split` hai lần với một `seed` cố định: trước tiên tách ra 30 phần trăm, rồi chia đôi 30 phần trăm đó. Ba độ dài phải cộng lại bằng độ dài ban đầu, và một lần chạy thứ hai với cùng seed phải cho cùng hàng đầu tiên trong mỗi phần chia.
+
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |

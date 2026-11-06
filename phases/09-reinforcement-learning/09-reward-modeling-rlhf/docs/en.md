@@ -21,31 +21,31 @@ Vào năm 2026 bước PPO phần lớn được thay bằng DPO (Giai đoạn 1
 
 ![Three-stage RLHF: SFT, RM training on pairwise prefs, PPO with KL penalty](../assets/rlhf.svg)
 
-**Giai đoạn 1: Tinh chỉnh có giám sát (SFT).** Bắt đầu từ một mô hình cơ sở được huấn luyện trước. Tinh chỉnh trên các minh họa hành vi mục tiêu do con người viết (phản hồi tuân theo chỉ dẫn, trả lời hữu ích, v.v.). Kết quả: một mô hình `π_SFT` *thiên về hành vi tốt* nhưng vẫn có một không gian hành động không bị chặn.
+**Giai đoạn 1: Tinh chỉnh có giám sát (SFT).** Bắt đầu từ một mô hình cơ sở được huấn luyện trước. Tinh chỉnh trên các minh họa hành vi mục tiêu do con người viết (phản hồi tuân theo chỉ dẫn, trả lời hữu ích, v.v.). Kết quả: một mô hình $\pi_{\text{SFT}}$ *thiên về hành vi tốt* nhưng vẫn có một không gian hành động không bị chặn.
 
 **Giai đoạn 2: Huấn luyện mô hình phần thưởng.**
 
-- Thu thập các cặp phản hồi `(y_+, y_-)` cho các prompt `x`, được con người gán nhãn là "y_+ được ưa thích hơn y_-."
-- Huấn luyện một mô hình phần thưởng `R_φ(x, y)` để gán điểm cao hơn cho `y_+`.
+- Thu thập các cặp phản hồi $(y_+, y_-)$ cho các prompt $x$, được con người gán nhãn là "y_+ được ưa thích hơn y_-."
+- Huấn luyện một mô hình phần thưởng $R_\phi(x, y)$ để gán điểm cao hơn cho $y_+$.
 - Hàm mất mát: **logistic theo cặp Bradley-Terry**:
 
-  `L(φ) = -E[ log σ(R_φ(x, y_+) - R_φ(x, y_-)) ]`
+  $L(\phi) = -\mathbb{E}[ \log \sigma(R_\phi(x, y_+) - R_\phi(x, y_-)) ]$
 
-  σ là sigmoid. Hiệu phần thưởng ngụ ý một log-odds của sở thích. BT là tiêu chuẩn từ năm 1952 (Bradley-Terry) và là lựa chọn chi phối trong RLHF hiện đại.
+  $\sigma$ là sigmoid. Hiệu phần thưởng ngụ ý một log-odds của sở thích. BT là tiêu chuẩn từ năm 1952 (Bradley-Terry) và là lựa chọn chi phối trong RLHF hiện đại.
 
-- `R_φ` thường được khởi tạo từ mô hình SFT với một head vô hướng ở trên. Cùng backbone transformer; một lớp tuyến tính duy nhất xuất ra phần thưởng.
+- $R_\phi$ thường được khởi tạo từ mô hình SFT với một head vô hướng ở trên. Cùng backbone transformer; một lớp tuyến tính duy nhất xuất ra phần thưởng.
 
 **Giai đoạn 3: PPO theo RM với phạt KL.**
 
-- Khởi tạo chính sách có thể huấn luyện `π_θ` từ `π_SFT`. Giữ một *tham chiếu* đóng băng `π_ref = π_SFT`.
-- Phần thưởng ở cuối một phản hồi `y`:
+- Khởi tạo chính sách có thể huấn luyện $\pi_\theta$ từ $\pi_{\text{SFT}}$. Giữ một *tham chiếu* đóng băng $\pi_{\text{ref}} = \pi_{\text{SFT}}$.
+- Phần thưởng ở cuối một phản hồi $y$:
 
-  `r_total(x, y) = R_φ(x, y) - β · KL(π_θ(·|x) || π_ref(·|x))`
+  $r_{\text{total}}(x, y) = R_\phi(x, y) - \beta \cdot \mathrm{KL}(\pi_\theta(\cdot \mid x) \Vert \pi_{\text{ref}}(\cdot \mid x))$
 
-  Khoản phạt KL ngăn `π_θ` trôi tùy ý khỏi `π_SFT` — nó là một *bộ regularization*, không phải một miền tin cậy cứng. `β` thường là `0.01`-`0.05`.
+  Khoản phạt KL ngăn $\pi_\theta$ trôi tùy ý khỏi $\pi_{\text{SFT}}$ — nó là một *regularizer*, không phải một miền tin cậy cứng. $\beta$ thường là 0.01-0.05.
 - Chạy PPO (Bài 08) với phần thưởng này. Lợi thế được tính trên quỹ đạo cấp token, nhưng RM chỉ chấm điểm toàn bộ phản hồi.
 
-**Vì sao KL?** Không có nó, PPO sẽ vui vẻ tìm các chiến lược reward-hacking — RM chỉ được huấn luyện trên các phần hoàn thành trong phân phối. Một phản hồi ngoài phân phối có thể đạt điểm cao hơn bất kỳ phản hồi nào do con người viết. KL giữ `π_θ` gần đa tạp nơi RM đã được huấn luyện. Nó là nút điều chỉnh quan trọng nhất trong RLHF.
+**Vì sao KL?** Không có nó, PPO sẽ vui vẻ tìm các chiến lược reward-hacking — RM chỉ được huấn luyện trên các phần hoàn thành trong phân phối. Một phản hồi ngoài phân phối có thể đạt điểm cao hơn bất kỳ phản hồi nào do con người viết. KL giữ $\pi_\theta$ gần đa tạp nơi RM đã được huấn luyện. Nó là nút điều chỉnh quan trọng nhất trong RLHF.
 
 **Tình trạng năm 2026:**
 
@@ -97,7 +97,7 @@ Sau vài trăm cập nhật, `w` gán trọng số dương cho các token từ t
 
 ### Step 3: PPO-like policy on top of RM
 
-Chính sách đồ chơi của chúng ta tạo ra một token duy nhất từ một từ vựng. Chúng ta chấm điểm token theo RM, tính `log π_θ(token | prompt)`, thêm một khoản phạt KL đến tham chiếu, và áp dụng mục tiêu thay thế PPO được cắt.
+Chính sách đồ chơi của chúng ta tạo ra một token duy nhất từ một từ vựng. Chúng ta chấm điểm token theo RM, tính $\log \pi_\theta(\text{token} \mid \text{prompt})$, thêm một khoản phạt KL đến tham chiếu, và áp dụng mục tiêu thay thế PPO được cắt.
 
 ```python
 def rlhf_step(theta, ref, w, prompt, rng, eps=0.2, beta=0.1, lr=0.05):
@@ -113,7 +113,7 @@ def rlhf_step(theta, ref, w, prompt, rng, eps=0.2, beta=0.1, lr=0.05):
 
 ### Step 4: monitor the KL
 
-Theo dõi trung bình `KL(π_θ || π_ref)` mỗi cập nhật. Nếu nó nhích qua `~5-10` thì chính sách đã trôi xa `π_SFT` — `β` thấp hơn đang tăng hoặc reward hacking đang bắt đầu. Đây là chẩn đoán hàng đầu trong RLHF thực.
+Theo dõi trung bình $\mathrm{KL}(\pi_\theta \Vert \pi_{\text{ref}})$ sau mỗi lần cập nhật. Nếu nó tăng dần vượt `~5-10` (KL theo phản hồi tính bằng nat, được cộng trên các token, đơn vị mà TRL ghi log), chính sách đã trôi xa khỏi $\pi_{\text{SFT}}$: hoặc $\beta$ quá thấp (tăng nó để kéo chính sách trở lại) hoặc reward hacking đang bắt đầu. Đây là phép chẩn đoán hàng đầu trong RLHF thực tế.
 
 ### Step 5: the production recipe with TRL
 
@@ -163,7 +163,7 @@ Ba điều thư viện làm cho bạn. `adap_kl_ctrl=True` triển khai lịch �
 
 ## Pitfalls
 
-- **Tối ưu quá mức / reward hacking.** RM không hoàn hảo; `π_θ` tìm các phần hoàn thành đối kháng đạt điểm cao nhưng xấu. Triệu chứng: phần thưởng tăng vô hạn trong khi điểm đánh giá con người chững lại hoặc giảm. Cách khắc phục: dừng sớm, tăng `β`, mở rộng dữ liệu huấn luyện RM.
+- **Tối ưu quá mức / reward hacking.** RM không hoàn hảo; $\pi_\theta$ tìm các phần hoàn thành đối kháng đạt điểm cao nhưng xấu. Triệu chứng: phần thưởng tăng vô hạn trong khi điểm đánh giá con người chững lại hoặc giảm. Cách khắc phục: dừng sớm, tăng $\beta$, mở rộng dữ liệu huấn luyện RM.
 - **Thao túng độ dài.** Các RM được huấn luyện trên phản hồi hữu ích thường ngầm thưởng độ dài. Chính sách học kéo dài phản hồi. Khắc phục: phần thưởng chuẩn hóa theo độ dài, hoặc RLAIF với một RM nhận biết độ dài.
 - **RM quá nhỏ.** RM cần ít nhất lớn bằng chính sách. Một RM nhỏ không thể chấm điểm trung thực các đầu ra của chính sách.
 - **Điều chỉnh KL.** β quá thấp → trôi và reward hacking. β quá cao → chính sách hầu như không đổi. Thủ thuật tiêu chuẩn là một β *thích nghi* nhắm một KL cố định mỗi bước.
@@ -213,7 +213,7 @@ Refuse to ship RLHF-PPO without a KL monitor. Refuse to use an RM smaller than t
 ## Exercises
 
 1. **Dễ.** Huấn luyện mô hình phần thưởng Bradley-Terry trong `code/main.py` trên 500 cặp sở thích tổng hợp. Đo độ chính xác theo cặp trên 100 cặp giữ lại. Nên vượt 90%.
-2. **Trung bình.** Chạy vòng lặp PPO-RLHF đồ chơi với `β ∈ {0.0, 0.1, 1.0}`. Với mỗi trường hợp, vẽ điểm RM theo KL đến tham chiếu qua các cập nhật. Những lần chạy nào reward-hack?
+2. **Trung bình.** Chạy vòng lặp PPO-RLHF đồ chơi với $\beta \in \lbrace 0.0, 0.1, 1.0 \rbrace$. Với mỗi trường hợp, vẽ điểm RM theo KL đến tham chiếu qua các cập nhật. Những lần chạy nào reward-hack?
 3. **Khó.** Triển khai DPO (hàm mất mát likelihood sở thích dạng đóng) trên cùng dữ liệu sở thích và so sánh với pipeline RLHF-PPO về tính toán đã dùng và điểm RM cuối cùng đạt được.
 
 ## Key Terms
@@ -222,8 +222,8 @@ Refuse to ship RLHF-PPO without a KL monitor. Refuse to use an RM smaller than t
 |------|-----------------|-----------------------|
 | RLHF | "RL căn chỉnh" | Pipeline ba giai đoạn SFT + RM + PPO (Christiano 2017, Ouyang 2022). |
 | Reward Model (RM) (Mô hình phần thưởng) | "Mạng chấm điểm" | Hàm vô hướng được học khớp với các sở thích theo cặp qua Bradley-Terry. |
-| Bradley-Terry | "Hàm mất mát logistic theo cặp" | `P(y_+ ≻ y_-) = σ(R(y_+) - R(y_-))`; mục tiêu RM tiêu chuẩn. |
-| KL penalty (Phạt KL) | "Ở gần tham chiếu" | `β · KL(π_θ \|\| π_ref)` trong phần thưởng; bộ regularization chống reward-hacking. |
+| Bradley-Terry | "Hàm mất mát logistic theo cặp" | $P(y_+ \succ y_-) = \sigma(R(y_+) - R(y_-))$; mục tiêu RM tiêu chuẩn. |
+| KL penalty (Phạt KL) | "Ở gần tham chiếu" | $\beta \cdot \mathrm{KL}(\pi_\theta \Vert \pi_{\text{ref}})$ trong phần thưởng; bộ regularization chống reward-hacking. |
 | Reward hacking (Thao túng phần thưởng) | "Định luật Goodhart" | Chính sách khai thác khuyết điểm RM; triệu chứng: phần thưởng tăng, đánh giá con người đi ngang. |
 | RLAIF | "Sở thích do AI gán nhãn" | RLHF trong đó nhãn đến từ một LM khác thay vì con người. |
 | PRM | "Mô hình phần thưởng quá trình" | Chấm điểm các bước suy luận một phần; dùng trong các pipeline suy luận. |

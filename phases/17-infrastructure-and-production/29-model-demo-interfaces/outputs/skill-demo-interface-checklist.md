@@ -1,81 +1,81 @@
 ---
 name: demo-interface-checklist
-description: Review a model demo before its link goes public. Check the contract, the feedback, the errors, the public-link controls, and log privacy.
+description: Đánh giá một demo mô hình trước khi liên kết của nó được công khai. Kiểm tra hợp đồng, phản hồi, các lỗi, các biện pháp kiểm soát liên kết công khai, và quyền riêng tư log.
 version: 1.0.0
 phase: 17
 lesson: 29
 tags: [demo, interface, validation, streaming, rate-limit, privacy, gradio, streamlit]
 ---
 
-Given a description of a model demo or its code, review the demo against the checklist below. Mark each item PASS, FAIL, or UNKNOWN. Give evidence for each mark: a file and line, a setting, or a quote from the description.
+Với một mô tả của một demo mô hình hoặc mã của nó, đánh giá demo theo danh sách kiểm tra bên dưới. Đánh dấu mỗi mục PASS, FAIL, hoặc UNKNOWN. Đưa bằng chứng cho mỗi dấu: một tệp và dòng, một thiết lập, hoặc một trích dẫn từ mô tả.
 
-Ask for these facts when they are missing:
+Hỏi các thông tin này khi chúng thiếu:
 
-- The model call: a provider API or a local model, the typical latency, and the cost of one call.
-- The audience: the team only, invited reviewers, or anyone with the link.
-- The input type, and the largest input that the model accepts.
-- How the demo runs: the framework, the server, and the host of the link.
+- Lời gọi mô hình: một API nhà cung cấp hoặc một mô hình cục bộ, độ trễ điển hình, và chi phí của một lời gọi.
+- Đối tượng người dùng: chỉ nhóm, những người đánh giá được mời, hoặc bất kỳ ai có liên kết.
+- Kiểu đầu vào, và đầu vào lớn nhất mà mô hình chấp nhận.
+- Demo chạy thế nào: framework, server, và máy chủ của liên kết.
 
-Checklist:
+Danh sách kiểm tra:
 
-Contract
+Hợp đồng
 
-1. The input has a type, a maximum size, and a rule for control characters.
-2. The server checks every limit again. A check in the browser only is a FAIL.
-3. The demo has at least one example for each output class.
-4. The model call has a timeout, and the timeout error has a hint for the user.
+1. Đầu vào có một kiểu, một kích thước tối đa, và một quy tắc cho các ký tự điều khiển.
+2. Server kiểm tra lại mọi giới hạn. Một phép kiểm tra chỉ trong trình duyệt là FAIL.
+3. Demo có ít nhất một ví dụ cho mỗi lớp đầu ra.
+4. Lời gọi mô hình có một timeout, và lỗi timeout có một gợi ý cho người dùng.
 
-Feedback
+Phản hồi
 
-5. The submit control is disabled while a request runs.
-6. The page shows that the model is working, with elapsed time or a progress display.
-7. A text reply arrives as a stream, and the page shows the time to first token.
-8. A failure after the stream starts reaches the user as an error event. A silent stop is a FAIL.
+5. Điều khiển gửi bị vô hiệu hóa khi một yêu cầu chạy.
+6. Trang cho thấy mô hình đang hoạt động, bằng thời gian đã trôi qua hoặc một hiển thị tiến độ.
+7. Một câu trả lời văn bản đến dưới dạng một stream, và trang hiển thị thời gian đến token đầu tiên.
+8. Một thất bại sau khi stream bắt đầu đến được người dùng dưới dạng một sự kiện lỗi. Một lần dừng im lặng là FAIL.
 
-Errors
+Các lỗi
 
-9. Every error response has a stable code, a message with the relevant numbers, a hint with one action, and a request id.
-10. No error response contains a stack trace, a file path, or a secret.
+9. Mọi phản hồi lỗi có một mã ổn định, một thông điệp với các con số liên quan, một gợi ý với một hành động, và một id yêu cầu.
+10. Không phản hồi lỗi nào chứa một stack trace, một đường dẫn tệp, hoặc một bí mật.
 
-Public link
+Liên kết công khai
 
-11. A per-client rate limit exists. A rejected request gets status 429 and a `Retry-After` header.
-12. The rate limit key is correct behind a proxy. A client cannot choose its own key.
-13. A usage cap or a spend limit exists for the whole demo, for all clients together.
-14. Access needs a token, a password, or a sign-in, unless the owner wants the demo open to anyone.
-15. The rate limit and the cap also apply to API endpoints that the framework creates.
-16. The page writes model output as text, never as HTML. The server sends a `Content-Security-Policy` header.
+11. Một giới hạn tốc độ theo client tồn tại. Một yêu cầu bị từ chối nhận trạng thái 429 và một header `Retry-After`.
+12. Khóa giới hạn tốc độ đúng đằng sau một proxy. Một client không thể chọn khóa riêng của nó.
+13. Một mức trần sử dụng hoặc một giới hạn chi tiêu tồn tại cho toàn bộ demo, cho tất cả các client cùng nhau.
+14. Truy cập cần một token, một mật khẩu, hoặc đăng nhập, trừ khi chủ sở hữu muốn demo mở cho bất kỳ ai.
+15. Giới hạn tốc độ và mức trần cũng áp dụng cho các endpoint API mà framework tạo ra.
+16. Trang viết đầu ra mô hình dưới dạng văn bản, không bao giờ dưới dạng HTML. Server gửi một header `Content-Security-Policy`.
 
-Privacy
+Quyền riêng tư
 
-17. Logs keep no input text, no full URL with a query string, and no raw client address.
-18. Each feature that stores input, such as flagging, history, or analytics, is off, or the page tells users about it.
-19. The page tells users what the server keeps.
+17. Các log không giữ văn bản đầu vào, không URL đầy đủ có một chuỗi truy vấn, và không địa chỉ client thô.
+18. Mỗi tính năng lưu đầu vào, như flagging, lịch sử, hoặc analytics, đều tắt, hoặc trang cho người dùng biết về nó.
+19. Trang cho người dùng biết server giữ gì.
 
-Product signals
+Các dấu hiệu sản phẩm
 
-20. Report each of these signals that is present:
-    - People outside the team use the demo every week.
-    - Someone asks for an uptime target.
-    - Users ask for accounts, saved results, or history.
-    - The model cost is a line in a budget.
-    - The input includes data that a contract or a law covers.
+20. Báo cáo mỗi dấu hiệu sau đang có:
+    - Những người ngoài nhóm dùng demo mỗi tuần.
+    - Ai đó yêu cầu một mục tiêu uptime.
+    - Người dùng yêu cầu các tài khoản, kết quả đã lưu, hoặc lịch sử.
+    - Chi phí mô hình là một dòng trong một ngân sách.
+    - Đầu vào bao gồm dữ liệu mà một hợp đồng hoặc một luật điều chỉnh.
 
-Produce:
+Tạo:
 
-1. A table with the item number, the mark, and the evidence.
-2. A list of fixes for each FAIL, in order of risk. Put public-link and privacy items first, then errors, then contract, then feedback. Each fix names the file, the setting, or the code change.
-3. A list of the product signals that are present. If one or more signals are present, recommend a move to a production stack. That stack has real authentication, tracing, and per-user cost tracking.
-4. A verdict in one line: ready to share, ready after the listed fixes, or move to the production stack first.
+1. Một bảng với số mục, dấu đánh giá, và bằng chứng.
+2. Một danh sách các cách sửa cho mỗi FAIL, theo thứ tự rủi ro. Đặt các mục liên kết công khai và quyền riêng tư trước, rồi các lỗi, rồi hợp đồng, rồi phản hồi. Mỗi cách sửa nêu tệp, thiết lập, hoặc thay đổi mã.
+3. Một danh sách các dấu hiệu sản phẩm đang có. Nếu có một hoặc nhiều dấu hiệu, khuyến nghị chuyển sang một stack production. Stack đó có xác thực thực sự, tracing, và theo dõi chi phí theo người dùng.
+4. Một kết luận trong một dòng: sẵn sàng chia sẻ, sẵn sàng sau các cách sửa được liệt kê, hoặc chuyển sang stack production trước.
 
-Hard rejects. Do not mark the demo ready to share when any of these is true:
+Các điều kiện từ chối cứng. Không đánh dấu demo sẵn sàng chia sẻ khi bất kỳ điều nào sau đây đúng:
 
-- The server does not check the input size.
-- A link that anyone can open has no rate limit or no usage cap.
-- Logs or a framework feature store input text, and the page does not tell users.
+- Server không kiểm tra kích thước đầu vào.
+- Một liên kết mà bất kỳ ai có thể mở không có giới hạn tốc độ hoặc không có mức trần sử dụng.
+- Các log hoặc một tính năng framework lưu văn bản đầu vào, và trang không cho người dùng biết.
 
-Refusal rules:
+Quy tắc từ chối:
 
-- If the audience is unknown, treat the link as open to anyone.
-- If the cost of one model call is unknown, require a usage cap before a public link.
-- If the demo runs on a framework, check its defaults for flagging, share links, and automatic API endpoints. Do not assume that the defaults are safe for a public link.
+- Nếu không biết đối tượng người dùng, coi liên kết là mở cho bất kỳ ai.
+- Nếu không biết chi phí của một lời gọi mô hình, yêu cầu một mức trần sử dụng trước một liên kết công khai.
+- Nếu demo chạy trên một framework, kiểm tra các mặc định của nó cho flagging, các liên kết chia sẻ, và các endpoint API tự động. Không giả định rằng các mặc định an toàn cho một liên kết công khai.

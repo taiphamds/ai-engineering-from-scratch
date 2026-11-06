@@ -28,29 +28,31 @@ Quy tắc dây chuyền cho bạn toán học. Vi phân tự động cho bạn t
 
 ### The Chain Rule
 
-Nếu `y = f(g(x))`, đạo hàm của `y` theo `x` là:
+Nếu $y = f(g(x))$, đạo hàm của $y$ theo $x$ là:
 
-```
-dy/dx = dy/dg * dg/dx = f'(g(x)) * g'(x)
+```math
+\frac{dy}{dx} = \frac{dy}{dg} \cdot \frac{dg}{dx} = f'(g(x)) \cdot g'(x)
 ```
 
 Nhân các đạo hàm dọc theo chuỗi. Mỗi mắt xích đóng góp đạo hàm cục bộ của nó.
 
-Ví dụ: `y = sin(x^2)`
+Ví dụ: $y = \sin(x^2)$
 
-```
-g(x) = x^2       g'(x) = 2x
-f(g) = sin(g)     f'(g) = cos(g)
-
-dy/dx = cos(x^2) * 2x
+```math
+\begin{aligned}
+g(x) &= x^2 \qquad & g'(x) &= 2x \\
+f(g) &= \sin(g) \qquad & f'(g) &= \cos(g) \\[4pt]
+\frac{dy}{dx} &= \cos(x^2) \cdot 2x
+\end{aligned}
 ```
 
 Với các phép hợp thành sâu hơn, chuỗi kéo dài:
 
-```
-y = f(g(h(x)))
-
-dy/dx = f'(g(h(x))) * g'(h(x)) * h'(x)
+```math
+\begin{aligned}
+y &= f(g(h(x))) \\[4pt]
+\frac{dy}{dx} &= f'(g(h(x))) \cdot g'(h(x)) \cdot h'(x)
+\end{aligned}
 ```
 
 Mỗi lớp trong một mạng nơ-ron là một mắt xích trong chuỗi này.
@@ -88,7 +90,7 @@ Lượt truyền ngược áp dụng quy tắc dây chuyền tại mỗi nút, l
 
 Có hai cách áp dụng quy tắc dây chuyền qua một đồ thị.
 
-**Chế độ xuôi** bắt đầu tại các đầu vào và đẩy các đạo hàm về phía trước. Nó tính `dx/dx = 1` và lan truyền qua từng phép toán. Tốt khi bạn có ít đầu vào và nhiều đầu ra.
+**Chế độ xuôi** bắt đầu tại các đầu vào và đẩy các đạo hàm về phía trước. Nó tính $dx/dx = 1$ và lan truyền qua từng phép toán. Tốt khi bạn có ít đầu vào và nhiều đầu ra.
 
 ```
 Forward mode: seed dx/dx = 1, propagate forward
@@ -98,7 +100,7 @@ Forward mode: seed dx/dx = 1, propagate forward
   y = sin(a)  (dy/dx = cos(a) * da/dx = cos(4) * 4 = -2.615)
 ```
 
-**Chế độ ngược** bắt đầu tại đầu ra và kéo gradient ngược lại. Nó tính `dy/dy = 1` và lan truyền qua từng phép toán theo chiều ngược. Tốt khi bạn có nhiều đầu vào và ít đầu ra.
+**Chế độ ngược** bắt đầu tại đầu ra và kéo gradient ngược lại. Nó tính $dy/dy = 1$ và lan truyền qua từng phép toán theo chiều ngược. Tốt khi bạn có nhiều đầu vào và ít đầu ra.
 
 ```
 Reverse mode: seed dy/dy = 1, propagate backward
@@ -112,12 +114,12 @@ Mạng nơ-ron có hàng triệu đầu vào (trọng số) và một đầu ra 
 
 | Chế độ | Giá trị khởi đầu | Hướng | Tốt nhất khi |
 |------|------|-----------|-----------|
-| Xuôi | `dx_i/dx_i = 1` | Đầu vào đến đầu ra | Ít đầu vào, nhiều đầu ra |
-| Ngược | `dy/dy = 1` | Đầu ra đến đầu vào | Nhiều đầu vào, ít đầu ra (mạng nơ-ron) |
+| Xuôi | $dx_i/dx_i = 1$ | Đầu vào đến đầu ra | Ít đầu vào, nhiều đầu ra |
+| Ngược | $dy/dy = 1$ | Đầu ra đến đầu vào | Nhiều đầu vào, ít đầu ra (mạng nơ-ron) |
 
 ### Dual Numbers for Forward Mode
 
-Chế độ xuôi có thể được triển khai thanh nhã bằng số đối ngẫu. Một số đối ngẫu có dạng `a + b*epsilon` trong đó `epsilon^2 = 0`.
+Chế độ xuôi có thể được triển khai thanh nhã bằng số đối ngẫu. Một số đối ngẫu có dạng $a + b\epsilon$ trong đó $\epsilon^2 = 0$.
 
 ```
 Dual number: (value, derivative)
@@ -236,7 +238,7 @@ Mỗi phép toán tạo một closure biết cách tính gradient cục bộ và
             v._backward()
 ```
 
-Sắp xếp tô pô bảo đảm gradient của mỗi nút được tính đầy đủ trước khi nó lan truyền đến các nút con. Gradient khởi đầu là 1.0 (dy/dy = 1).
+Sắp xếp tô pô bảo đảm gradient của mỗi nút được tính đầy đủ trước khi nó lan truyền đến các nút con. Gradient khởi đầu là 1.0 ($dy/dy = 1$).
 
 ### Step 4: More operations for a complete engine
 
@@ -300,11 +302,11 @@ Lớp Value cơ bản xử lý phép cộng, nhân và relu. Một bộ máy aut
 | Phép toán | Quy tắc truyền ngược | Được sử dụng trong |
 |-----------|--------------|---------|
 | `__sub__` | Tái sử dụng add + neg | Tính mất mát (pred - target) |
-| `__pow__` | n * x^(n-1) | Các kích hoạt đa thức, MSE (error^2) |
+| `__pow__` | $n \cdot x^{n-1}$ | Các kích hoạt đa thức, MSE ($\text{error}^2$) |
 | `__truediv__` | Tái sử dụng mul + pow(-1) | Chuẩn hóa, điều chỉnh tỉ lệ tốc độ học |
-| `exp` | exp(x) * upstream | Softmax, log-hợp lý |
-| `log` | (1/x) * upstream | Mất mát cross-entropy, xác suất log |
-| `tanh` | (1 - tanh^2) * upstream | Hàm kích hoạt cổ điển |
+| `exp` | $\exp(x) \cdot \text{upstream}$ | Softmax, log-hợp lý |
+| `log` | $(1/x) \cdot \text{upstream}$ | Mất mát cross-entropy, xác suất log |
+| `tanh` | $(1 - \tanh^2) \cdot \text{upstream}$ | Hàm kích hoạt cổ điển |
 
 Phần khéo léo: `__sub__` và `__truediv__` được định nghĩa theo các phép toán hiện có. Chúng có gradient đúng mà không cần thêm công sức vì quy tắc dây chuyền hợp thành qua các phép add/mul/pow bên dưới.
 
@@ -489,13 +491,23 @@ Lớp Value được xây dựng ở đây là nền tảng cho vòng lặp hu�
 
 ## Exercises
 
-1. Thêm `__pow__` vào lớp Value để bạn có thể tính `x ** n`. Xác minh rằng `d/dx(x^3)` tại `x=2` bằng `12.0`.
+1. Thêm `__pow__` vào lớp Value để bạn có thể tính `x ** n`. Xác minh rằng $\frac{d}{dx}(x^3)$ tại $x=2$ bằng `12.0`.
 
-2. Thêm `tanh` làm một hàm kích hoạt. Xác minh rằng `tanh'(0) = 1` và `tanh'(2) = 0.0707` (xấp xỉ).
+2. Thêm `tanh` làm một hàm kích hoạt. Xác minh rằng $\tanh'(0) = 1$ và $\tanh'(2) = 0.0707$ (xấp xỉ).
 
 3. Xây dựng một đồ thị tính toán cho một nơ-ron đơn: `y = relu(w1*x1 + w2*x2 + b)`. Tính cả năm gradient và xác minh với PyTorch.
 
 4. Triển khai autodiff chế độ xuôi bằng số đối ngẫu. Tạo một lớp `Dual` và xác minh nó cho cùng các đạo hàm với bộ máy chế độ ngược của bạn.
+
+### Hints
+
+**Bài tập 1.** `Value` đã định nghĩa `__pow__`. Đọc `_backward` của nó và xác nhận nó áp dụng $n x^{n-1}$ cho gradient đi vào. Chạy `x = Value(2.0)`, `y = x ** 3`, `y.backward()`; `x.grad` phải là 12.0.
+
+**Bài tập 2.** Sử dụng $\tanh'(x) = 1 - \tanh(x)^2$ trong `_backward`. Đối chiếu với sai phân hữu hạn của chính bạn: $\frac{\tanh(x + h) - \tanh(x - h)}{2h}$ phải khớp tại $x = 0$ và $x = 2$.
+
+**Bài tập 3.** Xây dựng `w1*x1 + w2*x2 + b` từ các đối tượng `Value`, áp dụng `relu` và gọi `backward`. Trước khi so sánh với PyTorch, kiểm tra thủ công: nếu đầu vào của `relu` dương, gradient của `w1` bằng `x1`; nếu âm, cả năm gradient đều bằng 0.
+
+**Bài tập 4.** Lưu một giá trị và một đạo hàm trong mỗi `Dual`, và sử dụng quy tắc tích $(a, a')(b, b') = (ab, a'b + ab')$ cho phép nhân. Khởi tạo đầu vào với đạo hàm 1 và so sánh kết quả với `x.grad` từ bộ máy chế độ ngược cho cùng hàm.
 
 ## Key Terms
 
@@ -506,13 +518,13 @@ Lớp Value được xây dựng ở đây là nền tảng cho vòng lặp hu�
 | Forward mode (Chế độ xuôi) | "Đẩy các đạo hàm về phía trước" | Autodiff lan truyền đạo hàm từ đầu vào đến đầu ra. Một lượt cho mỗi biến đầu vào. |
 | Reverse mode (Chế độ ngược) | "Lan truyền ngược" | Autodiff lan truyền gradient từ đầu ra đến đầu vào. Một lượt cho mỗi biến đầu ra. |
 | Autograd | "Gradient tự động" | Một hệ thống ghi lại các phép toán trên các giá trị, xây dựng một đồ thị và tính gradient chính xác bằng quy tắc dây chuyền |
-| Dual numbers (Số đối ngẫu) | "Giá trị cộng đạo hàm" | Các số dạng a + b*epsilon (epsilon^2 = 0) mang thông tin đạo hàm qua các phép tính số học |
+| Dual numbers (Số đối ngẫu) | "Giá trị cộng đạo hàm" | Các số dạng $a + b\epsilon$ ($\epsilon^2 = 0$) mang thông tin đạo hàm qua các phép tính số học |
 | Topological sort (Sắp xếp tô pô) | "Thứ tự phụ thuộc" | Sắp xếp các nút đồ thị để mỗi nút đứng sau tất cả các phần phụ thuộc của nó. Cần thiết để lan truyền gradient đúng. |
 | Gradient accumulation (Tích lũy gradient) | "Cộng, không thay thế" | Khi một giá trị đưa vào nhiều phép toán, gradient của nó là tổng tất cả các phần đóng góp gradient đi vào |
 | Dynamic graph (Đồ thị động) | "Định nghĩa bằng cách chạy" | Một đồ thị tính toán được xây dựng lại trong mỗi lượt truyền xuôi, cho phép luồng điều khiển Python bên trong mô hình (kiểu PyTorch) |
 | Gradient checking (Kiểm tra gradient) | "Xác minh bằng phương pháp số" | So sánh gradient autodiff với gradient sai phân hữu hạn số để xác minh tính đúng đắn. Thiết yếu để gỡ lỗi. |
 | MLP | "Perceptron nhiều lớp" | Một mạng nơ-ron có một hoặc nhiều lớp nơ-ron ẩn. Mỗi nơ-ron tính một tổng có trọng số cộng bias, rồi áp dụng một hàm kích hoạt. |
-| Neuron (Nơ-ron) | "Tổng có trọng số + kích hoạt" | Đơn vị cơ bản: output = activation(w1*x1 + w2*x2 + ... + b). Các trọng số và bias là những tham số có thể học. |
+| Neuron (Nơ-ron) | "Tổng có trọng số + kích hoạt" | Đơn vị cơ bản: $\text{output} = \text{activation}(w_1 x_1 + w_2 x_2 + \cdots + b)$. Các trọng số và bias là những tham số có thể học. |
 
 ## Further Reading
 

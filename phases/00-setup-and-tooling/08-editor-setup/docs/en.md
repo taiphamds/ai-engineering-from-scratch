@@ -81,11 +81,11 @@ Chức năng của từng phần mở rộng:
 | Black Formatter | Auto-format on save, consistent style |
 | Ruff | Fast linting, catches common mistakes |
 
-Tệp `code/.vscode/extensions.json` trong bài học này chứa danh sách khuyến nghị đầy đủ. Khi bạn mở thư mục dự án, VS Code sẽ nhắc bạn cài chúng.
+Tệp `code/vscode/extensions.json` trong bài học này chứa danh sách khuyến nghị đầy đủ. Sao chép nó vào `.vscode/extensions.json` trong thư mục dự án của bạn, và VS Code nhắc bạn cài chúng khi mở thư mục đó.
 
 ### Step 3: Configure Settings
 
-Sao chép thiết lập từ `code/.vscode/settings.json` trong bài học này, hoặc áp dụng thủ công qua `Settings > Open Settings (JSON)`.
+Sao chép các thiết lập từ `code/vscode/settings.json` trong bài học này, hoặc áp dụng chúng thủ công thông qua `Settings > Open Settings (JSON)`.
 
 Các thiết lập then chốt cho công việc AI:
 
@@ -200,6 +200,16 @@ Với thiết lập này, quy trình hằng ngày của bạn như sau:
 2. Sao chép `settings.json` từ bài học này vào cấu hình VS Code của bạn
 3. Mở một tệp Python và xác minh Pylance hiển thị gợi ý kiểu và Black định dạng khi lưu
 4. Nếu bạn có quyền truy cập máy từ xa, thiết lập Remote SSH và mở một thư mục trên đó
+
+### Hints
+
+**Bài tập 1.** Cài các extension từ bảng ở Bước 2, hoặc cài từng ID trong `code/vscode/extensions.json` bằng `code --install-extension <id>`. Chạy `code --list-extensions` và đối chiếu từng ID với tệp.
+
+**Bài tập 2.** Mở Settings > Open Settings (JSON) và sao chép nội dung của `code/vscode/settings.json` vào đó. Nếu tệp đã có các thiết lập, gộp các khóa và giữ JSON hợp lệ; VS Code đánh dấu một tệp bị lỗi bằng một dòng đỏ.
+
+**Bài tập 3.** Viết một hàm có chú thích kiểu, rồi di chuột lên một lệnh gọi nó; Pylance hiển thị kiểu được suy ra. Thêm các dấu cách thừa trong một dòng và lưu tệp; Black phải định dạng lại dòng đó khi lưu.
+
+**Bài tập 4.** Trước tiên thêm máy chủ vào `~/.ssh/config` và xác nhận `ssh <host>` hoạt động trong một terminal. Sau đó dùng lệnh Remote SSH để kết nối; thanh trạng thái hiển thị tên host khi VS Code chạy trên máy từ xa.
 
 ## Key Terms
 

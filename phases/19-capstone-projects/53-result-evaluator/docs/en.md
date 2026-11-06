@@ -70,7 +70,7 @@ Bộ đánh giá chạy ba phép tính độc lập và nối chúng trong đư�
 
 Perplexity là hàm mũ theo mất mát. Một mức giảm 0.1 trong mất mát là một mức giảm lớn hơn nhiều trong perplexity. So sánh perplexity trực tiếp giữa hai cấu hình là ổn, nhưng pha trộn nó với các chỉ số tuyến tính trong một báo cáo duy nhất đòi hỏi chuẩn hóa.
 
-Bài học chuẩn hóa bất kỳ chỉ số nào có trường `scale` là `"log"` bằng cách lấy log tự nhiên trước khi tính cải thiện. Ngưỡng sau đó được áp dụng trong không gian log. Một mức giảm perplexity từ 32 xuống 28 là `log(28) - log(32) = -0.133` trên một chỉ số càng thấp càng tốt, cao hơn nhiều so với ngưỡng hai phần trăm.
+Bài học chuẩn hóa mọi chỉ số có trường `scale` là `"log"` bằng cách lấy log tự nhiên trước khi tính cải thiện. Ngưỡng sau đó được áp dụng trong không gian log. Perplexity giảm từ 32 xuống 28 trở thành `log(32) = 3.466` so với `log(28) = 3.332`. Cải thiện tương đối trên một chỉ số càng thấp càng tốt là `(3.466 - 3.332) / 3.466 = 0.039`, vượt ngưỡng hai phần trăm.
 
 ```text
 if scale == "log":

@@ -47,7 +47,7 @@ Thứ hai là `regex_match`. Nội dung của file có tên được so khớp v
 
 Thứ ba là `shell_exit_zero`. Harness chạy một lệnh shell (qua sandbox từ bài 26) và chỉ cho tác vụ đạt nếu lệnh thoát với mã không. Điều này bắt các tác vụ "các kiểm thử phải đạt".
 
-Harness chạy mỗi tác vụ `k` lần. Pass@k là `1 - (1 - p)^k` với p là tỷ lệ đạt thực nghiệm; harness cũng báo cáo số đếm thô để bạn có thể phát hiện phương sai. Độ trễ là thời gian thực theo mẫu. Chi phí là bất cứ thứ gì agent tự báo cáo (số token, USD, hoặc cả hai); harness cộng nó trên các mẫu và trình bày các số liệu theo tác vụ và tổng hợp.
+Harness chạy mỗi tác vụ `k` lần. Pass@k là `1 - (1 - p)^k` trong đó p là tỷ lệ qua thực nghiệm; harness cũng báo cáo số đếm thô để bạn có thể nhận ra phương sai. Đây là ước lượng plug-in: nó sử dụng tỷ lệ đo được p như thể đó là tỷ lệ thật. Bài 72 sử dụng ước lượng không chệch `1 - C(n - c, k) / C(n, k)` cho `n` mẫu với `c` lần qua. Ước lượng plug-in bị chệch thấp. Với `n = k` mẫu, như trong harness này, ước lượng không chệch là 1 khi bất kỳ mẫu nào qua và 0 khi không mẫu nào qua, nên nó chỉ cho thấy liệu có bất kỳ mẫu nào qua hay không. Để công bố một con số pass@k, lấy `n > k` mẫu và sử dụng ước lượng từ bài 72. Độ trễ là thời gian thực trên mỗi mẫu. Chi phí là bất cứ điều gì agent tự báo cáo (số token, USD hoặc cả hai); harness cộng nó trên các mẫu và trình bày các con số theo tác vụ cùng tổng hợp.
 
 ```figure
 pass-at-k

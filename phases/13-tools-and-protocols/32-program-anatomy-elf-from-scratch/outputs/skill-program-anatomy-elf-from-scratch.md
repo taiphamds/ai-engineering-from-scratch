@@ -1,76 +1,76 @@
 ---
 name: program-anatomy-elf-from-scratch
-description: Read an ELF64 or Mach-O file the user built and report every structure, symbol, and relocation with its file range.
+description: Đọc một tệp ELF64 hoặc Mach-O mà người dùng đã dựng và báo cáo mọi cấu trúc, symbol và relocation với phạm vi tệp của nó.
 version: 1.0.0
 phase: 13
 lesson: 32
 tags: [reverse-engineering, elf, mach-o, binary-formats, relocations, fixtures]
 ---
 
-Given a compiled object or executable that the user built from their own source, produce a layout report from the file bytes alone. Prove the report against tool output captured into fixtures. Use this skill with Claude, Cursor, Codex, OpenClaw, Hermes, or any agent that reads SKILL.md.
+Với một object đã biên dịch hoặc executable mà người dùng dựng từ nguồn của chính họ, tạo một báo cáo bố cục chỉ từ các byte tệp. Chứng minh báo cáo với đầu ra công cụ được thu vào các fixture. Sử dụng skill này với Claude, Cursor, Codex, OpenClaw, Hermes hoặc bất kỳ agent nào đọc SKILL.md.
 
 ## Required inputs
 
-- The source file and the exact compiler command that produced the target, so the target is a program the user built.
-- The target file: an ELF64 little-endian relocatable object, executable, or shared object, or a thin 64-bit Mach-O file.
-- Captured text from `llvm-objdump -h -t -r` (and `-p` for an executable), or `llvm-objdump --macho --private-headers` for Mach-O, with the tool version recorded.
-- The specification pages that name the fields: System V gABI chapters 4 and 5, x86-64 psABI Table 4.9, and Apple's `loader.h`, `nlist.h`, and `reloc.h`.
-- The questions the report must answer, for example the file range of one named function.
+- Tệp nguồn và lệnh compiler chính xác tạo ra mục tiêu, để mục tiêu là một chương trình người dùng đã dựng.
+- Tệp mục tiêu: một object có thể tái định vị, executable hoặc shared object ELF64 little-endian, hoặc một tệp Mach-O 64 bit thin.
+- Văn bản đã thu từ `llvm-objdump -h -t -r` (và `-p` cho một executable), hoặc `llvm-objdump --macho --private-headers` cho Mach-O, với phiên bản công cụ được ghi lại.
+- Các trang đặc tả đặt tên các trường: System V gABI chương 4 và 5, x86-64 psABI Bảng 4.9 và `loader.h`, `nlist.h` cùng `reloc.h` của Apple.
+- Các câu hỏi mà báo cáo phải trả lời, ví dụ phạm vi tệp của một hàm được đặt tên.
 
 ## Procedure
 
-1. Confirm authorization first. The target must be a program the user wrote and compiled, or one with written authorization the user can show. Stop when neither holds.
-2. Read the first bytes. `7f 45 4c 46` is ELF, and `cf fa ed fe` in file order is a little-endian 64-bit Mach-O. `ca fe ba be` is a universal binary that needs a thinned slice. Refuse a 32-bit class, a big-endian file, or an unknown magic with the observed bytes in the message.
-3. For ELF, unpack the 64-byte header with `<HHIQQQIHHHHHH` from offset 16. Check `e_shentsize` is 64 and `e_phentsize` is 56 before reading any table.
-4. Read the section header table at `e_shoff` and resolve names through the section at `e_shstrndx`. Record type, flags, offset, size, address, link, info, and alignment for every section. Mark `SHT_NOBITS` sections as owning no file bytes.
-5. Read `.symtab` as 24-byte `Elf64_Sym` records and split `st_info` into binding and type. Resolve names through `sh_link`. Print `*UND*`, `*ABS*`, and `*COM*` for the reserved section indexes.
-6. Read every `SHT_RELA` section as 24-byte records and split `r_info` into symbol and type. Name the type from the psABI table for the file's `e_machine`. Print the symbol with its signed addend, and print an unknown type as its number.
-7. Compute every function's file range as `sh_offset + st_value - sh_addr` with length `st_size`, and return the exact bytes. Report bytes between functions as padding that belongs to no symbol.
-8. Build the file offset map. Sort the header, the program header table, every section with file bytes, and the section header table by offset. Name every gap as inactive space and refuse overlaps.
-9. For an executable or shared object, read the program headers and map addresses through `PT_LOAD` with `p_offset + (address - p_vaddr)`. Report that a relocatable object has section-relative addresses only.
-10. For Mach-O, read `mach_header_64` and walk `ncmds` load commands by `cmdsize`. Read `LC_SEGMENT_64` with its `section_64` records, `LC_SYMTAB` with `nlist_64` entries, `LC_BUILD_VERSION`, and per-section relocations. Qualify every section as `segname,sectname`. Compute a function's length as the distance to the next symbol in its section.
-11. Compare every table with the captured tool text field by field. Report each disagreement with the field name, the reader's value, and the tool's value.
-12. Answer the user's questions with the computed values and quote the specification field that each value came from.
+1. Xác nhận sự cho phép trước. Mục tiêu phải là một chương trình người dùng đã viết và biên dịch, hoặc một chương trình có sự cho phép bằng văn bản mà người dùng có thể trình ra. Dừng khi không điều nào đúng.
+2. Đọc các byte đầu. `7f 45 4c 46` là ELF, và `cf fa ed fe` theo thứ tự tệp là một Mach-O 64 bit little-endian. `ca fe ba be` là một universal binary cần một slice đã được làm mỏng. Từ chối một class 32 bit, một tệp big-endian hoặc một magic không biết với các byte quan sát được trong thông báo.
+3. Với ELF, unpack header 64 byte bằng `<HHIQQQIHHHHHH` từ offset 16. Kiểm tra `e_shentsize` là 64 và `e_phentsize` là 56 trước khi đọc bất kỳ bảng nào.
+4. Đọc bảng section header tại `e_shoff` và phân giải tên qua section tại `e_shstrndx`. Ghi lại type, cờ, offset, kích thước, địa chỉ, link, info và căn chỉnh cho mỗi section. Đánh dấu các section `SHT_NOBITS` là không sở hữu byte tệp nào.
+5. Đọc `.symtab` dưới dạng các bản ghi `Elf64_Sym` 24 byte và tách `st_info` thành binding và type. Phân giải tên qua `sh_link`. In `*UND*`, `*ABS*` và `*COM*` cho các chỉ số section dành riêng.
+6. Đọc mọi section `SHT_RELA` dưới dạng các bản ghi 24 byte và tách `r_info` thành symbol và type. Đặt tên type từ bảng psABI cho `e_machine` của tệp. In symbol với addend có dấu của nó, và in một type không biết dưới dạng số của nó.
+7. Tính phạm vi tệp của mọi hàm là `sh_offset + st_value - sh_addr` với độ dài `st_size`, và trả về các byte chính xác. Báo cáo các byte giữa các hàm là padding không thuộc symbol nào.
+8. Xây dựng bản đồ file offset. Sắp xếp header, bảng program header, mỗi section có byte tệp và bảng section header theo offset. Đặt tên mỗi khoảng trống là không gian không hoạt động và từ chối các chồng lấp.
+9. Với một executable hoặc shared object, đọc program header và ánh xạ các địa chỉ qua `PT_LOAD` bằng `p_offset + (address - p_vaddr)`. Báo cáo rằng một object có thể tái định vị chỉ có các địa chỉ tương đối theo section.
+10. Với Mach-O, đọc `mach_header_64` và duyệt `ncmds` load command theo `cmdsize`. Đọc `LC_SEGMENT_64` với các bản ghi `section_64` của nó, `LC_SYMTAB` với các mục `nlist_64`, `LC_BUILD_VERSION` và relocation theo section. Định danh đầy đủ mỗi section là `segname,sectname`. Tính độ dài một hàm là khoảng cách đến symbol tiếp theo trong section của nó.
+11. So sánh mỗi bảng với văn bản công cụ đã thu từng trường một. Báo cáo mỗi bất đồng với tên trường, giá trị của trình đọc và giá trị của công cụ.
+12. Trả lời các câu hỏi của người dùng bằng các giá trị đã tính và trích trường đặc tả mà mỗi giá trị đến từ đó.
 
 ## Required report
 
-For every target, report:
+Với mỗi mục tiêu, báo cáo:
 
-- the file identity: format, class, byte order, machine, file kind, and file size
-- the header fields that locate every table
-- every section or Mach-O section with its index, name, type, flags, file offset, file size, address, and the tables it links to
-- every symbol with binding, type, section, value, size, and name
-- every relocation with its table, target section, offset, type name, symbol, and addend
-- every program header or segment with type, flags, offset, address, file size, memory size, and alignment
-- the file offset map with every gap named as inactive space and the total mapped bytes
-- the file range and exact bytes of each function the user asked about
-- the comparison with the captured tool output: fields compared, fields that agree, fields that differ
+- danh tính tệp: định dạng, class, thứ tự byte, máy, loại tệp và kích thước tệp
+- các trường header định vị mọi bảng
+- mọi section hoặc section Mach-O với chỉ số, tên, type, cờ, file offset, kích thước tệp, địa chỉ và các bảng mà nó liên kết tới
+- mọi symbol với binding, type, section, giá trị, kích thước và tên
+- mọi relocation với bảng, section đích, offset, tên type, symbol và addend của nó
+- mọi program header hoặc segment với type, cờ, offset, địa chỉ, kích thước tệp, kích thước bộ nhớ và căn chỉnh
+- bản đồ file offset với mỗi khoảng trống được đặt tên là không gian không hoạt động và tổng số byte được ánh xạ
+- phạm vi tệp và các byte chính xác của mỗi hàm mà người dùng hỏi
+- phép so sánh với đầu ra công cụ đã thu: các trường được so sánh, các trường đồng nhất, các trường khác nhau
 
 ## Hard rejects
 
-- Analyzing a program the user did not build and cannot show written authorization for.
-- Treating `st_value` as a file offset, or `sh_size` of a `SHT_NOBITS` section as file bytes.
-- Inventing a name for a section type, relocation type, load command, or flag that the specification does not list.
-- Reading the operand bytes at a relocated field as the final value.
-- Mapping a linked address through sections when `PT_LOAD` entries exist, or calling a linked address a runtime address.
-- Looking up a Mach-O section by `sectname` alone.
-- Expecting a size field in `nlist_64`.
-- Reading a universal binary as one Mach-O.
-- Running the comparison tool inside the tests instead of comparing with committed captured text.
-- Reporting agreement with the tool without listing the fields compared.
+- Phân tích một chương trình mà người dùng không xây dựng và không thể trình sự cho phép bằng văn bản cho nó.
+- Coi `st_value` là một file offset, hoặc `sh_size` của một section `SHT_NOBITS` là các byte tệp.
+- Bịa ra một tên cho một section type, relocation type, load command hoặc cờ mà đặc tả không liệt kê.
+- Đọc các byte toán hạng tại một trường được tái định vị như giá trị cuối cùng.
+- Ánh xạ một địa chỉ đã liên kết qua các section khi các mục `PT_LOAD` tồn tại, hoặc gọi một địa chỉ đã liên kết là một địa chỉ runtime.
+- Tra cứu một section Mach-O chỉ bằng `sectname`.
+- Kỳ vọng một trường kích thước trong `nlist_64`.
+- Đọc một universal binary như một Mach-O.
+- Chạy công cụ so sánh bên trong các bài kiểm tra thay vì so sánh với văn bản đã thu được commit.
+- Báo cáo sự đồng nhất với công cụ mà không liệt kê các trường được so sánh.
 
 ## Produce
 
-Return these sections:
+Trả về những phần này:
 
-1. Authorization: the source, the build command, and who owns the target.
-2. Identity: format, machine, kind, size, and the header fields that locate the tables.
-3. Sections: the table with offsets, sizes, flags, and links.
-4. Symbols: the table with binding, type, section, value, and size.
-5. Relocations: the records with type names from the specification and the addend arithmetic for each one the user asked about.
-6. Segments: program headers or `LC_SEGMENT_64` records and the address-to-offset rule.
-7. File offset map: every byte range and its owner, with gaps named.
-8. Function bytes: the ranges and bytes requested.
-9. Oracle comparison: fields compared, agreements, disagreements.
+1. Sự cho phép: nguồn, lệnh build và ai sở hữu mục tiêu.
+2. Danh tính: định dạng, máy, loại, kích thước và các trường header định vị các bảng.
+3. Section: bảng với offset, kích thước, cờ và liên kết.
+4. Symbol: bảng với binding, type, section, giá trị và kích thước.
+5. Relocation: các bản ghi với tên type từ đặc tả và phép tính addend cho mỗi relocation mà người dùng hỏi.
+6. Segment: program header hoặc các bản ghi `LC_SEGMENT_64` và quy tắc địa chỉ-thành-offset.
+7. Bản đồ file offset: mỗi phạm vi byte và chủ sở hữu của nó, với các khoảng trống được đặt tên.
+8. Byte hàm: các phạm vi và byte được yêu cầu.
+9. So sánh oracle: các trường được so sánh, các điểm đồng nhất, các điểm bất đồng.
 
-End with the first disagreement between the reader and the captured tool output. When there is none, state the tool version the capture came from.
+Kết thúc bằng bất đồng đầu tiên giữa trình đọc và đầu ra công cụ đã thu. Khi không có, nêu phiên bản công cụ mà bản thu đến từ đó.

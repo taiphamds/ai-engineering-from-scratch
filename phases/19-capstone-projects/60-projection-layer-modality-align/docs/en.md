@@ -118,7 +118,7 @@ python3 -m unittest code/test_main.py
 
 4. Thêm một hình phạt L2 nhỏ trên các trọng số bộ chiếu và xem nó tương tác thế nào với căn chỉnh cosine (cosine bất biến theo tỷ lệ, nên hình phạt chủ yếu co các hướng không dùng).
 
-5. Lưu bền vững các trọng số bộ chiếu, rồi nạp lại và chạy suy luận không có lượt ngược bộ mã hóa thị giác để xác minh rằng chỉ bộ chiếu cần thiết lúc triển khai.
+5. Lưu bền vững trọng số projector, rồi tải lại chúng cạnh vision encoder đã đóng băng và chạy suy luận không có backward pass. Xác minh rằng projector là sản phẩm mới duy nhất bạn phát hành; encoder vẫn chạy forward pass lúc triển khai.
 
 ## Key Terms
 

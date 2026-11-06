@@ -34,9 +34,9 @@ Bạn cần bốn thứ:
 
 ### Graphs: Nodes and Edges
 
-Một đồ thị G = (V, E) gồm các đỉnh (nút) V và các cạnh E. Mỗi cạnh kết nối hai nút.
+Một đồ thị $G = (V, E)$ gồm các đỉnh (nút) $V$ và các cạnh $E$. Mỗi cạnh kết nối hai nút.
 
-**Có hướng so với vô hướng.** Trong một đồ thị vô hướng, cạnh (u, v) nghĩa là u kết nối với v VÀ v kết nối với u. Trong một đồ thị có hướng (digraph), cạnh (u, v) nghĩa là u trỏ đến v, nhưng không nhất thiết theo chiều ngược.
+**Có hướng so với vô hướng.** Trong một đồ thị vô hướng, cạnh $(u, v)$ nghĩa là $u$ kết nối với $v$ VÀ $v$ kết nối với $u$. Trong một đồ thị có hướng (digraph), cạnh $(u, v)$ nghĩa là $u$ trỏ đến $v$, nhưng không nhất thiết theo chiều ngược.
 
 **Có trọng số so với không trọng số.** Trong một đồ thị không trọng số, các cạnh hoặc tồn tại hoặc không. Trong một đồ thị có trọng số, mỗi cạnh có một trọng số số học -- một khoảng cách, một chi phí, một độ mạnh.
 
@@ -49,14 +49,13 @@ Một đồ thị G = (V, E) gồm các đỉnh (nút) V và các cạnh E. Mỗ
 
 ### The Adjacency Matrix
 
-Ma trận kề A là biểu diễn cốt lõi. Với một đồ thị có n nút:
+Ma trận kề $A$ là biểu diễn cốt lõi. Với một đồ thị có $n$ nút:
 
-```
-A[i][j] = 1    if there is an edge from node i to node j
-A[i][j] = 0    otherwise
+```math
+A[i][j] = \begin{cases} 1 & \text{if there is an edge from node } i \text{ to node } j \\ 0 & \text{otherwise} \end{cases}
 ```
 
-Với các đồ thị vô hướng, A đối xứng: A[i][j] = A[j][i]. Với các đồ thị có trọng số, A[i][j] = trọng số của cạnh (i, j).
+Với các đồ thị vô hướng, $A$ đối xứng: $A[i][j] = A[j][i]$. Với các đồ thị có trọng số, $A[i][j]$ = trọng số của cạnh $(i, j)$.
 
 **Ví dụ -- một tam giác:**
 
@@ -69,20 +68,22 @@ A = [[0, 1, 1],
      [1, 1, 0]]
 ```
 
-Ma trận kề là đầu vào cho mọi GNN. Các phép toán ma trận trên A tương ứng với các phép toán trên đồ thị.
+Ma trận kề là đầu vào cho mọi GNN. Các phép toán ma trận trên $A$ tương ứng với các phép toán trên đồ thị.
 
 ### Degree
 
 Bậc của một nút là số cạnh kết nối với nó. Với các đồ thị có hướng, bạn có bậc vào (các cạnh đi vào) và bậc ra (các cạnh đi ra).
 
-Ma trận bậc D là đường chéo:
+Ma trận bậc $D$ là đường chéo:
 
-```
-D[i][i] = degree of node i
-D[i][j] = 0    for i != j
+```math
+\begin{aligned}
+D[i][i] &= \text{degree of node } i \\
+D[i][j] &= 0 \quad \text{for } i \ne j
+\end{aligned}
 ```
 
-Với ví dụ tam giác: D = diag(2, 2, 2) vì mỗi nút kết nối với hai nút khác.
+Với ví dụ tam giác: $D = \mathop{\mathrm{diag}}(2, 2, 2)$ vì mỗi nút kết nối với hai nút khác.
 
 Bậc cho bạn biết về độ quan trọng của nút. Bậc cao = nút trung tâm. Phân phối bậc của một mạng tiết lộ cấu trúc của nó. Mạng xã hội tuân theo luật lũy thừa (ít nút trung tâm, nhiều nút lá). Các đồ thị ngẫu nhiên có bậc phân phối Poisson.
 
@@ -132,19 +133,17 @@ DFS hữu ích cho:
 
 ### The Graph Laplacian
 
-L = D - A. Ma trận quan trọng nhất trong lý thuyết đồ thị phổ.
+$L = D - A$. Ma trận quan trọng nhất trong lý thuyết đồ thị phổ.
 
 Với tam giác:
 
-```
-D = [[2, 0, 0],    A = [[0, 1, 1],    L = [[2, -1, -1],
-     [0, 2, 0],         [1, 0, 1],         [-1, 2, -1],
-     [0, 0, 2]]         [1, 1, 0]]         [-1, -1,  2]]
+```math
+D = \begin{bmatrix} 2 & 0 & 0 \\ 0 & 2 & 0 \\ 0 & 0 & 2 \end{bmatrix} \qquad A = \begin{bmatrix} 0 & 1 & 1 \\ 1 & 0 & 1 \\ 1 & 1 & 0 \end{bmatrix} \qquad L = \begin{bmatrix} 2 & -1 & -1 \\ -1 & 2 & -1 \\ -1 & -1 & 2 \end{bmatrix}
 ```
 
 Laplacian có những tính chất đáng chú ý:
 
-1. **L nửa xác định dương.** Mọi giá trị riêng đều >= 0.
+1. **$L$ nửa xác định dương.** Mọi giá trị riêng đều $\ge 0$.
 
 2. **Số giá trị riêng bằng không bằng số thành phần liên thông.** Một đồ thị liên thông có đúng một giá trị riêng bằng không. Một đồ thị có 3 thành phần tách rời có ba giá trị riêng bằng không.
 
@@ -174,12 +173,12 @@ graph TD
 Các giá trị riêng của ma trận kề và Laplacian tiết lộ các tính chất cấu trúc mà không cần duyệt.
 
 **Phân cụm phổ** hoạt động như sau:
-1. Tính Laplacian L
-2. Tìm k vector riêng nhỏ nhất của L (bỏ vector đầu tiên, toàn số một với đồ thị liên thông)
+1. Tính Laplacian $L$
+2. Tìm $k$ vector riêng nhỏ nhất của $L$ (bỏ vector đầu tiên, toàn số một với đồ thị liên thông)
 3. Sử dụng các vector riêng đó làm tọa độ mới cho mỗi nút
-4. Chạy k-means trên các tọa độ đó
+4. Chạy $k$-means trên các tọa độ đó
 
-Tại sao điều này hoạt động? Các vector riêng của L mã hóa các hàm "mượt nhất" trên đồ thị. Các nút kết nối tốt nhận các giá trị vector riêng tương tự. Các nút bị phân tách bởi một điểm nghẽn nhận các giá trị khác nhau. Các vector riêng tự nhiên tách các cụm.
+Tại sao điều này hoạt động? Các vector riêng của $L$ mã hóa các hàm "mượt nhất" trên đồ thị. Các nút kết nối tốt nhận các giá trị vector riêng tương tự. Các nút bị phân tách bởi một điểm nghẽn nhận các giá trị khác nhau. Các vector riêng tự nhiên tách các cụm.
 
 **Mối liên hệ với bước đi ngẫu nhiên.** Laplacian chuẩn hóa liên quan đến các bước đi ngẫu nhiên trên đồ thị. Phân phối dừng của một bước đi ngẫu nhiên tỉ lệ với bậc nút. Thời gian trộn (bước đi hội tụ nhanh đến mức nào) phụ thuộc vào khoảng cách phổ.
 
@@ -187,25 +186,25 @@ Tại sao điều này hoạt động? Các vector riêng của L mã hóa các 
 
 Phép toán cốt lõi của Mạng Nơ-ron Đồ thị. Mỗi nút thu thập thông điệp từ các láng giềng, tổng hợp chúng và cập nhật trạng thái của chính nó.
 
-```
-h_v^(k+1) = UPDATE(h_v^(k), AGGREGATE({h_u^(k) : u in neighbors(v)}))
+```math
+h_v^{(k+1)} = \text{UPDATE}\left(h_v^{(k)}, \text{AGGREGATE}\left(\{h_u^{(k)} : u \in \text{neighbors}(v)\}\right)\right)
 ```
 
 Ở dạng đơn giản nhất, AGGREGATE = trung bình, và UPDATE = biến đổi tuyến tính + kích hoạt:
 
-```
-h_v^(k+1) = sigma(W * mean({h_u^(k) : u in neighbors(v)}))
-```
-
-Đây là phép nhân ma trận được ngụy trang. Nếu H là ma trận tất cả các đặc trưng nút và A là ma trận kề:
-
-```
-H^(k+1) = sigma(A_norm * H^(k) * W)
+```math
+h_v^{(k+1)} = \sigma\left(W \cdot \text{mean}\left(\{h_u^{(k)} : u \in \text{neighbors}(v)\}\right)\right)
 ```
 
-trong đó A_norm là ma trận kề đã chuẩn hóa (mỗi hàng có tổng bằng 1).
+Đây là phép nhân ma trận được ngụy trang. Nếu $H$ là ma trận tất cả các đặc trưng nút và $A$ là ma trận kề:
 
-Một vòng truyền thông điệp cho phép mỗi nút "thấy" các láng giềng trực tiếp. Hai vòng cho nó thấy các láng giềng của láng giềng. K vòng cho mỗi nút thông tin từ vùng lân cận K bước nhảy của nó.
+```math
+H^{(k+1)} = \sigma\left(A_{\text{norm}} H^{(k)} W\right)
+```
+
+trong đó $A_{\text{norm}}$ là ma trận kề đã chuẩn hóa (mỗi hàng có tổng bằng 1).
+
+Một vòng truyền thông điệp cho phép mỗi nút "thấy" các láng giềng trực tiếp. Hai vòng cho nó thấy các láng giềng của láng giềng. $K$ vòng cho mỗi nút thông tin từ vùng lân cận $K$ bước nhảy của nó.
 
 ```mermaid
 graph LR
@@ -267,6 +266,9 @@ class Graph:
     def degree(self, node):
         return len(self.adj[node])
 
+    def weighted_degree(self, node):
+        return sum(self.adj[node].values())
+
     def adjacency_matrix(self):
         import numpy as np
         A = np.zeros((self.n, self.n))
@@ -279,7 +281,7 @@ class Graph:
         import numpy as np
         D = np.zeros((self.n, self.n))
         for i in range(self.n):
-            D[i][i] = self.degree(i)
+            D[i][i] = self.weighted_degree(i)
         return D
 
     def laplacian(self):
@@ -326,7 +328,7 @@ def dfs(graph, start):
     return order
 ```
 
-BFS sử dụng deque (hàng đợi hai đầu) để popleft có độ phức tạp O(1). DFS sử dụng một danh sách làm ngăn xếp. Cả hai thăm mỗi nút đúng một lần -- thời gian O(V + E).
+BFS sử dụng deque (hàng đợi hai đầu) để popleft có độ phức tạp $O(1)$. DFS sử dụng một danh sách làm ngăn xếp. Cả hai thăm mỗi nút đúng một lần -- thời gian $O(V + E)$.
 
 ### Step 3: Connected components and Laplacian eigenvalues
 
@@ -369,7 +371,7 @@ def spectral_clustering(graph, k=2):
     return labels
 ```
 
-Với k=2, dấu của vector Fiedler chia đồ thị thành hai cụm. Với k>2, bạn sẽ chạy k-means trên k vector riêng đầu tiên (không bao gồm vector riêng tầm thường toàn số một).
+Với $k=2$, dấu của vector Fiedler chia đồ thị thành hai cụm. Với $k>2$, bạn sẽ chạy $k$-means trên $k$ vector riêng đầu tiên (không bao gồm vector riêng tầm thường toàn số một).
 
 ### Step 5: Message passing
 
@@ -462,13 +464,13 @@ Bài học này tạo ra:
 | Các thành phần liên thông | Tiền xử lý, xử lý các đồ thị không liên thông |
 | PageRank | Xếp hạng độ quan trọng nút, khởi tạo attention |
 
-GNN đáng được đề cập riêng. Phép tích chập đồ thị trong GCN (Kipf & Welling, 2017) sử dụng ma trận kề có thêm các khuyên, A_hat = A + I:
+GNN đáng được đề cập riêng. Phép tích chập đồ thị trong GCN (Kipf & Welling, 2017) sử dụng ma trận kề có thêm các khuyên, $\hat{A} = A + I$:
 
-```text
-H^(l+1) = sigma(D_hat^(-1/2) * A_hat * D_hat^(-1/2) * H^(l) * W^(l))
+```math
+H^{(l+1)} = \sigma\left(\hat{D}^{-1/2} \hat{A} \hat{D}^{-1/2} H^{(l)} W^{(l)}\right)
 ```
 
-trong đó A_hat = A + I (ma trận kề cộng các khuyên) và D_hat là ma trận bậc của A_hat. Các khuyên bảo đảm mỗi nút đưa các đặc trưng của chính nó vào quá trình tổng hợp. Đây chính xác là truyền thông điệp với chuẩn hóa đối xứng. D_hat^(-1/2) * A_hat * D_hat^(-1/2) là ma trận kề đã chuẩn hóa. Laplacian xuất hiện vì chuẩn hóa này liên quan đến L_sym = I - D^(-1/2) * A * D^(-1/2). Hiểu Laplacian nghĩa là hiểu tại sao GCN hoạt động.
+trong đó $\hat{A} = A + I$ (ma trận kề cộng các khuyên) và $\hat{D}$ là ma trận bậc của $\hat{A}$. Các khuyên bảo đảm mỗi nút đưa các đặc trưng của chính nó vào quá trình tổng hợp. Đây chính xác là truyền thông điệp với chuẩn hóa đối xứng. $\hat{D}^{-1/2} \hat{A} \hat{D}^{-1/2}$ là ma trận kề đã chuẩn hóa. Laplacian xuất hiện vì chuẩn hóa này liên quan đến $L_{\text{sym}} = I - D^{-1/2} A D^{-1/2}$. Hiểu Laplacian nghĩa là hiểu tại sao GCN hoạt động.
 
 ## Exercises
 
@@ -482,15 +484,27 @@ trong đó A_hat = A + I (ma trận kề cộng các khuyên) và D_hat là ma t
 
 5. **Phân tích một đồ thị thực tế.** Sử dụng đồ thị Karate Club (34 nút, 78 cạnh). Tính phân phối bậc, các giá trị riêng Laplacian và phân cụm phổ. So sánh kết quả phân cụm phổ với cách chia thực tế đã biết.
 
+### Hints
+
+**Bài tập 1.** Sử dụng công thức từ bài tập. Một nút không có cạnh đi ra phải chia đều điểm của nó cho mọi nút, nếu không tổng giảm xuống dưới 1. Kiểm tra các điểm cộng lại bằng 1 sau mỗi bước và so sánh kết quả của bạn với `pagerank(graph)`.
+
+**Bài tập 2.** Xây dựng hai clique bằng `add_edge`, nối chúng bằng một cạnh và gọi `spectral_clustering(graph, k=2)`. Kiểm tra mỗi clique nhận một nhãn. Khi thêm các cạnh chéo, in giá trị riêng nhỏ thứ hai của `laplacian()`, giá trị này tăng khi hai nhóm nối lại.
+
+**Bài tập 3.** Giữ một hàng đợi ưu tiên bằng `heapq` và luôn mở rộng nút có khoảng cách đã biết nhỏ nhất. Đặt mọi trọng số bằng 1 và kiểm tra mỗi khoảng cách Dijkstra bằng lớp BFS của nút đó từ `bfs(graph, start)`.
+
+**Bài tập 4.** Sử dụng ma trận đơn vị làm `features`, để mỗi cột đánh dấu một nút, và áp dụng `message_passing` hai lần. Khi đó, các phần tử khác không trong hàng cho nút $v$ cho biết những nút nào đã đến $v$. So sánh tập đó với các nút trong khoảng cách 2 từ một lần tìm kiếm theo chiều rộng.
+
+**Bài tập 5.** `networkx.karate_club_graph()` cung cấp danh sách cạnh và giá trị chuẩn trong thuộc tính nút `club`. Sao chép các cạnh vào một `Graph` và kiểm tra nó có 34 nút và 78 cạnh. So sánh các nhãn từ `spectral_clustering` với các giá trị `club`, và cho phép hai tên nhãn được hoán đổi.
+
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Graph (Đồ thị) | "Nút và cạnh" | Một cấu trúc toán học G=(V,E) mã hóa các mối quan hệ từng cặp |
-| Adjacency matrix (Ma trận kề) | "Bảng kết nối" | Một ma trận n x n trong đó A[i][j] = 1 nếu các nút i và j được kết nối |
+| Graph (Đồ thị) | "Nút và cạnh" | Một cấu trúc toán học $G=(V,E)$ mã hóa các mối quan hệ từng cặp |
+| Adjacency matrix (Ma trận kề) | "Bảng kết nối" | Một ma trận $n \times n$ trong đó $A[i][j] = 1$ nếu các nút $i$ và $j$ được kết nối |
 | Degree (Bậc) | "Một nút kết nối đến mức nào" | Số cạnh chạm một nút |
-| Laplacian | "D trừ A" | L = D - A, ma trận có các giá trị riêng tiết lộ cấu trúc đồ thị |
-| Fiedler value (Giá trị Fiedler) | "Tính liên thông đại số" | Giá trị riêng khác không nhỏ nhất của L, đo mức độ đồ thị kết nối tốt |
+| Laplacian | "D trừ A" | $L = D - A$, ma trận có các giá trị riêng tiết lộ cấu trúc đồ thị |
+| Fiedler value (Giá trị Fiedler) | "Tính liên thông đại số" | Giá trị riêng khác không nhỏ nhất của $L$, đo mức độ đồ thị kết nối tốt |
 | BFS | "Tìm kiếm theo từng mức" | Phép duyệt thăm tất cả láng giềng trước khi đi sâu hơn, tìm các đường đi ngắn nhất |
 | DFS | "Đi sâu trước" | Phép duyệt đi theo một đường đến cuối trước khi quay lui |
 | Message passing (Truyền thông điệp) | "Các nút nói chuyện với láng giềng" | Mỗi nút tổng hợp thông tin từ các láng giềng, cốt lõi của GNN |

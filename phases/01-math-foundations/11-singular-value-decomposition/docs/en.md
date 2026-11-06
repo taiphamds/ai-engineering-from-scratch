@@ -9,7 +9,7 @@
 
 ## Learning Objectives
 
-- Triển khai SVD bằng phép lặp lũy thừa và giải thích ý nghĩa hình học của U, Sigma và V^T
+- Triển khai SVD bằng phép lặp lũy thừa và giải thích ý nghĩa hình học của $U$, $\Sigma$ và $V^T$
 - Áp dụng SVD cắt ngọn để nén hình ảnh và đo tỉ lệ nén so với sai số tái tạo
 - Tính giả nghịch đảo Moore-Penrose bằng SVD để giải các hệ bình phương tối thiểu thừa xác định
 - Kết nối SVD với PCA, các hệ thống đề xuất (nhân tố ẩn) và Phân tích Ngữ nghĩa Ẩn trong NLP
@@ -26,17 +26,14 @@ SVD hoạt động trên bất kỳ ma trận nào. Bất kỳ hình dạng nào
 
 Mọi ma trận, bất kể hình dạng, thực hiện ba phép toán theo thứ tự: quay, co giãn, quay. SVD làm phân rã này tường minh.
 
-```
-A = U * Sigma * V^T
-
-      m x n     m x m    m x n    n x n
-     (any)    (rotate)  (scale)  (rotate)
+```math
+\underset{\substack{m \times n \\ \text{(any)}}}{A} = \underset{\substack{m \times m \\ \text{(rotate)}}}{U} \cdot \underset{\substack{m \times n \\ \text{(scale)}}}{\Sigma} \cdot \underset{\substack{n \times n \\ \text{(rotate)}}}{V^T}
 ```
 
-Cho bất kỳ ma trận A nào, SVD phân tích nó thành:
-- V^T quay các vector trong không gian đầu vào (n chiều)
-- Sigma co giãn dọc theo từng trục (kéo giãn hoặc nén)
-- U quay kết quả vào không gian đầu ra (m chiều)
+Cho bất kỳ ma trận $A$ nào, SVD phân tích nó thành:
+- $V^T$ quay các vector trong không gian đầu vào ($n$ chiều)
+- $\Sigma$ co giãn dọc theo từng trục (kéo giãn hoặc nén)
+- $U$ quay kết quả vào không gian đầu ra ($m$ chiều)
 
 ```mermaid
 graph LR
@@ -44,35 +41,35 @@ graph LR
     B -->|"U\n(rotate)"| C["Output space (m-dim)\nRotated to output\norientation"]
 ```
 
-Hãy nghĩ theo cách này. Bạn đưa cho SVD một ma trận. Nó nói với bạn: "Ma trận này nhận một mặt cầu đầu vào, trước tiên quay nó bằng V^T, rồi kéo giãn nó thành một ellipsoid bằng Sigma, rồi quay ellipsoid bằng U." Các giá trị kỳ dị là độ dài các trục của ellipsoid.
+Hãy nghĩ theo cách này. Bạn đưa cho SVD một ma trận. Nó nói với bạn: "Ma trận này nhận một mặt cầu đầu vào, trước tiên quay nó bằng $V^T$, rồi kéo giãn nó thành một ellipsoid bằng $\Sigma$, rồi quay ellipsoid bằng $U$." Các giá trị kỳ dị là độ dài các trục của ellipsoid.
 
 ### The full decomposition
 
-Với một ma trận A có hình dạng m x n:
+Với một ma trận $A$ có hình dạng $m \times n$:
 
+```math
+\begin{aligned}
+& A = U \cdot \Sigma \cdot V^T \\[6pt]
+& \text{where:} \\
+& \quad U \text{ is } m \times m, \text{ orthogonal } (U^T U = I) \\
+& \quad \Sigma \text{ is } m \times n, \text{ diagonal (singular values on the diagonal)} \\
+& \quad V \text{ is } n \times n, \text{ orthogonal } (V^T V = I) \\[6pt]
+& \text{The singular values } \sigma_1 \ge \sigma_2 \ge \cdots \ge \sigma_r > 0 \\
+& \text{where } r = \mathop{\mathrm{rank}}(A)
+\end{aligned}
 ```
-A = U * Sigma * V^T
 
-where:
-  U     is m x m, orthogonal (U^T U = I)
-  Sigma is m x n, diagonal (singular values on the diagonal)
-  V     is n x n, orthogonal (V^T V = I)
-
-The singular values sigma_1 >= sigma_2 >= ... >= sigma_r > 0
-where r = rank(A)
-```
-
-Các cột của U được gọi là các vector kỳ dị trái. Các cột của V được gọi là các vector kỳ dị phải. Các phần tử đường chéo của Sigma được gọi là các giá trị kỳ dị. Chúng luôn không âm và theo quy ước được sắp xếp theo thứ tự giảm dần.
+Các cột của $U$ được gọi là các vector kỳ dị trái. Các cột của $V$ được gọi là các vector kỳ dị phải. Các phần tử đường chéo của $\Sigma$ được gọi là các giá trị kỳ dị. Chúng luôn không âm và theo quy ước được sắp xếp theo thứ tự giảm dần.
 
 ### Left singular vectors, singular values, right singular vectors
 
 Mỗi thành phần của SVD có một ý nghĩa hình học riêng.
 
-**Các vector kỳ dị phải (các cột của V):** Chúng tạo thành một cơ sở trực chuẩn cho không gian đầu vào (R^n). Chúng là các hướng trong không gian đầu vào mà ma trận ánh xạ thành các hướng trực giao trong không gian đầu ra. Hãy xem chúng là hệ tọa độ tự nhiên cho miền xác định.
+**Các vector kỳ dị phải (các cột của $V$):** Chúng tạo thành một cơ sở trực chuẩn cho không gian đầu vào ($\mathbb{R}^n$). Chúng là các hướng trong không gian đầu vào mà ma trận ánh xạ thành các hướng trực giao trong không gian đầu ra. Hãy xem chúng là hệ tọa độ tự nhiên cho miền xác định.
 
-**Các giá trị kỳ dị (đường chéo của Sigma):** Đây là các hệ số co giãn. Giá trị kỳ dị thứ i cho bạn biết ma trận kéo giãn các vector dọc theo vector kỳ dị phải thứ i bao nhiêu. Một giá trị kỳ dị bằng không có nghĩa là ma trận ép dẹp hoàn toàn hướng đó.
+**Các giá trị kỳ dị (đường chéo của $\Sigma$):** Đây là các hệ số co giãn. Giá trị kỳ dị thứ i cho bạn biết ma trận kéo giãn các vector dọc theo vector kỳ dị phải thứ i bao nhiêu. Một giá trị kỳ dị bằng không có nghĩa là ma trận ép dẹp hoàn toàn hướng đó.
 
-**Các vector kỳ dị trái (các cột của U):** Chúng tạo thành một cơ sở trực chuẩn cho không gian đầu ra (R^m). Vector kỳ dị trái thứ i là hướng trong không gian đầu ra mà vector kỳ dị phải thứ i đến (sau khi co giãn).
+**Các vector kỳ dị trái (các cột của $U$):** Chúng tạo thành một cơ sở trực chuẩn cho không gian đầu ra ($\mathbb{R}^m$). Vector kỳ dị trái thứ i là hướng trong không gian đầu ra mà vector kỳ dị phải thứ i đến (sau khi co giãn).
 
 Mối quan hệ giữa chúng:
 
@@ -98,20 +95,20 @@ The full matrix is the sum of r such matrices, where r is the rank.
 
 Dạng này là nền tảng của xấp xỉ hạng thấp. Mỗi số hạng thêm một lớp cấu trúc. Số hạng đầu tiên nắm bắt mẫu quan trọng nhất. Số hạng thứ hai nắm bắt mẫu quan trọng tiếp theo. Và cứ thế. Cắt ngọn tổng này cho bạn xấp xỉ tốt nhất có thể tại bất kỳ hạng cho trước nào.
 
-```
-Rank-1 approx:    A_1 = sigma_1 * u_1 * v_1^T
-                  (captures the dominant pattern)
-
-Rank-2 approx:    A_2 = sigma_1 * u_1 * v_1^T + sigma_2 * u_2 * v_2^T
-                  (captures the two most important patterns)
-
-Rank-k approx:    A_k = sum of top k terms
-                  (optimal by the Eckart-Young theorem)
+```math
+\begin{aligned}
+\text{Rank-1 approx:} \quad & A_1 = \sigma_1 u_1 v_1^T \\
+& \text{(captures the dominant pattern)} \\[6pt]
+\text{Rank-2 approx:} \quad & A_2 = \sigma_1 u_1 v_1^T + \sigma_2 u_2 v_2^T \\
+& \text{(captures the two most important patterns)} \\[6pt]
+\text{Rank-}k\text{ approx:} \quad & A_k = \text{sum of top } k \text{ terms} \\
+& \text{(optimal by the Eckart-Young theorem)}
+\end{aligned}
 ```
 
 ### Relationship to eigendecomposition
 
-SVD và phân rã riêng có mối liên hệ sâu sắc. Các giá trị và vector kỳ dị của A đến trực tiếp từ các giá trị riêng và vector riêng của A^T A và A A^T.
+SVD và phân rã riêng có mối liên hệ sâu sắc. Các giá trị và vector kỳ dị của $A$ đến trực tiếp từ các giá trị riêng và vector riêng của $A^T A$ và $A A^T$.
 
 ```
 A^T A = V * Sigma^T * U^T * U * Sigma * V^T
@@ -135,41 +132,41 @@ So:
 
 Mối liên hệ này cho bạn biết ba điều:
 1. Các giá trị kỳ dị luôn thực và không âm (chúng là căn bậc hai của các giá trị riêng của một ma trận nửa xác định dương).
-2. Bạn có thể tính SVD bằng phân rã riêng của A^T A, nhưng điều này bình phương số điều kiện và làm mất độ chính xác số học. Các thuật toán SVD chuyên dụng tránh điều này.
-3. Khi A vuông và đối xứng nửa xác định dương, SVD và phân rã riêng là cùng một thứ.
+2. Bạn có thể tính SVD bằng phân rã riêng của $A^T A$, nhưng điều này bình phương số điều kiện và làm mất độ chính xác số học. Các thuật toán SVD chuyên dụng tránh điều này.
+3. Khi $A$ vuông và đối xứng nửa xác định dương, SVD và phân rã riêng là cùng một thứ.
 
 ### Truncated SVD: low-rank approximation
 
-Định lý Eckart-Young-Mirsky phát biểu rằng xấp xỉ hạng k tốt nhất cho A (theo cả chuẩn Frobenius và chuẩn phổ) có được bằng cách chỉ giữ lại k giá trị kỳ dị đứng đầu và các vector tương ứng của chúng:
+Định lý Eckart-Young-Mirsky phát biểu rằng phép xấp xỉ $\text{rank-}k$ tốt nhất cho $A$ (theo cả chuẩn Frobenius và chuẩn phổ) thu được bằng cách chỉ giữ $k$ giá trị kỳ dị lớn nhất và các vector tương ứng của chúng:
 
+```math
+\begin{aligned}
+& A_k = U_k \cdot \Sigma_k \cdot V_k^T \\[6pt]
+& \text{where:} \\
+& \quad U_k \text{ is } m \times k \quad \text{(first } k \text{ columns of } U\text{)} \\
+& \quad \Sigma_k \text{ is } k \times k \quad \text{(top-left } k \times k \text{ block of } \Sigma\text{)} \\
+& \quad V_k \text{ is } n \times k \quad \text{(first } k \text{ columns of } V\text{)} \\[6pt]
+& \text{Approximation error} = \sigma_{k+1} \quad \text{(in spectral norm)} \\
+& \text{Approximation error} = \sqrt{\sigma_{k+1}^2 + \cdots + \sigma_r^2} \quad \text{(in Frobenius norm)}
+\end{aligned}
 ```
-A_k = U_k * Sigma_k * V_k^T
 
-where:
-  U_k     is m x k  (first k columns of U)
-  Sigma_k is k x k  (top-left k x k block of Sigma)
-  V_k     is n x k  (first k columns of V)
-
-Approximation error = sigma_{k+1}  (in spectral norm)
-                    = sqrt(sigma_{k+1}^2 + ... + sigma_r^2)  (in Frobenius norm)
-```
-
-Đây không chỉ là "một xấp xỉ tốt". Nó được chứng minh là xấp xỉ tốt nhất có thể của hạng k. Không có ma trận hạng k nào khác gần A hơn.
+Đây không chỉ là một phép xấp xỉ "tốt". Nó được chứng minh là phép xấp xỉ hạng $k$ tốt nhất có thể. Không có ma trận $\text{rank-}k$ nào khác gần $A$ hơn.
 
 | Thành phần | Độ lớn tương đối | Được giữ trong xấp xỉ hạng 3? |
 |-----------|-------------------|------------------------|
-| sigma_1 | Lớn nhất | Có |
-| sigma_2 | Lớn | Có |
-| sigma_3 | Trung bình-lớn | Có |
-| sigma_4 | Trung bình | Không (sai số) |
-| sigma_5 | Trung bình-nhỏ | Không (sai số) |
-| sigma_6 | Nhỏ | Không (sai số) |
-| sigma_7 | Rất nhỏ | Không (sai số) |
-| sigma_8 | Cực nhỏ | Không (sai số) |
+| $\sigma_1$ | Lớn nhất | Có |
+| $\sigma_2$ | Lớn | Có |
+| $\sigma_3$ | Trung bình-lớn | Có |
+| $\sigma_4$ | Trung bình | Không (sai số) |
+| $\sigma_5$ | Trung bình-nhỏ | Không (sai số) |
+| $\sigma_6$ | Nhỏ | Không (sai số) |
+| $\sigma_7$ | Rất nhỏ | Không (sai số) |
+| $\sigma_8$ | Cực nhỏ | Không (sai số) |
 
-Giữ 3 giá trị đứng đầu: A_3 nắm bắt ba giá trị kỳ dị lớn nhất. Sai số = các giá trị còn lại (sigma_4 đến sigma_8).
+Giữ 3 giá trị đứng đầu: $A_3$ nắm bắt ba giá trị kỳ dị lớn nhất. Sai số = các giá trị còn lại ($\sigma_4$ đến $\sigma_8$).
 
-Nếu các giá trị kỳ dị giảm nhanh, một k nhỏ nắm bắt phần lớn ma trận. Nếu chúng giảm chậm, ma trận không có cấu trúc hạng thấp.
+Nếu các giá trị kỳ dị giảm nhanh, một $k$ nhỏ nắm bắt phần lớn ma trận. Nếu chúng giảm chậm, ma trận không có cấu trúc hạng thấp.
 
 ### Image compression with SVD
 
@@ -211,9 +208,9 @@ Netflix Prize đã làm điều này nổi tiếng. Bạn có một ma trận đ
 Ý tưởng: ma trận đánh giá này có hạng thấp. Người dùng không có thị hiếu hoàn toàn độc lập. Có một số ít nhân tố ẩn (hành động so với chính kịch, cũ so với mới, thiên về trí tuệ so với cảm xúc bản năng) giải thích hầu hết các sở thích.
 
 SVD trên ma trận đánh giá (đã điền) phân rã nó thành:
-- U: hồ sơ người dùng trong không gian nhân tố ẩn
-- Sigma: độ quan trọng của mỗi nhân tố ẩn
-- V^T: hồ sơ phim trong không gian nhân tố ẩn
+- $U$: hồ sơ người dùng trong không gian nhân tố ẩn
+- $\Sigma$: độ quan trọng của mỗi nhân tố ẩn
+- $V^T$: hồ sơ phim trong không gian nhân tố ẩn
 
 Đánh giá dự đoán của một người dùng cho một bộ phim là tích vô hướng giữa hồ sơ người dùng và hồ sơ phim (được lấy trọng số theo các giá trị kỳ dị). Xấp xỉ hạng thấp điền các phần tử bị thiếu.
 
@@ -253,23 +250,23 @@ Dữ liệu nhiễu có tín hiệu tập trung ở các giá trị kỳ dị đ
 
 | Thành phần | Độ lớn | Loại |
 |-----------|-----------|------|
-| sigma_1 | Rất lớn | Tín hiệu |
-| sigma_2 | Lớn | Tín hiệu |
-| sigma_3 | Trung bình | Tín hiệu |
-| sigma_4 | Gần không | Không đáng kể |
-| sigma_5 | Gần không | Không đáng kể |
+| $\sigma_1$ | Rất lớn | Tín hiệu |
+| $\sigma_2$ | Lớn | Tín hiệu |
+| $\sigma_3$ | Trung bình | Tín hiệu |
+| $\sigma_4$ | Gần không | Không đáng kể |
+| $\sigma_5$ | Gần không | Không đáng kể |
 
 **Các giá trị kỳ dị của tín hiệu nhiễu (nhiễu cộng vào tất cả):**
 
 | Thành phần | Độ lớn | Loại |
 |-----------|-----------|------|
-| sigma_1 | Rất lớn | Tín hiệu |
-| sigma_2 | Lớn | Tín hiệu |
-| sigma_3 | Trung bình | Tín hiệu |
-| sigma_4 | Nhỏ | Nhiễu |
-| sigma_5 | Nhỏ | Nhiễu |
-| sigma_6 | Nhỏ | Nhiễu |
-| sigma_7 | Nhỏ | Nhiễu |
+| $\sigma_1$ | Rất lớn | Tín hiệu |
+| $\sigma_2$ | Lớn | Tín hiệu |
+| $\sigma_3$ | Trung bình | Tín hiệu |
+| $\sigma_4$ | Nhỏ | Nhiễu |
+| $\sigma_5$ | Nhỏ | Nhiễu |
+| $\sigma_6$ | Nhỏ | Nhiễu |
+| $\sigma_7$ | Nhỏ | Nhiễu |
 
 ```mermaid
 graph TD
@@ -283,7 +280,7 @@ graph TD
 
 ### Pseudoinverse via SVD
 
-Giả nghịch đảo Moore-Penrose A+ tổng quát hóa phép nghịch đảo ma trận cho các ma trận không vuông và suy biến. SVD làm việc tính nó trở nên đơn giản.
+Giả nghịch đảo Moore-Penrose $A^+$ tổng quát hóa phép nghịch đảo ma trận cho các ma trận không vuông và suy biến. SVD làm việc tính nó trở nên đơn giản.
 
 ```
 If A = U * Sigma * V^T, then:
@@ -299,7 +296,7 @@ For A (m x n):      A+ is (n x m)
 For Sigma (m x n):  Sigma+ is (n x m)
 ```
 
-Giả nghịch đảo giải các bài toán bình phương tối thiểu. Nếu Ax = b không có nghiệm chính xác (hệ thừa xác định), thì x = A+ b là nghiệm bình phương tối thiểu (tối thiểu hóa ||Ax - b||).
+Giả nghịch đảo giải các bài toán bình phương tối thiểu. Nếu $Ax = b$ không có nghiệm chính xác (hệ thừa xác định), thì $x = A^+ b$ là nghiệm bình phương tối thiểu (tối thiểu hóa $\lVert Ax - b \rVert$).
 
 ```
 Overdetermined system (more equations than unknowns):
@@ -317,7 +314,7 @@ Overdetermined system (more equations than unknowns):
 
 ### Numerical stability advantages
 
-Tính phân rã riêng của A^T A bình phương các giá trị kỳ dị (các giá trị riêng của A^T A là sigma_i^2). Điều này bình phương số điều kiện, khuếch đại các sai số số học.
+Tính phân rã riêng của $A^T A$ bình phương các giá trị kỳ dị (các giá trị riêng của $A^T A$ là $\sigma_i^2$). Điều này bình phương số điều kiện, khuếch đại các sai số số học.
 
 ```
 Example:
@@ -332,7 +329,7 @@ Example:
                            (6 extra digits of precision lost)
 ```
 
-Các thuật toán SVD hiện đại (đưa về dạng hai đường chéo Golub-Kahan) làm việc trực tiếp trên A, không bao giờ tạo A^T A. Đây là lý do bạn nên luôn ưu tiên `np.linalg.svd(A)` thay vì `np.linalg.eig(A.T @ A)`.
+Các thuật toán SVD hiện đại (đưa về dạng hai đường chéo Golub-Kahan) làm việc trực tiếp trên $A$, không bao giờ tạo $A^T A$. Đây là lý do bạn nên luôn ưu tiên `np.linalg.svd(A)` thay vì `np.linalg.eig(A.T @ A)`.
 
 ### Connection to PCA
 
@@ -368,7 +365,7 @@ svd-rank-reconstruction
 
 ### Step 1: SVD from scratch using power iteration
 
-Ý tưởng: để tìm giá trị kỳ dị lớn nhất và các vector của nó, sử dụng phép lặp lũy thừa trên A^T A (hoặc A A^T). Sau đó loại phần đóng góp đó khỏi ma trận và lặp lại cho giá trị kỳ dị tiếp theo.
+Ý tưởng: để tìm giá trị kỳ dị lớn nhất và các vector của nó, sử dụng phép lặp lũy thừa trên $A^T A$ (hoặc $A A^T$). Sau đó loại phần đóng góp đó khỏi ma trận và lặp lại cho giá trị kỳ dị tiếp theo.
 
 ```python
 import numpy as np
@@ -513,7 +510,7 @@ Bài học này tạo ra:
 
 ## Exercises
 
-1. Triển khai SVD đầy đủ từ đầu mà không sử dụng phép lặp lũy thừa. Thay vào đó, tính phân rã riêng của A^T A để có V và các giá trị kỳ dị, rồi tính U = A V Sigma^{-1}. So sánh độ chính xác số học với phiên bản lặp lũy thừa của bạn và với NumPy.
+1. Triển khai SVD đầy đủ từ đầu mà không sử dụng phép lặp lũy thừa. Thay vào đó, tính phân rã riêng của $A^T A$ để có $V$ và các giá trị kỳ dị, rồi tính $U = A V \Sigma^{-1}$. So sánh độ chính xác số học với phiên bản lặp lũy thừa của bạn và với NumPy.
 
 2. Tải một hình ảnh thang xám thực tế (hoặc chuyển một hình ảnh sang thang xám). Nén nó ở các hạng 1, 5, 10, 25, 50, 100. Với mỗi hạng, tính tỉ lệ nén và sai số tương đối. Tìm hạng mà tại đó hình ảnh trở nên chấp nhận được về mặt thị giác.
 
@@ -521,23 +518,35 @@ Bài học này tạo ra:
 
 4. Tạo một ma trận tài liệu-thuật ngữ 100x50 với 3 chủ đề tổng hợp. Mỗi chủ đề có 5 thuật ngữ liên quan. Thêm nhiễu. Áp dụng SVD và xác minh rằng 3 giá trị kỳ dị đứng đầu lớn hơn nhiều so với phần còn lại. Chiếu các tài liệu vào không gian ẩn 3D và kiểm tra rằng các tài liệu cùng chủ đề tụ lại với nhau.
 
-5. Tạo một ma trận hạng thấp sạch (hạng 3, kích thước 50x40) và thêm nhiễu Gaussian ở các mức khác nhau (sigma = 0.1, 0.5, 1.0, 2.0). Với mỗi mức nhiễu, tìm hạng cắt ngọn tối ưu bằng cách quét k từ 1 đến 40 và đo sai số tái tạo so với ma trận sạch. Vẽ cách k tối ưu thay đổi theo mức nhiễu.
+5. Tạo một ma trận hạng thấp sạch (hạng 3, kích thước 50x40) và thêm nhiễu Gaussian ở các mức khác nhau ($\sigma$ = 0.1, 0.5, 1.0, 2.0). Với mỗi mức nhiễu, tìm hạng cắt ngọn tối ưu bằng cách quét $k$ từ 1 đến 40 và đo sai số tái tạo so với ma trận sạch. Vẽ cách $k$ tối ưu thay đổi theo mức nhiễu.
+
+### Hints
+
+**Bài tập 1.** Tính $A^T A$, lấy các giá trị riêng và vector riêng của nó bằng `np.linalg.eigh`, rồi sắp xếp chúng theo thứ tự giảm dần. Các giá trị kỳ dị là căn bậc hai của các giá trị riêng; kiểm tra rằng $U \Sigma V^T$ tái dựng $A$ và so sánh sai số với `svd_from_scratch` và `np.linalg.svd`.
+
+**Bài tập 2.** Gọi `truncated_svd` cho mỗi hạng, tái dựng hình ảnh bằng `reconstruct` và sử dụng `compression_ratio(m, n, k)` cho kích thước. Sai số tương đối phải giảm khi hạng tăng, và hạng đầu tiên mà bạn không thấy các khối rõ ràng là đáp án.
+
+**Bài tập 3.** Đánh dấu các ô bị thiếu, điền chúng bằng trung bình hàng, rồi tái dựng một phép xấp xỉ hạng 3 bằng `truncated_svd` và `reconstruct`. Sau đó đo kết quả: đếm các dự đoán nằm ngoài khoảng đánh giá và in thay đổi lớn nhất trong một ô đã biết. Một phép xấp xỉ hạng 3 không bảo đảm tính chất nào trong hai tính chất này, vì vậy hãy cắt các dự đoán về khoảng đó nếu bạn cần các đánh giá hợp lệ.
+
+**Bài tập 4.** Cho mỗi chủ đề một khối 5 thuật ngữ có số đếm cao đối với các tài liệu của nó, rồi thêm nhiễu nhỏ. In các giá trị kỳ dị: 3 giá trị đầu phải lớn hơn nhiều so với giá trị thứ 4. Sau đó tô màu các tọa độ 3D theo chủ đề và kiểm tra mỗi chủ đề tạo thành một nhóm.
+
+**Bài tập 5.** Tạo ma trận sạch thành tích của một ma trận ngẫu nhiên 50x3 và một ma trận ngẫu nhiên 3x40, rồi thêm nhiễu cho mỗi $\sigma$. Với mỗi $k$, so sánh phép tái dựng hạng $k$ với ma trận sạch; hãy chờ đợi $k$ tốt nhất gần 3 khi nhiễu thấp và nhỏ hơn khi nhiễu cao.
 
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| SVD | "Phân tích bất kỳ ma trận nào thành nhân tử" | Phân rã A thành U Sigma V^T trong đó U và V trực giao và Sigma là đường chéo với các phần tử không âm. Hoạt động cho bất kỳ ma trận nào có bất kỳ hình dạng nào. |
-| Singular value (Giá trị kỳ dị) | "Thành phần này quan trọng đến mức nào" | Phần tử đường chéo thứ i của Sigma. Đo mức độ ma trận kéo giãn theo hướng chính thứ i. Luôn không âm, được sắp xếp theo thứ tự giảm dần. |
-| Left singular vector (Vector kỳ dị trái) | "Hướng đầu ra" | Một cột của U. Hướng trong không gian đầu ra mà vector kỳ dị phải thứ i ánh xạ đến (sau khi nhân với sigma_i). |
-| Right singular vector (Vector kỳ dị phải) | "Hướng đầu vào" | Một cột của V. Hướng trong không gian đầu vào mà ma trận ánh xạ thành vector kỳ dị trái thứ i (sau khi nhân với sigma_i). |
-| Truncated SVD (SVD cắt ngọn) | "Xấp xỉ hạng thấp" | Chỉ giữ k giá trị kỳ dị đứng đầu và các vector của chúng. Tạo ra xấp xỉ hạng k tốt nhất cho ma trận gốc một cách có thể chứng minh (định lý Eckart-Young). |
+| SVD | "Phân tích bất kỳ ma trận nào thành nhân tử" | Phân rã $A$ thành $U \Sigma V^T$ trong đó $U$ và $V$ trực giao và $\Sigma$ là đường chéo với các phần tử không âm. Hoạt động cho bất kỳ ma trận nào có bất kỳ hình dạng nào. |
+| Singular value (Giá trị kỳ dị) | "Thành phần này quan trọng đến mức nào" | Phần tử đường chéo thứ $i$ của $\Sigma$. Đo ma trận kéo giãn bao nhiêu dọc theo hướng chính thứ i. Luôn không âm, được sắp xếp theo thứ tự giảm dần. |
+| Left singular vector (Vector kỳ dị trái) | "Hướng đầu ra" | Một cột của $U$. Hướng trong không gian đầu ra mà vector kỳ dị phải thứ $i$ ánh xạ đến (sau khi nhân với $\sigma_i$). |
+| Right singular vector (Vector kỳ dị phải) | "Hướng đầu vào" | Một cột của $V$. Hướng trong không gian đầu vào mà ma trận ánh xạ thành vector kỳ dị trái thứ $i$ (sau khi nhân với $\sigma_i$). |
+| Truncated SVD (SVD cắt ngắn) | "Xấp xỉ hạng thấp" | Chỉ giữ $k$ giá trị kỳ dị lớn nhất và các vector của chúng. Tạo ra phép xấp xỉ $\text{rank-}k$ tốt nhất có thể được chứng minh cho ma trận ban đầu (định lý Eckart-Young). |
 | Rank (Hạng) | "Số chiều thực" | Số giá trị kỳ dị khác không. Cho bạn biết ma trận thực sự sử dụng bao nhiêu hướng độc lập. |
-| Pseudoinverse (Giả nghịch đảo) | "Nghịch đảo tổng quát" | V Sigma+ U^T. Nghịch đảo các giá trị kỳ dị khác không, giữ các số không là không. Giải các bài toán bình phương tối thiểu cho các ma trận không vuông hoặc suy biến. |
-| Condition number (Số điều kiện) | "Nhạy với sai số đến mức nào" | sigma_max / sigma_min. Một số điều kiện lớn có nghĩa là thay đổi nhỏ ở đầu vào gây ra thay đổi lớn ở đầu ra. SVD cho thấy trực tiếp điều này. |
+| Pseudoinverse (Giả nghịch đảo) | "Nghịch đảo tổng quát" | $V \Sigma^+ U^T$. Nghịch đảo các giá trị kỳ dị khác không, giữ các số không là không. Giải các bài toán bình phương tối thiểu cho các ma trận không vuông hoặc suy biến. |
+| Condition number (Số điều kiện) | "Nhạy với sai số đến mức nào" | $\sigma_{\max} / \sigma_{\min}$. Một số điều kiện lớn có nghĩa là thay đổi nhỏ ở đầu vào gây ra thay đổi lớn ở đầu ra. SVD cho thấy trực tiếp điều này. |
 | Latent factor (Nhân tố ẩn) | "Biến ẩn" | Một chiều trong không gian hạng thấp được SVD phát hiện. Trong đề xuất, một nhân tố ẩn có thể tương ứng với sở thích thể loại. Trong NLP, nó có thể tương ứng với một chủ đề. |
 | Frobenius norm (Chuẩn Frobenius) | "Kích thước tổng thể ma trận" | Căn bậc hai của tổng bình phương các phần tử. Bằng căn bậc hai của tổng bình phương các giá trị kỳ dị. Được sử dụng để đo sai số xấp xỉ. |
-| Eckart-Young theorem (Định lý Eckart-Young) | "SVD cho phép nén tốt nhất" | Với bất kỳ hạng mục tiêu k nào, SVD cắt ngọn tối thiểu hóa sai số xấp xỉ trên tất cả các ma trận hạng k có thể. |
+| Eckart-Young theorem (Định lý Eckart-Young) | "SVD cho phép nén tốt nhất" | Với bất kỳ hạng mục tiêu $k$ nào, SVD cắt ngắn tối thiểu hóa sai số xấp xỉ trên mọi ma trận $\text{rank-}k$ có thể có. |
 | Power iteration (Phép lặp lũy thừa) | "Tìm vector riêng lớn nhất" | Lặp lại việc nhân một vector ngẫu nhiên với ma trận và chuẩn hóa. Hội tụ đến vector riêng có giá trị riêng lớn nhất. Thành phần xây dựng của nhiều thuật toán SVD. |
 
 ## Further Reading

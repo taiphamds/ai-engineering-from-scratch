@@ -1,63 +1,63 @@
 ---
 name: binary-diffing-and-symbolic-execution
-description: Match the functions of two builds you compiled with staged signatures and stated confidence, explain every unmatched or changed function, and solve for the inputs that reach a chosen path with a bounded search and a production solver.
+description: Ghép các hàm của hai bản dựng bạn đã biên dịch bằng các chữ ký theo giai đoạn và độ tin cậy được nêu, giải thích mọi hàm chưa được ghép hoặc đã thay đổi, và giải để tìm các đầu vào đến một đường đi đã chọn bằng một phép tìm kiếm có giới hạn và một bộ giải production.
 version: 1.0.0
 phase: 13
 lesson: 44
 tags: [reverse-engineering, binary-diffing, function-matching, relocations, symbolic-execution, constraint-solving, angr, z3, ghidra, radare2]
 ---
 
-Given two relocatable or linked x86-64 objects that you built yourself, their reference listings, and a function whose inputs you want, produce a function-level diff whose every match names the signature that produced it, and a path report whose every leaf carries a solved input. Use this skill with Claude, Cursor, Codex, OpenClaw, Hermes, or any agent that reads SKILL.md.
+Với hai tệp đối tượng x86-64 có thể relocation hoặc đã liên kết do chính bạn dựng, các bản liệt kê tham chiếu của chúng, và một hàm mà bạn muốn các đầu vào, hãy tạo một phép diff ở mức hàm có mọi mục khớp nêu chữ ký đã tạo nó, và một báo cáo đường đi có mọi lá mang một đầu vào đã giải. Dùng skill này với Claude, Cursor, Codex, OpenClaw, Hermes, hoặc bất kỳ agent nào đọc SKILL.md.
 
 ## Required inputs
 
-- Two objects, the exact compiler and command for each, and the SHA-256 of each.
-- A reference listing from `llvm-objdump -d` for each object, captured from the same bytes.
-- The symbol tables with function sizes and the `.rela.*` sections when the objects are not linked.
-- The lesson 44 differ (`code/main.py`) or an equivalent that reads bytes, relocations, mnemonics, and blocks.
-- For the solving task: the IR of the function from lesson 34 or a hand lift with one instruction address per statement, the parameter widths, and the concrete tables the function reads.
-- Optional: radiff2, Ghidra with Version Tracking, angr, and z3 for the cross-checks.
+- Hai tệp đối tượng, trình biên dịch và lệnh chính xác cho mỗi tệp, và SHA-256 của mỗi tệp.
+- Một bản liệt kê tham chiếu từ `llvm-objdump -d` cho mỗi tệp đối tượng, được thu lại từ cùng các byte.
+- Các bảng ký hiệu với các kích thước hàm và các section `.rela.*` khi các tệp đối tượng chưa được liên kết.
+- Bộ so sánh khác biệt bài 44 (`code/main.py`) hoặc một bản tương đương đọc các byte, relocation, mnemonic, và khối.
+- Với nhiệm vụ giải: IR của hàm từ bài 34 hoặc một bản nâng bằng tay với một địa chỉ lệnh cho mỗi câu lệnh, các độ rộng tham số, và các bảng cụ thể mà hàm đọc.
+- Tùy chọn: radiff2, Ghidra với Version Tracking, angr, và z3 cho các phép kiểm tra chéo.
 
 ## Procedure
 
-1. Verify each listing against its object byte for byte. Stop on the first mismatch. A stale listing is a changed fixture.
-2. Build one record per function: bytes, bytes with relocation fields zeroed, mnemonic sequence, reachable basic blocks with typed edges, jump-table targets from `.rela.rodata`, and the table the `lea` relocation points at when a bounds check and an indexed load exist.
-3. Run the stages in order and record the stage that produced each match: exact bytes, masked bytes, mnemonics, flow-graph shape, names. A signature matches only when its value is unique on both sides. Record the quality of the stage with the match.
-4. Rerun the stages with names second when symbols exist. Compare the two match sets. A structural match that the name stage contradicts is a false match; report it with the shape that caused it.
-5. For every match, compare the referenced tables. Same code with different constants is a modified function.
-6. Repeat the diff on loaded images: lay out the allocated sections, apply `S + A - P` to every PC-relative field and `S + A` to every absolute field, and diff again. A function that matched on exact bytes in the objects and only on masked bytes in the images moved relative to its data.
-7. Compute a similarity for every pair as `1 - levenshtein / max(len)` over the raw bytes and state which bytes went into it. When comparing with radiff2, state whether relocations were applied, because the fingerprint changes.
-8. For the function to solve: enumerate paths over the IR, add each branch condition to the path, and drop a fork the solver cannot satisfy. Bound every symbolic loop counter or cap the blocks per path, and report the paths the cap cut.
-9. Solve each leaf for the inputs you want: a return value, a reached block, or an equality between two builds. Report the bound of the search and the count, minimum, maximum, and one sample inside it.
-10. When a production solver is available, run the same queries through angr or z3 and compare class bounds, satisfiability, and the models. Evaluate every model with the IR evaluator before you report it.
+1. Xác minh mỗi bản liệt kê với tệp đối tượng của nó từng byte. Dừng tại điểm không khớp đầu tiên. Một bản liệt kê cũ là một fixture đã thay đổi.
+2. Dựng một bản ghi cho mỗi hàm: các byte, các byte với các trường relocation được đặt về không, chuỗi mnemonic, các khối cơ bản có thể tiếp cận với các cạnh có kiểu, các đích bảng nhảy từ `.rela.rodata`, và bảng mà relocation `lea` trỏ đến khi có một phép kiểm tra cận và một phép nạp theo chỉ mục.
+3. Chạy các giai đoạn theo thứ tự và ghi lại giai đoạn đã tạo mỗi mục khớp: byte chính xác, byte được che, mnemonic, hình dạng đồ thị luồng, tên. Một chữ ký chỉ khớp khi giá trị của nó duy nhất ở cả hai phía. Ghi lại chất lượng của giai đoạn cùng mục khớp.
+4. Chạy lại các giai đoạn với các tên ở thứ hai khi có các ký hiệu. So sánh hai tập mục khớp. Một mục khớp cấu trúc mà giai đoạn tên mâu thuẫn là một mục khớp sai; báo cáo nó với hình dạng đã gây ra nó.
+5. Với mọi mục khớp, so sánh các bảng được tham chiếu. Cùng mã với các hằng số khác nhau là một hàm đã sửa đổi.
+6. Lặp lại phép diff trên các ảnh đã nạp: bố trí các section được cấp phát, áp dụng `S + A - P` cho mọi trường tương đối PC và `S + A` cho mọi trường tuyệt đối, và so sánh khác biệt lần nữa. Một hàm khớp trên các byte chính xác trong các tệp đối tượng và chỉ trên các byte được che trong các ảnh đã di chuyển tương đối với dữ liệu của nó.
+7. Tính một độ tương tự cho mọi cặp là `1 - levenshtein / max(len)` trên các byte thô và nêu những byte nào được đưa vào nó. Khi so sánh với radiff2, nêu liệu các relocation đã được áp dụng hay không, vì fingerprint thay đổi.
+8. Với hàm cần giải: liệt kê các đường đi trên IR, thêm mỗi điều kiện nhánh vào đường đi, và bỏ một nhánh phân tách mà bộ giải không thể thỏa mãn. Đặt cận mọi bộ đếm vòng lặp ký hiệu hoặc đặt mức trần các khối cho mỗi đường đi, và báo cáo các đường đi mà mức trần đã cắt.
+9. Giải mỗi lá để tìm các đầu vào bạn muốn: một giá trị trả về, một khối được tiếp cận, hoặc một đẳng thức giữa hai bản dựng. Báo cáo cận của phép tìm kiếm và số lượng, giá trị nhỏ nhất, lớn nhất, và một mẫu bên trong nó.
+10. Khi có một bộ giải production, chạy cùng các truy vấn qua angr hoặc z3 và so sánh các cận lớp, tính thỏa mãn, và các mô hình. Đánh giá mọi mô hình bằng bộ đánh giá IR trước khi bạn báo cáo nó.
 
 ## Output
 
-For the diff, report:
+Với phép diff, báo cáo:
 
-- object names, compiler, commands, hashes, and listing files
-- per function: size, instruction count, blocks, edges, relocations, and the five signatures
-- the match list with stage, quality, agreeing signatures, similarity, name agreement, and table equality
-- unmatched functions on each side with the nearest candidate and its similarity
-- the object-view and image-view results side by side, with the section layout and the displacement that changed
-- the tool comparison table: your stage, radiff2 verdict and ratio, Ghidra correlators that matched
+- các tên tệp đối tượng, trình biên dịch, các lệnh, hash, và tệp bản liệt kê
+- với mỗi hàm: kích thước, số lệnh, khối, cạnh, relocation, và năm chữ ký
+- danh sách mục khớp với giai đoạn, chất lượng, các chữ ký thống nhất, độ tương tự, sự thống nhất tên, và sự bằng nhau của bảng
+- các hàm chưa được ghép ở mỗi phía với ứng viên gần nhất và độ tương tự của nó
+- các kết quả cách nhìn tệp đối tượng và cách nhìn ảnh cạnh nhau, với bố cục section và displacement đã thay đổi
+- bảng so sánh công cụ: giai đoạn của bạn, kết luận và tỷ lệ radiff2, các correlator Ghidra đã khớp
 
-For the solving, report:
+Với việc giải, báo cáo:
 
-- the IR with one instruction address per statement and the check that it covers the listing once
-- the path list with trace, condition, return expression, and status (returned or truncated)
-- per leaf: solved input count, minimum, maximum, sample, and the bound used
-- the production solver's answer to the same query and whether the classes agree
-- the loop bound or step cap and how many paths it cut
+- IR với một địa chỉ lệnh cho mỗi câu lệnh và phép kiểm tra rằng nó bao phủ bản liệt kê một lần
+- danh sách đường đi với vết, điều kiện, biểu thức trả về, và trạng thái (đã trả về hoặc bị cắt ngắn)
+- với mỗi lá: số đầu vào đã giải, giá trị nhỏ nhất, lớn nhất, mẫu, và cận đã dùng
+- câu trả lời của bộ giải production cho cùng truy vấn và liệu các lớp có thống nhất hay không
+- cận vòng lặp hoặc mức trần bước và nó đã cắt bao nhiêu đường đi
 
 ## Failure modes
 
-- Trusting a byte hash on a loaded image. Relocated displacements differ when sections move; mask the fields or diff the objects.
-- Trusting a masked hash on a relocatable object. The fields are already zero, so masking changes nothing and the relocation records and the referenced constants carry the difference.
-- Accepting a flow-graph shape match without a second signature. Small diamonds are the shape of many functions.
-- Running structural stages before names on a build with symbols and then not checking the result against the names.
-- Comparing a similarity ratio with a tool's ratio without the same bytes. radiff2 fingerprints the blocks its analysis found, and the count changes when relocations are applied.
-- Reporting a solver model as the input. It is one model; another solver returns another.
-- Running a symbolic loop without a bound or a cap and waiting.
-- Reporting a bounded search result as unsatisfiable. It is unsatisfiable inside the bound only.
-- Claiming agreement with a tool you did not run. Describe closed tools from their documentation and say so.
+- Tin một hash byte trên một ảnh đã nạp. Các displacement đã relocation khác nhau khi các section di chuyển; che các trường hoặc so sánh khác biệt các tệp đối tượng.
+- Tin một hash được che trên một tệp đối tượng có thể relocation. Các trường đã bằng không, nên việc che không thay đổi gì và các bản ghi relocation cùng các hằng số được tham chiếu mang sự khác biệt.
+- Chấp nhận một mục khớp hình dạng đồ thị luồng mà không có một chữ ký thứ hai. Các hình thoi nhỏ là hình dạng của nhiều hàm.
+- Chạy các giai đoạn cấu trúc trước các tên trên một bản dựng có các ký hiệu rồi không kiểm tra kết quả với các tên.
+- So sánh một tỷ lệ tương tự với tỷ lệ của một công cụ mà không có cùng các byte. radiff2 lấy fingerprint các khối mà phân tích của nó tìm thấy, và số lượng thay đổi khi các relocation được áp dụng.
+- Báo cáo một mô hình bộ giải là đầu vào. Nó là một mô hình; một bộ giải khác trả về một mô hình khác.
+- Chạy một vòng lặp ký hiệu không có cận hoặc mức trần và chờ.
+- Báo cáo một kết quả tìm kiếm có giới hạn là không thỏa mãn được. Nó chỉ không thỏa mãn được bên trong cận.
+- Tuyên bố thống nhất với một công cụ bạn không chạy. Mô tả các công cụ đóng từ tài liệu của chúng và nói rõ như vậy.

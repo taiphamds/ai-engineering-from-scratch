@@ -18,7 +18,7 @@
 
 Bạn muốn dự đoán một khối u ác tính hay lành tính khi biết kích thước. Bạn thử hồi quy tuyến tính. Nó xuất ra các số như 0.3 hoặc 1.7 hoặc -0.5. Chúng có nghĩa gì? 1.7 có phải "rất ác tính"? -0.5 có phải "rất lành tính"? Hồi quy tuyến tính xuất ra các số không bị chặn. Phân loại cần các xác suất bị chặn giữa 0 và 1, và một quyết định rõ ràng: có hoặc không.
 
-Hồi quy logistic giải quyết điều này. Nó lấy cùng tổ hợp tuyến tính (wx + b) và truyền qua hàm sigmoid, nén bất kỳ số nào vào khoảng (0, 1). Đầu ra là một xác suất. Bạn đặt một ngưỡng (thường là 0.5) và đưa ra quyết định.
+Hồi quy logistic giải quyết điều này. Nó lấy cùng tổ hợp tuyến tính ($wx + b$) và truyền qua hàm sigmoid, nén bất kỳ số nào vào khoảng (0, 1). Đầu ra là một xác suất. Bạn đặt một ngưỡng (thường là 0.5) và đưa ra quyết định.
 
 Đây là một trong những thuật toán được sử dụng rộng rãi nhất trong thực tế. Bất chấp tên gọi, hồi quy logistic là một thuật toán phân loại, không phải thuật toán hồi quy. Tên đến từ hàm logistic (sigmoid) mà nó sử dụng.
 
@@ -44,22 +44,22 @@ Phân loại cần một hàm:
 
 Hàm sigmoid thực hiện chính xác điều này:
 
-```
-sigmoid(z) = 1 / (1 + e^(-z))
+```math
+\sigma(z) = \frac{1}{1 + e^{-z}}
 ```
 
 Các tính chất:
-- Khi z lớn và dương, sigmoid(z) tiến đến 1
-- Khi z lớn và âm, sigmoid(z) tiến đến 0
-- Khi z = 0, sigmoid(z) = 0.5
+- Khi $z$ lớn và dương, $\sigma(z)$ tiến gần 1
+- Khi $z$ lớn và âm, $\sigma(z)$ tiến gần 0
+- Khi $z = 0$, $\sigma(z) = 0.5$
 - Đầu ra luôn giữa 0 và 1
 - Hàm trơn và khả vi ở mọi nơi
 
-Đạo hàm có một dạng thuận tiện: sigmoid'(z) = sigmoid(z) * (1 - sigmoid(z)). Điều này làm việc tính gradient hiệu quả.
+Đạo hàm có một dạng thuận tiện: $\sigma'(z) = \sigma(z) (1 - \sigma(z))$. Điều này làm việc tính gradient hiệu quả.
 
 ### Logistic Regression = Linear Model + Sigmoid
 
-Mô hình tính z = wx + b (giống hồi quy tuyến tính), rồi áp dụng sigmoid:
+Mô hình tính $z = wx + b$ (giống hồi quy tuyến tính), rồi áp dụng sigmoid:
 
 ```mermaid
 flowchart LR
@@ -70,34 +70,36 @@ flowchart LR
     D -->|No| N[Predict 0]
 ```
 
-Đầu ra p được diễn giải là P(y=1 | x), xác suất đầu vào thuộc lớp 1. Biên quyết định là nơi wx + b = 0, làm sigmoid xuất ra đúng 0.5.
+Đầu ra $p$ được diễn giải là $P(y=1 \mid x)$, xác suất đầu vào thuộc lớp 1. Biên quyết định là nơi $wx + b = 0$, làm sigmoid xuất ra đúng 0.5.
 
 ### Binary Cross-Entropy Loss
 
 Bạn không thể sử dụng MSE cho hồi quy logistic. MSE với một sigmoid tạo ra một bề mặt chi phí không lồi có nhiều cực tiểu cục bộ. Thay vào đó, sử dụng cross-entropy nhị phân (mất mát log):
 
-```
-Loss = -(1/n) * sum(y * log(p) + (1-y) * log(1-p))
+```math
+\text{Loss} = -\frac{1}{n} \sum \left( y \log(p) + (1-y) \log(1-p) \right)
 ```
 
 Tại sao điều này hoạt động:
-- Khi y=1 và p gần 1: log(1) = 0, nên mất mát gần 0 (đúng, chi phí thấp)
-- Khi y=1 và p gần 0: log(0) tiến đến âm vô cực, nên mất mát rất lớn (sai, chi phí cao)
-- Khi y=0 và p gần 0: log(1) = 0, nên mất mát gần 0 (đúng, chi phí thấp)
-- Khi y=0 và p gần 1: log(0) tiến đến âm vô cực, nên mất mát rất lớn (sai, chi phí cao)
+- Khi $y=1$ và $p$ gần 1: $\log(1) = 0$, nên mất mát gần 0 (đúng, chi phí thấp)
+- Khi $y=1$ và $p$ gần 0: $\log(0)$ tiến đến âm vô cực, nên mất mát rất lớn (sai, chi phí cao)
+- Khi $y=0$ và $p$ gần 0: $\log(1) = 0$, nên mất mát gần 0 (đúng, chi phí thấp)
+- Khi $y=0$ và $p$ gần 1: $\log(0)$ tiến đến âm vô cực, nên mất mát rất lớn (sai, chi phí cao)
 
-Hàm mất mát này lồi với hồi quy logistic, bảo đảm một cực tiểu toàn cục duy nhất.
+Hàm loss này là lồi đối với hồi quy logistic, vì vậy mọi cực tiểu cục bộ đều là cực tiểu toàn cục và gradient descent không thể mắc kẹt ở một cực tiểu xấu. Trên dữ liệu có thể phân tách hoàn hảo, loss tiếp tục giảm khi các trọng số tăng, vì vậy không tồn tại cực tiểu hữu hạn; L2 regularization khắc phục điều đó và làm cực tiểu trở nên duy nhất.
 
 ### Gradient Descent for Logistic Regression
 
 Gradient cho cross-entropy nhị phân với sigmoid có dạng gọn:
 
-```
-dL/dw = (1/n) * sum((p - y) * x)
-dL/db = (1/n) * sum(p - y)
+```math
+\begin{aligned}
+\frac{\partial L}{\partial w} &= \frac{1}{n} \sum (p - y) \, x \\
+\frac{\partial L}{\partial b} &= \frac{1}{n} \sum (p - y)
+\end{aligned}
 ```
 
-Chúng trông giống hệt gradient hồi quy tuyến tính. Khác biệt là p = sigmoid(wx + b) thay vì p = wx + b. Sigmoid đưa vào tính phi tuyến, nhưng quy tắc cập nhật gradient giữ nguyên.
+Các biểu thức này trông giống hệt các gradient của hồi quy tuyến tính. Khác biệt là $p = \sigma(wx + b)$ thay vì $p = wx + b$. Sigmoid đưa vào tính phi tuyến, nhưng quy tắc cập nhật gradient giữ nguyên.
 
 ```mermaid
 flowchart TD
@@ -114,29 +116,29 @@ flowchart TD
 
 Với một đầu vào 2D (hai đặc trưng), biên quyết định là đường nơi:
 
-```
-w1*x1 + w2*x2 + b = 0
+```math
+w_1 x_1 + w_2 x_2 + b = 0
 ```
 
 Các điểm ở một phía được phân loại là 1, các điểm phía kia là 0. Hồi quy logistic luôn tạo ra một biên quyết định tuyến tính. Nếu cần một biên cong, bạn hoặc thêm các đặc trưng đa thức hoặc sử dụng một mô hình phi tuyến.
 
 ### Multi-Class Classification with Softmax
 
-Hồi quy logistic nhị phân xử lý hai lớp. Với k lớp, sử dụng hàm softmax:
+Hồi quy logistic nhị phân xử lý hai lớp. Với $k$ lớp, sử dụng hàm softmax:
 
-```
-softmax(z_i) = e^(z_i) / sum(e^(z_j) for all j)
+```math
+\text{softmax}(z_i) = \frac{e^{z_i}}{\sum_j e^{z_j}}
 ```
 
-Mỗi lớp có vector trọng số riêng. Mô hình tính một điểm z_i cho mỗi lớp, rồi softmax chuyển các điểm thành xác suất có tổng bằng 1. Lớp dự đoán là lớp có xác suất cao nhất.
+Mỗi lớp có vector trọng số riêng. Mô hình tính một điểm $z_i$ cho mỗi lớp, rồi softmax chuyển các điểm thành xác suất có tổng bằng 1. Lớp dự đoán là lớp có xác suất cao nhất.
 
 Hàm mất mát trở thành cross-entropy categorical:
 
-```
-Loss = -(1/n) * sum(sum(y_k * log(p_k)))
+```math
+\text{Loss} = -\frac{1}{n} \sum \sum_k y_k \log(p_k)
 ```
 
-trong đó y_k là 1 cho lớp thực và 0 cho tất cả các lớp khác (mã hóa one-hot).
+trong đó $y_k$ là 1 cho lớp thực và 0 cho tất cả các lớp khác (mã hóa one-hot).
 
 ### Evaluation Metrics
 
@@ -150,18 +152,18 @@ Chỉ accuracy là không đủ. Với một tập dữ liệu có 95% âm và 5
 | Thực tế Âm | Dương tính Giả (FP) | Âm tính Thật (TN) |
 
 **Precision**: Trong tất cả dự đoán dương, có bao nhiêu thực sự dương?
-```
-Precision = TP / (TP + FP)
+```math
+\text{Precision} = \frac{TP}{TP + FP}
 ```
 
 **Recall** (Độ nhạy): Trong tất cả trường hợp thực sự dương, chúng ta đã phát hiện bao nhiêu?
-```
-Recall = TP / (TP + FN)
+```math
+\text{Recall} = \frac{TP}{TP + FN}
 ```
 
 **Điểm F1**: Trung bình điều hòa của precision và recall. Cân bằng cả hai chỉ số.
-```
-F1 = 2 * (Precision * Recall) / (Precision + Recall)
+```math
+F_1 = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}
 ```
 
 Khi nào ưu tiên:
@@ -504,7 +506,7 @@ Bài học này tạo ra:
 
 ## Exercises
 
-1. Tạo một tập dữ liệu KHÔNG phân tách tuyến tính được (ví dụ, hai đường tròn đồng tâm). Huấn luyện hồi quy logistic và quan sát sự thất bại. Sau đó thêm các đặc trưng đa thức (x1^2, x2^2, x1*x2) và huấn luyện lại. Chỉ ra rằng độ chính xác cải thiện.
+1. Tạo một tập dữ liệu KHÔNG phân tách tuyến tính được (ví dụ, hai đường tròn đồng tâm). Huấn luyện hồi quy logistic và quan sát sự thất bại. Sau đó thêm các đặc trưng đa thức ($x_1^2, x_2^2, x_1 x_2$) và huấn luyện lại. Chỉ ra rằng độ chính xác cải thiện.
 2. Triển khai một ma trận nhầm lẫn đa lớp cho mô hình softmax 3 lớp. Tính precision và recall theo từng lớp. Lớp nào khó phân loại nhất?
 3. Xây dựng một đường cong ROC từ đầu. Với 100 giá trị ngưỡng từ 0 đến 1, tính tỉ lệ dương tính thật và tỉ lệ dương tính giả. Tính AUC (diện tích dưới đường cong) bằng quy tắc hình thang.
 
@@ -513,14 +515,14 @@ Bài học này tạo ra:
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
 | Logistic regression (Hồi quy logistic) | "Hồi quy cho phân loại" | Một mô hình tuyến tính theo sau bởi một hàm sigmoid xuất ra các xác suất lớp |
-| Sigmoid function (Hàm sigmoid) | "Đường cong chữ S" | Hàm 1/(1+e^(-z)) ánh xạ bất kỳ số thực nào vào khoảng (0, 1) |
-| Binary cross-entropy (Cross-entropy nhị phân) | "Mất mát log" | Hàm mất mát -[y*log(p) + (1-y)*log(1-p)] phạt nặng các dự đoán sai tự tin |
+| Sigmoid function (Hàm sigmoid) | "Đường cong chữ S" | Hàm $1/(1+e^{-z})$ ánh xạ bất kỳ số thực nào vào khoảng (0, 1) |
+| Binary cross-entropy (Cross-entropy nhị phân) | "Mất mát log" | Hàm mất mát $-[y \log(p) + (1-y) \log(1-p)]$ phạt nặng các dự đoán sai tự tin |
 | Decision boundary (Biên quyết định) | "Đường phân chia" | Bề mặt nơi xác suất đầu ra của mô hình bằng 0.5, phân tách các lớp dự đoán |
 | Softmax | "Sigmoid đa lớp" | Một hàm chuyển một vector điểm số thành các xác suất có tổng bằng 1 |
-| Precision | "Bao nhiêu mục được chọn là liên quan" | TP / (TP + FP), tỉ lệ dự đoán dương thực sự là dương |
-| Recall | "Bao nhiêu mục liên quan được chọn" | TP / (TP + FN), tỉ lệ trường hợp thực sự dương mà mô hình nhận diện đúng |
-| F1 score (Điểm F1) | "Độ chính xác cân bằng" | Trung bình điều hòa của precision và recall: 2*P*R / (P+R) |
+| Precision | "Bao nhiêu mục được chọn là liên quan" | $TP / (TP + FP)$, tỉ lệ dự đoán dương thực sự là dương |
+| Recall | "Bao nhiêu mục liên quan được chọn" | $TP / (TP + FN)$, tỉ lệ trường hợp thực sự dương mà mô hình nhận diện đúng |
+| F1 score (Điểm F1) | "Độ chính xác cân bằng" | Trung bình điều hòa của precision và recall: $2PR / (P+R)$ |
 | Confusion matrix (Ma trận nhầm lẫn) | "Phân tích sai số" | Một bảng thể hiện số đếm TP, TN, FP, FN cho mỗi cặp lớp |
 | Threshold (Ngưỡng) | "Điểm cắt" | Giá trị xác suất mà trên đó mô hình dự đoán lớp 1 (mặc định 0.5, có thể điều chỉnh) |
-| One-hot encoding (Mã hóa one-hot) | "Các cột nhị phân cho các loại" | Biểu diễn lớp k thành một vector các số không với một số 1 tại vị trí k |
-| Categorical cross-entropy (Cross-entropy categorical) | "Mất mát log đa lớp" | Mở rộng của cross-entropy nhị phân sang k lớp bằng các nhãn được mã hóa one-hot |
+| One-hot encoding (Mã hóa one-hot) | "Các cột nhị phân cho các loại" | Biểu diễn lớp $k$ thành một vector các số không với một số 1 tại vị trí $k$ |
+| Categorical cross-entropy (Cross-entropy categorical) | "Mất mát log đa lớp" | Mở rộng của cross-entropy nhị phân sang $k$ lớp bằng các nhãn được mã hóa one-hot |

@@ -43,7 +43,7 @@ Năm chiều, mỗi chiều được chấm từ 0 đến 2.
 | Chất lượng xác minh | Lệnh nghiệm thu có thực sự chứng minh mục tiêu, hay nó chứng minh một phiên bản yếu hơn? |
 | Sự sẵn sàng bàn giao | Phiên tiếp theo có thể tiếp nối sạch sẽ từ trạng thái hiện tại không? |
 
-Tổng trên 10. Một lần chạy dưới 7 là một thất bại mềm; một lần chạy dưới 5 là một thất bại cứng.
+Tổng trên 10. Một lần chạy dưới 7 là thất bại mềm; một lần chạy dưới 5, hoặc bất kỳ chiều nào ở mức 0, là thất bại cứng.
 
 ### The reviewer is a separate role, not a separate model
 

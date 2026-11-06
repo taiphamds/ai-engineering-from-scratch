@@ -32,8 +32,8 @@ SFT mang lại cho bạn điều gì: mô hình giờ trả lời câu hỏi tha
 
 Với mỗi prompt, lấy mẫu K phần hoàn thành từ mô hình SFT. Một người gắn nhãn xếp hạng chúng. Huấn luyện một mô hình phần thưởng chấm điểm bất kỳ cặp prompt-phản hồi nào sao cho, với các cặp mà `y_w` được ưa thích hơn `y_l`:
 
-```
-L_RM = -log sigmoid(r(x, y_w) - r(x, y_l))
+```math
+L_{\text{RM}} = -\log \sigma\big(r(x, y_w) - r(x, y_l)\big)
 ```
 
 Đây là hàm mất mát ưu tiên theo cặp Bradley-Terry. RM thường được khởi tạo từ mô hình SFT với đầu LM được thay bằng đầu vô hướng.
@@ -44,8 +44,8 @@ Mô hình phần thưởng nhỏ: 6B đã đủ cho InstructGPT 175B. Chúng cũ
 
 Xác định mục tiêu:
 
-```
-J(pi) = E_{x~D, y~pi(.|x)} [ r(x, y) ] - beta * KL(pi(.|x) || pi_SFT(.|x))
+```math
+J(\pi) = \mathbb{E}_{x \sim D,\, y \sim \pi(\cdot \mid x)} \big[ r(x, y) \big] - \beta \, \mathrm{KL}\big(\pi(\cdot \mid x) \,\|\, \pi_{\text{SFT}}(\cdot \mid x)\big)
 ```
 
 Tối đa hóa bằng PPO. Số hạng KL giữ `pi` không trôi xa chính sách SFT. Không có nó, bộ tối ưu tìm ra ví dụ đối kháng — các chuỗi được RM chấm cao vì RM chưa từng thấy chúng, không phải vì con người thực sự ưa thích chúng.
@@ -56,8 +56,8 @@ Hệ số KL `beta` là siêu tham số RLHF quan trọng nhất. Quá thấp: k
 
 Sau RLHF, mô hình được con người ưa thích hơn nhưng suy giảm trên các phép đo chuẩn tiêu chuẩn (SQuAD, HellaSwag, DROP). Ouyang và cộng sự gọi đây là thuế căn chỉnh và sửa bằng PPO-ptx: trộn gradient tiền huấn luyện vào mục tiêu RL để mô hình không quên cách làm tác vụ hạ nguồn mà nó chưa bao giờ được thưởng.
 
-```
-J_ptx(pi) = J(pi) + gamma * E_{x~D_pretrain} [ log pi(x) ]
+```math
+J_{\text{ptx}}(\pi) = J(\pi) + \gamma \, \mathbb{E}_{x \sim D_{\text{pretrain}}} \big[ \log \pi(x) \big]
 ```
 
 PPO-ptx trở thành tiêu chuẩn. Anthropic, DeepMind và Meta đều dùng một biến thể nào đó.
@@ -84,7 +84,7 @@ al-instruct-pipeline
 Cần quan sát gì:
 
 - Quỹ đạo phần thưởng với `beta = 0.1` so với `beta = 0.0`.
-- KL(pi || pi_SFT) theo các bước huấn luyện.
+- $\mathrm{KL}(\pi \Vert \pi_{\text{SFT}})$ theo các bước huấn luyện.
 - Phân phối hành động cuối so với ưu tiên của người gắn nhãn.
 
 ## Ship It
@@ -109,7 +109,7 @@ Bài học này tạo ra `outputs/skill-instructgpt-explainer.md`. Với mô t�
 |------|-----------------|------------------------|
 | SFT | "tinh chỉnh theo chỉ dẫn" | Giai đoạn 1: tinh chỉnh cross-entropy trên cặp prompt-phản hồi |
 | Reward model (Mô hình phần thưởng) | "RM" | Bộ hồi quy vô hướng trên (prompt, phản hồi) được huấn luyện bằng Bradley-Terry trên nhãn theo cặp |
-| Bradley-Terry | "hàm mất mát ưu tiên theo cặp" | -log sigmoid(r_w - r_l); quy xếp hạng theo cặp về phân loại nhị phân |
+| Bradley-Terry | "hàm mất mát ưu tiên theo cặp" | $-\log \sigma(r_w - r_l)$; quy việc xếp hạng theo cặp về phân loại nhị phân |
 | KL penalty (Hình phạt KL) | "bộ điều chuẩn" | `beta * KL(pi \|\| pi_SFT)` — giữ chính sách RL gần điểm neo SFT |
 | PPO-ptx | "PPO có trộn tiền huấn luyện" | Thêm một phần log-likelihood tiền huấn luyện vào mục tiêu PPO để bù thuế căn chỉnh |
 | Alignment tax (Thuế căn chỉnh) | "suy giảm RLHF" | Sụt giảm sau RLHF trên phép đo chuẩn tiêu chuẩn mà RLHF không nhắm đến |

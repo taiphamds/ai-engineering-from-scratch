@@ -16,7 +16,7 @@
 
 ## The Problem
 
-Decode bị giới hạn bởi bộ nhớ. Trên một H100 chạy Llama 3.3 70B FP8, mỗi token được decode đọc ~140 GB/s trọng số và phát một token. Tính toán GPU gần như nhàn rỗi trong decode — nút thắt là băng thông HBM, không phải thông lượng nhân ma trận.
+Decode bị giới hạn bởi bộ nhớ. Trên một H100 chạy Llama 3.3 70B FP8, mỗi bước decode đọc toàn bộ ~70 GB trọng số từ HBM và phát ra một token cho mỗi chuỗi. Phần tính toán GPU gần như nhàn rỗi trong decode — nút thắt là băng thông HBM, không phải throughput matmul.
 
 Giải mã suy đoán khai thác khoảng cách. Sinh K token ứng viên với một mô hình nháp rẻ, rồi yêu cầu mô hình đích xác minh cả K trong một lượt truyền xuôi. Mỗi token được xác minh thực chất miễn phí (được phân bổ vào một lượt truyền xuôi lô K mà đích dù sao cũng phải làm).
 
@@ -34,7 +34,7 @@ Không có decode suy đoán, chi phí mỗi token là một lượt truyền xu
 
 Các token bị từ chối không biến mất — chúng buộc một lượt truyền xuôi đích thứ hai cho token bị từ chối đầu tiên. Trên một khối lượng công việc nơi alpha giảm tới 0.4, bạn trả chi phí phụ nháp cộng xác minh cộng sinh lại. Ở mức đồng thời cao (chẳng hạn 256 đồng thời), lô decode đã đủ lớn để khoảng cách băng thông bộ nhớ giữa “chỉ đích” và “đích có xác minh” thu hẹp. Dưới alpha 0.55 trên hầu hết phần cứng năm 2026, decode suy đoán âm ròng.
 
-Alpha thay đổi theo khối lượng công việc. Trên trò chuyện tổng quát kiểu ShareGPT, EAGLE-3 huấn luyện trên ShareGPT đạt 0.6-0.8. Trên lưu lượng riêng lĩnh vực (mã, y khoa, pháp lý), đầu nháp huấn luyện trên dữ liệu tổng quát giảm tới 0.4-0.6. Huấn luyện một đầu nháp riêng lĩnh vực phục hồi alpha — đó là một công việc huấn luyện nhẹ, nhanh so với tinh chỉnh đích.
+Alpha thay đổi theo khối lượng công việc. Với trò chuyện tổng quát kiểu ShareGPT, EAGLE-3 được huấn luyện trên ShareGPT đạt 0.6-0.8. Với lưu lượng đặc thù lĩnh vực (mã, y tế, pháp lý), draft head được huấn luyện trên dữ liệu tổng quát giảm xuống 0.4-0.6. Huấn luyện một draft head đặc thù lĩnh vực khôi phục alpha — đó là một tác vụ huấn luyện nhẹ, nhanh so với finetuning mô hình đích. Giai đoạn 7 · 16 và Giai đoạn 10 · 15 trích dẫn các giá trị cao hơn (0.85 trở lên). Đó là các tỷ lệ theo token trên benchmark trò chuyện khớp với dữ liệu huấn luyện của draft. Lập kế hoạch theo các dải trên trang này và đo alpha trên lưu lượng của riêng bạn.
 
 ### EAGLE generations at a glance
 

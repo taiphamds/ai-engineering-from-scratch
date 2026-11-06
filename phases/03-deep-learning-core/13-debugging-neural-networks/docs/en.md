@@ -22,7 +22,7 @@ Mạng nơ-ron không cho bạn sự xa xỉ đó.
 
 Một mạng nơ-ron hỏng chạy đến hoàn tất, in một giá trị mất mát và xuất ra các dự đoán. Mất mát có thể giảm. Các dự đoán có thể trông hợp lý. Nhưng mô hình âm thầm sai -- học các lối tắt, ghi nhớ nhiễu hoặc hội tụ tới một cực tiểu cục bộ vô dụng. Các nhà nghiên cứu Google ước tính 60-70% thời gian gỡ lỗi ML dành cho các lỗi "âm thầm" không tạo ra lỗi nhưng làm giảm chất lượng mô hình.
 
-Khác biệt giữa một mô hình hoạt động và một mô hình hỏng thường là một dòng đặt sai chỗ: thiếu `zero_grad()`, một chiều bị chuyển vị, một tốc độ học sai lệch 10 lần. tài liệu chuẩn "Recipe for Training Neural Networks" (2019) mở đầu bằng điều này: "Những sai lầm mạng nơ-ron thường gặp nhất là các lỗi không gây sập."
+Khác biệt giữa một mô hình hoạt động và một mô hình bị hỏng thường là một dòng đặt sai vị trí: một `zero_grad()` bị thiếu, một chiều bị chuyển vị, một tốc độ học sai lệch 10 lần. Bài "Recipe for Training Neural Networks" chuẩn (2019) mở đầu bằng điều này: "Những lỗi mạng nơ-ron phổ biến nhất là các lỗi không làm chương trình sập."
 
 Bài học này dạy bạn tìm những lỗi đó.
 
@@ -90,14 +90,14 @@ So sánh các gradient giải tích của bạn (từ backprop) với các gradi
 
 Gradient số cho tham số `w`:
 
-```
-grad_numerical = (loss(w + eps) - loss(w - eps)) / (2 * eps)
+```math
+\text{grad\_numerical} = \frac{\text{loss}(w + \text{eps}) - \text{loss}(w - \text{eps})}{2 \cdot \text{eps}}
 ```
 
 Thước đo mức khớp (chênh lệch tương đối):
 
-```
-rel_diff = |grad_analytical - grad_numerical| / max(|grad_analytical|, |grad_numerical|, 1e-8)
+```math
+\text{rel\_diff} = \frac{\lvert \text{grad\_analytical} - \text{grad\_numerical} \rvert}{\max(\lvert \text{grad\_analytical} \rvert, \lvert \text{grad\_numerical} \rvert, 10^{-8})}
 ```
 
 Nếu `rel_diff < 1e-5`: đúng. Nếu `rel_diff > 1e-3`: gần như chắc chắn có lỗi.

@@ -100,20 +100,20 @@ Với hai vector embedding, ba cách đo chúng tương tự đến mức nào:
 
 **Cosine similarity**: cosin của góc giữa hai vector. Từ -1 (đối nhau) đến 1 (cùng hướng). Bỏ qua độ lớn -- một câu 10 từ và một tài liệu 500 từ có thể đạt 1.0 nếu cùng hướng. Đây là mặc định cho 90% trường hợp sử dụng.
 
-```
-cosine_sim(a, b) = dot(a, b) / (||a|| * ||b||)
+```math
+\mathop{\mathrm{cosine\_sim}}(a, b) = \frac{\mathop{\mathrm{dot}}(a, b)}{\lVert a \rVert \cdot \lVert b \rVert}
 ```
 
 **Tích vô hướng**: tích trong thô của hai vector. Giống cosine similarity khi các vector được chuẩn hóa (độ dài đơn vị). Tính nhanh hơn. Embedding của OpenAI được chuẩn hóa, nên tích vô hướng và cosin cho cùng thứ hạng.
 
-```
-dot(a, b) = sum(a_i * b_i)
+```math
+\mathop{\mathrm{dot}}(a, b) = \sum_i a_i b_i
 ```
 
 **Khoảng cách Euclid (L2)**: khoảng cách đường thẳng trong không gian vector. Nhỏ hơn = tương tự hơn. Nhạy với khác biệt độ lớn. Dùng khi vị trí tuyệt đối trong không gian quan trọng, không chỉ hướng.
 
-```
-L2(a, b) = sqrt(sum((a_i - b_i)^2))
+```math
+\mathop{\mathrm{L2}}(a, b) = \sqrt{\sum_i (a_i - b_i)^2}
 ```
 
 Khi nào dùng loại nào:
@@ -134,7 +134,7 @@ Cơ sở dữ liệu vector giải quyết điều này bằng các thuật toá
 2. Các lớp trên thưa -- kết nối phạm vi dài giữa các cụm xa nhau
 3. Các lớp dưới dày đặc -- kết nối chi tiết giữa các vector gần nhau
 4. Tìm kiếm bắt đầu ở lớp trên, đi xuống tham lam để tinh chỉnh
-5. Trả về kết quả top-k xấp xỉ trong thời gian O(log n) thay vì O(n)
+5. Trả về kết quả top-k xấp xỉ trong thời gian $O(\log n)$ thay vì $O(n)$
 
 HNSW đánh đổi mất mát độ chính xác nhỏ (thường recall 95-99%) lấy mức tăng tốc lớn. Với 10 triệu vector, vét cạn mất vài giây. HNSW mất vài mili giây.
 
@@ -491,7 +491,7 @@ Bài học này tạo ra:
 | Embedding (Biểu diễn nhúng) | "Văn bản thành số" | Một vector dày đặc trong đó khoảng cách gần về hình học mã hóa tương đồng ngữ nghĩa |
 | Word2Vec | "Embedding đời đầu" | Mô hình năm 2013 học vector từ bằng cách dự đoán từ ngữ cảnh; chứng minh số học vector mã hóa ý nghĩa |
 | Cosine similarity (Độ tương đồng cosin) | "Hai vector tương tự đến mức nào" | Cosin của góc giữa các vector; 1 = cùng hướng, 0 = trực giao, -1 = đối nhau |
-| HNSW | "Tìm kiếm vector nhanh" | Đồ thị Hierarchical Navigable Small World -- cấu trúc nhiều lớp cho phép tìm kiếm láng giềng gần nhất xấp xỉ O(log n) |
+| HNSW | "Tìm kiếm vector nhanh" | Đồ thị Hierarchical Navigable Small World -- cấu trúc nhiều lớp cho phép tìm kiếm láng giềng gần nhất xấp xỉ $O(\log n)$ |
 | Bi-encoder (Bộ mã hóa đôi) | "Nhúng riêng, so sánh nhanh" | Mã hóa truy vấn và tài liệu độc lập thành vector; cho phép tính trước và truy xuất nhanh |
 | Cross-encoder (Bộ mã hóa chéo) | "Bộ xếp hạng lại chậm nhưng chính xác" | Xử lý đồng thời cặp truy vấn-tài liệu qua toàn bộ mô hình; độ chính xác cao hơn, không tính trước |
 | Matryoshka embeddings (Embedding Matryoshka) | "Vector có thể cắt ngắn" | Embedding được huấn luyện sao cho N chiều đầu nắm bắt thông tin quan trọng nhất, cho phép lưu trữ kích thước thay đổi |

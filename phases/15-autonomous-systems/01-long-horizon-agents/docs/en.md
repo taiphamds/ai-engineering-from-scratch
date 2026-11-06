@@ -50,7 +50,7 @@ Hệ quả thực tiễn: một con số tầm thời gian là một trần năn
 | Thuộc tính | Chatbot (một lượt) | Agent tầm dài |
 |---|---|---|
 | Độ dài lần chạy | giây | phút đến giờ |
-| Token cho mỗi lần chạy | 10^3 | 10^5 đến 10^7 |
+| Token cho mỗi lần chạy | $10^3$ | $10^5$ đến $10^7$ |
 | Trạng thái | tạm thời | bền vững, được tạo checkpoint |
 | Bề mặt thất bại | năng lực mô hình | năng lực + trôi dạt + vòng lặp + lách |
 | Đơn vị đánh giá | câu trả lời cuối cùng | quỹ đạo |

@@ -38,7 +38,7 @@ flowchart LR
 
 BM25 chấm một cặp truy vấn-tài liệu bằng cách cộng, trên các từ truy vấn, một hệ số nghịch đảo tần suất tài liệu nhân với một hệ số tần suất từ bão hòa bao gồm một hiệu chỉnh chuẩn hóa độ dài. Hai núm. `k1` kiểm soát bão hòa tần suất từ; mặc định 1.5 là khuyến nghị được công bố và bạn không nên đổi nó mà không có một benchmark. `b` kiểm soát độ dài tài liệu quan trọng bao nhiêu; mặc định 0.75 nói các tài liệu dài hơn bị phạt, nhưng không tuyến tính.
 
-Công thức IDF dùng định nghĩa Robertson và Sparck Jones được làm mượt, là `log((N - df + 0.5) / (df + 0.5) + 1)`. Cộng một bên trong log giữ IDF dương khi một từ xuất hiện trong hơn nửa corpus. Điều này quan trọng trong các corpus nhỏ nơi các từ dừng về kỹ thuật là hiếm.
+Công thức IDF sử dụng định nghĩa Robertson và Sparck Jones được làm trơn, là `log((N - df + 0.5) / (df + 0.5) + 1)`. Phần cộng một bên trong log giữ IDF dương khi một thuật ngữ xuất hiện trong hơn nửa corpus. Điều này quan trọng với stopword, xuất hiện trong hầu hết tài liệu, và trong corpus nhỏ nơi một thuật ngữ phổ biến có thể vượt ranh giới nửa corpus.
 
 Trọng số trường cho phép bạn nói với BM25 rằng một kết quả khớp trên tên ký hiệu tính nhiều hơn một kết quả khớp trong thân. Triển khai là một hệ số nhân trên các số đếm từ khi lập chỉ mục, không phải lúc chấm. Điều đó giữ toán giống hệt và tránh một điểm riêng mỗi trường.
 

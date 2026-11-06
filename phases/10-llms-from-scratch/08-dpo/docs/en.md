@@ -32,51 +32,53 @@ DPO rút RLHF về một bước học có giám sát duy nhất. Một mô hìn
 
 RLHF tối ưu mục tiêu này:
 
-```
-maximize: E[R(x, y)] - beta * KL(pi || pi_ref)
-```
-
-trong đó R là mô hình phần thưởng, pi là chính sách, pi_ref là mô hình tham chiếu và beta là hệ số KL.
-
-Bài báo DPO cho thấy mục tiêu này có một lời giải tối ưu dạng đóng. Với bất kỳ hàm phần thưởng R nào, chính sách tối ưu là:
-
-```
-pi*(y | x) = pi_ref(y | x) * exp(R(x, y) / beta) / Z(x)
+```math
+\text{maximize:} \quad \mathbb{E}[R(x, y)] - \beta \cdot \mathrm{KL}(\pi \,\|\, \pi_{\text{ref}})
 ```
 
-trong đó Z(x) là hằng số chuẩn hóa. Sắp xếp lại:
+trong đó $R$ là mô hình phần thưởng, $\pi$ là chính sách, $\pi_{\text{ref}}$ là mô hình tham chiếu và $\beta$ là hệ số KL.
 
+Bài báo DPO cho thấy mục tiêu này có một lời giải tối ưu dạng đóng. Với bất kỳ hàm phần thưởng $R$ nào, chính sách tối ưu là:
+
+```math
+\pi^*(y \mid x) = \pi_{\text{ref}}(y \mid x) \cdot \exp(R(x, y) / \beta) / Z(x)
 ```
-R(x, y) = beta * log(pi*(y | x) / pi_ref(y | x)) + beta * log Z(x)
+
+trong đó $Z(x)$ là hằng số chuẩn hóa. Sắp xếp lại:
+
+```math
+R(x, y) = \beta \log \frac{\pi^*(y \mid x)}{\pi_{\text{ref}}(y \mid x)} + \beta \log Z(x)
 ```
 
 Đây là đột phá. Phần thưởng được biểu diễn hoàn toàn theo xác suất của mô hình chính sách và xác suất mô hình tham chiếu. Bạn không cần huấn luyện mô hình phần thưởng riêng. Phần thưởng là *ngầm* trong tỷ số xác suất.
 
 Thay điều này vào mô hình sở thích Bradley-Terry:
 
-```
-P(y_w > y_l | x) = sigmoid(R(x, y_w) - R(x, y_l))
-                  = sigmoid(beta * (log pi(y_w|x)/pi_ref(y_w|x) - log pi(y_l|x)/pi_ref(y_l|x)))
+```math
+\begin{aligned}
+P(y_w > y_l \mid x) &= \mathop{\mathrm{sigmoid}}(R(x, y_w) - R(x, y_l)) \\
+&= \mathop{\mathrm{sigmoid}}\left(\beta \left(\log \frac{\pi(y_w \mid x)}{\pi_{\text{ref}}(y_w \mid x)} - \log \frac{\pi(y_l \mid x)}{\pi_{\text{ref}}(y_l \mid x)}\right)\right)
+\end{aligned}
 ```
 
-Các hạng tử Z(x) triệt tiêu vì cả hai phản hồi có điều kiện theo cùng prompt x. Phần còn lại chỉ là hàm của log xác suất mô hình chính sách và log xác suất mô hình tham chiếu trên phản hồi được ưa thích và bị loại.
+Các hạng tử $Z(x)$ triệt tiêu vì cả hai phản hồi có điều kiện theo cùng prompt $x$. Phần còn lại chỉ là hàm của log xác suất mô hình chính sách và log xác suất mô hình tham chiếu trên phản hồi được ưa thích và bị loại.
 
 ### The DPO Loss
 
-```
-L_DPO = -log(sigmoid(beta * (log pi(y_w|x)/pi_ref(y_w|x) - log pi(y_l|x)/pi_ref(y_l|x))))
+```math
+L_{\text{DPO}} = -\log \mathop{\mathrm{sigmoid}}\left(\beta \left(\log \frac{\pi(y_w \mid x)}{\pi_{\text{ref}}(y_w \mid x)} - \log \frac{\pi(y_l \mid x)}{\pi_{\text{ref}}(y_l \mid x)}\right)\right)
 ```
 
 Hãy phân tích từng phần:
 
-- **y_w** = phản hồi được ưa thích (thắng)
-- **y_l** = phản hồi bị loại (thua)
-- **x** = prompt
-- **pi** = mô hình hiện tại (đang huấn luyện)
-- **pi_ref** = mô hình tham chiếu (checkpoint SFT đóng băng)
-- **beta** = tham số temperature kiểm soát lệch khỏi tham chiếu (thường 0.1 đến 0.5)
+- **$y_w$** = phản hồi được ưa thích (thắng)
+- **$y_l$** = phản hồi bị loại (thua)
+- **$x$** = prompt
+- **$\pi$** = mô hình hiện tại (đang huấn luyện)
+- **$\pi_{\text{ref}}$** = mô hình tham chiếu (checkpoint SFT đóng băng)
+- **$\beta$** = tham số temperature kiểm soát lệch khỏi tham chiếu (thường 0.1 đến 0.5)
 
-Tỷ số `log pi(y|x) / pi_ref(y|x)` là tỷ số log xác suất. Khi tỷ số dương, mô hình hiện tại gán xác suất cao hơn cho phản hồi y so với tham chiếu. Khi âm, mô hình hiện tại gán xác suất thấp hơn.
+Tỷ số `log pi(y|x) / pi_ref(y|x)` là tỷ số log xác suất. Khi tỷ số dương, mô hình hiện tại gán xác suất cao hơn cho phản hồi $y$ so với tham chiếu. Khi âm, mô hình hiện tại gán xác suất thấp hơn.
 
 Mất mát DPO đẩy mô hình tăng tỷ số log xác suất cho phản hồi được ưa thích và giảm cho phản hồi bị loại. Tham số beta kiểm soát mức mô hình có thể lệch khỏi tham chiếu -- beta nhỏ nghĩa là cho phép lệch lớn, beta lớn giữ mô hình gần tham chiếu.
 
@@ -641,7 +643,7 @@ Bài học này tạo ra `outputs/prompt-alignment-method-selector.md` -- một 
 | DPO | "RLHF không RL" | Tối ưu hóa sở thích trực tiếp: thuật toán học có giám sát tối ưu mô hình ngôn ngữ trực tiếp trên cặp sở thích, bỏ qua mô hình phần thưởng và PPO |
 | Implicit reward (Phần thưởng ngầm) | "Phần thưởng trong mô hình" | Hàm phần thưởng được xác định bởi tỷ số log xác suất giữa mô hình chính sách và tham chiếu -- không cần mô hình phần thưởng riêng |
 | Beta (DPO) | "Temperature" | Kiểm soát mức chính sách có thể lệch khỏi mô hình tham chiếu -- beta nhỏ cho lệch lớn, beta lớn giữ mô hình gần |
-| Log-probability ratio (Tỷ số log xác suất) | "Mô hình thay đổi bao nhiêu" | log pi(y\|x) - log pi_ref(y\|x) -- dương nghĩa là mô hình hiện tại gán xác suất cao hơn tham chiếu |
+| Log-probability ratio (Tỷ số log xác suất) | "Mô hình thay đổi bao nhiêu" | $\log \pi(y \mid x) - \log \pi_{\text{ref}}(y \mid x)$ -- dương nghĩa là mô hình hiện tại gán xác suất cao hơn tham chiếu |
 | Reference model (Mô hình tham chiếu) | "Checkpoint đóng băng" | Bản sao mô hình SFT có trọng số không bao giờ đổi -- làm điểm neo để tính tỷ số xác suất |
 | KTO | "DPO không cặp" | Tối ưu hóa Kahneman-Tversky: làm việc với nhãn "tốt" hoặc "xấu" không ghép cặp thay vì đòi cặp sở thích |
 | ORPO | "Căn chỉnh một bước" | Tối ưu hóa sở thích tỷ số odds: kết hợp SFT và căn chỉnh thành một vòng lặp huấn luyện bằng thêm hạng tử sở thích vào mất mát SFT |

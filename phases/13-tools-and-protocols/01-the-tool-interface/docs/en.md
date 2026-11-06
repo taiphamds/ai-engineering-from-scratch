@@ -11,7 +11,7 @@
 
 - Giải thích tại sao LLM chỉ có thể tạo văn bản không thể tự mình thực hiện hành động với thế giới thực.
 - Vẽ vòng lặp gọi công cụ bốn bước (mô tả → quyết định → thực thi → quan sát) và nêu ai phụ trách mỗi bước.
-- Viết mô tả công cụ thành ba phần: tên, đầu vào JSON Schema và hàm thực thi tất định.
+- Viết một định nghĩa công cụ thành bốn phần: tên, mô tả, đầu vào JSON Schema và một hàm thực thi tất định.
 - Phân biệt công cụ thuần và công cụ có tác dụng phụ, nêu tại sao sự phân chia này quan trọng với an toàn.
 
 ## The Problem
@@ -28,7 +28,7 @@ Vòng lặp bốn bước là bất biến bên dưới tất cả những thứ
 
 ### Step one: describe
 
-Host khai báo mỗi công cụ bằng ba trường.
+Host khai báo mỗi công cụ cho mô hình bằng ba trường. Phần thứ tư, bộ thực thi, nằm ở phía host và không bao giờ đến mô hình.
 
 - **Tên.** Định danh ổn định, máy đọc được. `get_weather`, không phải "thứ thời tiết".
 - **Mô tả.** Bản hướng dẫn ngôn ngữ tự nhiên một đoạn. "Dùng khi người dùng hỏi về điều kiện hiện tại của một thành phố cụ thể. Không dùng cho dữ liệu lịch sử."
@@ -112,7 +112,7 @@ tp-tool-loop
 
 Những gì cần xem:
 
-- Sổ đăng ký công cụ giữ ba trường mỗi công cụ: tên, mô tả, lược đồ và tham chiếu bộ thực thi.
+- Registry công cụ giữ bốn trường cho mỗi công cụ: tên, mô tả, schema và một tham chiếu bộ thực thi. Chỉ ba trường đầu đi đến mô hình.
 - Bộ xác thực là tập con JSON Schema tối thiểu (kiểu, required, enum, min/max) chỉ viết bằng stdlib. Giai đoạn 13 · 04 cung cấp bản đầy đủ hơn.
 - Vòng lặp giới hạn số vòng ở năm. Agent sản xuất cần đúng loại bộ ngắt mạch này.
 

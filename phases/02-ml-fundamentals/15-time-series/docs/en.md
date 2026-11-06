@@ -91,8 +91,8 @@ Một chuỗi thời gian dừng nếu các tính chất thống kê (trung bìn
 
 **Cách sửa:** Lấy sai phân. Thay vì mô hình hóa các giá trị thô, mô hình hóa thay đổi giữa các giá trị liên tiếp:
 
-```
-diff[t] = value[t] - value[t-1]
+```math
+\text{diff}[t] = \text{value}[t] - \text{value}[t-1]
 ```
 
 Nếu một lượt lấy sai phân không làm chuỗi dừng, áp dụng lần nữa (sai phân bậc hai). Hầu hết các chuỗi thực tế cần nhiều nhất hai lượt.
@@ -109,7 +109,7 @@ Chuỗi gốc có một xu hướng bậc hai. Lấy sai phân bậc nhất bi�
 
 ### Autocorrelation
 
-Tự tương quan đo mức một giá trị ở thời điểm t tương quan với giá trị tại t-k (k bước trong quá khứ). Hàm tự tương quan (ACF) vẽ tương quan này cho mỗi độ trễ k.
+Tự tương quan đo mức một giá trị ở thời điểm $t$ tương quan với giá trị tại $t-k$ ($k$ bước trong quá khứ). Hàm tự tương quan (ACF) vẽ tương quan này cho mỗi độ trễ $k$.
 
 **ACF cho bạn biết:**
 - Chuỗi nhớ xa đến đâu. Nếu ACF giảm về không sau độ trễ 5, các giá trị hơn 5 bước trước không liên quan.
@@ -142,7 +142,7 @@ Các đặc trưng bổ sung bạn có thể tạo:
 
 **Bao nhiêu độ trễ?** Sử dụng hàm tự tương quan. Nếu ACF đáng kể đến độ trễ 10, sử dụng ít nhất 10 độ trễ. Nếu có tính mùa vụ hằng tuần, đưa vào độ trễ 7 (và có thể 14). Nhiều độ trễ hơn cho mô hình nhiều lịch sử hơn nhưng cũng nhiều đặc trưng cần khớp hơn, tăng nguy cơ khớp quá mức.
 
-**Bẫy căn chỉnh mục tiêu.** Khi tạo các đặc trưng trễ, mục tiêu phải là giá trị tại thời điểm t, và mọi đặc trưng phải sử dụng giá trị tại thời điểm t-1 hoặc trước đó. Nếu vô tình đưa giá trị tại thời điểm t làm một đặc trưng, bạn có một bộ dự đoán hoàn hảo -- và một mô hình hoàn toàn vô ích. Đây là lỗi phổ biến nhất trong kỹ thuật đặc trưng chuỗi thời gian.
+**Bẫy căn chỉnh mục tiêu.** Khi tạo các đặc trưng trễ, mục tiêu phải là giá trị tại thời điểm $t$, và mọi đặc trưng phải sử dụng giá trị tại thời điểm $t-1$ hoặc trước đó. Nếu vô tình đưa giá trị tại thời điểm $t$ làm một đặc trưng, bạn có một bộ dự đoán hoàn hảo -- và một mô hình hoàn toàn vô ích. Đây là lỗi phổ biến nhất trong kỹ thuật đặc trưng chuỗi thời gian.
 
 ### Walk-Forward Validation
 
@@ -178,8 +178,8 @@ flowchart TD
 ```
 
 Xác thực tiến dần:
-1. Huấn luyện trên dữ liệu đến thời điểm t
-2. Dự đoán tại thời điểm t+1 (hoặc t+1 đến t+k cho nhiều bước)
+1. Huấn luyện trên dữ liệu đến thời điểm $t$
+2. Dự đoán tại thời điểm $t+1$ (hoặc $t+1$ đến $t+k$ cho nhiều bước)
 3. Trượt cửa sổ về phía trước
 4. Lặp lại
 
@@ -191,11 +191,11 @@ Mỗi fold kiểm tra chỉ chứa dữ liệu đến sau tất cả dữ liệu
 
 ARIMA là mô hình chuỗi thời gian cổ điển. Nó có ba thành phần:
 
-- **AR (Tự hồi quy):** Dự đoán từ các giá trị quá khứ. AR(p) sử dụng p giá trị gần nhất.
-- **I (Tích hợp):** Lấy sai phân để đạt tính dừng. I(d) áp dụng d lượt sai phân.
-- **MA (Trung bình Trượt):** Dự đoán từ các sai số dự báo quá khứ. MA(q) sử dụng q sai số gần nhất.
+- **AR (Autoregressive):** Dự đoán từ các giá trị quá khứ. AR(p) sử dụng $p$ giá trị gần nhất.
+- **I (Integrated):** Lấy sai phân để đạt tính dừng. I(d) áp dụng $d$ vòng lấy sai phân.
+- **MA (Moving Average):** Dự đoán từ các lỗi dự báo quá khứ. MA(q) sử dụng $q$ lỗi gần nhất.
 
-ARIMA(p, d, q) kết hợp cả ba. Bạn chọn p, d, q dựa trên phân tích ACF/PACF hoặc tìm kiếm tự động (auto-ARIMA).
+ARIMA(p, d, q) kết hợp cả ba. Bạn chọn $p$, $d$, $q$ dựa trên phân tích ACF/PACF hoặc tìm kiếm tự động (auto-ARIMA).
 
 Chúng ta sẽ không triển khai ARIMA từ đầu -- nó đòi hỏi tối ưu hóa số vượt phạm vi bài học. Điểm cốt yếu là hiểu mỗi thành phần làm gì để có thể diễn giải các kết quả ARIMA và biết khi nào dùng nó.
 
@@ -217,7 +217,7 @@ Dự báo một bước dự đoán trước một bước thời gian. Dự bá
 
 **Đệ quy (lặp):** Dự đoán trước một bước, dùng dự đoán làm đầu vào cho bước tiếp theo. Đơn giản nhưng sai số tích lũy -- mỗi dự đoán sử dụng dự đoán trước, nên các lỗi dồn lại.
 
-**Trực tiếp:** Huấn luyện một mô hình riêng cho mỗi chân trời. Model-1 dự đoán t+1, Model-5 dự đoán t+5. Không tích lũy sai số, nhưng mỗi mô hình có ít mẫu huấn luyện hơn và chúng không chia sẻ thông tin.
+**Trực tiếp:** Huấn luyện một mô hình riêng cho mỗi chân trời. Model-1 dự đoán $t+1$, Model-5 dự đoán $t+5$. Không tích lũy sai số, nhưng mỗi mô hình có ít mẫu huấn luyện hơn và chúng không chia sẻ thông tin.
 
 **Đa đầu ra:** Huấn luyện một mô hình xuất ra đồng thời tất cả chân trời. Chia sẻ thông tin giữa các chân trời nhưng đòi hỏi một mô hình hỗ trợ nhiều đầu ra (hoặc một hàm mất mát tùy chỉnh).
 
@@ -228,7 +228,7 @@ Với hầu hết bài toán thực tế, bắt đầu với đệ quy cho các 
 | Sai lầm | Tại sao xảy ra | Cách sửa |
 |---------|---------------|-----------|
 | Chia huấn luyện/kiểm tra ngẫu nhiên | Thói quen từ ML tiêu chuẩn | Sử dụng tiến dần hoặc chia theo thời gian |
-| Sử dụng các đặc trưng tương lai | Vô tình đưa đặc trưng tại thời điểm t vào | Rà soát mọi đặc trưng về căn chỉnh thời gian |
+| Sử dụng các đặc trưng tương lai | Vô tình đưa đặc trưng tại thời điểm $t$ vào | Rà soát mọi đặc trưng về căn chỉnh thời gian |
 | Khớp quá mức tính mùa vụ | Mô hình ghi nhớ các mẫu lịch | Giữ riêng một chu kỳ mùa vụ đầy đủ trong tập kiểm tra |
 | Bỏ qua thay đổi thang đo | Doanh thu tăng gấp đôi nhưng các mẫu giữ nguyên | Mô hình hóa thay đổi phần trăm thay vì tuyệt đối |
 | Quá nhiều đặc trưng trễ | "Nhiều lịch sử hơn tốt hơn" | Sử dụng ACF để xác định các độ trễ liên quan |
@@ -386,7 +386,7 @@ print(f"Mean score: {scores.mean():.4f} +/- {scores.std():.4f}")
 
 Dự báo chuỗi thời gian sử dụng các chỉ số hồi quy, nhưng với ngữ cảnh có xét thời gian:
 
-- **MAE (Sai số Tuyệt đối Trung bình):** Trung bình của |y_true - y_pred|. Dễ diễn giải theo đơn vị gốc. "Trung bình, các dự đoán lệch 3.2 độ."
+- **MAE (Sai số Tuyệt đối Trung bình):** Trung bình của $\lvert y_{\text{true}} - y_{\text{pred}} \rvert$. Dễ diễn giải theo đơn vị gốc. "Trung bình, các dự đoán lệch 3.2 độ."
 - **RMSE (Căn Sai số Bình phương Trung bình):** Căn bậc hai của sai số bình phương trung bình. Phạt các sai số lớn hơn MAE. Sử dụng khi các sai số lớn tệ hơn nhiều sai số nhỏ.
 - **MAPE (Sai số Phần trăm Tuyệt đối Trung bình):** Trung bình của |error / true_value| * 100. Độc lập với thang đo, hữu ích để so sánh các chuỗi khác nhau. Nhưng không xác định khi các giá trị thực bằng không.
 - **So sánh mốc cơ sở ngây thơ:** Luôn so sánh với các mốc cơ sở đơn giản. Mốc cơ sở ngây thơ mùa vụ dự đoán giá trị từ một chu kỳ trước (hôm qua, tuần trước). Nếu mô hình không thể vượt ngây thơ, có gì đó sai.
@@ -417,7 +417,7 @@ Nếu mô hình ML cầu kỳ thua mốc cơ sở ngây thơ mùa vụ, bạn c�
 
 1. **Bắt đầu bằng vẽ đồ thị.** Trước mọi mô hình hóa, vẽ chuỗi thô. Tìm xu hướng, tính mùa vụ, ngoại lệ, điểm gãy cấu trúc (các thay đổi hành vi đột ngột). Một kiểm tra trực quan 30 giây thường cho biết nhiều hơn một giờ phân tích tự động.
 
-2. **Lấy sai phân trước, mô hình hóa sau.** Nếu chuỗi có một xu hướng rõ, lấy sai phân trước khi tạo các đặc trưng trễ. Các mô hình dựa trên cây có thể xử lý xu hướng, nhưng các mô hình tuyến tính không thể, và lấy sai phân không bao giờ gây hại.
+2. **Lấy sai phân trước, lập mô hình sau.** Nếu chuỗi có một xu hướng rõ ràng, lấy sai phân trước khi tạo các đặc trưng trễ. Các mô hình dựa trên cây có thể xử lý xu hướng, nhưng các mô hình tuyến tính không có một số hạng xu hướng tường minh thì không thể. Dừng khi chuỗi đã dừng: mỗi vòng lấy sai phân thêm vào đều bổ sung nhiễu và loại bỏ thông tin về mức.
 
 3. **Giữ riêng ít nhất một chu kỳ mùa vụ đầy đủ.** Nếu có tính mùa vụ hằng tuần, tập kiểm tra cần ít nhất một tuần đầy đủ. Nếu hằng tháng, ít nhất một tháng đầy đủ. Nếu không bạn không thể đánh giá mô hình có nắm bắt mẫu mùa vụ không.
 
@@ -444,10 +444,10 @@ Nếu mô hình ML cầu kỳ thua mốc cơ sở ngây thơ mùa vụ, bạn c�
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
 | Stationarity (Tính dừng) | "Các thống kê không thay đổi theo thời gian" | Một chuỗi có trung bình, phương sai và cấu trúc tự tương quan không đổi theo thời gian |
-| Differencing (Lấy sai phân) | "Trừ các giá trị liên tiếp" | Tính y[t] - y[t-1] để loại xu hướng và đạt tính dừng |
+| Differencing (Lấy sai phân) | "Trừ các giá trị liên tiếp" | Tính $y[t] - y[t-1]$ để loại xu hướng và đạt tính dừng |
 | Autocorrelation (ACF) (Tự tương quan) | "Một chuỗi tương quan với chính nó thế nào" | Tương quan giữa một chuỗi thời gian và một bản sao trễ của nó, như một hàm của độ trễ |
-| Partial autocorrelation (PACF) (Tự tương quan riêng phần) | "Chỉ tương quan trực tiếp" | Tự tương quan tại độ trễ k sau khi loại tác động của mọi độ trễ ngắn hơn |
-| Lag features (Đặc trưng trễ) | "Các giá trị quá khứ làm đầu vào" | Sử dụng y[t-1], y[t-2], ..., y[t-k] làm các đặc trưng để dự đoán y[t] |
+| Partial autocorrelation (PACF) (Tự tương quan riêng phần) | "Chỉ tương quan trực tiếp" | Tự tương quan tại độ trễ $k$ sau khi loại tác động của mọi độ trễ ngắn hơn |
+| Lag features (Đặc trưng trễ) | "Các giá trị quá khứ làm đầu vào" | Sử dụng $y[t-1], y[t-2], \ldots, y[t-k]$ làm các đặc trưng để dự đoán $y[t]$ |
 | Walk-forward validation (Xác thực tiến dần) | "Xác thực chéo tôn trọng thời gian" | Đánh giá mà dữ liệu huấn luyện luôn đứng trước dữ liệu kiểm tra theo thời gian |
 | ARIMA | "Mô hình chuỗi thời gian cổ điển" | Tự hồi quy Tích hợp Trung bình Trượt: kết hợp các giá trị quá khứ (AR), sai phân (I) và sai số quá khứ (MA) |
 | Seasonality (Tính mùa vụ) | "Các mẫu lịch lặp lại" | Các chu kỳ đều đặn, có thể dự đoán trong một chuỗi thời gian gắn với các kỳ lịch (hằng ngày, hằng tuần, hằng năm) |

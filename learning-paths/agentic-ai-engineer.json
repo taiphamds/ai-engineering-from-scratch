@@ -38,6 +38,7 @@
       "Các trace runtime với bằng chứng về dừng, thử lại và chuyển lên cấp xử lý cao hơn"
     ]
   },
+  "projects": ["tiny-coding-agent", "skill-router", "agent-trace-debugger", "memory-server", "tool-call-firewall", "durable-agent-jobs", "browser-agent"],
   "readinessCriteria": [
     "Có thể tách biệt khả năng của công cụ với chính sách ra quyết định của agent.",
     "Có thể giải thích điều gì đi vào ngữ cảnh, điều gì được lưu giữ và điều gì hết hạn.",

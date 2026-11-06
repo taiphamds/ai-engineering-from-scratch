@@ -18,7 +18,7 @@
 
 Bài học 08 đã dạy bạn gradient descent, momentum và Adam. Các bộ tối ưu hóa đó đi xuống dốc trên bất kỳ bề mặt nào. Nhưng chúng không kèm bảo đảm. Gradient descent trên một địa hình không lồi có thể rơi vào một cực tiểu cục bộ xấu, kẹt ở một điểm yên ngựa hoặc dao động mãi mãi. Bạn vẫn sử dụng nó vì mạng nơ-ron không lồi và không có lựa chọn thay thế.
 
-Nhưng nhiều bài toán trong học máy là lồi. Hồi quy tuyến tính, hồi quy logistic, SVM, LASSO, hồi quy ridge. Với những bài toán này, có thứ mạnh hơn: tối ưu hóa với các bảo đảm toán học. Một bài toán lồi có đúng một thung lũng. Bất kỳ thuật toán nào đi xuống dốc đều sẽ đạt cực tiểu toàn cục. Không cần khởi động lại. Không có lịch tốc độ học. Không cầu nguyện.
+Nhưng nhiều bài toán trong học máy là lồi. Hồi quy tuyến tính, hồi quy logistic, SVM, LASSO, hồi quy ridge. Đối với các bài toán này, có một điều mạnh hơn: tối ưu hóa với các bảo đảm toán học. Một bài toán lồi không có các thung lũng giả: mọi cực tiểu cục bộ đều là cực tiểu toàn cục. Đối với một hàm lồi trơn có cực tiểu, gradient descent với kích thước bước phù hợp hội tụ đến cực tiểu đó. Không cần khởi động lại. Không có lịch tốc độ học. Không cần cầu nguyện.
 
 Hiểu tính lồi làm ba điều. Thứ nhất, nó cho bạn biết khi nào bài toán dễ (lồi) so với khó (không lồi). Thứ hai, nó cho bạn các công cụ nhanh hơn như phương pháp Newton cho các bài toán lồi. Thứ ba, nó giải thích các khái niệm xuất hiện khắp ML: regularization như một ràng buộc, tính đối ngẫu trong SVM và tại sao học sâu hoạt động dù vi phạm mọi tính chất tốt đẹp mà tính lồi mang lại.
 
@@ -26,7 +26,7 @@ Hiểu tính lồi làm ba điều. Thứ nhất, nó cho bạn biết khi nào 
 
 ### Convex sets
 
-Một tập S lồi nếu với bất kỳ hai điểm nào trong S, đoạn thẳng giữa chúng cũng nằm hoàn toàn trong S.
+Một tập $S$ lồi nếu với bất kỳ hai điểm nào trong $S$, đoạn thẳng giữa chúng cũng nằm hoàn toàn trong $S$.
 
 | Các tập lồi | Không lồi |
 |---|---|
@@ -34,12 +34,12 @@ Một tập S lồi nếu với bất kỳ hai điểm nào trong S, đoạn th�
 | **Tam giác**: cùng tính chất đúng với mọi điểm bên trong | **Hình bánh vòng/vành khăn**: lỗ có nghĩa là một số đoạn thẳng rời khỏi tập |
 | Đoạn thẳng giữa hai điểm bất kỳ nằm trong tập | Đoạn thẳng giữa một số cặp điểm đi ra khỏi tập |
 
-Kiểm tra hình thức: với bất kỳ các điểm x, y trong S và bất kỳ t trong [0, 1], điểm tx + (1-t)y cũng thuộc S.
+Phép kiểm tra hình thức: với mọi điểm $x, y$ trong $S$ và mọi $t \in [0, 1]$, điểm $tx + (1-t)y$ cũng thuộc $S$.
 
 Ví dụ các tập lồi:
-- Một đường thẳng, một mặt phẳng, toàn bộ R^n
+- Một đường thẳng, một mặt phẳng, toàn bộ $\mathbb{R}^n$
 - Một hình cầu (hình tròn, hình cầu, siêu cầu)
-- Một nửa không gian: {x : a^T x <= b}
+- Một nửa không gian: $\lbrace x : a^T x \le b \rbrace$
 - Giao của bất kỳ số lượng tập lồi nào
 
 Ví dụ các tập không lồi:
@@ -49,10 +49,10 @@ Ví dụ các tập không lồi:
 
 ### Convex functions
 
-Một hàm f lồi nếu miền xác định của nó là một tập lồi và với bất kỳ hai điểm x, y trong miền xác định và bất kỳ t trong [0, 1]:
+Một hàm $f$ là lồi nếu miền xác định của nó là một tập lồi và với bất kỳ hai điểm $x, y$ trong miền xác định cùng bất kỳ $t \in [0, 1]$ nào:
 
-```
-f(tx + (1-t)y) <= t*f(x) + (1-t)*f(y)
+```math
+f(tx + (1-t)y) \le t f(x) + (1-t) f(y)
 ```
 
 Về hình học: đoạn thẳng giữa hai điểm bất kỳ trên đồ thị nằm phía trên hoặc trên đồ thị.
@@ -64,26 +64,26 @@ Về hình học: đoạn thẳng giữa hai điểm bất kỳ trên đồ th�
 | **Các cực tiểu cục bộ** | Mọi cực tiểu cục bộ đều là cực tiểu toàn cục | Nhiều cực tiểu cục bộ có thể tồn tại ở các độ cao khác nhau |
 
 Các hàm lồi phổ biến:
-- f(x) = x^2 (parabol)
-- f(x) = |x| (giá trị tuyệt đối)
-- f(x) = e^x (hàm mũ)
-- f(x) = max(0, x) (ReLU, dù tuyến tính từng khúc)
-- f(x) = -log(x) với x > 0 (âm log)
-- Bất kỳ hàm tuyến tính nào f(x) = a^T x + b (vừa lồi vừa lõm)
+- $f(x) = x^2$ (parabol)
+- $f(x) = \lvert x \rvert$ (giá trị tuyệt đối)
+- $f(x) = e^x$ (hàm mũ)
+- $f(x) = \max(0, x)$ (ReLU, dù tuyến tính từng khúc)
+- $f(x) = -\log(x)$ với $x > 0$ (âm log)
+- Bất kỳ hàm tuyến tính nào $f(x) = a^T x + b$ (vừa lồi vừa lõm)
 
 ### Testing for convexity
 
 Ba phép kiểm tra thực tế, từ dễ nhất đến chặt chẽ nhất.
 
-**Kiểm tra 1: Kiểm tra đạo hàm bậc hai (1D).** Nếu f''(x) >= 0 với mọi x, thì f lồi.
+**Kiểm tra 1: Kiểm tra đạo hàm bậc hai (1D).** Nếu $f''(x) \ge 0$ với mọi $x$, thì $f$ lồi.
 
-- f(x) = x^2: f''(x) = 2 >= 0. Lồi.
-- f(x) = x^3: f''(x) = 6x. Âm với x < 0. Không lồi.
-- f(x) = e^x: f''(x) = e^x > 0. Lồi.
+- $f(x) = x^2$: $f''(x) = 2 \ge 0$. Lồi.
+- $f(x) = x^3$: $f''(x) = 6x$. Âm với $x < 0$. Không lồi.
+- $f(x) = e^x$: $f''(x) = e^x > 0$. Lồi.
 
-**Kiểm tra 2: Kiểm tra Hessian (đa biến).** Nếu ma trận Hessian H(x) nửa xác định dương với mọi x, thì f lồi. Hessian là ma trận các đạo hàm riêng bậc hai.
+**Kiểm tra 2: Kiểm tra Hessian (đa biến).** Nếu ma trận Hessian $H(x)$ nửa xác định dương với mọi $x$, thì $f$ lồi. Hessian là ma trận các đạo hàm riêng bậc hai.
 
-**Kiểm tra 3: Kiểm tra định nghĩa.** Kiểm tra trực tiếp bất đẳng thức f(tx + (1-t)y) <= t*f(x) + (1-t)*f(y). Hữu ích cho các hàm khó tính đạo hàm.
+**Kiểm tra 3: Kiểm tra định nghĩa.** Kiểm tra trực tiếp bất đẳng thức $f(tx + (1-t)y) \le t f(x) + (1-t) f(y)$. Hữu ích cho các hàm khó tính đạo hàm.
 
 ### Why convexity matters
 
@@ -91,13 +91,13 @@ Ba phép kiểm tra thực tế, từ dễ nhất đến chặt chẽ nhất.
 
 **Với một hàm lồi, mọi cực tiểu cục bộ đều là một cực tiểu toàn cục.**
 
-Điều này có nghĩa là gradient descent không thể bị mắc kẹt. Bất kỳ đường đi xuống dốc nào cũng dẫn đến cùng câu trả lời. Thuật toán được bảo đảm hội tụ đến nghiệm tối ưu.
+Điều này có nghĩa là gradient descent không thể mắc kẹt ở một cực tiểu cục bộ xấu. Mọi cực tiểu nó có thể đạt đều có cùng loss. Đối với một hàm lồi trơn có cực tiểu, gradient descent với kích thước bước phù hợp được bảo đảm hội tụ đến giá trị tối ưu.
 
 ```mermaid
 graph LR
     subgraph "Convex: ONE answer"
         direction TB
-        C1["Loss surface has a single valley"] --> C2["Gradient descent ALWAYS finds the global minimum"]
+        C1["Loss surface has no false valleys"] --> C2["Gradient descent with a suitable step converges to the global minimum"]
     end
     subgraph "Non-convex: MANY traps"
         direction TB
@@ -129,20 +129,22 @@ Các mô hình tuyến tính có hàm mất mát lồi là lồi. Ngay khi bạn
 
 ### The Hessian matrix
 
-Hessian H của một hàm f: R^n -> R là ma trận n x n các đạo hàm riêng bậc hai.
+Hessian $H$ của một hàm $f: \mathbb{R}^n \to \mathbb{R}$ là ma trận $n \times n$ các đạo hàm riêng bậc hai.
 
+```math
+H_{ij} = \frac{\partial^2 f}{\partial x_i \, \partial x_j}
 ```
-H[i][j] = d^2 f / (dx_i dx_j)
-```
 
-Với f(x, y) = x^2 + 3xy + y^2:
+Với $f(x, y) = x^2 + 3xy + y^2$:
 
-```
-df/dx = 2x + 3y       d^2f/dx^2 = 2      d^2f/dxdy = 3
-df/dy = 3x + 2y       d^2f/dydx = 3      d^2f/dy^2 = 2
-
-H = [ 2  3 ]
-    [ 3  2 ]
+```math
+\begin{gathered}
+\begin{aligned}
+\frac{\partial f}{\partial x} &= 2x + 3y & \frac{\partial^2 f}{\partial x^2} &= 2 & \frac{\partial^2 f}{\partial x \, \partial y} &= 3 \\
+\frac{\partial f}{\partial y} &= 3x + 2y & \frac{\partial^2 f}{\partial y \, \partial x} &= 3 & \frac{\partial^2 f}{\partial y^2} &= 2
+\end{aligned} \\[8pt]
+H = \begin{bmatrix} 2 & 3 \\ 3 & 2 \end{bmatrix}
+\end{gathered}
 ```
 
 Hessian cho bạn biết về độ cong:
@@ -151,18 +153,17 @@ Hessian cho bạn biết về độ cong:
 - Khác dấu: điểm yên ngựa (cong lên theo một số hướng, xuống theo các hướng khác)
 - Giá trị riêng bằng không: phẳng theo hướng đó (suy biến)
 
-Để có tính lồi, Hessian phải nửa xác định dương (mọi giá trị riêng >= 0) ở mọi nơi, không chỉ tại một điểm.
+Để có tính lồi, Hessian phải nửa xác định dương (mọi giá trị riêng $\ge 0$) ở mọi nơi, không chỉ tại một điểm.
 
 ### Newton's method
 
 Gradient descent sử dụng thông tin bậc nhất (gradient). Phương pháp Newton sử dụng thông tin bậc hai (Hessian). Nó khớp một xấp xỉ bậc hai tại điểm hiện tại và nhảy trực tiếp đến cực tiểu của hàm bậc hai đó.
 
-```
-Update rule:
-  x_new = x - H^(-1) * gradient
-
-Compare to gradient descent:
-  x_new = x - lr * gradient
+```math
+\begin{aligned}
+\text{Update rule:} \quad & x_{\text{new}} = x - H^{-1} \cdot \text{gradient} \\
+\text{Compare to gradient descent:} \quad & x_{\text{new}} = x - \text{lr} \cdot \text{gradient}
+\end{aligned}
 ```
 
 Phương pháp Newton thay tốc độ học vô hướng bằng Hessian nghịch đảo. Điều này tự động điều chỉnh kích thước và hướng bước dựa trên độ cong cục bộ.
@@ -190,14 +191,14 @@ graph TD
 - Bất biến theo thang đo (hoạt động bất kể bạn tham số hóa bài toán thế nào)
 
 Nhược điểm:
-- Tính Hessian tốn O(n^2) bộ nhớ và O(n^3) để nghịch đảo
-- Với một mạng nơ-ron có 1 triệu trọng số, đó là 10^12 phần tử và 10^18 phép toán
+- Tính Hessian tốn $O(n^2)$ bộ nhớ và $O(n^3)$ để nghịch đảo
+- Với một mạng nơ-ron có 1 triệu trọng số, đó là $10^{12}$ phần tử và $10^{18}$ phép toán
 - Không thực tế cho học sâu
 
 ### Constrained optimization
 
-Tối ưu hóa không ràng buộc: tối thiểu hóa f(x) trên mọi x.
-Tối ưu hóa có ràng buộc: tối thiểu hóa f(x) với các ràng buộc.
+Tối ưu hóa không ràng buộc: tối thiểu hóa $f(x)$ trên mọi $x$.
+Tối ưu hóa có ràng buộc: tối thiểu hóa $f(x)$ với các ràng buộc.
 
 Các bài toán thực có ràng buộc. Bạn muốn tối thiểu hóa chi phí nhưng ngân sách bị giới hạn. Bạn muốn tối thiểu hóa sai số nhưng độ phức tạp mô hình bị chặn.
 
@@ -216,22 +217,24 @@ graph LR
 
 Phương pháp nhân tử Lagrange chuyển một bài toán có ràng buộc thành một bài toán không ràng buộc.
 
-Bài toán: tối thiểu hóa f(x) với g(x) = 0.
+Bài toán: tối thiểu hóa $f(x)$ với $g(x) = 0$.
 
-Nghiệm: đưa vào một biến mới (nhân tử Lagrange lambda) và giải bài toán không ràng buộc:
+Nghiệm: đưa vào một biến mới (nhân tử Lagrange $\lambda$) và giải bài toán không ràng buộc:
 
-```
-L(x, lambda) = f(x) + lambda * g(x)
-```
-
-Tại nghiệm, gradient của L bằng không:
-
-```
-dL/dx = df/dx + lambda * dg/dx = 0
-dL/dlambda = g(x) = 0
+```math
+L(x, \lambda) = f(x) + \lambda g(x)
 ```
 
-Trực giác hình học: tại cực tiểu có ràng buộc, gradient của f phải song song với gradient của ràng buộc g. Nếu chúng không song song, bạn có thể di chuyển dọc theo bề mặt ràng buộc và giảm f hơn nữa.
+Tại nghiệm, gradient của $L$ bằng không:
+
+```math
+\begin{aligned}
+\frac{\partial L}{\partial x} &= \frac{\partial f}{\partial x} + \lambda \frac{\partial g}{\partial x} = 0 \\
+\frac{\partial L}{\partial \lambda} &= g(x) = 0
+\end{aligned}
+```
+
+Trực giác hình học: tại cực tiểu có ràng buộc, gradient của $f$ phải song song với gradient của ràng buộc $g$. Nếu chúng không song song, bạn có thể di chuyển dọc theo bề mặt ràng buộc và giảm $f$ hơn nữa.
 
 ```mermaid
 graph LR
@@ -240,39 +243,41 @@ graph LR
     S --- C["At the solution, gradient of f is parallel to gradient of g"]
 ```
 
-Ví dụ: tối thiểu hóa f(x,y) = x^2 + y^2 với x + y = 1.
+Ví dụ: tối thiểu hóa $f(x,y) = x^2 + y^2$ với $x + y = 1$.
 
+```math
+\begin{aligned}
+L &= x^2 + y^2 + \lambda(x + y - 1) \\[4pt]
+\frac{\partial L}{\partial x} &= 2x + \lambda = 0 \implies x = -\lambda/2 \\
+\frac{\partial L}{\partial y} &= 2y + \lambda = 0 \implies y = -\lambda/2 \\
+\frac{\partial L}{\partial \lambda} &= x + y - 1 = 0 \\[4pt]
+&\text{From first two: } x = y \\
+&\text{Substituting: } 2x = 1, \text{ so } x = y = 0.5, \ \lambda = -1
+\end{aligned}
 ```
-L = x^2 + y^2 + lambda(x + y - 1)
 
-dL/dx = 2x + lambda = 0  =>  x = -lambda/2
-dL/dy = 2y + lambda = 0  =>  y = -lambda/2
-dL/dlambda = x + y - 1 = 0
-
-From first two: x = y
-Substituting: 2x = 1, so x = y = 0.5, lambda = -1
-```
-
-Điểm trên đường x + y = 1 gần gốc tọa độ nhất là (0.5, 0.5).
+Điểm trên đường $x + y = 1$ gần gốc tọa độ nhất là $(0.5, 0.5)$.
 
 ### KKT conditions
 
 Các điều kiện Karush-Kuhn-Tucker mở rộng nhân tử Lagrange sang các ràng buộc bất đẳng thức.
 
-Bài toán: tối thiểu hóa f(x) với g_i(x) <= 0 cho i = 1, ..., m.
+Bài toán: tối thiểu hóa $f(x)$ với $g_i(x) \le 0$ cho $i = 1, \ldots, m$.
 
 Các điều kiện KKT (cần để tối ưu):
 
-```
-1. Stationarity:    df/dx + sum(lambda_i * dg_i/dx) = 0
-2. Primal feasibility:  g_i(x) <= 0  for all i
-3. Dual feasibility:    lambda_i >= 0  for all i
-4. Complementary slackness:  lambda_i * g_i(x) = 0  for all i
+```math
+\begin{aligned}
+&\text{1. Stationarity:} && \frac{\partial f}{\partial x} + \sum_i \lambda_i \frac{\partial g_i}{\partial x} = 0 \\
+&\text{2. Primal feasibility:} && g_i(x) \le 0 \quad \text{for all } i \\
+&\text{3. Dual feasibility:} && \lambda_i \ge 0 \quad \text{for all } i \\
+&\text{4. Complementary slackness:} && \lambda_i \, g_i(x) = 0 \quad \text{for all } i
+\end{aligned}
 ```
 
-Điều kiện bù trừ là điểm cốt yếu: hoặc ràng buộc hoạt động (g_i = 0, nghiệm nằm trên biên) hoặc nhân tử bằng không (ràng buộc không quan trọng). Một ràng buộc không ảnh hưởng đến nghiệm có lambda = 0.
+Điều kiện bù trừ là điểm cốt yếu: hoặc ràng buộc hoạt động ($g_i = 0$, nghiệm nằm trên biên) hoặc nhân tử bằng không (ràng buộc không quan trọng). Một ràng buộc không ảnh hưởng đến nghiệm có $\lambda = 0$.
 
-Các điều kiện KKT là trung tâm của SVM. Các vector hỗ trợ là các điểm dữ liệu nơi ràng buộc hoạt động (lambda > 0). Mọi điểm dữ liệu khác có lambda = 0 và không ảnh hưởng đến biên quyết định.
+Các điều kiện KKT là trung tâm của SVM. Các vector hỗ trợ là các điểm dữ liệu nơi ràng buộc hoạt động ($\lambda > 0$). Mọi điểm dữ liệu khác có $\lambda = 0$ và không ảnh hưởng đến biên quyết định.
 
 ### Regularization as constrained optimization
 
@@ -280,25 +285,27 @@ L1 và L2 regularization không phải những thủ thuật tùy ý. Chúng là
 
 **L2 regularization (Ridge):**
 
+```math
+\begin{aligned}
+&\text{minimize } \text{Loss}(w) \text{ subject to } \lVert w \rVert^2 \le t \\[4pt]
+&\text{Equivalent unconstrained form:} \\
+&\text{minimize } \text{Loss}(w) + \lambda \lVert w \rVert^2
+\end{aligned}
 ```
-minimize  Loss(w)  subject to  ||w||^2 <= t
 
-Equivalent unconstrained form:
-minimize  Loss(w) + lambda * ||w||^2
-```
-
-Ràng buộc ||w||^2 <= t xác định một hình cầu (hình tròn trong 2D, hình cầu trong 3D). Nghiệm là nơi các đường đồng mức mất mát lần đầu chạm hình cầu này.
+Ràng buộc $\lVert w \rVert^2 \le t$ xác định một hình cầu (hình tròn trong 2D, hình cầu trong 3D). Nghiệm là nơi các đường đồng mức mất mát lần đầu chạm hình cầu này.
 
 **L1 regularization (LASSO):**
 
+```math
+\begin{aligned}
+&\text{minimize } \text{Loss}(w) \text{ subject to } \lVert w \rVert_1 \le t \\[4pt]
+&\text{Equivalent unconstrained form:} \\
+&\text{minimize } \text{Loss}(w) + \lambda \lVert w \rVert_1
+\end{aligned}
 ```
-minimize  Loss(w)  subject to  ||w||_1 <= t
 
-Equivalent unconstrained form:
-minimize  Loss(w) + lambda * ||w||_1
-```
-
-Ràng buộc ||w||_1 <= t xác định một hình thoi (hình vuông được quay trong 2D).
+Ràng buộc $\lVert w \rVert_1 \le t$ xác định một hình thoi (hình vuông được quay trong 2D).
 
 | Tính chất | Ràng buộc L2 (hình tròn) | Ràng buộc L1 (hình thoi) |
 |---|---|---|
@@ -315,11 +322,13 @@ Mỗi bài toán tối ưu hóa có ràng buộc (bài toán gốc) có một b�
 
 Hàm đối ngẫu Lagrange:
 
-```
-Primal: minimize f(x) subject to g(x) <= 0
-Lagrangian: L(x, lambda) = f(x) + lambda * g(x)
-Dual function: d(lambda) = min_x L(x, lambda)
-Dual problem: maximize d(lambda) subject to lambda >= 0
+```math
+\begin{aligned}
+&\text{Primal:} && \text{minimize } f(x) \text{ subject to } g(x) \le 0 \\
+&\text{Lagrangian:} && L(x, \lambda) = f(x) + \lambda g(x) \\
+&\text{Dual function:} && d(\lambda) = \min_x L(x, \lambda) \\
+&\text{Dual problem:} && \text{maximize } d(\lambda) \text{ subject to } \lambda \ge 0
+\end{aligned}
 ```
 
 Tại sao tính đối ngẫu quan trọng:
@@ -346,7 +355,7 @@ Các hàm mất mát mạng nơ-ron cực kỳ không lồi. Theo mọi thước
 
 **Hầu hết các cực tiểu cục bộ đủ tốt.** Trong không gian nhiều chiều, các điểm dừng ngẫu nhiên (nơi gradient bằng không) áp đảo là các điểm yên ngựa, không phải cực tiểu cục bộ. Số ít cực tiểu cục bộ tồn tại có xu hướng có giá trị mất mát gần cực tiểu toàn cục. Mắc kẹt trong một cực tiểu cục bộ tệ là cực kỳ ít khả năng khi không gian tham số có hàng triệu chiều.
 
-**Các điểm yên ngựa, không phải cực tiểu cục bộ, là trở ngại thực sự.** Trong một hàm có n tham số, một điểm yên ngựa có hỗn hợp các hướng độ cong dương và âm. Với một điểm dừng ngẫu nhiên trong không gian nhiều chiều, xác suất tất cả n giá trị riêng dương (cực tiểu cục bộ) xấp xỉ 2^(-n). Gần như mọi điểm dừng đều là điểm yên ngựa. Nhiễu của SGD giúp thoát khỏi chúng.
+**Các điểm yên ngựa, không phải cực tiểu cục bộ, là trở ngại thực sự.** Trong một hàm có $n$ tham số, một điểm yên ngựa có hỗn hợp các hướng độ cong dương và âm. Với một điểm dừng ngẫu nhiên trong không gian nhiều chiều, xác suất tất cả $n$ giá trị riêng dương (cực tiểu cục bộ) xấp xỉ $2^{-n}$. Gần như mọi điểm dừng đều là điểm yên ngựa. Nhiễu của SGD giúp thoát khỏi chúng.
 
 **Thừa tham số làm mượt địa hình.** Các mạng có nhiều tham số hơn ví dụ huấn luyện có bề mặt mất mát mượt hơn, liên thông hơn. Các mạng rộng hơn có ít cực tiểu cục bộ xấu hơn. Điều này trái trực giác nhưng nhất quán về thực nghiệm.
 
@@ -365,21 +374,21 @@ Các hàm mất mát mạng nơ-ron cực kỳ không lồi. Theo mọi thước
 
 Phương pháp Newton thuần không thực tế cho các mô hình lớn. Một số xấp xỉ làm thông tin bậc hai có thể sử dụng được.
 
-**L-BFGS (BFGS bộ nhớ giới hạn):** Xấp xỉ Hessian nghịch đảo bằng m hiệu gradient gần nhất. Đòi hỏi O(mn) bộ nhớ thay vì O(n^2). Hoạt động tốt cho các bài toán có đến ~10,000 tham số. Được sử dụng trong ML cổ điển (hồi quy logistic, CRF) nhưng không trong học sâu.
+**L-BFGS (BFGS bộ nhớ giới hạn):** Xấp xỉ Hessian nghịch đảo bằng $m$ hiệu gradient gần nhất. Đòi hỏi $O(mn)$ bộ nhớ thay vì $O(n^2)$. Hoạt động tốt cho các bài toán có đến ~10,000 tham số. Được sử dụng trong ML cổ điển (hồi quy logistic, CRF) nhưng không trong học sâu.
 
 **Gradient tự nhiên:** Sử dụng ma trận thông tin Fisher (Hessian kỳ vọng của log-hợp lý) thay vì Hessian tiêu chuẩn. Điều này xét đến hình học của các phân phối xác suất. K-FAC (Độ cong Xấp xỉ Phân tích theo Kronecker) xấp xỉ ma trận Fisher thành một tích Kronecker, làm nó thực tế cho các mạng nơ-ron.
 
-**Tối ưu hóa không Hessian:** Sử dụng gradient liên hợp để giải Hx = g mà không bao giờ tạo H. Chỉ đòi hỏi các tích Hessian-vector, có thể được tính trong thời gian O(n) bằng vi phân tự động.
+**Tối ưu hóa không Hessian:** Sử dụng gradient liên hợp để giải $Hx = g$ mà không bao giờ tạo $H$. Chỉ đòi hỏi các tích Hessian-vector, có thể được tính trong thời gian $O(n)$ bằng vi phân tự động.
 
 **Các xấp xỉ đường chéo:** Moment bậc hai của Adam là một xấp xỉ đường chéo của đường chéo Hessian. AdaHessian mở rộng điều này bằng cách sử dụng các phần tử đường chéo Hessian thực thông qua bộ ước lượng Hutchinson.
 
 | Phương pháp | Bộ nhớ | Chi phí mỗi bước | Khi nào sử dụng |
 |--------|--------|--------------|-------------|
-| Gradient descent | O(n) | O(n) | Mốc cơ sở, các mô hình lớn |
-| Phương pháp Newton | O(n^2) | O(n^3) | Các bài toán lồi nhỏ |
-| L-BFGS | O(mn) | O(mn) | Các bài toán lồi trung bình |
-| Adam | O(n) | O(n) | Mặc định học sâu |
-| K-FAC | O(n) | O(n) mỗi lớp | Nghiên cứu, huấn luyện batch lớn |
+| Gradient descent | $O(n)$ | $O(n)$ | Mốc cơ sở, các mô hình lớn |
+| Phương pháp Newton | $O(n^2)$ | $O(n^3)$ | Các bài toán lồi nhỏ |
+| L-BFGS | $O(mn)$ | $O(mn)$ | Các bài toán lồi trung bình |
+| Adam | $O(n)$ | $O(n)$ | Mặc định học sâu |
+| K-FAC | $O(n)$ | $O(n)$ mỗi lớp | Nghiên cứu, huấn luyện batch lớn |
 
 ```figure
 convex-vs-nonconvex
@@ -516,15 +525,27 @@ print(f"Support vectors: {svm.n_support_}")
 
 ## Exercises
 
-1. **Bộ sưu tập tính lồi.** Kiểm tra tính lồi của các hàm này bằng bộ kiểm tra: f(x) = x^4, f(x) = sin(x), f(x,y) = x^2 + y^2, f(x,y) = x*y, f(x) = max(x, 0). Giải thích tại sao mỗi kết quả hợp lý.
+1. **Bộ sưu tập tính lồi.** Kiểm tra tính lồi của các hàm này bằng bộ kiểm tra: $f(x) = x^4$, $f(x) = \sin(x)$, $f(x,y) = x^2 + y^2$, $f(x,y) = xy$, $f(x) = \max(x, 0)$. Giải thích tại sao mỗi kết quả hợp lý.
 
-2. **Cuộc đua Newton với gradient descent.** Chạy cả hai phương pháp trên f(x,y) = 50*x^2 + y^2 từ điểm bắt đầu (10, 10). Mỗi phương pháp cần bao nhiêu bước để đạt mất mát < 1e-10? Điều gì xảy ra với gradient descent khi số điều kiện (tỉ số giá trị riêng Hessian lớn nhất với nhỏ nhất) tăng?
+2. **Cuộc đua Newton với gradient descent.** Chạy cả hai phương pháp trên $f(x,y) = 50x^2 + y^2$ từ điểm bắt đầu $(10, 10)$. Mỗi phương pháp cần bao nhiêu bước để đạt mất mát < 1e-10? Điều gì xảy ra với gradient descent khi số điều kiện (tỉ số giá trị riêng Hessian lớn nhất với nhỏ nhất) tăng?
 
-3. **Hình học nhân tử Lagrange.** Tối thiểu hóa f(x,y) = (x-3)^2 + (y-3)^2 với x + 2y = 4. Xác minh nghiệm bằng cách kiểm tra gradient của f song song với gradient của g tại nghiệm.
+3. **Hình học nhân tử Lagrange.** Tối thiểu hóa $f(x,y) = (x-3)^2 + (y-3)^2$ với $x + 2y = 4$. Xác minh nghiệm bằng cách kiểm tra gradient của $f$ song song với gradient của $g$ tại nghiệm.
 
-4. **Ràng buộc regularization.** Triển khai tối ưu hóa ràng buộc L1: tối thiểu hóa (x-3)^2 + (y-2)^2 với |x| + |y| <= 1. Chỉ ra rằng nghiệm có một tọa độ bằng không (tính thưa từ ràng buộc hình thoi).
+4. **Ràng buộc regularization.** Triển khai tối ưu hóa ràng buộc L1: tối thiểu hóa $(x-3)^2 + (y-2)^2$ với $\lvert x \rvert + \lvert y \rvert \le 1$. Chỉ ra rằng nghiệm có một tọa độ bằng không (tính thưa từ ràng buộc hình thoi).
 
 5. **Phân tích giá trị riêng Hessian.** Tính Hessian của hàm Rosenbrock tại (1,1) và tại (-1,1). Tính các giá trị riêng tại cả hai điểm. Các giá trị riêng cho bạn biết gì về độ cong tại cực tiểu so với xa nó?
+
+### Hints
+
+**Bài tập 1.** Dự đoán mỗi kết quả trước khi chạy `check_convexity`: trong một chiều, xem dấu của $f''(x)$; trong hai chiều, xem các giá trị riêng của Hessian. Đối với $f(x,y) = xy$, Hessian có các giá trị riêng 1 và -1, vì vậy bộ kiểm tra phải báo cáo nó không lồi.
+
+**Bài tập 2.** Gọi `optimize_gd` và `newtons_method` với gradient và Hessian của $f$. Phương pháp Newton giải một hàm bậc hai trong một bước. Đối với gradient descent, tốc độ học phải nhỏ hơn $2/100$ do số hạng $50x^2$, vì vậy hướng $y$ di chuyển chậm. Lặp lại với $100x^2$ và đếm lại số bước.
+
+**Bài tập 3.** Sử dụng `lagrange_solve` với $g(x,y) = x + 2y - 4$. Tại đáp án, kiểm tra rằng $x + 2y = 4$ và $\nabla f = (2(x-3), 2(y-3))$ là một bội của $\nabla g = (1, 2)$.
+
+**Bài tập 4.** Cực tiểu không ràng buộc (3, 2) nằm ngoài hình thoi, vì vậy đáp án nằm trên biên của nó. Sử dụng gradient descent có phép chiếu: đi một bước gradient, rồi chiếu trở lại lên $\lvert x \rvert + \lvert y \rvert \le 1$. Kiểm tra kết quả thỏa mãn ràng buộc với dấu bằng và so sánh nó với `demo_regularization_geometry`.
+
+**Bài tập 5.** Gọi `rosenbrock_hessian` tại mỗi điểm và truyền kết quả cho `hessian_eigenvalues_2d`. Tại (1, 1), cả hai giá trị riêng đều dương và tỷ lệ của chúng rất lớn, vì vậy thung lũng hẹp theo một hướng và phẳng theo hướng còn lại. So sánh tỷ lệ đó với tỷ lệ tại (-1, 1).
 
 ## Key Terms
 
@@ -543,7 +564,7 @@ print(f"Support vectors: {svm.n_support_}")
 | Complementary slackness (Điều kiện bù trừ) | Tại nghiệm, hoặc một ràng buộc hoạt động hoặc nhân tử của nó bằng không. Không bao giờ cả hai khác không |
 | Duality (Tính đối ngẫu) | Mọi bài toán có ràng buộc có một bài toán đối ngẫu đi kèm. Với các bài toán lồi, cả hai có cùng giá trị tối ưu |
 | Strong duality (Đối ngẫu mạnh) | Giá trị tối ưu của bài toán gốc và đối ngẫu bằng nhau. Đúng cho các bài toán lồi thỏa mãn điều kiện Slater |
-| L-BFGS | Phương pháp bậc hai xấp xỉ lưu m hiệu gradient gần nhất thay vì Hessian đầy đủ |
+| L-BFGS | Phương pháp bậc hai xấp xỉ lưu $m$ hiệu gradient gần nhất thay vì Hessian đầy đủ |
 | Saddle point (Điểm yên ngựa) | Một điểm mà gradient bằng không nhưng nó là cực tiểu theo một số hướng và cực đại theo các hướng khác |
 | Overparameterization (Thừa tham số) | Sử dụng nhiều tham số hơn các ví dụ huấn luyện. Làm mượt địa hình mất mát và giảm các cực tiểu cục bộ xấu |
 

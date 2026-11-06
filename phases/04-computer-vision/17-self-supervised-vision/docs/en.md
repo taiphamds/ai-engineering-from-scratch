@@ -177,7 +177,7 @@ print(f"InfoNCE with identical pairs:  {loss_same:.3f}")
 print(f"InfoNCE with random pairs:     {loss_random:.3f}")
 ```
 
-Các cặp giống hệt nên cho mất mát thấp (gần 0 với batch lớn và nhiệt độ lạnh). Các cặp ngẫu nhiên nên cho log(2N-1) = ~log(31) = ~3.4 với batch 16 cặp.
+Các cặp giống hệt nên cho mất mát thấp (gần 0 với batch lớn và nhiệt độ lạnh). Các cặp ngẫu nhiên nên cho $\log(2N-1) \approx \log(31) \approx 3.4$ với batch 16 cặp.
 
 ### Step 4: MAE-style masking
 

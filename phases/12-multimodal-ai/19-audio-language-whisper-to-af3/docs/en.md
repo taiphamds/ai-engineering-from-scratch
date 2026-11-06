@@ -36,7 +36,7 @@ Mọi bộ mã hóa âm thanh đều bắt đầu từ cùng đặc trưng: ph�
 2. Biến đổi Fourier thời gian ngắn với cửa sổ 25ms, bước nhảy 10ms.
 3. Lấy độ lớn của kết quả FFT.
 4. Áp dụng dãy bộ lọc Mel (thường 80 bộ lọc cách đều theo log từ 0-8000 Hz) để biến đổi sang tần số cảm nhận.
-5. Nén log (log(1 + x)) cho dải động.
+5. Nén log $(\log(1 + x))$ cho dải động.
 
 Kết quả: mảng 2D hình dạng (T, 80), trong đó T là số khung thời gian. Với clip 30 giây ở tốc độ khung 100 Hz: (3000, 80).
 
@@ -54,7 +54,7 @@ Whisper được huấn luyện trên dữ liệu chủ yếu là lời nói. N�
 
 BEATs (Chen và cộng sự, 2022) là transformer tự giám sát được huấn luyện trên AudioSet. Nắm bắt âm nhạc và âm thanh môi trường tốt hơn Whisper ở cùng số tham số.
 
-AF-Whisper (bản lai của Audio Flamingo 3): ghép đặc trưng Whisper + BEATs làm đầu vào âm thanh. Whisper mang tín hiệu ngôn ngữ, BEATs mang tín hiệu âm học.
+AF-Whisper (encoder của Audio Flamingo 3): bắt đầu từ encoder Whisper-large-v3 và tiếp tục huấn luyện nó trên lời nói, âm thanh và âm nhạc cùng nhau, để một encoder mang cả tín hiệu ngôn ngữ lẫn âm học. Các hệ thống trước đây như SALMONN đạt cùng độ bao phủ bằng cách nối các đặc trưng Whisper và BEATs.
 
 ### Audio Q-former
 
@@ -70,7 +70,7 @@ Qwen-Audio (Chu và cộng sự, 2023): kiến trúc tương tự, huấn luyệ
 
 LTU — Nghe, Nghĩ, Hiểu (Gong và cộng sự, 2023): dữ liệu suy luận tường minh, tập trung chuỗi suy nghĩ trên các clip âm thanh. Nhỏ hơn nhưng tập trung hơn.
 
-Audio Flamingo 3 (Goel và cộng sự, tháng 7 năm 2025): SOTA mở hiện tại. Backbone LLM 8B (Qwen2 7B), bộ mã hóa Whisper-large ghép BEATs, Q-former 64 truy vấn, huấn luyện trên 1M+ cặp chỉ dẫn âm thanh-văn bản. MMAU 0.72, ngang mức tiên tiến độc quyền trên một số tác vụ con.
+Audio Flamingo 3 (Goel và cộng sự, tháng 7 năm 2025): SOTA mở hiện tại. LLM xương sống 7B (Qwen2.5-7B), một encoder âm thanh AF-Whisper được xây dựng từ Whisper-large-v3, các lớp adaptor nhỏ vào LLM, huấn luyện trên hơn 1M cặp chỉ dẫn âm thanh-văn bản. MMAU 0.72, ngang các mô hình độc quyền tiên tiến trên một số tác vụ con.
 
 AF3 cũng giới thiệu chuỗi suy nghĩ theo yêu cầu cho âm thanh: mô hình có thể tùy chọn phát token suy nghĩ ("để tôi xác định nhạc cụ trước: ...") trước câu trả lời cuối cùng. Độ chính xác trên tác vụ suy luận phức tạp tăng 3-5 điểm khi bật suy nghĩ.
 

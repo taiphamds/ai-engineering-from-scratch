@@ -11,7 +11,7 @@ Với một đặc tả sản phẩm tạo sinh (ảnh hoặc video, độ phân
 
 Tạo ra:
 
-1. Số token. Token trên mỗi ảnh ở mức giảm của tokenizer đã chọn (thường là 8x mỗi chiều cho ảnh). Token trên mỗi video với VQ 3D (thường là 4x4x4 không gian-thời gian).
+1. Số token. Token cho mỗi hình ảnh ở mức giảm của tokenizer đã chọn (thường 8 lần theo mỗi chiều đối với hình ảnh). Token cho mỗi video với VQ 3D (thường 4 khung hình x 8x8 pixel mỗi token).
 2. Độ trễ suy luận. Token / thông lượng (token mỗi giây) cho họ Emu3; số bước khử nhiễu * thời gian mỗi bước cho khuếch tán. Dẫn các khoảng cụ thể của A100 / H100.
 3. Giới hạn chất lượng. PSNR tái tạo của tokenizer (30-32 dB cho lớp IBQ), kỳ vọng FID trên MJHQ-30K, FVD cho video.
 4. Cấu hình CFG. Trọng số hướng dẫn (gamma) được khuyến nghị theo từng tác vụ; thường là 3.0 cho tạo sinh tiêu chuẩn, 5-7 để bám sát prompt mạnh.

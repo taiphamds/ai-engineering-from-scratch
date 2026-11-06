@@ -112,7 +112,7 @@ STRATUS (NeurIPS 2025) báo cáo cải thiện thành công giảm thiểu 1.5x 
 
 ### The failure-mode audit
 
-Một thực hành tốt nhất năm 2026 là kiểm toán chế độ lỗi hằng năm (hoặc theo mỗi bản phát hành lớn):
+Một thực hành tốt nhất năm 2026 là kiểm toán các chế độ lỗi hàng quý (và theo mỗi bản phát hành lớn):
 
 1. **Mẫu dấu vết.** Thu thập ~1000 dấu vết thực thi thực.
 2. **Phân loại.** Với các thất bại của mỗi dấu vết, ánh xạ tới các danh mục MAST + Tư duy nhóm.

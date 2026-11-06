@@ -20,7 +20,7 @@ Một mô hình ngôn ngữ mới xuất hiện mỗi tuần. Tuyên bố tiếp
 
 Không có một harness trong repo bạn so sánh hai mô hình bằng cảm giác. Với một harness bạn so sánh chúng bằng điểm trên một tập tác vụ cố định với một chỉ số cố định, trên một đầu ra JSON bạn có thể diff. Harness là hợp đồng giữa lần chạy hôm qua và lần chạy hôm nay. Không có nó, các lỗi thoái lui được phát hành.
 
-Cái bẫy là quá khớp harness với một mô hình duy nhất. Cách sửa là cùng cái bẫy đảo ngược: harness đủ nhỏ để đọc trong mười lăm phút, các tác vụ đủ nhỏ để cung cấp trong repo, các chỉ số được viết từ đầu để một đồng nghiệp có thể kiểm toán chúng, và adapter là nơi duy nhất mã đặc thù mô hình tồn tại. Đổi adapter, bảng xếp hạng thay đổi; đổi các tác vụ, bảng xếp hạng thay đổi. Không gì khác nên thay đổi.
+Cạm bẫy là overfit harness vào một mô hình duy nhất. Cách sửa là giữ mọi lựa chọn đặc thù mô hình ngoài harness: harness đủ nhỏ để đọc trong mười lăm phút, các tác vụ đủ nhỏ để đưa vào kho mã, các chỉ số được viết từ đầu để một đồng nghiệp có thể kiểm toán và adapter là nơi duy nhất chứa mã đặc thù mô hình. Thay adapter, bảng xếp hạng thay đổi; thay các tác vụ, bảng xếp hạng thay đổi. Không có gì khác nên thay đổi.
 
 ## The Concept
 

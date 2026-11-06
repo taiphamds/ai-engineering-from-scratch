@@ -53,8 +53,8 @@ trong đó `(p - q)+` biểu thị phần dương của hiệu theo từng đi�
 
 Nếu tỷ lệ chấp nhận ở cấp token của mô hình dự thảo là `α`, số token kỳ vọng được tạo trên mỗi forward pass của đích là:
 
-```
-E[tokens] = (1 - α^{K+1}) / (1 - α)        # K = draft length, α in [0, 1]
+```math
+\mathbb{E}[\text{tokens}] = \frac{1 - \alpha^{K+1}}{1 - \alpha} \qquad K = \text{draft length}, \ \alpha \in [0, 1]
 ```
 
 Với `α = 0.8, K = 4`: `(1 - 0.8^5)/(1 - 0.8) = 3.36` token mỗi forward. Một forward của đích tốn khoảng `cost_q * K + cost_p` (K bước dự thảo cộng một lần xác minh của đích). Nếu `cost_p >> cost_q * K`, tỷ lệ tăng tốc là `3.36× / 1 = 3.36×` về thông lượng.
@@ -85,7 +85,7 @@ Các thay đổi của EAGLE-1:
 
 EAGLE-2 (2024) thêm cấu trúc liên kết cây động: cây mở rộng hơn ở nơi bản dự thảo không chắc chắn và giữ hẹp ở nơi nó tự tin. Tăng `α_effective` mà không tăng chi phí xác minh.
 
-EAGLE-3 (Li và cộng sự 2025, "EAGLE-3: Scaling up Inference Acceleration of Large Language Models via Training-Time Test") loại bỏ sự phụ thuộc cố định vào đặc trưng lớp trên cùng và huấn luyện bản dự thảo bằng một loss "mô phỏng lúc kiểm thử" mới — bản dự thảo được huấn luyện trên các đầu ra khớp với phân phối lúc kiểm thử của đích thay vì phân phối huấn luyện teacher-forced. Tỷ lệ chấp nhận tăng từ 0.75 (EAGLE-2) lên 0.82 (EAGLE-3), và số token trung bình mỗi lần xác minh từ 3.0 lên 4.5.
+EAGLE-3 (Li và cộng sự 2025, "EAGLE-3: Scaling up Inference Acceleration of Large Language Models via Training-Time Test") loại bỏ sự phụ thuộc cố định vào đặc trưng lớp trên cùng và huấn luyện mô hình dự thảo bằng một loss "mô phỏng lúc kiểm thử" mới — mô hình dự thảo được huấn luyện trên các đầu ra khớp phân phối lúc kiểm thử của mô hình đích thay vì phân phối huấn luyện teacher-forcing. Tỷ lệ chấp nhận tăng từ 0.75 (EAGLE-2) lên 0.82 (EAGLE-3), và số token trung bình/lần xác minh từ 3.0 lên 4.5. Các số liệu này đến từ một thiết lập tham chiếu. Mức chấp nhận phụ thuộc vào cặp mô hình, cây dự thảo và lưu lượng: Giai đoạn 10 · 15 trích dẫn 0.88 đến 0.92 cho mỗi token đường đi được chấp nhận trên các benchmark trò chuyện, và Giai đoạn 17 · 05 lập kế hoạch với 0.6 đến 0.8 trên trò chuyện tổng quát trong vận hành thực tế.
 
 ### Tree Attention Verification
 
@@ -132,13 +132,13 @@ def speculative_step(p_target, q_draft, K, temperature=1.0):
     """One round of speculative decoding. Returns list of accepted tokens."""
     # 1. Draft K tokens
     draft_tokens = []
-    q_probs = []
+    q_dists = []
     state = draft_state_init()
     for _ in range(K):
         probs = softmax(q_draft(state) / temperature)
         t = np.random.choice(len(probs), p=probs)
         draft_tokens.append(t)
-        q_probs.append(probs[t])
+        q_dists.append(probs)
         state = draft_step(state, t)
 
     # 2. Target computes p at every drafted position + 1 extra
@@ -148,10 +148,10 @@ def speculative_step(p_target, q_draft, K, temperature=1.0):
     accepted = []
     for k, tok in enumerate(draft_tokens):
         r = np.random.uniform()
-        if r < p_probs_all[k][tok] / q_probs[k]:
+        if r < p_probs_all[k][tok] / q_dists[k][tok]:
             accepted.append(tok)
         else:
-            residual = np.maximum(p_probs_all[k] - q_probs[k], 0)
+            residual = np.maximum(p_probs_all[k] - q_dists[k], 0)
             residual /= residual.sum()
             accepted.append(np.random.choice(len(residual), p=residual))
             return accepted
@@ -175,7 +175,7 @@ Bài học này tạo ra `outputs/skill-speculative-tuning.md` — một skill p
 
 1. Triển khai quy tắc loại bỏ chính xác và xác minh nó bằng thực nghiệm. Chạy 10K mẫu qua `speculative_decode` và qua lấy mẫu đích thông thường; tính khoảng cách TV giữa hai phân phối đầu ra. Phải < 0.01.
 
-2. Tính công thức tăng tốc. Với `α` và `K` cố định, vẽ số token kỳ vọng mỗi forward của đích. Tìm K tối ưu cho α ∈ {0.5, 0.7, 0.9}.
+2. Tính công thức tăng tốc. Với `α` và `K` cố định, vẽ số token kỳ vọng mỗi forward của đích. Tìm $K$ tối ưu cho $\alpha \in \lbrace 0.5, 0.7, 0.9 \rbrace$.
 
 3. Huấn luyện một bản dự thảo nhỏ. Lấy đích GPT-2 124M và chưng cất bản dự thảo GPT-2 30M trên 100M token với KL loss. Đo `α` trên văn bản giữ riêng. Kỳ vọng: 0.6-0.7.
 

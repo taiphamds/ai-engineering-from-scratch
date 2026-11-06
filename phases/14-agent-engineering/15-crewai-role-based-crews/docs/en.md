@@ -3,7 +3,7 @@
 > Bốn thành phần nguyên thủy: Agent, Task, Crew, Process. Hai hình dạng cấp cao: Crews (hợp tác tự chủ, dựa trên vai trò) và Flows (hướng sự kiện, mang tính xác định). CrewAI là triển khai tham chiếu năm 2026, và tài liệu của nó nói thẳng: "với bất kỳ ứng dụng sẵn sàng cho sản xuất nào, hãy bắt đầu với một Flow."
 
 **Type:** Learn + Build
-**Languages:** Python (stdlib)
+**Languages:** Python (with numpy)
 **Prerequisites:** Phase 14 · 12 (Workflow Patterns), Phase 14 · 14 (Actor Model)
 **Time:** ~75 minutes
 
@@ -14,8 +14,8 @@
 - Phân biệt Crews (tự chủ dựa trên vai trò) với Flows (hướng sự kiện mang tính xác định), và giải thích khuyến nghị sản xuất của tài liệu.
 - Nối các công cụ bằng decorator `@tool` và lớp con `BaseTool`; suy luận về đầu ra có cấu trúc so với văn bản tự do.
 - Nêu tên bốn loại bộ nhớ CrewAI và khi nào mỗi loại mang lại lợi ích.
-- Triển khai một crew ba agent dùng thư viện chuẩn (nhà nghiên cứu, người viết, biên tập viên) tạo một bản thông tin ngắn.
-- Phát hiện ba chế độ lỗi CrewAI: prompt phình to, chi phí LLM quản lý, các bàn giao mong manh.
+- Triển khai một crew ba agent (nhà nghiên cứu, người viết, biên tập viên) bằng Python thuần túy tạo ra một bản tóm tắt.
+- Nhận diện bốn dạng lỗi CrewAI: phình to prompt, phụ phí manager-LLM, chuyển giao dễ vỡ, Crew làm môi trường vận hành thực tế.
 
 ## The Problem
 
@@ -120,7 +120,7 @@ Bật trên Crew với `memory=True` hoặc cấu hình theo từng loại. Đư
 - Các ngân sách độ trễ dưới một giây. Hierarchical thêm các lượt khứ hồi. Ngay cả Sequential cũng tuần tự hóa các prompt bao gồm các bối cảnh và đầu ra trước.
 - Các vòng lặp một agent. Bỏ qua framework; một vòng lặp agent (Bài 1) cộng một sổ đăng ký công cụ ngắn hơn.
 
-Bài 17 (Các đánh đổi framework agent) trình bày điều này trong một ma trận. Bản ngắn: CrewAI nằm ở góc "hợp tác dựa trên vai trò."
+Bài 28 (Orchestration Patterns) so sánh các cấu trúc liên kết cạnh nhau. Phiên bản ngắn: CrewAI nằm ở góc "cộng tác dựa trên vai trò".
 
 ### Dependency shape
 
@@ -129,7 +129,7 @@ Bài 17 (Các đánh đổi framework agent) trình bày điều này trong mộ
 ### Where this pattern goes wrong
 
 - **Prompt phình to từ các bối cảnh.** Một bối cảnh 2000 từ cho mỗi agent và một crew năm agent đốt ngân sách ngữ cảnh trước lời gọi công cụ đầu tiên. Giữ các bối cảnh dưới 200 từ. Tái sử dụng các cụm từ xuyên các agent; đừng lặp lại phong cách chung năm lần.
-- **Chi phí token LLM quản lý.** Process Hierarchical thêm một lời gọi LLM quản lý trước mỗi lời gọi chuyên gia. Trên một crew năm task, đó là sáu lời gọi LLM thay vì năm, và lời gọi quản lý mang toàn bộ danh sách task cộng các đầu ra trước. Chuyển sang Sequential trừ khi định tuyến phụ thuộc đầu ra.
+- **Phụ phí token Manager-LLM.** Quy trình phân cấp thêm một lệnh gọi LLM quản lý trước mỗi lệnh gọi chuyên gia. Trên một crew năm tác vụ, đó là mười lệnh gọi LLM thay vì năm, và lệnh gọi quản lý mang toàn bộ danh sách tác vụ cùng các đầu ra trước đó. Chuyển sang Sequential trừ khi định tuyến phụ thuộc vào đầu ra.
 - **Các bàn giao mong manh.** `expected_output` của task N là "một dàn ý". Task N+1 đọc nó dưới dạng `context` và cố phân tích ba phần. LLM tạo ra bốn. Agent hạ nguồn ứng biến. Khắc phục với `output_pydantic` trên Task N để Task N+1 đọc một đối tượng có kiểu, không phải văn bản tự do.
 - **Crew làm sản xuất.** Crew tự do được đưa vào sản xuất mà không có một lớp bọc Flow. Độ biến thiên đầu ra cao; phát lại là bất khả thi; người trực không thể diff một lần chạy xấu với một lần tốt. Bọc bằng một Flow.
 
@@ -139,7 +139,7 @@ ae-crew-vs-flow
 
 ## Build It
 
-`code/main.py` triển khai các phiên bản thư viện chuẩn của cả hai hình dạng cộng một crew ba agent.
+`code/main.py` triển khai các phiên bản Python thuần túy của cả hai hình dạng cộng một crew ba agent. Phụ thuộc duy nhất ngoài thư viện chuẩn là numpy, cho độ tương đồng được mô phỏng.
 
 Hình dạng:
 

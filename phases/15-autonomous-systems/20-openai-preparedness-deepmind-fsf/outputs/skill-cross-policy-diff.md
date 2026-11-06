@@ -13,7 +13,7 @@ Tạo ra:
 
 1. **Phân loại OpenAI PF v2.** Được theo dõi hoặc Nghiên cứu. Nếu Được theo dõi, nêu các tác nhân kích hoạt Báo cáo năng lực + biện pháp bảo vệ. Nếu Nghiên cứu, lưu ý ngôn ngữ chính sách là các biện pháp giảm thiểu “tiềm năng”.
 2. **Phân loại Anthropic RSP v3.0.** Ngưỡng nào (ASL-3, AI R&D-4, điều cấm mã hóa cứng)? Biện pháp giảm thiểu nào (lập luận khẳng định, bảo mật + triển khai)? Xác nhận liệu cam kết nằm trong tầng đơn phương của Anthropic hay tầng khuyến nghị cho ngành.
-3. **Phân loại DeepMind FSF v3.** Lĩnh vực nào (An ninh mạng, Sinh học, R&D ML, CBRN)? CCL hoặc Mức năng lực được theo dõi nào? Giám sát căn chỉnh lừa dối có được gọi tới không?
+3. **Phân loại DeepMind FSF v3.** Lĩnh vực nào (CBRN, Cyber, Harmful Manipulation, ML R&D)? CCL hoặc Tracked Capability Level nào? Giám sát deceptive alignment có được kích hoạt không?
 4. **Tóm tắt hội tụ.** Ba chính sách có đồng ý về mức độ nghiêm trọng của năng lực hay có bất đồng đáng kể? Phân loại nào nghiêm ngặt nhất, phân loại nào ít nhất?
 5. **Sự phụ thuộc vào phép đo.** Mọi phân loại phụ thuộc vào phép đo năng lực. Nêu cách năng lực được đo và nhà cung cấp đánh giá nào (METR, Apollo, nội bộ, bên thứ ba) sở hữu phép đo đó.
 

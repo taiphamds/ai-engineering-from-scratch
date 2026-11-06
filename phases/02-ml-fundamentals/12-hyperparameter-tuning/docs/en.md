@@ -16,7 +16,7 @@
 
 ## The Problem
 
-Mô hình gradient boosting có tốc độ học, số cây, độ sâu tối đa, số mẫu tối thiểu mỗi lá, tỉ lệ lấy mẫu con và tỉ lệ lấy mẫu cột. Đó là sáu siêu tham số. Nếu mỗi tham số có 5 giá trị hợp lý, lưới có 5^6 = 15,625 tổ hợp. Huấn luyện mỗi tổ hợp mất 10 giây. Đó là 43 giờ tính toán để thử tất cả.
+Mô hình gradient boosting có tốc độ học, số cây, độ sâu tối đa, số mẫu tối thiểu mỗi lá, tỉ lệ lấy mẫu con và tỉ lệ lấy mẫu cột. Đó là sáu siêu tham số. Nếu mỗi tham số có 5 giá trị hợp lý, lưới có $5^6 = 15{,}625$ tổ hợp. Huấn luyện mỗi tổ hợp mất 10 giây. Đó là 43 giờ tính toán để thử tất cả.
 
 Tìm kiếm lưới là cách tiếp cận rõ ràng và là cách tệ nhất ở quy mô lớn. Tìm kiếm ngẫu nhiên làm tốt hơn với ít tính toán hơn. Tối ưu hóa Bayes làm còn tốt hơn bằng cách học từ các đánh giá trước. Biết nên dùng chiến lược nào và các siêu tham số nào thực sự quan trọng tiết kiệm nhiều ngày lãng phí thời gian GPU.
 
@@ -31,7 +31,7 @@ Các tham số được học trong huấn luyện (trọng số, bias, ngưỡn
 | Tốc độ học | Kích thước bước mỗi cập nhật | 0.001 đến 1.0 |
 | Số cây/epoch | Huấn luyện bao lâu | 10 đến 10,000 |
 | Độ sâu tối đa | Độ phức tạp mô hình | 1 đến 30 |
-| Regularization (lambda) | Ngăn khớp quá mức | 0.0001 đến 100 |
+| Regularization ($\lambda$) | Ngăn khớp quá mức | 0.0001 đến 100 |
 | Kích thước batch | Nhiễu ước lượng gradient | 16 đến 512 |
 | Tỉ lệ dropout | Tỉ lệ nơ-ron bị loại | 0.0 đến 0.5 |
 
@@ -125,7 +125,7 @@ Tốc độ học hầu như luôn là siêu tham số quan trọng nhất. Thay
 | Bộ lập lịch | Công thức | Khi nào sử dụng |
 |-----------|---------|-------------|
 | Giảm theo bước | Nhân với 0.1 mỗi N epoch | Huấn luyện CNN cổ điển |
-| Ủ cosine | lr * 0.5 * (1 + cos(pi * t / T)) | Mặc định hiện đại |
+| Ủ cosine | $\text{lr} \cdot 0.5 \cdot (1 + \cos(\pi t / T))$ | Mặc định hiện đại |
 | Warmup + giảm | Tăng tuyến tính rồi giảm cosine | Transformer |
 | Một chu kỳ | Tăng rồi giảm trong một chu kỳ | Hội tụ nhanh |
 | Giảm khi chững lại | Giảm theo hệ số khi chỉ số đình trệ | Mặc định an toàn |

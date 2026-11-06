@@ -30,22 +30,24 @@ Năm 2026 là thế giới của Chinchilla — với một thay đổi quan tr�
 
 Từ bài báo Chinchilla, loss tuân theo:
 
-```
-L(N, D) = A / N^α + B / D^β + E
+```math
+L(N, D) = \frac{A}{N^\alpha} + \frac{B}{D^\beta} + E
 ```
 
-- `N` = tham số (không phải embedding).
-- `D` = token huấn luyện.
-- `α ≈ 0.34`, `β ≈ 0.28` (gần đối xứng).
-- `E ≈ 1.69`, mức trần loss không thể giảm.
-- `A ≈ 406`, `B ≈ 411`.
+- $N$ = tham số (không phải embedding).
+- $D$ = token huấn luyện.
+- $\alpha \approx 0.34$, $\beta \approx 0.28$ (gần đối xứng).
+- $E \approx 1.69$, mức trần loss không thể giảm.
+- $A \approx 406$, $B \approx 411$.
 
-Hai số hạng đánh đổi với nhau khi bạn mở rộng. Lấy đạo hàm theo `N` ở tính toán cố định (C = 6ND) và giải:
+Hai số hạng đánh đổi với nhau khi bạn mở rộng quy mô. Lấy đạo hàm theo $N$ tại mức tính toán cố định ($C = 6ND$) và giải. Với $\alpha$ và $\beta$ ở trên, các số mũ ra khoảng 0.45 cho $N$ và 0.55 cho $D$, vì vậy tỷ lệ tối ưu chính xác thay đổi chậm theo ngân sách; `code/main.py` tìm nó bằng tìm kiếm lưới. Hai cách tiếp cận khớp đầu tiên của bài báo, đo trực tiếp điểm tối ưu, đặt cả hai số mũ ở khoảng 0.5. Điều đó cho quy tắc thực nghiệm về một tỷ lệ cố định. Đặt $D = 20N$ trong $C = 6ND$ và quy tắc kinh nghiệm trở thành:
 
-```
-N_opt ≈ 0.6 × (C/6)^0.5
-D_opt ≈ 0.6 × (C/6)^0.5
-D_opt / N_opt ≈ 20
+```math
+\begin{aligned}
+N_{\text{opt}} &\approx 0.22 \times (C/6)^{0.5} \\
+D_{\text{opt}} &\approx 4.5 \times (C/6)^{0.5} \\
+D_{\text{opt}} / N_{\text{opt}} &\approx 20
+\end{aligned}
 ```
 
 Tối ưu tính toán: 20 token mỗi tham số.
@@ -90,7 +92,7 @@ scaling-laws
 
 ## Build It
 
-Xem `code/main.py`. Chúng ta triển khai phương trình loss Chinchilla và giải `(N, D)` tối ưu tính toán ở mỗi một trong vài ngân sách tính toán.
+Xem `code/main.py`. Chúng ta triển khai phương trình loss Chinchilla và giải $(N, D)$ tối ưu tính toán ở mỗi một trong vài ngân sách tính toán.
 
 ### Step 1: Chinchilla loss
 
@@ -99,11 +101,11 @@ def chinchilla_loss(N, D, A=406.4, B=410.7, alpha=0.34, beta=0.28, E=1.69):
     return A / N ** alpha + B / D ** beta + E
 ```
 
-Vẽ `L` dưới dạng đường đồng mức trên `(N, D)` ở `C = 6ND` cố định. Tìm giá trị nhỏ nhất.
+Vẽ $L$ dưới dạng đường đồng mức trên $(N, D)$ ở $C = 6ND$ cố định. Tìm giá trị nhỏ nhất.
 
 ### Step 2: compute-optimal frontier
 
-Với các ngân sách tính toán từ `1e17` đến `1e25` FLOP, tìm `(N, D)` giảm thiểu loss với ràng buộc `6ND = C`. Xác minh tỷ lệ `D/N ≈ 20`.
+Với các ngân sách tính toán từ `1e17` đến `1e25` FLOP, tìm $(N, D)$ giảm thiểu loss với ràng buộc $6ND = C$. Xác minh tỷ lệ $D/N \approx 20$.
 
 ### Step 3: over-training cost
 
@@ -133,9 +135,9 @@ Xem `outputs/skill-training-budget-estimator.md`. Skill chọn `(N, D, hours, GP
 
 ## Exercises
 
-1. **Dễ.** Chạy `code/main.py`. In `(N, D)` tối ưu Chinchilla cho các ngân sách tính toán `1e20`, `1e22`, `1e24`. So sánh với bảng mô hình thực.
-2. **Trung bình.** Triển khai đường cong loss-theo-tính-toán Hoffmann. Vẽ loss theo `log10(C)` cho tuyến đầu tối ưu tính toán. Xác định khi nào quy luật dự đoán chúng ta cần `>10^28` FLOP cho mức giảm 0.1 cross-entropy tiếp theo.
-3. **Khó.** Khớp quy luật mở rộng của riêng bạn trên 5 mô hình tí hon (100K đến 10M tham số) được huấn luyện trên cùng tập dữ liệu. Ước lượng `α` và `E`. Các số mũ của bạn khớp những số đã công bố tốt đến đâu?
+1. **Dễ.** Chạy `code/main.py`. In $(N, D)$ tối ưu Chinchilla cho các ngân sách tính toán `1e20`, `1e22`, `1e24`. So sánh với bảng mô hình thực.
+2. **Trung bình.** Triển khai đường cong loss-theo-tính-toán Hoffmann. Vẽ loss theo `log10(C)` cho tuyến đầu tối ưu tính toán. Xác định khi nào quy luật dự đoán chúng ta cần $>10^{28}$ FLOP cho mức giảm 0.1 cross-entropy tiếp theo.
+3. **Khó.** Khớp quy luật mở rộng của riêng bạn trên 5 mô hình tí hon (100K đến 10M tham số) được huấn luyện trên cùng tập dữ liệu. Ước lượng $\alpha$ và $E$. Các số mũ của bạn khớp những số đã công bố tốt đến đâu?
 
 ## Key Terms
 
@@ -146,7 +148,7 @@ Xem `outputs/skill-training-budget-estimator.md`. Skill chọn `(N, D, hours, GP
 | Compute (C) (Tính toán) | "FLOP đã chi" | Xấp xỉ `6 × N × D` cho một transformer tiêu chuẩn. |
 | Chinchilla-optimal (Tối ưu Chinchilla) | "D/N ≈ 20" | Tỷ lệ giảm thiểu loss mỗi FLOP tiền huấn luyện. |
 | Over-training (Huấn luyện quá mức) | "Vượt Chinchilla" | Chi thêm FLOP huấn luyện để tiết kiệm FLOP suy luận; D/N >> 20. |
-| Irreducible loss (Loss không thể giảm) | "Mức sàn" | Số hạng `E` trong quy luật mở rộng; entropy của chính dữ liệu. |
+| Irreducible loss (Loss không thể giảm) | "Mức sàn" | Số hạng $E$ trong quy luật mở rộng; entropy của chính dữ liệu. |
 | Emergent capability (Năng lực xuất hiện đột ngột) | "Các bước nhảy đột ngột ở quy mô lớn" | Thường là tạo tác bộ chấm; loss liên tục trơn. |
 | Effective compute (Tính toán hiệu dụng) | "Hệ số nhân hiệu quả huấn luyện" | Dữ liệu / bộ tối ưu / kiến trúc tốt hơn nhân mức một FLOP đi được. |
 

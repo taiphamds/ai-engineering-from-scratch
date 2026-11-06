@@ -45,7 +45,7 @@ Mọi tác vụ âm thanh có nhiều thước đo, mỗi thước đo một tr�
 
 **SECS (Speaker Encoder Cosine Similarity).** Cho nhân bản giọng nói. Cosine embedding ECAPA giữa tham chiếu và đầu ra được nhân bản. &gt; 0.75 = bản nhân có thể nhận ra.
 
-**WER trên vòng đi-về ASR.** Chạy Whisper trên đầu ra TTS, tính WER so với văn bản đầu vào. Phát hiện các hồi quy tính dễ hiểu. SOTA 2026: CER &lt; 2%.
+**WER qua vòng ASR.** Chạy Whisper trên đầu ra TTS, tính WER so với văn bản đầu vào. Phát hiện sự suy giảm khả năng nghe hiểu. SOTA 2026: &lt; 2% WER trên các tập kiểm thử tiếng Anh (các tập tiếng Quan Thoại báo cáo CER thay thế).
 
 **TTFA (thời gian đến âm thanh đầu tiên).** Độ trễ thời gian thực. Kokoro-82M: ~100 ms; F5-TTS: ~1 s.
 
@@ -79,7 +79,7 @@ Mất cân bằng: **macro F1** + **recall theo lớp**. Báo cáo theo lớp �
 
 **Điểm CLAP.** Điểm căn chỉnh văn bản-âm thanh bằng các embedding CLAP. &gt; 0.3 = căn chỉnh hợp lý.
 
-**MOS hội đồng nghe.** Vẫn là quyết định cuối cho âm nhạc cấp tiêu dùng. Suno v5 ELO 1293 trên TTS Arena (từ các ưu tiên con người theo cặp).
+**MOS của nhóm nghe.** Vẫn là quyết định cuối cùng đối với âm nhạc cấp người tiêu dùng. Suno v5 đạt ELO 1293 trên benchmark ưu tiên theo cặp của chính Suno. Đó là số liệu của nhà cung cấp; TTS Arena xếp hạng lời nói, không phải âm nhạc.
 
 ### Audio-language benchmarks
 

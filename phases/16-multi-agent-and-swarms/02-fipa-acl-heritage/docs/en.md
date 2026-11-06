@@ -1,6 +1,6 @@
 # Heritage of FIPA-ACL and Speech Acts
 
-> Trước MCP, trước A2A, đã có FIPA-ACL. Năm 2000, IEEE Foundation for Intelligent Physical Agents phê chuẩn một ngôn ngữ giao tiếp agent với hai mươi hành vi ngôn hành, hai ngôn ngữ nội dung, và một tập giao thức tương tác — contract net, subscribe/notify, request-when. Nó phai nhạt khỏi ngành vì chi phí phụ bản thể học quá nặng cho web, nhưng sự hồi sinh của các hệ thống đa agent nhờ LLM đang âm thầm triển khai lại cùng các ý tưởng mà không có ngữ nghĩa hình thức: các hợp đồng JSON thay cho các hành vi ngôn hành, ngôn ngữ tự nhiên thay cho các bản thể học. Bài này đọc FIPA-ACL nghiêm túc để bạn có thể thấy những quyết định giao thức năm 2026 nào là tái phát minh, những quyết định nào là mới, và nơi làn sóng hiện tại sẽ khám phá lại các vấn đề mà những năm 2000 đã giải quyết.
+> Trước MCP, trước A2A, đã có FIPA-ACL. Năm 2000, Foundation for Intelligent Physical Agents (FIPA, trở thành một ủy ban tiêu chuẩn của IEEE Computer Society năm 2005) phê chuẩn một ngôn ngữ giao tiếp agent với hai mươi performative, hai ngôn ngữ nội dung và một tập giao thức tương tác — contract net, subscribe/notify, request-when. Nó mờ dần khỏi ngành vì chi phí ontology quá nặng cho web, nhưng sự hồi sinh của các hệ thống đa agent nhờ LLM đang âm thầm triển khai lại cùng những ý tưởng mà không có ngữ nghĩa hình thức: các hợp đồng JSON thay cho performative, ngôn ngữ tự nhiên thay cho ontology. Bài học này đọc FIPA-ACL một cách nghiêm túc để bạn có thể thấy quyết định giao thức năm 2026 nào là phát minh lại, quyết định nào là mới mẻ và làn sóng hiện tại sẽ khám phá lại ở đâu những vấn đề mà những năm 2000 đã giải quyết.
 
 **Type:** Learn
 **Languages:** Python (stdlib)
@@ -193,7 +193,7 @@ Ghi lại năm câu hỏi này cho bất kỳ giao thức mới nào trước kh
 | Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
 | Speech act (Hành vi ngôn ngữ) | “Một phát ngôn làm điều gì đó” | Austin/Searle: phát ngôn như hành động. Cha mẹ lý thuyết của ACL. |
-| FIPA | “Thứ XML cũ đó” | IEEE Foundation for Intelligent Physical Agents. Tiêu chuẩn hóa ACL năm 2000. |
+| FIPA | "Thứ XML cũ đó" | Foundation for Intelligent Physical Agents. Chuẩn hóa ACL năm 2000; trở thành một ủy ban tiêu chuẩn của IEEE Computer Society năm 2005. |
 | ACL | “Ngôn ngữ giao tiếp agent” | Định dạng vỏ bọc của FIPA: hành vi ngôn hành + nội dung + siêu dữ liệu. |
 | Performative (Hành vi ngôn hành) | “Động từ” | Loại ý định của một thông điệp: `inform`, `request`, `propose`, `cfp`, v.v. |
 | KQML | “Tiền thân của FIPA” | Ngôn ngữ truy vấn và thao tác tri thức (1993). Đơn giản hơn, hẹp hơn. |

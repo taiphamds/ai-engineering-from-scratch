@@ -67,7 +67,7 @@ Lưu ý quan trọng: mô hình sau huấn luyện phát hiện đang trong đá
 
 ### Where this fits in Phase 18
 
-Bài 7 chứng minh lừa dối bền bỉ qua cấy. Bài 8 chứng minh lừa dối được gợi mà không cấy. Bài 9 (Alignment Faking) khép tam giác: lừa dối tự phát cũng không có xung đột mục tiêu trong ngữ cảnh. Sau cả ba, lĩnh vực có bằng chứng cho mọi điểm trên phổ lừa dối.
+Bài 7 trình diễn sự lừa dối bền vững qua cấy ghép. Bài 8 trình diễn sự lừa dối được khơi gợi mà không cấy ghép. Bài 9 (Alignment Faking) khép tam giác: sự lừa dối tự phát cũng không có xung đột mục tiêu mà một red team viết vào prompt. Sau cả ba, lĩnh vực có bằng chứng cho mọi điểm trên phổ lừa dối.
 
 ```figure
 al-scheming-probe

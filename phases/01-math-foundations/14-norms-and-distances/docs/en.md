@@ -28,14 +28,14 @@ Bài học này xây dựng mọi hàm khoảng cách chính từ đầu, cho b�
 
 ### Norms: measuring vector magnitude
 
-Một chuẩn đo "kích thước" của một vector. Mọi hàm khoảng cách giữa hai vector đều có thể được viết dưới dạng chuẩn của hiệu chúng: d(a, b) = ||a - b||. Vì vậy hiểu chuẩn là hiểu khoảng cách.
+Một chuẩn đo "kích thước" của một vector. Mọi hàm khoảng cách giữa hai vector đều có thể được viết dưới dạng chuẩn của hiệu chúng: $d(a, b) = \lVert a - b \rVert$. Vì vậy hiểu chuẩn là hiểu khoảng cách.
 
 ### L1 Norm (Manhattan distance)
 
 Chuẩn L1 lấy tổng các giá trị tuyệt đối của tất cả thành phần.
 
-```
-||x||_1 = |x_1| + |x_2| + ... + |x_n|
+```math
+\lVert x \rVert_1 = |x_1| + |x_2| + \cdots + |x_n|
 ```
 
 Nó được gọi là khoảng cách Manhattan vì nó đo bạn đi bộ bao xa trên một lưới thành phố nơi bạn chỉ có thể di chuyển dọc theo các trục. Không có đường chéo.
@@ -54,7 +54,7 @@ Khi nào sử dụng L1:
 - Khi bạn muốn tính bền vững với ngoại lệ (một khác biệt rất lớn duy nhất không chi phối)
 - Các bài toán lựa chọn đặc trưng (L1 regularization thúc đẩy tính thưa)
 
-Mối liên hệ với L1 regularization (Lasso): thêm ||w||_1 vào hàm mất mát phạt tổng các giá trị tuyệt đối của trọng số. Điều này đẩy các trọng số nhỏ về đúng không, thực hiện lựa chọn đặc trưng tự động. Hình phạt L1 tạo các miền ràng buộc hình thoi trong không gian trọng số, và các góc của hình thoi nằm trên các trục nơi một số trọng số bằng không.
+Mối liên hệ với L1 regularization (Lasso): thêm $\lVert w \rVert_1$ vào hàm mất mát phạt tổng các giá trị tuyệt đối của trọng số. Điều này đẩy các trọng số nhỏ về đúng không, thực hiện lựa chọn đặc trưng tự động. Hình phạt L1 tạo các miền ràng buộc hình thoi trong không gian trọng số, và các góc của hình thoi nằm trên các trục nơi một số trọng số bằng không.
 
 Mối liên hệ với hàm mất mát: Sai số Tuyệt đối Trung bình (MAE) là khoảng cách L1 trung bình giữa dự đoán và mục tiêu. Nó phạt mọi sai số tuyến tính, khiến nó bền vững với ngoại lệ so với MSE.
 
@@ -62,11 +62,11 @@ Mối liên hệ với hàm mất mát: Sai số Tuyệt đối Trung bình (MAE
 
 Chuẩn L2 là khoảng cách đường thẳng. Căn bậc hai của tổng bình phương các thành phần.
 
-```
-||x||_2 = sqrt(x_1^2 + x_2^2 + ... + x_n^2)
+```math
+\lVert x \rVert_2 = \sqrt{x_1^2 + x_2^2 + \cdots + x_n^2}
 ```
 
-Đây là khoảng cách bạn đã học trong lớp hình học. Pythagoras trong n chiều.
+Đây là khoảng cách bạn đã học trong lớp hình học. Pythagoras trong $n$ chiều.
 
 ```
 Point A = (1, 1)
@@ -83,24 +83,26 @@ Khi nào sử dụng L2:
 - Khoảng cách vật lý (dữ liệu không gian, số đọc cảm biến)
 - Độ tương đồng hình ảnh ở cấp pixel
 
-Mối liên hệ với L2 regularization (Ridge): thêm ||w||_2^2 vào hàm mất mát phạt các trọng số lớn. Khác L1, nó không đẩy trọng số về không. Nó thu nhỏ mọi trọng số về phía không theo tỉ lệ. Hình phạt L2 tạo các miền ràng buộc hình tròn, nên không có góc trên các trục. Trọng số trở nên nhỏ nhưng hiếm khi đúng bằng không.
+Mối liên hệ với L2 regularization (Ridge): thêm $\lVert w \rVert_2^2$ vào hàm mất mát phạt các trọng số lớn. Khác L1, nó không đẩy trọng số về không. Nó thu nhỏ mọi trọng số về phía không theo tỉ lệ. Hình phạt L2 tạo các miền ràng buộc hình tròn, nên không có góc trên các trục. Trọng số trở nên nhỏ nhưng hiếm khi đúng bằng không.
 
 Mối liên hệ với hàm mất mát: Sai số Bình phương Trung bình (MSE) là trung bình của bình phương các khoảng cách L2. Bình phương phạt sai số lớn nặng hơn sai số nhỏ.
 
-```
-MAE (L1 loss):  |y - y_hat|         Linear penalty. Robust to outliers.
-MSE (L2 loss):  (y - y_hat)^2       Quadratic penalty. Sensitive to outliers.
+```math
+\begin{aligned}
+\text{MAE (L1 loss):} \quad & |y - \hat{y}| && \text{Linear penalty. Robust to outliers.} \\
+\text{MSE (L2 loss):} \quad & (y - \hat{y})^2 && \text{Quadratic penalty. Sensitive to outliers.}
+\end{aligned}
 ```
 
 ### Lp Norms: the general family
 
 L1 và L2 là các trường hợp đặc biệt của chuẩn Lp:
 
-```
-||x||_p = (|x_1|^p + |x_2|^p + ... + |x_n|^p)^(1/p)
+```math
+\lVert x \rVert_p = (|x_1|^p + |x_2|^p + \cdots + |x_n|^p)^{1/p}
 ```
 
-Các giá trị p khác nhau tạo ra các "quả cầu đơn vị" có hình dạng khác nhau (tập hợp tất cả các điểm cách gốc tọa độ khoảng cách 1):
+Các giá trị $p$ khác nhau tạo ra các "quả cầu đơn vị" có hình dạng khác nhau (tập mọi điểm có khoảng cách tối đa 1 từ gốc tọa độ; các hình bên dưới là biên của chúng):
 
 ```
 p=1:    Diamond shape      (corners on axes)
@@ -111,19 +113,20 @@ p=inf:  Square/hypercube   (flat sides along axes)
 
 ### L-infinity Norm (Chebyshev distance)
 
-Khi p tiến đến vô cực, chuẩn Lp hội tụ về thành phần tuyệt đối lớn nhất.
+Khi $p$ tiến đến vô cực, chuẩn Lp hội tụ về thành phần tuyệt đối lớn nhất.
 
-```
-||x||_inf = max(|x_1|, |x_2|, ..., |x_n|)
+```math
+\lVert x \rVert_\infty = \max(|x_1|, |x_2|, \ldots, |x_n|)
 ```
 
 Khoảng cách giữa hai điểm được quyết định bởi chiều duy nhất mà chúng khác nhau nhiều nhất. Tất cả các chiều khác bị bỏ qua.
 
-```
-Point A = (1, 1)
-Point B = (4, 5)
-
-L-inf distance = max(|4-1|, |5-1|) = max(3, 4) = 4
+```math
+\begin{aligned}
+\text{Point } A &= (1, 1) \\
+\text{Point } B &= (4, 5) \\[6pt]
+L_\infty \text{ distance} &= \max(|4-1|, |5-1|) = \max(3, 4) = 4
+\end{aligned}
 ```
 
 Khi nào sử dụng L-vô cực:
@@ -135,19 +138,20 @@ Khi nào sử dụng L-vô cực:
 
 Độ tương đồng cosine đo góc giữa hai vector, bỏ qua độ lớn của chúng.
 
-```
-cos_sim(a, b) = (a . b) / (||a||_2 * ||b||_2)
+```math
+\text{cos\_sim}(a, b) = \frac{a \cdot b}{\lVert a \rVert_2 \, \lVert b \rVert_2}
 ```
 
 Nó nằm trong khoảng từ -1 (ngược hướng) đến +1 (cùng hướng). Các vector vuông góc có độ tương đồng cosine 0.
 
 Khoảng cách cosine chuyển nó thành một khoảng cách: cosine_distance = 1 - cosine_similarity. Giá trị này nằm trong khoảng từ 0 (hướng giống hệt) đến 2 (hướng đối nhau).
 
-```
-a = (1, 0)    b = (1, 1)
-
-cos_sim = (1*1 + 0*1) / (1 * sqrt(2)) = 1/sqrt(2) = 0.707
-cos_dist = 1 - 0.707 = 0.293
+```math
+\begin{aligned}
+& a = (1, 0) \qquad b = (1, 1) \\[6pt]
+& \text{cos\_sim} = \frac{1 \cdot 1 + 0 \cdot 1}{1 \cdot \sqrt{2}} = \frac{1}{\sqrt{2}} = 0.707 \\
+& \text{cos\_dist} = 1 - 0.707 = 0.293
+\end{aligned}
 ```
 
 Tại sao cosine chiếm ưu thế trong NLP và embedding: trong văn bản, độ dài tài liệu không nên ảnh hưởng đến độ tương đồng. Một tài liệu về mèo dài gấp đôi một tài liệu khác về mèo vẫn nên "tương tự." Độ tương đồng cosine bỏ qua độ lớn (độ dài) và chỉ quan tâm hướng. Hai tài liệu có cùng phân phối từ nhưng độ dài khác nhau chỉ cùng hướng và có độ tương đồng cosine 1.0.
@@ -162,16 +166,17 @@ Khi nào sử dụng độ tương đồng cosine:
 
 Tích vô hướng của hai vector là:
 
-```
-a . b = a_1*b_1 + a_2*b_2 + ... + a_n*b_n
-      = ||a|| * ||b|| * cos(angle)
+```math
+\begin{aligned}
+a \cdot b &= a_1 b_1 + a_2 b_2 + \cdots + a_n b_n \\
+&= \lVert a \rVert \, \lVert b \rVert \cos(\text{angle})
+\end{aligned}
 ```
 
 Độ tương đồng cosine là tích vô hướng được chuẩn hóa bởi cả hai độ lớn. Khi cả hai vector đã được chuẩn hóa đơn vị (độ lớn = 1), tích vô hướng và độ tương đồng cosine giống hệt nhau.
 
-```
-If ||a|| = 1 and ||b|| = 1:
-    a . b = cos(angle between a and b)
+```math
+\text{If } \lVert a \rVert = 1 \text{ and } \lVert b \rVert = 1: \quad a \cdot b = \cos(\text{angle between } a \text{ and } b)
 ```
 
 Khi chúng khác nhau: tích vô hướng bao gồm thông tin độ lớn. Một vector có độ lớn lớn hơn nhận điểm tích vô hướng cao hơn. Điều này quan trọng trong một số hệ thống truy xuất nơi bạn muốn các mục "phổ biến" được xếp hạng cao hơn. Độ lớn đóng vai trò một tín hiệu chất lượng hoặc độ quan trọng ngầm.
@@ -197,13 +202,13 @@ Khoảng cách Euclid xem mọi chiều như nhau. Nhưng nếu các đặc trư
 
 Khoảng cách Mahalanobis xét đến cấu trúc hiệp phương sai của dữ liệu.
 
-```
-d_M(x, y) = sqrt((x - y)^T * S^(-1) * (x - y))
+```math
+d_M(x, y) = \sqrt{(x - y)^T S^{-1} (x - y)}
 ```
 
-trong đó S là ma trận hiệp phương sai của dữ liệu.
+trong đó $S$ là ma trận hiệp phương sai của dữ liệu.
 
-Theo trực giác: khoảng cách Mahalanobis trước tiên khử tương quan và chuẩn hóa dữ liệu (làm trắng), rồi tính khoảng cách L2 trong không gian đã biến đổi đó. Nếu S là ma trận đơn vị (các đặc trưng không tương quan, phương sai đơn vị), khoảng cách Mahalanobis quy về khoảng cách Euclid.
+Theo trực giác: khoảng cách Mahalanobis trước tiên khử tương quan và chuẩn hóa dữ liệu (làm trắng), rồi tính khoảng cách L2 trong không gian đã biến đổi đó. Nếu $S$ là ma trận đơn vị (các đặc trưng không tương quan, phương sai đơn vị), khoảng cách Mahalanobis quy về khoảng cách Euclid.
 
 ```
 Example: height and weight are correlated.
@@ -225,8 +230,8 @@ Khi nào sử dụng khoảng cách Mahalanobis:
 
 Độ tương đồng Jaccard đo sự chồng lấp giữa hai tập hợp.
 
-```
-J(A, B) = |A intersect B| / |A union B|
+```math
+J(A, B) = \frac{|A \cap B|}{|A \cup B|}
 ```
 
 Nó nằm trong khoảng từ 0 (không chồng lấp) đến 1 (các tập giống hệt). Khoảng cách Jaccard = 1 - độ tương đồng Jaccard.
@@ -263,7 +268,7 @@ sittin -> sitting (insert g)
 Edit distance = 3
 ```
 
-Được tính bằng quy hoạch động. Điền một ma trận trong đó phần tử (i, j) là khoảng cách chỉnh sửa giữa i ký tự đầu của chuỗi A và j ký tự đầu của chuỗi B.
+Được tính bằng quy hoạch động. Điền một ma trận trong đó phần tử $(i, j)$ là khoảng cách chỉnh sửa giữa $i$ ký tự đầu của chuỗi A và $j$ ký tự đầu của chuỗi B.
 
 ```
         ""  s  i  t  t  i  n  g
@@ -286,20 +291,20 @@ Khi nào sử dụng khoảng cách chỉnh sửa:
 
 Phân kỳ KL đo cách một phân phối xác suất khác một phân phối khác. Đã được đề cập ở Bài học 09, nhưng nó thuộc về phần thảo luận này vì mọi người sử dụng nó như một "khoảng cách" dù nó không phải.
 
-```
-D_KL(P || Q) = sum(p(x) * log(p(x) / q(x)))
+```math
+D_{KL}(P \,\|\, Q) = \sum_x p(x) \log\frac{p(x)}{q(x)}
 ```
 
 Tính chất thiết yếu: phân kỳ KL KHÔNG đối xứng.
 
-```
-D_KL(P || Q) != D_KL(Q || P)
+```math
+D_{KL}(P \,\|\, Q) \ne D_{KL}(Q \,\|\, P)
 ```
 
 Điều này có nghĩa là nó không đáp ứng yêu cầu cơ bản của một metric khoảng cách. Nó cũng không thỏa mãn bất đẳng thức tam giác. Nó là một phân kỳ, không phải một khoảng cách.
 
-KL xuôi (D_KL(P || Q)) "tìm trung bình": Q cố bao phủ tất cả các mode của P.
-KL ngược (D_KL(Q || P)) "tìm mode": Q tập trung vào một mode duy nhất của P.
+KL xuôi $(D_{KL}(P \Vert Q))$ "tìm trung bình": $Q$ cố bao phủ tất cả các mode của $P$.
+KL ngược $(D_{KL}(Q \Vert P))$ "tìm mode": $Q$ tập trung vào một mode duy nhất của $P$.
 
 Khi bạn thấy phân kỳ KL:
 - VAE (thành phần KL trong ELBO đẩy phân phối ẩn về phía một tiên nghiệm)
@@ -311,14 +316,14 @@ Khi bạn thấy phân kỳ KL:
 
 Khoảng cách Wasserstein đo "công" tối thiểu cần để biến đổi một phân phối xác suất thành một phân phối khác. Hãy nghĩ thế này: nếu một phân phối là một đống đất và phân phối kia là một cái hố, bạn phải di chuyển bao nhiêu đất và bao xa?
 
-```
-W(P, Q) = inf over all transport plans gamma of E[d(x, y)]
+```math
+W(P, Q) = \inf_{\gamma} \mathbb{E}[d(x, y)] \quad \text{(over all transport plans } \gamma\text{)}
 ```
 
 Với các phân phối 1D, nó đơn giản thành tích phân của hiệu tuyệt đối giữa các hàm phân phối tích lũy:
 
-```
-W_1(P, Q) = integral |CDF_P(x) - CDF_Q(x)| dx
+```math
+W_1(P, Q) = \int |\text{CDF}_P(x) - \text{CDF}_Q(x)| \, dx
 ```
 
 Tại sao Wasserstein quan trọng:
@@ -353,7 +358,7 @@ Khi nào sử dụng Wasserstein:
 | Chồng lấp tập hợp (thẻ, danh mục) | Jaccard | Dữ liệu tự nhiên có dạng tập hợp, không phải vector |
 | So khớp chuỗi | Khoảng cách chỉnh sửa | Các phép toán tương ứng với trực giác chỉnh sửa của con người |
 | Phát hiện ngoại lệ | Mahalanobis | Xét đến tương quan và thang đo đặc trưng |
-| So sánh các phân phối | Phân kỳ KL | Đo thông tin mất khi sử dụng Q thay vì P |
+| So sánh các phân phối | Phân kỳ KL | Đo thông tin mất khi sử dụng $Q$ thay vì $P$ |
 | Huấn luyện GAN | Wasserstein | Cung cấp gradient ngay cả khi các phân phối không chồng lấp |
 | Embedding (cơ sở dữ liệu vector) | Cosine hoặc tích vô hướng | Embedding được huấn luyện để mã hóa ý nghĩa trong hướng |
 | Đề xuất | Tích vô hướng | Độ lớn có thể mã hóa độ phổ biến hoặc sự tự tin |
@@ -404,7 +409,7 @@ Tại sao L1 tạo tính thưa nhưng L2 thì không: hình dung miền ràng bu
 
 Mỗi hàm khoảng cách hàm ý một bài toán tìm kiếm láng giềng gần nhất: cho một điểm truy vấn, tìm các điểm gần nhất trong một tập dữ liệu.
 
-Tìm kiếm láng giềng gần nhất chính xác có chi phí O(n * d) cho mỗi truy vấn trong một tập dữ liệu gồm n điểm với d chiều. Với các tập dữ liệu lớn, điều này quá chậm.
+Tìm kiếm láng giềng gần nhất chính xác có chi phí $O(n \cdot d)$ cho mỗi truy vấn trong một tập dữ liệu gồm $n$ điểm với $d$ chiều. Với các tập dữ liệu lớn, điều này quá chậm.
 
 Các thuật toán Láng giềng Gần nhất Xấp xỉ (ANN) đánh đổi một lượng nhỏ độ chính xác để tăng tốc rất lớn:
 
@@ -469,7 +474,7 @@ Khi bạn gọi `model.encode(text)` rồi tìm kiếm một cơ sở dữ liệ
 
 ## Exercises
 
-1. Tính các khoảng cách L1, L2 và L-vô cực giữa (1, 2, 3) và (4, 0, 6). Xác minh L-inf <= L2 <= L1 luôn đúng cho bất kỳ cặp điểm nào. Chứng minh tại sao thứ tự này được bảo đảm.
+1. Tính các khoảng cách L1, L2 và L-vô cùng giữa (1, 2, 3) và (4, 0, 6). Xác minh rằng $L_\infty \le L_2 \le L_1$ luôn đúng với bất kỳ cặp điểm nào. Chứng minh vì sao thứ tự này được bảo đảm.
 
 2. Tạo hai vector có độ tương đồng cosine cao (> 0.9) nhưng khoảng cách L2 lớn (> 10). Giải thích về mặt hình học điều gì đang xảy ra. Sau đó tạo hai vector có độ tương đồng cosine thấp (< 0.3) nhưng khoảng cách L2 nhỏ (< 0.5).
 
@@ -479,6 +484,18 @@ Khi bạn gọi `model.encode(text)` rồi tìm kiếm một cơ sở dữ liệ
 
 5. Triển khai MinHash cho độ tương đồng Jaccard xấp xỉ. Tạo 100 tập ngẫu nhiên, tính Jaccard chính xác cho mọi cặp và so sánh với xấp xỉ MinHash bằng 50, 100 và 200 hàm băm. Vẽ sai số xấp xỉ.
 
+### Hints
+
+**Bài tập 1.** Vector hiệu là (-3, 2, -3), vì vậy hãy tính ba chuẩn của vector đó bằng `l1_norm`, `l2_norm` và `linf_norm`. Đối với chứng minh, so sánh $\lvert d_i \rvert$ lớn nhất với tổng bình phương, và so sánh tổng bình phương với bình phương của tổng các giá trị tuyệt đối.
+
+**Bài tập 2.** Độ tương đồng cosine bỏ qua độ dài, vì vậy hãy bắt đầu với hai vector hướng gần như cùng chiều và làm cho một vector dài hơn nhiều. Đối với trường hợp thứ hai, sử dụng hai vector ngắn gần gốc tọa độ hướng theo các chiều khác nhau, rồi kiểm tra cả hai điều kiện bằng `cosine_similarity` và `l2_distance`.
+
+**Bài tập 3.** Gọi `find_nearest_neighbor(query, dataset, distance_fn)` một lần cho mỗi hàm `l1_distance`, `l2_distance`, `cosine_distance` và `mahalanobis_distance`. `demo_different_neighbors` cho thấy một tập dữ liệu mà các thước đo không đồng thuận, vì vậy hãy đọc nó trước rồi thay đổi các điểm cho đến khi cả bốn đáp án khác nhau.
+
+**Bài tập 4.** Viết tổng tích lũy của mỗi phân phối, rồi cộng các hiệu tuyệt đối của hai tổng tích lũy. Kiểm tra cả hai kết quả tính tay bằng `wasserstein_1d(p, q)`, rồi giải thích giá trị lớn hơn dựa trên khoảng cách mà khối lượng xác suất phải di chuyển.
+
+**Bài tập 5.** Đối với mỗi hàm hash, chữ ký MinHash của một tập là giá trị hash nhỏ nhất trên các phần tử của nó, và tỷ lệ các hàm hash mà hai tập nhận cùng giá trị nhỏ nhất ước lượng độ tương đồng Jaccard của chúng. So sánh mỗi ước lượng với `jaccard_similarity`; sai số phải giảm xấp xỉ theo $1/\sqrt{k}$ đối với $k$ hàm hash.
+
 ## Key Terms
 
 | Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
@@ -486,15 +503,15 @@ Khi bạn gọi `model.encode(text)` rồi tìm kiếm một cơ sở dữ liệ
 | Norm (Chuẩn) | "Kích thước của một vector" | Một hàm ánh xạ một vector thành một số vô hướng không âm, thỏa mãn bất đẳng thức tam giác, tính thuần nhất tuyệt đối và chỉ bằng không với vector không |
 | L1 norm (Chuẩn L1) | "Khoảng cách Manhattan" | Tổng các giá trị tuyệt đối của các thành phần. Tạo tính thưa trong tối ưu hóa. Bền vững với ngoại lệ |
 | L2 norm (Chuẩn L2) | "Khoảng cách Euclid" | Căn bậc hai của tổng bình phương các thành phần. Khoảng cách đường thẳng trong không gian Euclid |
-| Lp norm (Chuẩn Lp) | "Chuẩn tổng quát" | Căn bậc p của tổng lũy thừa bậc p của các thành phần tuyệt đối. L1 và L2 là các trường hợp đặc biệt |
-| L-infinity norm (Chuẩn L-vô cực) | "Chuẩn cực đại" hoặc "khoảng cách Chebyshev" | Giá trị tuyệt đối lớn nhất của các thành phần. Giới hạn của Lp khi p tiến đến vô cực |
+| Lp norm (Chuẩn Lp) | "Chuẩn tổng quát" | Căn bậc $p$ của tổng lũy thừa bậc $p$ của các thành phần tuyệt đối. L1 và L2 là các trường hợp đặc biệt |
+| L-infinity norm (Chuẩn L-vô cực) | "Chuẩn cực đại" hoặc "khoảng cách Chebyshev" | Giá trị tuyệt đối lớn nhất của các thành phần. Giới hạn của Lp khi $p$ tiến đến vô cực |
 | Cosine similarity (Độ tương đồng cosine) | "Góc giữa các vector" | Tích vô hướng được chuẩn hóa bởi cả hai độ lớn. Nằm trong khoảng từ -1 đến +1. Bỏ qua độ dài vector |
 | Cosine distance (Khoảng cách cosine) | "1 trừ độ tương đồng cosine" | Chuyển độ tương đồng cosine thành một khoảng cách. Nằm trong khoảng từ 0 đến 2 |
 | Dot product (Tích vô hướng) | "Cosine chưa chuẩn hóa" | Tổng các tích theo từng thành phần. Bằng độ tương đồng cosine nhân cả hai độ lớn |
 | Mahalanobis distance (Khoảng cách Mahalanobis) | "Khoảng cách có xét tương quan" | Khoảng cách L2 trong một không gian đã được làm trắng (khử tương quan và chuẩn hóa) bằng ma trận hiệp phương sai dữ liệu |
 | Jaccard similarity (Độ tương đồng Jaccard) | "Chồng lấp tập hợp" | Kích thước giao chia kích thước hợp. Cho tập hợp, không phải vector |
 | Edit distance (Khoảng cách chỉnh sửa) | "Khoảng cách Levenshtein" | Số lần chèn, xóa và thay thế tối thiểu để biến đổi một chuỗi thành một chuỗi khác |
-| KL divergence (Phân kỳ KL) | "Khoảng cách giữa các phân phối" | Không phải khoảng cách thực sự (không đối xứng). Đo số bit thêm khi sử dụng Q để mã hóa P |
+| KL divergence (Phân kỳ KL) | "Khoảng cách giữa các phân phối" | Không phải khoảng cách thực sự (không đối xứng). Đo số bit thêm khi sử dụng $Q$ để mã hóa $P$ |
 | Wasserstein distance (Khoảng cách Wasserstein) | "Khoảng cách chuyển đất" | Công tối thiểu để vận chuyển khối từ một phân phối sang một phân phối khác. Một metric thực sự |
 | Approximate nearest neighbor (Láng giềng gần nhất xấp xỉ) | "Tìm kiếm ANN" | Các thuật toán (HNSW, LSH, IVF) tìm các điểm gần nhất xấp xỉ nhanh hơn nhiều so với tìm kiếm chính xác |
 | HNSW | "Thuật toán cơ sở dữ liệu vector" | Đồ thị Hierarchical Navigable Small World. Đồ thị nhiều lớp cho tìm kiếm láng giềng gần nhất xấp xỉ nhanh |

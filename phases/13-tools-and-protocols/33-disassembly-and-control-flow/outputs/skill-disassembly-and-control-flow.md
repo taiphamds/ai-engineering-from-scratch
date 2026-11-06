@@ -1,71 +1,71 @@
 ---
 name: disassembly-and-control-flow
-description: Turn an object file and a function name into a checked listing, basic blocks, typed edges, dominators, and a record of every unresolved transfer.
+description: Biến một tệp object và một tên hàm thành một danh sách đã kiểm tra, basic block, cạnh có kiểu, dominator và một bản ghi của mọi chuyển giao chưa phân giải.
 version: 1.0.0
 phase: 13
 lesson: 33
 tags: [reverse-engineering, x86-64, disassembly, control-flow-graph, dominators, jump-tables, relocations]
 ---
 
-Given a relocatable or linked x86-64 object that you built yourself and one function in it, produce a disassembly whose instruction boundaries are checked, a control-flow graph whose edges carry their evidence, and a list of what stayed unknown. Use this skill with Claude, Cursor, Codex, OpenClaw, Hermes, or any agent that reads SKILL.md.
+Với một object x86-64 có thể tái định vị hoặc đã liên kết mà bạn tự dựng và một hàm trong đó, tạo một disassembly có các ranh giới chỉ lệnh được kiểm tra, một đồ thị luồng điều khiển có các cạnh mang bằng chứng của chúng và một danh sách những điều vẫn chưa biết. Sử dụng skill này với Claude, Cursor, Codex, OpenClaw, Hermes hoặc bất kỳ agent nào đọc SKILL.md.
 
 ## Required inputs
 
-- The object file and the exact compiler and command that produced it.
-- A reference listing from `llvm-objdump -d` captured from the same object and stored beside it.
-- The function name or entry address, and the section that holds the code.
-- The symbol table with function sizes, and the `.rela.*` sections when the object is not linked.
-- The decoder from lesson 33 (`code/main.py`) or an equivalent that raises on an unknown opcode.
+- Tệp object và compiler cùng lệnh chính xác tạo ra nó.
+- Một danh sách tham chiếu từ `llvm-objdump -d` được thu từ cùng object và lưu bên cạnh nó.
+- Tên hàm hoặc địa chỉ vào, và section chứa mã.
+- Bảng symbol với kích thước hàm, và các section `.rela.*` khi object chưa liên kết.
+- Decoder từ bài 33 (`code/main.py`) hoặc một decoder tương đương phát sinh ngoại lệ với một opcode không biết.
 
 ## Procedure
 
-1. Run the decoder as a linear sweep over the whole code section and compare every instruction with the reference listing by address, bytes, and text. Stop and fix the decoder on the first mismatch. Record the instruction count that agreed.
-2. Run recursive descent from the function entry with the function extent as the limit. Record the visit order, the conflicts, and every unresolved indirect jump or call with its address.
-3. For each unresolved indirect jump, match the table idiom: the register the jump reads, the `add` that produced it, the indexed load, the RIP-relative `lea`, and the bounds check. Resolve the `lea` through its relocation with `S + A + (end - P)`. Read the entries through `.rela.rodata` when the object is relocatable, or from the bytes when it is linked. Record the evidence kind for each target.
-4. Rerun the descent with the recovered tables and build basic blocks: leaders are the entry, every direct or table target, and every instruction after a transfer. Tag each edge `fallthrough`, `taken`, `jump`, or `table`.
-5. Compute immediate dominators with the iterative algorithm in reverse postorder. List the back edges as loops.
-6. Account for every byte in the function extent as claimed by the descent, claimed only by the sweep, or claimed by neither. Classify the second group as padding or data and the third as unreachable or missing.
-7. Look for loads through a RIP-relative `lea` that do not feed a jump. Report each as a value table with its entries and evidence, and say that it changes a load and not the control flow.
-8. Write every remaining indirect transfer, conflict, and undecodable byte as an unknown with its address and the bytes you saw.
+1. Chạy decoder như một linear sweep trên toàn bộ code section và so sánh mỗi chỉ lệnh với danh sách tham chiếu theo địa chỉ, byte và văn bản. Dừng và sửa decoder ở lần không khớp đầu tiên. Ghi lại số chỉ lệnh đồng nhất.
+2. Chạy recursive descent từ điểm vào hàm với phạm vi hàm làm giới hạn. Ghi lại thứ tự thăm, các xung đột và mọi bước nhảy hoặc lần gọi gián tiếp chưa phân giải với địa chỉ của nó.
+3. Với mỗi bước nhảy gián tiếp chưa phân giải, khớp mẫu bảng: thanh ghi mà bước nhảy đọc, `add` tạo ra nó, lần tải có chỉ số, `lea` tương đối theo RIP và kiểm tra biên. Phân giải `lea` qua relocation của nó bằng `S + A + (end - P)`. Đọc các mục qua `.rela.rodata` khi object có thể tái định vị, hoặc từ các byte khi nó đã liên kết. Ghi loại bằng chứng cho mỗi đích.
+4. Chạy lại descent với các bảng đã khôi phục và xây dựng các basic block: leader là điểm vào, mọi đích trực tiếp hoặc bảng và mọi chỉ lệnh sau một chuyển giao. Gắn nhãn mỗi cạnh `fallthrough`, `taken`, `jump` hoặc `table`.
+5. Tính các immediate dominator bằng thuật toán lặp theo reverse postorder. Liệt kê các back edge như các vòng lặp.
+6. Hạch toán mỗi byte trong phạm vi hàm là được descent nhận, chỉ được sweep nhận hoặc không cách nào nhận. Phân loại nhóm thứ hai là padding hoặc dữ liệu và nhóm thứ ba là không thể tới hoặc thiếu.
+7. Tìm các lần tải qua một `lea` tương đối theo RIP không cung cấp cho một bước nhảy. Báo cáo mỗi lần là một value table với các mục và bằng chứng của nó, và nói rằng nó thay đổi một lần tải và không phải luồng điều khiển.
+8. Viết mọi chuyển giao gián tiếp, xung đột và byte không thể giải mã còn lại như một điều chưa biết với địa chỉ của nó và các byte bạn thấy.
 
 ## Required report
 
-For the function, report:
+Với hàm, báo cáo:
 
-- object name, compiler, build command, and reference listing path
-- oracle agreement as agreed over compared instructions
-- instruction count under the sweep, the plain descent, and the descent with tables
-- block list with start, end, and instruction count
-- edge list with kind and, for `table` edges, the relocation or byte offset that produced the target
-- immediate dominator of every block and the back edges
-- byte accounting: code claimed, padding claimed by the sweep, data bytes, bytes never reached
-- every table with section, offset, entry size, count, entries, and evidence kind
-- every unknown with address, bytes, and the reason the analysis stopped
+- tên object, compiler, lệnh build và đường dẫn danh sách tham chiếu
+- sự đồng nhất oracle dưới dạng số chỉ lệnh đồng nhất trên số được so sánh
+- số chỉ lệnh dưới sweep, descent thuần và descent có bảng
+- danh sách khối với điểm bắt đầu, kết thúc và số chỉ lệnh
+- danh sách cạnh với loại và, với các cạnh `table`, relocation hoặc byte offset tạo ra đích
+- immediate dominator của mỗi khối và các back edge
+- hạch toán byte: mã được nhận, padding được sweep nhận, byte dữ liệu, byte không bao giờ được tới
+- mọi bảng với section, offset, kích thước mục, số lượng, các mục và loại bằng chứng
+- mọi điều chưa biết với địa chỉ, byte và lý do phân tích dừng
 
 ## Hard rejects
 
-- Trusting a listing because every byte decoded.
-- Treating agreement with `llvm-objdump` as proof of reachability. The oracle is itself a linear sweep.
-- Guessing an opcode the decoder does not know instead of raising.
-- Reading more than 15 bytes for one instruction or reading past the section end.
-- Resolving a RIP-relative operand without adding the distance from the relocation field to the end of the instruction.
-- Reading a jump table from zero bytes in a relocatable object instead of from its relocations.
-- Reporting a value table as a jump table, or a jump table as dead code.
-- Dropping an unresolved indirect transfer from the report.
-- Counting padding after the last return as function code.
-- Computing dominators over blocks the entry cannot reach.
-- Capturing the oracle from a different compiler or object than the one under analysis.
+- Tin một danh sách vì mọi byte được giải mã.
+- Coi sự đồng nhất với `llvm-objdump` là bằng chứng về khả năng tới. Bản thân oracle là một linear sweep.
+- Đoán một opcode mà decoder không biết thay vì phát sinh ngoại lệ.
+- Đọc hơn 15 byte cho một chỉ lệnh hoặc đọc vượt cuối section.
+- Phân giải một toán hạng tương đối theo RIP mà không cộng khoảng cách từ trường relocation đến cuối chỉ lệnh.
+- Đọc một jump table từ các byte không trong một object có thể tái định vị thay vì từ các relocation của nó.
+- Báo cáo một value table là một jump table, hoặc một jump table là mã chết.
+- Bỏ một chuyển giao gián tiếp chưa phân giải khỏi báo cáo.
+- Đếm padding sau lần trả về cuối là mã hàm.
+- Tính các dominator trên các khối mà điểm vào không thể tới.
+- Thu oracle từ một compiler hoặc object khác với đối tượng đang phân tích.
 
 ## Produce
 
-Return these sections:
+Trả về những phần này:
 
-1. Oracle: instructions compared, instructions agreed, first mismatch if any.
-2. Methods: instruction and byte counts for the sweep, the descent, and the descent with tables.
-3. Blocks and Edges: the typed graph with the evidence for every table edge.
-4. Dominators and Loops: the immediate dominator table and the back edges.
-5. Tables: jump tables and value tables with entries and evidence kind.
-6. Byte Accounting: claimed, padding, data, unreached, with address ranges.
-7. Unknowns: every address where the analysis stopped and why.
+1. Oracle: các chỉ lệnh được so sánh, các chỉ lệnh đồng nhất, lần không khớp đầu tiên nếu có.
+2. Phương pháp: số chỉ lệnh và byte cho sweep, descent và descent có bảng.
+3. Khối và Cạnh: đồ thị có kiểu với bằng chứng cho mỗi cạnh bảng.
+4. Dominator và Vòng lặp: bảng immediate dominator và các back edge.
+5. Bảng: jump table và value table với các mục và loại bằng chứng.
+6. Hạch toán Byte: được nhận, padding, dữ liệu, chưa tới, với các phạm vi địa chỉ.
+7. Điều chưa biết: mọi địa chỉ nơi phân tích dừng và vì sao.
 
-End with the first unknown. If there is none, state the oracle agreement count and the number of table targets proven by relocation.
+Kết thúc bằng điều chưa biết đầu tiên. Nếu không có, nêu số lượng đồng nhất oracle và số đích bảng được chứng minh bằng relocation.

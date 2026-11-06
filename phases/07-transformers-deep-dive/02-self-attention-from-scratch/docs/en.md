@@ -11,7 +11,7 @@
 
 - Triển khai scaled dot-product self-attention từ đầu chỉ bằng NumPy, bao gồm các phép chiếu query/key/value và tổng có trọng số softmax
 - Xây dựng một tầng multi-head attention chia các head, tính attention song song và nối các kết quả
-- Lần theo cách ma trận attention nắm bắt các quan hệ token và giải thích vì sao chia tỷ lệ bằng sqrt(d_k) ngăn bão hòa softmax
+- Lần theo cách ma trận attention nắm bắt các quan hệ token và giải thích vì sao chia tỷ lệ bằng $\sqrt{d_k}$ ngăn bão hòa softmax
 - Áp dụng masking nhân quả để chuyển attention hai chiều thành attention tự hồi quy (kiểu decoder)
 
 ## The Problem
@@ -109,10 +109,10 @@ attention-matrix
 
 ### Why Scale?
 
-Các tích vô hướng tăng theo số chiều dk. Nếu dk = 64, các tích vô hướng có thể nằm trong khoảng hàng chục, đẩy softmax vào các vùng mà gradient tiêu biến. Cách sửa: chia cho sqrt(dk).
+Các tích vô hướng tăng theo số chiều $d_k$. Nếu $d_k = 64$, các tích vô hướng có thể nằm trong khoảng hàng chục, đẩy softmax vào những vùng mà gradient biến mất. Cách khắc phục: chia cho $\sqrt{d_k}$.
 
-```
-Scaled scores = (Q @ K^T) / sqrt(dk)
+```math
+\text{Scaled scores} = \frac{Q K^T}{\sqrt{d_k}}
 ```
 
 Điều này giữ các giá trị trong một khoảng mà softmax tạo các gradient hữu ích.
@@ -159,8 +159,8 @@ flowchart LR
 
 Công thức trong một dòng:
 
-```
-Attention(Q, K, V) = softmax( Q @ K^T / sqrt(dk) ) @ V
+```math
+\text{Attention}(Q, K, V) = \mathop{\mathrm{softmax}}\left( \frac{Q K^T}{\sqrt{d_k}} \right) V
 ```
 
 ```figure
@@ -168,6 +168,10 @@ softmax-attention-scaling
 ```
 
 ## Build It
+
+```figure
+iso-machine {"machine":"self-attention"}
+```
 
 ### Step 1: Softmax from scratch
 
@@ -302,7 +306,7 @@ print(f"\nAttn weights (averaged over heads):")
 print(attn_weights[0].detach().numpy().round(3))
 ```
 
-Khác biệt then chốt: multi-head attention chạy nhiều hàm attention song song, mỗi hàm có các phép chiếu Q, K, V riêng kích thước dk = d_model / n_heads, rồi nối các kết quả. Điều này cho mô hình chú ý đến các loại quan hệ khác nhau đồng thời.
+Khác biệt then chốt: multi-head attention chạy nhiều hàm attention song song, mỗi hàm có các phép chiếu Q, K, V riêng có kích thước $d_k = d_{\text{model}} / n_{\text{heads}}$, rồi nối các kết quả. Điều này cho phép mô hình chú ý đến các loại quan hệ khác nhau đồng thời.
 
 ## Ship It
 
@@ -322,7 +326,7 @@ Bài học này tạo ra:
 | Query (Q) (Truy vấn) | "Vector câu hỏi" | Một phép chiếu được học của đầu vào biểu diễn token này đang tìm thông tin gì |
 | Key (K) (Khóa) | "Vector nhãn" | Một phép chiếu được học biểu diễn token này chứa thông tin gì, được khớp với các query |
 | Value (V) (Giá trị) | "Vector nội dung" | Một phép chiếu được học mang thông tin thực được tổng hợp dựa trên các điểm attention |
-| Scaled dot-product attention | "Công thức attention" | softmax(QK^T / sqrt(dk)) @ V - chia tỷ lệ ngăn bão hòa softmax ở số chiều cao |
+| Scaled dot-product attention | "Công thức attention" | $\mathop{\mathrm{softmax}}(QK^T / \sqrt{d_k}) V$ - việc co giãn ngăn softmax bão hòa trong không gian nhiều chiều |
 | Self-attention | "Token nhìn chính nó và các token khác" | Attention mà Q, K, V đều đến từ cùng một chuỗi, cho mọi vị trí chú ý đến mọi vị trí khác |
 | Attention weights (Trọng số attention) | "Bao nhiêu tập trung" | Một phân phối xác suất trên các vị trí, được softmax trên các tích vô hướng đã chia tỷ lệ tạo ra |
 | Multi-head attention | "Attention song song" | Chạy nhiều hàm attention với các phép chiếu khác nhau, rồi nối kết quả để có các biểu diễn phong phú hơn |

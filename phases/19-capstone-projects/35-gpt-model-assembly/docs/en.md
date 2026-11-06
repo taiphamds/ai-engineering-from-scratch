@@ -81,7 +81,7 @@ cc-gpt-assembly
 - `class GPTModel` với embedding token, embedding vị trí, dropout embedding, mười hai `TransformerBlock`, LayerNorm cuối, và một `lm_head` buộc với embedding token khi cờ được đặt.
 - Một hàm hỗ trợ `count_parameters` trả về số tham số duy nhất (nên buộc trọng số được tôn trọng trong số đếm).
 - Một hàm `generate` làm nhiệt độ, top-k, đa thức, và ngữ cảnh cửa sổ trượt.
-- Một demo xây dựng mô hình, in số tham số cạnh tham chiếu 124M, và sinh một chuỗi ngắn từ một prompt cố định để thể hiện pipeline từ đầu đến cuối.
+- Một demo xây dựng mô hình, in số tham số cạnh mốc tham chiếu 124M và sinh một chuỗi ngắn từ một prompt cố định để cho thấy pipeline từ đầu đến cuối.
 
 Chạy nó:
 
@@ -89,7 +89,7 @@ Chạy nó:
 python3 code/main.py
 ```
 
-Đầu ra: số tham số bên cạnh tham chiếu 124M, các id token được sinh từ một prompt ngẫu nhiên, và một xác nhận rằng đầu LM và embedding token dùng chung lưu trữ khi bật buộc.
+Đầu ra: số tham số bên cạnh mốc tham chiếu 124M, các token id được sinh từ một prompt cố định và xác nhận rằng LM head và token embedding chia sẻ vùng lưu trữ khi bật tying.
 
 Để giữ demo nhanh, script cũng chạy một cấu hình tí hon (`d_model=64`, `num_layers=2`) từ đầu đến cuối và in chuỗi token được sinh nội tuyến. Cấu hình 124M được xây dựng nhưng chỉ số tham số của nó và một lượt tiến được thực thi.
 

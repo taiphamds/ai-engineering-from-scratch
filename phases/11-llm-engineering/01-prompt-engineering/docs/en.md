@@ -1025,4 +1025,4 @@ Mã Python (`code/prompt_engineering.py`) là một bộ kiểm thử độc l�
 - [Shin et al., 2023 -- "Prompt Engineering a Prompt Engineer"](https://arxiv.org/abs/2311.05661) -- dùng LLM để tự động tối ưu prompt, nền tảng của meta-prompting
 - [Arena (formerly LMSYS Chatbot Arena)](https://arena.ai/) -- so sánh mù LLM trực tiếp nơi bạn có thể kiểm thử cùng prompt trên nhiều mô hình và bỏ phiếu phản hồi nào tốt hơn
 - [DAIR.AI Prompt Engineering Guide](https://www.promptingguide.ai/) -- danh mục đầy đủ các kỹ thuật prompt kèm ví dụ (zero-shot, few-shot, CoT, ReAct, self-consistency); tài liệu tham chiếu mà người thực hành dùng cho phạm vi "Prompt engineering" rộng hơn.
-- [Anthropic prompt library](https://docs.anthropic.com/en/prompt-library) -- các prompt được tuyển chọn, đã biết là tốt theo trường hợp sử dụng; cho thấy các mẫu cấu trúc được đưa vào sản xuất.
+- [Claude prompting best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices) -- hướng dẫn của Anthropic về cấu trúc prompt, với các ví dụ đã giải. Nó thay thế thư viện prompt trước đây.

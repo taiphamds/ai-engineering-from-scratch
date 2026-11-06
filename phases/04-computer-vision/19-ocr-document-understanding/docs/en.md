@@ -71,7 +71,7 @@ Các mô hình đầu-cuối cần thêm dữ liệu và tính toán nhưng bỏ
 
 ### Layout parsing
 
-Với tài liệu có cấu trúc, chạy một bộ phát hiện bố cục (LayoutLMv3, DocLayNet) gán nhãn mỗi vùng: Tiêu đề, Đoạn văn, Hình, Bảng, Chú thích chân trang. Thứ tự đọc sau đó trở thành "lặp qua các vùng theo thứ tự bố cục, nối lại."
+Đối với các tài liệu có cấu trúc, chạy một mô hình bố cục (LayoutLMv3 hoặc một bộ phát hiện được huấn luyện trên tập dữ liệu DocLayNet) gán nhãn cho mỗi vùng: Tiêu đề, Đoạn văn, Hình, Bảng, Chú thích cuối trang. Thứ tự đọc sau đó trở thành "lặp qua các vùng theo thứ tự bố cục, nối lại."
 
 Với biểu mẫu, sử dụng các mô hình **trích xuất Khóa-Giá trị** (Donut cho tài liệu giàu trực quan, LayoutLMv3 cho bản quét đơn giản). Chúng nhận hình ảnh + văn bản đã phát hiện + vị trí và dự đoán các cặp khóa-giá trị có cấu trúc.
 
@@ -160,18 +160,23 @@ class TinyCRNN(nn.Module):
 
 ### Step 3: Synthetic OCR
 
-Sinh các chuỗi chữ số đen-trên-trắng cho một phép kiểm tra nhanh đầu-cuối.
+Tạo các chuỗi đen trên nền trắng cho một smoke test từ đầu đến cuối. Mỗi ký tự trở thành một cột sáu thanh biểu thị chỉ số từ vựng của nó ở dạng nhị phân. Hình ảnh phải mang danh tính của ký tự: nếu mọi ký tự đều là cùng một ô trống, mô hình không thể phân biệt `a` với `x`, và loss sẽ đình trệ.
 
 ```python
 import numpy as np
+
+GLYPHS = "0123456789abcdefghijklmnopqrstuvwxyz"
 
 def synthetic_line(text, height=32, char_width=16):
     W = char_width * len(text)
     img = np.ones((height, W), dtype=np.float32)
     for i, c in enumerate(text):
         x = i * char_width
-        shade = 0.0 if c.isalnum() else 0.5
-        img[6:height - 6, x + 2:x + char_width - 2] = shade
+        code = GLYPHS.find(c) + 1
+        for bit in range(6):
+            if code >> bit & 1:
+                y = 4 + 4 * bit
+                img[y:y + 3, x + 2:x + char_width - 2] = 0.0
     return img
 
 
@@ -202,7 +207,7 @@ Một tập dữ liệu OCR thật thêm phông, nhiễu, xoay, mờ và màu. P
 model = TinyCRNN(vocab_size=len(vocab))
 opt = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-for step in range(200):
+for step in range(400):
     strings = ["abc" + str(step % 10)] * 4 + ["xyz" + str((step + 1) % 10)] * 4
     imgs, targets, target_lens = build_batch(strings, vocab)
     log_probs = model(imgs)  # (W', 8, vocab)
@@ -211,7 +216,7 @@ for step in range(200):
     opt.zero_grad(); loss.backward(); opt.step()
 ```
 
-Mất mát nên giảm từ ~3 xuống ~0.2 qua 200 bước trên dữ liệu tổng hợp đơn giản này.
+Loss phải giảm từ hai chữ số xuống khoảng 0.3 trong vòng 400 bước trên dữ liệu tổng hợp đơn giản này. `code/main.py` chạy cùng vòng lặp trên tập chuỗi riêng của nó rồi giải mã ba chuỗi kiểm thử.
 
 ## Use It
 

@@ -18,7 +18,7 @@ Bạn sẽ xây dựng một agent nhận một repo Java 8 (hoặc repo Python 
 
 Pipeline có hai lớp. **Nền tảng tất định** (OpenRewrite cho Java, libcst cho Python) chạy phần lớn các phép viết lại cơ học một cách an toàn: import, chữ ký phương thức, chỉnh sửa an toàn null, try-with-resources, thay thế API đã bị phản đối sử dụng. Nó nhanh và tạo ra các diff có thể kiểm toán. **Lớp agent** (OpenAI Agents SDK hoặc LangGraph trên Claude Opus 4.7 và GPT-5.4-Codex) xử lý các trường hợp mà công thức không thể: nâng cấp file dựng (Maven/Gradle/pyproject), xung đột phụ thuộc bắc cầu, kiểm thử chập chờn, annotation tùy chỉnh.
 
-Mỗi repo nhận một sandbox Daytona với runtime đích được cài sẵn. Agent lặp: chạy bản dựng, phân loại lỗi, áp dụng bản sửa, chạy lại. Giới hạn cứng: 30 phút mỗi repo, $8 mỗi repo, 20 lượt agent. Nếu mọi kiểm thử đều đạt và chênh lệch độ bao phủ không âm, nhánh sẽ mở một PR. Nếu không, repo được xếp vào một lớp lỗi kèm bằng chứng.
+Mỗi kho mã có một sandbox Daytona với runtime đích được cài sẵn. Agent lặp lại: chạy build, phân loại lỗi, áp dụng sửa chữa, chạy lại. Giới hạn cứng: 30 phút mỗi kho mã, $8 mỗi kho mã, 20 lượt agent. Nếu mọi bài kiểm tra qua và coverage giảm không quá 2 điểm phần trăm, nhánh mở một PR. Nếu không, kho mã được xếp dưới một lớp lỗi với bằng chứng.
 
 Hệ phân loại lỗi là sản phẩm bàn giao. Trên 50 repo, thứ gì bị hỏng? Phụ thuộc bắc cầu? Annotation tùy chỉnh? Phiên bản công cụ dựng? Kiểm thử chập chờn không liên quan đến việc di chuyển? Mỗi lớp nhận một số đếm và một diff minh họa. Những người viết công thức trong tương lai có thể nhắm vào ba lớp đứng đầu.
 
@@ -77,7 +77,7 @@ ce-migration-funnel
 
 4. **Trần ngân sách.** 30 phút thời gian thực mỗi repo, chi phí $8, 20 lượt agent. Bất kỳ vi phạm nào đều dừng và xếp vào "budget_exhausted" kèm diff hiện tại.
 
-5. **Cổng kiểm thử + độ bao phủ.** Sau khi bản dựng chuyển sang xanh, chạy bộ kiểm thử. So sánh độ bao phủ với repo cơ sở. Nếu độ bao phủ giảm hơn 2%, xếp vào "coverage_regression".
+5. **Cổng kiểm tra + coverage.** Sau khi build xanh, chạy bộ kiểm tra. So sánh coverage với kho mã cơ sở. Nếu coverage giảm quá 2 điểm phần trăm, xếp dưới "coverage_regression".
 
 6. **Mở PR.** Khi thành công, đẩy nhánh, mở PR với diff và bản tóm tắt những công thức đã áp dụng và những commit do agent tạo.
 

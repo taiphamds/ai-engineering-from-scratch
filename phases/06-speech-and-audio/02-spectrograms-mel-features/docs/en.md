@@ -23,7 +23,7 @@ Phổ đồ mel tiến xa hơn. Con người cảm nhận cao độ theo logarit
 
 **Log độ lớn.** Các độ lớn thô trải trên 5-6 bậc độ lớn. Lấy `log(|X| + 1e-6)` hoặc `20 * log10(|X|)` để nén dải động. Mọi pipeline production dùng log độ lớn, không phải độ lớn thô.
 
-**Thang mel.** Tần số `f` tính bằng Hz ánh xạ sang mel `m` bởi `m = 2595 * log10(1 + f / 700)`. Ánh xạ gần tuyến tính dưới 1 kHz và gần logarit phía trên. 80 bin mel bao phủ 0–8 kHz là đầu vào ASR tiêu chuẩn.
+**Thang mel.** Tần số `f` tính bằng Hz ánh xạ sang mel `m` bởi $m = 2595 \cdot \log_{10}(1 + f / 700)$. Ánh xạ gần tuyến tính dưới 1 kHz và gần logarit phía trên. 80 bin mel bao phủ 0–8 kHz là đầu vào ASR tiêu chuẩn.
 
 **Bộ lọc mel.** Một tập các bộ lọc tam giác cách đều trên thang mel. Mỗi bộ lọc là một tổng có trọng số của các bin FFT liền kề. Nhân độ lớn STFT với ma trận bộ lọc cho phổ đồ mel trong một phép nhân ma trận.
 

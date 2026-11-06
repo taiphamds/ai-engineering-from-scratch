@@ -43,7 +43,7 @@ stateDiagram-v2
     DONE --> [*]
 ```
 
-`IDLE` là điểm vào hợp lệ duy nhất. `DONE` là lối ra hợp lệ duy nhất. `AWAITING_TOOL` là trạng thái duy nhất nhường ra một điểm kéo. Mọi chuyển tiếp khác đều nội bộ.
+`IDLE` là điểm vào hợp lệ duy nhất. `DONE` là điểm thoát hợp lệ duy nhất. `AWAITING_TOOL` là trạng thái duy nhất tự nó tạo ra một điểm kéo. Điểm kéo thứ hai, `on_pause`, không phải một trạng thái: nó kích hoạt từ bất kỳ trạng thái đang hoạt động nào khi ngân sách cạn hoặc một hook yêu cầu xem xét. Mọi chuyển tiếp khác đều là nội bộ.
 
 Máy trạng thái là tất định. Với cùng nhật ký sự kiện, harness vào lại cùng trạng thái. Thuộc tính đó là thứ cho phép bạn phát lại các phiên để gỡ lỗi mà không gọi lại mô hình.
 

@@ -143,11 +143,11 @@ Các khối xây dựng chính:
 
 | Module | Chức năng | Các tham số |
 |--------|-------------|------------|
-| nn.Linear(in, out) | Wx + b | in*out + out |
+| nn.Linear(in, out) | $Wx + b$ | in*out + out |
 | nn.Conv2d(in_ch, out_ch, k) | Tích chập 2D | in_ch*out_ch*k*k + out_ch |
 | nn.BatchNorm1d(features) | Chuẩn hóa các kích hoạt | 2 * features |
 | nn.Dropout(p) | Đưa về không ngẫu nhiên | 0 |
-| nn.ReLU() | max(0, x) | 0 |
+| nn.ReLU() | $\max(0, x)$ | 0 |
 | nn.GELU() | Tuyến tính sai số Gaussian | 0 |
 | nn.Embedding(vocab, dim) | Bảng tra cứu | vocab * dim |
 | nn.LayerNorm(dim) | Chuẩn hóa theo từng mẫu | 2 * dim |
@@ -356,7 +356,7 @@ class MNISTModel(nn.Module):
 
 Lớp đầu ra tạo ra 10 logit thô (mỗi chữ số một logit). Không softmax -- `CrossEntropyLoss` xử lý điều đó bên trong.
 
-Số tham số: 784*256 + 256 + 256*128 + 128 + 128*10 + 10 = 235,146. Rất nhỏ theo tiêu chuẩn hiện đại. GPT-2 nhỏ có 124M. Mô hình này huấn luyện trong vài giây.
+Số tham số: $784 \cdot 256 + 256 + 256 \cdot 128 + 128 + 128 \cdot 10 + 10 = 235{,}146$. Rất nhỏ theo tiêu chuẩn hiện đại. GPT-2 nhỏ có 124M. Mô hình này huấn luyện trong vài giây.
 
 ### Step 3: Training Loop
 

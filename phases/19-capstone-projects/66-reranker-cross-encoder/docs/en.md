@@ -91,7 +91,7 @@ python3 code/main.py
 
 **Cross-encoder không đối xứng.** `rerank(q, d)` và `rerank(d, q)` là các điểm khác nhau. Luôn đưa truy vấn trước. Nếu bạn vô tình đổi, recall sụp.
 
-**N quá thấp để lộ lỗi.** Nếu bạn đặt N = K, cross-encoder không thể sắp lại; nó chỉ có thể đặt lại trọng số. Mức tăng trông như không. Chọn N ít nhất gấp ba K.
+**N quá thấp để bộc lộ lỗi.** Nếu bạn đặt N = K, cross-encoder có thể sắp xếp lại K ứng viên nhưng không thể đưa một ứng viên mới vào top K. Recall tại K không thể thay đổi, nên mức tăng trông như bằng không. Chọn N ít nhất gấp ba K.
 
 **Dữ liệu huấn luyện rò vào đánh giá.** Nếu các cặp huấn luyện được gắn nhãn thủ công bao gồm các truy vấn đánh giá, xếp hạng lại trông như phép màu. Tách nghiêm ngặt huấn luyện và đánh giá, ngay cả trên một fixture.
 

@@ -39,7 +39,7 @@ Thư mục nhà của bạn là `~` hoặc `/home/your-username`. Hầu hết m�
 
 ## Essential Commands
 
-Đây là 15 lệnh bao phủ 95% những gì bạn sẽ làm trên máy GPU từ xa.
+Đây là 13 lệnh bao quát phần lớn những gì bạn sẽ làm trên một máy GPU từ xa.
 
 ### Moving Around
 
@@ -305,3 +305,15 @@ s0-process-fork
 3. Bắt đầu một phiên tmux, chạy `sleep 300` bên trong, tách phiên, liệt kê các phiên và gắn lại.
 4. Dùng `df -h` để kiểm tra dung lượng đĩa còn trống, rồi dùng `du -sh ~/.cache/*` để tìm thứ đang chiếm dung lượng trong bộ nhớ đệm.
 5. Truyền một tệp từ máy cục bộ sang máy từ xa bằng `scp`, rồi truyền tương tự bằng `rsync` và so sánh trải nghiệm.
+
+### Hints
+
+**Bài tập 1.** Sử dụng `cd ~`, `mkdir` và `cd` vào thư mục mới, rồi chạy `touch` với ba tên tệp. Trong đầu ra `ls -la`, kiểm tra ba tệp hiển thị kích thước 0 và tên người dùng của bạn là chủ sở hữu.
+
+**Bài tập 2.** Cài bằng `sudo apt install -y htop`, khởi động nó và nhấn `F6` (hoặc nhấp tên cột) để sắp xếp theo `MEM%`. Tiến trình ở đầu danh sách sử dụng nhiều bộ nhớ nhất.
+
+**Bài tập 3.** Sử dụng `tmux new -s train` từ bài học, chạy `sleep 300` và tách ra bằng `Ctrl+B` rồi `d`. Chạy `tmux ls` để xem phiên, rồi `tmux attach -t train`; `sleep` vẫn phải chạy.
+
+**Bài tập 4.** Chạy `df -h` và đọc cột `Avail` cho hệ thống tệp chứa thư mục home của bạn. Sau đó chạy `du -sh ~/.cache/* | sort -h` để thư mục lớn nhất nằm ở dòng cuối.
+
+**Bài tập 5.** Sao chép một tệp bằng `scp file.txt user@host:~/`, rồi chạy `rsync -avP file.txt user@host:~/` cho cùng tệp đó. Chạy lệnh `rsync` lần thứ hai: nó gần như không gửi gì, vì tệp ở phía từ xa không thay đổi.

@@ -38,15 +38,15 @@ minimize L(w) where:
 
 Bộ tối ưu hóa đơn giản nhất. Tính gradient của mất mát theo mọi trọng số. Di chuyển mỗi trọng số theo hướng ngược với gradient của nó. Nhân tỉ lệ bước với tốc độ học.
 
-```
-w = w - lr * gradient
+```math
+w = w - \text{lr} \cdot \text{gradient}
 ```
 
 Đó là toàn bộ thuật toán. Một dòng.
 
 ```mermaid
 graph TD
-    A["* Starting point (high loss)"] --> B["Moving downhill along gradient"]
+    A["* Starting point (high loss)"] --> B["Moving downhill, against the gradient"]
     B --> C["Approaching minimum"]
     C --> D["o Minimum (low loss)"]
 ```
@@ -94,9 +94,11 @@ Nhiễu trong SGD và mini-batch không phải là lỗi. Nó giúp thoát khỏ
 
 Gradient descent cơ bản chỉ nhìn vào gradient hiện tại. Nếu gradient ngoằn ngoèo (phổ biến trong các thung lũng hẹp), tiến triển chậm. Momentum khắc phục điều này bằng cách tích lũy các gradient quá khứ vào một thành phần vận tốc.
 
-```
-v = beta * v + gradient
-w = w - lr * v
+```math
+\begin{aligned}
+v &= \beta \cdot v + \text{gradient} \\
+w &= w - \text{lr} \cdot v
+\end{aligned}
 ```
 
 Phép tương tự: một quả bóng lăn xuống dốc. Nó không dừng và khởi động lại tại mỗi chỗ gồ ghề. Nó tăng tốc theo các hướng nhất quán và làm giảm dao động.
@@ -124,17 +126,17 @@ Các trọng số khác nhau cần các tốc độ học khác nhau. Một tr�
 
 Adam (Ước lượng Moment Thích nghi) theo dõi hai thứ cho mỗi trọng số:
 
-1. Moment bậc nhất (m): trung bình cập nhật liên tục của gradient (giống momentum)
-2. Moment bậc hai (v): trung bình cập nhật liên tục của gradient bình phương (độ lớn gradient)
+1. Moment bậc nhất ($m$): trung bình cập nhật liên tục của gradient (giống momentum)
+2. Moment bậc hai ($v$): trung bình cập nhật liên tục của gradient bình phương (độ lớn gradient)
 
-```
-m = beta1 * m + (1 - beta1) * gradient
-v = beta2 * v + (1 - beta2) * gradient^2
-
-m_hat = m / (1 - beta1^t)    bias correction
-v_hat = v / (1 - beta2^t)    bias correction
-
-w = w - lr * m_hat / (sqrt(v_hat) + epsilon)
+```math
+\begin{aligned}
+m &= \beta_1 \cdot m + (1 - \beta_1) \cdot \text{gradient} \\
+v &= \beta_2 \cdot v + (1 - \beta_2) \cdot \text{gradient}^2 \\[4pt]
+\hat{m} &= m / (1 - \beta_1^t) \quad \text{bias correction} \\
+\hat{v} &= v / (1 - \beta_2^t) \quad \text{bias correction} \\[4pt]
+w &= w - \text{lr} \cdot \hat{m} / (\sqrt{\hat{v}} + \epsilon)
+\end{aligned}
 ```
 
 Phép chia cho `sqrt(v_hat)` là điểm cốt yếu. Các trọng số có gradient lớn được chia cho một số lớn (bước hiệu dụng nhỏ). Các trọng số có gradient nhỏ được chia cho một số nhỏ (bước hiệu dụng lớn). Mỗi trọng số có tốc độ học thích nghi riêng.
@@ -149,14 +151,14 @@ Các lịch phổ biến:
 
 | Lịch | Công thức | Trường hợp sử dụng |
 |----------|---------|----------|
-| Giảm theo bước | lr = lr * factor mỗi N epoch | Đơn giản, điều khiển thủ công |
-| Giảm theo hàm mũ | lr = lr_0 * decay^t | Giảm mượt |
-| Ủ cosine | lr = lr_min + 0.5 * (lr_max - lr_min) * (1 + cos(pi * t / T)) | Transformer, huấn luyện hiện đại |
+| Giảm theo bước | $\text{lr} = \text{lr} \cdot \text{factor}$ mỗi $N$ epoch | Đơn giản, điều khiển thủ công |
+| Giảm theo hàm mũ | $\text{lr} = \text{lr}_0 \cdot \text{decay}^t$ | Giảm mượt |
+| Ủ cosine | $\text{lr} = \text{lr} _{\min} + 0.5 \cdot (\text{lr} _{\max} - \text{lr} _{\min}) \cdot (1 + \cos(\pi t / T))$ | Transformer, huấn luyện hiện đại |
 | Warmup + giảm | Tăng tuyến tính, rồi giảm | Các mô hình lớn, ngăn bất ổn ban đầu |
 
 ### Convex vs non-convex
 
-Một hàm lồi có một cực tiểu. Gradient descent luôn tìm thấy nó. Một hàm bậc hai như `f(x) = x^2` là lồi.
+Một hàm lồi không có cực tiểu cục bộ xấu: mọi cực tiểu cục bộ đều là cực tiểu toàn cục. Đối với một hàm lồi trơn có cực tiểu, gradient descent với tốc độ học đủ nhỏ hội tụ đến cực tiểu đó. Một hàm bậc hai như $f(x) = x^2$ là lồi, và cực tiểu của nó là duy nhất.
 
 Các hàm mất mát mạng nơ-ron không lồi. Chúng có nhiều cực tiểu cục bộ, điểm yên ngựa và vùng phẳng.
 
@@ -205,8 +207,8 @@ gradient-descent
 
 Hàm Rosenbrock là một chuẩn đánh giá tối ưu hóa kinh điển. Cực tiểu của nó nằm tại (1, 1) bên trong một thung lũng hẹp cong dễ tìm nhưng khó đi theo.
 
-```
-f(x, y) = (1 - x)^2 + 100 * (y - x^2)^2
+```math
+f(x, y) = (1 - x)^2 + 100 \cdot (y - x^2)^2
 ```
 
 ```python
@@ -351,9 +353,19 @@ Các lớp bộ tối ưu hóa được xây dựng ở đây xuất hiện lạ
 
 2. **So sánh momentum.** Chạy SGD với các giá trị momentum [0.0, 0.5, 0.9, 0.99] trên hàm Rosenbrock. Theo dõi mất mát tại mỗi bước. Giá trị momentum nào hội tụ nhanh nhất? Giá trị nào vượt quá?
 
-3. **Thoát điểm yên ngựa.** Định nghĩa hàm `f(x, y) = x^2 - y^2` (một điểm yên ngựa tại gốc tọa độ). Bắt đầu tại (0.01, 0.01). So sánh cách GD cơ bản, SGD có momentum và Adam hoạt động. Bộ nào thoát khỏi điểm yên ngựa?
+3. **Thoát điểm yên ngựa.** Định nghĩa hàm $f(x, y) = x^2 - y^2$ (một điểm yên ngựa tại gốc tọa độ). Bắt đầu tại (0.01, 0.01). So sánh cách GD cơ bản, SGD có momentum và Adam hoạt động. Bộ nào thoát khỏi điểm yên ngựa?
 
 4. **Triển khai giảm tốc độ học.** Thêm một lịch giảm theo hàm mũ vào lớp GradientDescent: `lr = lr_0 * 0.999^step`. So sánh sự hội tụ khi có và không giảm trên hàm Rosenbrock.
+
+### Hints
+
+**Bài tập 1.** Lặp qua các tốc độ học, tạo một `GradientDescent(lr=...)` cho mỗi giá trị và truyền nó cho `optimize` với `rosenbrock` và `rosenbrock_gradient`. Một lần chạy phân kỳ hiển thị loss tăng hoặc trở thành `nan`; cực tiểu nằm tại $(1, 1)$ với loss 0.
+
+**Bài tập 2.** Tạo `SGDMomentum(momentum=m)` cho mỗi giá trị và ghi lại loss sau mỗi bước. Sử dụng `find_convergence_step` để so sánh tốc độ, và tìm các loss tăng rồi giảm để tìm hiện tượng vượt quá.
+
+**Bài tập 3.** Viết gradient $(2x, -2y)$ và chạy ba bộ tối ưu từ (0.01, 0.01). In $y$ sau mỗi 100 bước: bộ tối ưu thoát ra là bộ có $\lvert y \rvert$ tăng lớn.
+
+**Bài tập 4.** Lưu `lr_0` và một bộ đếm bước trong `GradientDescent`, và tính `lr = lr_0 * 0.999 ** step` bên trong `step`. In tốc độ học ở bước 0 và bước 1000; nó phải giảm từ `lr_0` xuống khoảng $0.37 \times \text{lr}_0$.
 
 ## Key Terms
 
@@ -365,7 +377,7 @@ Các lớp bộ tối ưu hóa được xây dựng ở đây xuất hiện lạ
 | SGD | "Lấy mẫu ngẫu nhiên" | Gradient descent ngẫu nhiên. Tính gradient trên một tập con ngẫu nhiên thay vì toàn bộ tập dữ liệu. Trong thực tế hầu như luôn có nghĩa là mini-batch SGD. |
 | Mini-batch | "Một phần dữ liệu" | Một tập con nhỏ của dữ liệu huấn luyện (32-256 mẫu) được sử dụng để ước lượng gradient. Cân bằng tốc độ và độ chính xác gradient. |
 | Adam | "Bộ tối ưu hóa mặc định" | Ước lượng Moment Thích nghi. Theo dõi các trung bình cập nhật liên tục của gradient và gradient bình phương theo từng trọng số để cho mỗi trọng số tốc độ học riêng. |
-| Bias correction (Hiệu chỉnh độ chệch) | "Khắc phục khởi đầu lạnh" | Các moment bậc nhất và bậc hai của Adam được khởi tạo bằng không. Hiệu chỉnh độ chệch chia cho (1 - beta^t) để bù trong các bước đầu. |
+| Bias correction (Hiệu chỉnh độ chệch) | "Khắc phục khởi đầu lạnh" | Các moment bậc nhất và bậc hai của Adam được khởi tạo bằng không. Hiệu chỉnh độ chệch chia cho $(1 - \beta^t)$ để bù trong các bước đầu. |
 | Learning rate schedule (Lịch tốc độ học) | "Thay đổi lr theo thời gian" | Một hàm điều chỉnh tốc độ học trong quá trình huấn luyện. Bước lớn lúc đầu, bước nhỏ lúc sau. |
 | Convex function (Hàm lồi) | "Một thung lũng" | Một hàm mà bất kỳ cực tiểu cục bộ nào cũng là cực tiểu toàn cục. Gradient descent luôn tìm thấy nó. Mất mát mạng nơ-ron không lồi. |
 | Saddle point (Điểm yên ngựa) | "Phẳng nhưng không phải cực tiểu" | Một điểm có gradient bằng không nhưng là cực tiểu theo một số hướng và cực đại theo các hướng khác. Phổ biến trong không gian nhiều chiều. |

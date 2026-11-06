@@ -41,8 +41,8 @@ prediction-game
 
 **Xác suất n-gram:** `P(w_i | w_{i-n+1}, ..., w_{i-1})`. Cố định `n` (thường 3 cho trigram, 4 cho 4-gram). Tính từ các số đếm:
 
-```text
-P(w | context) = count(context, w) / count(context)
+```math
+P(w \mid \text{context}) = \frac{\mathop{\mathrm{count}}(\text{context}, w)}{\mathop{\mathrm{count}}(\text{context})}
 ```
 
 **Vấn đề số đếm bằng không.** Bất kỳ n-gram nào không thấy trong huấn luyện nhận xác suất bằng không. Một nghiên cứu năm 2007 trên ngữ liệu Brown phát hiện ngay cả mô hình 4-gram có 30% các 4-gram được giữ lại chưa thấy trong huấn luyện. Bạn không thể đánh giá trên bất kỳ văn bản thực nào nếu không làm trơn.
@@ -60,8 +60,8 @@ Nhận thức của Kneser-Ney sâu sắc. "San Francisco" là một bigram ph�
 
 **Đánh giá: perplexity.** Hàm mũ của negative log-likelihood trung bình mỗi từ trên một tập kiểm thử được giữ lại. Thấp hơn là tốt hơn. Perplexity 100 nghĩa là mô hình bối rối như khi chọn đều giữa 100 từ.
 
-```text
-perplexity = exp(- (1/N) * Σ log P(w_i | context_i))
+```math
+\text{perplexity} = \exp\left(-\frac{1}{N} \sum_i \log P(w_i \mid \text{context}_i)\right)
 ```
 
 ```figure

@@ -36,9 +36,9 @@ Large-v3 có 1.55B tham số. Turbo dùng một decoder 4 tầng (từ 32), gi�
 <|startoftranscript|><|en|><|transcribe|><|notimestamps|> Hello world.<|endoftext|>
 ```
 
-- `<|en|>` — nhãn ngôn ngữ; ép hành vi dịch-so-với-chép lời.
-- `<|transcribe|>` hoặc `<|translate|>` — dịch đầu ra tiếng Anh từ đầu vào bất kỳ ngôn ngữ nào, hoặc nguyên văn.
-- `<|notimestamps|>` — bỏ qua dấu thời gian cấp từ (nhanh hơn).
+- `<|en|>`: thẻ ngôn ngữ; nêu tên ngôn ngữ được nói trong âm thanh. Bỏ nó đi và Whisper sẽ phát hiện ngôn ngữ trước.
+- `<|transcribe|>` hoặc `<|translate|>`: thẻ tác vụ; chép lời nói bằng ngôn ngữ nguồn của nó, hoặc dịch nó sang văn bản tiếng Anh.
+- `<|notimestamps|>`: bỏ qua timestamp ở cấp từ (nhanh hơn).
 
 Prompt là thứ cho phép một mô hình làm nhiều tác vụ. Đổi `<|en|>` thành `<|fr|>` và nó chép lời tiếng Pháp.
 

@@ -12,14 +12,14 @@ Với mô tả tác vụ (QA ảnh, nhận dạng hành động video, quy trìn
 Tạo:
 
 1. Cận độ phân giải. `min_pixels` và `max_pixels` chọn cho tác vụ. Tài liệu và UI: max cao (>=1,806,336 = tương đương 1344x1344). Ảnh chụp: mặc định. Khung video: thấp hơn để giữ số khung.
-2. Chính sách FPS. Cố định 1 FPS cho ít chuyển động; động 2-4 cho trung bình; 4-8 cho cao. Bật token thời gian tuyệt đối khi tác vụ liên quan grounding thời gian.
+2. Chính sách FPS. Cố định 1 FPS cho chuyển động thấp; động 2-4 cho mức trung bình; 4-8 cho mức cao. M-RoPE thời gian tuyệt đối có ý nghĩa bất cứ khi nào tác vụ liên quan đến việc gắn với mốc thời gian.
 3. Ngân sách khung. Tổng token mỗi video = duration * fps * tokens_per_frame. Vừa ngữ cảnh sẵn có (để dư 20% cho prompt + đầu ra).
 4. Window attention. Bật cho đầu vào >720p; tắt ở độ phân giải thấp nơi attention toàn cục rẻ hơn.
 5. Chế độ đầu ra. Văn bản tự do cho chú thích hoặc QA; JSON gọi công cụ cho tác tử và grounding; thẻ `<box>` cho phát hiện.
 6. Kwargs suy luận. Dict cụ thể người dùng truyền cho `process_vision_info` + forward mô hình.
 
 Các trường hợp loại bỏ dứt khoát:
-- Đề xuất Qwen2-VL (gốc, trước 2.5) mặc định cho dự án mới. Nó thiếu FPS động và token thời gian tuyệt đối.
+- Đề xuất Qwen2-VL (bản gốc, trước 2.5) làm mặc định cho các dự án mới. Nó thiếu FPS động và M-RoPE thời gian tuyệt đối.
 - Tuyên bố M-RoPE cần bảng vị trí. Không cần — đó là toàn điểm bán.
 - Dùng 1 FPS cố định cho video chuyển động cao rồi kỳ vọng nhận dạng hành động đúng. Bộ lấy mẫu phải thích ứng.
 
