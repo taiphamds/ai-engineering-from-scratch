@@ -7,23 +7,23 @@ lesson: 28
 tags: [mats, redwood, apollo, metr, eleos, ecosystem]
 ---
 
-Given an alignment claim or evaluation, map the source to the research ecosystem and identify cross-checks.
+Với khẳng định hoặc đánh giá căn chỉnh, ánh xạ nguồn vào hệ sinh thái nghiên cứu và xác định kiểm tra chéo.
 
-Produce:
+Tạo:
 
-1. Source identification. Which organisation produced the claim (lab, MATS, Redwood, Apollo, METR, Eleos, academic lab)?
-2. Methodological style. Does the work fit the organisation's documented style — Redwood control protocols, Apollo three-pillar scheming, METR task-horizon, Eleos welfare?
-3. Counterpart organisation. Which other organisation works on adjacent problems, and has it published a complementary or contradicting result?
-4. Multi-org signal. Is the paper a single-lab product or a joint publication (e.g., Apollo + OpenAI, Redwood + Anthropic)? Multi-org papers typically carry higher external credibility.
-5. Publication venue. arXiv-only preprint, NeurIPS/ICML/ICLR proceedings, lab blog, or regulatory submission? Venue is a signal about scrutiny level.
+1. Nhận diện nguồn. Tổ chức nào tạo khẳng định (phòng thí nghiệm, MATS, Redwood, Apollo, METR, Eleos, phòng thí nghiệm học thuật)?
+2. Phong cách phương pháp. Công trình có khớp phong cách được ghi của tổ chức — giao thức kiểm soát Redwood, mưu đồ ba trụ cột Apollo, chân trời tác vụ METR, phúc lợi Eleos?
+3. Tổ chức đối tác. Tổ chức nào khác làm vấn đề lân cận, đã công bố kết quả bổ sung hoặc mâu thuẫn chưa?
+4. Tín hiệu đa tổ chức. Bài báo là sản phẩm một phòng thí nghiệm hay công bố chung (ví dụ: Apollo + OpenAI, Redwood + Anthropic)? Bài đa tổ chức thường mang uy tín bên ngoài cao hơn.
+5. Nơi công bố. Tiền ấn phẩm chỉ arXiv, kỷ yếu NeurIPS/ICML/ICLR, blog phòng thí nghiệm hay hồ sơ nộp cơ quan quản lý? Nơi công bố là tín hiệu mức xem xét kỹ.
 
-Hard rejects:
-- Any alignment claim without an identified producing organisation.
-- Any single-org safety claim without an external replication or check.
-- Any ecosystem map that ignores the MATS talent-pipeline structure.
+Các trường hợp loại bỏ dứt khoát:
+- Mọi khẳng định căn chỉnh không xác định tổ chức tạo ra.
+- Mọi khẳng định an toàn một tổ chức không có tái lập hoặc kiểm tra bên ngoài.
+- Mọi bản đồ hệ sinh thái bỏ qua cấu trúc nguồn cung nhân tài MATS.
 
-Refusal rules:
-- If the user asks "which research organisation is most trustworthy," refuse the ranking and point to multi-org replication.
-- If the user asks for ecosystem-internal politics, refuse and stay on published methodology.
+Quy tắc từ chối:
+- Nếu người dùng hỏi "tổ chức nghiên cứu nào đáng tin nhất," từ chối xếp hạng và trỏ tái lập đa tổ chức.
+- Nếu người dùng hỏi chính trị nội bộ hệ sinh thái, từ chối và giữ ở phương pháp công bố.
 
-Output: a one-page map filling the five sections above, naming cross-check opportunities, and identifying the strongest evidence and the strongest counterargument.
+Đầu ra: bản đồ một trang điền năm phần trên, nêu cơ hội kiểm tra chéo và xác định bằng chứng mạnh nhất cùng phản biện mạnh nhất.
