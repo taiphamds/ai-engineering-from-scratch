@@ -7,29 +7,29 @@ lesson: 12
 tags: [multi-agent, a2a, protocol, interoperability, google]
 ---
 
-Given two agent systems that need to interoperate, produce the A2A integration plan: Agent Card contents, task schemas, auth, transport mode.
+Với hai hệ thống agent cần liên vận, tạo kế hoạch tích hợp A2A: nội dung Agent Card, các lược đồ tác vụ, xác thực, chế độ truyền tải.
 
-Produce:
+Tạo ra:
 
-1. **Agent Card.** Name, description, version, skills (each with `id`, `name`, `description`, `tags`), `supportedInterfaces` (each with `url`, `protocolBinding`, `protocolVersion`), `defaultInputModes` and `defaultOutputModes` as media types (text, structured JSON, image, audio, video), and the auth declaration in `securitySchemes` plus `securityRequirements`.
-2. **Task schemas per skill.** Input JSON schema + artifact JSON schema. Be explicit — clients will validate.
-3. **Auth choice.** Bearer token (OAuth2 or opaque), mTLS, or API key, each declared as a `securitySchemes` entry. Justify given the threat model (public internet, VPC, mixed).
-4. **Transport mode.** Polling (`GetTask`) vs SSE streaming (`SendStreamingMessage`, `SubscribeToTask`) vs push notifications (`CreateTaskPushNotificationConfig`). Streaming for long-running or progress-heavy tasks; polling for short tasks.
-5. **Rate limits.** Per-client and per-task limits. Protection from abuse.
-6. **Idempotency.** Strategy for duplicate `POST /message:send` requests (stable client `messageId`, server-side deduplication on it).
-7. **Failure handling.** Task states beyond `TASK_STATE_FAILED` (retriable vs fatal), dead-letter policy, error artifact schema.
-8. **MCP vs A2A split.** If the remote agent uses MCP internally, note which tools are exposed vs kept internal.
+1. **Agent Card.** Tên, mô tả, phiên bản, các kỹ năng (mỗi kỹ năng với `id`, `name`, `description`, `tags`), `supportedInterfaces` (mỗi mục với `url`, `protocolBinding`, `protocolVersion`), `defaultInputModes` và `defaultOutputModes` dưới dạng các kiểu phương tiện (văn bản, JSON có cấu trúc, hình ảnh, âm thanh, video), và khai báo xác thực trong `securitySchemes` cộng với `securityRequirements`.
+2. **Các lược đồ tác vụ theo từng kỹ năng.** Lược đồ JSON đầu vào + lược đồ JSON hiện vật. Hãy tường minh — các máy khách sẽ xác thực.
+3. **Lựa chọn xác thực.** Bearer token (OAuth2 hoặc không trong suốt), mTLS, hoặc khóa API, mỗi loại được khai báo như một mục `securitySchemes`. Giải thích theo mô hình đe dọa (internet công khai, VPC, hỗn hợp).
+4. **Chế độ truyền tải.** Thăm dò (`GetTask`) so với truyền luồng SSE (`SendStreamingMessage`, `SubscribeToTask`) so với thông báo đẩy (`CreateTaskPushNotificationConfig`). Truyền luồng cho các tác vụ chạy dài hoặc nhiều tiến độ; thăm dò cho các tác vụ ngắn.
+5. **Giới hạn tốc độ.** Các giới hạn theo từng máy khách và theo từng tác vụ. Bảo vệ khỏi lạm dụng.
+6. **Tính lũy đẳng.** Chiến lược cho các yêu cầu `POST /message:send` trùng lặp (`messageId` máy khách ổn định, khử trùng lặp phía máy chủ theo nó).
+7. **Xử lý lỗi.** Các trạng thái tác vụ ngoài `TASK_STATE_FAILED` (có thể thử lại so với nghiêm trọng), chính sách thư chết, lược đồ hiện vật lỗi.
+8. **Phân chia MCP so với A2A.** Nếu agent từ xa sử dụng MCP nội bộ, ghi nhận những công cụ nào được cung cấp so với giữ nội bộ.
 
-Hard rejects:
+Các trường hợp loại bỏ dứt khoát:
 
-- Agent Cards whose `supportedInterfaces` entries do not declare a `protocolVersion`.
-- Task schemas that are free-form text when the use case warrants structure.
-- Empty `securityRequirements` on public-internet deployments.
+- Các Agent Card có các mục `supportedInterfaces` không khai báo một `protocolVersion`.
+- Các lược đồ tác vụ là văn bản dạng tự do khi trường hợp sử dụng cần cấu trúc.
+- `securityRequirements` rỗng trên các triển khai internet công khai.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If both agents run in the same process, refuse A2A and recommend direct Python/JS calls. A2A is for cross-system boundaries.
-- If latency requirements are sub-100ms round-trip, refuse A2A and recommend direct RPC with a shared schema.
-- If the remote agent does not declare an Agent Card, refuse integration and recommend publishing one first.
+- Nếu cả hai agent chạy trong cùng tiến trình, từ chối A2A và đề xuất các lệnh gọi Python/JS trực tiếp. A2A dành cho các ranh giới xuyên hệ thống.
+- Nếu các yêu cầu độ trễ là khứ hồi dưới 100ms, từ chối A2A và đề xuất RPC trực tiếp với một lược đồ dùng chung.
+- Nếu agent từ xa không khai báo một Agent Card, từ chối tích hợp và đề xuất công bố một card trước.
 
-Output: a one-page integration brief. Close with the Agent Card JSON pasted inline so engineering can drop it into `/.well-known/agent-card.json`.
+Đầu ra: một bản tóm lược tích hợp một trang. Kết thúc bằng JSON Agent Card được dán nội tuyến để kỹ thuật có thể thả nó vào `/.well-known/agent-card.json`.
