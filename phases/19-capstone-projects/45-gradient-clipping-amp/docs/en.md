@@ -1,6 +1,6 @@
 # Gradient Clipping and Mixed Precision
 
-> The optimizer and schedule from the previous lesson assume gradients are sane. They usually are not. A single bad batch can spike the gradient norm by three orders of magnitude. Mixed-precision training amplifies this by introducing FP16 overflow on the loss side. This lesson builds the two safety belts that production training cannot ship without: gradient clipping to a configured global L2 norm, and a mixed-precision loop with autocast and GradScaler that detects NaN and Inf, skips the step cleanly, and logs the scaling factor for forensics.
+> Bộ tối ưu và lịch từ bài trước giả định các gradient hợp lý. Chúng thường không như vậy. Một lô xấu duy nhất có thể làm chuẩn gradient tăng vọt ba bậc độ lớn. Huấn luyện độ chính xác hỗn hợp khuếch đại điều này bằng cách đưa tràn FP16 vào phía mất mát. Bài này xây dựng hai dây an toàn mà huấn luyện sản xuất không thể cung cấp nếu thiếu: cắt gradient về một chuẩn L2 toàn cục được cấu hình, và một vòng lặp độ chính xác hỗn hợp với autocast và GradScaler phát hiện NaN và Inf, bỏ qua bước gọn gàng, và ghi nhật ký hệ số tỷ lệ để điều tra.
 
 **Type:** Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Compute the global L2 norm over all parameter gradients and clip in place when it exceeds a configured threshold.
-- Wrap a training step in autocast plus a GradScaler so FP16 forward and backward passes survive overflow.
-- Detect NaN and Inf in the loss or gradient, skip the optimizer step, and log the skip.
-- Report the GradScaler's scaling factor every step so a long sequence of skips is visible immediately.
+- Tính chuẩn L2 toàn cục trên mọi gradient tham số và cắt tại chỗ khi nó vượt một ngưỡng được cấu hình.
+- Bọc một bước huấn luyện trong autocast cùng một GradScaler để các lượt tiến và ngược FP16 sống sót qua tràn.
+- Phát hiện NaN và Inf trong mất mát hoặc gradient, bỏ qua bước bộ tối ưu, và ghi nhật ký lần bỏ qua.
+- Báo cáo hệ số tỷ lệ của GradScaler mỗi bước để một chuỗi dài các lần bỏ qua có thể thấy ngay.
 
 ## The Problem
 
-A training run that ran clean yesterday produces a loss curve that goes vertical at step 8,217. The culprit is a single batch whose gradient norm is 4,200, twenty times the previous peak. Without clipping the optimizer applies a step that resets every learning the model had done in the previous hour. With a global L2 clip at norm 1.0, the same batch contributes a unit-norm update; the loss stays on its trend line; the run survives.
+Một lần chạy huấn luyện đã chạy sạch hôm qua tạo ra một đường cong mất mát dựng đứng ở bước 8,217. Thủ phạm là một lô duy nhất có chuẩn gradient 4,200, gấp hai mươi lần đỉnh trước. Không có cắt bộ tối ưu áp dụng một bước đặt lại mọi điều mô hình đã học trong giờ trước. Với một phép cắt L2 toàn cục tại chuẩn 1.0, cùng lô đóng góp một cập nhật chuẩn đơn vị; mất mát giữ trên đường xu hướng; lần chạy sống sót.
 
-Mixed-precision training pushes throughput by 2-3x by computing the forward pass and most of the backward pass in FP16. The cost is that FP16 has a narrow exponent range. A typical gradient that overflows in FP16 evaluates to Inf, which propagates through subsequent layers as NaN, which sets every weight to NaN at the next optimizer step. PyTorch's GradScaler solves this by multiplying the loss by a large scaling factor before the backward pass and dividing the gradients by the same factor before the optimizer step. If any gradient is Inf or NaN at unscale time, the scaler skips the step and halves the scaling factor; if the previous N steps were clean, the scaler doubles the factor. Over the course of training the factor finds the highest value the FP16 range allows.
+Huấn luyện độ chính xác hỗn hợp đẩy thông lượng lên 2-3x bằng cách tính lượt tiến và phần lớn lượt ngược trong FP16. Chi phí là FP16 có một khoảng số mũ hẹp. Một gradient điển hình tràn trong FP16 tính ra Inf, lan truyền qua các lớp tiếp theo thành NaN, đặt mọi trọng số thành NaN ở bước bộ tối ưu tiếp theo. GradScaler của PyTorch giải quyết điều này bằng cách nhân mất mát với một hệ số tỷ lệ lớn trước lượt ngược và chia các gradient cho cùng hệ số trước bước bộ tối ưu. Nếu bất kỳ gradient nào là Inf hoặc NaN lúc bỏ tỷ lệ, scaler bỏ qua bước và giảm một nửa hệ số tỷ lệ; nếu N bước trước sạch, scaler tăng gấp đôi hệ số. Qua quá trình huấn luyện hệ số tìm giá trị cao nhất khoảng FP16 cho phép.
 
-The build problem is wiring the two correctly. Clip before unscale and the threshold is on scaled gradients; clip after unscale and the order of operations on the GradScaler matters. The right order is: `scaler.scale(loss).backward()`, then `scaler.unscale_(optimizer)`, then `clip_grad_norm_`, then `scaler.step(optimizer)`, then `scaler.update()`. Any other order produces a silently broken loop.
+Vấn đề xây dựng là nối hai thứ chính xác. Cắt trước bỏ tỷ lệ và ngưỡng nằm trên các gradient có tỷ lệ; cắt sau bỏ tỷ lệ và thứ tự thao tác trên GradScaler quan trọng. Thứ tự đúng là: `scaler.scale(loss).backward()`, rồi `scaler.unscale_(optimizer)`, rồi `clip_grad_norm_`, rồi `scaler.step(optimizer)`, rồi `scaler.update()`. Bất kỳ thứ tự khác nào tạo một vòng lặp hỏng âm thầm.
 
 ## The Concept
 
@@ -42,21 +42,21 @@ flowchart TD
 
 ### Global L2 norm
 
-The global L2 norm is the Euclidean norm of the concatenated gradient vector, not the per-parameter norm. PyTorch implements this as `torch.nn.utils.clip_grad_norm_(parameters, max_norm)`. The function returns the pre-clip norm so the lesson can log both the natural and the clipped value, which is necessary for the "we are clipping at every step" diagnosis.
+Chuẩn L2 toàn cục là chuẩn Euclid của vector gradient được nối, không phải chuẩn theo tham số. PyTorch triển khai điều này như `torch.nn.utils.clip_grad_norm_(parameters, max_norm)`. Hàm trả về chuẩn trước cắt để bài học có thể ghi nhật ký cả giá trị tự nhiên và đã cắt, cần thiết cho chẩn đoán "chúng ta đang cắt ở mọi bước".
 
 ### autocast and GradScaler
 
-`torch.amp.autocast(device_type)` is the context manager that selectively runs eligible operations (most matmul-class operations) in FP16. `torch.amp.GradScaler(device_type)` is the helper that scales the loss before backward and inverse-scales the gradients before the optimizer step. The two are designed together; using one without the other is a configuration error the test should catch.
+`torch.amp.autocast(device_type)` là trình quản lý ngữ cảnh chạy có chọn lọc các thao tác đủ điều kiện (hầu hết các thao tác lớp matmul) trong FP16. `torch.amp.GradScaler(device_type)` là hàm hỗ trợ chia tỷ lệ mất mát trước lượt ngược và chia tỷ lệ nghịch các gradient trước bước bộ tối ưu. Hai thứ được thiết kế cùng nhau; dùng một mà không có cái kia là một lỗi cấu hình mà kiểm thử nên bắt.
 
-The lesson uses CPU autocast because that is what runs in CI; the same pattern transfers verbatim to CUDA by changing `device_type="cpu"` to `device_type="cuda"`. The GradScaler on CPU is a stub (CPU autocast already operates in BF16 by default and does not need loss scaling), but the lesson includes the call sites so the wiring is identical to the GPU loop.
+Bài học sử dụng autocast CPU vì đó là thứ chạy trong CI; cùng mẫu chuyển nguyên văn sang CUDA bằng cách đổi `device_type="cpu"` thành `device_type="cuda"`. GradScaler trên CPU là một stub (autocast CPU đã hoạt động trong BF16 mặc định và không cần chia tỷ lệ mất mát), nhưng bài học bao gồm các vị trí gọi để hệ thống nối giống hệt vòng lặp GPU.
 
 ### NaN and Inf detection
 
-The detection happens in two places. First, the loss itself is checked with `torch.isfinite` before backward; an Inf or NaN loss does not produce useful gradients and is skipped without entering the optimizer. Second, after `scaler.unscale_(optimizer)` the lesson scans the unscaled gradients with `has_non_finite_grad(...)` and treats any Inf or NaN as a skip. The two checks together cover both the forward-pass and the backward-pass failure modes.
+Phát hiện xảy ra ở hai nơi. Đầu tiên, chính mất mát được kiểm tra bằng `torch.isfinite` trước lượt ngược; một mất mát Inf hoặc NaN không tạo gradient hữu ích và được bỏ qua mà không vào bộ tối ưu. Thứ hai, sau `scaler.unscale_(optimizer)` bài học quét các gradient đã bỏ tỷ lệ bằng `has_non_finite_grad(...)` và coi bất kỳ Inf hoặc NaN nào là một lần bỏ qua. Hai kiểm tra cùng nhau bao phủ cả chế độ lỗi lượt tiến và lượt ngược.
 
 ### Scaling factor diagnostics
 
-The scaling factor is the GradScaler's internal state. Every step the lesson reads `scaler.get_scale()` and logs it next to the learning rate and gradient norm. A healthy run shows the scaling factor climbing in powers of two until it saturates near `2^17` or `2^18`. A misbehaving run shows the factor oscillating between high and low values, which is the signal that the model's gradients are sometimes in range and sometimes not. The diagnostic is invisible without logging.
+Hệ số tỷ lệ là trạng thái nội bộ của GradScaler. Mỗi bước bài học đọc `scaler.get_scale()` và ghi nhật ký nó cạnh tốc độ học và chuẩn gradient. Một lần chạy khỏe cho thấy hệ số tỷ lệ tăng theo các lũy thừa hai cho đến khi bão hòa gần `2^17` hoặc `2^18`. Một lần chạy hành xử sai cho thấy hệ số dao động giữa các giá trị cao và thấp, là tín hiệu rằng các gradient của mô hình đôi khi trong khoảng và đôi khi không. Chẩn đoán không thể thấy nếu không ghi nhật ký.
 
 ```figure
 grad-clip-monitor
@@ -64,70 +64,70 @@ grad-clip-monitor
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `clip_global_l2_norm` - a wrapper around `torch.nn.utils.clip_grad_norm_` that returns both the pre-clip and post-clip norm.
-- `has_non_finite_grad` - a helper that scans gradients for NaN and Inf.
-- `AmpTrainState` - wraps a model, an `AdamW` optimizer, a GradScaler, and an autocast device. Exposes a `step(inputs, targets)` that runs the full clipping, scaling, and skip-on-NaN pipeline.
-- `StepLog` and `SkipLog` - structured per-step records.
-- A demo that trains a small `nn.Linear` model for 20 steps, injects an Inf into the gradient on step 5 to exercise the skip path, and prints the resulting log.
+- `clip_global_l2_norm` - một lớp bọc quanh `torch.nn.utils.clip_grad_norm_` trả về cả chuẩn trước cắt và sau cắt.
+- `has_non_finite_grad` - một hàm hỗ trợ quét các gradient tìm NaN và Inf.
+- `AmpTrainState` - bọc một mô hình, một bộ tối ưu `AdamW`, một GradScaler, và một thiết bị autocast. Cung cấp một `step(inputs, targets)` chạy toàn bộ pipeline cắt, chia tỷ lệ, và bỏ qua khi NaN.
+- `StepLog` và `SkipLog` - các bản ghi theo bước có cấu trúc.
+- Một demo huấn luyện một mô hình `nn.Linear` nhỏ trong 20 bước, chèn một Inf vào gradient ở bước 5 để thực thi đường bỏ qua, và in nhật ký kết quả.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-The script exits zero and prints a per-step log with each row tagged `STEP` or `SKIP`; at least one row is a `SKIP`.
+Script thoát với mã không và in một nhật ký theo bước với mỗi hàng được gắn nhãn `STEP` hoặc `SKIP`; ít nhất một hàng là một `SKIP`.
 
 ## Production Patterns
 
-Four patterns elevate the loop to a production training step.
+Bốn mẫu nâng vòng lặp thành một bước huấn luyện sản xuất.
 
-**Skip counter as an alert, not a log line.** A handful of skipped steps per training run is healthy. Hundreds of skips per epoch are a hard alert: the model is in a regime FP16 cannot hold and the loop is silently failing. The lesson tracks a 1,000-step rolling skip rate and would, in production, page on a rate above 5 percent.
+**Bộ đếm bỏ qua như một cảnh báo, không phải một dòng nhật ký.** Một ít bước bị bỏ qua mỗi lần chạy huấn luyện là khỏe. Hàng trăm lần bỏ qua mỗi epoch là một cảnh báo cứng: mô hình ở một chế độ FP16 không thể chứa và vòng lặp đang thất bại âm thầm. Bài học theo dõi một tỷ lệ bỏ qua trượt 1,000 bước và sẽ, trong sản xuất, gọi trực khi tỷ lệ trên 5 phần trăm.
 
-**Clip threshold lives in the config.** `max_norm = 1.0` is the modern default for language-model training. Sweep it on a small model first; larger thresholds let the model recover from genuinely difficult batches; smaller thresholds bound the worst case at the cost of a noisier loss curve. The threshold belongs in the same YAML or JSON config as the schedule from lesson 44.
+**Ngưỡng cắt nằm trong cấu hình.** `max_norm = 1.0` là mặc định hiện đại cho huấn luyện mô hình ngôn ngữ. Quét nó trên một mô hình nhỏ trước; các ngưỡng lớn hơn để mô hình phục hồi từ các lô thực sự khó; các ngưỡng nhỏ hơn giới hạn trường hợp xấu nhất với chi phí một đường cong mất mát nhiễu hơn. Ngưỡng thuộc về cùng cấu hình YAML hoặc JSON như lịch từ bài 44.
 
-**Norm log goes to a CSV with the schedule.** The CSV columns are `step, lr, grad_l2_pre_clip, grad_l2_post_clip, loss, skipped, skip_reason, scaler_scale`. A reviewer who opens the file sees the schedule, the gradient story, the scaling factor, and the skip outcome (with its reason) in one row. Splitting the columns across files is a recipe for misaligned analyses.
+**Nhật ký chuẩn đi vào một CSV cùng lịch.** Các cột CSV là `step, lr, grad_l2_pre_clip, grad_l2_post_clip, loss, skipped, skip_reason, scaler_scale`. Một người rà soát mở file thấy lịch, câu chuyện gradient, hệ số tỷ lệ, và kết quả bỏ qua (với lý do của nó) trong một hàng. Chia các cột trên các file là một công thức cho các phân tích lệch nhau.
 
-**`scaler.update()` runs every step, even on skip.** On a clean step the scaler reads its no-inf counter, increments it, and possibly doubles the factor. On a skipped step the scaler halves the factor and resets the counter. Forgetting `update()` on the skip path is the bug that produces "the scaling factor never changed."
+**`scaler.update()` chạy mỗi bước, ngay cả khi bỏ qua.** Trên một bước sạch scaler đọc bộ đếm không-inf của nó, tăng nó, và có thể tăng gấp đôi hệ số. Trên một bước bị bỏ qua scaler giảm một nửa hệ số và đặt lại bộ đếm. Quên `update()` trên đường bỏ qua là lỗi tạo ra "hệ số tỷ lệ chưa bao giờ thay đổi."
 
 ## Use It
 
-Production patterns:
+Các mẫu sản xuất:
 
-- **Autocast device matches optimizer device.** `torch.amp.autocast(device_type="cuda")` for GPU training; `torch.amp.autocast(device_type="cpu")` for CPU. Mixing devices produces a silent type error that surfaces as a loss curve that looks fine but a model that is not learning.
-- **Loss check before backward.** `torch.isfinite(loss).all()` is one tensor reduction; the cost is negligible and the savings on a NaN loss are an entire training step. Always run it.
-- **`set_to_none=True` in `zero_grad`.** Sets gradients to `None` instead of zero, which lets the optimizer skip computation for unaffected parameter groups. The setting is a free throughput improvement and a slight bug-surface reduction.
+- **Thiết bị autocast khớp thiết bị bộ tối ưu.** `torch.amp.autocast(device_type="cuda")` cho huấn luyện GPU; `torch.amp.autocast(device_type="cpu")` cho CPU. Trộn thiết bị tạo một lỗi kiểu âm thầm xuất hiện như một đường cong mất mát trông ổn nhưng một mô hình không học.
+- **Kiểm tra mất mát trước lượt ngược.** `torch.isfinite(loss).all()` là một phép rút gọn tensor; chi phí không đáng kể và tiết kiệm trên một mất mát NaN là cả một bước huấn luyện. Luôn chạy nó.
+- **`set_to_none=True` trong `zero_grad`.** Đặt các gradient thành `None` thay vì không, cho phép bộ tối ưu bỏ qua tính toán cho các nhóm tham số không bị ảnh hưởng. Thiết lập là một cải thiện thông lượng miễn phí và một giảm nhẹ bề mặt lỗi.
 
 ## Ship It
 
-`outputs/skill-clip-amp.md` would, on a real project, describe which clip threshold and autocast device the training step uses, where the per-step CSV lives in version control, and what the production skip-rate alert threshold is. This lesson ships the engine.
+`outputs/skill-clip-amp.md` sẽ, trên một dự án thực, mô tả ngưỡng cắt và thiết bị autocast nào bước huấn luyện sử dụng, CSV theo bước nằm ở đâu trong kiểm soát phiên bản, và ngưỡng cảnh báo tỷ lệ bỏ qua sản xuất là gì. Bài này cung cấp bộ máy.
 
 ## Exercises
 
-1. Replace the synthetic Inf injection with a real loss spike (multiply one batch's target by 1e8) and verify the skip path triggers.
-2. Add a `--bf16` mode that switches autocast to BF16 instead of FP16. BF16 has a wider exponent range than FP16 and rarely needs loss scaling; verify the skip rate drops to zero on the same demo.
-3. Add a unit test that the gradient-clip wrapper returns the pre-clip and post-clip norm correctly when no clipping occurs.
-4. Add a rolling-window skip-rate computation and a CLI flag that fails the run if the rate exceeds a configured threshold for 100 consecutive steps.
-5. Wire the loop to write the canonical CSV (`step, lr, grad_l2_pre_clip, grad_l2_post_clip, loss, skipped, skip_reason, scaler_scale`) and confirm the file survives a Ctrl-C by flushing after every row.
+1. Thay việc chèn Inf tổng hợp bằng một đỉnh mất mát thực (nhân đích của một lô với 1e8) và xác minh đường bỏ qua kích hoạt.
+2. Thêm một chế độ `--bf16` chuyển autocast sang BF16 thay vì FP16. BF16 có khoảng số mũ rộng hơn FP16 và hiếm khi cần chia tỷ lệ mất mát; xác minh tỷ lệ bỏ qua giảm về không trên cùng demo.
+3. Thêm một kiểm thử đơn vị rằng lớp bọc cắt gradient trả về chuẩn trước cắt và sau cắt chính xác khi không có cắt.
+4. Thêm một phép tính tỷ lệ bỏ qua cửa sổ trượt và một cờ CLI làm thất bại lần chạy nếu tỷ lệ vượt một ngưỡng được cấu hình trong 100 bước liên tiếp.
+5. Nối vòng lặp để ghi CSV chuẩn (`step, lr, grad_l2_pre_clip, grad_l2_post_clip, loss, skipped, skip_reason, scaler_scale`) và xác nhận file sống sót qua một Ctrl-C bằng cách flush sau mỗi hàng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Global L2 norm | "Clip target" | Euclidean norm of the concatenated gradient vector across all trainable parameters |
-| autocast | "Mixed precision" | Selective FP16 (or BF16) execution of eligible operations inside a `with` block |
-| GradScaler | "Loss scaler" | Helper that multiplies the loss before backward and inverse-scales gradients before the optimizer step |
-| Skip | "Bad step" | An optimizer step refused because the gradient or loss was non-finite; the scaler halves the factor |
-| Scaling factor | "Scaler state" | The GradScaler's current multiplier; doubles after clean stretches and halves on every skip |
+| Global L2 norm (Chuẩn L2 toàn cục) | "Đích cắt" | Chuẩn Euclid của vector gradient được nối trên mọi tham số có thể huấn luyện |
+| autocast | "Độ chính xác hỗn hợp" | Thực thi FP16 (hoặc BF16) có chọn lọc các thao tác đủ điều kiện bên trong một khối `with` |
+| GradScaler | "Bộ chia tỷ lệ mất mát" | Hàm hỗ trợ nhân mất mát trước lượt ngược và chia tỷ lệ nghịch gradient trước bước bộ tối ưu |
+| Skip (Bỏ qua) | "Bước xấu" | Một bước bộ tối ưu bị từ chối vì gradient hoặc mất mát không hữu hạn; scaler giảm một nửa hệ số |
+| Scaling factor (Hệ số tỷ lệ) | "Trạng thái scaler" | Hệ số nhân hiện tại của GradScaler; tăng gấp đôi sau các đoạn sạch và giảm một nửa ở mọi lần bỏ qua |
 
 ## Further Reading
 
-- [Micikevicius et al., Mixed Precision Training (arXiv 1710.03740)](https://arxiv.org/abs/1710.03740) - the original loss-scaling proposal
-- [Pascanu, Mikolov, Bengio, On the difficulty of training recurrent neural networks (arXiv 1211.5063)](https://arxiv.org/abs/1211.5063) - the gradient-clipping reference paper
-- [PyTorch torch.amp.GradScaler](https://docs.pytorch.org/docs/stable/amp.html) - the scaler API this lesson wraps
-- [PyTorch torch.nn.utils.clip_grad_norm_](https://docs.pytorch.org/docs/stable/generated/torch.nn.utils.clip_grad_norm_.html) - the clipping primitive this lesson uses
-- Phase 19 · 42 - the downloader whose corpus feeds the loop
-- Phase 19 · 43 - the dataloader the loop consumes
-- Phase 19 · 44 - the schedule this loop composes with
+- [Micikevicius et al., Mixed Precision Training (arXiv 1710.03740)](https://arxiv.org/abs/1710.03740) - đề xuất chia tỷ lệ mất mát gốc
+- [Pascanu, Mikolov, Bengio, On the difficulty of training recurrent neural networks (arXiv 1211.5063)](https://arxiv.org/abs/1211.5063) - bài báo tham chiếu cắt gradient
+- [PyTorch torch.amp.GradScaler](https://docs.pytorch.org/docs/stable/amp.html) - API scaler mà bài này bọc
+- [PyTorch torch.nn.utils.clip_grad_norm_](https://docs.pytorch.org/docs/stable/generated/torch.nn.utils.clip_grad_norm_.html) - thành phần cơ sở cắt mà bài này sử dụng
+- Phase 19 · 42 - trình tải mà corpus của nó cấp cho vòng lặp
+- Phase 19 · 43 - dataloader mà vòng lặp tiêu thụ
+- Phase 19 · 44 - lịch mà vòng lặp này kết hợp
