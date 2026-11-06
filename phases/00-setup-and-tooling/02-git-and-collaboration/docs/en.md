@@ -1,6 +1,6 @@
 # Git & Collaboration
 
-> Version control is not optional. Every experiment, every model, every lesson you build here gets tracked.
+> Quản lý phiên bản không phải là tùy chọn. Mọi thử nghiệm, mọi mô hình, mọi bài học bạn xây dựng ở đây đều được theo dõi.
 
 **Type:** Learn
 **Languages:** --
@@ -9,16 +9,16 @@
 
 ## Learning Objectives
 
-- Configure git identity and use the daily workflow of add, commit, and push
-- Create and merge branches for isolated experiments without breaking main
-- Write a `.gitignore` that excludes model checkpoints and large binary files
-- Navigate the commit history with `git log` to understand project evolution
+- Cấu hình danh tính git và sử dụng quy trình hằng ngày gồm add, commit và push
+- Tạo và hợp nhất các nhánh cho thử nghiệm biệt lập mà không làm hỏng main
+- Viết một `.gitignore` loại trừ các checkpoint mô hình và tệp nhị phân lớn
+- Duyệt lịch sử commit bằng `git log` để hiểu sự phát triển của dự án
 
 ## The Problem
 
-You're about to write hundreds of code files across 20 phases. Without version control you will lose work, break things you can't undo, and have no way to collaborate with others.
+Bạn sắp viết hàng trăm tệp mã qua 20 giai đoạn. Nếu không có quản lý phiên bản, bạn sẽ mất phần việc đã làm, làm hỏng những thứ không thể hoàn tác và không có cách nào cộng tác với người khác.
 
-Git is the tool. GitHub is where the code lives. This lesson covers what you need for this course and nothing more.
+Git là công cụ. GitHub là nơi mã được lưu. Bài học này bao gồm những gì bạn cần cho khóa học này và không hơn.
 
 ## The Concept
 
@@ -35,10 +35,10 @@ sequenceDiagram
     LR->>WD: git pull
 ```
 
-Three things to remember:
-1. Save often (`git commit`)
-2. Push to remote (`git push`)
-3. Branch for experiments (`git checkout -b experiment`)
+Ba điều cần nhớ:
+1. Lưu thường xuyên (`git commit`)
+2. Đẩy lên kho từ xa (`git push`)
+3. Tạo nhánh cho các thử nghiệm (`git checkout -b experiment`)
 
 ```figure
 s0-commit-dag
@@ -75,7 +75,7 @@ git merge experiment/new-optimizer
 
 ### Step 4: Working with this course repo
 
-You can't push to the course repo itself — only maintainers have write access. Fork it on GitHub first (the Fork button, top right) so `origin` points at your own copy:
+Bạn không thể đẩy lên chính kho mã của khóa học — chỉ những người bảo trì có quyền ghi. Trước tiên hãy fork nó trên GitHub (nút Fork ở trên cùng bên phải) để `origin` trỏ đến bản sao của riêng bạn:
 
 ```bash
 git clone https://github.com/YOUR-USERNAME/ai-engineering-from-scratch.git
@@ -88,7 +88,7 @@ git push origin my-progress
 
 ## Use It
 
-For this course, you need exactly these commands:
+Đối với khóa học này, bạn cần đúng những lệnh sau:
 
 | Command | When |
 |---------|------|
@@ -98,19 +98,19 @@ For this course, you need exactly these commands:
 | `git checkout -b` | Try something without breaking main |
 | `git log --oneline` | See what you've done |
 
-That's it. You don't need rebase, cherry-pick, or submodules for this course.
+Chỉ vậy thôi. Bạn không cần rebase, cherry-pick hay submodule cho khóa học này.
 
 ## Exercises
 
-1. Fork this repo, clone your fork, create a branch called `my-progress`, make a file, commit it, push it
-2. Create a `.gitignore` that excludes model checkpoint files (`.pt`, `.pth`, `.safetensors`)
-3. Look at the commit history of this repo with `git log --oneline` and read how lessons were added
+1. Fork kho mã này, clone bản fork của bạn, tạo một nhánh tên `my-progress`, tạo một tệp, commit tệp đó, đẩy nó lên
+2. Tạo một `.gitignore` loại trừ các tệp checkpoint mô hình (`.pt`, `.pth`, `.safetensors`)
+3. Xem lịch sử commit của kho mã này bằng `git log --oneline` và đọc cách các bài học được thêm vào
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Commit | "Saving" | A snapshot of your entire project at a point in time |
-| Branch | "A copy" | A pointer to a commit that moves forward as you work |
-| Merge | "Combining code" | Taking changes from one branch and applying them to another |
-| Remote | "The cloud" | A copy of your repo hosted somewhere else (GitHub, GitLab) |
+| Commit | "Lưu" | Một ảnh chụp toàn bộ dự án của bạn tại một thời điểm |
+| Branch (Nhánh) | "Một bản sao" | Một con trỏ đến một commit, dịch chuyển về phía trước khi bạn làm việc |
+| Merge (Hợp nhất) | "Kết hợp mã" | Lấy các thay đổi từ một nhánh và áp dụng chúng vào một nhánh khác |
+| Remote (Kho từ xa) | "Đám mây" | Một bản sao kho mã của bạn được lưu trữ ở nơi khác (GitHub, GitLab) |
