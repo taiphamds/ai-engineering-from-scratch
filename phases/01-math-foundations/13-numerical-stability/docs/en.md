@@ -1,6 +1,6 @@
 # Numerical Stability
 
-> Floating point is a leaky abstraction. It will bite you during training, and you will not see it coming.
+> Dấu phẩy động là một lớp trừu tượng bị rò rỉ. Nó sẽ gây rắc rối cho bạn trong quá trình huấn luyện, và bạn sẽ không thấy trước được.
 
 **Type:** Build
 **Language:** Python
@@ -9,26 +9,26 @@
 
 ## Learning Objectives
 
-- Implement numerically stable softmax and log-sum-exp using the max-subtraction trick
-- Identify overflow, underflow, and catastrophic cancellation in floating-point computations
-- Verify analytical gradients against numerical gradients using centered finite differences
-- Explain why bfloat16 is preferred over float16 for training and how loss scaling prevents gradient underflow
+- Triển khai softmax và log-sum-exp ổn định về mặt số học bằng thủ thuật trừ giá trị lớn nhất
+- Xác định tràn số, hụt dưới và triệt tiêu nghiêm trọng trong các phép tính dấu phẩy động
+- Xác minh gradient giải tích với gradient số bằng sai phân hữu hạn trung tâm
+- Giải thích tại sao bfloat16 được ưu tiên hơn float16 để huấn luyện và cách điều chỉnh tỉ lệ mất mát ngăn gradient hụt dưới
 
 ## The Problem
 
-Your model trains for three hours, then the loss becomes NaN. You add a print statement. The logits are fine at step 9,000. At step 9,001 they are `inf`. By step 9,002 every gradient is `nan` and training is dead.
+Mô hình của bạn huấn luyện trong ba giờ, rồi mất mát trở thành NaN. Bạn thêm một lệnh in. Logits bình thường ở bước 9,000. Tại bước 9,001 chúng là `inf`. Đến bước 9,002 mọi gradient đều là `nan` và huấn luyện đã chết.
 
-Or: your model trains to completion but accuracy is 2% worse than the paper claims. You check everything. Architecture matches. Hyperparameters match. Data matches. The problem is that the paper used float32 and you used float16 without the right scaling. Thirty-two bits of accumulated rounding error quietly ate your accuracy.
+Hoặc: mô hình huấn luyện đến hết nhưng độ chính xác kém hơn 2% so với tuyên bố trong bài báo. Bạn kiểm tra mọi thứ. Kiến trúc khớp. Các siêu tham số khớp. Dữ liệu khớp. Vấn đề là bài báo sử dụng float32 còn bạn sử dụng float16 mà không có điều chỉnh tỉ lệ phù hợp. Ba mươi hai bit sai số làm tròn tích lũy âm thầm ăn mất độ chính xác của bạn.
 
-Or: you implement cross-entropy loss from scratch. It works on small logits. When logits exceed 100, it returns `inf`. The softmax overflowed because `exp(100)` is larger than float32 can represent. Every ML framework handles this with a two-line trick. You did not know the trick existed.
+Hoặc: bạn triển khai mất mát cross-entropy từ đầu. Nó hoạt động với logits nhỏ. Khi logits vượt 100, nó trả về `inf`. Softmax bị tràn vì `exp(100)` lớn hơn giá trị float32 có thể biểu diễn. Mọi framework ML đều xử lý điều này bằng một thủ thuật hai dòng. Bạn không biết thủ thuật đó tồn tại.
 
-Numerical stability is not a theoretical concern. It is the difference between a training run that succeeds and one that silently fails. Every serious ML bug you will debug eventually comes down to floating point.
+Độ ổn định số học không phải là mối quan tâm lý thuyết. Nó là sự khác biệt giữa một lần huấn luyện thành công và một lần âm thầm thất bại. Mọi lỗi ML nghiêm trọng mà bạn sẽ gỡ lỗi cuối cùng đều quy về dấu phẩy động.
 
 ## The Concept
 
 ### IEEE 754: How Computers Store Real Numbers
 
-Computers store real numbers as floating point values following the IEEE 754 standard. A float has three parts: a sign bit, an exponent, and a mantissa (significand).
+Máy tính lưu các số thực dưới dạng giá trị dấu phẩy động theo tiêu chuẩn IEEE 754. Một số dấu phẩy động có ba phần: một bit dấu, một số mũ và một phần định trị (phần có nghĩa).
 
 ```
 Float32 layout (32 bits total):
@@ -37,7 +37,7 @@ Float32 layout (32 bits total):
 Value = (-1)^sign * 2^(exponent - 127) * 1.mantissa
 ```
 
-The mantissa determines precision (how many significant digits). The exponent determines range (how large or small a number can be).
+Phần định trị quyết định độ chính xác (bao nhiêu chữ số có nghĩa). Số mũ quyết định phạm vi (một số có thể lớn hoặc nhỏ đến mức nào).
 
 ```
 Format     Bits   Exponent  Mantissa  Decimal digits  Range (approx)
@@ -47,21 +47,21 @@ float16    16     5         10        ~3-4            +/- 65,504
 bfloat16   16     8         7         ~2-3            +/- 3.4e38
 ```
 
-float32 gives you about 7 decimal digits of precision. That means it can tell apart 1.0000001 and 1.0000002, but not 1.00000001 and 1.00000002. After 7 digits, everything is rounding noise.
+float32 cho bạn khoảng 7 chữ số thập phân chính xác. Điều đó có nghĩa là nó có thể phân biệt 1.0000001 và 1.0000002, nhưng không phân biệt 1.00000001 và 1.00000002. Sau 7 chữ số, mọi thứ là nhiễu làm tròn.
 
-float16 gives you about 3 digits. The largest number it can represent is 65,504. That is disturbingly small for ML where logits, gradients, and activations routinely exceed this.
+float16 cho bạn khoảng 3 chữ số. Số lớn nhất nó có thể biểu diễn là 65,504. Con số đó nhỏ đến đáng lo đối với ML, nơi logits, gradient và kích hoạt thường xuyên vượt quá mức này.
 
-bfloat16 is Google's answer to float16's range problem. It has the same 8-bit exponent as float32 (same range, up to 3.4e38) but only 7 mantissa bits (less precision than float16). For training neural networks, range matters more than precision, so bfloat16 usually wins.
+bfloat16 là câu trả lời của Google cho vấn đề phạm vi của float16. Nó có cùng số mũ 8-bit như float32 (cùng phạm vi, lên đến 3.4e38) nhưng chỉ có 7 bit định trị (độ chính xác thấp hơn float16). Để huấn luyện mạng nơ-ron, phạm vi quan trọng hơn độ chính xác, nên bfloat16 thường thắng.
 
 ### Why 0.1 + 0.2 != 0.3
 
-The number 0.1 cannot be represented exactly in binary floating point. In base 2, it is a repeating fraction:
+Số 0.1 không thể được biểu diễn chính xác trong dấu phẩy động nhị phân. Trong cơ số 2, nó là một phân số lặp:
 
 ```
 0.1 in binary = 0.0001100110011001100110011... (repeating forever)
 ```
 
-Float32 truncates this to 23 bits of mantissa. The stored value is approximately 0.100000001490116. Similarly, 0.2 is stored as approximately 0.200000002980232. Their sum is 0.300000004470348, not 0.3.
+Float32 cắt nó xuống 23 bit định trị. Giá trị được lưu xấp xỉ là 0.100000001490116. Tương tự, 0.2 được lưu xấp xỉ là 0.200000002980232. Tổng của chúng là 0.300000004470348, không phải 0.3.
 
 ```
 In Python:
@@ -72,17 +72,17 @@ In Python:
 False
 ```
 
-This matters for ML because:
+Điều này quan trọng đối với ML vì:
 
-1. Loss comparisons like `if loss < threshold` can give wrong answers
-2. Accumulating many small values (gradient updates over thousands of steps) drifts from the true sum
-3. Checksums and reproducibility tests fail if you compare floats with `==`
+1. Các so sánh mất mát như `if loss < threshold` có thể cho câu trả lời sai
+2. Tích lũy nhiều giá trị nhỏ (cập nhật gradient qua hàng nghìn bước) lệch khỏi tổng thực
+3. Các phép kiểm tra tổng kiểm tra và tính tái lập thất bại nếu bạn so sánh số dấu phẩy động bằng `==`
 
-The fix: never compare floats with `==`. Use `abs(a - b) < epsilon` or `math.isclose()`.
+Cách khắc phục: không bao giờ so sánh số dấu phẩy động bằng `==`. Sử dụng `abs(a - b) < epsilon` hoặc `math.isclose()`.
 
 ### Catastrophic Cancellation
 
-When you subtract two nearly equal floating point numbers, the significant digits cancel and you are left with rounding noise promoted to leading digits.
+Khi bạn trừ hai số dấu phẩy động gần bằng nhau, các chữ số có nghĩa triệt tiêu và bạn chỉ còn nhiễu làm tròn được đẩy lên thành các chữ số đầu.
 
 ```
 a = 1.0000001    (stored as 1.00000011920929 in float32)
@@ -94,17 +94,17 @@ Computed:         0.00000011920929
 Relative error: 19.2%
 ```
 
-That is a 19% relative error from a single subtraction. In ML, this happens whenever you:
+Đó là sai số tương đối 19% từ một phép trừ duy nhất. Trong ML, điều này xảy ra bất cứ khi nào bạn:
 
-- Compute variance of data with a large mean: `E[x^2] - E[x]^2` when E[x] is large
-- Subtract nearly equal log-probabilities
-- Compute finite-difference gradients with too-small epsilon
+- Tính phương sai của dữ liệu có trung bình lớn: `E[x^2] - E[x]^2` khi E[x] lớn
+- Trừ các xác suất log gần bằng nhau
+- Tính gradient sai phân hữu hạn với epsilon quá nhỏ
 
-The fix: rearrange formulas to avoid subtracting large, nearly equal numbers. For variance, use the Welford algorithm or center the data first. For log-probabilities, work in log-space throughout.
+Cách khắc phục: sắp xếp lại các công thức để tránh trừ các số lớn, gần bằng nhau. Với phương sai, sử dụng thuật toán Welford hoặc đưa dữ liệu về tâm trước. Với xác suất log, làm việc trong không gian log xuyên suốt.
 
 ### Overflow and Underflow
 
-Overflow happens when a result is too large to represent. Underflow happens when it is too small (closer to zero than the smallest representable positive number).
+Tràn số xảy ra khi một kết quả quá lớn để biểu diễn. Hụt dưới xảy ra khi nó quá nhỏ (gần không hơn số dương nhỏ nhất có thể biểu diễn).
 
 ```
 Float32 boundaries:
@@ -115,7 +115,7 @@ Float32 boundaries:
   Underflow: anything < 1.4e-45 becomes 0.0
 ```
 
-The `exp()` function is the primary source of overflow in ML:
+Hàm `exp()` là nguồn tràn số chính trong ML:
 
 ```
 exp(88.7)  = 3.40e+38   (barely fits in float32)
@@ -124,7 +124,7 @@ exp(-87.3) = 1.18e-38   (barely above underflow)
 exp(-104)  = 0.0         (underflow to zero)
 ```
 
-The `log()` function hits the other direction:
+Hàm `log()` gặp vấn đề ở hướng ngược lại:
 
 ```
 log(0.0)   = -inf
@@ -133,21 +133,21 @@ log(1e-45) = -103.3      (fine)
 log(1e-46) = -inf        (input underflowed to 0, then log(0) = -inf)
 ```
 
-In ML, `exp()` appears in softmax, sigmoid, and probability computations. `log()` appears in cross-entropy, log-likelihoods, and KL divergence. The combination `log(exp(x))` is a minefield without the right tricks.
+Trong ML, `exp()` xuất hiện trong softmax, sigmoid và các phép tính xác suất. `log()` xuất hiện trong cross-entropy, log-hợp lý và phân kỳ KL. Tổ hợp `log(exp(x))` là một bãi mìn nếu không có các thủ thuật phù hợp.
 
 ### The Log-Sum-Exp Trick
 
-Computing `log(sum(exp(x_i)))` directly is numerically dangerous. If any `x_i` is large, `exp(x_i)` overflows. If all `x_i` are very negative, every `exp(x_i)` underflows to zero and `log(0)` is `-inf`.
+Tính trực tiếp `log(sum(exp(x_i)))` nguy hiểm về mặt số học. Nếu bất kỳ `x_i` nào lớn, `exp(x_i)` tràn số. Nếu tất cả `x_i` đều rất âm, mọi `exp(x_i)` hụt dưới về không và `log(0)` là `-inf`.
 
-The trick: subtract the maximum value before exponentiating.
+Thủ thuật: trừ giá trị lớn nhất trước khi lấy hàm mũ.
 
 ```
 log(sum(exp(x_i))) = max(x) + log(sum(exp(x_i - max(x))))
 ```
 
-Why this works: after subtracting `max(x)`, the largest exponent is `exp(0) = 1`. No overflow is possible. At least one term in the sum is 1, so the sum is at least 1, and `log(1) = 0`. No underflow to `-inf` is possible.
+Tại sao điều này hoạt động: sau khi trừ `max(x)`, hàm mũ lớn nhất là `exp(0) = 1`. Không thể có tràn số. Ít nhất một số hạng trong tổng là 1, nên tổng ít nhất là 1, và `log(1) = 0`. Không thể hụt dưới về `-inf`.
 
-Proof:
+Chứng minh:
 
 ```
 log(sum(exp(x_i)))
@@ -157,24 +157,24 @@ log(sum(exp(x_i)))
 = c + log(sum(exp(x_i - c)))                    (log(a*b) = log(a) + log(b))
 ```
 
-Set `c = max(x)` and overflow is eliminated.
+Đặt `c = max(x)` và tràn số được loại bỏ.
 
-This trick appears everywhere in ML:
-- Softmax normalization
-- Cross-entropy loss computation
-- Log-probability summation in sequence models
-- Mixture of Gaussians
-- Variational inference
+Thủ thuật này xuất hiện khắp nơi trong ML:
+- Chuẩn hóa softmax
+- Tính mất mát cross-entropy
+- Cộng xác suất log trong các mô hình chuỗi
+- Hỗn hợp Gaussian
+- Suy luận biến phân
 
 ### Why Softmax Needs the Max-Subtraction Trick
 
-Softmax converts logits to probabilities:
+Softmax chuyển logits thành xác suất:
 
 ```
 softmax(x_i) = exp(x_i) / sum(exp(x_j))
 ```
 
-Without the trick, logits of [100, 101, 102] cause overflow:
+Không có thủ thuật, logits [100, 101, 102] gây tràn số:
 
 ```
 exp(100) = 2.69e43
@@ -187,7 +187,7 @@ exp(88.7) is already at the float32 limit.
 exp(100) = inf in float32.
 ```
 
-With the trick, subtract max(x) = 102:
+Với thủ thuật, trừ max(x) = 102:
 
 ```
 exp(100 - 102) = exp(-2) = 0.135
@@ -198,26 +198,26 @@ sum = 1.503
 softmax = [0.090, 0.245, 0.665]
 ```
 
-The probabilities are identical. The computation is safe. This is not an optimization. It is a requirement for correctness.
+Các xác suất giống hệt nhau. Phép tính an toàn. Đây không phải một tối ưu hóa. Nó là yêu cầu để có tính đúng đắn.
 
 ### NaN and Inf: Detection and Prevention
 
-`nan` (Not a Number) and `inf` (infinity) propagate virally through computation. One `nan` in a gradient update makes the weight `nan`, which makes every subsequent output `nan`. Training is dead within one step.
+`nan` (Không phải Số) và `inf` (vô cực) lan truyền như virus qua phép tính. Một `nan` trong cập nhật gradient làm trọng số thành `nan`, khiến mọi đầu ra sau đó thành `nan`. Huấn luyện chết trong một bước.
 
-How `inf` appears:
-- `exp()` of a large positive number
-- Division by zero: `1.0 / 0.0`
-- `float32` overflow in accumulations
+Cách `inf` xuất hiện:
+- `exp()` của một số dương lớn
+- Chia cho không: `1.0 / 0.0`
+- Tràn `float32` trong các phép tích lũy
 
-How `nan` appears:
+Cách `nan` xuất hiện:
 - `0.0 / 0.0`
 - `inf - inf`
 - `inf * 0`
-- `sqrt()` of a negative number
-- `log()` of a negative number
-- Any arithmetic involving an existing `nan`
+- `sqrt()` của một số âm
+- `log()` của một số âm
+- Bất kỳ phép tính số học nào có một `nan` đã tồn tại
 
-Detection:
+Phát hiện:
 
 ```python
 import math
@@ -227,46 +227,46 @@ math.isinf(x)       # True if x is +inf or -inf
 math.isfinite(x)    # True if x is neither nan nor inf
 ```
 
-Prevention strategies:
+Các chiến lược phòng ngừa:
 
-1. Clamp inputs to `exp()`: `exp(clamp(x, -80, 80))`
-2. Add epsilon to denominators: `x / (y + 1e-8)`
-3. Add epsilon inside `log()`: `log(x + 1e-8)`
-4. Use stable implementations (log-sum-exp, stable softmax)
-5. Gradient clipping to prevent weight explosion
-6. Check for `nan`/`inf` after every forward pass during debugging
+1. Chặn đầu vào của `exp()`: `exp(clamp(x, -80, 80))`
+2. Thêm epsilon vào các mẫu số: `x / (y + 1e-8)`
+3. Thêm epsilon bên trong `log()`: `log(x + 1e-8)`
+4. Sử dụng các triển khai ổn định (log-sum-exp, softmax ổn định)
+5. Cắt gradient để ngăn trọng số bùng nổ
+6. Kiểm tra `nan`/`inf` sau mỗi lượt truyền xuôi khi gỡ lỗi
 
 ### Numerical Gradient Checking
 
-Analytical gradients (from backpropagation) can have bugs. Numerical gradient checking verifies them by computing gradients with finite differences.
+Gradient giải tích (từ lan truyền ngược) có thể có lỗi. Kiểm tra gradient số xác minh chúng bằng cách tính gradient với sai phân hữu hạn.
 
-The centered difference formula:
+Công thức sai phân trung tâm:
 
 ```
 df/dx ~= (f(x + h) - f(x - h)) / (2h)
 ```
 
-This is O(h^2) accurate, much better than the forward difference `(f(x+h) - f(x)) / h` which is only O(h).
+Công thức này có độ chính xác O(h^2), tốt hơn nhiều so với sai phân tiến `(f(x+h) - f(x)) / h` chỉ có độ chính xác O(h).
 
-Choosing h: too large and the approximation is wrong. Too small and catastrophic cancellation destroys the answer. `h = 1e-5` to `1e-7` is typical.
+Chọn h: quá lớn và xấp xỉ sai. Quá nhỏ và triệt tiêu nghiêm trọng phá hủy câu trả lời. `h = 1e-5` đến `1e-7` là điển hình.
 
-The check: compute the relative difference between analytical and numerical gradients.
+Cách kiểm tra: tính chênh lệch tương đối giữa gradient giải tích và gradient số.
 
 ```
 relative_error = |grad_analytical - grad_numerical| / max(|grad_analytical|, |grad_numerical|, 1e-8)
 ```
 
-Rules of thumb:
-- relative_error < 1e-7: perfect, gradient is correct
-- relative_error < 1e-5: acceptable, probably correct
-- relative_error > 1e-3: something is wrong
-- relative_error > 1: gradient is completely wrong
+Các quy tắc kinh nghiệm:
+- relative_error < 1e-7: hoàn hảo, gradient đúng
+- relative_error < 1e-5: chấp nhận được, có lẽ đúng
+- relative_error > 1e-3: có gì đó sai
+- relative_error > 1: gradient hoàn toàn sai
 
-Always check gradients when implementing a new layer or loss function. PyTorch provides `torch.autograd.gradcheck()` for this.
+Luôn kiểm tra gradient khi triển khai một lớp hoặc hàm mất mát mới. PyTorch cung cấp `torch.autograd.gradcheck()` cho việc này.
 
 ### Mixed Precision Training
 
-Modern GPUs have specialized hardware (Tensor Cores) that compute float16 matrix multiplications 2-8x faster than float32. Mixed precision training exploits this:
+Các GPU hiện đại có phần cứng chuyên dụng (Tensor Core) tính phép nhân ma trận float16 nhanh hơn float32 2-8 lần. Huấn luyện độ chính xác hỗn hợp khai thác điều này:
 
 ```
 1. Maintain float32 master copy of weights
@@ -277,9 +277,9 @@ Modern GPUs have specialized hardware (Tensor Cores) that compute float16 matrix
 6. Update float32 master weights
 ```
 
-The problem with pure float16 training: gradients are often very small (1e-8 or smaller). Float16 underflows anything below ~6e-8 to zero. Your model stops learning because all gradient updates are zero.
+Vấn đề với huấn luyện float16 thuần: gradient thường rất nhỏ (1e-8 hoặc nhỏ hơn). Float16 làm hụt dưới bất cứ thứ gì dưới ~6e-8 về không. Mô hình ngừng học vì tất cả cập nhật gradient đều bằng không.
 
-The fix is loss scaling:
+Cách khắc phục là điều chỉnh tỉ lệ mất mát:
 
 ```
 1. Multiply loss by a large scale factor (e.g., 1024)
@@ -289,7 +289,7 @@ The fix is loss scaling:
 5. Net effect: same update, but no underflow
 ```
 
-Dynamic loss scaling adjusts the scale factor automatically. Start with a large value (65536). If gradients overflow to `inf`, halve it. If N steps pass without overflow, double it.
+Điều chỉnh tỉ lệ mất mát động tự động điều chỉnh hệ số tỉ lệ. Bắt đầu với một giá trị lớn (65536). Nếu gradient tràn thành `inf`, giảm nó một nửa. Nếu N bước trôi qua không tràn số, tăng gấp đôi nó.
 
 ### bfloat16 vs float16: Why bfloat16 Wins for Training
 
@@ -298,48 +298,48 @@ float16:   [1 sign] [5 exponent]  [10 mantissa]
 bfloat16:  [1 sign] [8 exponent]  [7 mantissa]
 ```
 
-float16 has more precision (10 mantissa bits vs 7) but limited range (max ~65,504). bfloat16 has less precision but the same range as float32 (max ~3.4e38).
+float16 có độ chính xác cao hơn (10 bit định trị so với 7) nhưng phạm vi giới hạn (tối đa ~65,504). bfloat16 có độ chính xác thấp hơn nhưng cùng phạm vi với float32 (tối đa ~3.4e38).
 
-For training neural networks:
+Đối với huấn luyện mạng nơ-ron:
 
-- Activations and logits regularly exceed 65,504 during training spikes. float16 overflows; bfloat16 handles it.
-- Loss scaling is required with float16 but usually unnecessary with bfloat16 because its range covers the gradient magnitude spectrum.
-- bfloat16 is a simple truncation of float32: drop the bottom 16 bits of the mantissa. Conversion is trivial and lossless in the exponent.
+- Kích hoạt và logits thường xuyên vượt 65,504 trong các đợt tăng đột biến khi huấn luyện. float16 tràn số; bfloat16 xử lý được.
+- Điều chỉnh tỉ lệ mất mát là bắt buộc với float16 nhưng thường không cần với bfloat16 vì phạm vi của nó bao phủ phổ độ lớn gradient.
+- bfloat16 là phép cắt đơn giản của float32: bỏ 16 bit thấp của phần định trị. Chuyển đổi đơn giản và không mất mát ở số mũ.
 
-float16 is preferred for inference where values are bounded and precision matters more. bfloat16 is preferred for training where range matters more. This is why TPUs and modern NVIDIA GPUs (A100, H100) have native bfloat16 support.
+float16 được ưu tiên cho suy luận khi các giá trị bị chặn và độ chính xác quan trọng hơn. bfloat16 được ưu tiên cho huấn luyện khi phạm vi quan trọng hơn. Đây là lý do TPU và GPU NVIDIA hiện đại (A100, H100) hỗ trợ bfloat16 trực tiếp.
 
 ### Gradient Clipping
 
-Exploding gradients happen when gradients grow exponentially through many layers (common in RNNs, deep networks, and transformers). A single large gradient can corrupt all weights in one step.
+Gradient bùng nổ xảy ra khi gradient tăng theo hàm mũ qua nhiều lớp (phổ biến trong RNN, mạng sâu và transformer). Một gradient lớn duy nhất có thể làm hỏng tất cả trọng số trong một bước.
 
-Two types of clipping:
+Hai loại cắt:
 
-**Clip by value:** clamp each gradient element independently.
+**Cắt theo giá trị:** chặn từng phần tử gradient một cách độc lập.
 
 ```
 grad = clamp(grad, -max_val, max_val)
 ```
 
-Simple but can change the direction of the gradient vector.
+Đơn giản nhưng có thể thay đổi hướng của vector gradient.
 
-**Clip by norm:** scale the entire gradient vector so its norm does not exceed a threshold.
+**Cắt theo chuẩn:** điều chỉnh tỉ lệ toàn bộ vector gradient sao cho chuẩn của nó không vượt quá một ngưỡng.
 
 ```
 if ||grad|| > max_norm:
     grad = grad * (max_norm / ||grad||)
 ```
 
-Preserves the direction of the gradient. This is what `torch.nn.utils.clip_grad_norm_()` does. It is the standard choice.
+Bảo toàn hướng gradient. Đây là những gì `torch.nn.utils.clip_grad_norm_()` thực hiện. Nó là lựa chọn tiêu chuẩn.
 
-Typical values: `max_norm=1.0` for transformers, `max_norm=0.5` for RL, `max_norm=5.0` for simpler networks.
+Các giá trị điển hình: `max_norm=1.0` cho transformer, `max_norm=0.5` cho RL, `max_norm=5.0` cho các mạng đơn giản hơn.
 
-Gradient clipping is not a hack. It is a safety mechanism. Without it, a single outlier batch can produce a gradient large enough to ruin weeks of training.
+Cắt gradient không phải một mẹo chắp vá. Nó là một cơ chế an toàn. Không có nó, một batch ngoại lệ duy nhất có thể tạo ra gradient đủ lớn để phá hỏng nhiều tuần huấn luyện.
 
 ### Normalization Layers as Numerical Stabilizers
 
-Batch normalization, layer normalization, and RMS normalization are usually presented as regularizers that help training converge. They are also numerical stabilizers.
+Chuẩn hóa batch, chuẩn hóa lớp và chuẩn hóa RMS thường được trình bày như các phương pháp regularization giúp huấn luyện hội tụ. Chúng cũng là các bộ ổn định số học.
 
-Without normalization, activations can grow or shrink exponentially through layers:
+Không có chuẩn hóa, các kích hoạt có thể tăng hoặc giảm theo hàm mũ qua các lớp:
 
 ```
 Layer 1: values in [0, 1]
@@ -348,45 +348,45 @@ Layer 10: values in [0, 10,000]
 Layer 50: values in [0, inf]
 ```
 
-Normalization recenters and rescales activations at every layer:
+Chuẩn hóa đưa các kích hoạt về tâm và điều chỉnh lại tỉ lệ ở mọi lớp:
 
 ```
 LayerNorm(x) = (x - mean(x)) / (std(x) + epsilon) * gamma + beta
 ```
 
-The `epsilon` (typically 1e-5) prevents division by zero when all activations are identical. The learned parameters `gamma` and `beta` let the network restore any scale it needs.
+`epsilon` (thường là 1e-5) ngăn chia cho không khi mọi kích hoạt giống hệt nhau. Các tham số học được `gamma` và `beta` cho phép mạng khôi phục bất kỳ thang đo nào nó cần.
 
-This keeps values in a numerically safe range throughout the network, preventing both overflow in the forward pass and gradient explosion in the backward pass.
+Điều này giữ các giá trị trong phạm vi an toàn về mặt số học xuyên suốt mạng, ngăn cả tràn số trong lượt truyền xuôi và gradient bùng nổ trong lượt truyền ngược.
 
 ### Common ML Numerical Bugs
 
-**Bug: Loss is NaN after a few epochs.**
-Cause: logits grew too large, softmax overflowed. Or learning rate is too high and weights diverged.
-Fix: use stable softmax (max subtraction), reduce learning rate, add gradient clipping.
+**Lỗi: Mất mát là NaN sau vài epoch.**
+Nguyên nhân: logits tăng quá lớn, softmax tràn số. Hoặc tốc độ học quá cao và trọng số phân kỳ.
+Cách sửa: sử dụng softmax ổn định (trừ giá trị lớn nhất), giảm tốc độ học, thêm cắt gradient.
 
-**Bug: Loss is stuck at log(num_classes).**
-Cause: model outputs are near-uniform probabilities. Often means gradients are vanishing or the model is not learning at all.
-Fix: check that data labels are correct, verify the loss function, check for dead ReLUs.
+**Lỗi: Mất mát bị kẹt tại log(num_classes).**
+Nguyên nhân: đầu ra mô hình là các xác suất gần đều. Thường có nghĩa là gradient đang tiêu biến hoặc mô hình hoàn toàn không học.
+Cách sửa: kiểm tra nhãn dữ liệu đúng, xác minh hàm mất mát, kiểm tra các ReLU chết.
 
-**Bug: Validation accuracy is lower than expected by 1-3%.**
-Cause: mixed precision without proper loss scaling. Gradient underflow silently zeroes out small updates.
-Fix: enable dynamic loss scaling, or switch to bfloat16.
+**Lỗi: Độ chính xác xác thực thấp hơn kỳ vọng 1-3%.**
+Nguyên nhân: độ chính xác hỗn hợp không có điều chỉnh tỉ lệ mất mát phù hợp. Gradient hụt dưới âm thầm đặt các cập nhật nhỏ về không.
+Cách sửa: bật điều chỉnh tỉ lệ mất mát động, hoặc chuyển sang bfloat16.
 
-**Bug: Gradient norms are 0.0 for some layers.**
-Cause: dead ReLU neurons (all inputs negative), or float16 underflow.
-Fix: use LeakyReLU or GELU, use gradient scaling, check weight initialization.
+**Lỗi: Chuẩn gradient là 0.0 đối với một số lớp.**
+Nguyên nhân: các nơ-ron ReLU chết (mọi đầu vào âm), hoặc float16 hụt dưới.
+Cách sửa: sử dụng LeakyReLU hoặc GELU, sử dụng điều chỉnh tỉ lệ gradient, kiểm tra khởi tạo trọng số.
 
-**Bug: Model works on one GPU but gives different results on another.**
-Cause: non-deterministic floating point accumulation order. GPU parallel reductions sum in different orders on different hardware, and floating point addition is not associative.
-Fix: accept small differences (1e-6), or set `torch.use_deterministic_algorithms(True)` and accept the speed penalty.
+**Lỗi: Mô hình hoạt động trên một GPU nhưng cho kết quả khác trên GPU khác.**
+Nguyên nhân: thứ tự tích lũy dấu phẩy động không tất định. Các phép rút gọn song song GPU lấy tổng theo thứ tự khác nhau trên phần cứng khác nhau, và phép cộng dấu phẩy động không có tính kết hợp.
+Cách sửa: chấp nhận các khác biệt nhỏ (1e-6), hoặc đặt `torch.use_deterministic_algorithms(True)` và chấp nhận đánh đổi tốc độ.
 
-**Bug: `exp()` returns `inf` in loss computation.**
-Cause: raw logits passed to `exp()` without the max-subtraction trick.
-Fix: use `torch.nn.functional.log_softmax()` which implements log-sum-exp internally.
+**Lỗi: `exp()` trả về `inf` khi tính mất mát.**
+Nguyên nhân: logits thô được truyền vào `exp()` mà không có thủ thuật trừ giá trị lớn nhất.
+Cách sửa: sử dụng `torch.nn.functional.log_softmax()` triển khai log-sum-exp nội bộ.
 
-**Bug: Training diverges after switching from float32 to float16.**
-Cause: float16 cannot represent gradient magnitudes below 6e-8 or activations above 65,504.
-Fix: use mixed precision with loss scaling (AMP), or use bfloat16 instead.
+**Lỗi: Huấn luyện phân kỳ sau khi chuyển từ float32 sang float16.**
+Nguyên nhân: float16 không thể biểu diễn độ lớn gradient dưới 6e-8 hoặc kích hoạt trên 65,504.
+Cách sửa: sử dụng độ chính xác hỗn hợp với điều chỉnh tỉ lệ mất mát (AMP), hoặc thay bằng bfloat16.
 
 ```figure
 logsumexp-stability
@@ -556,52 +556,52 @@ check_tensor("bad",  [1.0, float('nan'), 3.0])
 check_tensor("ugly", [1.0, float('inf'), 3.0])
 ```
 
-See `code/numerical.py` for complete implementations with all edge cases demonstrated.
+Xem `code/numerical.py` để có các triển khai hoàn chỉnh minh họa mọi trường hợp biên.
 
 ## Ship It
 
-This lesson produces:
-- `code/numerical.py` with stable softmax, log-sum-exp, cross-entropy, gradient checking, and mixed precision simulation
-- `outputs/prompt-numerical-debugger.md` for diagnosing NaN/Inf and numerical issues in training
+Bài học này tạo ra:
+- `code/numerical.py` với softmax ổn định, log-sum-exp, cross-entropy, kiểm tra gradient và mô phỏng độ chính xác hỗn hợp
+- `outputs/prompt-numerical-debugger.md` để chẩn đoán NaN/Inf và các vấn đề số học trong huấn luyện
 
-These stable implementations reappear in Phase 3 when building the training loop and in Phase 4 when implementing attention mechanisms.
+Các triển khai ổn định này xuất hiện lại ở Giai đoạn 3 khi xây dựng vòng lặp huấn luyện và ở Giai đoạn 4 khi triển khai các cơ chế attention.
 
 ## Exercises
 
-1. **Catastrophic cancellation.** Compute the variance of [1000000.0, 1000001.0, 1000002.0] using the naive formula `E[x^2] - E[x]^2` in float32. Then compute it using Welford's online algorithm. Compare the errors against the true variance (0.6667).
+1. **Triệt tiêu nghiêm trọng.** Tính phương sai của [1000000.0, 1000001.0, 1000002.0] bằng công thức ngây thơ `E[x^2] - E[x]^2` trong float32. Sau đó tính bằng thuật toán trực tuyến Welford. So sánh các sai số với phương sai thực (0.6667).
 
-2. **Precision hunt.** Find the smallest positive float32 value `x` such that `1.0 + x == 1.0` in Python. This is the machine epsilon. Verify it matches `numpy.finfo(numpy.float32).eps`.
+2. **Săn độ chính xác.** Tìm giá trị float32 dương nhỏ nhất `x` sao cho `1.0 + x == 1.0` trong Python. Đây là epsilon máy. Xác minh nó khớp với `numpy.finfo(numpy.float32).eps`.
 
-3. **Log-sum-exp edge cases.** Test your `logsumexp_stable` function with: (a) all values equal, (b) one value much larger than the rest, (c) all values very negative (-1000). Verify it gives correct results where the naive version fails.
+3. **Các trường hợp biên log-sum-exp.** Kiểm tra hàm `logsumexp_stable` với: (a) mọi giá trị bằng nhau, (b) một giá trị lớn hơn phần còn lại rất nhiều, (c) mọi giá trị rất âm (-1000). Xác minh nó cho kết quả đúng ở nơi phiên bản ngây thơ thất bại.
 
-4. **Gradient checking a neural network layer.** Implement a single linear layer `y = Wx + b` and its analytical backward pass. Use `numerical_gradient` to verify correctness for a 3x2 weight matrix.
+4. **Kiểm tra gradient một lớp mạng nơ-ron.** Triển khai một lớp tuyến tính đơn `y = Wx + b` và lượt truyền ngược giải tích của nó. Sử dụng `numerical_gradient` để xác minh tính đúng đắn cho một ma trận trọng số 3x2.
 
-5. **Loss scaling experiment.** Simulate training with float16: create random gradients in the range [1e-9, 1e-3], convert to float16, and measure what fraction become zero. Then apply loss scaling (multiply by 1024), convert to float16, scale back, and measure the zero fraction again.
+5. **Thí nghiệm điều chỉnh tỉ lệ mất mát.** Mô phỏng huấn luyện với float16: tạo các gradient ngẫu nhiên trong khoảng [1e-9, 1e-3], chuyển sang float16 và đo tỉ lệ trở thành không. Sau đó áp dụng điều chỉnh tỉ lệ mất mát (nhân với 1024), chuyển sang float16, đưa tỉ lệ trở lại và đo lại tỉ lệ bằng không.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| IEEE 754 | "The float standard" | International standard defining binary floating point formats, rounding rules, and special values (inf, nan). Every modern CPU and GPU implements it. |
-| Machine epsilon | "The precision limit" | The smallest value e such that 1.0 + e != 1.0 in a given float format. For float32, it is about 1.19e-7. |
-| Catastrophic cancellation | "Precision loss from subtraction" | When subtracting nearly equal floating point numbers, significant digits cancel and rounding noise dominates the result. |
-| Overflow | "Number too big" | A result exceeds the maximum representable value and becomes inf. exp(89) overflows float32. |
-| Underflow | "Number too small" | A result is closer to zero than the smallest representable positive number and becomes 0.0. exp(-104) underflows float32. |
-| Log-sum-exp trick | "Subtract the max first" | Computing log(sum(exp(x))) by factoring out exp(max(x)) to prevent overflow and underflow. Used in softmax, cross-entropy, and log-probability math. |
-| Stable softmax | "Softmax that does not explode" | Subtracting max(logits) before exponentiating. Numerically identical result, no overflow possible. |
-| Gradient checking | "Verify your backprop" | Comparing analytical gradients from backpropagation against numerical gradients from finite differences to catch implementation bugs. |
-| Mixed precision | "Float16 forward, float32 backward" | Using lower-precision floats for speed-critical operations and higher-precision floats for numerically sensitive operations. Typical speedup is 2-3x. |
-| Loss scaling | "Prevent gradient underflow" | Multiplying the loss by a large constant before backprop so gradients stay in float16's representable range, then dividing by the same constant before weight updates. |
-| bfloat16 | "Brain floating point" | Google's 16-bit format with 8 exponent bits (same range as float32) and 7 mantissa bits (less precision than float16). Preferred for training. |
-| Gradient clipping | "Cap the gradient norm" | Scaling the gradient vector so its norm does not exceed a threshold. Prevents exploding gradients from ruining weights. |
-| NaN | "Not a Number" | Special float value from undefined operations (0/0, inf-inf, sqrt(-1)). Propagates through all subsequent arithmetic. |
-| Inf | "Infinity" | Special float value from overflow or division by zero. Can combine to produce NaN (inf - inf, inf * 0). |
-| Numerical gradient | "Brute force derivative" | Approximating a derivative by evaluating f(x+h) and f(x-h) and dividing by 2h. Slow but reliable for verification. |
+| IEEE 754 | "Tiêu chuẩn số dấu phẩy động" | Tiêu chuẩn quốc tế xác định các định dạng dấu phẩy động nhị phân, quy tắc làm tròn và giá trị đặc biệt (inf, nan). Mọi CPU và GPU hiện đại đều triển khai nó. |
+| Machine epsilon (Epsilon máy) | "Giới hạn độ chính xác" | Giá trị e nhỏ nhất sao cho 1.0 + e != 1.0 trong một định dạng dấu phẩy động cho trước. Với float32, nó khoảng 1.19e-7. |
+| Catastrophic cancellation (Triệt tiêu nghiêm trọng) | "Mất độ chính xác do phép trừ" | Khi trừ các số dấu phẩy động gần bằng nhau, các chữ số có nghĩa triệt tiêu và nhiễu làm tròn chi phối kết quả. |
+| Overflow (Tràn số) | "Số quá lớn" | Một kết quả vượt giá trị lớn nhất có thể biểu diễn và trở thành inf. exp(89) làm tràn float32. |
+| Underflow (Hụt dưới) | "Số quá nhỏ" | Một kết quả gần không hơn số dương nhỏ nhất có thể biểu diễn và trở thành 0.0. exp(-104) làm hụt dưới float32. |
+| Log-sum-exp trick (Thủ thuật log-sum-exp) | "Trừ giá trị lớn nhất trước" | Tính log(sum(exp(x))) bằng cách đưa exp(max(x)) ra làm nhân tử chung để ngăn tràn số và hụt dưới. Được sử dụng trong softmax, cross-entropy và toán xác suất log. |
+| Stable softmax (Softmax ổn định) | "Softmax không bùng nổ" | Trừ max(logits) trước khi lấy hàm mũ. Kết quả giống hệt về mặt số học, không thể tràn số. |
+| Gradient checking (Kiểm tra gradient) | "Xác minh lan truyền ngược của bạn" | So sánh gradient giải tích từ lan truyền ngược với gradient số từ sai phân hữu hạn để phát hiện lỗi triển khai. |
+| Mixed precision (Độ chính xác hỗn hợp) | "Float16 truyền xuôi, float32 truyền ngược" | Sử dụng số dấu phẩy động độ chính xác thấp hơn cho các phép toán cần tốc độ và độ chính xác cao hơn cho các phép toán nhạy về số học. Mức tăng tốc điển hình là 2-3 lần. |
+| Loss scaling (Điều chỉnh tỉ lệ mất mát) | "Ngăn gradient hụt dưới" | Nhân mất mát với một hằng số lớn trước lan truyền ngược để gradient nằm trong phạm vi biểu diễn của float16, rồi chia cho cùng hằng số trước các cập nhật trọng số. |
+| bfloat16 | "Dấu phẩy động bộ não" | Định dạng 16-bit của Google với 8 bit số mũ (cùng phạm vi với float32) và 7 bit định trị (độ chính xác thấp hơn float16). Được ưu tiên cho huấn luyện. |
+| Gradient clipping (Cắt gradient) | "Chặn chuẩn gradient" | Điều chỉnh tỉ lệ vector gradient để chuẩn của nó không vượt quá một ngưỡng. Ngăn gradient bùng nổ phá hỏng trọng số. |
+| NaN | "Không phải Số" | Giá trị dấu phẩy động đặc biệt từ các phép toán không xác định (0/0, inf-inf, sqrt(-1)). Lan truyền qua tất cả các phép tính số học sau đó. |
+| Inf | "Vô cực" | Giá trị dấu phẩy động đặc biệt từ tràn số hoặc chia cho không. Có thể kết hợp tạo ra NaN (inf - inf, inf * 0). |
+| Numerical gradient (Gradient số) | "Đạo hàm vét cạn" | Xấp xỉ một đạo hàm bằng cách tính f(x+h) và f(x-h) rồi chia cho 2h. Chậm nhưng đáng tin cậy để xác minh. |
 
 ## Further Reading
 
-- [What Every Computer Scientist Should Know About Floating-Point Arithmetic (Goldberg 1991)](https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html) -- the definitive reference, dense but complete
-- [Mixed Precision Training (Micikevicius et al., 2018)](https://arxiv.org/abs/1710.03740) -- the NVIDIA paper that introduced loss scaling for float16 training
-- [AMP: Automatic Mixed Precision (PyTorch docs)](https://pytorch.org/docs/stable/amp.html) -- practical guide to mixed precision in PyTorch
-- [bfloat16 format (Google Cloud TPU docs)](https://cloud.google.com/tpu/docs/bfloat16) -- why Google chose this format for TPUs
-- [Kahan Summation (Wikipedia)](https://en.wikipedia.org/wiki/Kahan_summation_algorithm) -- algorithm for reducing rounding error in floating point sums
+- [What Every Computer Scientist Should Know About Floating-Point Arithmetic (Goldberg 1991)](https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html) -- tài liệu tham khảo chuẩn mực, dày đặc nhưng đầy đủ
+- [Mixed Precision Training (Micikevicius et al., 2018)](https://arxiv.org/abs/1710.03740) -- bài báo NVIDIA giới thiệu điều chỉnh tỉ lệ mất mát cho huấn luyện float16
+- [AMP: Automatic Mixed Precision (PyTorch docs)](https://pytorch.org/docs/stable/amp.html) -- hướng dẫn thực hành về độ chính xác hỗn hợp trong PyTorch
+- [bfloat16 format (Google Cloud TPU docs)](https://cloud.google.com/tpu/docs/bfloat16) -- tại sao Google chọn định dạng này cho TPU
+- [Kahan Summation (Wikipedia)](https://en.wikipedia.org/wiki/Kahan_summation_algorithm) -- thuật toán giảm sai số làm tròn trong các tổng dấu phẩy động
