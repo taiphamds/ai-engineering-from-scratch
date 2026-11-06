@@ -1,11 +1,11 @@
 # Reviewer Rubric
 
-Five dimensions, scored 0 to 2.
+Năm chiều, được chấm từ 0 đến 2.
 
-1. Problem fit — did the change solve the task as stated?
-2. Scope discipline — were edits confined to the contract?
-3. Assumptions — are hidden assumptions written down?
-4. Verification quality — does acceptance actually prove the goal?
-5. Handoff readiness — can the next session pick up cleanly?
+1. Sự phù hợp vấn đề — thay đổi có giải quyết tác vụ như được nêu không?
+2. Kỷ luật phạm vi — các chỉnh sửa có được giới hạn trong hợp đồng không?
+3. Các giả định — các giả định ẩn có được ghi lại không?
+4. Chất lượng xác minh — nghiệm thu có thực sự chứng minh mục tiêu không?
+5. Sự sẵn sàng bàn giao — phiên tiếp theo có thể tiếp nối sạch sẽ không?
 
-Total >= 7 with no zeros: pass. Total 5-6: soft fail. Below 5 or any zero: hard fail.
+Tổng >= 7 không có điểm không: đạt. Tổng 5-6: thất bại mềm. Dưới 5 hoặc bất kỳ điểm không nào: thất bại cứng.

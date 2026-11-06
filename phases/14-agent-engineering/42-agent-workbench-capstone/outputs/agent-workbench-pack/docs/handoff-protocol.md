@@ -1,14 +1,14 @@
 # Handoff Protocol
 
-Every session ends with a handoff packet containing:
+Mỗi phiên kết thúc bằng một gói bàn giao chứa:
 
 - summary
 - changed_files
 - commands_run
 - failed_attempts
-- open_risks (severity + detail)
-- next_action (one concrete step)
-- verdict_pointer (paths to verification + review reports)
+- open_risks (mức độ nghiêm trọng + chi tiết)
+- next_action (một bước cụ thể)
+- verdict_pointer (các đường dẫn đến các báo cáo xác minh + đánh giá)
 
-The packet ships as both handoff.md (humans) and handoff.json (next agent).
-Missing fields halt the session-end hook.
+Gói được cung cấp dưới cả dạng handoff.md (con người) và handoff.json (agent tiếp theo).
+Các trường bị thiếu dừng hook cuối phiên.

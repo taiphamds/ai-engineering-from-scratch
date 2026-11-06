@@ -1,6 +1,6 @@
 # Capstone: Ship a Reusable Agent Workbench Pack
 
-> The mini-track ends with a pack you drop into any repo. Eleven lessons of surfaces compressed into a directory you can `cp -r` and have an agent working reliably the next morning. The capstone is the artifact this curriculum trades on.
+> Chuỗi học nhỏ kết thúc bằng một bộ bạn thả vào bất kỳ repo nào. Mười một bài học về các bề mặt được nén thành một thư mục mà bạn có thể `cp -r` và có một agent làm việc đáng tin cậy vào sáng hôm sau. Capstone là sản phẩm mà chương trình học này dựa vào.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,16 +9,16 @@
 
 ## Learning Objectives
 
-- Package the seven workbench surfaces into one drop-in directory.
-- Pin the schemas, scripts, and templates so a new repo gets a known-good baseline.
-- Add a single installer script that lays down the pack idempotently.
-- Decide what stays in the pack and what stays out, defending the cut for each.
+- Đóng gói bảy bề mặt workbench vào một thư mục có thể đưa vào dùng ngay.
+- Ghim các schema, script và mẫu để một repo mới nhận một đường cơ sở tốt đã biết.
+- Thêm một script cài đặt duy nhất đặt bộ xuống một cách lũy đẳng.
+- Quyết định điều gì ở trong bộ và điều gì ở ngoài, bảo vệ lựa chọn cho mỗi điều.
 
 ## The Problem
 
-A workbench that lives in a Google Doc, a chat history, and three half-remembered scripts is a workbench that gets rebuilt every quarter. The cure is a versioned pack: a repo or directory with the surfaces, the schemas, the scripts, and a one-command installer.
+Một workbench nằm trong một Google Doc, một lịch sử trò chuyện và ba script nhớ mang máng là một workbench được xây lại mỗi quý. Cách chữa là một bộ có phiên bản: một repo hoặc thư mục với các bề mặt, schema, script và một bộ cài một lệnh.
 
-You will end this lesson with `outputs/agent-workbench-pack/` shipped on disk and a `bin/install.sh` that drops it into any target repo.
+Bạn sẽ kết thúc bài này với `outputs/agent-workbench-pack/` được cung cấp trên đĩa và một `bin/install.sh` đưa nó vào bất kỳ repo đích nào.
 
 ## The Concept
 
@@ -58,30 +58,30 @@ outputs/agent-workbench-pack/
 
 ### What stays in, what stays out
 
-In:
+Bên trong:
 
-- Surface schemas. They are the contract.
-- The four scripts above. They are the runtime.
-- The four docs. They are the rules and the rubric.
+- Các schema bề mặt. Chúng là hợp đồng.
+- Bốn script ở trên. Chúng là runtime.
+- Bốn tài liệu. Chúng là các quy tắc và bảng tiêu chí.
 
-Out:
+Bên ngoài:
 
-- Project-specific tasks. Tasks belong on the target repo's board, not in the pack.
-- Vendor SDK calls. The pack is framework-agnostic.
-- Onboarding prose. The pack lives next to the team's existing onboarding, not inside it.
+- Các tác vụ dành riêng cho dự án. Các tác vụ thuộc về bảng của repo đích, không phải trong bộ.
+- Các lời gọi SDK nhà cung cấp. Bộ không phụ thuộc framework.
+- Văn xuôi nhập môn. Bộ nằm cạnh phần nhập môn hiện có của nhóm, không phải bên trong nó.
 
 ### The installer
 
-A short `bin/install.sh` (or `bin/install.py`):
+Một `bin/install.sh` ngắn (hoặc `bin/install.py`):
 
-1. Refuses to install over an existing pack without `--force`.
-2. Copies the pack into the target repo.
-3. Wires up CI if a `.github/workflows/` exists.
-4. Prints next steps: fill in the board, set acceptance commands, run the init script.
+1. Từ chối cài đè lên một bộ hiện có mà không có `--force`.
+2. Sao chép bộ vào repo đích.
+3. Nối CI nếu một `.github/workflows/` tồn tại.
+4. In các bước tiếp theo: điền bảng, đặt các lệnh nghiệm thu, chạy script khởi tạo.
 
 ### Versioning
 
-The pack carries a `VERSION` file. Schema bumps and script changes that require migrations bump the major. Doc-only changes bump the patch. The target repo's `agent_state.json` records which pack version it was initialized against.
+Bộ mang một file `VERSION`. Các lần tăng schema và thay đổi script yêu cầu di chuyển tăng phiên bản chính. Các thay đổi chỉ tài liệu tăng bản vá. `agent_state.json` của repo đích ghi lại nó được khởi tạo đối với phiên bản bộ nào.
 
 ```figure
 wb-pack-install
@@ -89,69 +89,69 @@ wb-pack-install
 
 ## Build It
 
-`code/main.py` assembles the pack into `outputs/agent-workbench-pack/` next to the lesson, seeded with the schemas and scripts from the previous lessons in this mini-track and the docs you already wrote.
+`code/main.py` lắp ráp bộ vào `outputs/agent-workbench-pack/` cạnh bài học, được khởi tạo bằng các schema và script từ các bài trước trong chuỗi học nhỏ này và các tài liệu bạn đã viết.
 
-Run it:
+Chạy nó:
 
 ```
 python3 code/main.py
 ```
 
-The script copies and pins the surfaces, writes the README, prints the pack tree, and exits zero. Re-running is idempotent.
+Script sao chép và ghim các bề mặt, ghi README, in cây bộ và thoát với mã không. Chạy lại là lũy đẳng.
 
 ## Production patterns in the wild
 
-A pack is only valuable if it survives forks, updates, and an unfriendly upstream. Four patterns make that work.
+Một bộ chỉ có giá trị nếu nó sống sót qua các fork, cập nhật và một thượng nguồn không thân thiện. Bốn mẫu làm điều đó hoạt động.
 
-**`VERSION` is the contract, not the marketing.** Major bumps require a state migration. Minor bumps require a checker re-run. Patch bumps are doc-only. The installer writes `.workbench-version` into the target repo on every install; `lint_pack.py` refuses to ship if the target's lock disagrees with the pack's `VERSION`. This is how `npm`, `Cargo`, and `pyproject.toml` survive 10 years of churn; nothing about agents changes the rules.
+**`VERSION` là hợp đồng, không phải tiếp thị.** Các lần tăng phiên bản chính yêu cầu một di chuyển trạng thái. Các lần tăng phiên bản phụ yêu cầu chạy lại bộ kiểm tra. Các lần tăng bản vá chỉ là tài liệu. Bộ cài ghi `.workbench-version` vào repo đích trên mỗi lần cài; `lint_pack.py` từ chối phát hành nếu khóa của đích không khớp `VERSION` của bộ. Đây là cách `npm`, `Cargo` và `pyproject.toml` sống sót qua 10 năm biến động; không điều gì về agent thay đổi các quy tắc.
 
-**Single source for cross-tool distribution.** Nx ships one `nx ai-setup` that lays down `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/`, `.github/copilot-instructions.md`, and an MCP server from a single config. The pack should do the same; the installer emits the symlinks (`ln -s AGENTS.md CLAUDE.md`) so a single source of truth fans out to every coding agent. Forking the pack to support one tool over another is a failure mode.
+**Một nguồn duy nhất cho phân phối xuyên công cụ.** Nx cung cấp một `nx ai-setup` đặt `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/`, `.github/copilot-instructions.md` và một máy chủ MCP từ một cấu hình duy nhất. Bộ nên làm như vậy; bộ cài phát ra các symlink (`ln -s AGENTS.md CLAUDE.md`) để một nguồn sự thật duy nhất tỏa đến mọi agent lập trình. Fork bộ để hỗ trợ một công cụ thay cho công cụ khác là một chế độ lỗi.
 
-**`uninstall.sh` that refuses on non-trivial state.** Uninstalling the pack must not delete the user's `agent_state.json`, `task_board.json`, or `outputs/`. The uninstaller removes the schemas, scripts, docs, and `AGENTS.md` (with `--keep-agents-md` opt-out) and refuses to proceed if state files have any uncommitted changes. State belongs to the user; the pack does not own it.
+**`uninstall.sh` từ chối khi trạng thái không tầm thường.** Gỡ cài đặt bộ không được xóa `agent_state.json`, `task_board.json` hoặc `outputs/` của người dùng. Bộ gỡ cài đặt loại bỏ các schema, script, tài liệu và `AGENTS.md` (với tùy chọn không tham gia `--keep-agents-md`) và từ chối tiếp tục nếu các file trạng thái có bất kỳ thay đổi chưa commit nào. Trạng thái thuộc về người dùng; bộ không sở hữu nó.
 
-**Skill-as-publishable. SkillKit-style distribution.** The pack ships as a SkillKit skill: `skillkit install agent-workbench-pack` lays it down across 32 AI agents from a single source. The pack repo is the source of truth; SkillKit is the distribution channel. Vendor lock-in collapses; the seven surfaces stay the same.
+**Skill như thứ có thể xuất bản. Phân phối kiểu SkillKit.** Bộ được cung cấp như một skill SkillKit: `skillkit install agent-workbench-pack` đặt nó xuyên 32 agent AI từ một nguồn duy nhất. Repo bộ là nguồn sự thật; SkillKit là kênh phân phối. Khóa chặt nhà cung cấp sụp đổ; bảy bề mặt vẫn giống nhau.
 
 ## Use It
 
-Three places the pack ships:
+Ba nơi bộ được cung cấp:
 
-- **As a directory you drop into a repo.** `cp -r outputs/agent-workbench-pack /path/to/repo`.
-- **As a public template repo.** Fork-and-customize, with `VERSION` controlling drift.
-- **As a SkillKit skill.** Wired into your agent product so a single command lays it down.
+- **Như một thư mục bạn thả vào một repo.** `cp -r outputs/agent-workbench-pack /path/to/repo`.
+- **Như một repo mẫu công khai.** Fork và tùy chỉnh, với `VERSION` kiểm soát trôi dạt.
+- **Như một skill SkillKit.** Được nối vào sản phẩm agent của bạn để một lệnh duy nhất đặt nó xuống.
 
-The pack is the recipe. Each install is a serving.
+Bộ là công thức. Mỗi lần cài là một khẩu phần.
 
 ## Ship It
 
-`outputs/skill-workbench-pack.md` generates a project-tuned pack: rules sharpened to the team's history, scope globs matched to the repo, rubric dimensions extended with one domain-specific entry.
+`outputs/skill-workbench-pack.md` tạo một bộ được điều chỉnh theo dự án: các quy tắc được làm sắc theo lịch sử nhóm, các glob phạm vi khớp repo, các chiều bảng tiêu chí được mở rộng với một mục dành riêng cho miền.
 
 ## Exercises
 
-1. Decide which optional fifth doc deserves promotion into the canonical pack. Defend the cut.
-2. Rewrite the installer as Python with a `--dry-run` flag. Compare ergonomics against bash.
-3. Add a `bin/uninstall.sh` that safely removes the pack and refuses if state files have non-trivial history. What counts as non-trivial?
-4. Add a `lint_pack.py` that fails when the pack drifts from `VERSION`. Wire it into CI for the pack's own repo.
-5. Author the migration runbook from a hand-rolled workbench to this pack. What is the order of operations that minimizes downtime?
+1. Quyết định tài liệu thứ năm tùy chọn nào xứng đáng được nâng vào bộ chuẩn. Bảo vệ lựa chọn.
+2. Viết lại bộ cài bằng Python với một cờ `--dry-run`. So sánh tính thuận tiện với bash.
+3. Thêm một `bin/uninstall.sh` loại bỏ bộ an toàn và từ chối nếu các file trạng thái có lịch sử không tầm thường. Điều gì được tính là không tầm thường?
+4. Thêm một `lint_pack.py` thất bại khi bộ trôi khỏi `VERSION`. Nối nó vào CI cho repo riêng của bộ.
+5. Soạn sổ tay di chuyển từ một workbench tự dựng sang bộ này. Thứ tự thao tác nào giảm thiểu thời gian ngừng hoạt động?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |------|----------------|------------------------|
-| Workbench pack | "The starter kit" | A versioned directory carrying all seven surfaces |
-| Installer | "Setup script" | `bin/install.sh` that lays the pack down idempotently |
-| Pack version | "VERSION" | Major bumps for schema/script changes, patch for doc-only |
-| Drop-in pack | "cp -r and go" | Pack works without per-repo customization on day one |
-| Forkable template | "GitHub template" | Public repo that GitHub's "Use this template" can clone from |
+| Workbench pack (Bộ workbench) | "Bộ khởi đầu" | Một thư mục có phiên bản mang cả bảy bề mặt |
+| Installer (Bộ cài đặt) | "Script thiết lập" | `bin/install.sh` đặt bộ xuống một cách lũy đẳng |
+| Pack version (Phiên bản bộ) | "VERSION" | Tăng phiên bản chính cho các thay đổi schema/script, bản vá cho chỉ tài liệu |
+| Drop-in pack (Bộ dùng ngay) | "cp -r rồi chạy" | Bộ hoạt động không cần tùy chỉnh cho từng repo ngay ngày đầu |
+| Forkable template (Mẫu có thể fork) | "Mẫu GitHub" | Repo công khai mà "Use this template" của GitHub có thể clone từ đó |
 
 ## Further Reading
 
-- Phases 14 · 31 to 14 · 41 — every surface this pack bundles
-- [SkillKit](https://github.com/rohitg00/skillkit) — install this skill across 32 AI agents
-- [Nx Blog, Teach Your AI Agent How to Work in a Monorepo](https://nx.dev/blog/nx-ai-agent-skills) — single-source generator across six tools
-- [agents.md — the open spec](https://agents.md/) — what your pack's router must implement
-- [HKUDS/OpenHarness](https://github.com/HKUDS/OpenHarness) — reference implementation of a pack-equivalent
-- [Augment Code, A good AGENTS.md is a model upgrade](https://www.augmentcode.com/blog/how-to-write-good-agents-dot-md-files) — pack docs quality bar
+- Các giai đoạn 14 · 31 đến 14 · 41 — mọi bề mặt mà bộ này đóng gói
+- [SkillKit](https://github.com/rohitg00/skillkit) — cài skill này xuyên 32 agent AI
+- [Nx Blog, Teach Your AI Agent How to Work in a Monorepo](https://nx.dev/blog/nx-ai-agent-skills) — bộ tạo một nguồn xuyên sáu công cụ
+- [agents.md — the open spec](https://agents.md/) — điều bộ định tuyến của bộ phải triển khai
+- [HKUDS/OpenHarness](https://github.com/HKUDS/OpenHarness) — triển khai tham chiếu của một thứ tương đương bộ
+- [Augment Code, A good AGENTS.md is a model upgrade](https://www.augmentcode.com/blog/how-to-write-good-agents-dot-md-files) — chuẩn chất lượng tài liệu bộ
 - [Anthropic, Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)
 - [Anthropic, Harness design for long-running application development](https://www.anthropic.com/engineering/harness-design-long-running-apps)
-- Phase 14 · 30 — eval-driven agent development that consumes the pack's verification gate
-- Phase 14 · 41 — the before/after benchmark this pack improves on
+- Giai đoạn 14 · 30 — phát triển agent dựa trên đánh giá tiêu thụ cổng xác minh của bộ
+- Giai đoạn 14 · 41 — benchmark trước/sau mà bộ này cải thiện

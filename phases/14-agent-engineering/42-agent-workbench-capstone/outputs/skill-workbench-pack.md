@@ -7,30 +7,30 @@ lesson: 42
 tags: [capstone, workbench-pack, installer, schemas, drop-in]
 ---
 
-Given a repo, the team's incident history, and the agent product running inside it, emit a tuned agent-workbench-pack and an installer.
+Với một repo, lịch sử sự cố của nhóm và sản phẩm agent chạy bên trong nó, phát ra một agent-workbench-pack được điều chỉnh và một bộ cài.
 
-Produce:
+Tạo:
 
-1. `agent-workbench-pack/` directory matching the canonical layout: AGENTS.md, docs/, schemas/, scripts/, bin/, README.md, VERSION.
-2. A `bin/install.sh` that refuses to clobber an existing pack without `--force` and writes `.workbench-version` into the target repo.
-3. Project-tuned versions of `agent-rules.md` (with at least one rule per category derived from the team's last six incidents), `reviewer-rubric.md` (with a sixth domain dimension), and `scope_contract.schema.json` (with project-specific globs).
-4. A `lint_pack.py` script that fails on drift between scripts and schemas or between VERSION and the schemas' `schema_version`.
-5. Optional CI integration that installs the pack on demo branches and runs the verification gate against a known-good task.
+1. Thư mục `agent-workbench-pack/` khớp bố cục chuẩn: AGENTS.md, docs/, schemas/, scripts/, bin/, README.md, VERSION.
+2. Một `bin/install.sh` từ chối ghi đè một bộ hiện có mà không có `--force` và ghi `.workbench-version` vào repo đích.
+3. Các phiên bản được điều chỉnh theo dự án của `agent-rules.md` (với ít nhất một quy tắc cho mỗi hạng mục suy ra từ sáu sự cố cuối của nhóm), `reviewer-rubric.md` (với một chiều miền thứ sáu) và `scope_contract.schema.json` (với các glob dành riêng cho dự án).
+4. Một script `lint_pack.py` thất bại khi trôi dạt giữa các script và schema hoặc giữa VERSION và `schema_version` của các schema.
+5. Tích hợp CI tùy chọn cài bộ trên các nhánh demo và chạy cổng xác minh đối với một tác vụ tốt đã biết.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- A pack containing project-specific tasks. Tasks live on the target repo's board.
-- A pack tied to a single vendor SDK. Framework-agnostic only; SDK wiring is the target repo's job.
-- An installer that mutates state files. The installer is idempotent surface-only; state belongs to the agent and humans.
-- Rules without a corresponding check function. Aspirational rules belong in onboarding, not in the pack.
+- Một bộ chứa các tác vụ dành riêng cho dự án. Các tác vụ nằm trên bảng repo đích.
+- Một bộ gắn với một SDK nhà cung cấp duy nhất. Chỉ không phụ thuộc framework; kết nối SDK là công việc của repo đích.
+- Một bộ cài thay đổi các file trạng thái. Bộ cài lũy đẳng chỉ trên bề mặt; trạng thái thuộc về agent và con người.
+- Các quy tắc không có một hàm kiểm tra tương ứng. Các quy tắc nguyện vọng thuộc về nhập môn, không phải trong bộ.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If incident history is empty, refuse to ship a tuned `agent-rules.md`. Use the canonical default and surface the gap.
-- If the target repo's CI is incompatible with the install (no `.github/workflows/`, no equivalent), refuse the optional CI step and document the manual path.
-- If the team uses a private fork of the pack, refuse to write a public installer. Private installers carry private invariants.
+- Nếu lịch sử sự cố rỗng, từ chối cung cấp một `agent-rules.md` được điều chỉnh. Sử dụng mặc định chuẩn và hiển thị khoảng trống.
+- Nếu CI của repo đích không tương thích với việc cài (không `.github/workflows/`, không tương đương), từ chối bước CI tùy chọn và tài liệu hóa đường thủ công.
+- Nếu nhóm sử dụng một fork riêng tư của bộ, từ chối viết một bộ cài công khai. Các bộ cài riêng tư mang các bất biến riêng tư.
 
-Output structure:
+Cấu trúc đầu ra:
 
 ```
 agent-workbench-pack/
@@ -44,8 +44,8 @@ agent-workbench-pack/
 └── README.md
 ```
 
-End with "what to read next" pointing to:
+Kết thúc bằng "đọc gì tiếp theo" chỉ đến:
 
-- Lesson 41 for the before/after benchmark this pack improves on.
-- Lesson 30 (Eval-Driven Agent Development) for the eval loop that consumes the pack's verdicts.
-- [SkillKit](https://github.com/rohitg00/skillkit) for distributing the pack across 32 AI agents.
+- Bài 41 cho benchmark trước/sau mà bộ này cải thiện.
+- Bài 30 (Phát triển agent dựa trên đánh giá) cho vòng lặp đánh giá tiêu thụ các phán quyết của bộ.
+- [SkillKit](https://github.com/rohitg00/skillkit) để phân phối bộ xuyên 32 agent AI.

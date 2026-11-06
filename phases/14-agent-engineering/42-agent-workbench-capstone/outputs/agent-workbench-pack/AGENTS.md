@@ -1,16 +1,16 @@
 # AGENTS.md
 
-You are working inside a repository that runs with an agent workbench.
+Bạn đang làm việc bên trong một kho mã chạy với một workbench agent.
 
-Read these before acting:
+Đọc những thứ này trước khi hành động:
 
-1. `agent_state.json` — where the last session stopped.
-2. `task_board.json` — what is in flight, what is next.
-3. `docs/agent-rules.md` — startup, forbidden, done, uncertainty, approval.
-4. `docs/reliability-policy.md` — failure modes this workbench is designed to absorb.
-5. `docs/handoff-protocol.md` — what session end must produce.
-6. `docs/reviewer-rubric.md` — how completed work is judged.
+1. `agent_state.json` — nơi phiên cuối cùng dừng lại.
+2. `task_board.json` — điều gì đang thực hiện, điều gì tiếp theo.
+3. `docs/agent-rules.md` — khởi động, bị cấm, hoàn thành, bất định, phê duyệt.
+4. `docs/reliability-policy.md` — các chế độ lỗi mà workbench này được thiết kế để hấp thụ.
+5. `docs/handoff-protocol.md` — điều kết thúc phiên phải tạo ra.
+6. `docs/reviewer-rubric.md` — cách công việc hoàn tất được phán xét.
 
-Verification command: see `acceptance_criteria` in the active task on the board.
+Lệnh xác minh: xem `acceptance_criteria` trong tác vụ hoạt động trên bảng.
 
-Pack version: 1.0.0
+Phiên bản bộ: 1.0.0
