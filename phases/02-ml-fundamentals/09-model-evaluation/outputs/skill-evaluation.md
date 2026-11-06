@@ -9,69 +9,69 @@ tags: [evaluation, metrics, cross-validation, model-selection]
 
 # Model Evaluation Strategy
 
-A checklist for correctly evaluating any ML model. Follow this sequence to avoid the most common evaluation mistakes.
+Một danh sách kiểm tra để đánh giá đúng bất kỳ mô hình ML nào. Tuân theo trình tự này để tránh các lỗi đánh giá phổ biến nhất.
 
 ## Step 1: Split the data correctly
 
-- Split before any preprocessing (scaling, imputation, encoding)
-- Use stratified splits for classification tasks
-- Reserve a test set that you touch exactly once at the end
-- For small datasets, use 5-fold or 10-fold cross-validation instead of a single split
-- For time series, use time-based splits (never shuffle)
+- Chia trước bất kỳ tiền xử lý nào (co giãn, điền khuyết, mã hóa)
+- Sử dụng các phần chia phân tầng cho các tác vụ phân loại
+- Dành riêng một tập kiểm tra mà bạn dùng đúng một lần vào cuối
+- Với các tập dữ liệu nhỏ, sử dụng xác thực chéo 5-fold hoặc 10-fold thay vì một lần chia
+- Với chuỗi thời gian, sử dụng các phần chia theo thời gian (không bao giờ xáo trộn)
 
 ## Step 2: Pick the right metric
 
 ### Classification
 
-| Situation | Use this metric | Why |
+| Tình huống | Sử dụng chỉ số này | Lý do |
 |-----------|----------------|-----|
-| Balanced classes, simple comparison | Accuracy | Easy to interpret, meaningful when classes are equal |
-| False positives are costly (spam filter, fraud alerts) | Precision | Measures how many flagged items are actually positive |
-| False negatives are costly (cancer screening, security) | Recall | Measures how many actual positives you catch |
-| Need to balance precision and recall | F1 Score | Harmonic mean, punishes extreme imbalance |
-| Comparing models across thresholds | AUC-ROC | Threshold-independent ranking quality |
-| Imbalanced data | F1, AUC-ROC, or PR-AUC | Accuracy is misleading with imbalanced classes |
+| Các lớp cân bằng, so sánh đơn giản | Accuracy | Dễ diễn giải, có ý nghĩa khi các lớp bằng nhau |
+| Dương tính giả tốn kém (bộ lọc thư rác, cảnh báo gian lận) | Precision | Đo bao nhiêu mục được đánh dấu thực sự dương |
+| Âm tính giả tốn kém (sàng lọc ung thư, bảo mật) | Recall | Đo bao nhiêu trường hợp thực sự dương bạn phát hiện |
+| Cần cân bằng precision và recall | Điểm F1 | Trung bình điều hòa, phạt mất cân bằng cực đoan |
+| So sánh các mô hình trên các ngưỡng | AUC-ROC | Chất lượng xếp hạng độc lập với ngưỡng |
+| Dữ liệu mất cân bằng | F1, AUC-ROC hoặc PR-AUC | Accuracy gây hiểu lầm với các lớp mất cân bằng |
 
 ### Regression
 
-| Situation | Use this metric | Why |
+| Tình huống | Sử dụng chỉ số này | Lý do |
 |-----------|----------------|-----|
-| Standard regression, outliers acceptable | RMSE | Same units as target, penalizes large errors |
-| Outlier-robust evaluation | MAE | Treats all errors equally, not dominated by outliers |
-| Comparing models on different scales | R-squared | Normalized 0-1 scale (fraction of variance explained) |
-| Business requires dollar amounts | MAE or RMSE | Directly interpretable as error magnitude |
+| Hồi quy tiêu chuẩn, chấp nhận ngoại lệ | RMSE | Cùng đơn vị với mục tiêu, phạt sai số lớn |
+| Đánh giá bền vững với ngoại lệ | MAE | Xử lý mọi sai số như nhau, không bị ngoại lệ chi phối |
+| So sánh các mô hình trên các thang đo khác nhau | R-bình phương | Thang chuẩn hóa 0-1 (phần phương sai được giải thích) |
+| Kinh doanh yêu cầu số tiền đô la | MAE hoặc RMSE | Có thể diễn giải trực tiếp thành độ lớn sai số |
 
 ## Step 3: Establish baselines
 
-Before evaluating your model, compute baseline performance:
-- Classification: majority class predictor (always predict the most common class)
-- Regression: always predict the mean of the training target
-- Any model that cannot beat these baselines is not learning
+Trước khi đánh giá mô hình, tính hiệu năng mốc cơ sở:
+- Phân loại: bộ dự đoán lớp đa số (luôn dự đoán lớp phổ biến nhất)
+- Hồi quy: luôn dự đoán trung bình của mục tiêu huấn luyện
+- Bất kỳ mô hình nào không thể vượt các mốc cơ sở này đều không học
 
 ## Step 4: Cross-validate
 
-- Use K-fold (K=5 or K=10) for stable estimates
-- Use stratified K-fold for classification
-- Report mean and standard deviation across folds
-- A model with mean=0.85 and std=0.02 is more trustworthy than mean=0.87 and std=0.10
+- Sử dụng K-fold (K=5 hoặc K=10) để có các ước lượng ổn định
+- Sử dụng K-fold phân tầng cho phân loại
+- Báo cáo trung bình và độ lệch chuẩn trên các fold
+- Một mô hình có mean=0.85 và std=0.02 đáng tin cậy hơn mean=0.87 và std=0.10
 
 ## Step 5: Compare models statistically
 
-- Do not pick the model with the highest average score without checking significance
-- Use a paired t-test across cross-validation folds
-- If |t| < 2.78 (for K=5, df=4, p<0.05), the difference may be due to chance
-- Consider the simpler model when performance differences are not significant
+- Không chọn mô hình có điểm trung bình cao nhất mà không kiểm tra ý nghĩa thống kê
+- Sử dụng t-test ghép cặp trên các fold xác thực chéo
+- Nếu |t| < 2.78 (với K=5, df=4, p<0.05), khác biệt có thể do ngẫu nhiên
+- Cân nhắc mô hình đơn giản hơn khi các khác biệt hiệu năng không có ý nghĩa thống kê
 
 ## Step 6: Check for common mistakes
 
-- Data leakage: did any test data information flow into training? (scaling before splitting, target-derived features)
-- Class imbalance: is accuracy hiding poor minority-class performance?
-- Overfitting: is the gap between training and validation performance large?
-- Too many evaluations: have you looked at the test set more than once?
+- Rò rỉ dữ liệu: có thông tin dữ liệu kiểm tra nào đi vào huấn luyện không? (co giãn trước khi chia, các đặc trưng suy ra từ mục tiêu)
+- Mất cân bằng lớp: accuracy có đang che giấu hiệu năng kém trên lớp thiểu số không?
+- Khớp quá mức: khoảng cách hiệu năng huấn luyện và xác thực có lớn không?
+- Quá nhiều lần đánh giá: bạn đã nhìn tập kiểm tra nhiều hơn một lần chưa?
 
 ## Step 7: Report final performance
 
-- Train on train + validation combined
-- Evaluate on the held-out test set exactly once
-- Report the chosen metric with confidence intervals if possible
-- State the baseline comparison (how much better than random/mean)
+- Huấn luyện trên huấn luyện + xác thực kết hợp
+- Đánh giá trên tập kiểm tra giữ riêng đúng một lần
+- Báo cáo chỉ số đã chọn với các khoảng tin cậy nếu có thể
+- Nêu so sánh với mốc cơ sở (tốt hơn ngẫu nhiên/trung bình bao nhiêu)

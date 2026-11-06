@@ -1,6 +1,6 @@
 # Model Evaluation
 
-> A model is only as good as the way you measure it.
+> Một mô hình chỉ tốt bằng cách bạn đo lường nó.
 
 **Type:** Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Implement K-fold and stratified K-fold cross-validation from scratch and explain why stratification matters for imbalanced data
-- Compute precision, recall, F1, AUC-ROC, and regression metrics (MSE, RMSE, MAE, R-squared) from scratch
-- Interpret learning curves to diagnose whether a model suffers from high bias or high variance
-- Identify common evaluation mistakes including data leakage, wrong metric selection, and test set contamination
+- Triển khai xác thực chéo K-fold và K-fold phân tầng từ đầu và giải thích tại sao phân tầng quan trọng với dữ liệu mất cân bằng
+- Tính precision, recall, F1, AUC-ROC và các chỉ số hồi quy (MSE, RMSE, MAE, R-bình phương) từ đầu
+- Diễn giải các đường cong học để chẩn đoán một mô hình có độ chệch cao hay phương sai cao
+- Xác định các lỗi đánh giá phổ biến bao gồm rò rỉ dữ liệu, lựa chọn sai chỉ số và làm nhiễm tập kiểm tra
 
 ## The Problem
 
-You trained a model. It gets 95% accuracy on your data. Is it good?
+Bạn đã huấn luyện một mô hình. Nó đạt độ chính xác 95% trên dữ liệu của bạn. Nó có tốt không?
 
-Maybe. Maybe not. If 95% of your data belongs to one class, a model that always predicts that class gets 95% accuracy while being completely useless. If you evaluated on the same data you trained on, the 95% number is meaningless because the model just memorized the answers. If your dataset has a time component and you randomly shuffled before splitting, your model might be using future data to predict the past.
+Có thể. Có thể không. Nếu 95% dữ liệu thuộc một lớp, một mô hình luôn dự đoán lớp đó đạt độ chính xác 95% trong khi hoàn toàn vô ích. Nếu bạn đánh giá trên cùng dữ liệu đã huấn luyện, con số 95% vô nghĩa vì mô hình chỉ ghi nhớ các câu trả lời. Nếu tập dữ liệu có một thành phần thời gian và bạn xáo trộn ngẫu nhiên trước khi chia, mô hình có thể đang sử dụng dữ liệu tương lai để dự đoán quá khứ.
 
-Model evaluation is where most ML projects go wrong. The wrong metric makes a bad model look good. The wrong split lets a model cheat. The wrong comparison makes you pick the worse model. Getting evaluation right is not optional. It is the difference between a model that works in production and one that fails the moment it sees real data.
+Đánh giá mô hình là nơi hầu hết các dự án ML sai lầm. Chỉ số sai làm một mô hình xấu trông tốt. Phần chia sai để mô hình gian lận. So sánh sai khiến bạn chọn mô hình kém hơn. Đánh giá đúng không phải tùy chọn. Nó là sự khác biệt giữa một mô hình hoạt động trong sản xuất và một mô hình thất bại ngay khi thấy dữ liệu thực.
 
 ## The Concept
 
@@ -40,17 +40,17 @@ flowchart LR
     D --> H[Report Performance]
 ```
 
-Three splits, three purposes:
+Ba phần chia, ba mục đích:
 
-- **Training set**: the model learns from this data. It sees these examples during training.
-- **Validation set**: used to tune hyperparameters and select between models. The model never trains on this data, but your decisions are influenced by it.
-- **Test set**: touched exactly once, at the very end, to report final performance. If you look at test performance and then go back to change your model, it is no longer a test set. It has become a second validation set.
+- **Tập huấn luyện**: mô hình học từ dữ liệu này. Nó thấy các ví dụ này trong huấn luyện.
+- **Tập xác thực**: dùng để điều chỉnh siêu tham số và lựa chọn giữa các mô hình. Mô hình không bao giờ huấn luyện trên dữ liệu này, nhưng các quyết định của bạn chịu ảnh hưởng bởi nó.
+- **Tập kiểm tra**: được sử dụng đúng một lần, vào cuối cùng, để báo cáo hiệu năng cuối. Nếu bạn nhìn hiệu năng kiểm tra rồi quay lại thay đổi mô hình, nó không còn là tập kiểm tra. Nó đã trở thành một tập xác thực thứ hai.
 
-The test set is your hold-out guarantee that the reported performance reflects how the model will do on truly unseen data.
+Tập kiểm tra là bảo đảm giữ riêng của bạn rằng hiệu năng báo cáo phản ánh cách mô hình sẽ hoạt động trên dữ liệu thực sự chưa thấy.
 
 ### K-Fold Cross-Validation
 
-With small datasets, a single train/validation split wastes data and gives noisy estimates. K-fold cross-validation uses all the data for both training and validation:
+Với các tập dữ liệu nhỏ, một lần chia huấn luyện/xác thực duy nhất lãng phí dữ liệu và cho các ước lượng nhiễu. Xác thực chéo K-fold sử dụng tất cả dữ liệu cho cả huấn luyện và xác thực:
 
 ```mermaid
 flowchart TB
@@ -81,66 +81,66 @@ flowchart TB
     Fold5 --> R
 ```
 
-1. Split data into K equal-sized folds
-2. For each fold, train on K-1 folds and validate on the remaining fold
-3. Average the K validation scores
+1. Chia dữ liệu thành K fold có kích thước bằng nhau
+2. Với mỗi fold, huấn luyện trên K-1 fold và xác thực trên fold còn lại
+3. Lấy trung bình K điểm xác thực
 
-K=5 or K=10 are standard choices. Every data point gets used for validation exactly once. The average score is a more stable estimate than any single split.
+K=5 hoặc K=10 là các lựa chọn tiêu chuẩn. Mỗi điểm dữ liệu được dùng để xác thực đúng một lần. Điểm trung bình là một ước lượng ổn định hơn bất kỳ lần chia đơn lẻ nào.
 
-**Stratified K-fold**: preserves the class distribution in each fold. If your dataset is 70% class A and 30% class B, each fold will have roughly the same ratio. This is important for imbalanced datasets where a random split might put all minority samples in one fold.
+**K-fold phân tầng**: bảo toàn phân phối lớp trong mỗi fold. Nếu tập dữ liệu có 70% lớp A và 30% lớp B, mỗi fold sẽ có tỉ lệ xấp xỉ như vậy. Điều này quan trọng với các tập dữ liệu mất cân bằng nơi một lần chia ngẫu nhiên có thể đưa tất cả mẫu thiểu số vào một fold.
 
 ### Classification Metrics
 
-**Confusion matrix**: the foundation. For binary classification:
+**Ma trận nhầm lẫn**: nền tảng. Với phân loại nhị phân:
 
-|  | Predicted Positive | Predicted Negative |
+|  | Dự đoán Dương | Dự đoán Âm |
 |--|---|---|
-| Actually Positive | True Positive (TP) | False Negative (FN) |
-| Actually Negative | False Positive (FP) | True Negative (TN) |
+| Thực tế Dương | Dương tính Thật (TP) | Âm tính Giả (FN) |
+| Thực tế Âm | Dương tính Giả (FP) | Âm tính Thật (TN) |
 
-From this matrix, all other metrics follow:
+Từ ma trận này, mọi chỉ số khác suy ra:
 
-- **Accuracy** = (TP + TN) / (TP + TN + FP + FN). Fraction of correct predictions. Misleading when classes are imbalanced.
-- **Precision** = TP / (TP + FP). Of all things predicted positive, how many actually were? Use when false positives are costly (e.g., spam filter marking real email as spam).
-- **Recall** (sensitivity) = TP / (TP + FN). Of all actual positives, how many did we catch? Use when false negatives are costly (e.g., cancer screening missing a tumor).
-- **F1 score** = 2 * precision * recall / (precision + recall). Harmonic mean of precision and recall. Balances both when neither clearly dominates.
-- **AUC-ROC**: Area Under the Receiver Operating Characteristic curve. Plots true positive rate vs false positive rate at various classification thresholds. AUC = 0.5 means random guessing, AUC = 1.0 means perfect separation. Threshold-independent: it measures how well the model ranks positives above negatives, regardless of the cutoff you pick.
+- **Accuracy** = (TP + TN) / (TP + TN + FP + FN). Tỉ lệ các dự đoán đúng. Gây hiểu lầm khi các lớp mất cân bằng.
+- **Precision** = TP / (TP + FP). Trong tất cả những thứ được dự đoán dương, có bao nhiêu thực sự dương? Sử dụng khi dương tính giả tốn kém (ví dụ, bộ lọc thư rác đánh dấu email thật là thư rác).
+- **Recall** (độ nhạy) = TP / (TP + FN). Trong tất cả trường hợp thực sự dương, chúng ta phát hiện bao nhiêu? Sử dụng khi âm tính giả tốn kém (ví dụ, sàng lọc ung thư bỏ sót một khối u).
+- **Điểm F1** = 2 * precision * recall / (precision + recall). Trung bình điều hòa của precision và recall. Cân bằng cả hai khi không chỉ số nào rõ ràng chi phối.
+- **AUC-ROC**: Diện tích Dưới đường cong Đặc trưng Hoạt động của Bộ thu. Vẽ tỉ lệ dương tính thật theo tỉ lệ dương tính giả tại các ngưỡng phân loại khác nhau. AUC = 0.5 nghĩa là đoán ngẫu nhiên, AUC = 1.0 nghĩa là phân tách hoàn hảo. Độc lập với ngưỡng: nó đo mức độ mô hình xếp hạng các trường hợp dương cao hơn âm, bất kể điểm cắt bạn chọn.
 
 ### Regression Metrics
 
-- **MSE** (Mean Squared Error) = mean((y_true - y_pred)^2). Penalizes large errors quadratically. Sensitive to outliers.
-- **RMSE** (Root Mean Squared Error) = sqrt(MSE). Same units as the target variable. Easier to interpret than MSE.
-- **MAE** (Mean Absolute Error) = mean(|y_true - y_pred|). Treats all errors linearly. More robust to outliers than MSE.
-- **R-squared** = 1 - SS_res / SS_tot, where SS_res = sum((y_true - y_pred)^2) and SS_tot = sum((y_true - y_mean)^2). Fraction of variance explained by the model. R^2 = 1.0 is perfect. R^2 = 0.0 means the model is no better than always predicting the mean. R^2 can be negative if the model is worse than the mean.
+- **MSE** (Sai số Bình phương Trung bình) = mean((y_true - y_pred)^2). Phạt các sai số lớn theo bậc hai. Nhạy với ngoại lệ.
+- **RMSE** (Căn Sai số Bình phương Trung bình) = sqrt(MSE). Cùng đơn vị với biến mục tiêu. Dễ diễn giải hơn MSE.
+- **MAE** (Sai số Tuyệt đối Trung bình) = mean(|y_true - y_pred|). Xử lý mọi sai số tuyến tính. Bền vững với ngoại lệ hơn MSE.
+- **R-bình phương** = 1 - SS_res / SS_tot, trong đó SS_res = sum((y_true - y_pred)^2) và SS_tot = sum((y_true - y_mean)^2). Phần phương sai được mô hình giải thích. R^2 = 1.0 là hoàn hảo. R^2 = 0.0 nghĩa là mô hình không tốt hơn việc luôn dự đoán trung bình. R^2 có thể âm nếu mô hình tệ hơn trung bình.
 
 ### Learning Curves
 
-Plot training and validation scores as a function of training set size:
+Vẽ các điểm huấn luyện và xác thực như một hàm của kích thước tập huấn luyện:
 
-- **High bias (underfitting)**: both curves converge to a low score. Adding more data will not help. You need a more complex model.
-- **High variance (overfitting)**: training score is high but validation score is much lower. The gap between them is large. Adding more data should help.
+- **Độ chệch cao (khớp chưa đủ)**: cả hai đường cong hội tụ về một điểm thấp. Thêm dữ liệu sẽ không giúp. Bạn cần một mô hình phức tạp hơn.
+- **Phương sai cao (khớp quá mức)**: điểm huấn luyện cao nhưng điểm xác thực thấp hơn nhiều. Khoảng cách giữa chúng lớn. Thêm dữ liệu sẽ giúp.
 
 ### Validation Curves
 
-Plot training and validation scores as a function of a hyperparameter:
+Vẽ các điểm huấn luyện và xác thực như một hàm của một siêu tham số:
 
-- At low complexity: both scores are low (underfitting)
-- At the right complexity: both scores are high and close together
-- At high complexity: training score stays high but validation score drops (overfitting)
+- Ở độ phức tạp thấp: cả hai điểm đều thấp (khớp chưa đủ)
+- Ở độ phức tạp phù hợp: cả hai điểm đều cao và gần nhau
+- Ở độ phức tạp cao: điểm huấn luyện giữ cao nhưng điểm xác thực giảm (khớp quá mức)
 
-The optimal hyperparameter value is where the validation score peaks.
+Giá trị siêu tham số tối ưu là nơi điểm xác thực đạt đỉnh.
 
 ### Common Evaluation Mistakes
 
-**Data leakage**: information from the test set leaks into training. Examples: fitting a scaler on the full dataset before splitting, including future data in time series prediction, using a feature that is derived from the target. Always split first, then preprocess.
+**Rò rỉ dữ liệu**: thông tin từ tập kiểm tra rò rỉ vào huấn luyện. Ví dụ: khớp một bộ co giãn trên toàn bộ tập dữ liệu trước khi chia, đưa dữ liệu tương lai vào dự đoán chuỗi thời gian, sử dụng một đặc trưng được suy ra từ mục tiêu. Luôn chia trước, rồi tiền xử lý.
 
-**Class imbalance**: 99% of transactions are legitimate, 1% are fraud. A model that always predicts "legitimate" gets 99% accuracy. Use precision, recall, F1, or AUC-ROC instead.
+**Mất cân bằng lớp**: 99% giao dịch hợp lệ, 1% gian lận. Một mô hình luôn dự đoán "hợp lệ" đạt accuracy 99%. Thay vào đó sử dụng precision, recall, F1 hoặc AUC-ROC.
 
-**Wrong metric**: optimizing accuracy when you should optimize recall (medical diagnosis), or optimizing RMSE when your data has heavy outliers (use MAE instead).
+**Sai chỉ số**: tối ưu hóa accuracy khi nên tối ưu hóa recall (chẩn đoán y khoa), hoặc tối ưu hóa RMSE khi dữ liệu có các ngoại lệ nặng (thay bằng MAE).
 
-**Not using stratified splits**: with imbalanced data, a random split might put very few minority samples in the validation fold, giving unstable estimates.
+**Không sử dụng các phần chia phân tầng**: với dữ liệu mất cân bằng, một lần chia ngẫu nhiên có thể đặt rất ít mẫu thiểu số vào fold xác thực, cho các ước lượng không ổn định.
 
-**Testing too often**: every time you look at test performance and adjust, you overfit to the test set. The test set is single-use.
+**Kiểm tra quá thường xuyên**: mỗi khi nhìn hiệu năng kiểm tra và điều chỉnh, bạn khớp quá mức với tập kiểm tra. Tập kiểm tra chỉ dùng một lần.
 
 ```figure
 precision-recall-threshold
@@ -631,7 +631,7 @@ if __name__ == "__main__":
 
 ## Use It
 
-With scikit-learn, evaluation is built into the workflow:
+Với scikit-learn, đánh giá được tích hợp vào quy trình:
 
 ```python
 from sklearn.model_selection import cross_val_score, StratifiedKFold, learning_curve
@@ -645,35 +645,35 @@ model = LogisticRegression()
 scores = cross_val_score(model, X, y, cv=StratifiedKFold(5), scoring="f1")
 ```
 
-The from-scratch versions show exactly what cross-validation does (no magic, just for-loops and index tracking), how each metric is computed (just counting TP/FP/TN/FN), and why stratification matters (preserving class ratios in each fold). The library versions add parallelism, more scoring options, and integration with pipelines.
+Các phiên bản từ đầu cho thấy chính xác xác thực chéo làm gì (không phép thuật, chỉ các vòng lặp for và theo dõi chỉ số), cách mỗi chỉ số được tính (chỉ đếm TP/FP/TN/FN) và tại sao phân tầng quan trọng (bảo toàn tỉ lệ lớp trong mỗi fold). Các phiên bản thư viện thêm tính song song, nhiều lựa chọn chấm điểm hơn và tích hợp với pipeline.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/skill-evaluation.md` - a skill covering evaluation strategy for classification and regression models
+Bài học này tạo ra:
+- `outputs/skill-evaluation.md` - một skill bao quát chiến lược đánh giá cho các mô hình phân loại và hồi quy
 
 ## Exercises
 
-1. Implement precision-recall curves: plot precision vs recall at different thresholds. Compute the average precision (area under the PR curve). Compare the PR curve to the ROC curve on an imbalanced dataset and explain when each is more informative.
-2. Build a nested cross-validation loop: the outer loop evaluates model performance, the inner loop tunes hyperparameters. Use it to compare two models fairly without leaking validation data into the evaluation.
-3. Implement a permutation test for model comparison: shuffle the labels, retrain, and measure performance. Repeat 100 times to build a null distribution. Compute the p-value for the observed model performance against this distribution.
+1. Triển khai các đường cong precision-recall: vẽ precision theo recall tại các ngưỡng khác nhau. Tính average precision (diện tích dưới đường cong PR). So sánh đường cong PR với đường cong ROC trên một tập dữ liệu mất cân bằng và giải thích khi nào mỗi loại cung cấp nhiều thông tin hơn.
+2. Xây dựng một vòng lặp xác thực chéo lồng nhau: vòng ngoài đánh giá hiệu năng mô hình, vòng trong điều chỉnh siêu tham số. Sử dụng nó để so sánh hai mô hình công bằng mà không rò rỉ dữ liệu xác thực vào đánh giá.
+3. Triển khai một kiểm định hoán vị để so sánh mô hình: xáo trộn nhãn, huấn luyện lại và đo hiệu năng. Lặp lại 100 lần để xây dựng một phân phối không. Tính p-value của hiệu năng mô hình quan sát so với phân phối này.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Overfitting | "Memorizing the training data" | The model captures noise in the training data, performing well on training but poorly on unseen data |
-| Cross-validation | "Testing on different subsets" | Systematically rotating which portion of data is used for validation, averaging results across all rotations |
-| Precision | "How many predicted positives are correct" | TP / (TP + FP): the fraction of positive predictions that are actually positive |
-| Recall | "How many actual positives we found" | TP / (TP + FN): the fraction of actual positives that were correctly identified |
-| AUC-ROC | "How well the model separates classes" | The area under the curve of true positive rate vs false positive rate across all thresholds, from 0.5 (random) to 1.0 (perfect) |
-| R-squared | "How much variance is explained" | 1 - (sum of squared residuals / total sum of squares): the fraction of target variance captured by the model |
-| Data leakage | "The model cheated" | Using information during training that would not be available at prediction time, leading to optimistic evaluation |
-| Learning curve | "How performance changes with more data" | A plot of training and validation scores vs training set size, revealing underfitting or overfitting |
-| Stratified split | "Keeping class ratios balanced" | Splitting data so each subset has the same proportion of each class as the full dataset |
+| Overfitting (Khớp quá mức) | "Ghi nhớ dữ liệu huấn luyện" | Mô hình nắm bắt nhiễu trong dữ liệu huấn luyện, hoạt động tốt trên huấn luyện nhưng kém trên dữ liệu chưa thấy |
+| Cross-validation (Xác thực chéo) | "Kiểm tra trên các tập con khác nhau" | Luân phiên có hệ thống phần dữ liệu được dùng để xác thực, lấy trung bình kết quả trên tất cả lần luân phiên |
+| Precision | "Bao nhiêu dự đoán dương là đúng" | TP / (TP + FP): tỉ lệ các dự đoán dương thực sự là dương |
+| Recall | "Bao nhiêu trường hợp thực sự dương chúng ta tìm được" | TP / (TP + FN): tỉ lệ các trường hợp thực sự dương được nhận diện đúng |
+| AUC-ROC | "Mô hình phân tách các lớp tốt đến mức nào" | Diện tích dưới đường cong tỉ lệ dương tính thật theo tỉ lệ dương tính giả trên tất cả ngưỡng, từ 0.5 (ngẫu nhiên) đến 1.0 (hoàn hảo) |
+| R-squared (R-bình phương) | "Bao nhiêu phương sai được giải thích" | 1 - (tổng bình phương phần dư / tổng bình phương toàn phần): phần phương sai mục tiêu được mô hình nắm bắt |
+| Data leakage (Rò rỉ dữ liệu) | "Mô hình gian lận" | Sử dụng thông tin trong huấn luyện mà không có ở thời điểm dự đoán, dẫn đến đánh giá lạc quan |
+| Learning curve (Đường cong học) | "Hiệu năng thay đổi thế nào khi có thêm dữ liệu" | Một đồ thị điểm huấn luyện và xác thực theo kích thước tập huấn luyện, bộc lộ khớp chưa đủ hoặc khớp quá mức |
+| Stratified split (Chia phân tầng) | "Giữ tỉ lệ lớp cân bằng" | Chia dữ liệu để mỗi tập con có cùng tỉ lệ mỗi lớp như toàn bộ tập dữ liệu |
 
 ## Further Reading
 
-- [scikit-learn Model Selection Guide](https://scikit-learn.org/stable/model_selection.html) - comprehensive reference on cross-validation, metrics, and hyperparameter tuning
-- [Beyond Accuracy: Precision and Recall (Google ML Crash Course)](https://developers.google.com/machine-learning/crash-course/classification/precision-and-recall) - clear explanation with interactive examples
-- [A Survey of Cross-Validation Procedures (Arlot & Celisse, 2010)](https://projecteuclid.org/journals/statistics-surveys/volume-4/issue-none/A-survey-of-cross-validation-procedures-for-model-selection/10.1214/09-SS054.full) - rigorous treatment of when and why different CV strategies work
+- [scikit-learn Model Selection Guide](https://scikit-learn.org/stable/model_selection.html) - tài liệu tham khảo toàn diện về xác thực chéo, các chỉ số và điều chỉnh siêu tham số
+- [Beyond Accuracy: Precision and Recall (Google ML Crash Course)](https://developers.google.com/machine-learning/crash-course/classification/precision-and-recall) - giải thích rõ ràng với các ví dụ tương tác
+- [A Survey of Cross-Validation Procedures (Arlot & Celisse, 2010)](https://projecteuclid.org/journals/statistics-surveys/volume-4/issue-none/A-survey-of-cross-validation-procedures-for-model-selection/10.1214/09-SS054.full) - trình bày chặt chẽ khi nào và tại sao các chiến lược CV khác nhau hoạt động
