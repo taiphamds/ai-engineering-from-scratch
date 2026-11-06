@@ -1,6 +1,6 @@
 # Token and Positional Embeddings
 
-> Ids are integers. The model wants vectors. Two lookup tables sit between them, and the choice of the positional one shapes what the model can learn.
+> Id là số nguyên. Mô hình muốn vector. Hai bảng tra cứu nằm giữa chúng, và lựa chọn bảng vị trí định hình điều mô hình có thể học.
 
 **Type:** Build
 **Languages:** Python
@@ -8,11 +8,11 @@
 **Time:** ~90 minutes
 
 ## Learning Objectives
-- Build a token-embedding lookup table that maps vocabulary ids to dense vectors.
-- Build a learned positional-embedding lookup table indexed by position.
-- Build a fixed sinusoidal positional embedding indexed by position with no parameters.
-- Compose token and positional embeddings into a single input for a transformer block.
-- Contrast learned and sinusoidal embeddings on length generalization and parameter count.
+- Xây dựng một bảng tra cứu embedding token ánh xạ các id từ vựng sang các vector dense.
+- Xây dựng một bảng tra cứu embedding vị trí được học được đánh chỉ mục theo vị trí.
+- Xây dựng một embedding vị trí hình sin cố định được đánh chỉ mục theo vị trí không có tham số.
+- Kết hợp các embedding token và vị trí thành một đầu vào duy nhất cho một khối transformer.
+- Đối chiếu các embedding được học và hình sin về khái quát hóa độ dài và số tham số.
 
 ```figure
 cc-embedding-lookup
@@ -20,15 +20,15 @@ cc-embedding-lookup
 
 ## The frame
 
-The model's first contact with a token id is a row lookup in the token-embedding matrix. The matrix has one row per vocabulary id and one column per model dimension. The lookup returns a vector that the rest of the model treats as the meaning of the id. Backprop updates the rows that were used in the forward pass. Over training the geometry of those rows learns to encode similarity in directions.
+Tiếp xúc đầu tiên của mô hình với một id token là một lần tra cứu hàng trong ma trận embedding token. Ma trận có một hàng cho mỗi id từ vựng và một cột cho mỗi chiều mô hình. Tra cứu trả về một vector mà phần còn lại của mô hình coi là ý nghĩa của id. Lan truyền ngược cập nhật các hàng đã được dùng trong lượt tiến. Qua huấn luyện hình học của những hàng đó học mã hóa độ tương tự trong các hướng.
 
-Token ids alone have no order. The model needs a second signal that tells it position one is different from position seventeen. The two dominant choices for that signal are a learned positional embedding (a second lookup table, one row per position) and a fixed sinusoidal positional embedding (a math formula with no parameters). The choice has consequences. A learned table is a parameter and is bounded by the maximum context length the model was trained on. A sinusoidal table is parameter-free in theory and the formula extends to any position, but this lesson's `SinusoidalPositionalEmbedding` precomputes a fixed table at `max_context_length` and its `forward` raises past that bound; both modules therefore enforce a maximum context length here. The model may still struggle past its training length even when the table is large enough to index.
+Chỉ riêng các id token không có thứ tự. Mô hình cần một tín hiệu thứ hai nói cho nó vị trí một khác với vị trí mười bảy. Hai lựa chọn chiếm ưu thế cho tín hiệu đó là một embedding vị trí được học (một bảng tra cứu thứ hai, một hàng cho mỗi vị trí) và một embedding vị trí hình sin cố định (một công thức toán không có tham số). Lựa chọn có hệ quả. Một bảng được học là một tham số và bị giới hạn bởi độ dài ngữ cảnh tối đa mô hình đã được huấn luyện trên đó. Một bảng hình sin về lý thuyết không có tham số và công thức mở rộng đến bất kỳ vị trí nào, nhưng `SinusoidalPositionalEmbedding` của bài này tính trước một bảng cố định ở `max_context_length` và `forward` của nó phát sinh lỗi vượt giới hạn đó; vì vậy cả hai module đều thực thi một độ dài ngữ cảnh tối đa ở đây. Mô hình vẫn có thể khó khăn vượt độ dài huấn luyện ngay cả khi bảng đủ lớn để đánh chỉ mục.
 
-This lesson builds both and composes them with the token embedding into a single input for the next lesson's attention block.
+Bài này xây dựng cả hai và kết hợp chúng với embedding token thành một đầu vào duy nhất cho khối attention của bài tiếp theo.
 
 ## The shape contract
 
-The input to the embedding stage is a batch of token ids of shape `(B, T)`. The output is a tensor of shape `(B, T, D)` where `D` is the model dimension. Every batch element has the same context length `T`. Every position has the same vector dimension `D`.
+Đầu vào giai đoạn embedding là một lô id token có hình dạng `(B, T)`. Đầu ra là một tensor có hình dạng `(B, T, D)` trong đó `D` là chiều mô hình. Mỗi phần tử lô có cùng độ dài ngữ cảnh `T`. Mỗi vị trí có cùng chiều vector `D`.
 
 ```mermaid
 flowchart LR
@@ -42,25 +42,25 @@ flowchart LR
     G --> H["(B, T, D) input to attention"]
 ```
 
-The composition is a sum, not a concatenation. Summing keeps `D` constant through the network and lets the model decide on a per-feature basis whether the token meaning or the position dominates at each layer.
+Phép kết hợp là một tổng, không phải một phép nối. Cộng giữ `D` không đổi xuyên suốt mạng và để mô hình quyết định theo từng đặc trưng liệu ý nghĩa token hay vị trí chiếm ưu thế ở mỗi lớp.
 
 ## The token embedding matrix
 
-The token embedding is a parameter tensor of shape `(V, D)` where `V` is the vocabulary size. PyTorch exposes it as `nn.Embedding(V, D)`. At init the entries are drawn from a small Gaussian, traditionally with mean zero and standard deviation around `0.02` for transformer-scale models. The exact init matters less than that it stays consistent across runs.
+Embedding token là một tensor tham số có hình dạng `(V, D)` trong đó `V` là kích thước từ vựng. PyTorch cung cấp nó dưới dạng `nn.Embedding(V, D)`. Khi khởi tạo các phần tử được lấy từ một Gaussian nhỏ, theo truyền thống với trung bình không và độ lệch chuẩn quanh `0.02` cho các mô hình ở quy mô transformer. Cách khởi tạo chính xác ít quan trọng hơn việc nó nhất quán giữa các lần chạy.
 
-The forward pass is a single indexing operation. PyTorch maps `(B, T)` int64 ids to `(B, T, D)` floats by gathering rows. The backward pass accumulates gradients only into the rows that were touched in the forward pass. Two rows that never appeared in the batch receive zero gradient on that step.
+Lượt tiến là một thao tác đánh chỉ mục duy nhất. PyTorch ánh xạ các id int64 `(B, T)` sang các số thực `(B, T, D)` bằng cách gom các hàng. Lượt ngược tích lũy gradient chỉ vào các hàng đã được chạm trong lượt tiến. Hai hàng chưa từng xuất hiện trong lô nhận gradient không ở bước đó.
 
-A subtle detail. The token embedding and the output projection at the end of the model often share weights (weight tying). When that happens, every backward pass touches every row of the embedding through the output side. The lesson here exposes both as separate modules but the same matrix could play both roles in a full model.
+Một chi tiết tinh tế. Embedding token và phép chiếu đầu ra ở cuối mô hình thường dùng chung trọng số (buộc trọng số). Khi điều đó xảy ra, mọi lượt ngược chạm mọi hàng của embedding qua phía đầu ra. Bài này cung cấp cả hai dưới dạng các module riêng nhưng cùng ma trận có thể đóng cả hai vai trò trong một mô hình đầy đủ.
 
 ## The learned positional embedding
 
-The learned positional embedding is a second `nn.Embedding` of shape `(max_context_length, D)`. The lookup is keyed by position id `0, 1, 2, ..., T-1`. The forward pass broadcasts that position vector across the batch dimension.
+Embedding vị trí được học là một `nn.Embedding` thứ hai có hình dạng `(max_context_length, D)`. Tra cứu được đặt khóa theo id vị trí `0, 1, 2, ..., T-1`. Lượt tiến broadcast vector vị trí đó dọc theo chiều lô.
 
-The downside of the learned table is that it cannot be queried at position `T` if the model was only trained up to position `T-1`. The row does not exist. Production decoder-only models that use this scheme bake the maximum context length into the architecture and refuse to process longer inputs.
+Nhược điểm của bảng được học là không thể truy vấn nó ở vị trí `T` nếu mô hình chỉ được huấn luyện đến vị trí `T-1`. Hàng không tồn tại. Các mô hình chỉ decoder trong sản xuất sử dụng sơ đồ này đưa độ dài ngữ cảnh tối đa vào kiến trúc và từ chối xử lý các đầu vào dài hơn.
 
 ## The sinusoidal positional embedding
 
-The sinusoidal positional embedding is a function from position to vector. Position `p` and feature `i` produce
+Embedding vị trí hình sin là một hàm từ vị trí sang vector. Vị trí `p` và đặc trưng `i` tạo ra
 
 ```python
 angle = p / (10000 ** (2 * (i // 2) / D))
@@ -68,15 +68,15 @@ emb[p, 2k]     = sin(angle)
 emb[p, 2k + 1] = cos(angle)
 ```
 
-The function has no parameters. Every position has a unique vector. The wavelength varies geometrically across feature dimensions, so the lower dimensions encode coarse position and the higher dimensions encode fine position.
+Hàm không có tham số. Mỗi vị trí có một vector duy nhất. Bước sóng biến thiên theo cấp số nhân trên các chiều đặc trưng, nên các chiều thấp hơn mã hóa vị trí thô và các chiều cao hơn mã hóa vị trí tinh.
 
-The property that follows from the choice of `sin` and `cos` together is that the vector at position `p + k` is a linear function of the vector at position `p`. That gives the attention layer an easy path to learning relative-position offsets. The model does not need a separate parameter to express "look five tokens back."
+Thuộc tính theo sau lựa chọn dùng `sin` và `cos` cùng nhau là vector tại vị trí `p + k` là một hàm tuyến tính của vector tại vị trí `p`. Điều đó cho lớp attention một đường dễ dàng để học các độ lệch vị trí tương đối. Mô hình không cần một tham số riêng để biểu đạt "nhìn lùi năm token."
 
-The lesson computes the full sinusoidal table once at construction and indexes into it at forward time.
+Bài học tính toàn bộ bảng hình sin một lần khi khởi tạo và đánh chỉ mục vào nó tại thời điểm lượt tiến.
 
 ## The composition
 
-The input pipeline does three things in order. Read the token ids. Look up the token vectors. Add the positional vectors. Return the sum.
+Pipeline đầu vào làm ba việc theo thứ tự. Đọc các id token. Tra cứu các vector token. Cộng các vector vị trí. Trả về tổng.
 
 ```mermaid
 sequenceDiagram
@@ -91,24 +91,24 @@ sequenceDiagram
     Layer->>Caller: (B, T, D)
 ```
 
-The broadcasting in the sum step replicates the `(T, D)` positional tensor along the batch dimension. PyTorch handles that automatically because the positional tensor has shape `(1, T, D)` after unsqueeze.
+Broadcast trong bước cộng sao chép tensor vị trí `(T, D)` dọc chiều lô. PyTorch xử lý điều đó tự động vì tensor vị trí có hình dạng `(1, T, D)` sau unsqueeze.
 
 ## Contrastive analysis
 
-The lesson runs both variants on the same inputs and prints two diagnostics.
+Bài học chạy cả hai biến thể trên cùng đầu vào và in hai chẩn đoán.
 
-The first is parameter count. The learned variant adds `max_context_length * D` parameters on top of the token embedding. The sinusoidal variant adds zero.
+Thứ nhất là số tham số. Biến thể được học thêm `max_context_length * D` tham số trên embedding token. Biến thể hình sin thêm không.
 
-The second is the cosine similarity between embeddings at neighbouring positions. The sinusoidal variant has a smooth and predictable decay because the function is continuous. The learned variant at initialization has near-random similarity because the rows are drawn independently. After training, the learned variant typically develops a similar smooth structure, but it has to discover that structure from data.
+Thứ hai là độ tương tự cosine giữa các embedding tại các vị trí lân cận. Biến thể hình sin có sự suy giảm mượt và có thể dự đoán vì hàm liên tục. Biến thể được học khi khởi tạo có độ tương tự gần ngẫu nhiên vì các hàng được lấy độc lập. Sau huấn luyện, biến thể được học thường phát triển một cấu trúc mượt tương tự, nhưng nó phải khám phá cấu trúc đó từ dữ liệu.
 
 ## What this lesson does not do
 
-It does not build rotary positional encoding (RoPE) or AliBi. Those are the modern choices in production transformers. They both follow the same shape contract as the embeddings here (apply a position-dependent transformation to vectors of shape `(B, T, D)`) but they apply at the attention-projection step rather than at the input. The next lesson builds the attention block, and one of the optional extensions is to fold rotary into the query-key projections there.
+Nó không xây dựng mã hóa vị trí xoay (RoPE) hoặc AliBi. Đó là các lựa chọn hiện đại trong transformer sản xuất. Cả hai tuân theo cùng hợp đồng hình dạng như các embedding ở đây (áp dụng một phép biến đổi phụ thuộc vị trí lên các vector có hình dạng `(B, T, D)`) nhưng chúng áp dụng tại bước chiếu attention thay vì tại đầu vào. Bài tiếp theo xây dựng khối attention, và một trong các phần mở rộng tùy chọn là đưa phép xoay vào các phép chiếu query-key ở đó.
 
-It does not train the embedding. Training requires a loss, which requires a model output, which requires attention and an LM head. That is the next lesson and the one after.
+Nó không huấn luyện embedding. Huấn luyện đòi hỏi một hàm mất mát, điều đó đòi hỏi một đầu ra mô hình, điều đó đòi hỏi attention và một đầu LM. Đó là bài tiếp theo và bài sau nữa.
 
 ## How to read the code
 
-`main.py` defines three modules. `TokenEmbedding` wraps `nn.Embedding(V, D)`. `LearnedPositionalEmbedding` wraps `nn.Embedding(L, D)`. `SinusoidalPositionalEmbedding` precomputes the table and exposes it as a buffer. `EmbeddingComposer` ties a token embedding and a positional embedding together. The demo at the bottom prints the shapes, the parameter counts, and the neighbour-position similarity diagnostic. The tests in `code/tests/test_embeddings.py` pin shape, broadcast behaviour, parameter count, and the sinusoidal formula.
+`main.py` định nghĩa ba module. `TokenEmbedding` bọc `nn.Embedding(V, D)`. `LearnedPositionalEmbedding` bọc `nn.Embedding(L, D)`. `SinusoidalPositionalEmbedding` tính trước bảng và cung cấp nó dưới dạng một buffer. `EmbeddingComposer` gắn một embedding token và một embedding vị trí với nhau. Demo ở cuối in các hình dạng, số tham số, và chẩn đoán độ tương tự vị trí lân cận. Các kiểm thử trong `code/tests/test_embeddings.py` ghim hình dạng, hành vi broadcast, số tham số, và công thức hình sin.
 
-Run the demo. Then change the model dimension `D` from 64 to 32 and watch how the sinusoidal wavelength bands change.
+Chạy demo. Sau đó thay chiều mô hình `D` từ 64 thành 32 và xem các dải bước sóng hình sin thay đổi thế nào.
