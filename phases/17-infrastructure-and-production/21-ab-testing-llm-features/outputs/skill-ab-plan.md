@@ -7,26 +7,26 @@ lesson: 21
 tags: [ab-testing, statsig, growthbook, cuped, sequential, benjamini-hochberg, srm]
 ---
 
-Given the feature change (prompt / model / generation parameter), baseline metrics, expected lift, and team posture (warehouse-native OSS vs bundled SaaS), produce an A/B plan.
+Với thay đổi tính năng (prompt / mô hình / tham số sinh), chỉ số cơ sở, mức tăng kỳ vọng và định hướng nhóm (OSS nguyên bản kho dữ liệu so với SaaS gộp), tạo một kế hoạch A/B.
 
-Produce:
+Tạo:
 
-1. Platform. Statsig (bundled SaaS, OpenAI-owned) or GrowthBook (MIT OSS, warehouse-native). Justify.
-2. Primary metric + guardrails. Primary is the metric you are trying to move; guardrails are things that must not regress (cost/request, latency P99, refusal rate).
-3. Sample size. Classical power calculation × 1.4 (LLM non-determinism buffer).
-4. Design. Fixed-horizon or sequential. Sequential if you expect strong signals; fixed if the change is subtle.
-5. CUPED. Enable if pre-period data exists for the primary metric; specify the regressor.
-6. Correction. Bonferroni for small number of tests; Benjamini-Hochberg for many related tests.
-7. SRM. Require SRM check on every experiment; halt and debug if flagged.
+1. Nền tảng. Statsig (SaaS gộp, OpenAI sở hữu) hoặc GrowthBook (OSS MIT, nguyên bản kho dữ liệu). Giải thích.
+2. Chỉ số chính + chốt bảo vệ. Chính là chỉ số bạn đang cố thay đổi; chốt bảo vệ là những thứ không được suy giảm (chi phí/yêu cầu, P99 độ trễ, tỷ lệ từ chối).
+3. Cỡ mẫu. Tính lực kiểm định cổ điển × 1.4 (dự phòng tính không xác định của LLM).
+4. Thiết kế. Chân trời cố định hoặc tuần tự. Tuần tự nếu bạn kỳ vọng tín hiệu mạnh; cố định nếu thay đổi tinh tế.
+5. CUPED. Bật nếu có dữ liệu trước kỳ cho chỉ số chính; chỉ định biến hồi quy.
+6. Hiệu chỉnh. Bonferroni cho ít kiểm định; Benjamini-Hochberg cho nhiều kiểm định liên quan.
+7. SRM. Yêu cầu kiểm tra SRM trên mọi thí nghiệm; dừng và gỡ lỗi nếu bị đánh dấu.
 
-Hard rejects:
-- Shipping on vibes. Refuse — require A/B or documented no-A/B exception.
-- Running >5 experiments on the same primary metric without BH/Bonferroni. Refuse — false discovery certain.
-- Skipping SRM check. Refuse — assignment bugs are common.
+Các trường hợp loại bỏ dứt khoát:
+- Triển khai theo cảm tính. Từ chối — yêu cầu A/B hoặc ngoại lệ không A/B được ghi lại.
+- Chạy >5 thí nghiệm trên cùng chỉ số chính mà không BH/Bonferroni. Từ chối — chắc chắn có phát hiện sai.
+- Bỏ qua kiểm tra SRM. Từ chối — lỗi phân bổ phổ biến.
 
-Refusal rules:
-- If traffic < 1000 users/week for the feature, refuse fixed A/B — require shadow + canary (Phase 17 · 20) instead.
-- If the primary metric is subjective (e.g., "quality") without an objective proxy, require human eval in parallel.
-- If the lift hypothesis is smaller than the LLM noise floor, refuse — the experiment cannot detect it with realistic sample size.
+Quy tắc từ chối:
+- Nếu lưu lượng < 1000 người dùng/tuần cho tính năng, từ chối A/B cố định — thay vào đó yêu cầu bóng + canary (Giai đoạn 17 · 20).
+- Nếu chỉ số chính chủ quan (ví dụ: "chất lượng") mà không có đại diện khách quan, yêu cầu đánh giá con người song song.
+- Nếu giả thuyết mức tăng nhỏ hơn sàn nhiễu LLM, từ chối — thí nghiệm không thể phát hiện nó với cỡ mẫu thực tế.
 
-Output: a one-page plan with platform, primary + guardrails, sample size, design, CUPED, correction, SRM policy. End with the decision rule: primary significant + all guardrails not significant-negative → ship; any guardrail breach → do not ship regardless of primary.
+Đầu ra: một kế hoạch một trang với nền tảng, chỉ số chính + chốt bảo vệ, cỡ mẫu, thiết kế, CUPED, hiệu chỉnh, chính sách SRM. Kết thúc bằng quy tắc quyết định: chỉ số chính có ý nghĩa thống kê + mọi chốt bảo vệ không âm có ý nghĩa thống kê → triển khai; bất kỳ vi phạm chốt bảo vệ nào → không triển khai bất kể chỉ số chính.

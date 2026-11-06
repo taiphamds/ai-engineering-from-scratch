@@ -1,6 +1,6 @@
 # A/B Testing LLM Features — GrowthBook, Statsig, and the Vibes Problem
 
-> Traditional A/B testing was not built for non-deterministic LLMs. The critical distinction: evals answer "can the model do the job?" A/B tests answer "do users care?" Both are required; shipping on vibe checks is over. What to test in 2026: prompt engineering (wording), model selection (GPT-4 vs GPT-3.5 vs OSS; accuracy vs cost vs latency), generation parameters (temperature, top-p). Real cases: a chatbot reward-model variant delivered +70% conversation length and +30% retention; Nextdoor AI subject-line experiments delivered +1% CTR after reward-function refinement; Khan Academy Khanmigo iterated on a latency-vs-math-accuracy axis. Platform split: **Statsig** (acquired by OpenAI for $1.1B in September 2025) — sequential testing, CUPED, all-in-one. **GrowthBook** — open-source, warehouse-native, Bayesian + Frequentist + Sequential engines, CUPED, SRM checks, Benjamini-Hochberg + Bonferroni corrections. You pick based on warehouse-SQL preference and whether "acquired by OpenAI" matters to your organization.
+> Thử nghiệm A/B truyền thống không được xây cho LLM không xác định. Phân biệt then chốt: đánh giá trả lời "mô hình có thể làm việc này không?" Thử nghiệm A/B trả lời "người dùng có quan tâm không?" Cần cả hai; thời triển khai theo kiểm tra cảm tính đã qua. Cần thử gì năm 2026: kỹ thuật prompt (cách dùng từ), lựa chọn mô hình (GPT-4 so với GPT-3.5 so với OSS; độ chính xác so với chi phí so với độ trễ), tham số sinh (temperature, top-p). Các trường hợp thực tế: một biến thể mô hình phần thưởng chatbot mang lại +70% độ dài hội thoại và +30% tỷ lệ giữ chân; thí nghiệm dòng tiêu đề AI của Nextdoor mang lại +1% CTR sau tinh chỉnh hàm phần thưởng; Khanmigo của Khan Academy lặp cải tiến trên trục độ trễ so với độ chính xác toán. Phân chia nền tảng: **Statsig** (được OpenAI mua lại với $1.1B vào tháng 9 năm 2025) — kiểm định tuần tự, CUPED, tất cả trong một. **GrowthBook** — mã nguồn mở, nguyên bản kho dữ liệu, các engine Bayes + tần suất + tuần tự, CUPED, kiểm tra SRM, hiệu chỉnh Benjamini-Hochberg + Bonferroni. Bạn chọn theo ưu tiên SQL kho dữ liệu và việc "được OpenAI mua lại" có quan trọng với tổ chức của bạn hay không.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy sequential test simulator)
@@ -9,86 +9,86 @@
 
 ## Learning Objectives
 
-- Distinguish evals ("can the model do the job") from A/B tests ("do users care").
-- Enumerate three testable axes (prompt, model, parameters) and pick the metric for each.
-- Explain CUPED, sequential testing, and Benjamini-Hochberg multiple-comparison corrections.
-- Pick Statsig or GrowthBook based on warehouse-SQL posture and corporate acquisition stance.
+- Phân biệt đánh giá ("mô hình có thể làm việc này không") với thử nghiệm A/B ("người dùng có quan tâm không").
+- Liệt kê ba trục có thể thử nghiệm (prompt, mô hình, tham số) và chọn chỉ số cho từng trục.
+- Giải thích CUPED, kiểm định tuần tự và hiệu chỉnh so sánh nhiều lần Benjamini-Hochberg.
+- Chọn Statsig hoặc GrowthBook theo định hướng SQL kho dữ liệu và lập trường về việc công ty bị mua lại.
 
 ## The Problem
 
-You hand-tuned a system prompt. It feels better. You ship it. Conversion changes by noise. You blame the metric. Or you shipped a new model and conversion didn't move — did the model degrade or was the change too small to detect? You don't know, because you shipped without an A/B.
+Bạn tinh chỉnh thủ công một system prompt. Nó có vẻ tốt hơn. Bạn triển khai nó. Chuyển đổi thay đổi do nhiễu. Bạn đổ lỗi cho chỉ số. Hoặc bạn triển khai mô hình mới và chuyển đổi không thay đổi — mô hình suy giảm hay thay đổi quá nhỏ để phát hiện? Bạn không biết, vì bạn triển khai không có A/B.
 
-Evals answer whether the model can do a task on a labeled set. They do not answer whether users prefer the output. Only a controlled online experiment answers that, and only if the experiment has enough power, controls for non-determinism, and corrects for multiple comparisons.
+Đánh giá trả lời liệu mô hình có thể làm một tác vụ trên một tập có nhãn hay không. Chúng không trả lời liệu người dùng thích đầu ra hơn hay không. Chỉ một thí nghiệm trực tuyến có kiểm soát trả lời điều đó, và chỉ khi thí nghiệm đủ lực kiểm định, kiểm soát tính không xác định và hiệu chỉnh so sánh nhiều lần.
 
 ## The Concept
 
 ### Evals vs A/B tests
 
-**Evals** — offline, labeled set, judge (rubric or LLM-as-judge or human). Answer: "Is the output correct / helpful / safe on this fixed distribution?"
+**Đánh giá** — ngoại tuyến, tập có nhãn, giám khảo (bảng tiêu chí hoặc LLM làm giám khảo hoặc con người). Trả lời: "Đầu ra có đúng / hữu ích / an toàn trên phân phối cố định này không?"
 
-**A/B test** — online, live users, randomized. Answer: "Does the new variant move the user-level metric that matters?"
+**Thử nghiệm A/B** — trực tuyến, người dùng thực, ngẫu nhiên hóa. Trả lời: "Biến thể mới có làm thay đổi chỉ số cấp người dùng quan trọng không?"
 
-Both required. Evals catch regressions before exposure; A/B confirms product impact after.
+Cần cả hai. Đánh giá bắt suy giảm trước khi tiếp xúc; A/B xác nhận tác động sản phẩm sau đó.
 
 ### What to test
 
-1. **Prompt engineering** — wording, system-prompt structure, examples. Metric: task success, user retention, cost/request.
-2. **Model selection** — GPT-4 vs GPT-3.5-Turbo vs Llama-OSS. Metric: accuracy (task) + cost/request + latency P99. Multi-objective.
-3. **Generation parameters** — temperature, top-p, max_tokens. Metric: task-specific (output diversity vs determinism).
+1. **Kỹ thuật prompt** — cách dùng từ, cấu trúc system prompt, ví dụ. Chỉ số: thành công tác vụ, giữ chân người dùng, chi phí/yêu cầu.
+2. **Lựa chọn mô hình** — GPT-4 so với GPT-3.5-Turbo so với Llama-OSS. Chỉ số: độ chính xác (tác vụ) + chi phí/yêu cầu + P99 độ trễ. Đa mục tiêu.
+3. **Tham số sinh** — temperature, top-p, max_tokens. Chỉ số: riêng theo tác vụ (độ đa dạng đầu ra so với tính xác định).
 
 ### CUPED — variance reduction
 
-Controlled-experiments Using Pre-Experiment Data. Regress out pre-period variance before comparing post-period. Typical variance reduction: 30-70%. Effective sample size goes up for free.
+Thí nghiệm có kiểm soát sử dụng dữ liệu trước thí nghiệm. Loại bỏ phương sai trước kỳ bằng hồi quy trước khi so sánh sau kỳ. Mức giảm phương sai điển hình: 30-70%. Cỡ mẫu hiệu dụng tăng miễn phí.
 
-Implementation: both Statsig and GrowthBook implement.
+Triển khai: cả Statsig lẫn GrowthBook đều triển khai.
 
 ### Sequential testing
 
-Classical A/B assumes fixed sample size. Sequential tests ("peek-and-decide") control false-positive rate under repeated looks. Always-valid sequential procedures (mSPRT, Howard's confidence sequences) let you stop early on clear winners.
+A/B cổ điển giả định cỡ mẫu cố định. Kiểm định tuần tự ("xem rồi quyết định") kiểm soát tỷ lệ dương tính giả khi xem lặp lại. Các thủ tục tuần tự luôn hợp lệ (mSPRT, chuỗi tin cậy của Howard) cho phép bạn dừng sớm với những phương án thắng rõ ràng.
 
 ### Multiple-comparison corrections
 
-Running 20 A/B tests at 95% confidence produces one false positive by chance. Bonferroni correction tightens α per-test; Benjamini-Hochberg controls false-discovery rate. GrowthBook implements both.
+Chạy 20 thử nghiệm A/B ở độ tin cậy 95% tạo ra một dương tính giả do ngẫu nhiên. Hiệu chỉnh Bonferroni siết α theo từng kiểm định; Benjamini-Hochberg kiểm soát tỷ lệ phát hiện sai. GrowthBook triển khai cả hai.
 
 ### SRM — sample ratio mismatch
 
-Assignment hash randomizes users to variants. If 50/50 split delivers 47/53, something is broken — SRM check flags it. Both platforms implement.
+Hash phân bổ ngẫu nhiên hóa người dùng vào các biến thể. Nếu chia 50/50 cho ra 47/53, có gì đó hỏng — kiểm tra SRM đánh dấu nó. Cả hai nền tảng đều triển khai.
 
 ### Statsig vs GrowthBook
 
 **Statsig**:
-- Acquired by OpenAI for $1.1B (September 2025). Hosted, SaaS.
-- Sequential testing, CUPED, held-out populations.
-- All-in-one: feature flags + experimentation + observability.
-- Best fit: team already wants a bundled product, doesn't care about OpenAI ownership.
+- Được OpenAI mua lại với $1.1B (tháng 9 năm 2025). Được lưu trữ, SaaS.
+- Kiểm định tuần tự, CUPED, các nhóm người dùng giữ riêng.
+- Tất cả trong một: cờ tính năng + thí nghiệm + khả năng quan sát.
+- Phù hợp nhất: nhóm đã muốn một sản phẩm gộp, không quan tâm quyền sở hữu của OpenAI.
 
 **GrowthBook**:
-- Open-source (MIT); warehouse-native (reads from Snowflake/BigQuery/Redshift directly).
-- Multiple engines: Bayesian, Frequentist, Sequential.
-- CUPED, SRM, Bonferroni, BH corrections.
-- Self-host or managed cloud.
-- Best fit: warehouse-SQL shop, data team controls the metric layer, wants OSS.
+- Mã nguồn mở (MIT); nguyên bản kho dữ liệu (đọc trực tiếp từ Snowflake/BigQuery/Redshift).
+- Nhiều engine: Bayes, tần suất, tuần tự.
+- CUPED, SRM, hiệu chỉnh Bonferroni, BH.
+- Tự lưu trữ hoặc đám mây được quản lý.
+- Phù hợp nhất: tổ chức dùng SQL kho dữ liệu, nhóm dữ liệu kiểm soát lớp chỉ số, muốn OSS.
 
 ### Non-determinism complicates power
 
-Same prompt produces varying outputs. Traditional power calculations assume IID observations. With LLM non-determinism, effective sample size is lower than nominal. Multiply required sample size by ~1.3-1.5x as a safety margin.
+Cùng prompt tạo đầu ra khác nhau. Tính lực kiểm định truyền thống giả định quan sát IID. Với tính không xác định của LLM, cỡ mẫu hiệu dụng thấp hơn danh định. Nhân cỡ mẫu yêu cầu với ~1.3-1.5x làm biên an toàn.
 
 ### Real case outcomes
 
-- Chatbot reward model variant: +70% conversation length, +30% retention.
-- Nextdoor subject lines: +1% CTR after reward-function refinement.
-- Khan Academy Khanmigo: iterative latency-vs-math-accuracy trade.
+- Biến thể mô hình phần thưởng chatbot: +70% độ dài hội thoại, +30% giữ chân.
+- Dòng tiêu đề Nextdoor: +1% CTR sau tinh chỉnh hàm phần thưởng.
+- Khanmigo của Khan Academy: đánh đổi lặp cải tiến giữa độ trễ và độ chính xác toán.
 
 ### The anti-pattern: shipping on vibes
 
-Every senior engineer can name a feature that was shipped because "it feels better" with no A/B. Most of them regressed product metrics the team didn't notice for months. A/B is the forcing function.
+Mọi kỹ sư cấp cao đều có thể nêu một tính năng được triển khai vì "cảm thấy tốt hơn" mà không có A/B. Phần lớn chúng làm suy giảm chỉ số sản phẩm mà nhóm không nhận ra trong nhiều tháng. A/B là yếu tố buộc phải hành động.
 
 ### Numbers you should remember
 
-- Statsig acquired by OpenAI: $1.1B, September 2025.
-- GrowthBook: open-source MIT; Bayesian + Frequentist + Sequential.
-- CUPED variance reduction: 30-70%.
-- LLM non-determinism → +30-50% sample-size buffer.
+- Statsig được OpenAI mua lại: $1.1B, tháng 9 năm 2025.
+- GrowthBook: mã nguồn mở MIT; Bayes + tần suất + tuần tự.
+- Giảm phương sai CUPED: 30-70%.
+- Tính không xác định của LLM → dự phòng cỡ mẫu +30-50%.
 
 ```figure
 mx-sequential-test
@@ -96,35 +96,35 @@ mx-sequential-test
 
 ## Use It
 
-`code/main.py` simulates a sequential A/B test with fixed and sequential boundaries. Shows how sequential lets you stop early.
+`code/main.py` mô phỏng một thử nghiệm A/B tuần tự với ranh giới cố định và tuần tự. Cho thấy cách tuần tự cho phép bạn dừng sớm.
 
 ## Ship It
 
-This lesson produces `outputs/skill-ab-plan.md`. Given feature change, workload, baseline, picks platform, gates, sample size.
+Bài học này tạo ra `outputs/skill-ab-plan.md`. Với thay đổi tính năng, khối lượng công việc, đường cơ sở, chọn nền tảng, cổng, cỡ mẫu.
 
 ## Exercises
 
-1. Run `code/main.py`. For an expected 5% lift with baseline 3% conversion, what sample size to 80% power?
-2. Pick Statsig or GrowthBook for a healthcare-regulated on-prem customer.
-3. Design an A/B that tests GPT-4 vs GPT-3.5 on cost-per-resolved-ticket. What's the primary metric, guardrail metric, secondary?
-4. Your canary passes but A/B shows -1.2% conversion. Do you ship? Write the escalation criteria.
-5. Apply CUPED to a pre-period with 60% of the variance of post. Compute the effective-sample-size boost.
+1. Chạy `code/main.py`. Với mức tăng kỳ vọng 5% trên chuyển đổi cơ sở 3%, cỡ mẫu nào đạt lực kiểm định 80%?
+2. Chọn Statsig hoặc GrowthBook cho một khách hàng tại chỗ chịu quy định y tế.
+3. Thiết kế A/B thử GPT-4 so với GPT-3.5 trên chi phí mỗi phiếu hỗ trợ được giải quyết. Chỉ số chính, chỉ số bảo vệ, chỉ số phụ là gì?
+4. Canary của bạn vượt qua nhưng A/B cho thấy chuyển đổi -1.2%. Bạn có triển khai không? Viết tiêu chí chuyển cấp.
+5. Áp dụng CUPED cho một kỳ trước có 60% phương sai của kỳ sau. Tính mức tăng cỡ mẫu hiệu dụng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|----------------|------------------------|
-| Eval | "offline test" | Labeled-set evaluation of model capability |
-| A/B test | "experiment" | Live randomized comparison on users |
-| CUPED | "variance reduction" | Pre-period regression to reduce variance |
-| Sequential test | "peek-ok test" | Always-valid procedure allowing early stop |
-| Multiple comparison | "the family error" | Running many tests inflates false positives |
-| Bonferroni | "tight correction" | Divide α by number of tests |
-| Benjamini-Hochberg | "BH FDR" | False-discovery-rate control, less conservative |
-| SRM | "bad split" | Sample ratio mismatch; assignment bug |
-| Statsig | "OpenAI owned" | Commercial all-in-one, acquired 2025 |
-| GrowthBook | "the OSS one" | MIT warehouse-native platform |
-| mSPRT | "sequential probability ratio test" | Classical sequential procedure |
+| Eval (Đánh giá) | "kiểm thử ngoại tuyến" | Đánh giá năng lực mô hình trên tập có nhãn |
+| A/B test (Thử nghiệm A/B) | "thí nghiệm" | So sánh ngẫu nhiên hóa trực tiếp trên người dùng |
+| CUPED | "giảm phương sai" | Hồi quy trước kỳ để giảm phương sai |
+| Sequential test (Kiểm định tuần tự) | "kiểm định được phép xem trước" | Thủ tục luôn hợp lệ cho phép dừng sớm |
+| Multiple comparison (So sánh nhiều lần) | "sai số theo họ" | Chạy nhiều kiểm định làm tăng dương tính giả |
+| Bonferroni | "hiệu chỉnh chặt" | Chia α cho số kiểm định |
+| Benjamini-Hochberg | "BH FDR" | Kiểm soát tỷ lệ phát hiện sai, ít bảo thủ hơn |
+| SRM | "chia sai" | Không khớp tỷ lệ mẫu; lỗi phân bổ |
+| Statsig | "OpenAI sở hữu" | Thương mại tất cả trong một, được mua lại năm 2025 |
+| GrowthBook | "công cụ OSS" | Nền tảng nguyên bản kho dữ liệu MIT |
+| mSPRT | "kiểm định tỷ số xác suất tuần tự" | Thủ tục tuần tự cổ điển |
 
 ## Further Reading
 
