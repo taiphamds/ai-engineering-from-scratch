@@ -1,6 +1,6 @@
 # Optimizers
 
-> Gradient descent tells you which direction to move. It says nothing about how far or how fast. SGD is a compass. Adam is GPS with traffic data.
+> Hạ gradient cho bạn biết nên đi hướng nào. Nó không nói gì về đi bao xa hay nhanh đến mức nào. SGD là một la bàn. Adam là GPS có dữ liệu giao thông.
 
 **Type:** Build
 **Languages:** Python
@@ -9,110 +9,110 @@
 
 ## Learning Objectives
 
-- Implement SGD, SGD with momentum, Adam, and AdamW optimizers from scratch in Python
-- Explain how Adam's bias correction compensates for zero-initialized moment estimates in early training steps
-- Demonstrate why AdamW produces better generalization than Adam with L2 regularization on the same task
-- Select the appropriate optimizer and default hyperparameters for transformers, CNNs, GANs, and fine-tuning
+- Triển khai các bộ tối ưu hóa SGD, SGD với momentum, Adam và AdamW từ đầu bằng Python
+- Giải thích cách hiệu chỉnh độ chệch của Adam bù cho các ước lượng moment được khởi tạo bằng không trong những bước huấn luyện đầu
+- Chứng minh tại sao AdamW tạo ra khả năng khái quát hóa tốt hơn Adam với chính quy hóa L2 trên cùng tác vụ
+- Chọn bộ tối ưu hóa phù hợp và các siêu tham số mặc định cho transformer, CNN, GAN và tinh chỉnh
 
 ## The Problem
 
-You computed the gradients. You know that weight #4,721 should decrease by 0.003 to reduce the loss. But 0.003 in what units? Scaled by what? And should you move the same amount on step 1 as on step 1,000?
+Bạn đã tính các gradient. Bạn biết trọng số #4,721 nên giảm 0.003 để giảm mất mát. Nhưng 0.003 theo đơn vị nào? Được co giãn bởi gì? Và bạn có nên di chuyển cùng một lượng ở bước 1 như ở bước 1,000 không?
 
-Vanilla gradient descent applies the same learning rate to every parameter on every step: w = w - lr * gradient. This creates three problems that make training neural networks painful in practice.
+Hạ gradient nguyên bản áp dụng cùng tốc độ học cho mọi tham số ở mọi bước: w = w - lr * gradient. Điều này tạo ra ba vấn đề khiến việc huấn luyện mạng nơ-ron khó nhọc trong thực tế.
 
-First, oscillation. The loss landscape is rarely shaped like a smooth bowl. It's more like a long, narrow valley. The gradient points across the valley (steep direction), not along it (shallow direction). Gradient descent bounces back and forth across the narrow dimension while making tiny progress along the useful one. You've seen this: loss drops fast then plateaus, not because the model converged but because it's oscillating.
+Thứ nhất, dao động. Bề mặt mất mát hiếm khi có hình dạng như một cái bát trơn. Nó giống một thung lũng dài, hẹp hơn. Gradient chỉ ngang thung lũng (hướng dốc), không phải dọc theo nó (hướng thoải). Hạ gradient nảy qua lại theo chiều hẹp trong khi tiến rất ít theo chiều hữu ích. Bạn đã thấy điều này: mất mát giảm nhanh rồi chững lại, không phải vì mô hình hội tụ mà vì nó đang dao động.
 
-Second, one learning rate for all parameters is wrong. Some weights need large updates (they're in the early, underfitting stage). Others need tiny updates (they're near their optimal value). A learning rate that works for the former destroys the latter, and vice versa.
+Thứ hai, một tốc độ học cho tất cả các tham số là sai. Một số trọng số cần các cập nhật lớn (chúng ở giai đoạn đầu, khớp thiếu). Những trọng số khác cần các cập nhật rất nhỏ (chúng gần giá trị tối ưu). Một tốc độ học hoạt động cho nhóm trước phá hủy nhóm sau, và ngược lại.
 
-Third, saddle points. In high dimensions, the loss landscape has vast flat regions where the gradient is near zero. Vanilla SGD crawls through these at the speed of the gradient, which is effectively zero. The model looks stuck. It isn't stuck -- it's in a flat region with useful descent on the other side. But SGD has no mechanism to push through.
+Thứ ba, các điểm yên ngựa. Trong không gian nhiều chiều, bề mặt mất mát có các vùng phẳng rộng lớn nơi gradient gần bằng không. SGD nguyên bản bò qua chúng với tốc độ của gradient, về thực chất bằng không. Mô hình trông như bị kẹt. Nó không bị kẹt -- nó ở trong một vùng phẳng có hướng giảm hữu ích ở phía bên kia. Nhưng SGD không có cơ chế để đẩy xuyên qua.
 
-Adam solves all three. It maintains two running averages per parameter -- the mean gradient (momentum, handles oscillation) and the mean squared gradient (adaptive rate, handles different scales). Combined with bias correction for the first few steps, it gives you a single optimizer that works on 80% of problems with default hyperparameters. This lesson builds it from scratch so you understand exactly when and why it fails on the other 20%.
+Adam giải quyết cả ba. Nó duy trì hai trung bình tích lũy cho mỗi tham số -- gradient trung bình (momentum, xử lý dao động) và gradient bình phương trung bình (tốc độ thích nghi, xử lý các thang đo khác nhau). Kết hợp với hiệu chỉnh độ chệch cho vài bước đầu, nó cho bạn một bộ tối ưu hóa duy nhất hoạt động trên 80% bài toán với các siêu tham số mặc định. Bài học này xây dựng nó từ đầu để bạn hiểu chính xác khi nào và tại sao nó thất bại trên 20% còn lại.
 
 ## The Concept
 
 ### Stochastic Gradient Descent (SGD)
 
-The simplest optimizer. Compute the gradient on a mini-batch and step in the opposite direction.
+Bộ tối ưu hóa đơn giản nhất. Tính gradient trên một mini-batch và bước theo hướng ngược lại.
 
 ```
 w = w - lr * gradient
 ```
 
-The "stochastic" means you use a random subset (mini-batch) of data to estimate the gradient, rather than the full dataset. This noise is actually useful -- it helps escape sharp local minima. But the noise also causes oscillation.
+"Ngẫu nhiên" nghĩa là bạn sử dụng một tập con ngẫu nhiên (mini-batch) của dữ liệu để ước lượng gradient, thay vì toàn bộ tập dữ liệu. Nhiễu này thực sự hữu ích -- nó giúp thoát các cực tiểu cục bộ sắc nhọn. Nhưng nhiễu cũng gây dao động.
 
-Learning rate is the only knob. Too high: the loss diverges. Too low: training takes forever. The optimal value depends on the architecture, the data, the batch size, and the current stage of training. For vanilla SGD on modern networks, typical values range from 0.01 to 0.1. But even within a single training run, the ideal learning rate changes.
+Tốc độ học là núm điều chỉnh duy nhất. Quá cao: mất mát phân kỳ. Quá thấp: huấn luyện kéo dài mãi. Giá trị tối ưu phụ thuộc vào kiến trúc, dữ liệu, kích thước batch và giai đoạn huấn luyện hiện tại. Với SGD nguyên bản trên các mạng hiện đại, các giá trị điển hình nằm trong khoảng 0.01 đến 0.1. Nhưng ngay trong một lần huấn luyện, tốc độ học lý tưởng cũng thay đổi.
 
 ### Momentum
 
-The ball-rolling-downhill analogy is overused but accurate. Instead of stepping by the gradient alone, you maintain a velocity that accumulates past gradients.
+Phép ví von quả bóng lăn xuống dốc bị lạm dụng nhưng chính xác. Thay vì chỉ bước theo gradient, bạn duy trì một vận tốc tích lũy các gradient quá khứ.
 
 ```
 m_t = beta * m_{t-1} + gradient
 w = w - lr * m_t
 ```
 
-Beta (typically 0.9) controls how much history to keep. With beta = 0.9, the momentum is roughly the average of the last 10 gradients (1 / (1 - 0.9) = 10).
+Beta (thường là 0.9) kiểm soát lượng lịch sử giữ lại. Với beta = 0.9, momentum gần bằng trung bình của 10 gradient gần nhất (1 / (1 - 0.9) = 10).
 
-Why this fixes oscillation: gradients that point in the same direction accumulate. Gradients that flip direction cancel out. In that narrow valley, the "across" component flips sign each step and gets dampened. The "along" component stays consistent and gets amplified. The result is smooth acceleration in the useful direction.
+Tại sao điều này khắc phục dao động: các gradient cùng hướng tích lũy. Các gradient đổi hướng triệt tiêu nhau. Trong thung lũng hẹp đó, thành phần "ngang" đổi dấu mỗi bước và bị giảm chấn. Thành phần "dọc" nhất quán và được khuếch đại. Kết quả là tăng tốc trơn tru theo hướng hữu ích.
 
-Real numbers: SGD alone on a badly conditioned loss landscape might take 10,000 steps. SGD with momentum (beta=0.9) typically takes 3,000-5,000 steps on the same problem. The speedup is not marginal.
+Các con số thực tế: riêng SGD trên một bề mặt mất mát có điều kiện kém có thể cần 10,000 bước. SGD với momentum (beta=0.9) thường cần 3,000-5,000 bước trên cùng bài toán. Mức tăng tốc không hề nhỏ.
 
 ### RMSProp
 
-The first per-parameter adaptive learning rate method that actually worked. Proposed by Hinton in a Coursera lecture (never formally published).
+Phương pháp tốc độ học thích nghi theo từng tham số đầu tiên thực sự hoạt động. Được Hinton đề xuất trong một bài giảng Coursera (chưa bao giờ được xuất bản chính thức).
 
 ```
 s_t = beta * s_{t-1} + (1 - beta) * gradient^2
 w = w - lr * gradient / (sqrt(s_t) + epsilon)
 ```
 
-s_t tracks the running average of squared gradients. Parameters with consistently large gradients get divided by a large number (smaller effective learning rate). Parameters with small gradients get divided by a small number (larger effective learning rate).
+s_t theo dõi trung bình tích lũy của các gradient bình phương. Các tham số có gradient lớn nhất quán được chia cho một số lớn (tốc độ học hiệu dụng nhỏ hơn). Các tham số có gradient nhỏ được chia cho một số nhỏ (tốc độ học hiệu dụng lớn hơn).
 
-This solves the "one learning rate for all parameters" problem. A weight that's already been getting large updates is probably near its target -- slow it down. A weight that's been getting tiny updates might be undertrained -- speed it up.
+Điều này giải quyết vấn đề "một tốc độ học cho mọi tham số". Một trọng số đã nhận các cập nhật lớn có lẽ gần mục tiêu của nó -- làm nó chậm lại. Một trọng số đã nhận các cập nhật rất nhỏ có thể chưa được huấn luyện đủ -- tăng tốc nó.
 
-Epsilon (typically 1e-8) prevents division by zero when a parameter hasn't been updated.
+Epsilon (thường là 1e-8) ngăn chia cho không khi một tham số chưa được cập nhật.
 
 ### Adam: Momentum + RMSProp
 
-Adam combines both ideas. It maintains two exponential moving averages per parameter:
+Adam kết hợp cả hai ý tưởng. Nó duy trì hai trung bình trượt hàm mũ cho mỗi tham số:
 
 ```
 m_t = beta1 * m_{t-1} + (1 - beta1) * gradient        (first moment: mean)
 v_t = beta2 * v_{t-1} + (1 - beta2) * gradient^2       (second moment: variance)
 ```
 
-**Bias correction** is the key detail most explanations skip. At step 1, m_1 = (1 - beta1) * gradient. With beta1 = 0.9, that's 0.1 * gradient -- ten times too small. The moving average hasn't warmed up yet. Bias correction compensates:
+**Hiệu chỉnh độ chệch** là chi tiết then chốt mà hầu hết lời giải thích bỏ qua. Ở bước 1, m_1 = (1 - beta1) * gradient. Với beta1 = 0.9, đó là 0.1 * gradient -- nhỏ hơn mười lần so với cần thiết. Trung bình trượt chưa khởi động xong. Hiệu chỉnh độ chệch bù lại:
 
 ```
 m_hat = m_t / (1 - beta1^t)
 v_hat = v_t / (1 - beta2^t)
 ```
 
-At step 1 with beta1 = 0.9: m_hat = m_1 / (1 - 0.9) = m_1 / 0.1 = the actual gradient. At step 100: (1 - 0.9^100) is approximately 1.0, so the correction vanishes. Bias correction matters for the first ~10 steps and is irrelevant after ~50.
+Ở bước 1 với beta1 = 0.9: m_hat = m_1 / (1 - 0.9) = m_1 / 0.1 = gradient thực tế. Ở bước 100: (1 - 0.9^100) xấp xỉ 1.0, nên hiệu chỉnh biến mất. Hiệu chỉnh độ chệch quan trọng trong ~10 bước đầu và không còn liên quan sau ~50.
 
-The update:
+Cập nhật:
 
 ```
 w = w - lr * m_hat / (sqrt(v_hat) + epsilon)
 ```
 
-Adam defaults: lr = 0.001, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8. These defaults work for 80% of problems. When they don't, change lr first. Then beta2. Almost never change beta1 or epsilon.
+Các mặc định Adam: lr = 0.001, beta1 = 0.9, beta2 = 0.999, epsilon = 1e-8. Các mặc định này hoạt động cho 80% bài toán. Khi không hoạt động, thay đổi lr trước. Rồi beta2. Gần như không bao giờ thay đổi beta1 hoặc epsilon.
 
 ### AdamW: Weight Decay Done Right
 
-L2 regularization adds lambda * w^2 to the loss. In vanilla SGD, this is equivalent to weight decay (subtracting lambda * w from the weight at each step). In Adam, this equivalence breaks.
+Chính quy hóa L2 thêm lambda * w^2 vào mất mát. Trong SGD nguyên bản, điều này tương đương weight decay (trừ lambda * w khỏi trọng số ở mỗi bước). Trong Adam, sự tương đương này bị phá vỡ.
 
-The Loshchilov & Hutter insight: when you add L2 to the loss and then Adam processes the gradient, the adaptive learning rate scales the regularization term too. Parameters with large gradient variance get less regularization. Parameters with small variance get more. This is not what you want -- you want uniform regularization regardless of the gradient statistics.
+Nhận định của Loshchilov & Hutter: khi bạn thêm L2 vào mất mát rồi Adam xử lý gradient, tốc độ học thích nghi cũng co giãn số hạng chính quy hóa. Các tham số có phương sai gradient lớn nhận ít chính quy hóa hơn. Các tham số có phương sai nhỏ nhận nhiều hơn. Đây không phải điều bạn muốn -- bạn muốn chính quy hóa đồng đều bất kể thống kê gradient.
 
-AdamW fixes this by applying weight decay directly to the weights, after the Adam update:
+AdamW khắc phục điều này bằng cách áp dụng weight decay trực tiếp lên các trọng số, sau cập nhật Adam:
 
 ```
 w = w - lr * m_hat / (sqrt(v_hat) + epsilon) - lr * lambda * w
 ```
 
-The weight decay term (lr * lambda * w) is not scaled by Adam's adaptive factor. Every parameter gets the same proportional shrinkage.
+Số hạng weight decay (lr * lambda * w) không được co giãn bởi hệ số thích nghi của Adam. Mỗi tham số nhận cùng mức co lại theo tỷ lệ.
 
-This seems like a minor detail. It's not. AdamW converges to better solutions than Adam + L2 regularization on virtually every task. It's the default optimizer in PyTorch for training transformers, diffusion models, and most modern architectures. BERT, GPT, LLaMA, Stable Diffusion -- all trained with AdamW.
+Điều này có vẻ là một chi tiết nhỏ. Không phải vậy. AdamW hội tụ tới các nghiệm tốt hơn Adam + chính quy hóa L2 trên gần như mọi tác vụ. Nó là bộ tối ưu hóa mặc định trong PyTorch để huấn luyện transformer, mô hình khuếch tán và hầu hết các kiến trúc hiện đại. BERT, GPT, LLaMA, Stable Diffusion -- tất cả đều được huấn luyện với AdamW.
 
 ### Learning Rate: The Most Important Hyperparameter
 
@@ -131,12 +131,12 @@ graph TD
     Schedule --> Decay["Decay: reduce over time<br/>Cosine or linear"]
 ```
 
-If you tune one hyperparameter, tune the learning rate. A 10x change in learning rate matters more than any architectural decision you'll make. Common defaults:
+Nếu bạn điều chỉnh một siêu tham số, hãy điều chỉnh tốc độ học. Một thay đổi gấp 10 lần tốc độ học quan trọng hơn bất kỳ quyết định kiến trúc nào bạn sẽ đưa ra. Các mặc định phổ biến:
 
-- SGD: lr = 0.01 to 0.1
-- Adam/AdamW: lr = 1e-4 to 3e-4
-- Fine-tuning pretrained models: lr = 1e-5 to 5e-5
-- Learning rate warmup: linear ramp over first 1-10% of steps
+- SGD: lr = 0.01 đến 0.1
+- Adam/AdamW: lr = 1e-4 đến 3e-4
+- Tinh chỉnh các mô hình được tiền huấn luyện: lr = 1e-5 đến 5e-5
+- Warmup tốc độ học: tăng tuyến tính trong 1-10% số bước đầu
 
 ### Optimizer Comparison
 
@@ -265,7 +265,7 @@ class AdamW:
 
 ### Step 5: Training Comparison
 
-Train the same two-layer network on the circle dataset from lesson 05 with all four optimizers. Compare convergence.
+Huấn luyện cùng mạng hai lớp trên tập dữ liệu đường tròn từ bài 05 với cả bốn bộ tối ưu hóa. So sánh hội tụ.
 
 ```python
 import random
@@ -387,7 +387,7 @@ class OptimizerTestNetwork:
 
 ## Use It
 
-PyTorch optimizers handle parameter groups, gradient clipping, and learning rate scheduling:
+Các bộ tối ưu hóa PyTorch xử lý các nhóm tham số, cắt gradient và lập lịch tốc độ học:
 
 ```python
 import torch
@@ -413,45 +413,45 @@ for epoch in range(100):
     scheduler.step()
 ```
 
-The pattern is always: zero_grad, forward, loss, backward, (clip), step, (schedule). Memorize this order. Getting it wrong (e.g., calling scheduler.step() before optimizer.step()) is a common source of subtle bugs.
+Mẫu luôn là: zero_grad, forward, loss, backward, (clip), step, (schedule). Ghi nhớ thứ tự này. Làm sai (ví dụ: gọi scheduler.step() trước optimizer.step()) là nguồn lỗi tinh vi thường gặp.
 
-For CNNs, many practitioners still prefer SGD + momentum (lr=0.1, momentum=0.9, weight_decay=1e-4) with a step or cosine schedule. SGD finds flatter minima, which often generalize better. For transformers and LLMs, AdamW with warmup + cosine decay is the universal default. Don't fight the consensus without a measured reason.
+Với CNN, nhiều người thực hành vẫn thích SGD + momentum (lr=0.1, momentum=0.9, weight_decay=1e-4) với lịch bậc thang hoặc cosine. SGD tìm các cực tiểu phẳng hơn, thường khái quát hóa tốt hơn. Với transformer và LLM, AdamW với warmup + suy giảm cosine là mặc định phổ quát. Đừng chống lại sự đồng thuận nếu không có lý do được đo lường.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-optimizer-selector.md` -- a decision prompt for choosing the right optimizer and learning rate for any architecture
+Bài học này tạo ra:
+- `outputs/prompt-optimizer-selector.md` -- một prompt quyết định để chọn bộ tối ưu hóa và tốc độ học phù hợp cho bất kỳ kiến trúc nào
 
 ## Exercises
 
-1. Implement Nesterov momentum, where you compute the gradient at the "lookahead" position (w - lr * beta * v) instead of the current position. Compare convergence to standard momentum on the circle dataset.
+1. Triển khai momentum Nesterov, trong đó bạn tính gradient tại vị trí "nhìn trước" (w - lr * beta * v) thay vì vị trí hiện tại. So sánh hội tụ với momentum tiêu chuẩn trên tập dữ liệu đường tròn.
 
-2. Implement a learning rate warmup schedule: linear ramp from 0 to max_lr over the first 10% of training steps, then cosine decay to 0. Train with Adam + warmup vs Adam without warmup. Measure how many epochs it takes to reach 90% accuracy on the circle dataset.
+2. Triển khai một lịch warmup tốc độ học: tăng tuyến tính từ 0 tới max_lr trong 10% số bước huấn luyện đầu, rồi suy giảm cosine về 0. Huấn luyện với Adam + warmup so với Adam không có warmup. Đo số epoch cần để đạt accuracy 90% trên tập dữ liệu đường tròn.
 
-3. Track the effective learning rate for each parameter during Adam training. The effective rate is lr * m_hat / (sqrt(v_hat) + eps). Plot the distribution of effective rates after 10, 50, and 200 steps. Are all parameters being updated at the same speed?
+3. Theo dõi tốc độ học hiệu dụng của mỗi tham số trong huấn luyện Adam. Tốc độ hiệu dụng là lr * m_hat / (sqrt(v_hat) + eps). Vẽ phân phối các tốc độ hiệu dụng sau 10, 50 và 200 bước. Tất cả các tham số có được cập nhật cùng tốc độ không?
 
-4. Implement gradient clipping (clip by global norm). Set the max gradient norm to 1.0. Train with and without clipping using a high learning rate (lr=0.01 for Adam). Count how many runs diverge (loss goes to NaN) with and without clipping over 10 random seeds.
+4. Triển khai cắt gradient (cắt theo chuẩn toàn cục). Đặt chuẩn gradient tối đa là 1.0. Huấn luyện có và không cắt bằng một tốc độ học cao (lr=0.01 cho Adam). Đếm bao nhiêu lần chạy phân kỳ (mất mát thành NaN) khi có và không cắt trên 10 seed ngẫu nhiên.
 
-5. Compare Adam vs AdamW on a network with large weights. Initialize all weights to random values in [-5, 5] (much larger than normal). Train for 200 epochs with weight_decay=0.1. Plot the L2 norm of weights over training for both optimizers. AdamW should show faster weight shrinkage.
+5. So sánh Adam với AdamW trên một mạng có các trọng số lớn. Khởi tạo tất cả các trọng số thành các giá trị ngẫu nhiên trong [-5, 5] (lớn hơn bình thường nhiều). Huấn luyện trong 200 epoch với weight_decay=0.1. Vẽ chuẩn L2 của các trọng số trong quá trình huấn luyện cho cả hai bộ tối ưu hóa. AdamW nên cho thấy các trọng số co lại nhanh hơn.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Learning rate | "Step size" | The scalar multiplier on the gradient update; the single most impactful hyperparameter in training |
-| SGD | "Basic gradient descent" | Stochastic gradient descent: update weights by subtracting lr * gradient, computed on a mini-batch |
-| Momentum | "Rolling ball analogy" | Exponential moving average of past gradients; dampens oscillation and accelerates consistent directions |
-| RMSProp | "Adaptive learning rate" | Divides each parameter's gradient by the running RMS of its recent gradients; equalizes learning rates |
-| Adam | "The default optimizer" | Combines momentum (first moment) and RMSProp (second moment) with bias correction for the initial steps |
-| AdamW | "Adam done right" | Adam with decoupled weight decay; applies regularization directly to weights rather than through the gradient |
-| Bias correction | "Warmup for running averages" | Dividing by (1 - beta^t) to compensate for the zero-initialization of Adam's moment estimates |
-| Weight decay | "Shrink the weights" | Subtracting a fraction of the weight value at each step; a regularizer that penalizes large weights |
-| Learning rate schedule | "Changing lr over time" | A function that adjusts the learning rate during training; warmup + cosine decay is the modern default |
-| Gradient clipping | "Capping the gradient norm" | Scaling down the gradient vector when its norm exceeds a threshold; prevents exploding gradient updates |
+| Learning rate (Tốc độ học) | "Kích thước bước" | Hệ số nhân vô hướng trên cập nhật gradient; siêu tham số có tác động lớn nhất trong huấn luyện |
+| SGD | "Hạ gradient cơ bản" | Hạ gradient ngẫu nhiên: cập nhật trọng số bằng cách trừ lr * gradient, được tính trên một mini-batch |
+| Momentum | "Phép ví von quả bóng lăn" | Trung bình trượt hàm mũ của các gradient quá khứ; giảm chấn dao động và tăng tốc các hướng nhất quán |
+| RMSProp | "Tốc độ học thích nghi" | Chia gradient của mỗi tham số cho RMS tích lũy của các gradient gần đây; cân bằng các tốc độ học |
+| Adam | "Bộ tối ưu hóa mặc định" | Kết hợp momentum (moment bậc nhất) và RMSProp (moment bậc hai) với hiệu chỉnh độ chệch cho các bước đầu |
+| AdamW | "Adam được làm đúng" | Adam với weight decay tách rời; áp dụng chính quy hóa trực tiếp lên các trọng số thay vì thông qua gradient |
+| Bias correction (Hiệu chỉnh độ chệch) | "Warmup cho các trung bình tích lũy" | Chia cho (1 - beta^t) để bù cho việc khởi tạo bằng không các ước lượng moment của Adam |
+| Weight decay | "Co các trọng số lại" | Trừ một phần giá trị trọng số ở mỗi bước; một cơ chế chính quy hóa phạt các trọng số lớn |
+| Learning rate schedule (Lịch tốc độ học) | "Thay đổi lr theo thời gian" | Một hàm điều chỉnh tốc độ học trong quá trình huấn luyện; warmup + suy giảm cosine là mặc định hiện đại |
+| Gradient clipping (Cắt gradient) | "Chặn chuẩn gradient" | Co nhỏ vector gradient khi chuẩn của nó vượt một ngưỡng; ngăn các cập nhật gradient bùng nổ |
 
 ## Further Reading
 
-- Kingma & Ba, "Adam: A Method for Stochastic Optimization" (2014) -- the original Adam paper with convergence analysis and the bias correction derivation
-- Loshchilov & Hutter, "Decoupled Weight Decay Regularization" (2017) -- proved that L2 regularization and weight decay are not equivalent in Adam, and proposed AdamW
-- Smith, "Cyclical Learning Rates for Training Neural Networks" (2017) -- introduced the LR range test and cyclical schedules that remove the need to tune a fixed learning rate
-- Ruder, "An Overview of Gradient Descent Optimization Algorithms" (2016) -- the best single survey of all optimizer variants, with clear comparisons and intuitions
+- Kingma & Ba, "Adam: A Method for Stochastic Optimization" (2014) -- bài báo Adam gốc với phân tích hội tụ và phép suy ra hiệu chỉnh độ chệch
+- Loshchilov & Hutter, "Decoupled Weight Decay Regularization" (2017) -- chứng minh chính quy hóa L2 và weight decay không tương đương trong Adam, và đề xuất AdamW
+- Smith, "Cyclical Learning Rates for Training Neural Networks" (2017) -- giới thiệu phép kiểm tra phạm vi LR và các lịch tuần hoàn loại bỏ nhu cầu điều chỉnh một tốc độ học cố định
+- Ruder, "An Overview of Gradient Descent Optimization Algorithms" (2016) -- khảo sát đơn lẻ tốt nhất về tất cả các biến thể bộ tối ưu hóa, với các so sánh và trực giác rõ ràng
