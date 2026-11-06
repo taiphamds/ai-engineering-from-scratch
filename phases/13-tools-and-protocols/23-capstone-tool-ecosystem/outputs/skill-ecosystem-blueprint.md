@@ -7,27 +7,27 @@ lesson: "23"
 tags: [mcp, capstone, ecosystem, architecture, a2a, otel]
 ---
 
-Given a product need (research, summarization, automation, any agent-driven workflow), produce the full architecture.
+Với nhu cầu sản phẩm (nghiên cứu, tóm tắt, tự động hóa, mọi quy trình do agent dẫn), tạo kiến trúc đầy đủ.
 
-Produce:
+Tạo ra:
 
-1. MCP surface. Define `server/discover`, the per-request protocol metadata, tools, resources, prompts, and cache policy. Name any `ui://` Apps.
-2. Extensions. If work is asynchronous, declare `io.modelcontextprotocol/tasks` and design `tasks/get`, `tasks/update`, and `tasks/cancel`. Keep the initial handle at `resultType: task`, make polling results `resultType: complete`, and do not use `tasks/result` or `tasks/list`.
-3. Security posture. OAuth 2.1 scope set, gateway RBAC matrix, pinned hash manifest, Rule of Two audit.
-4. A2A collaboration. Identify any sub-agent calls. Define their Agent Cards.
-5. Telemetry. OTel GenAI span hierarchy. Exporter and backend choice.
-6. Packaging. AGENTS.md, SKILL.md, and deployment surface (Docker Compose, K8s).
-7. Mapping to Phase 13 lessons. Which lesson each design choice traces back to.
+1. Bề mặt MCP. Định nghĩa `server/discover`, siêu dữ liệu giao thức mỗi yêu cầu, công cụ, tài nguyên, prompt và chính sách bộ đệm. Nêu mọi Apps `ui://`.
+2. Phần mở rộng. Nếu công việc bất đồng bộ, khai báo `io.modelcontextprotocol/tasks` và thiết kế `tasks/get`, `tasks/update` và `tasks/cancel`. Giữ handle đầu ở `resultType: task`, làm kết quả thăm dò `resultType: complete` và không dùng `tasks/result` hoặc `tasks/list`.
+3. Tư thế bảo mật. Tập phạm vi OAuth 2.1, ma trận RBAC gateway, manifest hash ghim, kiểm toán Quy tắc Hai.
+4. Cộng tác A2A. Xác định mọi lời gọi agent phụ. Định nghĩa Agent Card.
+5. Telemetry. Phân cấp span OTel GenAI. Chọn exporter và backend.
+6. Đóng gói. AGENTS.md, SKILL.md và bề mặt triển khai (Docker Compose, K8s).
+7. Ánh xạ đến bài Giai đoạn 13. Mỗi lựa chọn thiết kế truy về bài nào.
 
-Hard rejects:
-- Any architecture that combines untrusted input, sensitive data, and consequential action in a single turn (Rule of Two).
-- Any architecture without trace propagation across MCP and A2A hops.
-- Any architecture without at least one fallback provider on the LLM layer.
-- Any current MCP design that depends on `initialize`, `Mcp-Session-Id`, `tasks/result`, or `tasks/list`.
+Các trường hợp bác bỏ tuyệt đối:
+- Mọi kiến trúc kết hợp đầu vào không đáng tin, dữ liệu nhạy cảm và hành động có hệ quả trong một lượt (Quy tắc Hai).
+- Mọi kiến trúc không lan truyền trace qua bước chuyển MCP và A2A.
+- Mọi kiến trúc không ít nhất một nhà cung cấp dự phòng ở tầng LLM.
+- Mọi thiết kế MCP hiện tại phụ thuộc `initialize`, `Mcp-Session-Id`, `tasks/result` hoặc `tasks/list`.
 
-Refusal rules:
-- If the product need is better served by a direct LLM call, refuse to scaffold the full ecosystem.
-- If the team lacks the operational capacity for a gateway, recommend a managed gateway and document the trust transfer.
-- If the architecture involves payments, require a separately reviewed payment authorization protocol and explicit signoff.
+Quy tắc từ chối:
+- Nếu nhu cầu sản phẩm được phục vụ tốt hơn bằng lời gọi LLM trực tiếp, từ chối dựng khung toàn hệ sinh thái.
+- Nếu nhóm thiếu năng lực vận hành gateway, khuyến nghị gateway được quản lý và ghi chuyển giao tin cậy.
+- Nếu kiến trúc liên quan thanh toán, yêu cầu giao thức cấp quyền thanh toán được đánh giá riêng và ký duyệt tường minh.
 
-Output: a one-page blueprint with the primitives, security posture, A2A hops, telemetry plan, packaging, and lesson map. End with one sentence identifying the single hardest operational risk for the deployment.
+Đầu ra: bản thiết kế một trang với thành phần cơ bản, tư thế bảo mật, bước chuyển A2A, kế hoạch telemetry, đóng gói và bản đồ bài học. Kết thúc bằng một câu xác định rủi ro vận hành khó nhất duy nhất cho triển khai.

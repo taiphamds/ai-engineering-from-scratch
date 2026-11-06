@@ -1,6 +1,6 @@
 # Capstone: Stateless Tool Ecosystem
 
-> A production agent system is a set of boundaries, not a pile of features. This capstone separates a readable in-process simulation from the protocol clients, authorization server, sandbox, and telemetry exporter a real deployment still needs.
+> Hệ thống agent sản xuất là tập ranh giới, không phải đống tính năng. Bài tổng kết này tách mô phỏng trong tiến trình dễ đọc khỏi client giao thức, máy chủ cấp quyền, sandbox và exporter telemetry mà triển khai thật vẫn cần.
 
 **Type:** Build
 **Languages:** Python (stdlib, in-process simulation)
@@ -9,30 +9,30 @@
 
 ## Learning Objectives
 
-- Compose tool calls, task-shaped results, delegated work, UI resources, authorization policy, and trace records into one flow.
-- Carry protocol version, client identity, and capabilities on every MCP request instead of relying on a connection session.
-- Discover a server before use and drive long work through the official Tasks extension.
-- Distinguish a protocol-shaped simulation from an MCP, A2A, OAuth, or OpenTelemetry implementation.
-- Map each simulated boundary to the production component that must replace it.
-- Keep `AGENTS.md`, an Agent Skill, runtime adapters, tools, and security policy in their correct roles.
-- Explain which claims can be verified from local output and which need live integration tests.
+- Kết hợp lời gọi công cụ, kết quả hình dạng tác vụ, công việc ủy nhiệm, tài nguyên UI, chính sách cấp quyền và bản ghi trace thành một luồng.
+- Mang phiên bản giao thức, danh tính client và khả năng trên mọi yêu cầu MCP thay dựa phiên kết nối.
+- Khám phá máy chủ trước dùng và điều khiển công việc dài qua phần mở rộng Tasks chính thức.
+- Phân biệt mô phỏng hình dạng giao thức với triển khai MCP, A2A, OAuth hoặc OpenTelemetry.
+- Ánh xạ mỗi ranh giới mô phỏng đến thành phần sản xuất phải thay.
+- Giữ `AGENTS.md`, Agent Skill, adapter runtime, công cụ và chính sách bảo mật đúng vai trò.
+- Giải thích tuyên bố nào xác minh được từ đầu ra cục bộ và cái nào cần kiểm thử tích hợp trực tiếp.
 
 ## The Problem
 
-Design a research-and-report system. A user asks for papers on agent protocols. The system searches a paper catalog, delegates summarization, generates a report, returns a UI resource, and records the path through the system.
+Thiết kế hệ thống nghiên cứu-và-báo-cáo. Người dùng yêu cầu bài báo về giao thức agent. Hệ thống tìm danh mục bài báo, ủy nhiệm tóm tắt, tạo báo cáo, trả tài nguyên UI và ghi đường đi qua hệ thống.
 
-That sentence hides several independent contracts:
+Câu đó giấu nhiều hợp đồng độc lập:
 
-- a model-facing tool schema;
-- a stateless request envelope and server discovery contract;
-- a gateway decision for actor, scope, and tool identity;
-- a long-running operation contract;
-- a delegation protocol;
-- a host-to-app bridge;
-- trace propagation and export;
-- a reusable operating procedure.
+- lược đồ công cụ hướng mô hình;
+- vỏ yêu cầu không trạng thái và hợp đồng khám phá máy chủ;
+- quyết định gateway cho tác nhân, phạm vi và danh tính công cụ;
+- hợp đồng thao tác chạy lâu;
+- giao thức ủy nhiệm;
+- bridge host-sang-app;
+- lan truyền và xuất trace;
+- thủ tục vận hành tái sử dụng.
 
-`code/main.py` keeps those boundaries visible with ordinary Python functions and dictionaries. It does not open a transport, contact arXiv, perform OAuth, call an A2A server, render an MCP App, or export telemetry. This makes the control flow easy to inspect without presenting a simulation as a compliant service.
+`code/main.py` giữ ranh giới rõ bằng hàm và từ điển Python thường. Không mở vận chuyển, liên hệ arXiv, thực hiện OAuth, gọi máy chủ A2A, kết xuất MCP App hoặc xuất telemetry. Điều này làm luồng điều khiển dễ kiểm tra không trình bày mô phỏng là dịch vụ tuân thủ.
 
 ## The Concept
 
@@ -55,7 +55,7 @@ flowchart LR
   A --> O
 ```
 
-The architecture is a conceptual composition of public protocol patterns. It is not a claim about the private internals of any product.
+Kiến trúc là kết hợp khái niệm các mẫu giao thức công khai. Không phải tuyên bố nội bộ riêng của sản phẩm nào.
 
 ### Target trace
 
@@ -73,28 +73,28 @@ flowchart TD
   I --> L2[llm.chat final synthesis]
 ```
 
-In a real implementation, every hop propagates trace context. Span names and attributes must follow the OpenTelemetry semantic conventions supported by the chosen instrumentation version. A shared trace identifier alone does not prove correct parentage, export, or backend ingestion.
+Trong triển khai thật, mọi bước chuyển lan truyền ngữ cảnh trace. Tên và thuộc tính span phải theo quy ước ngữ nghĩa OpenTelemetry phiên bản gắn đo chọn hỗ trợ. Chỉ định danh trace dùng chung không chứng minh quan hệ cha đúng, xuất hoặc backend tiếp nhận.
 
 ### Current protocol surfaces
 
-Use the method names defined by the current protocol, not names remembered from an older draft:
+Dùng tên phương thức giao thức hiện tại định nghĩa, không phải tên nhớ từ dự thảo cũ:
 
-| Boundary | Current surface | What the capstone simulates |
+| Ranh giới | Bề mặt hiện tại | Bài tổng kết mô phỏng gì |
 |---|---|---|
-| MCP discovery | Mandatory `server/discover` | A direct function returning versions, capabilities, and server identity |
-| MCP request context | Version, capabilities, and client identity in every `params._meta` | Fresh request metadata passed to every simulated call |
-| MCP tool call | `tools/call` | Direct Python function dispatch |
-| MCP task polling | `io.modelcontextprotocol/tasks` with `tasks/get` | A working handle followed by a completed task carrying its final result |
-| A2A delegation | `SendMessage` in gRPC and JSON-RPC; `POST /message:send` in HTTP+JSON | One nested span with no remote call or artificial delay |
-| MCP App calling a server tool | `app.callServerTool({ name, arguments })` | An HTML string with no live bridge |
-| OAuth authorization | Authorization server, protected-resource metadata, audience and scope validation | Static token lookup and scope membership |
-| OpenTelemetry | SDK, propagator, exporter, and collector or backend | In-memory span dictionaries |
+| Khám phá MCP | `server/discover` bắt buộc | Hàm trực tiếp trả phiên bản, khả năng và danh tính máy chủ |
+| Ngữ cảnh yêu cầu MCP | Phiên bản, khả năng và danh tính client trong mọi `params._meta` | Siêu dữ liệu yêu cầu mới truyền vào mọi lời gọi mô phỏng |
+| Lời gọi công cụ MCP | `tools/call` | Phân phối hàm Python trực tiếp |
+| Thăm dò tác vụ MCP | `io.modelcontextprotocol/tasks` với `tasks/get` | Handle đang làm theo sau tác vụ hoàn tất mang kết quả cuối |
+| Ủy nhiệm A2A | `SendMessage` trong gRPC và JSON-RPC; `POST /message:send` trong HTTP+JSON | Một span lồng không lời gọi từ xa hoặc độ trễ nhân tạo |
+| MCP App gọi công cụ máy chủ | `app.callServerTool({ name, arguments })` | Chuỗi HTML không bridge trực tiếp |
+| Cấp quyền OAuth | Máy chủ cấp quyền, siêu dữ liệu tài nguyên được bảo vệ, xác thực đối tượng nhận và phạm vi | Tra cứu token tĩnh và thuộc phạm vi |
+| OpenTelemetry | SDK, propagator, exporter và collector hoặc backend | Từ điển span trong bộ nhớ |
 
-Protocol names are only the first layer. Production tests must exercise serialization, authentication failures, cancellation, timeouts, retries, and version compatibility across the real wire.
+Tên giao thức chỉ là tầng đầu. Kiểm thử sản xuất phải thực hành tuần tự hóa, thất bại xác thực, hủy, hết thời gian, thử lại và tương thích phiên bản qua đường truyền thật.
 
 ### Stateless MCP changes the integration boundary
 
-Revision `2026-07-28` removes protocol sessions and the `initialize` / `notifications/initialized` handshake. It also removes `Mcp-Session-Id`. Every request carries these namespaced `_meta` fields:
+Bản sửa đổi `2026-07-28` bỏ phiên giao thức và bắt tay `initialize` / `notifications/initialized`. Cũng bỏ `Mcp-Session-Id`. Mọi yêu cầu mang các trường `_meta` có không gian tên này:
 
 ```json
 {
@@ -111,27 +111,27 @@ Revision `2026-07-28` removes protocol sessions and the `initialize` / `notifica
 }
 ```
 
-The server must implement `server/discover`. Ordinary results use `resultType: "complete"`; a task handle uses `resultType: "task"`. Each result should identify the server in `_meta.io.modelcontextprotocol/serverInfo`.
+Máy chủ phải triển khai `server/discover`. Kết quả thường dùng `resultType: "complete"`; handle tác vụ dùng `resultType: "task"`. Mỗi kết quả nên định danh máy chủ trong `_meta.io.modelcontextprotocol/serverInfo`.
 
-The task extension has `tasks/get`, `tasks/update`, and `tasks/cancel`. A tool may first return `resultType: "task"`; `tasks/get` itself returns `resultType: "complete"`, and the completed `Task` contains the final result. The old `tasks/result` and `tasks/list` methods are not part of the current extension. A client must advertise `io.modelcontextprotocol/tasks` in the same request that may receive a task handle. If it does not, the server returns `-32021` with `requiredCapabilities` shaped as the missing client-capability object, including `extensions.io.modelcontextprotocol/tasks`.
+Phần mở rộng tác vụ có `tasks/get`, `tasks/update` và `tasks/cancel`. Công cụ có thể trả `resultType: "task"` trước; bản thân `tasks/get` trả `resultType: "complete"` và `Task` hoàn tất chứa kết quả cuối. Phương thức `tasks/result` và `tasks/list` cũ không thuộc phần mở rộng hiện tại. Client phải công bố `io.modelcontextprotocol/tasks` trong cùng yêu cầu có thể nhận handle tác vụ. Nếu không, máy chủ trả `-32021` với `requiredCapabilities` hình dạng đối tượng khả năng client thiếu, gồm `extensions.io.modelcontextprotocol/tasks`.
 
 ### Security posture
 
-The intended deployment uses defense in depth:
+Triển khai dự định dùng phòng vệ nhiều lớp:
 
-- OAuth authorization with PKCE where the client type requires it;
-- resource and audience binding for issued access tokens;
-- gateway RBAC that checks the requested tool and scope;
-- upstream credentials held outside model-visible context;
-- a pinned or reviewed tool-description manifest;
-- a Rule of Two review for untrusted input, sensitive data, and consequential actions;
-- an execution sandbox whose filesystem, process, network, credential, and resource limits are enforced outside the skill.
+- cấp quyền OAuth với PKCE nơi loại client cần;
+- gắn tài nguyên và đối tượng nhận cho token truy cập cấp;
+- RBAC gateway kiểm tra công cụ và phạm vi yêu cầu;
+- thông tin xác thực phía trước giữ ngoài ngữ cảnh mô hình thấy;
+- manifest mô tả công cụ ghim hoặc đã xem xét;
+- đánh giá Quy tắc Hai cho đầu vào không đáng tin, dữ liệu nhạy cảm và hành động có hệ quả;
+- sandbox thực thi có giới hạn hệ thống file, tiến trình, mạng, thông tin xác thực và tài nguyên thực thi ngoài skill.
 
-The demo implements only static tokens, scope checks, and description hashes. It is useful for policy flow, not security validation.
+Demo chỉ triển khai token tĩnh, kiểm tra phạm vi và hash mô tả. Hữu ích cho luồng chính sách, không phải xác thực bảo mật.
 
 ### Skills are procedure, not transport
 
-An Agent Skill can tell the runtime how to perform the research workflow, which tool contracts to expect, what evidence to save, and when to stop. It cannot make an MCP server exist, establish A2A compatibility, grant scopes, or create a sandbox.
+Agent Skill có thể nói runtime cách thực hiện quy trình nghiên cứu, hợp đồng công cụ nào kỳ vọng, bằng chứng gì lưu và khi nào dừng. Không thể làm máy chủ MCP tồn tại, thiết lập tương thích A2A, cấp phạm vi hoặc tạo sandbox.
 
 ```mermaid
 flowchart TD
@@ -143,11 +143,11 @@ flowchart TD
   P --> EX[Sandboxed executor]
 ```
 
-Ship the complete skill directory when the procedure references companion files. The flat artifact in this older capstone is a course blueprint, not evidence that a host preserves a portable bundle. Lessons 24 through 27 build and test the full bundle lifecycle.
+Cung cấp toàn thư mục skill khi thủ tục tham chiếu file đồng hành. Sản phẩm phẳng trong bài tổng kết cũ này là bản thiết kế khóa học, không phải bằng chứng host giữ bundle có thể chuyển. Bài 24 đến 27 xây và kiểm thử toàn vòng đời bundle.
 
 ### Course artifact metadata is a local adapter
 
-The course catalog and installer recognize flat files named `skill-*.md`, but that is a repository convention rather than the portable Agent Skills package contract. Their minimal frontmatter parser reads only top-level keys. This lesson therefore keeps the portable identity fields and the course catalog fields at the same level:
+Danh mục và trình cài khóa học nhận file phẳng tên `skill-*.md`, nhưng đó là quy ước repo thay vì hợp đồng gói Agent Skills có thể chuyển. Bộ phân tích frontmatter tối thiểu chỉ đọc khóa cấp cao nhất. Vì vậy bài giữ trường danh tính có thể chuyển và trường danh mục khóa học cùng cấp:
 
 ```yaml
 ---
@@ -160,37 +160,37 @@ tags: [mcp, capstone, ecosystem, architecture, a2a, otel]
 ---
 ```
 
-`name` and `description` are the portable identity fields. `version`, `phase`, `lesson`, and `tags` are course-specific catalog extensions. The course parser requires `tags` as an inline list so `--tag capstone` can match it.
+`name` và `description` là trường danh tính có thể chuyển. `version`, `phase`, `lesson` và `tags` là phần mở rộng danh mục riêng khóa học. Bộ phân tích khóa học yêu cầu `tags` là danh sách nội tuyến để `--tag capstone` khớp.
 
-A portable directory skill may use the optional `metadata` map for string-valued extension data. That does not make `metadata` interchangeable with this repository's catalog schema. If this flat file nests `version` or `tags` below `metadata`, the minimal parser skips those indented keys, the catalog records an empty version, and tag filtering cannot find the artifact. Production hosts should use a safe YAML parser and validate their own documented schema.
+Skill thư mục có thể chuyển có thể dùng ánh xạ `metadata` tùy chọn cho dữ liệu mở rộng giá trị chuỗi. Không làm `metadata` hoán đổi được với lược đồ danh mục repo này. Nếu file phẳng lồng `version` hoặc `tags` dưới `metadata`, bộ phân tích tối thiểu bỏ khóa thụt đó, danh mục ghi phiên bản rỗng và lọc tag không tìm được sản phẩm. Host sản xuất nên dùng bộ phân tích YAML an toàn và xác thực lược đồ đã ghi riêng.
 
 ### Simulation versus production
 
-| Layer | `code/main.py` | Production replacement | Required evidence |
+| Tầng | `code/main.py` | Thay thế sản xuất | Bằng chứng bắt buộc |
 |---|---|---|---|
-| Discovery | `server_discover()` plus static `TOOLS` | `server/discover` followed by cache-aware `tools/list` | Wire transcript, deterministic order, and schema validation |
-| Authentication | Token-keyed dictionary | OAuth authorization and resource server validation | Issuer, audience, scope, expiry, and failure tests |
-| Authorization | Scope membership | Gateway policy bound to actor, tool, target, and tenant | Allow and deny audit cases |
-| Search | Static paper fixtures | Search API or MCP server | Source provenance, ranking, and error tests |
-| Tasks | Local handle plus immediate `tasks/get` | Durable `io.modelcontextprotocol/tasks` store with `tasks/get`, `tasks/update`, `tasks/cancel`, and TTL | State-transition, input, cancellation, and recovery tests |
-| Delegation | Sleep plus nested span | A2A client and remote Agent Card | Contract, timeout, retry, and opacity tests |
-| App | HTML string and URI | MCP Apps resource and `App` bridge | CSP, permissions, tool-call, and browser tests |
-| Telemetry | In-memory list | OTel SDK and exporter | Collector receipt and trace-parent assertions |
-| Sandbox | None | Host-enforced isolated executor | Escape, egress, secret, and resource-limit tests |
+| Khám phá | `server_discover()` cộng `TOOLS` tĩnh | `server/discover` theo sau `tools/list` nhận biết bộ đệm | Bản ghi đường truyền, thứ tự tất định và xác thực lược đồ |
+| Xác thực | Từ điển khóa token | Cấp quyền OAuth và xác thực máy chủ tài nguyên | Kiểm thử bên phát hành, đối tượng nhận, phạm vi, hết hạn và thất bại |
+| Cấp quyền | Thuộc phạm vi | Chính sách gateway gắn tác nhân, công cụ, đích và tenant | Ca kiểm toán cho phép và từ chối |
+| Tìm kiếm | Fixture bài báo tĩnh | API tìm kiếm hoặc máy chủ MCP | Xuất xứ nguồn, xếp hạng và kiểm thử lỗi |
+| Tasks | Handle cục bộ cộng `tasks/get` ngay | Kho `io.modelcontextprotocol/tasks` bền vững với `tasks/get`, `tasks/update`, `tasks/cancel` và TTL | Kiểm thử chuyển trạng thái, đầu vào, hủy và phục hồi |
+| Ủy nhiệm | Ngủ cộng span lồng | Client A2A và Agent Card từ xa | Kiểm thử hợp đồng, hết thời gian, thử lại và tính mờ |
+| App | Chuỗi HTML và URI | Tài nguyên MCP Apps và bridge `App` | Kiểm thử CSP, quyền, lời gọi công cụ và trình duyệt |
+| Telemetry | Danh sách trong bộ nhớ | SDK OTel và exporter | Xác nhận collector nhận và quan hệ trace-cha |
+| Sandbox | Không | Bộ thực thi cô lập do host cưỡng chế | Kiểm thử thoát, lưu lượng đi ra, bí mật và giới hạn tài nguyên |
 
-This table is the handoff boundary. A green local run validates the simulation only.
+Bảng này là ranh giới bàn giao. Lần chạy cục bộ xanh chỉ xác thực mô phỏng.
 
 ### Phase 13 map
 
-| Lessons | Contribution |
+| Bài | Đóng góp |
 |---|---|
-| 01-05 | Tool interfaces, calls, schemas, structured results, and deterministic validation |
-| 06-14 | Stateless MCP request envelopes, discovery, transports, resources, prompts, extensions, and Apps |
-| 15-18 | Poisoning defenses, OAuth, gateways, registries, and production authentication |
-| 19 | A2A message and task delegation |
-| 20 | OpenTelemetry GenAI trace design |
-| 21 | Model-provider routing |
-| 22 | Portable skill contract and runtime boundary |
+| 01-05 | Giao diện công cụ, lời gọi, lược đồ, kết quả có cấu trúc và xác thực tất định |
+| 06-14 | Vỏ yêu cầu MCP không trạng thái, khám phá, vận chuyển, tài nguyên, prompt, phần mở rộng và Apps |
+| 15-18 | Phòng vệ đầu độc, OAuth, gateway, registry và xác thực sản xuất |
+| 19 | Thông điệp A2A và ủy nhiệm tác vụ |
+| 20 | Thiết kế trace OpenTelemetry GenAI |
+| 21 | Định tuyến nhà cung cấp mô hình |
+| 22 | Hợp đồng skill có thể chuyển và ranh giới runtime |
 
 ```figure
 t3-capstone-chain
@@ -198,72 +198,72 @@ t3-capstone-chain
 
 ## Build It
 
-Run the in-process harness:
+Chạy bộ khung trong tiến trình:
 
 ```bash
 cd phases/13-tools-and-protocols/23-capstone-tool-ecosystem
 python3 code/main.py
 ```
 
-Inspect five things:
+Kiểm tra năm thứ:
 
-1. `server/discover` advertises revision `2026-07-28` and the Tasks extension.
-2. Alice can read and generate a report, while Bob's write-scoped call is denied.
-3. Every local span in one orchestrator run shares one trace identifier and records parent span identifiers.
-4. The report begins as a task handle. `tasks/get` returns a completed task whose final result contains text and a `ui://` reference.
-5. The delegated writer remains opaque because the orchestrator records only the boundary span.
-6. No output claims a network connection, OAuth exchange, collector export, browser render, or sandbox execution occurred.
+1. `server/discover` công bố bản sửa đổi `2026-07-28` và phần mở rộng Tasks.
+2. Alice đọc và tạo báo cáo được, trong khi lời gọi phạm vi ghi của Bob bị từ chối.
+3. Mọi span cục bộ trong một lần chạy bộ điều phối dùng chung một định danh trace và ghi định danh span cha.
+4. Báo cáo bắt đầu như handle tác vụ. `tasks/get` trả tác vụ hoàn tất có kết quả cuối chứa văn bản và tham chiếu `ui://`.
+5. Agent viết được ủy nhiệm vẫn mờ vì bộ điều phối chỉ ghi span ranh giới.
+6. Không đầu ra nào khẳng định kết nối mạng, trao đổi OAuth, xuất collector, kết xuất trình duyệt hoặc thực thi sandbox đã xảy ra.
 
-The script runs twice, so it produces two root traces. Audit entries are process-local and reset on the next run.
+Script chạy hai lần nên tạo hai trace gốc. Mục kiểm toán cục bộ tiến trình và đặt lại ở lần chạy tiếp.
 
 ## Use It
 
-Promote one layer at a time:
+Nâng từng tầng một:
 
-1. Replace `server_discover()` and the static tool list with real `server/discover` and `tools/list` calls. Send version, identity, and capabilities in every request.
-2. Replace static tokens with an authorization server and protected resource validation.
-3. Implement the `io.modelcontextprotocol/tasks` extension and test `tasks/get`, `tasks/update`, `tasks/cancel`, timeout, TTL, and restart recovery. Do not add `tasks/result` or `tasks/list`.
-4. Replace the delegation stub with an A2A client that resolves an Agent Card and sends a message.
-5. Build the App with the official SDK and call server tools through `app.callServerTool`.
-6. Export spans to a test collector and assert parentage at the receiver.
-7. Run tool and script execution inside the sandbox contract from Lesson 26.
-8. Package the procedure as a complete directory bundle and pass the Lesson 27 release gate.
+1. Thay `server_discover()` và danh sách công cụ tĩnh bằng lời gọi `server/discover` và `tools/list` thật. Gửi phiên bản, danh tính và khả năng trong mọi yêu cầu.
+2. Thay token tĩnh bằng máy chủ cấp quyền và xác thực tài nguyên được bảo vệ.
+3. Triển khai phần mở rộng `io.modelcontextprotocol/tasks` và kiểm thử `tasks/get`, `tasks/update`, `tasks/cancel`, hết thời gian, TTL và phục hồi khởi động lại. Không thêm `tasks/result` hoặc `tasks/list`.
+4. Thay stub ủy nhiệm bằng client A2A phân giải Agent Card và gửi thông điệp.
+5. Xây App bằng SDK chính thức và gọi công cụ máy chủ qua `app.callServerTool`.
+6. Xuất span đến collector kiểm thử và xác nhận quan hệ cha ở bên nhận.
+7. Chạy thực thi công cụ và script trong hợp đồng sandbox từ Bài 26.
+8. Đóng gói thủ tục thành bundle thư mục đầy đủ và qua cổng phát hành Bài 27.
 
-Each promotion needs an integration test that crosses the new boundary. Do not delete the lower-level policy tests when the wire becomes real.
+Mỗi lần nâng cần kiểm thử tích hợp đi qua ranh giới mới. Không xóa kiểm thử chính sách cấp thấp khi đường truyền thành thật.
 
 ## Ship It
 
-This lesson produces `outputs/skill-ecosystem-blueprint.md`, a legacy single-file course artifact. It asks for a one-page architecture covering primitives, security, delegation, telemetry, packaging, and the hardest operational risk. Its top-level catalog fields are exercised by the repository's real catalog and installer parsers.
+Bài này tạo `outputs/skill-ecosystem-blueprint.md`, sản phẩm khóa học một file cũ. Nó yêu cầu kiến trúc một trang bao phủ thành phần cơ bản, bảo mật, ủy nhiệm, telemetry, đóng gói và rủi ro vận hành khó nhất. Trường danh mục cấp cao nhất được bộ phân tích danh mục và trình cài thật của repo thực hành.
 
-Because it is not a directory bundle, it cannot carry references, scripts, assets, or eval fixtures. Use the package format from Lessons 22 and 24 through 27 when publishing a reusable skill outside this course.
+Vì không phải bundle thư mục, không thể mang tham chiếu, script, asset hoặc fixture đánh giá. Dùng định dạng gói từ Bài 22 và 24 đến 27 khi công bố skill tái sử dụng ngoài khóa học này.
 
 ## Exercises
 
-1. Run `code/main.py`. Separate facts proven by the output from production claims that still need integration evidence.
-2. Add a second static backend and define the collision rule for two tools with the same name. Then replace both lists with real `tools/list` calls.
-3. Replace the writer stub with an A2A test server. Record the Agent Card, message request, timeout path, and returned artifact.
-4. Add a task store that survives a process restart. Prove a client can resume with `tasks/get`, respect `pollIntervalMs`, and read the completed task's final result without `tasks/result`.
-5. Build a minimal MCP App and verify `app.callServerTool` in a browser with a restrictive CSP and explicit permissions.
-6. Export the simulated spans through an OTel SDK to a local collector. Assert receipt, trace identifiers, parentage, and error status.
-7. Write `AGENTS.md` for repository-wide maintenance rules and a separate skill bundle for the reusable research procedure. Explain why neither file grants tool authority.
+1. Chạy `code/main.py`. Tách sự thật đầu ra chứng minh khỏi tuyên bố sản xuất còn cần bằng chứng tích hợp.
+2. Thêm backend tĩnh thứ hai và định nghĩa quy tắc xung đột cho hai công cụ cùng tên. Rồi thay cả hai danh sách bằng lời gọi `tools/list` thật.
+3. Thay stub viết bằng máy chủ kiểm thử A2A. Ghi Agent Card, yêu cầu thông điệp, nhánh hết thời gian và sản phẩm trả về.
+4. Thêm kho tác vụ sống qua khởi động lại tiến trình. Chứng minh client có thể tiếp tục bằng `tasks/get`, tôn trọng `pollIntervalMs` và đọc kết quả cuối tác vụ hoàn tất không `tasks/result`.
+5. Xây MCP App tối thiểu và xác minh `app.callServerTool` trong trình duyệt với CSP hạn chế và quyền tường minh.
+6. Xuất span mô phỏng qua SDK OTel đến collector cục bộ. Xác nhận nhận, định danh trace, quan hệ cha và trạng thái lỗi.
+7. Viết `AGENTS.md` cho quy tắc bảo trì toàn repo và bundle skill riêng cho thủ tục nghiên cứu tái sử dụng. Giải thích tại sao không file nào cấp thẩm quyền công cụ.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |---|---|---|
-| Capstone | "Everything wired together" | A staged integration whose simulated and live boundaries remain explicit |
-| Protocol-shaped simulation | "It is basically MCP" | Local data and calls that resemble a protocol without implementing its wire contract |
-| Tasks extension | "Long tool call" | An optional `io.modelcontextprotocol/tasks` lifecycle with durable identity, polling, client input, final result, and cancellation semantics |
-| Opacity boundary | "The other agent handles it" | The caller sees the declared interface and artifacts, not private reasoning or internal state |
-| Runtime adapter | "Skill integration" | Host code that maps portable procedure to discovery, invocation, tools, policy, and context |
-| Integration evidence | "It passed" | A transcript, artifact, or receiver-side observation proving the real boundary was crossed |
+| Capstone (Bài tổng kết) | "Mọi thứ nối với nhau" | Tích hợp theo giai đoạn có ranh giới mô phỏng và trực tiếp giữ tường minh |
+| Protocol-shaped simulation (Mô phỏng hình dạng giao thức) | "Về cơ bản là MCP" | Dữ liệu và lời gọi cục bộ giống giao thức không triển khai hợp đồng đường truyền |
+| Tasks extension (Phần mở rộng Tasks) | "Lời gọi công cụ dài" | Vòng đời `io.modelcontextprotocol/tasks` tùy chọn với danh tính bền vững, thăm dò, đầu vào client, kết quả cuối và ngữ nghĩa hủy |
+| Opacity boundary (Ranh giới tính mờ) | "Agent kia xử lý" | Bên gọi thấy giao diện và sản phẩm khai báo, không suy luận riêng hoặc trạng thái nội bộ |
+| Runtime adapter (Adapter runtime) | "Tích hợp skill" | Mã host ánh xạ thủ tục có thể chuyển đến khám phá, gọi, công cụ, chính sách và ngữ cảnh |
+| Integration evidence (Bằng chứng tích hợp) | "Đã đạt" | Bản ghi, sản phẩm hoặc quan sát phía nhận chứng minh ranh giới thật đã đi qua |
 
 ## Further Reading
 
-- [MCP specification 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28) for stateless requests, discovery, tools, authorization, and transport behavior.
-- [MCP 2026-07-28 key changes](https://modelcontextprotocol.io/specification/2026-07-28/changelog) for session removal, per-request metadata, MRTR, extensions, and deprecations.
-- [MCP Tasks extension](https://tasks.extensions.modelcontextprotocol.io/specification/draft/tasks) for `tasks/get`, `tasks/update`, `tasks/cancel`, and final results carried by terminal tasks.
-- [MCP Apps SDK](https://github.com/modelcontextprotocol/ext-apps/blob/main/docs/overview.md) for `App` and `app.callServerTool`.
-- [A2A protocol](https://a2a-protocol.org/latest/) for Agent Cards, message delivery, tasks, artifacts, and transport bindings.
-- [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) for trace and attribute conventions.
-- [Agent Skills specification](https://agentskills.io/specification) for the portable package contract used by the procedural layer.
+- [MCP specification 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28) cho yêu cầu không trạng thái, khám phá, công cụ, cấp quyền và hành vi vận chuyển.
+- [MCP 2026-07-28 key changes](https://modelcontextprotocol.io/specification/2026-07-28/changelog) cho bỏ phiên, siêu dữ liệu mỗi yêu cầu, MRTR, phần mở rộng và ngừng khuyến nghị.
+- [MCP Tasks extension](https://tasks.extensions.modelcontextprotocol.io/specification/draft/tasks) cho `tasks/get`, `tasks/update`, `tasks/cancel` và kết quả cuối mang bởi tác vụ kết thúc.
+- [MCP Apps SDK](https://github.com/modelcontextprotocol/ext-apps/blob/main/docs/overview.md) cho `App` và `app.callServerTool`.
+- [A2A protocol](https://a2a-protocol.org/latest/) cho Agent Card, gửi thông điệp, tác vụ, sản phẩm và liên kết vận chuyển.
+- [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) cho quy ước trace và thuộc tính.
+- [Agent Skills specification](https://agentskills.io/specification) cho hợp đồng gói có thể chuyển tầng thủ tục dùng.
