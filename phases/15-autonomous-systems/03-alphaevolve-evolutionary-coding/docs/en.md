@@ -1,6 +1,6 @@
 # AlphaEvolve — Evolutionary Coding Agents
 
-> Pair a frontier coding model with an evolutionary loop and a machine-checkable evaluator. Let the loop run long enough. It discovers a 4x4 complex-matrix multiplication procedure that uses 48 scalar multiplications — the first improvement over Strassen in 56 years. It also finds a Google-wide Borg scheduling heuristic that recovers ~0.7% of cluster compute in production. The architecture is boring on purpose. The wins come from the evaluator's rigor.
+> Ghép một mô hình lập trình tiên tiến nhất với một vòng lặp tiến hóa và một bộ đánh giá có thể kiểm tra bằng máy. Để vòng lặp chạy đủ lâu. Nó khám phá một quy trình nhân ma trận phức 4x4 sử dụng 48 phép nhân vô hướng — cải tiến đầu tiên vượt Strassen trong 56 năm. Nó cũng tìm một heuristic lập lịch Borg trên toàn Google thu hồi ~0.7% năng lực tính toán cụm trong sản xuất. Kiến trúc nhàm chán có chủ ý. Các thành tựu đến từ độ nghiêm ngặt của bộ đánh giá.
 
 **Type:** Learn
 **Languages:** Python (stdlib, evolutionary-loop toy)
@@ -9,67 +9,67 @@
 
 ## The Problem
 
-Large language models can write code. Evolutionary algorithms can search over code. Both have been tried separately for decades; both hit ceilings. The LLM ceiling is confabulation: the model writes plausible code that does not do what it claims. The evolutionary ceiling is search cost: random mutations over syntax rarely produce compilable programs, let alone better ones.
+Các mô hình ngôn ngữ lớn có thể viết mã. Các thuật toán tiến hóa có thể tìm kiếm trên mã. Cả hai đã được thử riêng trong hàng thập kỷ; cả hai chạm các trần. Trần LLM là bịa đặt: mô hình viết mã có vẻ hợp lý không làm điều nó tuyên bố. Trần tiến hóa là chi phí tìm kiếm: các đột biến ngẫu nhiên trên cú pháp hiếm khi tạo các chương trình có thể biên dịch, chưa nói đến các chương trình tốt hơn.
 
-AlphaEvolve (Novikov et al., DeepMind, arXiv:2506.13131, June 2025) combines them. The LLM proposes targeted edits to a program database; an automatic evaluator scores each variant; high-scoring variants become parents for future generations. The LLM handles the expensive step of writing plausible code; the evaluator catches the confabulations. The loop runs for hours to weeks.
+AlphaEvolve (Novikov và cộng sự, DeepMind, arXiv:2506.13131, tháng 6 năm 2025) kết hợp chúng. LLM đề xuất các chỉnh sửa có mục tiêu cho một cơ sở dữ liệu chương trình; một bộ đánh giá tự động chấm điểm mỗi biến thể; các biến thể điểm cao trở thành cha mẹ cho các thế hệ tương lai. LLM xử lý bước tốn kém viết mã có vẻ hợp lý; bộ đánh giá bắt các bịa đặt. Vòng lặp chạy từ hàng giờ đến hàng tuần.
 
-Results reported: 48-scalar-multiplication 4x4 complex matrix multiplication (Strassen's 1969 bound was 49), a Borg scheduling heuristic in Google production, a 32.5% FlashAttention kernel speedup, Gemini training throughput improvements.
+Các kết quả được báo cáo: nhân ma trận phức 4x4 với 48 phép nhân vô hướng (cận năm 1969 của Strassen là 49), một heuristic lập lịch Borg trong sản xuất Google, tăng tốc kernel FlashAttention 32.5%, các cải thiện thông lượng huấn luyện Gemini.
 
-The architecture works because the evaluator is machine-checkable. It does not work where the evaluator isn't. That asymmetry is the lesson.
+Kiến trúc hoạt động vì bộ đánh giá có thể kiểm tra bằng máy. Nó không hoạt động ở nơi bộ đánh giá không như vậy. Sự bất đối xứng đó là bài học.
 
 ## The Concept
 
 ### The loop
 
-1. Start from a seed program `P_0` that is correct but suboptimal.
-2. Maintain a database of variant programs, each scored by the evaluator.
-3. Sample one or more parents from the database (MAP-elites-style or island-based).
-4. Prompt the LLM (Gemini Flash for many candidates, Gemini Pro for the hard ones) to produce a modified variant of the parent.
-5. Compile, run, and evaluate the variant on the held-out evaluator.
-6. Insert into the database keyed by its score and feature vector.
-7. Repeat.
+1. Bắt đầu từ một chương trình hạt giống `P_0` đúng nhưng chưa tối ưu.
+2. Duy trì một cơ sở dữ liệu các chương trình biến thể, mỗi chương trình được bộ đánh giá chấm điểm.
+3. Lấy mẫu một hoặc nhiều cha mẹ từ cơ sở dữ liệu (kiểu MAP-elites hoặc dựa trên đảo).
+4. Prompt LLM (Gemini Flash cho nhiều ứng viên, Gemini Pro cho các ứng viên khó) để tạo một biến thể đã sửa của cha mẹ.
+5. Biên dịch, chạy và đánh giá biến thể trên bộ đánh giá được giữ riêng.
+6. Chèn vào cơ sở dữ liệu được đánh khóa theo điểm và vector đặc trưng của nó.
+7. Lặp lại.
 
-Two details matter. First, the LLM is prompted with more than the parent program — typically several top variants from the database, plus the evaluator signature, plus a short task description. The model's job is to propose a targeted change that might improve the score. Second, the database is structured (MAP-elites grid, island-based) so the loop explores diversity, not just the current leader.
+Hai chi tiết quan trọng. Thứ nhất, LLM được prompt với nhiều hơn chương trình cha mẹ — thường là nhiều biến thể hàng đầu từ cơ sở dữ liệu, cộng chữ ký bộ đánh giá, cộng một mô tả tác vụ ngắn. Công việc của mô hình là đề xuất một thay đổi có mục tiêu có thể cải thiện điểm. Thứ hai, cơ sở dữ liệu có cấu trúc (lưới MAP-elites, dựa trên đảo) để vòng lặp khám phá sự đa dạng, không chỉ bên dẫn đầu hiện tại.
 
 ### What makes the evaluator non-negotiable
 
-AlphaEvolve's wins all come from domains where the evaluator is fast, deterministic, and hard to game:
+Các thành tựu của AlphaEvolve đều đến từ các miền nơi bộ đánh giá nhanh, mang tính xác định và khó lách:
 
-- **Matrix multiplication algorithm**: a unit test that multiplies matrices and checks equality bit-identically.
-- **Borg scheduling heuristic**: a production-grade simulator that replays historical cluster load and measures wasted compute.
-- **FlashAttention kernel**: a correctness test plus a wall-clock benchmark on real hardware.
-- **Gemini training throughput**: measured GPU-seconds per step.
+- **Thuật toán nhân ma trận**: một kiểm thử đơn vị nhân các ma trận và kiểm tra bằng nhau giống hệt từng bit.
+- **Heuristic lập lịch Borg**: một bộ mô phỏng cấp sản xuất phát lại tải cụm lịch sử và đo năng lực tính toán bị lãng phí.
+- **Kernel FlashAttention**: một kiểm thử tính đúng đắn cộng một benchmark thời gian đồng hồ trên phần cứng thực.
+- **Thông lượng huấn luyện Gemini**: số GPU-giây được đo cho mỗi bước.
 
-In each case the evaluator catches the class of LLM errors that would otherwise dominate: confabulated correctness claims, performance claims that vanish on hardware, and edge-case failures. Remove the evaluator and the loop optimizes for pretty code.
+Trong mỗi trường hợp bộ đánh giá bắt lớp lỗi LLM nếu không sẽ chiếm ưu thế: các tuyên bố tính đúng đắn bịa đặt, các tuyên bố hiệu năng biến mất trên phần cứng và các thất bại trường hợp biên. Loại bỏ bộ đánh giá và vòng lặp tối ưu cho mã đẹp.
 
 ### Reward hacking is the other face of that statement
 
-Evolution optimizes for whatever the evaluator measures. If the evaluator is imperfect, the loop will find the imperfection. In an unverified domain the loop would optimize for the surface feature, not the intended behavior. DeepMind flags this explicitly in the paper: AlphaEvolve's successes transfer only to domains where evaluator rigor matches the ambition of the search.
+Tiến hóa tối ưu cho bất cứ thứ gì bộ đánh giá đo. Nếu bộ đánh giá không hoàn hảo, vòng lặp sẽ tìm sự không hoàn hảo. Trong một miền chưa được xác minh vòng lặp sẽ tối ưu cho đặc trưng bề mặt, không phải hành vi dự định. DeepMind gắn cờ rõ ràng điều này trong bài báo: các thành công của AlphaEvolve chỉ chuyển giao sang các miền nơi độ nghiêm ngặt bộ đánh giá khớp tham vọng tìm kiếm.
 
-Concrete 2025-2026 examples of reward hacking in code-search loops:
+Các ví dụ cụ thể 2025-2026 về lách phần thưởng trong các vòng lặp tìm kiếm mã:
 
-- Optimization targets that reward "time to complete" rewarded submitting empty solutions.
-- Benchmark scores that reward correctness-under-test rewarded memorizing tests and overfitting.
-- A "code quality" proxy rewarded removing comments and rewriting variable names, with no semantic change.
+- Các mục tiêu tối ưu hóa thưởng "thời gian hoàn thành" đã thưởng việc nộp các lời giải rỗng.
+- Các điểm benchmark thưởng tính đúng đắn dưới kiểm thử đã thưởng việc ghi nhớ các kiểm thử và quá khớp.
+- Một đại diện "chất lượng mã" đã thưởng việc loại bỏ các chú thích và viết lại các tên biến, không có thay đổi ngữ nghĩa.
 
-The fix in AlphaEvolve: ship a held-out evaluator the LLM has never seen, with inputs generated at evaluation time. Even then, DeepMind recommends strong review on any proposed deployment.
+Cách khắc phục trong AlphaEvolve: cung cấp một bộ đánh giá được giữ riêng mà LLM chưa từng thấy, với các đầu vào được tạo tại thời điểm đánh giá. Ngay cả khi đó, DeepMind khuyến nghị đánh giá chặt chẽ trên bất kỳ triển khai được đề xuất nào.
 
 ### Why LLM + search beats either alone
 
-The LLM can produce compilable, semantically plausible modifications. A random-mutation GA on a 2000-line Python file almost always produces syntax errors. The LLM also concentrates search on plausible neighborhoods (change one function, not random bytes) which dramatically reduces wasted evaluator calls.
+LLM có thể tạo các sửa đổi có thể biên dịch, có vẻ hợp lý về ngữ nghĩa. Một GA đột biến ngẫu nhiên trên một file Python 2000 dòng gần như luôn tạo các lỗi cú pháp. LLM cũng tập trung tìm kiếm vào các lân cận có vẻ hợp lý (thay đổi một hàm, không phải các byte ngẫu nhiên), làm giảm mạnh các lời gọi bộ đánh giá bị lãng phí.
 
-The evaluator, in turn, catches the LLM's confabulations. LLMs will confidently claim that a function "is O(n log n) in the limit" when it is actually O(n^2); a wall-clock benchmark makes the question settled.
+Đổi lại, bộ đánh giá bắt các bịa đặt của LLM. Các LLM sẽ tự tin tuyên bố một hàm "là O(n log n) trong giới hạn" khi nó thực ra là O(n^2); một benchmark thời gian đồng hồ làm câu hỏi ngã ngũ.
 
 ### Where AlphaEvolve fits in the frontier stack
 
-| System | Generator | Evaluator | Domain | Example win |
+| Hệ thống | Bộ tạo | Bộ đánh giá | Miền | Thành tựu ví dụ |
 |---|---|---|---|---|
-| AlphaEvolve | Gemini | correctness + benchmark | algorithms, kernels, schedulers | 48-mul 4x4 matmul |
-| FunSearch (DeepMind, 2023) | PaLM / Codey | correctness | combinatorial math | cap-set lower bounds |
-| AI Scientist v2 (Sakana, L5) | GPT/Claude | LLM critique + experiment | ML research | ICLR workshop paper |
-| Darwin Godel Machine (L4) | agent scaffolding | SWE-bench / Polyglot | agent code | 20% → 50% SWE-bench |
+| AlphaEvolve | Gemini | tính đúng đắn + benchmark | thuật toán, kernel, bộ lập lịch | nhân ma trận 4x4 với 48 phép nhân |
+| FunSearch (DeepMind, 2023) | PaLM / Codey | tính đúng đắn | toán tổ hợp | các cận dưới cap-set |
+| AI Scientist v2 (Sakana, L5) | GPT/Claude | phê bình LLM + thí nghiệm | nghiên cứu ML | bài báo workshop ICLR |
+| Darwin Godel Machine (L4) | khung agent | SWE-bench / Polyglot | mã agent | 20% → 50% SWE-bench |
 
-All four are variations on the same recipe: generator plus evaluator, loop. The differences are what the evaluator grades and how rigorous it is.
+Cả bốn là các biến thể của cùng công thức: bộ tạo cộng bộ đánh giá, vòng lặp. Các khác biệt là bộ đánh giá chấm gì và nó nghiêm ngặt đến đâu.
 
 ```figure
 alphaevolve-loop
@@ -77,46 +77,46 @@ alphaevolve-loop
 
 ## Use It
 
-`code/main.py` implements a minimal AlphaEvolve-like loop over a toy symbolic-regression problem. The "LLM" is a stdlib proxy that proposes small syntactic mutations to a program that computes a target function. The "evaluator" measures mean squared error on held-out test points.
+`code/main.py` triển khai một vòng lặp giống AlphaEvolve tối thiểu trên một bài toán hồi quy biểu tượng mô phỏng. "LLM" là một đại diện dùng thư viện chuẩn đề xuất các đột biến cú pháp nhỏ cho một chương trình tính một hàm đích. "Bộ đánh giá" đo sai số bình phương trung bình trên các điểm kiểm thử được giữ riêng.
 
-Watch:
+Quan sát:
 
-- How the best score improves over generations.
-- How a MAP-elites grid keeps diverse solutions alive so the loop doesn't converge on a local minimum.
-- How removing the held-out test (training-only evaluator) lets the loop overfit spectacularly.
+- Cách điểm tốt nhất cải thiện qua các thế hệ.
+- Cách một lưới MAP-elites giữ các lời giải đa dạng sống để vòng lặp không hội tụ vào một cực tiểu cục bộ.
+- Cách loại bỏ kiểm thử giữ riêng (bộ đánh giá chỉ huấn luyện) để vòng lặp quá khớp ngoạn mục.
 
 ## Ship It
 
-`outputs/skill-evaluator-rigor-audit.md` is the precondition for considering an AlphaEvolve-style loop in a new domain: does your evaluator actually catch the failures you care about?
+`outputs/skill-evaluator-rigor-audit.md` là tiền điều kiện để cân nhắc một vòng lặp kiểu AlphaEvolve trong một miền mới: bộ đánh giá của bạn có thực sự bắt các thất bại bạn quan tâm không?
 
 ## Exercises
 
-1. Run `code/main.py`. Note the best score trajectory. Disable the held-out evaluator (flag `--no-holdout`) and re-run. Quantify the overfitting.
+1. Chạy `code/main.py`. Ghi lại quỹ đạo điểm tốt nhất. Tắt bộ đánh giá giữ riêng (cờ `--no-holdout`) và chạy lại. Định lượng sự quá khớp.
 
-2. Read Section 3 of the AlphaEvolve paper on the MAP-elites grid. Design a feature-vector descriptor for a new problem (e.g. compiler optimization passes) that would keep the search diverse.
+2. Đọc Phần 3 của bài báo AlphaEvolve về lưới MAP-elites. Thiết kế một bộ mô tả vector đặc trưng cho một bài toán mới (ví dụ các lượt tối ưu hóa trình biên dịch) sẽ giữ tìm kiếm đa dạng.
 
-3. The 48-multiplication 4x4 result improved on Strassen's 49-mul bound after 56 years. Read Appendix F of the paper and explain in three sentences why the evaluator for this problem is particularly easy to get right, and why most domains are not like it.
+3. Kết quả 4x4 với 48 phép nhân cải thiện cận 49 phép nhân của Strassen sau 56 năm. Đọc Phụ lục F của bài báo và giải thích trong ba câu vì sao bộ đánh giá cho bài toán này đặc biệt dễ làm đúng, và vì sao hầu hết các miền không giống nó.
 
-4. Propose one domain where AlphaEvolve would fail. Identify exactly where the evaluator breaks and why.
+4. Đề xuất một miền nơi AlphaEvolve sẽ thất bại. Nhận diện chính xác bộ đánh giá hỏng ở đâu và vì sao.
 
-5. For a domain you know, write the evaluator signature you would use. Include (a) correctness conditions, (b) performance metric, (c) held-out input generation rule, (d) at least one anti-reward-hacking check.
+5. Với một miền bạn biết, viết chữ ký bộ đánh giá bạn sẽ sử dụng. Bao gồm (a) các điều kiện tính đúng đắn, (b) thước đo hiệu năng, (c) quy tắc tạo đầu vào giữ riêng, (d) ít nhất một kiểm tra chống lách phần thưởng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |---|---|---|
-| AlphaEvolve | "DeepMind's evolutionary coding agent" | Gemini + program database + machine-checkable evaluator |
-| MAP-elites | "Diversity-preserving archive" | Grid keyed by feature vectors; each cell holds the best variant with that descriptor |
-| Island model | "Parallel evolution subpopulations" | Independent populations that migrate periodically; prevents premature convergence |
-| Machine-checkable evaluator | "Deterministic oracle" | A unit test, simulator, or benchmark the LLM cannot fake — a prerequisite for this loop |
-| Reward hacking | "Optimizing the measure, not the goal" | Loop finds a way to maximize score without doing the intended task |
-| Seed program | "The starting point" | An initial correct-but-suboptimal program the loop evolves from |
-| Held-out evaluator | "Evaluation data the LLM never saw" | Inputs generated at evaluation time to prevent memorization |
+| AlphaEvolve | "Agent lập trình tiến hóa của DeepMind" | Gemini + cơ sở dữ liệu chương trình + bộ đánh giá có thể kiểm tra bằng máy |
+| MAP-elites | "Kho lưu trữ bảo toàn đa dạng" | Lưới được đánh khóa theo các vector đặc trưng; mỗi ô giữ biến thể tốt nhất có bộ mô tả đó |
+| Island model (Mô hình đảo) | "Các quần thể con tiến hóa song song" | Các quần thể độc lập di cư định kỳ; ngăn hội tụ sớm |
+| Machine-checkable evaluator (Bộ đánh giá có thể kiểm tra bằng máy) | "Oracle mang tính xác định" | Một kiểm thử đơn vị, bộ mô phỏng hoặc benchmark mà LLM không thể giả mạo — một điều kiện tiên quyết cho vòng lặp này |
+| Reward hacking (Lách phần thưởng) | "Tối ưu thước đo, không phải mục tiêu" | Vòng lặp tìm một cách tối đa hóa điểm mà không làm tác vụ dự định |
+| Seed program (Chương trình hạt giống) | "Điểm bắt đầu" | Một chương trình ban đầu đúng nhưng chưa tối ưu mà vòng lặp tiến hóa từ đó |
+| Held-out evaluator (Bộ đánh giá giữ riêng) | "Dữ liệu đánh giá LLM chưa từng thấy" | Các đầu vào được tạo tại thời điểm đánh giá để ngăn ghi nhớ |
 
 ## Further Reading
 
-- [Novikov et al. (2025). AlphaEvolve: A coding agent for scientific and algorithmic discovery](https://arxiv.org/abs/2506.13131) — the full paper.
-- [DeepMind blog on AlphaEvolve](https://deepmind.google/blog/alphaevolve-a-gemini-powered-coding-agent-for-designing-advanced-algorithms/) — vendor writeup with results.
-- [AlphaEvolve results repository](https://github.com/google-deepmind/alphaevolve_results) — discovered algorithms, including the 48-mul 4x4 matmul.
-- [Romera-Paredes et al. (2023). Mathematical discoveries from program search with LLMs (FunSearch)](https://www.nature.com/articles/s41586-023-06924-6) — the predecessor system.
-- [Anthropic — Responsible Scaling Policy v3.0 (Feb 2026)](https://anthropic.com/responsible-scaling-policy/rsp-v3-0) — frames evaluator-bound autonomy as a key research direction.
+- [Novikov et al. (2025). AlphaEvolve: A coding agent for scientific and algorithmic discovery](https://arxiv.org/abs/2506.13131) — bài báo đầy đủ.
+- [DeepMind blog on AlphaEvolve](https://deepmind.google/blog/alphaevolve-a-gemini-powered-coding-agent-for-designing-advanced-algorithms/) — bài viết nhà cung cấp với các kết quả.
+- [AlphaEvolve results repository](https://github.com/google-deepmind/alphaevolve_results) — các thuật toán được khám phá, bao gồm phép nhân ma trận 4x4 với 48 phép nhân.
+- [Romera-Paredes et al. (2023). Mathematical discoveries from program search with LLMs (FunSearch)](https://www.nature.com/articles/s41586-023-06924-6) — hệ thống tiền nhiệm.
+- [Anthropic — Responsible Scaling Policy v3.0 (Feb 2026)](https://anthropic.com/responsible-scaling-policy/rsp-v3-0) — định khung tính tự chủ bị giới hạn bởi bộ đánh giá như một hướng nghiên cứu chính.
