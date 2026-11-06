@@ -9,28 +9,28 @@ tags: [depth, point-cloud, 3d, intrinsics]
 
 # Depth to Point Cloud
 
-Turn a depth map plus a colour image into a textured point cloud, exportable for visualisation or further 3D work.
+Biến bản đồ độ sâu cộng hình ảnh màu thành đám mây điểm có kết cấu, xuất được để trực quan hóa hoặc làm việc 3D tiếp.
 
 ## When to use
 
-- Visualising depth predictions as an actual 3D scene.
-- Bootstrapping a sparse 3D reconstruction from a single image.
-- Producing input for 3DGS training when SfM fails.
-- Comparing predicted depth against LiDAR ground truth.
+- Trực quan hóa các dự đoán độ sâu thành cảnh 3D thật.
+- Khởi tạo tái tạo 3D thưa từ một hình ảnh.
+- Tạo đầu vào huấn luyện 3DGS khi SfM thất bại.
+- So sánh độ sâu dự đoán với sự thật nền LiDAR.
 
 ## Inputs
 
-- `depth`: `(H, W)` numpy array of depths in the same units you want in the output (metres recommended).
-- `rgb`: `(H, W, 3)` numpy array of colours (uint8 or float32 [0, 1]).
-- `intrinsics`: `(fx, fy, cx, cy)` in pixel units.
-- Optional `depth_scale`: multiplier to convert predicted depth units to metres.
+- `depth`: mảng numpy `(H, W)` các độ sâu theo cùng đơn vị bạn muốn ở đầu ra (khuyến nghị mét).
+- `rgb`: mảng numpy `(H, W, 3)` các màu (uint8 hoặc float32 [0, 1]).
+- `intrinsics`: `(fx, fy, cx, cy)` theo đơn vị pixel.
+- `depth_scale` tùy chọn: hệ số nhân chuyển đơn vị độ sâu dự đoán sang mét.
 
 ## Pipeline
 
-1. **Validate** — depth must be positive and finite everywhere you plan to include. Mask out invalid pixels.
-2. **Lift** — `X = (u - cx) * d / fx`, `Y = (v - cy) * d / fy`, `Z = d` per pixel.
-3. **Pair** with RGB — each 3D point gets an `(r, g, b)` triple from the matching pixel.
-4. **Export** — PLY (portable), `.xyz` (lightweight), `.pcd` (Open3D-native), `.las`/`.laz` (geospatial).
+1. **Xác thực** — độ sâu phải dương và hữu hạn ở mọi nơi bạn định bao gồm. Che các pixel không hợp lệ.
+2. **Nâng** — `X = (u - cx) * d / fx`, `Y = (v - cy) * d / fy`, `Z = d` mỗi pixel.
+3. **Ghép** với RGB — mỗi điểm 3D có bộ ba `(r, g, b)` từ pixel tương ứng.
+4. **Xuất** — PLY (di động), `.xyz` (nhẹ), `.pcd` (gốc Open3D), `.las`/`.laz` (địa không gian).
 
 ## Implementation template
 
@@ -88,8 +88,8 @@ def write_ply(path, points, colors=None, valid_mask=None):
 
 ## Rules
 
-- Always mask invalid depth (zero, NaN, inf, saturated); including them produces a cloud of garbage points at the origin.
-- For prediction from a relative-depth model, do NOT export as metric; prefix output filename with `relative_` to signal the convention.
-- Keep the camera coordinate convention consistent (OpenCV: +X right, +Y down, +Z forward). Swap signs if the downstream tool expects OpenGL (+Y up).
-- For dense scenes (> 1M points), offer a subsample parameter; PLY files > 500 MB are awkward to load everywhere.
-- Never silently clip depth to produce "reasonable" output; clip explicitly with warned thresholds so users know what was discarded.
+- Luôn che độ sâu không hợp lệ (không, NaN, inf, bão hòa); bao gồm chúng tạo đám mây điểm rác ở gốc.
+- Với dự đoán từ mô hình độ sâu tương đối, KHÔNG xuất như theo đơn vị đo; thêm tiền tố `relative_` vào tên file đầu ra để báo quy ước.
+- Giữ quy ước tọa độ máy ảnh nhất quán (OpenCV: +X phải, +Y xuống, +Z trước). Đổi dấu nếu công cụ phía sau kỳ vọng OpenGL (+Y lên).
+- Với cảnh dày đặc (> 1M điểm), cung cấp tham số lấy mẫu con; file PLY > 500 MB khó tải ở mọi nơi.
+- Không bao giờ âm thầm cắt độ sâu để tạo đầu ra "hợp lý"; cắt rõ ràng với các ngưỡng được cảnh báo để người dùng biết thứ gì bị bỏ.

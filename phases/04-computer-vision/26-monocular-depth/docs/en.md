@@ -1,6 +1,6 @@
 # Monocular Depth & Geometry Estimation
 
-> A depth map is a single-channel image where each pixel is a distance from the camera. Predicting it from one RGB frame used to be impossible without stereo or LiDAR. In 2026 a frozen ViT encoder plus a lightweight head gets within a few percent of ground truth.
+> Một bản đồ độ sâu là hình ảnh một kênh nơi mỗi pixel là khoảng cách từ máy ảnh. Dự đoán từ một khung RGB từng bất khả thi nếu không có stereo hoặc LiDAR. Năm 2026 một encoder ViT đóng băng cộng đầu nhẹ đạt trong phạm vi vài phần trăm sự thật nền.
 
 **Type:** Build + Use
 **Languages:** Python
@@ -9,27 +9,27 @@
 
 ## Learning Objectives
 
-- Distinguish relative and metric depth and state which one each production model (MiDaS, Marigold, Depth Anything V3, ZoeDepth) solves
-- Use Depth Anything V3 (DINOv2 backbone) to predict depth for arbitrary single images with no calibration
-- Explain why monocular depth works at all from a single image (perspective cues, texture gradients, learned priors) and what it cannot recover (absolute scale, occluded geometry)
-- Lift 2D detections to 3D points using a depth map and pinhole camera intrinsics
+- Phân biệt độ sâu tương đối và theo đơn vị đo và nêu mỗi mô hình production (MiDaS, Marigold, Depth Anything V3, ZoeDepth) giải loại nào
+- Sử dụng Depth Anything V3 (backbone DINOv2) để dự đoán độ sâu cho các hình ảnh đơn tùy ý không cần hiệu chuẩn
+- Giải thích tại sao độ sâu đơn mắt có thể hoạt động từ một hình ảnh (dấu hiệu phối cảnh, gradient kết cấu, tiên nghiệm được học) và không thể khôi phục gì (tỷ lệ tuyệt đối, hình học bị che khuất)
+- Nâng các phát hiện 2D thành các điểm 3D bằng bản đồ độ sâu và nội tại máy ảnh lỗ kim
 
 ## The Problem
 
-Depth is the missing axis in 2D computer vision. Given RGB, you know where things appear in the image plane; you do not know how far they are. Depth sensors (stereo rigs, LiDAR, time-of-flight) solve this directly but are expensive, fragile, and limited in range.
+Độ sâu là trục còn thiếu trong thị giác máy tính 2D. Với RGB, bạn biết các vật xuất hiện ở đâu trong mặt phẳng hình ảnh; không biết chúng xa bao nhiêu. Các cảm biến độ sâu (bộ stereo, LiDAR, time-of-flight) giải trực tiếp nhưng đắt, mong manh và giới hạn tầm.
 
-Monocular depth estimation — predicting depth from a single RGB frame — used to produce blurry, unreliable output. By 2026 large pretrained encoders changed that: Depth Anything V3 uses a frozen DINOv2 backbone and produces depth maps that generalise across indoor, outdoor, medical, and satellite domains. Marigold reframes depth as a conditional diffusion problem. ZoeDepth regresses true metric distances.
+Ước lượng độ sâu đơn mắt — dự đoán độ sâu từ một khung RGB — từng tạo đầu ra mờ, không đáng tin. Đến năm 2026 các encoder lớn được tiền huấn luyện thay đổi điều đó: Depth Anything V3 dùng backbone DINOv2 đóng băng và tạo bản đồ độ sâu khái quát qua lĩnh vực trong nhà, ngoài trời, y tế và vệ tinh. Marigold đặt lại độ sâu thành bài toán khuếch tán có điều kiện. ZoeDepth hồi quy khoảng cách thật theo đơn vị đo.
 
-Depth is also the bridge between 2D detection and 3D understanding: multiply a detected box's pixels by depth and you lift the 2D object into a 3D point cloud. That is the core of every AR occlusion system, every obstacle-avoidance pipeline, and every "pick up the cup" robot.
+Độ sâu cũng là cầu giữa phát hiện 2D và hiểu 3D: nhân các pixel của hộp phát hiện với độ sâu và bạn nâng đối tượng 2D thành đám mây điểm 3D. Đó là cốt lõi mọi hệ thống che khuất AR, mọi pipeline tránh chướng ngại và mọi robot "nhấc cốc".
 
 ## The Concept
 
 ### Relative vs metric depth
 
-- **Relative depth** — ordered `z` values without a real-world unit. "Pixel A is closer than pixel B, but the ratio of distances is not anchored to metres."
-- **Metric depth** — absolute distance in metres from the camera. Requires the model to have learnt the statistical relationship between image cues and real distance.
+- **Độ sâu tương đối** — các giá trị `z` có thứ tự không có đơn vị thực. "Pixel A gần hơn pixel B, nhưng tỷ số khoảng cách không neo vào mét."
+- **Độ sâu theo đơn vị đo** — khoảng cách tuyệt đối theo mét từ máy ảnh. Cần mô hình đã học quan hệ thống kê giữa các dấu hiệu hình ảnh và khoảng cách thật.
 
-MiDaS and Depth Anything V3 produce relative depth. Marigold produces relative depth. ZoeDepth, UniDepth, and Metric3D produce metric depth. Metric models are sensitive to camera intrinsics; relative models are not.
+MiDaS và Depth Anything V3 tạo độ sâu tương đối. Marigold tạo độ sâu tương đối. ZoeDepth, UniDepth và Metric3D tạo độ sâu theo đơn vị đo. Các mô hình theo đơn vị đo nhạy với nội tại máy ảnh; mô hình tương đối thì không.
 
 ### The encoder-decoder pattern
 
@@ -45,43 +45,43 @@ flowchart LR
     style DEPTH fill:#dcfce7,stroke:#16a34a
 ```
 
-Depth Anything V3 freezes the encoder and trains only the DPT-style decoder. The encoder provides rich features; the decoder interpolates them back to image resolution and regresses depth.
+Depth Anything V3 đóng băng encoder và chỉ huấn luyện decoder kiểu DPT. Encoder cung cấp đặc trưng phong phú; decoder nội suy chúng trở lại độ phân giải hình ảnh và hồi quy độ sâu.
 
 ### Why a single image produces depth at all
 
-A 2D image contains many monocular cues that correlate with depth:
+Một hình ảnh 2D chứa nhiều dấu hiệu đơn mắt tương quan với độ sâu:
 
-- **Perspective** — parallel lines in 3D converge in 2D.
-- **Texture gradient** — surfaces far away have smaller, denser texture.
-- **Occlusion order** — nearer objects occlude farther ones.
-- **Size constancy** — known objects (cars, humans) give approximate scale.
-- **Atmospheric perspective** — distant objects appear hazier and bluer in outdoor scenes.
+- **Phối cảnh** — các đường song song trong 3D hội tụ trong 2D.
+- **Gradient kết cấu** — các bề mặt xa có kết cấu nhỏ hơn, dày hơn.
+- **Thứ tự che khuất** — các đối tượng gần che các đối tượng xa.
+- **Tính hằng kích thước** — các đối tượng biết trước (xe, người) cho tỷ lệ gần đúng.
+- **Phối cảnh khí quyển** — các đối tượng xa trông mờ sương và xanh hơn trong cảnh ngoài trời.
 
-A ViT trained on billions of images internalises these cues. With enough data and a strong backbone, monocular depth hits reasonable accuracy without any explicit 3D supervision.
+Một ViT huấn luyện trên hàng tỷ hình ảnh tiếp thu các dấu hiệu này. Với đủ dữ liệu và backbone mạnh, độ sâu đơn mắt đạt accuracy hợp lý mà không có giám sát 3D tường minh.
 
 ### What monocular depth cannot do
 
-- **Absolute metric scale** without intrinsics or a known object in the scene. The network can predict "the cup is twice as far as the spoon" without knowing whether the cup is 1 m or 10 m away.
-- **Occluded geometry** — the back of a chair is unseen and cannot be inferred reliably.
-- **Truly untextured / reflective surfaces** — mirrors, glass, uniform walls. The network reports plausible but wrong depth.
+- **Tỷ lệ tuyệt đối theo đơn vị đo** không có nội tại hoặc đối tượng biết trước trong cảnh. Mạng có thể dự đoán "cốc xa gấp đôi thìa" mà không biết cốc cách 1 m hay 10 m.
+- **Hình học bị che khuất** — mặt sau ghế không nhìn thấy và không thể suy ra đáng tin.
+- **Các bề mặt thực sự không kết cấu / phản chiếu** — gương, kính, tường đồng nhất. Mạng báo độ sâu hợp lý nhưng sai.
 
 ### Depth Anything V3 in 2026
 
-- Vanilla DINOv2 ViT-L/14 as encoder (frozen).
-- DPT decoder.
-- Trained on posed image pairs from diverse sources (no explicit depth supervision needed beyond photometric consistency).
-- Predicts spatially consistent geometry from **an arbitrary number of visual inputs, with or without known camera poses**.
-- SOTA across monocular depth, any-view geometry, visual rendering, camera pose estimation.
+- DINOv2 ViT-L/14 nguyên bản làm encoder (đóng băng).
+- Decoder DPT.
+- Huấn luyện trên các cặp hình ảnh có tư thế từ nguồn đa dạng (không cần giám sát độ sâu tường minh ngoài tính nhất quán quang trắc).
+- Dự đoán hình học nhất quán không gian từ **số đầu vào thị giác tùy ý, có hoặc không có tư thế máy ảnh đã biết**.
+- SOTA trên độ sâu đơn mắt, hình học mọi góc nhìn, kết xuất thị giác, ước lượng tư thế máy ảnh.
 
-This is the drop-in model to call when you need depth in 2026.
+Đây là mô hình thay trực tiếp để gọi khi cần độ sâu năm 2026.
 
 ### Marigold — diffusion for depth
 
-Marigold (Ke et al., CVPR 2024) reframes depth estimation as conditional image-to-image diffusion. Conditioning: RGB. Target: depth map. Uses a pretrained Stable Diffusion 2 U-Net as backbone. Output depth maps are exceptionally sharp at object boundaries. Trade-off: slower inference than feed-forward models (10-50 denoising steps).
+Marigold (Ke et al., CVPR 2024) đặt lại ước lượng độ sâu thành khuếch tán ảnh-sang-ảnh có điều kiện. Điều kiện: RGB. Mục tiêu: bản đồ độ sâu. Dùng U-Net Stable Diffusion 2 được tiền huấn luyện làm backbone. Các bản đồ độ sâu đầu ra đặc biệt sắc ở biên đối tượng. Đánh đổi: suy luận chậm hơn mô hình truyền xuôi (10-50 bước khử nhiễu).
 
 ### Intrinsics and the pinhole camera
 
-To lift a pixel `(u, v)` with depth `d` to a 3D point `(X, Y, Z)` in camera coordinates:
+Để nâng pixel `(u, v)` có độ sâu `d` thành điểm 3D `(X, Y, Z)` trong tọa độ máy ảnh:
 
 ```
 fx, fy, cx, cy = camera intrinsics
@@ -90,16 +90,16 @@ Y = (v - cy) * d / fy
 Z = d
 ```
 
-Intrinsics come from EXIF metadata, a calibration pattern, or a monocular intrinsics estimator (Perspective Fields, UniDepth). Without intrinsics, you can still render a point cloud by assuming a 60-70° FOV and moderate-resolution principals — usable for visualisation, not for measurement.
+Nội tại đến từ siêu dữ liệu EXIF, mẫu hiệu chuẩn hoặc bộ ước lượng nội tại đơn mắt (Perspective Fields, UniDepth). Không có nội tại, bạn vẫn có thể kết xuất đám mây điểm bằng cách giả định FOV 60-70° và các điểm chính độ phân giải vừa — dùng được cho trực quan hóa, không cho đo lường.
 
 ### Evaluation
 
-Two standard metrics:
+Hai thước đo tiêu chuẩn:
 
-- **AbsRel** (absolute relative error): `mean(|d_pred - d_gt| / d_gt)`. Lower is better. 0.05-0.1 for production models.
-- **delta < 1.25** (threshold accuracy): fraction of pixels where `max(d_pred/d_gt, d_gt/d_pred) < 1.25`. Higher is better. 0.9+ for SOTA.
+- **AbsRel** (sai số tương đối tuyệt đối): `mean(|d_pred - d_gt| / d_gt)`. Thấp hơn tốt hơn. 0.05-0.1 cho mô hình production.
+- **delta < 1.25** (accuracy ngưỡng): tỷ lệ pixel có `max(d_pred/d_gt, d_gt/d_pred) < 1.25`. Cao hơn tốt hơn. 0.9+ cho SOTA.
 
-For relative depth (Depth Anything V3, MiDaS), evaluation uses scale-and-shift invariant versions of both metrics.
+Với độ sâu tương đối (Depth Anything V3, MiDaS), đánh giá dùng các phiên bản bất biến tỷ lệ-và-dịch chuyển của cả hai thước đo.
 
 ```figure
 depth-sweep
@@ -127,11 +127,11 @@ def delta_accuracy(pred, target, threshold=1.25, mask=None):
     return (ratio < threshold).float().mean().item()
 ```
 
-Always mask invalid depth pixels (zero, NaN, saturated) before evaluation.
+Luôn che các pixel độ sâu không hợp lệ (không, NaN, bão hòa) trước đánh giá.
 
 ### Step 2: Scale-and-shift alignment
 
-For relative-depth models, align prediction to ground truth before computing metrics. Least-squares fit of `a * pred + b = target`:
+Với mô hình độ sâu tương đối, căn chỉnh dự đoán tới sự thật nền trước tính thước đo. Khớp bình phương tối thiểu `a * pred + b = target`:
 
 ```python
 def align_scale_shift(pred, target, mask=None):
@@ -147,7 +147,7 @@ def align_scale_shift(pred, target, mask=None):
     return a * pred + b
 ```
 
-Run `align_scale_shift` before `abs_rel_error` when evaluating MiDaS / Depth Anything.
+Chạy `align_scale_shift` trước `abs_rel_error` khi đánh giá MiDaS / Depth Anything.
 
 ### Step 3: Lift depth to a point cloud
 
@@ -170,7 +170,7 @@ pc = depth_to_point_cloud(depth, intr)
 print(f"point cloud shape: {pc.shape}  (H, W, 3)")
 ```
 
-One function, every 3D-lifted application. Export the point cloud to `.ply` and open in MeshLab or CloudCompare.
+Một hàm, mọi ứng dụng nâng lên 3D. Xuất đám mây điểm sang `.ply` và mở trong MeshLab hoặc CloudCompare.
 
 ### Step 4: Smoke test with a synthetic depth scene
 
@@ -206,56 +206,56 @@ out = pipe(image)
 depth_np = np.array(out["depth"])
 ```
 
-Three lines. `out["depth"]` is a PIL grayscale; convert to numpy for math. Depth Anything 3 (November 2025) does not load through this pipeline. It ships its own `depth_anything_3` package: `DepthAnything3.from_pretrained("depth-anything/DA3MONO-LARGE")` loads the relative monocular model, and `model.inference(images).depth` returns an `[N, H, W]` depth array.
+Ba dòng. `out["depth"]` là thang xám PIL; chuyển sang numpy để tính toán. Depth Anything 3 (tháng 11 năm 2025) không tải qua pipeline này. Nó cung cấp gói `depth_anything_3` riêng: `DepthAnything3.from_pretrained("depth-anything/DA3MONO-LARGE")` tải mô hình đơn mắt tương đối, và `model.inference(images).depth` trả mảng độ sâu `[N, H, W]`.
 
 ## Use It
 
-- **Depth Anything V3** (Meta AI / ByteDance, 2024-2026) — the default for relative depth. Fastest ViT-large-backbone model in production.
-- **Marigold** (ETH, 2024) — highest visual quality, slow inference.
-- **UniDepth** (ETH, 2024) — metric depth with camera intrinsics estimation.
-- **ZoeDepth** (Intel, 2023) — metric depth; older, still reliable.
-- **MiDaS v3.1** — legacy but stable; good baseline for comparison.
+- **Depth Anything V3** (Meta AI / ByteDance, 2024-2026) — mặc định cho độ sâu tương đối. Mô hình backbone ViT-large nhanh nhất trong production.
+- **Marigold** (ETH, 2024) — chất lượng trực quan cao nhất, suy luận chậm.
+- **UniDepth** (ETH, 2024) — độ sâu theo đơn vị đo với ước lượng nội tại máy ảnh.
+- **ZoeDepth** (Intel, 2023) — độ sâu theo đơn vị đo; cũ hơn, vẫn đáng tin.
+- **MiDaS v3.1** — cũ nhưng ổn định; đường cơ sở tốt để so sánh.
 
-Typical integration pattern:
+Mẫu tích hợp điển hình:
 
-1. RGB frame arrives.
-2. Depth model produces depth map.
-3. Detector produces boxes.
-4. Lift box centroids through depth to 3D; merge with point cloud if available.
-5. Downstream: AR occlusion, path planning, object-size estimation, stereo replacement.
+1. Khung RGB đến.
+2. Mô hình độ sâu tạo bản đồ độ sâu.
+3. Bộ phát hiện tạo các hộp.
+4. Nâng các trọng tâm hộp qua độ sâu lên 3D; gộp với đám mây điểm nếu có.
+5. Phía sau: che khuất AR, lập kế hoạch đường đi, ước lượng kích thước đối tượng, thay stereo.
 
-For real-time use, Depth Anything V2 Small (INT8 quantised) hits ~30 fps on a consumer GPU at 518x518.
+Cho thời gian thực, Depth Anything V2 Small (lượng tử hóa INT8) đạt ~30 fps trên GPU tiêu dùng ở 518x518.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-depth-model-picker.md` — picks between Depth Anything V3, Marigold, UniDepth, MiDaS given latency, metric-vs-relative need, and scene type.
-- `outputs/skill-depth-to-pointcloud.md` — a skill that builds point clouds from depth maps with correct intrinsics handling and export to `.ply`.
+- `outputs/prompt-depth-model-picker.md` — chọn giữa Depth Anything V3, Marigold, UniDepth, MiDaS với độ trễ, nhu cầu theo đơn vị đo-so-với-tương đối và loại cảnh cho trước.
+- `outputs/skill-depth-to-pointcloud.md` — một skill xây đám mây điểm từ bản đồ độ sâu với xử lý nội tại đúng và xuất `.ply`.
 
 ## Exercises
 
-1. **(Easy)** Run Depth Anything V2 on any 10 images of your desk. Save depth as grayscale PNGs and inspect. Identify one object whose predicted depth looks wrong and explain why the monocular cues failed.
-2. **(Medium)** Given RGB + depth from Depth Anything V2, lift to a point cloud and render with `open3d`. Compare two scenes (indoor / outdoor) and note which looks more believable.
-3. **(Hard)** Take five pairs of images that differ only by a known object's position (e.g. bottle moved 30 cm closer). Use UniDepth to predict metric depth on both. Report the predicted distance delta vs the true 30 cm.
+1. **(Dễ)** Chạy Depth Anything V2 trên bất kỳ 10 ảnh bàn làm việc của bạn. Lưu độ sâu thành PNG thang xám và xem xét. Xác định một đối tượng có độ sâu dự đoán trông sai và giải thích tại sao các dấu hiệu đơn mắt thất bại.
+2. **(Vừa)** Với RGB + độ sâu từ Depth Anything V2, nâng thành đám mây điểm và kết xuất bằng `open3d`. So sánh hai cảnh (trong nhà / ngoài trời) và ghi chú cảnh nào đáng tin hơn.
+3. **(Khó)** Lấy năm cặp ảnh chỉ khác vị trí một đối tượng biết trước (ví dụ chai di chuyển gần hơn 30 cm). Dùng UniDepth dự đoán độ sâu theo đơn vị đo trên cả hai. Báo cáo chênh lệch khoảng cách dự đoán so với 30 cm thật.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Monocular depth | "Single-image depth" | Depth estimation from one RGB frame, no stereo or LiDAR |
-| Relative depth | "Ordered depth" | Ordered z-values without real-world units |
-| Metric depth | "Absolute distance" | Depth in metres; requires calibration or a model trained with metric supervision |
-| AbsRel | "Absolute relative error" | Mean of |d_pred - d_gt| / d_gt; standard depth metric |
-| Delta accuracy | "delta < 1.25" | Fraction of pixels with prediction within 25% of ground truth |
-| Pinhole camera | "fx, fy, cx, cy" | The camera model used to lift (u, v, d) to (X, Y, Z) |
-| DPT | "Dense Prediction Transformer" | The conv-based decoder used on top of frozen ViT encoders for depth |
-| DINOv2 backbone | "The reason it works" | Self-supervised features that generalise across domains without depth labels |
+| Monocular depth (Độ sâu đơn mắt) | "Độ sâu một hình ảnh" | Ước lượng độ sâu từ một khung RGB, không stereo hoặc LiDAR |
+| Relative depth (Độ sâu tương đối) | "Độ sâu có thứ tự" | Các giá trị z có thứ tự không có đơn vị thực |
+| Metric depth (Độ sâu theo đơn vị đo) | "Khoảng cách tuyệt đối" | Độ sâu theo mét; cần hiệu chuẩn hoặc mô hình được huấn luyện với giám sát theo đơn vị đo |
+| AbsRel | "Sai số tương đối tuyệt đối" | Trung bình |d_pred - d_gt| / d_gt; thước đo độ sâu tiêu chuẩn |
+| Delta accuracy (Accuracy delta) | "delta < 1.25" | Tỷ lệ pixel có dự đoán trong 25% sự thật nền |
+| Pinhole camera (Máy ảnh lỗ kim) | "fx, fy, cx, cy" | Mô hình máy ảnh dùng để nâng (u, v, d) thành (X, Y, Z) |
+| DPT | "Dense Prediction Transformer" | Decoder dựa trên tích chập dùng trên encoder ViT đóng băng cho độ sâu |
+| DINOv2 backbone (Backbone DINOv2) | "Lý do nó hoạt động" | Các đặc trưng tự giám sát khái quát giữa lĩnh vực không cần nhãn độ sâu |
 
 ## Further Reading
 
-- [Depth Anything V3 paper page](https://depth-anything.github.io/) — SOTA monocular depth with DINOv2 encoder
-- [Marigold (Ke et al., CVPR 2024)](https://marigoldmonodepth.github.io/) — diffusion-based depth estimation
-- [UniDepth (Piccinelli et al., 2024)](https://arxiv.org/abs/2403.18913) — metric depth with intrinsics
-- [MiDaS v3.1 (Intel ISL)](https://github.com/isl-org/MiDaS) — the canonical relative-depth baseline
-- [DINOv3 blog post (Meta)](https://ai.meta.com/blog/dinov3-self-supervised-vision-model/) — the encoder family that lifts depth accuracy
+- [Depth Anything V3 paper page](https://depth-anything.github.io/) — độ sâu đơn mắt SOTA với encoder DINOv2
+- [Marigold (Ke et al., CVPR 2024)](https://marigoldmonodepth.github.io/) — ước lượng độ sâu dựa trên khuếch tán
+- [UniDepth (Piccinelli et al., 2024)](https://arxiv.org/abs/2403.18913) — độ sâu theo đơn vị đo với nội tại
+- [MiDaS v3.1 (Intel ISL)](https://github.com/isl-org/MiDaS) — đường cơ sở độ sâu tương đối chuẩn
+- [DINOv3 blog post (Meta)](https://ai.meta.com/blog/dinov3-self-supervised-vision-model/) — họ encoder nâng accuracy độ sâu
