@@ -1,6 +1,6 @@
 # Matrix Transformations
 
-> A matrix is a machine that reshapes space. Learn what it does to every point, and you understand the whole transformation.
+> Một ma trận là một cỗ máy định hình lại không gian. Hiểu nó làm gì với mọi điểm, và bạn hiểu toàn bộ phép biến đổi.
 
 **Type:** Build
 **Languages:** Python, Julia
@@ -9,22 +9,22 @@
 
 ## Learning Objectives
 
-- Construct rotation, scaling, shearing, and reflection matrices and apply them to 2D and 3D points
-- Compose multiple transformations by matrix multiplication and verify that order matters
-- Compute eigenvalues and eigenvectors of 2x2 matrices from the characteristic equation
-- Explain why eigenvalues determine PCA directions, RNN stability, and spectral clustering behavior
+- Xây dựng các ma trận quay, co giãn, trượt và phản xạ rồi áp dụng chúng cho các điểm 2D và 3D
+- Hợp thành nhiều phép biến đổi bằng phép nhân ma trận và xác minh rằng thứ tự có ý nghĩa
+- Tính các giá trị riêng và vector riêng của các ma trận 2x2 từ phương trình đặc trưng
+- Giải thích tại sao các giá trị riêng quyết định các hướng PCA, tính ổn định của RNN và hành vi phân cụm phổ
 
 ## The Problem
 
-You read about PCA and see "find the eigenvectors of the covariance matrix." You read about model stability and see "check if all eigenvalues have magnitude less than 1." You read about data augmentation and see "apply a random rotation." None of this makes sense until you understand what matrices do to space geometrically.
+Bạn đọc về PCA và thấy "tìm các vector riêng của ma trận hiệp phương sai." Bạn đọc về tính ổn định của mô hình và thấy "kiểm tra xem mọi giá trị riêng có độ lớn nhỏ hơn 1 hay không." Bạn đọc về tăng cường dữ liệu và thấy "áp dụng một phép quay ngẫu nhiên." Không điều nào trong số này có ý nghĩa cho đến khi bạn hiểu ma trận làm gì với không gian về mặt hình học.
 
-Matrices are not just grids of numbers. They are spatial machines. A rotation matrix spins points. A scaling matrix stretches them. A shearing matrix tilts them. Every transformation a neural network applies to data is one of these operations or a composition of them. This lesson makes those operations concrete.
+Ma trận không chỉ là các lưới số. Chúng là những cỗ máy không gian. Một ma trận quay xoay các điểm. Một ma trận co giãn kéo giãn chúng. Một ma trận trượt làm nghiêng chúng. Mọi phép biến đổi mà mạng nơ-ron áp dụng cho dữ liệu đều là một trong các phép toán này hoặc một phép hợp thành của chúng. Bài học này làm cho các phép toán đó trở nên cụ thể.
 
 ## The Concept
 
 ### Transformations as matrices
 
-Every linear transformation in 2D can be written as a 2x2 matrix. The matrix tells you exactly where the basis vectors [1, 0] and [0, 1] end up. Everything else follows.
+Mọi phép biến đổi tuyến tính trong 2D đều có thể được viết dưới dạng một ma trận 2x2. Ma trận cho bạn biết chính xác các vector cơ sở [1, 0] và [0, 1] kết thúc ở đâu. Mọi thứ khác suy ra từ đó.
 
 ```mermaid
 graph LR
@@ -45,7 +45,7 @@ graph LR
 
 ### Rotation
 
-A 2D rotation by angle theta keeps distances and angles intact. It moves every point along a circular arc.
+Một phép quay 2D một góc theta giữ nguyên khoảng cách và góc. Nó di chuyển mọi điểm dọc theo một cung tròn.
 
 ```mermaid
 graph LR
@@ -64,7 +64,7 @@ graph LR
     B --> R --> Bp
 ```
 
-In 3D, you rotate around an axis. Each axis has its own rotation matrix:
+Trong 3D, bạn quay quanh một trục. Mỗi trục có ma trận quay riêng:
 
 ```
 Rz(theta) = | cos  -sin  0 |     Rotate around z-axis
@@ -82,7 +82,7 @@ Ry(theta) = |  cos  0  sin |     Rotate around y-axis
 
 ### Scaling
 
-Scaling stretches or compresses along each axis independently.
+Phép co giãn kéo giãn hoặc nén dọc theo từng trục một cách độc lập.
 
 ```mermaid
 graph LR
@@ -103,7 +103,7 @@ graph LR
 
 ### Shearing
 
-Shearing tilts one axis while keeping the other fixed. It turns rectangles into parallelograms.
+Phép trượt làm nghiêng một trục trong khi giữ cố định trục kia. Nó biến hình chữ nhật thành hình bình hành.
 
 ```mermaid
 graph LR
@@ -122,13 +122,13 @@ graph LR
     B --> Sh --> Bp
 ```
 
-Shear matrices:
-- `Shx = [[1, k], [0, 1]]` shifts x by k * y
-- `Shy = [[1, 0], [k, 1]]` shifts y by k * x
+Các ma trận trượt:
+- `Shx = [[1, k], [0, 1]]` dịch x một lượng k * y
+- `Shy = [[1, 0], [k, 1]]` dịch y một lượng k * x
 
 ### Reflection
 
-Reflection mirrors points across an axis or line.
+Phép phản xạ lấy đối xứng các điểm qua một trục hoặc đường thẳng.
 
 ```mermaid
 graph LR
@@ -144,13 +144,13 @@ graph LR
     A --> R --> Ap
 ```
 
-Reflection matrices:
-- Reflect across y-axis: `[[-1, 0], [0, 1]]`
-- Reflect across x-axis: `[[1, 0], [0, -1]]`
+Các ma trận phản xạ:
+- Phản xạ qua trục y: `[[-1, 0], [0, 1]]`
+- Phản xạ qua trục x: `[[1, 0], [0, -1]]`
 
 ### Composition: chaining transformations
 
-Applying transformation A then B is the same as multiplying their matrices: `result = B @ A @ point`. Order matters. Rotate then scale gives different results than scale then rotate.
+Áp dụng phép biến đổi A rồi B giống như nhân các ma trận của chúng: `result = B @ A @ point`. Thứ tự có ý nghĩa. Quay rồi co giãn cho kết quả khác với co giãn rồi quay.
 
 ```mermaid
 graph LR
@@ -159,7 +159,7 @@ graph LR
     end
 ```
 
-Composed: `S @ R = [[0, -2], [0.5, 0]]`
+Hợp thành: `S @ R = [[0, -2], [0.5, 0]]`
 
 ```mermaid
 graph LR
@@ -168,13 +168,13 @@ graph LR
     end
 ```
 
-Composed: `R @ S = [[0, -0.5], [2, 0]]`
+Hợp thành: `R @ S = [[0, -0.5], [2, 0]]`
 
-Different results. Matrix multiplication is not commutative.
+Kết quả khác nhau. Phép nhân ma trận không có tính giao hoán.
 
 ### Eigenvalues and eigenvectors
 
-Most vectors change direction when a matrix hits them. Eigenvectors are special: the matrix only scales them, never rotates them. The scaling factor is the eigenvalue.
+Hầu hết các vector đổi hướng khi một ma trận tác động vào chúng. Vector riêng đặc biệt: ma trận chỉ co giãn chúng, không bao giờ quay chúng. Hệ số co giãn là giá trị riêng.
 
 ```
 A @ v = lambda * v
@@ -192,11 +192,11 @@ Eigenvector [1, -1] with eigenvalue 1:
   A @ [1,-1] = [1, -1] = 1 * [1, -1]  (same direction, unchanged)
 ```
 
-The matrix stretches space by 3x along [1, 1] and keeps [1, -1] unchanged. Every other direction is a mix of these two.
+Ma trận kéo giãn không gian 3 lần theo [1, 1] và giữ nguyên [1, -1]. Mọi hướng khác là sự pha trộn của hai hướng này.
 
 ### Eigendecomposition
 
-If a matrix has n linearly independent eigenvectors, it can be decomposed:
+Nếu một ma trận có n vector riêng độc lập tuyến tính, nó có thể được phân rã:
 
 ```
 A = V @ D @ V^(-1)
@@ -210,15 +210,15 @@ This says: rotate into eigenvector coordinates, scale along each axis, rotate ba
 
 ### Why eigenvalues matter
 
-**PCA.** The eigenvectors of the covariance matrix are the principal components. The eigenvalues tell you how much variance each component captures. Sort by eigenvalue, keep the top k, and you have dimensionality reduction.
+**PCA.** Các vector riêng của ma trận hiệp phương sai là các thành phần chính. Các giá trị riêng cho bạn biết mỗi thành phần nắm bắt bao nhiêu phương sai. Sắp xếp theo giá trị riêng, giữ lại k thành phần đầu, và bạn có giảm chiều.
 
-**Stability.** In recurrent networks and dynamical systems, eigenvalues with magnitude > 1 cause outputs to explode. Magnitude < 1 causes them to vanish. This is the vanishing/exploding gradient problem stated in one sentence.
+**Tính ổn định.** Trong các mạng hồi quy và hệ động lực, các giá trị riêng có độ lớn > 1 khiến đầu ra bùng nổ. Độ lớn < 1 khiến chúng tiêu biến. Đây là vấn đề gradient tiêu biến/bùng nổ được phát biểu trong một câu.
 
-**Spectral methods.** Graph neural networks use eigenvalues of the adjacency matrix. Spectral clustering uses eigenvalues of the Laplacian. The eigenvectors reveal the structure of the graph.
+**Các phương pháp phổ.** Mạng nơ-ron đồ thị sử dụng các giá trị riêng của ma trận kề. Phân cụm phổ sử dụng các giá trị riêng của Laplacian. Các vector riêng tiết lộ cấu trúc của đồ thị.
 
 ### Determinant as volume scaling factor
 
-The determinant of a transformation matrix tells you how much it scales area (2D) or volume (3D).
+Định thức của một ma trận biến đổi cho bạn biết nó co giãn diện tích (2D) hoặc thể tích (3D) bao nhiêu.
 
 ```
 det = 1:   area preserved (rotation)
@@ -309,7 +309,7 @@ print(f"Same? {result1 == result2}")
 
 ### Step 3: Eigenvalues from scratch (2x2)
 
-For a 2x2 matrix `[[a, b], [c, d]]`, eigenvalues solve the characteristic equation: `lambda^2 - (a+d)*lambda + (ad - bc) = 0`.
+Với một ma trận 2x2 `[[a, b], [c, d]]`, các giá trị riêng giải phương trình đặc trưng: `lambda^2 - (a+d)*lambda + (ad - bc) = 0`.
 
 ```python
 def eigenvalues_2x2(matrix):
@@ -372,7 +372,7 @@ print("Singular: columns are proportional, space collapses to a line.")
 
 ## Use It
 
-NumPy handles all of this with optimized routines.
+NumPy xử lý tất cả những điều này bằng các thủ tục được tối ưu hóa.
 
 ```python
 import numpy as np
@@ -433,33 +433,33 @@ print(f"Rotate 90 around x: {np.round(rotated_x, 4)}")
 
 ## Ship It
 
-This lesson builds the geometric foundation for PCA (Phase 2) and neural network weight analysis. The eigenvalue/eigenvector code built here is the same algorithm that powers dimensionality reduction, spectral clustering, and stability analysis in production ML systems.
+Bài học này xây dựng nền tảng hình học cho PCA (Giai đoạn 2) và phân tích trọng số mạng nơ-ron. Mã giá trị riêng/vector riêng được xây dựng ở đây là cùng thuật toán vận hành việc giảm chiều, phân cụm phổ và phân tích tính ổn định trong các hệ thống ML sản xuất.
 
 ## Exercises
 
-1. Apply rotation, scaling, and shearing to a unit square (corners at [0,0], [1,0], [1,1], [0,1]). Print the transformed corners for each. Verify that rotation preserves distances between corners.
+1. Áp dụng phép quay, co giãn và trượt lên một hình vuông đơn vị (các đỉnh tại [0,0], [1,0], [1,1], [0,1]). In các đỉnh sau biến đổi cho từng phép. Xác minh rằng phép quay bảo toàn khoảng cách giữa các đỉnh.
 
-2. Find the eigenvalues of the matrix [[4, 2], [1, 3]] by hand using the characteristic equation. Then verify with your from-scratch function and with NumPy.
+2. Tìm các giá trị riêng của ma trận [[4, 2], [1, 3]] bằng tay sử dụng phương trình đặc trưng. Sau đó xác minh bằng hàm xây dựng từ đầu của bạn và bằng NumPy.
 
-3. Create a composition of three transformations (rotate 30 degrees, scale by [1.5, 0.8], shear with kx=0.3) and apply it to 8 points arranged in a circle. Print before and after coordinates. Compute the determinant of the composed matrix and verify it equals the product of the individual determinants.
+3. Tạo một phép hợp thành của ba phép biến đổi (quay 30 độ, co giãn theo [1.5, 0.8], trượt với kx=0.3) và áp dụng nó cho 8 điểm được bố trí trên một đường tròn. In tọa độ trước và sau. Tính định thức của ma trận hợp thành và xác minh nó bằng tích các định thức riêng lẻ.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Rotation matrix | "Spins things" | An orthogonal matrix that moves points along circular arcs while preserving distances and angles. Determinant is always 1. |
-| Scaling matrix | "Makes things bigger" | A diagonal matrix that stretches or compresses independently along each axis. Determinant is the product of scale factors. |
-| Shearing matrix | "Slants things" | A matrix that shifts one coordinate proportionally to another, turning rectangles into parallelograms. Determinant is 1. |
-| Reflection | "Mirrors things" | A matrix that flips space across an axis or plane. Determinant is -1. |
-| Composition | "Do two things" | Multiplying transformation matrices to chain operations. Order matters: B @ A means apply A first, then B. |
-| Eigenvector | "Special direction" | A direction that the matrix only scales, never rotates. The transformation's fingerprint. |
-| Eigenvalue | "How much it stretches" | The scalar factor by which the matrix scales its eigenvector. Can be negative (flip) or complex (rotation). |
-| Eigendecomposition | "Break the matrix apart" | Writing a matrix as V @ D @ V^(-1), separating it into its fundamental scaling directions and magnitudes. |
-| Determinant | "A single number from a matrix" | The factor by which the transformation scales area (2D) or volume (3D). Zero means the transformation is irreversible. |
-| Characteristic equation | "Where eigenvalues come from" | det(A - lambda * I) = 0. The polynomial whose roots are the eigenvalues. |
+| Rotation matrix (Ma trận quay) | "Xoay các thứ" | Một ma trận trực giao di chuyển các điểm dọc theo các cung tròn trong khi bảo toàn khoảng cách và góc. Định thức luôn là 1. |
+| Scaling matrix (Ma trận co giãn) | "Làm các thứ lớn hơn" | Một ma trận đường chéo kéo giãn hoặc nén độc lập dọc theo từng trục. Định thức là tích các hệ số co giãn. |
+| Shearing matrix (Ma trận trượt) | "Làm các thứ nghiêng" | Một ma trận dịch một tọa độ theo tỉ lệ với một tọa độ khác, biến hình chữ nhật thành hình bình hành. Định thức là 1. |
+| Reflection (Phép phản xạ) | "Lấy đối xứng các thứ" | Một ma trận lật không gian qua một trục hoặc mặt phẳng. Định thức là -1. |
+| Composition (Phép hợp thành) | "Làm hai việc" | Nhân các ma trận biến đổi để nối chuỗi các phép toán. Thứ tự có ý nghĩa: B @ A nghĩa là áp dụng A trước, rồi B. |
+| Eigenvector (Vector riêng) | "Hướng đặc biệt" | Một hướng mà ma trận chỉ co giãn, không bao giờ quay. Dấu vân tay của phép biến đổi. |
+| Eigenvalue (Giá trị riêng) | "Nó kéo giãn bao nhiêu" | Hệ số vô hướng mà ma trận dùng để co giãn vector riêng của nó. Có thể âm (lật) hoặc phức (quay). |
+| Eigendecomposition (Phân rã riêng) | "Tách ma trận ra" | Viết một ma trận dưới dạng V @ D @ V^(-1), tách nó thành các hướng và độ lớn co giãn cơ bản. |
+| Determinant (Định thức) | "Một số duy nhất từ một ma trận" | Hệ số mà phép biến đổi dùng để co giãn diện tích (2D) hoặc thể tích (3D). Bằng không có nghĩa là phép biến đổi không thể đảo ngược. |
+| Characteristic equation (Phương trình đặc trưng) | "Nơi các giá trị riêng xuất phát" | det(A - lambda * I) = 0. Đa thức có các nghiệm là các giá trị riêng. |
 
 ## Further Reading
 
-- [3Blue1Brown: Linear Transformations](https://www.3blue1brown.com/lessons/linear-transformations) -- visual intuition for how matrices reshape space
-- [3Blue1Brown: Eigenvectors and Eigenvalues](https://www.3blue1brown.com/lessons/eigenvalues) -- the best visual explanation of what eigenvectors mean geometrically
-- [MIT 18.06 Lecture 21: Eigenvalues and Eigenvectors](https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/) -- Gilbert Strang's classic treatment
+- [3Blue1Brown: Linear Transformations](https://www.3blue1brown.com/lessons/linear-transformations) -- trực giác trực quan về cách ma trận định hình lại không gian
+- [3Blue1Brown: Eigenvectors and Eigenvalues](https://www.3blue1brown.com/lessons/eigenvalues) -- lời giải thích trực quan hay nhất về ý nghĩa hình học của các vector riêng
+- [MIT 18.06 Lecture 21: Eigenvalues and Eigenvectors](https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/) -- cách trình bày kinh điển của Gilbert Strang
