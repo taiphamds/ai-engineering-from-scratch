@@ -1,6 +1,6 @@
 # Eval-Driven Agent Development
 
-> Anthropic's guidance: "start with simple prompts, optimize them with comprehensive evaluation, and add multi-step agentic systems only when needed." Evaluation is not the last step. It's the outer loop that drives every other choice in Phase 14.
+> Hướng dẫn của Anthropic: "bắt đầu với các prompt đơn giản, tối ưu hóa chúng bằng đánh giá toàn diện và chỉ thêm các hệ thống agentic nhiều bước khi cần." Đánh giá không phải bước cuối. Đó là vòng lặp bên ngoài thúc đẩy mọi lựa chọn khác trong Giai đoạn 14.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,82 +9,82 @@
 
 ## Learning Objectives
 
-- Name the three evaluation layers — static benchmarks, custom offline, online production — and what each is for.
-- Explain the evaluator-optimizer tight loop.
-- Describe the 2026 best practice: evals live next to code, run in CI, gate PRs.
-- Connect every Phase 14 lesson to the eval case it generates.
+- Nêu tên ba lớp đánh giá — các benchmark tĩnh, ngoại tuyến tùy chỉnh, sản xuất trực tuyến — và mỗi lớp dùng để làm gì.
+- Giải thích vòng lặp chặt chẽ bộ đánh giá-bộ tối ưu.
+- Mô tả thực hành tốt nhất năm 2026: các đánh giá nằm cạnh mã, chạy trong CI, kiểm soát các PR.
+- Kết nối mọi bài học Giai đoạn 14 với trường hợp đánh giá mà nó tạo ra.
 
 ## The Problem
 
-Agents pass demos. They fail in production in ways demos cannot predict. Benchmarks answer "is this model broadly capable?" not "is this agent shipping the right patches for my product?" The answer: evaluation at three layers, running continuously, with every guardrail and learned rule mapped to an eval case.
+Các agent vượt qua các bản demo. Chúng thất bại trong sản xuất theo những cách mà các bản demo không thể dự đoán. Các benchmark trả lời "mô hình này có năng lực rộng không?" không phải "agent này có đang phát hành các bản vá đúng cho sản phẩm của tôi không?" Câu trả lời: đánh giá ở ba lớp, chạy liên tục, với mỗi chốt bảo vệ và quy tắc đã học được ánh xạ đến một trường hợp đánh giá.
 
 ## The Concept
 
 ### Three evaluation layers
 
-1. **Static benchmarks** — SWE-bench Verified for code (Lesson 19), WebArena/OSWorld for browsing / desktop (Lesson 20), GAIA for generalist (Lesson 19), BFCL V4 for tool use (Lesson 06). Use for cross-model comparison and regression gating. Contamination is real: SWE-bench+ found 32.67% solution leakage. Always report Verified / +-audited scores.
+1. **Các benchmark tĩnh** — SWE-bench Verified cho mã (Bài 19), WebArena/OSWorld cho duyệt web / máy tính để bàn (Bài 20), GAIA cho tổng quát (Bài 19), BFCL V4 cho sử dụng công cụ (Bài 06). Sử dụng để so sánh xuyên mô hình và kiểm soát hồi quy. Nhiễm bẩn là thực: SWE-bench+ phát hiện rò rỉ lời giải 32.67%. Luôn báo cáo các điểm Verified / được kiểm toán bằng +.
 
-2. **Custom offline evals** — your product's shape:
-   - LLM-as-judge (Langfuse, Phoenix, Opik — Lesson 24).
-   - Execution-based (run the patch, check tests).
-   - Trajectory-based (compare action sequences against gold; OSWorld-Human shows top agents 1.4-2.7x over gold).
+2. **Các đánh giá ngoại tuyến tùy chỉnh** — hình dạng sản phẩm của bạn:
+   - LLM làm giám khảo (Langfuse, Phoenix, Opik — Bài 24).
+   - Dựa trên thực thi (chạy bản vá, kiểm tra các kiểm thử).
+   - Dựa trên quỹ đạo (so sánh các chuỗi hành động với chuẩn; OSWorld-Human cho thấy các agent hàng đầu gấp 1.4-2.7 lần chuẩn).
 
-3. **Online evals** — production:
-   - Session replays (Langfuse).
-   - Guardrail-triggered alerts (Lesson 16, 21).
-   - Per-step cost / latency tracking (Lesson 23 OTel spans).
+3. **Các đánh giá trực tuyến** — sản xuất:
+   - Các lần phát lại phiên (Langfuse).
+   - Các cảnh báo được kích hoạt bởi chốt bảo vệ (Bài 16, 21).
+   - Theo dõi chi phí / độ trễ cho từng bước (các span OTel Bài 23).
 
 ### Evaluator-optimizer (Anthropic)
 
-The tight loop:
+Vòng lặp chặt chẽ:
 
-1. Proposer generates output.
-2. Evaluator judges.
-3. Refine until evaluator passes.
+1. Bộ đề xuất tạo đầu ra.
+2. Bộ đánh giá phán xét.
+3. Tinh chỉnh cho đến khi bộ đánh giá đạt.
 
-This is Self-Refine (Lesson 05) generalized. Any agent flow you care about can wrap in evaluator-optimizer for reliability.
+Đây là Self-Refine (Bài 05) được khái quát hóa. Bất kỳ luồng agent nào bạn quan tâm cũng có thể được bọc trong bộ đánh giá-bộ tối ưu để có độ tin cậy.
 
 ### 2026 best practice
 
-- Evals live next to code.
-- Run in CI on every PR.
-- Gate merge on eval scores (e.g. "no regression > 5% vs main").
-- Every guardrail maps to an eval case.
-- Every learned rule (Reflexion, pro-workflow learn-rule) maps to a failure case.
+- Các đánh giá nằm cạnh mã.
+- Chạy trong CI trên mỗi PR.
+- Kiểm soát hợp nhất bằng các điểm đánh giá (ví dụ "không hồi quy > 5% so với main").
+- Mỗi chốt bảo vệ ánh xạ đến một trường hợp đánh giá.
+- Mỗi quy tắc đã học (Reflexion, learn-rule của pro-workflow) ánh xạ đến một trường hợp thất bại.
 
 ### Tying Phase 14 together
 
-Every lesson in Phase 14 generates eval cases:
+Mọi bài học trong Giai đoạn 14 tạo các trường hợp đánh giá:
 
-| Lesson | Eval case it generates |
+| Bài học | Trường hợp đánh giá nó tạo ra |
 |--------|------------------------|
-| 01 Agent Loop | Budget-exhausted, infinite-loop guard |
-| 02 ReWOO | Planner replans correctly when a tool fails |
-| 03 Reflexion | Learned reflections apply on retry |
-| 05 Self-Refine/CRITIC | Judge passes refined output |
-| 06 Tool Use | Argument coercion works; unknown tools rejected |
-| 07-10 Memory | Retrieval citations match sources; stale facts invalidate |
-| 12 Workflow Patterns | Each pattern produces correct output |
-| 13 LangGraph | Resume reproduces state exactly |
-| 14 AutoGen Actors | DLQ catches crashed handlers |
-| 16 OpenAI Agents SDK | Guardrail trips on the right inputs |
-| 17 Claude Agent SDK | Subagent results return to orchestrator |
-| 19-20 Benchmarks | SWE-bench Verified score, WebArena success rate, OSWorld efficiency |
-| 21 Computer Use | Per-step safety catches injected DOM |
-| 23 OTel | Spans emit required attributes |
-| 26 Failure Modes | Detectors tag known failures |
-| 27 Prompt Injection | PVE refuses poisoned retrievals |
-| 28 Orchestration | Supervisor routes to the right specialist |
-| 29 Runtime Shapes | DLQ handles N% failure |
+| 01 Vòng lặp agent | Cạn ngân sách, bộ bảo vệ vòng lặp vô hạn |
+| 02 ReWOO | Bộ lập kế hoạch lập kế hoạch lại đúng khi một công cụ thất bại |
+| 03 Reflexion | Các phản tư đã học được áp dụng khi thử lại |
+| 05 Self-Refine/CRITIC | Giám khảo cho đầu ra đã tinh chỉnh đạt |
+| 06 Sử dụng công cụ | Ép kiểu đối số hoạt động; các công cụ không xác định bị từ chối |
+| 07-10 Bộ nhớ | Các trích dẫn truy xuất khớp nguồn; các sự thật cũ được vô hiệu hóa |
+| 12 Các mẫu workflow | Mỗi mẫu tạo đầu ra đúng |
+| 13 LangGraph | Tiếp tục tái tạo trạng thái chính xác |
+| 14 Các actor AutoGen | DLQ bắt các bộ xử lý bị sập |
+| 16 OpenAI Agents SDK | Chốt bảo vệ kích hoạt trên các đầu vào đúng |
+| 17 Claude Agent SDK | Các kết quả agent phụ trả về bộ điều phối |
+| 19-20 Các benchmark | Điểm SWE-bench Verified, tỷ lệ thành công WebArena, hiệu quả OSWorld |
+| 21 Sử dụng máy tính | An toàn cho từng bước bắt DOM bị chèn |
+| 23 OTel | Các span phát ra các thuộc tính bắt buộc |
+| 26 Các chế độ lỗi | Các bộ phát hiện gắn thẻ các lỗi đã biết |
+| 27 Prompt injection | PVE từ chối các kết quả truy xuất bị đầu độc |
+| 28 Điều phối | Bộ giám sát định tuyến đến đúng chuyên gia |
+| 29 Các hình dạng runtime | DLQ xử lý N% thất bại |
 
-If your eval suite has cases for each, you have covered Phase 14.
+Nếu bộ đánh giá của bạn có các trường hợp cho mỗi bài, bạn đã bao phủ Giai đoạn 14.
 
 ### Where eval-driven development fails
 
-- **No baseline.** Evals without a last-known-good are unreadable. Store baselines.
-- **LLM-judge without grounding.** Judges hallucinate too. CRITIC pattern (Lesson 05) — judge grounds on external tools.
-- **Over-fitting to evals.** Optimizing for the eval diverges from production usefulness. Rotate cases.
-- **Flaky evals.** Non-deterministic cases cause false alarms. Pin seeds, snapshot state.
+- **Không có đường cơ sở.** Các đánh giá không có một trạng thái tốt cuối cùng đã biết thì không thể đọc hiểu. Lưu các đường cơ sở.
+- **Giám khảo LLM không có cơ sở.** Các giám khảo cũng ảo giác. Mẫu CRITIC (Bài 05) — giám khảo dựa trên các công cụ bên ngoài.
+- **Quá khớp với các đánh giá.** Tối ưu cho đánh giá đi chệch khỏi tính hữu ích trong sản xuất. Xoay vòng các trường hợp.
+- **Các đánh giá chập chờn.** Các trường hợp không mang tính xác định gây báo động giả. Ghim các hạt giống, chụp trạng thái.
 
 ```figure
 ae-eval-three-layers
@@ -92,56 +92,56 @@ ae-eval-three-layers
 
 ## Build It
 
-`code/main.py` is a stdlib eval harness:
+`code/main.py` là một bộ đánh giá dùng thư viện chuẩn:
 
-- Case registry with categories (benchmark, custom, online).
-- A scripted agent under test.
-- Evaluator-optimizer loop: propose, judge, refine until pass or max rounds.
-- CI gate: aggregate pass rate + regression against baseline.
+- Sổ đăng ký trường hợp với các hạng mục (benchmark, tùy chỉnh, trực tuyến).
+- Một agent được viết kịch bản đang được kiểm thử.
+- Vòng lặp bộ đánh giá-bộ tối ưu: đề xuất, phán xét, tinh chỉnh cho đến khi đạt hoặc số vòng tối đa.
+- Cổng CI: tỷ lệ đạt tổng hợp + hồi quy đối với đường cơ sở.
 
-Run it:
+Chạy nó:
 
 ```
 python3 code/main.py
 ```
 
-Output: per-case pass/fail, regression flag, CI gate verdict.
+Đầu ra: đạt/không đạt cho từng trường hợp, cờ hồi quy, phán quyết cổng CI.
 
 ## Use It
 
-- Write eval cases in the same repo as your agent code.
-- Run them on every PR via CI.
-- Fail the build on regression.
-- Track pass rate over time.
-- Tie every production failure to a new case.
+- Viết các trường hợp đánh giá trong cùng repo với mã agent của bạn.
+- Chạy chúng trên mỗi PR qua CI.
+- Làm bản dựng thất bại khi hồi quy.
+- Theo dõi tỷ lệ đạt theo thời gian.
+- Gắn mọi thất bại sản xuất với một trường hợp mới.
 
 ## Ship It
 
-`outputs/skill-eval-suite.md` builds a three-layer eval suite for an agent product with CI gates and regression tracking.
+`outputs/skill-eval-suite.md` xây dựng một bộ đánh giá ba lớp cho một sản phẩm agent với các cổng CI và theo dõi hồi quy.
 
 ## Exercises
 
-1. Take one of your production failures. Write an eval case that reproduces it. Does your agent pass it now?
-2. Build an LLM-judge rubric for your domain with three dimensions (factual, tone, scope). Score 50 sessions.
-3. Wire the eval suite into CI. Fail the build on >=5% regression.
-4. Add a trajectory-efficiency metric: how many steps did the agent take vs a gold trajectory?
-5. Map every Phase 14 lesson to an eval case in your suite. Any missing? That's a gap to close.
+1. Lấy một trong các thất bại sản xuất của bạn. Viết một trường hợp đánh giá tái tạo nó. Agent của bạn có vượt qua nó bây giờ không?
+2. Xây một bảng tiêu chí giám khảo LLM cho miền của bạn với ba chiều (thực tế, giọng điệu, phạm vi). Chấm điểm 50 phiên.
+3. Nối bộ đánh giá vào CI. Làm bản dựng thất bại khi hồi quy >=5%.
+4. Thêm một thước đo hiệu quả quỹ đạo: agent đã thực hiện bao nhiêu bước so với một quỹ đạo chuẩn?
+5. Ánh xạ mọi bài học Giai đoạn 14 đến một trường hợp đánh giá trong bộ của bạn. Có thiếu bài nào không? Đó là một khoảng trống cần lấp.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |------|----------------|------------------------|
-| Static benchmark | "Off-the-shelf eval" | SWE-bench, GAIA, AgentBench, WebArena, OSWorld |
-| Custom offline eval | "Domain eval" | LLM-as-judge / exec / trajectory on your product shape |
-| Online eval | "Production eval" | Session replay, guardrail alerts, cost/latency tracking |
-| Evaluator-optimizer | "Propose-judge-refine" | Iterate until judge passes |
-| CI gate | "Merge blocker" | Fail the build on eval regression |
-| Baseline | "Last-known-good" | Reference score to detect regression |
-| Trajectory efficiency | "Steps over gold" | Agent step count divided by human expert minimum |
+| Static benchmark (Benchmark tĩnh) | "Đánh giá có sẵn" | SWE-bench, GAIA, AgentBench, WebArena, OSWorld |
+| Custom offline eval (Đánh giá ngoại tuyến tùy chỉnh) | "Đánh giá miền" | LLM làm giám khảo / thực thi / quỹ đạo trên hình dạng sản phẩm của bạn |
+| Online eval (Đánh giá trực tuyến) | "Đánh giá sản xuất" | Phát lại phiên, các cảnh báo chốt bảo vệ, theo dõi chi phí/độ trễ |
+| Evaluator-optimizer (Bộ đánh giá-bộ tối ưu) | "Đề xuất-phán xét-tinh chỉnh" | Lặp cho đến khi giám khảo cho đạt |
+| CI gate (Cổng CI) | "Bộ chặn hợp nhất" | Làm bản dựng thất bại khi đánh giá hồi quy |
+| Baseline (Đường cơ sở) | "Tốt cuối cùng đã biết" | Điểm tham chiếu để phát hiện hồi quy |
+| Trajectory efficiency (Hiệu quả quỹ đạo) | "Số bước trên chuẩn" | Số bước agent chia cho số tối thiểu của chuyên gia con người |
 
 ## Further Reading
 
-- [Anthropic, Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) — "start simple, optimize with evals"
-- [OpenAI, SWE-bench Verified](https://openai.com/index/introducing-swe-bench-verified/) — the curated benchmark
-- [Berkeley Function Calling Leaderboard](https://gorilla.cs.berkeley.edu/leaderboard.html) — tool-use benchmark
-- [Langfuse docs](https://langfuse.com/) — evals + session replay in practice
+- [Anthropic, Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) — "bắt đầu đơn giản, tối ưu với các đánh giá"
+- [OpenAI, SWE-bench Verified](https://openai.com/index/introducing-swe-bench-verified/) — benchmark được tuyển chọn
+- [Berkeley Function Calling Leaderboard](https://gorilla.cs.berkeley.edu/leaderboard.html) — benchmark sử dụng công cụ
+- [Langfuse docs](https://langfuse.com/) — các đánh giá + phát lại phiên trong thực tế

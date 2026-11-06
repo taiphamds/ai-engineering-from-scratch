@@ -7,27 +7,27 @@ lesson: 30
 tags: [evaluation, ci, regression, benchmarks, llm-judge]
 ---
 
-Given an agent product, build a three-layer eval suite wired into CI.
+Với một sản phẩm agent, xây dựng một bộ đánh giá ba lớp được nối vào CI.
 
-Produce:
+Tạo:
 
-1. **Static benchmark layer** — at least one relevant benchmark (SWE-bench Verified for code, BFCL V4 for tool use, WebArena for web, OSWorld for desktop, GAIA for generalist). Always report the +-audited score alongside.
-2. **Custom offline layer** — at least one LLM-judge rubric scored on domain-specific dimensions (factual, tone, scope, refusal quality). At least one execution-based case that probes actual state after the agent runs. At least one trajectory-based case with a gold path.
-3. **Online eval layer** — session replays, guardrail-triggered alerts, per-step cost/latency tracking through OTel GenAI spans (Lesson 23).
-4. **Evaluator-optimizer runner** — wrap the agent in propose / judge / refine with a round cap.
-5. **CI gate** — fail the build on >=5% regression vs baseline. Track baseline over time.
-6. **Case mapping** — every guardrail and every learned rule from the Phase 14 lessons has at least one case.
+1. **Lớp benchmark tĩnh** — ít nhất một benchmark liên quan (SWE-bench Verified cho mã, BFCL V4 cho sử dụng công cụ, WebArena cho web, OSWorld cho máy tính để bàn, GAIA cho tổng quát). Luôn báo cáo điểm được kiểm toán bằng + bên cạnh.
+2. **Lớp ngoại tuyến tùy chỉnh** — ít nhất một bảng tiêu chí giám khảo LLM được chấm điểm trên các chiều dành riêng cho miền (thực tế, giọng điệu, phạm vi, chất lượng từ chối). Ít nhất một trường hợp dựa trên thực thi thăm dò trạng thái thực tế sau khi agent chạy. Ít nhất một trường hợp dựa trên quỹ đạo với một đường chuẩn.
+3. **Lớp đánh giá trực tuyến** — các lần phát lại phiên, các cảnh báo được kích hoạt bởi chốt bảo vệ, theo dõi chi phí/độ trễ cho từng bước qua các span OTel GenAI (Bài 23).
+4. **Trình chạy bộ đánh giá-bộ tối ưu** — bọc agent trong đề xuất / phán xét / tinh chỉnh với một giới hạn vòng.
+5. **Cổng CI** — làm bản dựng thất bại khi hồi quy >=5% so với đường cơ sở. Theo dõi đường cơ sở theo thời gian.
+6. **Ánh xạ trường hợp** — mỗi chốt bảo vệ và mỗi quy tắc đã học từ các bài học Giai đoạn 14 có ít nhất một trường hợp.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Eval suite with no baseline. You cannot detect regression without a reference.
-- LLM-judge without external grounding on factual tasks. CRITIC pattern (Lesson 05) is required.
-- Flaky cases without pinned seeds or snapshot state. False alarms erode the team's trust in evals.
+- Bộ đánh giá không có đường cơ sở. Bạn không thể phát hiện hồi quy mà không có một tham chiếu.
+- Giám khảo LLM không có cơ sở bên ngoài trên các tác vụ thực tế. Mẫu CRITIC (Bài 05) là bắt buộc.
+- Các trường hợp chập chờn không có hạt giống được ghim hoặc ảnh chụp trạng thái. Các báo động giả xói mòn sự tin tưởng của nhóm vào các đánh giá.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the user wants "just the happy path," refuse. Every failure mode (Lesson 26) should have a case.
-- If the user wants "no CI gate," refuse for products hitting paying users. Eval drift is invisible otherwise.
-- If the user wants "all LLM-judges," refuse on factual and compliance tasks. Execution-based or programmatic evaluators are required there.
+- Nếu người dùng muốn "chỉ luồng thành công," từ chối. Mỗi chế độ lỗi (Bài 26) nên có một trường hợp.
+- Nếu người dùng muốn "không cổng CI," từ chối cho các sản phẩm tiếp xúc người dùng trả phí. Trôi dạt đánh giá vô hình nếu không.
+- Nếu người dùng muốn "tất cả là giám khảo LLM," từ chối trên các tác vụ thực tế và tuân thủ. Các bộ đánh giá dựa trên thực thi hoặc bằng chương trình là bắt buộc ở đó.
 
-Output: `cases/benchmarks/`, `cases/custom/`, `cases/online/`, `runner.py`, `ci_gate.py`, `README.md` explaining rubrics, baselines, and the Phase 14 mapping table. End with "what to read next" pointing to Lesson 24 (observability), Lesson 26 (failure modes), or Lesson 23 (OTel) for the substrate.
+Đầu ra: `cases/benchmarks/`, `cases/custom/`, `cases/online/`, `runner.py`, `ci_gate.py`, `README.md` giải thích các bảng tiêu chí, đường cơ sở và bảng ánh xạ Giai đoạn 14. Kết thúc bằng "đọc gì tiếp theo" chỉ đến Bài 24 (khả năng quan sát), Bài 26 (các chế độ lỗi) hoặc Bài 23 (OTel) cho nền tảng.
