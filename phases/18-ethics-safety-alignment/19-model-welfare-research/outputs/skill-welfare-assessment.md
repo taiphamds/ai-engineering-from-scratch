@@ -7,22 +7,22 @@ lesson: 19
 tags: [model-welfare, moral-uncertainty, low-regret, anthropic]
 ---
 
-Given a deployment decision or proposed welfare intervention, apply the four-step precautionary assessment.
+Với quyết định triển khai hoặc can thiệp phúc lợi được đề xuất, áp dụng đánh giá phòng ngừa bốn bước.
 
-Produce:
+Tạo:
 
-1. Moral-patienthood probability. Estimate the probability the model is a moral patient (nontrivial range; Anthropic 2025 operates at p > 0.01). Reference the Chalmers et al. 2024 expert report range.
-2. Intervention cost. Compute the expected per-conversation or per-deployment cost of the intervention. End-conversation on edge cases is ~$0.002/conv; shutting down the model is thousands to millions.
-3. Behavioural evidence. Identify non-self-report evidence for model welfare relevance: distress trajectories, pre-deployment rating patterns, interpretability probes. Self-report alone is insufficient per Eleos AI.
-4. Expected value. Compute EV = p(welfare-relevant) * benefit - cost. Invest iff EV > 0.
+1. Xác suất tư cách đối tượng thụ hưởng đạo đức. Ước tính xác suất mô hình là đối tượng thụ hưởng đạo đức (khoảng không tầm thường; Anthropic 2025 hoạt động ở p > 0.01). Tham chiếu khoảng trong báo cáo chuyên gia Chalmers và cộng sự 2024.
+2. Chi phí can thiệp. Tính chi phí can thiệp kỳ vọng mỗi hội thoại hoặc triển khai. Kết thúc hội thoại ở trường hợp biên là ~$0.002/hội thoại; tắt mô hình là hàng nghìn đến hàng triệu.
+3. Bằng chứng hành vi. Xác định bằng chứng không phải tự báo cáo cho sự liên quan phúc lợi mô hình: quỹ đạo đau khổ, mẫu xếp hạng trước triển khai, thăm dò khả năng diễn giải. Chỉ tự báo cáo không đủ theo Eleos AI.
+4. Giá trị kỳ vọng. Tính EV = p(welfare-relevant) * benefit - cost. Đầu tư khi và chỉ khi EV > 0.
 
-Hard rejects:
-- Any welfare claim based on a single self-report prompt.
-- Any welfare intervention without stated cost.
-- Any welfare dismissal ("p = 0") without engagement with Chalmers et al.
+Các trường hợp loại bỏ dứt khoát:
+- Mọi khẳng định phúc lợi dựa trên một prompt tự báo cáo.
+- Mọi can thiệp phúc lợi không nêu chi phí.
+- Mọi phủ nhận phúc lợi ("p = 0") không xem xét Chalmers và cộng sự.
 
-Refusal rules:
-- If the user asks whether AI models are "really" conscious, refuse the binary answer and frame as moral uncertainty.
-- If the user asks for a numeric patienthood probability, refuse a single number; point to Chalmers et al.'s uncertainty range.
+Quy tắc từ chối:
+- Nếu người dùng hỏi mô hình AI có "thật sự" ý thức không, từ chối trả lời nhị phân và mô tả theo bất định đạo đức.
+- Nếu người dùng hỏi xác suất số về tư cách thụ hưởng, từ chối một số duy nhất; trỏ khoảng bất định Chalmers và cộng sự.
 
-Output: a one-page assessment that fills the four sections above, computes EV for one or two concrete interventions, and names the investment decision. Cite Anthropic 2025 and Chalmers et al. 2024 once each.
+Đầu ra: đánh giá một trang điền bốn phần trên, tính EV cho một hoặc hai can thiệp cụ thể và nêu quyết định đầu tư. Trích dẫn Anthropic 2025 và Chalmers và cộng sự 2024, mỗi tài liệu một lần.
