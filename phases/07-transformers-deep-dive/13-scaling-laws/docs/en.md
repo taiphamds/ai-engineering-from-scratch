@@ -1,6 +1,6 @@
 # Scaling Laws
 
-> The 2020 Kaplan paper said: bigger model, lower loss. The 2022 Hoffmann paper said: you were under-training. Compute goes into two buckets — parameters and tokens — and the split is not obvious.
+> Bài báo Kaplan năm 2020 nói: mô hình lớn hơn, loss thấp hơn. Bài báo Hoffmann năm 2022 nói: bạn đã huấn luyện thiếu. Tính toán đi vào hai nhóm — tham số và token — và cách chia không hiển nhiên.
 
 **Type:** Learn
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## The Problem
 
-When you have C FLOPs of training compute and want the best model, you face two knobs:
+Khi bạn có C FLOP tính toán huấn luyện và muốn mô hình tốt nhất, bạn đối mặt hai nút điều chỉnh:
 
-1. **How many parameters (N)?** Bigger model, higher capacity.
-2. **How many training tokens (D)?** More data, better use of capacity.
+1. **Bao nhiêu tham số (N)?** Mô hình lớn hơn, năng lực cao hơn.
+2. **Bao nhiêu token huấn luyện (D)?** Nhiều dữ liệu hơn, sử dụng năng lực tốt hơn.
 
-FLOPs scale approximately as `6 × N × D`. You can push N up and D down, or D up and N down. Which is better?
+FLOP tăng xấp xỉ theo `6 × N × D`. Bạn có thể đẩy N lên và D xuống, hoặc D lên và N xuống. Cách nào tốt hơn?
 
-Before 2022, the answer was "push N hard." GPT-3 (2020) was 175B parameters trained on ~300B tokens. A ratio of about 1.7 tokens per parameter. The Kaplan scaling laws backed this up.
+Trước năm 2022, câu trả lời là "đẩy N mạnh." GPT-3 (2020) có 175B tham số được huấn luyện trên ~300B token. Tỷ lệ khoảng 1.7 token mỗi tham số. Các quy luật mở rộng Kaplan ủng hộ điều này.
 
-Hoffmann et al. (2022), training a small family of models called Chinchilla, found something different: optimal ratio is closer to **20 tokens per parameter**. GPT-3 was 10× undertrained. Chinchilla (70B params, 1.4T tokens) beat GPT-3 (175B, 300B tokens) on every benchmark at 2.5× less inference cost.
+Hoffmann và cộng sự (2022), huấn luyện một họ mô hình nhỏ gọi là Chinchilla, tìm ra điều khác: tỷ lệ tối ưu gần **20 token mỗi tham số** hơn. GPT-3 bị huấn luyện thiếu 10×. Chinchilla (70B tham số, 1.4T token) thắng GPT-3 (175B, 300B token) trên mọi benchmark với chi phí suy luận ít hơn 2.5×.
 
-2026 is Chinchilla's world — with one important twist. Llama 3 8B was trained on 15 trillion tokens, a ratio of 1,875 tokens per parameter. Ninety-four times past Chinchilla-optimal. Inference cost matters more than training cost for models that will be used at scale, so over-training (past Chinchilla) for a smaller deployable footprint is the 2026 default.
+Năm 2026 là thế giới của Chinchilla — với một thay đổi quan trọng. Llama 3 8B được huấn luyện trên 15 nghìn tỷ token, tỷ lệ 1,875 token mỗi tham số. Chín mươi tư lần vượt tối ưu Chinchilla. Chi phí suy luận quan trọng hơn chi phí huấn luyện với các mô hình sẽ được dùng ở quy mô lớn, nên huấn luyện quá mức (vượt Chinchilla) để có lượng tài nguyên triển khai nhỏ hơn là mặc định năm 2026.
 
 ## The Concept
 
@@ -28,19 +28,19 @@ Hoffmann et al. (2022), training a small family of models called Chinchilla, fou
 
 ### The Hoffmann law
 
-From the Chinchilla paper, loss follows:
+Từ bài báo Chinchilla, loss tuân theo:
 
 ```
 L(N, D) = A / N^α + B / D^β + E
 ```
 
-- `N` = parameters (non-embedding).
-- `D` = training tokens.
-- `α ≈ 0.34`, `β ≈ 0.28` (roughly symmetric).
-- `E ≈ 1.69`, the irreducible loss ceiling.
+- `N` = tham số (không phải embedding).
+- `D` = token huấn luyện.
+- `α ≈ 0.34`, `β ≈ 0.28` (gần đối xứng).
+- `E ≈ 1.69`, mức trần loss không thể giảm.
 - `A ≈ 406`, `B ≈ 411`.
 
-Two terms trade against each other as you scale. Take the derivative w.r.t. `N` at fixed compute (C = 6ND) and solve:
+Hai số hạng đánh đổi với nhau khi bạn mở rộng. Lấy đạo hàm theo `N` ở tính toán cố định (C = 6ND) và giải:
 
 ```
 N_opt ≈ 0.6 × (C/6)^0.5
@@ -48,41 +48,41 @@ D_opt ≈ 0.6 × (C/6)^0.5
 D_opt / N_opt ≈ 20
 ```
 
-Compute-optimal: 20 tokens per parameter.
+Tối ưu tính toán: 20 token mỗi tham số.
 
 ### Why over-training anyway
 
-Chinchilla-optimal minimizes training loss per training FLOP. But you pay training cost once; inference cost forever.
+Tối ưu Chinchilla giảm thiểu loss huấn luyện mỗi FLOP huấn luyện. Nhưng bạn trả chi phí huấn luyện một lần; chi phí suy luận mãi mãi.
 
-For a chatbot that serves a trillion tokens per month, inference dominates total cost. Llama's approach: train smaller, longer. 8B at 15T tokens is deeply inference-optimized:
+Với một chatbot phục vụ một nghìn tỷ token mỗi tháng, suy luận chi phối tổng chi phí. Cách tiếp cận của Llama: huấn luyện nhỏ hơn, lâu hơn. 8B tại 15T token được tối ưu sâu cho suy luận:
 
-- Fits on consumer GPUs.
-- Latency is a fraction of 70B Chinchilla-optimal.
-- Quality is close enough for most tasks.
+- Vừa trên GPU tiêu dùng.
+- Độ trễ là một phần của 70B tối ưu Chinchilla.
+- Chất lượng đủ gần cho hầu hết tác vụ.
 
-DeepMind's 2024 paper ("Over-training is the new optimal") formalized this. For inference-dominated workloads, the right ratio is closer to 100–500 tokens per parameter depending on serving volume.
+Bài báo năm 2024 của DeepMind ("Over-training is the new optimal") hình thức hóa điều này. Với các khối lượng công việc bị suy luận chi phối, tỷ lệ đúng gần 100–500 token mỗi tham số hơn tùy khối lượng phục vụ.
 
 ### Emergence vs smoothness
 
-Claim: certain abilities (arithmetic, multi-step reasoning, chain-of-thought following) "emerge" suddenly at some scale.
+Khẳng định: một số khả năng (số học, suy luận nhiều bước, theo chain-of-thought) "xuất hiện" đột ngột ở một quy mô nào đó.
 
-Schaeffer et al. (2023) argued this is a measurement artifact: emergent metrics use discontinuous scoring (exact match, accuracy at threshold) that hide smooth improvement in the underlying logits. Continuous metrics (cross-entropy) show smooth curves.
+Schaeffer và cộng sự (2023) lập luận đây là một tạo tác đo lường: các thước đo xuất hiện đột ngột dùng chấm điểm không liên tục (khớp chính xác, accuracy tại ngưỡng) che giấu cải thiện trơn trong các logits bên dưới. Các thước đo liên tục (cross-entropy) cho các đường cong trơn.
 
-In 2026 the consensus is: predictions via continuous loss are reliable. Benchmark jumps are often scorer artifacts. Plan budgets against continuous metrics.
+Năm 2026 đồng thuận là: dự đoán qua loss liên tục đáng tin cậy. Các bước nhảy benchmark thường là tạo tác bộ chấm. Lập kế hoạch ngân sách theo các thước đo liên tục.
 
 ### The 2026 picture
 
-Scaling laws still work, but:
+Các quy luật mở rộng vẫn hoạt động, nhưng:
 
-| Factor | Changed how |
+| Yếu tố | Thay đổi thế nào |
 |--------|-------------|
-| Data quality | Curating "good" tokens (Phi-style) shifts curves by >2× effective compute |
-| MoE | Total params decouple from active FLOPs; scaling laws per-active-FLOP |
-| Post-training | Some capabilities (instruction following, code) shift with SFT+RLHF more than pretraining |
-| Multimodality | Image + text tokens scale together; separate curves per modality |
-| Synthetic data | Models generate training data; effective compute can compound |
+| Chất lượng dữ liệu | Tuyển chọn các token "tốt" (kiểu Phi) dịch các đường cong >2× tính toán hiệu dụng |
+| MoE | Tổng tham số tách khỏi FLOP hoạt động; các quy luật mở rộng theo FLOP hoạt động |
+| Hậu huấn luyện | Một số năng lực (theo chỉ dẫn, mã) thay đổi theo SFT+RLHF nhiều hơn tiền huấn luyện |
+| Đa phương thức | Các token ảnh + văn bản cùng mở rộng; các đường cong riêng theo phương thức |
+| Dữ liệu tổng hợp | Các mô hình sinh dữ liệu huấn luyện; tính toán hiệu dụng có thể cộng dồn |
 
-The Muon optimizer (Kimi Moonlight, 2024) showed a ~2× effective-compute gain over AdamW at matched data. Some 2026 training runs use Muon by default. Changes the absolute constant in the scaling law, not its shape.
+Bộ tối ưu Muon (Kimi Moonlight, 2024) cho thấy mức tăng tính toán hiệu dụng ~2× so với AdamW ở dữ liệu tương ứng. Một số lượt huấn luyện năm 2026 dùng Muon mặc định. Thay đổi hằng số tuyệt đối trong quy luật mở rộng, không phải hình dạng.
 
 ```figure
 scaling-laws
@@ -90,7 +90,7 @@ scaling-laws
 
 ## Build It
 
-See `code/main.py`. We implement the Chinchilla loss equation and solve for compute-optimal `(N, D)` at each of several compute budgets.
+Xem `code/main.py`. Chúng ta triển khai phương trình loss Chinchilla và giải `(N, D)` tối ưu tính toán ở mỗi một trong vài ngân sách tính toán.
 
 ### Step 1: Chinchilla loss
 
@@ -99,61 +99,61 @@ def chinchilla_loss(N, D, A=406.4, B=410.7, alpha=0.34, beta=0.28, E=1.69):
     return A / N ** alpha + B / D ** beta + E
 ```
 
-Plot `L` as a contour over `(N, D)` at fixed `C = 6ND`. Find the minimum.
+Vẽ `L` dưới dạng đường đồng mức trên `(N, D)` ở `C = 6ND` cố định. Tìm giá trị nhỏ nhất.
 
 ### Step 2: compute-optimal frontier
 
-For compute budgets from `1e17` to `1e25` FLOPs, find `(N, D)` that minimize loss subject to `6ND = C`. Verify the ratio `D/N ≈ 20`.
+Với các ngân sách tính toán từ `1e17` đến `1e25` FLOP, tìm `(N, D)` giảm thiểu loss với ràng buộc `6ND = C`. Xác minh tỷ lệ `D/N ≈ 20`.
 
 ### Step 3: over-training cost
 
-Compute the extra loss you pay to train a 10× smaller model (1/10 of optimal N, 10× the optimal D). Reports the inference FLOP savings (proportional to N) in exchange.
+Tính loss bổ sung bạn trả để huấn luyện một mô hình nhỏ hơn 10× (1/10 N tối ưu, 10× D tối ưu). Báo cáo phần tiết kiệm FLOP suy luận (tỷ lệ với N) để đổi lại.
 
 ### Step 4: compare to real models
 
-Drop in known `(N, D)` pairs for GPT-3, Chinchilla, Llama 3 8B, DeepSeek-V3 (active params), and compare predicted vs reported loss.
+Đưa vào các cặp `(N, D)` đã biết cho GPT-3, Chinchilla, Llama 3 8B, DeepSeek-V3 (tham số hoạt động) và so sánh loss dự đoán với báo cáo.
 
 ## Use It
 
-You're unlikely to train a frontier model yourself. But scaling laws tell you:
+Bạn khó có khả năng tự huấn luyện một mô hình tiên phong. Nhưng các quy luật mở rộng cho bạn biết:
 
-1. **Whether your fine-tune has enough data.** If your task-specific data is below 20 tokens per param of the base model, expect saturation at some loss floor.
-2. **Whether to pick a bigger base model.** If you're spending all your budget on inference, prefer a smaller, longer-trained model.
-3. **Where the returns diminish.** Beyond 1000× Chinchilla-optimal, log-loss changes become noise.
+1. **Fine-tune của bạn có đủ dữ liệu không.** Nếu dữ liệu riêng tác vụ dưới 20 token mỗi tham số của mô hình cơ sở, kỳ vọng bão hòa tại một mức sàn loss nào đó.
+2. **Có nên chọn một mô hình cơ sở lớn hơn không.** Nếu bạn đang chi toàn ngân sách vào suy luận, ưu tiên một mô hình nhỏ hơn, được huấn luyện lâu hơn.
+3. **Lợi ích giảm dần ở đâu.** Vượt 1000× tối ưu Chinchilla, các thay đổi log-loss trở thành nhiễu.
 
-**The research trajectory in 2026:**
+**Quỹ đạo nghiên cứu năm 2026:**
 
-- **Data-constrained regime.** The web has a finite number of high-quality tokens (~5–10 trillion English after filtering). Frontier pretraining is approaching this ceiling. Synthetic data, multilingual, multimodal, and RLHF-scaled fine-tuning are the next levers.
-- **Compute-multiplier tricks.** Muon optimizer, MoE, better data curation — each shifts the absolute constants, not the asymptote.
-- **Scaling laws for RL.** Open question. Early evidence suggests power-law in RL samples but with very different exponents than pretraining.
+- **Chế độ bị giới hạn dữ liệu.** Web có số token chất lượng cao hữu hạn (~5–10 nghìn tỷ tiếng Anh sau lọc). Tiền huấn luyện tiên phong đang đến gần mức trần này. Dữ liệu tổng hợp, đa ngôn ngữ, đa phương thức và fine-tuning được mở rộng bằng RLHF là các đòn bẩy tiếp theo.
+- **Các thủ thuật nhân tính toán.** Bộ tối ưu Muon, MoE, tuyển chọn dữ liệu tốt hơn — mỗi thứ dịch các hằng số tuyệt đối, không phải tiệm cận.
+- **Các quy luật mở rộng cho RL.** Câu hỏi mở. Bằng chứng sớm gợi ý quy luật lũy thừa theo các mẫu RL nhưng với các số mũ rất khác tiền huấn luyện.
 
 ## Ship It
 
-See `outputs/skill-training-budget-estimator.md`. The skill picks `(N, D, hours, GPU)` for a new training run given compute budget, deployment constraints, and target loss.
+Xem `outputs/skill-training-budget-estimator.md`. Skill chọn `(N, D, hours, GPU)` cho một lượt huấn luyện mới với ngân sách tính toán, các ràng buộc triển khai và loss mục tiêu.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. Print Chinchilla-optimal `(N, D)` for compute budgets `1e20`, `1e22`, `1e24`. Compare to the real model table.
-2. **Medium.** Implement the Hoffmann loss-as-function-of-compute curve. Plot loss vs `log10(C)` for the compute-optimal frontier. Identify when the law predicts we'd need `>10^28` FLOPs for the next 0.1 reduction in cross-entropy.
-3. **Hard.** Fit your own scaling law on 5 tiny models (100K to 10M params) trained on the same dataset. Estimate `α` and `E`. How well do your exponents match published ones?
+1. **Dễ.** Chạy `code/main.py`. In `(N, D)` tối ưu Chinchilla cho các ngân sách tính toán `1e20`, `1e22`, `1e24`. So sánh với bảng mô hình thực.
+2. **Trung bình.** Triển khai đường cong loss-theo-tính-toán Hoffmann. Vẽ loss theo `log10(C)` cho tuyến đầu tối ưu tính toán. Xác định khi nào quy luật dự đoán chúng ta cần `>10^28` FLOP cho mức giảm 0.1 cross-entropy tiếp theo.
+3. **Khó.** Khớp quy luật mở rộng của riêng bạn trên 5 mô hình tí hon (100K đến 10M tham số) được huấn luyện trên cùng tập dữ liệu. Ước lượng `α` và `E`. Các số mũ của bạn khớp những số đã công bố tốt đến đâu?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Parameters (N) | "Model size" | Non-embedding weight count; determines capacity. |
-| Tokens (D) | "Training data" | Number of training tokens seen; determines how well the parameters get used. |
-| Compute (C) | "FLOPs spent" | Approximately `6 × N × D` for a standard transformer. |
-| Chinchilla-optimal | "D/N ≈ 20" | Ratio that minimizes loss per FLOP of pretraining. |
-| Over-training | "Past Chinchilla" | Spend extra training FLOPs to save inference FLOPs; D/N >> 20. |
-| Irreducible loss | "The floor" | The `E` term in the scaling law; the entropy of the data itself. |
-| Emergent capability | "Sudden jumps at scale" | Often a scorer artifact; continuous loss is smooth. |
-| Effective compute | "Training-efficiency multiplier" | Better data / optimizer / architecture multiplies how far a FLOP goes. |
+| Parameters (N) (Tham số) | "Kích thước mô hình" | Số trọng số không phải embedding; quyết định năng lực. |
+| Tokens (D) (Token) | "Dữ liệu huấn luyện" | Số token huấn luyện đã thấy; quyết định các tham số được dùng tốt đến đâu. |
+| Compute (C) (Tính toán) | "FLOP đã chi" | Xấp xỉ `6 × N × D` cho một transformer tiêu chuẩn. |
+| Chinchilla-optimal (Tối ưu Chinchilla) | "D/N ≈ 20" | Tỷ lệ giảm thiểu loss mỗi FLOP tiền huấn luyện. |
+| Over-training (Huấn luyện quá mức) | "Vượt Chinchilla" | Chi thêm FLOP huấn luyện để tiết kiệm FLOP suy luận; D/N >> 20. |
+| Irreducible loss (Loss không thể giảm) | "Mức sàn" | Số hạng `E` trong quy luật mở rộng; entropy của chính dữ liệu. |
+| Emergent capability (Năng lực xuất hiện đột ngột) | "Các bước nhảy đột ngột ở quy mô lớn" | Thường là tạo tác bộ chấm; loss liên tục trơn. |
+| Effective compute (Tính toán hiệu dụng) | "Hệ số nhân hiệu quả huấn luyện" | Dữ liệu / bộ tối ưu / kiến trúc tốt hơn nhân mức một FLOP đi được. |
 
 ## Further Reading
 
-- [Kaplan et al. (2020). Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361) — the first scaling law paper; undertrained.
+- [Kaplan et al. (2020). Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361) — bài báo quy luật mở rộng đầu tiên; huấn luyện thiếu.
 - [Hoffmann et al. (2022). Training Compute-Optimal Large Language Models](https://arxiv.org/abs/2203.15556) — Chinchilla.
-- [Schaeffer et al. (2023). Are Emergent Abilities of Large Language Models a Mirage?](https://arxiv.org/abs/2304.15004) — emergence as measurement artifact.
-- [Sardana, Frankle (2024). Beyond Chinchilla-Optimal: Accounting for Inference in Language Model Scaling Laws](https://arxiv.org/abs/2401.00448) — why Llama's over-training is right for its workload.
-- [Jordan et al. (2024). Muon: An optimizer for hidden layers in neural networks](https://kellerjordan.github.io/posts/muon/) — 2× compute multiplier.
+- [Schaeffer et al. (2023). Are Emergent Abilities of Large Language Models a Mirage?](https://arxiv.org/abs/2304.15004) — sự xuất hiện đột ngột như tạo tác đo lường.
+- [Sardana, Frankle (2024). Beyond Chinchilla-Optimal: Accounting for Inference in Language Model Scaling Laws](https://arxiv.org/abs/2401.00448) — vì sao huấn luyện quá mức của Llama đúng cho khối lượng công việc của nó.
+- [Jordan et al. (2024). Muon: An optimizer for hidden layers in neural networks](https://kellerjordan.github.io/posts/muon/) — hệ số nhân tính toán 2×.
