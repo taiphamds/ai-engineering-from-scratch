@@ -1,6 +1,6 @@
 # The Autonomous Coding Agent Landscape (2026)
 
-> SWE-bench Verified went from 4% to 80.9% in under three years. Same Claude Sonnet 4.5 scored 43.2% on SWE-agent v1 and 59.8% on Cline autonomous — the scaffolding around the model now matters as much as the model itself. OpenHands (formerly OpenDevin) is the most active MIT-licensed platform and its CodeAct loop executes Python actions directly in a sandbox instead of JSON tool calls. The headline numbers hide a methodological issue: 161 of 500 SWE-bench Verified tasks require only a 1–2 line change, and SWE-bench Pro (10+ line tasks) sits at 23–59% for the same frontier models.
+> SWE-bench Verified đã tăng từ 4% lên 80.9% trong chưa đầy ba năm. Cùng Claude Sonnet 4.5 đạt 43.2% trên SWE-agent v1 và 59.8% trên Cline tự chủ — khung bao quanh mô hình giờ đây quan trọng ngang với chính mô hình. OpenHands (trước đây là OpenDevin) là nền tảng có giấy phép MIT hoạt động tích cực nhất và vòng lặp CodeAct của nó thực thi trực tiếp các hành động Python trong sandbox thay vì các lệnh gọi công cụ JSON. Các con số nổi bật che giấu một vấn đề về phương pháp: 161 trong 500 tác vụ SWE-bench Verified chỉ yêu cầu thay đổi 1–2 dòng, và SWE-bench Pro (các tác vụ 10+ dòng) nằm ở mức 23–59% đối với cùng các mô hình tiên tiến nhất.
 
 **Type:** Learn
 **Languages:** Python (stdlib, CodeAct vs JSON tool-call comparison)
@@ -9,62 +9,62 @@
 
 ## The Problem
 
-"Which coding agent is best" is the wrong question. The right question is: on a task distribution that matches my work, with the scaffolding I will run in production, what end-to-end reliability do I get?
+“Agent lập trình nào tốt nhất” là câu hỏi sai. Câu hỏi đúng là: trên một phân phối tác vụ phù hợp với công việc của tôi, với khung tôi sẽ chạy trong môi trường sản xuất, tôi đạt được độ tin cậy đầu cuối nào?
 
-Between 2022 and 2026 the field learned that scaffolding — the retrieval layer, the planner, the sandbox, the edit-verify loop, the feedback format — is load-bearing. Claude Sonnet 4.5 on SWE-agent v1 scored 43.2% on SWE-bench Verified; the same model inside Cline's autonomous scaffold scored 59.8%. 16.6 absolute points of difference, same weights. The base model is a component; the loop is the product.
+Từ năm 2022 đến 2026, lĩnh vực này đã học được rằng khung — lớp truy xuất, bộ lập kế hoạch, sandbox, vòng lặp chỉnh sửa-xác minh, định dạng phản hồi — đóng vai trò chịu lực. Claude Sonnet 4.5 trên SWE-agent v1 đạt 43.2% trên SWE-bench Verified; cùng mô hình đó bên trong khung tự chủ của Cline đạt 59.8%. Chênh lệch 16.6 điểm tuyệt đối, cùng trọng số. Mô hình cơ sở là một thành phần; vòng lặp là sản phẩm.
 
-The companion problem is that benchmark saturation hides regressions. SWE-bench Verified is close to saturated, and the easy-task tail (161 of 500 tasks requiring ≤2 lines) pulls top scores up. Real-world quality is better measured on distributions like SWE-bench Pro (10+ line changes), where the same leaders still sit at 23–59%.
+Vấn đề đi kèm là sự bão hòa benchmark che giấu các bước thụt lùi. SWE-bench Verified gần bão hòa, và phần đuôi tác vụ dễ (161 trong 500 tác vụ yêu cầu ≤2 dòng) kéo các điểm cao nhất lên. Chất lượng thực tế được đo tốt hơn trên các phân phối như SWE-bench Pro (thay đổi 10+ dòng), nơi cùng những bên dẫn đầu vẫn nằm ở mức 23–59%.
 
 ## The Concept
 
 ### SWE-bench, one paragraph
 
-SWE-bench (Jimenez et al.) takes real GitHub issues with ground-truth patches and asks an agent to produce a patch that makes the test suite pass. SWE-bench Verified (OpenAI, 2024) is a human-curated 500-task subset with the ambiguous and broken tasks removed. SWE-bench Pro is the harder successor — tasks requiring 10+ lines of change, where current frontier agents sit at 23–59%.
+SWE-bench (Jimenez và cộng sự) lấy các issue GitHub thực với các bản vá chuẩn tham chiếu và yêu cầu một agent tạo ra bản vá khiến bộ kiểm thử vượt qua. SWE-bench Verified (OpenAI, 2024) là một tập con 500 tác vụ được con người tuyển chọn, đã loại bỏ các tác vụ mơ hồ và bị lỗi. SWE-bench Pro là phiên bản kế tiếp khó hơn — các tác vụ yêu cầu thay đổi 10+ dòng, nơi các agent tiên tiến nhất hiện tại nằm ở mức 23–59%.
 
 ### What the 2022 → 2026 curve actually shows
 
-- **2022**: research models at ~4% on raw SWE-bench.
-- **2024**: GPT-4 + Devin-style scaffolding at ~14%; SWE-agent at ~12%.
-- **2025**: Claude 3.5/3.7 Sonnet inside Aider and SWE-agent push into the 40–55% range.
-- **2026**: Claude Sonnet 4.5 and frontier competitors at 70–80%+ on SWE-bench Verified. Epoch AI's leaderboard tracks this live.
+- **2022**: các mô hình nghiên cứu ở mức ~4% trên SWE-bench thô.
+- **2024**: GPT-4 + khung kiểu Devin ở mức ~14%; SWE-agent ở mức ~12%.
+- **2025**: Claude 3.5/3.7 Sonnet bên trong Aider và SWE-agent đẩy lên khoảng 40–55%.
+- **2026**: Claude Sonnet 4.5 và các đối thủ tiên tiến nhất ở mức 70–80%+ trên SWE-bench Verified. Bảng xếp hạng của Epoch AI theo dõi điều này trực tiếp.
 
-The slope came from three compounding sources: better base models, better scaffolding (CodeAct, reflection, verifier loops), and better benchmarks (Verified removing noise).
+Độ dốc đến từ ba nguồn cộng dồn: các mô hình cơ sở tốt hơn, khung tốt hơn (CodeAct, phản tư, các vòng lặp bộ xác minh), và benchmark tốt hơn (Verified loại bỏ nhiễu).
 
 ### CodeAct vs JSON tool calls
 
-OpenHands (All-Hands-AI, arXiv:2407.16741, formerly OpenDevin) took a specific architectural bet: instead of the model emitting JSON tool calls that a host decodes and executes, the model emits Python code and a Jupyter-style kernel runs it in a sandbox. The agent can loop over files, chain tools, and catch its own exceptions inside one action.
+OpenHands (All-Hands-AI, arXiv:2407.16741, trước đây là OpenDevin) đã đặt cược vào một kiến trúc cụ thể: thay vì mô hình phát ra các lệnh gọi công cụ JSON để một máy chủ giải mã và thực thi, mô hình phát ra mã Python và một kernel kiểu Jupyter chạy mã đó trong sandbox. Agent có thể lặp qua các file, nối chuỗi công cụ, và bắt các ngoại lệ của chính nó bên trong một hành động.
 
-The trade-off:
+Sự đánh đổi:
 
-- **JSON tool calls**: every action is one turn; easy to audit; limited compositionality; safe by default because each call goes through an explicit validator.
-- **CodeAct**: one action can be a whole program; compositional; requires a hardened sandbox (OpenHands uses Docker isolation); failure modes include anything the sandbox runtime allows.
+- **Các lệnh gọi công cụ JSON**: mỗi hành động là một lượt; dễ kiểm toán; khả năng kết hợp hạn chế; an toàn theo mặc định vì mỗi lệnh gọi đều đi qua một bộ xác thực tường minh.
+- **CodeAct**: một hành động có thể là cả một chương trình; có khả năng kết hợp; yêu cầu sandbox được gia cố (OpenHands sử dụng cách ly Docker); các chế độ lỗi bao gồm bất cứ điều gì môi trường chạy sandbox cho phép.
 
-Both architectures are in production. CodeAct is dominant in open platforms (OpenHands, smolagents). JSON tool calls remain dominant in managed services (Anthropic Managed Agents, OpenAI Assistants) where the provider controls the executor.
+Cả hai kiến trúc đều đang được dùng trong môi trường sản xuất. CodeAct chiếm ưu thế trong các nền tảng mở (OpenHands, smolagents). Các lệnh gọi công cụ JSON vẫn chiếm ưu thế trong các dịch vụ được quản lý (Anthropic Managed Agents, OpenAI Assistants), nơi nhà cung cấp kiểm soát bộ thực thi.
 
 ### Scaffolds in the 2026 landscape
 
-| Scaffold | License | Execution model | Notable property |
+| Khung | Giấy phép | Mô hình thực thi | Thuộc tính đáng chú ý |
 |---|---|---|---|
-| OpenHands (OpenDevin) | MIT | CodeAct in Docker | Most active open platform; event-stream replayable |
-| SWE-agent | MIT | Agent-Computer Interface (ACI) | First end-to-end SWE-bench scaffold |
-| Aider | Apache-2 | edit-via-diff in local repo | Minimal scaffold, strong regression stability |
-| Cline | Apache-2 | VS Code agent with tool policy | Highest-scoring open scaffold on Sonnet 4.5 |
-| Devin (Cognition) | Proprietary | Managed VM + planner | First "AI software engineer" product category |
-| Claude Code | Proprietary | Permission modes + routines | Lesson 10 covers the agent loop in detail |
+| OpenHands (OpenDevin) | MIT | CodeAct trong Docker | Nền tảng mở hoạt động tích cực nhất; có thể phát lại luồng sự kiện |
+| SWE-agent | MIT | Agent-Computer Interface (ACI) | Khung SWE-bench đầu cuối đầu tiên |
+| Aider | Apache-2 | chỉnh sửa qua diff trong repo cục bộ | Khung tối giản, độ ổn định hồi quy cao |
+| Cline | Apache-2 | Agent VS Code với chính sách công cụ | Khung mở đạt điểm cao nhất trên Sonnet 4.5 |
+| Devin (Cognition) | Độc quyền | VM được quản lý + bộ lập kế hoạch | Danh mục sản phẩm “kỹ sư phần mềm AI” đầu tiên |
+| Claude Code | Độc quyền | Các chế độ quyền + quy trình | Bài 10 trình bày chi tiết vòng lặp agent |
 
 ### Why scaffolding dominates
 
-A coding run is a long-horizon trajectory (Lesson 1). Reliability compounds across steps. Three places where scaffolding buys points:
+Một lần chạy lập trình là một quỹ đạo có tầm thời gian dài (Bài 1). Độ tin cậy cộng dồn qua các bước. Ba nơi khung mang lại thêm điểm:
 
-1. **Retrieval**: finding the right files to read is the silent bottleneck. SWE-agent's ACI, OpenHands' file-index, and Aider's repo-map all attack this.
-2. **Verifier loop**: running tests, reading stack traces, and re-attempting is a 10+ point delta on SWE-bench.
-3. **Failure containment**: a sandbox that rolls back on error prevents compounding damage. The same model with and without a verifier loop looks like two different products.
+1. **Truy xuất**: tìm đúng các file để đọc là nút thắt âm thầm. ACI của SWE-agent, chỉ mục file của OpenHands, và bản đồ repo của Aider đều giải quyết điều này.
+2. **Vòng lặp bộ xác minh**: chạy kiểm thử, đọc dấu vết ngăn xếp, và thử lại tạo ra chênh lệch 10+ điểm trên SWE-bench.
+3. **Khoanh vùng lỗi**: một sandbox hoàn tác khi có lỗi ngăn thiệt hại cộng dồn. Cùng mô hình đó khi có và không có vòng lặp bộ xác minh trông như hai sản phẩm khác nhau.
 
 ### Benchmark saturation and the real distribution
 
-The OpenHands authors and Epoch AI both flag that SWE-bench Verified has an easy tail: 161 of 500 tasks need only 1–2 lines of change. High scores are driven partly by this tail. SWE-bench Pro restricts to 10+ line changes and returns scores in the 23–59% range even for frontier systems. Your production distribution is almost certainly closer to Pro than to Verified.
+Các tác giả OpenHands và Epoch AI đều chỉ ra rằng SWE-bench Verified có phần đuôi dễ: 161 trong 500 tác vụ chỉ cần thay đổi 1–2 dòng. Điểm cao được thúc đẩy một phần bởi phần đuôi này. SWE-bench Pro giới hạn ở các thay đổi 10+ dòng và trả về điểm trong khoảng 23–59% ngay cả đối với các hệ thống tiên tiến nhất. Phân phối sản xuất của bạn gần như chắc chắn gần Pro hơn Verified.
 
-Implication for choosing an agent: run a Pro-like subset of your own bug backlog. The score that matters is the score on tasks representative of what you ship.
+Hệ quả đối với việc chọn agent: chạy một tập con giống Pro từ danh sách lỗi tồn đọng của chính bạn. Điểm quan trọng là điểm trên các tác vụ đại diện cho những gì bạn đưa ra.
 
 ```figure
 a5-scaffold-delta
@@ -72,46 +72,46 @@ a5-scaffold-delta
 
 ## Use It
 
-`code/main.py` compares two toy agent scaffolds on a fixed mini-task distribution:
+`code/main.py` so sánh hai khung agent đồ chơi trên một phân phối tác vụ nhỏ cố định:
 
-1. A **JSON tool-call** scaffold that takes one action per turn.
-2. A **CodeAct** scaffold that can emit a small Python snippet per action.
+1. Một khung **gọi công cụ JSON** thực hiện một hành động mỗi lượt.
+2. Một khung **CodeAct** có thể phát ra một đoạn Python nhỏ mỗi hành động.
 
-Both use a stub "model" (deterministic rules) so the comparison isolates the scaffold from model quality. The output shows the CodeAct scaffold solves more tasks in fewer turns at the cost of a larger per-action blast radius.
+Cả hai sử dụng một “mô hình” giả lập (các quy tắc xác định) nên phép so sánh tách khung khỏi chất lượng mô hình. Đầu ra cho thấy khung CodeAct giải quyết nhiều tác vụ hơn trong ít lượt hơn, với cái giá là phạm vi ảnh hưởng lớn hơn cho mỗi hành động.
 
 ## Ship It
 
-`outputs/skill-scaffold-audit.md` helps you audit a proposed coding-agent scaffold before adoption: retrieval quality, verifier presence, sandbox isolation, and benchmark-to-distribution fit.
+`outputs/skill-scaffold-audit.md` giúp bạn kiểm toán một khung agent lập trình được đề xuất trước khi áp dụng: chất lượng truy xuất, sự hiện diện của bộ xác minh, cách ly sandbox, và độ phù hợp giữa benchmark với phân phối.
 
 ## Exercises
 
-1. Run `code/main.py`. How many turns does each scaffold take on the same task set? What is the per-action blast radius of each?
+1. Chạy `code/main.py`. Mỗi khung cần bao nhiêu lượt trên cùng tập tác vụ? Phạm vi ảnh hưởng trên mỗi hành động của mỗi khung là gì?
 
-2. Read the OpenHands paper (arXiv:2407.16741). The paper argues CodeAct beats JSON tool calls on complex tasks. Identify one failure mode the paper acknowledges and write one sentence on when that mode would dominate in production.
+2. Đọc bài báo OpenHands (arXiv:2407.16741). Bài báo lập luận CodeAct vượt các lệnh gọi công cụ JSON trên các tác vụ phức tạp. Xác định một chế độ lỗi mà bài báo thừa nhận và viết một câu về khi nào chế độ đó sẽ chi phối trong môi trường sản xuất.
 
-3. Pick one task from your bug backlog that would require 10+ lines of change across two files. Estimate the end-to-end success probability for a frontier model under (a) JSON tool calls and (b) CodeAct. Justify the gap.
+3. Chọn một tác vụ từ danh sách lỗi tồn đọng của bạn yêu cầu thay đổi 10+ dòng trên hai file. Ước tính xác suất thành công đầu cuối cho một mô hình tiên tiến nhất dưới (a) các lệnh gọi công cụ JSON và (b) CodeAct. Giải thích sự chênh lệch.
 
-4. SWE-bench Verified has 161 single-file, 1–2 line tasks. Construct a score that excludes them. How does the leaderboard shuffle?
+4. SWE-bench Verified có 161 tác vụ một file, 1–2 dòng. Xây dựng một điểm số loại trừ chúng. Bảng xếp hạng thay đổi thứ tự như thế nào?
 
-5. Read "Introducing SWE-bench Verified" (OpenAI). Explain the specific methodology used to remove ambiguous tasks, and name one category the curation would miss.
+5. Đọc “Introducing SWE-bench Verified” (OpenAI). Giải thích phương pháp cụ thể được sử dụng để loại bỏ các tác vụ mơ hồ, và nêu tên một loại mà việc tuyển chọn sẽ bỏ sót.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |---|---|---|
-| SWE-bench | "Coding benchmark" | Real GitHub issues with ground-truth patches and test suites |
-| SWE-bench Verified | "Cleaned subset" | 500 human-curated tasks, easier-tail present |
-| SWE-bench Pro | "Harder subset" | 10+ line changes; frontier sits at 23–59% |
-| CodeAct | "Code-as-action" | Agent emits Python; Jupyter-style kernel executes in sandbox |
-| JSON tool call | "Function calling" | Each action is a structured JSON payload validated before execution |
-| Scaffold | "Agent framework" | Retrieval + planner + executor + verifier loop around the base model |
-| ACI (Agent-Computer Interface) | "SWE-agent's format" | Command set designed for LLM ergonomics, not human shells |
-| Verifier loop | "Test-and-retry" | Run tests, read output, revise patch; biggest non-model reliability gain |
+| SWE-bench | “Benchmark lập trình” | Các issue GitHub thực với các bản vá chuẩn tham chiếu và bộ kiểm thử |
+| SWE-bench Verified | “Tập con đã làm sạch” | 500 tác vụ được con người tuyển chọn, có phần đuôi dễ |
+| SWE-bench Pro | “Tập con khó hơn” | Thay đổi 10+ dòng; mức tiên tiến nhất nằm ở 23–59% |
+| CodeAct | “Mã dưới dạng hành động” | Agent phát ra Python; kernel kiểu Jupyter thực thi trong sandbox |
+| JSON tool call (Lệnh gọi công cụ JSON) | “Gọi hàm” | Mỗi hành động là một payload JSON có cấu trúc được xác thực trước khi thực thi |
+| Scaffold (Khung) | “Framework agent” | Truy xuất + bộ lập kế hoạch + bộ thực thi + vòng lặp bộ xác minh bao quanh mô hình cơ sở |
+| ACI (Agent-Computer Interface) | “Định dạng của SWE-agent” | Tập lệnh được thiết kế để thuận tiện cho LLM, thay vì shell của con người |
+| Verifier loop (Vòng lặp bộ xác minh) | “Kiểm thử và thử lại” | Chạy kiểm thử, đọc đầu ra, sửa bản vá; mức tăng độ tin cậy lớn nhất không đến từ mô hình |
 
 ## Further Reading
 
-- [Jimenez et al. — SWE-bench](https://www.swebench.com/) — the original benchmark and methodology.
-- [OpenAI — Introducing SWE-bench Verified](https://openai.com/index/introducing-swe-bench-verified/) — how the curated subset was built.
-- [Wang et al. — OpenHands: An Open Platform for AI Software Developers](https://arxiv.org/abs/2407.16741) — CodeAct architecture and event-stream design.
-- [Epoch AI — SWE-bench leaderboard](https://epoch.ai/benchmarks) — live-tracked scores.
-- [Anthropic — Measuring agent autonomy](https://www.anthropic.com/research/measuring-agent-autonomy) — long-horizon coding-agent reliability framing.
+- [Jimenez et al. — SWE-bench](https://www.swebench.com/) — benchmark và phương pháp gốc.
+- [OpenAI — Introducing SWE-bench Verified](https://openai.com/index/introducing-swe-bench-verified/) — cách tập con được tuyển chọn được xây dựng.
+- [Wang et al. — OpenHands: An Open Platform for AI Software Developers](https://arxiv.org/abs/2407.16741) — kiến trúc CodeAct và thiết kế luồng sự kiện.
+- [Epoch AI — SWE-bench leaderboard](https://epoch.ai/benchmarks) — điểm số được theo dõi trực tiếp.
+- [Anthropic — Measuring agent autonomy](https://www.anthropic.com/research/measuring-agent-autonomy) — cách định hình độ tin cậy của agent lập trình có tầm thời gian dài.

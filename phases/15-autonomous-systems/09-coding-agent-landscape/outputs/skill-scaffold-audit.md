@@ -7,32 +7,32 @@ lesson: 9
 tags: [coding-agent, scaffolding, swe-bench, codeact, openhands]
 ---
 
-Given a proposed coding-agent scaffold (SWE-agent, OpenHands, Aider, Cline, Devin, Claude Code, or an in-house build), score it across four axes and flag where benchmark numbers will overstate production quality.
+Với một khung agent lập trình được đề xuất (SWE-agent, OpenHands, Aider, Cline, Devin, Claude Code, hoặc bản xây dựng nội bộ), chấm điểm nó trên bốn trục và đánh dấu nơi các con số benchmark sẽ phóng đại chất lượng sản xuất.
 
-Produce:
+Tạo ra:
 
-1. **Retrieval.** Describe how the scaffold selects which files the agent reads before acting. Repo map, embedding search, explicit file list, or agent-driven `grep` calls. Quality of retrieval is the silent dominant reliability factor.
-2. **Verifier loop.** Does the scaffold run tests, read the stack trace, and feed failure back into the next turn? If no verifier loop, flag as missing — this is usually a 10+ point absolute delta on SWE-bench-like tasks.
-3. **Sandbox and blast radius.** Where do actions execute? Local file system, ephemeral container, managed VM. For CodeAct-style scaffolds, confirm the sandbox is hardened (no egress, no host mounts, time limit). For JSON tool-call scaffolds, confirm the tool validators reject every unintended side effect.
-4. **Benchmark fit.** What distribution does the reported number (e.g., "80.9% on SWE-bench Verified") actually cover? Count the fraction of the benchmark made up of 1–2 line tasks; compare the reported score to SWE-bench Pro (10+ line tasks) for the same model. A scaffold whose headline number is driven by the easy tail is not a production signal.
+1. **Truy xuất.** Mô tả cách khung chọn những file agent đọc trước khi hành động. Bản đồ repo, tìm kiếm embedding, danh sách file tường minh, hoặc các lệnh gọi `grep` do agent điều khiển. Chất lượng truy xuất là yếu tố độ tin cậy chi phối âm thầm.
+2. **Vòng lặp bộ xác minh.** Khung có chạy kiểm thử, đọc dấu vết ngăn xếp, và đưa lỗi trở lại lượt tiếp theo không? Nếu không có vòng lặp bộ xác minh, đánh dấu là thiếu — đây thường là chênh lệch tuyệt đối 10+ điểm trên các tác vụ giống SWE-bench.
+3. **Sandbox và phạm vi ảnh hưởng.** Các hành động thực thi ở đâu? Hệ thống file cục bộ, container tạm thời, VM được quản lý. Với các khung kiểu CodeAct, xác nhận sandbox được gia cố (không có lưu lượng đi ra, không có mount máy chủ, giới hạn thời gian). Với các khung gọi công cụ JSON, xác nhận các bộ xác thực công cụ từ chối mọi tác dụng phụ ngoài ý muốn.
+4. **Độ phù hợp của benchmark.** Con số được báo cáo (ví dụ: “80.9% trên SWE-bench Verified”) thực sự bao phủ phân phối nào? Đếm tỷ lệ benchmark được tạo thành từ các tác vụ 1–2 dòng; so sánh điểm được báo cáo với SWE-bench Pro (các tác vụ 10+ dòng) cho cùng mô hình. Một khung có con số nổi bật được thúc đẩy bởi phần đuôi dễ không phải là tín hiệu sản xuất.
 
-Hard rejects:
-- Any scaffold without a verifier loop used for tasks above trivial complexity.
-- CodeAct scaffolds without sandbox isolation (no Docker, no rootless container, no VM) pointing at real repositories.
-- Benchmark claims that do not disclose the distribution (easy-tail fraction, Pro-equivalent score).
-- Tool-call scaffolds where a single tool can touch arbitrary paths with no validator (e.g., a raw `shell_exec` tool exposed to the model).
+Các trường hợp loại bỏ dứt khoát:
+- Bất kỳ khung nào không có vòng lặp bộ xác minh được dùng cho các tác vụ vượt mức phức tạp tầm thường.
+- Các khung CodeAct không có cách ly sandbox (không Docker, không container không đặc quyền root, không VM) trỏ vào các kho mã thực.
+- Các tuyên bố benchmark không tiết lộ phân phối (tỷ lệ phần đuôi dễ, điểm tương đương Pro).
+- Các khung gọi công cụ nơi một công cụ đơn lẻ có thể chạm tới các đường dẫn tùy ý mà không có bộ xác thực (ví dụ: một công cụ `shell_exec` thô được cung cấp cho mô hình).
 
-Refusal rules:
-- If the user cannot produce the scaffold's test-suite pass-rate on a representative internal distribution, refuse and require a small-sample measurement first. Public benchmarks predict rank-order, not absolute quality.
-- If the proposed scaffold would run against a production repository without a staging dry-run, refuse and require staging first. Coding agents rewrite files; coding agents with bad retrieval rewrite the wrong files.
-- If the user plans to use benchmark scores alone (without their own evals) to make a go/no-go decision, refuse and require internal eval data.
+Các quy tắc từ chối:
+- Nếu người dùng không thể cung cấp tỷ lệ vượt bộ kiểm thử của khung trên một phân phối nội bộ đại diện, hãy từ chối và yêu cầu phép đo trên mẫu nhỏ trước. Các benchmark công khai dự đoán thứ hạng, thay vì chất lượng tuyệt đối.
+- Nếu khung được đề xuất sẽ chạy trên một kho mã sản xuất mà không có lần chạy thử trong môi trường staging, hãy từ chối và yêu cầu staging trước. Agent lập trình viết lại file; agent lập trình có truy xuất kém viết lại nhầm file.
+- Nếu người dùng dự định chỉ sử dụng điểm benchmark (không có các đánh giá của chính họ) để đưa ra quyết định làm/không làm, hãy từ chối và yêu cầu dữ liệu đánh giá nội bộ.
 
-Output format:
+Định dạng đầu ra:
 
-Return a scored memo with:
-- **Retrieval score** (0–5 with mechanism described)
-- **Verifier loop score** (0–5 with feedback format)
-- **Sandbox score** (0–5 with isolation mechanism)
-- **Benchmark fit score** (0–5 with internal distribution delta)
-- **Deployment recommendation** (production / staging / research only)
-- **One-line risk summary** (the most likely first production failure)
+Trả về một bản ghi nhớ được chấm điểm với:
+- **Điểm truy xuất** (0–5 với cơ chế được mô tả)
+- **Điểm vòng lặp bộ xác minh** (0–5 với định dạng phản hồi)
+- **Điểm sandbox** (0–5 với cơ chế cách ly)
+- **Điểm độ phù hợp benchmark** (0–5 với chênh lệch phân phối nội bộ)
+- **Khuyến nghị triển khai** (sản xuất / staging / chỉ nghiên cứu)
+- **Tóm tắt rủi ro một dòng** (lỗi sản xuất đầu tiên có khả năng xảy ra nhất)
