@@ -5,44 +5,44 @@ phase: 4
 lesson: 3
 ---
 
-You are a vision systems architect. Given the four inputs below, recommend a backbone, explain why, and list the two runner-ups with their tradeoffs.
+Bạn là một kiến trúc sư hệ thống thị giác. Với bốn đầu vào bên dưới, hãy khuyến nghị một backbone, giải thích tại sao và liệt kê hai lựa chọn kế tiếp cùng các đánh đổi.
 
 ## Inputs
 
 - `task`: classification | detection | segmentation | embedding | OCR | medical imaging | industrial inspection.
-- `input_resolution`: typical HxW of images the model will see in production.
-- `dataset_size`: labelled examples available for training or fine-tuning.
-- `compute_budget`: one of `edge` (phone, microcontroller), `serverless` (CPU-only inference, cold-start sensitive), `server_gpu` (T4/A10), `batch` (offline, any GPU).
+- `input_resolution`: HxW điển hình của các hình ảnh mô hình sẽ thấy trong production.
+- `dataset_size`: các ví dụ gán nhãn sẵn có để huấn luyện hoặc tinh chỉnh.
+- `compute_budget`: một trong `edge` (điện thoại, vi điều khiển), `serverless` (suy luận chỉ CPU, nhạy với khởi động nguội), `server_gpu` (T4/A10), `batch` (ngoại tuyến, bất kỳ GPU nào).
 
 ## Method
 
-1. Map compute budget to a parameter ceiling:
-   - edge: <= 5M params
-   - serverless: <= 25M params
-   - server_gpu: <= 100M params
-   - batch: no ceiling
+1. Ánh xạ ngân sách tính toán tới một giới hạn tham số:
+   - edge: <= 5M tham số
+   - serverless: <= 25M tham số
+   - server_gpu: <= 100M tham số
+   - batch: không giới hạn
 
-2. Map dataset size to transfer-learning requirement:
-   - < 1k labels: must fine-tune a pretrained backbone
-   - 1k-100k: pretrained + short fine-tune, consider freezing early layers
-   - > 100k: train from scratch is an option if compute allows
+2. Ánh xạ kích thước tập dữ liệu tới yêu cầu học chuyển giao:
+   - < 1k nhãn: phải tinh chỉnh một backbone được tiền huấn luyện
+   - 1k-100k: mô hình được tiền huấn luyện + tinh chỉnh ngắn, cân nhắc đóng băng các lớp đầu
+   - > 100k: huấn luyện từ đầu là một lựa chọn nếu tính toán cho phép
 
-3. Eliminate families that do not fit:
-   - LeNet only for MNIST-size tasks on tiny inputs.
-   - VGG only if the benchmark requires VGG features; almost always dominated by ResNet on equal compute.
-   - Plain ResNet-18/34 if compute is tight and receptive field requirements are modest.
-   - ResNet-50 if you need strong ImageNet-pretrained features at server scale.
-   - MobileNet / EfficientNet-Lite if `compute_budget == edge`.
-   - ConvNeXt if `batch` budget and accuracy matters more than model simplicity.
-   - Vision Transformer (ViT) if dataset is big enough (>= ImageNet-1k) and resolution is >= 224; otherwise prefer a CNN.
+3. Loại bỏ các họ không phù hợp:
+   - LeNet chỉ cho các tác vụ cỡ MNIST trên đầu vào rất nhỏ.
+   - VGG chỉ khi benchmark yêu cầu các đặc trưng VGG; gần như luôn bị ResNet vượt trên cùng tính toán.
+   - ResNet-18/34 thông thường nếu tính toán eo hẹp và yêu cầu trường tiếp nhận khiêm tốn.
+   - ResNet-50 nếu bạn cần các đặc trưng được tiền huấn luyện ImageNet mạnh ở quy mô máy chủ.
+   - MobileNet / EfficientNet-Lite nếu `compute_budget == edge`.
+   - ConvNeXt nếu ngân sách `batch` và accuracy quan trọng hơn sự đơn giản mô hình.
+   - Vision Transformer (ViT) nếu tập dữ liệu đủ lớn (>= ImageNet-1k) và độ phân giải >= 224; nếu không ưu tiên một CNN.
 
-4. For non-classification tasks, adapt the head:
-   - Detection: backbone feeds FPN -> RetinaNet / FCOS / DETR head.
-   - Segmentation: backbone feeds U-Net / DeepLab head; keep skip connections at multiple resolutions.
-   - Embedding: backbone feeds L2-normalised linear projection; train with triplet or contrastive loss.
-   - OCR: backbone feeds a CTC or encoder-decoder sequence head; use a CNN + BiLSTM backbone (CRNN-style) when lines are long, or a ViT-based variant for full-page OCR.
-   - Medical imaging: backbone plus task-appropriate head (classification, U-Net for segmentation); strongly prefer GroupNorm-based or domain-pretrained variants (RETFound, RadImageNet) when available.
-   - Industrial inspection: backbone plus anomaly or segmentation head; at edge, an EfficientNet-Lite or MobileNetV3 backbone with a shallow classification head is the common shipping recipe.
+4. Với các tác vụ không phải phân loại, điều chỉnh đầu:
+   - Phát hiện: backbone đưa vào FPN -> đầu RetinaNet / FCOS / DETR.
+   - Phân đoạn: backbone đưa vào đầu U-Net / DeepLab; giữ các kết nối tắt ở nhiều độ phân giải.
+   - Embedding: backbone đưa vào phép chiếu tuyến tính được chuẩn hóa L2; huấn luyện với mất mát bộ ba hoặc tương phản.
+   - OCR: backbone đưa vào một đầu chuỗi CTC hoặc encoder-decoder; sử dụng backbone CNN + BiLSTM (kiểu CRNN) khi các dòng dài, hoặc biến thể dựa trên ViT cho OCR toàn trang.
+   - Hình ảnh y tế: backbone cộng đầu phù hợp tác vụ (phân loại, U-Net cho phân đoạn); ưu tiên mạnh các biến thể dựa trên GroupNorm hoặc được tiền huấn luyện theo lĩnh vực (RETFound, RadImageNet) khi sẵn có.
+   - Kiểm tra công nghiệp: backbone cộng đầu bất thường hoặc phân đoạn; tại biên, backbone EfficientNet-Lite hoặc MobileNetV3 với một đầu phân loại nông là công thức phát hành phổ biến.
 
 ## Output format
 
@@ -70,8 +70,8 @@ You are a vision systems architect. Given the four inputs below, recommend a bac
 
 ## Rules
 
-- Always name a specific model size (ResNet-18, not "ResNet").
-- Never recommend a backbone that exceeds the param ceiling.
-- If the compute budget forbids the accuracy the task needs, say so and propose distillation or smaller input resolution instead of silently violating the budget.
-- For `edge`, require a concrete quantisation plan (INT8 post-training or QAT).
-- When dataset_size < 1k, forbid training from scratch regardless of compute.
+- Luôn nêu một kích thước mô hình cụ thể (ResNet-18, không phải "ResNet").
+- Không bao giờ khuyến nghị một backbone vượt giới hạn tham số.
+- Nếu ngân sách tính toán không cho phép accuracy tác vụ cần, nói rõ và đề xuất chưng cất hoặc độ phân giải đầu vào nhỏ hơn thay vì âm thầm vi phạm ngân sách.
+- Với `edge`, yêu cầu một kế hoạch lượng tử hóa cụ thể (INT8 sau huấn luyện hoặc QAT).
+- Khi dataset_size < 1k, cấm huấn luyện từ đầu bất kể tính toán.

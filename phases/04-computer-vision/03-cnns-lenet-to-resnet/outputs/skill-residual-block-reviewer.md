@@ -9,27 +9,27 @@ tags: [computer-vision, resnet, code-review, pytorch]
 
 # Residual Block Reviewer
 
-A focused reviewer for any PyTorch `nn.Module` claiming to implement a residual block. Catches the four mistakes that account for almost every broken ResNet rewrite.
+Một người đánh giá tập trung cho bất kỳ `nn.Module` PyTorch nào tuyên bố triển khai một khối phần dư. Phát hiện bốn sai lầm gây ra gần như mọi bản viết lại ResNet hỏng.
 
 ## When to use
 
-- Someone wrote a custom BasicBlock or Bottleneck and loss is NaN or accuracy is stuck.
-- You are porting a block from one framework to another and want to verify equivalence.
-- You are reviewing a PR that changes ResNet internals (pre-activation, squeeze-excite, anti-alias).
-- A model ships fine on CIFAR-sized input but crashes on ImageNet resolution because the shortcut is wrong.
+- Ai đó viết một BasicBlock hoặc Bottleneck tùy chỉnh và mất mát là NaN hoặc accuracy mắc kẹt.
+- Bạn đang chuyển một khối từ framework này sang framework khác và muốn xác minh tương đương.
+- Bạn đang đánh giá một PR thay đổi nội bộ ResNet (pre-activation, squeeze-excite, anti-alias).
+- Một mô hình phát hành ổn trên đầu vào cỡ CIFAR nhưng sập trên độ phân giải ImageNet vì shortcut sai.
 
 ## Inputs
 
-- A PyTorch class definition, either as source text or an importable path.
-- Optional `variant`: `basic` | `bottleneck` | `preact` | `seblock`.
+- Một định nghĩa lớp PyTorch, dưới dạng văn bản mã nguồn hoặc một đường dẫn có thể import.
+- `variant` tùy chọn: `basic` | `bottleneck` | `preact` | `seblock`.
 
 ## Four checks
 
 ### 1. Shortcut shape alignment
 
-For any block with `stride != 1` or `in_channels != out_channels`, the shortcut path **must** be a shape-matching module — typically a 1x1 conv plus BN. A bare `nn.Identity()` in this case is a guaranteed shape-mismatch error at forward time.
+Với bất kỳ khối nào có `stride != 1` hoặc `in_channels != out_channels`, đường shortcut **phải** là một module khớp hình dạng — thường là một tích chập 1x1 cộng BN. Một `nn.Identity()` đơn thuần trong trường hợp này chắc chắn gây lỗi không khớp hình dạng khi truyền xuôi.
 
-Diagnostic:
+Chẩn đoán:
 ```
 [shortcut]
   detected:  nn.Identity | 1x1 Conv + BN | 1x1 Conv + BN + ReLU | other
@@ -39,9 +39,9 @@ Diagnostic:
 
 ### 2. BN placement relative to the addition
 
-The addition `out + shortcut(x)` must happen **before** the final ReLU (post-activation, original ResNet) or the final ReLU must be absent entirely (pre-activation ResNet v2). A block that applies ReLU in the main branch and then adds a raw shortcut produces an asymmetric activation range that hurts training.
+Phép cộng `out + shortcut(x)` phải xảy ra **trước** ReLU cuối (hậu kích hoạt, ResNet gốc) hoặc hoàn toàn không có ReLU cuối (ResNet v2 tiền kích hoạt). Một khối áp dụng ReLU trong nhánh chính rồi thêm shortcut thô tạo ra phạm vi kích hoạt bất đối xứng làm hại huấn luyện.
 
-Diagnostic:
+Chẩn đoán:
 ```
 [activation order]
   pattern:  post-act (conv-BN-ReLU-conv-BN-add-ReLU) | pre-act (BN-ReLU-conv-BN-ReLU-conv-add) | other
@@ -50,9 +50,9 @@ Diagnostic:
 
 ### 3. Bias on conv layers
 
-Convs followed immediately by BatchNorm should have `bias=False`. BN's beta already parameterises the bias, so an extra conv bias wastes parameters and can slow convergence.
+Các tích chập ngay sau là BatchNorm nên có `bias=False`. Beta của BN đã tham số hóa bias, nên bias tích chập bổ sung lãng phí tham số và có thể làm chậm hội tụ.
 
-Diagnostic:
+Chẩn đoán:
 ```
 [bias]
   convs with BN and bias=True: <count>
@@ -61,9 +61,9 @@ Diagnostic:
 
 ### 4. In-place ReLU and autograd
 
-`nn.ReLU(inplace=True)` on the tensor that will be added to the shortcut overwrites values that may still be needed for the residual add. Flag any `inplace=True` that is not followed by a layer that produces a new tensor before the add.
+`nn.ReLU(inplace=True)` trên tensor sẽ được cộng với shortcut ghi đè các giá trị có thể vẫn cần cho phép cộng phần dư. Đánh dấu mọi `inplace=True` không được theo sau bởi một lớp tạo tensor mới trước phép cộng.
 
-Diagnostic:
+Chẩn đoán:
 ```
 [in-place]
   risky inplace ops: <list>
@@ -84,7 +84,7 @@ Diagnostic:
 
 ## Rules
 
-- Do not rewrite the block. Report only.
-- If the block is correct, say `ok` everywhere and stop. No suggestions.
-- If multiple things are wrong, list them in the order above (shortcut first because it is the most common cause of crashes).
-- Never flag a deliberate pre-activation or squeeze-excite variant as wrong when the user has specified it.
+- Không viết lại khối. Chỉ báo cáo.
+- Nếu khối đúng, nói `ok` ở mọi nơi rồi dừng. Không đề xuất.
+- Nếu nhiều thứ sai, liệt kê theo thứ tự trên (shortcut trước vì nó là nguyên nhân gây sập thường gặp nhất).
+- Không bao giờ đánh dấu một biến thể tiền kích hoạt hoặc squeeze-excite có chủ đích là sai khi người dùng đã chỉ định nó.

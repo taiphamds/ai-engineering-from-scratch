@@ -1,6 +1,6 @@
 # CNNs — LeNet to ResNet
 
-> Every major CNN of the last thirty years is the same conv–nonlinearity–downsample recipe with one new idea bolted on. Learn the ideas in order.
+> Mọi CNN lớn trong ba mươi năm qua đều là cùng công thức tích chập–phi tuyến–giảm mẫu với một ý tưởng mới gắn thêm. Học các ý tưởng theo thứ tự.
 
 **Type:** Learn + Build
 **Languages:** Python
@@ -9,16 +9,16 @@
 
 ## Learning Objectives
 
-- Trace the architectural lineage LeNet-5 -> AlexNet -> VGG -> Inception -> ResNet and state the single new idea each family contributed
-- Implement LeNet-5, a VGG-style block, and a ResNet BasicBlock in PyTorch, each under 40 lines
-- Explain why residual connections turn a 1,000-layer network from untrainable into state-of-the-art
-- Read a modern backbone (ResNet-18, ResNet-50) and predict its output shape, receptive field, and parameter count before looking at the source
+- Theo dõi dòng kiến trúc LeNet-5 -> AlexNet -> VGG -> Inception -> ResNet và nêu một ý tưởng mới mà mỗi họ đóng góp
+- Triển khai LeNet-5, một khối kiểu VGG và một BasicBlock ResNet bằng PyTorch, mỗi thành phần dưới 40 dòng
+- Giải thích tại sao các kết nối phần dư biến một mạng 1,000 lớp từ không thể huấn luyện thành tiên tiến nhất
+- Đọc một backbone hiện đại (ResNet-18, ResNet-50) và dự đoán hình dạng đầu ra, trường tiếp nhận và số tham số trước khi xem mã nguồn
 
 ## The Problem
 
-In 2011, the best ImageNet classifier scored around 74% top-5 accuracy. In 2012 AlexNet scored 85%. In 2015 ResNet scored 96%. No new data. No new GPU generation. The gains came from architecture ideas. A working vision engineer has to know which idea came from which paper because every production backbone you ship in 2026 is a recombination of those same pieces — and because the ideas keep transferring: grouped convs went from CNNs to transformers, residual connections went from ResNet to every LLM in existence, batch normalisation lives in diffusion models.
+Năm 2011, bộ phân loại ImageNet tốt nhất đạt khoảng 74% accuracy top-5. Năm 2012 AlexNet đạt 85%. Năm 2015 ResNet đạt 96%. Không dữ liệu mới. Không thế hệ GPU mới. Những cải thiện đến từ các ý tưởng kiến trúc. Một kỹ sư thị giác đang làm việc phải biết ý tưởng nào đến từ bài báo nào vì mọi backbone production bạn phát hành trong năm 2026 đều là sự kết hợp lại của cùng những phần đó — và vì các ý tưởng tiếp tục chuyển giao: tích chập nhóm đi từ CNN sang transformer, kết nối phần dư đi từ ResNet tới mọi LLM đang tồn tại, batch normalization tồn tại trong các mô hình khuếch tán.
 
-Studying these networks in order also immunises you against a common mistake: reaching for the biggest available model when a LeNet-sized network would solve the problem. MNIST does not need a ResNet. Knowing the scaling curve of each family tells you where to sit on it.
+Nghiên cứu các mạng này theo thứ tự cũng giúp bạn miễn nhiễm với một sai lầm thường gặp: chọn mô hình lớn nhất sẵn có khi một mạng cỡ LeNet có thể giải bài toán. MNIST không cần một ResNet. Biết đường cong mở rộng của mỗi họ cho bạn biết nên chọn điểm nào trên đó.
 
 ## The Concept
 
@@ -33,11 +33,11 @@ timeline
     2015 : ResNet : Identity skip connections unlock 100+ layer training
 ```
 
-Nothing else in classical vision mattered as much as these four jumps.
+Không gì khác trong thị giác cổ điển quan trọng bằng bốn bước nhảy này.
 
 ### LeNet-5 (1998)
 
-Yann LeCun's digit recogniser. 60,000 parameters. Two conv-pool blocks, two fully connected layers, tanh activations. It defined the template every CNN inherits:
+Bộ nhận dạng chữ số của Yann LeCun. 60,000 tham số. Hai khối conv-pool, hai lớp kết nối đầy đủ, các kích hoạt tanh. Nó xác định khuôn mẫu mà mọi CNN kế thừa:
 
 ```
 input (1, 32, 32)
@@ -51,34 +51,34 @@ input (1, 32, 32)
   dense -> 10
 ```
 
-Everything the modern world calls a CNN — alternating convolutions and downsampling feeding a small classifier head — is LeNet with more layers, bigger channels, and better activations.
+Mọi thứ mà thế giới hiện đại gọi là CNN — các phép tích chập và giảm mẫu xen kẽ đưa vào một đầu phân loại nhỏ — là LeNet với nhiều lớp hơn, số kênh lớn hơn và các kích hoạt tốt hơn.
 
 ### AlexNet (2012)
 
-Three changes that together broke ImageNet:
+Ba thay đổi cùng nhau phá vỡ ImageNet:
 
-1. **ReLU** instead of tanh. Gradients stop vanishing. Training speeds up by a factor of six.
-2. **Dropout** in the fully connected head. Regularisation becomes a layer, not a trick.
-3. **Depth and width**. Five conv layers, three dense layers, 60M parameters, trained on two GPUs with the model split across them.
+1. **ReLU** thay vì tanh. Các gradient ngừng tiêu biến. Huấn luyện tăng tốc sáu lần.
+2. **Dropout** trong đầu kết nối đầy đủ. Chính quy hóa trở thành một lớp, không phải một thủ thuật.
+3. **Độ sâu và độ rộng**. Năm lớp tích chập, ba lớp kết nối đầy đủ, 60M tham số, được huấn luyện trên hai GPU với mô hình chia giữa chúng.
 
-The paper's Figure 2 still shows the GPU split as two parallel streams. That parallelism was a hardware workaround, not an architectural insight — but the three ideas above are still in every model you use.
+Figure 2 của bài báo vẫn cho thấy sự phân chia GPU dưới dạng hai luồng song song. Tính song song đó là một cách khắc phục phần cứng, không phải một nhận định kiến trúc — nhưng ba ý tưởng trên vẫn nằm trong mọi mô hình bạn sử dụng.
 
 ### VGG (2014)
 
-VGG asked: what happens if you only use 3x3 convolutions and you go deep?
+VGG hỏi: điều gì xảy ra nếu bạn chỉ sử dụng các tích chập 3x3 và đi sâu?
 
 ```
 stack:   conv 3x3 -> conv 3x3 -> pool 2x2
 repeat:  16 or 19 conv layers
 ```
 
-Two 3x3 convs see the same 5x5 input area as one 5x5 conv but with fewer parameters (2*9*C^2 = 18C^2 vs 25*C^2) and an extra ReLU in between. VGG turned this observation into an entire architecture. The simplicity — one block type, repeated — made it the reference point for everything that came after.
+Hai tích chập 3x3 nhìn cùng diện tích đầu vào 5x5 như một tích chập 5x5 nhưng có ít tham số hơn (2*9*C^2 = 18C^2 so với 25*C^2) và thêm một ReLU ở giữa. VGG biến quan sát này thành cả một kiến trúc. Sự đơn giản — một loại khối, lặp lại — khiến nó là điểm tham chiếu cho mọi thứ sau đó.
 
-Cost: 138M parameters, slow to train, expensive at inference.
+Chi phí: 138M tham số, huấn luyện chậm, suy luận tốn kém.
 
 ### Inception (2014, same year)
 
-Google's answer to "what kernel size should I use?" was: all of them, in parallel.
+Câu trả lời của Google cho "tôi nên sử dụng kích thước kernel nào?" là: tất cả, song song.
 
 ```mermaid
 flowchart LR
@@ -97,11 +97,11 @@ flowchart LR
     style OUT fill:#dcfce7,stroke:#16a34a
 ```
 
-Each branch specialises — 1x1 for channel mixing, 3x3 for local texture, 5x5 for larger patterns, pooling for shift-invariant features — and the concat lets the next layer pick whichever branch is useful. Inception v1 used 1x1 convolutions inside each branch as a bottleneck to keep parameter counts sane.
+Mỗi nhánh chuyên biệt — 1x1 để trộn kênh, 3x3 cho kết cấu cục bộ, 5x5 cho các mẫu lớn hơn, pooling cho các đặc trưng bất biến dịch chuyển — và phép nối cho lớp tiếp theo chọn bất kỳ nhánh nào hữu ích. Inception v1 sử dụng các tích chập 1x1 trong mỗi nhánh làm nút thắt để giữ số tham số hợp lý.
 
 ### The degradation problem
 
-By 2015, VGG-19 worked and VGG-32 did not. Depth was supposed to help, but past ~20 layers both training and test loss got worse. That is not overfitting. That is the optimiser failing to find useful weights because gradients shrink multiplicatively through every layer.
+Đến năm 2015, VGG-19 hoạt động và VGG-32 không hoạt động. Độ sâu được cho là giúp ích, nhưng vượt ~20 lớp cả mất mát huấn luyện và test đều tệ hơn. Đó không phải quá khớp. Đó là bộ tối ưu hóa không tìm được các trọng số hữu ích vì các gradient co lại theo phép nhân qua mọi lớp.
 
 ```
 Plain deep network:
@@ -114,18 +114,18 @@ Each multiplicative term has magnitude roughly (weight magnitude) * (activation 
 Stack 100 of them with gains < 1 and the gradient is effectively zero.
 ```
 
-VGG worked at 19 layers because batch norm (published simultaneously) kept activations well-scaled. But even batch norm could not rescue depth beyond 30-ish layers.
+VGG hoạt động ở 19 lớp vì batch norm (được công bố đồng thời) giữ các kích hoạt có thang đo phù hợp. Nhưng ngay cả batch norm cũng không thể cứu độ sâu vượt khoảng 30 lớp.
 
 ### ResNet (2015)
 
-He, Zhang, Ren, Sun proposed one change that fixed everything:
+He, Zhang, Ren, Sun đề xuất một thay đổi khắc phục mọi thứ:
 
 ```
 standard block:   y = F(x)
 residual block:   y = F(x) + x
 ```
 
-The `+ x` means the layer can always choose to do nothing by driving `F(x)` to zero. A 1,000-layer ResNet is now at most as bad as a 1-layer network, because every extra block has a trivial escape hatch. With that guarantee, the optimiser is willing to make every block *slightly* useful — and slightly useful, stacked 100 times, is state-of-the-art.
+`+ x` nghĩa là lớp luôn có thể chọn không làm gì bằng cách đưa `F(x)` về không. Một ResNet 1,000 lớp giờ nhiều nhất chỉ tệ bằng một mạng 1 lớp, vì mỗi khối bổ sung có một lối thoát đơn giản. Với bảo đảm đó, bộ tối ưu hóa sẵn sàng làm mỗi khối hữu ích *một chút* — và hữu ích một chút, xếp chồng 100 lần, là tiên tiến nhất.
 
 ```mermaid
 flowchart LR
@@ -140,16 +140,16 @@ flowchart LR
     style OUT fill:#dcfce7,stroke:#16a34a
 ```
 
-Two variants of the block show up everywhere:
+Hai biến thể của khối xuất hiện ở mọi nơi:
 
-- **BasicBlock** (ResNet-18, ResNet-34): two 3x3 convs, skip around both.
-- **Bottleneck** (ResNet-50, -101, -152): 1x1 down, 3x3 middle, 1x1 up, skip around the trio. Cheaper when channel counts are high.
+- **BasicBlock** (ResNet-18, ResNet-34): hai tích chập 3x3, kết nối tắt vòng qua cả hai.
+- **Bottleneck** (ResNet-50, -101, -152): 1x1 giảm, 3x3 giữa, 1x1 tăng, kết nối tắt vòng qua bộ ba. Rẻ hơn khi số kênh cao.
 
-When the skip has to cross a downsample (stride=2), the identity path is replaced with a 1x1 stride=2 conv to match shapes.
+Khi kết nối tắt phải vượt qua một lần giảm mẫu (stride=2), đường đồng nhất được thay bằng một tích chập 1x1 stride=2 để khớp các hình dạng.
 
 ### Why residuals matter beyond vision
 
-The idea was not really about image classification. It was about turning deep networks from "cross-your-fingers and hope gradients survive" into a reliable, scalable engineering tool. Every transformer you will read about next phase has the exact same skip connection in every block. Without ResNet, there is no GPT.
+Ý tưởng thực ra không phải về phân loại hình ảnh. Nó là về biến các mạng sâu từ "bắt chéo ngón tay và hy vọng các gradient sống sót" thành một công cụ kỹ thuật đáng tin cậy, có thể mở rộng. Mọi transformer bạn sẽ đọc trong giai đoạn tiếp theo có cùng kết nối tắt trong mọi khối. Không có ResNet, không có GPT.
 
 ```figure
 pooling
@@ -159,7 +159,7 @@ pooling
 
 ### Step 1: LeNet-5
 
-A minimal, faithful LeNet. Tanh activations, average pooling. The only concession to modernity is that we use `nn.CrossEntropyLoss` downstream instead of the original Gaussian connections.
+Một LeNet tối giản, trung thành. Các kích hoạt tanh, pooling trung bình. Nhượng bộ duy nhất với hiện đại là chúng ta sử dụng `nn.CrossEntropyLoss` phía sau thay vì các kết nối Gaussian gốc.
 
 ```python
 import torch
@@ -190,11 +190,11 @@ print(f"output: {net(x).shape}")
 print(f"params: {sum(p.numel() for p in net.parameters()):,}")
 ```
 
-Expected output: `output: torch.Size([1, 10])`, `params: 61,706`. That is the entire digit classifier that started modern vision.
+Đầu ra kỳ vọng: `output: torch.Size([1, 10])`, `params: 61,706`. Đó là toàn bộ bộ phân loại chữ số đã khởi đầu thị giác hiện đại.
 
 ### Step 2: A VGG block
 
-One reusable block: two 3x3 convs, ReLU, batch norm, max pool.
+Một khối tái sử dụng: hai tích chập 3x3, ReLU, batch norm, max pool.
 
 ```python
 class VGGBlock(nn.Module):
@@ -234,11 +234,11 @@ print(f"output: {net(x).shape}")
 print(f"params: {sum(p.numel() for p in net.parameters()):,}")
 ```
 
-Three VGG blocks on CIFAR-sized input, an adaptive pool, one linear layer. ~290k parameters. Plenty for CIFAR-10.
+Ba khối VGG trên đầu vào cỡ CIFAR, một adaptive pool, một lớp tuyến tính. ~290k tham số. Dư sức cho CIFAR-10.
 
 ### Step 3: A ResNet BasicBlock
 
-The core building block of ResNet-18 and ResNet-34.
+Khối xây dựng cốt lõi của ResNet-18 và ResNet-34.
 
 ```python
 class BasicBlock(nn.Module):
@@ -263,11 +263,11 @@ class BasicBlock(nn.Module):
         return F.relu(out)
 ```
 
-`bias=False` on conv layers is a batch-norm convention — BN's beta parameter already handles the bias, so carrying conv bias as well is a waste. The `shortcut` only needs a real conv when stride or channel count changes; otherwise it is a no-op identity.
+`bias=False` trên các lớp tích chập là một quy ước batch norm — tham số beta của BN đã xử lý bias, nên mang thêm bias tích chập là lãng phí. `shortcut` chỉ cần một tích chập thật khi stride hoặc số kênh thay đổi; nếu không nó là ánh xạ đồng nhất không làm gì.
 
 ### Step 4: A tiny ResNet
 
-Stack four groups of BasicBlocks to get a working ResNet for CIFAR-sized inputs.
+Xếp chồng bốn nhóm BasicBlock để có một ResNet hoạt động cho các đầu vào cỡ CIFAR.
 
 ```python
 class TinyResNet(nn.Module):
@@ -308,11 +308,11 @@ print(f"output: {net(x).shape}")
 print(f"params: {sum(p.numel() for p in net.parameters()):,}")
 ```
 
-Four groups of two blocks each. Stride 2 at the start of groups 2, 3, 4. Channel count doubles at every downsample. Roughly 2.8M parameters. That is the standard recipe that scales cleanly up to ResNet-152.
+Bốn nhóm, mỗi nhóm hai khối. Stride 2 ở đầu các nhóm 2, 3, 4. Số kênh gấp đôi mỗi lần giảm mẫu. Khoảng 2.8M tham số. Đó là công thức tiêu chuẩn mở rộng gọn lên tới ResNet-152.
 
 ### Step 5: Compare parameter-to-feature efficiency
 
-Run the same input through all three networks and compare parameter counts.
+Chạy cùng đầu vào qua cả ba mạng và so sánh số tham số.
 
 ```python
 def summary(name, net, x):
@@ -326,11 +326,11 @@ summary("MiniVGG",    MiniVGG(),      x)
 summary("TinyResNet", TinyResNet(),   x)
 ```
 
-Three models, three eras, three orders of magnitude in parameter count. For CIFAR-10 accuracy, you need roughly: LeNet 60%, MiniVGG 89%, TinyResNet 93% after a few epochs of training.
+Ba mô hình, ba thời đại, ba bậc độ lớn về số tham số. Với accuracy CIFAR-10, bạn cần khoảng: LeNet 60%, MiniVGG 89%, TinyResNet 93% sau vài epoch huấn luyện.
 
 ## Use It
 
-`torchvision.models` gives you pretrained versions of all of the above. The call signature is identical across families, which is exactly the point of the backbone abstraction.
+`torchvision.models` cho bạn các phiên bản được tiền huấn luyện của tất cả những mô hình trên. Chữ ký lời gọi giống hệt giữa các họ, chính là mục đích của trừu tượng backbone.
 
 ```python
 from torchvision.models import resnet18, ResNet18_Weights, vgg16, VGG16_Weights
@@ -347,9 +347,9 @@ v16.eval()
 print(f"VGG-16   params: {sum(p.numel() for p in v16.parameters()):,}")
 ```
 
-ResNet-18 has 11.7M parameters. VGG-16 has 138M. Similar ImageNet top-1 accuracy (69.8% vs 71.6%). Residual connections buy you a 12x parameter efficiency win. That is why ResNet variants dominated from 2016 until ViT arrived in 2021 — and still dominate real-world deployments where compute is the constraint.
+ResNet-18 có 11.7M tham số. VGG-16 có 138M. Accuracy top-1 ImageNet tương tự (69.8% so với 71.6%). Các kết nối phần dư mang lại lợi thế hiệu quả tham số 12 lần. Đó là lý do các biến thể ResNet thống trị từ 2016 cho tới khi ViT đến năm 2021 — và vẫn thống trị các triển khai thực tế nơi tính toán là ràng buộc.
 
-For transfer learning, the recipe is always the same: load pretrained, freeze the backbone, replace the classifier head.
+Với học chuyển giao, công thức luôn giống nhau: tải mô hình được tiền huấn luyện, đóng băng backbone, thay đầu phân loại.
 
 ```python
 for p in r18.parameters():
@@ -357,37 +357,37 @@ for p in r18.parameters():
 r18.fc = nn.Linear(r18.fc.in_features, 10)
 ```
 
-Three lines. You now have a 10-class CIFAR classifier that inherits the representations ImageNet paid for.
+Ba dòng. Giờ bạn có một bộ phân loại CIFAR 10 lớp kế thừa các biểu diễn mà ImageNet đã trả giá để có.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-backbone-selector.md` — a prompt that picks the right CNN family (LeNet/VGG/ResNet/MobileNet/ConvNeXt) given task, dataset size, and compute budget.
-- `outputs/skill-residual-block-reviewer.md` — a skill that reads a PyTorch module and flags skip-connection mistakes (missing shortcut on stride change, shortcut activation order, BN placement relative to addition).
+- `outputs/prompt-backbone-selector.md` — một prompt chọn họ CNN phù hợp (LeNet/VGG/ResNet/MobileNet/ConvNeXt) với tác vụ, kích thước tập dữ liệu và ngân sách tính toán cho trước.
+- `outputs/skill-residual-block-reviewer.md` — một skill đọc một module PyTorch và đánh dấu các lỗi kết nối tắt (thiếu shortcut khi đổi stride, thứ tự kích hoạt shortcut, vị trí BN so với phép cộng).
 
 ## Exercises
 
-1. **(Easy)** Count parameters by hand for `TinyResNet` layer by layer. Compare against `sum(p.numel() for p in net.parameters())`. Where does the majority of the parameter budget go — convs, BN, or the classifier head?
-2. **(Medium)** Implement the Bottleneck block (1x1 -> 3x3 -> 1x1 with skip) and use it to build a ResNet-50-style network for CIFAR. Compare params against `TinyResNet`.
-3. **(Hard)** Remove the skip connection from `BasicBlock`, train a 34-block "plain" network and a 34-block ResNet on CIFAR-10 for 10 epochs each. Plot training loss vs epoch for both. Reproduce the He et al. Figure 1 result where the plain deep network converges to higher loss than its shallower twin.
+1. **(Dễ)** Đếm thủ công các tham số của `TinyResNet` từng lớp. So sánh với `sum(p.numel() for p in net.parameters())`. Phần lớn ngân sách tham số đi đâu — các tích chập, BN hay đầu phân loại?
+2. **(Vừa)** Triển khai khối Bottleneck (1x1 -> 3x3 -> 1x1 với kết nối tắt) và sử dụng nó để xây một mạng kiểu ResNet-50 cho CIFAR. So sánh các tham số với `TinyResNet`.
+3. **(Khó)** Loại bỏ kết nối tắt khỏi `BasicBlock`, huấn luyện một mạng "thuần" 34 khối và một ResNet 34 khối trên CIFAR-10, mỗi mạng 10 epoch. Vẽ mất mát huấn luyện theo epoch cho cả hai. Tái tạo kết quả Figure 1 của He và cộng sự, nơi mạng sâu thuần hội tụ tới mất mát cao hơn mạng song sinh nông hơn.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Backbone | "The model" | The stack of convolutional blocks that produces the feature map fed to the task head |
-| Residual connection | "Skip connection" | `y = F(x) + x`; lets the optimiser learn identity by setting F to zero, which makes arbitrary depth trainable |
-| BasicBlock | "Two 3x3 convs with a skip" | The ResNet-18/34 building block: conv-BN-ReLU-conv-BN-add-ReLU |
-| Bottleneck | "1x1 down, 3x3, 1x1 up" | The ResNet-50/101/152 block; cheap at high channel counts because the 3x3 runs on a reduced width |
-| Degradation problem | "Deeper is worse" | Past ~20 plain conv layers, both training and test error increase; solved by residual connections, not by more data |
-| Stem | "The first layer" | The initial conv that converts 3-channel input into the base feature width; usually 7x7 stride 2 for ImageNet, 3x3 stride 1 for CIFAR |
-| Head | "The classifier" | The layers after the final backbone block: adaptive pool, flatten, linear(s) |
-| Transfer learning | "Pretrained weights" | Loading a backbone trained on ImageNet and fine-tuning only the head on your task |
+| Backbone | "Mô hình" | Chồng các khối tích chập tạo ra bản đồ đặc trưng đưa vào đầu tác vụ |
+| Residual connection (Kết nối phần dư) | "Kết nối tắt" | `y = F(x) + x`; cho phép bộ tối ưu hóa học ánh xạ đồng nhất bằng cách đặt F bằng không, khiến độ sâu tùy ý có thể huấn luyện |
+| BasicBlock | "Hai tích chập 3x3 có kết nối tắt" | Khối xây dựng ResNet-18/34: conv-BN-ReLU-conv-BN-add-ReLU |
+| Bottleneck | "1x1 giảm, 3x3, 1x1 tăng" | Khối ResNet-50/101/152; rẻ ở số kênh cao vì 3x3 chạy trên độ rộng giảm |
+| Degradation problem (Vấn đề suy giảm) | "Sâu hơn tệ hơn" | Vượt ~20 lớp tích chập thuần, cả sai số huấn luyện và test tăng; được giải bằng các kết nối phần dư, không phải thêm dữ liệu |
+| Stem | "Lớp đầu tiên" | Tích chập ban đầu chuyển đầu vào 3 kênh thành độ rộng đặc trưng cơ sở; thường 7x7 stride 2 cho ImageNet, 3x3 stride 1 cho CIFAR |
+| Head (Đầu) | "Bộ phân loại" | Các lớp sau khối backbone cuối: adaptive pool, flatten, một hoặc nhiều lớp tuyến tính |
+| Transfer learning (Học chuyển giao) | "Các trọng số được tiền huấn luyện" | Tải một backbone được huấn luyện trên ImageNet và chỉ tinh chỉnh đầu trên tác vụ của bạn |
 
 ## Further Reading
 
-- [Deep Residual Learning for Image Recognition (He et al., 2015)](https://arxiv.org/abs/1512.03385) — the ResNet paper; every figure is worth studying
-- [Very Deep Convolutional Networks (Simonyan & Zisserman, 2014)](https://arxiv.org/abs/1409.1556) — the VGG paper; still the best reference for "why 3x3"
-- [ImageNet Classification with Deep CNNs (Krizhevsky et al., 2012)](https://papers.nips.cc/paper_files/paper/2012/hash/c399862d3b9d6b76c8436e924a68c45b-Abstract.html) — AlexNet; the paper that ended the hand-crafted-feature era
-- [Going Deeper with Convolutions (Szegedy et al., 2014)](https://arxiv.org/abs/1409.4842) — Inception v1; the parallel-filter idea that still shows up in vision transformers
+- [Deep Residual Learning for Image Recognition (He et al., 2015)](https://arxiv.org/abs/1512.03385) — bài báo ResNet; mọi hình đều đáng nghiên cứu
+- [Very Deep Convolutional Networks (Simonyan & Zisserman, 2014)](https://arxiv.org/abs/1409.1556) — bài báo VGG; vẫn là tài liệu tham khảo tốt nhất cho "tại sao 3x3"
+- [ImageNet Classification with Deep CNNs (Krizhevsky et al., 2012)](https://papers.nips.cc/paper_files/paper/2012/hash/c399862d3b9d6b76c8436e924a68c45b-Abstract.html) — AlexNet; bài báo kết thúc thời đại đặc trưng thiết kế thủ công
+- [Going Deeper with Convolutions (Szegedy et al., 2014)](https://arxiv.org/abs/1409.4842) — Inception v1; ý tưởng bộ lọc song song vẫn xuất hiện trong các vision transformer
