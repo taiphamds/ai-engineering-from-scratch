@@ -1,6 +1,6 @@
 # Define the Outcome Before You Choose the Output
 
-> Fast implementation increases the penalty for choosing the wrong problem. Shape the outcome first so speed points in the right direction.
+> Triển khai nhanh làm tăng cái giá của việc chọn sai vấn đề. Định hình kết quả trước để tốc độ hướng đúng phía.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,31 +9,31 @@
 
 ## Learning Objectives
 
-- Write an outcome frame without naming a solution.
-- Identify the user, situation, current behavior, and desired change.
-- Make constraints and non-goals explicit.
-- Detect solution leakage before it hardens into scope.
+- Viết một khung kết quả mà không nêu tên một giải pháp.
+- Nhận diện người dùng, tình huống, hành vi hiện tại và thay đổi mong muốn.
+- Làm các ràng buộc và mục tiêu loại trừ tường minh.
+- Phát hiện sự rò rỉ giải pháp trước khi nó cứng lại thành phạm vi.
 
 ## Output Is Not Outcome
 
-“Build an incident assistant” names an output. It does not say who needs it, what becomes better, or what must remain safe.
+“Xây một trợ lý sự cố” nêu tên một đầu ra. Nó không nói ai cần nó, điều gì trở nên tốt hơn hoặc điều gì phải giữ an toàn.
 
-An outcome frame says:
+Một khung kết quả nói:
 
-> When a production alert arrives, the on-call engineer identifies the failing service and a safe next action within two minutes, while diagnosis remains read-only and auditable.
+> Khi một cảnh báo sản xuất đến, kỹ sư trực nhận diện dịch vụ đang lỗi và một hành động tiếp theo an toàn trong vòng hai phút, trong khi chẩn đoán vẫn chỉ đọc và có thể kiểm toán.
 
-That sentence can be satisfied by software, a runbook, a data repair, or a smaller interface change. It keeps the team attached to the result rather than the first artifact someone imagined.
+Câu đó có thể được thỏa mãn bằng phần mềm, một sổ tay vận hành, một sửa chữa dữ liệu hoặc một thay đổi giao diện nhỏ hơn. Nó giữ nhóm gắn với kết quả thay vì sản phẩm đầu tiên mà ai đó tưởng tượng.
 
 ## The Six-Part Frame
 
-| Part | Question |
+| Phần | Câu hỏi |
 |---|---|
-| User | Who experiences the problem directly? |
-| Situation | When and where does it occur? |
-| Current behavior | What happens today, including workarounds? |
-| Desired outcome | What observable state should improve? |
-| Constraints | Which safety, policy, cost, or compatibility limits are fixed? |
-| Non-goals | What tempting adjacent work is excluded? |
+| Người dùng | Ai trực tiếp trải nghiệm vấn đề? |
+| Tình huống | Nó xảy ra khi nào và ở đâu? |
+| Hành vi hiện tại | Điều gì xảy ra hôm nay, bao gồm các cách làm vòng? |
+| Kết quả mong muốn | Trạng thái có thể quan sát nào nên cải thiện? |
+| Các ràng buộc | Những giới hạn an toàn, chính sách, chi phí hoặc tương thích nào được cố định? |
+| Các mục tiêu loại trừ | Công việc liền kề hấp dẫn nào bị loại trừ? |
 
 ```mermaid
 flowchart LR
@@ -46,60 +46,60 @@ flowchart LR
 
 ## Find Solution Leakage
 
-Outcome statements leak solutions when they contain a product form, interface, model choice, framework, or architecture that has not been earned by evidence.
+Các phát biểu kết quả làm rò giải pháp khi chúng chứa một dạng sản phẩm, giao diện, lựa chọn mô hình, framework hoặc kiến trúc chưa được bằng chứng biện minh.
 
-- “Users receive a weekly AI summary” leaks the summary and cadence.
-- “Users understand account changes before approval” states the result.
-- “Deploy a vector database” leaks infrastructure.
-- “Relevant policy evidence is available during review” states a capability.
+- “Người dùng nhận một bản tóm tắt AI hàng tuần” làm rò bản tóm tắt và nhịp.
+- “Người dùng hiểu các thay đổi tài khoản trước phê duyệt” nêu kết quả.
+- “Triển khai một cơ sở dữ liệu vector” làm rò hạ tầng.
+- “Bằng chứng chính sách liên quan khả dụng trong khi đánh giá” nêu một khả năng.
 
-Constraints can name technology when compatibility truly fixes it. Record why it is fixed.
+Các ràng buộc có thể nêu tên công nghệ khi tính tương thích thực sự cố định nó. Ghi lại vì sao nó được cố định.
 
 ## Constraints Protect the Outcome
 
-Constraints are not implementation details. They are part of the real-world goal:
+Các ràng buộc không phải các chi tiết triển khai. Chúng là một phần mục tiêu thực tế:
 
-- no production writes during diagnosis;
-- response within the incident time budget;
-- existing audit events remain authoritative;
-- no new runtime dependency;
-- accessibility behavior remains intact.
+- không có các lần ghi sản xuất trong khi chẩn đoán;
+- phản hồi trong ngân sách thời gian sự cố;
+- các sự kiện kiểm toán hiện có vẫn có thẩm quyền;
+- không có phụ thuộc runtime mới;
+- hành vi trợ năng vẫn nguyên vẹn.
 
-A build that reaches the outcome by violating a constraint has not reached the outcome.
+Một bản xây dựng đạt kết quả bằng cách vi phạm một ràng buộc đã không đạt kết quả.
 
 ## Non-Goals Create a Boundary
 
-Non-goals prevent a useful slice from turning into a platform. Good non-goals are concrete enough to reject work:
+Các mục tiêu loại trừ ngăn một phần hữu ích biến thành một nền tảng. Các mục tiêu loại trừ tốt đủ cụ thể để từ chối công việc:
 
-- no automatic remediation;
-- no new alert-routing system;
-- no replacement of the incident commander;
-- no historical analytics in this slice.
+- không khắc phục tự động;
+- không có hệ thống định tuyến cảnh báo mới;
+- không thay thế chỉ huy sự cố;
+- không phân tích lịch sử trong phần này.
 
 ## Build It
 
-The lab validates an `OutcomeFrame` and writes `outputs/outcome-frame.json`.
+Bài thực hành xác thực một `OutcomeFrame` và ghi `outputs/outcome-frame.json`.
 
 ```bash
 python3 code/main.py
 python3 -m unittest discover code/tests -v
 ```
 
-Replace the desired outcome with “use the incident assistant.” The validator should flag that the proposed output leaked into the outcome.
+Thay kết quả mong muốn bằng “sử dụng trợ lý sự cố.” Bộ xác thực nên gắn cờ rằng đầu ra được đề xuất đã rò vào kết quả.
 
 ## Exercises
 
-1. Rewrite a feature request from your backlog as an outcome frame.
-2. Add one constraint that changes which solutions remain possible.
-3. Add two non-goals that keep the first slice small.
-4. Identify the earliest observation that would disprove the desired outcome.
-5. Write three different outputs that could satisfy the same outcome.
+1. Viết lại một yêu cầu tính năng từ backlog của bạn thành một khung kết quả.
+2. Thêm một ràng buộc thay đổi những giải pháp nào còn khả thi.
+3. Thêm hai mục tiêu loại trừ giữ phần đầu tiên nhỏ.
+4. Nhận diện quan sát sớm nhất sẽ bác bỏ kết quả mong muốn.
+5. Viết ba đầu ra khác nhau có thể thỏa mãn cùng kết quả.
 
 ## Further Reading
 
-- [Nuseibeh and Easterbrook, Requirements Engineering: A Roadmap](https://www.cs.toronto.edu/~sme/papers/2000/ICSE2000.pdf), for treating real-world goals as the anchor for software work.
-- [Dardenne, van Lamsweerde, and Fickas, Goal-Directed Requirements Acquisition](https://doi.org/10.1016/0167-6423(93)90021-G), for refining high-level goals into constraints and operational requirements.
+- [Nuseibeh and Easterbrook, Requirements Engineering: A Roadmap](https://www.cs.toronto.edu/~sme/papers/2000/ICSE2000.pdf), để coi các mục tiêu thực tế là mỏ neo cho công việc phần mềm.
+- [Dardenne, van Lamsweerde, and Fickas, Goal-Directed Requirements Acquisition](https://doi.org/10.1016/0167-6423(93)90021-G), để tinh chỉnh các mục tiêu cấp cao thành các ràng buộc và yêu cầu vận hành.
 
 ## What You Keep
 
-Keep `outputs/outcome-frame.json`. The next lesson tests it against the workflow people actually perform.
+Giữ `outputs/outcome-frame.json`. Bài tiếp theo kiểm tra nó đối với workflow mà mọi người thực sự thực hiện.
