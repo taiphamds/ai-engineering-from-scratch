@@ -1,6 +1,6 @@
 # World Models & Video Diffusion
 
-> A video model that predicts the next seconds of a scene is a world simulator. Condition that prediction on actions and you have a learned game engine.
+> Một mô hình video dự đoán những giây tiếp theo của một cảnh là một bộ mô phỏng thế giới. Điều kiện hóa dự đoán đó theo các hành động và bạn có một game engine được học.
 
 **Type:** Learn + Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Explain the difference between a pure video generation model (Sora 2) and an action-conditioned world model (Genie 3, DreamerV3)
-- Describe a video DiT: spatio-temporal patches, 3D position encoding, joint attention across (T, H, W) tokens
-- Trace how a world model plugs into robotics: VLM plans → video model simulates → inverse dynamics emits actions
-- Pick between Sora 2, Genie 3, Runway GWM-1 Worlds, Wan-Video, and HunyuanVideo for a given use case (creative video, interactive sim, autonomous-driving synthesis)
+- Giải thích sự khác biệt giữa một mô hình sinh video thuần túy (Sora 2) và một world model được điều kiện hóa theo hành động (Genie 3, DreamerV3)
+- Mô tả một video DiT: các patch không gian-thời gian, mã hóa vị trí 3D, attention kết hợp trên các token (T, H, W)
+- Lần theo cách một world model kết nối vào robot học: VLM lập kế hoạch → mô hình video mô phỏng → động lực học nghịch đảo đưa ra các hành động
+- Chọn giữa Sora 2, Genie 3, Runway GWM-1 Worlds, Wan-Video và HunyuanVideo cho một trường hợp sử dụng nhất định (video sáng tạo, mô phỏng tương tác, tổng hợp cho lái xe tự hành)
 
 ## The Problem
 
-Video generation and world modelling converged in 2026. A model that can generate a coherent minute of video has, in some sense, learned how the world moves: object permanence, gravity, causality, style. If you condition that prediction on actions (walk left, open the door), the video model becomes a learnable simulator that can replace a game engine, a driving simulator, or a robotics environment.
+Sinh video và mô hình hóa thế giới hội tụ vào năm 2026. Một mô hình có thể sinh một phút video mạch lạc, theo một nghĩa nào đó, đã học được cách thế giới chuyển động: tính thường tồn của đối tượng, trọng lực, quan hệ nhân quả, phong cách. Nếu bạn điều kiện hóa dự đoán đó theo các hành động (đi sang trái, mở cửa), mô hình video trở thành một bộ mô phỏng có thể học có thể thay thế một game engine, một bộ mô phỏng lái xe hoặc một môi trường robot học.
 
-The stakes are concrete. Genie 3 generates playable environments from a single image. Runway GWM-1 Worlds synthesises infinite explorable scenes. Sora 2 produces minute-long videos with synchronised audio and modelled physics. NVIDIA Cosmos-Drive, Wayve Gaia-2, and Tesla DrivingWorld generate realistic driving video for autonomous-vehicle training data. The world-model paradigm is quietly taking over sim-to-real for robotics.
+Những gì được đặt cược là cụ thể. Genie 3 sinh các môi trường có thể chơi từ một hình ảnh duy nhất. Runway GWM-1 Worlds tổng hợp vô hạn cảnh có thể khám phá. Sora 2 tạo ra các video dài một phút với âm thanh được đồng bộ hóa và vật lý được mô hình hóa. NVIDIA Cosmos-Drive, Wayve Gaia-2 và Tesla DrivingWorld sinh video lái xe chân thực làm dữ liệu huấn luyện xe tự hành. Mô thức world model đang âm thầm tiếp quản sim-to-real cho robot học.
 
-This lesson is the "big picture" lesson for Phase 4. It connects image generation, video understanding, and agentic reasoning into the architecture pattern dominant research is moving toward.
+Bài học này là bài học về "bức tranh lớn" của Phase 4. Nó kết nối sinh ảnh, hiểu video và suy luận tác tử thành mẫu kiến trúc mà nghiên cứu chủ đạo đang hướng tới.
 
 ## The Concept
 
@@ -45,9 +45,9 @@ flowchart LR
     style RL fill:#dcfce7,stroke:#16a34a
 ```
 
-- **Sora 2** is pure video generation conditioned on prompts. No action interface. You cannot "steer" it mid-rollout.
-- **Genie 3**, **GWM-1 Worlds**, **Mirage / Magica** are action-conditioned world models. Infer latent actions from observed video, then condition future frame predictions on actions. Interactive — you press keys or move a camera and the scene responds.
-- **DreamerV3** and the classic RL world-model family predict in a latent space with explicit action conditioning, trained on a reward signal. Less visual; more useful for sample-efficient RL.
+- **Sora 2** là sinh video thuần túy được điều kiện hóa theo prompt. Không có giao diện hành động. Bạn không thể "điều khiển" nó giữa rollout.
+- **Genie 3**, **GWM-1 Worlds**, **Mirage / Magica** là các world model được điều kiện hóa theo hành động. Suy ra các hành động tiềm ẩn từ video được quan sát, rồi điều kiện hóa các dự đoán khung hình tương lai theo các hành động. Có tính tương tác — bạn nhấn phím hoặc di chuyển camera và cảnh phản hồi.
+- **DreamerV3** và họ world model RL kinh điển dự đoán trong một không gian tiềm ẩn với điều kiện hóa hành động tường minh, được huấn luyện dựa trên một tín hiệu phần thưởng. Ít trực quan hơn; hữu ích hơn cho RL hiệu quả về mẫu.
 
 ### Video DiT architecture
 
@@ -58,66 +58,66 @@ Patchify (temporal):   group P_t frames into a temporal patch
 Resulting tokens:      (T / P_t) * (H / P_h) * (W / P_w) tokens
 ```
 
-Positional encoding is 3D: a rotary or learned embedding per (t, h, w) coordinate. Attention can be:
+Mã hóa vị trí là 3D: một embedding xoay hoặc được học cho mỗi tọa độ (t, h, w). Attention có thể là:
 
-- **Full joint** — all tokens attend to all tokens. O(N^2) with N tokens. Prohibitive for long videos.
-- **Divided** — alternate temporal attention (same spatial position, across time: `(H*W) * T^2`) and spatial attention (same timestep, across space: `T * (H*W)^2`). Used by TimeSformer and most video DiTs.
-- **Window** — local windows in (t, h, w). Used by Video Swin.
+- **Kết hợp đầy đủ** — tất cả token chú ý đến tất cả token. O(N^2) với N token. Quá tốn kém đối với video dài.
+- **Phân chia** — luân phiên attention theo thời gian (cùng vị trí không gian, qua thời gian: `(H*W) * T^2`) và attention theo không gian (cùng bước thời gian, qua không gian: `T * (H*W)^2`). Được TimeSformer và phần lớn video DiT sử dụng.
+- **Cửa sổ** — các cửa sổ cục bộ trong (t, h, w). Được Video Swin sử dụng.
 
-Every 2026 video diffusion model uses one of these three patterns plus AdaLN conditioning (Lesson 23) and rectified flow.
+Mọi mô hình video diffusion năm 2026 đều sử dụng một trong ba mẫu này cộng với điều kiện hóa AdaLN (Bài 23) và rectified flow.
 
 ### Conditioning on actions: latent action models
 
-Genie learns a **latent action** per frame by discriminatively predicting the action between a pair of consecutive frames. The model's decoder then conditions on the inferred latent action — not on explicit keyboard keys. At inference, a user can specify a latent action (or sample one from a fresh prior) and the model generates the next frame consistent with that action.
+Genie học một **hành động tiềm ẩn** cho mỗi khung hình bằng cách dự đoán theo cách phân biệt hành động giữa một cặp khung hình liên tiếp. Sau đó, bộ giải mã của mô hình được điều kiện hóa theo hành động tiềm ẩn được suy ra — không theo các phím bàn phím tường minh. Khi suy luận, người dùng có thể chỉ định một hành động tiềm ẩn (hoặc lấy mẫu một hành động từ một phân phối tiên nghiệm mới) và mô hình sinh khung hình tiếp theo nhất quán với hành động đó.
 
-Sora skips the action interface entirely. Its decoder predicts next spacetime tokens from past spacetime tokens. Prompt conditions the start; nothing steers it mid-generation.
+Sora bỏ qua hoàn toàn giao diện hành động. Bộ giải mã của nó dự đoán các token không-thời gian tiếp theo từ các token không-thời gian trước đó. Prompt điều kiện hóa phần bắt đầu; không có gì điều khiển nó giữa quá trình sinh.
 
 ### Physical plausibility
 
-Sora 2's 2026 release explicitly advertised **physical plausibility**: weight, balance, object permanence, cause-and-effect. Measured by the team via hand-rated plausibility scores; the model visibly improves on dropped objects, characters colliding, and failures-on-purpose (a missed jump) versus Sora 1.
+Bản phát hành năm 2026 của Sora 2 quảng bá rõ ràng **tính hợp lý về vật lý**: trọng lượng, cân bằng, tính thường tồn của đối tượng, nguyên nhân và kết quả. Được nhóm đo bằng các điểm tính hợp lý do con người chấm; mô hình cải thiện rõ rệt đối với các vật bị thả rơi, các nhân vật va chạm và những thất bại có chủ ý (một cú nhảy hụt) so với Sora 1.
 
-Plausibility remains the dominant failure mode. 2024-2025 videos of people eating spaghetti or drinking from glasses revealed the model's lack of persistent object representation. 2026 models (Sora 2, Runway Gen-5, HunyuanVideo) reduce but do not eliminate these.
+Tính hợp lý vẫn là dạng lỗi chủ đạo. Các video năm 2024-2025 về người ăn mì spaghetti hoặc uống từ ly cho thấy mô hình thiếu biểu diễn đối tượng bền vững. Các mô hình năm 2026 (Sora 2, Runway Gen-5, HunyuanVideo) giảm bớt nhưng không loại bỏ những lỗi này.
 
 ### Autonomous driving world models
 
-Driving world models generate realistic road scenes conditioned on trajectories, bounding boxes, or navigation maps. Usage:
+Các world model lái xe sinh những cảnh đường phố chân thực được điều kiện hóa theo quỹ đạo, bounding box hoặc bản đồ dẫn đường. Cách sử dụng:
 
-- **Cosmos-Drive-Dreams** (NVIDIA) — generates minutes of driving video for RL training.
-- **Gaia-2** (Wayve) — trajectory-conditioned scene synthesis for policy evaluation.
-- **DrivingWorld** (Tesla) — simulates varied weather, time-of-day, traffic conditions.
-- **Vista** (ByteDance) — reactive driving scene synthesis.
+- **Cosmos-Drive-Dreams** (NVIDIA) — sinh nhiều phút video lái xe để huấn luyện RL.
+- **Gaia-2** (Wayve) — tổng hợp cảnh được điều kiện hóa theo quỹ đạo để đánh giá chính sách.
+- **DrivingWorld** (Tesla) — mô phỏng các điều kiện thời tiết, thời điểm trong ngày, giao thông đa dạng.
+- **Vista** (ByteDance) — tổng hợp cảnh lái xe có tính phản ứng.
 
-They replace expensive real-world data collection for corner cases — pedestrian jaywalks at night, icy intersections, unusual vehicle types — that would otherwise require millions of miles of driving.
+Chúng thay thế việc thu thập dữ liệu thực tế tốn kém cho các trường hợp góc — người đi bộ sang đường sai luật vào ban đêm, giao lộ đóng băng, các loại xe khác thường — mà nếu không sẽ đòi hỏi hàng triệu dặm lái xe.
 
 ### Robotics stack: VLM + video model + inverse dynamics
 
-The emerging three-component robotics loop:
+Vòng lặp robot học ba thành phần đang hình thành:
 
-1. **VLM** parses the goal ("pick up the red cup"), plans a high-level action sequence.
-2. **Video generation model** simulates what executing each action would look like — predicts observations N frames ahead.
-3. **Inverse dynamics model** extracts the concrete motor commands that would produce those observations.
+1. **VLM** phân tích mục tiêu ("nhấc chiếc cốc đỏ lên"), lập kế hoạch một chuỗi hành động cấp cao.
+2. **Mô hình sinh video** mô phỏng việc thực hiện từng hành động sẽ trông như thế nào — dự đoán các quan sát trước N khung hình.
+3. **Mô hình động lực học nghịch đảo** trích xuất các lệnh động cơ cụ thể sẽ tạo ra những quan sát đó.
 
-This replaces reward shaping and sample-heavy RL. The world model does the imagination; the inverse dynamics closes the loop on actuation. Genie Envisioner is one instantiation; many research groups are converging on this structure.
+Điều này thay thế việc định hình phần thưởng và RL cần nhiều mẫu. World model thực hiện việc tưởng tượng; động lực học nghịch đảo khép kín vòng lặp về chấp hành. Genie Envisioner là một cách hiện thực hóa; nhiều nhóm nghiên cứu đang hội tụ về cấu trúc này.
 
 ### Evaluation
 
-- **Visual quality** — FVD (Fréchet Video Distance), user studies.
-- **Prompt alignment** — CLIPScore per frame, VQA-style evaluation.
-- **Physical plausibility** — hand-rated on a benchmark suite (Sora 2's internal benchmark, VBench).
-- **Controllability** (for interactive world models) — action → observation consistency; can you go back to a prior state?
+- **Chất lượng hình ảnh** — FVD (Fréchet Video Distance), các nghiên cứu người dùng.
+- **Mức độ phù hợp với prompt** — CLIPScore cho mỗi khung hình, đánh giá kiểu VQA.
+- **Tính hợp lý về vật lý** — do con người chấm trên một bộ benchmark (benchmark nội bộ của Sora 2, VBench).
+- **Khả năng điều khiển** (đối với các world model tương tác) — tính nhất quán hành động → quan sát; bạn có thể quay lại một trạng thái trước đó không?
 
 ### Model landscape in 2026
 
-| Model | Use | Parameters | Output | License |
+| Mô hình | Công dụng | Tham số | Đầu ra | Giấy phép |
 |-------|-----|------------|--------|---------|
-| Sora 2 | text-to-video, audio | — | 1-min 1080p + audio | API only |
-| Runway Gen-5 | text/image-to-video | — | 10s clips | API |
-| Runway GWM-1 Worlds | interactive world | — | infinite 3D rollout | API |
-| Genie 3 | interactive world from image | 11B+ | playable frames | research preview |
-| Wan-Video 2.1 | open text-to-video | 14B | high-quality clips | non-commercial |
-| HunyuanVideo | open text-to-video | 13B | 10s clips | permissive |
-| Cosmos / Cosmos-Drive | autonomous driving sim | 7-14B | driving scenes | NVIDIA open |
-| Magica / Mirage 2 | AI-native game engine | — | modifiable worlds | product |
+| Sora 2 | văn bản thành video, âm thanh | — | 1080p dài 1 phút + âm thanh | Chỉ API |
+| Runway Gen-5 | văn bản/hình ảnh thành video | — | các đoạn phim 10s | API |
+| Runway GWM-1 Worlds | thế giới tương tác | — | rollout 3D vô hạn | API |
+| Genie 3 | thế giới tương tác từ hình ảnh | 11B+ | các khung hình có thể chơi | bản xem trước nghiên cứu |
+| Wan-Video 2.1 | văn bản thành video mở | 14B | các đoạn phim chất lượng cao | phi thương mại |
+| HunyuanVideo | văn bản thành video mở | 13B | các đoạn phim 10s | dễ dãi |
+| Cosmos / Cosmos-Drive | mô phỏng lái xe tự hành | 7-14B | các cảnh lái xe | NVIDIA mở |
+| Magica / Mirage 2 | game engine AI-native | — | các thế giới có thể chỉnh sửa | sản phẩm |
 
 ```figure
 v4-world-rollout
@@ -152,11 +152,11 @@ class VideoPatch3D(nn.Module):
         return tokens, (t, h, w)
 ```
 
-A 3D conv with stride equal to kernel acts as the spatio-temporal patchifier. `(T, H, W) -> (T/2, H/2, W/2)` grid of tokens.
+Một tích chập 3D với stride bằng kernel đóng vai trò bộ chia patch không gian-thời gian. Lưới token `(T, H, W) -> (T/2, H/2, W/2)`.
 
 ### Step 2: 3D rotary position encoding
 
-Rotary Position Embeddings (RoPE) separately applied along `t`, `h`, `w` axes:
+Rotary Position Embeddings (RoPE) được áp dụng riêng dọc theo các trục `t`, `h`, `w`:
 
 ```python
 def rope_3d(tokens, t_dim, h_dim, w_dim, grid):
@@ -183,7 +183,7 @@ def rope_3d(tokens, t_dim, h_dim, w_dim, grid):
     return tokens + torch.cat([emb_t, emb_h, emb_w], dim=-1)
 ```
 
-Simplified additive form. Real RoPE rotates paired channels at frequencies; the positional information is the same.
+Dạng cộng được đơn giản hóa. RoPE thực tế xoay các kênh được ghép cặp ở các tần số; thông tin vị trí là như nhau.
 
 ### Step 3: Divided attention block
 
@@ -213,7 +213,7 @@ class DividedAttentionBlock(nn.Module):
         return xs
 ```
 
-The time attention attends within each spatial position across time; the space attention attends within each frame across positions. Two O(T^2 + (HW)^2) operations instead of one O((THW)^2). This is the core of TimeSformer and every modern video DiT.
+Attention theo thời gian chú ý trong mỗi vị trí không gian qua thời gian; attention theo không gian chú ý trong mỗi khung hình qua các vị trí. Hai phép toán O(T^2 + (HW)^2) thay cho một phép toán O((THW)^2). Đây là cốt lõi của TimeSformer và mọi video DiT hiện đại.
 
 ### Step 4: Compose a tiny video DiT
 
@@ -232,7 +232,7 @@ class TinyVideoDiT(nn.Module):
         return self.out(tokens), grid
 ```
 
-Not a working video generator; a structural demo that every piece shapes correctly.
+Không phải một bộ sinh video hoạt động được; một bản minh họa cấu trúc cho thấy mọi thành phần có hình dạng đúng.
 
 ### Step 5: Check shapes
 
@@ -245,59 +245,59 @@ print(f"tokens grid {grid}")
 print(f"output {tuple(out.shape)}")
 ```
 
-Expect `grid = (4, 8, 8)` and `out = (1, 256, 32)` after patching; the head then projects to per-token spatio-temporal patches, ready to be un-patchified back into a video.
+Dự kiến `grid = (4, 8, 8)` và `out = (1, 256, 32)` sau khi chia patch; sau đó head chiếu thành các patch không gian-thời gian cho mỗi token, sẵn sàng để được ghép patch trở lại thành video.
 
 ## Use It
 
-Production access patterns for 2026:
+Các cách truy cập cho môi trường production năm 2026:
 
-- **Sora 2 API** (OpenAI) — text-to-video, synchronized audio. Premium pricing.
-- **Runway Gen-5 / GWM-1** (Runway) — image-to-video, interactive worlds.
-- **Wan-Video 2.1 / HunyuanVideo** — open-source self-host.
-- **Cosmos / Cosmos-Drive** (NVIDIA) — driving simulation open weights.
-- **Genie 3** — research preview, request access.
+- **Sora 2 API** (OpenAI) — văn bản thành video, âm thanh được đồng bộ hóa. Mức giá cao cấp.
+- **Runway Gen-5 / GWM-1** (Runway) — hình ảnh thành video, các thế giới tương tác.
+- **Wan-Video 2.1 / HunyuanVideo** — mã nguồn mở tự lưu trữ.
+- **Cosmos / Cosmos-Drive** (NVIDIA) — trọng số mở cho mô phỏng lái xe.
+- **Genie 3** — bản xem trước nghiên cứu, yêu cầu quyền truy cập.
 
-For building an interactive world-model demo: start with Wan-Video for quality, layer on a latent-action adapter for interactivity. For autonomous driving simulation: Cosmos-Drive is the 2026 open reference.
+Để xây dựng một bản minh họa world model tương tác: bắt đầu với Wan-Video vì chất lượng, bổ sung một adapter hành động tiềm ẩn để có tính tương tác. Đối với mô phỏng lái xe tự hành: Cosmos-Drive là tham chiếu mở năm 2026.
 
-For robotics, the stack in the wild:
+Đối với robot học, ngăn xếp trong thực tế:
 
-1. Language goal -> VLM (Qwen3-VL) -> high-level plan.
-2. Plan -> latent-action video model -> imagined rollout.
-3. Rollout -> inverse dynamics model -> low-level actions.
-4. Actions executed -> observation fed back into step 1.
+1. Mục tiêu bằng ngôn ngữ -> VLM (Qwen3-VL) -> kế hoạch cấp cao.
+2. Kế hoạch -> mô hình video hành động tiềm ẩn -> rollout được tưởng tượng.
+3. Rollout -> mô hình động lực học nghịch đảo -> các hành động cấp thấp.
+4. Các hành động được thực hiện -> quan sát được đưa trở lại bước 1.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-video-model-picker.md` — picks between Sora 2 / Runway / Wan / HunyuanVideo / Cosmos given task, license, and latency.
-- `outputs/skill-physical-plausibility-checks.md` — a skill that defines automated checks (object permanence, gravity, continuity) to run on any generated video before shipping.
+- `outputs/prompt-video-model-picker.md` — chọn giữa Sora 2 / Runway / Wan / HunyuanVideo / Cosmos dựa trên tác vụ, giấy phép và độ trễ.
+- `outputs/skill-physical-plausibility-checks.md` — một skill xác định các kiểm tra tự động (tính thường tồn của đối tượng, trọng lực, tính liên tục) để chạy trên mọi video được sinh trước khi phát hành.
 
 ## Exercises
 
-1. **(Easy)** Compute the token count for a 5-second 360p video at patch-t=2, patch-h=8, patch-w=8. Reason about memory for attention at this size.
-2. **(Medium)** Swap the divided attention block above for a full joint attention block and measure the shape and parameter count. Explain why divided attention is necessary for real video models.
-3. **(Hard)** Build a minimal latent-action video model: take a dataset of (frame_t, action_t, frame_{t+1}) triples (any simple 2D game), train a tiny video DiT conditioned on action embeddings, and show that different actions produce different next frames.
+1. **(Dễ)** Tính số lượng token cho một video 360p dài 5 giây với patch-t=2, patch-h=8, patch-w=8. Suy luận về bộ nhớ cho attention ở kích thước này.
+2. **(Trung bình)** Thay khối attention phân chia ở trên bằng một khối attention kết hợp đầy đủ và đo hình dạng cùng số lượng tham số. Giải thích vì sao attention phân chia là cần thiết đối với các mô hình video thực tế.
+3. **(Khó)** Xây dựng một mô hình video hành động tiềm ẩn tối thiểu: lấy một tập dữ liệu gồm các bộ ba (frame_t, action_t, frame_{t+1}) (bất kỳ trò chơi 2D đơn giản nào), huấn luyện một video DiT nhỏ được điều kiện hóa theo embedding hành động và cho thấy các hành động khác nhau tạo ra các khung hình tiếp theo khác nhau.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| World model | "Learned simulator" | A model that predicts future observations given state and action |
-| Video DiT | "Spacetime transformer" | Diffusion transformer with 3D patchification and divided attention |
-| Latent action | "Inferred control" | Discrete or continuous action latent inferred from frame pairs; used to condition next-frame generation |
-| Divided attention | "Time then space" | Two attention operations per block — across time then across space — to keep O(N^2) manageable |
-| Object permanence | "Things stay real" | Scene property that video models must learn; classic failure mode on food, glassware |
-| FVD | "Fréchet Video Distance" | Video equivalent of FID; primary visual quality metric |
-| Inverse dynamics model | "Observations to actions" | Given (state, next state), output the action that connects them; closes robotics loop |
-| Cosmos-Drive | "NVIDIA driving sim" | Open-weights autonomous-driving world model for RL and evaluation |
+| World model (Mô hình thế giới) | "Bộ mô phỏng được học" | Một mô hình dự đoán các quan sát tương lai dựa trên trạng thái và hành động |
+| Video DiT | "Transformer không-thời gian" | Diffusion transformer với chia patch 3D và attention phân chia |
+| Latent action (Hành động tiềm ẩn) | "Điều khiển được suy ra" | Biến tiềm ẩn hành động rời rạc hoặc liên tục được suy ra từ các cặp khung hình; được dùng để điều kiện hóa việc sinh khung hình tiếp theo |
+| Divided attention (Attention phân chia) | "Thời gian rồi không gian" | Hai phép toán attention cho mỗi khối — qua thời gian rồi qua không gian — để giữ O(N^2) trong mức có thể quản lý |
+| Object permanence (Tính thường tồn của đối tượng) | "Các vật vẫn tồn tại thực" | Thuộc tính của cảnh mà các mô hình video phải học; dạng lỗi kinh điển đối với thức ăn, đồ thủy tinh |
+| FVD | "Fréchet Video Distance" | Tương đương của FID cho video; thước đo chất lượng hình ảnh chính |
+| Inverse dynamics model (Mô hình động lực học nghịch đảo) | "Quan sát thành hành động" | Cho (trạng thái, trạng thái tiếp theo), xuất ra hành động kết nối chúng; khép kín vòng lặp robot học |
+| Cosmos-Drive | "Mô phỏng lái xe NVIDIA" | World model lái xe tự hành có trọng số mở dành cho RL và đánh giá |
 
 ## Further Reading
 
 - [Sora technical report (OpenAI)](https://openai.com/index/video-generation-models-as-world-simulators/)
-- [Genie: Generative Interactive Environments (Bruce et al., 2024)](https://arxiv.org/abs/2402.15391) — latent action world models
-- [TimeSformer (Bertasius et al., 2021)](https://arxiv.org/abs/2102.05095) — divided attention for video transformers
-- [DreamerV3 (Hafner et al., 2023)](https://arxiv.org/abs/2301.04104) — world models for RL
-- [Cosmos-Drive-Dreams (NVIDIA, 2025)](https://research.nvidia.com/labs/toronto-ai/cosmos-drive-dreams/) — driving world model
+- [Genie: Generative Interactive Environments (Bruce et al., 2024)](https://arxiv.org/abs/2402.15391) — các world model hành động tiềm ẩn
+- [TimeSformer (Bertasius et al., 2021)](https://arxiv.org/abs/2102.05095) — attention phân chia cho video transformer
+- [DreamerV3 (Hafner et al., 2023)](https://arxiv.org/abs/2301.04104) — các world model cho RL
+- [Cosmos-Drive-Dreams (NVIDIA, 2025)](https://research.nvidia.com/labs/toronto-ai/cosmos-drive-dreams/) — world model lái xe
 - [Top 10 Video Generation Models 2026 (DataCamp)](https://www.datacamp.com/blog/top-video-generation-models)
 - [From Video Generation to World Model — survey repo](https://github.com/ziqihuangg/Awesome-From-Video-Generation-to-World-Model/)
