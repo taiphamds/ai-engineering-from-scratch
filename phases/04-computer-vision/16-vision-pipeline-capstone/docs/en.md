@@ -1,6 +1,6 @@
 # Build a Complete Vision Pipeline — Capstone
 
-> A production vision system is a chain of models and rules stitched with data contracts. The pieces are already in this phase; the capstone wires them together end-to-end.
+> Một hệ thống thị giác production là một chuỗi mô hình và quy tắc được nối bằng các hợp đồng dữ liệu. Các phần đã có trong giai đoạn này; bài capstone nối chúng đầu-cuối.
 
 **Type:** Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Design a production vision pipeline that detects objects, classifies them, and emits structured JSON — with every failure path handled
-- Plug a detector (Mask R-CNN or YOLO), a classifier (ConvNeXt-Tiny), and a data contract (Pydantic) into one service
-- Benchmark the end-to-end pipeline and identify the first bottleneck (usually preprocessing, then the detector)
-- Ship a minimal FastAPI service that accepts an image upload, runs the pipeline, and returns detections with classifications
+- Thiết kế một pipeline thị giác production phát hiện đối tượng, phân loại chúng và xuất JSON có cấu trúc — với mọi đường thất bại được xử lý
+- Cắm một bộ phát hiện (Mask R-CNN hoặc YOLO), một bộ phân loại (ConvNeXt-Tiny) và một hợp đồng dữ liệu (Pydantic) vào một dịch vụ
+- Đo hiệu năng pipeline đầu-cuối và xác định nút thắt đầu tiên (thường là tiền xử lý, rồi bộ phát hiện)
+- Phát hành một dịch vụ FastAPI tối giản nhận tải lên hình ảnh, chạy pipeline và trả về các phát hiện kèm phân loại
 
 ## The Problem
 
-Individual vision models are useful; vision products are chains of them. A retail shelf audit is a detector plus a product classifier plus a price-OCR pipeline. Autonomous driving is a 2D detector plus a 3D detector plus a segmenter plus a tracker plus a planner. A medical pre-screen is a segmenter plus a region classifier plus a clinician UI.
+Các mô hình thị giác riêng lẻ hữu ích; các sản phẩm thị giác là chuỗi của chúng. Kiểm tra kệ bán lẻ là một bộ phát hiện cộng bộ phân loại sản phẩm cộng pipeline OCR giá. Lái xe tự hành là một bộ phát hiện 2D cộng bộ phát hiện 3D cộng bộ phân đoạn cộng bộ theo dõi cộng bộ lập kế hoạch. Sàng lọc y tế là một bộ phân đoạn cộng bộ phân loại vùng cộng giao diện bác sĩ.
 
-Wiring those chains is the part that separates a ML prototype from a product. Every interface between models is a new place for bugs. Every coordinate transform, every normalisation, every mask resize is a silent-failure candidate. A pipeline is as strong as its weakest interface.
+Nối các chuỗi đó là phần phân biệt một mẫu thử ML với sản phẩm. Mọi giao diện giữa mô hình là một nơi mới cho lỗi. Mọi phép biến đổi tọa độ, mọi chuẩn hóa, mọi đổi kích thước mặt nạ là một ứng viên thất bại âm thầm. Một pipeline mạnh bằng giao diện yếu nhất của nó.
 
-This capstone sets up the minimum viable pipeline: detection + classification + structured output + a serving layer. Everything else in Phase 4 slots into this skeleton: swap Mask R-CNN for YOLOv8, add a OCR head, add a segmentation branch, add a tracker. The architecture is stable; the pieces are pluggable.
+Bài capstone này thiết lập pipeline khả dụng tối thiểu: phát hiện + phân loại + đầu ra có cấu trúc + lớp phục vụ. Mọi thứ khác trong Giai đoạn 4 cắm vào bộ khung này: đổi Mask R-CNN thành YOLOv8, thêm đầu OCR, thêm nhánh phân đoạn, thêm bộ theo dõi. Kiến trúc ổn định; các phần có thể cắm vào.
 
 ## The Concept
 
@@ -43,11 +43,11 @@ flowchart LR
     style SCHEMA fill:#dcfce7,stroke:#16a34a
 ```
 
-Seven stages. The two model stages are expensive; the five other stages are where the bugs live.
+Bảy giai đoạn. Hai giai đoạn mô hình tốn kém; năm giai đoạn khác là nơi lỗi tồn tại.
 
 ### Data contracts with Pydantic
 
-Every model boundary becomes a typed object. This turns silent failures into loud ones.
+Mọi ranh giới mô hình trở thành một đối tượng có kiểu. Điều này biến thất bại âm thầm thành thất bại rõ ràng.
 
 ```
 Detection(
@@ -65,31 +65,31 @@ PipelineResult(
 )
 ```
 
-When a detector returns boxes in `(cx, cy, w, h)` instead of `(x1, y1, x2, y2)`, Pydantic's validation fails at the boundary and you find out immediately instead of debugging a downstream crop that silently returns empty regions.
+Khi một bộ phát hiện trả về các hộp theo `(cx, cy, w, h)` thay vì `(x1, y1, x2, y2)`, kiểm tra Pydantic thất bại tại ranh giới và bạn biết ngay thay vì gỡ lỗi một phép cắt phía sau âm thầm trả về vùng rỗng.
 
 ### Where latency goes
 
-Three truths hold in nearly every vision pipeline:
+Ba sự thật đúng trong gần như mọi pipeline thị giác:
 
-1. **Preprocessing is often the biggest single block.** Decoding JPEGs, converting colour spaces, resizing — these are CPU-bound and easy to forget.
-2. **The detector dominates GPU time.** 70-90% of GPU time is in the detection forward pass.
-3. **Postprocessing (NMS, RLE encode/decode) is cheap on GPU, expensive on CPU.** Always profile with the actual target.
+1. **Tiền xử lý thường là khối đơn lớn nhất.** Giải mã JPEG, chuyển không gian màu, đổi kích thước — chúng bị giới hạn CPU và dễ quên.
+2. **Bộ phát hiện chi phối thời gian GPU.** 70-90% thời gian GPU nằm trong lượt truyền xuôi phát hiện.
+3. **Hậu xử lý (NMS, mã hóa/giải mã RLE) rẻ trên GPU, đắt trên CPU.** Luôn đo hiệu năng với đích thực tế.
 
-Knowing the distribution is what turns optimisation into a prioritised list.
+Biết phân phối là điều biến tối ưu hóa thành một danh sách có ưu tiên.
 
 ### Failure modes
 
-- **Empty detections** — return empty list, do not crash. Log.
-- **Out-of-bounds boxes** — clamp to image size before cropping.
-- **Tiny crops** — skip classification for boxes smaller than the classifier's minimum input.
-- **Corrupt upload** — 400 response with a specific error code, not 500.
-- **Model load failure** — fail at service startup, not at first request.
+- **Các phát hiện rỗng** — trả danh sách rỗng, không sập. Ghi nhật ký.
+- **Các hộp ngoài biên** — chặn theo kích thước hình ảnh trước khi cắt.
+- **Các vùng cắt rất nhỏ** — bỏ phân loại cho các hộp nhỏ hơn đầu vào tối thiểu của bộ phân loại.
+- **Tải lên hỏng** — phản hồi 400 với mã lỗi cụ thể, không phải 500.
+- **Tải mô hình thất bại** — thất bại khi khởi động dịch vụ, không phải ở yêu cầu đầu tiên.
 
-A production pipeline handles each of these without writing generic `try/except` that hides the failure. Every failure gets a named code and a response.
+Một pipeline production xử lý từng trường hợp mà không viết `try/except` chung chung che giấu thất bại. Mọi thất bại có mã được đặt tên và phản hồi.
 
 ### Batching
 
-A production service serves multiple clients. Batching detections and classifications across requests multiplies throughput. The trade-off: extra latency from waiting for a batch to fill. Typical setup: collect requests for up to 20ms, batch together, process, distribute responses. `torchserve` and `triton` do this natively; small services with predictable load roll their own micro-batcher.
+Một dịch vụ production phục vụ nhiều máy khách. Chia batch các phát hiện và phân loại giữa các yêu cầu nhân thông lượng. Đánh đổi: thêm độ trễ từ chờ batch đầy. Thiết lập điển hình: gom yêu cầu tối đa 20ms, chia batch cùng nhau, xử lý, phân phối phản hồi. `torchserve` và `triton` làm trực tiếp; các dịch vụ nhỏ với tải dự đoán được tự xây micro-batcher.
 
 ```figure
 v4-vision-pipeline
@@ -124,7 +124,7 @@ class PipelineResult(BaseModel):
     inference_ms: float
 ```
 
-Five seconds of code saves an hour of debugging on any serious pipeline.
+Năm giây viết mã tiết kiệm một giờ gỡ lỗi trên bất kỳ pipeline nghiêm túc nào.
 
 ### Step 2: A minimal Pipeline class
 
@@ -215,7 +215,7 @@ class VisionPipeline:
         )
 ```
 
-Every interface is typed. Every failure path has a specific handling decision.
+Mọi giao diện có kiểu. Mọi đường thất bại có quyết định xử lý cụ thể.
 
 ### Step 3: Wire a detector and a classifier
 
@@ -265,7 +265,7 @@ async def detect_endpoint(file: UploadFile):
     return result.model_dump()
 ```
 
-Run with `uvicorn main:app --host 0.0.0.0 --port 8000`. Test with `curl -F 'file=@dog.jpg' http://localhost:8000/detect`.
+Chạy bằng `uvicorn main:app --host 0.0.0.0 --port 8000`. Kiểm tra bằng `curl -F 'file=@dog.jpg' http://localhost:8000/detect`.
 
 ### Step 5: Benchmark the pipeline
 
@@ -306,49 +306,49 @@ def benchmark(pipe, num_runs=20, image_size=(400, 600)):
         print(f"{stage:12s}  p50={times[len(times)//2]:7.1f} ms  p95={times[int(len(times)*0.95)]:7.1f} ms")
 ```
 
-Typical output on CPU: preprocess ~3 ms, detect 300-500 ms, classify 20-40 ms, total 350-550 ms. On GPU, detect is 20-40 ms and the preprocess + classify start to matter more in relative terms.
+Đầu ra điển hình trên CPU: tiền xử lý ~3 ms, phát hiện 300-500 ms, phân loại 20-40 ms, tổng 350-550 ms. Trên GPU, phát hiện là 20-40 ms và tiền xử lý + phân loại bắt đầu quan trọng hơn theo tỷ lệ tương đối.
 
 ## Use It
 
-Production templates converge to the same structure, plus:
+Các khuôn production hội tụ về cùng cấu trúc, cộng:
 
-- **Model versioning** — always log the model name and weights hash in the response.
-- **Per-request trace IDs** — log every stage timing for every request so you can correlate slow responses with stages.
-- **Fallback path** — if the classifier times out, return detections without classifications rather than failing the whole request.
-- **Safety filters** — NSFW / PII filters run after classification, before the response leaves the service.
-- **Batch endpoint** — a `/detect_batch` accepting a list of image URLs for bulk processing.
+- **Quản lý phiên bản mô hình** — luôn ghi tên mô hình và mã băm trọng số trong phản hồi.
+- **ID truy vết từng yêu cầu** — ghi thời gian mọi giai đoạn cho mọi yêu cầu để liên hệ phản hồi chậm với các giai đoạn.
+- **Đường dự phòng** — nếu bộ phân loại hết thời gian, trả các phát hiện không kèm phân loại thay vì làm thất bại toàn bộ yêu cầu.
+- **Các bộ lọc an toàn** — các bộ lọc NSFW / PII chạy sau phân loại, trước khi phản hồi rời dịch vụ.
+- **Endpoint batch** — một `/detect_batch` nhận danh sách URL hình ảnh để xử lý hàng loạt.
 
-For production serving, `torchserve`, `Triton Inference Server`, and `BentoML` handle batching, versioning, metrics, and health checks out of the box. Running `FastAPI` directly is fine for prototypes and small-scale products.
+Cho phục vụ production, `torchserve`, `Triton Inference Server` và `BentoML` xử lý chia batch, quản lý phiên bản, thước đo và kiểm tra sức khỏe sẵn có. Chạy trực tiếp `FastAPI` ổn cho mẫu thử và sản phẩm quy mô nhỏ.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-vision-service-shape-reviewer.md` — a prompt that reviews a vision service's code for contract/response shape violations and names the first breaking bug.
-- `outputs/skill-pipeline-budget-planner.md` — a skill that, given target latency and throughput, assigns a time budget to every pipeline stage and flags which stage will miss its budget first.
+- `outputs/prompt-vision-service-shape-reviewer.md` — một prompt đánh giá mã dịch vụ thị giác tìm vi phạm hình dạng hợp đồng/phản hồi và nêu lỗi gây hỏng đầu tiên.
+- `outputs/skill-pipeline-budget-planner.md` — một skill, với độ trễ và thông lượng đích, gán ngân sách thời gian cho mọi giai đoạn pipeline và đánh dấu giai đoạn sẽ không đạt ngân sách đầu tiên.
 
 ## Exercises
 
-1. **(Easy)** Run the pipeline on 10 images from any open dataset. Report the average time per stage and the distribution of detection counts per image.
-2. **(Medium)** Add a mask output field to `Detection` and encode it as RLE. Verify the JSON stays under 1MB even for a 10-object image.
-3. **(Hard)** Add a micro-batcher in front of the classifier: collect crops for up to 10 ms, classify them all in one GPU call, return results per request. Measure the throughput gain at 5 concurrent requests per second and the latency added.
+1. **(Dễ)** Chạy pipeline trên 10 hình ảnh từ bất kỳ tập dữ liệu mở nào. Báo cáo thời gian trung bình mỗi giai đoạn và phân phối số phát hiện mỗi hình ảnh.
+2. **(Vừa)** Thêm một trường đầu ra mặt nạ vào `Detection` và mã hóa thành RLE. Xác minh JSON giữ dưới 1MB ngay cả cho hình ảnh 10 đối tượng.
+3. **(Khó)** Thêm một micro-batcher trước bộ phân loại: gom các vùng cắt tối đa 10 ms, phân loại tất cả trong một lời gọi GPU, trả kết quả từng yêu cầu. Đo mức tăng thông lượng ở 5 yêu cầu đồng thời mỗi giây và độ trễ thêm.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Pipeline | "The system" | An ordered chain of preprocessing, inference, and postprocessing steps with a typed interface between each pair |
-| Data contract | "The schema" | Pydantic / dataclass definitions that every stage input and output conforms to; catches integration bugs at the boundary |
-| Preprocessing | "Before the model" | Decoding, colour conversion, resizing, normalising; usually the biggest CPU time sink |
-| Postprocessing | "After the model" | NMS, mask resize, threshold, RLE encode; cheap on GPU, expensive on CPU |
-| Microbatcher | "Collect then forward" | Aggregator that waits a fixed window for multiple requests, runs a single batched forward pass |
-| Trace ID | "Request id" | Per-request identifier logged at every stage so slow requests can be traced end-to-end |
-| Failure code | "Named error" | Specific error code per failure class instead of generic 500; enables client retry logic |
-| Health check | "Readiness probe" | Cheap endpoint that reports whether the service can answer; loadbalancers rely on this |
+| Pipeline | "Hệ thống" | Một chuỗi có thứ tự các bước tiền xử lý, suy luận và hậu xử lý với giao diện có kiểu giữa mỗi cặp |
+| Data contract (Hợp đồng dữ liệu) | "Schema" | Các định nghĩa Pydantic / dataclass mà đầu vào và đầu ra mọi giai đoạn tuân theo; phát hiện lỗi tích hợp tại ranh giới |
+| Preprocessing (Tiền xử lý) | "Trước mô hình" | Giải mã, chuyển màu, đổi kích thước, chuẩn hóa; thường là phần tốn thời gian CPU lớn nhất |
+| Postprocessing (Hậu xử lý) | "Sau mô hình" | NMS, đổi kích thước mặt nạ, ngưỡng, mã hóa RLE; rẻ trên GPU, đắt trên CPU |
+| Microbatcher | "Gom rồi truyền xuôi" | Bộ tổng hợp chờ một cửa sổ cố định cho nhiều yêu cầu, chạy một lượt truyền xuôi theo batch duy nhất |
+| Trace ID (ID truy vết) | "Id yêu cầu" | Định danh từng yêu cầu ghi ở mọi giai đoạn để các yêu cầu chậm có thể truy vết đầu-cuối |
+| Failure code (Mã thất bại) | "Lỗi có tên" | Mã lỗi cụ thể mỗi loại thất bại thay vì 500 chung chung; cho phép logic thử lại máy khách |
+| Health check (Kiểm tra sức khỏe) | "Phép thăm dò sẵn sàng" | Endpoint rẻ báo liệu dịch vụ có thể trả lời; các bộ cân bằng tải dựa vào nó |
 
 ## Further Reading
 
-- [Full Stack Deep Learning — Deploying Models](https://fullstackdeeplearning.com/course/2022/lecture-5-deployment/) — the canonical overview of production ML deployment
-- [BentoML docs](https://docs.bentoml.com) — serving framework with batching, versioning, and metrics
-- [torchserve docs](https://pytorch.org/serve/) — PyTorch's official serving library
-- [NVIDIA Triton Inference Server](https://developer.nvidia.com/triton-inference-server) — high-throughput serving with batching and multi-model support
+- [Full Stack Deep Learning — Deploying Models](https://fullstackdeeplearning.com/course/2022/lecture-5-deployment/) — tổng quan chuẩn về triển khai ML production
+- [BentoML docs](https://docs.bentoml.com) — framework phục vụ với chia batch, quản lý phiên bản và thước đo
+- [torchserve docs](https://pytorch.org/serve/) — thư viện phục vụ chính thức của PyTorch
+- [NVIDIA Triton Inference Server](https://developer.nvidia.com/triton-inference-server) — phục vụ thông lượng cao với hỗ trợ chia batch và nhiều mô hình
