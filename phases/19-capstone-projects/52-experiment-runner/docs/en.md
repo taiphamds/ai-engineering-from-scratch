@@ -1,6 +1,6 @@
 # Experiment Runner
 
-> The loop is only as honest as its measurements. Build the runner that takes a spec, executes it in a sandboxed subprocess, and emits a json metrics blob the evaluator can trust.
+> Vòng lặp chỉ trung thực như các phép đo của nó. Xây dựng trình chạy nhận một đặc tả, thực thi nó trong một tiến trình con được sandbox, và phát ra một khối chỉ số json mà bộ đánh giá có thể tin.
 
 **Type:** Build
 **Languages:** Python
@@ -8,17 +8,17 @@
 **Time:** ~90 minutes
 
 ## Learning Objectives
-- Encode an experiment as a typed spec the runner can serialise to a subprocess.
-- Launch a subprocess with a hard wall clock timeout and a soft memory cap, and surface both as terminal conditions.
-- Capture stdout, stderr, and the structured metrics blob into a single result record.
-- Build an ablation table that sweeps one configuration knob at a time over a fixed base spec.
-- Keep every result deterministic given a seed so the evaluator sees the same numbers across runs.
+- Mã hóa một thí nghiệm như một đặc tả có kiểu mà trình chạy có thể tuần tự hóa đến một tiến trình con.
+- Khởi chạy một tiến trình con với một timeout thời gian thực cứng và một trần bộ nhớ mềm, và đưa cả hai ra như các điều kiện kết thúc.
+- Thu thập stdout, stderr, và khối chỉ số có cấu trúc vào một bản ghi kết quả duy nhất.
+- Xây dựng một bảng loại bỏ quét từng núm cấu hình một trên một đặc tả cơ sở cố định.
+- Giữ mọi kết quả tất định với một seed để bộ đánh giá thấy cùng các số giữa các lần chạy.
 
 ## Why a subprocess
 
-A research loop runs untrusted code. The hypothesis came from a sampler, the experiment script came from the same path; treating either as safe in-process is asking for a crash that takes the orchestrator down. Subprocesses are the simplest isolation the language ships: a separate process, an independent address space, a signal handle on the parent side.
+Một vòng lặp nghiên cứu chạy mã không đáng tin cậy. Giả thuyết đến từ một bộ lấy mẫu, script thí nghiệm đến từ cùng đường; coi bất kỳ thứ nào là an toàn trong tiến trình là mời một sự cố kéo bộ điều phối xuống. Các tiến trình con là sự cô lập đơn giản nhất ngôn ngữ cung cấp: một tiến trình riêng, một không gian địa chỉ độc lập, một handle tín hiệu ở phía cha.
 
-The runner here does not implement full sandboxing. There is no cgroup, no seccomp filter, no namespace remapping. What it does have is a wall clock timeout, a polling loop for memory growth, and a kill path that terminates the process on either limit. That is the runtime contract every more elaborate sandbox extends. The lesson keeps the contract small enough to read in one sitting.
+Trình chạy ở đây không triển khai sandbox đầy đủ. Không có cgroup, không bộ lọc seccomp, không ánh xạ lại namespace. Điều nó có là một timeout thời gian thực, một vòng lặp thăm dò tăng trưởng bộ nhớ, và một đường diệt kết thúc tiến trình khi chạm một trong hai giới hạn. Đó là hợp đồng runtime mà mọi sandbox phức tạp hơn mở rộng. Bài học giữ hợp đồng đủ nhỏ để đọc trong một lần ngồi.
 
 ## The ExperimentSpec shape
 
@@ -34,7 +34,7 @@ ExperimentSpec
   metric_keys    : list[str]      (which fields the evaluator will read)
 ```
 
-The script lives on disk; the runner writes the config to a temp file path that the script reads. The script is expected to print a single json line on stdout whose keys are a superset of `metric_keys`. Anything else on stdout is captured but ignored by the metrics parser.
+Script nằm trên đĩa; trình chạy ghi cấu hình vào một đường dẫn file tạm mà script đọc. Script được kỳ vọng in một dòng json duy nhất trên stdout có các khóa là một siêu tập của `metric_keys`. Bất cứ thứ gì khác trên stdout được thu thập nhưng bị bộ phân tích chỉ số bỏ qua.
 
 ```figure
 cg-runner-limits
@@ -57,19 +57,19 @@ flowchart TD
     R --> O[ExperimentResult]
 ```
 
-The runner is one class with one main method. The poller is a small thread that wakes once every poll interval and reads the subprocess `psutil` equivalent from the proc filesystem when available, falling back to no op when the platform does not expose it.
+Trình chạy là một lớp với một phương thức chính. Bộ thăm dò là một luồng nhỏ thức dậy một lần mỗi khoảng thăm dò và đọc tương đương `psutil` của tiến trình con từ hệ thống file proc khi có, quay về không làm gì khi nền tảng không cung cấp nó.
 
 ## Why a soft memory cap
 
-Hard memory caps need `resource.setrlimit` and only work on POSIX. The lesson ships a portable approach: poll the resident set size from the platform and kill the subprocess if it exceeds the cap. The cap is soft because the poller has a non zero interval; a process can spike above the cap between polls and then drop back. The runner records the maximum observed RSS so the evaluator can see how close the run came to the limit.
+Các trần bộ nhớ cứng cần `resource.setrlimit` và chỉ hoạt động trên POSIX. Bài học cung cấp một cách tiếp cận di động: thăm dò kích thước tập thường trú từ nền tảng và diệt tiến trình con nếu nó vượt trần. Trần mềm vì bộ thăm dò có một khoảng khác không; một tiến trình có thể tăng vọt trên trần giữa các lần thăm dò rồi giảm trở lại. Trình chạy ghi RSS quan sát tối đa để bộ đánh giá có thể thấy lần chạy đến gần giới hạn thế nào.
 
-On systems without process inspection support, the poller logs a one time warning and disables itself. The wall clock timeout still applies. The lesson tests cover both paths.
+Trên các hệ thống không hỗ trợ kiểm tra tiến trình, bộ thăm dò ghi một cảnh báo một lần và tự tắt. Timeout thời gian thực vẫn áp dụng. Các kiểm thử bài học bao phủ cả hai đường.
 
 ## Capturing stdout and stderr
 
-The runner reads both pipes drained on completion. Stdout is scanned line by line; the last line that parses as json with all required `metric_keys` is taken as the metrics blob. Earlier json lines are kept in the result as `intermediate_metrics`; the evaluator can use these for learning curves.
+Trình chạy đọc cả hai pipe được xả khi hoàn tất. Stdout được quét từng dòng; dòng cuối phân tích được như json với mọi `metric_keys` bắt buộc được lấy làm khối chỉ số. Các dòng json trước được giữ trong kết quả như `intermediate_metrics`; bộ đánh giá có thể dùng chúng cho các đường cong học.
 
-Stderr is captured verbatim into the result. The runner never raises on a non zero exit code; instead it records the code in the result. Any non zero exit is labelled `"crash"` even when the script printed metrics, so the evaluator treats partial runs as failures by default.
+Stderr được thu thập nguyên văn vào kết quả. Trình chạy không bao giờ phát sinh lỗi khi mã thoát khác không; thay vào đó nó ghi mã vào kết quả. Bất kỳ lần thoát khác không nào được gắn nhãn `"crash"` ngay cả khi script đã in các chỉ số, để bộ đánh giá mặc định coi các lần chạy một phần là thất bại.
 
 ## Ablation table
 
@@ -78,19 +78,19 @@ def ablate(base: ExperimentSpec, knob: str, values: list[Any]) -> list[Experimen
     ...
 ```
 
-Given a base spec and a knob name, the helper returns one spec per value with `config[knob]` overridden. Each spec gets a derived `spec_id` (`f"{base.spec_id}_{knob}_{value}"`). The runner ships an `AblationRunner` that runs them in order and returns an `AblationTable` keyed by knob value.
+Với một đặc tả cơ sở và một tên núm được cung cấp, hàm hỗ trợ trả về một đặc tả mỗi giá trị với `config[knob]` được ghi đè. Mỗi đặc tả nhận một `spec_id` được suy ra (`f"{base.spec_id}_{knob}_{value}"`). Trình chạy cung cấp một `AblationRunner` chạy chúng theo thứ tự và trả về một `AblationTable` được đặt khóa theo giá trị núm.
 
-Why one knob at a time. Full factorial sweeps blow up exponentially and produce results the evaluator cannot interpret. One knob at a time produces a clean axis the evaluator can plot. The lesson supports multi knob sweeps only as repeated single knob ablations, composed by the caller.
+Tại sao từng núm một. Các lần quét toàn bộ tổ hợp bùng nổ theo hàm mũ và tạo các kết quả bộ đánh giá không thể diễn giải. Từng núm một tạo một trục rõ ràng bộ đánh giá có thể vẽ. Bài học chỉ hỗ trợ các lần quét nhiều núm như các thí nghiệm loại bỏ một núm lặp lại, được bên gọi kết hợp.
 
 ## Determinism
 
-Every spec carries a seed. The runner forwards the seed to the script via the config dict (`config["__seed"] = spec.seed`). The mock experiment scripts in `code/experiments/` honour the seed and produce identical metrics across runs. The evaluator in lesson fifty-three depends on this; without determinism a "regression" might be a different random initialisation.
+Mỗi đặc tả mang một seed. Trình chạy chuyển tiếp seed đến script qua dict cấu hình (`config["__seed"] = spec.seed`). Các script thí nghiệm giả lập trong `code/experiments/` tuân thủ seed và tạo các chỉ số giống hệt giữa các lần chạy. Bộ đánh giá trong bài năm mươi ba phụ thuộc vào điều này; không có tính tất định một "thoái lui" có thể là một khởi tạo ngẫu nhiên khác.
 
 ## The mock experiment script
 
-The lesson ships one experiment script: `code/experiments/sparsity_experiment.py`. It is a real script that reads its config file, simulates a small training run with a numpy random pass, and prints a json metrics blob. The script honours a `sleep_s` knob for testing timeouts and an `allocate_mb` knob for testing the memory poller.
+Bài học cung cấp một script thí nghiệm: `code/experiments/sparsity_experiment.py`. Nó là một script thực đọc file cấu hình của nó, mô phỏng một lần chạy huấn luyện nhỏ với một lượt ngẫu nhiên numpy, và in một khối chỉ số json. Script tuân thủ một núm `sleep_s` để kiểm thử timeout và một núm `allocate_mb` để kiểm thử bộ thăm dò bộ nhớ.
 
-The simulation is not training anything real. It is a numerical computation that mimics the shape of a training loop: a loss curve, a final perplexity, a wall time. The point of the lesson is the runner, not the simulation. A real experiment script would import a model.
+Mô phỏng không huấn luyện thứ gì thực. Nó là một phép tính số mô phỏng hình thức một vòng lặp huấn luyện: một đường cong mất mát, một perplexity cuối, một thời gian thực. Điểm chính của bài học là trình chạy, không phải mô phỏng. Một script thí nghiệm thực sẽ import một mô hình.
 
 ## Result shape
 
@@ -108,16 +108,16 @@ ExperimentResult
   stderr_tail          : str
 ```
 
-The evaluator reads `metrics` and `terminal` first. If terminal is anything other than `"ok"` the experiment counts as a failed run and the evaluator's verdict is automatic. Otherwise the metrics are passed through the significance test.
+Bộ đánh giá đọc `metrics` và `terminal` trước. Nếu terminal là bất cứ thứ gì ngoài `"ok"` thí nghiệm được tính như một lần chạy thất bại và kết luận của bộ đánh giá là tự động. Nếu không các chỉ số được đưa qua kiểm định ý nghĩa.
 
 ## How to read the code
 
-`code/main.py` defines `ExperimentSpec`, `ExperimentResult`, `ExperimentRunner`, `AblationRunner`, and a deterministic demo. The subprocess management is one class. The memory poller is a small thread. The ablation helper is a single function.
+`code/main.py` định nghĩa `ExperimentSpec`, `ExperimentResult`, `ExperimentRunner`, `AblationRunner`, và một demo tất định. Quản lý tiến trình con là một lớp. Bộ thăm dò bộ nhớ là một luồng nhỏ. Hàm hỗ trợ loại bỏ là một hàm duy nhất.
 
-`code/experiments/sparsity_experiment.py` is the mock experiment used in tests. It reads its config file path from argv and writes a single json metrics line on completion.
+`code/experiments/sparsity_experiment.py` là thí nghiệm giả lập được dùng trong kiểm thử. Nó đọc đường dẫn file cấu hình từ argv và ghi một dòng chỉ số json duy nhất khi hoàn tất.
 
-`code/tests/test_runner.py` covers the success path, the timeout path, the crash path, the ablation table, and the determinism check across two runs.
+`code/tests/test_runner.py` bao phủ đường thành công, đường timeout, đường sập, bảng loại bỏ, và kiểm tra tính tất định giữa hai lần chạy.
 
 ## Where this slots in
 
-Lesson fifty generates the hypothesis. Lesson fifty-one filters out anything the literature already settled. Lesson fifty-two runs the experiment for what is left. Lesson fifty-three reads the result, runs the significance test, and writes the verdict the orchestrator stores against the hypothesis id.
+Bài năm mươi sinh giả thuyết. Bài năm mươi mốt lọc bất cứ thứ gì tài liệu đã giải quyết. Bài năm mươi hai chạy thí nghiệm cho những gì còn lại. Bài năm mươi ba đọc kết quả, chạy kiểm định ý nghĩa, và viết kết luận mà bộ điều phối lưu theo id giả thuyết.
