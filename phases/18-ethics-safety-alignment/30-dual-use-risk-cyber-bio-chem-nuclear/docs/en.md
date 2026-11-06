@@ -1,6 +1,6 @@
 # Dual-Use Risk — Cyber, Bio, Chem, Nuclear Uplift
 
-> The 2026 dual-use picture, domain by domain. Bio/chem: Lesson 17 covers WMDP; Anthropic's bioweapon-acquisition trial (2.53x uplift) and OpenAI's April 2025 Preparedness Framework v2 warning ("on the cusp of meaningfully helping novices create known biological threats") mark the inflection point. Cyber (November 2025 Anthropic report): Chinese-linked state actors used Claude's agentic coding tool to automate up to 90% of a cyberattack campaign, with human intervention only in 4-6 steps; OpenAI "trusted access" pilot gives vetted security organisations capability access for defensive dual-use work. Chem/bio execution gap erosion: the classic defense was "information access alone is insufficient." Vision-enabled frontier models (GPT-5.2, Gemini 3 Pro, Claude Opus 4.5, Grok 4.1) can observe wet-lab video and provide real-time correction. December 2025: OpenAI demonstrated GPT-5 iterating on wet-lab experiments, achieving 79x efficiency improvement via AI-driven protocol optimization. Novice-vs-expert pattern: AI provides greater relative uplift to novices but greater absolute capability to experts.
+> Bức tranh lưỡng dụng 2026, theo từng miền. Sinh/hóa: Bài 17 đề cập WMDP; thử nghiệm thu nhận vũ khí sinh học Anthropic (mức nâng 2.53x) và cảnh báo Preparedness Framework v2 tháng 4 năm 2025 OpenAI ("sắp có thể giúp đáng kể người mới tạo đe dọa sinh học đã biết") đánh dấu điểm chuyển. Mạng (báo cáo Anthropic tháng 11 năm 2025): tác nhân nhà nước liên hệ Trung Quốc dùng công cụ lập trình có agent của Claude để tự động hóa tới 90% chiến dịch tấn công mạng, với can thiệp con người chỉ trong 4-6 bước; thí điểm "truy cập đáng tin" OpenAI cho tổ chức bảo mật đã thẩm định truy cập năng lực để làm việc lưỡng dụng phòng vệ. Xói mòn khoảng cách thực hiện hóa/sinh: phòng vệ cổ điển là "chỉ truy cập thông tin không đủ." Mô hình tiên tiến hàng đầu có thị giác (GPT-5.2, Gemini 3 Pro, Claude Opus 4.5, Grok 4.1) có thể quan sát video phòng thí nghiệm ướt và chỉnh sửa thời gian thực. Tháng 12 năm 2025: OpenAI chứng minh GPT-5 lặp trên thí nghiệm phòng thí nghiệm ướt, đạt cải thiện hiệu quả 79x qua tối ưu quy trình do AI dẫn dắt. Mẫu người mới-với-chuyên gia: AI cung cấp mức nâng tương đối lớn hơn cho người mới nhưng năng lực tuyệt đối lớn hơn cho chuyên gia.
 
 **Type:** Learn
 **Languages:** none
@@ -9,72 +9,72 @@
 
 ## Learning Objectives
 
-- Describe the 2024-2025 bio-uplift narrative: "mild uplift" -> "on the cusp" -> "2.53x uplift insufficient to rule out ASL-3."
-- Describe the November 2025 Anthropic cyber report: Chinese-linked automation at up to 90% of a cyberattack campaign.
-- Describe the chem/bio execution-gap erosion: vision-enabled real-time correction of wet-lab experiments.
-- State the novice-relative vs expert-absolute asymmetry and its implication for safety-case construction.
+- Mô tả câu chuyện mức nâng sinh học 2024-2025: "mức nâng nhẹ" -> "sắp có thể" -> "mức nâng 2.53x không đủ loại trừ ASL-3."
+- Mô tả báo cáo mạng Anthropic tháng 11 năm 2025: tự động hóa liên hệ Trung Quốc ở tới 90% chiến dịch tấn công mạng.
+- Mô tả xói mòn khoảng cách thực hiện hóa/sinh: chỉnh sửa thời gian thực thí nghiệm phòng thí nghiệm ướt bằng thị giác.
+- Nêu bất đối xứng tương đối cho người mới so với tuyệt đối cho chuyên gia và hàm ý xây hồ sơ lập luận an toàn.
 
 ## The Problem
 
-Lesson 17 is the measurement methodology. Lesson 30 is the 2026 state of the measurement. The picture shifted materially between 2024 and late 2025: each domain crossed a threshold that the 2024 frameworks did not anticipate.
+Bài 17 là phương pháp đo. Bài 30 là hiện trạng phép đo 2026. Bức tranh dịch chuyển đáng kể giữa 2024 và cuối 2025: mỗi miền vượt ngưỡng mà khung 2024 không dự đoán.
 
 ## The Concept
 
 ### Bio/chem uplift narrative
 
-Three phases (repeated from Lesson 17 for coherence):
+Ba pha (lặp từ Bài 17 để mạch lạc):
 
-1. **2024 "mild uplift."** Early Preparedness/RSP evaluations reported small novice advantages over internet search.
-2. **April 2025 "on the cusp."** OpenAI PF v2 warned models were "on the cusp of meaningfully helping novices create known biological threats."
-3. **2025 Anthropic bioweapon-acquisition trial.** Controlled novice study; 2.53x uplift on acquisition-phase tasks; insufficient to rule out ASL-3.
+1. **2024 "mức nâng nhẹ."** Đánh giá Preparedness/RSP đầu báo cáo lợi thế nhỏ cho người mới so với tìm internet.
+2. **Tháng 4 năm 2025 "sắp có thể."** PF v2 OpenAI cảnh báo mô hình "sắp có thể giúp đáng kể người mới tạo đe dọa sinh học đã biết."
+3. **Thử nghiệm thu nhận vũ khí sinh học Anthropic 2025.** Nghiên cứu người mới có kiểm soát; mức nâng 2.53x trên tác vụ pha thu nhận; không đủ loại trừ ASL-3.
 
-The shift is qualitative: "mild" evolved into "plausibly enabling" within eighteen months, even without a capability breakthrough.
+Dịch chuyển mang tính định tính: "nhẹ" tiến hóa thành "có thể hợp lý là hỗ trợ thực hiện" trong mười tám tháng, ngay cả không đột phá năng lực.
 
 ### Chem/bio execution-gap erosion
 
-Historic defense: information is necessary but not sufficient; the skill of executing the protocol blocks novices. 2025 frontier models with vision break this defense partially:
+Phòng vệ trước đây: thông tin cần nhưng không đủ; kỹ năng thực hiện quy trình chặn người mới. Mô hình tiên tiến hàng đầu 2025 có thị giác phá một phần phòng vệ:
 
-- **Real-time protocol correction.** GPT-5.2, Gemini 3 Pro, Claude Opus 4.5, Grok 4.1 can observe wet-lab video and flag errors mid-procedure.
-- **December 2025 OpenAI demonstration.** GPT-5 iterating on wet-lab experiments achieves 79x efficiency improvement via protocol optimization.
+- **Chỉnh sửa quy trình thời gian thực.** GPT-5.2, Gemini 3 Pro, Claude Opus 4.5, Grok 4.1 có thể quan sát video phòng thí nghiệm ướt và đánh dấu lỗi giữa quy trình.
+- **Chứng minh OpenAI tháng 12 năm 2025.** GPT-5 lặp trên thí nghiệm phòng thí nghiệm ướt đạt cải thiện hiệu quả 79x qua tối ưu quy trình.
 
-The implication: execution-skill-as-defense is eroding. Procurement and equipment gaps remain, but the tacit-knowledge gap is narrowing.
+Hàm ý: kỹ năng thực hiện-là-phòng-vệ đang xói mòn. Khoảng cách mua sắm và thiết bị còn, nhưng khoảng cách kiến thức ngầm đang hẹp.
 
 ### Cyber uplift (November 2025)
 
-Anthropic's November 2025 report: Chinese-linked state actors used Claude's agentic coding tool to automate 80-90% of a cyberattack campaign. Human intervention was required in only 4-6 steps.
+Báo cáo Anthropic tháng 11 năm 2025: tác nhân nhà nước liên hệ Trung Quốc dùng công cụ lập trình có agent của Claude để tự động hóa 80-90% chiến dịch tấn công mạng. Chỉ cần con người can thiệp trong 4-6 bước.
 
-Implications:
-- Agentic coding is the attack-automation primitive. Previous AI cyber assistance was bounded at code-snippet level; agentic workflows integrate reconnaissance, exploitation, post-exploitation, and exfiltration.
-- The 4-6 human steps are the bottleneck; future capability gains would reduce that count.
-- Defensive dual-use: OpenAI's "trusted access" pilot provides vetted security organisations (established incident-response firms, government) with capability access for defense. Asymmetry in access favors defenders if the pilot scales.
+Hàm ý:
+- Lập trình có agent là thành phần cơ bản tự động hóa tấn công. Hỗ trợ mạng AI trước bị giới hạn cấp đoạn mã; workflow có agent tích hợp trinh sát, khai thác, hậu khai thác và đưa dữ liệu ra ngoài trái phép.
+- 4-6 bước con người là nút thắt; tăng năng lực tương lai sẽ giảm số đó.
+- Lưỡng dụng phòng vệ: thí điểm "truy cập đáng tin" OpenAI cho tổ chức bảo mật đã thẩm định (công ty ứng phó sự cố uy tín, chính phủ) truy cập năng lực phòng vệ. Bất đối xứng truy cập ưu tiên bên phòng vệ nếu thí điểm mở rộng.
 
 ### Nuclear
 
-The least-analyzed of the four CBRN domains in public documentation. The threat model is different: fissile-material acquisition dominates the difficulty, not information. AI uplift on the information layer provides limited novice uplift in practice. No 2024-2025 major-lab report identifies a nuclear-specific threshold crossing.
+Miền ít được phân tích nhất trong bốn miền CBRN ở tài liệu công khai. Mô hình đe dọa khác: thu nhận vật liệu phân hạch chi phối độ khó, không phải thông tin. Mức nâng AI ở lớp thông tin cung cấp mức nâng hạn chế cho người mới thực tế. Không báo cáo phòng thí nghiệm lớn 2024-2025 nào xác định vượt ngưỡng riêng hạt nhân.
 
 ### Novice-relative vs expert-absolute
 
-A pattern across all four domains:
+Mẫu trên cả bốn miền:
 
-- **Novice-relative uplift.** High. Multiplicative. Per Anthropic 2025 bio, 2.53x.
-- **Expert-absolute capability.** High ceiling. An expert extracts more than a novice because the expert knows what to ask and how to interpret.
+- **Mức nâng tương đối cho người mới.** Cao. Theo hệ số nhân. Theo sinh học Anthropic 2025, 2.53x.
+- **Năng lực tuyệt đối cho chuyên gia.** Trần cao. Chuyên gia lấy nhiều hơn người mới vì biết hỏi gì và diễn giải thế nào.
 
-Implication for safety cases: addressing only novice uplift (via input filters, refusals, uncertainty) is insufficient for expert-absolute control. Additional measures required: elicitation-hardening, capability unlearning (Lesson 17), and control protocols (Lesson 10).
+Hàm ý hồ sơ lập luận an toàn: chỉ giải quyết mức nâng người mới (qua lọc đầu vào, từ chối, bất định) không đủ cho kiểm soát tuyệt đối chuyên gia. Cần biện pháp bổ sung: gia cố chống gợi năng lực, quên học năng lực (Bài 17) và giao thức kiểm soát (Bài 10).
 
 ### Cross-domain synthesis
 
-| Domain | 2024 | 2025 | Inflection |
+| Miền | 2024 | 2025 | Điểm chuyển |
 |---|---|---|---|
-| Bio | mild uplift | 2.53x uplift, ASL-3 approach | acquisition-phase automation |
-| Chem | mild uplift | execution-gap erosion via vision | real-time wet-lab correction |
-| Cyber | code assistance | 80-90% campaign automation | agentic coding |
-| Nuclear | limited | limited | material-access bottleneck holds |
+| Sinh học | mức nâng nhẹ | mức nâng 2.53x, gần ASL-3 | tự động hóa pha thu nhận |
+| Hóa học | mức nâng nhẹ | xói mòn khoảng cách thực hiện qua thị giác | chỉnh sửa phòng thí nghiệm ướt thời gian thực |
+| Mạng | hỗ trợ mã | tự động hóa chiến dịch 80-90% | lập trình có agent |
+| Hạt nhân | hạn chế | hạn chế | nút thắt truy cập vật liệu vẫn giữ |
 
-Three domains crossed thresholds. One remains bounded by non-informational barriers.
+Ba miền vượt ngưỡng. Một vẫn bị giới hạn bởi rào cản phi thông tin.
 
 ### Where this fits in Phase 18
 
-Lesson 30 is the capstone: the current dual-use picture that every prior lesson contributes to measuring, limiting, or governing. Lessons 17-18 give the measurement and frameworks; Lessons 12-16 give the evaluation tooling; Lessons 24-25 give the regulatory and disclosure layer; Lesson 28 gives the research ecosystem. Lesson 30 is where the evidence lands.
+Bài 30 là bài tổng kết: bức tranh lưỡng dụng hiện tại mà mọi bài trước góp phần đo, hạn chế hoặc quản trị. Bài 17-18 cung cấp phép đo và khung; Bài 12-16 cung cấp công cụ đánh giá; Bài 24-25 cung cấp lớp quy định và công bố; Bài 28 cung cấp hệ sinh thái nghiên cứu. Bài 30 là nơi bằng chứng hội tụ.
 
 ```figure
 an-uplift-asymmetry
@@ -82,39 +82,39 @@ an-uplift-asymmetry
 
 ## Use It
 
-No code. Read the Anthropic November 2025 cyber report, OpenAI's Preparedness Framework v2 April 2025 update, and the Council on Strategic Risks 2025 AI x Bio wrapup.
+Không có mã. Đọc báo cáo mạng Anthropic tháng 11 năm 2025, cập nhật Preparedness Framework v2 tháng 4 năm 2025 OpenAI và tổng kết AI x Bio 2025 Council on Strategic Risks.
 
 ## Ship It
 
-This lesson produces `outputs/skill-dual-use-triage.md`. Given a 2026 capability claim or incident report, it triages across the four domains and identifies whether the claim affects novice-relative uplift, expert-absolute capability, or both.
+Bài học này tạo ra `outputs/skill-dual-use-triage.md`. Với khẳng định năng lực hoặc báo cáo sự cố 2026, phân loại trên bốn miền và xác định khẳng định ảnh hưởng mức nâng tương đối cho người mới, năng lực tuyệt đối cho chuyên gia hay cả hai.
 
 ## Exercises
 
-1. Read Anthropic's November 2025 cyber report. Enumerate the 4-6 human-intervention steps and argue which would be first to automate in a next-generation model.
+1. Đọc báo cáo mạng Anthropic tháng 11 năm 2025. Liệt kê 4-6 bước can thiệp con người và lập luận bước nào sẽ tự động hóa đầu tiên trong mô hình thế hệ sau.
 
-2. The chem/bio execution gap is eroding via vision. Design an evaluation that measures tacit-knowledge uplift without crossing ITAR/EAR boundaries.
+2. Khoảng cách thực hiện hóa/sinh đang xói mòn qua thị giác. Thiết kế đánh giá đo mức nâng kiến thức ngầm mà không vượt ranh giới ITAR/EAR.
 
-3. Nuclear uplift appears bounded by material access. Argue for and against the position that a future AI breakthrough could shift this bottleneck.
+3. Mức nâng hạt nhân có vẻ bị giới hạn bởi truy cập vật liệu. Lập luận ủng hộ và phản đối lập trường đột phá AI tương lai có thể dịch chuyển nút thắt này.
 
-4. Construct a safety case (Lesson 18 three-pillar) for a cyber-capable frontier model that bounds both novice and expert uplift.
+4. Xây hồ sơ lập luận an toàn (ba trụ cột Bài 18) cho mô hình tiên tiến hàng đầu có năng lực mạng giới hạn cả mức nâng người mới và chuyên gia.
 
-5. Pick one of the four domains and write a one-paragraph 2027 forecast based on the 2024-2025 trajectory. Identify the evidence that would falsify your forecast.
+5. Chọn một trong bốn miền và viết dự báo 2027 một đoạn dựa trên quỹ đạo 2024-2025. Xác định bằng chứng bác bỏ dự báo.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|-----------------|------------------------|
-| Uplift | "AI helps attackers" | Increase in attacker capability attributable to AI assistance |
-| Novice-relative uplift | "multiplicative" | How much AI helps a novice vs status-quo |
-| Expert-absolute capability | "ceiling" | Maximum capability an expert can extract from the model |
-| Execution gap | "doing vs knowing" | Historical defense: tacit wet-lab skill blocks novices |
-| Agentic coding | "autonomous attacks" | Multi-step autonomous cyber-task execution |
-| Acquisition phase | "pre-synthesis steps" | Procurement, equipment, permit stages of a bio threat |
-| Trusted access | "defender-only pilot" | OpenAI 2025 program giving vetted defenders capability access |
+| Uplift (Mức nâng) | "AI giúp kẻ tấn công" | Tăng năng lực kẻ tấn công quy cho hỗ trợ AI |
+| Novice-relative uplift (Mức nâng tương đối cho người mới) | "theo hệ số nhân" | AI giúp người mới bao nhiêu so với hiện trạng |
+| Expert-absolute capability (Năng lực tuyệt đối cho chuyên gia) | "trần" | Năng lực tối đa chuyên gia lấy được từ mô hình |
+| Execution gap (Khoảng cách thực hiện) | "làm so với biết" | Phòng vệ trước đây: kỹ năng phòng thí nghiệm ướt ngầm chặn người mới |
+| Agentic coding (Lập trình có agent) | "tấn công tự chủ" | Thực hiện tác vụ mạng tự chủ nhiều bước |
+| Acquisition phase (Pha thu nhận) | "bước trước tổng hợp" | Giai đoạn mua sắm, thiết bị, giấy phép của đe dọa sinh học |
+| Trusted access (Truy cập đáng tin) | "thí điểm chỉ bên phòng vệ" | Chương trình OpenAI 2025 cho bên phòng vệ đã thẩm định truy cập năng lực |
 
 ## Further Reading
 
-- [Anthropic — November 2025 cyber threat report](https://www.anthropic.com/news/disrupting-AI-espionage) — Chinese-linked campaign automation
-- [OpenAI — Preparedness Framework v2 (April 15, 2025)](https://openai.com/index/updating-our-preparedness-framework/) — bio "on the cusp"
-- [Anthropic — RSP v3.0 (February 2026)](https://www.anthropic.com/responsible-scaling-policy) — ASL-3 bio thresholds
-- [Council on Strategic Risks — 2025 AI x Bio wrapup](https://councilonstrategicrisks.org/2025/12/22/2025-aixbio-wrapped-a-year-in-review-and-projections-for-2026/) — year-end synthesis
+- [Anthropic — November 2025 cyber threat report](https://www.anthropic.com/news/disrupting-AI-espionage) — tự động hóa chiến dịch liên hệ Trung Quốc
+- [OpenAI — Preparedness Framework v2 (April 15, 2025)](https://openai.com/index/updating-our-preparedness-framework/) — sinh học "sắp có thể"
+- [Anthropic — RSP v3.0 (February 2026)](https://www.anthropic.com/responsible-scaling-policy) — ngưỡng sinh học ASL-3
+- [Council on Strategic Risks — 2025 AI x Bio wrapup](https://councilonstrategicrisks.org/2025/12/22/2025-aixbio-wrapped-a-year-in-review-and-projections-for-2026/) — tổng hợp cuối năm

@@ -7,23 +7,23 @@ lesson: 30
 tags: [dual-use, cbrn, bio, chem, cyber, nuclear, uplift]
 ---
 
-Given a capability claim, evaluation report, or incident, triage across the four CBRN domains and identify whether the claim affects novice-relative uplift, expert-absolute capability, or both.
+Với khẳng định năng lực, báo cáo đánh giá hoặc sự cố, phân loại trên bốn miền CBRN và xác định khẳng định ảnh hưởng mức nâng tương đối cho người mới, năng lực tuyệt đối cho chuyên gia hay cả hai.
 
-Produce:
+Tạo:
 
-1. Domain identification. Map the claim to bio, chem, cyber, or nuclear. Multi-domain claims get multi-domain triage.
-2. Uplift type. Novice-relative (multiplicative), expert-absolute (ceiling), or both. Each has different safety-case implications.
-3. 2025 benchmark. Compare against the 2025 state for the identified domain: bio (2.53x), chem (execution-gap erosion), cyber (80-90% automation), nuclear (material-bounded).
-4. Bottleneck residual. Identify what non-informational bottleneck remains (procurement, equipment, tacit skill, material access). Bottlenecks are the defense of last resort.
-5. Safety-case pillar. Identify which of the three pillars (monitoring, illegibility, incapability, per Lesson 18) the claim most stresses. Recommend pillar-specific evaluation.
+1. Nhận diện miền. Ánh xạ khẳng định sang sinh học, hóa học, mạng hoặc hạt nhân. Khẳng định đa miền được phân loại đa miền.
+2. Loại mức nâng. Tương đối cho người mới (hệ số nhân), tuyệt đối cho chuyên gia (trần) hoặc cả hai. Mỗi loại có hàm ý hồ sơ lập luận an toàn khác.
+3. Chuẩn tham chiếu 2025. So với hiện trạng 2025 cho miền xác định: sinh học (2.53x), hóa học (xói mòn khoảng cách thực hiện), mạng (tự động hóa 80-90%), hạt nhân (bị chặn bởi vật liệu).
+4. Nút thắt còn lại. Xác định nút thắt phi thông tin còn (mua sắm, thiết bị, kỹ năng ngầm, truy cập vật liệu). Nút thắt là phòng vệ cuối cùng.
+5. Trụ cột hồ sơ lập luận an toàn. Xác định trụ cột nào trong ba (giám sát, tính không dễ hiểu, thiếu năng lực, theo Bài 18) bị khẳng định gây áp lực nhất. Khuyến nghị đánh giá riêng trụ cột.
 
-Hard rejects:
-- Any dual-use safety claim without novice-vs-expert decomposition.
-- Any cyber claim post-November 2025 that treats AI cyber capability as non-agentic.
-- Any bio claim without WMDP-equivalent capability evidence (Lesson 17).
+Các trường hợp loại bỏ dứt khoát:
+- Mọi khẳng định an toàn lưỡng dụng không có phân tách người mới-với-chuyên gia.
+- Mọi khẳng định mạng sau tháng 11 năm 2025 xem năng lực mạng AI là không có agent.
+- Mọi khẳng định sinh học không có bằng chứng năng lực tương đương WMDP (Bài 17).
 
-Refusal rules:
-- If the user asks for a numeric uplift forecast, refuse; the 2024-2025 trajectory is specific to each domain.
-- If the user asks whether a model "meets ASL-3," refuse without the lab's specific evaluation; thresholds are lab-specific.
+Quy tắc từ chối:
+- Nếu người dùng hỏi dự báo mức nâng số, từ chối; quỹ đạo 2024-2025 riêng cho từng miền.
+- Nếu người dùng hỏi mô hình "đáp ứng ASL-3" không, từ chối khi không có đánh giá cụ thể của phòng thí nghiệm; ngưỡng riêng theo phòng thí nghiệm.
 
-Output: a one-page triage filling the five sections, benchmarking against 2025, and naming the single largest uncovered safety-case gap. Cite Anthropic RSP v3.0 (Lesson 18) and OpenAI PF v2 once each as appropriate.
+Đầu ra: bản phân loại một trang điền năm phần, so chuẩn 2025 và nêu khoảng trống hồ sơ lập luận an toàn chưa bao phủ lớn nhất duy nhất. Trích dẫn Anthropic RSP v3.0 (Bài 18) và OpenAI PF v2, mỗi tài liệu một lần khi phù hợp.
