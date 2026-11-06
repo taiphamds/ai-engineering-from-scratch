@@ -1,6 +1,6 @@
 # Model Context Protocol (MCP)
 
-> MCP gives an AI host one protocol for discovering and invoking tools, resources, and prompts. The 2026-07-28 revision makes that protocol stateless: capability and version context travels with every request, not in a connection-bound handshake.
+> MCP cung cấp cho host AI một giao thức để khám phá và gọi công cụ, tài nguyên và prompt. Bản sửa đổi 2026-07-28 khiến giao thức đó không trạng thái: ngữ cảnh năng lực và phiên bản đi cùng mỗi yêu cầu, không nằm trong bắt tay gắn với kết nối.
 
 **Type:** Build
 **Languages:** Python
@@ -9,20 +9,20 @@
 
 ## Learning Objectives
 
-- Distinguish an MCP host, client, server, transport, and server primitive.
-- Build a JSON-RPC request with the metadata required by MCP 2026-07-28.
-- Use `server/discover` to inspect versions, identity, and capabilities.
-- Return typed and cache-aware results from tools, resources, and prompts.
-- Explain how modern stateless MCP interoperates with handshake-era servers.
-- Choose safe state, transport, and approval boundaries for a server.
+- Phân biệt host, client, máy chủ, lớp truyền tải và thành phần cơ bản phía máy chủ của MCP.
+- Xây yêu cầu JSON-RPC với metadata mà MCP 2026-07-28 yêu cầu.
+- Dùng `server/discover` để kiểm tra phiên bản, danh tính và năng lực.
+- Trả kết quả có kiểu và nhận biết cache từ công cụ, tài nguyên và prompt.
+- Giải thích cách MCP không trạng thái hiện đại tương tác với máy chủ thời kỳ bắt tay.
+- Chọn ranh giới trạng thái, truyền tải và phê duyệt an toàn cho máy chủ.
 
 ## The Problem
 
-Your application needs a database query, a calendar operation, and a file reader. Without a shared protocol, every AI host needs custom discovery, invocation, errors, transport, and authorization glue for those same capabilities.
+Ứng dụng của bạn cần truy vấn cơ sở dữ liệu, thao tác lịch và bộ đọc file. Không giao thức chung, mỗi host AI cần phần kết nối tùy chỉnh cho khám phá, gọi, lỗi, truyền tải và phân quyền của cùng các năng lực đó.
 
-MCP reduces that integration matrix. A server publishes a standard JSON-RPC surface. A compliant client can discover the surface, present it to a model or user, invoke it, and interpret the result without a server-specific adapter.
+MCP giảm ma trận tích hợp đó. Máy chủ công bố giao diện JSON-RPC tiêu chuẩn. Client tuân thủ có thể khám phá giao diện, trình bày cho mô hình hoặc người dùng, gọi và diễn giải kết quả mà không cần adapter riêng cho máy chủ.
 
-The important boundary is easy to miss. MCP standardizes communication. It does not decide which tool the model should call, make untrusted content safe, or turn a stateless request into durable application state. Your host and server still own those decisions.
+Ranh giới quan trọng dễ bị bỏ lỡ. MCP chuẩn hóa giao tiếp. Nó không quyết định công cụ nào mô hình nên gọi, làm nội dung không đáng tin trở nên an toàn hay biến yêu cầu không trạng thái thành trạng thái ứng dụng bền vững. Host và máy chủ vẫn sở hữu các quyết định đó.
 
 ## The Concept
 
@@ -30,15 +30,15 @@ The important boundary is easy to miss. MCP standardizes communication. It does 
 
 ### The three server primitives
 
-1. **Tools** are callable actions. Each tool has a name, description, JSON Schema input, and handler.
-2. **Resources** are named, URI-addressed content that a client can read.
-3. **Prompts** are reusable templates that a host can expose to a user.
+1. **Công cụ** là hành động có thể gọi. Mỗi công cụ có tên, mô tả, đầu vào JSON Schema và hàm xử lý.
+2. **Tài nguyên** là nội dung có tên, địa chỉ URI mà client có thể đọc.
+3. **Prompt** là khuôn mẫu tái sử dụng mà host có thể cung cấp cho người dùng.
 
-The host is the AI application. An MCP client inside that host speaks to one server. The transport carries JSON-RPC messages between them.
+Host là ứng dụng AI. Một client MCP trong host đó giao tiếp với một máy chủ. Lớp truyền tải mang thông điệp JSON-RPC giữa chúng.
 
 ### Stateless requests replace the handshake
 
-MCP 2026-07-28 removes `initialize` and `notifications/initialized`. It also removes protocol-level sessions. Every request carries the context needed to interpret it in `params._meta`:
+MCP 2026-07-28 bỏ `initialize` và `notifications/initialized`. Nó cũng bỏ phiên cấp giao thức. Mọi yêu cầu mang ngữ cảnh cần để diễn giải trong `params._meta`:
 
 ```json
 {
@@ -58,13 +58,13 @@ MCP 2026-07-28 removes `initialize` and `notifications/initialized`. It also rem
 }
 ```
 
-The protocol version and client capabilities are required. Client identity is recommended. A missing `_meta`, a missing required field, or a required field with the wrong type is malformed and returns Invalid Params (`-32602`). A well-formed version string that the server does not support returns `UnsupportedProtocolVersionError` (`-32022`). A server can process a valid request without recovering a prior negotiation record.
+Phiên bản giao thức và năng lực client là bắt buộc. Danh tính client được khuyến nghị. Thiếu `_meta`, thiếu trường bắt buộc hoặc trường bắt buộc sai kiểu là sai định dạng và trả Invalid Params (`-32602`). Chuỗi phiên bản đúng định dạng mà máy chủ không hỗ trợ trả `UnsupportedProtocolVersionError` (`-32022`). Máy chủ có thể xử lý yêu cầu hợp lệ mà không khôi phục bản ghi đàm phán trước.
 
-Stateless does not mean an application can never maintain state. It means that state is not hidden behind an MCP connection or `Mcp-Session-Id`. If a workflow needs continuity, the server mints an opaque handle and the client passes that handle as an ordinary tool argument on later calls. Authorization must still be checked on every request.
+Không trạng thái không nghĩa là ứng dụng không bao giờ duy trì trạng thái. Nó nghĩa là trạng thái không ẩn sau kết nối MCP hoặc `Mcp-Session-Id`. Nếu quy trình cần tính liên tục, máy chủ tạo handle mờ và client truyền handle đó như đối số công cụ thông thường trong các lệnh gọi sau. Phân quyền vẫn phải được kiểm tra trên mọi yêu cầu.
 
 ### Discovery and version selection
 
-Every modern server implements `server/discover`. The result advertises supported versions, capabilities, and server identity:
+Mọi máy chủ hiện đại triển khai `server/discover`. Kết quả công bố phiên bản hỗ trợ, năng lực và danh tính máy chủ:
 
 ```json
 {
@@ -90,40 +90,40 @@ Every modern server implements `server/discover`. The result advertises supporte
 }
 ```
 
-A client may call another method directly and handle a version error, but discovery makes capability display and version selection explicit. An unsupported version returns `UnsupportedProtocolVersionError` with code `-32022`. Its data contains `supported`, an array of server revisions, and `requested`, the rejected revision.
+Client có thể gọi trực tiếp phương thức khác và xử lý lỗi phiên bản, nhưng khám phá làm việc hiển thị năng lực và lựa chọn phiên bản rõ ràng. Phiên bản không hỗ trợ trả `UnsupportedProtocolVersionError` với mã `-32022`. Dữ liệu chứa `supported`, mảng bản sửa đổi máy chủ, và `requested`, bản sửa đổi bị từ chối.
 
-On stdio, a dual-era client probes with `server/discover`. A discovery result or a recognized modern error such as `UnsupportedProtocolVersionError` identifies a modern server. Any error or timeout that is not recognized as modern permits fallback to the 2025-11-25 `initialize` flow. Legacy behavior is compatibility code, not the modern default.
+Trên stdio, client hỗ trợ hai thời kỳ dò bằng `server/discover`. Kết quả khám phá hoặc lỗi hiện đại được nhận biết như `UnsupportedProtocolVersionError` xác định máy chủ hiện đại. Mọi lỗi hoặc timeout không được nhận biết là hiện đại cho phép dự phòng về luồng `initialize` 2025-11-25. Hành vi cũ là mã tương thích, không phải mặc định hiện đại.
 
 ### Results are explicit
 
-Every core 2026-07-28 result has `resultType`:
+Mọi kết quả cốt lõi 2026-07-28 có `resultType`:
 
-- `complete` means the operation finished.
-- `input_required` means the server needs another round trip through the Multi Round-Trip Requests pattern. Core servers may return it only from `tools/call`, `resources/read`, or `prompts/get`.
+- `complete` nghĩa là thao tác hoàn tất.
+- `input_required` nghĩa là máy chủ cần lượt đi-về khác qua mẫu Multi Round-Trip Requests. Máy chủ cốt lõi chỉ có thể trả từ `tools/call`, `resources/read` hoặc `prompts/get`.
 
-Clients must treat a legacy result that omits `resultType` as complete.
+Client phải xem kết quả cũ thiếu `resultType` là hoàn tất.
 
-Servers should include `io.modelcontextprotocol/serverInfo` in every result's `_meta`. This identity is self-reported and is for display, logging, and debugging, not for security decisions.
+Máy chủ nên bao gồm `io.modelcontextprotocol/serverInfo` trong `_meta` mỗi kết quả. Danh tính này tự báo cáo và dùng cho hiển thị, ghi log, gỡ lỗi, không dùng cho quyết định bảo mật.
 
-List and read results also carry `ttlMs` and `cacheScope`. A deterministic `tools/list` order plus a freshness hint lets clients cache discovery safely and improves prompt-cache stability. `cacheScope: public` permits shared caching; `private` confines reuse to the calling context.
+Kết quả liệt kê và đọc cũng mang `ttlMs` và `cacheScope`. Thứ tự `tools/list` tất định cùng gợi ý độ mới cho client cache khám phá an toàn và cải thiện ổn định cache prompt. `cacheScope: public` cho phép cache chia sẻ; `private` giới hạn tái sử dụng trong ngữ cảnh gọi.
 
 ### The wire format and transport
 
-MCP uses JSON-RPC 2.0 over stdio or Streamable HTTP.
+MCP dùng JSON-RPC 2.0 trên stdio hoặc Streamable HTTP.
 
-- A request has `jsonrpc`, `id`, `method`, and `params`.
-- A response has the matching `id` and either `result` or `error`.
-- A notification has no `id` and expects no response.
+- Yêu cầu có `jsonrpc`, `id`, `method` và `params`.
+- Phản hồi có `id` khớp và `result` hoặc `error`.
+- Thông báo không có `id` và không kỳ vọng phản hồi.
 
-Modern Streamable HTTP exposes one endpoint that accepts POST. Each JSON-RPC message gets its own POST. A request POST receives either one JSON object or a request-scoped Server-Sent Events stream that ends with the final response. An accepted notification POST receives HTTP 202 with no response body; this core revision defines no client-to-server notifications over Streamable HTTP.
+Streamable HTTP hiện đại mở một endpoint nhận POST. Mỗi thông điệp JSON-RPC có POST riêng. POST yêu cầu nhận một đối tượng JSON hoặc stream Server-Sent Events theo phạm vi yêu cầu kết thúc bằng phản hồi cuối. POST thông báo được chấp nhận nhận HTTP 202 không thân phản hồi; bản sửa đổi cốt lõi này không định nghĩa thông báo từ client đến máy chủ trên Streamable HTTP.
 
-There is no standalone MCP GET stream, DELETE session endpoint, `Mcp-Session-Id`, or `Last-Event-ID` replay in 2026-07-28. Long-lived change notifications use a `subscriptions/listen` POST whose response remains open as an SSE stream.
+Không có stream MCP GET độc lập, endpoint phiên DELETE, `Mcp-Session-Id` hay phát lại `Last-Event-ID` trong 2026-07-28. Thông báo thay đổi dài hạn dùng POST `subscriptions/listen` có phản hồi giữ mở thành stream SSE.
 
 ### Client input without server-initiated requests
 
-Older revisions let a server send requests such as `sampling/createMessage`, `roots/list`, or `elicitation/create` over a stream. The current protocol uses Multi Round-Trip Requests instead. An eligible tool call, resource read, or prompt get returns `resultType: input_required` with at least one of `inputRequests` or `requestState`. The client gathers any requested input, retries the original method with a new JSON-RPC ID and the corresponding `inputResponses`, and echoes the exact `requestState` when one was provided. If no `inputRequests` were present, the retry omits `inputResponses`.
+Bản sửa đổi cũ cho máy chủ gửi yêu cầu như `sampling/createMessage`, `roots/list` hoặc `elicitation/create` qua stream. Giao thức hiện tại dùng Multi Round-Trip Requests thay thế. Lệnh gọi công cụ, đọc tài nguyên hoặc lấy prompt đủ điều kiện trả `resultType: input_required` với ít nhất một trong `inputRequests` hoặc `requestState`. Client thu đầu vào được yêu cầu, thử lại phương thức gốc với ID JSON-RPC mới và `inputResponses` tương ứng, đồng thời gửi lại đúng `requestState` khi được cung cấp. Nếu không có `inputRequests`, lần thử lại bỏ `inputResponses`.
 
-Roots, Sampling, and Logging remain functional but are deprecated, so new implementations should not adopt them. Existing Roots or Sampling requests travel inside MRTR `inputRequests`, never as independent server-to-client JSON-RPC requests. Prefer explicit file or directory parameters, resource URIs, server configuration, and direct model-provider integration. Use stderr for stdio diagnostics and OpenTelemetry for production telemetry.
+Roots, Sampling và Logging vẫn hoạt động nhưng đã ngừng khuyến nghị, nên triển khai mới không nên áp dụng. Yêu cầu Roots hoặc Sampling hiện có đi trong `inputRequests` của MRTR, không bao giờ là yêu cầu JSON-RPC độc lập từ máy chủ đến client. Ưu tiên tham số file hoặc thư mục rõ ràng, URI tài nguyên, cấu hình máy chủ và tích hợp trực tiếp nhà cung cấp mô hình. Dùng stderr cho chẩn đoán stdio và OpenTelemetry cho telemetry sản xuất.
 
 ```figure
 mcp-nxm-collapse
@@ -133,7 +133,7 @@ mcp-nxm-collapse
 
 ### Step 1: register a server surface
 
-Registration stays simple even though the request contract changed:
+Đăng ký vẫn đơn giản dù hợp đồng yêu cầu đã thay đổi:
 
 ```python
 server = MCPServer("demo-server")
@@ -154,7 +154,7 @@ def add(a: int, b: int) -> dict:
     return {"sum": a + b}
 ```
 
-The shipped implementation in `code/main.py` also registers a resource and prompt. It deliberately uses the standard library so you can see each envelope rather than delegating the protocol to an SDK.
+Triển khai được cung cấp trong `code/main.py` cũng đăng ký tài nguyên và prompt. Nó cố ý dùng thư viện tiêu chuẩn để bạn thấy từng phong bì thay vì giao giao thức cho SDK.
 
 ### Step 2: attach metadata to every request
 
@@ -177,17 +177,17 @@ def request(method, params=None):
     }
 ```
 
-Do not cache this metadata only in a connection object. The server validates it on each request.
+Không chỉ cache metadata này trong đối tượng kết nối. Máy chủ xác thực nó trên mỗi yêu cầu.
 
 ### Step 3: optionally discover before listing
 
-Call `server/discover`, choose a supported version, then call `tools/list`. A direct `tools/list` is also valid if you already know the version and can handle `-32022`.
+Gọi `server/discover`, chọn phiên bản được hỗ trợ rồi gọi `tools/list`. `tools/list` trực tiếp cũng hợp lệ nếu đã biết phiên bản và có thể xử lý `-32022`.
 
-The demo returns tool lists in name order and attaches `ttlMs`, `cacheScope`, `resultType`, and server identity. A tool call returns a complete, non-cacheable result because its output can depend on current state.
+Demo trả danh sách công cụ theo thứ tự tên và đính kèm `ttlMs`, `cacheScope`, `resultType` và danh tính máy chủ. Lệnh gọi công cụ trả kết quả hoàn tất, không cache được vì đầu ra có thể phụ thuộc trạng thái hiện tại.
 
 ### Step 4: map the same request to HTTP
 
-A remote `tools/call` POST includes headers that mirror the JSON-RPC body:
+POST `tools/call` từ xa bao gồm header phản chiếu thân JSON-RPC:
 
 ```http
 POST /mcp HTTP/1.1
@@ -198,20 +198,20 @@ Mcp-Method: tools/call
 Mcp-Name: add
 ```
 
-The `MCP-Protocol-Version` header must match the version in `_meta`. `Mcp-Method` is required on every JSON-RPC request and must match `method`. `Mcp-Name` is required only for `tools/call`, `resources/read`, and `prompts/get`, where it must match the tool name, resource URI, or prompt name. A missing required header or mismatch returns HTTP 400 with `HeaderMismatch` code `-32020`.
+Header `MCP-Protocol-Version` phải khớp phiên bản trong `_meta`. `Mcp-Method` bắt buộc trên mọi yêu cầu JSON-RPC và phải khớp `method`. `Mcp-Name` chỉ bắt buộc cho `tools/call`, `resources/read` và `prompts/get`, nơi nó phải khớp tên công cụ, URI tài nguyên hoặc tên prompt. Thiếu header bắt buộc hoặc không khớp trả HTTP 400 với mã `HeaderMismatch` `-32020`.
 
 ### Step 5: enforce safety outside protocol state
 
-- Validate authorization and audience on every HTTP request.
-- Bind local servers to localhost and validate `Origin` on Streamable HTTP.
-- Mark mutating tools with `destructiveHint: true` and require host approval.
-- Pass directory and file scope explicitly instead of depending on deprecated Roots.
-- Treat resources and tool output as untrusted data.
-- Keep stdout reserved for JSON-RPC under stdio; write diagnostics to stderr.
+- Xác thực phân quyền và đối tượng nhận trên mọi yêu cầu HTTP.
+- Gắn máy chủ cục bộ vào localhost và xác thực `Origin` trên Streamable HTTP.
+- Đánh dấu công cụ thay đổi dữ liệu bằng `destructiveHint: true` và yêu cầu host phê duyệt.
+- Truyền phạm vi thư mục và file rõ ràng thay vì phụ thuộc Roots đã ngừng khuyến nghị.
+- Xem tài nguyên và đầu ra công cụ là dữ liệu không đáng tin.
+- Giữ stdout dành riêng cho JSON-RPC khi dùng stdio; ghi chẩn đoán vào stderr.
 
 ## Use It
 
-Run the lesson from its directory:
+Chạy bài học từ thư mục của nó:
 
 ```bash
 python3 code/main.py
@@ -219,44 +219,44 @@ cd code
 python3 -m unittest discover tests -v
 ```
 
-The first line should report discovery of `demo-server` at protocol `2026-07-28`. Then inspect `MCPClient.request`: it reconstructs `_meta` for every call. Remove the metadata from one request and observe the server reject it.
+Dòng đầu phải báo khám phá `demo-server` ở giao thức `2026-07-28`. Rồi kiểm tra `MCPClient.request`: nó dựng lại `_meta` cho mỗi lệnh gọi. Bỏ metadata khỏi một yêu cầu và quan sát máy chủ từ chối.
 
 ## Ship It
 
-`outputs/skill-mcp-server-designer.md` turns a domain into a stateless MCP design. Its acceptance gate requires a discovery result, per-request metadata policy, deterministic cache-aware lists, explicit state handles, transport headers, authorization, and approval rules.
+`outputs/skill-mcp-server-designer.md` biến một miền thành thiết kế MCP không trạng thái. Cổng chấp nhận yêu cầu kết quả khám phá, chính sách metadata mỗi yêu cầu, danh sách tất định nhận biết cache, handle trạng thái rõ ràng, header truyền tải, phân quyền và quy tắc phê duyệt.
 
 ## Continue the MCP Deep Dive
 
-This lesson gives you the protocol model. Phase 13 turns four production boundaries into separate build-and-verify lessons:
+Bài học này cho bạn mô hình giao thức. Giai đoạn 13 biến bốn ranh giới sản xuất thành các bài xây dựng-và-xác minh riêng:
 
-1. [MCP Tool Contracts and Content](../../../13-tools-and-protocols/28-mcp-tool-contracts-and-content/docs/en.md) covers closed input schemas, structured content, routing metadata, opaque pagination, completion authorization, and the difference between protocol and tool-domain errors.
-2. [MCP Reliability, Cancellation, and Flow Control](../../../13-tools-and-protocols/29-mcp-reliability-cancellation-and-flow-control/docs/en.md) covers request cancellation, durable task cancellation, deadlines, idempotency, backpressure, proxy buffering, and reconnect behavior.
-3. [MCP Registry Supply Chain, Admission, Drift, and Rollback](../../../13-tools-and-protocols/30-mcp-registry-supply-chain-and-drift/docs/en.md) covers namespace proof, artifact provenance, immutable pins, live drift, Registry status, admission evidence, and rollback.
-4. [MCP Conformance Engineering](../../../13-tools-and-protocols/31-mcp-conformance-versioning-and-operations/docs/en.md) covers golden and negative wire transcripts, strict version eras, SDK differentials, proxy evidence, redaction, health gates, and release rollback.
+1. [MCP Tool Contracts and Content](../../../13-tools-and-protocols/28-mcp-tool-contracts-and-content/docs/en.md) trình bày schema đầu vào đóng, nội dung có cấu trúc, metadata định tuyến, phân trang mờ, phân quyền completion và khác biệt giữa lỗi giao thức và lỗi miền công cụ.
+2. [MCP Reliability, Cancellation, and Flow Control](../../../13-tools-and-protocols/29-mcp-reliability-cancellation-and-flow-control/docs/en.md) trình bày hủy yêu cầu, hủy tác vụ bền vững, hạn chót, tính lũy đẳng, backpressure, bộ đệm proxy và hành vi kết nối lại.
+3. [MCP Registry Supply Chain, Admission, Drift, and Rollback](../../../13-tools-and-protocols/30-mcp-registry-supply-chain-and-drift/docs/en.md) trình bày chứng minh namespace, nguồn gốc artifact, ghim bất biến, trôi trực tiếp, trạng thái Registry, bằng chứng tiếp nhận và hoàn tác.
+4. [MCP Conformance Engineering](../../../13-tools-and-protocols/31-mcp-conformance-versioning-and-operations/docs/en.md) trình bày bản ghi truyền tải vàng và âm, thời kỳ phiên bản nghiêm ngặt, đối chiếu SDK, bằng chứng proxy, che dữ liệu, cổng sức khỏe và hoàn tác phát hành.
 
-Follow them in order when the server will cross a team or trust boundary. Together they move from “the method works” to “the contract remains safe and diagnosable through deployment.”
+Làm theo thứ tự khi máy chủ sẽ vượt ranh giới nhóm hoặc tin cậy. Cùng nhau chúng chuyển từ “phương thức hoạt động” sang “hợp đồng vẫn an toàn và chẩn đoán được qua triển khai.”
 
 ## Exercises
 
-1. Add a `subtract` tool and confirm `tools/list` remains alphabetically ordered.
-2. Remove the protocol-version key and verify Invalid Params (`-32602`). Then send the well-formed but unsupported version `2025-11-25`, verify `-32022`, confirm `requested` echoes that revision, and choose from `supported`.
-3. Add a server-minted `draftId` to a create operation, then require it as an argument to update. Explain why that is application state rather than a protocol session.
-4. Return `input_required` from a tool that needs user confirmation. Retry the original call with a new ID, an `inputResponses` entry, and the exact `requestState` instead of inventing a server-to-client JSON-RPC request.
-5. Sketch a dual-era stdio client. Treat a result or recognized modern error as modern, and permit fallback to `initialize` only for an unrecognized error or timeout.
+1. Thêm công cụ `subtract` và xác nhận `tools/list` vẫn theo thứ tự chữ cái.
+2. Bỏ khóa phiên bản giao thức và xác minh Invalid Params (`-32602`). Rồi gửi phiên bản đúng định dạng nhưng không hỗ trợ `2025-11-25`, xác minh `-32022`, xác nhận `requested` phản hồi đúng bản sửa đổi đó và chọn từ `supported`.
+3. Thêm `draftId` do máy chủ tạo vào thao tác tạo, rồi yêu cầu nó làm đối số cập nhật. Giải thích tại sao đó là trạng thái ứng dụng thay vì phiên giao thức.
+4. Trả `input_required` từ công cụ cần người dùng xác nhận. Thử lại lệnh gọi gốc với ID mới, mục `inputResponses` và đúng `requestState` thay vì tự tạo yêu cầu JSON-RPC từ máy chủ đến client.
+5. Phác thảo client stdio hỗ trợ hai thời kỳ. Xem kết quả hoặc lỗi hiện đại được nhận biết là hiện đại, và chỉ cho phép dự phòng về `initialize` khi lỗi không nhận biết hoặc timeout.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| MCP | "Tool protocol for LLMs" | JSON-RPC protocol for server discovery, tools, resources, prompts, and extensions |
-| Host | "The AI app" | Owns the model and UI and mounts one or more MCP clients |
-| Client | "The connector" | Speaks MCP to one server on behalf of a host |
-| Stateless MCP | "No session" | Every request carries version and capabilities; no protocol state is keyed by a connection |
-| `server/discover` | "Capability probe" | Required server method advertising versions, capabilities, and identity |
-| `resultType` | "Result state" | Marks a result as `complete` or `input_required` |
-| State handle | "Workflow id" | Server-minted application identifier passed as an ordinary argument |
-| Streamable HTTP | "Remote transport" | One POST endpoint with JSON or request-scoped SSE responses |
-| MRTR | "Ask and retry" | Input request embedded in a result, followed by a retry of the original operation |
+| MCP | "Giao thức công cụ cho LLM" | Giao thức JSON-RPC cho khám phá máy chủ, công cụ, tài nguyên, prompt và phần mở rộng |
+| Host (Ứng dụng chủ) | "Ứng dụng AI" | Sở hữu mô hình và UI, gắn một hoặc nhiều client MCP |
+| Client (Máy khách) | "Bộ kết nối" | Giao tiếp MCP với một máy chủ thay mặt host |
+| Stateless MCP (MCP không trạng thái) | "Không phiên" | Mỗi yêu cầu mang phiên bản và năng lực; không trạng thái giao thức nào có khóa theo kết nối |
+| `server/discover` | "Dò năng lực" | Phương thức máy chủ bắt buộc công bố phiên bản, năng lực và danh tính |
+| `resultType` | "Trạng thái kết quả" | Đánh dấu kết quả là `complete` hoặc `input_required` |
+| State handle (Handle trạng thái) | "ID quy trình" | Định danh ứng dụng do máy chủ tạo, truyền như đối số thông thường |
+| Streamable HTTP | "Truyền tải từ xa" | Một endpoint POST với phản hồi JSON hoặc SSE theo phạm vi yêu cầu |
+| MRTR | "Hỏi và thử lại" | Yêu cầu đầu vào nhúng trong kết quả, theo sau bởi thử lại thao tác gốc |
 
 ## Further Reading
 
