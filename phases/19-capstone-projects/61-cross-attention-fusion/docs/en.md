@@ -1,6 +1,6 @@
 # Cross-Attention Fusion
 
-> The projection layer aligns one image vector with one caption vector. A real vision-language decoder needs every text token to attend to every patch token, so the model can ground each word in a region. Cross-attention is how that grounding happens. The text queries; the vision keys and values answer. This lesson builds the cross-attention block, the causal text self-attention, and the mask shapes that keep both legal.
+> Lớp chiếu căn chỉnh một vector ảnh với một vector chú thích. Một decoder thị giác-ngôn ngữ thực cần mọi token văn bản chú ý đến mọi token patch, để mô hình có thể đặt mỗi từ trên căn cứ một vùng. Cross-attention là cách việc đặt căn cứ đó xảy ra. Văn bản truy vấn; các key và value thị giác trả lời. Bài này xây dựng khối cross-attention, self-attention văn bản nhân quả, và các hình dạng mặt nạ giữ cả hai hợp lệ.
 
 **Type:** Build
 **Languages:** Python
@@ -9,16 +9,16 @@
 
 ## Learning Objectives
 
-- Implement multi-head cross-attention where the query stream is text and the key/value stream is vision.
-- Compose a decoder block: causal self-attention + cross-attention + feed-forward.
-- Get the mask shapes right: causal mask for self-attention, no mask for cross-attention.
-- Run a forward pass with batched text tokens and a fixed pool of image tokens.
+- Triển khai cross-attention đa đầu mà luồng query là văn bản và luồng key/value là thị giác.
+- Kết hợp một khối decoder: self-attention nhân quả + cross-attention + truyền thẳng.
+- Làm đúng các hình dạng mặt nạ: mặt nạ nhân quả cho self-attention, không mặt nạ cho cross-attention.
+- Chạy một lượt tiến với các token văn bản theo lô và một tập token ảnh cố định.
 
 ## The Problem
 
-Concatenating image tokens and text tokens into one sequence is one fusion option (early fusion, the path Chameleon and Emu3 take). Cross-attention is the other (late fusion, the path Flamingo introduced and that every Flamingo-shaped decoder since has copied). In late fusion, the text decoder runs on text-only tokens and reaches over into the image stream through cross-attention at every layer.
+Nối các token ảnh và token văn bản thành một chuỗi là một lựa chọn hợp nhất (hợp nhất sớm, con đường Chameleon và Emu3 đi). Cross-attention là lựa chọn còn lại (hợp nhất muộn, con đường Flamingo giới thiệu và mọi decoder có hình thức Flamingo từ đó đã sao chép). Trong hợp nhất muộn, decoder văn bản chạy trên các token chỉ văn bản và vươn sang luồng ảnh qua cross-attention ở mọi lớp.
 
-Late fusion has two advantages. First, the text stream stays clean and the model preserves text-only capabilities. Second, the image stream is computed once per image and reused for every decode step, so generation is cheap even for long captions. The cost is one extra attention sub-layer per block.
+Hợp nhất muộn có hai ưu điểm. Thứ nhất, luồng văn bản giữ sạch và mô hình bảo toàn các khả năng chỉ văn bản. Thứ hai, luồng ảnh được tính một lần mỗi ảnh và tái sử dụng cho mọi bước giải mã, nên sinh rẻ ngay cả với các chú thích dài. Chi phí là một lớp con attention bổ sung mỗi khối.
 
 ## The Concept
 
@@ -45,26 +45,26 @@ flowchart LR
 
 ### Mask shapes
 
-The two attentions inside a decoder block need different masks:
+Hai attention bên trong một khối decoder cần các mặt nạ khác nhau:
 
-| Attention | Query length | Key length | Mask | Why |
+| Attention | Độ dài query | Độ dài key | Mặt nạ | Tại sao |
 |-----------|--------------|------------|------|-----|
-| Self-attention | `Nt` (text) | `Nt` (text) | Causal: lower-triangular `(Nt, Nt)` | Text tokens may not look ahead during autoregression |
-| Cross-attention | `Nt` (text) | `Nv` (vision) | No mask | The whole image is visible to every text position |
+| Self-attention | `Nt` (văn bản) | `Nt` (văn bản) | Nhân quả: tam giác dưới `(Nt, Nt)` | Các token văn bản không được nhìn trước trong tự hồi quy |
+| Cross-attention | `Nt` (văn bản) | `Nv` (thị giác) | Không mặt nạ | Toàn ảnh hiển thị với mọi vị trí văn bản |
 
-The lesson includes one shape-validation function so the mistake of mixing them up surfaces as a `ValueError` instead of a silently broken loss curve.
+Bài học bao gồm một hàm xác thực hình dạng để lỗi nhầm lẫn chúng xuất hiện như một `ValueError` thay vì một đường cong mất mát hỏng âm thầm.
 
 ### Why no mask on cross-attention
 
-The image is fully observed before any text is generated. Token `t` of the caption may attend to any patch of the image; there is no temporal order on image patches. Some Flamingo variants add a per-sample masking pattern when interleaving multiple images and text segments, but for a single image plus a caption, cross-attention sees everything.
+Ảnh được quan sát đầy đủ trước khi bất kỳ văn bản nào được sinh. Token `t` của chú thích có thể chú ý đến bất kỳ patch nào của ảnh; không có thứ tự thời gian trên các patch ảnh. Một số biến thể Flamingo thêm một mẫu che theo mẫu khi xen kẽ nhiều ảnh và các đoạn văn bản, nhưng với một ảnh cùng một chú thích, cross-attention thấy mọi thứ.
 
 ### Key/value caching
 
-The image keys and values are computed once at the start of the decode and held in a cache. Each new text token uses the cache without recomputation. This is what makes captioning fast at inference: the heavy ViT runs once; the cross-attention reuses its keys and values for every step. The lesson exposes the cache and tests the cache-hit path.
+Các key và value ảnh được tính một lần lúc bắt đầu giải mã và giữ trong một bộ nhớ đệm. Mỗi token văn bản mới dùng bộ nhớ đệm mà không tính lại. Đây là thứ khiến tạo chú thích nhanh lúc suy luận: ViT nặng chạy một lần; cross-attention tái sử dụng các key và value của nó cho mọi bước. Bài học cung cấp bộ nhớ đệm và kiểm thử đường trúng bộ nhớ đệm.
 
 ### Block composition
 
-A decoder block runs: pre-LN -> self-attention -> residual -> pre-LN -> cross-attention -> residual -> pre-LN -> feed-forward -> residual. Three sub-layers, each with its own LayerNorm. The Flamingo paper added a learned gate on cross-attention so the model could opt out of the image path at training-time stability cost; the canonical baseline (used here) has no gate.
+Một khối decoder chạy: pre-LN -> self-attention -> phần dư -> pre-LN -> cross-attention -> phần dư -> pre-LN -> truyền thẳng -> phần dư. Ba lớp con, mỗi lớp có LayerNorm riêng. Bài báo Flamingo thêm một cổng được học trên cross-attention để mô hình có thể chọn bỏ đường ảnh với chi phí ổn định tại thời điểm huấn luyện; đường cơ sở chuẩn (được dùng ở đây) không có cổng.
 
 ```python
 class DecoderBlock:
@@ -84,43 +84,43 @@ ch-crossattn-fan
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `CrossAttention(hidden, heads)`, multi-head cross-attention with separate `q` and `kv` projections.
-- `CausalSelfAttention(hidden, heads)`, the masked self-attention from a standard decoder.
-- `DecoderBlock`, composing the three sub-layers with pre-LN residuals.
-- `VisionLanguageDecoder`, four-layer decoder fed by a mock vision encoder output and a small text embedding table.
-- `causal_mask(length)` returning a `(length, length)` lower-triangular boolean tensor.
-- A demo that feeds a batch of two text sequences of length 10 with image memory of length 197 and prints output shape, the self-attention mask shape, and the cross-attention output norm per position.
+- `CrossAttention(hidden, heads)`, cross-attention đa đầu với các phép chiếu `q` và `kv` riêng.
+- `CausalSelfAttention(hidden, heads)`, self-attention được che từ một decoder tiêu chuẩn.
+- `DecoderBlock`, kết hợp ba lớp con với các phần dư pre-LN.
+- `VisionLanguageDecoder`, decoder bốn lớp được cấp bởi một đầu ra bộ mã hóa thị giác giả lập và một bảng embedding văn bản nhỏ.
+- `causal_mask(length)` trả về một tensor boolean tam giác dưới `(length, length)`.
+- Một demo đưa một lô hai chuỗi văn bản dài 10 với bộ nhớ ảnh dài 197 và in hình dạng đầu ra, hình dạng mặt nạ self-attention, và chuẩn đầu ra cross-attention theo vị trí.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-Output: decoder produces a `(2, 10, text_vocab)` logits tensor. Mask shape is `(10, 10)`. The KV-cache reuse check confirms identical logits between the cached and uncached paths.
+Đầu ra: decoder tạo một tensor logit `(2, 10, text_vocab)`. Hình dạng mặt nạ là `(10, 10)`. Kiểm tra tái sử dụng bộ nhớ đệm KV xác nhận các logit giống hệt giữa các đường có đệm và không đệm.
 
 ## Use It
 
-Cross-attention shows up in two production families:
+Cross-attention xuất hiện trong hai họ sản xuất:
 
-- **Flamingo and IDEFICS.** Insert a cross-attention sub-layer every K language model blocks, with a frozen LM. The vision-language adapter is the cross-attention block plus its gate.
-- **BLIP-2.** The Q-Former uses cross-attention from a fixed set of 32 query tokens into the image features, then projects the queries into the LM embedding space.
+- **Flamingo và IDEFICS.** Chèn một lớp con cross-attention mỗi K khối mô hình ngôn ngữ, với một LM đóng băng. Adapter thị giác-ngôn ngữ là khối cross-attention cùng cổng của nó.
+- **BLIP-2.** Q-Former dùng cross-attention từ một tập cố định 32 token query vào các đặc trưng ảnh, rồi chiếu các query vào không gian embedding LM.
 
-The shape of the block in this lesson maps directly onto both. The mask discipline (causal on self, none on cross) is the same.
+Hình thức khối trong bài này ánh xạ trực tiếp lên cả hai. Kỷ luật mặt nạ (nhân quả trên self, không trên cross) giống nhau.
 
 ## Tests
 
-`code/test_main.py` covers:
+`code/test_main.py` bao phủ:
 
-- causal mask is lower-triangular and matches expected boolean shape
-- cross-attention output shape is `(B, Nt, hidden)` regardless of key length
-- KV-cache path matches uncached path to float tolerance
-- shape mismatch between text and image streams raises a clear `ValueError`
-- a full decoder forward pass produces the right batch and sequence shape
+- mặt nạ nhân quả là tam giác dưới và khớp hình dạng boolean dự kiến
+- hình dạng đầu ra cross-attention là `(B, Nt, hidden)` bất kể độ dài key
+- đường bộ nhớ đệm KV khớp đường không đệm trong dung sai float
+- sự không khớp hình dạng giữa các luồng văn bản và ảnh phát sinh một `ValueError` rõ ràng
+- một lượt tiến decoder đầy đủ tạo hình dạng lô và chuỗi đúng
 
-Run them:
+Chạy chúng:
 
 ```bash
 python3 -m unittest code/test_main.py
@@ -128,28 +128,28 @@ python3 -m unittest code/test_main.py
 
 ## Exercises
 
-1. Add a learned tanh gate to the cross-attention residual (the Flamingo trick) and verify training converges from a near-zero initial gate. The gate starts at 0; the model recovers text-only behavior before mixing the image stream in.
+1. Thêm một cổng tanh được học vào phần dư cross-attention (mẹo Flamingo) và xác minh huấn luyện hội tụ từ một cổng ban đầu gần không. Cổng bắt đầu ở 0; mô hình phục hồi hành vi chỉ văn bản trước khi trộn luồng ảnh vào.
 
-2. Implement interleaved attention where the same decoder consumes multiple images plus multiple text segments. Build the per-sample cross-attention mask that prevents text segment 2 from attending to image 1.
+2. Triển khai attention xen kẽ nơi cùng decoder tiêu thụ nhiều ảnh cùng nhiều đoạn văn bản. Xây dựng mặt nạ cross-attention theo mẫu ngăn đoạn văn bản 2 chú ý đến ảnh 1.
 
-3. Profile the cross-attention vs the self-attention layer at `Nt=64, Nv=576` (a 24x24 grid at higher resolution). The cross-attention cost is `Nt * Nv` and dominates at high image resolution.
+3. Đo hiệu năng lớp cross-attention so với self-attention tại `Nt=64, Nv=576` (một lưới 24x24 ở độ phân giải cao hơn). Chi phí cross-attention là `Nt * Nv` và chiếm ưu thế ở độ phân giải ảnh cao.
 
-4. Add a query-side dropout on the cross-attention map and measure caption diversity on the demo (caption sample variance increases with dropout in the cross map).
+4. Thêm một dropout phía query trên bản đồ cross-attention và đo độ đa dạng chú thích trên demo (phương sai mẫu chú thích tăng với dropout trong bản đồ cross).
 
-5. Swap the cross-attention layer for a Q-Former-style attention block where a fixed 32-token query pool attends to image features once per layer.
+5. Đổi lớp cross-attention thành một khối attention kiểu Q-Former nơi một tập query 32 token cố định chú ý đến các đặc trưng ảnh một lần mỗi lớp.
 
 ## Key Terms
 
-| Term | What it means |
+| Thuật ngữ | Ý nghĩa |
 |------|---------------|
-| Late fusion | Text and vision stay in separate streams; cross-attention bridges them at every block |
-| Cross-attention | Q comes from one stream, K and V from another |
-| Causal mask | Lower-triangular boolean mask that prevents looking ahead during autoregression |
-| KV cache | Image keys and values stored once and reused for every decode step |
-| Memory tokens | The frozen image tokens that the decoder reaches into |
+| Late fusion (Hợp nhất muộn) | Văn bản và thị giác giữ trong các luồng riêng; cross-attention nối chúng ở mọi khối |
+| Cross-attention (Chú ý chéo) | Q đến từ một luồng, K và V từ luồng khác |
+| Causal mask (Mặt nạ nhân quả) | Mặt nạ boolean tam giác dưới ngăn nhìn trước trong tự hồi quy |
+| KV cache (Bộ nhớ đệm KV) | Các key và value ảnh được lưu một lần và tái sử dụng cho mọi bước giải mã |
+| Memory tokens (Các token bộ nhớ) | Các token ảnh đóng băng mà decoder vươn vào |
 
 ## Further Reading
 
-- Flamingo (2022) for the canonical late-fusion design with gated cross-attention.
-- BLIP-2 (2023) for the Q-Former, which is a cross-attention block dressed as a learned query pool.
-- IDEFICS (2023) for an open-weight reproduction of the Flamingo recipe.
+- Flamingo (2022) cho thiết kế hợp nhất muộn chuẩn với cross-attention có cổng.
+- BLIP-2 (2023) cho Q-Former, là một khối cross-attention được khoác dạng một tập query được học.
+- IDEFICS (2023) cho một bản tái tạo trọng số mở của công thức Flamingo.
