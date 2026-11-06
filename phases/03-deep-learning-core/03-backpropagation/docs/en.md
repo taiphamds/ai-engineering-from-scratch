@@ -1,6 +1,6 @@
 # Backpropagation from Scratch
 
-> Backpropagation is the algorithm that makes learning possible. Without it, neural networks are just expensive random number generators.
+> Lan truyền ngược là thuật toán khiến việc học trở nên khả thi. Không có nó, mạng nơ-ron chỉ là những bộ sinh số ngẫu nhiên đắt đỏ.
 
 **Type:** Build
 **Languages:** Python
@@ -9,30 +9,30 @@
 
 ## Learning Objectives
 
-- Implement a Value-based autograd engine that builds a computational graph and computes gradients via topological sort
-- Derive the backward pass for addition, multiplication, and sigmoid using the chain rule
-- Train a multi-layer network on XOR and circle classification using only your from-scratch backpropagation engine
-- Identify the vanishing gradient problem in deep sigmoid networks and explain why gradients shrink exponentially
+- Triển khai một bộ máy autograd dựa trên Value xây dựng đồ thị tính toán và tính các gradient thông qua sắp xếp tô pô
+- Suy ra lượt truyền ngược cho phép cộng, phép nhân và sigmoid bằng quy tắc chuỗi
+- Huấn luyện một mạng nhiều lớp trên XOR và phân loại đường tròn chỉ bằng bộ máy lan truyền ngược bạn xây dựng từ đầu
+- Nhận diện vấn đề tiêu biến gradient trong các mạng sigmoid sâu và giải thích tại sao các gradient co lại theo cấp số nhân
 
 ## The Problem
 
-Your network has a single hidden layer with 768 inputs and 3072 outputs. That's 2,359,296 weights. It made a wrong prediction. Which weights caused the error? Testing each weight individually means 2.3 million forward passes. Backpropagation computes all 2.3 million gradients in a single backward pass. That's not an optimization. That's the difference between trainable and impossible.
+Mạng của bạn có một lớp ẩn duy nhất với 768 đầu vào và 3072 đầu ra. Đó là 2,359,296 trọng số. Nó đưa ra một dự đoán sai. Những trọng số nào gây ra sai số? Kiểm tra riêng từng trọng số nghĩa là 2.3 triệu lượt truyền xuôi. Lan truyền ngược tính tất cả 2.3 triệu gradient trong một lượt truyền ngược duy nhất. Đó không phải là một sự tối ưu hóa. Đó là khác biệt giữa có thể huấn luyện và bất khả thi.
 
-The naive approach: take one weight, nudge it by a tiny amount, run the forward pass again, measure whether the loss went up or down. That gives you the gradient for that weight. Now do it for every weight in the network. Multiply by thousands of training steps and millions of data points. You'd need geological time to train anything useful.
+Cách tiếp cận đơn giản: lấy một trọng số, dịch nó một lượng rất nhỏ, chạy lại lượt truyền xuôi, đo xem mất mát tăng hay giảm. Điều đó cho bạn gradient của trọng số đó. Giờ làm việc đó cho mọi trọng số trong mạng. Nhân với hàng nghìn bước huấn luyện và hàng triệu điểm dữ liệu. Bạn sẽ cần thời gian địa chất để huấn luyện bất cứ thứ gì hữu ích.
 
-Backpropagation solves this. One forward pass, one backward pass, all gradients computed. The trick is the chain rule from calculus, applied systematically to a computational graph. This is the algorithm that made deep learning practical. Without it, we'd still be stuck on toy problems.
+Lan truyền ngược giải quyết điều này. Một lượt truyền xuôi, một lượt truyền ngược, tất cả các gradient được tính. Thủ thuật là quy tắc chuỗi từ giải tích, được áp dụng có hệ thống cho một đồ thị tính toán. Đây là thuật toán khiến học sâu trở nên thực tiễn. Không có nó, chúng ta vẫn sẽ mắc kẹt ở các bài toán đồ chơi.
 
 ## The Concept
 
 ### The Chain Rule, Applied to Networks
 
-You saw the chain rule in Phase 01, Lesson 05. Quick recap: if y = f(g(x)), then dy/dx = f'(g(x)) * g'(x). You multiply derivatives along the chain.
+Bạn đã thấy quy tắc chuỗi trong Giai đoạn 01, Bài 05. Nhắc lại nhanh: nếu y = f(g(x)), thì dy/dx = f'(g(x)) * g'(x). Bạn nhân các đạo hàm dọc theo chuỗi.
 
-In a neural network, the "chain" is the sequence of operations from input to loss. Each layer applies weights, adds biases, passes through an activation. The loss function compares the final output to the target. Backpropagation traces this chain backward, computing how each operation contributed to the error.
+Trong một mạng nơ-ron, "chuỗi" là dãy phép toán từ đầu vào tới mất mát. Mỗi lớp áp dụng các trọng số, cộng các bias, đưa qua một kích hoạt. Hàm mất mát so sánh đầu ra cuối cùng với mục tiêu. Lan truyền ngược lần theo chuỗi này ngược lại, tính xem mỗi phép toán đóng góp vào sai số như thế nào.
 
 ### Computational Graphs
 
-Every forward pass builds a graph. Each node is an operation (multiply, add, sigmoid). Each edge carries a value forward and a gradient backward.
+Mỗi lượt truyền xuôi xây dựng một đồ thị. Mỗi nút là một phép toán (nhân, cộng, sigmoid). Mỗi cạnh mang một giá trị về phía trước và một gradient về phía sau.
 
 ```mermaid
 graph LR
@@ -45,11 +45,11 @@ graph LR
     y["target"] --> loss
 ```
 
-Forward pass: values flow left to right. x and w produce z1 = w*x. Add b to get z2. Sigmoid gives activation a. Compare a to target y using the loss function.
+Lượt truyền xuôi: các giá trị chảy từ trái sang phải. x và w tạo ra z1 = w*x. Cộng b để có z2. Sigmoid cho kích hoạt a. So sánh a với mục tiêu y bằng hàm mất mát.
 
-Backward pass: gradients flow right to left. Start with dL/da (how loss changes with the activation). Multiply by da/dz2 (sigmoid derivative). That gives dL/dz2. Split into dL/db (which equals dL/dz2, since z2 = z1 + b) and dL/dz1. Then dL/dw = dL/dz1 * x and dL/dx = dL/dz1 * w.
+Lượt truyền ngược: các gradient chảy từ phải sang trái. Bắt đầu với dL/da (mất mát thay đổi theo kích hoạt như thế nào). Nhân với da/dz2 (đạo hàm sigmoid). Điều đó cho dL/dz2. Tách thành dL/db (bằng dL/dz2, vì z2 = z1 + b) và dL/dz1. Sau đó dL/dw = dL/dz1 * x và dL/dx = dL/dz1 * w.
 
-Every node in the graph has one job during the backward pass: take the gradient coming from above, multiply by its local derivative, and pass it down.
+Mỗi nút trong đồ thị có một việc trong lượt truyền ngược: nhận gradient đến từ phía trên, nhân với đạo hàm cục bộ của nó và truyền xuống.
 
 ### Forward vs Backward
 
@@ -70,11 +70,11 @@ graph TB
     Forward --> Backward
 ```
 
-The forward pass stores every intermediate value: z, a, the inputs to each layer. The backward pass needs these stored values to compute gradients. This is the memory-computation tradeoff at the heart of backprop. You trade memory (storing activations) for speed (one pass instead of millions).
+Lượt truyền xuôi lưu mọi giá trị trung gian: z, a, các đầu vào của mỗi lớp. Lượt truyền ngược cần những giá trị được lưu này để tính gradient. Đây là sự đánh đổi bộ nhớ-tính toán ở trung tâm của backprop. Bạn đánh đổi bộ nhớ (lưu các kích hoạt) lấy tốc độ (một lượt thay vì hàng triệu).
 
 ### Gradient Flow Through a Network
 
-For a 3-layer network, gradients chain through every layer:
+Với một mạng 3 lớp, các gradient nối chuỗi qua mọi lớp:
 
 ```mermaid
 graph RL
@@ -84,11 +84,11 @@ graph RL
     L1 -- "dL/dz1 = dL/da1 * sigmoid'(z1)" --> I["Input"]
 ```
 
-At each layer, the gradient gets multiplied by the sigmoid derivative. The sigmoid derivative is a * (1 - a), which maxes out at 0.25 (when a = 0.5). Three layers deep, the gradient has been multiplied by at most 0.25^3 = 0.0156. Ten layers deep: 0.25^10 = 0.000001.
+Tại mỗi lớp, gradient được nhân với đạo hàm sigmoid. Đạo hàm sigmoid là a * (1 - a), đạt tối đa 0.25 (khi a = 0.5). Sâu ba lớp, gradient đã được nhân với nhiều nhất 0.25^3 = 0.0156. Sâu mười lớp: 0.25^10 = 0.000001.
 
 ### Vanishing Gradients
 
-This is the vanishing gradient problem. Sigmoid squashes its output between 0 and 1. Its derivative is always less than 0.25. Stack enough sigmoid layers and gradients shrink to nothing. Early layers barely learn because they receive near-zero gradients.
+Đây là vấn đề tiêu biến gradient. Sigmoid ép đầu ra của nó vào giữa 0 và 1. Đạo hàm của nó luôn nhỏ hơn 0.25. Xếp chồng đủ lớp sigmoid và các gradient co lại thành không còn gì. Các lớp đầu hầu như không học vì chúng nhận các gradient gần bằng không.
 
 ```
 sigmoid(z):     Output range [0, 1]
@@ -98,13 +98,13 @@ After 5 layers:   gradient * 0.25^5 = 0.001x original
 After 10 layers:  gradient * 0.25^10 = 0.000001x original
 ```
 
-This is why deep sigmoid networks are nearly impossible to train. The fix -- ReLU and its variants -- is the subject of Lesson 04. For now, understand that backprop works perfectly. The problem is what it's working through.
+Đây là lý do các mạng sigmoid sâu gần như không thể huấn luyện. Cách khắc phục -- ReLU và các biến thể của nó -- là chủ đề của Bài 04. Hiện tại, hãy hiểu rằng backprop hoạt động hoàn hảo. Vấn đề là những gì nó đang đi qua.
 
 ### Deriving Gradients for a 2-Layer Network
 
-Concrete math for a network with input x, hidden layer with sigmoid, output layer with sigmoid, and MSE loss.
+Toán học cụ thể cho một mạng có đầu vào x, lớp ẩn với sigmoid, lớp đầu ra với sigmoid và mất mát MSE.
 
-Forward pass:
+Lượt truyền xuôi:
 ```
 z1 = W1 * x + b1
 a1 = sigmoid(z1)
@@ -113,7 +113,7 @@ a2 = sigmoid(z2)
 L = (a2 - y)^2
 ```
 
-Backward pass (applying chain rule step by step):
+Lượt truyền ngược (áp dụng quy tắc chuỗi từng bước):
 ```
 dL/da2 = 2(a2 - y)
 da2/dz2 = a2 * (1 - a2)
@@ -130,7 +130,7 @@ dL/dW1 = dL/dz1 * x
 dL/db1 = dL/dz1
 ```
 
-Every gradient is a product of local derivatives traced back from the loss. That's all backpropagation is.
+Mỗi gradient là một tích các đạo hàm cục bộ được lần ngược từ mất mát. Lan truyền ngược chỉ có vậy.
 
 ```figure
 backprop-vanishing
@@ -140,7 +140,7 @@ backprop-vanishing
 
 ### Step 1: The Value Node
 
-Every number in our computation becomes a Value. It stores its data, its gradient, and how it was created (so it knows how to compute gradients backward).
+Mỗi số trong phép tính của chúng ta trở thành một Value. Nó lưu dữ liệu, gradient của nó và cách nó được tạo ra (để biết cách tính gradient ngược).
 
 ```python
 class Value:
@@ -155,11 +155,11 @@ class Value:
         return f"Value(data={self.data:.4f}, grad={self.grad:.4f})"
 ```
 
-No gradient yet (0.0). No backward function yet (no-op). The `_children` track which Values produced this one, so we can topologically sort the graph later.
+Chưa có gradient (0.0). Chưa có hàm truyền ngược (no-op). `_children` theo dõi những Value nào tạo ra Value này, để chúng ta có thể sắp xếp tô pô đồ thị sau đó.
 
 ### Step 2: Operations with Backward Functions
 
-Each operation creates a new Value and defines how gradients flow backward through it.
+Mỗi phép toán tạo ra một Value mới và xác định cách các gradient chảy ngược qua nó.
 
 ```python
 def __add__(self, other):
@@ -185,11 +185,11 @@ def __mul__(self, other):
     return out
 ```
 
-For addition: d(a+b)/da = 1, d(a+b)/db = 1. So both inputs get the output's gradient directly.
+Với phép cộng: d(a+b)/da = 1, d(a+b)/db = 1. Vì vậy cả hai đầu vào trực tiếp nhận gradient của đầu ra.
 
-For multiplication: d(a*b)/da = b, d(a*b)/db = a. Each input gets the other's value times the output gradient.
+Với phép nhân: d(a*b)/da = b, d(a*b)/db = a. Mỗi đầu vào nhận giá trị của đầu vào kia nhân gradient đầu ra.
 
-The `+=` is critical. A Value might be used in multiple operations. Its gradient is the sum of gradients from all paths.
+`+=` rất quan trọng. Một Value có thể được sử dụng trong nhiều phép toán. Gradient của nó là tổng các gradient từ tất cả các đường đi.
 
 ### Step 3: Sigmoid and Loss
 
@@ -209,7 +209,7 @@ def sigmoid(self):
     return out
 ```
 
-Sigmoid derivative: sigmoid(x) * (1 - sigmoid(x)). We computed sigmoid(x) = s during the forward pass. Reuse it. No extra work.
+Đạo hàm sigmoid: sigmoid(x) * (1 - sigmoid(x)). Chúng ta đã tính sigmoid(x) = s trong lượt truyền xuôi. Sử dụng lại nó. Không cần thêm công việc.
 
 ```python
 def mse_loss(predicted, target):
@@ -217,11 +217,11 @@ def mse_loss(predicted, target):
     return diff * diff
 ```
 
-MSE for a single output: (predicted - target)^2. We express subtraction as addition with a negated Value.
+MSE cho một đầu ra đơn lẻ: (predicted - target)^2. Chúng ta biểu diễn phép trừ như phép cộng với một Value đổi dấu.
 
 ### Step 4: Backward Pass
 
-Topological sort ensures we process nodes in the right order -- a node's gradient is fully accumulated before we propagate through it.
+Sắp xếp tô pô bảo đảm chúng ta xử lý các nút đúng thứ tự -- gradient của một nút được tích lũy đầy đủ trước khi chúng ta lan truyền qua nó.
 
 ```python
 def backward(self):
@@ -241,7 +241,7 @@ def backward(self):
         v._backward()
 ```
 
-Start at the loss (gradient = 1.0, since dL/dL = 1). Walk backward through the sorted graph. Each node's `_backward` pushes gradients to its children.
+Bắt đầu tại mất mát (gradient = 1.0, vì dL/dL = 1). Đi ngược qua đồ thị đã sắp xếp. `_backward` của mỗi nút đẩy các gradient tới các nút con của nó.
 
 ### Step 5: Layer and Network
 
@@ -301,7 +301,7 @@ class Network:
             p.grad = 0.0
 ```
 
-A Neuron takes inputs, computes weighted sum + bias, and applies sigmoid. Weight initialization scales by sqrt(2/n_inputs) to prevent sigmoid saturation in deeper networks. A Layer is a list of Neurons. A Network is a list of Layers. The `parameters()` method collects all learnable Values so we can update them.
+Một Neuron nhận các đầu vào, tính tổng có trọng số + bias và áp dụng sigmoid. Khởi tạo trọng số co giãn theo sqrt(2/n_inputs) để ngăn bão hòa sigmoid trong các mạng sâu hơn. Một Layer là một danh sách Neuron. Một Network là một danh sách Layer. Phương thức `parameters()` thu thập tất cả các Value có thể học để chúng ta có thể cập nhật chúng.
 
 ### Step 6: Train on XOR
 
@@ -342,11 +342,11 @@ for inputs, target in xor_data:
     print(f"  {inputs} -> {pred.data:.4f} (expected {target})")
 ```
 
-Watch the loss decrease. From random predictions to correct XOR outputs, driven entirely by backpropagation computing gradients and nudging weights in the right direction.
+Quan sát mất mát giảm. Từ các dự đoán ngẫu nhiên tới đầu ra XOR đúng, được dẫn dắt hoàn toàn bởi lan truyền ngược tính gradient và dịch chuyển các trọng số đúng hướng.
 
 ### Step 7: Circle Classification
 
-In Lesson 02, you hand-tuned weights for circle classification. Now let the network learn them.
+Trong Bài 02, bạn điều chỉnh thủ công các trọng số cho phân loại đường tròn. Giờ để mạng học chúng.
 
 ```python
 random.seed(7)
@@ -390,13 +390,13 @@ for epoch in range(2000):
         print(f"Epoch {epoch:4d} | Loss: {total_loss_val:.4f} | Accuracy: {accuracy:.1f}%")
 ```
 
-We use online SGD here -- update weights after each sample instead of accumulating the full batch. This breaks symmetry faster and avoids sigmoid saturation on the full loss landscape. Shuffling the data each epoch prevents the network from memorizing the order.
+Chúng ta sử dụng SGD trực tuyến ở đây -- cập nhật các trọng số sau mỗi mẫu thay vì tích lũy toàn bộ batch. Điều này phá vỡ tính đối xứng nhanh hơn và tránh bão hòa sigmoid trên toàn bộ bề mặt mất mát. Xáo trộn dữ liệu mỗi epoch ngăn mạng ghi nhớ thứ tự.
 
-No hand-tuning. The network discovers the circular decision boundary on its own. That's the power of backpropagation: you define the architecture, the loss function, and the data. The algorithm figures out the weights.
+Không điều chỉnh thủ công. Mạng tự khám phá ranh giới quyết định hình tròn. Đó là sức mạnh của lan truyền ngược: bạn xác định kiến trúc, hàm mất mát và dữ liệu. Thuật toán tìm ra các trọng số.
 
 ## Use It
 
-PyTorch does everything above in a few lines. The core idea is identical -- autograd builds a computational graph during the forward pass and traces it backward to compute gradients.
+PyTorch làm mọi thứ ở trên trong vài dòng. Ý tưởng cốt lõi giống hệt -- autograd xây dựng một đồ thị tính toán trong lượt truyền xuôi và lần ngược nó để tính gradient.
 
 ```python
 import torch
@@ -428,43 +428,43 @@ with torch.no_grad():
         print(f"  {X[i].tolist()} -> {pred.item():.4f} (expected {y[i].item()})")
 ```
 
-`loss.backward()` is your `total_loss.backward()`. `optimizer.step()` is your manual `p.data -= lr * p.grad`. `optimizer.zero_grad()` is your `net.zero_grad()`. Same algorithm, industrial-strength implementation. PyTorch handles GPU acceleration, mixed precision, gradient checkpointing, and hundreds of layer types. But the backward pass is the same chain rule applied to the same computational graph.
+`loss.backward()` là `total_loss.backward()` của bạn. `optimizer.step()` là `p.data -= lr * p.grad` thủ công của bạn. `optimizer.zero_grad()` là `net.zero_grad()` của bạn. Cùng thuật toán, bản triển khai đủ mạnh cho công nghiệp. PyTorch xử lý tăng tốc GPU, độ chính xác hỗn hợp, gradient checkpointing và hàng trăm loại lớp. Nhưng lượt truyền ngược vẫn là cùng quy tắc chuỗi được áp dụng cho cùng đồ thị tính toán.
 
-Training runs the forward pass, then the backward pass, then updates weights. Inference runs only the forward pass. No gradients, no updates. This distinction matters because inference is what happens in production. When you call an API like Claude or GPT, you're running inference -- your prompt flows forward through the network, and tokens come out the other end. No weights change. Understanding backprop matters because it shaped every weight in that network.
+Huấn luyện chạy lượt truyền xuôi, rồi lượt truyền ngược, rồi cập nhật trọng số. Suy luận chỉ chạy lượt truyền xuôi. Không gradient, không cập nhật. Phân biệt này quan trọng vì suy luận là điều xảy ra trong production. Khi bạn gọi một API như Claude hoặc GPT, bạn đang chạy suy luận -- prompt của bạn chảy xuôi qua mạng và các token đi ra ở đầu kia. Không trọng số nào thay đổi. Hiểu backprop quan trọng vì nó đã định hình mọi trọng số trong mạng đó.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-gradient-debugger.md` -- a reusable prompt for diagnosing gradient problems (vanishing, exploding, NaN) in any neural network
+Bài học này tạo ra:
+- `outputs/prompt-gradient-debugger.md` -- một prompt tái sử dụng để chẩn đoán các vấn đề gradient (tiêu biến, bùng nổ, NaN) trong bất kỳ mạng nơ-ron nào
 
 ## Exercises
 
-1. Add a `__sub__` method to the Value class (a - b = a + (-1 * b)). Then implement a `__neg__` method. Verify that the gradients are correct by comparing with manual calculation for a simple expression like (a - b)^2.
+1. Thêm một phương thức `__sub__` vào lớp Value (a - b = a + (-1 * b)). Sau đó triển khai một phương thức `__neg__`. Xác minh các gradient đúng bằng cách so sánh với tính toán thủ công cho một biểu thức đơn giản như (a - b)^2.
 
-2. Add a `relu` method to Value (output max(0, x), derivative is 1 if x > 0, else 0). Replace sigmoid with relu in the hidden layers and train on XOR again. Compare convergence speed. You should see faster training -- this previews Lesson 04.
+2. Thêm một phương thức `relu` vào Value (xuất ra max(0, x), đạo hàm là 1 nếu x > 0, nếu không là 0). Thay sigmoid bằng relu trong các lớp ẩn và huấn luyện lại trên XOR. So sánh tốc độ hội tụ. Bạn sẽ thấy huấn luyện nhanh hơn -- điều này xem trước Bài 04.
 
-3. Implement a `__pow__` method on Value for integer powers. Use it to replace `mse_loss` with a proper `(predicted - target) ** 2` expression. Verify gradients match the original implementation.
+3. Triển khai một phương thức `__pow__` trên Value cho các lũy thừa nguyên. Sử dụng nó để thay `mse_loss` bằng một biểu thức `(predicted - target) ** 2` đúng nghĩa. Xác minh các gradient khớp bản triển khai gốc.
 
-4. Add gradient clipping to the training loop: after calling `backward()`, clip all gradients to [-1, 1]. Train a deeper network (4+ layers with sigmoid) and compare loss curves with and without clipping. This is your first defense against exploding gradients.
+4. Thêm cắt gradient vào vòng lặp huấn luyện: sau khi gọi `backward()`, cắt tất cả các gradient về [-1, 1]. Huấn luyện một mạng sâu hơn (4+ lớp với sigmoid) và so sánh các đường cong mất mát khi có và không có cắt. Đây là biện pháp phòng vệ đầu tiên của bạn trước gradient bùng nổ.
 
-5. Build a visualization: after training on XOR, print the gradient of every parameter in the network. Identify which layer has the smallest gradients. This demonstrates the vanishing gradient problem you read about in the Concept section.
+5. Xây dựng một hình trực quan: sau khi huấn luyện trên XOR, in gradient của mọi tham số trong mạng. Xác định lớp nào có các gradient nhỏ nhất. Điều này minh họa vấn đề tiêu biến gradient bạn đã đọc trong phần Concept.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Backpropagation | "The network learns" | An algorithm that computes dL/dw for every weight by applying the chain rule backward through the computational graph |
-| Computational graph | "The network structure" | A directed acyclic graph where nodes are operations and edges carry values (forward) and gradients (backward) |
-| Chain rule | "Multiply the derivatives" | If y = f(g(x)), then dy/dx = f'(g(x)) * g'(x) -- the mathematical foundation of backpropagation |
-| Gradient | "The direction of steepest ascent" | The partial derivative of the loss with respect to a parameter -- tells you how to change that parameter to reduce the loss |
-| Vanishing gradient | "Deep networks don't learn" | Gradients shrink exponentially as they propagate through layers with saturating activations like sigmoid |
-| Forward pass | "Running the network" | Computing the output from inputs by sequentially applying each layer's operations and storing intermediate values |
-| Backward pass | "Computing gradients" | Traversing the computational graph in reverse, accumulating gradients at each node using the chain rule |
-| Learning rate | "How fast it learns" | A scalar that controls the step size when updating weights: w_new = w_old - lr * gradient |
-| Topological sort | "The right order" | An ordering of graph nodes where each node appears after all nodes it depends on -- ensures gradients are fully accumulated before propagation |
-| Autograd | "Automatic differentiation" | A system that builds computational graphs during forward computation and automatically computes gradients -- what PyTorch's engine does |
+| Backpropagation (Lan truyền ngược) | "Mạng học" | Một thuật toán tính dL/dw cho mọi trọng số bằng cách áp dụng quy tắc chuỗi ngược qua đồ thị tính toán |
+| Computational graph (Đồ thị tính toán) | "Cấu trúc mạng" | Một đồ thị có hướng không chu trình trong đó các nút là phép toán và các cạnh mang giá trị (xuôi) và gradient (ngược) |
+| Chain rule (Quy tắc chuỗi) | "Nhân các đạo hàm" | Nếu y = f(g(x)), thì dy/dx = f'(g(x)) * g'(x) -- nền tảng toán học của lan truyền ngược |
+| Gradient | "Hướng tăng dốc nhất" | Đạo hàm riêng của mất mát theo một tham số -- cho bạn biết cách thay đổi tham số đó để giảm mất mát |
+| Vanishing gradient (Tiêu biến gradient) | "Các mạng sâu không học" | Các gradient co lại theo cấp số nhân khi chúng lan truyền qua các lớp có kích hoạt bão hòa như sigmoid |
+| Forward pass (Lượt truyền xuôi) | "Chạy mạng" | Tính đầu ra từ các đầu vào bằng cách áp dụng tuần tự các phép toán của mỗi lớp và lưu các giá trị trung gian |
+| Backward pass (Lượt truyền ngược) | "Tính các gradient" | Duyệt đồ thị tính toán theo chiều ngược lại, tích lũy gradient tại mỗi nút bằng quy tắc chuỗi |
+| Learning rate (Tốc độ học) | "Nó học nhanh đến mức nào" | Một số vô hướng kiểm soát kích thước bước khi cập nhật trọng số: w_new = w_old - lr * gradient |
+| Topological sort (Sắp xếp tô pô) | "Thứ tự đúng" | Một thứ tự các nút đồ thị mà mỗi nút xuất hiện sau tất cả các nút nó phụ thuộc -- bảo đảm các gradient được tích lũy đầy đủ trước khi lan truyền |
+| Autograd | "Vi phân tự động" | Một hệ thống xây dựng các đồ thị tính toán trong tính toán xuôi và tự động tính gradient -- điều bộ máy của PyTorch làm |
 
 ## Further Reading
 
-- Rumelhart, Hinton & Williams, "Learning representations by back-propagating errors" (1986) -- the paper that made backpropagation mainstream and unlocked multi-layer network training
-- 3Blue1Brown, "Neural Networks" series (https://www.youtube.com/playlist?list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi) -- the best visual explanation of backpropagation and gradient flow through networks
+- Rumelhart, Hinton & Williams, "Learning representations by back-propagating errors" (1986) -- bài báo khiến lan truyền ngược trở nên phổ biến và mở đường cho huấn luyện mạng nhiều lớp
+- 3Blue1Brown, "Neural Networks" series (https://www.youtube.com/playlist?list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi) -- lời giải thích trực quan tốt nhất về lan truyền ngược và luồng gradient qua các mạng
