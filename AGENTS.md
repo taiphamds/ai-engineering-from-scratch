@@ -4,6 +4,8 @@ Operating manual for contributors and AI agents touching this repo. Read it befo
 
 The repo is a curriculum, not a SaaS app. The lessons are the product. Every rule below keeps 542 lessons coherent over time.
 
+Local Vietnamese fork: before translating, integrating upstream changes, or setting up another machine, read `docs/local-vietnamese/README.md` and `docs/local-vietnamese/pending-upstream.json`. They record the user's translation rules, shared working branch, and the explicit English baseline already integrated. Preserve unchanged Vietnamese and obtain the user's decision on affected translated files before translating and merging a new upstream update.
+
 ---
 
 ## Philosophy
