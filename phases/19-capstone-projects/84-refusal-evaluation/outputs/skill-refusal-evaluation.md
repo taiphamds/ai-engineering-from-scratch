@@ -9,18 +9,18 @@ tags: [safety, evaluation, calibration]
 
 # Refusal Evaluation
 
-A labeled corpus of safe and unsafe prompts goes through one or more model policies. Outputs are classified as refusals or answers. The framework returns:
+Một corpus được gắn nhãn các prompt an toàn và không an toàn đi qua một hoặc nhiều chính sách mô hình. Các đầu ra được phân loại thành từ chối hoặc đáp án. Framework trả về:
 
-- under-refusal: answered prompts labeled unsafe / total unsafe
-- over-refusal: refused prompts labeled safe / total safe
-- accuracy: (correct refusals + correct answers) / total
-- ECE: expected calibration error binned by stated confidence
-- per-category under-refusal: joined against the lesson 82 taxonomy
+- under-refusal: các prompt được gắn nhãn không an toàn đã được trả lời / tổng không an toàn
+- over-refusal: các prompt được gắn nhãn an toàn đã bị từ chối / tổng an toàn
+- accuracy: (các từ chối đúng + các đáp án đúng) / tổng
+- ECE: sai số hiệu chuẩn kỳ vọng được chia nhóm theo độ tự tin được nêu
+- từ chối thiếu mức theo hạng mục: được nối với hệ phân loại bài 82
 
 ## Plugging in a real model
 
-The mock LLM is a callable `(prompt: str) -> str`. Replace it with an HTTP wrapper that returns the model output and embeds a confidence tag (or modify `parse_confidence` to read whatever your provider exposes). Everything else stays the same.
+LLM giả lập là một đối tượng có thể gọi `(prompt: str) -> str`. Thay nó bằng một lớp bọc HTTP trả về đầu ra mô hình và nhúng một thẻ độ tự tin (hoặc sửa `parse_confidence` để đọc bất cứ thứ gì nhà cung cấp của bạn cung cấp). Mọi thứ khác giữ nguyên.
 
 ## Artifact
 
-`outputs/refusal_eval_report.json` contains the per-policy metrics. Lesson 87 reads this report to set thresholds.
+`outputs/refusal_eval_report.json` chứa các chỉ số theo chính sách. Bài 87 đọc báo cáo này để đặt các ngưỡng.

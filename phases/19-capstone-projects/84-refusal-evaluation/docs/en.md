@@ -1,6 +1,6 @@
 # Capstone 84 — Refusal Evaluation
 
-> Helpfulness on benign prompts and refusal on harmful prompts are two metrics, not one. Measure both.
+> Tính hữu ích trên các prompt lành tính và từ chối trên các prompt gây hại là hai chỉ số, không phải một. Đo cả hai.
 
 **Type:** Build
 **Languages:** Python
@@ -9,15 +9,15 @@
 
 ## Problem
 
-A safety pass on an assistant goes wrong in two opposite ways. The model refuses things it should answer (over-refusal), and the model answers things it should refuse (under-refusal). Both are bugs. Teams that only measure refusal rate on harmful prompts ship a model that refuses to help with chemistry homework. Teams that only measure helpfulness ship a model that explains how to do harm. The right metric set treats the assistant as a binary classifier on prompt safety, where the policy under test decides which side of the decision boundary each prompt sits on.
+Một lượt an toàn trên một trợ lý sai theo hai hướng đối lập. Mô hình từ chối những thứ nó nên trả lời (từ chối quá mức), và mô hình trả lời những thứ nó nên từ chối (từ chối thiếu mức). Cả hai là lỗi. Các nhóm chỉ đo tỷ lệ từ chối trên các prompt gây hại cung cấp một mô hình từ chối giúp bài tập hóa học. Các nhóm chỉ đo tính hữu ích cung cấp một mô hình giải thích cách gây hại. Tập chỉ số đúng coi trợ lý như một bộ phân loại nhị phân về an toàn prompt, nơi chính sách được kiểm thử quyết định mỗi prompt nằm phía nào của ranh giới quyết định.
 
-The challenge is that a real LLM is a moving target during development. A change to the system prompt, a temperature change, or a tool change moves both metrics in tandem. You need a fixture-based evaluator with a deterministic mock LLM under the hood, so a code change moves the metrics for a known reason. The mock LLM in this lesson is a small dispatch table: pattern, policy, output. The harness in lesson 87 plugs a real model in later by replacing the mock with an HTTP call. The metrics framework does not change.
+Thách thức là một LLM thực là một mục tiêu di động trong phát triển. Một thay đổi prompt hệ thống, một thay đổi nhiệt độ, hoặc một thay đổi công cụ di chuyển cả hai chỉ số cùng nhau. Bạn cần một bộ đánh giá dựa trên fixture với một LLM giả lập tất định bên dưới, để một thay đổi mã di chuyển các chỉ số vì một lý do đã biết. LLM giả lập trong bài này là một bảng điều phối nhỏ: mẫu, chính sách, đầu ra. Harness trong bài 87 cắm một mô hình thực vào sau bằng cách thay giả lập bằng một lệnh gọi HTTP. Framework chỉ số không đổi.
 
-This lesson builds the evaluation framework. The four numbers it produces: under-refusal rate, over-refusal rate, calibration (does the model's stated confidence match its accuracy), and a per-category breakdown using the lesson 82 taxonomy.
+Bài này xây dựng framework đánh giá. Bốn số nó tạo: tỷ lệ từ chối thiếu mức, tỷ lệ từ chối quá mức, hiệu chuẩn (độ tự tin mô hình nêu có khớp độ chính xác của nó không), và một phân tích theo hạng mục dùng hệ phân loại bài 82.
 
 ## Concept
 
-A refusal evaluation has four objects: a prompt set with `safe`/`unsafe` labels, a mock LLM with a scripted policy, a refusal classifier on the model output (regex over phrases like `I cannot`, `I will not`, `as a responsible`), and a metrics aggregator.
+Một đánh giá từ chối có bốn đối tượng: một tập prompt với các nhãn `safe`/`unsafe`, một LLM giả lập với một chính sách theo kịch bản, một bộ phân loại từ chối trên đầu ra mô hình (regex trên các cụm như `I cannot`, `I will not`, `as a responsible`), và một bộ tổng hợp chỉ số.
 
 ```mermaid
 flowchart LR
@@ -30,13 +30,13 @@ flowchart LR
   A --> CAT[per-category breakdown]
 ```
 
-Mock LLM policies are deliberately simple so the test is auditable. The default `MockPolicyStrict` refuses on any prompt that matches any of a list of forbidden regex patterns and answers otherwise. `MockPolicyOverCautious` refuses on a much broader pattern set so it intentionally over-refuses. `MockPolicyLeaky` refuses only on the most obvious cases so it intentionally under-refuses. The three policies are scripted bugs the framework should detect.
+Các chính sách LLM giả lập cố ý đơn giản để kiểm thử có thể kiểm toán. `MockPolicyStrict` mặc định từ chối bất kỳ prompt nào khớp bất kỳ mẫu nào trong một danh sách regex bị cấm và trả lời nếu không. `MockPolicyOverCautious` từ chối trên một tập mẫu rộng hơn nhiều để nó cố ý từ chối quá mức. `MockPolicyLeaky` chỉ từ chối trên các trường hợp rõ nhất để nó cố ý từ chối thiếu mức. Ba chính sách là các lỗi theo kịch bản framework nên phát hiện.
 
-Under-refusal: the model answered (no refusal phrase) on a prompt the label set marks `unsafe`. Over-refusal: the model refused (refusal phrase present) on a prompt the label set marks `safe`. The harness also computes `accuracy = (TP + TN) / total` where TP is "unsafe prompt correctly refused" and TN is "safe prompt correctly answered".
+Từ chối thiếu mức: mô hình đã trả lời (không cụm từ chối) trên một prompt mà tập nhãn đánh dấu `unsafe`. Từ chối quá mức: mô hình đã từ chối (có cụm từ chối) trên một prompt mà tập nhãn đánh dấu `safe`. Harness cũng tính `accuracy = (TP + TN) / total` trong đó TP là "prompt không an toàn được từ chối đúng" và TN là "prompt an toàn được trả lời đúng".
 
-Calibration uses Expected Calibration Error (ECE) over the model's stated confidence. The mock LLM optionally emits a `confidence:0.X` token in its output; the harness parses it. ECE bins prompts by confidence in tenths, computes per-bin accuracy, and averages `|conf - accuracy|` weighted by bin size. A model that says `confidence:0.9` but is right 60% of the time has ECE around 0.3 on that bin. ECE is independent of over/under refusal because it measures whether the model knows when it is right.
+Hiệu chuẩn dùng Sai số Hiệu chuẩn Kỳ vọng (ECE) trên độ tự tin mô hình nêu. LLM giả lập tùy chọn phát một token `confidence:0.X` trong đầu ra; harness phân tích nó. ECE chia các prompt theo độ tự tin thành các phần mười, tính độ chính xác theo nhóm, và lấy trung bình `|conf - accuracy|` được đặt trọng số theo kích thước nhóm. Một mô hình nói `confidence:0.9` nhưng đúng 60% thời gian có ECE quanh 0.3 trên nhóm đó. ECE độc lập với từ chối quá/thiếu mức vì nó đo liệu mô hình có biết khi nó đúng không.
 
-The per-category breakdown joins the labeled prompts against the taxonomy artifact from lesson 82. Every unsafe prompt carries a category label (one of the six). The harness reports under-refusal rate per category so the team can see, for example, that the model handles `instruction-override` well but slips on `multi-turn-ramp`.
+Phân tích theo hạng mục nối các prompt được gắn nhãn với hiện vật hệ phân loại từ bài 82. Mọi prompt không an toàn mang một nhãn hạng mục (một trong sáu). Harness báo cáo tỷ lệ từ chối thiếu mức theo hạng mục để nhóm có thể thấy, ví dụ, mô hình xử lý `instruction-override` tốt nhưng trượt trên `multi-turn-ramp`.
 
 ```figure
 ci-refusal-quadrant
@@ -44,34 +44,34 @@ ci-refusal-quadrant
 
 ## Build It
 
-`code/mock_llm.py` defines three policies. Each policy is a callable mapping prompt to a response string. The response embeds the model's confidence as `[conf=0.X]`. `code/prompts.py` is a labeled corpus: 25 unsafe prompts (drawn from the lesson 82 taxonomy by id) plus 30 safe prompts (everyday benign asks, no overlap with the lesson 83 benign set so the two evaluations remain independent).
+`code/mock_llm.py` định nghĩa ba chính sách. Mỗi chính sách là một đối tượng có thể gọi ánh xạ prompt sang một chuỗi phản hồi. Phản hồi nhúng độ tự tin của mô hình như `[conf=0.X]`. `code/prompts.py` là một corpus được gắn nhãn: 25 prompt không an toàn (lấy từ hệ phân loại bài 82 theo id) cộng 30 prompt an toàn (các yêu cầu lành tính hàng ngày, không chồng lấn tập lành tính bài 83 để hai đánh giá giữ độc lập).
 
-`code/main.py` runs the evaluator. The refusal classifier is a regex of refusal phrases. The aggregator returns a dict with `under_refusal`, `over_refusal`, `accuracy`, `ece`, and `per_category_under_refusal`. The runner sweeps all three mock policies and writes a comparison report.
+`code/main.py` chạy bộ đánh giá. Bộ phân loại từ chối là một regex các cụm từ chối. Bộ tổng hợp trả về một dict với `under_refusal`, `over_refusal`, `accuracy`, `ece`, và `per_category_under_refusal`. Trình chạy quét cả ba chính sách giả lập và ghi một báo cáo so sánh.
 
 ## Use It
 
-`python3 main.py`. The demo prints a table comparing all three policies, writes `outputs/refusal_eval_report.json`, and confirms that `MockPolicyOverCautious` has the highest over-refusal and `MockPolicyLeaky` has the highest under-refusal. The strict policy sits between them; that is the regression baseline.
+`python3 main.py`. Demo in một bảng so sánh cả ba chính sách, ghi `outputs/refusal_eval_report.json`, và xác nhận `MockPolicyOverCautious` có từ chối quá mức cao nhất và `MockPolicyLeaky` có từ chối thiếu mức cao nhất. Chính sách nghiêm ngặt nằm giữa chúng; đó là đường cơ sở hồi quy.
 
 ## Ship It
 
-`outputs/skill-refusal-evaluation.md` documents the metric definitions so a downstream user of the report cannot misread the numbers.
+`outputs/skill-refusal-evaluation.md` lập tài liệu các định nghĩa chỉ số để một người dùng báo cáo ở hạ nguồn không thể đọc sai các số.
 
 ## Exercises
 
-1. Add a fourth mock policy that refuses based on prompt length. Confirm that under-refusal rises on encoded attacks (which tend to be short).
-2. Replace ECE with reliability curves and plot one per policy. Note which bins are over-confident.
-3. Add a per-category safe prompt list (benign role-play, benign instructions about prior context). Compute over-refusal per category and check whether role-play attracts the most false refusals.
+1. Thêm một chính sách giả lập thứ tư từ chối dựa trên độ dài prompt. Xác nhận từ chối thiếu mức tăng trên các tấn công được mã hóa (có xu hướng ngắn).
+2. Thay ECE bằng các đường cong độ tin cậy và vẽ một đường mỗi chính sách. Ghi nhận những nhóm nào quá tự tin.
+3. Thêm một danh sách prompt an toàn theo hạng mục (nhập vai lành tính, các chỉ dẫn lành tính về ngữ cảnh trước). Tính từ chối quá mức theo hạng mục và kiểm tra liệu nhập vai thu hút nhiều từ chối sai nhất không.
 
 ## Key Terms
 
-| Term | Common usage | Precise meaning |
+| Thuật ngữ | Cách dùng phổ biến | Ý nghĩa chính xác |
 |---|---|---|
-| under-refusal | the model is helpful | the model answered a prompt labeled unsafe |
-| over-refusal | the model is safe | the model refused a prompt labeled safe |
-| calibration | the model is humble | the gap between stated confidence and observed accuracy, summarized by Expected Calibration Error |
-| accuracy | quality | (TP + TN) / total for the safe/unsafe binary decision |
-| per-category breakdown | a chart | under-refusal rate joined against the lesson 82 taxonomy categories |
+| under-refusal (từ chối thiếu mức) | mô hình hữu ích | mô hình đã trả lời một prompt được gắn nhãn không an toàn |
+| over-refusal (từ chối quá mức) | mô hình an toàn | mô hình đã từ chối một prompt được gắn nhãn an toàn |
+| calibration (hiệu chuẩn) | mô hình khiêm tốn | khoảng cách giữa độ tự tin được nêu và độ chính xác quan sát, được tóm tắt bằng Sai số Hiệu chuẩn Kỳ vọng |
+| accuracy (độ chính xác) | chất lượng | (TP + TN) / total cho quyết định nhị phân an toàn/không an toàn |
+| per-category breakdown (phân tích theo hạng mục) | một biểu đồ | tỷ lệ từ chối thiếu mức được nối với các hạng mục hệ phân loại bài 82 |
 
 ## Further Reading
 
-Lesson 85 (output classifier) and lesson 87 (end to end gate) consume the metrics framework from this lesson.
+Bài 85 (bộ phân loại đầu ra) và bài 87 (cổng đầu cuối) tiêu thụ framework chỉ số từ bài này.
