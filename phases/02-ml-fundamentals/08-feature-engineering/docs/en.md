@@ -1,6 +1,6 @@
 # Feature Engineering & Selection
 
-> A good feature is worth a thousand data points.
+> Một đặc trưng tốt đáng giá một nghìn điểm dữ liệu.
 
 **Type:** Build
 **Languages:** Python
@@ -9,20 +9,20 @@
 
 ## Learning Objectives
 
-- Implement numerical transforms (standardization, min-max scaling, log transform, binning) and explain when each is appropriate
-- Build one-hot, label, and target encoding for categorical features and identify the data leakage risk in target encoding
-- Construct a TF-IDF vectorizer from scratch and explain why it outperforms raw word counts for text classification
-- Apply filter-based feature selection (variance threshold, correlation, mutual information) to reduce dimensionality
+- Triển khai các phép biến đổi số (chuẩn hóa, co giãn min-max, biến đổi log, chia khoảng) và giải thích khi nào mỗi loại thích hợp
+- Xây dựng mã hóa one-hot, nhãn và mục tiêu cho các đặc trưng phân loại và xác định nguy cơ rò rỉ dữ liệu trong mã hóa mục tiêu
+- Xây dựng một bộ vector hóa TF-IDF từ đầu và giải thích tại sao nó vượt số đếm từ thô cho phân loại văn bản
+- Áp dụng lựa chọn đặc trưng dựa trên bộ lọc (ngưỡng phương sai, tương quan, thông tin tương hỗ) để giảm chiều
 
 ## The Problem
 
-You have a dataset. You pick an algorithm. You train it. The results are mediocre. You try a fancier algorithm. Still mediocre. You spend a week tuning hyperparameters. Marginal improvement.
+Bạn có một tập dữ liệu. Bạn chọn một thuật toán. Bạn huấn luyện nó. Kết quả tầm thường. Bạn thử một thuật toán cầu kỳ hơn. Vẫn tầm thường. Bạn dành một tuần điều chỉnh siêu tham số. Cải thiện không đáng kể.
 
-Then someone transforms the raw data into better features and a simple logistic regression beats your tuned gradient-boosted ensemble.
+Rồi ai đó biến đổi dữ liệu thô thành các đặc trưng tốt hơn và một hồi quy logistic đơn giản vượt tập hợp gradient boosting đã được điều chỉnh của bạn.
 
-This happens constantly. In classical ML, the representation of the data matters more than the choice of algorithm. A house price model with "square footage" and "number of bedrooms" will beat a model with "address as a raw string" no matter how sophisticated the learner is. The algorithm can only work with what you give it.
+Điều này xảy ra liên tục. Trong ML cổ điển, biểu diễn dữ liệu quan trọng hơn lựa chọn thuật toán. Một mô hình giá nhà với "diện tích theo foot vuông" và "số phòng ngủ" sẽ vượt một mô hình với "địa chỉ dưới dạng chuỗi thô" bất kể bộ học tinh vi đến mức nào. Thuật toán chỉ có thể làm việc với những gì bạn đưa cho nó.
 
-Feature engineering is the process of transforming raw data into representations that make patterns easier for models to find. Feature selection is the process of throwing away features that add noise without adding signal. Together, they are the highest-leverage activity in classical ML.
+Kỹ thuật đặc trưng là quá trình biến đổi dữ liệu thô thành các biểu diễn làm các mẫu dễ tìm hơn cho mô hình. Lựa chọn đặc trưng là quá trình bỏ đi các đặc trưng thêm nhiễu mà không thêm tín hiệu. Cùng nhau, chúng là hoạt động có tác động lớn nhất trong ML cổ điển.
 
 ## The Concept
 
@@ -43,31 +43,31 @@ flowchart LR
 
 ### Numerical Features
 
-Raw numbers are rarely model-ready. Common transforms:
+Các con số thô hiếm khi sẵn sàng cho mô hình. Các phép biến đổi phổ biến:
 
-**Scaling:** Put features on the same range so distance-based algorithms (K-Means, KNN, SVM) treat all features equally. Min-max scaling maps to [0, 1]. Standardization (z-score) maps to mean=0, std=1.
+**Co giãn:** Đưa các đặc trưng về cùng khoảng để các thuật toán dựa trên khoảng cách (K-Means, KNN, SVM) xem mọi đặc trưng như nhau. Co giãn min-max ánh xạ về [0, 1]. Chuẩn hóa (z-score) ánh xạ về mean=0, std=1.
 
-**Log transform:** Compresses right-skewed distributions (income, population, word counts). Turns multiplicative relationships into additive ones.
+**Biến đổi log:** Nén các phân phối lệch phải (thu nhập, dân số, số đếm từ). Biến các quan hệ nhân thành các quan hệ cộng.
 
-**Binning:** Converts continuous values into categories. Useful when the relationship between feature and target is non-linear but step-wise (e.g., age groups).
+**Chia khoảng:** Chuyển các giá trị liên tục thành các loại. Hữu ích khi quan hệ giữa đặc trưng và mục tiêu phi tuyến nhưng theo từng bước (ví dụ, nhóm tuổi).
 
-**Polynomial features:** Creates x^2, x^3, x1*x2 terms. Lets linear models capture non-linear relationships at the cost of more features.
+**Các đặc trưng đa thức:** Tạo các số hạng x^2, x^3, x1*x2. Cho phép các mô hình tuyến tính nắm bắt các quan hệ phi tuyến với cái giá là nhiều đặc trưng hơn.
 
 ### Categorical Features
 
-Models need numbers. Categories need encoding.
+Mô hình cần số. Các loại cần mã hóa.
 
-**One-hot encoding:** Creates a binary column for each category. "color = red/blue/green" becomes three columns: is_red, is_blue, is_green. Works well for low-cardinality features but explodes with many categories.
+**Mã hóa one-hot:** Tạo một cột nhị phân cho mỗi loại. "color = red/blue/green" trở thành ba cột: is_red, is_blue, is_green. Hoạt động tốt cho các đặc trưng có ít giá trị phân biệt nhưng bùng nổ với nhiều loại.
 
-**Label encoding:** Maps each category to an integer: red=0, blue=1, green=2. Introduces false ordering (the model might think green > blue > red). Only appropriate for tree-based models that split on individual values.
+**Mã hóa nhãn:** Ánh xạ mỗi loại thành một số nguyên: red=0, blue=1, green=2. Đưa vào thứ tự giả (mô hình có thể nghĩ green > blue > red). Chỉ thích hợp cho các mô hình dựa trên cây chia theo các giá trị riêng lẻ.
 
-**Target encoding:** Replaces each category with the mean of the target variable for that category. Powerful but dangerous: high risk of data leakage. Must be computed only on training data and applied to test data.
+**Mã hóa mục tiêu:** Thay mỗi loại bằng trung bình của biến mục tiêu cho loại đó. Mạnh nhưng nguy hiểm: nguy cơ rò rỉ dữ liệu cao. Phải chỉ được tính trên dữ liệu huấn luyện và áp dụng cho dữ liệu kiểm tra.
 
 ### Text Features
 
-**Count vectorizer:** Counts how many times each word appears in a document. "the cat sat on the mat" becomes {the: 2, cat: 1, sat: 1, on: 1, mat: 1}.
+**Bộ vector hóa số đếm:** Đếm số lần mỗi từ xuất hiện trong một tài liệu. "the cat sat on the mat" trở thành {the: 2, cat: 1, sat: 1, on: 1, mat: 1}.
 
-**TF-IDF:** Term Frequency-Inverse Document Frequency. Weighs words by how unique they are across documents. Common words like "the" get low weight. Rare, distinctive words get high weight.
+**TF-IDF:** Tần suất Thuật ngữ-Tần suất Tài liệu Nghịch đảo. Gán trọng số cho các từ theo mức độ độc đáo của chúng trên các tài liệu. Các từ phổ biến như "the" nhận trọng số thấp. Các từ hiếm, đặc trưng nhận trọng số cao.
 
 ```
 TF(word, doc) = count(word in doc) / total words in doc
@@ -77,32 +77,32 @@ TF-IDF = TF * IDF
 
 ### Missing Values
 
-Real data has holes. Strategies:
+Dữ liệu thực có các lỗ hổng. Các chiến lược:
 
-- **Drop rows:** Only when missing data is rare and random
-- **Mean/median imputation:** Simple, preserves distribution shape (median is more robust to outliers)
-- **Mode imputation:** For categorical features
-- **Indicator column:** Add a binary column "was_this_missing" before imputing. The fact that data is missing can itself be informative
-- **Forward/backward fill:** For time series data
+- **Bỏ hàng:** Chỉ khi dữ liệu thiếu hiếm và ngẫu nhiên
+- **Điền khuyết trung bình/trung vị:** Đơn giản, bảo toàn hình dạng phân phối (trung vị bền vững hơn với ngoại lệ)
+- **Điền khuyết mốt:** Cho các đặc trưng phân loại
+- **Cột chỉ báo:** Thêm một cột nhị phân "was_this_missing" trước khi điền khuyết. Việc dữ liệu bị thiếu tự nó có thể cung cấp thông tin
+- **Điền tiến/lùi:** Cho dữ liệu chuỗi thời gian
 
 ### Feature Interaction
 
-Sometimes the relationship is in the combination. "Height" and "weight" alone are less predictive than "BMI = weight / height^2". Feature interactions multiply the feature space, so use domain knowledge to pick the right ones.
+Đôi khi quan hệ nằm trong sự kết hợp. Chỉ riêng "Chiều cao" và "cân nặng" có khả năng dự đoán kém hơn "BMI = weight / height^2". Các tương tác đặc trưng nhân rộng không gian đặc trưng, nên sử dụng kiến thức chuyên môn để chọn những tương tác phù hợp.
 
 ### Feature Selection
 
-More features is not always better. Irrelevant features add noise, increase training time, and can cause overfitting.
+Nhiều đặc trưng hơn không phải luôn tốt hơn. Các đặc trưng không liên quan thêm nhiễu, tăng thời gian huấn luyện và có thể gây khớp quá mức.
 
-**Filter methods (pre-model):**
-- Correlation: remove features highly correlated with each other (redundant)
-- Mutual information: measures how much knowing a feature reduces uncertainty about the target
-- Variance threshold: remove features that barely vary
+**Các phương pháp bộ lọc (trước mô hình):**
+- Tương quan: loại các đặc trưng tương quan cao với nhau (dư thừa)
+- Thông tin tương hỗ: đo mức độ biết một đặc trưng giảm sự không chắc chắn về mục tiêu
+- Ngưỡng phương sai: loại các đặc trưng hầu như không biến thiên
 
-**Wrapper methods (model-based):**
-- L1 regularization (Lasso): drives irrelevant feature weights to exactly zero
-- Recursive feature elimination: train, remove least important feature, repeat
+**Các phương pháp wrapper (dựa trên mô hình):**
+- L1 regularization (Lasso): đẩy các trọng số đặc trưng không liên quan về đúng không
+- Loại bỏ đặc trưng đệ quy: huấn luyện, loại đặc trưng ít quan trọng nhất, lặp lại
 
-**Why selection matters:** A model with 10 good features will usually outperform a model with 10 good features and 90 noisy ones. The noisy features give the model opportunities to overfit on training data patterns that do not generalize.
+**Tại sao lựa chọn quan trọng:** Một mô hình có 10 đặc trưng tốt thường sẽ vượt một mô hình có 10 đặc trưng tốt và 90 đặc trưng nhiễu. Các đặc trưng nhiễu cho mô hình cơ hội khớp quá mức với các mẫu dữ liệu huấn luyện không tổng quát hóa.
 
 ```figure
 feature-scaling
@@ -525,7 +525,7 @@ if __name__ == "__main__":
 
 ## Use It
 
-With scikit-learn, these transforms are composable pipelines:
+Với scikit-learn, các phép biến đổi này là các pipeline có thể hợp thành:
 
 ```python
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, PolynomialFeatures
@@ -550,35 +550,35 @@ preprocessor = ColumnTransformer([
 ])
 ```
 
-The from-scratch versions show exactly what happens inside each transform. The library versions add edge-case handling, sparse matrix support, and pipeline composition, but the math is the same.
+Các phiên bản từ đầu cho thấy chính xác điều gì xảy ra bên trong mỗi phép biến đổi. Các phiên bản thư viện thêm xử lý trường hợp biên, hỗ trợ ma trận thưa và hợp thành pipeline, nhưng toán học giống nhau.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-feature-engineer.md` - a prompt for systematically engineering features from raw data
+Bài học này tạo ra:
+- `outputs/prompt-feature-engineer.md` - một prompt để thực hiện kỹ thuật đặc trưng có hệ thống từ dữ liệu thô
 
 ## Exercises
 
-1. Add robust scaling (using median and interquartile range instead of mean and standard deviation) to the numerical transforms. Compare it to standard scaling on data with extreme outliers.
-2. Implement leave-one-out target encoding: for each row, compute the target mean excluding that row's own target value. Show how this reduces overfitting compared to naive target encoding.
-3. Build an automated feature selection pipeline that combines variance threshold, correlation filtering, and mutual information ranking. Apply it to the housing dataset and compare model performance (use a simple linear regression) with all features vs selected features.
+1. Thêm co giãn bền vững (sử dụng trung vị và khoảng tứ phân vị thay vì trung bình và độ lệch chuẩn) vào các phép biến đổi số. So sánh nó với co giãn tiêu chuẩn trên dữ liệu có các ngoại lệ cực đoan.
+2. Triển khai mã hóa mục tiêu bỏ-một-ra: với mỗi hàng, tính trung bình mục tiêu loại trừ giá trị mục tiêu của chính hàng đó. Chỉ ra cách này giảm khớp quá mức so với mã hóa mục tiêu ngây thơ.
+3. Xây dựng một pipeline lựa chọn đặc trưng tự động kết hợp ngưỡng phương sai, lọc tương quan và xếp hạng thông tin tương hỗ. Áp dụng nó cho tập dữ liệu nhà ở và so sánh hiệu năng mô hình (sử dụng hồi quy tuyến tính đơn giản) với tất cả đặc trưng so với các đặc trưng được chọn.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Feature engineering | "Making new columns" | Transforming raw data into representations that expose patterns to the model |
-| Standardization | "Making it normal" | Subtracting the mean and dividing by standard deviation so the feature has mean=0 and std=1 |
-| One-hot encoding | "Making dummy variables" | Creating one binary column per category, where exactly one column is 1 for each row |
-| Target encoding | "Using the answer to encode" | Replacing each category with the average target value for that category, with smoothing to prevent overfitting |
-| TF-IDF | "Fancy word counts" | Term Frequency times Inverse Document Frequency: words weighted by how distinctive they are across the corpus |
-| Imputation | "Filling in blanks" | Replacing missing values with estimated values (mean, median, mode, or model-predicted) |
-| Feature selection | "Throwing out bad columns" | Removing features that add noise or redundancy, keeping only those with signal about the target |
-| Mutual information | "How much one thing tells you about another" | A measure of the reduction in uncertainty about variable Y gained by observing variable X |
-| Data leakage | "Accidentally cheating" | Using information during training that would not be available at prediction time, giving falsely optimistic results |
+| Feature engineering (Kỹ thuật đặc trưng) | "Tạo các cột mới" | Biến đổi dữ liệu thô thành các biểu diễn bộc lộ các mẫu cho mô hình |
+| Standardization (Chuẩn hóa) | "Làm nó chuẩn" | Trừ trung bình và chia độ lệch chuẩn để đặc trưng có mean=0 và std=1 |
+| One-hot encoding (Mã hóa one-hot) | "Tạo các biến giả" | Tạo một cột nhị phân cho mỗi loại, trong đó đúng một cột là 1 với mỗi hàng |
+| Target encoding (Mã hóa mục tiêu) | "Sử dụng câu trả lời để mã hóa" | Thay mỗi loại bằng giá trị mục tiêu trung bình cho loại đó, với làm trơn để ngăn khớp quá mức |
+| TF-IDF | "Số đếm từ cầu kỳ" | Tần suất Thuật ngữ nhân Tần suất Tài liệu Nghịch đảo: các từ được gán trọng số theo mức độ đặc trưng trên toàn ngữ liệu |
+| Imputation (Điền khuyết) | "Điền các chỗ trống" | Thay các giá trị thiếu bằng các giá trị ước lượng (trung bình, trung vị, mốt hoặc dự đoán bởi mô hình) |
+| Feature selection (Lựa chọn đặc trưng) | "Bỏ các cột xấu" | Loại các đặc trưng thêm nhiễu hoặc dư thừa, chỉ giữ các đặc trưng có tín hiệu về mục tiêu |
+| Mutual information (Thông tin tương hỗ) | "Một thứ cho bạn biết bao nhiêu về thứ khác" | Một thước đo mức giảm sự không chắc chắn về biến Y có được khi quan sát biến X |
+| Data leakage (Rò rỉ dữ liệu) | "Vô tình gian lận" | Sử dụng thông tin trong huấn luyện mà sẽ không có tại thời điểm dự đoán, cho các kết quả lạc quan giả |
 
 ## Further Reading
 
-- [Feature Engineering and Selection (Max Kuhn & Kjell Johnson)](http://www.feat.engineering/) - free online book covering the full landscape of feature engineering
-- [scikit-learn Preprocessing Guide](https://scikit-learn.org/stable/modules/preprocessing.html) - practical reference for all standard transforms
-- [Target Encoding Done Right (Micci-Barreca, 2001)](https://dl.acm.org/doi/10.1145/507533.507538) - the original paper on target encoding with smoothing
+- [Feature Engineering and Selection (Max Kuhn & Kjell Johnson)](http://www.feat.engineering/) - sách trực tuyến miễn phí bao quát toàn bộ lĩnh vực kỹ thuật đặc trưng
+- [scikit-learn Preprocessing Guide](https://scikit-learn.org/stable/modules/preprocessing.html) - tài liệu tham khảo thực hành cho tất cả các phép biến đổi tiêu chuẩn
+- [Target Encoding Done Right (Micci-Barreca, 2001)](https://dl.acm.org/doi/10.1145/507533.507538) - bài báo gốc về mã hóa mục tiêu với làm trơn

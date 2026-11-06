@@ -7,59 +7,59 @@ lesson: 8
 
 # Feature Engineering Prompt
 
-You are a feature engineering specialist. Given a raw dataset description, produce a concrete feature engineering plan.
+Bạn là một chuyên gia kỹ thuật đặc trưng. Với mô tả một tập dữ liệu thô, hãy tạo một kế hoạch kỹ thuật đặc trưng cụ thể.
 
 ## Input
 
-Describe the dataset: column names, types, sample values, and the prediction target.
+Mô tả tập dữ liệu: tên cột, kiểu, giá trị mẫu và mục tiêu dự đoán.
 
 ## Process
 
-For each column in the dataset, work through this checklist:
+Với mỗi cột trong tập dữ liệu, hãy thực hiện danh sách kiểm tra này:
 
 ### 1. Missing values
-- What percentage is missing?
-- Is missingness random or informative?
-- Choose strategy: drop, impute (mean/median/mode), or add a missing indicator column
+- Bao nhiêu phần trăm bị thiếu?
+- Tính thiếu là ngẫu nhiên hay cung cấp thông tin?
+- Chọn chiến lược: bỏ, điền khuyết (trung bình/trung vị/mốt) hoặc thêm một cột chỉ báo thiếu
 
 ### 2. Numerical columns
-- Is the distribution skewed? If so, apply log transform
-- Are units comparable across features? If not, standardize or min-max scale
-- Would binning capture a non-linear relationship better than the raw value?
-- Are there meaningful interactions between numerical columns (ratios, products)?
+- Phân phối có lệch không? Nếu có, áp dụng biến đổi log
+- Các đơn vị giữa các đặc trưng có thể so sánh không? Nếu không, chuẩn hóa hoặc co giãn min-max
+- Chia khoảng có nắm bắt một quan hệ phi tuyến tốt hơn giá trị thô không?
+- Có các tương tác có ý nghĩa giữa các cột số không (tỉ số, tích)?
 
 ### 3. Categorical columns
-- How many unique values (cardinality)?
-  - Low (under 10): one-hot encode
-  - Medium (10-100): target encode with smoothing
-  - High (100+): consider hashing, embeddings, or grouping rare categories
-- Is there a natural order? If so, ordinal encoding may be appropriate
+- Có bao nhiêu giá trị duy nhất (số giá trị phân biệt)?
+  - Thấp (dưới 10): mã hóa one-hot
+  - Trung bình (10-100): mã hóa mục tiêu với làm trơn
+  - Cao (100+): cân nhắc băm, embedding hoặc nhóm các loại hiếm
+- Có một thứ tự tự nhiên không? Nếu có, mã hóa thứ bậc có thể thích hợp
 
 ### 4. Text columns
-- Is the text short and structured? Use TF-IDF
-- Is the text long and semantic? Consider embeddings (out of scope for classical ML)
-- Extract length, word count, and character count as additional features
+- Văn bản có ngắn và có cấu trúc không? Sử dụng TF-IDF
+- Văn bản có dài và mang tính ngữ nghĩa không? Cân nhắc embedding (ngoài phạm vi ML cổ điển)
+- Trích xuất độ dài, số từ và số ký tự làm các đặc trưng bổ sung
 
 ### 5. Date/time columns
-- Extract: year, month, day of week, hour, is_weekend
-- Compute: days since a reference date, time between events
-- Cyclical encoding for periodic features (hour, day of week)
+- Trích xuất: năm, tháng, thứ trong tuần, giờ, is_weekend
+- Tính: số ngày kể từ một ngày tham chiếu, thời gian giữa các biến cố
+- Mã hóa chu kỳ cho các đặc trưng tuần hoàn (giờ, thứ trong tuần)
 
 ### 6. Feature interactions
-- Domain-specific combinations (e.g., BMI from height and weight)
-- Polynomial features for suspected non-linear relationships
-- Ratio features (e.g., price per square foot)
+- Các kết hợp riêng của miền (ví dụ, BMI từ chiều cao và cân nặng)
+- Các đặc trưng đa thức cho các quan hệ phi tuyến được nghi ngờ
+- Các đặc trưng tỉ số (ví dụ, giá trên mỗi foot vuông)
 
 ### 7. Feature selection
-- Remove zero-variance features
-- Remove features correlated above 0.95 with another feature
-- Rank remaining features by mutual information with the target
-- Keep the top N features or use L1 regularization for automatic selection
+- Loại các đặc trưng phương sai bằng không
+- Loại các đặc trưng tương quan trên 0.95 với một đặc trưng khác
+- Xếp hạng các đặc trưng còn lại theo thông tin tương hỗ với mục tiêu
+- Giữ N đặc trưng đứng đầu hoặc sử dụng L1 regularization để lựa chọn tự động
 
 ## Output format
 
-For each feature, state:
-1. Original column name and type
-2. Transform applied (and why)
-3. New feature name(s)
-4. Expected impact (high/medium/low signal)
+Với mỗi đặc trưng, nêu:
+1. Tên và kiểu cột gốc
+2. Phép biến đổi được áp dụng (và lý do)
+3. Tên đặc trưng mới
+4. Tác động kỳ vọng (tín hiệu cao/trung bình/thấp)
