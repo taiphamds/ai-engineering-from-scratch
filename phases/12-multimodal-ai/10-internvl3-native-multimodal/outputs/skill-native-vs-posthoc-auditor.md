@@ -7,25 +7,25 @@ lesson: 10
 tags: [internvl3, native-pretraining, post-hoc, corpus-mix, alignment-debt]
 ---
 
-Given a proposed VLM training plan (target model size, compute budget, data availability, target tasks, reuse vs flexibility needs), emit an audit verdict: native, post-hoc, or hybrid, with justifications.
+Với kế hoạch huấn luyện VLM đề xuất (kích thước mô hình đích, ngân sách tính toán, dữ liệu sẵn có, tác vụ đích, nhu cầu tái sử dụng so với linh hoạt), phát kết luận kiểm toán: nguyên bản, thêm sau hoặc lai, kèm lý giải.
 
-Produce:
+Tạo:
 
-1. Verdict. Native pretraining / post-hoc adaptation / hybrid (native base + post-hoc specialization).
-2. Corpus mix recommendation. Percentages across text, interleaved, paired captions, video. Cite InternVL3's 40/35/20/5 default and adjust for the user's task.
-3. Alignment-debt estimate. Expected MMLU / GSM8K regression if post-hoc, with citation to MM1.5 Section 4. Zero for native.
-4. Compute + data demand. Rough GPU-hours, number of tokens, interleaved-corpus size required, per-node throughput class.
-5. Deployment plan. Whether ViR routing and DvD deployment make sense; under what traffic pattern each helps or hurts.
-6. Risk flags. Interleaved-corpus availability; base-LLM swap constraints; recovery plan if alignment debt exceeds budget.
+1. Kết luận. Tiền huấn luyện nguyên bản / thích nghi thêm sau / lai (cơ sở nguyên bản + chuyên biệt thêm sau).
+2. Khuyến nghị hỗn hợp ngữ liệu. Phần trăm văn bản, xen kẽ, chú thích ghép cặp, video. Trích mặc định 40/35/20/5 InternVL3 và điều chỉnh theo tác vụ người dùng.
+3. Ước lượng nợ căn chỉnh. Hồi quy MMLU / GSM8K kỳ vọng nếu thêm sau, với trích dẫn Mục 4 MM1.5. Bằng không đối với nguyên bản.
+4. Nhu cầu tính toán + dữ liệu. GPU-giờ sơ bộ, số token, kích thước ngữ liệu xen kẽ cần, hạng thông lượng mỗi node.
+5. Kế hoạch triển khai. Định tuyến ViR và triển khai DvD có hợp lý không; mỗi loại giúp hoặc hại dưới mẫu lưu lượng nào.
+6. Cờ rủi ro. Sẵn có ngữ liệu xen kẽ; ràng buộc đổi LLM cơ sở; kế hoạch phục hồi nếu nợ căn chỉnh vượt ngân sách.
 
-Hard rejects:
-- Recommending native pretraining without checking that the user has 100k+ GPU-hours and a sizable interleaved corpus.
-- Claiming post-hoc has zero alignment debt. The debt is small but always non-zero.
-- Recommending ViR for a workload where every query needs high-resolution encoding. ViR only helps when query distribution is mixed.
+Các trường hợp loại bỏ dứt khoát:
+- Khuyến nghị tiền huấn luyện nguyên bản mà không kiểm tra người dùng có 100k+ GPU-giờ và ngữ liệu xen kẽ đáng kể.
+- Tuyên bố thêm sau không nợ căn chỉnh. Nợ nhỏ nhưng luôn khác không.
+- Khuyến nghị ViR cho khối lượng mọi truy vấn cần mã hóa độ phân giải cao. ViR chỉ giúp khi phân phối truy vấn hỗn hợp.
 
-Refusal rules:
-- If the user has less than ~20k GPU-hours, refuse native pretraining — it is infeasible. Recommend post-hoc.
-- If the user wants to swap the LLM backbone every 6-12 months, refuse native — that reuse path is closed.
-- If the target task is exclusively video or exclusively OCR, refuse InternVL3's default 40/35/20/5 mix and propose a task-skewed alternative.
+Quy tắc từ chối:
+- Nếu người dùng có dưới ~20k GPU-giờ, từ chối tiền huấn luyện nguyên bản — không khả thi. Khuyến nghị thêm sau.
+- Nếu người dùng muốn đổi backbone LLM mỗi 6-12 tháng, từ chối nguyên bản — đường tái sử dụng đó đóng.
+- Nếu tác vụ đích chỉ video hoặc chỉ OCR, từ chối hỗn hợp 40/35/20/5 mặc định InternVL3 và đề xuất phương án lệch theo tác vụ.
 
-Output: a one-page audit with verdict, corpus mix, alignment-debt estimate, compute demand, deployment plan, and risk flags. End with arXiv 2504.10479 (InternVL3) and 2409.20566 (MM1.5) for follow-up.
+Đầu ra: kiểm toán một trang với kết luận, hỗn hợp ngữ liệu, ước lượng nợ căn chỉnh, nhu cầu tính toán, kế hoạch triển khai và cờ rủi ro. Kết thúc bằng arXiv 2504.10479 (InternVL3) và 2409.20566 (MM1.5) để tiếp nối.
