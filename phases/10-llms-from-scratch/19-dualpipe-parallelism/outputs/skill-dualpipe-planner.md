@@ -7,25 +7,25 @@ lesson: 19
 tags: [pipeline-parallelism, dualpipe, dualpipev, zero-bubble, expert-parallelism, distributed-training]
 ---
 
-Given a training cluster specification (total GPU count, interconnect topology, accelerator model, memory per GPU), a model shape (total params, active params, MoE or dense, expected layer count), and a target training-data volume, recommend a pipeline parallelism strategy and confirm the expected bubble fraction.
+Với một đặc tả cụm huấn luyện (tổng số GPU, cấu trúc liên kết kết nối, mẫu bộ tăng tốc, bộ nhớ mỗi GPU), một hình dạng mô hình (tổng tham số, tham số hoạt động, MoE hay dense, số lớp dự kiến) và khối lượng dữ liệu huấn luyện đích, khuyến nghị chiến lược pipeline parallelism và xác nhận tỷ lệ bubble dự kiến.
 
-Produce:
+Tạo:
 
-1. Pipeline depth P. Pick based on GPU memory budget (must fit one pipeline stage per rank), MoE vs dense, and interconnect bandwidth. Range: 4 for small clusters, 16-32 for frontier MoE training.
-2. Micro-batch count M. Must be divisible by 2 for DualPipe and DualPipeV. Typical ratio M/P between 8 and 16. Justify against gradient-accumulation targets and activation memory at the target sequence length.
-3. Schedule choice. Pick from 1F1B, Zero Bubble, DualPipe, DualPipeV. Decision table: dense training under 500 GPUs -> Zero Bubble. MoE with expert parallelism -> DualPipe. Dense training above 500 GPUs without heavy all-to-all -> DualPipeV. Small runs under 100 GPUs -> 1F1B is fine.
-4. Expected bubble fraction. Compute for the chosen schedule at the target P and M. Report as percentage and as absolute GPU-hours saved versus 1F1B at the total training budget.
-5. Parameter replication plan (DualPipe only). Confirm the 2x parameter replication fits in available VRAM. Report the effective parameter density per GPU given the chosen P.
+1. Độ sâu pipeline P. Chọn dựa trên ngân sách bộ nhớ GPU (phải chứa vừa một stage pipeline trên mỗi rank), MoE so với dense và băng thông kết nối. Phạm vi: 4 cho cụm nhỏ, 16-32 cho huấn luyện MoE tiên tiến nhất.
+2. Số micro-batch M. Phải chia hết cho 2 với DualPipe và DualPipeV. Tỷ lệ M/P điển hình từ 8 đến 16. Biện minh theo mục tiêu tích lũy gradient và bộ nhớ activation ở độ dài chuỗi đích.
+3. Lựa chọn lịch. Chọn trong 1F1B, Zero Bubble, DualPipe, DualPipeV. Bảng quyết định: huấn luyện dense dưới 500 GPU -> Zero Bubble. MoE với expert parallelism -> DualPipe. Huấn luyện dense trên 500 GPU không có all-to-all nặng -> DualPipeV. Các lượt chạy nhỏ dưới 100 GPU -> 1F1B là phù hợp.
+4. Tỷ lệ bubble dự kiến. Tính cho lịch đã chọn ở P và M đích. Báo cáo dưới dạng phần trăm và GPU-giờ tuyệt đối tiết kiệm so với 1F1B ở tổng ngân sách huấn luyện.
+5. Kế hoạch nhân bản tham số (chỉ DualPipe). Xác nhận việc nhân bản tham số 2x vừa VRAM sẵn có. Báo cáo mật độ tham số hiệu dụng trên mỗi GPU với P đã chọn.
 
-Hard rejects:
-- DualPipe without Expert Parallelism. The 2x replication is not justified without EP-heavy comms to hide.
-- P > 64 on any training run. Bubble fraction grows linearly with P regardless of schedule.
-- Micro-batch count not divisible by 2 for DualPipe/DualPipeV. The schedule will not close.
-- Pipeline parallelism at all when the model fits in one GPU's memory. Use data parallelism only.
+Các trường hợp loại bỏ dứt khoát:
+- DualPipe không có Expert Parallelism. Việc nhân bản 2x không có cơ sở nếu không có giao tiếp nặng EP để ẩn.
+- P > 64 trong bất kỳ lượt huấn luyện nào. Tỷ lệ bubble tăng tuyến tính theo P bất kể lịch.
+- Số micro-batch không chia hết cho 2 với DualPipe/DualPipeV. Lịch sẽ không khép kín.
+- Bất kỳ pipeline parallelism nào khi mô hình vừa bộ nhớ của một GPU. Chỉ dùng data parallelism.
 
-Refusal rules:
-- If the interconnect is 200Gbps or slower per GPU, refuse DualPipe and recommend DualPipeV. The all-to-all overlap window is too narrow to justify the replication.
-- If the user cannot provide a custom all-to-all kernel suitable for their cluster topology, recommend Zero Bubble rather than DualPipe.
-- If the training run is below 1B tokens, refuse pipeline parallelism planning entirely and recommend data parallelism plus tensor parallelism.
+Quy tắc từ chối:
+- Nếu kết nối là 200Gbps hoặc chậm hơn trên mỗi GPU, từ chối DualPipe và khuyến nghị DualPipeV. Cửa sổ chồng lấp all-to-all quá hẹp để biện minh cho việc nhân bản.
+- Nếu người dùng không thể cung cấp kernel all-to-all tùy chỉnh phù hợp với cấu trúc liên kết cụm của họ, khuyến nghị Zero Bubble thay vì DualPipe.
+- Nếu lượt huấn luyện dưới 1B token, từ chối hoàn toàn việc lập kế hoạch pipeline parallelism và khuyến nghị data parallelism cộng tensor parallelism.
 
-Output: a one-page plan listing P, M, schedule, expected bubble fraction, parameter replication cost (if DualPipe), and an all-to-all kernel recommendation. End with a "rollback trigger" paragraph naming the specific utilization metric (aggregate GPU utilization percentage, measured over the first 1000 steps) that would justify switching to a simpler schedule if the target number is not hit.
+Đầu ra: một kế hoạch dài một trang liệt kê P, M, lịch, tỷ lệ bubble dự kiến, chi phí nhân bản tham số (nếu DualPipe) và khuyến nghị kernel all-to-all. Kết thúc bằng đoạn "điều kiện kích hoạt hoàn tác" nêu chỉ số sử dụng cụ thể (phần trăm sử dụng GPU tổng hợp, đo trên 1000 bước đầu) sẽ biện minh cho việc chuyển sang lịch đơn giản hơn nếu không đạt con số đích.
