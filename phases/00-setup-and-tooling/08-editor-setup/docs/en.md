@@ -1,6 +1,6 @@
 # Editor Setup
 
-> Your editor is your co-pilot. Configure it once so it stays out of your way and starts pulling its weight.
+> Trình soạn thảo là phi công phụ của bạn. Hãy cấu hình nó một lần để nó không cản trở bạn và bắt đầu làm tròn phần việc của mình.
 
 **Type:** Build
 **Languages:** --
@@ -9,20 +9,20 @@
 
 ## Learning Objectives
 
-- Install VS Code with essential extensions for Python, Jupyter, linting, and remote SSH
-- Configure format-on-save, type checking, and notebook output scrolling for AI workflows
-- Set up Remote SSH to edit and debug code on remote GPU machines as if they were local
-- Evaluate editor alternatives (Cursor, Windsurf, Neovim) and their tradeoffs for AI work
+- Cài VS Code với các phần mở rộng thiết yếu cho Python, Jupyter, linting và SSH từ xa
+- Cấu hình định dạng khi lưu, kiểm tra kiểu và cuộn đầu ra notebook cho các quy trình AI
+- Thiết lập Remote SSH để chỉnh sửa và gỡ lỗi mã trên máy GPU từ xa như thể chúng là máy cục bộ
+- Đánh giá các trình soạn thảo thay thế (Cursor, Windsurf, Neovim) và những đánh đổi của chúng trong công việc AI
 
 ## The Problem
 
-You'll spend thousands of hours inside your editor writing Python, running notebooks, debugging training loops, and SSH-ing into GPU boxes. A misconfigured editor turns every session into friction: no autocomplete, no type hints, no inline errors, manual formatting, and a clunky terminal workflow.
+Bạn sẽ dành hàng nghìn giờ trong trình soạn thảo để viết Python, chạy notebook, gỡ lỗi vòng lặp huấn luyện và SSH vào các máy GPU. Trình soạn thảo cấu hình sai biến mỗi phiên làm việc thành sự cản trở: không tự động hoàn tất, không gợi ý kiểu, không báo lỗi ngay trong mã, định dạng thủ công và quy trình terminal vụng về.
 
-The right setup takes 20 minutes. Skipping it costs you 20 minutes every day.
+Thiết lập đúng mất 20 phút. Bỏ qua nó khiến bạn mất 20 phút mỗi ngày.
 
 ## The Concept
 
-An AI engineering editor setup needs five things:
+Một thiết lập trình soạn thảo cho kỹ thuật AI cần năm thứ:
 
 ```mermaid
 graph TD
@@ -41,21 +41,21 @@ s0-lsp-roundtrip
 
 ### Step 1: Install VS Code
 
-VS Code is the recommended editor. It is free, runs on every OS, has first-class Jupyter notebook support, and the extension ecosystem covers everything you need for AI work.
+VS Code là trình soạn thảo được khuyến nghị. Nó miễn phí, chạy trên mọi hệ điều hành, hỗ trợ notebook Jupyter ở mức hàng đầu và hệ sinh thái phần mở rộng bao phủ mọi thứ bạn cần cho công việc AI.
 
-Download it from [code.visualstudio.com](https://code.visualstudio.com/).
+Tải xuống từ [code.visualstudio.com](https://code.visualstudio.com/).
 
-Verify from the terminal:
+Xác minh từ terminal:
 
 ```bash
 code --version
 ```
 
-If `code` is not found on macOS, open VS Code, press `Cmd+Shift+P`, type "Shell Command", and select "Install 'code' command in PATH".
+Nếu không tìm thấy `code` trên macOS, mở VS Code, nhấn `Cmd+Shift+P`, gõ "Shell Command" và chọn "Install 'code' command in PATH".
 
 ### Step 2: Install Essential Extensions
 
-Open the integrated terminal in VS Code (`` Ctrl+` `` on every platform) and install the extensions that matter for AI work:
+Mở terminal tích hợp trong VS Code (`` Ctrl+` `` trên mọi nền tảng) và cài các phần mở rộng quan trọng cho công việc AI:
 
 ```bash
 code --install-extension ms-python.python
@@ -68,7 +68,7 @@ code --install-extension ms-python.black-formatter
 code --install-extension charliermarsh.ruff
 ```
 
-What each one does:
+Chức năng của từng phần mở rộng:
 
 | Extension | Why |
 |-----------|-----|
@@ -81,13 +81,13 @@ What each one does:
 | Black Formatter | Auto-format on save, consistent style |
 | Ruff | Fast linting, catches common mistakes |
 
-The file `code/.vscode/extensions.json` in this lesson contains the full recommendations list. When you open the project folder, VS Code will prompt you to install them.
+Tệp `code/.vscode/extensions.json` trong bài học này chứa danh sách khuyến nghị đầy đủ. Khi bạn mở thư mục dự án, VS Code sẽ nhắc bạn cài chúng.
 
 ### Step 3: Configure Settings
 
-Copy the settings from `code/.vscode/settings.json` in this lesson, or apply them manually through `Settings > Open Settings (JSON)`.
+Sao chép thiết lập từ `code/.vscode/settings.json` trong bài học này, hoặc áp dụng thủ công qua `Settings > Open Settings (JSON)`.
 
-The key settings for AI work:
+Các thiết lập then chốt cho công việc AI:
 
 ```jsonc
 {
@@ -99,19 +99,19 @@ The key settings for AI work:
 }
 ```
 
-Why these matter:
+Vì sao chúng quan trọng:
 
-- **Type checking on basic**: Catches wrong argument types before you run. Saves debugging time on tensor shape mismatches and wrong API parameters.
-- **Format on save**: Never think about formatting again. Black handles it.
-- **Rulers at 88 and 120**: Black wraps at 88. The 120 marker shows when docstrings and comments are getting too long.
-- **Notebook output scrolling**: Training loops print thousands of lines. Without scrolling, the output panel explodes.
-- **Auto-save**: You will forget to save. Your training script will run stale code. Auto-save prevents that.
+- **Kiểm tra kiểu ở mức basic**: Phát hiện kiểu đối số sai trước khi bạn chạy. Tiết kiệm thời gian gỡ lỗi khi hình dạng tensor không khớp và tham số API sai.
+- **Định dạng khi lưu**: Không bao giờ phải nghĩ về định dạng nữa. Black xử lý việc đó.
+- **Thước ở 88 và 120**: Black ngắt dòng ở 88. Mốc 120 cho biết khi docstring và chú thích trở nên quá dài.
+- **Cuộn đầu ra notebook**: Vòng lặp huấn luyện in ra hàng nghìn dòng. Nếu không cuộn, bảng đầu ra phình to.
+- **Tự động lưu**: Bạn sẽ quên lưu. Script huấn luyện sẽ chạy mã cũ. Tự động lưu ngăn điều đó.
 
 ### Step 4: Terminal Integration
 
-VS Code's integrated terminal is where you run training scripts, monitor GPUs, and manage environments.
+Terminal tích hợp của VS Code là nơi bạn chạy script huấn luyện, giám sát GPU và quản lý môi trường.
 
-Set it up properly:
+Thiết lập nó đúng cách:
 
 ```jsonc
 {
@@ -122,7 +122,7 @@ Set it up properly:
 }
 ```
 
-Useful shortcuts:
+Các phím tắt hữu ích:
 
 | Action | macOS | Linux/Windows |
 |--------|-------|---------------|
@@ -130,27 +130,27 @@ Useful shortcuts:
 | New terminal | `` Ctrl+Shift+` `` | `` Ctrl+Shift+` `` |
 | Split terminal | `Cmd+\` | `Ctrl+Shift+5` |
 
-Split terminals are useful: one for running your script, one for monitoring GPU with `nvidia-smi -l 1` or `watch -n 1 nvidia-smi`.
+Chia terminal rất hữu ích: một để chạy script, một để giám sát GPU bằng `nvidia-smi -l 1` hoặc `watch -n 1 nvidia-smi`.
 
 ### Step 5: Remote Development (SSH into GPU Boxes)
 
-This is the most important extension for AI work. You will run training on remote machines (cloud VMs, lab servers, Lambda, Vast.ai). Remote SSH lets you open the remote filesystem, edit files, run terminals, and debug as if everything were local.
+Đây là phần mở rộng quan trọng nhất cho công việc AI. Bạn sẽ chạy huấn luyện trên máy từ xa (máy ảo đám mây, máy chủ phòng thí nghiệm, Lambda, Vast.ai). Remote SSH cho phép bạn mở hệ thống tệp từ xa, chỉnh sửa tệp, chạy terminal và gỡ lỗi như thể mọi thứ đều là cục bộ.
 
-Setup:
+Thiết lập:
 
-1. Install the Remote SSH extension (done in Step 2).
-2. Press `Ctrl+Shift+P` (or `Cmd+Shift+P`), type "Remote-SSH: Connect to Host".
-3. Enter `user@your-gpu-box-ip`.
-4. VS Code installs its server component on the remote machine automatically.
+1. Cài phần mở rộng Remote SSH (đã làm ở Bước 2).
+2. Nhấn `Ctrl+Shift+P` (hoặc `Cmd+Shift+P`), gõ "Remote-SSH: Connect to Host".
+3. Nhập `user@your-gpu-box-ip`.
+4. VS Code tự động cài thành phần máy chủ của nó lên máy từ xa.
 
-For passwordless access, set up SSH keys:
+Để truy cập không cần mật khẩu, thiết lập khóa SSH:
 
 ```bash
 ssh-keygen -t ed25519 -C "your-email@example.com"
 ssh-copy-id user@your-gpu-box-ip
 ```
 
-Add the host to `~/.ssh/config` for convenience:
+Thêm host vào `~/.ssh/config` cho thuận tiện:
 
 ```
 Host gpu-box
@@ -160,52 +160,52 @@ Host gpu-box
     ForwardAgent yes
 ```
 
-Now `Remote-SSH: Connect to Host > gpu-box` connects instantly.
+Giờ `Remote-SSH: Connect to Host > gpu-box` kết nối ngay lập tức.
 
 ## Alternatives
 
 ### Cursor
 
-[cursor.com](https://cursor.com) is a VS Code fork with built-in AI code generation. It uses the same extension ecosystem and settings format. If you use Cursor, everything in this lesson still applies. Import the same `settings.json` and `extensions.json`.
+[cursor.com](https://cursor.com) là một bản fork của VS Code có tính năng tạo mã AI tích hợp. Nó dùng cùng hệ sinh thái phần mở rộng và định dạng thiết lập. Nếu bạn dùng Cursor, mọi thứ trong bài học này vẫn áp dụng. Import cùng các tệp `settings.json` và `extensions.json`.
 
 ### Windsurf
 
-[windsurf.com](https://windsurf.com) is another AI-first VS Code fork. Same story: same extensions, same settings format, same Remote SSH support.
+[windsurf.com](https://windsurf.com) là một bản fork VS Code khác đặt AI lên hàng đầu. Cũng như vậy: cùng phần mở rộng, cùng định dạng thiết lập, cùng hỗ trợ Remote SSH.
 
 ### Vim/Neovim
 
-If you already use Vim or Neovim and are productive in it, stay there. The minimum setup for AI Python work:
+Nếu bạn đã dùng Vim hoặc Neovim và làm việc hiệu quả với nó, hãy tiếp tục dùng. Thiết lập tối thiểu cho công việc Python AI:
 
-- **pyright** or **pylsp** for type checking (via Mason or manual install)
-- **nvim-lspconfig** for language server integration
-- **jupyter-vim** or **molten-nvim** for notebook-like execution
-- **telescope.nvim** for file/symbol search
-- **none-ls.nvim** with black and ruff for formatting/linting
+- **pyright** hoặc **pylsp** để kiểm tra kiểu (qua Mason hoặc cài thủ công)
+- **nvim-lspconfig** để tích hợp máy chủ ngôn ngữ
+- **jupyter-vim** hoặc **molten-nvim** để thực thi theo kiểu notebook
+- **telescope.nvim** để tìm tệp/ký hiệu
+- **none-ls.nvim** với black và ruff để định dạng/linting
 
-If you do not already use Vim, do not start now. The learning curve will compete with learning AI engineering. Use VS Code.
+Nếu bạn chưa dùng Vim, đừng bắt đầu bây giờ. Quá trình học nó sẽ cạnh tranh với việc học kỹ thuật AI. Hãy dùng VS Code.
 
 ## Use It
 
-With this setup, your daily workflow looks like:
+Với thiết lập này, quy trình hằng ngày của bạn như sau:
 
-1. Open the project folder in VS Code (or connect via Remote SSH to a GPU box).
-2. Write Python in the editor with autocomplete, type hints, and inline errors.
-3. Run Jupyter notebooks inline with the Jupyter extension.
-4. Use the integrated terminal for training scripts, `uv pip install`, and GPU monitoring.
-5. Review changes with GitLens before committing.
+1. Mở thư mục dự án trong VS Code (hoặc kết nối qua Remote SSH đến một máy GPU).
+2. Viết Python trong trình soạn thảo với tự động hoàn tất, gợi ý kiểu và lỗi ngay trong mã.
+3. Chạy notebook Jupyter ngay tại chỗ bằng phần mở rộng Jupyter.
+4. Dùng terminal tích hợp cho script huấn luyện, `uv pip install` và giám sát GPU.
+5. Rà soát thay đổi bằng GitLens trước khi commit.
 
 ## Exercises
 
-1. Install VS Code and all extensions listed in Step 2
-2. Copy the `settings.json` from this lesson into your VS Code config
-3. Open a Python file and verify that Pylance shows type hints and Black formats on save
-4. If you have access to a remote machine, set up Remote SSH and open a folder on it
+1. Cài VS Code và mọi phần mở rộng được liệt kê ở Bước 2
+2. Sao chép `settings.json` từ bài học này vào cấu hình VS Code của bạn
+3. Mở một tệp Python và xác minh Pylance hiển thị gợi ý kiểu và Black định dạng khi lưu
+4. Nếu bạn có quyền truy cập máy từ xa, thiết lập Remote SSH và mở một thư mục trên đó
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| LSP | "Autocomplete engine" | Language Server Protocol: a standard for editors to get type info, completions, and diagnostics from a language-specific server |
-| Pylance | "The Python plugin" | Microsoft's Python language server using Pyright for type checking and IntelliSense |
-| Remote SSH | "Working on the server" | VS Code extension that runs a lightweight server on a remote machine and streams the UI to your local editor |
-| Format on save | "Auto-prettier" | The editor runs a formatter (Black, Ruff) every time you save, so code style is always consistent |
+| LSP | "Bộ máy tự động hoàn thành" | Giao thức Máy chủ Ngôn ngữ: một tiêu chuẩn để các trình soạn thảo lấy thông tin kiểu, các gợi ý hoàn thành và thông tin chẩn đoán từ một máy chủ dành riêng cho ngôn ngữ |
+| Pylance | "Plugin Python" | Máy chủ ngôn ngữ Python của Microsoft sử dụng Pyright để kiểm tra kiểu và IntelliSense |
+| Remote SSH | "Làm việc trên máy chủ" | Tiện ích mở rộng VS Code chạy một máy chủ nhẹ trên một máy từ xa và truyền giao diện người dùng đến trình soạn thảo cục bộ của bạn |
+| Format on save (Định dạng khi lưu) | "Tự động làm đẹp" | Trình soạn thảo chạy một công cụ định dạng (Black, Ruff) mỗi khi bạn lưu, nên phong cách mã luôn nhất quán |
