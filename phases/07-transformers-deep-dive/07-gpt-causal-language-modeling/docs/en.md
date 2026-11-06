@@ -1,6 +1,6 @@
 # GPT — Causal Language Modeling
 
-> BERT sees both sides. GPT sees only the past. The triangle mask is the most consequential single line of code in modern AI.
+> BERT thấy cả hai phía. GPT chỉ thấy quá khứ. Mặt nạ tam giác là dòng mã đơn lẻ có hệ quả lớn nhất trong AI hiện đại.
 
 **Type:** Build
 **Languages:** Python
@@ -9,13 +9,13 @@
 
 ## The Problem
 
-A language model answers one question: given the first `t-1` tokens, what is the probability distribution over token `t`? Train on that signal — next-token prediction — and you get a model that can generate arbitrary text one token at a time.
+Một mô hình ngôn ngữ trả lời một câu hỏi: cho `t-1` token đầu, phân phối xác suất trên token `t` là gì? Huấn luyện trên tín hiệu đó — dự đoán token tiếp theo — và bạn nhận một mô hình có thể sinh văn bản tùy ý từng token một.
 
-To train it end-to-end on a whole sequence in parallel, you need each position's prediction to depend only on earlier positions. Otherwise the model trivially cheats by looking at the answer.
+Để huấn luyện nó đầu cuối trên cả một chuỗi song song, bạn cần dự đoán của mỗi vị trí chỉ phụ thuộc các vị trí trước. Nếu không mô hình dễ dàng gian lận bằng cách nhìn câu trả lời.
 
-The causal mask does this. It is a single upper-triangular matrix of `-inf` values added to attention scores before softmax. After softmax, those positions become 0. Each position can attend only to itself and earlier positions. And because you apply it once to the whole sequence, you get N parallel next-token predictions in one forward pass.
+Mặt nạ nhân quả làm điều này. Nó là một ma trận tam giác trên duy nhất các giá trị `-inf` được thêm vào các điểm attention trước softmax. Sau softmax, các vị trí đó trở thành 0. Mỗi vị trí chỉ có thể chú ý chính nó và các vị trí trước. Và vì bạn áp dụng nó một lần cho toàn chuỗi, bạn nhận N dự đoán token tiếp theo song song trong một lượt truyền xuôi.
 
-GPT-1 (2018), GPT-2 (2019), GPT-3 (2020), GPT-4 (2023), GPT-5 (2025), Claude, Llama, Qwen, Mistral, DeepSeek, Kimi — they are all decoder-only causal transformers with the same core loop. What separates them is data quality, scale and architectural refinements, and post-training (SFT, RLHF, DPO, and their successors).
+GPT-1 (2018), GPT-2 (2019), GPT-3 (2020), GPT-4 (2023), GPT-5 (2025), Claude, Llama, Qwen, Mistral, DeepSeek, Kimi — tất cả đều là transformer nhân quả chỉ decoder với cùng vòng lặp cốt lõi. Thứ phân biệt chúng là chất lượng dữ liệu, quy mô và các tinh chỉnh kiến trúc, cùng hậu huấn luyện (SFT, RLHF, DPO và các phương pháp kế tiếp).
 
 ## The Concept
 
@@ -23,22 +23,22 @@ GPT-1 (2018), GPT-2 (2019), GPT-3 (2020), GPT-4 (2023), GPT-5 (2025), Claude, Ll
 
 ### The mask
 
-Given a sequence of length `N`, build an `N × N` matrix:
+Cho một chuỗi có độ dài `N`, xây dựng một ma trận `N × N`:
 
 ```
 M[i, j] = 0       if j <= i
 M[i, j] = -inf    if j > i
 ```
 
-Add `M` to the raw attention scores before softmax. `exp(-inf) = 0`, so masked positions contribute zero weight. Each row of the attention matrix is a probability distribution over previous positions only.
+Thêm `M` vào các điểm attention thô trước softmax. `exp(-inf) = 0`, nên các vị trí được che đóng góp trọng số bằng không. Mỗi hàng ma trận attention là một phân phối xác suất chỉ trên các vị trí trước.
 
-Implementation cost: one `torch.tril()` call. Time to compute: nanoseconds. Impact on the field: everything.
+Chi phí triển khai: một lời gọi `torch.tril()`. Thời gian tính: nano giây. Tác động lên lĩnh vực: mọi thứ.
 
 ### Where the triangle comes from
 
-The mask is usually presented as a patch bolted onto attention. Run the derivation in the other direction and it stops being mysterious: attention is the third refinement of a prefix average, and the triangle is the loop bounds of that average, written as a matrix.
+Mặt nạ thường được trình bày như một miếng vá gắn vào attention. Chạy suy dẫn theo chiều ngược và nó ngừng bí ẩn: attention là tinh chỉnh thứ ba của một trung bình tiền tố, và tam giác là các giới hạn vòng lặp của trung bình đó, được viết thành một ma trận.
 
-**Stage 1 — prefix average.** The dumbest causal summary of a sequence: position `i` becomes the mean of positions `0…i`. As a loop, that is `out[i] = X[:i+1].mean(0)`. The same computation is one matrix multiply. Take a lower-triangular matrix of ones, divide each row by its count, multiply:
+**Giai đoạn 1 — trung bình tiền tố.** Bản tóm tắt nhân quả ngớ ngẩn nhất của một chuỗi: vị trí `i` trở thành trung bình các vị trí `0…i`. Dưới dạng vòng lặp, đó là `out[i] = X[:i+1].mean(0)`. Cùng phép tính là một phép nhân ma trận. Lấy một ma trận tam giác dưới toàn số một, chia mỗi hàng cho số đếm của nó, nhân:
 
 ```python
 import numpy as np
@@ -48,9 +48,9 @@ A = A / A.sum(axis=1, keepdims=True)
 out = A @ X
 ```
 
-Row `i` of `A` is `[1/(i+1), …, 1/(i+1), 0, …, 0]`. The zeros above the diagonal are the causality. Nothing about the future was masked out; the future was never in the sum.
+Hàng `i` của `A` là `[1/(i+1), …, 1/(i+1), 0, …, 0]`. Các số không trên đường chéo là tính nhân quả. Không có gì về tương lai bị che đi; tương lai chưa bao giờ nằm trong tổng.
 
-**Stage 2 — learned weights.** A uniform average treats every past token as equally relevant. Replace the ones with a learned score matrix `S`. Now rows no longer sum to one by construction, so normalize each row with softmax instead of dividing by the count. Softmax never outputs an exact zero, which breaks causality — unless the future scores go in as `-inf`, because `exp(-inf) = 0`:
+**Giai đoạn 2 — các trọng số được học.** Một trung bình đều coi mọi token quá khứ liên quan ngang nhau. Thay các số một bằng một ma trận điểm được học `S`. Giờ các hàng không còn có tổng bằng một do cách xây dựng, nên chuẩn hóa mỗi hàng bằng softmax thay vì chia cho số đếm. Softmax không bao giờ xuất một số không chính xác, điều phá tính nhân quả — trừ khi các điểm tương lai đi vào dưới dạng `-inf`, vì `exp(-inf) = 0`:
 
 ```python
 def softmax(x, axis):
@@ -62,11 +62,11 @@ A = softmax(S, axis=1)
 out = A @ X
 ```
 
-Same triangle, same row-stochastic matrix, same one matmul. The `-inf` mask is not new machinery. It is stage 1's zero entries, translated into softmax's input domain.
+Cùng tam giác, cùng ma trận ngẫu nhiên theo hàng, cùng một phép nhân ma trận. Mặt nạ `-inf` không phải bộ máy mới. Nó là các phần tử không của giai đoạn 1, được chuyển sang miền đầu vào của softmax.
 
-**Stage 3 — content-dependent weights.** In stage 2, `S` is fixed after training: position 7 always weighs position 3 the same, whatever the tokens say. Let the scores depend on the tokens themselves: `S = Q @ K.T / sqrt(d_k)`. Nothing else changes. Mask, softmax, matmul — identical.
+**Giai đoạn 3 — các trọng số phụ thuộc nội dung.** Trong giai đoạn 2, `S` cố định sau huấn luyện: vị trí 7 luôn gán trọng số cho vị trí 3 như nhau, bất kể các token nói gì. Để các điểm phụ thuộc chính các token: `S = Q @ K.T / sqrt(d_k)`. Không có gì khác thay đổi. Mặt nạ, softmax, nhân ma trận — giống hệt.
 
-Three stages, one invariant: a lower-triangular row-stochastic matrix times the sequence. Uniform average, learned static weights, content-dependent weights. The mask was never added to attention. It survived from the average.
+Ba giai đoạn, một bất biến: một ma trận ngẫu nhiên theo hàng tam giác dưới nhân chuỗi. Trung bình đều, các trọng số tĩnh được học, các trọng số phụ thuộc nội dung. Mặt nạ chưa bao giờ được thêm vào attention. Nó sống sót từ trung bình.
 
 ```figure
 mask-derivation
@@ -74,45 +74,45 @@ mask-derivation
 
 ### Parallel training, serial inference
 
-Training: forward-pass the whole `(N, d_model)` sequence once, compute N cross-entropy losses (one per position), sum, backprop. Parallel along the sequence. This is why GPT training scales — you process 1M tokens in a batch in one GPU pass.
+Huấn luyện: truyền xuôi toàn bộ chuỗi `(N, d_model)` một lần, tính N cross-entropy loss (một cho mỗi vị trí), cộng, lan truyền ngược. Song song dọc chuỗi. Đây là lý do huấn luyện GPT mở rộng được — bạn xử lý 1M token trong một batch trong một lượt GPU.
 
-Inference: you generate token by token. Feed `[t1, t2, t3]`, get `t4`. Feed `[t1, t2, t3, t4]`, get `t5`. Feed `[t1, t2, t3, t4, t5]`, get `t6`. The KV cache (Lesson 12) saves the hidden states of `t1…tn` so you don't recompute them each step. But serial depth at inference = output length. That is the autoregressive tax and why decoding is the latency bottleneck of every LLM.
+Suy luận: bạn sinh từng token. Đưa `[t1, t2, t3]`, nhận `t4`. Đưa `[t1, t2, t3, t4]`, nhận `t5`. Đưa `[t1, t2, t3, t4, t5]`, nhận `t6`. KV cache (Bài 12) lưu các trạng thái ẩn của `t1…tn` để bạn không tính lại chúng mỗi bước. Nhưng độ sâu nối tiếp khi suy luận = độ dài đầu ra. Đó là thuế tự hồi quy và lý do giải mã là nút thắt độ trễ của mọi LLM.
 
 ### The loss — shift-by-one
 
-Given tokens `[t1, t2, t3, t4]`:
+Cho các token `[t1, t2, t3, t4]`:
 
-- Input: `[t1, t2, t3]`
-- Targets: `[t2, t3, t4]`
+- Đầu vào: `[t1, t2, t3]`
+- Các đích: `[t2, t3, t4]`
 
-For every position `i`, compute `-log P(target_i | inputs[:i+1])`. Sum. This is the cross-entropy for the whole sequence.
+Với mỗi vị trí `i`, tính `-log P(target_i | inputs[:i+1])`. Cộng. Đây là cross-entropy cho toàn chuỗi.
 
-Every transformer LM you've heard of trains on this loss. Pre-training, fine-tuning, SFT — same loss, different data.
+Mọi LM transformer bạn đã nghe đều huấn luyện trên loss này. Tiền huấn luyện, fine-tuning, SFT — cùng loss, dữ liệu khác nhau.
 
 ### Decoding strategies
 
-After training, sampling choices matter more than people think.
+Sau huấn luyện, các lựa chọn lấy mẫu quan trọng hơn mọi người nghĩ.
 
-| Method | What it does | When to use |
+| Phương pháp | Nó làm gì | Khi nào dùng |
 |--------|--------------|-------------|
-| Greedy | Argmax every step | Deterministic tasks, code completion |
-| Temperature | Divide logits by T, sample | Creative tasks, higher T = more diversity |
-| Top-k | Sample from top-k tokens only | Kills low-probability tails |
-| Top-p (nucleus) | Sample from smallest set with cumulative prob ≥ p | 2020+ default; adapts to distribution shape |
-| Min-p | Keep tokens with `p > min_p * max_p` | 2024+; better at rejecting long tails than top-p |
-| Speculative decoding | Draft model proposes N tokens, big model verifies | 2–3× latency reduction at same quality |
+| Tham lam | Argmax mỗi bước | Các tác vụ tất định, hoàn thành mã |
+| Temperature | Chia logits cho T, lấy mẫu | Các tác vụ sáng tạo, T cao hơn = đa dạng hơn |
+| Top-k | Chỉ lấy mẫu từ các token top-k | Loại các đuôi xác suất thấp |
+| Top-p (nucleus) | Lấy mẫu từ tập nhỏ nhất có xác suất tích lũy ≥ p | Mặc định từ 2020+; thích nghi với hình dạng phân phối |
+| Min-p | Giữ các token có `p > min_p * max_p` | Từ 2024+; tốt hơn top-p trong việc loại các đuôi dài |
+| Speculative decoding | Mô hình nháp đề xuất N token, mô hình lớn xác minh | Giảm độ trễ 2–3× ở cùng chất lượng |
 
-In 2026, min-p + temperature 0.7 is a reasonable default for open-weights models. Speculative decoding is table stakes for any production inference stack.
+Năm 2026, min-p + temperature 0.7 là một mặc định hợp lý cho các mô hình trọng số mở. Speculative decoding là điều kiện tối thiểu cho bất kỳ ngăn xếp suy luận production nào.
 
 ### What made the "GPT recipe" work
 
-1. **Decoder-only.** No encoder overhead. One pass of attention + FFN per layer.
-2. **Scaling.** 124M → 1.5B → 175B → trillions. Chinchilla scaling laws (Lesson 13) tell you how to spend compute.
-3. **In-context learning.** Emerged around 6B–13B. The model can follow few-shot examples without fine-tuning.
-4. **RLHF.** Post-training on human preferences converted raw pretrained text into chat assistants.
-5. **Pre-norm + RoPE + SwiGLU.** Stable training at scale.
+1. **Chỉ decoder.** Không chi phí phụ encoder. Một lượt attention + FFN mỗi tầng.
+2. **Mở rộng quy mô.** 124M → 1.5B → 175B → hàng nghìn tỷ. Các quy luật mở rộng Chinchilla (Bài 13) cho bạn biết cách chi tiêu tính toán.
+3. **Học trong ngữ cảnh.** Xuất hiện quanh 6B–13B. Mô hình có thể theo các ví dụ few-shot không cần fine-tuning.
+4. **RLHF.** Hậu huấn luyện trên các ưu tiên con người chuyển văn bản tiền huấn luyện thô thành các trợ lý trò chuyện.
+5. **Pre-norm + RoPE + SwiGLU.** Huấn luyện ổn định ở quy mô lớn.
 
-The core architecture hasn't changed much since GPT-2. Everything interesting has happened in data, scale, and post-training.
+Kiến trúc cốt lõi không thay đổi nhiều từ GPT-2. Mọi điều thú vị xảy ra ở dữ liệu, quy mô và hậu huấn luyện.
 
 ```figure
 causal-mask
@@ -122,30 +122,30 @@ causal-mask
 
 ### Step 1: the causal mask
 
-See `code/main.py`. A one-liner:
+Xem `code/main.py`. Một dòng:
 
 ```python
 def causal_mask(n):
     return [[0.0 if j <= i else float("-inf") for j in range(n)] for i in range(n)]
 ```
 
-Add it to attention scores before softmax. That's the entire mechanism.
+Thêm nó vào các điểm attention trước softmax. Đó là toàn bộ cơ chế.
 
 ### Step 2: a 2-layer GPT-ish model
 
-Stack two decoder blocks (masked self-attention + FFN, no cross-attention). Add a token embedding, a positional encoding, and an unembedding (tied to the token embedding matrix — a standard trick since GPT-2).
+Xếp hai khối decoder (self-attention được che + FFN, không cross-attention). Thêm một embedding token, một mã hóa vị trí và một unembedding (buộc chung với ma trận embedding token — một thủ thuật tiêu chuẩn từ GPT-2).
 
 ### Step 3: next-token prediction, end-to-end
 
-On a 20-token toy vocab, produce logits at every position. Compute cross-entropy loss against the shift-by-one target. No gradient — this is a forward-pass sanity check.
+Trên một từ vựng đồ chơi 20 token, tạo logits ở mọi vị trí. Tính cross-entropy loss so với đích dịch một vị trí. Không gradient — đây là một kiểm tra hợp lý lượt truyền xuôi.
 
 ### Step 4: sampling
 
-Implement greedy, temperature, top-k, top-p, min-p. Run each on a fixed prompt and compare outputs. A sampling function is 10 lines.
+Triển khai tham lam, temperature, top-k, top-p, min-p. Chạy mỗi loại trên một prompt cố định và so sánh các đầu ra. Một hàm lấy mẫu dài 10 dòng.
 
 ## Use It
 
-PyTorch, 2026 idiom:
+PyTorch, cách viết năm 2026:
 
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -164,38 +164,38 @@ out = model.generate(
 print(tok.decode(out[0]))
 ```
 
-Under the hood, `generate()` runs the forward pass, pulls the final-position logits, samples the next token, appends it, and repeats. Every production LLM inference stack (vLLM, TensorRT-LLM, llama.cpp, Ollama, MLX) implements the same loop with heavy optimization — batched prefill, continuous batching, KV cache paging, speculative decoding.
+Bên dưới, `generate()` chạy lượt truyền xuôi, lấy logits vị trí cuối, lấy mẫu token tiếp theo, nối nó và lặp lại. Mọi ngăn xếp suy luận LLM production (vLLM, TensorRT-LLM, llama.cpp, Ollama, MLX) triển khai cùng vòng lặp với tối ưu hóa mạnh — prefill theo batch, batching liên tục, phân trang KV cache, speculative decoding.
 
-**GPT vs BERT, one line each:** GPT predicts `P(x_t | x_{<t})`. BERT predicts `P(x_masked | x_unmasked)`. The loss determines whether the model can generate.
+**GPT so với BERT, mỗi loại một dòng:** GPT dự đoán `P(x_t | x_{<t})`. BERT dự đoán `P(x_masked | x_unmasked)`. Loss quyết định mô hình có thể sinh hay không.
 
 ## Ship It
 
-See `outputs/skill-sampling-tuner.md`. The skill picks sampling parameters for a new generation task and flags when deterministic decoding is required.
+Xem `outputs/skill-sampling-tuner.md`. Skill chọn các tham số lấy mẫu cho một tác vụ sinh mới và đánh dấu khi cần giải mã tất định.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py` and verify the causal attention matrix is lower-triangular after softmax. Spot-check: row 3 should have weights only in columns 0–3.
-2. **Medium.** Implement beam search for width 4. Compare perplexity of beam-4 vs greedy on 10 short prompts. Does beam always win? (Hint: usually for translation, not for open-ended chat.)
-3. **Hard.** Implement speculative decoding: use a tiny 2-layer model as the draft and a 6-layer model as the verifier. Measure wall-clock speedup on 100 completions of length 64. Confirm outputs match greedy of the verifier.
+1. **Dễ.** Chạy `code/main.py` và xác minh ma trận attention nhân quả là tam giác dưới sau softmax. Kiểm tra ngẫu nhiên: hàng 3 chỉ nên có các trọng số ở cột 0–3.
+2. **Trung bình.** Triển khai beam search độ rộng 4. So sánh perplexity của beam-4 với tham lam trên 10 prompt ngắn. Beam có luôn thắng không? (Gợi ý: thường cho dịch, không phải cho trò chuyện mở.)
+3. **Khó.** Triển khai speculative decoding: dùng một mô hình 2 tầng tí hon làm nháp và một mô hình 6 tầng làm bộ xác minh. Đo mức tăng tốc thời gian thực trên 100 lượt hoàn thành dài 64. Xác nhận các đầu ra khớp tham lam của bộ xác minh.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Causal mask | "The triangle" | Upper-triangular `-inf` matrix added to attention scores so position `i` only sees positions `≤ i`. |
-| Next-token prediction | "The loss" | Cross-entropy of the model's distribution against the true next token at every position. |
-| Autoregressive | "Generate one at a time" | Feed output back as input; parallelism only during training, not during generation. |
-| Logits | "Pre-softmax scores" | Raw output of the LM head before softmax; sampling happens on these. |
-| Temperature | "Creativity knob" | Divide logits by T; T→0 = greedy, T→∞ = uniform. |
-| Top-p | "Nucleus sampling" | Truncate distribution to smallest set summing to ≥p; sample from what remains. |
-| Min-p | "Better than top-p" | Keep tokens where `p ≥ min_p × max_p`; adapts cutoff to sharpness of distribution. |
-| Speculative decoding | "Draft + verify" | Cheap model proposes N tokens; big model verifies in parallel. |
-| Teacher forcing | "Training trick" | During training, feed the true previous token, not the model's prediction. Standard for every seq2seq LM. |
+| Causal mask (Mặt nạ nhân quả) | "Tam giác" | Ma trận `-inf` tam giác trên được thêm vào các điểm attention để vị trí `i` chỉ thấy các vị trí `≤ i`. |
+| Next-token prediction (Dự đoán token tiếp theo) | "Loss" | Cross-entropy của phân phối mô hình so với token tiếp theo thật ở mọi vị trí. |
+| Autoregressive (Tự hồi quy) | "Sinh từng cái một" | Đưa đầu ra trở lại làm đầu vào; tính song song chỉ trong huấn luyện, không trong sinh. |
+| Logits | "Các điểm trước softmax" | Đầu ra thô của head LM trước softmax; lấy mẫu xảy ra trên chúng. |
+| Temperature | "Nút điều chỉnh sáng tạo" | Chia logits cho T; T→0 = tham lam, T→∞ = đều. |
+| Top-p | "Lấy mẫu nucleus" | Cắt phân phối về tập nhỏ nhất có tổng ≥p; lấy mẫu từ phần còn lại. |
+| Min-p | "Tốt hơn top-p" | Giữ các token mà `p ≥ min_p × max_p`; điều chỉnh ngưỡng cắt theo độ nhọn phân phối. |
+| Speculative decoding (Giải mã suy đoán) | "Nháp + xác minh" | Mô hình rẻ đề xuất N token; mô hình lớn xác minh song song. |
+| Teacher forcing | "Thủ thuật huấn luyện" | Khi huấn luyện, đưa token trước thật vào, không phải dự đoán của mô hình. Tiêu chuẩn cho mọi LM seq2seq. |
 
 ## Further Reading
 
 - [Radford et al. (2018). Improving Language Understanding by Generative Pre-Training](https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf) — GPT-1.
 - [Radford et al. (2019). Language Models are Unsupervised Multitask Learners](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) — GPT-2.
-- [Brown et al. (2020). Language Models are Few-Shot Learners](https://arxiv.org/abs/2005.14165) — GPT-3 and in-context learning.
-- [Leviathan, Kalman, Matias (2023). Fast Inference from Transformers via Speculative Decoding](https://arxiv.org/abs/2211.17192) — spec decoding paper.
-- [HuggingFace `modeling_llama.py`](https://github.com/huggingface/transformers/blob/main/src/transformers/models/llama/modeling_llama.py) — canonical causal-LM reference code.
+- [Brown et al. (2020). Language Models are Few-Shot Learners](https://arxiv.org/abs/2005.14165) — GPT-3 và học trong ngữ cảnh.
+- [Leviathan, Kalman, Matias (2023). Fast Inference from Transformers via Speculative Decoding](https://arxiv.org/abs/2211.17192) — bài báo giải mã suy đoán.
+- [HuggingFace `modeling_llama.py`](https://github.com/huggingface/transformers/blob/main/src/transformers/models/llama/modeling_llama.py) — mã tham chiếu LM nhân quả kinh điển.
