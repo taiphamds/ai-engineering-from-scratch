@@ -7,30 +7,30 @@ lesson: 17
 tags: [multi-agent, simulation, generative-agents, emergence, memory]
 ---
 
-Given a scenario that requires emergent behavior from a population of agents (social simulation, game NPCs, policy rehearsal, market dynamics), design the simulation.
+Với một kịch bản yêu cầu hành vi nổi lên từ một quần thể agent (mô phỏng xã hội, NPC trò chơi, diễn tập chính sách, động lực thị trường), thiết kế mô phỏng.
 
-Produce:
+Tạo ra:
 
-1. **Population size and heterogeneity.** N agents; which share a base model vs different; prompt families; role distribution. Smallville used 25 homogeneous agents with individualized personas; larger populations benefit from heterogeneity.
-2. **Memory schema.** Fields per entry: `(ts, kind, content, importance, embedding_ref, source_ids)`. Recency-decay constant; importance scoring procedure; relevance metric (cosine with embedding model X). Retention policy for compaction.
-3. **Reflection cadence.** Trigger: sum of unprocessed importance > threshold, or every N observations, or periodic tick. Number of reflections per trigger. Reflection prompt template.
-4. **Plan horizon.** Day / hour / action levels. Which are mandatory; which optional. Revision trigger: a new observation with importance > threshold that contradicts the active plan.
-5. **World model.** Spatial grid, social graph, resource constraints. What constitutes an observation (line-of-sight, conversation, notification). What normative constraints the architecture does NOT learn and must be encoded explicitly (capacity limits, closed hours, private spaces).
-6. **Seed goals.** Which agents are seeded with which priorities. Overlapping goals that may compete; non-competing goals that should coexist.
-7. **Budget.** Per-tick LLM calls per agent (observe + retrieve + reflect + plan + act). Expected tokens per tick per agent. Total simulation cost for T ticks.
-8. **Evaluation metric.** Believability (human-rater), goal achievement rate, coordination events counted, spatial-norm violations as a failure signal.
+1. **Kích thước quần thể và tính không đồng nhất.** N agent; những agent nào chia sẻ một mô hình cơ sở so với khác nhau; các họ prompt; phân phối vai trò. Smallville sử dụng 25 agent đồng nhất với các nhân cách cá nhân hóa; các quần thể lớn hơn hưởng lợi từ tính không đồng nhất.
+2. **Lược đồ bộ nhớ.** Các trường theo từng mục: `(ts, kind, content, importance, embedding_ref, source_ids)`. Hằng số suy giảm độ gần đây; quy trình chấm mức quan trọng; chỉ số độ liên quan (cosine với mô hình embedding X). Chính sách lưu giữ cho nén.
+3. **Nhịp phản tư.** Kích hoạt: tổng mức quan trọng chưa xử lý > ngưỡng, hoặc mỗi N quan sát, hoặc nhịp định kỳ. Số phản tư theo từng lần kích hoạt. Mẫu prompt phản tư.
+4. **Tầm thời gian kế hoạch.** Các cấp ngày / giờ / hành động. Những cấp nào bắt buộc; những cấp nào tùy chọn. Tác nhân kích hoạt sửa đổi: một quan sát mới với mức quan trọng > ngưỡng mâu thuẫn kế hoạch hoạt động.
+5. **Mô hình thế giới.** Lưới không gian, đồ thị xã hội, các ràng buộc tài nguyên. Điều gì cấu thành một quan sát (tầm nhìn, hội thoại, thông báo). Những ràng buộc chuẩn mực nào kiến trúc KHÔNG học và phải được mã hóa tường minh (giới hạn sức chứa, giờ đóng cửa, các không gian riêng tư).
+6. **Các mục tiêu được gieo.** Các agent nào được gieo các ưu tiên nào. Các mục tiêu chồng lấp có thể cạnh tranh; các mục tiêu không cạnh tranh nên cùng tồn tại.
+7. **Ngân sách.** Các lệnh gọi LLM mỗi nhịp cho mỗi agent (quan sát + truy xuất + phản tư + lập kế hoạch + hành động). Token kỳ vọng mỗi nhịp cho mỗi agent. Tổng chi phí mô phỏng cho T nhịp.
+8. **Chỉ số đánh giá.** Tính đáng tin (người chấm), tỷ lệ đạt mục tiêu, số sự kiện phối hợp được đếm, các vi phạm chuẩn mực không gian như một tín hiệu thất bại.
 
-Hard rejects:
+Các trường hợp loại bỏ dứt khoát:
 
-- Designs without explicit spatial / social norm encoding. The architecture will violate them (closed-store, single-bathroom failures from Park 2023).
-- Designs with mutable memory. Memory must be append-only; corrections are new entries.
-- Designs that run reflection every tick. This is budget-inefficient; reflection is expensive and triggers should be threshold-based.
-- Simulations at large N (> 50) without a memory-compaction strategy. Retrieval cost grows with stream length.
+- Các thiết kế không có mã hóa chuẩn mực không gian / xã hội tường minh. Kiến trúc sẽ vi phạm chúng (các thất bại cửa hàng đóng cửa, phòng tắm đơn từ Park 2023).
+- Các thiết kế có bộ nhớ có thể biến đổi. Bộ nhớ phải chỉ thêm; các sửa chữa là các mục mới.
+- Các thiết kế chạy phản tư mỗi nhịp. Điều này không hiệu quả về ngân sách; phản tư tốn kém và các tác nhân kích hoạt nên dựa trên ngưỡng.
+- Các mô phỏng ở N lớn (> 50) không có một chiến lược nén bộ nhớ. Chi phí truy xuất tăng theo độ dài luồng.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the scenario requires emergent *task execution* rather than emergent *social behavior*, recommend the supervisor / roles / primitives patterns instead (Phase 16 · 05-08). Smallville is for social simulation.
-- If budget allows < 100 LLM calls per tick total, recommend N = 3-5 with dense interactions rather than larger populations.
-- If the scenario does not benefit from emergence (tightly-scripted task), recommend single-agent + tools.
+- Nếu kịch bản yêu cầu *thực thi tác vụ* nổi lên thay vì *hành vi xã hội* nổi lên, thay vào đó đề xuất các mẫu bộ giám sát / vai trò / nguyên thủy (Giai đoạn 16 · 05-08). Smallville dành cho mô phỏng xã hội.
+- Nếu ngân sách cho phép < 100 lệnh gọi LLM mỗi nhịp tổng cộng, đề xuất N = 3-5 với các tương tác dày đặc thay vì các quần thể lớn hơn.
+- Nếu kịch bản không hưởng lợi từ sự nổi lên (tác vụ được viết kịch bản chặt), đề xuất một agent đơn lẻ + công cụ.
 
-Output: a one-page design brief. Start with a single-sentence summary ("Smallville-style simulation: 15 heterogeneous agents, reflection at importance sum > 120, 3-level plan horizon, spatial grid with capacity constraints, measured by believability + coordination events."), then the eight sections above. End with the expected emergent behaviors and the first three failure modes to watch for.
+Đầu ra: một bản tóm lược thiết kế một trang. Bắt đầu với một tóm tắt một câu (“Mô phỏng kiểu Smallville: 15 agent không đồng nhất, phản tư khi tổng mức quan trọng > 120, tầm thời gian kế hoạch 3 cấp, lưới không gian với các ràng buộc sức chứa, được đo bằng tính đáng tin + các sự kiện phối hợp.”), rồi tám phần ở trên. Kết thúc bằng các hành vi nổi lên kỳ vọng và ba chế độ lỗi đầu tiên cần theo dõi.
