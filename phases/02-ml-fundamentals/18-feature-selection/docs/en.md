@@ -1,6 +1,6 @@
 # Feature Selection
 
-> More features is not better. The right features is better.
+> Nhiều đặc trưng hơn không tốt hơn. Đúng đặc trưng thì tốt hơn.
 
 **Type:** Build
 **Language:** Python
@@ -9,26 +9,26 @@
 
 ## Learning Objectives
 
-- Implement filter methods (variance threshold, mutual information, chi-squared) and wrapper methods (RFE, forward selection) from scratch
-- Explain why mutual information captures nonlinear feature-target relationships that correlation misses
-- Compare L1 regularization (embedded selection) with RFE (wrapper selection) and evaluate their computational tradeoffs
-- Build a feature selection pipeline that combines multiple methods and demonstrate improved generalization on held-out data
+- Triển khai các phương pháp lọc (ngưỡng phương sai, thông tin tương hỗ, chi bình phương) và các phương pháp bao bọc (RFE, lựa chọn tiến) từ đầu
+- Giải thích tại sao thông tin tương hỗ nắm bắt các quan hệ phi tuyến giữa đặc trưng và mục tiêu mà tương quan bỏ sót
+- So sánh chính quy hóa L1 (lựa chọn nhúng) với RFE (lựa chọn bao bọc) và đánh giá các đánh đổi về tính toán của chúng
+- Xây dựng một pipeline lựa chọn đặc trưng kết hợp nhiều phương pháp và chứng minh khả năng khái quát hóa được cải thiện trên dữ liệu được giữ lại
 
 ## The Problem
 
-You have 500 features. Your model trains slowly, overfits constantly, and nobody can explain what it learned. You add more features hoping to improve performance. It gets worse.
+Bạn có 500 đặc trưng. Mô hình của bạn huấn luyện chậm, liên tục quá khớp và không ai có thể giải thích nó đã học gì. Bạn thêm nhiều đặc trưng hơn với hy vọng cải thiện hiệu suất. Nó trở nên tệ hơn.
 
-This is the curse of dimensionality in action. As the number of features grows, the volume of the feature space explodes. Data points become sparse. Distances between points converge. The model needs exponentially more data to find real patterns. Noise features drown out signal features. Overfitting becomes the default.
+Đây là lời nguyền số chiều đang phát huy tác động. Khi số đặc trưng tăng, thể tích không gian đặc trưng bùng nổ. Các điểm dữ liệu trở nên thưa thớt. Khoảng cách giữa các điểm hội tụ. Mô hình cần nhiều dữ liệu hơn theo cấp số nhân để tìm ra các mẫu thật. Các đặc trưng nhiễu lấn át các đặc trưng tín hiệu. Quá khớp trở thành mặc định.
 
-Feature selection is the antidote. Strip away the noise. Remove the redundancy. Keep the features that carry actual information about the target. The result: faster training, better generalization, and models you can actually explain.
+Lựa chọn đặc trưng là thuốc giải. Gạt bỏ nhiễu. Loại bỏ sự dư thừa. Giữ các đặc trưng mang thông tin thực sự về mục tiêu. Kết quả: huấn luyện nhanh hơn, khái quát hóa tốt hơn và các mô hình bạn thực sự có thể giải thích.
 
-The goal is not to use all available information. It is to use the right information.
+Mục tiêu không phải sử dụng mọi thông tin sẵn có. Mà là sử dụng đúng thông tin.
 
 ## The Concept
 
 ### Three Categories of Feature Selection
 
-Every feature selection method falls into one of three categories:
+Mỗi phương pháp lựa chọn đặc trưng thuộc một trong ba loại:
 
 ```mermaid
 flowchart TD
@@ -50,41 +50,41 @@ flowchart TD
     D --> D3["Elastic Net"]
 ```
 
-**Filter methods** score each feature independently using a statistical measure. They do not use a model. Fast, but they miss feature interactions.
+**Các phương pháp lọc** chấm điểm độc lập từng đặc trưng bằng một thước đo thống kê. Chúng không sử dụng mô hình. Nhanh, nhưng bỏ sót các tương tác đặc trưng.
 
-**Wrapper methods** train a model to evaluate feature subsets. They use model performance as the score. Better results, but expensive because they retrain the model many times.
+**Các phương pháp bao bọc** huấn luyện một mô hình để đánh giá các tập con đặc trưng. Chúng sử dụng hiệu suất mô hình làm điểm số. Kết quả tốt hơn, nhưng tốn kém vì huấn luyện lại mô hình nhiều lần.
 
-**Embedded methods** select features as part of model training. L1 regularization drives weights to zero. Decision trees split on the most useful features. Selection happens during fitting, not as a separate step.
+**Các phương pháp nhúng** lựa chọn đặc trưng như một phần của quá trình huấn luyện mô hình. Chính quy hóa L1 đẩy các trọng số về không. Cây quyết định chia theo các đặc trưng hữu ích nhất. Việc lựa chọn xảy ra trong quá trình khớp, không phải như một bước riêng biệt.
 
 ### Variance Threshold
 
-The simplest filter. If a feature barely varies across samples, it carries almost no information.
+Bộ lọc đơn giản nhất. Nếu một đặc trưng hầu như không biến thiên giữa các mẫu, nó gần như không mang thông tin.
 
-Consider a feature that is 0.0 for 999 out of 1000 samples. Its variance is near zero. No model can use it to distinguish between classes. Remove it.
+Xét một đặc trưng bằng 0.0 ở 999 trong số 1000 mẫu. Phương sai của nó gần bằng không. Không mô hình nào có thể sử dụng nó để phân biệt các lớp. Loại bỏ nó.
 
 ```
 variance(x) = mean((x - mean(x))^2)
 ```
 
-Set a threshold (e.g., 0.01). Drop every feature with variance below it. This removes constant or near-constant features without looking at the target variable at all.
+Đặt một ngưỡng (ví dụ: 0.01). Loại bỏ mọi đặc trưng có phương sai thấp hơn ngưỡng đó. Cách này loại bỏ các đặc trưng hằng hoặc gần hằng mà hoàn toàn không nhìn vào biến mục tiêu.
 
-When to use it: as a preprocessing step before other methods. It catches obviously useless features at near-zero cost.
+Khi nào sử dụng: như một bước tiền xử lý trước các phương pháp khác. Nó phát hiện các đặc trưng rõ ràng vô dụng với chi phí gần bằng không.
 
-Limitation: a feature can have high variance and still be pure noise. Variance threshold is necessary but not sufficient.
+Hạn chế: một đặc trưng có thể có phương sai cao mà vẫn hoàn toàn là nhiễu. Ngưỡng phương sai là cần nhưng chưa đủ.
 
 ### Mutual Information
 
-Mutual information measures how much knowing the value of feature X reduces uncertainty about target Y.
+Thông tin tương hỗ đo mức độ mà việc biết giá trị đặc trưng X làm giảm sự bất định về mục tiêu Y.
 
 ```
 I(X; Y) = sum_x sum_y p(x, y) * log(p(x, y) / (p(x) * p(y)))
 ```
 
-If X and Y are independent, p(x, y) = p(x) * p(y), so the log term is zero and I(X; Y) = 0. The more X tells you about Y, the higher the mutual information.
+Nếu X và Y độc lập, p(x, y) = p(x) * p(y), nên số hạng log bằng không và I(X; Y) = 0. X cho bạn biết càng nhiều về Y, thông tin tương hỗ càng cao.
 
-Key advantage over correlation: mutual information captures nonlinear relationships. A feature might have zero correlation with the target but high mutual information because the relationship is quadratic or periodic.
+Ưu điểm chính so với tương quan: thông tin tương hỗ nắm bắt các quan hệ phi tuyến. Một đặc trưng có thể có tương quan bằng không với mục tiêu nhưng thông tin tương hỗ cao vì quan hệ là bậc hai hoặc tuần hoàn.
 
-For continuous features, discretize into bins first (histogram-based estimation). The number of bins affects the estimate -- too few bins lose information, too many bins add noise. A common choice: sqrt(n) bins or Sturges' rule (1 + log2(n)).
+Đối với các đặc trưng liên tục, trước tiên rời rạc hóa thành các bin (ước lượng dựa trên histogram). Số bin ảnh hưởng đến ước lượng -- quá ít bin làm mất thông tin, quá nhiều bin thêm nhiễu. Một lựa chọn phổ biến: sqrt(n) bin hoặc quy tắc Sturges (1 + log2(n)).
 
 ```mermaid
 flowchart LR
@@ -97,12 +97,12 @@ flowchart LR
 
 ### Recursive Feature Elimination (RFE)
 
-RFE is a wrapper method. It uses a model's own feature importance to iteratively prune:
+RFE là một phương pháp bao bọc. Nó sử dụng độ quan trọng đặc trưng của chính mô hình để cắt tỉa lặp lại:
 
-1. Train the model with all features
-2. Rank features by importance (coefficients for linear models, impurity reduction for trees)
-3. Remove the least important feature(s)
-4. Repeat until the desired number of features remains
+1. Huấn luyện mô hình với tất cả các đặc trưng
+2. Xếp hạng các đặc trưng theo độ quan trọng (hệ số đối với mô hình tuyến tính, mức giảm độ hỗn tạp đối với cây)
+3. Loại bỏ (các) đặc trưng ít quan trọng nhất
+4. Lặp lại cho tới khi còn số đặc trưng mong muốn
 
 ```mermaid
 flowchart TD
@@ -114,33 +114,33 @@ flowchart TD
     E -->|Yes| F["Return Selected Features"]
 ```
 
-RFE considers feature interactions because the model sees all remaining features together. Removing one feature changes the importance of others. This makes it more thorough than filter methods.
+RFE xét các tương tác đặc trưng vì mô hình nhìn thấy tất cả các đặc trưng còn lại cùng nhau. Loại bỏ một đặc trưng làm thay đổi độ quan trọng của các đặc trưng khác. Điều này khiến nó kỹ lưỡng hơn các phương pháp lọc.
 
-The cost: you train the model N - target times. With 500 features and a target of 10, that is 490 training runs. For expensive models, this is slow. You can speed it up by removing multiple features per step (e.g., remove the bottom 10% each round).
+Chi phí: bạn huấn luyện mô hình N - target lần. Với 500 đặc trưng và mục tiêu là 10, đó là 490 lần huấn luyện. Đối với các mô hình tốn kém, cách này chậm. Bạn có thể tăng tốc bằng cách loại bỏ nhiều đặc trưng mỗi bước (ví dụ: loại bỏ 10% thấp nhất mỗi vòng).
 
 ### L1 (Lasso) Regularization
 
-L1 regularization adds the absolute value of weights to the loss function:
+Chính quy hóa L1 thêm giá trị tuyệt đối của các trọng số vào hàm mất mát:
 
 ```
 loss = prediction_error + alpha * sum(|w_i|)
 ```
 
-The alpha parameter controls how aggressively features are pruned. Higher alpha means more weights go to exactly zero.
+Tham số alpha kiểm soát mức độ quyết liệt khi cắt tỉa đặc trưng. Alpha cao hơn nghĩa là nhiều trọng số về đúng bằng không hơn.
 
-Why exactly zero? The L1 penalty creates a diamond-shaped constraint region in weight space. The optimal solution tends to land at a corner of this diamond, where one or more weights are zero. L2 regularization (ridge) creates a circular constraint where weights shrink but rarely hit zero.
+Tại sao đúng bằng không? Hình phạt L1 tạo ra một miền ràng buộc hình thoi trong không gian trọng số. Nghiệm tối ưu có xu hướng rơi vào một góc của hình thoi này, nơi một hoặc nhiều trọng số bằng không. Chính quy hóa L2 (ridge) tạo ra một ràng buộc hình tròn, nơi các trọng số co lại nhưng hiếm khi chạm không.
 
-This is embedded feature selection: the model learns during training which features to ignore. Features with zero weight are effectively removed.
+Đây là lựa chọn đặc trưng nhúng: mô hình học trong quá trình huấn luyện những đặc trưng nào cần bỏ qua. Các đặc trưng có trọng số bằng không về thực chất được loại bỏ.
 
-Advantages: single training run, handles correlated features (picks one and zeros the others), built into most linear model implementations.
+Ưu điểm: một lần huấn luyện, xử lý các đặc trưng tương quan (chọn một và đưa các đặc trưng khác về không), được tích hợp trong hầu hết các bản triển khai mô hình tuyến tính.
 
-Limitation: only works for linear models. Cannot capture nonlinear feature importance.
+Hạn chế: chỉ hoạt động cho mô hình tuyến tính. Không thể nắm bắt độ quan trọng đặc trưng phi tuyến.
 
 ### Tree-Based Feature Importance
 
-Decision trees and their ensembles (random forests, gradient boosting) naturally rank features. Every split reduces impurity (Gini or entropy for classification, variance for regression). Features that produce larger impurity reductions are more important.
+Cây quyết định và các ensemble của chúng (rừng ngẫu nhiên, gradient boosting) tự nhiên xếp hạng các đặc trưng. Mỗi phép chia giảm độ hỗn tạp (Gini hoặc entropy cho phân loại, phương sai cho hồi quy). Các đặc trưng tạo ra mức giảm độ hỗn tạp lớn hơn thì quan trọng hơn.
 
-For a random forest with T trees:
+Đối với một rừng ngẫu nhiên có T cây:
 
 ```
 importance(feature_j) = (1/T) * sum over all trees of
@@ -148,33 +148,33 @@ importance(feature_j) = (1/T) * sum over all trees of
         (n_samples * impurity_decrease)
 ```
 
-This gives a normalized importance score for each feature. It handles nonlinear relationships and feature interactions automatically.
+Cách này cho một điểm quan trọng được chuẩn hóa cho từng đặc trưng. Nó tự động xử lý các quan hệ phi tuyến và tương tác đặc trưng.
 
-Caution: tree-based importance is biased toward features with many unique values (high cardinality). A random ID column will appear important because it perfectly splits every sample. Use permutation importance as a sanity check.
+Thận trọng: độ quan trọng dựa trên cây thiên về các đặc trưng có nhiều giá trị duy nhất (cardinality cao). Một cột ID ngẫu nhiên sẽ trông quan trọng vì nó chia hoàn hảo mọi mẫu. Sử dụng độ quan trọng hoán vị để kiểm tra tính hợp lý.
 
 ### Permutation Importance
 
-A model-agnostic method:
+Một phương pháp độc lập với mô hình:
 
-1. Train the model and record baseline performance on validation data
-2. For each feature: shuffle its values randomly, measure the drop in performance
-3. The bigger the drop, the more important the feature
+1. Huấn luyện mô hình và ghi lại hiệu suất cơ sở trên dữ liệu validation
+2. Với mỗi đặc trưng: xáo trộn ngẫu nhiên các giá trị của nó, đo mức giảm hiệu suất
+3. Mức giảm càng lớn, đặc trưng càng quan trọng
 
-If shuffling a feature does not hurt performance, the model does not depend on it. If performance collapses, that feature is critical.
+Nếu xáo trộn một đặc trưng không làm giảm hiệu suất, mô hình không phụ thuộc vào nó. Nếu hiệu suất sụp đổ, đặc trưng đó rất quan trọng.
 
-Permutation importance avoids the cardinality bias of tree-based importance. But it is slow: one full evaluation per feature, repeated multiple times for stability.
+Độ quan trọng hoán vị tránh được sự thiên lệch cardinality của độ quan trọng dựa trên cây. Nhưng nó chậm: một lần đánh giá đầy đủ cho mỗi đặc trưng, lặp lại nhiều lần để ổn định.
 
 ### Comparison Table
 
-| Method | Type | Speed | Nonlinear | Feature Interactions |
+| Phương pháp | Loại | Tốc độ | Phi tuyến | Tương tác đặc trưng |
 |--------|------|-------|-----------|---------------------|
-| Variance threshold | Filter | Very fast | No | No |
-| Mutual information | Filter | Fast | Yes | No |
-| Correlation filter | Filter | Fast | No | No |
-| RFE | Wrapper | Slow | Depends on model | Yes |
-| L1 / Lasso | Embedded | Fast | No (linear) | No |
-| Tree importance | Embedded | Medium | Yes | Yes |
-| Permutation importance | Model-agnostic | Slow | Yes | Yes |
+| Ngưỡng phương sai | Lọc | Rất nhanh | Không | Không |
+| Thông tin tương hỗ | Lọc | Nhanh | Có | Không |
+| Bộ lọc tương quan | Lọc | Nhanh | Không | Không |
+| RFE | Bao bọc | Chậm | Phụ thuộc vào mô hình | Có |
+| L1 / Lasso | Nhúng | Nhanh | Không (tuyến tính) | Không |
+| Độ quan trọng cây | Nhúng | Trung bình | Có | Có |
+| Độ quan trọng hoán vị | Độc lập với mô hình | Chậm | Có | Có |
 
 ### Decision Flowchart
 
@@ -247,7 +247,7 @@ def make_feature_selection_data(n_samples=500, seed=42):
     return X, y, feature_names
 ```
 
-We know the ground truth: features 0-4 are informative (plus 3 and 4 are correlated copies of 0 and 1), features 5-9 are correlated with informative features, features 10-19 are pure noise. A good selection method should rank 0-4 highest and 10-19 lowest.
+Chúng ta biết sự thật nền: các đặc trưng 0-4 mang thông tin (cộng thêm 3 và 4 là các bản sao tương quan của 0 và 1), các đặc trưng 5-9 tương quan với các đặc trưng mang thông tin, các đặc trưng 10-19 hoàn toàn là nhiễu. Một phương pháp lựa chọn tốt nên xếp 0-4 cao nhất và 10-19 thấp nhất.
 
 ### Step 2: Variance threshold
 
@@ -461,11 +461,11 @@ def _build_tree_importance(X, y, feature_subset, max_depth, depth=0):
 
 ### Step 7: Run all methods and compare
 
-The code file runs all five methods on the same synthetic dataset and prints a comparison table showing which features each method selects.
+File mã chạy cả năm phương pháp trên cùng tập dữ liệu tổng hợp và in một bảng so sánh cho thấy mỗi phương pháp lựa chọn những đặc trưng nào.
 
 ## Use It
 
-With scikit-learn, feature selection is built into the pipeline:
+Với scikit-learn, lựa chọn đặc trưng được tích hợp vào pipeline:
 
 ```python
 from sklearn.feature_selection import (
@@ -496,45 +496,45 @@ rf.fit(X, y)
 importances = rf.feature_importances_
 ```
 
-The from-scratch implementations show exactly what happens inside each method. Variance threshold is just computing `var(X, axis=0)` and applying a mask. Mutual information is counting joint and marginal frequencies in a contingency table. RFE is a loop that trains, ranks, and prunes. L1 is gradient descent with a soft-thresholding step. Tree importance accumulates impurity reductions across splits. No magic -- just statistics and loops.
+Các bản triển khai từ đầu cho thấy chính xác điều gì xảy ra bên trong mỗi phương pháp. Ngưỡng phương sai chỉ là tính `var(X, axis=0)` và áp dụng một mặt nạ. Thông tin tương hỗ là đếm các tần số đồng thời và biên trong một bảng chéo. RFE là một vòng lặp huấn luyện, xếp hạng và cắt tỉa. L1 là hạ gradient với một bước ngưỡng hóa mềm. Độ quan trọng cây tích lũy các mức giảm độ hỗn tạp qua các phép chia. Không có phép thuật -- chỉ là thống kê và vòng lặp.
 
-The sklearn versions add robustness (e.g., mutual_info_classif uses k-NN density estimation instead of binning), speed (C implementations), and pipeline integration.
+Các phiên bản sklearn bổ sung độ vững (ví dụ: mutual_info_classif sử dụng ước lượng mật độ k-NN thay vì chia bin), tốc độ (các bản triển khai C) và tích hợp pipeline.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/skill-feature-selector.md` -- a quick reference decision tree for choosing the right feature selection method
+Bài học này tạo ra:
+- `outputs/skill-feature-selector.md` -- một cây quyết định tham khảo nhanh để chọn phương pháp lựa chọn đặc trưng phù hợp
 
 ## Exercises
 
-1. **Forward selection**: implement the opposite of RFE. Start with zero features. At each step, add the feature that improves model performance the most. Stop when adding features no longer helps. Compare the selected features against RFE results. Which is faster? Which gives better results?
+1. **Lựa chọn tiến**: triển khai cách ngược với RFE. Bắt đầu với không đặc trưng nào. Ở mỗi bước, thêm đặc trưng cải thiện hiệu suất mô hình nhiều nhất. Dừng khi thêm đặc trưng không còn giúp ích. So sánh các đặc trưng đã chọn với kết quả RFE. Cách nào nhanh hơn? Cách nào cho kết quả tốt hơn?
 
-2. **Stability selection**: run L1 feature selection 50 times, each time on a random 80% subsample of the data, with slightly different alpha values. Count how often each feature is selected. Features selected in > 80% of runs are "stable." Compare stable features against single-run L1 selection. Which is more reliable?
+2. **Lựa chọn ổn định**: chạy lựa chọn đặc trưng L1 50 lần, mỗi lần trên một mẫu con ngẫu nhiên gồm 80% dữ liệu, với các giá trị alpha hơi khác nhau. Đếm tần suất mỗi đặc trưng được chọn. Các đặc trưng được chọn trong > 80% số lần chạy là "ổn định". So sánh các đặc trưng ổn định với lựa chọn L1 chạy một lần. Cách nào đáng tin cậy hơn?
 
-3. **Multicollinearity detection**: compute the correlation matrix for all features. Implement a function that, given a correlation threshold (e.g., 0.9), removes one feature from each highly-correlated pair (keeping the one with higher mutual information with the target). Test on the synthetic dataset and verify it removes the redundant correlated features.
+3. **Phát hiện đa cộng tuyến**: tính ma trận tương quan cho tất cả các đặc trưng. Triển khai một hàm, với một ngưỡng tương quan cho trước (ví dụ: 0.9), loại bỏ một đặc trưng trong mỗi cặp tương quan cao (giữ lại đặc trưng có thông tin tương hỗ cao hơn với mục tiêu). Kiểm thử trên tập dữ liệu tổng hợp và xác minh nó loại bỏ các đặc trưng tương quan dư thừa.
 
-4. **Feature selection pipeline**: chain variance threshold, mutual information filter, and RFE into a single pipeline. First remove near-zero-variance features, then keep the top 50% by mutual information, then run RFE on the survivors. Compare this pipeline against running RFE alone on all features. Is the pipeline faster? Is it equally accurate?
+4. **Pipeline lựa chọn đặc trưng**: nối ngưỡng phương sai, bộ lọc thông tin tương hỗ và RFE thành một pipeline duy nhất. Trước tiên loại bỏ các đặc trưng có phương sai gần bằng không, sau đó giữ 50% cao nhất theo thông tin tương hỗ, rồi chạy RFE trên những đặc trưng còn lại. So sánh pipeline này với việc chỉ chạy RFE trên tất cả các đặc trưng. Pipeline có nhanh hơn không? Nó có chính xác tương đương không?
 
-5. **Permutation importance from scratch**: implement permutation importance. For each feature, shuffle its values 10 times, measure the average drop in F1 score. Compare the ranking against tree-based importance. Find cases where they disagree and explain why (hint: correlated features).
+5. **Độ quan trọng hoán vị từ đầu**: triển khai độ quan trọng hoán vị. Với mỗi đặc trưng, xáo trộn các giá trị của nó 10 lần, đo mức giảm trung bình của điểm F1. So sánh thứ hạng với độ quan trọng dựa trên cây. Tìm các trường hợp chúng không đồng ý và giải thích tại sao (gợi ý: các đặc trưng tương quan).
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Filter method | "Score features independently" | A feature selection approach that ranks features using a statistical measure without training a model, evaluating each feature in isolation |
-| Wrapper method | "Use the model to pick features" | A feature selection approach that evaluates feature subsets by training a model and using its performance as the selection criterion |
-| Embedded method | "The model selects features during training" | Feature selection that happens as part of model fitting, such as L1 regularization driving weights to zero |
-| Mutual information | "How much one variable tells you about another" | A measure of the reduction in uncertainty about Y given knowledge of X, capturing both linear and nonlinear dependencies |
-| Recursive Feature Elimination | "Train, rank, prune, repeat" | An iterative wrapper method that trains a model, removes the least important feature(s), and repeats until a target count is reached |
-| L1 / Lasso regularization | "Penalty that kills features" | Adding the sum of absolute weight values to the loss function, which drives unimportant feature weights to exactly zero |
-| Variance threshold | "Remove constant features" | Dropping features whose variance across samples falls below a specified threshold, filtering out features that carry no information |
-| Feature importance | "Which features matter most" | A score indicating how much each feature contributes to model predictions, computed from split gains (trees) or coefficient magnitudes (linear) |
-| Permutation importance | "Shuffle and measure the damage" | Evaluating feature importance by randomly shuffling each feature's values and measuring the resulting drop in model performance |
-| Curse of dimensionality | "Too many features, not enough data" | The phenomenon where adding features increases the volume of the feature space exponentially, making data sparse and distances meaningless |
+| Filter method (Phương pháp lọc) | "Chấm điểm độc lập các đặc trưng" | Một cách tiếp cận lựa chọn đặc trưng xếp hạng các đặc trưng bằng một thước đo thống kê mà không huấn luyện mô hình, đánh giá riêng từng đặc trưng |
+| Wrapper method (Phương pháp bao bọc) | "Sử dụng mô hình để chọn đặc trưng" | Một cách tiếp cận lựa chọn đặc trưng đánh giá các tập con đặc trưng bằng cách huấn luyện mô hình và sử dụng hiệu suất của nó làm tiêu chí lựa chọn |
+| Embedded method (Phương pháp nhúng) | "Mô hình lựa chọn đặc trưng trong quá trình huấn luyện" | Lựa chọn đặc trưng diễn ra như một phần của quá trình khớp mô hình, chẳng hạn như chính quy hóa L1 đẩy các trọng số về không |
+| Mutual information (Thông tin tương hỗ) | "Một biến cho bạn biết bao nhiêu về biến khác" | Một thước đo mức giảm sự bất định về Y khi biết X, nắm bắt cả các phụ thuộc tuyến tính và phi tuyến |
+| Recursive Feature Elimination (Loại bỏ đặc trưng đệ quy) | "Huấn luyện, xếp hạng, cắt tỉa, lặp lại" | Một phương pháp bao bọc lặp lại, huấn luyện mô hình, loại bỏ (các) đặc trưng ít quan trọng nhất và lặp lại cho tới khi đạt số lượng mục tiêu |
+| L1 / Lasso regularization (Chính quy hóa L1 / Lasso) | "Hình phạt tiêu diệt các đặc trưng" | Thêm tổng các giá trị tuyệt đối của trọng số vào hàm mất mát, đẩy trọng số của các đặc trưng không quan trọng về đúng bằng không |
+| Variance threshold (Ngưỡng phương sai) | "Loại bỏ các đặc trưng hằng" | Loại bỏ các đặc trưng có phương sai giữa các mẫu thấp hơn một ngưỡng được chỉ định, lọc bỏ các đặc trưng không mang thông tin |
+| Feature importance (Độ quan trọng đặc trưng) | "Những đặc trưng nào quan trọng nhất" | Một điểm số cho biết mỗi đặc trưng đóng góp bao nhiêu vào các dự đoán của mô hình, được tính từ mức tăng của phép chia (cây) hoặc độ lớn hệ số (tuyến tính) |
+| Permutation importance (Độ quan trọng hoán vị) | "Xáo trộn và đo thiệt hại" | Đánh giá độ quan trọng đặc trưng bằng cách xáo trộn ngẫu nhiên các giá trị của từng đặc trưng và đo mức giảm hiệu suất mô hình do đó gây ra |
+| Curse of dimensionality (Lời nguyền số chiều) | "Quá nhiều đặc trưng, không đủ dữ liệu" | Hiện tượng thêm đặc trưng làm tăng thể tích không gian đặc trưng theo cấp số nhân, khiến dữ liệu thưa thớt và khoảng cách vô nghĩa |
 
 ## Further Reading
 
-- [An Introduction to Variable and Feature Selection (Guyon & Elisseeff, 2003)](https://jmlr.org/papers/v3/guyon03a.html) -- the foundational survey on feature selection methods, still widely referenced
-- [scikit-learn Feature Selection Guide](https://scikit-learn.org/stable/modules/feature_selection.html) -- practical reference for filter, wrapper, and embedded methods with code examples
-- [Stability Selection (Meinshausen & Buhlmann, 2010)](https://arxiv.org/abs/0809.2932) -- combines subsampling with feature selection for robust, reproducible results
-- [Beware Default Random Forest Importances (Strobl et al., 2007)](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-8-25) -- demonstrates the cardinality bias in tree-based importance and proposes conditional importance as an alternative
+- [An Introduction to Variable and Feature Selection (Guyon & Elisseeff, 2003)](https://jmlr.org/papers/v3/guyon03a.html) -- khảo sát nền tảng về các phương pháp lựa chọn đặc trưng, vẫn được tham khảo rộng rãi
+- [scikit-learn Feature Selection Guide](https://scikit-learn.org/stable/modules/feature_selection.html) -- tài liệu tham khảo thực tế cho các phương pháp lọc, bao bọc và nhúng với các ví dụ mã
+- [Stability Selection (Meinshausen & Buhlmann, 2010)](https://arxiv.org/abs/0809.2932) -- kết hợp lấy mẫu con với lựa chọn đặc trưng để có kết quả vững và có thể tái lập
+- [Beware Default Random Forest Importances (Strobl et al., 2007)](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-8-25) -- chứng minh sự thiên lệch cardinality trong độ quan trọng dựa trên cây và đề xuất độ quan trọng có điều kiện làm phương án thay thế
