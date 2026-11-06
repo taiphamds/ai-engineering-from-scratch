@@ -1,6 +1,6 @@
 # Emu3: Next-Token Prediction for Image and Video Generation
 
-> BAAI's Emu3 (Wang et al., September 2024) is the 2024 result that should have ended the diffusion-versus-autoregressive debate. A single Llama-style decoder-only transformer, trained only on the next-token-prediction objective, across a unified vocabulary of text + VQ image tokens + 3D VQ video tokens, beats SDXL on image generation and LLaVA-1.6 on perception. No CLIP loss. No diffusion schedule. Classifier-free guidance is used at inference for quality, but the core training objective is next-token prediction with teacher forcing. Published in Nature. This lesson reads the Emu3 thesis — why a better tokenizer plus scale is all you need — and contrasts with diffusion approaches.
+> Emu3 của BAAI (Wang và cộng sự, tháng 9 năm 2024) là kết quả năm 2024 lẽ ra đã kết thúc cuộc tranh luận khuếch tán so với tự hồi quy. Một transformer chỉ có bộ giải mã kiểu Llama duy nhất, chỉ được huấn luyện bằng mục tiêu dự đoán token tiếp theo, trên một bộ từ vựng thống nhất gồm văn bản + token ảnh VQ + token video VQ 3D, vượt SDXL về tạo ảnh và LLaVA-1.6 về nhận thức. Không có hàm mất mát CLIP. Không có lịch khuếch tán. Hướng dẫn không dùng bộ phân loại được sử dụng khi suy luận để bảo đảm chất lượng, nhưng mục tiêu huấn luyện cốt lõi là dự đoán token tiếp theo với teacher forcing. Được công bố trên Nature. Bài học này đọc luận điểm của Emu3 — tại sao một tokenizer tốt hơn cộng với quy mô là tất cả những gì bạn cần — và đối chiếu với các cách tiếp cận khuếch tán.
 
 **Type:** Learn
 **Languages:** Python (stdlib, 3D video tokenizer math + autoregressive sampler skeleton)
@@ -9,81 +9,81 @@
 
 ## Learning Objectives
 
-- Explain why Emu3's single-loss next-token objective works despite the long-held assumption that diffusion is required for image quality.
-- Describe the 3D video tokenizer: what a spatiotemporal VQ codebook looks like, why patches span time.
-- Compare Emu3 vs Stable Diffusion XL on (training compute, inference cost, quality ceiling).
-- Name the three roles the same Emu3 model plays: Emu3-Gen (image gen), Emu3-Chat (perception), Emu3-Stage2 (video gen).
+- Giải thích tại sao mục tiêu token tiếp theo với một hàm mất mát duy nhất của Emu3 có hiệu quả bất chấp giả định lâu nay rằng chất lượng ảnh đòi hỏi khuếch tán.
+- Mô tả tokenizer video 3D: codebook VQ không gian-thời gian trông như thế nào, tại sao các patch trải dài theo thời gian.
+- So sánh Emu3 với Stable Diffusion XL về (lượng tính toán huấn luyện, chi phí suy luận, giới hạn chất lượng).
+- Nêu tên ba vai trò mà cùng một mô hình Emu3 đảm nhận: Emu3-Gen (tạo ảnh), Emu3-Chat (nhận thức), Emu3-Stage2 (tạo video).
 
 ## The Problem
 
-The conventional wisdom through 2024: image generation needs diffusion. The argument: discrete image tokens lose too much information to reconstruct detail, and autoregressive sampling accumulates error across thousands of tokens. Stable Diffusion, DALL-E 3, Imagen, Midjourney all use some form of diffusion. Chameleon (Lesson 12.11) partially disproved this at small scale but did not match SDXL on quality.
+Quan niệm thông thường cho đến năm 2024: tạo ảnh cần khuếch tán. Lập luận: các token ảnh rời rạc làm mất quá nhiều thông tin để tái tạo chi tiết, và việc lấy mẫu tự hồi quy tích lũy sai số qua hàng nghìn token. Stable Diffusion, DALL-E 3, Imagen, Midjourney đều sử dụng một dạng khuếch tán nào đó. Chameleon (Bài học 12.11) đã bác bỏ một phần điều này ở quy mô nhỏ nhưng chưa sánh được với SDXL về chất lượng.
 
-Emu3 attacked the argument head-on. The claim: better visual tokenizer + enough scale + next-token loss = diffusion-beating image generation in the same model that also does perception.
+Emu3 trực tiếp công kích lập luận đó. Tuyên bố: tokenizer thị giác tốt hơn + đủ quy mô + hàm mất mát token tiếp theo = tạo ảnh vượt khuếch tán trong cùng một mô hình cũng thực hiện nhận thức.
 
-The bet was controversial when it published. Two years on, the open-source unified-generation family (Emu3, Show-o, Janus-Pro, Transfusion) is the default path for research; production frontier models appear to use some variant.
+Vụ đặt cược này gây tranh cãi khi được công bố. Hai năm sau, họ mô hình tạo sinh thống nhất mã nguồn mở (Emu3, Show-o, Janus-Pro, Transfusion) là con đường mặc định cho nghiên cứu; các mô hình tiên tiến trong sản xuất dường như sử dụng một biến thể nào đó.
 
 ## The Concept
 
 ### The Emu3 tokenizer
 
-The key ingredient is the visual tokenizer. Emu3 trains a custom IBQ-class tokenizer (Inverse Bottleneck Quantizer, SBER-MoVQGAN family) at 8x8 resolution-reduction per token. A 512x512 image becomes 64x64 = 4096 tokens at codebook size 32768.
+Thành phần then chốt là tokenizer thị giác. Emu3 huấn luyện một tokenizer tùy chỉnh thuộc lớp IBQ (Inverse Bottleneck Quantizer, họ SBER-MoVQGAN) với mức giảm độ phân giải 8x8 cho mỗi token. Một ảnh 512x512 trở thành 64x64 = 4096 token với kích thước codebook 32768.
 
-This is larger than Chameleon's 1024 tokens per 512x512 at K=8192 but cheaper per token (smaller codebook lookups, simpler codec). The key metric: reconstruction PSNR at 30.5 dB, competitive with Stable Diffusion's continuous latent space at 32 dB.
+Con số này lớn hơn 1024 token trên mỗi ảnh 512x512 của Chameleon ở K=8192 nhưng rẻ hơn trên mỗi token (tra cứu codebook nhỏ hơn, codec đơn giản hơn). Chỉ số then chốt: PSNR tái tạo ở 30.5 dB, cạnh tranh với không gian tiềm ẩn liên tục của Stable Diffusion ở 32 dB.
 
-For video: a 3D VQ tokenizer encodes a spatiotemporal patch (4x4x4 pixels) to one integer. A 4s clip at 8 FPS has 32 frames; at 256x256 with 4x spatial and 4x temporal reduction, the token count is (256/4) * (256/4) * (32/4) = 64 * 64 * 8 = 32,768 tokens.
+Đối với video: tokenizer VQ 3D mã hóa một patch không gian-thời gian (4x4x4 pixel) thành một số nguyên. Một đoạn clip 4s ở 8 FPS có 32 khung hình; ở 256x256 với mức giảm không gian 4x và thời gian 4x, số token là (256/4) * (256/4) * (32/4) = 64 * 64 * 8 = 32,768 token.
 
-Tokenizer quality is the ceiling. Emu3's contribution is partly "we trained a very good tokenizer."
+Chất lượng tokenizer là giới hạn. Đóng góp của Emu3 một phần là "chúng tôi đã huấn luyện một tokenizer rất tốt."
 
 ### Single-loss training
 
-Emu3 uses one objective: next-token prediction on a shared vocabulary across text tokens, 2D image tokens, and 3D video tokens. Weights are multiplied by modality-specific factors during training to balance contribution, but the loss function is identical.
+Emu3 sử dụng một mục tiêu: dự đoán token tiếp theo trên bộ từ vựng dùng chung giữa token văn bản, token ảnh 2D và token video 3D. Trọng số được nhân với các hệ số riêng cho từng phương thức trong quá trình huấn luyện để cân bằng đóng góp, nhưng hàm mất mát giống hệt nhau.
 
-Train on a mix of:
-- Image gen: `<text caption> <image> image_tokens </image>`
-- Image perception: `<image> image_tokens </image> <question> text_tokens`
-- Video gen: `<text caption> <video> video_tokens </video>`
-- Video perception: analogous.
-- Text only: standard NTP.
+Huấn luyện trên hỗn hợp gồm:
+- Tạo ảnh: `<text caption> <image> image_tokens </image>`
+- Nhận thức ảnh: `<image> image_tokens </image> <question> text_tokens`
+- Tạo video: `<text caption> <video> video_tokens </video>`
+- Nhận thức video: tương tự.
+- Chỉ văn bản: NTP tiêu chuẩn.
 
-The model learns when to emit image tokens vs text tokens from the data distribution. Generation emerges from the model predicting image tokens after the `<image>` tag.
+Mô hình học khi nào phát ra token ảnh so với token văn bản từ phân phối dữ liệu. Khả năng tạo sinh xuất hiện từ việc mô hình dự đoán token ảnh sau thẻ `<image>`.
 
 ### Classifier-free guidance and temperature
 
-Autoregressive image generation gets much better with classifier-free guidance (CFG) at inference. Emu3 uses it: generate twice, once with the full caption, once with an empty caption, mix the logits with a guidance weight (typical 3.0-7.0). This is the same CFG trick diffusion uses, borrowed to the autoregressive setting.
+Tạo ảnh tự hồi quy tốt hơn nhiều khi có hướng dẫn không dùng bộ phân loại (CFG) lúc suy luận. Emu3 sử dụng nó: tạo hai lần, một lần với chú thích đầy đủ, một lần với chú thích rỗng, trộn các logit bằng một trọng số hướng dẫn (thường là 3.0-7.0). Đây là cùng thủ thuật CFG mà khuếch tán sử dụng, được mượn sang bối cảnh tự hồi quy.
 
-Temperature matters: too high, artifacts; too low, mode collapse. Emu3's recommended temperature is 1.0 for perception, 0.8 for image generation.
+Nhiệt độ có vai trò quan trọng: quá cao, artifact; quá thấp, sụp đổ mode. Nhiệt độ được Emu3 khuyến nghị là 1.0 cho nhận thức, 0.8 cho tạo ảnh.
 
 ### Three roles, one model
 
-Emu3 ships as three functionally distinct APIs but one underlying weight set:
+Emu3 được phát hành dưới dạng ba API khác nhau về chức năng nhưng có chung một bộ trọng số bên dưới:
 
-- Emu3-Gen. Image generation. Input text, output image tokens.
-- Emu3-Chat. VQA and captioning. Input image (tokens), output text.
-- Emu3-Stage2. Video generation and video VQA. Input text or video, output text or video.
+- Emu3-Gen. Tạo ảnh. Đầu vào là văn bản, đầu ra là token ảnh.
+- Emu3-Chat. VQA và tạo chú thích. Đầu vào là ảnh (token), đầu ra là văn bản.
+- Emu3-Stage2. Tạo video và VQA video. Đầu vào là văn bản hoặc video, đầu ra là văn bản hoặc video.
 
-No task-specific heads. Just different prompt templates. Same checkpoint.
+Không có head dành riêng cho tác vụ. Chỉ có các mẫu prompt khác nhau. Cùng một checkpoint.
 
 ### Benchmarks
 
-From Emu3 paper (September 2024):
+Từ bài báo Emu3 (tháng 9 năm 2024):
 
-- Image generation: beats SDXL on MJHQ-30K FID (5.4 vs 5.6), GenEval overall (0.54 vs 0.55 — statistical tie), and Deep-Eval's composite on-par.
-- Image perception: beats LLaVA-1.6 on VQAv2 (75.1 vs 72.4) and roughly matches on MMMU.
-- Video generation: 4-second-clip quality at competitive FVD with Sora-era publicly benchmarked models.
+- Tạo ảnh: vượt SDXL trên MJHQ-30K FID (5.4 so với 5.6), GenEval tổng thể (0.54 so với 0.55 — hòa về mặt thống kê), và ngang bằng về điểm tổng hợp của Deep-Eval.
+- Nhận thức ảnh: vượt LLaVA-1.6 trên VQAv2 (75.1 so với 72.4) và gần ngang bằng trên MMMU.
+- Tạo video: chất lượng đoạn clip 4 giây với FVD cạnh tranh so với các mô hình thời Sora được đánh giá công khai.
 
-The numbers are not always winning — Emu3 trades a point here for a point there — but the claim "next-token prediction is all you need" is defensible across modalities.
+Các con số không phải lúc nào cũng thắng — Emu3 đánh đổi một điểm ở đây lấy một điểm ở đó — nhưng tuyên bố "dự đoán token tiếp theo là tất cả những gì bạn cần" có thể được bảo vệ trên các phương thức.
 
 ### Compute cost
 
-Emu3 was trained on ~300 billion multimodal tokens with a 7B-parameter model. GPU-hours roughly comparable to Llama-2-7B pretraining (2k-4k GPU-years on A100-class silicon). Diffusion models like Stable Diffusion 3 train in similar budgets but need separate text encoders and more complex pipelines.
+Emu3 được huấn luyện trên ~300 tỷ token đa phương thức với mô hình 7B tham số. Số giờ GPU gần tương đương tiền huấn luyện Llama-2-7B (2k-4k năm GPU trên silicon hạng A100). Các mô hình khuếch tán như Stable Diffusion 3 được huấn luyện với ngân sách tương tự nhưng cần các bộ mã hóa văn bản riêng và pipeline phức tạp hơn.
 
-At inference, Emu3 is slower than SDXL per image: 4096 image tokens at 30 tok/s is ~2 minutes per 512x512 image, vs 2-5 seconds for SDXL. Speculative decoding and KV-cache optimization narrow the gap but do not close it. Autoregressive image gen is compute-heavy; this is the standing trade-off.
+Khi suy luận, Emu3 chậm hơn SDXL trên mỗi ảnh: 4096 token ảnh ở 30 tok/s là ~2 phút cho mỗi ảnh 512x512, so với 2-5 giây của SDXL. Giải mã suy đoán và tối ưu KV-cache thu hẹp khoảng cách nhưng không xóa bỏ nó. Tạo ảnh tự hồi quy cần nhiều tính toán; đây là sự đánh đổi hiện hữu.
 
 ### Why it matters
 
-Emu3's deep contribution is conceptual. If next-token prediction scales to match diffusion on image generation, the unified-model path (one loss, one backbone, any modality) is viable. Future models do not need separate text encoders, separate diffusion schedulers, separate VAEs. One transformer, one tokenizer per modality, scale.
+Đóng góp sâu sắc của Emu3 mang tính khái niệm. Nếu dự đoán token tiếp theo mở rộng quy mô để sánh với khuếch tán về tạo ảnh, con đường mô hình thống nhất (một hàm mất mát, một backbone, bất kỳ phương thức nào) là khả thi. Các mô hình tương lai không cần bộ mã hóa văn bản riêng, bộ lập lịch khuếch tán riêng, VAE riêng. Một transformer, một tokenizer cho mỗi phương thức, quy mô.
 
-Show-o, Janus-Pro, and InternVL-U all build on or challenge this thesis. Chinese labs (BAAI, DeepSeek) publish more aggressively in this direction than US labs through 2025.
+Show-o, Janus-Pro và InternVL-U đều xây dựng trên hoặc thách thức luận điểm này. Các phòng thí nghiệm Trung Quốc (BAAI, DeepSeek) công bố theo hướng này mạnh mẽ hơn các phòng thí nghiệm Hoa Kỳ cho đến năm 2025.
 
 ```figure
 l5-emu3-next-token
@@ -91,39 +91,39 @@ l5-emu3-next-token
 
 ## Use It
 
-`code/main.py` builds two toy pieces:
+`code/main.py` xây dựng hai phần mô phỏng đơn giản:
 
-- A 2D vs 3D VQ tokenizer count calculator: given (resolution, patch, clip_length, FPS), compute token counts for image vs video.
-- An autoregressive image-token sampler with classifier-free guidance at temperature.
+- Một công cụ tính số lượng tokenizer VQ 2D so với 3D: cho (độ phân giải, patch, clip_length, FPS), tính số token cho ảnh so với video.
+- Một bộ lấy mẫu token ảnh tự hồi quy với hướng dẫn không dùng bộ phân loại ở một nhiệt độ.
 
-The CFG implementation matches Emu3's recipe — mix conditional and unconditional logits with a guidance weight.
+Phần triển khai CFG khớp với công thức của Emu3 — trộn các logit có điều kiện và vô điều kiện bằng một trọng số hướng dẫn.
 
 ## Ship It
 
-This lesson produces `outputs/skill-token-gen-cost-analyzer.md`. Given a generation product spec (image or video, target resolution, quality tier, latency budget), it computes token counts, inference cost, and picks Emu3-family vs diffusion.
+Bài học này tạo ra `outputs/skill-token-gen-cost-analyzer.md`. Với một đặc tả sản phẩm tạo sinh (ảnh hoặc video, độ phân giải mục tiêu, cấp chất lượng, ngân sách độ trễ), nó tính số token, chi phí suy luận và chọn họ Emu3 so với khuếch tán.
 
 ## Exercises
 
-1. Emu3 produces 4096 tokens per 512x512 image at 8x8 reduction. Compute the equivalent for 1024x1024 and 2048x2048. What happens to inference latency?
+1. Emu3 tạo ra 4096 token cho mỗi ảnh 512x512 ở mức giảm 8x8. Tính giá trị tương đương cho 1024x1024 và 2048x2048. Điều gì xảy ra với độ trễ suy luận?
 
-2. Read Emu3 Section 3.3 on the video tokenizer. Describe the 3D VQ patch shape and why it is 4x4x4 not 8x8x1.
+2. Đọc Mục 3.3 của Emu3 về tokenizer video. Mô tả hình dạng patch VQ 3D và tại sao nó là 4x4x4 chứ không phải 8x8x1.
 
-3. Classifier-free guidance weight 5.0 vs 3.0: what visual effect? Trace the math in `code/main.py`.
+3. Trọng số hướng dẫn không dùng bộ phân loại 5.0 so với 3.0: hiệu ứng thị giác nào? Lần theo phép toán trong `code/main.py`.
 
-4. Compute training FLOPs for Emu3-7B at 300B tokens and compare to Stable Diffusion 3. Which was more expensive to train?
+4. Tính FLOP huấn luyện cho Emu3-7B ở 300B token và so sánh với Stable Diffusion 3. Mô hình nào tốn kém hơn để huấn luyện?
 
-5. Emu3 beats SDXL on FID but not on VQAv2 vs specialized VLMs. Explain why the unified-loss approach shows different strengths vs specialists on different benchmarks.
+5. Emu3 vượt SDXL trên FID nhưng không trên VQAv2 so với các VLM chuyên biệt. Giải thích tại sao cách tiếp cận một hàm mất mát thống nhất thể hiện các điểm mạnh khác nhau so với các mô hình chuyên biệt trên các benchmark khác nhau.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Next-token prediction | "NTP" | Standard autoregressive loss: predict token[i+1] given token[0..i]; works for every modality when tokenized |
-| IBQ tokenizer | "Inverse bottleneck quantizer" | A class of VQ-VAE with larger codebooks (32768+) and better reconstruction than Chameleon's |
-| 3D VQ | "Spatiotemporal quantizer" | Codebook indexed by (time, row, col); one token covers a 4x4x4 pixel cube |
-| Classifier-free guidance | "CFG" | Mix conditional and unconditional logits with weight gamma; boosts image quality at inference |
-| Unified vocabulary | "Shared tokens" | Text + image + video all draw from the same integer space; model predicts whichever modality comes next |
-| MJHQ-30K | "Image gen benchmark" | Midjourney-quality benchmark with 30k prompts; Emu3 reports FID here |
+| Next-token prediction (Dự đoán token tiếp theo) | "NTP" | Hàm mất mát tự hồi quy tiêu chuẩn: dự đoán token[i+1] khi biết token[0..i]; hoạt động cho mọi phương thức khi được token hóa |
+| IBQ tokenizer | "Bộ lượng tử hóa nút thắt ngược" | Một lớp VQ-VAE với codebook lớn hơn (32768+) và khả năng tái tạo tốt hơn của Chameleon |
+| 3D VQ | "Bộ lượng tử hóa không gian-thời gian" | Codebook được lập chỉ mục theo (thời gian, hàng, cột); một token bao phủ một khối lập phương 4x4x4 pixel |
+| Classifier-free guidance (Hướng dẫn không dùng bộ phân loại) | "CFG" | Trộn logit có điều kiện và vô điều kiện với trọng số gamma; tăng chất lượng ảnh khi suy luận |
+| Unified vocabulary (Bộ từ vựng thống nhất) | "Token dùng chung" | Văn bản + ảnh + video đều lấy từ cùng không gian số nguyên; mô hình dự đoán bất kỳ phương thức nào xuất hiện tiếp theo |
+| MJHQ-30K | "Benchmark tạo ảnh" | Benchmark chất lượng Midjourney với 30k prompt; Emu3 báo cáo FID ở đây |
 
 ## Further Reading
 

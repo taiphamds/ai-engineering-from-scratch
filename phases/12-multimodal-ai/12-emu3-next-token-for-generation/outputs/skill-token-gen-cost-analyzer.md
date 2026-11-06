@@ -7,24 +7,24 @@ lesson: 12
 tags: [emu3, next-token-prediction, video-gen, diffusion, cfg]
 ---
 
-Given a generation product spec (image or video, target resolution, quality tier, throughput requirement), compute token counts for Emu3-style next-token generation, estimate inference cost, and pick between Emu3-family and diffusion.
+Với một đặc tả sản phẩm tạo sinh (ảnh hoặc video, độ phân giải mục tiêu, cấp chất lượng, yêu cầu thông lượng), tính số token cho việc tạo token tiếp theo kiểu Emu3, ước tính chi phí suy luận và chọn giữa họ Emu3 với khuếch tán.
 
-Produce:
+Tạo ra:
 
-1. Token count. Per-image tokens at chosen tokenizer reduction (typically 8x per dim for image). Per-video tokens with 3D VQ (typically 4x4x4 spatiotemporal).
-2. Inference latency. Tokens / throughput (tokens-per-second) for Emu3-family; denoise-steps * step-time for diffusion. Cite concrete A100 / H100 ranges.
-3. Quality ceiling. Tokenizer reconstruction PSNR (30-32 dB for IBQ-class), FID expectations on MJHQ-30K, FVD for video.
-4. CFG configuration. Recommended guidance weight (gamma) per task; typical 3.0 for standard gen, 5-7 for strong prompt adherence.
-5. Pick. Emu3-family if product needs unified understanding + generation or any-modality flexibility; diffusion (SDXL / SD3 / Flux) if product is image-gen-only with strict latency.
+1. Số token. Token trên mỗi ảnh ở mức giảm của tokenizer đã chọn (thường là 8x mỗi chiều cho ảnh). Token trên mỗi video với VQ 3D (thường là 4x4x4 không gian-thời gian).
+2. Độ trễ suy luận. Token / thông lượng (token mỗi giây) cho họ Emu3; số bước khử nhiễu * thời gian mỗi bước cho khuếch tán. Dẫn các khoảng cụ thể của A100 / H100.
+3. Giới hạn chất lượng. PSNR tái tạo của tokenizer (30-32 dB cho lớp IBQ), kỳ vọng FID trên MJHQ-30K, FVD cho video.
+4. Cấu hình CFG. Trọng số hướng dẫn (gamma) được khuyến nghị theo từng tác vụ; thường là 3.0 cho tạo sinh tiêu chuẩn, 5-7 để bám sát prompt mạnh.
+5. Lựa chọn. Họ Emu3 nếu sản phẩm cần hiểu + tạo sinh thống nhất hoặc tính linh hoạt với bất kỳ phương thức nào; khuếch tán (SDXL / SD3 / Flux) nếu sản phẩm chỉ tạo ảnh với độ trễ nghiêm ngặt.
 
-Hard rejects:
-- Claiming Emu3 is faster than diffusion at inference. It is not; the autoregressive decode over thousands of image tokens is the standing cost.
-- Recommending Emu3-family without specifying CFG weight. Quality collapses without it.
-- Proposing Emu3 for strict 4K image generation. Token count at 2048+ resolution blows KV cache and takes minutes.
+Các trường hợp bác bỏ tuyệt đối:
+- Khẳng định Emu3 nhanh hơn khuếch tán khi suy luận. Không phải vậy; giải mã tự hồi quy qua hàng nghìn token ảnh là chi phí hiện hữu.
+- Khuyến nghị họ Emu3 mà không chỉ rõ trọng số CFG. Chất lượng sụp đổ nếu không có nó.
+- Đề xuất Emu3 để tạo ảnh đúng 4K. Số token ở độ phân giải 2048+ làm quá tải KV cache và mất nhiều phút.
 
-Refusal rules:
-- If latency budget is <5s per image, refuse Emu3 and recommend SDXL or SD3.
-- If product must emit images AND describe them AND reason about third-party images, recommend Emu3-family (the unified loss is the point); diffusion cannot do this without a separate VLM.
-- If user wants open weights with permissive license for commercial use, refuse Emu3 — check its license first; some versions are research-only.
+Quy tắc từ chối:
+- Nếu ngân sách độ trễ là <5s mỗi ảnh, từ chối Emu3 và khuyến nghị SDXL hoặc SD3.
+- Nếu sản phẩm phải phát ra ảnh VÀ mô tả chúng VÀ suy luận về ảnh của bên thứ ba, khuyến nghị họ Emu3 (hàm mất mát thống nhất là điểm chính); khuếch tán không thể làm điều này nếu không có một VLM riêng.
+- Nếu người dùng muốn trọng số mở với giấy phép dễ dãi để sử dụng thương mại, từ chối Emu3 — kiểm tra giấy phép của nó trước; một số phiên bản chỉ dành cho nghiên cứu.
 
-Output: one-page analysis with token counts, latency estimates, quality ceiling, CFG config, and a pick with justification. End with arXiv 2409.18869 (Emu3) and 2408.11039 (Transfusion) for the alternative.
+Đầu ra: phân tích một trang với số token, ước tính độ trễ, giới hạn chất lượng, cấu hình CFG và một lựa chọn kèm lý do. Kết thúc bằng arXiv 2409.18869 (Emu3) và 2408.11039 (Transfusion) cho phương án thay thế.
