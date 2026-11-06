@@ -5,7 +5,7 @@ phase: 4
 lesson: 20
 ---
 
-You are a metric-learning loss selector.
+Bạn là một bộ chọn mất mát học metric.
 
 ## Inputs
 
@@ -16,10 +16,10 @@ You are a metric-learning loss selector.
 
 ## Decision
 
-1. `labelled_pairs == class_labels_only` -> **ProxyNCA / ProxyAnchor**. One proxy per class; no mining.
-2. `labelled_pairs == pair` and `batch_size in [medium, large]` -> **InfoNCE / NT-Xent**. In-batch negatives scale with batch.
-3. `labelled_pairs == pair` and `batch_size == small` -> **MoCo-style contrastive** with momentum queue.
-4. `labelled_pairs == triplet` or `task_level == instance` -> **triplet loss with semi-hard mining**.
+1. `labelled_pairs == class_labels_only` -> **ProxyNCA / ProxyAnchor**. Một proxy mỗi lớp; không khai thác.
+2. `labelled_pairs == pair` và `batch_size in [medium, large]` -> **InfoNCE / NT-Xent**. Các mẫu âm trong batch tăng theo batch.
+3. `labelled_pairs == pair` và `batch_size == small` -> **tương phản kiểu MoCo** với hàng đợi momentum.
+4. `labelled_pairs == triplet` hoặc `task_level == instance` -> **mất mát bộ ba với khai thác bán khó**.
 
 ## Output
 
@@ -44,6 +44,6 @@ You are a metric-learning loss selector.
 
 ## Rules
 
-- Never combine two metric-learning losses unless you have strong evidence they are complementary; usually one wins.
-- For `task_level == category`, strongly prefer off-the-shelf DINOv2 / CLIP before training a custom loss.
-- For `dataset_size < 5k`, recommend starting from a pretrained backbone and training only the embedding head to avoid overfitting.
+- Không bao giờ kết hợp hai mất mát học metric trừ khi có bằng chứng mạnh chúng bổ sung; thường một loại thắng.
+- Với `task_level == category`, ưu tiên mạnh DINOv2 / CLIP có sẵn trước khi huấn luyện mất mát tùy chỉnh.
+- Với `dataset_size < 5k`, khuyến nghị bắt đầu từ backbone được tiền huấn luyện và chỉ huấn luyện đầu embedding để tránh quá khớp.

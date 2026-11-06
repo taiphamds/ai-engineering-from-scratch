@@ -1,6 +1,6 @@
 # Image Retrieval & Metric Learning
 
-> A retrieval system ranks candidates by a distance in embedding space. Metric learning is the discipline of shaping that space so the distances mean what you want.
+> Một hệ thống truy xuất xếp hạng ứng viên theo khoảng cách trong không gian embedding. Học metric là kỷ luật định hình không gian đó để các khoảng cách có ý nghĩa bạn muốn.
 
 **Type:** Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Explain triplet, contrastive, and proxy-based metric learning losses and pick the right one for a given dataset
-- Implement L2-normalisation and cosine similarity correctly and audit the difference between "same item" and "same class" retrieval
-- Build a FAISS index, query it by text and by image, and report recall@K for a held-out query set
-- Use DINOv2, CLIP, and SigLIP as off-the-shelf embedding backbones and know when each wins
+- Giải thích các mất mát học metric bộ ba, tương phản và dựa trên proxy, và chọn đúng loại cho một tập dữ liệu nhất định
+- Triển khai chuẩn hóa L2 và độ tương đồng cosine đúng và kiểm tra khác biệt giữa truy xuất "cùng vật" và "cùng lớp"
+- Xây chỉ mục FAISS, truy vấn bằng văn bản và hình ảnh, báo cáo recall@K cho tập truy vấn được giữ lại
+- Sử dụng DINOv2, CLIP và SigLIP như các backbone embedding có sẵn và biết khi nào mỗi loại thắng
 
 ## The Problem
 
-Retrieval is everywhere in production vision: duplicate detection, reverse image search, visual search ("find similar products"), face re-identification, person re-ID for surveillance, instance-level matching for e-commerce. The product question is always the same: "given this query image, rank my catalogue."
+Truy xuất ở mọi nơi trong thị giác production: phát hiện trùng lặp, tìm kiếm ảnh ngược, tìm kiếm thị giác ("tìm sản phẩm tương tự"), tái nhận dạng khuôn mặt, tái nhận dạng người để giám sát, ghép cấp thực thể cho thương mại điện tử. Câu hỏi sản phẩm luôn giống nhau: "với hình ảnh truy vấn này, xếp hạng danh mục của tôi."
 
-Two design decisions shape the whole system. The embedding — what model produces the vectors. The index — how to find nearest neighbours at scale. Both are commodity in 2026 (DINOv2 for the embedding, FAISS for the index), which raises the bar: the hard part is defining *what counts as similar* for your application, then shaping the embedding space so the distances match.
+Hai quyết định thiết kế định hình toàn hệ thống. Embedding — mô hình nào tạo vector. Chỉ mục — cách tìm láng giềng gần nhất ở quy mô lớn. Cả hai đều phổ thông năm 2026 (DINOv2 cho embedding, FAISS cho chỉ mục), nâng tiêu chuẩn: phần khó là định nghĩa *điều gì được coi là tương tự* cho ứng dụng, rồi định hình không gian embedding để các khoảng cách khớp.
 
-That shaping is metric learning. It is a small but high-leverage discipline.
+Việc định hình đó là học metric. Đó là một kỷ luật nhỏ nhưng có tác động lớn.
 
 ## The Concept
 
@@ -43,14 +43,14 @@ flowchart LR
 
 ### The four loss families
 
-| Loss | Requires | Pros | Cons |
+| Mất mát | Yêu cầu | Ưu điểm | Nhược điểm |
 |------|----------|------|------|
-| **Contrastive** | (anchor, positive) + negatives | Simple, works with any pair label | Slow to converge without many negatives |
-| **Triplet** | (anchor, positive, negative) | Intuitive; direct margin control | Hard-triplet mining is expensive |
-| **NT-Xent / InfoNCE** | Pairs + batch-mined negatives | Scales to large batches | Needs big batch or momentum queue |
-| **Proxy-based (ProxyNCA)** | Class labels only | Fast, stable, no mining | Can overfit to proxies on small datasets |
+| **Tương phản** | (neo, dương) + các mẫu âm | Đơn giản, hoạt động với mọi nhãn cặp | Hội tụ chậm nếu không có nhiều mẫu âm |
+| **Bộ ba** | (neo, dương, âm) | Trực quan; kiểm soát biên trực tiếp | Khai thác bộ ba khó tốn kém |
+| **NT-Xent / InfoNCE** | Các cặp + mẫu âm khai thác trong batch | Mở rộng tới batch lớn | Cần batch lớn hoặc hàng đợi momentum |
+| **Dựa trên proxy (ProxyNCA)** | Chỉ nhãn lớp | Nhanh, ổn định, không khai thác | Có thể quá khớp các proxy trên tập dữ liệu nhỏ |
 
-For most production use cases, start with a pretrained backbone and only add a metric-learning fine-tune if the off-the-shelf embeddings underperform on your test set.
+Với hầu hết trường hợp production, bắt đầu bằng backbone được tiền huấn luyện và chỉ thêm tinh chỉnh học metric nếu các embedding có sẵn hoạt động kém trên tập test.
 
 ### Triplet loss formally
 
@@ -58,49 +58,49 @@ For most production use cases, start with a pretrained backbone and only add a m
 L = max(0, ||f(a) - f(p)||^2 - ||f(a) - f(n)||^2 + margin)
 ```
 
-Pull anchor `a` close to positive `p`, push it away from negative `n`, with a `margin` that ensures a gap. The three-image structure generalises to any similarity ordering.
+Kéo neo `a` gần mẫu dương `p`, đẩy xa mẫu âm `n`, với một `margin` bảo đảm khoảng cách. Cấu trúc ba hình ảnh tổng quát hóa tới mọi thứ tự tương đồng.
 
-Mining matters: easy triplets (`n` already far from `a`) contribute zero loss; only hard triplets teach the network. Semi-hard mining (`n` further than `p` but within margin) is the 2016 FaceNet recipe and still dominates.
+Khai thác quan trọng: các bộ ba dễ (`n` đã xa `a`) đóng góp mất mát bằng không; chỉ các bộ ba khó dạy mạng. Khai thác bán khó (`n` xa hơn `p` nhưng trong biên) là công thức FaceNet năm 2016 và vẫn chiếm ưu thế.
 
 ### Cosine similarity vs L2
 
-Two metrics, two conventions:
+Hai metric, hai quy ước:
 
-- **Cosine**: angle between vectors. Requires L2-normalised embeddings.
-- **L2**: Euclidean distance. Works on raw or normalised embeddings, but is usually paired with L2-normalised + squared L2.
+- **Cosine**: góc giữa các vector. Cần các embedding chuẩn hóa L2.
+- **L2**: khoảng cách Euclid. Hoạt động trên các embedding thô hoặc chuẩn hóa, nhưng thường đi với chuẩn hóa L2 + L2 bình phương.
 
-For most modern nets the two are equivalent: `||a - b||^2 = 2 - 2 cos(a, b)` when `||a|| = ||b|| = 1`. Pick the convention that matches your embedding training; mixing them silently changes what "nearest" means.
+Với hầu hết mạng hiện đại hai metric tương đương: `||a - b||^2 = 2 - 2 cos(a, b)` khi `||a|| = ||b|| = 1`. Chọn quy ước khớp huấn luyện embedding; trộn chúng âm thầm thay đổi ý nghĩa "gần nhất".
 
 ### Recall@K
 
-The standard retrieval metric:
+Thước đo truy xuất tiêu chuẩn:
 
 ```
 recall@K = fraction of queries where at least one correct match is in the top K results
 ```
 
-Report recall@1, @5, @10 side by side. A recall@10 above 0.95 with recall@1 below 0.5 means the embedding space has the right structure but the ranking is noisy — try longer fine-tunes or a re-ranking step.
+Báo cáo recall@1, @5, @10 cạnh nhau. Recall@10 trên 0.95 với recall@1 dưới 0.5 nghĩa là không gian embedding có cấu trúc đúng nhưng xếp hạng nhiễu — thử tinh chỉnh lâu hơn hoặc bước xếp hạng lại.
 
-For duplicate detection, precision@K matters more because every false positive is a user-visible mistake. For visual search, recall@K is the product signal.
+Với phát hiện trùng lặp, precision@K quan trọng hơn vì mọi dương tính giả là lỗi người dùng thấy được. Với tìm kiếm thị giác, recall@K là tín hiệu sản phẩm.
 
 ### FAISS in one paragraph
 
-Facebook AI Similarity Search. The de-facto library for nearest-neighbour search. Three index choices:
+Facebook AI Similarity Search. Thư viện mặc nhiên cho tìm kiếm láng giềng gần nhất. Ba lựa chọn chỉ mục:
 
-- `IndexFlatIP` / `IndexFlatL2` — brute force, exact, no training. Use up to ~1M vectors.
-- `IndexIVFFlat` — partition into K cells, search only the closest few cells. Approximate, fast, needs training data.
-- `IndexHNSW` — graph-based, fastest for many queries, large index size.
+- `IndexFlatIP` / `IndexFlatL2` — vét cạn, chính xác, không huấn luyện. Dùng tới ~1M vector.
+- `IndexIVFFlat` — phân hoạch thành K ô, chỉ tìm vài ô gần nhất. Xấp xỉ, nhanh, cần dữ liệu huấn luyện.
+- `IndexHNSW` — dựa trên đồ thị, nhanh nhất cho nhiều truy vấn, kích thước chỉ mục lớn.
 
-For 100k vectors you probably want `IndexFlatIP` on cosine similarity. For 10M you want `IndexIVFFlat`. For 100M+ combined with product quantisation (`IndexIVFPQ`).
+Với 100k vector có lẽ bạn muốn `IndexFlatIP` trên độ tương đồng cosine. Với 10M bạn muốn `IndexIVFFlat`. Với 100M+ kết hợp lượng tử hóa tích (`IndexIVFPQ`).
 
 ### Instance-level vs category-level retrieval
 
-Two very different problems with the same name:
+Hai bài toán rất khác nhau cùng tên:
 
-- **Category-level** — "find cats in my catalogue." Class-conditional similarity; off-the-shelf CLIP / DINOv2 embeddings work well.
-- **Instance-level** — "find *this exact product* in my catalogue." Needs fine-grained discrimination between visually similar objects of the same class; off-the-shelf embeddings under-perform; fine-tuning with metric learning matters.
+- **Cấp loại** — "tìm mèo trong danh mục của tôi." Tương đồng có điều kiện lớp; các embedding CLIP / DINOv2 có sẵn hoạt động tốt.
+- **Cấp thực thể** — "tìm *đúng sản phẩm này* trong danh mục của tôi." Cần phân biệt tinh giữa các đối tượng nhìn tương tự cùng lớp; embedding có sẵn hoạt động kém; tinh chỉnh bằng học metric quan trọng.
 
-Always ask which one you are solving before picking a model.
+Luôn hỏi bạn đang giải bài toán nào trước khi chọn mô hình.
 
 ```figure
 metric-embedding
@@ -120,11 +120,11 @@ def triplet_loss(anchor, positive, negative, margin=0.2):
     return F.relu(d_ap - d_an + margin).mean()
 ```
 
-One line. Works on L2-normalised or raw embeddings.
+Một dòng. Hoạt động trên embedding chuẩn hóa L2 hoặc thô.
 
 ### Step 2: Semi-hard mining
 
-Given a batch of embeddings and labels, find the hardest semi-hard negative for each anchor.
+Với một batch embedding và nhãn, tìm mẫu âm bán khó khó nhất cho mỗi neo.
 
 ```python
 def semi_hard_negatives(emb, labels, margin=0.2):
@@ -152,7 +152,7 @@ def semi_hard_negatives(emb, labels, margin=0.2):
     return pos_idx, neg_idx
 ```
 
-Each anchor gets the hardest positive in-class and a semi-hard negative that is further than the positive but within margin.
+Mỗi neo có mẫu dương khó nhất cùng lớp và mẫu âm bán khó xa hơn mẫu dương nhưng trong biên.
 
 ### Step 3: Recall@K
 
@@ -164,7 +164,7 @@ def recall_at_k(query_emb, gallery_emb, query_labels, gallery_labels, k=1):
     return matches.float().mean().item()
 ```
 
-Top-k by inner product on L2-normalised embeddings equals top-k by cosine. Report the mean proportion of queries with at least one correct neighbour.
+Top-k theo tích vô hướng trên embedding chuẩn hóa L2 bằng top-k theo cosine. Báo cáo tỷ lệ trung bình các truy vấn có ít nhất một láng giềng đúng.
 
 ### Step 4: Putting it together
 
@@ -204,48 +204,48 @@ for step in range(200):
     opt.zero_grad(); loss.backward(); opt.step()
 ```
 
-After a few hundred steps the embedding clusters form one cluster per class.
+Sau vài trăm bước các cụm embedding tạo thành một cụm mỗi lớp.
 
 ## Use It
 
-Production stacks in 2026:
+Các bộ công cụ production năm 2026:
 
-- **DINOv2 + FAISS** — general-purpose visual retrieval. Works off-the-shelf.
-- **CLIP + FAISS** — when queries are text.
-- **Fine-tuned DINOv2 + FAISS** — instance-level retrieval, face re-ID, fashion, e-commerce.
-- **Milvus / Weaviate / Qdrant** — managed vector DB wrappers around FAISS or HNSW.
+- **DINOv2 + FAISS** — truy xuất thị giác đa dụng. Hoạt động sẵn có.
+- **CLIP + FAISS** — khi truy vấn là văn bản.
+- **DINOv2 được tinh chỉnh + FAISS** — truy xuất cấp thực thể, tái nhận dạng khuôn mặt, thời trang, thương mại điện tử.
+- **Milvus / Weaviate / Qdrant** — các lớp bọc cơ sở dữ liệu vector được quản lý quanh FAISS hoặc HNSW.
 
-For SOTA instance retrieval, the recipe is: DINOv2 backbone, add an embedding head, fine-tune with a triplet or InfoNCE loss on instance-labelled pairs, index in FAISS.
+Cho truy xuất thực thể SOTA, công thức là: backbone DINOv2, thêm đầu embedding, tinh chỉnh bằng mất mát bộ ba hoặc InfoNCE trên các cặp gán nhãn thực thể, lập chỉ mục trong FAISS.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-retrieval-loss-picker.md` — a prompt that picks triplet / InfoNCE / ProxyNCA for a given retrieval problem.
-- `outputs/skill-recall-at-k-runner.md` — a skill that writes a clean evaluation harness for recall@K with train/val/gallery splits and proper data contract.
+- `outputs/prompt-retrieval-loss-picker.md` — một prompt chọn bộ ba / InfoNCE / ProxyNCA cho một bài toán truy xuất nhất định.
+- `outputs/skill-recall-at-k-runner.md` — một skill viết bộ đánh giá gọn cho recall@K với các tập chia huấn luyện/validation/gallery và hợp đồng dữ liệu đúng.
 
 ## Exercises
 
-1. **(Easy)** Run the toy example above. Plot the embeddings with PCA before and after training to see the six clusters form.
-2. **(Medium)** Add a ProxyNCA loss implementation: one learned "proxy" per class, standard cross-entropy on cosine similarity. Compare convergence speed vs triplet loss on the toy data.
-3. **(Hard)** Take 1,000 ImageNet validation images, embed with DINOv2 via HuggingFace, build a FAISS flat index, and report recall@{1, 5, 10} against the same images as queries (should be 1.0) and against a held-out split with ImageNet labels as ground truth.
+1. **(Dễ)** Chạy ví dụ đồ chơi trên. Vẽ các embedding bằng PCA trước và sau huấn luyện để thấy sáu cụm hình thành.
+2. **(Vừa)** Thêm bản triển khai mất mát ProxyNCA: một "proxy" được học mỗi lớp, cross-entropy tiêu chuẩn trên độ tương đồng cosine. So sánh tốc độ hội tụ với mất mát bộ ba trên dữ liệu đồ chơi.
+3. **(Khó)** Lấy 1,000 hình ảnh validation ImageNet, embedding bằng DINOv2 qua HuggingFace, xây chỉ mục phẳng FAISS và báo cáo recall@{1, 5, 10} với cùng các hình ảnh làm truy vấn (nên là 1.0) và với tập chia được giữ lại có nhãn ImageNet làm sự thật nền.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Metric learning | "Shape the space" | Training an encoder so distances in its output space reflect a target similarity |
-| Triplet loss | "Pull and push" | L = max(0, d(a, p) - d(a, n) + margin); the canonical metric-learning loss |
-| Semi-hard mining | "Useful negatives" | Negatives further from the anchor than the positive but within margin; empirically the most informative |
-| Proxy-based loss | "Class prototypes" | One learned proxy per class; cross-entropy over similarity-to-proxies; no pair mining |
-| Recall@K | "Top-K hit rate" | Fraction of queries with at least one correct result in the top K |
-| Instance retrieval | "Find this exact thing" | Fine-grained matching; off-the-shelf features usually underperform |
-| FAISS | "The NN library" | Facebook's nearest-neighbour library; supports exact and approximate indexes |
-| HNSW | "Graph index" | Hierarchical navigable small world; fast approximate NN with small memory overhead |
+| Metric learning (Học metric) | "Định hình không gian" | Huấn luyện encoder để khoảng cách trong không gian đầu ra phản ánh độ tương đồng đích |
+| Triplet loss (Mất mát bộ ba) | "Kéo và đẩy" | L = max(0, d(a, p) - d(a, n) + margin); mất mát học metric chuẩn |
+| Semi-hard mining (Khai thác bán khó) | "Các mẫu âm hữu ích" | Các mẫu âm xa neo hơn mẫu dương nhưng trong biên; nhiều thông tin nhất theo thực nghiệm |
+| Proxy-based loss (Mất mát dựa trên proxy) | "Các nguyên mẫu lớp" | Một proxy được học mỗi lớp; cross-entropy trên tương đồng-với-proxy; không khai thác cặp |
+| Recall@K | "Tỷ lệ trúng top-K" | Tỷ lệ truy vấn có ít nhất một kết quả đúng trong K kết quả đầu |
+| Instance retrieval (Truy xuất thực thể) | "Tìm đúng thứ này" | Ghép tinh; các đặc trưng có sẵn thường hoạt động kém |
+| FAISS | "Thư viện NN" | Thư viện láng giềng gần nhất của Facebook; hỗ trợ chỉ mục chính xác và xấp xỉ |
+| HNSW | "Chỉ mục đồ thị" | Thế giới nhỏ điều hướng phân cấp; NN xấp xỉ nhanh với chi phí bộ nhớ phụ nhỏ |
 
 ## Further Reading
 
-- [FaceNet: A Unified Embedding for Face Recognition (Schroff et al., 2015)](https://arxiv.org/abs/1503.03832) — the triplet loss / semi-hard mining paper
-- [In Defense of the Triplet Loss for Person Re-Identification (Hermans et al., 2017)](https://arxiv.org/abs/1703.07737) — practical guide to triplet fine-tuning
-- [FAISS documentation](https://github.com/facebookresearch/faiss/wiki) — every index, every trade-off
-- [SMoT: Metric Learning Taxonomy (Kim et al., 2021)](https://arxiv.org/abs/2010.06927) — survey of modern losses and their connections
+- [FaceNet: A Unified Embedding for Face Recognition (Schroff et al., 2015)](https://arxiv.org/abs/1503.03832) — bài báo mất mát bộ ba / khai thác bán khó
+- [In Defense of the Triplet Loss for Person Re-Identification (Hermans et al., 2017)](https://arxiv.org/abs/1703.07737) — hướng dẫn thực tế về tinh chỉnh bộ ba
+- [FAISS documentation](https://github.com/facebookresearch/faiss/wiki) — mọi chỉ mục, mọi đánh đổi
+- [SMoT: Metric Learning Taxonomy (Kim et al., 2021)](https://arxiv.org/abs/2010.06927) — khảo sát các mất mát hiện đại và liên hệ của chúng

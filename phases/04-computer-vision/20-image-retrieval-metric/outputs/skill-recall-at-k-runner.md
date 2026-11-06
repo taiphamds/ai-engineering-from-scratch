@@ -9,31 +9,31 @@ tags: [retrieval, evaluation, recall, faiss]
 
 # Recall@K Runner
 
-Turn a folder of query and gallery images plus labels into a reproducible recall@K number.
+Biến một thư mục hình ảnh truy vấn và gallery cùng nhãn thành con số recall@K có thể tái lập.
 
 ## When to use
 
-- First retrieval benchmark for a new backbone.
-- Tracking embedding quality across fine-tune epochs.
-- Comparing two retrieval systems on the same dataset.
+- Benchmark truy xuất đầu cho một backbone mới.
+- Theo dõi chất lượng embedding qua các epoch tinh chỉnh.
+- So sánh hai hệ thống truy xuất trên cùng tập dữ liệu.
 
 ## Inputs
 
-- `query_images`: list of paths.
-- `gallery_images`: list of paths (query may or may not overlap).
-- `query_labels`, `gallery_labels`: class or instance IDs.
-- `encoder_fn`: callable `image -> embedding` (precomputed or live).
-- `ks`: list like `[1, 5, 10]`.
+- `query_images`: danh sách đường dẫn.
+- `gallery_images`: danh sách đường dẫn (truy vấn có thể trùng hoặc không).
+- `query_labels`, `gallery_labels`: ID lớp hoặc thực thể.
+- `encoder_fn`: đối tượng gọi được `image -> embedding` (tính trước hoặc trực tiếp).
+- `ks`: danh sách như `[1, 5, 10]`.
 
 ## Steps
 
-1. Encode every gallery image once. Save as numpy array.
-2. Encode every query image.
-3. L2-normalise both sets of embeddings.
-4. For each query, compute similarity against all gallery items.
-5. Sort descending, take top max(ks).
-6. For each K, check whether any of the top-K gallery items shares the query's label.
-7. Report `recall@K = fraction of queries that had at least one correct neighbour in top K`.
+1. Mã hóa mọi hình ảnh gallery một lần. Lưu dưới dạng mảng numpy.
+2. Mã hóa mọi hình ảnh truy vấn.
+3. Chuẩn hóa L2 cả hai tập embedding.
+4. Với mỗi truy vấn, tính tương đồng với mọi mục gallery.
+5. Sắp giảm dần, lấy top max(ks).
+6. Với mỗi K, kiểm tra liệu bất kỳ mục gallery top-K nào có cùng nhãn truy vấn.
+7. Báo cáo `recall@K = fraction of queries that had at least one correct neighbour in top K`.
 
 ## Output template
 
@@ -109,7 +109,7 @@ def evaluate(query_images, query_labels, gallery_images, gallery_labels, encoder
 
 ## Rules
 
-- Normalise embeddings before computing similarity; FAISS IndexFlatIP on normalised vectors equals cosine.
-- When a query's ground-truth label is absent from the gallery, exclude it; otherwise recall is trivially capped below 1.
-- If query and gallery overlap, exclude the query itself from its own top-K or you measure self-similarity, not retrieval.
-- For `num_queries > 10,000`, batch the similarity matmul to avoid OOM.
+- Chuẩn hóa embedding trước tính tương đồng; FAISS IndexFlatIP trên các vector chuẩn hóa bằng cosine.
+- Khi nhãn sự thật nền truy vấn vắng trong gallery, loại nó; nếu không recall bị chặn dưới 1 một cách hiển nhiên.
+- Nếu truy vấn và gallery trùng nhau, loại chính truy vấn khỏi top-K của nó hoặc bạn đo tự tương đồng, không phải truy xuất.
+- Với `num_queries > 10,000`, chia batch phép nhân ma trận tương đồng để tránh OOM.
