@@ -1,6 +1,6 @@
 # Batch APIs — the 50% Discount as Industry Standard
 
-> Every major provider ships an async batch API with a 50% discount and ~24-hour turnaround. OpenAI, Anthropic, Google, and most of the inference platforms (Fireworks batch tier, Together batch) implement the same pattern. Stack batch with prompt caching and overnight pipelines drop to ~10% of synchronous-uncached cost. The rule is brutally simple: if it is not interactive, it belongs on batch. Content generation pipelines, document classification, data extraction, report generation, bulk labeling, catalog tagging — anything tolerant of 24-hour latency is money left on the table until it moves to batch. The 2026 production pattern is to triage every new LLM workload into three lanes: interactive (synchronous with caching), semi-interactive (async queue with fallback), batch (overnight, cached input stacked). Workloads that pretend to be interactive but tolerate minutes of latency waste most.
+> Mọi nhà cung cấp lớn đều cung cấp API xử lý theo lô bất đồng bộ với giảm giá 50% và thời gian hoàn thành ~24 giờ. OpenAI, Anthropic, Google và hầu hết nền tảng suy luận (gói xử lý theo lô Fireworks, xử lý theo lô Together) triển khai cùng mẫu. Kết hợp xử lý theo lô với lưu bộ nhớ đệm prompt và pipeline qua đêm giảm xuống ~10% chi phí đồng bộ không lưu bộ nhớ đệm. Quy tắc cực kỳ đơn giản: nếu không tương tác, nó thuộc xử lý theo lô. Pipeline tạo nội dung, phân loại tài liệu, trích xuất dữ liệu, tạo báo cáo, gắn nhãn hàng loạt, gắn thẻ danh mục — bất cứ thứ gì chịu được độ trễ 24 giờ đều là tiền bị bỏ phí cho đến khi chuyển sang xử lý theo lô. Mẫu sản xuất năm 2026 là phân loại mọi khối lượng công việc LLM mới vào ba làn: tương tác (đồng bộ có lưu bộ nhớ đệm), bán tương tác (hàng đợi bất đồng bộ có dự phòng), theo lô (qua đêm, kết hợp đầu vào được lưu bộ nhớ đệm). Khối lượng công việc giả là tương tác nhưng chịu được độ trễ tính bằng phút lãng phí nhiều nhất.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy batch-vs-sync cost simulator)
@@ -9,75 +9,75 @@
 
 ## Learning Objectives
 
-- Name the three provider batch APIs (OpenAI, Anthropic, Google) and the common 50% discount + 24h turnaround guarantees.
-- Compute the cost for stacking batch + cached-input on an overnight classification workload and compare to synchronous-uncached baseline.
-- Triage a workload into interactive / semi-interactive / batch and justify the lane.
-- Name the two traps: partial interactivity (user expects faster than 24h) and output-schema drift (batch file format differs per provider).
+- Nêu ba API xử lý theo lô của nhà cung cấp (OpenAI, Anthropic, Google) và các bảo đảm chung giảm giá 50% + hoàn thành 24 giờ.
+- Tính chi phí khi kết hợp xử lý theo lô + đầu vào được lưu bộ nhớ đệm trên một khối lượng công việc phân loại qua đêm và so sánh với đường cơ sở đồng bộ không lưu bộ nhớ đệm.
+- Phân loại một khối lượng công việc vào tương tác / bán tương tác / theo lô và giải thích làn đó.
+- Nêu hai bẫy: tương tác một phần (người dùng mong đợi nhanh hơn 24 giờ) và độ trôi schema đầu ra (định dạng file theo lô khác nhau theo nhà cung cấp).
 
 ## The Problem
 
-Your team ships a nightly report generation pipeline. 50,000 documents, summarize each, cluster the summaries, draft an executive brief. Running synchronously it takes 4 hours at $2,000/night. You hear about batch APIs.
+Nhóm của bạn triển khai một pipeline tạo báo cáo hằng đêm. 50,000 tài liệu, tóm tắt từng tài liệu, phân cụm các bản tóm tắt, soạn bản báo cáo ngắn cho lãnh đạo. Chạy đồng bộ mất 4 giờ với $2,000/đêm. Bạn nghe nói về API xử lý theo lô.
 
-The batch gets you 50% off. You also enable prompt caching on the system prompt (shared across all 50k calls). Stacked, the bill drops to $180/night — ~9% of baseline. Same pipeline, three config changes.
+Xử lý theo lô giảm cho bạn 50%. Bạn cũng bật lưu bộ nhớ đệm prompt trên system prompt (dùng chung cho cả 50k lệnh gọi). Kết hợp lại, hóa đơn giảm xuống $180/đêm — ~9% đường cơ sở. Cùng pipeline, ba thay đổi cấu hình.
 
-Batch is the cheapest lever in the LLM cost toolkit that nobody pulls. The reason is mostly organizational: teams think "real-time" when the SLA actually is "by morning." This lesson is about not leaving 90% of the bill on the table.
+Xử lý theo lô là đòn bẩy rẻ nhất trong bộ công cụ chi phí LLM mà không ai kéo. Lý do chủ yếu thuộc tổ chức: các nhóm nghĩ "thời gian thực" khi SLA thực sự là "trước buổi sáng." Bài học này nói về việc không bỏ phí 90% hóa đơn.
 
 ## The Concept
 
 ### The three batch APIs
 
-**OpenAI Batch API**: JSONL file upload with a list of requests. Promised 24-hour turnaround (usually ~2-8 hours in practice). 50% discount on input and output tokens. `/v1/batches` endpoint. Cache-eligible inputs also get cached-input pricing on top.
+**OpenAI Batch API**: tải lên file JSONL với danh sách yêu cầu. Hứa hẹn hoàn thành trong 24 giờ (thực tế thường ~2-8 giờ). Giảm giá 50% token đầu vào và đầu ra. Endpoint `/v1/batches`. Đầu vào đủ điều kiện lưu bộ nhớ đệm cũng được thêm mức giá đầu vào được lưu bộ nhớ đệm.
 
-**Anthropic Message Batches**: JSONL upload. 24-hour turnaround. 50% discount. Supports `cache_control` — cache writes are explicit, reads happen automatically within the batch.
+**Anthropic Message Batches**: tải lên JSONL. Hoàn thành trong 24 giờ. Giảm giá 50%. Hỗ trợ `cache_control` — ghi bộ nhớ đệm là tường minh, đọc tự động diễn ra trong lô.
 
-**Google Vertex AI Batch Prediction**: BigQuery or GCS input. Similar 50% discount for Gemini. Integrates with Vertex pipelines.
+**Google Vertex AI Batch Prediction**: đầu vào BigQuery hoặc GCS. Giảm giá 50% tương tự cho Gemini. Tích hợp với pipeline Vertex.
 
 ### Semantic: asynchronous, not slow
 
-Batch is "I promise to return within 24 hours" — not "this will take 24 hours." Typical P50 is 2-6 hours. Provider schedules your batch during off-peak windows when GPU inventory is underutilized.
+Xử lý theo lô là "tôi hứa trả về trong vòng 24 giờ" — không phải "việc này sẽ mất 24 giờ." P50 điển hình là 2-6 giờ. Nhà cung cấp lên lịch lô của bạn trong khung thấp điểm khi lượng GPU chưa được tận dụng hết.
 
 ### Stack with caching
 
-A 50k-document summarization with the same 4K-token system prompt:
+Tóm tắt 50k tài liệu với cùng system prompt 4K token:
 
-- Synchronous uncached: 50000 × ($input × 4000 + $output × 200) at full rates.
-- Synchronous cached: system prompt cached after first write; remaining 49999 get 10x cheaper input.
-- Batch cached: all of the above plus 50% discount on both read and write.
+- Đồng bộ không lưu bộ nhớ đệm: 50000 × ($input × 4000 + $output × 200) ở giá đầy đủ.
+- Đồng bộ có lưu bộ nhớ đệm: system prompt được lưu bộ nhớ đệm sau lần ghi đầu tiên; 49999 còn lại có đầu vào rẻ hơn 10x.
+- Theo lô có lưu bộ nhớ đệm: tất cả những điều trên cộng giảm giá 50% cho cả đọc và ghi.
 
-The stack: batch + cache = ~10% of sync uncached bill. Any workload that runs overnight and has a shared system prompt should use this.
+Sự kết hợp: theo lô + bộ nhớ đệm = ~10% hóa đơn đồng bộ không lưu bộ nhớ đệm. Mọi khối lượng công việc chạy qua đêm và có system prompt chung nên dùng cách này.
 
 ### Workload triage
 
-**Interactive** — user waits for the response. TTFT matters. Synchronous call with prompt caching. Cannot batch.
+**Tương tác** — người dùng chờ phản hồi. TTFT quan trọng. Lệnh gọi đồng bộ với lưu bộ nhớ đệm prompt. Không thể xử lý theo lô.
 
-**Semi-interactive** — user submits a task, checks back in minutes. Async queue with fallback to sync if batch not available. Think moderate-volume RAG indexing.
+**Bán tương tác** — người dùng gửi một tác vụ, quay lại kiểm tra sau vài phút. Hàng đợi bất đồng bộ với dự phòng sang đồng bộ nếu xử lý theo lô không khả dụng. Hãy nghĩ đến lập chỉ mục RAG khối lượng vừa phải.
 
-**Batch** — user expects results "by morning" or "next hour." Content pipelines, classification at scale, offline analysis. Always batch, always stack caching.
+**Theo lô** — người dùng mong đợi kết quả "trước buổi sáng" hoặc "giờ tới." Pipeline nội dung, phân loại ở quy mô lớn, phân tích ngoại tuyến. Luôn xử lý theo lô, luôn kết hợp lưu bộ nhớ đệm.
 
-Common mistake: classifying everything as interactive because the pipeline is production. Production is not a latency spec — SLA is.
+Sai lầm phổ biến: phân loại mọi thứ là tương tác vì pipeline đang trong sản xuất. Sản xuất không phải đặc tả độ trễ — SLA mới là.
 
 ### The partial-interactivity trap
 
-Some features look interactive but tolerate 5-10 minutes. Example: a nightly customer health report with "refresh" button. User clicks refresh; wait 10 minutes is fine. Team ships it as synchronous. 50 concurrent refreshes cost 10x what batched-and-delivered-via-email would cost.
+Một số tính năng trông có tính tương tác nhưng chịu được 5-10 phút. Ví dụ: báo cáo sức khỏe khách hàng hằng đêm với nút "làm mới". Người dùng bấm làm mới; chờ 10 phút là ổn. Nhóm triển khai nó dưới dạng đồng bộ. 50 lượt làm mới đồng thời tốn 10x chi phí xử lý theo lô và gửi qua email.
 
-The question to ask: "What does 24-hour mean for this user?" If the answer is "they wouldn't notice," batch it.
+Câu hỏi cần đặt ra: "24 giờ có ý nghĩa gì với người dùng này?" Nếu câu trả lời là "họ sẽ không nhận ra," hãy xử lý theo lô.
 
 ### The output-schema trap
 
-Batch file formats differ per provider:
+Định dạng file theo lô khác nhau theo nhà cung cấp:
 
-- OpenAI: JSONL, one request per line.
-- Anthropic: JSONL, one message per line; response format embedded.
-- Vertex: BigQuery table or GCS prefix with TFRecord.
+- OpenAI: JSONL, một yêu cầu mỗi dòng.
+- Anthropic: JSONL, một thông điệp mỗi dòng; định dạng phản hồi được nhúng.
+- Vertex: bảng BigQuery hoặc tiền tố GCS với TFRecord.
 
-Writing "one batch client" across providers means adapter code per provider. Gateways that advertise multi-provider batch (Portkey, LiteLLM some tiers) still thin-wrap the raw format.
+Viết "một client xử lý theo lô" xuyên nhà cung cấp nghĩa là mã adapter cho mỗi nhà cung cấp. Các gateway quảng cáo xử lý theo lô đa nhà cung cấp (Portkey, một số gói LiteLLM) vẫn chỉ bọc mỏng định dạng thô.
 
 ### Numbers you should remember
 
-- Batch discount across providers: 50% flat on input + output.
-- Turnaround SLA: 24 hours guaranteed, 2-6 hours typical P50.
-- Stacked batch + cached input: ~10% of sync uncached cost.
-- Workload triage rule: if 24h latency acceptable, always batch.
+- Giảm giá xử lý theo lô trên các nhà cung cấp: đồng mức 50% cho đầu vào + đầu ra.
+- SLA hoàn thành: bảo đảm 24 giờ, P50 điển hình 2-6 giờ.
+- Kết hợp theo lô + đầu vào được lưu bộ nhớ đệm: ~10% chi phí đồng bộ không lưu bộ nhớ đệm.
+- Quy tắc phân loại khối lượng công việc: nếu chấp nhận độ trễ 24 giờ, luôn xử lý theo lô.
 
 ```figure
 batch-lane-triage
@@ -85,37 +85,37 @@ batch-lane-triage
 
 ## Use It
 
-`code/main.py` computes costs across sync, sync+cache, batch, and batch+cache for a 50k-document workload. Reports savings in $ and percent.
+`code/main.py` tính chi phí trên đồng bộ, đồng bộ+bộ nhớ đệm, theo lô và theo lô+bộ nhớ đệm cho khối lượng công việc 50k tài liệu. Báo cáo tiết kiệm theo $ và phần trăm.
 
 ## Ship It
 
-This lesson produces `outputs/skill-batch-triager.md`. Given workload characteristics, triages into interactive/semi/batch and estimates savings.
+Bài học này tạo ra `outputs/skill-batch-triager.md`. Với đặc điểm khối lượng công việc, phân loại vào tương tác/bán tương tác/theo lô và ước tính tiết kiệm.
 
 ## Exercises
 
-1. Run `code/main.py`. For a 100k-doc pipeline with 3K-token system prompt and 500-token output, compute the savings of full stack (batch + cache) vs sync baseline.
-2. Pick three features in a real product you know. Triage each into interactive/semi/batch.
-3. A user complains their report took 3 hours. Was that a batch mis-triage or a legitimate interactive? Write the decision criterion.
-4. Your batch API return SLA is 24h but P99 is 20 hours. How do you communicate this to the user — what is the downstream system behavior on the edge case?
-5. Compute break-even: at what shared-prefix length does batch + cache become cheaper than running overnight on your own reserved GPU?
+1. Chạy `code/main.py`. Với pipeline 100k tài liệu có system prompt 3K token và đầu ra 500 token, tính tiết kiệm của kết hợp đầy đủ (theo lô + bộ nhớ đệm) so với đường cơ sở đồng bộ.
+2. Chọn ba tính năng trong một sản phẩm thực tế bạn biết. Phân loại từng tính năng vào tương tác/bán tương tác/theo lô.
+3. Một người dùng phàn nàn báo cáo của họ mất 3 giờ. Đó là phân loại sai vào theo lô hay là tương tác hợp lý? Viết tiêu chí quyết định.
+4. SLA trả về của API xử lý theo lô của bạn là 24 giờ nhưng P99 là 20 giờ. Bạn truyền đạt điều này cho người dùng như thế nào — hành vi của hệ thống hạ nguồn trong trường hợp biên là gì?
+5. Tính điểm hòa vốn: ở độ dài tiền tố chung nào theo lô + bộ nhớ đệm trở nên rẻ hơn chạy qua đêm trên GPU đặt trước của chính bạn?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|----------------|------------------------|
-| Batch API | "async discount" | 50% off with 24h turnaround |
-| JSONL | "batch format" | One JSON request per line; OpenAI/Anthropic standard |
-| Message Batches | "Anthropic batch" | Anthropic's batch API product name |
-| Batch prediction | "Vertex batch" | Vertex AI's batch API product |
-| Turnaround SLA | "24h promise" | Guarantee, not typical; typical is 2-6h |
-| Workload triage | "interactivity decision" | Interactive / semi / batch routing decision |
-| Output schema | "response format" | Per-provider JSONL layout; not portable |
-| Stacked discount | "batch + cache" | ~10% of uncached sync bill when both apply |
+| Batch API (API xử lý theo lô) | "giảm giá bất đồng bộ" | Giảm 50% với thời gian hoàn thành 24 giờ |
+| JSONL | "định dạng theo lô" | Một yêu cầu JSON mỗi dòng; tiêu chuẩn OpenAI/Anthropic |
+| Message Batches | "theo lô Anthropic" | Tên sản phẩm API xử lý theo lô của Anthropic |
+| Batch prediction (Dự đoán theo lô) | "theo lô Vertex" | Sản phẩm API xử lý theo lô của Vertex AI |
+| Turnaround SLA (SLA hoàn thành) | "lời hứa 24 giờ" | Bảo đảm, không phải điển hình; điển hình là 2-6 giờ |
+| Workload triage (Phân loại khối lượng công việc) | "quyết định tính tương tác" | Quyết định định tuyến tương tác / bán tương tác / theo lô |
+| Output schema (Schema đầu ra) | "định dạng phản hồi" | Bố cục JSONL theo từng nhà cung cấp; không có tính di động |
+| Stacked discount (Giảm giá kết hợp) | "theo lô + bộ nhớ đệm" | ~10% hóa đơn đồng bộ không lưu bộ nhớ đệm khi cả hai áp dụng |
 
 ## Further Reading
 
-- [OpenAI Batch API](https://platform.openai.com/docs/guides/batch) — JSONL format and `/v1/batches` semantics.
-- [Anthropic Message Batches](https://docs.anthropic.com/en/docs/build-with-claude/batch-processing) — batch format and `cache_control` interaction.
-- [Vertex AI Batch Prediction](https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/batch-prediction-gemini) — Gemini batch semantics.
+- [OpenAI Batch API](https://platform.openai.com/docs/guides/batch) — định dạng JSONL và ngữ nghĩa `/v1/batches`.
+- [Anthropic Message Batches](https://docs.anthropic.com/en/docs/build-with-claude/batch-processing) — định dạng theo lô và tương tác `cache_control`.
+- [Vertex AI Batch Prediction](https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/batch-prediction-gemini) — ngữ nghĩa xử lý theo lô Gemini.
 - [Finout — OpenAI vs Anthropic API Pricing 2026](https://www.finout.io/blog/openai-vs-anthropic-api-pricing-comparison)
 - [Zen Van Riel — LLM API Cost Comparison 2026](https://zenvanriel.com/ai-engineer-blog/llm-api-cost-comparison-2026/)
