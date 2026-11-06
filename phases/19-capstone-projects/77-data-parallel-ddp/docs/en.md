@@ -1,6 +1,6 @@
 # Data Parallel DDP From Scratch
 
-> DistributedDataParallel is a hook on top of allreduce. Wrap a model, broadcast the initial parameters from rank 0 so every rank starts identical, install a backward hook on every parameter that issues an allreduce of the gradient, and the rest is gradient descent. The whole pattern is 200 lines.
+> DistributedDataParallel là một hook trên allreduce. Bọc một mô hình, phát quảng bá các tham số ban đầu từ rank 0 để mọi rank bắt đầu giống hệt, cài một hook lượt ngược trên mọi tham số phát một allreduce của gradient, và phần còn lại là hạ gradient. Toàn mẫu là 200 dòng.
 
 **Type:** Build
 **Languages:** Python
@@ -9,16 +9,16 @@
 
 ## Learning Objectives
 
-- Wire a `DistributedDataParallel`-shaped wrapper that broadcasts initial parameters and allreduces gradients after backward.
-- Spawn N CPU ranks with `torch.multiprocessing.spawn` over the gloo backend with file-based rendezvous.
-- Prove gradient-sync correctness by training the same model on the same data sequentially and showing per-step parameter equivalence.
-- Defend the use of buckets (gradient fusion) and overlap (comm during backward) as the two changes that turn a working DDP into a production DDP.
+- Nối một lớp bọc có hình thức `DistributedDataParallel` phát quảng bá các tham số ban đầu và allreduce các gradient sau lượt ngược.
+- Tạo N rank CPU bằng `torch.multiprocessing.spawn` trên backend gloo với điểm hẹn dựa trên file.
+- Chứng minh tính đúng đắn đồng bộ gradient bằng huấn luyện cùng mô hình trên cùng dữ liệu tuần tự và cho thấy tương đương tham số theo bước.
+- Bảo vệ việc dùng nhóm (hợp nhất gradient) và chồng lấn (giao tiếp trong lượt ngược) như hai thay đổi biến một DDP hoạt động thành một DDP sản xuất.
 
 ## The Problem
 
-A 1-billion-parameter model with 12 GB of activations does not fit on one consumer GPU. Even when it fits, training takes weeks. Data parallel splits the batch across N ranks, each rank computes the forward and backward on its shard, and at every step every rank's gradients are summed so all N copies stay identical. The summed gradient is what the optimiser steps on.
+Một mô hình 1 tỷ tham số với 12 GB kích hoạt không vừa trên một GPU tiêu dùng. Ngay cả khi vừa, huấn luyện mất nhiều tuần. Song song dữ liệu chia lô trên N rank, mỗi rank tính lượt tiến và ngược trên shard của nó, và ở mọi bước các gradient của mọi rank được cộng để cả N bản sao giữ giống hệt. Gradient được cộng là thứ bộ tối ưu thực hiện bước trên.
 
-Without gradient sync, the N replicas diverge by step 2. The model is not "one model trained on more data" anymore, it is N separate models that happen to share initial weights. With gradient sync done badly (one allreduce per parameter, no overlap, no bucketing) the network is the bottleneck and the GPUs idle waiting for the wire. The craft of DDP is making the gradient sync nearly free relative to compute. The canonical PyTorch DDP achieves that by bucketing gradients, overlapping allreduce with the next layer's backward, and using NCCL on NVLink. We can do all three on CPU with gloo and learn the same lessons.
+Không đồng bộ gradient, N bản sao phân kỳ ở bước 2. Mô hình không còn là "một mô hình được huấn luyện trên nhiều dữ liệu hơn", nó là N mô hình riêng tình cờ dùng chung trọng số ban đầu. Với đồng bộ gradient làm tệ (một allreduce mỗi tham số, không chồng lấn, không chia nhóm) mạng là nút thắt và các GPU nhàn rỗi đợi đường truyền. Kỹ nghệ DDP là làm đồng bộ gradient gần như miễn phí tương đối với tính toán. PyTorch DDP chuẩn đạt điều đó bằng chia nhóm gradient, chồng lấn allreduce với lượt ngược lớp tiếp theo, và dùng NCCL trên NVLink. Chúng ta có thể làm cả ba trên CPU với gloo và học cùng bài học.
 
 ## The Concept
 
@@ -41,23 +41,23 @@ sequenceDiagram
 
 ### The three operations DDP needs
 
-| Stage | Collective | Why |
+| Giai đoạn | Phép tập thể | Tại sao |
 |-------|-----------|-----|
-| Init | broadcast from rank 0 | Every rank starts with the same parameters |
-| After backward | allreduce of each grad | The mean gradient is what the optimiser steps on |
-| Sometimes | broadcast of buffers | Batchnorm running stats stay synchronised |
+| Khởi tạo | broadcast từ rank 0 | Mọi rank bắt đầu với cùng các tham số |
+| Sau lượt ngược | allreduce của mỗi gradient | Gradient trung bình là thứ bộ tối ưu thực hiện bước trên |
+| Đôi khi | broadcast các buffer | Các thống kê đang chạy Batchnorm giữ đồng bộ |
 
 ### Why mean and not sum
 
-Allreduce-SUM divided by world_size gives the mean gradient. The mean is invariant to world_size: a learning rate tuned at one rank works at four ranks because the per-step gradient magnitude does not change. Allreduce-SUM without the division forces you to retune the learning rate every time you change cluster size. DDP wraps the SUM and divides; do the same in the lesson.
+Allreduce-SUM chia cho world_size cho gradient trung bình. Trung bình bất biến với world_size: một tốc độ học được điều chỉnh ở một rank hoạt động ở bốn rank vì độ lớn gradient theo bước không đổi. Allreduce-SUM không có phép chia buộc bạn điều chỉnh lại tốc độ học mỗi khi đổi kích thước cụm. DDP bọc SUM và chia; làm tương tự trong bài học.
 
 ### Why bucket gradients
 
-A transformer has thousands of parameter tensors. One allreduce per tensor pays the gloo latency floor thousands of times. DDP groups gradients into ~25 MB buckets and issues one allreduce per bucket. The same total bytes move across the wire but the latency is amortised over the bucket. For the lesson's tiny model we group everything into one bucket; the structure is what carries across.
+Một transformer có hàng nghìn tensor tham số. Một allreduce mỗi tensor trả sàn độ trễ gloo hàng nghìn lần. DDP nhóm gradient thành các nhóm ~25 MB và phát một allreduce mỗi nhóm. Cùng tổng byte di chuyển trên đường truyền nhưng độ trễ được phân bổ trên nhóm. Với mô hình tí hon của bài học chúng ta nhóm mọi thứ vào một nhóm; cấu trúc là thứ chuyển giao.
 
 ### Why pin the seed
 
-Every rank must call `torch.manual_seed(seed + rank)` for shuffling but `torch.manual_seed(seed)` for parameter init. A single shared seed means every rank sees the same batch order (defeating data parallel); a rank-specific seed for params means initial parameters disagree by float epsilon and gradient sync no longer makes the replicas identical. Get the seed pattern right or the test for parameter equivalence fails on step 1.
+Mọi rank phải gọi `torch.manual_seed(seed + rank)` để xáo trộn nhưng `torch.manual_seed(seed)` để khởi tạo tham số. Một seed dùng chung duy nhất nghĩa là mọi rank thấy cùng thứ tự lô (đánh bại song song dữ liệu); một seed đặc thù rank cho tham số nghĩa là các tham số ban đầu bất đồng theo epsilon float và đồng bộ gradient không còn khiến các bản sao giống hệt. Làm đúng mẫu seed hoặc kiểm thử tương đương tham số thất bại ở bước 1.
 
 ```figure
 ci-ddp-grad-sync
@@ -65,65 +65,65 @@ ci-ddp-grad-sync
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `MiniMLP`: a 3-layer MLP small enough to converge in seconds, large enough to expose the wiring.
-- `DistributedDataParallel(model, world_size)`: broadcasts params at construct time, returns a wrapper whose `sync_grads` divides accumulated allreduce-summed grads by world_size.
-- `worker(rank, world_size, ...)`: full training loop with `torch.distributed` init over gloo, forward, backward, sync, step.
-- `_reference_single_process_loop(...)`: trains the same model on the same data sequentially on one rank, used by the test for byte-equal parameter equivalence after each step.
+- `MiniMLP`: một MLP 3 lớp đủ nhỏ để hội tụ trong vài giây, đủ lớn để lộ hệ thống nối.
+- `DistributedDataParallel(model, world_size)`: phát quảng bá tham số khi khởi tạo, trả về một lớp bọc có `sync_grads` chia các gradient tích lũy được cộng bằng allreduce cho world_size.
+- `worker(rank, world_size, ...)`: vòng lặp huấn luyện đầy đủ với khởi tạo `torch.distributed` trên gloo, lượt tiến, lượt ngược, đồng bộ, bước.
+- `_reference_single_process_loop(...)`: huấn luyện cùng mô hình trên cùng dữ liệu tuần tự trên một rank, được kiểm thử dùng cho tương đương tham số bằng nhau từng byte sau mỗi bước.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-Output: a per-step training table comparing single-process loss and parameter checksum to the DDP run on 4 ranks. The two paths produce identical loss curves to float epsilon, proving the gradient sync is correct.
+Đầu ra: một bảng huấn luyện theo bước so sánh mất mát và checksum tham số một tiến trình với lần chạy DDP trên 4 rank. Hai đường tạo các đường cong mất mát giống hệt trong epsilon float, chứng minh đồng bộ gradient chính xác.
 
 ## Production patterns in the wild
 
-Three patterns harden DDP enough to ship.
+Ba mẫu gia cố DDP đủ để cung cấp.
 
-**Find unused parameters.** Some forward paths skip parameters conditionally (early exit, mixture-of-experts router). The skipped parameters have no gradient, but DDP's bucket-ready hook still waits for them and the allreduce deadlocks. `find_unused_parameters=True` tells DDP to look at which params got gradients before reducing. The cost is a graph walk per step, so leave it off unless your forward branches.
+**Tìm các tham số không dùng.** Một số đường lượt tiến bỏ qua các tham số theo điều kiện (thoát sớm, bộ định tuyến mixture-of-experts). Các tham số bị bỏ không có gradient, nhưng hook nhóm-sẵn-sàng của DDP vẫn đợi chúng và allreduce deadlock. `find_unused_parameters=True` nói DDP xem các tham số nào có gradient trước khi rút gọn. Chi phí là một phép duyệt đồ thị mỗi bước, nên để tắt trừ khi lượt tiến của bạn phân nhánh.
 
-**Static graph optimisation.** When the forward is stable across steps, `static_graph=True` lets DDP precompute the bucket schedule. The optimisation matters at scale: precomputing saves a few ms per step which compounds across 10000 steps.
+**Tối ưu đồ thị tĩnh.** Khi lượt tiến ổn định qua các bước, `static_graph=True` để DDP tính trước lịch nhóm. Tối ưu quan trọng ở quy mô lớn: tính trước tiết kiệm vài ms mỗi bước cộng dồn qua 10000 bước.
 
-**Gradient accumulation needs care.** Accumulating gradients over K microbatches without syncing each microbatch is a 10x throughput win. DDP exposes `no_sync()` as a context manager that pauses the post-backward allreduce. Forget the manager and you allreduce K times for nothing; the throughput drops to the floor.
+**Tích lũy gradient cần cẩn thận.** Tích lũy gradient trên K lô vi mô mà không đồng bộ mỗi lô là một lợi ích thông lượng 10x. DDP cung cấp `no_sync()` như một trình quản lý ngữ cảnh tạm dừng allreduce sau lượt ngược. Quên trình quản lý và bạn allreduce K lần không vì gì; thông lượng rơi xuống sàn.
 
 ## Use It
 
-Production patterns:
+Các mẫu sản xuất:
 
-- **PyTorch DDP.** The canonical implementation. `torch.nn.parallel.DistributedDataParallel(model)` wires bucketing, overlap, and the no_sync context.
-- **HuggingFace Accelerate.** Adds a launcher that handles `torchrun` env vars and the model wrap. Same DDP under the hood.
-- **Megatron-LM data parallel.** Combines DDP with tensor parallel for large models; the data-parallel piece is the same allreduce-after-backward pattern.
+- **PyTorch DDP.** Triển khai chuẩn. `torch.nn.parallel.DistributedDataParallel(model)` nối chia nhóm, chồng lấn, và ngữ cảnh no_sync.
+- **HuggingFace Accelerate.** Thêm một trình khởi chạy xử lý các biến môi trường `torchrun` và bọc mô hình. Cùng DDP bên dưới.
+- **Song song dữ liệu Megatron-LM.** Kết hợp DDP với song song tensor cho các mô hình lớn; phần song song dữ liệu là cùng mẫu allreduce-sau-lượt-ngược.
 
 ## Ship It
 
-Lesson 78 (ZeRO sharding) replaces the per-parameter allreduce with reduce_scatter so each rank only stores its shard of the optimiser state. Lesson 81 composes DDP with ZeRO into the end-to-end demo.
+Bài 78 (chia shard ZeRO) thay allreduce theo tham số bằng reduce_scatter để mỗi rank chỉ lưu shard trạng thái bộ tối ưu của nó. Bài 81 kết hợp DDP với ZeRO vào demo đầu cuối.
 
 ## Exercises
 
-1. Add gradient buckets of configurable size and measure the speedup vs one-allreduce-per-parameter on a deeper model.
-2. Implement `no_sync()` as a context manager and verify gradient accumulation matches a single-process baseline over K microbatches.
-3. Add a `find_unused_parameters` mode where the forward sometimes skips one of the MLP layers; without the flag the run should deadlock.
-4. Replace gloo with `torch.distributed.barrier()`-only synchronisation to feel the difference between allreduce-based and barrier-based sync.
-5. Measure the gradient-sync overhead as a fraction of step time for batch sizes 1, 16, 256 and explain the scaling.
+1. Thêm các nhóm gradient kích thước có thể cấu hình và đo mức tăng tốc so với một-allreduce-mỗi-tham-số trên một mô hình sâu hơn.
+2. Triển khai `no_sync()` như một trình quản lý ngữ cảnh và xác minh tích lũy gradient khớp một đường cơ sở một tiến trình trên K lô vi mô.
+3. Thêm một chế độ `find_unused_parameters` mà lượt tiến đôi khi bỏ một trong các lớp MLP; không có cờ lần chạy nên deadlock.
+4. Thay gloo bằng đồng bộ chỉ-`torch.distributed.barrier()` để cảm nhận khác biệt giữa đồng bộ dựa trên allreduce và dựa trên barrier.
+5. Đo chi phí phụ đồng bộ gradient như một tỷ lệ thời gian bước cho các kích thước lô 1, 16, 256 và giải thích sự biến thiên.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| DDP | "Data parallel" | Wrapper that broadcasts params and allreduces grads each step |
-| Bucket | "Fuse grads" | Group N small allreduces into one large one |
-| Overlap | "Hide comm" | Issue allreduce while later layers still computing backward |
-| no_sync | "Accumulate" | Skip the post-backward allreduce for gradient accumulation |
-| find_unused | "Branchy forward" | Detect parameters with no grad before reducing |
+| DDP | "Song song dữ liệu" | Lớp bọc phát quảng bá tham số và allreduce gradient mỗi bước |
+| Bucket (Nhóm) | "Hợp nhất gradient" | Nhóm N allreduce nhỏ thành một lớn |
+| Overlap (Chồng lấn) | "Ẩn giao tiếp" | Phát allreduce trong khi các lớp sau vẫn đang tính lượt ngược |
+| no_sync | "Tích lũy" | Bỏ allreduce sau lượt ngược cho tích lũy gradient |
+| find_unused | "Lượt tiến phân nhánh" | Phát hiện các tham số không có gradient trước khi rút gọn |
 
 ## Further Reading
 
 - [PyTorch DistributedDataParallel docs](https://pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html)
 - [PyTorch DDP internals tutorial](https://pytorch.org/tutorials/intermediate/ddp_tutorial.html)
 - [Li et al, PyTorch Distributed: Experiences on Accelerating Data Parallel Training](https://arxiv.org/abs/2006.15704)
-- Phase 19 Lesson 76 - the collectives DDP is built on
-- Phase 19 Lesson 78 - ZeRO sharding replaces the per-param allreduce with reduce_scatter
+- Phase 19 Bài 76 - các phép tập thể mà DDP được xây trên
+- Phase 19 Bài 78 - chia shard ZeRO thay allreduce theo tham số bằng reduce_scatter
