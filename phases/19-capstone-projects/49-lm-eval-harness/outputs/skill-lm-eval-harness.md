@@ -9,29 +9,29 @@ tags: [evaluation, metrics, leaderboard, harness]
 
 ## When to use
 
-Compare two models, two checkpoints, or two prompt templates against a fixed set of tasks. Anything that ships and that you need to monitor over time.
+So sánh hai mô hình, hai checkpoint, hoặc hai mẫu prompt với một tập tác vụ cố định. Bất cứ thứ gì được cung cấp và bạn cần giám sát theo thời gian.
 
 ## Task spec
 
-One JSONL line per example:
+Một dòng JSONL mỗi ví dụ:
 
 ```json
 {"id": "ex-001", "prompt": "...", "targets": ["..."], "metric": "exact_match", "extras": {}}
 ```
 
-All examples in a file share a metric. The file name is the task name.
+Mọi ví dụ trong một file dùng chung một chỉ số. Tên file là tên tác vụ.
 
 ## Metrics
 
-| Metric | Signature | Use for |
+| Chỉ số | Chữ ký | Dùng cho |
 |--------|-----------|---------|
-| exact_match | normalize lower + whitespace, equality | Arithmetic, factoid answers |
-| substring_contains | target must appear in normalized prediction | Free-form generation with anchor words |
-| multiple_choice | first letter match | A/B/C/D style questions |
-| rouge_l | LCS F1 over tokenized text | Summary, paraphrase |
-| code_exec | run prediction's `f` on io_pairs, count matches | Code generation |
+| exact_match | chuẩn hóa chữ thường + khoảng trắng, so bằng | Số học, các đáp án sự kiện ngắn |
+| substring_contains | đích phải xuất hiện trong dự đoán được chuẩn hóa | Sinh dạng tự do với các từ neo |
+| multiple_choice | khớp chữ cái đầu | Các câu hỏi kiểu A/B/C/D |
+| rouge_l | F1 LCS trên văn bản được phân tách token | Tóm tắt, diễn đạt lại |
+| code_exec | chạy `f` của dự đoán trên io_pairs, đếm các kết quả khớp | Sinh mã |
 
-All metrics return float in [0.0, 1.0]. Task score is the mean.
+Mọi chỉ số trả về float trong [0.0, 1.0]. Điểm tác vụ là trung bình.
 
 ## Adapter
 
@@ -41,15 +41,15 @@ class Adapter(Protocol):
     def generate(self, prompts: list[str]) -> list[str]: ...
 ```
 
-The adapter is the only model-specific code.
+Adapter là mã đặc thù mô hình duy nhất.
 
 ## Leaderboard JSON
 
-Schema string, timestamp, per-task scores and latency, overall mean. Include per-example records when comparing runs so prediction-level regressions are visible.
+Chuỗi schema, mốc thời gian, các điểm và độ trễ theo tác vụ, trung bình tổng thể. Bao gồm các bản ghi theo ví dụ khi so sánh các lần chạy để các lỗi thoái lui ở mức dự đoán có thể thấy.
 
 ## Failure modes
 
-- Metric returns outside [0, 1]: overall score becomes uninterpretable.
-- Mixed metrics in one task file: assertion fires; keep one metric per file.
-- code_exec without restricted namespace: arbitrary code execution.
-- No schema string: format evolution breaks downstream dashboards.
+- Chỉ số trả về ngoài [0, 1]: điểm tổng thể trở nên không thể diễn giải.
+- Trộn các chỉ số trong một file tác vụ: khẳng định kích hoạt; giữ một chỉ số mỗi file.
+- code_exec không có không gian tên bị hạn chế: thực thi mã tùy ý.
+- Không có chuỗi schema: phát triển định dạng phá các bảng điều khiển hạ nguồn.

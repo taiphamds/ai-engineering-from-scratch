@@ -1,6 +1,6 @@
 # Language Model Evaluation Harness
 
-> A model that does well on a task you cannot define is a model that does well by accident. The harness is the task definition, the metric, the runner, and the leaderboard, in one short, swappable shape.
+> Một mô hình làm tốt một tác vụ bạn không thể định nghĩa là một mô hình làm tốt một cách tình cờ. Harness là định nghĩa tác vụ, chỉ số, trình chạy, và bảng xếp hạng, trong một hình thức ngắn, có thể thay thế.
 
 **Type:** Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Define a task as a JSONL file with `prompt`, `targets`, `metric`, and optional `extras` per example.
-- Implement five metrics: exact match, rouge-l F1, executable check, multiple choice, and substring contains.
-- Build a runner that batches examples per task and dispatches to a swappable model adapter.
-- Emit a leaderboard JSON with per-task scores, latency, and an overall average that is reproducible.
+- Định nghĩa một tác vụ như một file JSONL với `prompt`, `targets`, `metric`, và `extras` tùy chọn theo ví dụ.
+- Triển khai năm chỉ số: khớp chính xác, F1 rouge-l, kiểm tra thực thi, trắc nghiệm, và chứa chuỗi con.
+- Xây dựng một trình chạy chia các ví dụ thành lô theo tác vụ và điều phối đến một adapter mô hình có thể thay thế.
+- Phát ra một JSON bảng xếp hạng với các điểm theo tác vụ, độ trễ, và một trung bình tổng thể có thể tái lập.
 
 ## The Problem
 
-A new language model lands every week. The marketing claim is that it does well. The honest question is: well at what? The honest answer is the leaderboard you wrote yourself, because the vendor's leaderboard is the one they tuned to.
+Một mô hình ngôn ngữ mới xuất hiện mỗi tuần. Tuyên bố tiếp thị là nó làm tốt. Câu hỏi trung thực là: tốt ở cái gì? Câu trả lời trung thực là bảng xếp hạng bạn tự viết, vì bảng xếp hạng của nhà cung cấp là thứ họ đã điều chỉnh theo.
 
-Without a harness in your repo you compare two models by vibes. With a harness you compare them by score on a fixed task set with a fixed metric, on a JSON output you can diff. The harness is the contract between yesterday's run and today's run. Without it, regressions ship.
+Không có một harness trong repo bạn so sánh hai mô hình bằng cảm giác. Với một harness bạn so sánh chúng bằng điểm trên một tập tác vụ cố định với một chỉ số cố định, trên một đầu ra JSON bạn có thể diff. Harness là hợp đồng giữa lần chạy hôm qua và lần chạy hôm nay. Không có nó, các lỗi thoái lui được phát hành.
 
-The trap is over-fitting the harness to a single model. The fix is the same trap in reverse: the harness is small enough to read in fifteen minutes, the tasks are small enough to ship in the repo, the metrics are written from scratch so a colleague can audit them, and the adapter is the only place model-specific code lives. Swap the adapter, the leaderboard moves; swap the tasks, the leaderboard moves. Nothing else should move.
+Cái bẫy là quá khớp harness với một mô hình duy nhất. Cách sửa là cùng cái bẫy đảo ngược: harness đủ nhỏ để đọc trong mười lăm phút, các tác vụ đủ nhỏ để cung cấp trong repo, các chỉ số được viết từ đầu để một đồng nghiệp có thể kiểm toán chúng, và adapter là nơi duy nhất mã đặc thù mô hình tồn tại. Đổi adapter, bảng xếp hạng thay đổi; đổi các tác vụ, bảng xếp hạng thay đổi. Không gì khác nên thay đổi.
 
 ## The Concept
 
@@ -37,13 +37,13 @@ flowchart TD
 
 ### Task spec
 
-Every example is one JSONL line:
+Mỗi ví dụ là một dòng JSONL:
 
 ```json
 {"id": "arith-00", "prompt": "compute: 2 + 2", "targets": ["4"], "metric": "exact_match"}
 ```
 
-For metrics that need scoring helpers, `extras` carries the side payload:
+Với các chỉ số cần hàm hỗ trợ chấm điểm, `extras` mang payload phụ:
 
 ```json
 {
@@ -55,29 +55,29 @@ For metrics that need scoring helpers, `extras` carries the side payload:
 }
 ```
 
-A task is a `.jsonl` file under `outputs/tasks/`. The file name is the task name. All examples in a file share a metric.
+Một tác vụ là một file `.jsonl` dưới `outputs/tasks/`. Tên file là tên tác vụ. Mọi ví dụ trong một file dùng chung một chỉ số.
 
 ### The five fixture tasks
 
-| Task | Metric | What it tests |
+| Tác vụ | Chỉ số | Nó kiểm thử gì |
 |------|--------|---------------|
-| arithmetic | exact_match | Token-level correctness on a deterministic answer |
-| summary | rouge_l | Longest common subsequence F1 against a one-line reference summary |
-| code-exec | code_exec | Executable test: the predicted function must satisfy a list of input-output pairs |
-| multiple-choice | multiple_choice | First letter of the prediction must match an allowed letter |
-| generation | substring_contains | Free-form text must contain at least one target substring |
+| arithmetic | exact_match | Tính đúng đắn ở mức token trên một đáp án tất định |
+| summary | rouge_l | F1 dãy con chung dài nhất so với một tóm tắt tham chiếu một dòng |
+| code-exec | code_exec | Kiểm thử thực thi: hàm dự đoán phải thỏa mãn một danh sách cặp đầu vào-đầu ra |
+| multiple-choice | multiple_choice | Chữ cái đầu của dự đoán phải khớp một chữ cái được phép |
+| generation | substring_contains | Văn bản dạng tự do phải chứa ít nhất một chuỗi con đích |
 
 ### The metric contract
 
-Every metric is a function from `(prediction, targets, extras) -> float in [0.0, 1.0]`. The harness averages the per-example scores to get a task score, then averages task scores to get the overall. The metric functions are tiny:
+Mỗi chỉ số là một hàm từ `(prediction, targets, extras) -> float in [0.0, 1.0]`. Harness lấy trung bình các điểm theo ví dụ để nhận một điểm tác vụ, rồi lấy trung bình các điểm tác vụ để nhận tổng thể. Các hàm chỉ số tí hon:
 
-- `exact_match`: lowercase, collapse whitespace, equality.
-- `substring_contains`: same normalization, substring test.
-- `multiple_choice`: first character uppercased.
-- `rouge_l`: LCS length divided by lengths of prediction and reference, F1 of precision and recall.
-- `code_exec`: execute the prediction in a restricted namespace, call `f(x)` on every input-output pair, count matches.
+- `exact_match`: chữ thường, gộp khoảng trắng, so bằng.
+- `substring_contains`: cùng chuẩn hóa, kiểm tra chuỗi con.
+- `multiple_choice`: ký tự đầu được viết hoa.
+- `rouge_l`: độ dài LCS chia cho các độ dài dự đoán và tham chiếu, F1 của precision và recall.
+- `code_exec`: thực thi dự đoán trong một không gian tên bị hạn chế, gọi `f(x)` trên mọi cặp đầu vào-đầu ra, đếm các kết quả khớp.
 
-The code_exec metric runs the prediction in a stripped builtins namespace. The lesson's test asserts that `import os` blows up because `os` is not in the namespace; you cannot reach the filesystem from a code prediction.
+Chỉ số code_exec chạy dự đoán trong một không gian tên builtins đã bị lược bỏ. Kiểm thử của bài học khẳng định `import os` thất bại vì `os` không nằm trong không gian tên; bạn không thể tiếp cận hệ thống file từ một dự đoán mã.
 
 ### The model adapter
 
@@ -88,11 +88,11 @@ class ModelAdapter(Protocol):
     def name(self) -> str: ...
 ```
 
-The adapter is the seam. The lesson ships `ToyAdapter`, a deterministic pattern matcher that returns the right answer for every prompt in the five fixture tasks. A real adapter calls the model and returns its output. The harness does not care which.
+Adapter là chỗ nối. Bài học cung cấp `ToyAdapter`, một bộ so khớp mẫu tất định trả về đáp án đúng cho mọi prompt trong năm tác vụ fixture. Một adapter thực gọi mô hình và trả về đầu ra của nó. Harness không quan tâm loại nào.
 
 ### The runner
 
-`run_task` batches `batch_size` prompts at a time and dispatches to the metric function. `run_leaderboard` walks every task and averages. `write_leaderboard` emits JSON with a schema string so future format changes do not silently break dashboards.
+`run_task` chia `batch_size` prompt mỗi lần và điều phối đến hàm chỉ số. `run_leaderboard` duyệt mọi tác vụ và lấy trung bình. `write_leaderboard` phát ra JSON với một chuỗi schema để các thay đổi định dạng tương lai không âm thầm phá các bảng điều khiển.
 
 ```mermaid
 flowchart LR
@@ -109,39 +109,39 @@ eval-harness-matrix
 
 ## Build It
 
-`code/main.py` is the runnable artifact.
+`code/main.py` là hiện vật có thể chạy.
 
 ### Step 1: seed fixture tasks
 
-`seed_fixture_tasks(target_dir)` writes the five `.jsonl` files. The first run of `main.py` seeds them when the directory is empty.
+`seed_fixture_tasks(target_dir)` ghi năm file `.jsonl`. Lần chạy đầu của `main.py` tạo chúng khi thư mục rỗng.
 
 ### Step 2: load tasks
 
-`load_all_tasks(task_dir)` reads every `.jsonl` and returns a dict from task name to a list of `Example` records. Comment lines starting with `#` and blank lines are skipped so contributors can annotate the files.
+`load_all_tasks(task_dir)` đọc mọi `.jsonl` và trả về một dict từ tên tác vụ đến một danh sách bản ghi `Example`. Các dòng bình luận bắt đầu bằng `#` và các dòng trống được bỏ qua để người đóng góp có thể chú giải các file.
 
 ### Step 3: implement metrics
 
-Each metric is a small function with a unit test. The lesson's test suite includes 13 cases covering normalization, partial overlap, code execution, and unsafe code rejection.
+Mỗi chỉ số là một hàm nhỏ với một kiểm thử đơn vị. Bộ kiểm thử của bài học bao gồm 13 trường hợp bao phủ chuẩn hóa, chồng lấn một phần, thực thi mã, và từ chối mã không an toàn.
 
 ### Step 4: write the runner
 
-`run_task` iterates batches and produces a `TaskResult` with score, correct count, total count, and latency. `run_leaderboard` walks all tasks and produces a `Leaderboard` with the overall average.
+`run_task` lặp các lô và tạo một `TaskResult` với điểm, số đúng, tổng số, và độ trễ. `run_leaderboard` duyệt mọi tác vụ và tạo một `Leaderboard` với trung bình tổng thể.
 
 ### Step 5: emit JSON
 
-`write_leaderboard` serializes the board. The `--include-per-example` flag dumps the per-example records so you can diff predictions against the previous run when scores move.
+`write_leaderboard` tuần tự hóa bảng. Cờ `--include-per-example` xuất các bản ghi theo ví dụ để bạn có thể diff các dự đoán với lần chạy trước khi điểm thay đổi.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-The script seeds the fixtures on first run, scores them with the toy adapter (which gets every fixture right), and writes `outputs/leaderboard.json`. Overall score is 1.0 with the toy adapter; the stub adapter test in `test_main.py` shows the same harness produces 0.0 when the adapter cannot answer.
+Script tạo các fixture ở lần chạy đầu, chấm chúng bằng adapter đồ chơi (làm đúng mọi fixture), và ghi `outputs/leaderboard.json`. Điểm tổng thể là 1.0 với adapter đồ chơi; kiểm thử adapter stub trong `test_main.py` cho thấy cùng harness tạo 0.0 khi adapter không thể trả lời.
 
 ## Use It
 
-To plug a real model in, write an adapter. The shape:
+Để cắm một mô hình thực vào, viết một adapter. Hình thức:
 
 ```python
 class HttpAdapter:
@@ -159,40 +159,40 @@ class HttpAdapter:
         return out
 ```
 
-Swap `ToyAdapter` for `HttpAdapter` at the top of `main()`. The harness, the tasks, the metrics, and the leaderboard stay the same.
+Đổi `ToyAdapter` thành `HttpAdapter` ở đầu `main()`. Harness, các tác vụ, các chỉ số, và bảng xếp hạng giữ nguyên.
 
-Three patterns to enforce when shipping the harness in a real project:
+Ba mẫu cần thực thi khi cung cấp harness trong một dự án thực:
 
-- **Pin the task files.** The leaderboard.json carries hash-pinned task content or it carries the JSONLs alongside; otherwise the score moves when the task file does, and you cannot tell which.
-- **Diff predictions, not just scores.** The `--include-per-example` flag lets you see what the model said the day the score dropped.
-- **Cap the batch size.** Real adapters have rate limits. A small batch size keeps the harness compatible across vendors.
+- **Ghim các file tác vụ.** leaderboard.json mang nội dung tác vụ được ghim băm hoặc mang các JSONL bên cạnh; nếu không điểm thay đổi khi file tác vụ thay đổi, và bạn không thể biết cái nào.
+- **Diff các dự đoán, không chỉ các điểm.** Cờ `--include-per-example` cho phép bạn thấy mô hình đã nói gì vào ngày điểm giảm.
+- **Giới hạn kích thước lô.** Các adapter thực có giới hạn tốc độ. Một kích thước lô nhỏ giữ harness tương thích giữa các nhà cung cấp.
 
 ## Ship It
 
-`outputs/skill-lm-eval-harness.md` carries the recipe: JSONL task spec, five metrics, swappable adapter, batched runner, leaderboard JSON with schema string. The task files in `outputs/tasks/` are the fixtures; copy them into a real project as starters.
+`outputs/skill-lm-eval-harness.md` mang công thức: đặc tả tác vụ JSONL, năm chỉ số, adapter có thể thay thế, trình chạy theo lô, JSON bảng xếp hạng với chuỗi schema. Các file tác vụ trong `outputs/tasks/` là các fixture; sao chép chúng vào một dự án thực làm khởi đầu.
 
 ## Exercises
 
-1. Add a sixth task with a custom metric you write from scratch (BLEU-like overlap, BLEURT-like reference scoring, anything with a clear contract).
-2. Extend `code_exec` to capture stdout and accept a list of expected stdouts as targets.
-3. Add a leaderboard diff command: given two `leaderboard.json` files, print which tasks moved and by how much.
-4. Cap latency per example. Wrap the adapter call in a timeout; surface a separate `timeouts` column in the leaderboard.
-5. Pin task content with a sha256 in the leaderboard so a future reader can verify they scored the same tasks.
+1. Thêm một tác vụ thứ sáu với một chỉ số tùy chỉnh bạn viết từ đầu (chồng lấn kiểu BLEU, chấm tham chiếu kiểu BLEURT, bất cứ thứ gì với một hợp đồng rõ ràng).
+2. Mở rộng `code_exec` để thu stdout và nhận một danh sách stdout dự kiến làm các đích.
+3. Thêm một lệnh diff bảng xếp hạng: với hai file `leaderboard.json` được cung cấp, in những tác vụ nào đã thay đổi và bao nhiêu.
+4. Giới hạn độ trễ theo ví dụ. Bọc lệnh gọi adapter trong một timeout; đưa ra một cột `timeouts` riêng trong bảng xếp hạng.
+5. Ghim nội dung tác vụ bằng một sha256 trong bảng xếp hạng để một người đọc tương lai có thể xác minh họ đã chấm cùng tác vụ.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Task spec | "The eval format" | JSONL file with prompt, targets, metric, optional extras per example |
-| Metric | "How you score" | Function from (prediction, targets, extras) to a float in [0, 1] |
-| Adapter | "The model client" | Object with a generate(prompts) -> list[str] method; the only model-specific code |
-| Leaderboard | "The scoreboard" | JSON with per-task scores, total counts, latency, and an overall average |
-| Code exec metric | "Run it and check" | Execute the prediction in a restricted namespace, compare against input-output pairs |
+| Task spec (Đặc tả tác vụ) | "Định dạng đánh giá" | File JSONL với prompt, targets, metric, extras tùy chọn theo ví dụ |
+| Metric (Chỉ số) | "Cách bạn chấm điểm" | Hàm từ (prediction, targets, extras) sang một float trong [0, 1] |
+| Adapter | "Máy khách mô hình" | Đối tượng có phương thức generate(prompts) -> list[str]; mã đặc thù mô hình duy nhất |
+| Leaderboard (Bảng xếp hạng) | "Bảng điểm" | JSON với các điểm theo tác vụ, tổng số đếm, độ trễ, và một trung bình tổng thể |
+| Code exec metric (Chỉ số thực thi mã) | "Chạy và kiểm tra" | Thực thi dự đoán trong một không gian tên bị hạn chế, so sánh với các cặp đầu vào-đầu ra |
 
 ## Further Reading
 
-- The original lm-evaluation-harness for the production reference, much larger but the same shape.
-- HuggingFace's lighteval for an alternative implementation of the same contract.
-- Phase 19 lesson 46 covers the gradient accumulation patterns used in the training stack the harness scores.
-- Phase 19 lesson 47 covers the checkpoint format you score against; pin the checkpoint hash in the leaderboard.
-- Phase 19 lesson 48 covers the distributed training stack that produced the model under test.
+- lm-evaluation-harness gốc cho tham chiếu sản xuất, lớn hơn nhiều nhưng cùng hình thức.
+- lighteval của HuggingFace cho một triển khai thay thế của cùng hợp đồng.
+- Phase 19 bài 46 bao phủ các mẫu tích lũy gradient được dùng trong ngăn xếp huấn luyện mà harness chấm.
+- Phase 19 bài 47 bao phủ định dạng checkpoint bạn chấm; ghim băm checkpoint trong bảng xếp hạng.
+- Phase 19 bài 48 bao phủ ngăn xếp huấn luyện phân tán đã tạo mô hình được kiểm thử.
