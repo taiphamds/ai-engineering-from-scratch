@@ -1,6 +1,6 @@
 # Stateless MCP Gateways and Registry Admission
 
-> A gateway should make every route explicit. The 2026-07-28 protocol gives it method, name, version, capability, identity, cache, and trace boundaries without a transport session.
+> Gateway nên làm mọi tuyến tường minh. Giao thức 2026-07-28 cho nó ranh giới phương thức, tên, phiên bản, khả năng, danh tính, bộ đệm và trace không có phiên vận chuyển.
 
 **Type:** Learn
 **Languages:** Python
@@ -9,55 +9,55 @@
 
 ## Learning Objectives
 
-- Aggregate several MCP servers behind one 2026-07-28 endpoint without session affinity.
-- Validate per-request metadata and routing headers before policy or forwarding.
-- Merge tools with stable namespaces, deterministic order, descriptor pins, RBAC, and private caching.
-- Treat registry records as discovery evidence that still requires admission policy.
-- Route request-scoped SSE, `subscriptions/listen`, MRTR retries, and Tasks extension calls correctly.
-- Isolate legacy handshake and session support from the modern path.
+- Tập hợp nhiều máy chủ MCP sau một endpoint 2026-07-28 không có tính gắn kết phiên.
+- Xác thực siêu dữ liệu mỗi yêu cầu và header định tuyến trước chính sách hoặc chuyển tiếp.
+- Gộp công cụ với không gian tên ổn định, thứ tự tất định, ghim bộ mô tả, RBAC và lưu đệm riêng.
+- Coi bản ghi registry là bằng chứng khám phá vẫn cần chính sách tiếp nhận.
+- Định tuyến đúng SSE phạm vi yêu cầu, `subscriptions/listen`, thử lại MRTR và lời gọi phần mở rộng Tasks.
+- Cô lập hỗ trợ bắt tay và phiên cũ khỏi nhánh hiện đại.
 
 ## The Problem
 
-Connecting one client directly to one server is simple. A larger deployment needs a consistent answer to harder questions:
+Kết nối một client thẳng đến một máy chủ đơn giản. Triển khai lớn hơn cần câu trả lời nhất quán cho câu hỏi khó hơn:
 
-- Which servers are allowed?
-- Which principal can see and call each tool?
-- What happens when two backends expose the same name?
-- How are descriptor changes reviewed?
-- Where are rate limits and audit events applied?
-- Can any instance handle the next request?
+- Máy chủ nào được phép?
+- Chủ thể nào có thể thấy và gọi mỗi công cụ?
+- Điều gì xảy ra khi hai backend cung cấp cùng tên?
+- Thay đổi bộ mô tả được xem xét thế nào?
+- Giới hạn tốc độ và sự kiện kiểm toán áp ở đâu?
+- Mọi thực thể có thể xử lý yêu cầu tiếp không?
 
-A gateway sits between clients and backend MCP servers. It presents one MCP endpoint, applies cross-cutting policy, and forwards approved requests.
+Gateway nằm giữa client và máy chủ MCP backend. Nó trình bày một endpoint MCP, áp chính sách xuyên suốt và chuyển tiếp yêu cầu đã phê duyệt.
 
-Older gateway designs often multiplexed one client session into several backend sessions and rewrote `Mcp-Session-Id`. That is a legacy compatibility design. The 2026-07-28 core has no protocol sessions.
+Thiết kế gateway cũ thường ghép một phiên client thành nhiều phiên backend và viết lại `Mcp-Session-Id`. Đó là thiết kế tương thích cũ. Lõi 2026-07-28 không có phiên giao thức.
 
 ## The Concept
 
 ### The modern gateway path
 
-For each request:
+Với mỗi yêu cầu:
 
-1. Authenticate the principal from transport authorization.
-2. Validate `MCP-Protocol-Version`, `Mcp-Method`, `Mcp-Name`, and `params._meta`.
-3. Authorize the principal, resource, method, tool, and arguments.
-4. Apply descriptor, registry, rate, and data policy.
-5. Create a fresh self-contained request for the selected backend.
-6. Validate the backend result and return a gateway result.
-7. Record an audit event without logging secrets.
+1. Xác thực chủ thể từ cấp quyền vận chuyển.
+2. Xác thực `MCP-Protocol-Version`, `Mcp-Method`, `Mcp-Name` và `params._meta`.
+3. Cấp quyền chủ thể, tài nguyên, phương thức, công cụ và đối số.
+4. Áp chính sách bộ mô tả, registry, tốc độ và dữ liệu.
+5. Tạo yêu cầu tự đầy đủ mới cho backend đã chọn.
+6. Xác thực kết quả backend và trả kết quả gateway.
+7. Ghi sự kiện kiểm toán không ghi bí mật.
 
-No step needs a hidden protocol session. Application state can still exist in databases, explicit handles, Tasks, or integrity-protected MRTR state.
+Không bước nào cần phiên giao thức ẩn. Trạng thái ứng dụng vẫn có thể tồn tại trong cơ sở dữ liệu, handle tường minh, Tasks hoặc trạng thái MRTR được bảo vệ toàn vẹn.
 
 ### Runtime policy is the primary gateway decision
 
-Admission decides which backend version may enter the gateway. It does not authorize a live call. For every request, the gateway recomputes policy from the authenticated principal, issuer and resource, tenant, matched method and name, normalized arguments, admitted descriptor pin, current backend health, capability intersection, data classification, rate state, and any action-bound approval.
+Tiếp nhận quyết định phiên bản backend nào được vào gateway. Không cấp quyền lời gọi trực tiếp. Với mọi yêu cầu, gateway tính lại chính sách từ chủ thể đã xác thực, bên phát hành và tài nguyên, tenant, phương thức và tên đã khớp, đối số chuẩn hóa, ghim bộ mô tả được tiếp nhận, tình trạng backend hiện tại, giao khả năng, phân loại dữ liệu, trạng thái tốc độ và mọi phê duyệt gắn hành động.
 
-This ordering matters. A Registry record can remain active while a user's role is revoked. A descriptor can remain pinned while a destination argument crosses a tenant boundary. A backend can remain approved while incident policy quarantines state-changing calls. Runtime policy is therefore the primary allow or deny decision, with Registry and descriptor evidence as inputs.
+Thứ tự này quan trọng. Bản ghi Registry có thể còn hoạt động khi vai trò người dùng bị thu hồi. Bộ mô tả có thể còn ghim khi đối số đích vượt ranh giới tenant. Backend có thể còn được phê duyệt khi chính sách sự cố cách ly lời gọi đổi trạng thái. Vì vậy chính sách runtime là quyết định cho phép hoặc từ chối chính, với bằng chứng Registry và bộ mô tả làm đầu vào.
 
-Do not cache an allow decision under a connection or removed session identifier. If policy is unavailable, follow a declared failure policy by operation class. A safe default is to fail closed for state changes and sensitive reads, while explicitly approved public read paths may use a short-lived last-known policy only when their risk model permits it. Record which policy version and failure path made the decision, then validate the backend result before returning it.
+Không lưu đệm quyết định cho phép dưới kết nối hoặc định danh phiên đã bỏ. Nếu chính sách không sẵn, theo chính sách thất bại khai báo theo lớp thao tác. Mặc định an toàn là thất bại theo hướng đóng cho đổi trạng thái và đọc nhạy cảm, trong khi nhánh đọc công khai được phê duyệt rõ có thể dùng chính sách biết gần nhất ngắn hạn chỉ khi mô hình rủi ro cho phép. Ghi phiên bản chính sách và nhánh thất bại nào tạo quyết định, rồi xác thực kết quả backend trước trả.
 
 ### One POST endpoint
 
-Modern Streamable HTTP sends each JSON-RPC message through POST:
+Streamable HTTP hiện đại gửi mỗi thông điệp JSON-RPC qua POST:
 
 ```text
 POST /mcp
@@ -68,19 +68,19 @@ Mcp-Name: notes.search
 Accept: application/json, text/event-stream
 ```
 
-The gateway can return JSON or request-scoped SSE for that POST. GET and DELETE return 405 for modern requests. `Mcp-Session-Id` and `Last-Event-ID` do not create authority, affinity, or replay behavior.
+Gateway có thể trả JSON hoặc SSE phạm vi yêu cầu cho POST đó. GET và DELETE trả 405 cho yêu cầu hiện đại. `Mcp-Session-Id` và `Last-Event-ID` không tạo thẩm quyền, tính gắn kết hoặc hành vi phát lại.
 
-Header and body values must agree. Reject mismatch with `-32020` before looking up a backend. This lets load balancers, gateways, and rate limiters route without parsing the full body while preserving end-to-end integrity.
+Giá trị header và phần thân phải đồng ý. Từ chối không khớp bằng `-32020` trước tra backend. Điều này cho bộ cân bằng tải, gateway và bộ giới hạn tốc độ định tuyến không phân tích toàn phần thân trong khi giữ toàn vẹn đầu cuối.
 
-Validate in one exact order: JSON-RPC and metadata types, header and body equality, then support for the matched version. A mismatch returns HTTP 400 with `-32020`. If header and body agree on an unsupported version, return HTTP 400 with `-32022` and `data` exactly `{"supported":["2026-07-28"],"requested":"<actual>"}`. An unknown method returns HTTP 404 with `-32601`.
+Xác thực theo một thứ tự chính xác: JSON-RPC và kiểu siêu dữ liệu, header và phần thân bằng nhau, rồi hỗ trợ phiên bản khớp. Không khớp trả HTTP 400 với `-32020`. Nếu header và phần thân đồng ý phiên bản không hỗ trợ, trả HTTP 400 với `-32022` và `data` chính xác `{"supported":["2026-07-28"],"requested":"<actual>"}`. Phương thức không biết trả HTTP 404 với `-32601`.
 
-`ProtocolError` carries optional `data`, and the gateway serializes it into the JSON-RPC error object. A notification has no `id`, so it never receives a JSON-RPC success or error. An accepted HTTP notification returns 202 with an empty body.
+`ProtocolError` mang `data` tùy chọn và gateway tuần tự hóa vào đối tượng lỗi JSON-RPC. Thông báo không có `id`, nên không bao giờ nhận thành công hoặc lỗi JSON-RPC. Thông báo HTTP được chấp nhận trả 202 với phần thân rỗng.
 
 ### Implement discovery at every layer
 
-The gateway implements `server/discover` for clients. It also discovers each backend so it knows protocol versions, capabilities, and extensions.
+Gateway triển khai `server/discover` cho client. Nó cũng khám phá mỗi backend để biết phiên bản giao thức, khả năng và phần mở rộng.
 
-Example gateway result:
+Ví dụ kết quả gateway:
 
 ```json
 {
@@ -100,13 +100,13 @@ Example gateway result:
 }
 ```
 
-Advertise only the capability intersection the gateway can honor end to end. A backend feature is not automatically safe to expose. A gateway feature with no backend path is not useful to advertise.
+Chỉ công bố giao khả năng gateway tôn trọng được đầu cuối. Tính năng backend không tự động an toàn để đưa ra. Tính năng gateway không có nhánh backend không hữu ích để công bố.
 
-`serverInfo` is self-reported display and diagnostic data. Do not use it as registry or publisher proof.
+`serverInfo` là dữ liệu hiển thị và chẩn đoán tự khai. Không dùng làm bằng chứng registry hoặc nhà phát hành.
 
 ### Per-request client capabilities
 
-Every forwarded request needs a current `_meta` envelope:
+Mọi yêu cầu chuyển tiếp cần vỏ `_meta` hiện tại:
 
 ```json
 {
@@ -119,11 +119,11 @@ Every forwarded request needs a current `_meta` envelope:
 }
 ```
 
-Do not blindly copy the outer client capabilities to a backend. The gateway is the backend's client. Advertise only features the gateway will mediate correctly.
+Không sao chép mù quáng khả năng client ngoài vào backend. Gateway là client của backend. Chỉ công bố tính năng gateway làm trung gian đúng.
 
 ### Deterministic namespacing
 
-Merge backend tools under stable public names:
+Gộp công cụ backend dưới tên công khai ổn định:
 
 ```text
 notes.search
@@ -132,28 +132,28 @@ issues.list
 issues.open
 ```
 
-Keep a mapping from public name to backend and original tool name. Never choose the first or last collision. A public name is part of the approval and audit contract, so changing it is a migration.
+Giữ ánh xạ từ tên công khai đến backend và tên công cụ gốc. Không bao giờ chọn xung đột đầu hoặc cuối. Tên công khai là phần hợp đồng phê duyệt và kiểm toán, nên đổi tên là chuyển đổi.
 
-`tools/list` must be deterministic. When visibility differs by principal, return `cacheScope: private`. A bounded `ttlMs` reduces backend discovery load without allowing a user-specific list to leak across authorization contexts.
+`tools/list` phải tất định. Khi hiển thị khác theo chủ thể, trả `cacheScope: private`. `ttlMs` có giới hạn giảm tải khám phá backend không cho danh sách riêng người dùng rò qua ngữ cảnh cấp quyền.
 
-Every exposed tool descriptor includes a stable name, description, and object-root `inputSchema`. Namespacing cannot remove required descriptor fields. The complete list result also includes `resultType`, server identity metadata, and cache hints.
+Mọi bộ mô tả công cụ đưa ra gồm tên ổn định, mô tả và `inputSchema` gốc đối tượng. Không gian tên không thể bỏ trường bộ mô tả bắt buộc. Kết quả danh sách đầy đủ cũng gồm `resultType`, siêu dữ liệu danh tính máy chủ và gợi ý bộ đệm.
 
 ### Pin approved descriptors
 
-At admission time, canonicalize the complete descriptor and store its digest under the qualified public name. At list and call time, compare the live descriptor with the approved digest.
+Lúc tiếp nhận, chuẩn hóa toàn bộ bộ mô tả và lưu bản băm dưới tên công khai định danh đầy đủ. Lúc liệt kê và gọi, so bộ mô tả trực tiếp với bản băm phê duyệt.
 
-If it changes:
+Nếu đổi:
 
-- Remove it from `tools/list`.
-- Reject direct calls.
-- Emit an audit event.
-- Require policy or human re-approval before updating the pin.
+- Bỏ khỏi `tools/list`.
+- Từ chối lời gọi trực tiếp.
+- Phát sự kiện kiểm toán.
+- Yêu cầu chính sách hoặc con người phê duyệt lại trước cập nhật ghim.
 
-A gateway is a useful central enforcement point, but it does not turn a first-seen descriptor into a safe one. Initial review remains necessary.
+Gateway là điểm cưỡng chế trung tâm hữu ích, nhưng không biến bộ mô tả thấy lần đầu thành an toàn. Đánh giá ban đầu vẫn cần.
 
 ### Registries help discover, not decide
 
-A Registry `server.json` provides publication metadata. A package-backed record can look like this:
+`server.json` Registry cung cấp siêu dữ liệu công bố. Bản ghi dựa trên gói có thể như sau:
 
 ```json
 {
@@ -172,7 +172,7 @@ A Registry `server.json` provides publication metadata. A package-backed record 
 }
 ```
 
-Publication metadata does not carry the gateway's security decision. Keep verified publisher and provenance evidence in separate admission state:
+Siêu dữ liệu công bố không mang quyết định bảo mật gateway. Giữ bằng chứng nhà phát hành đã xác minh và xuất xứ trong trạng thái tiếp nhận riêng:
 
 ```json
 {
@@ -187,64 +187,64 @@ Publication metadata does not carry the gateway's security decision. Keep verifi
 }
 ```
 
-The gateway checks the `server.json` shape and joins it to that external state. The gateway still needs an admission policy.
+Gateway kiểm tra hình dạng `server.json` và nối với trạng thái ngoài đó. Gateway vẫn cần chính sách tiếp nhận.
 
-For each admitted backend, record:
+Với mỗi backend tiếp nhận, ghi:
 
-- Exact registry and record identifier.
-- Verified publisher namespace or domain evidence.
-- Allowed transport and endpoint.
-- Pinned version or approved upgrade policy.
-- Artifact or descriptor digest.
-- Authorization issuer and resource.
-- Reviewer, approval time, and expiry.
+- Registry và định danh bản ghi chính xác.
+- Bằng chứng không gian tên hoặc miền nhà phát hành đã xác minh.
+- Vận chuyển và endpoint được phép.
+- Phiên bản ghim hoặc chính sách nâng cấp phê duyệt.
+- Bản băm sản phẩm hoặc bộ mô tả.
+- Bên phát hành cấp quyền và tài nguyên.
+- Người xem xét, thời điểm phê duyệt và hết hạn.
 
-Do not accept a server because its display name resembles a familiar product. Do not treat registry presence as an operational security review. Private servers can be admitted through the same evidence schema even when they never appear in a public registry.
+Không nhận máy chủ vì tên hiển thị giống sản phẩm quen. Không coi hiện diện registry là đánh giá bảo mật vận hành. Máy chủ riêng có thể tiếp nhận qua cùng lược đồ bằng chứng dù không bao giờ xuất hiện trong registry công khai.
 
-This lesson implements the gateway seam: join publication evidence to local admission before a backend becomes routable. [Lesson 30: MCP Registry Supply Chain, Admission, Drift, and Rollback](../../30-mcp-registry-supply-chain-and-drift/docs/en.md) builds the full control plane for exact namespace proof, artifact provenance, immutable pins, live descriptor drift, Registry status reconciliation, a tamper-evident admission ledger, and evidence-backed rollback. Keep that supply-chain state separate from the per-request runtime decision above.
+Bài này triển khai mối nối gateway: nối bằng chứng công bố với tiếp nhận cục bộ trước backend định tuyến được. [Bài 30: Chuỗi cung ứng, Tiếp nhận, Sai lệch và Hoàn tác MCP Registry](../../30-mcp-registry-supply-chain-and-drift/docs/en.md) xây mặt phẳng điều khiển đầy đủ cho bằng chứng không gian tên chính xác, xuất xứ sản phẩm, ghim bất biến, sai lệch bộ mô tả trực tiếp, đối soát trạng thái Registry, sổ tiếp nhận phát hiện sửa đổi và hoàn tác có bằng chứng. Giữ trạng thái chuỗi cung ứng đó riêng quyết định runtime mỗi yêu cầu bên trên.
 
 ### Credential mediation
 
-The gateway authenticates its callers and separately authenticates to backends. Backend credentials never go to the client.
+Gateway xác thực bên gọi và xác thực riêng với backend. Thông tin xác thực backend không bao giờ đến client.
 
-Keep these bindings explicit:
+Giữ các liên kết này tường minh:
 
 ```text
 outer principal -> gateway role and policy
 backend issuer + resource -> backend registration and token
 ```
 
-Never pass the outer gateway token to a backend. Never reuse a backend token at a different issuer or resource. If a tool acts on behalf of an end user, preserve that delegation with a designed exchange or claims model rather than impersonating the user with a shared service credential.
+Không bao giờ truyền token gateway ngoài đến backend. Không bao giờ dùng lại token backend tại bên phát hành hoặc tài nguyên khác. Nếu công cụ hành động thay người dùng cuối, giữ ủy nhiệm bằng mô hình trao đổi hoặc claims được thiết kế thay vì mạo danh người dùng bằng thông tin xác thực dịch vụ dùng chung.
 
 ### Rate limits without sessions
 
-Key limits by authenticated principal, issuer, resource, public tool, cost class, and time window. A session id is absent and would be easy to rotate even if it existed.
+Đặt khóa giới hạn theo chủ thể đã xác thực, bên phát hành, tài nguyên, công cụ công khai, lớp chi phí và cửa sổ thời gian. Id phiên vắng mặt và dù tồn tại cũng dễ xoay.
 
-Apply cheap validation before consuming expensive work. Decide whether rejected calls count against abuse limits, business quotas, or both.
+Áp xác thực rẻ trước tiêu thụ công việc đắt. Quyết định lời gọi từ chối có tính vào giới hạn lạm dụng, hạn ngạch nghiệp vụ hay cả hai.
 
 ### Audit the decision chain
 
-Record enough to reconstruct a call:
+Ghi đủ để dựng lại lời gọi:
 
-- Request and trace identifiers.
-- Authenticated principal and issuer.
-- Public tool and backend route.
-- Descriptor pin version.
-- Policy decision and reason.
-- Latency and result class.
-- MRTR round or task identifier when applicable.
+- Định danh yêu cầu và trace.
+- Chủ thể đã xác thực và bên phát hành.
+- Công cụ công khai và tuyến backend.
+- Phiên bản ghim bộ mô tả.
+- Quyết định chính sách và lý do.
+- Độ trễ và lớp kết quả.
+- Vòng MRTR hoặc định danh tác vụ khi áp dụng.
 
-Redact bearer tokens, authorization codes, refresh tokens, raw secrets, and unnecessary sensitive arguments.
+Che bearer token, mã cấp quyền, refresh token, bí mật thô và đối số nhạy cảm không cần thiết.
 
 ### Request-scoped SSE
 
-A normal POST may return request-scoped SSE when work streams during that one request. Closing the response stream cancels that in-flight modern HTTP request.
+POST thường có thể trả SSE phạm vi yêu cầu khi công việc truyền luồng trong một yêu cầu đó. Đóng luồng phản hồi hủy yêu cầu HTTP hiện đại đang xử lý.
 
-Do not create a separate GET stream and do not promise Last-Event-ID replay. Those are older transport assumptions.
+Không tạo luồng GET riêng và không hứa phát lại Last-Event-ID. Đó là giả định vận chuyển cũ.
 
 ### Long-lived change notifications
 
-For list and resource change notifications, a current client sends `subscriptions/listen` through POST and receives an SSE response. Notification filters use the exact flat fields `toolsListChanged`, `promptsListChanged`, `resourcesListChanged`, and `resourceSubscriptions`:
+Với thông báo thay đổi danh sách và tài nguyên, client hiện tại gửi `subscriptions/listen` qua POST và nhận phản hồi SSE. Bộ lọc thông báo dùng đúng trường phẳng `toolsListChanged`, `promptsListChanged`, `resourcesListChanged` và `resourceSubscriptions`:
 
 ```json
 {
@@ -263,7 +263,7 @@ For list and resource change notifications, a current client sends `subscription
 }
 ```
 
-The first event acknowledges the supported subset. Its subscription identifier is the JSON-RPC id of the request that opened the stream:
+Sự kiện đầu xác nhận tập con hỗ trợ. Định danh đăng ký là id JSON-RPC của yêu cầu mở luồng:
 
 ```json
 {
@@ -280,36 +280,36 @@ The first event acknowledges the supported subset. Its subscription identifier i
 }
 ```
 
-The gateway then forwards only the acknowledged change types. Every notification on that stream carries the same `io.modelcontextprotocol/subscriptionId` in `params._meta`. There is no automatic replay or automatic re-listen. On reconnect, the client reopens the subscription and refreshes the lists it relies on. A server-initiated graceful close returns a final complete result tagged with the same subscription id.
+Gateway rồi chỉ chuyển tiếp kiểu thay đổi đã xác nhận. Mọi thông báo trên luồng mang cùng `io.modelcontextprotocol/subscriptionId` trong `params._meta`. Không có tự động phát lại hoặc tự động listen lại. Khi kết nối lại, client mở lại đăng ký và làm mới danh sách dựa vào. Đóng có trật tự do máy chủ khởi tạo trả kết quả đầy đủ cuối gắn cùng id đăng ký.
 
-The modern path replaces `resources/subscribe`, `resources/unsubscribe`, and unsolicited standalone GET streaming. Keep those only in a version-gated older path.
+Nhánh hiện đại thay `resources/subscribe`, `resources/unsubscribe` và truyền luồng GET độc lập không yêu cầu. Chỉ giữ trong nhánh cũ chặn theo phiên bản.
 
 ### MRTR through a gateway
 
-When a backend returns `resultType: input_required`, the gateway can forward that result only if the outer client supports the needed input request. Preserve `requestState` byte for byte unless the gateway deliberately terminates and reissues the interaction.
+Khi backend trả `resultType: input_required`, gateway chỉ có thể chuyển tiếp nếu client ngoài hỗ trợ yêu cầu đầu vào cần. Giữ `requestState` từng byte giống hệt trừ khi gateway chủ ý kết thúc và phát lại tương tác.
 
-The client retries the original public tool with a fresh JSON-RPC id and `inputResponses`. The gateway re-authorizes the retry, checks the same public route, then forwards a fresh backend request. It must not assume an earlier round granted unlimited approval.
+Client thử lại công cụ công khai gốc với id JSON-RPC mới và `inputResponses`. Gateway cấp quyền lại lần thử, kiểm tra cùng tuyến công khai rồi chuyển tiếp yêu cầu backend mới. Không được giả định vòng trước cấp phê duyệt vô hạn.
 
 ### Tasks extension routing
 
-Tasks are an official extension identified by `io.modelcontextprotocol/tasks`. They are not a core session replacement.
+Tasks là phần mở rộng chính thức định danh bằng `io.modelcontextprotocol/tasks`. Không phải thay phiên lõi.
 
-The client declares the extension inside per-request client capabilities, and the gateway advertises it in discovery only when it can preserve the lifecycle end to end. For a supported `tools/call`, the backend alone decides whether to return the ordinary result or `resultType: task`. A task result carries `taskId`, `status`, timestamps, `ttlMs`, and an optional `pollIntervalMs` directly in the result. The task must already be durably readable before that result is sent.
+Client khai báo phần mở rộng trong khả năng client mỗi yêu cầu và gateway chỉ công bố trong khám phá khi giữ được vòng đời đầu cuối. Với `tools/call` hỗ trợ, chỉ backend quyết định trả kết quả thường hay `resultType: task`. Kết quả tác vụ mang `taskId`, `status`, dấu thời gian, `ttlMs` và `pollIntervalMs` tùy chọn trực tiếp trong kết quả. Tác vụ phải đã đọc được bền vững trước gửi kết quả.
 
-The gateway records the authenticated principal and backend route for the opaque task identifier. Subsequent `tasks/get`, `tasks/update`, and `tasks/cancel` calls use `params.taskId` as `Mcp-Name`, which gives intermediaries a routing key. `tasks/get` returns `resultType: complete` with the current task state and inlines the final result or protocol error in a terminal state. `tasks/update` sends keyed `inputResponses` for outstanding task input and returns an empty complete acknowledgment. `tasks/cancel` is a cooperative intent with an empty complete acknowledgment, not a guarantee that work stops.
+Gateway ghi chủ thể đã xác thực và tuyến backend cho định danh tác vụ mờ. Lời gọi `tasks/get`, `tasks/update` và `tasks/cancel` sau dùng `params.taskId` làm `Mcp-Name`, cho trung gian khóa định tuyến. `tasks/get` trả `resultType: complete` với trạng thái tác vụ hiện tại và nhúng kết quả cuối hoặc lỗi giao thức ở trạng thái kết thúc. `tasks/update` gửi `inputResponses` theo khóa cho đầu vào tác vụ chờ và trả xác nhận đầy đủ rỗng. `tasks/cancel` là ý định hợp tác với xác nhận đầy đủ rỗng, không bảo đảm công việc dừng.
 
-Do not implement new `tasks/list` or `tasks/result` methods. They belong to the older experimental model. A task that needs input exposes complete embedded requests through `tasks/get`; the client answers them through `tasks/update`, not by retrying the original tool call. The client still polls at the suggested interval; task creation remains server-directed.
+Không triển khai phương thức `tasks/list` hoặc `tasks/result` mới. Chúng thuộc mô hình thử nghiệm cũ. Tác vụ cần đầu vào đưa yêu cầu nhúng đầy đủ qua `tasks/get`; client trả lời qua `tasks/update`, không bằng thử lại lời gọi công cụ gốc. Client vẫn thăm dò ở khoảng gợi ý; tạo tác vụ vẫn do máy chủ quyết định.
 
-Durable task route state is application data keyed by the task handle, not a protocol session.
+Trạng thái tuyến tác vụ bền vững là dữ liệu ứng dụng khóa theo handle tác vụ, không phải phiên giao thức.
 
 ### Compatibility boundary
 
-If the gateway must serve an older client or backend:
+Nếu gateway phải phục vụ client hoặc backend cũ:
 
-- Detect the era explicitly.
-- Keep initialization, transport sessions, GET streams, resource subscriptions, and old task vocabulary inside a legacy adapter.
-- Never leak a legacy session id into modern routing or authorization.
-- Prefer a bounded discovery probe and explicit fallback policy over silent downgrade.
+- Phát hiện thời kỳ tường minh.
+- Giữ khởi tạo, phiên vận chuyển, luồng GET, đăng ký tài nguyên và từ vựng tác vụ cũ trong adapter cũ.
+- Không bao giờ để id phiên cũ rò vào định tuyến hoặc cấp quyền hiện đại.
+- Ưu tiên thăm dò khám phá có giới hạn và chính sách dự phòng tường minh thay hạ cấp âm thầm.
 
 ```figure
 t3-gateway-funnel
@@ -317,11 +317,11 @@ t3-gateway-funnel
 
 ## Build It
 
-`code/main.py` implements an in-process protocol gateway and two backend servers. Each backend receives a fresh current-protocol request. The gateway provides discovery, user-filtered deterministic `tools/list`, namespaced routing, Registry `server.json` plus external admission state, descriptor pins, RBAC, principal-keyed rate limits, audit decisions, and a modeled `subscriptions/listen` SSE acknowledgment.
+`code/main.py` triển khai gateway giao thức trong tiến trình và hai máy chủ backend. Mỗi backend nhận yêu cầu giao thức hiện tại mới. Gateway cung cấp khám phá, `tools/list` tất định lọc người dùng, định tuyến có không gian tên, `server.json` Registry cộng trạng thái tiếp nhận ngoài, ghim bộ mô tả, RBAC, giới hạn tốc độ khóa theo chủ thể, quyết định kiểm toán và xác nhận SSE `subscriptions/listen` mô hình hóa.
 
-The model receives parsed request bodies, routing headers, and an authenticated bearer identity. It is not a complete HTTP adapter and does not parse `Content-Type` or the full `Accept` contract. Connect it to Lesson 09's Streamable HTTP adapter, which requires `Content-Type: application/json` and an `Accept` value containing both `application/json` and `text/event-stream`.
+Mô hình nhận phần thân yêu cầu, header định tuyến đã phân tích và danh tính bearer đã xác thực. Không phải adapter HTTP đầy đủ và không phân tích `Content-Type` hoặc toàn hợp đồng `Accept`. Nối với adapter Streamable HTTP Bài 09 yêu cầu `Content-Type: application/json` và giá trị `Accept` chứa cả `application/json` và `text/event-stream`.
 
-Run it:
+Chạy:
 
 ```bash
 cd phases/13-tools-and-protocols/17-mcp-gateways-and-registries
@@ -329,44 +329,44 @@ python3 code/main.py
 python3 -m unittest discover code/tests -v
 ```
 
-The demo prints the outer request id and fresh backend request id so the stateless hop is visible.
+Demo in id yêu cầu ngoài và id yêu cầu backend mới để bước chuyển không trạng thái rõ.
 
 ## Use It
 
-Replace the in-process backend objects with real current-protocol clients. Keep the same seams:
+Thay đối tượng backend trong tiến trình bằng client giao thức hiện tại thật. Giữ cùng mối nối:
 
-- Admission record before connection.
-- Backend discovery before capability exposure.
-- Qualified public name before authorization.
-- Descriptor pin before list or call.
-- Fresh per-request metadata before forwarding.
-- Result validation before returning.
+- Bản ghi tiếp nhận trước kết nối.
+- Khám phá backend trước đưa khả năng ra.
+- Tên công khai định danh đầy đủ trước cấp quyền.
+- Ghim bộ mô tả trước liệt kê hoặc gọi.
+- Siêu dữ liệu mỗi yêu cầu mới trước chuyển tiếp.
+- Xác thực kết quả trước trả.
 
 ## Ship It
 
-This lesson ships `outputs/skill-gateway-bootstrap.md`. It produces a modern gateway design covering ingress, discovery, admission, namespaces, authorization, caching, streaming, subscriptions, MRTR, Tasks, observability, and legacy isolation.
+Bài học này cung cấp `outputs/skill-gateway-bootstrap.md`. Nó tạo thiết kế gateway hiện đại bao phủ đầu vào, khám phá, tiếp nhận, không gian tên, cấp quyền, lưu đệm, truyền luồng, đăng ký, MRTR, Tasks, quan sát và cô lập cũ.
 
 ## Exercises
 
-1. Add trace context to the outer and forwarded request metadata and record the correlation in the audit event.
-2. Add a Tasks-capable backend and route `tasks/get` by task id in `Mcp-Name`.
-3. Change one backend descriptor and prove both discovery and direct call are blocked.
-4. Add a principal-specific server capability and explain why discovery must remain privately cached.
-5. Write a legacy adapter interface without adding any legacy state to the modern `Gateway` class.
+1. Thêm ngữ cảnh trace vào siêu dữ liệu yêu cầu ngoài và chuyển tiếp, ghi liên hệ trong sự kiện kiểm toán.
+2. Thêm backend có khả năng Tasks và định tuyến `tasks/get` theo id tác vụ trong `Mcp-Name`.
+3. Đổi một bộ mô tả backend và chứng minh cả khám phá lẫn gọi trực tiếp bị chặn.
+4. Thêm khả năng máy chủ riêng chủ thể và giải thích tại sao khám phá phải giữ lưu đệm riêng.
+5. Viết giao diện adapter cũ không thêm trạng thái cũ vào lớp `Gateway` hiện đại.
 
 ## Key Terms
 
-| Term | Meaning |
+| Thuật ngữ | Ý nghĩa |
 |------|---------|
-| MCP gateway | Policy and routing server between clients and backend MCP servers |
-| Admission record | Evidence and policy decision allowing one backend into the gateway |
-| Qualified tool name | Stable public route such as `notes.search` |
-| Descriptor pin | Approved digest checked during discovery and dispatch |
-| Private cache scope | Cached result restricted to one authorization context |
-| Request-scoped SSE | Streaming response attached to one POST request |
-| `subscriptions/listen` | Client-opened SSE stream for selected long-lived change notifications |
-| Task route | Application mapping from an opaque task id to its backend |
-| Legacy adapter | Explicit version-gated boundary for old handshake and session behavior |
+| MCP gateway (Gateway MCP) | Máy chủ chính sách và định tuyến giữa client và máy chủ MCP backend |
+| Admission record (Bản ghi tiếp nhận) | Bằng chứng và quyết định chính sách cho một backend vào gateway |
+| Qualified tool name (Tên công cụ định danh đầy đủ) | Tuyến công khai ổn định như `notes.search` |
+| Descriptor pin (Ghim bộ mô tả) | Bản băm phê duyệt kiểm tra trong khám phá và phân phối |
+| Private cache scope (Phạm vi bộ đệm riêng) | Kết quả lưu đệm hạn chế ở một ngữ cảnh cấp quyền |
+| Request-scoped SSE (SSE phạm vi yêu cầu) | Phản hồi truyền luồng gắn một yêu cầu POST |
+| `subscriptions/listen` | Luồng SSE do client mở cho thông báo thay đổi sống lâu đã chọn |
+| Task route (Tuyến tác vụ) | Ánh xạ ứng dụng từ id tác vụ mờ đến backend |
+| Legacy adapter (Adapter cũ) | Ranh giới chặn phiên bản tường minh cho hành vi bắt tay và phiên cũ |
 
 ## Further Reading
 
