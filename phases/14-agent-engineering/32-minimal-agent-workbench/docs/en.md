@@ -1,6 +1,6 @@
 # The Minimal Agent Workbench
 
-> The smallest useful workbench is three files: a root instructions router, a state file, and a task board. Everything else is layered on top. If a repo cannot carry these three, no model will save it.
+> Workbench hữu ích nhỏ nhất là ba file: một bộ định tuyến chỉ dẫn gốc, một file trạng thái và một bảng tác vụ. Mọi thứ khác được xếp lớp lên trên. Nếu một repo không thể mang ba file này, không mô hình nào sẽ cứu được nó.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Define the three files that form the minimum viable workbench.
-- Explain why a short root router beats a long monolithic `AGENTS.md`.
-- Build a state file the agent can read at every turn and write at the end.
-- Build a task board that survives multi-session work without chat history.
+- Định nghĩa ba file tạo thành workbench khả dụng tối thiểu.
+- Giải thích vì sao một bộ định tuyến gốc ngắn thắng một `AGENTS.md` nguyên khối dài.
+- Xây một file trạng thái mà agent có thể đọc ở mỗi lượt và ghi ở cuối.
+- Xây một bảng tác vụ sống sót qua công việc nhiều phiên mà không có lịch sử trò chuyện.
 
 ## The Problem
 
-Most teams reach for a workbench by writing a 3000-line `AGENTS.md` and calling it done. The model loads it, ignores the parts it cannot summarize, and still fails on the same surfaces it always failed on.
+Hầu hết các nhóm tiếp cận một workbench bằng cách viết một `AGENTS.md` 3000 dòng và gọi là xong. Mô hình tải nó, bỏ qua các phần nó không thể tóm tắt và vẫn thất bại trên cùng các bề mặt mà nó luôn thất bại.
 
-You need the opposite. A tiny root file that routes the agent into deeper files only when relevant. Durable state the agent reads before acting and writes after. A task board that says what is in flight, what is blocked, and what is up next.
+Bạn cần điều ngược lại. Một file gốc nhỏ định tuyến agent vào các file sâu hơn chỉ khi liên quan. Trạng thái bền vững mà agent đọc trước khi hành động và ghi sau đó. Một bảng tác vụ nói điều gì đang thực hiện, điều gì bị chặn và điều gì tiếp theo.
 
-Three files. Each one with a job. Each one machine-readable enough to evolve into a real system later.
+Ba file. Mỗi file với một công việc. Mỗi file đủ máy đọc được để tiến hóa thành một hệ thống thực sau này.
 
 ## The Concept
 
@@ -35,30 +35,30 @@ flowchart LR
 
 ### AGENTS.md is a router, not a manual
 
-A good `AGENTS.md` is short. It points the agent at:
+Một `AGENTS.md` tốt thì ngắn. Nó chỉ agent đến:
 
-- The state file (where you are).
-- The task board (what is left).
-- The deeper rules (under `docs/agent-rules.md`).
-- The verification command (how to know it works).
+- File trạng thái (bạn đang ở đâu).
+- Bảng tác vụ (điều gì còn lại).
+- Các quy tắc sâu hơn (dưới `docs/agent-rules.md`).
+- Lệnh xác minh (cách biết nó hoạt động).
 
-Anything longer goes in deeper docs, loaded only when needed. Long manuals get ignored. Short routers get followed.
+Bất cứ thứ gì dài hơn đi vào các tài liệu sâu hơn, chỉ được tải khi cần. Các sổ tay dài bị bỏ qua. Các bộ định tuyến ngắn được tuân theo.
 
 ### agent_state.json is the system of record
 
-State carries: the active task id, the touched files, the assumptions made, the blockers, and the next action. The agent reads it at every turn. The next session reads it instead of replaying chat.
+Trạng thái mang: id tác vụ hoạt động, các file đã chạm, các giả định đã đưa ra, các trở ngại và hành động tiếp theo. Agent đọc nó ở mỗi lượt. Phiên tiếp theo đọc nó thay vì phát lại trò chuyện.
 
-State lives in a file because chat history is unreliable. Sessions die. Conversations get trimmed. The file does not.
+Trạng thái nằm trong một file vì lịch sử trò chuyện không đáng tin cậy. Các phiên chết. Các hội thoại bị cắt bớt. File thì không.
 
 ### task_board.json is the queue
 
-The task board carries every task with status `todo | in_progress | done | blocked`. It is the queue the agent pulls from when state is empty, and the queue you read when you want to know whether the agent is on track.
+Bảng tác vụ mang mọi tác vụ với trạng thái `todo | in_progress | done | blocked`. Đó là hàng đợi mà agent lấy từ khi trạng thái rỗng, và hàng đợi bạn đọc khi bạn muốn biết liệu agent có đang đi đúng hướng không.
 
-A task on the board has an id, a goal, an owner (`builder`, `reviewer`, or `human`), and acceptance criteria. The board is small on purpose: when it grows past a screen, you have a planning problem, not a board problem.
+Một tác vụ trên bảng có một id, một mục tiêu, một bên chịu trách nhiệm (`builder`, `reviewer` hoặc `human`) và các tiêu chí nghiệm thu. Bảng nhỏ có chủ ý: khi nó tăng quá một màn hình, bạn có một vấn đề lập kế hoạch, không phải vấn đề bảng.
 
 ### Three files is the floor, not the ceiling
 
-Later lessons add scope contracts, feedback runners, verification gates, reviewer checklists, and handoff packets. The three files here are what they all assume.
+Các bài học sau thêm các hợp đồng phạm vi, trình chạy phản hồi, cổng xác minh, danh sách kiểm tra của bên đánh giá và gói bàn giao. Ba file ở đây là điều tất cả chúng giả định.
 
 ```figure
 wb-three-files
@@ -66,70 +66,70 @@ wb-three-files
 
 ## Build It
 
-`code/main.py` writes the minimal workbench into an empty repo and demonstrates a single agent turn that:
+`code/main.py` ghi workbench tối thiểu vào một repo rỗng và minh họa một lượt agent duy nhất:
 
-1. Reads `agent_state.json`.
-2. Pulls the next task from `task_board.json` if state is empty.
-3. Touches a single file inside scope.
-4. Writes back updated state.
+1. Đọc `agent_state.json`.
+2. Lấy tác vụ tiếp theo từ `task_board.json` nếu trạng thái rỗng.
+3. Chạm một file duy nhất bên trong phạm vi.
+4. Ghi lại trạng thái đã cập nhật.
 
-Run it:
+Chạy nó:
 
 ```
 python3 code/main.py
 ```
 
-The script creates `workdir/` next to itself, lays down the three files, runs one turn, and prints the diff. Re-run it to see how the second turn picks up where the first left off.
+Script tạo `workdir/` cạnh chính nó, đặt ba file, chạy một lượt và in diff. Chạy lại nó để xem lượt thứ hai tiếp nối nơi lượt đầu dừng lại như thế nào.
 
 ## Use It
 
-Inside production agent products, the same three files show up under different names:
+Bên trong các sản phẩm agent sản xuất, cùng ba file xuất hiện dưới các tên khác nhau:
 
-- **Claude Code:** `AGENTS.md` or `CLAUDE.md` for the router, `.claude/state.json`-style stores for state, hooks for the board.
-- **Codex / Cursor:** workspace rules for the router, session memory for state, queued tasks in the chat sidebar for the board.
-- **Custom Python agent:** the same files you just wrote.
+- **Claude Code:** `AGENTS.md` hoặc `CLAUDE.md` cho bộ định tuyến, các kho kiểu `.claude/state.json` cho trạng thái, các hook cho bảng.
+- **Codex / Cursor:** các quy tắc workspace cho bộ định tuyến, bộ nhớ phiên cho trạng thái, các tác vụ được xếp hàng trong thanh bên trò chuyện cho bảng.
+- **Agent Python tùy chỉnh:** cùng các file bạn vừa viết.
 
-The names change. The shape does not.
+Các tên thay đổi. Hình dạng thì không.
 
 ## Production patterns in the wild
 
-The minimum workbench survives contact with real monorepos when three patterns are layered on top of it. They are independent; pick the ones your repo actually needs.
+Workbench tối thiểu sống sót khi tiếp xúc các monorepo thực khi ba mẫu được xếp lớp lên nó. Chúng độc lập; chọn những mẫu repo của bạn thực sự cần.
 
-**Nested `AGENTS.md` with nearest-wins precedence.** OpenAI ships 88 `AGENTS.md` files across its main repo, one per subcomponent. Codex, Cursor, Claude Code, and Copilot all walk from the working file toward the repo root and concatenate every `AGENTS.md` they find on the way. Sub-directory files extend the root file. Codex adds `AGENTS.override.md` to replace rather than extend; the override mechanism is Codex-specific and avoid it for cross-tool work. Augment Code's measurement is the line that matters: the best `AGENTS.md` files give a quality jump equivalent to upgrading from Haiku to Opus; the worst ones make output worse than no file at all.
+**`AGENTS.md` lồng nhau với thứ tự ưu tiên gần nhất thắng.** OpenAI cung cấp 88 file `AGENTS.md` xuyên repo chính của họ, một cho mỗi thành phần con. Codex, Cursor, Claude Code và Copilot đều đi từ file đang làm việc về phía gốc repo và nối mọi `AGENTS.md` chúng tìm thấy trên đường. Các file thư mục con mở rộng file gốc. Codex thêm `AGENTS.override.md` để thay thế thay vì mở rộng; cơ chế override dành riêng cho Codex và tránh nó cho công việc xuyên công cụ. Phép đo của Augment Code là câu quan trọng: các file `AGENTS.md` tốt nhất cho một bước nhảy chất lượng tương đương nâng cấp từ Haiku lên Opus; những file tệ nhất làm đầu ra tệ hơn hoàn toàn không có file.
 
-**Anti-patterns to refuse, even when they look like coverage.** Conflicting instructions silently drop the agent from interactive to greedy mode (ICLR 2026 AMBIG-SWE: 48.8% → 28% resolve rate); number priorities instead of stacking them flat. Unverifiable style rules ("follow the Google Python Style Guide") with no enforcement command let the agent invent compliance; pair every style rule with the exact lint command. Leading with style instead of commands buries the verification path; commands first, style last. Writing for humans instead of agents wastes context budget; terseness is a feature.
+**Các phản mẫu cần từ chối, ngay cả khi chúng trông như độ bao phủ.** Các chỉ dẫn xung đột âm thầm thả agent từ chế độ tương tác sang chế độ tham lam (ICLR 2026 AMBIG-SWE: tỷ lệ giải quyết 48.8% → 28%); đánh số các ưu tiên thay vì xếp phẳng chúng. Các quy tắc phong cách không thể xác minh ("tuân theo Google Python Style Guide") không có lệnh thực thi cho phép agent bịa sự tuân thủ; ghép mỗi quy tắc phong cách với lệnh lint chính xác. Dẫn đầu bằng phong cách thay vì các lệnh chôn vùi đường xác minh; các lệnh trước, phong cách cuối. Viết cho con người thay vì agent lãng phí ngân sách ngữ cảnh; tính ngắn gọn là một tính năng.
 
-**Cross-tool symlinks.** A single root file with symlinks (`ln -s AGENTS.md CLAUDE.md`, `ln -s AGENTS.md .github/copilot-instructions.md`, `ln -s AGENTS.md .cursorrules`) keeps every coding agent on the same source of truth. Nx's `nx ai-setup` automates this across Claude Code, Cursor, Copilot, Gemini, Codex, and OpenCode from a single config.
+**Các symlink xuyên công cụ.** Một file gốc duy nhất với các symlink (`ln -s AGENTS.md CLAUDE.md`, `ln -s AGENTS.md .github/copilot-instructions.md`, `ln -s AGENTS.md .cursorrules`) giữ mọi agent lập trình trên cùng nguồn sự thật. `nx ai-setup` của Nx tự động hóa điều này xuyên Claude Code, Cursor, Copilot, Gemini, Codex và OpenCode từ một cấu hình duy nhất.
 
 ## Ship It
 
-`outputs/skill-minimal-workbench.md` generates the three-file workbench for any new repo: an `AGENTS.md` router tuned to the project, an `agent_state.json` with the right keys, and a `task_board.json` seeded with the current backlog.
+`outputs/skill-minimal-workbench.md` tạo workbench ba file cho bất kỳ repo mới nào: một bộ định tuyến `AGENTS.md` được điều chỉnh cho dự án, một `agent_state.json` với các khóa đúng và một `task_board.json` được khởi tạo bằng backlog hiện tại.
 
 ## Exercises
 
-1. Add a `last_run` timestamp to `agent_state.json`. Refuse to run if the file is older than 24 hours unless an operator confirms.
-2. Add a `priority` field to the task board and change the puller to always pick the highest priority `todo`.
-3. Migrate `task_board.json` to JSON Lines so each task is a line and diffs are clean in version control.
-4. Write a `lint_workbench.py` that fails if `AGENTS.md` is over 80 lines or references a file that does not exist.
-5. Decide which one of the three files would hurt the most to lose. Defend it.
+1. Thêm một dấu thời gian `last_run` vào `agent_state.json`. Từ chối chạy nếu file cũ hơn 24 giờ trừ khi một người vận hành xác nhận.
+2. Thêm một trường `priority` vào bảng tác vụ và thay đổi bộ lấy để luôn chọn `todo` ưu tiên cao nhất.
+3. Chuyển `task_board.json` sang JSON Lines để mỗi tác vụ là một dòng và các diff rõ ràng trong quản lý phiên bản.
+4. Viết một `lint_workbench.py` thất bại nếu `AGENTS.md` vượt 80 dòng hoặc tham chiếu một file không tồn tại.
+5. Quyết định mất file nào trong ba file sẽ gây hại nhất. Bảo vệ lựa chọn đó.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |------|----------------|------------------------|
-| Router | `AGENTS.md` | Short root file that points the agent at deeper docs and files |
-| State file | "The notes" | Machine-readable record of where the agent is, written every turn |
-| Task board | "The backlog" | JSON queue of work with status, owner, acceptance |
-| System of record | "Source of truth" | The file the workbench treats as authoritative when chat is gone |
+| Router (Bộ định tuyến) | `AGENTS.md` | File gốc ngắn chỉ agent đến các tài liệu và file sâu hơn |
+| State file (File trạng thái) | "Các ghi chú" | Bản ghi máy đọc được về nơi agent đang ở, được ghi mỗi lượt |
+| Task board (Bảng tác vụ) | "Backlog" | Hàng đợi công việc JSON với trạng thái, bên chịu trách nhiệm, nghiệm thu |
+| System of record (Hệ thống ghi nhận chính thức) | "Nguồn sự thật" | File mà workbench coi là có thẩm quyền khi trò chuyện không còn |
 
 ## Further Reading
 
-- [agents.md — the open spec](https://agents.md/) — adopted by Cursor, Codex, Claude Code, Copilot, Gemini, OpenCode
-- [Augment Code, A good AGENTS.md is a model upgrade. A bad one is worse than no docs at all](https://www.augmentcode.com/blog/how-to-write-good-agents-dot-md-files) — measured quality jumps
-- [Blake Crosley, AGENTS.md Patterns: What Actually Changes Agent Behavior](https://blakecrosley.com/blog/agents-md-patterns) — what works empirically, what does not
-- [Datadog Frontend, Steering AI Agents in Monorepos with AGENTS.md](https://dev.to/datadog-frontend-dev/steering-ai-agents-in-monorepos-with-agentsmd-13g0) — nested precedence in practice
-- [Nx Blog, Teach Your AI Agent How to Work in a Monorepo](https://nx.dev/blog/nx-ai-agent-skills) — single-source generation across six tools
-- [The Prompt Shelf, AGENTS.md Best Practices: Structure, Scope, and Real Examples](https://thepromptshelf.dev/blog/agents-md-best-practices/) — section ordering that survives review
+- [agents.md — the open spec](https://agents.md/) — được áp dụng bởi Cursor, Codex, Claude Code, Copilot, Gemini, OpenCode
+- [Augment Code, A good AGENTS.md is a model upgrade. A bad one is worse than no docs at all](https://www.augmentcode.com/blog/how-to-write-good-agents-dot-md-files) — các bước nhảy chất lượng được đo
+- [Blake Crosley, AGENTS.md Patterns: What Actually Changes Agent Behavior](https://blakecrosley.com/blog/agents-md-patterns) — điều gì hoạt động theo thực nghiệm, điều gì không
+- [Datadog Frontend, Steering AI Agents in Monorepos with AGENTS.md](https://dev.to/datadog-frontend-dev/steering-ai-agents-in-monorepos-with-agentsmd-13g0) — thứ tự ưu tiên lồng nhau trong thực tế
+- [Nx Blog, Teach Your AI Agent How to Work in a Monorepo](https://nx.dev/blog/nx-ai-agent-skills) — tạo từ một nguồn xuyên sáu công cụ
+- [The Prompt Shelf, AGENTS.md Best Practices: Structure, Scope, and Real Examples](https://thepromptshelf.dev/blog/agents-md-best-practices/) — thứ tự phần sống sót qua đánh giá
 - [Anthropic, Claude Code subagents](https://code.claude.com/docs/en/sub-agents)
-- Phase 14 · 31 — the failure modes this minimum absorbs
-- Phase 14 · 34 — the durable state schema this lesson previews
+- Giai đoạn 14 · 31 — các chế độ lỗi mà mức tối thiểu này hấp thụ
+- Giai đoạn 14 · 34 — schema trạng thái bền vững mà bài này xem trước

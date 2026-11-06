@@ -7,29 +7,29 @@ lesson: 32
 tags: [workbench, agents-md, state, task-board, scaffold]
 ---
 
-Given a repo path and a short backlog, scaffold the minimum viable agent workbench.
+Với một đường dẫn repo và một backlog ngắn, tạo khung workbench agent khả dụng tối thiểu.
 
-Produce:
+Tạo:
 
-1. `AGENTS.md` no longer than 80 lines. It must route to: the state file, the task board, the deeper rules doc (even if empty), and the verification command. No prose tutorials in this file.
-2. `agent_state.json` with these keys: `active_task_id`, `touched_files`, `assumptions`, `blockers`, `next_action`. All optional fields default to empty array or empty string, never `null` for arrays.
-3. `task_board.json` as a JSON array of tasks. Each task has `id`, `goal`, `owner` (`builder` | `reviewer` | `human`), `acceptance` (list of strings), and `status` (`todo` | `in_progress` | `done` | `blocked`).
-4. `docs/agent-rules.md` placeholder with a single H2 per surface so later lessons can fill it.
+1. `AGENTS.md` không dài hơn 80 dòng. Nó phải định tuyến đến: file trạng thái, bảng tác vụ, tài liệu quy tắc sâu hơn (ngay cả khi rỗng) và lệnh xác minh. Không có các hướng dẫn văn xuôi trong file này.
+2. `agent_state.json` với các khóa này: `active_task_id`, `touched_files`, `assumptions`, `blockers`, `next_action`. Mọi trường tùy chọn mặc định là mảng rỗng hoặc chuỗi rỗng, không bao giờ là `null` cho các mảng.
+3. `task_board.json` dưới dạng một mảng JSON các tác vụ. Mỗi tác vụ có `id`, `goal`, `owner` (`builder` | `reviewer` | `human`), `acceptance` (danh sách các chuỗi) và `status` (`todo` | `in_progress` | `done` | `blocked`).
+4. Chỗ giữ chỗ `docs/agent-rules.md` với một H2 duy nhất cho mỗi bề mặt để các bài sau có thể điền nó.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- `AGENTS.md` over 80 lines or under 10 lines. Too long and the agent skips it; too short and it carries no routing.
-- A state file that references chat history instead of the repo. The repo is the system of record.
-- A task board without `acceptance`. Tasks without acceptance criteria become "looks good" rubber stamps.
-- Tasks whose `owner` is `agent` or `model`. Owners are roles, not entities.
+- `AGENTS.md` vượt 80 dòng hoặc dưới 10 dòng. Quá dài và agent bỏ qua nó; quá ngắn và nó không mang định tuyến.
+- Một file trạng thái tham chiếu lịch sử trò chuyện thay vì repo. Repo là hệ thống ghi nhận chính thức.
+- Một bảng tác vụ không có `acceptance`. Các tác vụ không có tiêu chí nghiệm thu trở thành các dấu phê duyệt máy móc "trông ổn".
+- Các tác vụ có `owner` là `agent` hoặc `model`. Các bên chịu trách nhiệm là các vai trò, không phải các thực thể.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the repo has no verification command, refuse to write `AGENTS.md` until one is supplied or stubbed. A router pointing at a missing gate is worse than no router.
-- If the backlog has more than 12 open tasks, refuse and ask the user to split it. Boards over a screen drift into planning theater.
-- If the project ships with secrets in tracked files, refuse to write the state file and surface the secret leak as a blocking finding first.
+- Nếu repo không có lệnh xác minh, từ chối viết `AGENTS.md` cho đến khi một lệnh được cung cấp hoặc tạo stub. Một bộ định tuyến chỉ đến một cổng bị thiếu tệ hơn không có bộ định tuyến.
+- Nếu backlog có hơn 12 tác vụ mở, từ chối và yêu cầu người dùng chia nó. Các bảng quá một màn hình trôi vào diễn kịch lập kế hoạch.
+- Nếu dự án được phát hành với các bí mật trong các file được theo dõi, từ chối viết file trạng thái và hiển thị rò rỉ bí mật như một phát hiện chặn trước.
 
-Output structure:
+Cấu trúc đầu ra:
 
 ```
 <repo>/
@@ -40,8 +40,8 @@ Output structure:
     └── agent-rules.md
 ```
 
-End with "what to read next" pointing to:
+Kết thúc bằng "đọc gì tiếp theo" chỉ đến:
 
-- Lesson 33 for turning the rules placeholder into executable constraints.
-- Lesson 34 for the durable state schema.
-- Lesson 36 for the scope contract per task.
+- Bài 33 để biến chỗ giữ chỗ các quy tắc thành các ràng buộc thực thi được.
+- Bài 34 cho schema trạng thái bền vững.
+- Bài 36 cho hợp đồng phạm vi theo từng tác vụ.

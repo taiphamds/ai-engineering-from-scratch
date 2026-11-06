@@ -1,28 +1,28 @@
 # Mission - The Minimal Agent Workbench
 
 ## Goal
-Lay down the three-file minimum workbench (router, state, task board) into a fresh `workdir/` and prove a single agent turn can read state, pull a task, write to scope, and persist updated state.
+Đặt workbench tối thiểu ba file (bộ định tuyến, trạng thái, bảng tác vụ) vào một `workdir/` mới và chứng minh một lượt agent duy nhất có thể đọc trạng thái, lấy một tác vụ, ghi trong phạm vi và lưu giữ trạng thái đã cập nhật.
 
 ## Inputs
-- An empty `workdir/` directory next to the lesson code
-- Knowledge of the three files: `AGENTS.md`, `agent_state.json`, `task_board.json`
+- Một thư mục `workdir/` rỗng cạnh mã bài học
+- Kiến thức về ba file: `AGENTS.md`, `agent_state.json`, `task_board.json`
 
 ## Deliverables
-- `code/main.py` that creates the three files and runs one turn
-- `workdir/AGENTS.md` short router pointing at state, board, and the verification command
-- `workdir/agent_state.json` with active task id, touched files, next action
-- `workdir/task_board.json` with a small backlog and statuses
+- `code/main.py` tạo ba file và chạy một lượt
+- Bộ định tuyến ngắn `workdir/AGENTS.md` chỉ đến trạng thái, bảng và lệnh xác minh
+- `workdir/agent_state.json` với id tác vụ hoạt động, các file đã chạm, hành động tiếp theo
+- `workdir/task_board.json` với một backlog nhỏ và các trạng thái
 
 ## Acceptance
-- `python3 code/main.py` exits zero on first and second run
-- Second run picks up where the first left off, not from scratch
-- Diff printed by the script shows the one file the turn touched
+- `python3 code/main.py` thoát với mã không ở lần chạy thứ nhất và thứ hai
+- Lần chạy thứ hai tiếp nối nơi lần đầu dừng lại, không phải từ đầu
+- Diff được script in cho thấy một file mà lượt đã chạm
 
 ## Out of scope
-- Scope contracts, verification gates, reviewer agents. Those layer on top in later lessons.
-- Long monolithic `AGENTS.md`. The router stays short on purpose.
+- Các hợp đồng phạm vi, cổng xác minh, agent đánh giá. Những thứ đó được xếp lớp lên trên trong các bài sau.
+- `AGENTS.md` nguyên khối dài. Bộ định tuyến được giữ ngắn có chủ ý.
 
 ## References
-- `docs/en.md` - full lesson
-- `code/main.py` - reference implementation
-- `outputs/skill-minimal-workbench.md` - extracted skill
+- `docs/en.md` - bài học đầy đủ
+- `code/main.py` - triển khai tham chiếu
+- `outputs/skill-minimal-workbench.md` - skill được trích xuất
