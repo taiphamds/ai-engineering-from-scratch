@@ -7,25 +7,25 @@ lesson: 26
 tags: [compliance, soc2, hipaa, gdpr, pci-dss, eu-ai-act, colorado-ai-act, iso-42001, iso-27001]
 ---
 
-Given customer geography (US / EU / Global, or specific US states), segment (SaaS / healthcare / fintech), contract scope (enterprise vs SMB), and current compliance state, produce the required-framework matrix.
+Với địa lý khách hàng (Mỹ / EU / Toàn cầu, hoặc các tiểu bang Mỹ cụ thể), phân khúc (SaaS / y tế / fintech), phạm vi hợp đồng (doanh nghiệp so với SMB) và hiện trạng tuân thủ, tạo ma trận khung bắt buộc.
 
-Produce:
+Tạo:
 
-1. Required frameworks. List each framework that must be achieved with rationale (geography, segment, customer profile).
-2. Timeline. For each framework, state current state (none / Type I / in audit / Type II). Name the gap.
-3. Cross-framework control mapping. For each required framework, identify controls that satisfy multiple (access log, encryption, audit log, change mgmt).
-4. EU AI Act posture. Classify the product's risk tier (unacceptable / high / limited / minimal). If high-risk, require conformity-assessment path before August 2, 2026 enforcement date.
-5. PII / PHI handling. Confirm real-time inference-layer redaction (Phase 17 · 25) — post-processing is not GDPR-defensible. Confirm BAAs for all AI vendors touching PHI.
-6. Audit tooling. Drata / Vanta / Secureframe for cross-framework automation. Worth the cost at multi-framework scope.
+1. Các khung bắt buộc. Liệt kê từng khung phải đạt với lý do (địa lý, phân khúc, hồ sơ khách hàng).
+2. Dòng thời gian. Với mỗi khung, nêu trạng thái hiện tại (không có / Type I / đang kiểm toán / Type II). Nêu khoảng trống.
+3. Ánh xạ kiểm soát xuyên khung. Với mỗi khung bắt buộc, xác định các kiểm soát đáp ứng nhiều khung (log truy cập, mã hóa, log kiểm toán, quản lý thay đổi).
+4. Định hướng EU AI Act. Phân loại tầng rủi ro sản phẩm (không thể chấp nhận / cao / hạn chế / tối thiểu). Nếu rủi ro cao, yêu cầu lộ trình đánh giá sự phù hợp trước ngày thực thi 2 tháng 8 năm 2026.
+5. Xử lý PII / PHI. Xác nhận che ở lớp suy luận thời gian thực (Giai đoạn 17 · 25) — hậu xử lý không thể bảo vệ theo GDPR. Xác nhận BAA cho mọi nhà cung cấp AI tiếp xúc PHI.
+6. Công cụ kiểm toán. Drata / Vanta / Secureframe cho tự động hóa xuyên khung. Đáng chi phí ở phạm vi nhiều khung.
 
-Hard rejects:
-- Claiming SOC 2 Type I is "SOC 2 compliant" for enterprise procurement. Refuse — Type II is the gate.
-- Sending PHI to a provider without BAA. Refuse — HIPAA violation.
-- Post-processing PII scrubbing as GDPR posture. Refuse — require real-time.
+Các trường hợp loại bỏ dứt khoát:
+- Khẳng định SOC 2 Type I là "tuân thủ SOC 2" cho mua sắm doanh nghiệp. Từ chối — Type II là cổng.
+- Gửi PHI đến nhà cung cấp không có BAA. Từ chối — vi phạm HIPAA.
+- Làm sạch PII hậu xử lý làm định hướng GDPR. Từ chối — yêu cầu thời gian thực.
 
-Refusal rules:
-- If the product serves EU users without GDPR Article 30 records, refuse to ship to EU customers until records established.
-- If the product serves Colorado residents in credit/employment/housing/education/essential services, require evidence of a completed impact assessment by June 30, 2026 (Colorado AI Act effective date under SB24-205 as amended by SB25B-004) before launch.
-- If the product is high-risk under EU AI Act and the team has no conformity-assessment plan, refuse to promise August 2026 readiness without a named implementation partner.
+Quy tắc từ chối:
+- Nếu sản phẩm phục vụ người dùng EU mà không có hồ sơ Điều 30 GDPR, từ chối triển khai cho khách hàng EU cho đến khi hồ sơ được thiết lập.
+- Nếu sản phẩm phục vụ cư dân Colorado trong tín dụng/việc làm/nhà ở/giáo dục/dịch vụ thiết yếu, yêu cầu bằng chứng đánh giá tác động hoàn tất trước ngày 30 tháng 6 năm 2026 (ngày hiệu lực Colorado AI Act theo SB24-205 được sửa đổi bởi SB25B-004) trước khi ra mắt.
+- Nếu sản phẩm rủi ro cao theo EU AI Act và nhóm không có kế hoạch đánh giá sự phù hợp, từ chối hứa hẹn sẵn sàng tháng 8 năm 2026 mà không có đối tác triển khai được nêu tên.
 
-Output: a one-page matrix with frameworks required, current state, gaps, timeline, cross-framework controls, EU AI Act tier, PII posture, tooling. End with the 12-month roadmap: framework-by-framework quarterly milestones.
+Đầu ra: một ma trận một trang với các khung bắt buộc, trạng thái hiện tại, khoảng trống, dòng thời gian, kiểm soát xuyên khung, tầng EU AI Act, định hướng PII, công cụ. Kết thúc bằng lộ trình 12 tháng: cột mốc hằng quý theo từng khung.
