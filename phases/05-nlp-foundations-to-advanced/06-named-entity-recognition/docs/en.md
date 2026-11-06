@@ -1,6 +1,6 @@
 # Named Entity Recognition
 
-> Pull the names out. Sounds easy until you deal with ambiguous boundaries, nested entities, and domain jargon.
+> Lấy các tên ra. Nghe có vẻ dễ cho đến khi bạn xử lý các ranh giới mơ hồ, thực thể lồng nhau và biệt ngữ lĩnh vực.
 
 **Type:** Build
 **Languages:** Python
@@ -9,15 +9,15 @@
 
 ## The Problem
 
-"Apple sued Google over its iPhone search deal in the US." Five entities: Apple (ORG), Google (ORG), iPhone (PRODUCT), search deal (maybe), US (GPE). A good NER system extracts all of them with correct types. A bad one misses iPhone, confuses Apple the fruit with Apple the company, and labels "US" as a PERSON.
+"Apple kiện Google về thỏa thuận tìm kiếm iPhone của hãng tại Mỹ." Năm thực thể: Apple (ORG), Google (ORG), iPhone (PRODUCT), thỏa thuận tìm kiếm (có lẽ), US (GPE). Một hệ thống NER tốt trích xuất tất cả chúng với đúng loại. Một hệ thống tệ bỏ sót iPhone, nhầm Apple là trái cây với Apple là công ty và gán nhãn "US" là PERSON.
 
-NER is the workhorse underneath every structured extraction pipeline. Resume parsing, compliance log scanning, medical record anonymization, search query understanding, grounding for chatbot responses, legal contract extraction. You never quite see it; you always depend on it.
+NER là thành phần chủ lực bên dưới mọi pipeline trích xuất có cấu trúc. Phân tích hồ sơ xin việc, quét nhật ký tuân thủ, ẩn danh hồ sơ y tế, hiểu truy vấn tìm kiếm, tạo căn cứ cho phản hồi chatbot, trích xuất hợp đồng pháp lý. Bạn không bao giờ thấy rõ nó; bạn luôn phụ thuộc vào nó.
 
-This lesson walks the classical path (rule-based, HMM, CRF) into the modern one (BiLSTM-CRF, then transformers). Each step solves a specific limitation of the one before it. The pattern is the lesson.
+Bài học này đi theo con đường cổ điển (dựa trên quy tắc, HMM, CRF) vào con đường hiện đại (BiLSTM-CRF, rồi transformer). Mỗi bước giải quyết một hạn chế cụ thể của bước trước. Mẫu đó là bài học.
 
 ## The Concept
 
-**BIO tagging** (or BILOU) turns entity extraction into a sequence-labeling problem. Label each token with `B-TYPE` (beginning of entity), `I-TYPE` (inside entity), or `O` (outside any entity).
+**Gán nhãn BIO** (hoặc BILOU) biến trích xuất thực thể thành một bài toán gán nhãn chuỗi. Gán nhãn mỗi token bằng `B-TYPE` (bắt đầu thực thể), `I-TYPE` (bên trong thực thể) hoặc `O` (bên ngoài mọi thực thể).
 
 ```
 Apple    B-ORG
@@ -34,15 +34,15 @@ US       B-GPE
 .        O
 ```
 
-Multi-token entities chain: `New B-GPE`, `York I-GPE`, `City I-GPE`. A model that understands BIO can extract arbitrary spans.
+Các thực thể nhiều token nối thành chuỗi: `New B-GPE`, `York I-GPE`, `City I-GPE`. Một mô hình hiểu BIO có thể trích xuất các span tùy ý.
 
-The architecture progression:
+Tiến trình kiến trúc:
 
-- **Rule-based.** Regex + gazetteer lookups. High precision on known entities, zero coverage on new ones.
-- **HMM.** Hidden Markov Model. Emission probability of token given tag, transition probability of tag-to-tag. Viterbi decode. Trained on labeled data.
-- **CRF.** Conditional Random Field. Like HMM but discriminative, so you can mix arbitrary features (word shape, capitalization, neighboring words). Still the classical production workhorse in 2026 for low-resource deployments.
-- **BiLSTM-CRF.** Neural features instead of hand-crafted. LSTM reads the sentence both directions, CRF layer on top enforces consistent tag sequences.
-- **Transformer-based.** Fine-tune BERT with a token-classification head. Best accuracy. Most compute.
+- **Dựa trên quy tắc.** Regex + tra cứu từ điển thực thể. Precision cao trên các thực thể đã biết, không bao phủ các thực thể mới.
+- **HMM.** Mô hình Markov ẩn. Xác suất phát xạ của token khi biết nhãn, xác suất chuyển từ nhãn sang nhãn. Giải mã Viterbi. Được huấn luyện trên dữ liệu có nhãn.
+- **CRF.** Trường ngẫu nhiên có điều kiện. Giống HMM nhưng có tính phân biệt, nên bạn có thể trộn các đặc trưng tùy ý (hình dạng từ, viết hoa, các từ lân cận). Vẫn là thành phần chủ lực production cổ điển năm 2026 cho các triển khai ít tài nguyên.
+- **BiLSTM-CRF.** Các đặc trưng nơ-ron thay cho thiết kế thủ công. LSTM đọc câu theo cả hai hướng, tầng CRF phía trên buộc các chuỗi nhãn nhất quán.
+- **Dựa trên transformer.** Fine-tune BERT với một head phân loại token. Accuracy tốt nhất. Nhiều tính toán nhất.
 
 ```figure
 ner-bio-tagging
@@ -90,7 +90,7 @@ def bio_to_spans(tokens, labels):
 
 ### Step 2: hand-crafted features
 
-For classical (non-neural) NER, features are the game. Useful ones:
+Đối với NER cổ điển (phi nơ-ron), đặc trưng là yếu tố quyết định. Các đặc trưng hữu ích:
 
 ```python
 def token_features(token, prev_token, next_token):
@@ -120,7 +120,7 @@ def word_shape(word):
     return "".join(out)
 ```
 
-`word_shape("iPhone")` returns `xXxxxx`. `word_shape("USA-2024")` returns `XXX-dddd`. Capitalization patterns are high-signal for proper nouns.
+`word_shape("iPhone")` trả về `xXxxxx`. `word_shape("USA-2024")` trả về `XXX-dddd`. Các mẫu viết hoa mang tín hiệu mạnh cho danh từ riêng.
 
 ### Step 3: a simple rule-based + dictionary baseline
 
@@ -144,11 +144,11 @@ def rule_based_ner(tokens):
     return labels
 ```
 
-Production gazetteers have millions of entries scraped from Wikipedia and DBpedia. Coverage is good. Disambiguation (`Apple` the company vs the fruit) is terrible. That is why statistical models won.
+Các từ điển thực thể production có hàng triệu mục được thu thập từ Wikipedia và DBpedia. Độ bao phủ tốt. Phân giải nhập nhằng (`Apple` là công ty so với trái cây) rất tệ. Đó là lý do các mô hình thống kê thắng.
 
 ### Step 4: the CRF step (sketch, not full impl)
 
-Full CRF from scratch in 50 lines is not enlightening without the probability-theory foundations. Use `sklearn-crfsuite` instead:
+CRF đầy đủ từ đầu trong 50 dòng không giúp sáng tỏ nếu thiếu nền tảng lý thuyết xác suất. Thay vào đó dùng `sklearn-crfsuite`:
 
 ```python
 import sklearn_crfsuite
@@ -178,11 +178,11 @@ X_train = [to_features(s) for s in sentences_tokenized]
 crf.fit(X_train, bio_labels_train)
 ```
 
-`c1` and `c2` are L1 and L2 regularization. `all_possible_transitions=True` lets the model learn illegal sequences (e.g., `I-ORG` after `O`) are unlikely, which is how a CRF enforces BIO consistency without you writing the constraint.
+`c1` và `c2` là điều chuẩn L1 và L2. `all_possible_transitions=True` cho phép mô hình học rằng các chuỗi không hợp lệ (ví dụ, `I-ORG` sau `O`) ít có khả năng xảy ra, đó là cách một CRF buộc tính nhất quán BIO mà không cần bạn viết ràng buộc.
 
 ### Step 5: what a BiLSTM-CRF adds
 
-Features become learned. Inputs: token embeddings (GloVe or fastText). LSTM reads left-to-right and right-to-left. Concatenated hidden states go through a CRF output layer. The CRF still enforces tag-sequence consistency; the LSTM replaces hand-crafted features with learned ones.
+Các đặc trưng trở thành được học. Đầu vào: các embedding token (GloVe hoặc fastText). LSTM đọc từ trái sang phải và từ phải sang trái. Các trạng thái ẩn được nối đi qua một tầng đầu ra CRF. CRF vẫn buộc tính nhất quán chuỗi nhãn; LSTM thay các đặc trưng thiết kế thủ công bằng các đặc trưng được học.
 
 ```python
 import torch
@@ -203,11 +203,11 @@ class BiLSTM_CRF_Head(nn.Module):
         return emissions
 ```
 
-For the CRF layer, use `torchcrf.CRF` (pip install pytorch-crf). The gain over hand-crafted CRF is measurable but smaller than you expect unless you have tens of thousands of labeled sentences.
+Với tầng CRF, dùng `torchcrf.CRF` (pip install pytorch-crf). Mức cải thiện so với CRF thiết kế thủ công đo được nhưng nhỏ hơn bạn kỳ vọng trừ khi bạn có hàng chục nghìn câu được gán nhãn.
 
 ## Use It
 
-spaCy ships production-grade NER out of the box.
+spaCy cung cấp NER cấp production ngay khi dùng.
 
 ```python
 import spacy
@@ -225,9 +225,9 @@ iPhone               ORG
 US                   GPE
 ```
 
-Notice `iPhone` labeled `ORG` rather than `PRODUCT` — spaCy's small model has weak product-entity coverage. The large model (`en_core_web_lg`) does better. The transformer model (`en_core_web_trf`) does better still.
+Chú ý `iPhone` được gán nhãn `ORG` thay vì `PRODUCT` — mô hình nhỏ của spaCy có độ bao phủ thực thể sản phẩm yếu. Mô hình lớn (`en_core_web_lg`) làm tốt hơn. Mô hình transformer (`en_core_web_trf`) còn làm tốt hơn nữa.
 
-Hugging Face for BERT-based NER:
+Hugging Face cho NER dựa trên BERT:
 
 ```python
 from transformers import pipeline
@@ -243,38 +243,38 @@ print(ner("Apple sued Google over its iPhone in the US."))
  {'entity_group': 'LOC', 'word': 'US', ...}]
 ```
 
-`aggregation_strategy="simple"` merges contiguous B-X, I-X tokens into a span. Without it, you get token-level labels and have to merge yourself.
+`aggregation_strategy="simple"` gộp các token B-X, I-X liền nhau thành một span. Không có nó, bạn nhận các nhãn cấp token và phải tự gộp.
 
 ### LLM-based NER (the 2026 option)
 
-Zero-shot and few-shot LLM NER is now competitive with fine-tuned models on many domains, and dramatically better when labeled data is scarce.
+NER LLM zero-shot và few-shot hiện cạnh tranh được với các mô hình được fine-tune trên nhiều lĩnh vực, và tốt hơn rõ rệt khi dữ liệu có nhãn khan hiếm.
 
-- **Zero-shot prompting.** Give the LLM a list of entity types and an example schema. Ask for JSON output. Works out of the box; accuracy is moderate on novel domains.
-- **ZeroTuneBio-style prompting.** Decompose the task into candidate extraction → meaning explanation → judgment → re-check. A multi-stage prompt (not one-shot) lifts accuracy substantially on biomedical NER. The same pattern works for legal, financial, and scientific domains.
-- **Dynamic prompting with RAG.** Retrieve the most similar labeled examples from a small annotated seed set for every inference call; build the few-shot prompt on the fly. In 2026 benchmarks, this lifts GPT-4 biomedical NER F1 by 11-12% over static prompting.
-- **Per-entity-type decomposition.** For long documents, a single call that extracts all entity types at once loses recall as length grows. Run one extraction pass per entity type. Higher inference cost, substantially higher accuracy. This is the standard pattern for clinical notes and legal contracts.
+- **Prompting zero-shot.** Cho LLM một danh sách các loại thực thể và một schema ví dụ. Yêu cầu đầu ra JSON. Hoạt động ngay khi dùng; accuracy vừa phải trên các lĩnh vực mới.
+- **Prompting kiểu ZeroTuneBio.** Phân rã tác vụ thành trích xuất ứng viên → giải thích ý nghĩa → phán đoán → kiểm tra lại. Một prompt nhiều giai đoạn (không phải one-shot) nâng accuracy đáng kể trên NER y sinh. Cùng mẫu đó hoạt động cho các lĩnh vực pháp lý, tài chính và khoa học.
+- **Prompting động với RAG.** Truy xuất các ví dụ có nhãn tương tự nhất từ một tập hạt giống nhỏ được chú giải cho mỗi lời gọi suy luận; xây dựng prompt few-shot ngay khi chạy. Trong các benchmark năm 2026, điều này nâng F1 NER y sinh của GPT-4 thêm 11-12% so với prompting tĩnh.
+- **Phân rã theo loại thực thể.** Đối với tài liệu dài, một lời gọi duy nhất trích xuất tất cả các loại thực thể cùng lúc mất recall khi độ dài tăng. Chạy một lượt trích xuất cho mỗi loại thực thể. Chi phí suy luận cao hơn, accuracy cao hơn đáng kể. Đây là mẫu tiêu chuẩn cho ghi chú lâm sàng và hợp đồng pháp lý.
 
-Production recommendation as of 2026: start with an LLM zero-shot baseline before you collect training data. Often the F1 is good enough that you never need to fine-tune.
+Khuyến nghị production tính đến năm 2026: bắt đầu với một baseline LLM zero-shot trước khi thu thập dữ liệu huấn luyện. Thường F1 đủ tốt để bạn không bao giờ cần fine-tune.
 
 ### Where classical NER still wins
 
-Even with LLMs available, classical NER wins when:
+Ngay cả khi có LLM, NER cổ điển thắng khi:
 
-- Latency budget is under 50ms.
-- You have thousands of labeled examples and need 98%+ F1.
-- The domain has a stable ontology where a pretrained CRF or BiLSTM transfers well.
-- Regulatory constraints require an on-prem, non-generative model.
+- Ngân sách độ trễ dưới 50ms.
+- Bạn có hàng nghìn ví dụ có nhãn và cần F1 98%+.
+- Lĩnh vực có một ontology ổn định mà một CRF hoặc BiLSTM được tiền huấn luyện chuyển giao tốt.
+- Các ràng buộc quy định yêu cầu một mô hình tại chỗ, phi sinh.
 
 ### Where it falls apart
 
-- **Domain shift.** CoNLL-trained NER on legal contracts performs worse than a gazetteer. Fine-tune on your domain.
-- **Nested entities.** "Bank of America Tower" is simultaneously an ORG and a FACILITY. Standard BIO cannot represent overlapping spans. You need nested NER (multi-pass or span-based models).
-- **Long entities.** "United States Federal Deposit Insurance Corporation." Token-level models sometimes split this. Use `aggregation_strategy` or post-process.
-- **Sparse types.** Medical NER labels like DRUG_BRAND, ADVERSE_EVENT, DOSE. General-purpose models have no idea. Scispacy and BioBERT are the starting points there.
+- **Dịch chuyển lĩnh vực.** NER được huấn luyện trên CoNLL dùng trên các hợp đồng pháp lý hoạt động kém hơn một từ điển thực thể. Fine-tune trên lĩnh vực của bạn.
+- **Các thực thể lồng nhau.** "Bank of America Tower" đồng thời là một ORG và một FACILITY. BIO tiêu chuẩn không thể biểu diễn các span chồng lấn. Bạn cần NER lồng nhau (các mô hình nhiều lượt hoặc dựa trên span).
+- **Các thực thể dài.** "United States Federal Deposit Insurance Corporation." Các mô hình cấp token đôi khi chia nó. Dùng `aggregation_strategy` hoặc hậu xử lý.
+- **Các loại thưa.** Các nhãn NER y tế như DRUG_BRAND, ADVERSE_EVENT, DOSE. Các mô hình đa dụng không biết gì. Scispacy và BioBERT là các điểm bắt đầu ở đó.
 
 ## Ship It
 
-Save as `outputs/skill-ner-picker.md`:
+Lưu thành `outputs/skill-ner-picker.md`:
 
 ```markdown
 ---
@@ -298,24 +298,24 @@ Refuse to recommend fine-tuning a transformer for under 500 labeled examples unl
 
 ## Exercises
 
-1. **Easy.** Implement `bio_to_spans` (the inverse of `spans_to_bio`) and verify round-trip consistency on 10 sentences.
-2. **Medium.** Train the sklearn-crfsuite CRF above on the CoNLL-2003 English NER dataset. Report per-entity F1 using `seqeval`. Typical result: ~84 F1.
-3. **Hard.** Fine-tune `distilbert-base-cased` on a domain-specific NER dataset (medical, legal, or financial). Compare against the spaCy small model. Document data leakage checks and write up what surprised you.
+1. **Dễ.** Triển khai `bio_to_spans` (phép nghịch đảo của `spans_to_bio`) và xác minh tính nhất quán đi-về trên 10 câu.
+2. **Trung bình.** Huấn luyện CRF sklearn-crfsuite ở trên trên tập dữ liệu NER tiếng Anh CoNLL-2003. Báo cáo F1 theo thực thể bằng `seqeval`. Kết quả điển hình: ~84 F1.
+3. **Khó.** Fine-tune `distilbert-base-cased` trên một tập dữ liệu NER theo lĩnh vực (y tế, pháp lý hoặc tài chính). So sánh với mô hình nhỏ của spaCy. Ghi lại các kiểm tra rò rỉ dữ liệu và viết lại điều khiến bạn ngạc nhiên.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| NER | Extract names | Label token spans with types (PERSON, ORG, GPE, DATE, ...). |
-| BIO | Tagging scheme | `B-X` begins, `I-X` continues, `O` outside. |
-| BILOU | Better BIO | Adds `L-X` (last), `U-X` (unit) for cleaner boundaries. |
-| CRF | Structured classifier | Models transitions between labels, not just emissions. Enforces valid sequences. |
-| Nested NER | Overlapping entities | One span is a different entity than a sub-span of it. BIO cannot express this. |
-| Entity-level F1 | Proper NER metric | Predicted span must match true span exactly. Token-level F1 overstates accuracy. |
+| NER | Trích xuất tên | Gán nhãn các span token bằng các loại (PERSON, ORG, GPE, DATE, ...). |
+| BIO | Hệ gán nhãn | `B-X` bắt đầu, `I-X` tiếp tục, `O` bên ngoài. |
+| BILOU | BIO tốt hơn | Thêm `L-X` (cuối), `U-X` (đơn vị) cho các ranh giới rõ hơn. |
+| CRF | Bộ phân loại có cấu trúc | Mô hình hóa các chuyển tiếp giữa nhãn, không chỉ các phát xạ. Buộc các chuỗi hợp lệ. |
+| Nested NER (NER lồng nhau) | Các thực thể chồng lấn | Một span là một thực thể khác với một span con của nó. BIO không thể biểu đạt điều này. |
+| Entity-level F1 (F1 cấp thực thể) | Thước đo NER đúng | Span được dự đoán phải khớp span thực chính xác. F1 cấp token phóng đại accuracy. |
 
 ## Further Reading
 
-- [Lample et al. (2016). Neural Architectures for Named Entity Recognition](https://arxiv.org/abs/1603.01360) — the BiLSTM-CRF paper. Canonical.
-- [Devlin et al. (2018). BERT: Pre-training of Deep Bidirectional Transformers](https://arxiv.org/abs/1810.04805) — introduces the token-classification pattern that became standard.
-- [spaCy linguistic features — named entities](https://spacy.io/usage/linguistic-features#named-entities) — practical reference for every attribute on `Doc.ents` and `Span`.
-- [seqeval](https://github.com/chakki-works/seqeval) — the correct metric library. Use it always.
+- [Lample et al. (2016). Neural Architectures for Named Entity Recognition](https://arxiv.org/abs/1603.01360) — bài báo BiLSTM-CRF. Kinh điển.
+- [Devlin et al. (2018). BERT: Pre-training of Deep Bidirectional Transformers](https://arxiv.org/abs/1810.04805) — giới thiệu mẫu phân loại token đã trở thành tiêu chuẩn.
+- [spaCy linguistic features — named entities](https://spacy.io/usage/linguistic-features#named-entities) — tham chiếu thực hành cho mọi thuộc tính trên `Doc.ents` và `Span`.
+- [seqeval](https://github.com/chakki-works/seqeval) — thư viện thước đo đúng. Luôn dùng nó.

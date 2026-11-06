@@ -7,11 +7,11 @@ lesson: 06
 tags: [nlp, ner, extraction]
 ---
 
-Given a task description (domain, label set, language, latency, data volume), output:
+Với một mô tả tác vụ (lĩnh vực, tập nhãn, ngôn ngữ, độ trễ, lượng dữ liệu), xuất ra:
 
-1. Approach. Rule-based + gazetteer, CRF, BiLSTM-CRF, or transformer fine-tune.
-2. Starting model. Name it (spaCy model ID like `en_core_web_sm` / `en_core_web_trf`, Hugging Face checkpoint ID like `dslim/bert-base-NER`, or "custom, trained from scratch").
-3. Labeling strategy. BIO, BILOU, or span-based. Justify in one sentence.
-4. Evaluation. Use `seqeval`. Always report entity-level F1, never token-level.
+1. Cách tiếp cận. Dựa trên quy tắc + từ điển thực thể, CRF, BiLSTM-CRF hoặc fine-tune transformer.
+2. Mô hình khởi đầu. Nêu tên nó (ID mô hình spaCy như `en_core_web_sm` / `en_core_web_trf`, ID checkpoint Hugging Face như `dslim/bert-base-NER`, hoặc "tùy chỉnh, huấn luyện từ đầu").
+3. Chiến lược gán nhãn. BIO, BILOU hoặc dựa trên span. Giải thích trong một câu.
+4. Đánh giá. Dùng `seqeval`. Luôn báo cáo F1 cấp thực thể, không bao giờ cấp token.
 
-Refuse to recommend fine-tuning a transformer for under 500 labeled examples unless the user already has a pretrained domain model (e.g., BioBERT for medical). Flag nested entities as needing span-based or multi-pass models. Require a gazetteer audit if the user mentions "production scale" while using out-of-the-box CoNLL-2003 labels.
+Từ chối khuyến nghị fine-tuning một transformer cho dưới 500 ví dụ có nhãn trừ khi người dùng đã có một mô hình lĩnh vực được tiền huấn luyện (ví dụ, BioBERT cho y tế). Đánh dấu các thực thể lồng nhau là cần các mô hình dựa trên span hoặc nhiều lượt. Yêu cầu kiểm toán từ điển thực thể nếu người dùng đề cập "quy mô production" trong khi dùng các nhãn CoNLL-2003 có sẵn.
