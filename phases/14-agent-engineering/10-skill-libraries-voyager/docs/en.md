@@ -1,6 +1,6 @@
 # Skill Libraries and Lifelong Learning (Voyager)
 
-> Voyager (Wang et al., TMLR 2024) treats executable code as a skill. Skills are named, retrievable, composable, and refined by environment feedback. This is the reference architecture for Claude Agent SDK skills, skillkit, and the 2026 skill-library pattern.
+> Voyager (Wang và cộng sự, TMLR 2024) coi mã thực thi là một skill. Các skill có tên, có thể truy xuất, có thể kết hợp và được tinh chỉnh bằng phản hồi môi trường. Đây là kiến trúc tham chiếu cho các skill Claude Agent SDK, skillkit và mẫu thư viện skill năm 2026.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,36 +9,36 @@
 
 ## Learning Objectives
 
-- Name Voyager's three components — automatic curriculum, skill library, iterative prompting — and the role of each.
-- Explain why Voyager makes the action space code, not primitive commands.
-- Implement a stdlib skill library with registration, retrieval, composition, and failure-driven refinement.
-- Map Voyager's pattern onto the 2026 Claude Agent SDK skills and the skillkit ecosystem.
+- Nêu tên ba thành phần của Voyager — chương trình học tự động, thư viện skill, prompting lặp — và vai trò của từng thành phần.
+- Giải thích vì sao Voyager biến không gian hành động thành mã, không phải các lệnh nguyên thủy.
+- Triển khai một thư viện skill dùng thư viện chuẩn với đăng ký, truy xuất, kết hợp và tinh chỉnh do thất bại thúc đẩy.
+- Ánh xạ mẫu Voyager lên các skill Claude Agent SDK năm 2026 và hệ sinh thái skillkit.
 
 ## The Problem
 
-Agents that rebuild every capability from scratch in every session do three things wrong:
+Các agent xây dựng lại mọi khả năng từ đầu trong mỗi phiên làm sai ba việc:
 
-1. **Waste tokens.** Every task re-elicits the same reasoning.
-2. **Lose progress.** A correction learned in session A doesn't transfer to session B.
-3. **Fail on long-horizon composition.** Complex tasks need capability hierarchies; one-shot prompts cannot express them.
+1. **Lãng phí token.** Mọi tác vụ gợi lại cùng một suy luận.
+2. **Mất tiến độ.** Một sửa chữa học được trong phiên A không chuyển sang phiên B.
+3. **Thất bại khi kết hợp tầm dài.** Các tác vụ phức tạp cần hệ phân cấp khả năng; các prompt một lần không thể biểu đạt chúng.
 
-Voyager's answer: treat each reusable capability as a named chunk of code stored in a library, retrievable by similarity, composable with other skills, and refined by execution feedback.
+Câu trả lời của Voyager: coi mỗi khả năng tái sử dụng là một đoạn mã có tên được lưu trong một thư viện, có thể truy xuất theo độ tương tự, có thể kết hợp với các skill khác và được tinh chỉnh bằng phản hồi thực thi.
 
 ## The Concept
 
 ### Three components
 
-Voyager (arXiv:2305.16291) structures an agent around:
+Voyager (arXiv:2305.16291) cấu trúc một agent quanh:
 
-1. **Automatic curriculum.** A curiosity-driven proposer picks the next task based on the agent's current skill set and environment state. Exploration is bottom-up.
-2. **Skill library.** Each skill is executable code. New skills are added when a task succeeds. Skills are retrieved by query-to-description similarity.
-3. **Iterative prompting mechanism.** On failure, the agent receives execution errors, environment feedback, and self-verification output, then refines the skill.
+1. **Chương trình học tự động.** Một bộ đề xuất do sự tò mò thúc đẩy chọn tác vụ tiếp theo dựa trên tập skill hiện tại của agent và trạng thái môi trường. Khám phá là từ dưới lên.
+2. **Thư viện skill.** Mỗi skill là mã thực thi. Các skill mới được thêm khi một tác vụ thành công. Các skill được truy xuất theo độ tương tự từ truy vấn đến mô tả.
+3. **Cơ chế prompting lặp.** Khi thất bại, agent nhận các lỗi thực thi, phản hồi môi trường và đầu ra tự xác minh, rồi tinh chỉnh skill.
 
-The Minecraft evaluation (Wang et al., 2024): 3.3x more unique items, 8.5x faster stone tools, 6.4x faster iron tools, 2.3x longer map traversal versus baselines. The numbers are Minecraft-specific, but the pattern transfers.
+Đánh giá Minecraft (Wang và cộng sự, 2024): nhiều vật phẩm độc nhất hơn 3.3 lần, công cụ đá nhanh hơn 8.5 lần, công cụ sắt nhanh hơn 6.4 lần, duyệt bản đồ dài hơn 2.3 lần so với các đường cơ sở. Các con số dành riêng cho Minecraft, nhưng mẫu có thể chuyển giao.
 
 ### Action space = code
 
-Most agents emit primitive commands. Voyager emits JavaScript functions. A skill is:
+Hầu hết các agent phát ra các lệnh nguyên thủy. Voyager phát ra các hàm JavaScript. Một skill là:
 
 ```
 async function craftIronPickaxe(bot) {
@@ -49,44 +49,44 @@ async function craftIronPickaxe(bot) {
 }
 ```
 
-Composed from sub-skills. Stored keyed on description and embedding. Retrieved as a program, not a prompt.
+Được kết hợp từ các skill con. Được lưu và đánh khóa theo mô tả và embedding. Được truy xuất như một chương trình, không phải một prompt.
 
-This is the 2026 Claude Agent SDK skill: a named, retrievable chunk of code plus instructions the agent loads on demand.
+Đây là skill Claude Agent SDK năm 2026: một đoạn mã có tên, có thể truy xuất cộng các chỉ dẫn mà agent tải theo yêu cầu.
 
 ### Skill retrieval
 
-New task "make a diamond pickaxe." Agent:
+Tác vụ mới "làm một cuốc chim kim cương." Agent:
 
-1. Embeds the task description.
-2. Queries the skill library for top-k similar skills.
-3. Retrieves `craftIronPickaxe`, `mineDiamond`, `placeCraftingTable` etc.
-4. Composes the new skill from retrieved primitives + new logic.
+1. Tạo embedding cho mô tả tác vụ.
+2. Truy vấn thư viện skill để lấy top-k skill tương tự.
+3. Truy xuất `craftIronPickaxe`, `mineDiamond`, `placeCraftingTable` v.v.
+4. Kết hợp skill mới từ các thành phần nguyên thủy được truy xuất + logic mới.
 
-This is the pattern MCP resources (Phase 13) and Agent SDK skills implement: retrieval over a knowledge/code surface, scoped to the current task.
+Đây là mẫu mà các tài nguyên MCP (Giai đoạn 13) và các skill Agent SDK triển khai: truy xuất trên một bề mặt tri thức/mã, được giới hạn phạm vi vào tác vụ hiện tại.
 
 ### Iterative refinement
 
-Voyager's feedback loop:
+Vòng lặp phản hồi của Voyager:
 
-1. Agent writes a skill.
-2. Skill runs against the environment.
-3. One of three signals returns: `success`, `error` (with stack trace), `self-verification failure`.
-4. Agent rewrites the skill using the signal as context.
-5. Loop until success or max rounds.
+1. Agent viết một skill.
+2. Skill chạy trên môi trường.
+3. Một trong ba tín hiệu trả về: `success`, `error` (với stack trace), `self-verification failure`.
+4. Agent viết lại skill bằng tín hiệu làm ngữ cảnh.
+5. Lặp cho đến khi thành công hoặc số vòng tối đa.
 
-This is Self-Refine (Lesson 05) applied to code generation with environment-grounded verification. CRITIC (Lesson 05) is the same pattern with external tools as the verifier.
+Đây là Self-Refine (Bài 05) được áp dụng cho sinh mã với xác minh dựa trên môi trường. CRITIC (Bài 05) là cùng mẫu với các công cụ bên ngoài làm bộ xác minh.
 
 ### Curriculum and exploration
 
-Voyager's curriculum module proposes tasks like "build a shelter near the lake" based on what the agent has and what it has not yet done. The proposer uses the environment state + skill inventory to pick a task just above current capability — the exploration sweet spot.
+Mô-đun chương trình học của Voyager đề xuất các tác vụ như "xây một nơi trú ẩn gần hồ" dựa trên những gì agent có và những gì nó chưa làm. Bộ đề xuất sử dụng trạng thái môi trường + danh mục skill để chọn một tác vụ ngay trên khả năng hiện tại — điểm tối ưu cho khám phá.
 
-For production agents this translates to a "what's missing" operator: given the current skill library and a domain, what skills are we not yet covering? Teams typically implement this manually as curriculum review.
+Với các agent sản xuất, điều này chuyển thành một toán tử "còn thiếu gì": với thư viện skill hiện tại và một miền cho trước, những skill nào chúng ta chưa bao phủ? Các nhóm thường triển khai điều này thủ công dưới dạng đánh giá chương trình học.
 
 ### Where this pattern goes wrong
 
-- **Skill library rot.** Same skill added 10 times with slightly different descriptions. Add deduplication on write; retrieval returns only one.
-- **Composed-skill drift.** Parent skill depends on a child that was refined. Version skills; a parent pinned to v1 doesn't magically pick up v3.
-- **Retrieval quality.** Vector retrieval over skill descriptions degrades as the library grows past a few hundred. Supplement with tag filters and hard constraints ("only skills with `category=tooling`").
+- **Thư viện skill mục nát.** Cùng skill được thêm 10 lần với các mô tả hơi khác nhau. Thêm loại trùng khi ghi; truy xuất chỉ trả về một.
+- **Trôi dạt skill kết hợp.** Skill cha phụ thuộc vào một skill con đã được tinh chỉnh. Đánh phiên bản các skill; một skill cha được ghim vào v1 không tự nhiên nhận v3.
+- **Chất lượng truy xuất.** Truy xuất vector trên các mô tả skill suy giảm khi thư viện tăng quá vài trăm. Bổ sung bằng các bộ lọc thẻ và các ràng buộc cứng ("chỉ các skill có `category=tooling`").
 
 ```figure
 voyager-skills
@@ -94,54 +94,54 @@ voyager-skills
 
 ## Build It
 
-`code/main.py` implements a stdlib skill library:
+`code/main.py` triển khai một thư viện skill dùng thư viện chuẩn:
 
-- `Skill` — name, description, code (as string), version, tags, dependencies.
-- `SkillLibrary` — register, search (token overlap), compose (topological sort of deps), and refine (version bump on update).
-- A scripted agent that registers three primitive skills, composes a fourth, hits a failure, and refines.
+- `Skill` — tên, mô tả, mã (dưới dạng chuỗi), phiên bản, các thẻ, các phụ thuộc.
+- `SkillLibrary` — đăng ký, tìm kiếm (chồng lấp token), kết hợp (sắp xếp tô pô các phụ thuộc) và tinh chỉnh (tăng phiên bản khi cập nhật).
+- Một agent được viết kịch bản đăng ký ba skill nguyên thủy, kết hợp một skill thứ tư, gặp một thất bại và tinh chỉnh.
 
-Run it:
+Chạy nó:
 
 ```
 python3 code/main.py
 ```
 
-The trace shows library writes, retrieval, composition, a failed execution, and a v2 refinement — Voyager's loop end to end.
+Trace cho thấy các lần ghi thư viện, truy xuất, kết hợp, một lần thực thi thất bại và một lần tinh chỉnh v2 — vòng lặp Voyager từ đầu đến cuối.
 
 ## Use It
 
-- **Claude Agent SDK skills** (Anthropic) — the 2026 reference: each skill has a description, code, and instructions; loaded on demand during an agent session.
-- **skillkit** (npm: skillkit) — cross-agent skill management for 32+ AI coding agents.
-- **Custom skill libraries** — domain-specific (SQL skills for data agents, Terraform skills for infra agents). The Voyager pattern scales down.
-- **OpenAI Agents SDK `tools`** — at the low end; each tool is a lightweight skill.
+- **Các skill Claude Agent SDK** (Anthropic) — tham chiếu năm 2026: mỗi skill có một mô tả, mã và các chỉ dẫn; được tải theo yêu cầu trong một phiên agent.
+- **skillkit** (npm: skillkit) — quản lý skill xuyên agent cho 32+ agent lập trình AI.
+- **Các thư viện skill tùy chỉnh** — dành riêng cho miền (các skill SQL cho agent dữ liệu, các skill Terraform cho agent hạ tầng). Mẫu Voyager thu nhỏ được.
+- **`tools` OpenAI Agents SDK** — ở mức thấp; mỗi công cụ là một skill nhẹ.
 
 ## Ship It
 
-`outputs/skill-skill-library.md` generates a Voyager-shaped skill library with registration, retrieval, versioning, and refinement wired in for any target runtime.
+`outputs/skill-skill-library.md` tạo một thư viện skill có dạng Voyager với đăng ký, truy xuất, đánh phiên bản và tinh chỉnh được nối sẵn cho bất kỳ runtime đích nào.
 
 ## Exercises
 
-1. Add a dependency-cycle detector to `compose()`. What happens when skill A depends on B which depends on A? Error vs warning?
-2. Implement per-skill version pinning. When a parent skill composes child `crafting@1`, a refinement to `crafting@2` must not silently upgrade the parent.
-3. Replace token-overlap retrieval with sentence-transformers embeddings (or a BM25 stdlib impl). Measure retrieval@5 on a 50-skill toy library.
-4. Add a "curriculum" agent: given the current library and a domain description, propose 5 missing skills. Call it weekly.
-5. Read Anthropic's Claude Agent SDK skill docs. Port the toy library to the SDK's skill schema. What changes about discoverability?
+1. Thêm một bộ phát hiện chu trình phụ thuộc vào `compose()`. Điều gì xảy ra khi skill A phụ thuộc B mà B phụ thuộc A? Lỗi hay cảnh báo?
+2. Triển khai ghim phiên bản cho từng skill. Khi một skill cha kết hợp skill con `crafting@1`, một lần tinh chỉnh lên `crafting@2` không được âm thầm nâng cấp skill cha.
+3. Thay truy xuất chồng lấp token bằng các embedding sentence-transformers (hoặc một triển khai BM25 dùng thư viện chuẩn). Đo retrieval@5 trên một thư viện mô phỏng 50 skill.
+4. Thêm một agent "chương trình học": với thư viện hiện tại và một mô tả miền cho trước, đề xuất 5 skill còn thiếu. Gọi nó hàng tuần.
+5. Đọc tài liệu skill Claude Agent SDK của Anthropic. Chuyển thư viện mô phỏng sang schema skill của SDK. Điều gì thay đổi về khả năng khám phá?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |------|----------------|------------------------|
-| Skill | "Reusable capability" | Named chunk of code + description, retrievable by similarity |
-| Skill library | "Agent memory of how-to" | Persistent store of skills, searchable and composable |
-| Curriculum | "Task proposer" | Bottom-up goal generator driven by current capability gap |
-| Composition | "Skill DAG" | Skills invoking skills; topologically sorted on execution |
-| Iterative refinement | "Self-correcting loop" | Env feedback + errors + self-verification fold back into the next version |
-| Action-space-as-code | "Programmatic actions" | Emit functions, not primitive commands, for temporally extended behavior |
-| Dedup on write | "Skill collapse" | Near-duplicate descriptions collapse to one canonical skill |
+| Skill (Kỹ năng) | "Khả năng tái sử dụng" | Đoạn mã có tên + mô tả, có thể truy xuất theo độ tương tự |
+| Skill library (Thư viện skill) | "Bộ nhớ cách làm của agent" | Kho lưu giữ các skill, có thể tìm kiếm và kết hợp |
+| Curriculum (Chương trình học) | "Bộ đề xuất tác vụ" | Bộ tạo mục tiêu từ dưới lên do khoảng cách khả năng hiện tại thúc đẩy |
+| Composition (Kết hợp) | "DAG skill" | Các skill gọi các skill; được sắp xếp tô pô khi thực thi |
+| Iterative refinement (Tinh chỉnh lặp) | "Vòng lặp tự sửa chữa" | Phản hồi môi trường + lỗi + tự xác minh được đưa trở lại phiên bản tiếp theo |
+| Action-space-as-code (Không gian hành động dưới dạng mã) | "Các hành động bằng chương trình" | Phát ra các hàm, không phải lệnh nguyên thủy, cho hành vi kéo dài theo thời gian |
+| Dedup on write (Loại trùng khi ghi) | "Gộp skill" | Các mô tả gần trùng gộp thành một skill chuẩn duy nhất |
 
 ## Further Reading
 
-- [Wang et al., Voyager (arXiv:2305.16291)](https://arxiv.org/abs/2305.16291) — the original skill-library paper
-- [Claude Agent SDK overview](https://platform.claude.com/docs/en/agent-sdk/overview) — skills as the 2026 productization
-- [Anthropic, Building agents with the Claude Agent SDK](https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk) — skills and subagents in practice
-- [Madaan et al., Self-Refine (arXiv:2303.17651)](https://arxiv.org/abs/2303.17651) — the refinement loop underneath Voyager
+- [Wang et al., Voyager (arXiv:2305.16291)](https://arxiv.org/abs/2305.16291) — bài báo thư viện skill gốc
+- [Claude Agent SDK overview](https://platform.claude.com/docs/en/agent-sdk/overview) — các skill như sự sản phẩm hóa năm 2026
+- [Anthropic, Building agents with the Claude Agent SDK](https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk) — các skill và agent phụ trong thực tế
+- [Madaan et al., Self-Refine (arXiv:2303.17651)](https://arxiv.org/abs/2303.17651) — vòng lặp tinh chỉnh bên dưới Voyager
