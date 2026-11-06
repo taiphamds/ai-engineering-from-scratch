@@ -1,27 +1,27 @@
 # Mission - Reviewer Agent: Separate Builder from Marker
 
 ## Goal
-Build a reviewer loop that reads the builder's artifacts read-only and emits a `review_report.json` scored across five dimensions, totalling out of 10, with a verdict of pass, soft_fail, or hard_fail.
+Xây một vòng lặp đánh giá đọc các sản phẩm của bên xây dựng với quyền chỉ đọc và phát ra một `review_report.json` được chấm điểm xuyên năm chiều, tổng trên 10, với một phán quyết pass, soft_fail hoặc hard_fail.
 
 ## Inputs
-- `ReviewerInputs` bundling diff, state, feedback, and verification verdict from prior lessons
-- Rubric dimensions: problem fit, scope discipline, assumptions, verification quality, handoff readiness
+- `ReviewerInputs` đóng gói diff, trạng thái, phản hồi và phán quyết xác minh từ các bài trước
+- Các chiều bảng tiêu chí: sự phù hợp vấn đề, kỷ luật phạm vi, các giả định, chất lượng xác minh, sự sẵn sàng bàn giao
 
 ## Deliverables
-- One scoring function per dimension (stub-grade for the lesson, deterministic)
-- `review_report.json` writer with five scores, total, and verdict
-- Two demo cases: a clean change and a "right tests, wrong problem" change
+- Một hàm chấm điểm cho mỗi chiều (mức stub cho bài học, mang tính xác định)
+- Bộ ghi `review_report.json` với năm điểm, tổng và phán quyết
+- Hai trường hợp demo: một thay đổi sạch và một thay đổi "đúng kiểm thử, sai vấn đề"
 
 ## Acceptance
-- `python3 code/main.py` exits zero
-- The clean change scores at least 7 with verdict `pass`
-- The wrong-problem change drops below 5 on at least one dimension and verdict flips to `hard_fail`
+- `python3 code/main.py` thoát với mã không
+- Thay đổi sạch đạt ít nhất 7 với phán quyết `pass`
+- Thay đổi sai vấn đề giảm dưới 5 trên ít nhất một chiều và phán quyết đảo sang `hard_fail`
 
 ## Out of scope
-- Real LLM calls. The lesson stubs each dimension; the skill swaps in a model later.
-- Editing the diff. The reviewer reads, scores, and reports. Patches are the builder's job next turn.
+- Các lời gọi LLM thực. Bài học tạo stub mỗi chiều; skill thay một mô hình vào sau.
+- Chỉnh sửa diff. Bên đánh giá đọc, chấm điểm và báo cáo. Các bản vá là công việc của bên xây dựng ở lượt tiếp theo.
 
 ## References
-- `docs/en.md` - full lesson
-- `code/main.py` - reference implementation
-- `outputs/skill-reviewer-agent.md` - extracted skill
+- `docs/en.md` - bài học đầy đủ
+- `code/main.py` - triển khai tham chiếu
+- `outputs/skill-reviewer-agent.md` - skill được trích xuất

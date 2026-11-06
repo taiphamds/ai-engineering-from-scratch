@@ -7,30 +7,30 @@ lesson: 39
 tags: [reviewer, rubric, role-separation, second-loop, review-report]
 ---
 
-Given a builder agent already producing workbench artifacts, stand up a reviewer that reads them and writes structured reports.
+Với một agent xây dựng đã tạo các sản phẩm workbench, thiết lập một bên đánh giá đọc chúng và viết các báo cáo có cấu trúc.
 
-Produce:
+Tạo:
 
-1. `agents/reviewer.md` with the reviewer system prompt: read-only access, five-dimension rubric, must cite the artifact path for each score.
-2. `tools/reviewer.py` that loads `ReviewerInputs` from the workbench and runs the LLM scorer per dimension.
-3. `outputs/review/<task_id>.json` as the canonical review report path.
-4. `docs/reviewer-rubric.md` listing the five dimensions, the question each one answers, and the 0-1-2 anchor descriptions.
-5. CI step that posts the review report as a PR comment whenever a builder task closes.
+1. `agents/reviewer.md` với system prompt bên đánh giá: quyền chỉ đọc, bảng tiêu chí năm chiều, phải trích dẫn đường dẫn sản phẩm cho mỗi điểm.
+2. `tools/reviewer.py` tải `ReviewerInputs` từ workbench và chạy bộ chấm điểm LLM cho mỗi chiều.
+3. `outputs/review/<task_id>.json` làm đường dẫn báo cáo đánh giá chuẩn.
+4. `docs/reviewer-rubric.md` liệt kê năm chiều, câu hỏi mà mỗi chiều trả lời và các mô tả mốc 0-1-2.
+5. Bước CI đăng báo cáo đánh giá như một bình luận PR mỗi khi một tác vụ bên xây dựng đóng.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- A reviewer with write access to the diff. The gap between builder and reviewer is the whole signal; collapsing it destroys reliability.
-- A rubric without anchor descriptions per score. "Score from 0 to 2" without anchors collapses to vibes.
-- Review reports that omit citations. Every score must point at a file or trace entry.
-- Sharing the builder's system prompt. Same model is fine; same prompt is not.
+- Một bên đánh giá có quyền ghi vào diff. Khoảng cách giữa bên xây dựng và bên đánh giá là toàn bộ tín hiệu; làm sụp nó phá hủy độ tin cậy.
+- Một bảng tiêu chí không có các mô tả mốc cho mỗi điểm. "Chấm từ 0 đến 2" không có các mốc quy về cảm giác.
+- Các báo cáo đánh giá bỏ qua trích dẫn. Mỗi điểm phải chỉ đến một file hoặc mục trace.
+- Chia sẻ system prompt của bên xây dựng. Cùng mô hình thì ổn; cùng prompt thì không.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the builder produces no verification report, refuse to run the reviewer. Acceptance must hold before judgment is worth asking for.
-- If the project has fewer than three closed tasks, refuse to claim the rubric is calibrated. Save the first reports as the calibration set.
-- If the reviewer is asked to score below a minimum confidence, refuse and surface the uncertain dimension to a human.
+- Nếu bên xây dựng không tạo báo cáo xác minh, từ chối chạy bên đánh giá. Nghiệm thu phải được giữ trước khi phán đoán đáng để yêu cầu.
+- Nếu dự án có ít hơn ba tác vụ đã đóng, từ chối tuyên bố bảng tiêu chí đã được hiệu chỉnh. Lưu các báo cáo đầu tiên làm tập hiệu chỉnh.
+- Nếu bên đánh giá được yêu cầu chấm điểm dưới một độ tin cậy tối thiểu, từ chối và hiển thị chiều không chắc chắn cho một con người.
 
-Output structure:
+Cấu trúc đầu ra:
 
 ```
 <repo>/
@@ -42,8 +42,8 @@ Output structure:
 └── .github/workflows/review.yml
 ```
 
-End with "what to read next" pointing to:
+Kết thúc bằng "đọc gì tiếp theo" chỉ đến:
 
-- Lesson 40 for the handoff packet that combines verification + review.
-- Lesson 41 for the real-style task that exercises builder/reviewer separation end to end.
-- Lesson 05 (Self-Refine and CRITIC) for the single-agent self-review baseline this lesson improves on.
+- Bài 40 cho gói bàn giao kết hợp xác minh + đánh giá.
+- Bài 41 cho tác vụ kiểu thực thực hành tách biệt bên xây dựng/bên đánh giá từ đầu đến cuối.
+- Bài 05 (Self-Refine và CRITIC) cho đường cơ sở tự đánh giá một agent mà bài này cải thiện.
