@@ -1,6 +1,6 @@
 # Chaos Engineering for LLM Production
 
-> Chaos engineering for LLMs is its own discipline in 2026. Prerequisites before running experiments in production: defined SLI/SLO, trace+metric+log observability, automated rollback, runbooks, on-call. Architecture has four planes: control (experiment scheduler), target (services, infra, data stores), safety (guards + abort + traffic filters), observability (metrics + traces + logs), feedback (into SLO adjustments). Guardrails are mandatory: burn-rate alerts pause experiments if daily error-budget burn > 2x expected; suppression windows + trace-ID correlation dedupe alert noise. Cadence: weekly small canary + SLO review; monthly game day + postmortem; quarterly cross-team resilience audit + dependency mapping. LLM-specific experiments: memory overload, network failures, provider outages, malformed prompts, KV cache eviction storms. Tooling: Harness Chaos Engineering (LLM-derived recommendations, blast-radius downscaling, MCP tool integration); LitmusChaos (CNCF); Chaos Mesh (CNCF Kubernetes-native).
+> Kỹ thuật hỗn loạn cho LLM là một chuyên môn riêng năm 2026. Điều kiện tiên quyết trước khi chạy thí nghiệm trong sản xuất: SLI/SLO đã xác định, khả năng quan sát dấu vết+chỉ số+log, hoàn tác tự động, cẩm nang vận hành, trực. Kiến trúc có bốn mặt phẳng: điều khiển (bộ lập lịch thí nghiệm), mục tiêu (dịch vụ, hạ tầng, kho dữ liệu), an toàn (chốt bảo vệ + hủy + bộ lọc lưu lượng), khả năng quan sát (chỉ số + dấu vết + log), phản hồi (vào điều chỉnh SLO). Chốt bảo vệ là bắt buộc: cảnh báo tốc độ tiêu hao tạm dừng thí nghiệm nếu tiêu hao ngân sách lỗi hằng ngày > 2x dự kiến; cửa sổ ức chế + tương quan ID dấu vết khử trùng lặp nhiễu cảnh báo. Nhịp: canary nhỏ hằng tuần + rà soát SLO; ngày diễn tập hằng tháng + hậu kiểm; kiểm toán khả năng chống chịu xuyên nhóm hằng quý + lập bản đồ phụ thuộc. Thí nghiệm riêng cho LLM: quá tải bộ nhớ, lỗi mạng, nhà cung cấp ngừng hoạt động, prompt sai dạng, bão loại bỏ bộ nhớ đệm KV. Công cụ: Harness Chaos Engineering (khuyến nghị suy ra từ LLM, thu nhỏ bán kính ảnh hưởng, tích hợp công cụ MCP); LitmusChaos (CNCF); Chaos Mesh (nguyên bản Kubernetes CNCF).
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy chaos experiment runner)
@@ -9,87 +9,87 @@
 
 ## Learning Objectives
 
-- Name the five chaos engineering prerequisites (SLI/SLO, observability, rollback, runbooks, on-call) and explain why skipping any breaks the practice.
-- Diagram the four planes (control, target, safety, observability) and the feedback loop into SLO.
-- Enumerate five LLM-specific experiments (memory overload, network fail, provider outage, malformed prompt, KV eviction storm).
-- Pick a tool — Harness, LitmusChaos, Chaos Mesh — given stack.
+- Nêu năm điều kiện tiên quyết kỹ thuật hỗn loạn (SLI/SLO, khả năng quan sát, hoàn tác, cẩm nang vận hành, trực) và giải thích tại sao bỏ qua bất kỳ điều kiện nào phá vỡ thực hành.
+- Vẽ sơ đồ bốn mặt phẳng (điều khiển, mục tiêu, an toàn, khả năng quan sát) và vòng phản hồi vào SLO.
+- Liệt kê năm thí nghiệm riêng cho LLM (quá tải bộ nhớ, lỗi mạng, nhà cung cấp ngừng hoạt động, prompt sai dạng, bão loại bỏ KV).
+- Chọn công cụ — Harness, LitmusChaos, Chaos Mesh — với ngăn xếp đã cho.
 
 ## The Problem
 
-Chaos testing in traditional stacks is established. LLM stacks add new failure modes. A 4K-token prompt with a poison character stalls the tokenizer for 12 seconds. An upstream provider 429s; your gateway retries; your service OOMs on retry-amplified concurrency. A KV cache eviction storm under burst load causes re-prefill cascades that saturate compute.
+Kiểm thử hỗn loạn trong ngăn xếp truyền thống đã được thiết lập. Ngăn xếp LLM thêm chế độ lỗi mới. Một prompt 4K token có ký tự độc làm tokenizer đình trệ 12 giây. Nhà cung cấp thượng nguồn trả 429; gateway của bạn thử lại; dịch vụ của bạn OOM vì độ đồng thời khuếch đại bởi thử lại. Một cơn bão loại bỏ bộ nhớ đệm KV dưới tải đột biến gây các chuỗi prefill lại làm bão hòa tính toán.
 
-None of these show up in unit tests. Chaos engineering is how you discover them before users do.
+Không điều nào trong số này xuất hiện trong kiểm thử đơn vị. Kỹ thuật hỗn loạn là cách bạn khám phá chúng trước người dùng.
 
 ## The Concept
 
 ### Prerequisites
 
-Don't run chaos in production without:
+Không chạy hỗn loạn trong sản xuất nếu thiếu:
 
-1. **SLI/SLO** — defined service-level indicators and objectives.
-2. **Observability** — traces, metrics, logs, wired to dashboards.
-3. **Automated rollback** — Phase 17 · 20 policy-flag rollback.
-4. **Runbooks** — structured, Phase 17 · 23.
-5. **On-call** — someone to respond.
+1. **SLI/SLO** — chỉ báo và mục tiêu cấp dịch vụ đã xác định.
+2. **Khả năng quan sát** — dấu vết, chỉ số, log, được nối với bảng điều khiển.
+3. **Hoàn tác tự động** — hoàn tác bằng cờ chính sách Giai đoạn 17 · 20.
+4. **Cẩm nang vận hành** — có cấu trúc, Giai đoạn 17 · 23.
+5. **Trực** — có người phản ứng.
 
-Missing any means chaos becomes real incident.
+Thiếu bất kỳ điều nào nghĩa là hỗn loạn trở thành sự cố thật.
 
 ### Four planes + feedback
 
-**Control plane** — experiment scheduler (Litmus workflow, Chaos Mesh schedule, Harness UI).
+**Mặt phẳng điều khiển** — bộ lập lịch thí nghiệm (workflow Litmus, lịch Chaos Mesh, UI Harness).
 
-**Target plane** — services, pods, nodes, load balancers, data stores.
+**Mặt phẳng mục tiêu** — dịch vụ, pod, nút, bộ cân bằng tải, kho dữ liệu.
 
-**Safety plane** — kill switch, suppression windows, blast-radius limits, error-budget gates.
+**Mặt phẳng an toàn** — công tắc ngắt, cửa sổ ức chế, giới hạn bán kính ảnh hưởng, cổng ngân sách lỗi.
 
-**Observability plane** — normal metrics + trace-ID correlation to distinguish chaos-induced from natural failures.
+**Mặt phẳng khả năng quan sát** — chỉ số bình thường + tương quan ID dấu vết để phân biệt lỗi do hỗn loạn với lỗi tự nhiên.
 
-**Feedback loop** — findings feed back into SLO adjustment, runbook updates, code fixes.
+**Vòng phản hồi** — phát hiện được đưa trở lại điều chỉnh SLO, cập nhật cẩm nang vận hành, sửa mã.
 
 ### Guardrails are mandatory
 
-- **Burn-rate alert**: pause experiment if daily error-budget burn exceeds 2x expected.
-- **Suppression windows**: silence non-experiment alerts in the blast radius during experiment.
-- **Trace-ID correlation**: all experiment-induced errors carry a tag so on-call can dedupe.
+- **Cảnh báo tốc độ tiêu hao**: tạm dừng thí nghiệm nếu tiêu hao ngân sách lỗi hằng ngày vượt 2x dự kiến.
+- **Cửa sổ ức chế**: tắt các cảnh báo không thuộc thí nghiệm trong bán kính ảnh hưởng trong thời gian thí nghiệm.
+- **Tương quan ID dấu vết**: mọi lỗi do thí nghiệm gây ra mang thẻ để người trực có thể khử trùng lặp.
 
 ### Five LLM-specific experiments
 
-1. **Memory overload** — force a KV cache preemption storm by sending long-context requests with high concurrency. Observe: does the service gracefully shed or crash?
+1. **Quá tải bộ nhớ** — ép một cơn bão tạm chiếm bộ nhớ đệm KV bằng cách gửi yêu cầu ngữ cảnh dài với độ đồng thời cao. Quan sát: dịch vụ có giảm tải êm hay sập?
 
-2. **Network failure** — cut connectivity between inference gateway and provider. Observe: does fallback kick in within SLA? (Phase 17 · 19)
+2. **Lỗi mạng** — cắt kết nối giữa gateway suy luận và nhà cung cấp. Quan sát: dự phòng có kích hoạt trong SLA không? (Giai đoạn 17 · 19)
 
-3. **Provider outage simulation** — 100% 429 from OpenAI. Observe: does routing failover to Anthropic? (Phase 17 · 16, 19)
+3. **Mô phỏng nhà cung cấp ngừng hoạt động** — 100% 429 từ OpenAI. Quan sát: định tuyến có chuyển đổi dự phòng sang Anthropic không? (Giai đoạn 17 · 16, 19)
 
-4. **Malformed prompt** — inject tokenizer-stalling payload (e.g., deeply nested unicode, huge UTF-8 codepoint). Observe: does a single request lock up a worker?
+4. **Prompt sai dạng** — chèn payload làm tokenizer đình trệ (ví dụ: unicode lồng sâu, điểm mã UTF-8 khổng lồ). Quan sát: một yêu cầu đơn lẻ có làm worker bị khóa cứng không?
 
-5. **KV eviction storm** — force eviction by saturating vLLM block budget. Observe: does LMCache recover or does service degrade?
+5. **Bão loại bỏ KV** — ép loại bỏ bằng cách bão hòa ngân sách block vLLM. Quan sát: LMCache có khôi phục hay dịch vụ suy giảm?
 
 ### Cadence
 
-- **Weekly** — small canary experiments in staging, maybe 5% prod.
-- **Monthly** — scheduled game day on a specific scenario; cross-team attendance; postmortem.
-- **Quarterly** — cross-team resilience audit; dependency map update.
+- **Hằng tuần** — thí nghiệm canary nhỏ trong staging, có thể 5% sản xuất.
+- **Hằng tháng** — ngày diễn tập được lên lịch cho một kịch bản cụ thể; các nhóm tham dự; hậu kiểm.
+- **Hằng quý** — kiểm toán khả năng chống chịu xuyên nhóm; cập nhật bản đồ phụ thuộc.
 
 ### Tooling
 
-- **Harness Chaos Engineering** — commercial; AI-derived experiment recommendations; blast-radius downscaling; MCP tool integration.
-- **LitmusChaos** — CNCF graduated; Kubernetes workflow-based.
-- **Chaos Mesh** — CNCF sandbox; Kubernetes-native CRD style.
-- **Gremlin** — commercial; broad support.
-- **AWS FIS** / **Azure Chaos Studio** — managed cloud offerings.
+- **Harness Chaos Engineering** — thương mại; khuyến nghị thí nghiệm suy ra từ AI; thu nhỏ bán kính ảnh hưởng; tích hợp công cụ MCP.
+- **LitmusChaos** — CNCF đã tốt nghiệp; dựa trên workflow Kubernetes.
+- **Chaos Mesh** — CNCF sandbox; kiểu CRD nguyên bản Kubernetes.
+- **Gremlin** — thương mại; hỗ trợ rộng.
+- **AWS FIS** / **Azure Chaos Studio** — dịch vụ đám mây được quản lý.
 
 ### Starting small
 
-First experiment: pod-kill one decode replica under steady traffic. Observe rerouting and recovery. If this works and looks safe, graduate to network chaos.
+Thí nghiệm đầu tiên: diệt pod một bản sao decode dưới lưu lượng ổn định. Quan sát định tuyến lại và khôi phục. Nếu việc này hoạt động và trông an toàn, tiến lên hỗn loạn mạng.
 
-First LLM-specific experiment: inject one provider 429 for 5 minutes. Observe fallback. Most teams discover their fallback wasn't fully tested.
+Thí nghiệm riêng cho LLM đầu tiên: chèn một lỗi 429 của nhà cung cấp trong 5 phút. Quan sát dự phòng. Hầu hết nhóm phát hiện dự phòng của họ chưa được kiểm thử đầy đủ.
 
 ### Numbers you should remember
 
-- Four planes: control, target, safety, observability.
-- Burn-rate pause: 2x expected daily budget burn.
-- Cadence: weekly canary, monthly game day, quarterly audit.
-- Five LLM experiments: memory, network, provider, malformed prompt, KV storm.
+- Bốn mặt phẳng: điều khiển, mục tiêu, an toàn, khả năng quan sát.
+- Tạm dừng theo tốc độ tiêu hao: 2x tiêu hao ngân sách hằng ngày dự kiến.
+- Nhịp: canary hằng tuần, ngày diễn tập hằng tháng, kiểm toán hằng quý.
+- Năm thí nghiệm LLM: bộ nhớ, mạng, nhà cung cấp, prompt sai dạng, bão KV.
 
 ```figure
 i4-chaos-guard
@@ -97,33 +97,33 @@ i4-chaos-guard
 
 ## Use It
 
-`code/main.py` simulates three chaos experiments with safety plane gates. Reports which experiments would trip the burn-rate abort.
+`code/main.py` mô phỏng ba thí nghiệm hỗn loạn với cổng mặt phẳng an toàn. Báo cáo thí nghiệm nào sẽ kích hoạt hủy theo tốc độ tiêu hao.
 
 ## Ship It
 
-This lesson produces `outputs/skill-chaos-plan.md`. Given stack and maturity, picks first three experiments and the tooling.
+Bài học này tạo ra `outputs/skill-chaos-plan.md`. Với ngăn xếp và mức trưởng thành, chọn ba thí nghiệm đầu tiên và công cụ.
 
 ## Exercises
 
-1. Run `code/main.py`. Which experiment trips the burn-rate gate and why?
-2. Design the first five chaos experiments for a vLLM-based RAG service. Include success criteria.
-3. Your burn-rate alert paused an experiment. How do you determine root cause — chaos or natural?
-4. Argue whether chaos should run in production or only staging. When is production the right answer?
-5. Name three LLM-specific failure modes that generic network-chaos cannot reproduce.
+1. Chạy `code/main.py`. Thí nghiệm nào kích hoạt cổng tốc độ tiêu hao và tại sao?
+2. Thiết kế năm thí nghiệm hỗn loạn đầu tiên cho một dịch vụ RAG dựa trên vLLM. Bao gồm tiêu chí thành công.
+3. Cảnh báo tốc độ tiêu hao của bạn đã tạm dừng thí nghiệm. Bạn xác định nguyên nhân gốc như thế nào — hỗn loạn hay tự nhiên?
+4. Lập luận liệu hỗn loạn nên chạy trong sản xuất hay chỉ staging. Khi nào sản xuất là câu trả lời đúng?
+5. Nêu ba chế độ lỗi riêng cho LLM mà hỗn loạn mạng tổng quát không thể tái tạo.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|----------------|------------------------|
-| SLI / SLO | "service targets" | Indicator + objective; required prerequisite |
-| Blast radius | "scope" | Set of services / users affected by experiment |
-| Burn-rate alert | "budget gate" | Fires when error-budget burn rate > 2x expected |
-| Game day | "monthly drill" | Scheduled cross-team chaos exercise |
-| LitmusChaos | "CNCF workflow" | Graduated CNCF Kubernetes chaos tool |
-| Chaos Mesh | "CNCF CRD" | CNCF sandbox Kubernetes-native chaos |
-| Harness CE | "commercial AI-assisted" | Harness chaos with AI recommendations |
-| Malformed prompt | "tokenizer bomb" | Input that stalls tokenization |
-| KV eviction storm | "preemption cascade" | Mass eviction triggering re-prefills |
+| SLI / SLO | "mục tiêu dịch vụ" | Chỉ báo + mục tiêu; điều kiện tiên quyết bắt buộc |
+| Blast radius (Bán kính ảnh hưởng) | "phạm vi" | Tập dịch vụ / người dùng bị thí nghiệm ảnh hưởng |
+| Burn-rate alert (Cảnh báo tốc độ tiêu hao) | "cổng ngân sách" | Kích hoạt khi tốc độ tiêu hao ngân sách lỗi > 2x dự kiến |
+| Game day (Ngày diễn tập) | "diễn tập hằng tháng" | Bài tập hỗn loạn xuyên nhóm được lên lịch |
+| LitmusChaos | "workflow CNCF" | Công cụ hỗn loạn Kubernetes CNCF đã tốt nghiệp |
+| Chaos Mesh | "CRD CNCF" | Hỗn loạn nguyên bản Kubernetes CNCF sandbox |
+| Harness CE | "thương mại có AI hỗ trợ" | Hỗn loạn Harness với khuyến nghị AI |
+| Malformed prompt (Prompt sai dạng) | "bom tokenizer" | Đầu vào làm tokenization đình trệ |
+| KV eviction storm (Bão loại bỏ KV) | "chuỗi tạm chiếm" | Loại bỏ hàng loạt kích hoạt prefill lại |
 
 ## Further Reading
 

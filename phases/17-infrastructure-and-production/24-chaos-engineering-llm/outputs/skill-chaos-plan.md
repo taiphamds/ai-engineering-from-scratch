@@ -7,25 +7,25 @@ lesson: 24
 tags: [chaos-engineering, litmuschaos, chaosmesh, harness, llm-chaos, game-day]
 ---
 
-Given stack (Kubernetes / VMs / managed), SLI/SLO maturity, observability quality, and team on-call maturity, produce a chaos plan.
+Với ngăn xếp (Kubernetes / VM / được quản lý), mức trưởng thành SLI/SLO, chất lượng khả năng quan sát và mức trưởng thành trực của nhóm, tạo một kế hoạch hỗn loạn.
 
-Produce:
+Tạo:
 
-1. Prerequisite check. Verify SLI/SLO defined, observability wired, rollback automated, runbooks structured, on-call rotation. If any missing, refuse to run production chaos.
-2. Four planes. Name the tools for each plane (control, target, safety, observability). Point to Phase 17 · 13 for observability.
-3. Three initial experiments. Start with pod kill. Then provider 429. Then memory overload. Each with blast-radius cap, duration, success criterion.
-4. Safety gates. Burn-rate (>2x expected), blast-radius (< 30% of fleet), trace-ID tagging, suppression windows.
-5. Cadence. Weekly small canary. Monthly game day (cross-team). Quarterly resilience audit.
-6. Tooling. LitmusChaos (OSS, CNCF graduated), Chaos Mesh (OSS, CNCF sandbox), Harness Chaos (commercial AI-assisted), AWS FIS / Azure Chaos Studio (managed cloud-native).
+1. Kiểm tra điều kiện tiên quyết. Xác minh SLI/SLO đã xác định, khả năng quan sát đã kết nối, hoàn tác tự động, cẩm nang vận hành có cấu trúc, luân phiên trực. Nếu thiếu bất kỳ điều nào, từ chối chạy hỗn loạn sản xuất.
+2. Bốn mặt phẳng. Nêu công cụ cho mỗi mặt phẳng (điều khiển, mục tiêu, an toàn, khả năng quan sát). Trỏ đến Giai đoạn 17 · 13 cho khả năng quan sát.
+3. Ba thí nghiệm ban đầu. Bắt đầu với diệt pod. Rồi lỗi 429 của nhà cung cấp. Rồi quá tải bộ nhớ. Mỗi thí nghiệm có trần bán kính ảnh hưởng, thời lượng, tiêu chí thành công.
+4. Cổng an toàn. Tốc độ tiêu hao (>2x dự kiến), bán kính ảnh hưởng (< 30% tập máy), gắn thẻ ID dấu vết, cửa sổ ức chế.
+5. Nhịp. Canary nhỏ hằng tuần. Ngày diễn tập hằng tháng (xuyên nhóm). Kiểm toán khả năng chống chịu hằng quý.
+6. Công cụ. LitmusChaos (OSS, CNCF đã tốt nghiệp), Chaos Mesh (OSS, CNCF sandbox), Harness Chaos (thương mại có AI hỗ trợ), AWS FIS / Azure Chaos Studio (nguyên bản đám mây được quản lý).
 
-Hard rejects:
-- Running chaos in production without the five prerequisites. Refuse — will become real incident.
-- Experiments without blast-radius caps. Refuse.
-- Experiments without trace-ID tagging. Refuse — impossible to dedupe alerts.
+Các trường hợp loại bỏ dứt khoát:
+- Chạy hỗn loạn trong sản xuất không có năm điều kiện tiên quyết. Từ chối — sẽ thành sự cố thật.
+- Thí nghiệm không có trần bán kính ảnh hưởng. Từ chối.
+- Thí nghiệm không gắn thẻ ID dấu vết. Từ chối — không thể khử trùng lặp cảnh báo.
 
-Refusal rules:
-- If team has never run one successful experiment in staging, refuse production chaos until one is green in staging.
-- If incident volume is already high (>2/week), refuse added chaos — stabilize first.
-- If the team has no SLO, require SLO before any experiment.
+Quy tắc từ chối:
+- Nếu nhóm chưa từng chạy một thí nghiệm thành công trong staging, từ chối hỗn loạn sản xuất cho đến khi một thí nghiệm xanh trong staging.
+- Nếu lượng sự cố đã cao (>2/tuần), từ chối thêm hỗn loạn — ổn định trước.
+- Nếu nhóm không có SLO, yêu cầu SLO trước mọi thí nghiệm.
 
-Output: a one-page plan with prerequisites check, four-plane tools, three initial experiments, safety gates, cadence. End with a quarterly dependency-map update commitment.
+Đầu ra: một kế hoạch một trang với kiểm tra điều kiện tiên quyết, công cụ bốn mặt phẳng, ba thí nghiệm ban đầu, cổng an toàn, nhịp. Kết thúc bằng cam kết cập nhật bản đồ phụ thuộc hằng quý.
