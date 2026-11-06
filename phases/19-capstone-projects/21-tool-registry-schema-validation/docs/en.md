@@ -1,6 +1,6 @@
 # Tool Registry with Schema Validation
 
-> A tool the agent cannot validate is a tool the agent cannot call. Build the registry and the schema checker before you build the tools.
+> Một công cụ mà agent không thể xác thực là một công cụ mà agent không thể gọi. Xây dựng registry và bộ kiểm tra lược đồ trước khi bạn xây dựng các công cụ.
 
 **Type:** Build
 **Languages:** Python
@@ -8,11 +8,11 @@
 **Time:** ~90 minutes
 
 ## Learning Objectives
-- Hold a typed registry of tool name → schema → handler that the dispatcher can ask once and trust afterwards.
-- Implement a JSON Schema 2020-12 subset that covers the keywords ninety percent of tool calls actually use.
-- Return precise, json-pointer-shaped error paths so the model can self-correct in one round trip.
-- Reject re-registration without explicit override, since silent overwrites are how production tool catalogs drift.
-- Keep the validator pure (no I/O, no time, no globals) so it can be re-run on a replay log.
+- Giữ một registry có kiểu gồm tên công cụ → lược đồ → handler mà dispatcher có thể hỏi một lần và tin tưởng sau đó.
+- Triển khai một tập con JSON Schema 2020-12 bao phủ các từ khóa mà chín mươi phần trăm lệnh gọi công cụ thực sự sử dụng.
+- Trả về các đường dẫn lỗi chính xác, có hình thức json-pointer để mô hình có thể tự sửa trong một vòng khứ hồi.
+- Từ chối đăng ký lại mà không có ghi đè rõ ràng, vì ghi đè âm thầm là cách các danh mục công cụ sản xuất bị trôi.
+- Giữ bộ xác thực thuần túy (không I/O, không thời gian, không biến toàn cục) để nó có thể được chạy lại trên một nhật ký phát lại.
 
 ```figure
 cf-registry-validate
@@ -20,9 +20,9 @@ cf-registry-validate
 
 ## Why the registry comes before the tool
 
-A coding agent in 2026 has more registered tools than the model can fit in a single context window. A non-trivial harness will register two hundred tools and surface ten to forty at any given turn. The registry is the source of truth for "what tools exist," "what shape do their arguments take," and "what handler do I call." Once those three answers are pinned, the rest of the harness can stop guessing.
+Một agent lập trình năm 2026 có nhiều công cụ được đăng ký hơn số mô hình có thể chứa trong một cửa sổ ngữ cảnh duy nhất. Một harness không tầm thường sẽ đăng ký hai trăm công cụ và đưa ra mười đến bốn mươi ở bất kỳ lượt nào. Registry là nguồn sự thật cho "những công cụ nào tồn tại," "các đối số của chúng có hình thức gì," và "tôi gọi handler nào." Một khi ba câu trả lời đó được ghim, phần còn lại của harness có thể ngừng đoán.
 
-The mistake we are avoiding is shipping handlers without schemas, or shipping schemas without validation. Both are common. Both turn the next layer (the dispatcher in lesson twenty-three) into a guessing game where the only failure mode is a stack trace from the handler.
+Sai lầm chúng ta đang tránh là cung cấp handler không có lược đồ, hoặc cung cấp lược đồ không có xác thực. Cả hai đều phổ biến. Cả hai biến lớp tiếp theo (dispatcher trong bài hai mươi ba) thành một trò đoán mà chế độ lỗi duy nhất là một stack trace từ handler.
 
 ## What a tool record looks like
 
@@ -36,11 +36,11 @@ ToolRecord
   timeout_ms  : int          (override per-tool dispatcher default)
 ```
 
-The schema is the only field the validator touches. The handler is opaque to it. We separate them on purpose. The schema is data. The handler is code. Mixing them tempts you to put validation logic inside the handler, which is the bug we are stopping.
+Lược đồ là trường duy nhất mà bộ xác thực chạm tới. Handler là mờ đối với nó. Chúng ta cố ý tách chúng. Lược đồ là dữ liệu. Handler là mã. Trộn chúng khiến bạn muốn đặt logic xác thực bên trong handler, chính là lỗi chúng ta đang ngăn chặn.
 
 ## The JSON Schema 2020-12 subset
 
-The full 2020-12 spec is a paper. We need eight keywords.
+Đặc tả 2020-12 đầy đủ là một bài báo. Chúng ta cần tám từ khóa.
 
 ```text
 type           string / number / integer / boolean / object / array / null
@@ -53,11 +53,11 @@ pattern        ECMA-262-compatible regex, applies to strings
 items          schema applied to every array element
 ```
 
-That is enough to cover what a tool API actually needs. The keywords we are not adding (oneOf, anyOf, allOf, $ref, conditionals) are valid in production schemas but turn the validator into a tree walker with cycles. We are building a registry, not a JSON Schema engine.
+Như vậy đủ bao phủ điều một API công cụ thực sự cần. Các từ khóa chúng ta không thêm (oneOf, anyOf, allOf, $ref, điều kiện) hợp lệ trong các lược đồ sản xuất nhưng biến bộ xác thực thành một trình duyệt cây có chu trình. Chúng ta đang xây dựng một registry, không phải một bộ máy JSON Schema.
 
 ## Json pointer error paths
 
-When validation fails, the validator returns a list of errors. Each error carries a json-pointer path into the input. A pointer is a slash-prefixed sequence of property names and array indices.
+Khi xác thực thất bại, bộ xác thực trả về một danh sách lỗi. Mỗi lỗi mang một đường dẫn json-pointer vào đầu vào. Một con trỏ là một chuỗi tên thuộc tính và chỉ số mảng có tiền tố dấu gạch chéo.
 
 ```text
 {"a": {"b": [1, 2, "x"]}}
@@ -65,19 +65,19 @@ When validation fails, the validator returns a list of errors. Each error carrie
                     /a/b/2
 ```
 
-The model reads error paths better than it reads sentences. If a schema requires `args.user.email` and the model passed an integer, the error should be `/user/email` with `expected_type: string`. The model fixes that in the next call without a round of natural language.
+Mô hình đọc đường dẫn lỗi tốt hơn đọc câu. Nếu một lược đồ yêu cầu `args.user.email` và mô hình truyền một số nguyên, lỗi nên là `/user/email` với `expected_type: string`. Mô hình sửa điều đó trong lệnh gọi tiếp theo mà không cần một vòng ngôn ngữ tự nhiên.
 
 ## Registration and override
 
-`register(name, schema, handler, **opts)` rejects re-registration by default. The caller has to pass `override=True` to replace. This is operational hygiene. Two parts of the codebase silently registering the same tool name is the kind of bug that takes a week to find in production.
+`register(name, schema, handler, **opts)` mặc định từ chối đăng ký lại. Bên gọi phải truyền `override=True` để thay thế. Đây là vệ sinh vận hành. Hai phần của cơ sở mã âm thầm đăng ký cùng tên công cụ là loại lỗi mất một tuần để tìm trong sản xuất.
 
-The registry exposes three read methods. `get(name)` returns the record or raises. `validate(name, args)` returns an `Ok` or a list of errors. `names()` returns the tool names in registration order.
+Registry cung cấp ba phương thức đọc. `get(name)` trả về bản ghi hoặc phát sinh lỗi. `validate(name, args)` trả về một `Ok` hoặc một danh sách lỗi. `names()` trả về các tên công cụ theo thứ tự đăng ký.
 
 ## What the validator is and is not
 
-It is a single pass over the schema tree, recursive. It is pure. It does not call handlers. It does not coerce types (a string `"42"` does not pass a number schema). It does not silently truncate.
+Nó là một lượt qua cây lược đồ, đệ quy. Nó thuần túy. Nó không gọi handler. Nó không ép kiểu (một chuỗi `"42"` không vượt qua một lược đồ số). Nó không âm thầm cắt ngắn.
 
-It is not a security boundary. A malicious handler can still misbehave after validation passes. The dispatcher in lesson twenty-three adds timeout and sandbox layers. The registry adds shape.
+Nó không phải một ranh giới bảo mật. Một handler độc hại vẫn có thể hành xử sai sau khi xác thực đạt. Dispatcher trong bài hai mươi ba thêm các lớp timeout và sandbox. Registry thêm hình thức.
 
 ## Shape
 
@@ -92,12 +92,12 @@ flowchart TD
 
 ## How to read the code
 
-`code/main.py` defines `ToolRegistry`, `ToolRecord`, `ValidationError`, and the eight validator functions. The validator dispatches on `schema["type"]` (or treats a schema with `enum` as untyped enum check). Each type validator returns either an empty list or a list of `ValidationError`. The top-level walker concatenates errors and prepends path segments as it descends.
+`code/main.py` định nghĩa `ToolRegistry`, `ToolRecord`, `ValidationError`, và tám hàm xác thực. Bộ xác thực điều phối theo `schema["type"]` (hoặc coi một lược đồ có `enum` là kiểm tra enum không kiểu). Mỗi bộ xác thực kiểu trả về một danh sách rỗng hoặc một danh sách `ValidationError`. Trình duyệt cấp cao nối các lỗi và thêm các đoạn đường dẫn vào đầu khi nó đi xuống.
 
-`code/tests/test_registry.py` covers registration, override, validation success, validation failure with paths, and every keyword in the subset.
+`code/tests/test_registry.py` bao phủ đăng ký, ghi đè, xác thực thành công, xác thực thất bại với các đường dẫn, và mọi từ khóa trong tập con.
 
 ## Going further
 
-The two extensions you will want once this lesson lands are `$ref` resolution against a local definitions block, and `additionalProperties: false` for strict shape. Both are small. Both are common to add as the tool catalog grows past fifty tools. We left them out of the lesson to keep the file under one read.
+Hai phần mở rộng bạn sẽ muốn khi bài này hoàn tất là phân giải `$ref` với một khối định nghĩa cục bộ, và `additionalProperties: false` cho hình thức nghiêm ngặt. Cả hai đều nhỏ. Cả hai thường được thêm khi danh mục công cụ vượt năm mươi công cụ. Chúng ta bỏ chúng khỏi bài để giữ file trong một lần đọc.
 
-The next lesson (twenty-two) builds the JSON-RPC stdio transport that surfaces this registry to a model client. The lesson after (twenty-three) wraps both behind a dispatcher with timeouts and retries.
+Bài tiếp theo (hai mươi hai) xây dựng cơ chế truyền tải stdio JSON-RPC cung cấp registry này cho một máy khách mô hình. Bài sau đó (hai mươi ba) bọc cả hai sau một dispatcher với timeout và thử lại.
