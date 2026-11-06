@@ -7,45 +7,45 @@ lesson: 16
 tags: [mcp, oauth, cimd, pkce, issuer, resource-indicators]
 ---
 
-Given a remote HTTP MCP server and its tool list, design the complete authorization boundary.
+Với máy chủ MCP HTTP từ xa và danh sách công cụ, thiết kế ranh giới cấp quyền đầy đủ.
 
 ## Required inputs
 
-- Canonical MCP resource URI and protected-resource metadata location.
-- Allowed authorization server issuers.
-- Client runtime: native or web, with exact redirect URIs.
-- Tool-to-scope mapping and consequential operations.
-- Token, refresh, and credential-storage constraints.
-- Legacy authorization servers that lack CIMD, if any.
+- URI tài nguyên MCP chuẩn và vị trí siêu dữ liệu tài nguyên được bảo vệ.
+- Bên phát hành máy chủ cấp quyền được phép.
+- Runtime client: native hoặc web, với URI chuyển hướng chính xác.
+- Ánh xạ công cụ-sang-phạm vi và thao tác có hệ quả.
+- Ràng buộc token, refresh và lưu thông tin xác thực.
+- Máy chủ cấp quyền cũ thiếu CIMD, nếu có.
 
 ## Produce
 
-1. Resource metadata. Draft RFC 9728 `resource`, `authorization_servers`, and `scopes_supported`. Preserve the resource path after the well-known segment, such as `https://notes.example.com/.well-known/oauth-protected-resource/mcp` for `https://notes.example.com/mcp`.
-2. Issuer policy. State exact allowed issuers, metadata validation, change handling, and RFC 9207 `iss` comparison.
-3. Enrollment. Use pre-registration when available, otherwise prefer a Client ID Metadata Document. Its HTTPS URL with a path is the `client_id`; require exact redirect URIs and treat display metadata as untrusted. `application_type` is optional here.
-4. DCR fallback. If required, label it deprecated, declare `application_type`, and define the precise condition that allows fallback. Do not downgrade after a generic CIMD security failure.
-5. Credential keys. Store pre-registered and DCR credentials under issuer and tokens under `(issuer, resource)`. Forbid reuse across issuers. State that a self-hosted CIMD URL is portable and does not require DCR re-registration when a trusted issuer changes.
-6. PKCE flow. Require S256, exact redirect URI, authorization response issuer validation, and the same resource in authorization and token requests.
-7. Scope model. Map every tool to its minimum scope. Treat the current `WWW-Authenticate` scope challenge as authoritative.
-8. Step-up experience. Identify the additional scope, user explanation, consent point, new authorization, and retry with a fresh MCP request id.
-9. Resource-server checks. Implement advertised `tools/list` with valid object-root schemas, deterministic order, result type, server identity, and cache hints. Validate issuer, audience, expiry, scope, current MCP headers, and request metadata before tool dispatch.
-10. Token hygiene. Bearer header only, no query token, no token passthrough, confidential refresh storage, and rotation plan.
-11. Error contract. Preserve every request id in a JSON-RPC error envelope, including OAuth failures. Require HTTP 400 `-32020` for header mismatch before the HTTP 400 `-32022` version support check, exact supported and requested data, HTTP 404 `-32601` for unknown methods, and 202 with an empty body for accepted notifications.
-12. Transport boundary. Label parsed-body examples as in-process protocol models and attach them to Lesson 09's complete Streamable HTTP adapter for JSON Content-Type and JSON plus SSE Accept validation.
+1. Siêu dữ liệu tài nguyên. Soạn `resource`, `authorization_servers` và `scopes_supported` RFC 9728. Giữ đường dẫn tài nguyên sau đoạn well-known, như `https://notes.example.com/.well-known/oauth-protected-resource/mcp` cho `https://notes.example.com/mcp`.
+2. Chính sách bên phát hành. Nêu đúng bên phát hành được phép, xác thực siêu dữ liệu, xử lý đổi và so `iss` RFC 9207.
+3. Ghi danh. Dùng đăng ký trước khi có, nếu không ưu tiên Tài liệu siêu dữ liệu ID client. URL HTTPS có đường dẫn là `client_id`; yêu cầu URI chuyển hướng chính xác và coi siêu dữ liệu hiển thị là không đáng tin. `application_type` tùy chọn ở đây.
+4. Dự phòng DCR. Nếu cần, gắn nhãn ngừng khuyến nghị, khai báo `application_type` và định nghĩa đúng điều kiện cho phép dự phòng. Không hạ cấp sau thất bại bảo mật CIMD chung.
+5. Khóa thông tin xác thực. Lưu thông tin xác thực đăng ký trước và DCR dưới bên phát hành, token dưới `(issuer, resource)`. Cấm dùng lại giữa bên phát hành. Nêu URL CIMD tự host có thể chuyển và không cần đăng ký lại DCR khi bên phát hành đáng tin đổi.
+6. Luồng PKCE. Yêu cầu S256, URI chuyển hướng chính xác, xác thực bên phát hành phản hồi cấp quyền và cùng tài nguyên trong yêu cầu cấp quyền và token.
+7. Mô hình phạm vi. Ánh xạ mọi công cụ đến phạm vi tối thiểu. Coi thách thức phạm vi `WWW-Authenticate` hiện tại có thẩm quyền.
+8. Trải nghiệm nâng quyền. Xác định phạm vi thêm, giải thích người dùng, điểm đồng ý, cấp quyền mới và thử lại với id yêu cầu MCP mới.
+9. Kiểm tra máy chủ tài nguyên. Triển khai `tools/list` công bố với lược đồ gốc đối tượng hợp lệ, thứ tự tất định, kiểu kết quả, danh tính máy chủ và gợi ý bộ đệm. Xác thực bên phát hành, đối tượng nhận, hết hạn, phạm vi, header MCP hiện tại và siêu dữ liệu yêu cầu trước phân phối công cụ.
+10. Vệ sinh token. Chỉ header bearer, không token truy vấn, không chuyển token xuyên qua, lưu refresh bí mật và kế hoạch xoay vòng.
+11. Hợp đồng lỗi. Giữ mọi id yêu cầu trong vỏ lỗi JSON-RPC, gồm lỗi OAuth. Yêu cầu HTTP 400 `-32020` cho header không khớp trước kiểm tra hỗ trợ phiên bản HTTP 400 `-32022`, dữ liệu hỗ trợ và yêu cầu chính xác, HTTP 404 `-32601` cho phương thức không biết và 202 phần thân rỗng cho thông báo chấp nhận.
+12. Ranh giới vận chuyển. Gắn nhãn ví dụ phần thân đã phân tích là mô hình giao thức trong tiến trình và gắn với adapter Streamable HTTP đầy đủ Bài 09 để xác thực Content-Type JSON và Accept JSON cộng SSE.
 
 ## Hard rejects
 
-- DCR presented as the preferred new enrollment mechanism.
-- DCR without `application_type`.
-- Reusing issuer-minted registration credentials, access tokens, or refresh tokens after the issuer changes. A self-hosted CIMD URL is the portable exception, not an issuer-minted secret.
-- Normalizing an authorization response `iss` before comparison.
-- Missing PKCE S256 or missing `resource` in authorization and token requests.
-- Accepting a token for another audience or forwarding the MCP token downstream.
-- Using `clientInfo`, `serverInfo`, capabilities, or a removed protocol session as authentication.
-- Adding OAuth to local stdio solely to imitate remote HTTP.
-- Dropping the protected resource path when constructing the RFC 9728 metadata URL.
-- Returning a plain-text or ad hoc object for an MCP request error instead of a JSON-RPC envelope with the same id.
+- DCR trình bày như cơ chế ghi danh mới ưu tiên.
+- DCR không có `application_type`.
+- Dùng lại thông tin xác thực đăng ký, access token hoặc refresh token do bên phát hành tạo sau đổi bên phát hành. URL CIMD tự host là ngoại lệ có thể chuyển, không phải bí mật do bên phát hành tạo.
+- Chuẩn hóa `iss` phản hồi cấp quyền trước so sánh.
+- Thiếu PKCE S256 hoặc thiếu `resource` trong yêu cầu cấp quyền và token.
+- Nhận token cho đối tượng nhận khác hoặc chuyển token MCP xuống phía sau.
+- Dùng `clientInfo`, `serverInfo`, khả năng hoặc phiên giao thức đã bỏ làm xác thực.
+- Thêm OAuth vào stdio cục bộ chỉ để bắt chước HTTP từ xa.
+- Bỏ đường dẫn tài nguyên được bảo vệ khi tạo URL siêu dữ liệu RFC 9728.
+- Trả văn bản thuần hoặc đối tượng tùy hứng cho lỗi yêu cầu MCP thay vỏ JSON-RPC cùng id.
 
 ## Output format
 
-Return sections named Resource, Issuers, Enrollment, Credential Store, PKCE Flow, Scope Matrix, Step-Up, Server Validation, Token Hygiene, and Compatibility. End with the exact event that forces issuer review and, for issuer-minted clients, re-enrollment.
+Trả các mục tên Resource, Issuers, Enrollment, Credential Store, PKCE Flow, Scope Matrix, Step-Up, Server Validation, Token Hygiene và Compatibility. Kết thúc bằng đúng sự kiện buộc xem xét bên phát hành và, với client do bên phát hành tạo, ghi danh lại.

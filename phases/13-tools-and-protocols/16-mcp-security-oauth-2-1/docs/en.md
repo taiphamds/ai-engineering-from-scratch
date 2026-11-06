@@ -1,6 +1,6 @@
 # MCP Authorization: CIMD, Issuer Binding, PKCE, and Step-Up
 
-> A remote MCP request is stateless, but its authorization is not anonymous. Bind every credential to the issuer that created it and every token to the resource that receives it.
+> Yêu cầu MCP từ xa không trạng thái, nhưng cấp quyền của nó không ẩn danh. Gắn mọi thông tin xác thực với bên phát hành tạo nó và mọi token với tài nguyên nhận nó.
 
 **Type:** Build
 **Languages:** Python
@@ -9,46 +9,46 @@
 
 ## Learning Objectives
 
-- Discover authorization servers through protected-resource metadata.
-- Prefer Client ID Metadata Documents over deprecated Dynamic Client Registration.
-- Declare the correct `application_type` when a DCR compatibility path is unavoidable.
-- Validate authorization response `iss` and isolate credentials by issuer.
-- Use PKCE, resource indicators, audience validation, and incremental scopes.
-- Send authorized MCP 2026-07-28 requests without protocol sessions.
+- Khám phá máy chủ cấp quyền qua siêu dữ liệu tài nguyên được bảo vệ.
+- Ưu tiên Tài liệu siêu dữ liệu ID client thay Đăng ký client động ngừng được khuyến nghị.
+- Khai báo đúng `application_type` khi nhánh tương thích DCR không tránh được.
+- Xác thực `iss` phản hồi cấp quyền và cô lập thông tin xác thực theo bên phát hành.
+- Dùng PKCE, chỉ báo tài nguyên, xác thực đối tượng nhận và phạm vi tăng dần.
+- Gửi yêu cầu MCP 2026-07-28 được cấp quyền không có phiên giao thức.
 
 ## The Problem
 
-A remote MCP server may read private records, write external systems, or trigger costly work. Authentication tells it who presented a credential. Authorization must also answer:
+Máy chủ MCP từ xa có thể đọc bản ghi riêng, ghi hệ thống ngoài hoặc kích hoạt công việc đắt. Xác thực cho biết ai đưa thông tin xác thực. Cấp quyền cũng phải trả lời:
 
-- Which authorization server issued the credential?
-- Which MCP resource is the token for?
-- Which client and redirect URI completed the flow?
-- Which operations did the user approve?
-- Does this exact request still fit that approval?
+- Máy chủ cấp quyền nào phát hành thông tin xác thực?
+- Token dành cho tài nguyên MCP nào?
+- Client và URI chuyển hướng nào hoàn tất luồng?
+- Người dùng phê duyệt thao tác nào?
+- Đúng yêu cầu này còn phù hợp phê duyệt đó không?
 
-The 2026-07-28 authorization profile hardens client enrollment and issuer handling. It prefers Client ID Metadata Documents, deprecates Dynamic Client Registration, requires the right `application_type` on DCR, validates RFC 9207 issuer responses, and forbids credential reuse across issuers.
+Hồ sơ cấp quyền 2026-07-28 gia cố ghi danh client và xử lý bên phát hành. Nó ưu tiên Tài liệu siêu dữ liệu ID client, ngừng khuyến nghị Đăng ký client động, yêu cầu đúng `application_type` trên DCR, xác thực phản hồi bên phát hành RFC 9207 và cấm dùng lại thông tin xác thực giữa bên phát hành.
 
-These rules complement the stateless core. They do not restore a core handshake or `Mcp-Session-Id`.
+Quy tắc này bổ sung lõi không trạng thái. Không khôi phục bắt tay lõi hoặc `Mcp-Session-Id`.
 
 ## The Concept
 
 ### Know the three roles
 
-- **MCP client:** sends requests on behalf of a resource owner.
-- **MCP resource server:** accepts the access token and serves the MCP endpoint.
-- **Authorization server:** authenticates the resource owner, collects consent, and issues tokens.
+- **Client MCP:** gửi yêu cầu thay chủ tài nguyên.
+- **Máy chủ tài nguyên MCP:** nhận token truy cập và phục vụ endpoint MCP.
+- **Máy chủ cấp quyền:** xác thực chủ tài nguyên, thu đồng ý và phát token.
 
-The resource server and authorization server can be operated together, but keep their identifiers and validation responsibilities separate.
+Máy chủ tài nguyên và máy chủ cấp quyền có thể vận hành cùng, nhưng giữ định danh và trách nhiệm xác thực riêng.
 
 ### Authorization applies to HTTP
 
-The MCP authorization specification applies to HTTP-based transports. A local stdio server runs under the process and operating-system trust boundary. Do not add a fake browser OAuth flow to stdio merely for symmetry.
+Đặc tả cấp quyền MCP áp dụng cho vận chuyển dựa HTTP. Máy chủ stdio cục bộ chạy dưới ranh giới tin cậy tiến trình và hệ điều hành. Không thêm luồng OAuth trình duyệt giả vào stdio chỉ để đối xứng.
 
-For remote Streamable HTTP, send the bearer token in the `Authorization` header on every request. Never place it in the URL.
+Với Streamable HTTP từ xa, gửi bearer token trong header `Authorization` trên mọi yêu cầu. Không bao giờ đặt trong URL.
 
 ### Start with protected-resource metadata
 
-The resource server publishes RFC 9728 metadata:
+Máy chủ tài nguyên công bố siêu dữ liệu RFC 9728:
 
 ```json
 {
@@ -58,15 +58,15 @@ The resource server publishes RFC 9728 metadata:
 }
 ```
 
-The client starts from the MCP resource URL, fetches this document, selects an advertised authorization server, and then fetches that server's OAuth or OpenID Connect metadata.
+Client bắt đầu từ URL tài nguyên MCP, lấy tài liệu này, chọn máy chủ cấp quyền công bố rồi lấy siêu dữ liệu OAuth hoặc OpenID Connect của máy chủ đó.
 
-Preserve the resource path when constructing the RFC 9728 well-known URL. For the resource `https://notes.example.com/mcp`, this lesson uses `https://notes.example.com/.well-known/oauth-protected-resource/mcp`. Dropping the `/mcp` suffix can select metadata for a different protected resource on the same origin.
+Giữ đường dẫn tài nguyên khi tạo URL well-known RFC 9728. Với tài nguyên `https://notes.example.com/mcp`, bài này dùng `https://notes.example.com/.well-known/oauth-protected-resource/mcp`. Bỏ hậu tố `/mcp` có thể chọn siêu dữ liệu cho tài nguyên được bảo vệ khác trên cùng origin.
 
-Do not guess the authorization server from a hostname. Do not follow an issuer discovered from an unvalidated error body. Keep a policy for which issuers the client is willing to trust.
+Không đoán máy chủ cấp quyền từ hostname. Không theo bên phát hành khám phá từ phần thân lỗi chưa xác thực. Giữ chính sách client sẵn lòng tin bên phát hành nào.
 
 ### Verify authorization server metadata
 
-The metadata should expose endpoints and supported controls:
+Siêu dữ liệu nên đưa endpoint và kiểm soát hỗ trợ ra:
 
 ```json
 {
@@ -79,15 +79,15 @@ The metadata should expose endpoints and supported controls:
 }
 ```
 
-Require S256 for PKCE. Record the exact issuer string. That exact value becomes the key for registration and token storage.
+Yêu cầu S256 cho PKCE. Ghi đúng chuỗi bên phát hành. Giá trị chính xác đó thành khóa lưu đăng ký và token.
 
 ### Follow the registration priority
 
-Use pre-registered client information when the client already has an explicit relationship with the selected issuer. Otherwise prefer Client ID Metadata Documents when the authorization server advertises support. Use DCR only as the deprecated compatibility fallback, then prompt for client information if none of those mechanisms is available.
+Dùng thông tin client đăng ký trước khi client đã có quan hệ tường minh với bên phát hành chọn. Nếu không, ưu tiên Tài liệu siêu dữ liệu ID client khi máy chủ cấp quyền công bố hỗ trợ. Chỉ dùng DCR làm dự phòng tương thích ngừng được khuyến nghị, rồi hỏi thông tin client nếu không cơ chế nào sẵn có.
 
 ### Prefer Client ID Metadata Documents
 
-A Client ID Metadata Document gives the authorization server an HTTPS URL that is both the client identifier and the location of its metadata:
+Tài liệu siêu dữ liệu ID client cho máy chủ cấp quyền URL HTTPS vừa là định danh client vừa là nơi siêu dữ liệu của nó:
 
 ```json
 {
@@ -100,17 +100,17 @@ A Client ID Metadata Document gives the authorization server an HTTPS URL that i
 }
 ```
 
-The authorization server fetches and validates the document. The `client_id` must be an HTTPS URL with a path, and the value inside the document must equal that URL exactly. The required document fields are `client_id`, `client_name`, and `redirect_uris`. `application_type` appears in this example but is not a CIMD requirement. Its new mandatory use is specifically the DCR path.
+Máy chủ cấp quyền lấy và xác thực tài liệu. `client_id` phải là URL HTTPS có đường dẫn và giá trị trong tài liệu phải bằng chính xác URL đó. Trường tài liệu bắt buộc là `client_id`, `client_name` và `redirect_uris`. `application_type` xuất hiện trong ví dụ nhưng không phải yêu cầu CIMD. Việc bắt buộc mới của nó riêng cho nhánh DCR.
 
-Treat fetching the document as an SSRF-sensitive operation. Resolve and validate the destination, reject loopback, private, link-local, and otherwise disallowed addresses, re-check after redirects and DNS changes, limit redirects, bytes, and time, require JSON, and cache only according to validated HTTP cache controls. Treat `client_name` and other display fields as untrusted text.
+Coi việc lấy tài liệu là thao tác nhạy cảm SSRF. Phân giải và xác thực đích, từ chối địa chỉ loopback, riêng, link-local và địa chỉ không được phép khác, kiểm tra lại sau chuyển hướng và đổi DNS, giới hạn chuyển hướng, byte và thời gian, yêu cầu JSON và chỉ lưu đệm theo kiểm soát bộ đệm HTTP đã xác thực. Coi `client_name` và trường hiển thị khác là văn bản không đáng tin.
 
-CIMD removes the need to mint a fresh dynamic identifier for every first contact. It does not remove redirect URI validation, issuer policy, or user consent.
+CIMD bỏ nhu cầu tạo định danh động mới mỗi lần liên hệ đầu. Không bỏ xác thực URI chuyển hướng, chính sách bên phát hành hoặc đồng ý người dùng.
 
 ### DCR is a compatibility path
 
-Dynamic Client Registration remains available for older authorization servers, but it is deprecated for new MCP implementations.
+Đăng ký client động vẫn có cho máy chủ cấp quyền cũ, nhưng ngừng được khuyến nghị cho triển khai MCP mới.
 
-When using DCR, declare `application_type`:
+Khi dùng DCR, khai báo `application_type`:
 
 ```json
 {
@@ -122,62 +122,62 @@ When using DCR, declare `application_type`:
 }
 ```
 
-- Desktop, mobile, command-line, and loopback clients use `native`.
-- Remotely hosted browser applications use `web` and remote HTTPS redirects.
+- Client máy tính, di động, dòng lệnh và loopback dùng `native`.
+- Ứng dụng trình duyệt được host từ xa dùng `web` và chuyển hướng HTTPS từ xa.
 
-Omitting the field can default to `web` in an OpenID Connect registration implementation and make a legitimate loopback redirect fail.
+Bỏ trường có thể mặc định `web` trong triển khai đăng ký OpenID Connect và làm chuyển hướng loopback hợp lệ thất bại.
 
-Keep DCR code behind an explicit fallback decision. Do not silently fall back after an arbitrary CIMD validation failure. That could turn a security failure into a weaker enrollment path.
+Giữ mã DCR sau quyết định dự phòng tường minh. Không âm thầm dự phòng sau lỗi xác thực CIMD tùy ý. Điều đó có thể biến thất bại bảo mật thành nhánh ghi danh yếu hơn.
 
 ### Bind credentials to the issuer
 
-Store issuer-minted enrollment material under the exact issuer:
+Lưu vật liệu ghi danh do bên phát hành tạo dưới đúng bên phát hành:
 
 ```text
 issuer_credentials[issuer] = pre_registered_or_dcr_client
 tokens[(issuer, resource)] = access_token
 ```
 
-If protected-resource discovery changes from `https://auth-one.example` to `https://auth-two.example`, re-evaluate trust. Never send the first issuer's client secret, DCR client id, registration access token, refresh token, or access token to the second. Pre-registered and DCR clients must use credentials issued for the new issuer.
+Nếu khám phá tài nguyên được bảo vệ đổi từ `https://auth-one.example` sang `https://auth-two.example`, đánh giá lại tin cậy. Không bao giờ gửi bí mật client, id client DCR, token truy cập đăng ký, refresh token hoặc access token của bên đầu đến bên thứ hai. Client đăng ký trước và DCR phải dùng thông tin xác thực cấp cho bên phát hành mới.
 
-A CIMD client id is different because it is a self-hosted HTTPS URL, not a credential minted by an authorization server. The same CIMD URL is portable: a new trusted issuer fetches and validates the document without DCR re-registration. Authorization responses and tokens are still validated and stored under the new issuer.
+Id client CIMD khác vì là URL HTTPS tự host, không phải thông tin xác thực do máy chủ cấp quyền tạo. Cùng URL CIMD có thể chuyển: bên phát hành đáng tin mới lấy và xác thực tài liệu không đăng ký lại DCR. Phản hồi cấp quyền và token vẫn được xác thực và lưu dưới bên phát hành mới.
 
 ### Authorization code with PKCE
 
-The interactive flow is:
+Luồng tương tác là:
 
-1. Generate a high-entropy `code_verifier`.
-2. Derive the S256 `code_challenge`.
-3. Send the authorization request with exact `client_id`, `redirect_uri`, `scope`, `code_challenge`, and `resource`.
-4. Receive an authorization response containing `code` and, when provided, `iss`.
-5. Validate `iss` against the exact recorded issuer before using any response field.
-6. Exchange the code with `code_verifier`, the same redirect URI, and the same `resource`.
-7. Store the resulting token under `(issuer, resource)`.
+1. Tạo `code_verifier` entropy cao.
+2. Suy `code_challenge` S256.
+3. Gửi yêu cầu cấp quyền với `client_id`, `redirect_uri`, `scope`, `code_challenge` và `resource` chính xác.
+4. Nhận phản hồi cấp quyền chứa `code` và, khi được cung cấp, `iss`.
+5. Xác thực `iss` theo đúng bên phát hành đã ghi trước dùng mọi trường phản hồi.
+6. Đổi mã bằng `code_verifier`, cùng URI chuyển hướng và cùng `resource`.
+7. Lưu token kết quả dưới `(issuer, resource)`.
 
-The `resource` parameter from RFC 8707 appears in both authorization and token requests. It identifies the canonical MCP server URI.
+Tham số `resource` từ RFC 8707 xuất hiện trong cả yêu cầu cấp quyền và token. Nó định danh URI máy chủ MCP chuẩn.
 
 ### Validate `iss` exactly
 
-RFC 9207 prevents an authorization response from one issuer being confused with a response from another.
+RFC 9207 ngăn phản hồi cấp quyền từ bên phát hành này bị nhầm với phản hồi từ bên khác.
 
-When `iss` is present, compare it to the recorded issuer without case folding, trailing-slash changes, default-port removal, or percent-encoding normalization. On mismatch, do not act on the code or even display attacker-controlled error details from that response.
+Khi có `iss`, so với bên phát hành đã ghi không đổi hoa thường, đổi dấu gạch chéo cuối, bỏ cổng mặc định hoặc chuẩn hóa mã hóa phần trăm. Khi không khớp, không hành động theo mã hoặc thậm chí hiển thị chi tiết lỗi do kẻ tấn công kiểm soát từ phản hồi đó.
 
-An authorization server that includes `iss` advertises `authorization_response_iss_parameter_supported: true`. Current clients still validate a present `iss` even when that advertisement is missing.
+Máy chủ cấp quyền có `iss` công bố `authorization_response_iss_parameter_supported: true`. Client hiện tại vẫn xác thực `iss` có mặt ngay cả khi thiếu công bố đó.
 
 ### Validate audience at the MCP server
 
-The resource server accepts only tokens issued for itself:
+Máy chủ tài nguyên chỉ nhận token cấp cho chính nó:
 
 ```text
 token.issuer == configured_authorization_server
 token.audience == canonical_mcp_resource
 ```
 
-Invalid, expired, wrong-issuer, or wrong-audience tokens receive 401. The MCP server must not accept or transit a token meant for another service.
+Token không hợp lệ, hết hạn, sai bên phát hành hoặc sai đối tượng nhận nhận 401. Máy chủ MCP không được nhận hoặc chuyển token dành cho dịch vụ khác.
 
 ### Request the smallest current scope
 
-Start with the scope needed now. If a later tool requires more, the server returns 403 with an authoritative scope challenge:
+Bắt đầu với phạm vi cần ngay. Nếu công cụ sau cần thêm, máy chủ trả 403 với thách thức phạm vi có thẩm quyền:
 
 ```text
 WWW-Authenticate: Bearer error="insufficient_scope",
@@ -185,13 +185,13 @@ WWW-Authenticate: Bearer error="insufficient_scope",
   resource_metadata="https://notes.example.com/.well-known/oauth-protected-resource/mcp"
 ```
 
-The client explains the new permission, obtains consent, performs a new authorization flow with the combined scope set, and retries the MCP request with a new JSON-RPC id.
+Client giải thích quyền mới, lấy đồng ý, thực hiện luồng cấp quyền mới với tập phạm vi kết hợp và thử lại yêu cầu MCP với id JSON-RPC mới.
 
-Do not assume the challenged scope is a subset of `scopes_supported`. The challenge is authoritative for the current operation.
+Không giả định phạm vi bị thách thức là tập con `scopes_supported`. Thách thức có thẩm quyền cho thao tác hiện tại.
 
 ### Authorization and the stateless MCP wire
 
-An authorized tool call still carries the complete current request envelope:
+Lời gọi công cụ được cấp quyền vẫn mang vỏ yêu cầu hiện tại đầy đủ:
 
 ```text
 POST /mcp
@@ -221,21 +221,21 @@ Mcp-Name: notes.delete
 }
 ```
 
-The token authorizes the principal. The request metadata negotiates protocol behavior. Neither substitutes for the other.
+Token cấp quyền chủ thể. Siêu dữ liệu yêu cầu thương lượng hành vi giao thức. Không bên nào thay bên kia.
 
-Validate the wire in a fixed order: JSON-RPC and metadata types, header and body equality, then protocol support. A routing or version-header mismatch returns HTTP 400 with `-32020`. If header and body agree on an unsupported version, return HTTP 400 with `-32022` and `data` exactly `{"supported":["2026-07-28"],"requested":"<actual>"}`. An unknown method returns HTTP 404 with `-32601`.
+Xác thực đường truyền theo thứ tự cố định: JSON-RPC và kiểu siêu dữ liệu, header và phần thân bằng nhau, rồi hỗ trợ giao thức. Không khớp định tuyến hoặc header phiên bản trả HTTP 400 với `-32020`. Nếu header và phần thân đồng ý phiên bản không hỗ trợ, trả HTTP 400 với `-32022` và `data` chính xác `{"supported":["2026-07-28"],"requested":"<actual>"}`. Phương thức không biết trả HTTP 404 với `-32601`.
 
-Every request error, including 401 invalid token and 403 insufficient scope, is a JSON-RPC error envelope with the original request `id`. Structured recovery information belongs in optional error `data`; `WWW-Authenticate` remains an HTTP response header. A notification has no `id`, so it receives no JSON-RPC body. An accepted HTTP notification returns 202 with an empty body.
+Mọi lỗi yêu cầu, gồm 401 token không hợp lệ và 403 thiếu phạm vi, là vỏ lỗi JSON-RPC với `id` yêu cầu gốc. Thông tin phục hồi có cấu trúc thuộc `data` lỗi tùy chọn; `WWW-Authenticate` vẫn là header phản hồi HTTP. Thông báo không có `id`, nên không nhận phần thân JSON-RPC. Thông báo HTTP được chấp nhận trả 202 với phần thân rỗng.
 
-The server implements `server/discover` and advertises tools, so it also implements the mandatory `tools/list` method. Its tool descriptors have stable names, descriptions, and object-root `inputSchema` values. The list is deterministic and returns `resultType`, server identity metadata, a bounded `ttlMs`, and `cacheScope`. Discovery and a user-independent tool list can be available before authorization. Apply normal policy and private caching if either varies by principal.
+Máy chủ triển khai `server/discover` và công bố công cụ, nên cũng triển khai phương thức `tools/list` bắt buộc. Bộ mô tả công cụ có tên ổn định, mô tả và giá trị `inputSchema` gốc đối tượng. Danh sách tất định và trả `resultType`, siêu dữ liệu danh tính máy chủ, `ttlMs` có giới hạn và `cacheScope`. Khám phá và danh sách công cụ không phụ thuộc người dùng có thể sẵn trước cấp quyền. Áp chính sách thường và lưu đệm riêng nếu bên nào đổi theo chủ thể.
 
 ### No token passthrough
 
-An MCP server must not forward the client's MCP access token to a downstream API. Obtain a separate downstream token with the right audience or use an explicit token-exchange design. Audience validation only works when services refuse tokens minted for someone else.
+Máy chủ MCP không được chuyển token truy cập MCP của client đến API phía sau. Lấy token phía sau riêng có đúng đối tượng nhận hoặc dùng thiết kế đổi token tường minh. Xác thực đối tượng nhận chỉ hoạt động khi dịch vụ từ chối token tạo cho người khác.
 
 ### Refresh tokens
 
-Refresh tokens are optional. When issued, store them confidentially and key them by issuer and resource. Do not assume they exist. Rotate them when the authorization server supports rotation and detect reuse of invalidated values.
+Refresh token tùy chọn. Khi được cấp, lưu bí mật và đặt khóa theo bên phát hành và tài nguyên. Không giả định tồn tại. Xoay vòng khi máy chủ cấp quyền hỗ trợ và phát hiện dùng lại giá trị đã vô hiệu.
 
 ```figure
 t3-scope-stepup
@@ -243,11 +243,11 @@ t3-scope-stepup
 
 ## Build It
 
-`code/main.py` is an in-process protocol and authorization simulator. It implements protected-resource discovery, authorization server metadata, CIMD enrollment, version-gated DCR fallback, application type checks, PKCE, issuer validation, resource-bound tokens, scope step-up, `server/discover`, `tools/list`, and a stateless tool request.
+`code/main.py` là mô phỏng giao thức và cấp quyền trong tiến trình. Nó triển khai khám phá tài nguyên được bảo vệ, siêu dữ liệu máy chủ cấp quyền, ghi danh CIMD, dự phòng DCR chặn theo phiên bản, kiểm tra loại ứng dụng, PKCE, xác thực bên phát hành, token gắn tài nguyên, nâng phạm vi, `server/discover`, `tools/list` và yêu cầu công cụ không trạng thái.
 
-The model receives parsed request bodies and routing headers. It is not a complete HTTP adapter and does not parse `Content-Type` or `Accept`. Connect it to Lesson 09's Streamable HTTP adapter, which requires `Content-Type: application/json` and an `Accept` value containing both `application/json` and `text/event-stream`.
+Mô hình nhận phần thân yêu cầu và header định tuyến đã phân tích. Không phải adapter HTTP đầy đủ và không phân tích `Content-Type` hoặc `Accept`. Nối với adapter Streamable HTTP Bài 09, yêu cầu `Content-Type: application/json` và giá trị `Accept` chứa cả `application/json` và `text/event-stream`.
 
-Run it:
+Chạy:
 
 ```bash
 cd phases/13-tools-and-protocols/16-mcp-security-oauth-2-1
@@ -255,44 +255,44 @@ python3 code/main.py
 python3 -m unittest discover code/tests -v
 ```
 
-The output shows discovery first, CIMD enrollment, an ordinary read, two separate scope step-ups, and issuer-keyed credential storage.
+Đầu ra cho thấy khám phá trước, ghi danh CIMD, đọc thường, hai lần nâng phạm vi riêng và lưu thông tin xác thực khóa theo bên phát hành.
 
 ## Use It
 
-Map the simulator objects to production components:
+Ánh xạ đối tượng mô phỏng sang thành phần sản xuất:
 
-- `ResourceServer.protected_resource_metadata` becomes the RFC 9728 endpoint.
-- `AuthorizationServer.metadata` becomes RFC 8414 or OpenID Connect discovery.
-- `Client.enroll` becomes CIMD resolution plus an explicit DCR compatibility branch.
-- Issuer-minted client credentials and `tokens_by_issuer_resource` become encrypted records. A CIMD URL may remain portable while its authorization results remain issuer-bound.
-- `ResourceServer.handle` becomes middleware that validates current MCP headers, token, and tool scope before dispatch while keeping every request error in a matching JSON-RPC envelope.
+- `ResourceServer.protected_resource_metadata` thành endpoint RFC 9728.
+- `AuthorizationServer.metadata` thành khám phá RFC 8414 hoặc OpenID Connect.
+- `Client.enroll` thành phân giải CIMD cộng nhánh tương thích DCR tường minh.
+- Thông tin xác thực client do bên phát hành tạo và `tokens_by_issuer_resource` thành bản ghi mã hóa. URL CIMD có thể còn chuyển được trong khi kết quả cấp quyền vẫn gắn bên phát hành.
+- `ResourceServer.handle` thành middleware xác thực header MCP hiện tại, token và phạm vi công cụ trước phân phối, trong khi giữ mọi lỗi yêu cầu trong vỏ JSON-RPC khớp.
 
 ## Ship It
 
-This lesson ships `outputs/skill-oauth-scope-planner.md`. It now designs enrollment priority, issuer-bound credential storage, application type, PKCE, resource indicators, scope challenges, and the current stateless request boundary.
+Bài học này cung cấp `outputs/skill-oauth-scope-planner.md`. Nó hiện thiết kế ưu tiên ghi danh, lưu thông tin xác thực gắn bên phát hành, loại ứng dụng, PKCE, chỉ báo tài nguyên, thách thức phạm vi và ranh giới yêu cầu không trạng thái hiện tại.
 
 ## Exercises
 
-1. Add refresh-token rotation and reject reuse of the previous refresh token.
-2. Add an issuer allowlist. On issuer change, reuse only a portable CIMD URL; refuse all prior issuer-minted credentials and tokens.
-3. Add an expiry to authorization codes and confirm a late exchange fails.
-4. Build a web client variant with a remote HTTPS redirect and compare its DCR metadata to the native client.
-5. Add a second resource under the same issuer. Confirm its access token cannot be used at the first resource.
+1. Thêm xoay refresh token và từ chối dùng lại refresh token trước.
+2. Thêm danh sách cho phép bên phát hành. Khi đổi bên phát hành, chỉ dùng lại URL CIMD có thể chuyển; từ chối mọi thông tin xác thực và token do bên phát hành trước tạo.
+3. Thêm hết hạn cho mã cấp quyền và xác nhận trao đổi trễ thất bại.
+4. Xây biến thể client web với chuyển hướng HTTPS từ xa và so siêu dữ liệu DCR với client native.
+5. Thêm tài nguyên thứ hai dưới cùng bên phát hành. Xác nhận token truy cập của nó không dùng được tại tài nguyên đầu.
 
 ## Key Terms
 
-| Term | Meaning |
+| Thuật ngữ | Ý nghĩa |
 |------|---------|
-| Protected-resource metadata | RFC 9728 document that identifies the resource and authorization servers |
-| CIMD | HTTPS metadata document whose URL is the OAuth client identifier |
-| DCR | Deprecated dynamic client enrollment retained for compatibility |
-| `application_type` | `native` or `web`, used to validate redirect URI rules |
-| PKCE | Verifier and S256 challenge that protect an intercepted authorization code |
-| `iss` | RFC 9207 authorization response issuer identifier |
-| Resource indicator | RFC 8707 parameter that binds a token request to an MCP resource |
-| Audience | Resource for which a token is valid |
-| Step-up | New consent and token issuance for an additional current-operation scope |
-| Issuer-bound credentials | Registration and token records isolated by exact authorization server issuer |
+| Protected-resource metadata (Siêu dữ liệu tài nguyên được bảo vệ) | Tài liệu RFC 9728 định danh tài nguyên và máy chủ cấp quyền |
+| CIMD | Tài liệu siêu dữ liệu HTTPS có URL là định danh client OAuth |
+| DCR | Ghi danh client động ngừng được khuyến nghị giữ để tương thích |
+| `application_type` | `native` hoặc `web`, dùng xác thực quy tắc URI chuyển hướng |
+| PKCE | Verifier và thách thức S256 bảo vệ mã cấp quyền bị chặn bắt |
+| `iss` | Định danh bên phát hành phản hồi cấp quyền RFC 9207 |
+| Resource indicator (Chỉ báo tài nguyên) | Tham số RFC 8707 gắn yêu cầu token với tài nguyên MCP |
+| Audience (Đối tượng nhận) | Tài nguyên token hợp lệ cho |
+| Step-up (Nâng quyền) | Đồng ý mới và cấp token cho phạm vi thao tác hiện tại bổ sung |
+| Issuer-bound credentials (Thông tin xác thực gắn bên phát hành) | Bản ghi đăng ký và token cô lập theo đúng bên phát hành máy chủ cấp quyền |
 
 ## Further Reading
 
