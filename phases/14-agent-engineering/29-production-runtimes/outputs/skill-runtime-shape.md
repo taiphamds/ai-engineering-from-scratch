@@ -7,37 +7,37 @@ lesson: 29
 tags: [production, runtime, queue, event, durable, observability]
 ---
 
-Given a task class (expected duration, step count, trigger type, latency budget), pick the runtime shape.
+Với một loại tác vụ (thời lượng được mong đợi, số bước, loại kích hoạt, ngân sách độ trễ), chọn hình dạng runtime.
 
-Decision:
+Quyết định:
 
-1. < 30s, user waits -> **request-response**.
-2. Progressive UX or voice -> **streaming**.
-3. Minutes to hours, user doesn't wait -> **queue-based**.
-4. Reactive to external events -> **event-driven**.
-5. Periodic housekeeping -> **cron**.
-6. Any of the above where restart cost is high -> add **durable execution**.
+1. < 30 giây, người dùng chờ -> **yêu cầu-phản hồi**.
+2. UX dần dần hoặc giọng nói -> **streaming**.
+3. Vài phút đến vài giờ, người dùng không chờ -> **dựa trên hàng đợi**.
+4. Phản ứng với các sự kiện bên ngoài -> **hướng sự kiện**.
+5. Bảo trì định kỳ -> **cron**.
+6. Bất kỳ điều nào ở trên mà chi phí khởi động lại cao -> thêm **thực thi bền vững**.
 
-Produce:
+Tạo:
 
-1. The shape scaffold in your stack.
-2. Observability: OTel GenAI spans (Lesson 23), backend wired (Lesson 24).
-3. For queue: DLQ + retry policy + queue depth metric.
-4. For event: explicit subscriber registry + replay path.
-5. For cron: lock file or distributed lock to prevent overlapping runs.
-6. For durable: checkpointer backend + resume semantics.
+1. Khung hình dạng trong stack của bạn.
+2. Khả năng quan sát: các span OTel GenAI (Bài 23), backend được nối (Bài 24).
+3. Với hàng đợi: DLQ + chính sách thử lại + thước đo độ sâu hàng đợi.
+4. Với sự kiện: sổ đăng ký bên đăng ký tường minh + đường phát lại.
+5. Với cron: file khóa hoặc khóa phân tán để ngăn các lần chạy chồng lấp.
+6. Với bền vững: backend bộ tạo checkpoint + ngữ nghĩa tiếp tục.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Synchronous HTTP for a 5-minute task. Users hang up; workers pile up.
-- Queue-based without DLQ. Failed jobs vanish.
-- Background work without trace export. Failures invisible until users complain.
-- "No durable state, we'll just retry." Long horizons must checkpoint.
+- HTTP đồng bộ cho một tác vụ 5 phút. Người dùng cúp máy; các worker chồng chất.
+- Dựa trên hàng đợi mà không có DLQ. Các job thất bại biến mất.
+- Công việc nền mà không xuất trace. Các lỗi vô hình cho đến khi người dùng phàn nàn.
+- "Không trạng thái bền vững, chúng tôi chỉ thử lại." Các tầm dài phải tạo checkpoint.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the product has SLA + replay requirements, refuse swarm topology + non-durable runtime.
-- If the task is compliance-bound, refuse event-driven without audit trail.
-- If the user wants cron + no lock, refuse. Overlapping cron runs are duplicate work at best, data corruption at worst.
+- Nếu sản phẩm có SLA + các yêu cầu phát lại, từ chối cấu trúc bầy đàn + runtime không bền vững.
+- Nếu tác vụ bị ràng buộc tuân thủ, từ chối hướng sự kiện mà không có dấu vết kiểm toán.
+- Nếu người dùng muốn cron + không khóa, từ chối. Các lần chạy cron chồng lấp tốt nhất là công việc trùng lặp, tệ nhất là hỏng dữ liệu.
 
-Output: runtime scaffold + observability hooks + README with SLA, retry policy, checkpointer choice. End with "what to read next" pointing to Lesson 23 (OTel), Lesson 24 (observability), or Lesson 17 (Managed Agents for hosted long-running).
+Đầu ra: khung runtime + các hook khả năng quan sát + README với SLA, chính sách thử lại, lựa chọn bộ tạo checkpoint. Kết thúc bằng "đọc gì tiếp theo" chỉ đến Bài 23 (OTel), Bài 24 (khả năng quan sát) hoặc Bài 17 (Managed Agents cho chạy lâu được host).
