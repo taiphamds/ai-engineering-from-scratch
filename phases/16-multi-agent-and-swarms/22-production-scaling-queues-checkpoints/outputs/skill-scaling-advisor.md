@@ -7,32 +7,32 @@ lesson: 22
 tags: [multi-agent, production, scaling, durable-execution, queues, checkpoints]
 ---
 
-Given a multi-agent production deployment plan, recommend the durable-execution substrate.
+Với một kế hoạch triển khai sản xuất đa agent, đề xuất nền tảng thực thi bền vững.
 
-Produce:
+Tạo ra:
 
-1. **Load profile.** Concurrent agent-runs (p50, p99). Per-run duration (seconds to hours). Fraction of runs requiring human-in-the-loop waits. Deploy frequency.
-2. **State profile.** Size of per-run state (KB to MB). Retention requirement (seconds of checkpoint history, or full audit log). Determinism: can runs be replayed from checkpoints deterministically, or only from logs?
-3. **Side-effect profile.** Which side effects need exactly-once (payments, external APIs, email)? Which can tolerate at-least-once (pure tool reads)? Outbox pattern needed for exactly-once.
-4. **Recommendation tier.**
-   - Tier 1 (Bedi's rule): FastAPI + Postgres. Under ~100 concurrent runs, sub-hour durations, simple retries.
-   - Tier 2: LangGraph runtime or Temporal. Hour-long runs, interrupt/resume, structured retries.
-   - Tier 3: Custom with outbox + event sourcing. Specialized needs, high throughput, strict audit.
-5. **Deploy model.** Single version or rainbow/canary? Rainbow required for long-running stateful workloads.
-6. **Async / thread boundary.** Which parts are async (LLM calls, tool I/O) and which are threads/processes (CPU-bound post-processing, embedding).
-7. **Observability.** Per-run traces, super-step audit, retry counter. Storage for traces (separate from checkpoint store).
+1. **Hồ sơ tải.** Các lần chạy agent đồng thời (p50, p99). Thời lượng theo từng lần chạy (giây tới giờ). Tỷ lệ các lần chạy yêu cầu chờ con người trong vòng lặp. Tần suất triển khai.
+2. **Hồ sơ trạng thái.** Kích thước trạng thái theo từng lần chạy (KB tới MB). Yêu cầu lưu giữ (số giây lịch sử checkpoint, hoặc nhật ký kiểm toán đầy đủ). Tính xác định: các lần chạy có thể phát lại từ checkpoint một cách xác định, hay chỉ từ nhật ký?
+3. **Hồ sơ tác dụng phụ.** Các tác dụng phụ nào cần đúng một lần (thanh toán, các API bên ngoài, email)? Những loại nào chịu được ít nhất một lần (các lần đọc công cụ thuần túy)? Mẫu outbox cần cho đúng một lần.
+4. **Tầng khuyến nghị.**
+   - Tầng 1 (quy tắc Bedi): FastAPI + Postgres. Dưới ~100 lần chạy đồng thời, thời lượng dưới giờ, các lần thử lại đơn giản.
+   - Tầng 2: môi trường chạy LangGraph hoặc Temporal. Các lần chạy dài một giờ, gián đoạn/tiếp tục, các lần thử lại có cấu trúc.
+   - Tầng 3: Tùy chỉnh với outbox + event sourcing. Các nhu cầu chuyên biệt, thông lượng cao, kiểm toán nghiêm ngặt.
+5. **Mô hình triển khai.** Một phiên bản hay cầu vồng/canary? Cầu vồng bắt buộc cho các khối lượng công việc có trạng thái chạy dài.
+6. **Ranh giới bất đồng bộ / luồng.** Những phần nào bất đồng bộ (các lệnh gọi LLM, I/O công cụ) và những phần nào là các luồng/tiến trình (hậu xử lý bị giới hạn bởi CPU, embedding).
+7. **Khả năng quan sát.** Các dấu vết theo từng lần chạy, kiểm toán siêu bước, bộ đếm thử lại. Lưu trữ cho các dấu vết (tách khỏi kho checkpoint).
 
-Hard rejects:
+Các trường hợp loại bỏ dứt khoát:
 
-- Recommending Temporal for a 10-concurrent-run prototype. Ceremony cost > value.
-- Thread-per-job LLM call architectures. I/O-bound + 1MB/thread does not scale.
-- Designs without outbox pattern for paid side effects. Duplicate charges are expensive.
-- Single-version deploys for multi-hour agent runs. Users lose state on every code push.
+- Khuyến nghị Temporal cho một nguyên mẫu 10 lần chạy đồng thời. Chi phí thủ tục > giá trị.
+- Các kiến trúc lệnh gọi LLM mỗi công việc một luồng. Bị giới hạn bởi I/O + 1MB/luồng không mở rộng.
+- Các thiết kế không có mẫu outbox cho các tác dụng phụ trả phí. Các lần tính phí trùng lặp tốn kém.
+- Các triển khai một phiên bản cho các lần chạy agent nhiều giờ. Người dùng mất trạng thái trên mỗi lần đẩy mã.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If load is unknown and untested, recommend Tier 1 plus load testing. Premature optimization burns time.
-- If the user wants a tokenized / blockchain-persistent system, say that durable-execution engines typically do not solve that (write your own event sourcing); recommend legal review for tokenized flows.
-- If the team has no on-call engineer, Temporal / LangGraph runtime maintenance is under-provisioned; recommend Tier 1 until on-call is staffed.
+- Nếu tải chưa biết và chưa kiểm thử, đề xuất Tầng 1 cộng kiểm thử tải. Tối ưu sớm đốt thời gian.
+- Nếu người dùng muốn một hệ thống token hóa / bền vững blockchain, nói rằng các engine thực thi bền vững thường không giải quyết điều đó (tự viết event sourcing); đề xuất xem xét pháp lý cho các luồng token hóa.
+- Nếu nhóm không có kỹ sư trực, bảo trì môi trường chạy Temporal / LangGraph thiếu nguồn lực; đề xuất Tầng 1 cho đến khi có nhân sự trực.
 
-Output: a two-page brief. Start with a one-sentence recommendation ("Tier 1 (FastAPI + Postgres + outbox) for current load; escalate to LangGraph runtime when p99 run duration exceeds 10 min or concurrent runs exceed 200."), then the seven sections above. End with a 90-day upgrade path: metrics to watch, threshold for escalation, runbook outline.
+Đầu ra: một bản tóm lược hai trang. Bắt đầu với một khuyến nghị một câu (“Tầng 1 (FastAPI + Postgres + outbox) cho tải hiện tại; nâng lên môi trường chạy LangGraph khi thời lượng lần chạy p99 vượt 10 phút hoặc các lần chạy đồng thời vượt 200.”), rồi bảy phần ở trên. Kết thúc bằng một lộ trình nâng cấp 90 ngày: các chỉ số cần theo dõi, ngưỡng nâng cấp, dàn ý sổ tay vận hành.
