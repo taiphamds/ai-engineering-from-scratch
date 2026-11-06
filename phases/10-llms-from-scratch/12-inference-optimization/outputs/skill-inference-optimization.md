@@ -9,8 +9,8 @@ tags: [inference, kv-cache, batching, speculative-decoding, vllm, optimization]
 
 # LLM Inference Optimization Pattern
 
-Two phases: prefill (compute-bound, parallel) and decode (memory-bound, sequential).
-Every optimization targets one or both.
+Hai giai đoạn: prefill (giới hạn tính toán, song song) và decode (giới hạn bộ nhớ, tuần tự).
+Mọi tối ưu nhắm một hoặc cả hai.
 
 ```
 Request -> Prefill (process prompt) -> Decode (generate tokens) -> Response
@@ -24,28 +24,28 @@ Request -> Prefill (process prompt) -> Decode (generate tokens) -> Response
 
 ### Step 1: Identify your bottleneck
 
-Measure ops:byte ratio for your workload:
+Đo tỷ lệ ops:byte cho khối lượng công việc:
 
-| ops:byte | Bound | What to optimize |
+| ops:byte | Giới hạn | Cần tối ưu gì |
 |----------|-------|-----------------|
-| < 50 | Memory | Quantize KV cache, increase batch size |
-| 50-200 | Transitional | Both matter, start with batching |
-| > 200 | Compute | Kernel fusion, tensor parallelism, FP8 |
+| < 50 | Bộ nhớ | Lượng tử hóa KV cache, tăng kích thước batch |
+| 50-200 | Chuyển tiếp | Cả hai quan trọng, bắt đầu với gom batch |
+| > 200 | Tính toán | Hợp nhất kernel, song song tensor, FP8 |
 
 ### Step 2: Pick your engine
 
-- **Default**: vLLM (widest model support, PagedAttention, OpenAI-compatible API)
-- **Multi-turn / structured output**: SGLang (RadixAttention prefix caching, constrained decoding)
-- **Max NVIDIA throughput**: TensorRT-LLM (kernel fusion, FP8 on H100)
+- **Mặc định**: vLLM (hỗ trợ mô hình rộng nhất, PagedAttention, API tương thích OpenAI)
+- **Nhiều lượt / đầu ra có cấu trúc**: SGLang (prefix caching RadixAttention, giải mã có ràng buộc)
+- **Thông lượng NVIDIA tối đa**: TensorRT-LLM (hợp nhất kernel, FP8 trên H100)
 
 ### Step 3: Apply optimizations in order
 
-1. **KV cache** -- always on, no downside
-2. **Continuous batching** -- always on, no downside (vLLM/SGLang do this by default)
-3. **Prefix caching** -- enable if you have shared system prompts (most chatbots do)
-4. **Quantization** -- KV cache INT8/FP8 reduces memory 2-4x with minimal quality loss
-5. **Speculative decoding** -- add when latency matters more than throughput
-6. **Tensor parallelism** -- split across GPUs when model does not fit on one
+1. **KV cache** -- luôn bật, không nhược điểm
+2. **Continuous batching** -- luôn bật, không nhược điểm (vLLM/SGLang làm theo mặc định)
+3. **Prefix caching** -- bật nếu có system prompt chung (hầu hết chatbot có)
+4. **Lượng tử hóa** -- KV cache INT8/FP8 giảm bộ nhớ 2-4x với mất chất lượng tối thiểu
+5. **Speculative decoding** -- thêm khi độ trễ quan trọng hơn thông lượng
+6. **Song song tensor** -- chia trên GPU khi mô hình không vừa trên một GPU
 
 ## KV cache memory formula
 
@@ -54,9 +54,9 @@ per_token = 2 * num_layers * num_kv_heads * head_dim * bytes_per_param
 total = per_token * sequence_length * num_concurrent_users
 ```
 
-Quick reference for common models (BF16):
+Tham chiếu nhanh cho mô hình phổ biến (BF16):
 
-| Model | Per token | 100 users @ 4K |
+| Mô hình | Mỗi token | 100 người dùng @ 4K |
 |-------|-----------|----------------|
 | Llama 3 8B | 32 KB | 12.5 GB |
 | Llama 3 70B | 320 KB | 125 GB |
@@ -64,26 +64,26 @@ Quick reference for common models (BF16):
 
 ## Speculative decoding checklist
 
-- Draft model should be 5-10x smaller than target (e.g., 8B drafts for 70B)
-- Acceptance rate > 70% for meaningful speedup
-- Best on predictable text (code, structured output, natural language)
-- Worst on creative/sampling-heavy tasks (low temperature helps)
-- EAGLE > draft-target > n-gram for most workloads
+- Mô hình nháp nên nhỏ hơn đích 5-10x (ví dụ 8B làm nháp cho 70B)
+- Tỷ lệ chấp nhận > 70% để tăng tốc đáng kể
+- Tốt nhất trên văn bản dễ đoán (mã, đầu ra có cấu trúc, ngôn ngữ tự nhiên)
+- Tệ nhất trên tác vụ sáng tạo/nhiều lấy mẫu (temperature thấp giúp)
+- EAGLE > nháp-đích > n-gram cho hầu hết khối lượng công việc
 
 ## Common mistakes
 
-- Running decode at batch=1 (memory-bound, GPU 95% idle on compute)
-- Allocating contiguous KV cache blocks (use PagedAttention, get near-zero waste)
-- Ignoring prefix caching when 80% of requests share the same system prompt
-- Over-provisioning GPU memory for model weights, leaving nothing for KV cache
-- Measuring throughput without measuring latency (high throughput at 10s TTFT is useless)
-- Using speculative decoding with high temperature (acceptance rate drops below 50%)
+- Chạy decode ở batch=1 (giới hạn bộ nhớ, GPU nhàn rỗi 95% về tính toán)
+- Cấp khối KV cache liên tục (dùng PagedAttention, đạt lãng phí gần không)
+- Bỏ qua prefix caching khi 80% yêu cầu chung system prompt
+- Cấp quá nhiều bộ nhớ GPU cho trọng số, không còn gì cho KV cache
+- Đo thông lượng mà không đo độ trễ (thông lượng cao ở TTFT 10s vô dụng)
+- Dùng speculative decoding với temperature cao (tỷ lệ chấp nhận giảm dưới 50%)
 
 ## Monitoring checklist
 
-- Time to first token (TTFT): prefill latency, target < 500ms for interactive use
-- Inter-token latency (ITL): decode speed, target < 50ms for streaming
-- Throughput (tokens/second): total across all concurrent users
-- KV cache utilization: percentage of allocated cache in use
-- Batch utilization: percentage of batch slots filled per iteration
-- Queue depth: requests waiting for a batch slot
+- Thời gian đến token đầu (TTFT): độ trễ prefill, mục tiêu < 500ms cho sử dụng tương tác
+- Độ trễ giữa token (ITL): tốc độ decode, mục tiêu < 50ms cho streaming
+- Thông lượng (token/giây): tổng trên mọi người dùng đồng thời
+- Mức sử dụng KV cache: phần trăm cache đã cấp đang dùng
+- Mức sử dụng batch: phần trăm chỗ batch được lấp mỗi lần lặp
+- Độ sâu hàng đợi: yêu cầu đợi chỗ batch

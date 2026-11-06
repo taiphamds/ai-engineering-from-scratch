@@ -1,6 +1,6 @@
 # Inference Optimization
 
-> Two phases define LLM inference. Prefill processes your prompt in parallel -- compute-bound. Decode generates tokens one at a time -- memory-bound. Every optimization targets one or both.
+> Hai giai đoạn định nghĩa suy luận LLM. Prefill xử lý prompt song song -- bị giới hạn tính toán. Decode sinh từng token một -- bị giới hạn bộ nhớ. Mọi tối ưu nhắm một hoặc cả hai.
 
 **Type:** Build
 **Languages:** Python
@@ -9,30 +9,30 @@
 
 ## Learning Objectives
 
-- Implement KV-cache to eliminate redundant computation during autoregressive token generation
-- Explain the prefill vs decode phases of LLM inference and why each has different bottlenecks (compute-bound vs memory-bound)
-- Implement continuous batching and PagedAttention concepts to maximize GPU utilization under concurrent requests
-- Compare inference optimization techniques (KV-cache, speculative decoding, flash attention) and their throughput/latency tradeoffs
+- Triển khai KV-cache để loại tính toán dư thừa khi sinh token tự hồi quy
+- Giải thích các giai đoạn prefill và decode của suy luận LLM và vì sao mỗi giai đoạn có nút thắt khác (giới hạn tính toán so với bộ nhớ)
+- Triển khai khái niệm continuous batching và PagedAttention để tối đa mức sử dụng GPU dưới yêu cầu đồng thời
+- So sánh kỹ thuật tối ưu suy luận (KV-cache, speculative decoding, flash attention) và đánh đổi thông lượng/độ trễ
 
 ## The Problem
 
-You deploy Llama 3 70B on 4xA100 GPUs. A single user gets ~50 tokens per second. Feels fast. Then 100 users hit the endpoint simultaneously. Throughput drops to 3 tokens/second/user. Your $25,000/month GPU bill is serving responses slower than a human types.
+Bạn triển khai Llama 3 70B trên GPU 4xA100. Một người dùng nhận ~50 token mỗi giây. Cảm thấy nhanh. Rồi 100 người dùng đồng thời truy cập endpoint. Thông lượng giảm còn 3 token/giây/người. Hóa đơn GPU $25,000/tháng đang phục vụ phản hồi chậm hơn con người gõ.
 
-The model itself does not change between 1 user and 100 users. Same weights, same architecture, same math. What changes is how you schedule the work. Naive inference wastes 90%+ of available GPU compute. A user waiting for token 47 holds an entire batch slot open while the GPU memory bus sits idle between matmuls. Meanwhile, a new user's 2,000-token prompt could fill that dead time with useful compute.
+Bản thân mô hình không đổi giữa 1 và 100 người dùng. Cùng trọng số, kiến trúc, toán học. Thứ thay đổi là cách lập lịch công việc. Suy luận đơn giản lãng phí 90%+ tính toán GPU sẵn có. Người dùng đợi token 47 giữ cả một chỗ batch trong khi bus bộ nhớ GPU nhàn rỗi giữa các phép nhân ma trận. Trong khi đó, prompt 2,000 token của người dùng mới có thể lấp thời gian chết bằng tính toán hữu ích.
 
-This is not a scaling problem. It is a scheduling problem. The techniques in this lesson -- KV caching, continuous batching, PagedAttention, speculative decoding, prefix caching -- are what separate a $25k/month inference bill from a $5k/month one serving the same traffic.
+Đây không phải bài toán mở rộng quy mô. Nó là bài toán lập lịch. Các kỹ thuật trong bài này -- KV caching, continuous batching, PagedAttention, speculative decoding, prefix caching -- là thứ phân biệt hóa đơn suy luận $25k/tháng với $5k/tháng phục vụ cùng lưu lượng.
 
-vLLM serving Llama 3 70B on 4xA100-80GB achieves ~50 tokens/second/user at low concurrency, and sustains 15-25 TPS/user at 100 concurrent requests through continuous batching and PagedAttention. Without these optimizations, the same hardware serves 5 TPS/user at that concurrency. Same GPUs, same model, 4x the throughput.
+vLLM phục vụ Llama 3 70B trên 4xA100-80GB đạt ~50 token/giây/người ở mức đồng thời thấp, và duy trì 15-25 TPS/người ở 100 yêu cầu đồng thời qua continuous batching và PagedAttention. Không có tối ưu này, cùng phần cứng phục vụ 5 TPS/người ở mức đồng thời đó. Cùng GPU, mô hình, thông lượng 4x.
 
 ## The Concept
 
 ### Prefill vs Decode
 
-Every LLM inference request has two distinct phases.
+Mỗi yêu cầu suy luận LLM có hai giai đoạn riêng.
 
-**Prefill** processes the entire input prompt. All tokens are known, so attention can be computed in parallel across the full sequence. This is a large matrix multiplication -- GPU cores stay busy. The bottleneck is compute: how many FLOPS your hardware can deliver per second. An A100 does 312 TFLOPS (BF16). Prefill for a 4,096-token prompt on a 70B model takes ~400ms on a single A100.
+**Prefill** xử lý toàn bộ prompt đầu vào. Mọi token đã biết, nên attention có thể tính song song trên toàn chuỗi. Đây là phép nhân ma trận lớn -- lõi GPU luôn bận. Nút thắt là tính toán: phần cứng cung cấp bao nhiêu FLOPS mỗi giây. A100 làm 312 TFLOPS (BF16). Prefill cho prompt 4,096 token trên mô hình 70B mất ~400ms trên một A100.
 
-**Decode** generates output tokens one at a time. Each new token attends to all previous tokens, but only one token is produced per forward pass. The weight matrices are the same size as during prefill, but you are multiplying them by a single vector instead of a matrix. The GPU cores finish in microseconds, then wait for the next batch of weights to arrive from memory. The bottleneck is memory bandwidth: how fast you can stream model weights from HBM to the compute units. An A100 has 2 TB/s bandwidth. A 70B model in FP16 is 140 GB. Reading the full model once takes 70ms -- that is your floor for a single decode step.
+**Decode** sinh từng token đầu ra. Mỗi token mới chú ý mọi token trước, nhưng chỉ một token được tạo mỗi lượt truyền xuôi. Ma trận trọng số cùng kích thước như khi prefill, nhưng bạn nhân với một vector thay vì ma trận. Lõi GPU xong trong micro giây, rồi đợi batch trọng số tiếp đến từ bộ nhớ. Nút thắt là băng thông bộ nhớ: có thể stream trọng số mô hình từ HBM đến đơn vị tính nhanh đến đâu. A100 có băng thông 2 TB/s. Mô hình 70B ở FP16 là 140 GB. Đọc toàn mô hình một lần mất 70ms -- đó là mức sàn cho một bước decode.
 
 ```mermaid
 graph LR
@@ -49,21 +49,21 @@ graph LR
     P3 --> D1
 ```
 
-The **ops:byte ratio** (also called arithmetic intensity) captures this tradeoff. It measures how many operations you perform per byte loaded from memory.
+**Tỷ lệ ops:byte** (cũng gọi cường độ số học) nắm đánh đổi này. Nó đo bao nhiêu phép toán bạn thực hiện mỗi byte tải từ bộ nhớ.
 
 ```
 ops:byte ratio = FLOPs per token / bytes read from memory
 ```
 
-During prefill with a batch of 4,096 tokens, you perform ~4,096 multiply-accumulate operations per weight loaded. The ratio is high -- you are compute-bound. During decode with batch size 1, you perform ~1 operation per weight loaded. The ratio is low -- you are memory-bound.
+Khi prefill với batch 4,096 token, bạn thực hiện ~4,096 phép nhân-tích lũy mỗi trọng số được tải. Tỷ lệ cao -- bị giới hạn tính toán. Khi decode với batch 1, bạn thực hiện ~1 phép toán mỗi trọng số được tải. Tỷ lệ thấp -- bị giới hạn bộ nhớ.
 
-The fundamental insight: *decode is memory-bound because you read the entire model to produce a single token*. Every optimization below either reduces what you read, increases the batch of tokens processed per read, or avoids reads entirely.
+Nhận thức nền tảng: *decode bị giới hạn bộ nhớ vì bạn đọc toàn mô hình để tạo một token*. Mọi tối ưu dưới đây hoặc giảm thứ bạn đọc, tăng batch token xử lý mỗi lần đọc, hoặc tránh đọc hoàn toàn.
 
 ### KV Cache
 
-During attention, each token's query attends to every previous token's key and value vectors. Without caching, generating token N requires recomputing the key and value projections for all N-1 preceding tokens. Token 1 gets projected when generating token 2, then again for token 3, then again for token 4. By token 1,000, you have projected token 1 a total of 999 times.
+Trong attention, query mỗi token chú ý vector key và value của mọi token trước. Không cache, sinh token N cần tính lại phép chiếu key và value cho cả N-1 token trước. Token 1 được chiếu khi sinh token 2, rồi lại cho token 3, rồi token 4. Đến token 1,000, bạn đã chiếu token 1 tổng cộng 999 lần.
 
-The KV cache stores the key and value projections from all previous tokens. When generating token N, you only compute the key and value for token N, then concatenate them with the cached K/V from tokens 1 through N-1.
+KV cache lưu các phép chiếu key và value từ mọi token trước. Khi sinh token N, bạn chỉ tính key và value cho token N, rồi nối với K/V đã cache từ token 1 đến N-1.
 
 ```mermaid
 graph TD
@@ -80,13 +80,13 @@ graph TD
     end
 ```
 
-**Memory formula for KV cache:**
+**Công thức bộ nhớ cho KV cache:**
 
 ```
 KV cache size = 2 * num_layers * num_kv_heads * head_dim * seq_len * bytes_per_param
 ```
 
-For Llama 3 70B (80 layers, 8 KV heads with GQA, head_dim=128, BF16):
+Với Llama 3 70B (80 lớp, 8 head KV với GQA, head_dim=128, BF16):
 
 ```
 per token: 2 * 80 * 8 * 128 * 2 bytes = 327,680 bytes = 320 KB
@@ -94,13 +94,13 @@ at 4,096 tokens: 320 KB * 4,096 = 1.28 GB
 at 128K tokens: 320 KB * 131,072 = 40 GB
 ```
 
-A single 128K-context conversation for Llama 3 70B consumes 40 GB of KV cache -- half an A100's memory. With 100 concurrent users at 4K tokens each, KV cache alone requires 128 GB. This is why KV cache management is the central challenge of inference optimization.
+Một hội thoại ngữ cảnh 128K cho Llama 3 70B tiêu thụ 40 GB KV cache -- nửa bộ nhớ A100. Với 100 người dùng đồng thời ở 4K token mỗi người, riêng KV cache cần 128 GB. Đây là lý do quản lý KV cache là thách thức trung tâm của tối ưu suy luận.
 
 ### Continuous Batching
 
-Static batching waits until a batch of N requests arrives, processes them together, and waits until *all* finish before accepting new requests. If one request needs 500 tokens and another needs 10, the short request sits idle for 490 decode steps after it finishes.
+Gom batch tĩnh đợi batch N yêu cầu đến, xử lý cùng nhau, rồi đợi *tất cả* xong trước khi nhận yêu cầu mới. Nếu một yêu cầu cần 500 token và một yêu cầu cần 10, yêu cầu ngắn nằm nhàn rỗi 490 bước decode sau khi xong.
 
-Continuous batching (also called iteration-level batching) inserts new requests into the batch as soon as any request completes. The batch is reevaluated at every decode step. A request that finishes after 10 tokens is immediately replaced by a waiting request.
+Continuous batching (cũng gọi gom batch cấp lần lặp) chèn yêu cầu mới vào batch ngay khi bất kỳ yêu cầu nào xong. Batch được đánh giá lại mỗi bước decode. Yêu cầu xong sau 10 token lập tức được thay bằng yêu cầu đang đợi.
 
 ```mermaid
 sequenceDiagram
@@ -125,13 +125,13 @@ sequenceDiagram
     Note over R3: R3 done at step 30
 ```
 
-The throughput improvement depends on how much output lengths vary. With uniform lengths, continuous batching matches static batching. With variable lengths (the common case), continuous batching can deliver 2-5x higher throughput because GPU slots never sit empty.
+Cải thiện thông lượng phụ thuộc mức biến thiên độ dài đầu ra. Với độ dài đồng nhất, continuous batching ngang gom batch tĩnh. Với độ dài biến đổi (trường hợp phổ biến), continuous batching có thể cho thông lượng cao hơn 2-5x vì chỗ GPU không bao giờ trống.
 
 ### PagedAttention
 
-The KV cache for each request is a contiguous block of memory. As requests arrive and depart, memory fragments -- exactly like RAM fragmentation in operating systems. A 4K-token request needs 1.28 GB contiguous. Even if you have 2 GB free total, you might not have 1.28 GB *contiguous*. You either waste memory or reject the request.
+KV cache cho mỗi yêu cầu là khối bộ nhớ liên tục. Khi yêu cầu đến và đi, bộ nhớ phân mảnh -- hệt phân mảnh RAM trong hệ điều hành. Yêu cầu 4K token cần 1.28 GB liên tục. Dù tổng có 2 GB trống, có thể không có 1.28 GB *liên tục*. Bạn hoặc lãng phí bộ nhớ hoặc từ chối yêu cầu.
 
-PagedAttention (from vLLM) applies OS-style virtual memory to KV cache. Instead of allocating one contiguous block per request, it allocates fixed-size "pages" (typically 16 tokens each). Pages can be anywhere in physical GPU memory. A page table maps each request's logical sequence positions to physical page locations.
+PagedAttention (từ vLLM) áp dụng bộ nhớ ảo kiểu hệ điều hành cho KV cache. Thay vì cấp một khối liên tục mỗi yêu cầu, nó cấp các "trang" kích thước cố định (thường 16 token mỗi trang). Trang có thể ở bất kỳ đâu trong bộ nhớ GPU vật lý. Bảng trang ánh xạ vị trí chuỗi logic mỗi yêu cầu sang vị trí trang vật lý.
 
 ```mermaid
 graph TD
@@ -150,15 +150,15 @@ graph TD
     end
 ```
 
-PagedAttention also enables **copy-on-write** for shared prefixes. If 50 requests share the same system prompt, the KV cache pages for that system prompt are stored once and referenced by all 50 requests. Only when a request diverges (different user messages) does it get its own pages. This cuts memory usage dramatically for applications with shared system prompts.
+PagedAttention cũng cho phép **copy-on-write** cho tiền tố chung. Nếu 50 yêu cầu chung system prompt, các trang KV cache cho prompt đó được lưu một lần và được cả 50 yêu cầu tham chiếu. Chỉ khi yêu cầu phân nhánh (tin nhắn người dùng khác) nó mới có trang riêng. Điều này giảm mạnh bộ nhớ cho ứng dụng có system prompt chung.
 
-vLLM reports near-zero memory waste (~4% vs ~60-80% in naive allocation) through PagedAttention.
+vLLM báo cáo lãng phí bộ nhớ gần không (~4% so với ~60-80% trong cấp phát đơn giản) qua PagedAttention.
 
 ### Speculative Decoding
 
-Decode is slow because it is sequential -- you generate one token, feed it back, generate the next. But what if you could guess the next 5 tokens cheaply, then verify them all at once?
+Decode chậm vì tuần tự -- bạn sinh token, đưa trở lại, sinh token kế. Nhưng nếu có thể đoán rẻ 5 token tiếp theo, rồi xác minh tất cả cùng lúc?
 
-Speculative decoding uses a small, fast **draft model** to generate K candidate tokens. The large **target model** then processes all K candidates in a single forward pass (which looks like a prefill -- parallel, compute-bound, efficient). If the target model agrees with the draft model's predictions, you accept all K tokens in the time of one target forward pass. If it disagrees at position j, you accept tokens 1 through j-1 and discard the rest.
+Speculative decoding dùng **mô hình nháp** nhỏ, nhanh để sinh K token ứng viên. **Mô hình đích** lớn sau đó xử lý cả K ứng viên trong một lượt truyền xuôi (trông như prefill -- song song, giới hạn tính toán, hiệu quả). Nếu mô hình đích đồng ý dự đoán nháp, bạn nhận cả K token trong thời gian một lượt truyền xuôi đích. Nếu bất đồng ở vị trí j, bạn nhận token 1 đến j-1 và bỏ phần còn lại.
 
 ```mermaid
 graph LR
@@ -169,79 +169,79 @@ graph LR
     V -->|"Mismatch at pos 5"| R["Reject token 5<br/>Resample from target"]
 ```
 
-The speedup depends on the **acceptance rate** -- how often the draft model's predictions match the target. For a Llama 3 8B drafting for Llama 3 70B, acceptance rates of 70-85% are typical on natural language. This translates to 2-3x decode speedup.
+Tăng tốc phụ thuộc **tỷ lệ chấp nhận** -- tần suất dự đoán nháp khớp đích. Với Llama 3 8B làm nháp cho Llama 3 70B, tỷ lệ 70-85% điển hình trên ngôn ngữ tự nhiên. Điều này chuyển thành tăng tốc decode 2-3x.
 
-Three approaches to speculative decoding:
+Ba cách speculative decoding:
 
-| Method | Draft source | Acceptance rate | Overhead |
+| Phương pháp | Nguồn nháp | Tỷ lệ chấp nhận | Chi phí thêm |
 |--------|-------------|-----------------|----------|
-| Draft-target (Leviathan et al.) | Separate small model | 70-85% | Draft model memory |
-| EAGLE (Li et al.) | Lightweight head on target | 75-90% | ~1% extra parameters |
-| N-gram lookup | Token n-gram table | 40-60% | Negligible |
+| Nháp-đích (Leviathan và cộng sự) | Mô hình nhỏ riêng | 70-85% | Bộ nhớ mô hình nháp |
+| EAGLE (Li và cộng sự) | Head nhẹ trên đích | 75-90% | ~1% tham số thêm |
+| Tra cứu N-gram | Bảng n-gram token | 40-60% | Không đáng kể |
 
-**EAGLE** trains a small autoregressive head on top of the target model's hidden states. It predicts the next token's embedding using the target model's second-to-last layer features. Because it operates on the target model's own representations (not a separate model's), it achieves higher acceptance rates with minimal extra memory. EAGLE-2 adds a dynamic draft tree that adjusts candidate count based on context.
+**EAGLE** huấn luyện một head tự hồi quy nhỏ trên trạng thái ẩn mô hình đích. Nó dự đoán embedding token tiếp theo bằng đặc trưng lớp áp chót của đích. Vì hoạt động trên biểu diễn của chính đích (không phải mô hình riêng), nó đạt tỷ lệ chấp nhận cao hơn với bộ nhớ thêm tối thiểu. EAGLE-2 thêm cây nháp động điều chỉnh số ứng viên dựa ngữ cảnh.
 
-**N-gram speculative decoding** maintains a table of n-gram continuations from the current context or a prebuilt corpus. If the draft matches what appeared before in the same conversation (repetitive patterns, code, structured output), it fires with zero neural network overhead. Acceptance rates are lower on average but the cost per speculation is essentially free.
+**Speculative decoding N-gram** duy trì bảng phần tiếp nối n-gram từ ngữ cảnh hiện tại hoặc corpus dựng trước. Nếu nháp khớp thứ đã xuất hiện trong cùng hội thoại (mẫu lặp, mã, đầu ra có cấu trúc), nó hoạt động không tốn mạng nơ-ron. Tỷ lệ chấp nhận trung bình thấp hơn nhưng chi phí mỗi lần suy đoán về cơ bản miễn phí.
 
-Speculative decoding is *mathematically exact* -- the output distribution is identical to the target model's distribution. It is not an approximation. The verification step ensures that every accepted token has exactly the probability the target model would have assigned.
+Speculative decoding *chính xác về toán học* -- phân phối đầu ra giống hệt phân phối mô hình đích. Nó không phải xấp xỉ. Bước xác minh bảo đảm mỗi token được nhận có chính xác xác suất mô hình đích sẽ gán.
 
 ### Prefix Caching
 
-Many requests share the same prefix. A chatbot system prompt. A RAG context block. A few-shot example set. Without prefix caching, every request recomputes the KV cache for these shared tokens from scratch.
+Nhiều yêu cầu chung tiền tố. System prompt chatbot. Khối ngữ cảnh RAG. Tập ví dụ few-shot. Không prefix caching, mỗi yêu cầu tính lại KV cache cho các token chung từ đầu.
 
-Prefix caching stores the KV cache for common prefixes and reuses it across requests. When a new request arrives with a known prefix, the system copies (or references) the cached KV entries and only computes the KV for the unique suffix.
+Prefix caching lưu KV cache cho tiền tố phổ biến và tái sử dụng xuyên yêu cầu. Khi yêu cầu mới đến với tiền tố đã biết, hệ thống sao chép (hoặc tham chiếu) các mục KV đã cache và chỉ tính KV cho hậu tố riêng.
 
-For a 2,000-token system prompt shared across all requests, prefix caching eliminates ~400ms of prefill per request. At 100 requests/second, that saves 40 seconds of GPU compute per second -- more than one GPU's worth of work.
+Với system prompt 2,000 token chung mọi yêu cầu, prefix caching loại ~400ms prefill mỗi yêu cầu. Ở 100 yêu cầu/giây, tiết kiệm 40 giây tính toán GPU mỗi giây -- hơn lượng công việc của một GPU.
 
-SGLang's RadixAttention implements prefix caching with a radix tree (trie) that indexes prefixes by their token content. Any request matching a stored prefix gets its KV cache for free. The tree enables partial prefix matches -- if you share 1,500 of 2,000 prefix tokens with a cached entry, you reuse those 1,500 and recompute only 500.
+RadixAttention của SGLang triển khai prefix caching bằng cây radix (trie) lập chỉ mục tiền tố theo nội dung token. Yêu cầu khớp tiền tố đã lưu có KV cache miễn phí. Cây cho phép khớp tiền tố một phần -- nếu chung 1,500 trong 2,000 token tiền tố với mục đã cache, bạn dùng lại 1,500 và chỉ tính lại 500.
 
 ### Inference Engines
 
-Three engines dominate production LLM serving:
+Ba engine chi phối phục vụ LLM production:
 
-| Engine | Key innovation | Best for |
+| Engine | Đổi mới chính | Tốt nhất cho |
 |--------|---------------|----------|
-| vLLM | PagedAttention, continuous batching | General-purpose serving, highest compatibility |
-| SGLang | RadixAttention (prefix caching), structured generation | Multi-turn chatbots, constrained decoding |
-| TensorRT-LLM | NVIDIA kernel fusion, FP8 quantization | Maximum single-GPU throughput on NVIDIA hardware |
+| vLLM | PagedAttention, continuous batching | Phục vụ tổng quát, tương thích cao nhất |
+| SGLang | RadixAttention (prefix caching), sinh có cấu trúc | Chatbot nhiều lượt, giải mã có ràng buộc |
+| TensorRT-LLM | Hợp nhất kernel NVIDIA, lượng tử hóa FP8 | Thông lượng một GPU tối đa trên phần cứng NVIDIA |
 
-**vLLM** is the default starting point. It supports the widest range of models, runs on any GPU vendor (NVIDIA, AMD, Intel), and achieves strong throughput through PagedAttention + continuous batching. The OpenAI-compatible API means you can drop it in as a replacement for any OpenAI API call.
+**vLLM** là điểm khởi đầu mặc định. Nó hỗ trợ phạm vi mô hình rộng nhất, chạy trên GPU bất kỳ nhà cung cấp nào (NVIDIA, AMD, Intel), và đạt thông lượng mạnh qua PagedAttention + continuous batching. API tương thích OpenAI nghĩa là có thể thay trực tiếp bất kỳ lệnh gọi API OpenAI nào.
 
-**SGLang** builds on the same foundations as vLLM but adds RadixAttention for prefix caching and a domain-specific language for structured LLM programs. If your workload involves multi-turn conversations, tool use, or constrained decoding (JSON output, regex-guided generation), SGLang often outperforms vLLM by 2-5x through prefix reuse.
+**SGLang** xây trên cùng nền tảng vLLM nhưng thêm RadixAttention cho prefix caching và ngôn ngữ riêng miền cho chương trình LLM có cấu trúc. Nếu khối lượng công việc gồm hội thoại nhiều lượt, dùng công cụ hoặc giải mã có ràng buộc (đầu ra JSON, sinh theo regex), SGLang thường vượt vLLM 2-5x nhờ tái sử dụng tiền tố.
 
-**TensorRT-LLM** compiles models into optimized NVIDIA GPU kernels. It fuses operations (attention + linear + activation in one kernel), uses FP8 on H100 GPUs, and integrates with NVIDIA Triton Inference Server for production deployment. It achieves the highest single-GPU throughput on NVIDIA hardware but requires more setup and only works on NVIDIA GPUs.
+**TensorRT-LLM** biên dịch mô hình thành kernel GPU NVIDIA tối ưu. Nó hợp nhất phép toán (attention + tuyến tính + activation trong một kernel), dùng FP8 trên H100 và tích hợp NVIDIA Triton Inference Server cho triển khai production. Nó đạt thông lượng một GPU cao nhất trên phần cứng NVIDIA nhưng cần thiết lập nhiều hơn và chỉ hoạt động trên GPU NVIDIA.
 
-Real-world numbers for Llama 3 70B (4xA100-80GB, BF16):
+Các con số thực tế cho Llama 3 70B (4xA100-80GB, BF16):
 
-| Metric | vLLM | SGLang | TensorRT-LLM |
+| Thước đo | vLLM | SGLang | TensorRT-LLM |
 |--------|------|--------|---------------|
-| Throughput (1 user) | ~50 TPS | ~55 TPS | ~65 TPS |
-| Throughput (100 users) | ~2,500 total TPS | ~3,200 total TPS | ~3,000 total TPS |
-| Time to first token | ~400ms | ~300ms (prefix hit) | ~350ms |
-| Max context | 128K | 128K | 128K |
+| Thông lượng (1 người dùng) | ~50 TPS | ~55 TPS | ~65 TPS |
+| Thông lượng (100 người dùng) | tổng ~2,500 TPS | tổng ~3,200 TPS | tổng ~3,000 TPS |
+| Thời gian đến token đầu | ~400ms | ~300ms (trúng tiền tố) | ~350ms |
+| Ngữ cảnh tối đa | 128K | 128K | 128K |
 
 ### The Ops:Byte Framework
 
-You cannot optimize what you do not measure. The ops:byte ratio tells you whether you are compute-bound or memory-bound, which determines which optimizations matter.
+Bạn không thể tối ưu thứ không đo. Tỷ lệ ops:byte cho biết bị giới hạn tính toán hay bộ nhớ, quyết định tối ưu nào quan trọng.
 
 ```
 Compute roof: peak FLOPS of the GPU
 Memory roof:  peak bandwidth * ops:byte ratio
 ```
 
-When ops:byte is low (decode, small batches), you hit the memory bandwidth roof. Adding more compute (higher clock, more cores) does not help. You need to reduce memory reads (quantization, KV cache compression) or increase the batch size to amortize reads across more useful work.
+Khi ops:byte thấp (decode, batch nhỏ), bạn chạm trần băng thông bộ nhớ. Thêm tính toán (xung cao, nhiều lõi) không giúp. Bạn cần giảm đọc bộ nhớ (lượng tử hóa, nén KV cache) hoặc tăng batch để phân bổ lần đọc trên nhiều công việc hữu ích hơn.
 
-When ops:byte is high (prefill, large batches), you hit the compute roof. Memory bandwidth optimization does not help. You need faster GPUs, kernel fusion, or reduced precision to squeeze more FLOPS.
+Khi ops:byte cao (prefill, batch lớn), bạn chạm trần tính toán. Tối ưu băng thông bộ nhớ không giúp. Bạn cần GPU nhanh hơn, hợp nhất kernel hoặc độ chính xác giảm để lấy thêm FLOPS.
 
-| Scenario | ops:byte | Bound | Optimize with |
+| Kịch bản | ops:byte | Giới hạn | Tối ưu bằng |
 |----------|----------|-------|---------------|
-| Prefill, batch=1 | ~4,096 | Compute | Kernel fusion, FP8 |
-| Decode, batch=1 | ~1 | Memory | Quantization, KV compression |
-| Decode, batch=32 | ~32 | Memory | Larger batch, continuous batching |
-| Decode, batch=256 | ~256 | Transitioning | Both matter |
-| Decode, batch=1024 | ~1,024 | Compute | Kernel fusion, tensor parallelism |
+| Prefill, batch=1 | ~4,096 | Tính toán | Hợp nhất kernel, FP8 |
+| Decode, batch=1 | ~1 | Bộ nhớ | Lượng tử hóa, nén KV |
+| Decode, batch=32 | ~32 | Bộ nhớ | Batch lớn hơn, continuous batching |
+| Decode, batch=256 | ~256 | Đang chuyển tiếp | Cả hai quan trọng |
+| Decode, batch=1024 | ~1,024 | Tính toán | Hợp nhất kernel, song song tensor |
 
-The crossover point on A100 is around ops:byte = 156 (312 TFLOPS / 2 TB/s). Below 156, you are memory-bound. Above 156, you are compute-bound. Continuous batching pushes decode toward this crossover by packing more tokens per iteration.
+Điểm giao trên A100 khoảng ops:byte = 156 (312 TFLOPS / 2 TB/s). Dưới 156, bị giới hạn bộ nhớ. Trên 156, bị giới hạn tính toán. Continuous batching đẩy decode về điểm giao bằng đóng gói nhiều token hơn mỗi lần lặp.
 
 ```figure
 context-window-slide
@@ -251,7 +251,7 @@ context-window-slide
 
 ### Step 1: KV Cache from Scratch
 
-We build a multi-head KV cache that stores key and value projections per layer, per head, and demonstrates the memory growth pattern.
+Chúng ta xây KV cache đa head lưu các phép chiếu key và value theo lớp, theo head, và minh họa mô thức tăng bộ nhớ.
 
 ```python
 import numpy as np
@@ -295,7 +295,7 @@ class KVCache:
 
 ### Step 2: Attention with KV Cache
 
-A simplified multi-head attention that uses the KV cache for decode steps.
+Attention đa head đơn giản hóa dùng KV cache cho bước decode.
 
 ```python
 def scaled_dot_product_attention(query, keys, values):
@@ -342,7 +342,7 @@ class MultiHeadAttention:
 
 ### Step 3: Continuous Batching Simulator
 
-This simulates the scheduling difference between static and continuous batching.
+Điều này mô phỏng khác biệt lập lịch giữa gom batch tĩnh và liên tục.
 
 ```python
 import heapq
@@ -443,7 +443,7 @@ def batching_stats(completed):
 
 ### Step 4: Prefix Cache
 
-A trie-based prefix cache that stores KV entries for shared prefixes.
+Cache tiền tố dựa trên trie lưu mục KV cho tiền tố chung.
 
 ```python
 class TrieNode:
@@ -509,7 +509,7 @@ class PrefixCache:
 
 ### Step 5: Speculative Decoding Simulator
 
-We simulate draft-target speculative decoding with configurable acceptance rates.
+Chúng ta mô phỏng speculative decoding nháp-đích với tỷ lệ chấp nhận cấu hình được.
 
 ```python
 class DraftModel:
@@ -625,7 +625,7 @@ def compare_speculation_strategies(vocab_size=1000, num_trials=20):
 
 ### Step 6: KV Cache Memory Profiler
 
-Compute KV cache memory requirements for real model configurations.
+Tính yêu cầu bộ nhớ KV cache cho cấu hình mô hình thực.
 
 ```python
 MODEL_CONFIGS = {
@@ -689,7 +689,7 @@ def memory_budget(config, gpu_memory_gb, model_dtype_bytes=2, kv_dtype_bytes=2):
 
 ## Use It
 
-With vLLM:
+Với vLLM:
 
 ```python
 from vllm import LLM, SamplingParams
@@ -706,7 +706,7 @@ params = SamplingParams(temperature=0.7, max_tokens=256)
 outputs = llm.generate(["Explain inference optimization in one paragraph."], params)
 ```
 
-With SGLang for prefix caching + structured output:
+Với SGLang cho prefix caching + đầu ra có cấu trúc:
 
 ```python
 import sglang as sgl
@@ -727,7 +727,7 @@ results = classify.run_batch([
 ])
 ```
 
-With TensorRT-LLM:
+Với TensorRT-LLM:
 
 ```python
 import tensorrt_llm
@@ -744,40 +744,40 @@ outputs = runner.generate(
 
 ## Ship It
 
-This lesson produces:
-- `outputs/skill-inference-optimization.md` -- a skill for diagnosing and optimizing LLM inference serving
+Bài học này tạo ra:
+- `outputs/skill-inference-optimization.md` -- một skill chẩn đoán và tối ưu phục vụ suy luận LLM
 
 ## Exercises
 
-1. Modify the KV cache profiler to compare FP16 vs FP8 vs INT4 KV cache quantization. For Llama 3 70B at 4K context, compute the max concurrent users for each on 4xA100-80GB. KV quantization to INT4 should roughly 4x the user capacity.
+1. Sửa bộ profile KV cache để so lượng tử hóa KV cache FP16 với FP8 với INT4. Với Llama 3 70B ở ngữ cảnh 4K, tính người dùng đồng thời tối đa cho mỗi cách trên 4xA100-80GB. Lượng tử hóa KV sang INT4 nên tăng sức chứa người dùng khoảng 4x.
 
-2. Extend the continuous batching simulator to track GPU utilization (fraction of batch slots filled per step). Plot utilization over time for both static and continuous batching with 50 requests whose output lengths follow a Pareto distribution (shape=1.5, scale=20). Continuous batching should maintain >80% utilization.
+2. Mở rộng bộ mô phỏng continuous batching để theo dõi mức sử dụng GPU (tỷ lệ chỗ batch được lấp mỗi bước). Vẽ mức sử dụng theo thời gian cho gom batch tĩnh và liên tục với 50 yêu cầu có độ dài đầu ra theo phân phối Pareto (shape=1.5, scale=20). Continuous batching nên duy trì >80% sử dụng.
 
-3. Implement a grouped-query attention (GQA) version of the KV cache where `num_kv_heads < num_query_heads`. Llama 3 70B uses 64 query heads but only 8 KV heads. Compute the memory savings vs full multi-head attention (8x reduction in KV cache size).
+3. Triển khai phiên bản grouped-query attention (GQA) của KV cache mà `num_kv_heads < num_query_heads`. Llama 3 70B dùng 64 head query nhưng chỉ 8 head KV. Tính tiết kiệm bộ nhớ so với attention đa head đầy đủ (giảm kích thước KV cache 8x).
 
-4. Build a prefix cache that uses LRU eviction. Set max_entries to 500 and generate 1,000 requests where 60% share one of 5 common prefixes. Measure hit rate and compare to unlimited cache. With good eviction, hit rate should stay above 55%.
+4. Xây cache tiền tố dùng loại bỏ LRU. Đặt max_entries bằng 500 và sinh 1,000 yêu cầu mà 60% chung một trong 5 tiền tố phổ biến. Đo tỷ lệ trúng và so với cache không giới hạn. Với loại bỏ tốt, tỷ lệ trúng nên giữ trên 55%.
 
-5. Extend the speculative decoding simulator to implement tree-based speculation (EAGLE-2 style). Instead of a single chain of K draft tokens, generate a tree of candidates (e.g., 2 branches at each of 3 levels = 8 leaf candidates). Compare total tokens accepted per verification round vs linear speculation.
+5. Mở rộng bộ mô phỏng speculative decoding để triển khai suy đoán theo cây (kiểu EAGLE-2). Thay vì một chuỗi K token nháp, sinh cây ứng viên (ví dụ 2 nhánh mỗi mức trong 3 mức = 8 lá ứng viên). So tổng token được nhận mỗi vòng xác minh với suy đoán tuyến tính.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Prefill | "Processing the prompt" | Computing attention over all input tokens in parallel -- compute-bound because the full matrix multiplication keeps GPU cores busy |
-| Decode | "Generating tokens" | Producing one token per forward pass, reading the full model weights each time -- memory-bound because compute finishes before the next weights arrive |
-| KV cache | "Caching attention states" | Storing the key and value projections for all previous tokens so they are not recomputed at each decode step -- trades memory for compute |
-| Continuous batching | "Dynamic batching" | Inserting new requests into the running batch as soon as any request finishes, evaluated at every decode iteration rather than waiting for the whole batch |
-| PagedAttention | "Virtual memory for KV cache" | Allocating KV cache in fixed-size pages instead of contiguous blocks, eliminating memory fragmentation and enabling copy-on-write for shared prefixes |
-| Speculative decoding | "Draft and verify" | Using a fast draft model to propose multiple tokens, then verifying them all in one target model forward pass -- mathematically exact, 2-3x speedup |
-| EAGLE | "Self-speculative decoding" | A speculative decoding variant that trains a lightweight head on the target model's own hidden states, achieving higher acceptance rates than a separate draft model |
-| Prefix caching | "Reusing system prompt KV" | Storing computed KV cache entries for common prefixes (system prompts, few-shot examples) and reusing them across requests to skip redundant prefill |
-| Ops:byte ratio | "Arithmetic intensity" | The ratio of compute operations to memory bytes read -- determines whether a workload is compute-bound (high ratio) or memory-bound (low ratio) |
-| Time to first token | "TTFT" | Latency from receiving a request to producing the first output token -- dominated by prefill time for long prompts |
+| Prefill | "Xử lý prompt" | Tính attention trên mọi token đầu vào song song -- giới hạn tính toán vì phép nhân ma trận đầy đủ giữ lõi GPU bận |
+| Decode (Giải mã) | "Sinh token" | Tạo một token mỗi lượt truyền xuôi, đọc toàn trọng số mỗi lần -- giới hạn bộ nhớ vì tính toán xong trước khi trọng số tiếp đến |
+| KV cache | "Cache trạng thái attention" | Lưu phép chiếu key và value mọi token trước để không tính lại mỗi bước decode -- đổi bộ nhớ lấy tính toán |
+| Continuous batching (Gom batch liên tục) | "Gom batch động" | Chèn yêu cầu mới vào batch đang chạy ngay khi bất kỳ yêu cầu nào xong, đánh giá mỗi lần lặp decode thay vì đợi cả batch |
+| PagedAttention | "Bộ nhớ ảo cho KV cache" | Cấp KV cache theo trang cố định thay khối liên tục, loại phân mảnh và cho copy-on-write với tiền tố chung |
+| Speculative decoding (Giải mã suy đoán) | "Nháp và xác minh" | Dùng mô hình nháp nhanh đề xuất nhiều token, rồi xác minh tất cả trong một lượt truyền xuôi đích -- chính xác toán học, tăng tốc 2-3x |
+| EAGLE | "Giải mã tự suy đoán" | Biến thể speculative decoding huấn luyện head nhẹ trên trạng thái ẩn của đích, đạt tỷ lệ chấp nhận cao hơn mô hình nháp riêng |
+| Prefix caching (Cache tiền tố) | "Dùng lại KV system prompt" | Lưu mục KV cache đã tính cho tiền tố phổ biến (system prompt, ví dụ few-shot) và dùng lại xuyên yêu cầu để bỏ prefill dư |
+| Ops:byte ratio (Tỷ lệ ops:byte) | "Cường độ số học" | Tỷ lệ phép toán tính toán trên byte bộ nhớ được đọc -- quyết định công việc giới hạn tính toán (cao) hay bộ nhớ (thấp) |
+| Time to first token (Thời gian đến token đầu) | "TTFT" | Độ trễ từ nhận yêu cầu đến tạo token đầu ra đầu tiên -- bị thời gian prefill chi phối với prompt dài |
 
 ## Further Reading
 
-- Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention" (2023) -- the vLLM paper that introduced paged KV cache management, now the industry standard for inference serving
-- Leviathan et al., "Fast Inference from Transformers via Speculative Decoding" (2023) -- the foundational paper proving that draft-verify speculation produces exact target model distributions while achieving 2-3x speedup
-- Li et al., "EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty" (2024) -- achieves higher acceptance rates by training a head on the target model's own features instead of using a separate draft model
-- Zheng et al., "SGLang: Efficient Execution of Structured Language Model Programs" (2024) -- introduces RadixAttention for prefix caching and a programming model for multi-call LLM programs
-- Williams et al., "Roofline: An Insightful Visual Performance Model for Multicore Architectures" (2009) -- the original roofline paper that formalized the ops:byte framework for reasoning about compute vs memory bottlenecks
+- Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention" (2023) -- bài báo vLLM giới thiệu quản lý KV cache phân trang, nay là tiêu chuẩn ngành phục vụ suy luận
+- Leviathan et al., "Fast Inference from Transformers via Speculative Decoding" (2023) -- bài báo nền tảng chứng minh suy đoán nháp-xác minh tạo đúng phân phối đích trong khi tăng tốc 2-3x
+- Li et al., "EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty" (2024) -- đạt tỷ lệ chấp nhận cao hơn bằng huấn luyện head trên đặc trưng của chính đích thay vì mô hình nháp riêng
+- Zheng et al., "SGLang: Efficient Execution of Structured Language Model Programs" (2024) -- giới thiệu RadixAttention cho prefix caching và mô hình lập trình cho chương trình LLM nhiều lệnh gọi
+- Williams et al., "Roofline: An Insightful Visual Performance Model for Multicore Architectures" (2009) -- bài báo roofline gốc hình thức hóa khung ops:byte để suy luận về nút thắt tính toán so với bộ nhớ
