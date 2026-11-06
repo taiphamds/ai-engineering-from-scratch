@@ -1,6 +1,6 @@
 # RAG Evaluation: Precision, Recall, MRR, nDCG, Faithfulness, Answer Relevance
 
-> If you cannot grade your retrieval and your answer at the same time, you cannot ship the system. The two are not the same metric and the same prompt fails on different axes.
+> Nếu bạn không thể chấm truy xuất và đáp án cùng lúc, bạn không thể cung cấp hệ thống. Hai thứ không phải cùng chỉ số và cùng prompt thất bại trên các trục khác nhau.
 
 **Type:** Build
 **Languages:** Python
@@ -8,23 +8,23 @@
 **Time:** ~90 minutes
 
 ## Learning Objectives
-- Compute four retrieval metrics from gold qrels: precision@k, recall@k, MRR (mean reciprocal rank), and nDCG@k.
-- Compute two answer-grade metrics: faithfulness (every claim grounded in retrieved context) and answer relevance (the answer addresses the question).
-- Build a fixture qrels file (queries, gold doc ids, gold answer text) that the eval reads end to end.
-- Read the metric values to diagnose where a pipeline is failing: retrieval, ranking, generation, or grounding.
+- Tính bốn chỉ số truy xuất từ qrels chuẩn: precision@k, recall@k, MRR (thứ hạng nghịch đảo trung bình), và nDCG@k.
+- Tính hai chỉ số chấm đáp án: tính trung thực (mọi khẳng định có căn cứ trong ngữ cảnh truy xuất) và mức liên quan đáp án (đáp án giải quyết câu hỏi).
+- Xây dựng một file qrels fixture (truy vấn, id tài liệu chuẩn, văn bản đáp án chuẩn) mà đánh giá đọc từ đầu đến cuối.
+- Đọc các giá trị chỉ số để chẩn đoán nơi một pipeline thất bại: truy xuất, xếp hạng, sinh, hoặc đặt căn cứ.
 
 ## The Problem
 
-A RAG system has at least four moving parts: chunker, retriever, reranker, generator. Any of them can be the cause of a wrong answer. Without per-stage metrics you are flying blind.
+Một hệ thống RAG có ít nhất bốn phần chuyển động: bộ chia đoạn, bộ truy xuất, bộ xếp hạng lại, bộ sinh. Bất kỳ phần nào cũng có thể là nguyên nhân một đáp án sai. Không có các chỉ số theo giai đoạn bạn đang bay mù.
 
-A user reports a wrong answer. Is it because the chunker cut the answer span? Is it because the retriever did not include the chunk in top-k? Is it because the reranker pushed the right chunk past position one? Is it because the generator ignored the chunk and made something up? You cannot tell from the answer alone. You need:
+Một người dùng báo cáo một đáp án sai. Có phải vì bộ chia đoạn cắt khoảng đáp án? Có phải vì bộ truy xuất không đưa đoạn vào top-k? Có phải vì bộ xếp hạng lại đẩy đoạn đúng qua vị trí một? Có phải vì bộ sinh bỏ qua đoạn và bịa thứ gì đó? Bạn không thể biết chỉ từ đáp án. Bạn cần:
 
-- Retrieval metrics to grade what came out of the retriever.
-- Ranking metrics to grade where the right chunk sat in the order.
-- Faithfulness to grade whether the generator stayed inside the retrieved context.
-- Answer relevance to grade whether the answer addresses the question at all.
+- Các chỉ số truy xuất để chấm thứ ra khỏi bộ truy xuất.
+- Các chỉ số xếp hạng để chấm đoạn đúng nằm ở đâu trong thứ tự.
+- Tính trung thực để chấm liệu bộ sinh giữ bên trong ngữ cảnh truy xuất không.
+- Mức liên quan đáp án để chấm liệu đáp án có giải quyết câu hỏi chút nào không.
 
-This lesson builds all six on top of a fixture qrels file. The eval is offline and deterministic; in production you swap the mock LLM-as-judge for a real one.
+Bài này xây dựng cả sáu trên một file qrels fixture. Đánh giá ngoại tuyến và tất định; trong sản xuất bạn đổi LLM-làm-bộ-chấm giả lập thành một bản thực.
 
 ## The Concept
 
@@ -44,39 +44,39 @@ flowchart LR
 
 ### Precision@k
 
-Of the top-k documents the retriever returned, what fraction are in the gold set? If gold has three documents and the top-3 returns two of them and one wrong one, precision@3 is 2 / 3. Use precision when the cost of an irrelevant retrieved chunk is high (the generator wastes tokens on it, or the chunk poisons the answer).
+Trong top-k tài liệu bộ truy xuất trả về, tỷ lệ nào nằm trong tập chuẩn? Nếu chuẩn có ba tài liệu và top-3 trả về hai trong số đó cùng một sai, precision@3 là 2 / 3. Dùng precision khi chi phí của một đoạn truy xuất không liên quan cao (bộ sinh lãng phí token trên nó, hoặc đoạn đầu độc đáp án).
 
 ### Recall@k
 
-Of the gold documents, what fraction are in the top-k? If gold has three documents and the top-5 contains all three, recall@5 is 1.0. Use recall when the cost of a missed answer is high (you would rather see one extra wrong chunk than miss the answer chunk entirely).
+Trong các tài liệu chuẩn, tỷ lệ nào nằm trong top-k? Nếu chuẩn có ba tài liệu và top-5 chứa cả ba, recall@5 là 1.0. Dùng recall khi chi phí của một đáp án bị bỏ lỡ cao (bạn thà thấy thêm một đoạn sai hơn bỏ lỡ hoàn toàn đoạn đáp án).
 
-In production RAG the metric people usually quote is recall@k. Generation can drop irrelevant chunks easily; it cannot invent an answer from a chunk it never saw.
+Trong RAG sản xuất chỉ số mọi người thường trích là recall@k. Sinh có thể bỏ các đoạn không liên quan dễ dàng; nó không thể tự tạo một đáp án từ một đoạn nó chưa từng thấy.
 
 ### MRR (Mean Reciprocal Rank)
 
-For each query, find the position of the first relevant document in the ranked list. The reciprocal rank is 1 / position. Mean across the query set. MRR is a single-number summary of how well the retriever puts the best answer at the top.
+Với mỗi truy vấn, tìm vị trí tài liệu liên quan đầu tiên trong danh sách được xếp hạng. Thứ hạng nghịch đảo là 1 / position. Lấy trung bình trên tập truy vấn. MRR là một tóm tắt một con số về việc bộ truy xuất đặt đáp án tốt nhất ở đầu tốt thế nào.
 
-MRR weights position-1 heavily. A query where the gold doc is at rank 1 contributes 1.0. Rank 2 contributes 0.5. Rank 10 contributes 0.1. The metric is dominated by the top of the list.
+MRR đặt trọng số nặng cho vị trí 1. Một truy vấn mà tài liệu chuẩn ở hạng 1 đóng góp 1.0. Hạng 2 đóng góp 0.5. Hạng 10 đóng góp 0.1. Chỉ số bị chi phối bởi đầu danh sách.
 
 ### nDCG@k
 
-Normalized Discounted Cumulative Gain. The full formula assigns a gain to each retrieved document (often 1 for relevant, 0 for not), discounts by the log of the position, sums, and divides by the ideal DCG (the DCG you would have if you ranked perfectly). Range 0 to 1.
+Độ lợi tích lũy chiết khấu được chuẩn hóa. Công thức đầy đủ gán một độ lợi cho mỗi tài liệu truy xuất (thường 1 cho liên quan, 0 cho không), chiết khấu theo log vị trí, cộng, và chia cho DCG lý tưởng (DCG bạn sẽ có nếu xếp hạng hoàn hảo). Khoảng 0 đến 1.
 
-nDCG accommodates graded relevance: the gold can say "doc A is 3, doc B is 2, doc C is 1". MRR and recall@k flatten everything to binary. Use nDCG when the corpus has multiple partially-relevant documents per query.
+nDCG đáp ứng mức liên quan phân bậc: chuẩn có thể nói "tài liệu A là 3, tài liệu B là 2, tài liệu C là 1". MRR và recall@k làm phẳng mọi thứ thành nhị phân. Dùng nDCG khi corpus có nhiều tài liệu liên quan một phần theo truy vấn.
 
 ### Faithfulness
 
-For each claim in the generated answer, check whether the claim is supported by the retrieved context. The standard implementation uses an LLM-as-judge prompt that takes (claim, context) and returns yes or no. The metric is the fraction of claims that pass.
+Với mỗi khẳng định trong đáp án được sinh, kiểm tra liệu khẳng định có được hỗ trợ bởi ngữ cảnh truy xuất không. Triển khai tiêu chuẩn dùng một prompt LLM-làm-bộ-chấm nhận (khẳng định, ngữ cảnh) và trả về có hoặc không. Chỉ số là tỷ lệ khẳng định đạt.
 
-Faithfulness catches the generator failure mode where the model invents content. Even if the retriever returned the right chunks, a generator that hallucinates is broken. Faithfulness is also called groundedness, support, attribution.
+Tính trung thực bắt chế độ lỗi bộ sinh nơi mô hình tự tạo nội dung. Ngay cả nếu bộ truy xuất trả về các đoạn đúng, một bộ sinh ảo giác thì bị hỏng. Tính trung thực cũng được gọi là tính có căn cứ, hỗ trợ, quy nguồn.
 
-This lesson implements faithfulness with a deterministic mock judge that checks whether each claim's tokens overlap the retrieved context by a threshold. In production you swap to a real model call. The shape of the metric is the same.
+Bài này triển khai tính trung thực bằng một bộ chấm giả lập tất định kiểm tra liệu các token của mỗi khẳng định chồng lấn ngữ cảnh truy xuất theo một ngưỡng không. Trong sản xuất bạn đổi sang một lệnh gọi mô hình thực. Hình thức chỉ số giống nhau.
 
 ### Answer relevance
 
-Does the answer actually address the question? Faithfulness asks "is the answer grounded in the context?". Answer relevance asks "is the answer grounded in the question?". A faithful but off-topic answer scores high on faithfulness and low on relevance. A short, on-topic answer that ignores the context scores high on relevance and low on faithfulness.
+Đáp án có thực sự giải quyết câu hỏi không? Tính trung thực hỏi "đáp án có căn cứ trong ngữ cảnh không?". Mức liên quan đáp án hỏi "đáp án có căn cứ trong câu hỏi không?". Một đáp án trung thực nhưng lạc đề đạt điểm cao về tính trung thực và thấp về mức liên quan. Một đáp án ngắn, đúng chủ đề nhưng bỏ qua ngữ cảnh đạt điểm cao về mức liên quan và thấp về tính trung thực.
 
-The standard implementation also uses LLM-as-judge: take (question, answer) and ask whether the answer addresses the question. This lesson implements a token-overlap-plus-judge stand-in.
+Triển khai tiêu chuẩn cũng dùng LLM-làm-bộ-chấm: lấy (câu hỏi, đáp án) và hỏi liệu đáp án giải quyết câu hỏi không. Bài này triển khai một vật thay thế chồng lấn token cộng bộ chấm.
 
 ## The fixture qrels
 
@@ -90,13 +90,13 @@ The standard implementation also uses LLM-as-judge: take (question, answer) and 
 }
 ```
 
-Each query carries:
-- the query string,
-- a set of gold doc ids (for precision / recall / MRR),
-- a graded relevance dict (for nDCG),
-- the gold answer substring (kept as reference metadata on each qrel; faithfulness in this lesson is computed by judging extracted claims against the retrieved context, not against this substring).
+Mỗi truy vấn mang:
+- chuỗi truy vấn,
+- một tập id tài liệu chuẩn (cho precision / recall / MRR),
+- một dict mức liên quan phân bậc (cho nDCG),
+- chuỗi con đáp án chuẩn (được giữ như siêu dữ liệu tham chiếu trên mỗi qrel; tính trung thực trong bài này được tính bằng chấm các khẳng định được trích xuất với ngữ cảnh truy xuất, không phải với chuỗi con này).
 
-In production you label these. This lesson ships a hand-built fixture so the eval runs out of the box.
+Trong sản xuất bạn gắn nhãn chúng. Bài này cung cấp một fixture dựng tay để đánh giá chạy ngay.
 
 ```figure
 ci-rag-metric-ladder
@@ -104,85 +104,85 @@ ci-rag-metric-ladder
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `precision_at_k(retrieved, gold, k)` - the literal definition.
-- `recall_at_k(retrieved, gold, k)` - the literal definition.
-- `mean_reciprocal_rank(retrieved_list_of_lists, gold_list)` - the mean over queries.
-- `ndcg_at_k(retrieved, graded_relevance, k)` - DCG / IDCG with binary or graded gains.
-- `extract_claims(answer)` - splits an answer into sentence-shaped claims.
-- `faithfulness(claims, context_texts, judge)` - fraction of claims judged supported.
-- `answer_relevance(question, answer, judge)` - judge on whether the answer addresses the question.
-- `MockJudge` - deterministic token-overlap judge so the eval runs offline.
-- `evaluate_pipeline(pipeline_fn, qrels, ks)` - the orchestrator that runs every metric.
-- A demo that runs three pipeline variants (chunker baseline, hybrid retrieval, hybrid + rerank) against the qrels and prints a metrics table.
+- `precision_at_k(retrieved, gold, k)` - định nghĩa nguyên văn.
+- `recall_at_k(retrieved, gold, k)` - định nghĩa nguyên văn.
+- `mean_reciprocal_rank(retrieved_list_of_lists, gold_list)` - trung bình trên các truy vấn.
+- `ndcg_at_k(retrieved, graded_relevance, k)` - DCG / IDCG với các độ lợi nhị phân hoặc phân bậc.
+- `extract_claims(answer)` - chia một đáp án thành các khẳng định dạng câu.
+- `faithfulness(claims, context_texts, judge)` - tỷ lệ khẳng định được chấm là được hỗ trợ.
+- `answer_relevance(question, answer, judge)` - chấm liệu đáp án giải quyết câu hỏi không.
+- `MockJudge` - bộ chấm chồng lấn token tất định để đánh giá chạy ngoại tuyến.
+- `evaluate_pipeline(pipeline_fn, qrels, ks)` - bộ điều phối chạy mọi chỉ số.
+- Một demo chạy ba biến thể pipeline (đường cơ sở bộ chia đoạn, truy xuất lai, lai + xếp hạng lại) với qrels và in một bảng chỉ số.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-The output shows precision@k, recall@k, MRR, nDCG@k, faithfulness, and answer relevance for each variant in a single metrics table. The hybrid retrieval row beats the chunker baseline on recall; the rerank row beats hybrid on MRR.
+Đầu ra cho thấy precision@k, recall@k, MRR, nDCG@k, tính trung thực, và mức liên quan đáp án cho mỗi biến thể trong một bảng chỉ số duy nhất. Hàng truy xuất lai vượt đường cơ sở bộ chia đoạn về recall; hàng xếp hạng lại vượt lai về MRR.
 
 ## Reading the metrics to diagnose failures
 
-| Symptom | Likely cause | What to fix |
+| Triệu chứng | Nguyên nhân có thể | Cần sửa gì |
 |---------|-------------|-------------|
-| Low recall@k, low precision@k | Chunker cut the answer or retriever cannot find it | Chunker boundaries (lesson 64) or retriever modality (lesson 65) |
-| Decent recall@k, low MRR | Right chunk is in top-k but not at position 1 | Reranker (lesson 66) |
-| High MRR, low faithfulness | Generator invents content despite right context | Generation prompt; force-cite-or-refuse |
-| High faithfulness, low relevance | Answer is grounded but off-topic | Query rewriter (lesson 67) or generation prompt |
-| All four high, users still complain | Eval set is unrepresentative | Expand qrels with real user queries |
+| recall@k thấp, precision@k thấp | Bộ chia đoạn cắt đáp án hoặc bộ truy xuất không thể tìm nó | Các ranh giới bộ chia đoạn (bài 64) hoặc phương thức bộ truy xuất (bài 65) |
+| recall@k khá, MRR thấp | Đoạn đúng trong top-k nhưng không ở vị trí 1 | Bộ xếp hạng lại (bài 66) |
+| MRR cao, tính trung thực thấp | Bộ sinh tự tạo nội dung dù ngữ cảnh đúng | Prompt sinh; buộc-trích-dẫn-hoặc-từ-chối |
+| Tính trung thực cao, mức liên quan thấp | Đáp án có căn cứ nhưng lạc đề | Bộ viết lại truy vấn (bài 67) hoặc prompt sinh |
+| Cả bốn cao, người dùng vẫn phàn nàn | Tập đánh giá không đại diện | Mở rộng qrels với các truy vấn người dùng thực |
 
 ## Failure modes the demo will hide
 
-**LLM-as-judge bias.** A model judges its own outputs as more faithful than they are. Use a different model family for the judge than the generator, or hand-grade a sample.
+**Thiên lệch LLM-làm-bộ-chấm.** Một mô hình chấm các đầu ra của chính nó trung thực hơn thực tế. Dùng một họ mô hình khác cho bộ chấm so với bộ sinh, hoặc chấm tay một mẫu.
 
-**Qrels rot.** The gold answers drift as the corpus changes. A doc that was gold for q1 in January 2024 is no longer the right answer in October 2024 because the team renamed the function. Schedule a quarterly qrels review.
+**Qrels mục nát.** Các đáp án chuẩn trôi khi corpus thay đổi. Một tài liệu từng là chuẩn cho q1 vào tháng Một năm 2024 không còn là đáp án đúng vào tháng Mười năm 2024 vì nhóm đổi tên hàm. Lên lịch rà soát qrels hàng quý.
 
-**Faithfulness micro-checks miss macro-claims.** Per-sentence faithfulness can pass while the overall answer's structure misleads. Add a sample-level qualitative review on top of the automated metric.
+**Các kiểm tra vi mô tính trung thực bỏ lỡ các khẳng định vĩ mô.** Tính trung thực theo câu có thể đạt trong khi cấu trúc đáp án tổng thể gây hiểu lầm. Thêm một rà soát định tính ở mức mẫu trên chỉ số tự động.
 
-**Recall@k masks per-query failures.** A 90% average recall can hide that one query class always misses. Slice the qrels by query class (literal, paraphrased, multi-topic) and report per-slice.
+**Recall@k che các thất bại theo truy vấn.** Một recall trung bình 90% có thể che rằng một lớp truy vấn luôn bị bỏ lỡ. Chia qrels theo lớp truy vấn (nguyên văn, diễn đạt lại, đa chủ đề) và báo cáo theo phần.
 
 ## Use It
 
-Production patterns:
+Các mẫu sản xuất:
 
-- Run the eval on every retriever or generator change. Treat a recall@k regression like a test failure.
-- Persist the metric trace per query. When a user complains, look up the qrels entry that matches and see whether it would have been caught.
-- Tier the qrels: a smoke set of 20 queries that runs in CI; a regression set of 200 that runs nightly; a deep set of 2000 that runs weekly.
+- Chạy đánh giá trên mọi thay đổi bộ truy xuất hoặc bộ sinh. Coi một thoái lui recall@k như một kiểm thử thất bại.
+- Lưu bền vững trace chỉ số theo truy vấn. Khi một người dùng phàn nàn, tra mục qrels khớp và xem liệu nó có được bắt không.
+- Phân tầng qrels: một tập smoke 20 truy vấn chạy trong CI; một tập hồi quy 200 chạy hàng đêm; một tập sâu 2000 chạy hàng tuần.
 
 ## Ship It
 
-Lesson 69 wires the entire pipeline (chunker, retriever, reranker, generator) and runs this eval against the end-to-end system.
+Bài 69 nối toàn pipeline (bộ chia đoạn, bộ truy xuất, bộ xếp hạng lại, bộ sinh) và chạy đánh giá này với hệ thống đầu cuối.
 
 ## Exercises
 
-1. Add a fifth retrieval metric: hit-rate@k. Compare it against recall@k. Explain when they differ.
-2. Implement a graded faithfulness: 0 (unsupported), 1 (partially supported), 2 (fully supported). Update the metric accordingly.
-3. Replace the mock judge with a real model call. Measure the disagreement between the mock and the real judge on the fixture.
-4. Add a query-class slice ("literal", "paraphrased", "multi-topic"). Report per-slice metrics.
-5. Add an "answer length" metric and correlate it with faithfulness. Plot the curve.
+1. Thêm một chỉ số truy xuất thứ năm: hit-rate@k. So sánh nó với recall@k. Giải thích khi nào chúng khác nhau.
+2. Triển khai một tính trung thực phân bậc: 0 (không được hỗ trợ), 1 (được hỗ trợ một phần), 2 (được hỗ trợ đầy đủ). Cập nhật chỉ số tương ứng.
+3. Thay bộ chấm giả lập bằng một lệnh gọi mô hình thực. Đo bất đồng giữa giả lập và bộ chấm thực trên fixture.
+4. Thêm một phần chia lớp truy vấn ("nguyên văn", "diễn đạt lại", "đa chủ đề"). Báo cáo các chỉ số theo phần.
+5. Thêm một chỉ số "độ dài đáp án" và tương quan nó với tính trung thực. Vẽ đường cong.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Precision@k | "Hit rate over retrieved" | Fraction of top-k that are gold |
-| Recall@k | "Hit rate over gold" | Fraction of gold in top-k |
-| MRR | "First-hit position" | Mean of 1 / rank of first relevant document |
-| nDCG@k | "Graded ranking quality" | DCG over the top-k divided by ideal DCG |
-| Faithfulness | "Groundedness" | Fraction of answer claims supported by retrieved context |
-| Answer relevance | "Did it address the question?" | Whether the answer matches the question's intent |
-| Qrels | "Gold labels" | The labeled set of queries and their gold documents and answers |
+| Precision@k | "Tỷ lệ trúng trên truy xuất" | Tỷ lệ top-k là chuẩn |
+| Recall@k | "Tỷ lệ trúng trên chuẩn" | Tỷ lệ chuẩn trong top-k |
+| MRR | "Vị trí trúng đầu tiên" | Trung bình 1 / hạng của tài liệu liên quan đầu tiên |
+| nDCG@k | "Chất lượng xếp hạng phân bậc" | DCG trên top-k chia cho DCG lý tưởng |
+| Faithfulness (Tính trung thực) | "Tính có căn cứ" | Tỷ lệ các khẳng định đáp án được ngữ cảnh truy xuất hỗ trợ |
+| Answer relevance (Mức liên quan đáp án) | "Nó có giải quyết câu hỏi không?" | Liệu đáp án có khớp ý định câu hỏi không |
+| Qrels | "Các nhãn chuẩn" | Tập truy vấn được gắn nhãn cùng các tài liệu và đáp án chuẩn của chúng |
 
 ## Further Reading
 
-- Buckley, Voorhees, "Evaluating Evaluation Measure Stability", SIGIR 2000 - the canonical paper on ranking metrics
-- Jarvelin, Kekalainen, "Cumulated Gain-based Evaluation of IR Techniques" - the nDCG paper
+- Buckley, Voorhees, "Evaluating Evaluation Measure Stability", SIGIR 2000 - bài báo chuẩn về các chỉ số xếp hạng
+- Jarvelin, Kekalainen, "Cumulated Gain-based Evaluation of IR Techniques" - bài báo nDCG
 - [Ragas: Automated Evaluation of RAG Pipelines](https://docs.ragas.io)
-- [Anthropic, Introducing Contextual Retrieval](https://www.anthropic.com/engineering/contextual-retrieval) - scores retrieval with 1 minus recall@20
-- Phase 11 lesson 10 - evaluation framework foundations
-- Phase 19 lessons 64-67 - components evaluated here
-- Phase 19 lesson 69 - the end-to-end pipeline this eval grades
+- [Anthropic, Introducing Contextual Retrieval](https://www.anthropic.com/engineering/contextual-retrieval) - chấm truy xuất bằng 1 trừ recall@20
+- Phase 11 bài 10 - các nền tảng framework đánh giá
+- Phase 19 các bài 64-67 - các thành phần được đánh giá ở đây
+- Phase 19 bài 69 - pipeline đầu cuối mà đánh giá này chấm
