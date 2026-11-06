@@ -1,6 +1,6 @@
 # End-to-End Research Demo
 
-> A demo is the place where every contract you wrote earlier has to compose. If any one of them leaks, the demo is the lesson that catches it.
+> Một demo là nơi mọi hợp đồng bạn đã viết trước đó phải kết hợp. Nếu bất kỳ hợp đồng nào rò rỉ, demo là bài học bắt nó.
 
 **Type:** Build
 **Languages:** Python
@@ -9,11 +9,11 @@
 
 ## Learning Objectives
 
-- Wire the auto-research loop end to end: hypothesis seed, experiment runner, scheduler, critic loop, paper writer.
-- Compose the primitives from the four earlier Track D lessons through plain Python imports, not a framework.
-- Run the loop to a self-terminating end and emit a single demo report that lists every stage's output.
-- Keep the demo deterministic so the test suite can assert the final shape.
-- Surface a clear failure mode when any stage's contract breaks, so the next stage does not run with a broken input.
+- Nối vòng lặp tự nghiên cứu từ đầu đến cuối: seed giả thuyết, trình chạy thí nghiệm, bộ lập lịch, vòng lặp phê bình, bộ viết bài báo.
+- Kết hợp các thành phần cơ sở từ bốn bài Track D trước qua các import Python thông thường, không phải một framework.
+- Chạy vòng lặp đến một kết thúc tự dừng và phát ra một báo cáo demo duy nhất liệt kê đầu ra của mọi giai đoạn.
+- Giữ demo tất định để bộ kiểm thử có thể khẳng định hình thức cuối.
+- Đưa ra một chế độ lỗi rõ ràng khi hợp đồng của bất kỳ giai đoạn nào bị phá, để giai đoạn tiếp theo không chạy với một đầu vào hỏng.
 
 ```figure
 ch-research-pipeline
@@ -34,11 +34,11 @@ flowchart LR
     Writer --> Report[Demo report]
 ```
 
-Five stages. The seed is a list of three hypotheses. The scheduler runs six experiments across them with three parallel slots. The bus reports one or more paper triggers. The picker selects the single best result. The critic loop iterates on a draft built from that result. The paper writer emits the final LaTeX, BibTeX, and manifest.
+Năm giai đoạn. Seed là một danh sách ba giả thuyết. Bộ lập lịch chạy sáu thí nghiệm trên chúng với ba vị trí song song. Bus báo cáo một hoặc nhiều kích hoạt bài báo. Bộ chọn chọn kết quả tốt nhất duy nhất. Vòng lặp phê bình lặp trên một bản nháp được xây dựng từ kết quả đó. Bộ viết bài báo phát ra LaTeX, BibTeX, và bản kê khai cuối.
 
 ## Why import, not copy
 
-Each earlier lesson ships a `main.py` with public dataclasses and functions. The demo imports them by adjusting `sys.path` to the parent directory of each lesson. This is not framework wiring; it is the same import the test files in the earlier lessons already use.
+Mỗi bài trước cung cấp một `main.py` với các dataclass và hàm công khai. Demo import chúng bằng cách điều chỉnh `sys.path` tới thư mục cha của mỗi bài. Đây không phải nối framework; nó là cùng import mà các file kiểm thử trong các bài trước đã sử dụng.
 
 ```mermaid
 flowchart TB
@@ -48,13 +48,13 @@ flowchart TB
     Demo --> Inline[Inline stub: seed and runner]
 ```
 
-The inline stub stands in for lessons fifty through fifty-three: a small generator of seed hypotheses and a synchronous reward function. The user can swap the inline stub for the real primitives from those lessons by adjusting two imports.
+Stub nội tuyến thay cho các bài năm mươi đến năm mươi ba: một bộ sinh nhỏ các giả thuyết seed và một hàm phần thưởng đồng bộ. Người dùng có thể đổi stub nội tuyến lấy các thành phần cơ sở thực từ những bài đó bằng cách điều chỉnh hai import.
 
 ## Determinism guarantees
 
-The demo is deterministic by construction. The experiment runner is seeded numpy. The critic loop's reviser walks fixed dimensions in fixed order. The paper writer's prose generator is the mocked one from lesson fifty-four. The scheduler's UCB picker breaks ties on iteration order, not random choice.
+Demo tất định do cách xây dựng. Trình chạy thí nghiệm là numpy được đặt seed. Bộ sửa đổi của vòng lặp phê bình duyệt các chiều cố định theo thứ tự cố định. Bộ sinh văn xuôi của bộ viết bài báo là bản giả lập từ bài năm mươi bốn. Bộ chọn UCB của bộ lập lịch phá hòa theo thứ tự lặp, không phải lựa chọn ngẫu nhiên.
 
-Given the same seed, the demo emits the same report. The test asserts this property by running the demo twice and comparing the manifest.
+Với cùng seed, demo phát ra cùng báo cáo. Kiểm thử khẳng định thuộc tính này bằng cách chạy demo hai lần và so sánh bản kê khai.
 
 ## The demo report shape
 
@@ -67,11 +67,11 @@ flowchart TB
     Rep --> Term[stop_reason]
 ```
 
-Each field comes verbatim from the upstream stage. The demo does not transform any output; it composes them. That is the test the demo is.
+Mỗi trường đến nguyên văn từ giai đoạn thượng nguồn. Demo không biến đổi bất kỳ đầu ra nào; nó kết hợp chúng. Đó là bài kiểm thử mà demo chính là.
 
 ## Failure mode handling
 
-Each stage either succeeds or raises a typed error.
+Mỗi giai đoạn hoặc thành công hoặc phát sinh một lỗi có kiểu.
 
 ```text
 Scheduler ........ returns SchedulerReport with stop_reason
@@ -81,30 +81,30 @@ Critic loop ...... returns LoopResult with status converged or stopped
 Paper writer ..... raises PaperValidationError on contract break
 ```
 
-A failure in any stage short-circuits the demo with a typed exception. The tests pin this contract: `test_no_triggers_raises_typed_error` and `test_best_picker_raises_when_no_triggers` assert the picker raises `NoTriggerError` / `BestResultError` when no branch fired a trigger, and the writer is never invoked.
+Một thất bại trong bất kỳ giai đoạn nào đoản mạch demo với một ngoại lệ có kiểu. Các kiểm thử ghim hợp đồng này: `test_no_triggers_raises_typed_error` và `test_best_picker_raises_when_no_triggers` khẳng định bộ chọn phát sinh `NoTriggerError` / `BestResultError` khi không nhánh nào phát một kích hoạt, và bộ viết không bao giờ được gọi.
 
 ## The best-result picker
 
-The scheduler emits paper triggers per branch. The picker selects the branch with the highest mean reward across all triggers. Ties break alphabetically by branch id so the demo is deterministic. The picker is a small pure function; the test pins it on a fixed scheduler report.
+Bộ lập lịch phát ra các kích hoạt bài báo theo nhánh. Bộ chọn chọn nhánh có phần thưởng trung bình cao nhất trên mọi kích hoạt. Hòa được phá theo thứ tự chữ cái của id nhánh để demo tất định. Bộ chọn là một hàm thuần túy nhỏ; kiểm thử ghim nó trên một báo cáo bộ lập lịch cố định.
 
 ## Wiring the critic loop
 
-The critic loop in lesson fifty-five operates on a `MiniPaper`. The demo builds a `MiniPaper` from the picked branch by populating the abstract with the branch id, seeding two sections (Introduction and Results), and setting `originality_tag` from the branch's mean reward (high if `>= 0.8`, medium if `>= 0.6`, low otherwise).
+Vòng lặp phê bình trong bài năm mươi lăm hoạt động trên một `MiniPaper`. Demo xây dựng một `MiniPaper` từ nhánh được chọn bằng cách điền tóm tắt với id nhánh, khởi tạo hai mục (Giới thiệu và Kết quả), và đặt `originality_tag` từ phần thưởng trung bình của nhánh (cao nếu `>= 0.8`, trung bình nếu `>= 0.6`, thấp nếu không).
 
-The reviser then iterates the draft to convergence. The output goes into the paper writer.
+Bộ sửa đổi sau đó lặp bản nháp đến hội tụ. Đầu ra đi vào bộ viết bài báo.
 
 ## Wiring the paper writer
 
-The paper writer in lesson fifty-four operates on the full `Paper` shape with figures and bibliography. The demo upgrades the converged `MiniPaper` via `mini_to_full_paper`, which attaches one figure for the selected branch and a small synthetic bibliography built from the union of cite keys the critic suggested. Every cite the demo adds is also added to the bibliography list, so validation passes.
+Bộ viết bài báo trong bài năm mươi bốn hoạt động trên hình thức `Paper` đầy đủ với các hình và thư mục tài liệu. Demo nâng cấp `MiniPaper` đã hội tụ qua `mini_to_full_paper`, gắn một hình cho nhánh được chọn và một thư mục tài liệu tổng hợp nhỏ được xây dựng từ hợp các khóa trích dẫn mà bộ phê bình gợi ý. Mọi trích dẫn demo thêm cũng được thêm vào danh sách thư mục tài liệu, nên xác thực đạt.
 
 ## How to read the code
 
-`code/main.py` defines `BestResultError`, `NoTriggerError`, `DemoReport`, `pick_best_branch`, `build_mini_paper`, `mini_to_full_paper`, and `run_demo`. The imports at the top adjust `sys.path` once and pull `PaperWriter`, `CriticLoop`, and `IterationScheduler` from their lessons.
+`code/main.py` định nghĩa `BestResultError`, `NoTriggerError`, `DemoReport`, `pick_best_branch`, `build_mini_paper`, `mini_to_full_paper`, và `run_demo`. Các import ở đầu điều chỉnh `sys.path` một lần và lấy `PaperWriter`, `CriticLoop`, và `IterationScheduler` từ các bài của chúng.
 
-`code/tests/test_e2e.py` covers: demo runs end to end and emits a report with all five fields populated, determinism across two runs, NoTriggerError when no branch crosses the threshold, PaperValidationError when the writer's contract breaks, paper manifest contains the picked branch's figure, and the scheduler stop reason is one of the expected values.
+`code/tests/test_e2e.py` bao phủ: demo chạy từ đầu đến cuối và phát ra một báo cáo với cả năm trường được điền, tính tất định giữa hai lần chạy, NoTriggerError khi không nhánh nào vượt ngưỡng, PaperValidationError khi hợp đồng của bộ viết bị phá, bản kê khai bài báo chứa hình của nhánh được chọn, và lý do dừng bộ lập lịch là một trong các giá trị dự kiến.
 
 ## Going further
 
-Three extensions worth wiring once the demo is green. First, persistent state: each stage's result writes to a small JSON store so a restart can resume without re-running the cheap stages. Second, a dashboard: the trace events from the scheduler and critic loop render as a single timeline. Third, real model calls: swap the mocked prose generator and the deterministic critic for model-driven ones; the wiring does not change.
+Ba phần mở rộng đáng nối khi demo đã xanh. Thứ nhất, trạng thái bền vững: kết quả mỗi giai đoạn ghi vào một kho JSON nhỏ để một lần khởi động lại có thể tiếp tục mà không chạy lại các giai đoạn rẻ. Thứ hai, một bảng điều khiển: các sự kiện trace từ bộ lập lịch và vòng lặp phê bình hiển thị như một dòng thời gian duy nhất. Thứ ba, các lệnh gọi mô hình thực: đổi bộ sinh văn xuôi giả lập và bộ phê bình tất định thành các bản do mô hình điều khiển; hệ thống nối không đổi.
 
-The demo's job is to prove that composition is the architecture. Five lessons, four imports, one report. The next time you add a stage, the wiring grows by exactly one line.
+Công việc của demo là chứng minh rằng sự kết hợp là kiến trúc. Năm bài, bốn import, một báo cáo. Lần tiếp theo bạn thêm một giai đoạn, hệ thống nối tăng chính xác một dòng.
