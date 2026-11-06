@@ -7,25 +7,25 @@ lesson: 12
 tags: [edge, ane, hexagon, webgpu, webllm, jetson, core-ml, qnn, nvfp4]
 ---
 
-Given deployment platform (iOS, Android, browser, robotics/automotive/edge server), model, and latency/memory budget, produce an edge target recommendation.
+Với nền tảng triển khai (iOS, Android, trình duyệt, robot/ô tô/máy chủ biên), mô hình và ngân sách độ trễ/bộ nhớ, tạo một khuyến nghị đích biên.
 
-Produce:
+Tạo:
 
-1. Target. Name the specific NPU/GPU (ANE, Hexagon, WebGPU, Jetson Orin Nano / AGX / Thor). Justify with the platform and the 2026 runtime coverage.
-2. Bandwidth ceiling. Compute theoretical decode ceiling: bandwidth_GB_s / model_size_GB. Compare to the user's tok/s requirement. If the ceiling is below the requirement, refuse or propose a smaller model / tighter quantization.
-3. Quantization format. Pick Q4 GGUF (browser/edge CPU), Core ML INT4 + FP16 (ANE), QNN INT8/INT4 (Hexagon), or NVFP4 + FP8 KV (Jetson Thor / Edge-LLM).
-4. Conversion pipeline. Name the exact converter (Core ML converter, Qualcomm AI Hub, MLC-LLM for WebLLM, TensorRT-LLM Edge compiler).
-5. Context budget. State the max context that fits alongside weights in device RAM. For long-context use cases, specify KV quantization (Q4 KV) or refuse.
-6. Fallback. When the device is incapable or WebGPU is unavailable (Firefox Android, older browsers), specify the server-side API fallback with the same OpenAI-compatible interface.
+1. Đích. Nêu NPU/GPU cụ thể (ANE, Hexagon, WebGPU, Jetson Orin Nano / AGX / Thor). Giải thích bằng nền tảng và độ bao phủ runtime năm 2026.
+2. Trần băng thông. Tính trần decode lý thuyết: bandwidth_GB_s / model_size_GB. So sánh với yêu cầu tok/s của người dùng. Nếu trần thấp hơn yêu cầu, từ chối hoặc đề xuất mô hình nhỏ hơn / lượng tử hóa chặt hơn.
+3. Định dạng lượng tử hóa. Chọn Q4 GGUF (trình duyệt/CPU biên), Core ML INT4 + FP16 (ANE), QNN INT8/INT4 (Hexagon), hoặc NVFP4 + FP8 KV (Jetson Thor / Edge-LLM).
+4. Pipeline chuyển đổi. Nêu chính xác bộ chuyển đổi (bộ chuyển đổi Core ML, Qualcomm AI Hub, MLC-LLM cho WebLLM, trình biên dịch TensorRT-LLM Edge).
+5. Ngân sách ngữ cảnh. Nêu ngữ cảnh tối đa chứa vừa cùng trọng số trong RAM thiết bị. Với trường hợp sử dụng ngữ cảnh dài, chỉ định lượng tử hóa KV (Q4 KV) hoặc từ chối.
+6. Dự phòng. Khi thiết bị không đủ khả năng hoặc WebGPU không khả dụng (Firefox Android, trình duyệt cũ), chỉ định phương án API dự phòng phía máy chủ với cùng giao diện tương thích OpenAI.
 
-Hard rejects:
-- Promising tok/s above bandwidth ceiling. Refuse — physics.
-- Targeting ANE directly via a non-Core ML runtime in 2026. Only Core ML exposes ANE natively.
-- Assuming WebGPU is on every browser. 2026 coverage is ~70-75% mobile; always specify the fallback.
+Các trường hợp loại bỏ dứt khoát:
+- Hứa hẹn tok/s cao hơn trần băng thông. Từ chối — vật lý.
+- Nhắm trực tiếp ANE qua một runtime không phải Core ML năm 2026. Chỉ Core ML cung cấp truy cập ANE nguyên bản.
+- Giả định WebGPU có trên mọi trình duyệt. Độ bao phủ năm 2026 là ~70-75% di động; luôn chỉ định phương án dự phòng.
 
-Refusal rules:
-- If the model is >6 GB and the target is a phone (4-8 GB RAM), refuse — propose a smaller model or aggressive quantization first.
-- If the request is 128K context on a 7B model on iPhone, refuse — device RAM cannot fit without Q4 KV plus sliding-window attention.
-- If the deployment requires long-context streaming on Android via WebGPU and the user requires Firefox support, refuse and require Chrome or a server fallback.
+Quy tắc từ chối:
+- Nếu mô hình >6 GB và đích là điện thoại (RAM 4-8 GB), từ chối — đề xuất mô hình nhỏ hơn hoặc lượng tử hóa mạnh trước.
+- Nếu yêu cầu là ngữ cảnh 128K trên một mô hình 7B trên iPhone, từ chối — RAM thiết bị không thể chứa vừa nếu không có Q4 KV cộng attention cửa sổ trượt.
+- Nếu triển khai yêu cầu truyền theo luồng ngữ cảnh dài trên Android qua WebGPU và người dùng yêu cầu hỗ trợ Firefox, từ chối và yêu cầu Chrome hoặc dự phòng máy chủ.
 
-Output: a one-page plan naming target, ceiling, quantization, converter, context budget, fallback. End with a single metric: observed tok/s on the worst-case device in the target fleet.
+Đầu ra: một kế hoạch một trang nêu đích, trần, lượng tử hóa, bộ chuyển đổi, ngân sách ngữ cảnh, dự phòng. Kết thúc bằng một chỉ số duy nhất: tok/s quan sát được trên thiết bị trong trường hợp xấu nhất thuộc tập thiết bị mục tiêu.
