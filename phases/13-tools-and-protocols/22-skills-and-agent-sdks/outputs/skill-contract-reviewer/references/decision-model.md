@@ -1,15 +1,15 @@
 # Primitive decision model
 
-Select by responsibility. More than one primitive may be correct.
+Chọn theo trách nhiệm. Hơn một thành phần cơ bản có thể đúng.
 
-| Need | Primitive | Boundary |
+| Nhu cầu | Thành phần cơ bản | Ranh giới |
 |---|---|---|
-| One-off instruction | Prompt | Exists for the current interaction |
-| Repository-wide default | AGENTS.md | Applies while working in that repository scope |
-| Reusable task method | Agent Skill | Loads procedural knowledge for a task |
-| External operation or data | MCP tool | Exposes a callable capability with an input contract |
-| Reaction to a runtime event | Hook | Runs at a host-defined lifecycle point |
-| Deterministic transformation | Ordinary code | Produces repeatable output without model judgment |
-| Isolated or parallel context | Subagent | Delegates a bounded task into a separate context window |
+| Chỉ dẫn một lần | Prompt | Tồn tại cho tương tác hiện tại |
+| Mặc định toàn repo | AGENTS.md | Áp dụng khi làm trong phạm vi repo đó |
+| Phương pháp tác vụ tái sử dụng | Agent Skill | Tải kiến thức thủ tục cho tác vụ |
+| Thao tác hoặc dữ liệu ngoài | Công cụ MCP | Cung cấp khả năng gọi được với hợp đồng đầu vào |
+| Phản ứng sự kiện runtime | Hook | Chạy tại điểm vòng đời host định nghĩa |
+| Biến đổi tất định | Mã thường | Tạo đầu ra lặp lại được không phán đoán mô hình |
+| Ngữ cảnh cô lập hoặc song song | Agent phụ | Ủy nhiệm tác vụ có giới hạn vào cửa sổ ngữ cảnh riêng |
 
-A release-review method that queries a remote service may use both an Agent Skill and an MCP tool. Repository test conventions may add AGENTS.md. A post-tool audit may add a hook. Stable parsing belongs in ordinary code. Independent research that benefits from context isolation may use a subagent.
+Phương pháp đánh giá phát hành truy vấn dịch vụ từ xa có thể dùng cả Agent Skill lẫn công cụ MCP. Quy ước kiểm thử repo có thể thêm AGENTS.md. Kiểm toán sau công cụ có thể thêm hook. Phân tích ổn định thuộc mã thường. Nghiên cứu độc lập được lợi từ cô lập ngữ cảnh có thể dùng agent phụ.

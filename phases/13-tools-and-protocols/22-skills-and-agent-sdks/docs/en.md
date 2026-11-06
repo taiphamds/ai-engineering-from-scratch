@@ -1,6 +1,6 @@
 # Agent Skills: Portable Contract and Runtime Boundary
 
-> A skill is not a long prompt with a better filename. It is a discoverable package of instructions, resources, and executable helpers that enters an agent's context through a runtime contract.
+> Skill không phải prompt dài có tên file tốt hơn. Nó là gói có thể khám phá gồm chỉ dẫn, tài nguyên và hàm hỗ trợ thực thi được đi vào ngữ cảnh agent qua hợp đồng runtime.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,23 +9,23 @@
 
 ## Learning Objectives
 
-- Define an agent skill without confusing it with a prompt, repository instructions, a tool, a hook, a subagent, or a plugin.
-- Read the portable `SKILL.md` contract and separate it from runtime-specific extensions.
-- Explain discovery, selection, activation, resource loading, tool use, and verification as distinct lifecycle stages.
-- Validate a skill package before a runtime places it in an agent's catalog.
-- Choose between a skill, MCP tool, hook, subagent, or ordinary code for a concrete task.
+- Định nghĩa skill agent không nhầm với prompt, chỉ dẫn repo, công cụ, hook, agent phụ hoặc plugin.
+- Đọc hợp đồng `SKILL.md` có thể chuyển và tách khỏi phần mở rộng riêng runtime.
+- Giải thích khám phá, lựa chọn, kích hoạt, tải tài nguyên, dùng công cụ và xác minh là giai đoạn vòng đời riêng.
+- Xác thực gói skill trước runtime đặt vào danh mục agent.
+- Chọn giữa skill, công cụ MCP, hook, agent phụ hoặc mã thường cho tác vụ cụ thể.
 
 ## Ten-Minute First Success
 
-Do this before the long explanation. You will create a small skill, install
-the complete reviewer bundle into a real agent host, invoke it, verify the
-result, and remove it. This proves the lifecycle with an observable result.
+Làm điều này trước giải thích dài. Bạn sẽ tạo skill nhỏ, cài
+toàn bộ bundle reviewer vào host agent thật, gọi, xác minh
+kết quả và bỏ nó. Điều này chứng minh vòng đời với kết quả quan sát được.
 
 ### Preflight for the real-host lab
 
-The real-host checkpoint requires Node.js, `npx`, Python 3, one selected
-skill-capable host, and write access to the project or user scope you choose in
-the installer. Verify the local commands first:
+Điểm kiểm tra host thật cần Node.js, `npx`, Python 3, một host
+có khả năng skill đã chọn và quyền ghi vào phạm vi dự án hoặc người dùng bạn chọn trong
+trình cài. Xác minh lệnh cục bộ trước:
 
 ```bash
 node --version
@@ -33,15 +33,15 @@ npx --version
 python3 --version
 ```
 
-Decide which host and scope you will use before installation. If any
-requirement is unavailable, read this lesson on the website or continue with
-the manual package exercise below. That fallback teaches the contract, but it
-does not prove host discovery, invocation, bundled-script execution, or
-uninstall behavior. Keep those observations marked pending.
+Quyết định host và phạm vi dùng trước cài. Nếu có
+yêu cầu không sẵn, đọc bài trên website hoặc tiếp tục
+bài tập gói thủ công bên dưới. Dự phòng đó dạy hợp đồng, nhưng
+không chứng minh khám phá host, gọi, thực thi script đi kèm hoặc
+hành vi gỡ cài. Giữ các quan sát đánh dấu đang chờ.
 
 ### 1. Start in an empty working directory
 
-Run these commands from any parent directory where you keep learning work:
+Chạy lệnh này từ mọi thư mục cha bạn giữ công việc học:
 
 ```bash
 mkdir -p agent-skills-first-run
@@ -51,16 +51,16 @@ printf 'TARGET_ROOT=%s\n' "$TARGET_ROOT"
 ls -A
 ```
 
-The final command should print nothing. If it prints files, choose a different
-empty directory so the review has a clear boundary.
+Lệnh cuối nên không in gì. Nếu in file, chọn thư mục
+rỗng khác để đánh giá có ranh giới rõ.
 
-Create a directory for your first skill:
+Tạo thư mục cho skill đầu:
 
 ```bash
 mkdir -p my-first-skill
 ```
 
-Create `my-first-skill/SKILL.md` with this content:
+Tạo `my-first-skill/SKILL.md` với nội dung này:
 
 ```markdown
 ---
@@ -75,30 +75,30 @@ If the notes do not contain a decision, ask one clarifying question instead
 of inventing one.
 ```
 
-Verify that you created the file in the intended directory:
+Xác minh đã tạo file trong thư mục dự định:
 
 ```bash
 test -f my-first-skill/SKILL.md
 ```
 
-No output and exit code 0 means the file exists.
+Không đầu ra và mã thoát 0 nghĩa file tồn tại.
 
 ### 2. Install the complete reviewer bundle
 
-Stay in `agent-skills-first-run` and run:
+Ở lại `agent-skills-first-run` và chạy:
 
 ```bash
 npx skills add rohitg00/ai-engineering-from-scratch --skill skill-contract-reviewer --full-depth
 ```
 
-Choose the agent host and scope you are using. The installer should list
-`skill-contract-reviewer` and the destination it wrote. `--full-depth` is
-required because this lesson's skill is a nested bundle with references, a
-script, and an asset.
+Chọn host agent và phạm vi đang dùng. Trình cài nên liệt kê
+`skill-contract-reviewer` và đích đã ghi. `--full-depth`
+bắt buộc vì skill bài này là bundle lồng với tham chiếu,
+script và asset.
 
-Set `SKILL_ROOT` to the absolute directory reported by the installer. It must
-be the directory containing the installed `SKILL.md`, not the lesson source
-directory and not the current workspace:
+Đặt `SKILL_ROOT` thành thư mục tuyệt đối trình cài báo. Nó phải
+là thư mục chứa `SKILL.md` đã cài, không phải thư mục nguồn bài
+và không phải workspace hiện tại:
 
 ```bash
 # Replace the placeholder with the destination printed by the installer.
@@ -107,132 +107,132 @@ test -f "$SKILL_ROOT/SKILL.md"
 printf 'SKILL_ROOT=%s\n' "$SKILL_ROOT"
 ```
 
-If the agent session was already open, start a new session or use that host's
-skill rescan command. Do not assume every host hot-reloads its catalog.
+Nếu phiên agent đã mở, bắt đầu phiên mới hoặc dùng lệnh quét lại
+skill của host. Không giả định mọi host tải nóng danh mục.
 
 ### 3. Invoke it explicitly
 
-In the installed agent, with `agent-skills-first-run` as the working
-directory, use the syntax supported by that host:
+Trong agent đã cài, với `agent-skills-first-run` làm thư mục
+làm việc, dùng cú pháp host đó hỗ trợ:
 
-| Host | Explicit invocation |
+| Host | Gọi tường minh |
 |---|---|
-| Codex | `skill-contract-reviewer`, or choose it from `/skills`, then provide the review request |
-| Claude Code | `/skill-contract-reviewer` followed by the review request |
-| Portable fallback | `Use skill-contract-reviewer to review the target package.` |
+| Codex | `skill-contract-reviewer`, hoặc chọn từ `/skills`, rồi cung cấp yêu cầu đánh giá |
+| Claude Code | `/skill-contract-reviewer` theo sau yêu cầu đánh giá |
+| Dự phòng có thể chuyển | `Use skill-contract-reviewer to review the target package.` |
 
-Use the absolute values printed for `SKILL_ROOT` and `TARGET_ROOT` in the
-request. Require the host to expand them before execution and show the exact
-resolved command, not a command that depends on the process working directory:
+Dùng giá trị tuyệt đối in cho `SKILL_ROOT` và `TARGET_ROOT` trong
+yêu cầu. Yêu cầu host mở rộng trước thực thi và cho thấy đúng
+lệnh đã phân giải, không phải lệnh phụ thuộc thư mục làm việc tiến trình:
 
 ```text
 Use skill-contract-reviewer to review <TARGET_ROOT>/my-first-skill. The installed bundle root is <SKILL_ROOT>. Run python3 <SKILL_ROOT>/scripts/check_skill.py <TARGET_ROOT>/my-first-skill. Before running it, show the fully resolved argv. Return the validation report, selected primitives, and one sentence for each selection. Include the resolved script path, resolved target path, cwd, argv, and exit code as execution evidence.
 ```
 
-The resolved command should have this shape, with no placeholders remaining:
+Lệnh phân giải nên có hình dạng này, không còn placeholder:
 
 ```bash
 python3 "/absolute/install/path/skill-contract-reviewer/scripts/check_skill.py" \
   "/absolute/workspace/path/agent-skills-first-run/my-first-skill"
 ```
 
-A successful result has all three properties:
+Kết quả thành công có cả ba thuộc tính:
 
-1. The host finds `skill-contract-reviewer` by name.
-2. The reviewer reads the package contract and runs its bundled validator.
-3. The response contains a validation report with no structural error for the
-   sample, plus a justified primitive selection.
+1. Host tìm `skill-contract-reviewer` theo tên.
+2. Reviewer đọc hợp đồng gói và chạy bộ xác thực đi kèm.
+3. Phản hồi chứa báo cáo xác thực không lỗi cấu trúc cho
+   mẫu, cộng lựa chọn thành phần cơ bản có biện minh.
 
-The execution evidence must also name the script path, target path, cwd, exact
-argument vector, and exit code. A fluent report without those fields does not
-prove that the installed companion script ran.
+Bằng chứng thực thi cũng phải nêu đường dẫn script, đường dẫn đích, cwd, đúng
+vector đối số và mã thoát. Báo cáo trôi chảy thiếu trường đó không
+chứng minh script đồng hành đã cài đã chạy.
 
-If the host reports that the skill is unavailable, verify the install
-destination, rescan or restart once, and retry the explicit request. Do not
-rewrite the skill description to hide an installation failure.
+Nếu host báo skill không sẵn, xác minh đích
+cài, quét lại hoặc khởi động lại một lần và thử lại yêu cầu tường minh. Không
+viết lại mô tả skill để giấu thất bại cài.
 
 ### 4. Probe implicit selection
 
-Start a fresh agent turn and enter the same task without naming the skill:
+Bắt đầu lượt agent mới và nhập cùng tác vụ không nêu tên skill:
 
 ```text
 Review <TARGET_ROOT>/my-first-skill as a reusable agent package and tell me whether its package contract is valid.
 ```
 
-If the host exposes selected skills, record whether it chose
-`skill-contract-reviewer`. If the host does not expose routing, mark implicit
-selection as unverified. The explicit invocation is the portable fallback.
+Nếu host đưa skill đã chọn ra, ghi nó có chọn
+`skill-contract-reviewer` không. Nếu host không đưa định tuyến ra, đánh dấu lựa chọn ngầm
+chưa xác minh. Gọi tường minh là dự phòng có thể chuyển.
 
 ### 5. Clean up
 
-Remove only the installed reviewer bundle:
+Chỉ bỏ bundle reviewer đã cài:
 
 ```bash
 npx skills remove skill-contract-reviewer
 ```
 
-Select the same host and scope used during installation. After a rescan or new
-session, an explicit request for `skill-contract-reviewer` should report that
-it is unavailable. Keep `my-first-skill` for the later lessons, or remove the
-lab directory after you finish the track.
+Chọn cùng host và phạm vi dùng khi cài. Sau quét lại hoặc phiên
+mới, yêu cầu tường minh `skill-contract-reviewer` nên báo
+không sẵn. Giữ `my-first-skill` cho bài sau hoặc bỏ
+thư mục lab sau khi xong lộ trình.
 
 ## The Problem
 
-Suppose your team has a reliable release workflow. It finds merged changes, checks migration notes, updates the changelog, runs a packaging command, and produces a review checklist.
+Giả sử nhóm bạn có quy trình phát hành đáng tin. Nó tìm thay đổi đã gộp, kiểm tra ghi chú chuyển đổi, cập nhật changelog, chạy lệnh đóng gói và tạo danh sách đánh giá.
 
-Putting that workflow in one prompt makes it easy to paste and hard to operate. The prompt has no stable identity, no discovery rule, no resource boundary, no testable package shape, and no answer to basic questions: Who may invoke it? When should the model select it? Which scripts can it run? Which files are trusted? What survives when context is compacted?
+Đặt quy trình trong một prompt làm dễ dán và khó vận hành. Prompt không danh tính ổn định, không quy tắc khám phá, không ranh giới tài nguyên, không hình dạng gói kiểm thử được và không trả lời câu hỏi cơ bản: Ai được gọi? Khi nào mô hình nên chọn? Nó chạy script nào? File nào đáng tin? Điều gì còn khi ngữ cảnh nén?
 
-The opposite mistake is to treat every reusable instruction as a skill. Repository conventions, deterministic automation, external tools, event hooks, and delegated agents solve different problems. Packing all of them into `SKILL.md` produces a directory that looks portable while depending on one host's undocumented behavior.
+Sai lầm ngược là coi mọi chỉ dẫn tái sử dụng là skill. Quy ước repo, tự động hóa tất định, công cụ ngoài, hook sự kiện và agent ủy nhiệm giải vấn đề khác. Nhét tất cả vào `SKILL.md` tạo thư mục có vẻ chuyển được trong khi phụ thuộc hành vi không được ghi lại của một host.
 
-The first engineering task is classification. Decide what the artifact is before you decide how to package it.
+Nhiệm vụ kỹ thuật đầu là phân loại. Quyết định sản phẩm là gì trước quyết định đóng gói thế nào.
 
 ## The Concept
 
 ### Skills encode procedural knowledge
 
-An agent skill is a directory whose entry point is `SKILL.md`. The entry file contains YAML frontmatter followed by Markdown instructions. The directory can also contain references, scripts, and assets.
+Skill agent là thư mục có điểm vào `SKILL.md`. File vào chứa YAML frontmatter theo sau chỉ dẫn Markdown. Thư mục cũng có thể chứa tham chiếu, script và asset.
 
 ```figure
 skill-package-anatomy
 ```
 
-The directory, not the Markdown file alone, is the deployable unit. A copied `SKILL.md` with missing references is a broken package even if its frontmatter parses.
+Thư mục, không chỉ file Markdown, là đơn vị triển khai được. `SKILL.md` sao chép thiếu tham chiếu là gói hỏng dù frontmatter phân tích được.
 
 ### The neighboring abstractions
 
-| Artifact | Primary job | Loaded or run when | What it should not impersonate |
+| Sản phẩm | Công việc chính | Được tải hoặc chạy khi | Không nên mạo danh thứ gì |
 |---|---|---|---|
-| Prompt | Shape one model interaction | Included by an application or user | A versioned package with resources |
-| Repository instructions | Explain one codebase's standing rules | A coding runtime enters that scope | A reusable task workflow |
-| Agent skill | Supply reusable procedural knowledge | Explicit or implicit activation | A hard authorization boundary |
-| MCP tool | Expose a typed remote capability | The model or application calls it | A detailed operating procedure |
-| Hook | Run deterministic logic on an event | The declared event occurs | Probabilistic model routing |
-| Subagent | Delegate work with separate context and state | An orchestrator creates or calls it | A static instruction bundle |
-| Plugin | Distribute a larger runtime extension | The host installs or enables it | The portable skill contract itself |
-| Learned skill library | Store behavior discovered through experience | A policy retrieves a prior program or trajectory | A standards-based `SKILL.md` package |
+| Prompt | Định hình một tương tác mô hình | Ứng dụng hoặc người dùng đưa vào | Gói có phiên bản với tài nguyên |
+| Chỉ dẫn repo | Giải thích quy tắc thường trực của một cơ sở mã | Runtime lập trình vào phạm vi đó | Quy trình tác vụ tái sử dụng |
+| Skill agent | Cung cấp kiến thức thủ tục tái sử dụng | Kích hoạt tường minh hoặc ngầm | Ranh giới cấp quyền cứng |
+| Công cụ MCP | Cung cấp khả năng từ xa có kiểu | Mô hình hoặc ứng dụng gọi | Quy trình vận hành chi tiết |
+| Hook | Chạy logic tất định theo sự kiện | Sự kiện khai báo xảy ra | Định tuyến mô hình xác suất |
+| Agent phụ | Ủy nhiệm công việc với ngữ cảnh và trạng thái riêng | Bộ điều phối tạo hoặc gọi | Bundle chỉ dẫn tĩnh |
+| Plugin | Phân phối phần mở rộng runtime lớn hơn | Host cài hoặc bật | Chính hợp đồng skill có thể chuyển |
+| Thư viện kỹ năng học được | Lưu hành vi khám phá qua kinh nghiệm | Chính sách truy xuất chương trình hoặc quỹ đạo trước | Gói `SKILL.md` dựa tiêu chuẩn |
 
-A release skill can tell the agent how to inspect a release. An MCP server can expose the release registry. A hook can forbid direct pushes. A subagent can independently audit the candidate. These pieces compose because they keep different responsibilities.
+Skill phát hành có thể nói agent cách kiểm tra phát hành. Máy chủ MCP có thể cung cấp registry phát hành. Hook có thể cấm push trực tiếp. Agent phụ có thể kiểm tra độc lập ứng viên. Các phần kết hợp vì giữ trách nhiệm khác.
 
 ### The word "skill" names two different ideas
 
-Research systems sometimes call a learned program, successful trajectory, or environment-specific policy fragment a skill. An agent can create these artifacts during exploration, retrieve them by task similarity, execute them, and revise the library from feedback. Phase 14 · 10 builds that kind of lifelong-learning library.
+Hệ thống nghiên cứu đôi khi gọi chương trình học được, quỹ đạo thành công hoặc mảnh chính sách riêng môi trường là kỹ năng. Agent có thể tạo sản phẩm đó khi khám phá, truy xuất theo tương đồng tác vụ, thực thi và sửa thư viện từ phản hồi. Giai đoạn 14 · 10 xây kiểu thư viện học suốt đời đó.
 
-An Agent Skill in this mini-track is different. It is an authored package with a declared filesystem contract, catalog metadata, progressive disclosure, runtime-mediated invocation, and host-controlled tools. It can be generated or improved by an agent, but learning is not required for the format.
+Agent Skill trong lộ trình nhỏ này khác. Nó là gói được biên soạn với hợp đồng hệ thống file khai báo, siêu dữ liệu danh mục, tiết lộ tăng dần, gọi qua runtime và công cụ do host kiểm soát. Nó có thể được agent tạo hoặc cải thiện, nhưng định dạng không cần học.
 
-| Dimension | Agent Skill package | Learned skill library |
+| Chiều | Gói Agent Skill | Thư viện kỹ năng học được |
 |---|---|---|
-| Primary unit | `SKILL.md` directory | Program, policy, trajectory, or memory record |
-| Creation | Authored, generated, or curated | Usually discovered from environment experience |
-| Selection | Catalog description plus runtime policy | Retrieval or policy over task state |
-| Execution | Model follows instructions and calls host tools | Environment runs a stored behavior or code artifact |
-| Portability | Package contract can cross compatible hosts | Often tied to one environment and action space |
-| Evaluation | Routing, artifact, safety, and host compatibility | Reward, success rate, transfer, and library growth |
+| Đơn vị chính | Thư mục `SKILL.md` | Chương trình, chính sách, quỹ đạo hoặc bản ghi bộ nhớ |
+| Tạo | Biên soạn, tạo sinh hoặc tuyển chọn | Thường khám phá từ kinh nghiệm môi trường |
+| Lựa chọn | Mô tả danh mục cộng chính sách runtime | Truy xuất hoặc chính sách trên trạng thái tác vụ |
+| Thực thi | Mô hình theo chỉ dẫn và gọi công cụ host | Môi trường chạy hành vi hoặc sản phẩm mã đã lưu |
+| Khả năng chuyển | Hợp đồng gói có thể qua host tương thích | Thường gắn một môi trường và không gian hành động |
+| Đánh giá | Định tuyến, sản phẩm, an toàn và tương thích host | Phần thưởng, tỷ lệ thành công, chuyển giao và tăng trưởng thư viện |
 
-Both ideas package reusable competence. They should not share implementation claims merely because they share a name.
+Cả hai ý tưởng đóng gói năng lực tái sử dụng. Không nên chia sẻ tuyên bố triển khai chỉ vì cùng tên.
 
 ### The portable core
 
-The Agent Skills specification requires two frontmatter fields:
+Đặc tả Agent Skills yêu cầu hai trường frontmatter:
 
 ```yaml
 ---
@@ -241,18 +241,18 @@ description: Inspect a release candidate when the user asks whether a version is
 ---
 ```
 
-`name` is the stable identifier. It must satisfy the specification's naming rules and match the parent directory. `description` is both documentation and routing metadata. It should say what the skill does and when it applies.
+`name` là định danh ổn định. Phải thỏa quy tắc đặt tên đặc tả và khớp thư mục cha. `description` vừa là tài liệu vừa siêu dữ liệu định tuyến. Nên nói skill làm gì và khi nào áp dụng.
 
-The portable optional fields are:
+Trường tùy chọn có thể chuyển là:
 
-| Field | Purpose | Portability note |
+| Trường | Mục đích | Ghi chú khả năng chuyển |
 |---|---|---|
-| `license` | State the terms for the package | Core specification |
-| `compatibility` | State environmental requirements | Core specification |
-| `metadata` | Carry string-valued extension data | Core specification |
-| `allowed-tools` | Suggest pre-approved tools | Experimental; host support varies |
+| `license` | Nêu điều khoản gói | Đặc tả lõi |
+| `compatibility` | Nêu yêu cầu môi trường | Đặc tả lõi |
+| `metadata` | Mang dữ liệu mở rộng giá trị chuỗi | Đặc tả lõi |
+| `allowed-tools` | Gợi ý công cụ phê duyệt trước | Thử nghiệm; hỗ trợ host khác nhau |
 
-The Markdown body holds the operational instructions. It should define the workflow, decision points, failure behavior, and direct paths to supporting resources.
+Phần thân Markdown giữ chỉ dẫn vận hành. Nên định nghĩa quy trình, điểm quyết định, hành vi thất bại và đường dẫn trực tiếp đến tài nguyên hỗ trợ.
 
 ```markdown
 # Release readiness
@@ -268,31 +268,31 @@ Use this workflow for a release candidate, not for ordinary development builds.
 
 ### Runtime extensions are a second layer
 
-Some hosts accept extra frontmatter or companion configuration. Those fields can be useful, but they are not automatically portable.
+Một số host nhận frontmatter thêm hoặc cấu hình đồng hành. Trường đó có thể hữu ích nhưng không tự động chuyển được.
 
-| Behavior | Example host extension | Portable core? |
+| Hành vi | Ví dụ phần mở rộng host | Lõi có thể chuyển? |
 |---|---|:---:|
-| Hide a skill from model routing while keeping direct user invocation | `disable-model-invocation` | No |
-| Hide a skill from the user's command menu while allowing model routing | `user-invocable` | No |
-| Show argument help in a command menu | `argument-hint` | No |
-| Run the skill in delegated context | `context`, `agent` | No |
-| Pin model or reasoning settings | `model`, `effort` | No |
-| Register lifecycle automation | `hooks` | No |
-| Disable implicit invocation in Codex | `agents/openai.yaml` policy | No |
+| Giấu skill khỏi định tuyến mô hình nhưng giữ người dùng gọi trực tiếp | `disable-model-invocation` | Không |
+| Giấu skill khỏi menu lệnh người dùng nhưng cho định tuyến mô hình | `user-invocable` | Không |
+| Hiện trợ giúp đối số trong menu lệnh | `argument-hint` | Không |
+| Chạy skill trong ngữ cảnh ủy nhiệm | `context`, `agent` | Không |
+| Ghim mô hình hoặc thiết lập suy luận | `model`, `effort` | Không |
+| Đăng ký tự động hóa vòng đời | `hooks` | Không |
+| Tắt gọi ngầm trong Codex | chính sách `agents/openai.yaml` | Không |
 
-Treat each extension as an adapter. Keep the core workflow valid without it, document the fallback, and test the host that consumes it. A runtime may ignore an unknown field, reject it, or preserve it without implementing the behavior.
+Coi mỗi phần mở rộng là adapter. Giữ quy trình lõi hợp lệ không cần nó, ghi dự phòng và kiểm thử host tiếp nhận. Runtime có thể bỏ qua trường không biết, từ chối hoặc giữ mà không triển khai hành vi.
 
 ### Frontmatter is executable metadata
 
-Metadata changes system behavior before the skill body is read.
+Siêu dữ liệu đổi hành vi hệ thống trước phần thân skill được đọc.
 
-- A malformed `name` can make discovery fail.
-- A vague `description` can route the wrong requests.
-- A human-only flag can remove the skill from the model's catalog.
-- A tool allowance can change whether a host asks for permission.
-- A context setting can move execution into a separate agent session.
+- `name` sai dạng có thể làm khám phá thất bại.
+- `description` mơ hồ có thể định tuyến sai yêu cầu.
+- Cờ chỉ con người có thể bỏ skill khỏi danh mục mô hình.
+- Cho phép công cụ có thể đổi host có hỏi quyền hay không.
+- Thiết lập ngữ cảnh có thể chuyển thực thi vào phiên agent riêng.
 
-Review frontmatter like configuration code. Validate it, version it, and include its behavior in evals.
+Đánh giá frontmatter như mã cấu hình. Xác thực, tạo phiên bản và đưa hành vi vào đánh giá.
 
 ### The skill lifecycle
 
@@ -300,40 +300,40 @@ Review frontmatter like configuration code. Validate it, version it, and include
 skill-runtime-lifecycle
 ```
 
-Each arrow is a boundary with its own failure modes.
+Mỗi mũi tên là ranh giới có dạng lỗi riêng.
 
-1. **Discovery** finds possible packages in configured locations.
-2. **Validation** rejects malformed or unsafe packages before catalog publication.
-3. **Cataloging** exposes a compact `name` and `description`, not the full package.
-4. **Selection** decides whether the skill is relevant.
-5. **Activation** loads the body into model-visible context.
-6. **Disclosure** reads references or assets only when a branch requires them.
-7. **Execution** uses host tools under the host's permission and isolation rules.
-8. **Verification** checks the produced artifact independently of the model's claim.
+1. **Khám phá** tìm gói có thể có ở vị trí cấu hình.
+2. **Xác thực** từ chối gói sai dạng hoặc không an toàn trước công bố danh mục.
+3. **Lập danh mục** đưa `name` và `description` gọn ra, không toàn gói.
+4. **Lựa chọn** quyết định skill liên quan hay không.
+5. **Kích hoạt** tải phần thân vào ngữ cảnh mô hình thấy.
+6. **Tiết lộ** chỉ đọc tham chiếu hoặc asset khi nhánh cần.
+7. **Thực thi** dùng công cụ host dưới quy tắc quyền và cô lập của host.
+8. **Xác minh** kiểm tra sản phẩm tạo độc lập với tuyên bố mô hình.
 
-Collapsing these stages causes bad mental models. A discovered skill is not active. An active skill is not authorized to do everything it describes. A permitted tool call is not proof that the result is correct.
+Gộp giai đoạn gây mô hình tư duy xấu. Skill được khám phá không phải đang kích hoạt. Skill kích hoạt không được cấp quyền làm mọi thứ mô tả. Lời gọi công cụ được phép không phải bằng chứng kết quả đúng.
 
 ### Skills and tools are orthogonal
 
-MCP answers, "Which capabilities can this application call, and what are their schemas?" A skill answers, "How should an agent approach this class of task?"
+MCP trả lời "Ứng dụng này gọi được khả năng nào và lược đồ là gì?" Skill trả lời "Agent nên tiếp cận lớp tác vụ này thế nào?"
 
 ```figure
 skill-tool-orthogonality
 ```
 
-The skill may name a tool, but the host owns the actual capability registry. If the tool is absent, the skill should state a fallback or fail clearly. It should never imply that naming a capability creates it.
+Skill có thể nêu công cụ, nhưng host sở hữu sổ đăng ký khả năng thật. Nếu công cụ vắng, skill nên nêu dự phòng hoặc thất bại rõ. Không bao giờ ngụ ý gọi tên khả năng tạo ra nó.
 
 ### Skills and repository instructions are different scopes
 
-Repository instructions describe the environment you are already in: commands, conventions, generated files, and boundaries. A skill provides reusable procedure for a task that may occur across many repositories.
+Chỉ dẫn repo mô tả môi trường bạn đã ở: lệnh, quy ước, file tạo sinh và ranh giới. Skill cung cấp thủ tục tái sử dụng cho tác vụ có thể xảy ra qua nhiều repo.
 
-When both apply, the active user request and repository rules constrain the skill. A generic refactoring skill must not override a repository rule that forbids editing generated files.
+Khi cả hai áp dụng, yêu cầu người dùng hiện hành và quy tắc repo ràng buộc skill. Skill tái cấu trúc tổng quát không được ghi đè quy tắc repo cấm sửa file tạo sinh.
 
 ### Skills do not import one another
 
-One skill can direct the agent to invoke another, but this is not a language-level import. The second skill still goes through runtime discovery, eligibility, activation, permissions, and context handling.
+Một skill có thể hướng agent gọi skill khác, nhưng không phải import cấp ngôn ngữ. Skill thứ hai vẫn qua khám phá runtime, đủ điều kiện, kích hoạt, quyền và xử lý ngữ cảnh.
 
-Write cross-skill dependencies as observable workflow edges:
+Viết phụ thuộc chéo skill thành cạnh quy trình quan sát được:
 
 ```markdown
 After producing the candidate changelog, invoke the `release-risk-review` skill.
@@ -341,22 +341,22 @@ Pass the candidate path and require a blocking or non-blocking verdict.
 If that skill is unavailable, stop and report the missing dependency.
 ```
 
-This makes the dependency testable and gives the host a chance to enforce policy.
+Điều này làm phụ thuộc kiểm thử được và cho host cơ hội thực thi chính sách.
 
 ## Build It
 
-`code/main.py` implements a small standards-oriented validator and an artifact chooser. It stays stdlib-only so every rule is visible.
+`code/main.py` triển khai bộ xác thực nhỏ hướng tiêu chuẩn và bộ chọn sản phẩm. Giữ chỉ stdlib để mọi quy tắc rõ.
 
-The validator exposes:
+Bộ xác thực cung cấp:
 
-- `parse_frontmatter(text)` to separate metadata from the body.
-- `validate_skill_text(text, directory_name, allowed_runtime_extensions=())` to check required fields, naming, unknown extensions, body presence, and portable limits.
-- `ValidationIssue` and `SkillReport` to return structured evidence instead of one opaque boolean.
-- `FrontmatterSyntaxError` for input that cannot be interpreted safely.
+- `parse_frontmatter(text)` để tách siêu dữ liệu khỏi phần thân.
+- `validate_skill_text(text, directory_name, allowed_runtime_extensions=())` để kiểm tra trường bắt buộc, đặt tên, phần mở rộng không biết, có phần thân và giới hạn có thể chuyển.
+- `ValidationIssue` và `SkillReport` để trả bằng chứng có cấu trúc thay một boolean mờ.
+- `FrontmatterSyntaxError` cho đầu vào không diễn giải an toàn được.
 
-The chooser exposes `TaskShape` and `select_primitives(task)`. It maps a task's needs to ordinary code, repository instructions, a skill, a hook, a subagent, or an MCP tool.
+Bộ chọn cung cấp `TaskShape` và `select_primitives(task)`. Ánh xạ nhu cầu tác vụ đến mã thường, chỉ dẫn repo, skill, hook, agent phụ hoặc công cụ MCP.
 
-Run the lab:
+Chạy lab:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
@@ -365,81 +365,81 @@ python3 code/main.py
 python3 -m unittest discover -s code/tests -v
 ```
 
-This command block requires a local clone and must start from anywhere inside
-that clone so `git rev-parse --show-toplevel` can resolve the repository root.
+Khối lệnh này cần bản clone cục bộ và phải bắt đầu từ bất kỳ nơi nào bên trong
+bản clone đó để `git rev-parse --show-toplevel` phân giải được gốc repo.
 
-The demo prints JSON for one valid portable skill, one host-extended skill, one invalid package, and several task-shape decisions. Inspect the issue codes. A package validator should explain how to fix an artifact without guessing on the author's behalf.
+Demo in JSON cho một skill có thể chuyển hợp lệ, một skill mở rộng host, một gói không hợp lệ và nhiều quyết định hình dạng tác vụ. Kiểm tra mã vấn đề. Bộ xác thực gói nên giải thích cách sửa sản phẩm không đoán thay tác giả.
 
 ### Validation order matters
 
-Validate cheap structural facts before deeper content rules:
+Xác thực sự thật cấu trúc rẻ trước quy tắc nội dung sâu hơn:
 
 ```figure
 skill-validation-order
 ```
 
-This order prevents secondary errors from obscuring the first broken invariant.
+Thứ tự ngăn lỗi thứ cấp che bất biến hỏng đầu tiên.
 
 ## Use It
 
-Before writing a skill, fill out this decision card:
+Trước viết skill, điền thẻ quyết định này:
 
-| Question | If yes | Likely primitive |
+| Câu hỏi | Nếu có | Thành phần cơ bản có khả năng |
 |---|---|---|
-| Does this need reusable model judgment across several steps? | The procedure is stable but decisions vary | Skill |
-| Must this happen every time an event fires? | Missing one execution is unacceptable | Hook or application code |
-| Does the model need an external capability with typed inputs? | The operation lives outside model context | Tool or MCP server |
-| Does the work need isolated context, state, or ownership? | A separate worker returns a bounded result | Subagent |
-| Is this guidance specific to one repository? | It describes local commands and constraints | Repository instructions |
-| Is one interaction enough? | No package lifecycle is needed | Prompt |
+| Có cần phán đoán mô hình tái sử dụng qua nhiều bước không? | Thủ tục ổn định nhưng quyết định đổi | Skill |
+| Có phải xảy ra mỗi khi sự kiện kích hoạt không? | Bỏ lỡ một lần thực thi không chấp nhận | Hook hoặc mã ứng dụng |
+| Mô hình có cần khả năng ngoài với đầu vào có kiểu không? | Thao tác nằm ngoài ngữ cảnh mô hình | Công cụ hoặc máy chủ MCP |
+| Công việc có cần ngữ cảnh, trạng thái hoặc sở hữu cô lập không? | Worker riêng trả kết quả có giới hạn | Agent phụ |
+| Hướng dẫn này riêng một repo không? | Mô tả lệnh và ràng buộc cục bộ | Chỉ dẫn repo |
+| Một tương tác có đủ không? | Không cần vòng đời gói | Prompt |
 
-Many production workflows use more than one row. The card prevents one artifact from pretending to provide every property.
+Nhiều quy trình sản xuất dùng hơn một hàng. Thẻ ngăn một sản phẩm giả vờ cung cấp mọi thuộc tính.
 
 ## Ship It
 
-This lesson produces the `skill-contract-reviewer` bundle under `outputs/`. It contains:
+Bài này tạo bundle `skill-contract-reviewer` dưới `outputs/`. Chứa:
 
-- a portable `SKILL.md` that reviews a proposed skill package;
-- reference checklists for the portable contract and primitive selection;
-- a deterministic validation script;
-- task-shape fixtures covering prompts, skills, tools, hooks, ordinary code, and subagents.
+- `SKILL.md` có thể chuyển đánh giá gói skill đề xuất;
+- danh sách tham chiếu cho hợp đồng có thể chuyển và chọn thành phần cơ bản;
+- script xác thực tất định;
+- fixture hình dạng tác vụ bao phủ prompt, skill, công cụ, hook, mã thường và agent phụ.
 
-Install the full bundle, not only its entry file:
+Cài toàn bundle, không chỉ file vào:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
 python3 scripts/install_skills.py /tmp/aiefs-skills --phase 13 --type skill
 ```
 
-The course installer reports each copied Phase 13 skill and writes
-`/tmp/aiefs-skills/manifest.json`. This clean destination checks package shape;
-the first-success loop above checks discovery and invocation in a real host.
+Trình cài khóa học báo mỗi skill Giai đoạn 13 sao chép và ghi
+`/tmp/aiefs-skills/manifest.json`. Đích sạch này kiểm tra hình dạng gói;
+vòng thành công đầu phía trên kiểm tra khám phá và gọi trong host thật.
 
-The following lessons deepen each lifecycle stage. Lesson 24 builds discovery and progressive disclosure. Lesson 25 builds invocation policy and routing. Lesson 26 separates permissions from sandboxing. Lesson 27 turns the whole package into an evaluated release artifact.
+Bài sau đào sâu mỗi giai đoạn vòng đời. Bài 24 xây khám phá và tiết lộ tăng dần. Bài 25 xây chính sách gọi và định tuyến. Bài 26 tách quyền khỏi sandbox. Bài 27 biến toàn gói thành sản phẩm phát hành đã đánh giá.
 
 ## Exercises
 
-1. Classify five workflows from your own team using `TaskShape`. Defend every case where you choose more than one primitive.
-2. Add boundary tests proving that a 500-character `compatibility` value passes and a 501-character value fails as a specification error.
-3. Add one runtime extension to the allowlist. Write a test proving the same file is still distinguishable from a portable-only skill.
-4. Split a 400-line prompt into `SKILL.md`, one reference, one script contract, and one output template. Keep every file responsible for one kind of information.
-5. Design a failure response for a skill that references an unavailable MCP tool. Do not silently substitute a tool with broader permissions.
-6. Review an existing skill and label every sentence as routing, procedure, policy, reference pointer, or output contract. Move anything that does not belong.
+1. Phân loại năm quy trình từ nhóm bạn bằng `TaskShape`. Bảo vệ mỗi trường hợp chọn hơn một thành phần cơ bản.
+2. Thêm kiểm thử ranh giới chứng minh giá trị `compatibility` 500 ký tự đạt và giá trị 501 ký tự trượt như lỗi đặc tả.
+3. Thêm một phần mở rộng runtime vào danh sách cho phép. Viết kiểm thử chứng minh cùng file vẫn phân biệt được với skill chỉ có thể chuyển.
+4. Tách prompt 400 dòng thành `SKILL.md`, một tham chiếu, một hợp đồng script và một mẫu đầu ra. Giữ mỗi file chịu trách nhiệm một loại thông tin.
+5. Thiết kế phản hồi thất bại cho skill tham chiếu công cụ MCP không sẵn. Không âm thầm thay bằng công cụ quyền rộng hơn.
+6. Đánh giá skill hiện có và gắn mỗi câu là định tuyến, thủ tục, chính sách, con trỏ tham chiếu hoặc hợp đồng đầu ra. Di chuyển mọi thứ không thuộc.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |---|---|---|
-| Agent skill | "A saved prompt" | A discoverable directory of procedural instructions and optional resources |
-| Portable core | "Fields every runtime shares" | The contract defined by the Agent Skills specification |
-| Runtime extension | "Extra frontmatter" | Host-specific configuration whose behavior requires a compatible adapter |
-| Activation | "The skill ran" | The skill body entered model-visible context; execution may come later |
-| Skill dependency | "Import another skill" | A runtime-mediated invocation edge with availability and policy checks |
-| Tool contract | "A function schema" | Inputs, outputs, permissions, side effects, errors, and evidence for a capability |
+| Agent skill (Kỹ năng agent) | "Prompt đã lưu" | Thư mục có thể khám phá chứa chỉ dẫn thủ tục và tài nguyên tùy chọn |
+| Portable core (Lõi có thể chuyển) | "Trường mọi runtime dùng chung" | Hợp đồng đặc tả Agent Skills định nghĩa |
+| Runtime extension (Phần mở rộng runtime) | "Frontmatter thêm" | Cấu hình riêng host có hành vi cần adapter tương thích |
+| Activation (Kích hoạt) | "Skill đã chạy" | Phần thân skill vào ngữ cảnh mô hình thấy; thực thi có thể sau |
+| Skill dependency (Phụ thuộc skill) | "Import skill khác" | Cạnh gọi qua runtime với kiểm tra sẵn có và chính sách |
+| Tool contract (Hợp đồng công cụ) | "Lược đồ hàm" | Đầu vào, đầu ra, quyền, tác dụng phụ, lỗi và bằng chứng cho khả năng |
 
 ## Further Reading
 
-- [Agent Skills specification](https://agentskills.io/specification) for the portable directory and frontmatter contract.
-- [Agent Skills best practices](https://agentskills.io/skill-creation/best-practices) for scope, instructions, and resource organization.
-- [OpenAI: Build skills](https://learn.chatgpt.com/docs/build-skills) for current Codex discovery and invocation behavior.
-- [Claude Code skills](https://code.claude.com/docs/en/skills) for one runtime's invocation, argument, tool, and delegated-context extensions.
+- [Agent Skills specification](https://agentskills.io/specification) cho hợp đồng thư mục và frontmatter có thể chuyển.
+- [Agent Skills best practices](https://agentskills.io/skill-creation/best-practices) cho phạm vi, chỉ dẫn và tổ chức tài nguyên.
+- [OpenAI: Build skills](https://learn.chatgpt.com/docs/build-skills) cho hành vi khám phá và gọi Codex hiện tại.
+- [Claude Code skills](https://code.claude.com/docs/en/skills) cho phần mở rộng gọi, đối số, công cụ và ngữ cảnh ủy nhiệm của một runtime.

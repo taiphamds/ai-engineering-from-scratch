@@ -1,15 +1,15 @@
 # Portable contract checklist
 
-- The bundle is a directory containing a regular `SKILL.md` file.
-- Frontmatter starts on the first line and has a closing delimiter.
-- `name` is present, no longer than 64 characters, and uses lowercase letters, digits, and single hyphens.
-- `name` matches the bundle directory.
-- `description` is present, no longer than 1024 characters, and states when the skill is useful.
-- Optional `compatibility` contains 1 to 500 characters when present.
-- Optional `metadata` maps string keys to string values.
-- Optional experimental `allowed-tools` is a non-empty space-separated string whose behavior is verified in the target host.
-- Unknown runtime fields are separated from the portable package contract and handled by an explicit adapter.
-- The Markdown body contains the procedure.
-- Optional portable metadata and host-specific extensions remain distinguishable.
+- Bundle là thư mục chứa file `SKILL.md` thông thường.
+- Frontmatter bắt đầu dòng đầu và có dấu phân cách đóng.
+- Có `name`, không dài quá 64 ký tự và dùng chữ thường, chữ số và gạch nối đơn.
+- `name` khớp thư mục bundle.
+- Có `description`, không dài quá 1024 ký tự và nêu khi nào skill hữu ích.
+- `compatibility` tùy chọn chứa 1 đến 500 ký tự khi có.
+- `metadata` tùy chọn ánh xạ khóa chuỗi sang giá trị chuỗi.
+- `allowed-tools` thử nghiệm tùy chọn là chuỗi phân cách khoảng trắng không rỗng có hành vi xác minh trong host đích.
+- Trường runtime không biết được tách khỏi hợp đồng gói có thể chuyển và xử lý bằng adapter tường minh.
+- Phần thân Markdown chứa thủ tục.
+- Siêu dữ liệu có thể chuyển tùy chọn và phần mở rộng riêng host vẫn phân biệt được.
 
-Passing this checklist makes the package structurally loadable. It does not grant filesystem, network, secret, subprocess, or tool authority.
+Qua danh sách này làm gói tải được về cấu trúc. Không cấp thẩm quyền hệ thống file, mạng, bí mật, tiến trình con hoặc công cụ.
