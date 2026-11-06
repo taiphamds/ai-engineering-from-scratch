@@ -1,6 +1,6 @@
 # Scaling: Distributed Training, FSDP, DeepSpeed
 
-> Your 124M model trained on one GPU. Now try 7 billion parameters. The model doesn't fit in memory. The data takes weeks on a single machine. Distributed training isn't optional at scale. It's the only path forward.
+> Mô hình 124M của bạn huấn luyện trên một GPU. Giờ thử 7 tỷ tham số. Mô hình không vừa bộ nhớ. Dữ liệu mất nhiều tuần trên một máy. Huấn luyện phân tán không tùy chọn ở quy mô lớn. Nó là con đường duy nhất phía trước.
 
 **Type:** Build
 **Languages:** Python
@@ -9,51 +9,51 @@
 
 ## Learning Objectives
 
-- Explain the three types of parallelism (data, tensor, pipeline) and when each is necessary based on model and cluster size
-- Implement data-parallel training using PyTorch DDP with gradient synchronization across multiple GPUs
-- Calculate the memory budget for a given model size (weights + optimizer states + gradients + activations) to determine the minimum hardware
-- Configure FSDP or DeepSpeed ZeRO stages to shard model states across GPUs and fit models that exceed single-GPU memory
+- Giải thích ba loại song song hóa (dữ liệu, tensor, pipeline) và khi nào cần mỗi loại dựa trên kích thước mô hình và cụm
+- Triển khai huấn luyện song song dữ liệu bằng PyTorch DDP với đồng bộ gradient xuyên nhiều GPU
+- Tính ngân sách bộ nhớ cho một kích thước mô hình cho trước (trọng số + trạng thái optimizer + gradient + activation) để xác định phần cứng tối thiểu
+- Cấu hình FSDP hoặc các giai đoạn DeepSpeed ZeRO để phân mảnh trạng thái mô hình trên GPU và chứa các mô hình vượt bộ nhớ một GPU
 
 ## The Problem
 
-A 7B parameter model in FP16 needs 14GB just for the weights. Adam optimizer stores two additional copies of every parameter (first and second moment estimates). That is another 28GB. Gradients during backpropagation add 14GB more. You are at 56GB before a single activation is stored.
+Một mô hình 7B tham số ở FP16 cần 14GB chỉ cho trọng số. Optimizer Adam lưu thêm hai bản sao của mỗi tham số (ước lượng moment bậc nhất và bậc hai). Đó là thêm 28GB. Gradient trong lan truyền ngược thêm 14GB nữa. Bạn đã ở 56GB trước khi lưu một activation nào.
 
-An NVIDIA A100 has 80GB of memory.
+Một NVIDIA A100 có 80GB bộ nhớ.
 
-56GB out of 80GB consumed. That leaves 24GB for activations -- the intermediate values computed during the forward pass that must be kept alive for backpropagation. For a 2048-token sequence with a 4096-dimensional model, a single layer's activations use about 64MB. With 32 layers, you need 2GB per sample. A batch size of 8 requires 16GB. You have 24GB. A batch size of 12 blows up.
+56GB trong 80GB đã tiêu thụ. Còn 24GB cho activation -- các giá trị trung gian tính trong truyền xuôi phải được giữ cho lan truyền ngược. Với một chuỗi 2048 token có mô hình 4096 chiều, activation một lớp dùng khoảng 64MB. Với 32 lớp, bạn cần 2GB mỗi mẫu. Kích thước batch 8 cần 16GB. Bạn có 24GB. Kích thước batch 12 bùng nổ.
 
-Now try 70B parameters. Weights alone: 140GB in FP16. Does not fit on one GPU. You need at least 2 A100s (2 x 80GB = 160GB) just to hold the weights. Add optimizer states and gradients and you need far more: 3+ GPUs minimum, and realistically 8-16 depending on sharding strategy.
+Giờ thử 70B tham số. Riêng trọng số: 140GB ở FP16. Không vừa trên một GPU. Bạn cần ít nhất 2 A100 (2 x 80GB = 160GB) chỉ để giữ trọng số. Thêm trạng thái optimizer và gradient thì cần nhiều hơn xa: tối thiểu 3+ GPU, và thực tế 8-16 tùy chiến lược phân mảnh.
 
-Llama 3 405B was trained on 16,384 NVIDIA H100 GPUs. The training run cost an estimated $100 million in compute. DeepSeek V3 trained a comparable model for roughly $5.6 million by being clever about architecture (Mixture of Experts means only a fraction of parameters activate per token) and training efficiency.
+Llama 3 405B được huấn luyện trên 16,384 GPU NVIDIA H100. Lần huấn luyện tốn ước tính $100 triệu tính toán. DeepSeek V3 huấn luyện một mô hình tương đương với khoảng $5.6 triệu nhờ thông minh về kiến trúc (Mixture of Experts nghĩa là chỉ một phần tham số kích hoạt mỗi token) và hiệu quả huấn luyện.
 
-This lesson covers the four strategies that make large-scale training possible: data parallelism, tensor parallelism, pipeline parallelism, and fully sharded data parallelism. You will simulate each one in pure Python to understand the mechanics before ever touching a distributed training framework.
+Bài học này trình bày bốn chiến lược làm huấn luyện quy mô lớn khả thi: song song dữ liệu, song song tensor, song song pipeline và song song dữ liệu phân mảnh hoàn toàn. Bạn sẽ mô phỏng mỗi cách bằng Python thuần để hiểu cơ chế trước khi chạm vào một framework huấn luyện phân tán.
 
 ## The Concept
 
 ### Why Distribution is Required
 
-Here is the memory math for real models. Every number is calculated, not estimated.
+Đây là toán bộ nhớ cho các mô hình thực. Mỗi con số được tính, không phải ước lượng.
 
-| Model | Params | Weights (FP16) | Adam States | Gradients (FP16) | Total (no activations) |
+| Mô hình | Tham số | Trọng số (FP16) | Trạng thái Adam | Gradient (FP16) | Tổng (không activation) |
 |-------|--------|----------------|-------------|------------------|----------------------|
 | GPT-2 Small | 124M | 248 MB | 992 MB | 248 MB | 1.5 GB |
 | Llama 3 8B | 8B | 16 GB | 64 GB | 16 GB | 96 GB |
 | Llama 3 70B | 70B | 140 GB | 560 GB | 140 GB | 840 GB |
 | Llama 3 405B | 405B | 810 GB | 3,240 GB | 810 GB | 4,860 GB |
 
-The "Adam States" column is the killer. Adam stores a running mean (m) and a running variance (v) for every parameter, both in FP32. For a 70B model, that is 70B x 4 bytes x 2 = 560GB. The optimizer alone needs seven A100s.
+Cột "Trạng thái Adam" là sát thủ. Adam lưu một trung bình tích lũy (m) và một phương sai tích lũy (v) cho mỗi tham số, cả hai ở FP32. Với mô hình 70B, đó là 70B x 4 byte x 2 = 560GB. Riêng optimizer cần bảy A100.
 
-A single H100 has 80GB. Llama 3 405B needs at least 61 H100s to hold the weights, optimizer, and gradients. Add activations and the number grows further. Meta used 16,384 GPUs not because they wanted to -- because they had to.
+Một H100 có 80GB. Llama 3 405B cần ít nhất 61 H100 để giữ trọng số, optimizer và gradient. Thêm activation và con số tăng nữa. Meta dùng 16,384 GPU không phải vì họ muốn -- vì họ phải làm thế.
 
 ### Data Parallelism
 
-The simplest distributed strategy. Copy the entire model to N GPUs. Split each training batch into N equal parts. Each GPU runs a forward and backward pass on its shard of the data. After the backward pass, average the gradients across all GPUs. Every GPU updates its copy of the weights with the same averaged gradients, keeping all copies in sync.
+Chiến lược phân tán đơn giản nhất. Sao chép toàn bộ mô hình sang N GPU. Chia mỗi batch huấn luyện thành N phần bằng nhau. Mỗi GPU chạy truyền xuôi và truyền ngược trên mảnh dữ liệu của nó. Sau truyền ngược, lấy trung bình gradient trên mọi GPU. Mỗi GPU cập nhật bản sao trọng số bằng cùng gradient trung bình, giữ mọi bản sao đồng bộ.
 
-**The good:** Linear throughput scaling. N GPUs process N times more data per step. Communication is limited to gradient averaging, which overlaps with computation.
+**Điểm tốt:** Mở rộng thông lượng tuyến tính. N GPU xử lý gấp N dữ liệu mỗi bước. Giao tiếp giới hạn ở lấy trung bình gradient, chồng lấp với tính toán.
 
-**The bad:** Every GPU holds a complete copy of the model, optimizer states, and gradients. For a 70B model, each GPU needs 840GB. Data parallelism does nothing to reduce per-GPU memory. It only reduces training time.
+**Điểm xấu:** Mỗi GPU giữ một bản sao đầy đủ của mô hình, trạng thái optimizer và gradient. Với mô hình 70B, mỗi GPU cần 840GB. Song song dữ liệu không làm gì để giảm bộ nhớ mỗi GPU. Nó chỉ giảm thời gian huấn luyện.
 
-**The math:** Effective batch size = per_gpu_batch_size x N. For N=64 GPUs with per-GPU batch of 16, the effective batch is 1,024. Llama 3 used an effective batch size of 16 million tokens per step.
+**Toán học:** Kích thước batch hiệu dụng = per_gpu_batch_size x N. Với N=64 GPU có batch mỗi GPU 16, batch hiệu dụng là 1,024. Llama 3 dùng kích thước batch hiệu dụng 16 triệu token mỗi bước.
 
 ```mermaid
 graph TD
@@ -81,44 +81,44 @@ graph TD
 
 ### Tensor Parallelism
 
-Split individual layers across GPUs. A single matrix multiplication is divided among GPUs, each computing part of the result.
+Chia các lớp riêng lẻ trên GPU. Một phép nhân ma trận được chia cho các GPU, mỗi GPU tính một phần kết quả.
 
-Consider a weight matrix of shape (8192, 8192) in a feedforward layer. With 4-way tensor parallelism, each GPU holds a (8192, 2048) shard. Each GPU multiplies the input by its shard, producing a partial result. The partial results are combined (via all-reduce or all-gather) to produce the full output.
+Xét một ma trận trọng số hình dạng (8192, 8192) trong một lớp feedforward. Với song song tensor 4 chiều, mỗi GPU giữ một mảnh (8192, 2048). Mỗi GPU nhân đầu vào với mảnh của nó, tạo một kết quả bộ phận. Các kết quả bộ phận được kết hợp (qua all-reduce hoặc all-gather) để tạo đầu ra đầy đủ.
 
-**The good:** Reduces per-GPU memory for model weights. A 70B model split across 8 GPUs means each GPU holds ~8.75B parameters worth of weights.
+**Điểm tốt:** Giảm bộ nhớ mỗi GPU cho trọng số mô hình. Một mô hình 70B chia trên 8 GPU nghĩa là mỗi GPU giữ lượng trọng số tương ứng ~8.75B tham số.
 
-**The bad:** Requires fast inter-GPU communication after every layer. The all-reduce after each matmul adds latency. This works well with NVLink (900 GB/s between GPUs on the same node) but poorly across nodes connected by InfiniBand (400 Gb/s, about 50 GB/s). Tensor parallelism is almost always limited to within a single node (8 GPUs).
+**Điểm xấu:** Đòi hỏi giao tiếp nhanh giữa GPU sau mỗi lớp. All-reduce sau mỗi phép nhân ma trận thêm độ trễ. Điều này hoạt động tốt với NVLink (900 GB/s giữa GPU cùng node) nhưng kém xuyên các node nối bằng InfiniBand (400 Gb/s, khoảng 50 GB/s). Song song tensor hầu như luôn giới hạn trong một node (8 GPU).
 
-**Real usage:** Megatron-LM pioneered tensor parallelism. Llama 3 405B uses 8-way tensor parallelism within each node.
+**Sử dụng thực:** Megatron-LM tiên phong song song tensor. Llama 3 405B dùng song song tensor 8 chiều trong mỗi node.
 
 ### Pipeline Parallelism
 
-Split the model by layers. GPU 1 runs layers 1-8. GPU 2 runs layers 9-16. GPU 3 runs layers 17-24. GPU 4 runs layers 25-32. Data flows through the pipeline: GPU 1 computes its layers and sends activations to GPU 2, which computes its layers and sends to GPU 3, and so on.
+Chia mô hình theo lớp. GPU 1 chạy lớp 1-8. GPU 2 chạy lớp 9-16. GPU 3 chạy lớp 17-24. GPU 4 chạy lớp 25-32. Dữ liệu truyền qua pipeline: GPU 1 tính các lớp của nó và gửi activation đến GPU 2, GPU 2 tính các lớp của nó và gửi đến GPU 3, v.v.
 
-**The good:** Minimal communication between GPUs -- just the activations at layer boundaries, which are small compared to gradients or weights. Works across nodes because bandwidth requirements are low.
+**Điểm tốt:** Giao tiếp tối thiểu giữa GPU -- chỉ activation tại ranh giới lớp, nhỏ so với gradient hoặc trọng số. Hoạt động xuyên node vì yêu cầu băng thông thấp.
 
-**The bad:** Pipeline bubbles. When GPU 4 is computing the forward pass on micro-batch 1, GPUs 1, 2, and 3 are idle (they have already forwarded their portion). During backward pass, the pattern reverses. With naive pipelining, GPU utilization is only 1/N for N pipeline stages.
+**Điểm xấu:** Bong bóng pipeline. Khi GPU 4 đang tính truyền xuôi trên micro-batch 1, GPU 1, 2 và 3 nhàn rỗi (chúng đã truyền xuôi phần mình). Trong truyền ngược, mô thức đảo lại. Với pipeline đơn giản, mức sử dụng GPU chỉ là 1/N cho N giai đoạn pipeline.
 
-**GPipe and PipeDream** solve the bubble problem by splitting the batch into micro-batches. GPU 1 starts on micro-batch 2 as soon as it finishes forwarding micro-batch 1. This overlaps computation across pipeline stages. With M micro-batches and N stages, the bubble fraction drops to (N-1)/M. Use M=16 micro-batches with N=4 stages and the bubble is 3/16 = 18.75% idle time.
+**GPipe và PipeDream** giải bài toán bong bóng bằng cách chia batch thành micro-batch. GPU 1 bắt đầu micro-batch 2 ngay khi xong truyền xuôi micro-batch 1. Điều này chồng lấp tính toán xuyên các giai đoạn pipeline. Với M micro-batch và N giai đoạn, tỷ lệ bong bóng giảm về (N-1)/M. Dùng M=16 micro-batch với N=4 giai đoạn và bong bóng là 3/16 = 18.75% thời gian nhàn rỗi.
 
 ### FSDP: Fully Sharded Data Parallel
 
-FSDP combines the scalability of data parallelism with the memory efficiency of sharding. Instead of each GPU holding a complete copy of the model, each GPU holds only 1/N of the parameters, gradients, and optimizer states.
+FSDP kết hợp khả năng mở rộng của song song dữ liệu với hiệu quả bộ nhớ của phân mảnh. Thay vì mỗi GPU giữ một bản sao mô hình đầy đủ, mỗi GPU chỉ giữ 1/N tham số, gradient và trạng thái optimizer.
 
-Before a layer's forward pass, FSDP runs an **all-gather** to collect the full parameters from all GPUs into each GPU's memory. After the forward pass, each GPU discards the non-local parameters. During backward, the all-gather runs again to reconstruct parameters for gradient computation. After the backward pass, a **reduce-scatter** distributes gradient shards so each GPU only stores 1/N of the gradients.
+Trước truyền xuôi của một lớp, FSDP chạy một **all-gather** để thu thập tham số đầy đủ từ mọi GPU vào bộ nhớ mỗi GPU. Sau truyền xuôi, mỗi GPU loại các tham số không cục bộ. Trong truyền ngược, all-gather chạy lại để tái dựng tham số cho tính gradient. Sau truyền ngược, một **reduce-scatter** phân phối các mảnh gradient để mỗi GPU chỉ lưu 1/N gradient.
 
-**The math for a 70B model on 8 GPUs:**
+**Toán học cho một mô hình 70B trên 8 GPU:**
 
-| Component | Without FSDP | With FSDP |
+| Thành phần | Không FSDP | Có FSDP |
 |-----------|-------------|-----------|
-| Weights (FP16) | 140 GB per GPU | 17.5 GB per GPU |
-| Adam States (FP32) | 560 GB per GPU | 70 GB per GPU |
-| Gradients (FP16) | 140 GB per GPU | 17.5 GB per GPU |
-| **Total** | **840 GB per GPU** | **105 GB per GPU** |
+| Trọng số (FP16) | 140 GB mỗi GPU | 17.5 GB mỗi GPU |
+| Trạng thái Adam (FP32) | 560 GB mỗi GPU | 70 GB mỗi GPU |
+| Gradient (FP16) | 140 GB mỗi GPU | 17.5 GB mỗi GPU |
+| **Tổng** | **840 GB mỗi GPU** | **105 GB mỗi GPU** |
 
-Without FSDP, you cannot fit a 70B model on a single 80GB GPU. With FSDP on 8 GPUs, each GPU uses 105GB -- wait, that still does not fit. You need at least 16 GPUs to get under 80GB per GPU, or you combine FSDP with activation checkpointing (recompute activations during backward instead of storing them).
+Không FSDP, bạn không thể chứa một mô hình 70B trên một GPU 80GB. Với FSDP trên 8 GPU, mỗi GPU dùng 105GB -- khoan, vẫn không vừa. Bạn cần ít nhất 16 GPU để xuống dưới 80GB mỗi GPU, hoặc kết hợp FSDP với activation checkpointing (tính lại activation trong truyền ngược thay vì lưu chúng).
 
-The communication cost is higher than vanilla data parallelism because of the all-gather before each layer. But the memory savings make previously impossible training runs possible.
+Chi phí giao tiếp cao hơn song song dữ liệu nguyên bản vì all-gather trước mỗi lớp. Nhưng tiết kiệm bộ nhớ làm các lần huấn luyện trước đó bất khả thi trở nên khả thi.
 
 ```mermaid
 graph TD
@@ -166,55 +166,55 @@ graph TD
 
 ### DeepSpeed ZeRO
 
-DeepSpeed's ZeRO (Zero Redundancy Optimizer) is conceptually identical to FSDP but was developed independently by Microsoft. It defines three stages, each sharding more aggressively:
+ZeRO (Zero Redundancy Optimizer) của DeepSpeed giống FSDP về khái niệm nhưng được Microsoft phát triển độc lập. Nó định nghĩa ba giai đoạn, mỗi giai đoạn phân mảnh mạnh hơn:
 
-| Stage | Shards | Memory Savings | Communication |
+| Giai đoạn | Phân mảnh | Tiết kiệm bộ nhớ | Giao tiếp |
 |-------|--------|---------------|---------------|
-| ZeRO-1 | Optimizer states only | ~4x reduction | Same as data parallel |
-| ZeRO-2 | + Gradients | ~8x reduction | Slightly more |
-| ZeRO-3 | + Parameters | ~Nx reduction (N GPUs) | All-gather per layer |
+| ZeRO-1 | Chỉ trạng thái optimizer | Giảm ~4x | Giống song song dữ liệu |
+| ZeRO-2 | + Gradient | Giảm ~8x | Nhiều hơn một chút |
+| ZeRO-3 | + Tham số | Giảm ~Nx (N GPU) | All-gather mỗi lớp |
 
-ZeRO-3 is equivalent to FSDP. The naming is different, the mechanism is the same. PyTorch added FSDP as a native implementation after DeepSpeed proved the concept.
+ZeRO-3 tương đương FSDP. Tên khác, cơ chế giống nhau. PyTorch thêm FSDP như một triển khai gốc sau khi DeepSpeed chứng minh khái niệm.
 
-DeepSpeed also introduced ZeRO-Offload (offload optimizer states to CPU RAM, which is cheaper and larger) and ZeRO-Infinity (offload to NVMe SSDs). These trade compute speed for memory capacity -- the offloaded operations are slower but free up GPU memory.
+DeepSpeed cũng giới thiệu ZeRO-Offload (offload trạng thái optimizer sang RAM CPU, rẻ hơn và lớn hơn) và ZeRO-Infinity (offload sang SSD NVMe). Chúng đánh đổi tốc độ tính toán lấy dung lượng bộ nhớ -- các phép toán được offload chậm hơn nhưng giải phóng bộ nhớ GPU.
 
 ### Mixed Precision Training
 
-Modern training uses multiple floating-point formats simultaneously:
+Huấn luyện hiện đại dùng đồng thời nhiều định dạng dấu phẩy động:
 
-- **Forward pass**: FP16 or BF16 (16-bit). Half the memory of FP32. Matmuls run 2x faster on tensor cores.
-- **Master weights**: FP32 (32-bit). Maintained by the optimizer for numerical precision during weight updates.
-- **Loss scaling**: Multiply the loss by a large constant before backward pass to prevent FP16 gradients from underflowing to zero. Divide by the same constant before the optimizer step.
+- **Truyền xuôi**: FP16 hoặc BF16 (16-bit). Nửa bộ nhớ FP32. Phép nhân ma trận chạy nhanh gấp 2x trên tensor core.
+- **Trọng số chính**: FP32 (32-bit). Được optimizer duy trì cho độ chính xác số trong cập nhật trọng số.
+- **Co giãn mất mát**: Nhân mất mát với một hằng số lớn trước truyền ngược để ngăn gradient FP16 hụt xuống không. Chia cho cùng hằng số trước bước optimizer.
 
-BF16 (Brain Float 16) has the same exponent range as FP32 (8 exponent bits) but reduced precision (7 mantissa bits vs FP32's 23). It rarely needs loss scaling because it can represent the same range of values. FP16 has 5 exponent bits and 10 mantissa bits -- it can represent fine-grained values but overflows/underflows at extreme magnitudes.
+BF16 (Brain Float 16) có cùng phạm vi số mũ như FP32 (8 bit số mũ) nhưng độ chính xác giảm (7 bit phần định trị so với 23 của FP32). Nó hiếm khi cần co giãn mất mát vì có thể biểu diễn cùng phạm vi giá trị. FP16 có 5 bit số mũ và 10 bit phần định trị -- nó có thể biểu diễn giá trị chi tiết nhưng tràn/hụt ở độ lớn cực đoan.
 
-Google's TPUs use BF16 natively. NVIDIA's A100 and H100 support both FP16 and BF16. The industry has largely moved to BF16 because it eliminates loss scaling headaches.
+TPU của Google dùng BF16 nguyên bản. A100 và H100 của NVIDIA hỗ trợ cả FP16 và BF16. Ngành phần lớn chuyển sang BF16 vì loại những đau đầu về co giãn mất mát.
 
-**Memory comparison for a 7B model:**
+**So sánh bộ nhớ cho một mô hình 7B:**
 
-| Precision | Weights | Optimizer | Gradients | Total |
+| Độ chính xác | Trọng số | Optimizer | Gradient | Tổng |
 |-----------|---------|-----------|-----------|-------|
-| FP32 everywhere | 28 GB | 56 GB | 28 GB | 112 GB |
-| Mixed (BF16 + FP32 master) | 14 GB | 56 GB | 14 GB | 84 GB |
+| FP32 khắp nơi | 28 GB | 56 GB | 28 GB | 112 GB |
+| Hỗn hợp (BF16 + trọng số chính FP32) | 14 GB | 56 GB | 14 GB | 84 GB |
 
-Mixed precision saves 28GB on this model. The optimizer states stay in FP32 regardless -- this is where most of the memory goes.
+Độ chính xác hỗn hợp tiết kiệm 28GB trên mô hình này. Trạng thái optimizer vẫn ở FP32 bất kể thế nào -- đây là nơi hầu hết bộ nhớ đi vào.
 
 ### Megatron-LM and 3D Parallelism
 
-Real large-scale training combines all three parallelisms:
+Huấn luyện quy mô lớn thực kết hợp cả ba cách song song hóa:
 
-- **Data parallelism** across groups of nodes (scale batch size)
-- **Tensor parallelism** within a node (split layers across 8 GPUs)
-- **Pipeline parallelism** across nodes (split layer groups across machines)
+- **Song song dữ liệu** xuyên các nhóm node (mở rộng kích thước batch)
+- **Song song tensor** trong một node (chia lớp trên 8 GPU)
+- **Song song pipeline** xuyên node (chia các nhóm lớp trên nhiều máy)
 
-Llama 3 405B on 16,384 H100s:
-- 8-way tensor parallelism within each node (8 GPUs per node)
-- 16-way pipeline parallelism across nodes (16 pipeline stages)
-- 128-way data parallelism across the remaining dimension (16,384 / 8 / 16 = 128)
+Llama 3 405B trên 16,384 H100:
+- Song song tensor 8 chiều trong mỗi node (8 GPU mỗi node)
+- Song song pipeline 16 chiều xuyên node (16 giai đoạn pipeline)
+- Song song dữ liệu 128 chiều trên chiều còn lại (16,384 / 8 / 16 = 128)
 
-This 3D decomposition (8 x 16 x 128 = 16,384) is how you scale to thousands of GPUs. Each GPU sees a different data shard (data parallel), holds one slice of each layer (tensor parallel), and computes a different set of layers (pipeline parallel).
+Phân rã 3D này (8 x 16 x 128 = 16,384) là cách bạn mở rộng đến hàng nghìn GPU. Mỗi GPU thấy một mảnh dữ liệu khác (song song dữ liệu), giữ một lát của mỗi lớp (song song tensor), và tính một tập lớp khác (song song pipeline).
 
-DeepSeek V3 took a different approach. Their Mixture of Experts architecture activates only 37B out of 671B parameters per token. This means each GPU only needs to compute (and store activations for) the active parameters. They trained on 2,048 H800 GPUs -- less than 1/8 of Meta's GPU count -- for $5.6M vs Meta's estimated $100M.
+DeepSeek V3 đi theo cách khác. Kiến trúc Mixture of Experts của họ chỉ kích hoạt 37B trong 671B tham số mỗi token. Điều này nghĩa là mỗi GPU chỉ cần tính (và lưu activation cho) các tham số hoạt động. Họ huấn luyện trên 2,048 GPU H800 -- ít hơn 1/8 số GPU của Meta -- với $5.6M so với $100M ước tính của Meta.
 
 ```mermaid
 graph TD
@@ -247,7 +247,7 @@ paged-kv-cache
 
 ### Step 1: Simulate Data Parallelism
 
-Split a batch across simulated GPUs. Each GPU computes a forward pass on its shard. Average the "gradients" (we simulate them as the loss values).
+Chia một batch trên các GPU mô phỏng. Mỗi GPU tính truyền xuôi trên mảnh của nó. Lấy trung bình các "gradient" (chúng ta mô phỏng chúng bằng giá trị mất mát).
 
 ```python
 import numpy as np
@@ -276,11 +276,11 @@ def simulate_data_parallelism(data, num_gpus, model_fn):
     return avg_loss, avg_gradient
 ```
 
-The all-reduce operation (averaging gradients) is the only communication in data parallelism. In practice, this uses the NCCL library on NVIDIA GPUs, which implements ring all-reduce: each GPU sends 1/N of its gradients to its neighbor, receives 1/N from the other neighbor, and after N-1 steps every GPU has the complete average. Total communication volume: 2 x gradient_size x (N-1)/N, approaching 2x the gradient size for large N.
+Phép all-reduce (lấy trung bình gradient) là giao tiếp duy nhất trong song song dữ liệu. Trong thực tế, nó dùng thư viện NCCL trên GPU NVIDIA, triển khai ring all-reduce: mỗi GPU gửi 1/N gradient của nó cho hàng xóm, nhận 1/N từ hàng xóm kia, và sau N-1 bước mọi GPU có trung bình đầy đủ. Tổng lượng giao tiếp: 2 x gradient_size x (N-1)/N, tiến tới 2x kích thước gradient khi N lớn.
 
 ### Step 2: Simulate Tensor Parallelism
 
-Split a weight matrix across GPUs. Each GPU computes a partial matrix multiplication. Combine the results.
+Chia một ma trận trọng số trên GPU. Mỗi GPU tính một phép nhân ma trận bộ phận. Kết hợp kết quả.
 
 ```python
 def simulate_tensor_parallelism(input_data, weight_matrix, num_gpus):
@@ -305,13 +305,13 @@ def simulate_tensor_parallelism(input_data, weight_matrix, num_gpus):
     return full_output, error
 ```
 
-The error should be exactly zero (or machine epsilon). Tensor parallelism is mathematically exact -- it produces the same result as computing the full matmul on one GPU. The split is along the output dimension, so each GPU produces a different chunk of columns, and concatenation reconstructs the full result.
+Sai số nên chính xác bằng không (hoặc epsilon máy). Song song tensor chính xác về toán học -- nó tạo cùng kết quả như tính toàn bộ phép nhân ma trận trên một GPU. Việc chia theo chiều đầu ra, nên mỗi GPU tạo một khối cột khác nhau, và nối tái dựng kết quả đầy đủ.
 
-For column-parallel linear layers (splitting the output dimension), you concatenate. For row-parallel (splitting the input dimension), you sum. In a transformer FFN, the first linear (expand) uses column-parallel and the second linear (contract) uses row-parallel. This avoids an all-reduce between the two layers.
+Với lớp tuyến tính song song cột (chia chiều đầu ra), bạn nối. Với song song hàng (chia chiều đầu vào), bạn cộng. Trong FFN transformer, lớp tuyến tính đầu (mở rộng) dùng song song cột và lớp tuyến tính thứ hai (co lại) dùng song song hàng. Điều này tránh all-reduce giữa hai lớp.
 
 ### Step 3: Simulate Pipeline Parallelism
 
-Split a model's layers across virtual GPUs. Show the bubble problem where early stages sit idle while later stages compute.
+Chia các lớp mô hình trên GPU ảo. Cho thấy bài toán bong bóng nơi giai đoạn sớm nhàn rỗi trong khi giai đoạn muộn tính toán.
 
 ```python
 def simulate_pipeline_parallelism(num_layers, num_stages, num_microbatches):
@@ -349,11 +349,11 @@ def simulate_pipeline_parallelism(num_layers, num_stages, num_microbatches):
     return timeline, total_time, bubble_fraction
 ```
 
-With 4 stages and 1 micro-batch, the bubble fraction is 75% -- three out of four GPUs idle at any time. With 16 micro-batches, it drops to about 19%. The cost of eliminating bubbles is memory: you must store activations for all in-flight micro-batches simultaneously.
+Với 4 giai đoạn và 1 micro-batch, tỷ lệ bong bóng là 75% -- ba trong bốn GPU nhàn rỗi ở mọi thời điểm. Với 16 micro-batch, nó giảm xuống khoảng 19%. Cái giá loại bong bóng là bộ nhớ: bạn phải lưu activation cho mọi micro-batch đang xử lý đồng thời.
 
 ### Step 4: Memory Calculator
 
-Compute the exact memory requirements for training any model size.
+Tính yêu cầu bộ nhớ chính xác để huấn luyện bất kỳ kích thước mô hình nào.
 
 ```python
 def memory_calculator(
@@ -416,11 +416,11 @@ def memory_calculator(
     }
 ```
 
-This calculator answers the question every ML engineer asks: "How many GPUs do I need?" Feed it the model size and see whether it fits. Adjust sharding strategy until the per-GPU total drops below 80GB.
+Bộ tính này trả lời câu hỏi mọi kỹ sư ML hỏi: "Tôi cần bao nhiêu GPU?" Đưa kích thước mô hình vào và xem nó có vừa không. Điều chỉnh chiến lược phân mảnh cho đến khi tổng mỗi GPU giảm dưới 80GB.
 
 ### Step 5: Mixed Precision Simulation
 
-Compare memory usage between FP32, FP16, and mixed precision training.
+So sánh sử dụng bộ nhớ giữa huấn luyện FP32, FP16 và độ chính xác hỗn hợp.
 
 ```python
 def mixed_precision_comparison(params_billions):
@@ -450,7 +450,7 @@ def mixed_precision_comparison(params_billions):
     }
 ```
 
-The biggest surprise for most people: mixed precision does not halve the memory. The optimizer states (Adam's m and v) stay in FP32 regardless of precision. For a 7B model, FP32 training uses 112GB. Mixed precision uses 84GB. That is a 25% reduction, not 50%. The optimizer dominates.
+Bất ngờ lớn nhất với hầu hết mọi người: độ chính xác hỗn hợp không giảm một nửa bộ nhớ. Các trạng thái optimizer (m và v của Adam) vẫn ở FP32 bất kể độ chính xác. Với mô hình 7B, huấn luyện FP32 dùng 112GB. Độ chính xác hỗn hợp dùng 84GB. Đó là giảm 25%, không phải 50%. Optimizer chi phối.
 
 ## Use It
 
@@ -533,40 +533,40 @@ def run_all_demos():
 
 ## Ship It
 
-This lesson produces `outputs/prompt-distributed-training-planner.md` -- a prompt that takes a model size and available hardware, then produces a complete distributed training plan: parallelism strategy, memory budget, communication overhead, and expected throughput.
+Bài học này tạo ra `outputs/prompt-distributed-training-planner.md` -- một prompt nhận kích thước mô hình và phần cứng sẵn có, rồi tạo một kế hoạch huấn luyện phân tán đầy đủ: chiến lược song song hóa, ngân sách bộ nhớ, chi phí giao tiếp và thông lượng kỳ vọng.
 
 ## Exercises
 
-1. Modify the memory calculator to include activation checkpointing. With checkpointing, only store activations at every K-th layer (typical K=1, meaning recompute all). Show the memory-compute tradeoff: how much memory does checkpointing save, and how much does it slow down training (roughly 33% more compute for full checkpointing)?
+1. Sửa bộ tính bộ nhớ để bao gồm activation checkpointing. Với checkpointing, chỉ lưu activation ở mỗi lớp thứ K (thường K=1, nghĩa là tính lại tất cả). Cho thấy đánh đổi bộ nhớ-tính toán: checkpointing tiết kiệm bao nhiêu bộ nhớ, và làm chậm huấn luyện bao nhiêu (khoảng thêm 33% tính toán cho checkpointing đầy đủ)?
 
-2. Extend the pipeline parallelism simulation to implement the 1F1B (one forward, one backward) schedule used by PipeDream. Compare the bubble fraction against the naive schedule for 4 stages and 8 micro-batches. The 1F1B schedule should have a smaller peak memory because it starts backward passes earlier.
+2. Mở rộng mô phỏng song song pipeline để triển khai lịch 1F1B (một truyền xuôi, một truyền ngược) được PipeDream dùng. So sánh tỷ lệ bong bóng với lịch đơn giản cho 4 giai đoạn và 8 micro-batch. Lịch 1F1B nên có bộ nhớ đỉnh nhỏ hơn vì bắt đầu truyền ngược sớm hơn.
 
-3. Implement a gradient accumulation simulator. Instead of all-reducing after every micro-batch, accumulate gradients locally for K steps, then all-reduce. Show how this reduces communication by K times but produces identical final gradients (and thus identical training).
+3. Triển khai một bộ mô phỏng tích lũy gradient. Thay vì all-reduce sau mỗi micro-batch, tích lũy gradient cục bộ K bước, rồi all-reduce. Cho thấy cách này giảm giao tiếp K lần nhưng tạo gradient cuối giống hệt (và do đó huấn luyện giống hệt).
 
-4. Build a cost estimator. Given a model size, target token count, GPU type (A100 at $2/hr, H100 at $3.50/hr), and parallelism strategy, estimate the total training cost in dollars. Validate against known costs: Llama 3 405B reportedly cost ~$100M, DeepSeek V3 cost ~$5.6M.
+4. Xây dựng một bộ ước tính chi phí. Với kích thước mô hình, số token mục tiêu, loại GPU (A100 ở $2/giờ, H100 ở $3.50/giờ) và chiến lược song song hóa cho trước, ước lượng tổng chi phí huấn luyện bằng đô la. Xác thực với chi phí đã biết: Llama 3 405B được báo cáo tốn ~$100M, DeepSeek V3 tốn ~$5.6M.
 
-5. Add ZeRO-Offload to the memory calculator. Assume CPU RAM is 512GB per node and NVMe is 2TB. Show how offloading optimizer states to CPU allows a 70B model to train on 4 GPUs instead of 16, at the cost of 30-50% slower optimizer steps.
+5. Thêm ZeRO-Offload vào bộ tính bộ nhớ. Giả định RAM CPU là 512GB mỗi node và NVMe là 2TB. Cho thấy offload trạng thái optimizer sang CPU cho phép huấn luyện mô hình 70B trên 4 GPU thay vì 16, với cái giá bước optimizer chậm hơn 30-50%.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Data parallelism | "Copy the model to every GPU" | Each GPU processes a different data shard; gradients are averaged via all-reduce after each step |
-| Tensor parallelism | "Split a layer across GPUs" | Partition weight matrices so each GPU computes part of the matmul; requires fast NVLink interconnect |
-| Pipeline parallelism | "Split layers across GPUs" | Each GPU runs a different group of layers; data flows through the pipeline with micro-batches to reduce bubbles |
-| FSDP | "Shard everything" | Fully Sharded Data Parallel -- each GPU holds 1/N of weights, gradients, and optimizer states; all-gather before compute |
-| ZeRO | "DeepSpeed's version of FSDP" | Zero Redundancy Optimizer with 3 stages: shard optimizer (Stage 1), + gradients (Stage 2), + parameters (Stage 3) |
-| All-reduce | "Average across GPUs" | Collective operation where every GPU ends with the sum (or average) of all GPUs' inputs -- typically implemented as ring all-reduce |
-| All-gather | "Collect from all GPUs" | Collective operation where every GPU ends with the concatenation of all GPUs' data -- used in FSDP to reconstruct full parameters |
-| Reduce-scatter | "Sum and distribute" | Collective operation that reduces (sums) data and scatters different chunks to different GPUs -- used in FSDP for gradient sharding |
-| Mixed precision | "Train in half precision" | Use FP16/BF16 for forward/backward and FP32 for optimizer states -- saves ~25% memory, not 50%, because the optimizer dominates |
-| Pipeline bubble | "Idle time in the pipeline" | Fraction of time GPUs sit idle waiting for data from the previous stage -- reduced by using more micro-batches |
+| Data parallelism (Song song dữ liệu) | "Sao chép mô hình sang mọi GPU" | Mỗi GPU xử lý một mảnh dữ liệu khác; gradient được lấy trung bình qua all-reduce sau mỗi bước |
+| Tensor parallelism (Song song tensor) | "Chia một lớp trên GPU" | Phân hoạch ma trận trọng số để mỗi GPU tính một phần phép nhân ma trận; cần kết nối NVLink nhanh |
+| Pipeline parallelism (Song song pipeline) | "Chia các lớp trên GPU" | Mỗi GPU chạy một nhóm lớp khác; dữ liệu truyền qua pipeline với micro-batch để giảm bong bóng |
+| FSDP | "Phân mảnh mọi thứ" | Song song dữ liệu phân mảnh hoàn toàn -- mỗi GPU giữ 1/N trọng số, gradient và trạng thái optimizer; all-gather trước tính toán |
+| ZeRO | "Phiên bản FSDP của DeepSpeed" | Zero Redundancy Optimizer với 3 giai đoạn: phân mảnh optimizer (Giai đoạn 1), + gradient (Giai đoạn 2), + tham số (Giai đoạn 3) |
+| All-reduce | "Lấy trung bình xuyên GPU" | Phép toán tập thể mà mỗi GPU kết thúc với tổng (hoặc trung bình) đầu vào của mọi GPU -- thường triển khai bằng ring all-reduce |
+| All-gather | "Thu thập từ mọi GPU" | Phép toán tập thể mà mỗi GPU kết thúc với phần nối dữ liệu của mọi GPU -- dùng trong FSDP để tái dựng tham số đầy đủ |
+| Reduce-scatter | "Cộng và phân phối" | Phép toán tập thể rút gọn (cộng) dữ liệu và phân tán các khối khác nhau sang GPU khác nhau -- dùng trong FSDP để phân mảnh gradient |
+| Mixed precision (Độ chính xác hỗn hợp) | "Huấn luyện ở nửa độ chính xác" | Dùng FP16/BF16 cho truyền xuôi/ngược và FP32 cho trạng thái optimizer -- tiết kiệm ~25% bộ nhớ, không phải 50%, vì optimizer chi phối |
+| Pipeline bubble (Bong bóng pipeline) | "Thời gian nhàn rỗi trong pipeline" | Tỷ lệ thời gian GPU nhàn rỗi đợi dữ liệu từ giai đoạn trước -- giảm bằng cách dùng nhiều micro-batch hơn |
 
 ## Further Reading
 
-- [Rajbhandari et al., 2020 -- "ZeRO: Memory Optimizations Toward Training Trillion Parameter Models"](https://arxiv.org/abs/1910.02054) -- the DeepSpeed ZeRO paper that defined the three sharding stages
-- [Shoeybi et al., 2020 -- "Megatron-LM: Training Multi-Billion Parameter Language Models Using Model Parallelism"](https://arxiv.org/abs/1909.08053) -- NVIDIA's tensor parallelism for transformers
-- [Narayanan et al., 2021 -- "Efficient Large-Scale Language Model Training on GPU Clusters Using Megatron-LM"](https://arxiv.org/abs/2104.04473) -- 3D parallelism combining data, tensor, and pipeline
-- [Zhao et al., 2023 -- "PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel"](https://arxiv.org/abs/2304.11277) -- PyTorch's native FSDP implementation
-- [Llama 3 Technical Report](https://arxiv.org/abs/2407.21783) -- 16,384 GPU training with 3D parallelism details
-- [DeepSeek-V3 Technical Report](https://arxiv.org/abs/2412.19437) -- how MoE architecture reduces training cost by an order of magnitude
+- [Rajbhandari et al., 2020 -- "ZeRO: Memory Optimizations Toward Training Trillion Parameter Models"](https://arxiv.org/abs/1910.02054) -- bài báo DeepSpeed ZeRO định nghĩa ba giai đoạn phân mảnh
+- [Shoeybi et al., 2020 -- "Megatron-LM: Training Multi-Billion Parameter Language Models Using Model Parallelism"](https://arxiv.org/abs/1909.08053) -- song song tensor cho transformer của NVIDIA
+- [Narayanan et al., 2021 -- "Efficient Large-Scale Language Model Training on GPU Clusters Using Megatron-LM"](https://arxiv.org/abs/2104.04473) -- song song 3D kết hợp dữ liệu, tensor và pipeline
+- [Zhao et al., 2023 -- "PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel"](https://arxiv.org/abs/2304.11277) -- triển khai FSDP gốc của PyTorch
+- [Llama 3 Technical Report](https://arxiv.org/abs/2407.21783) -- huấn luyện 16,384 GPU với chi tiết song song 3D
+- [DeepSeek-V3 Technical Report](https://arxiv.org/abs/2412.19437) -- cách kiến trúc MoE giảm chi phí huấn luyện một bậc độ lớn
