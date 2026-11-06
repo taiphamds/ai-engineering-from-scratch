@@ -8,14 +8,14 @@ metadata:
 
 # Skill catalog builder
 
-Use this skill when an agent host needs deterministic discovery across more than one skill directory.
+Dùng skill này khi host agent cần khám phá tất định qua hơn một thư mục skill.
 
-1. Read `references/discovery-contract.md`.
-2. Review the example host policy in `assets/scope-policy.json`; do not assume its order is universal.
-3. Run `python3 scripts/build_catalog.py project=PATH user=PATH` with scopes listed from highest to lowest precedence.
-4. Inspect the JSON `collisions` and `omitted` arrays before activating a skill.
-5. Load only the selected SKILL.md body. Load a direct reference only when that body names it.
+1. Đọc `references/discovery-contract.md`.
+2. Đánh giá chính sách host ví dụ trong `assets/scope-policy.json`; không giả định thứ tự phổ quát.
+3. Chạy `python3 scripts/build_catalog.py project=PATH user=PATH` với phạm vi liệt kê từ ưu tiên cao đến thấp.
+4. Kiểm tra mảng JSON `collisions` và `omitted` trước kích hoạt skill.
+5. Chỉ tải phần thân SKILL.md chọn. Chỉ tải tham chiếu trực tiếp khi phần thân nêu tên.
 
-Never execute a bundled script during discovery. Never choose an equal-precedence duplicate by incidental filesystem order.
+Không bao giờ thực thi script đi kèm lúc khám phá. Không bao giờ chọn bản trùng cùng ưu tiên theo thứ tự hệ thống file tình cờ.
 
-Return the catalog budget, selected entries, collision resolutions, and omissions.
+Trả ngân sách danh mục, mục chọn, giải quyết xung đột và bỏ sót.

@@ -1,6 +1,6 @@
 # Skill Discovery and Progressive Disclosure
 
-> A skill becomes useful before its body is loaded. Its name and description earn a place in the catalog; its deeper files earn context only when the task reaches them.
+> Skill trở nên hữu ích trước khi phần thân được tải. Tên và mô tả giành chỗ trong danh mục; file sâu hơn chỉ giành ngữ cảnh khi tác vụ đến chúng.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,65 +9,65 @@
 
 ## Learning Objectives
 
-- Build a filesystem discovery pipeline that separates scope, validation, collision policy, and catalog publication.
-- Explain the three disclosure levels: catalog metadata, active instructions, and task-specific resources.
-- Design references so an agent can reach required detail directly without loading the entire package.
-- Budget catalog space independently from active-skill context.
-- Reject path traversal and symlink escape when a skill reads its own resources.
+- Xây pipeline khám phá hệ thống file tách phạm vi, xác thực, chính sách xung đột và công bố danh mục.
+- Giải thích ba mức tiết lộ: siêu dữ liệu danh mục, chỉ dẫn đang kích hoạt và tài nguyên riêng tác vụ.
+- Thiết kế tham chiếu để agent đến chi tiết cần trực tiếp không tải toàn gói.
+- Lập ngân sách không gian danh mục độc lập ngữ cảnh skill đang kích hoạt.
+- Từ chối duyệt đường dẫn và thoát symlink khi skill đọc tài nguyên riêng.
 
 ## The Problem
 
-Your agent has 200 installed skills. Loading every `SKILL.md`, reference file, script, and template at session start would bury the current task in unrelated procedure. Loading nothing would force the user to remember exact filesystem paths.
+Agent có 200 skill đã cài. Tải mọi `SKILL.md`, file tham chiếu, script và mẫu lúc bắt đầu phiên sẽ chôn tác vụ hiện tại trong thủ tục không liên quan. Không tải gì buộc người dùng nhớ đúng đường dẫn hệ thống file.
 
-The usual compromise is a catalog: show the model a compact identity and routing description for each eligible skill, then load the full body only after selection. That creates two new engineering problems.
+Thỏa hiệp thường là danh mục: cho mô hình danh tính gọn và mô tả định tuyến mỗi skill đủ điều kiện, rồi chỉ tải toàn phần thân sau chọn. Tạo hai vấn đề kỹ thuật mới.
 
-First, discovery is not just recursive file search. Skills can exist at project, user, administrator, plugin, or built-in scopes. Two packages can share a name. A symlink can point outside the trusted root. A malformed package can consume catalog space or become impossible to invoke.
+Thứ nhất, khám phá không chỉ tìm file đệ quy. Skill có thể ở phạm vi dự án, người dùng, quản trị viên, plugin hoặc dựng sẵn. Hai gói có thể cùng tên. Symlink có thể trỏ ngoài gốc đáng tin. Gói sai dạng có thể tiêu không gian danh mục hoặc thành không gọi được.
 
-Second, progressive disclosure can become progressive confusion. If `SKILL.md` says "read the relevant guide" and the package contains twelve guides, the model must guess. If every guide points to three more files, loading becomes an unbounded graph walk.
+Thứ hai, tiết lộ tăng dần có thể thành nhầm lẫn tăng dần. Nếu `SKILL.md` nói "đọc hướng dẫn liên quan" và gói có mười hai hướng dẫn, mô hình phải đoán. Nếu mỗi hướng dẫn trỏ thêm ba file, tải thành đi đồ thị không giới hạn.
 
-A good runtime makes discovery deterministic and disclosure intentional.
+Runtime tốt làm khám phá tất định và tiết lộ có chủ ý.
 
 ## The Concept
 
 ### Discovery is a compiler pipeline
 
-Treat the filesystem as source input. Do not publish raw paths directly to the model.
+Coi hệ thống file là đầu vào nguồn. Không công bố đường dẫn thô trực tiếp cho mô hình.
 
 ```figure
 skill-discovery-pipeline
 ```
 
-Each stage should produce structured data and structured failures. A discovery log should answer:
+Mỗi giai đoạn nên tạo dữ liệu và thất bại có cấu trúc. Nhật ký khám phá nên trả lời:
 
-- Which roots were searched?
-- Which candidates were found?
-- Which candidates were rejected, and why?
-- Which package won a collision?
-- Which catalog entries were shortened or omitted because of budget?
+- Gốc nào được tìm?
+- Ứng viên nào được tìm thấy?
+- Ứng viên nào bị từ chối và tại sao?
+- Gói nào thắng xung đột?
+- Mục danh mục nào bị rút hoặc bỏ vì ngân sách?
 
-Without that evidence, "the model did not use my skill" is almost impossible to diagnose.
+Không bằng chứng đó, "mô hình không dùng skill của tôi" gần như không thể chẩn đoán.
 
 ### Scope is runtime policy
 
-The portable specification defines a skill package, not one universal installation path or precedence order. The host decides where it searches.
+Đặc tả có thể chuyển định nghĩa gói skill, không một đường dẫn cài hoặc thứ tự ưu tiên phổ quát. Host quyết định tìm đâu.
 
-A generic runtime might use these scopes:
+Runtime tổng quát có thể dùng phạm vi này:
 
-| Scope | Example root | Intended ownership |
+| Phạm vi | Gốc ví dụ | Sở hữu dự định |
 |---|---|---|
-| Workspace | `<repo>/.agents/skills/` | Project maintainers |
-| User | `<user-data>/skills/` | One developer |
-| Administrator | `<system>/skills/` | Machine or organization policy |
-| Plugin | A signed plugin bundle | Plugin publisher and installer |
-| Built-in | Runtime package | Runtime vendor |
+| Workspace | `<repo>/.agents/skills/` | Người bảo trì dự án |
+| Người dùng | `<user-data>/skills/` | Một nhà phát triển |
+| Quản trị viên | `<system>/skills/` | Chính sách máy hoặc tổ chức |
+| Plugin | Bundle plugin có chữ ký | Nhà phát hành và trình cài plugin |
+| Dựng sẵn | Gói runtime | Nhà cung cấp runtime |
 
-As of August 2026, Codex documents project discovery from `$CWD/.agents/skills` through ancestor directories up to the repository root, plus user, administrator, and built-in locations. It supports symlinked skill directories. Duplicate names may both appear rather than being merged. Those are Codex behaviors, not requirements of `SKILL.md`; verify the current [Codex skill documentation](https://learn.chatgpt.com/docs/build-skills) when writing an adapter.
+Tính đến tháng 8 năm 2026, Codex ghi khám phá dự án từ `$CWD/.agents/skills` qua thư mục tổ tiên đến gốc repo, cộng vị trí người dùng, quản trị viên và dựng sẵn. Hỗ trợ thư mục skill symlink. Tên trùng có thể đều xuất hiện thay vì gộp. Đó là hành vi Codex, không yêu cầu `SKILL.md`; xác minh [tài liệu skill Codex](https://learn.chatgpt.com/docs/build-skills) hiện tại khi viết adapter.
 
-Never invent precedence from directory names. Declare it as policy and test it. The lesson lab uses an explicit integer rank for each `Scope` so the same candidate set always resolves the same way.
+Không bao giờ bịa ưu tiên từ tên thư mục. Khai báo thành chính sách và kiểm thử. Lab dùng hạng số nguyên tường minh cho mỗi `Scope` để cùng tập ứng viên luôn phân giải cùng cách.
 
 ### Collisions need identity beyond `name`
 
-Two packages named `release-readiness` can be legitimate. One may be a workspace override and one a user default. A catalog entry therefore needs at least:
+Hai gói tên `release-readiness` có thể hợp lệ. Một có thể là ghi đè workspace và một mặc định người dùng. Vì vậy mục danh mục cần ít nhất:
 
 ```json
 {
@@ -79,20 +79,20 @@ Two packages named `release-readiness` can be legitimate. One may be a workspace
 }
 ```
 
-Common collision policies include:
+Chính sách xung đột phổ biến gồm:
 
-| Policy | Benefit | Risk |
+| Chính sách | Lợi ích | Rủi ro |
 |---|---|---|
-| Keep every candidate | Nothing is hidden | The model sees ambiguous names |
-| Highest-precedence scope wins | Simple invocation | A local package can shadow a trusted one |
-| Reject duplicates | No silent shadowing | Legitimate overrides stop working |
-| Qualify names by source | Explicit identity | User-facing names become longer |
+| Giữ mọi ứng viên | Không gì bị giấu | Mô hình thấy tên mơ hồ |
+| Phạm vi ưu tiên cao nhất thắng | Gọi đơn giản | Gói cục bộ có thể che khuất gói đáng tin |
+| Từ chối trùng | Không che khuất âm thầm | Ghi đè hợp lệ ngừng hoạt động |
+| Định danh tên đầy đủ theo nguồn | Danh tính tường minh | Tên hướng người dùng dài hơn |
 
-Choose one policy for the host. Preserve the rejected or shadowed candidates in diagnostics even when they are absent from the model catalog.
+Chọn một chính sách cho host. Giữ ứng viên bị từ chối hoặc che khuất trong chẩn đoán dù vắng trong danh mục mô hình.
 
 ### Three disclosure levels
 
-The Agent Skills specification describes staged loading. The key is that each level has a different purpose.
+Đặc tả Agent Skills mô tả tải theo giai đoạn. Then chốt là mỗi mức có mục đích khác.
 
 ```figure
 skill-disclosure-levels
@@ -100,47 +100,47 @@ skill-disclosure-levels
 
 #### Level 1: catalog metadata
 
-The model needs enough information to distinguish the skill from neighbors. The specification estimates roughly 100 tokens per catalog entry, but actual serialization and tokenization belong to the host.
+Mô hình cần đủ thông tin phân biệt skill với hàng xóm. Đặc tả ước tính khoảng 100 token mỗi mục danh mục, nhưng tuần tự hóa và token hóa thật thuộc host.
 
-A useful description has two clauses:
+Mô tả hữu ích có hai mệnh đề:
 
 ```yaml
 description: Validate a release candidate and produce a readiness report. Use when the user asks whether a version, tag, or package is ready to publish.
 ```
 
-The first clause states the capability. The second states the trigger boundary. Lesson 25 evaluates this boundary with positive and near-miss prompts.
+Mệnh đề đầu nêu khả năng. Mệnh đề thứ hai nêu ranh giới kích hoạt. Bài 25 đánh giá ranh giới bằng prompt dương và gần khớp.
 
 #### Level 2: active instructions
 
-After activation, the body should function as a map and a procedure. The specification recommends keeping `SKILL.md` under 500 lines. That is a design signal, not a target to fill.
+Sau kích hoạt, phần thân nên làm bản đồ và thủ tục. Đặc tả khuyến nghị giữ `SKILL.md` dưới 500 dòng. Đó là tín hiệu thiết kế, không mục tiêu lấp đầy.
 
-The body should contain:
+Phần thân nên chứa:
 
-- the task boundary;
-- the default workflow;
-- branch conditions;
-- direct references to deeper files;
-- tool and script contracts;
-- failure and stopping behavior;
-- the expected output and its verification.
+- ranh giới tác vụ;
+- quy trình mặc định;
+- điều kiện nhánh;
+- tham chiếu trực tiếp đến file sâu hơn;
+- hợp đồng công cụ và script;
+- hành vi thất bại và dừng;
+- đầu ra kỳ vọng và xác minh.
 
-Do not move the central workflow into a reference merely to make the entry file short. Activation must give the model enough context to begin correctly.
+Không chuyển quy trình trung tâm vào tham chiếu chỉ để file vào ngắn. Kích hoạt phải cho mô hình đủ ngữ cảnh bắt đầu đúng.
 
 #### Level 3: supporting resources
 
-References supply prose or data. Scripts provide deterministic computation. Assets are copied, filled, or transformed into deliverables rather than treated as instructions.
+Tham chiếu cung cấp văn xuôi hoặc dữ liệu. Script cung cấp tính toán tất định. Asset được sao chép, điền hoặc biến đổi thành sản phẩm bàn giao thay vì coi là chỉ dẫn.
 
-| Directory | Model reads it? | Model executes it? | Typical content |
+| Thư mục | Mô hình đọc? | Mô hình thực thi? | Nội dung điển hình |
 |---|:---:|:---:|---|
-| `references/` | Yes, when needed | No | schemas, policies, domain guides |
-| `scripts/` | May inspect it | Through a permitted tool | validators, converters, collectors |
-| `assets/` | Only if useful | No | templates, fixtures, images, starter files |
+| `references/` | Có, khi cần | Không | lược đồ, chính sách, hướng dẫn miền |
+| `scripts/` | Có thể kiểm tra | Qua công cụ được phép | bộ xác thực, chuyển đổi, thu thập |
+| `assets/` | Chỉ nếu hữu ích | Không | mẫu, fixture, ảnh, file khởi đầu |
 
-These names are conventions, not magic capabilities. The host still needs file access and an execution tool.
+Tên này là quy ước, không khả năng ma thuật. Host vẫn cần truy cập file và công cụ thực thi.
 
 ### Branch-specific references beat topic dumps
 
-Write the entry file as a decision map:
+Viết file vào như bản đồ quyết định:
 
 ```markdown
 ## Choose the path
@@ -151,9 +151,9 @@ Write the entry file as a decision map:
 - If the release combines artifact types, read only the guides for those artifacts.
 ```
 
-This gives every reference an observable load condition. "Read `references/` for more" does not.
+Cho mỗi tham chiếu điều kiện tải quan sát được. "Đọc `references/` để thêm" thì không.
 
-Keep the reference graph shallow. The official guidance recommends direct links from `SKILL.md` and avoiding deep chains. One hop makes reachability testable and reduces the chance that a needed constraint never enters context.
+Giữ đồ thị tham chiếu nông. Hướng dẫn chính thức khuyến nghị liên kết trực tiếp từ `SKILL.md` và tránh chuỗi sâu. Một bước làm khả năng tiếp cận kiểm thử được và giảm khả năng ràng buộc cần không bao giờ vào ngữ cảnh.
 
 ```figure
 skill-reference-map
@@ -161,42 +161,42 @@ skill-reference-map
 
 ### Catalog budget and active context are different budgets
 
-Let `c_i` be the serialized catalog cost of skill `i`, `B_c` the catalog budget, `b_j` the active body cost, and `r_k` the resources actually loaded.
+Gọi `c_i` là chi phí danh mục tuần tự hóa của skill `i`, `B_c` ngân sách danh mục, `b_j` chi phí phần thân kích hoạt và `r_k` tài nguyên thực sự tải.
 
 ```text
 catalog_cost = sum(c_i for every published skill)
 active_cost = sum(b_j for every activated skill) + sum(r_k for every disclosed resource)
 ```
 
-Reducing one budget does not automatically reduce the other. Short descriptions can save catalog space while an activated 900-line body still overwhelms the task. Splitting the body into references can reduce active cost only when the runtime and instructions actually avoid loading irrelevant branches.
+Giảm ngân sách này không tự động giảm ngân sách kia. Mô tả ngắn có thể tiết kiệm không gian danh mục trong khi phần thân kích hoạt 900 dòng vẫn lấn át tác vụ. Tách phần thân thành tham chiếu chỉ giảm chi phí kích hoạt khi runtime và chỉ dẫn thực sự tránh tải nhánh không liên quan.
 
-Codex currently budgets the initial skill list at 2 percent of the context
-window when the context-window size is known. The 8,000-character value is a
-fallback only when that size is unknown; it is not a second cap combined with
-the 2 percent rule. When the catalog exceeds the applicable budget,
-descriptions may be shortened or omitted. Treat those figures as current
-Codex policy, not a property of the Agent Skills standard.
+Codex hiện dành ngân sách danh sách skill đầu ở 2 phần trăm cửa sổ
+ngữ cảnh khi biết kích thước cửa sổ ngữ cảnh. Giá trị 8,000 ký tự
+chỉ dự phòng khi không biết kích thước đó; không phải trần thứ hai kết hợp với
+quy tắc 2 phần trăm. Khi danh mục vượt ngân sách áp dụng,
+mô tả có thể rút hoặc bỏ. Coi con số đó là chính sách Codex
+hiện tại, không thuộc tính tiêu chuẩn Agent Skills.
 
 ### Resource paths are a trust boundary
 
-A skill should read only files inside its package. Literal string-prefix checks are not enough:
+Skill nên chỉ đọc file trong gói. Kiểm tra tiền tố chuỗi nguyên văn không đủ:
 
 ```text
 references/../../../../.ssh/config
 references/external-link -> /private/company-secrets
 ```
 
-Resolve the package root and candidate with filesystem semantics, reject absolute inputs, and verify that the resolved candidate remains under the resolved root. Decide whether symlinks are allowed before discovery. If allowed, check the resolved target every time.
+Phân giải gốc gói và ứng viên bằng ngữ nghĩa hệ thống file, từ chối đầu vào tuyệt đối và xác minh ứng viên phân giải vẫn dưới gốc phân giải. Quyết định symlink có được phép trước khám phá. Nếu cho, kiểm tra đích phân giải mỗi lần.
 
 ```figure
 skill-resource-containment
 ```
 
-Path containment does not establish content trust. A valid in-package reference can still contain malicious instructions. Lesson 26 handles that threat.
+Giới hạn đường dẫn không thiết lập tin cậy nội dung. Tham chiếu trong gói hợp lệ vẫn có thể chứa chỉ dẫn độc hại. Bài 26 xử lý đe dọa đó.
 
 ### Loading must be observable
 
-Record disclosure events without logging secrets:
+Ghi sự kiện tiết lộ không ghi bí mật:
 
 ```json
 {
@@ -208,28 +208,28 @@ Record disclosure events without logging secrets:
 }
 ```
 
-The reason turns a context choice into reviewable evidence. It also helps identify instructions that cause the agent to load every file "just in case."
+Lý do biến lựa chọn ngữ cảnh thành bằng chứng xem xét được. Cũng giúp xác định chỉ dẫn khiến agent tải mọi file "phòng khi cần."
 
 ## Build It
 
-`code/main.py` builds a deterministic discovery and disclosure engine.
+`code/main.py` xây máy khám phá và tiết lộ tất định.
 
-The discovery surface includes:
+Bề mặt khám phá gồm:
 
-- `Scope` for source and precedence metadata;
-- `SkillCandidate` for an unvalidated filesystem candidate;
-- `discover_scope(scope)` to enumerate immediate skill directories;
-- `resolve_collisions(candidates, precedence)` to apply one declared policy;
-- `CatalogEntry` and `build_catalog(...)` to publish bounded metadata;
-- `CatalogBudget` to account for serialized entries without pretending characters are universal tokens.
+- `Scope` cho siêu dữ liệu nguồn và ưu tiên;
+- `SkillCandidate` cho ứng viên hệ thống file chưa xác thực;
+- `discover_scope(scope)` để liệt kê thư mục skill ngay bên trong;
+- `resolve_collisions(candidates, precedence)` để áp một chính sách khai báo;
+- `CatalogEntry` và `build_catalog(...)` để công bố siêu dữ liệu có giới hạn;
+- `CatalogBudget` để tính mục tuần tự hóa không giả vờ ký tự là token phổ quát.
 
-The disclosure surface includes:
+Bề mặt tiết lộ gồm:
 
-- `load_skill_body(entry, ...)` for Level 2 activation;
-- `validate_reference(skill_dir, reference)` for path containment;
-- `load_reference(...)` for bounded Level 3 reads.
+- `load_skill_body(entry, ...)` cho kích hoạt Mức 2;
+- `validate_reference(skill_dir, reference)` cho giới hạn đường dẫn;
+- `load_reference(...)` cho đọc Mức 3 có giới hạn.
 
-Run the lab:
+Chạy lab:
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
@@ -238,63 +238,63 @@ python3 code/main.py
 python3 -m unittest discover -s code/tests -v
 ```
 
-This block requires a local clone and resolves the repository root from any
-working directory inside that clone.
+Khối này cần bản clone cục bộ và phân giải gốc repo từ mọi
+thư mục làm việc trong bản clone.
 
-The demo creates temporary project and user scopes, inserts a collision, builds a catalog under a deliberately small budget, activates one skill, and attempts both a valid reference read and a traversal escape. No permanent files are installed.
+Demo tạo phạm vi dự án và người dùng tạm, chèn xung đột, xây danh mục dưới ngân sách cố ý nhỏ, kích hoạt một skill và thử cả đọc tham chiếu hợp lệ lẫn thoát qua duyệt đường dẫn. Không file vĩnh viễn được cài.
 
 ### Why discovery is shallow
 
-`discover_scope` checks immediate child directories for `SKILL.md`. It does not recursively treat every nested `SKILL.md` as a separate package. This preserves the package boundary and avoids accidentally publishing examples or fixtures inside an installed skill.
+`discover_scope` kiểm tra thư mục con trực tiếp tìm `SKILL.md`. Không đệ quy coi mọi `SKILL.md` lồng là gói riêng. Giữ ranh giới gói và tránh vô tình công bố ví dụ hoặc fixture trong skill đã cài.
 
 ### Why the lab does not parse arbitrary YAML
 
-The lab supports the scalar frontmatter needed for its catalog. A production runtime should use a safe YAML parser with an explicit schema, size limits, and disabled custom object construction. "Stdlib-only" is a teaching constraint, not permission to invent a partial YAML dialect silently.
+Lab hỗ trợ frontmatter scalar cần cho danh mục. Runtime sản xuất nên dùng bộ phân tích YAML an toàn với lược đồ tường minh, giới hạn kích thước và tắt dựng đối tượng tùy chỉnh. "Chỉ stdlib" là ràng buộc giảng dạy, không quyền âm thầm bịa phương ngữ YAML từng phần.
 
 ## Use It
 
-Apply this checklist to any discovery adapter:
+Áp danh sách này cho mọi adapter khám phá:
 
-1. List every configured root and who can write to it.
-2. State whether symlinked packages are allowed.
-3. Validate package name, directory name, required metadata, and entry-body size.
-4. Preserve source and scope in the internal identity.
-5. Declare and test duplicate-name behavior.
-6. Measure the exact serialized catalog sent to the model.
-7. Record why a body or resource was loaded.
-8. Keep resource reads inside the resolved package root.
-9. Fail clearly when a referenced file is missing.
-10. Rebuild the catalog when installations or policies change.
+1. Liệt kê mọi gốc cấu hình và ai ghi được.
+2. Nêu gói symlink được phép hay không.
+3. Xác thực tên gói, tên thư mục, siêu dữ liệu bắt buộc và kích thước phần thân vào.
+4. Giữ nguồn và phạm vi trong danh tính nội bộ.
+5. Khai báo và kiểm thử hành vi tên trùng.
+6. Đo đúng danh mục tuần tự hóa gửi mô hình.
+7. Ghi vì sao phần thân hoặc tài nguyên được tải.
+8. Giữ đọc tài nguyên trong gốc gói phân giải.
+9. Thất bại rõ khi file tham chiếu thiếu.
+10. Xây lại danh mục khi cài đặt hoặc chính sách đổi.
 
 ## Ship It
 
-This lesson produces the `skill-catalog-builder` bundle. It scans explicitly ordered roots, rejects symlinked entry files and name-directory mismatches, resolves cross-scope collisions, rejects equal-precedence duplicates, and fits selected metadata into declared entry, description, and serialized-character budgets.
+Bài này tạo bundle `skill-catalog-builder`. Nó quét gốc sắp thứ tự tường minh, từ chối file vào symlink và tên-thư mục không khớp, phân giải xung đột chéo phạm vi, từ chối trùng cùng ưu tiên và làm siêu dữ liệu chọn vừa ngân sách mục, mô tả và ký tự tuần tự hóa khai báo.
 
-Its JSON report contains selected entries, shadowed candidates, omitted entries, validation errors, precedence, and budget use. Body and reference loading remain separate runtime operations, so the catalog builder does not execute scripts or admit the whole package into context.
+Báo cáo JSON chứa mục chọn, ứng viên che khuất, mục bỏ, lỗi xác thực, ưu tiên và sử dụng ngân sách. Tải phần thân và tham chiếu vẫn là thao tác runtime riêng, nên bộ xây danh mục không thực thi script hoặc đưa toàn gói vào ngữ cảnh.
 
 ## Exercises
 
-1. Add a plugin scope and place it between user and built-in precedence. Prove the collision result with a test.
-2. Change the collision policy from highest precedence to qualified names. Preserve both entries in the catalog.
-3. Add a byte-size limit to `load_reference`. Test a file exactly at the limit and one byte above it.
-4. Create two descriptions that sound nearly identical. Rewrite them so the trigger boundaries do not overlap.
-5. Add a manifest containing hashes for every reference and script. Detect a modified resource before loading it.
-6. Instrument the demo to report Level 1, Level 2, and Level 3 byte counts separately.
+1. Thêm phạm vi plugin và đặt giữa ưu tiên người dùng và dựng sẵn. Chứng minh kết quả xung đột bằng kiểm thử.
+2. Đổi chính sách xung đột từ ưu tiên cao nhất sang tên định danh đầy đủ. Giữ cả hai mục trong danh mục.
+3. Thêm giới hạn byte vào `load_reference`. Kiểm thử file đúng giới hạn và hơn một byte.
+4. Tạo hai mô tả nghe gần giống hệt. Viết lại để ranh giới kích hoạt không chồng lấn.
+5. Thêm manifest chứa hash cho mọi tham chiếu và script. Phát hiện tài nguyên bị sửa trước tải.
+6. Gắn đo demo để báo số byte Mức 1, Mức 2 và Mức 3 riêng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |---|---|---|
-| Skill discovery | "Find every SKILL.md" | Search configured scopes, validate packages, attach provenance, and apply policy |
-| Skill catalog | "The list of installed skills" | Compact model-visible routing metadata for eligible packages |
-| Collision policy | "Which duplicate wins" | A declared rule for same-name candidates from different sources |
-| Progressive disclosure | "Lazy loading" | Staged context admission from catalog to body to branch-specific resources |
-| Reference graph | "Files linked by the skill" | The reachable resource structure and its load conditions |
-| Path containment | "Stay in the folder" | Verify resolved resource targets remain inside the resolved package root |
+| Skill discovery (Khám phá skill) | "Tìm mọi SKILL.md" | Tìm phạm vi cấu hình, xác thực gói, gắn xuất xứ và áp chính sách |
+| Skill catalog (Danh mục skill) | "Danh sách skill đã cài" | Siêu dữ liệu định tuyến gọn mô hình thấy cho gói đủ điều kiện |
+| Collision policy (Chính sách xung đột) | "Bản trùng nào thắng" | Quy tắc khai báo cho ứng viên cùng tên từ nguồn khác |
+| Progressive disclosure (Tiết lộ tăng dần) | "Tải lười" | Đưa ngữ cảnh theo giai đoạn từ danh mục đến phần thân đến tài nguyên riêng nhánh |
+| Reference graph (Đồ thị tham chiếu) | "File skill liên kết" | Cấu trúc tài nguyên tiếp cận được và điều kiện tải |
+| Path containment (Giới hạn đường dẫn) | "Ở trong thư mục" | Xác minh đích tài nguyên phân giải vẫn trong gốc gói phân giải |
 
 ## Further Reading
 
-- [Agent Skills specification](https://agentskills.io/specification) for package shape and progressive disclosure levels.
-- [Optimizing skill descriptions](https://agentskills.io/skill-creation/optimizing-descriptions) for catalog routing metadata.
-- [Agent Skills best practices](https://agentskills.io/skill-creation/best-practices) for direct references and entry-file size.
-- [OpenAI: Build skills](https://learn.chatgpt.com/docs/build-skills) for current Codex discovery scopes and catalog limits.
+- [Agent Skills specification](https://agentskills.io/specification) cho hình dạng gói và mức tiết lộ tăng dần.
+- [Optimizing skill descriptions](https://agentskills.io/skill-creation/optimizing-descriptions) cho siêu dữ liệu định tuyến danh mục.
+- [Agent Skills best practices](https://agentskills.io/skill-creation/best-practices) cho tham chiếu trực tiếp và kích thước file vào.
+- [OpenAI: Build skills](https://learn.chatgpt.com/docs/build-skills) cho phạm vi khám phá Codex và giới hạn danh mục hiện tại.
