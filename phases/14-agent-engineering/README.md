@@ -1,29 +1,29 @@
 # Phase 14: Agent Engineering
 
-> The core of modern AI engineering. Build agents from first principles.
+> Cốt lõi của kỹ thuật AI hiện đại. Xây các agent từ những nguyên lý đầu tiên.
 
 ## Start this phase on GitHub
 
-**Prerequisites:** Phase 11 LLM Engineering and Phase 13 Tools and Protocols.
+**Prerequisites:** Giai đoạn 11 Kỹ thuật LLM và Giai đoạn 13 Công cụ và giao thức.
 
-**First lesson:** [The Agent Loop](01-the-agent-loop/)
+**Bài học đầu tiên:** [Vòng lặp agent](01-the-agent-loop/)
 
-Two focused routes are available when you do not need the full phase:
+Hai lộ trình tập trung khả dụng khi bạn không cần toàn bộ giai đoạn:
 
-- [Agent-Assisted Engineering](../../learning-paths/using-coding-agents.json) covers task framing, repository evidence, harnesses, isolation, verification, review, and durable feedback.
-- [Product Judgment and Delivery](../../learning-paths/shaping-the-build.json) covers outcomes, workflow discovery, assumptions, slices, specifications, metrics, staged release, and feedback ownership.
+- [Kỹ thuật có agent hỗ trợ](../../learning-paths/using-coding-agents.json) bao phủ định khung tác vụ, bằng chứng kho mã, harness, cô lập, xác minh, đánh giá và phản hồi bền vững.
+- [Phán đoán sản phẩm và bàn giao](../../learning-paths/shaping-the-build.json) bao phủ các kết quả, khám phá workflow, giả định, các phần, đặc tả, thước đo, phát hành theo giai đoạn và quyền sở hữu phản hồi.
 
-Run this command from the repository root:
+Chạy lệnh này từ thư mục gốc của kho mã:
 
 ```bash
 python3 phases/14-agent-engineering/01-the-agent-loop/code/main.py
 ```
 
-Keep the command, exit code, thought-action-observation trace, final answer,
-turn count, and the exact stop condition that ended the run.
+Giữ lệnh, mã thoát, trace suy nghĩ-hành động-quan sát, câu trả lời cuối cùng,
+số lượt và điều kiện dừng chính xác đã kết thúc lần chạy.
 
-**Next action:** Change the scripted task or turn budget, predict the effect,
-then continue to [ReWOO and Plan-and-Execute](02-rewoo-plan-and-execute/).
+**Hành động tiếp theo:** Thay đổi tác vụ được viết kịch bản hoặc ngân sách lượt, dự đoán tác động,
+rồi tiếp tục đến [ReWOO và Plan-and-Execute](02-rewoo-plan-and-execute/).
 
-Browse the [full Phase 14 lesson list](../../README.md#phase-14) or the
-[cross-phase roadmap](../../ROADMAP.md).
+Duyệt [danh sách bài học Giai đoạn 14 đầy đủ](../../README.md#phase-14) hoặc
+[lộ trình xuyên giai đoạn](../../ROADMAP.md).

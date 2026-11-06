@@ -1,26 +1,26 @@
 # Phase 4: Computer Vision
 
-> From pixels to understanding across image, video, and 3D.
+> Từ pixel tới sự hiểu biết trên hình ảnh, video và 3D.
 
 ## Start this phase on GitHub
 
-**Prerequisites:** Phase 1 Lesson 12, Tensor Operations, and Phase 3 Lesson 11,
-Introduction to PyTorch. The first demo needs only NumPy.
+**Prerequisites:** Giai đoạn 1 Bài 12, Tensor Operations, và Giai đoạn 3 Bài 11,
+Introduction to PyTorch. Bản minh họa đầu tiên chỉ cần NumPy.
 
-**First lesson:** [Image Fundamentals](01-image-fundamentals/)
+**Bài học đầu tiên:** [Image Fundamentals](01-image-fundamentals/)
 
-Run this command from the repository root:
+Chạy lệnh này từ thư mục gốc của kho mã:
 
 ```bash
 python3 phases/04-computer-vision/01-image-fundamentals/code/main.py
 ```
 
-Keep the command, exit code, HWC and CHW shapes, normalized channel statistics,
-round-trip pixel difference, and interpolation roughness. The demo generates a
-deterministic synthetic image and does not use the network.
+Giữ lại lệnh, mã thoát, các hình dạng HWC và CHW, thống kê kênh đã chuẩn hóa,
+chênh lệch pixel sau chuyển đổi đi-về và độ gồ ghề nội suy. Bản minh họa tạo một
+hình ảnh tổng hợp tất định và không sử dụng mạng.
 
-**Next action:** Explain which axis changes between HWC and CHW, then continue
-to [Convolutions from Scratch](02-convolutions-from-scratch/).
+**Hành động tiếp theo:** Giải thích trục nào thay đổi giữa HWC và CHW, rồi tiếp tục
+với [Convolutions from Scratch](02-convolutions-from-scratch/).
 
-Browse the [full Phase 4 lesson list](../../README.md#phase-4) or the
-[cross-phase roadmap](../../ROADMAP.md).
+Duyệt [danh sách bài học Giai đoạn 4 đầy đủ](../../README.md#phase-4) hoặc
+[lộ trình xuyên giai đoạn](../../ROADMAP.md).

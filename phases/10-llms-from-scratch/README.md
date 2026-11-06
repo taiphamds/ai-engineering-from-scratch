@@ -1,25 +1,25 @@
 # Phase 10: LLMs from Scratch
 
-> Build, train, and understand large language models.
+> Xây dựng, huấn luyện và hiểu các mô hình ngôn ngữ lớn.
 
 ## Start this phase on GitHub
 
-**Prerequisites:** Phase 5 NLP Foundations. Phase 7 Transformers is strongly
-recommended before the model-building lessons.
+**Prerequisites:** Giai đoạn 5 Nền tảng NLP. Giai đoạn 7 Transformers được đặc biệt
+khuyến nghị trước các bài học xây dựng mô hình.
 
-**First lesson:** [Tokenizers](01-tokenizers/)
+**Bài học đầu tiên:** [Tokenizer](01-tokenizers/)
 
-Run this command from the repository root:
+Chạy lệnh này từ thư mục gốc của kho mã:
 
 ```bash
 python3 phases/10-llms-from-scratch/01-tokenizers/code/main.py
 ```
 
-Keep the command, exit code, encode/decode round-trip results, learned merge
-count, and compression ratios. `tiktoken` is an optional comparison.
+Giữ lại lệnh, mã thoát, kết quả vòng khứ hồi mã hóa/giải mã, số phép gộp
+đã học và các tỷ lệ nén. `tiktoken` là một so sánh tùy chọn.
 
-**Next action:** Add a word the tiny corpus has not seen, inspect its pieces,
-then continue to [Building a Tokenizer from Scratch](02-building-a-tokenizer/).
+**Hành động tiếp theo:** Thêm một từ mà corpus nhỏ chưa thấy, kiểm tra các mảnh của nó,
+rồi tiếp tục đến [Xây dựng một Tokenizer từ đầu](02-building-a-tokenizer/).
 
-Browse the [full Phase 10 lesson list](../../README.md#phase-10) or the
-[cross-phase roadmap](../../ROADMAP.md).
+Duyệt [danh sách đầy đủ các bài học Giai đoạn 10](../../README.md#phase-10) hoặc
+[lộ trình xuyên giai đoạn](../../ROADMAP.md).

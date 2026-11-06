@@ -1,25 +1,25 @@
 # Phase 2: ML Fundamentals
 
-> Classical machine learning is still the backbone of most production AI.
+> Học máy cổ điển vẫn là trụ cột của phần lớn AI trong sản xuất.
 
 ## Start this phase on GitHub
 
-**Prerequisites:** Phase 1 Math Foundations and NumPy. Check the route with
+**Prerequisites:** Giai đoạn 1 Nền tảng Toán học và NumPy. Kiểm tra lộ trình bằng
 `python3 phases/00-setup-and-tooling/01-dev-environment/code/verify.py --route ml-foundations`.
 
-**First lesson:** [What Is Machine Learning](01-what-is-machine-learning/)
+**Bài học đầu tiên:** [What Is Machine Learning](01-what-is-machine-learning/)
 
-Run this command from the repository root:
+Chạy lệnh này từ thư mục gốc của kho mã:
 
 ```bash
 python3 phases/02-ml-fundamentals/01-what-is-machine-learning/code/ml_intro.py
 ```
 
-Keep the command, exit code, test accuracy, random baseline, and one sentence
-explaining why the learned classifier beats that baseline.
+Giữ lại lệnh, mã thoát, độ chính xác kiểm tra, mốc cơ sở ngẫu nhiên và một câu
+giải thích tại sao bộ phân loại đã học vượt mốc cơ sở đó.
 
-**Next action:** Change the class separation, predict how accuracy will move,
-run it again, then continue to [Linear Regression from Scratch](02-linear-regression/).
+**Hành động tiếp theo:** Thay đổi độ phân tách lớp, dự đoán độ chính xác sẽ thay đổi như thế nào,
+chạy lại, rồi tiếp tục đến [Linear Regression from Scratch](02-linear-regression/).
 
-Browse the [full Phase 2 lesson list](../../README.md#phase-2) or the
-[cross-phase roadmap](../../ROADMAP.md).
+Duyệt [danh sách đầy đủ các bài học của Giai đoạn 2](../../README.md#phase-2) hoặc
+[lộ trình xuyên giai đoạn](../../ROADMAP.md).

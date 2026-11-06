@@ -1,25 +1,25 @@
 # Phase 6: Speech & Audio
 
-> The other half of human communication. Hear, understand, speak.
+> Nửa còn lại của giao tiếp con người. Nghe, hiểu, nói.
 
 ## Start this phase on GitHub
 
-**Prerequisites:** Phase 1 vectors, matrices, and probability. The first demo
-uses only the Python standard library.
+**Prerequisites:** Vector, ma trận và xác suất của Phase 1. Bản minh họa đầu tiên
+chỉ dùng thư viện chuẩn Python.
 
-**First lesson:** [Audio Fundamentals](01-audio-fundamentals/)
+**Bài học đầu tiên:** [Âm thanh cơ bản](01-audio-fundamentals/)
 
-Run this command from the repository root:
+Chạy lệnh này từ thư mục gốc của kho lưu trữ:
 
 ```bash
 python3 phases/06-speech-and-audio/01-audio-fundamentals/code/main.py
 ```
 
-Keep the command, exit code, detected frequency peaks, alias frequency, and an
-explanation of why a low-pass filter must run before downsampling.
+Giữ lại lệnh, mã thoát, các đỉnh tần số được phát hiện, tần số chồng phổ và một
+lời giải thích vì sao một bộ lọc thông thấp phải chạy trước khi giảm tần số lấy mẫu.
 
-**Next action:** Change the source tone and predict its aliased frequency,
-then continue to [Spectrograms and Mel Features](02-spectrograms-mel-features/).
+**Hành động tiếp theo:** Thay đổi âm nguồn và dự đoán tần số chồng phổ của nó,
+rồi tiếp tục đến [Phổ đồ và các đặc trưng Mel](02-spectrograms-mel-features/).
 
-Browse the [full Phase 6 lesson list](../../README.md#phase-6) or the
-[cross-phase roadmap](../../ROADMAP.md).
+Duyệt [danh sách bài học đầy đủ của Phase 6](../../README.md#phase-6) hoặc
+[lộ trình xuyên các giai đoạn](../../ROADMAP.md).

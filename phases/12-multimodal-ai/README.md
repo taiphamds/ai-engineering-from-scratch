@@ -1,24 +1,24 @@
 # Phase 12: Multimodal AI
 
-> Models that see, hear, read, and reason across modalities.
+> Các mô hình nhìn, nghe, đọc và suy luận xuyên phương thức.
 
 ## Start this phase on GitHub
 
-**Prerequisites:** Phase 7 Transformers and Phase 4 Computer Vision.
+**Prerequisites:** Giai đoạn 7 Transformers và Giai đoạn 4 Thị giác máy tính.
 
-**First lesson:** [Vision Transformer Patch Tokens](01-vision-transformer-patch-tokens/)
+**Bài học đầu tiên:** [Vision Transformer Patch Tokens](01-vision-transformer-patch-tokens/)
 
-Run this command from the repository root:
+Chạy lệnh này từ thư mục gốc của kho mã:
 
 ```bash
 python3 phases/12-multimodal-ai/01-vision-transformer-patch-tokens/code/main.py
 ```
 
-Keep the command, exit code, patch grid and sequence lengths, parameter counts,
-and one sentence explaining why higher resolution creates more visual tokens.
+Giữ lại lệnh, mã thoát, lưới patch và độ dài chuỗi, số tham số,
+và một câu giải thích tại sao độ phân giải cao hơn tạo nhiều token thị giác hơn.
 
-**Next action:** Change one image or patch size, predict the sequence length,
-then continue to [CLIP and Contrastive Pretraining](02-clip-contrastive-pretraining/).
+**Hành động tiếp theo:** Thay đổi một kích thước ảnh hoặc patch, dự đoán độ dài chuỗi,
+rồi tiếp tục đến [CLIP and Contrastive Pretraining](02-clip-contrastive-pretraining/).
 
-Browse the [full Phase 12 lesson list](../../README.md#phase-12) or the
-[cross-phase roadmap](../../ROADMAP.md).
+Duyệt [danh sách đầy đủ các bài học Giai đoạn 12](../../README.md#phase-12) hoặc
+[lộ trình xuyên giai đoạn](../../ROADMAP.md).

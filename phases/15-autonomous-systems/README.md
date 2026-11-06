@@ -1,24 +1,24 @@
 # Phase 15: Autonomous Systems
 
-> Agents that run without human intervention, safely.
+> Các agent chạy không có sự can thiệp của con người, một cách an toàn.
 
 ## Start this phase on GitHub
 
-**Prerequisites:** Phase 14 Lesson 01, The Agent Loop.
+**Prerequisites:** Giai đoạn 14 Bài 01, The Agent Loop.
 
-**First lesson:** [Long-Horizon Agents](01-long-horizon-agents/)
+**Bài đầu tiên:** [Các agent có tầm thời gian dài](01-long-horizon-agents/)
 
-Run this command from the repository root:
+Chạy lệnh này từ thư mục gốc kho mã:
 
 ```bash
 python3 phases/15-autonomous-systems/01-long-horizon-agents/code/main.py
 ```
 
-Keep the command, exit code, horizon projection, compounded reliability table,
-and one operational control you would require before a long run.
+Giữ lại lệnh, mã thoát, dự phóng tầm thời gian, bảng độ tin cậy cộng dồn,
+và một kiểm soát vận hành bạn sẽ yêu cầu trước một lần chạy dài.
 
-**Next action:** Recalculate one trajectory with a different per-step
-reliability, then continue to [Self-Taught Reasoning](02-star-family-reasoning/).
+**Hành động tiếp theo:** Tính lại một quỹ đạo với độ tin cậy theo từng bước
+khác, rồi tiếp tục tới [Suy luận tự học](02-star-family-reasoning/).
 
-Browse the [full Phase 15 lesson list](../../README.md#phase-15) or the
-[cross-phase roadmap](../../ROADMAP.md).
+Duyệt [toàn bộ danh sách bài học Giai đoạn 15](../../README.md#phase-15) hoặc
+[lộ trình xuyên giai đoạn](../../ROADMAP.md).

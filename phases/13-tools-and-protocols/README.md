@@ -1,139 +1,139 @@
 # Phase 13: Tools & Protocols
 
-> The interfaces between AI and the real world.
+> Các giao diện giữa AI và thế giới thực.
 
-This phase moves from function calls and tool schemas into interoperable
-protocols, Agent Skills, security, and production governance. Numeric order is
-useful for browsing. The focused routes below are the reliable learning order.
+Giai đoạn này đi từ các lời gọi hàm và schema công cụ sang các giao thức
+có thể tương tác, Agent Skills, bảo mật và quản trị sản xuất. Thứ tự số
+hữu ích để duyệt. Các lộ trình tập trung bên dưới là thứ tự học đáng tin cậy.
 
 ## Start this phase on GitHub
 
-**Prerequisites:** Phase 11 LLM completion APIs. For MCP or Agent Skills, use
-the focused route below instead of assuming numeric lesson order.
+**Prerequisites:** Các API hoàn thành LLM của Giai đoạn 11. Với MCP hoặc Agent Skills, sử dụng
+lộ trình tập trung bên dưới thay vì cho rằng thứ tự bài học theo số là thứ tự học.
 
-**First full-phase lesson:** [The Tool Interface](01-the-tool-interface/)
+**Bài học đầu tiên của toàn bộ giai đoạn:** [Giao diện công cụ](01-the-tool-interface/)
 
-Run this command from the repository root:
+Chạy lệnh này từ thư mục gốc của kho mã:
 
 ```bash
 python3 phases/13-tools-and-protocols/01-the-tool-interface/code/main.py
 ```
 
-Keep the command, exit code, describe-decide-execute-observe trace, rejected
-input evidence, and one sentence explaining the turn limit.
+Giữ lệnh, mã thoát, trace mô tả-quyết định-thực thi-quan sát, bằng chứng đầu vào
+bị từ chối và một câu giải thích giới hạn lượt.
 
-**Next action:** Continue to [Function Calling Deep Dive](02-function-calling-deep-dive/),
-or choose the Model Context Protocol (MCP) or Agent Skills route below.
+**Hành động tiếp theo:** Tiếp tục đến [Tìm hiểu sâu về gọi hàm](02-function-calling-deep-dive/),
+hoặc chọn lộ trình Model Context Protocol (MCP) hay Agent Skills bên dưới.
 
-Browse the [full Phase 13 lesson list](../../README.md#phase-13) or the
-[cross-phase roadmap](../../ROADMAP.md).
+Duyệt [danh sách bài học Giai đoạn 13 đầy đủ](../../README.md#phase-13) hoặc
+[lộ trình xuyên giai đoạn](../../ROADMAP.md).
 
 ## Model Context Protocol (MCP) path
 
-The focused MCP route is 17 lessons and about 23 hours 15 minutes. It follows
-MCP `2026-07-28` from one self-describing JSON-RPC request to an operational
-conformance gate.
+Lộ trình MCP tập trung gồm 17 bài học và khoảng 23 giờ 15 phút. Nó đi theo
+MCP `2026-07-28` từ một yêu cầu JSON-RPC tự mô tả đến một cổng
+tuân thủ vận hành.
 
-| Stage | Lessons | What you prove | Time |
+| Chặng | Các bài học | Bạn chứng minh điều gì | Thời gian |
 |---|---|---|---:|
-| Core | [06](06-mcp-fundamentals/), [07](07-building-an-mcp-server/), [08](08-building-an-mcp-client/), [09](09-mcp-transports/), [10](10-mcp-resources-and-prompts/) | Envelopes, discovery, client and server behavior, transports, resources, and prompts. | 5 hr 50 min |
-| Bidirectional | [11](11-mcp-sampling/), [12](12-mcp-roots-and-elicitation/), [13](13-mcp-async-tasks/), [14](14-mcp-apps/) | MRTR input, explicit scope, durable tasks, and app boundaries without server-initiated requests. | 5 hr |
-| Secure | [15](15-mcp-security-tool-poisoning/), [16](16-mcp-security-oauth-2-1/), [18](18-mcp-auth-production/), [17](17-mcp-gateways-and-registries/) | Poisoning defenses, authorization, production tokens, gateway routing, and registry admission. | 5 hr 15 min |
-| Advanced | [28](28-mcp-tool-contracts-and-content/), [29](29-mcp-reliability-cancellation-and-flow-control/), [30](30-mcp-registry-supply-chain-and-drift/), [31](31-mcp-conformance-versioning-and-operations/) | Contract fidelity, cancellation races, supply-chain drift, and release evidence. | 7 hr 10 min |
+| Cốt lõi | [06](06-mcp-fundamentals/), [07](07-building-an-mcp-server/), [08](08-building-an-mcp-client/), [09](09-mcp-transports/), [10](10-mcp-resources-and-prompts/) | Phong bì, khám phá, hành vi client và máy chủ, phương thức truyền tải, tài nguyên và prompt. | 5 giờ 50 phút |
+| Hai chiều | [11](11-mcp-sampling/), [12](12-mcp-roots-and-elicitation/), [13](13-mcp-async-tasks/), [14](14-mcp-apps/) | Đầu vào MRTR, phạm vi rõ ràng, tác vụ bền vững và ranh giới ứng dụng không có các yêu cầu do máy chủ khởi tạo. | 5 giờ |
+| An toàn | [15](15-mcp-security-tool-poisoning/), [16](16-mcp-security-oauth-2-1/), [18](18-mcp-auth-production/), [17](17-mcp-gateways-and-registries/) | Các biện pháp phòng vệ đầu độc, cấp quyền, token sản xuất, định tuyến gateway và tiếp nhận registry. | 5 giờ 15 phút |
+| Nâng cao | [28](28-mcp-tool-contracts-and-content/), [29](29-mcp-reliability-cancellation-and-flow-control/), [30](30-mcp-registry-supply-chain-and-drift/), [31](31-mcp-conformance-versioning-and-operations/) | Độ trung thực của hợp đồng, tranh chấp hủy, sự trôi dạt chuỗi cung ứng và bằng chứng phát hành. | 7 giờ 10 phút |
 
-The exact order is 06, 07, 08, 09, 10, 11, 12, 13, 14, 15, 16, 18, 17, 28,
-29, 30, 31. It is defined in
+Thứ tự chính xác là 06, 07, 08, 09, 10, 11, 12, 13, 14, 15, 16, 18, 17, 28,
+29, 30, 31. Nó được định nghĩa trong
 [`learning-paths/model-context-protocol.json`](../../learning-paths/model-context-protocol.json).
-The tutor creates `MCP-LEARNING.md`, teaches one lesson per
-invocation, and records the request, response, command, working directory, exit
-code, and redacted boundary evidence required by each checkpoint.
+Gia sư tạo `MCP-LEARNING.md`, dạy một bài học cho mỗi
+lần gọi và ghi lại yêu cầu, phản hồi, lệnh, thư mục làm việc, mã
+thoát và bằng chứng ranh giới đã che dữ liệu được yêu cầu bởi mỗi điểm kiểm tra.
 
-Start with the invocation supported by your host:
+Bắt đầu với cách gọi được host của bạn hỗ trợ:
 
-| Host | Invocation |
+| Host | Cách gọi |
 |---|---|
-| Codex | `learn-mcp`, or choose it from `/skills` |
+| Codex | `learn-mcp`, hoặc chọn nó từ `/skills` |
 | Claude Code | `/learn-mcp` |
-| Other compatible hosts | `Use learn-mcp to start or resume the Model Context Protocol (MCP) path.` |
+| Các host tương thích khác | `Use learn-mcp to start or resume the Model Context Protocol (MCP) path.` |
 
 ### Your first ten minutes
 
-From the repository root, run Lesson 06's stateless transcript:
+Từ thư mục gốc của kho mã, chạy bản ghi phi trạng thái của Bài 06:
 
 ```bash
 python3 phases/13-tools-and-protocols/06-mcp-fundamentals/code/main.py
 ```
 
-Find four things in the output: repeated request metadata, a complete
-`server/discover` result, error `-32022` for an unsupported version, and a
-transport close that does not create or terminate an MCP protocol session.
-That transcript is the first checkpoint, not just a demo.
+Tìm bốn điều trong đầu ra: siêu dữ liệu yêu cầu được lặp lại, một kết quả
+`server/discover` hoàn tất, lỗi `-32022` cho một phiên bản không được hỗ trợ và một
+lần đóng truyền tải không tạo hoặc kết thúc một phiên giao thức MCP.
+Bản ghi đó là điểm kiểm tra đầu tiên, không chỉ là một bản demo.
 
-If the repository or Python 3 is unavailable, read [Lesson 06](06-mcp-fundamentals/)
-and hand-trace one request and response. Mark the checkpoint conceptual and
-leave runtime, transport, authorization, and deployment evidence pending.
+Nếu kho mã hoặc Python 3 không khả dụng, đọc [Bài 06](06-mcp-fundamentals/)
+và lần theo thủ công một yêu cầu và phản hồi. Đánh dấu điểm kiểm tra là khái niệm và
+để bằng chứng runtime, truyền tải, cấp quyền và triển khai ở trạng thái chờ.
 
-Complete Lesson 15's executable security checkpoint before any non-loopback
-bind, shared ingress, hosted endpoint, or registry publication. Review the
-external target and requested authority, then confirm the deployment action
-explicitly. A completed tutorial does not grant deployment authority.
+Hoàn thành điểm kiểm tra bảo mật thực thi được của Bài 15 trước bất kỳ việc bind không loopback,
+đầu vào dùng chung, endpoint được lưu trữ hoặc xuất bản registry nào. Xem xét
+đích bên ngoài và quyền được yêu cầu, rồi xác nhận hành động triển khai
+một cách rõ ràng. Một hướng dẫn đã hoàn thành không cấp quyền triển khai.
 
-Older `initialize`, `Mcp-Session-Id`, standalone SSE `GET`, session `DELETE`,
-and server-initiated request flows appear only in explicit compatibility notes.
-Modern requests declare protocol version and client capabilities in
-`params._meta`, use `server/discover`, and carry enough information to be
-validated, authorized, routed, and retried independently.
+Các luồng `initialize`, `Mcp-Session-Id`, SSE `GET` độc lập, `DELETE` phiên cũ hơn
+và yêu cầu do máy chủ khởi tạo chỉ xuất hiện trong các ghi chú tương thích rõ ràng.
+Các yêu cầu hiện đại khai báo phiên bản giao thức và khả năng client trong
+`params._meta`, sử dụng `server/discover` và mang đủ thông tin để được
+xác thực, cấp quyền, định tuyến và thử lại độc lập.
 
-[Lesson 23](23-capstone-tool-ecosystem/) is the only optional MCP route
-capstone. Complete the 17 required lessons plus [Lesson 19](19-a2a-protocol/)
-and [Lesson 20](20-opentelemetry-genai/) before starting it.
+[Bài 23](23-capstone-tool-ecosystem/) là đồ án tổng kết lộ trình MCP
+tùy chọn duy nhất. Hoàn thành 17 bài học bắt buộc cộng với [Bài 19](19-a2a-protocol/)
+và [Bài 20](20-opentelemetry-genai/) trước khi bắt đầu nó.
 
 ## Agent Skills fast path
 
-The focused route is five lessons and about 9 hours 30 minutes:
+Lộ trình tập trung gồm năm bài học và khoảng 9 giờ 30 phút:
 
-| Step | Lesson | Outcome | Time |
+| Bước | Bài học | Kết quả | Thời gian |
 |---:|---|---|---:|
-| 1 | [22: Portable Contract and Runtime Boundary](22-skills-and-agent-sdks/) | Create, install, invoke, verify, and remove a complete skill bundle. | 90 min |
-| 2 | [24: Discovery and Progressive Disclosure](24-skill-discovery-and-progressive-disclosure/) | Trace discovery, cataloging, activation, and resource loading. | 105 min |
-| 3 | [25: Invocation and Routing](25-skill-invocation-and-routing/) | Control explicit, implicit, human, model, and abstention paths. | 105 min |
-| 4 | [26: Permissions, Sandboxes, and Trust](26-skill-permissions-sandboxes-and-trust/) | Separate instructions, permissions, containment, and verification. | 120 min |
-| 5 | [27: Evals, Packaging, and Portability](27-skill-evals-packaging-and-portability/) | Build a release gate and prove behavior in real hosts. | 150 min |
+| 1 | [22: Hợp đồng có tính di động và ranh giới runtime](22-skills-and-agent-sdks/) | Tạo, cài đặt, gọi, xác minh và loại bỏ một bundle skill hoàn chỉnh. | 90 phút |
+| 2 | [24: Khám phá và tiết lộ dần](24-skill-discovery-and-progressive-disclosure/) | Lần theo việc khám phá, lập danh mục, kích hoạt và tải tài nguyên. | 105 phút |
+| 3 | [25: Gọi và định tuyến](25-skill-invocation-and-routing/) | Kiểm soát các đường đi tường minh, ngầm định, con người, mô hình và từ chối. | 105 phút |
+| 4 | [26: Quyền, sandbox và sự tin cậy](26-skill-permissions-sandboxes-and-trust/) | Tách biệt các chỉ dẫn, quyền, sự cô lập và xác minh. | 120 phút |
+| 5 | [27: Đánh giá, đóng gói và tính di động](27-skill-evals-packaging-and-portability/) | Xây dựng một cổng phát hành và chứng minh hành vi trong các host thực. | 150 phút |
 
-Start with the invocation supported by your host:
+Bắt đầu với cách gọi được host của bạn hỗ trợ:
 
-| Host | Invocation |
+| Host | Cách gọi |
 |---|---|
-| Codex | `learn-agent-skills`, or choose it from `/skills` |
+| Codex | `learn-agent-skills`, hoặc chọn nó từ `/skills` |
 | Claude Code | `/learn-agent-skills` |
-| Other compatible hosts | `Use learn-agent-skills to start or resume the Agent Skills Engineering path.` |
+| Các host tương thích khác | `Use learn-agent-skills to start or resume the Agent Skills Engineering path.` |
 
-The tutor creates or resumes `AGENT-SKILLS-LEARNING.md`, teaches one lesson per
-invocation, and records the evidence required by each checkpoint. The route is
-defined in
+Gia sư tạo hoặc tiếp tục `AGENT-SKILLS-LEARNING.md`, dạy một bài học cho mỗi
+lần gọi và ghi lại bằng chứng được yêu cầu bởi mỗi điểm kiểm tra. Lộ trình được
+định nghĩa trong
 [`learning-paths/agent-skills.json`](../../learning-paths/agent-skills.json).
 
-If you prefer to read first, start with [Lesson 22](22-skills-and-agent-sdks/).
-Its first lab gets a skill into a real host in about ten minutes.
+Nếu bạn thích đọc trước, bắt đầu với [Bài 22](22-skills-and-agent-sdks/).
+Bài thực hành đầu tiên của nó đưa một skill vào một host thực trong khoảng mười phút.
 
 ### Prerequisite fast lane
 
-- For the real labs, you need `node`, `npx`, `python3`, one selected
-  skill-capable host, and write access to the chosen project or user skill
-  scope. Verify the three commands with `node --version`, `npx --version`, and
-  `python3 --version` before installing.
-- If that preflight is unavailable, use the website or read each `docs/en.md`
-  manually. You can complete the conceptual work, but keep discovery,
-  invocation, script, update, and uninstall evidence marked pending.
-- Skim [Lesson 01](01-the-tool-interface/) and [Lesson 05](05-tool-schema-design/)
-  if tool contracts are new to you.
-- Before Lesson 26, confirm that you can explain tool poisoning and untrusted
-  instructions. [Lesson 15](15-mcp-security-tool-poisoning/) is the optional
-  refresher for that preflight, not a sixth required lesson in this route.
-- [Lesson 23](23-capstone-tool-ecosystem/) is an optional systems capstone,
-  not the next Agent Skills lesson after 22. Complete lessons 06 through 20
-  before taking it.
+- Với các bài thực hành thực, bạn cần `node`, `npx`, `python3`, một host được chọn
+  có hỗ trợ skill và quyền ghi vào phạm vi skill của dự án hoặc người dùng
+  đã chọn. Xác minh ba lệnh bằng `node --version`, `npx --version` và
+  `python3 --version` trước khi cài đặt.
+- Nếu việc kiểm tra trước đó không khả dụng, sử dụng trang web hoặc đọc từng `docs/en.md`
+  một cách thủ công. Bạn có thể hoàn thành phần khái niệm, nhưng giữ bằng chứng khám phá,
+  gọi, script, cập nhật và gỡ cài đặt được đánh dấu là chờ.
+- Đọc lướt [Bài 01](01-the-tool-interface/) và [Bài 05](05-tool-schema-design/)
+  nếu các hợp đồng công cụ còn mới với bạn.
+- Trước Bài 26, xác nhận rằng bạn có thể giải thích việc đầu độc công cụ và các chỉ dẫn
+  không đáng tin cậy. [Bài 15](15-mcp-security-tool-poisoning/) là phần ôn tập
+  tùy chọn cho việc kiểm tra trước đó, không phải một bài học bắt buộc thứ sáu trong lộ trình này.
+- [Bài 23](23-capstone-tool-ecosystem/) là một đồ án tổng kết hệ thống tùy chọn,
+  không phải bài học Agent Skills tiếp theo sau 22. Hoàn thành các bài học từ 06 đến 20
+  trước khi thực hiện nó.
 
 ## Full phase
 
-See [ROADMAP.md](../../ROADMAP.md) for the full lesson plan.
+Xem [ROADMAP.md](../../ROADMAP.md) để biết kế hoạch bài học đầy đủ.

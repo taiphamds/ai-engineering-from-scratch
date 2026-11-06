@@ -1,25 +1,25 @@
 # Phase 19: Capstone Projects
 
-> Prove everything you learned. Build portfolio-grade systems.
+> Chứng minh mọi thứ bạn đã học. Xây dựng các hệ thống đạt chất lượng hồ sơ năng lực.
 
 ## Start this phase on GitHub
 
-**Prerequisites:** Choose a project whose listed phases you have completed.
-The Terminal-Native Coding Agent expects Phases 11, 13, 14, 15, and 17.
+**Prerequisites:** Chọn một dự án có các phase được liệt kê mà bạn đã hoàn thành.
+Terminal-Native Coding Agent kỳ vọng các Phase 11, 13, 14, 15, và 17.
 
-**Starter project:** [Terminal-Native Coding Agent](01-terminal-native-coding-agent/)
+**Dự án khởi đầu:** [Terminal-Native Coding Agent](01-terminal-native-coding-agent/)
 
-Run this command from the repository root:
+Chạy lệnh này từ thư mục gốc kho:
 
 ```bash
 python3 phases/19-capstone-projects/01-terminal-native-coding-agent/code/main.py
 ```
 
-Keep the command, exit code, final plan state, budget totals, trace events, and
-the architecture decision you would change before connecting a real model.
+Giữ lệnh, mã thoát, trạng thái kế hoạch cuối, các tổng ngân sách, các sự kiện trace, và
+quyết định kiến trúc bạn sẽ thay đổi trước khi kết nối một mô hình thực.
 
-**Next action:** Select the capstone that matches your goal from the
-[full Phase 19 project list](../../README.md#phase-19). Projects are choices,
-not a required numeric sequence. Write acceptance evidence before building.
+**Hành động tiếp theo:** Chọn bài tổng kết khớp mục tiêu của bạn từ
+[danh sách dự án Phase 19 đầy đủ](../../README.md#phase-19). Các dự án là các lựa chọn,
+không phải một thứ tự số bắt buộc. Viết bằng chứng nghiệm thu trước khi xây dựng.
 
-Use the [cross-phase roadmap](../../ROADMAP.md) to close any prerequisite gaps.
+Dùng [lộ trình xuyên phase](../../ROADMAP.md) để lấp bất kỳ khoảng trống tiên quyết nào.

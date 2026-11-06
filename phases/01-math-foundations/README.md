@@ -1,26 +1,26 @@
 # Phase 1: Math Foundations
 
-> The intuition behind every AI algorithm, through code, not textbooks.
+> Trực giác đằng sau mọi thuật toán AI, thông qua mã, không phải sách giáo khoa.
 
 ## Start this phase on GitHub
 
-**Prerequisites:** Complete Phase 0, or confirm that Python 3.11+ and Git work
-from the repository root.
+**Prerequisites:** Hoàn thành Giai đoạn 0, hoặc xác nhận rằng Python 3.11+ và Git hoạt động
+từ thư mục gốc của kho mã.
 
-**First lesson:** [Linear Algebra Intuition](01-linear-algebra-intuition/)
+**Bài học đầu tiên:** [Linear Algebra Intuition](01-linear-algebra-intuition/)
 
-Run this command from the repository root:
+Chạy lệnh này từ thư mục gốc của kho mã:
 
 ```bash
 python3 phases/01-math-foundations/01-linear-algebra-intuition/code/vectors.py
 ```
 
-Keep the command, exit code, normalized-vector output, projection residual,
-and one sentence explaining why a matrix-vector product is a neural-network
-layer.
+Giữ lại lệnh, mã thoát, đầu ra vector đã chuẩn hóa, phần dư phép chiếu,
+và một câu giải thích tại sao tích ma trận-vector là một lớp mạng
+nơ-ron.
 
-**Next action:** Change one input vector, predict the result, run it again,
-then continue to [Vectors, Matrices and Operations](02-vectors-matrices-operations/).
+**Hành động tiếp theo:** Thay đổi một vector đầu vào, dự đoán kết quả, chạy lại,
+sau đó tiếp tục đến [Vectors, Matrices and Operations](02-vectors-matrices-operations/).
 
-Browse the [full Phase 1 lesson list](../../README.md#phase-1) or the
-[cross-phase roadmap](../../ROADMAP.md).
+Duyệt [danh sách đầy đủ các bài học của Giai đoạn 1](../../README.md#phase-1) hoặc
+[lộ trình xuyên giai đoạn](../../ROADMAP.md).

@@ -1,25 +1,25 @@
 # Phase 9: Reinforcement Learning
 
-> Agents that learn by doing. The foundation of RLHF.
+> Các agent học bằng cách làm. Nền tảng của RLHF.
 
 ## Start this phase on GitHub
 
-**Prerequisites:** Phase 1 probability and distributions, plus Phase 2 Lesson
-01 for the ML taxonomy.
+**Prerequisites:** Xác suất và phân phối Giai đoạn 1, cộng Giai đoạn 2 Bài
+01 cho phân loại ML.
 
-**First lesson:** [MDPs, States, Actions and Rewards](01-mdps-states-actions-rewards/)
+**Bài học đầu tiên:** [MDP, Trạng thái, Hành động và Phần thưởng](01-mdps-states-actions-rewards/)
 
-Run this command from the repository root:
+Chạy lệnh này từ thư mục gốc của kho mã:
 
 ```bash
 python3 phases/09-reinforcement-learning/01-mdps-states-actions-rewards/code/main.py
 ```
 
-Keep the command, exit code, random and greedy returns, value grids, and one
-sentence connecting policy quality to expected return.
+Giữ lại lệnh, mã thoát, các lợi tức ngẫu nhiên và tham lam, các lưới giá trị, và một
+câu kết nối chất lượng chính sách với lợi tức kỳ vọng.
 
-**Next action:** Change the discount factor, predict the value shift, then
-continue to [Dynamic Programming](02-dynamic-programming/).
+**Hành động tiếp theo:** Thay đổi hệ số chiết khấu, dự đoán sự dịch chuyển giá trị, rồi
+tiếp tục đến [Quy hoạch động](02-dynamic-programming/).
 
-Browse the [full Phase 9 lesson list](../../README.md#phase-9) or the
-[cross-phase roadmap](../../ROADMAP.md).
+Duyệt [danh sách đầy đủ các bài học Giai đoạn 9](../../README.md#phase-9) hoặc
+[lộ trình xuyên giai đoạn](../../ROADMAP.md).

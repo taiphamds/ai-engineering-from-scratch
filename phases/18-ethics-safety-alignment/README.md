@@ -1,24 +1,24 @@
 # Phase 18: Ethics, Safety & Alignment
 
-> Build AI that helps humanity. Not optional.
+> Xây AI giúp nhân loại. Không tùy chọn.
 
 ## Start this phase on GitHub
 
-**Prerequisites:** Phase 10 Lessons 06, 07, and 08 on SFT, RLHF, and DPO.
+**Prerequisites:** Giai đoạn 10 Bài 06, 07 và 08 về SFT, RLHF và DPO.
 
-**First lesson:** [Instruction-Following as Alignment Signal](01-instruction-following-alignment-signal/)
+**Bài học đầu tiên:** [Làm theo chỉ dẫn như tín hiệu căn chỉnh](01-instruction-following-alignment-signal/)
 
-Run this command from the repository root:
+Chạy lệnh này từ thư mục gốc kho mã:
 
 ```bash
 python3 phases/18-ethics-safety-alignment/01-instruction-following-alignment-signal/code/main.py
 ```
 
-Keep the command, exit code, policies with and without the KL penalty, reward
-and KL trajectories, and one sentence naming the proxy failure you observed.
+Giữ lại lệnh, mã thoát, chính sách có và không có hình phạt KL, quỹ đạo phần thưởng
+và KL, cùng một câu nêu thất bại đại diện bạn quan sát.
 
-**Next action:** Change the KL coefficient, predict policy drift, then continue
-to [Reward Hacking and Goodhart's Law](02-reward-hacking-goodhart/).
+**Hành động tiếp theo:** Thay hệ số KL, dự đoán độ trôi chính sách, rồi tiếp tục
+đến [Khai thác Phần thưởng và Định luật Goodhart](02-reward-hacking-goodhart/).
 
-Browse the [full Phase 18 lesson list](../../README.md#phase-18) or the
-[cross-phase roadmap](../../ROADMAP.md).
+Duyệt [danh sách bài học đầy đủ Giai đoạn 18](../../README.md#phase-18) hoặc
+[lộ trình xuyên giai đoạn](../../ROADMAP.md).

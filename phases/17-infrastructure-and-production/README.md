@@ -1,24 +1,24 @@
 # Phase 17: Infrastructure & Production
 
-> Ship AI to the real world. Scale, monitor, optimize.
+> Đưa AI vào thế giới thực. Mở rộng quy mô, giám sát, tối ưu.
 
 ## Start this phase on GitHub
 
-**Prerequisites:** Phase 11 LLM Engineering and Phase 13 Tools and Protocols.
+**Prerequisites:** Giai đoạn 11 Kỹ thuật LLM và Giai đoạn 13 Công cụ và Giao thức.
 
-**First lesson:** [Managed LLM Platforms](01-managed-llm-platforms/)
+**Bài học đầu tiên:** [Nền tảng LLM được quản lý](01-managed-llm-platforms/)
 
-Run this command from the repository root:
+Chạy lệnh này từ thư mục gốc kho mã:
 
 ```bash
 python3 phases/17-infrastructure-and-production/01-managed-llm-platforms/code/main.py
 ```
 
-Keep the command, exit code, cost and latency comparison, redundancy uplift,
-and a short decision record naming the workload assumptions behind your choice.
+Giữ lại lệnh, mã thoát, so sánh chi phí và độ trễ, mức tăng dự phòng dư thừa,
+và một bản ghi quyết định ngắn nêu các giả định khối lượng công việc đằng sau lựa chọn của bạn.
 
-**Next action:** Change one workload or SLA input, explain the new choice,
-then continue to [Inference Platform Economics](02-inference-platform-economics/).
+**Hành động tiếp theo:** Thay đổi một đầu vào khối lượng công việc hoặc SLA, giải thích lựa chọn mới,
+rồi tiếp tục đến [Tính kinh tế nền tảng suy luận](02-inference-platform-economics/).
 
-Browse the [full Phase 17 lesson list](../../README.md#phase-17) or the
-[cross-phase roadmap](../../ROADMAP.md).
+Duyệt [danh sách bài học đầy đủ của Giai đoạn 17](../../README.md#phase-17) hoặc
+[lộ trình xuyên giai đoạn](../../ROADMAP.md).

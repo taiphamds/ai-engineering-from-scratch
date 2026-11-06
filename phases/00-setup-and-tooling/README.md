@@ -1,25 +1,25 @@
 # Phase 0: Setup & Tooling
 
-> Get your environment ready for everything that follows.
+> Chuẩn bị môi trường của bạn cho mọi thứ tiếp theo.
 
 ## Start this phase on GitHub
 
-**Prerequisites:** None. You need Git and Python 3.11 or newer to begin. Other
-tools are installed only when your route needs them.
+**Prerequisites:** Không có. Bạn cần Git và Python 3.11 hoặc mới hơn để bắt đầu. Các
+công cụ khác chỉ được cài đặt khi lộ trình của bạn cần đến chúng.
 
-**First lesson:** [Dev Environment](01-dev-environment/)
+**Bài học đầu tiên:** [Dev Environment](01-dev-environment/)
 
-From the repository root, run the route-aware preflight:
+Từ thư mục gốc của kho mã, chạy kiểm tra sơ bộ có xét đến lộ trình:
 
 ```bash
 python3 phases/00-setup-and-tooling/01-dev-environment/code/verify.py --route beginner
 ```
 
-Keep the command, repository-root working directory, exit code, required check
-results, and the printed `Next:` command. Optional misses are not failures.
+Giữ lại lệnh, thư mục làm việc ở gốc kho mã, mã thoát, kết quả kiểm tra
+bắt buộc và lệnh `Next:` được in ra. Các mục tùy chọn còn thiếu không phải là lỗi.
 
-**Next action:** Fix every required failure, rerun until the command exits 0,
-then continue to [Git and Collaboration](02-git-and-collaboration/).
+**Hành động tiếp theo:** Khắc phục mọi lỗi thuộc phần bắt buộc, chạy lại cho đến khi lệnh thoát với mã 0,
+sau đó tiếp tục đến [Git and Collaboration](02-git-and-collaboration/).
 
-Browse the [full Phase 0 lesson list](../../README.md#phase-0) or the
-[cross-phase roadmap](../../ROADMAP.md).
+Duyệt [danh sách đầy đủ các bài học của Giai đoạn 0](../../README.md#phase-0) hoặc
+[lộ trình xuyên giai đoạn](../../ROADMAP.md).

@@ -1,25 +1,25 @@
 # Phase 3: Deep Learning Core
 
-> Neural networks from first principles. No frameworks until you build one yourself.
+> Mạng nơ-ron từ những nguyên lý đầu tiên. Không dùng framework cho tới khi bạn tự xây dựng một framework.
 
 ## Start this phase on GitHub
 
-**Prerequisites:** Phase 1 Linear Algebra Intuition. Phase 2 is recommended
-for model evaluation vocabulary.
+**Prerequisites:** Giai đoạn 1 Trực giác Đại số Tuyến tính. Giai đoạn 2 được khuyến nghị
+để có vốn thuật ngữ đánh giá mô hình.
 
-**First lesson:** [The Perceptron](01-the-perceptron/)
+**Bài học đầu tiên:** [The Perceptron](01-the-perceptron/)
 
-Run this command from the repository root:
+Chạy lệnh này từ thư mục gốc của kho mã:
 
 ```bash
 python3 phases/03-deep-learning-core/01-the-perceptron/code/perceptron.py
 ```
 
-Keep the command, exit code, converged gate results, XOR failure of a single
-perceptron, and the final two-layer XOR predictions.
+Giữ lại lệnh, mã thoát, các kết quả cổng đã hội tụ, thất bại XOR của một
+perceptron và các dự đoán XOR hai lớp cuối cùng.
 
-**Next action:** Explain why one linear boundary cannot solve XOR, then
-continue to [Multi-Layer Networks and Forward Pass](02-multi-layer-networks/).
+**Hành động tiếp theo:** Giải thích tại sao một ranh giới tuyến tính không thể giải XOR, rồi
+tiếp tục với [Multi-Layer Networks and Forward Pass](02-multi-layer-networks/).
 
-Browse the [full Phase 3 lesson list](../../README.md#phase-3) or the
-[cross-phase roadmap](../../ROADMAP.md).
+Duyệt [danh sách bài học Giai đoạn 3 đầy đủ](../../README.md#phase-3) hoặc
+[lộ trình xuyên giai đoạn](../../ROADMAP.md).
