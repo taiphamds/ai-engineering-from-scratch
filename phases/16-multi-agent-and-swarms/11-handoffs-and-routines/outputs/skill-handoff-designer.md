@@ -7,28 +7,28 @@ lesson: 11
 tags: [multi-agent, swarm, handoff, openai-agents-sdk]
 ---
 
-Given a user-facing task (often triage or skill-based routing), produce a handoff topology ready to map onto OpenAI Swarm or the OpenAI Agents SDK.
+Với một tác vụ hướng tới người dùng (thường là phân loại hoặc định tuyến dựa trên kỹ năng), tạo một cấu trúc liên kết bàn giao sẵn sàng ánh xạ lên OpenAI Swarm hoặc OpenAI Agents SDK.
 
-Produce:
+Tạo ra:
 
-1. **Agent roster.** Each agent: name, one-sentence purpose, tools, and which other agents it can hand off to.
-2. **Handoff functions.** The tool signatures per agent. Each handoff function returns a target Agent.
-3. **Context transfer policy.** On each handoff edge: full history, last N messages, or summarized snapshot. Justify.
-4. **Guardrails.** Input validation per agent (what prompts are allowed to trigger handoffs to sensitive specialists), authentication on handoff where needed.
-5. **Loop detection.** Rule to detect ping-pong (e.g., "A handed off to B; B handed off back to A" occurring more than once in a row).
-6. **Fallback behavior.** If a handoff target is missing (removed agent, auth failure), which agent handles the session.
-7. **Session / memory plan.** Whether to use Agents SDK sessions, caller-managed memory, or no memory at all.
+1. **Danh sách agent.** Mỗi agent: tên, mục đích một câu, công cụ, và những agent khác nào nó có thể bàn giao tới.
+2. **Các hàm bàn giao.** Các chữ ký công cụ theo từng agent. Mỗi hàm bàn giao trả về một Agent đích.
+3. **Chính sách chuyển ngữ cảnh.** Trên mỗi cạnh bàn giao: toàn bộ lịch sử, N thông điệp cuối, hoặc snapshot được tóm tắt. Giải thích.
+4. **Các rào chắn.** Xác thực đầu vào theo từng agent (các prompt nào được phép kích hoạt các bàn giao tới các chuyên gia nhạy cảm), xác thực trên bàn giao khi cần.
+5. **Phát hiện vòng lặp.** Quy tắc phát hiện bóng bàn (ví dụ: “A bàn giao tới B; B bàn giao trở lại A” xảy ra nhiều hơn một lần liên tiếp).
+6. **Hành vi dự phòng.** Nếu một đích bàn giao thiếu (agent bị loại bỏ, lỗi xác thực), agent nào xử lý phiên.
+7. **Kế hoạch phiên / bộ nhớ.** Liệu sử dụng các phiên Agents SDK, bộ nhớ do bên gọi quản lý, hay hoàn toàn không có bộ nhớ.
 
-Hard rejects:
+Các trường hợp loại bỏ dứt khoát:
 
-- Any handoff design without loop detection.
-- Handoff functions that pass full history to specialists with different tool permissions (security risk).
-- Designs that assume Swarm's stateless behavior but then require multi-turn memory — use Agents SDK sessions instead.
+- Bất kỳ thiết kế bàn giao nào không có phát hiện vòng lặp.
+- Các hàm bàn giao chuyển toàn bộ lịch sử tới các chuyên gia có quyền công cụ khác (rủi ro bảo mật).
+- Các thiết kế giả định hành vi không trạng thái của Swarm nhưng rồi yêu cầu bộ nhớ nhiều lượt — thay vào đó sử dụng các phiên Agents SDK.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the task needs parallel execution, refuse Swarm and recommend supervisor (Lesson 05) instead.
-- If the task needs deterministic audit/replay, refuse and recommend LangGraph static graph.
-- If the task is a simple DAG of stages (research → code → review), recommend CrewAI Sequential instead.
+- Nếu tác vụ cần thực thi song song, từ chối Swarm và thay vào đó đề xuất bộ giám sát (Bài 05).
+- Nếu tác vụ cần kiểm toán/phát lại xác định, từ chối và đề xuất đồ thị tĩnh LangGraph.
+- Nếu tác vụ là một DAG các giai đoạn đơn giản (nghiên cứu → mã → xem xét), thay vào đó đề xuất CrewAI Sequential.
 
-Output: a one-page handoff brief. Close with a security note on how prompt injection could trigger unwanted handoffs and what guardrails block it.
+Đầu ra: một bản tóm lược bàn giao một trang. Kết thúc bằng một ghi chú bảo mật về cách chèn prompt có thể kích hoạt các bàn giao ngoài ý muốn và những rào chắn nào chặn nó.

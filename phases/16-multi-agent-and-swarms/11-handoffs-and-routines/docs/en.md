@@ -1,6 +1,6 @@
 # Handoffs and Routines — Stateless Orchestration
 
-> OpenAI's Swarm (October 2024) distilled multi-agent orchestration to two primitives: **routines** (instructions + tools as a system prompt) and **handoffs** (a tool that returns another Agent). No state machine, no branching DSL — the LLM routes by calling the right handoff tool. The OpenAI Agents SDK (March 2025) is the production successor. Swarm itself remains the cleanest conceptual reference — its entire source fits in a few hundred lines. The pattern is viral because the API surface is roughly "agent = prompt + tools; handoff = function returning agent." Limitation: stateless, so memory is the caller's problem.
+> Swarm của OpenAI (tháng 10 năm 2024) chắt lọc điều phối đa agent thành hai nguyên thủy: **các quy trình** (chỉ dẫn + công cụ dưới dạng một prompt hệ thống) và **các bàn giao** (một công cụ trả về một Agent khác). Không máy trạng thái, không DSL phân nhánh — LLM định tuyến bằng cách gọi đúng công cụ bàn giao. OpenAI Agents SDK (tháng 3 năm 2025) là phiên bản kế nhiệm cho sản xuất. Bản thân Swarm vẫn là tham chiếu khái niệm sạch nhất — toàn bộ mã nguồn của nó vừa trong vài trăm dòng. Mẫu lan truyền vì bề mặt API xấp xỉ “agent = prompt + công cụ; bàn giao = hàm trả về agent.” Hạn chế: không trạng thái, nên bộ nhớ là vấn đề của bên gọi.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,19 +9,19 @@
 
 ## Problem
 
-Every multi-agent framework wants you to learn its DSL: LangGraph nodes and edges, CrewAI crews and tasks, AutoGen GroupChat and managers. The DSLs are real abstractions, but they make the thing feel heavier than it needs to be.
+Mọi framework đa agent muốn bạn học DSL của nó: các node và cạnh LangGraph, các nhóm và tác vụ CrewAI, GroupChat và các bộ quản lý AutoGen. Các DSL là các trừu tượng hóa thực, nhưng chúng khiến thứ đó có cảm giác nặng hơn mức cần thiết.
 
-Swarm pushes in the opposite direction: use the tool-calling capability the model already has. Handoffs become tool calls. The orchestrator is whichever agent currently holds the conversation. The state machine is implicit in the agents' system prompts.
+Swarm đẩy theo hướng ngược lại: sử dụng năng lực gọi công cụ mà mô hình đã có. Các bàn giao trở thành các lệnh gọi công cụ. Bộ điều phối là bất kỳ agent nào hiện giữ hội thoại. Máy trạng thái là ngầm định trong các prompt hệ thống của các agent.
 
 ## Concept
 
 ### Two primitives
 
-**Routine.** A system prompt that defines an agent's role and available tools. Think of it like a scoped set of instructions: "you are a triage agent; if the user asks about refunds, hand off to the refund agent."
+**Quy trình.** Một prompt hệ thống định nghĩa vai trò và các công cụ có sẵn của một agent. Hãy nghĩ về nó như một tập chỉ dẫn có phạm vi giới hạn: “bạn là một agent phân loại; nếu người dùng hỏi về hoàn tiền, bàn giao tới agent hoàn tiền.”
 
-**Handoff.** A tool the agent can call that returns a new Agent object. The Swarm runtime detects the Agent return value and switches the active agent for the next turn.
+**Bàn giao.** Một công cụ agent có thể gọi trả về một đối tượng Agent mới. Môi trường chạy Swarm phát hiện giá trị trả về Agent và chuyển agent hoạt động cho lượt tiếp theo.
 
-That is the entire abstraction.
+Đó là toàn bộ trừu tượng hóa.
 
 ```
 def transfer_to_refunds():
@@ -34,51 +34,51 @@ triage_agent = Agent(
 )
 ```
 
-The triage agent's system prompt makes it choose the right handoff based on the user message. The LLM's tool-calling does the routing.
+Prompt hệ thống của agent phân loại khiến nó chọn bàn giao phù hợp dựa trên thông điệp người dùng. Gọi công cụ của LLM thực hiện định tuyến.
 
 ### Why it is viral
 
-- **Small API.** Two concepts to learn.
-- **Uses what the model already does.** Tool calling is already production-grade across providers.
-- **No state-machine burden.** You do not describe the graph; the agents' prompts describe who they hand off to.
+- **API nhỏ.** Hai khái niệm để học.
+- **Sử dụng những gì mô hình đã làm.** Gọi công cụ đã ở mức sản xuất trên các nhà cung cấp.
+- **Không gánh nặng máy trạng thái.** Bạn không mô tả đồ thị; các prompt của agent mô tả chúng bàn giao cho ai.
 
 ### The stateless trade
 
-Swarm is explicitly stateless between runs. The framework keeps a message history during a run, but it does not persist anything. Memory, continuity, long-running tasks — all the caller's problem.
+Swarm rõ ràng không trạng thái giữa các lần chạy. Framework giữ một lịch sử thông điệp trong một lần chạy, nhưng không lưu bền vững bất cứ thứ gì. Bộ nhớ, tính liên tục, các tác vụ chạy dài — tất cả là vấn đề của bên gọi.
 
-In production (OpenAI Agents SDK, March 2025) this was one of the main things that changed: the SDK adds built-in session management, guardrails, and tracing while keeping the handoff primitive.
+Trong sản xuất (OpenAI Agents SDK, tháng 3 năm 2025) đây là một trong những điều chính thay đổi: SDK thêm quản lý phiên, các rào chắn, và truy vết tích hợp trong khi giữ nguyên thủy bàn giao.
 
 ### When Swarm/handoffs fit
 
-- **Triage patterns.** Front-line agent routes user to a specialist.
-- **Skill-based handoffs.** "If the task needs code, call the coder; if it needs research, call the researcher."
-- **Short, bounded conversations.** Customer support, FAQ-to-ticket, simple workflows.
+- **Các mẫu phân loại.** Agent tuyến đầu định tuyến người dùng tới một chuyên gia.
+- **Các bàn giao dựa trên kỹ năng.** “Nếu tác vụ cần mã, gọi người viết mã; nếu nó cần nghiên cứu, gọi nhà nghiên cứu.”
+- **Các cuộc hội thoại ngắn, bị giới hạn.** Hỗ trợ khách hàng, FAQ thành phiếu hỗ trợ, các quy trình đơn giản.
 
 ### When Swarm struggles
 
-- **Long sessions with shared memory.** Handoffs reset the conversation state to the new agent's prompt plus history. No persistent state across agents without caller-managed memory.
-- **Parallel execution.** Handoff is one-at-a-time — the active agent switches. Parallelism requires the caller orchestrating multiple Swarm runs.
-- **Audit and replay.** Stateless runs are hard to replay exactly; the LLM's handoff choice is not deterministic.
+- **Các phiên dài có bộ nhớ dùng chung.** Các bàn giao đặt lại trạng thái hội thoại thành prompt của agent mới cộng với lịch sử. Không có trạng thái bền vững giữa các agent nếu không có bộ nhớ do bên gọi quản lý.
+- **Thực thi song song.** Bàn giao từng cái một — agent hoạt động chuyển đổi. Tính song song yêu cầu bên gọi điều phối nhiều lần chạy Swarm.
+- **Kiểm toán và phát lại.** Các lần chạy không trạng thái khó phát lại chính xác; lựa chọn bàn giao của LLM không xác định.
 
 ### OpenAI Agents SDK (March 2025)
 
-The production successor adds:
+Phiên bản kế nhiệm cho sản xuất bổ sung:
 
-- **Session state.** Persistent thread across runs.
-- **Guardrails.** Input/output validation hooks.
-- **Tracing.** Every tool call and handoff is logged.
-- **Handoff filters.** Control what context transfers on handoff.
+- **Trạng thái phiên.** Luồng bền vững qua các lần chạy.
+- **Các rào chắn.** Các hook xác thực đầu vào/đầu ra.
+- **Truy vết.** Mọi lệnh gọi công cụ và bàn giao được ghi nhật ký.
+- **Các bộ lọc bàn giao.** Kiểm soát ngữ cảnh nào chuyển qua bàn giao.
 
-The handoff primitive survives; production ergonomics get added around it.
+Nguyên thủy bàn giao tồn tại; sự thuận tiện cho sản xuất được thêm quanh nó.
 
 ### Swarm vs GroupChat
 
-Both use LLM-driven routing, but they differ on **who picks next**:
+Cả hai sử dụng định tuyến do LLM điều khiển, nhưng khác nhau về **ai chọn tiếp theo**:
 
-- GroupChat: a selector (function or LLM) picks the next speaker from outside.
-- Swarm: the current agent picks its successor by calling a handoff tool.
+- GroupChat: một bộ chọn (hàm hoặc LLM) chọn người nói tiếp theo từ bên ngoài.
+- Swarm: agent hiện tại chọn bên kế nhiệm bằng cách gọi một công cụ bàn giao.
 
-Swarm is "agent decides what's next"; GroupChat is "manager decides what's next." Swarm's decision lives in the active agent's tool call; GroupChat's lives in the `GroupChatManager`.
+Swarm là “agent quyết định điều gì tiếp theo”; GroupChat là “bộ quản lý quyết định điều gì tiếp theo.” Quyết định của Swarm nằm trong lệnh gọi công cụ của agent hoạt động; quyết định của GroupChat nằm trong `GroupChatManager`.
 
 ```figure
 sw-handoff-routing
@@ -86,11 +86,11 @@ sw-handoff-routing
 
 ## Build It
 
-`code/main.py` implements Swarm from scratch: an Agent dataclass, a handoff mechanism (tool returns Agent), and a run loop that detects agent switches.
+`code/main.py` triển khai Swarm từ đầu: một dataclass Agent, một cơ chế bàn giao (công cụ trả về Agent), và một vòng lặp chạy phát hiện các lần chuyển agent.
 
-Demo: a triage agent routes to refund, sales, or support specialists. Each specialist has its own tools. The run loop prints each handoff.
+Demo: một agent phân loại định tuyến tới các chuyên gia hoàn tiền, bán hàng, hoặc hỗ trợ. Mỗi chuyên gia có các công cụ riêng. Vòng lặp chạy in mỗi bàn giao.
 
-Run:
+Chạy:
 
 ```
 python3 code/main.py
@@ -98,42 +98,42 @@ python3 code/main.py
 
 ## Use It
 
-`outputs/skill-handoff-designer.md` designs a handoff topology for a given task: which agents exist, which handoffs they can call, what context transfers.
+`outputs/skill-handoff-designer.md` thiết kế một cấu trúc liên kết bàn giao cho một tác vụ nhất định: các agent nào tồn tại, các bàn giao nào chúng có thể gọi, ngữ cảnh nào chuyển.
 
 ## Ship It
 
-Checklist:
+Danh sách kiểm tra:
 
-- **Handoff logging.** Every handoff writes a trace event with from-agent, to-agent, context snapshot.
-- **Context transfer rules.** Decide what moves on handoff: full history (expensive), last N messages, or a summary.
-- **Guardrail on handoff.** A handoff to a specialist with different tool permissions must be authenticated — otherwise prompt injection can force unwanted handoffs.
-- **Loop detection.** Two agents handing back and forth is a common failure; detect with a simple last-K ring check.
-- **Fallback agent.** If a handoff target does not exist, fall back to a safe default.
+- **Ghi nhật ký bàn giao.** Mọi bàn giao ghi một sự kiện truy vết với agent nguồn, agent đích, snapshot ngữ cảnh.
+- **Các quy tắc chuyển ngữ cảnh.** Quyết định những gì di chuyển khi bàn giao: toàn bộ lịch sử (tốn kém), N thông điệp cuối, hoặc một tóm tắt.
+- **Rào chắn trên bàn giao.** Một bàn giao tới một chuyên gia có các quyền công cụ khác phải được xác thực — nếu không chèn prompt có thể ép các bàn giao ngoài ý muốn.
+- **Phát hiện vòng lặp.** Hai agent bàn giao qua lại là một lỗi phổ biến; phát hiện bằng một kiểm tra vòng K gần nhất đơn giản.
+- **Agent dự phòng.** Nếu một đích bàn giao không tồn tại, quay về một mặc định an toàn.
 
 ## Exercises
 
-1. Run `code/main.py`, triage to the refund agent. Confirm the second turn's active agent is refund.
-2. Add a loop-detection rule: if the same two agents have handed off 3 times in a row, force an exit. Design the fallback.
-3. Read the OpenAI Agents SDK docs on handoff filters. Implement a "summarize-on-handoff" version: the outgoing agent compresses context to a bullet summary before the incoming agent takes over.
-4. Compare the Swarm handoff to a GroupChatManager selector. Which pattern makes prompt injection worse, and why?
-5. Read the Swarm cookbook (https://developers.openai.com/cookbook/examples/orchestrating_agents). Identify one explicit design decision Swarm makes that OpenAI Agents SDK changed or kept.
+1. Chạy `code/main.py`, phân loại tới agent hoàn tiền. Xác nhận agent hoạt động của lượt thứ hai là hoàn tiền.
+2. Thêm một quy tắc phát hiện vòng lặp: nếu cùng hai agent đã bàn giao 3 lần liên tiếp, buộc thoát. Thiết kế dự phòng.
+3. Đọc tài liệu OpenAI Agents SDK về các bộ lọc bàn giao. Triển khai một phiên bản “tóm tắt khi bàn giao”: agent đi ra nén ngữ cảnh thành một tóm tắt gạch đầu dòng trước khi agent đi vào tiếp quản.
+4. So sánh bàn giao Swarm với một bộ chọn GroupChatManager. Mẫu nào làm chèn prompt tệ hơn, và vì sao?
+5. Đọc cookbook Swarm (https://developers.openai.com/cookbook/examples/orchestrating_agents). Xác định một quyết định thiết kế tường minh Swarm đưa ra mà OpenAI Agents SDK đã thay đổi hoặc giữ.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Routine | "The agent prompt" | System prompt + tool list. Defines role and available handoffs. |
-| Handoff | "Transfer to another agent" | A tool the active agent can call that returns a new Agent. The runtime switches active agent. |
-| Stateless | "No memory between runs" | Swarm does not persist anything; memory is the caller's responsibility. |
-| Active agent | "Who's speaking now" | The agent currently holding the conversation. Handoff changes this. |
-| Context transfer | "What moves on handoff" | Policy for what history the incoming agent sees: full, last N, or summarized. |
-| Handoff loop | "Agents ping-pong" | Failure mode where two agents keep handing back to each other. |
-| OpenAI Agents SDK | "Production Swarm" | March 2025 successor; adds sessions, guardrails, tracing on top of the handoff primitive. |
-| Handoff filter | "Gate on transfer" | SDK feature to inspect and modify context at the handoff boundary. |
+| Routine (Quy trình) | “Prompt agent” | Prompt hệ thống + danh sách công cụ. Định nghĩa vai trò và các bàn giao có sẵn. |
+| Handoff (Bàn giao) | “Chuyển sang agent khác” | Một công cụ agent hoạt động có thể gọi trả về một Agent mới. Môi trường chạy chuyển agent hoạt động. |
+| Stateless (Không trạng thái) | “Không có bộ nhớ giữa các lần chạy” | Swarm không lưu bền vững bất cứ thứ gì; bộ nhớ là trách nhiệm của bên gọi. |
+| Active agent (Agent hoạt động) | “Ai đang nói bây giờ” | Agent hiện giữ hội thoại. Bàn giao thay đổi điều này. |
+| Context transfer (Chuyển ngữ cảnh) | “Những gì di chuyển khi bàn giao” | Chính sách cho lịch sử nào agent đi vào thấy: đầy đủ, N cuối, hoặc được tóm tắt. |
+| Handoff loop (Vòng lặp bàn giao) | “Các agent bóng bàn” | Chế độ lỗi nơi hai agent liên tục bàn giao lại cho nhau. |
+| OpenAI Agents SDK | “Swarm sản xuất” | Phiên bản kế nhiệm tháng 3 năm 2025; thêm các phiên, rào chắn, truy vết trên nguyên thủy bàn giao. |
+| Handoff filter (Bộ lọc bàn giao) | “Cổng kiểm soát chuyển giao” | Tính năng SDK để kiểm tra và sửa đổi ngữ cảnh tại ranh giới bàn giao. |
 
 ## Further Reading
 
-- [OpenAI cookbook — Orchestrating Agents: Routines and Handoffs](https://developers.openai.com/cookbook/examples/orchestrating_agents) — the reference articulation
-- [OpenAI Swarm repo](https://github.com/openai/swarm) — original implementation, kept as conceptual reference
-- [OpenAI Agents SDK docs](https://openai.github.io/openai-agents-python/) — production successor with sessions and tracing
-- [Anthropic handoff-in-Claude notes](https://docs.anthropic.com/en/docs/claude-code) — how Claude Code subagents use a handoff-like pattern via `Task`
+- [OpenAI cookbook — Orchestrating Agents: Routines and Handoffs](https://developers.openai.com/cookbook/examples/orchestrating_agents) — diễn đạt tham chiếu
+- [OpenAI Swarm repo](https://github.com/openai/swarm) — triển khai gốc, được giữ làm tham chiếu khái niệm
+- [OpenAI Agents SDK docs](https://openai.github.io/openai-agents-python/) — phiên bản kế nhiệm cho sản xuất với các phiên và truy vết
+- [Anthropic handoff-in-Claude notes](https://docs.anthropic.com/en/docs/claude-code) — cách các agent con Claude Code sử dụng một mẫu giống bàn giao qua `Task`
