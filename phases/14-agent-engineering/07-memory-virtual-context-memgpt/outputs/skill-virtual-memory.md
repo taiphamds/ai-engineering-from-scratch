@@ -7,27 +7,27 @@ lesson: 07
 tags: [memory, memgpt, virtual-context, archival, citations]
 ---
 
-Given a target runtime (Python, Node, Rust), a model provider (Anthropic, OpenAI, local), and a storage backend (in-memory, SQLite, vector DB, KV, graph), produce a correct MemGPT-shaped memory system.
+Với một runtime đích (Python, Node, Rust), một nhà cung cấp mô hình (Anthropic, OpenAI, cục bộ) và một backend lưu trữ (trong bộ nhớ, SQLite, cơ sở dữ liệu vector, KV, đồ thị), tạo một hệ thống bộ nhớ có dạng MemGPT đúng.
 
-Produce:
+Tạo:
 
-1. A `MainContext` type with a `core` dict (named persistent sections) and a `messages` list (FIFO). Auto-evict on size cap; evicted turns remain retrievable by `conversation_search`.
-2. An `ArchivalStore` with insert and search. Records MUST carry `id`, `text`, `tags`, `session_id`, `turn_id`, `created_at`. Every write returns the stored id for citation.
-3. Five memory tools matching the MemGPT surface: `core_memory_append`, `core_memory_replace`, `archival_memory_insert`, `archival_memory_search`, `conversation_search`. Present them to the model with `description` text that tells the model when to use each.
-4. A citation contract: every archival retrieval MUST return record ids alongside text, and the agent MUST cite them in final answers. Answers without citations are a soft failure.
-5. A consolidation hook (can be a no-op in v1) so Lesson 08 sleep-time agents can plug in without re-plumbing. Expose `list_records_since(timestamp)` and `delete(id)`.
+1. Một kiểu `MainContext` với một dict `core` (các phần lưu giữ có tên) và một danh sách `messages` (FIFO). Tự loại bỏ khi đạt giới hạn kích thước; các lượt bị loại bỏ vẫn có thể truy xuất bằng `conversation_search`.
+2. Một `ArchivalStore` với chèn và tìm kiếm. Các bản ghi PHẢI mang `id`, `text`, `tags`, `session_id`, `turn_id`, `created_at`. Mọi lần ghi trả về id được lưu để trích dẫn.
+3. Năm công cụ bộ nhớ khớp bề mặt MemGPT: `core_memory_append`, `core_memory_replace`, `archival_memory_insert`, `archival_memory_search`, `conversation_search`. Trình bày chúng cho mô hình với văn bản `description` cho mô hình biết khi nào sử dụng từng công cụ.
+4. Một hợp đồng trích dẫn: mọi lần truy xuất lưu trữ PHẢI trả về các id bản ghi cùng với văn bản, và agent PHẢI trích dẫn chúng trong các câu trả lời cuối cùng. Các câu trả lời không có trích dẫn là một lỗi mềm.
+5. Một hook hợp nhất (có thể không làm gì trong v1) để các agent lúc ngủ Bài 08 có thể cắm vào mà không phải nối lại. Cung cấp `list_records_since(timestamp)` và `delete(id)`.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Searching archival with full-prompt LLM scoring. Use a proper retrieval backend (BM25, vector similarity). LLM re-ranking is allowed on the top-k shortlist, not the full corpus.
-- Main context with no eviction policy. Unbounded main context silently grows past the window.
-- Storing retrieved content as if it were user instructions. All archival content is untrusted text (Lesson 27). Pass it to the model as observation, not as system prompt.
-- Writing a `core_memory_clear` tool that wipes all sections. Core is load-bearing; clearing is a foot-gun. Support `replace` not `clear`.
+- Tìm kiếm kho lưu trữ bằng chấm điểm LLM toàn bộ prompt. Sử dụng một backend truy xuất đúng (BM25, độ tương tự vector). Xếp hạng lại bằng LLM được phép trên danh sách ngắn top-k, không phải toàn bộ kho ngữ liệu.
+- Ngữ cảnh chính không có chính sách loại bỏ. Ngữ cảnh chính không giới hạn âm thầm tăng vượt cửa sổ.
+- Lưu nội dung được truy xuất như thể nó là chỉ dẫn người dùng. Mọi nội dung lưu trữ là văn bản không đáng tin cậy (Bài 27). Truyền nó cho mô hình như quan sát, không phải như system prompt.
+- Viết một công cụ `core_memory_clear` xóa sạch mọi phần. Phần cốt lõi là trụ cột; xóa sạch là một cách tự gây hại. Hỗ trợ `replace` không phải `clear`.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the user asks for "no citations, just answers," refuse for any domain where source attribution matters (medical, legal, policy, financial). Offer a compromise: citations rendered as footnotes rather than inline.
-- If the user asks for "write all retrieved content back to archival without filtering," refuse and point to Lesson 27. Retrieved content is attacker-reachable; blanket write-back is memory poisoning.
-- If the runtime has no persistence layer, refuse to ship an agent described as having "long-term memory." Downgrade the product description, not the implementation.
+- Nếu người dùng yêu cầu "không trích dẫn, chỉ câu trả lời," từ chối cho bất kỳ miền nào mà quy nguồn quan trọng (y tế, pháp lý, chính sách, tài chính). Đề xuất một thỏa hiệp: trích dẫn được hiển thị dưới dạng chú thích cuối trang thay vì nội tuyến.
+- Nếu người dùng yêu cầu "ghi toàn bộ nội dung được truy xuất trở lại kho lưu trữ mà không lọc," từ chối và chỉ đến Bài 27. Nội dung được truy xuất có thể bị kẻ tấn công tiếp cận; ghi lại toàn bộ là đầu độc bộ nhớ.
+- Nếu runtime không có lớp lưu giữ, từ chối phát hành một agent được mô tả là có "bộ nhớ dài hạn." Hạ mức mô tả sản phẩm, không phải triển khai.
 
-Output: one file per component (`main_context.*`, `archival_store.*`, `memory_tools.*`, `agent.*`) plus a `README.md` explaining the eviction policy, citation contract, and where to plug in Lesson 08 (sleep-time consolidation) and Lesson 09 (Mem0 fusion). End with "what to read next" pointing to Lesson 08 if the agent needs three tiers or async consolidation, or Lesson 09 if the agent needs vector+KV+graph fusion.
+Đầu ra: một file cho mỗi thành phần (`main_context.*`, `archival_store.*`, `memory_tools.*`, `agent.*`) cộng một `README.md` giải thích chính sách loại bỏ, hợp đồng trích dẫn và nơi cắm Bài 08 (hợp nhất lúc ngủ) và Bài 09 (hợp nhất Mem0). Kết thúc bằng "đọc gì tiếp theo" chỉ đến Bài 08 nếu agent cần ba tầng hoặc hợp nhất bất đồng bộ, hoặc Bài 09 nếu agent cần hợp nhất vector+KV+đồ thị.

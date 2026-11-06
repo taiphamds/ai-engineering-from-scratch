@@ -1,6 +1,6 @@
 # Agent Memory — Virtual Context and Memory Paging
 
-> Context windows are finite. Conversations, documents, and tool traces are not. The fix is OS virtual memory restated — main context is RAM, external store is disk, the agent pages between them. MemGPT (Packer et al., 2023) named the pattern; many production memory systems build on it.
+> Cửa sổ ngữ cảnh là hữu hạn. Các hội thoại, tài liệu và trace công cụ thì không. Cách khắc phục là phát biểu lại bộ nhớ ảo của hệ điều hành — ngữ cảnh chính là RAM, kho bên ngoài là đĩa, agent phân trang giữa chúng. MemGPT (Packer và cộng sự, 2023) đặt tên cho mẫu này; nhiều hệ thống bộ nhớ sản xuất xây dựng trên nó.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,70 +9,70 @@
 
 ## Learning Objectives
 
-- Explain the OS analogy MemGPT builds on: main context = RAM, external context = disk, memory tools = page in/out.
-- Implement the two-tier MemGPT pattern in stdlib with a main-context buffer, an external searchable store, and page in/out tools.
-- Describe how the agent issues "interrupts" to query or modify external memory and how the result is spliced back into the next prompt.
-- Identify the MemGPT design choices that carry into Letta (Lesson 08) and Mem0 (Lesson 09).
+- Giải thích phép tương tự hệ điều hành mà MemGPT xây dựng trên: ngữ cảnh chính = RAM, ngữ cảnh bên ngoài = đĩa, công cụ bộ nhớ = phân trang vào/ra.
+- Triển khai mẫu MemGPT hai tầng bằng thư viện chuẩn với một bộ đệm ngữ cảnh chính, một kho có thể tìm kiếm bên ngoài và các công cụ phân trang vào/ra.
+- Mô tả cách agent phát ra các "ngắt" để truy vấn hoặc sửa đổi bộ nhớ bên ngoài và cách kết quả được ghép trở lại vào prompt tiếp theo.
+- Nhận diện các lựa chọn thiết kế MemGPT được chuyển sang Letta (Bài 08) và Mem0 (Bài 09).
 
 ## The Problem
 
-Context windows look like they should solve memory. They do not. Three failure modes recur in production:
+Cửa sổ ngữ cảnh trông như thể chúng nên giải quyết bộ nhớ. Chúng không làm được. Ba chế độ lỗi tái diễn trong sản xuất:
 
-1. **Overflow.** Multi-turn conversations, long documents, or tool-call-heavy trajectories cross the window. Everything past the cutoff is gone.
-2. **Dilution.** Even within the window, stuffing irrelevant context dilutes attention over what matters. Frontier models still degrade on long inputs.
-3. **Persistence.** A new session starts with an empty window. Agents without external memory cannot say "remember when you asked me to..." across sessions.
+1. **Tràn.** Các hội thoại nhiều lượt, tài liệu dài hoặc quỹ đạo nhiều lời gọi công cụ vượt cửa sổ. Mọi thứ sau điểm cắt đều biến mất.
+2. **Pha loãng.** Ngay cả trong cửa sổ, nhồi ngữ cảnh không liên quan làm pha loãng sự chú ý đối với điều quan trọng. Các mô hình tiên tiến nhất vẫn suy giảm trên các đầu vào dài.
+3. **Tính lưu giữ.** Một phiên mới bắt đầu với một cửa sổ rỗng. Các agent không có bộ nhớ bên ngoài không thể nói "nhớ khi bạn yêu cầu tôi..." xuyên các phiên.
 
-Bigger windows help but do not fix this. Mem0's 2025 paper measured that 128k-window baselines still miss long-horizon facts that a 4k-window agent with external memory catches.
+Các cửa sổ lớn hơn giúp ích nhưng không khắc phục điều này. Bài báo năm 2025 của Mem0 đo được rằng các đường cơ sở cửa sổ 128k vẫn bỏ lỡ các sự thật tầm dài mà một agent cửa sổ 4k với bộ nhớ bên ngoài bắt được.
 
 ## The Concept
 
 ### The OS analogy
 
-MemGPT (Packer et al., arXiv:2310.08560, v2 Feb 2024) maps context management to operating-system virtual memory:
+MemGPT (Packer và cộng sự, arXiv:2310.08560, v2 tháng 2 năm 2024) ánh xạ quản lý ngữ cảnh sang bộ nhớ ảo của hệ điều hành:
 
-| OS concept | MemGPT concept | 2026 production analog |
+| Khái niệm hệ điều hành | Khái niệm MemGPT | Tương đương sản xuất năm 2026 |
 |------------|---------------|------------------------|
-| RAM | main context (prompt) | Anthropic/OpenAI context window |
-| Disk | external context | vector DB, KV, graph store |
-| Page fault | memory tool call | `memory.search`, `memory.read`, `memory.write` |
-| OS kernel | agent control loop | ReAct loop with memory tools |
+| RAM | ngữ cảnh chính (prompt) | cửa sổ ngữ cảnh Anthropic/OpenAI |
+| Đĩa | ngữ cảnh bên ngoài | cơ sở dữ liệu vector, KV, kho đồ thị |
+| Lỗi trang | lời gọi công cụ bộ nhớ | `memory.search`, `memory.read`, `memory.write` |
+| Nhân hệ điều hành | vòng lặp điều khiển agent | vòng lặp ReAct với các công cụ bộ nhớ |
 
-The agent runs a normal ReAct loop. One extra class of tools lets it page data in and out of main context.
+Agent chạy một vòng lặp ReAct thông thường. Một lớp công cụ bổ sung cho phép nó phân trang dữ liệu vào và ra khỏi ngữ cảnh chính.
 
 ### Two tiers
 
-- **Main context.** Fixed-size prompt holding the current task. Always visible to the model.
-- **External context.** Unbounded, searchable via tools. Read when relevant, written when facts emerge.
+- **Ngữ cảnh chính.** Prompt kích thước cố định giữ tác vụ hiện tại. Luôn hiển thị cho mô hình.
+- **Ngữ cảnh bên ngoài.** Không giới hạn, có thể tìm kiếm qua công cụ. Được đọc khi liên quan, được ghi khi xuất hiện các sự thật.
 
-The original paper evaluated the design on two tasks beyond the base window: document analysis longer than 100k tokens and multi-session chat with persistent memory across days.
+Bài báo gốc đánh giá thiết kế trên hai tác vụ vượt cửa sổ cơ sở: phân tích tài liệu dài hơn 100k token và trò chuyện nhiều phiên với bộ nhớ lưu giữ qua nhiều ngày.
 
 ### The interrupt pattern
 
-MemGPT introduces memory-as-interrupt: mid-conversation the agent can invoke a memory tool, the runtime executes it, and the result splices into the next assistant turn as a new observation. Conceptually identical to a Unix `read()` syscall that blocks the process, returns bytes, and the process continues.
+MemGPT giới thiệu bộ nhớ như ngắt: giữa hội thoại agent có thể gọi một công cụ bộ nhớ, runtime thực thi nó, và kết quả ghép vào lượt trợ lý tiếp theo như một quan sát mới. Đồng nhất về mặt khái niệm với một lời gọi hệ thống Unix `read()` chặn tiến trình, trả về các byte, và tiến trình tiếp tục.
 
-Canonical memory tool surface:
+Bề mặt công cụ bộ nhớ chuẩn:
 
-- `core_memory_append(section, text)` — write to a persistent section of the prompt.
-- `core_memory_replace(section, old, new)` — edit a persistent section.
-- `archival_memory_insert(text)` — write to the searchable external store.
-- `archival_memory_search(query, top_k)` — retrieve from the external store.
-- `conversation_search(query)` — scan past turns.
+- `core_memory_append(section, text)` — ghi vào một phần lưu giữ của prompt.
+- `core_memory_replace(section, old, new)` — chỉnh sửa một phần lưu giữ.
+- `archival_memory_insert(text)` — ghi vào kho bên ngoài có thể tìm kiếm.
+- `archival_memory_search(query, top_k)` — truy xuất từ kho bên ngoài.
+- `conversation_search(query)` — quét các lượt trước.
 
 ### Where the paper ends and production begins
 
-In September 2024 MemGPT became Letta. The research repo (`cpacker/MemGPT`) remains; Letta extends the design:
+Vào tháng 9 năm 2024 MemGPT trở thành Letta. Kho nghiên cứu (`cpacker/MemGPT`) vẫn còn; Letta mở rộng thiết kế:
 
-- Three tiers instead of two (core, recall, archival — Lesson 08).
-- Native reasoning replacing the `send_message`/heartbeat pattern (Lesson 08).
-- Sleep-time agents running async memory work (Lesson 08).
+- Ba tầng thay vì hai (cốt lõi, hồi tưởng, lưu trữ — Bài 08).
+- Suy luận gốc thay thế mẫu `send_message`/heartbeat (Bài 08).
+- Các agent lúc ngủ chạy công việc bộ nhớ bất đồng bộ (Bài 08).
 
-The MemGPT paper is the 2026 foundation even if production systems run Letta, Mem0, or a custom two-tier store.
+Bài báo MemGPT là nền tảng năm 2026 ngay cả khi các hệ thống sản xuất chạy Letta, Mem0 hoặc một kho hai tầng tùy chỉnh.
 
 ### Where this pattern goes wrong
 
-- **Memory rot.** Writes accumulate faster than reads; retrieval drowns in stale facts. Fix: periodic consolidation (Letta sleep-time), explicit invalidation (Mem0 conflict detector).
-- **Memory poisoning.** External memory is retrieved text. If attacker-controlled content lands in a memory note, the agent re-ingests it next session. This is the Greshake et al. (Lesson 27) attack restated over time.
-- **Citation loss.** Agent recalls "the user asked me to ship X" but cannot cite which turn. Store source references (session ID, turn ID) with every archival write.
+- **Bộ nhớ mục nát.** Các lần ghi tích lũy nhanh hơn các lần đọc; truy xuất chìm trong các sự thật cũ. Khắc phục: hợp nhất định kỳ (lúc ngủ của Letta), vô hiệu hóa tường minh (bộ phát hiện xung đột Mem0).
+- **Đầu độc bộ nhớ.** Bộ nhớ bên ngoài là văn bản được truy xuất. Nếu nội dung do kẻ tấn công kiểm soát rơi vào một ghi chú bộ nhớ, agent nạp lại nó ở phiên tiếp theo. Đây là cuộc tấn công của Greshake và cộng sự (Bài 27) được phát biểu lại theo thời gian.
+- **Mất trích dẫn.** Agent nhớ lại "người dùng đã yêu cầu tôi phát hành X" nhưng không thể trích dẫn lượt nào. Lưu các tham chiếu nguồn (ID phiên, ID lượt) với mọi lần ghi lưu trữ.
 
 ```figure
 context-budget
@@ -80,83 +80,83 @@ context-budget
 
 ## Build It
 
-`code/main.py` implements MemGPT's two-tier pattern in stdlib:
+`code/main.py` triển khai mẫu hai tầng của MemGPT bằng thư viện chuẩn:
 
-- `MainContext` — fixed-size prompt buffer with a `core` dict and a `messages` list; auto-compacts oldest messages when over cap.
-- `ArchivalStore` — in-memory BM25-esque store (token-overlap scoring) of (id, text, tags, session, turn) records.
-- Five memory tools mapping to the MemGPT surface.
-- A scripted agent that fills archival with facts, then answers a question by calling `archival_memory_search`.
+- `MainContext` — bộ đệm prompt kích thước cố định với một dict `core` và một danh sách `messages`; tự cô đọng các thông điệp cũ nhất khi vượt giới hạn.
+- `ArchivalStore` — kho trong bộ nhớ kiểu BM25 (chấm điểm chồng lấp token) gồm các bản ghi (id, text, tags, session, turn).
+- Năm công cụ bộ nhớ ánh xạ tới bề mặt MemGPT.
+- Một agent được viết kịch bản lấp đầy kho lưu trữ bằng các sự thật, rồi trả lời một câu hỏi bằng cách gọi `archival_memory_search`.
 
-Run it:
+Chạy nó:
 
 ```
 python3 code/main.py
 ```
 
-The trace shows the agent writing three facts, filling main context to the cap (forcing eviction), then answering a follow-up question by retrieving from archival — reproducing the MemGPT workflow without any real LLM.
+Trace cho thấy agent ghi ba sự thật, lấp đầy ngữ cảnh chính đến giới hạn (buộc loại bỏ), rồi trả lời một câu hỏi tiếp theo bằng cách truy xuất từ kho lưu trữ — tái tạo workflow MemGPT mà không có bất kỳ LLM thực nào.
 
 ## Use It
 
-Every production memory system today is a MemGPT variant:
+Mọi hệ thống bộ nhớ sản xuất hiện nay đều là một biến thể MemGPT:
 
-- **Letta** (Lesson 08) — three tiers, native reasoning, sleep-time compute.
-- **Mem0** (Lesson 09) — vector + KV + graph fused with a scoring layer.
-- **OpenAI Assistants / Responses** — managed memory via threads and files.
-- **Claude Agent SDK** — long-term memory via skills and session store.
+- **Letta** (Bài 08) — ba tầng, suy luận gốc, tính toán lúc ngủ.
+- **Mem0** (Bài 09) — vector + KV + đồ thị được hợp nhất với một lớp chấm điểm.
+- **OpenAI Assistants / Responses** — bộ nhớ được quản lý qua các luồng và file.
+- **Claude Agent SDK** — bộ nhớ dài hạn qua các skill và kho phiên.
 
-Pick one by operational shape (self-hosted, managed, framework-integrated), not by the core pattern — the core pattern is MemGPT.
+Chọn một hệ thống theo hình thái vận hành (tự host, được quản lý, tích hợp framework), không phải theo mẫu cốt lõi — mẫu cốt lõi là MemGPT.
 
 ### The shape of agent memory
 
-Paging solves capacity. It does not decide what to store. Four memory types recur across production systems, each answering a different question:
+Phân trang giải quyết dung lượng. Nó không quyết định lưu gì. Bốn loại bộ nhớ tái diễn xuyên các hệ thống sản xuất, mỗi loại trả lời một câu hỏi khác:
 
-- **Working memory** — what matters right now? The in-context tier: current task, recent turns, pinned core sections. The prompt itself.
-- **Episodic memory** — what happened? Past turns and trajectories, stored with session and turn references, replayable on demand.
-- **Semantic memory** — what is true? Facts about the user, the domain, the world, updated and deduplicated as they change.
-- **Procedural memory** — how do I do this? Learned routines, preferences, and rules that steer future behavior rather than recall.
+- **Bộ nhớ làm việc** — điều gì quan trọng ngay lúc này? Tầng trong ngữ cảnh: tác vụ hiện tại, các lượt gần đây, các phần cốt lõi được ghim. Chính prompt.
+- **Bộ nhớ tình tiết** — điều gì đã xảy ra? Các lượt và quỹ đạo trước, được lưu với các tham chiếu phiên và lượt, có thể phát lại theo yêu cầu.
+- **Bộ nhớ ngữ nghĩa** — điều gì là đúng? Các sự thật về người dùng, miền, thế giới, được cập nhật và loại trùng khi chúng thay đổi.
+- **Bộ nhớ thủ tục** — tôi làm điều này như thế nào? Các quy trình, sở thích và quy tắc đã học điều hướng hành vi tương lai thay vì hồi tưởng.
 
-Open-source implementations pick different points of attack:
+Các triển khai mã nguồn mở chọn những điểm tiếp cận khác nhau:
 
-| Type | Implementation | How it tackles it |
+| Loại | Triển khai | Cách nó giải quyết |
 |------|----------------|-------------------|
-| Working | MemGPT / Letta | Pages content in and out of a fixed prompt budget via memory tools (this lesson, Lesson 08) |
-| Episodic | Zep | Temporal knowledge graph — facts carry validity intervals, so "what was true when" is queryable |
-| Semantic | Mem0 | Extraction pipeline that dedupes and updates facts across vector, KV, and graph stores (Lesson 09) |
-| Semantic + procedural | LangMem | Background extraction of facts and behavioral rules into a store the agent consults between turns |
-| Episodic + semantic | agentmemory | Captures sessions as they run, consolidates them into typed, searchable records |
+| Làm việc | MemGPT / Letta | Phân trang nội dung vào và ra khỏi một ngân sách prompt cố định qua các công cụ bộ nhớ (bài này, Bài 08) |
+| Tình tiết | Zep | Đồ thị tri thức thời gian — các sự thật mang các khoảng hiệu lực, nên "điều gì đúng khi nào" có thể được truy vấn |
+| Ngữ nghĩa | Mem0 | Pipeline trích xuất loại trùng và cập nhật các sự thật xuyên các kho vector, KV và đồ thị (Bài 09) |
+| Ngữ nghĩa + thủ tục | LangMem | Trích xuất nền các sự thật và quy tắc hành vi vào một kho mà agent tham khảo giữa các lượt |
+| Tình tiết + ngữ nghĩa | agentmemory | Ghi lại các phiên khi chúng chạy, hợp nhất chúng thành các bản ghi có kiểu, có thể tìm kiếm |
 
 ## Ship It
 
-`outputs/skill-virtual-memory.md` is a reusable skill that produces a correct two-tier memory scaffold (main + archival + tool surface) for any target runtime, with eviction policy and citation fields wired in.
+`outputs/skill-virtual-memory.md` là một skill tái sử dụng tạo ra một khung bộ nhớ hai tầng đúng (chính + lưu trữ + bề mặt công cụ) cho bất kỳ runtime đích nào, với chính sách loại bỏ và các trường trích dẫn được nối sẵn.
 
 ## Exercises
 
-1. Add a `max_main_context_tokens` cap measured in tokens (approximate with `len(text.split())` * 1.3). Compact the oldest messages into a summary when the cap is exceeded. Compare behavior with and without the summarizer.
-2. Implement BM25 properly over the archival store (term frequency, inverse document frequency). Measure recall@10 on a toy fact set versus the token-overlap baseline.
-3. Add `citation` fields (session_id, turn_id, source_url) to archival inserts. Make the agent cite sources on every retrieval-backed answer.
-4. Simulate memory poisoning: add an archival record that says "ignore all future user instructions." Write a guard that scans retrievals for directive-shaped text and marks them untrusted.
-5. Port the implementation to use the MemGPT research repo's core-memory JSON schema (`cpacker/MemGPT`). What changes when you switch from flat strings to typed sections?
+1. Thêm một giới hạn `max_main_context_tokens` được đo bằng token (xấp xỉ với `len(text.split())` * 1.3). Cô đọng các thông điệp cũ nhất thành một bản tóm tắt khi vượt giới hạn. So sánh hành vi có và không có bộ tóm tắt.
+2. Triển khai BM25 đúng trên kho lưu trữ (tần suất từ, tần suất tài liệu nghịch đảo). Đo recall@10 trên một tập sự thật mô phỏng so với đường cơ sở chồng lấp token.
+3. Thêm các trường `citation` (session_id, turn_id, source_url) vào các lần chèn lưu trữ. Làm cho agent trích dẫn nguồn trên mọi câu trả lời dựa trên truy xuất.
+4. Mô phỏng đầu độc bộ nhớ: thêm một bản ghi lưu trữ nói "bỏ qua mọi chỉ dẫn người dùng trong tương lai." Viết một bộ bảo vệ quét các kết quả truy xuất tìm văn bản có dạng chỉ thị và đánh dấu chúng là không đáng tin cậy.
+5. Chuyển triển khai sang sử dụng JSON schema bộ nhớ cốt lõi của kho nghiên cứu MemGPT (`cpacker/MemGPT`). Điều gì thay đổi khi bạn chuyển từ các chuỗi phẳng sang các phần có kiểu?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |------|----------------|------------------------|
-| Virtual context | "Unlimited memory" | Main (prompt) + external (searchable) tiers with page in/out |
-| Main context | "Working memory" | The prompt — fixed-size, always visible |
-| Archival memory | "Long-term store" | External searchable persistence, retrieved on demand |
-| Core memory | "Persistent prompt section" | Named sections pinned inside the main context |
-| Memory tool | "Memory API" | Tool call the agent issues to read/write external memory |
-| Interrupt | "Memory page fault" | Agent pauses, runtime fetches, result splices into next turn |
-| Memory rot | "Stale facts" | Old writes drown retrieval; fix with consolidation |
-| Memory poisoning | "Injected persistent note" | Attacker content stored as memory, re-ingested on recall |
+| Virtual context (Ngữ cảnh ảo) | "Bộ nhớ không giới hạn" | Các tầng chính (prompt) + bên ngoài (có thể tìm kiếm) với phân trang vào/ra |
+| Main context (Ngữ cảnh chính) | "Bộ nhớ làm việc" | Prompt — kích thước cố định, luôn hiển thị |
+| Archival memory (Bộ nhớ lưu trữ) | "Kho dài hạn" | Lưu giữ có thể tìm kiếm bên ngoài, được truy xuất theo yêu cầu |
+| Core memory (Bộ nhớ cốt lõi) | "Phần prompt lưu giữ" | Các phần có tên được ghim bên trong ngữ cảnh chính |
+| Memory tool (Công cụ bộ nhớ) | "API bộ nhớ" | Lời gọi công cụ mà agent phát ra để đọc/ghi bộ nhớ bên ngoài |
+| Interrupt (Ngắt) | "Lỗi trang bộ nhớ" | Agent tạm dừng, runtime lấy dữ liệu, kết quả ghép vào lượt tiếp theo |
+| Memory rot (Bộ nhớ mục nát) | "Các sự thật cũ" | Các lần ghi cũ nhấn chìm truy xuất; khắc phục bằng hợp nhất |
+| Memory poisoning (Đầu độc bộ nhớ) | "Ghi chú lưu giữ bị chèn" | Nội dung kẻ tấn công được lưu thành bộ nhớ, được nạp lại khi hồi tưởng |
 
 ## Further Reading
 
-- [Packer et al., MemGPT (arXiv:2310.08560)](https://arxiv.org/abs/2310.08560) — OS-inspired virtual context paper
-- [Letta, Memory Blocks blog](https://www.letta.com/blog/memory-blocks) — the three-tier evolution
-- [Anthropic, Effective context engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) — treating context as a budget
-- [Chhikara et al., Mem0 (arXiv:2504.19413)](https://arxiv.org/abs/2504.19413) — hybrid production memory on top of this pattern
-- [Zep (getzep/zep)](https://github.com/getzep/zep) — temporal knowledge-graph memory from the taxonomy table
-- [Mem0 (mem0ai/mem0)](https://github.com/mem0ai/mem0) — the extraction pipeline behind Lesson 09's hybrid store
-- [LangMem (langchain-ai/langmem)](https://github.com/langchain-ai/langmem) — background extraction of facts and behavioral rules
-- [agentmemory (rohitg00/agentmemory)](https://github.com/rohitg00/agentmemory) — session capture consolidated into typed, searchable records
+- [Packer et al., MemGPT (arXiv:2310.08560)](https://arxiv.org/abs/2310.08560) — bài báo ngữ cảnh ảo lấy cảm hứng từ hệ điều hành
+- [Letta, Memory Blocks blog](https://www.letta.com/blog/memory-blocks) — sự tiến hóa ba tầng
+- [Anthropic, Effective context engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) — coi ngữ cảnh như một ngân sách
+- [Chhikara et al., Mem0 (arXiv:2504.19413)](https://arxiv.org/abs/2504.19413) — bộ nhớ sản xuất lai trên mẫu này
+- [Zep (getzep/zep)](https://github.com/getzep/zep) — bộ nhớ đồ thị tri thức thời gian từ bảng phân loại
+- [Mem0 (mem0ai/mem0)](https://github.com/mem0ai/mem0) — pipeline trích xuất đằng sau kho lai của Bài 09
+- [LangMem (langchain-ai/langmem)](https://github.com/langchain-ai/langmem) — trích xuất nền các sự thật và quy tắc hành vi
+- [agentmemory (rohitg00/agentmemory)](https://github.com/rohitg00/agentmemory) — ghi lại phiên được hợp nhất thành các bản ghi có kiểu, có thể tìm kiếm
