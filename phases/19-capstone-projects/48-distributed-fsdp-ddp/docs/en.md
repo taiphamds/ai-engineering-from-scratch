@@ -1,6 +1,6 @@
 # Distributed Data Parallel and FSDP from Scratch
 
-> Multi-rank training is two collectives and one rule. Broadcast the parameters at startup, average the gradients after backward, never let the ranks disagree about what step they are on.
+> Huấn luyện đa rank là hai phép tập thể và một quy tắc. Phát quảng bá các tham số lúc khởi động, lấy trung bình các gradient sau lượt ngược, không bao giờ để các rank bất đồng về bước chúng đang ở.
 
 **Type:** Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Bring up a process group across N ranks with the `gloo` backend, no special hardware.
-- Implement a minimal DDP wrapper that broadcasts parameters at construction and all-reduces gradients after backward.
-- Prove that the all-reduce of per-rank gradients matches a single-process gradient on the concatenated input.
-- Sketch FSDP parameter sharding: each rank holds a slice, the full tensor is gathered for the forward pass and dropped after.
+- Khởi động một nhóm tiến trình trên N rank với backend `gloo`, không phần cứng đặc biệt.
+- Triển khai một lớp bọc DDP tối thiểu phát quảng bá các tham số khi khởi tạo và all-reduce các gradient sau lượt ngược.
+- Chứng minh all-reduce của các gradient theo rank khớp một gradient một tiến trình trên đầu vào được nối.
+- Phác thảo chia shard tham số FSDP: mỗi rank giữ một phần, tensor đầy đủ được gom cho lượt tiến và bỏ sau đó.
 
 ## The Problem
 
-The model fits on one device. The dataset does not. The optimization budget says you want to see N times the examples per wallclock second. The first lever is data parallel: each rank runs the same model on a different slice of the batch, then averages gradients before the optimizer step. The second lever is FSDP: the model does not fit on one device either, so each rank holds a fraction of every parameter and reconstructs the full tensors layer by layer during the forward pass.
+Mô hình vừa trên một thiết bị. Tập dữ liệu thì không. Ngân sách tối ưu nói bạn muốn thấy N lần số ví dụ mỗi giây thời gian thực. Đòn bẩy thứ nhất là song song dữ liệu: mỗi rank chạy cùng mô hình trên một phần khác của lô, rồi lấy trung bình các gradient trước bước bộ tối ưu. Đòn bẩy thứ hai là FSDP: mô hình cũng không vừa trên một thiết bị, nên mỗi rank giữ một phần của mọi tham số và tái tạo các tensor đầy đủ từng lớp trong lượt tiến.
 
-The pain is the bookkeeping. If parameters drift across ranks the run is silently corrupt. If you average gradients but not the loss the dashboard lies. If the collective backend cannot agree on a topology the run hangs forever. The fix is to write the collectives by hand once and never trust a wrapper you cannot reproduce.
+Nỗi đau là ghi sổ. Nếu các tham số trôi giữa các rank lần chạy bị hỏng âm thầm. Nếu bạn lấy trung bình gradient nhưng không mất mát bảng điều khiển nói dối. Nếu backend tập thể không thể đồng ý về một cấu trúc liên kết lần chạy treo mãi. Cách sửa là viết các phép tập thể thủ công một lần và không bao giờ tin một lớp bọc bạn không thể tái tạo.
 
-This lesson runs on CPU. CUDA is not assumed. The `gloo` backend ships with every PyTorch build and accepts `torch.multiprocessing` workers; the same code switches to `nccl` on a multi-GPU node without changing structure.
+Bài này chạy trên CPU. Không giả định CUDA. Backend `gloo` đi kèm mọi bản dựng PyTorch và nhận các worker `torch.multiprocessing`; cùng mã chuyển sang `nccl` trên một nút đa GPU mà không thay đổi cấu trúc.
 
 ## The Concept
 
@@ -40,17 +40,17 @@ flowchart TB
 
 ### The two collectives that matter
 
-| Collective | What it does | When |
+| Phép tập thể | Nó làm gì | Khi nào |
 |------------|--------------|------|
-| `broadcast` | Copy a tensor from one rank to all others | Parameter init, scheduler state, any one-to-all sync |
-| `all_reduce` | Sum (or mean, or max) a tensor across all ranks, every rank gets the result | Gradient averaging after backward |
-| `all_gather` | Each rank contributes a tensor, every rank gets the concatenation | Logits collection, FSDP parameter unshard |
+| `broadcast` | Sao chép một tensor từ một rank đến tất cả rank khác | Khởi tạo tham số, trạng thái bộ lập lịch, bất kỳ đồng bộ một-đến-tất-cả nào |
+| `all_reduce` | Cộng (hoặc trung bình, hoặc tối đa) một tensor trên mọi rank, mỗi rank nhận kết quả | Lấy trung bình gradient sau lượt ngược |
+| `all_gather` | Mỗi rank đóng góp một tensor, mỗi rank nhận phần nối | Thu thập logit, bỏ chia shard tham số FSDP |
 
-The DDP contract is `broadcast` at construction and `all_reduce` after backward. The FSDP sketch adds `all_gather` before each layer's forward pass.
+Hợp đồng DDP là `broadcast` khi khởi tạo và `all_reduce` sau lượt ngược. Bản phác thảo FSDP thêm `all_gather` trước lượt tiến của mỗi lớp.
 
 ### Gradient averaging matches single-process gradient
 
-A model trained on a batch of B examples across N ranks must produce the same gradient as a single process training on a batch of N*B. The trick is that summing per-rank gradients and dividing by N gives the average loss gradient, which is what cross entropy with mean reduction would produce on the full batch. The lesson code asserts this with `max-abs-diff < 1e-3` between the manual all-reduce gradient and the reference single-process gradient.
+Một mô hình được huấn luyện trên một lô B ví dụ trên N rank phải tạo cùng gradient như một tiến trình duy nhất huấn luyện trên một lô N*B. Mẹo là cộng các gradient theo rank và chia cho N cho gradient mất mát trung bình, là điều entropy chéo với rút gọn trung bình sẽ tạo trên lô đầy đủ. Mã bài học khẳng định điều này với `max-abs-diff < 1e-3` giữa gradient all-reduce thủ công và gradient một tiến trình tham chiếu.
 
 ### FSDP sketch
 
@@ -68,11 +68,11 @@ flowchart LR
   fwd --> drop[drop full tensor, keep only the shard]
 ```
 
-The memory win is exact: per-rank memory for parameters drops to 1/N. The cost is the gather, which is paid every forward pass. Production FSDP overlaps the gather with the previous layer's compute so the wallclock cost is much smaller than the naive accounting predicts. The lesson does the round-trip on every parameter and asserts the reconstruction is bit-equal to the original.
+Lợi ích bộ nhớ chính xác: bộ nhớ theo rank cho các tham số giảm xuống 1/N. Chi phí là gom, được trả mỗi lượt tiến. FSDP sản xuất chồng lấn gom với tính toán lớp trước để chi phí thời gian thực nhỏ hơn nhiều so với dự đoán ghi sổ ngây thơ. Bài học thực hiện khứ hồi trên mọi tham số và khẳng định tái tạo bằng bản gốc từng bit.
 
 ### CPU and the gloo backend
 
-CUDA is the production target, but the same code paths exist on CPU. `gloo` is the CPU collective backend. It is slower than `nccl` on GPUs by orders of magnitude, but the API surface is identical. The lesson's process group is initialized with `backend="gloo"` and ranks are spawned with `torch.multiprocessing` rather than `torchrun`; both end up at the same `torch.distributed` calls. On a multi-GPU node, the only changes are `backend="nccl"`, device tensors, and `torchrun` to launch.
+CUDA là đích sản xuất, nhưng cùng các đường mã tồn tại trên CPU. `gloo` là backend tập thể CPU. Nó chậm hơn `nccl` trên GPU nhiều bậc độ lớn, nhưng bề mặt API giống hệt. Nhóm tiến trình của bài học được khởi tạo với `backend="gloo"` và các rank được tạo bằng `torch.multiprocessing` thay vì `torchrun`; cả hai kết thúc ở cùng các lệnh gọi `torch.distributed`. Trên một nút đa GPU, các thay đổi duy nhất là `backend="nccl"`, các tensor thiết bị, và `torchrun` để khởi chạy.
 
 ```figure
 cg-allreduce-ring
@@ -80,7 +80,7 @@ cg-allreduce-ring
 
 ## Build It
 
-`code/main.py` is the runnable artifact.
+`code/main.py` là hiện vật có thể chạy.
 
 ### Step 1: bring up the process group
 
@@ -90,11 +90,11 @@ os.environ["MASTER_PORT"] = str(port)
 dist.init_process_group(backend="gloo", rank=rank, world_size=world_size)
 ```
 
-`MASTER_ADDR` and `MASTER_PORT` are the rendezvous: every rank dials the same port on the same host. The lesson picks a free port via a bind-and-close trick to avoid collisions when several runs share a machine.
+`MASTER_ADDR` và `MASTER_PORT` là điểm hẹn: mọi rank kết nối cùng cổng trên cùng máy chủ. Bài học chọn một cổng trống qua một mẹo bind-rồi-đóng để tránh va chạm khi nhiều lần chạy dùng chung một máy.
 
 ### Step 2: broadcast at construction
 
-`MinimalDDP.__init__` walks every parameter and buffer and calls `dist.broadcast(tensor, src=0)`. Rank 0's values become the canonical init. Without this, each rank initializes with its own seed and the ranks diverge from step one.
+`MinimalDDP.__init__` duyệt mọi tham số và buffer và gọi `dist.broadcast(tensor, src=0)`. Các giá trị của rank 0 trở thành khởi tạo chuẩn. Không có điều này, mỗi rank khởi tạo với seed riêng và các rank phân kỳ từ bước một.
 
 ### Step 3: all-reduce gradients after backward
 
@@ -107,58 +107,58 @@ def all_reduce_grads_(module, world_size):
         p.grad.data.div_(world_size)
 ```
 
-Every rank ends up with the same averaged gradient. The optimizer step is now a function of the same input on every rank, which is why the parameters stay in sync across the run.
+Mỗi rank kết thúc với cùng gradient được lấy trung bình. Bước bộ tối ưu giờ là một hàm của cùng đầu vào trên mọi rank, là lý do các tham số giữ đồng bộ xuyên suốt lần chạy.
 
 ### Step 4: prove the equivalence
 
-`manual_all_reduce_matches_single_process` builds the same model on rank 0 and compares the post-all-reduce gradient against the gradient a single process would compute on the concatenated input. The max-abs-diff is around 1e-8.
+`manual_all_reduce_matches_single_process` xây dựng cùng mô hình trên rank 0 và so sánh gradient sau all-reduce với gradient một tiến trình duy nhất sẽ tính trên đầu vào được nối. Max-abs-diff quanh 1e-8.
 
 ### Step 5: FSDP round trip
 
-`fsdp_round_trip_sketch` flattens each parameter, pads to a multiple of `world_size`, slices, all-gathers, and unpads. Every rank's reconstruction equals the original. This is the unshard step; the inverse (re-shard after the forward) is one slice off the gathered tensor.
+`fsdp_round_trip_sketch` làm phẳng mỗi tham số, đệm đến một bội số của `world_size`, cắt, all-gather, và bỏ đệm. Tái tạo của mỗi rank bằng bản gốc. Đây là bước bỏ chia shard; phép nghịch đảo (chia shard lại sau lượt tiến) là một phần cắt từ tensor được gom.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-Default world size is 2. Two CPU processes spawn, talk to each other through `gloo`, and exit zero. The output `outputs/ddp-demo.json` captures parameter sums per rank, the gradient norm after all-reduce, the FSDP round-trip result, and the manual-vs-reference gradient diff.
+Kích thước thế giới mặc định là 2. Hai tiến trình CPU được tạo, nói chuyện với nhau qua `gloo`, và thoát với mã không. Đầu ra `outputs/ddp-demo.json` thu thập các tổng tham số theo rank, chuẩn gradient sau all-reduce, kết quả khứ hồi FSDP, và diff gradient thủ công-so-với-tham-chiếu.
 
 ## Use It
 
-Production training stacks call the same primitives. PyTorch's `DistributedDataParallel` adds: post-backward gradient hooks that overlap all-reduce with backward, bucketed all-reduce that combines several small gradients into one collective, and the `no_sync` context lesson 46 used.
+Các ngăn xếp huấn luyện sản xuất gọi cùng các thành phần cơ sở. `DistributedDataParallel` của PyTorch thêm: các hook gradient sau lượt ngược chồng lấn all-reduce với lượt ngược, all-reduce chia nhóm kết hợp vài gradient nhỏ thành một phép tập thể, và ngữ cảnh `no_sync` mà bài 46 sử dụng.
 
-PyTorch's FSDP adds: a flat parameter view per layer so each rank holds one contiguous buffer, overlap of the next layer's unshard with the current layer's compute, and optional CPU offload for the shards.
+FSDP của PyTorch thêm: một view tham số phẳng theo lớp để mỗi rank giữ một buffer liên tục, chồng lấn bỏ chia shard của lớp tiếp theo với tính toán lớp hiện tại, và chuyển tải sang CPU tùy chọn cho các shard.
 
-The shape stays the same: broadcast at startup, reduce after backward, shard parameters when they no longer fit.
+Hình thức giữ nguyên: phát quảng bá lúc khởi động, rút gọn sau lượt ngược, chia shard tham số khi chúng không còn vừa.
 
 ## Ship It
 
-`outputs/skill-distributed-fsdp-ddp.md` carries the recipe for a new training script: spin up the process group with `gloo` for CPU and `nccl` for GPU, wrap the model in a DDP shell that broadcasts at construction and reduces after backward, optionally shard parameters with the all_gather pattern from the FSDP sketch.
+`outputs/skill-distributed-fsdp-ddp.md` mang công thức cho một script huấn luyện mới: khởi động nhóm tiến trình với `gloo` cho CPU và `nccl` cho GPU, bọc mô hình trong một vỏ DDP phát quảng bá khi khởi tạo và rút gọn sau lượt ngược, tùy chọn chia shard tham số bằng mẫu all_gather từ bản phác thảo FSDP.
 
 ## Exercises
 
-1. Run with `--world-size 4` and confirm the param spread stays under 1e-3 across the run.
-2. Replace the manual averaging with `dist.all_reduce(op=dist.ReduceOp.AVG)` and time the difference.
-3. Add a post-backward hook to the DDP wrapper so the all-reduce overlaps with the rest of the backward; measure the wallclock improvement.
-4. Implement the FSDP re-shard step: after the forward pass, replace the full tensor with the local shard again. Confirm per-rank memory drops.
-5. Switch the backend to `nccl` on a CUDA box. Note which environment variables change and which stay the same.
+1. Chạy với `--world-size 4` và xác nhận độ trải tham số giữ dưới 1e-3 xuyên suốt lần chạy.
+2. Thay lấy trung bình thủ công bằng `dist.all_reduce(op=dist.ReduceOp.AVG)` và đo thời gian khác biệt.
+3. Thêm một hook sau lượt ngược vào lớp bọc DDP để all-reduce chồng lấn với phần còn lại của lượt ngược; đo cải thiện thời gian thực.
+4. Triển khai bước chia shard lại FSDP: sau lượt tiến, thay tensor đầy đủ bằng shard cục bộ lần nữa. Xác nhận bộ nhớ theo rank giảm.
+5. Chuyển backend sang `nccl` trên một máy CUDA. Ghi nhận những biến môi trường nào thay đổi và những biến nào giữ nguyên.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Backend | "gloo or nccl" | The library that implements the collective ops; gloo is CPU, nccl is GPU |
-| World size | "Total ranks" | Number of processes in the group; the group is the unit collectives operate on |
-| Rank | "Worker id" | Process identifier within the group, zero indexed |
-| All-reduce | "Sum the grads" | Sum a tensor across all ranks, every rank ends with the same result |
-| Unshard | "Gather the params" | Reconstruct the full tensor from per-rank slices via all_gather |
+| Backend | "gloo hoặc nccl" | Thư viện triển khai các phép tập thể; gloo là CPU, nccl là GPU |
+| World size (Kích thước thế giới) | "Tổng số rank" | Số tiến trình trong nhóm; nhóm là đơn vị mà các phép tập thể hoạt động trên |
+| Rank | "Id worker" | Định danh tiến trình trong nhóm, đánh chỉ mục từ không |
+| All-reduce | "Cộng các gradient" | Cộng một tensor trên mọi rank, mỗi rank kết thúc với cùng kết quả |
+| Unshard (Bỏ chia shard) | "Gom các tham số" | Tái tạo tensor đầy đủ từ các phần theo rank qua all_gather |
 
 ## Further Reading
 
-- PyTorch `torch.distributed` documentation for the collective semantics this lesson relies on.
-- The `gloo` library's collective list, identical in shape to the CUDA-backed `nccl` primitives.
-- Phase 19 lesson 46 for the gradient accumulation pattern that wraps the DDP all-reduce in `no_sync`.
-- Phase 19 lesson 47 for the checkpoint layout that survives DDP and FSDP runs.
-- PyTorch FSDP documentation for the production implementation of the parameter sharding sketched here.
+- Tài liệu `torch.distributed` của PyTorch cho ngữ nghĩa tập thể mà bài này dựa vào.
+- Danh sách phép tập thể của thư viện `gloo`, giống hệt về hình thức với các thành phần cơ sở `nccl` được CUDA hỗ trợ.
+- Phase 19 bài 46 cho mẫu tích lũy gradient bọc all-reduce DDP trong `no_sync`.
+- Phase 19 bài 47 cho bố cục checkpoint sống sót qua các lần chạy DDP và FSDP.
+- Tài liệu FSDP của PyTorch cho triển khai sản xuất của chia shard tham số được phác thảo ở đây.

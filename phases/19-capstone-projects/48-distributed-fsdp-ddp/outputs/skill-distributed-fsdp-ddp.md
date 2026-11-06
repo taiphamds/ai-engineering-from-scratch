@@ -9,7 +9,7 @@ tags: [distributed, ddp, fsdp, collectives]
 
 ## When to use
 
-The model fits on one device but you need more throughput (DDP). The model does not fit on one device (FSDP). Either case: a multi-rank training setup with the same code path.
+Mô hình vừa trên một thiết bị nhưng bạn cần nhiều thông lượng hơn (DDP). Mô hình không vừa trên một thiết bị (FSDP). Cả hai trường hợp: một thiết lập huấn luyện đa rank với cùng đường mã.
 
 ## Bring up the process group
 
@@ -19,27 +19,27 @@ os.environ["MASTER_PORT"] = str(port)
 dist.init_process_group(backend="gloo", rank=rank, world_size=world_size)
 ```
 
-`gloo` is the CPU backend; `nccl` is the GPU backend. Both implement the same collective surface.
+`gloo` là backend CPU; `nccl` là backend GPU. Cả hai triển khai cùng bề mặt tập thể.
 
 ## Wrap the model
 
-1. On rank 0, build the model from your seed.
-2. Wrap it with the DDP shell.
-3. The shell's `__init__` calls `dist.broadcast(p.data, src=0)` for every parameter and buffer.
-4. After every `loss.backward()`, the trainer calls `sync_grads()`.
-5. `sync_grads()` calls `dist.all_reduce(p.grad, op=SUM)` and `p.grad.div_(world_size)`.
-6. Optimizer step on every rank with the same averaged gradient.
+1. Trên rank 0, xây dựng mô hình từ seed của bạn.
+2. Bọc nó bằng vỏ DDP.
+3. `__init__` của vỏ gọi `dist.broadcast(p.data, src=0)` cho mọi tham số và buffer.
+4. Sau mọi `loss.backward()`, bộ huấn luyện gọi `sync_grads()`.
+5. `sync_grads()` gọi `dist.all_reduce(p.grad, op=SUM)` và `p.grad.div_(world_size)`.
+6. Bước bộ tối ưu trên mọi rank với cùng gradient được lấy trung bình.
 
 ## Shard parameters (FSDP sketch)
 
-1. Flatten each parameter, pad to a multiple of `world_size`.
-2. Keep your shard locally; release the rest.
-3. Before forward, `dist.all_gather(...)` to rebuild the full tensor on every rank.
-4. After forward, drop the full tensor.
+1. Làm phẳng mỗi tham số, đệm đến một bội số của `world_size`.
+2. Giữ shard của bạn cục bộ; giải phóng phần còn lại.
+3. Trước lượt tiến, `dist.all_gather(...)` để dựng lại tensor đầy đủ trên mọi rank.
+4. Sau lượt tiến, bỏ tensor đầy đủ.
 
 ## Failure modes
 
-- Skipping the broadcast: ranks start from different inits, diverge silently.
-- Forgetting to divide after sum: gradients scaled by world_size, optimizer steps too big.
-- Using cross-device rename for checkpoints: not atomic; same lesson 47 trap.
-- Mixing CPU and CUDA tensors on the same collective: backend mismatch, run hangs.
+- Bỏ phát quảng bá: các rank bắt đầu từ khởi tạo khác nhau, phân kỳ âm thầm.
+- Quên chia sau cộng: các gradient được chia tỷ lệ theo world_size, các bước bộ tối ưu quá lớn.
+- Dùng đổi tên chéo thiết bị cho checkpoint: không nguyên tử; cùng bẫy bài 47.
+- Trộn các tensor CPU và CUDA trên cùng phép tập thể: backend không khớp, lần chạy treo.
