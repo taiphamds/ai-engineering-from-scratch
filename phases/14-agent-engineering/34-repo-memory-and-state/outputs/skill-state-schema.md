@@ -7,30 +7,30 @@ lesson: 34
 tags: [state, schema, json-schema, atomic-writes, migrations]
 ---
 
-Given a repo and the agent product running inside it, produce schema-first state files for the workbench.
+Với một repo và sản phẩm agent chạy bên trong nó, tạo các file trạng thái theo schema trước cho workbench.
 
-Produce:
+Tạo:
 
-1. `schemas/agent_state.schema.json` covering required keys, allowed status values, array-vs-null discipline, and a `schema_version` integer.
-2. `schemas/task_board.schema.json` covering task id pattern, allowed owners, allowed statuses, and acceptance arrays.
-3. `tools/state_manager.py` exposing `load`, `commit`, and `update` with temp-and-rename atomic writes.
-4. `tools/migrate_state.py` scaffold for the next schema bump, fail-loud if the file is from an unknown version.
-5. `agent_state.json` and `task_board.json` seeded at `schema_version: 1` and a fresh backlog.
+1. `schemas/agent_state.schema.json` bao phủ các khóa bắt buộc, các giá trị trạng thái được phép, kỷ luật mảng so với null và một số nguyên `schema_version`.
+2. `schemas/task_board.schema.json` bao phủ mẫu id tác vụ, các bên chịu trách nhiệm được phép, các trạng thái được phép và các mảng nghiệm thu.
+3. `tools/state_manager.py` cung cấp `load`, `commit` và `update` với các lần ghi nguyên tử tạm-và-đổi tên.
+4. Khung `tools/migrate_state.py` cho lần tăng schema tiếp theo, báo lỗi rõ ràng nếu file từ một phiên bản không xác định.
+5. `agent_state.json` và `task_board.json` được khởi tạo ở `schema_version: 1` và một backlog mới.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- A schema without a `schema_version` field. Migrations are not optional.
-- Allowing `null` where an array is expected. `null` is a write-time bug masquerading as data.
-- A writer that uses plain `open(path, "w")`. Atomic writes only; partial files corrupt the source of truth.
-- Storing tokens, raw chat transcripts, or PII inside state. State is for repo-relevant facts.
+- Một schema không có một trường `schema_version`. Các lần di chuyển không phải tùy chọn.
+- Cho phép `null` ở nơi mong đợi một mảng. `null` là một lỗi thời điểm ghi giả dạng dữ liệu.
+- Một bên ghi sử dụng `open(path, "w")` thuần. Chỉ các lần ghi nguyên tử; các file một phần làm hỏng nguồn sự thật.
+- Lưu token, các bản ghi trò chuyện thô hoặc PII bên trong trạng thái. Trạng thái dành cho các sự thật liên quan đến repo.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the repo has no version control, refuse to ship state files. Atomic writes plus git diff is the durability story.
-- If the project does not have at least one acceptance command to validate the `done` transition, refuse the `status: done` enum value. Adding `done` without an acceptance check is theater.
-- If the project intends to share state across processes without a lock strategy, surface that finding before shipping; atomic rename is necessary but not sufficient.
+- Nếu repo không có quản lý phiên bản, từ chối cung cấp các file trạng thái. Các lần ghi nguyên tử cộng git diff là câu chuyện tính bền vững.
+- Nếu dự án không có ít nhất một lệnh nghiệm thu để xác thực chuyển tiếp `done`, từ chối giá trị enum `status: done`. Thêm `done` mà không có một kiểm tra nghiệm thu là diễn kịch.
+- Nếu dự án dự định chia sẻ trạng thái xuyên các tiến trình mà không có một chiến lược khóa, hiển thị phát hiện đó trước khi phát hành; đổi tên nguyên tử là cần thiết nhưng chưa đủ.
 
-Output structure:
+Cấu trúc đầu ra:
 
 ```
 <repo>/
@@ -44,8 +44,8 @@ Output structure:
     └── migrate_state.py
 ```
 
-End with "what to read next" pointing to:
+Kết thúc bằng "đọc gì tiếp theo" chỉ đến:
 
-- Lesson 35 for the initialization script that calls the manager on startup.
-- Lesson 38 for the verification gate that reads state to score completion.
-- Lesson 40 for the handoff generator that consumes the same schema.
+- Bài 35 cho script khởi tạo gọi bộ quản lý khi khởi động.
+- Bài 38 cho cổng xác minh đọc trạng thái để chấm điểm hoàn thành.
+- Bài 40 cho bộ tạo bàn giao tiêu thụ cùng schema.

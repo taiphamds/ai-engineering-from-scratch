@@ -1,27 +1,27 @@
 # Mission - Repo Memory and Durable State
 
 ## Goal
-Author JSON Schemas for `agent_state.json` and `task_board.json`, build a `StateManager` that loads, validates, mutates, and writes atomically, and prove the round-trip across two turns.
+Soạn các JSON Schema cho `agent_state.json` và `task_board.json`, xây một `StateManager` tải, xác thực, thay đổi và ghi nguyên tử, và chứng minh vòng đi-về qua hai lượt.
 
 ## Inputs
-- The three-file workbench shape from lesson 32
-- A stdlib-only validator covering required, type, enum, pattern, and items
+- Hình dạng workbench ba file từ bài 32
+- Một bộ xác thực chỉ dùng thư viện chuẩn bao phủ required, type, enum, pattern và items
 
 ## Deliverables
-- `agent_state.schema.json` and `task_board.schema.json` next to the code
-- `StateManager.load`, `StateManager.update`, `StateManager.commit` with temp-and-rename writes
-- A demo run that mutates state across two turns and reloads cleanly
+- `agent_state.schema.json` và `task_board.schema.json` cạnh mã
+- `StateManager.load`, `StateManager.update`, `StateManager.commit` với các lần ghi tạm-và-đổi tên
+- Một lần chạy demo thay đổi trạng thái qua hai lượt và tải lại sạch sẽ
 
 ## Acceptance
-- `python3 code/main.py` exits zero
-- A bad write (missing required field, bad enum) is refused, not persisted
-- `workdir/agent_state.json` after the run validates against the schema
+- `python3 code/main.py` thoát với mã không
+- Một lần ghi xấu (thiếu trường bắt buộc, enum xấu) bị từ chối, không được lưu giữ
+- `workdir/agent_state.json` sau lần chạy được xác thực đối với schema
 
 ## Out of scope
-- SQLite or external storage backends. The local file is the lesson.
-- LangGraph checkpointers, Letta memory blocks. Same idea, different storage; out of scope here.
+- SQLite hoặc các backend lưu trữ bên ngoài. File cục bộ là bài học.
+- Các bộ tạo checkpoint LangGraph, các khối bộ nhớ Letta. Cùng ý tưởng, lưu trữ khác; ngoài phạm vi ở đây.
 
 ## References
-- `docs/en.md` - full lesson
-- `code/main.py` - reference implementation
-- `outputs/skill-state-schema.md` - extracted skill
+- `docs/en.md` - bài học đầy đủ
+- `code/main.py` - triển khai tham chiếu
+- `outputs/skill-state-schema.md` - skill được trích xuất
