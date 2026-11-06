@@ -1,6 +1,6 @@
 # MCP Tasks Extension: Durable Work on a Stateless Core
 
-> Stateless MCP does not mean every operation must finish in one request. The official Tasks extension gives long-running work an explicit durable handle. A server can return that handle from `tools/call`, any instance can answer `tasks/get`, and client input arrives through `tasks/update` without reviving protocol sessions.
+> MCP không trạng thái không nghĩa mọi thao tác phải xong trong một yêu cầu. Phần mở rộng Tasks chính thức cho công việc chạy lâu một handle bền vững tường minh. Máy chủ có thể trả handle đó từ `tools/call`, mọi thực thể có thể trả lời `tasks/get`, và đầu vào client đến qua `tasks/update` không làm sống lại phiên giao thức.
 
 **Type:** Build
 **Languages:** Python
@@ -9,58 +9,58 @@
 
 ## Learning Objectives
 
-- Distinguish stateless protocol transport from durable application task state.
-- Negotiate the `io.modelcontextprotocol/tasks` extension in per-request capabilities and `server/discover`.
-- Return a server-directed `CreateTaskResult` with `resultType: "task"` only after durable creation.
-- Poll with `tasks/get`, fulfill task input with `tasks/update`, and request cooperative cancellation with `tasks/cancel`.
-- Remove the older `tasks/status`, `tasks/result`, and `tasks/list` assumptions.
-- Subscribe to optional task notifications through `subscriptions/listen` on a POST response SSE stream.
-- Model task expiry, restart recovery, input-key deduplication, and execution errors correctly.
+- Phân biệt vận chuyển giao thức không trạng thái với trạng thái tác vụ ứng dụng bền vững.
+- Thương lượng phần mở rộng `io.modelcontextprotocol/tasks` trong khả năng mỗi yêu cầu và `server/discover`.
+- Chỉ trả `CreateTaskResult` do máy chủ quyết định với `resultType: "task"` sau khi tạo bền vững.
+- Thăm dò bằng `tasks/get`, hoàn thành đầu vào tác vụ bằng `tasks/update` và yêu cầu hủy hợp tác bằng `tasks/cancel`.
+- Bỏ giả định `tasks/status`, `tasks/result` và `tasks/list` cũ.
+- Đăng ký thông báo tác vụ tùy chọn qua `subscriptions/listen` trên luồng SSE phản hồi POST.
+- Mô hình hóa đúng hết hạn tác vụ, phục hồi khởi động lại, khử trùng khóa đầu vào và lỗi thực thi.
 
 ## Why Tasks Are an Extension
 
-Tasks first appeared as an experimental core feature in 2025-11-25. The July 2026 redesign moves them into the official `io.modelcontextprotocol/tasks` extension so clients and servers can opt into the extra lifecycle without expanding the core protocol for everyone.
+Tasks xuất hiện đầu tiên như tính năng lõi thử nghiệm trong 2025-11-25. Thiết kế lại tháng 7 năm 2026 chuyển chúng vào phần mở rộng chính thức `io.modelcontextprotocol/tasks` để client và máy chủ có thể chọn vòng đời thêm mà không mở rộng giao thức lõi cho mọi người.
 
-The extension specification remains a draft surface even though it is the current official home for Tasks. Pin the extension version supported by your SDK, run conformance scenarios, and isolate wire adapters from your worker and storage domain.
+Đặc tả phần mở rộng vẫn là bề mặt dự thảo dù là nơi chính thức hiện tại cho Tasks. Ghim phiên bản phần mở rộng SDK hỗ trợ, chạy kịch bản tuân thủ và cô lập adapter đường truyền khỏi miền worker và lưu trữ.
 
-Use a task when the operation has one or more of these properties:
+Dùng tác vụ khi thao tác có một hoặc nhiều thuộc tính này:
 
-- It may outlive an ordinary request timeout.
-- A worker queue or external job system already owns execution.
-- The client needs to recover after its own restart.
-- The operation pauses for user or model input during execution.
-- Cancellation and durable result retrieval are product requirements.
+- Có thể tồn tại lâu hơn thời gian chờ yêu cầu thường.
+- Hàng đợi worker hoặc hệ thống công việc ngoài đã sở hữu thực thi.
+- Client cần phục hồi sau chính nó khởi động lại.
+- Thao tác tạm dừng để có đầu vào người dùng hoặc mô hình trong thực thi.
+- Hủy và lấy kết quả bền vững là yêu cầu sản phẩm.
 
-Do not create a task for a cheap deterministic lookup. A handle, persistence, polling, expiry, and cancellation are real complexity.
+Không tạo tác vụ cho tra cứu tất định rẻ. Handle, lưu trữ bền vững, thăm dò, hết hạn và hủy là độ phức tạp thật.
 
 ## Stateless Core, Stateful Application
 
-MCP 2026-07-28 removes `initialize`, `notifications/initialized`, protocol sessions, and `Mcp-Session-Id`. That does not prohibit stateful products.
+MCP 2026-07-28 bỏ `initialize`, `notifications/initialized`, phiên giao thức và `Mcp-Session-Id`. Điều đó không cấm sản phẩm có trạng thái.
 
-A task id is explicit application state:
+Id tác vụ là trạng thái ứng dụng tường minh:
 
-- The server persists it before returning it.
-- The client can store it and poll again after restart.
-- The id can route to any replica backed by the same durable store.
-- Authorization is checked on every task method.
-- Expiry and deletion are defined by task fields, not a transport lifetime.
+- Máy chủ lưu bền vững trước trả.
+- Client có thể lưu và thăm dò lại sau khởi động lại.
+- Id có thể định tuyến đến mọi bản sao dùng cùng kho bền vững.
+- Cấp quyền được kiểm tra trên mọi phương thức tác vụ.
+- Hết hạn và xóa được định nghĩa bằng trường tác vụ, không phải vòng đời vận chuyển.
 
-This is operationally different from hidden state attached to a connection.
+Điều này khác về vận hành với trạng thái ẩn gắn vào kết nối.
 
-Keep four lifetimes separate:
+Giữ bốn vòng đời riêng:
 
-| State | Lifetime | Where it belongs |
+| Trạng thái | Vòng đời | Nơi thuộc về |
 |---|---|---|
-| Protocol metadata | One request | `params._meta`, validated again on every call |
-| Transport work | One stdio request or HTTP response | In-flight coordinator with a bounded deadline |
-| MRTR continuation | One retry sequence | Integrity-protected `requestState`, plus replay controls when needed |
-| Durable task | Across requests, replicas, restarts, and reconnects | Shared application store keyed by an authorized `taskId` |
+| Siêu dữ liệu giao thức | Một yêu cầu | `params._meta`, xác thực lại trên mọi lời gọi |
+| Công việc vận chuyển | Một yêu cầu stdio hoặc phản hồi HTTP | Bộ điều phối đang xử lý với thời hạn có giới hạn |
+| Tiếp nối MRTR | Một chuỗi thử lại | `requestState` bảo vệ toàn vẹn, cộng kiểm soát phát lại khi cần |
+| Tác vụ bền vững | Qua yêu cầu, bản sao, khởi động lại và kết nối lại | Kho ứng dụng dùng chung có khóa là `taskId` được cấp quyền |
 
-Moving a task record into process memory does not make MCP stateful. It makes the application unreliable. The protocol stays stateless, but a later `tasks/get` routed to another replica cannot recover the record. Persist before returning the handle, then make every task method resolve the same shared record under tenant and principal checks.
+Chuyển bản ghi tác vụ vào bộ nhớ tiến trình không làm MCP có trạng thái. Nó làm ứng dụng không đáng tin. Giao thức vẫn không trạng thái, nhưng `tasks/get` sau định tuyến đến bản sao khác không khôi phục được bản ghi. Lưu bền vững trước trả handle, rồi làm mọi phương thức tác vụ phân giải cùng bản ghi dùng chung dưới kiểm tra tenant và chủ thể.
 
 ## Capability Negotiation
 
-The client advertises support on every eligible request:
+Client công bố hỗ trợ trên mọi yêu cầu đủ điều kiện:
 
 ```json
 {
@@ -79,19 +79,19 @@ The client advertises support on every eligible request:
 }
 ```
 
-The server returns exact `supportedVersions`, capabilities, `ttlMs`, and `cacheScope` from `server/discover`, with the same extension under capabilities. Because it advertises tools, it also implements mandatory `tools/list`. That result returns a deterministic `generate_report` descriptor, valid object `inputSchema`, `resultType: "complete"`, server identity metadata, and public cache hints.
+Máy chủ trả `supportedVersions`, khả năng, `ttlMs` và `cacheScope` chính xác từ `server/discover`, với cùng phần mở rộng dưới khả năng. Vì công bố công cụ, nó cũng triển khai `tools/list` bắt buộc. Kết quả trả bộ mô tả `generate_report` tất định, `inputSchema` đối tượng hợp lệ, `resultType: "complete"`, siêu dữ liệu danh tính máy chủ và gợi ý bộ đệm công khai.
 
-A task method from a client that did not declare the extension returns `-32021`, Missing Required Client Capability, with `data.requiredCapabilities` set to `{"extensions":{"io.modelcontextprotocol/tasks":{}}}`. An unsupported protocol string returns `-32022` with exact `supported` and `requested` data; a missing or non-string version returns `-32602`.
+Phương thức tác vụ từ client không khai báo phần mở rộng trả `-32021`, Thiếu khả năng client bắt buộc, với `data.requiredCapabilities` đặt thành `{"extensions":{"io.modelcontextprotocol/tasks":{}}}`. Chuỗi giao thức không hỗ trợ trả `-32022` với dữ liệu `supported` và `requested` chính xác; phiên bản thiếu hoặc không chuỗi trả `-32602`.
 
-An envelope without a JSON-RPC `id` is a notification. The receiver may process it, but it emits no JSON-RPC result or error. A Streamable HTTP adapter returns `202 Accepted` with no body for an accepted notification.
+Vỏ không có `id` JSON-RPC là thông báo. Bên nhận có thể xử lý, nhưng không phát kết quả hoặc lỗi JSON-RPC. Adapter Streamable HTTP trả `202 Accepted` không phần thân cho thông báo được chấp nhận.
 
-At present, only `tools/call` supports task-augmented execution. Design your internal abstraction so future request types do not require rewriting storage.
+Hiện tại chỉ `tools/call` hỗ trợ thực thi tăng cường tác vụ. Thiết kế trừu tượng nội bộ để kiểu yêu cầu tương lai không đòi viết lại lưu trữ.
 
 ## Server-Directed Task Creation
 
-The old client flag `params._meta.task.required` is gone. The client declares extension support, then the server decides whether a particular `tools/call` becomes a task.
+Cờ client cũ `params._meta.task.required` đã bỏ. Client khai báo hỗ trợ phần mở rộng, rồi máy chủ quyết định `tools/call` cụ thể có thành tác vụ không.
 
-Request:
+Yêu cầu:
 
 ```json
 {
@@ -113,7 +113,7 @@ Request:
 }
 ```
 
-Response:
+Phản hồi:
 
 ```json
 {
@@ -132,32 +132,32 @@ Response:
 }
 ```
 
-The server must not return this handle until a `tasks/get` for the id can resolve. In an eventually consistent store, wait for read visibility before answering. Otherwise a client can receive a valid-looking id and immediately get "not found."
+Máy chủ không được trả handle này đến khi `tasks/get` cho id phân giải được. Trong kho nhất quán cuối cùng, chờ khả năng đọc thấy trước trả lời. Nếu không, client có thể nhận id trông hợp lệ rồi lập tức nhận "không tìm thấy."
 
-A task response is unsolicited in the sense that the client does not request task mode. It is not unnegotiated: the current request still must advertise the extension.
+Phản hồi tác vụ không được yêu cầu theo nghĩa client không yêu cầu chế độ tác vụ. Không phải không được thương lượng: yêu cầu hiện tại vẫn phải công bố phần mở rộng.
 
 ## The Task Shape
 
-Every task carries:
+Mọi tác vụ mang:
 
-- `taskId`: stable server-generated identifier;
-- `status`: `working`, `input_required`, `completed`, `cancelled`, or `failed`;
-- `createdAt` and `lastUpdatedAt`: ISO 8601 timestamps;
-- `ttlMs`: expiry duration from creation, or `null` for no advertised limit;
-- optional `pollIntervalMs`: the server's current minimum suggested polling cadence;
-- optional `statusMessage`: user-facing or model-facing context.
+- `taskId`: định danh ổn định do máy chủ tạo;
+- `status`: `working`, `input_required`, `completed`, `cancelled` hoặc `failed`;
+- `createdAt` và `lastUpdatedAt`: dấu thời gian ISO 8601;
+- `ttlMs`: thời gian hết hạn từ lúc tạo, hoặc `null` nếu không công bố giới hạn;
+- `pollIntervalMs` tùy chọn: nhịp thăm dò tối thiểu máy chủ hiện gợi ý;
+- `statusMessage` tùy chọn: ngữ cảnh hướng người dùng hoặc mô hình.
 
-Status-specific fields appear only when relevant:
+Trường riêng trạng thái chỉ xuất hiện khi liên quan:
 
-- `input_required` includes `inputRequests`.
-- `completed` includes the original request's `result` shape.
-- `failed` includes a JSON-RPC `error` object.
+- `input_required` gồm `inputRequests`.
+- `completed` gồm hình dạng `result` của yêu cầu gốc.
+- `failed` gồm đối tượng `error` JSON-RPC.
 
-The client should honor `pollIntervalMs`. A server may rate-limit more aggressive polling and may change the interval over the task lifetime.
+Client nên tôn trọng `pollIntervalMs`. Máy chủ có thể giới hạn tốc độ thăm dò mạnh hơn và có thể đổi khoảng trong vòng đời tác vụ.
 
 ## Poll with `tasks/get`
 
-The client asks for a current snapshot:
+Client yêu cầu ảnh chụp hiện tại:
 
 ```http
 POST /mcp HTTP/1.1
@@ -186,16 +186,16 @@ Mcp-Name: tsk_786512e29e0d
 }
 ```
 
-`tasks/get` itself completed, so its result always has `resultType: "complete"`. The nested task can still have `status: "working"` or `status: "input_required"`.
+Bản thân `tasks/get` đã xong, nên kết quả luôn có `resultType: "complete"`. Tác vụ lồng vẫn có thể có `status: "working"` hoặc `status: "input_required"`.
 
-This distinction prevents a common parser bug:
+Phân biệt này ngăn lỗi bộ phân tích phổ biến:
 
 ```text
 result.resultType = complete    means the tasks/get RPC finished
 result.status = working        means the represented job is still running
 ```
 
-There is no `tasks/result` call. When the task completes, the next `tasks/get` response inlines the original `CallToolResult` under `result`:
+Không có lời gọi `tasks/result`. Khi tác vụ xong, phản hồi `tasks/get` tiếp nhúng `CallToolResult` gốc dưới `result`:
 
 ```json
 {
@@ -228,23 +228,23 @@ There is no `tasks/result` call. When the task completes, the next `tasks/get` r
 }
 ```
 
-The outer `resultType` says the `tasks/get` RPC completed. The nested `result.resultType` says the original tool call completed. That nested discriminator is required. The nested `CallToolResult` SHOULD also carry its own `io.modelcontextprotocol/serverInfo`; this lesson includes it instead of storing an untyped payload.
+`resultType` ngoài nói RPC `tasks/get` đã xong. `result.resultType` lồng nói lời gọi công cụ gốc đã xong. Trường phân biệt lồng đó bắt buộc. `CallToolResult` lồng cũng NÊN mang `io.modelcontextprotocol/serverInfo` riêng; bài này đưa vào thay vì lưu payload không kiểu.
 
-There is no `tasks/list`. Sessionless servers cannot safely infer which tasks belong in a connection-scoped list. Applications that need history should expose an authorized domain tool with explicit filters and ownership rules.
+Không có `tasks/list`. Máy chủ không phiên không thể suy an toàn tác vụ nào thuộc danh sách phạm vi kết nối. Ứng dụng cần lịch sử nên cung cấp công cụ miền được cấp quyền với bộ lọc và quy tắc sở hữu tường minh.
 
 ## Input During Task Execution
 
-Task input and core MRTR look similar but use different continuations.
+Đầu vào tác vụ và MRTR lõi trông giống nhưng dùng tiếp nối khác nhau.
 
 ### Input needed before task creation
 
-Return core `resultType: "input_required"` from the original `tools/call`. The client fulfills it and retries that original call. Only create the task after those synchronous MRTR rounds finish.
+Trả `resultType: "input_required"` lõi từ `tools/call` gốc. Client hoàn thành rồi thử lại lời gọi gốc đó. Chỉ tạo tác vụ sau khi vòng MRTR đồng bộ đó xong.
 
 ### Input needed after task creation
 
-Set the task to `input_required`. `tasks/get` exposes the outstanding `inputRequests`, and the client sends responses through `tasks/update`. The client does not retry the original `tools/call`.
+Đặt tác vụ thành `input_required`. `tasks/get` đưa `inputRequests` chờ ra và client gửi phản hồi qua `tasks/update`. Client không thử lại `tools/call` gốc.
 
-Snapshot:
+Ảnh chụp:
 
 ```json
 {
@@ -271,7 +271,7 @@ Snapshot:
 }
 ```
 
-Update:
+Cập nhật:
 
 ```http
 POST /mcp HTTP/1.1
@@ -306,13 +306,13 @@ Mcp-Name: tsk_786512e29e0d
 }
 ```
 
-The success response is an empty acknowledgement plus `resultType: "complete"`. The state change may be eventually consistent, so the client continues polling or listening.
+Phản hồi thành công là xác nhận rỗng cộng `resultType: "complete"`. Thay đổi trạng thái có thể nhất quán cuối cùng, nên client tiếp tục thăm dò hoặc lắng nghe.
 
-Each `inputRequests` key must be unique for the entire task lifetime. Repeated `tasks/get` snapshots may show the same outstanding key; clients deduplicate the UI and servers ignore responses for unknown, superseded, or already fulfilled keys. A partial update can leave the task in `input_required` until all required keys are answered.
+Mỗi khóa `inputRequests` phải duy nhất trong toàn vòng đời tác vụ. Ảnh chụp `tasks/get` lặp có thể cho cùng khóa đang chờ; client khử trùng UI và máy chủ bỏ phản hồi cho khóa không biết, bị thay thế hoặc đã hoàn thành. Cập nhật từng phần có thể để tác vụ ở `input_required` đến khi mọi khóa bắt buộc được trả lời.
 
 ## Cancellation Is Cooperative
 
-`tasks/cancel` signals intent and returns an empty complete acknowledgement. That acknowledgement does not guarantee the worker stopped. Work may finish first, ignore cancellation, or transition later.
+`tasks/cancel` báo ý định và trả xác nhận đầy đủ rỗng. Xác nhận đó không bảo đảm worker dừng. Công việc có thể xong trước, bỏ qua hủy hoặc chuyển sau.
 
 ```http
 POST /mcp HTTP/1.1
@@ -341,47 +341,47 @@ Mcp-Name: tsk_786512e29e0d
 }
 ```
 
-For all three task methods, `Mcp-Name` mirrors `params.taskId`. It does not repeat the JSON-RPC method name. `code/main.py` centralizes this rule in `make_http_request`.
+Với cả ba phương thức tác vụ, `Mcp-Name` phản chiếu `params.taskId`. Nó không lặp tên phương thức JSON-RPC. `code/main.py` tập trung quy tắc này trong `make_http_request`.
 
-The lesson worker honors cancellation immediately, making repeated calls idempotent. A production client must still treat cancellation as cooperative rather than infer a final task status from the acknowledgement.
+Worker bài học tôn trọng hủy ngay, khiến lời gọi lặp lũy đẳng. Client sản xuất vẫn phải coi hủy là hợp tác thay vì suy trạng thái tác vụ cuối từ xác nhận.
 
-Do not use `notifications/cancelled` to cancel a task. That notification belongs to request cancellation, not durable Tasks.
+Không dùng `notifications/cancelled` để hủy tác vụ. Thông báo đó thuộc hủy yêu cầu, không phải Tasks bền vững.
 
-The distinction matters at the routing boundary. Request cancellation targets one in-flight JSON-RPC operation or its request-scoped HTTP response. If `tools/call` has already returned `resultType: "task"`, that request is complete and closing its transport cannot name or stop the durable job. `tasks/cancel` is a new authorized RPC. It carries `params.taskId`, mirrors that id in `Mcp-Name`, resolves the task's owning backend, records cooperative cancellation intent, and returns an acknowledgement without claiming the worker has stopped.
+Phân biệt quan trọng tại ranh giới định tuyến. Hủy yêu cầu nhắm một thao tác JSON-RPC đang xử lý hoặc phản hồi HTTP phạm vi yêu cầu của nó. Nếu `tools/call` đã trả `resultType: "task"`, yêu cầu đó xong và đóng vận chuyển không thể gọi tên hoặc dừng công việc bền vững. `tasks/cancel` là RPC mới được cấp quyền. Nó mang `params.taskId`, phản chiếu id trong `Mcp-Name`, phân giải backend sở hữu tác vụ, ghi ý định hủy hợp tác và trả xác nhận không khẳng định worker đã dừng.
 
-A gateway must therefore keep request coordinators and task routes in different tables. The request table can disappear when the response finishes. The task route must survive until terminal state and retention expiry. [Lesson 29: MCP Reliability, Cancellation, and Flow Control](../../29-mcp-reliability-cancellation-and-flow-control/docs/en.md) builds the race, timeout, idempotency, backpressure, and retry rules for both paths.
+Vì vậy gateway phải giữ bộ điều phối yêu cầu và tuyến tác vụ trong bảng khác nhau. Bảng yêu cầu có thể biến mất khi phản hồi xong. Tuyến tác vụ phải tồn tại đến trạng thái kết thúc và hết hạn giữ lại. [Bài 29: Độ tin cậy, Hủy và Kiểm soát luồng MCP](../../29-mcp-reliability-cancellation-and-flow-control/docs/en.md) xây quy tắc tranh chấp, hết thời gian, tính lũy đẳng, backpressure và thử lại cho cả hai nhánh.
 
 ## Optional Notifications
 
-Polling is the baseline. A client that wants push updates sends `subscriptions/listen` with task ids. For Streamable HTTP, this is a POST whose response is a request-scoped SSE stream. There is no standalone GET event stream and no protocol session to keep alive.
+Thăm dò là nền tảng. Client muốn cập nhật đẩy gửi `subscriptions/listen` với id tác vụ. Với Streamable HTTP, đây là POST có phản hồi là luồng SSE phạm vi yêu cầu. Không có luồng sự kiện GET độc lập và không phiên giao thức để giữ sống.
 
-The server acknowledges the accepted ids with `notifications/subscriptions/acknowledged` and can then send full snapshots through `notifications/tasks`. The acknowledgement and every task notification carry `io.modelcontextprotocol/subscriptionId` in `_meta`, equal to the `subscriptions/listen` request id. Each task notification is otherwise equivalent to what `tasks/get` would return at that moment.
+Máy chủ xác nhận id chấp nhận bằng `notifications/subscriptions/acknowledged` rồi có thể gửi ảnh chụp đầy đủ qua `notifications/tasks`. Xác nhận và mọi thông báo tác vụ mang `io.modelcontextprotocol/subscriptionId` trong `_meta`, bằng id yêu cầu `subscriptions/listen`. Mỗi thông báo tác vụ ngoài ra tương đương thứ `tasks/get` trả vào lúc đó.
 
-Clients must still declare the Tasks extension. They should reconnect and resume from durable task ids rather than depend on event replay or `Last-Event-ID`.
+Client vẫn phải khai báo phần mở rộng Tasks. Nên kết nối lại và tiếp tục từ id tác vụ bền vững thay vì phụ thuộc phát lại sự kiện hoặc `Last-Event-ID`.
 
 ## Failure Semantics
 
-Use the two error layers correctly.
+Dùng đúng hai tầng lỗi.
 
 ### Protocol error
 
-Invalid method parameters or an unknown task id return a JSON-RPC error, commonly `-32602`. Missing extension support returns `-32021` with the required capability object.
+Tham số phương thức không hợp lệ hoặc id tác vụ không biết trả lỗi JSON-RPC, thường `-32602`. Thiếu hỗ trợ phần mở rộng trả `-32021` với đối tượng khả năng bắt buộc.
 
 ### Task execution outcome
 
-- A normal tool result with `isError: true` is still a `completed` task because the tool call produced its defined result.
-- A JSON-RPC error during deferred execution makes the task `failed` and stores that JSON-RPC error under `error`.
-- User refusal can produce `cancelled`, a completed refusal result, or another domain-specific safe outcome. Document the choice.
+- Kết quả công cụ thường với `isError: true` vẫn là tác vụ `completed` vì lời gọi công cụ đã tạo kết quả định nghĩa của nó.
+- Lỗi JSON-RPC trong thực thi trì hoãn làm tác vụ `failed` và lưu lỗi JSON-RPC đó dưới `error`.
+- Người dùng từ chối có thể tạo `cancelled`, kết quả từ chối đã hoàn tất hoặc kết quả an toàn khác riêng miền. Ghi lại lựa chọn.
 
 ## Durability, Expiry, and Ownership
 
-Persist at least the task id, status, timestamps, ttl, poll interval, original operation ownership, result or error, outstanding input requests, and all issued input keys.
+Lưu bền vững ít nhất id tác vụ, trạng thái, dấu thời gian, ttl, khoảng thăm dò, sở hữu thao tác gốc, kết quả hoặc lỗi, yêu cầu đầu vào chờ và mọi khóa đầu vào đã cấp.
 
-The storage key must include or resolve an authoritative tenant and principal. Knowing a task id must not grant access. Check ownership on every `tasks/get`, `tasks/update`, `tasks/cancel`, and subscription.
+Khóa lưu trữ phải gồm hoặc phân giải tenant và chủ thể có thẩm quyền. Biết id tác vụ không được cấp quyền truy cập. Kiểm tra sở hữu trên mọi `tasks/get`, `tasks/update`, `tasks/cancel` và đăng ký.
 
-`ttlMs` is measured from creation and may change. A client can treat it as a backstop when a task has stopped producing observable updates. A server may fail and later delete an expired task. Do not describe it as a promise to retain a completed result for that many milliseconds after completion.
+`ttlMs` đo từ lúc tạo và có thể đổi. Client có thể coi là chốt dự phòng khi tác vụ ngừng tạo cập nhật quan sát được. Máy chủ có thể làm thất bại rồi xóa tác vụ hết hạn. Không mô tả như lời hứa giữ kết quả hoàn tất trong từng ấy mili giây sau hoàn tất.
 
-Use atomic writes or transactions. The lesson writes a temporary file and atomically renames it. A multi-replica service should use a shared durable store and a worker lease or equivalent concurrency control.
+Dùng ghi nguyên tử hoặc giao dịch. Bài học ghi file tạm rồi đổi tên nguyên tử. Dịch vụ nhiều bản sao nên dùng kho bền vững dùng chung và lease worker hoặc kiểm soát đồng thời tương đương.
 
 ```figure
 tp-task-lifecycle
@@ -389,26 +389,26 @@ tp-task-lifecycle
 
 ## Build It
 
-`code/main.py` implements a deterministic task service:
+`code/main.py` triển khai dịch vụ tác vụ tất định:
 
-- `server/discover` returns `supportedVersions`, cache hints, and the Tasks extension.
-- `tools/list` returns a deterministic, cacheable `generate_report` descriptor with a valid input schema.
-- `tools/call` creates and persists the task before returning `resultType: "task"`.
-- A new service instance reloads the same task, demonstrating restart recovery.
-- `tasks/get` returns complete task snapshots.
-- The worker moves from `working` to `input_required`.
-- `tasks/update` accepts a form response and returns an empty complete acknowledgement.
-- The worker stores a nested `CallToolResult` with its own `resultType` and server identity, then transitions to `completed`.
-- `tasks/cancel` is idempotent in this implementation.
-- The HTTP builder sets `Mcp-Name` to `params.taskId` for `tasks/get`, `tasks/update`, and `tasks/cancel`.
-- Notification helpers use `notifications/subscriptions/acknowledged` and `notifications/tasks`, both tagged with the listen request id.
-- Id-less notifications produce no JSON-RPC response.
+- `server/discover` trả `supportedVersions`, gợi ý bộ đệm và phần mở rộng Tasks.
+- `tools/list` trả bộ mô tả `generate_report` tất định, có thể lưu đệm với lược đồ đầu vào hợp lệ.
+- `tools/call` tạo và lưu bền vững tác vụ trước trả `resultType: "task"`.
+- Thực thể dịch vụ mới tải lại cùng tác vụ, minh họa phục hồi khởi động lại.
+- `tasks/get` trả ảnh chụp tác vụ đầy đủ.
+- Worker chuyển từ `working` sang `input_required`.
+- `tasks/update` nhận phản hồi biểu mẫu và trả xác nhận đầy đủ rỗng.
+- Worker lưu `CallToolResult` lồng với `resultType` và danh tính máy chủ riêng, rồi chuyển sang `completed`.
+- `tasks/cancel` lũy đẳng trong triển khai này.
+- Bộ xây HTTP đặt `Mcp-Name` thành `params.taskId` cho `tasks/get`, `tasks/update` và `tasks/cancel`.
+- Hàm hỗ trợ thông báo dùng `notifications/subscriptions/acknowledged` và `notifications/tasks`, đều gắn id yêu cầu listen.
+- Thông báo không id không tạo phản hồi JSON-RPC.
 
-The worker advances explicitly instead of sleeping in a background thread. That makes every state transition deterministic and keeps the protocol example separate from queue mechanics.
+Worker tiến tường minh thay vì ngủ trong luồng nền. Điều đó làm mọi chuyển trạng thái tất định và giữ ví dụ giao thức riêng cơ chế hàng đợi.
 
 ## Use It
 
-From the repository root:
+Từ thư mục gốc repo:
 
 ```bash
 cd phases/13-tools-and-protocols/13-mcp-async-tasks/code
@@ -416,7 +416,7 @@ python3 main.py
 python3 -m unittest discover tests -v
 ```
 
-Expected result sequence:
+Chuỗi kết quả kỳ vọng:
 
 ```text
 id=0 resultType=complete status=ack
@@ -427,39 +427,39 @@ id=4 resultType=complete status=ack
 id=5 resultType=complete status=completed
 ```
 
-Also verify that `tasks/status`, `tasks/result`, and `tasks/list` return method-not-found in the modern service.
-Verify that `tools/list` is deterministic and every current HTTP task method mirrors its task id through `Mcp-Name`.
+Cũng xác minh `tasks/status`, `tasks/result` và `tasks/list` trả không tìm thấy phương thức trong dịch vụ hiện đại.
+Xác minh `tools/list` tất định và mọi phương thức tác vụ HTTP hiện tại phản chiếu id tác vụ qua `Mcp-Name`.
 
 ## Ship It
 
-`outputs/skill-task-store-designer.md` now produces an extension-aware design: capability negotiation, durable-before-return creation, current methods, input update flow, ownership, expiry, cancellation, subscription, and migration from the removed experimental methods.
+`outputs/skill-task-store-designer.md` giờ tạo thiết kế nhận biết phần mở rộng: thương lượng khả năng, tạo bền vững trước trả, phương thức hiện tại, luồng cập nhật đầu vào, sở hữu, hết hạn, hủy, đăng ký và chuyển từ phương thức thử nghiệm đã bỏ.
 
 ## Exercises
 
-1. Add a second outstanding input key. Send a partial `tasks/update` and prove the task remains `input_required` until both keys are answered.
-2. Add tenant ownership to the store and reject a valid task id presented by the wrong authenticated principal.
-3. Add a worker lease with expiry. Demonstrate that two service instances cannot complete the same task concurrently.
-4. Implement a POST-response SSE adapter for `subscriptions/listen`. Do not add GET, `Last-Event-ID`, or a session header.
-5. Add expiry cleanup. Distinguish an expired task from a malformed task id without leaking cross-tenant existence.
+1. Thêm khóa đầu vào chờ thứ hai. Gửi `tasks/update` từng phần và chứng minh tác vụ vẫn `input_required` đến khi cả hai khóa được trả lời.
+2. Thêm sở hữu tenant vào kho và từ chối id tác vụ hợp lệ do sai chủ thể đã xác thực đưa ra.
+3. Thêm lease worker có hết hạn. Minh họa hai thực thể dịch vụ không thể hoàn tất cùng tác vụ đồng thời.
+4. Triển khai adapter SSE phản hồi POST cho `subscriptions/listen`. Không thêm GET, `Last-Event-ID` hoặc header phiên.
+5. Thêm dọn hết hạn. Phân biệt tác vụ hết hạn với id tác vụ sai dạng không làm rò tồn tại chéo tenant.
 
 ## Key Terms
 
-| Term | Meaning in the current extension |
+| Thuật ngữ | Ý nghĩa trong phần mở rộng hiện tại |
 |------|----------------------------------|
-| Tasks extension | Optional `io.modelcontextprotocol/tasks` capability for durable async work |
-| `CreateTaskResult` | Server-directed `resultType: "task"` response to an eligible request |
-| `tasks/get` | Poll a full current task snapshot, including terminal result or pending input |
-| `tasks/update` | Submit responses to a task's outstanding `inputRequests` |
-| `tasks/cancel` | Acknowledge cooperative cancellation intent |
-| `input_required` | Task status indicating client input is outstanding |
-| `pollIntervalMs` | Server-suggested minimum delay before another poll |
-| `ttlMs` | Expiry duration measured from task creation |
-| Durable-before-return | Rule that the task id must resolve before its handle is sent |
-| `notifications/tasks` | Optional full task snapshot delivered on a subscribed SSE response |
+| Tasks extension (Phần mở rộng Tasks) | Khả năng `io.modelcontextprotocol/tasks` tùy chọn cho công việc bất đồng bộ bền vững |
+| `CreateTaskResult` | Phản hồi `resultType: "task"` do máy chủ quyết định cho yêu cầu đủ điều kiện |
+| `tasks/get` | Thăm dò ảnh chụp tác vụ hiện tại đầy đủ, gồm kết quả kết thúc hoặc đầu vào chờ |
+| `tasks/update` | Gửi phản hồi cho `inputRequests` đang chờ của tác vụ |
+| `tasks/cancel` | Xác nhận ý định hủy hợp tác |
+| `input_required` | Trạng thái tác vụ chỉ đầu vào client đang chờ |
+| `pollIntervalMs` | Độ trễ tối thiểu máy chủ gợi ý trước lần thăm dò khác |
+| `ttlMs` | Thời gian hết hạn đo từ lúc tạo tác vụ |
+| Durable-before-return (Bền vững trước trả) | Quy tắc id tác vụ phải phân giải được trước khi handle được gửi |
+| `notifications/tasks` | Ảnh chụp tác vụ đầy đủ tùy chọn phân phối trên phản hồi SSE đã đăng ký |
 
 ## Legacy Compatibility
 
-The 2025-11-25 experimental surface used client-requested task augmentation, `tasks/status`, `tasks/result`, and optional `tasks/list`. Keep those names only inside a pinned legacy adapter. A current client uses the extension capability, accepts server-directed handles, polls `tasks/get`, supplies input with `tasks/update`, and reads the final result from the task snapshot.
+Bề mặt thử nghiệm 2025-11-25 dùng tăng cường tác vụ do client yêu cầu, `tasks/status`, `tasks/result` và `tasks/list` tùy chọn. Chỉ giữ tên đó trong adapter cũ ghim. Client hiện tại dùng khả năng phần mở rộng, nhận handle do máy chủ quyết định, thăm dò `tasks/get`, cung cấp đầu vào bằng `tasks/update` và đọc kết quả cuối từ ảnh chụp tác vụ.
 
 ## Further Reading
 
