@@ -9,19 +9,19 @@ tags: [ocr, ctc, decoding, sequence-models]
 
 # CTC Decoder
 
-Produce two decoding routines for CTC outputs: greedy (fast) and beam (better on noisy inputs).
+Tạo hai quy trình giải mã cho đầu ra CTC: tham lam (nhanh) và chùm (tốt hơn trên đầu vào nhiễu).
 
 ## When to use
 
-- Running OCR inference on custom CRNN outputs.
-- Benchmarking a pretrained OCR model against different decoders.
-- Implementing a simple beam search without pulling in ctcdecode.
+- Chạy suy luận OCR trên các đầu ra CRNN tùy chỉnh.
+- Đo hiệu năng mô hình OCR được tiền huấn luyện với các bộ giải mã khác nhau.
+- Triển khai tìm kiếm chùm đơn giản mà không kéo ctcdecode vào.
 
 ## Inputs
 
-- `log_probs`: (T, N, C) log-softmax over vocab (index 0 = blank by convention).
-- `vocab`: list of C characters.
-- `beam_width` (beam only): typically 5-10.
+- `log_probs`: log-softmax (T, N, C) trên vốn từ (chỉ số 0 = blank theo quy ước).
+- `vocab`: danh sách C ký tự.
+- `beam_width` (chỉ chùm): thường 5-10.
 
 ## Greedy decoder
 
@@ -101,8 +101,8 @@ def _logsumexp(a, b):
 
 ## Rules
 
-- The blank index in CTC is 0 by convention in PyTorch's `nn.CTCLoss`.
-- Beam search improves accuracy on low-confidence inputs; on clean inputs the improvement is <1% CER.
-- Never prune the beam below 5; the accuracy-latency trade flattens below that.
-- When running beam search inside a tight latency budget, drop to greedy; the quality hit is small on most production OCR data.
-- For large vocabularies (CJK with 3000+ characters), switch to `ctcdecode` (C++) instead of the pure Python version above; the Python beam quickly becomes the bottleneck.
+- Chỉ số blank trong CTC là 0 theo quy ước trong `nn.CTCLoss` của PyTorch.
+- Tìm kiếm chùm cải thiện accuracy trên đầu vào độ tin cậy thấp; trên đầu vào sạch cải thiện <1% CER.
+- Không bao giờ cắt chùm dưới 5; đánh đổi accuracy-độ trễ phẳng đi dưới mức đó.
+- Khi chạy tìm kiếm chùm trong ngân sách độ trễ eo hẹp, hạ xuống tham lam; chất lượng giảm ít trên hầu hết dữ liệu OCR production.
+- Với vốn từ lớn (CJK có 3000+ ký tự), chuyển sang `ctcdecode` (C++) thay phiên bản Python thuần trên; chùm Python nhanh chóng thành nút thắt.

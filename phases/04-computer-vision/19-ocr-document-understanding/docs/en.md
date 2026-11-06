@@ -1,6 +1,6 @@
 # OCR & Document Understanding
 
-> OCR is a three-stage pipeline — detect text boxes, recognise the characters, then lay them out. Every modern OCR system reorders these stages or merges them.
+> OCR là một pipeline ba giai đoạn — phát hiện hộp văn bản, nhận dạng ký tự, rồi sắp bố cục chúng. Mọi hệ thống OCR hiện đại đổi thứ tự các giai đoạn này hoặc gộp chúng.
 
 **Type:** Learn + Use
 **Languages:** Python
@@ -9,22 +9,22 @@
 
 ## Learning Objectives
 
-- Trace the classical OCR pipeline (detect -> recognise -> layout) and the modern end-to-end alternatives (Donut, Qwen-VL-OCR)
-- Implement CTC (Connectionist Temporal Classification) loss for sequence-to-sequence OCR training
-- Use PaddleOCR or EasyOCR for production document parsing without training
-- Distinguish OCR, layout parsing, and document understanding — and pick the right tool per task
+- Theo dõi pipeline OCR cổ điển (phát hiện -> nhận dạng -> bố cục) và các lựa chọn đầu-cuối hiện đại (Donut, Qwen-VL-OCR)
+- Triển khai mất mát CTC (Connectionist Temporal Classification) để huấn luyện OCR chuỗi-sang-chuỗi
+- Sử dụng PaddleOCR hoặc EasyOCR để phân tích tài liệu production mà không huấn luyện
+- Phân biệt OCR, phân tích bố cục và hiểu tài liệu — và chọn công cụ đúng mỗi tác vụ
 
 ## The Problem
 
-Images full of text are everywhere: receipts, invoices, IDs, scanned books, forms, whiteboards, signs, screenshots. Extracting structured data from them — not just the characters, but "this is the total amount" — is one of the highest-value applied-vision problems.
+Các hình ảnh đầy văn bản ở khắp nơi: biên lai, hóa đơn, giấy tờ tùy thân, sách quét, biểu mẫu, bảng trắng, biển hiệu, ảnh chụp màn hình. Trích xuất dữ liệu có cấu trúc từ chúng — không chỉ các ký tự, mà "đây là tổng số tiền" — là một trong những bài toán thị giác ứng dụng có giá trị cao nhất.
 
-The field splits into three skill layers:
+Lĩnh vực chia thành ba lớp kỹ năng:
 
-1. **OCR proper**: turn pixels into text.
-2. **Layout parsing**: group OCR output into regions (title, body, table, header).
-3. **Document understanding**: extract structured fields ("invoice_total = $42.50") from layout.
+1. **OCR đúng nghĩa**: biến pixel thành văn bản.
+2. **Phân tích bố cục**: nhóm đầu ra OCR thành các vùng (tiêu đề, thân bài, bảng, đầu trang).
+3. **Hiểu tài liệu**: trích xuất các trường có cấu trúc ("invoice_total = $42.50") từ bố cục.
 
-Each layer has classical and modern approaches, and the gap between "I want text from an image" and "I need the total amount from this receipt" is bigger than most teams realise.
+Mỗi lớp có các cách tiếp cận cổ điển và hiện đại, và khoảng cách giữa "tôi muốn văn bản từ hình ảnh" và "tôi cần tổng số tiền từ biên lai này" lớn hơn hầu hết các nhóm nhận ra.
 
 ## The Concept
 
@@ -45,42 +45,42 @@ flowchart LR
     style OUT fill:#dcfce7,stroke:#16a34a
 ```
 
-- **Text detection** produces per-line or per-word quadrilaterals.
-- **Recognition** crops each region to a fixed height, runs a CNN + BiLSTM + CTC to produce a character sequence.
-- **Layout** rebuilds reading order (top-to-bottom, left-to-right for Latin; different for Arabic, Japanese).
+- **Phát hiện văn bản** tạo các tứ giác từng dòng hoặc từng từ.
+- **Nhận dạng** cắt mỗi vùng về chiều cao cố định, chạy CNN + BiLSTM + CTC để tạo một chuỗi ký tự.
+- **Bố cục** xây lại thứ tự đọc (trên-xuống-dưới, trái-sang-phải cho chữ Latin; khác với chữ Ả Rập, Nhật).
 
 ### CTC in one paragraph
 
-OCR recognition produces a variable-length sequence from a fixed-length feature map. CTC (Graves et al., 2006) lets you train this without character-level alignment. The model outputs a distribution over (vocab + blank) at every time step; CTC loss marginalises over all alignments that reduce to the target text after merging repeats and removing blanks.
+Nhận dạng OCR tạo một chuỗi độ dài thay đổi từ một bản đồ đặc trưng độ dài cố định. CTC (Graves et al., 2006) cho phép huấn luyện mà không căn chỉnh cấp ký tự. Mô hình xuất một phân phối trên (vốn từ + blank) ở mỗi bước thời gian; mất mát CTC lấy tổng biên trên mọi cách căn chỉnh rút về văn bản mục tiêu sau khi gộp các lần lặp và bỏ blank.
 
 ```
 raw output: "h h h _ _ e e l l _ l l o _ _"
 after merge repeats and remove blanks: "hello"
 ```
 
-CTC is the reason CRNN worked in 2015 and still trains most production OCR models in 2026.
+CTC là lý do CRNN hoạt động năm 2015 và vẫn huấn luyện hầu hết mô hình OCR production năm 2026.
 
 ### Modern end-to-end models
 
-- **Donut** (Kim et al., 2022) — a ViT encoder + a text decoder; reads an image and emits JSON directly. No text detector, no layout module.
-- **TrOCR** — ViT + transformer decoder for line-level OCR.
-- **Qwen-VL-OCR / InternVL** — full vision-language models fine-tuned for OCR tasks; best accuracy in 2026 on complex documents.
-- **PaddleOCR** — classical DB + CRNN pipeline in a mature production package; still the open-source workhorse.
+- **Donut** (Kim et al., 2022) — một encoder ViT + decoder văn bản; đọc hình ảnh và xuất JSON trực tiếp. Không bộ phát hiện văn bản, không module bố cục.
+- **TrOCR** — ViT + decoder transformer cho OCR cấp dòng.
+- **Qwen-VL-OCR / InternVL** — các mô hình thị giác-ngôn ngữ đầy đủ được tinh chỉnh cho tác vụ OCR; accuracy tốt nhất năm 2026 trên tài liệu phức tạp.
+- **PaddleOCR** — pipeline DB + CRNN cổ điển trong một gói production trưởng thành; vẫn là thành phần chủ lực nguồn mở.
 
-End-to-end models need more data and compute but skip the error accumulation of multi-stage pipelines.
+Các mô hình đầu-cuối cần thêm dữ liệu và tính toán nhưng bỏ qua tích lũy sai số của các pipeline nhiều giai đoạn.
 
 ### Layout parsing
 
-For structured documents, run a layout detector (LayoutLMv3, DocLayNet) that labels each region: Title, Paragraph, Figure, Table, Footnote. Reading order then becomes "iterate through regions in layout order, concatenate."
+Với tài liệu có cấu trúc, chạy một bộ phát hiện bố cục (LayoutLMv3, DocLayNet) gán nhãn mỗi vùng: Tiêu đề, Đoạn văn, Hình, Bảng, Chú thích chân trang. Thứ tự đọc sau đó trở thành "lặp qua các vùng theo thứ tự bố cục, nối lại."
 
-For forms, use **Key-Value extraction** models (Donut for visually-rich documents, LayoutLMv3 for plain scans). They take image + detected text + positions and predict structured key-value pairs.
+Với biểu mẫu, sử dụng các mô hình **trích xuất Khóa-Giá trị** (Donut cho tài liệu giàu trực quan, LayoutLMv3 cho bản quét đơn giản). Chúng nhận hình ảnh + văn bản đã phát hiện + vị trí và dự đoán các cặp khóa-giá trị có cấu trúc.
 
 ### Evaluation metrics
 
-- **Character Error Rate (CER)** — Levenshtein distance / length of reference. Lower is better. Production target: < 2% on clean scans.
-- **Word Error Rate (WER)** — same at the word level.
-- **F1 on structured fields** — for key-value tasks; measures whether `{invoice_total: 42.50}` appears correctly.
-- **Edit distance on JSON** — for end-to-end document parsing; the Donut paper introduced normalised tree edit distance.
+- **Tỷ lệ lỗi ký tự (CER)** — khoảng cách Levenshtein / độ dài tham chiếu. Thấp hơn tốt hơn. Mục tiêu production: < 2% trên bản quét sạch.
+- **Tỷ lệ lỗi từ (WER)** — tương tự ở cấp từ.
+- **F1 trên các trường có cấu trúc** — cho tác vụ khóa-giá trị; đo liệu `{invoice_total: 42.50}` xuất hiện đúng không.
+- **Khoảng cách chỉnh sửa trên JSON** — cho phân tích tài liệu đầu-cuối; bài báo Donut giới thiệu khoảng cách chỉnh sửa cây được chuẩn hóa.
 
 ```figure
 cv3-ctc-collapse
@@ -125,11 +125,11 @@ def greedy_ctc_decode(log_probs, blank=0):
     return out
 ```
 
-`F.ctc_loss` uses the efficient CuDNN implementation when available. The greedy decoder is simpler than a beam search and usually within 1% CER of it.
+`F.ctc_loss` dùng bản triển khai CuDNN hiệu quả khi có. Bộ giải mã tham lam đơn giản hơn tìm kiếm chùm và thường trong phạm vi 1% CER so với nó.
 
 ### Step 2: Tiny CRNN recogniser
 
-Minimal CNN + BiLSTM for line OCR.
+CNN + BiLSTM tối giản cho OCR dòng.
 
 ```python
 class TinyCRNN(nn.Module):
@@ -156,11 +156,11 @@ class TinyCRNN(nn.Module):
         return F.log_softmax(self.head(h).transpose(0, 1), dim=-1)  # (W', N, vocab)
 ```
 
-Fixed-height input (the CNN max-pools height to 1). Width is the time dimension for CTC.
+Đầu vào chiều cao cố định (CNN max-pool chiều cao về 1). Chiều rộng là chiều thời gian cho CTC.
 
 ### Step 3: Synthetic OCR
 
-Generate black-on-white digit strings for an end-to-end smoke test.
+Sinh các chuỗi chữ số đen-trên-trắng cho một phép kiểm tra nhanh đầu-cuối.
 
 ```python
 import numpy as np
@@ -194,7 +194,7 @@ imgs, targets, lengths = build_batch(["hello", "world"], vocab)
 print(f"images: {imgs.shape}   targets: {targets.shape}   lengths: {lengths.tolist()}")
 ```
 
-A real OCR dataset adds fonts, noise, rotation, blur, and colour. The pipeline above is identical.
+Một tập dữ liệu OCR thật thêm phông, nhiễu, xoay, mờ và màu. Pipeline trên giống hệt.
 
 ### Step 4: Training sketch
 
@@ -211,17 +211,17 @@ for step in range(200):
     opt.zero_grad(); loss.backward(); opt.step()
 ```
 
-Loss should drop from ~3 to ~0.2 over 200 steps on this trivial synthetic data.
+Mất mát nên giảm từ ~3 xuống ~0.2 qua 200 bước trên dữ liệu tổng hợp đơn giản này.
 
 ## Use It
 
-Three production paths:
+Ba đường production:
 
-- **PaddleOCR** — mature, fast, multilingual. One-line usage: `paddleocr.PaddleOCR(lang="en").ocr(image_path)`.
-- **EasyOCR** — Python-native, multilingual, PyTorch backbone.
-- **Tesseract** — classical; still useful for old scanned documents when models struggle.
+- **PaddleOCR** — trưởng thành, nhanh, đa ngôn ngữ. Sử dụng một dòng: `paddleocr.PaddleOCR(lang="en").ocr(image_path)`.
+- **EasyOCR** — gốc Python, đa ngôn ngữ, backbone PyTorch.
+- **Tesseract** — cổ điển; vẫn hữu ích cho các tài liệu quét cũ khi các mô hình gặp khó.
 
-For end-to-end document parsing, use Donut or a VLM:
+Cho phân tích tài liệu đầu-cuối, dùng Donut hoặc một VLM:
 
 ```python
 from transformers import DonutProcessor, VisionEncoderDecoderModel
@@ -230,37 +230,37 @@ processor = DonutProcessor.from_pretrained("naver-clova-ix/donut-base-finetuned-
 model = VisionEncoderDecoderModel.from_pretrained("naver-clova-ix/donut-base-finetuned-cord-v2")
 ```
 
-For receipts, invoices, and forms with repeatable structure, fine-tune Donut. For arbitrary documents or OCR with reasoning, a VLM like Qwen-VL-OCR is the current default.
+Với biên lai, hóa đơn và biểu mẫu có cấu trúc lặp lại, tinh chỉnh Donut. Với tài liệu tùy ý hoặc OCR kèm suy luận, một VLM như Qwen-VL-OCR là mặc định hiện tại.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-ocr-stack-picker.md` — a prompt that picks Tesseract / PaddleOCR / Donut / VLM-OCR given document type, language, and structure.
-- `outputs/skill-ctc-decoder.md` — a skill that writes greedy and beam-search CTC decoders from scratch, including length normalisation.
+- `outputs/prompt-ocr-stack-picker.md` — một prompt chọn Tesseract / PaddleOCR / Donut / VLM-OCR với loại tài liệu, ngôn ngữ và cấu trúc cho trước.
+- `outputs/skill-ctc-decoder.md` — một skill viết các bộ giải mã CTC tham lam và tìm kiếm chùm từ đầu, gồm chuẩn hóa độ dài.
 
 ## Exercises
 
-1. **(Easy)** Train the TinyCRNN on 5-digit random numeric strings for 500 steps. Report CER on a held-out set.
-2. **(Medium)** Replace greedy decoding with beam search (beam_width=5). Report CER delta. On which inputs does beam search win?
-3. **(Hard)** Use PaddleOCR on a set of 20 receipts, extract line items, and compute F1 against hand-labelled ground truth for {item_name, price} pairs.
+1. **(Dễ)** Huấn luyện TinyCRNN trên các chuỗi số ngẫu nhiên 5 chữ số trong 500 bước. Báo cáo CER trên tập được giữ lại.
+2. **(Vừa)** Thay giải mã tham lam bằng tìm kiếm chùm (beam_width=5). Báo cáo chênh lệch CER. Tìm kiếm chùm thắng trên những đầu vào nào?
+3. **(Khó)** Dùng PaddleOCR trên tập 20 biên lai, trích xuất các dòng mặt hàng và tính F1 so với sự thật nền gán nhãn tay cho các cặp {item_name, price}.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| OCR | "Text from pixels" | Turning image regions into character sequences |
-| CTC | "Alignment-free loss" | Loss that trains a sequence model without per-timestep labels; marginalises over alignments |
-| CRNN | "Classic OCR model" | Conv feature extractor + BiLSTM + CTC; the 2015 baseline still used in production |
-| Donut | "End-to-end OCR" | ViT encoder + text decoder; emits JSON directly from image |
-| Layout parsing | "Find regions" | Detect and label Title/Table/Figure/Paragraph regions in a document |
-| Reading order | "Text sequence" | Ordering of recognised regions into a sentence; trivial for Latin, non-trivial for mixed layouts |
-| CER / WER | "Error rates" | Levenshtein distance / reference length at character or word granularity |
-| VLM-OCR | "LLM that reads" | A vision-language model trained or prompted for OCR tasks; current SOTA on complex documents |
+| OCR | "Văn bản từ pixel" | Biến các vùng hình ảnh thành các chuỗi ký tự |
+| CTC | "Mất mát không cần căn chỉnh" | Mất mát huấn luyện một mô hình chuỗi không có nhãn từng bước thời gian; lấy tổng biên trên các căn chỉnh |
+| CRNN | "Mô hình OCR cổ điển" | Bộ trích xuất đặc trưng tích chập + BiLSTM + CTC; đường cơ sở năm 2015 vẫn được dùng trong production |
+| Donut | "OCR đầu-cuối" | Encoder ViT + decoder văn bản; xuất JSON trực tiếp từ hình ảnh |
+| Layout parsing (Phân tích bố cục) | "Tìm các vùng" | Phát hiện và gán nhãn các vùng Tiêu đề/Bảng/Hình/Đoạn văn trong tài liệu |
+| Reading order (Thứ tự đọc) | "Chuỗi văn bản" | Sắp thứ tự các vùng đã nhận dạng thành câu; đơn giản với chữ Latin, không đơn giản với bố cục hỗn hợp |
+| CER / WER | "Các tỷ lệ lỗi" | Khoảng cách Levenshtein / độ dài tham chiếu ở mức ký tự hoặc từ |
+| VLM-OCR | "LLM biết đọc" | Một mô hình thị giác-ngôn ngữ được huấn luyện hoặc đặt prompt cho các tác vụ OCR; SOTA hiện tại trên tài liệu phức tạp |
 
 ## Further Reading
 
-- [CRNN (Shi et al., 2015)](https://arxiv.org/abs/1507.05717) — the original CNN+RNN+CTC architecture
-- [CTC (Graves et al., 2006)](https://www.cs.toronto.edu/~graves/icml_2006.pdf) — the original CTC paper; densely packed with the algorithmic ideas
-- [Donut (Kim et al., 2022)](https://arxiv.org/abs/2111.15664) — OCR-free document understanding transformer
-- [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) — the open-source production OCR stack
+- [CRNN (Shi et al., 2015)](https://arxiv.org/abs/1507.05717) — kiến trúc CNN+RNN+CTC gốc
+- [CTC (Graves et al., 2006)](https://www.cs.toronto.edu/~graves/icml_2006.pdf) — bài báo CTC gốc; chứa dày đặc các ý tưởng thuật toán
+- [Donut (Kim et al., 2022)](https://arxiv.org/abs/2111.15664) — transformer hiểu tài liệu không cần OCR
+- [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) — bộ công cụ OCR production nguồn mở
