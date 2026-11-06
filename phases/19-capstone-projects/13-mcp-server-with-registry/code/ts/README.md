@@ -1,24 +1,24 @@
 # Lesson 13 - Stateless MCP Server (TypeScript)
 
-TypeScript half of the capstone. The Python side (`code/main.py`) ships the
-registry and policy gate; this project is the MCP transport: hand-rolled
-newline-delimited JSON-RPC 2.0 over stdio with three mock incident tools. It
-implements MCP `2026-07-28` directly, without `@modelcontextprotocol/sdk`, so
-you can inspect every byte on the wire.
+Nửa TypeScript của bài tổng kết. Phía Python (`code/main.py`) cung cấp
+registry và cổng chính sách; dự án này là cơ chế truyền tải MCP: được viết thủ công
+JSON-RPC 2.0 phân cách bằng dòng mới trên stdio với ba công cụ sự cố giả lập. Nó
+triển khai MCP `2026-07-28` trực tiếp, không có `@modelcontextprotocol/sdk`, để
+bạn có thể kiểm tra mọi byte trên đường truyền.
 
-The protocol is stateless even though the mock incident store persists data.
-Every request repeats its protocol version and client capabilities in
-`params._meta`; no connection, process, or earlier request establishes a
-session. The server exposes mandatory `server/discover`, identifies itself in
-every successful result, and publishes deterministic, cacheable tool listings.
-`tools/call` validates arguments against the same bounded schemas returned by
-`tools/list`; malformed arguments for a known tool return a complete tool result
-with `isError: true` and never reach its executor.
+Giao thức là phi trạng thái mặc dù kho sự cố giả lập lưu bền vững dữ liệu.
+Mỗi yêu cầu lặp lại phiên bản giao thức và khả năng máy khách của nó trong
+`params._meta`; không có kết nối, tiến trình, hoặc yêu cầu trước đó nào thiết lập một
+phiên. Máy chủ cung cấp `server/discover` bắt buộc, xác định danh tính của mình trong
+mọi kết quả thành công, và công bố các danh sách công cụ tất định, có thể lưu đệm.
+`tools/call` xác thực các đối số theo cùng các lược đồ có giới hạn được trả về bởi
+`tools/list`; các đối số sai định dạng cho một công cụ đã biết trả về một kết quả công cụ hoàn chỉnh
+với `isError: true` và không bao giờ đến bộ thực thi của nó.
 
-The runtime identity is `com.example/internal-incidents`. It uses the reverse-DNS
-namespace for the verified `example.com` publisher. A matching published
-`server.json` must use that same name even though the local npm package has its
-own private project name.
+Danh tính runtime là `com.example/internal-incidents`. Nó sử dụng không gian tên DNS đảo ngược
+cho nhà phát hành `example.com` đã xác minh. Một
+`server.json` được công bố tương ứng phải sử dụng cùng tên đó mặc dù gói npm cục bộ có
+tên dự án riêng của nó.
 
 ## Layout
 
@@ -43,5 +43,5 @@ npm start            # self-terminating fixture demo
 npm run serve        # real stdio loop (waits on stdin)
 ```
 
-The demo is self-terminating. The real stdio server stays alive until its input
-stream closes; there is no MCP shutdown request or initialization handshake.
+Demo tự kết thúc. Máy chủ stdio thực vẫn hoạt động cho đến khi luồng đầu vào của nó
+đóng; không có yêu cầu tắt MCP hoặc bắt tay khởi tạo.

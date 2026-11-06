@@ -7,45 +7,45 @@ lesson: 13
 tags: [capstone, mcp, stateless, streamable-http, oauth, registry, governance]
 ---
 
-Given an internal platform need, design a stateless MCP server and governance boundary targeting protocol revision `2026-07-28`.
+Với một nhu cầu nền tảng nội bộ được cung cấp, thiết kế một máy chủ MCP phi trạng thái và ranh giới quản trị nhắm đến bản sửa đổi giao thức `2026-07-28`.
 
-Build plan:
+Kế hoạch xây dựng:
 
-1. A schema-valid `server.json` whose reverse-DNS name matches the publisher's authenticated namespace.
-2. Mandatory `server/discover` for live versions, capabilities, extensions, and server identity.
-3. Version and client capabilities in every request `_meta`; `resultType` and server identity in every result.
-4. Deterministic `tools/list` with `ttlMs` and `cacheScope`.
-5. POST-only Streamable HTTP with required version, method, and name headers; no protocol sessions, GET stream, session DELETE, or replay header.
-6. Authorization that validates issuer, audience, expiry, and scopes on every call.
-7. Policy over actor, tool, target, and normalized arguments. Bind high-risk approvals to the exact action and expiry, then prove that changing one argument rejects replay.
-8. Redacted audit and trace evidence outside model-visible context.
-9. A registry adapter that validates `server.json`, probes `server/discover`, and reports metadata/runtime drift.
-10. Two interchangeable replicas and a concurrent load probe with no session affinity.
+1. Một `server.json` hợp lệ theo lược đồ có tên DNS đảo ngược khớp với không gian tên được xác thực của nhà phát hành.
+2. `server/discover` bắt buộc cho các phiên bản, khả năng, phần mở rộng, và danh tính máy chủ trực tiếp.
+3. Phiên bản và khả năng máy khách trong `_meta` của mọi yêu cầu; `resultType` và danh tính máy chủ trong mọi kết quả.
+4. `tools/list` tất định với `ttlMs` và `cacheScope`.
+5. Streamable HTTP chỉ POST với các header phiên bản, phương thức, và tên bắt buộc; không có phiên giao thức, luồng GET, DELETE phiên, hoặc header phát lại.
+6. Ủy quyền xác thực bên phát hành, đối tượng nhận, hạn dùng, và các phạm vi trên mọi lệnh gọi.
+7. Chính sách trên tác nhân, công cụ, đích, và các đối số được chuẩn hóa. Ràng buộc các phê duyệt rủi ro cao với hành động và hạn dùng chính xác, rồi chứng minh rằng thay đổi một đối số sẽ từ chối phát lại.
+8. Bằng chứng kiểm toán và trace được che bên ngoài ngữ cảnh mô hình có thể thấy.
+9. Một adapter registry xác thực `server.json`, thăm dò `server/discover`, và báo cáo độ trôi siêu dữ liệu/runtime.
+10. Hai bản sao có thể thay thế nhau và một phép thăm dò tải đồng thời không có tính gắn kết phiên.
 
-Assessment rubric:
+Thang đánh giá:
 
-| Weight | Criterion | Measurement |
+| Trọng số | Tiêu chí | Phép đo |
 |:-:|---|---|
-| 25 | Protocol correctness | Stateless envelopes, discovery, results, headers, and negative cases |
-| 20 | Authorization | Issuer, audience, expiry, scope, and exact-action approval cases |
-| 15 | Registry integrity | Valid `server.json`, live probe, and drift report |
-| 15 | Policy and safety | Allow, deny, malformed, stale approval, and sensitive-data cases |
-| 15 | Scale | Two replicas with no affinity dependency plus cancellation and recovery |
-| 10 | Auditability | Redacted receiver-side audit and trace evidence |
+| 25 | Tính đúng đắn giao thức | Phong bì phi trạng thái, khám phá, kết quả, header, và các trường hợp âm tính |
+| 20 | Ủy quyền | Các trường hợp bên phát hành, đối tượng nhận, hạn dùng, phạm vi, và phê duyệt hành động chính xác |
+| 15 | Tính toàn vẹn Registry | `server.json` hợp lệ, phép thăm dò trực tiếp, và báo cáo độ trôi |
+| 15 | Chính sách và an toàn | Các trường hợp cho phép, từ chối, sai định dạng, phê duyệt cũ, và dữ liệu nhạy cảm |
+| 15 | Quy mô | Hai bản sao không phụ thuộc tính gắn kết cùng hủy và phục hồi |
+| 10 | Khả năng kiểm toán | Bằng chứng kiểm toán và trace phía nhận được che |
 
-Hard rejects:
+Các trường hợp loại thẳng:
 
-- A current MCP design that uses `initialize`, `notifications/initialized`, or `Mcp-Session-Id`.
-- Treating `server.json` as live capability discovery or inventing `.well-known/mcp-capabilities` as an MCP requirement.
-- Publishing a server name outside the namespace authenticated for that publisher.
-- Accepting a token without issuer and audience or resource validation.
-- Treating tool annotations or a chat approval as authorization.
-- Audit records that persist secrets or raw sensitive data.
+- Một thiết kế MCP hiện tại sử dụng `initialize`, `notifications/initialized`, hoặc `Mcp-Session-Id`.
+- Coi `server.json` là khám phá khả năng trực tiếp hoặc tự tạo `.well-known/mcp-capabilities` thành một yêu cầu MCP.
+- Công bố một tên máy chủ bên ngoài không gian tên được xác thực cho nhà phát hành đó.
+- Chấp nhận một token mà không xác thực bên phát hành và đối tượng nhận hoặc tài nguyên.
+- Coi annotation công cụ hoặc một phê duyệt trò chuyện là ủy quyền.
+- Các bản ghi kiểm toán lưu bền vững bí mật hoặc dữ liệu nhạy cảm thô.
 
-Refusal rules:
+Quy tắc từ chối:
 
-- Refuse to claim production readiness from the local simulations alone.
-- Refuse to expose a state-changing tool without policy and action-bound approval evidence.
-- Refuse to publish metadata that points to an endpoint whose live discovery cannot be verified.
+- Từ chối tuyên bố sẵn sàng sản xuất chỉ từ các mô phỏng cục bộ.
+- Từ chối cung cấp một công cụ thay đổi trạng thái mà không có bằng chứng chính sách và phê duyệt gắn với hành động.
+- Từ chối công bố siêu dữ liệu trỏ đến một endpoint không thể xác minh khám phá trực tiếp của nó.
 
-Output: a build plan and evidence matrix covering publication metadata, live discovery, stateless transport, tool schemas, authorization, policy, approval, audit, and scale. End with the highest-risk boundary and the exact failure test that proves it fails closed.
+Đầu ra: một kế hoạch xây dựng và ma trận bằng chứng bao phủ siêu dữ liệu công bố, khám phá trực tiếp, truyền tải phi trạng thái, lược đồ công cụ, ủy quyền, chính sách, phê duyệt, kiểm toán, và quy mô. Kết thúc bằng ranh giới rủi ro cao nhất và kiểm thử lỗi chính xác chứng minh nó đóng khi thất bại.

@@ -1,59 +1,59 @@
 # Capstone 13: Stateless MCP Server with Registry and Governance
 
-> Production MCP is not one server process. It is a chain of contracts: publishable metadata, live discovery, a stateless request envelope, authorization, policy, audit, and deployment evidence.
+> MCP sản xuất không phải một tiến trình máy chủ. Nó là một chuỗi hợp đồng: siêu dữ liệu có thể công bố, khám phá trực tiếp, một phong bì yêu cầu phi trạng thái, ủy quyền, chính sách, kiểm toán, và bằng chứng triển khai.
 
 **Type:** Capstone
 **Languages:** Python and TypeScript reference models; any production language
 **Prerequisites:** Phase 11, Phase 13, Phase 14, Phase 17, and Phase 18
-**Required MCP deep dives:** [Lesson 28: Tool Contracts](../../../13-tools-and-protocols/28-mcp-tool-contracts-and-content/docs/en.md), [Lesson 29: Reliability](../../../13-tools-and-protocols/29-mcp-reliability-cancellation-and-flow-control/docs/en.md), [Lesson 30: Registry Supply Chain](../../../13-tools-and-protocols/30-mcp-registry-supply-chain-and-drift/docs/en.md), and [Lesson 31: Conformance Operations](../../../13-tools-and-protocols/31-mcp-conformance-versioning-and-operations/docs/en.md)
-**Protocol target:** MCP `2026-07-28`
+**Các bài chuyên sâu MCP bắt buộc:** [Bài 28: Hợp đồng công cụ](../../../13-tools-and-protocols/28-mcp-tool-contracts-and-content/docs/en.md), [Bài 29: Độ tin cậy](../../../13-tools-and-protocols/29-mcp-reliability-cancellation-and-flow-control/docs/en.md), [Bài 30: Chuỗi cung ứng Registry](../../../13-tools-and-protocols/30-mcp-registry-supply-chain-and-drift/docs/en.md), và [Bài 31: Vận hành tuân thủ](../../../13-tools-and-protocols/31-mcp-conformance-versioning-and-operations/docs/en.md)
+**Mục tiêu giao thức:** MCP `2026-07-28`
 **Time:** ~25 hours
 
 ## Learning Objectives
 
-- Implement the stateless MCP request and result envelope.
-- Keep Registry metadata separate from live protocol discovery.
-- Build deterministic, cache-aware tool discovery.
-- Enforce issuer, audience, scope, and approval policy for every tool call.
-- Deploy Streamable HTTP without session affinity.
-- Prove behavior at the wire, authorization, policy, registry, and audit boundaries.
+- Triển khai phong bì yêu cầu và kết quả MCP phi trạng thái.
+- Giữ siêu dữ liệu Registry tách biệt với khám phá giao thức trực tiếp.
+- Xây dựng khám phá công cụ tất định, có nhận thức về bộ nhớ đệm.
+- Thực thi bên phát hành, đối tượng nhận, phạm vi, và chính sách phê duyệt cho mọi lệnh gọi công cụ.
+- Triển khai Streamable HTTP mà không có tính gắn kết phiên.
+- Chứng minh hành vi tại các ranh giới truyền tin, ủy quyền, chính sách, registry, và kiểm toán.
 
 ## Required MCP Prerequisite Path
 
-Complete the four linked Phase 13 lessons in order before treating this capstone as production-ready:
+Hoàn thành bốn bài Phase 13 được liên kết theo thứ tự trước khi coi bài tổng kết này là sẵn sàng cho sản xuất:
 
-1. [Lesson 28](../../../13-tools-and-protocols/28-mcp-tool-contracts-and-content/docs/en.md) defines the tool, schema, content, pagination, completion, routing, and error contracts this server must expose.
-2. [Lesson 29](../../../13-tools-and-protocols/29-mcp-reliability-cancellation-and-flow-control/docs/en.md) defines cancellation races, deadlines, idempotency, backpressure, retry, and reconnect behavior.
-3. [Lesson 30](../../../13-tools-and-protocols/30-mcp-registry-supply-chain-and-drift/docs/en.md) defines namespace, provenance, admission pin, Registry status, drift, ledger, and rollback evidence.
-4. [Lesson 31](../../../13-tools-and-protocols/31-mcp-conformance-versioning-and-operations/docs/en.md) defines golden and negative transcripts, strict version eras, SDK differential checks, proxy proof, redaction, health, and release gating.
+1. [Bài 28](../../../13-tools-and-protocols/28-mcp-tool-contracts-and-content/docs/en.md) định nghĩa các hợp đồng công cụ, lược đồ, nội dung, phân trang, hoàn thành, định tuyến, và lỗi mà máy chủ này phải cung cấp.
+2. [Bài 29](../../../13-tools-and-protocols/29-mcp-reliability-cancellation-and-flow-control/docs/en.md) định nghĩa các cuộc đua hủy, hạn chót, tính lũy đẳng, áp lực ngược, thử lại, và hành vi kết nối lại.
+3. [Bài 30](../../../13-tools-and-protocols/30-mcp-registry-supply-chain-and-drift/docs/en.md) định nghĩa không gian tên, nguồn gốc, ghim tiếp nhận, trạng thái Registry, độ trôi, sổ cái, và bằng chứng khôi phục.
+4. [Bài 31](../../../13-tools-and-protocols/31-mcp-conformance-versioning-and-operations/docs/en.md) định nghĩa các bản ghi chuẩn và âm tính, các thời kỳ phiên bản nghiêm ngặt, kiểm tra vi sai SDK, bằng chứng proxy, che dữ liệu, sức khỏe, và kiểm soát cổng phát hành.
 
-The capstone integrates those artifacts. It does not replace them with one happy-path SDK test.
+Bài tổng kết tích hợp những hiện vật đó. Nó không thay thế chúng bằng một kiểm thử SDK trên luồng thuận lợi.
 
 ## The Problem
 
-An internal platform needs read-only data tools and a small set of state-changing tools. Developers must be able to discover the server, understand how to connect, inspect its live capabilities, and call only the operations they are authorized to use.
+Một nền tảng nội bộ cần các công cụ dữ liệu chỉ đọc và một tập nhỏ các công cụ thay đổi trạng thái. Các nhà phát triển phải có thể khám phá máy chủ, hiểu cách kết nối, kiểm tra các khả năng trực tiếp của nó, và chỉ gọi các thao tác mà họ được ủy quyền sử dụng.
 
-The difficult part is not registering a function. The difficult part is keeping six different truths aligned:
+Phần khó không phải là đăng ký một hàm. Phần khó là giữ sáu sự thật khác nhau đồng bộ:
 
-1. `server.json` says where the server can be installed or reached.
-2. `server/discover` says what the live process supports now.
-3. Every request says which protocol revision and client capabilities it uses.
-4. Authorization binds a caller to the correct issuer, resource, and scopes.
-5. Policy decides whether this specific action may run.
-6. Audit evidence records what crossed the boundary without leaking secrets or sensitive payloads.
+1. `server.json` cho biết máy chủ có thể được cài đặt hoặc truy cập ở đâu.
+2. `server/discover` cho biết tiến trình trực tiếp hỗ trợ gì lúc này.
+3. Mỗi yêu cầu cho biết nó sử dụng bản sửa đổi giao thức và khả năng máy khách nào.
+4. Ủy quyền ràng buộc một bên gọi với bên phát hành, tài nguyên, và các phạm vi chính xác.
+5. Chính sách quyết định liệu hành động cụ thể này có được chạy không.
+6. Bằng chứng kiểm toán ghi lại những gì đã vượt qua ranh giới mà không rò rỉ bí mật hoặc payload nhạy cảm.
 
-If any one of these drifts, the platform may list a server that cannot be reached, route an incompatible client, accept a token minted for another resource, or expose a destructive action without the expected review.
+Nếu bất kỳ điều nào trong số này bị lệch, nền tảng có thể liệt kê một máy chủ không thể truy cập, định tuyến một máy khách không tương thích, chấp nhận một token được cấp cho tài nguyên khác, hoặc cung cấp một hành động phá hủy mà không có việc rà soát dự kiến.
 
 ## The Two Discovery Layers
 
-The Registry and the live MCP server answer different questions.
+Registry và máy chủ MCP trực tiếp trả lời những câu hỏi khác nhau.
 
-| Layer | Contract | Question it answers |
+| Lớp | Hợp đồng | Câu hỏi nó trả lời |
 |---|---|---|
-| Publication | `server.json` and Registry API | What is this server, where is its package or remote endpoint, and how is it configured? |
-| Runtime | `server/discover` | Which protocol versions, capabilities, extensions, and server identity does this process support? |
+| Công bố | `server.json` và Registry API | Máy chủ này là gì, gói hoặc endpoint từ xa của nó ở đâu, và nó được cấu hình như thế nào? |
+| Runtime | `server/discover` | Tiến trình này hỗ trợ những phiên bản giao thức, khả năng, phần mở rộng, và danh tính máy chủ nào? |
 
-The official Registry uses a versioned `server.json` schema. A remote entry can name a Streamable HTTP URL:
+Registry chính thức sử dụng một lược đồ `server.json` có phiên bản. Một mục từ xa có thể chỉ định một URL Streamable HTTP:
 
 ```json
 {
@@ -71,13 +71,13 @@ The official Registry uses a versioned `server.json` schema. A remote entry can 
 }
 ```
 
-The Registry schema version and the MCP protocol revision are independent. Do not rewrite one date to match the other. Validate each document against its own contract.
+Phiên bản lược đồ Registry và bản sửa đổi giao thức MCP độc lập với nhau. Đừng viết lại một ngày để khớp với ngày còn lại. Xác thực mỗi tài liệu theo hợp đồng riêng của nó.
 
-Schema validity does not prove namespace ownership. A publisher verified for `example.com` uses the reverse-DNS namespace `com.example/*` or one of its child namespaces. The Registry authentication flow proves that ownership. Keeping the domain labels in their ordinary order names a different namespace.
+Tính hợp lệ của lược đồ không chứng minh quyền sở hữu không gian tên. Một nhà phát hành được xác minh cho `example.com` sử dụng không gian tên DNS đảo ngược `com.example/*` hoặc một trong các không gian tên con của nó. Luồng xác thực Registry chứng minh quyền sở hữu đó. Giữ các nhãn miền theo thứ tự thông thường của chúng sẽ đặt tên cho một không gian tên khác.
 
-The stdlib model's `validate_registry_document` function is intentionally a partial remote-profile validator. It checks the official required `name`, `description`, and `version` fields; the optional `title`; the published name and length constraints; concrete-version shape; and each `streamable-http` or `sse` remote's HTTP(S) URL shape. It additionally requires a non-empty `remotes` list because this capstone always live-probes a remote. `validate_publisher_namespace` separately checks the name against the verified publisher domain, while `validate_runtime_alignment` compares the publication name and version with live `serverInfo`. The official schema also supports package-only records and more remote fields. Before publication, validate the entire document with the pinned official JSON Schema or `mcp-publisher`; do not present this dependency-free subset as full schema validation.
+Hàm `validate_registry_document` của mô hình stdlib được cố ý thiết kế là một bộ xác thực một phần cho cấu hình từ xa. Nó kiểm tra các trường bắt buộc chính thức `name`, `description`, và `version`; `title` tùy chọn; các ràng buộc về tên và độ dài được công bố; hình thức phiên bản cụ thể; và hình thức URL HTTP(S) của mỗi remote `streamable-http` hoặc `sse`. Nó còn yêu cầu một danh sách `remotes` không rỗng vì bài tổng kết này luôn thăm dò trực tiếp một remote. `validate_publisher_namespace` kiểm tra riêng tên với miền nhà phát hành đã được xác minh, trong khi `validate_runtime_alignment` so sánh tên và phiên bản công bố với `serverInfo` trực tiếp. Lược đồ chính thức cũng hỗ trợ các bản ghi chỉ có gói và nhiều trường remote hơn. Trước khi công bố, xác thực toàn bộ tài liệu bằng JSON Schema chính thức được ghim hoặc `mcp-publisher`; đừng trình bày tập con không phụ thuộc này là xác thực lược đồ đầy đủ.
 
-The server must implement `server/discover`; a client may call it before other methods. This capstone client does so after resolving the endpoint, and receives the current protocol revision and live capabilities:
+Máy chủ phải triển khai `server/discover`; một máy khách có thể gọi nó trước các phương thức khác. Máy khách của bài tổng kết này làm như vậy sau khi phân giải endpoint, và nhận bản sửa đổi giao thức hiện tại cùng các khả năng trực tiếp:
 
 ```json
 {
@@ -99,13 +99,13 @@ The server must implement `server/discover`; a client may call it before other m
 }
 ```
 
-A private catalog may index extra ownership, review, or lifecycle data, but it must not invent that data as MCP wire fields or root `server.json` fields. Store organizational policy beside the published record. When public custom metadata is necessary, use the Registry's `_meta.io.modelcontextprotocol.registry/publisher-provided` extension and stay within its 4 KB limit.
+Một danh mục riêng có thể lập chỉ mục thêm dữ liệu sở hữu, rà soát, hoặc vòng đời, nhưng nó không được tự tạo dữ liệu đó thành các trường truyền tin MCP hoặc các trường gốc `server.json`. Lưu chính sách tổ chức bên cạnh bản ghi được công bố. Khi cần siêu dữ liệu tùy chỉnh công khai, sử dụng phần mở rộng `_meta.io.modelcontextprotocol.registry/publisher-provided` của Registry và nằm trong giới hạn 4 KB của nó.
 
 ## Stateless MCP Core
 
-MCP revision `2026-07-28` removes protocol sessions and the `initialize` / `notifications/initialized` handshake. It also removes `Mcp-Session-Id`.
+Bản sửa đổi MCP `2026-07-28` loại bỏ các phiên giao thức và bắt tay `initialize` / `notifications/initialized`. Nó cũng loại bỏ `Mcp-Session-Id`.
 
-Every request carries protocol context in `params._meta`:
+Mỗi yêu cầu mang ngữ cảnh giao thức trong `params._meta`:
 
 ```json
 {
@@ -118,35 +118,35 @@ Every request carries protocol context in `params._meta`:
 }
 ```
 
-The version and capabilities are request facts, not connection facts. A load balancer may send consecutive requests to different healthy replicas because either replica can validate the request from the message itself.
+Phiên bản và khả năng là các sự kiện của yêu cầu, không phải các sự kiện của kết nối. Một bộ cân bằng tải có thể gửi các yêu cầu liên tiếp đến các bản sao khỏe mạnh khác nhau vì bất kỳ bản sao nào cũng có thể xác thực yêu cầu từ chính thông điệp.
 
-Ordinary results include `resultType: "complete"`. Servers should place their identity in `_meta.io.modelcontextprotocol/serverInfo` on each result. A missing or non-string protocol version is invalid params `-32602`. Error `-32022` is only for a supplied string that is unsupported, with exactly `{"supported": ["2026-07-28"], "requested": "..."}` as its data.
+Các kết quả thông thường bao gồm `resultType: "complete"`. Các máy chủ nên đặt danh tính của chúng trong `_meta.io.modelcontextprotocol/serverInfo` trên mỗi kết quả. Một phiên bản giao thức thiếu hoặc không phải chuỗi là params không hợp lệ `-32602`. Lỗi `-32022` chỉ dành cho một chuỗi được cung cấp nhưng không được hỗ trợ, với chính xác `{"supported": ["2026-07-28"], "requested": "..."}` làm dữ liệu của nó.
 
 ### Cacheable discovery
 
-`tools/list` must be deterministic for the same effective tool set. The result includes:
+`tools/list` phải tất định với cùng một tập công cụ hiệu lực. Kết quả bao gồm:
 
-- `ttlMs`, a freshness hint for the client;
-- `cacheScope`, either `public` or `private`;
-- a stable tool order so identical lists can reuse prompt caches;
-- `resultType: "complete"` and server identity metadata.
+- `ttlMs`, một gợi ý độ mới cho máy khách;
+- `cacheScope`, hoặc `public` hoặc `private`;
+- một thứ tự công cụ ổn định để các danh sách giống nhau có thể tái sử dụng bộ nhớ đệm prompt;
+- `resultType: "complete"` và siêu dữ liệu danh tính máy chủ.
 
-Per-user authorization should normally produce `cacheScope: "private"`. Do not put user-specific tool visibility behind a shared public cache.
+Ủy quyền theo người dùng thông thường nên tạo ra `cacheScope: "private"`. Đừng đặt khả năng hiển thị công cụ theo người dùng sau một bộ nhớ đệm công khai dùng chung.
 
 ## Streamable HTTP
 
-A network server exposes one MCP endpoint that accepts POST. Each JSON-RPC request or notification gets its own POST.
+Một máy chủ mạng cung cấp một endpoint MCP nhận POST. Mỗi yêu cầu hoặc thông báo JSON-RPC có POST riêng của nó.
 
-For a request, the server returns either one JSON object or an SSE stream scoped to that request. A long-lived `subscriptions/listen` request carries opted-in change notifications. There is no standalone GET stream, session DELETE, session header, or `Last-Event-ID` replay in the current transport.
+Đối với một yêu cầu, máy chủ trả về một đối tượng JSON hoặc một luồng SSE có phạm vi theo yêu cầu đó. Một yêu cầu `subscriptions/listen` tồn tại lâu mang các thông báo thay đổi được đăng ký. Không có luồng GET độc lập, DELETE phiên, header phiên, hoặc phát lại `Last-Event-ID` trong cơ chế truyền tải hiện tại.
 
-Each request includes:
+Mỗi yêu cầu bao gồm:
 
-- `MCP-Protocol-Version`, matching the body metadata;
-- `Mcp-Method`, matching the JSON-RPC method;
-- `Mcp-Name` for `tools/call`, `resources/read`, and `prompts/get`;
+- `MCP-Protocol-Version`, khớp với siêu dữ liệu phần thân;
+- `Mcp-Method`, khớp với phương thức JSON-RPC;
+- `Mcp-Name` cho `tools/call`, `resources/read`, và `prompts/get`;
 - `Accept: application/json, text/event-stream`.
 
-Reject mismatched mirrored headers with the specified `-32020` error. Validate `Origin`, bind local development servers to loopback, authenticate remote clients, and treat a closed request-scoped SSE response as cancellation.
+Từ chối các header phản chiếu không khớp với lỗi `-32020` được chỉ định. Xác thực `Origin`, ràng buộc các máy chủ phát triển cục bộ với loopback, xác thực máy khách từ xa, và coi một phản hồi SSE có phạm vi theo yêu cầu bị đóng là hủy.
 
 ```mermaid
 flowchart LR
@@ -168,88 +168,88 @@ cf-mcp-gate
 
 ## Authorization and Policy
 
-Transport metadata is not authorization. Validate authorization on every call.
+Siêu dữ liệu truyền tải không phải ủy quyền. Xác thực ủy quyền trên mọi lệnh gọi.
 
-For remote servers:
+Đối với các máy chủ từ xa:
 
-1. Discover protected-resource metadata.
-2. Select the authorization server for that resource.
-3. Prefer Client ID Metadata Documents for client registration. Treat Dynamic Client Registration as compatibility support.
-4. Send the resource indicator during authorization.
-5. Validate a returned `iss` value against the authorization server recorded for the flow.
-6. Key client credentials by issuer. Never reuse registration data across issuers.
-7. Validate token issuer, audience or resource, expiry, and scopes at the MCP server.
-8. Apply a second policy decision to the concrete tool and arguments.
+1. Khám phá siêu dữ liệu tài nguyên được bảo vệ.
+2. Chọn máy chủ ủy quyền cho tài nguyên đó.
+3. Ưu tiên Client ID Metadata Documents cho việc đăng ký máy khách. Coi Dynamic Client Registration là hỗ trợ tương thích.
+4. Gửi chỉ báo tài nguyên trong quá trình ủy quyền.
+5. Xác thực một giá trị `iss` được trả về với máy chủ ủy quyền được ghi lại cho luồng.
+6. Đặt khóa thông tin xác thực máy khách theo bên phát hành. Không bao giờ tái sử dụng dữ liệu đăng ký giữa các bên phát hành.
+7. Xác thực bên phát hành token, đối tượng nhận hoặc tài nguyên, hạn dùng, và các phạm vi tại máy chủ MCP.
+8. Áp dụng một quyết định chính sách thứ hai cho công cụ và các đối số cụ thể.
 
-Tool annotations such as `readOnlyHint` and `destructiveHint` help clients present risk. They are not trusted authorization controls.
+Các annotation công cụ như `readOnlyHint` và `destructiveHint` giúp máy khách trình bày rủi ro. Chúng không phải các kiểm soát ủy quyền đáng tin cậy.
 
 ### Approval is a record, not a magic scope
 
-A state-changing call needs an approval record bound to the actor, tool, normalized arguments or digest, target environment, expiry, and one-time or repeat-use policy. A chat message alone is not proof of approval.
+Một lệnh gọi thay đổi trạng thái cần một bản ghi phê duyệt ràng buộc với tác nhân, công cụ, các đối số được chuẩn hóa hoặc giá trị băm, môi trường đích, hạn dùng, và chính sách sử dụng một lần hoặc lặp lại. Chỉ một tin nhắn trò chuyện không phải bằng chứng phê duyệt.
 
-The Python model hashes canonical JSON with sorted keys, then binds that digest with the token subject, tool name, server URL, and expiry. Replaying the record after changing even one argument fails before the handler runs. Approval is separate evidence, not a scope added to the access token.
+Mô hình Python băm JSON chuẩn tắc với các khóa được sắp xếp, rồi ràng buộc giá trị băm đó với chủ thể token, tên công cụ, URL máy chủ, và hạn dùng. Phát lại bản ghi sau khi thay đổi dù chỉ một đối số sẽ thất bại trước khi handler chạy. Phê duyệt là bằng chứng riêng, không phải một phạm vi được thêm vào token truy cập.
 
-Keep high-risk tools on a separately reviewable surface when that materially reduces blast radius. Separation is useful only if credentials, policy, deployment identity, and audit controls are also separate.
+Giữ các công cụ rủi ro cao trên một bề mặt có thể rà soát riêng khi điều đó làm giảm đáng kể phạm vi ảnh hưởng. Sự tách biệt chỉ hữu ích nếu thông tin xác thực, chính sách, danh tính triển khai, và các kiểm soát kiểm toán cũng tách biệt.
 
 ## Build It
 
 ### 1. Model publication metadata
 
-Create and schema-validate `server.json`. Include a stable name inside the namespace authenticated for the publisher, plus version, description, official `repository` or `packages` metadata when applicable, and a remote or stdio transport. Keep secrets as declared environment-variable inputs, never literal values.
+Tạo và xác thực lược đồ `server.json`. Bao gồm một tên ổn định bên trong không gian tên được xác thực cho nhà phát hành, cùng phiên bản, mô tả, siêu dữ liệu `repository` hoặc `packages` chính thức khi phù hợp, và một cơ chế truyền tải từ xa hoặc stdio. Giữ bí mật dưới dạng đầu vào biến môi trường được khai báo, không bao giờ là giá trị trực tiếp.
 
 ### 2. Implement live discovery
 
-Implement `server/discover` before any feature RPC. Advertise supported protocol versions, capabilities, extensions, and server identity. Add a version rejection case using `-32022`.
+Triển khai `server/discover` trước bất kỳ RPC tính năng nào. Công bố các phiên bản giao thức, khả năng, phần mở rộng, và danh tính máy chủ được hỗ trợ. Thêm một trường hợp từ chối phiên bản sử dụng `-32022`.
 
 ### 3. Implement the stateless envelope
 
-Require protocol version and client capabilities in every request. Return `resultType` and server identity in every result. Remove initialization state, connection-scoped capability caches, and session identifiers.
+Yêu cầu phiên bản giao thức và khả năng máy khách trong mọi yêu cầu. Trả về `resultType` và danh tính máy chủ trong mọi kết quả. Loại bỏ trạng thái khởi tạo, bộ nhớ đệm khả năng theo kết nối, và định danh phiên.
 
 ### 4. Build the tool surface
 
-Start with two read-only tools and one state-changing tool. Give each a bounded JSON Schema, precise description, deterministic result shape, and honest annotations. Add output schemas when clients rely on structured results.
+Bắt đầu với hai công cụ chỉ đọc và một công cụ thay đổi trạng thái. Cung cấp cho mỗi công cụ một JSON Schema có giới hạn, mô tả chính xác, hình thức kết quả tất định, và các annotation trung thực. Thêm lược đồ đầu ra khi máy khách dựa vào các kết quả có cấu trúc.
 
 ### 5. Add cache-aware listing
 
-Return tools in stable order with `ttlMs` and `cacheScope`. Exercise cache expiry and list-change notification behavior separately.
+Trả về các công cụ theo thứ tự ổn định với `ttlMs` và `cacheScope`. Thực thi riêng hành vi hết hạn bộ nhớ đệm và thông báo thay đổi danh sách.
 
 ### 6. Add authorization and policy
 
-Validate issuer, audience, expiry, and scope. Run a policy decision for every tool call. Bind approvals to exact high-risk actions. Deny missing or stale approvals before executing a handler.
+Xác thực bên phát hành, đối tượng nhận, hạn dùng, và phạm vi. Chạy một quyết định chính sách cho mọi lệnh gọi công cụ. Ràng buộc các phê duyệt với những hành động rủi ro cao chính xác. Từ chối các phê duyệt thiếu hoặc cũ trước khi thực thi một handler.
 
 ### 7. Separate registry and runtime validation
 
-Validate the static `server.json` record, then probe the remote endpoint with `server/discover`. Report drift when the published remote, identity, version, or required capabilities disagree with the live process.
+Xác thực bản ghi `server.json` tĩnh, rồi thăm dò endpoint từ xa bằng `server/discover`. Báo cáo độ trôi khi remote, danh tính, phiên bản, hoặc các khả năng bắt buộc được công bố không khớp với tiến trình trực tiếp.
 
 ### 8. Add audit evidence
 
-Record actor, issuer, resource, tool, policy decision, request identifier, trace context, latency, and outcome. Redact or digest sensitive arguments and results before persistence. Keep the audit sink outside model-visible context.
+Ghi lại tác nhân, bên phát hành, tài nguyên, công cụ, quyết định chính sách, định danh yêu cầu, ngữ cảnh trace, độ trễ, và kết quả. Che hoặc băm các đối số và kết quả nhạy cảm trước khi lưu bền vững. Giữ đích nhận kiểm toán bên ngoài ngữ cảnh mô hình có thể thấy.
 
 ### 9. Exercise horizontal scaling
 
-Place two stateless replicas behind a load balancer. Send at least 100 concurrent requests. Demonstrate that correctness does not depend on affinity. If a tool needs cross-call state, mint an explicit opaque handle and store it in a shared durable system.
+Đặt hai bản sao phi trạng thái sau một bộ cân bằng tải. Gửi ít nhất 100 yêu cầu đồng thời. Chứng minh rằng tính đúng đắn không phụ thuộc vào tính gắn kết. Nếu một công cụ cần trạng thái giữa các lệnh gọi, cấp một handle mờ rõ ràng và lưu nó trong một hệ thống bền vững dùng chung.
 
 ### 10. Cross the real wire
 
-Run conformance checks against the actual server binary. Capture request headers and JSON bodies, not only SDK objects. Exercise wrong version, header mismatch, missing scope, wrong audience, malformed arguments, handler failure, cancellation, and cache expiry.
+Chạy các kiểm tra tuân thủ với binary máy chủ thực tế. Thu thập các header yêu cầu và phần thân JSON, không chỉ các đối tượng SDK. Thực thi phiên bản sai, header không khớp, thiếu phạm vi, đối tượng nhận sai, đối số sai định dạng, lỗi handler, hủy, và hết hạn bộ nhớ đệm.
 
 ## Required Evidence Pack
 
-A submission is incomplete until it contains all five evidence classes:
+Một bài nộp chưa hoàn chỉnh cho đến khi nó chứa cả năm lớp bằng chứng:
 
-| Evidence | Minimum proof | Source lesson |
+| Bằng chứng | Chứng minh tối thiểu | Bài học nguồn |
 |---|---|---|
-| Wire | Redacted raw headers and JSON-RPC bodies for golden and negative cases, including metadata type failure, header mismatch, unsupported version, missing or unknown `resultType`, notification no-response, and response ID matching | [Lesson 31](../../../13-tools-and-protocols/31-mcp-conformance-versioning-and-operations/docs/en.md) |
-| Proxy | The same stable case run directly and through the deployed intermediary, with ingress, origin, and egress status and body digests; prove protocol errors are not collapsed into generic 500 responses and streaming is not buffered | [Lessons 29](../../../13-tools-and-protocols/29-mcp-reliability-cancellation-and-flow-control/docs/en.md) and [31](../../../13-tools-and-protocols/31-mcp-conformance-versioning-and-operations/docs/en.md) |
-| Admission | Verified publisher namespace, immutable Registry record digest, artifact or remote provenance, live `server/discover` identity and capability observation, descriptor pin, current Registry status, and admission-ledger event | [Lesson 30](../../../13-tools-and-protocols/30-mcp-registry-supply-chain-and-drift/docs/en.md) |
-| Retry | A cancellation-versus-completion race, explicit timeout, safe read retry, mutation idempotency key, reconnect refetch, and proof that request cancellation cannot silently become durable task cancellation | [Lesson 29](../../../13-tools-and-protocols/29-mcp-reliability-cancellation-and-flow-control/docs/en.md) |
-| Rollback | Exact previous version, admission and artifact digests, descriptor pin, active Registry status, current health window, route restoration result, and redacted decision evidence | [Lessons 30](../../../13-tools-and-protocols/30-mcp-registry-supply-chain-and-drift/docs/en.md) and [31](../../../13-tools-and-protocols/31-mcp-conformance-versioning-and-operations/docs/en.md) |
+| Truyền tin | Các header thô và phần thân JSON-RPC được che cho các trường hợp chuẩn và âm tính, bao gồm lỗi kiểu siêu dữ liệu, header không khớp, phiên bản không được hỗ trợ, `resultType` thiếu hoặc không xác định, thông báo không phản hồi, và khớp ID phản hồi | [Bài 31](../../../13-tools-and-protocols/31-mcp-conformance-versioning-and-operations/docs/en.md) |
+| Proxy | Cùng một trường hợp ổn định chạy trực tiếp và qua trung gian đã triển khai, với trạng thái và giá trị băm phần thân ở đầu vào, nguồn gốc, và đầu ra; chứng minh lỗi giao thức không bị gộp thành phản hồi 500 chung và truyền luồng không bị đệm | [Bài 29](../../../13-tools-and-protocols/29-mcp-reliability-cancellation-and-flow-control/docs/en.md) và [31](../../../13-tools-and-protocols/31-mcp-conformance-versioning-and-operations/docs/en.md) |
+| Tiếp nhận | Không gian tên nhà phát hành đã xác minh, giá trị băm bản ghi Registry bất biến, nguồn gốc hiện vật hoặc remote, quan sát danh tính và khả năng `server/discover` trực tiếp, ghim descriptor, trạng thái Registry hiện tại, và sự kiện sổ cái tiếp nhận | [Bài 30](../../../13-tools-and-protocols/30-mcp-registry-supply-chain-and-drift/docs/en.md) |
+| Thử lại | Một cuộc đua hủy với hoàn thành, timeout rõ ràng, thử lại đọc an toàn, khóa lũy đẳng đột biến, tải lại khi kết nối lại, và bằng chứng rằng hủy yêu cầu không thể âm thầm trở thành hủy tác vụ bền vững | [Bài 29](../../../13-tools-and-protocols/29-mcp-reliability-cancellation-and-flow-control/docs/en.md) |
+| Khôi phục | Phiên bản trước chính xác, các giá trị băm tiếp nhận và hiện vật, ghim descriptor, trạng thái Registry hoạt động, cửa sổ sức khỏe hiện tại, kết quả khôi phục tuyến, và bằng chứng quyết định được che | [Bài 30](../../../13-tools-and-protocols/30-mcp-registry-supply-chain-and-drift/docs/en.md) và [31](../../../13-tools-and-protocols/31-mcp-conformance-versioning-and-operations/docs/en.md) |
 
-Store a digest of the redacted pack with the release. If any class is missing, hold the release. Do not infer proxy behavior from an in-process dispatcher, admission from Registry presence, retry safety from a new JSON-RPC id, or rollback readiness from “the previous deployment.”
+Lưu một giá trị băm của gói đã che cùng bản phát hành. Nếu thiếu bất kỳ lớp nào, giữ lại bản phát hành. Đừng suy ra hành vi proxy từ một dispatcher trong tiến trình, việc tiếp nhận từ sự hiện diện trong Registry, an toàn thử lại từ một id JSON-RPC mới, hoặc mức sẵn sàng khôi phục từ “bản triển khai trước.”
 
 ## Local Reference Models
 
-The Python model demonstrates registry metadata, reverse-DNS publisher namespace validation, publication-to-runtime identity checks, live discovery, deterministic tool listing, per-request metadata, trusted-issuer, audience, expiry, and scope checks, action-bound approvals, a documented partial Registry validator, policy, and audit without opening a network socket:
+Mô hình Python minh họa siêu dữ liệu registry, xác thực không gian tên nhà phát hành DNS đảo ngược, các kiểm tra danh tính từ công bố đến runtime, khám phá trực tiếp, liệt kê công cụ tất định, siêu dữ liệu theo yêu cầu, các kiểm tra bên phát hành đáng tin cậy, đối tượng nhận, hạn dùng, và phạm vi, các phê duyệt gắn với hành động, một bộ xác thực Registry một phần được lập tài liệu, chính sách, và kiểm toán mà không mở một socket mạng:
 
 ```bash
 cd phases/19-capstone-projects/13-mcp-server-with-registry
@@ -257,7 +257,7 @@ python3 code/main.py
 python3 -m unittest discover -s code/tests -v
 ```
 
-The TypeScript project exposes the stateless JSON-RPC shape over stdio without an MCP SDK. Its `tools/call` path enforces the same bounded input schemas advertised by `tools/list`; invalid arguments for a known tool return a complete result with `isError: true` without invoking the executor:
+Dự án TypeScript cung cấp hình thức JSON-RPC phi trạng thái trên stdio mà không có MCP SDK. Đường dẫn `tools/call` của nó thực thi cùng các lược đồ đầu vào có giới hạn được công bố bởi `tools/list`; các đối số không hợp lệ cho một công cụ đã biết trả về một kết quả hoàn chỉnh với `isError: true` mà không gọi bộ thực thi:
 
 ```bash
 cd phases/19-capstone-projects/13-mcp-server-with-registry/code/ts
@@ -267,7 +267,7 @@ npm test
 npm run demo
 ```
 
-These models prove local contract logic. They do not prove HTTP headers, OAuth exchange, Registry publication, OPA integration, load balancing, or collector receipt.
+Các mô hình này chứng minh logic hợp đồng cục bộ. Chúng không chứng minh các header HTTP, trao đổi OAuth, công bố Registry, tích hợp OPA, cân bằng tải, hoặc việc bộ thu thập nhận được.
 
 ## Wire Example
 
@@ -302,49 +302,49 @@ Authorization: Bearer REDACTED
 
 ## Ship It
 
-Ship a repository containing:
+Cung cấp một kho chứa:
 
-- a schema-valid `server.json`;
-- read-only and state-changing server surfaces;
-- `server/discover`, deterministic `tools/list`, and policy-gated `tools/call`;
-- a Streamable HTTP deployment with two interchangeable replicas;
-- authorization and approval integration;
-- a Registry publisher or private Registry API adapter;
-- policy definitions and action-bound approval records;
-- redacted audit output and trace propagation;
-- wire and proxy failure evidence;
-- admission, retry, health, and rollback evidence with a digest of the redacted pack.
+- một `server.json` hợp lệ theo lược đồ;
+- các bề mặt máy chủ chỉ đọc và thay đổi trạng thái;
+- `server/discover`, `tools/list` tất định, và `tools/call` được kiểm soát bằng chính sách;
+- một bản triển khai Streamable HTTP với hai bản sao có thể thay thế nhau;
+- tích hợp ủy quyền và phê duyệt;
+- một bộ công bố Registry hoặc adapter Registry API riêng;
+- các định nghĩa chính sách và bản ghi phê duyệt gắn với hành động;
+- đầu ra kiểm toán được che và lan truyền trace;
+- bằng chứng lỗi truyền tin và proxy;
+- bằng chứng tiếp nhận, thử lại, sức khỏe, và khôi phục với một giá trị băm của gói đã che.
 
-| Weight | Criterion | Evidence |
+| Trọng số | Tiêu chí | Bằng chứng |
 |---:|---|---|
-| 25 | Protocol correctness | Stateless request metadata, discovery, results, headers, and negative cases |
-| 20 | Authorization | Issuer, audience, expiry, scope, and action-bound approval cases |
-| 15 | Registry integrity | Valid `server.json`, publication record, live discovery probe, and drift report |
-| 15 | Policy and safety | Allow, deny, malformed, stale approval, and sensitive-data cases |
-| 15 | Scale and reliability | Two replicas, no affinity dependency, cancellation, timeout, and recovery |
-| 10 | Auditability | Redacted receiver-side audit and trace evidence |
+| 25 | Tính đúng đắn giao thức | Siêu dữ liệu yêu cầu phi trạng thái, khám phá, kết quả, header, và các trường hợp âm tính |
+| 20 | Ủy quyền | Các trường hợp bên phát hành, đối tượng nhận, hạn dùng, phạm vi, và phê duyệt gắn với hành động |
+| 15 | Tính toàn vẹn Registry | `server.json` hợp lệ, bản ghi công bố, phép thăm dò khám phá trực tiếp, và báo cáo độ trôi |
+| 15 | Chính sách và an toàn | Các trường hợp cho phép, từ chối, sai định dạng, phê duyệt cũ, và dữ liệu nhạy cảm |
+| 15 | Quy mô và độ tin cậy | Hai bản sao, không phụ thuộc tính gắn kết, hủy, timeout, và phục hồi |
+| 10 | Khả năng kiểm toán | Bằng chứng kiểm toán và trace phía nhận được che |
 
 ## Exercises
 
-1. Change the published remote URL while leaving the live server unchanged. Make the registry validation report the exact drift.
-2. Send `tools/list` twice with identical inputs and prove byte-stable tool order. Then expire `ttlMs` and refresh.
-3. Send a valid body with a different `MCP-Protocol-Version` header. Return `-32020` and do not invoke policy or the tool.
-4. Mint a token for the read-only server and present it to the state-changing server. Prove audience validation fails before the handler runs.
-5. Bind an approval to one normalized argument digest. Change one field and prove the approval cannot be replayed.
-6. Route consecutive calls to alternating replicas. Replace hidden process memory with an explicit shared handle wherever the workflow needs persistence.
-7. Break a request-scoped SSE connection and retry with a new JSON-RPC request ID. Verify that no `Last-Event-ID` recovery path is used.
+1. Thay URL remote được công bố trong khi giữ nguyên máy chủ trực tiếp. Làm cho việc xác thực registry báo cáo độ trôi chính xác.
+2. Gửi `tools/list` hai lần với các đầu vào giống nhau và chứng minh thứ tự công cụ ổn định theo byte. Sau đó cho `ttlMs` hết hạn và làm mới.
+3. Gửi một phần thân hợp lệ với một header `MCP-Protocol-Version` khác. Trả về `-32020` và không gọi chính sách hoặc công cụ.
+4. Cấp một token cho máy chủ chỉ đọc và đưa nó cho máy chủ thay đổi trạng thái. Chứng minh xác thực đối tượng nhận thất bại trước khi handler chạy.
+5. Ràng buộc một phê duyệt với một giá trị băm đối số được chuẩn hóa. Thay đổi một trường và chứng minh phê duyệt không thể được phát lại.
+6. Định tuyến các lệnh gọi liên tiếp đến các bản sao luân phiên. Thay thế bộ nhớ tiến trình ẩn bằng một handle dùng chung rõ ràng ở mọi nơi quy trình cần lưu bền vững.
+7. Ngắt một kết nối SSE có phạm vi theo yêu cầu và thử lại với một ID yêu cầu JSON-RPC mới. Xác minh rằng không có đường phục hồi `Last-Event-ID` nào được sử dụng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |---|---|---|
-| Stateless MCP | "No state anywhere" | No protocol session; cross-call state is explicit and server-managed |
-| `server.json` | "The tool manifest" | Registry metadata for naming, packaging, configuration, and transports |
-| `server/discover` | "The handshake" | A normal mandatory RPC for live versions and capabilities, not a session initializer |
-| Cache scope | "Can I cache it?" | Whether a cacheable result is safe for shared or private reuse |
-| Policy decision | "The token allows it" | A separate decision over actor, tool, target, arguments, and context |
-| Approval record | "A human clicked yes" | Evidence bound to one actor and consequential action under an expiry policy |
-| Explicit handle | "A session ID" | Ordinary application data for named server-managed state, not protocol connection state |
+| Stateless MCP (MCP phi trạng thái) | "Không có trạng thái ở đâu cả" | Không có phiên giao thức; trạng thái giữa các lệnh gọi là rõ ràng và do máy chủ quản lý |
+| `server.json` | "Bản kê khai công cụ" | Siêu dữ liệu Registry cho đặt tên, đóng gói, cấu hình, và cơ chế truyền tải |
+| `server/discover` | "Bắt tay" | Một RPC bắt buộc thông thường cho các phiên bản và khả năng trực tiếp, không phải bộ khởi tạo phiên |
+| Cache scope (Phạm vi bộ nhớ đệm) | "Tôi có thể lưu đệm nó không?" | Liệu một kết quả có thể lưu đệm có an toàn cho tái sử dụng chung hay riêng |
+| Policy decision (Quyết định chính sách) | "Token cho phép điều đó" | Một quyết định riêng trên tác nhân, công cụ, đích, đối số, và ngữ cảnh |
+| Approval record (Bản ghi phê duyệt) | "Một người đã nhấp có" | Bằng chứng ràng buộc với một tác nhân và hành động có hệ quả theo một chính sách hạn dùng |
+| Explicit handle (Handle rõ ràng) | "Một ID phiên" | Dữ liệu ứng dụng thông thường cho trạng thái có tên do máy chủ quản lý, không phải trạng thái kết nối giao thức |
 
 ## Further Reading
 
