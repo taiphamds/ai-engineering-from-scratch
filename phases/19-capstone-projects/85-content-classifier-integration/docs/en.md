@@ -1,6 +1,6 @@
 # Capstone 85 — Content Classifier Integration
 
-> Classifiers on the output side answer a different question than rules on the input side. Both need a policy router.
+> Các bộ phân loại ở phía đầu ra trả lời một câu hỏi khác các quy tắc ở phía đầu vào. Cả hai cần một bộ định tuyến chính sách.
 
 **Type:** Build
 **Languages:** Python
@@ -9,22 +9,22 @@
 
 ## Problem
 
-Inputs are not the only attack surface. A model that passed every input check can still produce an output that leaks PII, repeats slurs from its training distribution, or echoes the system prompt back to the user in response to a clever question. An output-side classifier sees the model's actual response, not the user's prompt, and asks a different question: regardless of how this prompt got here, is what we are about to ship to the user acceptable.
+Đầu vào không phải bề mặt tấn công duy nhất. Một mô hình đã qua mọi kiểm tra đầu vào vẫn có thể tạo một đầu ra rò rỉ PII, lặp các lời miệt thị từ phân phối huấn luyện, hoặc vọng lại prompt hệ thống cho người dùng để đáp một câu hỏi thông minh. Một bộ phân loại phía đầu ra thấy phản hồi thực của mô hình, không phải prompt người dùng, và hỏi một câu khác: bất kể prompt này đến đây thế nào, thứ chúng ta sắp cung cấp cho người dùng có chấp nhận được không.
 
-Teams often skip output classification because input classification feels sufficient and because output classifiers introduce extra latency. Both arguments lose. Skipping output classification gives an attacker a one-shot bypass: any new attack family that the input pipeline does not cover will land on the user. Latency is real but addressable: classifiers can run in parallel with token streaming, with the gate buffering the final chunk and applying the classifier verdict before flush.
+Các nhóm thường bỏ phân loại đầu ra vì phân loại đầu vào có vẻ đủ và vì các bộ phân loại đầu ra đưa vào độ trễ bổ sung. Cả hai lập luận đều thua. Bỏ phân loại đầu ra cho kẻ tấn công một cách vượt qua một lượt: bất kỳ họ tấn công mới nào pipeline đầu vào không bao phủ sẽ đến người dùng. Độ trễ có thực nhưng giải quyết được: các bộ phân loại có thể chạy song song với truyền luồng token, với cổng đệm đoạn cuối và áp dụng kết luận bộ phân loại trước khi flush.
 
-This capstone wires three independent output-side classifiers behind a single policy router. Toxicity (rule-based slur and harassment detection). PII (regex for emails, phone numbers, SSN-shaped strings, credit-card-shaped strings, IP addresses). Instruction leakage (a heuristic for system prompt echo, comparing the output to a known system prompt by trigram overlap). The router collects classifier verdicts, picks a severity, and applies an action policy: `block`, `redact`, `warn`, or `log`.
+Bài tổng kết này nối ba bộ phân loại phía đầu ra độc lập sau một bộ định tuyến chính sách duy nhất. Tính độc hại (phát hiện lời miệt thị và quấy rối dựa trên quy tắc). PII (regex cho email, số điện thoại, chuỗi dạng SSN, chuỗi dạng thẻ tín dụng, địa chỉ IP). Rò rỉ chỉ dẫn (một heuristic cho vọng lại prompt hệ thống, so sánh đầu ra với một prompt hệ thống đã biết bằng chồng lấn trigram). Bộ định tuyến thu thập các kết luận bộ phân loại, chọn một mức nghiêm trọng, và áp dụng một chính sách hành động: `block`, `redact`, `warn`, hoặc `log`.
 
 ## Concept
 
-Each classifier is a callable returning a `ClassifierVerdict` with `name`, `score in [0,1]`, `severity` (`none`, `low`, `medium`, `high`), and `findings` (a list of strings describing what it flagged). The router takes a list of verdicts and applies a rule table:
+Mỗi bộ phân loại là một đối tượng có thể gọi trả về một `ClassifierVerdict` với `name`, `score in [0,1]`, `severity` (`none`, `low`, `medium`, `high`), và `findings` (một danh sách chuỗi mô tả thứ nó gắn cờ). Bộ định tuyến nhận một danh sách kết luận và áp dụng một bảng quy tắc:
 
-| Severity | Action |
+| Mức độ nghiêm trọng | Hành động |
 |---|---|
-| high | block (drop output, return policy refusal) |
-| medium | redact (apply per-classifier redactor to the output) |
-| low | warn (log and append a soft notice to the response) |
-| none | log (record verdict in the trace, ship as-is) |
+| high | block (bỏ đầu ra, trả về từ chối chính sách) |
+| medium | redact (áp dụng bộ che theo bộ phân loại lên đầu ra) |
+| low | warn (ghi nhật ký và thêm một thông báo nhẹ vào phản hồi) |
+| none | log (ghi kết luận trong trace, cung cấp nguyên trạng) |
 
 ```mermaid
 flowchart TB
@@ -40,11 +40,11 @@ flowchart TB
   R -->|max severity = none| LG[log]
 ```
 
-The router takes the maximum severity across classifiers and applies the corresponding action. Block wins. A redact + warn becomes redact. A log + warn becomes warn. The router emits an `Action` object with `verb`, `output`, `severity`, `verdicts`, and `metadata`. Downstream, the safety gate in lesson 87 logs the metadata into a trace and either ships the redacted output, ships the original with a warning, or replaces the output with a policy refusal.
+Bộ định tuyến lấy mức nghiêm trọng tối đa trên các bộ phân loại và áp dụng hành động tương ứng. Block thắng. Một redact + warn trở thành redact. Một log + warn trở thành warn. Bộ định tuyến phát ra một đối tượng `Action` với `verb`, `output`, `severity`, `verdicts`, và `metadata`. Ở hạ nguồn, cổng an toàn trong bài 87 ghi siêu dữ liệu vào một trace và hoặc cung cấp đầu ra đã che, cung cấp bản gốc với một cảnh báo, hoặc thay đầu ra bằng một từ chối chính sách.
 
-Each classifier has its own redactor. The PII classifier replaces `name@example.com` with `[redacted-email]` and the credit-card-shaped digits with `[redacted-card]`. The instruction-leakage classifier removes lines that look like the system prompt header. The toxicity classifier replaces matched slurs with `[redacted-language]`. Redaction is independent so a toxicity-and-PII output flows through both redactors.
+Mỗi bộ phân loại có bộ che riêng. Bộ phân loại PII thay `name@example.com` bằng `[redacted-email]` và các chữ số dạng thẻ tín dụng bằng `[redacted-card]`. Bộ phân loại rò rỉ chỉ dẫn loại các dòng trông như header prompt hệ thống. Bộ phân loại độc hại thay các lời miệt thị khớp bằng `[redacted-language]`. Che độc lập để một đầu ra độc hại-và-PII chảy qua cả hai bộ che.
 
-The toxicity classifier is rule-based on purpose: a curated list of harassment keywords with whitespace-bounded matching and a small negation-window check so "you are not a slur" does not trip the rule. The list is deliberately short (the lesson is about plumbing, not lexicon-building). The PII classifier uses standard regexes for the common shapes. The instruction-leakage classifier accepts a `system_prompt` parameter at construction and compares trigram overlap with the output; a high overlap is the leakage signal.
+Bộ phân loại độc hại cố ý dựa trên quy tắc: một danh sách từ khóa quấy rối được tuyển chọn với so khớp giới hạn bằng khoảng trắng và một kiểm tra cửa sổ phủ định nhỏ để "bạn không phải một lời miệt thị" không kích hoạt quy tắc. Danh sách cố ý ngắn (bài học về hệ thống nối, không phải xây từ vựng). Bộ phân loại PII dùng các regex tiêu chuẩn cho các hình thức phổ biến. Bộ phân loại rò rỉ chỉ dẫn nhận một tham số `system_prompt` khi khởi tạo và so sánh chồng lấn trigram với đầu ra; một mức chồng lấn cao là tín hiệu rò rỉ.
 
 ```figure
 cd-output-router
@@ -52,32 +52,32 @@ cd-output-router
 
 ## Build It
 
-`code/classifiers.py` defines all three classifiers. Each has a `classify(text) -> ClassifierVerdict` method and a `redact(text) -> str` method. `code/main.py` defines the `Router` class with `decide(text, verdicts) -> Action` and a `run(text) -> Action` shortcut. The demo wires the three classifiers behind one router and runs a small corpus of crafted outputs that exercise each severity.
+`code/classifiers.py` định nghĩa cả ba bộ phân loại. Mỗi bộ có một phương thức `classify(text) -> ClassifierVerdict` và một phương thức `redact(text) -> str`. `code/main.py` định nghĩa lớp `Router` với `decide(text, verdicts) -> Action` và một lối tắt `run(text) -> Action`. Demo nối ba bộ phân loại sau một bộ định tuyến và chạy một corpus nhỏ các đầu ra được tạo để thực thi từng mức nghiêm trọng.
 
 ## Use It
 
-Run `python3 main.py`. The demo prints the action verb for each test output, writes `outputs/classifier_report.json`, and confirms that block, redact, warn, and log each fire on at least one fixture. Latency is artificially zero because all classifiers are rule-based; for a real model with neural classifiers, the same plumbing applies after the per-classifier latency goes up.
+Chạy `python3 main.py`. Demo in động từ hành động cho mỗi đầu ra kiểm thử, ghi `outputs/classifier_report.json`, và xác nhận block, redact, warn, và log mỗi hành động kích hoạt trên ít nhất một fixture. Độ trễ bằng không nhân tạo vì mọi bộ phân loại dựa trên quy tắc; với một mô hình thực có các bộ phân loại neural, cùng hệ thống nối áp dụng sau khi độ trễ theo bộ phân loại tăng.
 
 ## Ship It
 
-`outputs/skill-content-classifier-integration.md` documents the verdict and action structures so the gate in lesson 87 can consume them.
+`outputs/skill-content-classifier-integration.md` lập tài liệu các cấu trúc kết luận và hành động để cổng trong bài 87 có thể tiêu thụ chúng.
 
 ## Exercises
 
-1. Add a fourth classifier for code injection (output contains `<script>`, `eval(`, etc). Decide its severity policy and integrate it.
-2. Make the router apply a per-classifier severity weight so PII counts more than toxicity. Demonstrate the change on the same fixtures.
-3. Add a confidence threshold so low-score verdicts downgrade by one severity level. Sweep the threshold and report how block rate changes.
+1. Thêm một bộ phân loại thứ tư cho chèn mã (đầu ra chứa `<script>`, `eval(`, v.v.). Quyết định chính sách mức nghiêm trọng của nó và tích hợp.
+2. Làm bộ định tuyến áp dụng một trọng số mức nghiêm trọng theo bộ phân loại để PII được tính nhiều hơn tính độc hại. Minh họa thay đổi trên cùng các fixture.
+3. Thêm một ngưỡng độ tin cậy để các kết luận điểm thấp hạ một mức nghiêm trọng. Quét ngưỡng và báo cáo tỷ lệ chặn thay đổi thế nào.
 
 ## Key Terms
 
-| Term | Common usage | Precise meaning |
+| Thuật ngữ | Cách dùng phổ biến | Ý nghĩa chính xác |
 |---|---|---|
-| output classifier | a model that detects bad outputs | a callable returning a structured verdict with severity, score, and findings, plus a redactor |
-| severity | how bad it is | one of none, low, medium, high |
-| router | a switch | a function from verdict list to action (block, redact, warn, log) |
-| redact | hide the bad parts | per-classifier replacement of matched spans with a tag like [redacted-pii] |
-| instruction leakage | the model leaks the system prompt | a heuristic comparing model output to a known system prompt by trigram overlap |
+| output classifier (bộ phân loại đầu ra) | một mô hình phát hiện các đầu ra xấu | một đối tượng có thể gọi trả về một kết luận có cấu trúc với mức độ nghiêm trọng, điểm, và các phát hiện, cùng một bộ che |
+| severity (mức độ nghiêm trọng) | nó tệ thế nào | một trong none, low, medium, high |
+| router (bộ định tuyến) | một công tắc | một hàm từ danh sách kết luận sang hành động (block, redact, warn, log) |
+| redact (che) | giấu các phần xấu | thay thế theo bộ phân loại các khoảng khớp bằng một thẻ như [redacted-pii] |
+| instruction leakage (rò rỉ chỉ dẫn) | mô hình rò prompt hệ thống | một heuristic so sánh đầu ra mô hình với một prompt hệ thống đã biết bằng chồng lấn trigram |
 
 ## Further Reading
 
-Lesson 86 adds a declarative rules engine for constraints not naturally classifier-shaped. Lesson 87 composes both with the input-side detector.
+Bài 86 thêm một bộ máy quy tắc khai báo cho các ràng buộc không tự nhiên có hình thức bộ phân loại. Bài 87 kết hợp cả hai với bộ phát hiện phía đầu vào.

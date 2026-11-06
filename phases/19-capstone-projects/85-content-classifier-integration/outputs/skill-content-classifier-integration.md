@@ -9,7 +9,7 @@ tags: [safety, classifier, output-filter]
 
 # Content Classifier Integration
 
-Three classifiers, one router, four actions.
+Ba bộ phân loại, một bộ định tuyến, bốn hành động.
 
 ## Verdict structure
 
@@ -23,19 +23,19 @@ ClassifierVerdict
 
 ## Action table
 
-| Severity | Action | Effect |
+| Mức độ nghiêm trọng | Hành động | Hiệu ứng |
 |---|---|---|
-| high | block | output replaced by a policy refusal |
-| medium | redact | per-classifier redactors applied in order |
-| low | warn | output shipped with a soft notice appended |
-| none | log | output shipped unchanged, verdict logged |
+| high | block | đầu ra được thay bằng một từ chối chính sách |
+| medium | redact | các bộ che theo bộ phân loại được áp dụng theo thứ tự |
+| low | warn | đầu ra được cung cấp với một thông báo nhẹ được thêm |
+| none | log | đầu ra được cung cấp không đổi, kết luận được ghi nhật ký |
 
 ## Per-classifier behavior
 
-- toxicity - harassment terms with whitespace boundary and a small left-window negation check; redacts to `[redacted-language]`
-- pii - email, phone, SSN, Luhn-validated card, IPv4; severity escalates for SSN and card; redacts each shape to a tag
-- instruction-leakage - trigram cosine vs a known system prompt; severity scales with overlap; redacts the first system-prompt line
+- toxicity - các từ quấy rối với ranh giới khoảng trắng và một kiểm tra phủ định cửa sổ trái nhỏ; che thành `[redacted-language]`
+- pii - email, điện thoại, SSN, thẻ được xác thực Luhn, IPv4; mức nghiêm trọng tăng cho SSN và thẻ; che mỗi hình thức thành một thẻ
+- instruction-leakage - cosine trigram so với một prompt hệ thống đã biết; mức nghiêm trọng biến thiên theo chồng lấn; che dòng prompt hệ thống đầu tiên
 
 ## Artifact
 
-`outputs/classifier_report.json` carries action verb, severity, redacted output, and full verdict list per case.
+`outputs/classifier_report.json` mang động từ hành động, mức độ nghiêm trọng, đầu ra được che, và danh sách kết luận đầy đủ theo trường hợp.
