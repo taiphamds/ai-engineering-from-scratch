@@ -1,6 +1,6 @@
 # Sequence-to-Sequence Models
 
-> Two RNNs pretending to be a translator. The bottleneck they hit is the reason attention exists.
+> Hai RNN giả làm một bộ dịch. Nút thắt chúng gặp là lý do attention tồn tại.
 
 **Type:** Build
 **Languages:** Python
@@ -9,25 +9,25 @@
 
 ## The Problem
 
-Classification maps a variable-length sequence to a single label. Translation maps a variable-length sequence to another variable-length sequence. The input and output live in different vocabularies, possibly different languages, with no guarantee of length parity.
+Phân loại ánh xạ một chuỗi có độ dài thay đổi sang một nhãn duy nhất. Dịch ánh xạ một chuỗi có độ dài thay đổi sang một chuỗi khác cũng có độ dài thay đổi. Đầu vào và đầu ra thuộc các từ vựng khác nhau, có thể là các ngôn ngữ khác nhau, không bảo đảm độ dài ngang nhau.
 
-The seq2seq architecture (Sutskever, Vinyals, Le, 2014) cracked this with a deliberately simple recipe. Two RNNs. One reads the source sentence and produces a fixed-size context vector. The other reads that vector and generates the target sentence token by token. Same code you wrote for lesson 08, glued together differently.
+Kiến trúc seq2seq (Sutskever, Vinyals, Le, 2014) giải quyết điều này bằng một công thức cố ý đơn giản. Hai RNN. Một mạng đọc câu nguồn và tạo một vector ngữ cảnh kích thước cố định. Mạng kia đọc vector đó và sinh câu đích từng token một. Cùng mã bạn đã viết cho bài 08, được ghép lại theo cách khác.
 
-This is worth studying for two reasons. First, the context-vector bottleneck is the most pedagogically useful failure in NLP. It motivates everything attention and transformers are good at. Second, the training recipe (teacher forcing, scheduled sampling, beam search at inference) still applies to every modern generation system including LLMs.
+Điều này đáng nghiên cứu vì hai lý do. Thứ nhất, nút thắt vector ngữ cảnh là thất bại hữu ích nhất về mặt sư phạm trong NLP. Nó tạo động lực cho mọi thứ attention và transformer làm tốt. Thứ hai, công thức huấn luyện (teacher forcing, scheduled sampling, beam search khi suy luận) vẫn áp dụng cho mọi hệ thống sinh hiện đại bao gồm LLM.
 
 ## The Concept
 
-**Encoder.** An RNN that reads the source sentence. Its final hidden state is the **context vector** — a fixed-size summary of the entire input. Lose nothing but the source, supposedly.
+**Encoder.** Một RNN đọc câu nguồn. Trạng thái ẩn cuối của nó là **vector ngữ cảnh** — một bản tóm tắt kích thước cố định của toàn bộ đầu vào. Được cho là không mất gì ngoài nguồn.
 
-**Decoder.** Another RNN initialized from the context vector. At each step it takes the previously generated token as input and produces a distribution over the target vocabulary. Sample or argmax to pick the next token. Feed it back in. Repeat until an `<EOS>` token is produced or max length is hit.
+**Decoder.** Một RNN khác được khởi tạo từ vector ngữ cảnh. Ở mỗi bước nó nhận token được sinh trước đó làm đầu vào và tạo một phân phối trên từ vựng đích. Lấy mẫu hoặc argmax để chọn token tiếp theo. Đưa nó trở lại. Lặp lại cho đến khi một token `<EOS>` được tạo hoặc đạt độ dài tối đa.
 
-**Training:** Cross-entropy loss at each decoder step, summed over the sequence. Standard backprop through time through both networks.
+**Huấn luyện:** Cross-entropy loss tại mỗi bước decoder, được cộng trên chuỗi. Lan truyền ngược qua thời gian tiêu chuẩn qua cả hai mạng.
 
-**Teacher forcing.** During training, the decoder's input at step `t` is the *ground-truth* token at position `t-1`, not the decoder's own previous prediction. This stabilizes training; without it, early mistakes cascade and the model never learns. At inference, you have to use the model's own predictions, so there is always a train/inference distribution gap. That gap is called **exposure bias**.
+**Teacher forcing.** Khi huấn luyện, đầu vào của decoder ở bước `t` là token *ground-truth* tại vị trí `t-1`, không phải dự đoán trước đó của chính decoder. Điều này ổn định huấn luyện; không có nó, các lỗi sớm nối tiếp nhau và mô hình không bao giờ học được. Khi suy luận, bạn phải dùng các dự đoán của chính mô hình, nên luôn có khoảng cách phân phối huấn luyện/suy luận. Khoảng cách đó gọi là **thiên lệch phơi nhiễm**.
 
-**The bottleneck.** Everything the encoder learned about the source must be squeezed into that one context vector. Long sentences lose detail. Rare words get blurred. Reordering (chat noir vs. black cat) has to be memorized, not computed.
+**Nút thắt.** Mọi thứ encoder học về nguồn phải được ép vào một vector ngữ cảnh đó. Các câu dài mất chi tiết. Các từ hiếm bị làm mờ. Sắp xếp lại (chat noir so với black cat) phải được ghi nhớ, không được tính toán.
 
-Attention (lesson 10) fixes this by letting the decoder look at *every* encoder hidden state, not just the last one. That is the whole pitch.
+Attention (bài 10) sửa điều này bằng cách cho decoder nhìn *mọi* trạng thái ẩn encoder, không chỉ trạng thái cuối. Đó là toàn bộ lời giới thiệu.
 
 ```figure
 lstm-gates
@@ -54,7 +54,7 @@ class Encoder(nn.Module):
         return outputs, hidden
 ```
 
-`outputs` has shape `[batch, seq_len, hidden_dim]` — one hidden state per input position. `hidden` has shape `[1, batch, hidden_dim]` — the final step. Lesson 08 said "pool over outputs for classification." Here we keep the last hidden state as the context vector, and ignore the per-step outputs.
+`outputs` có hình dạng `[batch, seq_len, hidden_dim]` — một trạng thái ẩn cho mỗi vị trí đầu vào. `hidden` có hình dạng `[1, batch, hidden_dim]` — bước cuối. Bài 08 nói "pooling trên các đầu ra để phân loại." Ở đây chúng ta giữ trạng thái ẩn cuối làm vector ngữ cảnh và bỏ qua các đầu ra theo bước.
 
 ### Step 2: a decoder
 
@@ -73,7 +73,7 @@ class Decoder(nn.Module):
         return logits, hidden
 ```
 
-Decoder is called one step at a time. Input: a batch of single tokens and the current hidden state. Output: vocabulary logits for the next token and the updated hidden state.
+Decoder được gọi từng bước một. Đầu vào: một batch các token đơn và trạng thái ẩn hiện tại. Đầu ra: logits từ vựng cho token tiếp theo và trạng thái ẩn được cập nhật.
 
 ### Step 3: training loop with teacher forcing
 
@@ -101,7 +101,7 @@ def train_batch(encoder, decoder, src, tgt, bos_id, optimizer, teacher_forcing_r
     return loss.item() / tgt_len
 ```
 
-Two knobs worth naming. `ignore_index=0` skips loss on padding tokens. `teacher_forcing_ratio` is the probability of using the true token vs. the model's prediction at each step. Start at 1.0 (full teacher forcing) and anneal down to ~0.5 over training to close the exposure-bias gap.
+Hai nút điều chỉnh cần nêu tên. `ignore_index=0` bỏ qua loss trên các token đệm. `teacher_forcing_ratio` là xác suất dùng token thật so với dự đoán của mô hình ở mỗi bước. Bắt đầu tại 1.0 (teacher forcing đầy đủ) và giảm dần xuống ~0.5 trong huấn luyện để thu hẹp khoảng cách thiên lệch phơi nhiễm.
 
 ### Step 4: inference loop (greedy)
 
@@ -122,11 +122,11 @@ def greedy_decode(encoder, decoder, src, bos_id, eos_id, max_len=50):
     return torch.cat(output_ids, dim=1)
 ```
 
-Greedy decoding picks the highest-probability token at every step. It can wander off: once you commit to a token, you cannot unsay it. **Beam search** keeps the top-`k` partial sequences alive and picks the highest-scoring complete one at the end. Beam width 3-5 is standard.
+Giải mã tham lam chọn token có xác suất cao nhất ở mỗi bước. Nó có thể đi chệch: một khi bạn đã chọn một token, bạn không thể rút lại nó. **Beam search** giữ lại các chuỗi từng phần top-`k` và chọn chuỗi hoàn chỉnh có điểm cao nhất ở cuối. Độ rộng beam 3-5 là tiêu chuẩn.
 
 ### Step 5: the bottleneck, demonstrated
 
-Train the model on a toy copy task: source `[a, b, c, d, e]`, target `[a, b, c, d, e]`. Increase sequence length. Observe accuracy.
+Huấn luyện mô hình trên một tác vụ sao chép đồ chơi: nguồn `[a, b, c, d, e]`, đích `[a, b, c, d, e]`. Tăng độ dài chuỗi. Quan sát accuracy.
 
 ```
 seq_len=5   copy accuracy: 98%
@@ -135,11 +135,11 @@ seq_len=20  copy accuracy: 62%
 seq_len=40  copy accuracy: 23%
 ```
 
-A single GRU hidden state cannot losslessly memorize a 40-token input. The information is there at every encoder step, but the decoder only sees the last state. Attention fixes this directly.
+Một trạng thái ẩn GRU duy nhất không thể ghi nhớ không mất mát một đầu vào 40 token. Thông tin có ở mỗi bước encoder, nhưng decoder chỉ thấy trạng thái cuối. Attention sửa trực tiếp điều này.
 
 ## Use It
 
-PyTorch has `nn.Transformer` and `nn.LSTM`-based seq2seq templates. Hugging Face's `transformers` library ships full encoder-decoder models (BART, T5, mBART, NLLB) trained on billions of tokens.
+PyTorch có `nn.Transformer` và các mẫu seq2seq dựa trên `nn.LSTM`. Thư viện `transformers` của Hugging Face cung cấp các mô hình encoder-decoder đầy đủ (BART, T5, mBART, NLLB) được huấn luyện trên hàng tỷ token.
 
 ```python
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
@@ -152,27 +152,27 @@ out = model.generate(**src, max_new_tokens=50, num_beams=4)
 print(tok.decode(out[0], skip_special_tokens=True))
 ```
 
-Modern encoder-decoders dropped RNNs for transformers. The high-level shape (encoder, decoder, generate-token-by-token) is identical to the 2014 seq2seq paper. The mechanism inside each block is different.
+Các encoder-decoder hiện đại bỏ RNN để dùng transformer. Hình dạng cấp cao (encoder, decoder, sinh từng token một) giống hệt bài báo seq2seq năm 2014. Cơ chế bên trong mỗi khối khác nhau.
 
 ### When to still reach for RNN-based seq2seq
 
-Almost never, for new projects. Specific exceptions:
+Gần như không bao giờ, cho các dự án mới. Các ngoại lệ cụ thể:
 
-- Streaming translation where you consume input one token at a time with bounded memory.
-- On-device text generation where transformer memory cost is prohibitive.
-- Pedagogy. Understanding the encoder-decoder bottleneck is the fastest path to understanding why transformers won.
+- Dịch luồng nơi bạn tiêu thụ đầu vào từng token một với bộ nhớ bị chặn.
+- Sinh văn bản trên thiết bị nơi chi phí bộ nhớ transformer quá cao.
+- Sư phạm. Hiểu nút thắt encoder-decoder là con đường nhanh nhất để hiểu vì sao transformer thắng.
 
 ### Exposure bias and its mitigations
 
-- **Scheduled sampling.** Anneal teacher forcing ratio during training so the model learns to recover from its own mistakes.
-- **Minimum risk training.** Train on sentence-level BLEU score instead of token-level cross-entropy. Closer to what you actually want.
-- **Reinforcement learning fine-tuning.** Reward the sequence generator with a metric. Used in modern LLM RLHF.
+- **Scheduled sampling.** Giảm dần tỷ lệ teacher forcing trong huấn luyện để mô hình học phục hồi từ các lỗi của chính nó.
+- **Huấn luyện rủi ro tối thiểu.** Huấn luyện trên điểm BLEU cấp câu thay vì cross-entropy cấp token. Gần hơn với điều bạn thực sự muốn.
+- **Fine-tuning bằng học tăng cường.** Thưởng cho bộ sinh chuỗi bằng một thước đo. Được dùng trong RLHF LLM hiện đại.
 
-All three still apply to transformer-based generation.
+Cả ba vẫn áp dụng cho việc sinh dựa trên transformer.
 
 ## Ship It
 
-Save as `outputs/prompt-seq2seq-design.md`:
+Lưu thành `outputs/prompt-seq2seq-design.md`:
 
 ```markdown
 ---
@@ -194,24 +194,24 @@ Refuse to recommend training a seq2seq from scratch for under a million parallel
 
 ## Exercises
 
-1. **Easy.** Implement the toy copy task. Train a GRU seq2seq on input-output pairs where the target equals the source. Measure accuracy at lengths 5, 10, 20. Reproduce the bottleneck.
-2. **Medium.** Add beam search decoding with beam width 3. Measure BLEU on a small parallel corpus against greedy. Document where beam search wins (usually last tokens) and where it makes no difference.
-3. **Hard.** Fine-tune `facebook/bart-base` on a 10k-pair paraphrase dataset. Compare the fine-tuned model's beam-4 output to the base model's on held-out inputs. Report BLEU and pick 10 qualitative examples.
+1. **Dễ.** Triển khai tác vụ sao chép đồ chơi. Huấn luyện một GRU seq2seq trên các cặp đầu vào-đầu ra mà đích bằng nguồn. Đo accuracy tại các độ dài 5, 10, 20. Tái hiện nút thắt.
+2. **Trung bình.** Thêm giải mã beam search với độ rộng beam 3. Đo BLEU trên một ngữ liệu song song nhỏ so với tham lam. Ghi lại nơi beam search thắng (thường các token cuối) và nơi nó không tạo khác biệt.
+3. **Khó.** Fine-tune `facebook/bart-base` trên một tập dữ liệu diễn đạt lại 10k cặp. So sánh đầu ra beam-4 của mô hình fine-tune với mô hình cơ sở trên các đầu vào được giữ lại. Báo cáo BLEU và chọn 10 ví dụ định tính.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Encoder | Input RNN | Reads source. Produces per-step hidden states and a final context vector. |
-| Decoder | Output RNN | Initialized from context vector. Generates target tokens one at a time. |
-| Context vector | The summary | Final encoder hidden state. Fixed size. The bottleneck attention solves. |
-| Teacher forcing | Use true tokens | Feed the ground-truth previous token at training time. Stabilizes learning. |
-| Exposure bias | Train/test gap | Model trained on true tokens never practiced recovering from its own mistakes. |
-| Beam search | Better decoding | Keep top-k partial sequences alive at each step instead of committing greedily. |
+| Encoder (Bộ mã hóa) | RNN đầu vào | Đọc nguồn. Tạo các trạng thái ẩn theo bước và một vector ngữ cảnh cuối. |
+| Decoder (Bộ giải mã) | RNN đầu ra | Được khởi tạo từ vector ngữ cảnh. Sinh các token đích từng token một. |
+| Context vector (Vector ngữ cảnh) | Bản tóm tắt | Trạng thái ẩn encoder cuối. Kích thước cố định. Nút thắt mà attention giải quyết. |
+| Teacher forcing | Dùng các token thật | Đưa vào token trước đó ground-truth khi huấn luyện. Ổn định việc học. |
+| Exposure bias (Thiên lệch phơi nhiễm) | Khoảng cách huấn luyện/kiểm thử | Mô hình được huấn luyện trên các token thật chưa từng luyện phục hồi từ các lỗi của chính nó. |
+| Beam search (Tìm kiếm chùm) | Giải mã tốt hơn | Giữ lại các chuỗi từng phần top-k ở mỗi bước thay vì chọn tham lam. |
 
 ## Further Reading
 
-- [Sutskever, Vinyals, Le (2014). Sequence to Sequence Learning with Neural Networks](https://arxiv.org/abs/1409.3215) — the original seq2seq paper. Four pages.
-- [Cho et al. (2014). Learning Phrase Representations using RNN Encoder-Decoder for Statistical Machine Translation](https://arxiv.org/abs/1406.1078) — introduced the GRU and the encoder-decoder framing.
-- [Bahdanau, Cho, Bengio (2014). Neural Machine Translation by Jointly Learning to Align and Translate](https://arxiv.org/abs/1409.0473) — the attention paper. Read immediately after this lesson.
-- [PyTorch NLP from Scratch tutorial](https://pytorch.org/tutorials/intermediate/seq2seq_translation_tutorial.html) — buildable seq2seq + attention code.
+- [Sutskever, Vinyals, Le (2014). Sequence to Sequence Learning with Neural Networks](https://arxiv.org/abs/1409.3215) — bài báo seq2seq gốc. Bốn trang.
+- [Cho et al. (2014). Learning Phrase Representations using RNN Encoder-Decoder for Statistical Machine Translation](https://arxiv.org/abs/1406.1078) — giới thiệu GRU và cách đặt vấn đề encoder-decoder.
+- [Bahdanau, Cho, Bengio (2014). Neural Machine Translation by Jointly Learning to Align and Translate](https://arxiv.org/abs/1409.0473) — bài báo attention. Đọc ngay sau bài học này.
+- [PyTorch NLP from Scratch tutorial](https://pytorch.org/tutorials/intermediate/seq2seq_translation_tutorial.html) — mã seq2seq + attention có thể xây dựng.
