@@ -1,6 +1,6 @@
 # End-to-End Eval Runner
 
-> Five lessons of plumbing, one lesson to glue them. The runner reads the task spec from lesson 70, calls a model through an adapter, scores with lessons 71 and 72, attaches the calibration report from lesson 73, and emits the leaderboard from lesson 74. Demo self-terminates.
+> Năm bài về hệ thống nối, một bài để gắn chúng. Trình chạy đọc đặc tả tác vụ từ bài 70, gọi một mô hình qua một adapter, chấm bằng các bài 71 và 72, gắn báo cáo hiệu chuẩn từ bài 73, và phát ra bảng xếp hạng từ bài 74. Demo tự kết thúc.
 
 **Type:** Build
 **Languages:** Python
@@ -9,11 +9,11 @@
 
 ## Learning objectives
 
-- Define a `ModelAdapter` interface that any model (mock, local, API) can satisfy with a small method surface.
-- Run the eval over a fixture JSONL file with parallel task execution across a worker pool.
-- Compose the metric layer (exact_match, F1, BLEU-4, ROUGE-L, code_exec) with the calibration layer in one pass.
-- Emit per-model `EvalRun` records and feed them straight into the leaderboard aggregator.
-- Output both a JSON report and a markdown table; self-terminate with exit zero on a clean run, non-zero on validation or runtime failure.
+- Định nghĩa một giao diện `ModelAdapter` mà bất kỳ mô hình nào (giả lập, cục bộ, API) có thể đáp ứng với một bề mặt phương thức nhỏ.
+- Chạy đánh giá trên một file JSONL fixture với thực thi tác vụ song song trên một nhóm worker.
+- Kết hợp lớp chỉ số (exact_match, F1, BLEU-4, ROUGE-L, code_exec) với lớp hiệu chuẩn trong một lượt.
+- Phát ra các bản ghi `EvalRun` theo mô hình và cấp chúng thẳng vào bộ tổng hợp bảng xếp hạng.
+- Xuất cả một báo cáo JSON và một bảng markdown; tự kết thúc với mã thoát không trên một lần chạy sạch, khác không khi xác thực hoặc runtime thất bại.
 
 ```figure
 eval-grid
@@ -40,11 +40,11 @@ flowchart TD
     V --> W
 ```
 
-The runner is the integration point. Each lesson 70 through 74 owns one module that the runner composes. The runner does not duplicate any logic from those modules: it imports them.
+Trình chạy là điểm tích hợp. Mỗi bài 70 đến 74 sở hữu một module mà trình chạy kết hợp. Trình chạy không sao chép bất kỳ logic nào từ những module đó: nó import chúng.
 
 ## The adapter interface
 
-The adapter is the seam between the runner and any model. The interface is intentionally small.
+Adapter là chỗ nối giữa trình chạy và bất kỳ mô hình nào. Giao diện cố ý nhỏ.
 
 ```python
 class ModelAdapter:
@@ -53,37 +53,37 @@ class ModelAdapter:
     def generate(self, prompt: str, task: TaskSpec) -> Generation: ...
 ```
 
-`Generation` is a dataclass with:
+`Generation` là một dataclass với:
 
-- `text`: the model's free-form output
-- `confidence`: a float in `[0, 1]` representing the model's self-reported probability for the answer
-- `token_nll`: optional sum of negative log-likelihoods over the generated tokens
-- `token_count`: optional number of generated tokens
+- `text`: đầu ra dạng tự do của mô hình
+- `confidence`: một float trong `[0, 1]` đại diện xác suất mô hình tự báo cáo cho đáp án
+- `token_nll`: tổng log hợp lý âm tùy chọn trên các token được sinh
+- `token_count`: số token được sinh tùy chọn
 
-Mock adapters in the runner provide three flavours: `RuleBasedAdapter` (deterministic, near-perfect), `NoisyAdapter` (overconfident, often wrong), and `BiasedAdapter` (good at one category, terrible at another). The demo runs all three over the lesson 70 fixture.
+Các adapter giả lập trong trình chạy cung cấp ba kiểu: `RuleBasedAdapter` (tất định, gần hoàn hảo), `NoisyAdapter` (quá tự tin, thường sai), và `BiasedAdapter` (giỏi một hạng mục, tệ ở một hạng mục khác). Demo chạy cả ba trên fixture bài 70.
 
 ## Parallel execution
 
-The runner uses `concurrent.futures.ThreadPoolExecutor` to run tasks in parallel per model. The worker count defaults to the smaller of eight and the task count. Threads are sufficient because the bottleneck for real model calls is network I/O. The code-exec path spawns its own subprocess inside the task and the executor only schedules the wait.
+Trình chạy dùng `concurrent.futures.ThreadPoolExecutor` để chạy các tác vụ song song theo mô hình. Số worker mặc định là giá trị nhỏ hơn giữa tám và số tác vụ. Các luồng đủ vì nút thắt cho các lệnh gọi mô hình thực là I/O mạng. Đường thực thi mã tạo tiến trình con riêng bên trong tác vụ và bộ thực thi chỉ lập lịch việc đợi.
 
-For deterministic tests, the runner exposes `run_eval(adapters, tasks, parallel=False)` so tests can pin the execution order.
+Cho các kiểm thử tất định, trình chạy cung cấp `run_eval(adapters, tasks, parallel=False)` để kiểm thử có thể ghim thứ tự thực thi.
 
 ## The single-pass scoring loop
 
-For each task:
+Với mỗi tác vụ:
 
-1. Render the prompt (few-shot prefix plus the prompt body).
-2. Call the adapter and time the call.
-3. Post-process the generation per the task's rule.
-4. Dispatch to the metric layer.
-5. Build an `EvalRun` record with the score and metric metadata.
-6. Append the `(confidence, correct)` pair to the calibration buffer.
+1. Kết xuất prompt (tiền tố few-shot cộng thân prompt).
+2. Gọi adapter và đo thời gian lệnh gọi.
+3. Hậu xử lý phần sinh theo quy tắc tác vụ.
+4. Điều phối đến lớp chỉ số.
+5. Xây dựng một bản ghi `EvalRun` với điểm và siêu dữ liệu chỉ số.
+6. Thêm cặp `(confidence, correct)` vào bộ đệm hiệu chuẩn.
 
-The `correct` signal is `score >= 1.0` for exact_match-style metrics (`exact_match`, `accuracy`, `code_exec`) and `score >= 0.5` for graded metrics. The threshold lives in `_correct_from_score` and the runner does not expose a public override.
+Tín hiệu `correct` là `score >= 1.0` cho các chỉ số kiểu exact_match (`exact_match`, `accuracy`, `code_exec`) và `score >= 0.5` cho các chỉ số phân bậc. Ngưỡng nằm trong `_correct_from_score` và trình chạy không cung cấp một ghi đè công khai.
 
 ## Aggregation
 
-After every task has a result, the runner calls `aggregate` and `pairwise_diffs` from lesson 74 and `CalibrationReport.from_predictions` from lesson 73. The output is a single JSON envelope:
+Sau khi mọi tác vụ có kết quả, trình chạy gọi `aggregate` và `pairwise_diffs` từ bài 74 và `CalibrationReport.from_predictions` từ bài 73. Đầu ra là một phong bì JSON duy nhất:
 
 ```json
 {
@@ -101,35 +101,35 @@ After every task has a result, the runner calls `aggregate` and `pairwise_diffs`
 }
 ```
 
-The runner also writes a markdown table to stdout so the user can paste the result into a PR review.
+Trình chạy cũng ghi một bảng markdown vào stdout để người dùng có thể dán kết quả vào một lần rà soát PR.
 
 ## Self-terminating demo
 
-The demo runs three mock adapters over the ten fixture tasks from lesson 70. Wall time should sit under ten seconds. The exit code is zero on a clean run.
+Demo chạy ba adapter giả lập trên mười tác vụ fixture từ bài 70. Thời gian thực nên nằm dưới mười giây. Mã thoát là không trên một lần chạy sạch.
 
-The clean-run criteria are:
+Các tiêu chí lần chạy sạch là:
 
-- Every task validated under lesson 70.
-- Every task scored under lessons 71 and 72.
-- The calibration report aggregated under lesson 73 without errors.
-- The leaderboard ranked the rule-based adapter strictly above the random adapter.
+- Mọi tác vụ được xác thực theo bài 70.
+- Mọi tác vụ được chấm theo các bài 71 và 72.
+- Báo cáo hiệu chuẩn được tổng hợp theo bài 73 không có lỗi.
+- Bảng xếp hạng xếp adapter dựa trên quy tắc cao hơn nghiêm ngặt so với adapter ngẫu nhiên.
 
-If any of those break, the runner exits non-zero with a structured error in the JSON envelope.
+Nếu bất kỳ điều nào trong số đó hỏng, trình chạy thoát khác không với một lỗi có cấu trúc trong phong bì JSON.
 
 ## What this lesson does not do
 
-It does not call a real model. It does not implement an API key flow or rate-limit handling. It does not implement streaming or partial generation; the adapter returns one generation per call. It does not do retries or caching. Those concerns live at the adapter layer; the runner is metric-agnostic and provider-agnostic.
+Nó không gọi một mô hình thực. Nó không triển khai một luồng khóa API hoặc xử lý giới hạn tốc độ. Nó không triển khai truyền luồng hoặc sinh một phần; adapter trả về một phần sinh mỗi lệnh gọi. Nó không làm thử lại hoặc lưu đệm. Những mối quan tâm đó nằm ở lớp adapter; trình chạy độc lập với chỉ số và nhà cung cấp.
 
 ## How to read the code
 
-`main.py` is the integration. It imports from the other five lesson modules through a small `_load_sibling` helper that resolves them by relative path. The dataclasses `Generation`, `EvalReport`, and `ModelAdapter` are defined locally. The mock adapters are at the bottom of the file.
+`main.py` là sự tích hợp. Nó import từ năm module bài khác qua một hàm hỗ trợ `_load_sibling` nhỏ phân giải chúng theo đường dẫn tương đối. Các dataclass `Generation`, `EvalReport`, và `ModelAdapter` được định nghĩa cục bộ. Các adapter giả lập ở cuối file.
 
-Read `main.py` top to bottom. Skim the imports, then look at `run_eval`, then `_score_one`, then the adapters. The demo at the end is the entry point.
+Đọc `main.py` từ trên xuống dưới. Lướt các import, rồi xem `run_eval`, rồi `_score_one`, rồi các adapter. Demo ở cuối là điểm vào.
 
-The tests in `code/tests/test_runner.py` pin the adapter interface, the single-pass loop, the parallel-vs-sequential equivalence, the calibration buffer, and the JSON envelope shape.
+Các kiểm thử trong `code/tests/test_runner.py` ghim giao diện adapter, vòng lặp một lượt, tương đương song song-so-với-tuần-tự, bộ đệm hiệu chuẩn, và hình thức phong bì JSON.
 
 ## Going further
 
-This runner is the floor. A production eval system adds: a results cache keyed by `(task_id, model_id, model_version)`, a cost ledger that tracks dollars and tokens per run, a retry layer that backs off on rate limits, a sampling policy for pass-at-k tasks, and a streaming output format for long suites. Each of those is a single concern that wraps the runner without changing the metric or aggregation layers. That separation is the point of the contract.
+Trình chạy này là mức sàn. Một hệ thống đánh giá sản xuất thêm: một bộ nhớ đệm kết quả được đặt khóa theo `(task_id, model_id, model_version)`, một sổ cái chi phí theo dõi đô la và token mỗi lần chạy, một lớp thử lại lùi khi gặp giới hạn tốc độ, một chính sách lấy mẫu cho các tác vụ pass-at-k, và một định dạng đầu ra truyền luồng cho các bộ dài. Mỗi thứ là một mối quan tâm duy nhất bọc trình chạy mà không thay đổi các lớp chỉ số hoặc tổng hợp. Sự tách biệt đó là điểm chính của hợp đồng.
 
-Add an adapter for a real provider after you have the mocks working. Pick one with a free tier, write thirty lines of glue, watch the leaderboard light up. Then add the second provider and let the harness do the work.
+Thêm một adapter cho một nhà cung cấp thực sau khi bạn có các giả lập hoạt động. Chọn một nhà cung cấp có tầng miễn phí, viết ba mươi dòng kết nối, xem bảng xếp hạng sáng lên. Rồi thêm nhà cung cấp thứ hai và để harness làm việc.
