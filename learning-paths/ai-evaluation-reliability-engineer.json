@@ -2,65 +2,65 @@
   "schemaVersion": 1,
   "kind": "career-route",
   "id": "ai-evaluation-reliability-engineer",
-  "title": "AI Evaluation and Reliability",
-  "workFamily": "AI Evaluation and Reliability",
-  "commonTitles": ["AI Evaluation Engineer", "AI Reliability Engineer", "Machine Learning Site Reliability Engineer"],
-  "summary": "Measure model and agent behavior, expose failure modes, instrument the runtime, and build release and incident controls around evidence.",
+  "title": "Đánh giá và độ tin cậy AI",
+  "workFamily": "Đánh giá và độ tin cậy AI",
+  "commonTitles": ["Kỹ sư đánh giá AI", "Kỹ sư độ tin cậy AI", "Kỹ sư độ tin cậy hệ thống học máy"],
+  "summary": "Đo lường hành vi mô hình và agent, làm lộ các dạng lỗi, gắn cơ chế đo lường cho runtime và xây dựng các biện pháp kiểm soát phát hành và sự cố xoay quanh bằng chứng.",
   "keywords": "ai evaluation reliability engineer evals testing observability metrics load canary chaos sre",
-  "decisionPrompt": "Do you want to turn model and system uncertainty into evaluation, observability, release, and recovery evidence?",
-  "mission": "Build on shared foundations to define trustworthy behavior, expose failures, and operate AI releases through measurable reliability controls.",
+  "decisionPrompt": "Bạn có muốn chuyển sự bất định của mô hình và hệ thống thành bằng chứng đánh giá, khả năng quan sát, phát hành và khôi phục không?",
+  "mission": "Xây dựng trên những nền tảng chung để xác định hành vi đáng tin cậy, làm lộ các lỗi và vận hành các bản phát hành AI thông qua các biện pháp kiểm soát độ tin cậy có thể đo lường.",
   "responsibilities": [
-    "Design model, LLM, and agent evaluations around real failure risks.",
-    "Instrument inference behavior and system health with useful telemetry.",
-    "Test load, experiments, canaries, and rollback conditions before release.",
-    "Use incidents and chaos tests to improve reliability controls."
+    "Thiết kế các đánh giá mô hình, LLM và agent xoay quanh rủi ro lỗi thực tế.",
+    "Gắn cơ chế đo lường cho hành vi suy luận và sức khỏe hệ thống bằng dữ liệu đo từ xa hữu ích.",
+    "Kiểm thử tải, các thử nghiệm, canary và điều kiện rollback trước khi phát hành.",
+    "Sử dụng các sự cố và kiểm thử chaos để cải thiện các biện pháp kiểm soát độ tin cậy."
   ],
   "goodFitIf": [
-    "You prefer measurable evidence to confident completion claims.",
-    "You enjoy finding edge cases, regressions, and system failure paths.",
-    "You want evaluation and operations to share the same release evidence."
+    "Bạn thích bằng chứng có thể đo lường hơn những tuyên bố hoàn thành đầy tự tin.",
+    "Bạn thích tìm các trường hợp biên, sự suy giảm và đường đi lỗi của hệ thống.",
+    "Bạn muốn đánh giá và vận hành chia sẻ cùng bằng chứng phát hành."
   ],
   "baseline": [
-    "Complete the shared software engineering and AI foundations, or demonstrate equivalent working knowledge.",
-    "Understand model metrics, tests, APIs, and basic production telemetry.",
-    "Be able to reproduce failures and compare behavior across controlled runs."
+    "Hoàn thành phần nền tảng kỹ thuật phần mềm và AI chung, hoặc chứng minh kiến thức thực hành tương đương.",
+    "Hiểu các chỉ số mô hình, kiểm thử, API và dữ liệu đo từ xa cơ bản trong môi trường thực tế.",
+    "Có khả năng tái lập lỗi và so sánh hành vi qua các lần chạy được kiểm soát."
   ],
-  "boundary": "This is a specialist overlay after shared foundations and combines adjacent evaluation and reliability work. It does not claim one universal job title or replace live incident and on-call experience.",
-  "timeNote": "The estimate covers lesson time only. Portfolio work and practice take additional time.",
+  "boundary": "Đây là một lớp chuyên môn bổ sung sau phần nền tảng chung và kết hợp công việc đánh giá và độ tin cậy liền kề. Nó không tuyên bố một chức danh công việc phổ quát duy nhất hoặc thay thế kinh nghiệm sự cố và trực vận hành thực tế.",
+  "timeNote": "Ước tính chỉ bao gồm thời gian học bài. Công việc xây dựng hồ sơ năng lực và thực hành cần thêm thời gian.",
   "portfolioProof": {
-    "title": "Regression and Reliability Gate",
-    "description": "Build an evidence gate that connects behavior evaluation, runtime telemetry, load, rollout, and recovery decisions.",
+    "title": "Chốt hồi quy và độ tin cậy",
+    "description": "Xây dựng một chốt bằng chứng kết nối việc đánh giá hành vi, dữ liệu đo từ xa của runtime, tải, triển khai và các quyết định khôi phục.",
     "evidence": [
-      "An evaluation set, rubric, and regression thresholds",
-      "A trace schema and observability view",
-      "An SLO and load test report",
-      "A canary and rollback decision record",
-      "A chaos test or incident analysis with corrective actions"
+      "Một tập đánh giá, tiêu chí chấm điểm và các ngưỡng hồi quy",
+      "Một schema trace và khung nhìn khả năng quan sát",
+      "Một báo cáo SLO và kiểm thử tải",
+      "Một bản ghi quyết định canary và rollback",
+      "Một kiểm thử chaos hoặc phân tích sự cố với các hành động khắc phục"
     ]
   },
   "readinessCriteria": [
-    "Can select metrics that match the behavior and failure risk being tested.",
-    "Can build reproducible model, LLM, and agent regression checks.",
-    "Can connect traces, inference metrics, and user-visible outcomes.",
-    "Can define load, SLO, canary, and rollback thresholds.",
-    "Can turn a failure exercise into a tested reliability improvement."
+    "Có thể chọn các chỉ số phù hợp với hành vi và rủi ro lỗi đang được kiểm thử.",
+    "Có thể xây dựng các kiểm tra hồi quy mô hình, LLM và agent có thể tái lập.",
+    "Có thể kết nối các trace, chỉ số suy luận và kết quả người dùng nhìn thấy.",
+    "Có thể xác định các ngưỡng tải, SLO, canary và rollback.",
+    "Có thể chuyển một bài thực hành lỗi thành một cải tiến độ tin cậy đã được kiểm thử."
   ],
   "coverage": {
-    "strong": ["Model, LLM, and agent evaluation", "Failure taxonomy and observability", "Inference metrics and load testing", "Experiments, rollout, chaos, and SRE controls"],
-    "partial": ["Human annotation operations", "Incident leadership", "Large distributed infrastructure"],
-    "outsideCourse": ["Production on-call ownership", "Compliance signoff", "Large-scale benchmark laboratory operations"]
+    "strong": ["Đánh giá mô hình, LLM và agent", "Phân loại lỗi và khả năng quan sát", "Các chỉ số suy luận và kiểm thử tải", "Các biện pháp kiểm soát thử nghiệm, triển khai, chaos và SRE"],
+    "partial": ["Vận hành chú thích do con người thực hiện", "Lãnh đạo xử lý sự cố", "Hạ tầng phân tán lớn"],
+    "outsideCourse": ["Trách nhiệm làm chủ trực vận hành trong môi trường thực tế", "Phê duyệt tuân thủ", "Vận hành phòng thí nghiệm benchmark quy mô lớn"]
   },
-  "completionClaim": "Completing this route shows that you can build an evidence-based evaluation and reliability gate. It does not guarantee a role or prove experience owning live production incidents.",
+  "completionClaim": "Hoàn thành lộ trình này cho thấy bạn có thể xây dựng một chốt đánh giá và độ tin cậy dựa trên bằng chứng. Điều đó không bảo đảm một vị trí công việc hoặc chứng minh kinh nghiệm chịu trách nhiệm chính đối với các sự cố vận hành thực tế.",
   "sourceBasis": {
     "reviewedAt": "2026-08-29",
-    "method": "Synthesized from current primary job descriptions across AI field, product, platform, data, developer, and evaluation teams."
+    "method": "Được tổng hợp từ các mô tả công việc gốc hiện hành của các nhóm AI tại hiện trường, sản phẩm, nền tảng, dữ liệu, nhà phát triển và đánh giá."
   },
   "estimatedMinutes": 750,
   "stages": [
     {
       "id": "common-core",
-      "title": "Common Core",
-      "outcome": "Define behavior, evaluation layers, failure modes, and trace semantics.",
+      "title": "Cốt lõi chung",
+      "outcome": "Xác định hành vi, các lớp đánh giá, dạng lỗi và ngữ nghĩa trace.",
       "lessonPaths": [
         "phases/02-ml-fundamentals/09-model-evaluation",
         "phases/11-llm-engineering/10-evaluation",
@@ -68,36 +68,36 @@
         "phases/14-agent-engineering/26-failure-modes-agentic",
         "phases/14-agent-engineering/23-otel-genai-conventions"
       ],
-      "artifact": "A layered evaluation plan with a failure taxonomy, trace schema, and regression thresholds."
+      "artifact": "Một kế hoạch đánh giá phân lớp với phân loại lỗi, schema trace và các ngưỡng hồi quy."
     },
     {
       "id": "role-practice",
-      "title": "Role Practice",
-      "outcome": "Measure inference health, production behavior, experiments, and capacity limits.",
+      "title": "Thực hành vai trò",
+      "outcome": "Đo lường sức khỏe suy luận, hành vi trong môi trường thực tế, các thử nghiệm và giới hạn năng lực.",
       "lessonPaths": [
         "phases/17-infrastructure-and-production/08-inference-metrics-goodput",
         "phases/17-infrastructure-and-production/13-llm-observability",
         "phases/17-infrastructure-and-production/21-ab-testing-llm-features",
         "phases/17-infrastructure-and-production/22-load-testing-llm-apis"
       ],
-      "artifact": "An observability and load report that connects service metrics with behavior and user outcomes."
+      "artifact": "Một báo cáo khả năng quan sát và tải kết nối các chỉ số dịch vụ với hành vi và kết quả của người dùng."
     },
     {
       "id": "proof-project",
-      "title": "Proof Project",
-      "outcome": "Prove release and recovery behavior under controlled failure.",
+      "title": "Dự án chứng minh",
+      "outcome": "Chứng minh hành vi phát hành và khôi phục dưới lỗi được kiểm soát.",
       "lessonPaths": [
         "phases/17-infrastructure-and-production/20-shadow-canary-progressive",
         "phases/17-infrastructure-and-production/24-chaos-engineering-llm"
       ],
-      "artifact": "A regression and reliability gate with canary thresholds, rollback evidence, and a chaos result."
+      "artifact": "Một chốt hồi quy và độ tin cậy với các ngưỡng canary, bằng chứng rollback và một kết quả chaos."
     },
     {
       "id": "interview-readiness-evidence",
-      "title": "Interview and Readiness Evidence",
-      "outcome": "Show how objectives, incidents, and corrective actions form an operating system for reliability.",
+      "title": "Bằng chứng cho phỏng vấn và mức độ sẵn sàng",
+      "outcome": "Cho thấy cách các mục tiêu, sự cố và hành động khắc phục tạo thành một hệ điều hành cho độ tin cậy.",
       "lessonPaths": ["phases/17-infrastructure-and-production/23-sre-for-ai"],
-      "artifact": "A reliability case study with SLOs, failure evidence, response decisions, and verified corrective actions."
+      "artifact": "Một nghiên cứu tình huống độ tin cậy với các SLO, bằng chứng lỗi, quyết định ứng phó và hành động khắc phục đã được xác minh."
     }
   ],
   "lessons": [

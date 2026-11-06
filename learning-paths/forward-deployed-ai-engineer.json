@@ -2,65 +2,65 @@
   "schemaVersion": 1,
   "kind": "career-route",
   "id": "forward-deployed-ai-engineer",
-  "title": "Customer AI Deployment",
-  "workFamily": "Customer AI Deployment",
-  "commonTitles": ["Forward-Deployed AI Engineer", "Field AI Engineer", "AI Solutions Engineer"],
-  "summary": "Discover a customer workflow, reduce its riskiest assumptions, and carry a useful AI system through measurement and rollout.",
+  "title": "Triển khai AI cho khách hàng",
+  "workFamily": "Triển khai AI cho khách hàng",
+  "commonTitles": ["Kỹ sư AI triển khai tại khách hàng", "Kỹ sư AI tại hiện trường", "Kỹ sư giải pháp AI"],
+  "summary": "Khám phá một quy trình làm việc của khách hàng, giảm bớt những giả định rủi ro nhất của nó và đưa một hệ thống AI hữu ích qua việc đo lường và triển khai.",
   "keywords": "forward deployed field engineering customer workflow discovery scoping prototype pilot production",
-  "decisionPrompt": "Do you want to discover a customer workflow, prove a narrow solution, and carry it into a measured rollout?",
-  "mission": "Build on shared foundations to turn an observed customer workflow into a scoped, evaluated, and operable AI deployment.",
+  "decisionPrompt": "Bạn có muốn khám phá một quy trình làm việc của khách hàng, chứng minh một giải pháp phạm vi hẹp và đưa nó vào một đợt triển khai được đo lường không?",
+  "mission": "Xây dựng trên những nền tảng chung để chuyển một quy trình làm việc của khách hàng đã được quan sát thành một triển khai AI có phạm vi xác định, được đánh giá và có thể vận hành.",
   "responsibilities": [
-    "Observe the real workflow and define the outcome with users.",
-    "Map assumptions, constraints, dependencies, and failure risks.",
-    "Build the smallest vertical slice that can test the core claim.",
-    "Define success metrics, rollout controls, and feedback loops."
+    "Quan sát quy trình làm việc thực tế và xác định kết quả cùng người dùng.",
+    "Lập bản đồ các giả định, ràng buộc, phụ thuộc và rủi ro lỗi.",
+    "Xây dựng lát cắt dọc nhỏ nhất có thể kiểm thử luận điểm cốt lõi.",
+    "Xác định các chỉ số thành công, biện pháp kiểm soát triển khai và vòng lặp phản hồi."
   ],
   "goodFitIf": [
-    "You want to work close to users and ambiguous operating environments.",
-    "You enjoy moving between discovery, implementation, evaluation, and rollout.",
-    "You can explain tradeoffs to both technical and operational stakeholders."
+    "Bạn muốn làm việc gần người dùng và các môi trường vận hành mơ hồ.",
+    "Bạn thích chuyển đổi giữa khám phá, triển khai thực hiện, đánh giá và đưa vào sử dụng.",
+    "Bạn có thể giải thích các đánh đổi cho cả các bên liên quan về kỹ thuật lẫn vận hành."
   ],
   "baseline": [
-    "Complete the shared software engineering and AI foundations, or demonstrate equivalent working knowledge.",
-    "Be able to build and evaluate an API-backed AI application.",
-    "Be comfortable gathering workflow evidence before proposing a solution."
+    "Hoàn thành phần nền tảng kỹ thuật phần mềm và AI chung, hoặc chứng minh kiến thức thực hành tương đương.",
+    "Có khả năng xây dựng và đánh giá một ứng dụng AI dựa trên API.",
+    "Thành thạo việc thu thập bằng chứng về quy trình làm việc trước khi đề xuất một giải pháp."
   ],
-  "boundary": "This is a specialist overlay after shared foundations, not customer support or generic consulting. It prepares you to demonstrate a deployment workflow, but it does not replace live customer or production experience.",
-  "timeNote": "The estimate covers lesson time only. Portfolio work and practice take additional time.",
+  "boundary": "Đây là một lớp chuyên môn bổ sung sau phần nền tảng chung, không phải hỗ trợ khách hàng hay tư vấn chung. Nó chuẩn bị cho bạn thể hiện một quy trình triển khai, nhưng không thay thế kinh nghiệm thực tế với khách hàng hoặc môi trường vận hành.",
+  "timeNote": "Ước tính chỉ bao gồm thời gian học bài. Công việc xây dựng hồ sơ năng lực và thực hành cần thêm thời gian.",
   "portfolioProof": {
-    "title": "Measured Customer Pilot",
-    "description": "Turn a documented workflow into a narrow pilot with explicit evidence, release controls, and a feedback plan.",
+    "title": "Thí điểm với khách hàng được đo lường",
+    "description": "Chuyển một quy trình làm việc đã được ghi thành tài liệu thành một đợt thí điểm phạm vi hẹp với bằng chứng tường minh, các biện pháp kiểm soát phát hành và kế hoạch phản hồi.",
     "evidence": [
-      "Workflow evidence and an assumption map",
-      "An executable specification for the smallest testable slice",
-      "A working vertical slice with evaluation results",
-      "Success metrics and a staged rollout plan",
-      "A feedback record that drives the next decision"
+      "Bằng chứng về quy trình làm việc và một bản đồ giả định",
+      "Một đặc tả có thể thực thi cho phần nhỏ nhất có thể kiểm thử",
+      "Một lát cắt dọc hoạt động được với kết quả đánh giá",
+      "Các chỉ số thành công và một kế hoạch triển khai theo giai đoạn",
+      "Một bản ghi phản hồi dẫn dắt quyết định tiếp theo"
     ]
   },
   "readinessCriteria": [
-    "Can separate the requested output from the underlying operational outcome.",
-    "Can rank assumptions by uncertainty and consequence.",
-    "Can build a vertical slice that tests one valuable workflow end to end.",
-    "Can define evaluation, success, rollback, and feedback criteria before release.",
-    "Can explain what evidence supports moving from prototype to pilot or production."
+    "Có thể tách biệt đầu ra được yêu cầu với kết quả vận hành nằm bên dưới.",
+    "Có thể xếp hạng các giả định theo mức độ bất định và hậu quả.",
+    "Có thể xây dựng một lát cắt dọc kiểm thử một quy trình làm việc có giá trị từ đầu đến cuối.",
+    "Có thể xác định các tiêu chí đánh giá, thành công, rollback và phản hồi trước khi phát hành.",
+    "Có thể giải thích bằng chứng nào hỗ trợ việc chuyển từ nguyên mẫu sang thí điểm hoặc vận hành thực tế."
   ],
   "coverage": {
-    "strong": ["Workflow discovery and scoping", "Evidence-driven prototyping", "Evaluation and success metrics", "Staged rollout and feedback"],
-    "partial": ["Stakeholder facilitation", "Enterprise integration and security", "Production operations under live traffic"],
-    "outsideCourse": ["Commercial account ownership", "Procurement and legal negotiation", "Years of customer deployment experience"]
+    "strong": ["Khám phá quy trình làm việc và xác định phạm vi", "Tạo nguyên mẫu dựa trên bằng chứng", "Đánh giá và các chỉ số thành công", "Triển khai theo giai đoạn và phản hồi"],
+    "partial": ["Điều phối các bên liên quan", "Tích hợp và bảo mật doanh nghiệp", "Vận hành thực tế dưới lưu lượng trực tiếp"],
+    "outsideCourse": ["Trách nhiệm quản lý tài khoản thương mại", "Mua sắm và đàm phán pháp lý", "Nhiều năm kinh nghiệm triển khai cho khách hàng"]
   },
-  "completionClaim": "Completing this route shows that you can produce evidence for a scoped customer AI pilot. It does not guarantee a role or establish production experience.",
+  "completionClaim": "Hoàn thành lộ trình này cho thấy bạn có thể tạo ra bằng chứng cho một đợt thí điểm AI với khách hàng có phạm vi xác định. Điều đó không bảo đảm một vị trí công việc hoặc xác lập kinh nghiệm vận hành thực tế.",
   "sourceBasis": {
     "reviewedAt": "2026-08-29",
-    "method": "Synthesized from current primary job descriptions across AI field, product, platform, data, developer, and evaluation teams."
+    "method": "Được tổng hợp từ các mô tả công việc gốc hiện hành của các nhóm AI tại hiện trường, sản phẩm, nền tảng, dữ liệu, nhà phát triển và đánh giá."
   },
   "estimatedMinutes": 865,
   "stages": [
     {
       "id": "common-core",
-      "title": "Common Core",
-      "outcome": "Frame the customer outcome, workflow, assumptions, and smallest useful test.",
+      "title": "Cốt lõi chung",
+      "outcome": "Định hình kết quả cho khách hàng, quy trình làm việc, các giả định và phép thử hữu ích nhỏ nhất.",
       "lessonPaths": [
         "phases/14-agent-engineering/47-outcomes-before-output",
         "phases/14-agent-engineering/48-discover-the-real-workflow",
@@ -68,36 +68,36 @@
         "phases/14-agent-engineering/50-choose-the-smallest-testable-slice",
         "phases/14-agent-engineering/51-write-specifications-that-preserve-judgment"
       ],
-      "artifact": "A workflow brief with outcome, evidence, assumptions, risks, and an executable slice specification."
+      "artifact": "Một bản tóm tắt quy trình làm việc với kết quả, bằng chứng, giả định, rủi ro và một đặc tả phần việc có thể thực thi."
     },
     {
       "id": "role-practice",
-      "title": "Role Practice",
-      "outcome": "Build and evaluate the narrow AI system against explicit success criteria.",
+      "title": "Thực hành vai trò",
+      "outcome": "Xây dựng và đánh giá hệ thống AI phạm vi hẹp theo các tiêu chí thành công tường minh.",
       "lessonPaths": [
         "phases/11-llm-engineering/06-rag",
         "phases/11-llm-engineering/10-evaluation",
         "phases/11-llm-engineering/13-production-app",
         "phases/14-agent-engineering/52-design-success-metrics"
       ],
-      "artifact": "A working vertical slice with an evaluation set, baseline, and success scorecard."
+      "artifact": "Một lát cắt dọc hoạt động được với một tập đánh giá, đường cơ sở và bảng điểm thành công."
     },
     {
       "id": "proof-project",
-      "title": "Proof Project",
-      "outcome": "Choose the right release stage and move the pilot through controlled exposure.",
+      "title": "Dự án chứng minh",
+      "outcome": "Chọn giai đoạn phát hành phù hợp và đưa đợt thí điểm qua việc đưa ra sử dụng có kiểm soát.",
       "lessonPaths": [
         "phases/14-agent-engineering/53-prototype-pilot-or-production",
         "phases/17-infrastructure-and-production/20-shadow-canary-progressive"
       ],
-      "artifact": "A measured pilot with release gates, rollback conditions, and recorded results."
+      "artifact": "Một đợt thí điểm được đo lường với các chốt phát hành, điều kiện rollback và kết quả được ghi lại."
     },
     {
       "id": "interview-readiness-evidence",
-      "title": "Interview and Readiness Evidence",
-      "outcome": "Show how evidence and user feedback determine the next iteration.",
+      "title": "Bằng chứng cho phỏng vấn và mức độ sẵn sàng",
+      "outcome": "Cho thấy cách bằng chứng và phản hồi của người dùng quyết định vòng lặp tiếp theo.",
       "lessonPaths": ["phases/14-agent-engineering/54-build-the-feedback-ratchet"],
-      "artifact": "A concise case study that connects user evidence, system results, tradeoffs, and the next decision."
+      "artifact": "Một nghiên cứu tình huống súc tích kết nối bằng chứng từ người dùng, kết quả hệ thống, các đánh đổi và quyết định tiếp theo."
     }
   ],
   "lessons": [

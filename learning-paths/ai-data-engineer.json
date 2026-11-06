@@ -2,101 +2,101 @@
   "schemaVersion": 1,
   "kind": "career-route",
   "id": "ai-data-engineer",
-  "title": "AI Data Systems",
-  "workFamily": "AI Data Systems",
-  "commonTitles": ["AI Data Engineer", "Machine Learning Data Engineer", "Retrieval Engineer"],
-  "summary": "Build reliable data, feature, embedding, retrieval, evaluation, and observability pipelines for AI systems.",
+  "title": "Hệ thống dữ liệu AI",
+  "workFamily": "Hệ thống dữ liệu AI",
+  "commonTitles": ["Kỹ sư dữ liệu AI", "Kỹ sư dữ liệu học máy", "Kỹ sư truy xuất"],
+  "summary": "Xây dựng các pipeline dữ liệu, đặc trưng, embedding, truy xuất, đánh giá và khả năng quan sát đáng tin cậy cho các hệ thống AI.",
   "keywords": "ai data engineer pipelines feature engineering embeddings retrieval rag quality observability",
-  "decisionPrompt": "Do you want to make the data behind training, retrieval, evaluation, and production behavior trustworthy?",
-  "mission": "Build on shared foundations to create traceable AI data systems that transform source data into measurable model and retrieval inputs.",
+  "decisionPrompt": "Bạn có muốn làm cho dữ liệu đằng sau việc huấn luyện, truy xuất, đánh giá và hành vi trong môi trường thực tế trở nên đáng tin cậy không?",
+  "mission": "Xây dựng trên những nền tảng chung để tạo ra các hệ thống dữ liệu AI có thể truy vết, chuyển dữ liệu nguồn thành đầu vào mô hình và truy xuất có thể đo lường.",
   "responsibilities": [
-    "Design reproducible ingestion, transformation, and feature pipelines.",
-    "Build embedding and retrieval paths with explicit quality measures.",
-    "Detect leakage, drift, missing data, and retrieval regressions.",
-    "Instrument data-dependent behavior from source through production."
+    "Thiết kế các pipeline nạp dữ liệu, biến đổi và đặc trưng có thể tái lập.",
+    "Xây dựng các đường đi embedding và truy xuất với các thước đo chất lượng tường minh.",
+    "Phát hiện rò rỉ, sai lệch, dữ liệu bị thiếu và sự suy giảm trong truy xuất.",
+    "Gắn cơ chế đo lường cho hành vi phụ thuộc dữ liệu từ nguồn đến môi trường thực tế."
   ],
   "goodFitIf": [
-    "You care about lineage, repeatability, and data quality more than demos.",
-    "You enjoy tracing model behavior back to data and retrieval decisions.",
-    "You want to connect data systems with measurable AI outcomes."
+    "Bạn quan tâm đến dòng dõi dữ liệu, khả năng lặp lại và chất lượng dữ liệu hơn các bản demo.",
+    "Bạn thích truy vết hành vi mô hình trở lại dữ liệu và các quyết định truy xuất.",
+    "Bạn muốn kết nối các hệ thống dữ liệu với kết quả AI có thể đo lường."
   ],
   "baseline": [
-    "Complete the shared software engineering and AI foundations, or demonstrate equivalent working knowledge.",
-    "Be comfortable with tabular data, features, train and test splits, and basic evaluation.",
-    "Be able to inspect files, schemas, and pipeline output from code."
+    "Hoàn thành phần nền tảng kỹ thuật phần mềm và AI chung, hoặc chứng minh kiến thức thực hành tương đương.",
+    "Thành thạo dữ liệu dạng bảng, đặc trưng, việc chia tập huấn luyện và kiểm thử, cùng đánh giá cơ bản.",
+    "Có khả năng kiểm tra tệp, schema và đầu ra pipeline từ mã."
   ],
-  "boundary": "This is a specialist overlay after shared foundations. It samples training, feature, and retrieval data work, but does not claim mastery of every warehouse, lake, streaming, or governance platform.",
-  "timeNote": "The estimate covers lesson time only. Portfolio work and practice take additional time.",
+  "boundary": "Đây là một lớp chuyên môn bổ sung sau phần nền tảng chung. Nó lấy mẫu các công việc dữ liệu cho huấn luyện, đặc trưng và truy xuất, nhưng không tuyên bố sự thành thạo mọi nền tảng warehouse, lake, streaming hoặc quản trị.",
+  "timeNote": "Ước tính chỉ bao gồm thời gian học bài. Công việc xây dựng hồ sơ năng lực và thực hành cần thêm thời gian.",
   "portfolioProof": {
-    "title": "Traceable AI Data Pipeline",
-    "description": "Build a reproducible data and retrieval path whose inputs, transformations, quality checks, and downstream effects can be inspected.",
+    "title": "Pipeline dữ liệu AI có thể truy vết",
+    "description": "Xây dựng một đường đi dữ liệu và truy xuất có thể tái lập mà đầu vào, các biến đổi, kiểm tra chất lượng và tác động phía sau của nó có thể được kiểm tra.",
     "evidence": [
-      "A reproducible ingestion and transformation pipeline",
-      "Leakage, schema, and data quality checks",
-      "Embedding and retrieval evaluation results",
-      "Observability for data-dependent failures",
-      "A provenance and rollback note"
+      "Một pipeline nạp dữ liệu và biến đổi có thể tái lập",
+      "Các kiểm tra rò rỉ, schema và chất lượng dữ liệu",
+      "Kết quả đánh giá embedding và truy xuất",
+      "Khả năng quan sát đối với các lỗi phụ thuộc dữ liệu",
+      "Một ghi chú về nguồn gốc và rollback"
     ]
   },
   "readinessCriteria": [
-    "Can explain lineage from raw data to model or retrieval input.",
-    "Can prevent leakage and verify feature transformations.",
-    "Can measure retrieval quality separately from generation quality.",
-    "Can identify a data, embedding, retrieval, or model cause from evidence.",
-    "Can reproduce a pipeline result and document how to roll it back."
+    "Có thể giải thích dòng dõi dữ liệu từ dữ liệu thô đến đầu vào mô hình hoặc truy xuất.",
+    "Có thể ngăn ngừa rò rỉ và xác minh các biến đổi đặc trưng.",
+    "Có thể đo lường chất lượng truy xuất tách biệt với chất lượng tạo sinh.",
+    "Có thể xác định nguyên nhân từ dữ liệu, embedding, truy xuất hoặc mô hình dựa trên bằng chứng.",
+    "Có thể tái lập một kết quả pipeline và ghi thành tài liệu cách rollback kết quả đó."
   ],
   "coverage": {
-    "strong": ["Data and feature pipelines", "Embeddings and retrieval", "RAG evaluation", "AI observability"],
-    "partial": ["Lineage and schema evolution", "Pipeline orchestration and backfills", "Data governance"],
-    "outsideCourse": ["Enterprise warehouse or lake ownership", "Compliance authority", "Live data platform on-call experience"]
+    "strong": ["Pipeline dữ liệu và đặc trưng", "Embedding và truy xuất", "Đánh giá RAG", "Khả năng quan sát AI"],
+    "partial": ["Dòng dõi dữ liệu và sự tiến hóa schema", "Điều phối pipeline và bổ sung dữ liệu quá khứ", "Quản trị dữ liệu"],
+    "outsideCourse": ["Trách nhiệm làm chủ warehouse hoặc lake doanh nghiệp", "Thẩm quyền tuân thủ", "Kinh nghiệm trực vận hành nền tảng dữ liệu thực tế"]
   },
-  "completionClaim": "Completing this route shows that you can build and evaluate a traceable AI data pipeline. It does not guarantee a role or establish experience operating an enterprise data platform.",
+  "completionClaim": "Hoàn thành lộ trình này cho thấy bạn có thể xây dựng và đánh giá một pipeline dữ liệu AI có thể truy vết. Điều đó không bảo đảm một vị trí công việc hoặc xác lập kinh nghiệm vận hành một nền tảng dữ liệu doanh nghiệp.",
   "sourceBasis": {
     "reviewedAt": "2026-08-29",
-    "method": "Synthesized from current primary job descriptions across AI field, product, platform, data, developer, and evaluation teams."
+    "method": "Được tổng hợp từ các mô tả công việc gốc hiện hành của các nhóm AI tại hiện trường, sản phẩm, nền tảng, dữ liệu, nhà phát triển và đánh giá."
   },
   "estimatedMinutes": 915,
   "stages": [
     {
       "id": "common-core",
-      "title": "Common Core",
-      "outcome": "Build reproducible data, feature, and language-model preparation pipelines.",
+      "title": "Cốt lõi chung",
+      "outcome": "Xây dựng các pipeline chuẩn bị dữ liệu, đặc trưng và mô hình ngôn ngữ có thể tái lập.",
       "lessonPaths": [
         "phases/00-setup-and-tooling/09-data-management",
         "phases/02-ml-fundamentals/08-feature-engineering",
         "phases/02-ml-fundamentals/13-ml-pipelines",
         "phases/10-llms-from-scratch/03-data-pipelines"
       ],
-      "artifact": "A versioned pipeline with deterministic transforms, split checks, and a reproducible run record."
+      "artifact": "Một pipeline có quản lý phiên bản với các phép biến đổi tất định, kiểm tra phân chia và bản ghi lần chạy có thể tái lập."
     },
     {
       "id": "role-practice",
-      "title": "Role Practice",
-      "outcome": "Build context and retrieval paths whose quality can be measured independently.",
+      "title": "Thực hành vai trò",
+      "outcome": "Xây dựng các đường đi ngữ cảnh và truy xuất mà chất lượng của chúng có thể được đo lường độc lập.",
       "lessonPaths": [
         "phases/11-llm-engineering/04-embeddings",
         "phases/11-llm-engineering/05-context-engineering",
         "phases/11-llm-engineering/06-rag",
         "phases/11-llm-engineering/07-advanced-rag"
       ],
-      "artifact": "A retrieval system with a documented corpus, index configuration, and retrieval metrics."
+      "artifact": "Một hệ thống truy xuất với kho ngữ liệu, cấu hình chỉ mục và các chỉ số truy xuất được ghi thành tài liệu."
     },
     {
       "id": "proof-project",
-      "title": "Proof Project",
-      "outcome": "Connect the data path to an evaluated production-style application.",
+      "title": "Dự án chứng minh",
+      "outcome": "Kết nối đường đi dữ liệu với một ứng dụng theo kiểu vận hành thực tế đã được đánh giá.",
       "lessonPaths": [
         "phases/11-llm-engineering/10-evaluation",
         "phases/11-llm-engineering/13-production-app"
       ],
-      "artifact": "A traceable AI data pipeline with end-to-end quality checks and application-level evaluation."
+      "artifact": "Một pipeline dữ liệu AI có thể truy vết với các kiểm tra chất lượng từ đầu đến cuối và đánh giá ở cấp ứng dụng."
     },
     {
       "id": "interview-readiness-evidence",
-      "title": "Interview and Readiness Evidence",
-      "outcome": "Show how telemetry separates data, retrieval, and generation failures.",
+      "title": "Bằng chứng cho phỏng vấn và mức độ sẵn sàng",
+      "outcome": "Cho thấy cách dữ liệu đo từ xa phân biệt các lỗi dữ liệu, truy xuất và tạo sinh.",
       "lessonPaths": ["phases/17-infrastructure-and-production/13-llm-observability"],
-      "artifact": "A failure analysis that links a production symptom to the responsible data or retrieval stage."
+      "artifact": "Một phân tích lỗi liên kết một triệu chứng trong môi trường thực tế với giai đoạn dữ liệu hoặc truy xuất chịu trách nhiệm."
     }
   ],
   "lessons": [

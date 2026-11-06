@@ -2,65 +2,65 @@
   "schemaVersion": 1,
   "kind": "career-route",
   "id": "ai-developer-relations-engineer",
-  "title": "Developer Experience and Education",
-  "workFamily": "Developer Experience and Education",
-  "commonTitles": ["AI Developer Relations Engineer", "AI Developer Advocate", "Developer Experience Engineer"],
-  "summary": "Build credible integrations, examples, and reusable agent packages, then turn developer friction into clearer tools and teaching.",
+  "title": "Trải nghiệm và đào tạo nhà phát triển",
+  "workFamily": "Trải nghiệm và đào tạo nhà phát triển",
+  "commonTitles": ["Kỹ sư quan hệ nhà phát triển AI", "Chuyên viên hỗ trợ cộng đồng nhà phát triển AI", "Kỹ sư trải nghiệm nhà phát triển"],
+  "summary": "Xây dựng các tích hợp, ví dụ và gói agent có thể tái sử dụng đáng tin cậy, rồi chuyển những vướng mắc của nhà phát triển thành công cụ và cách giảng dạy rõ ràng hơn.",
   "keywords": "ai developer relations devrel developer education technical content integrations examples sdk mcp skills",
-  "decisionPrompt": "Do you want to make AI capabilities easier for developers to understand, adopt, and use correctly?",
-  "mission": "Build on shared foundations to turn technical capabilities into trustworthy interfaces, runnable examples, and reusable learning assets.",
+  "decisionPrompt": "Bạn có muốn làm cho các khả năng AI dễ hiểu, dễ tiếp nhận và dễ sử dụng đúng hơn đối với nhà phát triển không?",
+  "mission": "Xây dựng trên những nền tảng chung để chuyển các khả năng kỹ thuật thành giao diện đáng tin cậy, ví dụ chạy được và tài nguyên học tập có thể tái sử dụng.",
   "responsibilities": [
-    "Design clear API, tool, and protocol contracts for developer use.",
-    "Build runnable examples and reusable agent packages.",
-    "Teach runtime behavior, tradeoffs, and failure modes accurately.",
-    "Turn developer friction and feedback into product and documentation improvements."
+    "Thiết kế các hợp đồng API, công cụ và giao thức rõ ràng để nhà phát triển sử dụng.",
+    "Xây dựng các ví dụ chạy được và gói agent có thể tái sử dụng.",
+    "Giảng dạy chính xác về hành vi runtime, các đánh đổi và dạng lỗi.",
+    "Chuyển những vướng mắc và phản hồi của nhà phát triển thành các cải tiến sản phẩm và tài liệu."
   ],
   "goodFitIf": [
-    "You enjoy building software and explaining why it works.",
-    "You care about first-run success, examples, documentation, and developer trust.",
-    "You want developer feedback to shape the product."
+    "Bạn thích xây dựng phần mềm và giải thích vì sao nó hoạt động.",
+    "Bạn quan tâm đến thành công ở lần chạy đầu, các ví dụ, tài liệu và sự tin tưởng của nhà phát triển.",
+    "Bạn muốn phản hồi của nhà phát triển định hình sản phẩm."
   ],
   "baseline": [
-    "Complete the shared software engineering and AI foundations, or demonstrate equivalent working knowledge.",
-    "Be able to read API contracts and run local examples from source.",
-    "Be comfortable testing instructions from a new developer's point of view."
+    "Hoàn thành phần nền tảng kỹ thuật phần mềm và AI chung, hoặc chứng minh kiến thức thực hành tương đương.",
+    "Có khả năng đọc các hợp đồng API và chạy các ví dụ cục bộ từ mã nguồn.",
+    "Thành thạo việc kiểm thử các chỉ dẫn từ góc nhìn của một nhà phát triển mới."
   ],
-  "boundary": "This is a specialist overlay after shared foundations. The route is strongest on technical integration and reusable teaching assets, while community programs, events, and distribution need additional practice.",
-  "timeNote": "The estimate covers lesson time only. Portfolio work and practice take additional time.",
+  "boundary": "Đây là một lớp chuyên môn bổ sung sau phần nền tảng chung. Lộ trình mạnh nhất về tích hợp kỹ thuật và tài nguyên giảng dạy có thể tái sử dụng, trong khi các chương trình cộng đồng, sự kiện và phân phối cần thêm thực hành.",
+  "timeNote": "Ước tính chỉ bao gồm thời gian học bài. Công việc xây dựng hồ sơ năng lực và thực hành cần thêm thời gian.",
   "portfolioProof": {
-    "title": "Developer Adoption Kit",
-    "description": "Package one AI capability as a discoverable integration that another developer can run, inspect, and verify.",
+    "title": "Bộ công cụ tiếp nhận dành cho nhà phát triển",
+    "description": "Đóng gói một khả năng AI thành một tích hợp có thể phát hiện mà một nhà phát triển khác có thể chạy, kiểm tra và xác minh.",
     "evidence": [
-      "A runnable API or tool integration",
-      "A concise quickstart and working example",
-      "A validated skill or reusable agent package",
-      "An evaluation and portability report",
-      "A documented improvement based on developer feedback"
+      "Một tích hợp API hoặc công cụ chạy được",
+      "Một hướng dẫn bắt đầu nhanh súc tích và ví dụ hoạt động được",
+      "Một skill đã được kiểm tra tính hợp lệ hoặc gói agent có thể tái sử dụng",
+      "Một báo cáo đánh giá và khả năng di chuyển",
+      "Một cải tiến được ghi thành tài liệu dựa trên phản hồi của nhà phát triển"
     ]
   },
   "readinessCriteria": [
-    "Can explain the difference between an instruction package and an executable tool.",
-    "Can design a small, unambiguous interface with useful failure messages.",
-    "Can create a runnable example that works from a clean setup.",
-    "Can validate discovery, invocation, packaging, and portability.",
-    "Can turn observed developer friction into a concrete product or teaching change."
+    "Có thể giải thích sự khác biệt giữa một gói chỉ dẫn và một công cụ có thể thực thi.",
+    "Có thể thiết kế một giao diện nhỏ, không mơ hồ với các thông báo lỗi hữu ích.",
+    "Có thể tạo một ví dụ chạy được hoạt động từ một thiết lập sạch.",
+    "Có thể kiểm tra tính hợp lệ của việc phát hiện, gọi, đóng gói và khả năng di chuyển.",
+    "Có thể chuyển những vướng mắc của nhà phát triển đã quan sát được thành một thay đổi cụ thể về sản phẩm hoặc giảng dạy."
   ],
   "coverage": {
-    "strong": ["API and tool contracts", "MCP implementation", "Skill discovery and packaging", "Runnable technical examples"],
-    "partial": ["Technical writing and quickstarts", "Developer feedback research", "Community education"],
-    "outsideCourse": ["Event and community program ownership", "Content distribution strategy", "Years of public developer-facing experience"]
+    "strong": ["Hợp đồng API và công cụ", "Triển khai MCP", "Phát hiện và đóng gói skill", "Các ví dụ kỹ thuật chạy được"],
+    "partial": ["Viết tài liệu kỹ thuật và hướng dẫn bắt đầu nhanh", "Nghiên cứu phản hồi của nhà phát triển", "Đào tạo cộng đồng"],
+    "outsideCourse": ["Trách nhiệm làm chủ sự kiện và chương trình cộng đồng", "Chiến lược phân phối nội dung", "Nhiều năm kinh nghiệm làm việc công khai với nhà phát triển"]
   },
-  "completionClaim": "Completing this route shows that you can build and explain a verifiable developer integration. It does not guarantee a role or replace sustained work with a developer community.",
+  "completionClaim": "Hoàn thành lộ trình này cho thấy bạn có thể xây dựng và giải thích một tích hợp dành cho nhà phát triển có thể xác minh. Điều đó không bảo đảm một vị trí công việc hoặc thay thế việc làm việc lâu dài với một cộng đồng nhà phát triển.",
   "sourceBasis": {
     "reviewedAt": "2026-08-29",
-    "method": "Synthesized from current primary job descriptions across AI field, product, platform, data, developer, and evaluation teams."
+    "method": "Được tổng hợp từ các mô tả công việc gốc hiện hành của các nhóm AI tại hiện trường, sản phẩm, nền tảng, dữ liệu, nhà phát triển và đánh giá."
   },
   "estimatedMinutes": 905,
   "stages": [
     {
       "id": "common-core",
-      "title": "Common Core",
-      "outcome": "Build a sound capability interface from credentials through tool and protocol contracts.",
+      "title": "Cốt lõi chung",
+      "outcome": "Xây dựng một giao diện khả năng vững chắc từ thông tin xác thực đến các hợp đồng công cụ và giao thức.",
       "lessonPaths": [
         "phases/00-setup-and-tooling/04-apis-and-keys",
         "phases/13-tools-and-protocols/01-the-tool-interface",
@@ -68,35 +68,35 @@
         "phases/13-tools-and-protocols/06-mcp-fundamentals",
         "phases/13-tools-and-protocols/07-building-an-mcp-server"
       ],
-      "artifact": "A runnable integration with a clear contract, setup path, and observable error behavior."
+      "artifact": "Một tích hợp chạy được với hợp đồng rõ ràng, lộ trình thiết lập và hành vi lỗi có thể quan sát."
     },
     {
       "id": "role-practice",
-      "title": "Role Practice",
-      "outcome": "Make reusable agent knowledge discoverable, invocable, and progressively disclosed.",
+      "title": "Thực hành vai trò",
+      "outcome": "Làm cho kiến thức agent có thể tái sử dụng trở nên có thể phát hiện, gọi và được tiết lộ tăng dần.",
       "lessonPaths": [
         "phases/13-tools-and-protocols/22-skills-and-agent-sdks",
         "phases/13-tools-and-protocols/24-skill-discovery-and-progressive-disclosure",
         "phases/13-tools-and-protocols/25-skill-invocation-and-routing"
       ],
-      "artifact": "A skill package with concise metadata, staged references, and explicit invocation examples."
+      "artifact": "Một gói skill với metadata súc tích, tài liệu tham chiếu theo giai đoạn và các ví dụ gọi tường minh."
     },
     {
       "id": "proof-project",
-      "title": "Proof Project",
-      "outcome": "Prove that the package and its surrounding tool ecosystem work across supported contexts.",
+      "title": "Dự án chứng minh",
+      "outcome": "Chứng minh rằng gói và hệ sinh thái công cụ xung quanh nó hoạt động trong các ngữ cảnh được hỗ trợ.",
       "lessonPaths": [
         "phases/13-tools-and-protocols/27-skill-evals-packaging-and-portability",
         "phases/13-tools-and-protocols/23-capstone-tool-ecosystem"
       ],
-      "artifact": "A developer adoption kit with validation results, portability notes, and a working end-to-end example."
+      "artifact": "Một bộ công cụ tiếp nhận dành cho nhà phát triển với kết quả kiểm tra tính hợp lệ, ghi chú về khả năng di chuyển và một ví dụ hoạt động được từ đầu đến cuối."
     },
     {
       "id": "interview-readiness-evidence",
-      "title": "Interview and Readiness Evidence",
-      "outcome": "Show how developer feedback changed the integration or its teaching path.",
+      "title": "Bằng chứng cho phỏng vấn và mức độ sẵn sàng",
+      "outcome": "Cho thấy cách phản hồi của nhà phát triển đã thay đổi tích hợp hoặc lộ trình giảng dạy của nó.",
       "lessonPaths": ["phases/14-agent-engineering/54-build-the-feedback-ratchet"],
-      "artifact": "A short adoption case study with friction evidence, the change made, and the measured result."
+      "artifact": "Một nghiên cứu tình huống tiếp nhận ngắn với bằng chứng về vướng mắc, thay đổi đã thực hiện và kết quả được đo lường."
     }
   ],
   "lessons": [

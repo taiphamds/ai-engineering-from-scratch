@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "id": "using-coding-agents",
-  "title": "Agent-Assisted Engineering",
-  "summary": "Frame, plan, execute, delegate, verify, review, and improve coding-agent work inside real repositories.",
+  "title": "Kỹ thuật có agent hỗ trợ",
+  "summary": "Định hình, lập kế hoạch, thực thi, ủy nhiệm, xác minh, rà soát và cải thiện công việc của coding agent bên trong các kho mã thực tế.",
   "estimatedMinutes": 900,
   "lessons": [
     {"order": 1, "path": "phases/14-agent-engineering/31-agent-workbench-why-models-fail", "minutes": 45, "required": true},

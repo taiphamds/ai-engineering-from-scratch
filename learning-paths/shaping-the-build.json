@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "id": "shaping-the-build",
-  "title": "Product Judgment and Delivery",
-  "summary": "Turn evidence into outcomes, assumptions, testable slices, executable specifications, measurement plans, and owned feedback loops.",
+  "title": "Phán đoán sản phẩm và bàn giao",
+  "summary": "Chuyển bằng chứng thành kết quả, giả định, những phần có thể kiểm thử, đặc tả có thể thực thi, kế hoạch đo lường và các vòng lặp phản hồi có người chịu trách nhiệm.",
   "estimatedMinutes": 550,
   "lessons": [
     {"order": 1, "path": "phases/14-agent-engineering/47-outcomes-before-output", "minutes": 60, "required": true},

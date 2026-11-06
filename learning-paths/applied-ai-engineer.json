@@ -2,65 +2,65 @@
   "schemaVersion": 1,
   "kind": "career-route",
   "id": "applied-ai-engineer",
-  "title": "LLM Product Engineering",
-  "workFamily": "LLM Product Engineering",
-  "commonTitles": ["Applied AI Engineer", "LLM Engineer", "AI Product Engineer"],
-  "summary": "Turn language-model capability into evaluated, safe, cost-aware product behavior that can survive production traffic.",
+  "title": "Kỹ thuật sản phẩm LLM",
+  "workFamily": "Kỹ thuật sản phẩm LLM",
+  "commonTitles": ["Kỹ sư AI ứng dụng", "Kỹ sư LLM", "Kỹ sư sản phẩm AI"],
+  "summary": "Chuyển khả năng của mô hình ngôn ngữ thành hành vi sản phẩm đã được đánh giá, an toàn, có tính đến chi phí và có thể chịu được lưu lượng trong môi trường thực tế.",
   "keywords": "applied ai engineer llm product prompt structured output rag tools evaluation guardrails production",
-  "decisionPrompt": "Do you want to turn language-model capability into a reliable product feature with measurable user behavior?",
-  "mission": "Build on shared foundations to ship grounded LLM features with explicit contracts, evaluation, safety, cost, and release controls.",
+  "decisionPrompt": "Bạn có muốn chuyển khả năng của mô hình ngôn ngữ thành một tính năng sản phẩm đáng tin cậy với hành vi người dùng có thể đo lường không?",
+  "mission": "Xây dựng trên những nền tảng chung để bàn giao các tính năng LLM có căn cứ với hợp đồng tường minh, đánh giá, an toàn, chi phí và các biện pháp kiểm soát phát hành.",
   "responsibilities": [
-    "Shape model behavior with prompts, schemas, context, retrieval, and tools.",
-    "Define evaluation sets and guardrails around product requirements.",
-    "Balance quality, latency, cost, and operational risk.",
-    "Ship through production interfaces and controlled rollout stages."
+    "Định hình hành vi mô hình bằng prompt, schema, ngữ cảnh, truy xuất và công cụ.",
+    "Xác định các tập đánh giá và guardrail xoay quanh yêu cầu sản phẩm.",
+    "Cân bằng chất lượng, độ trễ, chi phí và rủi ro vận hành.",
+    "Bàn giao thông qua các giao diện trong môi trường thực tế và các giai đoạn triển khai được kiểm soát."
   ],
   "goodFitIf": [
-    "You want to connect model behavior directly to a user-facing product.",
-    "You enjoy balancing quality, safety, latency, and cost.",
-    "You prefer measured product behavior over isolated model demos."
+    "Bạn muốn kết nối hành vi mô hình trực tiếp với một sản phẩm hướng đến người dùng.",
+    "Bạn thích cân bằng chất lượng, an toàn, độ trễ và chi phí.",
+    "Bạn thích hành vi sản phẩm được đo lường hơn các bản demo mô hình riêng lẻ."
   ],
   "baseline": [
-    "Complete the shared software engineering and AI foundations, or demonstrate equivalent working knowledge.",
-    "Be able to call a model API and build a small web or service interface.",
-    "Understand basic evaluation, testing, and production error handling."
+    "Hoàn thành phần nền tảng kỹ thuật phần mềm và AI chung, hoặc chứng minh kiến thức thực hành tương đương.",
+    "Có khả năng gọi một API mô hình và xây dựng một giao diện web hoặc dịch vụ nhỏ.",
+    "Hiểu kiến thức cơ bản về đánh giá, kiểm thử và xử lý lỗi trong môi trường thực tế."
   ],
-  "boundary": "This is a specialist overlay after shared foundations and focuses on LLM product engineering. It does not cover every applied AI modality or replace product discovery and live production ownership.",
-  "timeNote": "The estimate covers lesson time only. Portfolio work and practice take additional time.",
+  "boundary": "Đây là một lớp chuyên môn bổ sung sau phần nền tảng chung và tập trung vào kỹ thuật sản phẩm LLM. Nó không bao quát mọi phương thức AI ứng dụng hoặc thay thế việc khám phá sản phẩm và trách nhiệm làm chủ vận hành thực tế.",
+  "timeNote": "Ước tính chỉ bao gồm thời gian học bài. Công việc xây dựng hồ sơ năng lực và thực hành cần thêm thời gian.",
   "portfolioProof": {
-    "title": "Production LLM Feature",
-    "description": "Build a grounded LLM feature with a clear user contract, measurable quality, safety controls, and a staged release plan.",
+    "title": "Tính năng LLM trong môi trường thực tế",
+    "description": "Xây dựng một tính năng LLM có căn cứ với hợp đồng người dùng rõ ràng, chất lượng có thể đo lường, các biện pháp kiểm soát an toàn và kế hoạch phát hành theo giai đoạn.",
     "evidence": [
-      "A user contract and structured output schema",
-      "A grounded application using retrieval or tools",
-      "An evaluation set and guardrail report",
-      "A quality, latency, and cost scorecard",
-      "A deployment and staged rollout record"
+      "Một hợp đồng người dùng và schema đầu ra có cấu trúc",
+      "Một ứng dụng có căn cứ sử dụng truy xuất hoặc công cụ",
+      "Một tập đánh giá và báo cáo guardrail",
+      "Một bảng điểm chất lượng, độ trễ và chi phí",
+      "Một bản ghi triển khai và đưa vào sử dụng theo giai đoạn"
     ]
   },
   "readinessCriteria": [
-    "Can choose prompts, schemas, retrieval, and tools based on a product requirement.",
-    "Can build an evaluation set before tuning behavior.",
-    "Can identify and test safety and failure boundaries.",
-    "Can measure quality, latency, and cost together.",
-    "Can explain deployment, gateway, canary, and rollback choices."
+    "Có thể chọn prompt, schema, truy xuất và công cụ dựa trên một yêu cầu sản phẩm.",
+    "Có thể xây dựng một tập đánh giá trước khi điều chỉnh hành vi.",
+    "Có thể xác định và kiểm thử các ranh giới an toàn và lỗi.",
+    "Có thể đo lường chất lượng, độ trễ và chi phí cùng nhau.",
+    "Có thể giải thích các lựa chọn về triển khai, gateway, canary và rollback."
   ],
   "coverage": {
-    "strong": ["Prompt and structured output design", "Context, retrieval, and tools", "LLM evaluation and guardrails", "Cost-aware production rollout"],
-    "partial": ["Product discovery", "User experience research", "Full cloud operations"],
-    "outsideCourse": ["Vision and audio product specialization", "Foundation-model training ownership", "Commercial product management"]
+    "strong": ["Thiết kế prompt và đầu ra có cấu trúc", "Ngữ cảnh, truy xuất và công cụ", "Đánh giá LLM và guardrail", "Triển khai vào môi trường thực tế có tính đến chi phí"],
+    "partial": ["Khám phá sản phẩm", "Nghiên cứu trải nghiệm người dùng", "Vận hành đám mây đầy đủ"],
+    "outsideCourse": ["Chuyên môn hóa sản phẩm thị giác và âm thanh", "Trách nhiệm làm chủ việc huấn luyện mô hình nền tảng", "Quản lý sản phẩm thương mại"]
   },
-  "completionClaim": "Completing this route shows that you can build and evaluate a production-style LLM feature. It does not guarantee a role or prove ownership of a live commercial product.",
+  "completionClaim": "Hoàn thành lộ trình này cho thấy bạn có thể xây dựng và đánh giá một tính năng LLM theo kiểu vận hành thực tế. Điều đó không bảo đảm một vị trí công việc hoặc chứng minh trách nhiệm làm chủ một sản phẩm thương mại đang hoạt động.",
   "sourceBasis": {
     "reviewedAt": "2026-08-29",
-    "method": "Synthesized from current primary job descriptions across AI field, product, platform, data, developer, and evaluation teams."
+    "method": "Được tổng hợp từ các mô tả công việc gốc hiện hành của các nhóm AI tại hiện trường, sản phẩm, nền tảng, dữ liệu, nhà phát triển và đánh giá."
   },
   "estimatedMinutes": 885,
   "stages": [
     {
       "id": "common-core",
-      "title": "Common Core",
-      "outcome": "Shape language-model behavior through prompts, schemas, context, retrieval, and tools.",
+      "title": "Cốt lõi chung",
+      "outcome": "Định hình hành vi mô hình ngôn ngữ thông qua prompt, schema, ngữ cảnh, truy xuất và công cụ.",
       "lessonPaths": [
         "phases/11-llm-engineering/01-prompt-engineering",
         "phases/11-llm-engineering/03-structured-outputs",
@@ -69,35 +69,35 @@
         "phases/11-llm-engineering/06-rag",
         "phases/11-llm-engineering/09-function-calling"
       ],
-      "artifact": "A grounded feature prototype with a typed user contract and observable tool or retrieval behavior."
+      "artifact": "Một nguyên mẫu tính năng có căn cứ với hợp đồng người dùng có kiểu và hành vi công cụ hoặc truy xuất có thể quan sát."
     },
     {
       "id": "role-practice",
-      "title": "Role Practice",
-      "outcome": "Measure quality and control cost and safety before production exposure.",
+      "title": "Thực hành vai trò",
+      "outcome": "Đo lường chất lượng và kiểm soát chi phí cùng an toàn trước khi đưa ra môi trường thực tế.",
       "lessonPaths": [
         "phases/11-llm-engineering/10-evaluation",
         "phases/11-llm-engineering/11-caching-cost",
         "phases/11-llm-engineering/12-guardrails"
       ],
-      "artifact": "An evaluation suite with guardrail tests and a quality, latency, and cost scorecard."
+      "artifact": "Một bộ đánh giá với các kiểm thử guardrail và bảng điểm chất lượng, độ trễ và chi phí."
     },
     {
       "id": "proof-project",
-      "title": "Proof Project",
-      "outcome": "Package the feature as a production-style application behind operational controls.",
+      "title": "Dự án chứng minh",
+      "outcome": "Đóng gói tính năng thành một ứng dụng theo kiểu vận hành thực tế nằm sau các biện pháp kiểm soát vận hành.",
       "lessonPaths": [
         "phases/11-llm-engineering/13-production-app",
         "phases/17-infrastructure-and-production/19-ai-gateways"
       ],
-      "artifact": "A deployed LLM feature with routing, limits, observability hooks, and documented failure behavior."
+      "artifact": "Một tính năng LLM đã triển khai với định tuyến, giới hạn, hook quan sát và hành vi lỗi được ghi thành tài liệu."
     },
     {
       "id": "interview-readiness-evidence",
-      "title": "Interview and Readiness Evidence",
-      "outcome": "Show how the feature advances through controlled exposure with rollback evidence.",
+      "title": "Bằng chứng cho phỏng vấn và mức độ sẵn sàng",
+      "outcome": "Cho thấy cách tính năng tiến triển qua việc đưa ra sử dụng có kiểm soát với bằng chứng rollback.",
       "lessonPaths": ["phases/17-infrastructure-and-production/20-shadow-canary-progressive"],
-      "artifact": "A product case study with eval results, cost tradeoffs, release gates, and a rollback decision."
+      "artifact": "Một nghiên cứu tình huống sản phẩm với kết quả đánh giá, các đánh đổi chi phí, chốt phát hành và quyết định rollback."
     }
   ],
   "lessons": [

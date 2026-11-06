@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "id": "software-engineering-fundamentals",
-  "title": "Software Engineering Fundamentals",
-  "summary": "Build the repository, debugging, testing, interface, security, release, and operational foundations AI systems depend on.",
+  "title": "Nền tảng kỹ thuật phần mềm",
+  "summary": "Xây dựng những nền tảng về kho mã, gỡ lỗi, kiểm thử, giao diện, bảo mật, phát hành và vận hành mà các hệ thống AI phụ thuộc vào.",
   "estimatedMinutes": 730,
   "lessons": [
     {"order": 1, "path": "phases/00-setup-and-tooling/01-dev-environment", "minutes": 45, "required": true},

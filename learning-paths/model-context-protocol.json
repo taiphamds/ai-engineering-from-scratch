@@ -2,64 +2,64 @@
   "schemaVersion": 1,
   "id": "model-context-protocol",
   "title": "Model Context Protocol (MCP)",
-  "summary": "Build, secure, verify, and operate stateless MCP systems from JSON-RPC envelopes through conformance release gates.",
+  "summary": "Xây dựng, bảo mật, xác minh và vận hành các hệ thống MCP không trạng thái, từ các envelope JSON-RPC đến các chốt phát hành kiểm tra tính tuân thủ.",
   "estimatedMinutes": 1395,
   "stateFile": "MCP-LEARNING.md",
   "prerequisites": [
     {
       "type": "knowledge",
       "required": true,
-      "title": "Python and command-line basics",
-      "description": "You can inspect JSON, edit a file, and run a Python command. Prior MCP or agent-framework experience is not required."
+      "title": "Kiến thức cơ bản về Python và dòng lệnh",
+      "description": "Bạn có thể kiểm tra JSON, sửa một tệp và chạy một lệnh Python. Không yêu cầu kinh nghiệm trước đó về MCP hoặc framework agent."
     },
     {
       "type": "software",
       "required": true,
-      "title": "Python 3 for executable wire evidence",
-      "description": "The deterministic implementations and tests use Python 3. A TypeScript runner is optional for the second Lesson 07 implementation."
+      "title": "Python 3 cho bằng chứng trên đường truyền có thể thực thi",
+      "description": "Các bản triển khai và kiểm thử tất định sử dụng Python 3. Một trình chạy TypeScript là tùy chọn cho bản triển khai thứ hai của Bài 07."
     },
     {
       "type": "lesson",
       "required": false,
-      "title": "The Tool Interface",
+      "title": "Giao diện công cụ",
       "path": "phases/13-tools-and-protocols/01-the-tool-interface",
-      "description": "Skim this lesson if typed tool calls and side-effect boundaries are new to you."
+      "description": "Đọc lướt bài học này nếu lệnh gọi công cụ có kiểu và ranh giới tác dụng phụ còn mới với bạn."
     },
     {
       "type": "lesson",
       "required": false,
-      "title": "Tool Schema Design",
+      "title": "Thiết kế schema công cụ",
       "path": "phases/13-tools-and-protocols/05-tool-schema-design",
-      "description": "Skim this lesson if you have not designed or validated JSON Schema tool inputs."
+      "description": "Đọc lướt bài học này nếu bạn chưa thiết kế hoặc kiểm tra tính hợp lệ của đầu vào công cụ dùng JSON Schema."
     }
   ],
   "invocation": {
-    "codex": "learn-mcp, or choose it from /skills",
+    "codex": "learn-mcp, hoặc chọn nó từ /skills",
     "claudeCode": "/learn-mcp",
-    "portableFallback": "Use learn-mcp to start or resume the Model Context Protocol (MCP) path."
+    "portableFallback": "Dùng learn-mcp để bắt đầu hoặc tiếp tục lộ trình Model Context Protocol (MCP)."
   },
-  "conceptualFallback": "Read the website or each lesson's docs/en.md and hand-trace the named request and response pair. Record the checkpoint as conceptual and leave runtime, transport, authorization, and deployment evidence pending until the repository and Python 3 are available.",
+  "conceptualFallback": "Đọc trang web hoặc docs/en.md của từng bài học và theo dõi thủ công cặp yêu cầu và phản hồi được nêu tên. Ghi nhận điểm kiểm tra là ở mức khái niệm và để bằng chứng về runtime, truyền tải, ủy quyền và triển khai ở trạng thái chờ cho đến khi có kho mã và Python 3.",
   "quickStart": {
     "estimatedMinutes": 10,
     "lessonPath": "phases/13-tools-and-protocols/06-mcp-fundamentals",
-    "goal": "Run one stateless MCP transcript and identify the metadata that makes every request independently interpretable.",
-    "workingDirectory": "The repository root.",
+    "goal": "Chạy một bản ghi trao đổi MCP không trạng thái và xác định metadata làm cho mỗi yêu cầu có thể được diễn giải độc lập.",
+    "workingDirectory": "Thư mục gốc của kho mã.",
     "command": "python3 phases/13-tools-and-protocols/06-mcp-fundamentals/code/main.py",
     "expectedEvidence": [
-      "Each request repeats protocol version and client capabilities in params._meta.",
-      "server/discover returns a complete result with supported versions, capabilities, cache hints, and server identity.",
-      "An unsupported version returns JSON-RPC error -32022 with requested and supported versions.",
-      "The transcript closes its transport without creating or terminating an MCP protocol session."
+      "Mỗi yêu cầu lặp lại phiên bản giao thức và các khả năng của client trong params._meta.",
+      "server/discover trả về một kết quả đầy đủ với các phiên bản được hỗ trợ, các khả năng, gợi ý cache và danh tính máy chủ.",
+      "Một phiên bản không được hỗ trợ trả về lỗi JSON-RPC -32022 kèm phiên bản được yêu cầu và các phiên bản được hỗ trợ.",
+      "Bản ghi trao đổi đóng kênh truyền tải của nó mà không tạo hoặc kết thúc một phiên giao thức MCP."
     ]
   },
   "publicDeploymentGate": {
     "checkpointLessonPath": "phases/13-tools-and-protocols/15-mcp-security-tool-poisoning",
-    "appliesBefore": "Any non-loopback bind, shared ingress, hosted endpoint, registry publication, or other public MCP deployment.",
+    "appliesBefore": "Bất kỳ việc bind ngoài loopback, ingress dùng chung, endpoint được lưu trữ, công bố registry hoặc triển khai MCP công khai nào khác.",
     "requiredEvidence": [
-      "The Lesson 15 executable checkpoint rejects poisoned or drifted metadata before routing.",
-      "Tool descriptions, annotations, server instructions, and MRTR content are treated as untrusted input.",
-      "Authentication, authorization, sandboxing, and result verification are recorded as separate controls.",
-      "The learner explicitly approves the external deployment action after reviewing the target and authority."
+      "Điểm kiểm tra có thể thực thi của Bài 15 từ chối metadata bị đầu độc hoặc bị lệch trước khi định tuyến.",
+      "Mô tả công cụ, annotation, chỉ dẫn máy chủ và nội dung MRTR được xem là đầu vào không đáng tin cậy.",
+      "Xác thực, ủy quyền, sandbox và xác minh kết quả được ghi lại như các biện pháp kiểm soát riêng biệt.",
+      "Người học phê duyệt tường minh hành động triển khai ra bên ngoài sau khi rà soát đích và thẩm quyền."
     ]
   },
   "lessons": [
@@ -68,13 +68,13 @@
       "group": "core",
       "phase": 13,
       "lesson": 6,
-      "title": "MCP Fundamentals: Stateless Requests and JSON-RPC",
+      "title": "Nền tảng MCP: Yêu cầu không trạng thái và JSON-RPC",
       "path": "phases/13-tools-and-protocols/06-mcp-fundamentals",
       "minutes": 55,
       "required": true,
       "checkpointEvidence": [
-        "A transcript of two independent requests that each carry protocol version and client capabilities in params._meta.",
-        "A complete server/discover result and an unsupported-version error with code -32022."
+        "Một bản ghi trao đổi của hai yêu cầu độc lập, mỗi yêu cầu mang phiên bản giao thức và các khả năng của client trong params._meta.",
+        "Một kết quả server/discover đầy đủ và một lỗi phiên bản không được hỗ trợ với mã -32022."
       ]
     },
     {
@@ -82,13 +82,13 @@
       "group": "core",
       "phase": 13,
       "lesson": 7,
-      "title": "Building an MCP Server: Stateless Python and TypeScript",
+      "title": "Xây dựng máy chủ MCP: Python và TypeScript không trạng thái",
       "path": "phases/13-tools-and-protocols/07-building-an-mcp-server",
       "minutes": 85,
       "required": true,
       "checkpointEvidence": [
-        "A server demo showing discovery, tools/list, and tools/call without connection-scoped protocol state.",
-        "A deterministic test result from the Python implementation, plus the TypeScript demo when a TypeScript runner is available."
+        "Một bản demo máy chủ thể hiện việc phát hiện, tools/list và tools/call mà không có trạng thái giao thức trong phạm vi kết nối.",
+        "Một kết quả kiểm thử tất định từ bản triển khai Python, cùng bản demo TypeScript khi có trình chạy TypeScript."
       ]
     },
     {
@@ -96,13 +96,13 @@
       "group": "core",
       "phase": 13,
       "lesson": 8,
-      "title": "Building an MCP Client: Discovery, Routing, and Dual-Era Fallback",
+      "title": "Xây dựng client MCP: Phát hiện, định tuyến và phương án dự phòng cho hai thời kỳ",
       "path": "phases/13-tools-and-protocols/08-building-an-mcp-client",
       "minutes": 85,
       "required": true,
       "checkpointEvidence": [
-        "A client transcript that selects the modern route from per-request metadata and records the selected protocol era.",
-        "A separate legacy fallback trace that does not mix initialization state into the modern request path."
+        "Một bản ghi trao đổi của client chọn tuyến hiện đại từ metadata của từng yêu cầu và ghi lại thời kỳ giao thức đã chọn.",
+        "Một trace dự phòng kiểu cũ riêng biệt không trộn trạng thái khởi tạo vào đường đi của yêu cầu hiện đại."
       ]
     },
     {
@@ -110,13 +110,13 @@
       "group": "core",
       "phase": 13,
       "lesson": 9,
-      "title": "MCP Transports: stdio and Stateless Streamable HTTP",
+      "title": "Truyền tải MCP: stdio và Streamable HTTP không trạng thái",
       "path": "phases/13-tools-and-protocols/09-mcp-transports",
       "minutes": 65,
       "required": true,
       "checkpointEvidence": [
-        "A byte-framed stdio exchange and a POST /mcp exchange with the observed status and content type.",
-        "A header-to-body parity failure that is rejected before version negotiation or dispatch."
+        "Một lượt trao đổi stdio được đóng khung theo byte và một lượt trao đổi POST /mcp với trạng thái và loại nội dung quan sát được.",
+        "Một lỗi không tương ứng giữa header và body bị từ chối trước khi thương lượng phiên bản hoặc điều phối."
       ]
     },
     {
@@ -124,13 +124,13 @@
       "group": "core",
       "phase": 13,
       "lesson": 10,
-      "title": "MCP Resources and Prompts: Addressable Context for Stateless Servers",
+      "title": "Tài nguyên và prompt MCP: Ngữ cảnh có thể định địa chỉ cho các máy chủ không trạng thái",
       "path": "phases/13-tools-and-protocols/10-mcp-resources-and-prompts",
       "minutes": 60,
       "required": true,
       "checkpointEvidence": [
-        "A transcript that lists and reads a URI-addressed resource and renders a prompt with validated arguments.",
-        "Explicit cache scope, TTL, deterministic ordering, and primitive choice for the same example."
+        "Một bản ghi trao đổi liệt kê và đọc một tài nguyên được định địa chỉ bằng URI, đồng thời kết xuất một prompt với các đối số đã được kiểm tra tính hợp lệ.",
+        "Phạm vi cache tường minh, TTL, thứ tự tất định và lựa chọn primitive cho cùng ví dụ."
       ]
     },
     {
@@ -138,13 +138,13 @@
       "group": "bidirectional",
       "phase": 13,
       "lesson": 11,
-      "title": "MCP Model Input: Sampling Migration and Stateless MRTR",
+      "title": "Đầu vào mô hình MCP: Chuyển đổi sampling và MRTR không trạng thái",
       "path": "phases/13-tools-and-protocols/11-mcp-sampling",
       "minutes": 75,
       "required": true,
       "checkpointEvidence": [
-        "An MRTR input request, a client-side provider result, and a retry of the original operation with a new request id.",
-        "Evidence that the server never emits an independent server-initiated JSON-RPC request."
+        "Một yêu cầu đầu vào MRTR, một kết quả từ nhà cung cấp phía client và một lần thử lại thao tác ban đầu với ID yêu cầu mới.",
+        "Bằng chứng rằng máy chủ không bao giờ phát ra một yêu cầu JSON-RPC độc lập do máy chủ khởi tạo."
       ]
     },
     {
@@ -152,13 +152,13 @@
       "group": "bidirectional",
       "phase": 13,
       "lesson": 12,
-      "title": "Explicit Scope and Stateless Elicitation",
+      "title": "Phạm vi tường minh và elicitation không trạng thái",
       "path": "phases/13-tools-and-protocols/12-mcp-roots-and-elicitation",
       "minutes": 60,
       "required": true,
       "checkpointEvidence": [
-        "A request whose allowed roots are explicit operation inputs rather than remembered client state.",
-        "An elicitation MRTR response that is schema-validated before the original operation is retried."
+        "Một yêu cầu có các root được phép là đầu vào thao tác tường minh thay vì trạng thái client được ghi nhớ.",
+        "Một phản hồi MRTR elicitation được kiểm tra tính hợp lệ theo schema trước khi thao tác ban đầu được thử lại."
       ]
     },
     {
@@ -166,13 +166,13 @@
       "group": "bidirectional",
       "phase": 13,
       "lesson": 13,
-      "title": "MCP Tasks Extension: Durable Work on a Stateless Core",
+      "title": "Phần mở rộng Tasks của MCP: Công việc bền vững trên lõi không trạng thái",
       "path": "phases/13-tools-and-protocols/13-mcp-async-tasks",
       "minutes": 90,
       "required": true,
       "checkpointEvidence": [
-        "A durable task trace covering creation, status polling, cancellation, and a terminal result across independent requests.",
-        "Task ids, revision or idempotency behavior, deterministic listings, and request-header parity recorded separately from protocol state."
+        "Một trace tác vụ bền vững bao quát việc tạo, thăm dò trạng thái, hủy và kết quả cuối cùng qua các yêu cầu độc lập.",
+        "ID tác vụ, hành vi phiên bản sửa đổi hoặc tính lũy đẳng, danh sách tất định và sự tương ứng của header yêu cầu được ghi lại tách biệt với trạng thái giao thức."
       ]
     },
     {
@@ -180,13 +180,13 @@
       "group": "bidirectional",
       "phase": 13,
       "lesson": 14,
-      "title": "MCP Apps on the Stateless Protocol",
+      "title": "MCP Apps trên giao thức không trạng thái",
       "path": "phases/13-tools-and-protocols/14-mcp-apps",
       "minutes": 75,
       "required": true,
       "checkpointEvidence": [
-        "A tool result that references an explicit UI resource and keeps protocol data separate from view state.",
-        "A recorded host-to-view message boundary with allowed messages, rejected messages, and no ambient authority assumption."
+        "Một kết quả công cụ tham chiếu đến một tài nguyên UI tường minh và giữ dữ liệu giao thức tách biệt với trạng thái khung nhìn.",
+        "Một ranh giới thông điệp từ host đến khung nhìn được ghi lại với các thông điệp được phép, thông điệp bị từ chối và không có giả định về thẩm quyền ngầm có sẵn."
       ]
     },
     {
@@ -194,13 +194,13 @@
       "group": "secure",
       "phase": 13,
       "lesson": 15,
-      "title": "MCP Security: Poisoned Metadata, Routing, and MRTR State",
+      "title": "Bảo mật MCP: Metadata bị đầu độc, định tuyến và trạng thái MRTR",
       "path": "phases/13-tools-and-protocols/15-mcp-security-tool-poisoning",
       "minutes": 60,
       "required": true,
       "checkpointEvidence": [
-        "A poisoned or drifted descriptor rejected before tool routing and authorization.",
-        "A threat-model record that separates untrusted metadata, requested authority, sandbox boundary, and result verification."
+        "Một descriptor bị đầu độc hoặc bị lệch bị từ chối trước khi định tuyến công cụ và ủy quyền.",
+        "Một bản ghi mô hình đe dọa tách biệt metadata không đáng tin cậy, thẩm quyền được yêu cầu, ranh giới sandbox và xác minh kết quả."
       ]
     },
     {
@@ -208,13 +208,13 @@
       "group": "secure",
       "phase": 13,
       "lesson": 16,
-      "title": "MCP Authorization: CIMD, Issuer Binding, PKCE, and Step-Up",
+      "title": "Ủy quyền MCP: CIMD, ràng buộc với bên phát hành, PKCE và Step-Up",
       "path": "phases/13-tools-and-protocols/16-mcp-security-oauth-2-1",
       "minutes": 90,
       "required": true,
       "checkpointEvidence": [
-        "A complete authorization trace with issuer-bound metadata discovery, PKCE, resource binding, audience validation, and least-privilege scopes.",
-        "A step-up decision that denies insufficient authority before the handler runs."
+        "Một trace ủy quyền đầy đủ với việc phát hiện metadata được ràng buộc với bên phát hành, PKCE, ràng buộc tài nguyên, xác minh audience và các phạm vi đặc quyền tối thiểu.",
+        "Một quyết định step-up từ chối thẩm quyền không đủ trước khi trình xử lý chạy."
       ]
     },
     {
@@ -222,13 +222,13 @@
       "group": "secure",
       "phase": 13,
       "lesson": 18,
-      "title": "MCP Auth in Production: Issuer-Bound Enrollment and Tokens",
+      "title": "Auth MCP trong môi trường thực tế: Đăng ký và token được ràng buộc với bên phát hành",
       "path": "phases/13-tools-and-protocols/18-mcp-auth-production",
       "minutes": 90,
       "required": true,
       "checkpointEvidence": [
-        "An issuer-bound client enrollment and token-validation trace with no discovery metadata trusted across issuers.",
-        "Independent authentication and concrete-operation authorization evidence for two consecutive requests."
+        "Một trace đăng ký client và xác minh token được ràng buộc với bên phát hành, trong đó không có metadata phát hiện nào được tin cậy giữa các bên phát hành.",
+        "Bằng chứng xác thực độc lập và ủy quyền cho thao tác cụ thể đối với hai yêu cầu liên tiếp."
       ]
     },
     {
@@ -236,13 +236,13 @@
       "group": "secure",
       "phase": 13,
       "lesson": 17,
-      "title": "Stateless MCP Gateways and Registry Admission",
+      "title": "Gateway MCP không trạng thái và tiếp nhận vào registry",
       "path": "phases/13-tools-and-protocols/17-mcp-gateways-and-registries",
       "minutes": 75,
       "required": true,
       "checkpointEvidence": [
-        "A registry candidate admitted or rejected from immutable descriptor, provenance, and policy evidence.",
-        "A gateway trace that records deterministic routing, request-scoped authorization, and the exact policy snapshot used."
+        "Một ứng viên registry được tiếp nhận hoặc từ chối dựa trên descriptor bất biến, nguồn gốc và bằng chứng chính sách.",
+        "Một trace gateway ghi lại định tuyến tất định, ủy quyền trong phạm vi yêu cầu và chính xác snapshot chính sách đã sử dụng."
       ]
     },
     {
@@ -250,13 +250,13 @@
       "group": "advanced",
       "phase": 13,
       "lesson": 28,
-      "title": "MCP Tool Contracts and Content",
+      "title": "Hợp đồng và nội dung công cụ MCP",
       "path": "phases/13-tools-and-protocols/28-mcp-tool-contracts-and-content",
       "minutes": 120,
       "required": true,
       "checkpointEvidence": [
-        "A tool descriptor accepted only after schema, annotations, transport-header mappings, and content-block invariants agree.",
-        "A redacted HTTP-boundary trace that proves parameter-header encoding and exact header-to-body comparison before dispatch."
+        "Một descriptor công cụ chỉ được chấp nhận sau khi schema, annotation, ánh xạ header truyền tải và các bất biến của khối nội dung nhất quán với nhau.",
+        "Một trace tại ranh giới HTTP đã được che thông tin chứng minh việc mã hóa header tham số và so sánh chính xác giữa header và body trước khi điều phối."
       ]
     },
     {
@@ -264,13 +264,13 @@
       "group": "advanced",
       "phase": 13,
       "lesson": 29,
-      "title": "MCP Reliability, Cancellation, and Flow Control",
+      "title": "Độ tin cậy, hủy và kiểm soát luồng của MCP",
       "path": "phases/13-tools-and-protocols/29-mcp-reliability-cancellation-and-flow-control",
       "minutes": 120,
       "required": true,
       "checkpointEvidence": [
-        "Four deterministic cancellation, completion, deadline, and disconnect orderings with no sleep-based coordination.",
-        "Exactly one terminal outcome per request, bounded queue behavior, and late-event handling recorded for every race."
+        "Bốn thứ tự tất định của việc hủy, hoàn thành, thời hạn và ngắt kết nối mà không có sự phối hợp dựa trên sleep.",
+        "Chính xác một kết quả cuối cùng cho mỗi yêu cầu, hành vi hàng đợi có giới hạn và xử lý sự kiện đến muộn được ghi lại cho mọi tình huống tranh chấp."
       ]
     },
     {
@@ -278,13 +278,13 @@
       "group": "advanced",
       "phase": 13,
       "lesson": 30,
-      "title": "MCP Registry Supply Chain: Admission, Drift, and Rollback",
+      "title": "Chuỗi cung ứng registry MCP: Tiếp nhận, sai lệch và rollback",
       "path": "phases/13-tools-and-protocols/30-mcp-registry-supply-chain-and-drift",
       "minutes": 90,
       "required": true,
       "checkpointEvidence": [
-        "A namespace collision and descriptor-drift case rejected before registry exposure.",
-        "A status transition and rollback decision tied to immutable artifact identity, provenance, and policy evidence."
+        "Một trường hợp xung đột namespace và sai lệch descriptor bị từ chối trước khi được đưa ra qua registry.",
+        "Một chuyển đổi trạng thái và quyết định rollback gắn với danh tính sản phẩm bất biến, nguồn gốc và bằng chứng chính sách."
       ]
     },
     {
@@ -292,13 +292,13 @@
       "group": "advanced",
       "phase": 13,
       "lesson": 31,
-      "title": "MCP Conformance Engineering: Versioning, Evidence, and Operations",
+      "title": "Kỹ thuật tuân thủ MCP: Quản lý phiên bản, bằng chứng và vận hành",
       "path": "phases/13-tools-and-protocols/31-mcp-conformance-versioning-and-operations",
       "minutes": 100,
       "required": true,
       "checkpointEvidence": [
-        "A conformance matrix that records protocol era, additive-field behavior, SDK transformation, and proxy preservation at every boundary.",
-        "A release decision backed by normalized wire transcripts, deterministic tests, and an explicit failure report for every rejected case."
+        "Một ma trận tuân thủ ghi lại thời kỳ giao thức, hành vi của trường được bổ sung, biến đổi của SDK và việc bảo toàn qua proxy tại mọi ranh giới.",
+        "Một quyết định phát hành được hỗ trợ bởi các bản ghi trao đổi trên đường truyền đã chuẩn hóa, kiểm thử tất định và báo cáo lỗi tường minh cho mọi trường hợp bị từ chối."
       ]
     }
   ],
@@ -306,7 +306,7 @@
     {
       "phase": 13,
       "lesson": 23,
-      "title": "Capstone: Stateless Tool Ecosystem",
+      "title": "Dự án tổng kết: Hệ sinh thái công cụ không trạng thái",
       "path": "phases/13-tools-and-protocols/23-capstone-tool-ecosystem",
       "minutes": 120,
       "required": false,
@@ -314,7 +314,7 @@
         "phases/13-tools-and-protocols/19-a2a-protocol",
         "phases/13-tools-and-protocols/20-opentelemetry-genai"
       ],
-      "entryRule": "Complete the 17 required Model Context Protocol (MCP) lessons plus both prerequisite paths before starting this integration capstone."
+      "entryRule": "Hoàn thành 17 bài học Model Context Protocol (MCP) bắt buộc cùng cả hai đường dẫn tiên quyết trước khi bắt đầu dự án tổng kết tích hợp này."
     }
   ]
 }

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "id": "building-and-deploying-ai-applications",
-  "title": "Building and Deploying AI Applications",
-  "summary": "Build an AI feature from prompt and structured output through retrieval, evaluation, production serving, observability, and release.",
+  "title": "Xây dựng và triển khai ứng dụng AI",
+  "summary": "Xây dựng một tính năng AI từ prompt và đầu ra có cấu trúc đến truy xuất, đánh giá, phục vụ trong môi trường thực tế, khả năng quan sát và phát hành.",
   "estimatedMinutes": 780,
   "lessons": [
     {"order": 1, "path": "phases/11-llm-engineering/01-prompt-engineering", "minutes": 60, "required": true},

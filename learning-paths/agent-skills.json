@@ -1,68 +1,68 @@
 {
   "schemaVersion": 1,
   "id": "agent-skills",
-  "title": "Agent Skills Engineering",
-  "summary": "Build, route, secure, evaluate, package, and verify Agent Skills in real hosts.",
+  "title": "Kỹ thuật Agent Skills",
+  "summary": "Xây dựng, định tuyến, bảo mật, đánh giá, đóng gói và xác minh Agent Skills trong các host thực tế.",
   "estimatedMinutes": 570,
   "stateFile": "AGENT-SKILLS-LEARNING.md",
   "prerequisites": [
     {
       "type": "knowledge",
       "required": true,
-      "title": "Files, Python, and the command line",
-      "description": "You can edit a text file, inspect a directory, and run a Python command. No agent framework experience is required."
+      "title": "Tệp, Python và dòng lệnh",
+      "description": "Bạn có thể sửa một tệp văn bản, kiểm tra một thư mục và chạy một lệnh Python. Không yêu cầu kinh nghiệm về framework agent."
     },
     {
       "type": "software",
       "required": true,
-      "title": "Node.js, npx, and Python 3 for real labs",
-      "description": "The install and bundled-script checkpoints require working node, npx, and python3 commands. The website and docs remain a conceptual fallback when these commands are unavailable."
+      "title": "Node.js, npx và Python 3 cho các bài thực hành thực tế",
+      "description": "Các điểm kiểm tra cài đặt và script đi kèm yêu cầu các lệnh node, npx và python3 hoạt động được. Trang web và tài liệu vẫn là phương án dự phòng về mặt khái niệm khi không có các lệnh này."
     },
     {
       "type": "host",
       "required": true,
-      "title": "One selected skill-capable host and install scope",
-      "description": "Choose a supported agent host plus a writable project or user skill scope before installation. Record the exact host, scope, and installed path; do not infer discovery from installer success."
+      "title": "Một host được chọn có khả năng hỗ trợ skill và phạm vi cài đặt",
+      "description": "Chọn một host agent được hỗ trợ cùng phạm vi skill của dự án hoặc người dùng có thể ghi trước khi cài đặt. Ghi lại chính xác host, phạm vi và đường dẫn đã cài đặt; không suy ra việc phát hiện từ thành công của trình cài đặt."
     },
     {
       "type": "lesson",
       "required": false,
-      "title": "The Tool Interface",
+      "title": "Giao diện công cụ",
       "path": "phases/13-tools-and-protocols/01-the-tool-interface",
-      "description": "Skim this first if tool schemas and side-effect boundaries are new to you."
+      "description": "Đọc lướt phần này trước nếu schema công cụ và ranh giới tác dụng phụ còn mới với bạn."
     },
     {
       "type": "lesson",
       "required": false,
-      "title": "Tool Schema Design",
+      "title": "Thiết kế schema công cụ",
       "path": "phases/13-tools-and-protocols/05-tool-schema-design",
-      "description": "Skim this first if you have not designed typed tool contracts."
+      "description": "Đọc lướt phần này trước nếu bạn chưa thiết kế các hợp đồng công cụ có kiểu."
     },
     {
       "id": "tool-poisoning-and-untrusted-instructions",
       "type": "knowledge",
       "required": true,
-      "title": "Tool poisoning and untrusted instructions",
-      "description": "Before Lesson 26, explain why skill and tool metadata is untrusted input. Lesson 15 is an optional refresher outside this five-lesson route when this preflight is not yet confirmed."
+      "title": "Đầu độc công cụ và chỉ dẫn không đáng tin cậy",
+      "description": "Trước Bài 26, giải thích vì sao metadata của skill và công cụ là đầu vào không đáng tin cậy. Bài 15 là bài ôn tập tùy chọn ngoài lộ trình năm bài này khi kiểm tra trước này chưa được xác nhận."
     }
   ],
   "invocation": {
-    "codex": "learn-agent-skills, or choose it from /skills",
+    "codex": "learn-agent-skills, hoặc chọn nó từ /skills",
     "claudeCode": "/learn-agent-skills",
-    "portableFallback": "Use learn-agent-skills to start or resume the Agent Skills Engineering path."
+    "portableFallback": "Dùng learn-agent-skills để bắt đầu hoặc tiếp tục lộ trình Kỹ thuật Agent Skills."
   },
-  "conceptualFallback": "Read the website or each lesson's docs/en.md manually. Mark real-host discovery, invocation, script, update, and uninstall evidence pending until Node.js, npx, Python 3, a compatible host, and a writable install scope are available.",
+  "conceptualFallback": "Đọc thủ công trang web hoặc docs/en.md của từng bài học. Đánh dấu bằng chứng về việc phát hiện, gọi, script, cập nhật và gỡ cài đặt trên host thực tế là đang chờ cho đến khi có Node.js, npx, Python 3, một host tương thích và một phạm vi cài đặt có thể ghi.",
   "quickStart": {
     "estimatedMinutes": 10,
     "lessonPath": "phases/13-tools-and-protocols/22-skills-and-agent-sdks",
-    "goal": "Create a small skill, install the complete reviewer bundle into a real host, invoke it explicitly, verify its output, and remove it cleanly.",
+    "goal": "Tạo một skill nhỏ, cài đặt gói reviewer hoàn chỉnh vào một host thực tế, gọi nó một cách tường minh, xác minh đầu ra của nó và gỡ bỏ nó sạch sẽ.",
     "installCommand": "npx skills add rohitg00/ai-engineering-from-scratch --skill skill-contract-reviewer --full-depth",
-    "workingDirectory": "An empty learner workspace. Save its absolute path as TARGET_ROOT before installation.",
+    "workingDirectory": "Một không gian làm việc trống của người học. Lưu đường dẫn tuyệt đối của nó dưới tên TARGET_ROOT trước khi cài đặt.",
     "expectedEvidence": [
-      "The installer reports the selected host and destination.",
-      "The host discovers skill-contract-reviewer after a rescan or new session.",
-      "An explicit invocation returns a validation report and primitive choice, plus the resolved script path, target path, cwd, argv, and exit code.",
-      "The uninstall command removes only skill-contract-reviewer from the selected host."
+      "Trình cài đặt báo cáo host và đích đã chọn.",
+      "Host phát hiện skill-contract-reviewer sau một lần quét lại hoặc một phiên mới.",
+      "Một lần gọi tường minh trả về báo cáo kiểm tra tính hợp lệ và lựa chọn primitive, cùng đường dẫn script đã được phân giải, đường dẫn đích, cwd, argv và mã thoát.",
+      "Lệnh gỡ cài đặt chỉ loại bỏ skill-contract-reviewer khỏi host đã chọn."
     ]
   },
   "lessons": [
@@ -70,37 +70,37 @@
       "order": 1,
       "phase": 13,
       "lesson": 22,
-      "title": "Agent Skills: Portable Contract and Runtime Boundary",
+      "title": "Agent Skills: Hợp đồng có thể di chuyển và ranh giới runtime",
       "path": "phases/13-tools-and-protocols/22-skills-and-agent-sdks",
       "minutes": 90,
       "required": true,
-      "checkpoint": "Create, install, invoke, verify, and remove one complete skill bundle in a real host."
+      "checkpoint": "Tạo, cài đặt, gọi, xác minh và gỡ bỏ một gói skill hoàn chỉnh trong một host thực tế."
     },
     {
       "order": 2,
       "phase": 13,
       "lesson": 24,
-      "title": "Skill Discovery and Progressive Disclosure",
+      "title": "Phát hiện skill và tiết lộ tăng dần",
       "path": "phases/13-tools-and-protocols/24-skill-discovery-and-progressive-disclosure",
       "minutes": 105,
       "required": true,
-      "checkpoint": "Trace discovery, catalog publication, activation, and branch-specific resource loading separately."
+      "checkpoint": "Theo dõi riêng việc phát hiện, công bố danh mục, kích hoạt và tải tài nguyên dành riêng cho từng nhánh."
     },
     {
       "order": 3,
       "phase": 13,
       "lesson": 25,
-      "title": "Skill Invocation and Routing",
+      "title": "Gọi và định tuyến skill",
       "path": "phases/13-tools-and-protocols/25-skill-invocation-and-routing",
       "minutes": 105,
       "required": true,
-      "checkpoint": "Exercise explicit invocation, implicit selection, abstention, and a near-miss request."
+      "checkpoint": "Thực hành việc gọi tường minh, lựa chọn ngầm định, không lựa chọn và một yêu cầu gần khớp."
     },
     {
       "order": 4,
       "phase": 13,
       "lesson": 26,
-      "title": "Skill Permissions, Sandboxes, and Trust",
+      "title": "Quyền hạn, sandbox và độ tin cậy của skill",
       "path": "phases/13-tools-and-protocols/26-skill-permissions-sandboxes-and-trust",
       "minutes": 120,
       "required": true,
@@ -110,28 +110,28 @@
       "prerequisiteChecks": [
         "tool-poisoning-and-untrusted-instructions"
       ],
-      "checkpoint": "Distinguish instructions, permission prompts, sandbox containment, and independent verification with observed evidence."
+      "checkpoint": "Phân biệt chỉ dẫn, lời nhắc cấp quyền, sự giới hạn trong sandbox và xác minh độc lập bằng bằng chứng quan sát được."
     },
     {
       "order": 5,
       "phase": 13,
       "lesson": 27,
-      "title": "Skill Evals, Packaging, and Portability",
+      "title": "Đánh giá, đóng gói và khả năng di chuyển của skill",
       "path": "phases/13-tools-and-protocols/27-skill-evals-packaging-and-portability",
       "minutes": 150,
       "required": true,
-      "checkpoint": "Run the release gate in a real host, record routing and authority evidence, and verify upgrade and uninstall behavior."
+      "checkpoint": "Chạy chốt phát hành trong một host thực tế, ghi lại bằng chứng về định tuyến và thẩm quyền, đồng thời xác minh hành vi nâng cấp và gỡ cài đặt."
     }
   ],
   "optionalLessons": [
     {
       "phase": 13,
       "lesson": 23,
-      "title": "Capstone: Stateless Tool Ecosystem",
+      "title": "Dự án tổng kết: Hệ sinh thái công cụ không trạng thái",
       "path": "phases/13-tools-and-protocols/23-capstone-tool-ecosystem",
       "minutes": 120,
       "required": false,
-      "entryRule": "Complete the Agent Skills route and Phase 13 lessons 06 through 20 before starting this systems integration capstone."
+      "entryRule": "Hoàn thành lộ trình Agent Skills và các bài 06 đến 20 của Giai đoạn 13 trước khi bắt đầu dự án tổng kết tích hợp hệ thống này."
     }
   ]
 }
