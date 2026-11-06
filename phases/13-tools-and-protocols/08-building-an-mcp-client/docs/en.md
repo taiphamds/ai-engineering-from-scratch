@@ -1,6 +1,6 @@
 # Building an MCP Client: Discovery, Routing, and Dual-Era Fallback
 
-> A modern MCP client repeats its contract on every request. Its hardest compatibility decision is knowing when an old server is truly old and when a modern server is reporting a correctable error.
+> Client MCP hiện đại lặp hợp đồng trên mọi yêu cầu. Quyết định tương thích khó nhất là biết khi nào máy chủ cũ thực sự cũ và khi nào máy chủ hiện đại báo lỗi có thể sửa.
 
 **Type:** Build
 **Languages:** Python
@@ -9,40 +9,40 @@
 
 ## Learning Objectives
 
-- Build every MCP `2026-07-28` request with current metadata.
-- Probe stdio servers with `server/discover` and select a mutually supported version.
-- Authorize a bounded legacy probe only for explicitly allowlisted peers.
-- Accept a legacy era only after validating a positive `initialize` result for a supported revision.
-- Merge deterministic tool lists without silently overwriting collisions.
-- Route calls to the peer that owns each tool without inventing protocol sessions.
+- Xây mọi yêu cầu MCP `2026-07-28` với siêu dữ liệu hiện tại.
+- Thăm dò máy chủ stdio bằng `server/discover` và chọn phiên bản cả hai hỗ trợ.
+- Chỉ cấp quyền thăm dò cũ có giới hạn cho peer nằm rõ trong danh sách cho phép.
+- Chỉ chấp nhận thời kỳ cũ sau khi xác thực kết quả `initialize` thành công cho bản sửa đổi hỗ trợ.
+- Gộp danh sách công cụ tất định không âm thầm ghi đè xung đột.
+- Định tuyến lời gọi đến peer sở hữu mỗi công cụ không bịa phiên giao thức.
 
 ## The Problem
 
-An agent host usually talks to more than one MCP server. It must discover each server, merge tool catalogs, resolve duplicate names, route calls, and recover from transport failure.
+Host agent thường nói chuyện với hơn một máy chủ MCP. Nó phải khám phá từng máy chủ, gộp danh mục công cụ, giải quyết tên trùng, định tuyến lời gọi và phục hồi sau lỗi vận chuyển.
 
-The `2026-07-28` revision makes the steady state simpler because each request is self-contained. Compatibility makes startup more subtle. A client may encounter:
+Bản sửa đổi `2026-07-28` làm trạng thái ổn định đơn giản hơn vì mỗi yêu cầu tự đầy đủ. Tương thích khiến khởi động tinh tế hơn. Client có thể gặp:
 
-- a modern server that supports the preferred version;
-- a modern server that returns a recognized version or header error;
-- a legacy server that has never heard of `server/discover`;
-- a legacy server that stays silent until it receives `initialize`.
+- máy chủ hiện đại hỗ trợ phiên bản ưu tiên;
+- máy chủ hiện đại trả lỗi phiên bản hoặc header đã nhận biết;
+- máy chủ cũ chưa từng biết `server/discover`;
+- máy chủ cũ im lặng đến khi nhận `initialize`.
 
-Treating every probe error as legacy is dangerous. A malformed modern request, an overloaded server, a dead process, and an old server can all produce the same timeout or connection close. Those signals are ambiguous. The client must combine explicit operator intent with positive protocol evidence before it chooses the legacy era.
+Coi mọi lỗi thăm dò là cũ rất nguy hiểm. Yêu cầu hiện đại sai dạng, máy chủ quá tải, tiến trình chết và máy chủ cũ đều có thể tạo cùng hết thời gian hoặc đóng kết nối. Các tín hiệu đó mơ hồ. Client phải kết hợp ý định người vận hành tường minh với bằng chứng giao thức xác thực trước khi chọn thời kỳ cũ.
 
 ## The Concept
 
 ### A peer, not a protocol session
 
-Keep one transport peer record for each server process or endpoint:
+Giữ một bản ghi peer vận chuyển cho mỗi tiến trình máy chủ hoặc endpoint:
 
-- transport handle or send function;
-- selected protocol era and version;
-- last discovered server capabilities;
-- last deterministic tool list;
-- pending request ids for correlation;
-- transport health.
+- handle vận chuyển hoặc hàm gửi;
+- thời kỳ và phiên bản giao thức đã chọn;
+- khả năng máy chủ khám phá gần nhất;
+- danh sách công cụ tất định gần nhất;
+- id yêu cầu chờ để liên hệ;
+- tình trạng vận chuyển.
 
-This is client bookkeeping. It is not protocol session state. On modern MCP, the server still receives current version and capabilities on every request.
+Đây là ghi chép phía client. Không phải trạng thái phiên giao thức. Trên MCP hiện đại, máy chủ vẫn nhận phiên bản và khả năng hiện tại trên mọi yêu cầu.
 
 ### Build every modern request from scratch
 
@@ -63,87 +63,87 @@ def modern_request(request_id, method, params, version, capabilities):
     }
 ```
 
-Do not attach metadata once to a connection object and assume it reached the wire. Stamp and inspect the final serialized request.
+Không gắn siêu dữ liệu một lần vào đối tượng kết nối rồi giả định đã đến đường truyền. Đóng và kiểm tra yêu cầu tuần tự hóa cuối cùng.
 
 ### Modern discovery
 
-`server/discover` returns supported versions, server capabilities, instructions, cache hints, and recommended server identity. A client chooses the highest mutually supported modern version.
+`server/discover` trả phiên bản hỗ trợ, khả năng máy chủ, chỉ dẫn, gợi ý bộ đệm và danh tính máy chủ được khuyến nghị. Client chọn phiên bản hiện đại cao nhất cả hai hỗ trợ.
 
-Discovery is optional for a modern-only client, but it is recommended on stdio. Some legacy servers accept an operation before initialization, so sending `tools/list` first can produce an ambiguous success. `server/discover` creates a clean era boundary.
+Khám phá là tùy chọn với client chỉ hiện đại, nhưng được khuyến nghị trên stdio. Một số máy chủ cũ nhận thao tác trước khởi tạo, nên gửi `tools/list` trước có thể tạo thành công mơ hồ. `server/discover` tạo ranh giới thời kỳ rõ.
 
 ### The stdio compatibility probe
 
-A dual-era stdio client sends `server/discover` with its preferred modern metadata before any other request. There are three outcome classes:
+Client stdio hai thời kỳ gửi `server/discover` với siêu dữ liệu hiện đại ưu tiên trước mọi yêu cầu khác. Có ba lớp kết quả:
 
-1. **DiscoverResult.** The server is modern. Select a mutually supported version and continue with per-request metadata.
-2. **Recognized modern error.** The server is modern. For `-32022`, choose from `data.supported` and retry with a new request id. For header or capability errors, correct the request. Do not send `initialize`.
-3. **Ambiguous signal.** An unrecognized JSON-RPC error, timeout, connection close, or empty response does not identify an era. Fail closed unless that exact peer is configured for legacy compatibility.
+1. **DiscoverResult.** Máy chủ hiện đại. Chọn phiên bản cả hai hỗ trợ và tiếp tục với siêu dữ liệu mỗi yêu cầu.
+2. **Lỗi hiện đại đã nhận biết.** Máy chủ hiện đại. Với `-32022`, chọn từ `data.supported` và thử lại với id yêu cầu mới. Với lỗi header hoặc khả năng, sửa yêu cầu. Không gửi `initialize`.
+3. **Tín hiệu mơ hồ.** Lỗi JSON-RPC không nhận biết, hết thời gian, đóng kết nối hoặc phản hồi rỗng không xác định thời kỳ. Thất bại theo hướng đóng trừ khi đúng peer đó được cấu hình tương thích cũ.
 
-Recognized modern protocol errors include:
+Lỗi giao thức hiện đại đã nhận biết gồm:
 
 - `-32020` HeaderMismatch
 - `-32021` MissingRequiredClientCapability
 - `-32022` UnsupportedProtocolVersion
 
-Recognized modern errors remain modern even when the peer is on the legacy allowlist. Once a server proves that it understands the modern error vocabulary, sending `initialize` would be a downgrade.
+Lỗi hiện đại đã nhận biết vẫn là hiện đại ngay cả khi peer nằm trong danh sách cho phép cũ. Khi máy chủ chứng minh hiểu từ vựng lỗi hiện đại, gửi `initialize` sẽ là hạ cấp.
 
-Do not treat `-32601` as positive legacy evidence. It only makes an explicitly allowlisted peer eligible for one legacy probe. The same rule applies to a timeout, connection close, or empty response.
+Không coi `-32601` là bằng chứng xác thực của cũ. Nó chỉ làm peer được cho phép rõ đủ điều kiện một lần thăm dò cũ. Cùng quy tắc áp dụng cho hết thời gian, đóng kết nối hoặc phản hồi rỗng.
 
 ### Allowlisting is operator intent, not evidence
 
-Legacy compatibility must be an explicit property of one pinned peer configuration:
+Tương thích cũ phải là thuộc tính tường minh của một cấu hình peer được ghim:
 
 ```python
 client.add_server("archive", archive_transport, allow_legacy=True)
 ```
 
-Bind that choice to the configured command or endpoint. Do not use a wildcard that lets an arbitrary server opt itself into weaker semantics. A peer without `allow_legacy=True` fails after an ambiguous discovery outcome and never receives `initialize`.
+Gắn lựa chọn đó với lệnh hoặc endpoint đã cấu hình. Không dùng ký tự đại diện cho phép máy chủ tùy ý tự chọn ngữ nghĩa yếu hơn. Peer không có `allow_legacy=True` thất bại sau kết quả khám phá mơ hồ và không bao giờ nhận `initialize`.
 
-The allowlist grants permission to probe. It does not select the era. The client sends one `initialize` under a transport-enforced deadline, then requires all of the following:
+Danh sách cho phép cấp quyền thăm dò. Nó không chọn thời kỳ. Client gửi một `initialize` dưới thời hạn do vận chuyển thực thi, rồi yêu cầu tất cả điều sau:
 
-- a JSON-RPC `2.0` response with the matching request id;
-- exactly one `result` and no `error`;
-- a `protocolVersion` in the client's configured legacy revision set;
-- an object-valued `capabilities` field;
-- a `serverInfo` object with non-empty string `name` and `version` fields.
+- phản hồi JSON-RPC `2.0` với id yêu cầu khớp;
+- đúng một `result` và không `error`;
+- `protocolVersion` trong tập bản sửa đổi cũ cấu hình của client;
+- trường `capabilities` có giá trị đối tượng;
+- đối tượng `serverInfo` với trường chuỗi `name` và `version` không rỗng.
 
-A timeout, connection close, error response, malformed result, mismatched id, or unsupported revision fails closed. Only a structurally valid positive result selects the legacy era. The code passes `legacy_probe_timeout_ms` to the transport adapter; a real stdio or HTTP adapter must enforce that deadline rather than merely record it.
+Hết thời gian, đóng kết nối, phản hồi lỗi, kết quả sai dạng, id không khớp hoặc bản sửa đổi không hỗ trợ đều thất bại theo hướng đóng. Chỉ kết quả thành công hợp lệ về cấu trúc chọn thời kỳ cũ. Mã truyền `legacy_probe_timeout_ms` vào adapter vận chuyển; adapter stdio hoặc HTTP thật phải thực thi thời hạn đó thay vì chỉ ghi lại.
 
-Cache the selected era for the transport peer. Do not probe again before every call.
+Lưu đệm thời kỳ đã chọn cho peer vận chuyển. Không thăm dò lại trước mỗi lời gọi.
 
 ### Legacy is a compatibility branch
 
-Once the bounded probe returns valid positive legacy evidence, the client uses the selected legacy version exactly as defined by that revision:
+Khi thăm dò có giới hạn trả bằng chứng cũ xác thực hợp lệ, client dùng phiên bản cũ đã chọn đúng như bản sửa đổi đó định nghĩa:
 
-1. Verify the response envelope and correlation id.
-2. Verify the negotiated revision is in the configured legacy set.
-3. Record validated capabilities and server identity.
-4. Send `notifications/initialized` only after all checks pass.
-5. Use legacy request shapes for that transport lifetime.
+1. Xác minh vỏ phản hồi và id liên hệ.
+2. Xác minh bản sửa đổi đã thương lượng nằm trong tập cũ đã cấu hình.
+3. Ghi khả năng và danh tính máy chủ đã xác thực.
+4. Chỉ gửi `notifications/initialized` sau mọi kiểm tra đạt.
+5. Dùng hình dạng yêu cầu cũ cho vòng đời vận chuyển đó.
 
-This branch exists for interoperability with known peers. It is not the default design for new servers or new requests. If the transport restarts or its endpoint changes, discard the peer-era cache and negotiate again.
+Nhánh này tồn tại để tương tác với peer đã biết. Không phải thiết kế mặc định cho máy chủ mới hoặc yêu cầu mới. Nếu vận chuyển khởi động lại hoặc endpoint đổi, bỏ bộ đệm thời kỳ peer và thương lượng lại.
 
 ### Discovering and caching tools
 
-For each active peer, call `tools/list`. A modern result includes `resultType`, `ttlMs`, and `cacheScope`. Honor the freshness hint within the correct authorization context. Re-fetch after expiry or a subscribed list-change event.
+Với mỗi peer hoạt động, gọi `tools/list`. Kết quả hiện đại gồm `resultType`, `ttlMs` và `cacheScope`. Tôn trọng gợi ý độ mới trong đúng ngữ cảnh cấp quyền. Lấy lại sau hết hạn hoặc sự kiện thay đổi danh sách đã đăng ký.
 
-Clients must treat a missing `resultType` from a legacy server as `"complete"`. Do not require modern cache fields on a response from an earlier negotiated era.
+Client phải coi `resultType` thiếu từ máy chủ cũ là `"complete"`. Không yêu cầu trường bộ đệm hiện đại trên phản hồi từ thời kỳ trước đã thương lượng.
 
-The server should return deterministic ordering. The client should also sort before merging so local registry order does not depend on process startup timing.
+Máy chủ nên trả thứ tự tất định. Client cũng nên sắp xếp trước gộp để thứ tự sổ đăng ký cục bộ không phụ thuộc thời điểm khởi động tiến trình.
 
 ### Collision-safe namespace merge
 
-Two servers may both expose `search`. Choose a declared policy:
+Hai máy chủ đều có thể cung cấp `search`. Chọn chính sách đã khai báo:
 
-1. **Prefix on collision.** Keep the first canonical name and expose later collisions as `<server>/<tool>`.
-2. **Reject on collision.** Do not load the duplicate and surface a clear configuration error.
-3. **Silent overwrite.** Never use this. It hides which server receives a model-selected action.
+1. **Thêm tiền tố khi xung đột.** Giữ tên chuẩn đầu tiên và đưa xung đột sau ra dưới dạng `<server>/<tool>`.
+2. **Từ chối khi xung đột.** Không tải bản trùng và đưa lỗi cấu hình rõ ràng.
+3. **Ghi đè âm thầm.** Không bao giờ dùng. Nó giấu máy chủ nào nhận hành động do mô hình chọn.
 
-Store both canonical and local names. The model sees the canonical name. The outgoing `tools/call` uses the local name the owning server declared.
+Lưu cả tên chuẩn lẫn tên cục bộ. Mô hình thấy tên chuẩn. `tools/call` đi ra dùng tên cục bộ máy chủ sở hữu đã khai báo.
 
 ### Routing a call
 
-Routing is a pure lookup:
+Định tuyến là tra cứu thuần:
 
 ```text
 canonical tool name
@@ -153,19 +153,19 @@ canonical tool name
   -> matching response id
 ```
 
-Do not send a call when its owning transport is unavailable. Reconnect or restart the transport, then re-run discovery and `tools/list`. Modern in-flight requests lost on a broken transport can be retried with a new JSON-RPC id when the operation's safety policy permits it.
+Không gửi lời gọi khi vận chuyển sở hữu không sẵn có. Kết nối lại hoặc khởi động lại vận chuyển, rồi chạy lại khám phá và `tools/list`. Yêu cầu hiện đại đang xử lý bị mất trên vận chuyển hỏng có thể thử lại với id JSON-RPC mới khi chính sách an toàn thao tác cho phép.
 
 ### Notifications and subscriptions
 
-Modern list and resource changes arrive only on a client-opened `subscriptions/listen` stream. The client sends the notification filter, waits for `notifications/subscriptions/acknowledged`, and correlates events with the listen request id in notification metadata.
+Thay đổi danh sách và tài nguyên hiện đại chỉ đến trên luồng `subscriptions/listen` do client mở. Client gửi bộ lọc thông báo, chờ `notifications/subscriptions/acknowledged` và liên hệ sự kiện với id yêu cầu listen trong siêu dữ liệu thông báo.
 
-On disconnect, open a new listen request and refetch relevant lists or resources. Modern streams do not resume with `Last-Event-ID`.
+Khi ngắt kết nối, mở yêu cầu listen mới và lấy lại danh sách hoặc tài nguyên liên quan. Luồng hiện đại không tiếp tục bằng `Last-Event-ID`.
 
 ### No server-initiated requests
 
-Modern servers do not call the client with independent JSON-RPC requests for sampling, elicitation, or roots. They return `input_required`, and the client retries the original request after fulfilling the embedded input requests.
+Máy chủ hiện đại không gọi client bằng yêu cầu JSON-RPC độc lập cho sampling, elicitation hoặc roots. Chúng trả `input_required`, và client thử lại yêu cầu gốc sau khi hoàn thành yêu cầu đầu vào nhúng.
 
-Do not block the peer's response reader while fulfilling input. Preserve correlation and create a new JSON-RPC id for the retry.
+Không chặn bộ đọc phản hồi của peer khi hoàn thành đầu vào. Giữ liên hệ và tạo id JSON-RPC mới cho lần thử lại.
 
 ```figure
 tp-client-merge
@@ -173,7 +173,7 @@ tp-client-merge
 
 ## Use It
 
-`code/main.py` uses in-process peer functions so the protocol decisions stay visible. It connects to two modern peers and one intentionally allowlisted legacy peer, then merges and routes their tools. The transport callable receives a timeout budget so the compatibility branch cannot hide an unbounded probe.
+`code/main.py` dùng hàm peer trong tiến trình để quyết định giao thức rõ ràng. Nó kết nối hai peer hiện đại và một peer cũ được cố ý cho phép, rồi gộp và định tuyến công cụ của chúng. Callable vận chuyển nhận ngân sách hết thời gian để nhánh tương thích không thể giấu thăm dò không giới hạn.
 
 ```bash
 cd code
@@ -181,42 +181,42 @@ python3 main.py
 python3 -m unittest discover tests -v
 ```
 
-The tests prove boundaries that normal demos miss:
+Kiểm thử chứng minh ranh giới demo thường bỏ lỡ:
 
-- modern requests repeat metadata;
-- `-32022` retries modern discovery without initialization;
-- recognized modern errors never downgrade, even for an allowlisted peer;
-- timeouts, connection closes, empty responses, and unrecognized errors do not trigger `initialize` without an allowlist;
-- an allowlisted peer becomes legacy only after a valid, supported `initialize` result;
-- malformed and unsupported legacy results leave the peer unavailable;
-- a successfully selected era is cached for the transport lifetime.
+- yêu cầu hiện đại lặp siêu dữ liệu;
+- `-32022` thử lại khám phá hiện đại không khởi tạo;
+- lỗi hiện đại đã nhận biết không bao giờ hạ cấp, ngay cả với peer được cho phép;
+- hết thời gian, đóng kết nối, phản hồi rỗng và lỗi không nhận biết không kích hoạt `initialize` nếu không có danh sách cho phép;
+- peer được cho phép chỉ thành cũ sau kết quả `initialize` hợp lệ, được hỗ trợ;
+- kết quả cũ sai dạng và không hỗ trợ để peer không sẵn có;
+- thời kỳ được chọn thành công được lưu đệm cho vòng đời vận chuyển.
 
 ## Ship It
 
-This lesson ships `outputs/skill-mcp-client-harness.md`. It scaffolds modern request stamping, stdio era negotiation, deterministic namespace merge, routing, and a fail-closed legacy compatibility branch.
+Bài học này cung cấp `outputs/skill-mcp-client-harness.md`. Nó dựng khung đóng yêu cầu hiện đại, thương lượng thời kỳ stdio, gộp không gian tên tất định, định tuyến và nhánh tương thích cũ thất bại theo hướng đóng.
 
 ## Exercises
 
-1. Make a fake server return `-32022` with no mutually supported version. Confirm the client fails instead of sending `initialize`.
-2. Allowlist a fake legacy server, make its bounded `initialize` probe time out, and prove the peer stays `unknown` and unavailable.
-3. Add `cacheScope: "private"` tool lists for two authorization contexts. Confirm the client never shares one context's cached result with the other.
-4. Change the collision policy to rejection and make startup fail with both peer names in the error.
-5. Add a finite `subscriptions/listen` simulator. On stream loss, re-listen with a new request id and refetch tools.
+1. Làm máy chủ giả trả `-32022` không có phiên bản cả hai hỗ trợ. Xác nhận client thất bại thay vì gửi `initialize`.
+2. Đưa máy chủ cũ giả vào danh sách cho phép, làm thăm dò `initialize` có giới hạn hết thời gian và chứng minh peer vẫn `unknown` và không sẵn có.
+3. Thêm danh sách công cụ `cacheScope: "private"` cho hai ngữ cảnh cấp quyền. Xác nhận client không bao giờ chia sẻ kết quả lưu đệm của ngữ cảnh này với ngữ cảnh kia.
+4. Đổi chính sách xung đột thành từ chối và làm khởi động thất bại với tên cả hai peer trong lỗi.
+5. Thêm mô phỏng `subscriptions/listen` hữu hạn. Khi mất luồng, listen lại với id yêu cầu mới và lấy lại công cụ.
 
 ## Key Terms
 
-| Term | Meaning |
+| Thuật ngữ | Ý nghĩa |
 |------|---------|
-| Peer | Client-side record for one server transport and its discovered data |
-| Protocol era | Modern per-request metadata or legacy initialization semantics |
-| Discovery probe | Initial `server/discover` used to identify the stdio era |
-| Recognized modern error | Error that proves modern behavior and forbids legacy fallback |
-| Legacy allowlist | Operator configuration permitting one bounded compatibility probe for a pinned peer |
-| Positive legacy evidence | Valid, correlated `initialize` result for an explicitly supported legacy revision |
-| Merged namespace | Canonical tool names across all active peers |
-| Collision policy | Prefix or reject rule for duplicate tool names |
-| Era cache | Selected modern or legacy behavior stored for one transport peer |
-| Transport recovery | Restart or reconnect, rediscover, relist, and retry safely with a new id |
+| Peer (Đối tác) | Bản ghi phía client cho một vận chuyển máy chủ và dữ liệu đã khám phá |
+| Protocol era (Thời kỳ giao thức) | Siêu dữ liệu hiện đại mỗi yêu cầu hoặc ngữ nghĩa khởi tạo cũ |
+| Discovery probe (Thăm dò khám phá) | `server/discover` ban đầu dùng nhận biết thời kỳ stdio |
+| Recognized modern error (Lỗi hiện đại đã nhận biết) | Lỗi chứng minh hành vi hiện đại và cấm dự phòng cũ |
+| Legacy allowlist (Danh sách cho phép cũ) | Cấu hình người vận hành cho phép một thăm dò tương thích có giới hạn cho peer ghim |
+| Positive legacy evidence (Bằng chứng xác thực về cũ) | Kết quả `initialize` hợp lệ, liên hệ đúng cho bản sửa đổi cũ được hỗ trợ rõ |
+| Merged namespace (Không gian tên đã gộp) | Tên công cụ chuẩn trên mọi peer hoạt động |
+| Collision policy (Chính sách xung đột) | Quy tắc tiền tố hoặc từ chối cho tên công cụ trùng |
+| Era cache (Bộ đệm thời kỳ) | Hành vi hiện đại hoặc cũ đã chọn lưu cho một peer vận chuyển |
+| Transport recovery (Phục hồi vận chuyển) | Khởi động lại hoặc kết nối lại, khám phá lại, liệt kê lại và thử lại an toàn với id mới |
 
 ## Further Reading
 
