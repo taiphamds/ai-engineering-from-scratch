@@ -1,6 +1,6 @@
 # Initialization Scripts for Agents
 
-> Every session that starts cold pays a tax. The agent reads the same files, retries the same probes, and rediscovers the same paths. An init script pays the tax once and writes the answers into state.
+> Mỗi phiên khởi động nguội trả một khoản chi phí. Agent đọc cùng các file, thử lại cùng các thăm dò và khám phá lại cùng các đường dẫn. Một script khởi tạo trả khoản chi phí một lần và ghi các câu trả lời vào trạng thái.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,16 +9,16 @@
 
 ## Learning Objectives
 
-- Identify the work an agent should never have to redo per session.
-- Build a deterministic init script that probes runtime, dependencies, and repo health.
-- Persist the probe result so the agent reads it instead of re-running checks.
-- Fail loud, fast, and with one place to look when initialization fails.
+- Nhận diện công việc mà một agent không bao giờ nên phải làm lại cho mỗi phiên.
+- Xây một script khởi tạo mang tính xác định thăm dò runtime, các phụ thuộc và tình trạng repo.
+- Lưu giữ kết quả thăm dò để agent đọc nó thay vì chạy lại các kiểm tra.
+- Báo lỗi rõ ràng, nhanh và với một nơi duy nhất để xem khi khởi tạo thất bại.
 
 ## The Problem
 
-Open a session. The agent guesses the Python version. Guesses the test command. Lists the repo root five times to find the entry point. Tries to import a package that is not installed. Asks the user where the config file lives. By the time it makes a real edit, ten thousand tokens have gone to setup work that should have been a single script.
+Mở một phiên. Agent đoán phiên bản Python. Đoán lệnh kiểm thử. Liệt kê gốc repo năm lần để tìm điểm vào. Cố import một gói không được cài. Hỏi người dùng file cấu hình nằm ở đâu. Đến lúc nó thực hiện một chỉnh sửa thực, mười nghìn token đã đi vào công việc thiết lập lẽ ra nên là một script duy nhất.
 
-The fix is one initialization script that runs before the agent does anything else and writes a `init_report.json` the agent reads at startup.
+Cách khắc phục là một script khởi tạo chạy trước khi agent làm bất cứ thứ gì khác và ghi một `init_report.json` mà agent đọc khi khởi động.
 
 ## The Concept
 
@@ -34,27 +34,27 @@ flowchart TD
 
 ### What the init script probes
 
-| Probe | Why it matters |
+| Thăm dò | Vì sao nó quan trọng |
 |-------|----------------|
-| Runtime versions | Wrong Python or Node version means silent wrong-version bugs |
-| Dependency availability | A missing package later costs ten times the cost of catching it now |
-| Test command | The agent must know how to verify; if the command is missing the workbench is broken |
-| Repo paths | Hard-coded paths drift; resolve them once and pin |
-| Environment variables | Missing `OPENAI_API_KEY` is a failure surface, not a runtime mystery |
-| State + board freshness | Stale state from a crashed session is a footgun |
-| Last-known-good commit | Anchor for the handoff diff at the end of the session |
+| Các phiên bản runtime | Phiên bản Python hoặc Node sai có nghĩa là các lỗi sai phiên bản âm thầm |
+| Sự khả dụng của phụ thuộc | Một gói bị thiếu sau này tốn gấp mười lần chi phí bắt nó bây giờ |
+| Lệnh kiểm thử | Agent phải biết cách xác minh; nếu lệnh bị thiếu thì workbench hỏng |
+| Các đường dẫn repo | Các đường dẫn mã hóa cứng trôi dạt; phân giải chúng một lần và ghim |
+| Các biến môi trường | Thiếu `OPENAI_API_KEY` là một bề mặt lỗi, không phải một bí ẩn runtime |
+| Độ mới trạng thái + bảng | Trạng thái cũ từ một phiên bị sập là một cách tự gây hại |
+| Commit tốt cuối cùng đã biết | Mỏ neo cho diff bàn giao ở cuối phiên |
 
 ### Fail loud, fail fast, fail in one place
 
-A probe failure means halt and surface to the human. No "the agent will figure it out." The whole point of init is to refuse to start when the workbench is broken.
+Một thăm dò thất bại có nghĩa là dừng và hiển thị cho con người. Không "agent sẽ tự tìm ra." Toàn bộ mục đích của khởi tạo là từ chối bắt đầu khi workbench hỏng.
 
 ### Idempotent
 
-Run it twice in a row. The second run should be a no-op except for a fresh timestamp. Idempotency is what lets you wire the script into CI, hooks, or a pre-task slash command.
+Chạy nó hai lần liên tiếp. Lần chạy thứ hai nên không làm gì ngoại trừ một dấu thời gian mới. Tính lũy đẳng là thứ cho phép bạn nối script vào CI, các hook hoặc một lệnh slash trước tác vụ.
 
 ### Init versus startup rules
 
-Rules (Phase 14 · 33) describe what must be true to act. Init is the script that establishes that those rules can be checked. Rules without init become "be careful." Init without rules becomes a polished failure.
+Các quy tắc (Giai đoạn 14 · 33) mô tả điều gì phải đúng để hành động. Khởi tạo là script thiết lập rằng các quy tắc đó có thể được kiểm tra. Các quy tắc không có khởi tạo trở thành "cẩn thận." Khởi tạo không có quy tắc trở thành một thất bại được trau chuốt.
 
 ```figure
 wb-init-probes
@@ -62,70 +62,70 @@ wb-init-probes
 
 ## Build It
 
-`code/main.py` implements `init_agent.py`:
+`code/main.py` triển khai `init_agent.py`:
 
-- Five probes: Python version, listed dependencies via `importlib.util.find_spec`, test command resolvability, required env vars, state file freshness.
-- Each probe returns `(name, status, detail)`.
-- The script writes `init_report.json` with the full probe set and exits non-zero if any block-severity probe fails.
+- Năm thăm dò: phiên bản Python, các phụ thuộc được liệt kê qua `importlib.util.find_spec`, khả năng phân giải lệnh kiểm thử, các biến môi trường bắt buộc, độ mới file trạng thái.
+- Mỗi thăm dò trả về `(name, status, detail)`.
+- Script ghi `init_report.json` với toàn bộ tập thăm dò và thoát khác không nếu bất kỳ thăm dò mức độ block nào thất bại.
 
-Run it:
+Chạy nó:
 
 ```
 python3 code/main.py
 ```
 
-The script prints the table of probes, writes `init_report.json`, and exits zero on the happy path or non-zero with a list of failed probes.
+Script in bảng các thăm dò, ghi `init_report.json` và thoát với mã không trên luồng thành công hoặc khác không với một danh sách các thăm dò thất bại.
 
 ## Production patterns in the wild
 
-Three patterns separate a useful init script from a ceremony.
+Ba mẫu phân biệt một script khởi tạo hữu ích với một nghi lễ.
 
-**Last-known-good commit anchoring.** Probe the current commit against a `LKG` file written on the last successful merge. If the diff exceeds a budget (default 50 files), refuse to start and require a human to ratify the new baseline. This is what Cloudflare's AI Code Review uses to scope reviewer agents: every review session anchors against the same last-known-good and never compounds drift across sessions.
+**Neo commit tốt cuối cùng đã biết.** Thăm dò commit hiện tại đối với một file `LKG` được ghi ở lần hợp nhất thành công cuối cùng. Nếu diff vượt một ngân sách (mặc định 50 file), từ chối bắt đầu và yêu cầu một con người phê chuẩn đường cơ sở mới. Đây là điều AI Code Review của Cloudflare sử dụng để giới hạn phạm vi các agent đánh giá: mỗi phiên đánh giá neo vào cùng trạng thái tốt cuối cùng đã biết và không bao giờ dồn trôi dạt xuyên các phiên.
 
-**Lock files with TTL.** Write a `prereqs.lock` after the first successful probe pass. Subsequent runs trust the lock for N hours (24h default) and skip the expensive probes. The init script reads the lock first; if it is fresh and the dependency manifest hash matches, it short-circuits. This is the same pattern Docker uses for layer caches: idempotent probe + content hash = skip.
+**Các file khóa với TTL.** Ghi một `prereqs.lock` sau lượt thăm dò thành công đầu tiên. Các lần chạy sau tin khóa trong N giờ (mặc định 24 giờ) và bỏ qua các thăm dò tốn kém. Script khởi tạo đọc khóa trước; nếu nó còn mới và hash bảng kê phụ thuộc khớp, nó dừng sớm. Đây là cùng mẫu mà Docker sử dụng cho các bộ nhớ đệm lớp: thăm dò lũy đẳng + hash nội dung = bỏ qua.
 
-**No network, no LLM, no surprises in the hot path.** Init probes are deterministic plumbing. A probe that calls an LLM to classify a failure or that hits an external service to check a license is not a probe; it is a workflow. If a probe takes longer than three seconds in a dry run, treat that as a workbench smell and either move it out of init or cache its result.
+**Không mạng, không LLM, không bất ngờ trong đường xử lý chính.** Các thăm dò khởi tạo là phần kết nối mang tính xác định. Một thăm dò gọi một LLM để phân loại một lỗi hoặc chạm một dịch vụ bên ngoài để kiểm tra một giấy phép không phải một thăm dò; đó là một workflow. Nếu một thăm dò mất hơn ba giây trong một lần chạy thử, coi đó là một dấu hiệu bất ổn workbench và hoặc chuyển nó ra khỏi khởi tạo hoặc lưu đệm kết quả của nó.
 
 ## Use It
 
-In production:
+Trong sản xuất:
 
-- **Claude Code hooks.** `pre-task` hook calls the init script and refuses to launch the agent if it fails.
-- **GitHub Actions.** A `setup-agent` job runs the init script; the agent job depends on it.
-- **Docker entrypoint.** The agent container runs the init script before exec-ing the agent runtime; logs surface on failure.
+- **Các hook Claude Code.** Hook `pre-task` gọi script khởi tạo và từ chối khởi chạy agent nếu nó thất bại.
+- **GitHub Actions.** Một job `setup-agent` chạy script khởi tạo; job agent phụ thuộc nó.
+- **Điểm vào Docker.** Container agent chạy script khởi tạo trước khi exec runtime agent; các log được hiển thị khi thất bại.
 
-The init script is portable because it makes no calls to a specific framework. Bash, Make, or a tasks file can all wrap it.
+Script khởi tạo có tính di động vì nó không gọi một framework cụ thể nào. Bash, Make hoặc một file tác vụ đều có thể bọc nó.
 
 ## Ship It
 
-`outputs/skill-init-script.md` interviews the project, classifies its setup work into probes, and emits a project-specific `init_agent.py` plus a CI workflow that runs it before any agent step.
+`outputs/skill-init-script.md` phỏng vấn dự án, phân loại công việc thiết lập của nó thành các thăm dò và phát ra một `init_agent.py` dành riêng cho dự án cộng một workflow CI chạy nó trước bất kỳ bước agent nào.
 
 ## Exercises
 
-1. Add a probe that diffs the current commit against the last-known-good commit and refuses to start if more than 50 files changed.
-2. Wire the script to write a `prereqs.lock` file and refuse to start if the lock is older than seven days.
-3. Add a `--fix` flag that auto-installs missing dev dependencies but never modifies runtime dependencies without approval.
-4. Move probes from hardcoded functions to a YAML registry. Defend the trade-off.
-5. Add a timing budget per probe. A probe that runs longer than three seconds is a workbench smell.
+1. Thêm một thăm dò diff commit hiện tại với commit tốt cuối cùng đã biết và từ chối bắt đầu nếu hơn 50 file thay đổi.
+2. Nối script để ghi một file `prereqs.lock` và từ chối bắt đầu nếu khóa cũ hơn bảy ngày.
+3. Thêm một cờ `--fix` tự cài các phụ thuộc phát triển bị thiếu nhưng không bao giờ sửa các phụ thuộc runtime mà không có phê duyệt.
+4. Chuyển các thăm dò từ các hàm mã hóa cứng sang một sổ đăng ký YAML. Bảo vệ đánh đổi.
+5. Thêm một ngân sách thời gian cho mỗi thăm dò. Một thăm dò chạy lâu hơn ba giây là một dấu hiệu bất ổn workbench.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |------|----------------|------------------------|
-| Probe | "A check" | A deterministic function returning `(name, status, detail)` |
-| Init report | "Setup output" | JSON written next to state with the probe results |
-| Idempotent | "Safe to re-run" | Two runs in a row produce identical reports modulo timestamp |
-| Fail loud | "Don't swallow" | Halt and surface to the human; no silent fallback |
-| Setup tax | "Bootstrap cost" | The tokens the agent spends per session rediscovering the obvious |
+| Probe (Thăm dò) | "Một kiểm tra" | Một hàm mang tính xác định trả về `(name, status, detail)` |
+| Init report (Báo cáo khởi tạo) | "Đầu ra thiết lập" | JSON được ghi cạnh trạng thái với các kết quả thăm dò |
+| Idempotent (Lũy đẳng) | "An toàn để chạy lại" | Hai lần chạy liên tiếp tạo các báo cáo giống hệt ngoại trừ dấu thời gian |
+| Fail loud (Báo lỗi rõ ràng) | "Đừng nuốt" | Dừng và hiển thị cho con người; không có phương án dự phòng âm thầm |
+| Setup tax (Chi phí thiết lập) | "Chi phí khởi động" | Các token mà agent tiêu mỗi phiên để khám phá lại điều hiển nhiên |
 
 ## Further Reading
 
 - [Anthropic, Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)
 - [GitHub Actions, composite actions for setup](https://docs.github.com/en/actions/sharing-automations/creating-actions/creating-a-composite-action)
-- [microservices.io, GenAI dev platform: guardrails](https://microservices.io/post/architecture/2026/03/09/genai-development-platform-part-1-development-guardrails.html) — pre-commit + CI checks as init
-- [Augment Code, How to Build Your AGENTS.md (2026)](https://www.augmentcode.com/guides/how-to-build-agents-md) — init expectations
-- [Codex Blog, Codex CLI Context Compaction](https://codex.danielvaughan.com/2026/03/31/codex-cli-context-compaction-architecture/) — session start as compaction-aware init
-- Phase 14 · 33 — the rule set this script enables
-- Phase 14 · 34 — the state file this script seeds
-- Phase 14 · 38 — the verification gate the init script feeds
-- Phase 14 · 40 — the handoff that consumes the init report's last-known-good
+- [microservices.io, GenAI dev platform: guardrails](https://microservices.io/post/architecture/2026/03/09/genai-development-platform-part-1-development-guardrails.html) — trước commit + các kiểm tra CI như khởi tạo
+- [Augment Code, How to Build Your AGENTS.md (2026)](https://www.augmentcode.com/guides/how-to-build-agents-md) — các kỳ vọng khởi tạo
+- [Codex Blog, Codex CLI Context Compaction](https://codex.danielvaughan.com/2026/03/31/codex-cli-context-compaction-architecture/) — bắt đầu phiên như khởi tạo nhận biết cô đọng
+- Giai đoạn 14 · 33 — tập quy tắc mà script này cho phép
+- Giai đoạn 14 · 34 — file trạng thái mà script này khởi tạo
+- Giai đoạn 14 · 38 — cổng xác minh mà script khởi tạo cung cấp đầu vào
+- Giai đoạn 14 · 40 — bàn giao tiêu thụ trạng thái tốt cuối cùng đã biết của báo cáo khởi tạo

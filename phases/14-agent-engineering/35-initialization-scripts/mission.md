@@ -1,27 +1,27 @@
 # Mission - Initialization Scripts for Agents
 
 ## Goal
-Build `init_agent.py` that probes runtime, dependencies, test command, env vars, and state freshness, then writes `init_report.json` and halts the session loud when a block-severity probe fails.
+Xây `init_agent.py` thăm dò runtime, các phụ thuộc, lệnh kiểm thử, các biến môi trường và độ mới trạng thái, rồi ghi `init_report.json` và dừng phiên rõ ràng khi một thăm dò mức độ block thất bại.
 
 ## Inputs
-- A repo with a `requirements.txt` (or equivalent), a test command, and the workbench state file from lesson 34
-- The probe table from the lesson (runtime, deps, paths, env, state freshness, last-known-good commit)
+- Một repo với một `requirements.txt` (hoặc tương đương), một lệnh kiểm thử và file trạng thái workbench từ bài 34
+- Bảng thăm dò từ bài học (runtime, các phụ thuộc, đường dẫn, môi trường, độ mới trạng thái, commit tốt cuối cùng đã biết)
 
 ## Deliverables
-- `init_agent.py` with one function per probe returning `(name, status, detail)`
-- `init_report.json` carrying the full probe set and a timestamp
-- Non-zero exit on any block-severity probe failure
+- `init_agent.py` với một hàm cho mỗi thăm dò trả về `(name, status, detail)`
+- `init_report.json` mang toàn bộ tập thăm dò và một dấu thời gian
+- Thoát khác không trên bất kỳ thất bại thăm dò mức độ block nào
 
 ## Acceptance
-- `python3 code/main.py` exits zero on the happy path
-- Running it twice in a row is a no-op except for the timestamp
-- A simulated missing env var probe surfaces in the report and flips the exit code
+- `python3 code/main.py` thoát với mã không trên luồng thành công
+- Chạy nó hai lần liên tiếp không làm gì ngoại trừ dấu thời gian
+- Một thăm dò biến môi trường bị thiếu được mô phỏng hiển thị trong báo cáo và đảo mã thoát
 
 ## Out of scope
-- Auto-installing missing dependencies. The script halts and surfaces; the human fixes.
-- Calling an LLM from a probe. Probes stay deterministic plumbing.
+- Tự cài các phụ thuộc bị thiếu. Script dừng và hiển thị; con người khắc phục.
+- Gọi một LLM từ một thăm dò. Các thăm dò giữ vai trò kết nối mang tính xác định.
 
 ## References
-- `docs/en.md` - full lesson
-- `code/main.py` - reference implementation
-- `outputs/skill-init-script.md` - extracted skill
+- `docs/en.md` - bài học đầy đủ
+- `code/main.py` - triển khai tham chiếu
+- `outputs/skill-init-script.md` - skill được trích xuất
