@@ -1,6 +1,6 @@
 # Norms and Distances
 
-> Your distance function defines what "similar" means. Choose wrong and everything downstream breaks.
+> Hàm khoảng cách của bạn xác định "tương tự" có nghĩa gì. Chọn sai và mọi thứ phía sau đều hỏng.
 
 **Type:** Build
 **Language:** Python
@@ -9,36 +9,36 @@
 
 ## Learning Objectives
 
-- Implement L1, L2, cosine, Mahalanobis, Jaccard, and edit distance functions from scratch
-- Select the appropriate distance metric for a given ML task and explain why alternatives fail
-- Connect L1 and L2 norms to LASSO and Ridge regularization and their geometric constraint regions
-- Demonstrate how the same dataset produces different nearest neighbors under different metrics
+- Triển khai các hàm khoảng cách L1, L2, cosine, Mahalanobis, Jaccard và chỉnh sửa từ đầu
+- Chọn metric khoảng cách thích hợp cho một tác vụ ML nhất định và giải thích tại sao các lựa chọn khác thất bại
+- Kết nối các chuẩn L1 và L2 với regularization LASSO và Ridge cùng các miền ràng buộc hình học của chúng
+- Minh họa cách cùng một tập dữ liệu tạo ra các láng giềng gần nhất khác nhau dưới các metric khác nhau
 
 ## The Problem
 
-You have two vectors. Maybe they are word embeddings. Maybe they are user profiles. Maybe they are pixel arrays. You need to know: how close are they?
+Bạn có hai vector. Có thể chúng là các embedding từ. Có thể chúng là hồ sơ người dùng. Có thể chúng là các mảng pixel. Bạn cần biết: chúng gần nhau đến mức nào?
 
-The answer depends entirely on which distance function you pick. Two data points can be nearest neighbors under one metric and far apart under another. Your KNN classifier, your recommendation engine, your vector database, your clustering algorithm, your loss function -- they all depend on this choice. Get it wrong and your model optimizes for the wrong thing.
+Câu trả lời phụ thuộc hoàn toàn vào hàm khoảng cách bạn chọn. Hai điểm dữ liệu có thể là láng giềng gần nhất dưới một metric và cách xa nhau dưới một metric khác. Bộ phân loại KNN, bộ máy đề xuất, cơ sở dữ liệu vector, thuật toán phân cụm, hàm mất mát của bạn -- tất cả đều phụ thuộc vào lựa chọn này. Chọn sai và mô hình của bạn tối ưu hóa cho điều sai.
 
-There is no universal best distance. L2 works for spatial data. Cosine similarity dominates NLP. Jaccard handles sets. Edit distance handles strings. Mahalanobis accounts for correlations. Wasserstein moves probability mass. Each one encodes a different assumption about what "similar" means.
+Không có khoảng cách tốt nhất chung cho mọi trường hợp. L2 hoạt động cho dữ liệu không gian. Độ tương đồng cosine chiếm ưu thế trong NLP. Jaccard xử lý các tập hợp. Khoảng cách chỉnh sửa xử lý chuỗi. Mahalanobis xét đến tương quan. Wasserstein di chuyển khối xác suất. Mỗi loại mã hóa một giả định khác nhau về ý nghĩa của "tương tự".
 
-This lesson builds every major distance function from scratch, shows you when each one is the right tool, and demonstrates how the same data produces completely different nearest neighbors depending on which metric you use.
+Bài học này xây dựng mọi hàm khoảng cách chính từ đầu, cho bạn thấy khi nào mỗi hàm là công cụ phù hợp và minh họa cách cùng dữ liệu tạo ra các láng giềng gần nhất hoàn toàn khác nhau tùy thuộc vào metric bạn sử dụng.
 
 ## The Concept
 
 ### Norms: measuring vector magnitude
 
-A norm measures the "size" of a vector. Every distance function between two vectors can be written as the norm of their difference: d(a, b) = ||a - b||. So understanding norms is understanding distances.
+Một chuẩn đo "kích thước" của một vector. Mọi hàm khoảng cách giữa hai vector đều có thể được viết dưới dạng chuẩn của hiệu chúng: d(a, b) = ||a - b||. Vì vậy hiểu chuẩn là hiểu khoảng cách.
 
 ### L1 Norm (Manhattan distance)
 
-The L1 norm sums the absolute values of all components.
+Chuẩn L1 lấy tổng các giá trị tuyệt đối của tất cả thành phần.
 
 ```
 ||x||_1 = |x_1| + |x_2| + ... + |x_n|
 ```
 
-It is called Manhattan distance because it measures how far you walk on a city grid where you can only move along axes. No diagonals.
+Nó được gọi là khoảng cách Manhattan vì nó đo bạn đi bộ bao xa trên một lưới thành phố nơi bạn chỉ có thể di chuyển dọc theo các trục. Không có đường chéo.
 
 ```
 Point A = (1, 1)
@@ -49,24 +49,24 @@ L1 distance = |4-1| + |5-1| = 3 + 4 = 7
 On a grid, you walk 3 blocks east and 4 blocks north.
 ```
 
-When to use L1:
-- High-dimensional sparse data (text features, one-hot encodings)
-- When you want robustness to outliers (a single huge difference does not dominate)
-- Feature selection problems (L1 regularization promotes sparsity)
+Khi nào sử dụng L1:
+- Dữ liệu thưa nhiều chiều (đặc trưng văn bản, mã hóa one-hot)
+- Khi bạn muốn tính bền vững với ngoại lệ (một khác biệt rất lớn duy nhất không chi phối)
+- Các bài toán lựa chọn đặc trưng (L1 regularization thúc đẩy tính thưa)
 
-Connection to L1 regularization (Lasso): adding ||w||_1 to your loss function penalizes the sum of absolute weight values. This pushes small weights to exactly zero, performing automatic feature selection. The L1 penalty creates diamond-shaped constraint regions in weight space, and the corners of diamonds lie on the axes where some weights are zero.
+Mối liên hệ với L1 regularization (Lasso): thêm ||w||_1 vào hàm mất mát phạt tổng các giá trị tuyệt đối của trọng số. Điều này đẩy các trọng số nhỏ về đúng không, thực hiện lựa chọn đặc trưng tự động. Hình phạt L1 tạo các miền ràng buộc hình thoi trong không gian trọng số, và các góc của hình thoi nằm trên các trục nơi một số trọng số bằng không.
 
-Connection to loss functions: Mean Absolute Error (MAE) is the average L1 distance between predictions and targets. It penalizes all errors linearly, making it robust to outliers compared to MSE.
+Mối liên hệ với hàm mất mát: Sai số Tuyệt đối Trung bình (MAE) là khoảng cách L1 trung bình giữa dự đoán và mục tiêu. Nó phạt mọi sai số tuyến tính, khiến nó bền vững với ngoại lệ so với MSE.
 
 ### L2 Norm (Euclidean distance)
 
-The L2 norm is the straight-line distance. Square root of the sum of squared components.
+Chuẩn L2 là khoảng cách đường thẳng. Căn bậc hai của tổng bình phương các thành phần.
 
 ```
 ||x||_2 = sqrt(x_1^2 + x_2^2 + ... + x_n^2)
 ```
 
-This is the distance you learned in geometry class. Pythagoras in n dimensions.
+Đây là khoảng cách bạn đã học trong lớp hình học. Pythagoras trong n chiều.
 
 ```
 Point A = (1, 1)
@@ -77,15 +77,15 @@ L2 distance = sqrt((4-1)^2 + (5-1)^2) = sqrt(9 + 16) = sqrt(25) = 5.0
 The straight line, cutting diagonally through the grid.
 ```
 
-When to use L2:
-- Low-to-medium dimensional continuous data
-- When the feature scales are comparable
-- Physical distances (spatial data, sensor readings)
-- Image similarity at the pixel level
+Khi nào sử dụng L2:
+- Dữ liệu liên tục có số chiều thấp đến trung bình
+- Khi thang đo các đặc trưng có thể so sánh được
+- Khoảng cách vật lý (dữ liệu không gian, số đọc cảm biến)
+- Độ tương đồng hình ảnh ở cấp pixel
 
-Connection to L2 regularization (Ridge): adding ||w||_2^2 to your loss function penalizes large weights. Unlike L1, it does not push weights to zero. It shrinks all weights toward zero proportionally. The L2 penalty creates circular constraint regions, so there are no corners on axes. Weights get small but rarely exactly zero.
+Mối liên hệ với L2 regularization (Ridge): thêm ||w||_2^2 vào hàm mất mát phạt các trọng số lớn. Khác L1, nó không đẩy trọng số về không. Nó thu nhỏ mọi trọng số về phía không theo tỉ lệ. Hình phạt L2 tạo các miền ràng buộc hình tròn, nên không có góc trên các trục. Trọng số trở nên nhỏ nhưng hiếm khi đúng bằng không.
 
-Connection to loss functions: Mean Squared Error (MSE) is the average of L2 distances squared. Squaring penalizes large errors more heavily than small ones.
+Mối liên hệ với hàm mất mát: Sai số Bình phương Trung bình (MSE) là trung bình của bình phương các khoảng cách L2. Bình phương phạt sai số lớn nặng hơn sai số nhỏ.
 
 ```
 MAE (L1 loss):  |y - y_hat|         Linear penalty. Robust to outliers.
@@ -94,13 +94,13 @@ MSE (L2 loss):  (y - y_hat)^2       Quadratic penalty. Sensitive to outliers.
 
 ### Lp Norms: the general family
 
-L1 and L2 are special cases of the Lp norm:
+L1 và L2 là các trường hợp đặc biệt của chuẩn Lp:
 
 ```
 ||x||_p = (|x_1|^p + |x_2|^p + ... + |x_n|^p)^(1/p)
 ```
 
-Different values of p produce different shaped "unit balls" (the set of all points at distance 1 from the origin):
+Các giá trị p khác nhau tạo ra các "quả cầu đơn vị" có hình dạng khác nhau (tập hợp tất cả các điểm cách gốc tọa độ khoảng cách 1):
 
 ```
 p=1:    Diamond shape      (corners on axes)
@@ -111,13 +111,13 @@ p=inf:  Square/hypercube   (flat sides along axes)
 
 ### L-infinity Norm (Chebyshev distance)
 
-As p approaches infinity, the Lp norm converges to the maximum absolute component.
+Khi p tiến đến vô cực, chuẩn Lp hội tụ về thành phần tuyệt đối lớn nhất.
 
 ```
 ||x||_inf = max(|x_1|, |x_2|, ..., |x_n|)
 ```
 
-The distance between two points is determined by the single dimension where they differ the most. All other dimensions are ignored.
+Khoảng cách giữa hai điểm được quyết định bởi chiều duy nhất mà chúng khác nhau nhiều nhất. Tất cả các chiều khác bị bỏ qua.
 
 ```
 Point A = (1, 1)
@@ -126,22 +126,22 @@ Point B = (4, 5)
 L-inf distance = max(|4-1|, |5-1|) = max(3, 4) = 4
 ```
 
-When to use L-infinity:
-- When the worst-case deviation in any single dimension matters
-- Game boards (a king in chess moves in L-infinity: one step in any direction costs 1)
-- Manufacturing tolerances (every dimension must be within spec)
+Khi nào sử dụng L-vô cực:
+- Khi độ lệch trong trường hợp xấu nhất ở bất kỳ chiều đơn lẻ nào quan trọng
+- Bàn cờ (quân vua trong cờ vua di chuyển theo L-vô cực: một bước theo bất kỳ hướng nào có chi phí 1)
+- Dung sai sản xuất (mọi chiều phải nằm trong thông số kỹ thuật)
 
 ### Cosine Similarity and Cosine Distance
 
-Cosine similarity measures the angle between two vectors, ignoring their magnitudes.
+Độ tương đồng cosine đo góc giữa hai vector, bỏ qua độ lớn của chúng.
 
 ```
 cos_sim(a, b) = (a . b) / (||a||_2 * ||b||_2)
 ```
 
-It ranges from -1 (opposite directions) to +1 (same direction). Perpendicular vectors have cosine similarity 0.
+Nó nằm trong khoảng từ -1 (ngược hướng) đến +1 (cùng hướng). Các vector vuông góc có độ tương đồng cosine 0.
 
-Cosine distance converts it to a distance: cosine_distance = 1 - cosine_similarity. This ranges from 0 (identical direction) to 2 (opposite direction).
+Khoảng cách cosine chuyển nó thành một khoảng cách: cosine_distance = 1 - cosine_similarity. Giá trị này nằm trong khoảng từ 0 (hướng giống hệt) đến 2 (hướng đối nhau).
 
 ```
 a = (1, 0)    b = (1, 1)
@@ -150,31 +150,31 @@ cos_sim = (1*1 + 0*1) / (1 * sqrt(2)) = 1/sqrt(2) = 0.707
 cos_dist = 1 - 0.707 = 0.293
 ```
 
-Why cosine dominates NLP and embeddings: in text, document length should not affect similarity. A document about cats that is twice as long as another document about cats should still be "similar." Cosine similarity ignores magnitude (length) and only cares about direction. Two documents with the same word distribution but different lengths point in the same direction and get cosine similarity 1.0.
+Tại sao cosine chiếm ưu thế trong NLP và embedding: trong văn bản, độ dài tài liệu không nên ảnh hưởng đến độ tương đồng. Một tài liệu về mèo dài gấp đôi một tài liệu khác về mèo vẫn nên "tương tự." Độ tương đồng cosine bỏ qua độ lớn (độ dài) và chỉ quan tâm hướng. Hai tài liệu có cùng phân phối từ nhưng độ dài khác nhau chỉ cùng hướng và có độ tương đồng cosine 1.0.
 
-When to use cosine similarity:
-- Text similarity (TF-IDF vectors, word embeddings, sentence embeddings)
-- Any domain where magnitude is noise and direction is signal
-- Recommendation systems (user preference vectors)
-- Embedding search (vector databases almost always use cosine or dot product)
+Khi nào sử dụng độ tương đồng cosine:
+- Độ tương đồng văn bản (vector TF-IDF, embedding từ, embedding câu)
+- Bất kỳ miền nào mà độ lớn là nhiễu và hướng là tín hiệu
+- Các hệ thống đề xuất (vector sở thích người dùng)
+- Tìm kiếm embedding (cơ sở dữ liệu vector hầu như luôn dùng cosine hoặc tích vô hướng)
 
 ### Dot Product Similarity vs Cosine Similarity
 
-The dot product of two vectors is:
+Tích vô hướng của hai vector là:
 
 ```
 a . b = a_1*b_1 + a_2*b_2 + ... + a_n*b_n
       = ||a|| * ||b|| * cos(angle)
 ```
 
-Cosine similarity is the dot product normalized by both magnitudes. When both vectors are already unit-normalized (magnitude = 1), dot product and cosine similarity are identical.
+Độ tương đồng cosine là tích vô hướng được chuẩn hóa bởi cả hai độ lớn. Khi cả hai vector đã được chuẩn hóa đơn vị (độ lớn = 1), tích vô hướng và độ tương đồng cosine giống hệt nhau.
 
 ```
 If ||a|| = 1 and ||b|| = 1:
     a . b = cos(angle between a and b)
 ```
 
-When they differ: dot product includes magnitude information. A vector with larger magnitude gets a higher dot product score. This matters in some retrieval systems where you want "popular" items to rank higher. The magnitude acts as an implicit quality or importance signal.
+Khi chúng khác nhau: tích vô hướng bao gồm thông tin độ lớn. Một vector có độ lớn lớn hơn nhận điểm tích vô hướng cao hơn. Điều này quan trọng trong một số hệ thống truy xuất nơi bạn muốn các mục "phổ biến" được xếp hạng cao hơn. Độ lớn đóng vai trò một tín hiệu chất lượng hoặc độ quan trọng ngầm.
 
 ```
 a = (3, 0)    b = (1, 0)    c = (0, 1)
@@ -185,25 +185,25 @@ cos(a, b) = 1.0   cos(a, c) = 0.0
 Both agree on direction, but dot product also reflects magnitude.
 ```
 
-In practice:
-- Use cosine similarity when you want pure directional similarity
-- Use dot product when magnitudes carry meaningful information
-- Many vector databases (Pinecone, Weaviate, Qdrant) let you choose between them
-- If your embeddings are L2-normalized, the choice does not matter
+Trong thực tế:
+- Sử dụng độ tương đồng cosine khi bạn muốn độ tương đồng thuần về hướng
+- Sử dụng tích vô hướng khi độ lớn mang thông tin có ý nghĩa
+- Nhiều cơ sở dữ liệu vector (Pinecone, Weaviate, Qdrant) cho phép bạn chọn giữa chúng
+- Nếu các embedding đã được chuẩn hóa L2, lựa chọn không có ý nghĩa
 
 ### Mahalanobis Distance
 
-Euclidean distance treats all dimensions equally. But if your features are correlated or have different scales, L2 gives misleading results.
+Khoảng cách Euclid xem mọi chiều như nhau. Nhưng nếu các đặc trưng tương quan hoặc có các thang đo khác nhau, L2 cho kết quả gây hiểu lầm.
 
-Mahalanobis distance accounts for the covariance structure of the data.
+Khoảng cách Mahalanobis xét đến cấu trúc hiệp phương sai của dữ liệu.
 
 ```
 d_M(x, y) = sqrt((x - y)^T * S^(-1) * (x - y))
 ```
 
-where S is the covariance matrix of the data.
+trong đó S là ma trận hiệp phương sai của dữ liệu.
 
-Intuitively: Mahalanobis distance first decorrelates and normalizes the data (whitening), then computes L2 distance in that transformed space. If S is the identity matrix (uncorrelated, unit variance features), Mahalanobis distance reduces to Euclidean distance.
+Theo trực giác: khoảng cách Mahalanobis trước tiên khử tương quan và chuẩn hóa dữ liệu (làm trắng), rồi tính khoảng cách L2 trong không gian đã biến đổi đó. Nếu S là ma trận đơn vị (các đặc trưng không tương quan, phương sai đơn vị), khoảng cách Mahalanobis quy về khoảng cách Euclid.
 
 ```
 Example: height and weight are correlated.
@@ -215,21 +215,21 @@ Mahalanobis distance correctly identifies the second as an outlier
 because it accounts for the height-weight correlation.
 ```
 
-When to use Mahalanobis distance:
-- Outlier detection (points with large Mahalanobis distance from the mean are outliers)
-- Classification when features have different scales and correlations
-- When you have enough data to estimate a reliable covariance matrix
-- Quality control in manufacturing (multivariate process monitoring)
+Khi nào sử dụng khoảng cách Mahalanobis:
+- Phát hiện ngoại lệ (các điểm có khoảng cách Mahalanobis lớn so với trung bình là ngoại lệ)
+- Phân loại khi các đặc trưng có thang đo và tương quan khác nhau
+- Khi bạn có đủ dữ liệu để ước lượng một ma trận hiệp phương sai đáng tin cậy
+- Kiểm soát chất lượng trong sản xuất (giám sát quy trình đa biến)
 
 ### Jaccard Similarity (for sets)
 
-Jaccard similarity measures overlap between two sets.
+Độ tương đồng Jaccard đo sự chồng lấp giữa hai tập hợp.
 
 ```
 J(A, B) = |A intersect B| / |A union B|
 ```
 
-It ranges from 0 (no overlap) to 1 (identical sets). Jaccard distance = 1 - Jaccard similarity.
+Nó nằm trong khoảng từ 0 (không chồng lấp) đến 1 (các tập giống hệt). Khoảng cách Jaccard = 1 - độ tương đồng Jaccard.
 
 ```
 A = {cat, dog, fish}
@@ -242,16 +242,16 @@ Jaccard similarity = 2/5 = 0.4
 Jaccard distance = 0.6
 ```
 
-When to use Jaccard:
-- Comparing sets of tags, categories, or features
-- Document similarity based on word presence (not frequency)
-- Near-duplicate detection (MinHash approximation of Jaccard)
-- Comparing binary feature vectors (presence/absence data)
-- Evaluating segmentation models (Intersection over Union = Jaccard)
+Khi nào sử dụng Jaccard:
+- So sánh các tập thẻ, danh mục hoặc đặc trưng
+- Độ tương đồng tài liệu dựa trên sự hiện diện của từ (không phải tần suất)
+- Phát hiện gần trùng lặp (xấp xỉ MinHash của Jaccard)
+- So sánh các vector đặc trưng nhị phân (dữ liệu hiện diện/vắng mặt)
+- Đánh giá các mô hình phân đoạn (Giao trên Hợp = Jaccard)
 
 ### Edit Distance (Levenshtein Distance)
 
-Edit distance counts the minimum number of single-character operations needed to transform one string into another. The operations are: insert, delete, or substitute.
+Khoảng cách chỉnh sửa đếm số tối thiểu các phép toán trên một ký tự cần để biến đổi một chuỗi thành một chuỗi khác. Các phép toán là: chèn, xóa hoặc thay thế.
 
 ```
 "kitten" -> "sitting"
@@ -263,7 +263,7 @@ sittin -> sitting (insert g)
 Edit distance = 3
 ```
 
-Computed using dynamic programming. Fill a matrix where entry (i, j) is the edit distance between the first i characters of string A and the first j characters of string B.
+Được tính bằng quy hoạch động. Điền một ma trận trong đó phần tử (i, j) là khoảng cách chỉnh sửa giữa i ký tự đầu của chuỗi A và j ký tự đầu của chuỗi B.
 
 ```
         ""  s  i  t  t  i  n  g
@@ -276,55 +276,55 @@ Computed using dynamic programming. Fill a matrix where entry (i, j) is the edit
     n    6  6  5  4  3  3  2  3
 ```
 
-When to use edit distance:
-- Spell checking and correction
-- DNA sequence alignment (with weighted operations)
-- Fuzzy string matching
-- Deduplication of messy text data
+Khi nào sử dụng khoảng cách chỉnh sửa:
+- Kiểm tra và sửa chính tả
+- Căn chỉnh chuỗi DNA (với các phép toán có trọng số)
+- So khớp chuỗi mờ
+- Loại bỏ trùng lặp trong dữ liệu văn bản lộn xộn
 
 ### KL Divergence (not a distance, but used like one)
 
-KL divergence measures how one probability distribution differs from another. Covered in Lesson 09, but it belongs in this discussion because people use it as a "distance" despite it not being one.
+Phân kỳ KL đo cách một phân phối xác suất khác một phân phối khác. Đã được đề cập ở Bài học 09, nhưng nó thuộc về phần thảo luận này vì mọi người sử dụng nó như một "khoảng cách" dù nó không phải.
 
 ```
 D_KL(P || Q) = sum(p(x) * log(p(x) / q(x)))
 ```
 
-Critical property: KL divergence is NOT symmetric.
+Tính chất thiết yếu: phân kỳ KL KHÔNG đối xứng.
 
 ```
 D_KL(P || Q) != D_KL(Q || P)
 ```
 
-This means it fails the basic requirement of a distance metric. It also does not satisfy the triangle inequality. It is a divergence, not a distance.
+Điều này có nghĩa là nó không đáp ứng yêu cầu cơ bản của một metric khoảng cách. Nó cũng không thỏa mãn bất đẳng thức tam giác. Nó là một phân kỳ, không phải một khoảng cách.
 
-Forward KL (D_KL(P || Q)) is "mean-seeking": Q tries to cover all modes of P.
-Reverse KL (D_KL(Q || P)) is "mode-seeking": Q focuses on a single mode of P.
+KL xuôi (D_KL(P || Q)) "tìm trung bình": Q cố bao phủ tất cả các mode của P.
+KL ngược (D_KL(Q || P)) "tìm mode": Q tập trung vào một mode duy nhất của P.
 
-When you see KL divergence:
-- VAEs (the KL term in the ELBO pushes the latent distribution toward a prior)
-- Knowledge distillation (student tries to match teacher's distribution)
-- RLHF (the KL penalty keeps the fine-tuned model close to the base model)
-- Policy gradient methods (constraining policy updates)
+Khi bạn thấy phân kỳ KL:
+- VAE (thành phần KL trong ELBO đẩy phân phối ẩn về phía một tiên nghiệm)
+- Chưng cất tri thức (trò cố khớp phân phối của thầy)
+- RLHF (hình phạt KL giữ mô hình fine-tune gần mô hình cơ sở)
+- Các phương pháp gradient chính sách (ràng buộc cập nhật chính sách)
 
 ### Wasserstein Distance (Earth Mover's Distance)
 
-Wasserstein distance measures the minimum "work" needed to transform one probability distribution into another. Think of it as: if one distribution is a pile of dirt and the other is a hole, how much dirt do you have to move and how far?
+Khoảng cách Wasserstein đo "công" tối thiểu cần để biến đổi một phân phối xác suất thành một phân phối khác. Hãy nghĩ thế này: nếu một phân phối là một đống đất và phân phối kia là một cái hố, bạn phải di chuyển bao nhiêu đất và bao xa?
 
 ```
 W(P, Q) = inf over all transport plans gamma of E[d(x, y)]
 ```
 
-For 1D distributions, it simplifies to the integral of the absolute difference of the cumulative distribution functions:
+Với các phân phối 1D, nó đơn giản thành tích phân của hiệu tuyệt đối giữa các hàm phân phối tích lũy:
 
 ```
 W_1(P, Q) = integral |CDF_P(x) - CDF_Q(x)| dx
 ```
 
-Why Wasserstein matters:
-- It is a true metric (symmetric, satisfies triangle inequality)
-- It provides gradients even when distributions do not overlap (KL divergence goes to infinity)
-- This property made it central to Wasserstein GANs (WGANs), which solved the training instability of original GANs
+Tại sao Wasserstein quan trọng:
+- Nó là một metric thực sự (đối xứng, thỏa mãn bất đẳng thức tam giác)
+- Nó cung cấp gradient ngay cả khi các phân phối không chồng lấp (phân kỳ KL tiến đến vô cực)
+- Tính chất này khiến nó trở thành trung tâm của Wasserstein GAN (WGAN), đã giải quyết sự bất ổn huấn luyện của các GAN ban đầu
 
 ```
 Distributions with no overlap:
@@ -337,32 +337,32 @@ Wasserstein: 4 (move all mass 4 bins)
 Wasserstein gives a meaningful gradient. KL does not.
 ```
 
-When to use Wasserstein:
-- GAN training (WGAN, WGAN-GP)
-- Comparing distributions that may not overlap
-- Optimal transport problems
-- Image retrieval (comparing color histograms)
+Khi nào sử dụng Wasserstein:
+- Huấn luyện GAN (WGAN, WGAN-GP)
+- So sánh các phân phối có thể không chồng lấp
+- Các bài toán vận chuyển tối ưu
+- Truy xuất hình ảnh (so sánh biểu đồ tần suất màu)
 
 ### Why Different Tasks Need Different Distances
 
-| Task | Best distance | Why |
+| Tác vụ | Khoảng cách tốt nhất | Lý do |
 |------|--------------|-----|
-| Text similarity | Cosine | Magnitude is noise, direction is meaning |
-| Image pixel comparison | L2 | Spatial relationships matter, features are comparable scale |
-| Sparse high-dim features | L1 | Robust, does not amplify rare large differences |
-| Set overlap (tags, categories) | Jaccard | Data is naturally set-valued, not vectorial |
-| String matching | Edit distance | Operations map to human editing intuition |
-| Outlier detection | Mahalanobis | Accounts for feature correlations and scales |
-| Comparing distributions | KL divergence | Measures information lost by using Q instead of P |
-| GAN training | Wasserstein | Provides gradients even when distributions do not overlap |
-| Embeddings (vector DB) | Cosine or dot product | Embeddings are trained to encode meaning in direction |
-| Recommendation | Dot product | Magnitude can encode popularity or confidence |
-| DNA sequences | Weighted edit distance | Substitution costs vary by nucleotide pair |
-| Manufacturing QC | L-infinity | Worst-case deviation in any dimension matters |
+| Độ tương đồng văn bản | Cosine | Độ lớn là nhiễu, hướng là ý nghĩa |
+| So sánh pixel hình ảnh | L2 | Các quan hệ không gian quan trọng, các đặc trưng có thang đo tương đương |
+| Các đặc trưng thưa nhiều chiều | L1 | Bền vững, không khuếch đại các khác biệt lớn hiếm gặp |
+| Chồng lấp tập hợp (thẻ, danh mục) | Jaccard | Dữ liệu tự nhiên có dạng tập hợp, không phải vector |
+| So khớp chuỗi | Khoảng cách chỉnh sửa | Các phép toán tương ứng với trực giác chỉnh sửa của con người |
+| Phát hiện ngoại lệ | Mahalanobis | Xét đến tương quan và thang đo đặc trưng |
+| So sánh các phân phối | Phân kỳ KL | Đo thông tin mất khi sử dụng Q thay vì P |
+| Huấn luyện GAN | Wasserstein | Cung cấp gradient ngay cả khi các phân phối không chồng lấp |
+| Embedding (cơ sở dữ liệu vector) | Cosine hoặc tích vô hướng | Embedding được huấn luyện để mã hóa ý nghĩa trong hướng |
+| Đề xuất | Tích vô hướng | Độ lớn có thể mã hóa độ phổ biến hoặc sự tự tin |
+| Chuỗi DNA | Khoảng cách chỉnh sửa có trọng số | Chi phí thay thế thay đổi theo cặp nucleotide |
+| Kiểm soát chất lượng sản xuất | L-vô cực | Độ lệch trong trường hợp xấu nhất ở bất kỳ chiều nào quan trọng |
 
 ### Connection to Loss Functions
 
-Loss functions are distance functions applied to predictions vs targets.
+Các hàm mất mát là các hàm khoảng cách được áp dụng cho dự đoán so với mục tiêu.
 
 ```
 Loss function       Distance it uses       Behavior
@@ -380,7 +380,7 @@ Contrastive loss    L2                     Similar pairs close, dissimilar
 
 ### Connection to Regularization
 
-Regularization adds a norm penalty on the weights to the loss function.
+Regularization thêm một hình phạt chuẩn trên các trọng số vào hàm mất mát.
 
 ```
 L1 regularization (Lasso):   loss + lambda * ||w||_1
@@ -398,15 +398,15 @@ Elastic Net:                  loss + lambda_1 * ||w||_1 + lambda_2 * ||w||_2^2
   -> Groups of correlated features are kept or dropped together.
 ```
 
-Why L1 produces sparsity but L2 does not: picture the constraint region in 2D weight space. L1 is a diamond, L2 is a circle. The loss function's contours (ellipses) are most likely to touch the diamond at a corner, where one weight is zero. They touch the circle at a smooth point, where both weights are nonzero.
+Tại sao L1 tạo tính thưa nhưng L2 thì không: hình dung miền ràng buộc trong không gian trọng số 2D. L1 là một hình thoi, L2 là một đường tròn. Các đường đồng mức của hàm mất mát (ellipse) có khả năng cao nhất chạm hình thoi tại một góc, nơi một trọng số bằng không. Chúng chạm đường tròn tại một điểm trơn, nơi cả hai trọng số khác không.
 
 ### Nearest Neighbor Search
 
-Every distance function implies a nearest neighbor search problem: given a query point, find the closest points in a dataset.
+Mỗi hàm khoảng cách hàm ý một bài toán tìm kiếm láng giềng gần nhất: cho một điểm truy vấn, tìm các điểm gần nhất trong một tập dữ liệu.
 
-Exact nearest neighbor search is O(n * d) per query in a dataset of n points with d dimensions. For large datasets, this is too slow.
+Tìm kiếm láng giềng gần nhất chính xác có chi phí O(n * d) cho mỗi truy vấn trong một tập dữ liệu gồm n điểm với d chiều. Với các tập dữ liệu lớn, điều này quá chậm.
 
-Approximate Nearest Neighbor (ANN) algorithms trade a small amount of accuracy for massive speed gains:
+Các thuật toán Láng giềng Gần nhất Xấp xỉ (ANN) đánh đổi một lượng nhỏ độ chính xác để tăng tốc rất lớn:
 
 ```
 Algorithm         Approach                      Used by
@@ -421,7 +421,7 @@ Product quant.    Compress vectors, search       FAISS (memory-constrained)
                   in compressed space
 ```
 
-HNSW (Hierarchical Navigable Small World) is the dominant algorithm in modern vector databases. It builds a multi-layer graph where each node connects to its approximate nearest neighbors. Search starts at the top layer (sparse, long jumps) and descends to the bottom layer (dense, short jumps).
+HNSW (Hierarchical Navigable Small World) là thuật toán chiếm ưu thế trong các cơ sở dữ liệu vector hiện đại. Nó xây dựng một đồ thị nhiều lớp trong đó mỗi nút kết nối với các láng giềng gần nhất xấp xỉ của nó. Tìm kiếm bắt đầu ở lớp trên cùng (thưa, các bước nhảy dài) và đi xuống lớp dưới cùng (dày đặc, các bước nhảy ngắn).
 
 ```figure
 norm-unit-balls
@@ -431,19 +431,19 @@ norm-unit-balls
 
 ### Step 1: All norm and distance functions
 
-See `code/distances.py` for the complete implementation. Every function is built from scratch using only basic Python math.
+Xem `code/distances.py` để có triển khai đầy đủ. Mỗi hàm được xây dựng từ đầu chỉ bằng toán Python cơ bản.
 
 ### Step 2: Same data, different distances, different neighbors
 
-The demo in `distances.py` creates a dataset, picks a query point, and shows how the nearest neighbor changes depending on the distance metric. The point that is "closest" under L1 may not be closest under L2 or cosine.
+Bản demo trong `distances.py` tạo một tập dữ liệu, chọn một điểm truy vấn và cho thấy láng giềng gần nhất thay đổi thế nào tùy theo metric khoảng cách. Điểm "gần nhất" theo L1 có thể không gần nhất theo L2 hoặc cosine.
 
 ### Step 3: Embedding similarity search
 
-The code includes a mock embedding similarity search that finds the most similar "documents" to a query using cosine similarity vs L2 distance, showing that the rankings can differ.
+Mã bao gồm một tìm kiếm tương đồng embedding giả lập tìm các "tài liệu" tương đồng nhất với một truy vấn bằng độ tương đồng cosine so với khoảng cách L2, cho thấy các thứ hạng có thể khác nhau.
 
 ## Use It
 
-The most common practical use: finding similar items in a vector database.
+Cách dùng thực tế phổ biến nhất: tìm các mục tương tự trong một cơ sở dữ liệu vector.
 
 ```python
 import numpy as np
@@ -465,47 +465,47 @@ print(f"Top 5 most similar to item 0: {top_k}")
 print(f"Similarities: {similarities[top_k]}")
 ```
 
-When you call `model.encode(text)` and then search a vector database, this is what happens under the hood. The embedding model maps text to vectors. The vector database computes cosine similarity (or dot product) between your query vector and every stored vector, using ANN algorithms to avoid checking all of them.
+Khi bạn gọi `model.encode(text)` rồi tìm kiếm một cơ sở dữ liệu vector, đây là những gì xảy ra bên trong. Mô hình embedding ánh xạ văn bản thành các vector. Cơ sở dữ liệu vector tính độ tương đồng cosine (hoặc tích vô hướng) giữa vector truy vấn và mọi vector được lưu, sử dụng các thuật toán ANN để tránh kiểm tra tất cả chúng.
 
 ## Exercises
 
-1. Compute L1, L2, and L-infinity distances between (1, 2, 3) and (4, 0, 6). Verify that L-inf <= L2 <= L1 always holds for any pair of points. Prove why this ordering is guaranteed.
+1. Tính các khoảng cách L1, L2 và L-vô cực giữa (1, 2, 3) và (4, 0, 6). Xác minh L-inf <= L2 <= L1 luôn đúng cho bất kỳ cặp điểm nào. Chứng minh tại sao thứ tự này được bảo đảm.
 
-2. Create two vectors where cosine similarity is high (> 0.9) but L2 distance is large (> 10). Explain geometrically what is happening. Then create two vectors where cosine similarity is low (< 0.3) but L2 distance is small (< 0.5).
+2. Tạo hai vector có độ tương đồng cosine cao (> 0.9) nhưng khoảng cách L2 lớn (> 10). Giải thích về mặt hình học điều gì đang xảy ra. Sau đó tạo hai vector có độ tương đồng cosine thấp (< 0.3) nhưng khoảng cách L2 nhỏ (< 0.5).
 
-3. Implement a function that takes a dataset and a query point and returns the nearest neighbor under L1, L2, cosine, and Mahalanobis distance. Find a dataset where all four disagree on which point is nearest.
+3. Triển khai một hàm nhận một tập dữ liệu và một điểm truy vấn rồi trả về láng giềng gần nhất theo khoảng cách L1, L2, cosine và Mahalanobis. Tìm một tập dữ liệu mà cả bốn không đồng ý về điểm nào gần nhất.
 
-4. Compute the Wasserstein distance between [0.5, 0.5, 0, 0] and [0, 0, 0.5, 0.5] by hand using the CDF method. Then compute it between [0.25, 0.25, 0.25, 0.25] and [0, 0, 0.5, 0.5]. Which is larger and why?
+4. Tính khoảng cách Wasserstein giữa [0.5, 0.5, 0, 0] và [0, 0, 0.5, 0.5] bằng tay bằng phương pháp CDF. Sau đó tính giữa [0.25, 0.25, 0.25, 0.25] và [0, 0, 0.5, 0.5]. Khoảng cách nào lớn hơn và tại sao?
 
-5. Implement MinHash for approximate Jaccard similarity. Generate 100 random sets, compute exact Jaccard for all pairs, and compare with MinHash approximation using 50, 100, and 200 hash functions. Plot the approximation error.
+5. Triển khai MinHash cho độ tương đồng Jaccard xấp xỉ. Tạo 100 tập ngẫu nhiên, tính Jaccard chính xác cho mọi cặp và so sánh với xấp xỉ MinHash bằng 50, 100 và 200 hàm băm. Vẽ sai số xấp xỉ.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Norm | "Size of a vector" | A function that maps a vector to a non-negative scalar, satisfying triangle inequality, absolute homogeneity, and zero only for the zero vector |
-| L1 norm | "Manhattan distance" | Sum of absolute component values. Produces sparsity in optimization. Robust to outliers |
-| L2 norm | "Euclidean distance" | Square root of sum of squared components. The straight-line distance in Euclidean space |
-| Lp norm | "Generalized norm" | The p-th root of the sum of p-th powers of absolute components. L1 and L2 are special cases |
-| L-infinity norm | "Max norm" or "Chebyshev distance" | The maximum absolute component value. The limit of Lp as p approaches infinity |
-| Cosine similarity | "Angle between vectors" | Dot product normalized by both magnitudes. Ranges from -1 to +1. Ignores vector length |
-| Cosine distance | "1 minus cosine similarity" | Converts cosine similarity to a distance. Ranges from 0 to 2 |
-| Dot product | "Unnormalized cosine" | Sum of component-wise products. Equals cosine similarity times both magnitudes |
-| Mahalanobis distance | "Correlation-aware distance" | L2 distance in a space that has been whitened (decorrelated and normalized) using the data covariance matrix |
-| Jaccard similarity | "Set overlap" | Size of intersection divided by size of union. For sets, not vectors |
-| Edit distance | "Levenshtein distance" | Minimum insertions, deletions, and substitutions to transform one string into another |
-| KL divergence | "Distance between distributions" | Not a true distance (not symmetric). Measures extra bits from using Q to encode P |
-| Wasserstein distance | "Earth mover's distance" | Minimum work to transport mass from one distribution to another. A true metric |
-| Approximate nearest neighbor | "ANN search" | Algorithms (HNSW, LSH, IVF) that find approximately closest points much faster than exact search |
-| HNSW | "The vector DB algorithm" | Hierarchical Navigable Small World graph. Multi-layer graph for fast approximate nearest neighbor search |
-| L1 regularization | "Lasso" | Adding the L1 norm of weights to the loss. Drives weights to zero (sparsity) |
-| L2 regularization | "Ridge" or "weight decay" | Adding the squared L2 norm of weights to the loss. Shrinks weights toward zero without sparsity |
-| Elastic Net | "L1 + L2" | Combines L1 and L2 regularization. Handles correlated feature groups better than either alone |
+| Norm (Chuẩn) | "Kích thước của một vector" | Một hàm ánh xạ một vector thành một số vô hướng không âm, thỏa mãn bất đẳng thức tam giác, tính thuần nhất tuyệt đối và chỉ bằng không với vector không |
+| L1 norm (Chuẩn L1) | "Khoảng cách Manhattan" | Tổng các giá trị tuyệt đối của các thành phần. Tạo tính thưa trong tối ưu hóa. Bền vững với ngoại lệ |
+| L2 norm (Chuẩn L2) | "Khoảng cách Euclid" | Căn bậc hai của tổng bình phương các thành phần. Khoảng cách đường thẳng trong không gian Euclid |
+| Lp norm (Chuẩn Lp) | "Chuẩn tổng quát" | Căn bậc p của tổng lũy thừa bậc p của các thành phần tuyệt đối. L1 và L2 là các trường hợp đặc biệt |
+| L-infinity norm (Chuẩn L-vô cực) | "Chuẩn cực đại" hoặc "khoảng cách Chebyshev" | Giá trị tuyệt đối lớn nhất của các thành phần. Giới hạn của Lp khi p tiến đến vô cực |
+| Cosine similarity (Độ tương đồng cosine) | "Góc giữa các vector" | Tích vô hướng được chuẩn hóa bởi cả hai độ lớn. Nằm trong khoảng từ -1 đến +1. Bỏ qua độ dài vector |
+| Cosine distance (Khoảng cách cosine) | "1 trừ độ tương đồng cosine" | Chuyển độ tương đồng cosine thành một khoảng cách. Nằm trong khoảng từ 0 đến 2 |
+| Dot product (Tích vô hướng) | "Cosine chưa chuẩn hóa" | Tổng các tích theo từng thành phần. Bằng độ tương đồng cosine nhân cả hai độ lớn |
+| Mahalanobis distance (Khoảng cách Mahalanobis) | "Khoảng cách có xét tương quan" | Khoảng cách L2 trong một không gian đã được làm trắng (khử tương quan và chuẩn hóa) bằng ma trận hiệp phương sai dữ liệu |
+| Jaccard similarity (Độ tương đồng Jaccard) | "Chồng lấp tập hợp" | Kích thước giao chia kích thước hợp. Cho tập hợp, không phải vector |
+| Edit distance (Khoảng cách chỉnh sửa) | "Khoảng cách Levenshtein" | Số lần chèn, xóa và thay thế tối thiểu để biến đổi một chuỗi thành một chuỗi khác |
+| KL divergence (Phân kỳ KL) | "Khoảng cách giữa các phân phối" | Không phải khoảng cách thực sự (không đối xứng). Đo số bit thêm khi sử dụng Q để mã hóa P |
+| Wasserstein distance (Khoảng cách Wasserstein) | "Khoảng cách chuyển đất" | Công tối thiểu để vận chuyển khối từ một phân phối sang một phân phối khác. Một metric thực sự |
+| Approximate nearest neighbor (Láng giềng gần nhất xấp xỉ) | "Tìm kiếm ANN" | Các thuật toán (HNSW, LSH, IVF) tìm các điểm gần nhất xấp xỉ nhanh hơn nhiều so với tìm kiếm chính xác |
+| HNSW | "Thuật toán cơ sở dữ liệu vector" | Đồ thị Hierarchical Navigable Small World. Đồ thị nhiều lớp cho tìm kiếm láng giềng gần nhất xấp xỉ nhanh |
+| L1 regularization | "Lasso" | Thêm chuẩn L1 của các trọng số vào mất mát. Đẩy các trọng số về không (tính thưa) |
+| L2 regularization | "Ridge" hoặc "suy giảm trọng số" | Thêm chuẩn L2 bình phương của các trọng số vào mất mát. Thu nhỏ trọng số về phía không mà không có tính thưa |
+| Elastic Net | "L1 + L2" | Kết hợp L1 và L2 regularization. Xử lý các nhóm đặc trưng tương quan tốt hơn từng loại riêng lẻ |
 
 ## Further Reading
 
-- [FAISS: A Library for Efficient Similarity Search](https://github.com/facebookresearch/faiss) - Meta's library for billion-scale ANN search
-- [Wasserstein GAN (Arjovsky et al., 2017)](https://arxiv.org/abs/1701.07875) - the paper that introduced Earth Mover's distance to GANs
-- [Locality-Sensitive Hashing (Indyk & Motwani, 1998)](https://dl.acm.org/doi/10.1145/276698.276876) - foundational ANN algorithm
-- [Efficient Estimation of Word Representations (Mikolov et al., 2013)](https://arxiv.org/abs/1301.3781) - Word2Vec, where cosine similarity became the default for embeddings
-- [sklearn.neighbors documentation](https://scikit-learn.org/stable/modules/neighbors.html) - practical guide to distance metrics and neighbor algorithms in scikit-learn
+- [FAISS: A Library for Efficient Similarity Search](https://github.com/facebookresearch/faiss) - thư viện của Meta cho tìm kiếm ANN ở quy mô hàng tỷ
+- [Wasserstein GAN (Arjovsky et al., 2017)](https://arxiv.org/abs/1701.07875) - bài báo giới thiệu khoảng cách Chuyển Đất cho GAN
+- [Locality-Sensitive Hashing (Indyk & Motwani, 1998)](https://dl.acm.org/doi/10.1145/276698.276876) - thuật toán ANN nền tảng
+- [Efficient Estimation of Word Representations (Mikolov et al., 2013)](https://arxiv.org/abs/1301.3781) - Word2Vec, nơi độ tương đồng cosine trở thành mặc định cho embedding
+- [Tài liệu sklearn.neighbors](https://scikit-learn.org/stable/modules/neighbors.html) - hướng dẫn thực hành về các metric khoảng cách và thuật toán láng giềng trong scikit-learn
