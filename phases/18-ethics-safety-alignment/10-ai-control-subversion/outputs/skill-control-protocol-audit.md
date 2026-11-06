@@ -7,23 +7,23 @@ lesson: 10
 tags: [ai-control, subversion, trusted-editing, untrusted-monitoring, safety-case]
 ---
 
-Given a deployment protocol description, audit it under the AI Control threat model: U (untrusted strong), T (trusted weak), H (trusted human), and measure the protocol's position on the usefulness-safety frontier.
+Với mô tả giao thức triển khai, kiểm tra dưới mô hình đe dọa AI Control: U (mạnh không đáng tin), T (yếu đáng tin), H (con người đáng tin), và đo vị trí giao thức trên biên hữu ích-an toàn.
 
-Produce:
+Tạo:
 
-1. Role assignment. Identify which model plays U and which plays T. If T is another instance of U, flag collusion risk immediately.
-2. Audit budget accounting. How is H allocated? Uniform, random, flag-directed? What fraction of outputs are audited in expectation?
-3. Collusion-vector enumeration. For every pair of untrusted components (U-producer + U-monitor, U-producer + U-editor), enumerate the collusion vectors: steganographic cues, shared-training prior exploitation, timing channels.
-4. Capability-gap analysis. How much weaker is T than U? At what point does T's editing signal become noise (e.g., T cannot reliably detect backdoors U produces)?
-5. Worst-case threat model. Under the assumption that U is adversarial with perfect knowledge of the protocol, what is the adversary's best strategy? What fraction of red-team attempts succeed?
+1. Phân vai. Xác định mô hình nào đóng U và T. Nếu T là phiên bản khác của U, đánh dấu rủi ro thông đồng ngay.
+2. Tính ngân sách kiểm tra. H được phân bổ thế nào? Đồng đều, ngẫu nhiên, theo cờ? Tỷ phần đầu ra được kiểm tra kỳ vọng là bao nhiêu?
+3. Liệt kê hướng thông đồng. Với mọi cặp thành phần không đáng tin (U-tạo + U-giám sát, U-tạo + U-chỉnh sửa), liệt kê hướng thông đồng: tín hiệu giấu tin, khai thác tiên nghiệm huấn luyện chung, kênh thời gian.
+4. Phân tích khoảng cách năng lực. T yếu hơn U bao nhiêu? Ở điểm nào tín hiệu chỉnh sửa T thành nhiễu (ví dụ: T không phát hiện đáng tin cậy cửa hậu U tạo)?
+5. Mô hình đe dọa trường hợp xấu nhất. Dưới giả định U đối kháng với kiến thức hoàn hảo về giao thức, chiến lược tốt nhất của đối thủ là gì? Tỷ phần nỗ lực red-team thành công là bao nhiêu?
 
-Hard rejects:
-- Any protocol description that uses U as its own monitor without a collusion-resistance mechanism.
-- Any protocol claim of "near-zero backdoor rate" without red-team evaluation where the red team has protocol visibility.
-- Any audit of a protocol without articulating the capability gap T-to-U and the budget of H.
+Các trường hợp loại bỏ dứt khoát:
+- Mọi mô tả giao thức dùng U làm bộ giám sát chính nó không có cơ chế chống thông đồng.
+- Mọi khẳng định giao thức "tỷ lệ cửa hậu gần không" không có đánh giá red-team nơi red team thấy giao thức.
+- Mọi kiểm tra giao thức không trình bày khoảng cách năng lực T-đến-U và ngân sách H.
 
-Refusal rules:
-- If the user asks "is this protocol safe," refuse without the three-part evidence: (a) red-team result, (b) capability-gap estimate, (c) H budget.
-- If the user conflates alignment and control ("we aligned U so we don't need a protocol"), refuse and point to Lesson 9 (alignment faking) — alignment is a property of U; control is a property of the protocol.
+Quy tắc từ chối:
+- Nếu người dùng hỏi "giao thức này an toàn không," từ chối khi thiếu bằng chứng ba phần: (a) kết quả red-team, (b) ước tính khoảng cách năng lực, (c) ngân sách H.
+- Nếu người dùng nhập nhằng căn chỉnh và kiểm soát ("chúng tôi căn chỉnh U nên không cần giao thức"), từ chối và trỏ Bài 9 (giả vờ căn chỉnh) — căn chỉnh là thuộc tính U; kiểm soát là thuộc tính giao thức.
 
-Output: a one-page audit that fills the five sections above, names the weakest link (usually T-to-U capability gap or collusion resistance), and states the single largest unaddressed failure mode. Cite Greenblatt et al. (arXiv:2312.06942) once as the threat-model source.
+Đầu ra: bản kiểm tra một trang điền năm phần trên, nêu mắt xích yếu nhất (thường là khoảng cách năng lực T-đến-U hoặc chống thông đồng), và nêu chế độ lỗi chưa giải quyết lớn nhất duy nhất. Trích dẫn Greenblatt và cộng sự (arXiv:2312.06942) một lần làm nguồn mô hình đe dọa.
