@@ -16,43 +16,43 @@ related: [deep-learning/train-mode-and-eval-mode, deep-learning/inverted-dropout
 updated: 2026-11-03
 ---
 
-A team ports a vision training recipe to a transformer and keeps batch normalization. Training is unstable, and text generation with one sequence at a time produces garbage. Explain why transformers use layer normalization instead, and when you would go a step further to RMSNorm.
+Một nhóm chuyển một công thức huấn luyện thị giác sang một transformer và giữ batch normalization. Huấn luyện không ổn định, và sinh văn bản với từng chuỗi một tạo ra rác. Giải thích tại sao thay vào đó transformer dùng layer normalization, và khi nào bạn sẽ đi thêm một bước đến RMSNorm.
 
 ## Short answer
 
-Batch normalization normalizes each feature across the batch, so its statistics depend on the batch size and on which sequences share the batch; with small batches they are noisy, with a batch of one they are meaningless, and training and inference run different code paths. Layer normalization normalizes across the features of one sample, so it does not depend on the batch and is identical in both modes, which is what variable length sequences and single sequence generation need. RMSNorm drops the mean subtraction and the shift parameter, keeps the accuracy, and saves about 10 percent of the normalization cost, which is why most recent large language models use it.
+Batch normalization chuẩn hóa mỗi đặc trưng trên batch, vì vậy các thống kê của nó phụ thuộc vào kích thước batch và những chuỗi nào dùng chung batch; với các batch nhỏ chúng nhiễu, với một batch một chúng vô nghĩa, và huấn luyện cùng suy luận chạy các đường mã khác nhau. Layer normalization chuẩn hóa trên các đặc trưng của một mẫu, vì vậy nó không phụ thuộc vào batch và giống hệt trong cả hai chế độ, là điều các chuỗi có độ dài biến đổi và việc sinh một chuỗi cần. RMSNorm bỏ phép trừ trung bình và tham số độ dịch, giữ độ chính xác, và tiết kiệm khoảng 10 phần trăm chi phí chuẩn hóa, là lý do phần lớn mô hình ngôn ngữ lớn gần đây dùng nó.
 
 ## Full answer
 
 ### Batch normalization and its two dependencies
 
-For each feature, batch normalization subtracts the batch mean, divides by the batch standard deviation with an epsilon, and applies a learned scale gamma and shift beta. Two things follow. First, the result for one sample depends on the other samples in its batch. The lesson puts the floor at a batch of about 32; below it the statistics are noisy, and at a batch of one the variance is zero. Second, inference cannot see a batch, so it uses running averages collected in training with a momentum of 0.1, which is a second code path and a second source of bugs. Sequence models hit both problems: lengths vary, memory limits the batch, and generation runs one sequence at a time.
+Đối với mỗi đặc trưng, batch normalization trừ trung bình batch, chia cho độ lệch chuẩn batch với một epsilon, và áp dụng một hệ số tỷ lệ gamma và độ dịch beta được học. Hai điều theo sau. Thứ nhất, kết quả cho một mẫu phụ thuộc vào các mẫu khác trong batch của nó. Bài học đặt mức sàn ở một batch khoảng 32; dưới đó các thống kê nhiễu, và tại một batch một phương sai bằng không. Thứ hai, suy luận không thể thấy một batch, vì vậy nó dùng các trung bình trượt được thu thập trong huấn luyện với một momentum 0.1, là một đường mã thứ hai và một nguồn lỗi thứ hai. Các mô hình chuỗi gặp cả hai vấn đề: độ dài thay đổi, bộ nhớ giới hạn batch, và việc sinh chạy từng chuỗi một.
 
 ### Layer normalization
 
-Layer normalization computes the mean and variance over the D features of one sample and normalizes that sample alone. No batch dependence, no running averages, the same computation in training and at inference. Transformers apply it around each attention block and each feed-forward block, after them in the Post-LN layout or before them in the Pre-LN layout, which the lesson notes trains more stably.
+Layer normalization tính trung bình và phương sai trên D đặc trưng của một mẫu và chỉ chuẩn hóa mẫu đó. Không phụ thuộc batch, không có trung bình trượt, cùng phép tính trong huấn luyện và lúc suy luận. Transformer áp dụng nó quanh mỗi attention block và mỗi feed-forward block, sau chúng trong bố trí Post-LN hoặc trước chúng trong bố trí Pre-LN, mà bài học ghi chú là huấn luyện ổn định hơn.
 
 ### RMSNorm
 
-RMSNorm divides by the root mean square of the features and multiplies by gamma. There is no mean subtraction and no beta. The observation behind it is that re-centering adds little to accuracy and costs compute, so removing it gives the same accuracy with about 10 percent less normalization overhead. At the scale of billions of parameters that saving is real, and most modern large language models use it.
+RMSNorm chia cho căn trung bình bình phương của các đặc trưng và nhân với gamma. Không có phép trừ trung bình và không có beta. Quan sát đằng sau nó là việc đưa lại về tâm thêm ít vào độ chính xác và tốn tính toán, vì vậy loại bỏ nó cho cùng độ chính xác với phần chi phí chuẩn hóa thêm ít hơn khoảng 10 phần trăm. Ở quy mô hàng tỷ tham số mức tiết kiệm đó là thực, và phần lớn mô hình ngôn ngữ lớn hiện đại dùng nó.
 
 ### Why batch normalization helps at all
 
-The first published explanation, internal covariate shift, has been shown to be wrong. The gain comes from a smoother loss landscape with more predictive gradients, which lets the optimizer take larger steps. Layer normalization and RMSNorm deliver that effect without the batch dependence.
+Lời giải thích được công bố đầu tiên, internal covariate shift, đã được chứng minh là sai. Lợi ích đến từ một bề mặt loss trơn hơn với các gradient dự báo tốt hơn, cho phép bộ tối ưu hóa thực hiện các bước lớn hơn. Layer normalization và RMSNorm mang lại hiệu ứng đó mà không phụ thuộc batch.
 
 ## Follow-ups
 
-- **Level 3:** What does batch normalization need at inference that layer normalization does not? Expected: running averages of the mean and variance collected in training; layer normalization computes its statistics from the sample itself.
-- **Level 3:** Where does a transformer block place the normalization? Expected: after each attention and feed-forward block in Post-LN, or before them in Pre-LN, which trains more stably.
-- **Level 4:** What does RMSNorm remove and what does it cost? Expected: the mean subtraction and the shift parameter; the lesson reports the same accuracy with about 10 percent less normalization overhead.
-- **Level 4:** Why did the original explanation for batch normalization fall out of favor? Expected: later work showed the gain comes from a smoother loss landscape with smaller Lipschitz constants, which lets the optimizer take larger steps.
+- **Level 3:** Batch normalization cần gì lúc suy luận mà layer normalization không cần? Expected: các trung bình trượt của trung bình và phương sai được thu thập trong huấn luyện; layer normalization tính các thống kê của nó từ chính mẫu.
+- **Level 3:** Một transformer block đặt chuẩn hóa ở đâu? Expected: sau mỗi attention và feed-forward block trong Post-LN, hoặc trước chúng trong Pre-LN, huấn luyện ổn định hơn.
+- **Level 4:** RMSNorm loại bỏ gì và nó tốn gì? Expected: phép trừ trung bình và tham số độ dịch; bài học báo cáo cùng độ chính xác với phần chi phí chuẩn hóa thêm ít hơn khoảng 10 phần trăm.
+- **Level 4:** Tại sao lời giải thích ban đầu cho batch normalization không còn được ưa chuộng? Expected: các nghiên cứu sau cho thấy lợi ích đến từ một bề mặt loss trơn hơn với các hằng số Lipschitz nhỏ hơn, cho phép bộ tối ưu hóa thực hiện các bước lớn hơn.
 
 ## Wrong answers
 
-- "Batch normalization only needs a bigger batch." Generation runs one sequence at a time and sequence lengths vary; the fix is a norm that does not look across the batch.
-- "Layer normalization is a weaker regularizer, so it is a compromise." It normalizes across features, which is the right axis for sequences, and it removes the mismatch between training and inference.
-- "RMSNorm is an approximation that loses accuracy." The lesson reports the same accuracy; the re-centering adds little and costs compute.
+- "Batch normalization chỉ cần một batch lớn hơn." Việc sinh chạy từng chuỗi một và độ dài chuỗi thay đổi; cách sửa là một norm không nhìn qua batch.
+- "Layer normalization là một bộ regularization yếu hơn, vì vậy đó là một thỏa hiệp." Nó chuẩn hóa trên các đặc trưng, là trục đúng cho các chuỗi, và nó loại bỏ sự không khớp giữa huấn luyện và suy luận.
+- "RMSNorm là một xấp xỉ mất độ chính xác." Bài học báo cáo cùng độ chính xác; việc đưa lại về tâm thêm ít và tốn tính toán.
 
 ## Taught in
 
-The [regularization lesson](../../../phases/03-deep-learning-core/07-regularization/) builds all three normalizations and explains the choice for transformers.
+[Bài học regularization](../../../phases/03-deep-learning-core/07-regularization/) xây dựng cả ba phép chuẩn hóa và giải thích lựa chọn cho transformer.

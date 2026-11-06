@@ -16,21 +16,21 @@ related: [deep-learning/adam-bias-correction-first-steps, deep-learning/train-mo
 updated: 2026-11-03
 ---
 
-You want weight decay on a transformer trained with Adam. One engineer adds an L2 penalty on the weights to the loss. Another uses an AdamW optimizer with a weight decay argument. They say the two are the same thing. Are they, and which do you choose?
+Bạn muốn weight decay trên một transformer được huấn luyện bằng Adam. Một kỹ sư thêm một thành phần phạt L2 trên các trọng số vào loss. Người khác dùng một bộ tối ưu hóa AdamW với một đối số weight decay. Họ nói hai cách là cùng một thứ. Có phải vậy không, và bạn chọn cách nào?
 
 ## Short answer
 
-They are the same only under plain SGD. In Adam, a penalty inside the loss becomes part of the gradient and is divided by the running gradient size like every other term, so weights with large gradient variance get less decay and weights with small variance get more. AdamW subtracts lr times lambda times w after the adaptive update, so every weight shrinks by the same fraction. Choose AdamW; the lesson makes it the default for transformers for this reason.
+Chúng chỉ giống nhau dưới SGD thông thường. Trong Adam, một thành phần phạt bên trong loss trở thành một phần của gradient và bị chia cho độ lớn gradient trượt như mọi thành phần khác, vì vậy các trọng số có phương sai gradient lớn nhận ít decay hơn và các trọng số có phương sai nhỏ nhận nhiều hơn. AdamW trừ lr nhân lambda nhân w sau cập nhật thích nghi, vì vậy mọi trọng số co lại theo cùng một tỷ lệ. Chọn AdamW; bài học đặt nó làm mặc định cho transformer vì lý do này.
 
 ## Full answer
 
 ### Where they agree
 
-The L2 term lambda over 2 times the sum of w squared has gradient lambda w. Under SGD the update subtracts lr times lambda w from each weight, which is weight decay by definition. Both names describe one operation.
+Thành phần L2 lambda chia 2 nhân tổng của w bình phương có gradient lambda w. Dưới SGD lượng cập nhật trừ lr nhân lambda w khỏi mỗi trọng số, chính là weight decay theo định nghĩa. Cả hai tên mô tả một thao tác.
 
 ### Where Adam breaks the equivalence
 
-Adam does not apply the gradient. It averages it into the first moment, squares it into the second, and divides by the root of the second moment. A penalty that rides along in the gradient is rescaled per parameter by that division. A weight with noisy, large gradients has a large second moment and receives a small share of the decay. A weight with quiet gradients receives a large share. The regularization is uneven, and the lesson reports that it converges to worse solutions than the decoupled form on almost every task.
+Adam không áp dụng gradient. Nó lấy trung bình nó vào moment bậc nhất, bình phương nó vào moment bậc hai, và chia cho căn của moment bậc hai. Một thành phần phạt đi cùng gradient được điều chỉnh lại tỷ lệ theo từng tham số bởi phép chia đó. Một trọng số có gradient lớn, nhiễu có một moment bậc hai lớn và nhận một phần decay nhỏ. Một trọng số có gradient yên tĩnh nhận một phần lớn. Regularization không đồng đều, và bài học báo cáo rằng nó hội tụ đến các nghiệm tệ hơn dạng tách rời trên gần như mọi nhiệm vụ.
 
 ### What AdamW does instead
 
@@ -38,31 +38,31 @@ Adam does not apply the gradient. It averages it into the first moment, squares 
 w = w - lr * m_hat / (sqrt(v_hat) + eps) - lr * lambda * w
 ```
 
-The decay term sits outside the adaptive factor. Every weight loses the same fraction lr times lambda at each step. In the lesson's from-scratch class this is one extra line after the Adam update: subtract lr times weight decay times the parameter.
+Thành phần decay nằm bên ngoài hệ số thích nghi. Mọi trọng số mất cùng một tỷ lệ lr nhân lambda ở mỗi bước. Trong lớp viết từ đầu của bài học đây là một dòng thêm sau cập nhật Adam: trừ lr nhân weight decay nhân tham số.
 
 ### Values the lessons give
 
-- 0.01 for AdamW on transformers; the fine-tuning default is also 0.01.
-- 1e-4 for SGD on CNNs, where the two forms coincide.
-- Up to 0.1 for a model that overfits heavily.
+- 0.01 cho AdamW trên transformer; mặc định fine-tuning cũng là 0.01.
+- 1e-4 cho SGD trên CNN, nơi hai dạng trùng nhau.
+- Lên đến 0.1 cho một mô hình overfit nặng.
 
 ### A test that shows the difference
 
-The lesson's exercise: initialize weights with large magnitudes, train Adam with L2 and AdamW with the same decay, and plot the weight norm over training. AdamW shrinks it faster and more evenly.
+Bài tập của bài học: khởi tạo các trọng số với độ lớn cao, huấn luyện Adam với L2 và AdamW với cùng decay, và vẽ chuẩn trọng số trong quá trình huấn luyện. AdamW thu nhỏ nó nhanh hơn và đồng đều hơn.
 
 ## Follow-ups
 
-- **Level 2:** Why is the decay uniform in AdamW? Expected: it is applied to the weights directly, outside the adaptive division, so the fraction removed per step is lr times lambda for every weight.
-- **Level 3:** Where exactly does the penalty go wrong inside Adam? Expected: it enters the gradient, so it is averaged into the first moment and squared into the second, and the division by the root of the second moment rescales it per parameter.
-- **Level 3:** What decay values does the lesson give? Expected: 0.01 for AdamW on transformers, 1e-4 for SGD on CNNs, up to 0.1 for a heavily overfit model.
-- **Level 4:** What experiment shows the difference in a few lines? Expected: start from weights of large magnitude, train both with the same decay, and plot the weight norm; AdamW shrinks it faster and more evenly.
+- **Level 2:** Tại sao decay đồng đều trong AdamW? Expected: nó được áp dụng trực tiếp lên các trọng số, bên ngoài phép chia thích nghi, vì vậy tỷ lệ bị loại mỗi bước là lr nhân lambda cho mọi trọng số.
+- **Level 3:** Chính xác thành phần phạt sai ở đâu bên trong Adam? Expected: nó đi vào gradient, vì vậy được lấy trung bình vào moment bậc nhất và bình phương vào moment bậc hai, và phép chia cho căn của moment bậc hai điều chỉnh lại tỷ lệ nó theo từng tham số.
+- **Level 3:** Bài học đưa ra các giá trị decay nào? Expected: 0.01 cho AdamW trên transformer, 1e-4 cho SGD trên CNN, lên đến 0.1 cho một mô hình overfit nặng.
+- **Level 4:** Thử nghiệm nào cho thấy sự khác biệt trong vài dòng? Expected: bắt đầu từ các trọng số có độ lớn cao, huấn luyện cả hai với cùng decay, và vẽ chuẩn trọng số; AdamW thu nhỏ nó nhanh hơn và đồng đều hơn.
 
 ## Wrong answers
 
-- "Weight decay and L2 are the same by definition." They coincide under SGD; under an adaptive optimizer the penalty is rescaled per parameter.
-- "Use Adam with L2 and a bigger lambda to compensate." A bigger lambda does not fix the unevenness; some weights still receive almost no decay.
-- "Adam adapts, so it does not need weight decay." Adaptation sets step sizes; it does not shrink weights. Overfit transformers still need decay.
+- "Weight decay và L2 giống nhau theo định nghĩa." Chúng trùng nhau dưới SGD; dưới một bộ tối ưu hóa thích nghi thành phần phạt được điều chỉnh lại tỷ lệ theo từng tham số.
+- "Dùng Adam với L2 và một lambda lớn hơn để bù." Một lambda lớn hơn không sửa sự không đồng đều; một số trọng số vẫn nhận gần như không có decay.
+- "Adam thích nghi, vì vậy nó không cần weight decay." Thích nghi đặt các kích thước bước; nó không thu nhỏ các trọng số. Các transformer overfit vẫn cần decay.
 
 ## Taught in
 
-The [optimizers lesson](../../../phases/03-deep-learning-core/06-optimizers/) builds Adam and AdamW and explains the decoupling, and the [regularization lesson](../../../phases/03-deep-learning-core/07-regularization/) gives the decay values.
+[Bài học các bộ tối ưu hóa](../../../phases/03-deep-learning-core/06-optimizers/) xây dựng Adam và AdamW và giải thích việc tách rời, và [bài học regularization](../../../phases/03-deep-learning-core/07-regularization/) đưa ra các giá trị decay.

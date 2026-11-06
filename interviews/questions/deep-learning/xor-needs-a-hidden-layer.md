@@ -16,21 +16,21 @@ related: [deep-learning/stacked-linear-layers-collapse, deep-learning/weight-mat
 updated: 2026-11-03
 ---
 
-A single perceptron learns the AND and OR gates in a few epochs. On the XOR gate it never converges, even after 1000 epochs. Why not, and what is the smallest change to the model that makes XOR learnable?
+Một perceptron duy nhất học các cổng AND và OR trong vài epoch. Trên cổng XOR nó không bao giờ hội tụ, ngay cả sau 1000 epoch. Tại sao không, và thay đổi nhỏ nhất cho mô hình khiến XOR học được là gì?
 
 ## Short answer
 
-A perceptron takes a weighted sum, adds a bias and applies a threshold, so its decision boundary is one straight line. AND and OR put their ones on one side of a line. XOR puts the ones at (0, 1) and (1, 0) and the zeros at (0, 0) and (1, 1), and no single line separates those two pairs. Add a hidden layer: two neurons that compute OR and NAND, and an output neuron that ANDs them, give XOR exactly.
+Một perceptron lấy một tổng có trọng số, cộng một bias và áp dụng một ngưỡng, vì vậy ranh giới quyết định của nó là một đường thẳng. AND và OR đặt các số một của chúng ở một phía của một đường. XOR đặt các số một tại (0, 1) và (1, 0) và các số không tại (0, 0) và (1, 1), và không một đường duy nhất nào tách hai cặp đó. Thêm một lớp ẩn: hai neuron tính OR và NAND, và một neuron đầu ra thực hiện AND chúng, cho XOR chính xác.
 
 ## Full answer
 
 ### What one perceptron can draw
 
-The output is 1 when w1 x1 + w2 x2 + b is at least 0 and 0 otherwise. The set of points where the sum equals 0 is a line, and training moves that line. The learning rule is small: when a prediction is wrong, add the learning rate times the error times the input to each weight, and the error to the bias. When the prediction is right, the error is 0 and nothing moves. On a linearly separable dataset this finds a separating line. On XOR there is none, so the weights keep changing forever. The lesson's run with 1000 epochs reports that it did not converge.
+Đầu ra là 1 khi w1 x1 + w2 x2 + b ít nhất bằng 0 và 0 trong trường hợp khác. Tập các điểm nơi tổng bằng 0 là một đường, và huấn luyện di chuyển đường đó. Quy tắc học nhỏ: khi một dự đoán sai, cộng learning rate nhân sai số nhân đầu vào vào mỗi trọng số, và sai số vào bias. Khi dự đoán đúng, sai số là 0 và không gì di chuyển. Trên một dataset phân tách tuyến tính được điều này tìm một đường phân tách. Trên XOR không có đường nào, vì vậy các trọng số tiếp tục thay đổi mãi. Lần chạy của bài học với 1000 epoch báo cáo rằng nó không hội tụ.
 
 ### The fix
 
-XOR equals (x1 OR x2) AND NOT (x1 AND x2). Three perceptrons in two layers compute it:
+XOR bằng (x1 OR x2) AND NOT (x1 AND x2). Ba perceptron trong hai lớp tính nó:
 
 ```text
 OR neuron:    weights [1.0, 1.0],   bias -0.5
@@ -38,25 +38,25 @@ NAND neuron:  weights [-1.0, -1.0], bias 1.5
 AND neuron:   weights [1.0, 1.0],   bias -1.5   on the two hidden outputs
 ```
 
-The first layer turns the four input points into new features. In that feature space the two classes are separable, and the output neuron draws a line there.
+Lớp đầu biến bốn điểm đầu vào thành các đặc trưng mới. Trong không gian đặc trưng đó hai lớp phân tách được, và neuron đầu ra vẽ một đường ở đó.
 
 ### From hand-wired to learned
 
-The step function has no useful gradient, so the hidden weights cannot be learned by backpropagation. Replace it with a sigmoid, which is smooth, and the same 2-2-1 shape learns XOR from random weights. The multi-layer lesson shows the hand-wired sigmoid version, with weights of 20 and -20 and biases of -10, 30 and -30, where the large weights make the sigmoid act like a step. This is the point where a perceptron becomes a neural network.
+Hàm bước không có gradient hữu ích, vì vậy các trọng số ẩn không thể được học bằng backpropagation. Thay nó bằng một sigmoid, trơn, và cùng hình dạng 2-2-1 học XOR từ các trọng số ngẫu nhiên. Bài học nhiều lớp cho thấy phiên bản sigmoid nối tay, với các trọng số 20 và -20 và các bias -10, 30 và -30, nơi các trọng số lớn khiến sigmoid hoạt động như một bước. Đây là điểm nơi một perceptron trở thành một mạng neuron.
 
 ## Follow-ups
 
-- **Level 1:** What does the learning rule do when a prediction is right? Expected: the error is 0, so no weight changes.
-- **Level 2:** Why does the step function block learning in the two layer version? Expected: it has no useful gradient, so backpropagation cannot assign blame to the hidden weights; the sigmoid is smooth and has a gradient everywhere.
-- **Level 2:** Why do weights of 20 and -20 work in the sigmoid version? Expected: large weights make the sigmoid act like a step, so each hidden neuron is a crisp OR or NAND.
-- **Level 3:** Is a three input majority function linearly separable? Expected: yes; output 1 when at least two inputs are 1 is a half space, so one perceptron learns it.
+- **Level 1:** Quy tắc học làm gì khi một dự đoán đúng? Expected: sai số là 0, vì vậy không trọng số nào thay đổi.
+- **Level 2:** Tại sao hàm bước chặn việc học trong phiên bản hai lớp? Expected: nó không có gradient hữu ích, vì vậy backpropagation không thể phân bổ trách nhiệm cho các trọng số ẩn; sigmoid trơn và có một gradient ở mọi nơi.
+- **Level 2:** Tại sao các trọng số 20 và -20 hoạt động trong phiên bản sigmoid? Expected: các trọng số lớn khiến sigmoid hoạt động như một bước, vì vậy mỗi neuron ẩn là một OR hoặc NAND rõ ràng.
+- **Level 3:** Một hàm đa số ba đầu vào có phân tách tuyến tính được không? Expected: có; xuất ra 1 khi ít nhất hai đầu vào là 1 là một nửa không gian, vì vậy một perceptron học nó.
 
 ## Wrong answers
 
-- "Train longer or raise the learning rate." No line separates the XOR points, so no number of epochs finds one.
-- "Add more inputs or more neurons in the same layer." A wider single layer still draws one line through the same plane.
-- "A hidden layer with no activation fixes it." Two linear layers compose into one linear map, which is one line again. The hidden layer needs a nonlinearity.
+- "Huấn luyện lâu hơn hoặc tăng learning rate." Không đường nào tách các điểm XOR, vì vậy không số epoch nào tìm được một đường.
+- "Thêm đầu vào hoặc thêm neuron trong cùng lớp." Một lớp đơn rộng hơn vẫn vẽ một đường qua cùng mặt phẳng.
+- "Một lớp ẩn không có activation sửa nó." Hai lớp tuyến tính hợp thành một ánh xạ tuyến tính, lại là một đường. Lớp ẩn cần một tính phi tuyến.
 
 ## Taught in
 
-The [perceptron lesson](../../../phases/03-deep-learning-core/01-the-perceptron/) shows the XOR failure and the three gate solution, and the [multi-layer networks lesson](../../../phases/03-deep-learning-core/02-multi-layer-networks/) builds the sigmoid version.
+[Bài học perceptron](../../../phases/03-deep-learning-core/01-the-perceptron/) cho thấy sự cố XOR và lời giải ba cổng, và [bài học các mạng nhiều lớp](../../../phases/03-deep-learning-core/02-multi-layer-networks/) xây dựng phiên bản sigmoid.

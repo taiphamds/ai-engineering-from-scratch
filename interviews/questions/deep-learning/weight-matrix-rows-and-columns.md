@@ -16,7 +16,7 @@ related: [deep-learning/xor-needs-a-hidden-layer, deep-learning/missing-zero-gra
 updated: 2026-11-03
 ---
 
-This Layer class comes from a pure Python forward pass.
+Lớp Layer này đến từ một lượt truyền tiến Python thuần.
 
 ```python
 class Layer:
@@ -39,49 +39,49 @@ class Layer:
         return self.last_output
 ```
 
-For a 2-3-1 network, give the shape of each weight matrix and bias. Then say what happens when someone builds the hidden layer as `Layer(n_inputs=3, n_neurons=2)` by mistake.
+Với một mạng 2-3-1, đưa ra hình dạng của mỗi ma trận trọng số và bias. Rồi nói điều gì xảy ra khi ai đó xây dựng lớp ẩn thành `Layer(n_inputs=3, n_neurons=2)` do nhầm lẫn.
 
 ## Short answer
 
-The hidden weights form a 3 by 2 matrix, one row per neuron and one column per input, with a bias of length 3; the output weights form a 1 by 3 matrix with a bias of length 1. The swapped call builds a 2 by 3 matrix: zip pairs each row's three weights with the two inputs and stops at the shorter one, the layer returns two values instead of three, and the output layer's zip truncates again. Nothing raises, and the network computes the wrong function.
+Các trọng số ẩn tạo thành một ma trận 3 nhân 2, một hàng cho mỗi neuron và một cột cho mỗi đầu vào, với một bias dài 3; các trọng số đầu ra tạo thành một ma trận 1 nhân 3 với một bias dài 1. Lời gọi hoán đổi xây dựng một ma trận 2 nhân 3: zip ghép ba trọng số của mỗi hàng với hai đầu vào và dừng ở bên ngắn hơn, lớp trả về hai giá trị thay vì ba, và zip của lớp đầu ra lại cắt cụt. Không có gì phát sinh lỗi, và mạng tính hàm sai.
 
 ## Full answer
 
 ### The rule and the table
 
-The weight matrix of a layer has shape (neurons in this layer, neurons in the previous layer). Rows match the current layer, columns match the previous one.
+Ma trận trọng số của một lớp có hình dạng (neuron trong lớp này, neuron trong lớp trước). Các hàng khớp lớp hiện tại, các cột khớp lớp trước.
 
-| Step | Operation | Shapes | Result |
+| Bước | Thao tác | Hình dạng | Kết quả |
 |---|---|---|---|
-| Input | x | | (2,) |
-| Hidden linear | W1 x + b1 | W1 (3, 2), b1 (3,) | (3,) |
-| Hidden activation | sigmoid | | (3,) |
-| Output linear | W2 h + b2 | W2 (1, 3), b2 (1,) | (1,) |
-| Output activation | sigmoid | | (1,) |
+| Đầu vào | x | | (2,) |
+| Tuyến tính ẩn | W1 x + b1 | W1 (3, 2), b1 (3,) | (3,) |
+| Activation ẩn | sigmoid | | (3,) |
+| Tuyến tính đầu ra | W2 h + b2 | W2 (1, 3), b2 (1,) | (1,) |
+| Activation đầu ra | sigmoid | | (1,) |
 
-In the class, `len(self.weights)` is the neuron count and each row has `n_inputs` entries. The forward loop computes one dot product per row, adds that row's bias, and applies the sigmoid. The output of one layer is the input list of the next.
+Trong lớp, `len(self.weights)` là số neuron và mỗi hàng có `n_inputs` phần tử. Vòng lặp truyền tiến tính một tích vô hướng mỗi hàng, cộng bias của hàng đó, và áp dụng sigmoid. Đầu ra của một lớp là danh sách đầu vào của lớp tiếp theo.
 
 ### What the swapped call does
 
-`Layer(n_inputs=3, n_neurons=2)` allocates two rows of three weights. The forward pass receives a two element input. Python's zip stops at the shorter sequence, so each row uses only its first two weights and the third is ignored. The layer returns two values. The output layer was built for three inputs, so its zip drops a weight too. No exception, no warning, and a model whose parameters are partly dead. A matrix library would raise on the inner size mismatch; this loop does not, which is why the lesson calls shape tracking the most important debugging skill in deep learning.
+`Layer(n_inputs=3, n_neurons=2)` cấp phát hai hàng ba trọng số. Lượt truyền tiến nhận một đầu vào hai phần tử. Zip của Python dừng ở chuỗi ngắn hơn, vì vậy mỗi hàng chỉ dùng hai trọng số đầu của nó và trọng số thứ ba bị bỏ qua. Lớp trả về hai giá trị. Lớp đầu ra được xây dựng cho ba đầu vào, vì vậy zip của nó cũng bỏ một trọng số. Không ngoại lệ, không cảnh báo, và một mô hình có các tham số chết một phần. Một thư viện ma trận sẽ phát sinh lỗi khi kích thước bên trong không khớp; vòng lặp này thì không, là lý do bài học gọi việc theo dõi hình dạng là kỹ năng gỡ lỗi quan trọng nhất trong deep learning.
 
 ### Make it fail loudly
 
-Add an assertion in forward that the input length equals the number of columns, or let the Network class check that each layer's input count equals the previous layer's neuron count when it is built.
+Thêm một khẳng định trong forward rằng độ dài đầu vào bằng số cột, hoặc để lớp Network kiểm tra rằng số đầu vào của mỗi lớp bằng số neuron của lớp trước khi nó được xây dựng.
 
 ## Follow-ups
 
-- **Level 2:** How many parameters does the 2-3-1 network have? Expected: nine in the hidden layer, six weights and three biases, and four in the output layer, three weights and one bias.
-- **Level 2:** Why does the loop not raise on the swapped shapes? Expected: zip stops at the shorter sequence, so extra weights are ignored and no error occurs; a matrix library would raise on the mismatch.
-- **Level 3:** Where do you put a check so the bug fails at once? Expected: an assertion in forward that the input length equals the column count, or a shape check between layers when the Network is built.
-- **Level 3:** A text model has a hidden state 768 wide and its input is one token id. Does the rule still hold? Expected: yes; the embedding maps the token to a 768 vector, and each later matrix has rows equal to its own width and columns equal to the previous width.
+- **Level 2:** Mạng 2-3-1 có bao nhiêu tham số? Expected: chín trong lớp ẩn, sáu trọng số và ba bias, và bốn trong lớp đầu ra, ba trọng số và một bias.
+- **Level 2:** Tại sao vòng lặp không phát sinh lỗi trên các hình dạng hoán đổi? Expected: zip dừng ở chuỗi ngắn hơn, vì vậy các trọng số thừa bị bỏ qua và không có lỗi xảy ra; một thư viện ma trận sẽ phát sinh lỗi khi không khớp.
+- **Level 3:** Bạn đặt một phép kiểm tra ở đâu để lỗi thất bại ngay? Expected: một khẳng định trong forward rằng độ dài đầu vào bằng số cột, hoặc một phép kiểm tra hình dạng giữa các lớp khi Network được xây dựng.
+- **Level 3:** Một mô hình văn bản có một trạng thái ẩn rộng 768 và đầu vào của nó là một token id. Quy tắc còn đúng không? Expected: có; embedding ánh xạ token đến một vector 768, và mỗi ma trận sau có số hàng bằng chiều rộng riêng và số cột bằng chiều rộng trước.
 
 ## Wrong answers
 
-- "The weight matrix is inputs by neurons, so 2 by 3 for the hidden layer." In this class each row holds one neuron's weights across all inputs, so the matrix is neurons by inputs.
-- "A wrong shape always raises an error." A library matmul raises; this loop with zip does not, and a framework can broadcast a wrong shape silently.
-- "There is one bias per input." A bias belongs to a neuron, so there is one per output of the layer.
+- "Ma trận trọng số là đầu vào nhân neuron, vì vậy 2 nhân 3 cho lớp ẩn." Trong lớp này mỗi hàng giữ các trọng số của một neuron trên mọi đầu vào, vì vậy ma trận là neuron nhân đầu vào.
+- "Một hình dạng sai luôn phát sinh một lỗi." Một matmul thư viện phát sinh lỗi; vòng lặp với zip này thì không, và một framework có thể broadcast một hình dạng sai âm thầm.
+- "Có một bias cho mỗi đầu vào." Một bias thuộc về một neuron, vì vậy có một bias cho mỗi đầu ra của lớp.
 
 ## Taught in
 
-The [multi-layer networks lesson](../../../phases/03-deep-learning-core/02-multi-layer-networks/) builds this Layer class and traces the dimensions of the 2-3-1 network.
+[Bài học các mạng nhiều lớp](../../../phases/03-deep-learning-core/02-multi-layer-networks/) xây dựng lớp Layer này và lần theo các chiều của mạng 2-3-1.

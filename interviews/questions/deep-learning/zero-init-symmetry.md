@@ -16,43 +16,43 @@ related: [deep-learning/kaiming-factor-of-two, deep-learning/half-the-relus-are-
 updated: 2026-11-03
 ---
 
-A network with a hidden layer of 512 units is initialized with every weight and every bias at zero. Training runs for thousands of epochs and the loss barely moves. Learning rate and data both check out. What is wrong, and why does a small random perturbation of each weight fix it?
+Một mạng có một lớp ẩn 512 đơn vị được khởi tạo với mọi trọng số và mọi bias ở không. Huấn luyện chạy trong hàng nghìn epoch và loss gần như không di chuyển. Learning rate và dữ liệu đều kiểm tra ổn. Điều gì sai, và tại sao một nhiễu loạn ngẫu nhiên nhỏ của mỗi trọng số sửa nó?
 
 ## Short answer
 
-Every neuron in the layer starts identical, so each computes the same output, receives the same gradient and takes the same update. They stay identical for the whole run: the layer holds the parameters of 512 neurons and the function of one. Random initialization gives each neuron its own starting point, so the gradients differ and the neurons learn different features. The scale of that randomness then decides whether the signal survives the depth.
+Mọi neuron trong lớp bắt đầu giống hệt, vì vậy mỗi neuron tính cùng đầu ra, nhận cùng gradient và thực hiện cùng cập nhật. Chúng giữ giống hệt trong toàn bộ lần chạy: lớp giữ các tham số của 512 neuron và hàm của một neuron. Khởi tạo ngẫu nhiên cho mỗi neuron điểm bắt đầu riêng, vì vậy các gradient khác nhau và các neuron học các đặc trưng khác nhau. Tỷ lệ của tính ngẫu nhiên đó sau đó quyết định liệu tín hiệu có sống sót qua độ sâu không.
 
 ## Full answer
 
 ### The symmetry
 
-All neurons in a layer have the same structure: a weighted sum of the same inputs, a bias, an activation. Whatever makes them different must come from the weights. If the weights are equal, the outputs are equal. Backpropagation then hands each neuron the same gradient, because each contributed the same amount to the loss. The update is the same, and the weights are equal again. Nothing in gradient descent can split them. The lesson's demo builds four zero-initialized neurons, feeds one input, prints four identical outputs, and counts one effective parameter instead of the eight that were allocated.
+Tất cả neuron trong một lớp có cùng cấu trúc: một tổng có trọng số của cùng các đầu vào, một bias, một activation. Bất cứ thứ gì làm chúng khác nhau phải đến từ các trọng số. Nếu các trọng số bằng nhau, các đầu ra bằng nhau. Backpropagation khi đó giao cho mỗi neuron cùng gradient, vì mỗi neuron đóng góp cùng lượng vào loss. Cập nhật như nhau, và các trọng số lại bằng nhau. Không có gì trong gradient descent có thể tách chúng. Demo của bài học xây dựng bốn neuron khởi tạo bằng không, đưa vào một đầu vào, in bốn đầu ra giống hệt, và đếm một tham số hiệu dụng thay vì tám tham số đã cấp phát.
 
 ### Why zero is only the extreme case
 
-Any constant initialization has the same flaw. Setting every weight to 0.5 produces 512 copies of one neuron just as zero does. Random values are the brute force way to break the tie, and they are also why two runs with different seeds learn different features.
+Bất kỳ khởi tạo hằng nào cũng có cùng khuyết điểm. Đặt mọi trọng số bằng 0.5 tạo ra 512 bản sao của một neuron giống như không. Các giá trị ngẫu nhiên là cách thô bạo để phá thế hòa, và chúng cũng là lý do hai lần chạy với các seed khác nhau học các đặc trưng khác nhau.
 
 ### Biases can stay at zero
 
-The lesson's layers draw random weights and set the biases to 0.0. That is fine: the weights already differ across neurons, so the biases do not need to.
+Các lớp của bài học lấy mẫu trọng số ngẫu nhiên và đặt các bias bằng 0.0. Điều đó ổn: các trọng số đã khác nhau giữa các neuron, vì vậy các bias không cần khác.
 
 ### After the symmetry is gone
 
-Random is not enough on its own. The variance of the draw must match the activation: Xavier for sigmoid and tanh, Kaiming for ReLU and GELU. Too small a scale and the signal vanishes through the layers; too large and it explodes. A quick check is to push random inputs through the untrained network and log the activation magnitude at each layer.
+Chỉ ngẫu nhiên là không đủ. Phương sai của lần lấy mẫu phải khớp activation: Xavier cho sigmoid và tanh, Kaiming cho ReLU và GELU. Tỷ lệ quá nhỏ và tín hiệu tiêu biến qua các lớp; quá lớn và nó bùng nổ. Một phép kiểm tra nhanh là đẩy các đầu vào ngẫu nhiên qua mạng chưa huấn luyện và ghi log độ lớn activation tại mỗi lớp.
 
 ## Follow-ups
 
-- **Level 2:** Is it fine to set the biases to zero? Expected: yes, when the weights are random; the lesson's layers do so.
-- **Level 2:** Would a nonzero constant for every weight fix it? Expected: no; the neurons are still identical and move in lockstep.
-- **Level 3:** After the fix, the loss moves but a deeper version trains badly. What do you check next? Expected: the scale of the random draw against the activation; Xavier for sigmoid and tanh, Kaiming for ReLU, verified by activation magnitudes per layer.
-- **Level 3:** How does the lesson show the symmetry in a few lines? Expected: four zero-initialized neurons on one input give four identical outputs, and it counts one effective parameter instead of eight.
+- **Level 2:** Đặt các bias bằng không có ổn không? Expected: có, khi các trọng số ngẫu nhiên; các lớp của bài học làm vậy.
+- **Level 2:** Một hằng số khác không cho mọi trọng số có sửa nó không? Expected: không; các neuron vẫn giống hệt và di chuyển đồng nhịp.
+- **Level 3:** Sau cách sửa, loss di chuyển nhưng một phiên bản sâu hơn huấn luyện kém. Bạn kiểm tra gì tiếp theo? Expected: tỷ lệ của lần lấy mẫu ngẫu nhiên so với activation; Xavier cho sigmoid và tanh, Kaiming cho ReLU, được xác minh bằng các độ lớn activation mỗi lớp.
+- **Level 3:** Bài học cho thấy tính đối xứng trong vài dòng như thế nào? Expected: bốn neuron khởi tạo bằng không trên một đầu vào cho bốn đầu ra giống hệt, và nó đếm một tham số hiệu dụng thay vì tám.
 
 ## Wrong answers
 
-- "The learning rate is too low." Each neuron moves, but all move together; no learning rate separates identical gradients.
-- "Add more neurons." They are all the same neuron; width adds nothing without symmetry breaking.
-- "Zero init is fine for the first layer because the inputs differ." The neurons in one layer share the same inputs; what differs across neurons has to be the weights.
+- "Learning rate quá thấp." Mỗi neuron di chuyển, nhưng tất cả di chuyển cùng nhau; không learning rate nào tách các gradient giống hệt.
+- "Thêm neuron." Chúng đều là cùng một neuron; chiều rộng không thêm gì nếu không phá đối xứng.
+- "Khởi tạo bằng không ổn cho lớp đầu tiên vì các đầu vào khác nhau." Các neuron trong một lớp dùng chung cùng các đầu vào; thứ khác nhau giữa các neuron phải là các trọng số.
 
 ## Taught in
 
-The [weight initialization lesson](../../../phases/03-deep-learning-core/08-weight-initialization/) opens with the symmetry problem and demonstrates it with a tiny layer.
+[Bài học khởi tạo trọng số](../../../phases/03-deep-learning-core/08-weight-initialization/) mở đầu bằng vấn đề đối xứng và minh họa nó với một lớp rất nhỏ.

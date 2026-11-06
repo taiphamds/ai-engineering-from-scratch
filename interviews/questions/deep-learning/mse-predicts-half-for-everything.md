@@ -16,47 +16,47 @@ related: [deep-learning/softmax-cross-entropy-gradient, deep-learning/loss-stuck
 updated: 2026-11-03
 ---
 
-A binary classifier trained with mean squared error on a balanced dataset settles on an output near 0.5 for every input. The loss is low and stable, and the optimizer reports no problem. Explain why the optimizer is content and which loss you switch to.
+Một bộ phân loại nhị phân được huấn luyện bằng sai số bình phương trung bình trên một dataset cân bằng ổn định ở một đầu ra gần 0.5 cho mọi đầu vào. Loss thấp và ổn định, và bộ tối ưu hóa không báo vấn đề. Giải thích tại sao bộ tối ưu hóa hài lòng và bạn chuyển sang loss nào.
 
 ## Short answer
 
-With two classes split evenly, a constant output of 0.5 gives a squared error of 0.25 on every row, which the lesson calls the minimum MSE a model can reach without learning anything, and the sigmoid's flat regions give MSE almost no gradient near a confident wrong answer. Cross-entropy charges minus the log of the predicted probability of the true class: 0.693 for 0.5, 0.01 for 0.99 and 4.6 for 0.01, so it pushes each prediction toward its label. Switch to binary cross-entropy.
+Với hai lớp chia đều, một đầu ra hằng 0.5 cho một sai số bình phương 0.25 trên mọi hàng, điều mà bài học gọi là MSE tối thiểu một mô hình có thể đạt mà không học gì, và các vùng phẳng của sigmoid cho MSE gần như không có gradient gần một câu trả lời tự tin nhưng sai. Cross-entropy tính âm log của xác suất được dự đoán của lớp đúng: 0.693 cho 0.5, 0.01 cho 0.99 và 4.6 cho 0.01, vì vậy nó đẩy mỗi dự đoán về nhãn của nó. Chuyển sang binary cross-entropy.
 
 ## Full answer
 
 ### Why MSE is content
 
-MSE averages the squared gap between the prediction and the label. Its gradient with respect to a prediction is linear in the gap. The prediction passes through a sigmoid, whose derivative is p(1 - p) and is near zero when p is near 0 or 1. A confident wrong answer, p near 0 for a positive row, sits exactly where the sigmoid is flat, so the update is tiny. A model can lower the loss a little by moving everything toward the middle and then stop, because the gradient has little left to say.
+MSE lấy trung bình khoảng cách bình phương giữa dự đoán và nhãn. Gradient của nó theo một dự đoán tuyến tính theo khoảng cách. Dự đoán đi qua một sigmoid, có đạo hàm p(1 - p) và gần không khi p gần 0 hoặc 1. Một câu trả lời tự tin nhưng sai, p gần 0 cho một hàng dương, nằm đúng nơi sigmoid phẳng, vì vậy cập nhật rất nhỏ. Một mô hình có thể hạ loss một chút bằng cách chuyển mọi thứ về giữa rồi dừng, vì gradient còn ít điều để nói.
 
 ### Why cross-entropy is not
 
-Binary cross-entropy is minus y log p minus (1 - y) log (1 - p). Its derivative with respect to p is minus y over p plus (1 - y) over (1 - p). For a positive row with p near 0 that is about minus 1 over p, which grows without bound as p falls. The log undoes the sigmoid: the derivative of the loss with respect to the logit is the prediction minus the target, linear in the error and never flat. The lesson's scale: a right answer at 0.99 costs 0.01, a wrong answer at 0.01 costs 4.6, a ratio of about 460.
+Binary cross-entropy là âm y log p trừ (1 - y) log (1 - p). Đạo hàm của nó theo p là âm y chia p cộng (1 - y) chia (1 - p). Với một hàng dương có p gần 0 đó là khoảng âm 1 chia p, tăng không giới hạn khi p giảm. Log đảo ngược sigmoid: đạo hàm của loss theo logit là dự đoán trừ mục tiêu, tuyến tính theo sai số và không bao giờ phẳng. Thang của bài học: một câu trả lời đúng ở 0.99 tốn 0.01, một câu trả lời sai ở 0.01 tốn 4.6, một tỷ số khoảng 460.
 
 ### The multi-class version
 
-Categorical cross-entropy on a one-hot target reduces to minus the log of the probability of the true class. A random guess among 10 classes puts probability 0.1 there and costs 2.3; a probability of 0.9 costs 0.105. A loss stuck near 2.3 on a 10 class problem is the multi-class twin of the 0.5 symptom.
+Categorical cross-entropy trên một mục tiêu one-hot rút gọn thành âm log của xác suất lớp đúng. Một phỏng đoán ngẫu nhiên giữa 10 lớp đặt xác suất 0.1 ở đó và tốn 2.3; một xác suất 0.9 tốn 0.105. Một loss kẹt gần 2.3 trên một bài toán 10 lớp là bản song sinh đa lớp của triệu chứng 0.5.
 
 ### When the switch does not help
 
-The switch helps only when the inputs carry signal about the label. On balanced data with no predictive features, both losses are lowest at a constant 0.5, so cross-entropy settles there too. Check that a simple model beats the constant before you blame the loss.
+Việc chuyển chỉ giúp khi các đầu vào mang tín hiệu về nhãn. Trên dữ liệu cân bằng không có đặc trưng dự báo, cả hai loss thấp nhất tại một hằng 0.5, vì vậy cross-entropy cũng ổn định ở đó. Kiểm tra rằng một mô hình đơn giản thắng hằng số trước khi bạn đổ lỗi cho loss.
 
 ### Where MSE belongs
 
-Regression on real valued targets, where a linear gradient in the error is what you want. For targets with heavy outliers, MAE or a Huber loss are the lesson's alternatives.
+Hồi quy trên các mục tiêu giá trị thực, nơi một gradient tuyến tính theo sai số là điều bạn muốn. Với các mục tiêu có ngoại lệ nặng, MAE hoặc một Huber loss là các lựa chọn thay thế của bài học.
 
 ## Follow-ups
 
-- **Level 2:** Write the derivative of binary cross-entropy with respect to p. Expected: minus y over p plus (1 - y) over (1 - p), which grows without bound when p is near 0 for a positive row.
-- **Level 2:** Why does a prediction of 0.5 cost 0.693 under cross-entropy? Expected: it is minus the natural log of 0.5.
-- **Level 3:** After the sigmoid, differentiate cross-entropy by the logit. What do you get? Expected: the prediction minus the target; the log cancels the sigmoid's derivative.
-- **Level 3:** When is MSE the right loss? Expected: regression on real valued targets; for heavy outliers, MAE or a Huber loss.
+- **Level 2:** Viết đạo hàm của binary cross-entropy theo p. Expected: âm y chia p cộng (1 - y) chia (1 - p), tăng không giới hạn khi p gần 0 cho một hàng dương.
+- **Level 2:** Tại sao một dự đoán 0.5 tốn 0.693 dưới cross-entropy? Expected: đó là âm log tự nhiên của 0.5.
+- **Level 3:** Sau sigmoid, lấy đạo hàm cross-entropy theo logit. Bạn nhận được gì? Expected: dự đoán trừ mục tiêu; log triệt tiêu đạo hàm của sigmoid.
+- **Level 3:** Khi nào MSE là loss đúng? Expected: hồi quy trên các mục tiêu giá trị thực; với các ngoại lệ nặng, MAE hoặc một Huber loss.
 
 ## Wrong answers
 
-- "Lower the learning rate so MSE converges properly." The 0.5 output is where MSE is content; a smaller step arrives there more slowly.
-- "MSE and cross-entropy have the same minimizer, so it does not matter." They agree only at a perfect fit. Away from it, MSE's gradient flattens where cross-entropy's grows.
-- "Use accuracy as the loss instead." Accuracy has no useful gradient; the optimizer needs a smooth loss.
+- "Hạ learning rate để MSE hội tụ đúng." Đầu ra 0.5 là nơi MSE hài lòng; một bước nhỏ hơn đến đó chậm hơn.
+- "MSE và cross-entropy có cùng điểm cực tiểu, vì vậy không quan trọng." Chúng chỉ đồng ý tại một khớp hoàn hảo. Xa khỏi nó, gradient của MSE phẳng ra nơi gradient của cross-entropy tăng.
+- "Thay vào đó dùng độ chính xác làm loss." Độ chính xác không có gradient hữu ích; bộ tối ưu hóa cần một loss trơn.
 
 ## Taught in
 
-The [loss functions lesson](../../../phases/03-deep-learning-core/05-loss-functions/) opens with this failure and derives both gradients.
+[Bài học các hàm loss](../../../phases/03-deep-learning-core/05-loss-functions/) mở đầu bằng sự cố này và suy ra cả hai gradient.

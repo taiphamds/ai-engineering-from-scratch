@@ -16,43 +16,43 @@ related: [deep-learning/overfit-one-batch-first, deep-learning/mse-predicts-half
 updated: 2026-11-03
 ---
 
-A ten class classifier trains for many epochs, and the cross-entropy loss sits at about 2.3 the whole time, on training data and on validation data. Nothing crashes. What does that number tell you, and in which order do you debug?
+Một bộ phân loại mười lớp huấn luyện trong nhiều epoch, và loss cross-entropy nằm ở khoảng 2.3 suốt thời gian đó, trên dữ liệu huấn luyện và trên dữ liệu validation. Không có gì sập. Con số đó cho bạn biết điều gì, và bạn gỡ lỗi theo thứ tự nào?
 
 ## Short answer
 
-Minus the natural log of one tenth is about 2.3, the loss of a model that gives every class the same probability, and the lesson's table reads a loss stuck there as a uniform prediction with no usable signal. The mean alone does not say why. Run the one batch overfit test first: a failure points at the loss, the backward pass, the optimizer hookup or misaligned labels, and a pass sends you to the data path to check that labels line up with inputs. Only then look at the learning rate, the gradients and the architecture.
+Âm log tự nhiên của một phần mười là khoảng 2.3, loss của một mô hình cho mọi lớp cùng xác suất, và bảng của bài học đọc một loss kẹt ở đó là một dự đoán đồng đều không có tín hiệu dùng được. Chỉ trung bình không nói tại sao. Chạy kiểm thử overfit một batch trước: một thất bại chỉ đến loss, lượt truyền ngược, kết nối bộ tối ưu hóa hoặc nhãn lệch, và một lần đạt đưa bạn đến đường dữ liệu để kiểm tra rằng các nhãn khớp với các đầu vào. Chỉ sau đó xem learning rate, các gradient và kiến trúc.
 
 ## Full answer
 
 ### Reading the number
 
-Categorical cross-entropy on a one-hot target is minus the log of the probability of the true class. A random guess among 10 classes gives each class probability 0.1 and a loss of minus log 0.1, about 2.3. The debugging lesson's master table has this row: a loss stuck at minus log of 1 over the class count means the model predicts a uniform distribution, and the first thing to check is the data pipeline and whether labels match inputs. A model with no usable signal settles on equal logits, because that is what minimizes the expected loss over a balanced label set.
+Categorical cross-entropy trên một mục tiêu one-hot là âm log xác suất của lớp đúng. Một phỏng đoán ngẫu nhiên giữa 10 lớp cho mỗi lớp xác suất 0.1 và một loss âm log 0.1, khoảng 2.3. Bảng tổng của bài học gỡ lỗi có hàng này: một loss kẹt ở âm log của 1 chia số lớp nghĩa là mô hình dự đoán một phân phối đồng đều, và điều đầu tiên cần kiểm tra là pipeline dữ liệu và liệu nhãn có khớp đầu vào không. Một mô hình không có tín hiệu dùng được ổn định ở các logit bằng nhau, vì đó là thứ tối thiểu hóa loss kỳ vọng trên một tập nhãn cân bằng.
 
 ### The order
 
-1. **Overfit one batch.** Take 8 to 32 samples and train on them for a few hundred steps. The loss must go to near zero and the training accuracy to 100 percent. If it does not, the model or the loop is broken: a wrong loss, a broken backward pass, an optimizer not connected to the parameters, or inputs and labels out of step. The lesson's threshold for a pass is a final loss below 0.1.
-2. **Look at the data.** Print 5 random samples with their labels. Check that the shuffle keeps each input paired with its label, that inputs are normalized to mean 0 and standard deviation 1, and that labels have the integer type the loss expects.
-3. **Learning rate.** Try three values 10 times apart, such as 1e-2, 1e-3 and 1e-4. A rate that is far too low looks flat, but it would not sit exactly on the uniform value for many epochs.
-4. **Gradients.** All zeros points at dead ReLUs or a detached graph.
-5. **Architecture.** Only after the above: a model too small underfits, but it still beats a uniform guess on its own training data.
+1. **Overfit một batch.** Lấy 8 đến 32 mẫu và huấn luyện trên chúng trong vài trăm bước. Loss phải về gần không và độ chính xác huấn luyện lên 100 phần trăm. Nếu không, mô hình hoặc vòng lặp bị hỏng: một loss sai, một lượt truyền ngược hỏng, một bộ tối ưu hóa không kết nối với các tham số, hoặc đầu vào và nhãn lệch nhịp. Ngưỡng của bài học cho một lần đạt là loss cuối dưới 0.1.
+2. **Nhìn vào dữ liệu.** In 5 mẫu ngẫu nhiên với các nhãn của chúng. Kiểm tra rằng việc xáo trộn giữ mỗi đầu vào ghép với nhãn của nó, rằng các đầu vào được chuẩn hóa về trung bình 0 và độ lệch chuẩn 1, và rằng các nhãn có kiểu số nguyên mà loss mong đợi.
+3. **Learning rate.** Thử ba giá trị cách nhau 10 lần, chẳng hạn 1e-2, 1e-3 và 1e-4. Một rate quá thấp trông phẳng, nhưng nó sẽ không nằm chính xác trên giá trị đồng đều trong nhiều epoch.
+4. **Gradient.** Toàn số không chỉ đến các ReLU chết hoặc một graph bị tách.
+5. **Kiến trúc.** Chỉ sau những điều trên: một mô hình quá nhỏ underfit, nhưng nó vẫn thắng một phỏng đoán đồng đều trên chính dữ liệu huấn luyện của nó.
 
 ### How this differs from a slow start
 
-A loss that starts near 2.3 and falls slowly is a learning rate or capacity question. A loss that holds at 2.3 for many epochs on the training set means no signal reaches the model at all.
+Một loss bắt đầu gần 2.3 và giảm chậm là một câu hỏi learning rate hoặc năng lực. Một loss giữ ở 2.3 trong nhiều epoch trên tập huấn luyện nghĩa là hoàn toàn không có tín hiệu đến mô hình.
 
 ## Follow-ups
 
-- **Level 3:** Why uniform rather than some other wrong answer? Expected: with no usable signal, equal logits minimize the expected cross-entropy over a balanced label set, and that costs the log of the class count.
-- **Level 3:** What does the overfit one batch test tell you here? Expected: whether the model and loop can learn at all; a healthy setup drives a small batch to near zero loss in a few hundred steps, and a failure means a broken loss, backward pass, optimizer hookup or misaligned labels.
-- **Level 4:** The one batch test passes and full training still sits at 2.3. Where next? Expected: the full data path, such as a shuffle that breaks the pairing of inputs and labels, or unnormalized inputs, since the model can learn when given a consistent batch.
-- **Level 4:** What distinguishes this symptom from a loss that starts at 2.3 and falls slowly? Expected: a slow fall is a learning rate or capacity question; a flat 2.3 for many epochs means no signal reaches the model.
+- **Level 3:** Tại sao đồng đều thay vì một đáp án sai khác? Expected: không có tín hiệu dùng được, các logit bằng nhau tối thiểu hóa cross-entropy kỳ vọng trên một tập nhãn cân bằng, và điều đó tốn log của số lớp.
+- **Level 3:** Kiểm thử overfit một batch cho bạn biết gì ở đây? Expected: liệu mô hình và vòng lặp có thể học hay không; một cấu hình khỏe đưa một batch nhỏ về loss gần không trong vài trăm bước, và một thất bại nghĩa là một loss hỏng, lượt truyền ngược hỏng, kết nối bộ tối ưu hóa hỏng hoặc nhãn lệch.
+- **Level 4:** Kiểm thử một batch đạt và huấn luyện đầy đủ vẫn nằm ở 2.3. Tiếp theo ở đâu? Expected: đường dữ liệu đầy đủ, chẳng hạn một lần xáo trộn phá ghép cặp đầu vào và nhãn, hoặc các đầu vào chưa chuẩn hóa, vì mô hình có thể học khi được đưa một batch nhất quán.
+- **Level 4:** Điều gì phân biệt triệu chứng này với một loss bắt đầu ở 2.3 và giảm chậm? Expected: giảm chậm là một câu hỏi learning rate hoặc năng lực; một 2.3 phẳng trong nhiều epoch nghĩa là không có tín hiệu đến mô hình.
 
 ## Wrong answers
 
-- "Train longer, it is a slow start." A flat value at the uniform loss for many epochs means no signal, not a slow one.
-- "Make the model bigger." Capacity is not the issue when the model cannot beat a uniform guess on its own training data.
-- "Lower the learning rate." The rate changes how fast the loss moves, and here it does not move at all; check the data first.
+- "Huấn luyện lâu hơn, đó là một khởi đầu chậm." Một giá trị phẳng tại loss đồng đều trong nhiều epoch nghĩa là không có tín hiệu, không phải một tín hiệu chậm.
+- "Làm mô hình lớn hơn." Năng lực không phải vấn đề khi mô hình không thể thắng một phỏng đoán đồng đều trên chính dữ liệu huấn luyện của nó.
+- "Hạ learning rate." Rate thay đổi tốc độ loss di chuyển, và ở đây nó hoàn toàn không di chuyển; kiểm tra dữ liệu trước.
 
 ## Taught in
 
-The [debugging lesson](../../../phases/03-deep-learning-core/13-debugging-neural-networks/) gives the master table and the overfit one batch test, and the [loss functions lesson](../../../phases/03-deep-learning-core/05-loss-functions/) computes the uniform loss.
+[Bài học gỡ lỗi](../../../phases/03-deep-learning-core/13-debugging-neural-networks/) đưa ra bảng tổng và kiểm thử overfit một batch, và [bài học các hàm loss](../../../phases/03-deep-learning-core/05-loss-functions/) tính loss đồng đều.

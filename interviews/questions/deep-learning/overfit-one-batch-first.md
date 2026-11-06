@@ -16,51 +16,51 @@ related: [deep-learning/loss-stuck-at-log-classes, deep-learning/missing-zero-gr
 updated: 2026-11-03
 ---
 
-You are about to launch a multi-day training run on a new architecture with a new data pipeline. Design a check that runs in about 30 seconds and must pass before the run starts. List the classes of bugs it catches and the ones it does not.
+Bạn sắp khởi chạy một lần huấn luyện nhiều ngày trên một kiến trúc mới với một pipeline dữ liệu mới. Thiết kế một phép kiểm tra chạy trong khoảng 30 giây và phải đạt trước khi lần chạy bắt đầu. Liệt kê các nhóm lỗi nó phát hiện và các nhóm nó không phát hiện.
 
 ## Short answer
 
-Take one small batch of 8 to 32 samples and train on it alone for a few hundred steps. The loss must fall to near zero and the training accuracy must reach 100 percent. A pass shows that the loss function, the backward pass and the optimizer hookup work, and that the model can fit this batch, but not that each input has its correct label, because a model can memorize a wrong but consistent pairing as well. It says nothing about generalization, leakage or the full data loader, so it is the first gate and not the last.
+Lấy một batch nhỏ gồm 8 đến 32 mẫu và chỉ huấn luyện trên nó trong vài trăm bước. Loss phải giảm về gần không và độ chính xác huấn luyện phải đạt 100 phần trăm. Một lần đạt cho thấy hàm loss, lượt truyền ngược và kết nối bộ tối ưu hóa hoạt động, và mô hình có thể khớp batch này, nhưng không phải mỗi đầu vào có nhãn đúng của nó, vì một mô hình cũng có thể ghi nhớ một ghép cặp sai nhưng nhất quán. Nó không nói gì về khái quát hóa, rò rỉ hoặc toàn bộ data loader, vì vậy nó là cổng đầu tiên và không phải cuối cùng.
 
 ## Full answer
 
 ### The test
 
-The debugging lesson calls this the single most important technique in deep learning. Fix a batch, build a fresh model and optimizer, and loop: zero the gradients, forward, loss, backward, step. Print the loss and accuracy every 50 steps. The lesson's implementation runs 200 steps and treats a final loss above 0.1 as a failure.
+Bài học gỡ lỗi gọi đây là kỹ thuật quan trọng nhất trong deep learning. Cố định một batch, xây dựng một mô hình và bộ tối ưu hóa mới, và lặp: đặt gradient về không, forward, loss, backward, step. In loss và độ chính xác mỗi 50 bước. Triển khai của bài học chạy 200 bước và coi một loss cuối trên 0.1 là một thất bại.
 
 ### What a failure means
 
-Any of these, and the lesson lists them:
+Bất kỳ điều nào trong số này, và bài học liệt kê chúng:
 
-- a loss function that does not match the output layer;
-- a broken backward pass or a detached graph;
-- an optimizer built before the model's parameters existed, so it updates nothing;
-- inputs and labels out of step;
-- an architecture too small to represent even this batch.
+- một hàm loss không khớp với lớp đầu ra;
+- một lượt truyền ngược hỏng hoặc một graph bị tách;
+- một bộ tối ưu hóa được xây dựng trước khi các tham số của mô hình tồn tại, vì vậy nó không cập nhật gì;
+- các đầu vào và nhãn lệch nhịp;
+- một kiến trúc quá nhỏ để biểu diễn ngay cả batch này.
 
-Each of these would also break the full run, and there it would show up hours later as a slow or flat loss with twenty possible causes. Here it shows up in seconds with five.
+Mỗi điều này cũng sẽ làm hỏng lần chạy đầy đủ, và ở đó nó sẽ xuất hiện nhiều giờ sau dưới dạng một loss chậm hoặc phẳng với hai mươi nguyên nhân có thể. Ở đây nó xuất hiện trong vài giây với năm.
 
 ### What a pass does not prove
 
-The test overfits by design, so it says nothing about generalization. A model can memorize any consistent labels, so a wrong pairing of inputs and labels inside the fixed batch also passes. It uses one batch, so a shuffle that unpairs inputs and labels across the full set, a normalization computed on the full dataset, duplicate rows across splits, or label noise can all survive it. The lesson's checklist continues after it: print the model summary and check the parameter count, run one forward pass on random data and check the output shape, train for 5 epochs and confirm the loss falls, check activation statistics for dead or exploding layers, check the gradient flow across layers, and print 5 random samples with their labels.
+Kiểm thử overfit có chủ đích, vì vậy nó không nói gì về khái quát hóa. Một mô hình có thể ghi nhớ bất kỳ nhãn nhất quán nào, vì vậy một ghép cặp sai của đầu vào và nhãn bên trong batch cố định cũng đạt. Nó dùng một batch, vì vậy một lần xáo trộn làm mất ghép cặp đầu vào và nhãn trên toàn bộ tập, một phép chuẩn hóa được tính trên toàn bộ dataset, các hàng trùng lặp giữa các phần chia, hoặc nhiễu nhãn đều có thể qua nó. Danh sách kiểm tra của bài học tiếp tục sau nó: in tóm tắt mô hình và kiểm tra số tham số, chạy một lượt truyền tiến trên dữ liệu ngẫu nhiên và kiểm tra hình dạng đầu ra, huấn luyện trong 5 epoch và xác nhận loss giảm, kiểm tra các thống kê activation cho các lớp chết hoặc bùng nổ, kiểm tra luồng gradient qua các lớp, và in 5 mẫu ngẫu nhiên với các nhãn của chúng.
 
 ### Make it a gate
 
-Run it at startup on a fixed batch, assert the final loss is below the threshold, and refuse to start the long run when it fails. Run it again whenever the architecture or the pipeline changes.
+Chạy nó lúc khởi động trên một batch cố định, khẳng định loss cuối dưới ngưỡng, và từ chối bắt đầu lần chạy dài khi nó thất bại. Chạy lại nó bất cứ khi nào kiến trúc hoặc pipeline thay đổi.
 
 ## Follow-ups
 
-- **Level 3:** The loss on the one batch stalls well above the threshold. Name three suspects. Expected: a loss that does not match the output layer, an optimizer built before the model's parameters were created, or a model too small to fit the batch.
-- **Level 3:** Why 8 to 32 samples? Expected: small enough that a correct model memorizes it in a few hundred steps, so a failure is unambiguous and the test stays fast.
-- **Level 4:** The test passes and the full run later shows training accuracy at chance. What does the pass rule out, and what remains? Expected: the model and loop can learn, so what remains is the full data path: a shuffle that unpairs inputs and labels, or normalization computed differently for the full set.
-- **Level 4:** How do you turn this into a gate in a training script? Expected: run it on a fixed batch at startup, assert the final loss is below the threshold, refuse to start the long run on a failure, and rerun it whenever the architecture or pipeline changes.
+- **Level 3:** Loss trên một batch đình trệ cao hơn ngưỡng nhiều. Nêu ba nghi phạm. Expected: một loss không khớp với lớp đầu ra, một bộ tối ưu hóa được xây dựng trước khi các tham số mô hình được tạo, hoặc một mô hình quá nhỏ để khớp batch.
+- **Level 3:** Tại sao 8 đến 32 mẫu? Expected: đủ nhỏ để một mô hình đúng ghi nhớ nó trong vài trăm bước, để một thất bại rõ ràng và kiểm thử giữ nhanh.
+- **Level 4:** Kiểm thử đạt và lần chạy đầy đủ sau đó cho thấy độ chính xác huấn luyện ở mức ngẫu nhiên. Lần đạt loại trừ điều gì, và còn lại gì? Expected: mô hình và vòng lặp có thể học, vì vậy điều còn lại là đường dữ liệu đầy đủ: một lần xáo trộn làm mất ghép cặp đầu vào và nhãn, hoặc chuẩn hóa được tính khác cho toàn bộ tập.
+- **Level 4:** Bạn biến điều này thành một cổng trong một script huấn luyện như thế nào? Expected: chạy nó trên một batch cố định lúc khởi động, khẳng định loss cuối dưới ngưỡng, từ chối bắt đầu lần chạy dài khi thất bại, và chạy lại bất cứ khi nào kiến trúc hoặc pipeline thay đổi.
 
 ## Wrong answers
 
-- "A passing test means the model will generalize." It proves the model can memorize one batch; generalization needs the validation curve.
-- "Skip it, the full run shows problems soon enough." The run shows a symptom hours later and the symptom fits many causes; the test isolates the loop in seconds.
-- "Use the whole training set for a few epochs instead." That is the full run; a small batch is what makes a failure unambiguous and fast.
+- "Một kiểm thử đạt nghĩa là mô hình sẽ khái quát hóa." Nó chứng minh mô hình có thể ghi nhớ một batch; khái quát hóa cần đường cong validation.
+- "Bỏ qua nó, lần chạy đầy đủ cho thấy vấn đề đủ sớm." Lần chạy cho thấy một triệu chứng nhiều giờ sau và triệu chứng khớp nhiều nguyên nhân; kiểm thử cô lập vòng lặp trong vài giây.
+- "Thay vào đó dùng toàn bộ tập huấn luyện trong vài epoch." Đó là lần chạy đầy đủ; một batch nhỏ là thứ làm một thất bại rõ ràng và nhanh.
 
 ## Taught in
 
-The [debugging lesson](../../../phases/03-deep-learning-core/13-debugging-neural-networks/) implements the test, lists what it catches, and places it first in the pre-training checklist.
+[Bài học gỡ lỗi](../../../phases/03-deep-learning-core/13-debugging-neural-networks/) triển khai kiểm thử, liệt kê những gì nó phát hiện, và đặt nó đầu tiên trong danh sách kiểm tra trước huấn luyện.

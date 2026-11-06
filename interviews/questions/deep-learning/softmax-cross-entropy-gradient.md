@@ -16,7 +16,7 @@ related: [deep-learning/mse-predicts-half-for-everything, deep-learning/loss-stu
 updated: 2026-11-03
 ---
 
-This function claims to return, for each logit, the derivative of the cross-entropy loss.
+Hàm này tuyên bố trả về, cho mỗi logit, đạo hàm của loss cross-entropy.
 
 ```python
 def cce_gradient(logits, target_index):
@@ -26,45 +26,45 @@ def cce_gradient(logits, target_index):
     return grads
 ```
 
-Explain why three lines are enough. Then describe the gradient vector when the model is sure and right, and when it is sure and wrong.
+Giải thích tại sao ba dòng là đủ. Rồi mô tả vector gradient khi mô hình chắc chắn và đúng, và khi nó chắc chắn và sai.
 
 ## Short answer
 
-For softmax followed by cross-entropy on a one-hot target, the derivative of the loss with respect to logit i is the predicted probability of class i minus the target for class i. The function copies the probabilities and subtracts 1 at the true class, which is that vector. When the model is confident and right, every entry is near zero. When it is confident and wrong, the entry at the true class is near minus 1 and the entry at the class it chose is near plus 1.
+Với softmax theo sau bởi cross-entropy trên một mục tiêu one-hot, đạo hàm của loss theo logit i là xác suất được dự đoán của lớp i trừ mục tiêu cho lớp i. Hàm sao chép các xác suất và trừ 1 tại lớp đúng, chính là vector đó. Khi mô hình tự tin và đúng, mọi phần tử gần không. Khi nó tự tin và sai, phần tử tại lớp đúng gần âm 1 và phần tử tại lớp nó chọn gần dương 1.
 
 ## Full answer
 
 ### Why the form is so simple
 
-The loss is minus the log of the probability of the true class, and that probability is exp of the true logit over the sum of exp of all logits. Differentiate with respect to logit i: the log of the denominator contributes plus p_i for every i, and the log of the numerator contributes minus 1 only for the true class. The softmax derivative on its own is a full matrix; combined with the log it collapses to p minus the one-hot target. The lesson's phrase is that softmax and cross-entropy are paired on purpose.
+Loss là âm log của xác suất lớp đúng, và xác suất đó là exp của logit đúng chia tổng exp của mọi logit. Lấy đạo hàm theo logit i: log của mẫu số đóng góp dương p_i cho mọi i, và log của tử số đóng góp âm 1 chỉ cho lớp đúng. Chỉ riêng đạo hàm softmax là một ma trận đầy đủ; kết hợp với log nó rút gọn thành p trừ mục tiêu one-hot. Cách nói của bài học là softmax và cross-entropy được chủ ý ghép cặp.
 
 ### Reading the vector
 
-- Confident right: p at the true class is near 1, so that entry is near 0, and every other p is near 0. Almost no update.
-- Confident wrong: p at the true class is near 0, so that entry is near minus 1; the chosen class has p near 1 and an entry near plus 1. A large update that lowers the chosen logit and raises the true one.
-- The entries sum to zero, because the probabilities sum to 1 and so does the one-hot target. That is a quick check for a hand-written version.
+- Tự tin đúng: p tại lớp đúng gần 1, vì vậy phần tử đó gần 0, và mọi p khác gần 0. Gần như không có cập nhật.
+- Tự tin sai: p tại lớp đúng gần 0, vì vậy phần tử đó gần âm 1; lớp được chọn có p gần 1 và một phần tử gần dương 1. Một cập nhật lớn hạ logit được chọn và nâng logit đúng.
+- Tổng các phần tử bằng không, vì tổng các xác suất bằng 1 và mục tiêu one-hot cũng vậy. Đó là một phép kiểm tra nhanh cho một phiên bản viết tay.
 
 ### What the three lines rely on
 
-The softmax call must be the stable one, with the largest logit subtracted before the exponential, or large logits give inf. A framework fuses log-softmax and the negative log-likelihood into one loss that takes logits, for the same reason; the lesson's rule is to call that fused loss rather than a softmax followed by a separate log.
+Lời gọi softmax phải là phiên bản ổn định, với logit lớn nhất được trừ trước hàm mũ, nếu không các logit lớn cho inf. Một framework hợp nhất log-softmax và negative log-likelihood thành một loss nhận logits, vì cùng lý do; quy tắc của bài học là gọi loss hợp nhất đó thay vì một softmax theo sau bởi một log riêng.
 
 ### With label smoothing
 
-Replace the one-hot target by the smoothed vector: with alpha of 0.1 on ten classes the true class gets 0.91 and the others 0.01. The gradient is p minus that vector, so it reaches zero at 0.91, not at 1.0, which keeps the logits from running to infinity.
+Thay mục tiêu one-hot bằng vector được làm trơn: với alpha 0.1 trên mười lớp lớp đúng nhận 0.91 và các lớp khác 0.01. Gradient là p trừ vector đó, vì vậy nó đạt không tại 0.91, không tại 1.0, giữ các logit không chạy đến vô cực.
 
 ## Follow-ups
 
-- **Level 2:** What does the gradient vector sum to? Expected: zero; the probabilities sum to 1 and the one-hot target sums to 1.
-- **Level 2:** Why pair softmax with cross-entropy rather than with squared error? Expected: the log undoes the exponential, so the gradient is linear in the error and never flattens.
-- **Level 3:** How does the gradient change with label smoothing of 0.1 on ten classes? Expected: the target becomes 0.91 at the true class and 0.01 elsewhere, so the gradient is p minus that vector and reaches zero at 0.91, not at 1.0.
-- **Level 3:** A framework offers a loss on logits and a loss on log probabilities. Which do you call? Expected: the one on logits, which fuses log-softmax and the negative log-likelihood in one numerically stable step.
+- **Level 2:** Tổng vector gradient bằng bao nhiêu? Expected: không; tổng các xác suất bằng 1 và tổng mục tiêu one-hot bằng 1.
+- **Level 2:** Tại sao ghép softmax với cross-entropy thay vì với sai số bình phương? Expected: log đảo ngược hàm mũ, vì vậy gradient tuyến tính theo sai số và không bao giờ phẳng ra.
+- **Level 3:** Gradient thay đổi như thế nào với label smoothing 0.1 trên mười lớp? Expected: mục tiêu trở thành 0.91 tại lớp đúng và 0.01 ở nơi khác, vì vậy gradient là p trừ vector đó và đạt không tại 0.91, không tại 1.0.
+- **Level 3:** Một framework cung cấp một loss trên logits và một loss trên log xác suất. Bạn gọi cái nào? Expected: cái trên logits, hợp nhất log-softmax và negative log-likelihood trong một bước ổn định số học.
 
 ## Wrong answers
 
-- "The gradient is minus 1 over p at the true class, like binary cross-entropy." That is the derivative with respect to the probability; through the softmax, the derivative with respect to the logit is p minus the target.
-- "Only the true class has a gradient, because only it appears in the loss." Every logit appears in the softmax denominator, so every logit receives its p as gradient.
-- "Divide by the number of classes." The gradient per sample is p minus the target; averaging over a batch divides by the batch size, not the class count.
+- "Gradient là âm 1 chia p tại lớp đúng, như binary cross-entropy." Đó là đạo hàm theo xác suất; qua softmax, đạo hàm theo logit là p trừ mục tiêu.
+- "Chỉ lớp đúng có một gradient, vì chỉ nó xuất hiện trong loss." Mọi logit xuất hiện trong mẫu số softmax, vì vậy mọi logit nhận p của nó làm gradient.
+- "Chia cho số lớp." Gradient mỗi mẫu là p trừ mục tiêu; lấy trung bình trên một batch chia cho kích thước batch, không phải số lớp.
 
 ## Taught in
 
-The [loss functions lesson](../../../phases/03-deep-learning-core/05-loss-functions/) writes this function and explains why the pairing simplifies.
+[Bài học các hàm loss](../../../phases/03-deep-learning-core/05-loss-functions/) viết hàm này và giải thích tại sao việc ghép cặp đơn giản hóa.

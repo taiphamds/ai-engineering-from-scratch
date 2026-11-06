@@ -16,7 +16,7 @@ related: [deep-learning/train-mode-and-eval-mode, deep-learning/layernorm-not-ba
 updated: 2026-11-03
 ---
 
-This dropout module comes from a mini framework.
+Module dropout này đến từ một framework nhỏ.
 
 ```python
 class Dropout(Module):
@@ -37,39 +37,39 @@ class Dropout(Module):
         return [g * m for g, m in zip(grad, self.mask)]
 ```
 
-Why do the kept entries of the mask hold 1 over (1 minus p) rather than 1, and why does backward reuse the same mask? What would change if the forward kept 1 and the scaling moved to evaluation time?
+Tại sao các phần tử được giữ lại của mask giữ 1 chia (1 trừ p) thay vì 1, và tại sao backward tái sử dụng cùng mask? Điều gì sẽ thay đổi nếu forward giữ 1 và việc điều chỉnh tỷ lệ chuyển sang thời điểm đánh giá?
 
 ## Short answer
 
-Each unit is zeroed with probability p, so the expected value of a unit falls to (1 - p) times its original. Dividing the kept units by (1 - p) restores that expectation during training, so evaluation runs the plain network with no change. Backward multiplies by the same mask because the forward pass was a per-unit scale, and the derivative of a scale is the scale. Moving the factor to evaluation time also works, but then every inference path must know the dropout rate.
+Mỗi đơn vị được đặt về không với xác suất p, vì vậy giá trị kỳ vọng của một đơn vị giảm xuống (1 - p) lần giá trị ban đầu. Chia các đơn vị được giữ lại cho (1 - p) khôi phục kỳ vọng đó trong huấn luyện, để đánh giá chạy mạng thông thường không có thay đổi. Backward nhân với cùng mask vì lượt truyền tiến là một phép điều chỉnh tỷ lệ theo từng đơn vị, và đạo hàm của một phép điều chỉnh tỷ lệ là hệ số tỷ lệ. Chuyển hệ số sang thời điểm đánh giá cũng hoạt động, nhưng khi đó mọi đường suy luận phải biết tỷ lệ dropout.
 
 ## Full answer
 
 ### The expectation argument
 
-A mask entry is 0 with probability p and 1 over (1 - p) otherwise. Its expected value is (1 - p) times 1 over (1 - p), which is 1. So the expected output of each unit in training equals its output with dropout off. The network sees the same scale in both modes, and the evaluation path has no dropout code at all. The lesson calls this inverted dropout. The original form kept the mask at 1 and multiplied by (1 - p) at test time, which forces inference code to know p.
+Một phần tử mask là 0 với xác suất p và 1 chia (1 - p) trong trường hợp khác. Giá trị kỳ vọng của nó là (1 - p) nhân 1 chia (1 - p), bằng 1. Vì vậy đầu ra kỳ vọng của mỗi đơn vị trong huấn luyện bằng đầu ra của nó khi tắt dropout. Mạng thấy cùng tỷ lệ trong cả hai chế độ, và đường đánh giá hoàn toàn không có mã dropout. Bài học gọi đây là inverted dropout. Dạng ban đầu giữ mask ở 1 và nhân với (1 - p) lúc kiểm thử, buộc mã suy luận biết p.
 
 ### The backward pass
 
-Dropout is an element-wise scale by the mask. The gradient of the input is the gradient of the output times the same mask: dropped units get 0, kept units get the gradient scaled by 1 over (1 - p). The mask must be the one from the matching forward pass, because the backward pass differentiates the function that ran forward. A fresh mask would pass gradient to units that were off and scale units that were on. The guard on a missing mask covers only a backward call before any training forward. The evaluation branch returns before it changes the mask, so a backward call after an evaluation forward reuses the mask of the last training forward.
+Dropout là một phép điều chỉnh tỷ lệ từng phần tử bằng mask. Gradient của đầu vào là gradient của đầu ra nhân cùng mask: các đơn vị bị bỏ nhận 0, các đơn vị được giữ nhận gradient được nhân tỷ lệ 1 chia (1 - p). Mask phải là mask từ lượt truyền tiến tương ứng, vì lượt truyền ngược vi phân hàm đã chạy truyền tiến. Một mask mới sẽ truyền gradient đến các đơn vị đã tắt và điều chỉnh tỷ lệ các đơn vị đã bật. Điều kiện bảo vệ khi thiếu mask chỉ bao phủ một lời gọi backward trước bất kỳ lượt truyền tiến huấn luyện nào. Nhánh đánh giá trả về trước khi thay đổi mask, vì vậy một lời gọi backward sau một lượt truyền tiến đánh giá tái sử dụng mask của lượt truyền tiến huấn luyện cuối.
 
 ### What dropout buys
 
-Zeroing random units stops neurons from relying on specific other neurons being present, which the lesson calls co-adaptation. Each mask selects a subnetwork, so training samples from about 2 to the N subnetworks of N units, and evaluation averages them in one pass by running the full network at the scaled expectation. Default rates: 0.1 for transformers, 0.5 for MLPs, 0.2 to 0.3 for CNNs. Higher p is stronger regularization and more risk of underfitting.
+Đặt các đơn vị ngẫu nhiên về không ngăn neuron dựa vào việc những neuron cụ thể khác hiện diện, điều mà bài học gọi là co-adaptation. Mỗi mask chọn một mạng con, vì vậy huấn luyện lấy mẫu từ khoảng 2 lũy thừa N mạng con của N đơn vị, và đánh giá lấy trung bình chúng trong một lượt bằng cách chạy toàn bộ mạng tại kỳ vọng đã điều chỉnh tỷ lệ. Các tỷ lệ mặc định: 0.1 cho transformer, 0.5 cho MLP, 0.2 đến 0.3 cho CNN. p cao hơn là regularization mạnh hơn và nhiều rủi ro underfitting hơn.
 
 ## Follow-ups
 
-- **Level 2:** What gradient does a dropped unit receive? Expected: zero, because its mask entry is 0.
-- **Level 2:** Why must backward use the mask from the same forward pass? Expected: the backward pass differentiates the function that ran forward; a new mask would scale active units wrongly and pass gradient to inactive ones.
-- **Level 3:** What is the ensemble reading of dropout? Expected: each mask defines a subnetwork, so training samples from about 2 to the N subnetworks, and evaluation averages them by running the full network at the scaled expectation.
-- **Level 3:** Which rate does the lesson give for a transformer, and why is it lower than for an MLP? Expected: 0.1 against 0.5; a higher rate is stronger regularization with more underfitting risk, and the transformer default is the lighter one.
+- **Level 2:** Một đơn vị bị bỏ nhận gradient gì? Expected: không, vì phần tử mask của nó là 0.
+- **Level 2:** Tại sao backward phải dùng mask từ cùng lượt truyền tiến? Expected: lượt truyền ngược vi phân hàm đã chạy truyền tiến; một mask mới sẽ điều chỉnh tỷ lệ các đơn vị hoạt động sai và truyền gradient đến các đơn vị không hoạt động.
+- **Level 3:** Cách hiểu ensemble của dropout là gì? Expected: mỗi mask xác định một mạng con, vì vậy huấn luyện lấy mẫu từ khoảng 2 lũy thừa N mạng con, và đánh giá lấy trung bình chúng bằng cách chạy toàn bộ mạng tại kỳ vọng đã điều chỉnh tỷ lệ.
+- **Level 3:** Bài học đưa ra tỷ lệ nào cho một transformer, và tại sao nó thấp hơn cho một MLP? Expected: 0.1 so với 0.5; một tỷ lệ cao hơn là regularization mạnh hơn với nhiều rủi ro underfitting hơn, và mặc định transformer là tỷ lệ nhẹ hơn.
 
 ## Wrong answers
 
-- "The scale makes the outputs sum to one." It restores the expected value of each unit, not a sum.
-- "Backward should draw a fresh mask for exploration." The backward pass differentiates the function that ran forward; a different mask gives the gradient of a different function.
-- "In evaluation mode multiply by (1 - p) as well." With inverted dropout the scaling already happened in training; scaling again at evaluation shrinks every activation.
+- "Hệ số tỷ lệ làm tổng các đầu ra bằng một." Nó khôi phục giá trị kỳ vọng của mỗi đơn vị, không phải một tổng.
+- "Backward nên lấy một mask mới để khám phá." Lượt truyền ngược vi phân hàm đã chạy truyền tiến; một mask khác cho gradient của một hàm khác.
+- "Trong chế độ đánh giá cũng nhân với (1 - p)." Với inverted dropout việc điều chỉnh tỷ lệ đã xảy ra trong huấn luyện; điều chỉnh tỷ lệ lần nữa khi đánh giá làm co mọi activation.
 
 ## Taught in
 
-The [regularization lesson](../../../phases/03-deep-learning-core/07-regularization/) derives inverted dropout, and the [mini framework lesson](../../../phases/03-deep-learning-core/10-mini-framework/) turns it into this module.
+[Bài học regularization](../../../phases/03-deep-learning-core/07-regularization/) suy ra inverted dropout, và [bài học framework nhỏ](../../../phases/03-deep-learning-core/10-mini-framework/) biến nó thành module này.

@@ -16,7 +16,7 @@ related: [deep-learning/overfit-one-batch-first, deep-learning/weight-matrix-row
 updated: 2026-11-03
 ---
 
-This loop trains a small network with plain SGD at a small learning rate on a fixed batch.
+Vòng lặp này huấn luyện một mạng nhỏ bằng SGD thông thường ở một learning rate nhỏ trên một batch cố định.
 
 ```python
 for step in range(50):
@@ -26,17 +26,17 @@ for step in range(50):
     optimizer.step()
 ```
 
-The loss falls for a few steps and then swings up and down. Read the loop, name the bug, explain the mechanism, and say where the fix goes.
+Loss giảm trong vài bước rồi dao động lên xuống. Đọc vòng lặp, nêu lỗi, giải thích cơ chế, và nói cách sửa đặt ở đâu.
 
 ## Short answer
 
-The loop never zeroes the gradients, so each backward call adds the new gradient on top of all the earlier ones. The step applies a growing sum, which acts like a learning rate that rises at every step, and the loss oscillates. Add the optimizer's zero_grad call before backward, which is where the lesson's correct loop puts it.
+Vòng lặp không bao giờ đặt các gradient về không, vì vậy mỗi lời gọi backward cộng gradient mới lên trên tất cả các gradient trước. Bước áp dụng một tổng tăng dần, hoạt động như một learning rate tăng ở mỗi bước, và loss dao động. Thêm lời gọi zero_grad của bộ tối ưu hóa trước backward, là nơi vòng lặp đúng của bài học đặt nó.
 
 ## Full answer
 
 ### Why the gradient grows
 
-Gradient storage is an accumulator by design. A parameter used in several places sums its contributions, and a backward call adds into the stored gradient rather than replacing it. In the mini framework the Linear layer's backward does exactly that, with a plus-equals into the weight gradients, and the optimizer's zero_grad sets every gradient container back to 0.0. A framework does the same. Without the reset, step one applies g1, step two applies g1 plus g2, step three applies the sum of three, and so on. The direction stays roughly right for a while and the magnitude climbs until the updates overshoot.
+Bộ lưu gradient được thiết kế là một bộ tích lũy. Một tham số được dùng ở nhiều nơi cộng các đóng góp của nó, và một lời gọi backward cộng vào gradient được lưu thay vì thay thế nó. Trong framework nhỏ backward của lớp Linear làm đúng điều đó, bằng một phép cộng bằng vào các gradient trọng số, và zero_grad của bộ tối ưu hóa đặt mọi vùng chứa gradient trở về 0.0. Một framework làm tương tự. Không có việc đặt lại, bước một áp dụng g1, bước hai áp dụng g1 cộng g2, bước ba áp dụng tổng của ba, và cứ như vậy. Hướng giữ gần đúng trong một lúc và độ lớn tăng cho đến khi các cập nhật vượt quá.
 
 ### The lesson's order
 
@@ -44,29 +44,29 @@ Gradient storage is an accumulator by design. A parameter used in several places
 zero_grad, forward, loss, backward, (clip), step, (schedule)
 ```
 
-The debugging lesson lists a forgotten zero_grad first among the bugs that waste the most hours, with this symptom: gradients accumulate across batches and the loss oscillates. Its demo reproduces the exact loop above and reports it. The optimizers lesson adds the ordering rule for the two trailing calls: the scheduler steps after the optimizer, and swapping them is a subtle bug.
+Bài học gỡ lỗi liệt kê một zero_grad bị quên đầu tiên trong số các lỗi lãng phí nhiều giờ nhất, với triệu chứng này: các gradient tích lũy qua các batch và loss dao động. Demo của nó tái hiện chính xác vòng lặp ở trên và báo cáo nó. Bài học các bộ tối ưu hóa thêm quy tắc thứ tự cho hai lời gọi cuối: scheduler bước sau bộ tối ưu hóa, và hoán đổi chúng là một lỗi tinh vi.
 
 ### How to see it in logs
 
-On a fixed batch the gradient norm should fall or hold as the loss falls. With this bug it grows step after step while the loss first improves and then swings with increasing amplitude. The overfit one batch test, which this loop resembles, would fail to reach a near zero loss.
+Trên một batch cố định chuẩn gradient nên giảm hoặc giữ nguyên khi loss giảm. Với lỗi này nó tăng bước này qua bước khác trong khi loss ban đầu cải thiện rồi dao động với biên độ tăng. Kiểm thử overfit một batch, mà vòng lặp này giống, sẽ không đạt được một loss gần không.
 
 ### When accumulation is on purpose
 
-Gradient accumulation across several small batches emulates one large batch: run backward on each micro batch without zeroing, then take one step and one zero_grad for the group, with the loss scaled by the group size. That is an exercise in the framework lesson. The difference from the bug is the single step per group and the division.
+Tích lũy gradient qua nhiều batch nhỏ mô phỏng một batch lớn: chạy backward trên mỗi micro batch mà không đặt về không, rồi thực hiện một bước và một zero_grad cho nhóm, với loss được điều chỉnh tỷ lệ theo kích thước nhóm. Đó là một bài tập trong bài học framework. Khác biệt với lỗi là bước duy nhất mỗi nhóm và phép chia.
 
 ## Follow-ups
 
-- **Level 3:** Why do frameworks accumulate gradients instead of overwriting them? Expected: a parameter used in several places sums its contributions, and accumulation across micro batches emulates a larger batch; the reset is left to the caller.
-- **Level 3:** Where do clipping and the schedule go in the order? Expected: zero_grad, forward, loss, backward, clip, step, schedule; the scheduler steps after the optimizer.
-- **Level 4:** How would you detect this bug from logs without reading the code? Expected: the gradient norm grows step after step on a fixed batch where it should shrink or hold, and the loss oscillates with growing amplitude.
-- **Level 4:** When is skipping zero_grad on some steps correct? Expected: deliberate accumulation over several micro batches, with one step and one zero_grad after the group and the loss scaled by the group size.
+- **Level 3:** Tại sao các framework tích lũy gradient thay vì ghi đè chúng? Expected: một tham số được dùng ở nhiều nơi cộng các đóng góp của nó, và tích lũy qua các micro batch mô phỏng một batch lớn hơn; việc đặt lại được để cho bên gọi.
+- **Level 3:** Clipping và lịch đặt ở đâu trong thứ tự? Expected: zero_grad, forward, loss, backward, clip, step, schedule; scheduler bước sau bộ tối ưu hóa.
+- **Level 4:** Bạn sẽ phát hiện lỗi này từ các log mà không đọc mã như thế nào? Expected: chuẩn gradient tăng bước này qua bước khác trên một batch cố định nơi nó nên co lại hoặc giữ nguyên, và loss dao động với biên độ tăng.
+- **Level 4:** Khi nào bỏ qua zero_grad trên một số bước là đúng? Expected: tích lũy có chủ đích qua nhiều micro batch, với một bước và một zero_grad sau nhóm và loss được điều chỉnh tỷ lệ theo kích thước nhóm.
 
 ## Wrong answers
 
-- "The learning rate is too high." The rate is small; the accumulated gradient is what grows.
-- "Reset the gradients only every few steps to smooth them." That is accumulation without the division; the step size scales with the group size and the loss swings.
-- "Detach the loss each step to stop the buildup." Detaching stops the graph, not the stored gradients; the gradient buffers still hold the sum.
+- "Learning rate quá cao." Rate nhỏ; gradient tích lũy mới là thứ tăng.
+- "Chỉ đặt lại các gradient sau mỗi vài bước để làm trơn chúng." Đó là tích lũy không có phép chia; kích thước bước tăng theo kích thước nhóm và loss dao động.
+- "Detach loss mỗi bước để ngăn tích tụ." Detach dừng graph, không phải các gradient được lưu; các buffer gradient vẫn giữ tổng.
 
 ## Taught in
 
-The [debugging lesson](../../../phases/03-deep-learning-core/13-debugging-neural-networks/) reproduces this bug and lists it first among common training loop mistakes, and the [mini framework lesson](../../../phases/03-deep-learning-core/10-mini-framework/) shows why gradients accumulate and what zero_grad resets.
+[Bài học gỡ lỗi](../../../phases/03-deep-learning-core/13-debugging-neural-networks/) tái hiện lỗi này và liệt kê nó đầu tiên trong số các sai lầm vòng lặp huấn luyện phổ biến, và [bài học framework nhỏ](../../../phases/03-deep-learning-core/10-mini-framework/) cho thấy tại sao gradient tích lũy và zero_grad đặt lại điều gì.

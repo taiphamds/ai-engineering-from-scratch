@@ -16,11 +16,11 @@ related: [deep-learning/xor-needs-a-hidden-layer, deep-learning/sigmoid-gradient
 updated: 2026-11-03
 ---
 
-A junior engineer removes every activation function from a 10 layer network to make it faster and reports that training still runs and the loss still falls. What did they build, and why will it fail on XOR or on a spiral dataset?
+Một kỹ sư mới loại bỏ mọi hàm activation khỏi một mạng 10 lớp để làm nó nhanh hơn và báo cáo rằng huấn luyện vẫn chạy và loss vẫn giảm. Họ đã xây dựng gì, và tại sao nó sẽ thất bại trên XOR hoặc trên một dataset xoắn ốc?
 
 ## Short answer
 
-Two linear layers compose into one: W2 (W1 x + b1) + b2 equals (W2 W1) x + (W2 b1 + b2), which is a single matrix and a single bias. Ten linear layers are one linear layer with extra parameters and the same decision boundary, a hyperplane. XOR and a spiral need a curved boundary, so the network cannot fit them at any width or depth.
+Hai lớp tuyến tính hợp thành một: W2 (W1 x + b1) + b2 bằng (W2 W1) x + (W2 b1 + b2), là một ma trận duy nhất và một bias duy nhất. Mười lớp tuyến tính là một lớp tuyến tính với các tham số thêm và cùng ranh giới quyết định, một siêu phẳng. XOR và một đường xoắn ốc cần một ranh giới cong, vì vậy mạng không thể khớp chúng ở bất kỳ chiều rộng hoặc độ sâu nào.
 
 ## Full answer
 
@@ -31,33 +31,33 @@ h = W1 x + b1
 y = W2 h + b2 = W2 W1 x + W2 b1 + b2 = A x + c
 ```
 
-Matrix products compose, so a stack of linear maps is one linear map. Repeat the substitution and ten layers fold into one matrix A and one vector c. Depth without a nonlinearity is an illusion: the model has the capacity of a single linear layer, it only costs more to run.
+Các tích ma trận hợp thành, vì vậy một chồng các ánh xạ tuyến tính là một ánh xạ tuyến tính. Lặp phép thế và mười lớp gộp vào một ma trận A và một vector c. Độ sâu không có tính phi tuyến là một ảo giác: mô hình có năng lực của một lớp tuyến tính duy nhất, nó chỉ tốn hơn để chạy.
 
 ### What an activation changes
 
-Insert a nonlinear function g between the layers, so that h = g(W1 x + b1). The substitution fails, because W2 g(W1 x + b1) + b2 does not reduce to A x + c. Each extra layer with an activation adds representational capacity. That is what lets a network bend its boundary around a spiral or separate the XOR points.
+Chèn một hàm phi tuyến g giữa các lớp, để h = g(W1 x + b1). Phép thế thất bại, vì W2 g(W1 x + b1) + b2 không rút gọn thành A x + c. Mỗi lớp thêm có một activation thêm năng lực biểu diễn. Đó là điều cho phép một mạng uốn ranh giới quanh một đường xoắn ốc hoặc tách các điểm XOR.
 
 ### What to add back
 
-The lesson's defaults: ReLU for a plain MLP or a CNN, GELU for a transformer, tanh inside recurrent cells. The output layer is the one place a missing activation is correct: a regression head emits any real number, a binary head uses a sigmoid, and a multi-class head uses a softmax.
+Các mặc định của bài học: ReLU cho một MLP thông thường hoặc một CNN, GELU cho một transformer, tanh bên trong các ô hồi tiếp. Lớp đầu ra là nơi duy nhất một activation bị thiếu là đúng: một head hồi quy xuất bất kỳ số thực nào, một head nhị phân dùng một sigmoid, và một head đa lớp dùng một softmax.
 
 ### Why the loss still fell
 
-A stack of linear layers only finds the best linear fit to the data. On XOR or a spiral that fit is close to chance, but it is better than random weights, so the loss moves. A falling loss is not evidence that the model can represent the target.
+Một chồng các lớp tuyến tính chỉ tìm khớp tuyến tính tốt nhất với dữ liệu. Trên XOR hoặc một đường xoắn ốc khớp đó gần mức ngẫu nhiên, nhưng nó tốt hơn các trọng số ngẫu nhiên, vì vậy loss di chuyển. Một loss giảm không phải bằng chứng rằng mô hình có thể biểu diễn mục tiêu.
 
 ## Follow-ups
 
-- **Level 1:** Which layer is allowed to have no activation? Expected: the output layer of a regression model, which must produce any real number.
-- **Level 2:** Does the deep linear network train faster than one layer? Expected: no; it computes the same function with more parameters and more matrix multiplies.
-- **Level 2:** Which activation would you add back for a plain MLP and for a transformer? Expected: ReLU for the MLP and GELU for the transformer.
-- **Level 3:** Why is the collapse not a proof that depth is useless? Expected: with a nonlinearity between layers the substitution fails and each layer adds capacity; deep networks fit the same functions with fewer parameters than wide shallow ones.
+- **Level 1:** Lớp nào được phép không có activation? Expected: lớp đầu ra của một mô hình hồi quy, phải tạo ra bất kỳ số thực nào.
+- **Level 2:** Mạng tuyến tính sâu huấn luyện nhanh hơn một lớp không? Expected: không; nó tính cùng hàm với nhiều tham số hơn và nhiều phép nhân ma trận hơn.
+- **Level 2:** Bạn sẽ thêm lại activation nào cho một MLP thông thường và cho một transformer? Expected: ReLU cho MLP và GELU cho transformer.
+- **Level 3:** Tại sao việc gộp không phải bằng chứng rằng độ sâu vô ích? Expected: với một tính phi tuyến giữa các lớp phép thế thất bại và mỗi lớp thêm năng lực; các mạng sâu khớp cùng các hàm với ít tham số hơn các mạng nông rộng.
 
 ## Wrong answers
 
-- "Ten layers are deeper, so they represent more." Without a nonlinearity the product of the matrices is one matrix; depth adds nothing.
-- "The biases make it nonlinear." A bias shifts the hyperplane; it does not bend it.
-- "The loss went down, so it is learning fine." It learns the best linear fit, which for XOR or a spiral is near chance.
+- "Mười lớp sâu hơn, vì vậy chúng biểu diễn nhiều hơn." Không có một tính phi tuyến tích của các ma trận là một ma trận; độ sâu không thêm gì.
+- "Các bias làm nó phi tuyến." Một bias dịch siêu phẳng; nó không uốn nó.
+- "Loss giảm, vì vậy nó đang học tốt." Nó học khớp tuyến tính tốt nhất, mà với XOR hoặc một đường xoắn ốc gần mức ngẫu nhiên.
 
 ## Taught in
 
-The [activation functions lesson](../../../phases/03-deep-learning-core/04-activation-functions/) proves the collapse and gives the default activation for each architecture.
+[Bài học các hàm activation](../../../phases/03-deep-learning-core/04-activation-functions/) chứng minh việc gộp và đưa ra activation mặc định cho mỗi kiến trúc.

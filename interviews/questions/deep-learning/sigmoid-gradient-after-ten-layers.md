@@ -16,46 +16,46 @@ related: [deep-learning/stacked-linear-layers-collapse, deep-learning/half-the-r
 updated: 2026-11-03
 ---
 
-A network has ten hidden layers, each with a sigmoid activation. Estimate the largest factor that the sigmoid derivatives alone let a gradient keep on the way from the loss to the first layer, and say what that number means for training.
+Một mạng có mười lớp ẩn, mỗi lớp với một sigmoid activation. Ước tính hệ số lớn nhất mà chỉ các đạo hàm sigmoid cho một gradient giữ được trên đường từ loss đến lớp đầu tiên, và nói con số đó có nghĩa gì cho huấn luyện.
 
 ## Short answer
 
-The sigmoid derivative is s times (1 - s), which peaks at 0.25 when the output is 0.5. Backpropagation multiplies by that derivative once per layer, so after ten layers the activation factors multiply to at most 0.25 to the tenth power, about one millionth. Each layer also multiplies by its transposed weight matrix, and weights with a norm above 1 can enlarge the gradient, so the figure bounds only the activation part. With the small initial weights of the lesson, the first layers receive almost no signal and stay near their initialization while the last layers learn, which is the vanishing gradient problem.
+Đạo hàm sigmoid là s nhân (1 - s), đạt đỉnh ở 0.25 khi đầu ra là 0.5. Backpropagation nhân với đạo hàm đó một lần mỗi lớp, vì vậy sau mười lớp các hệ số activation nhân thành tối đa 0.25 lũy thừa mười, khoảng một phần triệu. Mỗi lớp cũng nhân với ma trận trọng số chuyển vị của nó, và các trọng số có chuẩn trên 1 có thể phóng lớn gradient, vì vậy con số chỉ chặn phần activation. Với các trọng số ban đầu nhỏ của bài học, những lớp đầu nhận gần như không có tín hiệu và giữ gần khởi tạo trong khi những lớp cuối học, chính là vấn đề gradient tiêu biến.
 
 ## Full answer
 
 ### The chain through the layers
 
-At each layer the backward pass computes the gradient of the loss with respect to the pre-activation as the incoming gradient times the activation's derivative at that point. With a sigmoid that derivative is a(1 - a) for an output a. Its maximum is 0.25, at a equal to 0.5. Three layers deep the product is at most 0.25 cubed, which is 0.0156. Ten layers deep it is 0.25 to the tenth, which the lessons write as 0.000001 and as 0.000000953674.
+Tại mỗi lớp lượt truyền ngược tính gradient của loss theo pre-activation bằng gradient đi vào nhân đạo hàm của activation tại điểm đó. Với một sigmoid đạo hàm đó là a(1 - a) cho một đầu ra a. Giá trị lớn nhất của nó là 0.25, tại a bằng 0.5. Sâu ba lớp tích tối đa là 0.25 lập phương, bằng 0.0156. Sâu mười lớp nó là 0.25 lũy thừa mười, mà các bài học viết là 0.000001 và là 0.000000953674.
 
 ### Why the bound is optimistic
 
-The 0.25 holds only for a unit whose output is exactly 0.5. A unit near 0 or near 1 is saturated and has a derivative near 0. Real networks have many saturated units, so the activation part shrinks more than one millionth. The bound also leaves out the weight matrices. Backpropagation multiplies by each layer's transposed weights, and weights with a norm above 1 can enlarge the gradient, while small weights shrink it more. A second cost: sigmoid outputs are always positive, so the gradients on a layer's weights share a sign and descent zigzags.
+Giá trị 0.25 chỉ đúng cho một đơn vị có đầu ra chính xác là 0.5. Một đơn vị gần 0 hoặc gần 1 bị bão hòa và có một đạo hàm gần 0. Các mạng thực có nhiều đơn vị bão hòa, vì vậy phần activation co lại nhiều hơn một phần triệu. Giới hạn cũng bỏ qua các ma trận trọng số. Backpropagation nhân với trọng số chuyển vị của mỗi lớp, và các trọng số có chuẩn trên 1 có thể phóng lớn gradient, trong khi các trọng số nhỏ thu nhỏ nó thêm. Một chi phí thứ hai: các đầu ra sigmoid luôn dương, vì vậy các gradient trên trọng số của một lớp có chung một dấu và quá trình giảm đi zigzag.
 
 ### What changes the arithmetic
 
-- Tanh has a derivative that peaks at 1.0, four times the sigmoid's, but it still falls toward 0 for large inputs, so deep tanh stacks vanish too, only more slowly.
-- ReLU has a derivative of exactly 1 for positive inputs. The gradient passes through unchanged and the product does not shrink. This is the change that made deep networks trainable.
-- GELU keeps a smooth gradient and avoids the dead unit failure of ReLU, which is why transformers use it.
-- The lesson's own network scales its initial weights by the square root of 2 over the input count, to keep early sigmoid units out of saturation.
+- Tanh có một đạo hàm đạt đỉnh ở 1.0, gấp bốn sigmoid, nhưng nó vẫn giảm về 0 với các đầu vào lớn, vì vậy các chồng tanh sâu cũng tiêu biến, chỉ chậm hơn.
+- ReLU có một đạo hàm chính xác là 1 cho các đầu vào dương. Gradient đi qua không thay đổi và tích không co lại. Đây là thay đổi làm các mạng sâu huấn luyện được.
+- GELU giữ một gradient trơn và tránh sự cố đơn vị chết của ReLU, là lý do transformer dùng nó.
+- Mạng riêng của bài học điều chỉnh tỷ lệ các trọng số ban đầu của nó bằng căn bậc hai của 2 chia số đầu vào, để giữ các đơn vị sigmoid sớm ngoài bão hòa.
 
 ### How to see it in a run
 
-Log the mean absolute gradient per layer. In a healthy network the layers sit within a small factor of each other. In a vanishing network the first layer is orders of magnitude below the last.
+Ghi log gradient tuyệt đối trung bình mỗi lớp. Trong một mạng khỏe các lớp nằm trong một hệ số nhỏ của nhau. Trong một mạng tiêu biến lớp đầu thấp hơn lớp cuối nhiều bậc độ lớn.
 
 ## Follow-ups
 
-- **Level 2:** Why is 0.25 an upper bound and not the typical value? Expected: the derivative is 0.25 only at an output of 0.5; saturated units near 0 or 1 have derivatives near 0, so the real shrink is worse.
-- **Level 2:** How does tanh compare? Expected: its derivative peaks at 1.0, four times better, but it still falls toward 0 for large inputs, so deep tanh stacks vanish as well.
-- **Level 3:** What does ReLU change in the calculation? Expected: the derivative is exactly 1 for positive inputs, so the gradient passes through unchanged and the product does not shrink.
-- **Level 3:** How do you observe the problem without the formula? Expected: log the mean absolute gradient per layer; the first layers show values orders of magnitude below the last.
+- **Level 2:** Tại sao 0.25 là một cận trên chứ không phải giá trị điển hình? Expected: đạo hàm chỉ là 0.25 tại một đầu ra 0.5; các đơn vị bão hòa gần 0 hoặc 1 có các đạo hàm gần 0, vì vậy mức co thực tệ hơn.
+- **Level 2:** Tanh so sánh như thế nào? Expected: đạo hàm của nó đạt đỉnh ở 1.0, tốt hơn bốn lần, nhưng nó vẫn giảm về 0 với các đầu vào lớn, vì vậy các chồng tanh sâu cũng tiêu biến.
+- **Level 3:** ReLU thay đổi điều gì trong phép tính? Expected: đạo hàm chính xác là 1 cho các đầu vào dương, vì vậy gradient đi qua không thay đổi và tích không co lại.
+- **Level 3:** Bạn quan sát vấn đề mà không có công thức như thế nào? Expected: ghi log gradient tuyệt đối trung bình mỗi lớp; các lớp đầu cho thấy các giá trị thấp hơn lớp cuối nhiều bậc độ lớn.
 
 ## Wrong answers
 
-- "The gradient vanishes because the learning rate is too small." A larger learning rate scales every layer; the ratio between the first and the last layers stays near one millionth.
-- "Sigmoid outputs are between 0 and 1, so the gradient is between 0 and 1 and that is fine." The derivative, not the output, multiplies through the layers, and its maximum is 0.25.
-- "Backpropagation is broken for deep networks." Backpropagation computes the exact gradient; the gradient itself is tiny because of what it passes through.
+- "Gradient tiêu biến vì learning rate quá nhỏ." Một learning rate lớn hơn điều chỉnh tỷ lệ mọi lớp; tỷ số giữa các lớp đầu và cuối giữ gần một phần triệu.
+- "Các đầu ra sigmoid nằm giữa 0 và 1, vì vậy gradient nằm giữa 0 và 1 và điều đó ổn." Đạo hàm, không phải đầu ra, nhân xuyên các lớp, và giá trị lớn nhất của nó là 0.25.
+- "Backpropagation bị hỏng cho các mạng sâu." Backpropagation tính gradient chính xác; chính gradient rất nhỏ vì những gì nó đi qua.
 
 ## Taught in
 
-The [backpropagation lesson](../../../phases/03-deep-learning-core/03-backpropagation/) computes the product through the layers, and the [activation functions lesson](../../../phases/03-deep-learning-core/04-activation-functions/) compares the derivatives of sigmoid, tanh, ReLU and GELU.
+[Bài học backpropagation](../../../phases/03-deep-learning-core/03-backpropagation/) tính tích qua các lớp, và [bài học các hàm activation](../../../phases/03-deep-learning-core/04-activation-functions/) so sánh các đạo hàm của sigmoid, tanh, ReLU và GELU.

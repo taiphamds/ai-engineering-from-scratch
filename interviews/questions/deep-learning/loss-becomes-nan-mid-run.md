@@ -16,48 +16,48 @@ related: [deep-learning/pick-the-peak-rate-and-schedule, deep-learning/half-the-
 updated: 2026-11-03
 ---
 
-A run trains for hours with a smooth loss. Then, within three logging intervals, the loss jumps, becomes inf, and every value after that is NaN. The same recipe worked on a smaller model. Give your ranked list of causes, the evidence that separates them, and the changes that keep it from happening again.
+Một lần chạy huấn luyện trong nhiều giờ với một loss trơn. Rồi, trong ba khoảng ghi log, loss nhảy, trở thành inf, và mọi giá trị sau đó là NaN. Cùng công thức đã hoạt động trên một mô hình nhỏ hơn. Đưa ra danh sách nguyên nhân được xếp hạng của bạn, bằng chứng phân biệt chúng, và các thay đổi ngăn nó xảy ra lần nữa.
 
 ## Short answer
 
-A clean run that dies late is almost always an oversized update: the peak learning rate is too high for the larger model, a rare batch produced a huge gradient, or the schedule reached its peak at a point where the model was already sensitive. The logs separate the cases: for an explosion the gradient norm spikes before the loss does, while a forward pass overflow, such as a softmax without the max shift or a normalization over a zero variance, shows a normal norm and a loss that goes to inf in one step. Fix with gradient clipping by norm at 1.0, a lower peak with warmup, and a loss computed from logits, then resume from the last good checkpoint.
+Một lần chạy sạch chết muộn gần như luôn là một cập nhật quá cỡ: learning rate đỉnh quá cao cho mô hình lớn hơn, một batch hiếm tạo ra một gradient khổng lồ, hoặc lịch đạt đỉnh tại một điểm nơi mô hình đã nhạy cảm. Các log phân biệt các trường hợp: với một lần bùng nổ chuẩn gradient tăng vọt trước loss, trong khi một lần tràn ở lượt truyền tiến, chẳng hạn một softmax không có phép dịch theo giá trị lớn nhất hoặc một phép chuẩn hóa trên phương sai bằng không, cho thấy một chuẩn bình thường và một loss thành inf trong một bước. Sửa bằng gradient clipping theo chuẩn tại 1.0, một đỉnh thấp hơn với warmup, và một loss được tính từ logits, rồi tiếp tục từ checkpoint tốt cuối cùng.
 
 ## Full answer
 
 ### Rank the causes
 
-1. **Update too large for this model.** The debugging lesson's table: a loss that goes NaN after some steps means the learning rate is too high, and the first move is to reduce it by 10 times. The peak that was safe on the smaller model is close to the edge on the larger one. The capstone lesson advises sweeping the peak on a small model as a prior, and says the optimum shifts with size, so confirm rather than copy.
-2. **One bad batch.** A single outlier batch produces a gradient large enough to corrupt every weight in one step. Without clipping, nothing stops it.
-3. **Schedule position.** Check where the schedule was when the loss jumped. A short warmup or a peak reached at the wrong time puts the largest steps on a model that cannot take them.
-4. **Forward pass overflow.** An exp in a hand written softmax without the max shift, a log of zero, or a division by a zero variance in a normalization. These produce inf at once, usually at the first step, so they rank low for a run that was clean for hours, but a rare batch can trigger them late.
+1. **Cập nhật quá lớn cho mô hình này.** Bảng của bài học gỡ lỗi: một loss thành NaN sau một số bước có nghĩa là learning rate quá cao, và bước đầu tiên là giảm nó 10 lần. Đỉnh an toàn trên mô hình nhỏ hơn gần sát biên trên mô hình lớn hơn. Bài học capstone khuyên quét đỉnh trên một mô hình nhỏ như một tiên nghiệm, và nói giá trị tối ưu dịch chuyển theo kích thước, vì vậy xác nhận thay vì sao chép.
+2. **Một batch xấu.** Một batch ngoại lệ duy nhất tạo ra một gradient đủ lớn để làm hỏng mọi trọng số trong một bước. Không có clipping, không có gì ngăn nó.
+3. **Vị trí lịch.** Kiểm tra lịch ở đâu khi loss nhảy. Một warmup ngắn hoặc một đỉnh đạt tại thời điểm sai đặt các bước lớn nhất lên một mô hình không thể chịu chúng.
+4. **Tràn ở lượt truyền tiến.** Một exp trong một softmax viết tay không có phép dịch theo giá trị lớn nhất, một log của không, hoặc một phép chia cho phương sai bằng không trong một phép chuẩn hóa. Những điều này tạo ra inf ngay lập tức, thường ở bước đầu tiên, vì vậy chúng xếp thấp cho một lần chạy đã sạch trong nhiều giờ, nhưng một batch hiếm có thể kích hoạt chúng muộn.
 
 ### What the logs show
 
-- The gradient L2 norm logged beside the learning rate every step. The capstone lesson's rule: a divergent run shows the norm spike before the loss does. An overflow shows a normal norm and a loss that is inf in a single step.
-- Per-layer gradient statistics. The debugging lesson flags a layer whose mean absolute gradient exceeds 100 as exploding and shows which layer went first.
-- Replay. Load the last good checkpoint, feed the batch from the failing step, and watch the norm. If that batch alone reproduces the spike, it is the trigger; if it does not, the schedule or the rate is.
-- Anomaly detection in the autograd engine, to name the operation that produced the first NaN.
+- Chuẩn L2 gradient được ghi log cạnh learning rate ở mọi bước. Quy tắc của bài học capstone: một lần chạy phân kỳ cho thấy chuẩn tăng vọt trước loss. Một lần tràn cho thấy một chuẩn bình thường và một loss là inf trong một bước duy nhất.
+- Thống kê gradient theo lớp. Bài học gỡ lỗi đánh dấu một lớp có gradient tuyệt đối trung bình vượt 100 là đang bùng nổ và cho thấy lớp nào đi trước.
+- Phát lại. Nạp checkpoint tốt cuối cùng, đưa vào batch từ bước thất bại, và theo dõi chuẩn. Nếu chỉ batch đó tái hiện đợt tăng vọt, nó là tác nhân; nếu không, lịch hoặc rate là tác nhân.
+- Phát hiện bất thường trong autograd engine, để nêu thao tác tạo ra NaN đầu tiên.
 
 ### Changes that prevent a repeat
 
-- Clip the gradient by its global norm at 1.0 before the step. Clipping by norm keeps the direction; clipping each element does not.
-- Lower the peak and keep a warmup of 1 to 5 percent of the steps, so the largest steps arrive after the optimizer statistics settle.
-- Compute the loss from logits with a fused, stable function, and keep epsilons in logs and divisions.
-- Checkpoint often enough that a resume costs minutes, and alert on a NaN loss so the run stops at the first bad step rather than hours later.
+- Clip gradient theo chuẩn toàn cục của nó tại 1.0 trước bước. Clipping theo chuẩn giữ hướng; clipping từng phần tử thì không.
+- Hạ đỉnh và giữ một warmup 1 đến 5 phần trăm số bước, để các bước lớn nhất đến sau khi các thống kê của bộ tối ưu hóa ổn định.
+- Tính loss từ logits bằng một hàm hợp nhất, ổn định, và giữ epsilon trong log và phép chia.
+- Lưu checkpoint đủ thường xuyên để một lần tiếp tục tốn vài phút, và cảnh báo trên một loss NaN để lần chạy dừng ở bước xấu đầu tiên thay vì nhiều giờ sau.
 
 ## Follow-ups
 
-- **Level 3:** What in the logs separates an oversized update from a forward pass overflow? Expected: the gradient norm rises over several steps before the loss for an explosion; an overflow shows a normal norm and a loss that goes to inf in a single step.
-- **Level 4:** Why clip by norm rather than by value? Expected: clipping by norm scales the whole gradient and keeps its direction; clipping each element changes the direction.
-- **Level 4:** Why did the recipe work on the smaller model? Expected: the peak that was safe there sits near the edge for the larger one; a sweep on the small model is a prior, and the optimum shifts with size, so verify rather than copy.
-- **Level 4:** What do you add so the run never dies silently again? Expected: log the gradient norm beside the learning rate each step, alert on a NaN loss, checkpoint often enough to resume, and restart with clipping and a warmup.
+- **Level 3:** Điều gì trong các log phân biệt một cập nhật quá cỡ với một lần tràn ở lượt truyền tiến? Expected: chuẩn gradient tăng qua vài bước trước loss đối với một lần bùng nổ; một lần tràn cho thấy một chuẩn bình thường và một loss thành inf trong một bước duy nhất.
+- **Level 4:** Tại sao clip theo chuẩn thay vì theo giá trị? Expected: clipping theo chuẩn điều chỉnh tỷ lệ toàn bộ gradient và giữ hướng của nó; clipping từng phần tử thay đổi hướng.
+- **Level 4:** Tại sao công thức hoạt động trên mô hình nhỏ hơn? Expected: đỉnh an toàn ở đó nằm gần biên cho mô hình lớn hơn; một phép quét trên mô hình nhỏ là một tiên nghiệm, và giá trị tối ưu dịch chuyển theo kích thước, vì vậy xác minh thay vì sao chép.
+- **Level 4:** Bạn thêm gì để lần chạy không bao giờ chết âm thầm nữa? Expected: ghi log chuẩn gradient cạnh learning rate mỗi bước, cảnh báo trên một loss NaN, lưu checkpoint đủ thường xuyên để tiếp tục, và khởi động lại với clipping và một warmup.
 
 ## Wrong answers
 
-- "Add an epsilon to the loss and restart." An epsilon fixes a log of zero at step one; a late explosion comes from the update size, and the run will die again.
-- "Halve the learning rate and hope." Halving is a guess; the lesson's move is a 10 times reduction, together with clipping and a check of the schedule position.
-- "NaN means the data has a bad row." A bad row shows in the first epoch, not after hours of clean training; replay the failing batch on the checkpoint before you blame it.
+- "Thêm một epsilon vào loss và khởi động lại." Một epsilon sửa một log của không ở bước một; một lần bùng nổ muộn đến từ kích thước cập nhật, và lần chạy sẽ chết lần nữa.
+- "Giảm một nửa learning rate và hy vọng." Giảm một nửa là một phỏng đoán; bước của bài học là giảm 10 lần, cùng clipping và một phép kiểm tra vị trí lịch.
+- "NaN nghĩa là dữ liệu có một hàng xấu." Một hàng xấu hiện trong epoch đầu tiên, không phải sau nhiều giờ huấn luyện sạch; phát lại batch thất bại trên checkpoint trước khi bạn đổ lỗi cho nó.
 
 ## Taught in
 
-The [debugging lesson](../../../phases/03-deep-learning-core/13-debugging-neural-networks/) gives the NaN rows of the master table, the [optimizers lesson](../../../phases/03-deep-learning-core/06-optimizers/) places clipping in the loop, the [learning rate schedules lesson](../../../phases/03-deep-learning-core/09-learning-rate-schedules/) covers warmup and peak, and the [cosine warmup capstone](../../../phases/19-capstone-projects/44-cosine-lr-warmup/) logs the norm of the gradient next to the rate.
+[Bài học gỡ lỗi](../../../phases/03-deep-learning-core/13-debugging-neural-networks/) đưa ra các hàng NaN của bảng tổng, [bài học các bộ tối ưu hóa](../../../phases/03-deep-learning-core/06-optimizers/) đặt clipping vào vòng lặp, [bài học lịch learning rate](../../../phases/03-deep-learning-core/09-learning-rate-schedules/) bao phủ warmup và đỉnh, và [capstone cosine warmup](../../../phases/19-capstone-projects/44-cosine-lr-warmup/) ghi log chuẩn của gradient cạnh rate.

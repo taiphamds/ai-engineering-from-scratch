@@ -16,11 +16,11 @@ related: [deep-learning/warmup-before-the-peak-rate, deep-learning/pick-the-peak
 updated: 2026-11-03
 ---
 
-Take-home. Implement a learning rate schedule as one function of the step: a linear ramp from zero to a peak, a cosine decay from the peak to a floor, and a fixed floor after the last step. Deliver tests that pin the value at every boundary, prove the curve has no jumps, and show that a resumed run lands on the right value. Describe your design and your tests.
+Bài làm ở nhà. Triển khai một lịch learning rate dưới dạng một hàm của bước: một đoạn tăng tuyến tính từ không đến một đỉnh, một cosine decay từ đỉnh đến một mức sàn, và một mức sàn cố định sau bước cuối cùng. Bàn giao các kiểm thử cố định giá trị tại mọi ranh giới, chứng minh đường cong không có bước nhảy, và cho thấy một lần chạy được tiếp tục rơi vào đúng giá trị. Mô tả thiết kế và các kiểm thử của bạn.
 
 ## Short answer
 
-Write one function with three branches: up to the warmup step, the peak times the step over the warmup length; between the warmup step and the total, the floor plus half the gap times one plus the cosine of pi times the progress since warmup ended; past the total, the floor. Test the fixed points: zero at step zero, the peak at the end of warmup from both branches, the floor at the last step and the floor one step later. Add a continuity test that bounds each one step change, and a resume test that computes the schedule from a saved global step.
+Viết một hàm với ba nhánh: đến bước warmup, đỉnh nhân bước chia độ dài warmup; giữa bước warmup và tổng, mức sàn cộng một nửa khoảng cách nhân một cộng cosine của pi nhân tiến độ kể từ khi warmup kết thúc; qua tổng, mức sàn. Kiểm thử các điểm cố định: không ở bước không, đỉnh tại cuối warmup từ cả hai nhánh, mức sàn tại bước cuối và mức sàn một bước sau. Thêm một kiểm thử tính liên tục chặn mỗi thay đổi một bước, và một kiểm thử tiếp tục tính lịch từ một bước toàn cục đã lưu.
 
 ## Full answer
 
@@ -36,36 +36,36 @@ else:
     lr = lr_min
 ```
 
-The cosine evaluates to 1 at the end of warmup, which gives the peak and matches the ramp's endpoint, and to -1 at the total, which gives the floor. The capstone lesson makes the point that this continuity is the reason to write one function over the step rather than three pieces glued together: a glued schedule loses a boundary the first time the peak or a step count changes. Two guards: the ramp branch runs only when the warmup is above zero, so a warmup of zero steps starts at the peak and decays at once, with no division by zero. The constructor rejects a warmup that is not less than the total, as the lesson's code does with an error, because the rate would hold the peak at the last step and drop to the floor one step later.
+Cosine cho giá trị 1 tại cuối warmup, cho đỉnh và khớp với điểm cuối của đoạn tăng, và -1 tại tổng, cho mức sàn. Bài học capstone nhấn mạnh rằng tính liên tục này là lý do viết một hàm trên bước thay vì ba mảnh ghép lại: một lịch ghép mất một ranh giới ngay lần đầu đỉnh hoặc một số bước thay đổi. Hai điều kiện bảo vệ: nhánh tăng chỉ chạy khi warmup trên không, vì vậy một warmup không bước bắt đầu tại đỉnh và giảm ngay, không có phép chia cho không. Hàm khởi tạo từ chối một warmup không nhỏ hơn tổng, như mã của bài học thực hiện bằng một lỗi, vì rate sẽ giữ đỉnh tại bước cuối và rơi xuống sàn một bước sau.
 
 ### Why the floor is pinned, not an error
 
-A trainer that overshoots the configured total keeps a usable rate and logs a warning. Extending a run means changing the total in the config, not editing the loop. The floor is non-zero on purpose: the lesson keeps it near 10 percent of the peak so the optimizer keeps learning in the long tail, and warns that a floor of zero looks good on a plot and leaves the model under-trained.
+Một trainer vượt quá tổng được cấu hình giữ một rate dùng được và ghi log một cảnh báo. Kéo dài một lần chạy có nghĩa là thay đổi tổng trong cấu hình, không chỉnh sửa vòng lặp. Mức sàn chủ ý khác không: bài học giữ nó gần 10 phần trăm đỉnh để bộ tối ưu hóa tiếp tục học trong đuôi dài, và cảnh báo rằng một mức sàn bằng không trông đẹp trên một biểu đồ và khiến mô hình được huấn luyện chưa đủ.
 
 ### The tests
 
-1. **Fixed points.** With a non-zero warmup, lr(0) is 0, lr(warmup) equals the peak from the ramp branch and from the cosine branch, lr(total) equals the floor, lr(total + 1) equals the floor.
-2. **Continuity.** For every step from 0 to total, the change between consecutive steps is at most the larger of the warmup slope, peak over warmup steps, and the steepest cosine slope, pi times the gap over twice the decay length. The lesson's exercise notes that a short cosine segment can be steeper than the ramp, so the ramp slope alone is not a safe bound.
-3. **Resume.** Save a checkpoint with a global step, reload, and assert that the next value equals lr(global step + 1). The schedule reads a monotonic global step from the checkpoint, not an epoch counter or a loop variable, because sharded datasets and restarted loaders break the epoch to step mapping.
-4. **Shape.** Render the schedule to a text plot and a CSV, with one row per step, and check the plot into the run directory so a reviewer can see the curve without running anything.
+1. **Các điểm cố định.** Với một warmup khác không, lr(0) là 0, lr(warmup) bằng đỉnh từ nhánh tăng và từ nhánh cosine, lr(total) bằng sàn, lr(total + 1) bằng sàn.
+2. **Tính liên tục.** Với mọi bước từ 0 đến tổng, thay đổi giữa các bước liên tiếp tối đa bằng giá trị lớn hơn giữa độ dốc warmup, đỉnh chia số bước warmup, và độ dốc cosine dốc nhất, pi nhân khoảng cách chia hai lần độ dài decay. Bài tập của bài học ghi chú rằng một đoạn cosine ngắn có thể dốc hơn đoạn tăng, vì vậy chỉ độ dốc đoạn tăng không phải một giới hạn an toàn.
+3. **Tiếp tục.** Lưu một checkpoint với một bước toàn cục, nạp lại, và khẳng định giá trị tiếp theo bằng lr(global step + 1). Lịch đọc một bước toàn cục đơn điệu từ checkpoint, không phải một bộ đếm epoch hoặc một biến vòng lặp, vì các dataset chia shard và các loader được khởi động lại phá ánh xạ epoch sang bước.
+4. **Hình dạng.** Kết xuất lịch thành một biểu đồ văn bản và một CSV, với một hàng mỗi bước, và đưa biểu đồ vào thư mục lần chạy để một người rà soát có thể thấy đường cong mà không chạy gì.
 
 ### Production notes from the lesson
 
-The schedule's four numbers live in a versioned config, not in code. The warmup is a fraction of the total, around 1 to 3 percent, so the shape survives a longer run. The log row is step, learning rate, gradient L2 norm and loss, in that order, so dashboards can read it.
+Bốn con số của lịch nằm trong một cấu hình có phiên bản, không trong mã. Warmup là một tỷ lệ của tổng, khoảng 1 đến 3 phần trăm, để hình dạng sống sót qua một lần chạy dài hơn. Hàng log là bước, learning rate, chuẩn L2 gradient và loss, theo thứ tự đó, để dashboard có thể đọc nó.
 
 ## Follow-ups
 
-- **Level 3:** Why implement the three regions in one function? Expected: so the ramp endpoint and the cosine start share one formula for the peak, and a change to the peak or the step counts cannot open a gap at a boundary.
-- **Level 4:** What is the right bound for the continuity test? Expected: the larger of the ramp slope, peak over warmup steps, and the steepest cosine slope, pi times the gap over twice the decay length; a short cosine segment can be steeper than the ramp.
-- **Level 4:** Why pin at the floor after the last step instead of raising? Expected: a trainer that overshoots keeps a usable rate and logs a warning; extending training means changing the total in the config, not the loop.
-- **Level 4:** What makes a resumed run land on the right value? Expected: the schedule reads a monotonic global step saved in the checkpoint, not an epoch counter or a local loop variable.
+- **Level 3:** Tại sao triển khai ba vùng trong một hàm? Expected: để điểm cuối đoạn tăng và điểm bắt đầu cosine dùng chung một công thức cho đỉnh, và một thay đổi đỉnh hoặc các số bước không thể mở một khoảng hở tại một ranh giới.
+- **Level 4:** Giới hạn đúng cho kiểm thử tính liên tục là gì? Expected: giá trị lớn hơn giữa độ dốc đoạn tăng, đỉnh chia số bước warmup, và độ dốc cosine dốc nhất, pi nhân khoảng cách chia hai lần độ dài decay; một đoạn cosine ngắn có thể dốc hơn đoạn tăng.
+- **Level 4:** Tại sao cố định ở sàn sau bước cuối thay vì phát sinh lỗi? Expected: một trainer vượt quá giữ một rate dùng được và ghi log một cảnh báo; kéo dài huấn luyện có nghĩa là thay đổi tổng trong cấu hình, không phải vòng lặp.
+- **Level 4:** Điều gì khiến một lần chạy được tiếp tục rơi vào đúng giá trị? Expected: lịch đọc một bước toàn cục đơn điệu được lưu trong checkpoint, không phải một bộ đếm epoch hoặc một biến vòng lặp cục bộ.
 
 ## Wrong answers
 
-- "Set the floor to zero so the schedule finishes cleanly." The lesson keeps a non-zero floor near 10 percent of the peak so the optimizer keeps learning in the tail; a zero floor looks clean and leaves the model under-trained.
-- "Test a few steps in the middle, the boundaries follow from the formula." An off by one at a boundary is the bug the lesson warns about; it shows up hours into a run as a rate that is 1 percent off at the moment it matters.
-- "Compute the rate from the epoch and the batch index." Sharded datasets and restarted loaders break that mapping; the global step is the durable axis.
+- "Đặt sàn bằng không để lịch kết thúc gọn gàng." Bài học giữ một sàn khác không gần 10 phần trăm đỉnh để bộ tối ưu hóa tiếp tục học trong đuôi; một sàn bằng không trông gọn gàng và khiến mô hình được huấn luyện chưa đủ.
+- "Kiểm thử vài bước ở giữa, các ranh giới suy ra từ công thức." Một lỗi lệch một tại một ranh giới là lỗi mà bài học cảnh báo; nó xuất hiện sau nhiều giờ trong một lần chạy dưới dạng một rate lệch 1 phần trăm tại thời điểm nó quan trọng.
+- "Tính rate từ epoch và chỉ số batch." Các dataset chia shard và các loader được khởi động lại phá ánh xạ đó; bước toàn cục là trục bền vững.
 
 ## Taught in
 
-The [cosine warmup capstone](../../../phases/19-capstone-projects/44-cosine-lr-warmup/) builds this schedule with its boundary contract and production patterns, and the [learning rate schedules lesson](../../../phases/03-deep-learning-core/09-learning-rate-schedules/) compares it with the other schedules.
+[Capstone cosine warmup](../../../phases/19-capstone-projects/44-cosine-lr-warmup/) xây dựng lịch này với hợp đồng ranh giới và các mẫu production của nó, và [bài học lịch learning rate](../../../phases/03-deep-learning-core/09-learning-rate-schedules/) so sánh nó với các lịch khác.

@@ -16,17 +16,17 @@ related: [deep-learning/adam-bias-correction-first-steps, deep-learning/cosine-w
 updated: 2026-11-03
 ---
 
-A transformer recipe starts the learning rate at zero and ramps it linearly up to the peak during the first steps, then decays it with a cosine. A teammate wants to start at the peak to save those steps. Explain what the ramp protects, how long it should be, and how to write it down so the recipe scales to a longer run.
+Một công thức transformer bắt đầu learning rate ở không và tăng tuyến tính lên đỉnh trong những bước đầu, rồi giảm nó theo cosine. Một đồng đội muốn bắt đầu ở đỉnh để tiết kiệm những bước đó. Giải thích đoạn tăng bảo vệ điều gì, nó nên dài bao lâu, và viết nó xuống như thế nào để công thức mở rộng sang một lần chạy dài hơn.
 
 ## Short answer
 
-The first updates are the fragile ones: the weights sit near their initialization, Adam's running estimates of the gradient mean and variance are built from a handful of samples, and the gradient norm is large and noisy. A full size step on that footing diverges or drops the model into a plateau it never leaves. Warmup keeps the effective step small until the statistics settle, over about 1 to 5 percent of the total steps, and the schedule should express that length as a fraction of the run rather than as a fixed step count.
+Các cập nhật đầu tiên là những cập nhật mong manh: các trọng số nằm gần khởi tạo, các ước lượng trượt của Adam về trung bình và phương sai gradient được xây dựng từ một số ít mẫu, và chuẩn gradient lớn và nhiễu. Một bước kích thước đầy đủ trên nền tảng đó phân kỳ hoặc đẩy mô hình vào một vùng bằng nó không bao giờ rời khỏi. Warmup giữ bước hiệu dụng nhỏ cho đến khi các thống kê ổn định, trên khoảng 1 đến 5 phần trăm tổng số bước, và lịch nên biểu diễn độ dài đó dưới dạng một tỷ lệ của lần chạy thay vì một số bước cố định.
 
 ## Full answer
 
 ### What is wrong at step zero
 
-Adam's two moment estimates start at zero. Bias correction fixes their scale, but the first steps still use statistics from one or two gradients, which the schedules lesson calls garbage statistics. At the same time the weights are at their random initialization and the gradient norm is at its largest and noisiest. A peak step on that mix is a large, poorly directed move. The capstone lesson gives the two outcomes: the run diverges outright, or it settles into a loss plateau it never escapes.
+Hai ước lượng moment của Adam bắt đầu từ không. Hiệu chỉnh độ chệch sửa tỷ lệ của chúng, nhưng những bước đầu vẫn dùng thống kê từ một hoặc hai gradient, mà bài học lịch gọi là thống kê rác. Cùng lúc các trọng số ở khởi tạo ngẫu nhiên của chúng và chuẩn gradient lớn nhất và nhiễu nhất. Một bước đỉnh trên hỗn hợp đó là một chuyển động lớn, định hướng kém. Bài học capstone đưa ra hai kết quả: lần chạy phân kỳ hoàn toàn, hoặc nó ổn định vào một vùng bằng loss mà nó không bao giờ thoát.
 
 ### What warmup does
 
@@ -34,29 +34,29 @@ Adam's two moment estimates start at zero. Bias correction fixes their scale, bu
 lr(t) = lr_max * t / warmup_steps     for t below warmup_steps
 ```
 
-The rate climbs from zero to the peak over the warmup steps. By the time the full rate arrives, the moment estimates have seen hundreds of gradients and the weights have moved off their starting point. The schedules lesson's examples of published runs use a warmup of 2000 steps to a peak of 3e-4 followed by a cosine decay to 3e-5, and a warmup over 375 million tokens to a peak of 6e-4.
+Rate tăng từ không lên đỉnh trong các bước warmup. Đến khi rate đầy đủ đến, các ước lượng moment đã thấy hàng trăm gradient và các trọng số đã di chuyển khỏi điểm bắt đầu. Các ví dụ của bài học lịch về các lần chạy được công bố dùng một warmup 2000 bước đến một đỉnh 3e-4 theo sau bởi một cosine decay đến 3e-5, và một warmup trên 375 triệu token đến một đỉnh 6e-4.
 
 ### How long
 
-The schedules lesson gives 1 to 5 percent of the total steps and, when in doubt, 3 to 5 percent. The capstone lesson gives 1 to 3 percent and makes the stronger point: write the warmup as a fraction. A run of 200 million steps with 2,000 warmup steps is at the peak almost at once, and a run of 20,000 steps with the same count warms up for 10 percent. The same number describes two different schedules.
+Bài học lịch đưa ra 1 đến 5 phần trăm tổng số bước và, khi không chắc, 3 đến 5 phần trăm. Bài học capstone đưa ra 1 đến 3 phần trăm và nhấn mạnh điểm mạnh hơn: viết warmup dưới dạng một tỷ lệ. Một lần chạy 200 triệu bước với 2,000 bước warmup ở đỉnh gần như ngay lập tức, và một lần chạy 20,000 bước với cùng số đếm warmup trong 10 phần trăm. Cùng con số mô tả hai lịch khác nhau.
 
 ### How to see that it worked
 
-Log the gradient norm next to the learning rate at each step. In a well tuned warmup the norm rises roughly in step with the rate and settles after the peak. A norm that stays high after the ramp ends says the peak is too aggressive. A divergent run shows the norm spike before the loss does.
+Ghi log chuẩn gradient cạnh learning rate tại mỗi bước. Trong một warmup được điều chỉnh tốt chuẩn tăng gần đồng nhịp với rate và ổn định sau đỉnh. Một chuẩn giữ cao sau khi đoạn tăng kết thúc nói rằng đỉnh quá táo bạo. Một lần chạy phân kỳ cho thấy chuẩn tăng vọt trước loss.
 
 ## Follow-ups
 
-- **Level 3:** Why is Adam sensitive at step zero in particular? Expected: its moment estimates start at zero and the first steps use statistics from one or two gradients; bias correction fixes their scale but not their noise.
-- **Level 3:** What does the gradient norm look like during a healthy warmup? Expected: it rises roughly in step with the learning rate and settles after the peak; a norm that stays high after the ramp says the peak is too aggressive.
-- **Level 4:** Why does a fixed warmup step count break when the run gets longer? Expected: 2000 steps is 10 percent of a 20,000 step run and a vanishing share of a 200 million step run, so the same count gives two different schedules; a fraction keeps the shape.
-- **Level 4:** You change the batch size. What do you revisit? Expected: the warmup length and the peak; the schedules lesson lists the warmup period as the setting that must change when the batch size changes.
+- **Level 3:** Tại sao Adam nhạy cảm đặc biệt ở bước không? Expected: các ước lượng moment của nó bắt đầu từ không và những bước đầu dùng thống kê từ một hoặc hai gradient; hiệu chỉnh độ chệch sửa tỷ lệ nhưng không sửa nhiễu của chúng.
+- **Level 3:** Chuẩn gradient trông như thế nào trong một warmup khỏe? Expected: nó tăng gần đồng nhịp với learning rate và ổn định sau đỉnh; một chuẩn giữ cao sau đoạn tăng nói rằng đỉnh quá táo bạo.
+- **Level 4:** Tại sao một số bước warmup cố định hỏng khi lần chạy dài hơn? Expected: 2000 bước là 10 phần trăm của một lần chạy 20,000 bước và một tỷ lệ tiêu biến của một lần chạy 200 triệu bước, vì vậy cùng số đếm cho hai lịch khác nhau; một tỷ lệ giữ hình dạng.
+- **Level 4:** Bạn thay đổi kích thước batch. Bạn xem xét lại gì? Expected: độ dài warmup và đỉnh; bài học lịch liệt kê giai đoạn warmup là thiết lập phải thay đổi khi kích thước batch thay đổi.
 
 ## Wrong answers
 
-- "Warmup wastes steps at a low rate." The lessons spend 1 to 5 percent of training on it, and a run that diverges in its first steps wastes all of them.
-- "Bias correction already handles Adam's cold start, so warmup is redundant." The correction rescales the averages; it cannot turn two samples into a good estimate.
-- "Set the warmup to 2000 steps, the big runs use that." That count was a fraction of one specific run; on a short run it is most of the training, and on a longer one it is nothing.
+- "Warmup lãng phí các bước ở một rate thấp." Các bài học dành 1 đến 5 phần trăm huấn luyện cho nó, và một lần chạy phân kỳ trong những bước đầu lãng phí tất cả chúng.
+- "Hiệu chỉnh độ chệch đã xử lý cold start của Adam, vì vậy warmup dư thừa." Hiệu chỉnh điều chỉnh lại tỷ lệ các trung bình; nó không thể biến hai mẫu thành một ước lượng tốt.
+- "Đặt warmup là 2000 bước, các lần chạy lớn dùng vậy." Số đếm đó là một tỷ lệ của một lần chạy cụ thể; trên một lần chạy ngắn nó là phần lớn huấn luyện, và trên một lần dài hơn nó không là gì.
 
 ## Taught in
 
-The [learning rate schedules lesson](../../../phases/03-deep-learning-core/09-learning-rate-schedules/) explains warmup and gives the published configurations, and the [cosine warmup capstone](../../../phases/19-capstone-projects/44-cosine-lr-warmup/) argues for a fractional warmup and logs the gradient norm beside the rate.
+[Bài học lịch learning rate](../../../phases/03-deep-learning-core/09-learning-rate-schedules/) giải thích warmup và đưa ra các cấu hình được công bố, và [capstone cosine warmup](../../../phases/19-capstone-projects/44-cosine-lr-warmup/) lập luận cho một warmup theo tỷ lệ và ghi log chuẩn gradient cạnh rate.

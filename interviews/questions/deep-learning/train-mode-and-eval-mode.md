@@ -16,44 +16,44 @@ related: [deep-learning/inverted-dropout-scale, deep-learning/layernorm-not-batc
 updated: 2026-11-03
 ---
 
-A saved model gives a different test accuracy each time you evaluate it on the same test set with the same weights. The data loader does not shuffle. What is the most likely cause, and which two layer types are involved?
+Một mô hình đã lưu cho một độ chính xác kiểm thử khác mỗi lần bạn đánh giá nó trên cùng tập kiểm thử với cùng các trọng số. Data loader không xáo trộn. Nguyên nhân có khả năng nhất là gì, và hai loại lớp nào liên quan?
 
 ## Short answer
 
-The model is still in training mode at test time. Dropout keeps zeroing random units, so each forward pass runs a different subnetwork, and batch normalization keeps using the mean and variance of the current batch instead of its running averages. Switch to evaluation mode before inference and turn gradient tracking off.
+Mô hình vẫn ở chế độ huấn luyện lúc kiểm thử. Dropout tiếp tục đặt các đơn vị ngẫu nhiên về không, vì vậy mỗi lượt truyền tiến chạy một mạng con khác, và batch normalization tiếp tục dùng trung bình và phương sai của batch hiện tại thay vì các trung bình trượt của nó. Chuyển sang chế độ đánh giá trước suy luận và tắt theo dõi gradient.
 
 ## Full answer
 
 ### Two layers that behave differently by mode
 
-| Layer | Training mode | Evaluation mode |
+| Lớp | Chế độ huấn luyện | Chế độ đánh giá |
 |---|---|---|
-| Dropout | zero each unit with probability p, scale the rest by 1 over (1 - p) | pass everything through unchanged |
-| Batch normalization | normalize with the batch mean and variance, update the running averages | normalize with the running averages |
+| Dropout | đặt mỗi đơn vị về không với xác suất p, điều chỉnh tỷ lệ phần còn lại bằng 1 chia (1 - p) | truyền mọi thứ qua không thay đổi |
+| Batch normalization | chuẩn hóa bằng trung bình và phương sai batch, cập nhật các trung bình trượt | chuẩn hóa bằng các trung bình trượt |
 
-Both layers read one flag, the training flag of the module. In the mini framework, a Sequential container's train and eval methods set the flag on the container and on every module inside it. A framework does the same with model.train() and model.eval().
+Cả hai lớp đọc một cờ, cờ training của module. Trong framework nhỏ, các phương thức train và eval của một vùng chứa Sequential đặt cờ trên vùng chứa và trên mọi module bên trong nó. Một framework làm tương tự với model.train() và model.eval().
 
 ### Why the accuracy moves
 
-With dropout active, each forward pass draws a new mask, so the same input gives a different output and some predictions flip across the threshold. With batch statistics active, each prediction depends on which other rows sit in its batch, and a batch of one has a variance of zero, which makes the normalization meaningless. The lesson calls a forgotten eval call one of the most common bugs in deep learning, and this symptom is its signature.
+Với dropout hoạt động, mỗi lượt truyền tiến lấy một mask mới, vì vậy cùng đầu vào cho một đầu ra khác và một số dự đoán lật qua ngưỡng. Với các thống kê batch hoạt động, mỗi dự đoán phụ thuộc vào những hàng khác nào nằm trong batch của nó, và một batch một có phương sai bằng không, làm phép chuẩn hóa vô nghĩa. Bài học gọi một lời gọi eval bị quên là một trong những lỗi phổ biến nhất trong deep learning, và triệu chứng này là dấu hiệu của nó.
 
 ### The fix and its mirror image
 
-Call eval before inference and wrap the pass in no_grad, which also saves memory. Then call train again before the next epoch. The mirror bug is as common: a model left in evaluation mode after validation trains with dropout off and with batch norm's running averages frozen, so it loses its regularization and its inference statistics go stale.
+Gọi eval trước suy luận và bọc lượt trong no_grad, cũng tiết kiệm bộ nhớ. Rồi gọi train lại trước epoch tiếp theo. Lỗi phản chiếu cũng phổ biến: một mô hình bị để ở chế độ đánh giá sau validation huấn luyện với dropout tắt và các trung bình trượt của batch norm bị đóng băng, vì vậy nó mất regularization và các thống kê suy luận của nó trở nên lỗi thời.
 
 ## Follow-ups
 
-- **Level 1:** What does dropout do in evaluation mode? Expected: nothing; it passes every value through unchanged, because the scaling was applied during training.
-- **Level 2:** Why can batch normalization not use batch statistics for a batch of one at test time? Expected: the variance of one sample is zero, so the statistics are meaningless; the running averages must be used.
-- **Level 2:** How does a container pass the mode to its children? Expected: its train and eval methods set the flag on the container and on every module inside it.
-- **Level 3:** You forget to switch back to training mode after validation. What happens in the next epoch? Expected: dropout stays off and batch norm stops updating its running statistics, so the model trains without regularization and its inference statistics go stale.
+- **Level 1:** Dropout làm gì trong chế độ đánh giá? Expected: không gì; nó truyền mọi giá trị qua không thay đổi, vì việc điều chỉnh tỷ lệ đã được áp dụng trong huấn luyện.
+- **Level 2:** Tại sao batch normalization không thể dùng thống kê batch cho một batch một lúc kiểm thử? Expected: phương sai của một mẫu bằng không, vì vậy các thống kê vô nghĩa; các trung bình trượt phải được dùng.
+- **Level 2:** Một vùng chứa truyền chế độ đến các thành phần con của nó như thế nào? Expected: các phương thức train và eval của nó đặt cờ trên vùng chứa và trên mọi module bên trong nó.
+- **Level 3:** Bạn quên chuyển lại chế độ huấn luyện sau validation. Điều gì xảy ra trong epoch tiếp theo? Expected: dropout giữ tắt và batch norm ngừng cập nhật các thống kê trượt của nó, vì vậy mô hình huấn luyện không có regularization và các thống kê suy luận của nó trở nên lỗi thời.
 
 ## Wrong answers
 
-- "Set a random seed before each evaluation." That hides the symptom; the model still evaluates with dropout and batch statistics active, so the accuracy is wrong, just repeatably wrong.
-- "GPU arithmetic is nondeterministic, this is normal." That gives differences far below one changed prediction, not a moving accuracy.
-- "Remove dropout from the architecture." Dropout is a training time regularizer; the fix is to switch modes, not to delete the layer.
+- "Đặt một random seed trước mỗi lần đánh giá." Điều đó che giấu triệu chứng; mô hình vẫn đánh giá với dropout và thống kê batch hoạt động, vì vậy độ chính xác sai, chỉ là sai một cách lặp lại được.
+- "Số học GPU không có tính xác định, điều này bình thường." Điều đó cho các khác biệt nhỏ hơn nhiều một dự đoán bị thay đổi, không phải một độ chính xác di chuyển.
+- "Loại bỏ dropout khỏi kiến trúc." Dropout là một bộ regularization lúc huấn luyện; cách sửa là chuyển chế độ, không phải xóa lớp.
 
 ## Taught in
 
-The [regularization lesson](../../../phases/03-deep-learning-core/07-regularization/) builds both layers in both modes, and the [mini framework lesson](../../../phases/03-deep-learning-core/10-mini-framework/) adds the training flag to every module.
+[Bài học regularization](../../../phases/03-deep-learning-core/07-regularization/) xây dựng cả hai lớp trong cả hai chế độ, và [bài học framework nhỏ](../../../phases/03-deep-learning-core/10-mini-framework/) thêm cờ training vào mọi module.
