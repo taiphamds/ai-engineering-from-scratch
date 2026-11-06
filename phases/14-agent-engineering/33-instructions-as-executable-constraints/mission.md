@@ -1,27 +1,27 @@
 # Mission - Agent Instructions as Executable Constraints
 
 ## Goal
-Turn prose instructions into machine-checkable rules across five categories and emit a rule report a reviewer can score.
+Biến các chỉ dẫn văn xuôi thành các quy tắc có thể kiểm tra bằng máy xuyên năm hạng mục và phát ra một báo cáo quy tắc mà một bên đánh giá có thể chấm điểm.
 
 ## Inputs
-- `docs/agent-rules.md` with one rule per heading, each carrying slug, category, description, and a `check` field
-- A demo agent run that intentionally violates two rules
+- `docs/agent-rules.md` với một quy tắc cho mỗi tiêu đề, mỗi quy tắc mang slug, hạng mục, mô tả và một trường `check`
+- Một lần chạy agent demo cố ý vi phạm hai quy tắc
 
 ## Deliverables
-- Parser that loads `agent-rules.md` into a dataclass
-- `rule_checker.py` style functions, one per `check` referenced
-- `rule_report.json` with pass/fail per rule and an aggregate severity
+- Bộ phân tích tải `agent-rules.md` vào một dataclass
+- Các hàm kiểu `rule_checker.py`, một cho mỗi `check` được tham chiếu
+- `rule_report.json` với đạt/không đạt cho mỗi quy tắc và một mức độ nghiêm trọng tổng hợp
 
 ## Acceptance
-- `python3 code/main.py` exits zero
-- Output prints the parsed rule set, the run trace, and pass/fail per rule
-- `rule_report.json` catches the two intentional violations
+- `python3 code/main.py` thoát với mã không
+- Đầu ra in tập quy tắc đã phân tích, trace lần chạy và đạt/không đạt cho từng quy tắc
+- `rule_report.json` bắt hai vi phạm cố ý
 
 ## Out of scope
-- Wiring the checker into CI. The lesson exits at a written report.
-- Framework guardrails (OpenAI SDK, LangGraph interrupts). The rule set is the human-readable contract those implement.
+- Nối bộ kiểm tra vào CI. Bài học kết thúc ở một báo cáo được ghi.
+- Các chốt bảo vệ framework (OpenAI SDK, các ngắt LangGraph). Tập quy tắc là hợp đồng cho con người đọc mà chúng triển khai.
 
 ## References
-- `docs/en.md` - full lesson
-- `code/main.py` - reference implementation
-- `outputs/skill-rule-set-builder.md` - extracted skill
+- `docs/en.md` - bài học đầy đủ
+- `code/main.py` - triển khai tham chiếu
+- `outputs/skill-rule-set-builder.md` - skill được trích xuất
