@@ -7,26 +7,26 @@ lesson: 13
 tags: [langgraph, state-machine, durable, checkpointing, human-in-the-loop]
 ---
 
-Given a target runtime, a state shape, a set of node functions, and a checkpointer backend, produce a stateful agent graph.
+Với một runtime đích, một hình dạng trạng thái, một tập các hàm nút và một backend bộ tạo checkpoint, tạo một đồ thị agent có trạng thái.
 
-Produce:
+Tạo:
 
-1. A typed `State` (dict or Pydantic). Document every field. Nodes read state; they return updates.
-2. A `StateGraph` with `add_node`, `add_edge`, `add_conditional_edges`, `set_entry`, plus `START`/`END` sentinels.
-3. A `Checkpointer` interface with `save(session_id, node, state)` and `load_latest(session_id)`. Default to SQLite; allow Postgres/Redis/custom.
-4. A `Runner` that steps through the graph, serializes state after every node, catches `PausedAtNode` for human-in-the-loop, and supports `resume_from` with optional `state_override`.
-5. Three topology helpers: supervisor (central router), swarm (shared-tool handoffs), hierarchical (subgraphs).
+1. Một `State` có kiểu (dict hoặc Pydantic). Tài liệu hóa mọi trường. Các nút đọc trạng thái; chúng trả về các cập nhật.
+2. Một `StateGraph` với `add_node`, `add_edge`, `add_conditional_edges`, `set_entry`, cộng các dấu hiệu `START`/`END`.
+3. Một giao diện `Checkpointer` với `save(session_id, node, state)` và `load_latest(session_id)`. Mặc định là SQLite; cho phép Postgres/Redis/tùy chỉnh.
+4. Một `Runner` đi từng bước qua đồ thị, tuần tự hóa trạng thái sau mỗi nút, bắt `PausedAtNode` để có con người tham gia và hỗ trợ `resume_from` với `state_override` tùy chọn.
+5. Ba hàm trợ giúp cấu trúc: giám sát (bộ định tuyến trung tâm), bầy đàn (các bàn giao qua công cụ dùng chung), phân cấp (các đồ thị con).
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Non-deterministic nodes without explicit random-seed or wall-clock capture. Resume assumes node output is reproducible given input state.
-- A checkpointer that only saves "summary" state. Serialize the full state or resume breaks.
-- Graphs where every edge is conditional. Prefer linear chains with occasional branches.
+- Các nút không mang tính xác định mà không ghi lại tường minh hạt giống ngẫu nhiên hoặc thời gian đồng hồ. Tiếp tục giả định đầu ra nút có thể tái tạo với trạng thái đầu vào cho trước.
+- Một bộ tạo checkpoint chỉ lưu trạng thái "tóm tắt." Tuần tự hóa toàn bộ trạng thái hoặc việc tiếp tục bị hỏng.
+- Các đồ thị mà mọi cạnh đều có điều kiện. Ưu tiên các chuỗi tuyến tính với các nhánh thỉnh thoảng.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the user asks for a state graph without persistence, refuse. The whole point is durable resume; if you don't need resume, use the workflow patterns in Lesson 12.
-- If the user asks to "checkpoint only on success," refuse. Failures need state too — that's where debugging starts.
-- If the graph has more than ~30 nodes, refuse flat layout and require nested subgraphs. Flat 30-node graphs are unreviewable.
+- Nếu người dùng yêu cầu một đồ thị trạng thái mà không có lưu giữ, từ chối. Toàn bộ mục đích là tiếp tục bền vững; nếu bạn không cần tiếp tục, sử dụng các mẫu workflow trong Bài 12.
+- Nếu người dùng yêu cầu "chỉ tạo checkpoint khi thành công," từ chối. Các thất bại cũng cần trạng thái — đó là nơi gỡ lỗi bắt đầu.
+- Nếu đồ thị có hơn ~30 nút, từ chối bố cục phẳng và yêu cầu các đồ thị con lồng nhau. Các đồ thị phẳng 30 nút không thể đánh giá được.
 
-Output: `state.py`, `graph.py`, `checkpointer.py`, `runner.py`, `README.md` explaining the state schema, checkpointer choice, and resume semantics. End with "what to read next" pointing to Lesson 14 for actor-model alternative, Lesson 16 for handoffs/guardrails layer, or Lesson 23 for OTel spans on graph steps.
+Đầu ra: `state.py`, `graph.py`, `checkpointer.py`, `runner.py`, `README.md` giải thích schema trạng thái, lựa chọn bộ tạo checkpoint và ngữ nghĩa tiếp tục. Kết thúc bằng "đọc gì tiếp theo" chỉ đến Bài 14 cho lựa chọn mô hình actor, Bài 16 cho lớp bàn giao/chốt bảo vệ hoặc Bài 23 cho các span OTel trên các bước đồ thị.

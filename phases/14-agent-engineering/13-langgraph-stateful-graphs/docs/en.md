@@ -1,6 +1,6 @@
 # Stateful Graph Orchestration — Durable Execution and Checkpoints
 
-> Agent is a state machine; nodes are functions; edges are transitions; state is checkpointed after each node. Resume from any failure at the last successful checkpoint. LangGraph is the 2026 reference for this model of low-level stateful orchestration.
+> Agent là một máy trạng thái; các nút là các hàm; các cạnh là các chuyển tiếp; trạng thái được tạo checkpoint sau mỗi nút. Tiếp tục từ bất kỳ thất bại nào tại checkpoint thành công cuối cùng. LangGraph là tham chiếu năm 2026 cho mô hình điều phối có trạng thái cấp thấp này.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,59 +9,59 @@
 
 ## Learning Objectives
 
-- Describe LangGraph's core model: state machine with typed state, function nodes, conditional edges, and post-node checkpoints.
-- Name the four capabilities the docs highlight: durable execution, streaming, human-in-the-loop, comprehensive memory.
-- Explain the three orchestration topologies LangGraph supports: supervisor, peer-to-peer (swarm), hierarchical (nested subgraphs).
-- Implement a stdlib state graph with typed state, conditional edges, and a checkpoint/resume cycle.
+- Mô tả mô hình cốt lõi của LangGraph: máy trạng thái với trạng thái có kiểu, các nút hàm, các cạnh có điều kiện và các checkpoint sau nút.
+- Nêu tên bốn khả năng mà tài liệu nhấn mạnh: thực thi bền vững, streaming, có con người tham gia, bộ nhớ toàn diện.
+- Giải thích ba cấu trúc điều phối mà LangGraph hỗ trợ: giám sát, ngang hàng (bầy đàn), phân cấp (các đồ thị con lồng nhau).
+- Triển khai một đồ thị trạng thái dùng thư viện chuẩn với trạng thái có kiểu, các cạnh có điều kiện và một chu kỳ checkpoint/tiếp tục.
 
 ## The Problem
 
-Agents and workflows share a problem: when a 40-step run fails at step 38, you want to resume from step 38, not start over. Second-class state models leave operators hacking retries around a library that assumes fresh runs.
+Các agent và workflow có chung một vấn đề: khi một lần chạy 40 bước thất bại ở bước 38, bạn muốn tiếp tục từ bước 38, không phải bắt đầu lại. Các mô hình trạng thái hạng hai khiến người vận hành phải chắp vá các lần thử lại quanh một thư viện giả định các lần chạy mới.
 
-LangGraph's design answer: state is a first-class typed object, mutations are explicit, and checkpoints persist after every node. Resume is a `load_state(session_id)` call.
+Câu trả lời thiết kế của LangGraph: trạng thái là một đối tượng có kiểu hạng nhất, các thay đổi là tường minh, và các checkpoint được lưu giữ sau mỗi nút. Tiếp tục là một lời gọi `load_state(session_id)`.
 
 ## The Concept
 
 ### The graph
 
-A graph is defined by:
+Một đồ thị được định nghĩa bởi:
 
-- **State type.** A typed dict (or Pydantic model) that every node reads and mutates.
-- **Nodes.** Pure functions `(state) -> state_update`. Updates are merged into state after return.
-- **Edges.** Conditional or direct transitions between nodes.
-- **Entry and exit.** `START` and `END` sentinel nodes mark the boundary.
+- **Kiểu trạng thái.** Một dict có kiểu (hoặc mô hình Pydantic) mà mọi nút đọc và thay đổi.
+- **Các nút.** Các hàm thuần `(state) -> state_update`. Các cập nhật được hợp nhất vào trạng thái sau khi trả về.
+- **Các cạnh.** Các chuyển tiếp có điều kiện hoặc trực tiếp giữa các nút.
+- **Điểm vào và ra.** Các nút dấu hiệu `START` và `END` đánh dấu ranh giới.
 
-Example: an agent with `classify`, `refund`, `bug`, `sales`, `done` nodes — a routing workflow as a graph.
+Ví dụ: một agent với các nút `classify`, `refund`, `bug`, `sales`, `done` — một workflow định tuyến dưới dạng một đồ thị.
 
 ### Durable execution
 
-After each node returns, the runtime serializes the state and writes it to a checkpointer (SQLite, Postgres, Redis, custom). On failure at step N, the runtime can `resume(session_id)` and pick up from step N+1 with exact state.
+Sau khi mỗi nút trả về, runtime tuần tự hóa trạng thái và ghi nó vào một bộ tạo checkpoint (SQLite, Postgres, Redis, tùy chỉnh). Khi thất bại ở bước N, runtime có thể `resume(session_id)` và tiếp nối từ bước N+1 với trạng thái chính xác.
 
-The LangGraph docs explicitly highlight production users where this matters: Klarna, Uber, J.P. Morgan. The claim isn't the graph shape; it's that the graph shape plus checkpointing makes recovery cheap.
+Tài liệu LangGraph nhấn mạnh rõ ràng các bên sử dụng trong sản xuất nơi điều này quan trọng: Klarna, Uber, J.P. Morgan. Tuyên bố không phải hình dạng đồ thị; mà là hình dạng đồ thị cộng tạo checkpoint làm cho phục hồi rẻ.
 
 ### Streaming
 
-Every node can yield partial output. The graph streams per-node-delta events to the caller so UIs update as the graph runs.
+Mỗi nút có thể yield đầu ra một phần. Đồ thị truyền các sự kiện delta theo từng nút đến bên gọi để các UI cập nhật khi đồ thị chạy.
 
 ### Human-in-the-loop
 
-Inspect and modify state between nodes. Implementations: pause before a critical node, surface state to a human, accept modifications, resume. The checkpointer makes this easy because state is already serialized.
+Kiểm tra và sửa đổi trạng thái giữa các nút. Các triển khai: tạm dừng trước một nút then chốt, hiển thị trạng thái cho một con người, chấp nhận các sửa đổi, tiếp tục. Bộ tạo checkpoint làm điều này dễ vì trạng thái đã được tuần tự hóa.
 
 ### Memory
 
-Short-term (within a run — conversation history in state) and long-term (across runs — persistent via the checkpointer plus a separate long-term store). LangGraph integrates with external memory systems (Mem0, custom) via tools.
+Ngắn hạn (trong một lần chạy — lịch sử hội thoại trong trạng thái) và dài hạn (xuyên các lần chạy — lưu giữ qua bộ tạo checkpoint cộng một kho dài hạn riêng). LangGraph tích hợp với các hệ thống bộ nhớ bên ngoài (Mem0, tùy chỉnh) qua công cụ.
 
 ### Three topologies
 
-1. **Supervisor.** Central router LLM dispatches to specialist subagents. `create_supervisor()` in `langgraph-supervisor` (though the LangChain team in 2026 recommends doing this through tool calls directly for more context control).
-2. **Swarm / peer-to-peer.** Agents hand off directly via a shared tool surface. No central router.
-3. **Hierarchical.** Supervisors managing sub-supervisors, implemented as nested subgraphs.
+1. **Giám sát.** LLM định tuyến trung tâm phân phối đến các agent phụ chuyên gia. `create_supervisor()` trong `langgraph-supervisor` (dù nhóm LangChain năm 2026 khuyến nghị làm điều này trực tiếp qua các lời gọi công cụ để kiểm soát ngữ cảnh nhiều hơn).
+2. **Bầy đàn / ngang hàng.** Các agent bàn giao trực tiếp qua một bề mặt công cụ dùng chung. Không có bộ định tuyến trung tâm.
+3. **Phân cấp.** Các bộ giám sát quản lý các bộ giám sát con, được triển khai dưới dạng các đồ thị con lồng nhau.
 
 ### Where this pattern goes wrong
 
-- **Checkpoints too small.** Only checkpointing conversation turns leaves tool state and memory writes unrecoverable. Full state must serialize.
-- **Non-deterministic nodes.** Resume assumes node inputs produce the same state update. Random seeds, wall-clock, external APIs must be captured.
-- **Over-use of conditional edges.** A graph with every edge conditional is a state machine that cannot be reasoned about. Prefer linear chains with occasional branches.
+- **Các checkpoint quá nhỏ.** Chỉ tạo checkpoint các lượt hội thoại khiến trạng thái công cụ và các lần ghi bộ nhớ không thể phục hồi. Toàn bộ trạng thái phải được tuần tự hóa.
+- **Các nút không mang tính xác định.** Tiếp tục giả định các đầu vào nút tạo ra cùng một cập nhật trạng thái. Các hạt giống ngẫu nhiên, thời gian đồng hồ, API bên ngoài phải được ghi lại.
+- **Lạm dụng các cạnh có điều kiện.** Một đồ thị với mọi cạnh có điều kiện là một máy trạng thái không thể suy luận về nó. Ưu tiên các chuỗi tuyến tính với các nhánh thỉnh thoảng.
 
 ```figure
 langgraph-state
@@ -69,57 +69,57 @@ langgraph-state
 
 ## Build It
 
-`code/main.py` implements a stdlib stateful graph:
+`code/main.py` triển khai một đồ thị có trạng thái dùng thư viện chuẩn:
 
-- `State` — a typed dict with `messages`, `step`, `route`, `output`, `human_approval`.
-- `Node` — callable taking state and returning an update dict.
-- `StateGraph` — nodes + edges + conditional edges + run + resume.
-- `SQLiteCheckpointer` (in-memory fake) — serializes state after every node; `load(session_id)` restores.
-- A demo graph: classify -> branch(refund / bug / sales) -> human gate -> send.
+- `State` — một dict có kiểu với `messages`, `step`, `route`, `output`, `human_approval`.
+- `Node` — callable nhận trạng thái và trả về một dict cập nhật.
+- `StateGraph` — các nút + các cạnh + các cạnh có điều kiện + chạy + tiếp tục.
+- `SQLiteCheckpointer` (bản giả trong bộ nhớ) — tuần tự hóa trạng thái sau mỗi nút; `load(session_id)` khôi phục.
+- Một đồ thị demo: phân loại -> phân nhánh(hoàn tiền / lỗi / bán hàng) -> cổng con người -> gửi.
 
-Run it:
+Chạy nó:
 
 ```
 python3 code/main.py
 ```
 
-The trace shows the first run failing at the human gate, persistence, then resume producing the final output.
+Trace cho thấy lần chạy đầu tiên thất bại tại cổng con người, lưu giữ, rồi tiếp tục tạo ra đầu ra cuối cùng.
 
 ## Use It
 
-- **LangGraph** — the reference, production-ready. Use `create_react_agent`, `create_supervisor`, or build your own graph.
-- **AutoGen v0.4** (Lesson 14) — actor model alternative for high-concurrency scenarios.
-- **Claude Agent SDK** (Lesson 17) — managed harness with built-in session store.
-- **Custom** — when you need exact control over state shape or checkpointer backend.
+- **LangGraph** — tham chiếu, sẵn sàng cho sản xuất. Sử dụng `create_react_agent`, `create_supervisor` hoặc xây đồ thị của riêng bạn.
+- **AutoGen v0.4** (Bài 14) — lựa chọn mô hình actor cho các kịch bản có tính đồng thời cao.
+- **Claude Agent SDK** (Bài 17) — harness được quản lý với kho phiên tích hợp sẵn.
+- **Tùy chỉnh** — khi bạn cần kiểm soát chính xác hình dạng trạng thái hoặc backend bộ tạo checkpoint.
 
 ## Ship It
 
-`outputs/skill-state-graph.md` generates a LangGraph-shaped state graph in any target runtime with checkpointing and resume wired in.
+`outputs/skill-state-graph.md` tạo một đồ thị trạng thái có dạng LangGraph trong bất kỳ runtime đích nào với tạo checkpoint và tiếp tục được nối sẵn.
 
 ## Exercises
 
-1. Add a conditional edge from `classify` to `end` when classification confidence is below a threshold. Resume the run after a human sets `route` manually.
-2. Swap the SQLite-like fake for a real SQLite checkpointer. Measure per-step serialization overhead.
-3. Implement parallel edges: two nodes run concurrently, merge by a custom reducer. What does immutable state buy here?
-4. Read `langgraph-supervisor` reference. Port the toy to `create_supervisor`. Compare the trace shapes.
-5. Add streaming: each node yields partial state while it runs. Print the deltas as they arrive.
+1. Thêm một cạnh có điều kiện từ `classify` đến `end` khi độ tin cậy phân loại dưới một ngưỡng. Tiếp tục lần chạy sau khi một con người đặt `route` thủ công.
+2. Thay bản giả giống SQLite bằng một bộ tạo checkpoint SQLite thực. Đo chi phí phụ tuần tự hóa cho từng bước.
+3. Triển khai các cạnh song song: hai nút chạy đồng thời, hợp nhất bằng một reducer tùy chỉnh. Trạng thái bất biến mang lại gì ở đây?
+4. Đọc tài liệu tham chiếu `langgraph-supervisor`. Chuyển bản mô phỏng sang `create_supervisor`. So sánh các hình dạng trace.
+5. Thêm streaming: mỗi nút yield trạng thái một phần trong khi nó chạy. In các delta khi chúng đến.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |------|----------------|------------------------|
-| State graph | "Agent as state machine" | Typed state + nodes + edges + reducers |
-| Checkpointer | "Persistence backend" | Serializes state after every node; enables resume |
-| Reducer | "State merger" | Function that combines current state with a node's update |
-| Conditional edge | "Branch" | Edge chosen by a function of state |
-| Subgraph | "Nested graph" | A graph used as a node inside another graph |
-| Durable execution | "Resume from failure" | Restart at the last successful node with exact state |
-| Supervisor | "Router LLM" | Central dispatcher for specialist subagents |
-| Swarm | "P2P agents" | Agents hand off via shared tools; no central router |
+| State graph (Đồ thị trạng thái) | "Agent như máy trạng thái" | Trạng thái có kiểu + các nút + các cạnh + các reducer |
+| Checkpointer (Bộ tạo checkpoint) | "Backend lưu giữ" | Tuần tự hóa trạng thái sau mỗi nút; cho phép tiếp tục |
+| Reducer (Bộ hợp nhất) | "Bộ hợp nhất trạng thái" | Hàm kết hợp trạng thái hiện tại với cập nhật của một nút |
+| Conditional edge (Cạnh có điều kiện) | "Nhánh" | Cạnh được chọn bởi một hàm của trạng thái |
+| Subgraph (Đồ thị con) | "Đồ thị lồng nhau" | Một đồ thị được sử dụng như một nút bên trong một đồ thị khác |
+| Durable execution (Thực thi bền vững) | "Tiếp tục từ thất bại" | Khởi động lại tại nút thành công cuối cùng với trạng thái chính xác |
+| Supervisor (Bộ giám sát) | "LLM định tuyến" | Bộ phân phối trung tâm cho các agent phụ chuyên gia |
+| Swarm (Bầy đàn) | "Các agent P2P" | Các agent bàn giao qua các công cụ dùng chung; không có bộ định tuyến trung tâm |
 
 ## Further Reading
 
-- [LangGraph overview](https://docs.langchain.com/oss/python/langgraph/overview) — the reference docs
-- [langgraph-supervisor reference](https://reference.langchain.com/python/langgraph/supervisor/) — supervisor pattern API
-- [AutoGen v0.4, Microsoft Research](https://www.microsoft.com/en-us/research/articles/autogen-v0-4-reimagining-the-foundation-of-agentic-ai-for-scale-extensibility-and-robustness/) — actor-model alternative
-- [Claude Agent SDK overview](https://platform.claude.com/docs/en/agent-sdk/overview) — session store and subagents
+- [LangGraph overview](https://docs.langchain.com/oss/python/langgraph/overview) — tài liệu tham chiếu
+- [langgraph-supervisor reference](https://reference.langchain.com/python/langgraph/supervisor/) — API mẫu giám sát
+- [AutoGen v0.4, Microsoft Research](https://www.microsoft.com/en-us/research/articles/autogen-v0-4-reimagining-the-foundation-of-agentic-ai-for-scale-extensibility-and-robustness/) — lựa chọn mô hình actor
+- [Claude Agent SDK overview](https://platform.claude.com/docs/en/agent-sdk/overview) — kho phiên và các agent phụ
