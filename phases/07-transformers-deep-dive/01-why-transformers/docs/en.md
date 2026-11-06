@@ -1,6 +1,6 @@
 # Why Transformers — The Problems with RNNs
 
-> RNNs process tokens one at a time. Transformers process all tokens at once. That single architectural bet changed every scaling curve in deep learning after 2017.
+> RNN xử lý từng token một. Transformer xử lý mọi token cùng lúc. Đặt cược kiến trúc duy nhất đó đã thay đổi mọi đường cong mở rộng quy mô trong deep learning sau năm 2017.
 
 **Type:** Learn
 **Languages:** Python
@@ -9,31 +9,31 @@
 
 ## The Problem
 
-Before 2017, every state-of-the-art sequence model on the planet — language, translation, speech — was a recurrent neural network. LSTMs and GRUs won ImageNet-equivalent translation benchmarks for half a decade. They were the only tool anyone had.
+Trước năm 2017, mọi mô hình chuỗi tiên tiến nhất trên hành tinh — ngôn ngữ, dịch, tiếng nói — đều là một mạng nơ-ron truy hồi. LSTM và GRU thắng các benchmark dịch tương đương ImageNet suốt nửa thập kỷ. Chúng là công cụ duy nhất mọi người có.
 
-They had three fatal weaknesses. Sequential computation meant you could not parallelize along the time axis: token `t+1` needs the hidden state from token `t`. A 1,024-token sequence meant 1,024 serial steps on a GPU that can do 1,000,000 floating-point ops per cycle. Training wall-clock time scaled linearly with sequence length on hardware designed for parallelism.
+Chúng có ba điểm yếu chí mạng. Tính toán tuần tự nghĩa là bạn không thể song song hóa dọc trục thời gian: token `t+1` cần trạng thái ẩn từ token `t`. Một chuỗi 1,024 token nghĩa là 1,024 bước nối tiếp trên một GPU có thể làm 1,000,000 phép toán dấu phẩy động mỗi chu kỳ. Thời gian huấn luyện thực tăng tuyến tính theo độ dài chuỗi trên phần cứng được thiết kế cho tính song song.
 
-Vanishing gradients meant information 50 tokens back was already compressed through 50 non-linearities. Gated recurrent units (LSTM, GRU) softened the crush but never eliminated it. Long-range dependencies — "the book I read last summer on a plane to Kyoto was…" — routinely failed.
+Tiêu biến gradient nghĩa là thông tin cách 50 token về trước đã bị nén qua 50 phép phi tuyến. Các đơn vị truy hồi có cổng (LSTM, GRU) làm dịu sự nghiền ép nhưng không bao giờ loại bỏ nó. Các phụ thuộc xa — "cuốn sách tôi đọc mùa hè năm ngoái trên máy bay đến Kyoto là…" — thường xuyên thất bại.
 
-Fixed-width hidden states meant the encoder squeezed the entire source sequence into a single vector before the decoder saw anything. Doesn't matter if the source is 5 tokens or 500; the bottleneck is the same shape.
+Các trạng thái ẩn độ rộng cố định nghĩa là encoder ép toàn bộ chuỗi nguồn vào một vector duy nhất trước khi decoder thấy bất kỳ thứ gì. Không quan trọng nguồn là 5 token hay 500; nút thắt có cùng hình dạng.
 
-The 2017 paper "Attention Is All You Need" proposed something radical: drop recurrence entirely. Let every position attend to every other position in parallel. Train in one big matrix multiplication instead of 1,024 sequential ones.
+Bài báo năm 2017 "Attention Is All You Need" đề xuất một điều triệt để: bỏ hoàn toàn truy hồi. Để mọi vị trí chú ý đến mọi vị trí khác song song. Huấn luyện trong một phép nhân ma trận lớn thay vì 1,024 phép tuần tự.
 
-The result dominates every modality by 2026. Language (GPT-5, Claude 4, Llama 4), vision (ViT, DINOv2, SAM 3), audio (Whisper), biology (AlphaFold 3), robotics (RT-2). Same block, different inputs.
+Kết quả thống trị mọi phương thức đến năm 2026. Ngôn ngữ (GPT-5, Claude 4, Llama 4), thị giác (ViT, DINOv2, SAM 3), âm thanh (Whisper), sinh học (AlphaFold 3), robot học (RT-2). Cùng khối, các đầu vào khác nhau.
 
 ## The Concept
 
 ![RNN sequential compute vs Transformer parallel attention](../assets/rnn-vs-transformer.svg)
 
-**Recurrence as a bottleneck.** An RNN computes `h_t = f(h_{t-1}, x_t)`. Each step depends on the previous. You cannot compute `h_5` before `h_4`. On modern GPUs with 10,000+ parallel cores, this wastes 99% of the silicon on a long sequence.
+**Truy hồi như một nút thắt.** Một RNN tính `h_t = f(h_{t-1}, x_t)`. Mỗi bước phụ thuộc bước trước. Bạn không thể tính `h_5` trước `h_4`. Trên các GPU hiện đại có 10,000+ lõi song song, điều này lãng phí 99% silicon trên một chuỗi dài.
 
-**Attention as a broadcast.** Self-attention computes `output_i = sum_j(a_ij * v_j)` for every pair `(i, j)` simultaneously. The whole N×N attention matrix fills in one batched matmul. No step depends on another. GPUs love it.
+**Attention như một phép broadcast.** Self-attention tính `output_i = sum_j(a_ij * v_j)` cho mọi cặp `(i, j)` đồng thời. Toàn bộ ma trận attention N×N được điền trong một phép nhân ma trận theo batch. Không bước nào phụ thuộc bước khác. GPU yêu thích điều đó.
 
-**The speedup is not a constant.** It is the difference between `O(N)` serial depth and `O(1)` serial depth. In practice, transformers train 5–10× faster per epoch on matched hardware at N=512, and the gap widens with sequence length until you hit the `O(N²)` memory wall of attention (which Flash Attention later fixed — see Lesson 12).
+**Mức tăng tốc không phải một hằng số.** Nó là sự khác biệt giữa độ sâu nối tiếp `O(N)` và độ sâu nối tiếp `O(1)`. Trong thực tế, transformer huấn luyện nhanh hơn 5–10× mỗi epoch trên phần cứng tương ứng tại N=512, và khoảng cách nới rộng theo độ dài chuỗi cho đến khi bạn chạm bức tường bộ nhớ `O(N²)` của attention (mà Flash Attention sau đó sửa — xem Bài 12).
 
-**What transformers cost.** Attention memory scales as `O(N²)`. For 2K context, fine. For 128K context, you need sliding windows, RoPE extrapolation, Flash Attention tiling, or linear attention variants. Recurrence was `O(N)` in both time and memory; transformers trade time for memory and then win the time back through parallelism.
+**Transformer tốn gì.** Bộ nhớ attention tăng theo `O(N²)`. Với ngữ cảnh 2K, ổn. Với ngữ cảnh 128K, bạn cần các cửa sổ trượt, ngoại suy RoPE, chia ô Flash Attention hoặc các biến thể attention tuyến tính. Truy hồi là `O(N)` ở cả thời gian và bộ nhớ; transformer đánh đổi thời gian lấy bộ nhớ rồi giành lại thời gian qua tính song song.
 
-**The inductive bias shift.** RNNs assume locality and recency. Transformers assume nothing — every pair is a candidate for attention. That is why transformers need more data to train well but scale further once they have it. Chinchilla (2022) formalized this: given enough tokens, a transformer always beats an RNN of equal parameter count.
+**Sự chuyển dịch thiên kiến quy nạp.** RNN giả định tính cục bộ và tính gần đây. Transformer không giả định gì — mọi cặp đều là ứng viên cho attention. Đó là lý do transformer cần nhiều dữ liệu hơn để huấn luyện tốt nhưng mở rộng xa hơn một khi có nó. Chinchilla (2022) hình thức hóa điều này: cho đủ token, một transformer luôn thắng một RNN có cùng số tham số.
 
 ```figure
 rnn-vs-parallel
@@ -41,11 +41,11 @@ rnn-vs-parallel
 
 ## Build It
 
-No neural network here — we simulate the core bottleneck numerically so you feel the gap on your laptop.
+Không có mạng nơ-ron ở đây — chúng ta mô phỏng nút thắt cốt lõi bằng số để bạn cảm nhận khoảng cách trên máy tính xách tay.
 
 ### Step 1: measure serial depth
 
-See `code/main.py`. We build two functions. One encodes a sequence as a chain of additions (serial, like an RNN). One encodes it as a parallel reduction (broadcast, like attention). Same math, different dependency graph.
+Xem `code/main.py`. Chúng ta xây dựng hai hàm. Một hàm mã hóa một chuỗi thành một chuỗi phép cộng (nối tiếp, như RNN). Một hàm mã hóa nó thành một phép rút gọn song song (broadcast, như attention). Cùng phần toán, đồ thị phụ thuộc khác nhau.
 
 ```python
 def rnn_style(xs):
@@ -58,54 +58,54 @@ def attention_style(xs):
     return sum(xs) / len(xs)  # every x is independent
 ```
 
-We time both on sequences up to 100,000 elements. The RNN version is O(N) and a single CPU pipeline. Even in pure Python, the attention-style reduction beats it at length ≥ 1,000 because Python's `sum()` is implemented in C and iterates without interpreter overhead per step.
+Chúng ta đo thời gian cả hai trên các chuỗi đến 100,000 phần tử. Phiên bản RNN là O(N) và một pipeline CPU duy nhất. Ngay cả trong Python thuần, phép rút gọn kiểu attention thắng nó ở độ dài ≥ 1,000 vì `sum()` của Python được triển khai bằng C và lặp không có chi phí phụ trình thông dịch mỗi bước.
 
 ### Step 2: count theoretical operations
 
-Both algorithms do N adds. The difference is *dependency depth*: how many operations must happen sequentially before the next can start. RNN depth = N. Attention depth = log(N) with a tree reduction, or 1 with a parallel scan. Depth, not op count, decides GPU time.
+Cả hai thuật toán thực hiện N phép cộng. Khác biệt là *độ sâu phụ thuộc*: bao nhiêu phép toán phải xảy ra tuần tự trước khi phép tiếp theo có thể bắt đầu. Độ sâu RNN = N. Độ sâu attention = log(N) với rút gọn dạng cây, hoặc 1 với một phép quét song song. Độ sâu, không phải số phép toán, quyết định thời gian GPU.
 
 ### Step 3: empirical scaling on long sequences
 
-We print a timing table that makes the O(N) gap visible. On a 2026 Mac laptop, sequences under 1,000 elements are too fast to measure. Sequences of 100,000 show a clean linear scan. Scale that to a 16,384-token transformer with a 12-layer LSTM equivalent and you see why training wall-clock was a blocker in 2016.
+Chúng ta in một bảng thời gian làm khoảng cách O(N) hiện rõ. Trên một máy tính xách tay Mac năm 2026, các chuỗi dưới 1,000 phần tử quá nhanh để đo. Các chuỗi 100,000 cho thấy một phép quét tuyến tính rõ ràng. Mở rộng điều đó đến một transformer 16,384 token với một LSTM tương đương 12 tầng và bạn thấy vì sao thời gian huấn luyện thực là một trở ngại năm 2016.
 
 ## Use It
 
-When to still pick an RNN in 2026:
+Khi nào vẫn chọn RNN năm 2026:
 
-| Situation | Pick |
+| Tình huống | Chọn |
 |-----------|------|
-| Streaming inference, one token at a time, constant memory | RNN or state-space model (Mamba, RWKV) |
-| Very long sequences (>1M tokens) where attention memory explodes | Linear attention, Mamba 2, Hyena |
-| Edge device with no matmul accelerator | Depthwise-separable RNN still wins on FLOPs/watt |
-| Anything else (training, batched inference, context up to 128K) | Transformer |
+| Suy luận luồng, từng token một, bộ nhớ hằng số | RNN hoặc mô hình không gian trạng thái (Mamba, RWKV) |
+| Các chuỗi rất dài (>1M token) nơi bộ nhớ attention bùng nổ | Attention tuyến tính, Mamba 2, Hyena |
+| Thiết bị biên không có bộ tăng tốc nhân ma trận | RNN tách theo chiều sâu vẫn thắng về FLOP/watt |
+| Bất kỳ thứ gì khác (huấn luyện, suy luận theo batch, ngữ cảnh đến 128K) | Transformer |
 
-State-space models (SSMs) like Mamba are essentially RNNs with structured parameterization that gives them the best of both: `O(N)` scan memory, parallel training via selective scan. They recover 90% of transformer quality with better long-context scaling. In 2026 most frontier labs train hybrid SSM+transformer models (e.g. Jamba, Samba) — recurrence is not dead, it is a component.
+Các mô hình không gian trạng thái (SSM) như Mamba về cơ bản là RNN với tham số hóa có cấu trúc cho chúng điểm tốt nhất của cả hai: bộ nhớ quét `O(N)`, huấn luyện song song qua quét chọn lọc. Chúng khôi phục 90% chất lượng transformer với khả năng mở rộng ngữ cảnh dài tốt hơn. Năm 2026 hầu hết các phòng thí nghiệm tiên phong huấn luyện các mô hình lai SSM+transformer (ví dụ Jamba, Samba) — truy hồi không chết, nó là một thành phần.
 
 ## Ship It
 
-See `outputs/skill-architecture-picker.md`. The skill picks an architecture for a new sequence problem given length, throughput, and training-budget constraints. It should always refuse to recommend a pure RNN for training runs above 1B tokens without stating the trade-off.
+Xem `outputs/skill-architecture-picker.md`. Skill chọn một kiến trúc cho một bài toán chuỗi mới với các ràng buộc độ dài, thông lượng và ngân sách huấn luyện. Nó nên luôn từ chối khuyến nghị một RNN thuần cho các lượt huấn luyện trên 1B token mà không nêu đánh đổi.
 
 ## Exercises
 
-1. **Easy.** Take `rnn_style` from `code/main.py` and replace the scalar hidden state with a length-64 vector of hidden states. Re-measure. How much does the serial overhead grow with hidden-state dimension?
-2. **Medium.** Implement a parallel prefix-sum (Hillis-Steele scan) in pure Python. Verify it produces the same numerical output as a serial scan on length 1024. Count the depth.
-3. **Hard.** Port the attention-style reduction to PyTorch on GPU. Time both as you sweep sequence length from 64 to 65,536. Plot and explain the curve shape.
+1. **Dễ.** Lấy `rnn_style` từ `code/main.py` và thay trạng thái ẩn vô hướng bằng một vector dài 64 các trạng thái ẩn. Đo lại. Chi phí phụ nối tiếp tăng bao nhiêu theo số chiều trạng thái ẩn?
+2. **Trung bình.** Triển khai một tổng tiền tố song song (quét Hillis-Steele) bằng Python thuần. Xác minh nó tạo cùng đầu ra số như một phép quét nối tiếp ở độ dài 1024. Đếm độ sâu.
+3. **Khó.** Chuyển phép rút gọn kiểu attention sang PyTorch trên GPU. Đo thời gian cả hai khi bạn quét độ dài chuỗi từ 64 đến 65,536. Vẽ và giải thích hình dạng đường cong.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Recurrence | "RNNs are sequential" | Computation where step `t` depends on step `t-1`, forcing serial execution along the time axis. |
-| Serial depth | "How deep the graph is" | Longest chain of dependent ops; bounds wall-clock even on infinite hardware. |
-| Attention | "Let tokens look at each other" | Weighted sum `sum_j a_ij v_j` where `a_ij` comes from a similarity score between positions i and j. |
-| Context window | "How much the model sees" | Number of positions an attention layer can take as input; quadratic memory cost scales here. |
-| Inductive bias | "Assumptions baked into the architecture" | Prior about what the data looks like; CNNs assume translation invariance, RNNs assume recency. |
-| State-space model | "RNN with algebra behind it" | Recurrence parameterized for parallel training via structured state-space matrices. |
-| Quadratic bottleneck | "Why context costs so much" | Attention memory = `O(N²)` in sequence length; Flash Attention hides the constants, not the scaling. |
+| Recurrence (Truy hồi) | "RNN là tuần tự" | Tính toán mà bước `t` phụ thuộc bước `t-1`, buộc thực thi nối tiếp dọc trục thời gian. |
+| Serial depth (Độ sâu nối tiếp) | "Đồ thị sâu bao nhiêu" | Chuỗi phép toán phụ thuộc dài nhất; chặn thời gian thực ngay cả trên phần cứng vô hạn. |
+| Attention | "Để các token nhìn nhau" | Tổng có trọng số `sum_j a_ij v_j` trong đó `a_ij` đến từ một điểm tương đồng giữa các vị trí i và j. |
+| Context window (Cửa sổ ngữ cảnh) | "Mô hình thấy bao nhiêu" | Số vị trí một tầng attention có thể nhận làm đầu vào; chi phí bộ nhớ bậc hai tăng ở đây. |
+| Inductive bias (Thiên kiến quy nạp) | "Các giả định được gắn vào kiến trúc" | Tiên nghiệm về hình dạng dữ liệu; CNN giả định bất biến tịnh tiến, RNN giả định tính gần đây. |
+| State-space model (Mô hình không gian trạng thái) | "RNN có đại số phía sau" | Truy hồi được tham số hóa để huấn luyện song song qua các ma trận không gian trạng thái có cấu trúc. |
+| Quadratic bottleneck (Nút thắt bậc hai) | "Vì sao ngữ cảnh tốn nhiều đến vậy" | Bộ nhớ attention = `O(N²)` theo độ dài chuỗi; Flash Attention che các hằng số, không phải quy luật tăng. |
 
 ## Further Reading
 
-- [Vaswani et al. (2017). Attention Is All You Need](https://arxiv.org/abs/1706.03762) — the paper that killed recurrence in mainstream NLP.
-- [Bahdanau, Cho, Bengio (2014). Neural MT by Jointly Learning to Align and Translate](https://arxiv.org/abs/1409.0473) — where attention was born, bolted onto an RNN.
-- [Hochreiter, Schmidhuber (1997). Long Short-Term Memory](https://www.bioinf.jku.at/publications/older/2604.pdf) — the original LSTM paper, for the record.
-- [Gu, Dao (2023). Mamba: Linear-Time Sequence Modeling with Selective State Spaces](https://arxiv.org/abs/2312.00752) — modern recurrent answer to transformers.
+- [Vaswani et al. (2017). Attention Is All You Need](https://arxiv.org/abs/1706.03762) — bài báo giết truy hồi trong NLP dòng chính.
+- [Bahdanau, Cho, Bengio (2014). Neural MT by Jointly Learning to Align and Translate](https://arxiv.org/abs/1409.0473) — nơi attention ra đời, được gắn vào một RNN.
+- [Hochreiter, Schmidhuber (1997). Long Short-Term Memory](https://www.bioinf.jku.at/publications/older/2604.pdf) — bài báo LSTM gốc, để ghi nhận.
+- [Gu, Dao (2023). Mamba: Linear-Time Sequence Modeling with Selective State Spaces](https://arxiv.org/abs/2312.00752) — câu trả lời truy hồi hiện đại cho transformer.
