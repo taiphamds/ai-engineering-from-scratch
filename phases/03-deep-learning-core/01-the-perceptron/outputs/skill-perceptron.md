@@ -9,7 +9,7 @@ tags: [perceptron, neural-networks, classification, deep-learning]
 
 # The Perceptron Pattern
 
-A perceptron computes a weighted sum of inputs plus a bias, then applies a step function to produce a binary output. It is the fundamental unit of neural networks.
+Một perceptron tính tổng có trọng số của các đầu vào cộng một bias, rồi áp dụng một hàm bước để tạo ra đầu ra nhị phân. Nó là đơn vị cơ bản của mạng nơ-ron.
 
 ```
 output = step(w1*x1 + w2*x2 + ... + wn*xn + bias)
@@ -17,27 +17,27 @@ output = step(w1*x1 + w2*x2 + ... + wn*xn + bias)
 
 ## When a single perceptron is enough
 
-- The problem is linearly separable: a straight line (or hyperplane) can divide the two classes
-- Logic gates: AND, OR, NOT, NAND
-- Simple threshold decisions: "is the score above X?"
-- Binary classifiers on data that clusters into two non-overlapping regions
+- Bài toán phân tách tuyến tính được: một đường thẳng (hoặc siêu phẳng) có thể chia hai lớp
+- Các cổng logic: AND, OR, NOT, NAND
+- Các quyết định ngưỡng đơn giản: "điểm số có cao hơn X không?"
+- Các bộ phân loại nhị phân trên dữ liệu phân cụm thành hai vùng không chồng lấn
 
 ## When you need multiple layers
 
-- The problem is not linearly separable: no single line can separate the classes
-- XOR and parity problems
-- Any task requiring "this but not that" reasoning (combinations of conditions)
-- Real-world classification: images, text, audio - almost always non-linear
+- Bài toán không phân tách tuyến tính được: không một đường thẳng duy nhất nào có thể phân tách các lớp
+- Các bài toán XOR và chẵn lẻ
+- Bất kỳ tác vụ nào đòi hỏi suy luận "cái này nhưng không phải cái kia" (các tổ hợp điều kiện)
+- Phân loại thực tế: hình ảnh, văn bản, âm thanh - gần như luôn phi tuyến
 
 ## Decision checklist
 
-1. Plot or inspect your data. Can you draw a single straight boundary between classes?
-   - Yes: single perceptron works
-   - No: you need at least two layers
-2. Can the problem be decomposed into AND/OR of simpler linear decisions?
-   - This decomposition tells you the minimum network structure
-   - XOR = (A OR B) AND (NOT (A AND B)) = 3 perceptrons in 2 layers
-3. For problems with more than two classes, you need one output node per class
+1. Vẽ hoặc xem xét dữ liệu của bạn. Bạn có thể vẽ một ranh giới thẳng duy nhất giữa các lớp không?
+   - Có: một perceptron đơn lẻ hoạt động được
+   - Không: bạn cần ít nhất hai lớp
+2. Bài toán có thể được phân rã thành AND/OR của các quyết định tuyến tính đơn giản hơn không?
+   - Phép phân rã này cho bạn biết cấu trúc mạng tối thiểu
+   - XOR = (A OR B) AND (NOT (A AND B)) = 3 perceptron trong 2 lớp
+3. Với các bài toán có hơn hai lớp phân loại, bạn cần một nút đầu ra cho mỗi lớp phân loại
 
 ## The training rule
 
@@ -47,11 +47,11 @@ weight_new = weight_old + learning_rate * error * input
 bias_new = bias_old + learning_rate * error
 ```
 
-If the prediction is correct, nothing changes. If wrong, weights shift to reduce the error. This only works for single-layer perceptrons. Multi-layer networks require backpropagation.
+Nếu dự đoán đúng, không có gì thay đổi. Nếu sai, các trọng số dịch chuyển để giảm sai số. Điều này chỉ hoạt động cho các perceptron một lớp. Các mạng nhiều lớp cần lan truyền ngược.
 
 ## Common mistakes
 
-- Trying to learn non-linear patterns with a single perceptron (it will never converge)
-- Setting the learning rate too high (weights oscillate) or too low (training takes forever)
-- Forgetting the bias term (without it, the decision boundary must pass through the origin)
-- Confusing perceptron convergence (guaranteed for linearly separable data) with general neural network convergence (not guaranteed)
+- Cố học các mẫu phi tuyến bằng một perceptron đơn lẻ (nó sẽ không bao giờ hội tụ)
+- Đặt tốc độ học quá cao (các trọng số dao động) hoặc quá thấp (huấn luyện kéo dài mãi)
+- Quên số hạng bias (không có nó, ranh giới quyết định phải đi qua gốc tọa độ)
+- Nhầm lẫn hội tụ perceptron (được bảo đảm với dữ liệu phân tách tuyến tính được) với hội tụ mạng nơ-ron nói chung (không được bảo đảm)
