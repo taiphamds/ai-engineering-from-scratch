@@ -1,39 +1,39 @@
 # Function Calling & Tool Use
 
-> LLMs cannot do anything. They generate text. That is the entire capability. They cannot check the weather, query a database, send an email, run code, or read a file. Every "AI agent" you have ever seen is an LLM generating JSON that says which function to call -- and then your code actually calling it. The model is the brain. Tools are the hands. Function calling is the nervous system connecting them.
+> LLM không thể làm bất kỳ điều gì. Chúng sinh văn bản. Đó là toàn bộ năng lực. Chúng không thể kiểm tra thời tiết, truy vấn cơ sở dữ liệu, gửi email, chạy mã hay đọc file. Mọi "tác tử AI" bạn từng thấy đều là một LLM sinh JSON nói hàm nào cần gọi -- rồi mã của bạn thực sự gọi nó. Mô hình là bộ não. Công cụ là đôi tay. Function calling là hệ thần kinh kết nối chúng.
 
 **Type:** Build
 **Languages:** Python
 **Prerequisites:** Phase 11 Lesson 03 (Structured Outputs)
 **Time:** ~75 minutes
-**Related:** Phase 11 · 14 (Model Context Protocol) — when a tool is shared across hosts, graduate from inline function-calling to an MCP server. This lesson covers the inline case; MCP covers the protocol case.
+**Liên quan:** Giai đoạn 11 · 14 (Model Context Protocol) — khi một công cụ được chia sẻ giữa các host, chuyển từ function-calling nội tuyến sang máy chủ MCP. Bài học này trình bày trường hợp nội tuyến; MCP trình bày trường hợp giao thức.
 
 ## Learning Objectives
 
-- Implement a function calling loop: define tool schemas, parse the model's tool-call JSON, execute functions, and return results
-- Design tool schemas with clear descriptions and typed parameters that the model can reliably invoke
-- Build a multi-turn agent loop that chains multiple function calls to answer complex queries
-- Handle function calling edge cases: parallel tool calls, error propagation, and preventing infinite tool loops
+- Triển khai vòng lặp function calling: định nghĩa schema công cụ, phân tích JSON tool-call của mô hình, thực thi hàm và trả kết quả
+- Thiết kế schema công cụ với mô tả rõ ràng và tham số có kiểu mà mô hình có thể gọi đáng tin cậy
+- Xây dựng vòng lặp tác tử nhiều lượt nối nhiều lệnh gọi hàm để trả lời truy vấn phức tạp
+- Xử lý các trường hợp biên function calling: gọi công cụ song song, lan truyền lỗi và ngăn vòng lặp công cụ vô hạn
 
 ## The Problem
 
-You build a chatbot. A user asks: "What's the weather in Tokyo right now?"
+Bạn xây một chatbot. Người dùng hỏi: "Thời tiết ở Tokyo ngay bây giờ thế nào?"
 
-The model responds: "I don't have access to real-time weather data, but based on the season, Tokyo is likely around 15 degrees Celsius..."
+Mô hình phản hồi: "Tôi không có quyền truy cập dữ liệu thời tiết thời gian thực, nhưng dựa vào mùa, Tokyo có lẽ khoảng 15 độ C..."
 
-That is a hallucination dressed in a disclaimer. The model does not know the weather. It never will. Weather changes every hour. The model's training data is months old.
+Đó là một ảo giác khoác lời tuyên bố giới hạn. Mô hình không biết thời tiết. Nó sẽ không bao giờ biết. Thời tiết thay đổi mỗi giờ. Dữ liệu huấn luyện của mô hình đã cũ hàng tháng.
 
-The correct answer requires calling the OpenWeatherMap API, getting the current temperature, and returning the real number. The model cannot call APIs. Your code can. The missing piece: a structured protocol that lets the model say "I need to call the weather API with these arguments" and lets your code execute it and feed the result back.
+Câu trả lời đúng cần gọi API OpenWeatherMap, lấy nhiệt độ hiện tại và trả về con số thật. Mô hình không thể gọi API. Mã của bạn có thể. Mảnh còn thiếu: một giao thức có cấu trúc cho phép mô hình nói "Tôi cần gọi API thời tiết với các đối số này" và cho phép mã của bạn thực thi rồi đưa kết quả trở lại.
 
-This is function calling. The model outputs structured JSON describing which function to invoke with what arguments. Your application executes the function. The result goes back into the conversation. The model uses the result to produce its final answer.
+Đây là function calling. Mô hình xuất JSON có cấu trúc mô tả hàm nào cần gọi với đối số gì. Ứng dụng của bạn thực thi hàm. Kết quả đi trở lại hội thoại. Mô hình dùng kết quả để tạo câu trả lời cuối.
 
-Without function calling, LLMs are encyclopedias. With it, they become agents.
+Không có function calling, LLM là bách khoa toàn thư. Có nó, chúng trở thành tác tử.
 
 ## The Concept
 
 ### The Function Calling Loop
 
-Every tool-use interaction follows the same 5-step loop.
+Mọi tương tác dùng công cụ tuân cùng vòng lặp 5 bước.
 
 ```mermaid
 sequenceDiagram
@@ -52,13 +52,13 @@ sequenceDiagram
     A->>U: Final response
 ```
 
-Step 1: the user sends a message. Step 2: the model receives the message along with tool definitions (JSON Schema describing available functions). Step 3: instead of responding with text, the model outputs a tool call -- a structured JSON object with the function name and arguments. Step 4: your code executes the function and captures the result. Step 5: the result goes back to the model, which now has real data to produce its final answer.
+Bước 1: người dùng gửi thông điệp. Bước 2: mô hình nhận thông điệp cùng định nghĩa công cụ (JSON Schema mô tả các hàm sẵn có). Bước 3: thay vì phản hồi bằng văn bản, mô hình xuất lệnh gọi công cụ -- một đối tượng JSON có cấu trúc với tên hàm và đối số. Bước 4: mã của bạn thực thi hàm và ghi nhận kết quả. Bước 5: kết quả trở lại mô hình, giờ có dữ liệu thực để tạo câu trả lời cuối.
 
-The model never executes anything. It only decides what to call and with what arguments. Your code is the executor.
+Mô hình không bao giờ thực thi bất kỳ thứ gì. Nó chỉ quyết định gọi gì và với đối số nào. Mã của bạn là bộ thực thi.
 
 ### Tool Definitions: The JSON Schema Contract
 
-Each tool is defined by a JSON Schema that tells the model what the function does, what arguments it takes, and what types those arguments must be.
+Mỗi công cụ được định nghĩa bằng một JSON Schema cho mô hình biết hàm làm gì, nhận đối số gì và kiểu các đối số đó phải là gì.
 
 ```json
 {
@@ -85,34 +85,34 @@ Each tool is defined by a JSON Schema that tells the model what the function doe
 }
 ```
 
-The `description` fields are critical. The model reads them to decide when and how to use the tool. A vague description like "gets weather" produces worse tool selection than "Get current weather for a city. Returns temperature in Celsius and conditions." The description is a prompt for tool selection.
+Các trường `description` rất quan trọng. Mô hình đọc chúng để quyết định khi nào và cách dùng công cụ. Một mô tả mơ hồ như "lấy thời tiết" tạo lựa chọn công cụ kém hơn "Lấy thời tiết hiện tại cho một thành phố. Trả về nhiệt độ theo độ C và tình trạng thời tiết." Mô tả là prompt để chọn công cụ.
 
 ### Provider Comparison
 
-Every major provider supports function calling, but the API surface differs.
+Mọi nhà cung cấp lớn hỗ trợ function calling, nhưng giao diện API khác nhau.
 
-| Provider | API Parameter | Tool Call Format | Parallel Calls | Forced Calling |
+| Nhà cung cấp | Tham số API | Định dạng lệnh gọi công cụ | Gọi song song | Gọi bắt buộc |
 |----------|--------------|-----------------|---------------|----------------|
-| OpenAI (GPT-5, o4) | `tools` | `tool_calls[].function` | Yes (multiple per turn) | `tool_choice="required"` |
-| Anthropic (Claude 4.6/4.7) | `tools` | `content[].type="tool_use"` | Yes (multiple blocks) | `tool_choice={"type":"any"}` |
-| Google (Gemini 3) | `function_declarations` | `functionCall` | Yes | `function_calling_config` |
-| Open-weight (Llama 4, Qwen3, DeepSeek-V3) | Native `tools` on Llama 4; Hermes or ChatML on others | Mixed | Model-dependent | Prompt-based or `tool_choice` if supported |
+| OpenAI (GPT-5, o4) | `tools` | `tool_calls[].function` | Có (nhiều mỗi lượt) | `tool_choice="required"` |
+| Anthropic (Claude 4.6/4.7) | `tools` | `content[].type="tool_use"` | Có (nhiều khối) | `tool_choice={"type":"any"}` |
+| Google (Gemini 3) | `function_declarations` | `functionCall` | Có | `function_calling_config` |
+| Trọng số mở (Llama 4, Qwen3, DeepSeek-V3) | `tools` nguyên bản trên Llama 4; Hermes hoặc ChatML trên mô hình khác | Hỗn hợp | Phụ thuộc mô hình | Dựa trên prompt hoặc `tool_choice` nếu được hỗ trợ |
 
-By 2026 the three closed providers have converged on near-identical JSON-Schema-based formats. Llama 4 ships with a native `tools` field that matches OpenAI's shape. Open-weight fine-tunes still vary — the Hermes format (NousResearch) is the most common for third-party fine-tunes. For shared tools across hosts, prefer MCP (Phase 11 · 14) over inline function-calling — the server is the same for all of them.
+Đến năm 2026, ba nhà cung cấp đóng đã hội tụ về các định dạng dựa trên JSON Schema gần như giống hệt. Llama 4 cung cấp trường `tools` nguyên bản khớp hình dạng của OpenAI. Các bản fine-tune trọng số mở vẫn khác nhau — định dạng Hermes (NousResearch) phổ biến nhất cho fine-tune bên thứ ba. Với công cụ chia sẻ giữa các host, ưu tiên MCP (Giai đoạn 11 · 14) hơn function-calling nội tuyến — máy chủ giống nhau cho tất cả.
 
 ### Tool Choice: Auto, Required, Specific
 
-You control when the model uses tools.
+Bạn kiểm soát khi nào mô hình dùng công cụ.
 
-**Auto** (default): the model decides whether to call a tool or respond directly. "What's 2+2?" -- responds directly. "What's the weather?" -- calls the tool.
+**Auto** (mặc định): mô hình quyết định gọi công cụ hay phản hồi trực tiếp. "2+2 là gì?" -- phản hồi trực tiếp. "Thời tiết thế nào?" -- gọi công cụ.
 
-**Required**: the model must call at least one tool. Use this when you know the user's intent requires a tool. Prevents the model from guessing instead of looking up real data.
+**Required**: mô hình phải gọi ít nhất một công cụ. Dùng khi bạn biết ý định người dùng cần công cụ. Ngăn mô hình đoán thay vì tra dữ liệu thực.
 
-**Specific function**: force the model to call a particular function. `tool_choice={"type":"function", "function": {"name": "get_weather"}}` guarantees the weather tool is called, regardless of the query. Use this for routing -- when upstream logic already determined which tool is needed.
+**Hàm cụ thể**: buộc mô hình gọi một hàm nhất định. `tool_choice={"type":"function", "function": {"name": "get_weather"}}` bảo đảm công cụ thời tiết được gọi, bất kể truy vấn. Dùng cho định tuyến -- khi logic phía trước đã xác định cần công cụ nào.
 
 ### Parallel Function Calling
 
-GPT-4o and Claude can call multiple functions in a single turn. A user asks: "What's the weather in Tokyo and New York?" The model outputs two tool calls simultaneously:
+GPT-4o và Claude có thể gọi nhiều hàm trong một lượt. Người dùng hỏi: "Thời tiết ở Tokyo và New York thế nào?" Mô hình xuất đồng thời hai lệnh gọi công cụ:
 
 ```json
 [
@@ -121,37 +121,37 @@ GPT-4o and Claude can call multiple functions in a single turn. A user asks: "Wh
 ]
 ```
 
-Your code executes both (ideally concurrently), returns both results, and the model synthesizes a single response. This cuts round trips from 2 to 1. For agents with 5-10 tool calls per query, parallel calling reduces latency by 60-80%.
+Mã của bạn thực thi cả hai (lý tưởng là đồng thời), trả cả hai kết quả và mô hình tổng hợp một phản hồi. Điều này giảm lượt đi-về từ 2 xuống 1. Với tác tử có 5-10 lệnh gọi công cụ mỗi truy vấn, gọi song song giảm độ trễ 60-80%.
 
 ### Structured Outputs vs Function Calling
 
-Lesson 03 covered structured outputs. Function calling uses the same JSON Schema machinery, but for a different purpose.
+Bài 03 trình bày đầu ra có cấu trúc. Function calling dùng cùng cơ chế JSON Schema, nhưng cho mục đích khác.
 
-**Structured outputs**: force the model to produce data in a specific shape. The output is the final product. Example: extract product info from text as `{name, price, in_stock}`.
+**Đầu ra có cấu trúc**: buộc mô hình tạo dữ liệu theo hình dạng cụ thể. Đầu ra là sản phẩm cuối. Ví dụ: trích xuất thông tin sản phẩm từ văn bản thành `{name, price, in_stock}`.
 
-**Function calling**: the model declares an intent to execute an action. The output is an intermediate step. Example: `get_weather(city="Tokyo")` -- the model is requesting an action, not producing the final answer.
+**Function calling**: mô hình tuyên bố ý định thực thi hành động. Đầu ra là bước trung gian. Ví dụ: `get_weather(city="Tokyo")` -- mô hình đang yêu cầu hành động, không tạo câu trả lời cuối.
 
-Use structured outputs when you want data extraction. Use function calling when you want the model to interact with external systems.
+Dùng đầu ra có cấu trúc khi muốn trích xuất dữ liệu. Dùng function calling khi muốn mô hình tương tác với hệ thống bên ngoài.
 
 ### Security: The Non-Negotiable Rules
 
-Function calling is the most dangerous capability you can give an LLM. The model chooses what to execute. If your tool set includes database queries, the model constructs the queries. If it includes shell commands, the model writes them.
+Function calling là năng lực nguy hiểm nhất bạn có thể trao cho LLM. Mô hình chọn thứ để thực thi. Nếu tập công cụ có truy vấn cơ sở dữ liệu, mô hình xây truy vấn. Nếu có lệnh shell, mô hình viết chúng.
 
-**Rule 1: Never pass model-generated SQL directly to a database.** The model can and will generate DROP TABLE, UNION injections, or queries that return every row. Always parameterize. Always validate. Always use an allowlist of operations.
+**Quy tắc 1: Không bao giờ truyền SQL do mô hình sinh trực tiếp vào cơ sở dữ liệu.** Mô hình có thể và sẽ sinh DROP TABLE, chèn UNION hoặc truy vấn trả mọi hàng. Luôn tham số hóa. Luôn xác thực. Luôn dùng danh sách thao tác cho phép.
 
-**Rule 2: Allowlist functions.** The model can only call functions you explicitly define. Never build a generic "execute any function by name" tool. If you have 50 internal functions, expose only the 5 the user needs.
+**Quy tắc 2: Đưa hàm vào danh sách cho phép.** Mô hình chỉ có thể gọi hàm bạn định nghĩa rõ ràng. Không bao giờ xây công cụ chung "thực thi bất kỳ hàm nào theo tên." Nếu có 50 hàm nội bộ, chỉ mở 5 hàm người dùng cần.
 
-**Rule 3: Validate arguments.** The model might pass a city name of `"; DROP TABLE users; --"`. Validate every argument against expected types, ranges, and formats before execution.
+**Quy tắc 3: Xác thực đối số.** Mô hình có thể truyền tên thành phố `"; DROP TABLE users; --"`. Xác thực mọi đối số theo kiểu, phạm vi và định dạng kỳ vọng trước thực thi.
 
-**Rule 4: Sanitize tool results.** If a tool returns sensitive data (API keys, PII, internal errors), filter it before sending it back to the model. The model will include tool results in its response verbatim.
+**Quy tắc 4: Làm sạch kết quả công cụ.** Nếu công cụ trả dữ liệu nhạy cảm (khóa API, PII, lỗi nội bộ), lọc trước khi gửi lại mô hình. Mô hình sẽ đưa nguyên văn kết quả công cụ vào phản hồi.
 
-**Rule 5: Rate limit tool calls.** A model in a loop can call tools hundreds of times. Set a maximum (10-20 calls per conversation is reasonable). Break infinite loops.
+**Quy tắc 5: Giới hạn tần suất gọi công cụ.** Một mô hình trong vòng lặp có thể gọi công cụ hàng trăm lần. Đặt tối đa (10-20 lệnh gọi mỗi hội thoại là hợp lý). Ngắt vòng lặp vô hạn.
 
 ### Error Handling
 
-Tools fail. APIs time out. Databases go down. Files do not exist. The model needs to know when a tool fails and why.
+Công cụ thất bại. API hết thời gian chờ. Cơ sở dữ liệu ngừng hoạt động. File không tồn tại. Mô hình cần biết khi công cụ thất bại và tại sao.
 
-Return errors as structured tool results, not exceptions:
+Trả lỗi dưới dạng kết quả công cụ có cấu trúc, không phải ngoại lệ:
 
 ```json
 {
@@ -161,15 +161,15 @@ Return errors as structured tool results, not exceptions:
 }
 ```
 
-The model reads this, adjusts its arguments, and retries. Models are good at self-correcting from structured error messages. They are bad at recovering from empty responses or generic "something went wrong" errors.
+Mô hình đọc điều này, điều chỉnh đối số và thử lại. Mô hình giỏi tự sửa từ thông điệp lỗi có cấu trúc. Chúng kém phục hồi từ phản hồi rỗng hoặc lỗi chung "đã xảy ra sự cố."
 
 ### MCP: Model Context Protocol
 
-MCP is Anthropic's open standard for tool interoperability. Instead of every application defining its own tools, MCP provides a universal protocol: tools are served by MCP servers, consumed by MCP clients (like Claude Code, Cursor, or your application).
+MCP là tiêu chuẩn mở của Anthropic cho khả năng tương tác công cụ. Thay vì mỗi ứng dụng định nghĩa công cụ riêng, MCP cung cấp giao thức phổ quát: công cụ được phục vụ bởi máy chủ MCP, được tiêu thụ bởi client MCP (như Claude Code, Cursor hoặc ứng dụng của bạn).
 
-One MCP server can expose tools to any compatible client. A Postgres MCP server gives any MCP-compatible agent database access. A GitHub MCP server gives any agent repository access. The tools are defined once, used everywhere.
+Một máy chủ MCP có thể mở công cụ cho bất kỳ client tương thích nào. Máy chủ Postgres MCP cho bất kỳ tác tử tương thích MCP nào truy cập cơ sở dữ liệu. Máy chủ GitHub MCP cho bất kỳ tác tử nào truy cập kho mã. Công cụ được định nghĩa một lần, dùng mọi nơi.
 
-MCP is to function calling what HTTP is to networking. It standardizes the transport layer so tools become portable.
+MCP đối với function calling giống như HTTP đối với kết nối mạng. Nó chuẩn hóa lớp truyền tải để công cụ trở nên có thể chuyển dùng.
 
 ```figure
 mx-tool-call-loop
@@ -179,7 +179,7 @@ mx-tool-call-loop
 
 ### Step 1: Define the Tool Registry
 
-Build a registry that stores tool definitions and their implementations. Each tool has a JSON Schema definition (what the model sees) and a Python function (what your code executes).
+Xây một registry lưu định nghĩa công cụ và triển khai của chúng. Mỗi công cụ có định nghĩa JSON Schema (thứ mô hình thấy) và hàm Python (thứ mã của bạn thực thi).
 
 ```python
 import ast
@@ -208,7 +208,7 @@ def register_tool(name, description, parameters, function):
 
 ### Step 2: Implement 5 Tools
 
-Build a calculator, weather lookup, web search simulator, file reader, and code runner.
+Xây một máy tính, tra cứu thời tiết, bộ mô phỏng tìm kiếm web, bộ đọc file và bộ chạy mã.
 
 ```python
 def calculator(expression, precision=2):
@@ -312,7 +312,7 @@ def run_code(code, language="python"):
         return {"error": True, "message": f"{type(e).__name__}: {e}"}
 ```
 
-A substring blocklist reads the code as text, so it misses anything the string match does not literally spell. Parsing the code into a syntax tree and walking it lets the guard reject `import` statements, dunder attribute access (the `__class__` and `__globals__` chains that reach back to the real interpreter), and unsafe builtin names by structure rather than spelling. Even so, treat this as a teaching filter, not a real boundary. Any in-process guard shares the interpreter with the code it runs, and a determined caller can still find reachable objects. Production systems run untrusted code in a separate process or container (a subprocess with dropped privileges, gVisor, Firecracker, or a hosted code runner), where an escape lands the attacker in a throwaway box instead of your service.
+Danh sách chặn chuỗi con đọc mã như văn bản, nên bỏ lỡ mọi thứ mà phép khớp chuỗi không viết ra theo nghĩa đen. Phân tích mã thành cây cú pháp và duyệt nó cho phép bộ bảo vệ từ chối câu lệnh `import`, truy cập thuộc tính dunder (các chuỗi `__class__` và `__globals__` chạm ngược về trình thông dịch thực) và tên builtin không an toàn theo cấu trúc thay vì cách viết. Dù vậy, xem đây là bộ lọc giảng dạy, không phải ranh giới thực. Mọi bộ bảo vệ trong tiến trình đều chia sẻ trình thông dịch với mã nó chạy, và người gọi quyết tâm vẫn có thể tìm các đối tượng có thể chạm tới. Hệ thống sản xuất chạy mã không đáng tin trong tiến trình hoặc container riêng (tiến trình con đã giảm quyền, gVisor, Firecracker hoặc bộ chạy mã được lưu trữ), nơi việc thoát đưa kẻ tấn công vào một hộp dùng rồi bỏ thay vì dịch vụ của bạn.
 
 ### Step 3: Register All Tools
 
@@ -347,7 +347,7 @@ def register_all_tools():
 
 ### Step 4: Build the Function Calling Loop
 
-This is the core engine. It simulates the model deciding which tool to call, executes the tool, and feeds results back.
+Đây là bộ máy cốt lõi. Nó mô phỏng mô hình quyết định gọi công cụ nào, thực thi công cụ và đưa kết quả trở lại.
 
 ```python
 def simulate_model_decision(user_message, tools, conversation_history):
@@ -444,7 +444,7 @@ def run_function_calling_loop(user_message, max_iterations=5):
 
 ### Step 5: Argument Validation
 
-Build a validator that checks tool call arguments against the JSON Schema before execution.
+Xây một bộ xác thực kiểm tra đối số lệnh gọi công cụ theo JSON Schema trước thực thi.
 
 ```python
 def validate_tool_arguments(tool_name, arguments):
@@ -617,7 +617,7 @@ def run_demo():
 # print(final.choices[0].message.content)
 ```
 
-OpenAI returns tool calls as `response.choices[0].message.tool_calls`. Each call has an `id` you must include when returning the result. The model uses this ID to match results to calls. GPT-4o can return multiple tool calls in a single response -- iterate and execute all of them.
+OpenAI trả lệnh gọi công cụ dưới dạng `response.choices[0].message.tool_calls`. Mỗi lệnh gọi có `id` bạn phải bao gồm khi trả kết quả. Mô hình dùng ID này để khớp kết quả với lệnh gọi. GPT-4o có thể trả nhiều lệnh gọi công cụ trong một phản hồi -- lặp và thực thi tất cả.
 
 ### Anthropic Tool Use
 
@@ -659,7 +659,7 @@ OpenAI returns tool calls as `response.choices[0].message.tool_calls`. Each call
 # )
 ```
 
-Anthropic returns tool calls as content blocks with `type: "tool_use"`. The tool result goes in a user message with `type: "tool_result"`. Note the key difference: Anthropic uses `input_schema` for tool parameter definitions, while OpenAI uses `parameters`.
+Anthropic trả lệnh gọi công cụ dưới dạng khối nội dung có `type: "tool_use"`. Kết quả công cụ đi vào thông điệp người dùng với `type: "tool_result"`. Lưu ý khác biệt chính: Anthropic dùng `input_schema` cho định nghĩa tham số công cụ, còn OpenAI dùng `parameters`.
 
 ### MCP Integration
 
@@ -684,48 +684,48 @@ Anthropic returns tool calls as content blocks with `type: "tool_use"`. The tool
 #         result = await session.call_tool("query", {"sql": "SELECT count(*) FROM users"})
 ```
 
-MCP decouples tool implementation from tool consumption. The Postgres server knows SQL. The GitHub server knows the API. Your agent just discovers and calls tools -- it does not need provider-specific code for each integration.
+MCP tách triển khai công cụ khỏi việc sử dụng công cụ. Máy chủ Postgres biết SQL. Máy chủ GitHub biết API. Tác tử của bạn chỉ khám phá và gọi công cụ -- không cần mã riêng của nhà cung cấp cho mỗi tích hợp.
 
 ## Ship It
 
-This lesson produces `outputs/prompt-tool-designer.md` -- a reusable prompt template for designing tool definitions. Give it a description of what you want a tool to do, and it produces the complete JSON Schema definition with descriptions, types, and constraints.
+Bài học này tạo ra `outputs/prompt-tool-designer.md` -- một khuôn mẫu prompt tái sử dụng để thiết kế định nghĩa công cụ. Đưa mô tả điều bạn muốn công cụ làm, và nó tạo định nghĩa JSON Schema hoàn chỉnh với mô tả, kiểu và ràng buộc.
 
-It also produces `outputs/skill-function-calling-patterns.md` -- a decision framework for implementing function calling in production, covering tool design, error handling, security, and provider-specific patterns.
+Nó cũng tạo ra `outputs/skill-function-calling-patterns.md` -- khung quyết định triển khai function calling trong sản xuất, bao quát thiết kế công cụ, xử lý lỗi, bảo mật và mẫu riêng nhà cung cấp.
 
 ## Exercises
 
-1. **Add a 6th tool: database query.** Implement a simulated SQL tool with an in-memory table. The tool accepts a table name and filter conditions (not raw SQL). Validate that the table name is in an allowlist and that filter operators are restricted to `=`, `>`, `<`, `>=`, `<=`. Return matching rows as JSON.
+1. **Thêm công cụ thứ 6: truy vấn cơ sở dữ liệu.** Triển khai công cụ SQL mô phỏng với bảng trong bộ nhớ. Công cụ nhận tên bảng và điều kiện lọc (không phải SQL thô). Xác thực tên bảng nằm trong danh sách cho phép và toán tử lọc bị giới hạn ở `=`, `>`, `<`, `>=`, `<=`. Trả các hàng khớp dưới dạng JSON.
 
-2. **Implement retry with error feedback.** When a tool call fails (e.g., city not found), feed the error message back to the model decision function and let it correct its arguments. Track how many retries each call takes. Set a maximum of 3 retries per tool call.
+2. **Triển khai thử lại với phản hồi lỗi.** Khi lệnh gọi công cụ thất bại (ví dụ không tìm thấy thành phố), đưa thông điệp lỗi trở lại hàm quyết định mô hình và để nó sửa đối số. Theo dõi mỗi lệnh gọi mất bao nhiêu lần thử lại. Đặt tối đa 3 lần thử lại mỗi lệnh gọi công cụ.
 
-3. **Build a multi-step agent.** Some queries require chaining tool calls: "Read the config file and tell me what model is configured, then search the web for that model's pricing." Implement a loop that runs until the model decides no more tools are needed, passing accumulated results into each decision step. Limit to 10 iterations to prevent infinite loops.
+3. **Xây một tác tử nhiều bước.** Một số truy vấn cần nối lệnh gọi công cụ: "Đọc file cấu hình và cho tôi biết mô hình nào được cấu hình, rồi tìm web về giá của mô hình đó." Triển khai vòng lặp chạy đến khi mô hình quyết định không cần thêm công cụ, truyền kết quả tích lũy vào mỗi bước quyết định. Giới hạn 10 vòng để ngăn vòng lặp vô hạn.
 
-4. **Measure tool selection accuracy.** Create 30 test queries with expected tool names. Run your decision function on all 30 and measure what percentage of the time it selects the correct tool. Identify which queries cause the most confusion between tools.
+4. **Đo độ chính xác lựa chọn công cụ.** Tạo 30 truy vấn kiểm thử với tên công cụ kỳ vọng. Chạy hàm quyết định trên cả 30 và đo phần trăm số lần chọn công cụ đúng. Xác định truy vấn nào gây nhầm lẫn nhiều nhất giữa các công cụ.
 
-5. **Implement tool call caching.** If the same tool is called with identical arguments within 60 seconds, return the cached result instead of re-executing. Use a dictionary keyed by `(tool_name, frozenset(args.items()))`. Measure cache hit rates across a conversation with 20 queries.
+5. **Triển khai cache lệnh gọi công cụ.** Nếu cùng công cụ được gọi với đối số giống hệt trong 60 giây, trả kết quả cache thay vì thực thi lại. Dùng từ điển có khóa `(tool_name, frozenset(args.items()))`. Đo tỷ lệ cache hit qua một hội thoại 20 truy vấn.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Function calling | "Tool use" | The model outputs structured JSON describing a function to invoke with specific arguments -- your code executes it, not the model |
-| Tool definition | "Function schema" | A JSON Schema object describing a tool's name, purpose, parameters, and types -- the model reads this to decide when and how to use the tool |
-| Tool choice | "Calling mode" | Controls whether the model must call a tool (required), may call a tool (auto), or must call a specific tool (named) |
-| Parallel calling | "Multi-tool" | The model outputs multiple tool calls in a single turn, reducing round trips -- GPT-4o and Claude both support this |
-| Tool result | "Function output" | The return value from executing a tool, sent back to the model as a message so it can use real data in its response |
-| Argument validation | "Input checking" | Verifying that model-generated arguments match the expected types, ranges, and constraints before executing the tool |
-| MCP | "Tool protocol" | Model Context Protocol -- Anthropic's open standard for exposing tools via servers that any compatible client can discover and call |
-| Agent loop | "ReAct loop" | The iterative cycle of model-decides-tool, code-executes-tool, result-feeds-back until the model has enough information to respond |
-| Tool poisoning | "Prompt injection via tools" | An attack where tool results contain instructions that manipulate the model's behavior -- sanitize all tool outputs |
-| Rate limiting | "Call budget" | Setting a maximum number of tool calls per conversation to prevent infinite loops and runaway API costs |
+| Function calling (Gọi hàm) | "Sử dụng công cụ" | Mô hình xuất JSON có cấu trúc mô tả hàm cần gọi với đối số cụ thể -- mã của bạn thực thi, không phải mô hình |
+| Tool definition (Định nghĩa công cụ) | "Schema hàm" | Đối tượng JSON Schema mô tả tên, mục đích, tham số và kiểu của công cụ -- mô hình đọc để quyết định khi nào và cách dùng công cụ |
+| Tool choice (Lựa chọn công cụ) | "Chế độ gọi" | Kiểm soát liệu mô hình phải gọi công cụ (required), có thể gọi công cụ (auto), hay phải gọi công cụ cụ thể (named) |
+| Parallel calling (Gọi song song) | "Đa công cụ" | Mô hình xuất nhiều lệnh gọi công cụ trong một lượt, giảm lượt đi-về -- cả GPT-4o và Claude đều hỗ trợ |
+| Tool result (Kết quả công cụ) | "Đầu ra hàm" | Giá trị trả về từ thực thi công cụ, gửi lại mô hình làm thông điệp để nó dùng dữ liệu thực trong phản hồi |
+| Argument validation (Xác thực đối số) | "Kiểm tra đầu vào" | Xác minh đối số do mô hình sinh khớp kiểu, phạm vi và ràng buộc kỳ vọng trước khi thực thi công cụ |
+| MCP | "Giao thức công cụ" | Model Context Protocol -- tiêu chuẩn mở của Anthropic để mở công cụ qua máy chủ mà bất kỳ client tương thích nào có thể khám phá và gọi |
+| Agent loop (Vòng lặp tác tử) | "Vòng lặp ReAct" | Chu kỳ lặp mô hình quyết định công cụ, mã thực thi công cụ, kết quả đưa trở lại đến khi mô hình có đủ thông tin phản hồi |
+| Tool poisoning (Đầu độc công cụ) | "Prompt injection qua công cụ" | Tấn công mà kết quả công cụ chứa chỉ dẫn thao túng hành vi mô hình -- làm sạch mọi đầu ra công cụ |
+| Rate limiting (Giới hạn tần suất) | "Ngân sách gọi" | Đặt số lệnh gọi công cụ tối đa mỗi hội thoại để ngăn vòng lặp vô hạn và chi phí API mất kiểm soát |
 
 ## Further Reading
 
-- [OpenAI Function Calling Guide](https://platform.openai.com/docs/guides/function-calling) -- the definitive reference for tool use with GPT-4o, including parallel calls, forced calling, and structured arguments
-- [Anthropic Tool Use Guide](https://docs.anthropic.com/en/docs/tool-use) -- Claude's tool use implementation with input_schema, multi-tool responses, and tool_choice configuration
-- [Model Context Protocol Specification](https://modelcontextprotocol.io) -- the open standard for tool interoperability across AI applications, with server/client architecture
-- [Schick et al., 2023 -- "Toolformer: Language Models Can Teach Themselves to Use Tools"](https://arxiv.org/abs/2302.04761) -- the foundational paper on training LLMs to decide when and how to call external tools
-- [Patil et al., 2023 -- "Gorilla: Large Language Model Connected with Massive APIs"](https://arxiv.org/abs/2305.15334) -- fine-tuning LLMs for accurate API calls across 1,645 APIs with hallucination reduction
-- [Berkeley Function Calling Leaderboard](https://gorilla.cs.berkeley.edu/leaderboard.html) -- real-time benchmark comparing function calling accuracy across GPT-4o, Claude, Gemini, and open models
-- [Yao et al., "ReAct: Synergizing Reasoning and Acting in Language Models" (ICLR 2023)](https://arxiv.org/abs/2210.03629) -- the Thought-Action-Observation loop that is the outer agent loop around every tool call; where this lesson ends, Phase 14 picks up.
-- [Anthropic — Building effective agents (Dec 2024)](https://www.anthropic.com/research/building-effective-agents) -- five composable patterns (prompt chaining, routing, parallelization, orchestrator-workers, evaluator-optimizer) built from the single tool-use primitive.
+- [OpenAI Function Calling Guide](https://platform.openai.com/docs/guides/function-calling) -- tài liệu tham chiếu có tính quyết định cho tool use với GPT-4o, gồm gọi song song, gọi bắt buộc và đối số có cấu trúc
+- [Anthropic Tool Use Guide](https://docs.anthropic.com/en/docs/tool-use) -- triển khai tool use của Claude với input_schema, phản hồi đa công cụ và cấu hình tool_choice
+- [Model Context Protocol Specification](https://modelcontextprotocol.io) -- tiêu chuẩn mở cho khả năng tương tác công cụ giữa các ứng dụng AI, với kiến trúc máy chủ/client
+- [Schick et al., 2023 -- "Toolformer: Language Models Can Teach Themselves to Use Tools"](https://arxiv.org/abs/2302.04761) -- bài báo nền tảng về huấn luyện LLM quyết định khi nào và cách gọi công cụ bên ngoài
+- [Patil et al., 2023 -- "Gorilla: Large Language Model Connected with Massive APIs"](https://arxiv.org/abs/2305.15334) -- fine-tuning LLM để gọi API chính xác trên 1,645 API với giảm ảo giác
+- [Berkeley Function Calling Leaderboard](https://gorilla.cs.berkeley.edu/leaderboard.html) -- benchmark thời gian thực so sánh độ chính xác function calling giữa GPT-4o, Claude, Gemini và mô hình mở
+- [Yao et al., "ReAct: Synergizing Reasoning and Acting in Language Models" (ICLR 2023)](https://arxiv.org/abs/2210.03629) -- vòng lặp Suy nghĩ-Hành động-Quan sát là vòng lặp tác tử bên ngoài quanh mọi lệnh gọi công cụ; nơi bài học này kết thúc, Giai đoạn 14 tiếp nối.
+- [Anthropic — Building effective agents (Dec 2024)](https://www.anthropic.com/research/building-effective-agents) -- năm mẫu có thể kết hợp (nối chuỗi prompt, định tuyến, song song hóa, bộ điều phối-worker, bộ đánh giá-bộ tối ưu) xây từ một thành phần cơ bản tool-use duy nhất.
