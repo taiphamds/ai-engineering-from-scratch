@@ -1,6 +1,6 @@
 # SAM 3 & Open-Vocabulary Segmentation
 
-> Give a model a text prompt and an image and get masks for every matching object. SAM 3 made that a single forward pass.
+> Đưa cho mô hình một prompt văn bản và một hình ảnh, nhận các mặt nạ cho mọi đối tượng khớp. SAM 3 khiến điều đó thành một lượt truyền xuôi.
 
 **Type:** Use + Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Distinguish SAM (visual prompts only), Grounded SAM / SAM 2 (detector + SAM), and SAM 3 (native text prompts via Promptable Concept Segmentation)
-- Explain the SAM 3 architecture: shared backbone + image detector + memory-based video tracker + presence head + decoupled detector-tracker design
-- Use Hugging Face `transformers` SAM 3 integration for text-prompted detection, segmentation, and video tracking
-- Pick between SAM 3, Grounded SAM 2, YOLO-World, and SAM-MI based on latency, concept complexity, and deployment target
+- Phân biệt SAM (chỉ prompt trực quan), Grounded SAM / SAM 2 (bộ phát hiện + SAM) và SAM 3 (prompt văn bản gốc qua Promptable Concept Segmentation)
+- Giải thích kiến trúc SAM 3: backbone dùng chung + bộ phát hiện hình ảnh + bộ theo dõi video dựa trên bộ nhớ + đầu hiện diện + thiết kế bộ phát hiện-bộ theo dõi tách rời
+- Sử dụng tích hợp SAM 3 của Hugging Face `transformers` cho phát hiện, phân đoạn và theo dõi video bằng prompt văn bản
+- Chọn giữa SAM 3, Grounded SAM 2, YOLO-World và SAM-MI dựa trên độ trễ, độ phức tạp khái niệm và đích triển khai
 
 ## The Problem
 
-The 2023 SAM was a visual-prompt-only model: you click a point or draw a box and it returns a mask. For "give me all the oranges in this photo" you needed a detector (Grounding DINO) to produce boxes, then SAM to segment each. Grounded SAM turned this into a pipeline, but it was a cascade of two frozen models with inevitable error accumulation.
+SAM năm 2023 là mô hình chỉ prompt trực quan: bạn nhấp một điểm hoặc vẽ hộp và nó trả một mặt nạ. Với "cho tôi mọi quả cam trong ảnh này" bạn cần bộ phát hiện (Grounding DINO) tạo hộp, rồi SAM phân đoạn từng hộp. Grounded SAM biến điều này thành pipeline, nhưng là chuỗi hai mô hình đóng băng với tích lũy sai số không tránh khỏi.
 
-SAM 3 (Meta, Nov 2025, ICLR 2026) collapsed the cascade. It accepts a short noun phrase or an image exemplar as prompt and returns all matching masks and instance IDs in a single forward pass. That is **Promptable Concept Segmentation (PCS)**. Combined with the March 2026 Object Multiplex update (SAM 3.1), it tracks multiple instances of the same concept through video efficiently.
+SAM 3 (Meta, tháng 11 năm 2025, ICLR 2026) gộp chuỗi. Nó nhận cụm danh từ ngắn hoặc ảnh mẫu làm prompt và trả mọi mặt nạ khớp cùng ID thực thể trong một lượt truyền xuôi duy nhất. Đó là **Phân đoạn Khái niệm Có thể Đặt Prompt (PCS)**. Kết hợp bản cập nhật Object Multiplex tháng 3 năm 2026 (SAM 3.1), nó theo dõi hiệu quả nhiều thực thể cùng khái niệm qua video.
 
-This lesson is about the structural shift this represents. 2D seg, detection, and text-image grounding have merged into one model. The production question is no longer "which pipeline do I chain together" but "which promptable model handles my use case end-to-end."
+Bài này nói về sự chuyển dịch cấu trúc mà điều này thể hiện. Phân đoạn 2D, phát hiện và định vị văn bản-hình ảnh đã hợp nhất thành một mô hình. Câu hỏi production không còn là "tôi nối pipeline nào" mà là "mô hình có thể đặt prompt nào xử lý trường hợp của tôi đầu-cuối."
 
 ## The Concept
 
@@ -51,58 +51,58 @@ flowchart LR
 
 ### Promptable Concept Segmentation
 
-A "concept prompt" is a short noun phrase (`"yellow school bus"`, `"striped red umbrella"`, `"hand holding a mug"`) or an image exemplar. The model returns segmentation masks for every instance in the image that matches the concept, plus a unique instance ID per match.
+Một "prompt khái niệm" là cụm danh từ ngắn (`"yellow school bus"`, `"striped red umbrella"`, `"hand holding a mug"`) hoặc một ảnh mẫu. Mô hình trả các mặt nạ phân đoạn cho mọi thực thể trong hình ảnh khớp khái niệm, cộng một ID thực thể duy nhất mỗi kết quả.
 
-This differs from classic visual-prompt SAM in three ways:
+Điều này khác SAM prompt trực quan cổ điển ở ba cách:
 
-1. No per-instance prompting required — one text prompt returns all matches.
-2. Open-vocabulary — the concept can be anything describable in natural language.
-3. Returns multiple instances at once rather than one mask per prompt.
+1. Không cần prompt từng thực thể — một prompt văn bản trả mọi kết quả khớp.
+2. Từ vựng mở — khái niệm có thể là bất cứ thứ gì mô tả được bằng ngôn ngữ tự nhiên.
+3. Trả nhiều thực thể cùng lúc thay vì một mặt nạ mỗi prompt.
 
 ### Key architectural pieces
 
-- **Shared backbone** — a single ViT processes the image. Both the detector head and the memory-based tracker read from it.
-- **Presence head** — predicts whether the concept is present in the image at all. Decouples "is this here?" from "where is it?". Reduces false positives on absent concepts.
-- **Decoupled detector-tracker** — image-level detection and video-level tracking have separate heads so they do not interfere.
-- **Memory bank** — stores per-instance features across frames for video tracking (same mechanism SAM 2 used).
+- **Backbone dùng chung** — một ViT duy nhất xử lý hình ảnh. Cả đầu phát hiện và bộ theo dõi dựa trên bộ nhớ đều đọc từ đó.
+- **Đầu hiện diện** — dự đoán liệu khái niệm có hiện diện trong hình ảnh hay không. Tách "cái này có ở đây không?" khỏi "nó ở đâu?". Giảm dương tính giả cho các khái niệm vắng mặt.
+- **Bộ phát hiện-bộ theo dõi tách rời** — phát hiện cấp ảnh và theo dõi cấp video có các đầu riêng để không can thiệp nhau.
+- **Ngân hàng bộ nhớ** — lưu các đặc trưng từng thực thể qua các khung hình để theo dõi video (cùng cơ chế SAM 2 dùng).
 
 ### Training at scale
 
-SAM 3 was trained on **4 million unique concepts** generated by a data engine that iteratively annotates and corrects using AI + human review. The new **SA-CO benchmark** contains 270K unique concepts, 50x larger than prior benchmarks. SAM 3 reaches 75-80% of human performance on SA-CO and doubles existing systems on image + video PCS.
+SAM 3 được huấn luyện trên **4 triệu khái niệm duy nhất** tạo bởi một bộ máy dữ liệu chú thích và sửa lặp bằng AI + con người đánh giá. **Benchmark SA-CO** mới chứa 270K khái niệm duy nhất, lớn hơn các benchmark trước 50 lần. SAM 3 đạt 75-80% hiệu suất con người trên SA-CO và gấp đôi các hệ thống hiện có trên PCS hình ảnh + video.
 
 ### SAM 3.1 Object Multiplex
 
-March 2026 update: **Object Multiplex** introduces a shared-memory mechanism for joint tracking of many instances of the same concept at once. Previously, tracking N instances meant N separate memory banks. Multiplex collapses that into one shared memory with per-instance queries. Result: substantially faster multi-object tracking without sacrificing accuracy.
+Cập nhật tháng 3 năm 2026: **Object Multiplex** giới thiệu cơ chế bộ nhớ dùng chung để cùng theo dõi nhiều thực thể cùng khái niệm một lúc. Trước đó, theo dõi N thực thể nghĩa là N ngân hàng bộ nhớ riêng. Multiplex gộp thành một bộ nhớ dùng chung với truy vấn từng thực thể. Kết quả: theo dõi nhiều đối tượng nhanh hơn đáng kể mà không hy sinh accuracy.
 
 ### Where Grounded SAM still matters in 2026
 
-- When you need a specific open-vocabulary detector swapped in (DINO-X, Florence-2).
-- When the SAM 3 license (gated on HF) is a blocker.
-- When you need more control over the detector threshold than SAM 3 exposes.
-- For research / ablation work on the detector component.
+- Khi cần thay vào một bộ phát hiện từ vựng mở cụ thể (DINO-X, Florence-2).
+- Khi giấy phép SAM 3 (cần xin quyền trên HF) là trở ngại.
+- Khi cần kiểm soát ngưỡng bộ phát hiện nhiều hơn SAM 3 cho phép.
+- Cho công việc nghiên cứu / loại bỏ thành phần bộ phát hiện.
 
-Modular pipelines still have a place. For most production work, SAM 3 is the simpler answer.
+Pipeline mô-đun vẫn có chỗ. Với hầu hết công việc production, SAM 3 là câu trả lời đơn giản hơn.
 
 ### YOLO-World vs SAM 3
 
-- **YOLO-World** — open-vocabulary detector only (no masks). Real-time. Best when you need boxes at high fps.
-- **SAM 3** — full segmentation + tracking. Slower but richer output.
+- **YOLO-World** — chỉ bộ phát hiện từ vựng mở (không mặt nạ). Thời gian thực. Tốt nhất khi cần hộp ở fps cao.
+- **SAM 3** — phân đoạn + theo dõi đầy đủ. Chậm hơn nhưng đầu ra phong phú hơn.
 
-Production split: YOLO-World for fast detection-only pipelines (robotics navigation, fast dashboards), SAM 3 for anything that needs masks or tracking.
+Phân chia production: YOLO-World cho pipeline chỉ phát hiện nhanh (điều hướng robot, bảng điều khiển nhanh), SAM 3 cho mọi thứ cần mặt nạ hoặc theo dõi.
 
 ### SAM-MI efficiency
 
-SAM-MI (2025-2026) addresses SAM's decoder bottleneck. Key ideas:
+SAM-MI (2025-2026) giải quyết nút thắt decoder SAM. Các ý tưởng chính:
 
-- **Sparse point prompting** — uses a few well-chosen points instead of dense prompts; reduces decoder calls by 96%.
-- **Shallow mask aggregation** — merges rough mask predictions into one sharper mask.
-- **Decoupled mask injection** — decoder receives pre-computed mask features instead of re-running.
+- **Đặt prompt điểm thưa** — dùng vài điểm được chọn tốt thay prompt dày đặc; giảm 96% lời gọi decoder.
+- **Tổng hợp mặt nạ nông** — gộp các dự đoán mặt nạ thô thành mặt nạ sắc hơn.
+- **Đưa mặt nạ tách rời** — decoder nhận đặc trưng mặt nạ tính trước thay vì chạy lại.
 
-Result: ~1.6× speedup over Grounded-SAM on open-vocabulary benchmarks.
+Kết quả: tăng tốc ~1.6× so với Grounded-SAM trên benchmark từ vựng mở.
 
 ### Output format for the three models
 
-All return the same general structure (boxes + labels + scores + masks + IDs), which is helpful — your pipeline downstream does not have to branch on which model ran.
+Tất cả trả cùng cấu trúc tổng quát (hộp + nhãn + điểm + mặt nạ + ID), điều hữu ích — pipeline phía sau không phải rẽ nhánh theo mô hình đã chạy.
 
 ```figure
 cv3-open-vocab
@@ -112,7 +112,7 @@ cv3-open-vocab
 
 ### Step 1: Prompt construction
 
-Build a helper that turns a user sentence into a list of SAM 3 concept prompts. This is the boundary where "what the user typed" meets "what the model consumes".
+Xây hàm hỗ trợ biến câu người dùng thành danh sách prompt khái niệm SAM 3. Đây là ranh giới nơi "người dùng đã gõ gì" gặp "mô hình tiêu thụ gì".
 
 ```python
 def split_concepts(sentence):
@@ -129,11 +129,11 @@ def split_concepts(sentence):
 print(split_concepts("cats, dogs and balloons"))
 ```
 
-SAM 3 accepts one concept per forward pass; for multi-concept queries, loop or batch them.
+SAM 3 nhận một khái niệm mỗi lượt truyền xuôi; với truy vấn nhiều khái niệm, lặp hoặc chia batch.
 
 ### Step 2: Post-processing helpers
 
-Turn SAM 3's raw outputs into a clean list of detections that match our Phase 4 Lesson 16 pipeline contract.
+Biến đầu ra thô SAM 3 thành danh sách phát hiện gọn khớp hợp đồng pipeline Giai đoạn 4 Bài 16.
 
 ```python
 from dataclasses import dataclass
@@ -162,11 +162,11 @@ def rle_encode(binary_mask):
     return ";".join(f"{v}x{c}" for v, c in runs)
 ```
 
-RLE keeps response payloads small even for many high-resolution masks. The same format works across SAM 2, SAM 3, Grounded SAM 2.
+RLE giữ nội dung phản hồi nhỏ ngay cả với nhiều mặt nạ độ phân giải cao. Cùng định dạng hoạt động với SAM 2, SAM 3, Grounded SAM 2.
 
 ### Step 3: A unified open-vocab segmentation interface
 
-Wrap whatever backend you have (SAM 3, Grounded SAM 2, YOLO-World + SAM 2) behind a single method. Your downstream code does not change when the backend does.
+Bao bọc bất kỳ backend bạn có (SAM 3, Grounded SAM 2, YOLO-World + SAM 2) sau một phương thức. Mã phía sau không đổi khi backend thay đổi.
 
 ```python
 from abc import ABC, abstractmethod
@@ -202,11 +202,11 @@ class StubOpenVocabSeg(OpenVocabSeg):
         ]
 ```
 
-The real `SAM3OpenVocabSeg` subclass would wrap `transformers.Sam3Model` and `Sam3Processor`.
+Lớp con `SAM3OpenVocabSeg` thật sẽ bao bọc `transformers.Sam3Model` và `Sam3Processor`.
 
 ### Step 4: Hugging Face SAM 3 usage (reference)
 
-For the actual model, the `transformers` integration:
+Với mô hình thật, tích hợp `transformers`:
 
 ```python
 from transformers import Sam3Processor, Sam3Model
@@ -228,28 +228,28 @@ boxes = outputs.boxes
 scores = outputs.scores
 ```
 
-One prompt, all matches returned in a single call.
+Một prompt, mọi kết quả khớp trả về trong một lời gọi.
 
 ### Step 5: Measure what Grounded SAM 2 gave you for free
 
-An honest benchmark: what happens when you replace Grounded SAM 2 with SAM 3 in a real pipeline?
+Một benchmark thành thật: điều gì xảy ra khi thay Grounded SAM 2 bằng SAM 3 trong pipeline thật?
 
-- Latency: SAM 3 saves one forward pass (no separate detector) but the model itself is heavier; usually net-neutral or a slight speedup.
-- Accuracy: SAM 3 substantially better on rare or compositional concepts ("striped red umbrella"). Similar on common single-word concepts.
-- Flexibility: Grounded SAM 2 lets you swap detectors (DINO-X, Florence-2, Grounding DINO 1.5); SAM 3 is monolithic.
+- Độ trễ: SAM 3 tiết kiệm một lượt truyền xuôi (không bộ phát hiện riêng) nhưng bản thân mô hình nặng hơn; thường tổng thể trung tính hoặc tăng tốc nhẹ.
+- Accuracy: SAM 3 tốt hơn đáng kể trên khái niệm hiếm hoặc tổ hợp ("ô đỏ có sọc"). Tương tự trên các khái niệm một từ phổ biến.
+- Linh hoạt: Grounded SAM 2 cho phép đổi bộ phát hiện (DINO-X, Florence-2, Grounding DINO 1.5); SAM 3 nguyên khối.
 
-Conclusion: SAM 3 is the default for 2026 open-vocab seg. Grounded SAM 2 is still the right answer when you need detector flexibility or different license terms.
+Kết luận: SAM 3 là mặc định cho phân đoạn từ vựng mở năm 2026. Grounded SAM 2 vẫn đúng khi cần tính linh hoạt bộ phát hiện hoặc điều khoản giấy phép khác.
 
 ## Use It
 
-Production deployment patterns:
+Các mẫu triển khai production:
 
-- **Real-time annotation** — SAM 3 + CVAT's label-as-text-prompt feature. Annotators select a label name; SAM 3 pre-labels every matching instance. Review and correct.
-- **Video analytics** — SAM 3.1 Object Multiplex for multi-object tracking; feed frames to the memory-based tracker.
-- **Robotics** — SAM 3 for open-vocab manipulation ("pick up the red cup"); runs as a planning primitive.
-- **Medical imaging** — SAM 3 fine-tuned on medical concepts; requires access request on HF.
+- **Chú thích thời gian thực** — SAM 3 + tính năng nhãn-là-prompt-văn-bản của CVAT. Người chú thích chọn tên nhãn; SAM 3 gán nhãn trước mọi thực thể khớp. Đánh giá và sửa.
+- **Phân tích video** — SAM 3.1 Object Multiplex cho theo dõi nhiều đối tượng; đưa các khung hình vào bộ theo dõi dựa trên bộ nhớ.
+- **Robot** — SAM 3 cho thao tác từ vựng mở ("nhấc cốc đỏ"); chạy như thành phần nguyên thủy lập kế hoạch.
+- **Hình ảnh y tế** — SAM 3 tinh chỉnh trên khái niệm y tế; yêu cầu xin quyền truy cập trên HF.
 
-Ultralytics wraps SAM 3 in its Python package:
+Ultralytics bao bọc SAM 3 trong gói Python:
 
 ```python
 from ultralytics import SAM
@@ -258,33 +258,33 @@ model = SAM("sam3.pt")
 results = model(image_path, prompts="yellow school bus")
 ```
 
-Same interface as YOLO and SAM 2.
+Cùng giao diện như YOLO và SAM 2.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-open-vocab-stack-picker.md` — a prompt that picks SAM 3 / Grounded SAM 2 / YOLO-World / SAM-MI based on latency, concept complexity, and licensing.
-- `outputs/skill-concept-prompt-designer.md` — a skill that turns user utterances into well-formed SAM 3 concept prompts (splitting, disambiguation, fallbacks).
+- `outputs/prompt-open-vocab-stack-picker.md` — một prompt chọn SAM 3 / Grounded SAM 2 / YOLO-World / SAM-MI dựa trên độ trễ, độ phức tạp khái niệm và giấy phép.
+- `outputs/skill-concept-prompt-designer.md` — một skill biến phát ngôn người dùng thành các prompt khái niệm SAM 3 đúng dạng (tách, khử mơ hồ, dự phòng).
 
 ## Exercises
 
-1. **(Easy)** Run SAM 3 on 10 images with concept prompts you choose. Compare against SAM 2 + Grounding DINO 1.5 on the same images. Report which concepts each model missed.
-2. **(Medium)** Build a "click-to-include / click-to-exclude" UI on top of SAM 3: a text prompt returns candidate instances; user clicks keep which ones count as positive. Output the final concept set as JSON.
-3. **(Hard)** Fine-tune SAM 3 on a custom concept set (e.g. 5 types of electronic components) with 20 labelled images each. Compare to zero-shot SAM 3 on the same test set; measure mask IoU improvement.
+1. **(Dễ)** Chạy SAM 3 trên 10 hình ảnh với prompt khái niệm bạn chọn. So sánh với SAM 2 + Grounding DINO 1.5 trên cùng ảnh. Báo cáo mỗi mô hình bỏ sót khái niệm nào.
+2. **(Vừa)** Xây giao diện "nhấp-để-bao-gồm / nhấp-để-loại-trừ" trên SAM 3: prompt văn bản trả các thực thể ứng viên; các lần nhấp giữ của người dùng xác định thực thể nào tính là dương. Xuất tập khái niệm cuối thành JSON.
+3. **(Khó)** Tinh chỉnh SAM 3 trên tập khái niệm tùy chỉnh (ví dụ 5 loại linh kiện điện tử) mỗi loại 20 ảnh gán nhãn. So sánh với SAM 3 zero-shot trên cùng tập test; đo cải thiện IoU mặt nạ.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Open-vocabulary segmentation | "Segment by text" | Produce masks for objects described in natural language, not a fixed label set |
-| PCS | "Promptable Concept Segmentation" | SAM 3's core task — given a noun-phrase or image exemplar, segment all matching instances |
-| Concept prompt | "The text input" | Short noun phrase or image exemplar; not a full sentence |
-| Presence head | "Is it here?" | SAM 3 module that decides whether the concept exists in the image before localisation |
-| SA-CO | "SAM 3 benchmark" | 270K-concept open-vocabulary segmentation benchmark; 50x larger than prior open-vocab benchmarks |
-| Object Multiplex | "SAM 3.1 update" | Shared-memory multi-object tracking; fast joint tracking of many instances |
-| Grounded SAM 2 | "Modular pipeline" | Detector + SAM 2 cascade; still relevant when detector swap matters |
-| SAM-MI | "Efficient SAM variant" | Mask Injection for 1.6x speedup over Grounded-SAM |
+| Open-vocabulary segmentation (Phân đoạn từ vựng mở) | "Phân đoạn bằng văn bản" | Tạo mặt nạ cho đối tượng được mô tả bằng ngôn ngữ tự nhiên, không phải tập nhãn cố định |
+| PCS | "Promptable Concept Segmentation" | Tác vụ cốt lõi SAM 3 — với cụm danh từ hoặc ảnh mẫu, phân đoạn mọi thực thể khớp |
+| Concept prompt (Prompt khái niệm) | "Đầu vào văn bản" | Cụm danh từ ngắn hoặc ảnh mẫu; không phải câu đầy đủ |
+| Presence head (Đầu hiện diện) | "Nó có ở đây không?" | Module SAM 3 quyết định liệu khái niệm tồn tại trong hình ảnh trước định vị |
+| SA-CO | "Benchmark SAM 3" | Benchmark phân đoạn từ vựng mở 270K khái niệm; lớn hơn benchmark từ vựng mở trước 50 lần |
+| Object Multiplex | "Cập nhật SAM 3.1" | Theo dõi nhiều đối tượng bộ nhớ dùng chung; cùng theo dõi nhanh nhiều thực thể |
+| Grounded SAM 2 | "Pipeline mô-đun" | Chuỗi bộ phát hiện + SAM 2; vẫn phù hợp khi đổi bộ phát hiện quan trọng |
+| SAM-MI | "Biến thể SAM hiệu quả" | Đưa mặt nạ vào để tăng tốc 1.6 lần so với Grounded-SAM |
 
 ## Further Reading
 

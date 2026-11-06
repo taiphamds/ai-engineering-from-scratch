@@ -9,38 +9,38 @@ tags: [sam3, open-vocab, prompt-engineering, segmentation]
 
 # Concept Prompt Designer
 
-SAM 3's accuracy depends heavily on how the concept prompt is phrased. This skill normalises free-form user utterances into prompts that SAM 3 handles well.
+Accuracy SAM 3 phụ thuộc nhiều cách diễn đạt prompt khái niệm. Skill này chuẩn hóa phát ngôn tự do người dùng thành prompt SAM 3 xử lý tốt.
 
 ## When to use
 
-- Building a UI that accepts natural-language object queries.
-- Exposing SAM 3 through an API where upstream callers send sentences.
-- Debugging poor SAM 3 matches — often the prompt is malformed, not the model.
+- Xây giao diện nhận truy vấn đối tượng ngôn ngữ tự nhiên.
+- Cung cấp SAM 3 qua API nơi bên gọi phía trước gửi câu.
+- Gỡ lỗi các kết quả khớp SAM 3 kém — thường prompt sai dạng, không phải mô hình.
 
 ## Inputs
 
-- `utterance`: raw user string.
-- `context`: optional domain hint (e.g. "surveillance", "medical", "retail").
-- `max_concepts`: maximum concepts to extract per utterance; default 5.
+- `utterance`: chuỗi thô người dùng.
+- `context`: gợi ý lĩnh vực tùy chọn (ví dụ "giám sát", "y tế", "bán lẻ").
+- `max_concepts`: số khái niệm tối đa trích mỗi phát ngôn; mặc định 5.
 
 ## Rules SAM 3 prefers
 
-- **Short noun phrases, not sentences.** `"cat"` wins over `"there is a cat"`.
-- **Concrete nouns.** `"skateboard"` wins over `"thing to ride on"`.
-- **Modifiers immediately before the noun.** `"red car"` wins over `"car that is red"`.
-- **Lowercase.** SAM 3 is robust but empirically slightly better on lowercase inputs.
-- **Singular or plural.** Both work; plural helps when multiple instances are expected.
+- **Cụm danh từ ngắn, không phải câu.** `"cat"` thắng `"there is a cat"`.
+- **Danh từ cụ thể.** `"skateboard"` thắng `"thing to ride on"`.
+- **Từ bổ nghĩa ngay trước danh từ.** `"red car"` thắng `"car that is red"`.
+- **Chữ thường.** SAM 3 vững nhưng theo thực nghiệm tốt hơn một chút trên đầu vào chữ thường.
+- **Số ít hoặc số nhiều.** Cả hai hoạt động; số nhiều giúp khi kỳ vọng nhiều thực thể.
 
 ## Steps
 
-1. **Tokenise by common separators** — comma, semicolon, "and", "or", "&".
-2. **Drop filler prefixes** — "find", "show me", "segment", "detect", "locate", "a", "an", "the".
-3. **Keep prepositional modifiers** only if they are visual — `"striped red umbrella"` yes, `"umbrella from yesterday"` no (the `"from yesterday"` is not in-image).
-4. **Disambiguate collisions** using the optional `context`:
-   - `"window"` in surveillance context -> `"building window"`.
-   - `"window"` in medical context -> often error; suggest user clarify.
-5. **Fallback** to the exact string if splitting yields zero concepts *and* the utterance contains at least one concrete noun. If no concrete noun can be extracted, do not emit a concept — return only warnings and ask the user to clarify (see Rules).
-6. **Cap at `max_concepts`.** If more concepts were extracted than the caller asked for, keep the first `max_concepts` in utterance order and emit the rest under `dropped` with reason `"exceeded max_concepts"`. This keeps latency bounded when a user pastes a long enumeration.
+1. **Token hóa theo dấu phân cách phổ biến** — dấu phẩy, chấm phẩy, "và", "hoặc", "&".
+2. **Bỏ tiền tố thừa** — "tìm", "cho tôi thấy", "phân đoạn", "phát hiện", "định vị", "a", "an", "the".
+3. **Giữ các bổ nghĩa giới từ** chỉ khi trực quan — `"striped red umbrella"` có, `"umbrella from yesterday"` không (`"from yesterday"` không nằm trong ảnh).
+4. **Khử mơ hồ các xung đột** bằng `context` tùy chọn:
+   - `"window"` trong ngữ cảnh giám sát -> `"building window"`.
+   - `"window"` trong ngữ cảnh y tế -> thường là lỗi; đề nghị người dùng làm rõ.
+5. **Dự phòng** về đúng chuỗi nếu tách không được khái niệm nào *và* phát ngôn chứa ít nhất một danh từ cụ thể. Nếu không thể trích danh từ cụ thể, không xuất khái niệm — chỉ trả cảnh báo và yêu cầu người dùng làm rõ (xem Rules).
+6. **Giới hạn ở `max_concepts`.** Nếu trích nhiều khái niệm hơn bên gọi yêu cầu, giữ `max_concepts` đầu theo thứ tự phát ngôn và xuất phần còn lại dưới `dropped` với lý do `"exceeded max_concepts"`. Điều này giữ độ trễ bị chặn khi người dùng dán liệt kê dài.
 
 ## Output format
 
@@ -78,7 +78,7 @@ out: ["striped red umbrella", "green hat", "pink balloon"]
 
 ## Rules
 
-- Never pass sentences longer than 8 words to SAM 3 — accuracy drops above that.
-- When an utterance contains no extractable concrete nouns, do not run SAM 3; return the warnings and ask for clarification.
-- Do not split on punctuation inside quoted strings; preserve `"black and white cat"` as one concept if it is quoted.
-- Always log the original utterance and the derived concepts for production debugging.
+- Không bao giờ truyền câu dài hơn 8 từ vào SAM 3 — accuracy giảm trên mức đó.
+- Khi phát ngôn không có danh từ cụ thể trích được, không chạy SAM 3; trả cảnh báo và hỏi làm rõ.
+- Không tách theo dấu câu trong chuỗi trích dẫn; giữ `"black and white cat"` như một khái niệm nếu được trích dẫn.
+- Luôn ghi phát ngôn gốc và các khái niệm suy ra để gỡ lỗi production.
