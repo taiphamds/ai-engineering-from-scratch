@@ -7,38 +7,38 @@ lesson: 12
 tags: [mcp, elicitation, mrtr, scope, authorization]
 ---
 
-Design a user-input step for an MCP operation targeting protocol revision `2026-07-28`.
+Thiết kế bước đầu vào người dùng cho thao tác MCP nhắm bản sửa đổi giao thức `2026-07-28`.
 
-Produce:
+Tạo ra:
 
-1. Scope contract. Put the workspace, directory, or resource URI in visible tool arguments or server configuration. State which authenticated principals may use it.
-2. Boundary checks. Define URI normalization, path-component containment, symbolic-link policy, and the operating-system sandbox.
-3. Trigger condition. Name the exact ambiguity, confirmation, or external interaction that requires user input.
-4. Discovery and capability gate. Return exact `supportedVersions`, capabilities, `ttlMs`, and `cacheScope` from `server/discover`. If tools are advertised, include mandatory deterministic `tools/list` descriptors with a valid object `inputSchema`, server identity metadata, and cache hints. Treat `elicitation: {}` and explicit `elicitation.form` as form support. Reject missing or URL-only support with `-32021` and `data.requiredCapabilities.elicitation.form`; use `-32022` with exact `supported` and `requested` data for an unsupported version.
-5. MRTR result. Return `resultType: "input_required"` with a stable `inputRequests` key and `elicitation/create` request.
-6. Interaction design. For form mode, provide a plain message and restricted flat schema. For URL mode, show the HTTPS destination and out-of-band completion rule.
-7. Retry contract. Require a fresh JSON-RPC id, original method and arguments, current `inputResponses`, per-request `_meta`, and exact `requestState` echo.
-   An id-less notification never receives a JSON-RPC result or error; an accepted Streamable HTTP notification receives `202` with no body.
-8. Branch handling. Map `accept`, `decline`, and `cancel` to different safe outcomes.
-9. State protection. Bind HMAC or authenticated encryption to the authenticated principal, original argument digest, candidate set, operation phase, expiry, and one-time nonce. Consume the nonce atomically in a bounded, TTL-pruned replay store shared by every handler instance.
-10. Final revalidation. Re-check authorization, live record state, and containment immediately before mutation.
+1. Hợp đồng phạm vi. Đặt workspace, thư mục hoặc URI tài nguyên trong đối số công cụ hiển thị hoặc cấu hình máy chủ. Nêu chủ thể đã xác thực nào được dùng.
+2. Kiểm tra ranh giới. Định nghĩa chuẩn hóa URI, giới hạn thành phần đường dẫn, chính sách liên kết tượng trưng và sandbox hệ điều hành.
+3. Điều kiện kích hoạt. Nêu đúng sự mơ hồ, xác nhận hoặc tương tác bên ngoài cần đầu vào người dùng.
+4. Cổng khám phá và khả năng. Trả `supportedVersions`, khả năng, `ttlMs` và `cacheScope` chính xác từ `server/discover`. Nếu công bố công cụ, gồm bộ mô tả `tools/list` bắt buộc tất định với `inputSchema` đối tượng hợp lệ, siêu dữ liệu danh tính máy chủ và gợi ý bộ đệm. Coi `elicitation: {}` và `elicitation.form` tường minh là hỗ trợ biểu mẫu. Từ chối hỗ trợ thiếu hoặc chỉ URL bằng `-32021` và `data.requiredCapabilities.elicitation.form`; dùng `-32022` với dữ liệu `supported` và `requested` chính xác cho phiên bản không hỗ trợ.
+5. Kết quả MRTR. Trả `resultType: "input_required"` với khóa `inputRequests` ổn định và yêu cầu `elicitation/create`.
+6. Thiết kế tương tác. Với chế độ biểu mẫu, cung cấp thông điệp thuần và lược đồ phẳng hạn chế. Với chế độ URL, hiển thị đích HTTPS và quy tắc hoàn thành ngoài băng.
+7. Hợp đồng thử lại. Yêu cầu id JSON-RPC mới, phương thức và đối số gốc, `inputResponses` hiện tại, `_meta` mỗi yêu cầu và phản hồi `requestState` chính xác.
+   Thông báo không id không bao giờ nhận kết quả hoặc lỗi JSON-RPC; thông báo Streamable HTTP được chấp nhận nhận `202` không phần thân.
+8. Xử lý nhánh. Ánh xạ `accept`, `decline` và `cancel` sang kết quả an toàn khác nhau.
+9. Bảo vệ trạng thái. Gắn HMAC hoặc mã hóa có xác thực với chủ thể đã xác thực, bản băm đối số gốc, tập ứng viên, giai đoạn thao tác, hết hạn và nonce một lần. Tiêu thụ nonce nguyên tử trong kho chống phát lại có giới hạn, dọn theo TTL dùng chung mọi thực thể trình xử lý.
+10. Xác thực lại cuối. Kiểm tra lại cấp quyền, trạng thái bản ghi trực tiếp và giới hạn ngay trước thay đổi.
 
-Hard rejects:
+Các trường hợp bác bỏ tuyệt đối:
 
-- Treating deprecated Roots as authorization, containment, or sandboxing.
-- Using `roots/list` or `notifications/roots/list_changed` in a new 2026-07-28 design.
-- Sending a reverse `elicitation/create` request instead of returning it through MRTR.
-- Collecting passwords, API keys, access tokens, or payment credentials in form mode.
-- Sending an elicitation mode absent from current per-request capabilities.
-- Treating `clientInfo` as an authenticated user identity.
-- Performing a destructive action before validated acceptance and final authorization checks.
-- Unsigned `requestState` that carries candidates or permission-relevant data.
+- Coi Roots ngừng được khuyến nghị là cấp quyền, giới hạn hoặc sandbox.
+- Dùng `roots/list` hoặc `notifications/roots/list_changed` trong thiết kế 2026-07-28 mới.
+- Gửi yêu cầu `elicitation/create` ngược thay vì trả qua MRTR.
+- Thu mật khẩu, khóa API, token truy cập hoặc thông tin xác thực thanh toán trong chế độ biểu mẫu.
+- Gửi chế độ elicitation vắng trong khả năng mỗi yêu cầu hiện tại.
+- Coi `clientInfo` là danh tính người dùng đã xác thực.
+- Thực hiện hành động phá hủy trước chấp nhận đã xác thực và kiểm tra cấp quyền cuối.
+- `requestState` không chữ ký mang ứng viên hoặc dữ liệu liên quan quyền.
 
-Refusal rules:
+Quy tắc từ chối:
 
-- Refuse repeated prompts after explicit decline.
-- Refuse elicitation for a value the server can derive or validate without the user.
-- Refuse a URL that contains credentials, user secrets, or a pre-authenticated bearer value.
-- Refuse a request that uses hidden protocol-session state, `initialize`, or `Mcp-Session-Id`.
+- Từ chối hỏi lặp lại sau từ chối tường minh.
+- Từ chối elicitation cho giá trị máy chủ có thể suy ra hoặc xác thực không cần người dùng.
+- Từ chối URL chứa thông tin xác thực, bí mật người dùng hoặc giá trị bearer đã xác thực trước.
+- Từ chối yêu cầu dùng trạng thái phiên giao thức ẩn, `initialize` hoặc `Mcp-Session-Id`.
 
-Output a one-page design with scope, authorization, containment, interaction mode, schema or URL, MRTR wire shape, state fields, response branches, replay policy, and final revalidation checklist.
+Xuất thiết kế một trang với phạm vi, cấp quyền, giới hạn, chế độ tương tác, lược đồ hoặc URL, hình dạng đường truyền MRTR, trường trạng thái, nhánh phản hồi, chính sách phát lại và danh sách kiểm tra xác thực lại cuối.
