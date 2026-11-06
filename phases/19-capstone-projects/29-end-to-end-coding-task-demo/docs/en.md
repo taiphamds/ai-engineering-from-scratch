@@ -1,6 +1,6 @@
 # Capstone Lesson 29: End-to-End Coding Agent on the Harness
 
-> Track A's payoff. This lesson stitches the gate chain, the sandbox, the eval harness, and the OTel spans into one working coding agent that fixes a real (small, fixture-scale) bug in a multi-file Python project. The agent is a deterministic policy, not an LLM; the substitution makes the lesson reproducible and shows that the harness was the interesting part all along. The contract is identical: a real model plugs in at the policy seam.
+> Thành quả của Track A. Bài này khâu chuỗi cổng, sandbox, harness đánh giá, và các span OTel thành một agent lập trình hoạt động sửa một lỗi thực (nhỏ, ở quy mô fixture) trong một dự án Python nhiều file. Agent là một chính sách tất định, không phải một LLM; sự thay thế khiến bài học có thể tái lập và cho thấy harness vẫn luôn là phần thú vị. Hợp đồng giống hệt: một mô hình thực cắm vào chỗ nối chính sách.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,19 +9,19 @@
 
 ## Learning Objectives
 
-- Compose the gate chain, sandbox, eval harness, and span builder into a single agent loop.
-- Implement a deterministic policy that uses read_file, run_tests, and write_file to fix a fixture bug.
-- Enforce a global step budget plus an observation token budget across an end-to-end run.
-- Emit complete OTel GenAI traces and Prometheus metrics for the full run.
-- Verify the agent solves the fixture in fewer than 12 steps with zero gate trips on legal tools.
+- Kết hợp chuỗi cổng, sandbox, harness đánh giá, và bộ dựng span thành một vòng lặp agent duy nhất.
+- Triển khai một chính sách tất định sử dụng read_file, run_tests, và write_file để sửa một lỗi fixture.
+- Thực thi một ngân sách bước toàn cục cùng một ngân sách token quan sát trên một lần chạy đầu cuối.
+- Phát ra các trace GenAI OTel và chỉ số Prometheus đầy đủ cho toàn bộ lần chạy.
+- Xác minh agent giải quyết fixture trong ít hơn 12 bước với không lần kích hoạt cổng nào trên các công cụ hợp lệ.
 
 ## The Problem
 
-Most agent demos work in isolation: a sandbox by itself, an eval harness by itself, a span emitter by itself. They look fine. Compose them and the seams show.
+Hầu hết demo agent hoạt động riêng lẻ: một sandbox tự nó, một harness đánh giá tự nó, một bộ phát span tự nó. Chúng trông ổn. Kết hợp chúng và các chỗ nối lộ ra.
 
-The gate chain says ALLOW but the sandbox refuses for a reason the chain did not anticipate. The eval harness records a pass but the OTel spans say the gate refused a tool the agent claims it used. The Prometheus counter is incremented twice when it should be incremented once. The observation budget is exceeded but the agent kept going because the budget was tracked in the chain and the sandbox didn't know.
+Chuỗi cổng nói ALLOW nhưng sandbox từ chối vì một lý do chuỗi không dự liệu. Harness đánh giá ghi nhận đạt nhưng các span OTel nói cổng đã từ chối một công cụ mà agent tuyên bố nó đã dùng. Bộ đếm Prometheus tăng hai lần khi lẽ ra phải tăng một lần. Ngân sách quan sát bị vượt nhưng agent tiếp tục vì ngân sách được theo dõi trong chuỗi và sandbox không biết.
 
-This lesson is the integration test for the whole track. The agent has to do four things in order: read the project, run the tests, identify the bug from the test failure, write the fix, rerun the tests, and stop. Every operation goes through the gate chain. Every tool execution goes through the sandbox. Every step is wrapped in a span. The eval harness scores the whole thing at the end.
+Bài này là kiểm thử tích hợp cho toàn bộ track. Agent phải làm bốn việc theo thứ tự: đọc dự án, chạy các kiểm thử, xác định lỗi từ thất bại kiểm thử, ghi bản sửa, chạy lại các kiểm thử, và dừng. Mọi thao tác đều qua chuỗi cổng. Mọi lần thực thi công cụ đều qua sandbox. Mọi bước được bọc trong một span. Harness đánh giá chấm toàn bộ ở cuối.
 
 ## The Concept
 
@@ -33,21 +33,21 @@ flowchart TD
   Harness --> Out[EvalReport + JSONL<br/>+ Prometheus exposition]
 ```
 
-The agent's policy is a state machine. Five states.
+Chính sách của agent là một máy trạng thái. Năm trạng thái.
 
-`SURVEY`: the agent reads the project listing. The next state is RUN_TESTS.
+`SURVEY`: agent đọc danh sách dự án. Trạng thái tiếp theo là RUN_TESTS.
 
-`RUN_TESTS`: the agent runs the test command. If the tests pass, the state machine halts with success. Otherwise the next state is INSPECT.
+`RUN_TESTS`: agent chạy lệnh kiểm thử. Nếu các kiểm thử đạt, máy trạng thái dừng với thành công. Nếu không trạng thái tiếp theo là INSPECT.
 
-`INSPECT`: the agent reads the failing source file. The next state is FIX.
+`INSPECT`: agent đọc file nguồn bị lỗi. Trạng thái tiếp theo là FIX.
 
-`FIX`: the agent writes the corrected file. The next state is VERIFY.
+`FIX`: agent ghi file đã sửa. Trạng thái tiếp theo là VERIFY.
 
-`VERIFY`: the agent runs the test command again. If the tests pass, halt success. Otherwise halt with failure.
+`VERIFY`: agent chạy lại lệnh kiểm thử. Nếu các kiểm thử đạt, dừng thành công. Nếu không dừng với thất bại.
 
-Each state corresponds to a tool call. Each tool call passes through the gate chain. If a tool call is denied, the agent reports the refusal in the trace and halts.
+Mỗi trạng thái tương ứng với một lệnh gọi công cụ. Mỗi lệnh gọi công cụ đi qua chuỗi cổng. Nếu một lệnh gọi công cụ bị từ chối, agent báo cáo sự từ chối trong trace và dừng.
 
-The fixture bug is an off-by-one in `fizz.py`. The deterministic policy detects the bug from the test failure message via a regex and emits the corrected file. Replacing the policy with an LLM does not change the harness contract.
+Lỗi fixture là một lỗi lệch một trong `fizz.py`. Chính sách tất định phát hiện lỗi từ thông điệp thất bại kiểm thử qua một regex và phát ra file đã sửa. Thay chính sách bằng một LLM không thay đổi hợp đồng harness.
 
 ```figure
 cg-harness-weave
@@ -69,44 +69,44 @@ flowchart TD
   Back --> Policy
 ```
 
-The lesson is self-contained. Each prior-lesson primitive is reimplemented at minimal scale in `main.py` (gate, sandbox, ledger, span) so the lesson runs without importing siblings. The names match lessons 25-28 exactly so the conceptual mapping is unambiguous.
+Bài học tự chứa. Mỗi thành phần cơ sở của bài trước được triển khai lại ở quy mô tối thiểu trong `main.py` (cổng, sandbox, sổ cái, span) để bài học chạy mà không import các bài anh em. Các tên khớp chính xác với bài 25-28 để ánh xạ khái niệm không mơ hồ.
 
 ## What you will build
 
-`main.py` ships:
+`main.py` cung cấp:
 
-1. The minimal harness primitives, copied with the same names as lessons 25-28: `GateChain`, `Sandbox`, `ObservationLedger`, `SpanBuilder`, `MetricsRegistry`.
-2. `CodingAgentPolicy` class: state machine with five states.
-3. `Repo` helper: prepares a scratch dir with the bundled buggy fixture.
-4. `AgentRun` class: drives the policy, dispatches through the harness, returns an `AgentRunReport`.
-5. A bundled fixture (`fixture_repo/`) with src/fizz.py, tests/test_fizz.py, and an expected/ tree for the eval harness.
-6. Demo: runs the policy end-to-end, prints the step-by-step trace, asserts pass, prints metrics.
+1. Các thành phần cơ sở harness tối thiểu, được sao chép với cùng các tên như bài 25-28: `GateChain`, `Sandbox`, `ObservationLedger`, `SpanBuilder`, `MetricsRegistry`.
+2. Lớp `CodingAgentPolicy`: máy trạng thái với năm trạng thái.
+3. Hàm hỗ trợ `Repo`: chuẩn bị một thư mục tạm với fixture lỗi được đóng gói.
+4. Lớp `AgentRun`: điều khiển chính sách, điều phối qua harness, trả về một `AgentRunReport`.
+5. Một fixture được đóng gói (`fixture_repo/`) với src/fizz.py, tests/test_fizz.py, và một cây expected/ cho harness đánh giá.
+6. Demo: chạy chính sách từ đầu đến cuối, in trace từng bước, khẳng định đạt, in các chỉ số.
 
-The bundled fixture is the same shape as lesson 27's task structure: a buggy file and a tests file. The test failure message contains enough information for the deterministic policy to identify the fix. A real LLM would do the same job, slower and with broader recall, but it would not change the harness's expectations.
+Fixture được đóng gói có cùng hình thức với cấu trúc tác vụ của bài 27: một file lỗi và một file kiểm thử. Thông điệp thất bại kiểm thử chứa đủ thông tin để chính sách tất định xác định bản sửa. Một LLM thực sẽ làm cùng công việc, chậm hơn và với khả năng nhớ rộng hơn, nhưng nó sẽ không thay đổi các kỳ vọng của harness.
 
 ## Why the policy is not an LLM
 
-A real LLM requires an API key, a network call, and unverifiable stochasticity. The harness is the part the lesson cares about. Subbing in a deterministic policy lets the lesson run on any developer laptop with zero external dependencies and lets the test suite assert exact-step counts.
+Một LLM thực đòi hỏi một khóa API, một lệnh gọi mạng, và tính ngẫu nhiên không thể xác minh. Harness là phần bài học quan tâm. Thay bằng một chính sách tất định cho phép bài học chạy trên bất kỳ laptop nhà phát triển nào với không phụ thuộc bên ngoài và cho phép bộ kiểm thử khẳng định số bước chính xác.
 
-The lesson's policy is a strict subset of what an LLM agent does. The policy reads the repo, sees the failing test, identifies the line, and emits a fix. An LLM goes through the same loop with the same harness contract; the bookkeeping is identical.
+Chính sách của bài học là một tập con thực sự của điều một agent LLM làm. Chính sách đọc repo, thấy kiểm thử thất bại, xác định dòng, và phát ra một bản sửa. Một LLM đi qua cùng vòng lặp với cùng hợp đồng harness; việc ghi sổ giống hệt.
 
 ## What the demo asserts
 
-The end-to-end demo asserts five things at exit time, and the test suite reasserts them programmatically.
+Demo đầu cuối khẳng định năm điều tại thời điểm thoát, và bộ kiểm thử khẳng định lại chúng bằng chương trình.
 
-The policy solved the fixture in fewer than 12 steps.
+Chính sách đã giải quyết fixture trong ít hơn 12 bước.
 
-The observation budget was never exceeded.
+Ngân sách quan sát chưa bao giờ bị vượt.
 
-Zero gate denials fired on legal tools. (The agent never invented a denied tool name.)
+Không lần từ chối cổng nào kích hoạt trên các công cụ hợp lệ. (Agent chưa bao giờ tự tạo một tên công cụ bị từ chối.)
 
-Every step has a corresponding span in the traces.jsonl.
+Mọi bước đều có một span tương ứng trong traces.jsonl.
 
-The Prometheus exposition contains a `tools_called_total{tool="read_file"}` entry and a `tool_latency_ms` histogram.
+Phần trình bày Prometheus chứa một mục `tools_called_total{tool="read_file"}` và một histogram `tool_latency_ms`.
 
 ## How this composes with the rest of Track A
 
-This lesson is the integration. Lesson 25 wrote the gate chain. Lesson 26 wrote the sandbox. Lesson 27 wrote the eval harness. Lesson 28 wrote the observability. Lesson 29 proves they work as a system. A real agent harness extends from here: swap the deterministic policy for a model, swap the bundled fixture for a real-repo task, swap the JSONL exporter for OTLP.
+Bài này là sự tích hợp. Bài 25 viết chuỗi cổng. Bài 26 viết sandbox. Bài 27 viết harness đánh giá. Bài 28 viết khả năng quan sát. Bài 29 chứng minh chúng hoạt động như một hệ thống. Một harness agent thực mở rộng từ đây: đổi chính sách tất định lấy một mô hình, đổi fixture được đóng gói lấy một tác vụ repo thực, đổi bộ xuất JSONL lấy OTLP.
 
 ## Running it
 
@@ -116,4 +116,4 @@ python3 code/main.py
 python3 -m pytest code/tests/ -v
 ```
 
-The demo prints a per-step trace, the final eval report, and the Prometheus exposition. Exit code is zero. The tests cover the policy state transitions, the gate refusals on synthetic tool calls, the end-to-end run on the bundled fixture, and the step-budget invariants.
+Demo in một trace theo bước, báo cáo đánh giá cuối cùng, và phần trình bày Prometheus. Mã thoát là không. Các kiểm thử bao phủ các chuyển tiếp trạng thái chính sách, các từ chối cổng trên các lệnh gọi công cụ tổng hợp, lần chạy đầu cuối trên fixture được đóng gói, và các bất biến ngân sách bước.
