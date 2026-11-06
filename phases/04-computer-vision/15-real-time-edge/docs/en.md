@@ -1,6 +1,6 @@
 # Real-Time Vision — Edge Deployment
 
-> Edge inference is the discipline of getting a 90-accuracy model to run at 30 fps on a device with 2 GB of RAM. Every percentage point of accuracy is traded against milliseconds of latency.
+> Suy luận biên là kỷ luật đưa một mô hình accuracy 90 chạy ở 30 fps trên thiết bị có 2 GB RAM. Mỗi điểm phần trăm accuracy được đánh đổi với mili giây độ trễ.
 
 **Type:** Learn + Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Measure inference latency, peak memory, and throughput for any PyTorch model, and read the FLOPs / params / latency trade-off
-- Quantise a vision model to INT8 using PyTorch's post-training quantisation and verify accuracy loss < 1%
-- Export to ONNX and compile with ONNX Runtime or TensorRT; name the three most common export failures and their fixes
-- Explain when to pick MobileNetV3, EfficientNet-Lite, ConvNeXt-Tiny, or MobileViT for an edge constraint
+- Đo độ trễ suy luận, bộ nhớ đỉnh và thông lượng cho bất kỳ mô hình PyTorch nào, và đọc đánh đổi FLOP / tham số / độ trễ
+- Lượng tử hóa một mô hình thị giác thành INT8 bằng lượng tử hóa sau huấn luyện PyTorch và xác minh mất accuracy < 1%
+- Xuất sang ONNX và biên dịch với ONNX Runtime hoặc TensorRT; nêu ba thất bại xuất thường gặp nhất và cách khắc phục
+- Giải thích khi nào chọn MobileNetV3, EfficientNet-Lite, ConvNeXt-Tiny hoặc MobileViT cho một ràng buộc biên
 
 ## The Problem
 
-A training-time vision model is a floating-point monster. 100M parameters, 10 GFLOPs per forward pass, 2 GB of VRAM. None of that fits on a phone, a car's infotainment unit, an industrial camera, or a drone. Shipping a vision system means fitting the same predictions into a budget that is 100x smaller.
+Một mô hình thị giác lúc huấn luyện là một quái vật dấu phẩy động. 100M tham số, 10 GFLOP mỗi lượt truyền xuôi, 2 GB VRAM. Không thứ nào vừa trên điện thoại, bộ thông tin giải trí ô tô, máy ảnh công nghiệp hoặc drone. Phát hành một hệ thống thị giác nghĩa là đưa cùng các dự đoán vào một ngân sách nhỏ hơn 100 lần.
 
-Three knobs do most of the work: model choice (a smaller architecture with the same recipe), quantisation (INT8 instead of FP32), and the inference runtime (ONNX Runtime, TensorRT, Core ML, TFLite). Getting them right is the difference between a demo that runs on a workstation and a product that ships on a $30 camera module.
+Ba núm làm hầu hết công việc: lựa chọn mô hình (kiến trúc nhỏ hơn với cùng công thức), lượng tử hóa (INT8 thay FP32) và runtime suy luận (ONNX Runtime, TensorRT, Core ML, TFLite). Làm đúng là khác biệt giữa một bản minh họa chạy trên máy trạm và một sản phẩm phát hành trên module máy ảnh $30.
 
-This lesson sets up the measurement discipline first (you cannot optimise what you cannot measure), then walks the three knobs. The goal is not to learn every edge runtime but to know what levers exist and how to verify each one does what you think.
+Bài này thiết lập kỷ luật đo lường trước (bạn không thể tối ưu thứ không thể đo), rồi đi qua ba núm. Mục tiêu không phải học mọi runtime biên mà biết những đòn bẩy nào tồn tại và cách xác minh mỗi đòn bẩy làm điều bạn nghĩ.
 
 ## The Concept
 
@@ -41,66 +41,66 @@ flowchart LR
     style PWR fill:#dbeafe,stroke:#2563eb
 ```
 
-- **Latency**: p50, p95, p99. Averaging only p50 hides tail behaviour that matters for real-time systems.
-- **Peak memory**: the maximum the device ever sees, not the steady-state average. Matters because OOMs are fatal on embedded targets.
-- **Power / energy**: millijoules per inference on a battery-powered device. Often proxied by CPU/GPU utilisation * time.
+- **Độ trễ**: p50, p95, p99. Chỉ lấy trung bình p50 che giấu hành vi đuôi quan trọng với các hệ thống thời gian thực.
+- **Bộ nhớ đỉnh**: mức tối đa thiết bị từng thấy, không phải trung bình trạng thái ổn định. Quan trọng vì OOM gây chết trên các đích nhúng.
+- **Công suất / năng lượng**: mili joule mỗi suy luận trên thiết bị chạy pin. Thường được đại diện bằng mức sử dụng CPU/GPU * thời gian.
 
-A table of (model, latency, memory, accuracy) is what an edge decision is made from. Every cell is measured on the target device, not the workstation.
+Một bảng (mô hình, độ trễ, bộ nhớ, accuracy) là cơ sở đưa ra quyết định biên. Mọi ô được đo trên thiết bị đích, không phải máy trạm.
 
 ### Measurement discipline
 
-Three rules that every edge profile should follow:
+Ba quy tắc mọi phép đo hiệu năng biên nên theo:
 
-1. **Warm up** the model with 5-10 dummy forward passes before measuring. Cold caches and JIT compilation produce unrepresentative first numbers.
-2. **Synchronise** GPU workloads with `torch.cuda.synchronize()` before and after the timed block. Without this you measure kernel dispatch, not kernel execution.
-3. **Fix input sizes** to the production resolution. Latency on 224x224 is not latency on 512x512.
+1. **Khởi động** mô hình với 5-10 lượt truyền xuôi giả trước khi đo. Cache lạnh và biên dịch JIT tạo các số đầu không đại diện.
+2. **Đồng bộ** các khối lượng công việc GPU bằng `torch.cuda.synchronize()` trước và sau khối đo thời gian. Không có điều này bạn đo điều phối kernel, không phải thực thi kernel.
+3. **Cố định kích thước đầu vào** theo độ phân giải production. Độ trễ trên 224x224 không phải độ trễ trên 512x512.
 
 ### FLOPs as a proxy
 
-FLOPs (floating-point operations per inference) is a cheap, device-independent proxy for latency. Useful for architecture comparison, misleading as absolute wall-clock. A model with 10% more FLOPs can be 2x faster in practice because it uses hardware-friendly ops (depthwise convs compile well, large 7x7 convs do not).
+FLOP (các phép toán dấu phẩy động mỗi suy luận) là một đại diện rẻ, độc lập thiết bị cho độ trễ. Hữu ích để so sánh kiến trúc, gây hiểu lầm như thời gian thực tuyệt đối. Một mô hình nhiều FLOP hơn 10% có thể nhanh hơn 2 lần trong thực tế vì sử dụng các phép toán thân thiện phần cứng (tích chập depthwise biên dịch tốt, tích chập 7x7 lớn thì không).
 
-Rule: use FLOPs for architecture search, use on-device latency for deployment decisions.
+Quy tắc: dùng FLOP để tìm kiếm kiến trúc, dùng độ trễ trên thiết bị cho quyết định triển khai.
 
 ### Quantisation in one paragraph
 
-Replace FP32 weights and activations with INT8. Model size drops 4x, memory bandwidth drops 4x, compute drops 2-4x on hardware that has INT8 kernels (every modern mobile SoC, every NVIDIA GPU with Tensor Cores). Accuracy loss on vision tasks is typically 0.1-1 percentage points with post-training static quantisation.
+Thay trọng số và kích hoạt FP32 bằng INT8. Kích thước mô hình giảm 4 lần, băng thông bộ nhớ giảm 4 lần, tính toán giảm 2-4 lần trên phần cứng có kernel INT8 (mọi SoC di động hiện đại, mọi GPU NVIDIA có Tensor Core). Mất accuracy trên các tác vụ thị giác thường 0.1-1 điểm phần trăm với lượng tử hóa tĩnh sau huấn luyện.
 
-Types:
+Các loại:
 
-- **Dynamic** — quantise weights to INT8, activations computed in FP. Easy, small speedup.
-- **Static (post-training)** — quantise weights + calibrate activation ranges on a small calibration set. Much faster than dynamic.
-- **Quantisation-aware training (QAT)** — simulate quantisation during training so the model learns around it. Best accuracy, needs labelled data.
+- **Động** — lượng tử hóa trọng số thành INT8, các kích hoạt tính trong FP. Dễ, tăng tốc nhỏ.
+- **Tĩnh (sau huấn luyện)** — lượng tử hóa trọng số + hiệu chuẩn các phạm vi kích hoạt trên một tập hiệu chuẩn nhỏ. Nhanh hơn động nhiều.
+- **Huấn luyện nhận biết lượng tử hóa (QAT)** — mô phỏng lượng tử hóa trong huấn luyện để mô hình học thích nghi. Accuracy tốt nhất, cần dữ liệu gán nhãn.
 
-For vision, post-training static quantisation gives 95% of the benefit with 5% of the effort. Use QAT only when accuracy loss from PTQ is unacceptable.
+Với thị giác, lượng tử hóa tĩnh sau huấn luyện cho 95% lợi ích với 5% công sức. Chỉ dùng QAT khi mất accuracy từ PTQ không chấp nhận được.
 
 ### Pruning and distillation
 
-- **Pruning** — remove unimportant weights (magnitude-based) or channels (structured). Works well on overparameterised models; less useful on already-compact architectures.
-- **Distillation** — train a small student to mimic a large teacher's logits. Often recovers most of the accuracy lost by shrinking the model. Standard for production edge models.
+- **Cắt tỉa** — loại bỏ các trọng số không quan trọng (dựa trên độ lớn) hoặc các kênh (có cấu trúc). Hoạt động tốt trên các mô hình dư tham số; ít hữu ích trên các kiến trúc đã nhỏ gọn.
+- **Chưng cất** — huấn luyện một học sinh nhỏ bắt chước logit của một giáo viên lớn. Thường khôi phục phần lớn accuracy mất do thu nhỏ mô hình. Tiêu chuẩn cho mô hình biên production.
 
 ### The inference runtimes
 
-- **PyTorch eager** — slow, not for deployment. Use for development only.
-- **TorchScript** — legacy. Superseded by `torch.compile` and ONNX export.
-- **ONNX Runtime** — the neutral runtime. CPU, CUDA, CoreML, TensorRT, OpenVINO all have ONNX providers. Start here.
-- **TensorRT** — NVIDIA's compiler. Best latency on NVIDIA GPUs (workstation and Jetson). Integrates with ONNX Runtime or standalone.
-- **Core ML** — Apple's runtime for iOS/macOS. Needs `.mlmodel` or `.mlpackage`.
-- **TFLite** — Google's runtime for Android/ARM. Needs `.tflite`.
-- **OpenVINO** — Intel's runtime for CPU/VPU. Needs `.xml` + `.bin`.
+- **PyTorch eager** — chậm, không cho triển khai. Chỉ dùng để phát triển.
+- **TorchScript** — cũ. Được thay bởi `torch.compile` và xuất ONNX.
+- **ONNX Runtime** — runtime trung lập. CPU, CUDA, CoreML, TensorRT, OpenVINO đều có provider ONNX. Bắt đầu ở đây.
+- **TensorRT** — trình biên dịch NVIDIA. Độ trễ tốt nhất trên GPU NVIDIA (máy trạm và Jetson). Tích hợp với ONNX Runtime hoặc độc lập.
+- **Core ML** — runtime Apple cho iOS/macOS. Cần `.mlmodel` hoặc `.mlpackage`.
+- **TFLite** — runtime Google cho Android/ARM. Cần `.tflite`.
+- **OpenVINO** — runtime Intel cho CPU/VPU. Cần `.xml` + `.bin`.
 
-In practice: export PyTorch -> ONNX -> pick the runtime for the target. ONNX is the lingua franca.
+Trong thực tế: xuất PyTorch -> ONNX -> chọn runtime cho đích. ONNX là ngôn ngữ chung.
 
 ### Edge architecture picker
 
-| Budget | Model | Why |
+| Ngân sách | Mô hình | Tại sao |
 |--------|-------|-----|
-| < 3M params | MobileNetV3-Small | Compiles everywhere, good baseline |
-| 3-10M | EfficientNet-Lite-B0 | Best accuracy per param on TFLite |
-| 10-20M | ConvNeXt-Tiny | Best accuracy-per-param, CPU-friendly |
-| 20-30M | MobileViT-S or EfficientViT | Transformer with ImageNet accuracy |
-| 30-80M | Swin-V2-Tiny | If stack supports window attention |
+| < 3M tham số | MobileNetV3-Small | Biên dịch mọi nơi, đường cơ sở tốt |
+| 3-10M | EfficientNet-Lite-B0 | Accuracy mỗi tham số tốt nhất trên TFLite |
+| 10-20M | ConvNeXt-Tiny | Accuracy mỗi tham số tốt nhất, thân thiện CPU |
+| 20-30M | MobileViT-S hoặc EfficientViT | Transformer có accuracy ImageNet |
+| 30-80M | Swin-V2-Tiny | Nếu bộ công cụ hỗ trợ attention cửa sổ |
 
-Quantise all of these to INT8 unless you have a specific reason not to.
+Lượng tử hóa tất cả thành INT8 trừ khi bạn có lý do cụ thể không làm.
 
 ```figure
 cnn-param-count
@@ -140,7 +140,7 @@ def measure_latency(model, input_shape, device="cpu", warmup=10, iters=50):
     }
 ```
 
-Warm up, synchronise, use `time.perf_counter()`. Report percentiles, not just mean.
+Khởi động, đồng bộ, sử dụng `time.perf_counter()`. Báo cáo các phân vị, không chỉ trung bình.
 
 ### Step 2: Parameter and FLOP counts
 
@@ -175,7 +175,7 @@ def flops_estimate(model, input_shape):
     return total
 ```
 
-For real projects use `fvcore.nn.FlopCountAnalysis` or `ptflops`; they handle every module type correctly.
+Cho dự án thực tế dùng `fvcore.nn.FlopCountAnalysis` hoặc `ptflops`; chúng xử lý đúng mọi loại module.
 
 ### Step 3: Post-training static quantisation
 
@@ -192,7 +192,7 @@ def quantise_ptq(model, calibration_loader, backend="x86"):
     return model
 ```
 
-Three steps: configure, prepare (insert observers), calibrate with real data, convert (fuse + quantise). Requires the model to be fused (`Conv -> BN -> ReLU` -> `ConvBnReLU`), which `torch.ao.quantization.fuse_modules` handles.
+Ba bước: cấu hình, chuẩn bị (chèn các bộ quan sát), hiệu chuẩn bằng dữ liệu thật, chuyển đổi (hợp nhất + lượng tử hóa). Yêu cầu mô hình được hợp nhất (`Conv -> BN -> ReLU` -> `ConvBnReLU`), điều `torch.ao.quantization.fuse_modules` xử lý.
 
 ### Step 4: Export to ONNX
 
@@ -211,7 +211,7 @@ def export_onnx(model, sample_input, path="model.onnx"):
     return path
 ```
 
-`opset_version=17` is the safe default in 2026. `dynamic_axes` lets you run the ONNX model with arbitrary batch size.
+`opset_version=17` là mặc định an toàn năm 2026. `dynamic_axes` cho phép chạy mô hình ONNX với kích thước batch tùy ý.
 
 ### Step 5: Benchmark and compare regimes
 
@@ -228,47 +228,47 @@ def compare_regimes():
           f"p50={lat_fp32['p50_ms']:.2f}ms  p95={lat_fp32['p95_ms']:.2f}ms")
 ```
 
-Run the same function for `resnet50`, `efficientnet_v2_s`, and `convnext_tiny` and you have the comparison table you need for a deployment decision.
+Chạy cùng hàm cho `resnet50`, `efficientnet_v2_s` và `convnext_tiny` và bạn có bảng so sánh cần cho quyết định triển khai.
 
 ## Use It
 
-Production stacks converge on one of three paths:
+Các bộ công cụ production hội tụ về một trong ba đường:
 
-- **Web / serverless**: PyTorch -> ONNX -> ONNX Runtime (CPU or CUDA provider). Easiest, good enough for most.
-- **NVIDIA edge (Jetson, GPU server)**: PyTorch -> ONNX -> TensorRT. Best latency, biggest engineering effort.
-- **Mobile**: PyTorch -> ONNX -> Core ML (iOS) or TFLite (Android). Quantise before export.
+- **Web / serverless**: PyTorch -> ONNX -> ONNX Runtime (provider CPU hoặc CUDA). Dễ nhất, đủ tốt cho hầu hết.
+- **Biên NVIDIA (Jetson, máy chủ GPU)**: PyTorch -> ONNX -> TensorRT. Độ trễ tốt nhất, công sức kỹ thuật lớn nhất.
+- **Di động**: PyTorch -> ONNX -> Core ML (iOS) hoặc TFLite (Android). Lượng tử hóa trước xuất.
 
-For measurement, `torch-tb-profiler`, `nvprof` / `nsys`, and Instruments on macOS give layer-by-layer breakdowns. `benchmark_app` (OpenVINO) and `trtexec` (TensorRT) give standalone CLI numbers.
+Cho đo lường, `torch-tb-profiler`, `nvprof` / `nsys` và Instruments trên macOS cho phân tích từng lớp. `benchmark_app` (OpenVINO) và `trtexec` (TensorRT) cho các số CLI độc lập.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-edge-deployment-planner.md` — a prompt that picks backbone, quantisation strategy, and runtime given target device and latency SLA.
-- `outputs/skill-latency-profiler.md` — a skill that writes a complete latency-benchmarking script with warmup, synchronisation, percentiles, and memory tracking.
+- `outputs/prompt-edge-deployment-planner.md` — một prompt chọn backbone, chiến lược lượng tử hóa và runtime với thiết bị đích và SLA độ trễ cho trước.
+- `outputs/skill-latency-profiler.md` — một skill viết script đo hiệu năng độ trễ hoàn chỉnh với khởi động, đồng bộ, các phân vị và theo dõi bộ nhớ.
 
 ## Exercises
 
-1. **(Easy)** Measure p50 latency for `resnet18`, `mobilenet_v3_small`, `efficientnet_v2_s`, and `convnext_tiny` at 224x224 on CPU. Report the table and identify which architecture has the best accuracy-per-ms.
-2. **(Medium)** Apply post-training static quantisation to `mobilenet_v3_small`. Report FP32 vs INT8 latency and accuracy loss on a held-out subset of CIFAR-10 or similar.
-3. **(Hard)** Export `convnext_tiny` to ONNX, run it through `onnxruntime` with the `CPUExecutionProvider`, and compare latency to the PyTorch eager baseline. Identify the first layer where ONNX Runtime is faster and explain why.
+1. **(Dễ)** Đo độ trễ p50 cho `resnet18`, `mobilenet_v3_small`, `efficientnet_v2_s` và `convnext_tiny` ở 224x224 trên CPU. Báo cáo bảng và xác định kiến trúc có accuracy mỗi ms tốt nhất.
+2. **(Vừa)** Áp dụng lượng tử hóa tĩnh sau huấn luyện cho `mobilenet_v3_small`. Báo cáo độ trễ FP32 so với INT8 và mất accuracy trên một tập con được giữ lại của CIFAR-10 hoặc tương tự.
+3. **(Khó)** Xuất `convnext_tiny` sang ONNX, chạy qua `onnxruntime` với `CPUExecutionProvider` và so sánh độ trễ với đường cơ sở PyTorch eager. Xác định lớp đầu nơi ONNX Runtime nhanh hơn và giải thích tại sao.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Latency | "How fast" | Time from input to output; p50/p95/p99 percentiles, not mean |
-| FLOPs | "Model size" | Floating-point ops per forward pass; rough proxy for compute cost |
-| INT8 quantisation | "8-bit" | Replace FP32 weights/activations with 8-bit integers; ~4x smaller, 2-4x faster |
-| PTQ | "Post-training quantisation" | Quantise a trained model without retraining; easy, usually enough |
-| QAT | "Quantisation-aware training" | Simulate quantisation during training; best accuracy, requires labelled data |
-| ONNX | "The neutral format" | Model exchange format supported by every mainstream inference runtime |
-| TensorRT | "NVIDIA compiler" | Compiles ONNX into an optimised engine for NVIDIA GPUs |
-| Distillation | "Teacher -> student" | Train a small model to mimic a big model's logits; recovers most lost accuracy |
+| Latency (Độ trễ) | "Nhanh đến mức nào" | Thời gian từ đầu vào tới đầu ra; các phân vị p50/p95/p99, không phải trung bình |
+| FLOPs | "Kích thước mô hình" | Các phép toán dấu phẩy động mỗi lượt truyền xuôi; đại diện gần đúng cho chi phí tính toán |
+| INT8 quantisation (Lượng tử hóa INT8) | "8-bit" | Thay trọng số/kích hoạt FP32 bằng số nguyên 8 bit; nhỏ hơn ~4 lần, nhanh hơn 2-4 lần |
+| PTQ | "Lượng tử hóa sau huấn luyện" | Lượng tử hóa mô hình đã huấn luyện mà không huấn luyện lại; dễ, thường đủ |
+| QAT | "Huấn luyện nhận biết lượng tử hóa" | Mô phỏng lượng tử hóa trong huấn luyện; accuracy tốt nhất, cần dữ liệu gán nhãn |
+| ONNX | "Định dạng trung lập" | Định dạng trao đổi mô hình được mọi runtime suy luận phổ biến hỗ trợ |
+| TensorRT | "Trình biên dịch NVIDIA" | Biên dịch ONNX thành một bộ máy tối ưu cho GPU NVIDIA |
+| Distillation (Chưng cất) | "Giáo viên -> học sinh" | Huấn luyện mô hình nhỏ bắt chước logit của mô hình lớn; khôi phục phần lớn accuracy mất |
 
 ## Further Reading
 
-- [EfficientNet (Tan & Le, 2019)](https://arxiv.org/abs/1905.11946) — compound scaling for efficient architectures
-- [MobileNetV3 (Howard et al., 2019)](https://arxiv.org/abs/1905.02244) — mobile-first architecture with h-swish and squeeze-excite
-- [Accelerating Inference Up to 6x Faster in PyTorch with Torch-TensorRT (NVIDIA)](https://developer.nvidia.com/blog/accelerating-inference-up-to-6x-faster-in-pytorch-with-torch-tensorrt/) — how to actually get the throughput numbers in the paper
-- [ONNX Runtime docs](https://onnxruntime.ai/docs/) — quantisation, graph optimisation, provider selection
+- [EfficientNet (Tan & Le, 2019)](https://arxiv.org/abs/1905.11946) — co giãn kết hợp cho các kiến trúc hiệu quả
+- [MobileNetV3 (Howard et al., 2019)](https://arxiv.org/abs/1905.02244) — kiến trúc ưu tiên di động với h-swish và squeeze-excite
+- [Accelerating Inference Up to 6x Faster in PyTorch with Torch-TensorRT (NVIDIA)](https://developer.nvidia.com/blog/accelerating-inference-up-to-6x-faster-in-pytorch-with-torch-tensorrt/) — cách thực sự có các số thông lượng trong bài báo
+- [ONNX Runtime docs](https://onnxruntime.ai/docs/) — lượng tử hóa, tối ưu đồ thị, lựa chọn provider

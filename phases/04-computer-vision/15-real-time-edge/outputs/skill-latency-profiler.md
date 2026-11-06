@@ -9,44 +9,44 @@ tags: [edge, deployment, profiling, benchmarking]
 
 # Latency Profiler
 
-Produce a disciplined latency benchmark for any PyTorch model. Reports that anyone downstream can actually trust.
+Tạo một phép đo hiệu năng độ trễ có kỷ luật cho bất kỳ mô hình PyTorch nào. Các báo cáo mà bất kỳ ai phía sau thực sự có thể tin.
 
 ## When to use
 
-- Comparing multiple candidate backbones before picking one to deploy.
-- Before and after quantisation or pruning.
-- After a runtime change (eager vs ONNX vs TensorRT).
-- Generating a deployment-readiness report.
+- So sánh nhiều backbone ứng viên trước khi chọn một để triển khai.
+- Trước và sau lượng tử hóa hoặc cắt tỉa.
+- Sau một thay đổi runtime (eager so với ONNX so với TensorRT).
+- Tạo một báo cáo sẵn sàng triển khai.
 
 ## Inputs
 
-- `model`: PyTorch `nn.Module`.
-- `input_shape`: tuple like `(1, 3, 224, 224)`.
+- `model`: `nn.Module` PyTorch.
+- `input_shape`: tuple như `(1, 3, 224, 224)`.
 - `device`: `cpu` | `cuda` | `mps`.
-- `warmup`: default 10.
-- `iters`: default 100.
+- `warmup`: mặc định 10.
+- `iters`: mặc định 100.
 
 ## Checks
 
 ### 1. Warmup
-Run the model `warmup` times without timing. Catches first-forward JIT compilation and cold cache effects.
+Chạy mô hình `warmup` lần không đo thời gian. Bao quát biên dịch JIT lượt đầu và các hiệu ứng cache lạnh.
 
 ### 2. Synchronisation
-For `cuda`, call `torch.cuda.synchronize()` before and after each timed forward pass.
-For `mps`, call `torch.mps.synchronize()`.
+Với `cuda`, gọi `torch.cuda.synchronize()` trước và sau mỗi lượt truyền xuôi được đo thời gian.
+Với `mps`, gọi `torch.mps.synchronize()`.
 
 ### 3. Timer
-Use `time.perf_counter()` for wall-clock measurement. Convert to milliseconds.
+Sử dụng `time.perf_counter()` để đo thời gian thực. Chuyển sang mili giây.
 
 ### 4. Percentiles
-Sort the full list of timings. Report `p50, p90, p95, p99, mean, std`.
+Sắp xếp toàn bộ danh sách thời gian. Báo cáo `p50, p90, p95, p99, mean, std`.
 
 ### 5. Memory
-For `cuda`, call `torch.cuda.max_memory_allocated()` after the run and subtract any baseline.
-For `cpu`, use `tracemalloc` or `psutil.Process().memory_info().rss` before and after.
+Với `cuda`, gọi `torch.cuda.max_memory_allocated()` sau lần chạy và trừ mọi mức cơ sở.
+Với `cpu`, sử dụng `tracemalloc` hoặc `psutil.Process().memory_info().rss` trước và sau.
 
 ### 6. Batch-size sweep
-Optionally repeat the benchmark for `batch_size in [1, 4, 16, 32]` to reveal throughput vs latency tradeoffs.
+Tùy chọn lặp phép đo cho `batch_size in [1, 4, 16, 32]` để làm lộ các đánh đổi thông lượng với độ trễ.
 
 ## Output template
 
@@ -108,8 +108,8 @@ def profile(model, input_shape, device="cpu", warmup=10, iters=100):
 
 ## Rules
 
-- Always run warmup; never trust a first-forward timing.
-- Percentiles, not mean — a single outlier can double the mean but barely move p50.
-- Use the same input_shape as production; latency on 224x224 is not latency on 384x384.
-- For CUDA, never omit `torch.cuda.synchronize()`; the numbers are meaningless without it.
-- Log the torch version, CUDA version, and device name alongside the numbers — they stop being comparable otherwise.
+- Luôn chạy warmup; không bao giờ tin thời gian lượt truyền xuôi đầu.
+- Các phân vị, không phải trung bình — một ngoại lệ có thể gấp đôi trung bình nhưng hầu như không dịch p50.
+- Sử dụng cùng input_shape như production; độ trễ trên 224x224 không phải độ trễ trên 384x384.
+- Với CUDA, không bao giờ bỏ `torch.cuda.synchronize()`; các số vô nghĩa nếu không có.
+- Ghi phiên bản torch, phiên bản CUDA và tên thiết bị cạnh các số — nếu không chúng không còn so sánh được.
