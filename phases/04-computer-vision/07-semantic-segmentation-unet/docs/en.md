@@ -1,6 +1,6 @@
 # Semantic Segmentation — U-Net
 
-> Segmentation is classification at every pixel. U-Net makes it work by pairing a downsampling encoder with an upsampling decoder and wiring skip connections between them.
+> Phân đoạn là phân loại tại mọi pixel. U-Net khiến nó hoạt động bằng cách ghép một encoder giảm mẫu với một decoder tăng mẫu và nối các kết nối tắt giữa chúng.
 
 **Type:** Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Distinguish semantic, instance, and panoptic segmentation and pick the right task for a given problem
-- Build a U-Net from scratch in PyTorch with encoder blocks, a bottleneck, a decoder with transposed convolutions, and skip connections
-- Implement pixel-wise cross-entropy, Dice loss, and the combined loss that is the current default for medical and industrial segmentation
-- Read IoU and Dice metrics per class and diagnose whether a bad score comes from small-object recall, boundary accuracy, or class imbalance
+- Phân biệt phân đoạn ngữ nghĩa, thực thể và toàn cảnh và chọn tác vụ phù hợp cho một bài toán nhất định
+- Xây một U-Net từ đầu bằng PyTorch với các khối encoder, một bottleneck, một decoder có tích chập chuyển vị và các kết nối tắt
+- Triển khai cross-entropy từng pixel, mất mát Dice và mất mát kết hợp hiện là mặc định cho phân đoạn y tế và công nghiệp
+- Đọc các thước đo IoU và Dice từng lớp và chẩn đoán điểm kém đến từ recall đối tượng nhỏ, độ chính xác biên hay mất cân bằng lớp
 
 ## The Problem
 
-Classification outputs one label per image. Detection outputs a handful of boxes per image. Segmentation outputs one label per pixel. For an input of size `H x W`, the output is a tensor of shape `H x W` (semantic) or `H x W x N_instances` (instance). That is millions of predictions per image, not one.
+Phân loại xuất ra một nhãn mỗi hình ảnh. Phát hiện xuất ra một số hộp mỗi hình ảnh. Phân đoạn xuất ra một nhãn mỗi pixel. Với một đầu vào kích thước `H x W`, đầu ra là một tensor hình dạng `H x W` (ngữ nghĩa) hoặc `H x W x N_instances` (thực thể). Đó là hàng triệu dự đoán mỗi hình ảnh, không phải một.
 
-The structure of segmentation is why it powers almost every dense-prediction vision product: medical imaging (tumour masks), autonomous driving (road, lane, obstacle), satellite (building footprints, crop boundaries), document parsing (layout zones), robotics (graspable regions). None of those tasks can be solved by putting a box around the object; they need the exact silhouette.
+Cấu trúc phân đoạn là lý do nó vận hành gần như mọi sản phẩm thị giác dự đoán dày đặc: hình ảnh y tế (mặt nạ khối u), lái xe tự hành (đường, làn, chướng ngại), vệ tinh (dấu chân tòa nhà, ranh giới cây trồng), phân tích tài liệu (vùng bố cục), robot (vùng có thể nắm). Không tác vụ nào trong số đó có thể được giải bằng cách đặt một hộp quanh đối tượng; chúng cần đường viền chính xác.
 
-The architectural problem is simple to state and not simple to solve: you need the network to see the global context of an image (what kind of scene is this) and the local pixel detail (exactly which pixel is road vs pavement) simultaneously. A standard CNN compresses spatially to gain context, which throws away the detail. U-Net was the design that got both.
+Bài toán kiến trúc dễ phát biểu nhưng không dễ giải: bạn cần mạng thấy ngữ cảnh toàn cục của hình ảnh (đây là loại cảnh nào) và chi tiết pixel cục bộ (chính xác pixel nào là đường hay vỉa hè) đồng thời. Một CNN tiêu chuẩn nén theo không gian để có ngữ cảnh, làm mất chi tiết. U-Net là thiết kế có được cả hai.
 
 ## The Concept
 
@@ -37,11 +37,11 @@ flowchart LR
     style PAN fill:#dcfce7,stroke:#16a34a
 ```
 
-- **Semantic** says "this pixel is road, that pixel is car." Two cars next to each other collapse into a single blob.
-- **Instance** says "this pixel is car #3, that pixel is car #5." Ignores background stuff ("stuff" = sky, road, grass).
-- **Panoptic** unifies both: every pixel gets a class label, every instance gets a unique id, stuff and things both segmented.
+- **Ngữ nghĩa** nói "pixel này là đường, pixel kia là xe." Hai xe cạnh nhau gộp thành một đốm.
+- **Thực thể** nói "pixel này là xe #3, pixel kia là xe #5." Bỏ qua các vùng nền ("stuff" = trời, đường, cỏ).
+- **Toàn cảnh** thống nhất cả hai: mọi pixel có nhãn lớp, mọi thực thể có một id duy nhất, cả vùng nền và đối tượng đều được phân đoạn.
 
-This lesson covers semantic. The next lesson (Mask R-CNN) covers instance.
+Bài này đề cập ngữ nghĩa. Bài tiếp theo (Mask R-CNN) đề cập thực thể.
 
 ### The U-Net shape
 
@@ -72,68 +72,68 @@ flowchart LR
     style DEC fill:#dcfce7,stroke:#16a34a
 ```
 
-The encoder halves spatial resolution four times and doubles channels. The decoder reverses: doubles spatial resolution four times and halves channels. The skip connections concatenate matching encoder features with decoder features at every resolution. The final 1x1 conv maps `64 -> num_classes` at full resolution.
+Encoder giảm một nửa độ phân giải không gian bốn lần và gấp đôi số kênh. Decoder đảo lại: gấp đôi độ phân giải không gian bốn lần và giảm một nửa số kênh. Các kết nối tắt nối các đặc trưng encoder tương ứng với đặc trưng decoder ở mỗi độ phân giải. Tích chập 1x1 cuối ánh xạ `64 -> num_classes` ở độ phân giải đầy đủ.
 
-Why skip connections are necessary: the decoder has seen only small feature maps by the time it tries to output pixel-level predictions. Without the skips it cannot localise edges accurately because that information was compressed away in the encoder. Skip connections hand it the high-resolution feature maps the encoder computed on the way down.
+Tại sao các kết nối tắt cần thiết: decoder chỉ thấy các bản đồ đặc trưng nhỏ khi nó cố xuất các dự đoán cấp pixel. Không có kết nối tắt nó không thể định vị các cạnh chính xác vì thông tin đó đã bị nén mất trong encoder. Các kết nối tắt đưa cho nó các bản đồ đặc trưng độ phân giải cao mà encoder đã tính trên đường đi xuống.
 
 ### Transposed vs bilinear upsample
 
-The decoder has to expand spatial dimensions. Two options:
+Decoder phải mở rộng các chiều không gian. Hai lựa chọn:
 
-- **Transposed convolution** (`nn.ConvTranspose2d`) — learnable upsample. Historical U-Net default. Can produce checkerboard artifacts if stride and kernel size do not divide evenly.
-- **Bilinear upsample + 3x3 conv** — smooth upsample followed by a conv. Fewer artifacts, fewer parameters, now the modern default.
+- **Tích chập chuyển vị** (`nn.ConvTranspose2d`) — tăng mẫu có thể học. Mặc định U-Net trong lịch sử. Có thể tạo các giả ảnh bàn cờ nếu stride và kích thước kernel không chia hết đều.
+- **Tăng mẫu song tuyến tính + tích chập 3x3** — tăng mẫu mượt theo sau bởi một tích chập. Ít giả ảnh hơn, ít tham số hơn, giờ là mặc định hiện đại.
 
-Both appear in the wild. For a first U-Net, bilinear is safer.
+Cả hai xuất hiện trong thực tế. Với U-Net đầu tiên, song tuyến tính an toàn hơn.
 
 ### Cross-entropy on a pixel grid
 
-For semantic segmentation with C classes, the model output is `(N, C, H, W)`. The target is `(N, H, W)` with integer class IDs. Cross-entropy is identical to the classification case, just applied at every spatial position:
+Với phân đoạn ngữ nghĩa có C lớp, đầu ra mô hình là `(N, C, H, W)`. Mục tiêu là `(N, H, W)` với các ID lớp nguyên. Cross-entropy giống hệt trường hợp phân loại, chỉ áp dụng tại mọi vị trí không gian:
 
 ```
 Loss = mean over (n, h, w) of -log( softmax(logits[n, :, h, w])[target[n, h, w]] )
 ```
 
-`F.cross_entropy` in PyTorch handles this shape natively. No reshape needed.
+`F.cross_entropy` trong PyTorch xử lý hình dạng này trực tiếp. Không cần đổi hình dạng.
 
 ### Dice loss and why you need it
 
-Cross-entropy treats every pixel equally. That is wrong when one class dominates the frame (medical imaging: 99% background, 1% tumour). The network can score 99% accuracy by predicting background everywhere and still be useless.
+Cross-entropy coi mọi pixel như nhau. Điều đó sai khi một lớp chi phối khung hình (hình ảnh y tế: 99% nền, 1% khối u). Mạng có thể đạt accuracy 99% bằng cách dự đoán nền ở mọi nơi và vẫn vô dụng.
 
-Dice loss solves this by directly optimising the overlap between predicted and true mask:
+Mất mát Dice giải quyết bằng cách trực tiếp tối ưu độ chồng lấn giữa mặt nạ dự đoán và thật:
 
 ```
 Dice(p, y) = 2 * sum(p * y) / (sum(p) + sum(y) + epsilon)
 Dice_loss = 1 - Dice
 ```
 
-where `p` is the sigmoid/softmax probability map for a class and `y` is the binary ground-truth mask. The loss is zero only when the overlap is perfect. Because it is ratio-based, class imbalance is irrelevant.
+trong đó `p` là bản đồ xác suất sigmoid/softmax cho một lớp và `y` là mặt nạ sự thật nền nhị phân. Mất mát chỉ bằng không khi chồng lấn hoàn hảo. Vì dựa trên tỷ số, mất cân bằng lớp không liên quan.
 
-In practice, use the **combined loss**:
+Trong thực tế, sử dụng **mất mát kết hợp**:
 
 ```
 L = L_cross_entropy + lambda * L_dice       (lambda ~ 1)
 ```
 
-Cross-entropy gives stable gradients early in training; Dice focuses the tail of training on actually matching the mask shape. This combination is the medical-imaging default and hard to beat on any class-imbalanced dataset.
+Cross-entropy cho các gradient ổn định ở đầu huấn luyện; Dice tập trung phần cuối huấn luyện vào việc thực sự khớp hình dạng mặt nạ. Tổ hợp này là mặc định hình ảnh y tế và khó đánh bại trên bất kỳ tập dữ liệu mất cân bằng lớp nào.
 
 ### Evaluation metrics
 
-- **Pixel accuracy** — percent of pixels predicted correctly. Cheap. Broken on imbalanced data for the same reason as accuracy in classification.
-- **IoU per class** — intersection over union for each class's mask; average across classes = mIoU.
-- **Dice (F1 on pixels)** — similar to IoU; `Dice = 2 * IoU / (1 + IoU)`. Medical imaging prefers Dice, driving community prefers IoU; they are monotonically related.
-- **Boundary F1** — measures how close predicted boundaries are to ground-truth boundaries, penalising even small shifts. Important for high-precision tasks like semiconductor inspection.
+- **Accuracy pixel** — phần trăm pixel được dự đoán đúng. Rẻ. Không hoạt động trên dữ liệu mất cân bằng vì cùng lý do như accuracy trong phân loại.
+- **IoU từng lớp** — giao trên hợp cho mặt nạ mỗi lớp; trung bình trên các lớp = mIoU.
+- **Dice (F1 trên pixel)** — tương tự IoU; `Dice = 2 * IoU / (1 + IoU)`. Hình ảnh y tế thích Dice, cộng đồng lái xe thích IoU; chúng có quan hệ đơn điệu.
+- **F1 biên** — đo các biên dự đoán gần các biên sự thật nền đến mức nào, phạt ngay cả các dịch chuyển nhỏ. Quan trọng với tác vụ độ chính xác cao như kiểm tra bán dẫn.
 
-Report IoU per class, not just mIoU. Mean IoU hides a class at 15% when nine others are at 85%.
+Báo cáo IoU từng lớp, không chỉ mIoU. IoU trung bình che giấu một lớp ở 15% khi chín lớp khác ở 85%.
 
 ### Input resolution trade-off
 
-U-Net's encoder halves resolution four times, so the input must be divisible by 16. Medical images are often 512x512 or 1024x1024. Autonomous-driving crops are 2048x1024. The memory cost of U-Net scales with `H * W * C_max`, and at 1024x1024 with 1024 bottleneck channels the forward pass already uses gigabytes of VRAM.
+Encoder U-Net giảm một nửa độ phân giải bốn lần, nên đầu vào phải chia hết cho 16. Các hình ảnh y tế thường 512x512 hoặc 1024x1024. Các vùng cắt lái xe tự hành là 2048x1024. Chi phí bộ nhớ U-Net tăng theo `H * W * C_max`, và ở 1024x1024 với 1024 kênh bottleneck lượt truyền xuôi đã sử dụng hàng gigabyte VRAM.
 
-Two standard workarounds:
-1. Tile the input — process 256x256 tiles with overlap and stitch.
-2. Replace the bottleneck with dilated convolutions that keep spatial resolution higher but widen receptive field (the DeepLab family).
+Hai cách khắc phục tiêu chuẩn:
+1. Chia ô đầu vào — xử lý các ô 256x256 có chồng lấn rồi ghép.
+2. Thay bottleneck bằng các tích chập giãn giữ độ phân giải không gian cao hơn nhưng mở rộng trường tiếp nhận (họ DeepLab).
 
-For a first model, a 256x256 input with a 64-channel-base U-Net trains comfortably on 8 GB VRAM.
+Với mô hình đầu tiên, đầu vào 256x256 với U-Net cơ sở 64 kênh huấn luyện thoải mái trên 8 GB VRAM.
 
 ```figure
 segmentation-flood
@@ -143,7 +143,7 @@ segmentation-flood
 
 ### Step 1: Encoder block
 
-Two 3x3 convs with batch norm and ReLU. The first conv changes channel count; the second keeps it.
+Hai tích chập 3x3 với batch norm và ReLU. Tích chập đầu thay đổi số kênh; tích chập thứ hai giữ nguyên.
 
 ```python
 import torch
@@ -166,7 +166,7 @@ class DoubleConv(nn.Module):
         return self.net(x)
 ```
 
-This block is reused throughout. `bias=False` because BN's beta handles the bias.
+Khối này được tái sử dụng xuyên suốt. `bias=False` vì beta BN xử lý bias.
 
 ### Step 2: Down and up blocks
 
@@ -197,7 +197,7 @@ class Up(nn.Module):
         return self.conv(x)
 ```
 
-The spatial-only shape check (`shape[-2:]`) handles inputs whose dimensions are not divisible by 16; a safe `F.interpolate` aligns the tensor before the concat. Comparing the full shape would also trigger on channel-count differences, which should be a loud error, not a silent interpolate.
+Kiểm tra hình dạng chỉ không gian (`shape[-2:]`) xử lý các đầu vào có kích thước không chia hết cho 16; một `F.interpolate` an toàn căn chỉnh tensor trước phép nối. So sánh toàn bộ hình dạng cũng sẽ kích hoạt trên các khác biệt số kênh, điều nên là một lỗi rõ ràng, không phải nội suy âm thầm.
 
 ### Step 3: The U-Net
 
@@ -234,7 +234,7 @@ print(f"output: {net(x).shape}")
 print(f"params: {sum(p.numel() for p in net.parameters()):,}")
 ```
 
-Output shape `(1, 2, 256, 256)` — same spatial size as the input, `num_classes` channels. About 7.7M parameters at `base=32`.
+Hình dạng đầu ra `(1, 2, 256, 256)` — cùng kích thước không gian như đầu vào, `num_classes` kênh. Khoảng 7.7M tham số ở `base=32`.
 
 ### Step 4: Losses
 
@@ -255,7 +255,7 @@ def combined_loss(logits, targets, num_classes, lam=1.0):
     return ce + lam * dc, {"ce": ce.item(), "dice": dc.item()}
 ```
 
-Dice is computed per class then averaged (macro Dice). The `eps` prevents division by zero on classes absent from the batch.
+Dice được tính từng lớp rồi lấy trung bình (Dice macro). `eps` ngăn chia cho không trên các lớp vắng mặt trong batch.
 
 ### Step 5: IoU metric
 
@@ -273,11 +273,11 @@ def iou_per_class(logits, targets, num_classes):
     return ious
 ```
 
-Returns a vector of length C. `nan` marks classes absent from the batch — do not average over those when computing mIoU.
+Trả về một vector độ dài C. `nan` đánh dấu các lớp vắng mặt trong batch — không lấy trung bình trên chúng khi tính mIoU.
 
 ### Step 6: Synthetic dataset for end-to-end verification
 
-Generate shapes on coloured backgrounds so the network has to learn shape, not pixel colour.
+Sinh các hình dạng trên nền có màu để mạng phải học hình dạng, không phải màu pixel.
 
 ```python
 import numpy as np
@@ -323,7 +323,7 @@ class SegDataset(Dataset):
         return img, mask
 ```
 
-Three classes: background (0), circles (1), squares (2). The network must learn to distinguish shape.
+Ba lớp: nền (0), hình tròn (1), hình vuông (2). Mạng phải học phân biệt hình dạng.
 
 ### Step 7: Training loop
 
@@ -345,11 +345,11 @@ def train_one_epoch(model, loader, optimizer, device, num_classes):
     return loss_sum / total, iou_sum / len(loader)
 ```
 
-Run this for 10-30 epochs on the synthetic dataset and watch mIoU climb past 0.9 for the shape classes. Note the `nan_to_num(0)` treats classes absent from a batch as zero; for accurate per-class IoU, mask by presence and use `torch.nanmean` across batches at evaluation time rather than averaging here.
+Chạy trong 10-30 epoch trên tập dữ liệu tổng hợp và quan sát mIoU vượt 0.9 cho các lớp hình dạng. Lưu ý `nan_to_num(0)` coi các lớp vắng mặt trong một batch là không; để có IoU từng lớp chính xác, đặt mặt nạ theo sự hiện diện và sử dụng `torch.nanmean` giữa các batch khi đánh giá thay vì lấy trung bình ở đây.
 
 ## Use It
 
-For production, `segmentation_models_pytorch` ("smp") wraps every standard segmentation architecture with any torchvision or timm backbone. Three lines:
+Cho production, `segmentation_models_pytorch` ("smp") bao bọc mọi kiến trúc phân đoạn tiêu chuẩn với bất kỳ backbone torchvision hoặc timm nào. Ba dòng:
 
 ```python
 import segmentation_models_pytorch as smp
@@ -362,42 +362,42 @@ model = smp.Unet(
 )
 ```
 
-Also worth knowing for real work:
-- **DeepLabV3+** replaces max-pool-based downsampling with dilated convs so the bottleneck keeps resolution; faster boundaries on satellite and driving data.
-- **SegFormer** swaps the conv encoder for a hierarchical transformer; current SOTA on many benchmarks.
-- **Mask2Former** / **OneFormer** unify semantic, instance, and panoptic segmentation in a single architecture.
+Cũng đáng biết cho công việc thực tế:
+- **DeepLabV3+** thay giảm mẫu dựa trên max-pool bằng các tích chập giãn để bottleneck giữ độ phân giải; biên nhanh hơn trên dữ liệu vệ tinh và lái xe.
+- **SegFormer** đổi encoder tích chập thành transformer phân cấp; SOTA hiện tại trên nhiều benchmark.
+- **Mask2Former** / **OneFormer** thống nhất phân đoạn ngữ nghĩa, thực thể và toàn cảnh trong một kiến trúc duy nhất.
 
-All three are drop-in replacements in `smp` or `transformers` with the same data loader.
+Cả ba là các thay thế trực tiếp trong `smp` hoặc `transformers` với cùng bộ tải dữ liệu.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-segmentation-task-picker.md` — a prompt that picks between semantic, instance, and panoptic segmentation and names the architecture for a given task.
-- `outputs/skill-segmentation-mask-inspector.md` — a skill that reports class distribution, predicted-mask statistics, and the classes that are under-predicted or boundary-blurred.
+- `outputs/prompt-segmentation-task-picker.md` — một prompt chọn giữa phân đoạn ngữ nghĩa, thực thể và toàn cảnh và nêu tên kiến trúc cho một tác vụ nhất định.
+- `outputs/skill-segmentation-mask-inspector.md` — một skill báo cáo phân phối lớp, thống kê mặt nạ dự đoán và các lớp bị dự đoán thiếu hoặc mờ biên.
 
 ## Exercises
 
-1. **(Easy)** Implement `bce_dice_loss` for a binary segmentation task (foreground vs background). Verify on a synthetic two-class dataset that the combined loss converges faster than BCE alone when the foreground is 5% of pixels.
-2. **(Medium)** Replace the `nn.Upsample + conv` up-block with a `nn.ConvTranspose2d` up-block. Train both on the synthetic dataset and compare mIoU. Observe where checkerboard artifacts appear in the transposed-conv version.
-3. **(Hard)** Take a real segmentation dataset (Oxford-IIIT Pets, Cityscapes mini split, or a medical subset) and train the U-Net to within 2 IoU points of the `smp.Unet` reference. Report per-class IoU and identify which classes benefit most from adding Dice to the loss.
+1. **(Dễ)** Triển khai `bce_dice_loss` cho một tác vụ phân đoạn nhị phân (tiền cảnh so với nền). Xác minh trên một tập dữ liệu tổng hợp hai lớp rằng mất mát kết hợp hội tụ nhanh hơn chỉ BCE khi tiền cảnh là 5% pixel.
+2. **(Vừa)** Thay khối tăng `nn.Upsample + conv` bằng một khối tăng `nn.ConvTranspose2d`. Huấn luyện cả hai trên tập dữ liệu tổng hợp và so sánh mIoU. Quan sát nơi các giả ảnh bàn cờ xuất hiện trong phiên bản tích chập chuyển vị.
+3. **(Khó)** Lấy một tập dữ liệu phân đoạn thật (Oxford-IIIT Pets, tập chia nhỏ Cityscapes hoặc một tập con y tế) và huấn luyện U-Net trong phạm vi 2 điểm IoU của bản tham chiếu `smp.Unet`. Báo cáo IoU từng lớp và xác định lớp nào hưởng lợi nhiều nhất từ việc thêm Dice vào mất mát.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Semantic segmentation | "Label every pixel" | Per-pixel classification into C classes; instances of the same class merge |
-| Instance segmentation | "Label every object" | Separates distinct instances of the same class; foreground-only |
-| Panoptic segmentation | "Semantic + instance" | Every pixel gets a class; every thing instance also gets a unique id |
-| Skip connection | "U-Net bridge" | Concatenation of encoder features into matching-resolution decoder features; preserves high-frequency detail |
-| Transposed conv | "Deconvolution" | Learnable upsampling; can produce checkerboard artifacts |
-| Dice loss | "Overlap loss" | 1 - 2|A ∩ B| / (|A| + |B|); optimises mask overlap directly and is robust to class imbalance |
-| mIoU | "Mean intersection over union" | Average IoU across classes; the community-standard metric for segmentation |
-| Boundary F1 | "Boundary accuracy" | F1 score computed on boundary pixels only; matters for precision-critical tasks |
+| Semantic segmentation (Phân đoạn ngữ nghĩa) | "Gán nhãn mọi pixel" | Phân loại từng pixel thành C lớp; các thực thể cùng lớp gộp lại |
+| Instance segmentation (Phân đoạn thực thể) | "Gán nhãn mọi đối tượng" | Tách các thực thể riêng biệt cùng lớp; chỉ tiền cảnh |
+| Panoptic segmentation (Phân đoạn toàn cảnh) | "Ngữ nghĩa + thực thể" | Mọi pixel có một lớp; mọi thực thể đối tượng cũng có một id duy nhất |
+| Skip connection (Kết nối tắt) | "Cầu U-Net" | Nối các đặc trưng encoder vào các đặc trưng decoder khớp độ phân giải; giữ chi tiết tần số cao |
+| Transposed conv (Tích chập chuyển vị) | "Giải tích chập" | Tăng mẫu có thể học; có thể tạo giả ảnh bàn cờ |
+| Dice loss (Mất mát Dice) | "Mất mát chồng lấn" | 1 - 2|A ∩ B| / (|A| + |B|); tối ưu chồng lấn mặt nạ trực tiếp và vững trước mất cân bằng lớp |
+| mIoU | "Trung bình giao trên hợp" | IoU trung bình trên các lớp; thước đo tiêu chuẩn cộng đồng cho phân đoạn |
+| Boundary F1 (F1 biên) | "Độ chính xác biên" | Điểm F1 chỉ tính trên các pixel biên; quan trọng với các tác vụ đòi hỏi độ chính xác |
 
 ## Further Reading
 
-- [U-Net: Convolutional Networks for Biomedical Image Segmentation (Ronneberger et al., 2015)](https://arxiv.org/abs/1505.04597) — the original paper; the figure everyone copies is on page 2
-- [Fully Convolutional Networks (Long et al., 2015)](https://arxiv.org/abs/1411.4038) — the paper that first made segmentation an end-to-end conv problem
-- [segmentation_models_pytorch](https://github.com/qubvel/segmentation_models.pytorch) — the reference for production segmentation; every standard architecture plus every standard loss
-- [iafoss, Unet34 submission with TTA (Kaggle notebook)](https://www.kaggle.com/code/iafoss/unet34-submission-tta-0-699-new-public-lb) — test-time augmentation for a U-Net on a real segmentation competition
+- [U-Net: Convolutional Networks for Biomedical Image Segmentation (Ronneberger et al., 2015)](https://arxiv.org/abs/1505.04597) — bài báo gốc; hình mọi người sao chép nằm ở trang 2
+- [Fully Convolutional Networks (Long et al., 2015)](https://arxiv.org/abs/1411.4038) — bài báo đầu tiên biến phân đoạn thành một bài toán tích chập đầu-cuối
+- [segmentation_models_pytorch](https://github.com/qubvel/segmentation_models.pytorch) — tài liệu tham khảo cho phân đoạn production; mọi kiến trúc tiêu chuẩn cộng mọi mất mát tiêu chuẩn
+- [iafoss, Unet34 submission with TTA (Kaggle notebook)](https://www.kaggle.com/code/iafoss/unet34-submission-tta-0-699-new-public-lb) — tăng cường lúc test cho một U-Net trong một cuộc thi phân đoạn thực tế

@@ -9,33 +9,33 @@ tags: [computer-vision, segmentation, debugging, evaluation]
 
 # Segmentation Mask Inspector
 
-A diagnostic for the gap between "the loss went down" and "the masks actually look right".
+Một chẩn đoán cho khoảng cách giữa "mất mát đã giảm" và "các mặt nạ thực sự trông đúng".
 
 ## When to use
 
-- Right after a training run when mIoU looks fine but visual inspection says otherwise.
-- Before deployment: checking the class balance of predictions against ground truth.
-- When per-class IoU is high for large objects but low for small ones.
-- Debugging boundary artefacts that do not show up in IoU because they are small in pixel count.
+- Ngay sau một lần huấn luyện khi mIoU trông ổn nhưng xem trực quan nói khác.
+- Trước triển khai: kiểm tra cân bằng lớp của các dự đoán so với sự thật nền.
+- Khi IoU từng lớp cao cho các đối tượng lớn nhưng thấp cho các đối tượng nhỏ.
+- Gỡ lỗi các giả ảnh biên không xuất hiện trong IoU vì chúng có ít pixel.
 
 ## Inputs
 
-- `preds`: (N, H, W) tensor of predicted class IDs.
-- `targets`: (N, H, W) tensor of ground-truth class IDs.
-- `num_classes`: integer.
-- Optional `class_names`: list of C strings.
+- `preds`: tensor (N, H, W) các ID lớp dự đoán.
+- `targets`: tensor (N, H, W) các ID lớp sự thật nền.
+- `num_classes`: số nguyên.
+- `class_names` tùy chọn: danh sách C chuỗi.
 
 ## Steps
 
-1. **Class pixel histograms.** Compute the percentage of pixels per class for `preds` and `targets`. Flag any class where `|pred% - gt%| / max(gt%, 1e-6) > 0.30` (relative deviation above 30%). For classes absent from ground truth (`gt% == 0`), flag any predicted share above `0.3` directly.
+1. **Histogram pixel lớp.** Tính phần trăm pixel mỗi lớp cho `preds` và `targets`. Đánh dấu mọi lớp có `|pred% - gt%| / max(gt%, 1e-6) > 0.30` (độ lệch tương đối trên 30%). Với các lớp vắng mặt trong sự thật nền (`gt% == 0`), trực tiếp đánh dấu mọi tỷ phần dự đoán trên `0.3`.
 
-2. **IoU per class** and **boundary F1 per class**. Boundary F1 is computed by dilating each mask by 3 pixels, intersecting, and scoring. Classes with IoU > 0.7 but boundary F1 < 0.5 are blurring edges.
+2. **IoU từng lớp** và **F1 biên từng lớp**. F1 biên được tính bằng cách giãn mỗi mặt nạ 3 pixel, lấy giao và chấm điểm. Các lớp có IoU > 0.7 nhưng F1 biên < 0.5 đang làm mờ cạnh.
 
-3. **Small-object recall.** Separate every ground-truth connected component into size buckets (tiny < 100 px, small < 1000 px, medium < 10000 px, large >= 10000 px). Report recall per bucket per class. Small-object recall below 0.3 while large-object recall is above 0.9 indicates a resolution / receptive-field problem.
+3. **Recall đối tượng nhỏ.** Tách mỗi thành phần liên thông sự thật nền vào các nhóm kích thước (rất nhỏ < 100 px, nhỏ < 1000 px, vừa < 10000 px, lớn >= 10000 px). Báo cáo recall mỗi nhóm mỗi lớp. Recall đối tượng nhỏ dưới 0.3 trong khi recall đối tượng lớn trên 0.9 cho thấy một vấn đề độ phân giải / trường tiếp nhận.
 
-4. **Confusion pairs.** For each class, find the class it most often confuses with (most common wrong predicted class within its ground-truth mask). Report the top 3 pairs.
+4. **Các cặp nhầm lẫn.** Với mỗi lớp, tìm lớp nó thường nhầm nhất (lớp dự đoán sai phổ biến nhất trong mặt nạ sự thật nền của nó). Báo cáo 3 cặp đứng đầu.
 
-5. **Saturation check (requires `probs` or `logits`, not just `preds`).** If the caller passes the raw per-pixel probability distribution `probs: (N, C, H, W)`, compute the fraction of pixels where `probs.max(dim=1) > 0.99` per class. High saturation (>0.9 of a class's pixels) suggests overconfidence — candidate for label smoothing or calibration. When only argmaxed `preds` are available, skip this step and note it in the report.
+5. **Kiểm tra bão hòa (cần `probs` hoặc `logits`, không chỉ `preds`).** Nếu bên gọi truyền phân phối xác suất từng pixel thô `probs: (N, C, H, W)`, tính tỷ lệ pixel có `probs.max(dim=1) > 0.99` mỗi lớp. Bão hòa cao (>0.9 pixel của một lớp) gợi ý quá tự tin — ứng viên cho làm trơn nhãn hoặc hiệu chỉnh. Khi chỉ có `preds` đã argmax, bỏ bước này và ghi chú trong báo cáo.
 
 ## Report format
 
@@ -62,8 +62,8 @@ A diagnostic for the gap between "the loss went down" and "the masks actually lo
 
 ## Rules
 
-- Sort class rows by descending gt pixel share so the most frequent classes come first.
-- Flag classes with IoU < 0.4 or boundary F1 < 0.3 as `critical`.
-- When small-object recall is the dominant failure, recommend: higher-resolution training, smaller stride at the last encoder stage, or a feature-pyramid decoder.
-- When boundary F1 is the dominant failure, recommend: boundary-aware loss (Lovasz or BoundaryLoss), TTA with horizontal flip, and stride-less decoder.
-- Never output class indices as the only identifier; if `class_names` is provided, use it in every row.
+- Sắp xếp các hàng lớp theo tỷ phần pixel gt giảm dần để các lớp thường gặp nhất đứng đầu.
+- Đánh dấu các lớp có IoU < 0.4 hoặc F1 biên < 0.3 là `critical`.
+- Khi recall đối tượng nhỏ là thất bại chủ đạo, khuyến nghị: huấn luyện độ phân giải cao hơn, stride nhỏ hơn ở giai đoạn encoder cuối hoặc decoder tháp đặc trưng.
+- Khi F1 biên là thất bại chủ đạo, khuyến nghị: mất mát nhận biết biên (Lovasz hoặc BoundaryLoss), TTA với lật ngang và decoder không stride.
+- Không bao giờ xuất chỉ số lớp làm định danh duy nhất; nếu `class_names` được cung cấp, sử dụng nó ở mọi hàng.
