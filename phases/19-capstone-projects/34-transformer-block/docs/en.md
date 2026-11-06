@@ -1,6 +1,6 @@
 # Transformer Block from Scratch
 
-> One block is the unit of every modern decoder LLM. Layer norm, multi head attention, residual, MLP, residual. The pre-LN variant trains stably without warmup. The post-LN variant is what the original paper shipped. This lesson builds both, side by side, and shows which one survives a 12 layer stack at common learning rates.
+> Một khối là đơn vị của mọi LLM decoder hiện đại. Chuẩn hóa lớp, attention đa đầu, phần dư, MLP, phần dư. Biến thể pre-LN huấn luyện ổn định mà không cần khởi động. Biến thể post-LN là thứ bài báo gốc cung cấp. Bài này xây dựng cả hai, song song, và cho thấy biến thể nào sống sót qua một ngăn xếp 12 lớp ở các tốc độ học phổ biến.
 
 **Type:** Build
 **Languages:** Python
@@ -9,21 +9,21 @@
 
 ## Learning Objectives
 
-- Build a transformer block in PyTorch from the four moving pieces: LayerNorm, multi head causal attention, residual connections, position wise MLP.
-- Place the LayerNorms in two configurations (pre-LN and post-LN) and explain why one trains stably without warmup.
-- Implement causal masking inside the multi head attention so token `i` cannot see tokens `j > i`.
-- Track gradient flow through both variants on a 12 layer stack and read the result without hand waving.
-- Reuse the block as a drop-in unit when the next lesson assembles a 124 million parameter GPT.
+- Xây dựng một khối transformer trong PyTorch từ bốn phần chuyển động: LayerNorm, attention nhân quả đa đầu, các kết nối phần dư, MLP theo vị trí.
+- Đặt các LayerNorm ở hai cấu hình (pre-LN và post-LN) và giải thích tại sao một cấu hình huấn luyện ổn định mà không cần khởi động.
+- Triển khai che nhân quả bên trong attention đa đầu để token `i` không thể thấy các token `j > i`.
+- Theo dõi dòng gradient qua cả hai biến thể trên một ngăn xếp 12 lớp và đọc kết quả mà không giải thích qua loa.
+- Tái sử dụng khối như một đơn vị thay thế trực tiếp khi bài tiếp theo lắp ráp một GPT 124 triệu tham số.
 
 ## The Problem
 
-A transformer is one block repeated. Get the block wrong once, repeat it twelve times, and you ship a model that diverges in the first epoch or that needs warmup hacks the rest of the way. The two failure modes you will see in this lesson are not exotic. They show up the first time a learner stacks blocks naively. One is the attention layer attending to the future. The other is the LayerNorm placed where it cannot tame the residual signal at depth.
+Một transformer là một khối được lặp lại. Làm sai khối một lần, lặp lại nó mười hai lần, và bạn cung cấp một mô hình phân kỳ ở epoch đầu hoặc cần các thủ thuật khởi động suốt phần còn lại. Hai chế độ lỗi bạn sẽ thấy trong bài này không kỳ lạ. Chúng xuất hiện lần đầu một người học xếp các khối một cách ngây thơ. Một là lớp attention chú ý đến tương lai. Cái còn lại là LayerNorm được đặt ở nơi nó không thể chế ngự tín hiệu phần dư ở độ sâu.
 
-The fix is mechanical once you see it. The block has exactly two residual paths and exactly two normalization positions. Choose the positions correctly and the rest of the stack is just bookkeeping.
+Cách sửa mang tính cơ học một khi bạn thấy nó. Khối có chính xác hai đường phần dư và chính xác hai vị trí chuẩn hóa. Chọn các vị trí chính xác và phần còn lại của ngăn xếp chỉ là ghi sổ.
 
 ## The Concept
 
-Every decoder only transformer block is a function that takes a tensor of shape `(batch, sequence, embedding)` and returns a tensor of the same shape. Inside, two sublayers do the work.
+Mọi khối transformer chỉ decoder là một hàm nhận một tensor có hình dạng `(batch, sequence, embedding)` và trả về một tensor cùng hình dạng. Bên trong, hai lớp con làm việc.
 
 ```mermaid
 flowchart TB
@@ -38,9 +38,9 @@ flowchart TB
   R2 --> Y[Output, same shape]
 ```
 
-This is the pre-LN variant. The LayerNorm sits inside the residual branch, before the sublayer. The residual connection carries the unnormalized signal forward.
+Đây là biến thể pre-LN. LayerNorm nằm bên trong nhánh phần dư, trước lớp con. Kết nối phần dư mang tín hiệu chưa chuẩn hóa đi tới.
 
-The post-LN variant moves the LayerNorm to after the residual add.
+Biến thể post-LN chuyển LayerNorm đến sau phép cộng phần dư.
 
 ```mermaid
 flowchart TB
@@ -55,19 +55,19 @@ flowchart TB
   N2 --> Y[Output]
 ```
 
-Shape is identical. Training behavior is not. With post-LN, the gradient that flows back through the residual path must pass through the LayerNorm. At depth twelve and learning rate `3e-4`, that gradient shrinks fast enough to need a warmup schedule. Pre-LN leaves the residual path unnormalized, so gradients propagate cleanly to the embedding layer. Pre-LN is the configuration GPT-2 onward ships with for that reason.
+Hình dạng giống hệt. Hành vi huấn luyện thì không. Với post-LN, gradient chảy ngược qua đường phần dư phải đi qua LayerNorm. Ở độ sâu mười hai và tốc độ học `3e-4`, gradient đó co lại đủ nhanh để cần một lịch khởi động. Pre-LN để đường phần dư chưa chuẩn hóa, nên gradient lan truyền gọn gàng đến lớp embedding. Pre-LN là cấu hình GPT-2 trở đi cung cấp vì lý do đó.
 
 ### Causal multi head attention
 
-The attention sublayer projects the input three ways into query, key, value tensors. Each is reshaped from `(B, T, D)` to `(B, H, T, D/H)` where `H` is the head count. Scaled dot product attention computes `softmax(Q K^T / sqrt(d_k))` per head, masks the upper triangle to negative infinity, applies the mask via softmax, then multiplies by `V`. Heads are concatenated back into a single `(B, T, D)` tensor and projected once more. The mask is the only piece that makes the model causal. Forget the mask and you train a model that cheats.
+Lớp con attention chiếu đầu vào theo ba cách thành các tensor query, key, value. Mỗi tensor được đổi hình dạng từ `(B, T, D)` sang `(B, H, T, D/H)` trong đó `H` là số đầu. Attention tích vô hướng có chia tỷ lệ tính `softmax(Q K^T / sqrt(d_k))` theo đầu, che tam giác trên thành âm vô cực, áp dụng mặt nạ qua softmax, rồi nhân với `V`. Các đầu được nối trở lại thành một tensor `(B, T, D)` duy nhất và được chiếu thêm lần nữa. Mặt nạ là phần duy nhất khiến mô hình nhân quả. Quên mặt nạ và bạn huấn luyện một mô hình gian lận.
 
 ### The MLP
 
-The position wise MLP applies the same two layer network to every token independently. The hidden width is four times the embedding width, the activation is GELU, and a dropout follows the second linear. No tokens talk to each other inside the MLP. All token mixing happens in attention.
+MLP theo vị trí áp dụng cùng mạng hai lớp cho mọi token độc lập. Độ rộng ẩn bằng bốn lần độ rộng embedding, kích hoạt là GELU, và một dropout theo sau lớp tuyến tính thứ hai. Không token nào nói chuyện với nhau bên trong MLP. Mọi trộn token xảy ra trong attention.
 
 ### Residual connections do two things
 
-They make the gradient path additive across depth, which keeps the gradient norm in scale through twelve layers. They also let each block learn an additive update to the running representation rather than a full replacement. Both effects are why the block scales.
+Chúng khiến đường gradient có tính cộng qua độ sâu, giữ chuẩn gradient trong thang đo xuyên suốt mười hai lớp. Chúng cũng để mỗi khối học một cập nhật cộng vào biểu diễn đang chạy thay vì một sự thay thế đầy đủ. Cả hai hiệu ứng là lý do khối mở rộng được.
 
 ```figure
 cc-transformer-block
@@ -75,63 +75,63 @@ cc-transformer-block
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `class LayerNorm` with learnable scale and shift, biased eps, applied per token vector.
-- `class MultiHeadAttention` with `num_heads`, `head_dim = d_model // num_heads`, fused QKV projection, registered causal mask, attention and residual dropout.
-- `class FeedForward` with two linear layers, GELU activation, dropout.
-- `class TransformerBlock` with a `pre_ln` flag that toggles between the two variants.
-- A demo that builds a 6 layer pre-LN stack and a 6 layer post-LN stack with identical inputs and prints (a) output shape, (b) gradient norm at the embedding after one backward pass.
+- `class LayerNorm` với tỷ lệ và dịch chuyển có thể học, eps có độ chệch, áp dụng theo vector token.
+- `class MultiHeadAttention` với `num_heads`, `head_dim = d_model // num_heads`, phép chiếu QKV hợp nhất, mặt nạ nhân quả được đăng ký, dropout attention và phần dư.
+- `class FeedForward` với hai lớp tuyến tính, kích hoạt GELU, dropout.
+- `class TransformerBlock` với một cờ `pre_ln` chuyển giữa hai biến thể.
+- Một demo xây dựng một ngăn xếp pre-LN 6 lớp và một ngăn xếp post-LN 6 lớp với các đầu vào giống hệt và in (a) hình dạng đầu ra, (b) chuẩn gradient tại embedding sau một lượt ngược.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-Output: shape check on both stacks, gradient norms side by side. The pre-LN stack's embedding gradient is order of magnitude larger than the post-LN stack at the same learning rate, which is the empirical signal pre-LN trains without warmup.
+Đầu ra: kiểm tra hình dạng trên cả hai ngăn xếp, các chuẩn gradient cạnh nhau. Gradient embedding của ngăn xếp pre-LN lớn hơn một bậc độ lớn so với ngăn xếp post-LN ở cùng tốc độ học, là tín hiệu thực nghiệm rằng pre-LN huấn luyện không cần khởi động.
 
 ## Stack
 
-- `torch` for the tensor math, autograd, and `nn.Module` plumbing.
-- No `transformers`, no pretrained weights. The block is implemented from primitives.
+- `torch` cho toán tensor, autograd, và hệ thống nối `nn.Module`.
+- Không `transformers`, không trọng số tiền huấn luyện. Khối được triển khai từ các thành phần cơ sở.
 
 ## Production patterns in the wild
 
-Three patterns turn the textbook block into something you can ship.
+Ba mẫu biến khối sách giáo khoa thành thứ bạn có thể cung cấp.
 
-**Fused QKV projection.** Three separate linear layers cost three kernel launches and three matmuls. One linear layer of width `3 * d_model` does the same work in one launch, then splits the output along the last axis. The fused path is faster on every accelerator and matches what reference implementations of GPT-2, LLaMA, and Mistral all ship.
+**Phép chiếu QKV hợp nhất.** Ba lớp tuyến tính riêng tốn ba lần khởi chạy kernel và ba matmul. Một lớp tuyến tính có độ rộng `3 * d_model` làm cùng công việc trong một lần khởi chạy, rồi chia đầu ra dọc trục cuối. Đường hợp nhất nhanh hơn trên mọi bộ tăng tốc và khớp với điều các triển khai tham chiếu GPT-2, LLaMA, và Mistral đều cung cấp.
 
-**Registered causal mask buffer.** The mask depends only on the maximum context length. Allocate it once at construction with `register_buffer`, slice the active window per forward pass, and skip the per-call allocation. Forgetting this turns the mask into an allocator hot spot at long context.
+**Buffer mặt nạ nhân quả được đăng ký.** Mặt nạ chỉ phụ thuộc độ dài ngữ cảnh tối đa. Cấp phát nó một lần khi khởi tạo bằng `register_buffer`, cắt cửa sổ hoạt động theo lượt tiến, và bỏ qua cấp phát theo lệnh gọi. Quên điều này biến mặt nạ thành một điểm nóng cấp phát ở ngữ cảnh dài.
 
-**Dropout in two places, not three.** Dropout belongs after the attention softmax (attention dropout) and after the second linear of the MLP (residual dropout). A dropout on the residual itself breaks the additive identity that lets the gradient flow at depth. Some early implementations got this wrong and paid for it with brittle training.
+**Dropout ở hai nơi, không phải ba.** Dropout thuộc về sau softmax attention (dropout attention) và sau lớp tuyến tính thứ hai của MLP (dropout phần dư). Một dropout trên chính phần dư phá vỡ đồng nhất cộng cho phép gradient chảy ở độ sâu. Một số triển khai ban đầu làm sai điều này và trả giá bằng huấn luyện mong manh.
 
 ## Use It
 
-- The block in this lesson plugs straight into the GPT assembly in lesson 35 without modification.
-- The pre-LN variant is what every modern open weights LLM uses. The post-LN variant is what the original 2017 attention paper used. Knowing both is enough to read any decoder architecture you will encounter.
-- Swap the GELU for SiLU and you have the LLaMA family activation. Swap the LayerNorm for RMSNorm and you have the LLaMA family normalization. Same skeleton.
+- Khối trong bài này cắm thẳng vào phần lắp ráp GPT trong bài 35 mà không sửa đổi.
+- Biến thể pre-LN là thứ mọi LLM trọng số mở hiện đại sử dụng. Biến thể post-LN là thứ bài báo attention gốc năm 2017 sử dụng. Biết cả hai đủ để đọc bất kỳ kiến trúc decoder nào bạn sẽ gặp.
+- Đổi GELU thành SiLU và bạn có kích hoạt họ LLaMA. Đổi LayerNorm thành RMSNorm và bạn có chuẩn hóa họ LLaMA. Cùng bộ khung.
 
 ## Exercises
 
-1. Add a `bias=False` flag to every linear in the block. Modern open weights LLMs ship without biases on the linear layers. Measure how many parameters you save in a 12 layer 768 dim model.
-2. Replace `nn.LayerNorm` with a hand rolled RMSNorm and verify the output shape is unchanged.
-3. Add a flag that returns the attention weights for the first head as a `(B, T, T)` tensor. Plot the upper triangle to confirm it is zero after softmax.
-4. Build a sanity check that feeds a `(2, 16, 384)` tensor with `H=6` through both variants and asserts the forward outputs are different (for example, `not torch.allclose`) when weights are initialized identically and dropout is set to zero.
+1. Thêm một cờ `bias=False` vào mọi lớp tuyến tính trong khối. Các LLM trọng số mở hiện đại cung cấp không có bias trên các lớp tuyến tính. Đo bạn tiết kiệm bao nhiêu tham số trong một mô hình 12 lớp 768 chiều.
+2. Thay `nn.LayerNorm` bằng một RMSNorm viết thủ công và xác minh hình dạng đầu ra không đổi.
+3. Thêm một cờ trả về các trọng số attention cho đầu đầu tiên dưới dạng một tensor `(B, T, T)`. Vẽ tam giác trên để xác nhận nó bằng không sau softmax.
+4. Xây dựng một kiểm tra hợp lý đưa một tensor `(2, 16, 384)` với `H=6` qua cả hai biến thể và khẳng định các đầu ra lượt tiến khác nhau (ví dụ, `not torch.allclose`) khi trọng số được khởi tạo giống hệt và dropout được đặt về không.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Pre-LN | "Pre norm" | LayerNorm inside the residual branch, before each sublayer; the residual carries the unnormalized signal |
-| Post-LN | "Post norm" | LayerNorm after the residual add; what the 2017 paper shipped and what needs warmup |
-| Causal mask | "Triangle mask" | The upper triangle of the attention logits set to negative infinity so token i cannot read token j when j is greater than i |
-| Fused QKV | "Combined projection" | One linear of width 3D instead of three linears of width D; one kernel, one matmul |
-| Residual stream | "Skip connection" | The unnormalized tensor that flows top to bottom through every block; what each block adds to |
+| Pre-LN | "Chuẩn hóa trước" | LayerNorm bên trong nhánh phần dư, trước mỗi lớp con; phần dư mang tín hiệu chưa chuẩn hóa |
+| Post-LN | "Chuẩn hóa sau" | LayerNorm sau phép cộng phần dư; điều bài báo năm 2017 cung cấp và điều cần khởi động |
+| Causal mask (Mặt nạ nhân quả) | "Mặt nạ tam giác" | Tam giác trên của các logit attention được đặt thành âm vô cực để token i không thể đọc token j khi j lớn hơn i |
+| Fused QKV (QKV hợp nhất) | "Phép chiếu kết hợp" | Một lớp tuyến tính độ rộng 3D thay vì ba lớp tuyến tính độ rộng D; một kernel, một matmul |
+| Residual stream (Luồng phần dư) | "Kết nối bỏ qua" | Tensor chưa chuẩn hóa chảy từ trên xuống dưới qua mọi khối; thứ mỗi khối cộng vào |
 
 ## Further Reading
 
-- Phase 7 lesson 02 (self attention from scratch) for the attention math underneath this block.
-- Phase 7 lesson 05 (full transformer) for the encoder decoder version of the same skeleton.
-- Phase 10 lesson 04 (pre training mini GPT) for the training procedure that this block plugs into.
-- Phase 19 lesson 35 (this track) which stacks twelve of these blocks into a GPT model.
+- Phase 7 bài 02 (self attention từ đầu) cho phần toán attention bên dưới khối này.
+- Phase 7 bài 05 (transformer đầy đủ) cho phiên bản encoder decoder của cùng bộ khung.
+- Phase 10 bài 04 (tiền huấn luyện mini GPT) cho quy trình huấn luyện mà khối này cắm vào.
+- Phase 19 bài 35 (track này) xếp mười hai khối này thành một mô hình GPT.
