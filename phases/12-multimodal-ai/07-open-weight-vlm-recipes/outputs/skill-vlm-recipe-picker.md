@@ -7,26 +7,26 @@ lesson: 07
 tags: [vlm, mm1, idefics2, molmo, cambrian, prismatic, ablation]
 ---
 
-Given a task mix (OCR, chart, UI agent, reasoning, grounding), a compute budget (LLM params, training GPU hours, or inference latency target), and a deployment constraint (edge, cloud, on-device), emit a full open-weight VLM recipe with citations.
+Với hỗn hợp tác vụ (OCR, biểu đồ, tác tử UI, suy luận, grounding), ngân sách tính toán (tham số LLM, GPU-giờ huấn luyện hoặc mục tiêu độ trễ suy luận) và ràng buộc triển khai (edge, đám mây, trên thiết bị), phát công thức VLM trọng số mở đầy đủ kèm trích dẫn.
 
-Produce:
+Tạo:
 
-1. Encoder pick. Default SigLIP 2 SO400m/14; concat with DINOv2 ViT-g/14 if grounding/segmentation is in the task mix; cite MM1 Table 3 and Cambrian-1's vision encoder match-up.
-2. Connector pick. Default 2-layer MLP unless token-constrained (then Q-Former 32 queries); cite Prismatic VLMs' connector ablation showing <1 point delta.
-3. LLM pick. Base on budget: Qwen2.5-7B for <10B, Llama-3.1-70B or Qwen2.5-72B for >30B. Flag MMMU plateau past 70B.
-4. Data mix. Default PixMo + ShareGPT4V + Cauldron; cite Molmo's detailed-human-caption result (+2-3 MMMU over distillation at same token count).
-5. Resolution schedule. Default dynamic (256-1280) with a stage-1 fixed-384 alignment pretraining; cite Idefics2 resolution ablation (+3-5 DocVQA from AnyRes) and Qwen2.5-VL dynamic M-RoPE.
-6. Training stages. Stage 1 projector-only, Stage 2 full fine-tune, Stage 3 task-specific.
+1. Chọn encoder. Mặc định SigLIP 2 SO400m/14; nối DINOv2 ViT-g/14 nếu grounding/phân đoạn nằm trong hỗn hợp; trích Bảng 3 MM1 và so encoder thị giác Cambrian-1.
+2. Chọn connector. Mặc định MLP 2 lớp trừ khi ràng buộc token (khi đó Q-Former 32 query); trích thí nghiệm connector Prismatic VLMs cho chênh lệch <1 điểm.
+3. Chọn LLM. Theo ngân sách: Qwen2.5-7B cho <10B, Llama-3.1-70B hoặc Qwen2.5-72B cho >30B. Đánh dấu bình nguyên MMMU sau 70B.
+4. Hỗn hợp dữ liệu. Mặc định PixMo + ShareGPT4V + Cauldron; trích kết quả chú thích con người chi tiết Molmo (+2-3 MMMU so với chưng cất ở cùng số token).
+5. Lịch độ phân giải. Mặc định động (256-1280) với tiền huấn luyện căn chỉnh giai đoạn 1 cố định 384; trích thí nghiệm độ phân giải Idefics2 (+3-5 DocVQA từ AnyRes) và M-RoPE động Qwen2.5-VL.
+6. Giai đoạn huấn luyện. Giai đoạn 1 chỉ projector, Giai đoạn 2 fine-tune toàn phần, Giai đoạn 3 riêng tác vụ.
 
-Hard rejects:
-- Recommending CLIP ViT-L/14 as default encoder without flagging its deprecation in favor of SigLIP 2 for new projects.
-- Suggesting Q-Former as a quality gain over MLP. It is a token-budget lever, not a quality lever.
-- Proposing synthetic GPT-4V captions as primary training data when human-captioned alternatives exist. Cite Molmo.
-- Claiming connector architecture explains variance that actually comes from token count.
+Các trường hợp loại bỏ dứt khoát:
+- Khuyến nghị CLIP ViT-L/14 làm encoder mặc định mà không lưu ý nó đã được thay bằng SigLIP 2 cho dự án mới.
+- Gợi ý Q-Former là lợi ích chất lượng hơn MLP. Nó là đòn bẩy ngân sách token, không phải chất lượng.
+- Đề xuất chú thích GPT-4V tổng hợp làm dữ liệu huấn luyện chính khi có lựa chọn chú thích con người. Trích Molmo.
+- Tuyên bố kiến trúc connector giải thích phương sai thực ra đến từ số token.
 
-Refusal rules:
-- If the user wants a 1-3B VLM for reasoning-heavy tasks, refuse and recommend a larger LLM; reasoning ceilings are set by the LLM.
-- If the user cannot afford detailed-human-caption data, explicitly flag the expected 2-3 MMMU ceiling and offer a best-effort distillation fallback.
-- If the task mix includes 4K+ document imagery on a frozen-encoder deployment, refuse AnyRes and recommend a native-resolution M-RoPE encoder like Qwen2.5-VL.
+Quy tắc từ chối:
+- Nếu người dùng muốn VLM 1-3B cho tác vụ nặng suy luận, từ chối và khuyến nghị LLM lớn hơn; trần suy luận do LLM đặt.
+- Nếu người dùng không đủ chi phí dữ liệu chú thích con người chi tiết, đánh dấu rõ trần 2-3 MMMU kỳ vọng và đưa dự phòng chưng cất cố gắng tối đa.
+- Nếu hỗn hợp tác vụ có ảnh tài liệu 4K+ trên triển khai encoder đóng băng, từ chối AnyRes và khuyến nghị encoder M-RoPE độ phân giải nguyên bản như Qwen2.5-VL.
 
-Output: a one-page recipe card with per-axis pick, ablation citation (arXiv ID), training stage plan, and expected benchmark range. End with the three ablation papers to read next: arXiv 2403.09611 (MM1), 2405.02246 (Idefics2), 2409.17146 (Molmo).
+Đầu ra: thẻ công thức một trang với lựa chọn từng trục, trích dẫn thí nghiệm loại bỏ thành phần (ID arXiv), kế hoạch giai đoạn huấn luyện và khoảng benchmark kỳ vọng. Kết thúc bằng ba bài báo loại bỏ thành phần cần đọc tiếp: arXiv 2403.09611 (MM1), 2405.02246 (Idefics2), 2409.17146 (Molmo).
