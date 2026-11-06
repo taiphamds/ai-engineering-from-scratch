@@ -1,6 +1,6 @@
 # APIs & Keys
 
-> Every AI API works the same way: send a request, get a response. The details change, the pattern doesn't.
+> Mọi API AI đều hoạt động theo cùng một cách: gửi yêu cầu, nhận phản hồi. Chi tiết thay đổi, còn mẫu hoạt động thì không.
 
 **Type:** Build
 **Languages:** Python, TypeScript
@@ -9,14 +9,14 @@
 
 ## Learning Objectives
 
-- Store API keys securely using environment variables and `.env` files
-- Make an LLM API call using both the Anthropic Python SDK and raw HTTP
-- Compare SDK-based and raw HTTP request/response formats for debugging
-- Identify and handle common API errors including authentication and rate limits
+- Lưu khóa API an toàn bằng biến môi trường và tệp `.env`
+- Gọi API LLM bằng cả SDK Python của Anthropic lẫn HTTP thuần
+- So sánh định dạng yêu cầu/phản hồi giữa cách dùng SDK và HTTP thuần để gỡ lỗi
+- Xác định và xử lý các lỗi API thường gặp, bao gồm xác thực và giới hạn tốc độ
 
 ## The Problem
 
-Starting from Phase 11, you'll call LLM APIs (Anthropic, OpenAI, Google). In Phase 13-16 you'll build agents that use these APIs in loops. You need to know how API keys work, how to store them safely, and how to make your first API call.
+Bắt đầu từ Giai đoạn 11, bạn sẽ gọi các API LLM (Anthropic, OpenAI, Google). Trong Giai đoạn 13-16, bạn sẽ xây dựng các agent dùng những API này trong các vòng lặp. Bạn cần biết khóa API hoạt động thế nào, cách lưu trữ an toàn và cách thực hiện lần gọi API đầu tiên.
 
 ## The Concept
 
@@ -28,11 +28,11 @@ sequenceDiagram
     S->>C: HTTP Response (JSON)
 ```
 
-Every API call has:
-1. An endpoint (URL)
-2. An API key (authentication)
-3. A request body (what you want)
-4. A response body (what you get back)
+Mỗi lần gọi API có:
+1. Một endpoint (URL)
+2. Một khóa API (xác thực)
+3. Một phần thân yêu cầu (điều bạn muốn)
+4. Một phần thân phản hồi (điều bạn nhận lại)
 
 ```figure
 s0-secret-inject
@@ -42,14 +42,14 @@ s0-secret-inject
 
 ### Step 1: Store API keys safely
 
-Never put API keys in code. Use environment variables.
+Không bao giờ đặt khóa API trong mã. Hãy dùng biến môi trường.
 
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
 export OPENAI_API_KEY="sk-..."
 ```
 
-Or use a `.env` file (add it to `.gitignore`):
+Hoặc dùng tệp `.env` (thêm nó vào `.gitignore`):
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...
@@ -76,7 +76,7 @@ response = client.messages.create(
 print(response.content[0].text)
 ```
 
-`LLM_MODEL` selects the Anthropic model id, and the default is the un-dated Sonnet alias. Other providers (OpenAI, Google, and others) follow the same pattern of a key plus a model id, but each has its own SDK, endpoint, and request/response schema.
+`LLM_MODEL` chọn id mô hình Anthropic, và giá trị mặc định là bí danh Sonnet không gắn ngày. Các nhà cung cấp khác (OpenAI, Google và những nhà cung cấp khác) theo cùng mẫu khóa cộng với id mô hình, nhưng mỗi nhà cung cấp có SDK, endpoint và schema yêu cầu/phản hồi riêng.
 
 ### Step 3: First API call (TypeScript)
 
@@ -121,11 +121,11 @@ with urllib.request.urlopen(req) as resp:
     print(result["content"][0]["text"])
 ```
 
-This is what the SDKs do under the hood. Understanding the raw HTTP call helps when debugging.
+Đây là những gì SDK thực hiện bên dưới. Hiểu lần gọi HTTP thuần giúp ích khi gỡ lỗi.
 
 ## Use It
 
-For this course:
+Đối với khóa học này:
 
 | API | When you need it | Free tier |
 |-----|-----------------|-----------|
@@ -133,24 +133,24 @@ For this course:
 | OpenAI | Phase 11 (comparison) | $5 credit on signup |
 | Hugging Face | Phases 4-10 (models, datasets) | Free |
 
-You don't need all of them right now. Set them up when the lesson requires it.
+Bạn chưa cần tất cả ngay bây giờ. Hãy thiết lập chúng khi bài học yêu cầu.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-api-troubleshooter.md` - diagnose common API errors
+Bài học này tạo ra:
+- `outputs/prompt-api-troubleshooter.md` - chẩn đoán các lỗi API thường gặp
 
 ## Exercises
 
-1. Get an Anthropic API key and make your first API call
-2. Try the raw HTTP version and compare the response format to the SDK version
-3. Intentionally use a wrong API key and read the error message
+1. Lấy một khóa API Anthropic và thực hiện lần gọi API đầu tiên
+2. Thử phiên bản HTTP thuần và so sánh định dạng phản hồi với phiên bản SDK
+3. Cố ý dùng khóa API sai và đọc thông báo lỗi
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| API key | "Password for the API" | A unique string that identifies your account and authorizes requests |
-| Rate limit | "They're throttling me" | Maximum requests per minute/hour to prevent abuse and ensure fair usage |
-| Token | "A word" (in API context) | A billing unit: input and output tokens are counted and charged separately |
-| Streaming | "Real-time responses" | Getting the response word by word instead of waiting for the full response |
+| API key (Khóa API) | "Mật khẩu cho API" | Một chuỗi duy nhất xác định tài khoản của bạn và cấp quyền cho các yêu cầu |
+| Rate limit (Giới hạn tốc độ) | "Họ đang hạn chế tôi" | Số yêu cầu tối đa mỗi phút/giờ để ngăn chặn lạm dụng và bảo đảm sử dụng công bằng |
+| Token | "Một từ" (trong ngữ cảnh API) | Một đơn vị tính phí: token đầu vào và đầu ra được đếm và tính phí riêng biệt |
+| Streaming (Truyền theo luồng) | "Phản hồi theo thời gian thực" | Nhận phản hồi từng từ một thay vì chờ phản hồi đầy đủ |
