@@ -1,6 +1,6 @@
 # Chatbots — Rule-Based to Neural to LLM Agents
 
-> ELIZA replied with pattern matches. DialogFlow mapped intents. GPT answered from weights. Claude runs tools and verifies. Each era solved the previous one's worst failure.
+> ELIZA trả lời bằng khớp mẫu. DialogFlow ánh xạ ý định. GPT trả lời từ trọng số. Claude chạy công cụ và xác minh. Mỗi thời kỳ giải quyết lỗi tệ nhất của thời kỳ trước.
 
 **Type:** Learn
 **Languages:** Python
@@ -9,11 +9,11 @@
 
 ## The Problem
 
-A user says "I want to change my flight." The system has to figure out what they want, what information is missing, how to get it, and how to complete the action. Then the user says "wait, what if I cancel instead?" and the system has to remember the context, switch tasks, and preserve state.
+Một người dùng nói "Tôi muốn đổi chuyến bay." Hệ thống phải tìm ra họ muốn gì, thông tin nào còn thiếu, làm thế nào lấy nó và làm thế nào hoàn thành hành động. Rồi người dùng nói "chờ đã, nếu thay vào đó tôi hủy thì sao?" và hệ thống phải nhớ ngữ cảnh, chuyển tác vụ và giữ trạng thái.
 
-Conversation is hard for an ML system. The input is open-ended. The output has to be coherent over many turns. The system may need to act on the world (change a flight, charge a card). Every wrong step is visible to the user.
+Hội thoại khó đối với một hệ thống ML. Đầu vào có tính mở. Đầu ra phải mạch lạc qua nhiều lượt. Hệ thống có thể cần tác động lên thế giới (đổi một chuyến bay, tính phí một thẻ). Mọi bước sai đều hiển thị cho người dùng.
 
-Chatbot architectures have cycled through four paradigms, each introduced because the previous one failed too visibly. This lesson walks them in order. The 2026 production landscape is a hybrid of the last two.
+Các kiến trúc chatbot đã đi qua bốn mô thức, mỗi mô thức được giới thiệu vì mô thức trước thất bại quá rõ. Bài học này đi qua chúng theo thứ tự. Bức tranh production năm 2026 là sự lai ghép của hai mô thức cuối.
 
 ## The Concept
 
@@ -21,35 +21,35 @@ Chatbot architectures have cycled through four paradigms, each introduced becaus
 
 ### The scripted half-century, 1950-2001
 
-The first paradigm did not last five years. It lasted fifty. Knowing its arc matters because every system in it is the same machine — match input, emit a canned response, update a little state — and fifty years of adding rules to that machine never produced the general case. That ceiling is why paradigms two through four exist.
+Mô thức đầu không kéo dài năm năm. Nó kéo dài năm mươi năm. Biết quá trình của nó quan trọng vì mọi hệ thống trong đó là cùng một cỗ máy — khớp đầu vào, đưa ra một phản hồi có sẵn, cập nhật một chút trạng thái — và năm mươi năm thêm quy tắc vào cỗ máy đó không bao giờ tạo ra trường hợp tổng quát. Mức trần đó là lý do các mô thức hai đến bốn tồn tại.
 
-**1950.** Turing sidesteps "can machines think?" by proposing an operational replacement: if an interrogator cannot tell the machine from a person over teletype, the philosophical question is moot. Conversation becomes the field's benchmark before the field has a name.
+**1950.** Turing tránh câu hỏi "máy móc có thể suy nghĩ không?" bằng cách đề xuất một thay thế có tính vận hành: nếu một người thẩm vấn không thể phân biệt máy với người qua máy điện báo, câu hỏi triết học không còn ý nghĩa. Hội thoại trở thành benchmark của lĩnh vực trước khi lĩnh vực có tên.
 
-**1956.** The name arrives — a summer workshop at Dartmouth coins "artificial intelligence" on the conjecture that every feature of intelligence "can in principle be so precisely described that a machine can be made to simulate it." The proposal budgets two months for substantial progress.
+**1956.** Cái tên xuất hiện — một hội thảo mùa hè tại Dartmouth đặt ra "trí tuệ nhân tạo" dựa trên phỏng đoán rằng mọi đặc điểm của trí thông minh "về nguyên tắc có thể được mô tả chính xác đến mức có thể tạo một cỗ máy mô phỏng nó." Đề xuất dành hai tháng để đạt tiến bộ đáng kể.
 
-**1966.** ELIZA ships the reflection trick you build in Step 1: decomposition rules pull fragments from the input, reassembly rules echo them back as questions. Around 200 patterns total, zero state, zero understanding — and users confided in it anyway. Weizenbaum spent the rest of his career alarmed by how little machinery it took.
+**1966.** ELIZA cung cấp thủ thuật phản chiếu mà bạn xây dựng ở Bước 1: các quy tắc phân rã lấy các mảnh từ đầu vào, các quy tắc lắp ghép lặp lại chúng dưới dạng câu hỏi. Tổng cộng khoảng 200 mẫu, không trạng thái, không hiểu biết — và người dùng vẫn tâm sự với nó. Weizenbaum dành phần còn lại của sự nghiệp lo ngại vì chỉ cần ít bộ máy đến thế.
 
-**1972.** PARRY, built at Stanford to model paranoia, adds the piece ELIZA lacked: internal state. Numeric variables for fear, anger, and mistrust update on every turn and gate which script fires next, so identical inputs produce different responses depending on the conversation so far. In a blinded transcript test, psychiatrists distinguished PARRY from human patients at chance. It is the direct ancestor of persona conditioning — a system prompt implemented as three floats. The same year, the two bots were pointed at each other over ARPANET: a therapist script interviewing a paranoia state machine, the first bot-to-bot conversation on a network.
+**1972.** PARRY, được xây dựng tại Stanford để mô hình hóa chứng hoang tưởng, thêm phần ELIZA thiếu: trạng thái nội tại. Các biến số cho sợ hãi, giận dữ và nghi ngờ cập nhật ở mỗi lượt và kiểm soát kịch bản nào được kích hoạt tiếp, nên các đầu vào giống nhau tạo các phản hồi khác nhau tùy cuộc hội thoại đến lúc đó. Trong một kiểm thử bản ghi được làm mù, các bác sĩ tâm thần phân biệt PARRY với bệnh nhân người ở mức ngẫu nhiên. Nó là tổ tiên trực tiếp của điều kiện hóa nhân cách — một system prompt được triển khai bằng ba số float. Cùng năm đó, hai bot được hướng vào nhau qua ARPANET: một kịch bản nhà trị liệu phỏng vấn một máy trạng thái hoang tưởng, cuộc hội thoại bot-với-bot đầu tiên trên một mạng.
 
-**1995.** ALICE scales the ELIZA recipe with AIML, an XML dialect for pattern-template pairs. Roughly 40,000 hand-written categories, three Loebner Prize wins. It proved the scaling law of rule-based systems: more rules buy coverage, never generality. Every rule is a liability someone must maintain.
+**1995.** ALICE mở rộng công thức ELIZA bằng AIML, một phương ngữ XML cho các cặp mẫu-khuôn. Khoảng 40,000 danh mục viết tay, ba lần thắng Loebner Prize. Nó chứng minh quy luật mở rộng của các hệ thống dựa trên quy tắc: nhiều quy tắc hơn mua được độ bao phủ, không bao giờ là tính tổng quát. Mỗi quy tắc là một gánh nặng ai đó phải bảo trì.
 
-**2001.** SmarterChild puts the recipe in front of 30 million instant-messenger users and adds backend lookups — weather, stocks, movie times — spliced into templates. Squint and it is tool calling wearing a 2001 costume: parse intent, call a service, render the result into the reply.
+**2001.** SmarterChild đưa công thức đến trước 30 triệu người dùng nhắn tin tức thời và thêm các tra cứu backend — thời tiết, cổ phiếu, giờ chiếu phim — được ghép vào các khuôn. Nheo mắt nhìn và nó là gọi công cụ trong trang phục năm 2001: phân tích ý định, gọi một dịch vụ, kết xuất kết quả vào lời đáp.
 
-Fifty years, one mechanism, rising rule counts. The paradigm ended not because anyone disproved it but because the maintenance cost of hand-written state machines grows linearly with coverage while user expectations grow with whatever they saw last week.
+Năm mươi năm, một cơ chế, số quy tắc tăng. Mô thức kết thúc không phải vì ai đó bác bỏ nó mà vì chi phí bảo trì các máy trạng thái viết tay tăng tuyến tính theo độ bao phủ trong khi kỳ vọng người dùng tăng theo bất kỳ thứ gì họ thấy tuần trước.
 
 ```figure
 chatbot-lineage
 ```
 
-**Rule-based (ELIZA, AIML, DialogFlow).** Hand-authored patterns match user input and produce responses. Intent classifiers route to predefined flows. Slot-filling state machines collect required info. Works brilliantly inside the narrow scope it was designed for. Fails immediately outside it. Still ships in safety-critical domains (banking authentication, airline booking) where hallucination is not tolerated.
+**Dựa trên quy tắc (ELIZA, AIML, DialogFlow).** Các mẫu viết tay khớp đầu vào người dùng và tạo phản hồi. Các bộ phân loại ý định định tuyến đến các luồng được định nghĩa trước. Các máy trạng thái điền slot thu thập thông tin bắt buộc. Hoạt động xuất sắc trong phạm vi hẹp được thiết kế cho nó. Thất bại ngay lập tức ngoài phạm vi đó. Vẫn được phát hành trong các lĩnh vực an toàn trọng yếu (xác thực ngân hàng, đặt vé máy bay) nơi không chấp nhận ảo giác.
 
-**Retrieval-based.** A FAQ-style system. Encode every pair of (utterance, response). At runtime, encode the user's message and retrieve the nearest stored response. Think Zendesk's classic "similar articles" feature. Handles paraphrases better than rules. No generation, so no hallucination.
+**Dựa trên truy xuất.** Một hệ thống kiểu FAQ. Mã hóa mọi cặp (phát ngôn, phản hồi). Khi chạy, mã hóa tin nhắn người dùng và truy xuất phản hồi được lưu gần nhất. Hãy nghĩ đến tính năng "các bài viết tương tự" cổ điển của Zendesk. Xử lý diễn đạt lại tốt hơn quy tắc. Không sinh, nên không ảo giác.
 
-**Neural (seq2seq).** Encoder-decoder trained on conversation logs. Generates responses from scratch. Fluent but prone to generic outputs ("I don't know") and factual drift. Never reliably on topic. The reason Google, Facebook, and Microsoft all had disappointing chatbots in 2016-2019.
+**Nơ-ron (seq2seq).** Encoder-decoder được huấn luyện trên nhật ký hội thoại. Sinh các phản hồi từ đầu. Trôi chảy nhưng dễ có các đầu ra chung chung ("Tôi không biết") và độ trôi sự kiện. Không bao giờ bám chủ đề một cách đáng tin cậy. Lý do Google, Facebook và Microsoft đều có các chatbot đáng thất vọng trong 2016-2019.
 
-**LLM agents.** A language model wrapped in a loop that plans, calls tools, and verifies outcomes. Not a chatbot with a long prompt. An agent loop: plan → call tool → observe result → decide next step. Retrieval-first grounding (RAG) keeps it from hallucinating. Tool calls let it actually do things. This is the 2026 architecture.
+**Các tác tử LLM.** Một mô hình ngôn ngữ được bọc trong một vòng lặp lập kế hoạch, gọi công cụ và xác minh kết quả. Không phải một chatbot với một prompt dài. Một vòng lặp tác tử: lập kế hoạch → gọi công cụ → quan sát kết quả → quyết định bước tiếp. Tạo căn cứ ưu tiên truy xuất (RAG) giữ nó khỏi ảo giác. Các lời gọi công cụ cho phép nó thực sự làm việc. Đây là kiến trúc năm 2026.
 
-The four paradigms are not sequential replacements. A 2026 production chatbot routes through all four: rule-based for authentication and destructive actions, retrieval for FAQ, neural generation for natural phrasing, LLM agent for ambiguous open-ended queries.
+Bốn mô thức không phải các thay thế tuần tự. Một chatbot production năm 2026 định tuyến qua cả bốn: dựa trên quy tắc cho xác thực và các hành động phá hủy, truy xuất cho FAQ, sinh nơ-ron cho cách diễn đạt tự nhiên, tác tử LLM cho các truy vấn mở mơ hồ.
 
 ## Build It
 
@@ -81,11 +81,11 @@ def rule_based_respond(user_input):
     return "I don't understand."
 ```
 
-ELIZA in 20 lines. The reflection trick ("I feel sad" → "Why do you feel sad") is the canonical psychotherapist demo from Weizenbaum 1966. Still instructive.
+ELIZA trong 20 dòng. Thủ thuật phản chiếu ("Tôi cảm thấy buồn" → "Tại sao bạn cảm thấy buồn") là bản minh họa nhà trị liệu tâm lý kinh điển từ Weizenbaum 1966. Vẫn mang tính hướng dẫn.
 
 ### Step 2: retrieval-based (FAQ)
 
-This illustrative snippet requires `pip install sentence-transformers` (which pulls in torch). The runnable `code/main.py` for this lesson uses a stdlib Jaccard similarity instead, so the lesson runs without external dependencies.
+Đoạn minh họa này yêu cầu `pip install sentence-transformers` (kéo theo torch). Thay vào đó, `code/main.py` chạy được của bài học này dùng độ tương đồng Jaccard từ stdlib, nên bài học chạy không có phụ thuộc bên ngoài.
 
 ```python
 from sentence_transformers import SentenceTransformer
@@ -113,11 +113,11 @@ def faq_respond(user_input, threshold=0.5):
     return FAQ[best][1]
 ```
 
-Threshold-based refusal is the key design choice. If the best match is not close enough, return `None` and let the system escalate.
+Từ chối dựa trên ngưỡng là lựa chọn thiết kế then chốt. Nếu kết quả khớp tốt nhất không đủ gần, trả `None` và để hệ thống chuyển cấp.
 
 ### Step 3: neural generation (baseline)
 
-Use a small instruction-tuned encoder-decoder (FLAN-T5) or a fine-tuned conversational model. Production-unusable on its own in 2026 (contradiction, off-topic drift, factual nonsense), but ships inside hybrid systems for natural phrasing. DialoGPT-style decoder-only models need explicit turn separators and EOS handling to produce coherent replies; a FLAN-T5 text2text pipeline works out of the box for a teaching example.
+Dùng một encoder-decoder nhỏ được tinh chỉnh theo chỉ dẫn (FLAN-T5) hoặc một mô hình hội thoại được fine-tune. Riêng nó không dùng được cho production năm 2026 (mâu thuẫn, trôi khỏi chủ đề, vô nghĩa về sự kiện), nhưng được phát hành bên trong các hệ thống lai cho cách diễn đạt tự nhiên. Các mô hình chỉ decoder kiểu DialoGPT cần các dấu phân cách lượt tường minh và xử lý EOS để tạo các lời đáp mạch lạc; một pipeline text2text FLAN-T5 hoạt động ngay khi dùng cho một ví dụ giảng dạy.
 
 ```python
 from transformers import pipeline
@@ -130,7 +130,7 @@ print(response[0]["generated_text"])
 
 ### Step 4: LLM agent loop
 
-The 2026 production shape:
+Hình dạng production năm 2026:
 
 ```python
 def agent_loop(user_message, tools, llm, max_steps=5):
@@ -158,9 +158,9 @@ def agent_loop(user_message, tools, llm, max_steps=5):
     return "I could not complete the task in the step budget."
 ```
 
-Three things to name. Tools are callable functions the LLM can invoke. The loop terminates when the LLM returns a final answer instead of a tool call. The step budget prevents infinite loops on ambiguous tasks.
+Ba điều cần nêu tên. Các công cụ là các hàm có thể gọi mà LLM có thể gọi đến. Vòng lặp kết thúc khi LLM trả một câu trả lời cuối thay cho một lời gọi công cụ. Ngân sách bước ngăn các vòng lặp vô hạn trên các tác vụ mơ hồ.
 
-Real production adds: retrieval-first grounding (inject relevant docs before each LLM call), guardrails (refuse destructive actions without confirmation), observability (log every step), and evaluations (automated checks that agent behavior stays on-spec).
+Production thực thêm: tạo căn cứ ưu tiên truy xuất (chèn các tài liệu liên quan trước mỗi lời gọi LLM), các biện pháp bảo vệ (từ chối các hành động phá hủy không có xác nhận), khả năng quan sát (ghi nhật ký mọi bước) và các đánh giá (các kiểm tra tự động rằng hành vi tác tử vẫn đúng đặc tả).
 
 ### Step 5: hybrid routing
 
@@ -181,39 +181,39 @@ def is_destructive_action(text):
     return any(w in text.lower() for w in danger_words)
 ```
 
-The pattern: deterministic rules for anything destructive, retrieval for canned FAQs, LLM agents for everything else. This is what ships in 2026 customer-support systems.
+Mẫu này: các quy tắc tất định cho mọi thứ có tính phá hủy, truy xuất cho các FAQ có sẵn, các tác tử LLM cho mọi thứ khác. Đây là những gì được phát hành trong các hệ thống hỗ trợ khách hàng năm 2026.
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Use case | Architecture |
+| Trường hợp sử dụng | Kiến trúc |
 |---------|---------------|
-| Booking, payment, authentication | Rule-based state machines + slot filling |
-| Customer support FAQs | Retrieval over curated answers |
-| Open-ended help chat | LLM agent with RAG + tool calls |
-| Internal tools / IDE assistants | LLM agent with tool calls (search, read, write) |
-| Companion / character chatbots | Tuned LLM with persona system prompt, retrieval on knowledge |
+| Đặt chỗ, thanh toán, xác thực | Các máy trạng thái dựa trên quy tắc + điền slot |
+| FAQ hỗ trợ khách hàng | Truy xuất trên các câu trả lời được tuyển chọn |
+| Trò chuyện trợ giúp mở | Tác tử LLM với RAG + các lời gọi công cụ |
+| Công cụ nội bộ / trợ lý IDE | Tác tử LLM với các lời gọi công cụ (tìm kiếm, đọc, ghi) |
+| Chatbot bạn đồng hành / nhân vật | LLM được tinh chỉnh với system prompt nhân cách, truy xuất kiến thức |
 
-Always use hybrid routing in production. No single architecture handles every request well. The routing layer itself is typically a small intent classifier.
+Luôn dùng định tuyến lai trong production. Không kiến trúc đơn lẻ nào xử lý tốt mọi yêu cầu. Bản thân tầng định tuyến thường là một bộ phân loại ý định nhỏ.
 
 ## Failure modes that still ship
 
-- **Confident fabrication.** LLM agent claims it completed an action it did not. Mitigation: verify outcomes, log tool calls, never let the LLM claim to have done something without a successful tool return.
-- **Prompt injection.** User inserts text that overrides the system prompt. Ranked LLM01 in the OWASP Top 10 for LLM Applications 2025. Two flavors: direct injection (pasted into the chat) and indirect injection (hidden in documents, emails, or tool outputs the agent reads).
+- **Bịa đặt tự tin.** Tác tử LLM tuyên bố đã hoàn thành một hành động nó chưa làm. Giảm thiểu: xác minh kết quả, ghi nhật ký các lời gọi công cụ, không bao giờ để LLM tuyên bố đã làm điều gì mà không có một kết quả công cụ trả về thành công.
+- **Prompt injection.** Người dùng chèn văn bản ghi đè system prompt. Xếp hạng LLM01 trong OWASP Top 10 cho các ứng dụng LLM năm 2025. Hai dạng: chèn trực tiếp (dán vào trò chuyện) và chèn gián tiếp (ẩn trong các tài liệu, email hoặc đầu ra công cụ tác tử đọc).
 
-  Attack rates vary by scenario. Measured success rates range ~0.5-8.5% across frontier models in general tool-use and coding benchmarks. Specific high-risk setups (adaptive attacks against AI coding agents, vulnerable orchestration) have reached ~84%. Production CVEs include EchoLeak (CVE-2025-32711, CVSS 9.3) — a zero-click data-exfiltration flaw in Microsoft 365 Copilot triggered by an attacker-controlled email.
+  Tỷ lệ tấn công thay đổi theo kịch bản. Các tỷ lệ thành công đo được dao động ~0.5-8.5% trên các mô hình tiên phong trong các benchmark dùng công cụ và lập trình tổng quát. Các thiết lập rủi ro cao cụ thể (các cuộc tấn công thích nghi vào các tác tử lập trình AI, điều phối dễ bị tấn công) đã đạt ~84%. Các CVE production bao gồm EchoLeak (CVE-2025-32711, CVSS 9.3) — một lỗ hổng đánh cắp dữ liệu không cần nhấp chuột trong Microsoft 365 Copilot được kích hoạt bởi một email do kẻ tấn công kiểm soát.
 
-  Mitigations: treat user input as untrusted throughout the loop; sanitize before tool calls; isolate tool outputs from the main prompt; use the Plan-Verify-Execute (PVE) pattern where the agent plans first, then verifies each action against that plan before executing (this stops tool results from injecting new unplanned actions); require user confirmation for destructive actions; apply least-privilege to tool scopes.
+  Các biện pháp giảm thiểu: coi đầu vào người dùng là không đáng tin suốt vòng lặp; làm sạch trước các lời gọi công cụ; cô lập các đầu ra công cụ khỏi prompt chính; dùng mẫu Plan-Verify-Execute (PVE) nơi tác tử lập kế hoạch trước, rồi xác minh mỗi hành động theo kế hoạch đó trước khi thực hiện (điều này ngăn các kết quả công cụ chèn các hành động mới không có trong kế hoạch); yêu cầu xác nhận người dùng cho các hành động phá hủy; áp dụng quyền tối thiểu cho các phạm vi công cụ.
 
-  No amount of prompt engineering fully eliminates this risk. External runtime defense layers (LLM Guard, allowlist validation, semantic anomaly detection) are required.
-- **Scope creep.** Agent goes off-task because a tool call returned tangentially related info. Mitigation: narrow tool contracts; keep the system prompt focused; add evaluations for off-task rate.
-- **Infinite loops.** Agent keeps calling the same tool. Mitigation: step budget, tool-call deduplication, LLM judge on "are we making progress."
-- **Context window exhaustion.** Long conversations push the earliest turns out of context. Mitigation: summarize older turns, retrieve relevant past turns by similarity, or use a long-context model.
+  Không lượng kỹ thuật prompt nào loại bỏ hoàn toàn rủi ro này. Các tầng phòng vệ runtime bên ngoài (LLM Guard, xác thực danh sách cho phép, phát hiện bất thường ngữ nghĩa) là bắt buộc.
+- **Mở rộng phạm vi.** Tác tử đi chệch tác vụ vì một lời gọi công cụ trả thông tin có liên quan bên lề. Giảm thiểu: thu hẹp các hợp đồng công cụ; giữ system prompt tập trung; thêm các đánh giá tỷ lệ chệch tác vụ.
+- **Các vòng lặp vô hạn.** Tác tử liên tục gọi cùng công cụ. Giảm thiểu: ngân sách bước, khử trùng lặp lời gọi công cụ, LLM đánh giá "chúng ta có đang tiến bộ không."
+- **Cạn cửa sổ ngữ cảnh.** Các cuộc hội thoại dài đẩy các lượt sớm nhất khỏi ngữ cảnh. Giảm thiểu: tóm tắt các lượt cũ, truy xuất các lượt trước liên quan theo độ tương đồng hoặc dùng một mô hình ngữ cảnh dài.
 
 ## Ship It
 
-Save as `outputs/skill-chatbot-architect.md`:
+Lưu thành `outputs/skill-chatbot-architect.md`:
 
 ```markdown
 ---
@@ -237,30 +237,30 @@ Refuse to recommend a pure-LLM agent for any destructive action (payments, accou
 
 ## Exercises
 
-1. **Easy.** Implement the rule-based respond above with 10 patterns for a coffee-shop ordering bot. Test edge cases: double orders, modifications, cancellation, unclear intent.
-2. **Medium.** Build a hybrid FAQ + LLM fallback. 50 canned FAQ entries for a SaaS product, LLM fallback with retrieval over the docs site. Measure refusal rate and accuracy on 100 real support questions.
-3. **Hard.** Implement the agent loop above with three tools (search, read-user-data, send-email). Run an evaluation with 50 test scenarios including prompt injection attempts. Report off-task rate, failed task rate, and any injection success.
+1. **Dễ.** Triển khai hàm phản hồi dựa trên quy tắc ở trên với 10 mẫu cho một bot đặt món quán cà phê. Kiểm thử các trường hợp biên: đặt hai đơn, sửa đổi, hủy, ý định không rõ.
+2. **Trung bình.** Xây dựng một dạng lai FAQ + phương án dự phòng LLM. 50 mục FAQ có sẵn cho một sản phẩm SaaS, phương án dự phòng LLM với truy xuất trên trang tài liệu. Đo tỷ lệ từ chối và accuracy trên 100 câu hỏi hỗ trợ thực.
+3. **Khó.** Triển khai vòng lặp tác tử ở trên với ba công cụ (search, read-user-data, send-email). Chạy một đánh giá với 50 kịch bản kiểm thử bao gồm các nỗ lực prompt injection. Báo cáo tỷ lệ chệch tác vụ, tỷ lệ tác vụ thất bại và bất kỳ lần chèn thành công nào.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Intent | What the user wants | Categorical label (book_flight, reset_password). Routed to a handler. |
-| Slot | A piece of info | Parameter the bot needs (date, destination). Slot filling is the sequence of asks. |
-| RAG | Retrieval plus generation | Retrieve relevant docs, then ground the LLM's response. |
-| Tool call | Function invocation | LLM emits a structured call with name + args. Runtime executes, returns result. |
-| Agent loop | Plan, act, verify | Controller that runs LLM calls interleaved with tool calls until task complete. |
-| Prompt injection | User attacks prompt | Malicious input that tries to override the system prompt. |
+| Intent (Ý định) | Điều người dùng muốn | Nhãn phân loại (book_flight, reset_password). Được định tuyến đến một bộ xử lý. |
+| Slot | Một mẩu thông tin | Tham số bot cần (ngày, điểm đến). Điền slot là chuỗi các câu hỏi. |
+| RAG | Truy xuất cộng sinh | Truy xuất các tài liệu liên quan, rồi tạo căn cứ cho phản hồi của LLM. |
+| Tool call (Lời gọi công cụ) | Gọi hàm | LLM đưa ra một lời gọi có cấu trúc với tên + tham số. Runtime thực thi, trả kết quả. |
+| Agent loop (Vòng lặp tác tử) | Lập kế hoạch, hành động, xác minh | Bộ điều khiển chạy các lời gọi LLM xen kẽ các lời gọi công cụ đến khi tác vụ hoàn thành. |
+| Prompt injection | Người dùng tấn công prompt | Đầu vào độc hại cố ghi đè system prompt. |
 
 ## Further Reading
 
-- [Turing (1950). Computing Machinery and Intelligence](https://academic.oup.com/mind/article/LIX/236/433/986238) — the paper that made conversation the field's benchmark.
-- [Weizenbaum (1966). ELIZA — A Computer Program For the Study of Natural Language Communication](https://web.stanford.edu/class/cs124/p36-weizenabaum.pdf) — the original rule-based chatbot paper.
-- [Colby, Weber, Hilf (1971). Artificial Paranoia](https://doi.org/10.1016/0004-3702(71)90002-6) — PARRY's affect-variable architecture, the first stateful chatbot.
-- [Thoppilan et al. (2022). LaMDA: Language Models for Dialog Applications](https://arxiv.org/abs/2201.08239) — Google's late neural-chatbot paper, just before LLM agents took over.
-- [Yao et al. (2022). ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629) — the paper that named the agent loop pattern.
-- [Anthropic's guide on building effective agents](https://www.anthropic.com/research/building-effective-agents) — 2024 production guidance that still holds in 2026.
-- [Greshake et al. (2023). Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection](https://arxiv.org/abs/2302.12173) — the prompt-injection paper.
-- [OWASP Top 10 for LLM Applications 2025 — LLM01 Prompt Injection](https://genai.owasp.org/llmrisk/llm01-prompt-injection/) — the ranking that made prompt injection the top security concern.
-- [AWS — Securing Amazon Bedrock Agents against Indirect Prompt Injections](https://aws.amazon.com/blogs/machine-learning/securing-amazon-bedrock-agents-a-guide-to-safeguarding-against-indirect-prompt-injections/) — practical orchestration-layer defenses including Plan-Verify-Execute and user-confirmation flows.
-- [EchoLeak (CVE-2025-32711)](https://www.vectra.ai/topics/prompt-injection) — the canonical zero-click data-exfiltration CVE from indirect prompt injection. Reference case for why write-access agents need runtime defenses.
+- [Turing (1950). Computing Machinery and Intelligence](https://academic.oup.com/mind/article/LIX/236/433/986238) — bài báo biến hội thoại thành benchmark của lĩnh vực.
+- [Weizenbaum (1966). ELIZA — A Computer Program For the Study of Natural Language Communication](https://web.stanford.edu/class/cs124/p36-weizenabaum.pdf) — bài báo chatbot dựa trên quy tắc gốc.
+- [Colby, Weber, Hilf (1971). Artificial Paranoia](https://doi.org/10.1016/0004-3702(71)90002-6) — kiến trúc biến cảm xúc của PARRY, chatbot có trạng thái đầu tiên.
+- [Thoppilan et al. (2022). LaMDA: Language Models for Dialog Applications](https://arxiv.org/abs/2201.08239) — bài báo chatbot nơ-ron muộn của Google, ngay trước khi các tác tử LLM tiếp quản.
+- [Yao et al. (2022). ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629) — bài báo đặt tên mẫu vòng lặp tác tử.
+- [Anthropic's guide on building effective agents](https://www.anthropic.com/research/building-effective-agents) — hướng dẫn production năm 2024 vẫn đúng trong năm 2026.
+- [Greshake et al. (2023). Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection](https://arxiv.org/abs/2302.12173) — bài báo prompt injection.
+- [OWASP Top 10 for LLM Applications 2025 — LLM01 Prompt Injection](https://genai.owasp.org/llmrisk/llm01-prompt-injection/) — bảng xếp hạng khiến prompt injection trở thành mối lo bảo mật hàng đầu.
+- [AWS — Securing Amazon Bedrock Agents against Indirect Prompt Injections](https://aws.amazon.com/blogs/machine-learning/securing-amazon-bedrock-agents-a-guide-to-safeguarding-against-indirect-prompt-injections/) — các biện pháp phòng vệ tầng điều phối thực tế bao gồm Plan-Verify-Execute và các luồng xác nhận người dùng.
+- [EchoLeak (CVE-2025-32711)](https://www.vectra.ai/topics/prompt-injection) — CVE đánh cắp dữ liệu không cần nhấp chuột kinh điển từ prompt injection gián tiếp. Trường hợp tham chiếu cho lý do các tác tử có quyền ghi cần các biện pháp phòng vệ runtime.

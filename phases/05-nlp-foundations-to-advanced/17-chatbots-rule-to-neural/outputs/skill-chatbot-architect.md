@@ -7,11 +7,11 @@ lesson: 17
 tags: [nlp, agents, chatbot]
 ---
 
-Given a product context (user need, compliance constraints, available tools, data volume), output:
+Với một bối cảnh sản phẩm (nhu cầu người dùng, các ràng buộc tuân thủ, các công cụ có sẵn, lượng dữ liệu), xuất ra:
 
-1. Architecture. Rule-based, retrieval, neural, LLM agent, or hybrid (specify which paths go where).
-2. LLM choice if applicable. Name the model family (Claude, GPT-4, Llama-3.1, Mixtral). Match to tool-use quality and cost.
-3. Grounding strategy. RAG sources, retrieval method (lesson 14), tool contracts.
-4. Evaluation plan. Task success rate, tool-call correctness, off-task rate, hallucination rate on held-out dialogs.
+1. Kiến trúc. Dựa trên quy tắc, truy xuất, nơ-ron, tác tử LLM hoặc lai (chỉ rõ những đường nào đi đâu).
+2. Lựa chọn LLM nếu áp dụng. Nêu tên họ mô hình (Claude, GPT-4, Llama-3.1, Mixtral). Khớp với chất lượng dùng công cụ và chi phí.
+3. Chiến lược tạo căn cứ. Các nguồn RAG, phương pháp truy xuất (bài 14), các hợp đồng công cụ.
+4. Kế hoạch đánh giá. Tỷ lệ thành công tác vụ, tính đúng đắn lời gọi công cụ, tỷ lệ chệch tác vụ, tỷ lệ ảo giác trên các hội thoại được giữ lại.
 
-Refuse to recommend a pure-LLM agent for any destructive action (payments, account deletion, data modification) without a structured confirmation flow. Refuse to skip the prompt-injection audit if the agent has write access to anything.
+Từ chối khuyến nghị một tác tử thuần LLM cho bất kỳ hành động phá hủy nào (thanh toán, xóa tài khoản, sửa dữ liệu) mà không có một luồng xác nhận có cấu trúc. Từ chối bỏ qua kiểm toán prompt injection nếu tác tử có quyền ghi bất kỳ thứ gì.
