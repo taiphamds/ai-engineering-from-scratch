@@ -1,6 +1,6 @@
 # Quantization: Making Models Fit
 
-> A 70B model in FP16 needs 140GB. Two A100s just for weights. Quantize to FP8: one 80GB GPU. INT4: a MacBook.
+> Mô hình 70B ở FP16 cần 140GB. Hai A100 chỉ cho trọng số. Lượng tử hóa xuống FP8: một GPU 80GB. INT4: một MacBook.
 
 **Type:** Build
 **Languages:** Python (with numpy)
@@ -9,28 +9,28 @@
 
 ## Learning Objectives
 
-- Implement symmetric and asymmetric quantization from FP16 to INT8 and INT4, including per-tensor and per-channel scaling
-- Calculate the memory savings from quantization and determine which precision fits a given GPU's VRAM
-- Explain the difference between post-training quantization (PTQ) and quantization-aware training (QAT)
-- Apply GPTQ or AWQ to quantize a real model and measure the accuracy-memory tradeoff on a benchmark
+- Triển khai lượng tử hóa đối xứng và bất đối xứng từ FP16 sang INT8 và INT4, gồm co giãn theo tensor và theo kênh
+- Tính tiết kiệm bộ nhớ từ lượng tử hóa và xác định độ chính xác nào vừa VRAM của GPU cho trước
+- Giải thích khác biệt giữa lượng tử hóa sau huấn luyện (PTQ) và huấn luyện nhận biết lượng tử hóa (QAT)
+- Áp dụng GPTQ hoặc AWQ để lượng tử hóa mô hình thực và đo đánh đổi độ chính xác-bộ nhớ trên benchmark
 
 ## The Problem
 
-Llama 3 70B has 70 billion parameters. Each parameter is a 16-bit floating point number. That is 140 billion bytes. 140GB. A single A100 has 80GB of VRAM. You cannot even load the weights, let alone run inference, on a single GPU. You need two A100s at $2/hour each just to serve one model.
+Llama 3 70B có 70 tỷ tham số. Mỗi tham số là số dấu phẩy động 16-bit. Đó là 140 tỷ byte. 140GB. Một A100 có 80GB VRAM. Bạn còn không thể tải trọng số, chứ chưa nói chạy suy luận, trên một GPU. Bạn cần hai A100 ở $2/giờ mỗi cái chỉ để phục vụ một mô hình.
 
-But 16 bits per parameter is wasteful. Most weights in a neural network cluster near zero. The full dynamic range of FP16 (from 0.000000059 to 65,504) is almost entirely unused. If you measure the actual distribution of weights in Llama 3 70B, 95% of them fall between -0.1 and +0.1. You are burning 16 bits to represent values that could fit in 4.
+Nhưng 16 bit mỗi tham số lãng phí. Hầu hết trọng số trong mạng nơ-ron tập trung gần không. Toàn dải động FP16 (từ 0.000000059 đến 65,504) gần như hoàn toàn không dùng. Nếu đo phân phối trọng số thực tế trong Llama 3 70B, 95% nằm giữa -0.1 và +0.1. Bạn đang đốt 16 bit để biểu diễn giá trị có thể vừa trong 4.
 
-Quantization replaces high-precision numbers with lower-precision ones. FP16 to FP8 cuts memory in half. FP16 to INT4 cuts it to a quarter. That 140GB model becomes 35GB. It fits on a single consumer GPU. Push to 2-bit quantization (aggressive, lossy, but usable for some tasks) and the same model runs on a 16GB laptop.
+Lượng tử hóa thay số độ chính xác cao bằng số thấp hơn. FP16 sang FP8 giảm nửa bộ nhớ. FP16 sang INT4 giảm còn một phần tư. Mô hình 140GB đó thành 35GB. Nó vừa trên một GPU phổ thông. Đẩy xuống lượng tử hóa 2-bit (mạnh, mất mát, nhưng dùng được cho vài tác vụ) và cùng mô hình chạy trên laptop 16GB.
 
-The cost is accuracy. Every bit you remove destroys information. The question is how much accuracy you lose and where. A well-quantized INT4 model retains 95-99% of the original's quality on most benchmarks. A naive quantization to INT4 can destroy the model entirely. The difference is technique.
+Cái giá là độ chính xác. Mỗi bit bạn bỏ phá hủy thông tin. Câu hỏi là mất bao nhiêu độ chính xác và ở đâu. Mô hình INT4 lượng tử hóa tốt giữ 95-99% chất lượng gốc trên hầu hết benchmark. Lượng tử hóa INT4 đơn giản có thể phá hủy mô hình hoàn toàn. Khác biệt là kỹ thuật.
 
-Community quantizations of Llama 3 to INT4 with GPTQ show roughly 1-2 perplexity points lost on WikiText. Mistral released FP8 checkpoints of Mixtral 8x22B with zero measurable quality loss on MMLU. The GGUF format powers llama.cpp, running 70B models on MacBooks with M-series chips. Quantization is not a hack. It is the standard deployment path for every model larger than 7B.
+Các bản lượng tử hóa cộng đồng Llama 3 xuống INT4 bằng GPTQ cho thấy mất khoảng 1-2 điểm perplexity trên WikiText. Mistral phát hành checkpoint FP8 của Mixtral 8x22B không có mất mát chất lượng đo được trên MMLU. Định dạng GGUF hỗ trợ llama.cpp, chạy mô hình 70B trên MacBook chip dòng M. Lượng tử hóa không phải mẹo vá. Nó là đường triển khai tiêu chuẩn cho mọi mô hình lớn hơn 7B.
 
 ## The Concept
 
 ### Number Formats: What Each Bit Does
 
-Every floating-point number has three parts: sign, exponent, and mantissa (also called significand). The sign is one bit. The exponent determines the range (how large or small the number can be). The mantissa determines the precision (how many decimal places you get).
+Mỗi số dấu phẩy động có ba phần: dấu, số mũ và phần định trị (cũng gọi là significand). Dấu là một bit. Số mũ quyết định phạm vi (số có thể lớn hoặc nhỏ đến đâu). Phần định trị quyết định độ chính xác (bạn có bao nhiêu chữ số thập phân).
 
 ```
 FP32:  [1 sign] [8 exponent] [23 mantissa]  = 32 bits
@@ -42,17 +42,17 @@ INT8:  [1 sign] [7 value]                   = 8  bits (uniform steps)
 INT4:  [1 sign] [3 value]                   = 4  bits (16 levels total)
 ```
 
-**FP32** is full precision. 23 mantissa bits give you about 7 decimal digits of precision. Range: roughly 1.2 x 10^-38 to 3.4 x 10^38. Training used to happen exclusively in FP32. It still does for accumulation (running sums during matrix multiplication).
+**FP32** là độ chính xác đầy đủ. 23 bit phần định trị cho khoảng 7 chữ số thập phân chính xác. Phạm vi: khoảng 1.2 x 10^-38 đến 3.4 x 10^38. Huấn luyện từng chỉ diễn ra ở FP32. Nó vẫn dùng cho tích lũy (tổng tích lũy trong nhân ma trận).
 
-**FP16** halves the bits. 10 mantissa bits give about 3.3 decimal digits. The exponent shrinks to 5 bits, reducing the range dramatically (max value ~65,504). This is fine for weights (which cluster near zero) but dangerous for activations and gradients that can spike during training. FP16 training requires loss scaling to prevent underflow.
+**FP16** giảm nửa số bit. 10 bit phần định trị cho khoảng 3.3 chữ số thập phân. Số mũ co về 5 bit, giảm mạnh phạm vi (giá trị tối đa ~65,504). Điều này ổn cho trọng số (tập trung gần không) nhưng nguy hiểm cho activation và gradient có thể tăng vọt khi huấn luyện. Huấn luyện FP16 cần co giãn mất mát để ngăn hụt số.
 
-**BF16** (Brain Float 16) keeps the 8-bit exponent from FP32 but shrinks the mantissa to 7 bits. Same range as FP32, less precision than FP16. Google designed it specifically for deep learning. The intuition: range matters more than precision for neural networks. A gradient of 10^-20 that underflows to zero in FP16 survives in BF16. A weight of 0.07342 that rounds to 0.0734 in BF16 is close enough. Every modern training run uses BF16 or a BF16/FP32 mix.
+**BF16** (Brain Float 16) giữ số mũ 8-bit từ FP32 nhưng co phần định trị về 7 bit. Cùng phạm vi FP32, ít chính xác hơn FP16. Google thiết kế riêng cho học sâu. Trực giác: phạm vi quan trọng hơn độ chính xác với mạng nơ-ron. Gradient 10^-20 hụt về không ở FP16 sống sót ở BF16. Trọng số 0.07342 làm tròn thành 0.0734 ở BF16 đủ gần. Mọi lần huấn luyện hiện đại dùng BF16 hoặc hỗn hợp BF16/FP32.
 
-**FP8** comes in two flavors. E4M3 (4 exponent, 3 mantissa) is used for weights and activations during inference. E5M2 (5 exponent, 2 mantissa) is used for gradients during training where range matters more than precision. FP8 inference on H100 GPUs achieves 30-50% speedup over FP16 with negligible quality loss.
+**FP8** có hai dạng. E4M3 (4 số mũ, 3 phần định trị) dùng cho trọng số và activation khi suy luận. E5M2 (5 số mũ, 2 phần định trị) dùng cho gradient khi huấn luyện nơi phạm vi quan trọng hơn độ chính xác. Suy luận FP8 trên GPU H100 đạt tăng tốc 30-50% so với FP16 với mất mát chất lượng không đáng kể.
 
-**INT8** is an integer format. No exponent, no mantissa. Just 256 evenly spaced values from -128 to 127. You need a scale factor to map floating-point weights into this range. The advantage: integer arithmetic is faster and more power-efficient than floating-point. INT8 matrix multiplication on an A100 runs at 624 TOPS versus 312 TFLOPS for FP16.
+**INT8** là định dạng số nguyên. Không số mũ, không phần định trị. Chỉ 256 giá trị cách đều từ -128 đến 127. Bạn cần hệ số tỷ lệ để ánh xạ trọng số dấu phẩy động vào phạm vi này. Ưu điểm: số học số nguyên nhanh và hiệu quả điện hơn dấu phẩy động. Nhân ma trận INT8 trên A100 chạy ở 624 TOPS so với 312 TFLOPS cho FP16.
 
-**INT4** pushes further. Only 16 possible values. The scale factor does heavy lifting. Quality depends entirely on how you choose the scale and which weights you quantize. State-of-the-art INT4 methods (GPTQ, AWQ) retain 95%+ of original model quality.
+**INT4** đẩy xa hơn. Chỉ 16 giá trị có thể. Hệ số tỷ lệ làm phần việc nặng. Chất lượng phụ thuộc hoàn toàn cách chọn hệ số và lượng tử hóa trọng số nào. Các phương pháp INT4 tiên tiến nhất (GPTQ, AWQ) giữ 95%+ chất lượng mô hình gốc.
 
 ```mermaid
 graph LR
@@ -82,42 +82,42 @@ graph LR
 
 ### How Quantization Works
 
-The core operation is simple. Take a tensor of floating-point values, find a scale factor, multiply, round to the nearest integer, and store the integers plus the scale factor.
+Phép toán cốt lõi đơn giản. Lấy tensor giá trị dấu phẩy động, tìm hệ số tỷ lệ, nhân, làm tròn đến số nguyên gần nhất, và lưu số nguyên cộng hệ số tỷ lệ.
 
-**Quantize:**
+**Lượng tử hóa:**
 ```
 scale = max(abs(tensor)) / max_int_value
 quantized = round(tensor / scale)
 ```
 
-**Dequantize:**
+**Giải lượng tử hóa:**
 ```
 reconstructed = quantized * scale
 ```
 
-For INT8 with a symmetric range (-127 to 127):
+Với INT8 có phạm vi đối xứng (-127 đến 127):
 ```
 scale = max(abs(tensor)) / 127
 quantized = clamp(round(tensor / scale), -128, 127)
 ```
 
-The error is the rounding error. Each value can be off by at most `scale / 2`. The total error across a layer depends on how many weights you have and how sensitive the model is to perturbations in those weights.
+Sai số là sai số làm tròn. Mỗi giá trị có thể lệch tối đa `scale / 2`. Tổng sai số trên một lớp phụ thuộc có bao nhiêu trọng số và mô hình nhạy thế nào với nhiễu loạn trong các trọng số đó.
 
-**Per-tensor vs per-channel quantization.** Per-tensor uses one scale factor for the entire weight matrix. Simple but lossy: if one column has large values and another has small values, the small values lose most of their precision. Per-channel uses one scale factor per output channel (per row or column of the weight matrix). More overhead (you store N scale factors instead of 1) but dramatically better quality. Every production quantization method uses per-channel or finer granularity.
+**Lượng tử hóa theo tensor so với theo kênh.** Theo tensor dùng một hệ số tỷ lệ cho toàn ma trận trọng số. Đơn giản nhưng mất mát: nếu một cột có giá trị lớn và cột khác nhỏ, giá trị nhỏ mất phần lớn độ chính xác. Theo kênh dùng một hệ số tỷ lệ mỗi kênh đầu ra (mỗi hàng hoặc cột ma trận trọng số). Chi phí thêm (lưu N hệ số thay vì 1) nhưng chất lượng tốt hơn nhiều. Mọi phương pháp lượng tử hóa production dùng theo kênh hoặc độ hạt mịn hơn.
 
-**Asymmetric quantization** adds a zero-point offset: `quantized = round(tensor / scale) + zero_point`. This handles distributions that are not centered at zero. ReLU activations, for example, are always non-negative. Symmetric quantization wastes half the integer range on negative values that never appear. Asymmetric quantization maps the actual range [min, max] to the full integer range.
+**Lượng tử hóa bất đối xứng** thêm độ lệch điểm không: `quantized = round(tensor / scale) + zero_point`. Điều này xử lý phân phối không tập trung ở không. Activation ReLU, ví dụ, luôn không âm. Lượng tử hóa đối xứng lãng phí nửa phạm vi số nguyên cho giá trị âm không bao giờ xuất hiện. Lượng tử hóa bất đối xứng ánh xạ phạm vi thực [min, max] sang toàn phạm vi số nguyên.
 
 ### Sensitivity Hierarchy
 
-Not everything in a model tolerates quantization equally. There is a clear hierarchy.
+Không phải mọi thứ trong mô hình chịu lượng tử hóa như nhau. Có một thứ bậc rõ ràng.
 
-**Weights (most robust).** Model weights change slowly during training and follow a roughly Gaussian distribution centered near zero. They quantize well. INT8 weights with per-channel scales produce nearly lossless results. INT4 requires more sophisticated methods but works.
+**Trọng số (vững nhất).** Trọng số mô hình thay đổi chậm khi huấn luyện và theo phân phối gần Gaussian tập trung gần không. Chúng lượng tử hóa tốt. Trọng số INT8 với hệ số theo kênh tạo kết quả gần không mất mát. INT4 cần phương pháp tinh vi hơn nhưng hoạt động.
 
-**Activations (moderate sensitivity).** Activations are the intermediate values flowing through the network during inference. They have wider dynamic range than weights and contain outliers. A single attention head might produce activation values 100x larger than the mean. These outliers are critical for model quality. Quantizing them naively destroys information. Solutions: keep outlier channels in higher precision (LLM.int8()), use per-token or per-channel activation scales.
+**Activation (nhạy vừa phải).** Activation là giá trị trung gian truyền qua mạng khi suy luận. Chúng có dải động rộng hơn trọng số và chứa ngoại lệ. Một head attention có thể tạo giá trị activation lớn hơn trung bình 100x. Ngoại lệ này cực quan trọng cho chất lượng mô hình. Lượng tử hóa đơn giản phá thông tin. Giải pháp: giữ kênh ngoại lệ ở độ chính xác cao hơn (LLM.int8()), dùng hệ số activation theo token hoặc theo kênh.
 
-**KV cache (high sensitivity).** The key-value cache stores attention states for all previous tokens. At long context lengths, the KV cache dominates memory. For a 70B model at 32K context, the KV cache alone is 40GB in FP16. Quantizing the KV cache to FP8 or INT8 saves massive memory but any error compounds across all future attention computations. The quality impact scales with sequence length.
+**KV cache (nhạy cao).** Cache key-value lưu trạng thái attention cho mọi token trước. Ở ngữ cảnh dài, KV cache chi phối bộ nhớ. Với mô hình 70B ở ngữ cảnh 32K, riêng KV cache là 40GB ở FP16. Lượng tử hóa KV cache xuống FP8 hoặc INT8 tiết kiệm bộ nhớ lớn nhưng mọi sai số tích lũy qua tất cả tính attention tương lai. Tác động chất lượng tăng theo độ dài chuỗi.
 
-**Attention logits (most sensitive).** The softmax in attention is highly sensitive to small changes in its inputs. A quantization error of 0.01 in a pre-softmax logit can shift the attention distribution meaningfully. Most quantization schemes keep attention computation in higher precision (FP16 or BF16) even when everything else is quantized.
+**Logit attention (nhạy nhất).** Softmax trong attention rất nhạy với thay đổi nhỏ ở đầu vào. Sai số lượng tử hóa 0.01 trong logit trước softmax có thể dịch phân phối attention đáng kể. Hầu hết cách lượng tử hóa giữ tính attention ở độ chính xác cao hơn (FP16 hoặc BF16) ngay cả khi mọi thứ khác đã lượng tử hóa.
 
 ```mermaid
 graph TD
@@ -141,26 +141,26 @@ graph TD
 
 ### PTQ vs QAT
 
-**Post-Training Quantization (PTQ)** quantizes an already-trained model. No retraining. You take the FP16 weights, compute scale factors, round, and deploy. Fast (minutes to hours) and cheap. Works well for INT8 and FP8. For INT4, naive PTQ often fails badly because rounding errors accumulate. Advanced PTQ methods (GPTQ, AWQ) use calibration data to minimize the quantization error.
+**Lượng tử hóa sau huấn luyện (PTQ)** lượng tử hóa mô hình đã huấn luyện. Không huấn luyện lại. Bạn lấy trọng số FP16, tính hệ số tỷ lệ, làm tròn và triển khai. Nhanh (phút đến giờ) và rẻ. Hoạt động tốt cho INT8 và FP8. Với INT4, PTQ đơn giản thường thất bại nặng vì sai số làm tròn tích lũy. Phương pháp PTQ nâng cao (GPTQ, AWQ) dùng dữ liệu hiệu chuẩn để giảm sai số lượng tử hóa.
 
-**Quantization-Aware Training (QAT)** inserts fake quantization operations into the forward pass during training. The model learns to place its weights where rounding errors are small. Gradients flow through the fake quantization using the straight-through estimator (STE): pretend the rounding operation has gradient 1. QAT produces better INT4 and INT2 models than PTQ but requires a full training run. Google used QAT for Gemini's efficient serving. Meta used QAT for some Llama deployment targets.
+**Huấn luyện nhận biết lượng tử hóa (QAT)** chèn phép lượng tử hóa giả vào truyền xuôi khi huấn luyện. Mô hình học đặt trọng số nơi sai số làm tròn nhỏ. Gradient truyền qua lượng tử hóa giả bằng bộ ước lượng truyền thẳng (STE): giả vờ phép làm tròn có gradient 1. QAT tạo mô hình INT4 và INT2 tốt hơn PTQ nhưng cần cả lần huấn luyện. Google dùng QAT để phục vụ Gemini hiệu quả. Meta dùng QAT cho một số đích triển khai Llama.
 
-| Aspect | PTQ | QAT |
+| Khía cạnh | PTQ | QAT |
 |--------|-----|-----|
-| Cost | Minutes to hours | Full training run |
-| Quality at INT8 | Excellent (< 0.1% loss) | Excellent |
-| Quality at INT4 | Good with GPTQ/AWQ (1-3% loss) | Better (< 1% loss) |
-| Quality at INT2 | Poor | Usable for some tasks |
-| Calibration data | 128-1024 examples | Full training dataset |
-| When to use | Deployment, iteration | Maximum quality at low bit-width |
+| Chi phí | Phút đến giờ | Toàn lần huấn luyện |
+| Chất lượng ở INT8 | Xuất sắc (mất < 0.1%) | Xuất sắc |
+| Chất lượng ở INT4 | Tốt với GPTQ/AWQ (mất 1-3%) | Tốt hơn (mất < 1%) |
+| Chất lượng ở INT2 | Kém | Dùng được cho vài tác vụ |
+| Dữ liệu hiệu chuẩn | 128-1024 ví dụ | Toàn tập dữ liệu huấn luyện |
+| Khi nào dùng | Triển khai, lặp | Chất lượng tối đa ở độ rộng bit thấp |
 
 ### GPTQ, AWQ, GGUF
 
-**GPTQ (GPT Quantization)** is a one-shot PTQ method. It quantizes weights one layer at a time, using a small calibration dataset (128 examples is typical) to measure the Hessian (second-order information about how sensitive the output is to each weight). Weights that the Hessian says are important get quantized more carefully. GPTQ was the first method to make INT4 quantization practical for LLMs. The TheBloke on Hugging Face popularized GPTQ by releasing quantized versions of hundreds of models.
+**GPTQ (GPT Quantization)** là phương pháp PTQ một lần. Nó lượng tử hóa từng lớp trọng số, dùng tập hiệu chuẩn nhỏ (thường 128 ví dụ) để đo Hessian (thông tin bậc hai về mức đầu ra nhạy với mỗi trọng số). Trọng số Hessian cho là quan trọng được lượng tử hóa cẩn thận hơn. GPTQ là phương pháp đầu làm lượng tử hóa INT4 thực tiễn cho LLM. TheBloke trên Hugging Face phổ biến GPTQ bằng phát hành bản lượng tử hóa hàng trăm mô hình.
 
-**AWQ (Activation-Aware Weight Quantization)** observes that a small fraction of weights (about 1%) are disproportionately important because they multiply with large activation values. AWQ identifies these salient weights using calibration data and scales them up before quantization (then scales the corresponding activations down). This keeps the important weights in a range where INT4 quantization is accurate. AWQ typically matches or slightly beats GPTQ quality while being 1.5-2x faster to apply.
+**AWQ (Lượng tử hóa trọng số nhận biết activation)** quan sát rằng tỷ lệ nhỏ trọng số (khoảng 1%) quan trọng không tương xứng vì chúng nhân với giá trị activation lớn. AWQ xác định các trọng số nổi bật này bằng dữ liệu hiệu chuẩn và tăng tỷ lệ chúng trước lượng tử hóa (rồi giảm tỷ lệ activation tương ứng). Điều này giữ trọng số quan trọng trong phạm vi mà lượng tử hóa INT4 chính xác. AWQ thường ngang hoặc hơn nhẹ chất lượng GPTQ trong khi áp dụng nhanh hơn 1.5-2x.
 
-**GGUF (GPT-Generated Unified Format)** is the file format used by llama.cpp and its ecosystem. It supports mixed quantization: different layers get different bit widths. The first and last layers (embedding and output head) are typically kept at higher precision. Middle layers get INT4 or INT3. GGUF files are self-contained: weights, tokenizer, metadata all in one file. The format is designed for CPU inference and Apple Silicon, where loading the entire model into memory and running matrix multiplications on the CPU or Metal GPU is the standard path. Q4_K_M is the most popular GGUF quantization variant, balancing quality and size.
+**GGUF (GPT-Generated Unified Format)** là định dạng file được llama.cpp và hệ sinh thái dùng. Nó hỗ trợ lượng tử hóa hỗn hợp: các lớp khác có độ rộng bit khác nhau. Lớp đầu và cuối (embedding và head đầu ra) thường giữ độ chính xác cao hơn. Lớp giữa nhận INT4 hoặc INT3. File GGUF tự chứa: trọng số, tokenizer, metadata trong một file. Định dạng thiết kế cho suy luận CPU và Apple Silicon, nơi tải cả mô hình vào bộ nhớ và chạy nhân ma trận trên CPU hoặc GPU Metal là đường chuẩn. Q4_K_M là biến thể lượng tử hóa GGUF phổ biến nhất, cân bằng chất lượng và kích thước.
 
 ```mermaid
 graph TD
@@ -187,17 +187,17 @@ graph TD
 
 ### Quality Measurement
 
-How do you know if your quantized model is still good?
+Làm sao biết mô hình lượng tử hóa vẫn tốt?
 
-**Perplexity.** The most common metric. Lower is better. Compute perplexity on a held-out dataset (WikiText-2 is standard) for both the original and quantized model. The delta tells you how much information the quantization destroyed. Rules of thumb: delta < 0.5 is excellent, 0.5-1.0 is good, 1.0-2.0 is acceptable for most tasks, > 2.0 means something went wrong.
+**Perplexity.** Thước đo phổ biến nhất. Thấp hơn tốt hơn. Tính perplexity trên tập giữ lại (WikiText-2 là tiêu chuẩn) cho cả mô hình gốc và lượng tử hóa. Độ chênh cho biết lượng tử hóa phá bao nhiêu thông tin. Quy tắc kinh nghiệm: chênh < 0.5 xuất sắc, 0.5-1.0 tốt, 1.0-2.0 chấp nhận cho hầu hết tác vụ, > 2.0 nghĩa là có gì sai.
 
-**Task-specific benchmarks.** Run the quantized model on MMLU, HumanEval, GSM8K, or your custom eval suite. Compare against the original. Quantization affects different capabilities unevenly. Math and code tasks are more sensitive to precision loss than general knowledge.
+**Benchmark riêng tác vụ.** Chạy mô hình lượng tử hóa trên MMLU, HumanEval, GSM8K hoặc bộ đánh giá tùy chỉnh. So với gốc. Lượng tử hóa ảnh hưởng năng lực khác nhau không đều. Tác vụ toán và mã nhạy với mất độ chính xác hơn kiến thức tổng quát.
 
-**Output comparison.** Generate responses from both models on the same prompts and compare. LLM-as-judge (Lesson 10) works well here. Compute a win rate: what fraction of prompts does the quantized model match or beat the original on?
+**So đầu ra.** Sinh phản hồi từ cả hai mô hình trên cùng prompt và so sánh. LLM-as-judge (Bài 10) hoạt động tốt ở đây. Tính tỷ lệ thắng: bao nhiêu phần prompt mô hình lượng tử hóa ngang hoặc vượt gốc?
 
-**Latency and throughput.** Quantization exists to make models faster and cheaper. Measure tokens per second, time to first token, and memory usage. A quantized model that is slower than the original is worse than useless.
+**Độ trễ và thông lượng.** Lượng tử hóa tồn tại để làm mô hình nhanh và rẻ hơn. Đo token mỗi giây, thời gian đến token đầu và sử dụng bộ nhớ. Mô hình lượng tử hóa chậm hơn gốc còn tệ hơn vô dụng.
 
-| Model | Format | Size | Perplexity (WikiText-2) | MMLU | Tokens/sec (A100) |
+| Mô hình | Định dạng | Kích thước | Perplexity (WikiText-2) | MMLU | Token/giây (A100) |
 |-------|--------|------|------------------------|------|-------------------|
 | Llama 3 70B | FP16 | 140GB | 3.12 | 79.5% | 38 |
 | Llama 3 70B | FP8 | 70GB | 3.14 | 79.3% | 55 |
@@ -205,19 +205,19 @@ How do you know if your quantized model is still good?
 | Llama 3 70B | AWQ INT4 | 35GB | 4.18 | 78.1% | 75 |
 | Llama 3 70B | GGUF Q4_K_M | 40GB | 4.25 | 77.9% | 28 (CPU) |
 
-The pattern: FP8 is nearly free. INT4 costs 1-2 MMLU points but doubles throughput and quarters memory. The tradeoff is worth it for almost every deployment.
+Mô thức: FP8 gần như miễn phí. INT4 tốn 1-2 điểm MMLU nhưng tăng gấp đôi thông lượng và giảm bộ nhớ còn một phần tư. Đánh đổi đáng giá cho gần mọi triển khai.
 
 ### Real Numbers
 
-FP16 to FP8 on H100: 30-50% inference speedup, < 0.1% quality loss. This is the no-brainer quantization. Every H100 deployment should use it.
+FP16 sang FP8 trên H100: tăng tốc suy luận 30-50%, mất chất lượng < 0.1%. Đây là lượng tử hóa hiển nhiên nên làm. Mọi triển khai H100 nên dùng.
 
-FP16 to INT8 (LLM.int8()): 2x memory reduction, < 0.5% quality loss. The mixed-precision approach keeps outlier features in FP16 while quantizing everything else to INT8.
+FP16 sang INT8 (LLM.int8()): giảm bộ nhớ 2x, mất chất lượng < 0.5%. Cách độ chính xác hỗn hợp giữ đặc trưng ngoại lệ ở FP16 trong khi lượng tử hóa mọi thứ khác sang INT8.
 
-FP16 to INT4 (GPTQ/AWQ): 4x memory reduction, 1-3% quality loss depending on the model and method. Enables 70B models on a single 48GB GPU.
+FP16 sang INT4 (GPTQ/AWQ): giảm bộ nhớ 4x, mất chất lượng 1-3% tùy mô hình và phương pháp. Cho phép mô hình 70B trên một GPU 48GB.
 
-FP16 to INT4 (GGUF Q4_K_M): 3.5x memory reduction, 1-2% quality loss. Optimized for CPU inference. A 70B model at Q4_K_M is about 40GB and runs at 10-15 tokens/second on an M3 Max with 64GB.
+FP16 sang INT4 (GGUF Q4_K_M): giảm bộ nhớ 3.5x, mất chất lượng 1-2%. Tối ưu cho suy luận CPU. Mô hình 70B ở Q4_K_M khoảng 40GB và chạy 10-15 token/giây trên M3 Max có 64GB.
 
-FP16 to INT2: 8x memory reduction, 5-15% quality loss. Only viable for specific narrow tasks where you can tolerate degradation. Research frontier, not production-ready for general use.
+FP16 sang INT2: giảm bộ nhớ 8x, mất chất lượng 5-15%. Chỉ khả thi cho tác vụ hẹp cụ thể nơi chịu được suy giảm. Biên nghiên cứu, chưa sẵn sàng production cho sử dụng chung.
 
 ```figure
 quantization
@@ -227,7 +227,7 @@ quantization
 
 ### Step 1: Number Format Representations
 
-Build the bit-level representation of each format to see exactly what sign, exponent, and mantissa do.
+Xây biểu diễn cấp bit của mỗi định dạng để thấy chính xác dấu, số mũ và phần định trị làm gì.
 
 ```python
 import numpy as np
@@ -313,7 +313,7 @@ def display_format_comparison(value):
 
 ### Step 2: Symmetric Quantization (Per-Tensor and Per-Channel)
 
-The fundamental quantization operations. Per-tensor uses one scale for the whole matrix. Per-channel uses one scale per row or column.
+Các phép lượng tử hóa nền tảng. Theo tensor dùng một hệ số cho toàn ma trận. Theo kênh dùng một hệ số mỗi hàng hoặc cột.
 
 ```python
 def quantize_symmetric(tensor, num_bits=8):
@@ -373,7 +373,7 @@ def dequantize_asymmetric(quantized, scale, zero_point):
 
 ### Step 3: Quality Measurement
 
-Measure how much information quantization destroys. Mean squared error, signal-to-noise ratio, and cosine similarity between original and reconstructed tensors.
+Đo lượng thông tin lượng tử hóa phá hủy. Sai số bình phương trung bình, tỷ lệ tín hiệu trên nhiễu và độ tương đồng cosine giữa tensor gốc và tái dựng.
 
 ```python
 def quantization_error(original, reconstructed):
@@ -422,7 +422,7 @@ def compare_quantization_methods(tensor, num_bits=8):
 
 ### Step 4: Bit-Width Sweep
 
-Quantize the same tensor at different bit widths (2, 3, 4, 8, 16) and measure quality at each level. This shows exactly where the quality cliff is.
+Lượng tử hóa cùng tensor ở các độ rộng bit khác nhau (2, 3, 4, 8, 16) và đo chất lượng mỗi mức. Điều này cho thấy chính xác vách chất lượng ở đâu.
 
 ```python
 def bit_width_sweep(tensor):
@@ -446,7 +446,7 @@ def bit_width_sweep(tensor):
 
 ### Step 5: Sensitivity Experiment
 
-Simulate quantizing different parts of a transformer and measure which components are most sensitive. This demonstrates the sensitivity hierarchy: weights < activations < KV cache < attention.
+Mô phỏng lượng tử hóa các phần khác nhau của transformer và đo thành phần nào nhạy nhất. Điều này minh họa thứ bậc độ nhạy: trọng số < activation < KV cache < attention.
 
 ```python
 def simulate_transformer_layer(input_data, weights, kv_scale=1.0):
@@ -526,7 +526,7 @@ def sensitivity_experiment(batch_size=2, seq_len=16, d_model=64, num_bits=8):
 
 ### Step 6: Simulated GPTQ
 
-GPTQ quantizes one column at a time, using the Hessian to decide how to distribute the rounding error. This is a simplified version that captures the core idea: use calibration data to measure weight importance, then quantize the least important weights more aggressively.
+GPTQ lượng tử hóa từng cột, dùng Hessian quyết định cách phân phối sai số làm tròn. Đây là phiên bản đơn giản hóa nắm ý cốt lõi: dùng dữ liệu hiệu chuẩn đo tầm quan trọng trọng số, rồi lượng tử hóa trọng số ít quan trọng mạnh hơn.
 
 ```python
 def simulated_gptq(weight_matrix, calibration_inputs, num_bits=4):
@@ -586,7 +586,7 @@ def dequantize_gptq(quantized, scales):
 
 ### Step 7: AWQ Simulation
 
-AWQ identifies salient weights (those that multiply with large activations) and protects them by scaling before quantization.
+AWQ xác định trọng số nổi bật (những trọng số nhân với activation lớn) và bảo vệ chúng bằng co giãn trước lượng tử hóa.
 
 ```python
 def simulated_awq(weight_matrix, calibration_inputs, num_bits=4, salient_fraction=0.01):
@@ -628,7 +628,7 @@ def simulated_awq(weight_matrix, calibration_inputs, num_bits=4, salient_fractio
 
 ### Step 8: Full Pipeline
 
-Wire everything together. Compare naive quantization, per-channel, GPTQ, and AWQ on the same weight matrix.
+Nối mọi thứ lại. So lượng tử hóa đơn giản, theo kênh, GPTQ và AWQ trên cùng ma trận trọng số.
 
 ```python
 def full_quantization_comparison(d_in=256, d_out=512, num_bits=4, n_calibration=32):
@@ -816,7 +816,7 @@ if __name__ == "__main__":
 # tokenizer.save_pretrained("llama-8b-awq-int4")
 ```
 
-AutoGPTQ and AutoAWQ, the original tools for these two methods, are archived. GPTQModel and LLM Compressor are the maintained successors.
+AutoGPTQ và AutoAWQ, công cụ gốc cho hai phương pháp này, đã được lưu trữ. GPTQModel và LLM Compressor là các công cụ kế nhiệm được duy trì.
 
 ### Converting to GGUF
 
@@ -830,7 +830,7 @@ AutoGPTQ and AutoAWQ, the original tools for these two methods, are archived. GP
 # llama.cpp/build/bin/llama-server -m llama-8b-q4km.gguf -c 4096 -ngl 99
 ```
 
-The converter has no K-quant output (`--outtype` accepts `f32`, `f16`, `bf16`, `q8_0`, `tq1_0`, `tq2_0`, or `auto`), so `llama-quantize` produces the Q4_K_M file.
+Bộ chuyển đổi không có đầu ra K-quant (`--outtype` nhận `f32`, `f16`, `bf16`, `q8_0`, `tq1_0`, `tq2_0` hoặc `auto`), nên `llama-quantize` tạo file Q4_K_M.
 
 ### Serving quantized models
 
@@ -839,47 +839,47 @@ The converter has no K-quant output (`--outtype` accepts `f32`, `f16`, `bf16`, `
 # vllm serve llama-8b-awq-int4 --max-model-len 8192
 ```
 
-vLLM natively supports AWQ and GPTQ models and reads the quantization method from the checkpoint's config, so no `--quantization` flag is needed. It handles the dequantization during matrix multiplication and uses paged attention for the KV cache. For FP8 on H100, add `--quantization fp8_per_tensor` to quantize a 16-bit checkpoint's weights at load time.
+vLLM hỗ trợ nguyên bản mô hình AWQ và GPTQ và đọc phương pháp lượng tử hóa từ cấu hình checkpoint, nên không cần cờ `--quantization`. Nó xử lý giải lượng tử hóa trong nhân ma trận và dùng paged attention cho KV cache. Với FP8 trên H100, thêm `--quantization fp8_per_tensor` để lượng tử hóa trọng số checkpoint 16-bit lúc tải.
 
 ## Ship It
 
-This lesson produces `outputs/skill-quantization.md`, a decision framework for choosing the right quantization strategy. Given your model size, target hardware, and quality requirements, it tells you which format, method, and validation steps to use. It includes memory budget calculations, per-component precision recommendations, and deployment recipes for vLLM, llama.cpp, and TensorRT-LLM.
+Bài học này tạo ra `outputs/skill-quantization.md`, khung quyết định chọn chiến lược lượng tử hóa đúng. Với kích thước mô hình, phần cứng mục tiêu và yêu cầu chất lượng, nó cho biết nên dùng định dạng, phương pháp và bước xác thực nào. Nó gồm tính ngân sách bộ nhớ, đề xuất độ chính xác từng thành phần và công thức triển khai cho vLLM, llama.cpp và TensorRT-LLM.
 
 ## Exercises
 
-1. Implement group quantization. Instead of one scale per channel, use one scale per group of 128 weights within a channel. This is what GPTQ and AWQ actually use. Compare group sizes of 32, 64, 128, and 256 on the same weight matrix. Smaller groups give better quality but more storage overhead for scale factors.
+1. Triển khai lượng tử hóa nhóm. Thay vì một hệ số mỗi kênh, dùng một hệ số mỗi nhóm 128 trọng số trong kênh. Đây là điều GPTQ và AWQ thực sự dùng. So kích thước nhóm 32, 64, 128 và 256 trên cùng ma trận trọng số. Nhóm nhỏ hơn cho chất lượng tốt hơn nhưng thêm lưu trữ hệ số tỷ lệ.
 
-2. Build a mixed-precision quantizer. Quantize the first and last layers of a multi-layer network at INT8 while quantizing middle layers at INT4. Compare end-to-end output quality against uniform INT4 and uniform INT8. Measure the memory savings compared to all-INT8.
+2. Xây bộ lượng tử hóa độ chính xác hỗn hợp. Lượng tử hóa lớp đầu và cuối của mạng nhiều lớp ở INT8, lớp giữa ở INT4. So chất lượng đầu ra đầu cuối với INT4 đồng nhất và INT8 đồng nhất. Đo tiết kiệm bộ nhớ so với toàn INT8.
 
-3. Implement the straight-through estimator (STE) for quantization-aware training. Insert fake quantize/dequantize operations in the forward pass of a simple two-layer network trained on a regression task. Compare final loss between a model trained normally (then PTQ to INT4) versus a model trained with QAT from the start.
+3. Triển khai bộ ước lượng truyền thẳng (STE) cho huấn luyện nhận biết lượng tử hóa. Chèn phép lượng tử hóa/giải lượng tử hóa giả vào truyền xuôi của mạng hai lớp đơn giản huấn luyện trên tác vụ hồi quy. So mất mát cuối giữa mô hình huấn luyện thường (rồi PTQ sang INT4) với mô hình huấn luyện QAT từ đầu.
 
-4. Build an outlier-aware quantizer inspired by LLM.int8(). Detect channels where the activation magnitude exceeds 6x the mean. Keep those channels in FP16 and quantize everything else to INT8. Measure end-to-end quality on the transformer layer from Step 5 with varying outlier thresholds (3x, 6x, 10x).
+4. Xây bộ lượng tử hóa nhận biết ngoại lệ lấy cảm hứng LLM.int8(). Phát hiện kênh có độ lớn activation vượt 6x trung bình. Giữ kênh đó ở FP16 và lượng tử hóa mọi thứ khác sang INT8. Đo chất lượng đầu cuối trên lớp transformer từ Bước 5 với ngưỡng ngoại lệ thay đổi (3x, 6x, 10x).
 
-5. Implement a quantization quality dashboard. Given a weight matrix, compute and display: the weight distribution histogram, the quantization error distribution, per-channel scale factors, the worst-quantized channels (highest reconstruction error), and the cosine similarity between original and quantized outputs across 100 random inputs. Identify which channels should be kept at higher precision.
+5. Triển khai bảng theo dõi chất lượng lượng tử hóa. Với một ma trận trọng số, tính và hiển thị: histogram phân phối trọng số, phân phối sai số lượng tử hóa, hệ số tỷ lệ theo kênh, các kênh lượng tử hóa tệ nhất (sai số tái dựng cao nhất), và tương đồng cosine giữa đầu ra gốc và lượng tử hóa trên 100 đầu vào ngẫu nhiên. Xác định kênh nào nên giữ độ chính xác cao hơn.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| FP16 | "Half precision" | 16-bit float with 5 exponent bits and 10 mantissa bits, max value 65,504, standard inference format |
-| BF16 | "Brain float" | 16-bit float with 8 exponent bits (same range as FP32) and 7 mantissa bits, designed by Google for training |
-| FP8 | "Eight-bit float" | Two variants: E4M3 (inference, more precision) and E5M2 (training, more range), native on H100 |
-| INT8 | "Eight-bit integer" | 256 uniformly spaced values from -128 to 127, needs a scale factor to map from floats |
-| INT4 | "Four-bit integer" | 16 levels total, requires sophisticated methods (GPTQ, AWQ) to maintain quality |
-| Per-channel quantization | "One scale per row" | Uses a separate scale factor for each output channel instead of one for the whole tensor, dramatically reduces error |
-| GPTQ | "The Hessian method" | Post-training quantization using second-order information to minimize output error, one layer at a time |
-| AWQ | "Activation-aware" | Scales salient weights (those multiplied by large activations) before quantization to protect them |
-| GGUF | "The llama.cpp format" | Self-contained model file with mixed-precision layers, optimized for CPU and Apple Silicon inference |
-| PTQ | "Quantize after training" | Convert a trained model's weights to lower precision without retraining, fast but limited at extreme compression |
-| QAT | "Quantize during training" | Insert fake quantization into the forward pass so the model learns to tolerate rounding, better at INT4/INT2 |
-| Calibration data | "The 128 examples" | A small dataset run through the model to compute activation statistics for setting scale factors |
-| Scale factor | "The multiplier" | Converts between floating-point range and integer range: `float_val = int_val * scale` |
-| Perplexity delta | "How much worse" | Difference in perplexity between original and quantized model, < 0.5 is excellent, > 2.0 is a problem |
+| FP16 | "Nửa độ chính xác" | Float 16-bit với 5 bit số mũ và 10 bit phần định trị, giá trị tối đa 65,504, định dạng suy luận tiêu chuẩn |
+| BF16 | "Brain float" | Float 16-bit với 8 bit số mũ (cùng phạm vi FP32) và 7 bit phần định trị, Google thiết kế cho huấn luyện |
+| FP8 | "Float tám bit" | Hai biến thể: E4M3 (suy luận, chính xác hơn) và E5M2 (huấn luyện, phạm vi rộng hơn), nguyên bản trên H100 |
+| INT8 | "Số nguyên tám bit" | 256 giá trị cách đều từ -128 đến 127, cần hệ số tỷ lệ để ánh xạ từ float |
+| INT4 | "Số nguyên bốn bit" | Tổng 16 mức, cần phương pháp tinh vi (GPTQ, AWQ) để duy trì chất lượng |
+| Per-channel quantization (Lượng tử hóa theo kênh) | "Một hệ số mỗi hàng" | Dùng hệ số tỷ lệ riêng cho mỗi kênh đầu ra thay vì một cho toàn tensor, giảm mạnh sai số |
+| GPTQ | "Phương pháp Hessian" | Lượng tử hóa sau huấn luyện dùng thông tin bậc hai để giảm sai số đầu ra, từng lớp một |
+| AWQ | "Nhận biết activation" | Co giãn trọng số nổi bật (nhân với activation lớn) trước lượng tử hóa để bảo vệ chúng |
+| GGUF | "Định dạng llama.cpp" | File mô hình tự chứa với các lớp độ chính xác hỗn hợp, tối ưu cho suy luận CPU và Apple Silicon |
+| PTQ | "Lượng tử hóa sau huấn luyện" | Chuyển trọng số mô hình đã huấn luyện sang độ chính xác thấp hơn không huấn luyện lại, nhanh nhưng hạn chế ở nén cực đoan |
+| QAT | "Lượng tử hóa khi huấn luyện" | Chèn lượng tử hóa giả vào truyền xuôi để mô hình học chịu làm tròn, tốt hơn ở INT4/INT2 |
+| Calibration data (Dữ liệu hiệu chuẩn) | "128 ví dụ" | Tập nhỏ chạy qua mô hình để tính thống kê activation cho đặt hệ số tỷ lệ |
+| Scale factor (Hệ số tỷ lệ) | "Hệ số nhân" | Chuyển giữa phạm vi dấu phẩy động và số nguyên: `float_val = int_val * scale` |
+| Perplexity delta (Độ chênh perplexity) | "Tệ hơn bao nhiêu" | Khác biệt perplexity giữa mô hình gốc và lượng tử hóa, < 0.5 xuất sắc, > 2.0 có vấn đề |
 
 ## Further Reading
 
-- [Frantar et al., 2022 -- "GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers"](https://arxiv.org/abs/2210.17323) -- the paper that made INT4 quantization practical for LLMs using Hessian-guided weight rounding
-- [Lin et al., 2023 -- "AWQ: Activation-aware Weight Quantization for LLM Compression and Acceleration"](https://arxiv.org/abs/2306.00978) -- protecting salient weights by scaling before quantization, matching or beating GPTQ
-- [Dettmers et al., 2022 -- "LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale"](https://arxiv.org/abs/2208.07339) -- mixed-precision INT8 that keeps outlier features in FP16, enabling INT8 inference without quality loss
-- [Xiao et al., 2023 -- "SmoothQuant: Accurate and Efficient Post-Training Quantization for Large Language Models"](https://arxiv.org/abs/2211.10438) -- migrating quantization difficulty from activations to weights for W8A8 deployment
-- [Micikevicius et al., 2022 -- "FP8 Formats for Deep Learning"](https://arxiv.org/abs/2209.05433) -- the NVIDIA/ARM/Intel paper defining E4M3 and E5M2 formats now native on H100
+- [Frantar et al., 2022 -- "GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers"](https://arxiv.org/abs/2210.17323) -- bài báo làm lượng tử hóa INT4 thực tiễn cho LLM bằng làm tròn trọng số theo Hessian
+- [Lin et al., 2023 -- "AWQ: Activation-aware Weight Quantization for LLM Compression and Acceleration"](https://arxiv.org/abs/2306.00978) -- bảo vệ trọng số nổi bật bằng co giãn trước lượng tử hóa, ngang hoặc vượt GPTQ
+- [Dettmers et al., 2022 -- "LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale"](https://arxiv.org/abs/2208.07339) -- INT8 độ chính xác hỗn hợp giữ đặc trưng ngoại lệ ở FP16, cho phép suy luận INT8 không mất chất lượng
+- [Xiao et al., 2023 -- "SmoothQuant: Accurate and Efficient Post-Training Quantization for Large Language Models"](https://arxiv.org/abs/2211.10438) -- chuyển khó khăn lượng tử hóa từ activation sang trọng số cho triển khai W8A8
+- [Micikevicius et al., 2022 -- "FP8 Formats for Deep Learning"](https://arxiv.org/abs/2209.05433) -- bài báo NVIDIA/ARM/Intel định nghĩa E4M3 và E5M2 hiện nguyên bản trên H100

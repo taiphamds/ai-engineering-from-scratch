@@ -9,89 +9,89 @@ tags: [quantization, inference, deployment, optimization, fp8, int4, int8, gptq,
 
 # Quantization Decision Framework
 
-When deploying a language model, use this framework to select the right number format, quantization method, and quality validation strategy.
+Khi triển khai mô hình ngôn ngữ, dùng khung này để chọn định dạng số, phương pháp lượng tử hóa và chiến lược xác thực chất lượng đúng.
 
 ## Input Requirements
 
-Provide:
-- **Model** (name, parameter count, original precision)
-- **Target hardware** (GPU model/VRAM, CPU, Apple Silicon, edge device)
-- **Latency target** (tokens/second, time to first token)
-- **Quality floor** (max acceptable perplexity increase, benchmark delta)
-- **Serving pattern** (batch size, max context length, concurrent users)
+Cung cấp:
+- **Mô hình** (tên, số tham số, độ chính xác gốc)
+- **Phần cứng mục tiêu** (mẫu GPU/VRAM, CPU, Apple Silicon, thiết bị biên)
+- **Mục tiêu độ trễ** (token/giây, thời gian đến token đầu)
+- **Mức chất lượng tối thiểu** (mức tăng perplexity chấp nhận tối đa, độ chênh benchmark)
+- **Mô thức phục vụ** (kích thước batch, ngữ cảnh tối đa, người dùng đồng thời)
 
 ## Quick Selection
 
-| Your Situation | Format | Method | Expected Quality Loss |
+| Tình huống của bạn | Định dạng | Phương pháp | Mất chất lượng kỳ vọng |
 |---------------|--------|--------|----------------------|
-| H100 GPU, maximum throughput | FP8 E4M3 | Native H100 casting | < 0.1% |
-| A100/A10, need 2x throughput | INT8 | LLM.int8() or SmoothQuant | < 0.5% |
-| Single 24GB GPU, 70B model | INT4 | AWQ or GPTQ | 1-3% |
-| MacBook / Apple Silicon | INT4 GGUF | Q4_K_M via llama.cpp | 1-2% |
-| Mobile / edge device | INT4 or INT3 | QAT + device-specific | 2-5% |
-| Maximum compression, some loss OK | INT2 | QuIP# or AQLM | 5-15% |
-| Training (mixed precision) | BF16 + FP32 accum | Native framework support | 0% |
+| GPU H100, thông lượng tối đa | FP8 E4M3 | Ép kiểu H100 nguyên bản | < 0.1% |
+| A100/A10, cần thông lượng 2x | INT8 | LLM.int8() hoặc SmoothQuant | < 0.5% |
+| Một GPU 24GB, mô hình 70B | INT4 | AWQ hoặc GPTQ | 1-3% |
+| MacBook / Apple Silicon | INT4 GGUF | Q4_K_M qua llama.cpp | 1-2% |
+| Di động / thiết bị biên | INT4 hoặc INT3 | QAT + riêng thiết bị | 2-5% |
+| Nén tối đa, chấp nhận mất một ít | INT2 | QuIP# hoặc AQLM | 5-15% |
+| Huấn luyện (độ chính xác hỗn hợp) | BF16 + tích lũy FP32 | Hỗ trợ framework nguyên bản | 0% |
 
 ## Precision Selection by Component
 
-Not all tensors should get the same treatment.
+Không phải mọi tensor nên được xử lý giống nhau.
 
-| Component | Safe Minimum | Recommended | Avoid |
+| Thành phần | Tối thiểu an toàn | Đề xuất | Tránh |
 |-----------|-------------|-------------|-------|
-| FFN weights | INT4 | INT4 (AWQ/GPTQ) | INT2 without QAT |
-| Attention weights | INT4 | INT8 or FP8 | INT2 |
-| Embedding layer | INT8 | FP16 (keep original) | INT4 |
-| Output head | INT8 | FP16 (keep original) | INT4 |
-| KV cache | FP8 | FP8 or INT8 | INT4 at long context |
-| Attention logits | FP16 | FP16 or BF16 | INT8 |
-| Activations (inference) | INT8 | FP8 or INT8 | INT4 |
+| Trọng số FFN | INT4 | INT4 (AWQ/GPTQ) | INT2 không QAT |
+| Trọng số attention | INT4 | INT8 hoặc FP8 | INT2 |
+| Lớp embedding | INT8 | FP16 (giữ gốc) | INT4 |
+| Head đầu ra | INT8 | FP16 (giữ gốc) | INT4 |
+| KV cache | FP8 | FP8 hoặc INT8 | INT4 ở ngữ cảnh dài |
+| Logit attention | FP16 | FP16 hoặc BF16 | INT8 |
+| Activation (suy luận) | INT8 | FP8 hoặc INT8 | INT4 |
 
 ## Method Comparison
 
 ### GPTQ
-- **When:** GPU inference, you want a Hugging Face-compatible model
-- **Calibration data:** 128 examples, 2048 tokens each
-- **Time:** 30-60 minutes for 70B on A100
-- **Tooling:** `gptqmodel`, `exllama`, `exllamav2`
-- **Strength:** Well-tested, huge model zoo on Hugging Face
-- **Weakness:** Slower than AWQ to apply, slightly lower quality than AWQ on some models
+- **Khi nào:** Suy luận GPU, bạn muốn mô hình tương thích Hugging Face
+- **Dữ liệu hiệu chuẩn:** 128 ví dụ, mỗi ví dụ 2048 token
+- **Thời gian:** 30-60 phút cho 70B trên A100
+- **Công cụ:** `gptqmodel`, `exllama`, `exllamav2`
+- **Điểm mạnh:** Được kiểm thử tốt, kho mô hình khổng lồ trên Hugging Face
+- **Điểm yếu:** Áp dụng chậm hơn AWQ, chất lượng thấp hơn nhẹ so với AWQ trên vài mô hình
 
 ### AWQ
-- **When:** GPU inference, you want best quality-per-bit
-- **Calibration data:** 128 examples
-- **Time:** 15-30 minutes for 70B on A100
-- **Tooling:** `llmcompressor`, `vLLM` (native support)
-- **Strength:** Best INT4 quality, fast to apply, vLLM integration
-- **Weakness:** Smaller model zoo than GPTQ
+- **Khi nào:** Suy luận GPU, bạn muốn chất lượng mỗi bit tốt nhất
+- **Dữ liệu hiệu chuẩn:** 128 ví dụ
+- **Thời gian:** 15-30 phút cho 70B trên A100
+- **Công cụ:** `llmcompressor`, `vLLM` (hỗ trợ nguyên bản)
+- **Điểm mạnh:** Chất lượng INT4 tốt nhất, áp dụng nhanh, tích hợp vLLM
+- **Điểm yếu:** Kho mô hình nhỏ hơn GPTQ
 
 ### GGUF
-- **When:** CPU inference, Apple Silicon, llama.cpp ecosystem
-- **Variants:** Q2_K, Q3_K_S/M/L, Q4_K_S/M, Q5_K_S/M, Q6_K, Q8_0, F16
-- **Recommended default:** Q4_K_M (best quality/size balance)
-- **Tooling:** `llama.cpp`, `ollama`, `LM Studio`
-- **Strength:** Self-contained files, mixed precision, massive ecosystem
-- **Weakness:** Not optimal for GPU (designed for CPU/Metal)
+- **Khi nào:** Suy luận CPU, Apple Silicon, hệ sinh thái llama.cpp
+- **Biến thể:** Q2_K, Q3_K_S/M/L, Q4_K_S/M, Q5_K_S/M, Q6_K, Q8_0, F16
+- **Mặc định đề xuất:** Q4_K_M (cân bằng chất lượng/kích thước tốt nhất)
+- **Công cụ:** `llama.cpp`, `ollama`, `LM Studio`
+- **Điểm mạnh:** File tự chứa, độ chính xác hỗn hợp, hệ sinh thái lớn
+- **Điểm yếu:** Không tối ưu cho GPU (thiết kế cho CPU/Metal)
 
 ### SmoothQuant
-- **When:** INT8 on GPU, need both weight and activation quantization
-- **Key idea:** Migrate quantization difficulty from activations to weights via per-channel scaling
-- **Tooling:** `smoothquant`, `TensorRT-LLM`
-- **Strength:** Enables W8A8 (both weights and activations in INT8) for 2x speedup
-- **Weakness:** INT8 only, does not extend to INT4
+- **Khi nào:** INT8 trên GPU, cần lượng tử hóa cả trọng số lẫn activation
+- **Ý tưởng chính:** Chuyển khó khăn lượng tử hóa từ activation sang trọng số qua co giãn theo kênh
+- **Công cụ:** `smoothquant`, `TensorRT-LLM`
+- **Điểm mạnh:** Cho phép W8A8 (cả trọng số và activation ở INT8) để tăng tốc 2x
+- **Điểm yếu:** Chỉ INT8, không mở rộng sang INT4
 
 ## Quality Validation Protocol
 
-After quantizing, validate before deploying:
+Sau lượng tử hóa, xác thực trước triển khai:
 
-1. **Perplexity test.** Compute on WikiText-2 or your domain corpus. Delta < 0.5 is excellent, 0.5-1.0 is good, > 2.0 is a problem.
+1. **Kiểm thử perplexity.** Tính trên WikiText-2 hoặc corpus miền của bạn. Chênh < 0.5 xuất sắc, 0.5-1.0 tốt, > 2.0 có vấn đề.
 
-2. **Benchmark sweep.** Run MMLU (general), GSM8K (math), HumanEval (code). Math and code are most sensitive to precision loss.
+2. **Quét benchmark.** Chạy MMLU (tổng quát), GSM8K (toán), HumanEval (mã). Toán và mã nhạy nhất với mất độ chính xác.
 
-3. **Output comparison.** Generate 100 responses from both original and quantized model. Use LLM-as-judge to compute win rate. Target: quantized model wins or ties on > 90% of prompts.
+3. **So đầu ra.** Sinh 100 phản hồi từ cả mô hình gốc và lượng tử hóa. Dùng LLM-as-judge tính tỷ lệ thắng. Mục tiêu: mô hình lượng tử hóa thắng hoặc hòa trên > 90% prompt.
 
-4. **Latency measurement.** Measure tokens/second at batch size 1 and your target batch size. Verify the speedup justifies the quality cost.
+4. **Đo độ trễ.** Đo token/giây ở batch 1 và batch mục tiêu. Xác minh tăng tốc xứng đáng chi phí chất lượng.
 
-5. **Long-context test.** If serving long contexts (> 4K tokens), test at your maximum context length. KV cache quantization errors compound with sequence length.
+5. **Kiểm thử ngữ cảnh dài.** Nếu phục vụ ngữ cảnh dài (> 4K token), kiểm thử ở độ dài tối đa. Sai số lượng tử hóa KV cache tích lũy theo độ dài chuỗi.
 
 ## Memory Budget Calculator
 
@@ -103,22 +103,22 @@ Activation memory (GB) ~ 1-4 GB (relatively constant, depends on batch size)
 Total = weight_memory + kv_cache + activation_memory + overhead (10-20%)
 ```
 
-Example for Llama 3 70B at INT4, 32K context:
-- Weights: 70B * 4 / 8 / 1.07 = 32.6 GB
+Ví dụ cho Llama 3 70B ở INT4, ngữ cảnh 32K:
+- Trọng số: 70B * 4 / 8 / 1.07 = 32.6 GB
 - KV cache (FP16): 2 * 80 * 8192 * 16 / 8 / 1e9 * 32768 = ~40 GB
 - KV cache (FP8): ~20 GB
-- Total with FP8 KV: ~55 GB (fits one 80GB A100)
+- Tổng với KV FP8: ~55 GB (vừa một A100 80GB)
 
 ## Common Mistakes
 
-| Mistake | Why It Fails | Fix |
+| Sai lầm | Vì sao thất bại | Cách khắc phục |
 |---------|-------------|-----|
-| Quantizing the embedding layer to INT4 | First layer amplifies errors through entire model | Keep embeddings at FP16 or INT8 |
-| Using per-tensor scales for INT4 | One outlier row destroys precision for all rows | Use per-channel or per-group scales |
-| Not calibrating GPTQ/AWQ | Scale factors are wrong without representative data | Use 128 examples from your domain |
-| Same bit-width for all layers | First/last layers are more sensitive | Mixed precision: higher bits for first/last |
-| Quantizing KV cache at very long context | Errors compound quadratically with sequence length | Use FP8 for KV cache, not INT4 |
-| Skipping quality validation | Some models quantize poorly (especially at boundaries) | Always run perplexity + task evals |
+| Lượng tử hóa lớp embedding sang INT4 | Lớp đầu khuếch đại sai số xuyên cả mô hình | Giữ embedding ở FP16 hoặc INT8 |
+| Dùng hệ số theo tensor cho INT4 | Một hàng ngoại lệ phá độ chính xác mọi hàng | Dùng hệ số theo kênh hoặc nhóm |
+| Không hiệu chuẩn GPTQ/AWQ | Hệ số tỷ lệ sai nếu không có dữ liệu đại diện | Dùng 128 ví dụ từ miền của bạn |
+| Cùng độ rộng bit cho mọi lớp | Lớp đầu/cuối nhạy hơn | Độ chính xác hỗn hợp: bit cao hơn cho đầu/cuối |
+| Lượng tử hóa KV cache ở ngữ cảnh rất dài | Sai số tích lũy bậc hai theo độ dài chuỗi | Dùng FP8 cho KV cache, không INT4 |
+| Bỏ xác thực chất lượng | Vài mô hình lượng tử hóa kém (đặc biệt ở ranh giới) | Luôn chạy perplexity + đánh giá tác vụ |
 
 ## Deployment Recipes
 
