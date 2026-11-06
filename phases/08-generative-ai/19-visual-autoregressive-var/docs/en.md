@@ -1,6 +1,6 @@
 # Visual Autoregressive Modeling (VAR): Next-Scale Prediction
 
-> Diffusion models sample iteratively in time (denoising steps). VAR samples iteratively in scale — it predicts a 1x1 token, then 2x2, then 4x4, up to the final resolution, each scale conditioning on the previous. The 2024 paper showed VAR matches GPT-style scaling laws for image generation and beats DiT at the same compute budget. This lesson builds the core mechanism.
+> Các mô hình khuếch tán lấy mẫu lặp theo thời gian (các bước khử nhiễu). VAR lấy mẫu lặp theo thang — nó dự đoán một token 1x1, rồi 2x2, rồi 4x4, lên đến độ phân giải cuối, mỗi thang có điều kiện theo thang trước. Bài báo năm 2024 cho thấy VAR tuân theo các quy luật mở rộng kiểu GPT cho sinh ảnh và đánh bại DiT ở cùng ngân sách tính toán. Bài học này xây dựng cơ chế cốt lõi.
 
 **Type:** Build
 **Languages:** Python (with PyTorch)
@@ -9,19 +9,19 @@
 
 ## The Problem
 
-Autoregressive generation dominated language modeling because it scales predictably: more compute, more parameters, lower perplexity, better outputs. Image generation had two main AR attempts before 2024: PixelRNN/PixelCNN (pixel-by-pixel) and DALL-E 1 / Parti / MuseGAN (token-by-token on VQ-VAE codes).
+Sinh tự hồi quy chi phối mô hình hóa ngôn ngữ vì nó mở rộng quy mô có thể dự đoán: nhiều tính toán hơn, nhiều tham số hơn, perplexity thấp hơn, đầu ra tốt hơn. Sinh ảnh có hai nỗ lực AR chính trước năm 2024: PixelRNN/PixelCNN (từng pixel) và DALL-E 1 / Parti / MuseGAN (từng token trên mã VQ-VAE).
 
-Both suffered from a generation-order problem. Pixels and tokens are arranged in a 2D grid, but the AR model has to visit them in a 1D raster order. An early corner pixel has no idea what the image eventually becomes. Generation quality scaled worse than GPT-on-text and never reached diffusion-model quality at matched compute.
+Cả hai đều chịu vấn đề thứ tự sinh. Pixel và token được sắp xếp trong một lưới 2D, nhưng mô hình AR phải đi qua chúng theo một thứ tự raster 1D. Một pixel góc được sinh sớm không biết ảnh cuối cùng trở thành gì. Chất lượng sinh mở rộng kém hơn GPT trên văn bản và chưa bao giờ đạt chất lượng mô hình khuếch tán ở tính toán tương đương.
 
-VAR fixes the generation-order problem by changing what is being generated. Instead of predicting image tokens one by one in space, VAR predicts a whole image at increasing resolutions. Step 1: predict a 1x1 token (the overall image "summary"). Step 2: predict a 2x2 grid of tokens (coarser features). Step 3: predict a 4x4 grid. Step K: predict the final (H/8)x(W/8) grid.
+VAR khắc phục vấn đề thứ tự sinh bằng cách thay đổi thứ đang được sinh. Thay vì dự đoán các token ảnh lần lượt trong không gian, VAR dự đoán toàn bộ ảnh ở các độ phân giải tăng dần. Bước 1: dự đoán một token 1x1 ("bản tóm tắt" tổng thể của ảnh). Bước 2: dự đoán một lưới token 2x2 (các đặc trưng thô hơn). Bước 3: dự đoán một lưới 4x4. Bước K: dự đoán lưới (H/8)x(W/8) cuối cùng.
 
-Each scale attends to all previous scales (causally in "scale order") and parallel within its own scale. The order problem disappears: the whole image at scale k is produced in one transformer pass.
+Mỗi thang chú ý đến tất cả các thang trước (theo nhân quả trong "thứ tự thang") và song song trong chính thang của nó. Vấn đề thứ tự biến mất: toàn bộ ảnh ở thang k được tạo ra trong một lượt transformer.
 
 ## The Concept
 
 ### VQ-VAE Multi-Scale Tokenizer
 
-VAR needs a **multi-scale discrete tokenizer**. For an image x, it produces a sequence of progressively higher-resolution token grids:
+VAR cần một **tokenizer rời rạc đa thang**. Với một ảnh x, nó tạo ra một chuỗi các lưới token có độ phân giải cao dần:
 
 ```
 x -> encoder -> latent f
@@ -31,32 +31,32 @@ f -> tokenize at 2x2: token grid z_2 of shape (2, 2)
 f -> tokenize at (H/p)x(W/p): token grid z_K of shape (H/p, W/p)
 ```
 
-Each z_k uses the same codebook (typical size 4096-16384). The tokenization at each scale is not independent — it is trained so that summing the residuals at each scale reconstructs f:
+Mỗi z_k dùng cùng codebook (kích thước điển hình 4096-16384). Token hóa ở mỗi thang không độc lập — nó được huấn luyện để tổng các phần dư ở mỗi thang tái dựng f:
 
 ```
 f ≈ upsample(embed(z_1), target_size) + ... + upsample(embed(z_K), target_size)
 ```
 
-This is a **residual VQ** variant. Scale k captures what scales 1..k-1 missed. Decoder takes the sum of all scale embeddings and produces the image.
+Đây là một biến thể **VQ phần dư**. Thang k nắm bắt những gì các thang 1..k-1 bỏ sót. Decoder nhận tổng của tất cả embedding thang và tạo ra ảnh.
 
-The multi-scale VQ tokenizer is trained once (like VQGAN) and then frozen. All the generative work is done by the autoregressive model on top.
+Tokenizer VQ đa thang được huấn luyện một lần (như VQGAN) rồi đóng băng. Toàn bộ công việc sinh được thực hiện bởi mô hình tự hồi quy ở trên.
 
 ### Next-Scale Prediction
 
-The generative model is a transformer that sees tokens from all previous scales and predicts the tokens at the next scale.
+Mô hình sinh là một transformer thấy các token từ tất cả các thang trước và dự đoán các token ở thang tiếp theo.
 
-Input sequence structure:
+Cấu trúc chuỗi đầu vào:
 ```
 [START, z_1 tokens, z_2 tokens, z_3 tokens, ..., z_K tokens]
 ```
 
-Position embeddings encode both scale index and spatial position within the scale. Attention is causal in scale order: token at scale k, position (i, j) can attend to all tokens at scales 1..k and to tokens at scale k itself that come earlier in whatever intra-scale order is used (VAR uses fixed positional attention with no intra-scale causality — all positions within a scale are predicted in parallel).
+Embedding vị trí mã hóa cả chỉ số thang và vị trí không gian trong thang. Attention có tính nhân quả theo thứ tự thang: token ở thang k, vị trí (i, j) có thể chú ý đến tất cả token ở các thang 1..k và đến các token ở chính thang k xuất hiện trước theo bất kỳ thứ tự nội thang nào được dùng (VAR dùng attention vị trí cố định không có nhân quả nội thang — tất cả vị trí trong một thang được dự đoán song song).
 
-Training loss: at each scale k, predict the tokens z_k given all prior-scale tokens. Cross-entropy loss on the discrete VQ codes. Same structure as GPT except the "sequence" is now scale-structured.
+Hàm mất mát huấn luyện: ở mỗi thang k, dự đoán các token z_k với tất cả token của các thang trước. Hàm mất mát cross-entropy trên các mã VQ rời rạc. Cùng cấu trúc như GPT ngoại trừ "chuỗi" giờ có cấu trúc theo thang.
 
 ### Generation
 
-At inference:
+Khi suy luận:
 ```
 generate z_1 = sample from p(z_1)                    # 1 token
 generate z_2 = sample from p(z_2 | z_1)              # 4 tokens in parallel
@@ -66,27 +66,27 @@ decode: f = sum of embed-and-upsample scales 1..K
 image = VAE_decoder(f)
 ```
 
-For K = 10 scales, generation is 10 transformer forward passes. Each pass produces its entire scale in parallel — no per-token autoregression within a scale. For a 256x256 image this is roughly 10 passes vs DiT's 28-50.
+Với K = 10 thang, sinh là 10 lượt truyền xuôi transformer. Mỗi lượt tạo ra toàn bộ thang của nó song song — không tự hồi quy theo token trong một thang. Với một ảnh 256x256, đây là khoảng 10 lượt so với 28-50 của DiT.
 
 ### Why Next-Scale Wins Over Next-Token
 
-Three structural wins:
-1. **Coarse-to-fine aligns with natural image statistics.** Human visual perception and image datasets both exhibit scale-dependent regularities: low-frequency structure is stable and predictable; high-frequency detail is conditional on low-frequency content. Next-scale prediction exploits this.
-2. **Parallel generation within scale.** Unlike GPT-style token AR, VAR produces all tokens at a scale in one step. Effective generation length is log-scale instead of linear.
-3. **No generation order bias.** Tokens at scale k see all of scale k-1; there is no "left-of" or "above" bias that forces early tokens to commit before late context is available.
+Ba lợi thế cấu trúc:
+1. **Từ thô đến tinh phù hợp với các thống kê ảnh tự nhiên.** Cảm nhận thị giác của con người và các tập dữ liệu ảnh đều thể hiện các quy luật phụ thuộc thang: cấu trúc tần số thấp ổn định và có thể dự đoán; chi tiết tần số cao có điều kiện theo nội dung tần số thấp. Dự đoán thang tiếp theo khai thác điều này.
+2. **Sinh song song trong thang.** Khác với token AR kiểu GPT, VAR tạo ra tất cả token ở một thang trong một bước. Độ dài sinh hiệu dụng là theo thang log thay vì tuyến tính.
+3. **Không thiên lệch thứ tự sinh.** Token ở thang k thấy toàn bộ thang k-1; không có thiên lệch "bên trái" hay "phía trên" buộc các token sớm phải quyết định trước khi ngữ cảnh muộn có sẵn.
 
 ### Scaling Law
 
-Tian et al. demonstrated that VAR follows a power-law scaling curve for FID on ImageNet — just like GPT does for perplexity. Doubling parameters or compute reliably halves error. This was the first image-generative model to exhibit this kind of scaling behavior as cleanly as language models. The result is that VAR-scale predictions become predictable from compute, not empirical guesses per architecture.
+Tian và cộng sự chứng minh VAR tuân theo một đường cong mở rộng dạng luật lũy thừa cho FID trên ImageNet — giống như GPT đối với perplexity. Tăng gấp đôi tham số hoặc tính toán giảm một nửa sai số một cách đáng tin cậy. Đây là mô hình sinh ảnh đầu tiên thể hiện kiểu hành vi mở rộng này rõ ràng như các mô hình ngôn ngữ. Kết quả là các dự đoán ở quy mô VAR trở nên có thể dự đoán từ tính toán, không phải phỏng đoán thực nghiệm theo kiến trúc.
 
 ### Relationship to Diffusion
 
-VAR and diffusion share the same data-compression story: both break the generation problem into a sequence of easier subproblems.
+VAR và khuếch tán chia sẻ cùng câu chuyện nén dữ liệu: cả hai chia bài toán sinh thành một chuỗi các bài toán con dễ hơn.
 
-- Diffusion: gradually add noise, learn to undo one step.
-- VAR: gradually add resolution, learn to predict the next scale.
+- Khuếch tán: dần thêm nhiễu, học hoàn tác một bước.
+- VAR: dần thêm độ phân giải, học dự đoán thang tiếp theo.
 
-They are different axes through the problem. Both yield tractable conditional distributions. Empirically VAR is faster at inference (fewer passes, all parallel within a scale) and matches or beats DiT on class-conditional ImageNet. Text-conditional VAR (VARclip, HART) is an active research direction.
+Chúng là các trục khác nhau xuyên qua bài toán. Cả hai đều cho các phân phối có điều kiện tính toán được. Theo thực nghiệm VAR suy luận nhanh hơn (ít lượt hơn, tất cả song song trong một thang) và ngang bằng hoặc đánh bại DiT trên ImageNet có điều kiện theo lớp. VAR có điều kiện bằng văn bản (VARclip, HART) là một hướng nghiên cứu sôi nổi.
 
 ```figure
 gx-var-next-scale
@@ -94,49 +94,49 @@ gx-var-next-scale
 
 ## Build It
 
-In `code/main.py` you will:
-1. Build a tiny **multi-scale VQ tokenizer** on synthetic "image" data (2D Gaussian rings).
-2. Train a **VAR-style transformer** to next-scale-predict the tokens.
-3. Sample by calling the transformer 4 times (4 scales) and decoding.
-4. Verify that scale-ordered training makes generation parallel within a scale.
+Trong `code/main.py` bạn sẽ:
+1. Xây dựng một **tokenizer VQ đa thang** nhỏ trên dữ liệu "ảnh" tổng hợp (các vòng Gaussian 2D).
+2. Huấn luyện một **transformer kiểu VAR** để dự đoán các token ở thang tiếp theo.
+3. Lấy mẫu bằng cách gọi transformer 4 lần (4 thang) và giải mã.
+4. Xác minh huấn luyện theo thứ tự thang làm việc sinh song song trong một thang.
 
-This is a toy implementation. The point is to see the scale-structured attention mask and the parallel-within-scale generation actually working.
+Đây là một triển khai đồ chơi. Điểm chính là thấy mặt nạ attention có cấu trúc theo thang và việc sinh song song trong thang thực sự hoạt động.
 
 ## Ship It
 
-This lesson produces `outputs/skill-var-tokenizer-designer.md` — a skill for designing a multi-scale tokenizer: number of scales, scale ratios, codebook size, residual sharing, decoder architecture.
+Bài học này tạo ra `outputs/skill-var-tokenizer-designer.md` — một skill để thiết kế một tokenizer đa thang: số thang, tỷ lệ thang, kích thước codebook, chia sẻ phần dư, kiến trúc decoder.
 
 ## Exercises
 
-1. **Scale count ablation.** Train VAR with 4, 6, 8, 10 scales. Measure reconstruction quality vs number of autoregressive passes. More scales = finer residuals = better quality but more passes.
+1. **Thử nghiệm loại bỏ về số thang.** Huấn luyện VAR với 4, 6, 8, 10 thang. Đo chất lượng tái dựng so với số lượt tự hồi quy. Nhiều thang hơn = phần dư tinh hơn = chất lượng tốt hơn nhưng nhiều lượt hơn.
 
-2. **Codebook size.** Train tokenizers with codebook sizes 512, 4096, 16384. Larger codebooks give better reconstruction but harder prediction. Find the knee.
+2. **Kích thước codebook.** Huấn luyện các tokenizer với kích thước codebook 512, 4096, 16384. Codebook lớn hơn cho tái dựng tốt hơn nhưng dự đoán khó hơn. Tìm điểm gấp khúc.
 
-3. **Parallel-within-scale check.** For a trained VAR, measure the attention pattern explicitly. Within scale k, does the model attend to cross-scale positions but not intra-scale? Verify the mask implementation.
+3. **Kiểm tra song song trong thang.** Với một VAR đã huấn luyện, đo rõ mô thức attention. Trong thang k, mô hình có chú ý đến các vị trí xuyên thang nhưng không nội thang không? Xác minh triển khai mặt nạ.
 
-4. **VAR vs DiT scaling.** For the same ImageNet class-conditional task, train VAR and DiT at matched param budgets (e.g., 33M, 130M, 458M). Plot FID vs compute. VAR should pull ahead of DiT at each size — reproduce the paper's result at small scale.
+4. **Mở rộng quy mô VAR so với DiT.** Với cùng tác vụ ImageNet có điều kiện theo lớp, huấn luyện VAR và DiT ở các ngân sách tham số khớp nhau (ví dụ 33M, 130M, 458M). Vẽ FID theo tính toán. VAR nên vượt lên DiT ở mỗi kích thước — tái lập kết quả bài báo ở quy mô nhỏ.
 
-5. **Text conditioning.** Extend VAR to take a text embedding (CLIP pooled) as an extra conditioning input via adaLN. This is the HART recipe. How much does FID improve on text-aligned sampling?
+5. **Điều kiện hóa bằng văn bản.** Mở rộng VAR để nhận một embedding văn bản (CLIP pooled) làm một đầu vào điều kiện hóa bổ sung qua adaLN. Đây là công thức HART. FID cải thiện bao nhiêu trên lấy mẫu phù hợp văn bản?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| VAR | "Visual AutoRegressive" | Image generation by next-scale prediction over a pyramid of VQ token grids |
-| Next-scale prediction | "Predict coarser, then finer" | The model predicts tokens at increasing resolution scales, conditioning on all previous scales |
-| Multi-scale VQ tokenizer | "Residual VQ" | VQ-VAE that produces K token grids of increasing resolution, with decoder summing all scales |
-| Scale k | "Pyramid level k" | One of K resolution levels, from 1x1 at k=1 up to (H/p)x(W/p) at k=K |
-| Parallel-within-scale | "One forward per scale" | All tokens at scale k are predicted in one transformer pass, not autoregressively |
-| Causal-across-scales | "Scale-ordered attention" | Token at scale k can attend to all of scales 1..k but not scales k+1..K |
-| Residual VQ | "Additive tokenization" | Each scale's tokens encode the residual left by lower scales; decoder sums all scale embeddings |
-| VAR scaling law | "Image GPT scaling" | FID follows a predictable power law in compute, like language models' perplexity |
-| HART | "Hybrid VAR + text" | Text-conditional VAR variant combining MaskGIT-style iterative decoding with VAR's scale structure |
-| Scale position embedding | "(scale, row, col) triple" | Positional encoding carries both the scale index and spatial coordinates within the scale |
+| VAR | "Tự hồi quy thị giác" | Sinh ảnh bằng dự đoán thang tiếp theo trên một kim tự tháp các lưới token VQ |
+| Next-scale prediction (Dự đoán thang tiếp theo) | "Dự đoán thô hơn, rồi tinh hơn" | Mô hình dự đoán các token ở các thang độ phân giải tăng dần, có điều kiện theo tất cả các thang trước |
+| Multi-scale VQ tokenizer (Tokenizer VQ đa thang) | "VQ phần dư" | VQ-VAE tạo ra K lưới token có độ phân giải tăng dần, với decoder cộng tất cả các thang |
+| Scale k (Thang k) | "Mức kim tự tháp k" | Một trong K mức độ phân giải, từ 1x1 ở k=1 lên đến (H/p)x(W/p) ở k=K |
+| Parallel-within-scale (Song song trong thang) | "Một lượt truyền xuôi mỗi thang" | Tất cả token ở thang k được dự đoán trong một lượt transformer, không tự hồi quy |
+| Causal-across-scales (Nhân quả xuyên thang) | "Attention theo thứ tự thang" | Token ở thang k có thể chú ý đến toàn bộ các thang 1..k nhưng không đến các thang k+1..K |
+| Residual VQ (VQ phần dư) | "Token hóa cộng" | Các token của mỗi thang mã hóa phần dư do các thang thấp hơn để lại; decoder cộng tất cả embedding thang |
+| VAR scaling law (Quy luật mở rộng VAR) | "Mở rộng GPT ảnh" | FID tuân theo một luật lũy thừa có thể dự đoán theo tính toán, như perplexity của các mô hình ngôn ngữ |
+| HART | "VAR lai + văn bản" | Biến thể VAR có điều kiện bằng văn bản kết hợp giải mã lặp kiểu MaskGIT với cấu trúc thang của VAR |
+| Scale position embedding (Embedding vị trí thang) | "Bộ ba (thang, hàng, cột)" | Mã hóa vị trí mang cả chỉ số thang và tọa độ không gian trong thang |
 
 ## Further Reading
 
-- [Tian et al., 2024 — "Visual Autoregressive Modeling: Scalable Image Generation via Next-Scale Prediction"](https://arxiv.org/abs/2404.02905) — the VAR paper, canonical reference
-- [Peebles and Xie, 2022 — "Scalable Diffusion Models with Transformers"](https://arxiv.org/abs/2212.09748) — DiT, the diffusion comparison baseline
-- [Esser et al., 2021 — "Taming Transformers for High-Resolution Image Synthesis"](https://arxiv.org/abs/2012.09841) — VQGAN, the tokenizer family VAR's multi-scale tokenizer extends
-- [van den Oord et al., 2017 — "Neural Discrete Representation Learning"](https://arxiv.org/abs/1711.00937) — VQ-VAE, the foundation of discrete image tokenization
-- [Tang et al., 2024 — "HART: Efficient Visual Generation with Hybrid Autoregressive Transformer"](https://arxiv.org/abs/2410.10812) — text-conditional VAR
+- [Tian et al., 2024 — "Visual Autoregressive Modeling: Scalable Image Generation via Next-Scale Prediction"](https://arxiv.org/abs/2404.02905) — bài báo VAR, tham chiếu chuẩn
+- [Peebles and Xie, 2022 — "Scalable Diffusion Models with Transformers"](https://arxiv.org/abs/2212.09748) — DiT, baseline so sánh khuếch tán
+- [Esser et al., 2021 — "Taming Transformers for High-Resolution Image Synthesis"](https://arxiv.org/abs/2012.09841) — VQGAN, họ tokenizer mà tokenizer đa thang của VAR mở rộng
+- [van den Oord et al., 2017 — "Neural Discrete Representation Learning"](https://arxiv.org/abs/1711.00937) — VQ-VAE, nền tảng của token hóa ảnh rời rạc
+- [Tang et al., 2024 — "HART: Efficient Visual Generation with Hybrid Autoregressive Transformer"](https://arxiv.org/abs/2410.10812) — VAR có điều kiện bằng văn bản
