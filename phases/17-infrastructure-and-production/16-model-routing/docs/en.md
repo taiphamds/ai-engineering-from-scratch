@@ -1,6 +1,6 @@
 # Model Routing as a Cost-Reduction Primitive
 
-> A dynamic broker evaluates every request (task type, token length, embedding similarity, confidence) and sends simple queries to a cheap model, escalating complex ones to a frontier model. Also called model cascading. Production case studies show 20-60% cost reduction at iso-quality across US/UK/EU deployments; a 30% routing efficiency improvement on high-volume SaaS turns into six-figure annual savings. The 2026 context is that LLM inference prices dropped ~10x per year — a GPT-4-class token went from $20/M to ~$0.40/M from late 2022 to 2026. Most of the drop is better serving stacks (Phase 17 · 04-09), not hardware. Routing is how you convert that price drop into margin without product regression. The failure mode is cheap-model drift: the route pushes 40% to a weaker model, quality drops 3-5% on reasoning tasks, no one notices for a quarter. Gate routes by online quality metrics, not just offline eval sets.
+> Một bộ môi giới động đánh giá từng yêu cầu (loại tác vụ, độ dài token, độ tương đồng embedding, độ tin cậy) và gửi truy vấn đơn giản đến mô hình rẻ, chuyển truy vấn phức tạp lên mô hình tiên tiến hàng đầu. Cũng được gọi là xếp tầng mô hình. Các nghiên cứu tình huống sản xuất cho thấy giảm chi phí 20-60% ở cùng chất lượng trên các triển khai Mỹ/Anh/EU; cải thiện hiệu quả định tuyến 30% trên SaaS khối lượng lớn chuyển thành tiết kiệm hằng năm sáu chữ số. Bối cảnh năm 2026 là giá suy luận LLM giảm ~10x mỗi năm — một token tầm GPT-4 giảm từ $20/M xuống ~$0.40/M từ cuối năm 2022 đến 2026. Phần lớn mức giảm đến từ ngăn xếp phục vụ tốt hơn (Giai đoạn 17 · 04-09), không phải phần cứng. Định tuyến là cách bạn chuyển mức giảm giá đó thành biên lợi nhuận mà không làm sản phẩm suy giảm. Chế độ lỗi là độ trôi mô hình rẻ: tuyến đẩy 40% sang mô hình yếu hơn, chất lượng giảm 3-5% trên tác vụ suy luận, không ai nhận ra suốt một quý. Kiểm soát tuyến bằng chỉ số chất lượng trực tuyến, không chỉ bộ đánh giá ngoại tuyến.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy cascading router simulator)
@@ -9,69 +9,69 @@
 
 ## Learning Objectives
 
-- Explain model cascading: cheap-first with confidence check, escalate on low confidence.
-- Enumerate the four routing signals (task classification, prompt length, embedding similarity to known-hard set, self-confidence from first-pass).
-- Compute expected blended cost at target routing split and quality loss tolerance.
-- Name the drift-monitoring metric (online quality gate) that catches cheap-model creep.
+- Giải thích xếp tầng mô hình: mô hình rẻ trước với kiểm tra độ tin cậy, chuyển cấp khi độ tin cậy thấp.
+- Liệt kê bốn tín hiệu định tuyến (phân loại tác vụ, độ dài prompt, độ tương đồng embedding với tập đã biết là khó, độ tự tin từ lượt đầu).
+- Tính chi phí pha trộn dự kiến ở tỷ lệ phân chia định tuyến mục tiêu và mức chấp nhận mất chất lượng.
+- Nêu chỉ số giám sát độ trôi (cổng chất lượng trực tuyến) bắt được sự lấn dần của mô hình rẻ.
 
 ## The Problem
 
-Your service costs $80k/month on GPT-5. Your analytics show 70% of queries are simple: "what time is it in Paris?" "rephrase this sentence." A Haiku-class model handles those perfectly at 3% of the cost. 30% need GPT-5's reasoning — coding, math, multi-step planning.
+Dịch vụ của bạn tốn $80k/tháng trên GPT-5. Phân tích của bạn cho thấy 70% truy vấn đơn giản: "ở Paris là mấy giờ?" "diễn đạt lại câu này." Một mô hình tầm Haiku xử lý hoàn hảo những truy vấn đó với 3% chi phí. 30% cần khả năng suy luận của GPT-5 — lập trình, toán, lập kế hoạch nhiều bước.
 
-If you route the 70% to cheap and 30% to expensive, your bill drops ~65% at the same product quality. This is routing. The trick is building the broker without regressing quality.
+Nếu bạn định tuyến 70% sang rẻ và 30% sang đắt, hóa đơn giảm ~65% ở cùng chất lượng sản phẩm. Đây là định tuyến. Bí quyết là xây bộ môi giới mà không làm chất lượng suy giảm.
 
 ## The Concept
 
 ### Four routing signals
 
-1. **Task classification**: simple/complex/codegen/math/chat. Can be a rules-based classifier, a small LLM (Haiku-class at $0.25/M), or embedding similarity to labeled buckets. Output: route = cheap / balanced / frontier.
+1. **Phân loại tác vụ**: đơn giản/phức tạp/sinh mã/toán/trò chuyện. Có thể là bộ phân loại dựa trên quy tắc, một LLM nhỏ (tầm Haiku ở $0.25/M), hoặc độ tương đồng embedding với các nhóm có nhãn. Đầu ra: tuyến = rẻ / cân bằng / tiên tiến hàng đầu.
 
-2. **Prompt length**: prompts >4K tokens often need frontier for coherence. Prompts <500 tokens usually don't.
+2. **Độ dài prompt**: prompt >4K token thường cần mô hình tiên tiến hàng đầu để mạch lạc. Prompt <500 token thường không cần.
 
-3. **Embedding similarity to known-hard set**: if the query is close (cosine > 0.88) to a known-hard bucket, escalate to frontier directly.
+3. **Độ tương đồng embedding với tập đã biết là khó**: nếu truy vấn gần (cosine > 0.88) một nhóm đã biết là khó, chuyển trực tiếp lên mô hình tiên tiến hàng đầu.
 
-4. **Self-confidence from first-pass**: send to cheap; if model's log-probs show low confidence OR it refuses OR outputs hedging language, retry on frontier. Adds P95 latency on ~10% of traffic but saves 50%+ on the other 90%.
+4. **Độ tự tin từ lượt đầu**: gửi đến mô hình rẻ; nếu log-prob của mô hình cho thấy độ tin cậy thấp HOẶC nó từ chối HOẶC xuất ra ngôn ngữ dè dặt, thử lại trên mô hình tiên tiến hàng đầu. Thêm độ trễ P95 trên ~10% lưu lượng nhưng tiết kiệm 50%+ trên 90% còn lại.
 
 ### Three patterns
 
-**Pre-route** (classifier up front): ~5-10ms latency added; fastest overall.
+**Định tuyến trước** (bộ phân loại phía trước): thêm độ trễ ~5-10ms; nhanh nhất tổng thể.
 
-**Cascade** (cheap-first, escalate on low confidence): ~1.2x median latency (cheap run plus verify), ~2x on escalated. Best quality floor.
+**Xếp tầng** (mô hình rẻ trước, chuyển cấp khi độ tin cậy thấp): độ trễ trung vị ~1.2x (chạy mô hình rẻ cộng xác minh), ~2x khi chuyển cấp. Sàn chất lượng tốt nhất.
 
-**Ensemble route** (run cheap and frontier in parallel for a sample, reward-model pick): highest quality, highest cost; use only for critical A/B.
+**Tuyến tổ hợp** (chạy mô hình rẻ và tiên tiến hàng đầu song song trên một mẫu, mô hình phần thưởng chọn): chất lượng cao nhất, chi phí cao nhất; chỉ dùng cho A/B quan trọng.
 
 ### Implementation
 
-AI gateways (Phase 17 · 19) expose routing. LiteLLM has `router` config with fallback and cost-routing. Portkey has guards + routing. Kong AI Gateway has plugin-based routing. OpenRouter's model marketplace exposes a recommendation API.
+Các gateway AI (Giai đoạn 17 · 19) cung cấp định tuyến. LiteLLM có cấu hình `router` với dự phòng và định tuyến chi phí. Portkey có các chốt bảo vệ + định tuyến. Kong AI Gateway có định tuyến dựa trên plugin. Chợ mô hình OpenRouter cung cấp một API khuyến nghị.
 
-Open-source: RouteLLM (LMSYS), Not Diamond (commercial), Prompt Mule.
+Mã nguồn mở: RouteLLM (LMSYS), Not Diamond (thương mại), Prompt Mule.
 
 ### The 2026 price curve
 
-| Model class | Late 2022 | 2026 | Change |
+| Lớp mô hình | Cuối năm 2022 | 2026 | Thay đổi |
 |-------------|-----------|------|--------|
-| GPT-4-level quality | ~$20/M | ~$0.40/M | 50x cheaper |
-| Frontier (GPT-5, Claude 4) | — | ~$3-10/M | new tier |
+| Chất lượng cấp GPT-4 | ~$20/M | ~$0.40/M | Rẻ hơn 50x |
+| Tiên tiến hàng đầu (GPT-5, Claude 4) | — | ~$3-10/M | tầng mới |
 
-Most of the improvement is serving efficiency — the core lessons in Phase 17 · 04-09 turned into provider-side cost drops. Routing lets you capture those gains at the app layer instead of waiting for all your users to migrate to the cheap tier.
+Phần lớn cải thiện là hiệu quả phục vụ — các bài học cốt lõi trong Giai đoạn 17 · 04-09 chuyển thành giảm chi phí phía nhà cung cấp. Định tuyến cho phép bạn thu các lợi ích đó ở lớp ứng dụng thay vì chờ mọi người dùng chuyển sang gói rẻ.
 
 ### Drift is the real risk
 
-Your route sends 40% to the cheap model. Over six months, the task distribution shifts (users get more sophisticated, ask longer questions). The router doesn't notice because its classifier was trained on Q1 data. Quality drops silently. Nobody complains loud enough. You find out in a competitor benchmark you lost.
+Tuyến của bạn gửi 40% sang mô hình rẻ. Trong sáu tháng, phân phối tác vụ dịch chuyển (người dùng tinh vi hơn, hỏi câu dài hơn). Bộ định tuyến không nhận ra vì bộ phân loại của nó được huấn luyện trên dữ liệu Q1. Chất lượng âm thầm giảm. Không ai phàn nàn đủ lớn. Bạn phát hiện trong một phép đo chuẩn cạnh tranh mà bạn thua.
 
-Gate routes by online quality metrics:
+Kiểm soát tuyến bằng chỉ số chất lượng trực tuyến:
 
-- User thumbs-up / thumbs-down per route.
-- Automated LLM-judge on a held-out sample (5%) per route.
-- Escalation rate: if cascade is kicking up-route >30%, the cheap model is being over-routed.
-- Refusal rate per route.
+- Người dùng tán thành / không tán thành theo tuyến.
+- LLM giám khảo tự động trên một mẫu giữ riêng (5%) theo tuyến.
+- Tỷ lệ chuyển cấp: nếu xếp tầng đẩy lên tuyến cao hơn >30%, mô hình rẻ đang được định tuyến quá nhiều.
+- Tỷ lệ từ chối theo tuyến.
 
 ### Numbers you should remember
 
-- 2026 routing savings at iso-quality: 20-60% case studies.
-- LLM price drop 2022-2026: ~10x per year aggregate.
-- GPT-4-level 2022 vs 2026: ~$20/M → ~$0.40/M.
-- Cascade latency impact: ~1.2x median, ~2x escalated (~10% of traffic).
+- Tiết kiệm định tuyến năm 2026 ở cùng chất lượng: nghiên cứu tình huống 20-60%.
+- Mức giảm giá LLM 2022-2026: tổng hợp ~10x mỗi năm.
+- Cấp GPT-4 năm 2022 so với 2026: ~$20/M → ~$0.40/M.
+- Tác động độ trễ xếp tầng: trung vị ~1.2x, chuyển cấp ~2x (~10% lưu lượng).
 
 ```figure
 model-cascade-router
@@ -79,33 +79,33 @@ model-cascade-router
 
 ## Use It
 
-`code/main.py` simulates pre-route, cascade, and ensemble on a mixed workload. Reports blended cost, quality loss, and escalation rate.
+`code/main.py` mô phỏng định tuyến trước, xếp tầng và tổ hợp trên khối lượng công việc hỗn hợp. Báo cáo chi phí pha trộn, mất chất lượng và tỷ lệ chuyển cấp.
 
 ## Ship It
 
-This lesson produces `outputs/skill-router-plan.md`. Given workload and quality budget, picks a routing pattern and signals.
+Bài học này tạo ra `outputs/skill-router-plan.md`. Với khối lượng công việc và ngân sách chất lượng, chọn một mẫu định tuyến và các tín hiệu.
 
 ## Exercises
 
-1. Run `code/main.py`. At what accuracy floor does cascade beat pre-route?
-2. Your user base is 30% enterprise (complex queries), 70% free tier (simple). Design the routing split. What online metric gates it?
-3. A route drops quality by 2% but saves 40%. Is that a ship? Depends on product — argue both.
-4. Implement a confidence check using logprobs from OpenAI / Anthropic APIs. What's the threshold you start with?
-5. Over six months, escalation rate climbs from 8% to 22%. Diagnose three causes and the fix for each.
+1. Chạy `code/main.py`. Ở sàn độ chính xác nào xếp tầng vượt định tuyến trước?
+2. Tập người dùng của bạn là 30% doanh nghiệp (truy vấn phức tạp), 70% gói miễn phí (đơn giản). Thiết kế tỷ lệ phân chia định tuyến. Chỉ số trực tuyến nào kiểm soát nó?
+3. Một tuyến giảm chất lượng 2% nhưng tiết kiệm 40%. Có triển khai không? Tùy sản phẩm — lập luận cả hai phía.
+4. Triển khai kiểm tra độ tin cậy bằng logprobs từ API OpenAI / Anthropic. Ngưỡng bạn bắt đầu là gì?
+5. Trong sáu tháng, tỷ lệ chuyển cấp tăng từ 8% lên 22%. Chẩn đoán ba nguyên nhân và giải pháp cho từng nguyên nhân.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|----------------|------------------------|
-| Model routing | "cost broker" | Dynamic choice of model per request |
-| Model cascade | "cheap-first escalate" | Run cheap, fall through to frontier on low confidence |
-| Pre-route | "classify first" | Classifier up front; no re-run |
-| Ensemble route | "parallel pick" | Run multiple, reward-model picks best |
-| Escalation rate | "uprouted %" | Fraction of cascade requests that escalated |
-| RouteLLM | "LMSYS router" | OSS router library |
-| Not Diamond | "commercial router" | SaaS model-routing product |
-| Drift | "cheap creep" | Distribution shift without router noticing |
-| Online quality gate | "live check" | Automated LLM-judge sampling live traffic |
+| Model routing (Định tuyến mô hình) | "bộ môi giới chi phí" | Lựa chọn mô hình động cho mỗi yêu cầu |
+| Model cascade (Xếp tầng mô hình) | "rẻ trước chuyển cấp sau" | Chạy mô hình rẻ, chuyển sang mô hình tiên tiến hàng đầu khi độ tin cậy thấp |
+| Pre-route (Định tuyến trước) | "phân loại trước" | Bộ phân loại phía trước; không chạy lại |
+| Ensemble route (Tuyến tổ hợp) | "chọn song song" | Chạy nhiều mô hình, mô hình phần thưởng chọn tốt nhất |
+| Escalation rate (Tỷ lệ chuyển cấp) | "% được chuyển lên" | Tỷ phần yêu cầu xếp tầng được chuyển cấp |
+| RouteLLM | "bộ định tuyến LMSYS" | Thư viện bộ định tuyến OSS |
+| Not Diamond | "bộ định tuyến thương mại" | Sản phẩm SaaS định tuyến mô hình |
+| Drift (Độ trôi) | "sự lấn dần của mô hình rẻ" | Dịch chuyển phân phối mà bộ định tuyến không nhận ra |
+| Online quality gate (Cổng chất lượng trực tuyến) | "kiểm tra trực tiếp" | LLM giám khảo tự động lấy mẫu lưu lượng trực tiếp |
 
 ## Further Reading
 
@@ -113,4 +113,4 @@ This lesson produces `outputs/skill-router-plan.md`. Given workload and quality 
 - [Lukas Brunner — Rise of Inference Optimization 2026](https://dev.to/lukas_brunner/the-rise-of-inference-optimization-the-real-llm-infra-trend-shaping-2026-4e4o)
 - [RouteLLM paper / code](https://github.com/lm-sys/RouteLLM)
 - [Not Diamond — model routing](https://www.notdiamond.ai/)
-- [OpenRouter](https://openrouter.ai/) — multi-model gateway with routing primitives.
+- [OpenRouter](https://openrouter.ai/) — gateway đa mô hình với các thành phần định tuyến cơ bản.

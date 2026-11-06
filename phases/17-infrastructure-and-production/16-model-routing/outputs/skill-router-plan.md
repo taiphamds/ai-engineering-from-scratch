@@ -7,25 +7,25 @@ lesson: 16
 tags: [routing, cascade, model-cascade, routellm, notdiamond, cost-reduction]
 ---
 
-Given workload mix (task classification sample), quality floor, latency tolerance, and current monthly spend, produce a routing plan.
+Với tỷ lệ pha trộn khối lượng công việc (mẫu phân loại tác vụ), sàn chất lượng, mức chấp nhận độ trễ và chi tiêu hằng tháng hiện tại, tạo một kế hoạch định tuyến.
 
-Produce:
+Tạo:
 
-1. Pattern. Pre-route (fastest, classifier-dependent), cascade (best quality floor), or ensemble (sample A/B only). Justify with quality tolerance + latency budget.
-2. Signals. Pick from: task classification, prompt length, embedding similarity to known-hard, self-confidence. State which combine (usually 2-3) and the composition rule.
-3. Cheap/frontier pair. Name the specific models. Example: Claude Haiku 3.5 + GPT-5. Justify with cost curve + capability.
-4. Expected savings. Compute blended cost at the recommended split; state expected monthly $ vs current.
-5. Online quality gates. Specify the live-traffic judge: sampled 5% per route evaluated by a frontier judge; alert if Δ quality > 2%. Track escalation rate; alert if climbs >10 points in a month.
-6. Rollout. Shadow (route but ignore; compare offline), canary 10% by user-cohort, expand on passing gate.
+1. Mẫu. Định tuyến trước (nhanh nhất, phụ thuộc bộ phân loại), xếp tầng (sàn chất lượng tốt nhất), hoặc tổ hợp (chỉ A/B lấy mẫu). Giải thích bằng mức chấp nhận chất lượng + ngân sách độ trễ.
+2. Tín hiệu. Chọn từ: phân loại tác vụ, độ dài prompt, độ tương đồng embedding với tập đã biết là khó, độ tự tin. Nêu các tín hiệu kết hợp (thường 2-3) và quy tắc kết hợp.
+3. Cặp rẻ/tiên tiến hàng đầu. Nêu các mô hình cụ thể. Ví dụ: Claude Haiku 3.5 + GPT-5. Giải thích bằng đường cong chi phí + năng lực.
+4. Tiết kiệm dự kiến. Tính chi phí pha trộn ở tỷ lệ phân chia khuyến nghị; nêu $ hằng tháng dự kiến so với hiện tại.
+5. Cổng chất lượng trực tuyến. Chỉ định giám khảo lưu lượng trực tiếp: mẫu 5% theo tuyến được đánh giá bởi một giám khảo tiên tiến hàng đầu; cảnh báo nếu Δ chất lượng > 2%. Theo dõi tỷ lệ chuyển cấp; cảnh báo nếu tăng >10 điểm trong một tháng.
+6. Triển khai. Chạy bóng (định tuyến nhưng bỏ qua; so sánh ngoại tuyến), canary 10% theo nhóm người dùng, mở rộng khi vượt cổng.
 
-Hard rejects:
-- Routing without online quality gates. Refuse — drift is the #1 failure.
-- Using only task classification as the signal. Refuse — misses difficulty within tasks.
-- Routing frontier-eligible tasks (code, math, multi-step) to cheap without a cascade fallback. Refuse — quality floor will breach.
+Các trường hợp loại bỏ dứt khoát:
+- Định tuyến không có cổng chất lượng trực tuyến. Từ chối — độ trôi là lỗi #1.
+- Chỉ dùng phân loại tác vụ làm tín hiệu. Từ chối — bỏ sót độ khó bên trong tác vụ.
+- Định tuyến tác vụ đủ điều kiện dùng mô hình tiên tiến hàng đầu (mã, toán, nhiều bước) sang mô hình rẻ mà không có dự phòng xếp tầng. Từ chối — sẽ vi phạm sàn chất lượng.
 
-Refusal rules:
-- If the quality tolerance is stated as "zero regression," refuse pre-route and propose cascade with high escalation rate.
-- If the cheap model is non-Anthropic/non-OpenAI/non-frontier and has known refusal patterns (e.g., uncensored models for agent tool-use), refuse the pair — it will break tool calls silently.
-- If the routing is to a different provider for cheap (cross-provider cascade), require the AI gateway layer (Phase 17 · 19) to unify APIs.
+Quy tắc từ chối:
+- Nếu mức chấp nhận chất lượng được nêu là "không suy giảm," từ chối định tuyến trước và đề xuất xếp tầng với tỷ lệ chuyển cấp cao.
+- Nếu mô hình rẻ không phải Anthropic/không phải OpenAI/không phải tiên tiến hàng đầu và có các mẫu từ chối đã biết (ví dụ: mô hình không kiểm duyệt cho agent dùng công cụ), từ chối cặp này — nó sẽ âm thầm phá vỡ lệnh gọi công cụ.
+- Nếu định tuyến đến một nhà cung cấp khác cho mô hình rẻ (xếp tầng xuyên nhà cung cấp), yêu cầu lớp gateway AI (Giai đoạn 17 · 19) để hợp nhất API.
 
-Output: a one-page plan naming pattern, signals, model pair, expected savings, online gates, rollout plan. End with the single metric: escalation-rate over rolling 7 days; drift trigger if change > 10 percentage points.
+Đầu ra: một kế hoạch một trang nêu mẫu, tín hiệu, cặp mô hình, tiết kiệm dự kiến, cổng trực tuyến, kế hoạch triển khai. Kết thúc bằng chỉ số duy nhất: tỷ lệ chuyển cấp trong 7 ngày trượt; kích hoạt độ trôi nếu thay đổi > 10 điểm phần trăm.
