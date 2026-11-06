@@ -7,39 +7,39 @@ lesson: 15
 tags: [capstone, safety, red-team, llama-guard, x-guard, garak, pyrit, constitutional-ai]
 ---
 
-Given a target LLM application (8B instruction-tuned model or a RAG chatbot), harden it with a layered safety pipeline and run an autonomous red-team range across six attack families. Produce a before/after harmlessness report.
+Với một ứng dụng LLM đích được cung cấp (mô hình 8B được tinh chỉnh theo chỉ dẫn hoặc một chatbot RAG), gia cố nó bằng một pipeline an toàn nhiều lớp và chạy một thao trường red-team tự trị trên sáu họ tấn công. Tạo một báo cáo tính vô hại trước/sau.
 
-Build plan:
+Kế hoạch xây dựng:
 
-1. Five-layer pipeline: input sanitize (zero-width strip, encoding decode, Unicode normalize) -> NeMo Guardrails v0.12 rails -> classifier gate (Llama Guard 4 / X-Guard / ShieldGemma-2 / Nemotron 3) -> target LLM -> output filter (Llama Guard 4 + Presidio PII + citation check). Flagged outputs go to a Slack HITL queue.
-2. Emit a Langfuse span per layer so attribution is observable end to end.
-3. Red-team scheduler running garak, PyRIT, PAIR, TAP, GCG, multi-turn persona, and multilingual code-switch attacks on a cron.
-4. Each successful jailbreak: CVSS 4.0 score, repro, mitigation plan, disclosure timeline.
-5. XSTest benign-prompt probe continuously running to catch over-refusal regressions.
-6. Constitutional self-critique run: 1k harmful-attempt prompts -> target drafts -> critic scores against a written constitution -> rewritten pairs -> SFT. Measure before/after on held-out harmlessness eval.
-7. Alerts: Slack warning on benign-regression, PagerDuty critical on new jailbreak family.
+1. Pipeline năm lớp: làm sạch đầu vào (bỏ ký tự độ rộng bằng không, giải mã mã hóa, chuẩn hóa Unicode) -> các rail NeMo Guardrails v0.12 -> cổng bộ phân loại (Llama Guard 4 / X-Guard / ShieldGemma-2 / Nemotron 3) -> LLM đích -> bộ lọc đầu ra (Llama Guard 4 + PII Presidio + kiểm tra trích dẫn). Các đầu ra được gắn cờ đi đến một hàng đợi HITL Slack.
+2. Phát ra một span Langfuse cho mỗi lớp để việc quy nguồn có thể quan sát từ đầu đến cuối.
+3. Bộ lập lịch red-team chạy garak, PyRIT, PAIR, TAP, GCG, nhân vật nhiều lượt, và các tấn công chuyển đổi đa ngôn ngữ theo cron.
+4. Mỗi jailbreak thành công: điểm CVSS 4.0, cách tái hiện, kế hoạch giảm thiểu, lịch trình công bố.
+5. Phép thăm dò prompt lành tính XSTest chạy liên tục để phát hiện các lỗi thoái lui từ chối quá mức.
+6. Lần chạy tự phê bình theo hiến pháp: 1k prompt thử gây hại -> đích nháp -> bộ phê bình chấm theo một hiến pháp được viết ra -> các cặp được viết lại -> SFT. Đo trước/sau trên đánh giá tính vô hại được giữ riêng.
+7. Cảnh báo: cảnh báo Slack khi thoái lui lành tính, PagerDuty nghiêm trọng khi có họ jailbreak mới.
 
-Assessment rubric:
+Thang đánh giá:
 
-| Weight | Criterion | Measurement |
+| Trọng số | Tiêu chí | Phép đo |
 |:-:|---|---|
-| 25 | Attack-surface coverage | 6+ attack families exercised, 2+ languages |
-| 20 | True-positive / false-positive trade-off | Attack block rate vs XSTest benign pass rate |
-| 20 | Self-critique delta | Before/after harmlessness on held-out eval |
-| 20 | Documentation and disclosure | CVSS-scored findings with timeline |
-| 15 | Automation and repeatability | Cron-driven, alerts exercised end to end |
+| 25 | Độ bao phủ bề mặt tấn công | 6+ họ tấn công được thực thi, 2+ ngôn ngữ |
+| 20 | Đánh đổi dương tính thật / dương tính giả | Tỷ lệ chặn tấn công so với tỷ lệ đạt lành tính XSTest |
+| 20 | Chênh lệch tự phê bình | Tính vô hại trước/sau trên đánh giá được giữ riêng |
+| 20 | Tài liệu và công bố | Các phát hiện được chấm CVSS với lịch trình |
+| 15 | Tự động hóa và khả năng lặp lại | Do cron điều khiển, các cảnh báo được thực thi từ đầu đến cuối |
 
-Hard rejects:
+Các trường hợp loại thẳng:
 
-- Single-layer safety stacks. The thesis of this capstone is defense in depth.
-- Red-team runs that report success rate without XSTest over-refusal numbers.
-- Constitutional self-critique without a held-out eval (reports the training-set accuracy, not the generalization).
-- Missing CVSS scoring on jailbreak findings.
+- Các ngăn xếp an toàn một lớp. Luận điểm của bài tổng kết này là phòng thủ theo chiều sâu.
+- Các lần chạy red-team báo cáo tỷ lệ thành công mà không có số liệu từ chối quá mức XSTest.
+- Tự phê bình theo hiến pháp mà không có đánh giá được giữ riêng (báo cáo độ chính xác tập huấn luyện, không phải khả năng khái quát hóa).
+- Thiếu chấm điểm CVSS trên các phát hiện jailbreak.
 
-Refusal rules:
+Quy tắc từ chối:
 
-- Refuse to report a safety number without a benign-probe counterpoint. One without the other is misleading.
-- Refuse to auto-retrain on red-team successes without human curation of the critique pairs.
-- Refuse to claim multilingual coverage without running X-Guard on at least two non-English languages.
+- Từ chối báo cáo một số liệu an toàn mà không có đối chiếu thăm dò lành tính. Có một mà không có cái còn lại là gây hiểu lầm.
+- Từ chối tự động huấn luyện lại trên các thành công red-team mà không có con người tuyển chọn các cặp phê bình.
+- Từ chối tuyên bố độ bao phủ đa ngôn ngữ mà không chạy X-Guard trên ít nhất hai ngôn ngữ không phải tiếng Anh.
 
-Output: a repo containing the five-layer pipeline, the red-team scheduler, the PAIR/TAP/GCG runners, the constitutional-self-critique training harness, the XSTest over-refusal dashboard, the CVSS findings tracker, and a write-up naming the three attack families that had the highest success rate pre-hardening and the specific pipeline layer that mitigated each.
+Đầu ra: một repo chứa pipeline năm lớp, bộ lập lịch red-team, các trình chạy PAIR/TAP/GCG, harness huấn luyện tự phê bình theo hiến pháp, bảng điều khiển từ chối quá mức XSTest, bộ theo dõi phát hiện CVSS, và một bài viết nêu tên ba họ tấn công có tỷ lệ thành công cao nhất trước khi gia cố cùng lớp pipeline cụ thể đã giảm thiểu từng họ.
