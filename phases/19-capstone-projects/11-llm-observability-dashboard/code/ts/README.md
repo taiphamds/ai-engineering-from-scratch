@@ -1,18 +1,18 @@
 # LLM observability dashboard (TypeScript skeleton)
 
-Multi-file TypeScript skeleton for the LLM observability dashboard capstone.
-A Hono server accepts OpenTelemetry GenAI spans, holds them in a 10k ring
-buffer, and renders p50/p95/p99 latency and per-model cost.
+Bộ khung TypeScript nhiều file cho bài tổng kết bảng điều khiển quan sát LLM.
+Một máy chủ Hono nhận các span GenAI của OpenTelemetry, giữ chúng trong một bộ đệm vòng 10k
+và hiển thị độ trễ p50/p95/p99 cùng chi phí theo mô hình.
 
 ## Layout
 
-- `src/index.ts` — entry point, seeds synthetic spans and optionally serves HTTP.
-- `src/server.ts` — Hono routes for `/trace`, `/`, `/dashboard`, `/dashboard.json`, `/healthz`.
-- `src/spans.ts` — `RingBuffer` and `ObservabilityStore` (10k spans by default).
-- `src/rollup.ts` — `percentile` and `rollUpByModel`.
-- `src/pricing.ts` — 2026 per-model prices and cost helpers.
-- `src/types.ts` — shared types.
-- `tests/*.test.ts` — `node --test` style tests via `tsx`.
+- `src/index.ts` — điểm vào, tạo seed các span tổng hợp và tùy chọn phục vụ HTTP.
+- `src/server.ts` — các tuyến Hono cho `/trace`, `/`, `/dashboard`, `/dashboard.json`, `/healthz`.
+- `src/spans.ts` — `RingBuffer` và `ObservabilityStore` (mặc định 10k span).
+- `src/rollup.ts` — `percentile` và `rollUpByModel`.
+- `src/pricing.ts` — giá theo mô hình năm 2026 và các hàm hỗ trợ chi phí.
+- `src/types.ts` — các kiểu dùng chung.
+- `tests/*.test.ts` — kiểm thử kiểu `node --test` qua `tsx`.
 
 ## Install
 
@@ -36,5 +36,5 @@ npm test
 
 ## Spec references
 
-- Source lesson: `phases/19-capstone-projects/11-llm-observability-dashboard/docs/en.md`
+- Bài học nguồn: `phases/19-capstone-projects/11-llm-observability-dashboard/docs/en.md`
 - [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)

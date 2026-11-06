@@ -7,41 +7,41 @@ lesson: 11
 tags: [capstone, observability, otel, langfuse, phoenix, evals, drift, clickhouse]
 ---
 
-Given production LLM traffic across at least six SDK families (OpenAI, Anthropic, Google GenAI, LangChain, LlamaIndex, vLLM), deploy a self-hosted observability plane that ingests OTLP GenAI-semconv spans, runs evals, detects drift, and alerts.
+Với lưu lượng LLM sản xuất trên ít nhất sáu họ SDK (OpenAI, Anthropic, Google GenAI, LangChain, LlamaIndex, vLLM), triển khai một lớp quan sát tự lưu trữ tiếp nhận các span OTLP GenAI-semconv, chạy đánh giá, phát hiện độ trôi, và cảnh báo.
 
-Build plan:
+Kế hoạch xây dựng:
 
-1. OpenTelemetry Collector with OTLP HTTP receiver, tail-sampling processor (keep 100% errors, 10% success, 100% high-toxicity/PII), exporters to ClickHouse + S3.
-2. ClickHouse span schema mirroring GenAI semconv: gen_ai.system, gen_ai.request.model, usage.input/output_tokens, latency_ms, user_id, app_id, plus JSON bag for prompts/completions.
-3. Postgres metadata store for apps, users, sessions, annotation queue.
-4. OpenLLMetry auto-instrumentation on a client app per SDK family; verify canonical spans land.
-5. DeepEval + RAGAS + Phoenix evaluator pack scheduled over sampled traces; custom LLM-judge for PII and off-policy.
-6. Weekly PSI / KL drift detector on pooled prompt embeddings; alert threshold 0.2.
-7. Prometheus exporter for eval score aggregates and latency percentiles; Alertmanager to Slack (warning) + PagerDuty (critical).
-8. Next.js 15 App Router dashboard: overview, trace search + waterfall, eval trends, drift chart, alerts.
-9. Regression probe: inject a response pattern that leaks fake SSNs 1% of the time; measure MTTR (alert-fire time).
+1. OpenTelemetry Collector với bộ nhận OTLP HTTP, bộ xử lý lấy mẫu đuôi (giữ 100% lỗi, 10% thành công, 100% tính độc hại cao/PII), các bộ xuất tới ClickHouse + S3.
+2. Lược đồ span ClickHouse phản ánh semconv GenAI: gen_ai.system, gen_ai.request.model, usage.input/output_tokens, latency_ms, user_id, app_id, cùng một túi JSON cho prompt/phần hoàn thành.
+3. Kho siêu dữ liệu Postgres cho ứng dụng, người dùng, phiên, hàng đợi chú giải.
+4. Bộ đo lường tự động OpenLLMetry trên một ứng dụng khách cho mỗi họ SDK; xác minh các span chuẩn đi vào.
+5. DeepEval + RAGAS + gói bộ đánh giá Phoenix được lên lịch trên các trace được lấy mẫu; LLM-judge tùy chỉnh cho PII và ngoài chính sách.
+6. Bộ phát hiện độ trôi PSI / KL hàng tuần trên các embedding prompt được gộp; ngưỡng cảnh báo 0.2.
+7. Bộ xuất Prometheus cho các tổng hợp điểm đánh giá và phân vị độ trễ; Alertmanager tới Slack (cảnh báo) + PagerDuty (nghiêm trọng).
+8. Bảng điều khiển Next.js 15 App Router: tổng quan, tìm kiếm trace + waterfall, xu hướng đánh giá, biểu đồ độ trôi, cảnh báo.
+9. Phép thăm dò thoái lui: chèn một mẫu phản hồi rò rỉ SSN giả trong 1% số lần; đo MTTR (thời gian phát cảnh báo).
 
-Assessment rubric:
+Thang đánh giá:
 
-| Weight | Criterion | Measurement |
+| Trọng số | Tiêu chí | Phép đo |
 |:-:|---|---|
-| 25 | Trace-schema coverage | Number of SDK families producing canonical GenAI spans (target 6+) |
-| 20 | Eval correctness | DeepEval / RAGAS scores vs hand-labeled set |
-| 20 | Dashboard UX | MTTR on injected regression (target under 5 minutes) |
-| 20 | Cost / scale | Sustained 1k spans/sec ingest without backlog |
-| 15 | Alerting + drift detection | Prometheus/Alertmanager chain exercised end to end |
+| 25 | Độ bao phủ lược đồ trace | Số họ SDK tạo ra span GenAI chuẩn (mục tiêu 6+) |
+| 20 | Tính đúng đắn của đánh giá | Điểm DeepEval / RAGAS so với tập gắn nhãn thủ công |
+| 20 | UX bảng điều khiển | MTTR trên lỗi thoái lui được chèn vào (mục tiêu dưới 5 phút) |
+| 20 | Chi phí / quy mô | Tiếp nhận duy trì 1k span/giây mà không tồn đọng |
+| 15 | Cảnh báo + phát hiện độ trôi | Chuỗi Prometheus/Alertmanager được thực thi từ đầu đến cuối |
 
-Hard rejects:
+Các trường hợp loại thẳng:
 
-- Span schemas that invent attribute names not in the OpenTelemetry GenAI semconv.
-- Tail-sampling policies that drop errors (a well-known anti-pattern).
-- Evals that run at ingest rate without sampling (unacceptable cost).
-- Dashboards that show "latency" without p50/p95/p99 separation.
+- Các lược đồ span tự tạo tên thuộc tính không có trong semconv GenAI của OpenTelemetry.
+- Các chính sách lấy mẫu đuôi bỏ các lỗi (một phản mẫu nổi tiếng).
+- Các đánh giá chạy ở tốc độ tiếp nhận mà không lấy mẫu (chi phí không thể chấp nhận).
+- Các bảng điều khiển hiển thị "độ trễ" mà không tách p50/p95/p99.
 
-Refusal rules:
+Quy tắc từ chối:
 
-- Refuse to persist prompts or completions without a PII redaction policy.
-- Refuse to claim "multi-SDK support" without a per-SDK canonical-span regression test.
-- Refuse to ship drift detection without a baseline window; zero-shot drift is useless.
+- Từ chối lưu bền vững prompt hoặc phần hoàn thành mà không có chính sách che PII.
+- Từ chối tuyên bố "hỗ trợ nhiều SDK" mà không có kiểm thử hồi quy span chuẩn theo SDK.
+- Từ chối phát hành phát hiện độ trôi mà không có một cửa sổ đường cơ sở; độ trôi zero-shot là vô ích.
 
-Output: a repo containing the collector config, the ClickHouse schema, the Next.js 15 dashboard, the eval jobs, the drift detector, the alerting chain, the 10k-trace demo dataset with annotated regressions, and a write-up documenting MTTR for the injected PII regression plus the top three dashboard UX improvements that dropped MTTR over iteration.
+Đầu ra: một repo chứa cấu hình bộ thu thập, lược đồ ClickHouse, bảng điều khiển Next.js 15, các tác vụ đánh giá, bộ phát hiện độ trôi, chuỗi cảnh báo, tập dữ liệu demo 10k trace với các lỗi thoái lui được chú giải, và một bài viết ghi lại MTTR cho lỗi thoái lui PII được chèn vào cùng ba cải tiến UX bảng điều khiển hàng đầu đã làm giảm MTTR qua các lần lặp.
