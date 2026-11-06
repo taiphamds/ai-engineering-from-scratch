@@ -9,50 +9,50 @@ tags: [calculus, gradients, backpropagation]
 
 # Gradient Computation for ML
 
-Practical reference for computing gradients of loss functions, activation functions, and layer operations used in neural networks.
+Tài liệu tham khảo thực hành để tính gradient của các hàm mất mát, hàm kích hoạt và phép toán lớp được sử dụng trong mạng nơ-ron.
 
 ## Decision Checklist
 
-1. Is the function composed of simple primitives (power, exp, log, trig)? Use analytical derivatives and the chain rule.
-2. Is the function a custom or black-box operation? Use numerical differentiation: `(f(x+h) - f(x-h)) / (2h)` with h = 1e-7.
-3. Is the function built from tensor operations in PyTorch/JAX? Let autograd handle it. Verify with numerical check.
-4. Do you need the gradient of a scalar loss w.r.t. a matrix of weights? Apply the chain rule through the computation graph, one node at a time.
-5. Is there a non-differentiable operation (argmax, rounding, sampling)? Use a straight-through estimator or reparameterization trick.
+1. Hàm có được hợp thành từ các phép cơ bản đơn giản (lũy thừa, exp, log, lượng giác) không? Sử dụng đạo hàm giải tích và quy tắc dây chuyền.
+2. Hàm có phải một phép toán tùy chỉnh hoặc hộp đen không? Sử dụng vi phân số: `(f(x+h) - f(x-h)) / (2h)` với h = 1e-7.
+3. Hàm có được xây dựng từ các phép toán tensor trong PyTorch/JAX không? Để autograd xử lý nó. Xác minh bằng kiểm tra số.
+4. Bạn có cần gradient của một mất mát vô hướng theo một ma trận trọng số không? Áp dụng quy tắc dây chuyền qua đồ thị tính toán, từng nút một.
+5. Có phép toán không khả vi (argmax, làm tròn, lấy mẫu) không? Sử dụng bộ ước lượng straight-through hoặc thủ thuật tái tham số hóa.
 
 ## When to use each approach
 
-| Approach | When to use | Cost |
+| Cách tiếp cận | Khi nào sử dụng | Chi phí |
 |---|---|---|
-| Analytical (hand-derived) | Simple functions, verifying autograd output | Free at runtime |
-| Numerical (finite differences) | Debugging, gradient checking, black-box functions | 2n forward passes for n parameters |
-| Automatic differentiation | Any differentiable computation graph (the default) | One backward pass |
-| Symbolic (SymPy, Mathematica) | Deriving closed-form gradients for papers | Compile time only |
+| Giải tích (suy ra bằng tay) | Các hàm đơn giản, xác minh đầu ra autograd | Không tốn chi phí lúc chạy |
+| Số (sai phân hữu hạn) | Gỡ lỗi, kiểm tra gradient, các hàm hộp đen | 2n lượt truyền xuôi cho n tham số |
+| Vi phân tự động | Bất kỳ đồ thị tính toán khả vi nào (mặc định) | Một lượt truyền ngược |
+| Ký hiệu (SymPy, Mathematica) | Suy ra gradient dạng đóng cho các bài báo | Chỉ lúc biên dịch |
 
 ## Quick reference: common derivatives
 
-| Function | f(x) | f'(x) | ML context |
+| Hàm | f(x) | f'(x) | Ngữ cảnh ML |
 |---|---|---|---|
-| MSE loss | (1/n) sum(y_hat - y)^2 | (2/n)(y_hat - y) | Regression |
-| Cross-entropy (binary) | -(y log(p) + (1-y) log(1-p)) | p - y (after sigmoid) | Binary classification |
-| Cross-entropy (multi) | -log(p_true_class) | p - one_hot(y) (after softmax) | Multi-class classification |
-| Sigmoid | 1 / (1 + e^(-x)) | sigma(x) * (1 - sigma(x)) | Output gates, binary output |
-| Tanh | (e^x - e^(-x)) / (e^x + e^(-x)) | 1 - tanh(x)^2 | Hidden activations (legacy) |
-| ReLU | max(0, x) | 1 if x > 0, 0 if x < 0 | Default hidden activation |
-| Leaky ReLU | max(0.01x, x) | 1 if x > 0, 0.01 if x < 0 | Avoiding dead neurons |
-| GELU | x * Phi(x) | Phi(x) + x * phi(x) | Transformers |
-| Softmax_i | e^(x_i) / sum(e^(x_j)) | s_i(1 - s_i) for i=j, -s_i*s_j for i!=j | Output layer (Jacobian) |
-| Log-softmax | x_i - log(sum(e^(x_j))) | 1 - softmax(x_i) for the i-th entry | Numerically stable CE |
-| Linear layer | y = Wx + b | dL/dW = dL/dy * x^T, dL/db = dL/dy | Every layer |
-| L2 regularization | lambda * sum(w^2) | 2 * lambda * w | Weight decay |
-| L1 regularization | lambda * sum(\|w\|) | lambda * sign(w) | Sparsity |
+| Mất mát MSE | (1/n) sum(y_hat - y)^2 | (2/n)(y_hat - y) | Hồi quy |
+| Cross-entropy (nhị phân) | -(y log(p) + (1-y) log(1-p)) | p - y (sau sigmoid) | Phân loại nhị phân |
+| Cross-entropy (đa lớp) | -log(p_true_class) | p - one_hot(y) (sau softmax) | Phân loại đa lớp |
+| Sigmoid | 1 / (1 + e^(-x)) | sigma(x) * (1 - sigma(x)) | Các cổng đầu ra, đầu ra nhị phân |
+| Tanh | (e^x - e^(-x)) / (e^x + e^(-x)) | 1 - tanh(x)^2 | Các kích hoạt ẩn (kiểu cũ) |
+| ReLU | max(0, x) | 1 nếu x > 0, 0 nếu x < 0 | Kích hoạt ẩn mặc định |
+| Leaky ReLU | max(0.01x, x) | 1 nếu x > 0, 0.01 nếu x < 0 | Tránh các nơ-ron chết |
+| GELU | x * Phi(x) | Phi(x) + x * phi(x) | Transformer |
+| Softmax_i | e^(x_i) / sum(e^(x_j)) | s_i(1 - s_i) khi i=j, -s_i*s_j khi i!=j | Lớp đầu ra (Jacobian) |
+| Log-softmax | x_i - log(sum(e^(x_j))) | 1 - softmax(x_i) cho phần tử thứ i | CE ổn định về mặt số học |
+| Lớp tuyến tính | y = Wx + b | dL/dW = dL/dy * x^T, dL/db = dL/dy | Mọi lớp |
+| L2 regularization | lambda * sum(w^2) | 2 * lambda * w | Suy giảm trọng số |
+| L1 regularization | lambda * sum(\|w\|) | lambda * sign(w) | Tính thưa |
 
 ## Common mistakes
 
-- Forgetting the 1/n factor in batch-averaged losses (MSE, cross-entropy). The gradient is scaled by batch size.
-- Computing softmax gradient as a vector when it is actually a Jacobian matrix. For cross-entropy + softmax combined, the gradient simplifies to (p - y), which avoids the full Jacobian.
-- Applying the chain rule in the wrong order. Work backward from the loss: dL/dW = dL/dy * dy/dW.
-- Using h that is too large (h = 0.1) or too small (h = 1e-15) for numerical derivatives. Stick to h = 1e-7 for float64.
-- Forgetting that ReLU has undefined gradient at exactly x = 0. In practice, set it to 0 or 0.5.
+- Quên hệ số 1/n trong các hàm mất mát lấy trung bình theo batch (MSE, cross-entropy). Gradient được nhân tỉ lệ theo kích thước batch.
+- Tính gradient softmax dưới dạng một vector khi nó thực ra là một ma trận Jacobian. Với cross-entropy + softmax kết hợp, gradient đơn giản thành (p - y), tránh được Jacobian đầy đủ.
+- Áp dụng quy tắc dây chuyền sai thứ tự. Làm ngược từ mất mát: dL/dW = dL/dy * dy/dW.
+- Sử dụng h quá lớn (h = 0.1) hoặc quá nhỏ (h = 1e-15) cho đạo hàm số. Giữ h = 1e-7 cho float64.
+- Quên rằng ReLU có gradient không xác định tại đúng x = 0. Trong thực tế, đặt nó thành 0 hoặc 0.5.
 
 ## Gradient checking recipe
 
@@ -64,4 +64,4 @@ For each parameter w:
   assert relative_error < 1e-5
 ```
 
-Relative error above 1e-3 means something is wrong. Between 1e-5 and 1e-3, investigate.
+Sai số tương đối trên 1e-3 nghĩa là có gì đó sai. Giữa 1e-5 và 1e-3, hãy điều tra.

@@ -1,6 +1,6 @@
 # Calculus for Machine Learning
 
-> Derivatives tell you which way is downhill. That is all a neural network needs to learn.
+> Đạo hàm cho bạn biết hướng nào đi xuống. Đó là tất cả những gì một mạng nơ-ron cần để học.
 
 **Type:** Learn
 **Language:** Python
@@ -9,37 +9,37 @@
 
 ## Learning Objectives
 
-- Compute numerical and analytical derivatives for common ML functions (x^2, sigmoid, cross-entropy)
-- Implement gradient descent from scratch to minimize a loss function in 1D and 2D
-- Derive the gradient of a linear regression model and train it via manual weight updates
-- Explain the Hessian matrix, Taylor series approximations, and their connection to optimization methods
+- Tính đạo hàm số và đạo hàm giải tích cho các hàm ML phổ biến (x^2, sigmoid, cross-entropy)
+- Triển khai gradient descent từ đầu để tối thiểu hóa một hàm mất mát trong 1D và 2D
+- Suy ra gradient của một mô hình hồi quy tuyến tính và huấn luyện nó bằng các cập nhật trọng số thủ công
+- Giải thích ma trận Hessian, các xấp xỉ chuỗi Taylor và mối liên hệ của chúng với các phương pháp tối ưu hóa
 
 ## The Problem
 
-You have a neural network with millions of weights. Each weight is a knob. You need to figure out which direction to turn every single knob to make the model slightly less wrong. Calculus gives you that direction.
+Bạn có một mạng nơ-ron với hàng triệu trọng số. Mỗi trọng số là một núm vặn. Bạn cần tìm ra hướng xoay từng núm để làm mô hình bớt sai đi một chút. Giải tích cho bạn hướng đó.
 
-Without calculus, training a neural network would mean trying random changes and hoping for the best. With derivatives, you know exactly how each weight affects the error. You turn every knob the right way, every time.
+Không có giải tích, huấn luyện một mạng nơ-ron có nghĩa là thử các thay đổi ngẫu nhiên và hy vọng điều tốt nhất. Với đạo hàm, bạn biết chính xác mỗi trọng số ảnh hưởng đến sai số như thế nào. Bạn xoay mọi núm đúng hướng, mỗi lần.
 
 ## The Concept
 
 ### What is a derivative?
 
-A derivative measures the rate of change. For a function y = f(x), the derivative f'(x) tells you: if you nudge x by a tiny amount, how much does y change?
+Một đạo hàm đo tốc độ thay đổi. Với một hàm y = f(x), đạo hàm f'(x) cho bạn biết: nếu bạn dịch x một lượng rất nhỏ, y thay đổi bao nhiêu?
 
-Geometrically, the derivative is the slope of the tangent line at a point.
+Về mặt hình học, đạo hàm là độ dốc của đường tiếp tuyến tại một điểm.
 
 **f(x) = x^2:**
 
-| x | f(x) | f'(x) (slope) |
+| x | f(x) | f'(x) (độ dốc) |
 |---|------|---------------|
-| 0 | 0    | 0 (flat, at the bottom) |
+| 0 | 0    | 0 (phẳng, tại đáy) |
 | 1 | 1    | 2 |
-| 2 | 4    | 4 (tangent line slope at this point) |
+| 2 | 4    | 4 (độ dốc đường tiếp tuyến tại điểm này) |
 | 3 | 9    | 6 |
 
-At x=2, the slope is 4. If you move x a tiny bit to the right, y increases by about 4 times that amount. At x=0, the slope is 0. You are at the bottom of the bowl.
+Tại x=2, độ dốc là 4. Nếu bạn di chuyển x một chút sang phải, y tăng khoảng 4 lần lượng đó. Tại x=0, độ dốc là 0. Bạn đang ở đáy cái bát.
 
-The formal definition:
+Định nghĩa hình thức:
 
 ```
 f'(x) = lim   f(x + h) - f(x)
@@ -47,11 +47,11 @@ f'(x) = lim   f(x + h) - f(x)
                      h
 ```
 
-In code, you skip the limit and just use a very small h. That is the numerical derivative.
+Trong mã, bạn bỏ qua giới hạn và chỉ sử dụng một h rất nhỏ. Đó là đạo hàm số.
 
 ### Partial derivatives: one variable at a time
 
-Real functions have many inputs. A neural network loss depends on thousands of weights. A partial derivative holds all variables constant except one, then takes the derivative with respect to that one.
+Các hàm thực tế có nhiều đầu vào. Mất mát của một mạng nơ-ron phụ thuộc vào hàng nghìn trọng số. Một đạo hàm riêng giữ tất cả các biến không đổi trừ một biến, rồi lấy đạo hàm theo biến đó.
 
 ```
 f(x, y) = x^2 + 3xy + y^2
@@ -60,32 +60,32 @@ df/dx = 2x + 3y     (treat y as a constant)
 df/dy = 3x + 2y     (treat x as a constant)
 ```
 
-Each partial derivative answers: if I nudge just this one weight, how does the loss change?
+Mỗi đạo hàm riêng trả lời: nếu tôi chỉ dịch riêng trọng số này, mất mát thay đổi như thế nào?
 
 ### The gradient: vector of all partial derivatives
 
-The gradient collects every partial derivative into one vector. For a function f(x, y, z), the gradient is:
+Gradient gom mọi đạo hàm riêng vào một vector. Với một hàm f(x, y, z), gradient là:
 
 ```
 grad f = [ df/dx, df/dy, df/dz ]
 ```
 
-The gradient points in the direction of steepest ascent. To minimize a function, go in the opposite direction.
+Gradient chỉ theo hướng tăng dốc nhất. Để tối thiểu hóa một hàm, đi theo hướng ngược lại.
 
-**Contour plot of f(x,y) = x^2 + y^2:**
+**Đồ thị đường đồng mức của f(x,y) = x^2 + y^2:**
 
-The function forms a bowl shape with concentric circles as contour lines. The minimum is at (0, 0).
+Hàm tạo thành hình cái bát với các đường tròn đồng tâm làm đường đồng mức. Điểm cực tiểu nằm tại (0, 0).
 
-| Point | grad f | -grad f (descent direction) |
+| Điểm | grad f | -grad f (hướng đi xuống) |
 |-------|--------|----------------------------|
-| (1, 1) | [2, 2] (points uphill, away from minimum) | [-2, -2] (points downhill, toward minimum) |
-| (0, 0) | [0, 0] (flat, at the minimum) | [0, 0] |
+| (1, 1) | [2, 2] (hướng lên dốc, ra xa cực tiểu) | [-2, -2] (hướng xuống dốc, về phía cực tiểu) |
+| (0, 0) | [0, 0] (phẳng, tại cực tiểu) | [0, 0] |
 
-This is gradient descent in a picture. Compute the gradient, negate it, take a step.
+Đây là gradient descent trong một hình ảnh. Tính gradient, đổi dấu nó, bước một bước.
 
 ### The connection to optimization
 
-Training a neural network is optimization. You have a loss function L(w1, w2, ..., wn) that measures how wrong the model is. You want to minimize it.
+Huấn luyện một mạng nơ-ron là tối ưu hóa. Bạn có một hàm mất mát L(w1, w2, ..., wn) đo mức độ sai của mô hình. Bạn muốn tối thiểu hóa nó.
 
 ```
 Gradient descent update rule:
@@ -98,27 +98,27 @@ For every weight:
   3. Repeat
 ```
 
-The learning rate controls step size. Too big and you overshoot. Too small and you crawl.
+Tốc độ học điều khiển kích thước bước. Quá lớn và bạn vượt quá. Quá nhỏ và bạn bò chậm.
 
-**Loss landscape (1D slice):**
+**Địa hình mất mát (lát cắt 1D):**
 
-The loss function L(w) forms a curve with peaks and valleys as the weight w varies.
+Hàm mất mát L(w) tạo thành một đường cong với các đỉnh và thung lũng khi trọng số w thay đổi.
 
-| Feature | Description |
+| Đặc điểm | Mô tả |
 |---------|-------------|
-| Global minimum | The lowest point on the entire curve -- the best solution |
-| Local minimum | A valley that is lower than its neighbors but not the lowest overall |
-| Slope | Gradient descent follows the slope downhill from any starting point |
+| Cực tiểu toàn cục | Điểm thấp nhất trên toàn bộ đường cong -- nghiệm tốt nhất |
+| Cực tiểu cục bộ | Một thung lũng thấp hơn các điểm lân cận nhưng không thấp nhất toàn bộ |
+| Độ dốc | Gradient descent đi theo độ dốc xuống dưới từ bất kỳ điểm bắt đầu nào |
 
-Gradient descent follows the slope downhill. It can get stuck in local minima, but in high-dimensional spaces (millions of weights) this is rarely a practical problem.
+Gradient descent đi theo độ dốc xuống dưới. Nó có thể bị kẹt ở các cực tiểu cục bộ, nhưng trong các không gian nhiều chiều (hàng triệu trọng số), điều này hiếm khi là một vấn đề thực tế.
 
 ### Numerical vs analytical derivatives
 
-There are two ways to compute a derivative.
+Có hai cách để tính một đạo hàm.
 
-Analytical: apply calculus rules by hand. For f(x) = x^2, the derivative is f'(x) = 2x. Exact. Fast.
+Giải tích: áp dụng các quy tắc giải tích bằng tay. Với f(x) = x^2, đạo hàm là f'(x) = 2x. Chính xác. Nhanh.
 
-Numerical: approximate using the definition. Compute f(x+h) and f(x-h) for a tiny h, then use the difference.
+Số: xấp xỉ bằng định nghĩa. Tính f(x+h) và f(x-h) cho một h rất nhỏ, rồi sử dụng hiệu.
 
 ```
 Numerical (central difference):
@@ -130,11 +130,11 @@ f'(x) ~= f(x + h) - f(x - h)
 h = 0.0001 works well in practice
 ```
 
-Numerical derivatives are slower but work for any function. Analytical derivatives are fast but require you to derive the formula. Neural network frameworks use a third approach: automatic differentiation, which computes exact derivatives mechanically. You will see that in Phase 3.
+Đạo hàm số chậm hơn nhưng dùng được cho bất kỳ hàm nào. Đạo hàm giải tích nhanh nhưng yêu cầu bạn suy ra công thức. Các framework mạng nơ-ron sử dụng cách tiếp cận thứ ba: vi phân tự động, tính các đạo hàm chính xác một cách máy móc. Bạn sẽ thấy điều đó ở Giai đoạn 3.
 
 ### Derivatives by hand for simple functions
 
-These are the derivatives you will see over and over in ML.
+Đây là những đạo hàm bạn sẽ gặp đi gặp lại trong ML.
 
 ```
 Function        Derivative       Used in
@@ -148,7 +148,7 @@ f(x) = ln(x)   f'(x) = 1/x     Cross-entropy loss
 f(x) = 1/(1+e^-x)  f'(x) = f(x)(1-f(x))   Sigmoid activation
 ```
 
-For f(x) = x^2:
+Với f(x) = x^2:
 
 ```
 f(x) = x^2    f'(x) = 2x
@@ -161,7 +161,7 @@ f(x) = x^2    f'(x) = 2x
    2    4       4      slope tilts right (increasing)
 ```
 
-For f(w) = wx + b with x=3, b=1:
+Với f(w) = wx + b với x=3, b=1:
 
 ```
 f(w) = 3w + 1    f'(w) = 3
@@ -172,7 +172,7 @@ If x is big, a small change in w causes a big change in output.
 
 ### The chain rule
 
-When functions are composed, the chain rule tells you how to differentiate.
+Khi các hàm được hợp thành, quy tắc dây chuyền cho bạn biết cách lấy đạo hàm.
 
 ```
 If y = f(g(x)), then dy/dx = f'(g(x)) * g'(x)
@@ -183,34 +183,34 @@ Example: y = (3x + 1)^2
   dy/dx = 2(3x + 1) * 3 = 6(3x + 1)
 ```
 
-Neural networks are chains of functions: input -> linear -> activation -> linear -> activation -> loss. Backpropagation is the chain rule applied repeatedly from output to input. That is the entire algorithm.
+Mạng nơ-ron là các chuỗi hàm: đầu vào -> tuyến tính -> kích hoạt -> tuyến tính -> kích hoạt -> mất mát. Lan truyền ngược là quy tắc dây chuyền được áp dụng lặp lại từ đầu ra đến đầu vào. Đó là toàn bộ thuật toán.
 
 ### The Hessian Matrix
 
-The gradient tells you the slope. The Hessian tells you the curvature.
+Gradient cho bạn biết độ dốc. Hessian cho bạn biết độ cong.
 
-The Hessian is the matrix of second-order partial derivatives. For a function f(x1, x2, ..., xn), entry (i, j) of the Hessian is:
+Hessian là ma trận các đạo hàm riêng bậc hai. Với một hàm f(x1, x2, ..., xn), phần tử (i, j) của Hessian là:
 
 ```
 H[i][j] = d^2f / (dx_i * dx_j)
 ```
 
-For a 2-variable function f(x, y):
+Với một hàm 2 biến f(x, y):
 
 ```
 H = | d^2f/dx^2    d^2f/dxdy |
     | d^2f/dydx    d^2f/dy^2 |
 ```
 
-**What the Hessian tells you at a critical point (where gradient = 0):**
+**Hessian cho bạn biết điều gì tại một điểm dừng (nơi gradient = 0):**
 
-| Hessian property | Meaning | Example surface |
+| Tính chất Hessian | Ý nghĩa | Bề mặt ví dụ |
 |-----------------|---------|-----------------|
-| Positive definite (all eigenvalues > 0) | Local minimum | Bowl pointing up |
-| Negative definite (all eigenvalues < 0) | Local maximum | Bowl pointing down |
-| Indefinite (mixed eigenvalues) | Saddle point | Horse saddle shape |
+| Xác định dương (mọi giá trị riêng > 0) | Cực tiểu cục bộ | Cái bát hướng lên |
+| Xác định âm (mọi giá trị riêng < 0) | Cực đại cục bộ | Cái bát hướng xuống |
+| Không xác định (các giá trị riêng khác dấu) | Điểm yên ngựa | Hình yên ngựa |
 
-**Example:** f(x, y) = x^2 - y^2 (a saddle function)
+**Ví dụ:** f(x, y) = x^2 - y^2 (một hàm yên ngựa)
 
 ```
 df/dx = 2x       df/dy = -2y
@@ -223,7 +223,7 @@ Eigenvalues: 2 and -2 (one positive, one negative)
 --> Saddle point at (0, 0)
 ```
 
-Compare with f(x, y) = x^2 + y^2 (a bowl):
+So sánh với f(x, y) = x^2 + y^2 (một cái bát):
 
 ```
 H = | 2  0 |
@@ -233,46 +233,46 @@ Eigenvalues: 2 and 2 (both positive)
 --> Local minimum at (0, 0)
 ```
 
-**Why the Hessian matters in ML:**
+**Tại sao Hessian quan trọng trong ML:**
 
-Newton's method uses the Hessian to take better optimization steps than gradient descent. Instead of just following the slope, it accounts for curvature:
+Phương pháp Newton sử dụng Hessian để thực hiện các bước tối ưu hóa tốt hơn gradient descent. Thay vì chỉ đi theo độ dốc, nó xét đến độ cong:
 
 ```
 Newton's update:    w_new = w_old - H^(-1) * gradient
 Gradient descent:   w_new = w_old - lr * gradient
 ```
 
-Newton's method converges faster because the Hessian "rescales" the gradient -- steep directions get smaller steps, flat directions get larger steps.
+Phương pháp Newton hội tụ nhanh hơn vì Hessian "điều chỉnh tỉ lệ" gradient -- các hướng dốc có bước nhỏ hơn, các hướng phẳng có bước lớn hơn.
 
-The catch: for a neural network with N parameters, the Hessian is N x N. A model with 1 million parameters would need a 1 trillion-entry matrix. That is why we use approximations.
+Điểm vướng mắc: với một mạng nơ-ron có N tham số, Hessian có kích thước N x N. Một mô hình có 1 triệu tham số sẽ cần một ma trận 1 nghìn tỷ phần tử. Đó là lý do chúng ta sử dụng các xấp xỉ.
 
-| Method | What it uses | Cost | Convergence |
+| Phương pháp | Những gì nó sử dụng | Chi phí | Hội tụ |
 |--------|-------------|------|-------------|
-| Gradient descent | First derivatives only | O(N) per step | Slow (linear) |
-| Newton's method | Full Hessian | O(N^3) per step | Fast (quadratic) |
-| L-BFGS | Approximate Hessian from gradient history | O(N) per step | Medium (superlinear) |
-| Adam | Per-parameter adaptive rates (diagonal Hessian approx) | O(N) per step | Medium |
-| Natural gradient | Fisher information matrix (statistical Hessian) | O(N^2) per step | Fast |
+| Gradient descent | Chỉ các đạo hàm bậc nhất | O(N) mỗi bước | Chậm (tuyến tính) |
+| Phương pháp Newton | Hessian đầy đủ | O(N^3) mỗi bước | Nhanh (bậc hai) |
+| L-BFGS | Hessian xấp xỉ từ lịch sử gradient | O(N) mỗi bước | Trung bình (siêu tuyến tính) |
+| Adam | Tốc độ thích nghi theo từng tham số (xấp xỉ Hessian đường chéo) | O(N) mỗi bước | Trung bình |
+| Gradient tự nhiên | Ma trận thông tin Fisher (Hessian thống kê) | O(N^2) mỗi bước | Nhanh |
 
-In practice, Adam is the default optimizer for deep learning. It approximates second-order information cheaply by tracking the running mean and variance of gradients per parameter.
+Trong thực tế, Adam là bộ tối ưu hóa mặc định cho học sâu. Nó xấp xỉ thông tin bậc hai với chi phí thấp bằng cách theo dõi trung bình và phương sai cập nhật liên tục của gradient theo từng tham số.
 
 ### Taylor Series Approximation
 
-Any smooth function can be approximated locally by a polynomial:
+Bất kỳ hàm trơn nào cũng có thể được xấp xỉ cục bộ bằng một đa thức:
 
 ```
 f(x + h) = f(x) + f'(x)*h + (1/2)*f''(x)*h^2 + (1/6)*f'''(x)*h^3 + ...
 ```
 
-The more terms you include, the better the approximation -- but only near the point x.
+Càng đưa vào nhiều số hạng, xấp xỉ càng tốt -- nhưng chỉ gần điểm x.
 
-**Why Taylor series matter for ML:**
+**Tại sao chuỗi Taylor quan trọng đối với ML:**
 
-- **First-order Taylor = gradient descent.** When you use f(x + h) ~ f(x) + f'(x)*h, you are making a linear approximation. Gradient descent minimizes this linear model to choose h = -lr * f'(x).
+- **Taylor bậc nhất = gradient descent.** Khi bạn sử dụng f(x + h) ~ f(x) + f'(x)*h, bạn đang thực hiện một xấp xỉ tuyến tính. Gradient descent tối thiểu hóa mô hình tuyến tính này để chọn h = -lr * f'(x).
 
-- **Second-order Taylor = Newton's method.** Using f(x + h) ~ f(x) + f'(x)*h + (1/2)*f''(x)*h^2, you get a quadratic model. Minimizing it gives h = -f'(x)/f''(x) -- Newton's step.
+- **Taylor bậc hai = phương pháp Newton.** Sử dụng f(x + h) ~ f(x) + f'(x)*h + (1/2)*f''(x)*h^2, bạn có một mô hình bậc hai. Tối thiểu hóa nó cho h = -f'(x)/f''(x) -- bước Newton.
 
-- **Loss function design.** MSE and cross-entropy are smooth, which means their Taylor expansions are well-behaved. This is not an accident. Smooth losses make optimization predictable.
+- **Thiết kế hàm mất mát.** MSE và cross-entropy là các hàm trơn, có nghĩa là các khai triển Taylor của chúng có tính chất tốt. Đây không phải sự tình cờ. Các hàm mất mát trơn làm cho việc tối ưu hóa có thể dự đoán được.
 
 ```
 Approximation order    What it captures    Optimization method
@@ -283,49 +283,49 @@ Approximation order    What it captures    Optimization method
 Higher orders          Finer structure     Rarely used in ML
 ```
 
-The key insight: all gradient-based optimization is really about approximating the loss function locally and stepping to the minimum of that approximation.
+Điểm cốt yếu: mọi tối ưu hóa dựa trên gradient thực chất là xấp xỉ hàm mất mát cục bộ và bước đến cực tiểu của xấp xỉ đó.
 
 ### Integrals in ML
 
-Derivatives tell you rates of change. Integrals compute accumulations -- area under a curve.
+Đạo hàm cho bạn biết tốc độ thay đổi. Tích phân tính sự tích lũy -- diện tích dưới một đường cong.
 
-In ML, you rarely compute integrals by hand, but the concept is everywhere:
+Trong ML, bạn hiếm khi tính tích phân bằng tay, nhưng khái niệm này có ở khắp nơi:
 
-**Probability.** For a continuous random variable with density p(x):
+**Xác suất.** Với một biến ngẫu nhiên liên tục có mật độ p(x):
 ```
 P(a < X < b) = integral from a to b of p(x) dx
 ```
-The area under the probability density curve between a and b is the probability of landing in that range.
+Diện tích dưới đường cong mật độ xác suất giữa a và b là xác suất rơi vào khoảng đó.
 
-**Expected value.** The average outcome weighted by probability:
+**Kỳ vọng.** Kết quả trung bình được lấy trọng số theo xác suất:
 ```
 E[f(X)] = integral of f(x) * p(x) dx
 ```
-The expected loss over a data distribution is an integral. Training minimizes an empirical approximation of this.
+Mất mát kỳ vọng trên một phân phối dữ liệu là một tích phân. Việc huấn luyện tối thiểu hóa một xấp xỉ thực nghiệm của nó.
 
-**KL divergence.** Measures how different two distributions are:
+**Phân kỳ KL.** Đo mức độ khác nhau giữa hai phân phối:
 ```
 KL(p || q) = integral of p(x) * log(p(x) / q(x)) dx
 ```
-Used in VAEs, knowledge distillation, and Bayesian inference.
+Được sử dụng trong VAE, chưng cất tri thức và suy luận Bayes.
 
-**Normalization constants.** In Bayesian inference:
+**Các hằng số chuẩn hóa.** Trong suy luận Bayes:
 ```
 p(w | data) = p(data | w) * p(w) / integral of p(data | w) * p(w) dw
 ```
-The denominator is an integral over all possible parameter values. It is often intractable, which is why we use approximations like MCMC and variational inference.
+Mẫu số là một tích phân trên tất cả các giá trị tham số có thể. Nó thường không thể tính toán được, đó là lý do chúng ta dùng các xấp xỉ như MCMC và suy luận biến phân.
 
-| Integral concept | Where it appears in ML |
+| Khái niệm tích phân | Nơi xuất hiện trong ML |
 |-----------------|----------------------|
-| Area under curve | Probability from density functions |
-| Expected value | Loss functions, risk minimization |
-| KL divergence | VAEs, policy optimization, distillation |
-| Normalization | Bayesian posteriors, softmax denominator |
-| Marginal likelihood | Model comparison, evidence lower bound (ELBO) |
+| Diện tích dưới đường cong | Xác suất từ các hàm mật độ |
+| Kỳ vọng | Hàm mất mát, tối thiểu hóa rủi ro |
+| Phân kỳ KL | VAE, tối ưu hóa chính sách, chưng cất |
+| Chuẩn hóa | Phân phối hậu nghiệm Bayes, mẫu số softmax |
+| Hợp lý biên | So sánh mô hình, cận dưới bằng chứng (ELBO) |
 
 ### Multivariable Chain Rule in a Computation Graph
 
-The chain rule does not just apply to scalar functions in a line. In a neural network, variables fan out and merge. Here is how derivatives flow through a simple forward pass:
+Quy tắc dây chuyền không chỉ áp dụng cho các hàm vô hướng trên một đường thẳng. Trong một mạng nơ-ron, các biến phân nhánh rồi hợp lại. Đây là cách các đạo hàm truyền qua một lượt truyền xuôi đơn giản:
 
 ```mermaid
 graph LR
@@ -335,7 +335,7 @@ graph LR
     a -->|"loss fn"| L["L = -(y*log(a) + (1-y)*log(1-a))"]
 ```
 
-The backward pass computes gradients right to left:
+Lượt truyền ngược tính gradient từ phải sang trái:
 
 ```mermaid
 graph RL
@@ -345,15 +345,15 @@ graph RL
     dz2 -->|"dz2/db = 1"| db["dL/db = dL/dz2 * 1"]
 ```
 
-Each arrow multiplies by the local derivative. The gradient for any parameter is the product of all local derivatives along the path from loss to that parameter. When paths branch and merge, you sum the contributions (multivariate chain rule).
+Mỗi mũi tên nhân với đạo hàm cục bộ. Gradient cho bất kỳ tham số nào là tích của tất cả các đạo hàm cục bộ dọc theo đường từ mất mát đến tham số đó. Khi các đường phân nhánh và hợp lại, bạn cộng các phần đóng góp (quy tắc dây chuyền đa biến).
 
-This is all backpropagation is: the chain rule applied systematically through a computation graph, from output to inputs.
+Đây là toàn bộ lan truyền ngược: quy tắc dây chuyền được áp dụng có hệ thống qua một đồ thị tính toán, từ đầu ra đến các đầu vào.
 
 ### The Jacobian matrix
 
-When a function maps a vector to a vector (like a neural network layer), its derivative is a matrix. The Jacobian contains every partial derivative of every output with respect to every input.
+Khi một hàm ánh xạ một vector thành một vector (như một lớp mạng nơ-ron), đạo hàm của nó là một ma trận. Jacobian chứa mọi đạo hàm riêng của mọi đầu ra theo mọi đầu vào.
 
-For f: R^n -> R^m, the Jacobian J is an m x n matrix:
+Với f: R^n -> R^m, Jacobian J là một ma trận m x n:
 
 | | x1 | x2 | ... | xn |
 |---|---|---|---|---|
@@ -362,11 +362,11 @@ For f: R^n -> R^m, the Jacobian J is an m x n matrix:
 | ... | ... | ... | ... | ... |
 | fm | dfm/dx1 | dfm/dx2 | ... | dfm/dxn |
 
-You will not compute Jacobians by hand for neural networks. PyTorch handles it. But knowing it exists helps you understand shapes in backpropagation: if a layer maps R^n to R^m, its Jacobian is m x n. The gradient flows backward through the transpose of this matrix.
+Bạn sẽ không tính Jacobian bằng tay cho các mạng nơ-ron. PyTorch xử lý việc đó. Nhưng biết nó tồn tại giúp bạn hiểu hình dạng trong lan truyền ngược: nếu một lớp ánh xạ R^n đến R^m, Jacobian của nó là m x n. Gradient truyền ngược qua chuyển vị của ma trận này.
 
 ### Why this matters for neural networks
 
-Every weight in a neural network gets a gradient. The gradient tells you how to adjust that weight to reduce the loss.
+Mỗi trọng số trong một mạng nơ-ron nhận một gradient. Gradient cho bạn biết cách điều chỉnh trọng số đó để giảm mất mát.
 
 ```mermaid
 graph LR
@@ -382,11 +382,11 @@ graph RL
     end
 ```
 
-Each weight update:
+Mỗi cập nhật trọng số:
 - `W1 = W1 - lr * dL/dW1`
 - `W2 = W2 - lr * dL/dW2`
 
-The forward pass computes the prediction and loss. The backward pass computes the gradient of the loss with respect to every weight. Then every weight takes a small step downhill. Repeat for millions of steps. That is deep learning.
+Lượt truyền xuôi tính dự đoán và mất mát. Lượt truyền ngược tính gradient của mất mát theo mọi trọng số. Sau đó mỗi trọng số bước một bước nhỏ xuống dốc. Lặp lại hàng triệu bước. Đó là học sâu.
 
 ```figure
 derivative-tangent
@@ -409,7 +409,7 @@ for x in [-2, -1, 0, 1, 2]:
     print(f"x={x:2d}  f'(x) numerical={numerical:.6f}  analytical={analytical:.1f}")
 ```
 
-The numerical derivative matches the analytical one to many decimal places.
+Đạo hàm số khớp với đạo hàm giải tích đến nhiều chữ số thập phân.
 
 ### Step 2: Partial derivatives and gradients
 
@@ -445,7 +445,7 @@ for step in range(20):
     print(f"step {step:2d}  x={x:8.4f}  f(x)={x**2:10.6f}")
 ```
 
-Starting at x=5, each step moves closer to x=0 (the minimum).
+Bắt đầu tại x=5, mỗi bước di chuyển gần hơn đến x=0 (cực tiểu).
 
 ### Step 4: Gradient descent on a 2D function
 
@@ -508,7 +508,7 @@ print(f"Saddle Hessian: {H_saddle}")  # [[2, 0], [0, -2]] -- mixed signs
 print(f"Bowl Hessian:   {H_bowl}")    # [[2, 0], [0, 2]]  -- both positive
 ```
 
-The Hessian of the saddle function has eigenvalues 2 and -2 (mixed signs, confirming a saddle point). The bowl has eigenvalues 2 and 2 (both positive, confirming a minimum).
+Hessian của hàm yên ngựa có các giá trị riêng 2 và -2 (khác dấu, xác nhận một điểm yên ngựa). Cái bát có các giá trị riêng 2 và 2 (đều dương, xác nhận một cực tiểu).
 
 ### Step 7: Taylor approximation in action
 
@@ -531,7 +531,7 @@ for h in [0.1, 0.5, 1.0, 2.0]:
     print(f"h={h:.1f}  sin(h)={true_val:.4f}  order1={t1:.4f}  order2={t2:.4f}")
 ```
 
-Near x0=0, sin(x) ~ x (first-order Taylor). The approximation is excellent for small h but breaks down for large h. This is why gradient descent works best with small learning rates -- each step assumes the linear approximation is accurate.
+Gần x0=0, sin(x) ~ x (Taylor bậc nhất). Xấp xỉ rất tốt với h nhỏ nhưng không còn đúng với h lớn. Đây là lý do gradient descent hoạt động tốt nhất với tốc độ học nhỏ -- mỗi bước giả định xấp xỉ tuyến tính là chính xác.
 
 ### Step 8: Why this matters for a neural network
 
@@ -569,11 +569,11 @@ print(f"\nLearned: y = {w:.2f}x + {b:.2f}")
 print(f"Actual:  y = 2x + 1")
 ```
 
-Every gradient-based training loop follows this pattern: predict, compute loss, compute gradients, update weights.
+Mọi vòng lặp huấn luyện dựa trên gradient đều tuân theo mẫu này: dự đoán, tính mất mát, tính gradient, cập nhật trọng số.
 
 ## Use It
 
-With NumPy, the same operations are faster and more concise:
+Với NumPy, các phép toán tương tự nhanh hơn và ngắn gọn hơn:
 
 ```python
 import numpy as np
@@ -596,32 +596,32 @@ for epoch in range(200):
 print(f"Learned: y = {w:.2f}x + {b:.2f}")
 ```
 
-You just built gradient descent from scratch. PyTorch automates the gradient computation, but the update loop is identical.
+Bạn vừa xây dựng gradient descent từ đầu. PyTorch tự động hóa việc tính gradient, nhưng vòng lặp cập nhật giống hệt nhau.
 
 ## Exercises
 
-1. Implement `numerical_second_derivative(f, x)` using `numerical_derivative` called twice. Verify that the second derivative of x^3 at x=2 is 12.
-2. Use gradient descent to find the minimum of f(x, y) = (x - 3)^2 + (y + 1)^2. Start from (0, 0). The answer should converge to (3, -1).
-3. Add momentum to the gradient descent loop: maintain a velocity vector that accumulates past gradients. Compare convergence speed with and without momentum on f(x) = x^4 - 3x^2.
+1. Triển khai `numerical_second_derivative(f, x)` bằng cách gọi `numerical_derivative` hai lần. Xác minh rằng đạo hàm bậc hai của x^3 tại x=2 là 12.
+2. Sử dụng gradient descent để tìm cực tiểu của f(x, y) = (x - 3)^2 + (y + 1)^2. Bắt đầu từ (0, 0). Đáp án sẽ hội tụ về (3, -1).
+3. Thêm momentum vào vòng lặp gradient descent: duy trì một vector vận tốc tích lũy các gradient quá khứ. So sánh tốc độ hội tụ khi có và không có momentum trên f(x) = x^4 - 3x^2.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Derivative | "The slope" | The rate of change of a function at a point. Tells you how much the output changes per unit change in input. |
-| Partial derivative | "Derivative of one variable" | The derivative with respect to one variable while all others are held constant. |
-| Gradient | "Direction of steepest ascent" | A vector of all partial derivatives. Points in the direction that increases the function fastest. |
-| Gradient descent | "Go downhill" | Subtract the gradient (times a learning rate) from the parameters to reduce the loss. The core of neural network training. |
-| Learning rate | "Step size" | A scalar that controls how big each gradient descent step is. Too large: diverge. Too small: converge slowly. |
-| Chain rule | "Multiply the derivatives" | The rule for differentiating composed functions: df/dx = df/dg * dg/dx. The mathematical basis of backpropagation. |
-| Jacobian | "Matrix of derivatives" | When a function maps vectors to vectors, the Jacobian is the matrix of all partial derivatives of outputs with respect to inputs. |
-| Numerical derivative | "Finite differences" | Approximating a derivative by evaluating the function at two nearby points and computing the slope between them. |
-| Backpropagation | "Reverse-mode autodiff" | Computing gradients layer by layer from output to input using the chain rule. How neural networks learn. |
-| Hessian | "Matrix of second derivatives" | The matrix of all second-order partial derivatives. Describes the curvature of a function. Positive definite Hessian at a critical point means local minimum. |
-| Taylor series | "Polynomial approximation" | Approximating a function near a point using its derivatives: f(x+h) ~ f(x) + f'(x)h + (1/2)f''(x)h^2 + ... The basis for understanding why gradient descent and Newton's method work. |
-| Integral | "Area under the curve" | The accumulation of a quantity over a range. In ML, integrals define probabilities, expected values, and KL divergence. |
+| Derivative (Đạo hàm) | "Độ dốc" | Tốc độ thay đổi của một hàm tại một điểm. Cho bạn biết đầu ra thay đổi bao nhiêu trên mỗi đơn vị thay đổi đầu vào. |
+| Partial derivative (Đạo hàm riêng) | "Đạo hàm của một biến" | Đạo hàm theo một biến trong khi tất cả các biến khác được giữ không đổi. |
+| Gradient | "Hướng tăng dốc nhất" | Một vector của tất cả các đạo hàm riêng. Chỉ theo hướng làm hàm tăng nhanh nhất. |
+| Gradient descent | "Đi xuống dốc" | Trừ gradient (nhân với một tốc độ học) khỏi các tham số để giảm mất mát. Cốt lõi của việc huấn luyện mạng nơ-ron. |
+| Learning rate (Tốc độ học) | "Kích thước bước" | Một số vô hướng điều khiển độ lớn mỗi bước gradient descent. Quá lớn: phân kỳ. Quá nhỏ: hội tụ chậm. |
+| Chain rule (Quy tắc dây chuyền) | "Nhân các đạo hàm" | Quy tắc lấy đạo hàm của các hàm hợp: df/dx = df/dg * dg/dx. Cơ sở toán học của lan truyền ngược. |
+| Jacobian | "Ma trận các đạo hàm" | Khi một hàm ánh xạ các vector thành các vector, Jacobian là ma trận của tất cả các đạo hàm riêng của đầu ra theo đầu vào. |
+| Numerical derivative (Đạo hàm số) | "Sai phân hữu hạn" | Xấp xỉ một đạo hàm bằng cách tính giá trị hàm tại hai điểm gần nhau và tính độ dốc giữa chúng. |
+| Backpropagation (Lan truyền ngược) | "Autodiff chế độ ngược" | Tính gradient từng lớp từ đầu ra đến đầu vào bằng quy tắc dây chuyền. Cách mạng nơ-ron học. |
+| Hessian | "Ma trận các đạo hàm bậc hai" | Ma trận của tất cả các đạo hàm riêng bậc hai. Mô tả độ cong của một hàm. Hessian xác định dương tại một điểm dừng có nghĩa là cực tiểu cục bộ. |
+| Taylor series (Chuỗi Taylor) | "Xấp xỉ đa thức" | Xấp xỉ một hàm gần một điểm bằng các đạo hàm của nó: f(x+h) ~ f(x) + f'(x)h + (1/2)f''(x)h^2 + ... Cơ sở để hiểu tại sao gradient descent và phương pháp Newton hoạt động. |
+| Integral (Tích phân) | "Diện tích dưới đường cong" | Sự tích lũy của một đại lượng trên một khoảng. Trong ML, tích phân xác định xác suất, kỳ vọng và phân kỳ KL. |
 
 ## Further Reading
 
-- [3Blue1Brown: Essence of Calculus](https://www.3blue1brown.com/topics/calculus) - visual intuition for derivatives, integrals, and the chain rule
-- [Stanford CS231n: Backpropagation](https://cs231n.github.io/optimization-2/) - how gradients flow through neural network layers
+- [3Blue1Brown: Essence of Calculus](https://www.3blue1brown.com/topics/calculus) - trực giác trực quan về đạo hàm, tích phân và quy tắc dây chuyền
+- [Stanford CS231n: Backpropagation](https://cs231n.github.io/optimization-2/) - cách gradient truyền qua các lớp mạng nơ-ron
