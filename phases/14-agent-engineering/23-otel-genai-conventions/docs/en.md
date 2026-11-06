@@ -1,6 +1,6 @@
 # OpenTelemetry GenAI Semantic Conventions
 
-> OpenTelemetry's GenAI SIG (launched April 2024) defines the standard schema for agent telemetry. Span names, attributes, and content-capture rules converge across vendors so agent traces mean the same thing in Datadog, Grafana, Jaeger, and Honeycomb.
+> GenAI SIG của OpenTelemetry (ra mắt tháng 4 năm 2024) định nghĩa schema tiêu chuẩn cho telemetry agent. Tên span, thuộc tính và các quy tắc ghi nội dung hội tụ xuyên các nhà cung cấp để các trace agent có cùng ý nghĩa trong Datadog, Grafana, Jaeger và Honeycomb.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,67 +9,67 @@
 
 ## Learning Objectives
 
-- Name the GenAI span categories: model/client, agent, tool.
-- Distinguish `invoke_agent` CLIENT vs INTERNAL spans and when each applies.
-- List the top-level GenAI attributes: provider name, request model, data-source ID.
-- Explain the content-capture contract: opt-in, `OTEL_SEMCONV_STABILITY_OPT_IN`, external-reference recommendation.
+- Nêu tên các loại span GenAI: mô hình/client, agent, công cụ.
+- Phân biệt các span `invoke_agent` CLIENT với INTERNAL và khi nào mỗi loại áp dụng.
+- Liệt kê các thuộc tính GenAI cấp cao: tên nhà cung cấp, mô hình yêu cầu, ID nguồn dữ liệu.
+- Giải thích hợp đồng ghi nội dung: chọn tham gia, `OTEL_SEMCONV_STABILITY_OPT_IN`, khuyến nghị tham chiếu bên ngoài.
 
 ## The Problem
 
-Every vendor invents their own span names. Ops teams end up building per-framework dashboards. OpenTelemetry's GenAI SIG fixes this by defining one standard the whole ecosystem targets.
+Mỗi nhà cung cấp tự tạo các tên span riêng. Các nhóm vận hành rốt cuộc xây các dashboard cho từng framework. GenAI SIG của OpenTelemetry khắc phục điều này bằng cách định nghĩa một tiêu chuẩn mà toàn bộ hệ sinh thái hướng tới.
 
 ## The Concept
 
 ### Span categories
 
-1. **Model / client spans.** Cover raw LLM calls. Emitted by provider SDKs (Anthropic, OpenAI, Bedrock) and framework model adapters.
-2. **Agent spans.** `create_agent` (when the agent is constructed) and `invoke_agent` (when it runs).
-3. **Tool spans.** One per tool invocation; connected to the agent span by parent-child relation.
+1. **Các span mô hình / client.** Bao phủ các lời gọi LLM thô. Được phát ra bởi các SDK nhà cung cấp (Anthropic, OpenAI, Bedrock) và các bộ điều hợp mô hình framework.
+2. **Các span agent.** `create_agent` (khi agent được tạo) và `invoke_agent` (khi nó chạy).
+3. **Các span công cụ.** Một cho mỗi lần gọi công cụ; được nối với span agent bằng quan hệ cha-con.
 
 ### Agent span naming
 
-- Span name: `invoke_agent {gen_ai.agent.name}` if named; fallback to `invoke_agent`.
-- Span kind:
-  - **CLIENT** — for remote agent services (OpenAI Assistants API, Bedrock Agents).
-  - **INTERNAL** — for in-process agent frameworks (LangChain, CrewAI, local ReAct).
+- Tên span: `invoke_agent {gen_ai.agent.name}` nếu có tên; quay về `invoke_agent`.
+- Loại span:
+  - **CLIENT** — cho các dịch vụ agent từ xa (OpenAI Assistants API, Bedrock Agents).
+  - **INTERNAL** — cho các framework agent trong tiến trình (LangChain, CrewAI, ReAct cục bộ).
 
 ### Key attributes
 
 - `gen_ai.provider.name` — `anthropic`, `openai`, `aws.bedrock`, `google.vertex`.
-- `gen_ai.request.model` — the model ID.
-- `gen_ai.response.model` — the resolved model (may differ from request due to routing).
-- `gen_ai.agent.name` — agent identifier.
+- `gen_ai.request.model` — ID mô hình.
+- `gen_ai.response.model` — mô hình được phân giải (có thể khác yêu cầu do định tuyến).
+- `gen_ai.agent.name` — định danh agent.
 - `gen_ai.operation.name` — `chat`, `completion`, `invoke_agent`, `tool_call`.
-- `gen_ai.data_source.id` — for RAG: which corpus or store was consulted.
+- `gen_ai.data_source.id` — cho RAG: kho ngữ liệu hoặc kho nào đã được tham khảo.
 
-Technology-specific conventions exist for Anthropic, Azure AI Inference, AWS Bedrock, OpenAI.
+Các quy ước dành riêng cho công nghệ tồn tại cho Anthropic, Azure AI Inference, AWS Bedrock, OpenAI.
 
 ### Content capture
 
-The default rule: instrumentations SHOULD NOT capture inputs/outputs by default. Capture is opt-in via:
+Quy tắc mặc định: các phần đo lường KHÔNG NÊN ghi đầu vào/đầu ra theo mặc định. Việc ghi là chọn tham gia qua:
 
 - `gen_ai.system_instructions`
 - `gen_ai.input.messages`
 - `gen_ai.output.messages`
 
-Recommended production pattern: store content externally (S3, your log store), record references on spans (pointer IDs, not prose). This is the Lesson 27 content-poisoning defense wired into observability.
+Mẫu sản xuất được khuyến nghị: lưu nội dung bên ngoài (S3, kho log của bạn), ghi các tham chiếu trên span (các ID con trỏ, không phải văn xuôi). Đây là biện pháp phòng vệ đầu độc nội dung của Bài 27 được nối vào khả năng quan sát.
 
 ### Stability
 
-Most conventions are experimental as of March 2026. Opt in to the stable preview with:
+Hầu hết các quy ước là thử nghiệm tính đến tháng 3 năm 2026. Chọn tham gia bản xem trước ổn định với:
 
 ```
 OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental
 ```
 
-Datadog v1.37+ maps GenAI attributes natively into its LLM Observability schema. Other backends (Grafana, Honeycomb, Jaeger) support the raw attributes.
+Datadog v1.37+ ánh xạ các thuộc tính GenAI trực tiếp vào schema LLM Observability của nó. Các backend khác (Grafana, Honeycomb, Jaeger) hỗ trợ các thuộc tính thô.
 
 ### Where this pattern goes wrong
 
-- **Capturing full prompts in spans.** PII, secrets, customer data in traces that ops can read. Store externally.
-- **No `gen_ai.provider.name`.** Multi-provider dashboards break when attribution is missing.
-- **Spans without parent links.** Orphaned tool spans. Always propagate context.
-- **Not setting stability opt-in.** Your attributes may get renamed on backend upgrade.
+- **Ghi toàn bộ prompt trong các span.** PII, bí mật, dữ liệu khách hàng trong các trace mà bộ phận vận hành có thể đọc. Lưu bên ngoài.
+- **Không có `gen_ai.provider.name`.** Các dashboard nhiều nhà cung cấp bị hỏng khi thiếu quy thuộc.
+- **Các span không có liên kết cha.** Các span công cụ mồ côi. Luôn lan truyền ngữ cảnh.
+- **Không đặt chọn tham gia tính ổn định.** Các thuộc tính của bạn có thể bị đổi tên khi nâng cấp backend.
 
 ```figure
 ae-genai-span-tree
@@ -77,56 +77,56 @@ ae-genai-span-tree
 
 ## Build It
 
-`code/main.py` implements a stdlib span emitter matching GenAI conventions:
+`code/main.py` triển khai một bộ phát span dùng thư viện chuẩn khớp các quy ước GenAI:
 
-- `Span` with GenAI attribute schema.
-- `Tracer` with `start_span`, nested contexts.
-- A scripted agent run that emits: `create_agent`, `invoke_agent` (INTERNAL), per-tool spans, `chat` spans for LLM calls.
-- A content-capture mode that stores prompts externally and records IDs on spans.
+- `Span` với schema thuộc tính GenAI.
+- `Tracer` với `start_span`, các ngữ cảnh lồng nhau.
+- Một lần chạy agent được viết kịch bản phát ra: `create_agent`, `invoke_agent` (INTERNAL), các span cho từng công cụ, các span `chat` cho các lời gọi LLM.
+- Một chế độ ghi nội dung lưu các prompt bên ngoài và ghi các ID trên các span.
 
-Run it:
+Chạy nó:
 
 ```
 python3 code/main.py
 ```
 
-Output: a span tree with all required GenAI attributes, and an "external store" showing the opt-in content references.
+Đầu ra: một cây span với mọi thuộc tính GenAI bắt buộc, và một "kho bên ngoài" cho thấy các tham chiếu nội dung chọn tham gia.
 
 ## Use It
 
-- **Datadog LLM Observability** (v1.37+) maps attributes natively.
-- **Langfuse / Phoenix / Opik** (Lesson 24) — auto-instrument the ecosystem.
-- **Jaeger / Honeycomb / Grafana Tempo** — raw OTel traces; build dashboards from GenAI attributes.
-- **Self-hosted** — run the OTel Collector with a GenAI processor.
+- **Datadog LLM Observability** (v1.37+) ánh xạ các thuộc tính trực tiếp.
+- **Langfuse / Phoenix / Opik** (Bài 24) — tự động đo lường hệ sinh thái.
+- **Jaeger / Honeycomb / Grafana Tempo** — các trace OTel thô; xây các dashboard từ các thuộc tính GenAI.
+- **Tự host** — chạy OTel Collector với một bộ xử lý GenAI.
 
 ## Ship It
 
-`outputs/skill-otel-genai.md` wires OTel GenAI spans into an existing agent with content-capture defaults and external-reference storage.
+`outputs/skill-otel-genai.md` nối các span OTel GenAI vào một agent hiện có với các mặc định ghi nội dung và lưu trữ tham chiếu bên ngoài.
 
 ## Exercises
 
-1. Instrument your Lesson 01 ReAct loop with `invoke_agent` (INTERNAL) + per-tool spans. Send to a Jaeger instance.
-2. Add content capture in "references only" mode: prompts to SQLite, span attributes carry only row IDs.
-3. Read the spec for `gen_ai.data_source.id`. Wire it into your Lesson 09 Mem0 search.
-4. Set `OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental` and verify your attributes don't get renamed by the collector.
-5. Build a dashboard: "which tool errors correlate with which models" from GenAI attributes alone.
+1. Thêm đo lường vào vòng lặp ReAct Bài 01 của bạn với `invoke_agent` (INTERNAL) + các span cho từng công cụ. Gửi đến một thể hiện Jaeger.
+2. Thêm ghi nội dung trong chế độ "chỉ tham chiếu": các prompt đến SQLite, các thuộc tính span chỉ mang ID hàng.
+3. Đọc đặc tả cho `gen_ai.data_source.id`. Nối nó vào tìm kiếm Mem0 Bài 09 của bạn.
+4. Đặt `OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental` và xác minh các thuộc tính của bạn không bị collector đổi tên.
+5. Xây một dashboard: "những lỗi công cụ nào tương quan với những mô hình nào" chỉ từ các thuộc tính GenAI.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |------|----------------|------------------------|
-| GenAI SIG | "OpenTelemetry GenAI group" | OTel working group defining the schema |
-| invoke_agent | "Agent span" | Name of the span representing an agent run |
-| CLIENT span | "Remote call" | Span for a call to a remote agent service |
-| INTERNAL span | "In-process" | Span for an in-process agent run |
-| gen_ai.provider.name | "Provider" | anthropic / openai / aws.bedrock / google.vertex |
-| gen_ai.data_source.id | "RAG source" | Which corpus/store a retrieval hit |
-| Content capture | "Prompt logging" | Opt-in capture of messages; store externally in prod |
-| Stability opt-in | "Preview mode" | Env var to pin experimental conventions |
+| GenAI SIG | "Nhóm OpenTelemetry GenAI" | Nhóm công tác OTel định nghĩa schema |
+| invoke_agent | "Span agent" | Tên của span biểu diễn một lần chạy agent |
+| CLIENT span (Span CLIENT) | "Lời gọi từ xa" | Span cho một lời gọi đến một dịch vụ agent từ xa |
+| INTERNAL span (Span INTERNAL) | "Trong tiến trình" | Span cho một lần chạy agent trong tiến trình |
+| gen_ai.provider.name | "Nhà cung cấp" | anthropic / openai / aws.bedrock / google.vertex |
+| gen_ai.data_source.id | "Nguồn RAG" | Kho ngữ liệu/kho nào mà một lần truy xuất trúng |
+| Content capture (Ghi nội dung) | "Ghi log prompt" | Ghi các thông điệp theo chọn tham gia; lưu bên ngoài trong sản xuất |
+| Stability opt-in (Chọn tham gia tính ổn định) | "Chế độ xem trước" | Biến môi trường để ghim các quy ước thử nghiệm |
 
 ## Further Reading
 
-- [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) — the spec
-- [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/) — GenAI spans by default
-- [AutoGen v0.4 (Microsoft Research)](https://www.microsoft.com/en-us/research/articles/autogen-v0-4-reimagining-the-foundation-of-agentic-ai-for-scale-extensibility-and-robustness/) — OTel spans built in
-- [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview) — W3C trace context propagation
+- [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/) — đặc tả
+- [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/) — các span GenAI theo mặc định
+- [AutoGen v0.4 (Microsoft Research)](https://www.microsoft.com/en-us/research/articles/autogen-v0-4-reimagining-the-foundation-of-agentic-ai-for-scale-extensibility-and-robustness/) — các span OTel tích hợp sẵn
+- [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview) — lan truyền ngữ cảnh trace W3C
