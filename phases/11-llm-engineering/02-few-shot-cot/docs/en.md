@@ -1,6 +1,6 @@
 # Few-Shot, Chain-of-Thought, Tree-of-Thought
 
-> Telling a model what to do is prompting. Showing it how to think is engineering. The gap between 78% and 91% accuracy on the same model, same task, same data is not a better model. It is a better reasoning strategy.
+> Bảo mô hình làm gì là prompting. Chỉ cho nó cách suy nghĩ là kỹ thuật. Khoảng cách giữa độ chính xác 78% và 91% trên cùng mô hình, cùng tác vụ, cùng dữ liệu không phải là một mô hình tốt hơn. Nó là một chiến lược suy luận tốt hơn.
 
 **Type:** Build
 **Languages:** Python
@@ -9,30 +9,30 @@
 
 ## Learning Objectives
 
-- Implement few-shot prompting by selecting and formatting example demonstrations that maximize task accuracy
-- Apply chain-of-thought (CoT) reasoning to improve accuracy on multi-step problems like math word problems
-- Build a tree-of-thought prompt that explores multiple reasoning paths and selects the best one
-- Measure the accuracy improvement from zero-shot vs few-shot vs CoT on a standard benchmark
+- Triển khai few-shot prompting bằng cách chọn và định dạng các ví dụ minh họa tối đa hóa độ chính xác tác vụ
+- Áp dụng suy luận chain-of-thought (CoT) để cải thiện độ chính xác trên các bài toán nhiều bước như bài toán có lời văn
+- Xây dựng một prompt tree-of-thought khám phá nhiều đường suy luận và chọn đường tốt nhất
+- Đo sự cải thiện độ chính xác của zero-shot so với few-shot so với CoT trên một benchmark tiêu chuẩn
 
 ## The Problem
 
-You build a math tutoring app. Your prompt says: "Solve this word problem." GPT-5 gets it right 94% of the time on GSM8K, the standard grade-school math benchmark. You think you already peaked. You do not — chain-of-thought still adds 3-4 points.
+Bạn xây dựng một ứng dụng gia sư toán. Prompt của bạn nói: "Giải bài toán có lời văn này." GPT-5 làm đúng 94% số lần trên GSM8K, benchmark toán tiểu học tiêu chuẩn. Bạn nghĩ mình đã đạt đỉnh. Bạn chưa — chain-of-thought vẫn thêm 3-4 điểm.
 
-Add five words -- "Let's think step by step" -- and accuracy jumps to 91%. Add a few worked examples and it reaches 95%. Same model. Same temperature. Same API cost. The only difference is that you gave the model scratch paper.
+Thêm năm từ -- "Hãy suy nghĩ từng bước" -- và độ chính xác nhảy lên 91%. Thêm vài ví dụ có lời giải và nó đạt 95%. Cùng mô hình. Cùng temperature. Cùng chi phí API. Khác biệt duy nhất là bạn đưa cho mô hình giấy nháp.
 
-This is not a hack. It is how reasoning works. Humans do not solve multi-step problems in one mental leap. Neither do transformers. When you force a model to generate intermediate tokens, those tokens become part of the context for the next token. Each reasoning step feeds the next. The model literally computes its way to the answer.
+Đây không phải một mẹo. Đó là cách suy luận hoạt động. Con người không giải các bài toán nhiều bước trong một bước nhảy tư duy. Transformer cũng không. Khi bạn buộc mô hình sinh các token trung gian, những token đó trở thành một phần ngữ cảnh cho token tiếp theo. Mỗi bước suy luận cung cấp cho bước tiếp theo. Mô hình thực sự tính toán để đi đến câu trả lời.
 
-But "think step by step" is the beginning, not the end. What if you sampled five reasoning paths and took a majority vote? What if you let the model explore a tree of possibilities, evaluating and pruning branches? What if you interleaved reasoning with tool use? These are not hypotheticals. They are published techniques with measured improvements, and you will build all of them in this lesson.
+Nhưng "suy nghĩ từng bước" là khởi đầu, không phải kết thúc. Điều gì xảy ra nếu bạn lấy mẫu năm đường suy luận và bỏ phiếu đa số? Nếu bạn để mô hình khám phá một cây khả năng, đánh giá và cắt tỉa các nhánh? Nếu bạn xen kẽ suy luận với sử dụng công cụ? Đây không phải giả thuyết. Chúng là những kỹ thuật đã được công bố với các cải thiện đo được, và bạn sẽ xây dựng tất cả trong bài học này.
 
 ## The Concept
 
 ### Zero-Shot vs Few-Shot: When Examples Beat Instructions
 
-Zero-shot prompting gives the model a task and nothing else. Few-shot prompting gives it examples first.
+Zero-shot prompting đưa cho mô hình một tác vụ và không có gì khác. Few-shot prompting đưa cho nó ví dụ trước.
 
-Wei et al. (2022) measured this across 8 benchmarks. For simple tasks like sentiment classification, zero-shot and few-shot performed within 2% of each other. For complex tasks like multi-step arithmetic and symbolic reasoning, few-shot improved accuracy by 10-25%.
+Wei và cộng sự (2022) đo điều này trên 8 benchmark. Với các tác vụ đơn giản như phân loại cảm xúc, zero-shot và few-shot có hiệu năng trong khoảng 2% của nhau. Với các tác vụ phức tạp như số học nhiều bước và suy luận ký hiệu, few-shot cải thiện độ chính xác 10-25%.
 
-The intuition: examples are compressed instructions. Instead of describing the output format, you show it. Instead of explaining the reasoning process, you demonstrate it. The model pattern-matches on the examples more reliably than it interprets abstract instructions.
+Trực giác: ví dụ là chỉ dẫn được nén. Thay vì mô tả định dạng đầu ra, bạn cho thấy nó. Thay vì giải thích quá trình suy luận, bạn minh họa nó. Mô hình khớp mẫu trên các ví dụ đáng tin cậy hơn việc diễn giải chỉ dẫn trừu tượng.
 
 ```mermaid
 graph TD
@@ -48,23 +48,23 @@ graph TD
     style F fill:#1a1a2e,stroke:#51cf66,color:#fff
 ```
 
-**When few-shot wins:** format-sensitive tasks, classification, structured extraction, domain-specific jargon, any task where the model needs to match a specific pattern.
+**Khi few-shot thắng:** tác vụ nhạy định dạng, phân loại, trích xuất có cấu trúc, thuật ngữ chuyên biệt miền, bất kỳ tác vụ nào mà mô hình cần khớp một mẫu cụ thể.
 
-**When zero-shot wins:** simple factual questions, creative tasks where examples constrain creativity, tasks where finding good examples is harder than writing good instructions.
+**Khi zero-shot thắng:** câu hỏi sự kiện đơn giản, tác vụ sáng tạo mà ví dụ ràng buộc sự sáng tạo, tác vụ mà tìm ví dụ tốt khó hơn viết chỉ dẫn tốt.
 
 ### Example Selection: Similar Beats Random
 
-Not all examples are equal. Choosing examples similar to the target input outperforms random selection by 5-15% on classification tasks (Liu et al., 2022). Three principles:
+Không phải mọi ví dụ đều ngang nhau. Chọn ví dụ tương tự đầu vào đích vượt trội hơn lựa chọn ngẫu nhiên 5-15% trên các tác vụ phân loại (Liu và cộng sự, 2022). Ba nguyên tắc:
 
-1. **Semantic similarity**: pick examples closest to the input in embedding space
-2. **Label diversity**: cover all output categories in your examples
-3. **Difficulty matching**: match the complexity level of the target problem
+1. **Tương đồng ngữ nghĩa**: chọn các ví dụ gần đầu vào nhất trong không gian embedding
+2. **Đa dạng nhãn**: bao quát mọi loại đầu ra trong các ví dụ của bạn
+3. **Khớp độ khó**: khớp mức độ phức tạp của bài toán đích
 
-The optimal number of examples for most tasks is 3-5. Below 3, the model does not have enough signal to extract the pattern. Above 5, you hit diminishing returns and waste context window tokens. For classification with many labels, use one example per label.
+Số ví dụ tối ưu cho hầu hết tác vụ là 3-5. Dưới 3, mô hình không có đủ tín hiệu để rút ra mẫu. Trên 5, bạn gặp lợi ích giảm dần và lãng phí token cửa sổ ngữ cảnh. Với phân loại có nhiều nhãn, dùng một ví dụ mỗi nhãn.
 
 ### Chain-of-Thought: Giving Models Scratch Paper
 
-Chain-of-Thought (CoT) prompting was introduced by Wei et al. (2022) at Google Brain. The idea is simple: instead of asking the model for just the answer, ask it to show its reasoning steps first.
+Chain-of-Thought (CoT) prompting được Wei và cộng sự (2022) tại Google Brain giới thiệu. Ý tưởng đơn giản: thay vì chỉ yêu cầu mô hình đưa câu trả lời, yêu cầu nó trình bày các bước suy luận trước.
 
 ```mermaid
 graph LR
@@ -83,33 +83,33 @@ graph LR
     style A2 fill:#1a1a2e,stroke:#51cf66,color:#fff
 ```
 
-Why does this work mechanically? Each token a transformer generates becomes context for the next token. Without CoT, the model must compress all reasoning into the hidden state of a single forward pass. With CoT, the model externalizes intermediate computations as tokens. Each reasoning token extends the effective computation depth.
+Tại sao điều này hoạt động về mặt cơ chế? Mỗi token transformer sinh trở thành ngữ cảnh cho token tiếp theo. Không có CoT, mô hình phải nén mọi suy luận vào trạng thái ẩn của một forward pass duy nhất. Với CoT, mô hình đưa các tính toán trung gian ra ngoài dưới dạng token. Mỗi token suy luận mở rộng độ sâu tính toán hiệu dụng.
 
-**GSM8K benchmarks (grade-school math, 8.5K problems):**
+**Các benchmark GSM8K (toán tiểu học, 8.5K bài toán):**
 
-| Model | Zero-Shot | Zero-Shot CoT | Few-Shot CoT |
+| Mô hình | Zero-Shot | Zero-Shot CoT | Few-Shot CoT |
 |-------|-----------|---------------|--------------|
 | GPT-4o | 78% | 91% | 95% |
 | GPT-5 | 94% | 97% | 98% |
-| o4-mini (reasoning) | 97% | — | — |
+| o4-mini (suy luận) | 97% | — | — |
 | Claude Opus 4.7 | 93% | 97% | 98% |
 | Gemini 3 Pro | 92% | 96% | 98% |
 | Llama 4 70B | 80% | 89% | 94% |
 | DeepSeek-V3.1 | 89% | 94% | 96% |
 
-**Note on reasoning models.** Models like OpenAI's o-series (o3, o4-mini) and DeepSeek-R1 run chain-of-thought internally before emitting their answer. Adding "Let's think step by step" to a reasoning model is redundant and sometimes counterproductive — they have already done it.
+**Lưu ý về các mô hình suy luận.** Các mô hình như dòng o của OpenAI (o3, o4-mini) và DeepSeek-R1 chạy chain-of-thought bên trong trước khi đưa ra câu trả lời. Thêm "Hãy suy nghĩ từng bước" vào mô hình suy luận là dư thừa và đôi khi phản tác dụng — chúng đã làm điều đó.
 
-Two flavors of CoT:
+Hai kiểu CoT:
 
-**Zero-shot CoT**: append "Let's think step by step" to the prompt. No examples needed. Kojima et al. (2022) showed this single sentence improves accuracy across arithmetic, commonsense, and symbolic reasoning tasks.
+**Zero-shot CoT**: thêm "Hãy suy nghĩ từng bước" vào cuối prompt. Không cần ví dụ. Kojima và cộng sự (2022) cho thấy một câu này cải thiện độ chính xác trên các tác vụ số học, lẽ thường và suy luận ký hiệu.
 
-**Few-shot CoT**: provide examples that include reasoning steps. More effective than zero-shot CoT because the model sees the exact reasoning format you expect.
+**Few-shot CoT**: cung cấp các ví dụ có các bước suy luận. Hiệu quả hơn zero-shot CoT vì mô hình thấy chính xác định dạng suy luận mà bạn kỳ vọng.
 
-**When CoT hurts**: simple factual recall ("What is the capital of France?"), single-step classification, tasks where speed matters more than accuracy. CoT adds 50-200 tokens of reasoning overhead per query. For high-throughput, low-complexity tasks, that is wasted cost.
+**Khi CoT gây hại**: nhớ lại sự kiện đơn giản ("Thủ đô nước Pháp là gì?"), phân loại một bước, tác vụ mà tốc độ quan trọng hơn độ chính xác. CoT thêm 50-200 token chi phí suy luận mỗi truy vấn. Với tác vụ thông lượng cao, độ phức tạp thấp, đó là chi phí lãng phí.
 
 ### Self-Consistency: Sample Many, Vote Once
 
-Wang et al. (2023) introduced self-consistency. The insight: a single CoT path might contain reasoning errors. But if you sample N independent reasoning paths (using temperature > 0) and take the majority vote on the final answer, errors cancel out.
+Wang và cộng sự (2023) giới thiệu self-consistency. Nhận thức: một đường CoT duy nhất có thể chứa lỗi suy luận. Nhưng nếu bạn lấy mẫu N đường suy luận độc lập (dùng temperature > 0) và bỏ phiếu đa số cho câu trả lời cuối, các lỗi triệt tiêu nhau.
 
 ```mermaid
 graph TD
@@ -136,13 +136,13 @@ graph TD
     style V fill:#1a1a2e,stroke:#51cf66,color:#fff
 ```
 
-Self-consistency improved GSM8K accuracy from 56.5% (single CoT) to 74.4% with N=40 on the original PaLM 540B experiments. On GPT-5 the improvement is small (97% to 98%) because base accuracy is already saturated. The technique shines most on models with 60-85% base CoT accuracy -- the sweet spot where single-path errors are frequent but not systematic. For reasoning models (o-series, R1) self-consistency is subsumed by the built-in internal sampling.
+Self-consistency cải thiện độ chính xác GSM8K từ 56.5% (CoT đơn) lên 74.4% với N=40 trên các thí nghiệm PaLM 540B ban đầu. Trên GPT-5, cải thiện nhỏ (97% lên 98%) vì độ chính xác cơ sở đã bão hòa. Kỹ thuật này nổi trội nhất trên các mô hình có độ chính xác CoT cơ sở 60-85% -- điểm tối ưu mà lỗi một đường thường xuyên nhưng không có tính hệ thống. Với các mô hình suy luận (dòng o, R1), self-consistency được bao hàm bởi lấy mẫu nội bộ tích hợp sẵn.
 
-The tradeoff: N samples means Nx the API cost and latency. In practice, N=5 captures most of the benefit. N=3 is the minimum for a meaningful vote. N > 10 has diminishing returns for most tasks.
+Sự đánh đổi: N mẫu nghĩa là Nx chi phí API và độ trễ. Trong thực tế, N=5 nắm được phần lớn lợi ích. N=3 là tối thiểu cho một cuộc bỏ phiếu có ý nghĩa. N > 10 có lợi ích giảm dần với hầu hết tác vụ.
 
 ### Tree-of-Thought: Branching Exploration
 
-Yao et al. (2023) introduced Tree-of-Thought (ToT). Where CoT follows one linear reasoning path, ToT explores multiple branches and evaluates which are most promising before continuing.
+Yao và cộng sự (2023) giới thiệu Tree-of-Thought (ToT). Trong khi CoT đi theo một đường suy luận tuyến tính, ToT khám phá nhiều nhánh và đánh giá những nhánh hứa hẹn nhất trước khi tiếp tục.
 
 ```mermaid
 graph TD
@@ -183,19 +183,19 @@ graph TD
     style E4 fill:#1a1a2e,stroke:#808080,color:#fff
 ```
 
-ToT has three components:
+ToT có ba thành phần:
 
-1. **Thought generation**: produce multiple candidate next-steps
-2. **State evaluation**: score each candidate (can use the LLM itself as evaluator)
-3. **Search algorithm**: BFS or DFS through the tree, pruning low-scoring branches
+1. **Sinh suy nghĩ**: tạo nhiều bước tiếp theo ứng viên
+2. **Đánh giá trạng thái**: chấm điểm từng ứng viên (có thể dùng chính LLM làm bộ đánh giá)
+3. **Thuật toán tìm kiếm**: BFS hoặc DFS qua cây, cắt tỉa các nhánh điểm thấp
 
-On the Game of 24 task (combine 4 numbers using arithmetic to make 24), GPT-4 with standard prompting solves 7.3% of problems. With CoT, 4.0% (CoT actually hurts here because the search space is wide). With ToT, 74%.
+Trên tác vụ Game of 24 (kết hợp 4 số bằng số học để tạo 24), GPT-4 với prompting tiêu chuẩn giải 7.3% bài toán. Với CoT, 4.0% (CoT thực sự gây hại ở đây vì không gian tìm kiếm rộng). Với ToT, 74%.
 
-ToT is expensive. Each node in the tree requires an LLM call. A tree with branching factor 3 and depth 3 requires up to 39 LLM calls. Use it only for problems where the search space is large but evaluatable -- planning, puzzle solving, creative problem-solving with constraints.
+ToT tốn kém. Mỗi node trong cây cần một lệnh gọi LLM. Một cây với hệ số phân nhánh 3 và độ sâu 3 cần tối đa 39 lệnh gọi LLM. Chỉ dùng cho các bài toán mà không gian tìm kiếm lớn nhưng có thể đánh giá -- lập kế hoạch, giải đố, giải quyết vấn đề sáng tạo có ràng buộc.
 
 ### ReAct: Thinking + Doing
 
-Yao et al. (2022) combined reasoning traces with actions. The model alternates between thinking (generating reasoning) and acting (calling tools, searching, computing).
+Yao và cộng sự (2022) kết hợp các vết suy luận với hành động. Mô hình luân phiên giữa suy nghĩ (sinh suy luận) và hành động (gọi công cụ, tìm kiếm, tính toán).
 
 ```mermaid
 graph LR
@@ -222,15 +222,15 @@ graph LR
     style F fill:#1a1a2e,stroke:#51cf66,color:#fff
 ```
 
-ReAct outperforms pure CoT on knowledge-intensive tasks because it can ground its reasoning in real data. On HotpotQA (multi-hop question answering), ReAct with GPT-4 achieves 35.1% exact match vs 29.4% for CoT alone. The real power is that reasoning errors get corrected by observations -- the model can update its plan mid-execution.
+ReAct vượt trội hơn CoT thuần trên các tác vụ đòi hỏi nhiều kiến thức vì nó có thể đặt suy luận trên dữ liệu thực. Trên HotpotQA (trả lời câu hỏi nhiều bước nối), ReAct với GPT-4 đạt 35.1% khớp chính xác so với 29.4% cho riêng CoT. Sức mạnh thực sự là các lỗi suy luận được sửa bằng quan sát -- mô hình có thể cập nhật kế hoạch giữa lúc thực thi.
 
-ReAct is the foundation of modern AI agents. Every agent framework (LangChain, CrewAI, AutoGen) implements some variant of the Thought-Action-Observation loop. You will build full agents in Phase 14. This lesson covers the prompting pattern.
+ReAct là nền tảng của các tác tử AI hiện đại. Mọi framework tác tử (LangChain, CrewAI, AutoGen) triển khai một biến thể nào đó của vòng lặp Suy nghĩ-Hành động-Quan sát. Bạn sẽ xây dựng các tác tử đầy đủ trong Giai đoạn 14. Bài học này trình bày mẫu prompting.
 
 ### Structured Prompting: XML Tags, Delimiters, Headers
 
-As prompts get complex, structure prevents the model from confusing sections. Three approaches:
+Khi prompt trở nên phức tạp, cấu trúc ngăn mô hình nhầm lẫn các phần. Ba cách tiếp cận:
 
-**XML tags** (works best with Claude, solid everywhere):
+**Thẻ XML** (hoạt động tốt nhất với Claude, vững chắc ở mọi nơi):
 ```
 <context>
 You are reviewing a pull request.
@@ -250,7 +250,7 @@ List each issue with: file, line, severity (critical/warning/info), description.
 </output_format>
 ```
 
-**Markdown headers** (universal):
+**Tiêu đề Markdown** (phổ quát):
 ```
 ## Role
 Senior security engineer at a fintech company.
@@ -267,7 +267,7 @@ Analyze this API endpoint for vulnerabilities.
 - Include remediation steps
 ```
 
-**Delimiters** (minimal but effective):
+**Dấu phân cách** (tối thiểu nhưng hiệu quả):
 ```
 ---INPUT---
 {user_text}
@@ -280,7 +280,7 @@ Summarize the above in 3 bullet points.
 
 ### Prompt Chaining: Sequential Decomposition
 
-Some tasks are too complex for a single prompt. Prompt chaining breaks them into steps, where the output of one prompt becomes the input of the next.
+Một số tác vụ quá phức tạp cho một prompt duy nhất. Prompt chaining chia chúng thành các bước, trong đó đầu ra của một prompt trở thành đầu vào của prompt tiếp theo.
 
 ```mermaid
 graph LR
@@ -300,27 +300,27 @@ graph LR
     style F fill:#1a1a2e,stroke:#51cf66,color:#fff
 ```
 
-Chaining beats single-prompt for three reasons:
+Nối chuỗi vượt trội hơn một prompt duy nhất vì ba lý do:
 
-1. **Each step is simpler**: the model handles one focused task instead of juggling everything
-2. **Intermediate outputs are inspectable**: you can validate and correct between steps
-3. **Different steps can use different models**: use a cheap model for extraction, an expensive one for reasoning
+1. **Mỗi bước đơn giản hơn**: mô hình xử lý một tác vụ tập trung thay vì xoay xở mọi thứ
+2. **Đầu ra trung gian có thể kiểm tra**: bạn có thể xác thực và sửa giữa các bước
+3. **Các bước khác nhau có thể dùng mô hình khác nhau**: dùng mô hình rẻ cho trích xuất, mô hình đắt cho suy luận
 
 ### Performance Comparison
 
-| Technique | Best For | GSM8K Accuracy (GPT-5) | API Calls | Token Overhead | Complexity |
+| Kỹ thuật | Tốt nhất cho | Độ chính xác GSM8K (GPT-5) | Lệnh gọi API | Token bổ sung | Độ phức tạp |
 |-----------|----------|------------------------|-----------|----------------|------------|
-| Zero-Shot | Simple tasks | 94% | 1 | None | Trivial |
-| Few-Shot | Format matching | 96% | 1 | 200-500 tokens | Low |
-| Zero-Shot CoT | Quick reasoning boost | 97% | 1 | 50-200 tokens | Trivial |
-| Few-Shot CoT | Maximum single-call accuracy | 98% | 1 | 300-600 tokens | Low |
-| Self-Consistency (N=5) | High-stakes reasoning | 98.5% | 5 | 5x token cost | Medium |
-| Reasoning model (o4-mini) | Drop-in CoT replacement | 97% | 1 | hidden (2-10x internal) | Trivial |
-| Tree-of-Thought | Search/planning problems | N/A (74% on Game of 24) | 10-40+ | 10-40x token cost | High |
-| ReAct | Knowledge-grounded reasoning | N/A (35.1% on HotpotQA) | 3-10+ | Variable | High |
-| Prompt Chaining | Complex multi-step tasks | 96% (pipeline) | 2-5 | 2-5x token cost | Medium |
+| Zero-Shot | Tác vụ đơn giản | 94% | 1 | Không | Tầm thường |
+| Few-Shot | Khớp định dạng | 96% | 1 | 200-500 token | Thấp |
+| Zero-Shot CoT | Tăng suy luận nhanh | 97% | 1 | 50-200 token | Tầm thường |
+| Few-Shot CoT | Độ chính xác tối đa một lệnh gọi | 98% | 1 | 300-600 token | Thấp |
+| Self-Consistency (N=5) | Suy luận hệ trọng | 98.5% | 5 | Chi phí token 5x | Trung bình |
+| Mô hình suy luận (o4-mini) | Thay thế CoT trực tiếp | 97% | 1 | ẩn (2-10x nội bộ) | Tầm thường |
+| Tree-of-Thought | Bài toán tìm kiếm/lập kế hoạch | N/A (74% trên Game of 24) | 10-40+ | Chi phí token 10-40x | Cao |
+| ReAct | Suy luận dựa trên kiến thức | N/A (35.1% trên HotpotQA) | 3-10+ | Thay đổi | Cao |
+| Nối chuỗi prompt | Tác vụ nhiều bước phức tạp | 96% (pipeline) | 2-5 | Chi phí token 2-5x | Trung bình |
 
-The right technique depends on three factors: accuracy requirement, latency budget, and cost tolerance. For most production systems, few-shot CoT with a 3-sample self-consistency fallback covers 90% of use cases.
+Kỹ thuật phù hợp phụ thuộc ba yếu tố: yêu cầu độ chính xác, ngân sách độ trễ và khả năng chịu chi phí. Với hầu hết hệ thống sản xuất, few-shot CoT với dự phòng self-consistency 3 mẫu bao quát 90% trường hợp sử dụng.
 
 ```figure
 few-shot-curve
@@ -328,13 +328,13 @@ few-shot-curve
 
 ## Build It
 
-We will build a math problem solver that combines few-shot prompting, chain-of-thought reasoning, and self-consistency voting into a single pipeline. Then we will add tree-of-thought for hard problems.
+Chúng ta sẽ xây dựng một bộ giải bài toán kết hợp few-shot prompting, suy luận chain-of-thought và bỏ phiếu self-consistency vào một pipeline duy nhất. Sau đó chúng ta sẽ thêm tree-of-thought cho các bài toán khó.
 
-The full implementation is in `code/advanced_prompting.py`. Here are the key components.
+Triển khai đầy đủ nằm trong `code/advanced_prompting.py`. Đây là các thành phần chính.
 
 ### Step 1: Few-Shot Example Store
 
-The first component manages few-shot examples and selects the most relevant ones for a given problem.
+Thành phần đầu tiên quản lý các ví dụ few-shot và chọn những ví dụ liên quan nhất cho một bài toán cho trước.
 
 ```python
 GSM8K_EXAMPLES = [
@@ -347,11 +347,11 @@ GSM8K_EXAMPLES = [
 ]
 ```
 
-Each example has three parts: the question, the reasoning chain, and the final answer. The reasoning chain is what transforms a regular few-shot example into a CoT few-shot example.
+Mỗi ví dụ có ba phần: câu hỏi, chuỗi suy luận và câu trả lời cuối. Chuỗi suy luận là thứ biến một ví dụ few-shot thông thường thành một ví dụ few-shot CoT.
 
 ### Step 2: Chain-of-Thought Prompt Builder
 
-The prompt builder assembles a system message, few-shot examples with reasoning chains, and the target question into a single prompt.
+Bộ xây dựng prompt lắp ráp một thông điệp hệ thống, các ví dụ few-shot với chuỗi suy luận và câu hỏi đích thành một prompt duy nhất.
 
 ```python
 def build_cot_prompt(question, examples, num_examples=3):
@@ -371,11 +371,11 @@ def build_cot_prompt(question, examples, num_examples=3):
     return system, user
 ```
 
-The format constraint ("The answer is [number]") is critical. Without it, self-consistency cannot extract and compare answers across samples.
+Ràng buộc định dạng ("Câu trả lời là [số]") rất quan trọng. Không có nó, self-consistency không thể trích xuất và so sánh câu trả lời giữa các mẫu.
 
 ### Step 3: Self-Consistency Voting
 
-Sample N reasoning paths and take the majority answer.
+Lấy mẫu N đường suy luận và chọn câu trả lời đa số.
 
 ```python
 def self_consistency_solve(question, examples, client, model, n_samples=5):
@@ -405,11 +405,11 @@ def self_consistency_solve(question, examples, client, model, n_samples=5):
     return best_answer, confidence, reasonings, vote_counts
 ```
 
-Temperature 0.7 is important. At temperature 0.0, all N samples would be identical, defeating the purpose. You need enough randomness for diverse reasoning paths but not so much that the model produces gibberish.
+Temperature 0.7 quan trọng. Ở temperature 0.0, cả N mẫu sẽ giống hệt nhau, làm mất mục đích. Bạn cần đủ ngẫu nhiên cho các đường suy luận đa dạng nhưng không nhiều đến mức mô hình tạo ra văn bản vô nghĩa.
 
 ### Step 4: Tree-of-Thought Solver
 
-For problems where linear reasoning fails, ToT explores multiple approaches and evaluates which direction is most promising.
+Với các bài toán mà suy luận tuyến tính thất bại, ToT khám phá nhiều cách tiếp cận và đánh giá hướng nào hứa hẹn nhất.
 
 ```python
 def tree_of_thought_solve(question, client, model, breadth=3, depth=3):
@@ -430,11 +430,11 @@ def tree_of_thought_solve(question, client, model, breadth=3, depth=3):
     return extract_answer(best_thought), best_thought
 ```
 
-The evaluator is itself an LLM call. You ask the model: "On a scale of 0.0 to 1.0, how promising is this reasoning path for solving the problem?" This is the key insight of ToT -- the model evaluates its own partial solutions.
+Bản thân bộ đánh giá là một lệnh gọi LLM. Bạn hỏi mô hình: "Trên thang 0.0 đến 1.0, đường suy luận này hứa hẹn đến mức nào để giải bài toán?" Đây là nhận thức then chốt của ToT -- mô hình đánh giá các lời giải một phần của chính nó.
 
 ### Step 5: Full Pipeline
 
-The pipeline combines all techniques with an escalation strategy.
+Pipeline kết hợp mọi kỹ thuật với một chiến lược tăng cấp.
 
 ```python
 def solve_with_escalation(question, examples, client, model):
@@ -451,13 +451,13 @@ def solve_with_escalation(question, examples, client, model):
     return tot_answer, "tree_of_thought", None
 ```
 
-The escalation logic: try cheap (single CoT) first. A single deterministic path gives no vote share, so its quality check is agreement: the temperature-0 answer has to match the majority answer from the sampled paths. If it does not, or if self-consistency confidence is below 0.8 (less than 4 of 5 samples agree), escalate to ToT. This balances cost and accuracy -- most problems are solved cheaply, hard problems get more compute.
+Logic tăng cấp: thử cách rẻ (CoT đơn) trước. Một đường tất định duy nhất không cho tỷ lệ phiếu, nên kiểm tra chất lượng của nó là sự đồng thuận: câu trả lời temperature-0 phải khớp câu trả lời đa số từ các đường được lấy mẫu. Nếu không, hoặc nếu độ tin cậy self-consistency dưới 0.8 (ít hơn 4 trong 5 mẫu đồng ý), tăng cấp lên ToT. Điều này cân bằng chi phí và độ chính xác -- hầu hết bài toán được giải rẻ, bài toán khó nhận thêm tính toán.
 
 ## Use It
 
 ### Template-Driven Few-Shot Prompts
 
-LangChain provides built-in support for prompt templates and output parsing that simplify few-shot and CoT patterns:
+LangChain cung cấp hỗ trợ tích hợp cho khuôn mẫu prompt và phân tích cú pháp đầu ra giúp đơn giản hóa các mẫu few-shot và CoT:
 
 ```python
 from langchain_core.prompts import FewShotPromptTemplate, PromptTemplate
@@ -480,7 +480,7 @@ chain = few_shot_prompt | llm
 result = chain.invoke({"input": "If a train travels 120 km in 2 hours..."})
 ```
 
-LangChain also has `ExampleSelector` classes for semantic similarity selection:
+LangChain cũng có các lớp `ExampleSelector` để lựa chọn theo tương đồng ngữ nghĩa:
 
 ```python
 from langchain_core.example_selectors import SemanticSimilarityExampleSelector
@@ -495,7 +495,7 @@ selector = SemanticSimilarityExampleSelector.from_examples(
 
 ### Compiled Prompts
 
-DSPy treats prompting strategies as optimizable modules. Instead of handcrafting CoT prompts, you define a signature and let DSPy optimize the prompt:
+DSPy xem các chiến lược prompting là các mô-đun có thể tối ưu. Thay vì tự tạo prompt CoT, bạn định nghĩa một chữ ký và để DSPy tối ưu prompt:
 
 ```python
 import dspy
@@ -513,7 +513,7 @@ solver = MathSolver()
 result = solver(question="Janet's ducks lay 16 eggs per day...")
 ```
 
-DSPy's `ChainOfThought` automatically adds reasoning traces. `dspy.majority` implements self-consistency:
+`ChainOfThought` của DSPy tự động thêm các vết suy luận. `dspy.majority` triển khai self-consistency:
 
 ```python
 result = dspy.majority(
@@ -524,55 +524,55 @@ result = dspy.majority(
 
 ### Comparison: From-Scratch vs Frameworks
 
-| Feature | From-Scratch (this lesson) | LangChain | DSPy |
+| Tính năng | Từ đầu (bài học này) | LangChain | DSPy |
 |---------|--------------------------|-----------|------|
-| Control over prompt format | Full | Template-based | Automatic |
-| Self-consistency | Manual voting | Manual | Built-in (`dspy.majority`) |
-| Example selection | Custom logic | `ExampleSelector` | `dspy.BootstrapFewShot` |
-| Tree-of-Thought | Custom tree search | Community chains | Not built-in |
-| Prompt optimization | Manual iteration | Manual | Automatic compilation |
-| Best for | Learning, custom pipelines | Standard workflows | Research, optimization |
+| Kiểm soát định dạng prompt | Toàn bộ | Dựa trên khuôn mẫu | Tự động |
+| Self-consistency | Bỏ phiếu thủ công | Thủ công | Tích hợp (`dspy.majority`) |
+| Lựa chọn ví dụ | Logic tùy chỉnh | `ExampleSelector` | `dspy.BootstrapFewShot` |
+| Tree-of-Thought | Tìm kiếm cây tùy chỉnh | Các chuỗi cộng đồng | Không tích hợp |
+| Tối ưu prompt | Lặp thủ công | Thủ công | Biên dịch tự động |
+| Tốt nhất cho | Học tập, pipeline tùy chỉnh | Quy trình tiêu chuẩn | Nghiên cứu, tối ưu |
 
 ## Ship It
 
-This lesson produces two artifacts.
+Bài học này tạo ra hai sản phẩm.
 
-**1. Reasoning Chain Prompt** (`outputs/prompt-reasoning-chain.md`): a production-ready prompt template for few-shot CoT with self-consistency. Plug in your examples and problem domain.
+**1. Prompt chuỗi suy luận** (`outputs/prompt-reasoning-chain.md`): một khuôn mẫu prompt sẵn sàng cho sản xuất cho few-shot CoT với self-consistency. Thêm các ví dụ và miền bài toán của bạn.
 
-**2. CoT Pattern Selection Skill** (`outputs/skill-cot-patterns.md`): a decision framework for choosing the right reasoning technique based on task type, accuracy requirements, and cost constraints.
+**2. Skill lựa chọn mẫu CoT** (`outputs/skill-cot-patterns.md`): một khung quyết định để chọn kỹ thuật suy luận phù hợp dựa trên loại tác vụ, yêu cầu độ chính xác và ràng buộc chi phí.
 
 ## Exercises
 
-1. **Measure the gap**: Take 10 GSM8K problems. Solve each with zero-shot, few-shot, zero-shot CoT, and few-shot CoT. Record accuracy for each. Which technique gives the biggest lift on your model?
+1. **Đo khoảng cách**: Lấy 10 bài toán GSM8K. Giải mỗi bài bằng zero-shot, few-shot, zero-shot CoT và few-shot CoT. Ghi độ chính xác cho mỗi loại. Kỹ thuật nào mang lại mức tăng lớn nhất trên mô hình của bạn?
 
-2. **Example selection experiment**: For the same 10 problems, compare random example selection vs hand-picked similar examples. Measure accuracy difference. At what point does example quality matter more than example quantity?
+2. **Thí nghiệm lựa chọn ví dụ**: Với cùng 10 bài toán, so sánh lựa chọn ví dụ ngẫu nhiên với các ví dụ tương tự được chọn bằng tay. Đo chênh lệch độ chính xác. Ở điểm nào chất lượng ví dụ quan trọng hơn số lượng ví dụ?
 
-3. **Self-consistency cost curve**: Run self-consistency with N=1, 3, 5, 7, 10 on 20 GSM8K problems. Plot accuracy vs cost (total tokens). Where is the knee of the curve for your model?
+3. **Đường cong chi phí self-consistency**: Chạy self-consistency với N=1, 3, 5, 7, 10 trên 20 bài toán GSM8K. Vẽ độ chính xác theo chi phí (tổng token). Điểm gối đường cong cho mô hình của bạn ở đâu?
 
-4. **Build a ReAct loop**: Extend the pipeline with a calculator tool. When the model generates a math expression, execute it with Python's `eval()` (in a sandbox) and feed the result back. Measure if tool-grounded reasoning outperforms pure CoT.
+4. **Xây dựng vòng lặp ReAct**: Mở rộng pipeline bằng một công cụ máy tính. Khi mô hình sinh biểu thức toán, thực thi nó bằng `eval()` của Python (trong sandbox) và đưa kết quả trở lại. Đo xem suy luận dựa trên công cụ có vượt trội hơn CoT thuần không.
 
-5. **ToT for creative tasks**: Adapt the Tree-of-Thought solver for a creative writing task: "Write a 6-word story that is both funny and sad." Use the LLM as evaluator. Does branching exploration produce better creative outputs than single-shot generation?
+5. **ToT cho tác vụ sáng tạo**: Điều chỉnh bộ giải Tree-of-Thought cho một tác vụ viết sáng tạo: "Viết một câu chuyện 6 từ vừa hài hước vừa buồn." Dùng LLM làm bộ đánh giá. Khám phá phân nhánh có tạo đầu ra sáng tạo tốt hơn sinh một lần không?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Few-shot prompting | "Give it some examples" | Including input-output demonstrations in the prompt to anchor the model's output format and behavior |
-| Chain-of-Thought | "Make it think step by step" | Eliciting intermediate reasoning tokens that extend the model's effective computation before producing a final answer |
-| Self-Consistency | "Run it multiple times" | Sampling N diverse reasoning paths at temperature > 0 and selecting the most common final answer by majority vote |
-| Tree-of-Thought | "Let it explore options" | Structured search over reasoning branches where each partial solution is evaluated and only promising paths are expanded |
-| ReAct | "Thinking + tool use" | Interleaving reasoning traces with external actions (search, compute, API calls) in a Thought-Action-Observation loop |
-| Prompt chaining | "Break it into steps" | Decomposing a complex task into sequential prompts where each output feeds the next input |
-| Zero-shot CoT | "Just add 'think step by step'" | Appending a reasoning trigger phrase to a prompt without any examples, relying on the model's latent reasoning capability |
+| Few-shot prompting (Prompting ít ví dụ) | "Đưa cho nó vài ví dụ" | Bao gồm các minh họa đầu vào-đầu ra trong prompt để neo định dạng đầu ra và hành vi của mô hình |
+| Chain-of-Thought (Chuỗi suy nghĩ) | "Khiến nó suy nghĩ từng bước" | Gợi ra các token suy luận trung gian mở rộng tính toán hiệu dụng của mô hình trước khi tạo câu trả lời cuối |
+| Self-Consistency (Tự nhất quán) | "Chạy nó nhiều lần" | Lấy mẫu N đường suy luận đa dạng ở temperature > 0 và chọn câu trả lời cuối phổ biến nhất bằng bỏ phiếu đa số |
+| Tree-of-Thought (Cây suy nghĩ) | "Để nó khám phá các lựa chọn" | Tìm kiếm có cấu trúc trên các nhánh suy luận trong đó mỗi lời giải một phần được đánh giá và chỉ các đường hứa hẹn được mở rộng |
+| ReAct | "Suy nghĩ + sử dụng công cụ" | Xen kẽ các vết suy luận với hành động bên ngoài (tìm kiếm, tính toán, lệnh gọi API) trong vòng lặp Suy nghĩ-Hành động-Quan sát |
+| Prompt chaining (Nối chuỗi prompt) | "Chia nó thành các bước" | Phân rã một tác vụ phức tạp thành các prompt tuần tự trong đó mỗi đầu ra cung cấp đầu vào tiếp theo |
+| Zero-shot CoT (CoT không ví dụ) | "Chỉ thêm 'suy nghĩ từng bước'" | Thêm một cụm từ kích hoạt suy luận vào cuối prompt mà không có ví dụ, dựa vào năng lực suy luận tiềm ẩn của mô hình |
 
 ## Further Reading
 
-- [Chain-of-Thought Prompting Elicits Reasoning in Large Language Models](https://arxiv.org/abs/2201.11903) -- Wei et al. 2022. The original CoT paper from Google Brain. Read sections 2-3 for the core results.
-- [Self-Consistency Improves Chain of Thought Reasoning in Language Models](https://arxiv.org/abs/2203.11171) -- Wang et al. 2023. The self-consistency paper. Table 1 has all the numbers you need.
-- [Tree of Thoughts: Deliberate Problem Solving with Large Language Models](https://arxiv.org/abs/2305.10601) -- Yao et al. 2023. ToT paper. The Game of 24 results in section 4 are the highlight.
-- [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629) -- Yao et al. 2022. The foundation of modern AI agents. Section 3 explains the Thought-Action-Observation loop.
-- [Large Language Models are Zero-Shot Reasoners](https://arxiv.org/abs/2205.11916) -- Kojima et al. 2022. The "Let's think step by step" paper. Surprisingly effective for how simple it is.
-- [DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines](https://arxiv.org/abs/2310.03714) -- Khattab et al. 2023. Treats prompting as a compilation problem. Read if you want to move beyond manual prompt engineering.
-- [OpenAI — Reasoning models guide](https://platform.openai.com/docs/guides/reasoning) -- vendor guidance on when chain-of-thought becomes an internal, priced-per-token "reasoning" mode versus a prompt-level trick.
-- [Lightman et al., "Let's Verify Step by Step" (2023)](https://arxiv.org/abs/2305.20050) -- process reward models (PRM) that grade each step of a chain; the reasoning supervision signal that succeeds outcome-only rewards.
-- [Snell et al., "Scaling LLM Test-Time Compute Optimally" (2024)](https://arxiv.org/abs/2408.03314) -- systematic study of CoT length, self-consistency sampling, and MCTS; where "think step by step" goes when accuracy matters more than latency.
+- [Chain-of-Thought Prompting Elicits Reasoning in Large Language Models](https://arxiv.org/abs/2201.11903) -- Wei và cộng sự 2022. Bài báo CoT gốc từ Google Brain. Đọc các mục 2-3 để xem kết quả cốt lõi.
+- [Self-Consistency Improves Chain of Thought Reasoning in Language Models](https://arxiv.org/abs/2203.11171) -- Wang và cộng sự 2023. Bài báo self-consistency. Bảng 1 có mọi con số bạn cần.
+- [Tree of Thoughts: Deliberate Problem Solving with Large Language Models](https://arxiv.org/abs/2305.10601) -- Yao và cộng sự 2023. Bài báo ToT. Kết quả Game of 24 ở mục 4 là điểm nổi bật.
+- [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629) -- Yao và cộng sự 2022. Nền tảng của các tác tử AI hiện đại. Mục 3 giải thích vòng lặp Suy nghĩ-Hành động-Quan sát.
+- [Large Language Models are Zero-Shot Reasoners](https://arxiv.org/abs/2205.11916) -- Kojima và cộng sự 2022. Bài báo "Hãy suy nghĩ từng bước". Hiệu quả đáng ngạc nhiên so với sự đơn giản của nó.
+- [DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines](https://arxiv.org/abs/2310.03714) -- Khattab và cộng sự 2023. Xem prompting là một bài toán biên dịch. Đọc nếu bạn muốn vượt ra ngoài prompt engineering thủ công.
+- [OpenAI — Reasoning models guide](https://platform.openai.com/docs/guides/reasoning) -- hướng dẫn nhà cung cấp về khi nào chain-of-thought trở thành chế độ "suy luận" nội bộ tính giá theo token thay vì một thủ thuật ở cấp prompt.
+- [Lightman et al., "Let's Verify Step by Step" (2023)](https://arxiv.org/abs/2305.20050) -- các mô hình phần thưởng quá trình (PRM) chấm từng bước của một chuỗi; tín hiệu giám sát suy luận kế tiếp phần thưởng chỉ dựa trên kết quả.
+- [Snell et al., "Scaling LLM Test-Time Compute Optimally" (2024)](https://arxiv.org/abs/2408.03314) -- nghiên cứu có hệ thống về độ dài CoT, lấy mẫu self-consistency và MCTS; nơi "suy nghĩ từng bước" đi tới khi độ chính xác quan trọng hơn độ trễ.

@@ -9,112 +9,112 @@ tags: [chain-of-thought, few-shot, self-consistency, tree-of-thought, react, rea
 
 # Reasoning Technique Selection Guide
 
-When you need an LLM to reason through a problem, choose the technique before writing the prompt. The technique determines the reasoning architecture. The prompt fills it in.
+Khi bạn cần một LLM suy luận qua một bài toán, chọn kỹ thuật trước khi viết prompt. Kỹ thuật quyết định kiến trúc suy luận. Prompt lấp vào nó.
 
 ## Quick Decision Tree
 
-1. Is the task a simple factual lookup or single-step classification?
-   - Yes: use **zero-shot**. CoT adds cost with no accuracy gain.
-   - No: continue.
+1. Tác vụ có phải tra cứu sự kiện đơn giản hay phân loại một bước không?
+   - Có: dùng **zero-shot**. CoT thêm chi phí mà không tăng độ chính xác.
+   - Không: tiếp tục.
 
-2. Does the task require multi-step reasoning (math, logic, planning)?
-   - Yes: use **Chain-of-Thought**. Continue to step 3.
-   - No: use **few-shot** if format matters, zero-shot if it does not.
+2. Tác vụ có cần suy luận nhiều bước (toán, logic, lập kế hoạch) không?
+   - Có: dùng **Chain-of-Thought**. Tiếp tục đến bước 3.
+   - Không: dùng **few-shot** nếu định dạng quan trọng, zero-shot nếu không.
 
-3. Is a single reasoning error acceptable?
-   - Yes: use **few-shot CoT** (single sample, temperature 0.0).
-   - No: use **self-consistency** (N=5, temperature 0.7). Continue to step 4.
+3. Một lỗi suy luận duy nhất có chấp nhận được không?
+   - Có: dùng **few-shot CoT** (một mẫu, temperature 0.0).
+   - Không: dùng **self-consistency** (N=5, temperature 0.7). Tiếp tục đến bước 4.
 
-4. Is the problem a search/planning problem with many possible paths?
-   - Yes: use **Tree-of-Thought**.
-   - No: self-consistency is sufficient.
+4. Bài toán có phải bài toán tìm kiếm/lập kế hoạch với nhiều đường khả dĩ không?
+   - Có: dùng **Tree-of-Thought**.
+   - Không: self-consistency là đủ.
 
-5. Does the task require external information or computation?
-   - Yes: use **ReAct** (reasoning + tool calls).
-   - No: pure reasoning techniques are sufficient.
+5. Tác vụ có cần thông tin hoặc tính toán bên ngoài không?
+   - Có: dùng **ReAct** (suy luận + gọi công cụ).
+   - Không: các kỹ thuật suy luận thuần là đủ.
 
 ## Technique Matrix
 
-| Technique | Accuracy Lift | Cost Multiplier | Latency | Best For |
+| Kỹ thuật | Mức tăng độ chính xác | Hệ số chi phí | Độ trễ | Tốt nhất cho |
 |-----------|--------------|-----------------|---------|----------|
-| Zero-shot | Baseline | 1x | ~1s | Simple tasks, factual Q&A |
-| Few-shot | +5-15% | 1.2x | ~1s | Format matching, classification |
-| Zero-shot CoT | +10-20% | 1.3x | ~1.5s | Quick reasoning boost |
-| Few-shot CoT | +15-25% | 1.5x | ~2s | Math, logic, multi-step |
-| Self-Consistency (N=5) | +2-5% over CoT | 5x | ~5s | High-stakes reasoning |
-| Self-Consistency (N=10) | +1-2% over N=5 | 10x | ~10s | Critical decisions only |
-| Tree-of-Thought | Task-dependent | 10-40x | ~30s+ | Search, planning, puzzles |
-| ReAct | Task-dependent | 3-10x | ~5-15s | Knowledge-grounded tasks |
-| Prompt Chaining | +5-10% over single | 2-5x | ~5-10s | Complex multi-part tasks |
+| Zero-shot | Baseline | 1x | ~1s | Tác vụ đơn giản, hỏi đáp sự kiện |
+| Few-shot | +5-15% | 1.2x | ~1s | Khớp định dạng, phân loại |
+| Zero-shot CoT | +10-20% | 1.3x | ~1.5s | Tăng suy luận nhanh |
+| Few-shot CoT | +15-25% | 1.5x | ~2s | Toán, logic, nhiều bước |
+| Self-Consistency (N=5) | +2-5% so với CoT | 5x | ~5s | Suy luận hệ trọng |
+| Self-Consistency (N=10) | +1-2% so với N=5 | 10x | ~10s | Chỉ quyết định quan trọng |
+| Tree-of-Thought | Phụ thuộc tác vụ | 10-40x | ~30s+ | Tìm kiếm, lập kế hoạch, giải đố |
+| ReAct | Phụ thuộc tác vụ | 3-10x | ~5-15s | Tác vụ dựa trên kiến thức |
+| Nối chuỗi prompt | +5-10% so với một prompt | 2-5x | ~5-10s | Tác vụ nhiều phần phức tạp |
 
 ## Model-Specific Guidance
 
 ### GPT-4o / GPT-4.1
-- Strong baseline reasoning. Zero-shot CoT often sufficient.
-- Few-shot CoT with 3 examples hits 95% on GSM8K.
-- Self-consistency gives marginal gains (95% to 97%) -- only worth it for critical tasks.
-- Supports structured outputs natively for answer extraction.
+- Suy luận baseline mạnh. Zero-shot CoT thường đủ.
+- Few-shot CoT với 3 ví dụ đạt 95% trên GSM8K.
+- Self-consistency đem lại lợi ích nhỏ (95% lên 97%) -- chỉ đáng dùng cho tác vụ quan trọng.
+- Hỗ trợ structured outputs nguyên bản để trích xuất câu trả lời.
 
 ### Claude 3.5 Sonnet / Claude 3.7 Sonnet
-- Excellent at following structured prompt formats (XML tags).
-- Few-shot CoT with XML-delimited examples works best.
-- Extended thinking (Claude 3.7) is native CoT -- no need to prompt for it.
-- Self-consistency is effective because Claude's reasoning varies well at temperature 0.7.
+- Xuất sắc trong việc làm theo định dạng prompt có cấu trúc (thẻ XML).
+- Few-shot CoT với ví dụ phân cách bằng XML hoạt động tốt nhất.
+- Extended thinking (Claude 3.7) là CoT nguyên bản -- không cần prompt để có nó.
+- Self-consistency hiệu quả vì suy luận của Claude biến thiên tốt ở temperature 0.7.
 
 ### Llama 3.1/3.3 70B
-- Benefits most from few-shot CoT (larger accuracy gap vs zero-shot).
-- Self-consistency with N=5 recommended for reasoning tasks.
-- Needs more explicit format instructions than commercial models.
-- ToT is expensive on local inference -- consider only for batch processing.
+- Hưởng lợi nhiều nhất từ few-shot CoT (khoảng cách độ chính xác lớn hơn so với zero-shot).
+- Self-consistency với N=5 được khuyến nghị cho tác vụ suy luận.
+- Cần chỉ dẫn định dạng rõ ràng hơn các mô hình thương mại.
+- ToT tốn kém trên suy luận cục bộ -- chỉ cân nhắc cho xử lý theo batch.
 
 ### Gemini 2.5 Pro
-- Strong at multi-step reasoning out of the box.
-- Thinking mode provides built-in CoT without prompt engineering.
-- Few-shot examples help with format consistency more than accuracy.
-- Large context window (1M) makes example-heavy few-shot practical.
+- Mạnh ở suy luận nhiều bước ngay từ đầu.
+- Chế độ Thinking cung cấp CoT tích hợp mà không cần prompt engineering.
+- Ví dụ few-shot giúp tính nhất quán định dạng nhiều hơn độ chính xác.
+- Cửa sổ ngữ cảnh lớn (1M) khiến few-shot nhiều ví dụ trở nên khả thi.
 
 ## Anti-Patterns
 
-**CoT for simple tasks**: asking "What is 2+2? Let's think step by step" wastes tokens. The model gets simple arithmetic right without reasoning traces. CoT helps when there are 3+ steps.
+**CoT cho tác vụ đơn giản**: hỏi "2+2 là gì? Hãy suy nghĩ từng bước" lãng phí token. Mô hình tính đúng số học đơn giản mà không cần vết suy luận. CoT hữu ích khi có 3+ bước.
 
-**Self-consistency at temperature 0.0**: all N samples will be identical. You must use temperature > 0 (0.5-0.8 recommended) for diverse reasoning paths.
+**Self-consistency ở temperature 0.0**: cả N mẫu sẽ giống hệt nhau. Bạn phải dùng temperature > 0 (khuyến nghị 0.5-0.8) để có các đường suy luận đa dạng.
 
-**ToT for everything**: ToT requires O(b^d) LLM calls where b=branching factor and d=depth. A tree with b=3, d=3 needs up to 39 calls. Reserve for problems where cheaper techniques fail.
+**ToT cho mọi thứ**: ToT cần O(b^d) lệnh gọi LLM trong đó b=hệ số phân nhánh và d=độ sâu. Một cây với b=3, d=3 cần tối đa 39 lệnh gọi. Dành cho các bài toán mà kỹ thuật rẻ hơn thất bại.
 
-**Few-shot with bad examples**: examples with reasoning errors teach the model to make those errors. Every example must be verified. One wrong example can reduce accuracy more than zero examples.
+**Few-shot với ví dụ kém**: các ví dụ có lỗi suy luận dạy mô hình mắc những lỗi đó. Mọi ví dụ phải được xác minh. Một ví dụ sai có thể làm giảm độ chính xác hơn không có ví dụ.
 
-**Extracting answers without a consistent format**: self-consistency requires comparing answers across samples. If the answer format varies ("$18", "18 dollars", "eighteen"), voting fails. Always enforce: "The answer is [number]."
+**Trích xuất câu trả lời mà không có định dạng nhất quán**: self-consistency cần so sánh câu trả lời giữa các mẫu. Nếu định dạng câu trả lời thay đổi ("$18", "18 đô la", "mười tám"), bỏ phiếu thất bại. Luôn bắt buộc: "Câu trả lời là [số]."
 
 ## Cost Optimization
 
-For a production system handling 10,000 queries/day at GPT-4o pricing ($2.50/1M input, $10/1M output):
+Với một hệ thống sản xuất xử lý 10,000 truy vấn/ngày ở mức giá GPT-4o ($2.50/1M đầu vào, $10/1M đầu ra):
 
-| Technique | Avg Tokens/Query | Daily Cost | Accuracy |
+| Kỹ thuật | Token trung bình/Truy vấn | Chi phí hằng ngày | Độ chính xác |
 |-----------|-----------------|------------|----------|
 | Zero-shot | ~200 | ~$5 | 78% |
 | Few-shot CoT | ~600 | ~$15 | 95% |
 | Self-Consistency (N=5) | ~3,000 | ~$75 | 97% |
-| ToT (b=3, d=2) | ~6,000 | ~$150 | Task-dependent |
+| ToT (b=3, d=2) | ~6,000 | ~$150 | Phụ thuộc tác vụ |
 
-The cost-optimal strategy for most applications: start with few-shot CoT. Add self-consistency only for queries where confidence is low (the escalation pattern from the Build It section).
+Chiến lược tối ưu chi phí cho hầu hết ứng dụng: bắt đầu bằng few-shot CoT. Chỉ thêm self-consistency cho các truy vấn có độ tin cậy thấp (mẫu tăng cấp từ phần Build It).
 
 ## Integration with Prompt Chaining
 
-Reasoning techniques compose with prompt chaining:
+Các kỹ thuật suy luận kết hợp với nối chuỗi prompt:
 
-**Chain Step 1** (Extract): zero-shot, temperature 0.0
-**Chain Step 2** (Reason): few-shot CoT, temperature 0.0
-**Chain Step 3** (Verify): self-consistency with N=3, temperature 0.7
+**Bước chuỗi 1** (Trích xuất): zero-shot, temperature 0.0
+**Bước chuỗi 2** (Suy luận): few-shot CoT, temperature 0.0
+**Bước chuỗi 3** (Xác minh): self-consistency với N=3, temperature 0.7
 
-This three-step chain costs ~3x a single CoT call but catches extraction errors, reasoning errors, and provides a confidence score from the verification step.
+Chuỗi ba bước này tốn ~3x một lệnh gọi CoT duy nhất nhưng bắt được lỗi trích xuất, lỗi suy luận và cung cấp điểm độ tin cậy từ bước xác minh.
 
 ## When to Move Beyond Prompting
 
-If you are spending more time engineering prompts than writing application code, consider:
+Nếu bạn dành nhiều thời gian thiết kế prompt hơn viết mã ứng dụng, cân nhắc:
 
-1. **Fine-tuning**: if you have 500+ labeled examples and the task is narrow
-2. **DSPy compilation**: if you want automated prompt optimization
-3. **Agent frameworks**: if the task requires multi-turn tool use (Phase 14)
-4. **RAG**: if the model needs access to private/current knowledge (Lessons 06-07)
+1. **Fine-tuning**: nếu bạn có 500+ ví dụ gán nhãn và tác vụ hẹp
+2. **Biên dịch DSPy**: nếu bạn muốn tối ưu prompt tự động
+3. **Framework tác tử**: nếu tác vụ cần dùng công cụ nhiều lượt (Giai đoạn 14)
+4. **RAG**: nếu mô hình cần truy cập kiến thức riêng tư/hiện tại (Bài 06-07)
 
-Prompting techniques are the foundation. They work with any model, any provider, and require no training data. But they have limits. Knowing when to graduate to the next level is as important as mastering the techniques themselves.
+Các kỹ thuật prompting là nền tảng. Chúng hoạt động với mọi mô hình, mọi nhà cung cấp và không cần dữ liệu huấn luyện. Nhưng chúng có giới hạn. Biết khi nào chuyển lên cấp tiếp theo cũng quan trọng như làm chủ chính các kỹ thuật.

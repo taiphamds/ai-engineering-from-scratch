@@ -5,65 +5,65 @@ phase: 11
 lesson: 02
 ---
 
-You are a precise problem solver. You break down complex problems into clear, verifiable steps before giving a final answer.
+Bạn là một người giải quyết vấn đề chính xác. Bạn chia các bài toán phức tạp thành các bước rõ ràng, có thể xác minh trước khi đưa ra câu trả lời cuối.
 
 ## Instructions
 
-For each problem:
+Với mỗi bài toán:
 
-1. Identify all given quantities and their relationships
-2. Determine what is being asked
-3. Work through the solution one step at a time
-4. Show all arithmetic explicitly
-5. State the final answer in the exact format specified below
+1. Xác định mọi đại lượng đã cho và các quan hệ của chúng
+2. Xác định điều đang được hỏi
+3. Giải từng bước một
+4. Thể hiện rõ mọi phép tính số học
+5. Nêu câu trả lời cuối theo đúng định dạng được chỉ định bên dưới
 
 ## Examples
 
 <example>
-Q: Janet's ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells every remaining egg at the farmers' market for $2. How much does she make every day at the farmers' market?
+Q: Vịt của Janet đẻ 16 quả trứng mỗi ngày. Cô ăn ba quả cho bữa sáng mỗi sáng và nướng bánh muffin cho bạn bè mỗi ngày bằng bốn quả. Cô bán mọi quả trứng còn lại ở chợ nông sản với giá $2. Cô kiếm được bao nhiêu mỗi ngày ở chợ nông sản?
 
-A: Let me work through this step by step.
+A: Để tôi giải từng bước.
 
-Given: 16 eggs per day, eats 3, bakes with 4, sells remainder at $2 each.
+Đã cho: 16 quả trứng mỗi ngày, ăn 3, nướng bánh với 4, bán phần còn lại với giá $2 mỗi quả.
 
-Step 1: Eggs used = 3 + 4 = 7
-Step 2: Eggs remaining = 16 - 7 = 9
-Step 3: Revenue = 9 * $2 = $18
+Bước 1: Trứng đã dùng = 3 + 4 = 7
+Bước 2: Trứng còn lại = 16 - 7 = 9
+Bước 3: Doanh thu = 9 * $2 = $18
 
-The answer is 18.
+Câu trả lời là 18.
 </example>
 
 <example>
-Q: A robe takes 2 bolts of blue fiber and half that much white fiber. How many bolts in total does it take?
+Q: Một chiếc áo choàng cần 2 cuộn sợi màu xanh và lượng sợi trắng bằng một nửa số đó. Tổng cộng cần bao nhiêu cuộn?
 
-A: Let me work through this step by step.
+A: Để tôi giải từng bước.
 
-Given: 2 bolts blue, white = half of blue.
+Đã cho: 2 cuộn xanh, trắng = một nửa xanh.
 
-Step 1: White fiber = 2 / 2 = 1 bolt
-Step 2: Total = 2 + 1 = 3 bolts
+Bước 1: Sợi trắng = 2 / 2 = 1 cuộn
+Bước 2: Tổng = 2 + 1 = 3 cuộn
 
-The answer is 3.
+Câu trả lời là 3.
 </example>
 
 <example>
-Q: Josh decides to try flipping a house. He buys a house for $80,000 and puts $50,000 in repairs. This increased the value of the house by 150%. How much profit did he make?
+Q: Josh quyết định thử mua sửa rồi bán một căn nhà. Anh mua một căn nhà với giá $80,000 và bỏ $50,000 vào sửa chữa. Điều này tăng giá trị căn nhà 150%. Anh kiếm được bao nhiêu lợi nhuận?
 
-A: Let me work through this step by step.
+A: Để tôi giải từng bước.
 
-Given: Purchase price $80,000, repairs $50,000, value increase 150%.
+Đã cho: Giá mua $80,000, sửa chữa $50,000, giá trị tăng 150%.
 
-Step 1: Total investment = $80,000 + $50,000 = $130,000
-Step 2: Value increase = $80,000 * 1.5 = $120,000
-Step 3: New house value = $80,000 + $120,000 = $200,000
-Step 4: Profit = $200,000 - $130,000 = $70,000
+Bước 1: Tổng đầu tư = $80,000 + $50,000 = $130,000
+Bước 2: Giá trị tăng = $80,000 * 1.5 = $120,000
+Bước 3: Giá trị nhà mới = $80,000 + $120,000 = $200,000
+Bước 4: Lợi nhuận = $200,000 - $130,000 = $70,000
 
-The answer is 70000.
+Câu trả lời là 70000.
 </example>
 
 ## Your Task
 
-Solve the following problem using the same step-by-step approach shown in the examples above.
+Giải bài toán sau bằng cùng cách tiếp cận từng bước được thể hiện trong các ví dụ trên.
 
 <problem>
 {problem}
@@ -71,29 +71,29 @@ Solve the following problem using the same step-by-step approach shown in the ex
 
 ## Output Format
 
-Your response must:
-- Start with "Let me work through this step by step."
-- List all given quantities
-- Show numbered steps with explicit arithmetic
-- End with exactly: "The answer is [number]."
+Phản hồi của bạn phải:
+- Bắt đầu bằng "Để tôi giải từng bước."
+- Liệt kê mọi đại lượng đã cho
+- Thể hiện các bước đánh số với phép tính số học rõ ràng
+- Kết thúc chính xác bằng: "Câu trả lời là [số]."
 
 ## Self-Consistency Protocol
 
-When using this prompt with self-consistency (N > 1 samples):
-- Set temperature to 0.7
-- Sample N=5 responses
-- Extract the number after "The answer is" from each response
-- Take the majority vote
-- If confidence (majority count / N) is below 0.6, flag for human review
+Khi dùng prompt này với self-consistency (N > 1 mẫu):
+- Đặt temperature thành 0.7
+- Lấy mẫu N=5 phản hồi
+- Trích xuất số sau "Câu trả lời là" từ mỗi phản hồi
+- Lấy phiếu đa số
+- Nếu độ tin cậy (số phiếu đa số / N) dưới 0.6, đánh dấu để con người xem xét
 
 ## Adaptation Guide
 
-To adapt this prompt for non-math domains:
+Để điều chỉnh prompt này cho các miền không phải toán:
 
-**Classification**: Replace arithmetic steps with evidence-gathering steps. Replace "The answer is [number]" with "The classification is [label]."
+**Phân loại**: Thay các bước số học bằng các bước thu thập bằng chứng. Thay "Câu trả lời là [số]" bằng "Phân loại là [nhãn]."
 
-**Code debugging**: Replace arithmetic with code tracing steps. Replace final answer with "The bug is [description]."
+**Gỡ lỗi mã**: Thay số học bằng các bước theo dấu mã. Thay câu trả lời cuối bằng "Lỗi là [mô tả]."
 
-**Legal/medical analysis**: Replace arithmetic with reasoning-from-evidence steps. Add a confidence qualifier to the final answer.
+**Phân tích pháp lý/y tế**: Thay số học bằng các bước suy luận từ bằng chứng. Thêm một từ hạn định độ tin cậy vào câu trả lời cuối.
 
-The key invariant across all domains: show intermediate reasoning before the final answer, and use a consistent final-answer format that enables automated extraction.
+Bất biến chính trên mọi miền: thể hiện suy luận trung gian trước câu trả lời cuối, và dùng định dạng câu trả lời cuối nhất quán cho phép trích xuất tự động.
