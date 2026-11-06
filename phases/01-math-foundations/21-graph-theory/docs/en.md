@@ -1,6 +1,6 @@
 # Graph Theory for Machine Learning
 
-> Graphs are the data structure of relationships. If your data has connections, you need graph theory.
+> Đồ thị là cấu trúc dữ liệu của các mối quan hệ. Nếu dữ liệu có các kết nối, bạn cần lý thuyết đồ thị.
 
 **Type:** Build
 **Language:** Python
@@ -9,56 +9,56 @@
 
 ## Learning Objectives
 
-- Build a graph class with adjacency matrix/list representations and implement BFS and DFS traversals
-- Compute the graph Laplacian and use its eigenvalues to detect connected components and cluster nodes
-- Implement one round of GNN-style message passing as a normalized adjacency matrix multiplication
-- Apply spectral clustering to partition a graph using the Fiedler vector
+- Xây dựng một lớp đồ thị với biểu diễn ma trận/danh sách kề và triển khai các phép duyệt BFS và DFS
+- Tính Laplacian đồ thị và sử dụng các giá trị riêng của nó để phát hiện các thành phần liên thông và phân cụm nút
+- Triển khai một vòng truyền thông điệp kiểu GNN dưới dạng phép nhân ma trận kề đã chuẩn hóa
+- Áp dụng phân cụm phổ để phân hoạch một đồ thị bằng vector Fiedler
 
 ## The Problem
 
-Social networks, molecules, knowledge bases, citation networks, road maps -- all are graphs. Traditional ML treats data as flat tables. Each row is independent. Each feature is a column. But when the structure of connections matters, tables fail.
+Mạng xã hội, phân tử, cơ sở tri thức, mạng trích dẫn, bản đồ đường -- tất cả đều là đồ thị. ML truyền thống xem dữ liệu là các bảng phẳng. Mỗi hàng độc lập. Mỗi đặc trưng là một cột. Nhưng khi cấu trúc các kết nối quan trọng, bảng thất bại.
 
-Consider a social network. You want to predict what product a user will buy. Their purchase history matters. But their friends' purchase history matters more. The connections carry signal.
+Xét một mạng xã hội. Bạn muốn dự đoán người dùng sẽ mua sản phẩm gì. Lịch sử mua hàng của họ quan trọng. Nhưng lịch sử mua hàng của bạn bè họ quan trọng hơn. Các kết nối mang tín hiệu.
 
-Or consider a molecule. You want to predict if it binds to a protein. The atoms matter, but what really matters is how atoms are bonded to each other. The structure is the data.
+Hoặc xét một phân tử. Bạn muốn dự đoán nó có liên kết với một protein không. Các nguyên tử quan trọng, nhưng điều thực sự quan trọng là cách các nguyên tử liên kết với nhau. Cấu trúc là dữ liệu.
 
-Graph Neural Networks (GNNs) are the fastest-growing area in deep learning. They power drug discovery, social recommendation, fraud detection, and knowledge graph reasoning. Every GNN builds on the same foundation: basic graph theory.
+Mạng Nơ-ron Đồ thị (GNN) là lĩnh vực phát triển nhanh nhất trong học sâu. Chúng vận hành khám phá thuốc, đề xuất xã hội, phát hiện gian lận và suy luận đồ thị tri thức. Mọi GNN xây dựng trên cùng nền tảng: lý thuyết đồ thị cơ bản.
 
-You need four things:
-1. A way to represent graphs as matrices (so you can multiply them)
-2. Traversal algorithms to explore graph structure
-3. The Laplacian -- the single most important matrix in spectral graph theory
-4. Message passing -- the operation that makes GNNs work
+Bạn cần bốn thứ:
+1. Một cách biểu diễn đồ thị thành ma trận (để bạn có thể nhân chúng)
+2. Các thuật toán duyệt để khám phá cấu trúc đồ thị
+3. Laplacian -- ma trận quan trọng nhất trong lý thuyết đồ thị phổ
+4. Truyền thông điệp -- phép toán làm GNN hoạt động
 
 ## The Concept
 
 ### Graphs: Nodes and Edges
 
-A graph G = (V, E) consists of vertices (nodes) V and edges E. Each edge connects two nodes.
+Một đồ thị G = (V, E) gồm các đỉnh (nút) V và các cạnh E. Mỗi cạnh kết nối hai nút.
 
-**Directed vs undirected.** In an undirected graph, edge (u, v) means u connects to v AND v connects to u. In a directed graph (digraph), edge (u, v) means u points to v, but not necessarily the reverse.
+**Có hướng so với vô hướng.** Trong một đồ thị vô hướng, cạnh (u, v) nghĩa là u kết nối với v VÀ v kết nối với u. Trong một đồ thị có hướng (digraph), cạnh (u, v) nghĩa là u trỏ đến v, nhưng không nhất thiết theo chiều ngược.
 
-**Weighted vs unweighted.** In an unweighted graph, edges either exist or they don't. In a weighted graph, each edge has a numerical weight -- a distance, a cost, a strength.
+**Có trọng số so với không trọng số.** Trong một đồ thị không trọng số, các cạnh hoặc tồn tại hoặc không. Trong một đồ thị có trọng số, mỗi cạnh có một trọng số số học -- một khoảng cách, một chi phí, một độ mạnh.
 
-| Graph type | Example |
+| Loại đồ thị | Ví dụ |
 |-----------|---------|
-| Undirected, unweighted | Facebook friendship network |
-| Directed, unweighted | Twitter follow network |
-| Undirected, weighted | Road map (distances) |
-| Directed, weighted | Web page links (PageRank scores) |
+| Vô hướng, không trọng số | Mạng bạn bè Facebook |
+| Có hướng, không trọng số | Mạng theo dõi Twitter |
+| Vô hướng, có trọng số | Bản đồ đường (khoảng cách) |
+| Có hướng, có trọng số | Các liên kết trang web (điểm PageRank) |
 
 ### The Adjacency Matrix
 
-The adjacency matrix A is the core representation. For a graph with n nodes:
+Ma trận kề A là biểu diễn cốt lõi. Với một đồ thị có n nút:
 
 ```
 A[i][j] = 1    if there is an edge from node i to node j
 A[i][j] = 0    otherwise
 ```
 
-For undirected graphs, A is symmetric: A[i][j] = A[j][i]. For weighted graphs, A[i][j] = weight of edge (i, j).
+Với các đồ thị vô hướng, A đối xứng: A[i][j] = A[j][i]. Với các đồ thị có trọng số, A[i][j] = trọng số của cạnh (i, j).
 
-**Example -- a triangle:**
+**Ví dụ -- một tam giác:**
 
 ```
 Nodes: 0, 1, 2
@@ -69,28 +69,28 @@ A = [[0, 1, 1],
      [1, 1, 0]]
 ```
 
-The adjacency matrix is the input to every GNN. Matrix operations on A correspond to operations on the graph.
+Ma trận kề là đầu vào cho mọi GNN. Các phép toán ma trận trên A tương ứng với các phép toán trên đồ thị.
 
 ### Degree
 
-The degree of a node is the number of edges connected to it. For directed graphs, you have in-degree (edges coming in) and out-degree (edges going out).
+Bậc của một nút là số cạnh kết nối với nó. Với các đồ thị có hướng, bạn có bậc vào (các cạnh đi vào) và bậc ra (các cạnh đi ra).
 
-The degree matrix D is diagonal:
+Ma trận bậc D là đường chéo:
 
 ```
 D[i][i] = degree of node i
 D[i][j] = 0    for i != j
 ```
 
-For the triangle example: D = diag(2, 2, 2) because every node connects to two others.
+Với ví dụ tam giác: D = diag(2, 2, 2) vì mỗi nút kết nối với hai nút khác.
 
-Degree tells you about node importance. High degree = hub node. The degree distribution of a network reveals its structure. Social networks follow power laws (few hubs, many leaf nodes). Random graphs have Poisson-distributed degrees.
+Bậc cho bạn biết về độ quan trọng của nút. Bậc cao = nút trung tâm. Phân phối bậc của một mạng tiết lộ cấu trúc của nó. Mạng xã hội tuân theo luật lũy thừa (ít nút trung tâm, nhiều nút lá). Các đồ thị ngẫu nhiên có bậc phân phối Poisson.
 
 ### BFS and DFS
 
-The two fundamental graph traversal algorithms. You need both.
+Hai thuật toán duyệt đồ thị cơ bản. Bạn cần cả hai.
 
-**Breadth-First Search (BFS):** Explore all neighbors first, then neighbors' neighbors. Uses a queue (FIFO).
+**Tìm kiếm Theo Chiều rộng (BFS):** Khám phá tất cả láng giềng trước, rồi các láng giềng của láng giềng. Sử dụng một hàng đợi (FIFO).
 
 ```
 BFS from node 0:
@@ -104,9 +104,9 @@ BFS from node 0:
   Queue: []            (done)
 ```
 
-BFS finds shortest paths in unweighted graphs. The distance from the start to any node equals the BFS level at which that node is first discovered. This is why BFS is used for hop-count distances in social networks.
+BFS tìm các đường đi ngắn nhất trong đồ thị không trọng số. Khoảng cách từ điểm bắt đầu đến bất kỳ nút nào bằng mức BFS mà tại đó nút được phát hiện lần đầu. Đây là lý do BFS được dùng cho khoảng cách số bước nhảy trong mạng xã hội.
 
-**Depth-First Search (DFS):** Go as deep as possible before backtracking. Uses a stack (LIFO) or recursion.
+**Tìm kiếm Theo Chiều sâu (DFS):** Đi sâu nhất có thể trước khi quay lui. Sử dụng một ngăn xếp (LIFO) hoặc đệ quy.
 
 ```
 DFS from node 0:
@@ -120,21 +120,21 @@ DFS from node 0:
   Stack: []             (done)
 ```
 
-DFS is useful for:
-- Finding connected components (run DFS from unvisited nodes)
-- Cycle detection (back edges in DFS tree)
-- Topological sorting (reverse DFS finish order)
+DFS hữu ích cho:
+- Tìm các thành phần liên thông (chạy DFS từ các nút chưa thăm)
+- Phát hiện chu trình (các cạnh ngược trong cây DFS)
+- Sắp xếp tô pô (đảo ngược thứ tự kết thúc DFS)
 
-| Algorithm | Data structure | Finds | Use case |
+| Thuật toán | Cấu trúc dữ liệu | Tìm | Trường hợp sử dụng |
 |-----------|---------------|-------|----------|
-| BFS | Queue | Shortest paths | Social network distance, knowledge graph traversal |
-| DFS | Stack | Components, cycles | Connectivity, topological sort |
+| BFS | Hàng đợi | Các đường đi ngắn nhất | Khoảng cách mạng xã hội, duyệt đồ thị tri thức |
+| DFS | Ngăn xếp | Thành phần, chu trình | Tính liên thông, sắp xếp tô pô |
 
 ### The Graph Laplacian
 
-L = D - A. The most important matrix in spectral graph theory.
+L = D - A. Ma trận quan trọng nhất trong lý thuyết đồ thị phổ.
 
-For the triangle:
+Với tam giác:
 
 ```
 D = [[2, 0, 0],    A = [[0, 1, 1],    L = [[2, -1, -1],
@@ -142,15 +142,15 @@ D = [[2, 0, 0],    A = [[0, 1, 1],    L = [[2, -1, -1],
      [0, 0, 2]]         [1, 1, 0]]         [-1, -1,  2]]
 ```
 
-The Laplacian has remarkable properties:
+Laplacian có những tính chất đáng chú ý:
 
-1. **L is positive semi-definite.** All eigenvalues are >= 0.
+1. **L nửa xác định dương.** Mọi giá trị riêng đều >= 0.
 
-2. **The number of zero eigenvalues equals the number of connected components.** A connected graph has exactly one zero eigenvalue. A graph with 3 disconnected components has three zero eigenvalues.
+2. **Số giá trị riêng bằng không bằng số thành phần liên thông.** Một đồ thị liên thông có đúng một giá trị riêng bằng không. Một đồ thị có 3 thành phần tách rời có ba giá trị riêng bằng không.
 
-3. **The smallest non-zero eigenvalue (Fiedler value) measures connectivity.** A large Fiedler value means the graph is well-connected. A small Fiedler value means the graph has a weak point -- a bottleneck.
+3. **Giá trị riêng khác không nhỏ nhất (giá trị Fiedler) đo tính liên thông.** Một giá trị Fiedler lớn có nghĩa là đồ thị kết nối tốt. Một giá trị Fiedler nhỏ có nghĩa là đồ thị có một điểm yếu -- một điểm nghẽn.
 
-4. **The eigenvector of the Fiedler value (Fiedler vector) reveals the best split.** Nodes with positive values go in one group, nodes with negative values go in the other. This is spectral clustering.
+4. **Vector riêng của giá trị Fiedler (vector Fiedler) tiết lộ cách chia tốt nhất.** Các nút có giá trị dương vào một nhóm, các nút có giá trị âm vào nhóm kia. Đây là phân cụm phổ.
 
 ```mermaid
 graph TD
@@ -171,41 +171,41 @@ graph TD
 
 ### Spectral Properties
 
-The eigenvalues of the adjacency matrix and Laplacian reveal structural properties without any traversal.
+Các giá trị riêng của ma trận kề và Laplacian tiết lộ các tính chất cấu trúc mà không cần duyệt.
 
-**Spectral clustering** works like this:
-1. Compute the Laplacian L
-2. Find the k smallest eigenvectors of L (skip the first, which is all-ones for connected graphs)
-3. Use those eigenvectors as new coordinates for each node
-4. Run k-means on those coordinates
+**Phân cụm phổ** hoạt động như sau:
+1. Tính Laplacian L
+2. Tìm k vector riêng nhỏ nhất của L (bỏ vector đầu tiên, toàn số một với đồ thị liên thông)
+3. Sử dụng các vector riêng đó làm tọa độ mới cho mỗi nút
+4. Chạy k-means trên các tọa độ đó
 
-Why does this work? The eigenvectors of L encode the "smoothest" functions on the graph. Nodes that are well-connected get similar eigenvector values. Nodes separated by a bottleneck get different values. The eigenvectors naturally separate clusters.
+Tại sao điều này hoạt động? Các vector riêng của L mã hóa các hàm "mượt nhất" trên đồ thị. Các nút kết nối tốt nhận các giá trị vector riêng tương tự. Các nút bị phân tách bởi một điểm nghẽn nhận các giá trị khác nhau. Các vector riêng tự nhiên tách các cụm.
 
-**Random walk connection.** The normalized Laplacian relates to random walks on the graph. The stationary distribution of a random walk is proportional to node degree. The mixing time (how fast the walk converges) depends on the spectral gap.
+**Mối liên hệ với bước đi ngẫu nhiên.** Laplacian chuẩn hóa liên quan đến các bước đi ngẫu nhiên trên đồ thị. Phân phối dừng của một bước đi ngẫu nhiên tỉ lệ với bậc nút. Thời gian trộn (bước đi hội tụ nhanh đến mức nào) phụ thuộc vào khoảng cách phổ.
 
 ### Message Passing
 
-The core operation of Graph Neural Networks. Each node collects messages from its neighbors, aggregates them, and updates its own state.
+Phép toán cốt lõi của Mạng Nơ-ron Đồ thị. Mỗi nút thu thập thông điệp từ các láng giềng, tổng hợp chúng và cập nhật trạng thái của chính nó.
 
 ```
 h_v^(k+1) = UPDATE(h_v^(k), AGGREGATE({h_u^(k) : u in neighbors(v)}))
 ```
 
-In the simplest form, AGGREGATE = mean, and UPDATE = linear transform + activation:
+Ở dạng đơn giản nhất, AGGREGATE = trung bình, và UPDATE = biến đổi tuyến tính + kích hoạt:
 
 ```
 h_v^(k+1) = sigma(W * mean({h_u^(k) : u in neighbors(v)}))
 ```
 
-This is matrix multiplication in disguise. If H is the matrix of all node features and A is the adjacency matrix:
+Đây là phép nhân ma trận được ngụy trang. Nếu H là ma trận tất cả các đặc trưng nút và A là ma trận kề:
 
 ```
 H^(k+1) = sigma(A_norm * H^(k) * W)
 ```
 
-where A_norm is the normalized adjacency matrix (each row sums to 1).
+trong đó A_norm là ma trận kề đã chuẩn hóa (mỗi hàng có tổng bằng 1).
 
-One round of message passing lets each node "see" its immediate neighbors. Two rounds let it see neighbors of neighbors. K rounds give each node information from its K-hop neighborhood.
+Một vòng truyền thông điệp cho phép mỗi nút "thấy" các láng giềng trực tiếp. Hai vòng cho nó thấy các láng giềng của láng giềng. K vòng cho mỗi nút thông tin từ vùng lân cận K bước nhảy của nó.
 
 ```mermaid
 graph LR
@@ -230,16 +230,16 @@ graph LR
 
 ### Concepts and ML Applications
 
-| Concept | ML Application |
+| Khái niệm | Ứng dụng ML |
 |---------|---------------|
-| Adjacency matrix | GNN input representation |
-| Graph Laplacian | Spectral clustering, community detection |
-| BFS/DFS | Knowledge graph traversal, path finding |
-| Degree distribution | Node importance, feature engineering |
-| Message passing | GNN layers (GCN, GAT, GraphSAGE) |
-| Eigenvalues of L | Community detection, graph partitioning |
-| Spectral clustering | Unsupervised node grouping |
-| PageRank | Node importance, web search |
+| Ma trận kề | Biểu diễn đầu vào GNN |
+| Laplacian đồ thị | Phân cụm phổ, phát hiện cộng đồng |
+| BFS/DFS | Duyệt đồ thị tri thức, tìm đường đi |
+| Phân phối bậc | Độ quan trọng nút, kỹ thuật đặc trưng |
+| Truyền thông điệp | Các lớp GNN (GCN, GAT, GraphSAGE) |
+| Các giá trị riêng của L | Phát hiện cộng đồng, phân hoạch đồ thị |
+| Phân cụm phổ | Nhóm nút không giám sát |
+| PageRank | Độ quan trọng nút, tìm kiếm web |
 
 ```figure
 graph-degree-distribution
@@ -286,7 +286,7 @@ class Graph:
         return self.degree_matrix() - self.adjacency_matrix()
 ```
 
-The adjacency list (`self.adj`) stores neighbors efficiently. The adjacency matrix conversion uses numpy because all the spectral operations need it.
+Danh sách kề (`self.adj`) lưu các láng giềng hiệu quả. Việc chuyển đổi ma trận kề sử dụng numpy vì mọi phép toán phổ đều cần nó.
 
 ### Step 2: BFS and DFS
 
@@ -326,7 +326,7 @@ def dfs(graph, start):
     return order
 ```
 
-BFS uses a deque (double-ended queue) for O(1) popleft. DFS uses a list as a stack. Both visit every node exactly once -- O(V + E) time.
+BFS sử dụng deque (hàng đợi hai đầu) để popleft có độ phức tạp O(1). DFS sử dụng một danh sách làm ngăn xếp. Cả hai thăm mỗi nút đúng một lần -- thời gian O(V + E).
 
 ### Step 3: Connected components and Laplacian eigenvalues
 
@@ -349,7 +349,7 @@ def laplacian_eigenvalues(graph):
     return eigenvalues
 ```
 
-`eigvalsh` is for symmetric matrices -- the Laplacian is always symmetric for undirected graphs. It returns eigenvalues in ascending order. Count the zeros to find the number of connected components.
+`eigvalsh` dành cho ma trận đối xứng -- Laplacian luôn đối xứng với đồ thị vô hướng. Nó trả về các giá trị riêng theo thứ tự tăng dần. Đếm các số không để tìm số thành phần liên thông.
 
 ### Step 4: Spectral clustering
 
@@ -369,7 +369,7 @@ def spectral_clustering(graph, k=2):
     return labels
 ```
 
-For k=2, the sign of the Fiedler vector splits the graph into two clusters. For k>2, you would run k-means on the first k eigenvectors (excluding the trivial all-ones eigenvector).
+Với k=2, dấu của vector Fiedler chia đồ thị thành hai cụm. Với k>2, bạn sẽ chạy k-means trên k vector riêng đầu tiên (không bao gồm vector riêng tầm thường toàn số một).
 
 ### Step 5: Message passing
 
@@ -385,11 +385,11 @@ def message_passing(graph, features, weight_matrix):
     return output
 ```
 
-This is one round of GNN message passing. Each node's new features are the weighted average of its neighbors' features, transformed by the weight matrix. Stack multiple rounds to propagate information further.
+Đây là một vòng truyền thông điệp GNN. Các đặc trưng mới của mỗi nút là trung bình có trọng số của các đặc trưng láng giềng, được biến đổi bởi ma trận trọng số. Xếp chồng nhiều vòng để lan truyền thông tin xa hơn.
 
 ## Use It
 
-With networkx and numpy, the same operations are one-liners:
+Với networkx và numpy, các phép toán tương tự chỉ là các dòng lệnh đơn:
 
 ```python
 import networkx as nx
@@ -412,7 +412,7 @@ top_nodes = sorted(pr.items(), key=lambda x: x[1], reverse=True)[:5]
 print(f"Top 5 PageRank nodes: {top_nodes}")
 ```
 
-networkx handles graphs of any size with optimized C backends. Use it in production. Use your from-scratch implementation to understand what it does.
+networkx xử lý đồ thị có bất kỳ kích thước nào với các backend C được tối ưu hóa. Sử dụng nó trong sản xuất. Sử dụng triển khai từ đầu của bạn để hiểu nó làm gì.
 
 ### numpy spectral analysis
 
@@ -442,65 +442,65 @@ print(f"Cluster A: {group_a}")
 print(f"Cluster B: {group_b}")
 ```
 
-The Fiedler vector does the heavy lifting. Positive entries in one cluster, negative in the other. No iterative optimization needed -- just one eigendecomposition.
+Vector Fiedler làm phần việc nặng. Các phần tử dương trong một cụm, âm trong cụm kia. Không cần tối ưu hóa lặp -- chỉ một phép phân rã riêng.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/skill-graph-analysis.md` -- a skill reference for analyzing graph-structured data
+Bài học này tạo ra:
+- `outputs/skill-graph-analysis.md` -- một tài liệu skill tham khảo để phân tích dữ liệu có cấu trúc đồ thị
 
 ## Connections
 
-| Concept | Where it shows up |
+| Khái niệm | Nơi xuất hiện |
 |---------|------------------|
-| Adjacency matrix | GCN, GAT, GraphSAGE input |
-| Laplacian | Spectral clustering, ChebNet filters |
-| BFS | Knowledge graph traversal, shortest path queries |
-| Message passing | Every GNN layer, neural message passing |
-| Spectral gap | Graph connectivity, mixing time of random walks |
-| Degree distribution | Power-law networks, node feature engineering |
-| Connected components | Preprocessing, handling disconnected graphs |
-| PageRank | Node importance ranking, attention initialization |
+| Ma trận kề | Đầu vào GCN, GAT, GraphSAGE |
+| Laplacian | Phân cụm phổ, các bộ lọc ChebNet |
+| BFS | Duyệt đồ thị tri thức, truy vấn đường đi ngắn nhất |
+| Truyền thông điệp | Mọi lớp GNN, truyền thông điệp nơ-ron |
+| Khoảng cách phổ | Tính liên thông đồ thị, thời gian trộn của bước đi ngẫu nhiên |
+| Phân phối bậc | Các mạng luật lũy thừa, kỹ thuật đặc trưng nút |
+| Các thành phần liên thông | Tiền xử lý, xử lý các đồ thị không liên thông |
+| PageRank | Xếp hạng độ quan trọng nút, khởi tạo attention |
 
-GNNs deserve special mention. The graph convolution operation in GCN (Kipf & Welling, 2017) uses the adjacency matrix with added self-loops, A_hat = A + I:
+GNN đáng được đề cập riêng. Phép tích chập đồ thị trong GCN (Kipf & Welling, 2017) sử dụng ma trận kề có thêm các khuyên, A_hat = A + I:
 
 ```text
 H^(l+1) = sigma(D_hat^(-1/2) * A_hat * D_hat^(-1/2) * H^(l) * W^(l))
 ```
 
-where A_hat = A + I (adjacency plus self-loops) and D_hat is the degree matrix of A_hat. The self-loops ensure each node includes its own features during aggregation. This is exactly message passing with symmetric normalization. D_hat^(-1/2) * A_hat * D_hat^(-1/2) is the normalized adjacency matrix. The Laplacian shows up because this normalization is related to L_sym = I - D^(-1/2) * A * D^(-1/2). Understanding the Laplacian means understanding why GCNs work.
+trong đó A_hat = A + I (ma trận kề cộng các khuyên) và D_hat là ma trận bậc của A_hat. Các khuyên bảo đảm mỗi nút đưa các đặc trưng của chính nó vào quá trình tổng hợp. Đây chính xác là truyền thông điệp với chuẩn hóa đối xứng. D_hat^(-1/2) * A_hat * D_hat^(-1/2) là ma trận kề đã chuẩn hóa. Laplacian xuất hiện vì chuẩn hóa này liên quan đến L_sym = I - D^(-1/2) * A * D^(-1/2). Hiểu Laplacian nghĩa là hiểu tại sao GCN hoạt động.
 
 ## Exercises
 
-1. **Implement PageRank from scratch.** Start with uniform scores. At each step: score(v) = (1-d)/n + d * sum(score(u)/out_degree(u)) for all u pointing to v. Use d=0.85. Run until convergence (change < 1e-6). Test on a small web graph.
+1. **Triển khai PageRank từ đầu.** Bắt đầu với điểm số đều. Tại mỗi bước: score(v) = (1-d)/n + d * sum(score(u)/out_degree(u)) cho mọi u trỏ đến v. Sử dụng d=0.85. Chạy đến hội tụ (thay đổi < 1e-6). Kiểm tra trên một đồ thị web nhỏ.
 
-2. **Find communities using spectral clustering.** Create a graph with two clearly separated clusters (e.g., two cliques connected by a single edge). Run spectral clustering and verify it finds the right split. What happens as you add more cross-cluster edges?
+2. **Tìm cộng đồng bằng phân cụm phổ.** Tạo một đồ thị với hai cụm được phân tách rõ (ví dụ, hai clique kết nối bởi một cạnh duy nhất). Chạy phân cụm phổ và xác minh nó tìm ra cách chia đúng. Điều gì xảy ra khi bạn thêm các cạnh nối giữa cụm?
 
-3. **Implement Dijkstra's algorithm** for shortest paths in weighted graphs. Compare results to BFS on the same graph with uniform weights.
+3. **Triển khai thuật toán Dijkstra** cho các đường đi ngắn nhất trong đồ thị có trọng số. So sánh kết quả với BFS trên cùng đồ thị với trọng số đều.
 
-4. **Build a 2-layer message passing network.** Apply message passing twice with different weight matrices. Show that after 2 rounds, each node has information from its 2-hop neighborhood.
+4. **Xây dựng một mạng truyền thông điệp 2 lớp.** Áp dụng truyền thông điệp hai lần với các ma trận trọng số khác nhau. Chỉ ra rằng sau 2 vòng, mỗi nút có thông tin từ vùng lân cận 2 bước nhảy.
 
-5. **Analyze a real-world graph.** Use the Karate Club graph (34 nodes, 78 edges). Compute degree distribution, Laplacian eigenvalues, and spectral clustering. Compare the spectral clustering result to the known ground truth split.
+5. **Phân tích một đồ thị thực tế.** Sử dụng đồ thị Karate Club (34 nút, 78 cạnh). Tính phân phối bậc, các giá trị riêng Laplacian và phân cụm phổ. So sánh kết quả phân cụm phổ với cách chia thực tế đã biết.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Graph | "Nodes and edges" | A mathematical structure G=(V,E) encoding pairwise relationships |
-| Adjacency matrix | "The connection table" | An n x n matrix where A[i][j] = 1 if nodes i and j are connected |
-| Degree | "How connected a node is" | The number of edges touching a node |
-| Laplacian | "D minus A" | L = D - A, the matrix whose eigenvalues reveal graph structure |
-| Fiedler value | "The algebraic connectivity" | The smallest non-zero eigenvalue of L, measuring how well-connected the graph is |
-| BFS | "Level-by-level search" | Traversal that visits all neighbors before going deeper, finds shortest paths |
-| DFS | "Go deep first" | Traversal that follows one path to its end before backtracking |
-| Message passing | "Nodes talk to neighbors" | Each node aggregates information from its neighbors, the core of GNNs |
-| Spectral clustering | "Cluster by eigenvectors" | Partition a graph using eigenvectors of its Laplacian |
-| Connected component | "A separate piece" | A maximal subgraph where every node can reach every other node |
+| Graph (Đồ thị) | "Nút và cạnh" | Một cấu trúc toán học G=(V,E) mã hóa các mối quan hệ từng cặp |
+| Adjacency matrix (Ma trận kề) | "Bảng kết nối" | Một ma trận n x n trong đó A[i][j] = 1 nếu các nút i và j được kết nối |
+| Degree (Bậc) | "Một nút kết nối đến mức nào" | Số cạnh chạm một nút |
+| Laplacian | "D trừ A" | L = D - A, ma trận có các giá trị riêng tiết lộ cấu trúc đồ thị |
+| Fiedler value (Giá trị Fiedler) | "Tính liên thông đại số" | Giá trị riêng khác không nhỏ nhất của L, đo mức độ đồ thị kết nối tốt |
+| BFS | "Tìm kiếm theo từng mức" | Phép duyệt thăm tất cả láng giềng trước khi đi sâu hơn, tìm các đường đi ngắn nhất |
+| DFS | "Đi sâu trước" | Phép duyệt đi theo một đường đến cuối trước khi quay lui |
+| Message passing (Truyền thông điệp) | "Các nút nói chuyện với láng giềng" | Mỗi nút tổng hợp thông tin từ các láng giềng, cốt lõi của GNN |
+| Spectral clustering (Phân cụm phổ) | "Phân cụm bằng vector riêng" | Phân hoạch một đồ thị bằng các vector riêng của Laplacian của nó |
+| Connected component (Thành phần liên thông) | "Một phần tách biệt" | Một đồ thị con cực đại nơi mỗi nút có thể đến mọi nút khác |
 
 ## Further Reading
 
-- **Kipf & Welling (2017)** -- "Semi-Supervised Classification with Graph Convolutional Networks." The paper that launched modern GNNs. Shows that spectral graph convolutions simplify to message passing.
-- **Spielman (2012)** -- "Spectral Graph Theory" lecture notes. The definitive introduction to Laplacians, spectral gaps, and graph partitioning.
-- **Hamilton (2020)** -- "Graph Representation Learning." Book covering GNNs from fundamentals to applications.
-- **Bronstein et al. (2021)** -- "Geometric Deep Learning: Grids, Groups, Graphs, Geodesics, and Gauges." The unifying framework paper.
-- **Veličković et al. (2018)** -- "Graph Attention Networks." Extends message passing with attention mechanisms.
+- **Kipf & Welling (2017)** -- "Semi-Supervised Classification with Graph Convolutional Networks." Bài báo khởi xướng GNN hiện đại. Chỉ ra rằng tích chập đồ thị phổ đơn giản thành truyền thông điệp.
+- **Spielman (2012)** -- Tập bài giảng "Spectral Graph Theory". Phần giới thiệu chuẩn mực về Laplacian, khoảng cách phổ và phân hoạch đồ thị.
+- **Hamilton (2020)** -- "Graph Representation Learning." Sách bao quát GNN từ nền tảng đến ứng dụng.
+- **Bronstein et al. (2021)** -- "Geometric Deep Learning: Grids, Groups, Graphs, Geodesics, and Gauges." Bài báo về khuôn khổ thống nhất.
+- **Veličković et al. (2018)** -- "Graph Attention Networks." Mở rộng truyền thông điệp với các cơ chế attention.
