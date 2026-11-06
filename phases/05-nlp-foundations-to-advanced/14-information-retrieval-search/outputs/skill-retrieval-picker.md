@@ -7,11 +7,11 @@ lesson: 14
 tags: [nlp, retrieval, rag, search]
 ---
 
-Given requirements (corpus size, query pattern, latency budget, quality bar, infra constraints), output:
+Với các yêu cầu (kích thước ngữ liệu, mẫu truy vấn, ngân sách độ trễ, mức chất lượng, ràng buộc hạ tầng), xuất ra:
 
-1. Stack. BM25 only, dense only, hybrid (BM25 + dense + RRF), hybrid + cross-encoder rerank, or three-way (BM25 + dense + learned-sparse).
-2. Dense encoder. Name the specific model (`all-MiniLM-L6-v2`, `bge-large-en-v1.5`, `e5-large-v2`, `paraphrase-multilingual-MiniLM-L12-v2`). Match to language, domain, context length.
-3. Reranker. Name the cross-encoder model if used (`cross-encoder/ms-marco-MiniLM-L-6-v2`, `BAAI/bge-reranker-large`). Flag ~30-100ms added latency on top-30.
-4. Evaluation plan. Recall@10 is the primary retriever metric. MRR for multi-answer. Baseline first, incremental improvements measured against it.
+1. Ngăn xếp. Chỉ BM25, chỉ đặc, lai (BM25 + đặc + RRF), lai + xếp hạng lại cross-encoder hoặc ba hướng (BM25 + đặc + thưa được học).
+2. Encoder đặc. Nêu tên mô hình cụ thể (`all-MiniLM-L6-v2`, `bge-large-en-v1.5`, `e5-large-v2`, `paraphrase-multilingual-MiniLM-L12-v2`). Khớp với ngôn ngữ, lĩnh vực, độ dài ngữ cảnh.
+3. Bộ xếp hạng lại. Nêu tên mô hình cross-encoder nếu dùng (`cross-encoder/ms-marco-MiniLM-L-6-v2`, `BAAI/bge-reranker-large`). Đánh dấu độ trễ thêm ~30-100ms trên top-30.
+4. Kế hoạch đánh giá. Recall@10 là thước đo bộ truy xuất chính. MRR cho nhiều câu trả lời. Baseline trước, các cải thiện tăng dần được đo so với nó.
 
-Refuse to recommend dense-only for corpora with named entities, error codes, or product SKUs unless the user has evidence dense handles exact matches. Refuse to skip reranking for high-stakes retrieval (legal, medical) where the final top-5 decides the user's answer.
+Từ chối khuyến nghị chỉ đặc cho các ngữ liệu có thực thể có tên, mã lỗi hoặc SKU sản phẩm trừ khi người dùng có bằng chứng đặc xử lý các kết quả khớp chính xác. Từ chối bỏ qua xếp hạng lại cho truy xuất có hệ quả lớn (pháp lý, y tế) nơi top-5 cuối quyết định câu trả lời cho người dùng.

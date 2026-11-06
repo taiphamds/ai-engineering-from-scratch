@@ -1,6 +1,6 @@
 # Information Retrieval and Search
 
-> BM25 is precise but brittle. Dense casts a wide net but misses keywords. Hybrid is the 2026 default. Everything else is tuning.
+> BM25 chính xác nhưng mong manh. Truy xuất đặc giăng lưới rộng nhưng bỏ sót từ khóa. Lai là mặc định năm 2026. Mọi thứ khác là tinh chỉnh.
 
 **Type:** Build
 **Languages:** Python
@@ -9,24 +9,24 @@
 
 ## The Problem
 
-The user types "what happens if someone lies to get money" and expects to find the statute that actually covers that: "Section 420 IPC." A keyword search misses it entirely (no shared vocabulary). A semantic search misses it if the embeddings were not trained on legal text. Real search has to handle both.
+Người dùng gõ "điều gì xảy ra nếu ai đó nói dối để lấy tiền" và kỳ vọng tìm được điều luật thực sự bao quát điều đó: "Điều 420 IPC." Một tìm kiếm từ khóa bỏ lỡ hoàn toàn (không có từ vựng chung). Một tìm kiếm ngữ nghĩa bỏ lỡ nếu các embedding không được huấn luyện trên văn bản pháp lý. Tìm kiếm thực phải xử lý cả hai.
 
-IR is the pipeline under every RAG system, every search bar, every docs site's fuzzy lookup. The 2026 architecture that works in production is not a single method. It is a chain of complementary methods, each catching the failures of the one before.
+IR là pipeline bên dưới mọi hệ thống RAG, mọi thanh tìm kiếm, mọi tra cứu gần đúng của trang tài liệu. Kiến trúc năm 2026 hoạt động trong production không phải một phương pháp duy nhất. Nó là một chuỗi các phương pháp bổ sung nhau, mỗi phương pháp bắt các lỗi của phương pháp trước.
 
-This lesson builds each piece and names which failures each catches.
+Bài học này xây dựng từng phần và nêu tên những lỗi mỗi phần bắt được.
 
 ## The Concept
 
 ![Hybrid retrieval: BM25 + dense + RRF + cross-encoder rerank](../assets/retrieval.svg)
 
-Four layers. Pick the ones you need.
+Bốn tầng. Chọn những tầng bạn cần.
 
-1. **Sparse retrieval (BM25).** Fast, precise on exact matches, terrible on semantics. Run over an inverted index. Sub-10ms per query on millions of documents. Gets you statute references, product codes, error messages, named entities right.
-2. **Dense retrieval.** Encode query and documents into vectors. Nearest neighbor search. Captures paraphrases and semantic similarity. Misses exact keyword matches that differ by one character. 50-200ms per query with FAISS or a vector DB.
-3. **Fusion.** Merge the ranked lists from sparse and dense. Reciprocal Rank Fusion (RRF) is the easy default because it ignores raw scores (which live in different scales) and only uses rank positions. Weighted fusion is an option when you know one signal dominates for your domain.
-4. **Cross-encoder rerank.** Take the top-30 from fusion. Run a cross-encoder (query + document together, scoring each pair). Keep the top-5. Cross-encoders are slower per pair than bi-encoders but far more accurate. You amortize by only running them on the top-30.
+1. **Truy xuất thưa (BM25).** Nhanh, chính xác với các kết quả khớp chính xác, rất tệ về ngữ nghĩa. Chạy trên một chỉ mục đảo. Dưới 10ms mỗi truy vấn trên hàng triệu tài liệu. Lấy đúng các tham chiếu luật, mã sản phẩm, thông báo lỗi, thực thể có tên.
+2. **Truy xuất đặc.** Mã hóa truy vấn và tài liệu thành các vector. Tìm kiếm láng giềng gần nhất. Nắm bắt diễn đạt lại và độ tương đồng ngữ nghĩa. Bỏ sót các kết quả khớp từ khóa chính xác khác nhau một ký tự. 50-200ms mỗi truy vấn với FAISS hoặc một DB vector.
+3. **Kết hợp.** Gộp các danh sách xếp hạng từ thưa và đặc. Reciprocal Rank Fusion (RRF) là mặc định dễ dùng vì nó bỏ qua các điểm thô (nằm trên các thang khác nhau) và chỉ dùng các vị trí thứ hạng. Kết hợp có trọng số là một lựa chọn khi bạn biết một tín hiệu chi phối cho lĩnh vực của mình.
+4. **Xếp hạng lại cross-encoder.** Lấy top-30 từ kết hợp. Chạy một cross-encoder (truy vấn + tài liệu cùng nhau, chấm điểm mỗi cặp). Giữ top-5. Cross-encoder chậm hơn bi-encoder trên mỗi cặp nhưng chính xác hơn nhiều. Bạn phân bổ chi phí bằng cách chỉ chạy chúng trên top-30.
 
-Three-way retrieval (BM25 + dense + learned-sparse like SPLADE) outperforms two-way in 2026 benchmarks but needs infrastructure for learned-sparse indexes. For most teams, two-way plus cross-encoder rerank is the sweet spot.
+Truy xuất ba hướng (BM25 + đặc + thưa được học như SPLADE) vượt hai hướng trong các benchmark năm 2026 nhưng cần hạ tầng cho các chỉ mục thưa được học. Với hầu hết các nhóm, hai hướng cộng xếp hạng lại cross-encoder là điểm cân bằng tốt.
 
 ```figure
 gx-hybrid-retrieval
@@ -87,7 +87,7 @@ class BM25:
         return scored[:top_k]
 ```
 
-Two parameters worth knowing. `k1=1.5` controls term-frequency saturation; higher means more weight on term repetition. `b=0.75` controls length normalization; 0 ignores document length, 1 fully normalizes. The defaults are Robertson's recommendations from the original paper and rarely need tuning.
+Hai tham số cần biết. `k1=1.5` kiểm soát độ bão hòa tần suất thuật ngữ; cao hơn nghĩa là trọng số lớn hơn cho sự lặp thuật ngữ. `b=0.75` kiểm soát chuẩn hóa độ dài; 0 bỏ qua độ dài tài liệu, 1 chuẩn hóa hoàn toàn. Các mặc định là khuyến nghị của Robertson từ bài báo gốc và hiếm khi cần tinh chỉnh.
 
 ### Step 2: dense retrieval with a bi-encoder
 
@@ -109,7 +109,7 @@ def dense_search(encoder, embeddings, query, top_k=10):
     return [(float(sims[i]), int(i)) for i in order]
 ```
 
-L2-normalize embeddings so dot product equals cosine. `all-MiniLM-L6-v2` is 384-dim, fast, and strong enough for most English retrieval. For multilingual work, use `paraphrase-multilingual-MiniLM-L12-v2`. For top accuracy, `bge-large-en-v1.5` or `e5-large-v2`.
+Chuẩn hóa L2 các embedding để tích vô hướng bằng cosine. `all-MiniLM-L6-v2` có 384 chiều, nhanh và đủ mạnh cho hầu hết truy xuất tiếng Anh. Với công việc đa ngôn ngữ, dùng `paraphrase-multilingual-MiniLM-L12-v2`. Để có accuracy hàng đầu, `bge-large-en-v1.5` hoặc `e5-large-v2`.
 
 ### Step 3: Reciprocal Rank Fusion
 
@@ -123,7 +123,7 @@ def reciprocal_rank_fusion(rankings, k=60):
     return [(score, doc_idx) for doc_idx, score in fused]
 ```
 
-The `k=60` constant comes from the original RRF paper. Higher `k` flattens the contribution of rank differences; lower `k` makes top ranks dominate. 60 is the published default and rarely needs tuning.
+Hằng số `k=60` đến từ bài báo RRF gốc. `k` cao hơn làm phẳng đóng góp của các khác biệt thứ hạng; `k` thấp hơn khiến các thứ hạng đầu chi phối. 60 là mặc định đã công bố và hiếm khi cần tinh chỉnh.
 
 ### Step 4: hybrid search + rerank
 
@@ -144,49 +144,49 @@ def hybrid_search(query, bm25, encoder, dense_embeddings, corpus, top_k=5, pool_
     return reranked[:top_k]
 ```
 
-Three stages composed. BM25 finds lexical matches. Dense finds semantic matches. RRF merges the two rankings without needing score calibration. Cross-encoder rescores the top-30 using query-document pairs together, which captures fine-grained relevance the bi-encoder missed. Keep top-5.
+Ba giai đoạn được kết hợp. BM25 tìm các kết quả khớp từ vựng. Truy xuất đặc tìm các kết quả khớp ngữ nghĩa. RRF gộp hai bảng xếp hạng mà không cần hiệu chuẩn điểm. Cross-encoder chấm lại top-30 dùng các cặp truy vấn-tài liệu cùng nhau, nắm bắt tính liên quan chi tiết mà bi-encoder bỏ sót. Giữ top-5.
 
 ### Step 5: evaluation
 
-| Metric | Meaning |
+| Thước đo | Ý nghĩa |
 |--------|---------|
-| Recall@k | Of queries where the correct document exists, how often is it in the top-k? |
-| MRR (Mean Reciprocal Rank) | Average of 1/rank of first relevant document. |
-| nDCG@k | Accounts for relevance gradations, not just binary relevant/not. |
+| Recall@k | Trong các truy vấn mà tài liệu đúng tồn tại, nó nằm trong top-k bao nhiêu lần? |
+| MRR (Mean Reciprocal Rank) | Trung bình của 1/thứ hạng của tài liệu liên quan đầu tiên. |
+| nDCG@k | Tính đến các mức độ liên quan, không chỉ nhị phân liên quan/không. |
 
-For RAG specifically, **Recall@k** of the retriever is the most important number. Your reader cannot answer if the right passage is not in the retrieved set.
+Riêng với RAG, **Recall@k** của bộ truy xuất là con số quan trọng nhất. Bộ đọc của bạn không thể trả lời nếu đúng đoạn văn không nằm trong tập được truy xuất.
 
-Debugging tip: for failing queries, diff the sparse and dense rankings. If one finds the right document and the other does not, you have a vocabulary mismatch (fix: add the missing half) or a semantic ambiguity (fix: better embeddings or a reranker).
+Mẹo gỡ lỗi: với các truy vấn thất bại, so sánh khác biệt giữa các bảng xếp hạng thưa và đặc. Nếu một bên tìm đúng tài liệu còn bên kia không, bạn có sự không khớp từ vựng (cách sửa: thêm nửa còn thiếu) hoặc sự nhập nhằng ngữ nghĩa (cách sửa: các embedding tốt hơn hoặc một bộ xếp hạng lại).
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Scale | Stack |
+| Quy mô | Ngăn xếp |
 |-------|-------|
-| 1k-100k docs | In-memory BM25 + `all-MiniLM-L6-v2` embeddings + RRF. No separate DB. |
-| 100k-10M docs | FAISS or pgvector for dense + Elasticsearch / OpenSearch for BM25. Run in parallel. |
-| 10M+ docs | Qdrant / Weaviate / Vespa / Milvus with hybrid support. Cross-encoder rerank on top-30. |
-| Best-quality frontier | Three-way (BM25 + dense + SPLADE) + ColBERT late-interaction reranking |
+| 1k-100k tài liệu | BM25 trong bộ nhớ + các embedding `all-MiniLM-L6-v2` + RRF. Không có DB riêng. |
+| 100k-10M tài liệu | FAISS hoặc pgvector cho đặc + Elasticsearch / OpenSearch cho BM25. Chạy song song. |
+| 10M+ tài liệu | Qdrant / Weaviate / Vespa / Milvus có hỗ trợ lai. Xếp hạng lại cross-encoder trên top-30. |
+| Tuyến đầu chất lượng tốt nhất | Ba hướng (BM25 + đặc + SPLADE) + xếp hạng lại tương tác muộn ColBERT |
 
-Whatever you pick, budget for evaluation. Benchmark retrieval recall before benchmarking end-to-end RAG accuracy. A reader cannot fix what the retriever missed.
+Dù chọn gì, hãy dành ngân sách cho đánh giá. Benchmark recall truy xuất trước khi benchmark độ chính xác RAG đầu cuối. Một bộ đọc không thể sửa những gì bộ truy xuất bỏ sót.
 
 ### The hard-won lessons from 2026 production RAG
 
-- **80% of RAG failures trace to ingestion and chunking, not the model.** Teams spend weeks swapping LLMs and tuning prompts while the retrieval quietly returns the wrong context every third query. Fix chunking first.
-- **Chunking strategy matters more than chunk size.** Fixed-size splits break tables, code, and nested headers. Sentence-aware is the default; semantic or LLM-based chunking pays off for technical docs and product manuals.
-- **Parent-doc pattern.** Retrieve small "child" chunks for precision. When multiple children from the same parent section appear, swap in the parent block to preserve context. This consistently lifts answer quality without retraining.
-- **k_rerank=3 is usually optimal.** Every extra chunk past that adds token cost and generation latency without lifting answer quality. If k=8 is still better than k=3 for you, the reranker is underperforming.
-- **HyDE / query expansion.** Generate a hypothetical answer from the query, embed that, retrieve. Bridges the phrasing gap between short questions and long documents. Free precision lift with no training.
-- **Context budget under 8K tokens.** Consistent hits at that limit mean the reranker threshold is too loose.
-- **Version everything.** Prompts, chunking rules, embedding model, reranker. Any drift silently breaks answer quality. CI gates on faithfulness, context precision, and unanswered-question rate block regressions before users see them.
-- **Three-way retrieval (BM25 + dense + learned-sparse like SPLADE) outperforms two-way** on 2026 benchmarks, especially for queries mixing proper nouns with semantics. Ship it when infrastructure supports SPLADE indexes.
+- **80% các lỗi RAG bắt nguồn từ nạp dữ liệu và chia khối, không phải mô hình.** Các nhóm dành hàng tuần hoán đổi LLM và tinh chỉnh prompt trong khi truy xuất âm thầm trả sai ngữ cảnh cứ mỗi ba truy vấn. Sửa chia khối trước.
+- **Chiến lược chia khối quan trọng hơn kích thước khối.** Các lần chia kích thước cố định phá các bảng, mã và tiêu đề lồng nhau. Nhận biết câu là mặc định; chia khối ngữ nghĩa hoặc dựa trên LLM đáng giá với tài liệu kỹ thuật và hướng dẫn sản phẩm.
+- **Mẫu tài liệu cha.** Truy xuất các khối "con" nhỏ để có precision. Khi nhiều khối con từ cùng một phần cha xuất hiện, thay bằng khối cha để giữ ngữ cảnh. Điều này nâng chất lượng câu trả lời một cách nhất quán mà không huấn luyện lại.
+- **k_rerank=3 thường là tối ưu.** Mọi khối thêm sau đó thêm chi phí token và độ trễ sinh mà không nâng chất lượng câu trả lời. Nếu k=8 vẫn tốt hơn k=3 với bạn, bộ xếp hạng lại đang hoạt động dưới mức.
+- **HyDE / mở rộng truy vấn.** Sinh một câu trả lời giả định từ truy vấn, embedding nó, truy xuất. Nối khoảng cách cách diễn đạt giữa các câu hỏi ngắn và tài liệu dài. Nâng precision miễn phí không cần huấn luyện.
+- **Ngân sách ngữ cảnh dưới 8K token.** Liên tục chạm giới hạn đó nghĩa là ngưỡng bộ xếp hạng lại quá lỏng.
+- **Quản lý phiên bản mọi thứ.** Prompt, quy tắc chia khối, mô hình embedding, bộ xếp hạng lại. Bất kỳ độ trôi nào cũng âm thầm phá chất lượng câu trả lời. Các cổng CI dựa trên độ trung thành, precision ngữ cảnh và tỷ lệ câu hỏi không được trả lời chặn các hồi quy trước khi người dùng thấy chúng.
+- **Truy xuất ba hướng (BM25 + đặc + thưa được học như SPLADE) vượt hai hướng** trên các benchmark năm 2026, đặc biệt với các truy vấn trộn danh từ riêng và ngữ nghĩa. Phát hành nó khi hạ tầng hỗ trợ các chỉ mục SPLADE.
 
-Proper retrieval design reduces hallucinations by 70-90% according to 2026 industry measurements. Most RAG performance gains come from better retrieval, not model fine-tuning.
+Thiết kế truy xuất đúng giảm ảo giác 70-90% theo các phép đo trong ngành năm 2026. Hầu hết cải thiện hiệu năng RAG đến từ truy xuất tốt hơn, không phải fine-tuning mô hình.
 
 ## Ship It
 
-Save as `outputs/skill-retrieval-picker.md`:
+Lưu thành `outputs/skill-retrieval-picker.md`:
 
 ```markdown
 ---
@@ -210,25 +210,25 @@ Refuse to recommend dense-only for corpora with named entities, error codes, or 
 
 ## Exercises
 
-1. **Easy.** Implement `hybrid_search` above on a 500-document corpus. Test 20 queries. Compare recall at 5 between BM25-only, dense-only, and hybrid.
-2. **Medium.** Add MRR calculation. For each test query with a known correct document, find the rank of the correct doc in BM25, dense, and hybrid rankings. Report the MRR for each.
-3. **Hard.** Fine-tune a dense encoder on your domain using MultipleNegativesRankingLoss (Sentence Transformers). Build a training set from 500 query-document pairs. Compare pre- and post-fine-tune recall.
+1. **Dễ.** Triển khai `hybrid_search` ở trên trên một ngữ liệu 500 tài liệu. Kiểm thử 20 truy vấn. So sánh recall tại 5 giữa chỉ BM25, chỉ đặc và lai.
+2. **Trung bình.** Thêm phép tính MRR. Với mỗi truy vấn kiểm thử có một tài liệu đúng đã biết, tìm thứ hạng tài liệu đúng trong các bảng xếp hạng BM25, đặc và lai. Báo cáo MRR cho mỗi bên.
+3. **Khó.** Fine-tune một encoder đặc trên lĩnh vực của bạn bằng MultipleNegativesRankingLoss (Sentence Transformers). Xây dựng một tập huấn luyện từ 500 cặp truy vấn-tài liệu. So sánh recall trước và sau fine-tune.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| BM25 | Keyword search | Okapi BM25. Scores documents by term frequency, IDF, and length. |
-| Dense retrieval | Vector search | Encode query + doc into vectors, find nearest neighbors. |
-| Bi-encoder | Embedding model | Encodes query and doc independently. Fast at query time. |
-| Cross-encoder | Reranker model | Encodes query + doc together. Slow but accurate. |
-| RRF | Rank fusion | Combine two rankings by summing `1/(k + rank)`. |
-| Recall@k | Retrieval metric | Fraction of queries where a relevant doc is in the top-k. |
+| BM25 | Tìm kiếm từ khóa | Okapi BM25. Chấm điểm tài liệu theo tần suất thuật ngữ, IDF và độ dài. |
+| Dense retrieval (Truy xuất đặc) | Tìm kiếm vector | Mã hóa truy vấn + tài liệu thành các vector, tìm các láng giềng gần nhất. |
+| Bi-encoder | Mô hình embedding | Mã hóa truy vấn và tài liệu độc lập. Nhanh khi truy vấn. |
+| Cross-encoder | Mô hình xếp hạng lại | Mã hóa truy vấn + tài liệu cùng nhau. Chậm nhưng chính xác. |
+| RRF | Kết hợp thứ hạng | Kết hợp hai bảng xếp hạng bằng cách cộng `1/(k + rank)`. |
+| Recall@k | Thước đo truy xuất | Tỷ lệ các truy vấn mà một tài liệu liên quan nằm trong top-k. |
 
 ## Further Reading
 
-- [Robertson and Zaragoza (2009). The Probabilistic Relevance Framework: BM25 and Beyond](https://www.staff.city.ac.uk/~sbrp622/papers/foundations_bm25_review.pdf) — the definitive BM25 treatment.
-- [Karpukhin et al. (2020). Dense Passage Retrieval for Open-Domain QA](https://arxiv.org/abs/2004.04906) — DPR, the canonical bi-encoder.
-- [Formal et al. (2021). SPLADE: Sparse Lexical and Expansion Model](https://arxiv.org/abs/2107.05720) — the learned-sparse retriever that closes the gap with dense.
-- [Cormack, Clarke, Büttcher (2009). Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods](https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf) — RRF paper.
-- [Khattab and Zaharia (2020). ColBERT: Efficient and Effective Passage Search](https://arxiv.org/abs/2004.12832) — late-interaction retrieval.
+- [Robertson and Zaragoza (2009). The Probabilistic Relevance Framework: BM25 and Beyond](https://www.staff.city.ac.uk/~sbrp622/papers/foundations_bm25_review.pdf) — cách trình bày BM25 đầy đủ nhất.
+- [Karpukhin et al. (2020). Dense Passage Retrieval for Open-Domain QA](https://arxiv.org/abs/2004.04906) — DPR, bi-encoder kinh điển.
+- [Formal et al. (2021). SPLADE: Sparse Lexical and Expansion Model](https://arxiv.org/abs/2107.05720) — bộ truy xuất thưa được học thu hẹp khoảng cách với đặc.
+- [Cormack, Clarke, Büttcher (2009). Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods](https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf) — bài báo RRF.
+- [Khattab and Zaharia (2020). ColBERT: Efficient and Effective Passage Search](https://arxiv.org/abs/2004.12832) — truy xuất tương tác muộn.
