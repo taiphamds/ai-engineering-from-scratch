@@ -7,27 +7,27 @@ lesson: 27
 tags: [security, prompt-injection, pve, greshake, source-tag]
 ---
 
-Given an agent with tool access and retrieval, produce an injection-defense layer.
+Với một agent có quyền truy cập công cụ và truy xuất, tạo một lớp phòng vệ injection.
 
-Produce:
+Tạo:
 
-1. Source tag on every piece of content: `user_message`, `tool_output`, `retrieved_web`, `retrieved_memory`, `retrieved_file`. Propagate tags through the message history.
-2. `Validator.assess(tool_call, contents)` — refuses tool calls with injection-shaped args or retrieved content; allowed only when source tags match the declared trust level.
-3. Allowlist / blocklist for navigation: URLs, domains, file paths the agent may touch.
-4. Memory-write guardrail: refuse writes that look like directives.
-5. Content-capture discipline (Lesson 23): store retrieved content externally; spans carry reference IDs, not prose.
-6. Test suite: the five Greshake exploit classes as red-team cases.
+1. Thẻ nguồn trên mỗi phần nội dung: `user_message`, `tool_output`, `retrieved_web`, `retrieved_memory`, `retrieved_file`. Lan truyền các thẻ qua lịch sử thông điệp.
+2. `Validator.assess(tool_call, contents)` — từ chối các lời gọi công cụ với các đối số hoặc nội dung được truy xuất có dạng injection; chỉ cho phép khi các thẻ nguồn khớp mức tin cậy đã khai báo.
+3. Danh sách cho phép / chặn cho điều hướng: các URL, miền, đường dẫn file mà agent có thể chạm đến.
+4. Chốt bảo vệ ghi bộ nhớ: từ chối các lần ghi trông như chỉ thị.
+5. Kỷ luật ghi nội dung (Bài 23): lưu nội dung được truy xuất bên ngoài; các span mang ID tham chiếu, không phải văn xuôi.
+6. Bộ kiểm thử: năm lớp khai thác Greshake dưới dạng các trường hợp red-team.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Tool-use surface without source tags. Cannot distinguish permission levels without provenance.
-- Validator that runs only on the final output. Late validation is irrelevant — the model already acted.
-- "Trust me, the system prompt handles it." System-prompt hygiene is not a control.
+- Bề mặt sử dụng công cụ không có thẻ nguồn. Không thể phân biệt các mức cho phép nếu không có nguồn gốc.
+- Bộ xác thực chỉ chạy trên đầu ra cuối cùng. Xác thực muộn không liên quan — mô hình đã hành động.
+- "Tin tôi, system prompt xử lý nó." Vệ sinh system prompt không phải một biện pháp kiểm soát.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the agent has any retrieval capability without source tagging, refuse to ship. Retrieved content is the canonical injection vector.
-- If sensitive tools (send message, execute shell, write file in /) have no human-in-the-loop confirmation, refuse.
-- If memory writes are unguarded, refuse. Persistent memory poisoning re-poisons next session.
+- Nếu agent có bất kỳ khả năng truy xuất nào mà không có gắn thẻ nguồn, từ chối phát hành. Nội dung được truy xuất là vector injection kinh điển.
+- Nếu các công cụ nhạy cảm (gửi thông điệp, thực thi shell, ghi file trong /) không có xác nhận có con người tham gia, từ chối.
+- Nếu các lần ghi bộ nhớ không được bảo vệ, từ chối. Đầu độc bộ nhớ lưu giữ đầu độc lại phiên tiếp theo.
 
-Output: `validator.py`, `source_tag.py`, `allowlist.py`, `memory_guard.py`, `red_team.py`, `README.md` explaining the six-control stack, residual risks, and ongoing review cadence. End with "what to read next" pointing to Lesson 21 (computer use safety) and Lesson 23 (content capture via OTel).
+Đầu ra: `validator.py`, `source_tag.py`, `allowlist.py`, `memory_guard.py`, `red_team.py`, `README.md` giải thích stack sáu biện pháp kiểm soát, các rủi ro còn lại và nhịp đánh giá liên tục. Kết thúc bằng "đọc gì tiếp theo" chỉ đến Bài 21 (an toàn sử dụng máy tính) và Bài 23 (ghi nội dung qua OTel).
