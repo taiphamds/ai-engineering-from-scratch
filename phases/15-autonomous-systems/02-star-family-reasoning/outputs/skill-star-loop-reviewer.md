@@ -7,32 +7,32 @@ lesson: 2
 tags: [star, vstar, quiet-star, self-improvement, reasoning, bootstrap]
 ---
 
-Given a proposed STaR-style bootstrap pipeline (base model, problem source, filter rule, training frequency, evaluation plan), produce a pre-training audit that predicts what the loop will and will not improve.
+Với một pipeline bootstrap kiểu STaR được đề xuất (mô hình cơ sở, nguồn bài toán, quy tắc lọc, tần suất huấn luyện, kế hoạch đánh giá), tạo một kiểm toán trước huấn luyện dự đoán vòng lặp sẽ và sẽ không cải thiện điều gì.
 
-Produce:
+Tạo:
 
-1. **Filter analysis.** State exactly what the "keep" rule grades on (final answer, final answer + format check, final answer + verifier). Identify the class of rationales the filter will preserve that a human would reject.
-2. **Shortcut surface.** For the problem distribution, name the three most plausible shortcuts (pattern-match, arithmetic trick, heuristic guessing) that reach the right answer without sound reasoning. Estimate what fraction of the training corpus they can "solve".
-3. **OOD plan.** Require the pipeline to hold out a problem set drawn from a distribution the shortcuts cannot reach. If the pipeline does not have one, refuse and recommend one before training starts.
-4. **Verifier design (if V-STaR).** State what the verifier is trained on. If it is trained on the same (problem, rationale, label) triples as the generator, flag the risk of reinforcing confident wrongness.
-5. **Compute vs labelling tradeoff.** Compare the projected STaR compute cost to the cost of a smaller process-supervised labelling effort. If the process-supervised alternative produces better held-out quality for less money, recommend it.
+1. **Phân tích bộ lọc.** Nêu chính xác quy tắc "giữ" chấm theo điều gì (câu trả lời cuối cùng, câu trả lời cuối cùng + kiểm tra định dạng, câu trả lời cuối cùng + bộ xác minh). Nhận diện lớp lý giải mà bộ lọc sẽ giữ lại nhưng một con người sẽ từ chối.
+2. **Bề mặt lối tắt.** Với phân phối bài toán, nêu tên ba lối tắt có khả năng nhất (khớp mẫu, mẹo số học, đoán heuristic) đạt câu trả lời đúng mà không có suy luận đúng đắn. Ước lượng chúng có thể "giải" phần bao nhiêu kho ngữ liệu huấn luyện.
+3. **Kế hoạch OOD.** Yêu cầu pipeline giữ riêng một tập bài toán được lấy từ một phân phối mà các lối tắt không thể tiếp cận. Nếu pipeline không có một tập, từ chối và khuyến nghị một tập trước khi huấn luyện bắt đầu.
+4. **Thiết kế bộ xác minh (nếu V-STaR).** Nêu bộ xác minh được huấn luyện trên gì. Nếu nó được huấn luyện trên cùng các bộ ba (bài toán, lý giải, nhãn) như bộ tạo, gắn cờ rủi ro củng cố sự sai tự tin.
+5. **Đánh đổi tính toán với gán nhãn.** So sánh chi phí tính toán STaR dự kiến với chi phí một nỗ lực gán nhãn giám sát theo quá trình nhỏ hơn. Nếu lựa chọn giám sát theo quá trình tạo chất lượng trên tập giữ riêng tốt hơn với ít tiền hơn, khuyến nghị nó.
 
-Hard rejects:
-- Any STaR pipeline without a held-out OOD evaluation.
-- Any claim that "the model's rationales prove the model reasons correctly." The filter rewards right answers, not right reasoning.
-- Running STaR on a problem class where the label itself is ambiguous or noisy — the loop amplifies label noise.
+Các trường hợp từ chối cứng:
+- Bất kỳ pipeline STaR nào không có một đánh giá OOD được giữ riêng.
+- Bất kỳ tuyên bố nào rằng "các phần lý giải của mô hình chứng minh mô hình suy luận đúng." Bộ lọc thưởng các câu trả lời đúng, không phải suy luận đúng.
+- Chạy STaR trên một lớp bài toán mà chính nhãn mơ hồ hoặc nhiễu — vòng lặp khuếch đại nhiễu nhãn.
 
-Refusal rules:
-- If the user cannot name at least one plausible shortcut, refuse and ask them to spend an hour looking at sampled rationales before proceeding. Every domain has shortcuts; not knowing them is a red flag.
-- If the base model's baseline accuracy is already above 90% on the target distribution, refuse STaR and recommend targeted process supervision on the remaining failures. STaR is least valuable near saturation.
-- If the training loop has no stopping condition other than "keep going," refuse. Rounds past peak OOD accuracy actively degrade quality.
+Các quy tắc từ chối:
+- Nếu người dùng không thể nêu tên ít nhất một lối tắt có thể có, từ chối và yêu cầu họ dành một giờ xem các phần lý giải được lấy mẫu trước khi tiếp tục. Mọi miền đều có các lối tắt; không biết chúng là một dấu hiệu cảnh báo.
+- Nếu độ chính xác đường cơ sở của mô hình cơ sở đã trên 90% trên phân phối đích, từ chối STaR và khuyến nghị giám sát theo quá trình có mục tiêu trên các thất bại còn lại. STaR ít giá trị nhất gần bão hòa.
+- Nếu vòng lặp huấn luyện không có điều kiện dừng nào ngoài "tiếp tục," từ chối. Các vòng vượt đỉnh độ chính xác OOD chủ động làm suy giảm chất lượng.
 
-Output format:
+Định dạng đầu ra:
 
-Return a short memo with:
-- **Pipeline summary** (one paragraph)
-- **Filter grade** (what it rewards, what it misses)
-- **Top 3 shortcuts** (with examples)
-- **OOD evaluation plan** (or a ticket to create one)
-- **Verifier risk** (if applicable)
-- **Recommendation** (proceed / redesign / choose process supervision instead)
+Trả về một bản ghi nhớ ngắn với:
+- **Tóm tắt pipeline** (một đoạn)
+- **Đánh giá bộ lọc** (nó thưởng gì, bỏ lỡ gì)
+- **3 lối tắt hàng đầu** (với các ví dụ)
+- **Kế hoạch đánh giá OOD** (hoặc một phiếu để tạo một kế hoạch)
+- **Rủi ro bộ xác minh** (nếu áp dụng)
+- **Khuyến nghị** (tiếp tục / thiết kế lại / chọn giám sát theo quá trình thay thế)
