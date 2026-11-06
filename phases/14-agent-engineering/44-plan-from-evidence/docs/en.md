@@ -1,6 +1,6 @@
 # Build an Evidence-Backed Execution Plan
 
-> A plan is not a prettier to-do list. It is a dependency graph in which every change has a reason and every terminal node has proof.
+> Một kế hoạch không phải một danh sách việc cần làm đẹp hơn. Đó là một đồ thị phụ thuộc trong đó mỗi thay đổi có một lý do và mỗi nút cuối có bằng chứng.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,34 +9,34 @@
 
 ## Learning Objectives
 
-- Convert a task frame into work items with evidence and proof.
-- Model ordering as dependencies instead of prose sequence.
-- Detect missing facts, unknown dependencies, and cycles before editing.
-- Separate steps that can run together from steps that must wait.
+- Chuyển một khung tác vụ thành các mục công việc với bằng chứng và chứng minh.
+- Mô hình hóa thứ tự như các phụ thuộc thay vì trình tự văn xuôi.
+- Phát hiện các sự thật bị thiếu, phụ thuộc không xác định và chu trình trước khi chỉnh sửa.
+- Tách các bước có thể chạy cùng nhau khỏi các bước phải chờ.
 
 ## Why Agent Plans Fail
 
-Weak plans repeat the request in future tense:
+Các kế hoạch yếu lặp lại yêu cầu ở thì tương lai:
 
-1. Update the API.
-2. Add tests.
-3. Update documentation.
+1. Cập nhật API.
+2. Thêm các kiểm thử.
+3. Cập nhật tài liệu.
 
-Nothing in that list says what was found, why those files are correct, which contract changes first, or what can happen concurrently. An agent can follow every step and still create rework.
+Không điều gì trong danh sách đó nói điều gì đã được tìm thấy, vì sao các file đó đúng, hợp đồng nào thay đổi trước hoặc điều gì có thể xảy ra đồng thời. Một agent có thể làm theo mọi bước và vẫn tạo ra việc làm lại.
 
-A strong plan makes five commitments for each work item:
+Một kế hoạch mạnh đưa ra năm cam kết cho mỗi mục công việc:
 
-| Commitment | Purpose |
+| Cam kết | Mục đích |
 |---|---|
-| Identifier | Stable reference for dependencies and handoff |
-| Change | The smallest behavior or contract change |
-| Evidence | Repository facts that justify the change |
-| Dependencies | Work that must be true first |
-| Proof | The exact check that closes the item |
+| Định danh | Tham chiếu ổn định cho các phụ thuộc và bàn giao |
+| Thay đổi | Thay đổi hành vi hoặc hợp đồng nhỏ nhất |
+| Bằng chứng | Các sự thật kho mã biện minh cho thay đổi |
+| Các phụ thuộc | Công việc phải đúng trước |
+| Chứng minh | Kiểm tra chính xác đóng mục |
 
 ## Plan the Contract Before Its Implementations
 
-When multiple surfaces depend on the same behavior, define the behavior first. Tests, implementation, documentation, and integration can then share one contract instead of inventing four versions.
+Khi nhiều bề mặt phụ thuộc vào cùng hành vi, định nghĩa hành vi trước. Các kiểm thử, triển khai, tài liệu và tích hợp khi đó có thể chia sẻ một hợp đồng thay vì bịa bốn phiên bản.
 
 ```mermaid
 flowchart LR
@@ -46,80 +46,80 @@ flowchart LR
   D --> G
 ```
 
-The graph exposes safe concurrency. Implementation and documentation can proceed together after the contract is fixed. Integration waits for both.
+Đồ thị phơi bày tính đồng thời an toàn. Triển khai và tài liệu có thể tiến hành cùng nhau sau khi hợp đồng được cố định. Tích hợp chờ cả hai.
 
 ## Evidence Changes the Plan
 
-Repository evidence is not decoration. It should be capable of changing the work:
+Bằng chứng kho mã không phải trang trí. Nó nên có khả năng thay đổi công việc:
 
-- An existing helper removes a planned new abstraction.
-- A compatibility test forces a migration step.
-- A deployment constraint moves a schema change into another task.
-- A public response type changes the order of implementation and documentation.
+- Một hàm trợ giúp hiện có loại bỏ một trừu tượng mới được lên kế hoạch.
+- Một kiểm thử tương thích buộc một bước di chuyển.
+- Một ràng buộc triển khai chuyển một thay đổi schema sang một tác vụ khác.
+- Một kiểu phản hồi công khai thay đổi thứ tự triển khai và tài liệu.
 
-If the evidence cannot change the plan, it is probably not evidence for that decision.
+Nếu bằng chứng không thể thay đổi kế hoạch, nó có lẽ không phải bằng chứng cho quyết định đó.
 
 ## Design for Interruption
 
-Coding-agent sessions end unexpectedly. A resumable plan has work items small enough that another session can determine:
+Các phiên agent lập trình kết thúc bất ngờ. Một kế hoạch có thể tiếp tục có các mục công việc đủ nhỏ để một phiên khác có thể xác định:
 
-- which item is complete;
-- which proof ran;
-- which artifacts changed;
-- which dependencies are now unblocked;
-- what the next safe item is.
+- mục nào đã hoàn tất;
+- chứng minh nào đã chạy;
+- những sản phẩm nào thay đổi;
+- những phụ thuộc nào hiện được bỏ chặn;
+- mục an toàn tiếp theo là gì.
 
-Do not encode state only in checked boxes inside a chat. Store the plan next to the work.
+Đừng chỉ mã hóa trạng thái trong các ô được đánh dấu trong một cuộc trò chuyện. Lưu kế hoạch cạnh công việc.
 
 ## Plan Validation
 
-Reject the plan before execution when:
+Từ chối kế hoạch trước thực thi khi:
 
-- an identifier is duplicated;
-- a work item has no evidence;
-- a work item has no proof;
-- a dependency names an unknown item;
-- the graph contains a cycle;
-- the first irreversible action occurs before the relevant uncertainty is resolved.
+- một định danh bị trùng;
+- một mục công việc không có bằng chứng;
+- một mục công việc không có chứng minh;
+- một phụ thuộc nêu tên một mục không xác định;
+- đồ thị chứa một chu trình;
+- hành động không thể đảo ngược đầu tiên xảy ra trước khi sự bất định liên quan được giải quyết.
 
-The first five checks are mechanical. The last requires judgment and should be called out explicitly.
+Năm kiểm tra đầu mang tính cơ học. Kiểm tra cuối yêu cầu phán đoán và nên được nêu rõ.
 
 ## Build It
 
-`code/main.py` models work items, validates their receipts, computes execution waves with a topological sort, and writes `outputs/evidence-plan.json`.
+`code/main.py` mô hình hóa các mục công việc, xác thực các bằng chứng của chúng, tính các đợt thực thi bằng một sắp xếp tô pô và ghi `outputs/evidence-plan.json`.
 
-Run:
+Chạy:
 
 ```bash
 python3 code/main.py
 python3 -m unittest discover code/tests -v
 ```
 
-The example produces three waves. Contract definition runs first. Implementation and documentation run together. The integration gate runs last.
+Ví dụ tạo ba đợt. Định nghĩa hợp đồng chạy trước. Triển khai và tài liệu chạy cùng nhau. Cổng tích hợp chạy cuối.
 
 ## Use It with a Coding Agent
 
-Ask the agent to produce the plan before it changes files. Review the plan for three things:
+Yêu cầu agent tạo kế hoạch trước khi nó thay đổi các file. Đánh giá kế hoạch về ba điều:
 
-1. Every path and behavior claim has a repository receipt.
-2. Every item has one clear completion proof.
-3. The graph delays expensive or irreversible work until the uncertainty it depends on is resolved.
+1. Mỗi khẳng định về đường dẫn và hành vi có một bằng chứng kho mã.
+2. Mỗi mục có một chứng minh hoàn thành rõ ràng.
+3. Đồ thị trì hoãn công việc tốn kém hoặc không thể đảo ngược cho đến khi sự bất định mà nó phụ thuộc được giải quyết.
 
-Approve the plan, not a vague promise to be careful.
+Phê duyệt kế hoạch, không phải một lời hứa mơ hồ sẽ cẩn thận.
 
 ## Exercises
 
-1. Add a migration item that requires explicit human approval.
-2. Create a cycle and explain the hidden product disagreement behind it.
-3. Split one item that has two proof commands.
-4. Add a work item that can run in the second wave without touching either existing branch.
-5. Render the plan as Markdown while keeping JSON as the source of truth.
+1. Thêm một mục di chuyển yêu cầu phê duyệt rõ ràng của con người.
+2. Tạo một chu trình và giải thích bất đồng sản phẩm ẩn đằng sau nó.
+3. Tách một mục có hai lệnh chứng minh.
+4. Thêm một mục công việc có thể chạy trong đợt thứ hai mà không chạm một trong hai nhánh hiện có.
+5. Dựng kế hoạch dưới dạng Markdown trong khi giữ JSON làm nguồn sự thật.
 
 ## Further Reading
 
-- [Nuseibeh and Easterbrook, Requirements Engineering: A Roadmap](https://www.cs.toronto.edu/~sme/papers/2000/ICSE2000.pdf), for the iterative relationship between goals, specifications, agreement, and evolution.
-- [Barry Boehm, A Spiral Model of Software Development and Enhancement](https://dl.acm.org/doi/10.1145/12944.12948), for ordering development around risk resolution rather than a fixed linear sequence.
+- [Nuseibeh and Easterbrook, Requirements Engineering: A Roadmap](https://www.cs.toronto.edu/~sme/papers/2000/ICSE2000.pdf), cho mối quan hệ lặp giữa các mục tiêu, đặc tả, đồng thuận và tiến hóa.
+- [Barry Boehm, A Spiral Model of Software Development and Enhancement](https://dl.acm.org/doi/10.1145/12944.12948), cho việc sắp thứ tự phát triển quanh giải quyết rủi ro thay vì một trình tự tuyến tính cố định.
 
 ## What You Keep
 
-Keep `outputs/evidence-plan.json`. It becomes the delegation contract in the next lesson.
+Giữ `outputs/evidence-plan.json`. Nó trở thành hợp đồng ủy nhiệm trong bài tiếp theo.
