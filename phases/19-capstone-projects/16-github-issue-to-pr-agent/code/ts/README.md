@@ -1,9 +1,9 @@
 # Lesson 16 - GitHub Issue-to-PR Agent (TypeScript webhook receiver)
 
-TypeScript half of the capstone. Python side ships the agent loop and
-dispatcher; YAML side ships the Actions workflow. This project is the GitHub
-App webhook receiver: HMAC verify the raw body, route on event type, dispatch
-a stub agent for `issues.opened`.
+Nửa TypeScript của bài tổng kết. Phía Python cung cấp vòng lặp agent và
+dispatcher; phía YAML cung cấp workflow Actions. Dự án này là bộ nhận webhook GitHub
+App: xác minh HMAC phần thân thô, định tuyến theo loại sự kiện, điều phối
+một agent stub cho `issues.opened`.
 
 ## Layout
 
@@ -29,5 +29,5 @@ npm start            # self-terminating demo (in-process replays)
 npm run serve        # HTTP server on :8081
 ```
 
-The HMAC secret is read from `GH_WEBHOOK_SECRET` (default `demo-shared-secret`
-for the demo).
+Bí mật HMAC được đọc từ `GH_WEBHOOK_SECRET` (mặc định `demo-shared-secret`
+cho demo).

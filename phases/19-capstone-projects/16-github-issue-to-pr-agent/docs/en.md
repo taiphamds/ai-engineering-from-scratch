@@ -1,6 +1,6 @@
 # Capstone 16 — GitHub Issue-to-PR Autonomous Agent
 
-> Label an issue, get a PR — the 2026 product shape for autonomous coding agents: run an agent in a cloud sandbox, verify tests pass, and post a review-ready PR with rationale. AWS Remote SWE Agents, Cursor Background Agents, OpenAI Codex cloud, and Google Jules all ship it. The hard parts are reproducing the repo's build environment automatically, preventing credential leakage, enforcing per-repo budgets, and making sure the agent cannot force-push. This capstone builds the self-hosted version and compares it on cost and pass rate to the hosted alternatives.
+> Gắn nhãn một issue, nhận một PR — hình thức sản phẩm năm 2026 cho agent lập trình tự trị: chạy một agent trong một sandbox đám mây, xác minh kiểm thử đạt, và đăng một PR sẵn sàng rà soát với lý do. AWS Remote SWE Agents, Cursor Background Agents, OpenAI Codex cloud, và Google Jules đều cung cấp nó. Các phần khó là tự động tái tạo môi trường dựng của repo, ngăn rò rỉ thông tin xác thực, thực thi ngân sách theo repo, và bảo đảm agent không thể force-push. Bài tổng kết này xây dựng phiên bản tự lưu trữ và so sánh nó về chi phí và tỷ lệ đạt với các lựa chọn được lưu trữ.
 
 **Type:** Capstone
 **Languages:** Python (agent), TypeScript (GitHub App), YAML (Actions)
@@ -10,17 +10,17 @@
 
 ## Problem
 
-The async cloud coding agent is a separate product category from interactive coding agents (capstone 01). The UX is a GitHub label. You label an issue `@agent fix this`, a worker spins up in a cloud sandbox, clones the repo, runs tests, edits files, verifies, and opens a PR with the agent's rationale in the body. No interactive loop, no terminal. AWS Remote SWE Agents, Cursor Background Agents, OpenAI Codex cloud, Google Jules, and Factory Droids all converge on this.
+Agent lập trình đám mây bất đồng bộ là một hạng mục sản phẩm riêng so với agent lập trình tương tác (bài tổng kết 01). UX là một nhãn GitHub. Bạn gắn nhãn một issue `@agent fix this`, một worker khởi động trong một sandbox đám mây, clone repo, chạy kiểm thử, chỉnh sửa file, xác minh, và mở một PR với lý do của agent trong phần thân. Không có vòng lặp tương tác, không có terminal. AWS Remote SWE Agents, Cursor Background Agents, OpenAI Codex cloud, Google Jules, và Factory Droids đều hội tụ vào điều này.
 
-The engineering challenges are concrete: environment reproduction (the agent has to build the repo from scratch without a cached dev image), flaky tests (must be re-run or isolated), credential scoping (a GitHub App with minimal fine-grained permissions), budget enforcement per repo per day, and no-force-push policy. The capstone measures pass rate, cost, and safety vs the hosted alternatives.
+Các thách thức kỹ thuật rất cụ thể: tái tạo môi trường (agent phải dựng repo từ đầu mà không có image phát triển được lưu đệm), kiểm thử chập chờn (phải được chạy lại hoặc cô lập), giới hạn phạm vi thông tin xác thực (một GitHub App với quyền chi tiết tối thiểu), thực thi ngân sách theo repo mỗi ngày, và chính sách không force-push. Bài tổng kết đo tỷ lệ đạt, chi phí, và an toàn so với các lựa chọn được lưu trữ.
 
 ## Concept
 
-The trigger is a GitHub webhook (issue label or PR comment). A dispatcher enqueues work to ECS Fargate or Lambda. The worker pulls the repo into a Daytona or E2B sandbox with a generic Dockerfile inferred from the repo (language, framework). The agent runs a mini-swe-agent or SWE-agent v2 loop against Claude Opus 4.7 or GPT-5.4-Codex. It iterates: read code, propose fix, apply patch, run tests.
+Bộ kích hoạt là một webhook GitHub (nhãn issue hoặc bình luận PR). Một dispatcher đưa công việc vào hàng đợi ECS Fargate hoặc Lambda. Worker kéo repo vào một sandbox Daytona hoặc E2B với một Dockerfile tổng quát được suy ra từ repo (ngôn ngữ, framework). Agent chạy một vòng lặp mini-swe-agent hoặc SWE-agent v2 với Claude Opus 4.7 hoặc GPT-5.4-Codex. Nó lặp: đọc mã, đề xuất bản sửa, áp dụng patch, chạy kiểm thử.
 
-Verification is the gating step. Full CI must pass in the sandbox before the PR opens. Coverage delta is computed; if negative beyond a threshold, the PR opens but gets labeled `needs-review`. The agent posts the rationale as the PR description plus an `@agent` thread the reviewer can ping for follow-ups.
+Xác minh là bước kiểm soát cổng. CI đầy đủ phải đạt trong sandbox trước khi PR mở. Chênh lệch độ bao phủ được tính; nếu âm vượt một ngưỡng, PR mở nhưng được gắn nhãn `needs-review`. Agent đăng lý do dưới dạng mô tả PR cùng một luồng `@agent` mà người rà soát có thể ping để trao đổi tiếp.
 
-Safety is scoped through two different GitHub surfaces: the App provides a short-lived installation token with `workflows: read` and narrow repo contents/PR scopes; branch protection (not app permissions) enforces "no direct writes to `main`" and "no force-push" — the app is never added to the bypass list. Path-scoped read-only access to `.github/workflows` is not a real GitHub App primitive, so the agent's allow-list on file edits has to enforce that at the worker. Budget ceilings per repo per day are enforced at the dispatcher (e.g., max 5 PRs per repo per day, $20 per PR).
+An toàn được giới hạn phạm vi qua hai bề mặt GitHub khác nhau: App cung cấp một token cài đặt ngắn hạn với `workflows: read` và các phạm vi nội dung repo/PR hẹp; bảo vệ nhánh (không phải quyền app) thực thi "không ghi trực tiếp vào `main`" và "không force-push" — app không bao giờ được thêm vào danh sách bỏ qua. Quyền truy cập chỉ đọc theo đường dẫn tới `.github/workflows` không phải một cơ chế gốc thực sự của GitHub App, nên danh sách cho phép chỉnh sửa file của agent phải thực thi điều đó tại worker. Trần ngân sách theo repo mỗi ngày được thực thi tại dispatcher (ví dụ, tối đa 5 PR mỗi repo mỗi ngày, $20 mỗi PR).
 
 ## Architecture
 
@@ -56,14 +56,14 @@ GitHub issue labeled `@agent fix` or PR comment
 
 ## Stack
 
-- Trigger: GitHub App with fine-grained token; webhook receiver via Lambda or Fly.io
-- Worker: ECS Fargate task (or GitHub Actions self-hosted runner)
-- Sandbox: Daytona devcontainer or E2B sandbox per task
-- Agent loop: mini-swe-agent baseline or SWE-agent v2 over Claude Opus 4.7 / GPT-5.4-Codex
-- Retrieval: tree-sitter repo-map + ripgrep
-- Verification: full CI in-sandbox + coverage delta gate
-- Observability: Langfuse with per-PR trace archive linked from the PR body
-- Budget: per-repo daily dollar ceiling; max PRs per repo per day
+- Kích hoạt: GitHub App với token chi tiết; bộ nhận webhook qua Lambda hoặc Fly.io
+- Worker: tác vụ ECS Fargate (hoặc runner GitHub Actions tự lưu trữ)
+- Sandbox: devcontainer Daytona hoặc sandbox E2B cho mỗi tác vụ
+- Vòng lặp agent: đường cơ sở mini-swe-agent hoặc SWE-agent v2 trên Claude Opus 4.7 / GPT-5.4-Codex
+- Truy xuất: repo-map tree-sitter + ripgrep
+- Xác minh: CI đầy đủ trong sandbox + cổng chênh lệch độ bao phủ
+- Khả năng quan sát: Langfuse với kho trace theo PR được liên kết từ phần thân PR
+- Ngân sách: trần đô la hàng ngày theo repo; số PR tối đa mỗi repo mỗi ngày
 
 ```figure
 cf-issue-to-pr
@@ -71,23 +71,23 @@ cf-issue-to-pr
 
 ## Build It
 
-1. **GitHub App.** Fine-grained installation token: issues read+write, pull_requests write, contents read+write, workflows read. Branch protection (the only surface that can do this) enforces "no direct push to `main`" and "no force-push"; the app is not in the bypass list. The worker enforces "no writes under `.github/workflows`" as an allow-list check on the proposed diff, since GitHub App permissions are not path-scoped.
+1. **GitHub App.** Token cài đặt chi tiết: issues đọc+ghi, pull_requests ghi, contents đọc+ghi, workflows đọc. Bảo vệ nhánh (bề mặt duy nhất có thể làm điều này) thực thi "không push trực tiếp vào `main`" và "không force-push"; app không nằm trong danh sách bỏ qua. Worker thực thi "không ghi dưới `.github/workflows`" dưới dạng kiểm tra danh sách cho phép trên diff được đề xuất, vì quyền GitHub App không được giới hạn theo đường dẫn.
 
-2. **Webhook receiver.** Lambda function accepts issue label / PR comment webhooks. Filters by label `@agent fix this`. Enqueues to SQS.
+2. **Bộ nhận webhook.** Hàm Lambda nhận các webhook nhãn issue / bình luận PR. Lọc theo nhãn `@agent fix this`. Đưa vào hàng đợi SQS.
 
-3. **Dispatcher.** Pops tasks from SQS. Enforces per-repo per-day budget. Spins up an ECS Fargate task with the repo URL, issue body, and a fresh Daytona sandbox.
+3. **Dispatcher.** Lấy các tác vụ khỏi SQS. Thực thi ngân sách theo repo mỗi ngày. Khởi động một tác vụ ECS Fargate với URL repo, phần thân issue, và một sandbox Daytona mới.
 
-4. **Environment inference.** Detect language (Python, Node, Go, Rust) and package manager (uv, pnpm, go mod, cargo). Generate a Dockerfile on the fly if one does not exist.
+4. **Suy ra môi trường.** Phát hiện ngôn ngữ (Python, Node, Go, Rust) và trình quản lý gói (uv, pnpm, go mod, cargo). Tạo một Dockerfile ngay khi chạy nếu chưa có.
 
-5. **Agent loop.** mini-swe-agent or SWE-agent v2 with Claude Opus 4.7. Tools: ripgrep, tree-sitter repo-map, read_file, edit_file, run_tests, git. Hard limits: $20 cost, 30 min wall-clock, 30 agent turns.
+5. **Vòng lặp agent.** mini-swe-agent hoặc SWE-agent v2 với Claude Opus 4.7. Công cụ: ripgrep, repo-map tree-sitter, read_file, edit_file, run_tests, git. Giới hạn cứng: chi phí $20, 30 phút thời gian thực, 30 lượt agent.
 
-6. **Verification.** After the loop concludes, run the full test suite in-sandbox. Compute coverage delta via jacoco / coverage.py. If CI red: halt, do not open PR. If coverage drops more than 2%: open PR with `needs-review` label.
+6. **Xác minh.** Sau khi vòng lặp kết thúc, chạy bộ kiểm thử đầy đủ trong sandbox. Tính chênh lệch độ bao phủ qua jacoco / coverage.py. Nếu CI đỏ: dừng, không mở PR. Nếu độ bao phủ giảm hơn 2%: mở PR với nhãn `needs-review`.
 
-7. **PR posting.** Push the agent branch. Open PR via GitHub API with: title, rationale, diff summary, trace URL, cost, turns.
+7. **Đăng PR.** Đẩy nhánh agent. Mở PR qua GitHub API với: tiêu đề, lý do, tóm tắt diff, URL trace, chi phí, số lượt.
 
-8. **Credential hygiene.** Worker runs with a short-lived GitHub App installation token. Logs are scrubbed for secrets before archival.
+8. **Vệ sinh thông tin xác thực.** Worker chạy với một token cài đặt GitHub App ngắn hạn. Các nhật ký được xóa bí mật trước khi lưu trữ.
 
-9. **Eval.** 30 seeded internal issues of varying difficulty. Measure pass rate, PR quality (diff size, style, coverage), cost, latency. Compare with Cursor Background Agents and AWS Remote SWE Agents on the same issues.
+9. **Đánh giá.** 30 issue nội bộ được tạo sẵn với độ khó khác nhau. Đo tỷ lệ đạt, chất lượng PR (kích thước diff, phong cách, độ bao phủ), chi phí, độ trễ. So sánh với Cursor Background Agents và AWS Remote SWE Agents trên cùng các issue.
 
 ## Use It
 
@@ -105,48 +105,48 @@ cf-issue-to-pr
 
 ## Ship It
 
-`outputs/skill-issue-to-pr.md` is the deliverable. A GitHub App + async cloud worker that turns labeled issues into review-ready PRs with bounded cost and scoped credentials.
+`outputs/skill-issue-to-pr.md` là sản phẩm bàn giao. Một GitHub App + worker đám mây bất đồng bộ biến các issue được gắn nhãn thành các PR sẵn sàng rà soát với chi phí có giới hạn và thông tin xác thực được giới hạn phạm vi.
 
-| Weight | Criterion | How it is measured |
+| Trọng số | Tiêu chí | Cách đo |
 |:-:|---|---|
-| 25 | Pass rate on 30 issues | End-to-end success (CI green + coverage OK) |
-| 20 | PR quality | Diff size, coverage delta, style conformance |
-| 20 | Cost and latency per resolved issue | $ and wall-clock per PR |
-| 20 | Safety | Scoped token, per-repo budget, no force-push, credential hygiene |
-| 15 | Operator UX | Rationale comments, retry affordance, @-mention follow-up |
+| 25 | Tỷ lệ đạt trên 30 issue | Thành công đầu cuối (CI xanh + độ bao phủ OK) |
+| 20 | Chất lượng PR | Kích thước diff, chênh lệch độ bao phủ, tuân thủ phong cách |
+| 20 | Chi phí và độ trễ trên mỗi issue đã giải quyết | $ và thời gian thực trên mỗi PR |
+| 20 | An toàn | Token được giới hạn phạm vi, ngân sách theo repo, không force-push, vệ sinh thông tin xác thực |
+| 15 | UX người vận hành | Bình luận lý do, khả năng thử lại, trao đổi tiếp qua @-mention |
 | **100** | | |
 
 ## Exercises
 
-1. Add a "fix flaky test" mode: the label `@agent stabilize-flake TestX` runs the test 50 times in-sandbox and proposes a minimal change that stabilizes it.
+1. Thêm một chế độ "sửa kiểm thử chập chờn": nhãn `@agent stabilize-flake TestX` chạy kiểm thử 50 lần trong sandbox và đề xuất một thay đổi tối thiểu làm nó ổn định.
 
-2. Compare cost vs Cursor Background Agents on three shared issues. Report which tools win where.
+2. So sánh chi phí với Cursor Background Agents trên ba issue dùng chung. Báo cáo công cụ nào thắng ở đâu.
 
-3. Implement a budget dashboard: per-repo per-day cost, per-user cost. Alert on anomaly.
+3. Triển khai một bảng điều khiển ngân sách: chi phí theo repo mỗi ngày, chi phí theo người dùng. Cảnh báo khi bất thường.
 
-4. Build a "dry-run" mode that opens a draft PR without running CI, so reviewers can examine the plan cheap.
+4. Xây dựng một chế độ "chạy thử" mở một PR nháp mà không chạy CI, để người rà soát có thể xem xét kế hoạch với chi phí thấp.
 
-5. Add a retention policy: PR branches older than 7 days without merge get deleted automatically.
+5. Thêm một chính sách lưu giữ: các nhánh PR quá 7 ngày mà chưa hợp nhất được xóa tự động.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| GitHub App | "Scoped bot identity" | App with fine-grained permissions + short-lived installation token |
-| Async cloud agent | "Background agent" | Non-interactive worker that runs in a cloud sandbox, not a terminal |
-| Environment inference | "Dockerfile synthesis" | Detect language + package manager, generate a Dockerfile if absent |
-| Verification | "CI-in-sandbox" | Run the full test suite inside the worker before opening a PR |
-| Coverage delta | "Coverage preservation" | Change in test coverage % from base to agent branch |
-| Per-repo budget | "Daily ceiling" | Dollar and PR-count cap enforced at the dispatcher |
-| Rationale | "PR body explanation" | Agent's summary of what changed and why; required in the PR body |
+| GitHub App | "Danh tính bot được giới hạn phạm vi" | App với quyền chi tiết + token cài đặt ngắn hạn |
+| Async cloud agent (Agent đám mây bất đồng bộ) | "Agent nền" | Worker không tương tác chạy trong một sandbox đám mây, không phải terminal |
+| Environment inference (Suy ra môi trường) | "Tổng hợp Dockerfile" | Phát hiện ngôn ngữ + trình quản lý gói, tạo một Dockerfile nếu thiếu |
+| Verification (Xác minh) | "CI trong sandbox" | Chạy bộ kiểm thử đầy đủ bên trong worker trước khi mở một PR |
+| Coverage delta (Chênh lệch độ bao phủ) | "Bảo toàn độ bao phủ" | Thay đổi % độ bao phủ kiểm thử từ nhánh cơ sở đến nhánh agent |
+| Per-repo budget (Ngân sách theo repo) | "Trần hàng ngày" | Trần đô la và số PR được thực thi tại dispatcher |
+| Rationale (Lý do) | "Giải thích phần thân PR" | Tóm tắt của agent về điều gì đã thay đổi và tại sao; bắt buộc trong phần thân PR |
 
 ## Further Reading
 
-- [AWS Remote SWE Agents](https://github.com/aws-samples/remote-swe-agents) — the canonical async cloud agent reference
-- [SWE-agent](https://github.com/SWE-agent/SWE-agent) — CLI reference
-- [Cursor Background Agents](https://docs.cursor.com/background-agent) — commercial alternative
-- [OpenAI Codex (cloud)](https://openai.com/codex) — hosted competitor
-- [Google Jules](https://jules.google) — Google's hosted version
-- [Factory Droids](https://www.factory.ai) — alternate commercial reference
-- [GitHub App documentation](https://docs.github.com/en/apps) — scoped bot identity
-- [Daytona cloud sandboxes](https://daytona.io) — reference sandbox
+- [AWS Remote SWE Agents](https://github.com/aws-samples/remote-swe-agents) — tham chiếu agent đám mây bất đồng bộ chuẩn
+- [SWE-agent](https://github.com/SWE-agent/SWE-agent) — tham chiếu CLI
+- [Cursor Background Agents](https://docs.cursor.com/background-agent) — lựa chọn thay thế thương mại
+- [OpenAI Codex (cloud)](https://openai.com/codex) — đối thủ được lưu trữ
+- [Google Jules](https://jules.google) — phiên bản được lưu trữ của Google
+- [Factory Droids](https://www.factory.ai) — tham chiếu thương mại thay thế
+- [GitHub App documentation](https://docs.github.com/en/apps) — danh tính bot được giới hạn phạm vi
+- [Daytona cloud sandboxes](https://daytona.io) — sandbox tham chiếu

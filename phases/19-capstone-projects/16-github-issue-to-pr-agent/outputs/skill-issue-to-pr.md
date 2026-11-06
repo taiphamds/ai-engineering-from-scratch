@@ -7,42 +7,42 @@ lesson: 16
 tags: [capstone, async-agent, github, fargate, daytona, swe-bench, budget, safety]
 ---
 
-Given a GitHub repository with issues labeled `@agent fix this`, ship a self-hosted cloud agent that turns each labeled issue into a review-ready PR with scoped credentials and bounded cost.
+Với một kho GitHub có các issue được gắn nhãn `@agent fix this`, cung cấp một agent đám mây tự lưu trữ biến mỗi issue được gắn nhãn thành một PR sẵn sàng rà soát với thông tin xác thực được giới hạn phạm vi và chi phí có giới hạn.
 
-Build plan:
+Kế hoạch xây dựng:
 
-1. GitHub App with fine-grained token: issues rw, PRs write, contents rw, workflows read. No force-push. Branch protection on main prevents direct writes.
-2. Webhook receiver (Lambda or Fly.io) filters label / PR-comment events and enqueues to SQS.
-3. Dispatcher enforces per-repo per-day $ and PR-count ceilings; spins up an ECS Fargate task per allowed job.
-4. Environment inference: detect language + package manager + runtime from repo contents. Synthesize a Dockerfile on the fly if absent.
-5. Daytona or E2B sandbox per task. Clone repo into a fresh `git worktree` + agent branch.
-6. Agent loop (mini-swe-agent or SWE-agent v2 over Claude Opus 4.7 or GPT-5.4-Codex). Tools: ripgrep, tree-sitter repo-map, read_file, edit_file, run_tests, git. Caps: $20, 30 turns, 30 min.
-7. Verify: full CI in-sandbox; coverage delta via jacoco / coverage.py; label `needs-review` if delta < -2%; halt if CI red.
-8. PR open via GitHub API with rationale, diff summary, trace URL, cost, turns.
-9. Observability: Langfuse trace per PR; log scrub for secrets; per-repo budget dashboard.
-10. Eval on 30 seeded internal issues; compare vs Cursor Background Agents and AWS Remote SWE Agents on a three-issue shared subset.
+1. GitHub App với token chi tiết: issues đọc ghi, PR ghi, contents đọc ghi, workflows đọc. Không force-push. Bảo vệ nhánh trên main ngăn ghi trực tiếp.
+2. Bộ nhận webhook (Lambda hoặc Fly.io) lọc các sự kiện nhãn / bình luận PR và đưa vào hàng đợi SQS.
+3. Dispatcher thực thi các trần $ và số PR theo repo mỗi ngày; khởi động một tác vụ ECS Fargate cho mỗi công việc được phép.
+4. Suy ra môi trường: phát hiện ngôn ngữ + trình quản lý gói + runtime từ nội dung repo. Tổng hợp một Dockerfile ngay khi chạy nếu thiếu.
+5. Sandbox Daytona hoặc E2B cho mỗi tác vụ. Clone repo vào một `git worktree` mới + nhánh agent.
+6. Vòng lặp agent (mini-swe-agent hoặc SWE-agent v2 trên Claude Opus 4.7 hoặc GPT-5.4-Codex). Công cụ: ripgrep, repo-map tree-sitter, read_file, edit_file, run_tests, git. Trần: $20, 30 lượt, 30 phút.
+7. Xác minh: CI đầy đủ trong sandbox; chênh lệch độ bao phủ qua jacoco / coverage.py; gắn nhãn `needs-review` nếu chênh lệch < -2%; dừng nếu CI đỏ.
+8. Mở PR qua GitHub API với lý do, tóm tắt diff, URL trace, chi phí, số lượt.
+9. Khả năng quan sát: trace Langfuse cho mỗi PR; xóa bí mật khỏi nhật ký; bảng điều khiển ngân sách theo repo.
+10. Đánh giá trên 30 issue nội bộ được tạo sẵn; so sánh với Cursor Background Agents và AWS Remote SWE Agents trên một tập con ba issue dùng chung.
 
-Assessment rubric:
+Thang đánh giá:
 
-| Weight | Criterion | Measurement |
+| Trọng số | Tiêu chí | Phép đo |
 |:-:|---|---|
-| 25 | Pass rate on 30 issues | End-to-end success (CI green + coverage OK) |
-| 20 | PR quality | Diff size, coverage delta, style conformance |
-| 20 | Cost and latency per resolved issue | $/PR and wall-clock/PR |
-| 20 | Safety | Scoped token, per-repo budget, no force-push, credential hygiene |
-| 15 | Operator UX | Rationale comments, retry affordance, @-mention follow-up |
+| 25 | Tỷ lệ đạt trên 30 issue | Thành công đầu cuối (CI xanh + độ bao phủ OK) |
+| 20 | Chất lượng PR | Kích thước diff, chênh lệch độ bao phủ, tuân thủ phong cách |
+| 20 | Chi phí và độ trễ trên mỗi issue đã giải quyết | $/PR và thời gian thực/PR |
+| 20 | An toàn | Token được giới hạn phạm vi, ngân sách theo repo, không force-push, vệ sinh thông tin xác thực |
+| 15 | UX người vận hành | Bình luận lý do, khả năng thử lại, trao đổi tiếp qua @-mention |
 
-Hard rejects:
+Các trường hợp loại thẳng:
 
-- Any agent that can force-push. Hard exclusion.
-- Dispatchers that skip budget checks. Runaway loops are the classic failure.
-- PRs opened without the full CI having passed in-sandbox.
-- Trace archives containing unredacted tokens or PII.
+- Bất kỳ agent nào có thể force-push. Loại trừ cứng.
+- Các dispatcher bỏ qua kiểm tra ngân sách. Các vòng lặp mất kiểm soát là lỗi kinh điển.
+- Các PR được mở mà CI đầy đủ chưa đạt trong sandbox.
+- Các kho trace chứa token hoặc PII chưa được che.
 
-Refusal rules:
+Quy tắc từ chối:
 
-- Refuse to install without branch protection on main.
-- Refuse to run without a per-repo daily budget (dollars and PR count).
-- Refuse to retry failed runs automatically; all retries require a human label reapplication.
+- Từ chối cài đặt mà không có bảo vệ nhánh trên main.
+- Từ chối chạy mà không có ngân sách hàng ngày theo repo (đô la và số PR).
+- Từ chối tự động thử lại các lần chạy thất bại; mọi lần thử lại đều yêu cầu con người gắn lại nhãn.
 
-Output: a repo containing the GitHub App, the webhook receiver, the dispatcher + budget ledger, the Fargate task definition, the sandbox lifecycle manager, the mini-swe-agent loop, the 30-issue eval run, a side-by-side comparison against Cursor Background Agents and AWS Remote SWE Agents, and a write-up naming the top three build-inference failures and the Dockerfile-synthesis change that reduced each.
+Đầu ra: một repo chứa GitHub App, bộ nhận webhook, dispatcher + sổ cái ngân sách, định nghĩa tác vụ Fargate, bộ quản lý vòng đời sandbox, vòng lặp mini-swe-agent, lần chạy đánh giá 30 issue, một so sánh song song với Cursor Background Agents và AWS Remote SWE Agents, và một bài viết nêu tên ba lỗi suy ra bản dựng hàng đầu cùng thay đổi tổng hợp Dockerfile đã làm giảm từng lỗi.
