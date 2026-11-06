@@ -1,6 +1,6 @@
 # Audio Evaluation — WER, MOS, UTMOS, MMAU, FAD, and the Open Leaderboards
 
-> You cannot ship what you cannot measure. This lesson names the 2026 metrics for every audio task: ASR (WER, CER, RTFx), TTS (MOS, UTMOS, SECS, WER-on-ASR-round-trip), audio-language (MMAU, LongAudioBench), music (FAD, CLAP), and speaker (EER). Plus the leaderboards where you compare.
+> Bạn không thể phát hành thứ bạn không thể đo. Bài học này nêu tên các thước đo năm 2026 cho mọi tác vụ âm thanh: ASR (WER, CER, RTFx), TTS (MOS, UTMOS, SECS, WER trên vòng đi-về ASR), ngôn ngữ âm thanh (MMAU, LongAudioBench), âm nhạc (FAD, CLAP) và người nói (EER). Cộng các bảng xếp hạng nơi bạn so sánh.
 
 **Type:** Learn
 **Languages:** Python
@@ -9,19 +9,19 @@
 
 ## The Problem
 
-Every audio task has multiple metrics, each measuring a different axis. Using the wrong metric is how you ship a model that looks great on your dashboard and terribly in production. The 2026 canonical list:
+Mọi tác vụ âm thanh có nhiều thước đo, mỗi thước đo một trục khác nhau. Dùng sai thước đo là cách bạn phát hành một mô hình trông tuyệt trên bảng điều khiển và tệ hại trong production. Danh sách kinh điển năm 2026:
 
-| Task | Primary | Secondary |
+| Tác vụ | Chính | Phụ |
 |------|---------|-----------|
-| ASR | WER | CER · RTFx · first-token latency |
-| TTS | MOS / UTMOS | SECS · WER-on-ASR-round-trip · CER · TTFA |
-| Voice cloning | SECS (ECAPA cosine) | MOS · CER |
-| Speaker verification | EER | minDCF · FAR / FRR at operating point |
-| Diarization | DER | JER · speaker confusion |
-| Audio classification | top-1 · mAP | macro F1 · per-class recall |
-| Music generation | FAD | CLAP · listening panel MOS |
-| Audio language model | MMAU-Pro | LongAudioBench · AudioCaps FENSE |
-| Streaming S2S | latency P50/P95 | WER · MOS |
+| ASR | WER | CER · RTFx · độ trễ token đầu |
+| TTS | MOS / UTMOS | SECS · WER trên vòng đi-về ASR · CER · TTFA |
+| Nhân bản giọng nói | SECS (cosine ECAPA) | MOS · CER |
+| Xác minh người nói | EER | minDCF · FAR / FRR tại điểm vận hành |
+| Phân đoạn người nói | DER | JER · nhầm lẫn người nói |
+| Phân loại âm thanh | top-1 · mAP | macro F1 · recall theo lớp |
+| Sinh nhạc | FAD | CLAP · MOS hội đồng nghe |
+| Mô hình ngôn ngữ âm thanh | MMAU-Pro | LongAudioBench · FENSE AudioCaps |
+| S2S luồng | độ trễ P50/P95 | WER · MOS |
 
 ## The Concept
 
@@ -29,87 +29,87 @@ Every audio task has multiple metrics, each measuring a different axis. Using th
 
 ### ASR metrics
 
-**WER (Word Error Rate).** `(S + D + I) / N`. Lowercase, strip punctuation, normalize numbers before scoring. Use `jiwer` or OpenAI's `whisper_normalizer`. &lt; 5% = human-parity read speech.
+**WER (Tỷ lệ Lỗi Từ).** `(S + D + I) / N`. Chuyển chữ thường, bỏ dấu câu, chuẩn hóa số trước khi chấm. Dùng `jiwer` hoặc `whisper_normalizer` của OpenAI. &lt; 5% = tiếng nói đọc ngang con người.
 
-**CER (Character Error Rate).** Same formula, character-level. Used for tone languages (Mandarin, Cantonese) where word segmentation is ambiguous.
+**CER (Tỷ lệ Lỗi Ký tự).** Cùng công thức, cấp ký tự. Dùng cho các ngôn ngữ thanh điệu (Quan Thoại, Quảng Đông) nơi phân đoạn từ mơ hồ.
 
-**RTFx (inverse real-time factor).** Audio seconds processed per wall-clock second. Higher is better. Parakeet-TDT hits 3380×. Whisper-large-v3 is ~30×.
+**RTFx (hệ số thời gian thực nghịch đảo).** Số giây âm thanh được xử lý mỗi giây thời gian thực. Cao hơn là tốt hơn. Parakeet-TDT đạt 3380×. Whisper-large-v3 là ~30×.
 
-**First-token latency.** Wall-clock from audio input to first transcript token. Critical for streaming. Deepgram Nova-3: ~150 ms.
+**Độ trễ token đầu.** Thời gian thực từ đầu vào âm thanh đến token chép lời đầu tiên. Thiết yếu cho truyền luồng. Deepgram Nova-3: ~150 ms.
 
 ### TTS metrics
 
-**MOS (Mean Opinion Score).** 1-5 human rating. Gold standard but slow. Collect 20+ listeners per sample, 100+ samples per model.
+**MOS (Điểm Ý kiến Trung bình).** Đánh giá con người 1-5. Tiêu chuẩn vàng nhưng chậm. Thu thập 20+ người nghe mỗi mẫu, 100+ mẫu mỗi mô hình.
 
-**UTMOS (2022-2026).** Learned MOS predictor. Correlates ~0.9 with human MOS on standard benchmarks. F5-TTS: UTMOS 3.95; ground truth: 4.08.
+**UTMOS (2022-2026).** Bộ dự đoán MOS được học. Tương quan ~0.9 với MOS con người trên các benchmark tiêu chuẩn. F5-TTS: UTMOS 3.95; ground truth: 4.08.
 
-**SECS (Speaker Encoder Cosine Similarity).** For voice cloning. ECAPA embedding cosine between reference and cloned output. &gt; 0.75 = recognizable clone.
+**SECS (Speaker Encoder Cosine Similarity).** Cho nhân bản giọng nói. Cosine embedding ECAPA giữa tham chiếu và đầu ra được nhân bản. &gt; 0.75 = bản nhân có thể nhận ra.
 
-**WER-on-ASR-round-trip.** Run Whisper over TTS output, compute WER against the input text. Catches intelligibility regressions. 2026 SOTA: &lt; 2% CER.
+**WER trên vòng đi-về ASR.** Chạy Whisper trên đầu ra TTS, tính WER so với văn bản đầu vào. Phát hiện các hồi quy tính dễ hiểu. SOTA 2026: CER &lt; 2%.
 
-**TTFA (time-to-first-audio).** Wall-clock latency. Kokoro-82M: ~100 ms; F5-TTS: ~1 s.
+**TTFA (thời gian đến âm thanh đầu tiên).** Độ trễ thời gian thực. Kokoro-82M: ~100 ms; F5-TTS: ~1 s.
 
 ### Voice-cloning-specific
 
-**SECS + MOS + CER** as a triple. Cloning that scores high SECS but low MOS means timbre-right-but-unnatural; the opposite means natural voice but wrong speaker.
+**SECS + MOS + CER** thành một bộ ba. Nhân bản đạt SECS cao nhưng MOS thấp nghĩa là đúng âm sắc nhưng không tự nhiên; ngược lại nghĩa là giọng tự nhiên nhưng sai người nói.
 
 ### Speaker verification
 
-**EER (Equal Error Rate).** The threshold where False Accept Rate equals False Reject Rate. ECAPA on VoxCeleb1-O: 0.87%.
+**EER (Tỷ lệ Lỗi Bằng nhau).** Ngưỡng nơi Tỷ lệ Chấp nhận Sai bằng Tỷ lệ Từ chối Sai. ECAPA trên VoxCeleb1-O: 0.87%.
 
-**minDCF (min Detection Cost).** Weighted cost at a chosen operating point (often FAR=0.01). More production-relevant than EER.
+**minDCF (Chi phí Phát hiện tối thiểu).** Chi phí có trọng số tại một điểm vận hành được chọn (thường FAR=0.01). Liên quan production hơn EER.
 
 ### Diarization
 
-**DER (Diarization Error Rate).** `(FA + Miss + Confusion) / total_speaker_time`. Missed speech + false-alarm speech + speaker-confusion, each as a fraction. AMI meetings: DER ~10-20% is realistic. pyannote 3.1 + Precision-2 commercial: &lt;10% DER on well-recorded audio.
+**DER (Tỷ lệ Lỗi Phân đoạn Người nói).** `(FA + Miss + Confusion) / total_speaker_time`. Tiếng nói bị bỏ sót + tiếng nói báo động giả + nhầm lẫn người nói, mỗi thứ dưới dạng một tỷ lệ. Các cuộc họp AMI: DER ~10-20% là thực tế. pyannote 3.1 + Precision-2 thương mại: DER &lt;10% trên âm thanh ghi tốt.
 
-**JER (Jaccard Error Rate).** Alternative to DER, robust to short-segment bias.
+**JER (Tỷ lệ Lỗi Jaccard).** Phương án thay thế DER, vững trước thiên lệch đoạn ngắn.
 
 ### Audio classification
 
-Multi-label: **mAP (mean Average Precision)** over all classes. AudioSet: 0.548 mAP for BEATs-iter3.
+Đa nhãn: **mAP (mean Average Precision)** trên mọi lớp. AudioSet: mAP 0.548 cho BEATs-iter3.
 
-Multi-class exclusive: **top-1, top-5 accuracy**. Speech Commands v2: 99.0% top-1 (Audio-MAE).
+Đa lớp loại trừ: **accuracy top-1, top-5**. Speech Commands v2: top-1 99.0% (Audio-MAE).
 
-Imbalanced: **macro F1** + **per-class recall**. Report per-class — aggregate accuracy hides which classes fail.
+Mất cân bằng: **macro F1** + **recall theo lớp**. Báo cáo theo lớp — accuracy tổng hợp che giấu những lớp nào thất bại.
 
 ### Music generation
 
-**FAD (Fréchet Audio Distance).** Distance between VGGish-embedding distributions of real vs generated audio. MusicGen-small on MusicCaps: 4.5. MusicLM: 4.0. Lower better.
+**FAD (Fréchet Audio Distance).** Khoảng cách giữa các phân phối embedding VGGish của âm thanh thực so với được sinh. MusicGen-small trên MusicCaps: 4.5. MusicLM: 4.0. Thấp hơn tốt hơn.
 
-**CLAP Score.** Text-audio alignment score using CLAP embeddings. &gt; 0.3 = reasonable alignment.
+**Điểm CLAP.** Điểm căn chỉnh văn bản-âm thanh bằng các embedding CLAP. &gt; 0.3 = căn chỉnh hợp lý.
 
-**Listening panel MOS.** Still the final word for consumer-grade music. Suno v5 ELO 1293 on TTS Arena (from paired human preferences).
+**MOS hội đồng nghe.** Vẫn là quyết định cuối cho âm nhạc cấp tiêu dùng. Suno v5 ELO 1293 trên TTS Arena (từ các ưu tiên con người theo cặp).
 
 ### Audio-language benchmarks
 
-**MMAU (Massive Multi-Audio Understanding).** 10k audio-QA pairs.
+**MMAU (Massive Multi-Audio Understanding).** 10k cặp QA âm thanh.
 
-**MMAU-Pro.** 1800 hard items, four categories: speech / sound / music / multi-audio. Random chance 25% on 4-way. Gemini 2.5 Pro overall ~60%; multi-audio ~22% across all models.
+**MMAU-Pro.** 1800 mục khó, bốn nhóm: tiếng nói / âm thanh / âm nhạc / nhiều âm thanh. Mức ngẫu nhiên 25% trên 4 ngả. Gemini 2.5 Pro tổng thể ~60%; nhiều âm thanh ~22% trên mọi mô hình.
 
-**LongAudioBench.** Multi-minute clips with semantic queries. Audio Flamingo Next beats Gemini 2.5 Pro.
+**LongAudioBench.** Các đoạn nhiều phút với các truy vấn ngữ nghĩa. Audio Flamingo Next thắng Gemini 2.5 Pro.
 
-**AudioCaps / Clotho.** Captioning benchmarks. SPICE, CIDEr, FENSE metrics.
+**AudioCaps / Clotho.** Các benchmark chú thích. Các thước đo SPICE, CIDEr, FENSE.
 
 ### Streaming speech-to-speech
 
-**Latency P50 / P95 / P99.** Wall-clock from end-of-user-speech to first audible response. Moshi: 200 ms; GPT-4o Realtime: 300 ms.
+**Độ trễ P50 / P95 / P99.** Thời gian thực từ kết thúc tiếng nói người dùng đến phản hồi nghe được đầu tiên. Moshi: 200 ms; GPT-4o Realtime: 300 ms.
 
-**WER / MOS** on the output.
+**WER / MOS** trên đầu ra.
 
-**Barge-in responsiveness.** Time from user interrupt to assistant mute. Target &lt; 150 ms.
+**Độ phản hồi chen lời.** Thời gian từ người dùng ngắt đến trợ lý tắt tiếng. Mục tiêu &lt; 150 ms.
 
 ### The 2026 leaderboards
 
-| Leaderboard | Tracks | URL |
+| Bảng xếp hạng | Track | URL |
 |------------|--------|-----|
-| Open ASR Leaderboard (HF) | English + multilingual + long-form | `huggingface.co/spaces/hf-audio/open_asr_leaderboard` |
-| TTS Arena (HF) | English TTS | `huggingface.co/spaces/TTS-AGI/TTS-Arena` |
-| Artificial Analysis Speech | TTS + STT, ELO from paired votes | `artificialanalysis.ai/speech` |
-| MMAU-Pro | LALM reasoning | `sonalkum.github.io/mmau-pro` |
-| SpeakerBench / VoxSRC | Speaker recognition | `voxsrc.github.io` |
-| MMAU music subset | Music LALM | (within MMAU) |
-| HEAR benchmark | Self-supervised audio | `hearbenchmark.com` |
+| Open ASR Leaderboard (HF) | Tiếng Anh + đa ngôn ngữ + dạng dài | `huggingface.co/spaces/hf-audio/open_asr_leaderboard` |
+| TTS Arena (HF) | TTS tiếng Anh | `huggingface.co/spaces/TTS-AGI/TTS-Arena` |
+| Artificial Analysis Speech | TTS + STT, ELO từ các phiếu theo cặp | `artificialanalysis.ai/speech` |
+| MMAU-Pro | Suy luận LALM | `sonalkum.github.io/mmau-pro` |
+| SpeakerBench / VoxSRC | Nhận dạng người nói | `voxsrc.github.io` |
+| Tập con âm nhạc MMAU | LALM âm nhạc | (trong MMAU) |
+| HEAR benchmark | Âm thanh tự giám sát | `hearbenchmark.com` |
 
 ```figure
 sp-wer-align
@@ -179,50 +179,50 @@ def eer(same_scores, diff_scores):
 
 ## Use It
 
-Pair every deploy with a fixed eval harness that runs on every model update. Three cardinal rules:
+Ghép mọi triển khai với một bộ chạy đánh giá cố định chạy ở mỗi lần cập nhật mô hình. Ba quy tắc chủ đạo:
 
-1. **Normalize before scoring.** Lowercase, punctuation-strip, number-expand. Report the normalization rule.
-2. **Report distributions, not averages.** P50/P95/P99 for latency. Per-class recall for classification. Per-category for MMAU.
-3. **Run one canonical public benchmark.** Even if your production data differs, reporting on Open ASR / TTS Arena / MMAU lets reviewers compare apples-to-apples.
+1. **Chuẩn hóa trước khi chấm.** Chữ thường, bỏ dấu câu, mở rộng số. Báo cáo quy tắc chuẩn hóa.
+2. **Báo cáo các phân phối, không phải các trung bình.** P50/P95/P99 cho độ trễ. Recall theo lớp cho phân loại. Theo nhóm cho MMAU.
+3. **Chạy một benchmark công khai kinh điển.** Ngay cả khi dữ liệu production của bạn khác, báo cáo trên Open ASR / TTS Arena / MMAU cho phép người đánh giá so sánh tương đương.
 
 ## Pitfalls
 
-- **UTMOS extrapolation.** Trained on VCTK-style clean speech; scores noisy / cloned / emotional audio poorly.
-- **MOS panel bias.** 20 Amazon Mechanical Turk workers ≠ 20 target users. Pay for a domain panel if stakes are high.
-- **FAD depends on reference set.** Compare against the same reference distribution across models.
-- **Aggregate WER.** A 5% WER overall can hide 30% WER on accented speech. Report by demographic slice.
-- **Public benchmark saturation.** Most frontier models are near the ceiling on standard benchmarks. Build an in-house held-out set that reflects your traffic.
+- **Ngoại suy UTMOS.** Được huấn luyện trên tiếng nói sạch kiểu VCTK; chấm âm thanh nhiễu / được nhân bản / có cảm xúc kém.
+- **Thiên lệch hội đồng MOS.** 20 người lao động Amazon Mechanical Turk ≠ 20 người dùng đích. Trả tiền cho một hội đồng lĩnh vực nếu hệ quả lớn.
+- **FAD phụ thuộc tập tham chiếu.** So sánh với cùng phân phối tham chiếu giữa các mô hình.
+- **WER tổng hợp.** WER tổng thể 5% có thể che giấu WER 30% trên tiếng nói có giọng vùng miền. Báo cáo theo lát cắt nhân khẩu học.
+- **Bão hòa benchmark công khai.** Hầu hết các mô hình tiên phong gần mức trần trên các benchmark tiêu chuẩn. Xây dựng một tập được giữ lại nội bộ phản ánh lưu lượng của bạn.
 
 ## Ship It
 
-Save as `outputs/skill-audio-evaluator.md`. Pick metrics, benchmarks, and reporting format for any audio model release.
+Lưu thành `outputs/skill-audio-evaluator.md`. Chọn các thước đo, benchmark và định dạng báo cáo cho bất kỳ bản phát hành mô hình âm thanh nào.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. Compute WER / CER / EER / SECS / FAD-ish / MMAU-ish on toy inputs.
-2. **Medium.** Build a TTS round-trip WER harness. Run your Kokoro or F5-TTS output through Whisper. Compute WER over 50 prompts. Flag prompts with WER &gt; 10%.
-3. **Hard.** Score your Lesson 10 LALM choice on MMAU-Pro speech + multi-audio subsets (50 items each). Report per-category accuracy and compare with the published number.
+1. **Dễ.** Chạy `code/main.py`. Tính WER / CER / EER / SECS / gần FAD / gần MMAU trên các đầu vào đồ chơi.
+2. **Trung bình.** Xây dựng một bộ chạy WER vòng đi-về TTS. Chạy đầu ra Kokoro hoặc F5-TTS của bạn qua Whisper. Tính WER trên 50 prompt. Đánh dấu các prompt có WER &gt; 10%.
+3. **Khó.** Chấm lựa chọn LALM Bài 10 của bạn trên các tập con tiếng nói + nhiều âm thanh MMAU-Pro (mỗi tập 50 mục). Báo cáo accuracy theo nhóm và so sánh với con số đã công bố.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| WER | ASR score | `(S+D+I)/N` at word level after normalization. |
-| CER | Character WER | For tone languages or char-level systems. |
-| MOS | Human opinion | 1-5 rating; 20+ listeners × 100 samples. |
-| UTMOS | ML MOS predictor | Learned model; correlates ~0.9 with human MOS. |
-| SECS | Voice-clone similarity | ECAPA cosine between reference and clone. |
-| EER | Speaker verif score | Threshold where FAR = FRR. |
-| DER | Diarization score | (FA + Miss + Confusion) / total. |
-| FAD | Music-gen quality | Fréchet distance on VGGish embeddings. |
-| RTFx | Throughput | Audio seconds per wall-clock second. |
+| WER | Điểm ASR | `(S+D+I)/N` ở cấp từ sau chuẩn hóa. |
+| CER | WER ký tự | Cho các ngôn ngữ thanh điệu hoặc các hệ thống cấp ký tự. |
+| MOS | Ý kiến con người | Đánh giá 1-5; 20+ người nghe × 100 mẫu. |
+| UTMOS | Bộ dự đoán MOS ML | Mô hình được học; tương quan ~0.9 với MOS con người. |
+| SECS | Độ tương đồng bản nhân giọng | Cosine ECAPA giữa tham chiếu và bản nhân. |
+| EER | Điểm xác minh người nói | Ngưỡng nơi FAR = FRR. |
+| DER | Điểm phân đoạn người nói | (FA + Miss + Confusion) / total. |
+| FAD | Chất lượng sinh nhạc | Khoảng cách Fréchet trên các embedding VGGish. |
+| RTFx | Thông lượng | Số giây âm thanh mỗi giây thời gian thực. |
 
 ## Further Reading
 
-- [jiwer](https://github.com/jitsi/jiwer) — WER/CER library with normalization utilities.
-- [UTMOS (Saeki et al. 2022)](https://arxiv.org/abs/2204.02152) — learned MOS predictor.
-- [Fréchet Audio Distance (Kilgour et al. 2019)](https://arxiv.org/abs/1812.08466) — the music-gen standard.
-- [Open ASR Leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard) — 2026 live rankings.
-- [TTS Arena](https://huggingface.co/spaces/TTS-AGI/TTS-Arena) — human-vote TTS leaderboard.
-- [MMAU-Pro benchmark](https://sonalkum.github.io/mmau-pro/) — LALM reasoning leaderboard.
-- [HEAR benchmark](https://hearbenchmark.com/) — audio SSL benchmarks.
+- [jiwer](https://github.com/jitsi/jiwer) — thư viện WER/CER với các tiện ích chuẩn hóa.
+- [UTMOS (Saeki et al. 2022)](https://arxiv.org/abs/2204.02152) — bộ dự đoán MOS được học.
+- [Fréchet Audio Distance (Kilgour et al. 2019)](https://arxiv.org/abs/1812.08466) — tiêu chuẩn sinh nhạc.
+- [Open ASR Leaderboard](https://huggingface.co/spaces/hf-audio/open_asr_leaderboard) — các thứ hạng trực tiếp năm 2026.
+- [TTS Arena](https://huggingface.co/spaces/TTS-AGI/TTS-Arena) — bảng xếp hạng TTS bỏ phiếu con người.
+- [MMAU-Pro benchmark](https://sonalkum.github.io/mmau-pro/) — bảng xếp hạng suy luận LALM.
+- [HEAR benchmark](https://hearbenchmark.com/) — các benchmark SSL âm thanh.
