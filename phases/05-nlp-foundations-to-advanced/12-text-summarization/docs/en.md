@@ -1,6 +1,6 @@
 # Text Summarization
 
-> Extractive systems tell you what the document said. Abstractive systems tell you what the author meant. Different tasks, different pitfalls.
+> Các hệ thống trích xuất cho bạn biết tài liệu đã nói gì. Các hệ thống trừu tượng cho bạn biết tác giả muốn nói gì. Các tác vụ khác nhau, các cạm bẫy khác nhau.
 
 **Type:** Build
 **Languages:** Python
@@ -9,23 +9,23 @@
 
 ## The Problem
 
-A 2,000-word news article lands in your feed. You need 120 words that capture it. You can either pick the three most important sentences from the article (extractive) or rewrite the content in your own words (abstractive). Both are called summarization. They are completely different problems.
+Một bài báo tin tức 2,000 từ xuất hiện trong bảng tin của bạn. Bạn cần 120 từ nắm bắt nó. Bạn có thể chọn ba câu quan trọng nhất từ bài báo (trích xuất) hoặc viết lại nội dung bằng lời của mình (trừu tượng). Cả hai được gọi là tóm tắt. Chúng là những bài toán hoàn toàn khác nhau.
 
-Extractive summarization is a ranking problem. Score every sentence, return the top-`k`. The output is always grammatical because it is lifted verbatim. The risk is missing content that is distributed across the article.
+Tóm tắt trích xuất là một bài toán xếp hạng. Chấm điểm mọi câu, trả top-`k`. Đầu ra luôn đúng ngữ pháp vì được lấy nguyên văn. Rủi ro là bỏ sót nội dung phân bố khắp bài báo.
 
-Abstractive summarization is a generation problem. A transformer produces new text conditioned on the input. The output is fluent and compressive but may hallucinate facts that were not in the source. The risk is confident fabrication.
+Tóm tắt trừu tượng là một bài toán sinh. Một transformer tạo văn bản mới được điều kiện hóa theo đầu vào. Đầu ra trôi chảy và cô đọng nhưng có thể ảo giác các sự kiện không có trong nguồn. Rủi ro là bịa đặt tự tin.
 
-This lesson builds both, with the failure mode each one owns.
+Bài học này xây dựng cả hai, với dạng lỗi riêng của mỗi loại.
 
 ## The Concept
 
 ![Extractive TextRank vs abstractive transformer](../assets/summarization.svg)
 
-**Extractive.** Treat the article as a graph where nodes are sentences and edges are similarities. Run PageRank (or something like it) over the graph to score sentences by how connected they are to everything else. Highest-scoring sentences are the summary. The canonical implementation is **TextRank** (Mihalcea and Tarau, 2004).
+**Trích xuất.** Coi bài báo là một đồ thị mà các nút là các câu và các cạnh là độ tương đồng. Chạy PageRank (hoặc thứ gì giống nó) trên đồ thị để chấm điểm các câu theo mức chúng kết nối với mọi thứ khác. Các câu có điểm cao nhất là bản tóm tắt. Triển khai kinh điển là **TextRank** (Mihalcea và Tarau, 2004).
 
-**Abstractive.** Fine-tune a transformer encoder-decoder (BART, T5, Pegasus) on document-summary pairs. At inference, the model reads the document and generates the summary token-by-token via cross-attention. Pegasus in particular uses a gap-sentence pretraining objective that makes it excellent at summarization without much fine-tuning.
+**Trừu tượng.** Fine-tune một encoder-decoder transformer (BART, T5, Pegasus) trên các cặp tài liệu-tóm tắt. Khi suy luận, mô hình đọc tài liệu và sinh bản tóm tắt từng token qua cross-attention. Riêng Pegasus dùng một mục tiêu tiền huấn luyện câu bị khuyết khiến nó xuất sắc trong tóm tắt mà không cần nhiều fine-tuning.
 
-Evaluation with **ROUGE** (Recall-Oriented Understudy for Gisting Evaluation). ROUGE-1 and ROUGE-2 score unigram and bigram overlap. ROUGE-L scores longest common subsequence. Higher is better but 40 ROUGE-L is "good" and 50 is "exceptional." Every paper reports all three. Use the `rouge-score` package.
+Đánh giá bằng **ROUGE** (Recall-Oriented Understudy for Gisting Evaluation). ROUGE-1 và ROUGE-2 chấm phần giao unigram và bigram. ROUGE-L chấm dãy con chung dài nhất. Cao hơn là tốt hơn nhưng 40 ROUGE-L là "tốt" và 50 là "xuất sắc." Mọi bài báo báo cáo cả ba. Dùng gói `rouge-score`.
 
 ```figure
 summarize-collapse
@@ -85,7 +85,7 @@ def textrank(text, top_k=3, damping=0.85, iterations=50, epsilon=1e-4):
     return [sentences[i] for i in ranked]
 ```
 
-Two things worth naming. The similarity function uses log-normalized word overlap, which is the original TextRank variant. Cosine of TF-IDF vectors works too. The damping factor 0.85 and iteration count are the PageRank defaults.
+Hai điều cần nêu tên. Hàm tương đồng dùng phần giao từ được chuẩn hóa log, là biến thể TextRank gốc. Cosine của các vector TF-IDF cũng hoạt động. Hệ số suy giảm 0.85 và số lần lặp là các mặc định PageRank.
 
 ### Step 2: abstractive with BART
 
@@ -100,7 +100,7 @@ summary = summarizer(article, max_length=120, min_length=60, do_sample=False)
 print(summary[0]["summary_text"])
 ```
 
-BART-large-CNN is fine-tuned on the CNN/DailyMail corpus. It produces news-style summaries out of the box. For other domains (scientific papers, dialog, legal), use the corresponding Pegasus checkpoint or fine-tune on your target data.
+BART-large-CNN được fine-tune trên ngữ liệu CNN/DailyMail. Nó tạo các bản tóm tắt kiểu tin tức ngay khi dùng. Với các lĩnh vực khác (bài báo khoa học, hội thoại, pháp lý), dùng checkpoint Pegasus tương ứng hoặc fine-tune trên dữ liệu đích của bạn.
 
 ### Step 3: ROUGE evaluation
 
@@ -112,56 +112,56 @@ scores = scorer.score(reference_summary, generated_summary)
 print({k: round(v.fmeasure, 3) for k, v in scores.items()})
 ```
 
-Always use stemming. Without it, "running" and "run" count as different words and ROUGE undercounts.
+Luôn dùng stemming. Không có nó, "running" và "run" được đếm là các từ khác nhau và ROUGE đếm thiếu.
 
 ### Beyond ROUGE (2026 summarization eval)
 
-ROUGE has been the dominant summarization metric for twenty years and it is insufficient on its own in 2026. A large-scale meta-analysis of NLG papers showed:
+ROUGE là thước đo tóm tắt chủ đạo suốt hai mươi năm và riêng nó là không đủ vào năm 2026. Một phân tích tổng hợp quy mô lớn các bài báo NLG cho thấy:
 
-- **BERTScore** (contextual embedding similarity) gained ground through 2023 and is now reported alongside ROUGE in most summarization papers.
-- **BARTScore** treats evaluation as generation: score the summary by how likely a pretrained BART assigns it given the source.
-- **MoverScore** (Earth Mover's Distance over contextual embeddings) reached the top spot in 2025 summarization benchmarks because it captures semantic overlap better than ROUGE.
-- **FactCC** and **QA-based faithfulness** were common 2021-2023, now often replaced by **G-Eval** (a GPT-4 prompt chain that scores coherence, consistency, fluency, relevance with chain-of-thought reasoning).
-- **G-Eval** and similar LLM-judge approaches match human judgment ~80% of the time when rubrics are well-designed.
+- **BERTScore** (độ tương đồng embedding theo ngữ cảnh) có thêm chỗ đứng đến năm 2023 và hiện được báo cáo cùng ROUGE trong hầu hết các bài báo tóm tắt.
+- **BARTScore** coi đánh giá là sinh: chấm điểm bản tóm tắt theo mức xác suất một BART tiền huấn luyện gán cho nó khi biết nguồn.
+- **MoverScore** (Earth Mover's Distance trên các embedding theo ngữ cảnh) đạt vị trí hàng đầu trong các benchmark tóm tắt năm 2025 vì nó nắm bắt phần giao ngữ nghĩa tốt hơn ROUGE.
+- **FactCC** và **độ trung thành dựa trên QA** phổ biến trong 2021-2023, hiện thường được thay bằng **G-Eval** (một chuỗi prompt GPT-4 chấm độ mạch lạc, tính nhất quán, độ trôi chảy, tính liên quan với suy luận chain-of-thought).
+- **G-Eval** và các cách tiếp cận LLM làm giám khảo tương tự khớp phán đoán con người ~80% số lần khi rubric được thiết kế tốt.
 
-Production recommendation: report ROUGE-L for legacy comparison, BERTScore for semantic overlap, G-Eval for coherence and factuality. Calibrate against 50-100 human-labeled summaries.
+Khuyến nghị production: báo cáo ROUGE-L để so sánh với trước đây, BERTScore cho phần giao ngữ nghĩa, G-Eval cho độ mạch lạc và tính đúng sự thật. Hiệu chuẩn theo 50-100 bản tóm tắt được con người gán nhãn.
 
 ### Step 4: the factuality problem
 
-Abstractive summaries are prone to hallucination. Extractive summaries carry a much lower hallucination risk because the output is lifted verbatim from the source, though they can still mislead if source sentences are decontextualized, outdated, or quoted out of order. This is the single biggest reason production systems still prefer extractive methods for compliance-adjacent content.
+Các bản tóm tắt trừu tượng dễ ảo giác. Các bản tóm tắt trích xuất mang rủi ro ảo giác thấp hơn nhiều vì đầu ra được lấy nguyên văn từ nguồn, dù chúng vẫn có thể gây hiểu lầm nếu các câu nguồn bị tách khỏi ngữ cảnh, lỗi thời hoặc được trích dẫn sai thứ tự. Đây là lý do lớn nhất các hệ thống production vẫn ưu tiên các phương pháp trích xuất cho nội dung gần với tuân thủ.
 
-Hallucination types to name:
+Các loại ảo giác cần nêu tên:
 
-- **Entity swap.** Source says "John Smith." Summary says "John Brown."
-- **Number drift.** Source says "25,000." Summary says "25 million."
-- **Polarity flip.** Source says "rejected the offer." Summary says "accepted the offer."
-- **Fact invention.** Source does not mention the CEO. Summary says the CEO approved.
+- **Hoán đổi thực thể.** Nguồn nói "John Smith." Tóm tắt nói "John Brown."
+- **Độ trôi con số.** Nguồn nói "25,000." Tóm tắt nói "25 triệu."
+- **Đảo sắc thái.** Nguồn nói "từ chối lời đề nghị." Tóm tắt nói "chấp nhận lời đề nghị."
+- **Bịa sự kiện.** Nguồn không nhắc CEO. Tóm tắt nói CEO đã phê duyệt.
 
-Evaluation approaches that work:
+Các cách tiếp cận đánh giá hoạt động:
 
-- **FactCC.** A binary classifier trained on entailment between source sentence and summary sentence. Predicts factual/not-factual.
-- **QA-based factuality.** Ask a QA model questions whose answers are in the source. If the summary supports different answers, flag.
-- **Entity-level F1.** Compare named entities in source vs summary. Entities present only in the summary are suspect.
+- **FactCC.** Một bộ phân loại nhị phân được huấn luyện trên quan hệ kéo theo giữa câu nguồn và câu tóm tắt. Dự đoán đúng sự thật/không đúng sự thật.
+- **Tính đúng sự thật dựa trên QA.** Hỏi một mô hình QA các câu hỏi có câu trả lời trong nguồn. Nếu bản tóm tắt hỗ trợ các câu trả lời khác, đánh dấu.
+- **F1 cấp thực thể.** So sánh các thực thể có tên trong nguồn với tóm tắt. Các thực thể chỉ có trong tóm tắt là đáng ngờ.
 
-For anything user-facing where factuality matters (news, medical, legal, financial), extractive is the safer default. Abstractive needs a factuality check in the loop.
+Với bất kỳ thứ gì hướng đến người dùng mà tính đúng sự thật quan trọng (tin tức, y tế, pháp lý, tài chính), trích xuất là mặc định an toàn hơn. Trừu tượng cần một kiểm tra tính đúng sự thật trong vòng lặp.
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Use case | Recommended |
+| Trường hợp sử dụng | Khuyến nghị |
 |---------|-------------|
-| News, 3-5 sentence summary, English | `facebook/bart-large-cnn` |
-| Scientific papers | `google/pegasus-pubmed` or a tuned T5 |
-| Multi-document, long-form | Any LLM with 32k+ context, prompted |
-| Dialog summarization | `philschmid/bart-large-cnn-samsum` |
-| Extractive, low hallucination risk by construction | TextRank or `sumy`'s LSA / LexRank |
+| Tin tức, tóm tắt 3-5 câu, tiếng Anh | `facebook/bart-large-cnn` |
+| Các bài báo khoa học | `google/pegasus-pubmed` hoặc một T5 được tinh chỉnh |
+| Nhiều tài liệu, dạng dài | Bất kỳ LLM nào có ngữ cảnh 32k+, được prompt |
+| Tóm tắt hội thoại | `philschmid/bart-large-cnn-samsum` |
+| Trích xuất, rủi ro ảo giác thấp ngay từ cách xây dựng | TextRank hoặc LSA / LexRank của `sumy` |
 
-LLMs with long context often beat specialized models in 2026 when compute is not a constraint. The tradeoff is cost and reproducibility; specialized models give more consistent outputs.
+Các LLM có ngữ cảnh dài thường thắng các mô hình chuyên biệt năm 2026 khi tính toán không phải ràng buộc. Đánh đổi là chi phí và khả năng tái lập; các mô hình chuyên biệt cho đầu ra nhất quán hơn.
 
 ## Ship It
 
-Save as `outputs/skill-summary-picker.md`:
+Lưu thành `outputs/skill-summary-picker.md`:
 
 ```markdown
 ---
@@ -185,25 +185,25 @@ Refuse abstractive summarization for medical, legal, financial, or regulated con
 
 ## Exercises
 
-1. **Easy.** Run TextRank on 5 news articles. Compare the top-3 sentences to a reference summary. Measure ROUGE-L. You should see 30-45 ROUGE-L on CNN/DailyMail-style articles.
-2. **Medium.** Implement entity-level factuality: extract named entities from source and summary (spaCy), compute recall of source entities in summary and precision of summary entities against source. High precision and low recall mean safe but terse; low precision means hallucinated entities.
-3. **Hard.** Compare BART-large-CNN against an LLM (Claude or GPT-4) on 50 CNN/DailyMail articles. Report ROUGE-L, factuality (by entity F1), and cost per summary. Document where each wins.
+1. **Dễ.** Chạy TextRank trên 5 bài báo tin tức. So sánh top-3 câu với một bản tóm tắt tham chiếu. Đo ROUGE-L. Bạn sẽ thấy 30-45 ROUGE-L trên các bài báo kiểu CNN/DailyMail.
+2. **Trung bình.** Triển khai tính đúng sự thật cấp thực thể: trích xuất các thực thể có tên từ nguồn và tóm tắt (spaCy), tính recall của các thực thể nguồn trong tóm tắt và precision của các thực thể tóm tắt so với nguồn. Precision cao và recall thấp nghĩa là an toàn nhưng ngắn gọn; precision thấp nghĩa là các thực thể bị ảo giác.
+3. **Khó.** So sánh BART-large-CNN với một LLM (Claude hoặc GPT-4) trên 50 bài CNN/DailyMail. Báo cáo ROUGE-L, tính đúng sự thật (bằng F1 thực thể) và chi phí mỗi bản tóm tắt. Ghi lại nơi mỗi bên thắng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Extractive | Pick sentences | Return sentences verbatim from the source. Never hallucinates. |
-| Abstractive | Rewrite | Generate new text conditioned on source. Can hallucinate. |
-| ROUGE | Summary metric | N-gram / LCS overlap between system output and reference. |
-| TextRank | Graph-based extractive | PageRank over sentence similarity graph. |
-| Factuality | Is it right | Whether summary claims are supported by the source. |
-| Hallucination | Made-up content | Content in the summary that the source does not support. |
+| Extractive (Trích xuất) | Chọn câu | Trả các câu nguyên văn từ nguồn. Không bao giờ ảo giác. |
+| Abstractive (Trừu tượng) | Viết lại | Sinh văn bản mới được điều kiện hóa theo nguồn. Có thể ảo giác. |
+| ROUGE | Thước đo tóm tắt | Phần giao n-gram / LCS giữa đầu ra hệ thống và tham chiếu. |
+| TextRank | Trích xuất dựa trên đồ thị | PageRank trên đồ thị độ tương đồng câu. |
+| Factuality (Tính đúng sự thật) | Nó có đúng không | Liệu các khẳng định trong tóm tắt có được nguồn hỗ trợ. |
+| Hallucination (Ảo giác) | Nội dung bịa ra | Nội dung trong tóm tắt mà nguồn không hỗ trợ. |
 
 ## Further Reading
 
-- [Mihalcea and Tarau (2004). TextRank: Bringing Order into Texts](https://aclanthology.org/W04-3252/) — the extractive canonical paper.
-- [Lewis et al. (2019). BART: Denoising Sequence-to-Sequence Pre-training](https://arxiv.org/abs/1910.13461) — the BART paper.
-- [Zhang et al. (2019). PEGASUS: Pre-training with Extracted Gap-sentences](https://arxiv.org/abs/1912.08777) — Pegasus and the gap-sentence objective.
-- [Lin (2004). ROUGE: A Package for Automatic Evaluation of Summaries](https://aclanthology.org/W04-1013/) — ROUGE paper.
-- [Maynez et al. (2020). On Faithfulness and Factuality in Abstractive Summarization](https://arxiv.org/abs/2005.00661) — the factuality landscape paper.
+- [Mihalcea and Tarau (2004). TextRank: Bringing Order into Texts](https://aclanthology.org/W04-3252/) — bài báo trích xuất kinh điển.
+- [Lewis et al. (2019). BART: Denoising Sequence-to-Sequence Pre-training](https://arxiv.org/abs/1910.13461) — bài báo BART.
+- [Zhang et al. (2019). PEGASUS: Pre-training with Extracted Gap-sentences](https://arxiv.org/abs/1912.08777) — Pegasus và mục tiêu câu bị khuyết.
+- [Lin (2004). ROUGE: A Package for Automatic Evaluation of Summaries](https://aclanthology.org/W04-1013/) — bài báo ROUGE.
+- [Maynez et al. (2020). On Faithfulness and Factuality in Abstractive Summarization](https://arxiv.org/abs/2005.00661) — bài báo về bức tranh tính đúng sự thật.
