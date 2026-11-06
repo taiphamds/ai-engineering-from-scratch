@@ -1,6 +1,6 @@
 # Collective Ops From Scratch
 
-> The four collective operations that hold distributed training together are allreduce, broadcast, allgather, and reduce_scatter. Every other primitive a training framework offers is a wrapper around these. Build them once over a `multiprocessing.Queue` mesh, verify them against a reference implementation, and the rest of the track becomes plumbing.
+> Bốn phép tập thể giữ huấn luyện phân tán với nhau là allreduce, broadcast, allgather, và reduce_scatter. Mọi thành phần cơ sở khác một framework huấn luyện cung cấp là một lớp bọc quanh chúng. Xây dựng chúng một lần trên một mạng lưới `multiprocessing.Queue`, xác minh chúng với một triển khai tham chiếu, và phần còn lại của track trở thành hệ thống nối.
 
 **Type:** Build
 **Languages:** Python
@@ -9,16 +9,16 @@
 
 ## Learning Objectives
 
-- Implement ring allreduce in two passes (reduce-scatter then allgather) and prove the per-rank communication volume is 2(N-1)/N bytes per element.
-- Build broadcast, allgather, and reduce_scatter on top of point-to-point sends over `multiprocessing.Queue`.
-- Verify every primitive against a `torch.distributed` gloo reference for the same input.
-- Defend the choice of ring versus tree on cluster shape, latency floor, and bandwidth ceiling.
+- Triển khai allreduce vòng trong hai lượt (reduce-scatter rồi allgather) và chứng minh lượng giao tiếp theo rank là 2(N-1)/N byte mỗi phần tử.
+- Xây dựng broadcast, allgather, và reduce_scatter trên các lần gửi điểm-đến-điểm qua `multiprocessing.Queue`.
+- Xác minh mọi thành phần cơ sở với một tham chiếu gloo `torch.distributed` cho cùng đầu vào.
+- Bảo vệ lựa chọn vòng so với cây theo hình thức cụm, sàn độ trễ, và trần băng thông.
 
 ## The Problem
 
-A naive allreduce over N ranks sends N times the tensor to a root and broadcasts N times back. Bandwidth scales as O(N) per rank, the root becomes a bottleneck, and the wall-clock floor is the slowest link times N. Ring allreduce flattens that into 2(N-1) chunks of size T/N, so per-rank bytes drop to 2T(N-1)/N independent of cluster size. Tree allreduce wins on small N and high-latency links because depth is log2(N) hops instead of 2(N-1). Pick the wrong topology for the cluster shape and the slowest GPU dictates step time.
+Một allreduce ngây thơ trên N rank gửi N lần tensor đến một gốc và phát quảng bá N lần trở lại. Băng thông tăng theo O(N) mỗi rank, gốc trở thành một nút thắt, và sàn thời gian thực là liên kết chậm nhất nhân N. Allreduce vòng làm phẳng điều đó thành 2(N-1) đoạn kích thước T/N, để các byte theo rank giảm xuống 2T(N-1)/N độc lập kích thước cụm. Allreduce cây thắng trên N nhỏ và các liên kết độ trễ cao vì độ sâu là log2(N) bước nhảy thay vì 2(N-1). Chọn sai cấu trúc liên kết cho hình thức cụm và GPU chậm nhất quyết định thời gian bước.
 
-Every distributed training framework you will read this track depends on these four primitives. PyTorch DDP synchronises gradients with one allreduce per parameter bucket. ZeRO shards optimiser state by reduce_scatter and broadcasts updated parameters by allgather. FSDP turns the full forward into allgather plus reduce_scatter. Pipeline parallel needs broadcast for activations across stage groups. If you cannot implement the four collectives, you cannot reason about why training stalls, why the gradient mismatch shows up at rank 3, or why the pipeline bubble doubles when you swap topologies.
+Mọi framework huấn luyện phân tán bạn sẽ đọc trong track này phụ thuộc vào bốn thành phần cơ sở này. PyTorch DDP đồng bộ các gradient bằng một allreduce mỗi nhóm tham số. ZeRO chia shard trạng thái bộ tối ưu bằng reduce_scatter và phát quảng bá các tham số được cập nhật bằng allgather. FSDP biến toàn lượt tiến thành allgather cộng reduce_scatter. Song song pipeline cần broadcast cho các kích hoạt giữa các nhóm giai đoạn. Nếu bạn không thể triển khai bốn phép tập thể, bạn không thể suy luận về tại sao huấn luyện đình trệ, tại sao sự không khớp gradient xuất hiện ở rank 3, hoặc tại sao bong bóng pipeline tăng gấp đôi khi bạn đổi cấu trúc liên kết.
 
 ## The Concept
 
@@ -36,23 +36,23 @@ flowchart LR
 
 ### Ring allreduce in two passes
 
-Split the tensor into N equal chunks indexed 0..N-1. Each rank owns chunk index equal to its rank. Pass 1, reduce-scatter, runs N-1 steps. At step s, rank r sends chunk (r - s) mod N to rank (r + 1) mod N and receives chunk (r - s - 1) mod N from rank (r - 1) mod N, accumulating the received chunk into its local copy. After N-1 steps, rank r owns the full sum for chunk r. Pass 2, allgather, runs another N-1 steps and rotates the finished chunks around the ring until every rank holds the full sum for every chunk.
+Chia tensor thành N đoạn bằng nhau được đánh chỉ mục 0..N-1. Mỗi rank sở hữu chỉ số đoạn bằng rank của nó. Lượt 1, reduce-scatter, chạy N-1 bước. Tại bước s, rank r gửi đoạn (r - s) mod N đến rank (r + 1) mod N và nhận đoạn (r - s - 1) mod N từ rank (r - 1) mod N, tích lũy đoạn nhận được vào bản sao cục bộ. Sau N-1 bước, rank r sở hữu tổng đầy đủ cho đoạn r. Lượt 2, allgather, chạy thêm N-1 bước và xoay các đoạn hoàn tất quanh vòng cho đến khi mọi rank giữ tổng đầy đủ cho mọi đoạn.
 
-| Primitive | Per-rank bytes | Steps | When to use |
+| Thành phần cơ sở | Byte theo rank | Bước | Khi nào dùng |
 |-----------|---------------|-------|-------------|
-| Ring allreduce | 2T(N-1)/N | 2(N-1) | Large T, fat-pipe homogeneous cluster |
-| Tree allreduce | T log2(N) | 2 log2(N) | Small T or high-latency links |
-| Broadcast | T | log2(N) tree | Parameter init, scalar config |
-| Allgather | T(N-1)/N | N-1 | Sharded forward, ZeRO unshard |
-| Reduce_scatter | T(N-1)/N | N-1 | ZeRO gradient sharding |
+| Allreduce vòng | 2T(N-1)/N | 2(N-1) | T lớn, cụm đồng nhất đường truyền rộng |
+| Allreduce cây | T log2(N) | 2 log2(N) | T nhỏ hoặc các liên kết độ trễ cao |
+| Broadcast | T | cây log2(N) | Khởi tạo tham số, cấu hình vô hướng |
+| Allgather | T(N-1)/N | N-1 | Lượt tiến chia shard, bỏ chia shard ZeRO |
+| Reduce_scatter | T(N-1)/N | N-1 | Chia shard gradient ZeRO |
 
 ### Queue mesh as a stand-in for NCCL
 
-NCCL runs over PCIe and NVLink with hardware-offloaded reductions. On CPU you do not have that. A `multiprocessing.Queue` per ring edge gives you ordered point-to-point delivery with a single producer and single consumer. The reduction happens in user space, so you pay Python overhead, but the wire pattern is identical to NCCL ring allreduce. Reason about correctness on the queue version and the cluster behaviour follows.
+NCCL chạy trên PCIe và NVLink với các phép rút gọn được chuyển tải phần cứng. Trên CPU bạn không có điều đó. Một `multiprocessing.Queue` mỗi cạnh vòng cho bạn chuyển giao điểm-đến-điểm có thứ tự với một bên tạo và một bên tiêu thụ. Rút gọn xảy ra trong không gian người dùng, nên bạn trả chi phí phụ Python, nhưng mẫu truyền tin giống hệt allreduce vòng NCCL. Suy luận về tính đúng đắn trên phiên bản hàng đợi và hành vi cụm theo sau.
 
 ### Verify against gloo
 
-Every primitive lands with a unit test that compares its output against `torch.distributed` initialised with the gloo backend on the same tensor across the same world size. If your ring allreduce diverges from gloo by more than float32 epsilon, the test fails. Verification against a reference implementation is non-negotiable; without it the primitive looks correct until step 10000 of a real training run.
+Mọi thành phần cơ sở đi kèm một kiểm thử đơn vị so sánh đầu ra của nó với `torch.distributed` được khởi tạo bằng backend gloo trên cùng tensor qua cùng kích thước thế giới. Nếu allreduce vòng của bạn phân kỳ khỏi gloo nhiều hơn epsilon float32, kiểm thử thất bại. Xác minh với một triển khai tham chiếu là không thể thương lượng; không có nó thành phần cơ sở trông đúng đến bước 10000 của một lần chạy huấn luyện thực.
 
 ```figure
 ci-ring-allreduce
@@ -60,63 +60,63 @@ ci-ring-allreduce
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `Mesh` class that wires N `multiprocessing.Queue` instances into a ring and exposes `send(dst, tensor)` and `recv(src)` per rank.
-- `ring_allreduce(mesh, rank, world_size, tensor)` running the two-pass algorithm.
-- `broadcast(mesh, rank, world_size, tensor, src)` over a logarithmic tree.
-- `allgather(mesh, rank, world_size, tensor)` using N-1 rotations.
-- `reduce_scatter(mesh, rank, world_size, tensor)` as the first half of allreduce.
-- `_gloo_reference(op, world_size, tensor)` that runs the same input through `torch.distributed` with gloo for byte-equal comparison.
+- Lớp `Mesh` nối N thực thể `multiprocessing.Queue` thành một vòng và cung cấp `send(dst, tensor)` và `recv(src)` theo rank.
+- `ring_allreduce(mesh, rank, world_size, tensor)` chạy thuật toán hai lượt.
+- `broadcast(mesh, rank, world_size, tensor, src)` trên một cây logarit.
+- `allgather(mesh, rank, world_size, tensor)` dùng N-1 lần xoay.
+- `reduce_scatter(mesh, rank, world_size, tensor)` như nửa đầu allreduce.
+- `_gloo_reference(op, world_size, tensor)` chạy cùng đầu vào qua `torch.distributed` với gloo để so sánh bằng nhau từng byte.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-Output: per-primitive verification table comparing queue-mesh and gloo outputs, followed by a per-rank byte counter that proves the 2T(N-1)/N scaling.
+Đầu ra: bảng xác minh theo thành phần cơ sở so sánh các đầu ra mạng lưới hàng đợi và gloo, theo sau bởi một bộ đếm byte theo rank chứng minh sự biến thiên 2T(N-1)/N.
 
 ## Production patterns in the wild
 
-Three patterns harden the primitives enough to ship.
+Ba mẫu gia cố các thành phần cơ sở đủ để cung cấp.
 
-**Bucket gradients before allreduce.** A 1B-parameter model has tens of thousands of gradient tensors. One allreduce per tensor pays the latency floor N times. DDP buckets gradients into ~25 MB chunks and issues one allreduce per bucket; the small tensors ride on the back of the big ones. Without bucketing the latency overhead dominates the step.
+**Chia nhóm gradient trước allreduce.** Một mô hình 1B tham số có hàng chục nghìn tensor gradient. Một allreduce mỗi tensor trả sàn độ trễ N lần. DDP chia gradient thành các đoạn ~25 MB và phát một allreduce mỗi nhóm; các tensor nhỏ đi nhờ các tensor lớn. Không chia nhóm chi phí phụ độ trễ chi phối bước.
 
-**Overlap communication with computation.** Backward computes gradients layer by layer in reverse order. The moment the last layer's gradient is ready, kick off its allreduce while the next layer keeps computing. PyTorch DDP wires this with bucket-ready hooks. The overlap halves visible communication time when the network has slack.
+**Chồng lấn giao tiếp với tính toán.** Lượt ngược tính các gradient từng lớp theo thứ tự đảo. Ngay khi gradient của lớp cuối sẵn sàng, khởi động allreduce của nó trong khi lớp tiếp theo tiếp tục tính. PyTorch DDP nối điều này bằng các hook nhóm-sẵn-sàng. Chồng lấn giảm một nửa thời gian giao tiếp thấy được khi mạng còn dư.
 
-**Pick ring or tree by message size, not religion.** NCCL ships a topology detector that picks ring for messages above ~1 MB and tree below. The crossover is bandwidth-versus-latency: above 1 MB, the bandwidth term 2T(N-1)/N dominates and ring wins; below 1 MB, the log2(N) hop count wins. Hard-coding one topology costs throughput on the wrong message size.
+**Chọn vòng hoặc cây theo kích thước thông điệp, không phải tôn giáo.** NCCL cung cấp một bộ phát hiện cấu trúc liên kết chọn vòng cho các thông điệp trên ~1 MB và cây phía dưới. Điểm giao là băng thông-so-với-độ-trễ: trên 1 MB, số hạng băng thông 2T(N-1)/N chi phối và vòng thắng; dưới 1 MB, số bước nhảy log2(N) thắng. Mã hóa cứng một cấu trúc liên kết tốn thông lượng ở kích thước thông điệp sai.
 
 ## Use It
 
-Production patterns:
+Các mẫu sản xuất:
 
-- **PyTorch DDP.** Calls `dist.all_reduce` on bucketed gradients after backward. The bucket size is tunable; default 25 MB is reasonable for 100Gbit Ethernet.
-- **DeepSpeed ZeRO.** Issues reduce_scatter to shard gradients and allgather to reconstruct full parameters before forward. The lesson's primitives are exactly the calls ZeRO makes.
-- **FSDP.** Forward begins with allgather to unshard the layer, computes, then reduces with reduce_scatter and discards the unshard. Same primitives, different schedule.
+- **PyTorch DDP.** Gọi `dist.all_reduce` trên các gradient được chia nhóm sau lượt ngược. Kích thước nhóm có thể điều chỉnh; mặc định 25 MB hợp lý cho Ethernet 100Gbit.
+- **DeepSpeed ZeRO.** Phát reduce_scatter để chia shard gradient và allgather để tái tạo các tham số đầy đủ trước lượt tiến. Các thành phần cơ sở của bài học chính xác là các lệnh gọi ZeRO thực hiện.
+- **FSDP.** Lượt tiến bắt đầu bằng allgather để bỏ chia shard lớp, tính toán, rồi rút gọn bằng reduce_scatter và loại bỏ phần đã bỏ chia shard. Cùng các thành phần cơ sở, lịch khác.
 
 ## Ship It
 
-Use the queue-mesh primitives in lessons 77-81. Lesson 77 wires allreduce into DDP. Lesson 78 wires reduce_scatter into ZeRO. Lesson 79 wires broadcast into pipeline activations. Lesson 81 composes all four into the end-to-end demo.
+Dùng các thành phần cơ sở mạng lưới hàng đợi trong các bài 77-81. Bài 77 nối allreduce vào DDP. Bài 78 nối reduce_scatter vào ZeRO. Bài 79 nối broadcast vào các kích hoạt pipeline. Bài 81 kết hợp cả bốn vào demo đầu cuối.
 
 ## Exercises
 
-1. Add a tree allreduce variant and switch between ring and tree by message size. Measure the crossover.
-2. Add a `recv_timeout_ms` so a stalled rank surfaces a deadline error instead of hanging forever.
-3. Replace `multiprocessing.Queue` with TCP sockets for the four primitives. Same tests, real wire.
-4. Add a bandwidth instrumentation hook so the per-rank byte counter logs to JSONL.
-5. Compare wall-clock time of ring versus tree on 4 ranks for tensors of size 1KB, 1MB, 16MB. Defend the crossover empirically.
+1. Thêm một biến thể allreduce cây và chuyển giữa vòng và cây theo kích thước thông điệp. Đo điểm giao.
+2. Thêm một `recv_timeout_ms` để một rank đình trệ đưa ra một lỗi hạn chót thay vì treo mãi.
+3. Thay `multiprocessing.Queue` bằng các socket TCP cho bốn thành phần cơ sở. Cùng các kiểm thử, đường truyền thực.
+4. Thêm một hook đo lường băng thông để bộ đếm byte theo rank ghi nhật ký vào JSONL.
+5. So sánh thời gian thực của vòng so với cây trên 4 rank cho các tensor kích thước 1KB, 1MB, 16MB. Bảo vệ điểm giao bằng thực nghiệm.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Allreduce | "Sum across ranks" | After the call every rank holds the same reduced tensor |
-| Ring | "The fast topology" | N-1 chunks of size T/N flow around the cycle twice |
-| Tree | "The log topology" | Reduction follows a binary tree; depth is log2(N) hops |
-| Allgather | "Concatenate shards" | Every rank ends with every other rank's shard |
-| Reduce_scatter | "Split the sum" | Each rank ends with the sum of one chunk only |
-| Bucket | "Fuse small tensors" | Coalesce N small allreduces into one large one |
+| Allreduce | "Cộng trên các rank" | Sau lệnh gọi mọi rank giữ cùng tensor được rút gọn |
+| Ring (Vòng) | "Cấu trúc liên kết nhanh" | N-1 đoạn kích thước T/N chảy quanh chu trình hai lần |
+| Tree (Cây) | "Cấu trúc liên kết log" | Rút gọn đi theo một cây nhị phân; độ sâu là log2(N) bước nhảy |
+| Allgather | "Nối các shard" | Mọi rank kết thúc với shard của mọi rank khác |
+| Reduce_scatter | "Chia tổng" | Mỗi rank kết thúc chỉ với tổng của một đoạn |
+| Bucket (Nhóm) | "Hợp nhất các tensor nhỏ" | Gộp N allreduce nhỏ thành một lớn |
 
 ## Further Reading
 
@@ -124,5 +124,5 @@ Use the queue-mesh primitives in lessons 77-81. Lesson 77 wires allreduce into D
 - [Horovod ring allreduce paper](https://arxiv.org/abs/1802.05799)
 - [NCCL topology and algorithm selection](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/index.html)
 - [Patarasuk and Yuan, Bandwidth optimal allreduce algorithms](https://www.cs.fsu.edu/~xyuan/paper/09jpdc.pdf)
-- Phase 10 Lesson 05 - distributed training overview
-- Phase 19 Lesson 77 - DDP wired on top of these primitives
+- Phase 10 Bài 05 - tổng quan huấn luyện phân tán
+- Phase 19 Bài 77 - DDP được nối trên các thành phần cơ sở này
