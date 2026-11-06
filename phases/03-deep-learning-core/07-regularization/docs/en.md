@@ -1,6 +1,6 @@
 # Regularization
 
-> Your model gets 99% on training data and 60% on test data. It memorized instead of learning. Regularization is the tax you impose on complexity to force generalization.
+> Mô hình của bạn đạt 99% trên dữ liệu huấn luyện và 60% trên dữ liệu test. Nó ghi nhớ thay vì học. Chính quy hóa là khoản thuế bạn áp lên độ phức tạp để buộc khái quát hóa.
 
 **Type:** Build
 **Languages:** Python
@@ -9,24 +9,24 @@
 
 ## Learning Objectives
 
-- Implement dropout with inverted scaling, L2 weight decay, batch normalization, layer normalization, and RMSNorm from scratch
-- Measure the train-test accuracy gap and diagnose overfitting using regularization experiments
-- Explain why transformers use LayerNorm instead of BatchNorm and why modern LLMs prefer RMSNorm
-- Apply the correct combination of regularization techniques based on the severity of overfitting
+- Triển khai dropout với co giãn đảo ngược, weight decay L2, batch normalization, layer normalization và RMSNorm từ đầu
+- Đo khoảng cách accuracy giữa huấn luyện và test, và chẩn đoán quá khớp bằng các thí nghiệm chính quy hóa
+- Giải thích tại sao transformer sử dụng LayerNorm thay vì BatchNorm và tại sao các LLM hiện đại thích RMSNorm
+- Áp dụng tổ hợp kỹ thuật chính quy hóa đúng dựa trên mức độ nghiêm trọng của quá khớp
 
 ## The Problem
 
-A neural network with enough parameters can memorize any dataset. This is not a hypothetical -- Zhang et al. (2017) proved it by training standard networks on ImageNet with random labels. The networks reached near-zero training loss on completely random label assignments. They memorized a million random input-output pairs with no pattern to learn. Training loss was perfect. Test accuracy was zero.
+Một mạng nơ-ron có đủ tham số có thể ghi nhớ bất kỳ tập dữ liệu nào. Đây không phải giả thuyết -- Zhang và cộng sự (2017) đã chứng minh bằng cách huấn luyện các mạng tiêu chuẩn trên ImageNet với các nhãn ngẫu nhiên. Các mạng đạt mất mát huấn luyện gần bằng không trên các cách gán nhãn hoàn toàn ngẫu nhiên. Chúng ghi nhớ một triệu cặp đầu vào-đầu ra ngẫu nhiên mà không có mẫu nào để học. Mất mát huấn luyện hoàn hảo. Accuracy test bằng không.
 
-This is the overfitting problem, and it gets worse as models get larger. GPT-3 has 175 billion parameters. The training set has about 500 billion tokens. With that many parameters, the model has enough capacity to memorize significant chunks of the training data verbatim. Without regularization, it would just regurgitate training examples instead of learning generalizable patterns.
+Đây là vấn đề quá khớp, và nó tệ hơn khi các mô hình lớn hơn. GPT-3 có 175 tỷ tham số. Tập huấn luyện có khoảng 500 tỷ token. Với từng ấy tham số, mô hình có đủ năng lực để ghi nhớ nguyên văn các phần đáng kể của dữ liệu huấn luyện. Không có chính quy hóa, nó sẽ chỉ nhắc lại các ví dụ huấn luyện thay vì học các mẫu có thể khái quát hóa.
 
-The gap between training performance and test performance is the overfitting gap. Every technique in this lesson attacks that gap from a different angle. Dropout forces the network to not rely on any single neuron. Weight decay prevents any single weight from growing too large. Batch normalization smooths the loss landscape so the optimizer finds flatter, more generalizable minima. Layer normalization does the same thing but works where batch normalization fails (small batches, variable-length sequences). RMSNorm does it 10% faster by dropping the mean calculation. Each technique is simple. Together, they're the difference between a model that memorizes and one that generalizes.
+Khoảng cách giữa hiệu suất huấn luyện và hiệu suất test là khoảng cách quá khớp. Mỗi kỹ thuật trong bài học này tấn công khoảng cách đó từ một góc khác nhau. Dropout buộc mạng không dựa vào bất kỳ nơ-ron đơn lẻ nào. Weight decay ngăn bất kỳ trọng số đơn lẻ nào tăng quá lớn. Batch normalization làm trơn bề mặt mất mát để bộ tối ưu hóa tìm các cực tiểu phẳng hơn, có thể khái quát hóa hơn. Layer normalization làm cùng việc nhưng hoạt động ở nơi batch normalization thất bại (các batch nhỏ, các chuỗi độ dài thay đổi). RMSNorm làm nhanh hơn 10% bằng cách bỏ tính trung bình. Mỗi kỹ thuật đều đơn giản. Cùng nhau, chúng tạo ra khác biệt giữa một mô hình ghi nhớ và một mô hình khái quát hóa.
 
 ## The Concept
 
 ### The Overfitting Spectrum
 
-Every model sits somewhere on a spectrum from underfitting (too simple to capture the pattern) to overfitting (so complex it captures noise). The sweet spot is in between, and regularization pushes models toward it from the overfit side.
+Mỗi mô hình nằm ở đâu đó trên một phổ từ khớp thiếu (quá đơn giản để nắm bắt mẫu) tới quá khớp (phức tạp tới mức nắm bắt nhiễu). Điểm phù hợp nằm ở giữa, và chính quy hóa đẩy các mô hình về phía đó từ phía quá khớp.
 
 ```mermaid
 graph LR
@@ -41,52 +41,52 @@ graph LR
 
 ### Dropout
 
-The simplest regularization technique with the most elegant interpretation. During training, randomly set each neuron's output to zero with probability p.
+Kỹ thuật chính quy hóa đơn giản nhất với cách diễn giải thanh nhã nhất. Trong huấn luyện, đặt ngẫu nhiên đầu ra mỗi nơ-ron bằng không với xác suất p.
 
 ```
 output = activation(z) * mask    where mask[i] ~ Bernoulli(1 - p)
 ```
 
-With p = 0.5, half the neurons are zeroed on every forward pass. The network must learn redundant representations because it can't predict which neurons will be available. This prevents co-adaptation -- neurons learning to rely on specific other neurons being present.
+Với p = 0.5, một nửa số nơ-ron được đưa về không trong mỗi lượt truyền xuôi. Mạng phải học các biểu diễn dư thừa vì nó không thể dự đoán những nơ-ron nào sẽ sẵn có. Điều này ngăn đồng thích nghi -- các nơ-ron học cách dựa vào sự hiện diện của những nơ-ron cụ thể khác.
 
-The ensemble interpretation: a network with N neurons and dropout creates 2^N possible subnetworks (every combination of which neurons are on or off). Training with dropout approximately trains all 2^N subnetworks simultaneously, each on different mini-batches. At test time, you use all neurons (no dropout) and scale outputs by (1 - p) to match the expected value during training. This is equivalent to averaging the predictions of 2^N subnetworks -- a massive ensemble from a single model.
+Cách diễn giải ensemble: một mạng có N nơ-ron và dropout tạo ra 2^N mạng con có thể (mọi tổ hợp nơ-ron bật hay tắt). Huấn luyện với dropout xấp xỉ huấn luyện đồng thời tất cả 2^N mạng con, mỗi mạng trên các mini-batch khác nhau. Khi test, bạn sử dụng tất cả nơ-ron (không dropout) và co giãn các đầu ra theo (1 - p) để khớp giá trị kỳ vọng trong huấn luyện. Điều này tương đương lấy trung bình các dự đoán của 2^N mạng con -- một ensemble khổng lồ từ một mô hình duy nhất.
 
-In practice, the scaling is applied during training instead of testing (inverted dropout):
+Trong thực tế, phép co giãn được áp dụng khi huấn luyện thay vì test (dropout đảo ngược):
 
 ```
 During training:  output = activation(z) * mask / (1 - p)
 During testing:   output = activation(z)   (no change needed)
 ```
 
-This is cleaner because test code doesn't need to know about dropout at all.
+Cách này gọn hơn vì mã test không cần biết gì về dropout.
 
-Default rates: p = 0.1 for transformers, p = 0.5 for MLPs, p = 0.2-0.3 for CNNs. Higher dropout = stronger regularization = more underfitting risk.
+Các tỷ lệ mặc định: p = 0.1 cho transformer, p = 0.5 cho MLP, p = 0.2-0.3 cho CNN. Dropout cao hơn = chính quy hóa mạnh hơn = nguy cơ khớp thiếu cao hơn.
 
 ### Weight Decay (L2 Regularization)
 
-Add the squared magnitude of all weights to the loss:
+Thêm độ lớn bình phương của tất cả trọng số vào mất mát:
 
 ```
 total_loss = task_loss + (lambda / 2) * sum(w_i^2)
 ```
 
-The gradient of the regularization term is lambda * w. This means at every step, each weight is shrunk toward zero by a fraction proportional to its magnitude. Large weights get penalized more. The model is pushed toward solutions where no single weight dominates.
+Gradient của số hạng chính quy hóa là lambda * w. Điều này nghĩa là ở mỗi bước, mỗi trọng số co về không một phần tỷ lệ với độ lớn của nó. Các trọng số lớn bị phạt nhiều hơn. Mô hình được đẩy về các nghiệm mà không trọng số đơn lẻ nào chi phối.
 
-Why this helps generalization: overfit models tend to have large weights that amplify noise in the training data. Weight decay keeps weights small, which limits the model's effective capacity and forces it to rely on robust, generalizable features rather than memorized quirks.
+Tại sao điều này giúp khái quát hóa: các mô hình quá khớp có xu hướng có trọng số lớn khuếch đại nhiễu trong dữ liệu huấn luyện. Weight decay giữ các trọng số nhỏ, giới hạn năng lực hiệu dụng của mô hình và buộc nó dựa vào các đặc trưng vững, có thể khái quát hóa thay vì những đặc điểm riêng đã ghi nhớ.
 
-The lambda hyperparameter controls the strength. Typical values:
+Siêu tham số lambda kiểm soát độ mạnh. Các giá trị điển hình:
 
-- 0.01 for AdamW on transformers
-- 1e-4 for SGD on CNNs
-- 0.1 for heavily overfit models
+- 0.01 cho AdamW trên transformer
+- 1e-4 cho SGD trên CNN
+- 0.1 cho các mô hình quá khớp nặng
 
-As discussed in lesson 06: weight decay and L2 regularization are equivalent in SGD but not in Adam. Always use AdamW (decoupled weight decay) when training with Adam.
+Như đã thảo luận trong bài 06: weight decay và chính quy hóa L2 tương đương trong SGD nhưng không trong Adam. Luôn sử dụng AdamW (weight decay tách rời) khi huấn luyện với Adam.
 
 ### Batch Normalization
 
-Normalize the output of each layer across the mini-batch before passing it to the next layer.
+Chuẩn hóa đầu ra mỗi lớp trên toàn mini-batch trước khi đưa nó tới lớp tiếp theo.
 
-For a mini-batch of activations at some layer:
+Với một mini-batch các kích hoạt tại một lớp nào đó:
 
 ```
 mu = (1/B) * sum(x_i)           (batch mean)
@@ -95,17 +95,17 @@ x_hat = (x_i - mu) / sqrt(sigma^2 + eps)   (normalize)
 y = gamma * x_hat + beta        (scale and shift)
 ```
 
-Gamma and beta are learnable parameters that let the network undo the normalization if that's optimal. Without them, you'd be forcing every layer's output to be zero-mean unit-variance, which might not be what the network wants.
+Gamma và beta là các tham số có thể học cho phép mạng hoàn tác chuẩn hóa nếu điều đó tối ưu. Không có chúng, bạn sẽ buộc đầu ra mọi lớp có trung bình bằng không và phương sai đơn vị, điều có thể không phải là điều mạng muốn.
 
-**Training vs inference split:** During training, mu and sigma come from the current mini-batch. During inference, you use running averages accumulated during training (exponential moving average with momentum = 0.1, meaning 90% old + 10% new).
+**Phân tách huấn luyện và suy luận:** Trong huấn luyện, mu và sigma đến từ mini-batch hiện tại. Trong suy luận, bạn sử dụng các trung bình tích lũy được thu thập trong huấn luyện (trung bình trượt hàm mũ với momentum = 0.1, nghĩa là 90% cũ + 10% mới).
 
-Why BatchNorm works is still debated. The original paper claimed it reduces "internal covariate shift" (the distribution of layer inputs changing as earlier layers update). Santurkar et al. (2018) showed this explanation is wrong. The actual reason: BatchNorm makes the loss landscape smoother. The gradients are more predictive, the Lipschitz constants are smaller, and the optimizer can take larger steps safely. This is why BatchNorm lets you use higher learning rates and converge faster.
+Tại sao BatchNorm hoạt động vẫn còn được tranh luận. Bài báo gốc tuyên bố nó giảm "dịch chuyển đồng biến nội bộ" (phân phối các đầu vào lớp thay đổi khi các lớp trước cập nhật). Santurkar và cộng sự (2018) cho thấy lời giải thích này sai. Lý do thực sự: BatchNorm làm bề mặt mất mát trơn hơn. Các gradient có tính dự báo cao hơn, các hằng số Lipschitz nhỏ hơn, và bộ tối ưu hóa có thể bước lớn hơn một cách an toàn. Đây là lý do BatchNorm cho phép bạn sử dụng các tốc độ học cao hơn và hội tụ nhanh hơn.
 
-BatchNorm has a fundamental limitation: it depends on batch statistics. With batch size 1, the mean and variance are meaningless. With small batches (< 32), the statistics are noisy and hurt performance. This matters for tasks like object detection (where memory limits batch size) and language modeling (where sequence lengths vary).
+BatchNorm có một giới hạn cơ bản: nó phụ thuộc vào thống kê batch. Với kích thước batch 1, trung bình và phương sai vô nghĩa. Với các batch nhỏ (< 32), các thống kê nhiễu và làm hại hiệu suất. Điều này quan trọng cho các tác vụ như phát hiện đối tượng (nơi bộ nhớ giới hạn kích thước batch) và mô hình hóa ngôn ngữ (nơi độ dài chuỗi thay đổi).
 
 ### Layer Normalization
 
-Normalize across features instead of across the batch. For a single sample:
+Chuẩn hóa trên các đặc trưng thay vì trên batch. Với một mẫu đơn lẻ:
 
 ```
 mu = (1/D) * sum(x_j)           (feature mean)
@@ -114,22 +114,22 @@ x_hat = (x_j - mu) / sqrt(sigma^2 + eps)
 y = gamma * x_hat + beta
 ```
 
-D is the feature dimension. Each sample is normalized independently -- no dependence on batch size. This is why transformers use LayerNorm instead of BatchNorm. Sequences have variable lengths, batch sizes are often small (or 1 during generation), and the computation is identical between training and inference.
+D là số chiều đặc trưng. Mỗi mẫu được chuẩn hóa độc lập -- không phụ thuộc kích thước batch. Đây là lý do transformer sử dụng LayerNorm thay vì BatchNorm. Các chuỗi có độ dài thay đổi, kích thước batch thường nhỏ (hoặc 1 khi sinh), và tính toán giống hệt giữa huấn luyện và suy luận.
 
-LayerNorm in transformers is applied after each self-attention block and each feed-forward block (Post-LN), or before them (Pre-LN, which is more stable for training).
+LayerNorm trong transformer được áp dụng sau mỗi khối self-attention và mỗi khối feed-forward (Post-LN), hoặc trước chúng (Pre-LN, ổn định hơn cho huấn luyện).
 
 ### RMSNorm
 
-LayerNorm without the mean subtraction. Proposed by Zhang & Sennrich (2019).
+LayerNorm không có phép trừ trung bình. Được Zhang & Sennrich (2019) đề xuất.
 
 ```
 rms = sqrt((1/D) * sum(x_j^2))
 y = gamma * x / rms
 ```
 
-That's it. No mean computation, no beta parameter. The observation: the re-centering (mean subtraction) in LayerNorm contributes very little to the model's performance, but costs computation. Removing it gives the same accuracy with about 10% less overhead.
+Chỉ vậy thôi. Không tính trung bình, không tham số beta. Quan sát: việc đặt lại tâm (trừ trung bình) trong LayerNorm đóng góp rất ít vào hiệu suất mô hình, nhưng tốn tính toán. Loại bỏ nó cho cùng accuracy với chi phí phụ ít hơn khoảng 10%.
 
-LLaMA, LLaMA 2, LLaMA 3, Mistral, and most modern LLMs use RMSNorm instead of LayerNorm. At the scale of billions of parameters and trillions of tokens, that 10% savings is significant.
+LLaMA, LLaMA 2, LLaMA 3, Mistral và hầu hết các LLM hiện đại sử dụng RMSNorm thay vì LayerNorm. Ở quy mô hàng tỷ tham số và hàng nghìn tỷ token, mức tiết kiệm 10% đó là đáng kể.
 
 ### Normalization Comparison
 
@@ -154,17 +154,17 @@ graph TD
 
 ### Data Augmentation as Regularization
 
-Not a model modification but a data modification. Transform training inputs while preserving labels:
+Không phải sửa đổi mô hình mà là sửa đổi dữ liệu. Biến đổi các đầu vào huấn luyện trong khi giữ nguyên nhãn:
 
-- Images: random crop, flip, rotation, color jitter, cutout
-- Text: synonym replacement, back-translation, random deletion
-- Audio: time stretch, pitch shift, noise addition
+- Hình ảnh: cắt ngẫu nhiên, lật, xoay, làm nhiễu màu, cắt bỏ
+- Văn bản: thay từ đồng nghĩa, dịch ngược, xóa ngẫu nhiên
+- Âm thanh: kéo giãn thời gian, dịch cao độ, thêm nhiễu
 
-The effect is identical to regularization: it increases the effective size of the training set, making it harder for the model to memorize specific examples. A model that only sees each image once in its original form can memorize it. A model that sees 50 augmented versions of each image is forced to learn the invariant structure.
+Hiệu ứng giống hệt chính quy hóa: nó tăng kích thước hiệu dụng của tập huấn luyện, khiến mô hình khó ghi nhớ các ví dụ cụ thể hơn. Một mô hình chỉ thấy mỗi hình ảnh một lần ở dạng gốc có thể ghi nhớ nó. Một mô hình thấy 50 phiên bản tăng cường của mỗi hình ảnh bị buộc phải học cấu trúc bất biến.
 
 ### Early Stopping
 
-The simplest regularizer: stop training when validation loss starts increasing. The model hasn't overfit yet at that point. In practice, you track validation loss every epoch, save the best model, and continue training for a "patience" window (typically 5-20 epochs). If validation loss doesn't improve within the patience window, you stop and load the best saved model.
+Cơ chế chính quy hóa đơn giản nhất: dừng huấn luyện khi mất mát validation bắt đầu tăng. Mô hình chưa quá khớp tại thời điểm đó. Trong thực tế, bạn theo dõi mất mát validation mỗi epoch, lưu mô hình tốt nhất và tiếp tục huấn luyện trong một cửa sổ "kiên nhẫn" (thường 5-20 epoch). Nếu mất mát validation không cải thiện trong cửa sổ kiên nhẫn, bạn dừng và tải mô hình tốt nhất đã lưu.
 
 ### When to Apply What
 
@@ -439,7 +439,7 @@ class RegularizedNetwork:
 
 ## Use It
 
-PyTorch provides all normalization and regularization as modules:
+PyTorch cung cấp tất cả các cơ chế chuẩn hóa và chính quy hóa dưới dạng module:
 
 ```python
 import torch
@@ -464,9 +464,9 @@ model.eval()
 out_test = model(torch.randn(1, 784))
 ```
 
-The `model.train()` / `model.eval()` toggle is critical. It switches dropout on/off and tells BatchNorm to use batch statistics vs running statistics. Forgetting `model.eval()` before inference is one of the most common bugs in deep learning. Your test accuracy will fluctuate randomly because dropout is still active and BatchNorm is using mini-batch statistics.
+Chuyển đổi `model.train()` / `model.eval()` rất quan trọng. Nó bật/tắt dropout và cho BatchNorm biết sử dụng thống kê batch hay thống kê tích lũy. Quên `model.eval()` trước suy luận là một trong các lỗi thường gặp nhất trong học sâu. Accuracy test của bạn sẽ dao động ngẫu nhiên vì dropout vẫn hoạt động và BatchNorm đang sử dụng thống kê mini-batch.
 
-For transformers, the pattern is different:
+Với transformer, mẫu khác đi:
 
 ```python
 class TransformerBlock(nn.Module):
@@ -490,43 +490,43 @@ class TransformerBlock(nn.Module):
         return x
 ```
 
-LayerNorm, not BatchNorm. Dropout p=0.1, not p=0.5. These are the transformer defaults.
+LayerNorm, không phải BatchNorm. Dropout p=0.1, không phải p=0.5. Đây là các mặc định transformer.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-regularization-advisor.md` -- a prompt that diagnoses overfitting and recommends the right regularization strategy
+Bài học này tạo ra:
+- `outputs/prompt-regularization-advisor.md` -- một prompt chẩn đoán quá khớp và khuyến nghị chiến lược chính quy hóa phù hợp
 
 ## Exercises
 
-1. Implement spatial dropout for 2D data: instead of dropping individual neurons, drop entire feature channels. Simulate this by treating groups of consecutive features as channels and dropping whole groups. Compare the train-test gap to standard dropout on the circle dataset with hidden_size=32.
+1. Triển khai dropout không gian cho dữ liệu 2D: thay vì bỏ các nơ-ron riêng lẻ, bỏ toàn bộ các kênh đặc trưng. Mô phỏng điều này bằng cách coi các nhóm đặc trưng liên tiếp là các kênh và bỏ nguyên nhóm. So sánh khoảng cách huấn luyện-test với dropout tiêu chuẩn trên tập dữ liệu đường tròn có hidden_size=32.
 
-2. Implement label smoothing from lesson 05 combined with dropout from this lesson. Train with four configurations: neither, dropout only, label smoothing only, both. Measure the final train-test accuracy gap for each. Which combination gives the smallest gap?
+2. Triển khai làm trơn nhãn từ bài 05 kết hợp với dropout từ bài này. Huấn luyện với bốn cấu hình: không có cả hai, chỉ dropout, chỉ làm trơn nhãn, cả hai. Đo khoảng cách accuracy huấn luyện-test cuối cùng cho mỗi cấu hình. Tổ hợp nào cho khoảng cách nhỏ nhất?
 
-3. Add a BatchNorm layer between the hidden layer and the activation in your circle-dataset network. Train with and without BatchNorm at learning rates 0.01, 0.05, and 0.1. BatchNorm should allow stable training at higher learning rates where the vanilla network diverges.
+3. Thêm một lớp BatchNorm giữa lớp ẩn và kích hoạt trong mạng tập dữ liệu đường tròn của bạn. Huấn luyện có và không có BatchNorm ở các tốc độ học 0.01, 0.05 và 0.1. BatchNorm nên cho phép huấn luyện ổn định ở các tốc độ học cao hơn mà mạng nguyên bản phân kỳ.
 
-4. Implement early stopping: track test loss each epoch, save the best weights, and stop if test loss hasn't improved for 20 epochs. Run the regularized network for 1000 epochs. Report which epoch had the best test accuracy and how many epochs of computation you saved.
+4. Triển khai dừng sớm: theo dõi mất mát test mỗi epoch, lưu các trọng số tốt nhất và dừng nếu mất mát test không cải thiện trong 20 epoch. Chạy mạng được chính quy hóa trong 1000 epoch. Báo cáo epoch nào có accuracy test tốt nhất và bạn tiết kiệm được bao nhiêu epoch tính toán.
 
-5. Compare LayerNorm vs RMSNorm on a 4-layer network (not just 2). Initialize both with the same weights. Train for 200 epochs and compare final accuracy, training speed (time per epoch), and gradient magnitudes at the first layer. Verify that RMSNorm is faster with the same accuracy.
+5. So sánh LayerNorm với RMSNorm trên một mạng 4 lớp (không chỉ 2). Khởi tạo cả hai với cùng các trọng số. Huấn luyện trong 200 epoch và so sánh accuracy cuối cùng, tốc độ huấn luyện (thời gian mỗi epoch) và độ lớn gradient ở lớp đầu tiên. Xác minh RMSNorm nhanh hơn với cùng accuracy.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Overfitting | "Model memorized the data" | When a model's training performance significantly exceeds its test performance, indicating it learned noise rather than signal |
-| Regularization | "Preventing overfitting" | Any technique that constrains model complexity to improve generalization: dropout, weight decay, normalization, augmentation |
-| Dropout | "Random neuron deletion" | Zeroing random neurons during training with probability p, forcing redundant representations; equivalent to training an ensemble |
-| Weight decay | "L2 penalty" | Shrinking all weights toward zero by subtracting lambda * w at each step; penalizes complexity through weight magnitude |
-| Batch normalization | "Normalize per batch" | Normalizing layer outputs across the batch dimension using batch statistics during training and running averages during inference |
-| Layer normalization | "Normalize per sample" | Normalizing across features within each sample; batch-independent, used in transformers where batch size varies |
-| RMSNorm | "LayerNorm without the mean" | Root mean square normalization; drops the mean subtraction from LayerNorm for 10% speedup with equal accuracy |
-| Early stopping | "Stop before overfit" | Halting training when validation loss stops improving; the simplest regularizer, often used alongside others |
-| Data augmentation | "More data from less" | Transforming training inputs (flip, crop, noise) to increase effective dataset size and force invariance learning |
-| Generalization gap | "Train-test split" | The difference between training and test performance; regularization aims to minimize this gap |
+| Overfitting (Quá khớp) | "Mô hình ghi nhớ dữ liệu" | Khi hiệu suất huấn luyện của mô hình vượt đáng kể hiệu suất test, cho thấy nó học nhiễu thay vì tín hiệu |
+| Regularization (Chính quy hóa) | "Ngăn quá khớp" | Bất kỳ kỹ thuật nào ràng buộc độ phức tạp mô hình để cải thiện khái quát hóa: dropout, weight decay, chuẩn hóa, tăng cường |
+| Dropout | "Xóa nơ-ron ngẫu nhiên" | Đưa các nơ-ron ngẫu nhiên về không trong huấn luyện với xác suất p, buộc các biểu diễn dư thừa; tương đương huấn luyện một ensemble |
+| Weight decay | "Hình phạt L2" | Co tất cả các trọng số về không bằng cách trừ lambda * w ở mỗi bước; phạt độ phức tạp thông qua độ lớn trọng số |
+| Batch normalization | "Chuẩn hóa theo batch" | Chuẩn hóa các đầu ra lớp trên chiều batch bằng thống kê batch trong huấn luyện và các trung bình tích lũy trong suy luận |
+| Layer normalization | "Chuẩn hóa theo mẫu" | Chuẩn hóa trên các đặc trưng trong mỗi mẫu; độc lập với batch, được sử dụng trong transformer nơi kích thước batch thay đổi |
+| RMSNorm | "LayerNorm không có trung bình" | Chuẩn hóa căn trung bình bình phương; bỏ phép trừ trung bình khỏi LayerNorm để tăng tốc 10% với accuracy tương đương |
+| Early stopping (Dừng sớm) | "Dừng trước khi quá khớp" | Dừng huấn luyện khi mất mát validation ngừng cải thiện; cơ chế chính quy hóa đơn giản nhất, thường được dùng cùng các cơ chế khác |
+| Data augmentation (Tăng cường dữ liệu) | "Nhiều dữ liệu hơn từ ít dữ liệu" | Biến đổi các đầu vào huấn luyện (lật, cắt, nhiễu) để tăng kích thước tập dữ liệu hiệu dụng và buộc học tính bất biến |
+| Generalization gap (Khoảng cách khái quát hóa) | "Chia huấn luyện-test" | Khác biệt giữa hiệu suất huấn luyện và test; chính quy hóa nhắm tới tối thiểu hóa khoảng cách này |
 
 ## Further Reading
 
-- Srivastava et al., "Dropout: A Simple Way to Prevent Neural Networks from Overfitting" (2014) -- the original dropout paper with the ensemble interpretation and extensive experiments
-- Ioffe & Szegedy, "Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift" (2015) -- introduced BatchNorm and its training procedure, one of the most cited deep learning papers
-- Zhang & Sennrich, "Root Mean Square Layer Normalization" (2019) -- showed RMSNorm matches LayerNorm accuracy with reduced computation; adopted by LLaMA and Mistral
-- Zhang et al., "Understanding Deep Learning Requires Rethinking Generalization" (2017) -- the landmark paper showing neural networks can memorize random labels, challenging traditional views of generalization
+- Srivastava et al., "Dropout: A Simple Way to Prevent Neural Networks from Overfitting" (2014) -- bài báo dropout gốc với cách diễn giải ensemble và các thí nghiệm sâu rộng
+- Ioffe & Szegedy, "Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift" (2015) -- giới thiệu BatchNorm và quy trình huấn luyện của nó, một trong các bài báo học sâu được trích dẫn nhiều nhất
+- Zhang & Sennrich, "Root Mean Square Layer Normalization" (2019) -- cho thấy RMSNorm khớp accuracy của LayerNorm với tính toán giảm; được LLaMA và Mistral áp dụng
+- Zhang et al., "Understanding Deep Learning Requires Rethinking Generalization" (2017) -- bài báo cột mốc cho thấy mạng nơ-ron có thể ghi nhớ các nhãn ngẫu nhiên, thách thức các quan điểm truyền thống về khái quát hóa
