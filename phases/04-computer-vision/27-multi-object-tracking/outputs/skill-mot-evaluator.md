@@ -9,24 +9,24 @@ tags: [mot, evaluation, tracking, metrics]
 
 # MOT Evaluator
 
-Wrap your tracker's output into the standard MOTA/IDF1/HOTA pipeline so you can compare fairly against the literature.
+Bao bọc đầu ra bộ theo dõi vào pipeline MOTA/IDF1/HOTA tiêu chuẩn để so sánh công bằng với tài liệu nghiên cứu.
 
 ## When to use
 
-- Benchmarking a new tracker on MOT17 / MOT20 / DanceTrack / SportsMOT.
-- Comparing ByteTrack to BoT-SORT to SAM 2 on your own footage.
-- Producing a reproducible number for a paper or a PR description.
+- Đo hiệu năng bộ theo dõi mới trên MOT17 / MOT20 / DanceTrack / SportsMOT.
+- So sánh ByteTrack với BoT-SORT với SAM 2 trên cảnh quay của bạn.
+- Tạo con số có thể tái lập cho bài báo hoặc mô tả PR.
 
 ## Inputs
 
-- `predictions`: list per frame of `(track_id, x, y, w, h, confidence)` tuples.
-- `ground_truth`: list per frame of `(gt_id, x, y, w, h)` tuples.
-- `iou_threshold`: 0.5 typical for MOTA; HOTA uses a sweep.
-- `evaluator`: `py-motmetrics` (MOTA, IDF1) or `TrackEval` (HOTA).
+- `predictions`: danh sách mỗi khung gồm các tuple `(track_id, x, y, w, h, confidence)`.
+- `ground_truth`: danh sách mỗi khung gồm các tuple `(gt_id, x, y, w, h)`.
+- `iou_threshold`: 0.5 điển hình cho MOTA; HOTA dùng quét.
+- `evaluator`: `py-motmetrics` (MOTA, IDF1) hoặc `TrackEval` (HOTA).
 
 ## Output format contract
 
-Both `py-motmetrics` and `TrackEval` expect a specific on-disk format:
+Cả `py-motmetrics` và `TrackEval` kỳ vọng định dạng cụ thể trên đĩa:
 
 ```
 # predictions.txt
@@ -36,15 +36,15 @@ Both `py-motmetrics` and `TrackEval` expect a specific on-disk format:
 <frame>,<gt_id>,<x>,<y>,<w>,<h>,1,-1,-1,-1
 ```
 
-Frames are 1-indexed, boxes are (x, y, w, h), not (x1, y1, x2, y2). Conversion is where most integration bugs live.
+Các khung đánh số từ 1, hộp là (x, y, w, h), không phải (x1, y1, x2, y2). Chuyển đổi là nơi hầu hết lỗi tích hợp tồn tại.
 
 ## Steps
 
-1. Convert your tracker's output to MOT Challenge text format.
-2. Run `py-motmetrics.io.loadtxt` on both files.
-3. Compute MOTA + IDF1 with `mm.metrics.create().compute()`.
-4. For HOTA, invoke `TrackEval` with the same files and `Metrics: HOTA`.
-5. Save results as JSON for dashboards.
+1. Chuyển đầu ra bộ theo dõi sang định dạng văn bản MOT Challenge.
+2. Chạy `py-motmetrics.io.loadtxt` trên cả hai file.
+3. Tính MOTA + IDF1 bằng `mm.metrics.create().compute()`.
+4. Với HOTA, gọi `TrackEval` với cùng các file và `Metrics: HOTA`.
+5. Lưu kết quả thành JSON cho bảng điều khiển.
 
 ## Implementation sketch
 
@@ -87,8 +87,8 @@ def write_mot_txt(predictions, path):
 
 ## Rules
 
-- Always use 1-indexed frames in the output text file; MOT tooling expects this.
-- Convert (x1, y1, x2, y2) to (x, y, w, h) before writing.
-- Do not report MOTA alone for modern comparisons; include IDF1 and HOTA.
-- Watch for private vs public detections on MOT17 — they are evaluated separately and mixing them inflates scores.
-- Log per-sequence scores; aggregate hides failures on single difficult sequences.
+- Luôn dùng khung đánh số từ 1 trong file văn bản đầu ra; công cụ MOT kỳ vọng điều này.
+- Chuyển (x1, y1, x2, y2) thành (x, y, w, h) trước khi ghi.
+- Không báo cáo chỉ MOTA cho so sánh hiện đại; bao gồm IDF1 và HOTA.
+- Chú ý phát hiện riêng so với công khai trên MOT17 — chúng được đánh giá riêng và trộn chúng làm tăng điểm.
+- Ghi điểm từng chuỗi; tổng hợp che giấu thất bại trên chuỗi khó riêng lẻ.

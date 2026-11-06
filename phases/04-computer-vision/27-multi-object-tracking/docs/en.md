@@ -1,6 +1,6 @@
 # Multi-Object Tracking & Video Memory
 
-> Tracking is detection plus association. Detect every frame. Match this frame's detections to last frame's tracks by ID.
+> Theo dõi là phát hiện cộng liên kết. Phát hiện mỗi khung hình. Ghép các phát hiện khung này với các quỹ đạo khung trước theo ID.
 
 **Type:** Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Distinguish tracking-by-detection from query-based tracking and name the algorithm families (SORT, DeepSORT, ByteTrack, BoT-SORT, SAM 2 memory tracker, SAM 3.1 Object Multiplex)
-- Implement IoU + Hungarian assignment from scratch for classic tracking-by-detection
-- Explain SAM 2's memory bank and why it handles occlusion better than IoU-based association
-- Read the three tracking metrics (MOTA, IDF1, HOTA) and pick which one matters for a given use case
+- Phân biệt theo dõi-bằng-phát hiện với theo dõi dựa trên truy vấn và nêu tên các họ thuật toán (SORT, DeepSORT, ByteTrack, BoT-SORT, bộ theo dõi bộ nhớ SAM 2, SAM 3.1 Object Multiplex)
+- Triển khai IoU + phép gán Hungarian từ đầu cho theo dõi-bằng-phát hiện cổ điển
+- Giải thích ngân hàng bộ nhớ SAM 2 và tại sao xử lý che khuất tốt hơn liên kết dựa trên IoU
+- Đọc ba thước đo theo dõi (MOTA, IDF1, HOTA) và chọn loại quan trọng cho trường hợp sử dụng nhất định
 
 ## The Problem
 
-A detector tells you where the objects are in a single frame. A tracker tells you which detection in frame `t` is the same object as a detection in frame `t-1`. Without that, you cannot count objects crossing a line, follow a ball through an occlusion, or know "car #4 has been in the lane for 8 seconds."
+Bộ phát hiện cho biết các đối tượng ở đâu trong một khung hình. Bộ theo dõi cho biết phát hiện nào trong khung `t` là cùng đối tượng với phát hiện trong khung `t-1`. Không có điều đó, bạn không thể đếm đối tượng vượt đường, theo bóng qua che khuất hoặc biết "xe #4 đã ở trong làn 8 giây."
 
-Tracking is essential to every video-facing product: sports analytics, surveillance, autonomous driving, medical video analysis, wildlife monitoring, wordmark counting. The core building blocks are shared: a per-frame detector, a motion model (Kalman filter or something richer), an association step (Hungarian algorithm on IoU / cosine / learned features), and a track lifecycle (birth, update, death).
+Theo dõi thiết yếu cho mọi sản phẩm tiếp xúc video: phân tích thể thao, giám sát, lái xe tự hành, phân tích video y tế, giám sát động vật hoang dã, đếm nhãn chữ. Các khối cốt lõi dùng chung: bộ phát hiện từng khung, mô hình chuyển động (bộ lọc Kalman hoặc thứ phong phú hơn), bước liên kết (thuật toán Hungarian trên IoU / cosine / đặc trưng được học) và vòng đời quỹ đạo (sinh, cập nhật, chết).
 
-2026 brought two new patterns: **SAM 2 memory-based tracking** (feature-memory instead of motion-model association) and **SAM 3.1 Object Multiplex** (shared memory for many instances of the same concept). This lesson walks the classical stack first, then the memory-based approach.
+Năm 2026 mang hai mẫu mới: **theo dõi dựa trên bộ nhớ SAM 2** (bộ nhớ đặc trưng thay liên kết mô hình chuyển động) và **SAM 3.1 Object Multiplex** (bộ nhớ dùng chung cho nhiều thực thể cùng khái niệm). Bài này đi qua bộ công cụ cổ điển trước, rồi cách dựa trên bộ nhớ.
 
 ## The Concept
 
@@ -45,56 +45,56 @@ flowchart LR
     style NEXT fill:#dcfce7,stroke:#16a34a
 ```
 
-Every tracker you will encounter in 2026 is a variation on this loop. The differences:
+Mọi bộ theo dõi bạn gặp năm 2026 là biến thể vòng lặp này. Các khác biệt:
 
-- **SORT** (2016): Kalman filter + IoU Hungarian. Simple, fast, no appearance model.
-- **DeepSORT** (2017): SORT + a CNN-based appearance feature per track (ReID embedding). Handles crossings better.
-- **ByteTrack** (2021): associates low-confidence detections as a second stage; no appearance features needed but top performer on MOT17.
-- **BoT-SORT** (2022): Byte + camera motion compensation + ReID.
-- **StrongSORT / OC-SORT** — ByteTrack descendants with better motion and appearance.
+- **SORT** (2016): bộ lọc Kalman + Hungarian IoU. Đơn giản, nhanh, không mô hình diện mạo.
+- **DeepSORT** (2017): SORT + một đặc trưng diện mạo dựa trên CNN mỗi quỹ đạo (embedding ReID). Xử lý giao cắt tốt hơn.
+- **ByteTrack** (2021): liên kết các phát hiện tin cậy thấp như giai đoạn thứ hai; không cần đặc trưng diện mạo nhưng đạt hàng đầu trên MOT17.
+- **BoT-SORT** (2022): Byte + bù chuyển động máy ảnh + ReID.
+- **StrongSORT / OC-SORT** — các hậu duệ ByteTrack với chuyển động và diện mạo tốt hơn.
 
 ### Kalman filter in one paragraph
 
-A Kalman filter maintains a per-track state `(x, y, w, h, dx, dy, dw, dh)` with a covariance. At each frame, **predict** the state using a constant-velocity model, then **update** with the matched detection. The update trusts the detection more when the predict uncertainty is high. This gives smooth trajectories and the ability to continue a track through a short occlusion (1-5 frames).
+Bộ lọc Kalman duy trì trạng thái từng quỹ đạo `(x, y, w, h, dx, dy, dw, dh)` cùng hiệp phương sai. Mỗi khung, **dự đoán** trạng thái bằng mô hình vận tốc không đổi, rồi **cập nhật** bằng phát hiện được ghép. Cập nhật tin phát hiện hơn khi độ bất định dự đoán cao. Điều này cho quỹ đạo mượt và khả năng tiếp tục quỹ đạo qua che khuất ngắn (1-5 khung).
 
-Every classical tracker uses a Kalman filter in the motion-prediction step.
+Mọi bộ theo dõi cổ điển dùng bộ lọc Kalman ở bước dự đoán chuyển động.
 
 ### The Hungarian algorithm
 
-Given a `M x N` cost matrix (tracks x detections), find the one-to-one assignment that minimises total cost. Cost is usually `1 - IoU(track_bbox, detection_bbox)` or negative cosine similarity of appearance features. Runtime is O((M+N)^3); for M, N up to ~1000 it is fast enough in Python via `scipy.optimize.linear_sum_assignment`.
+Với ma trận chi phí `M x N` (quỹ đạo x phát hiện), tìm phép gán một-một tối thiểu tổng chi phí. Chi phí thường `1 - IoU(track_bbox, detection_bbox)` hoặc âm độ tương đồng cosine của đặc trưng diện mạo. Thời gian chạy O((M+N)^3); với M, N tới ~1000, đủ nhanh trong Python qua `scipy.optimize.linear_sum_assignment`.
 
 ### ByteTrack's key idea
 
-Standard trackers drop low-confidence detections (< 0.5). ByteTrack keeps them around as **second-stage candidates**: after matching tracks to high-confidence detections, unmatched tracks try to match low-confidence detections with a slightly looser IoU threshold. Recovers short occlusions, ID switches near crowds.
+Các bộ theo dõi tiêu chuẩn bỏ phát hiện tin cậy thấp (< 0.5). ByteTrack giữ chúng như **ứng viên giai đoạn hai**: sau ghép quỹ đạo với phát hiện tin cậy cao, các quỹ đạo chưa ghép thử ghép phát hiện tin cậy thấp với ngưỡng IoU lỏng hơn một chút. Khôi phục che khuất ngắn, các lần đổi ID gần đám đông.
 
 ### SAM 2 memory-based tracking
 
-SAM 2 handles video by keeping a **memory bank** of per-instance spatio-temporal features. Given a prompt (click, box, text) on one frame, it encodes the instance into memory. On subsequent frames, the memory is cross-attended against the new frame's features, and the decoder produces a mask for the same instance in the new frame.
+SAM 2 xử lý video bằng cách giữ **ngân hàng bộ nhớ** các đặc trưng không-thời gian từng thực thể. Với một prompt (nhấp, hộp, văn bản) trên một khung, nó mã hóa thực thể vào bộ nhớ. Trên các khung sau, bộ nhớ được cross-attention với các đặc trưng khung mới, và decoder tạo mặt nạ cho cùng thực thể trong khung mới.
 
-No Kalman filter, no Hungarian assignment. The association is implicit in the memory-attention operation.
+Không bộ lọc Kalman, không phép gán Hungarian. Liên kết ngầm trong phép toán attention bộ nhớ.
 
-Pros:
-- Robust to large occlusions (memory carries instance identity across many frames).
-- Open-vocabulary when combined with SAM 3's text prompts.
-- Works without a separate motion model.
+Ưu điểm:
+- Vững trước che khuất lớn (bộ nhớ mang danh tính thực thể qua nhiều khung).
+- Từ vựng mở khi kết hợp các prompt văn bản SAM 3.
+- Hoạt động không cần mô hình chuyển động riêng.
 
-Cons:
-- Slower than ByteTrack for many-object tracking.
-- Memory bank grows; limits the context window.
+Nhược điểm:
+- Chậm hơn ByteTrack cho theo dõi nhiều đối tượng.
+- Ngân hàng bộ nhớ tăng; giới hạn cửa sổ ngữ cảnh.
 
 ### SAM 3.1 Object Multiplex
 
-Prior SAM 2 / SAM 3 tracking keeps a separate memory bank per instance. For 50 objects, 50 memory banks. Object Multiplex (March 2026) collapses them into one shared memory with **per-instance query tokens**. Cost scales sub-linearly in number of instances.
+Theo dõi SAM 2 / SAM 3 trước giữ ngân hàng bộ nhớ riêng mỗi thực thể. Với 50 đối tượng, 50 ngân hàng bộ nhớ. Object Multiplex (tháng 3 năm 2026) gộp thành một bộ nhớ dùng chung với **token truy vấn từng thực thể**. Chi phí tăng dưới tuyến tính theo số thực thể.
 
-Multiplex is the new default for crowd tracking in 2026: concert crowds, warehouse workers, traffic intersections.
+Multiplex là mặc định mới cho theo dõi đám đông năm 2026: đám đông hòa nhạc, nhân viên kho, giao lộ.
 
 ### Three metrics to know
 
-- **MOTA (Multi-Object Tracking Accuracy)** — 1 - (FN + FP + ID switches) / GT. Weighted by error type; a single metric that conflates detection and association failures.
-- **IDF1 (ID F1)** — harmonic mean of ID precision and recall. Focuses specifically on how well each ground-truth track keeps its ID over time. Better than MOTA for ID-switch-sensitive tasks.
-- **HOTA (Higher Order Tracking Accuracy)** — decomposes into detection accuracy (DetA) and association accuracy (AssA). The community standard since 2020; most comprehensive.
+- **MOTA (Multi-Object Tracking Accuracy)** — 1 - (FN + FP + các lần đổi ID) / GT. Có trọng số theo loại lỗi; một thước đo trộn các thất bại phát hiện và liên kết.
+- **IDF1 (ID F1)** — trung bình điều hòa của precision và recall ID. Tập trung cụ thể vào mức độ mỗi quỹ đạo sự thật nền giữ ID theo thời gian. Tốt hơn MOTA cho tác vụ nhạy đổi ID.
+- **HOTA (Higher Order Tracking Accuracy)** — phân tách thành accuracy phát hiện (DetA) và accuracy liên kết (AssA). Tiêu chuẩn cộng đồng từ 2020; toàn diện nhất.
 
-For surveillance (who is who): IDF1 is what you report. For sports analytics (counting passes): HOTA. For general academic comparison: HOTA.
+Với giám sát (ai là ai): IDF1 là thứ báo cáo. Với phân tích thể thao (đếm đường chuyền): HOTA. Với so sánh học thuật tổng quát: HOTA.
 
 ```figure
 cv3-track-assoc
@@ -128,7 +128,7 @@ def bbox_iou(a, b):
 
 ### Step 2: Minimal SORT-style tracker
 
-Fixed constant-velocity Kalman omitted for brevity — we use a simple IoU association here; in production the Kalman predict is essential. The `sort` Python package provides the full version.
+Kalman vận tốc không đổi cố định được bỏ để ngắn gọn — dùng liên kết IoU đơn giản ở đây; trong production dự đoán Kalman thiết yếu. Gói Python `sort` cung cấp phiên bản đầy đủ.
 
 ```python
 from scipy.optimize import linear_sum_assignment
@@ -186,7 +186,7 @@ class SimpleTracker:
         return [(t.id, t.bbox) for t in self.tracks]
 ```
 
-60 lines. Takes per-frame detections, returns per-frame track IDs. Real systems add the Kalman predict, ByteTrack's second-stage re-match, and appearance features.
+60 dòng. Nhận phát hiện từng khung, trả ID quỹ đạo từng khung. Các hệ thống thật thêm dự đoán Kalman, ghép lại giai đoạn hai ByteTrack và đặc trưng diện mạo.
 
 ### Step 3: Synthetic trajectory test
 
@@ -210,7 +210,7 @@ for f, dets in enumerate(synthetic_frames()):
     tracks = tracker.step(dets, f)
 ```
 
-Three objects moving in straight lines should keep their IDs across all 20 frames.
+Ba đối tượng di chuyển thẳng nên giữ ID qua cả 20 khung.
 
 ### Step 4: ID-switch metric
 
@@ -239,56 +239,56 @@ def count_id_switches(tracks_per_frame, gt_per_frame):
     return switches
 ```
 
-This is a simplified IDF1-adjacent metric: count how many times a ground-truth object changes its assigned predicted track ID. Real MOTA / IDF1 / HOTA tooling lives in `py-motmetrics` and `TrackEval`.
+Đây là thước đo đơn giản gần IDF1: đếm số lần một đối tượng sự thật nền thay ID quỹ đạo dự đoán được gán. Công cụ MOTA / IDF1 / HOTA thật nằm trong `py-motmetrics` và `TrackEval`.
 
 ## Use It
 
-Production trackers in 2026:
+Các bộ theo dõi production năm 2026:
 
-- `ultralytics` — YOLOv8 + ByteTrack / BoT-SORT built-in. `results = model.track(source, tracker="bytetrack.yaml")`. The default.
-- `supervision` (Roboflow) — ByteTrack wrappers plus annotation utilities.
-- SAM 2 / SAM 3.1 — memory-based tracking via `processor.track()`.
-- Custom stack: detector (YOLOv8 / RT-DETR) + `sort-tracker` / `OC-SORT` / `StrongSORT`.
+- `ultralytics` — YOLOv8 + ByteTrack / BoT-SORT tích hợp. `results = model.track(source, tracker="bytetrack.yaml")`. Mặc định.
+- `supervision` (Roboflow) — các lớp bọc ByteTrack cộng tiện ích chú thích.
+- SAM 2 / SAM 3.1 — theo dõi dựa trên bộ nhớ qua `processor.track()`.
+- Bộ công cụ tùy chỉnh: bộ phát hiện (YOLOv8 / RT-DETR) + `sort-tracker` / `OC-SORT` / `StrongSORT`.
 
-Picking:
+Lựa chọn:
 
-- Pedestrians / cars / boxes at 30+ fps: **ByteTrack with ultralytics**.
-- Many instances of one class in a crowd: **SAM 3.1 Object Multiplex**.
-- Heavy occlusions with identifiable appearance: **DeepSORT / StrongSORT** (ReID features).
-- Sports / complex interactions: **BoT-SORT** or learned trackers (MOTRv3).
+- Người đi bộ / xe / hộp ở 30+ fps: **ByteTrack với ultralytics**.
+- Nhiều thực thể cùng lớp trong đám đông: **SAM 3.1 Object Multiplex**.
+- Che khuất nặng với diện mạo nhận diện được: **DeepSORT / StrongSORT** (đặc trưng ReID).
+- Thể thao / tương tác phức tạp: **BoT-SORT** hoặc bộ theo dõi được học (MOTRv3).
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-tracker-picker.md` — picks SORT / ByteTrack / BoT-SORT / SAM 2 / SAM 3.1 given scene type, occlusion patterns, and latency budget.
-- `outputs/skill-mot-evaluator.md` — writes a complete evaluation harness for MOTA / IDF1 / HOTA against ground-truth tracks.
+- `outputs/prompt-tracker-picker.md` — chọn SORT / ByteTrack / BoT-SORT / SAM 2 / SAM 3.1 với loại cảnh, mẫu che khuất và ngân sách độ trễ cho trước.
+- `outputs/skill-mot-evaluator.md` — viết bộ đánh giá hoàn chỉnh cho MOTA / IDF1 / HOTA so với các quỹ đạo sự thật nền.
 
 ## Exercises
 
-1. **(Easy)** Run the synthetic tracker above with 3, 10, and 30 objects. Report ID-switch count in each case. Identify where the simple IoU-only association starts to fail.
-2. **(Medium)** Add a constant-velocity Kalman predict step before association. Show that short (2-3 frame) occlusions no longer cause ID switches.
-3. **(Hard)** Integrate SAM 2's memory-based tracker (via `transformers`) as an alternative tracker backend. Run both SimpleTracker and SAM 2 on a 30-second clip of a crowd and compare ID-switch counts, manually labelling ground-truth IDs for 5 salient people.
+1. **(Dễ)** Chạy bộ theo dõi tổng hợp trên với 3, 10 và 30 đối tượng. Báo cáo số lần đổi ID mỗi trường hợp. Xác định nơi liên kết đơn giản chỉ IoU bắt đầu thất bại.
+2. **(Vừa)** Thêm bước dự đoán Kalman vận tốc không đổi trước liên kết. Cho thấy che khuất ngắn (2-3 khung) không còn gây đổi ID.
+3. **(Khó)** Tích hợp bộ theo dõi dựa trên bộ nhớ SAM 2 (qua `transformers`) như backend theo dõi thay thế. Chạy cả SimpleTracker và SAM 2 trên clip đám đông 30 giây và so sánh số lần đổi ID, gán nhãn tay ID sự thật nền cho 5 người nổi bật.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Tracking-by-detection | "Detect then associate" | Per-frame detector + Hungarian assignment on IoU / appearance |
-| Kalman filter | "Motion predict" | Linear dynamics + covariance for smooth track predictions and occlusion handling |
-| Hungarian algorithm | "Optimal assignment" | Solves the minimum-cost bipartite matching problem; `scipy.optimize.linear_sum_assignment` |
-| ByteTrack | "Low-confidence second pass" | Re-match unmatched tracks to low-confidence detections to recover short occlusions |
-| DeepSORT | "SORT + appearance" | Adds a ReID feature for cross-frame matching; better for ID preservation |
-| Memory bank | "SAM 2 trick" | Per-instance spatio-temporal features stored across frames; cross-attention replaces explicit association |
-| Object Multiplex | "SAM 3.1 shared memory" | Single shared memory with per-instance queries for fast many-object tracking |
-| HOTA | "Modern tracking metric" | Decomposes into detection and association accuracy; community standard |
+| Tracking-by-detection (Theo dõi bằng phát hiện) | "Phát hiện rồi liên kết" | Bộ phát hiện từng khung + phép gán Hungarian trên IoU / diện mạo |
+| Kalman filter (Bộ lọc Kalman) | "Dự đoán chuyển động" | Động lực học tuyến tính + hiệp phương sai cho dự đoán quỹ đạo mượt và xử lý che khuất |
+| Hungarian algorithm (Thuật toán Hungarian) | "Phép gán tối ưu" | Giải bài toán ghép hai phía chi phí tối thiểu; `scipy.optimize.linear_sum_assignment` |
+| ByteTrack | "Lượt hai tin cậy thấp" | Ghép lại các quỹ đạo chưa ghép với phát hiện tin cậy thấp để khôi phục che khuất ngắn |
+| DeepSORT | "SORT + diện mạo" | Thêm đặc trưng ReID để ghép giữa khung; tốt hơn để giữ ID |
+| Memory bank (Ngân hàng bộ nhớ) | "Thủ thuật SAM 2" | Các đặc trưng không-thời gian từng thực thể lưu qua các khung; cross-attention thay liên kết tường minh |
+| Object Multiplex | "Bộ nhớ dùng chung SAM 3.1" | Một bộ nhớ dùng chung với truy vấn từng thực thể để theo dõi nhanh nhiều đối tượng |
+| HOTA | "Thước đo theo dõi hiện đại" | Phân tách thành accuracy phát hiện và liên kết; tiêu chuẩn cộng đồng |
 
 ## Further Reading
 
-- [SORT (Bewley et al., 2016)](https://arxiv.org/abs/1602.00763) — the minimal tracking-by-detection paper
-- [DeepSORT (Wojke et al., 2017)](https://arxiv.org/abs/1703.07402) — adds appearance feature
-- [ByteTrack (Zhang et al., 2022)](https://arxiv.org/abs/2110.06864) — low-confidence second pass
-- [BoT-SORT (Aharon et al., 2022)](https://arxiv.org/abs/2206.14651) — camera motion compensation
-- [HOTA (Luiten et al., 2020)](https://arxiv.org/abs/2009.07736) — decomposed tracking metric
-- [SAM 2 video segmentation (Meta, 2024)](https://ai.meta.com/sam2/) — memory-based tracker
+- [SORT (Bewley et al., 2016)](https://arxiv.org/abs/1602.00763) — bài báo theo dõi-bằng-phát hiện tối giản
+- [DeepSORT (Wojke et al., 2017)](https://arxiv.org/abs/1703.07402) — thêm đặc trưng diện mạo
+- [ByteTrack (Zhang et al., 2022)](https://arxiv.org/abs/2110.06864) — lượt hai tin cậy thấp
+- [BoT-SORT (Aharon et al., 2022)](https://arxiv.org/abs/2206.14651) — bù chuyển động máy ảnh
+- [HOTA (Luiten et al., 2020)](https://arxiv.org/abs/2009.07736) — thước đo theo dõi phân tách
+- [SAM 2 video segmentation (Meta, 2024)](https://ai.meta.com/sam2/) — bộ theo dõi dựa trên bộ nhớ
 - [SAM 3.1 Object Multiplex (Meta, March 2026)](https://ai.meta.com/blog/segment-anything-model-3/)

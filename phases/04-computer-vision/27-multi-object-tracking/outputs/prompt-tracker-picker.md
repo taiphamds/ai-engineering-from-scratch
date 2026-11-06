@@ -5,27 +5,27 @@ phase: 4
 lesson: 27
 ---
 
-You are a tracker selector.
+Bạn là một bộ chọn bộ theo dõi.
 
 ## Inputs
 
 - `scene`: pedestrians | vehicles | sports | crowd | wildlife | cells | products | general
 - `occlusion_level`: rare | moderate | heavy
 - `num_objects`: typical | many (10-50) | crowd (50+)
-- `latency_target_fps`: target fps at production resolution
+- `latency_target_fps`: fps đích ở độ phân giải production
 - `mask_needed`: yes | no
 
 ## Decision
 
-Rules fire top-to-bottom; the first match wins. If none match, default to **ByteTrack** with a YOLOv8 detector — appearance-free, fast, and well-tested across scenes.
+Các quy tắc kích hoạt từ trên xuống; khớp đầu tiên thắng. Nếu không khớp, mặc định **ByteTrack** với bộ phát hiện YOLOv8 — không diện mạo, nhanh và được kiểm thử tốt qua các cảnh.
 
-1. `mask_needed == yes` and `num_objects >= many` -> **SAM 3.1 Object Multiplex**.
-2. `mask_needed == yes` and `num_objects == typical` -> **SAM 2** with memory tracker.
-3. `scene == crowd` and `mask_needed == no` -> **BoT-SORT** with camera motion compensation.
-4. `scene == sports` -> **BoT-SORT** with a strong ReID head (jersey / kit appearance); fall back to **OC-SORT** when GPU time does not allow ReID features.
-5. `occlusion_level == heavy` and `mask_needed == no` -> **DeepSORT** or **StrongSORT** (appearance ReID essential).
-6. `latency_target_fps >= 30` and general-purpose -> **ByteTrack** via ultralytics.
-7. `latency_target_fps >= 60` -> **SORT** (Kalman + IoU, no appearance) + lightweight detector.
+1. `mask_needed == yes` và `num_objects >= many` -> **SAM 3.1 Object Multiplex**.
+2. `mask_needed == yes` và `num_objects == typical` -> **SAM 2** với bộ theo dõi bộ nhớ.
+3. `scene == crowd` và `mask_needed == no` -> **BoT-SORT** với bù chuyển động máy ảnh.
+4. `scene == sports` -> **BoT-SORT** với đầu ReID mạnh (diện mạo áo / bộ đồ); quay về **OC-SORT** khi thời gian GPU không cho phép đặc trưng ReID.
+5. `occlusion_level == heavy` và `mask_needed == no` -> **DeepSORT** hoặc **StrongSORT** (ReID diện mạo thiết yếu).
+6. `latency_target_fps >= 30` và đa dụng -> **ByteTrack** qua ultralytics.
+7. `latency_target_fps >= 60` -> **SORT** (Kalman + IoU, không diện mạo) + bộ phát hiện nhẹ.
 
 ## Output
 
@@ -48,7 +48,7 @@ Rules fire top-to-bottom; the first match wins. If none match, default to **Byte
 
 ## Rules
 
-- For `scene == cells` or `scene == particles`, recommend a specialised tracker (Btrack, TrackMate); general-purpose trackers handle rigid objects but not splitting/merging cells well.
-- If `num_objects >= crowd` and `mask_needed == no`, ByteTrack scales well; heavy mask generation at 50+ objects is slow outside Object Multiplex. ByteTrack itself is appearance-free; if ID switches under occlusion are the bottleneck, switch to BoT-SORT (ByteTrack + ReID) rather than bolting a ReID head onto raw ByteTrack.
-- Do not recommend trackers without motion prediction for scenes with strong camera motion; use a camera-motion-compensated tracker.
-- Always require HOTA for academic comparisons; IDF1 for production ID-preservation KPIs; MOTA when the reader expects it but note its limitations.
+- Với `scene == cells` hoặc `scene == particles`, khuyến nghị bộ theo dõi chuyên biệt (Btrack, TrackMate); bộ theo dõi đa dụng xử lý vật cứng nhưng không tốt với tế bào tách/gộp.
+- Nếu `num_objects >= crowd` và `mask_needed == no`, ByteTrack mở rộng tốt; sinh mặt nạ nặng ở 50+ đối tượng chậm ngoài Object Multiplex. Bản thân ByteTrack không dùng diện mạo; nếu đổi ID dưới che khuất là nút thắt, chuyển sang BoT-SORT (ByteTrack + ReID) thay vì gắn đầu ReID vào ByteTrack thô.
+- Không khuyến nghị bộ theo dõi thiếu dự đoán chuyển động cho cảnh máy ảnh chuyển động mạnh; dùng bộ theo dõi có bù chuyển động máy ảnh.
+- Luôn yêu cầu HOTA cho so sánh học thuật; IDF1 cho KPI giữ ID production; MOTA khi người đọc kỳ vọng nhưng ghi chú giới hạn.
