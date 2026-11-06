@@ -7,30 +7,30 @@ lesson: 06
 tags: [function-calling, tools, schema, validation, bfcl, parallel-tools]
 ---
 
-Given a task domain, produce a tool catalog that an agent can use reliably across the BFCL V4 axes (agentic, multi-turn, live, non-live, hallucination).
+Với một miền tác vụ, tạo một danh mục công cụ mà một agent có thể sử dụng đáng tin cậy trên các trục BFCL V4 (agentic, nhiều lượt, live, non-live, ảo giác).
 
-Produce:
+Tạo:
 
-1. Tool definitions. For each tool: `name` (snake_case), `description` (tells the model when to use it and when NOT to), JSON Schema input with typed properties, required fields, enums where applicable, minimum/maximum for numerics, per-tool timeout, per-tool sandbox policy (fs surface, network, memory cap).
-2. Description quality check. Run each description through "does this tell the model when to pick this tool over the others?" If two tools have overlapping descriptions, refuse and rewrite.
-3. Parallel-dispatch plan. For each realistic task, identify which tool calls are independent (can be parallelized) and which must be sequential. Emit an expected dispatch graph.
-4. Validation policy. Enum checks, type coercion rules (e.g. "accept int-as-string, reject float-as-string"), required-field enforcement. Every failure returns a structured observation string, never raises to the loop.
-5. Observability. Each tool emits an OpenTelemetry GenAI `tool_call` span with attributes `gen_ai.tool.name`, `gen_ai.tool.call.id`, `gen_ai.tool.call.arguments`, `gen_ai.tool.call.result` (reference, not inline, when content policy requires).
+1. Các định nghĩa công cụ. Với mỗi công cụ: `name` (snake_case), `description` (cho mô hình biết khi nào sử dụng nó và khi nào KHÔNG), đầu vào JSON Schema với các thuộc tính có kiểu, các trường bắt buộc, enum ở nơi áp dụng, tối thiểu/tối đa cho các giá trị số, thời gian chờ cho từng công cụ, chính sách sandbox cho từng công cụ (bề mặt fs, mạng, giới hạn bộ nhớ).
+2. Kiểm tra chất lượng mô tả. Đưa mỗi mô tả qua "điều này có cho mô hình biết khi nào chọn công cụ này thay cho những công cụ khác không?" Nếu hai công cụ có mô tả chồng lấp, từ chối và viết lại.
+3. Kế hoạch phân phối song song. Với mỗi tác vụ thực tế, xác định những lời gọi công cụ nào độc lập (có thể song song hóa) và những lời gọi nào phải tuần tự. Phát ra một đồ thị phân phối được mong đợi.
+4. Chính sách xác thực. Các kiểm tra enum, quy tắc ép kiểu (ví dụ "chấp nhận int dưới dạng chuỗi, từ chối float dưới dạng chuỗi"), thực thi trường bắt buộc. Mọi lỗi trả về một chuỗi quan sát có cấu trúc, không bao giờ phát sinh lên vòng lặp.
+5. Khả năng quan sát. Mỗi công cụ phát ra một span OpenTelemetry GenAI `tool_call` với các thuộc tính `gen_ai.tool.name`, `gen_ai.tool.call.id`, `gen_ai.tool.call.arguments`, `gen_ai.tool.call.result` (tham chiếu, không nội tuyến, khi chính sách nội dung yêu cầu).
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Generic shell/command-exec tool. Refuse and break into specific verbs (`git_status`, `fs_read`, `npm_test`).
-- Missing enums when the parameter has a closed set of values. Enum validation is the cheapest way to catch drift.
-- Same description for two different tools. The model cannot pick between them reliably.
-- `description` that only names the tool ("Adds two numbers"). Include WHEN to pick it over alternatives.
-- No timeout. Every tool call must have a ceiling.
+- Công cụ shell/thực thi lệnh tổng quát. Từ chối và tách thành các động từ cụ thể (`git_status`, `fs_read`, `npm_test`).
+- Thiếu enum khi tham số có một tập giá trị đóng. Xác thực enum là cách rẻ nhất để bắt sự trôi dạt.
+- Cùng mô tả cho hai công cụ khác nhau. Mô hình không thể chọn giữa chúng một cách đáng tin cậy.
+- `description` chỉ nêu công cụ ("Cộng hai số"). Bao gồm KHI NÀO chọn nó thay cho các lựa chọn khác.
+- Không có thời gian chờ. Mọi lời gọi công cụ phải có một mức trần.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the tool list exceeds 30 tools for a single agent, refuse and recommend subagent delegation (Lesson 17).
-- If any tool performs a destructive action without a confirmation gate, refuse and point to Lesson 09 (permissions, sandboxing).
-- If the task is computer use (click, type, screenshot), refuse and point to Lesson 21 — that is a separate tool shape with vision-based actions.
+- Nếu danh sách công cụ vượt quá 30 công cụ cho một agent đơn lẻ, từ chối và khuyến nghị ủy nhiệm cho agent phụ (Bài 17).
+- Nếu bất kỳ công cụ nào thực hiện một hành động phá hủy mà không có một cổng xác nhận, từ chối và chỉ đến Bài 09 (quyền, sandbox).
+- Nếu tác vụ là sử dụng máy tính (nhấp, nhập, ảnh chụp màn hình), từ chối và chỉ đến Bài 21 — đó là một hình dạng công cụ riêng với các hành động dựa trên thị giác.
 
-Output: a JSON tool catalog ready to paste into Anthropic / OpenAI / Gemini SDK calls, a dispatch-graph diagram, a validation-policy document, and a BFCL-style mini-eval the registry should pass.
+Đầu ra: một danh mục công cụ JSON sẵn sàng dán vào các lời gọi SDK Anthropic / OpenAI / Gemini, một sơ đồ đồ thị phân phối, một tài liệu chính sách xác thực và một đánh giá nhỏ kiểu BFCL mà sổ đăng ký nên vượt qua.
 
-End with a "what to read next" pointer: Lesson 09 (sandboxing), Lesson 23 (OTel GenAI spans), or Lesson 30 (eval-driven).
+Kết thúc bằng một chỉ dẫn "đọc gì tiếp theo": Bài 09 (sandbox), Bài 23 (các span OTel GenAI) hoặc Bài 30 (dựa trên đánh giá).

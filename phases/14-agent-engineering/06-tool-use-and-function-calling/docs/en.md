@@ -1,6 +1,6 @@
 # Tool Use and Function Calling
 
-> Toolformer (Schick et al., 2023) started self-supervised tool annotation. Berkeley Function Calling Leaderboard V4 (Patil et al., 2025) sets the 2026 bar: 40% agentic, 30% multi-turn, 10% live, 10% non-live, 10% hallucination. Single-turn is solved. Memory, dynamic decision-making, and long-horizon tool chains are not.
+> Toolformer (Schick và cộng sự, 2023) khởi đầu việc chú thích công cụ tự giám sát. Berkeley Function Calling Leaderboard V4 (Patil và cộng sự, 2025) đặt ra chuẩn năm 2026: 40% agentic, 30% nhiều lượt, 10% live, 10% non-live, 10% ảo giác. Một lượt đã được giải quyết. Bộ nhớ, ra quyết định động và các chuỗi công cụ có tầm dài thì chưa.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,44 +9,44 @@
 
 ## Learning Objectives
 
-- Explain Toolformer's self-supervised training signal: keep tool annotations only when execution reduces next-token loss.
-- Name BFCL V4's five evaluation categories and what each measures.
-- Implement a stdlib tool registry with schema validation, argument coercion, and execution sandboxing.
-- Diagnose the three 2026 open problems: long-horizon tool chaining, dynamic decision-making, and memory.
+- Giải thích tín hiệu huấn luyện tự giám sát của Toolformer: chỉ giữ các chú thích công cụ khi việc thực thi làm giảm mất mát token tiếp theo.
+- Nêu tên năm hạng mục đánh giá của BFCL V4 và điều mỗi hạng mục đo lường.
+- Triển khai một sổ đăng ký công cụ dùng thư viện chuẩn với xác thực schema, ép kiểu đối số và cô lập thực thi bằng sandbox.
+- Chẩn đoán ba vấn đề còn mở năm 2026: nối chuỗi công cụ có tầm dài, ra quyết định động và bộ nhớ.
 
 ## The Problem
 
-Early tool use asked: can the model predict a correct function call? Modern tool use asks: can the model chain tools across 40 steps, with memory, with partial observability, with recovery from tool failures, without hallucinating tools that do not exist?
+Việc sử dụng công cụ ban đầu hỏi: mô hình có thể dự đoán một lời gọi hàm đúng không? Việc sử dụng công cụ hiện đại hỏi: mô hình có thể nối chuỗi công cụ qua 40 bước, với bộ nhớ, với khả năng quan sát một phần, với phục hồi từ lỗi công cụ, mà không ảo giác các công cụ không tồn tại không?
 
-Toolformer established the baseline: models can learn when to call tools with self-supervision. BFCL V4 defines the 2026 evaluation target. The gap between them is the space production agents live in.
+Toolformer thiết lập đường cơ sở: các mô hình có thể học khi nào gọi công cụ bằng tự giám sát. BFCL V4 xác định mục tiêu đánh giá năm 2026. Khoảng cách giữa chúng là không gian mà các agent sản xuất tồn tại.
 
 ## The Concept
 
 ### Toolformer (Schick et al., NeurIPS 2023)
 
-Idea: let the model annotate its own pretraining corpus with candidate API calls. For each candidate, execute it. Keep the annotation only if including the tool result reduces loss on the next token. Fine-tune on the filtered corpus.
+Ý tưởng: để mô hình chú thích kho ngữ liệu tiền huấn luyện của chính nó bằng các lời gọi API ứng viên. Với mỗi ứng viên, thực thi nó. Chỉ giữ chú thích nếu việc đưa kết quả công cụ vào làm giảm mất mát trên token tiếp theo. Tinh chỉnh trên kho ngữ liệu đã lọc.
 
-Tools covered: calculator, QA system, search engines, translator, calendar. The self-supervision signal is purely about whether the tool helps predict text — no human labels.
+Các công cụ được bao phủ: máy tính, hệ thống QA, công cụ tìm kiếm, bộ dịch, lịch. Tín hiệu tự giám sát thuần túy là về việc công cụ có giúp dự đoán văn bản hay không — không có nhãn của con người.
 
-Scale result: tool use emerges at scale. Smaller models hurt from tool annotations; larger models gain. This is why 2026 frontier models have strong tool use baked in while most 7B models need explicit tool-use fine-tuning to be reliable.
+Kết quả về quy mô: việc sử dụng công cụ xuất hiện ở quy mô lớn. Các mô hình nhỏ hơn bị tổn hại bởi chú thích công cụ; các mô hình lớn hơn được lợi. Đây là lý do các mô hình tiên tiến nhất năm 2026 có khả năng sử dụng công cụ mạnh được tích hợp sẵn trong khi hầu hết các mô hình 7B cần tinh chỉnh sử dụng công cụ tường minh để đáng tin cậy.
 
 ### Berkeley Function Calling Leaderboard V4 (Patil et al., ICML 2025)
 
-BFCL is the 2026 de facto evaluation. V4 composition:
+BFCL là đánh giá trên thực tế của năm 2026. Thành phần V4:
 
-- **Agentic (40%)** — full agent trajectories: memory, multi-turn, dynamic decisions.
-- **Multi-Turn (30%)** — interactive conversations with tool chains.
-- **Live (10%)** — user-submitted real prompts (harder distribution).
-- **Non-Live (10%)** — synthetic test cases.
-- **Hallucination (10%)** — detect when no tool should be called.
+- **Agentic (40%)** — các quỹ đạo agent đầy đủ: bộ nhớ, nhiều lượt, các quyết định động.
+- **Nhiều lượt (30%)** — các hội thoại tương tác với các chuỗi công cụ.
+- **Live (10%)** — các prompt thực do người dùng gửi (phân phối khó hơn).
+- **Non-Live (10%)** — các trường hợp kiểm thử tổng hợp.
+- **Ảo giác (10%)** — phát hiện khi không nên gọi công cụ nào.
 
-V3 introduced state-based evaluation: after a tool sequence, check the API's actual state (e.g. "is the file created?") rather than match the AST of the tool calls. V4 added web search, memory, and format sensitivity categories.
+V3 giới thiệu đánh giá dựa trên trạng thái: sau một chuỗi công cụ, kiểm tra trạng thái thực tế của API (ví dụ "file đã được tạo chưa?") thay vì khớp AST của các lời gọi công cụ. V4 thêm các hạng mục tìm kiếm web, bộ nhớ và độ nhạy định dạng.
 
-Key 2026 finding: single-turn function calling is near-solved. Failures concentrate in memory (carrying context across turns), dynamic decision-making (choosing tools based on prior results), long-horizon chains (drift after 20+ steps), and hallucination detection (refusing to call when no tool fits).
+Phát hiện then chốt năm 2026: gọi hàm một lượt gần như đã được giải quyết. Các lỗi tập trung ở bộ nhớ (mang ngữ cảnh qua các lượt), ra quyết định động (chọn công cụ dựa trên các kết quả trước), các chuỗi tầm dài (trôi dạt sau 20+ bước) và phát hiện ảo giác (từ chối gọi khi không công cụ nào phù hợp).
 
 ### Tool schema
 
-Every provider has a schema. They differ in details but share the same shape:
+Mỗi nhà cung cấp có một schema. Chúng khác nhau ở chi tiết nhưng có chung hình dạng:
 
 ```
 name: string
@@ -54,32 +54,32 @@ description: string (what it does, when to use it)
 input_schema: JSON Schema (properties, required, types, enums)
 ```
 
-Anthropic uses `input_schema` directly. OpenAI uses `function.parameters`. Both accept JSON Schema. Descriptions are load-bearing — the model reads them to pick the right tool. Bad tool descriptions are the #1 root cause of wrong-tool-picked failures.
+Anthropic sử dụng `input_schema` trực tiếp. OpenAI sử dụng `function.parameters`. Cả hai chấp nhận JSON Schema. Các mô tả đóng vai trò trụ cột — mô hình đọc chúng để chọn công cụ đúng. Mô tả công cụ kém là nguyên nhân gốc #1 của các lỗi chọn sai công cụ.
 
 ### Argument validation
 
-Trust no tool call. Validate:
+Không tin bất kỳ lời gọi công cụ nào. Xác thực:
 
-1. **Type coercion.** Model may return a string "5" where the schema says int. Coerce if unambiguous; reject if not.
-2. **Enum validation.** If the schema says `status in {"open", "closed"}` and model emits `"in_progress"`, reject with a descriptive error.
-3. **Required fields.** Missing required field -> immediate error observation back to the model, not a crash.
-4. **Format validation.** Dates, emails, URLs — validate with concrete parsers, not regex.
+1. **Ép kiểu.** Mô hình có thể trả về một chuỗi "5" trong khi schema nói int. Ép kiểu nếu không mơ hồ; từ chối nếu không.
+2. **Xác thực enum.** Nếu schema nói `status in {"open", "closed"}` và mô hình phát ra `"in_progress"`, từ chối với một lỗi có tính mô tả.
+3. **Các trường bắt buộc.** Thiếu trường bắt buộc -> quan sát lỗi ngay lập tức trở lại mô hình, không phải một lần sập.
+4. **Xác thực định dạng.** Ngày, email, URL — xác thực bằng các bộ phân tích cụ thể, không phải regex.
 
-Every validation failure should return a structured observation so the model can retry with the correct shape.
+Mọi lỗi xác thực nên trả về một quan sát có cấu trúc để mô hình có thể thử lại với hình dạng đúng.
 
 ### Parallel tool calls
 
-Modern providers support parallel tool calls in one assistant turn. The loop:
+Các nhà cung cấp hiện đại hỗ trợ các lời gọi công cụ song song trong một lượt trợ lý. Vòng lặp:
 
-1. Model emits 3 tool calls with distinct `tool_use_id`s.
-2. Runtime executes them (in parallel if independent).
-3. Each result goes back as a `tool_result` block correlated by `tool_use_id`.
+1. Mô hình phát ra 3 lời gọi công cụ với các `tool_use_id` khác nhau.
+2. Runtime thực thi chúng (song song nếu độc lập).
+3. Mỗi kết quả trở lại dưới dạng một khối `tool_result` được tương quan bằng `tool_use_id`.
 
-Engineering rule: treat correlation IDs as load-bearing. Swap them and you get wrong-tool-to-wrong-result routing.
+Quy tắc kỹ thuật: coi các ID tương quan là trụ cột. Hoán đổi chúng và bạn có việc định tuyến sai công cụ đến sai kết quả.
 
 ### Sandboxing
 
-Tool execution is the sandbox boundary. See Lesson 09 for detail. Short version: every tool should specify read/write surface, network access, timeout, memory cap. Generic `run_shell(cmd)` is a red flag; specific `git_status()` is safer.
+Thực thi công cụ là ranh giới sandbox. Xem Bài 09 để biết chi tiết. Bản ngắn: mỗi công cụ nên chỉ rõ bề mặt đọc/ghi, truy cập mạng, thời gian chờ, giới hạn bộ nhớ. `run_shell(cmd)` tổng quát là một dấu hiệu cảnh báo; `git_status()` cụ thể an toàn hơn.
 
 ```figure
 tool-routing
@@ -87,54 +87,54 @@ tool-routing
 
 ## Build It
 
-`code/main.py` implements a production-shape tool registry:
+`code/main.py` triển khai một sổ đăng ký công cụ có dạng sản xuất:
 
-- JSON Schema subset validator (stdlib only).
-- Tool registration with description, input schema, timeout, and executor.
-- Argument coercion and enum validation.
-- Parallel tool dispatch with correlation IDs.
-- Error observations as structured strings.
+- Bộ xác thực tập con JSON Schema (chỉ thư viện chuẩn).
+- Đăng ký công cụ với mô tả, schema đầu vào, thời gian chờ và bộ thực thi.
+- Ép kiểu đối số và xác thực enum.
+- Phân phối công cụ song song với các ID tương quan.
+- Các quan sát lỗi dưới dạng chuỗi có cấu trúc.
 
-Run it:
+Chạy nó:
 
 ```
 python3 code/main.py
 ```
 
-The trace shows a mini agent calling three tools in one turn, with one deliberately malformed call that is rejected with a descriptive error the model can act on.
+Trace cho thấy một agent nhỏ gọi ba công cụ trong một lượt, với một lời gọi cố ý sai định dạng bị từ chối bằng một lỗi có tính mô tả mà mô hình có thể hành động dựa trên đó.
 
 ## Use It
 
-Every provider has its own tool schema — Anthropic, OpenAI, Gemini, Bedrock. Use a translation layer (OpenAI Agents SDK, Vercel AI SDK, LangChain tool adapter) if you need multi-provider. BFCL is the reference benchmark — run it against your agent before shipping if tool use is central to the product.
+Mỗi nhà cung cấp có schema công cụ riêng — Anthropic, OpenAI, Gemini, Bedrock. Sử dụng một lớp dịch (OpenAI Agents SDK, Vercel AI SDK, bộ điều hợp công cụ LangChain) nếu bạn cần nhiều nhà cung cấp. BFCL là benchmark tham chiếu — chạy nó đối với agent của bạn trước khi phát hành nếu việc sử dụng công cụ là trọng tâm của sản phẩm.
 
 ## Ship It
 
-`outputs/skill-tool-registry.md` generates a tool catalog, schema, and registry for a given task domain. Includes description-quality checks (does each tool's description tell the model when to use it?).
+`outputs/skill-tool-registry.md` tạo một danh mục công cụ, schema và sổ đăng ký cho một miền tác vụ cho trước. Bao gồm các kiểm tra chất lượng mô tả (mô tả của mỗi công cụ có cho mô hình biết khi nào sử dụng nó không?).
 
 ## Exercises
 
-1. Add a "no-op" tool that lets the model explicitly refuse to use any other tool. Measure on a BFCL-like hallucination test.
-2. Implement argument coercion for int-as-string and float-as-string. Where does coercion start to hide real bugs?
-3. Add a per-tool timeout and a circuit breaker (refuse the tool for 60s after 3 consecutive failures). What does this change about how the model recovers?
-4. Read BFCL V4 description. Pick one category (e.g. "multi-turn") and run 10 example prompts through your agent. Report pass rate.
-5. Port the stdlib validator to Pydantic or Zod. What did Pydantic/Zod catch that the toy missed?
+1. Thêm một công cụ "không làm gì" cho phép mô hình từ chối rõ ràng việc sử dụng bất kỳ công cụ nào khác. Đo trên một kiểm thử ảo giác giống BFCL.
+2. Triển khai ép kiểu đối số cho int dưới dạng chuỗi và float dưới dạng chuỗi. Ở đâu việc ép kiểu bắt đầu che giấu các lỗi thực?
+3. Thêm một thời gian chờ cho từng công cụ và một bộ ngắt mạch (từ chối công cụ trong 60 giây sau 3 lần thất bại liên tiếp). Điều này thay đổi gì về cách mô hình phục hồi?
+4. Đọc mô tả BFCL V4. Chọn một hạng mục (ví dụ "nhiều lượt") và chạy 10 prompt ví dụ qua agent của bạn. Báo cáo tỷ lệ đạt.
+5. Chuyển bộ xác thực thư viện chuẩn sang Pydantic hoặc Zod. Pydantic/Zod đã bắt được điều gì mà bản mô phỏng bỏ sót?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |------|----------------|------------------------|
-| Function calling | "Tool use" | Structured-output tool invocation with validated schema |
-| Toolformer | "Self-supervised tool annotation" | Schick 2023 — keep tool calls whose results reduce next-token loss |
-| BFCL | "Berkeley Function Calling Leaderboard" | 2026 benchmark: 40% agentic, 30% multi-turn, 10% live, 10% non-live, 10% hallucination |
-| Tool schema | "Function signature for the model" | name, description, JSON Schema of arguments |
-| tool_use_id | "Correlation ID" | Ties a tool call to its result; essential for parallel dispatch |
-| Hallucination detection | "Know when not to call" | V4 category: refuse to call when no tool fits |
-| Argument coercion | "String-to-int repair" | Narrow fixes for predictable schema-mismatch; reject if ambiguous |
-| Sandboxing | "Tool execution boundary" | Per-tool read/write surface, network, timeout, memory cap |
+| Function calling (Gọi hàm) | "Sử dụng công cụ" | Gọi công cụ bằng đầu ra có cấu trúc với schema đã xác thực |
+| Toolformer | "Chú thích công cụ tự giám sát" | Schick 2023 — giữ các lời gọi công cụ có kết quả làm giảm mất mát token tiếp theo |
+| BFCL | "Berkeley Function Calling Leaderboard" | Benchmark năm 2026: 40% agentic, 30% nhiều lượt, 10% live, 10% non-live, 10% ảo giác |
+| Tool schema (Schema công cụ) | "Chữ ký hàm cho mô hình" | tên, mô tả, JSON Schema của các đối số |
+| tool_use_id | "ID tương quan" | Gắn một lời gọi công cụ với kết quả của nó; thiết yếu cho phân phối song song |
+| Hallucination detection (Phát hiện ảo giác) | "Biết khi nào không gọi" | Hạng mục V4: từ chối gọi khi không công cụ nào phù hợp |
+| Argument coercion (Ép kiểu đối số) | "Sửa chuỗi thành int" | Các sửa chữa hẹp cho sự không khớp schema có thể dự đoán; từ chối nếu mơ hồ |
+| Sandboxing (Cô lập bằng sandbox) | "Ranh giới thực thi công cụ" | Bề mặt đọc/ghi, mạng, thời gian chờ, giới hạn bộ nhớ cho từng công cụ |
 
 ## Further Reading
 
-- [Schick et al., Toolformer (arXiv:2302.04761)](https://arxiv.org/abs/2302.04761) — self-supervised tool annotation
-- [Berkeley Function Calling Leaderboard (V4)](https://gorilla.cs.berkeley.edu/leaderboard.html) — 2026 eval benchmark
-- [Anthropic, Tool use documentation](https://platform.claude.com/docs/en/agent-sdk/overview) — production tool schema in the Claude Agent SDK
-- [OpenAI Agents SDK docs](https://openai.github.io/openai-agents-python/) — function tool type and Guardrails
+- [Schick et al., Toolformer (arXiv:2302.04761)](https://arxiv.org/abs/2302.04761) — chú thích công cụ tự giám sát
+- [Berkeley Function Calling Leaderboard (V4)](https://gorilla.cs.berkeley.edu/leaderboard.html) — benchmark đánh giá năm 2026
+- [Anthropic, Tool use documentation](https://platform.claude.com/docs/en/agent-sdk/overview) — schema công cụ sản xuất trong Claude Agent SDK
+- [OpenAI Agents SDK docs](https://openai.github.io/openai-agents-python/) — kiểu công cụ hàm và Chốt bảo vệ
