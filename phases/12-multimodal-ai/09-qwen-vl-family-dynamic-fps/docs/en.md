@@ -1,6 +1,6 @@
 # Qwen-VL Family and Dynamic-FPS Video
 
-> The Qwen-VL family — Qwen-VL (2023), Qwen2-VL (2024), Qwen2.5-VL (2025), Qwen3-VL (2025) — is the most influential open vision-language model lineage in 2026. Each generation made a single decisive architectural bet that the rest of the open ecosystem copied within twelve months: native dynamic resolution via M-RoPE, dynamic-FPS sampling with absolute time alignment, window attention in the ViT, and structured agent output formats. By Qwen3-VL, the recipe had stabilized: a 2D-RoPE-ViT encoder with native-aspect-ratio inputs, an MLP projector into a large Qwen3 language base, and training stages that emphasized OCR, grounding, and agent behavior as first-class targets. This lesson reads the family chronologically so you understand why every knob is where it is.
+> Họ Qwen-VL — Qwen-VL (2023), Qwen2-VL (2024), Qwen2.5-VL (2025), Qwen3-VL (2025) — là dòng mô hình thị giác-ngôn ngữ mở ảnh hưởng nhất năm 2026. Mỗi thế hệ đặt cược kiến trúc quyết định duy nhất mà phần còn lại hệ sinh thái mở sao chép trong mười hai tháng: độ phân giải động nguyên bản qua M-RoPE, lấy mẫu FPS động với căn chỉnh thời gian tuyệt đối, window attention trong ViT và định dạng đầu ra tác tử có cấu trúc. Đến Qwen3-VL, công thức ổn định: encoder ViT 2D-RoPE với đầu vào tỷ lệ khung hình nguyên bản, projector MLP vào nền ngôn ngữ Qwen3 lớn và các giai đoạn huấn luyện nhấn mạnh OCR, grounding, hành vi tác tử như mục tiêu hạng nhất. Bài học này đọc họ theo thời gian để hiểu tại sao mỗi núm ở chỗ đó.
 
 **Type:** Learn
 **Languages:** Python (stdlib, M-RoPE encoder + dynamic-FPS sampler)
@@ -9,67 +9,67 @@
 
 ## Learning Objectives
 
-- Compute M-RoPE's three-axis rotations (temporal, height, width) and explain why all three are needed.
-- Pick a dynamic-FPS sampling strategy for a video and reason about tokens-per-second vs event-detection accuracy.
-- Name the four Qwen-VL generational upgrades in order and what each enabled.
-- Wire a Qwen2.5-VL-style JSON agent output format and parse structured tool calls from a VLM response.
+- Tính phép quay ba trục M-RoPE (thời gian, chiều cao, chiều rộng) và giải thích tại sao cần cả ba.
+- Chọn chiến lược lấy mẫu FPS động cho video và suy luận về token mỗi giây so với độ chính xác phát hiện sự kiện.
+- Nêu tên bốn nâng cấp thế hệ Qwen-VL theo thứ tự và điều mỗi loại cho phép.
+- Kết nối định dạng đầu ra tác tử JSON kiểu Qwen2.5-VL và phân tích lệnh gọi công cụ có cấu trúc từ phản hồi VLM.
 
 ## The Problem
 
-Qwen-VL shipped in August 2023 as a direct response to LLaVA-1.5 and BLIP-2. The gap the Qwen team targeted was threefold: resolution, video, and structured output.
+Qwen-VL phát hành tháng 8 năm 2023 như đáp trả trực tiếp LLaVA-1.5 và BLIP-2. Khoảng trống nhóm Qwen nhắm có ba phần: độ phân giải, video và đầu ra có cấu trúc.
 
-Resolution: LLaVA-1.5 ran at 336x336. Fine for photos, useless for a Chinese-language invoice or a dense spreadsheet screenshot. Qwen-VL's first innovation was 448x448 and grounded bounding-box output, letting the model point at things.
+Độ phân giải: LLaVA-1.5 chạy ở 336x336. Phù hợp ảnh chụp, vô dụng cho hóa đơn tiếng Trung hoặc ảnh chụp bảng tính dày đặc. Đổi mới đầu Qwen-VL là 448x448 và đầu ra hộp giới hạn có grounding, cho mô hình chỉ vào vật.
 
-Video: Video-LLaMA stacked per-frame encoders and fed them to the LLM. It worked for short clips, not for multi-minute videos where the temporal axis is the signal. The Qwen team wanted a single encoder that understood time.
+Video: Video-LLaMA xếp encoder từng khung và đưa vào LLM. Hoạt động cho clip ngắn, không cho video nhiều phút nơi trục thời gian là tín hiệu. Nhóm Qwen muốn một encoder hiểu thời gian.
 
-Structured output: LLaVA emitted free-form text. An agent needs JSON. Qwen-VL trained on explicit JSON output formats including bounding-box coordinates as text.
+Đầu ra có cấu trúc: LLaVA phát văn bản tự do. Tác tử cần JSON. Qwen-VL huấn luyện trên định dạng đầu ra JSON rõ ràng gồm tọa độ hộp giới hạn như văn bản.
 
-Every Qwen-VL generation extends one of these three axes.
+Mọi thế hệ Qwen-VL mở rộng một trong ba trục này.
 
 ## The Concept
 
 ### Qwen-VL (August 2023)
 
-The first generation: OpenCLIP ViT-bigG/14 as encoder (2.5B params), LLama-compatible Q-Former (1-step with 256 queries), Qwen-7B base. Contributions:
+Thế hệ đầu: OpenCLIP ViT-bigG/14 làm encoder (2.5B tham số), Q-Former tương thích LLama (1 bước với 256 query), cơ sở Qwen-7B. Đóng góp:
 
-- 448x448 resolution (then SOTA for an open VLM).
-- Grounding: trained on image-text pairs with explicit coordinate-token output. "The cat is at <box>(112, 204), (280, 344)</box>".
-- Chinese + English multilingual training from the start.
+- Độ phân giải 448x448 (khi đó SOTA cho VLM mở).
+- Grounding: huấn luyện trên cặp ảnh-văn bản với đầu ra token tọa độ rõ ràng. "Con mèo ở <box>(112, 204), (280, 344)</box>".
+- Huấn luyện đa ngôn ngữ Trung + Anh từ đầu.
 
-Benchmarks at the time: competitive with GPT-4V on English, dominant on Chinese. The grounding supervision was the real headline.
+Benchmark lúc đó: cạnh tranh GPT-4V trên tiếng Anh, thống trị tiếng Trung. Giám sát grounding là điểm chính thực sự.
 
 ### Qwen2-VL (September 2024) — M-RoPE and native resolution
 
-Qwen2-VL replaced the fixed-resolution + Q-Former stack with a natively dynamic-resolution ViT encoder. Key changes:
+Qwen2-VL thay ngăn xếp độ phân giải cố định + Q-Former bằng encoder ViT độ phân giải động nguyên bản. Thay đổi chính:
 
-- Native dynamic resolution. The ViT accepts any HxW divisible by 28 (patch 14 with 2x spatial merge). An image at 1120x672 (40x24 merged patches) produces 960 visual tokens. No resize, no tiling, no thumbnail.
-- M-RoPE (Multimodal RoPE). Each token carries a 3D position (t, h, w) instead of 1D. For images t=0, for video t = frame_index. RoPE rotates query/key vectors by a frequency per axis. No positional embedding table.
-- MLP projector. Drop the Q-Former; use a 2-layer MLP on the merged patch tokens.
-- Video with dynamic FPS. Video sampled at 1-2 FPS by default, but the model accepts arbitrary frame counts.
+- Độ phân giải động nguyên bản. ViT nhận mọi HxW chia hết cho 28 (patch 14 với gộp không gian 2x). Ảnh 1120x672 (40x24 patch đã gộp) tạo 960 token thị giác. Không đổi kích thước, không chia ô, không ảnh thu nhỏ.
+- M-RoPE (Multimodal RoPE). Mỗi token mang vị trí 3D (t, h, w) thay 1D. Với ảnh t=0, với video t = frame_index. RoPE quay vector query/key theo tần số mỗi trục. Không bảng embedding vị trí.
+- Projector MLP. Bỏ Q-Former; dùng MLP 2 lớp trên token patch đã gộp.
+- Video với FPS động. Video mặc định lấy mẫu ở 1-2 FPS, nhưng mô hình nhận số khung tùy ý.
 
-Result: Qwen2-VL-7B matched GPT-4o on several multimodal benchmarks and beat it on DocVQA (94.5 vs 88.4). The architecture change was the decisive move.
+Kết quả: Qwen2-VL-7B ngang GPT-4o trên vài benchmark đa phương thức và vượt DocVQA (94.5 so với 88.4). Đổi kiến trúc là bước quyết định.
 
 ### Qwen2.5-VL (February 2025) — dynamic FPS + absolute time
 
-Qwen2.5-VL's big shift was video. Dynamic FPS is not just "sample more frames when needed." The paper formalized:
+Chuyển dịch lớn Qwen2.5-VL là video. FPS động không chỉ "lấy thêm khung khi cần." Bài báo hình thức hóa:
 
-- Absolute time tokens. Instead of positional indices (frame 0, 1, 2...), use actual timestamps. "At 0:04, the cat jumps." The model sees `<time>0.04</time>` tokens interleaved with frame tokens.
-- Dynamic FPS. Sample at 1 FPS for slow footage, 4+ FPS for action. The user or trainer chooses; M-RoPE adapts.
-- Window attention in ViT. Spatial attention is windowed (local within blocks) for throughput; global attention every few layers.
-- Explicit JSON output format. Trained on tool-call data: "{\"tool\": \"click\", \"coords\": [380, 220]}". Agent-ready out of the box.
-- MRoPE-v2 scaling. Positions scale with max input size so a 10-minute video does not run out of frequency range.
+- Token thời gian tuyệt đối. Thay chỉ số vị trí (khung 0, 1, 2...), dùng dấu thời gian thực. "Ở 0:04, mèo nhảy." Mô hình thấy token `<time>0.04</time>` xen token khung.
+- FPS động. Lấy mẫu 1 FPS cho cảnh chậm, 4+ FPS cho hành động. Người dùng hoặc trainer chọn; M-RoPE thích ứng.
+- Window attention trong ViT. Attention không gian chia cửa sổ (cục bộ trong khối) cho thông lượng; attention toàn cục mỗi vài lớp.
+- Định dạng đầu ra JSON rõ ràng. Huấn luyện trên dữ liệu gọi công cụ: "{\"tool\": \"click\", \"coords\": [380, 220]}". Sẵn làm tác tử ngay.
+- Co giãn MRoPE-v2. Vị trí co giãn theo kích thước đầu vào tối đa để video 10 phút không hết phạm vi tần số.
 
-Benchmarks: Qwen2.5-VL-72B beats GPT-4o on most video benchmarks, matches Gemini 2.0 on documents, and sets the open-model SOTA for GUI grounding (ScreenSpot: 84% accuracy vs 38% for GPT-4o).
+Benchmark: Qwen2.5-VL-72B vượt GPT-4o trên hầu hết benchmark video, ngang Gemini 2.0 trên tài liệu và lập SOTA mô hình mở cho GUI grounding (ScreenSpot: độ chính xác 84% so với 38% GPT-4o).
 
 ### Qwen3-VL (November 2025)
 
-Qwen3-VL is an incremental upgrade that consolidates rather than reinvents: larger LLM backbone (Qwen3-72B), expanded training data, improved OCR, stronger reasoning via the Qwen3 "thinking mode." The ViT and M-RoPE stay. The paper focuses on data and training improvements over architecture.
+Qwen3-VL là nâng cấp gia tăng củng cố thay vì tái phát minh: backbone LLM lớn hơn (Qwen3-72B), dữ liệu huấn luyện mở rộng, OCR cải thiện, suy luận mạnh hơn qua "chế độ suy nghĩ" Qwen3. ViT và M-RoPE giữ nguyên. Bài báo tập trung cải thiện dữ liệu và huấn luyện hơn kiến trúc.
 
-The lineage takeaway: by 2025 the Qwen-VL architecture had stabilized. Additional generations scale compute and data, not primitives.
+Bài học từ dòng phát triển: đến năm 2025 kiến trúc Qwen-VL ổn định. Thế hệ thêm mở rộng tính toán và dữ liệu, không thành phần cơ bản.
 
 ### M-RoPE mathematically
 
-Classical RoPE rotates a query `q` of dimension `d` by position `m` using paired coordinates:
+RoPE cổ điển quay query `q` chiều `d` theo vị trí `m` bằng tọa độ ghép cặp:
 
 ```
 q_rot[2i]   = q[2i]   * cos(m * theta_i) - q[2i+1] * sin(m * theta_i)
@@ -77,26 +77,26 @@ q_rot[2i+1] = q[2i]   * sin(m * theta_i) + q[2i+1] * cos(m * theta_i)
 theta_i     = 10000^(-2i/d)
 ```
 
-M-RoPE splits the hidden dim into three bands. Say `d = 96`. Assign 32 dims to temporal, 32 to height, 32 to width. Each band rotates by its own axis position. A patch at (t=5, h=10, w=20) gets rotations `R_t(5)`, `R_h(10)`, `R_w(20)` applied to its three bands.
+M-RoPE chia chiều ẩn thành ba dải. Chẳng hạn `d = 96`. Gán 32 chiều cho thời gian, 32 chiều chiều cao, 32 chiều chiều rộng. Mỗi dải quay theo vị trí trục riêng. Patch ở (t=5, h=10, w=20) nhận phép quay `R_t(5)`, `R_h(10)`, `R_w(20)` áp dụng cho ba dải.
 
-Text tokens use `t = text_index, h = 0, w = 0` (or a normalized choice), keeping compatibility. Video frames use `t = frame_time, h = row, w = col`. Single images use `t = 0`.
+Token văn bản dùng `t = text_index, h = 0, w = 0` (hoặc lựa chọn chuẩn hóa), giữ tương thích. Khung video dùng `t = frame_time, h = row, w = col`. Ảnh đơn dùng `t = 0`.
 
-The benefit: one position encoding handles text, image, and video without branching code or different position tables.
+Lợi ích: một mã hóa vị trí xử lý văn bản, ảnh và video không phân nhánh mã hoặc bảng vị trí khác.
 
 ### Dynamic-FPS sampling logic
 
-Given a video of duration `T` seconds and a target-tokens budget `B`:
+Với video dài `T` giây và ngân sách token đích `B`:
 
-1. Compute the maximum FPS you can afford: `fps_max = B / (T * tokens_per_frame)`.
-2. Pick a target FPS from `{1, 2, 4, 8}` that satisfies `fps <= fps_max`.
-3. If motion is high (optical-flow heuristic or explicit user request), pick higher FPS. If motion is low, pick lower.
-4. Sample uniformly at the chosen FPS; insert `<time>t</time>` tokens between frames.
+1. Tính FPS tối đa đủ chi phí: `fps_max = B / (T * tokens_per_frame)`.
+2. Chọn FPS đích từ `{1, 2, 4, 8}` thỏa `fps <= fps_max`.
+3. Nếu chuyển động cao (heuristic optical-flow hoặc yêu cầu rõ của người dùng), chọn FPS cao hơn. Nếu chuyển động thấp, chọn thấp hơn.
+4. Lấy mẫu đều ở FPS chọn; chèn token `<time>t</time>` giữa khung.
 
-Qwen2.5-VL trains this logic implicitly; at inference the user controls via `fps` parameter. A 60-second action sequence at 4 FPS with 81 tokens per frame = 19440 tokens, manageable in a 32k context.
+Qwen2.5-VL huấn luyện logic này ngầm; khi suy luận người dùng kiểm soát qua tham số `fps`. Chuỗi hành động 60 giây ở 4 FPS với 81 token mỗi khung = 19440 token, quản lý được trong ngữ cảnh 32k.
 
 ### Structured agent output
 
-Qwen2.5-VL's agent training explicitly targets structured tool calls:
+Huấn luyện tác tử Qwen2.5-VL nhắm rõ lệnh gọi công cụ có cấu trúc:
 
 ```
 {
@@ -107,7 +107,7 @@ Qwen2.5-VL's agent training explicitly targets structured tool calls:
 }
 ```
 
-Parsing is deterministic: JSON.parse over the model's output. Compare to free-form "click at (1024, 512)" which required regex and ambiguity handling. The shift is why Qwen2.5-VL's ScreenSpot scores jumped from Qwen2-VL's 55% to 84%.
+Phân tích là tất định: JSON.parse trên đầu ra mô hình. So với dạng tự do "nhấp ở (1024, 512)" cần regex và xử lý mơ hồ. Chuyển dịch là lý do điểm ScreenSpot Qwen2.5-VL nhảy từ 55% Qwen2-VL lên 84%.
 
 ```figure
 mm-mrope-axes
@@ -115,41 +115,41 @@ mm-mrope-axes
 
 ## Use It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- M-RoPE position computation for a packed sequence mixing text, image patches, and video frames.
-- Dynamic-FPS sampler: given (duration, budget, motion_level), pick FPS and emit frame timestamps.
-- A toy Qwen2.5-VL JSON-output parser that handles tool-call responses with coordinate fields.
+- Tính vị trí M-RoPE cho chuỗi đóng gói trộn văn bản, patch ảnh và khung video.
+- Bộ lấy mẫu FPS động: với (duration, budget, motion_level), chọn FPS và phát dấu thời gian khung.
+- Bộ phân tích đầu ra JSON Qwen2.5-VL minh họa xử lý phản hồi gọi công cụ có trường tọa độ.
 
-Run it, then feel the difference when you swap fixed-FPS for dynamic-FPS on a 5-minute video.
+Chạy, rồi cảm nhận khác biệt khi đổi FPS cố định sang FPS động trên video 5 phút.
 
 ## Ship It
 
-This lesson produces `outputs/skill-qwen-vl-pipeline-designer.md`. Given a video task (monitoring, agent, action recognition, accessibility), it emits the Qwen2.5-VL configuration (frame budget, FPS strategy, window-attention flag, agent-output mode) and a latency estimate. Use this whenever you deploy a Qwen-VL-family model for a video product.
+Bài học này tạo `outputs/skill-qwen-vl-pipeline-designer.md`. Với tác vụ video (giám sát, tác tử, nhận dạng hành động, khả năng tiếp cận), nó phát cấu hình Qwen2.5-VL (ngân sách khung, chiến lược FPS, cờ window-attention, chế độ đầu ra tác tử) và ước lượng độ trễ. Dùng mỗi khi triển khai mô hình họ Qwen-VL cho sản phẩm video.
 
 ## Exercises
 
-1. Compute M-RoPE rotations for a patch at (t=3, h=5, w=7) with hidden 48 (16 per band, base theta 10000). Show the rotation angles for the first three pairs in each band.
+1. Tính phép quay M-RoPE cho patch ở (t=3, h=5, w=7) với chiều ẩn 48 (16 mỗi dải, theta cơ sở 10000). Cho góc quay ba cặp đầu trong mỗi dải.
 
-2. A 10-minute security-camera recording at 1 FPS produces how many frames? At 384 resolution with 3x pool, how many total tokens? Does Qwen2.5-VL's default 32k context handle it?
+2. Bản ghi camera an ninh 10 phút ở 1 FPS tạo bao nhiêu khung? Ở độ phân giải 384 với pooling 3x, tổng bao nhiêu token? Ngữ cảnh 32k mặc định Qwen2.5-VL xử lý được không?
 
-3. Pick FPS for a 30-second tennis rally vs a 30-second recipe demo vs a 30-second UI-agent recording. Justify each with the dynamic-FPS logic.
+3. Chọn FPS cho pha bóng quần vợt 30 giây so với demo công thức nấu 30 giây so với bản ghi tác tử UI 30 giây. Lý giải từng loại bằng logic FPS động.
 
-4. Qwen2.5-VL drops the Q-Former entirely. Why does a simple MLP work in 2025 but not in 2023? (Hint: data scale and encoder quality.)
+4. Qwen2.5-VL bỏ hoàn toàn Q-Former. Tại sao MLP đơn giản hoạt động năm 2025 nhưng không năm 2023? (Gợi ý: quy mô dữ liệu và chất lượng encoder.)
 
-5. Parse three Qwen2.5-VL JSON tool-call outputs into Python dicts. What fails for malformed JSON and what recovery strategy does the Qwen cookbook recommend?
+5. Phân tích ba đầu ra JSON gọi công cụ Qwen2.5-VL thành dict Python. Điều gì thất bại với JSON sai định dạng và cookbook Qwen khuyến nghị chiến lược phục hồi nào?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| M-RoPE | "Multimodal RoPE" | 3D rotary position embedding with temporal, height, and width bands in the hidden dim |
-| Dynamic FPS | "Smart sampling" | Frame sampling rate chosen per video based on motion, duration, and token budget |
-| Absolute time token | "Timestamp token" | `<time>t</time>` interleaved in the sequence so the model sees actual seconds not frame index |
-| Window attention | "Local attention" | Spatial self-attention restricted to small windows for speed; global attention added periodically |
-| Structured agent output | "JSON mode" | Training data supervision teaching the VLM to emit parseable JSON with coords and tool names |
-| min_pixels / max_pixels | "Resolution bounds" | Per-request Qwen2.5-VL controls bounding total pixel count and therefore token count |
-| Grounding | "Point-at-it" | Outputting bounding-box coordinates as text tokens; used since Qwen-VL v1 |
+| M-RoPE | "RoPE đa phương thức" | Embedding vị trí quay 3D với dải thời gian, chiều cao và chiều rộng trong chiều ẩn |
+| Dynamic FPS (FPS động) | "Lấy mẫu thông minh" | Tốc độ lấy mẫu khung chọn mỗi video theo chuyển động, thời lượng và ngân sách token |
+| Absolute time token (Token thời gian tuyệt đối) | "Token dấu thời gian" | `<time>t</time>` xen trong chuỗi để mô hình thấy giây thực không chỉ số khung |
+| Window attention (Attention cửa sổ) | "Attention cục bộ" | Self-attention không gian giới hạn trong cửa sổ nhỏ cho tốc độ; attention toàn cục thêm định kỳ |
+| Structured agent output (Đầu ra tác tử có cấu trúc) | "Chế độ JSON" | Giám sát dữ liệu huấn luyện dạy VLM phát JSON phân tích được với tọa độ và tên công cụ |
+| min_pixels / max_pixels | "Cận độ phân giải" | Điều khiển mỗi yêu cầu Qwen2.5-VL giới hạn tổng pixel và do đó số token |
+| Grounding (Định vị) | "Chỉ vào nó" | Xuất tọa độ hộp giới hạn thành token văn bản; dùng từ Qwen-VL v1 |
 
 ## Further Reading
 
