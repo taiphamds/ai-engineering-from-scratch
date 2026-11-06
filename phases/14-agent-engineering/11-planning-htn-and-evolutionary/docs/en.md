@@ -1,6 +1,6 @@
 # Planning with HTN and Evolutionary Search
 
-> Symbolic planning handles the cases where the plan is provably correct. Evolutionary code search handles the cases where the fitness function is machine-checkable. ChatHTN (2025) and AlphaEvolve (2025) show what each unlocks when paired with an LLM.
+> Lập kế hoạch biểu tượng xử lý các trường hợp mà kế hoạch có thể chứng minh là đúng. Tìm kiếm mã tiến hóa xử lý các trường hợp mà hàm độ thích nghi có thể kiểm tra bằng máy. ChatHTN (2025) và AlphaEvolve (2025) cho thấy mỗi cách mở ra điều gì khi kết hợp với một LLM.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,83 +9,83 @@
 
 ## Learning Objectives
 
-- Explain Hierarchical Task Networks: tasks, methods, operators, preconditions, effects.
-- Describe ChatHTN's hybrid loop — symbolic search with LLM fallback decomposition.
-- Explain AlphaEvolve's evolutionary loop and why it only works with a programmatic evaluator.
-- Implement a toy HTN planner plus a toy evolutionary search in stdlib.
+- Giải thích các Mạng tác vụ phân cấp: tác vụ, phương thức, toán tử, tiền điều kiện, hiệu ứng.
+- Mô tả vòng lặp lai của ChatHTN — tìm kiếm biểu tượng với phân rã dự phòng bằng LLM.
+- Giải thích vòng lặp tiến hóa của AlphaEvolve và vì sao nó chỉ hoạt động với một bộ đánh giá bằng chương trình.
+- Triển khai một bộ lập kế hoạch HTN mô phỏng cộng một tìm kiếm tiến hóa mô phỏng bằng thư viện chuẩn.
 
 ## The Problem
 
-ReWOO (Lesson 02), Plan-and-Execute, and ReAct cover most agent planning. Two cases they don't cover well:
+ReWOO (Bài 02), Plan-and-Execute và ReAct bao phủ hầu hết việc lập kế hoạch agent. Hai trường hợp chúng không bao phủ tốt:
 
-1. **Plans with provable correctness.** Scheduling, flight pathing, compliance workflows — the plan must be sound by construction. A fluent LLM plan that sometimes hallucinates a step is unacceptable.
-2. **Optimizations with a machine-checkable fitness function.** Matrix multiplication, scheduling heuristics, compiler passes — the goal is not "a correct plan" but "the best plan."
+1. **Các kế hoạch với tính đúng đắn có thể chứng minh.** Lập lịch, định đường bay, các workflow tuân thủ — kế hoạch phải đúng đắn ngay từ cách xây dựng. Một kế hoạch LLM trôi chảy đôi khi ảo giác một bước là không thể chấp nhận.
+2. **Các tối ưu hóa với một hàm độ thích nghi có thể kiểm tra bằng máy.** Nhân ma trận, các heuristic lập lịch, các lượt xử lý trình biên dịch — mục tiêu không phải "một kế hoạch đúng" mà là "kế hoạch tốt nhất."
 
-HTN planning and AlphaEvolve solve the two different problems. Both use LLMs as amplifiers, not replacements.
+Lập kế hoạch HTN và AlphaEvolve giải quyết hai vấn đề khác nhau. Cả hai sử dụng LLM như bộ khuếch đại, không phải sự thay thế.
 
 ## The Concept
 
 ### Hierarchical Task Networks
 
-An HTN is:
+Một HTN là:
 
-- **Tasks** — compound (to be decomposed) and primitive (directly executable).
-- **Methods** — ways to decompose a compound task into subtasks, with preconditions.
-- **Operators** — primitive actions with preconditions and effects.
-- **State** — a set of facts.
+- **Các tác vụ** — phức hợp (cần được phân rã) và nguyên thủy (có thể thực thi trực tiếp).
+- **Các phương thức** — các cách phân rã một tác vụ phức hợp thành các tác vụ con, với các tiền điều kiện.
+- **Các toán tử** — các hành động nguyên thủy với các tiền điều kiện và hiệu ứng.
+- **Trạng thái** — một tập các sự thật.
 
-Planning: given a goal task and an initial state, find a decomposition into primitive operators whose preconditions are satisfied in sequence.
+Lập kế hoạch: với một tác vụ mục tiêu và một trạng thái ban đầu, tìm một phép phân rã thành các toán tử nguyên thủy có các tiền điều kiện được thỏa mãn theo trình tự.
 
-HTN is older than LLMs and still the reference for provably-correct plans.
+HTN lâu đời hơn các LLM và vẫn là tham chiếu cho các kế hoạch có thể chứng minh là đúng.
 
 ### ChatHTN (Gopalakrishnan et al., 2025)
 
-ChatHTN (arXiv:2505.11814) interleaves symbolic HTN with LLM queries:
+ChatHTN (arXiv:2505.11814) đan xen HTN biểu tượng với các truy vấn LLM:
 
-1. Try to decompose the current compound task with existing methods.
-2. If no method applies, ask the LLM: "how would you decompose `task` in state `s`?"
-3. Translate the LLM response into candidate subtasks.
-4. Validate against the operator schema; reject invalid decompositions.
-5. Recurse.
+1. Thử phân rã tác vụ phức hợp hiện tại bằng các phương thức hiện có.
+2. Nếu không phương thức nào áp dụng, hỏi LLM: "bạn sẽ phân rã `task` trong trạng thái `s` như thế nào?"
+3. Chuyển phản hồi LLM thành các tác vụ con ứng viên.
+4. Xác thực đối với schema toán tử; từ chối các phép phân rã không hợp lệ.
+5. Đệ quy.
 
-The paper's central claim: every plan produced is provably sound because LLM suggestions only enter as candidate decompositions, never as direct plan edits. The symbolic layer owns correctness; the LLM expands the method library.
+Tuyên bố trung tâm của bài báo: mọi kế hoạch được tạo ra đều có thể chứng minh là đúng đắn vì các đề xuất LLM chỉ đi vào dưới dạng các phép phân rã ứng viên, không bao giờ là chỉnh sửa kế hoạch trực tiếp. Lớp biểu tượng sở hữu tính đúng đắn; LLM mở rộng thư viện phương thức.
 
-Online method learning (OpenReview `gwYEDY9j2x`, 2025 follow-up) adds a learner that generalizes LLM-produced decompositions by regression — cutting LLM query frequency up to 75%.
+Học phương thức trực tuyến (OpenReview `gwYEDY9j2x`, nghiên cứu tiếp nối năm 2025) thêm một bộ học khái quát hóa các phép phân rã do LLM tạo bằng hồi quy — giảm tần suất truy vấn LLM tới 75%.
 
 ### AlphaEvolve (Novikov et al., 2025)
 
-AlphaEvolve (arXiv:2506.13131, DeepMind, June 2025) is a different beast: evolutionary code search orchestrated by a Gemini 2.0 Flash/Pro ensemble.
+AlphaEvolve (arXiv:2506.13131, DeepMind, tháng 6 năm 2025) là một thứ khác: tìm kiếm mã tiến hóa được điều phối bởi một tổ hợp Gemini 2.0 Flash/Pro.
 
-Loop:
+Vòng lặp:
 
-1. Start with a seed program + a programmatic evaluator (returns a fitness score).
-2. Ensemble of LLMs proposes mutations.
-3. Run mutations through the evaluator.
-4. Keep the best; mutate again.
+1. Bắt đầu với một chương trình hạt giống + một bộ đánh giá bằng chương trình (trả về một điểm độ thích nghi).
+2. Tổ hợp các LLM đề xuất các đột biến.
+3. Chạy các đột biến qua bộ đánh giá.
+4. Giữ cái tốt nhất; đột biến tiếp.
 
-Published wins:
+Các thành tựu đã công bố:
 
-- First improvement over Strassen for 4x4 complex matrix multiplication in 56 years (48 scalar multiplications).
-- 0.7% recovered Google compute via a Borg scheduling heuristic.
-- 32% FlashAttention speedup on a frontier workload.
+- Cải tiến đầu tiên vượt Strassen cho phép nhân ma trận phức 4x4 trong 56 năm (48 phép nhân vô hướng).
+- Thu hồi 0.7% năng lực tính toán Google qua một heuristic lập lịch Borg.
+- Tăng tốc FlashAttention 32% trên một khối lượng công việc tiên tiến.
 
-The hard constraint: the fitness function must be machine-checkable. Evolutionary search over prose answers does not converge.
+Ràng buộc cứng: hàm độ thích nghi phải có thể kiểm tra bằng máy. Tìm kiếm tiến hóa trên các câu trả lời văn xuôi không hội tụ.
 
 ### When to use which
 
-| Problem class | Use | Why |
+| Lớp vấn đề | Sử dụng | Vì sao |
 |---------------|-----|-----|
-| Scheduling with hard constraints | HTN + ChatHTN | Provable soundness |
-| Compiler optimization | AlphaEvolve | Machine-checkable fitness |
-| Multi-step task execution | ReAct / ReWOO | LLM in the loop, no formal guarantees |
-| Code improvement with tests | AlphaEvolve | Tests are the evaluator |
-| Policy-bound automation | HTN | Preconditions encode policy |
+| Lập lịch với các ràng buộc cứng | HTN + ChatHTN | Tính đúng đắn có thể chứng minh |
+| Tối ưu hóa trình biên dịch | AlphaEvolve | Độ thích nghi có thể kiểm tra bằng máy |
+| Thực thi tác vụ nhiều bước | ReAct / ReWOO | LLM trong vòng lặp, không có bảo đảm hình thức |
+| Cải thiện mã với các kiểm thử | AlphaEvolve | Các kiểm thử là bộ đánh giá |
+| Tự động hóa ràng buộc bởi chính sách | HTN | Các tiền điều kiện mã hóa chính sách |
 
 ### Where this pattern goes wrong
 
-- **HTN without operators.** Without precondition/effect schemas the soundness claim collapses. ChatHTN's "LLM suggests decomposition" requires the schema to reject invalid moves.
-- **AlphaEvolve without a real evaluator.** "Ask the LLM if the code is better" is not a fitness function. The evaluator must be deterministic and fast.
-- **Over-engineering.** Most agent tasks don't need either. Reach for ReAct or ReWOO first.
+- **HTN không có các toán tử.** Không có các schema tiền điều kiện/hiệu ứng, tuyên bố tính đúng đắn sụp đổ. "LLM đề xuất phân rã" của ChatHTN yêu cầu schema để từ chối các bước đi không hợp lệ.
+- **AlphaEvolve không có một bộ đánh giá thực.** "Hỏi LLM xem mã có tốt hơn không" không phải là một hàm độ thích nghi. Bộ đánh giá phải mang tính xác định và nhanh.
+- **Thiết kế quá mức.** Hầu hết các tác vụ agent không cần cách nào trong hai cách. Chọn ReAct hoặc ReWOO trước.
 
 ```figure
 htn-tree-expand
@@ -93,52 +93,52 @@ htn-tree-expand
 
 ## Build It
 
-`code/main.py` implements two toys:
+`code/main.py` triển khai hai bản mô phỏng:
 
-- A stdlib HTN planner with operators, methods, preconditions, effects, and a `LLMFallback` that kicks in when no method matches a compound task. The "LLM" is a scripted decomposer so the planner runs offline.
-- A stdlib evolutionary search over arithmetic programs: grow expressions whose output minimizes `|f(x) - target|` over a test set. Evaluator is deterministic.
+- Một bộ lập kế hoạch HTN dùng thư viện chuẩn với các toán tử, phương thức, tiền điều kiện, hiệu ứng và một `LLMFallback` kích hoạt khi không phương thức nào khớp một tác vụ phức hợp. "LLM" là một bộ phân rã được viết kịch bản để bộ lập kế hoạch chạy ngoại tuyến.
+- Một tìm kiếm tiến hóa dùng thư viện chuẩn trên các chương trình số học: phát triển các biểu thức có đầu ra giảm thiểu `|f(x) - target|` trên một tập kiểm thử. Bộ đánh giá mang tính xác định.
 
-Run it:
+Chạy nó:
 
 ```
 python3 code/main.py
 ```
 
-The trace shows the HTN planner decomposing a compound task (with a mid-plan LLM fallback) and the evolutionary loop converging on a target expression.
+Trace cho thấy bộ lập kế hoạch HTN phân rã một tác vụ phức hợp (với một phương án dự phòng LLM giữa kế hoạch) và vòng lặp tiến hóa hội tụ vào một biểu thức mục tiêu.
 
 ## Use It
 
-- **HTN planners** — `pyhop`, `SHOP3`, or build your own for domain-specific policy enforcement.
-- **ChatHTN** — research code; the pattern (symbolic + LLM fallback) ports cleanly to any HTN planner.
-- **AlphaEvolve** — DeepMind paper; the pattern (ensemble + evaluator) is reproducible. OpenEvolve and similar open-source forks are emerging.
-- **Agent frameworks** — none ship first-class HTN or AlphaEvolve yet. Build it as a subagent or a background worker.
+- **Các bộ lập kế hoạch HTN** — `pyhop`, `SHOP3` hoặc tự xây dựng cho thực thi chính sách dành riêng cho miền.
+- **ChatHTN** — mã nghiên cứu; mẫu (biểu tượng + dự phòng LLM) chuyển gọn gàng sang bất kỳ bộ lập kế hoạch HTN nào.
+- **AlphaEvolve** — bài báo DeepMind; mẫu (tổ hợp + bộ đánh giá) có thể tái tạo. OpenEvolve và các fork mã nguồn mở tương tự đang xuất hiện.
+- **Các framework agent** — chưa framework nào cung cấp HTN hoặc AlphaEvolve hạng nhất. Xây dựng nó như một agent phụ hoặc một worker nền.
 
 ## Ship It
 
-`outputs/skill-hybrid-planner.md` generates a hybrid planner scaffold (HTN or evolutionary) with the LLM role explicitly scoped.
+`outputs/skill-hybrid-planner.md` tạo một khung bộ lập kế hoạch lai (HTN hoặc tiến hóa) với vai trò LLM được giới hạn phạm vi rõ ràng.
 
 ## Exercises
 
-1. Extend the HTN planner with backtracking: when an operator's postcondition fails at runtime, roll back and try the next method.
-2. Add a LLM-method cache to ChatHTN: when the LLM decomposes task `T` in state pattern `P`, store the result. Re-check the method library first on the next call.
-3. Swap the evolutionary search evaluator to a real test suite. Evolve a sort function that passes 20 test cases; report generations to convergence.
-4. Read AlphaEvolve's evaluator design notes. Design an evaluator for a domain you care about (SQL query optimization, test-suite minimization, deployment YAML).
-5. Combine: use HTN to decompose a compound task into subtasks, then use evolutionary search on each subtask's primitive operator. Where does it shine, where does it over-engineer?
+1. Mở rộng bộ lập kế hoạch HTN với quay lui: khi hậu điều kiện của một toán tử thất bại khi chạy, khôi phục và thử phương thức tiếp theo.
+2. Thêm một bộ nhớ đệm phương thức LLM vào ChatHTN: khi LLM phân rã tác vụ `T` trong mẫu trạng thái `P`, lưu kết quả. Kiểm tra lại thư viện phương thức trước trong lời gọi tiếp theo.
+3. Thay bộ đánh giá tìm kiếm tiến hóa bằng một bộ kiểm thử thực. Tiến hóa một hàm sắp xếp vượt qua 20 trường hợp kiểm thử; báo cáo số thế hệ đến hội tụ.
+4. Đọc các ghi chú thiết kế bộ đánh giá của AlphaEvolve. Thiết kế một bộ đánh giá cho một miền bạn quan tâm (tối ưu hóa truy vấn SQL, giảm thiểu bộ kiểm thử, YAML triển khai).
+5. Kết hợp: sử dụng HTN để phân rã một tác vụ phức hợp thành các tác vụ con, rồi sử dụng tìm kiếm tiến hóa trên toán tử nguyên thủy của mỗi tác vụ con. Nó tỏa sáng ở đâu, thiết kế quá mức ở đâu?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Nó thực sự có nghĩa gì |
 |------|----------------|------------------------|
-| HTN | "Hierarchical planner" | Task decomposition with operators, preconditions, effects |
-| Method | "Decomposition rule" | Way to break a compound task into subtasks |
-| Operator | "Primitive action" | Concrete step with precondition and effect |
-| ChatHTN | "LLM + HTN" | Symbolic planner asks LLM when no method matches |
-| AlphaEvolve | "Evolutionary code search" | Ensemble LLMs mutate code; deterministic evaluator selects |
-| Fitness function | "Evaluator" | Deterministic, machine-checkable score over outputs |
-| Online method learning | "Cached LLM decomposition" | Store + generalize LLM plans to cut query cost |
+| HTN | "Bộ lập kế hoạch phân cấp" | Phân rã tác vụ với các toán tử, tiền điều kiện, hiệu ứng |
+| Method (Phương thức) | "Quy tắc phân rã" | Cách chia một tác vụ phức hợp thành các tác vụ con |
+| Operator (Toán tử) | "Hành động nguyên thủy" | Bước cụ thể với tiền điều kiện và hiệu ứng |
+| ChatHTN | "LLM + HTN" | Bộ lập kế hoạch biểu tượng hỏi LLM khi không phương thức nào khớp |
+| AlphaEvolve | "Tìm kiếm mã tiến hóa" | Các LLM tổ hợp đột biến mã; bộ đánh giá mang tính xác định lựa chọn |
+| Fitness function (Hàm độ thích nghi) | "Bộ đánh giá" | Điểm mang tính xác định, có thể kiểm tra bằng máy trên các đầu ra |
+| Online method learning (Học phương thức trực tuyến) | "Phân rã LLM được lưu đệm" | Lưu + khái quát hóa các kế hoạch LLM để giảm chi phí truy vấn |
 
 ## Further Reading
 
-- [Gopalakrishnan et al., ChatHTN (arXiv:2505.11814)](https://arxiv.org/abs/2505.11814) — symbolic + LLM hybrid planner
-- [Novikov et al., AlphaEvolve (arXiv:2506.13131)](https://arxiv.org/abs/2506.13131) — evolutionary code search with LLM mutations
-- [Anthropic, Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) — when to reach for a planner vs a simple loop
+- [Gopalakrishnan et al., ChatHTN (arXiv:2505.11814)](https://arxiv.org/abs/2505.11814) — bộ lập kế hoạch lai biểu tượng + LLM
+- [Novikov et al., AlphaEvolve (arXiv:2506.13131)](https://arxiv.org/abs/2506.13131) — tìm kiếm mã tiến hóa với các đột biến LLM
+- [Anthropic, Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) — khi nào chọn một bộ lập kế hoạch so với một vòng lặp đơn giản

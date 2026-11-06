@@ -7,38 +7,38 @@ lesson: 11
 tags: [planning, htn, chathtn, alphaevolve, evolutionary-search]
 ---
 
-Given a problem class (policy-bound workflow vs code optimization vs open-ended task), pick a planner and produce a correct scaffold.
+Với một lớp vấn đề (workflow ràng buộc bởi chính sách so với tối ưu hóa mã so với tác vụ mở), chọn một bộ lập kế hoạch và tạo một khung đúng.
 
-Decision:
+Quyết định:
 
-1. Does the problem have hard preconditions / policy / scheduling constraints? -> HTN (ChatHTN).
-2. Does the problem have a deterministic, machine-checkable fitness function? -> Evolutionary (AlphaEvolve).
-3. Neither? -> Reach for ReAct (Lesson 01) or ReWOO (Lesson 02) instead.
+1. Vấn đề có các tiền điều kiện / chính sách / ràng buộc lập lịch cứng không? -> HTN (ChatHTN).
+2. Vấn đề có một hàm độ thích nghi mang tính xác định, có thể kiểm tra bằng máy không? -> Tiến hóa (AlphaEvolve).
+3. Không có cả hai? -> Thay vào đó chọn ReAct (Bài 01) hoặc ReWOO (Bài 02).
 
-For HTN, produce:
+Với HTN, tạo:
 
-1. `Operator` type with `preconditions`, `effects_add`, `effects_remove`.
-2. `Method` type with `task`, `preconditions`, `subtasks`.
-3. A planner that tries methods first, falls back to LLM decomposition, and caches successful LLM decompositions.
-4. A validation step that rejects LLM decompositions referencing unknown operators or methods.
+1. Kiểu `Operator` với `preconditions`, `effects_add`, `effects_remove`.
+2. Kiểu `Method` với `task`, `preconditions`, `subtasks`.
+3. Một bộ lập kế hoạch thử các phương thức trước, quay về phân rã LLM và lưu đệm các phép phân rã LLM thành công.
+4. Một bước xác thực từ chối các phép phân rã LLM tham chiếu các toán tử hoặc phương thức không xác định.
 
-For Evolutionary, produce:
+Với Tiến hóa, tạo:
 
-1. A seed population of candidate programs.
-2. A deterministic evaluator returning a scalar fitness.
-3. A mutation operator (LLM-driven or rule-based).
-4. A selection loop (keep top-k, mutate, repeat) with early stopping.
+1. Một quần thể hạt giống các chương trình ứng viên.
+2. Một bộ đánh giá mang tính xác định trả về một độ thích nghi vô hướng.
+3. Một toán tử đột biến (do LLM điều khiển hoặc dựa trên quy tắc).
+4. Một vòng lặp lựa chọn (giữ top-k, đột biến, lặp lại) với dừng sớm.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- ChatHTN where LLM output is applied directly without operator-schema validation. The soundness claim fails.
-- AlphaEvolve where the evaluator calls an LLM judge. Fitness must be deterministic; LLM judges introduce stochastic noise the loop cannot recover from.
-- Either pattern for open-ended tasks ("write a blog post"). No evaluator, no preconditions -> use ReAct.
+- ChatHTN trong đó đầu ra LLM được áp dụng trực tiếp mà không có xác thực schema toán tử. Tuyên bố tính đúng đắn thất bại.
+- AlphaEvolve trong đó bộ đánh giá gọi một giám khảo LLM. Độ thích nghi phải mang tính xác định; các giám khảo LLM đưa vào nhiễu ngẫu nhiên mà vòng lặp không thể phục hồi từ đó.
+- Một trong hai mẫu cho các tác vụ mở ("viết một bài blog"). Không bộ đánh giá, không tiền điều kiện -> sử dụng ReAct.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the domain has no clear operator schema, refuse ChatHTN. Suggest ReWOO or plain ReAct.
-- If the domain has no machine-checkable fitness, refuse AlphaEvolve. Suggest Self-Refine (Lesson 05).
-- If the user wants "planner + LLM makes final call," refuse. The split between symbolic correctness and LLM exploration is load-bearing.
+- Nếu miền không có schema toán tử rõ ràng, từ chối ChatHTN. Đề xuất ReWOO hoặc ReAct thuần.
+- Nếu miền không có độ thích nghi có thể kiểm tra bằng máy, từ chối AlphaEvolve. Đề xuất Self-Refine (Bài 05).
+- Nếu người dùng muốn "bộ lập kế hoạch + LLM quyết định cuối cùng," từ chối. Sự phân tách giữa tính đúng đắn biểu tượng và khám phá LLM là trụ cột.
 
-Output: `operators.py`, `methods.py`, `planner.py` (HTN) or `evaluator.py`, `mutator.py`, `loop.py` (evolutionary), plus `README.md` with the decision rationale. End with "what to read next" pointing to Lesson 25 if debate-style verification fits the problem, or Lesson 02 if the task is actually ReWOO-shaped after all.
+Đầu ra: `operators.py`, `methods.py`, `planner.py` (HTN) hoặc `evaluator.py`, `mutator.py`, `loop.py` (tiến hóa), cộng `README.md` với lý do quyết định. Kết thúc bằng "đọc gì tiếp theo" chỉ đến Bài 25 nếu xác minh kiểu tranh luận phù hợp vấn đề, hoặc Bài 02 nếu rốt cuộc tác vụ thực sự có dạng ReWOO.
