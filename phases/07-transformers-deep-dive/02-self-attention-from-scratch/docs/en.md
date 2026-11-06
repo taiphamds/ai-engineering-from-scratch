@@ -1,6 +1,6 @@
 # Self-Attention from Scratch
 
-> Attention is a lookup table where every word asks "who matters to me?" - and learns the answer.
+> Attention là một bảng tra cứu nơi mọi từ hỏi "ai quan trọng với tôi?" - và học câu trả lời.
 
 **Type:** Build
 **Languages:** Python
@@ -9,24 +9,24 @@
 
 ## Learning Objectives
 
-- Implement scaled dot-product self-attention from scratch using only NumPy, including query/key/value projections and the softmax-weighted sum
-- Build a multi-head attention layer that splits heads, computes parallel attention, and concatenates results
-- Trace how the attention matrix captures token relationships and explain why scaling by sqrt(d_k) prevents softmax saturation
-- Apply causal masking to convert bidirectional attention into autoregressive (decoder-style) attention
+- Triển khai scaled dot-product self-attention từ đầu chỉ bằng NumPy, bao gồm các phép chiếu query/key/value và tổng có trọng số softmax
+- Xây dựng một tầng multi-head attention chia các head, tính attention song song và nối các kết quả
+- Lần theo cách ma trận attention nắm bắt các quan hệ token và giải thích vì sao chia tỷ lệ bằng sqrt(d_k) ngăn bão hòa softmax
+- Áp dụng masking nhân quả để chuyển attention hai chiều thành attention tự hồi quy (kiểu decoder)
 
 ## The Problem
 
-RNNs process sequences one token at a time. By the time you reach token 50, the information from token 1 has been squeezed through 50 compression steps. Long-range dependencies get crushed into a fixed-size hidden state - a bottleneck that no amount of LSTM gating fully solves.
+RNN xử lý chuỗi từng token một. Khi bạn đến token 50, thông tin từ token 1 đã bị ép qua 50 bước nén. Các phụ thuộc xa bị nghiền vào một trạng thái ẩn kích thước cố định - một nút thắt mà không lượng cổng LSTM nào giải quyết hoàn toàn.
 
-The 2014 Bahdanau attention paper showed the fix: let the decoder look back at every encoder position and decide which ones matter for the current step. But it was still bolted onto an RNN. The 2017 "Attention Is All You Need" paper asked a sharper question: what if attention is the *only* mechanism? No recurrence. No convolution. Just attention.
+Bài báo attention Bahdanau năm 2014 cho thấy cách sửa: để decoder nhìn lại mọi vị trí encoder và quyết định những vị trí nào quan trọng cho bước hiện tại. Nhưng nó vẫn được gắn vào một RNN. Bài báo năm 2017 "Attention Is All You Need" hỏi một câu sắc hơn: nếu attention là cơ chế *duy nhất* thì sao? Không truy hồi. Không tích chập. Chỉ attention.
 
-Self-attention lets every position in a sequence attend to every other position in a single parallel step. That is what makes transformers fast, scalable, and dominant.
+Self-attention cho phép mọi vị trí trong một chuỗi chú ý đến mọi vị trí khác trong một bước song song duy nhất. Đó là thứ khiến transformer nhanh, mở rộng được và thống trị.
 
 ## The Concept
 
 ### The Database Lookup Analogy
 
-Think of attention as a soft database lookup:
+Nghĩ về attention như một tra cứu cơ sở dữ liệu mềm:
 
 ```
 Traditional database:
@@ -36,16 +36,16 @@ Attention:
   Query: "capital of France"  -->  similarity to ALL keys  -->  weighted blend of ALL values
 ```
 
-Every token generates three vectors:
-- **Query (Q)**: "What am I looking for?"
-- **Key (K)**: "What do I contain?"
-- **Value (V)**: "What information do I provide if selected?"
+Mỗi token sinh ba vector:
+- **Query (Q)**: "Tôi đang tìm gì?"
+- **Key (K)**: "Tôi chứa gì?"
+- **Value (V)**: "Tôi cung cấp thông tin gì nếu được chọn?"
 
-The dot product between a query and all keys produces attention scores. High score means "this key matches my query." Those scores weight the values. The output is a weighted sum of values.
+Tích vô hướng giữa một query và mọi key tạo các điểm attention. Điểm cao nghĩa là "key này khớp query của tôi." Các điểm đó gán trọng số cho các value. Đầu ra là một tổng có trọng số của các value.
 
 ### Q, K, V Computation
 
-Each token embedding gets projected through three learned weight matrices:
+Mỗi embedding token được chiếu qua ba ma trận trọng số được học:
 
 ```
 Input embeddings (sequence of n tokens, each d-dimensional):
@@ -65,7 +65,7 @@ Projections:
   V = X @ Wv    shape: (n, dv)      each token's value
 ```
 
-Visually, for one token:
+Về trực quan, cho một token:
 
 ```
              Wq
@@ -80,7 +80,7 @@ Visually, for one token:
 
 ### The Attention Matrix
 
-Once you have Q, K, V for all tokens, attention scores form a matrix:
+Một khi bạn có Q, K, V cho mọi token, các điểm attention tạo thành một ma trận:
 
 ```
 Scores = Q @ K^T    shape: (n, n)
@@ -101,7 +101,7 @@ Scores = Q @ K^T    shape: (n, n)
 Each row: one token's attention over the entire sequence
 ```
 
-Watch one query at a time sweep the keys: each row scores every token, softmax turns the scores into weights, and the context vector is the weighted blend of values.
+Quan sát từng query một quét các key: mỗi hàng chấm mọi token, softmax biến các điểm thành trọng số và vector ngữ cảnh là sự pha trộn có trọng số các value.
 
 ```figure
 attention-matrix
@@ -109,17 +109,17 @@ attention-matrix
 
 ### Why Scale?
 
-The dot products grow with dimension dk. If dk = 64, dot products can be in the range of tens, pushing softmax into regions where gradients vanish. The fix: divide by sqrt(dk).
+Các tích vô hướng tăng theo số chiều dk. Nếu dk = 64, các tích vô hướng có thể nằm trong khoảng hàng chục, đẩy softmax vào các vùng mà gradient tiêu biến. Cách sửa: chia cho sqrt(dk).
 
 ```
 Scaled scores = (Q @ K^T) / sqrt(dk)
 ```
 
-This keeps values in a range where softmax produces useful gradients.
+Điều này giữ các giá trị trong một khoảng mà softmax tạo các gradient hữu ích.
 
 ### Softmax Turns Scores into Weights
 
-Softmax converts raw scores into a probability distribution across each row:
+Softmax chuyển các điểm thô thành một phân phối xác suất trên mỗi hàng:
 
 ```
 Raw scores for q1:   [2.1, 0.3, 0.1, 0.8, 0.2]
@@ -129,11 +129,11 @@ Raw scores for q1:   [2.1, 0.3, 0.1, 0.8, 0.2]
 Attention weights:   [0.52, 0.09, 0.07, 0.14, 0.08]   (sums to ~1.0)
 ```
 
-Now each token has a set of weights saying how much to attend to every other token.
+Giờ mỗi token có một tập trọng số nói nên chú ý đến mỗi token khác bao nhiêu.
 
 ### Weighted Sum of Values
 
-The final output for each token is a weighted sum of all value vectors:
+Đầu ra cuối cho mỗi token là một tổng có trọng số của mọi vector value:
 
 ```
 output_i = sum( attention_weight[i][j] * v_j  for all j )
@@ -157,7 +157,7 @@ flowchart LR
   WS --> O["output"]
 ```
 
-Formula in one line:
+Công thức trong một dòng:
 
 ```
 Attention(Q, K, V) = softmax( Q @ K^T / sqrt(dk) ) @ V
@@ -171,7 +171,7 @@ softmax-attention-scaling
 
 ### Step 1: Softmax from scratch
 
-Softmax converts raw logits into probabilities. Subtract the max for numerical stability.
+Softmax chuyển các logits thô thành các xác suất. Trừ giá trị lớn nhất để ổn định số.
 
 ```python
 import numpy as np
@@ -189,7 +189,7 @@ print(f"sum:     {softmax(logits).sum():.4f}")
 
 ### Step 2: Scaled dot-product attention
 
-The core function. Takes Q, K, V matrices and returns the attention output plus the weight matrix.
+Hàm cốt lõi. Nhận các ma trận Q, K, V và trả đầu ra attention cộng ma trận trọng số.
 
 ```python
 def scaled_dot_product_attention(Q, K, V):
@@ -202,7 +202,7 @@ def scaled_dot_product_attention(Q, K, V):
 
 ### Step 3: Self-attention class with learned projections
 
-A full self-attention module with Wq, Wk, Wv weight matrices initialized with Xavier-like scaling.
+Một mô-đun self-attention đầy đủ với các ma trận trọng số Wq, Wk, Wv được khởi tạo bằng co giãn kiểu Xavier.
 
 ```python
 class SelfAttention:
@@ -225,7 +225,7 @@ class SelfAttention:
 
 ### Step 4: Run it on a sentence
 
-Create fake embeddings for a sentence and watch the attention weights.
+Tạo các embedding giả cho một câu và quan sát các trọng số attention.
 
 ```python
 sentence = ["The", "cat", "sat", "on", "the", "mat"]
@@ -256,7 +256,7 @@ for i, token in enumerate(sentence):
 
 ### Step 5: Visualize attention with ASCII heatmap
 
-Map attention weights to characters for a quick visual.
+Ánh xạ các trọng số attention sang các ký tự để có một hình trực quan nhanh.
 
 ```python
 def ascii_heatmap(weights, tokens, chars=" ░▒▓█"):
@@ -279,7 +279,7 @@ ascii_heatmap(weights, sentence)
 
 ## Use It
 
-PyTorch's `nn.MultiheadAttention` does exactly what we built, plus multi-head splitting and output projection:
+`nn.MultiheadAttention` của PyTorch làm chính xác điều chúng ta xây dựng, cộng chia multi-head và phép chiếu đầu ra:
 
 ```python
 import torch
@@ -302,33 +302,33 @@ print(f"\nAttn weights (averaged over heads):")
 print(attn_weights[0].detach().numpy().round(3))
 ```
 
-The key difference: multi-head attention runs multiple attention functions in parallel, each with its own Q, K, V projections of size dk = d_model / n_heads, then concatenates results. This lets the model attend to different relationship types simultaneously.
+Khác biệt then chốt: multi-head attention chạy nhiều hàm attention song song, mỗi hàm có các phép chiếu Q, K, V riêng kích thước dk = d_model / n_heads, rồi nối các kết quả. Điều này cho mô hình chú ý đến các loại quan hệ khác nhau đồng thời.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-attention-explainer.md` - a prompt for explaining attention through the database lookup analogy
+Bài học này tạo ra:
+- `outputs/prompt-attention-explainer.md` - một prompt giải thích attention qua phép tương tự tra cứu cơ sở dữ liệu
 
 ## Exercises
 
-1. Modify `scaled_dot_product_attention` to accept an optional mask matrix that sets certain positions to negative infinity before softmax (this is how causal/decoder masking works)
-2. Implement multi-head attention from scratch: split Q, K, V into `n_heads` chunks, run attention on each, concatenate, and project through a final weight matrix Wo
-3. Take two different sentences of the same length, feed them through the same SelfAttention instance, and compare their attention patterns. What changes? What stays the same?
+1. Sửa `scaled_dot_product_attention` để nhận một ma trận mặt nạ tùy chọn đặt các vị trí nhất định thành âm vô cực trước softmax (đây là cách masking nhân quả/decoder hoạt động)
+2. Triển khai multi-head attention từ đầu: chia Q, K, V thành `n_heads` khối, chạy attention trên mỗi khối, nối lại và chiếu qua một ma trận trọng số cuối Wo
+3. Lấy hai câu khác nhau cùng độ dài, đưa qua cùng một thể hiện SelfAttention và so sánh các mẫu attention của chúng. Điều gì thay đổi? Điều gì giữ nguyên?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Query (Q) | "The question vector" | A learned projection of the input that represents what information this token is looking for |
-| Key (K) | "The label vector" | A learned projection that represents what information this token contains, matched against queries |
-| Value (V) | "The content vector" | A learned projection carrying the actual information that gets aggregated based on attention scores |
-| Scaled dot-product attention | "The attention formula" | softmax(QK^T / sqrt(dk)) @ V - scaling prevents softmax saturation in high dimensions |
-| Self-attention | "The token looks at itself and others" | Attention where Q, K, V all come from the same sequence, letting every position attend to every other position |
-| Attention weights | "How much focus" | A probability distribution over positions, produced by softmax over scaled dot products |
-| Multi-head attention | "Parallel attention" | Running multiple attention functions with different projections, then concatenating results for richer representations |
+| Query (Q) (Truy vấn) | "Vector câu hỏi" | Một phép chiếu được học của đầu vào biểu diễn token này đang tìm thông tin gì |
+| Key (K) (Khóa) | "Vector nhãn" | Một phép chiếu được học biểu diễn token này chứa thông tin gì, được khớp với các query |
+| Value (V) (Giá trị) | "Vector nội dung" | Một phép chiếu được học mang thông tin thực được tổng hợp dựa trên các điểm attention |
+| Scaled dot-product attention | "Công thức attention" | softmax(QK^T / sqrt(dk)) @ V - chia tỷ lệ ngăn bão hòa softmax ở số chiều cao |
+| Self-attention | "Token nhìn chính nó và các token khác" | Attention mà Q, K, V đều đến từ cùng một chuỗi, cho mọi vị trí chú ý đến mọi vị trí khác |
+| Attention weights (Trọng số attention) | "Bao nhiêu tập trung" | Một phân phối xác suất trên các vị trí, được softmax trên các tích vô hướng đã chia tỷ lệ tạo ra |
+| Multi-head attention | "Attention song song" | Chạy nhiều hàm attention với các phép chiếu khác nhau, rồi nối kết quả để có các biểu diễn phong phú hơn |
 
 ## Further Reading
 
-- [Attention Is All You Need (Vaswani et al., 2017)](https://arxiv.org/abs/1706.03762) - the original transformer paper
-- [The Illustrated Transformer (Jay Alammar)](https://jalammar.github.io/illustrated-transformer/) - best visual walkthrough of the full architecture
-- [The Annotated Transformer (Harvard NLP)](https://nlp.seas.harvard.edu/annotated-transformer/) - line-by-line PyTorch implementation with explanations
+- [Attention Is All You Need (Vaswani et al., 2017)](https://arxiv.org/abs/1706.03762) - bài báo transformer gốc
+- [The Illustrated Transformer (Jay Alammar)](https://jalammar.github.io/illustrated-transformer/) - hướng dẫn trực quan tốt nhất về toàn bộ kiến trúc
+- [The Annotated Transformer (Harvard NLP)](https://nlp.seas.harvard.edu/annotated-transformer/) - triển khai PyTorch từng dòng với các giải thích
