@@ -16,44 +16,44 @@ related: [behavioral/plan-you-would-reject]
 updated: 2026-11-03
 ---
 
-Your session ends without warning in the middle of a multi-step change, and a colleague picks it up the next morning. What must they be able to find, and where?
+Phiên của bạn kết thúc không báo trước ở giữa một thay đổi nhiều bước, và một đồng nghiệp tiếp quản vào sáng hôm sau. Họ phải có thể tìm thấy gì, và ở đâu?
 
 ## Short answer
 
-They need to see which items are done, which proof ran for each one, which files changed, which dependencies are now unblocked, and what the next safe item is. That state lives next to the work, in the repository, as small items with explicit proof, not as checked boxes inside a chat.
+Họ cần thấy những mục nào đã xong, phép chứng minh nào đã chạy cho mỗi mục, những file nào đã thay đổi, những dependency nào hiện đã được gỡ chặn, và mục an toàn tiếp theo là gì. Trạng thái đó nằm cạnh công việc, trong repository, dưới dạng các mục nhỏ có bằng chứng rõ ràng, không phải các ô đã đánh dấu bên trong một cuộc trò chuyện.
 
 ## Full answer
 
 ### Design for interruption
 
-Sessions end unexpectedly. A resumable plan has work items small enough that another person, or another agent, can determine the state of each one from the artifacts alone. The five things they must be able to read:
+Các phiên kết thúc bất ngờ. Một kế hoạch có thể tiếp tục có các mục công việc đủ nhỏ để một người khác, hoặc một agent khác, có thể xác định trạng thái của mỗi mục chỉ từ các sản phẩm. Năm điều họ phải có thể đọc:
 
-- which item is complete;
-- which proof ran and what it returned;
-- which artifacts changed;
-- which dependencies are now unblocked;
-- what the next safe item is.
+- mục nào đã hoàn tất;
+- phép chứng minh nào đã chạy và nó trả về gì;
+- những sản phẩm nào đã thay đổi;
+- những dependency nào hiện đã được gỡ chặn;
+- mục an toàn tiếp theo là gì.
 
 ### Why chat is the wrong place
 
-A checked box in a conversation says that someone believed an item was done. It does not say which command proved it or which files it touched. The next person either trusts the box or redoes the work. A plan stored next to the code, with one identifier per item and the proof command written down, lets them verify instead of trust.
+Một ô đã đánh dấu trong một cuộc hội thoại nói ai đó tin một mục đã xong. Nó không nói lệnh nào đã chứng minh điều đó hoặc những file nào nó đã chạm. Người tiếp theo hoặc tin ô hoặc làm lại công việc. Một kế hoạch được lưu cạnh mã, với một định danh cho mỗi mục và lệnh chứng minh được viết ra, cho phép họ xác minh thay vì tin.
 
 ### The habit
 
-I stop at item boundaries when I can. When I cannot, the plan still shows the last proof that passed, so the resume point is the first item whose proof has not run.
+Tôi dừng ở các ranh giới mục khi có thể. Khi không thể, kế hoạch vẫn cho thấy phép chứng minh cuối cùng đã đạt, nên điểm tiếp tục là mục đầu tiên có phép chứng minh chưa chạy.
 
 ## Follow-ups
 
-- **Level 1:** Where do you keep the plan? Expected: in the repository next to the work, as the source of truth, with any rendering such as a Markdown view generated from it.
-- **Level 2:** An item is marked done but has no proof recorded. What does the colleague do? Expected: treat it as not done and run its proof; a box without proof is a belief.
-- **Level 2:** Why does item size matter for resumption? Expected: a small item either finished or did not; a large half-done item forces the next person to reconstruct where it stopped.
+- **Level 1:** Bạn giữ kế hoạch ở đâu? Expected: trong repository cạnh công việc, như nguồn sự thật, với bất kỳ bản kết xuất nào như một dạng xem Markdown được tạo từ nó.
+- **Level 2:** Một mục được đánh dấu đã xong nhưng không ghi bằng chứng. Đồng nghiệp làm gì? Expected: coi nó là chưa xong và chạy phép chứng minh của nó; một ô không có bằng chứng là một niềm tin.
+- **Level 2:** Tại sao kích thước mục có ý nghĩa đối với việc tiếp tục? Expected: một mục nhỏ hoặc đã hoàn tất hoặc chưa; một mục lớn làm dở một nửa buộc người tiếp theo dựng lại nơi nó dừng.
 
 ## Wrong answers
 
-- "Write a summary message at the end of the session." The session can end before the summary; the state must exist as the work proceeds.
-- "The git log is enough." Commits show what changed, not which proof ran or which item is next.
-- "Only the person who started can finish it." That is the failure the plan should prevent.
+- "Viết một thông điệp tóm tắt vào cuối phiên." Phiên có thể kết thúc trước bản tóm tắt; trạng thái phải tồn tại khi công việc tiến triển.
+- "Git log là đủ." Các commit cho thấy những gì đã thay đổi, không cho thấy phép chứng minh nào đã chạy hoặc mục nào tiếp theo.
+- "Chỉ người bắt đầu có thể hoàn tất nó." Đó là thất bại mà kế hoạch nên ngăn.
 
 ## Taught in
 
-The [evidence-backed plan lesson](../../../phases/14-agent-engineering/44-plan-from-evidence/) covers designing a plan for interruption and storing it next to the work.
+[Bài học kế hoạch có bằng chứng hỗ trợ](../../../phases/14-agent-engineering/44-plan-from-evidence/) bao quát việc thiết kế một kế hoạch cho sự gián đoạn và lưu nó cạnh công việc.

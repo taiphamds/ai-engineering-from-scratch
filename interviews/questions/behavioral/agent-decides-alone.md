@@ -16,51 +16,51 @@ related: [behavioral/locked-bounded-delegated, behavioral/split-that-only-looks-
 updated: 2026-11-03
 ---
 
-Your organization wants to let coding agents merge changes without a human in the loop for a class of tasks. You are asked to write the policy that says which decisions an agent may make on its own. How do you draw that line, and how does it move over time?
+Tổ chức của bạn muốn cho phép các coding agent gộp các thay đổi mà không có con người trong vòng lặp cho một lớp nhiệm vụ. Bạn được yêu cầu viết chính sách nói những quyết định nào một agent có thể tự đưa ra. Bạn vạch ranh giới đó thế nào, và nó dịch chuyển theo thời gian ra sao?
 
 ## Short answer
 
-The line follows consequence and reversibility, not task difficulty. A human keeps the choices that change public behavior, risk, authority or irreversible cost; an agent owns bounded investigation, implementation, verification and review. I express that as locked, bounded and delegated decisions in each task contract, and I widen the delegated set only where evidence and rollback are strong, which is calibrated autonomy rather than a fixed switch.
+Ranh giới đi theo hậu quả và khả năng đảo ngược, không theo độ khó nhiệm vụ. Một con người giữ các lựa chọn thay đổi hành vi công khai, rủi ro, thẩm quyền hoặc chi phí không thể đảo ngược; một agent sở hữu việc điều tra có giới hạn, triển khai, xác minh và đánh giá. Tôi biểu đạt điều đó thành các quyết định bị khóa, có giới hạn và được ủy quyền trong mỗi hợp đồng nhiệm vụ, và tôi chỉ mở rộng tập được ủy quyền ở nơi bằng chứng và rollback mạnh, là quyền tự chủ được hiệu chỉnh thay vì một công tắc cố định.
 
 ## Full answer
 
 ### Calibrated autonomy
 
-The system grants freedom where evidence and rollback are strong and requires a checkpoint where consequence is high. That is a property of each decision, so the policy is written per decision class, not per task or per model.
+Hệ thống cấp tự do ở nơi bằng chứng và rollback mạnh và yêu cầu một checkpoint ở nơi hậu quả cao. Đó là một thuộc tính của mỗi quyết định, nên chính sách được viết theo lớp quyết định, không theo nhiệm vụ hoặc mô hình.
 
 ### Human-owned and agent-owned
 
-| Human keeps | Agent may own |
+| Con người giữ | Agent có thể sở hữu |
 |---|---|
-| Changes to public behavior or compatibility | Local structure, names, reversible refactors |
-| Changes to risk or safety posture | Bounded investigation that returns a fact table |
-| Grants of authority or access | Implementation inside exclusive paths with proof |
-| Irreversible cost: migrations, deletions, spend | Verification and read-only review of finished artifacts |
+| Các thay đổi hành vi công khai hoặc tính tương thích | Cấu trúc cục bộ, tên, các lần refactor có thể đảo ngược |
+| Các thay đổi về rủi ro hoặc tư thế an toàn | Việc điều tra có giới hạn trả về một bảng thông tin thực tế |
+| Việc cấp thẩm quyền hoặc quyền truy cập | Triển khai bên trong các đường dẫn độc quyền với bằng chứng |
+| Chi phí không thể đảo ngược: migration, xóa, chi tiêu | Xác minh và đánh giá chỉ đọc các sản phẩm đã hoàn tất |
 
 ### The three modes make it executable
 
-Each decision in a task contract is locked, bounded or delegated. Locked decisions carry a human checkpoint. Bounded decisions state the limits, such as a dependency allowlist or a retry range, and the agent proposes inside them. Delegated decisions require the agent to explain the choice and prove the result. The mode is chosen from consequence and reversibility, and the reason is recorded so a later team can revise it.
+Mỗi quyết định trong một hợp đồng nhiệm vụ bị khóa, có giới hạn hoặc được ủy quyền. Các quyết định bị khóa mang một checkpoint của con người. Các quyết định có giới hạn nêu các giới hạn, như một danh sách dependency được phép hoặc một phạm vi thử lại, và agent đề xuất bên trong chúng. Các quyết định được ủy quyền yêu cầu agent giải thích lựa chọn và chứng minh kết quả. Chế độ được chọn từ hậu quả và khả năng đảo ngược, và lý do được ghi lại để một nhóm sau này có thể sửa đổi nó.
 
 ### How the line moves
 
-Autonomy expands on evidence. When a class of delegated decisions has a strong proof layer, a clean rollback and a window without incidents, a bounded decision can become delegated. When an incident shows a missing control, the move goes the other way until the control exists. The policy itself is a control with an owner and a review date.
+Quyền tự chủ mở rộng trên bằng chứng. Khi một lớp các quyết định được ủy quyền có một lớp chứng minh mạnh, một rollback sạch và một khoảng thời gian không có sự cố, một quyết định có giới hạn có thể trở thành được ủy quyền. Khi một sự cố cho thấy thiếu một biện pháp kiểm soát, sự dịch chuyển đi theo hướng ngược lại cho đến khi biện pháp kiểm soát tồn tại. Bản thân chính sách là một biện pháp kiểm soát có một người phụ trách và một ngày đánh giá.
 
 ### What never moves
 
-Proof must match the claim. A unit test does not prove a public interface path, and an agent's summary does not replace reading the proof output. The integrator reads the proof, not the story.
+Phép chứng minh phải khớp khẳng định. Một kiểm thử đơn vị không chứng minh một đường giao diện công khai, và bản tóm tắt của một agent không thay thế việc đọc đầu ra chứng minh. Người tích hợp đọc bằng chứng, không câu chuyện.
 
 ## Follow-ups
 
-- **Level 3:** An agent proposes a dependency outside the allowlist with a good argument. What happens? Expected: the bounded decision escalates to a human; the argument is input to the decision, not a permission.
-- **Level 4:** How do you widen autonomy for a decision class safely? Expected: show the proof layer, the rollback and an incident-free window for that class, then change the mode and record the evidence and the reviewer.
-- **Level 4:** What evidence would make you narrow autonomy again? Expected: an incident that a lower-level control did not catch, which shows the proof layer was weaker than the policy assumed.
+- **Level 3:** Một agent đề xuất một dependency ngoài danh sách cho phép với một lập luận tốt. Điều gì xảy ra? Expected: quyết định có giới hạn được chuyển lên một con người; lập luận là đầu vào cho quyết định, không phải một sự cho phép.
+- **Level 4:** Bạn mở rộng quyền tự chủ cho một lớp quyết định một cách an toàn thế nào? Expected: cho thấy lớp chứng minh, rollback và một khoảng thời gian không có sự cố cho lớp đó, rồi thay đổi chế độ và ghi lại bằng chứng cùng người đánh giá.
+- **Level 4:** Bằng chứng nào sẽ khiến bạn thu hẹp quyền tự chủ lần nữa? Expected: một sự cố mà một biện pháp kiểm soát cấp thấp hơn không bắt được, cho thấy lớp chứng minh yếu hơn chính sách giả định.
 
 ## Wrong answers
 
-- "Let the agent decide easy tasks and keep the hard ones." Difficulty is not the axis; a trivial deletion can be irreversible and a hard refactor can be reversible.
-- "Autonomy is a single setting per team." Each decision class has its own consequence and reversibility, so one switch is wrong in both directions.
-- "A passing test suite is enough to merge anything." The suite proves local contracts; public behavior, authority and irreversible cost need their own proof and a human checkpoint.
+- "Để agent quyết định các nhiệm vụ dễ và giữ các nhiệm vụ khó." Độ khó không phải trục; một lần xóa tầm thường có thể không thể đảo ngược và một lần refactor khó có thể đảo ngược.
+- "Quyền tự chủ là một thiết lập duy nhất theo nhóm." Mỗi lớp quyết định có hậu quả và khả năng đảo ngược riêng, nên một công tắc sai ở cả hai hướng.
+- "Một bộ kiểm thử đạt là đủ để gộp bất kỳ thứ gì." Bộ kiểm thử chứng minh các hợp đồng cục bộ; hành vi công khai, thẩm quyền và chi phí không thể đảo ngược cần phép chứng minh riêng và một checkpoint của con người.
 
 ## Taught in
 
-The [delegation lesson](../../../phases/14-agent-engineering/45-delegate-with-isolation/) defines calibrated autonomy and the [specification lesson](../../../phases/14-agent-engineering/51-write-specifications-that-preserve-judgment/) gives the three decision modes.
+[Bài học ủy quyền](../../../phases/14-agent-engineering/45-delegate-with-isolation/) định nghĩa quyền tự chủ được hiệu chỉnh và [bài học đặc tả](../../../phases/14-agent-engineering/51-write-specifications-that-preserve-judgment/) đưa ra ba chế độ quyết định.

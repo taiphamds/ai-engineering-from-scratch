@@ -16,51 +16,51 @@ related: [behavioral/outcome-before-output, behavioral/smallest-slice-that-decid
 updated: 2026-11-03
 ---
 
-You join a team with a quarter-long roadmap for an assistant that recommends a next action to on-call engineers. The roadmap lists features in priority order. Tell me how you decide what to work on in week one, and why it may not be the first roadmap item.
+Bạn tham gia một nhóm có lộ trình kéo dài một quý cho một trợ lý đề xuất hành động tiếp theo cho các kỹ sư trực. Lộ trình liệt kê các tính năng theo thứ tự ưu tiên. Hãy cho tôi biết bạn quyết định làm gì trong tuần đầu tiên như thế nào, và tại sao đó có thể không phải là mục đầu tiên trong lộ trình.
 
 ## Short answer
 
-A roadmap hides uncertainty inside features. I rewrite the features as falsifiable assumptions about value, usability, feasibility, viability and safety, then score each one on impact, uncertainty and irreversibility. Week one goes to the cheapest decisive test of the highest open risk, which is often not the top roadmap item.
+Một lộ trình giấu sự không chắc chắn bên trong các tính năng. Tôi viết lại các tính năng thành các giả định có thể bị bác bỏ về giá trị, khả năng sử dụng, tính khả thi, khả năng duy trì và an toàn, rồi chấm điểm mỗi giả định theo tác động, sự không chắc chắn và tính không thể đảo ngược. Tuần đầu tiên dành cho phép thử mang tính quyết định rẻ nhất đối với rủi ro chưa được giải quyết cao nhất, thường không phải là mục đầu tiên trong lộ trình.
 
 ## Full answer
 
 ### Features are bets
 
-The assistant only pays off if several conditions hold: alert context contains enough information to name a service, engineers trust a recommendation they did not derive, the response time matters operationally, the data is reachable without unsafe authority, and the workflow happens often enough to justify maintenance. None of these is an implementation task. They are conditions for the build to be worth doing.
+Trợ lý chỉ mang lại lợi ích nếu một số điều kiện được đáp ứng: ngữ cảnh cảnh báo chứa đủ thông tin để nêu tên một dịch vụ, các kỹ sư tin tưởng một khuyến nghị mà họ không tự suy ra, thời gian phản hồi có ý nghĩa về vận hành, dữ liệu có thể truy cập mà không cần thẩm quyền không an toàn, và quy trình làm việc diễn ra đủ thường xuyên để biện minh cho việc bảo trì. Không điều nào trong số này là một nhiệm vụ triển khai. Chúng là các điều kiện để việc xây dựng đáng được thực hiện.
 
 ### Five classes
 
-| Class | Question |
+| Nhóm | Câu hỏi |
 |---|---|
-| Value | Will the outcome matter enough? |
-| Usability | Can the user understand and act on it? |
-| Feasibility | Can the system produce it with the available data and limits? |
-| Viability | Can the organization sustain the cost, the ownership and the operation? |
-| Safety | Can it fail without an unacceptable consequence? |
+| Giá trị | Kết quả có đủ quan trọng không? |
+| Khả năng sử dụng | Người dùng có thể hiểu và hành động dựa trên nó không? |
+| Tính khả thi | Hệ thống có thể tạo ra nó với dữ liệu và các giới hạn hiện có không? |
+| Khả năng duy trì | Tổ chức có thể duy trì chi phí, trách nhiệm phụ trách và vận hành không? |
+| An toàn | Nó có thể thất bại mà không gây ra hậu quả không thể chấp nhận không? |
 
-An assumption has to be written so that it can be false. "The feature is useful" cannot be tested. "Eight of ten on-call engineers name the correct service faster with the read-only result" can.
+Một giả định phải được viết sao cho nó có thể sai. "Tính năng hữu ích" không thể kiểm chứng. "Tám trong mười kỹ sư trực nêu tên dịch vụ chính xác nhanh hơn với kết quả chỉ đọc" thì có thể.
 
 ### Risk is three numbers, not one
 
-The lesson scores impact, uncertainty and irreversibility separately, each from one to five, multiplies impact by uncertainty and adds irreversibility. The formula is not sacred. Its job is to force the team to say why one unknown must be resolved before another. Irreversible, high-consequence choices need earlier evidence: a read-only replay can precede a production integration, and a human-approved recommendation can precede automatic action.
+Bài học chấm điểm riêng tác động, sự không chắc chắn và tính không thể đảo ngược, mỗi yếu tố từ một đến năm, nhân tác động với sự không chắc chắn và cộng tính không thể đảo ngược. Công thức không phải bất di bất dịch. Nhiệm vụ của nó là buộc nhóm nói rõ tại sao một điều chưa biết phải được giải quyết trước một điều khác. Các lựa chọn không thể đảo ngược, có hậu quả cao cần bằng chứng sớm hơn: một lần phát lại chỉ đọc có thể đi trước một tích hợp production, và một khuyến nghị được con người phê duyệt có thể đi trước hành động tự động.
 
 ### An experiment, not a confirmation ritual
 
-A useful test has a claim that could be false, a realistic sample, an observable result, a threshold decided before the result, and a next decision for pass, fail and ambiguous evidence. A demo that only shows the team can build the idea is not a test.
+Một phép thử hữu ích có một nhận định có thể sai, một mẫu thực tế, một kết quả quan sát được, một ngưỡng được quyết định trước kết quả, và một quyết định tiếp theo cho bằng chứng đạt, không đạt và mơ hồ. Một bản demo chỉ cho thấy nhóm có thể xây dựng ý tưởng không phải là một phép thử.
 
 ## Follow-ups
 
-- **Level 2:** The highest-risk assumption is tested and holds. What changes? Expected: it moves from open to tested with its evidence attached, and the next experiment targets the next highest open risk.
-- **Level 2:** Which assumption class do feature lists most often omit? Expected: safety, the question of whether the feature can fail without unacceptable consequence.
-- **Level 3:** The roadmap owner says the ranking already reflects risk. How do you check? Expected: compare the risk ranking with the roadmap order and explain each mismatch; where they differ, one of them is wrong about the evidence.
-- **Level 3:** Write a threshold that would stop the build. Expected: for example, fewer than a stated share of engineers in the replay trust the read-only recommendation enough to act on it.
+- **Level 2:** Giả định rủi ro cao nhất được kiểm chứng và đúng. Điều gì thay đổi? Expected: nó chuyển từ chưa được giải quyết sang đã được kiểm chứng với bằng chứng đính kèm, và thử nghiệm tiếp theo nhắm vào rủi ro chưa được giải quyết cao nhất tiếp theo.
+- **Level 2:** Danh sách tính năng thường bỏ sót nhóm giả định nào nhất? Expected: an toàn, câu hỏi liệu tính năng có thể thất bại mà không gây ra hậu quả không thể chấp nhận hay không.
+- **Level 3:** Người phụ trách lộ trình nói thứ hạng đã phản ánh rủi ro. Bạn kiểm tra như thế nào? Expected: so sánh thứ hạng rủi ro với thứ tự lộ trình và giải thích mỗi chỗ không khớp; nơi chúng khác nhau, một trong hai đã sai về bằng chứng.
+- **Level 3:** Viết một ngưỡng sẽ dừng việc xây dựng. Expected: ví dụ, ít hơn một tỷ lệ kỹ sư được nêu trong lần phát lại tin tưởng khuyến nghị chỉ đọc đủ để hành động dựa trên nó.
 
 ## Wrong answers
 
-- "Build the first roadmap item; the order was agreed." Agreement on order is not evidence that the riskiest assumption holds.
-- "Ship something small and see what happens." A small build without a claim, a threshold and a next decision learns nothing.
-- "Risk is just how likely it is to fail." Impact and irreversibility change the order even when the probability is the same.
+- "Xây dựng mục đầu tiên trong lộ trình; thứ tự đã được thống nhất." Sự thống nhất về thứ tự không phải là bằng chứng rằng giả định rủi ro nhất là đúng.
+- "Phát hành thứ gì đó nhỏ và xem điều gì xảy ra." Một thứ nhỏ được xây dựng mà không có một nhận định, một ngưỡng và một quyết định tiếp theo thì không học được gì.
+- "Rủi ro chỉ là khả năng nó thất bại." Tác động và tính không thể đảo ngược thay đổi thứ tự ngay cả khi xác suất là như nhau.
 
 ## Taught in
 
-The [assumption map lesson](../../../phases/14-agent-engineering/49-map-assumptions-and-risk/) gives the five classes, the three risk dimensions and the shape of a decisive experiment.
+[Bài học bản đồ giả định](../../../phases/14-agent-engineering/49-map-assumptions-and-risk/) đưa ra năm nhóm, ba chiều rủi ro và hình thức của một thử nghiệm mang tính quyết định.

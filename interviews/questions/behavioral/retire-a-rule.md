@@ -16,52 +16,52 @@ related: [behavioral/correction-to-control, behavioral/feedback-ratchet-owner]
 updated: 2026-11-03
 ---
 
-A team's agent instruction file has grown for a year. Rules contradict each other, the context is heavy, and nobody remembers why half of them exist. You are asked to clean it up. How do you decide what stays, what goes, and what you will not touch yet?
+File hướng dẫn agent của một nhóm đã phình ra trong một năm. Các quy tắc mâu thuẫn nhau, ngữ cảnh nặng nề, và không ai nhớ tại sao một nửa số đó tồn tại. Bạn được yêu cầu dọn dẹp nó. Bạn quyết định điều gì giữ lại, điều gì bỏ đi, và điều gì bạn chưa đụng đến như thế nào?
 
 ## Short answer
 
-Every control needs a retirement condition, and retirement needs evidence like any other change. I review each rule against four questions: did the architecture or workflow it protected change, did a stronger executable control replace it, has the failure stayed away across a meaningful window, and does the rule block legitimate work more often than it prevents harm. A rule that passes none of those stays, and a rule I cannot trace to a cause gets an owner and a review date before it gets deleted.
+Mỗi biện pháp kiểm soát cần một điều kiện ngừng áp dụng, và việc ngừng áp dụng cần bằng chứng như mọi thay đổi khác. Tôi xem xét mỗi quy tắc theo bốn câu hỏi: kiến trúc hoặc quy trình làm việc mà nó bảo vệ đã thay đổi chưa, một biện pháp kiểm soát thực thi được mạnh hơn đã thay thế nó chưa, lỗi đã không xuất hiện trong một khoảng thời gian có ý nghĩa chưa, và quy tắc có cản trở công việc hợp lệ thường xuyên hơn là ngăn ngừa tác hại không. Một quy tắc không đáp ứng điều nào trong số đó thì giữ lại, và một quy tắc mà tôi không thể truy nguyên về một nguyên nhân sẽ được giao một người phụ trách và một ngày xem xét trước khi bị xóa.
 
 ## Full answer
 
 ### Why the file grew
 
-Each rule was a correction promoted into prose. Prose is the weakest durable layer. Over a year the rules encoded a system that no longer exists, started to conflict, and now consume context on every run. The goal is not the longest instruction file. It is the smallest system that preserves hard-won judgment.
+Mỗi quy tắc là một lần sửa được nâng thành văn bản. Văn bản là lớp bền vững yếu nhất. Qua một năm, các quy tắc đã mã hóa một hệ thống không còn tồn tại, bắt đầu xung đột, và giờ tiêu tốn ngữ cảnh trong mỗi lần chạy. Mục tiêu không phải là file hướng dẫn dài nhất. Đó là hệ thống nhỏ nhất lưu giữ được sự phán đoán khó khăn mới có được.
 
 ### The review
 
-| Question | If yes |
+| Câu hỏi | Nếu có |
 |---|---|
-| Did the architecture or workflow change? | The rule protects a system that is gone; retire it |
-| Did a type, a test or a permission replace it? | Delete the prose and keep the executable control |
-| Has the failure not recurred across the window? | Retire it, and note the window as the evidence |
-| Does it block legitimate work more than it prevents harm? | Rewrite it narrower or retire it |
+| Kiến trúc hoặc quy trình làm việc đã thay đổi chưa? | Quy tắc bảo vệ một hệ thống đã không còn; ngừng áp dụng nó |
+| Một kiểu, một kiểm thử hoặc một quyền đã thay thế nó chưa? | Xóa văn bản và giữ lại biện pháp kiểm soát thực thi được |
+| Lỗi đã không tái diễn trong khoảng thời gian đó chưa? | Ngừng áp dụng nó, và ghi lại khoảng thời gian đó làm bằng chứng |
+| Nó có cản trở công việc hợp lệ nhiều hơn là ngăn ngừa tác hại không? | Viết lại nó với phạm vi hẹp hơn hoặc ngừng áp dụng nó |
 
 ### Replace before delete
 
-For a rule that still protects a real risk, the better move is often promotion rather than retirement: a prose rule about output shape becomes an example plus a validator, a prose rule about files becomes a scope policy. I delete the sentence only after proving the stronger control exists and fires.
+Với một quy tắc vẫn bảo vệ trước một rủi ro thực sự, bước đi tốt hơn thường là nâng cấp thay vì ngừng áp dụng: một quy tắc bằng văn bản về hình dạng đầu ra trở thành một ví dụ cộng với một bộ xác thực, một quy tắc bằng văn bản về file trở thành một chính sách phạm vi. Tôi chỉ xóa câu đó sau khi chứng minh biện pháp kiểm soát mạnh hơn tồn tại và kích hoạt.
 
 ### What I do not touch yet
 
-A rule with no recorded cause and no owner is a gap in the record, not a candidate for deletion. I give it an owner and a review date, and I look for the correction that created it. Deleting it because it feels old is the mistake the lesson warns against.
+Một quy tắc không có nguyên nhân được ghi lại và không có người phụ trách là một khoảng trống trong hồ sơ, không phải một ứng viên để xóa. Tôi giao cho nó một người phụ trách và một ngày xem xét, và tôi tìm lần sửa đã tạo ra nó. Xóa nó vì nó có vẻ cũ là sai lầm mà bài học cảnh báo.
 
 ### Guard against regrowth
 
-Every new control gets an owner, a verification, a review or expiry window and a retirement condition when it is created. Without that, the file fills again in a year.
+Mỗi biện pháp kiểm soát mới được giao một người phụ trách, một cách xác minh, một khoảng thời gian xem xét hoặc hết hạn và một điều kiện ngừng áp dụng khi được tạo ra. Thiếu điều đó, file lại đầy lên trong một năm.
 
 ## Follow-ups
 
-- **Level 3:** Two rules contradict each other. What do you do first? Expected: find the cause behind each; a contradiction usually means one of them protects a system or decision that changed.
-- **Level 3:** A rule has not fired in months. Is that enough to delete it? Expected: only if the window is meaningful for that failure and the risk it protected is still visible elsewhere; low frequency with high consequence can keep a rule alive.
-- **Level 4:** How do you show that a deletion was safe? Expected: the stronger control that replaced it fires on the original failure case, and the recurrence stays absent across the review window.
-- **Level 4:** What stops the file from growing back? Expected: a creation rule that every control carries an owner, a verification and a retirement condition, with periodic review.
+- **Level 3:** Hai quy tắc mâu thuẫn nhau. Bạn làm gì trước? Expected: tìm nguyên nhân đằng sau mỗi quy tắc; một mâu thuẫn thường có nghĩa là một trong số chúng bảo vệ một hệ thống hoặc quyết định đã thay đổi.
+- **Level 3:** Một quy tắc đã không kích hoạt trong nhiều tháng. Thế đã đủ để xóa nó chưa? Expected: chỉ khi khoảng thời gian đó có ý nghĩa đối với lỗi đó và rủi ro mà nó bảo vệ vẫn còn hiện diện ở nơi khác; tần suất thấp với hậu quả cao có thể khiến một quy tắc tiếp tục tồn tại.
+- **Level 4:** Bạn cho thấy một lần xóa là an toàn như thế nào? Expected: biện pháp kiểm soát mạnh hơn thay thế nó kích hoạt trên trường hợp lỗi ban đầu, và sự tái diễn vẫn không xuất hiện trong khoảng thời gian xem xét.
+- **Level 4:** Điều gì ngăn file phình ra trở lại? Expected: một quy tắc khi tạo rằng mỗi biện pháp kiểm soát đều mang theo một người phụ trách, một cách xác minh và một điều kiện ngừng áp dụng, với việc xem xét định kỳ.
 
 ## Wrong answers
 
-- "Delete everything older than a year and see what breaks." Retirement needs evidence; a silent failure can take months to appear.
-- "Keep all of it, context is cheap." Stale rules conflict, encode a dead system and bloat every run.
-- "Rewrite the whole file from scratch." The file holds judgment that was paid for; the job is to move it to stronger layers, not to lose it.
+- "Xóa mọi thứ cũ hơn một năm và xem thứ gì hỏng." Việc ngừng áp dụng cần bằng chứng; một lỗi âm thầm có thể mất nhiều tháng mới xuất hiện.
+- "Giữ lại tất cả, ngữ cảnh rẻ mà." Các quy tắc lỗi thời xung đột, mã hóa một hệ thống đã chết và làm phình mọi lần chạy.
+- "Viết lại toàn bộ file từ đầu." File lưu giữ sự phán đoán đã phải trả giá để có được; công việc là chuyển nó sang các lớp mạnh hơn, không phải đánh mất nó.
 
 ## Taught in
 
-The [feedback-to-system lesson](../../../phases/14-agent-engineering/46-turn-feedback-into-system/) gives the retirement checks and the [feedback ratchet lesson](../../../phases/14-agent-engineering/54-build-the-feedback-ratchet/) gives the ownership and expiry fields.
+[Bài học từ phản hồi đến hệ thống](../../../phases/14-agent-engineering/46-turn-feedback-into-system/) đưa ra các phép kiểm tra ngừng áp dụng và [bài học ratchet phản hồi](../../../phases/14-agent-engineering/54-build-the-feedback-ratchet/) đưa ra các trường người phụ trách và hết hạn.

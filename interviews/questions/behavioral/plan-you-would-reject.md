@@ -16,53 +16,53 @@ related: [behavioral/leave-work-resumable, behavioral/split-that-only-looks-para
 updated: 2026-11-03
 ---
 
-A teammate, or a coding agent, hands you this plan for a change to a public API: update the endpoint, add tests, update the documentation. They want approval to start. What do you ask for before you say yes, and what would make you reject the plan outright?
+Một đồng đội, hoặc một coding agent, đưa bạn kế hoạch này cho một thay đổi API công khai: cập nhật endpoint, thêm các kiểm thử, cập nhật tài liệu. Họ muốn phê duyệt để bắt đầu. Bạn yêu cầu gì trước khi đồng ý, và điều gì sẽ khiến bạn bác bỏ kế hoạch ngay?
 
 ## Short answer
 
-That list repeats the request in future tense. I ask for five things on each item: a stable identifier, the smallest change, the repository facts that justify it, the items it depends on, and the exact check that closes it. I reject a plan with a duplicate identifier, an item without evidence or proof, a dependency on an unknown item, a cycle, or an irreversible step scheduled before the uncertainty it depends on is resolved.
+Danh sách đó lặp lại yêu cầu ở thì tương lai. Tôi yêu cầu năm thứ trên mỗi mục: một định danh ổn định, thay đổi nhỏ nhất, các thông tin trong repository biện minh cho nó, các mục nó phụ thuộc, và phép kiểm tra chính xác đóng nó. Tôi bác bỏ một kế hoạch có một định danh trùng, một mục không có bằng chứng hoặc phép chứng minh, một dependency vào một mục không biết, một chu trình, hoặc một bước không thể đảo ngược được lên lịch trước khi sự không chắc chắn nó phụ thuộc được giải quyết.
 
 ## Full answer
 
 ### Why the three-line plan fails
 
-Nothing in it says what was found in the repository, why those files are the right ones, which contract changes first, or what can run at the same time. Someone can complete every line and still create rework.
+Không có gì trong đó nói điều gì được tìm thấy trong repository, tại sao các file đó là đúng, hợp đồng nào thay đổi trước, hoặc những gì có thể chạy cùng lúc. Ai đó có thể hoàn tất mọi dòng và vẫn tạo công việc phải làm lại.
 
 ### The five commitments
 
-| Commitment | Purpose |
+| Cam kết | Mục đích |
 |---|---|
-| Identifier | A stable reference for dependencies and handoff |
-| Change | The smallest behavior or contract change |
-| Evidence | Repository facts that justify the change |
-| Dependencies | Work that must be true first |
-| Proof | The exact check that closes the item |
+| Định danh | Một tham chiếu ổn định cho các dependency và bàn giao |
+| Thay đổi | Thay đổi hành vi hoặc hợp đồng nhỏ nhất |
+| Bằng chứng | Các thông tin trong repository biện minh cho thay đổi |
+| Các dependency | Công việc phải đúng trước |
+| Phép chứng minh | Phép kiểm tra chính xác đóng mục |
 
 ### Order by dependency, not by prose
 
-When several surfaces depend on one behavior, the contract comes first. Tests, implementation and documentation then share one definition instead of inventing four. A dependency graph also shows safe concurrency: implementation and documentation can proceed together after the contract is fixed, and the integration gate waits for both.
+Khi một số bề mặt phụ thuộc vào một hành vi, hợp đồng đến trước. Các kiểm thử, triển khai và tài liệu sau đó dùng chung một định nghĩa thay vì bịa ra bốn. Một đồ thị phụ thuộc cũng cho thấy tính đồng thời an toàn: triển khai và tài liệu có thể tiến hành cùng nhau sau khi hợp đồng được cố định, và gate tích hợp chờ cả hai.
 
 ### Evidence must be able to change the plan
 
-An existing helper removes a planned abstraction. A compatibility test forces a migration step. A deployment constraint moves a schema change into another task. If a piece of evidence cannot change the plan, it is decoration, not evidence.
+Một thành phần trợ giúp hiện có loại bỏ một lớp trừu tượng được lên kế hoạch. Một kiểm thử tính tương thích buộc một bước migration. Một ràng buộc triển khai chuyển một thay đổi schema sang một nhiệm vụ khác. Nếu một mẩu bằng chứng không thể thay đổi kế hoạch, nó là trang trí, không phải bằng chứng.
 
 ### The rejection list
 
-The first five checks are mechanical: duplicate identifiers, items without evidence, items without proof, unknown dependencies, cycles. The last check needs judgment: does the first irreversible action, such as a migration or a public release, happen before the relevant uncertainty is resolved? I call that one out explicitly in the review.
+Năm phép kiểm tra đầu mang tính cơ học: các định danh trùng, các mục không có bằng chứng, các mục không có phép chứng minh, các dependency không biết, các chu trình. Phép kiểm tra cuối cần phán đoán: hành động không thể đảo ngược đầu tiên, như một migration hoặc một lần phát hành công khai, có xảy ra trước khi sự không chắc chắn liên quan được giải quyết không? Tôi nêu rõ điều đó trong đánh giá.
 
 ## Follow-ups
 
-- **Level 2:** One item lists two proof commands. What do you do? Expected: split it into two items, because one item needs one clear completion proof.
-- **Level 2:** Two items depend on each other. What does that usually hide? Expected: an unresolved product or design disagreement; the cycle is the symptom, the missing decision is the cause.
-- **Level 3:** The plan sits in a chat thread as checked boxes. Why is that a problem? Expected: a session can end at any moment, and another person cannot see which proof ran or which item is now unblocked; the plan belongs next to the work.
-- **Level 3:** A migration item needs a human approval. How do you express that in the graph? Expected: as an explicit item with the approval as its proof, which every dependent item waits for.
+- **Level 2:** Một mục liệt kê hai lệnh chứng minh. Bạn làm gì? Expected: tách nó thành hai mục, vì một mục cần một phép chứng minh hoàn tất rõ ràng.
+- **Level 2:** Hai mục phụ thuộc lẫn nhau. Điều đó thường giấu gì? Expected: một bất đồng sản phẩm hoặc thiết kế chưa giải quyết; chu trình là triệu chứng, quyết định bị thiếu là nguyên nhân.
+- **Level 3:** Kế hoạch nằm trong một luồng trò chuyện dưới dạng các ô đã đánh dấu. Tại sao đó là vấn đề? Expected: một phiên có thể kết thúc bất kỳ lúc nào, và người khác không thể thấy phép chứng minh nào đã chạy hoặc mục nào hiện được gỡ chặn; kế hoạch thuộc về cạnh công việc.
+- **Level 3:** Một mục migration cần một phê duyệt của con người. Bạn biểu đạt điều đó trong đồ thị thế nào? Expected: như một mục rõ ràng với phê duyệt làm phép chứng minh của nó, mà mọi mục phụ thuộc chờ.
 
 ## Wrong answers
 
-- "Trust the author and review the result instead." Rework found at review time costs more than a plan rejected before editing.
-- "A longer plan is a better plan." Length adds nothing; evidence and proof on each item do.
-- "Dependencies are obvious from the order of the list." Prose order hides which steps can run together and which must wait.
+- "Tin tác giả và đánh giá kết quả thay vào đó." Công việc làm lại được tìm thấy tại thời điểm đánh giá tốn hơn một kế hoạch bị bác bỏ trước khi chỉnh sửa.
+- "Một kế hoạch dài hơn là một kế hoạch tốt hơn." Độ dài không thêm gì; bằng chứng và phép chứng minh trên mỗi mục thì có.
+- "Các dependency rõ ràng từ thứ tự danh sách." Thứ tự văn xuôi giấu những bước nào có thể chạy cùng nhau và những bước nào phải chờ.
 
 ## Taught in
 
-The [evidence-backed plan lesson](../../../phases/14-agent-engineering/44-plan-from-evidence/) gives the five commitments and the validation rules.
+[Bài học kế hoạch có bằng chứng hỗ trợ](../../../phases/14-agent-engineering/44-plan-from-evidence/) đưa ra năm cam kết và các quy tắc xác thực.

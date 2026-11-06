@@ -16,58 +16,58 @@ related: [behavioral/agent-decides-alone, behavioral/plan-you-would-reject]
 updated: 2026-11-03
 ---
 
-You hand a task to a coding agent, or to a new engineer, to add a read-only diagnosis step to an incident tool. Last time the brief was two sentences and the result guessed the system. The time before, the brief was a twelve-page design and the result transcribed a mistake in it. How do you write this one?
+Bạn giao một nhiệm vụ cho một coding agent, hoặc cho một kỹ sư mới, để thêm một bước chẩn đoán chỉ đọc vào một công cụ sự cố. Lần trước bản tóm lược là hai câu và kết quả đoán hệ thống. Lần trước nữa, bản tóm lược là một thiết kế mười hai trang và kết quả chép lại một sai lầm trong đó. Bạn viết bản này thế nào?
 
 ## Short answer
 
-I write an executable contract with six surfaces: the outcome, the invariants that must always hold, concrete examples, non-goals, a decision policy, and the proof required before completion. Every decision is marked locked, bounded or delegated by its consequence and reversibility. The production-write boundary is locked, the time budget for the data source is bounded, and local structure and names are delegated with an explanation required.
+Tôi viết một hợp đồng thực thi được với sáu bề mặt: kết quả, các bất biến phải luôn giữ đúng, các ví dụ cụ thể, các điều không phải mục tiêu, một chính sách quyết định, và phép chứng minh bắt buộc trước khi hoàn tất. Mọi quyết định được đánh dấu bị khóa, có giới hạn hoặc được ủy quyền theo hậu quả và khả năng đảo ngược. Ranh giới ghi production bị khóa, ngân sách thời gian cho nguồn dữ liệu có giới hạn, và cấu trúc cục bộ cùng các tên được ủy quyền với yêu cầu giải thích.
 
 ## Full answer
 
 ### Two bad extremes
 
-An underspecified task makes the builder guess the system. An overspecified task makes the builder transcribe a design that may already be wrong. The useful middle fixes invariants and evidence and leaves reversible choices open.
+Một nhiệm vụ được đặc tả thiếu khiến người xây dựng đoán hệ thống. Một nhiệm vụ được đặc tả quá mức khiến người xây dựng chép lại một thiết kế có thể đã sai. Khoảng giữa hữu ích cố định các bất biến và bằng chứng và để các lựa chọn có thể đảo ngược mở.
 
 ### The six surfaces
 
-| Surface | Purpose |
+| Bề mặt | Mục đích |
 |---|---|
-| Outcome | The observable result |
-| Invariants | Conditions that must always stay true |
-| Examples | Concrete cases that show intent |
-| Non-goals | Adjacent behavior excluded on purpose |
-| Decision policy | Which choices are locked, bounded or delegated |
-| Proof | Evidence required before completion |
+| Kết quả | Kết quả có thể quan sát |
+| Các bất biến | Các điều kiện phải luôn đúng |
+| Các ví dụ | Các trường hợp cụ thể cho thấy ý định |
+| Các điều không phải mục tiêu | Hành vi lân cận được chủ ý loại trừ |
+| Chính sách quyết định | Những lựa chọn nào bị khóa, có giới hạn hoặc được ủy quyền |
+| Phép chứng minh | Bằng chứng bắt buộc trước khi hoàn tất |
 
 ### Three decision modes
 
-- Locked: the builder must not choose. Public compatibility, authority, safety, irreversible cost, product commitments.
-- Bounded: the builder may choose inside explicit limits. Search budgets, retry counts, allowed dependencies, a known interface family.
-- Delegated: the builder owns the choice and explains it. Local structure, names, reversible refactors, implementation detail.
+- Bị khóa: người xây dựng không được chọn. Tính tương thích công khai, thẩm quyền, an toàn, chi phí không thể đảo ngược, các cam kết sản phẩm.
+- Có giới hạn: người xây dựng có thể chọn bên trong các giới hạn rõ ràng. Các ngân sách tìm kiếm, số lần thử lại, dependency được phép, một họ giao diện đã biết.
+- Được ủy quyền: người xây dựng sở hữu lựa chọn và giải thích nó. Cấu trúc cục bộ, tên, các lần refactor có thể đảo ngược, chi tiết triển khai.
 
-"The implementation may use any read-only source that returns inside the time budget" is not vague. It is a delegated decision with a boundary and a proof.
+"Triển khai có thể dùng bất kỳ nguồn chỉ đọc nào trả về trong ngân sách thời gian" không mơ hồ. Nó là một quyết định được ủy quyền với một ranh giới và một phép chứng minh.
 
 ### Examples compress intent
 
-"Helpful", "robust" and "production-ready" are not executable. A small set of normal, edge, failure and forbidden cases gives the builder and the verifier the same target. Examples do not replace invariants; one passing case cannot prove a universal safety rule.
+"Hữu ích", "vững chắc" và "sẵn sàng cho production" không thực thi được. Một tập nhỏ các trường hợp bình thường, biên, thất bại và bị cấm cho người xây dựng và bộ xác minh cùng mục tiêu. Các ví dụ không thay thế các bất biến; một trường hợp đạt không thể chứng minh một quy tắc an toàn phổ quát.
 
 ### Proof matches the claim
 
-A unit test proves a local function contract. A wire test proves serialization and transport. A browser journey proves an interface path. A replay set proves behavior over representative cases. An audit log proves that authority boundaries held. I do not accept a lower layer as proof of a higher-layer claim.
+Một kiểm thử đơn vị chứng minh một hợp đồng hàm cục bộ. Một kiểm thử đường truyền chứng minh việc tuần tự hóa và truyền tải. Một hành trình trình duyệt chứng minh một đường giao diện. Một tập phát lại chứng minh hành vi trên các trường hợp đại diện. Một log kiểm toán chứng minh các ranh giới thẩm quyền được giữ. Tôi không chấp nhận một lớp thấp hơn làm bằng chứng cho một khẳng định lớp cao hơn.
 
 ## Follow-ups
 
-- **Level 3:** Someone moves the production-write decision from locked to delegated. The schema accepts it. Why is it still wrong? Expected: the schema checks shape, not product risk; a write to production is irreversible and changes authority, so it stays locked.
-- **Level 3:** A retry count is set to a fixed number in the brief. Is that locked or bounded? Expected: bounded is the better mode; the builder may pick inside a stated range and the range carries the reason.
-- **Level 4:** Three implementation instructions describe the same behavior. What do you replace them with? Expected: one invariant and two examples, so the intent survives a change of implementation.
-- **Level 4:** Why record the reason behind each locked choice? Expected: so a later team can revise it when the evidence changes, without archaeology through old threads.
+- **Level 3:** Ai đó chuyển quyết định ghi production từ bị khóa sang được ủy quyền. Schema chấp nhận nó. Tại sao nó vẫn sai? Expected: schema kiểm tra hình dạng, không phải rủi ro sản phẩm; một lần ghi production không thể đảo ngược và thay đổi thẩm quyền, nên nó vẫn bị khóa.
+- **Level 3:** Một số lần thử lại được đặt thành một con số cố định trong bản tóm lược. Đó là bị khóa hay có giới hạn? Expected: có giới hạn là chế độ tốt hơn; người xây dựng có thể chọn trong một phạm vi đã nêu và phạm vi mang lý do.
+- **Level 4:** Ba chỉ dẫn triển khai mô tả cùng hành vi. Bạn thay chúng bằng gì? Expected: một bất biến và hai ví dụ, để ý định sống sót qua một thay đổi triển khai.
+- **Level 4:** Tại sao ghi lại lý do đằng sau mỗi lựa chọn bị khóa? Expected: để một nhóm sau này có thể sửa đổi nó khi bằng chứng thay đổi, mà không khai quật qua các luồng trao đổi cũ.
 
 ## Wrong answers
 
-- "Specify every step so nothing can go wrong." A step-by-step script transcribes the author's mistakes and removes the judgment that catches them.
-- "Give the goal and trust the builder." Without invariants and proof, the builder guesses the system and the result cannot be verified.
-- "A passing unit test proves the feature works." A unit test proves a local contract, not an interface path or an authority boundary.
+- "Đặc tả mọi bước để không có gì có thể sai." Một script từng bước chép lại các sai lầm của tác giả và loại bỏ phán đoán bắt được chúng.
+- "Đưa mục tiêu và tin người xây dựng." Không có các bất biến và bằng chứng, người xây dựng đoán hệ thống và kết quả không thể được xác minh.
+- "Một kiểm thử đơn vị đạt chứng minh tính năng hoạt động." Một kiểm thử đơn vị chứng minh một hợp đồng cục bộ, không phải một đường giao diện hoặc một ranh giới thẩm quyền.
 
 ## Taught in
 
-The [specification lesson](../../../phases/14-agent-engineering/51-write-specifications-that-preserve-judgment/) gives the six surfaces, the three decision modes and the rule that proof must match the claim.
+[Bài học đặc tả](../../../phases/14-agent-engineering/51-write-specifications-that-preserve-judgment/) đưa ra sáu bề mặt, ba chế độ quyết định và quy tắc rằng phép chứng minh phải khớp khẳng định.

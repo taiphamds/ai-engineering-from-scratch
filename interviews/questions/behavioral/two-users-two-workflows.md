@@ -16,52 +16,52 @@ related: [behavioral/evidence-ladder-for-workflows]
 updated: 2026-11-03
 ---
 
-Two senior analysts on the same team show you how they triage a flagged transaction. Their steps differ in order, in the tools they open, and in who they ask before they act. Your deadline allows one workflow in the first version. What do you do with the disagreement?
+Hai chuyên viên phân tích cao cấp trong cùng một nhóm cho bạn thấy cách họ phân loại một giao dịch bị gắn cờ. Các bước của họ khác nhau về thứ tự, về những công cụ họ mở, và về người họ hỏi trước khi hành động. Hạn chót của bạn cho phép một quy trình làm việc trong phiên bản đầu tiên. Bạn làm gì với sự bất đồng?
 
 ## Short answer
 
-I keep both variants separate until I know why they differ. The difference can come from different roles, different risk levels, a legacy process next to a current one, a difference in expertise, or a real policy disagreement, and each of those leads to a different product. An averaged workflow can describe nobody, so the first version targets one variant on purpose and names the other as a known gap.
+Tôi giữ riêng cả hai biến thể cho đến khi biết tại sao chúng khác nhau. Sự khác biệt có thể đến từ các vai trò khác nhau, các mức rủi ro khác nhau, một quy trình cũ bên cạnh một quy trình hiện tại, sự khác biệt về chuyên môn, hoặc một bất đồng chính sách thực sự, và mỗi điều trong số đó dẫn đến một sản phẩm khác nhau. Một quy trình làm việc trung bình có thể không mô tả ai cả, vì vậy phiên bản đầu tiên chủ ý nhắm vào một biến thể và nêu biến thể còn lại là một khoảng trống đã biết.
 
 ## Full answer
 
 ### Why not average
 
-Two people can perform different workflows for good reasons. Merging their steps into one path produces a sequence that neither of them follows. The assistant then fails at the first handoff or exception, which is where these features fail most.
+Hai người có thể thực hiện các quy trình làm việc khác nhau vì những lý do chính đáng. Gộp các bước của họ thành một đường đi tạo ra một trình tự mà không ai trong số họ tuân theo. Trợ lý khi đó thất bại ở lần bàn giao hoặc ngoại lệ đầu tiên, chính là nơi các tính năng này thất bại nhiều nhất.
 
 ### What the difference can mean
 
-| Cause | What it tells the build |
+| Nguyên nhân | Nó cho việc xây dựng biết điều gì |
 |---|---|
-| Different roles | Two user types, maybe two outcome frames |
-| Different risk levels | The branch is a feature, not noise |
-| Legacy and current process | One variant may be retiring; confirm with the owner |
-| Expertise difference | The expert path may be the target and the other the training gap |
-| Policy disagreement | A human decision is needed before any build |
+| Các vai trò khác nhau | Hai kiểu người dùng, có thể là hai khung kết quả |
+| Các mức rủi ro khác nhau | Nhánh là một tính năng, không phải nhiễu |
+| Quy trình cũ và hiện tại | Một biến thể có thể đang được ngừng áp dụng; xác nhận với người phụ trách |
+| Khác biệt chuyên môn | Đường đi của chuyên gia có thể là mục tiêu và đường đi còn lại là khoảng trống đào tạo |
+| Bất đồng chính sách | Cần một quyết định của con người trước mọi việc xây dựng |
 
 ### How I resolve it
 
-1. Record both variants as ordered steps with evidence and the rung of that evidence.
-2. Find where the branch begins and which authority boundary each variant crosses.
-3. Ask the owner of the process which cause applies; if it is a policy disagreement, that decision goes to a human and the build waits for it.
-4. Pick one variant for the first slice by risk and frequency, and write the other as a non-goal with the reason.
+1. Ghi lại cả hai biến thể thành các bước có thứ tự với bằng chứng và bậc của bằng chứng đó.
+2. Tìm nơi nhánh bắt đầu và ranh giới thẩm quyền mà mỗi biến thể vượt qua.
+3. Hỏi người phụ trách quy trình nguyên nhân nào áp dụng; nếu đó là bất đồng chính sách, quyết định đó được chuyển cho con người và việc xây dựng chờ nó.
+4. Chọn một biến thể cho lát cắt đầu tiên theo rủi ro và tần suất, và viết biến thể còn lại thành một điều không phải mục tiêu kèm lý do.
 
 ### Where the exception hides
 
-Often one analyst's "extra" step is the exception path the other analyst has stopped noticing. I ask for a real case where the normal path failed before I call a step optional.
+Thường thì bước "thêm" của một chuyên viên phân tích là đường đi ngoại lệ mà chuyên viên phân tích còn lại đã không còn để ý. Tôi yêu cầu một trường hợp thực tế nơi đường đi bình thường thất bại trước khi gọi một bước là tùy chọn.
 
 ## Follow-ups
 
-- **Level 2:** One analyst asks a supervisor before acting and the other does not. What is that step? Expected: an authority boundary; the build must respect it, and the two variants may differ in risk level or role.
-- **Level 2:** You can only ship one path. How do you choose? Expected: by the risk and the frequency of each variant, with the other recorded as a named gap, not by averaging.
-- **Level 3:** The owner says both are fine. What do you record? Expected: that the policy allows both, with the evidence, so the assistant does not force one on everybody.
-- **Level 3:** How do you keep the second variant from disappearing from the plan? Expected: write it as a non-goal with its reason and a review point, so it stays visible as a decision instead of an omission.
+- **Level 2:** Một chuyên viên phân tích hỏi một người giám sát trước khi hành động và người còn lại thì không. Bước đó là gì? Expected: một ranh giới thẩm quyền; việc xây dựng phải tôn trọng nó, và hai biến thể có thể khác nhau về mức rủi ro hoặc vai trò.
+- **Level 2:** Bạn chỉ có thể phát hành một đường đi. Bạn chọn như thế nào? Expected: theo rủi ro và tần suất của mỗi biến thể, với biến thể còn lại được ghi lại thành một khoảng trống được nêu tên, không phải bằng cách lấy trung bình.
+- **Level 3:** Người phụ trách nói cả hai đều ổn. Bạn ghi lại điều gì? Expected: rằng chính sách cho phép cả hai, kèm bằng chứng, để trợ lý không ép một đường đi lên tất cả mọi người.
+- **Level 3:** Bạn giữ cho biến thể thứ hai không biến mất khỏi kế hoạch như thế nào? Expected: viết nó thành một điều không phải mục tiêu kèm lý do của nó và một mốc xem xét, để nó vẫn hiện diện như một quyết định thay vì một sự bỏ sót.
 
 ## Wrong answers
 
-- "Merge the two into one standard process." The averaged workflow may describe nobody and breaks at the handoff.
-- "Follow the more senior person." Seniority is not evidence; the cause of the difference decides.
-- "Treat the extra steps as optional and skip them." The extra step is often the exception path that carries most of the risk.
+- "Gộp cả hai thành một quy trình tiêu chuẩn." Quy trình làm việc trung bình có thể không mô tả ai cả và hỏng ở lần bàn giao.
+- "Làm theo người có thâm niên hơn." Thâm niên không phải là bằng chứng; nguyên nhân của sự khác biệt quyết định.
+- "Coi các bước thêm là tùy chọn và bỏ qua chúng." Bước thêm thường là đường đi ngoại lệ mang phần lớn rủi ro.
 
 ## Taught in
 
-The [workflow discovery lesson](../../../phases/14-agent-engineering/48-discover-the-real-workflow/) explains why disagreement must not be averaged away and lists the causes behind variants.
+[Bài học khám phá quy trình làm việc](../../../phases/14-agent-engineering/48-discover-the-real-workflow/) giải thích tại sao không được lấy trung bình để xóa bỏ sự bất đồng và liệt kê các nguyên nhân đằng sau các biến thể.

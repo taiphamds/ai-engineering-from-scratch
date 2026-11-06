@@ -16,47 +16,47 @@ related: [behavioral/riskiest-assumption-first, behavioral/prototype-became-prod
 updated: 2026-11-03
 ---
 
-Your team agrees to ship a minimum viable version of a new assistant. Three proposals are on the table: a polished interface on synthetic data, a working data pipeline with no interface, and a read-only replay over ten real incidents. Which one do you argue for, and how do you justify the choice?
+Nhóm của bạn thống nhất phát hành một phiên bản khả dụng tối thiểu của một trợ lý mới. Có ba đề xuất đang được xem xét: một giao diện trau chuốt trên dữ liệu tổng hợp, một pipeline dữ liệu hoạt động được nhưng không có giao diện, và một lần phát lại chỉ đọc trên mười sự cố thực tế. Bạn ủng hộ đề xuất nào, và bạn biện minh cho lựa chọn đó như thế nào?
 
 ## Short answer
 
-I argue for the replay over real incidents. Small is useful only when the slice proves something that matters, so I first write the required proof set from the highest-risk open assumptions and reject any candidate that does not cover it. The polished page over fake data and the pipeline without users each remove the exact uncertainty the team needs to test.
+Tôi ủng hộ lần phát lại trên các sự cố thực tế. Nhỏ chỉ hữu ích khi lát cắt chứng minh được điều gì đó quan trọng, vì vậy trước tiên tôi viết tập hợp bằng chứng cần có từ các giả định chưa được giải quyết có rủi ro cao nhất và loại bỏ mọi ứng viên không bao phủ nó. Trang trau chuốt trên dữ liệu giả và pipeline không có người dùng đều loại bỏ chính sự không chắc chắn mà nhóm cần kiểm chứng.
 
 ## Full answer
 
 ### Vertical means evidence end to end
 
-A useful slice crosses the minimum real workflow needed to observe an outcome. It can be narrow in users, data, duration and capability. It must not be narrow by cutting out the uncertainty under test. The replay across ten real incidents tests service identification and operator trust at once. A polished page over fake data may test comprehension but not data feasibility. A production auto-remediator would test everything at once with unacceptable consequence.
+Một lát cắt hữu ích đi qua quy trình làm việc thực tế tối thiểu cần thiết để quan sát một kết quả. Nó có thể hẹp về người dùng, dữ liệu, thời lượng và khả năng. Nó không được hẹp bằng cách cắt bỏ sự không chắc chắn đang được kiểm chứng. Lần phát lại qua mười sự cố thực tế kiểm chứng việc xác định dịch vụ và sự tin tưởng của người vận hành cùng lúc. Một trang trau chuốt trên dữ liệu giả có thể kiểm chứng mức độ hiểu nhưng không kiểm chứng tính khả thi của dữ liệu. Một hệ thống tự động khắc phục trên production sẽ kiểm chứng mọi thứ cùng lúc với hậu quả không thể chấp nhận.
 
 ### Required proof comes before scoring
 
-I take the highest-risk open assumptions and turn them into a proof set. A candidate is eligible only if it covers that set. Among eligible candidates I compare outcome value, uncertainty reduced, effort, consequence and reversibility. The eligibility gate matters more than the arithmetic. A cheaper candidate that proves one required assumption stays ineligible even with a high score.
+Tôi lấy các giả định chưa được giải quyết có rủi ro cao nhất và biến chúng thành một tập hợp bằng chứng. Một ứng viên chỉ đủ điều kiện nếu bao phủ tập hợp đó. Trong số các ứng viên đủ điều kiện tôi so sánh giá trị kết quả, sự không chắc chắn được giảm bớt, công sức, hậu quả và khả năng đảo ngược. Cổng xét điều kiện quan trọng hơn phép tính. Một ứng viên rẻ hơn chứng minh được một giả định bắt buộc vẫn không đủ điều kiện dù có điểm cao.
 
 ### False minimums I name in the room
 
-- The interface-only minimum removes the data and operational uncertainty.
-- The infrastructure-only minimum proves possibility without user value.
-- The happy-path minimum omits the exception that creates most of the risk.
-- The demo minimum produces a persuasive artifact but no repeatable measurement.
-- The platform minimum builds reusable machinery before one workflow has earned it.
+- Mức tối thiểu chỉ có giao diện loại bỏ sự không chắc chắn về dữ liệu và vận hành.
+- Mức tối thiểu chỉ có hạ tầng chứng minh khả năng thực hiện mà không có giá trị cho người dùng.
+- Mức tối thiểu chỉ có luồng thuận lợi bỏ qua ngoại lệ tạo ra phần lớn rủi ro.
+- Mức tối thiểu là demo tạo ra một sản phẩm thuyết phục nhưng không có phép đo lặp lại được.
+- Mức tối thiểu là nền tảng xây dựng bộ máy tái sử dụng được trước khi một quy trình làm việc chứng tỏ xứng đáng có nó.
 
 ### The stop rule
 
-Before anyone builds, I write what happens if the slice fails: abandon the outcome, change the target user, test a different mechanism, collect better evidence, or narrow authority further. If every possible result leads to "keep building", the slice is not an experiment.
+Trước khi bất kỳ ai xây dựng, tôi viết điều gì xảy ra nếu lát cắt thất bại: từ bỏ kết quả, thay đổi người dùng mục tiêu, kiểm chứng một cơ chế khác, thu thập bằng chứng tốt hơn, hoặc thu hẹp thẩm quyền hơn nữa. Nếu mọi kết quả có thể xảy ra đều dẫn đến "tiếp tục xây dựng", lát cắt không phải là một thử nghiệm.
 
 ## Follow-ups
 
-- **Level 2:** The replay fails. Name two valid next moves. Expected: change the target user or situation, or test a different mechanism; both were written in the stop rule before the build.
-- **Level 2:** Why does a replay beat a live pilot here? Expected: it produces reversible evidence about trust and identification without exposing real users to a system nobody has measured.
-- **Level 3:** A reusable component would speed up all three proposals. When does it get built? Expected: after the slice has produced decisive evidence; building platform machinery first is the platform minimum.
-- **Level 3:** How do you keep the replay from becoming a demo? Expected: a repeatable measurement with a threshold decided in advance, not a persuasive walkthrough.
+- **Level 2:** Lần phát lại thất bại. Nêu hai bước tiếp theo hợp lệ. Expected: thay đổi người dùng hoặc tình huống mục tiêu, hoặc kiểm chứng một cơ chế khác; cả hai đã được viết trong quy tắc dừng trước khi xây dựng.
+- **Level 2:** Tại sao một lần phát lại tốt hơn một pilot trực tiếp ở đây? Expected: nó tạo ra bằng chứng có thể đảo ngược về sự tin tưởng và việc xác định mà không để người dùng thật tiếp xúc với một hệ thống chưa ai đo lường.
+- **Level 3:** Một thành phần tái sử dụng được sẽ đẩy nhanh cả ba đề xuất. Khi nào nó được xây dựng? Expected: sau khi lát cắt đã tạo ra bằng chứng mang tính quyết định; xây dựng bộ máy nền tảng trước là mức tối thiểu là nền tảng.
+- **Level 3:** Bạn giữ cho lần phát lại không trở thành một bản demo như thế nào? Expected: một phép đo lặp lại được với một ngưỡng được quyết định trước, không phải một lượt trình bày thuyết phục.
 
 ## Wrong answers
 
-- "The smallest build is the one with the fewest features." Smallness is measured by the evidence gained, not by the feature count.
-- "Build the interface first so stakeholders can see progress." A persuasive artifact without a measurement is the demo minimum.
-- "If the slice fails we iterate." Without a written stop rule, every result leads to more building and nothing was tested.
+- "Thứ được xây dựng nhỏ nhất là thứ có ít tính năng nhất." Mức độ nhỏ được đo bằng bằng chứng thu được, không phải bằng số lượng tính năng.
+- "Xây dựng giao diện trước để các bên liên quan có thể thấy tiến độ." Một sản phẩm thuyết phục không có phép đo là mức tối thiểu là demo.
+- "Nếu lát cắt thất bại chúng ta lặp lại." Không có quy tắc dừng được viết ra, mọi kết quả đều dẫn đến xây dựng thêm và không có gì được kiểm chứng.
 
 ## Taught in
 
-The [smallest slice lesson](../../../phases/14-agent-engineering/50-choose-the-smallest-testable-slice/) gives the required proof gate, the false minimums and the stop rule.
+[Bài học lát cắt nhỏ nhất](../../../phases/14-agent-engineering/50-choose-the-smallest-testable-slice/) đưa ra cổng bằng chứng bắt buộc, các mức tối thiểu giả và quy tắc dừng.

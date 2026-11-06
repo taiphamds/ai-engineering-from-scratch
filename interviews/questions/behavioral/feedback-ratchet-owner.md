@@ -16,59 +16,59 @@ related: [behavioral/correction-to-control, behavioral/retire-a-rule, behavioral
 updated: 2026-11-03
 ---
 
-You inherit a team that collects traces, evaluation scores, support tickets and incident logs for an assistant. Nobody can name a change that any of it caused. Design the mechanism that turns those signals into improvements, and tell me how you keep it from becoming another backlog.
+Bạn tiếp quản một nhóm thu thập các trace, điểm đánh giá, ticket hỗ trợ và log sự cố cho một trợ lý. Không ai có thể nêu một thay đổi mà bất kỳ thứ nào trong đó gây ra. Thiết kế cơ chế chuyển các tín hiệu đó thành các cải tiến, và nói cách bạn ngăn nó trở thành một backlog nữa.
 
 ## Short answer
 
-The missing piece is promotion: a defined path from an observation to a durable change with an owner and proof. Each signal is connected to an outcome, a constraint or an assumption, traced to a root cause, and routed to the earliest layer that owns that cause, which is evaluation, context, policy, runtime or a shaped backlog item. Every resulting action carries one owner, a priority from consequence and recurrence, the artifact to change, the verification, a review window and a retirement condition, so the loop produces controls that are later re-examined rather than rules that only accumulate.
+Phần thiếu là nâng cấp: một đường được định nghĩa từ một quan sát đến một thay đổi bền vững có một người phụ trách và bằng chứng. Mỗi tín hiệu được kết nối với một kết quả, một ràng buộc hoặc một giả định, được truy đến một nguyên nhân gốc, và được định tuyến đến lớp sớm nhất sở hữu nguyên nhân đó, là đánh giá, ngữ cảnh, chính sách, runtime hoặc một mục backlog được định hình. Mọi hành động kết quả mang một người phụ trách, một mức ưu tiên từ hậu quả và tái diễn, sản phẩm cần thay đổi, cách xác minh, một khoảng thời gian đánh giá và một điều kiện loại bỏ, để vòng lặp tạo ra các biện pháp kiểm soát được xem xét lại sau đó thay vì các quy tắc chỉ tích tụ.
 
 ## Full answer
 
 ### The loop
 
-1. Observe a concrete signal.
-2. Connect it to an outcome, a constraint or an assumption.
-3. Identify the earliest system layer that owns the cause.
-4. Create a bounded change.
-5. Verify that recurrence became less likely.
-6. Review whether the control should remain.
+1. Quan sát một tín hiệu cụ thể.
+2. Kết nối nó với một kết quả, một ràng buộc hoặc một giả định.
+3. Xác định lớp hệ thống sớm nhất sở hữu nguyên nhân.
+4. Tạo một thay đổi có giới hạn.
+5. Xác minh rằng việc tái diễn trở nên ít có khả năng hơn.
+6. Đánh giá liệu biện pháp kiểm soát có nên ở lại.
 
 ### Route to the owning layer
 
-| Signal | Destination |
+| Tín hiệu | Nơi chuyển đến |
 |---|---|
-| False positive, regression, wrong result | Evaluation or test |
-| Missing context, duplicate work, stale fact | Context source or retrieval route |
-| Unsafe action or authority gap | Policy or permission boundary |
-| Timeout, retry storm, unavailable dependency | Runtime control |
-| New product need or unresolved tradeoff | Shaped backlog item |
+| Dương tính giả, sự suy giảm, kết quả sai | Đánh giá hoặc kiểm thử |
+| Thiếu ngữ cảnh, công việc trùng lặp, thông tin cũ | Nguồn ngữ cảnh hoặc tuyến truy xuất |
+| Hành động không an toàn hoặc khoảng trống thẩm quyền | Chính sách hoặc ranh giới quyền hạn |
+| Timeout, bão thử lại, dependency không khả dụng | Biện pháp kiểm soát runtime |
+| Nhu cầu sản phẩm mới hoặc đánh đổi chưa được giải quyết | Mục backlog được định hình |
 
-A timeout belongs to the runtime, not to the general backlog, and a wrong answer belongs to a test, not to another prompt paragraph. The cause is fixed at the earliest effective layer.
+Một timeout thuộc về runtime, không thuộc backlog chung, và một câu trả lời sai thuộc về một kiểm thử, không thuộc một đoạn prompt nữa. Nguyên nhân được sửa ở lớp hiệu quả sớm nhất.
 
 ### Ownership is part of the control
 
-An unowned improvement is an observation with better formatting. Every action gets one owner, a priority based on consequence and recurrence, the artifact to change, the verification that proves the change, a review or expiry window, and a retirement condition.
+Một cải tiến không có người phụ trách là một quan sát có định dạng tốt hơn. Mọi hành động có một người phụ trách, một mức ưu tiên dựa trên hậu quả và tái diễn, sản phẩm cần thay đổi, cách xác minh chứng minh thay đổi, một khoảng thời gian đánh giá hoặc hết hạn, và một điều kiện loại bỏ.
 
 ### Why it is not a backlog
 
-A backlog stores wishes. The ratchet stores controls with proof and expiry. Controls are reviewed when the architecture changes, when a lower-level invariant replaces a higher-level instruction, when the protected failure has stayed away across the window, or when the control blocks legitimate work more than it prevents harm. Retirement needs evidence too.
+Một backlog lưu các mong muốn. Ratchet lưu các biện pháp kiểm soát có bằng chứng và hết hạn. Các biện pháp kiểm soát được đánh giá khi kiến trúc thay đổi, khi một bất biến cấp thấp hơn thay thế một chỉ dẫn cấp cao hơn, khi thất bại được bảo vệ đã không xuất hiện trong khoảng thời gian, hoặc khi biện pháp kiểm soát chặn công việc hợp lệ nhiều hơn ngăn tác hại. Việc loại bỏ cũng cần bằng chứng.
 
 ### Metrics close the loop
 
-The signals only mean something against metrics defined before the result: outcome, guardrail and counter-metric, each with a threshold, a window and a source. The ratchet then changes the outcome frame, the assumptions, the slice or the measurement plan for product evidence, and the tests, context, scope or handoff for coding-agent corrections. Incidents can change both.
+Các tín hiệu chỉ có ý nghĩa khi đối chiếu với các metric được định nghĩa trước kết quả: kết quả, guardrail và counter-metric, mỗi thứ có một ngưỡng, một khoảng thời gian và một nguồn. Khi đó ratchet thay đổi khung kết quả, các giả định, lát cắt hoặc kế hoạch đo lường cho bằng chứng sản phẩm, và các kiểm thử, ngữ cảnh, phạm vi hoặc bàn giao cho các lần sửa coding agent. Các sự cố có thể thay đổi cả hai.
 
 ## Follow-ups
 
-- **Level 3:** Two teams share the assistant and disagree on a tradeoff a signal exposes. Where does it go? Expected: to a shaped backlog item with a human decision owner; the ratchet does not resolve product disagreements by itself.
-- **Level 4:** How do you prioritize across many signals? Expected: by consequence and recurrence together, so a severe single event and a frequent minor one both rise above a rare minor one.
-- **Level 4:** What proves the loop works after a quarter? Expected: named controls that trace back to signals, verification results that show recurrence fell, and retirements with their evidence; not the volume of telemetry collected.
+- **Level 3:** Hai nhóm dùng chung trợ lý và bất đồng về một đánh đổi mà một tín hiệu bộc lộ. Nó đi đâu? Expected: đến một mục backlog được định hình với một con người chịu trách nhiệm quyết định; ratchet không tự giải quyết các bất đồng sản phẩm.
+- **Level 4:** Bạn ưu tiên giữa nhiều tín hiệu thế nào? Expected: theo hậu quả và tái diễn cùng nhau, để một sự kiện đơn lẻ nghiêm trọng và một sự kiện nhỏ thường xuyên đều vượt trên một sự kiện nhỏ hiếm.
+- **Level 4:** Điều gì chứng minh vòng lặp hoạt động sau một quý? Expected: các biện pháp kiểm soát được nêu truy ngược về các tín hiệu, các kết quả xác minh cho thấy tái diễn giảm, và các lần loại bỏ với bằng chứng của chúng; không phải lượng telemetry được thu thập.
 
 ## Wrong answers
 
-- "Build a dashboard so everyone can see the signals." Visibility without promotion and ownership changes nothing.
-- "Add each lesson learned to the system prompt." Prose is the weakest layer; a permission boundary can make the unsafe action impossible, and a test can block a release that repeats the failure.
-- "Keep every control forever since it was earned." Controls decay and conflict; each one needs a retirement condition and periodic review.
+- "Dựng một dashboard để mọi người có thể thấy các tín hiệu." Tính hiển thị không có nâng cấp và quyền sở hữu không thay đổi gì.
+- "Thêm mỗi bài học rút ra vào system prompt." Văn xuôi là lớp yếu nhất; một ranh giới quyền hạn có thể khiến hành động không an toàn không thể thực hiện, và một kiểm thử có thể chặn một lần phát hành lặp lại thất bại.
+- "Giữ mọi biện pháp kiểm soát mãi mãi vì nó đã được giành lấy." Các biện pháp kiểm soát suy giảm và xung đột; mỗi biện pháp cần một điều kiện loại bỏ và đánh giá định kỳ.
 
 ## Taught in
 
-The [feedback ratchet lesson](../../../phases/14-agent-engineering/54-build-the-feedback-ratchet/) gives the routing table and the ownership fields, and the [success metrics lesson](../../../phases/14-agent-engineering/52-design-success-metrics/) gives the metric contract the signals are judged against.
+[Bài học feedback ratchet](../../../phases/14-agent-engineering/54-build-the-feedback-ratchet/) đưa ra bảng định tuyến và các trường quyền sở hữu, và [bài học các metric thành công](../../../phases/14-agent-engineering/52-design-success-metrics/) đưa ra hợp đồng metric mà các tín hiệu được phán xét theo.
